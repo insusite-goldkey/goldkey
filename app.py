@@ -45,7 +45,7 @@ def speak(text):
     return st.components.v1.html(html_code, height=0)
 
 # ==========================================
-# [SECTION 3] 사이드바
+# [SECTION 3] 사이드바 (튜토리얼 문구 포함)
 # ==========================================
 with st.sidebar:
     st.header("🔑 사용자 센터")
@@ -105,8 +105,8 @@ with col_action:
                     model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=SYSTEM_PROMPT)
                     content_parts = [f"상담원:{user_name}, 고객:{customer_name}, 건보료:{hi_premium}, 부채:{debt}"]
                     for f in uploaded_files:
-                        img = PIL.Image.open(f)
-                        content_parts.append(img)
+                        img_data = PIL.Image.open(f)
+                        content_parts.append(img_data)
                     response = model.generate_content(content_parts)
                     st.session_state.analysis_answer = response.text
                     
@@ -126,14 +126,14 @@ if "analysis_answer" in st.session_state:
     st.markdown(st.session_state.analysis_answer)
 
 # ==========================================
-# [SECTION 7] 2단계: 질문창 (브라우저 및 소음 안내 문구)
+# [SECTION 7] 2단계: 질문창 (오류 수정 완료)
 # ==========================================
 st.divider()
 st.markdown("""
 <style>
     .big-font { font-size:22px !important; font-weight: bold; color: #1E88E5; }
-    .small-warn { font-size:14px !important; color: #FF5252; font-weight: normal; margin-left: 10px; }
-    .browser-info { font-size:14px !important; color: #4CAF50; font-weight: bold; margin-left: 10px; }
+    .small-warn { font-size:13px !important; color: #FF5252; font-weight: normal; margin-left: 10px; }
+    .browser-info { font-size:13px !important; color: #4CAF50; font-weight: bold; margin-left: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -143,7 +143,7 @@ with col_input_area:
     st.markdown(f'''
         <p class="big-font">🏆 2단계: AI 전문가에게 상세 질문하기 
         <span class="small-warn">⚠️ 주변 소음 시 오타 주의</span>
-        <span class="browser-info">🌐 구글 크롬 브라우저 사용할 때 음성 인식이 잘됩니다.</span>
+        <span class="browser-info">🌐 구글 크롬 브라우저 권장</span>
         </p>
     ''', unsafe_allow_html=True)
     
@@ -163,4 +163,39 @@ with col_ai_img:
         welcome_msg = "안녕하세요. 궁금하신 사항 있으시면 제 옆에 있는 마이크 버튼을 누르고 말을 하거나 입력창에 입력해주세요. 구글 크롬 브라우저를 사용하시면 입력이 더 정확합니다."
         speak(welcome_msg)
     
-    img
+    # 사진 주소 연동 (NameError 유발하던 img 변수 삭제 및 주소 고정)
+    img_path = "https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/ai_expert.png"
+    try:
+        st.image(img_path, caption="골드키지사 전담 AI 마스터", use_container_width=True)
+    except:
+        st.info("💡 이미지 파일을 불러오고 있습니다.")
+
+if st.button("🚀 AI 전문가 그룹 분석 요청", use_container_width=True):
+    if user_question:
+        with st.spinner("전문가 분석 중..."):
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            response = model.generate_content(f"{SYSTEM_PROMPT}\n\n질문: {user_question}")
+            st.session_state.chat_answer = response.text
+    else:
+        st.warning("질문을 먼저 입력해 주세요.")
+
+# ==========================================
+# [SECTION 8~10] 응원 문구 및 법적 고지
+# ==========================================
+if "chat_answer" in st.session_state:
+    st.markdown("---")
+    st.info("📢 **AI 전문가 답변 결과**")
+    st.write(st.session_state.chat_answer)
+
+st.divider()
+col_success_icon, col_success_btn = st.columns([1, 10])
+with col_success_icon: st.markdown("## 🎊")
+with col_success_btn:
+    success_msg = "FC님, AI와 함께 첨단 보험상담의 주역이 되세요."
+    if st.button("🚀 응원 메시지 듣기", use_container_width=True):
+        st.balloons()
+        st.write(f"### {success_msg}")
+        speak(success_msg)
+
+st.error("**[법적 고지]** 본 리포트의 법률적 책임은 사용자에게 귀속되며 AI 분석 결과는 상담 참고용 자료입니다.")
+st.sidebar.caption(f"최종 업데이트: {dt.now().strftime('%Y-%m-%d %H:%M')}")
