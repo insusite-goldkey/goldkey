@@ -67,7 +67,7 @@ with st.sidebar:
 # ==========================================
 st.title("👑 골드키지사 AI 마스터")
 if user_name:
-    st.success(f"🌟 {user_name} 상담원님, 반갑습니다! 오늘 상담도 성공하시길 응원합니다.")
+    st.success(f"🌟 {user_name} 상담원님, 반갑습니다!")
 
 # ==========================================
 # [SECTION 5] 1단계: 증권 이미지 정밀 분석 (파일 업로드)
@@ -118,17 +118,21 @@ if "analysis_answer" in st.session_state:
     st.markdown(st.session_state.analysis_answer)
 
 # ==========================================
-# [SECTION 7] 2단계: AI 전문가 상세 질문 (확대 질문창)
+# [SECTION 7] 2단계: AI 전문가 상세 질문 (디자인 고도화)
 # ==========================================
 st.divider()
-st.markdown("""<style>.big-font { font-size:22px !important; font-weight: bold; color: #1E88E5; }</style>""", unsafe_allow_html=True)
+st.markdown("""<style>.big-emoji { font-size:60px !important; }.big-font { font-size:22px !important; font-weight: bold; color: #1E88E5; }</style>""", unsafe_allow_html=True)
 st.markdown('<p class="big-font">🏆 2단계: AI 전문가에게 상세 질문하기</p>', unsafe_allow_html=True)
-col_mic, col_desc = st.columns([1, 10])
-with col_mic:
-    st.markdown("## 🎤")
-with col_desc:
-    st.write("**팁:** 분석 리포트의 구체적인 판례 근거 등을 물어보세요.")
-user_question = st.text_area("❓ 전문가에게 물어볼 내용을 상세히 적어주세요", height=200, placeholder="질문을 입력하세요...")
+
+# 질문창 상단에 큼지막한 마이크 버튼 배치
+col_mic_btn, col_empty = st.columns([1, 1])
+with col_mic_btn:
+    st.markdown('<p class="big-emoji">🎤</p>', unsafe_allow_html=True)
+    if st.button("🎤 음성 인식 질문 시작 (클릭 후 말씀하세요)", use_container_width=True):
+        st.toast("현재 브라우저의 마이크 권한을 확인 중입니다. 아래 창에 질문이 입력됩니다.")
+
+user_question = st.text_area("❓ 전문가에게 물어볼 내용을 적어주세요", height=200, placeholder="질문을 입력하세요...")
+
 if st.button("🚀 AI 전문가 그룹 분석 요청", use_container_width=True):
     if user_question:
         with st.spinner("전문가 분석 중..."):
@@ -146,17 +150,18 @@ if "chat_answer" in st.session_state:
     st.write(st.session_state.chat_answer)
 
 # ==========================================
-# [SECTION 9] 성공 응원 및 음성 가이드
+# [SECTION 9] 성공 응원 및 음성 가이드 (문구 수정)
 # ==========================================
 st.divider()
-col_btn_icon, col_btn_main = st.columns([1, 10])
-with col_btn_icon:
-    st.markdown("## 🎊")
-with col_btn_main:
-    if st.button("🚀 AI와 함께하는 FC님을 위하여 (성공 업데이트 확인)", use_container_width=True):
+col_success_icon, col_success_btn = st.columns([1, 6])
+with col_success_icon:
+    st.markdown('<p class="big-emoji">🎊</p>', unsafe_allow_html=True)
+with col_success_btn:
+    st.write(" ")
+    if st.button("🚀 FC님 AI와 함께 첨단 보험상담의 주역이 되세요 (업데이트 확인)", use_container_width=True):
         st.balloons()
         display_name = user_name if user_name else "이세윤"
-        msg = f"불철주야 매진하시는 {display_name} FC님! 법인 시장의 주인공 - AI와 함께 첨단 보험상담의 주역이 되세요."
+        msg = f"{display_name} FC님 AI와 함께 첨단 보험상담의 주역이 되세요."
         st.write(f"### {msg}")
         st.components.v1.html(s_voice(msg), height=0)
 
