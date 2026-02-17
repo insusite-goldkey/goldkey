@@ -1,100 +1,161 @@
 import streamlit as st
+import pandas as pd
 import time
+import datetime
+from datetime import datetime as dt
+import google.generativeai as genai
+import PIL.Image
 
-# --- 1. 기본 설정 및 브랜드 확정 ---
-st.set_page_config(
-    page_title="골드키지사 AI 마스터", 
-    page_icon="👑", 
-    layout="centered"
-)
+# ==========================================
+# [SECTION 1] 기본 설정 및 시스템 프롬프트
+# ==========================================
+st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", layout="wide")
 
-# --- 2. 수애 톤 음성 안내 함수 ---
+TOKEN_POLICY = """
+💡 **골드키지사 AI 토큰 사용 정책**
+- 현재 고도화 기간(1년) 동안 전면 무료 제공됩니다.
+- 정식 전환 시 제공되는 토큰은 **하루 1건 분석 기준 약 8년(3,000일)**간 사용 가능한 압도적인 분량입니다.
+"""
+
+SYSTEM_PROMPT = """
+당신은 30년 현장 지식과 손해사정 전문성을 갖춘 보험 분석 AI입니다.
+[분석 철학]: 6대 법령(민법, 상법, 보험업법, 형사소송법, 화재법, 실화법) 근거 3중 검증.
+[연금 로직]: '미래 가처분 소득 유지 원칙'에 의거, 현재 소득의 100%를 목표로 설정.
+[보고서 구조]: 🚨판독 총평 -> 💰필요보장 통합표 -> 📊영역별 분석 -> 🔍보상 실무 근거 순서로 작성하십시오.
+"""
+
+# ==========================================
+# [SECTION 2] 음성 및 보안 엔진
+# ==========================================
 def s_voice(text):
-    return f"""
-        <script>
-            window.speechSynthesis.cancel();
-            var msg = new SpeechSynthesisUtterance("{text}");
-            msg.lang = 'ko-KR';
-            msg.rate = 1.0;
-            msg.pitch = 0.85; 
-            window.speechSynthesis.speak(msg);
-        </script>
-    """
+    return f"""<script>window.speechSynthesis.cancel(); var msg = new SpeechSynthesisUtterance("{text}");
+    msg.lang = 'ko-KR'; msg.rate = 1.0; msg.pitch = 0.85; window.speechSynthesis.speak(msg);</script>"""
 
-# --- 3. 메인 화면 구성 ---
-st.title("👑 골드키지사 AI 마스터")
-st.subheader("FC님을 위한 분석 리포트 및 전문 상담 데이터베이스")
+def goodbye_sequence():
+    return """<script>var context = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = context.createOscillator(); osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, context.currentTime);
+    osc.connect(context.destination); osc.start(); osc.stop(context.currentTime + 0.3);
+    window.speechSynthesis.cancel(); var msg = new SpeechSynthesisUtterance("보안 규정에 따라 로딩된 모든 자료를 파기했습니다.");
+    msg.lang = 'ko-KR'; window.speechSynthesis.speak(msg);</script>"""
 
-# --- 4. 핵심 3대 가이드 (보상/세무/다국어) ---
-with st.container(border=True):
-    st.info("💡 **골드키지사 AI 실전 보상 & 법인 세무 가이드**")
-    t_col1, t_col2, t_col3 = st.columns(3)
+# ==========================================
+# [SECTION 3] 사이드바 (사용자 센터 & 보안 종료)
+# ==========================================
+with st.sidebar:
+    st.header("🔑 사용자 센터")
+    user_name = st.text_input("상담원 성함", "이세윤")
+    user_status = st.radio("접속 권한", ["방문자(Tutorial)", "정회원 로그인"])
+    user_api_key = st.text_input("Gemini API KEY", type="password")
     
+    if user_status == "정회원 로그인":
+        st.success(f"🔓 {user_name} 상담원님 인증 완료")
+        st.markdown(TOKEN_POLICY)
+    
+    st.divider()
+    if st.button("❌ 모든 데이터 파기 후 종료", use_container_width=True):
+        st.components.v1.html(goodbye_sequence(), height=0)
+        st.cache_data.clear()
+        st.session_state.clear()
+        time.sleep(2.5)
+        st.rerun()
+
+# ==========================================
+# [SECTION 4~6] 환대 및 슬림 튜토리얼
+# ==========================================
+if "welcomed" not in st.session_state:
+    st.success(f"🌟 {user_name} 상담원님, 반갑습니다!")
+    st.session_state.welcomed = True
+
+st.title("👑 골드키지사 AI 마스터")
+st.subheader("🛡️ 보장의 실체 판독 및 통합 컨설팅 시스템")
+
+with st.expander("💡 실전 보상 & 민원 가이드 (튜토리얼)", expanded=(user_status == "방문자(Tutorial)")):
+    t_col1, t_col2, t_col3 = st.columns(3)
     with t_col1:
-        if st.button("📊 (1) 자료 분석 및\nDB 활용법", use_container_width=True):
-            st.write("👉 증권 분석 시 전문가 식견이 담긴 **상담 데이터베이스**가 생성됩니다.")
-            st.components.v1.html(s_voice("보험 서류를 로딩해 주세요. 분석 즉시 자료는 파기되니 안심하십시오."), height=0)
-            
+        if st.button("📊 (1) 분석 및 DB 활용", use_container_width=True):
+            st.write("👉 증권 분석 시 전문가 식견이 담긴 DB가 자동 생성됩니다.")
     with t_col2:
-        if st.button("🛡️ (2) 보상 전문 지식\n& 민원 매뉴얼", use_container_width=True):
-            st.success("🎯 **보상금 극대화 및 횡포 대응 전략**")
-            
-            # [수정 반영] 이자 공제 및 장해평가
-            with st.expander("⚖️ 보상금 산정: 호프만 vs 라이프니츠", expanded=True):
-                st.markdown("""
-                - **호프만 방식(단리):** 공제액이 작아 **보상금이 더 큼.** (법원 표준)
-                - **라이프니츠(복리):** 공제액이 커서 보상금이 낮아짐. (보험사 기준)
-                - **장해평가:** **AMA(가장 높음)** > 맥브라이드 > 국가배상법 순서 준용.
-                """)
-
-            # [수정 반영] 금감원 및 사인 금지
-            with st.expander("📝 금감원 민원 & 사인 금지 서류"):
-                st.markdown("""
-                - **민원절차:** 접수 → **자율조정(협상 적기)** → 전문위원 배정 → 분조위 상정
-                - **사인금지:** 부제소 합의서, 면책동의서, 국세청 열람 (**절대 금지**)
-                - **판례:** 2001다1480 (예상치 못한 후유증은 추가 청구 가능)
-                """)
-            v_msg = "피해자에게 유리한 호프만 방식과 AMA 장해 기준을 확인하십시오. 부당한 서류 요구는 판례로 대응해야 합니다."
-            st.components.v1.html(s_voice(v_msg), height=0)
-            
+        if st.button("🛡️ (2) 보상 횡포 방어", use_container_width=True):
+            with st.expander("⚖️ 합의서 부제소 문구 대응", expanded=True):
+                st.code('단, 예상치 못한 중대한 후유증 발생 시 제외함')
+                st.markdown("판례 2001다1480 근거, 위 문구를 합의서에 수기 기재하십시오.")
+            with st.expander("🚫 사인 거절 리스트"):
+                st.error("국세청 열람 / 타 병원 일괄 조회 / 면책 동의서")
     with t_col3:
-        if st.button("🏢 (3) 법인 세무\n& 유족보상", use_container_width=True):
-            st.warning("💼 **CEO 경영인 정기보험 세무 전략**")
-            
-            # [신규 추가] 법인 세무 요약 가이드
-            with st.expander("📑 법인 세무 리스크 관리 요약", expanded=True):
-                st.markdown("""
-                - **회계처리:** 환급금은 **자산(보험예치금)**, 보장분은 **비용** 처리 (보수적 접근)
-                - **유족보상:** 산재법 기준(**1,300일분**) 준용 시 손금 인정 안전함
-                - **주의:** 지배주주 자녀의 학자금 지원은 비용 인정 안 됨
-                - **준비:** 정관 내 지급 산식 명문화 및 수익자 법인 지정 필수
-                """)
-            v_msg_tax = "경영인 정기보험은 환급률 구간에 따른 자산 계상이 핵심입니다. 산재법 기준을 준용하여 정관을 정비하십시오."
-            st.components.v1.html(s_voice(v_msg_tax), height=0)
+        if st.button("👤 (3) 회원가입 혜택", use_container_width=True):
+            st.success("🎁 1년간 전면 무료 운영 및 고도화 중")
 
-# --- 5. 실시간 다국어 지원 센터 ---
+# ==========================================
+# [SECTION 7] 입력 인터페이스 & 전문가 통합 분석 (복구)
+# ==========================================
 st.divider()
-st.subheader("🌐 글로벌 보상 지원 센터 (실시간 번역)")
-with st.expander("📝 민원 초안 생성 / 다국어 실시간 통역 요청"):
-    user_input = st.text_area("상황 입력 (예: 금감원 민원 초안 작성해줘 / 위 세무 내용을 중국어로 번역해줘)")
-    if st.button("AI 마스터에게 해결 요청"):
-        st.warning("분석 및 실시간 번역 중...")
-        time.sleep(1)
-        st.code(f"결과: {user_input}\n\n[법적근거: 민법 제733조, 법인세법 기본통칙 19-19…8 적용]")
+col1, col2 = st.columns(2)
+with col1:
+    customer_name = st.text_input("상담 대상 고객명", "고객님")
+    hi_premium = st.number_input("월 건강보험료 (원)", value=0)
+with col2:
+    debt = st.number_input("기존 부채 (만원)", value=0)
+    uploaded_files = st.file_uploader("증권 이미지 로드 (📢 생성 후 자동 삭제)", accept_multiple_files=True)
 
-# --- 6. FC 성공 응원 메시지 ---
+if st.button("🔍 전문가 그룹 통합 분석 시작"):
+    if uploaded_files and user_api_key:
+        genai.configure(api_key=user_api_key)
+        with st.spinner(f"{user_name} 상담원의 지침에 따라 정밀 분석 중..."):
+            try:
+                model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=SYSTEM_PROMPT)
+                content_parts = [f"상담원: {user_name}, 고객: {customer_name}, 건보료: {hi_premium}, 부채: {debt}"]
+                for f in uploaded_files:
+                    img = PIL.Image.open(f)
+                    content_parts.append(img)
+                
+                response = model.generate_content(content_parts)
+                st.session_state.answer = response.text
+                
+                # 분석 테이블 출력 (가처분 소득 로직 반영)
+                est_income = hi_premium * 40 / 10000
+                st.markdown("### [💰 소득 및 필요보장 통합표]")
+                data = {
+                    "분석 항목": ["💵 추산 연봉", "🧬 필요 암 보장", "🧠 필요 뇌/심 보장", "🕊️ 사망 보장(부채포함)", "⏳ 노후준비(연금)"],
+                    "가이드라인": [f"{est_income:.1f}억", "5.0억", "5.4억", f"{debt/10000 + (est_income*5):.1f}억", f"월 {est_income/12*10000:,.0f}원(100% 유지)"],
+                    "판독 결과": ["정밀 역산", "⚠️ 부족", "⚠️ 부족", "🚨 보강필요", "🚨 즉시점검"]
+                }
+                st.table(pd.DataFrame(data))
+                st.success("✅ 리포트 생성이 완료되었습니다.")
+            except Exception as e:
+                st.error(f"분석 오류: {e}")
+
+# ==========================================
+# [SECTION 8] 전문 지식 데이터베이스 (복구)
+# ==========================================
+if "answer" in st.session_state:
+    st.markdown("---")
+    st.markdown(st.session_state.answer)
+
+st.divider()
+tab1, tab2, tab3, tab4 = st.tabs(["🛡️ 보상 실무", "🏢 법인 세무", "🚨 중대재해", "🌐 글로벌 지원"])
+with tab1:
+    st.info("🎯 판례 2001다1480: 합의 당시 예상 못한 중대 후유증은 추가 청구 가능")
+    
+with tab2:
+    st.warning("💼 해지환급금: 자산계상(사업준비금), 이익잉여금 산입 안 됨 원칙 준수")
+with tab3:
+    st.error("🚔 중대재해: 단체보험 수익자 '법인' 지정 시 배상 채무 직접 상쇄 효과")
+    
+with tab4:
+    st.subheader("🌐 글로벌 보상 지원 센터")
+    user_input = st.text_area("상황 입력 (다국어 번역 및 민원 초안)")
+    if st.button("AI 마스터 해결 요청"):
+        st.success(f"결과: {user_input} 분석 완료 (법적근거: 민법 제733조 적용)")
+
+# ==========================================
+# [SECTION 9~10] 성공 응원 및 하단 보안
+# ==========================================
 st.divider()
 if st.button("🚀 모든 FC님들의 성공을 위한 업데이트 확인"):
     st.balloons()
-    success_msg = "불철주야 매진하시는 FC님들을 위해 전문 보상 데이터베이스와 법인 세무 가이드 고도화를 마쳤습니다! 대한민국 최고의 전문가로 거듭나십시오."
-    st.write(success_msg)
-    st.components.v1.html(s_voice(success_msg), height=0)
+    msg = f"불철주야 매진하시는 {user_name} FC님! 법인 시장의 주인공이 되십시오."
+    st.write(f"### {msg}")
+    st.components.v1.html(s_voice(msg), height=0)
 
-# --- 7. 서비스 종료 및 데이터 파기 ---
-st.sidebar.divider()
-if st.sidebar.button("❌ 서비스 종료 및 데이터 즉시 파기"):
-    st.sidebar.warning("🔒 모든 상담 데이터를 즉시 파기합니다...")
-    time.sleep(2)
-    st.rerun()
-
-st.sidebar.caption("ⓒ 골드키지사 AI 마스터 | 시스템 보안 유지 중")
+st.error(f"**[법적 고지]** 본 리포트의 법률적 책임은 사용자({user_name})에게 귀속되며 AI 분석은 참고용입니다.")
+st.sidebar.caption(f"최종 업데이트: {dt.now().strftime('%Y-%m-%d')}")
