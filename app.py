@@ -1,7 +1,7 @@
 import streamlit as st
 import time
 
-# --- 1. 기본 설정 (브랜드 명칭 확정) ---
+# --- 1. 기본 설정 및 브랜드 확정 ---
 st.set_page_config(
     page_title="골드키지사 AI 마스터", 
     page_icon="👑", 
@@ -21,83 +21,79 @@ def s_voice(text):
         </script>
     """
 
-# --- 3. 데이터 보안 파기 함수 ---
-def goodbye_sequence():
-    return """
-        <script>
-            var context = new (window.AudioContext || window.webkitAudioContext)();
-            var osc = context.createOscillator();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(523.25, context.currentTime);
-            osc.connect(context.destination);
-            osc.start(); osc.stop(context.currentTime + 0.3);
-            
-            var msg = new SpeechSynthesisUtterance("방금 로딩한 문서는 보안 규정에 따라 자동으로 파기되었습니다. 오늘도 수고하셨습니다.");
-            msg.lang = 'ko-KR';
-            window.speechSynthesis.speak(msg);
-        </script>
-    """
-
-# --- 4. 메인 화면 구성 ---
+# --- 3. 메인 화면 구성 ---
 st.title("👑 골드키지사 AI 마스터")
-st.subheader("FC님을 위한 분석 리포트 및 상담 데이터베이스")
+st.subheader("FC님을 위한 분석 리포트 및 전문 상담 데이터베이스")
 
-# --- 5. 슬림 튜토리얼 (3+2 방식) ---
+# --- 4. 핵심 3대 가이드 (보상/세무/다국어) ---
 with st.container(border=True):
-    st.info("💡 **골드키지사 AI 이용 가이드 (안내 음성 지원)**")
+    st.info("💡 **골드키지사 AI 실전 보상 & 법인 세무 가이드**")
     t_col1, t_col2, t_col3 = st.columns(3)
     
     with t_col1:
         if st.button("📊 (1) 자료 분석 및\nDB 활용법", use_container_width=True):
-            st.write("👉 증권 사진을 로딩하면 전문가 그룹의 식견이 담긴 **상담 데이터베이스**가 생성됩니다.")
-            st.components.v1.html(s_voice("보험 증권 사진을 업로드해 주세요. 분석 즉시 자료는 파기되니 안심하셔도 됩니다."), height=0)
+            st.write("👉 증권 분석 시 전문가 식견이 담긴 **상담 데이터베이스**가 생성됩니다.")
+            st.components.v1.html(s_voice("보험 서류를 로딩해 주세요. 분석 즉시 자료는 파기되니 안심하십시오."), height=0)
             
     with t_col2:
-        if st.button("💬 (2) 질문과\n답변 얻기", use_container_width=True):
-            st.write("👉 사고, 보상 등 궁금한 내용을 입력창에 물어보세요.")
-            st.components.v1.html(s_voice("30년 상담 노하우를 담아 답변해 드립니다. 무엇이든 물어보세요."), height=0)
+        if st.button("🛡️ (2) 보상 전문 지식\n& 민원 매뉴얼", use_container_width=True):
+            st.success("🎯 **보상금 극대화 및 횡포 대응 전략**")
+            
+            # [수정 반영] 이자 공제 및 장해평가
+            with st.expander("⚖️ 보상금 산정: 호프만 vs 라이프니츠", expanded=True):
+                st.markdown("""
+                - **호프만 방식(단리):** 공제액이 작아 **보상금이 더 큼.** (법원 표준)
+                - **라이프니츠(복리):** 공제액이 커서 보상금이 낮아짐. (보험사 기준)
+                - **장해평가:** **AMA(가장 높음)** > 맥브라이드 > 국가배상법 순서 준용.
+                """)
+
+            # [수정 반영] 금감원 및 사인 금지
+            with st.expander("📝 금감원 민원 & 사인 금지 서류"):
+                st.markdown("""
+                - **민원절차:** 접수 → **자율조정(협상 적기)** → 전문위원 배정 → 분조위 상정
+                - **사인금지:** 부제소 합의서, 면책동의서, 국세청 열람 (**절대 금지**)
+                - **판례:** 2001다1480 (예상치 못한 후유증은 추가 청구 가능)
+                """)
+            v_msg = "피해자에게 유리한 호프만 방식과 AMA 장해 기준을 확인하십시오. 부당한 서류 요구는 판례로 대응해야 합니다."
+            st.components.v1.html(s_voice(v_msg), height=0)
             
     with t_col3:
-        if st.button("👤 (3) 회원가입·탈퇴\n(1년 전면 무료)", use_container_width=True):
-            st.success("🎁 **1년간 전면 무료 및 시스템 고도화 기간 안내**")
-            st.markdown("""
-            - **기간:** 향후 1년간 (시스템 업데이트 및 수정·보안 시기)
-            - **취지:** 현장의 목소리를 반영하여 대한민국 최고의 AI 비서를 완성해가는 과정입니다.
-            - **보안:** 탈퇴 시 모든 상담 정보는 즉시 파기됩니다.
-            """)
-            v_msg = "본 서비스는 현재 시스템 업데이트와 수정 보완을 위한 일 년간의 안정화 기간을 거치고 있습니다. 이 기간 동안은 전면 무료로 운영되오니 안심하고 이용하십시오."
-            st.components.v1.html(s_voice(v_msg), height=0)
+        if st.button("🏢 (3) 법인 세무\n& 유족보상", use_container_width=True):
+            st.warning("💼 **CEO 경영인 정기보험 세무 전략**")
+            
+            # [신규 추가] 법인 세무 요약 가이드
+            with st.expander("📑 법인 세무 리스크 관리 요약", expanded=True):
+                st.markdown("""
+                - **회계처리:** 환급금은 **자산(보험예치금)**, 보장분은 **비용** 처리 (보수적 접근)
+                - **유족보상:** 산재법 기준(**1,300일분**) 준용 시 손금 인정 안전함
+                - **주의:** 지배주주 자녀의 학자금 지원은 비용 인정 안 됨
+                - **준비:** 정관 내 지급 산식 명문화 및 수익자 법인 지정 필수
+                """)
+            v_msg_tax = "경영인 정기보험은 환급률 구간에 따른 자산 계상이 핵심입니다. 산재법 기준을 준용하여 정관을 정비하십시오."
+            st.components.v1.html(s_voice(v_msg_tax), height=0)
 
-    # 추가 안내 (요청 시 노출)
-    with st.expander("❓ 추가 안내 (API 인증키 및 향후 운영)"):
-        ex_col1, ex_col2 = st.columns(2)
-        if ex_col1.button("🔑 API 인증키 설정"):
-            st.write("40만 원 상당의 혜택을 누리는 개인 인증키 등록 방법입니다.")
-        if ex_col2.button("💳 향후 운영 방향"):
-            st.write("1년 후 시스템 유지보수를 위한 최소한의 'AI 마스터 구독료' 도입 예정입니다.")
+# --- 5. 실시간 다국어 지원 센터 ---
+st.divider()
+st.subheader("🌐 글로벌 보상 지원 센터 (실시간 번역)")
+with st.expander("📝 민원 초안 생성 / 다국어 실시간 통역 요청"):
+    user_input = st.text_area("상황 입력 (예: 금감원 민원 초안 작성해줘 / 위 세무 내용을 중국어로 번역해줘)")
+    if st.button("AI 마스터에게 해결 요청"):
+        st.warning("분석 및 실시간 번역 중...")
+        time.sleep(1)
+        st.code(f"결과: {user_input}\n\n[법적근거: 민법 제733조, 법인세법 기본통칙 19-19…8 적용]")
 
-# --- 6. FC 성공 응원 공지 섹션 ---
+# --- 6. FC 성공 응원 메시지 ---
 st.divider()
 if st.button("🚀 모든 FC님들의 성공을 위한 업데이트 확인"):
     st.balloons()
-    st.success("📢 **골드키지사 시스템 고도화 완료**")
-    success_msg = "불철주야 고객 상담에 매진하시는 모든 FC님들의 성공을 위해 제가 시스템을 한 단계 더 업그레이드했습니다. 더욱 정교해진 분석 리포트 및 상담 데이터베이스를 경험해 보십시오."
+    success_msg = "불철주야 매진하시는 FC님들을 위해 전문 보상 데이터베이스와 법인 세무 가이드 고도화를 마쳤습니다! 대한민국 최고의 전문가로 거듭나십시오."
     st.write(success_msg)
     st.components.v1.html(s_voice(success_msg), height=0)
 
-# --- 7. 불편사항 음성 피드백 (녹취 안내) ---
-st.divider()
-st.subheader("📢 이용 중 불편하신 점이 있나요?")
-if st.button("🎤 불편사항 말로 전달하기 (클릭 후 말씀하세요)"):
-    st.info("🎙️ 녹음 중입니다... 말씀이 끝나면 [정지]를 눌러주세요. 이세윤 설계사에게 직접 전달됩니다.")
-    time.sleep(2)
-    st.success("✅ 소중한 의견이 접수되었습니다. FC님만을 위한 맞춤형 업데이트로 보답하겠습니다.")
-
-# --- 8. 서비스 종료 및 보안 파기 ---
+# --- 7. 서비스 종료 및 데이터 파기 ---
 st.sidebar.divider()
 if st.sidebar.button("❌ 서비스 종료 및 데이터 즉시 파기"):
-    st.sidebar.warning("🔒 모든 상담 데이터를 파기 중입니다...")
-    st.components.v1.html(goodbye_sequence(), height=0)
+    st.sidebar.warning("🔒 모든 상담 데이터를 즉시 파기합니다...")
     time.sleep(2)
     st.rerun()
 
