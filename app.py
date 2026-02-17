@@ -17,7 +17,6 @@ import PIL.Image
 # ==========================================
 st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", layout="wide")
 
-# [404 해결] v1beta 대신 안정화된 기본 엔드포인트 호출
 try:
     if "GEMINI_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
@@ -89,16 +88,17 @@ def load_stt_engine():
     """, height=0)
 
 # ==========================================
-# [SECTION 3] 사이드바 (API키 새 창 열기 고정)
+# [SECTION 3] 사이드바 (🚨 새 창 열기 확실히 강제)
 # ==========================================
 with st.sidebar:
     st.header("🔑 사용자 센터")
     user_name = st.text_input("상담원 성함", "이세윤")
     st.divider()
     st.markdown("### 🛠️ API 키 발급 안내")
+    # [수정] <a> 태그와 target="_blank"를 사용하여 브라우저에서 새 탭 열기를 강제함
     st.markdown('''
-        <a href="https://aistudio.google.com/app/apikey" target="_blank">
-            <button style="width:100%; padding:10px; background-color:#1E88E5; color:white; border:none; border-radius:5px; cursor:pointer;">
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">
+            <button style="width:100%; padding:12px; background-color:#1E88E5; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">
                 🌐 구글 API 키 발급 (새 창 열기)
             </button>
         </a>
@@ -116,7 +116,7 @@ with st.sidebar:
         st.cache_data.clear(); st.session_state.clear(); time.sleep(2.5); st.rerun()
 
 # ==========================================
-# [SECTION 4~6] 상단 고정 브랜드 멘트 및 튜토리얼
+# [SECTION 4~6] 상단 고정 브랜드 멘트 및 튜토리얼 원문 복구
 # ==========================================
 st.markdown(f"""
 <div style="background-color:#f0f2f6; padding:20px; border-radius:10px; border-left:5px solid #1E88E5; margin-bottom:20px;">
@@ -130,20 +130,27 @@ st.markdown(f"""
 
 st.title("👑 골드키지사 AI 마스터")
 
+# [수정] 튜토리얼이 시각적으로 명확하게 구분되도록 보강
 with st.expander("💡 [필독] 실전 보상 & 민원/사인거절/횡포 대응 튜토리얼", expanded=False):
     t_col1, t_col2, t_col3 = st.columns(3)
     with t_col1:
         st.info("⚖️ **보상 실무 & 판례**")
         st.write("판례 2001다1480 근거, 예상 못한 후유증 추가 청구법 교육.")
+        if st.button("판례 상세 보기"):
+            st.write("🔎 **민법 제750조 및 판례 2001다1480:** 불법행위로 인한 손해배상 청구권의 소멸시효 및 추가 청구 요건 확인.")
     with t_col2:
         st.error("🚫 **보상 횡포 & 사인거절 대응**")
         st.write("보험사의 부당한 지급 거절이나 횡포 시 반박 논리 리포트 생성법.")
+        if st.button("반박 논리 예시"):
+            st.write("📑 **대응 매뉴얼:** 약관의 규제에 관한 법률 제4조(신의성실의 원칙) 근거 보상 거절의 부당성 주장.")
     with t_col3:
         st.warning("📝 **민원가이드 튜토리얼**")
         st.write("금융감독원 민원 접수용 논리 구성 및 보험업법 위반 사항 체크.")
+        if st.button("민원 작성 가이드"):
+            st.write("📝 **가이드:** 민원 신청 시 '보험업법 제127조의3' 위반 여부를 명시하여 금융감독원 압박.")
 
 # ==========================================
-# [SECTION 7] 전문가 그룹 통합 분석 (404 방어)
+# [SECTION 7] 전문가 그룹 통합 분석 (UI 최적화)
 # ==========================================
 st.divider()
 st.write("### 📝 고객 정보 및 증권 업로드")
@@ -169,21 +176,18 @@ with col_img:
 
 if st.button("🔍 전문가 그룹 통합 분석 시작 🚀", use_container_width=True, type="primary"):
     if uploaded_files or user_question:
-        with st.spinner("수예가 전문가 그룹과 협업하여 정밀 리포트를 작성 중입니다..."):
+        with st.spinner("수예가 전문가 그룹과 협업하여 리포트를 작성 중입니다..."):
             try:
-                # [404 해결] 모델명을 'gemini-1.5-flash'로 단순화하여 호출
                 model = genai.GenerativeModel(model_name='gemini-1.5-flash', system_instruction=SYSTEM_PROMPT)
-                
                 content_parts = [f"상담원: {user_name}, 고객: {customer_name}, 건보료: {hi_premium}, 부채: {debt}, 질문: {user_question}"]
                 if uploaded_files:
                     for f in uploaded_files:
-                        img = PIL.Image.open(f)
-                        content_parts.append(img)
+                        content_parts.append(PIL.Image.open(f))
                 
                 response = model.generate_content(content_parts)
                 st.session_state.answer = response.text
                 
-                # 역산 로직
+                # 역산 로직 (무손실 유지)
                 est_income = hi_premium * 40 / 10000
                 st.markdown("### [💰 소득 및 필요보장 통합표]")
                 data = {
@@ -208,7 +212,7 @@ if "answer" in st.session_state:
 # ==========================================
 st.divider()
 tab1, tab2, tab3, tab4 = st.tabs(["🛡️ 보상 실무", "🏢 법인 세무", "🚨 중대재해", "🌐 글로벌 지원"])
-with tab1: st.info("🎯 판례 2001다1480: 합의 당시 예상 못한 후유증 추가 청구 가능")
+with tab1: st.info("🎯 판례 2001다1480: 합의 당시 예상 못한 중대 후유증은 추가 청구 가능")
 with tab4:
     st.subheader("🌐 글로벌 보상 지원 센터")
     global_input = st.text_area("🌍 상황 입력", key="global_input_area")
