@@ -73,39 +73,23 @@ if user_name:
     st.success(f"🌟 {user_name} 상담원님, 반갑습니다!")
 
 # ==========================================
-# [SECTION 5] 최상단 직관적 질문 센터 (디자인 개선)
+# [SECTION 5] 최상단 직관적 질문 센터
 # ==========================================
 st.write("---")
-
-# 디자인적 직관성을 위한 스타일링
-st.markdown("""
-    <style>
-    .big-font { font-size:25px !important; font-weight: bold; color: #1E88E5; }
-    .icon-style { font-size: 40px; margin-right: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
-
+st.markdown("""<style>.big-font { font-size:25px !important; font-weight: bold; color: #1E88E5; }</style>""", unsafe_allow_html=True)
 st.markdown('<p class="big-font">🏆 AI 전문가에게 무엇이든 물어보세요!</p>', unsafe_allow_html=True)
 
-# 1) 마이크와 질문창 구성 (아이콘 크기 통일)
 col_mic, col_input = st.columns([1, 6])
-
 with col_mic:
-    # 클릭 가능한 마이크 이미지 느낌을 주기 위한 버튼 (아이콘 크기 40px급으로 통일)
     st.markdown("## 🎤")
     if st.button("음성/질문 시작", use_container_width=True):
-        st.info("입력창에 질문을 작성하신 후 전송 버튼을 눌러주세요.")
-
+        st.info("아래 입력창에 질문을 작성해 주세요.")
 with col_input:
-    # 퀘스천 마크 아이콘과 입력창
-    user_question = st.text_area("❓ 여기에 질문을 입력하세요", 
-                                 placeholder="예: 40세 남성 암보험 보장 분석과 판례 근거 알려줘", 
-                                 height=120)
+    user_question = st.text_area("❓ 여기에 질문을 입력하세요", placeholder="예: 판례에 근거한 보장 분석 요령 알려줘", height=100)
 
-# 전송 버튼 시각화 강화 (파란색 계열)
 if st.button("🚀 전문가 그룹 통합 분석 요청", use_container_width=True):
     if user_question:
-        with st.spinner("전문가들이 분석 중입니다..."):
+        with st.spinner("전문가 분석 중..."):
             model = genai.GenerativeModel('gemini-1.5-flash')
             response = model.generate_content(f"{SYSTEM_PROMPT}\n\n질문: {user_question}")
             st.session_state.chat_answer = response.text
@@ -117,10 +101,12 @@ if "chat_answer" in st.session_state:
     st.write(st.session_state.chat_answer)
 
 # ==========================================
-# [SECTION 6] 증권 분석 센터
+# [SECTION 6] 증권 분석 센터 (좌우 분리 및 멀티 업로드 레이아웃)
 # ==========================================
 st.divider()
-st.write("### 📂 2단계: 증권 이미지 정밀 분석")
+st.write("### 📂 2단계: 증권 이미지 정밀 분석 (좌우 분리형)")
+
+# 고객 정보 입력창 상단 배치
 c1, c2, c3 = st.columns([1, 1, 1])
 with c1:
     customer_name = st.text_input("상담 대상 고객명", "고객님")
@@ -129,30 +115,47 @@ with c2:
 with c3:
     debt = st.number_input("기존 부채 (만원)", value=0)
 
-uploaded_files = st.file_uploader("📂 증권 이미지를 모두 선택해 주세요", accept_multiple_files=True)
+# [좌우 분리 핵심 레이아웃]
+st.write("")
+col_upload, col_action = st.columns([2, 1]) # 2:1 비율로 분리
 
-if st.button("🔍 증권 통합 분석 시작", use_container_width=True):
+with col_upload:
+    st.markdown("##### 📁 증권 파일 로드 (멀티 슬롯)")
+    # 드래그 앤 드롭 칸을 시각적으로 분할한 느낌을 주기 위해 멀티 업로드 활성화
+    uploaded_files = st.file_uploader("여기에 증권 사진을 끌어다 놓으세요 (파일별로 자동 정렬)", 
+                                      accept_multiple_files=True, 
+                                      help="여러 장의 증권을 한꺼번에 선택하거나 하나씩 추가할 수 있습니다.")
     if uploaded_files:
-        with st.spinner("증권을 정밀 분석 중입니다..."):
-            try:
-                model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=SYSTEM_PROMPT)
-                content_parts = [f"상담원:{user_name}, 고객:{customer_name}, 건보료:{hi_premium}, 부채:{debt}"]
-                for f in uploaded_files:
-                    img = PIL.Image.open(f)
-                    content_parts.append(img)
-                response = model.generate_content(content_parts)
-                st.session_state.analysis_answer = response.text
-                
-                est_income = hi_premium * 40 / 10000
-                st.markdown("### [💰 소득 및 필요보장 통합표]")
-                data = {
-                    "분석 항목": ["💵 추산 연봉", "🧬 필요 암 보장", "🧠 필요 뇌/심 보장", "🕊️ 사망 보장", "⏳ 노후준비(연금)"],
-                    "가이드라인": [f"{est_income:.1f}억", "5.0억", "5.4억", f"{debt/10000 + (est_income*5):.1f}억", f"월 {est_income/12*10000:,.0f}원"],
-                    "판독 결과": ["정밀 역산", "⚠️ 부족", "⚠️ 부족", "🚨 보강필요", "🚨 즉시점검"]
-                }
-                st.table(pd.DataFrame(data))
-            except Exception as e:
-                st.error(f"오류: {e}")
+        st.success(f"✅ 현재 {len(uploaded_files)}개의 증권이 분석 대기 중입니다.")
+
+with col_action:
+    st.markdown("##### ⚙️ 분석 실행")
+    st.write("파일 로드가 완료되면 버튼을 누르세요.")
+    if st.button("🔍 증권 통합 분석 시작 🚀", use_container_width=True, type="primary"):
+        if uploaded_files:
+            with st.spinner("증권을 정밀 분석 중입니다..."):
+                try:
+                    model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=SYSTEM_PROMPT)
+                    content_parts = [f"상담원:{user_name}, 고객:{customer_name}, 건보료:{hi_premium}, 부채:{debt}"]
+                    for f in uploaded_files:
+                        img = PIL.Image.open(f)
+                        content_parts.append(img)
+                    response = model.generate_content(content_parts)
+                    st.session_state.analysis_answer = response.text
+                    
+                    est_income = hi_premium * 40 / 10000
+                    st.markdown("---")
+                    st.markdown("### [💰 소득 및 필요보장 통합표]")
+                    data = {
+                        "분석 항목": ["💵 추산 연봉", "🧬 필요 암 보장", "🧠 필요 뇌/심 보장", "🕊️ 사망 보장", "⏳ 노후준비(연금)"],
+                        "가이드라인": [f"{est_income:.1f}억", "5.0억", "5.4억", f"{debt/10000 + (est_income*5):.1f}억", f"월 {est_income/12*10000:,.0f}원"],
+                        "판독 결과": ["정밀 역산", "⚠️ 부족", "⚠️ 부족", "🚨 보강필요", "🚨 즉시점검"]
+                    }
+                    st.table(pd.DataFrame(data))
+                except Exception as e:
+                    st.error(f"오류: {e}")
+        else:
+            st.warning("분석할 증권 파일을 먼저 올려주세요.")
 
 if "analysis_answer" in st.session_state:
     st.markdown("---")
