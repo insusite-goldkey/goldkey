@@ -37,7 +37,7 @@ def goodbye_sequence():
     msg.lang = 'ko-KR'; window.speechSynthesis.speak(msg);</script>"""
 
 # ==========================================
-# [SECTION 3] 사이드바 (사용자 센터)
+# [SECTION 3] 사이드바 (사용자 센터 & API 가이드)
 # ==========================================
 with st.sidebar:
     st.header("🔑 사용자 센터")
@@ -46,16 +46,13 @@ with st.sidebar:
     st.markdown("### 🛠️ API 키 발급 안내")
     st.link_button("🌐 구글 API 키 발급받기 (무료)", "https://aistudio.google.com/app/apikey")
     st.divider()
-    
     current_date = dt.now().date()
     expiry_date = datetime.date(2026, 4, 30)
-    
     if current_date <= expiry_date:
         user_status = "정회원 로그인"
         st.info("🔓 **4월 30일까지 사용 제한 없음**")
     else:
         user_status = st.radio("접속 권한", ["방문자(Tutorial)", "정회원 로그인"])
-    
     st.markdown(TOKEN_POLICY)
     st.divider()
     if st.button("❌ 종료 시 모든 데이터 자동 파기", use_container_width=True):
@@ -66,47 +63,17 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# [SECTION 4] 메인 환대 메시지
+# [SECTION 4] 메인 환영 메시지
 # ==========================================
 st.title("👑 골드키지사 AI 마스터")
 if user_name:
-    st.success(f"🌟 {user_name} 상담원님, 반갑습니다!")
+    st.success(f"🌟 {user_name} 상담원님, 반갑습니다! 오늘 상담도 성공하시길 응원합니다.")
 
 # ==========================================
-# [SECTION 5] 최상단 직관적 질문 센터
+# [SECTION 5] 1단계: 증권 이미지 정밀 분석 (파일 업로드)
 # ==========================================
 st.write("---")
-st.markdown("""<style>.big-font { font-size:25px !important; font-weight: bold; color: #1E88E5; }</style>""", unsafe_allow_html=True)
-st.markdown('<p class="big-font">🏆 AI 전문가에게 무엇이든 물어보세요!</p>', unsafe_allow_html=True)
-
-col_mic, col_input = st.columns([1, 6])
-with col_mic:
-    st.markdown("## 🎤")
-    if st.button("음성/질문 시작", use_container_width=True):
-        st.info("아래 입력창에 질문을 작성해 주세요.")
-with col_input:
-    user_question = st.text_area("❓ 여기에 질문을 입력하세요", placeholder="예: 판례에 근거한 보장 분석 요령 알려줘", height=100)
-
-if st.button("🚀 전문가 그룹 통합 분석 요청", use_container_width=True):
-    if user_question:
-        with st.spinner("전문가 분석 중..."):
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(f"{SYSTEM_PROMPT}\n\n질문: {user_question}")
-            st.session_state.chat_answer = response.text
-    else:
-        st.warning("질문을 먼저 입력해 주세요.")
-
-if "chat_answer" in st.session_state:
-    st.info("📢 **AI 전문가 답변 결과**")
-    st.write(st.session_state.chat_answer)
-
-# ==========================================
-# [SECTION 6] 증권 분석 센터 (좌우 분리 및 멀티 업로드 레이아웃)
-# ==========================================
-st.divider()
-st.write("### 📂 2단계: 증권 이미지 정밀 분석 (좌우 분리형)")
-
-# 고객 정보 입력창 상단 배치
+st.write("### 📂 1단계: 증권 이미지 정밀 분석")
 c1, c2, c3 = st.columns([1, 1, 1])
 with c1:
     customer_name = st.text_input("상담 대상 고객명", "고객님")
@@ -115,22 +82,12 @@ with c2:
 with c3:
     debt = st.number_input("기존 부채 (만원)", value=0)
 
-# [좌우 분리 핵심 레이아웃]
-st.write("")
-col_upload, col_action = st.columns([2, 1]) # 2:1 비율로 분리
-
+col_upload, col_action = st.columns([2, 1])
 with col_upload:
-    st.markdown("##### 📁 증권 파일 로드 (멀티 슬롯)")
-    # 드래그 앤 드롭 칸을 시각적으로 분할한 느낌을 주기 위해 멀티 업로드 활성화
-    uploaded_files = st.file_uploader("여기에 증권 사진을 끌어다 놓으세요 (파일별로 자동 정렬)", 
-                                      accept_multiple_files=True, 
-                                      help="여러 장의 증권을 한꺼번에 선택하거나 하나씩 추가할 수 있습니다.")
-    if uploaded_files:
-        st.success(f"✅ 현재 {len(uploaded_files)}개의 증권이 분석 대기 중입니다.")
-
+    uploaded_files = st.file_uploader("여기에 증권 사진을 끌어다 놓으세요", accept_multiple_files=True)
 with col_action:
-    st.markdown("##### ⚙️ 분석 실행")
-    st.write("파일 로드가 완료되면 버튼을 누르세요.")
+    st.write(" ")
+    st.write(" ")
     if st.button("🔍 증권 통합 분석 시작 🚀", use_container_width=True, type="primary"):
         if uploaded_files:
             with st.spinner("증권을 정밀 분석 중입니다..."):
@@ -142,7 +99,6 @@ with col_action:
                         content_parts.append(img)
                     response = model.generate_content(content_parts)
                     st.session_state.analysis_answer = response.text
-                    
                     est_income = hi_premium * 40 / 10000
                     st.markdown("---")
                     st.markdown("### [💰 소득 및 필요보장 통합표]")
@@ -154,35 +110,55 @@ with col_action:
                     st.table(pd.DataFrame(data))
                 except Exception as e:
                     st.error(f"오류: {e}")
-        else:
-            st.warning("분석할 증권 파일을 먼저 올려주세요.")
 
+# ==========================================
+# [SECTION 6] 증권 분석 리포트 출력 결과
+# ==========================================
 if "analysis_answer" in st.session_state:
-    st.markdown("---")
     st.markdown(st.session_state.analysis_answer)
 
 # ==========================================
-# [SECTION 8] 전문 지식 데이터베이스
+# [SECTION 7] 2단계: AI 전문가 상세 질문 (확대 질문창)
 # ==========================================
 st.divider()
-tab1, tab2, tab3 = st.tabs(["🛡️ 보상 실무 데이터", "🏢 법인 세무 가이드", "👤 회원가입 혜택"])
-with tab1:
-    st.info("🎯 판례 2001다1480: 합의 당시 예상 못한 중대 후유증은 추가 청구 가능")
-with tab2:
-    st.warning("💼 해지환급금: 자산계상(사업준비금) 원칙 준수 가이드")
-with tab3:
-    st.success("🎁 회원가입 혜택: 1년간 무료 사용")
+st.markdown("""<style>.big-font { font-size:22px !important; font-weight: bold; color: #1E88E5; }</style>""", unsafe_allow_html=True)
+st.markdown('<p class="big-font">🏆 2단계: AI 전문가에게 상세 질문하기</p>', unsafe_allow_html=True)
+col_mic, col_desc = st.columns([1, 10])
+with col_mic:
+    st.markdown("## 🎤")
+with col_desc:
+    st.write("**팁:** 분석 리포트의 구체적인 판례 근거 등을 물어보세요.")
+user_question = st.text_area("❓ 전문가에게 물어볼 내용을 상세히 적어주세요", height=200, placeholder="질문을 입력하세요...")
+if st.button("🚀 AI 전문가 그룹 분석 요청", use_container_width=True):
+    if user_question:
+        with st.spinner("전문가 분석 중..."):
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            response = model.generate_content(f"{SYSTEM_PROMPT}\n\n질문: {user_question}")
+            st.session_state.chat_answer = response.text
+    else:
+        st.warning("질문을 먼저 입력해 주세요.")
 
 # ==========================================
-# [SECTION 9] 성공 응원 및 음성 엔진
+# [SECTION 8] 상세 질문 답변 출력 결과
+# ==========================================
+if "chat_answer" in st.session_state:
+    st.info("📢 **AI 전문가 답변 결과**")
+    st.write(st.session_state.chat_answer)
+
+# ==========================================
+# [SECTION 9] 성공 응원 및 음성 가이드
 # ==========================================
 st.divider()
-if st.button("🚀 모든 FC님들의 성공을 위한 업데이트 확인", use_container_width=True):
-    st.balloons()
-    display_name = user_name if user_name else "이세윤"
-    msg = f"불철주야 매진하시는 {display_name} FC님! 법인 시장의 주인공이 되십시오."
-    st.write(f"### {msg}")
-    st.components.v1.html(s_voice(msg), height=0)
+col_btn_icon, col_btn_main = st.columns([1, 10])
+with col_btn_icon:
+    st.markdown("## 🎊")
+with col_btn_main:
+    if st.button("🚀 AI와 함께하는 FC님을 위하여 (성공 업데이트 확인)", use_container_width=True):
+        st.balloons()
+        display_name = user_name if user_name else "이세윤"
+        msg = f"불철주야 매진하시는 {display_name} FC님! 법인 시장의 주인공 - AI와 함께 첨단 보험상담의 주역이 되세요."
+        st.write(f"### {msg}")
+        st.components.v1.html(s_voice(msg), height=0)
 
 # ==========================================
 # [SECTION 10] 하단 보안 및 법적 고지
