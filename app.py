@@ -17,7 +17,6 @@ import PIL.Image
 # ==========================================
 st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", layout="wide")
 
-# [404 에러 방어용 API 설정]
 try:
     if "GEMINI_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
@@ -42,7 +41,7 @@ SYSTEM_PROMPT = """
 """
 
 # ==========================================
-# [SECTION 2] 음성 및 보안 엔진 (파기 멘트 무손실)
+# [SECTION 2] 음성 및 보안 엔진
 # ==========================================
 def s_voice(text):
     return f"""<script>window.speechSynthesis.cancel(); var msg = new SpeechSynthesisUtterance("{text}");
@@ -83,7 +82,7 @@ def load_stt_engine():
     """, height=0)
 
 # ==========================================
-# [SECTION 3] 사이드바 (날짜 및 보안 로직)
+# [SECTION 3] 사이드바
 # ==========================================
 with st.sidebar:
     st.header("🔑 사용자 센터")
@@ -94,10 +93,8 @@ with st.sidebar:
     
     current_date = dt.now().date()
     expiry_date = datetime.date(2026, 4, 30)
-    
     if current_date <= expiry_date:
         st.info(f"🔓 **2026년 4월 30일까지 무제한 승인 모드**")
-        st.success("✨ 고도화 기간 특별 승인 모드")
     
     st.markdown(TOKEN_POLICY)
     st.divider()
@@ -106,7 +103,7 @@ with st.sidebar:
         st.cache_data.clear(); st.session_state.clear(); time.sleep(2.5); st.rerun()
 
 # ==========================================
-# [SECTION 4~6] 상단 고정 멘트 (브랜드 정체성)
+# [SECTION 4~6] 상단 고정 멘트
 # ==========================================
 st.markdown(f"""
 <div style="background-color:#f0f2f6; padding:20px; border-radius:10px; border-left:5px solid #1E88E5; margin-bottom:20px;">
@@ -145,17 +142,30 @@ with col_in2:
     debt = st.number_input("기존 부채 (만원)", value=0)
     uploaded_files = st.file_uploader("증권 이미지 로드 (📢 생성 후 자동 삭제)", accept_multiple_files=True)
 
-st.markdown('#### 🏆 전담 AI 마스터 상세 질문 (STT 마이크 지원)')
-if st.button("🎤 마이크 켜기 (음성 입력)"):
-    st.info("지금 말씀하세요...")
-    st.components.v1.html("<script>window.parent.startRecognition();</script>", height=0)
+# ------------------------------------------
+# 📸 [복구] 전담 마스터 사진 및 상세 질문 영역
+# ------------------------------------------
+st.divider()
+col_q, col_img = st.columns([7, 3])
 
-user_question = st.text_area("❓ 분쟁 상황이나 민원 내용을 입력하세요", height=150)
+with col_q:
+    st.markdown('#### 🏆 전담 AI 마스터 상세 질문 (STT 마이크 지원)')
+    if st.button("🎤 마이크 켜기 (음성 입력)"):
+        st.info("지금 말씀하세요...")
+        st.components.v1.html("<script>window.parent.startRecognition();</script>", height=0)
+    user_question = st.text_area("❓ 분쟁 상황이나 민원 내용을 입력하세요", height=150, placeholder="내용을 입력하거나 마이크를 사용하세요.")
 
-# [404 에러 방어형 모델 호출 로직]
-if st.button("🔍 전문가 그룹 통합 분석 시작", use_container_width=True, type="primary"):
+with col_img:
+    img_url = "https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/ai_expert.png"
+    try:
+        st.image(img_url, caption="골드키지사 전담 AI 마스터", use_container_width=True)
+    except:
+        st.info("👤 AI 마스터 이미지 로딩 중...")
+
+# [분석 및 답변 시작 버튼]
+if st.button("🔍 전문가 그룹 통합 분석 및 답변 시작 🚀", use_container_width=True, type="primary"):
     if uploaded_files or user_question:
-        with st.spinner("지침에 따라 정밀 분석 중..."):
+        with st.spinner("지침에 따라 정밀 분석 및 답변 생성 중..."):
             try:
                 success = False
                 for model_id in ['gemini-1.5-flash', 'models/gemini-1.5-flash']:
@@ -167,10 +177,9 @@ if st.button("🔍 전문가 그룹 통합 분석 시작", use_container_width=T
                         response = model.generate_content(content_parts)
                         st.session_state.answer = response.text
                         success = True; break
-                    except Exception: continue
+                    except: continue
                 
                 if success:
-                    # [연금 100% 유지 역산 로직]
                     est_income = hi_premium * 40 / 10000
                     st.markdown("### [💰 소득 및 필요보장 통합표]")
                     data = {
@@ -179,26 +188,25 @@ if st.button("🔍 전문가 그룹 통합 분석 시작", use_container_width=T
                         "판독 결과": ["정밀 역산", "⚠️ 부족", "⚠️ 부족", "🚨 보강필요", "🚨 즉시점검"]
                     }
                     st.table(pd.DataFrame(data))
+                else: st.error("🚨 모델 호출 실패. 설정을 확인하세요.")
             except Exception as e: st.error(f"오류: {e}")
 
 # ==========================================
-# [SECTION 8] 전문 지식 데이터베이스 (결과 출력)
+# [SECTION 8] 전문 지식 데이터베이스 (답변 출력)
 # ==========================================
 if "answer" in st.session_state:
     st.markdown("---")
+    st.info("📢 **전담 AI 마스터 분석 및 답변 결과**")
     st.markdown(st.session_state.answer)
 
 st.divider()
 tab1, tab2, tab3, tab4 = st.tabs(["🛡️ 보상 실무", "🏢 법인 세무", "🚨 중대재해", "🌐 글로벌 지원"])
-with tab1:
-    st.info("🎯 판례 2001다1480: 합의 당시 예상 못한 중대 후유증은 추가 청구 가능")
-with tab2:
-    st.warning("💼 해지환급금: 자산계상(사업준비금), 이익잉여금 산입 안 됨 원칙 준수")
-with tab3:
-    st.error("🚔 중대재해: 단체보험 수익자 '법인' 지정 시 배상 채무 직접 상쇄 효과")
+with tab1: st.info("🎯 판례 2001다1480: 합의 당시 예상 못한 후유증 추가 청구 가능")
+with tab2: st.warning("💼 해지환급금: 자산계상(사업준비금) 원칙 준수")
+with tab3: st.error("🚔 중대재해: 단체보험 수익자 '법인' 지정 시 배상 채무 상쇄")
 with tab4:
     st.subheader("🌐 글로벌 보상 지원 센터")
-    user_input_extra = st.text_area("상황 입력 (다국어 번역 및 민원 초안)")
+    user_input_extra = st.text_area("글로벌 상황 입력", key="global_input")
     if st.button("AI 마스터 해결 요청"):
         st.success(f"결과: {user_input_extra} 분석 완료 (법적근거: 민법 제733조 적용)")
 
@@ -207,10 +215,7 @@ with tab4:
 # ==========================================
 st.divider()
 if st.button("🚀 모든 FC님들의 성공을 위한 업데이트 확인", use_container_width=True):
-    st.balloons()
-    msg = "FC님! 보험 시장의 주인공이 되십시오."
-    st.write(f"### {msg}")
-    st.components.v1.html(s_voice(msg), height=0)
+    st.balloons(); msg = "FC님! 보험 시장의 주인공이 되십시오."; st.write(f"### {msg}"); st.components.v1.html(s_voice(msg), height=0)
 
 st.error("**[법적 고지]** 본 리포트는 상담 참고용 자료입니다.")
 st.sidebar.caption(f"최종 업데이트: {dt.now().strftime('%Y-%m-%d %H:%M')}")
