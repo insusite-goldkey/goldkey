@@ -45,7 +45,7 @@ def speak(text):
     return st.components.v1.html(html_code, height=0)
 
 # ==========================================
-# [SECTION 3-6] 사이드바 및 1단계 분석 (동일 유지)
+# [SECTION 3-6] 사이드바 및 1단계 분석
 # ==========================================
 with st.sidebar:
     st.header("🔑 사용자 센터")
@@ -88,8 +88,8 @@ with col_action:
         if uploaded_files:
             with st.spinner("전문가 그룹이 분석 중입니다..."):
                 try:
-                    # 🔴 에러 수정: 모델 명칭을 가장 호환성 높은 것으로 변경
-                    model = genai.GenerativeModel('gemini-pro', system_instruction=SYSTEM_PROMPT)
+                    # 🔴 최신 안정화 모델 명칭으로 변경
+                    model = genai.GenerativeModel('gemini-1.5-flash-latest', system_instruction=SYSTEM_PROMPT)
                     content_parts = [f"상담원:{user_name}, 고객:{customer_name}, 건보료:{hi_premium}, 부채:{debt}"]
                     for f in uploaded_files:
                         img_data = PIL.Image.open(f)
@@ -103,14 +103,14 @@ if "analysis_answer" in st.session_state:
     st.markdown(st.session_state.analysis_answer)
 
 # ==========================================
-# [SECTION 7] 2단계: 질문창 및 버튼 크기 조정
+# [SECTION 7] 2단계: 질문창 및 버튼 문구 수정
 # ==========================================
 st.divider()
 st.markdown("""
 <style>
     .big-font { font-size:22px !important; font-weight: bold; color: #1E88E5; }
     .small-warn { font-size:13px !important; color: #FF5252; font-weight: normal; margin-left: 10px; }
-    .browser-info { font-size:13px !important; color: #4CAF50; font-weight: bold; margin-left: 10px; }
+    .browser-info { font-size:14px !important; color: #4CAF50; font-weight: bold; margin-left: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -128,22 +128,22 @@ with col_input_area:
     with col_mic: st.markdown("## 🎤")
     with col_btn_desc:
         if st.button("🎤 음성 인식 질문 가이드", use_container_width=True):
-            guide_msg = "아래 질문창에 궁금한 점을 입력하고 분석 요청 버튼을 눌러주세요. 크롬 브라우저를 권장합니다."
+            guide_msg = "아래 질문창에 궁금한 점을 입력하고 답변 요청 버튼을 눌러주세요. 크롬 브라우저를 권장합니다."
             st.toast(guide_msg); speak(guide_msg)
             
     user_question = st.text_area("❓ 전문가에게 물어볼 내용을 상세히 적어주세요", height=330, placeholder="질문을 입력하세요...")
 
-    # 🔴 요청사항: 버튼 너비를 질문창 크기에 맞게 조정 (열 내부에서 실행)
-    if st.button("🚀 AI 전문가 그룹 분석 요청", use_container_width=True, type="primary"):
+    # 🔴 버튼 문구 수정: 전담 AI 마스터 답변 요청
+    if st.button("🚀 전담 AI 마스터 답변 요청", use_container_width=True, type="primary"):
         if user_question:
-            with st.spinner("전문가 분석 중..."):
+            with st.spinner("마스터가 답변을 준비 중입니다..."):
                 try:
-                    # 🔴 에러 수정: 여기 모델 명칭도 안정적인 'gemini-pro'로 변경
-                    chat_model = genai.GenerativeModel('gemini-pro')
+                    # 🔴 에러 해결: 최신 모델 명칭 'gemini-1.5-flash-latest' 적용
+                    chat_model = genai.GenerativeModel('gemini-1.5-flash-latest')
                     response = chat_model.generate_content(f"{SYSTEM_PROMPT}\n\n질문: {user_question}")
                     st.session_state.chat_answer = response.text
                 except Exception as e:
-                    st.error(f"전문가 호출 오류: {e}")
+                    st.error(f"답변 생성 중 오류가 발생했습니다: {e}")
         else:
             st.warning("질문을 먼저 입력해 주세요.")
 
@@ -160,11 +160,11 @@ with col_ai_img:
         st.info("💡 이미지 파일을 확인 중입니다.")
 
 # ==========================================
-# [SECTION 8-10] 결과 출력 및 마무리 (복구 완료)
+# [SECTION 8-10] 마무리
 # ==========================================
 if "chat_answer" in st.session_state:
     st.markdown("---")
-    st.info("📢 **AI 전문가 답변 결과**")
+    st.info("📢 **전담 AI 마스터 답변 결과**")
     st.write(st.session_state.chat_answer)
 
 st.divider()
