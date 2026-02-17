@@ -14,7 +14,7 @@ st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", 
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 except Exception:
-    st.error("시스템 설정 확인이 필요합니다.")
+    st.error("시스템 설정 확인이 필요합니다. (API_KEY 누락)")
 
 TOKEN_POLICY = """
 💡 **골드키지사 AI 사용 정책**
@@ -118,19 +118,33 @@ if "analysis_answer" in st.session_state:
     st.markdown(st.session_state.analysis_answer)
 
 # ==========================================
-# [SECTION 7] 2단계: AI 전문가 상세 질문 (디자인 고도화)
+# [SECTION 7] 2단계: AI 전문가 상세 질문 (AI 이미지 삽입)
 # ==========================================
 st.divider()
-st.markdown("""<style>.big-emoji { font-size:60px !important; }.big-font { font-size:22px !important; font-weight: bold; color: #1E88E5; }</style>""", unsafe_allow_html=True)
-st.markdown('<p class="big-font">🏆 2단계: AI 전문가에게 상세 질문하기</p>', unsafe_allow_html=True)
+st.markdown("""<style>.big-font { font-size:22px !important; font-weight: bold; color: #1E88E5; }</style>""", unsafe_allow_html=True)
 
-col_mic_btn, col_empty = st.columns([1, 1])
-with col_mic_btn:
-    st.markdown('<p class="big-emoji">🎤</p>', unsafe_allow_html=True)
-    if st.button("🎤 음성 인식 질문 시작", use_container_width=True):
-        st.toast("아래 창에 질문을 입력해 주세요.")
+# 질문창과 이미지를 가로로 배치 (7:3 비율)
+col_input_area, col_ai_img = st.columns([7, 3])
 
-user_question = st.text_area("❓ 전문가에게 물어볼 내용을 적어주세요", height=200, placeholder="질문을 입력하세요...")
+with col_input_area:
+    st.markdown('<p class="big-font">🏆 2단계: AI 전문가에게 상세 질문하기</p>', unsafe_allow_html=True)
+    
+    col_mic, col_btn_desc = st.columns([1, 10])
+    with col_mic:
+        st.markdown("## 🎤")
+    with col_btn_desc:
+        if st.button("🎤 음성 인식 질문 시작", use_container_width=True):
+            st.toast("아래 창에 질문을 입력해 주세요.")
+            
+    user_question = st.text_area("❓ 전문가에게 물어볼 내용을 적어주세요", height=230, placeholder="질문을 입력하세요...")
+
+with col_ai_img:
+    st.write("") # 상단 여백
+    # 이전에 확정된 단아한 한국인 AI 전문가 이미지 URL 사용
+    ai_image_url = "https://raw.githubusercontent.com/seyun-goldkey/goldkey/main/ai_expert.png" # 예시 경로입니다.
+    # 만약 위 URL이 안나온다면 아래처럼 이미지를 표시합니다.
+    st.image("https://github.com/seyun-goldkey/goldkey/blob/main/ai_expert.png?raw=true", 
+             caption="골드키지사 AI 전문가", use_container_width=True)
 
 if st.button("🚀 AI 전문가 그룹 분석 요청", use_container_width=True):
     if user_question:
@@ -154,7 +168,7 @@ if "chat_answer" in st.session_state:
 st.divider()
 col_success_icon, col_success_btn = st.columns([1, 6])
 with col_success_icon:
-    st.markdown('<p class="big-emoji">🎊</p>', unsafe_allow_html=True)
+    st.markdown('<p style="font-size:60px;">🎊</p>', unsafe_allow_html=True)
 with col_success_btn:
     st.write(" ")
     if st.button("🚀 FC님 AI와 함께 첨단 보험상담의 주역이 되세요 (업데이트 확인)", use_container_width=True):
