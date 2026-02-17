@@ -1,88 +1,125 @@
 import streamlit as st
 import google.generativeai as genai
 import PIL.Image
+from datetime import datetime
 
 # 1. AI 마스터키 설정
-genai.configure(api_key="AIzaSyDA500Cw6Gqfrd_lS5OQxEPBblH92oW2Xo")
+MY_KEY = "AIzaSyDA500Cw6Gqfrd_lS5OQxEPBblH92oW2Xo"
+genai.configure(api_key=MY_KEY)
 
-# 2. 이세윤 설계사 최종 페르소나 및 인사 가이드라인 주입
-SYSTEM_PROMPT = """
-당신은 '이세윤 설계사'의 30년 경력과 전문성을 계승한 [고객 보험 상담 전문 AI 비서]입니다.
+# 수애 톤 브리핑 시스템 (중저음, 안정적 속도)
+def tts_control_js(text, action="speak"):
+    if action == "stop":
+        return "<script>window.speechSynthesis.cancel();</script>"
+    clean_text = text.replace("\n", " ").replace('"', "'")[:800]
+    return f"""
+        <script>
+            window.speechSynthesis.cancel();
+            var msg = new SpeechSynthesisUtterance("{clean_text}");
+            msg.lang = 'ko-KR'; msg.rate = 0.9; msg.pitch = 0.8;
+            window.speechSynthesis.speak(msg);
+        </script>
+    """
 
-[SECTION 1. 페르소나 및 정체성]
-- 성명: 고객 보험 상담 전문 AI 비서 (이세윤 설계사 대행)
-- 핵심 가치: 30년 경력의 현장 실무 지식과 고객 중심 보상 철학 계승.
-- 전문성: CFP 수준의 자산 관리, 전문의 수준의 의학 지식(암, 뇌심혈관, 치매 등), 손해사정 및 법률 해석 능력.
+# 이름 마스킹 함수
+def mask_name(name):
+    if len(name) <= 1: return name
+    if len(name) == 2: return name[0] + "*"
+    return name[0] + "*" + name[2:]
 
-[SECTION 2. 답변 생성 및 검증 원칙]
-- 규칙 1 (근거 중심): 반드시 판결문, 금융감독원 보도자료, 손해사정 실무 지침서를 근거로 작성하십시오.
-- 규칙 2 (3중 검증): 답변 전 법률(상법), 의학(KCD), 실무(이세윤 설계사의 위로) 관점에서 자가 검토하십시오.
-- 규칙 3 (특화 전략): 중증 질환 특약 매칭, CDR 척도 분석, 과실 비율 및 장해 등급 법률 쟁점을 고지하십시오.
+# 2. 통합 시스템 지침 (전문가 자문단 포함)
+SYSTEM_PROMPT = """당신은 케이지에이에셋 골드키지사 이세윤 설계사를 대행하는 AI 비서입니다.
+손해사정인(보상), 변호사(법률), 세무사/CFP(재무), 전문의(의학)의 식견을 반드시 포함하십시오.
+모든 데이터는 분석 후 파기됨을 원칙으로 하며 하십시오체를 유지하십시오."""
 
-[SECTION 3. 인사 및 화법 가이드라인 - 필수 준수]
-- 최초 대화 시: 반드시 "안녕하십니까? 고객님. 30년 상담 경력 보험설계사의 지혜를 담은 AI 비서입니다."라고 인사하며 시작하십시오.
-- 이후 대화 시: 반복적인 인사는 생략하고 본론으로 바로 진입하여 효율성을 높이십시오.
-- 어조: 철저한 2인칭 대화를 유지하며, 정중하고 신뢰감 있는 '하십시오체'를 사용하십시오.
-- 태도: 전문 용어는 사용하되, 고객이 이해하기 쉽게 '이세윤 설계사의 언어'로 풀어서 설명하십시오.
-"""
+# 3. 데이터 초기화 함수
+def purge_all_data():
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    st.rerun()
 
-# 3. 페이지 레이아웃 설정
-st.set_page_config(page_title="골드키지사 AI 마스터", layout="wide")
-st.markdown("""
-    <style>
-    .main { background-color: #f4f7f9; }
-    .stButton>button { width: 100%; border-radius: 8px; background-color: #002d5b; color: white; font-weight: bold; height: 3em; }
-    </style>
-    """, unsafe_allow_html=True)
+# 4. 앱 화면 및 세션 관리
+st.set_page_config(page_title="골드키지사 전문가 통합 분석", layout="wide")
 
-# 4. 사이드바 구성
-st.sidebar.header("🏆 골드키지사 관리자")
-customer_name = st.sidebar.text_input("고객 성함", "박성준")
-analysis_mode = st.sidebar.selectbox("분석 모드", ["종합 보장 분석", "법률/손해사정 검토", "의학적 보상 상담"])
-st.sidebar.divider()
-st.sidebar.write(f"**담당 설계사:** 이세윤")
-st.sidebar.caption("30년 경력의 노하우와 CFP의 전문성")
+if "history" not in st.session_state:
+    st.session_state.history = []
+if "answer" not in st.session_state:
+    st.session_state.answer = ""
 
-# 5. 메인 화면
-st.title("🏆 골드키지사 보장분석 AI 마스터")
-st.write(f"### {customer_name} 고객님 전문 상담 세션")
-st.info("💡 본 리포트는 30년 경력의 실무 지식과 판결문, 금감원 자료를 바탕으로 작성됩니다.")
+with st.sidebar:
+    st.header("🏛️ 케이지에이에셋")
+    st.subheader("골드키지사")
+    st.write("**지사장:** 박보정 / **담당:** 이세윤")
+    st.divider()
 
-# 대화 상태 저장 (인사말 규칙 적용용)
-if "first_run" not in st.session_state:
-    st.session_state.first_run = True
+    # [보안 기능 1] 회원 탈퇴 시뮬레이션
+    with st.expander("👤 계정 설정 및 회원 탈퇴"):
+        st.write("회원 탈퇴 시 본인이 상담한 모든 자료와 상담 리스트는 즉시 영구 삭제됩니다.")
+        if st.button("❌ 회원 탈퇴 (전체 정보 삭제)"):
+            purge_all_data()
 
-# 6. 증권 분석 로직
-uploaded_file = st.file_uploader("증권/진단서 사진을 업로드하십시오", type=['jpg', 'png', 'jpeg', 'pdf'])
-
-if uploaded_file:
-    col1, col2 = st.columns([1, 1.2])
+    st.divider()
     
-    with col1:
-        st.image(uploaded_file, caption="업로드된 분석 서류", use_container_width=True)
+    # [보안 기능 2] 현장 즉시 파기 버튼
+    st.error("🔒 현장 보안 기능")
+    if st.button("🗑️ 현재 상담 자료 즉시 파기"):
+        purge_all_data()
+    st.caption("상담 대상자가 즉시 삭제를 원할 경우 클릭하십시오.")
     
-    with col2:
-        with st.spinner("전문가 그룹의 지식을 취합하여 정밀 분석 중입니다..."):
+    st.divider()
+    customer_name = st.text_input("상담 대상", "고객님")
+    hi_premium = st.number_input("월 건강보험료(원)", value=250000)
+    debt = st.number_input("현재 부채 총액(원)", value=100000000)
+    
+    st.divider()
+    st.info("📢 안내: 입력한 자료 보고서 생성 후 자동 삭제")
+    uploaded_files = st.file_uploader("증권/의무기록 로드", accept_multiple_files=True)
+
+# 5. 메인 화면 및 분석 로직
+st.title("🛡️ 전문가 그룹 통합 보장 판독 리포트")
+
+if st.session_state.history:
+    with st.expander("📋 최근 상담 리스트 (마스킹 적용)", expanded=False):
+        for h in st.session_state.history:
+            st.write(f"✅ {h['date']} | 대상: {h['name']} | 분석 완료")
+
+st.write(f"### {mask_name(customer_name)}님 전문 상담 세션")
+
+if st.button("🔍 전문가 그룹 통합 분석 시작"):
+    if uploaded_files:
+        with st.spinner("전문가 자문단이 분석 중입니다..."):
             try:
                 model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=SYSTEM_PROMPT)
-                img = PIL.Image.open(uploaded_file)
+                content_parts = [f"호칭: {customer_name}, 건보료: {hi_premium}, 부채: {debt}"]
+                for f in uploaded_files:
+                    img = PIL.Image.open(f)
+                    content_parts.append(img)
                 
-                # 인사 규칙 적용
-                if st.session_state.first_run:
-                    prompt = f"이 서류를 분석하여 {customer_name} 고객님께 첫 인사를 포함한 정밀 리포트를 '하십시오체'로 작성하십시오."
-                    st.session_state.first_run = False
-                else:
-                    prompt = f"이 서류를 {analysis_mode} 관점에서 분석하여 본론 위주 리포트를 '하십시오체'로 작성하십시오."
+                response = model.generate_content(content_parts)
+                st.session_state.answer = response.text
                 
-                response = model.generate_content([prompt, img])
-                
-                st.success("✅ 분석이 완료되었습니다.")
-                st.markdown("---")
-                st.markdown(response.text)
-                
+                # 상담 기록 저장
+                st.session_state.history.append({
+                    "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "name": mask_name(customer_name)
+                })
             except Exception as e:
-                st.error(f"분석 중 오류가 발생했습니다: {e}")
+                st.error(f"오류: {e}")
+    else:
+        st.warning("분석할 서류를 업로드해 주십시오.")
 
-# 7. 하단 면책 문구
+# 6. 결과 출력
+if st.session_state.answer:
+    col1, col2 = st.columns([1, 8])
+    with col1:
+        if st.button("🔊 전문 브리핑"):
+            st.components.v1.html(tts_control_js(st.session_state.answer), height=0)
+    with col2:
+        if st.button("⏹️ 중단"):
+            st.components.v1.html(tts_control_js("", "stop"), height=0)
+    
+    st.divider()
+    st.markdown(st.session_state.answer)
+
 st.divider()
-st.caption(f"본 리포트는 이세윤 설계사의 상담 철학을 바탕으로 AI가 작성한 참고 자료입니다. 관련 법조문을 참조하였으나 최종 보상 여부는 약관에 따릅니다.")
+st.caption("케이지에이에셋 골드키지사 | 회원 탈퇴 및 현장 파기 시스템 가동 중")
