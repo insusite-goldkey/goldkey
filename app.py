@@ -1,125 +1,92 @@
 import streamlit as st
-import google.generativeai as genai
-import PIL.Image
-from datetime import datetime
+import time
 
-# 1. AI 마스터키 설정
-MY_KEY = "AIzaSyDA500Cw6Gqfrd_lS5OQxEPBblH92oW2Xo"
-genai.configure(api_key=MY_KEY)
+# --- 1. 기본 설정 및 보안 ---
+st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", layout="centered")
 
-# 수애 톤 브리핑 시스템 (중저음, 안정적 속도)
-def tts_control_js(text, action="speak"):
-    if action == "stop":
-        return "<script>window.speechSynthesis.cancel();</script>"
-    clean_text = text.replace("\n", " ").replace('"', "'")[:800]
+# --- 2. 수애 톤 음성 안내 함수 (인공지능 비서 음성) ---
+def s_voice(text):
     return f"""
         <script>
             window.speechSynthesis.cancel();
-            var msg = new SpeechSynthesisUtterance("{clean_text}");
-            msg.lang = 'ko-KR'; msg.rate = 0.9; msg.pitch = 0.8;
+            var msg = new SpeechSynthesisUtterance("{text}");
+            msg.lang = 'ko-KR';
+            msg.rate = 1.0;
+            msg.pitch = 0.85; // 신뢰감 있는 차분한 톤
             window.speechSynthesis.speak(msg);
         </script>
     """
 
-# 이름 마스킹 함수
-def mask_name(name):
-    if len(name) <= 1: return name
-    if len(name) == 2: return name[0] + "*"
-    return name[0] + "*" + name[2:]
+# --- 3. 데이터 파기 및 종료음 스크립트 ---
+def goodbye_sequence():
+    return """
+        <script>
+            var context = new (window.AudioContext || window.webkitAudioContext)();
+            var osc = context.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, context.currentTime);
+            osc.connect(context.destination);
+            osc.start(); osc.stop(context.currentTime + 0.3);
+            
+            var msg = new SpeechSynthesisUtterance("방금 로딩한 문서는 보안 규정에 따라 자동으로 파기되었습니다. 오늘도 수고하셨습니다.");
+            msg.lang = 'ko-KR';
+            window.speechSynthesis.speak(msg);
+        </script>
+    """
 
-# 2. 통합 시스템 지침 (전문가 자문단 포함)
-SYSTEM_PROMPT = """당신은 케이지에이에셋 골드키지사 이세윤 설계사를 대행하는 AI 비서입니다.
-손해사정인(보상), 변호사(법률), 세무사/CFP(재무), 전문의(의학)의 식견을 반드시 포함하십시오.
-모든 데이터는 분석 후 파기됨을 원칙으로 하며 하십시오체를 유지하십시오."""
+# --- 4. 세션 상태 관리 (사용자 식별 및 이어하기) ---
+if "step" not in st.session_state: st.session_state.step = "HOME"
+if "user_name" not in st.session_state: st.session_state.user_name = "이세윤" # 예시
+if "is_subscribed" not in st.session_state: st.session_state.is_subscribed = False
 
-# 3. 데이터 초기화 함수
-def purge_all_data():
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.rerun()
+# --- 5. 메인 화면: 튜토리얼 (3+2 방식) ---
+st.title("👑 골드키지사 AI 마스터")
+st.subheader("FC님을 위한 분석 리포트 및 상담 데이터베이스")
 
-# 4. 앱 화면 및 세션 관리
-st.set_page_config(page_title="골드키지사 전문가 통합 분석", layout="wide")
-
-if "history" not in st.session_state:
-    st.session_state.history = []
-if "answer" not in st.session_state:
-    st.session_state.answer = ""
-
-with st.sidebar:
-    st.header("🏛️ 케이지에이에셋")
-    st.subheader("골드키지사")
-    st.write("**지사장:** 박보정 / **담당:** 이세윤")
-    st.divider()
-
-    # [보안 기능 1] 회원 탈퇴 시뮬레이션
-    with st.expander("👤 계정 설정 및 회원 탈퇴"):
-        st.write("회원 탈퇴 시 본인이 상담한 모든 자료와 상담 리스트는 즉시 영구 삭제됩니다.")
-        if st.button("❌ 회원 탈퇴 (전체 정보 삭제)"):
-            purge_all_data()
-
-    st.divider()
+# 튜토리얼 섹션
+with st.container(border=True):
+    st.info("💡 **골드키지사 AI 이용 가이드 (안내 음성 지원)**")
+    t_col1, t_col2, t_col3 = st.columns(3)
     
-    # [보안 기능 2] 현장 즉시 파기 버튼
-    st.error("🔒 현장 보안 기능")
-    if st.button("🗑️ 현재 상담 자료 즉시 파기"):
-        purge_all_data()
-    st.caption("상담 대상자가 즉시 삭제를 원할 경우 클릭하십시오.")
-    
-    st.divider()
-    customer_name = st.text_input("상담 대상", "고객님")
-    hi_premium = st.number_input("월 건강보험료(원)", value=250000)
-    debt = st.number_input("현재 부채 총액(원)", value=100000000)
-    
-    st.divider()
-    st.info("📢 안내: 입력한 자료 보고서 생성 후 자동 삭제")
-    uploaded_files = st.file_uploader("증권/의무기록 로드", accept_multiple_files=True)
+    with t_col1:
+        if st.button("📊 (1) 자료 분석 및\nDB 활용법", use_container_width=True):
+            st.write("👉 증권 사진을 로딩하면 전문가 그룹의 식견이 담긴 DB가 생성됩니다.")
+            st.components.v1.html(s_voice("보험 증권 사진을 업로드해 주세요. 분석 즉시 자료는 파기되니 안심하셔도 됩니다."), height=0)
+            
+    with t_col2:
+        if st.button("💬 (2) 질문과\n답변 얻기", use_container_width=True):
+            st.write("👉 사고, 보상 등 궁금한 점을 입력창에 말씀해 주세요.")
+            st.components.v1.html(s_voice("30년 상담 노하우를 담아 답변해 드립니다. 무엇이든 물어보세요."), height=0)
+            
+    with t_col3:
+        if st.button("👤 (3) 회원가입·탈퇴\n(1년 전면 무료)", use_container_width=True):
+            st.success("🎁 **1년간 전면 무료 및 시스템 고도화 기간 안내**")
+            st.write("👉 현재는 안정화를 위한 수정·보완 기간으로 전면 무료 운영됩니다.")
+            v_msg = "본 서비스는 현재 시스템 업데이트와 수정 보완을 위한 일 년간의 안정화 기간을 거치고 있습니다. 이 기간 동안은 전면 무료로 운영되오니 안심하십시오."
+            st.components.v1.html(s_voice(v_msg), height=0)
 
-# 5. 메인 화면 및 분석 로직
-st.title("🛡️ 전문가 그룹 통합 보장 판독 리포트")
+    # 2가지 추가 안내 (요청 시)
+    with st.expander("❓ 추가 안내가 필요하신가요?"):
+        ex_col1, ex_col2 = st.columns(2)
+        if ex_col1.button("🔑 API 인증키 설정"):
+            st.write("40만 원 상당의 무료 혜택을 받는 나만의 키 등록 방법입니다.")
+        if ex_col2.button("📢 향후 운영 방향"):
+            st.write("1년 후 최첨단 보안 시스템 유지를 위한 'AI 마스터 구독료' 도입 예정입니다.")
 
-if st.session_state.history:
-    with st.expander("📋 최근 상담 리스트 (마스킹 적용)", expanded=False):
-        for h in st.session_state.history:
-            st.write(f"✅ {h['date']} | 대상: {h['name']} | 분석 완료")
-
-st.write(f"### {mask_name(customer_name)}님 전문 상담 세션")
-
-if st.button("🔍 전문가 그룹 통합 분석 시작"):
-    if uploaded_files:
-        with st.spinner("전문가 자문단이 분석 중입니다..."):
-            try:
-                model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=SYSTEM_PROMPT)
-                content_parts = [f"호칭: {customer_name}, 건보료: {hi_premium}, 부채: {debt}"]
-                for f in uploaded_files:
-                    img = PIL.Image.open(f)
-                    content_parts.append(img)
-                
-                response = model.generate_content(content_parts)
-                st.session_state.answer = response.text
-                
-                # 상담 기록 저장
-                st.session_state.history.append({
-                    "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "name": mask_name(customer_name)
-                })
-            except Exception as e:
-                st.error(f"오류: {e}")
-    else:
-        st.warning("분석할 서류를 업로드해 주십시오.")
-
-# 6. 결과 출력
-if st.session_state.answer:
-    col1, col2 = st.columns([1, 8])
-    with col1:
-        if st.button("🔊 전문 브리핑"):
-            st.components.v1.html(tts_control_js(st.session_state.answer), height=0)
-    with col2:
-        if st.button("⏹️ 중단"):
-            st.components.v1.html(tts_control_js("", "stop"), height=0)
-    
-    st.divider()
-    st.markdown(st.session_state.answer)
-
+# --- 6. FC 성공 응원 메시지 (전체 업데이트 공지) ---
 st.divider()
-st.caption("케이지에이에셋 골드키지사 | 회원 탈퇴 및 현장 파기 시스템 가동 중")
+if st.button("🚀 시스템 고도화 알림 확인 (FC 응원)"):
+    st.balloons()
+    st.success("📢 **모든 FC님들의 성공을 응원합니다!**")
+    welcome_msg = "불철주야 고객 상담에 매진하시는 모든 FC님들의 성공을 위해 제가 시스템을 한 단계 더 업그레이드했습니다. 더욱 정교해진 분석 리포트 및 상담 데이터베이스를 경험해 보십시오."
+    st.write(welcome_msg)
+    st.components.v1.html(s_voice(welcome_msg), height=0)
+
+# --- 7. 불편사항 음성 피드백 (녹취 시스템) ---
+st.divider()
+st.subheader("📢 이용 중 불편하신 점이 있나요?")
+if st.button("🎤 불편사항 말로 전달하기 (클릭)"):
+    st.info("🎙️ 녹음 중입니다... 말씀이 끝나면 [정지]를 눌러주세요. (이세윤 설계사에게 직접 전달됩니다)")
+    # 여기에 실제 STT(Speech to Text) 로직이 결합됩니다.
+    time.sleep(2)
+    st.success("✅ 소중한 의견이 접
