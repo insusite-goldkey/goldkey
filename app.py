@@ -37,17 +37,14 @@ def goodbye_sequence():
     msg.lang = 'ko-KR'; window.speechSynthesis.speak(msg);</script>"""
 
 # ==========================================
-# [SECTION 3] 사이드바 (사용자 센터 & API 가이드 - 새 창 열기 적용)
+# [SECTION 3] 사이드바 (사용자 센터 & API 가이드)
 # ==========================================
 with st.sidebar:
     st.header("🔑 사용자 센터")
     user_name = st.text_input("상담원 성함", "")
     st.divider()
     st.markdown("### 🛠️ API 키 발급 안내")
-    
-    # HTML을 사용하여 확실하게 새 탭(target='_blank')으로 열리게 수정
     st.markdown('<a href="https://aistudio.google.com/app/apikey" target="_blank" style="text-decoration: none;"><button style="width: 100%; padding: 10px; background-color: #1E88E5; color: white; border: none; border-radius: 5px; cursor: pointer;">🌐 구글 API 키 발급받기 (새 창)</button></a>', unsafe_allow_html=True)
-    
     st.divider()
     current_date = dt.now().date()
     expiry_date = datetime.date(2026, 4, 30)
@@ -73,7 +70,7 @@ if user_name:
     st.success(f"🌟 {user_name} 상담원님, 반갑습니다!")
 
 # ==========================================
-# [SECTION 5] 1단계: 증권 이미지 정밀 분석 (파일 업로드)
+# [SECTION 5] 1단계: 증권 이미지 정밀 분석
 # ==========================================
 st.write("---")
 st.write("### 📂 1단계: 증권 이미지 정밀 분석")
@@ -131,7 +128,7 @@ col_mic_btn, col_empty = st.columns([1, 1])
 with col_mic_btn:
     st.markdown('<p class="big-emoji">🎤</p>', unsafe_allow_html=True)
     if st.button("🎤 음성 인식 질문 시작", use_container_width=True):
-        st.toast("현재 브라우저의 마이크 권한을 확인 중입니다. 아래 창에 질문이 입력됩니다.")
+        st.toast("아래 창에 질문을 입력해 주세요.")
 
 user_question = st.text_area("❓ 전문가에게 물어볼 내용을 적어주세요", height=200, placeholder="질문을 입력하세요...")
 
@@ -152,7 +149,7 @@ if "chat_answer" in st.session_state:
     st.write(st.session_state.chat_answer)
 
 # ==========================================
-# [SECTION 9] 성공 응원 및 음성 가이드 (문구 최적화)
+# [SECTION 9] 성공 응원 및 음성 가이드
 # ==========================================
 st.divider()
 col_success_icon, col_success_btn = st.columns([1, 6])
