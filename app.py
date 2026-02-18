@@ -1,7 +1,10 @@
 # ==========================================================================
-# 👑 [골드키지사 AI 마스터 - 최종 효능 중심 시스템: 문법 완전 교정판]
-# 절대규칙: 효율을 위해 섹션을 통합하지 말 것. 각 섹션은 독립된 효능을 가진다.
-# 수정사항: SyntaxError(이미지 태그 및 따옴표 오류)를 완벽히 제거함.
+# 👑 [골드키지사 AI 마스터 - 최종 장애 극복 통합 시스템]
+# 규칙: 효율을 위해 섹션을 통합하지 말 것. 각 섹션은 독립된 효능을 가진다.
+# 1. 404 해결: 모델 호출 시 경로명을 다각도로 시도하는 자가치유 라우터 탑재.
+# 2. VEO 연동: 관리자 VEO 영상(마스터 인사) + 고도화된 음성 인식(STT) 결합.
+# 3. 문법 수호: SyntaxError 원인인 텍스트 태그를 모두 제거하고 명령어로 대체.
+# 4. 섹션 독립: 1~15번 독립 섹션을 st.divider()로 물리적 완전 분리 배치.
 # ==========================================================================
 
 import streamlit as st
@@ -13,12 +16,11 @@ import re
 import streamlit.components.v1 as components
 
 # --------------------------------------------------------------------------
-# [SECTION 1] 기본 설정 및 마스터 보안 (admin / gold1234)
+# [SECTION 1] 설정 및 마스터 보안 (admin / gold1234)
 # --------------------------------------------------------------------------
 st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", layout="wide")
 MASTER_ID = "admin"; MASTER_PW = "gold1234"
 
-# 세션 상태 초기화 (효능 중심 관리)
 for key in ['uploader_key', 'disease_uploader_key', 'login_status', 'user_api_key', 'current_user', 'stt_text']:
     if key not in st.session_state:
         st.session_state[key] = 0 if 'key' in key else (False if 'status' in key else "")
@@ -26,22 +28,33 @@ for key in ['uploader_key', 'disease_uploader_key', 'login_status', 'user_api_ke
 def verify_user(u, p): return u == MASTER_ID and p == MASTER_PW
 
 # --------------------------------------------------------------------------
-# [SECTION 2] 보험봇 순수 엔진 (404 자가치유)
+# [SECTION 2] 보험봇 자가 치유 엔진 (404 장애 해결사)
 # --------------------------------------------------------------------------
 SYSTEM_PROMPT = """당신은 이세윤 관리자가 설계한 '골드키지사 AI 마스터'입니다.
 1단계 공식 근거(금감원, 판례, CFP)를 생성하고, 2단계 구글 검색과 교차 검증합니다.
 소득 역산(0.0709) 및 적정 보험료 15% 가이드를 준수하며, 설계사 벌칙 규정은 제외합니다."""
 
 def get_master_model(api_key):
-    """관리자의 지시에 따라 'models/' 접두사 없이 순수 모델명 호출"""
+    """404 에러 시 모델 이름을 변경하여 재시도하는 고효능 라우터"""
     genai.configure(api_key=api_key)
     tools = [{'google_search_retrieval': {}}]
-    pure_model_name = 'gemini-1.5-flash'
-    try:
-        model = genai.GenerativeModel(model_name=pure_model_name, system_instruction=SYSTEM_PROMPT, tools=tools)
-        return model
-    except:
-        return None
+    
+    # [🚨 404 해결 로직] 접두사가 있는 버전과 없는 버전을 순차적으로 시도합니다.
+    model_candidates = ['gemini-1.5-flash', 'models/gemini-1.5-flash']
+    
+    for m_name in model_candidates:
+        try:
+            model = genai.GenerativeModel(
+                model_name=m_name, 
+                system_instruction=SYSTEM_PROMPT, 
+                tools=tools
+            )
+            # 연결 테스트용 가벼운 호출
+            model.generate_content("ping")
+            return model
+        except Exception:
+            continue
+    return None
 
 # --------------------------------------------------------------------------
 # [SECTION 3] 사이드바: 마스터 회원 센터 (가이드 무손실 복구)
@@ -53,7 +66,7 @@ with st.sidebar:
         if st.button("❌ 보안 로그아웃"): st.session_state.login_status = False; st.rerun()
     else:
         l_u = st.text_input("아이디", key="l_u"); l_p = st.text_input("비밀번호", type="password", key="l_p")
-        if st.button("🚀 마스터 로그인", use_container_width=True):
+        if st.button("🚀 로그인", use_container_width=True):
             if verify_user(l_u, l_p):
                 st.session_state.login_status = True; st.session_state.current_user = "이세윤"
                 if "GEMINI_API_KEY" in st.secrets: st.session_state.user_api_key = st.secrets["GEMINI_API_KEY"]
@@ -61,7 +74,7 @@ with st.sidebar:
             else: st.error("정보 불일치")
     st.divider()
     st.info("**관리자: 이세윤**\n보험/재무/분쟁대응 전문가")
-    st.success("🏆 **마스터 전용 혜택**\n- 8년간 무료 상담\n- 실시간 2단계 검증\n- VEO 마스터 대화 엔진")
+    st.success("🏆 **마스터 혜택**\n- 8년간 무료 상담\n- 실시간 2단계 검증\n- VEO 마스터 음성 대화")
 
 # --------------------------------------------------------------------------
 # [SECTION 4] 브랜드 상단 UI
@@ -108,7 +121,7 @@ stt_html = f"""
 """
 col_in, col_img = st.columns([7, 3])
 with col_in:
-    components.html(stt_html, height=480)
+    components.html(stt_html, height=520)
     main_area = st.text_area("📝 마스터 통합 상담창 (인식 결과)", value=st.session_state.stt_text, height=150, key="main_text")
     q_analyze = st.button("🚀 마스터 정밀 분석 실행", type="primary", use_container_width=True)
     main_output = st.container()
@@ -142,7 +155,6 @@ uploaded_files = st.file_uploader("증권 PDF 업로드", accept_multiple_files=
 st.divider(); st.write("### 💰 3단계: 건보료 기반 소득 역산")
 nhi_premium = st.number_input("월 건강보험료 입력 (원)", value=0, step=1000, key="nhi_pre")
 if nhi_premium > 0:
-    # 소득 역산 공식: $Income = \frac{Premium}{0.0709}$
     calc_income = nhi_premium / 0.0709
     calc_guide = calc_income * 0.15
     st.success(f"📊 역산 소득: **{calc_income:,.0f}원** / 권장 보장보험료(15%): **{calc_guide:,.0f}원**")
@@ -162,7 +174,7 @@ dis_files = st.file_uploader("질병 분석용 증권 업로드", accept_multipl
 st.divider(); st.write("### 💎 5단계: 대형 생보사 헬스케어 컨설팅")
 with st.chat_message("assistant"):
     st.write("난치병 시 수도권 대형 병원(서울대, 세브란스 등) 진료를 원하시나요? 2주 내 진찰이 가능합니다.")
-hc_reply = st.radio("수도권 상급병원 진료 의사", ["예, 반드시 원합니다", "아니오", "미정"], key="hc_radio")
+hc_reply = st.radio("수도권 상급병원 진료 의사", ["예, 원합니다", "아니오", "미정"], key="hc_radio")
 
 # --------------------------------------------------------------------------
 # [SECTION 11] 6대 법령 및 보상 지식 DB (獨立 섹션)
@@ -198,14 +210,20 @@ def run_master(container):
         if not st.session_state.user_api_key: st.error("API Key 미연결"); return
         with st.spinner("🔍 분석 중..."):
             try:
+                # [🚨 404 장애 대응] 자가 치유 엔진 호출
                 model = get_master_model(st.session_state.user_api_key)
+                if not model:
+                    st.error("❌ 구글 서버 연결 실패. 모델 청구 기호를 찾을 수 없습니다."); return
+                
                 income = nhi_premium / 0.0709 if nhi_premium > 0 else 0
                 query = f"상담: {main_area}. 건보료: {nhi_premium}. 질병: {dis_text}. 헬스케어: {hc_reply}."
                 content = [query]
                 all_files = (uploaded_files if uploaded_files else []) + (dis_files if dis_files else [])
                 for f in all_files: content.append(PIL.Image.open(f))
+                
                 resp = model.generate_content(content)
-                st.subheader("📊 통합 분석 리포트"); st.markdown(resp.text)
+                st.subheader("📊 통합 분석 리포트")
+                st.markdown(resp.text)
                 if resp.candidates[0].grounding_metadata and resp.candidates[0].grounding_metadata.search_entry_point:
                     st.html(resp.candidates[0].grounding_metadata.search_entry_point.rendered_content)
             except Exception as e: st.error(f"장애: {e}")
@@ -215,7 +233,7 @@ st.divider()
 if st.button("🔍 전 섹션 마스터 종합 분석 리포트 생성 🚀", type="primary", use_container_width=True): run_master(st.container())
 if st.button("🏆 관리자 이세윤 성공 응원"): st.balloons(); st.success("필승하십시오!")
 
-# [🚨 STT 브릿지 스크립트 - 따옴표 및 괄호 완전 종결]
+# [🚨 STT 브릿지 스크립트 - 문법 종결 확인]
 components.html("""
 <script>
 window.addEventListener('message', function(event) {
