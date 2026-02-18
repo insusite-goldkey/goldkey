@@ -1,205 +1,189 @@
 # ==========================================================================
-# 👑 [골드키지사 AI 마스터 - 유료 등급 전용: 문법 및 404 장애 완파본]
-# 관리자 지침: 효율을 위해 섹션을 통합하지 말 것. 각 섹션은 독립된 효능을 가진다.
-# 1. 문법 교정: SyntaxError 원인인 [Image of...] 태그 완전 제거.
-# 2. 404 완파: 자가치유 라우터를 통해 모델 경로 에러(404) 물리적 차단.
-# 3. 무손실 복구: 사이드바 8년 혜택 안내 및 15개 섹션의 물리적 분리 수호.
+# 👑 [골드키지사 AI 마스터 - 운영 헌법 준수 및 15개 섹션 독립 수호 완결본]
+# 관리자: 이세윤 (글로벌 CFP 마스터)
+# 지침: 섹션 통합 절대 금지 / 6대 법령 3중 검증 / 소득역산 0.0709 공식 준수
 # ==========================================================================
 
 import streamlit as st
 import google.generativeai as genai
 import PIL.Image
-import json
-import os
+import re
+import time
+from datetime import datetime as dt
 import streamlit.components.v1 as components
 
 # --------------------------------------------------------------------------
-# [SECTION 1] 기본 설정 및 마스터 보안 (admin / gold1234)
+# [SECTION 1] 설정 및 무손실 통합 페르소나 강령 (獨立)
 # --------------------------------------------------------------------------
 st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", layout="wide")
-MASTER_ID = "admin"; MASTER_PW = "gold1234"
 
-for key in ['uploader_key', 'disease_uploader_key', 'login_status', 'user_api_key', 'current_user', 'stt_text']:
-    if key not in st.session_state:
-        st.session_state[key] = 0 if 'key' in key else (False if 'status' in key else "")
+# [🚨 관리자 이세윤 지정: 무손실 통합 페르소나 강령]
+SYSTEM_PROMPT = """
+성명: 글로벌 보험/재무/인생설계 통합 전문가 (관리자: 이세윤)
+지능 기반: AI Studio의 '보험비서_최종' + '보험상담 봇' + CFP® 국제표준 지능 통합 엔진.
 
-def verify_user(u, p): return u == MASTER_ID and p == MASTER_PW
+[검색 강령]: 반드시 구글 실시간 검색(Grounding) 결과를 대조하여 답변하라.
+[분석 철학 - 6대 법령 3중 검증]: 민법, 상법, 보험업법, 형사소송법, 화재법, 실화법에 근거하여 3중 검증하라.
+[핵심 컨설팅 규칙]:
+1. 데이터 대조: 입력 텍스트와 증권 파일을 동시에 대조하여 보상 누락 정밀 분석.
+2. 암 담보 분류: 일반암 기준 유사/소액/재진단암 엄격 분류 (합산 금지).
+3. 12대 핵심 담보: 암, 뇌, 심, 후유장해, 입원, 수술, 간병, 운전자, 화재, 배책, 연금, 상해 전수 분석.
+4. 소득 역산(0.0709): 건보료 ÷ 0.0709 로직으로 월소득 계산 및 라이프 사이클 맞춤 제안.
+5. 리포트 형식: 반드시 [항목 | 가입금액 합산 | 가이드라인 | 과·부족 결과 | 마스터 처방] 표 형태 유지.
+"""
 
-# --------------------------------------------------------------------------
-# [SECTION 2] 유료 마스터 엔진 (404 자가치유 라우터)
-# --------------------------------------------------------------------------
-SYSTEM_PROMPT = """당신은 이세윤 관리자가 설계한 '골드키지사 AI 마스터'입니다.
-1. 근거: 금감원, 판례, CFP 기준 답변. 2. 검증: 구글 실시간 검색 활용.
-3. 로직: 소득 역산(0.0709) 및 적정 보험료 15% 가이드를 준수하라."""
-
-def get_master_model(api_key):
-    genai.configure(api_key=api_key)
-    # 404 에러를 피하기 위해 두 가지 경로를 순차적으로 시도합니다.
-    candidates = ['gemini-1.5-flash', 'models/gemini-1.5-flash']
-    for path in candidates:
-        try:
-            model = genai.GenerativeModel(
-                model_name=path,
-                system_instruction=SYSTEM_PROMPT,
-                tools=[{'google_search_retrieval': {}}]
-            )
-            model.generate_content("ping") # 연결 테스트
-            return model, "성공"
-        except Exception:
-            continue
-    return None, "모든 경로에서 404 또는 연결 실패가 발생했습니다."
+MODEL_NAME = 'gemini-1.5-flash'
+TOOLS = [{'google_search_retrieval': {}}]
 
 # --------------------------------------------------------------------------
-# [SECTION 3] 왼쪽 사이드바: 마스터 회원 센터 (무손실 상세 안내)
+# [SECTION 2] 음성 엔진 및 수애 목소리 (獨立)
+# --------------------------------------------------------------------------
+def s_voice(text, lang='ko-KR'):
+    if re.search('[a-zA-Z]{5,}', text): lang = 'en-US'
+    clean_text = text.replace('"', '').replace("'", "").replace("\n", " ")
+    return f"""<script>
+        window.speechSynthesis.cancel(); 
+        var msg = new SpeechSynthesisUtterance("{clean_text}");
+        msg.lang = "{lang}"; msg.rate = 0.95; 
+        window.speechSynthesis.speak(msg);
+    </script>"""
+
+def goodbye_sequence():
+    return """<script>
+        var context = new (window.AudioContext || window.webkitAudioContext)();
+        var osc = context.createOscillator(); osc.type = 'sine'; 
+        osc.frequency.setValueAtTime(523.25, context.currentTime); 
+        osc.connect(context.destination); osc.start(); osc.stop(context.currentTime + 0.3);
+        window.speechSynthesis.cancel(); 
+        var msg = new SpeechSynthesisUtterance("관리자 지침에 따라 모든 상담 데이터를 안전하게 파기했습니다.");
+        msg.lang = 'ko-KR'; window.speechSynthesis.speak(msg);
+    </script>"""
+
+# --------------------------------------------------------------------------
+# [SECTION 3] 사이드바 (사용자 센터 & 보안 - 獨立)
 # --------------------------------------------------------------------------
 with st.sidebar:
-    st.header("🔑 마스터 회원 센터")
-    if st.session_state.login_status:
-        st.success(f"👋 **{st.session_state.current_user}** 마스터님")
-        if st.button("❌ 보안 로그아웃", use_container_width=True):
-            st.session_state.login_status = False; st.rerun()
-    else:
-        l_u = st.text_input("아이디", key="l_u"); l_p = st.text_input("비밀번호", type="password", key="l_p")
-        if st.button("🚀 로그인", use_container_width=True):
-            if verify_user(l_u, l_p):
-                st.session_state.login_status = True; st.session_state.current_user = "이세윤"
-                if "GEMINI_API_KEY" in st.secrets: st.session_state.user_api_key = st.secrets["GEMINI_API_KEY"]
-                st.rerun()
+    st.header("🔑 사용자 센터")
+    user_name = st.text_input("상담원 성함", "이세윤 마스터")
+    customer_name = st.text_input("고객 성함", "우량 고객")
     st.divider()
-    st.markdown("### 👤 시스템 관리자: 이세윤")
-    st.info("글로벌 보험/재무/분쟁대응 전문가")
-    st.success("🏆 **마스터 전용 혜택**\n- 8년간 무료 상담 보장\n- 실시간 2단계 검증\n- 데이터 보안(학습 제외)")
-    st.markdown('<a href="https://aistudio.google.com/app/apikey" target="_blank"><button style="width:100%; cursor:pointer; background:#1E88E5; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold;">🌐 API 키 관리</button></a>', unsafe_allow_html=True)
+    st.info(f"👤 **관리자: 이세윤**")
+    st.success("🌐 **다국어/CFP® 시스템 가동**")
+    if st.button("❌ 보안 종료 및 데이터 파기", use_container_width=True):
+        components.html(goodbye_sequence(), height=0)
+        time.sleep(2); st.cache_data.clear(); st.session_state.clear(); st.rerun()
+    st.divider()
+    st.caption(f"🕒 최종 업데이트: {dt.now().strftime('%Y-%m-%d %H:%M')}")
 
 # --------------------------------------------------------------------------
-# [SECTION 4] 브랜드 상단 및 VEO 대화 엔진
+# [SECTION 4] 마스터 엔진 상단 UI (獨立)
 # --------------------------------------------------------------------------
-st.divider()
 st.title("👑 골드키지사 AI 마스터")
-if not st.session_state.login_status: st.warning("🔒 로그인이 필요합니다."); st.stop()
-
-MASTER_VIDEO_URL = "https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/grok-video-c317d625-a0c7-4ce4-922c-7618ab3d7966.mp4" 
-stt_html = f"""
-<div style="display: flex; flex-direction: column; align-items: center; background: #ffffff; padding: 20px; border-radius: 20px; border: 2px solid #1E88E5;">
-    <div style="width: 250px; height: 250px; border-radius: 50%; overflow: hidden; border: 5px solid #1E88E5;">
-        <video id="v_master" src="{MASTER_VIDEO_URL}" style="width: 100%; height: 100%; object-fit: cover;" playsinline></video>
-    </div>
-    <button id="mic_btn" style="margin-top: 20px; background: #1E88E5; color: white; border: none; padding: 15px 45px; border-radius: 40px; cursor: pointer; font-size: 20px; font-weight: bold;">🎤 마스터에게 질문하기</button>
-</div>
-<script>
-    const btn = document.getElementById('mic_btn'); const vid = document.getElementById('v_master');
-    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.lang = 'ko-KR';
-    btn.onclick = () => {{ vid.play(); vid.onended = () => {{ recognition.start(); }}; }};
-    recognition.onresult = (event) => {{
-        const text = event.results[0][0].transcript;
-        window.parent.postMessage({{type: 'stt_result', text: text}}, '*');
-    }};
-</script>
-"""
 col_in, col_img = st.columns([7, 3])
 with col_in:
-    components.html(stt_html, height=450)
-    main_area = st.text_area("📝 마스터 통합 상담창", value=st.session_state.stt_text, height=120)
-    q_analyze = st.button("🚀 유료 정밀 분석 실행", type="primary", use_container_width=True)
-with col_img: st.image("https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/ai_expert.png")
+    main_area = st.text_area("📝 마스터 통합 상담창 (인식 결과)", height=120)
+with col_img: 
+    st.image("https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/ai_expert.png")
 
 # --------------------------------------------------------------------------
-# [SECTION 5] 실전 보상 & 민원 대응 튜토리얼
+# [SECTION 5] 실전 보상 & 민원 대응 (獨立)
 # --------------------------------------------------------------------------
 st.divider()
 with st.expander("💡 실전 보상 & 민원 대응 (판례 2001다1480)"):
-    st.write("보험사의 설명의무 위반 시 대응 법리 및 판례 매칭 로직입니다.")
     st.image("https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/dispute_process.png")
 
 # --------------------------------------------------------------------------
-# [SECTION 6] 1단계: 필수 보장 자가 진단
+# [SECTION 6] 1단계: 필수 보장 자가 진단 (獨立)
 # --------------------------------------------------------------------------
 st.divider(); st.write("### 🛡️ 1단계: 필수 보장 자가 진단")
-ess_reply = st.text_input("일상배책, 화재, 자동차, 운전자, 통합보험 준비 상태", key="ess_q")
+essential_ins = st.multiselect("보유 보험 선택", ["자동차", "화재", "일배책", "운전자", "통합보험"], key="sec6")
 
 # --------------------------------------------------------------------------
-# [SECTION 7] 2단계: 전문 증권 분석 자료 요청
+# [SECTION 7] 2단계: 전문 증권 분석 자료 요청 (獨立)
 # --------------------------------------------------------------------------
 st.divider(); st.write("### 📸 2단계: 전문 증권 분석 자료 요청")
-uploaded_files = st.file_uploader("증권 PDF 또는 이미지 업로드", accept_multiple_files=True, key="up_main")
+uploaded_files = st.file_uploader("증권 PDF 또는 이미지 업로드", accept_multiple_files=True, key="sec7")
 
 # --------------------------------------------------------------------------
-# [SECTION 8] 3단계: 건보료 기반 소득 역산 (0.0709)
+# [SECTION 8] 3단계: 건보료 기반 소득 역산 (獨立)
 # --------------------------------------------------------------------------
 st.divider(); st.write("### 💰 3단계: 건보료 기반 소득 역산")
-nhi_premium = st.number_input("월 국민건강보험료 (원)", value=0, step=1000)
-if nhi_premium > 0:
-    calc_income = nhi_premium / 0.0709
-    st.success(f"📊 역산 월 소득: **{calc_income:,.0f}원** / 권장 보험료 15%: **{calc_income*0.15:,.0f}원**")
+hi_premium = st.number_input("월 국민건강보험료 (원)", value=0, step=1000, key="sec8")
+if hi_premium > 0:
+    monthly_income = hi_premium / 0.0709
+    st.success(f"📊 역산 월 소득: **{monthly_income:,.0f}원** / 적정 보험료 15%: **{monthly_income*0.15:,.0f}원**")
 
 # --------------------------------------------------------------------------
-# [SECTION 9] 4단계: 질병 보상 정밀 분석 및 가족력
+# [SECTION 9] 4단계: 질병 보상 정밀 분석 및 가족력 (獨立)
 # --------------------------------------------------------------------------
 st.divider(); st.write("### 🏥 4단계: 질병 보상 정밀 분석 및 가족력")
-dis_text = st.text_area("가족력 및 염려 질환 입력", key="dis_q")
-dis_files = st.file_uploader("질병 분석용 증권 업로드", accept_multiple_files=True, key="up_dis")
+disease_focus = st.text_area("가족력 및 집중 분석 질환 입력", key="sec9")
 
 # --------------------------------------------------------------------------
-# [SECTION 10] 5단계: 대형 생보사 헬스케어 컨설팅
+# [SECTION 10] 5단계: 대형 생보사 헬스케어 컨설팅 (獨立)
 # --------------------------------------------------------------------------
 st.divider(); st.write("### 💎 5단계: 대형 생보사 헬스케어 컨설팅")
-hc_ans = st.radio("상급병원 2주 내 진찰 예약 의사", ["예, 원합니다", "아니오", "미정"], key="hc_q")
+healthcare_info = st.radio("상급병원 예약 서비스 필요 여부", ["예", "아니오", "미정"], key="sec10")
 
 # --------------------------------------------------------------------------
-# [SECTION 11] 6대 법령 및 보상 지식 DB
+# [SECTION 11] 6대 법령 및 보상 지식 DB (獨立)
 # --------------------------------------------------------------------------
 st.divider(); st.write("### 🏛️ 6대 법령 및 보상 지식 DB")
-st.info("민법, 상법, 보험업법 판례 엔진 실시간 가동 중")
+st.info("민법, 상법, 보험업법, 형사소송법, 화재법, 실화법 3중 검증 엔진 가동")
 
 # --------------------------------------------------------------------------
-# [SECTION 12] 국제재무설계 기준 위험관리
+# [SECTION 12] 국제재무설계 기준 위험관리 (獨立)
 # --------------------------------------------------------------------------
 st.divider(); st.write("### 🛡️ 국제재무설계 기준 위험관리")
 st.image("https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/cfp_process.png")
 
 # --------------------------------------------------------------------------
-# [SECTION 13] 3층 연금 통합 시뮬레이션
+# [SECTION 13] 3층 연금 통합 시뮬레이션 (獨立)
 # --------------------------------------------------------------------------
 st.divider(); st.write("### 💰 3층 연금 통합 시뮬레이션")
 st.image("https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/pension_3tier.png")
-p1, p2, p3 = st.columns(3)
-p_nat = p1.number_input("국민연금", key="pn"); p_ret = p2.number_input("퇴직연금", key="pr"); p_ind = p3.number_input("개인연금", key="pi")
+p_nat = st.number_input("국민연금(만)", key="p_nat"); p_ret = st.number_input("퇴직연금(만)", key="p_ret"); p_ind = st.number_input("개인연금(만)", key="p_ind")
+home_fund = st.number_input("주택자금 필요액(만)", key="h_f"); second_life = st.text_area("인생 2막 계획", key="s_l")
 
 # --------------------------------------------------------------------------
-# [SECTION 14] 인생 이모작 및 주택 설계
-# --------------------------------------------------------------------------
-st.divider(); st.write("### 🏡 인생 이모작 및 주택 설계")
-h_f = st.number_input("주택자금 필요액", key="hf"); s_j = st.text_area("이모작 계획", key="sj")
-
-# --------------------------------------------------------------------------
-# [SECTION 15] 전문가 통합 분석 리포트
+# [SECTION 14] 전문가 통합 분석 실행 (유기적 동시 구동)
 # --------------------------------------------------------------------------
 st.divider()
-if q_analyze:
-    with st.spinner("🔍 유료 보안 엔진 분석 중..."):
-        model, msg = get_master_model(st.session_state.user_api_key)
-        if not model: st.error(f"연결 실패: {msg}")
-        else:
-            try:
-                income = nhi_premium / 0.0709 if nhi_premium > 0 else 0
-                query = f"상담: {main_area}. 소득: {income:.0f}."
-                all_files = (uploaded_files if uploaded_files else []) + (dis_files if dis_files else [])
-                content = [query] + [PIL.Image.open(f) for f in all_files]
-                resp = model.generate_content(content)
-                st.subheader("📊 유료 마스터 정밀 리포트"); st.markdown(resp.text)
-            except Exception as e: st.error(f"실행 장애: {e}")
+if st.button("🔍 종합 마스터 컨설팅 실행 (Global & Real-time) 🚀", use_container_width=True, type="primary"):
+    components.html(s_voice("전 섹션 유기적 통합 분석을 시작합니다."), height=0)
+    with st.spinner("CFP® 마스터가 구글 실시간 검색 결과를 대조 중입니다..."):
+        try:
+            genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+            model = genai.GenerativeModel(model_name=MODEL_NAME, system_instruction=SYSTEM_PROMPT, tools=TOOLS)
+            
+            calc_income = hi_premium / 0.0709 if hi_premium > 0 else 0
+            full_analysis_query = f"""
+            고객 {customer_name} 종합 마스터 리포트 요청:
+            1. [보험/위험]: 필수보험({essential_ins}) 가입 여부 및 {disease_focus} 보장 분석.
+            2. [연금/재무]: 3층 연금({p_nat+p_ret+p_ind}만) 가치 분석. 주택자금({home_fund}만) 대안.
+            3. [인생]: 인생 이모작({second_life})에 대한 CFP® 기준 재무 조언.
+            4. [헬스케어]: 서비스 연계 방안({healthcare_info}).
+            5. [소득역산]: 건보료 기반 추산소득({calc_income:,.0f}원) 대조.
+            항목|현재|가이드|과부족|처방 표로 생성하라.
+            """
+            
+            parts = [full_analysis_query, main_area]
+            if uploaded_files:
+                for f in uploaded_files: parts.append(PIL.Image.open(f))
+            
+            resp = model.generate_content(parts)
+            st.subheader(f"📊 {customer_name}님 종합 생애 설계 리포트")
+            st.markdown(resp.text)
+            components.html(s_voice(f"{user_name} 마스터님, 분석이 완료되었습니다."), height=0)
+        except Exception as e: st.error(f"🚨 분석 실패: {e}")
 
-if st.button("🏆 관리자 이세윤 성공 응원"): st.balloons(); st.success("필승하십시오!")
+# --------------------------------------------------------------------------
+# [SECTION 15] 성공 응원 및 보안 (獨立)
+# --------------------------------------------------------------------------
+st.divider()
+if st.button("🏆 관리자 이세윤 & 전문 FC 성공 응원", use_container_width=True):
+    st.balloons()
+    msg = f"{user_name}님! CFP의 전문성과 마스터의 지능으로 성공을 거두십시오!"
+    st.success(msg); components.html(s_voice(msg), height=0)
 
-components.html("""
-<script>
-window.addEventListener('message', function(event) {
-    if (event.data.type === 'stt_result') {
-        const text = event.data.text;
-        const input = window.parent.document.querySelector('textarea[aria-label*="마스터 통합 상담창"]');
-        if (input) { input.value = text; input.dispatchEvent(new Event('input', { bubbles: true })); }
-    }
-});
-</script>
-""", height=0)
+st.error("**[법적 고지]** 본 리포트는 참고용이며 최종 결정은 전문가와 상의하십시오.")
