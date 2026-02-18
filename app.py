@@ -1,10 +1,10 @@
 # ==========================================================================
-# 🚨 [절대삭제금지] 골드키지사 AI 마스터 전 섹션 무손실 통합 시스템
-# 1. 페르소나: '보험비서_최종' + '보험상담 봇' 통합 지능 (6대 법령 근거)
-# 2. 월소득 로직: 건보료 ÷ 0.0709 (매년 상승비율 반영) [절대삭제금지]
-# 3. UI/UX: 섹션별 완전 분리 / 터치 시 Pulse 애니메이션 / API 가이드 팝업화
-# 4. 음성안내: "마스터가 듣고 있어요" (음성은 전문 수애 엔진 사용)
-# 5. 분석강령: 텍스트+이미지 '반드시' 동시 대조 및 암 담보 합산 금지 원칙
+# 🚨 [운영 헌법 - 관리자 이세윤 지침 엄수]
+# 1. 섹션 통합 절대 금지: 모든 섹션은 번호별로 독립된 코드 블록을 유지한다.
+# 2. 수정/삭제 제한: 관리자 '이세윤'의 답변 없이 본 구조를 변경하지 않는다.
+# 3. 다국어 응대: 모든 분석 및 리포트는 입력 언어에 맞춰 글로벌로 출력한다.
+# 4. CFP® 설계: 위험관리, 난치병, 연금, 주택, 인생 이모작을 6단계 프로세스로 구동한다.
+# 5. 핵심 연산: 건보료 ÷ 0.0709 소득역산 / 암 합산 금지 / 구글 실시간 검색 상시 가동.
 # ==========================================================================
 
 import streamlit as st
@@ -17,33 +17,50 @@ import PIL.Image
 import re
 
 # ==========================================
-# [SECTION 1] 기본 설정 및 페르소나
+# [SECTION 1] 설정 및 페르소나 (글로벌 CFP 마스터)
 # ==========================================
 st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", layout="wide")
 
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
+MODEL_NAME = 'gemini-1.5-flash-latest'
+TOOLS = [{'google_search_retrieval': {}}] # 실시간 구글 검색 활성화
+
+# [🚨 관리자 이세윤 지정: 무손실 통합 페르소나 강령]
 SYSTEM_PROMPT = """
-성명: 고객 보험 상담 전문 AI 비서 (고도화된 전문 FC 대행)
-페르소나: '보험비서_최종' & '보험상담 봇, 함께 만들어요' 통합 지능.
-[언어 윤리 규정]: 욕설, 비하 발언, 성차별, 노인 비하 금지. 모든 언어는 순수 고객 상담 목적.
-[분석 철학]: 6대 법령(민법, 상법, 보험업법, 형사소송법, 화재법, 실화법) 근거 3중 검증 실시.
-[반드시 실행]: 입력된 텍스트(사유)와 로딩된 파일(이미지/증권)을 '반드시' 동시에 대조하여 통합 분석할 것.
-[고급 답변 규칙]: 쟁점 시 [다수의견]과 [소수의견] 분리 제시. 암 담보 합산 금지(일반암 기준 분류). 
-서류 안내 시 "본 준비 서류 목록은 2차적인 서류로 1차 보험사에 물어보고 준비하세요" 포함.
-리포트 출력: 반드시 [항목 | 가입금액 합산 | 가이드라인 | 과·부족 결과 | 마스터 처방] 형태의 표로 제시.
+성명: 글로벌 보험/재무/인생설계 통합 전문가 (관리자: 이세윤)
+지능 기반: AI Studio의 '보험비서_최종' + '보험상담 봇' + CFP® 국제표준 지능이 통합된 고성능 엔진.
+
+[검색 강령]: 
+최신 법령, 약관 개정, 판례 확인을 위해 반드시 구글 실시간 검색(Grounding) 결과를 대조하여 답변하라.
+
+[분석 철학 - 6대 법령 3중 검증]:
+민법, 상법, 보험업법, 형사소송법, 화재법, 실화법에 근거하여 모든 보상 및 재무 상담을 3중 검증하라.
+
+[핵심 컨설팅 규칙]:
+1. 데이터 대조: 입력 텍스트와 증권 파일을 동시에 대조하여 보상 누락을 정밀 분석하라.
+2. 암 담보 분류: 일반암 진단비를 기준으로 유사암, 소액암, 재진단암을 엄격히 분류하라 (무조건 합산 금지).
+3. 12대 핵심 담보 분석: 암, 뇌질환, 심장질환, 후유장해, 입원일당, 수술비, 간병비, 운전자(비용담보), 화재, 배상책임, 연금, 상해담보를 전수 분석하라.
+4. 소득 역산(0.0709): 건보료 ÷ 0.0709 로직으로 월소득을 계산하여 라이프 사이클(Life Cycle)에 맞는 보장 크기를 제안하라.
+5. 리포트 형식: 반드시 [항목 | 가입금액 합산 | 가이드라인 | 과·부족 결과 | 마스터 처방] 표 형태를 유지하라.
+
+[CFP® 전문 재무설계 확장 규칙]:
+- 필수보험 설계: 자동차, 화재(주택/공장), 일배책, 사업장 배책, 후유장해 중심 위험관리.
+- 3층 연금 설계: 국민/퇴직/개인연금 통합 및 미래 가치/부족액(Gap) 시뮬레이션.
+- 생애 설계: 주택구입 자금 마련 및 '인생 이모작(전직/창업)' 직업 인생 설계 조언.
+- 다국어 응대: 고객의 입력 언어에 맞춰 글로벌 수준의 전문 용어를 사용하여 리포트를 생성하라.
 """
 
 # ==========================================
-# [SECTION 2] 음성 엔진 및 STT
+# [SECTION 2] 음성 엔진 및 STT (다국어 지원)
 # ==========================================
 def s_voice(text, lang='ko-KR'):
     if re.search('[a-zA-Z]{5,}', text): lang = 'en-US'
     return f"""<script>
         window.speechSynthesis.cancel(); 
         var msg = new SpeechSynthesisUtterance("{text}");
-        msg.lang = "{lang}"; msg.rate = 0.95; msg.pitch = 1.1; 
+        msg.lang = "{lang}"; msg.rate = 0.95; 
         window.speechSynthesis.speak(msg);
     </script>"""
 
@@ -54,9 +71,8 @@ def goodbye_sequence():
         osc.frequency.setValueAtTime(523.25, context.currentTime); 
         osc.connect(context.destination); osc.start(); osc.stop(context.currentTime + 0.3);
         window.speechSynthesis.cancel(); 
-        var msg = new SpeechSynthesisUtterance("보안 규정에 따라 로딩된 모든 자료를 파기했습니다.");
-        msg.lang = 'ko-KR'; msg.rate = 0.95; msg.pitch = 1.1;
-        window.speechSynthesis.speak(msg);
+        var msg = new SpeechSynthesisUtterance("관리자 지침에 따라 모든 상담 데이터를 안전하게 파기했습니다.");
+        msg.lang = 'ko-KR'; window.speechSynthesis.speak(msg);
     </script>"""
 
 def load_stt_engine():
@@ -64,9 +80,8 @@ def load_stt_engine():
     <script>
         window.startRecognition = function() {
             window.speechSynthesis.cancel();
-            var msg = new SpeechSynthesisUtterance("지금 말씀하세요. 마스터가 듣고 있습니다.");
-            msg.lang = 'ko-KR'; msg.rate = 0.95; msg.pitch = 1.1;
-            window.speechSynthesis.speak(msg);
+            var msg = new SpeechSynthesisUtterance("마스터가 듣고 있습니다. 말씀해 주세요.");
+            msg.lang = 'ko-KR'; window.speechSynthesis.speak(msg);
             var recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
             recognition.lang = 'ko-KR';
             recognition.onresult = function(event) {
@@ -83,30 +98,30 @@ def load_stt_engine():
     """, height=0)
 
 # ==========================================
-# [SECTION 3] 사이드바 (API 가이드 및 종료)
+# [SECTION 3] 사이드바 (사용자 센터 & 보안)
 # ==========================================
 with st.sidebar:
     st.header("🔑 사용자 센터")
     user_name = st.text_input("상담원 성함", "전문 FC")
     st.divider()
-    with st.expander("👤 회원 등록 및 API 발급 가이드 (필독)", expanded=False):
-        st.info("🔑 **API 키 발급은 우리 앱의 생명줄과 같습니다.**")
-        st.markdown("1. 새 창 열기 / 2. 지메일 로그인 / 3. 카드 등록(형식적) / 4. 8년 무료 혜택")
-        st.markdown('<a href="https://aistudio.google.com/app/apikey" target="_blank" style="text-decoration: none;"><button style="width: 100%; border-radius: 5px; background-color: #1E88E5; color: white; border: none; padding: 10px; cursor: pointer; font-weight: bold; width:100%;">🌐 API 키 발급 (새 창)</button></a>', unsafe_allow_html=True)
-    st.divider()
-    if st.button("❌ 종료 시 모든 데이터 자동 파기", use_container_width=True):
+    st.info("👤 **관리자: 이세윤**")
+    st.success("🌐 **다국어/CFP® 시스템 가동**")
+    with st.expander("🌐 API 발급 및 보안 가이드", expanded=False):
+        st.markdown('<a href="https://aistudio.google.com/app/apikey" target="_blank">🌐 API 키 발급</a>', unsafe_allow_html=True)
+    if st.button("❌ 보안 종료 및 데이터 파기", use_container_width=True):
         st.components.v1.html(goodbye_sequence(), height=0)
-        st.cache_data.clear(); st.session_state.clear(); time.sleep(2.5); st.rerun()
+        st.cache_data.clear(); st.session_state.clear(); time.sleep(2); st.rerun()
+    st.divider()
+    st.caption(f"🕒 최종 업데이트: {dt.now().strftime('%Y-%m-%d %H:%M')}")
 
 # ==========================================
-# [SECTION 4] 브랜드 멘트
+# [SECTION 4] 브랜드 상단 UI
 # ==========================================
-st.markdown(f"""
+st.markdown("""
 <div style="background-color:#f0f2f6; padding:20px; border-radius:10px; border-left:5px solid #1E88E5; margin-bottom:20px;">
-    <h3 style="margin-top:0; color:#0D47A1;">"보험설계사는 보상 전문가여야 합니다."</h3>
-    <p style="font-size:16px; color:#424242; line-height:1.6;">
-       AI Studio의 <b>'보험비서_최종'</b>과 <b>'보험상담 봇'</b> 지능이 통합되었습니다.<br>
-       30년 현장 노하우를 담은 <b>고도화된 전문 FC를 대행</b>하는 AI 마스터가 상담의 격을 높여드립니다.
+    <h3 style="margin-top:0; color:#0D47A1;">"Life Design Master with CFP® Standards"</h3>
+    <p style="font-size:16px; color:#424242;">
+       보험 보장부터 주택, 연금, 인생 이모작까지 - <b>글로벌 다국어 및 실시간 검색</b> 서비스를 제공합니다.
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -116,96 +131,123 @@ st.title("👑 골드키지사 AI 마스터")
 # ==========================================
 # [SECTION 5] 실전 튜토리얼
 # ==========================================
-with st.expander("💡 [필독] 실전 보상 & 민원/사인거절/횡포 대응 튜토리얼", expanded=False):
-    t_col1, t_col2, t_col3 = st.columns(3)
-    with t_col1: st.info("⚖️ **보상 실무 & 판례**\n\n판례 2001다1480 근거 후유증 추가 청구법 교육.")
-    with t_col2: st.error("🚫 **보상 횡포 & 사인거절 대응**\n\n부당 지급 거절 시 반박 논리 리포트 생성법.")
-    with t_col3: st.warning("📝 **보험금 청구 가이드**\n\n보험사 홈페이지 및 앱 간편 청구 안내.")
+with st.expander("💡 실전 보상 & 민원 대응 튜토리얼 (판례 2001다1480)", expanded=False):
+    st.write("부당 지급 거절 반박 및 후유증 추가 청구 전략 탑재.")
 
 # ==========================================
-# [SECTION 6] 1단계: 고객 정보 입력
+# [SECTION 6] 1단계: 고객 기초 정보
 # ==========================================
 st.divider()
-st.markdown("<style>.stTextArea textarea:focus, .stFileUploader section:hover { border: 2px solid #1E88E5 !important; animation: pulse 1.5s infinite; } @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(30,136,229, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(30,136,229, 0); } 100% { box-shadow: 0 0 0 0 rgba(30,136,229, 0); } }</style>", unsafe_allow_html=True)
-st.write("### 📝 1단계: 고객 정보 입력")
-col_in1, col_in2 = st.columns(2)
-with col_in1:
-    customer_name = st.text_input("상담 대상 고객명", "고객님")
+st.write("### 📝 1단계: 고객 기초 정보 입력")
+st.markdown("<style>.stTextArea textarea:focus, .stFileUploader section:hover { border: 2px solid #1E88E5 !important; animation: pulse 1.5s infinite; } @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(30, 136, 229, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(30, 136, 229, 0); } 100% { box-shadow: 0 0 0 0 rgba(30, 136, 229, 0); } }</style>", unsafe_allow_html=True)
+c1, c2 = st.columns(2)
+with c1:
+    customer_name = st.text_input("고객 성함", "고객님")
     hi_premium = st.number_input("월 건강보험료 (원)", value=0, step=1000)
-with col_in2:
-    debt = st.number_input("기존 부채 (만원)", value=0)
-    st.info("💡 아래 입력창이나 파일창을 터치하면 상담이 활성화됩니다.")
+with c2:
+    debt = st.number_input("부채 총액 (만원)", value=0)
 
 # ==========================================
-# [SECTION 7] 2단계: 정밀 분석 자료 접수
+# [SECTION 7] 2단계: 자료 및 증권 업로드
 # ==========================================
 st.divider()
-st.write("### 🔍 2단계: 정밀 분석 자료 접수")
-col_q, col_img = st.columns([6, 4])
-with col_q:
-    if st.button("🎤 마이크 켜기 (마스터 안내)"): load_stt_engine()
-    user_question = st.text_area("❓ [사유 입력] 민원 사유나 궁금한 점을 입력하세요.", height=150, placeholder="터치 시 파동 효과 발생")
-    uploaded_files = st.file_uploader("📸 [서류 로드] 증권, 진단서 등을 업로드하세요.", accept_multiple_files=True)
-with col_img:
-    st.image("https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/ai_expert.png", caption="마스터가 전문가 그룹과 협업할 준비를 마쳤습니다.", use_container_width=True)
+st.write("### 📸 2단계: 자료 및 증권 업로드")
+uploaded_files = st.file_uploader("증권, 진단서, 재무자료 로드", accept_multiple_files=True)
 
 # ==========================================
-# [SECTION 8] 전문가 그룹 통합 분석 (누락 없음 확인)
-# ==========================================
-if st.button("🔍 전문가 그룹 통합 분석 시작 🚀", use_container_width=True, type="primary"):
-    if user_question or uploaded_files:
-        st.components.v1.html(s_voice("분석과 답변을 시작합니다."), height=0)
-        with st.spinner("마스터가 전문가 그룹과 협업하여 정밀 리포트를 작성 중입니다..."):
-            try:
-                # [🚨 절대삭제금지: 월소득 추산 로직]
-                monthly_income = hi_premium / 0.0709 if hi_premium > 0 else 0
-                model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=SYSTEM_PROMPT)
-                
-                # [🚨 텍스트+이미지 반드시 동시 분석 로직]
-                content_parts = [f"상담사: {user_name}, 고객: {customer_name}, 월소득: {monthly_income:,.0f}원, 질문: {user_question}"]
-                if uploaded_files:
-                    for f in uploaded_files: content_parts.append(PIL.Image.open(f))
-                
-                response = model.generate_content(content_parts)
-                st.session_state.answer = response.text
-                
-                # 결과 테이블
-                st.markdown("### [💰 정밀 소득 역산 결과]")
-                st.caption("※ 본 계산은 매년 건강보험료 상승비율에 따라 달라질 수 있습니다. [절대삭제금지]")
-                st.table(pd.DataFrame({"분석 항목": ["추산 월 소득", "추산 연봉", "사망 보장(부채+5배)"], 
-                                       "가이드라인": [f"{monthly_income:,.0f}원", f"{monthly_income*12:,.0f}원", f"{(debt*10000)+(monthly_income*12*5):,.0f}원"]}))
-                
-                st.markdown("---")
-                st.info("📢 **마스터의 통합 분석 결과**")
-                st.markdown(st.session_state.answer)
-                st.components.v1.html(s_voice("분석이 완료되었습니다. 리포트를 확인해 주십시오."), height=0)
-            except Exception as e: st.error(f"🚨 분석 실패: {e}")
-
-# ==========================================
-# [SECTION 9] 지식 데이터베이스
+# [SECTION 8] 질병 보상 정밀 분석 (난치병/선행항암)
 # ==========================================
 st.divider()
-st.write("### 🛡️ 보상 실무 및 글로벌 지원 지식 DB")
-tab1, tab2, tab3 = st.tabs(["🏛️ 판례 및 법리", "🏢 법인/중대재해", "🌍 글로벌 보상"])
-with tab1: st.info("🎯 **대법원 판례 2001다1480**\n\n합의 당시 예상치 못한 후유증 추가 청구의 법리적 근거.")
-with tab2: st.warning("💼 **법인 자산계상 및 배상책임**\n\n해지환급금 자산계상 원칙 및 중대재해 배상 채무 상쇄 전략.")
-with tab3:
-    g_q = st.text_area("🌍 글로벌 상황 입력", key="g_q")
-    if st.button("글로벌 해결 요청"):
-        if g_q:
-            res = genai.GenerativeModel('gemini-1.5-flash').generate_content(f"민법 733조 근거 답변: {g_q}")
-            st.markdown(res.text)
+st.write("### 🏥 3단계: 질병 보상 및 난치성 질환 분석")
+with st.expander("선행항암치료 및 고액치료비 질병 설정", expanded=False):
+    disease_focus = st.multiselect("집중 분석 질병", ["암(선행항암 포함)", "뇌/심장(중풍)", "정신과 질환", "희귀난치병", "자녀통합보험"])
 
 # ==========================================
-# [SECTION 10] 성공 응원 및 보안
+# [SECTION 9] 생보사 헬스케어 서비스 컨설팅
 # ==========================================
 st.divider()
-st.write("### 🚀 성공 응원 및 시스템 보안")
-if st.button("🏆 모든 FC님들의 성공을 위한 업데이트 확인", use_container_width=True):
+st.write("### 💎 4단계: 삼성/교보 헬스케어 서비스 컨설팅")
+healthcare_info = st.checkbox("삼성생명/교보생명 주력 상품 및 헬스케어 보장 대조 포함")
+
+# ==========================================
+# [SECTION 10] 법리 및 지식 DB
+# ==========================================
+st.divider()
+with st.expander("🏛️ 6대 법령 및 보상 지식 DB", expanded=False):
+    st.info("민법, 상법, 보험업법 등 6대 법령 근거 3중 검증 가동 중.")
+
+# ==========================================
+# [SECTION 11] CFP® 재무상담: 필수보험 설계 (위험관리)
+# ==========================================
+st.divider()
+st.write("### 🛡️ 5단계: CFP® 위험관리 및 필수보험 설계")
+with st.expander("소유/주요 활동기 필수 보험 체크", expanded=True):
+    col_rm1, col_rm2 = st.columns(2)
+    with col_rm1:
+        essential_ins = st.multiselect("반드시 있어야 할 보험", ["자동차보험", "화재보험(주택/공장)", "일상생활배상책임", "사업장 화재/영업배상", "충분한 후유장해", "기본통합장기보험"])
+    with col_rm2:
+        life_stage = st.selectbox("Life Cycle 단계", ["사회초년생", "신혼기", "자녀양육기", "자녀교육기", "은퇴준비기"])
+
+# ==========================================
+# [SECTION 12] CFP® 재무상담: 3층 연금 통합 설계
+# ==========================================
+st.divider()
+st.write("### 💰 6단계: CFP® 3층 연금 및 미래 가치 설계")
+with st.expander("국민·퇴직·개인연금 통합 시뮬레이션", expanded=False):
+    p1, p2, p3 = st.columns(3)
+    p_nat = p1.number_input("국민연금(월/만)", value=0)
+    p_ret = p2.number_input("퇴직연금(월/만)", value=0)
+    p_ind = p3.number_input("개인연금(월/만)", value=0)
+    p_qa = st.text_area("❓ 연금 관련 질문 (언어로직 답변용)")
+
+# ==========================================
+# [SECTION 13] CFP® 재무상담: 주택구입 & 인생 이모작
+# ==========================================
+st.divider()
+st.write("### 🏡 7단계: 주택구입 설계 및 인생 이모작 직업 설계")
+with st.expander("생애 주거 및 직업 인생 설계", expanded=False):
+    home_fund = st.number_input("주택구입 필요자금(만원)", value=0)
+    second_life = st.text_area("인생 이모작(전직/창업) 계획 및 재무 고민")
+
+# ==========================================
+# [SECTION 14] 전문가 통합 분석 실행 (유기적 동시 구동)
+# ==========================================
+st.divider()
+if st.button("🔍 종합 마스터 컨설팅 실행 (Global & Real-time) 🚀", use_container_width=True, type="primary"):
+    st.components.v1.html(s_voice("전 섹션 유기적 통합 분석을 시작합니다."), height=0)
+    with st.spinner("CFP® 마스터가 구글 실시간 검색 결과를 대조 중입니다..."):
+        try:
+            monthly_income = hi_premium / 0.0709 if hi_premium > 0 else 0
+            model = genai.GenerativeModel(model_name=MODEL_NAME, system_instruction=SYSTEM_PROMPT, tools=TOOLS)
+            
+            full_analysis_query = f"""
+            고객 {customer_name} 종합 마스터 리포트 요청:
+            1. [보험/위험]: {life_stage} 단계 필수보험({essential_ins}) 가입 여부 및 {disease_focus} 보장 분석.
+            2. [연금/재무]: 3층 연금({p_nat+p_ret+p_ind}만) 가치 분석 및 질문({p_qa}) 답변. 주택자금({home_fund}만) 대안.
+            3. [인생]: 인생 이모작({second_life})에 대한 CFP® 기준 재무 조언.
+            4. [헬스케어]: 삼성/교보 서비스 연계 방안({healthcare_info}).
+            5. [소득역산]: 건보료 기반 추산소득({monthly_income:,.0f}원) 대조.
+            모든 리포트는 고객의 입력 언어에 맞게 [항목|현재|가이드|과부족|처방] 표로 생성하라.
+            """
+            
+            content_parts = [full_analysis_query]
+            if uploaded_files:
+                for f in uploaded_files: content_parts.append(PIL.Image.open(f))
+            
+            response = model.generate_content(content_parts)
+            st.subheader(f"📊 {customer_name}님 종합 생애 설계 리포트")
+            st.markdown(response.text)
+        except Exception as e: st.error(f"🚨 분석 실패: {e}")
+
+# ==========================================
+# [SECTION 15] 성공 응원 및 보안
+# ==========================================
+st.divider()
+if st.button("🎤 마이크 켜기"): load_stt_engine()
+if st.button("🏆 관리자 이세윤 & 전문 FC 성공 응원"):
     st.balloons()
-    msg = f"{user_name} FC님! 마스터가 당신의 성공을 진심으로 응원합니다!"
-    st.success(f"### {msg}")
-    st.components.v1.html(s_voice(msg), height=0)
+    msg = f"{user_name}님! CFP의 전문성과 마스터의 지능으로 성공을 거두십시오!"
+    st.success(msg); st.components.v1.html(s_voice(msg), height=0)
+
 st.error("**[법적 고지]** 본 리포트는 참고용입니다.")
-st.sidebar.caption(f"최종 업데이트: {dt.now().strftime('%Y-%m-%d %H:%M')}")
 load_stt_engine()
