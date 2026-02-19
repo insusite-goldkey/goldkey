@@ -820,16 +820,6 @@ with col_voice:
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    # 음식 인식창
-    st.markdown("---")
-    st.write("### 🍽️ 음식 인식창")
-    food_input = st.text_area("음식 정보 입력", height=100, placeholder="음식명, 칼로리, 영양성분 등을 입력하세요.", key="food_input")
-    if st.button("🍽️ 음식 분석", key="food_btn"):
-        if food_input:
-            with st.spinner("음식 분석 중..."):
-                st.success(f"✅ 음식 분석 완료: {food_input}")
-                st.info("📊 영양성분 분석 결과가 여기에 표시됩니다.")
 
 with col_consult:
     st.write("### 📝 마스터 통합 상담창")
