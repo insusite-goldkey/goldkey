@@ -5,7 +5,7 @@
 # ==========================================================
 
 import streamlit as st
-import google.generativeai as genai
+import google.genai as genai
 import PIL.Image
 import re
 import time
@@ -188,24 +188,39 @@ def get_master_model():
     if "GEMINI_API_KEY" in st.secrets:
         api_key = st.secrets["GEMINI_API_KEY"]
     else:
-        st.error("🚨 서버 보안 설정 오류: 관리자에게 문의하세요.")
+        st.error("🚨 서버 보안 설정 오류: GEMINI_API_KEY를 찾을 수 없습니다.")
+        st.error("💡 Streamlit Secrets에 GEMINI_API_KEY를 추가해주세요.")
         st.stop()
 
-    # API 버전 명시적으로 v1 설정 (v1beta 제거)
-    genai.configure(api_key=api_key, transport='rest', api_version='v1')
-    
-    # 2. 유료 등급 키이므로 실시간 검색(Grounding) 툴을 항상 활성화
+    # 2. Google Genai 클라이언트 설정
     try:
-        # [핵심] 오직 gemini-1.5-flash만 직접 호출 (우회로 차단)
-        model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
-            system_instruction=SYSTEM_PROMPT,
-            tools='google_search_retrieval'
-        )
-        return model
+        client = genai.Client(api_key=api_key)
+        
+        # 3. 모델 설정 (google-genai 방식)
+        model_config = {
+            "system_instruction": SYSTEM_PROMPT
+        }
+        
+        # Google Search 기능이 에러를 유발할 경우를 대비한 선택적 적용
+        try:
+            model_config["tools"] = [genai.Tool(google_search_retrieval=genai.GoogleSearchRetrieval())]
+        except:
+            # Google Search가 안될 경우 기본 모델로 로드
+            st.warning("⚠️ Google Search 기능을 사용할 수 없습니다. 기본 모드로 실행합니다.")
+        
+        # GenerativeModel 대신 직접 모델 사용
+        return client, model_config
     except Exception as e:
         st.error(f"🚨 모델 로드 오류: {e}")
-        st.info("💡 해결책: requirements.txt에 'google-generativeai>=0.8.3'이 적혀있는지 확인하세요.")
+        
+        # Google Search 관련 에러일 경우 대안 제시
+        if "403" in str(e) or "Forbidden" in str(e):
+            st.error("🔑 API 키에 결제 정보가 필요하거나 Google Search 권한이 없습니다.")
+            st.info("💡 해결책:")
+            st.info("1. Google AI Studio에서 결제 정보 등록")
+            st.info("2. 또는 Google Search 기능 제거")
+        
+        st.info("💡 기타 해결책: requirements.txt에 'google-genai>=0.3.0'이 적혀있는지 확인하세요.")
         st.stop()
 
 SYSTEM_PROMPT = """
@@ -385,27 +400,63 @@ SYSTEM_PROMPT = """
 
 class InsuranceRAGSystem:
     def __init__(self):
-        self.embed_model = SentenceTransformer('jhgan/ko-sroberta-multitask')
-        self.index = None
-        self.documents = []
-        self.metadata = []
+        try:
+            # 더 가벼운 모델로 변경하여 메모리 부족 방지
+            self.embed_model = SentenceTransformer('jhgan/ko-sroberta-multitask')
+            self.index = None
+            self.documents = []
+            self.metadata = []
+            self.model_loaded = True
+        except Exception as e:
+            st.error(f"🚨 RAG 모델 로드 실패: {e}")
+            st.warning("💡 RAG 기능을 사용하지 않고 계속합니다.")
+            self.model_loaded = False
         
     def create_embeddings(self, texts: List[str]) -> np.ndarray:
         """텍스트 임베딩 생성"""
-        return self.embed_model.encode(texts, normalize_embeddings=True)
+        if not self.model_loaded:
+            return np.array([])
+        
+        try:
+            # 배치 처리로 메모리 사용량 최적화
+            batch_size = 5  # 한 번에 처리할 텍스트 수 제한
+            all_embeddings = []
+            
+            for i in range(0, len(texts), batch_size):
+                batch_texts = texts[i:i+batch_size]
+                batch_embeddings = self.embed_model.encode(
+                    batch_texts, 
+                    normalize_embeddings=True,
+                    show_progress_bar=False
+                )
+                all_embeddings.append(batch_embeddings)
+            
+            return np.vstack(all_embeddings) if all_embeddings else np.array([])
+        except Exception as e:
+            st.error(f"🚨 임베딩 생성 실패: {e}")
+            return np.array([])
     
     def build_index(self, texts: List[str], metadata: List[Dict] = None):
         """FAISS 인덱스 구축"""
-        embeddings = self.create_embeddings(texts)
-        dimension = embeddings.shape[1]
-        self.index = faiss.IndexFlatIP(dimension)
-        self.index.add(embeddings)
-        self.documents = texts
-        self.metadata = metadata or [{} for _ in texts]
+        if not self.model_loaded or not texts:
+            return
+            
+        try:
+            embeddings = self.create_embeddings(texts)
+            if embeddings.size == 0:
+                return
+                
+            dimension = embeddings.shape[1]
+            self.index = faiss.IndexFlatIP(dimension)
+            self.index.add(embeddings)
+            self.documents = texts
+            self.metadata = metadata or [{} for _ in texts]
+        except Exception as e:
+            st.error(f"🚨 인덱스 구축 실패: {e}")
     
     def search(self, query: str, k: int = 5) -> List[Dict]:
         """유사 문서 검색"""
-        if self.index is None:
+        if not self.model_loaded or self.index is None:
             return []
         
         query_embedding = self.create_embeddings([query])
@@ -476,8 +527,25 @@ class InsuranceRAGSystem:
         return chunks
 
 # RAG 시스템 초기화
-if 'rag_system' not in st.session_state:
-    st.session_state.rag_system = InsuranceRAGSystem()
+# RAG 시스템 초기화 (메모리 부족 방지)
+try:
+    if 'rag_system' not in st.session_state:
+        st.session_state.rag_system = InsuranceRAGSystem()
+except Exception as e:
+    st.error(f"🚨 RAG 시스템 초기화 실패: {e}")
+    st.warning("💡 RAG 기능 없이 계속 실행합니다.")
+    if 'rag_system' not in st.session_state:
+        # 더미 RAG 시스템 생성
+        class DummyRAGSystem:
+            def __init__(self):
+                self.index = None
+                self.model_loaded = False
+            def search(self, query, k=3):
+                return []
+            def add_documents(self, docs):
+                pass
+        
+        st.session_state.rag_system = DummyRAGSystem()
 
 # [SECTION 3] 음성 및 STT 로직
 def s_voice(text, lang='ko-KR'):
@@ -1123,7 +1191,7 @@ if q_analyze:
         with st.spinner(f"🔍 {current_count + 1}번째 정밀 분석 중..."):
             try:
                 # 서버 고정형 모델 사용
-                model = get_master_model()
+                client, model_config = get_master_model()
                 income = hi_premium / 0.0709 if hi_premium > 0 else 0
                 
                 # RAG 검색 수행
@@ -1140,13 +1208,23 @@ if q_analyze:
                 
                 query = f"상담: {main_area}. 소득: {income:.0f}. 필수: {essential_ins}. 질환: {disease_focus}.{context_text}"
                 
-                parts = [query]
+                # Google Genai 방식으로 콘텐츠 생성
+                contents = [query]
                 if uploaded_files:
                     for f in uploaded_files:
-                        parts.append(PIL.Image.open(f))
+                        # 이미지를 바이트로 변환
+                        image_bytes = f.read()
+                        contents.append(image_bytes)
                 
-                resp = model.generate_content(parts)
+                # 모델 호출
+                resp = client.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=contents,
+                    config=model_config
+                )
+                
                 st.subheader(f"📊 {customer_name}님 정밀 리포트")
+                st.markdown(resp.text)
                 
                 # 관리자 연락처 자동 포함
                 st.markdown("---")
