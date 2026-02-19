@@ -801,16 +801,18 @@ with st.sidebar:
     """)
 
 # -------------------------------------------------------------------------- 
-# [SECTION 4] 마스터 UI 및 VEO 영상 사운드 해방 (獨立) 
+# [SECTION 4] 마스터 UI 및 3개 창 병렬 배치 (경량화) 
 # -------------------------------------------------------------------------- 
 st.title("👑 골드키지사 AI 마스터")
 MASTER_IMAGE_URL = "https://github.com/insusite-goldkey/goldkey/blob/main/ai_expert.png"
-col_vid, col_txt = st.columns([4, 6])
 
-with col_vid:
+# 3개 창 병렬 배치
+col_voice, col_consult, col_answer = st.columns([2, 3, 3])
+
+with col_voice:
     st.markdown(f"""
     <div style="display: flex; flex-direction: column; align-items: center; background: #f0f4f8; padding: 20px; border-radius: 20px; border: 2px solid #1E88E5;">
-        <img src="{MASTER_IMAGE_URL}" style="width: 100%; max-width: 280px; border-radius: 50%; object-fit: cover;" alt="AI 전문가 이미지">
+        <img src="{MASTER_IMAGE_URL}" style="width: 100%; max-width: 200px; border-radius: 50%; object-fit: cover;" alt="AI 전문가 이미지">
         <button onclick="window.startRecognition()" style="margin-top: 15px; background: #1E88E5; color: white; border: none; padding: 10px 20px; border-radius: 30px; cursor: pointer;">🎤 음성 인식 시작</button>
         <div style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 10px; text-align: center;">
             <p style="margin: 0; font-size: 12px; color: #1976d2;">⚡ 경량화 모드</p>
@@ -818,9 +820,20 @@ with col_vid:
         </div>
     </div>
     """, unsafe_allow_html=True)
+    
+    # 음식 인식창
+    st.markdown("---")
+    st.write("### 🍽️ 음식 인식창")
+    food_input = st.text_area("음식 정보 입력", height=100, placeholder="음식명, 칼로리, 영양성분 등을 입력하세요.", key="food_input")
+    if st.button("🍽️ 음식 분석", key="food_btn"):
+        if food_input:
+            with st.spinner("음식 분석 중..."):
+                st.success(f"✅ 음식 분석 완료: {food_input}")
+                st.info("📊 영양성분 분석 결과가 여기에 표시됩니다.")
 
-with col_txt:
-    main_area = st.text_area("📝 마스터 통합 상담창", height=230, placeholder="문의사항을 입력해주세요.", key="main_area")
+with col_consult:
+    st.write("### 📝 마스터 통합 상담창")
+    main_area = st.text_area("문의사항을 입력해주세요.", height=200, placeholder="보험, 재무, 건강 등 상담 내용을 입력하세요.", key="main_area")
     q_analyze = st.button("🚀 글로벌 CFP 정밀 분석 실행", type="primary", use_container_width=True)
     
     # 상담창 활성화 시 영상 자동 중단 (강화)
@@ -833,6 +846,96 @@ with col_txt:
             }
         </script>
         """, height=0)
+
+with col_answer:
+    st.write("### 🤖 AI 답변창")
+    
+    # 답변 결과 저장용 session_state
+    if 'analysis_result' not in st.session_state:
+        st.session_state.analysis_result = ""
+    
+    # 답변 표시 영역
+    if st.session_state.analysis_result:
+        st.markdown(st.session_state.analysis_result)
+    else:
+        st.info("🤖 AI 답변이 여기에 표시됩니다.")
+        st.write("상담창에 질문을 입력하고 분석 실행 버튼을 클릭하세요.")
+
+# 메인 상담창 분석 실행
+if q_analyze and main_area:
+    # 관리자 및 영구회원 체크
+    is_special_user = (
+        st.session_state.get('user_id') in ['ADMIN_MASTER', 'PERMANENT_MASTER'] or
+        st.session_state.get('user_name') == '이세윤'
+    )
+    
+    # 사용량 체크
+    current_count = check_usage_count(user_name)
+    MAX_FREE_LIMIT = 3
+    
+    if not is_special_user and current_count >= MAX_FREE_LIMIT:
+        st.error(f"⚠️ {user_name} 마스터님, 오늘은 3회 분석 기회를 모두 사용하셨습니다. 내일 다시 이용해 주세요!")
+        st.warning("🚀 **무제한 사용을 원하시면 월 15,000원의 프리미엄 구독으로 전환하세요!**")
+        components.html(s_voice("오늘의 무료 분석 기회를 모두 사용하셨습니다. 내일 뵙겠습니다."), height=0)
+        
+        # 답변창에 메시지 표시
+        st.session_state.analysis_result = "⚠️ **오늘의 분석 횟수를 모두 사용하셨습니다.**\n\n내일 다시 이용해 주세요!"
+    else:
+        # 분석 실행
+        with st.spinner(f"🔍 {current_count + 1}번째 정밀 분석 중..."):
+            try:
+                # 서버 고정형 모델 사용
+                client, model_config = get_master_model()
+                
+                # RAG 검색 수행
+                rag_results = []
+                if st.session_state.rag_system.index is not None:
+                    rag_results = st.session_state.rag_system.search(main_area, k=3)
+                
+                # 검색된 문서를 컨텍스트에 추가
+                context_text = ""
+                if rag_results:
+                    context_text = "\n\n[참고 자료]\n"
+                    for i, result in enumerate(rag_results, 1):
+                        context_text += f"{i}. {result['text']}\n"
+                
+                query = f"상담: {main_area}. 소득: {hi_premium / 0.0709 if hi_premium > 0 else 0:.0f}. 필수: {essential_ins}. 질환: {disease_focus}.{context_text}"
+                
+                # Google Genai 방식으로 콘텐츠 생성
+                resp = client.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=query,
+                    config=model_config
+                )
+                
+                # 답변 결과 저장
+                answer_text = f"""
+### 📊 {customer_name}님 정밀 리포트
+
+{resp.text}
+
+---
+**📞 추가 문의 필요 시**
+📧 공식 메일: insusite@gmail.com  
+📱 상담 문의: 010-3074-2616
+
+⚠️ **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
+"""
+                
+                st.session_state.analysis_result = answer_text
+                
+                components.html(s_voice("AI 상담 분석이 완료되었습니다."), height=0)
+                
+                # 분석이 성공적으로 끝나면 카운트 증가
+                update_usage(user_name)
+                remaining = MAX_FREE_LIMIT - (current_count + 1)
+                st.success(f"✅ 분석 완료! (오늘 남은 횟수: {remaining}회)")
+                
+            except Exception as e:
+                error_msg = f"⚠️ **분석 장애 발생**\n\n오류: {e}\n\n💡 해결책: API 키 확인 또는 관리자에게 문의하세요."
+                st.session_state.analysis_result = error_msg
+                st.sidebar.error(f"⚠️ 분석 장애: {e}")
+                st.sidebar.info("💡 해결책: API 키 확인 또는 관리자에게 문의하세요.")
 
 # 음성 인식 함수 로드
 load_stt_engine()
