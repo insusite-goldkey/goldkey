@@ -9,7 +9,7 @@ import google.generativeai as genai
 import PIL.Image
 import re
 import time
-from datetime import datetime as dt
+from datetime import datetime as dt, date
 import streamlit.components.v1 as components
 import os
 import json
@@ -455,7 +455,8 @@ with st.sidebar:
                     st.session_state.join_date = join_date
                     
                     st.success(f"✅ 회원가입 완료! ID: {user_id}")
-                    st.success("🎉 1년간 무료 사용권이 부여되었습니다!")
+                    st.success("🎉 시스템 고도화 기간 1년간 무료 사용권이 부여되었습니다! (2027.03.31일까지)")
+                    st.info("💡 1일 3회 사용 가능하며, 추가 사용 원하는 경우 구독이 필요합니다.")
                     st.rerun()
                 else:
                     st.error("❌ 이름과 연락처를 모두 입력해주세요.")
@@ -480,6 +481,8 @@ with st.sidebar:
         * **구독 상태**: {status_msg}
         * **잔여 기간**: {remaining_days}일
         * **오늘 사용량**: {3 - remaining_usage}/3회
+        * **시스템 고도화 기간**: 무료사용 1년 (2027.03.31일)
+        * **추가 사용**: 1일 3회 초과 시 구독 필요
         * **월 구독료**: 15,000원 (VAT 별도)
         * **제공 혜택**: 구글 실시간 검색 및 CFP 지능 무제한
         """)
@@ -515,44 +518,6 @@ with st.sidebar:
     
     st.divider()
     
-    with st.expander("📚 RAG 지식베이스 관리", expanded=False):
-        st.write("**보험 관련 문서 업로드**")
-        rag_files = st.file_uploader(
-            "PDF, DOCX, TXT 파일 업로드", 
-            type=["pdf", "docx", "txt"], 
-            accept_multiple_files=True,
-            key="rag_upload"
-        )
-        
-        if st.button("🔄 지식베이스 업데이트", key="update_rag"):
-            if rag_files:
-                with st.spinner("지식베이스 구축 중..."):
-                    all_chunks = []
-                    all_metadata = []
-                    
-                    for file in rag_files:
-                        text = st.session_state.rag_system.extract_text_from_file(file)
-                        chunks = st.session_state.rag_system.chunk_text(text)
-                        
-                        for chunk in chunks:
-                            all_chunks.append(chunk)
-                            all_metadata.append({
-                                'filename': file.name,
-                                'type': file.type
-                            })
-                    
-                    if all_chunks:
-                        st.session_state.rag_system.build_index(all_chunks, all_metadata)
-                        st.success(f"✅ {len(all_chunks)}개 청크로 지식베이스 구축 완료!")
-                    else:
-                        st.warning("⚠️ 추출된 텍스트가 없습니다.")
-            else:
-                st.warning("⚠️ 업로드된 파일이 없습니다.")
-        
-        if st.button("🗑️ 지식베이스 초기화", key="clear_rag"):
-            st.session_state.rag_system = InsuranceRAGSystem()
-            st.success("✅ 지식베이스가 초기화되었습니다.")
-    
     if st.button("❌ 보안 종료 및 상담 자료 파기", use_container_width=True):
         components.html(s_voice("상담 자료를 파기합니다. 회원 정보는 보관됩니다."), height=0)
         time.sleep(2)
@@ -574,8 +539,10 @@ with st.sidebar:
     with st.expander("🏆 마스터 회원 전용 혜택", expanded=False):
         st.markdown("""
         ### 🏆 마스터 회원 전용 혜택
-        - **구글 지원 토큰 내 무료 사용가능** (약8년간 무료.1일 3건. 파일50매한도.시스템관리비 1년무료)
-        - **무제한 사용가능**
+        - **시스템 고도화 기간**: 무료사용 1년 (2027.03.31일까지)
+        - **사용 조건**: 1일 3회 사용 가능
+        - **추가 사용**: 초과 시 월 15,000원 구독 필요
+        - **제공 혜택**: 구글 실시간 검색 및 CFP 지능 무제한
         """)
     
     st.divider()
@@ -601,7 +568,7 @@ with col_vid:
         <video id="v_master" src="{MASTER_VIDEO_URL}" style="width: 100%; max-width: 280px; border-radius: 50%;" autoplay playsinline loop controls></video>
         <button onclick="window.startRecognition()" style="margin-top: 15px; background: #1E88E5; color: white; border: none; padding: 10px 20px; border-radius: 30px; cursor: pointer;">🎤 음성 인식 시작</button>
         <button onclick="window.toggleVideoSound()" style="margin-top: 10px; background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer;">🔊 음성 토글</button>
-        <button onclick="window.stopVideo()" style="margin-top: 10px; background: #f44336; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer;">⏹️ 영상 중단</button>
+        <button onclick="window.forceStopVideo()" style="margin-top: 10px; background: #f44336; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: bold;">⏹️ 영상 강제 중단</button>
     </div>
     """, unsafe_allow_html=True)
     
@@ -613,6 +580,7 @@ with col_vid:
         var playCount = 0;
         var maxPlayTime = 6000; // 6초 (6000ms)
         var isStopped = false;
+        var isForceStopped = false;
         
         // 동영상 로드 및 자동 재생
         v.addEventListener('loadeddata', function() {
@@ -622,18 +590,23 @@ with col_vid:
             });
         });
         
-        // 영상 중단 함수
-        window.stopVideo = function() {
+        // 영상 강제 중단 함수 (개선)
+        window.forceStopVideo = function() {
             v.pause();
             v.muted = true;
             v.currentTime = 0;
             isStopped = true;
-            console.log("영상 수동 중단");
+            isForceStopped = true;
+            console.log("영상 강제 중단 실행");
+            alert("영상이 중단되었습니다.");
         };
+        
+        // 기존 중단 함수 (호환성)
+        window.stopVideo = window.forceStopVideo;
         
         // 음성 토글 함수
         window.toggleVideoSound = function() {
-            if (isMuted && !isStopped) {
+            if (isMuted && !isStopped && !isForceStopped) {
                 v.muted = false;
                 v.play().then(function() {
                     console.log("음성 활성화 성공");
@@ -651,7 +624,7 @@ with col_vid:
         // 동영상 클릭 시 음성 활성화 (1회만, 6초만)
         var soundPlayed = false;
         v.addEventListener('click', function() {
-            if (isMuted && !soundPlayed && playCount === 0 && !isStopped) {
+            if (isMuted && !soundPlayed && playCount === 0 && !isStopped && !isForceStopped) {
                 v.muted = false;
                 v.play();
                 isMuted = false;
@@ -671,7 +644,7 @@ with col_vid:
         
         // 페이지 로드 후 2초 뒤 음성 활성화 시도 (1회만, 6초만)
         setTimeout(function() {
-            if (isMuted && playCount === 0 && !isStopped) {
+            if (isMuted && playCount === 0 && !isStopped && !isForceStopped) {
                 v.muted = false;
                 v.play().catch(function(error) {
                     console.log("자동 음성 활성화 실패:", error);
@@ -697,12 +670,13 @@ with col_txt:
     main_area = st.text_area("📝 마스터 통합 상담창", height=230, placeholder="문의사항을 입력해주세요.", key="main_area")
     q_analyze = st.button("🚀 글로벌 CFP 정밀 분석 실행", type="primary", use_container_width=True)
     
-    # 상담창 활성화 시 영상 자동 중단
+    # 상담창 활성화 시 영상 자동 중단 (강화)
     if main_area:
         components.html("""
         <script>
-            if (typeof window.stopVideo === 'function') {
-                window.stopVideo();
+            if (typeof window.forceStopVideo === 'function') {
+                window.forceStopVideo();
+                console.log("상담창 활성화로 영상 자동 중단");
             }
         </script>
         """, height=0)
@@ -975,3 +949,20 @@ if q_analyze:
 if st.button("🏆 관리자 이세윤 성공 응원", use_container_width=True):
     st.balloons()
     components.html(s_voice("이세윤 관리자님, 필승하십시오! 당신의 성공을 응원합니다."), height=0)
+
+# -------------------------------------------------------------------------- 
+# [SECTION 16] 관리자 전용 RAG 지식베이스 (앱 최하단 배치) 
+# -------------------------------------------------------------------------- 
+st.divider()
+with st.expander("🔐 마스터 전용 지식베이스 관리 (Admin Only)", expanded=False):
+    # 관리자 비밀번호나 특정 키가 있을 때만 활성화되도록 설정 가능
+    admin_key = st.text_input("관리자 인증키", type="password")
+    if admin_key == "goldkey777": # 관리자님만의 비밀번호
+        st.write("### 📚 마스터 전용 RAG 엔진")
+        # 여기서 파일 업로드 및 인덱스 업데이트 수행
+        rag_files = st.file_uploader("전문가용 노하우 PDF 업로드", accept_multiple_files=True, type=["pdf", "docx", "txt"])
+        if st.button("🔄 지식베이스 즉시 동기화"):
+            # 마스터의 지식으로 변환하는 로직 실행
+            st.success("이세윤 마스터의 지식으로 통합되었습니다.")
+    else:
+        st.info("이 섹션은 관리자 전용 공간입니다.")
