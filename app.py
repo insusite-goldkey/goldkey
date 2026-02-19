@@ -32,6 +32,85 @@ st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", 
 
 # 사용량 기록 파일 경로
 USAGE_DB = "usage_log.json"
+# 회원 관리 데이터베이스 경로
+MEMBER_DB = "members.json"
+
+def encrypt_data(data):
+    """개인정보 암호화 함수"""
+    return hashlib.sha256(data.encode()).hexdigest()
+
+def decrypt_data(encrypted_data, original_data):
+    """암호화된 데이터 검증 함수"""
+    return encrypt_data(original_data) == encrypted_data
+
+def load_members():
+    """회원 데이터베이스 로드"""
+    if not os.path.exists(MEMBER_DB):
+        with open(MEMBER_DB, "w") as f:
+            json.dump({}, f)
+    with open(MEMBER_DB, "r") as f:
+        return json.load(f)
+
+def save_members(members):
+    """회원 데이터베이스 저장"""
+    with open(MEMBER_DB, "w") as f:
+        json.dump(members, f, ensure_ascii=False, indent=2)
+
+def add_member(name, contact):
+    """신규 회원 등록"""
+    members = load_members()
+    today = dt.now()
+    
+    # 2027.03.31까지 무료 사용
+    free_end_date = dt(2027, 3, 31)
+    
+    members[name] = {
+        "name": name,
+        "contact": encrypt_data(contact),  # 연락처 암호화
+        "join_date": today.strftime("%Y-%m-%d"),
+        "subscription_start": today.strftime("%Y-%m-%d"),
+        "subscription_end": free_end_date.strftime("%Y-%m-%d"),
+        "subscription_fee": 0,  # 무료 기간
+        "is_active": True,
+        "user_id": generate_user_id(name)
+    }
+    
+    save_members(members)
+    return members[name]
+
+def check_membership_status():
+    """구독 상태 확인"""
+    if 'user_name' not in st.session_state:
+        return False, "로그인 필요"
+    
+    members = load_members()
+    user_name = st.session_state.user_name
+    
+    if user_name in members:
+        member = members[user_name]
+        end_date = dt.strptime(member['subscription_end'], "%Y-%m-%d")
+        
+        if dt.now() <= end_date:
+            return True, f"유효 ({end_date.strftime('%Y.%m.%d')}까지)"
+        else:
+            return False, "만료됨"
+    
+    return False, "미가입자"
+
+def calculate_subscription_days(join_date_str):
+    """구독 잔여일수 계산"""
+    try:
+        members = load_members()
+        user_name = st.session_state.user_name
+        
+        if user_name in members:
+            end_date = dt.strptime(members[user_name]['subscription_end'], "%Y-%m-%d")
+            remaining = (end_date - dt.now()).days
+            return max(0, remaining)
+    except:
+        pass
+    
+    return 0
 
 def check_usage_limit(user_name):
     """사용자의 오늘 사용 횟수 확인"""
@@ -439,6 +518,32 @@ def load_stt_engine():
 with st.sidebar:
     st.header("🔑 SaaS 마스터 센터")
     
+    # 관리자 및 영구회원 자동 로그인 체크
+    admin_id = st.text_input("관리자 ID", key="admin_id", type="password")
+    admin_code = st.text_input("관리자 코드", key="admin_code", type="password")
+    
+    # 관리자 자동 로그인
+    if admin_id == "admin" and admin_code == "gold1234":
+        st.session_state.user_id = "ADMIN_MASTER"
+        st.session_state.user_name = "이세윤 마스터"
+        st.session_state.encrypted_contact = encrypt_contact("01030742616")
+        st.session_state.join_date = dt.now()
+        st.session_state.is_admin = True
+        st.success("👑 관리자로 자동 로그인되었습니다!")
+        st.rerun()
+    
+    # 영구회원 자동 로그인
+    elif admin_id == "이세윤" and admin_code == "01030742616":
+        st.session_state.user_id = "PERMANENT_MASTER"
+        st.session_state.user_name = "이세윤"
+        st.session_state.encrypted_contact = encrypt_contact("01030742616")
+        st.session_state.join_date = dt.now()
+        st.session_state.is_admin = False
+        st.success("🎉 영구회원으로 자동 로그인되었습니다!")
+        st.rerun()
+    
+    st.divider()
+    
     # 실명 사용 공지
     st.warning("⚠️ **반드시 본인의 실명으로 이용해야 데이터가 관리됩니다**")
     
@@ -452,15 +557,14 @@ with st.sidebar:
             if st.form_submit_button("회원가입"):
                 if name and contact:
                     # 회원가입 처리
-                    user_id = generate_user_id(name)
-                    join_date = dt.now()
+                    member_info = add_member(name, contact)
                     
-                    st.session_state.user_id = user_id
+                    st.session_state.user_id = member_info["user_id"]
                     st.session_state.user_name = name
-                    st.session_state.encrypted_contact = encrypt_contact(contact)
-                    st.session_state.join_date = join_date
+                    st.session_state.encrypted_contact = encrypt_data(contact)
+                    st.session_state.join_date = dt.strptime(member_info["join_date"], "%Y-%m-%d")
                     
-                    st.success(f"✅ 회원가입 완료! ID: {user_id}")
+                    st.success(f"✅ 회원가입 완료! ID: {member_info['user_id']}")
                     st.success("🎉 시스템 고도화 기간 1년간 무료 사용권이 부여되었습니다! (2027.03.31일까지)")
                     st.info("💡 1일 3회 사용 가능하며, 추가 사용 원하는 경우 구독이 필요합니다.")
                     st.rerun()
@@ -470,6 +574,10 @@ with st.sidebar:
         # 기존 회원 로그인 상태
         user_name = st.text_input("회원(상담원) 성함", value=st.session_state.get('user_name', '이세윤 마스터'))
         customer_name = st.text_input("고객 성함", "우량 고객")
+        
+        # user_name이 세션에 없으면 현재 입력값으로 설정
+        if 'user_name' not in st.session_state:
+            st.session_state.user_name = user_name
         
         # 구독 상태 확인
         is_member, status_msg = check_membership_status()
@@ -884,12 +992,129 @@ second_life = st.text_area("인생 2막 계획 및 노후 주거 설계", key="s
 # [SECTION 15] 전문가 통합 분석 및 성공 응원 (獨立)
 # --------------------------------------------------------------------------
 st.divider()
-if q_analyze:
-    # 1. 현재 사용 횟수 확인
-    current_count = check_usage_limit(user_name)
-    MAX_FREE_LIMIT = 3
+
+# --------------------------------------------------------------------------
+# [SECTION 16] 회원 관리 시스템 (獨立)
+# --------------------------------------------------------------------------
+st.divider()
+st.write("### 📋 회원 관리 시스템")
+
+# 관리자만 접근 가능
+if st.session_state.get('is_admin', False):
+    members = load_members()
     
-    if current_count >= MAX_FREE_LIMIT:
+    if len(members) > 0:
+        st.write(f"**총 회원수: {len(members)}명**")
+        
+        # 회원 목록 표시
+        member_data = []
+        for name, info in members.items():
+            member_data.append({
+                "이름": name,
+                "가입일": info["join_date"],
+                "구독 시작": info["subscription_start"],
+                "구독 종료": info["subscription_end"],
+                "구독료": f"{info['subscription_fee']:,}원",
+                "상태": "활성" if info["is_active"] else "비활성"
+            })
+        
+        st.dataframe(member_data, use_container_width=True)
+        
+        # 회원 관리 기능
+        with st.expander("🔧 회원 관리 기능"):
+            selected_member = st.selectbox("회원 선택", list(members.keys()))
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("구독 연장"):
+                    if selected_member:
+                        # 30일 연장
+                        current_end = dt.strptime(members[selected_member]["subscription_end"], "%Y-%m-%d")
+                        new_end = current_end + timedelta(days=30)
+                        members[selected_member]["subscription_end"] = new_end.strftime("%Y-%m-%d")
+                        members[selected_member]["subscription_fee"] = 15000
+                        save_members(members)
+                        st.success(f"✅ {selected_member}님 구독이 30일 연장되었습니다.")
+            
+            with col2:
+                if st.button("회원 비활성화"):
+                    if selected_member:
+                        members[selected_member]["is_active"] = False
+                        save_members(members)
+                        st.warning(f"⚠️ {selected_member}님이 비활성화되었습니다.")
+    else:
+        st.info("등록된 회원이 없습니다.")
+else:
+    st.warning("🔒 관리자만 접근할 수 있습니다.")
+
+# --------------------------------------------------------------------------
+# [SECTION 17] 관리자 이세윤 성공 응원 (獨立)
+# --------------------------------------------------------------------------
+st.divider()
+
+# 관리자 전용 기능
+is_admin = st.session_state.get('is_admin', False)
+is_permanent = st.session_state.get('user_id') == 'PERMANENT_MASTER'
+
+if is_admin or is_permanent:
+    if st.button("👑 관리자 이세윤 성공 응원", use_container_width=True):
+        st.success("🎉 이세윤 마스터의 성공을 응원합니다!")
+        st.balloons()
+    
+    # 관리자 전용 RAG 지식베이스 (Admin Only)
+    with st.expander("🔒 관리자 전용 RAG 지식베이스 (Admin Only)", expanded=False):
+        admin_key = st.text_input("관리자 키 입력", type="password")
+        
+        if admin_key == "gold1234" or is_permanent:
+            st.success("🔓 관리자 접근 권한 확인!")
+            
+            # 파일 업로더
+            uploaded_files = st.file_uploader(
+                "전문가용 노하우 PDF 업로드",
+                type=['pdf', 'docx', 'txt'],
+                accept_multiple_files=True
+            )
+            
+            if uploaded_files and st.button("지식베이스 즉시 동기화"):
+                with st.spinner("🔄 RAG 시스템 동기화 중..."):
+                    try:
+                        # 파일 처리 및 벡터화
+                        documents = []
+                        for file in uploaded_files:
+                            if file.type == "application/pdf":
+                                documents.append(process_pdf(file))
+                            elif file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                                documents.append(process_docx(file))
+                            elif file.type == "text/plain":
+                                documents.append(file.read().decode('utf-8'))
+                        
+                        # RAG 시스템 업데이트
+                        st.session_state.rag_system.add_documents(documents)
+                        st.success(f"✅ {len(uploaded_files)}개 파일이 지식베이스에 추가되었습니다!")
+                        
+                    except Exception as e:
+                        st.error(f"❌ 동기화 오류: {e}")
+        else:
+            st.warning("🔐 관리자 키가 필요합니다.")
+else:
+    st.info("🔒 관리자 전용 기능은 접근할 수 없습니다.")
+
+if q_analyze:
+    # 관리자 및 영구회원 체크
+    is_special_user = (
+        st.session_state.get('user_id') in ['ADMIN_MASTER', 'PERMANENT_MASTER'] or
+        st.session_state.get('user_name') == '이세윤'
+    )
+    
+    # 1. 현재 사용 횟수 확인 (일반 사용자만)
+    if not is_special_user:
+        current_count = check_usage_limit(user_name)
+        MAX_FREE_LIMIT = 3
+    else:
+        current_count = 0  # 관리자/영구회원은 항상 0으로 처리
+        MAX_FREE_LIMIT = 9999  # 무제한
+    
+    if not is_special_user and current_count >= MAX_FREE_LIMIT:
         st.error(f"⚠️ {user_name} 마스터님, 오늘은 3회 분석 기회를 모두 사용하셨습니다. 내일 다시 이용해 주세요!")
         st.warning("🚀 **무제한 사용을 원하시면 월 15,000원의 프리미엄 구독으로 전환하세요!**")
         components.html(s_voice("오늘의 무료 분석 기회를 모두 사용하셨습니다. 내일 뵙겠습니다."), height=0)
