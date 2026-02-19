@@ -806,8 +806,8 @@ with st.sidebar:
 st.title("👑 골드키지사 AI 마스터")
 MASTER_IMAGE_URL = "https://github.com/insusite-goldkey/goldkey/blob/main/ai_expert.png"
 
-# 3개 창 병렬 배치
-col_voice, col_consult, col_answer = st.columns([2, 3, 3])
+# 3개 창 병렬 배치 (상담창과 답변창 동일 크기)
+col_voice, col_consult, col_answer = st.columns([2, 4, 4])
 
 with col_voice:
     st.markdown(f"""
@@ -931,37 +931,67 @@ if q_analyze and main_area:
 load_stt_engine()
 
 # -------------------------------------------------------------------------- 
-# [SECTION 9] AI 이미지 상담 전문 모델 (獨立) 
+# [SECTION 9] 보험금 상담 분석 (獨立) 
 # -------------------------------------------------------------------------- 
 st.divider()
-st.write("### 🖼️ AI 이미지 상담 전문 모델")
+st.write("### 📋 보험금 상담 분석")
 st.markdown("**보험 증권, 진단서, 의료 기록, 사고 현장 사진 등을 AI가 정밀 분석합니다.**")
 
-# 이미지 업로드 섹션
-col_img1, col_img2 = st.columns([2, 1])
+# 4칸 Drag and Drop 입력창
+col_img1, col_img2, col_img3, col_img4 = st.columns(4)
 
 with col_img1:
-    uploaded_images = st.file_uploader(
-        "📸 상담용 이미지 업로드", 
+    uploaded_images_1 = st.file_uploader(
+        "📸 증권/진단서", 
         type=['jpg', 'jpeg', 'png', 'bmp', 'pdf'],
         accept_multiple_files=True,
-        key="image_consultation"
+        key="image_consultation_1"
     )
     
-    if uploaded_images:
-        st.success(f"✅ {len(uploaded_images)}개의 이미지가 업로드되었습니다.")
-        
-        # 이미지 미리보기
-        for i, img_file in enumerate(uploaded_images, 1):
+    if uploaded_images_1:
+        st.success(f"✅ {len(uploaded_images_1)}개 파일 업로드")
+        for i, img_file in enumerate(uploaded_images_1, 1):
             if img_file.type.startswith('image/'):
-                st.image(img_file, caption=f"이미지 {i}: {img_file.name}", width=300)
+                st.image(img_file, caption=f"증권 {i}", width=200)
             else:
-                st.info(f"📄 파일 {i}: {img_file.name} (PDF 문서)")
+                st.info(f"📄 증권 {i}: {img_file.name}")
 
 with col_img2:
+    uploaded_images_2 = st.file_uploader(
+        "🏥 진료기록", 
+        type=['jpg', 'jpeg', 'png', 'bmp', 'pdf'],
+        accept_multiple_files=True,
+        key="image_consultation_2"
+    )
+    
+    if uploaded_images_2:
+        st.success(f"✅ {len(uploaded_images_2)}개 파일 업로드")
+        for i, img_file in enumerate(uploaded_images_2, 1):
+            if img_file.type.startswith('image/'):
+                st.image(img_file, caption=f"진료 {i}", width=200)
+            else:
+                st.info(f"📄 진료 {i}: {img_file.name}")
+
+with col_img3:
+    uploaded_images_3 = st.file_uploader(
+        "🚗 사고현장", 
+        type=['jpg', 'jpeg', 'png', 'bmp', 'pdf'],
+        accept_multiple_files=True,
+        key="image_consultation_3"
+    )
+    
+    if uploaded_images_3:
+        st.success(f"✅ {len(uploaded_images_3)}개 파일 업로드")
+        for i, img_file in enumerate(uploaded_images_3, 1):
+            if img_file.type.startswith('image/'):
+                st.image(img_file, caption=f"사고 {i}", width=200)
+            else:
+                st.info(f"📄 사고 {i}: {img_file.name}")
+
+with col_img4:
     image_query_type = st.selectbox(
         "🎯 분석 유형 선택",
-        ["보험 증권 분석", "진단서 분석", "사고 현장 분석", "의료 기록 분석", "기타"],
+        ["보험금 청구", "진단서 분석", "사고 현장 분석", "의료 기록 분석", "기타"],
         key="image_analysis_type"
     )
     
@@ -973,9 +1003,17 @@ with col_img2:
     )
 
 # 이미지 분석 실행 버튼
-if uploaded_images and st.button("🤖 AI 이미지 상담 분석 실행", type="primary", use_container_width=True):
+all_uploaded_images = []
+if uploaded_images_1:
+    all_uploaded_images.extend(uploaded_images_1)
+if uploaded_images_2:
+    all_uploaded_images.extend(uploaded_images_2)
+if uploaded_images_3:
+    all_uploaded_images.extend(uploaded_images_3)
+
+if all_uploaded_images and st.button("🤖 AI 보험금 상담 분석 실행", type="primary", use_container_width=True):
     # 1. 현재 사용 횟수 확인
-    current_count = check_usage_limit(user_name)
+    current_count = check_usage_count(user_name)
     MAX_FREE_LIMIT = 3
     
     if current_count >= MAX_FREE_LIMIT:
@@ -984,41 +1022,72 @@ if uploaded_images and st.button("🤖 AI 이미지 상담 분석 실행", type=
         components.html(s_voice("오늘의 무료 분석 기회를 모두 사용하셨습니다. 내일 뵙겠습니다."), height=0)
     else:
         # 2. 이미지 분석 실행
-        with st.spinner(f"🔍 {current_count + 1}번째 AI 이미지 분석 중..."):
+        with st.spinner(f"🔍 {current_count + 1}번째 AI 보험금 분석 중..."):
             try:
                 # 서버 고정형 모델 사용
-                model = get_master_model()
+                client, model_config = get_master_model()
 
                 # 분석 쿼리 구성
                 analysis_query = f"""
-                [이미지 상담 분석 요청]
+                [보험금 상담 분석 요청]
                 상담원: {user_name}
                 고객: {customer_name}
-                분석 목적: 보험 설계 및 자산 관리
+                분석 목적: 보험금 청구 및 자산 관리
+                분석 유형: {image_query_type}
+                특정 요청: {image_specific_query}
                 
                 제공된 이미지를 바탕으로 다음을 분석해주세요:
                 1. 보험 관련 문서의 주요 내용
                 2. 의료 기록의 핵심 정보
                 3. 사고 현장의 특이사항
-                4. 보험 적용 가능성 및 권장 사항
-                
-                전문 CFP 관점에서 상세히 분석하고 구체적인 조언을 제공해주세요.
+                4. 보험금 청구 가능성 및 예상 금액
+                5. 필요한 추가 서류 및 절차
                 """
-
-                parts = [analysis_query]
                 
-                # 이미지 처리
-                for img_file in uploaded_images:
+                # 이미지를 콘텐츠에 추가
+                contents = [analysis_query]
+                for img_file in all_uploaded_images:
                     if img_file.type.startswith('image/'):
-                        # 이미지 파일 처리
-                        img = PIL.Image.open(img_file)
-                        parts.append(img)
-                    elif img_file.type == 'application/pdf':
-                        # PDF 처리 (필요시 추가 구현)
-                        st.info(f"📄 PDF 파일 '{img_file.name}'은 텍스트 추출 후 분석됩니다.")
+                        contents.append(PIL.Image.open(img_file))
+                    else:
+                        # PDF 파일 처리
+                        contents.append(f"📄 PDF 파일: {img_file.name}")
                 
-                # AI 분석 실행
-                response = model.generate_content(parts)
+                # Google Genai 방식으로 콘텐츠 생성
+                resp = client.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=contents,
+                    config=model_config
+                )
+                
+                # 답변 결과 저장
+                answer_text = f"""
+### 📋 {customer_name}님 보험금 정밀 분석 리포트
+
+{resp.text}
+
+---
+**📞 추가 문의 필요 시**
+📧 공식 메일: insusite@gmail.com  
+📱 상담 문의: 010-3074-2616
+
+⚠️ **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
+"""
+                
+                st.session_state.analysis_result = answer_text
+                
+                components.html(s_voice("AI 보험금 분석이 완료되었습니다."), height=0)
+                
+                # 분석이 성공적으로 끝나면 카운트 증가
+                update_usage(user_name)
+                remaining = MAX_FREE_LIMIT - (current_count + 1)
+                st.success(f"✅ 보험금 분석 완료! (오늘 남은 횟수: {remaining}회)")
+                
+            except Exception as e:
+                error_msg = f"⚠️ **보험금 분석 장애 발생**\n\n오류: {e}\n\n💡 해결책: 이미지 파일 확인 또는 관리자에게 문의하세요."
+                st.session_state.analysis_result = error_msg
+                st.sidebar.error(f"⚠️ 분석 장애: {e}")
+                st.sidebar.info("💡 해결책: 이미지 파일 확인 또는 관리자에게 문의하세요.")
                 
                 # 결과 표시
                 st.subheader("🖼️ AI 이미지 상담 분석 결과")
@@ -1049,17 +1118,17 @@ if uploaded_images and st.button("🤖 AI 이미지 상담 분석 실행", type=
     st.image("https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/dispute_process.png")
 
 # -------------------------------------------------------------------------- 
-# [SECTION 6] 1단계: 필수 보장 자가 진단 (獨立) 
+# [SECTION 6] 1단계: 필수 보장 진단 (獨立) 
 # -------------------------------------------------------------------------- 
 st.divider()
-st.write("### 🛡️ 1단계: 필수 보장 자가 진단")
+st.write("### 🛡️ 1단계: 필수 보장 진단")
 essential_ins = st.multiselect("보유 보험 선택", ["자동차", "화재보험", "일상생활배상책임", "운전자보험", "통합보험"], key="sec6")
 
 # -------------------------------------------------------------------------- 
-# [SECTION 7] 2단계: 전문 증권 분석 자료 요청 (獨立) 
+# [SECTION 7] 2단계: 보험 증권 분석 자료 (獨立) 
 # -------------------------------------------------------------------------- 
 st.divider()
-st.write("### 📸 2단계: 전문 증권 분석 자료 요청")
+st.write("### 📸 2단계: 보험 증권 분석 자료")
 uploaded_files = st.file_uploader("증권 PDF 또는 이미지 업로드", accept_multiple_files=True, key="sec7")
 
 # -------------------------------------------------------------------------- 
@@ -1073,56 +1142,89 @@ if hi_premium > 0:
     st.success(f"📊 역산 월 소득: **{calc_income:,.0f}원** / 적정 보험료 15%: **{calc_income*0.15:,.0f}원**")
 
 #---------------------------------------------------------------------------
-# [SECTION 9] 4단계: 질병 보상 정밀 분석 및 가족력 (獨立) 
+# [SECTION 9] 4단계: 질병 보상 분석 및 가족력 (獨立) 
 # -------------------------------------------------------------------------- 
 st.divider()
-st.write("### 🏥 4단계: 질병 보상 정밀 분석 및 가족력")
+st.write("### 🏥 4단계: 질병 보상 분석 및 가족력")
 disease_focus = st.text_area("가족력 및 집중 분석 질환 입력", key="sec9")
 
 # -------------------------------------------------------------------------- 
-# [SECTION 10] 5단계: 대형 생보사 헬스케어 컨설팅 (獨立)
+# [SECTION 10] 5단계: 생보사 헬스케어 컨설팅 (獨立)
 # -------------------------------------------------------------------------- 
 st.divider()
-st.write("### 💎 5단계: 대형 생보사 헬스케어 컨설팅")
+st.write("### 💎 5단계: 생보사 헬스케어 컨설팅")
 hc_ans = st.radio("상급병원 2주 내 진찰 예약 서비스 필요 여부", ["예", "아니오", "미정"], key="sec10")
 
 # -------------------------------------------------------------------------- 
-# [SECTION 11] 6대 법령 및 보상 지식 DB (獨立) 
+# [SECTION 11] 법령 및 보상 지식 (獨立) 
 # -------------------------------------------------------------------------- 
 st.divider()
-st.write("### 🏛️ 6대 법령 및 보상 지식 DB")
+st.write("### 🏛️ 법령 및 보상 지식")
 st.info("민법, 상법, 보험업법, 형사소송법, 화재의 예방의 및 안전관리에 관한 법률, 실화책임에 관한 법률 3중 검증 가동")
 
 # -------------------------------------------------------------------------- 
-# [SECTION 12] 국제재무설계 기준 위험관리 (獨立) 
+# [SECTION 12] 국제기준 재무설계 위험관리 (獨立) 
 # -------------------------------------------------------------------------- 
 st.divider()
-st.write("### 🛡️ 국제재무설계 기준 위험관리")
+st.write("### 🛡️ 국제기준 재무설계 위험관리")
 st.image("https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/cfp_process.png")
 
 # -------------------------------------------------------------------------- 
-# [SECTION 13] 3층 연금 통합 시뮬레이션 (獨立) 
+# [SECTION 13] 3층 연금 시뮬레이션 (獨立) 
 # -------------------------------------------------------------------------- 
 st.divider()
-st.write("### 💰 3층 연금 통합 시뮬레이션")
+st.write("### 💰 3층 연금 시뮬레이션")
 st.image("https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/pension_3tier.png")
 p_nat = st.number_input("국민(만)", key="p1")
 p_ret = st.number_input("퇴직(만)", key="p2")
 p_ind = st.number_input("개인(만)", key="p3")
 
-# --------------------------------------------------------------------------
-# [SECTION 14] 인생 이모작 및 주택 설계 (獨立) 
 # -------------------------------------------------------------------------- 
-st.divider()
-st.write("### 🏡 인생 이모작 및 주택 설계")
-home_fund = st.number_input("주택자금 필요액(만)", key="h_f")
-second_life = st.text_area("인생 2막 계획 및 노후 주거 설계", key="s_l")
+# [SECTION 14] 주택 연금 설계 (獨立) 
+# -------------------------------------------------------------------------- 
+def section_housing_pension():
+    st.subheader("🏡 주택연금(Reverse Mortgage) 정밀 시뮬레이션")
+    st.info("💡 2024-2026 한국주택금융공사(HF) 표준형/종신지급방식 기준")
 
-# --------------------------------------------------------------------------
-# [SECTION 15] 전문가 통합 분석 및 성공 응원 (獨立)
+    col1, col2 = st.columns(2)
+    with col1:
+        h_age = st.number_input("가입자 연령 (부부 중 연소자 기준)", min_value=55, max_value=90, value=65)
+        h_value = st.number_input("주택 시세 (단위: 만원)", min_value=0, value=50000, step=1000)
+    
+    # [마스터 데이터] 1억당 월 지급금 테이블 (2024년 이후 최신 데이터 기반 근사치)
+    # 실제 운영 시에는 HF의 API를 연결하거나 상세 테이블을 더 확충할 수 있습니다.
+    hf_table = {
+        55: 145000, 60: 197000, 65: 242000, 70: 297000, 75: 367000, 80: 461000, 85: 593000, 90: 775000
+    }
+
+    # 입력 연령에 가장 가까운 하위 연령값 찾기
+    base_age = max([a for a in hf_table.keys() if a <= h_age])
+    monthly_per_100m = hf_table[base_age]
+    
+    # 산출 로직: (주택가격 / 1억) * 해당 연령 월 지급금
+    estimated_monthly = (h_value / 10000) * monthly_per_100m
+
+    with col2:
+        st.write("### 📊 산출 결과")
+        st.metric(label=f"{h_age}세 가입 시 예상 월수령액", value=f"{estimated_monthly:,.0f} 원")
+        st.caption("※ 종신지급방식, 정액형 기준 (세부 조건에 따라 변동 가능)")
+
+    # 전문가 조언 섹션
+    if estimated_monthly > 0:
+        st.success(f"""
+        **🎯 이세윤 마스터의 전략적 조언:**
+        1. **기초연금과의 조화:** 주택연금은 소득인정액 계산 시 혜택이 있으므로 기초연금 수급 자격을 유지하는 데 유리합니다.
+        2. **건보료 절감:** 주택연금 수령액은 '소득'이 아닌 '부채' 성격이므로 건강보험료 산정 시 포함되지 않는 강력한 장점이 있습니다.
+        3. **상속 전략:** 자녀에게는 '집'이 아닌 '현금흐름'을 물려주는 것이 현대적 상속의 트렌드임을 강조하십시오.
+        """)
+
+# 함수 실행 (기존 15개 섹션 위치에 배치)
+section_housing_pension()
+
+# -------------------------------------------------------------------------- 
+# [SECTION 15] 전문가 통합 분석 (獨立)
 # --------------------------------------------------------------------------
 st.divider()
-
 # --------------------------------------------------------------------------
 # [SECTION 16] 회원 관리 시스템 (獨立)
 # --------------------------------------------------------------------------
@@ -1244,9 +1346,9 @@ if q_analyze:
         st.sidebar.error(f"⚠️ 분석 장애: {e}")
         st.sidebar.info("💡 해결책: API 키 확인 또는 관리자에게 문의하세요.")
 
-if st.button("🏆 관리자 이세윤 성공 응원", use_container_width=True):
+if st.button("🏆 FC님 성공 응원", use_container_width=True):
     st.balloons()
-    components.html(s_voice("이세윤 관리자님, 필승하십시오! 당신의 성공을 응원합니다."), height=0)
+    components.html(s_voice("FC님, 필승하십시오! 당신의 성공을 응원합니다."), height=0)
 
 # -------------------------------------------------------------------------- 
 # [SECTION 16] 관리자 전용 RAG 지식베이스 (앱 최하단 배치) 
@@ -1261,6 +1363,6 @@ with st.expander("🔐 마스터 전용 지식베이스 관리 (Admin Only)", ex
         rag_files = st.file_uploader("전문가용 노하우 PDF 업로드", accept_multiple_files=True, type=["pdf", "docx", "txt"])
         if st.button("🔄 지식베이스 즉시 동기화"):
             # 마스터의 지식으로 변환하는 로직 실행
-            st.success("이세윤 마스터의 지식으로 통합되었습니다.")
+            st.success("마스터의 지식으로 통합되었습니다.")
     else:
         st.info("이 섹션은 관리자 전용 공간입니다.")
