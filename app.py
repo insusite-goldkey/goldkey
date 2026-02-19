@@ -1,5 +1,6 @@
 # ==========================================================
 # 👑 [골드키지사 AI 마스터 - 운영 헌법 제1조 준수: 7일간의 무손실 통합본] 
+# 관리자: 이세윤 (글로벌 CFP 마스터) 
 # 지침: 1.영상 사운드 해방 / 2.수애 음성 유지 / 3.15개 섹션 독립 수호 / 4.병합 절대 금지 
 # ==========================================================
 
@@ -25,6 +26,37 @@ import tiktoken
 # [SECTION 1] 설정 및 무손실 페르소나 강령 (獨立) 
 # -------------------------------------------------------------------------- 
 st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", layout="wide")
+
+# 모델 자동 전환 시스템
+def get_available_model(api_key):
+    """사용 가능한 Gemini 모델을 자동으로 찾아 반환"""
+    genai.configure(api_key=api_key)
+    
+    # 모델 후보군 (앞에서부터 순차적으로 시도)
+    candidates = [
+        'gemini-1.5-flash',          # 최신 표준
+        'gemini-1.5-flash-latest',   # 최신 버전 강제
+        'gemini-1.5-pro',            # 고성능 버전 (대안)
+        'gemini-pro'                 # 구버전 (최후의 보루)
+    ]
+    
+    for model_name in candidates:
+        try:
+            model = genai.GenerativeModel(
+                model_name=model_name,
+                system_instruction=SYSTEM_PROMPT
+            )
+            # 연결 테스트 (가벼운 인사)
+            test_response = model.generate_content("test")
+            if test_response:
+                st.sidebar.success(f"✅ {model_name} 모델 연결 성공")
+                return model
+        except Exception as e:
+            st.sidebar.warning(f"⚠️ {model_name} 모델 실패: {str(e)[:50]}...")
+            continue
+    
+    st.sidebar.error("❌ 사용 가능한 모델이 없습니다.")
+    return None
 
 SYSTEM_PROMPT = """
 [SYSTEM INSTRUCTIONS: 보험 컨설턴트 이세윤 통합 상담 엔진]
@@ -385,11 +417,19 @@ with st.sidebar:
             st.session_state.rag_system = InsuranceRAGSystem()
             st.success("✅ 지식베이스가 초기화되었습니다.")
     
-    if st.button("❌ 보안 종료 및 데이터 파기", use_container_width=True):
-        components.html(s_voice("모든 데이터를 파기합니다."), height=0)
+    if st.button("❌ 보안 종료 및 상담 자료 파기", use_container_width=True):
+        components.html(s_voice("상담 자료를 파기합니다. 회원 정보는 보관됩니다."), height=0)
         time.sleep(2)
-        st.session_state.clear()
-        st.rerun()
+        # 상담 관련 데이터만 파기
+        if 'rag_system' in st.session_state:
+            st.session_state.rag_system = InsuranceRAGSystem()
+        if 'main_area' in st.session_state:
+            del st.session_state.main_area
+        if 'uploaded_files' in st.session_state:
+            del st.session_state.uploaded_files
+        if 'uploaded_images' in st.session_state:
+            del st.session_state.uploaded_images
+        st.success("✅ 상담 자료가 파기되었습니다. 회원 정보는 보관됩니다.")
     
     st.info(f"👤 **최종 승인자: 이세윤**")
     
@@ -401,6 +441,16 @@ with st.sidebar:
         - **구글 지원 토큰 내 무료 사용가능** (약8년간 무료.1일 3건. 파일50매한도.시스템관리비 1년무료)
         - **무제한 사용가능**
         """)
+    
+    st.divider()
+    
+    st.markdown("""
+    ### 🔒 자료 파기 안내
+    **상담 종료 후 로그아웃 시 제출 자료 자동 파기 됩니다.**
+    - 파기 대상: 상담 고객의 증권 분석, 스캔로딩한 의무기록 등 서류 전부
+    - 보존 대상: 회원 로그인 기록 및 비밀번호 (회원관리 항목으로 별도 관리)
+    - 파기 시점: 상담 종료 후 로그아웃 시 또는 고객이 파기 버튼 클릭 시
+    """)
 
 # -------------------------------------------------------------------------- 
 # [SECTION 4] 마스터 UI 및 VEO 영상 사운드 해방 (獨立) 
@@ -449,12 +499,15 @@ with col_vid:
             isMuted = !isMuted;
         };
         
-        // 동영상 클릭 시 음성 활성화
+        // 동영상 클릭 시 음성 활성화 (1회만)
+        var soundPlayed = false;
         v.addEventListener('click', function() {
-            if (isMuted) {
+            if (isMuted && !soundPlayed) {
                 v.muted = false;
                 v.play();
                 isMuted = false;
+                soundPlayed = true;
+                console.log("음성 1회 재생 완료");
             }
         });
         
@@ -536,10 +589,11 @@ if uploaded_images and st.button("🤖 AI 이미지 상담 분석 실행", type=
             if not api_key:
                 st.error("❌ Gemini API Key가 설정되지 않았습니다.")
             else:
-                genai.configure(api_key=api_key)
-                
-                # Vision 모델 사용 (이미지 분석에 최적화)
-                model = genai.GenerativeModel(model_name='gemini-1.0-pro', system_instruction=SYSTEM_PROMPT)
+                # 자동 모델 전환 시스템 사용
+                model = get_available_model(api_key)
+                if not model:
+                    st.error("❌ 사용 가능한 모델이 없습니다. API 키를 확인해주세요.")
+                    st.stop()
                 
                 # 분석 쿼리 구성
                 analysis_query = f"""
@@ -681,8 +735,11 @@ if q_analyze:
             if not api_key:
                 st.error("❌ Gemini API Key가 설정되지 않았습니다. 사이드바에서 API Key를 입력해주세요.")
             else:
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel(model_name='gemini-1.0-pro', system_instruction=SYSTEM_PROMPT)
+                # 자동 모델 전환 시스템 사용
+                model = get_available_model(api_key)
+                if not model:
+                    st.error("❌ 사용 가능한 모델이 없습니다. API 키를 확인해주세요.")
+                    st.stop()
                 income = hi_premium / 0.0709 if hi_premium > 0 else 0
                 
                 # RAG 검색 수행
@@ -723,4 +780,4 @@ if q_analyze:
 
 if st.button("🏆 관리자 이세윤 성공 응원", use_container_width=True):
     st.balloons()
-    components.html(s_voice("당신의 성공을 응원합니다."), height=0)
+    components.html(s_voice("이세윤 관리자님, 필승하십시오! 당신의 성공을 응원합니다."), height=0)
