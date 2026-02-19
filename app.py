@@ -13,14 +13,6 @@ from datetime import datetime as dt, date
 import streamlit.components.v1 as components
 import os
 import json
-import numpy as np
-from typing import List, Dict, Any
-import tempfile
-import pdfplumber
-import docx
-from sentence_transformers import SentenceTransformer
-import faiss
-import tiktoken
 import hashlib
 import base64
 from datetime import timedelta
@@ -112,8 +104,8 @@ def get_master_model():
         st.error("🚨 서버 보안 설정 오류: 관리자에게 문의하세요.")
         st.stop()
 
-    # 최신 API 버전 사용 (v1 명시적 사용)
-    genai.configure(api_key=api_key, transport='rest')
+    # API 버전 명시적으로 v1 설정 (v1beta 제거)
+    genai.configure(api_key=api_key, transport='rest', api_version='v1')
     
     # 2. 유료 등급 키이므로 실시간 검색(Grounding) 툴을 항상 활성화
     try:
