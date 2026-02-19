@@ -406,9 +406,39 @@ with col_vid:
     <div style="display: flex; flex-direction: column; align-items: center; background: #f0f4f8; padding: 20px; border-radius: 20px; border: 2px solid #1E88E5;">
         <video id="v_master" src="{MASTER_VIDEO_URL}" style="width: 100%; max-width: 280px; border-radius: 50%;" autoplay playsinline loop controls></video>
         <button onclick="window.startRecognition()" style="margin-top: 15px; background: #1E88E5; color: white; border: none; padding: 10px 20px; border-radius: 30px; cursor: pointer;">🎤 음성 인식 시작</button>
+        <button onclick="window.unmuteVideo()" style="margin-top: 10px; background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer;">🔊 음성 켜기</button>
     </div>
-    <script>var v = document.getElementById('v_master'); v.muted = false; v.play();</script>
     """, unsafe_allow_html=True)
+    
+    # 별도의 JavaScript 실행
+    components.html("""
+    <script>
+        var v = document.getElementById('v_master');
+        v.muted = true; // 처음에는 음소거로 시작
+        v.play().catch(function(error) {
+            console.log("자동 재생 실패:", error);
+        });
+        
+        window.unmuteVideo = function() {
+            v.muted = false;
+            v.play().catch(function(error) {
+                console.log("음성 재생 실패:", error);
+            });
+        };
+        
+        // 페이지 로드 후 1초 뒤에 음성 켜기 시도
+        setTimeout(function() {
+            var userInteracted = false;
+            document.addEventListener('click', function() {
+                userInteracted = true;
+            }, { once: true });
+            
+            if (userInteracted) {
+                window.unmuteVideo();
+            }
+        }, 1000);
+    </script>
+    """, height=0)
 
 with col_txt:
     main_area = st.text_area("📝 마스터 통합 상담창", height=230)
@@ -478,7 +508,7 @@ if uploaded_images and st.button("🤖 AI 이미지 상담 분석 실행", type=
                 genai.configure(api_key=api_key)
                 
                 # Vision 모델 사용 (이미지 분석에 최적화)
-                model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest', system_instruction=SYSTEM_PROMPT)
+                model = genai.GenerativeModel(model_name='gemini-pro', system_instruction=SYSTEM_PROMPT)
                 
                 # 분석 쿼리 구성
                 analysis_query = f"""
@@ -620,7 +650,7 @@ if q_analyze:
                 st.error("❌ Gemini API Key가 설정되지 않았습니다. 사이드바에서 API Key를 입력해주세요.")
             else:
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest', system_instruction=SYSTEM_PROMPT)
+                model = genai.GenerativeModel(model_name='gemini-pro', system_instruction=SYSTEM_PROMPT)
                 income = hi_premium / 0.0709 if hi_premium > 0 else 0
                 
                 # RAG 검색 수행
