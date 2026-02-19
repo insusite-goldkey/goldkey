@@ -112,16 +112,22 @@ def get_master_model():
         st.error("🚨 서버 보안 설정 오류: 관리자에게 문의하세요.")
         st.stop()
 
-    # v1beta API 버전 명시적 사용
+    # 최신 API 버전 사용 (v1 명시적 사용)
     genai.configure(api_key=api_key, transport='rest')
     
     # 2. 유료 등급 키이므로 실시간 검색(Grounding) 툴을 항상 활성화
-    model = genai.GenerativeModel(
-        model_name='gemini-1.5-flash',
-        system_instruction=SYSTEM_PROMPT,
-        tools=[{'google_search_retrieval': {}}]
-    )
-    return model
+    try:
+        # [핵심] 오직 gemini-1.5-flash만 직접 호출 (우회로 차단)
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            system_instruction=SYSTEM_PROMPT,
+            tools='google_search_retrieval'
+        )
+        return model
+    except Exception as e:
+        st.error(f"🚨 모델 로드 오류: {e}")
+        st.info("💡 해결책: requirements.txt에 'google-generativeai>=0.8.3'이 적혀있는지 확인하세요.")
+        st.stop()
 
 SYSTEM_PROMPT = """
 [SYSTEM INSTRUCTIONS: 보험 컨설턴트 이세윤 통합 상담 엔진]
@@ -538,11 +544,13 @@ with st.sidebar:
     
     with st.expander("🏆 마스터 회원 전용 혜택", expanded=False):
         st.markdown("""
-        ### 🏆 마스터 회원 전용 혜택
+        ### 🏆 골드키지사 프리미엄 회원 혜택
         - **시스템 고도화 기간**: 무료사용 1년 (2027.03.31일까지)
         - **사용 조건**: 1일 3회 사용 가능
         - **추가 사용**: 초과 시 월 15,000원 구독 필요
         - **제공 혜택**: 구글 실시간 검색 및 CFP 지능 무제한
+        - **파일 한도**: 1일 50매까지 업로드 가능
+        - **관리비**: 1년간 무료 제공
         """)
     
     st.divider()
