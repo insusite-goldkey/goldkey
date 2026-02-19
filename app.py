@@ -30,6 +30,34 @@ from datetime import timedelta
 # -------------------------------------------------------------------------- 
 st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", layout="wide")
 
+# 음성인식 엔진 로드 함수 (상단 이동으로 NameError 해결)
+def load_stt_engine():
+    """음성인식 엔진 로드 및 자동 실행 스크립트"""
+    components.html("""
+    <script>
+        window.addEventListener('load', function() {
+            window.startRecognition = function() {
+                window.speechSynthesis.cancel();
+                var msg = new SpeechSynthesisUtterance("마스터가 듣고 있습니다.");
+                msg.lang = 'ko-KR'; 
+                window.speechSynthesis.speak(msg);
+                
+                var recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                recognition.lang = 'ko-KR';
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                
+                recognition.onresult = function(event) {
+                    var transcript = event.results[0][0].transcript;
+                    window.parent.postMessage({type: 'stt_result', text: transcript}, '*');
+                };
+                
+                recognition.start();
+            };
+        });
+    </script>
+    """, height=0)
+
 # 사용량 기록 파일 경로
 USAGE_DB = "usage_log.json"
 # 회원 관리 데이터베이스 경로
@@ -539,6 +567,20 @@ class InsuranceRAGSystem:
         
         return chunks
 
+# [SECTION 3] 음성 및 STT 로직
+def s_voice(text, lang='ko-KR'):
+    """수애 목소리 TTS 가동 스크립트"""
+    clean_text = text.replace('"', '').replace("'", "").replace("\n", " ")
+    # 브라우저의 음성 합성 엔진을 강제로 깨우는 자바스크립트입니다.
+    return f"""<script>
+        window.speechSynthesis.cancel();
+        var msg = new SpeechSynthesisUtterance("{clean_text}");
+        msg.lang = "{lang}"; 
+        msg.rate = 1.0; 
+        msg.pitch = 1.1; // 수애의 맑은 톤을 위해 피치 상향
+        window.speechSynthesis.speak(msg);
+    </script>"""
+
 # RAG 시스템 초기화
 # RAG 시스템 초기화 (메모리 부족 방지)
 try:
@@ -562,63 +604,6 @@ except Exception as e:
 
 # 음성인식 엔진 자동 로드
 load_stt_engine()
-
-# [SECTION 3] 음성 및 STT 로직
-def s_voice(text, lang='ko-KR'):
-    """수애 목소리 TTS 가동 스크립트"""
-    clean_text = text.replace('"', '').replace("'", "").replace("\n", " ")
-    # 브라우저의 음성 합성 엔진을 강제로 깨우는 자바스크립트입니다.
-    return f"""<script>
-        window.speechSynthesis.cancel();
-        var msg = new SpeechSynthesisUtterance("{clean_text}");
-        msg.lang = "{lang}"; 
-        msg.rate = 1.0; 
-        msg.pitch = 1.1; // 수애의 맑은 톤을 위해 피치 상향
-        window.speechSynthesis.speak(msg);
-    </script>"""
-
-def load_stt_engine():
-    """음성인식 엔진 로드 및 자동 실행"""
-    components.html("""
-    <script>
-        // 페이지 로드 시 자동으로 음성인식 엔진 초기화
-        window.addEventListener('load', function() {
-            window.startRecognition = function() {
-                window.speechSynthesis.cancel();
-                var msg = new SpeechSynthesisUtterance("마스터가 듣고 있습니다.");
-                msg.lang = 'ko-KR'; 
-                window.speechSynthesis.speak(msg);
-                
-                var recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-                recognition.lang = 'ko-KR';
-                recognition.continuous = false;
-                recognition.interimResults = false;
-                
-                recognition.onresult = function(event) {
-                    var transcript = event.results[0][0].transcript;
-                    window.parent.postMessage({type: 'stt_result', text: transcript}, '*');
-                };
-                
-                recognition.onerror = function(event) {
-                    console.error('음성인식 오류:', event.error);
-                };
-                
-                recognition.onend = function() {
-                    console.log('음성인식 종료');
-                };
-                
-                recognition.start();
-            };
-            
-            // 자동으로 음성인식 버튼 생성
-            var voiceButton = document.createElement('button');
-            voiceButton.innerHTML = '🎤 음성 입력';
-            voiceButton.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; background: #4CAF50; color: white; border: none; padding: 10px 15px; border-radius: 20px; cursor: pointer; font-size: 14px;';
-            voiceButton.onclick = window.startRecognition;
-            document.body.appendChild(voiceButton);
-        });
-    </script>
-    """, height=0)
 
 # -------------------------------------------------------------------------- 
 # [SECTION 3] 사이드바: 사용자 센터 및 보안 (獨立) 
