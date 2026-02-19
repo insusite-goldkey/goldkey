@@ -21,11 +21,86 @@ import docx
 from sentence_transformers import SentenceTransformer
 import faiss
 import tiktoken
+import hashlib
+import base64
+from datetime import timedelta
 
 # -------------------------------------------------------------------------- 
 # [SECTION 1] 설정 및 무손실 페르소나 강령 (獨立) 
 # -------------------------------------------------------------------------- 
 st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", layout="wide")
+
+# 사용량 기록 파일 경로
+USAGE_DB = "usage_log.json"
+
+def check_usage_limit(user_name):
+    """사용자의 오늘 사용 횟수 확인"""
+    today = str(date.today())
+    # 파일이 없으면 생성
+    if not os.path.exists(USAGE_DB):
+        with open(USAGE_DB, "w") as f:
+            json.dump({}, f)
+    
+    with open(USAGE_DB, "r") as f:
+        data = json.load(f)
+    
+    # 유저와 날짜별 카운트 확인
+    user_data = data.get(user_name, {})
+    count = user_data.get(today, 0)
+    
+    return count
+
+def update_usage(user_name):
+    """사용자의 사용 횟수 증가"""
+    today = str(date.today())
+    with open(USAGE_DB, "r") as f:
+        data = json.load(f)
+    
+    if user_name not in data:
+        data[user_name] = {}
+    
+    data[user_name][today] = data[user_name].get(today, 0) + 1
+    
+    with open(USAGE_DB, "w") as f:
+        json.dump(data, f)
+
+def get_remaining_usage(user_name):
+    """남은 사용 횟수 계산"""
+    current_count = check_usage_limit(user_name)
+    return max(0, 3 - current_count)
+
+# 회원 관리 시스템
+def encrypt_contact(contact):
+    """고객 연락처 암호화"""
+    return hashlib.sha256(contact.encode()).hexdigest()
+
+def generate_user_id(name):
+    """사용자 ID 생성"""
+    timestamp = str(int(time.time()))
+    return f"USER_{name}_{timestamp}"
+
+def calculate_subscription_days(join_date):
+    """구독 잔여일 계산"""
+    if not join_date:
+        return 0
+    current_date = dt.now()
+    end_date = join_date + timedelta(days=365)  # 1년 무료
+    remaining = (end_date - current_date).days
+    return max(0, remaining)
+
+def check_membership_status():
+    """회원 상태 확인"""
+    if 'user_id' not in st.session_state:
+        return False, "비회원"
+    
+    if 'join_date' not in st.session_state:
+        return False, "구독 정보 없음"
+    
+    remaining_days = calculate_subscription_days(st.session_state.join_date)
+    if remaining_days <= 0:
+        return False, "구독 만료"
+    
+    return True, f"정상 (잔여 {remaining_days}일)"
 
 # [관리자 고정형 API 로직]
 def get_master_model():
@@ -357,23 +432,86 @@ def load_stt_engine():
 # -------------------------------------------------------------------------- 
 with st.sidebar:
     st.header("🔑 SaaS 마스터 센터")
-    user_name = st.text_input("회원(상담원) 성함", "이세윤 마스터")
-    customer_name = st.text_input("고객 성함", "우량 고객")
+    
+    # 실명 사용 공지
+    st.warning("⚠️ **반드시 본인의 실명으로 이용해야 데이터가 관리됩니다**")
+    
+    # 회원가입 또는 로그인
+    if 'user_id' not in st.session_state:
+        st.subheader("🔐 회원가입")
+        with st.form("signup_form"):
+            name = st.text_input("이름 (필수)")
+            contact = st.text_input("연락처 (필수)")
+            
+            if st.form_submit_button("회원가입"):
+                if name and contact:
+                    # 회원가입 처리
+                    user_id = generate_user_id(name)
+                    join_date = dt.now()
+                    
+                    st.session_state.user_id = user_id
+                    st.session_state.user_name = name
+                    st.session_state.encrypted_contact = encrypt_contact(contact)
+                    st.session_state.join_date = join_date
+                    
+                    st.success(f"✅ 회원가입 완료! ID: {user_id}")
+                    st.success("🎉 1년간 무료 사용권이 부여되었습니다!")
+                    st.rerun()
+                else:
+                    st.error("❌ 이름과 연락처를 모두 입력해주세요.")
+    else:
+        # 기존 회원 로그인 상태
+        user_name = st.text_input("회원(상담원) 성함", value=st.session_state.get('user_name', '이세윤 마스터'))
+        customer_name = st.text_input("고객 성함", "우량 고객")
+        
+        # 구독 상태 확인
+        is_member, status_msg = check_membership_status()
+        remaining_days = calculate_subscription_days(st.session_state.join_date) if 'join_date' in st.session_state else 0
+        
+        # 사용량 정보
+        remaining_usage = get_remaining_usage(user_name)
+        
+        st.divider()
+        
+        # [구독 안내 보드]
+        st.info(f"""
+        **🏆 골드키지사 프리미엄 회원**
+        * **회원 ID**: {st.session_state.user_id}
+        * **구독 상태**: {status_msg}
+        * **잔여 기간**: {remaining_days}일
+        * **오늘 사용량**: {3 - remaining_usage}/3회
+        * **월 구독료**: 15,000원 (VAT 별도)
+        * **제공 혜택**: 구글 실시간 검색 및 CFP 지능 무제한
+        """)
+        
+        # 비번 재발급
+        with st.expander("🔑 비밀번호 재발급"):
+            if st.button("비밀번호 재발급 요청"):
+                temp_password = f"TEMP_{int(time.time())}"
+                st.info(f"🔐 임시 비밀번호: {temp_password}")
+                st.info("⏰ 10분 후 자동 만료됩니다.")
+        
+        with st.expander("📜 구독 서비스 이용 약관"):
+            st.warning("""
+                **[법적 책임 한계고지]**
+                본 서비스는 AI 기술을 활용한 **상담 보조 도구**이며, 제공되는 모든 분석 결과의 **최종 판단 및 법적 책임은 사용자(상담원)**에게 있습니다. 본 시스템은 금융 상품 판매의 직접적인 근거가 될 수 없습니다.
+                """)
+        
+        # 로그아웃
+        if st.button("🚪 로그아웃"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
+    
     st.divider()
     
-    # [구독 안내 보드]
-    st.info(f"""
-    **🏆 골드키지사 프리미엄 회원**
-    * **구독 상태**: 가동 중 (Paid Tier)
-    * **월 구독료**: 10,000원 (VAT 별도)
-    * **제공 혜택**: 구글 실시간 검색 및 CFP 지능 무제한
-    """)
+    # 고객 지원 및 공식 연락처 (SaaS 핵심)
+    st.markdown("### 📞 마스터 고객 센터")
+    st.caption(f"📧 공식 메일: insusite@gmail.com")
+    st.caption(f"📱 상담 문의: 010-3074-2616")
     
-    with st.expander("📜 구독 서비스 이용 약관"):
-        st.warning("""
-        **[법적 책임 한계고지]**
-        본 서비스는 AI 기술을 활용한 **상담 보조 도구**이며, 제공되는 모든 분석 결과의 **최종 판단 및 법적 책임은 사용자(상담원)**에게 있습니다. 본 시스템은 금융 상품 판매의 직접적인 근거가 될 수 없습니다.
-        """)
+    # [면책 조항 재강조]
+    st.error("💡 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.")
     
     st.divider()
     
@@ -463,6 +601,7 @@ with col_vid:
         <video id="v_master" src="{MASTER_VIDEO_URL}" style="width: 100%; max-width: 280px; border-radius: 50%;" autoplay playsinline loop controls></video>
         <button onclick="window.startRecognition()" style="margin-top: 15px; background: #1E88E5; color: white; border: none; padding: 10px 20px; border-radius: 30px; cursor: pointer;">🎤 음성 인식 시작</button>
         <button onclick="window.toggleVideoSound()" style="margin-top: 10px; background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer;">🔊 음성 토글</button>
+        <button onclick="window.stopVideo()" style="margin-top: 10px; background: #f44336; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer;">⏹️ 영상 중단</button>
     </div>
     """, unsafe_allow_html=True)
     
@@ -473,6 +612,7 @@ with col_vid:
         var isMuted = true;
         var playCount = 0;
         var maxPlayTime = 6000; // 6초 (6000ms)
+        var isStopped = false;
         
         // 동영상 로드 및 자동 재생
         v.addEventListener('loadeddata', function() {
@@ -482,9 +622,18 @@ with col_vid:
             });
         });
         
+        // 영상 중단 함수
+        window.stopVideo = function() {
+            v.pause();
+            v.muted = true;
+            v.currentTime = 0;
+            isStopped = true;
+            console.log("영상 수동 중단");
+        };
+        
         // 음성 토글 함수
         window.toggleVideoSound = function() {
-            if (isMuted) {
+            if (isMuted && !isStopped) {
                 v.muted = false;
                 v.play().then(function() {
                     console.log("음성 활성화 성공");
@@ -502,7 +651,7 @@ with col_vid:
         // 동영상 클릭 시 음성 활성화 (1회만, 6초만)
         var soundPlayed = false;
         v.addEventListener('click', function() {
-            if (isMuted && !soundPlayed && playCount === 0) {
+            if (isMuted && !soundPlayed && playCount === 0 && !isStopped) {
                 v.muted = false;
                 v.play();
                 isMuted = false;
@@ -522,7 +671,7 @@ with col_vid:
         
         // 페이지 로드 후 2초 뒤 음성 활성화 시도 (1회만, 6초만)
         setTimeout(function() {
-            if (isMuted && playCount === 0) {
+            if (isMuted && playCount === 0 && !isStopped) {
                 v.muted = false;
                 v.play().catch(function(error) {
                     console.log("자동 음성 활성화 실패:", error);
@@ -545,8 +694,18 @@ with col_vid:
     """, height=0)
 
 with col_txt:
-    main_area = st.text_area("📝 마스터 통합 상담창", height=230, placeholder="문의사항을 입력해주세요.")
+    main_area = st.text_area("📝 마스터 통합 상담창", height=230, placeholder="문의사항을 입력해주세요.", key="main_area")
     q_analyze = st.button("🚀 글로벌 CFP 정밀 분석 실행", type="primary", use_container_width=True)
+    
+    # 상담창 활성화 시 영상 자동 중단
+    if main_area:
+        components.html("""
+        <script>
+            if (typeof window.stopVideo === 'function') {
+                window.stopVideo();
+            }
+        </script>
+        """, height=0)
 
 # 음성 인식 함수 로드
 load_stt_engine()
@@ -595,32 +754,45 @@ with col_img2:
 
 # 이미지 분석 실행 버튼
 if uploaded_images and st.button("🤖 AI 이미지 상담 분석 실행", type="primary", use_container_width=True):
-    with st.spinner("🔍 AI 이미지 분석 중..."):
-        try:
-            # 서버 고정형 모델 사용
-            model = get_master_model()
-            
-            # 분석 쿼리 구성
-            analysis_query = f"""
+    # 1. 현재 사용 횟수 확인
+    current_count = check_usage_limit(user_name)
+    MAX_FREE_LIMIT = 3
+    
+    if current_count >= MAX_FREE_LIMIT:
+        st.error(f"⚠️ {user_name} 마스터님, 오늘은 3회 분석 기회를 모두 사용하셨습니다. 내일 다시 이용해 주세요!")
+        st.warning("🚀 **무제한 사용을 원하시면 월 15,000원의 프리미엄 구독으로 전환하세요!**")
+        components.html(s_voice("오늘의 무료 분석 기회를 모두 사용하셨습니다. 내일 뵙겠습니다."), height=0)
+    else:
+        # 2. 이미지 분석 실행
+        with st.spinner(f"🔍 {current_count + 1}번째 AI 이미지 분석 중..."):
+            try:
+                # 서버 고정형 모델 사용
+                model = get_master_model()
+
+                # 분석 쿼리 구성
+                analysis_query = f"""
                 [이미지 상담 분석 요청]
-                분석 유형: {image_query_type}
-                특정 요청사항: {image_specific_query if image_specific_query else '해당 이미지의 보험 관련 내용을 종합적으로 분석해주세요.'}
+                상담원: {user_name}
+                고객: {customer_name}
+                분석 목적: 보험 설계 및 자산 관리
                 
-                [분석 지침]
-                1. 이미지에 표시된 모든 텍스트를 정확히 인식하고 분석하세요.
-                2. 보험 관련 정보(보장 금액, 담보 내용, 가입일, 만기일 등)를 추출하세요.
-                3. 진단서인 경우 병명, 진단일, 의사 소견 등을 정확히 파악하세요.
-                4. 사고 현장 사진인 경우 사고 상황, 파손 정도, 관련 법률적 쟁점을 분석하세요.
-                5. 30년 경력 이세윤 설계사의 관점에서 전문적인 상담 조언을 제공하세요.
-                6. 반드시 표준 답변 형식을 준수하고 필수 면책 공고를 포함하세요.
+                제공된 이미지를 바탕으로 다음을 분석해주세요:
+                1. 보험 관련 문서의 주요 내용
+                2. 의료 기록의 핵심 정보
+                3. 사고 현장의 특이사항
+                4. 보험 적용 가능성 및 권장 사항
+                
+                전문 CFP 관점에서 상세히 분석하고 구체적인 조언을 제공해주세요.
                 """
-                
-                # 이미지와 텍스트 결합
+
                 parts = [analysis_query]
                 
+                # 이미지 처리
                 for img_file in uploaded_images:
                     if img_file.type.startswith('image/'):
-                        parts.append(PIL.Image.open(img_file))
+                        # 이미지 파일 처리
+                        img = PIL.Image.open(img_file)
+                        parts.append(img)
                     elif img_file.type == 'application/pdf':
                         # PDF 처리 (필요시 추가 구현)
                         st.info(f"📄 PDF 파일 '{img_file.name}'은 텍스트 추출 후 분석됩니다.")
@@ -632,22 +804,28 @@ if uploaded_images and st.button("🤖 AI 이미지 상담 분석 실행", type=
                 st.subheader("🖼️ AI 이미지 상담 분석 결과")
                 st.markdown(response.text)
                 
-                # 분석된 이미지 정보 요약
-                with st.expander("📋 분석된 이미지 정보", expanded=False):
-                    for i, img_file in enumerate(uploaded_images, 1):
-                        st.write(f"**{i}.** {img_file.name} ({img_file.type}, {img_file.size} bytes)")
+                # 관리자 연락처 자동 포함
+                st.markdown("---")
+                st.info(f"""
+                **📞 추가 문의 필요 시**
+                📧 공식 메일: insusite@gmail.com  
+                📱 상담 문의: 010-3074-2616
+                
+                ⚠️ **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
+                """)
+                st.markdown("---")
                 
                 components.html(s_voice("AI 이미지 상담 분석이 완료되었습니다."), height=0)
                 
-        except Exception as e:
-            st.sidebar.error(f"⚠️ 이미지 분석 장애: {e}")
-            st.sidebar.info("💡 해결책: 이미지 파일 확인 또는 API 키를 확인하세요.")
-
-# -------------------------------------------------------------------------- 
-# [SECTION 10] 실전 보상 & 민원 대응 (獨立) 
-# -------------------------------------------------------------------------- 
-st.divider()
-with st.expander("💡 실전 보상 & 민원 대응"):
+                # 3. 분석이 성공적으로 끝나면 카운트 증가
+                update_usage(user_name)
+                remaining = MAX_FREE_LIMIT - (current_count + 1)
+                st.success(f"✅ 이미지 분석 완료! (오늘 남은 횟수: {remaining}회)")
+                
+            except Exception as e:
+                st.sidebar.error(f"⚠️ 이미지 분석 장애: {e}")
+                st.sidebar.info("💡 해결책: 이미지 파일 확인 또는 API 키를 확인하세요.")
+                
     st.image("https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/dispute_process.png")
 
 # -------------------------------------------------------------------------- 
@@ -725,57 +903,74 @@ second_life = st.text_area("인생 2막 계획 및 노후 주거 설계", key="s
 # --------------------------------------------------------------------------
 st.divider()
 if q_analyze:
-    components.html(s_voice("전 섹션 유기적 통합 분석을 시작합니다."), height=0)
-    with st.spinner("🔍 글로벌 CFP 마스터 엔진 분석 중..."):
-        try:
-            # API 키 설정 우선순위: 세션 > secrets > 입력값
-            api_key = None
-            if 'gemini_api_key' in st.session_state:
-                api_key = st.session_state.gemini_api_key
-            elif 'GEMINI_API_KEY' in st.secrets:
-                api_key = st.secrets["GEMINI_API_KEY"]
-            elif api_key_input:
-                api_key = api_key_input
-            
-            # 서버 고정형 모델 사용
-            model = get_master_model()
-            income = hi_premium / 0.0709 if hi_premium > 0 else 0
-            
-            # RAG 검색 수행
-            rag_results = []
-            if st.session_state.rag_system.index is not None:
-                rag_results = st.session_state.rag_system.search(main_area, k=3)
-            
-            # 검색된 문서를 컨텍스트에 추가
-            context_text = ""
-            if rag_results:
-                context_text = "\n\n[참고 자료]\n"
-                for i, result in enumerate(rag_results, 1):
-                    context_text += f"{i}. {result['text']}\n"
-            
-            query = f"상담: {main_area}. 소득: {income:.0f}. 필수: {essential_ins}. 질환: {disease_focus}.{context_text}"
-            
-            parts = [query]
-            if uploaded_files:
-                for f in uploaded_files:
-                    parts.append(PIL.Image.open(f))
-            
-            resp = model.generate_content(parts)
-            st.subheader(f"📊 {customer_name}님 정밀 리포트")
-            
-            # RAG 검색 결과 표시
-            if rag_results:
-                with st.expander("🔍 참고한 지식베이스 자료", expanded=False):
+    # 1. 현재 사용 횟수 확인
+    current_count = check_usage_limit(user_name)
+    MAX_FREE_LIMIT = 3
+    
+    if current_count >= MAX_FREE_LIMIT:
+        st.error(f"⚠️ {user_name} 마스터님, 오늘은 3회 분석 기회를 모두 사용하셨습니다. 내일 다시 이용해 주세요!")
+        st.warning("🚀 **무제한 사용을 원하시면 월 15,000원의 프리미엄 구독으로 전환하세요!**")
+        components.html(s_voice("오늘의 무료 분석 기회를 모두 사용하셨습니다. 내일 뵙겠습니다."), height=0)
+    else:
+        # 2. 분석 실행
+        with st.spinner(f"🔍 {current_count + 1}번째 정밀 분석 중..."):
+            try:
+                # 서버 고정형 모델 사용
+                model = get_master_model()
+                income = hi_premium / 0.0709 if hi_premium > 0 else 0
+                
+                # RAG 검색 수행
+                rag_results = []
+                if st.session_state.rag_system.index is not None:
+                    rag_results = st.session_state.rag_system.search(main_area, k=3)
+                
+                # 검색된 문서를 컨텍스트에 추가
+                context_text = ""
+                if rag_results:
+                    context_text = "\n\n[참고 자료]\n"
                     for i, result in enumerate(rag_results, 1):
-                        st.write(f"**{i}.** {result['metadata']['filename']} (유사도: {result['score']:.3f})")
-                        st.write(f"{result['text'][:200]}...")
-                        st.divider()
-            
-            st.markdown(resp.text)
-            components.html(s_voice(f"{user_name} 마스터님, 분석이 완료되었습니다."), height=0)
-        except Exception as e:
-            st.sidebar.error(f"⚠️ 분석 장애: {e}")
-            st.sidebar.info("💡 해결책: API 키 확인 또는 관리자에게 문의하세요.")
+                        context_text += f"{i}. {result['text']}\n"
+                
+                query = f"상담: {main_area}. 소득: {income:.0f}. 필수: {essential_ins}. 질환: {disease_focus}.{context_text}"
+                
+                parts = [query]
+                if uploaded_files:
+                    for f in uploaded_files:
+                        parts.append(PIL.Image.open(f))
+                
+                resp = model.generate_content(parts)
+                st.subheader(f"📊 {customer_name}님 정밀 리포트")
+                
+                # 관리자 연락처 자동 포함
+                st.markdown("---")
+                st.info(f"""
+                **📞 추가 문의 필요 시**
+                📧 공식 메일: insusite@gmail.com  
+                📱 상담 문의: 010-3074-2616
+                
+                ⚠️ **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
+                """)
+                st.markdown("---")
+                
+                # RAG 검색 결과 표시
+                if rag_results:
+                    with st.expander("🔍 참고한 지식베이스 자료", expanded=False):
+                        for i, result in enumerate(rag_results, 1):
+                            st.write(f"**{i}.** {result['metadata']['filename']} (유사도: {result['score']:.3f})")
+                            st.write(f"{result['text'][:200]}...")
+                            st.divider()
+                
+                st.markdown(resp.text)
+                components.html(s_voice(f"{user_name} 마스터님, 분석이 완료되었습니다."), height=0)
+                
+                # 3. 분석이 성공적으로 끝나면 카운트 증가
+                update_usage(user_name)
+                remaining = MAX_FREE_LIMIT - (current_count + 1)
+                st.success(f"✅ 분석 완료! (오늘 남은 횟수: {remaining}회)")
+                
+            except Exception as e:
+                st.sidebar.error(f"⚠️ 분석 장애: {e}")
+                st.sidebar.info("💡 해결책: API 키 확인 또는 관리자에게 문의하세요.")
 
 if st.button("🏆 관리자 이세윤 성공 응원", use_container_width=True):
     st.balloons()
