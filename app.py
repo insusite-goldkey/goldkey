@@ -13,6 +13,14 @@ from datetime import datetime as dt, date
 import streamlit.components.v1 as components
 import os
 import json
+import numpy as np
+from typing import List, Dict, Any
+import tempfile
+import pdfplumber
+import docx
+from sentence_transformers import SentenceTransformer
+import faiss
+import tiktoken
 import hashlib
 import base64
 from datetime import timedelta
