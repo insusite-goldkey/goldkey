@@ -27,37 +27,26 @@ import tiktoken
 # -------------------------------------------------------------------------- 
 st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", layout="wide")
 
-# 모델 자동 전환 시스템
-def get_available_model(api_key):
-    """사용 가능한 Gemini 모델을 자동으로 찾아 반환"""
+# [관리자 고정형 API 로직]
+def get_master_model():
+    """서버 고정형 API 모드: 관리자 키만 사용"""
+    # 1. 사이드바 입력 대신, 서버 설정(Secrets)에서 관리자 키를 직접 가져옴
+    if "GEMINI_API_KEY" in st.secrets:
+        api_key = st.secrets["GEMINI_API_KEY"]
+    else:
+        st.error("🚨 서버 보안 설정 오류: 관리자에게 문의하세요.")
+        st.stop()
+
     # v1beta API 버전 명시적 사용
     genai.configure(api_key=api_key, transport='rest')
     
-    # 모델 후보군 (앞에서부터 순차적으로 시도)
-    candidates = [
-        'gemini-1.5-flash',          # 최신 표준
-        'gemini-1.5-flash-latest',   # 최신 버전 강제
-        'gemini-1.5-pro',            # 고성능 버전 (대안)
-        'gemini-pro'                 # 안정적인 기본 버전
-    ]
-    
-    for model_name in candidates:
-        try:
-            model = genai.GenerativeModel(
-                model_name=model_name,
-                system_instruction=SYSTEM_PROMPT
-            )
-            # 연결 테스트 (가벼운 인사)
-            test_response = model.generate_content("test")
-            if test_response:
-                st.sidebar.success(f"✅ {model_name} 모델 연결 성공")
-                return model
-        except Exception as e:
-            st.sidebar.warning(f"⚠️ {model_name} 모델 실패: {str(e)[:50]}...")
-            continue
-    
-    st.sidebar.error("❌ 사용 가능한 모델이 없습니다.")
-    return None
+    # 2. 유료 등급 키이므로 실시간 검색(Grounding) 툴을 항상 활성화
+    model = genai.GenerativeModel(
+        model_name='gemini-1.5-flash',
+        system_instruction=SYSTEM_PROMPT,
+        tools=[{'google_search_retrieval': {}}]
+    )
+    return model
 
 SYSTEM_PROMPT = """
 [SYSTEM INSTRUCTIONS: 보험 컨설턴트 이세윤 통합 상담 엔진]
@@ -367,16 +356,24 @@ def load_stt_engine():
 # [SECTION 3] 사이드바: 사용자 센터 및 보안 (獨立) 
 # -------------------------------------------------------------------------- 
 with st.sidebar:
-    st.header("🔑 보안 및 사용자 센터")
-    user_name = st.text_input("상담원 성함", "이세윤 마스터")
+    st.header("🔑 SaaS 마스터 센터")
+    user_name = st.text_input("회원(상담원) 성함", "이세윤 마스터")
     customer_name = st.text_input("고객 성함", "우량 고객")
     st.divider()
     
-    with st.expander("🔐 API Key 설정", expanded=False):
-        api_key_input = st.text_input("Gemini API Key", type="password")
-        if api_key_input:
-            st.session_state.gemini_api_key = api_key_input
-        st.caption("유료 등급 키 사용 시 데이터 보안 강화")
+    # [구독 안내 보드]
+    st.info(f"""
+    **🏆 골드키지사 프리미엄 회원**
+    * **구독 상태**: 가동 중 (Paid Tier)
+    * **월 구독료**: 10,000원 (VAT 별도)
+    * **제공 혜택**: 구글 실시간 검색 및 CFP 지능 무제한
+    """)
+    
+    with st.expander("📜 구독 서비스 이용 약관"):
+        st.warning("""
+        **[법적 책임 한계고지]**
+        본 서비스는 AI 기술을 활용한 **상담 보조 도구**이며, 제공되는 모든 분석 결과의 **최종 판단 및 법적 책임은 사용자(상담원)**에게 있습니다. 본 시스템은 금융 상품 판매의 직접적인 근거가 될 수 없습니다.
+        """)
     
     st.divider()
     
@@ -457,7 +454,7 @@ with st.sidebar:
 # [SECTION 4] 마스터 UI 및 VEO 영상 사운드 해방 (獨立) 
 # -------------------------------------------------------------------------- 
 st.title("👑 골드키지사 AI 마스터")
-MASTER_VIDEO_URL = "https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/grok-video-c317d625-a0c7-4ce4-922c-7618ab3d7966.mp4"
+MASTER_VIDEO_URL = "https://github.com/insusite-goldkey/goldkey/blob/main/grok-video-c317d625-a0c7-4ce4-922c-7618ab3d7966.mp4"
 col_vid, col_txt = st.columns([4, 6])
 
 with col_vid:
@@ -600,26 +597,11 @@ with col_img2:
 if uploaded_images and st.button("🤖 AI 이미지 상담 분석 실행", type="primary", use_container_width=True):
     with st.spinner("🔍 AI 이미지 분석 중..."):
         try:
-            # API 키 설정
-            api_key = None
-            if 'gemini_api_key' in st.session_state:
-                api_key = st.session_state.gemini_api_key
-            elif 'GEMINI_API_KEY' in st.secrets:
-                api_key = st.secrets["GEMINI_API_KEY"]
-            elif api_key_input:
-                api_key = api_key_input
+            # 서버 고정형 모델 사용
+            model = get_master_model()
             
-            if not api_key:
-                st.error("❌ Gemini API Key가 설정되지 않았습니다.")
-            else:
-                # 자동 모델 전환 시스템 사용
-                model = get_available_model(api_key)
-                if not model:
-                    st.error("❌ 사용 가능한 모델이 없습니다. API 키를 확인해주세요.")
-                    st.stop()
-                
-                # 분석 쿼리 구성
-                analysis_query = f"""
+            # 분석 쿼리 구성
+            analysis_query = f"""
                 [이미지 상담 분석 요청]
                 분석 유형: {image_query_type}
                 특정 요청사항: {image_specific_query if image_specific_query else '해당 이미지의 보험 관련 내용을 종합적으로 분석해주세요.'}
@@ -755,48 +737,42 @@ if q_analyze:
             elif api_key_input:
                 api_key = api_key_input
             
-            if not api_key:
-                st.error("❌ Gemini API Key가 설정되지 않았습니다. 사이드바에서 API Key를 입력해주세요.")
-            else:
-                # 자동 모델 전환 시스템 사용
-                model = get_available_model(api_key)
-                if not model:
-                    st.error("❌ 사용 가능한 모델이 없습니다. API 키를 확인해주세요.")
-                    st.stop()
-                income = hi_premium / 0.0709 if hi_premium > 0 else 0
-                
-                # RAG 검색 수행
-                rag_results = []
-                if st.session_state.rag_system.index is not None:
-                    rag_results = st.session_state.rag_system.search(main_area, k=3)
-                
-                # 검색된 문서를 컨텍스트에 추가
-                context_text = ""
-                if rag_results:
-                    context_text = "\n\n[참고 자료]\n"
+            # 서버 고정형 모델 사용
+            model = get_master_model()
+            income = hi_premium / 0.0709 if hi_premium > 0 else 0
+            
+            # RAG 검색 수행
+            rag_results = []
+            if st.session_state.rag_system.index is not None:
+                rag_results = st.session_state.rag_system.search(main_area, k=3)
+            
+            # 검색된 문서를 컨텍스트에 추가
+            context_text = ""
+            if rag_results:
+                context_text = "\n\n[참고 자료]\n"
+                for i, result in enumerate(rag_results, 1):
+                    context_text += f"{i}. {result['text']}\n"
+            
+            query = f"상담: {main_area}. 소득: {income:.0f}. 필수: {essential_ins}. 질환: {disease_focus}.{context_text}"
+            
+            parts = [query]
+            if uploaded_files:
+                for f in uploaded_files:
+                    parts.append(PIL.Image.open(f))
+            
+            resp = model.generate_content(parts)
+            st.subheader(f"📊 {customer_name}님 정밀 리포트")
+            
+            # RAG 검색 결과 표시
+            if rag_results:
+                with st.expander("🔍 참고한 지식베이스 자료", expanded=False):
                     for i, result in enumerate(rag_results, 1):
-                        context_text += f"{i}. {result['text']}\n"
-                
-                query = f"상담: {main_area}. 소득: {income:.0f}. 필수: {essential_ins}. 질환: {disease_focus}.{context_text}"
-                
-                parts = [query]
-                if uploaded_files:
-                    for f in uploaded_files:
-                        parts.append(PIL.Image.open(f))
-                
-                resp = model.generate_content(parts)
-                st.subheader(f"📊 {customer_name}님 정밀 리포트")
-                
-                # RAG 검색 결과 표시
-                if rag_results:
-                    with st.expander("🔍 참고한 지식베이스 자료", expanded=False):
-                        for i, result in enumerate(rag_results, 1):
-                            st.write(f"**{i}.** {result['metadata']['filename']} (유사도: {result['score']:.3f})")
-                            st.write(f"{result['text'][:200]}...")
-                            st.divider()
-                
-                st.markdown(resp.text)
-                components.html(s_voice(f"{user_name} 마스터님, 분석이 완료되었습니다."), height=0)
+                        st.write(f"**{i}.** {result['metadata']['filename']} (유사도: {result['score']:.3f})")
+                        st.write(f"{result['text'][:200]}...")
+                        st.divider()
+            
+            st.markdown(resp.text)
+            components.html(s_voice(f"{user_name} 마스터님, 분석이 완료되었습니다."), height=0)
         except Exception as e:
             st.sidebar.error(f"⚠️ 분석 장애: {e}")
             st.sidebar.info("💡 해결책: API 키 확인 또는 관리자에게 문의하세요.")
