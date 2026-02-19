@@ -1546,6 +1546,10 @@ if is_admin or is_permanent:
 else:
     st.info("🔒 관리자 전용 기능은 접근할 수 없습니다.")
 
+# q_analyze 변수 초기화 (모바일/PC 모드 모두에서 사용 가능하도록)
+if 'q_analyze' not in locals():
+    q_analyze = False
+
 if q_analyze:
     # 관리자 및 영구회원 체크
     is_special_user = (
