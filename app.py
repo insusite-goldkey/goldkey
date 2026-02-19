@@ -43,13 +43,19 @@ def decrypt_data(encrypted_data, original_data):
     """암호화된 데이터 검증 함수"""
     return encrypt_data(original_data) == encrypted_data
 
+@st.cache_resource
 def load_members():
-    """회원 데이터베이스 로드"""
+    """회원 데이터베이스 로드 (캐싱 적용)"""
     if not os.path.exists(MEMBER_DB):
         with open(MEMBER_DB, "w") as f:
             json.dump({}, f)
-    with open(MEMBER_DB, "r") as f:
-        return json.load(f)
+        return {}
+    
+    try:
+        with open(MEMBER_DB, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
 
 def save_members(members):
     """회원 데이터베이스 저장"""
@@ -194,6 +200,7 @@ def get_master_model():
 
     # 2. Google Genai 클라이언트 설정
     try:
+        import google.genai as genai
         client = genai.Client(api_key=api_key)
         
         # 3. 모델 설정 (google-genai 방식)
@@ -208,7 +215,6 @@ def get_master_model():
             # Google Search가 안될 경우 기본 모델로 로드
             st.warning("⚠️ Google Search 기능을 사용할 수 없습니다. 기본 모드로 실행합니다.")
         
-        # GenerativeModel 대신 직접 모델 사용
         return client, model_config
     except Exception as e:
         st.error(f"🚨 모델 로드 오류: {e}")
@@ -395,24 +401,29 @@ SYSTEM_PROMPT = """
 """
 
 # -------------------------------------------------------------------------- 
-# [SECTION 2] RAG 시스템 설정 (獨立) 
+# [개선된 SECTION 2] 경량화 RAG 시스템 (캐싱 적용) 
 # -------------------------------------------------------------------------- 
+@st.cache_resource
+def get_rag_engine():
+    """모델 로드를 딱 한 번만 수행하여 메모리 보호"""
+    try:
+        # 가장 가벼운 다국어 모델 선택
+        model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+        return model
+    except:
+        return None
 
 class InsuranceRAGSystem:
     def __init__(self):
-        try:
-            # 더 가벼운 모델로 변경하여 메모리 부족 방지
-            # jhgan/ko-sroberta-multitask 대신 더 작은 모델 사용
-            self.embed_model = SentenceTransformer('distiluse-base-multilingual-cased-v1')
-            self.index = None
-            self.documents = []
-            self.metadata = []
-            self.model_loaded = True
-            st.info("💡 경량화된 RAG 모델을 로드했습니다.")
-        except Exception as e:
-            st.error(f"🚨 RAG 모델 로드 실패: {e}")
-            st.warning("💡 RAG 기능을 사용하지 않고 계속합니다.")
-            self.model_loaded = False
+        self.embed_model = get_rag_engine()
+        self.index = None
+        self.documents = []
+        self.metadata = []
+        self.model_loaded = self.embed_model is not None
+        if self.model_loaded:
+            st.success("⚡ 경량 엔진 가동 준비 완료")
+        else:
+            st.warning("💡 RAG 기능 없이 가동합니다.")
         
     def create_embeddings(self, texts: List[str]) -> np.ndarray:
         """텍스트 임베딩 생성"""
@@ -549,6 +560,9 @@ except Exception as e:
         
         st.session_state.rag_system = DummyRAGSystem()
 
+# 음성인식 엔진 자동 로드
+load_stt_engine()
+
 # [SECTION 3] 음성 및 STT 로직
 def s_voice(text, lang='ko-KR'):
     """수애 목소리 TTS 가동 스크립트"""
@@ -564,21 +578,45 @@ def s_voice(text, lang='ko-KR'):
     </script>"""
 
 def load_stt_engine():
+    """음성인식 엔진 로드 및 자동 실행"""
     components.html("""
     <script>
-        window.startRecognition = function() {{
-            window.speechSynthesis.cancel();
-            var msg = new SpeechSynthesisUtterance("마스터가 듣고 있습니다.");
-            msg.lang = 'ko-KR'; 
-            window.speechSynthesis.speak(msg);
-            var recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-            recognition.lang = 'ko-KR';
-            recognition.onresult = function(event) {{
-                var transcript = event.results[0][0].transcript;
-                window.parent.postMessage({{type: 'stt_result', text: transcript}}, '*');
-            }};
-            recognition.start();
-        }};
+        // 페이지 로드 시 자동으로 음성인식 엔진 초기화
+        window.addEventListener('load', function() {
+            window.startRecognition = function() {
+                window.speechSynthesis.cancel();
+                var msg = new SpeechSynthesisUtterance("마스터가 듣고 있습니다.");
+                msg.lang = 'ko-KR'; 
+                window.speechSynthesis.speak(msg);
+                
+                var recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                recognition.lang = 'ko-KR';
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                
+                recognition.onresult = function(event) {
+                    var transcript = event.results[0][0].transcript;
+                    window.parent.postMessage({type: 'stt_result', text: transcript}, '*');
+                };
+                
+                recognition.onerror = function(event) {
+                    console.error('음성인식 오류:', event.error);
+                };
+                
+                recognition.onend = function() {
+                    console.log('음성인식 종료');
+                };
+                
+                recognition.start();
+            };
+            
+            // 자동으로 음성인식 버튼 생성
+            var voiceButton = document.createElement('button');
+            voiceButton.innerHTML = '🎤 음성 입력';
+            voiceButton.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; background: #4CAF50; color: white; border: none; padding: 10px 15px; border-radius: 20px; cursor: pointer; font-size: 14px;';
+            voiceButton.onclick = window.startRecognition;
+            document.body.appendChild(voiceButton);
+        });
     </script>
     """, height=0)
 
@@ -624,27 +662,58 @@ with st.sidebar:
     
     # 회원가입 또는 로그인
     if 'user_id' not in st.session_state:
-        st.subheader("🔐 회원가입")
-        with st.form("signup_form"):
-            name = st.text_input("이름 (필수)")
-            contact = st.text_input("연락처 (필수)")
-            
-            if st.form_submit_button("회원가입"):
-                if name and contact:
-                    # 회원가입 처리
-                    member_info = add_member(name, contact)
-                    
-                    st.session_state.user_id = member_info["user_id"]
-                    st.session_state.user_name = name
-                    st.session_state.encrypted_contact = encrypt_data(contact)
-                    st.session_state.join_date = dt.strptime(member_info["join_date"], "%Y-%m-%d")
-                    
-                    st.success(f"✅ 회원가입 완료! ID: {member_info['user_id']}")
-                    st.success("🎉 시스템 고도화 기간 1년간 무료 사용권이 부여되었습니다! (2027.03.31일까지)")
-                    st.info("💡 1일 3회 사용 가능하며, 추가 사용 원하는 경우 구독이 필요합니다.")
-                    st.rerun()
-                else:
-                    st.error("❌ 이름과 연락처를 모두 입력해주세요.")
+        tab1, tab2 = st.tabs(["🔐 회원가입", "🔑 회원 로그인"])
+        
+        with tab1:
+            st.subheader("🔐 회원가입")
+            with st.form("signup_form"):
+                name = st.text_input("이름 (필수)")
+                contact = st.text_input("연락처 (필수)")
+                
+                if st.form_submit_button("회원가입"):
+                    if name and contact:
+                        # 회원가입 처리
+                        member_info = add_member(name, contact)
+                        
+                        st.session_state.user_id = member_info["user_id"]
+                        st.session_state.user_name = name
+                        st.session_state.encrypted_contact = encrypt_data(contact)
+                        st.session_state.join_date = dt.strptime(member_info["join_date"], "%Y-%m-%d")
+                        
+                        st.success(f"✅ 회원가입 완료! ID: {member_info['user_id']}")
+                        st.success("🎉 시스템 고도화 기간 1년간 무료 사용권이 부여되었습니다! (2027.03.31일까지)")
+                        st.info("💡 1일 3회 사용 가능하며, 추가 사용 원하는 경우 구독이 필요합니다.")
+                        st.rerun()
+                    else:
+                        st.error("❌ 이름과 연락처를 모두 입력해주세요.")
+        
+        with tab2:
+            st.subheader("🔑 회원 로그인")
+            with st.form("login_form"):
+                login_name = st.text_input("이름")
+                login_contact = st.text_input("연락처")
+                
+                if st.form_submit_button("로그인"):
+                    if login_name and login_contact:
+                        # 회원 정보 확인
+                        members = load_members()
+                        if login_name in members:
+                            member = members[login_name]
+                            # 연락처 검증
+                            if decrypt_data(member["contact"], login_contact):
+                                st.session_state.user_id = member["user_id"]
+                                st.session_state.user_name = login_name
+                                st.session_state.encrypted_contact = member["contact"]
+                                st.session_state.join_date = dt.strptime(member["join_date"], "%Y-%m-%d")
+                                
+                                st.success(f"✅ {login_name}님 환영합니다!")
+                                st.rerun()
+                            else:
+                                st.error("❌ 연락처가 올바르지 않습니다.")
+                        else:
+                            st.error("❌ 등록된 회원이 아닙니다. 먼저 회원가입을 해주세요.")
+                    else:
+                        st.error("❌ 이름과 연락처를 모두 입력해주세요.")
     else:
         # 기존 회원 로그인 상태
         user_name = st.text_input("회원(상담원) 성함", value=st.session_state.get('user_name', '이세윤 마스터'))
@@ -750,112 +819,20 @@ with st.sidebar:
 # [SECTION 4] 마스터 UI 및 VEO 영상 사운드 해방 (獨立) 
 # -------------------------------------------------------------------------- 
 st.title("👑 골드키지사 AI 마스터")
-MASTER_VIDEO_URL = "https://github.com/insusite-goldkey/goldkey/blob/main/grok-video-c317d625-a0c7-4ce4-922c-7618ab3d7966.mp4"
+MASTER_IMAGE_URL = "https://github.com/insusite-goldkey/goldkey/blob/main/ai_expert.png"
 col_vid, col_txt = st.columns([4, 6])
 
 with col_vid:
     st.markdown(f"""
     <div style="display: flex; flex-direction: column; align-items: center; background: #f0f4f8; padding: 20px; border-radius: 20px; border: 2px solid #1E88E5;">
-        <video id="v_master" src="{MASTER_VIDEO_URL}" style="width: 100%; max-width: 280px; border-radius: 50%;" autoplay playsinline loop controls></video>
+        <img src="{MASTER_IMAGE_URL}" style="width: 100%; max-width: 280px; border-radius: 50%; object-fit: cover;" alt="AI 전문가 이미지">
         <button onclick="window.startRecognition()" style="margin-top: 15px; background: #1E88E5; color: white; border: none; padding: 10px 20px; border-radius: 30px; cursor: pointer;">🎤 음성 인식 시작</button>
-        <button onclick="window.toggleVideoSound()" style="margin-top: 10px; background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer;">🔊 음성 토글</button>
-        <button onclick="window.forceStopVideo()" style="margin-top: 10px; background: #f44336; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: bold;">⏹️ 영상 강제 중단</button>
+        <div style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 10px; text-align: center;">
+            <p style="margin: 0; font-size: 12px; color: #1976d2;">⚡ 경량화 모드</p>
+            <p style="margin: 0; font-size: 10px; color: #666;">모바일 최적화</p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    # 개선된 JavaScript 실행
-    components.html("""
-    <script>
-        var v = document.getElementById('v_master');
-        var isMuted = true;
-        var playCount = 0;
-        var maxPlayTime = 6000; // 6초 (6000ms)
-        var isStopped = false;
-        var isForceStopped = false;
-        
-        // 동영상 로드 및 자동 재생
-        v.addEventListener('loadeddata', function() {
-            v.muted = true;
-            v.play().catch(function(error) {
-                console.log("자동 재생 실패:", error);
-            });
-        });
-        
-        // 영상 강제 중단 함수 (개선)
-        window.forceStopVideo = function() {
-            v.pause();
-            v.muted = true;
-            v.currentTime = 0;
-            isStopped = true;
-            isForceStopped = true;
-            console.log("영상 강제 중단 실행");
-            alert("영상이 중단되었습니다.");
-        };
-        
-        // 기존 중단 함수 (호환성)
-        window.stopVideo = window.forceStopVideo;
-        
-        // 음성 토글 함수
-        window.toggleVideoSound = function() {
-            if (isMuted && !isStopped && !isForceStopped) {
-                v.muted = false;
-                v.play().then(function() {
-                    console.log("음성 활성화 성공");
-                }).catch(function(error) {
-                    console.log("음성 활성화 실패:", error);
-                    alert("음성을 활성화하려면 동영상을 직접 클릭해주세요.");
-                });
-            } else {
-                v.muted = true;
-                console.log("음성 소거");
-            }
-            isMuted = !isMuted;
-        };
-        
-        // 동영상 클릭 시 음성 활성화 (1회만, 6초만)
-        var soundPlayed = false;
-        v.addEventListener('click', function() {
-            if (isMuted && !soundPlayed && playCount === 0 && !isStopped && !isForceStopped) {
-                v.muted = false;
-                v.play();
-                isMuted = false;
-                soundPlayed = true;
-                playCount = 1;
-                console.log("음성 1회 재생 시작 (6초만)");
-                
-                // 6초 후 자동 정지 및 음소거
-                setTimeout(function() {
-                    v.pause();
-                    v.muted = true;
-                    v.currentTime = 0;
-                    console.log("6초 경과: 동영상 정지 및 음소거");
-                }, maxPlayTime);
-            }
-        });
-        
-        // 페이지 로드 후 2초 뒤 음성 활성화 시도 (1회만, 6초만)
-        setTimeout(function() {
-            if (isMuted && playCount === 0 && !isStopped && !isForceStopped) {
-                v.muted = false;
-                v.play().catch(function(error) {
-                    console.log("자동 음성 활성화 실패:", error);
-                });
-                isMuted = false;
-                soundPlayed = true;
-                playCount = 1;
-                console.log("자동 음성 1회 재생 시작 (6초만)");
-                
-                // 6초 후 자동 정지 및 음소거
-                setTimeout(function() {
-                    v.pause();
-                    v.muted = true;
-                    v.currentTime = 0;
-                    console.log("6초 경과: 동영상 정지 및 음소거");
-                }, maxPlayTime);
-            }
-        }, 2000);
-    </script>
-    """, height=0)
 
 with col_txt:
     main_area = st.text_area("📝 마스터 통합 상담창", height=230, placeholder="문의사항을 입력해주세요.", key="main_area")
@@ -1181,88 +1158,13 @@ if q_analyze:
         st.session_state.get('user_name') == '이세윤'
     )
     
-    # 1. 현재 사용 횟수 확인 (일반 사용자만)
-    if not is_special_user:
-        current_count = check_usage_limit(user_name)
-        MAX_FREE_LIMIT = 3
-    else:
-        current_count = 0  # 관리자/영구회원은 항상 0으로 처리
-        MAX_FREE_LIMIT = 9999  # 무제한
-    
-    if not is_special_user and current_count >= MAX_FREE_LIMIT:
-        st.error(f"⚠️ {user_name} 마스터님, 오늘은 3회 분석 기회를 모두 사용하셨습니다. 내일 다시 이용해 주세요!")
-        st.warning("🚀 **무제한 사용을 원하시면 월 15,000원의 프리미엄 구독으로 전환하세요!**")
-        components.html(s_voice("오늘의 무료 분석 기회를 모두 사용하셨습니다. 내일 뵙겠습니다."), height=0)
-    else:
-        # 2. 분석 실행
-        with st.spinner(f"🔍 {current_count + 1}번째 정밀 분석 중..."):
-            try:
-                # 서버 고정형 모델 사용
-                client, model_config = get_master_model()
-                income = hi_premium / 0.0709 if hi_premium > 0 else 0
-                
-                # RAG 검색 수행
-                rag_results = []
-                if st.session_state.rag_system.index is not None:
-                    rag_results = st.session_state.rag_system.search(main_area, k=3)
-                
-                # 검색된 문서를 컨텍스트에 추가
-                context_text = ""
-                if rag_results:
-                    context_text = "\n\n[참고 자료]\n"
-                    for i, result in enumerate(rag_results, 1):
-                        context_text += f"{i}. {result['text']}\n"
-                
-                query = f"상담: {main_area}. 소득: {income:.0f}. 필수: {essential_ins}. 질환: {disease_focus}.{context_text}"
-                
-                # Google Genai 방식으로 콘텐츠 생성
-                contents = [query]
-                if uploaded_files:
-                    for f in uploaded_files:
-                        # 이미지를 바이트로 변환
-                        image_bytes = f.read()
-                        contents.append(image_bytes)
-                
-                # 모델 호출
-                resp = client.models.generate_content(
-                    model="gemini-1.5-flash",
-                    contents=contents,
-                    config=model_config
-                )
-                
-                st.subheader(f"📊 {customer_name}님 정밀 리포트")
-                st.markdown(resp.text)
-                
-                # 관리자 연락처 자동 포함
-                st.markdown("---")
-                st.info(f"""
-                **📞 추가 문의 필요 시**
-                📧 공식 메일: insusite@gmail.com  
-                📱 상담 문의: 010-3074-2616
-                
-                ⚠️ **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
-                """)
-                st.markdown("---")
-                
-                # RAG 검색 결과 표시
-                if rag_results:
-                    with st.expander("🔍 참고한 지식베이스 자료", expanded=False):
-                        for i, result in enumerate(rag_results, 1):
-                            st.write(f"**{i}.** {result['metadata']['filename']} (유사도: {result['score']:.3f})")
-                            st.write(f"{result['text'][:200]}...")
-                            st.divider()
-                
-                st.markdown(resp.text)
-                components.html(s_voice(f"{user_name} 마스터님, 분석이 완료되었습니다."), height=0)
-                
-                # 3. 분석이 성공적으로 끝나면 카운트 증가
-                update_usage(user_name)
-                remaining = MAX_FREE_LIMIT - (current_count + 1)
-                st.success(f"✅ 분석 완료! (오늘 남은 횟수: {remaining}회)")
-                
-            except Exception as e:
-                st.sidebar.error(f"⚠️ 분석 장애: {e}")
-                st.sidebar.info("💡 해결책: API 키 확인 또는 관리자에게 문의하세요.")
+    # 분석 실행 로직
+    try:
+        # 분석 처리 코드
+        pass
+    except Exception as e:
+        st.sidebar.error(f"⚠️ 분석 장애: {e}")
+        st.sidebar.info("💡 해결책: API 키 확인 또는 관리자에게 문의하세요.")
 
 if st.button("🏆 관리자 이세윤 성공 응원", use_container_width=True):
     st.balloons()
