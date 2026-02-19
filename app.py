@@ -30,14 +30,15 @@ st.set_page_config(page_title="골드키지사 AI 마스터", page_icon="👑", 
 # 모델 자동 전환 시스템
 def get_available_model(api_key):
     """사용 가능한 Gemini 모델을 자동으로 찾아 반환"""
-    genai.configure(api_key=api_key)
+    # v1beta API 버전 명시적 사용
+    genai.configure(api_key=api_key, transport='rest')
     
     # 모델 후보군 (앞에서부터 순차적으로 시도)
     candidates = [
         'gemini-1.5-flash',          # 최신 표준
         'gemini-1.5-flash-latest',   # 최신 버전 강제
         'gemini-1.5-pro',            # 고성능 버전 (대안)
-        'gemini-pro'                 # 구버전 (최후의 보루)
+        'gemini-pro'                 # 안정적인 기본 버전
     ]
     
     for model_name in candidates:
@@ -473,6 +474,8 @@ with col_vid:
     <script>
         var v = document.getElementById('v_master');
         var isMuted = true;
+        var playCount = 0;
+        var maxPlayTime = 6000; // 6초 (6000ms)
         
         // 동영상 로드 및 자동 재생
         v.addEventListener('loadeddata', function() {
@@ -499,26 +502,46 @@ with col_vid:
             isMuted = !isMuted;
         };
         
-        // 동영상 클릭 시 음성 활성화 (1회만)
+        // 동영상 클릭 시 음성 활성화 (1회만, 6초만)
         var soundPlayed = false;
         v.addEventListener('click', function() {
-            if (isMuted && !soundPlayed) {
+            if (isMuted && !soundPlayed && playCount === 0) {
                 v.muted = false;
                 v.play();
                 isMuted = false;
                 soundPlayed = true;
-                console.log("음성 1회 재생 완료");
+                playCount = 1;
+                console.log("음성 1회 재생 시작 (6초만)");
+                
+                // 6초 후 자동 정지 및 음소거
+                setTimeout(function() {
+                    v.pause();
+                    v.muted = true;
+                    v.currentTime = 0;
+                    console.log("6초 경과: 동영상 정지 및 음소거");
+                }, maxPlayTime);
             }
         });
         
-        // 페이지 로드 후 2초 뒤 음성 활성화 시도
+        // 페이지 로드 후 2초 뒤 음성 활성화 시도 (1회만, 6초만)
         setTimeout(function() {
-            if (isMuted) {
+            if (isMuted && playCount === 0) {
                 v.muted = false;
                 v.play().catch(function(error) {
                     console.log("자동 음성 활성화 실패:", error);
                 });
                 isMuted = false;
+                soundPlayed = true;
+                playCount = 1;
+                console.log("자동 음성 1회 재생 시작 (6초만)");
+                
+                // 6초 후 자동 정지 및 음소거
+                setTimeout(function() {
+                    v.pause();
+                    v.muted = true;
+                    v.currentTime = 0;
+                    console.log("6초 경과: 동영상 정지 및 음소거");
+                }, maxPlayTime);
             }
         }, 2000);
     </script>
