@@ -1,6 +1,5 @@
 # ==========================================================
 # 👑 [골드키지사 AI 마스터 - 운영 헌법 제1조 준수: 7일간의 무손실 통합본] 
-# 관리자: 이세윤 (글로벌 CFP 마스터) 
 # 지침: 1.영상 사운드 해방 / 2.수애 음성 유지 / 3.15개 섹션 독립 수호 / 4.병합 절대 금지 
 # ==========================================================
 
@@ -393,6 +392,15 @@ with st.sidebar:
         st.rerun()
     
     st.info(f"👤 **최종 승인자: 이세윤**")
+    
+    st.divider()
+    
+    with st.expander("🏆 마스터 회원 전용 혜택", expanded=False):
+        st.markdown("""
+        ### 🏆 마스터 회원 전용 혜택
+        - **구글 지원 토큰 내 무료 사용가능** (약8년간 무료.1일 3건. 파일50매한도.시스템관리비 1년무료)
+        - **무제한 사용가능**
+        """)
 
 # -------------------------------------------------------------------------- 
 # [SECTION 4] 마스터 UI 및 VEO 영상 사운드 해방 (獨立) 
@@ -406,42 +414,65 @@ with col_vid:
     <div style="display: flex; flex-direction: column; align-items: center; background: #f0f4f8; padding: 20px; border-radius: 20px; border: 2px solid #1E88E5;">
         <video id="v_master" src="{MASTER_VIDEO_URL}" style="width: 100%; max-width: 280px; border-radius: 50%;" autoplay playsinline loop controls></video>
         <button onclick="window.startRecognition()" style="margin-top: 15px; background: #1E88E5; color: white; border: none; padding: 10px 20px; border-radius: 30px; cursor: pointer;">🎤 음성 인식 시작</button>
-        <button onclick="window.unmuteVideo()" style="margin-top: 10px; background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer;">🔊 음성 켜기</button>
+        <button onclick="window.toggleVideoSound()" style="margin-top: 10px; background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer;">🔊 음성 토글</button>
     </div>
     """, unsafe_allow_html=True)
     
-    # 별도의 JavaScript 실행
+    # 개선된 JavaScript 실행
     components.html("""
     <script>
         var v = document.getElementById('v_master');
-        v.muted = true; // 처음에는 음소거로 시작
-        v.play().catch(function(error) {
-            console.log("자동 재생 실패:", error);
+        var isMuted = true;
+        
+        // 동영상 로드 및 자동 재생
+        v.addEventListener('loadeddata', function() {
+            v.muted = true;
+            v.play().catch(function(error) {
+                console.log("자동 재생 실패:", error);
+            });
         });
         
-        window.unmuteVideo = function() {
-            v.muted = false;
-            v.play().catch(function(error) {
-                console.log("음성 재생 실패:", error);
-            });
+        // 음성 토글 함수
+        window.toggleVideoSound = function() {
+            if (isMuted) {
+                v.muted = false;
+                v.play().then(function() {
+                    console.log("음성 활성화 성공");
+                }).catch(function(error) {
+                    console.log("음성 활성화 실패:", error);
+                    alert("음성을 활성화하려면 동영상을 직접 클릭해주세요.");
+                });
+            } else {
+                v.muted = true;
+                console.log("음성 소거");
+            }
+            isMuted = !isMuted;
         };
         
-        // 페이지 로드 후 1초 뒤에 음성 켜기 시도
-        setTimeout(function() {
-            var userInteracted = false;
-            document.addEventListener('click', function() {
-                userInteracted = true;
-            }, { once: true });
-            
-            if (userInteracted) {
-                window.unmuteVideo();
+        // 동영상 클릭 시 음성 활성화
+        v.addEventListener('click', function() {
+            if (isMuted) {
+                v.muted = false;
+                v.play();
+                isMuted = false;
             }
-        }, 1000);
+        });
+        
+        // 페이지 로드 후 2초 뒤 음성 활성화 시도
+        setTimeout(function() {
+            if (isMuted) {
+                v.muted = false;
+                v.play().catch(function(error) {
+                    console.log("자동 음성 활성화 실패:", error);
+                });
+                isMuted = false;
+            }
+        }, 2000);
     </script>
     """, height=0)
 
 with col_txt:
-    main_area = st.text_area("📝 마스터 통합 상담창", height=230)
+    main_area = st.text_area("📝 마스터 통합 상담창", height=230, placeholder="문의사항을 입력해주세요.")
     q_analyze = st.button("🚀 글로벌 CFP 정밀 분석 실행", type="primary", use_container_width=True)
 
 # 음성 인식 함수 로드
@@ -508,7 +539,7 @@ if uploaded_images and st.button("🤖 AI 이미지 상담 분석 실행", type=
                 genai.configure(api_key=api_key)
                 
                 # Vision 모델 사용 (이미지 분석에 최적화)
-                model = genai.GenerativeModel(model_name='gemini-pro', system_instruction=SYSTEM_PROMPT)
+                model = genai.GenerativeModel(model_name='gemini-1.0-pro', system_instruction=SYSTEM_PROMPT)
                 
                 # 분석 쿼리 구성
                 analysis_query = f"""
@@ -550,7 +581,8 @@ if uploaded_images and st.button("🤖 AI 이미지 상담 분석 실행", type=
                 components.html(s_voice("AI 이미지 상담 분석이 완료되었습니다."), height=0)
                 
         except Exception as e:
-            st.error(f"이미지 분석 장애: {e}")
+            st.sidebar.error(f"⚠️ 이미지 분석 장애: {e}")
+            st.sidebar.info("💡 해결책: 이미지 파일 확인 또는 API 키를 확인하세요.")
 
 # -------------------------------------------------------------------------- 
 # [SECTION 10] 실전 보상 & 민원 대응 (獨立) 
@@ -650,7 +682,7 @@ if q_analyze:
                 st.error("❌ Gemini API Key가 설정되지 않았습니다. 사이드바에서 API Key를 입력해주세요.")
             else:
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel(model_name='gemini-pro', system_instruction=SYSTEM_PROMPT)
+                model = genai.GenerativeModel(model_name='gemini-1.0-pro', system_instruction=SYSTEM_PROMPT)
                 income = hi_premium / 0.0709 if hi_premium > 0 else 0
                 
                 # RAG 검색 수행
@@ -686,8 +718,9 @@ if q_analyze:
                 st.markdown(resp.text)
                 components.html(s_voice(f"{user_name} 마스터님, 분석이 완료되었습니다."), height=0)
         except Exception as e:
-            st.error(f"분석 장애: {e}")
+            st.sidebar.error(f"⚠️ 분석 장애: {e}")
+            st.sidebar.info("💡 해결책: API 키 확인 또는 관리자에게 문의하세요.")
 
 if st.button("🏆 관리자 이세윤 성공 응원", use_container_width=True):
     st.balloons()
-    components.html(s_voice("이세윤 관리자님, 필승하십시오! 당신의 성공을 응원합니다."), height=0)
+    components.html(s_voice("당신의 성공을 응원합니다."), height=0)
