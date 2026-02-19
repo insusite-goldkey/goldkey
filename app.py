@@ -402,11 +402,13 @@ class InsuranceRAGSystem:
     def __init__(self):
         try:
             # 더 가벼운 모델로 변경하여 메모리 부족 방지
-            self.embed_model = SentenceTransformer('jhgan/ko-sroberta-multitask')
+            # jhgan/ko-sroberta-multitask 대신 더 작은 모델 사용
+            self.embed_model = SentenceTransformer('distiluse-base-multilingual-cased-v1')
             self.index = None
             self.documents = []
             self.metadata = []
             self.model_loaded = True
+            st.info("💡 경량화된 RAG 모델을 로드했습니다.")
         except Exception as e:
             st.error(f"🚨 RAG 모델 로드 실패: {e}")
             st.warning("💡 RAG 기능을 사용하지 않고 계속합니다.")
@@ -418,8 +420,8 @@ class InsuranceRAGSystem:
             return np.array([])
         
         try:
-            # 배치 처리로 메모리 사용량 최적화
-            batch_size = 5  # 한 번에 처리할 텍스트 수 제한
+            # 배치 처리로 메모리 사용량 최적화 (더 작은 배치)
+            batch_size = 2  # 한 번에 처리할 텍스트 수 제한 (5→2)
             all_embeddings = []
             
             for i in range(0, len(texts), batch_size):
@@ -590,25 +592,30 @@ with st.sidebar:
     admin_id = st.text_input("관리자 ID", key="admin_id", type="password")
     admin_code = st.text_input("관리자 코드", key="admin_code", type="password")
     
-    # 관리자 자동 로그인
-    if admin_id == "admin" and admin_code == "gold1234":
-        st.session_state.user_id = "ADMIN_MASTER"
-        st.session_state.user_name = "이세윤 마스터"
-        st.session_state.encrypted_contact = encrypt_contact("01030742616")
-        st.session_state.join_date = dt.now()
-        st.session_state.is_admin = True
-        st.success("👑 관리자로 자동 로그인되었습니다!")
-        st.rerun()
-    
-    # 영구회원 자동 로그인
-    elif admin_id == "이세윤" and admin_code == "01030742616":
-        st.session_state.user_id = "PERMANENT_MASTER"
-        st.session_state.user_name = "이세윤"
-        st.session_state.encrypted_contact = encrypt_contact("01030742616")
-        st.session_state.join_date = dt.now()
-        st.session_state.is_admin = False
-        st.success("🎉 영구회원으로 자동 로그인되었습니다!")
-        st.rerun()
+    # 명시적 로그인 버튼
+    if st.button("🔑 관리자 로그인"):
+        # 관리자 자동 로그인
+        if admin_id == "admin" and admin_code == "gold1234":
+            st.session_state.user_id = "ADMIN_MASTER"
+            st.session_state.user_name = "이세윤 마스터"
+            st.session_state.encrypted_contact = encrypt_contact("01030742616")
+            st.session_state.join_date = dt.now()
+            st.session_state.is_admin = True
+            st.success("👑 관리자로 자동 로그인되었습니다!")
+            st.rerun()
+        
+        # 영구회원 자동 로그인
+        elif admin_id == "이세윤" and admin_code == "01030742616":
+            st.session_state.user_id = "PERMANENT_MASTER"
+            st.session_state.user_name = "이세윤"
+            st.session_state.encrypted_contact = encrypt_contact("01030742616")
+            st.session_state.join_date = dt.now()
+            st.session_state.is_admin = False
+            st.success("🎉 영구회원으로 자동 로그인되었습니다!")
+            st.rerun()
+        
+        else:
+            st.error("❌ ID 또는 코드가 올바르지 않습니다.")
     
     st.divider()
     
