@@ -149,7 +149,7 @@ def main():
                         st.divider()
                         st.subheader(f"📊 {customer_name}님을 위한 마스터 AI 정밀 리포트")
                         st.markdown(resp.text)
-                        st.info("⚠️ 본 분석 결과의 최종 책임은 사용자에게 귀속됩니다.")
+                        st.info("[주의] 본 분석 결과의 최종 책임은 사용자에게 귀속됩니다.")
                         
                         # 성공 음성 안내
                         components.html(s_voice(f"{st.session_state.user_name}님, 마스터 에이아이의 분석이 완료되었습니다."), height=0)
@@ -183,7 +183,7 @@ if __name__ == "__main__":
         st.error(f"🚨 시스템 구동 중 오류 발생: {e}")
         <div style="margin:20px 0; min-height:300px;">{content.replace('\\n', '<br>')}</div>
         <div style="font-size:11px; color:#888; background:#f9f9f9; padding:10px; border-radius:5px;">
-            <b>⚠️ 법적 책임 고지:</b> 본 리포트는 참고용이며 최종 결정의 책임은 사용자에게 있습니다.
+            <b>[주의] 법적 책임 고지:</b> 본 리포트는 참고용이며 최종 결정의 책임은 사용자에게 있습니다.
         </div>
     </div>
     """
@@ -438,7 +438,7 @@ def main():
                     st.divider()
                     st.subheader(f"📊 {customer_name}님을 위한 마스터 AI 정밀 리포트")
                     st.markdown(result)
-                    st.info("⚠️ 본 분석 결과의 최종 책임은 사용자에게 귀속됩니다.")
+                    st.info("[주의] 본 분석 결과의 최종 책임은 사용자에게 귀속됩니다.")
                     
                     # 성공 음성 안내
                     components.html(s_voice(f"{st.session_state.user_name}님, 마스터 에이아이의 분석이 완료되었습니다."), height=0)
@@ -621,7 +621,7 @@ def get_master_model():
             model_config["tools"] = [genai.Tool(google_search_retrieval=genai.GoogleSearchRetrieval())]
         except:
             # Google Search가 안될 경우 기본 모델로 로드
-            st.warning("⚠️ Google Search 기능을 사용할 수 없습니다. 기본 모드로 실행합니다.")
+            st.warning("[주의] Google Search 기능을 사용할 수 없습니다. 기본 모드로 실행합니다.")
         
         return client, model_config
     except Exception as e:
@@ -799,7 +799,7 @@ SYSTEM_PROMPT = """
 - 자산가 상담 시: "건물은 자식에게 사랑의 유산이 될 수도 있지만, 준비 없는 상속세는 자식에게 짐이 될 수도 있습니다. 건물이 세금을 스스로 내게 만드는 구조, 제가 설계해 드리겠습니다."
 - 의료비 상담 시: "의학은 빛의 속도로 발전하는데 고객님의 보험은 아직 20세기에 멈춰 있지는 않습니까? 최신 치료를 돈 걱정 없이 선택할 수 있는 권리, 그것이 진정한 보험의 가치입니다."
 
-## ⚠️ 최종 강조 사항
+## [주의] 최종 강조 사항
 - 모든 대화의 끝은 설계사님의 30년 신뢰를 상징하는 연락처로 마무리하십시오.
 - 상담 문의: 010-3074-2616 이세윤 FC
 
@@ -1023,7 +1023,7 @@ with st.sidebar:
     st.divider()
     
     # 실명 사용 공지
-    st.warning("⚠️ **반드시 본인의 실명으로 이용해야 데이터가 관리됩니다**")
+    st.warning("[주의] **반드시 본인의 실명으로 이용해야 데이터가 관리됩니다**")
     
     # 회원가입 또는 로그인
     if 'user_id' not in st.session_state:
@@ -1253,12 +1253,12 @@ if is_mobile:
             MAX_FREE_LIMIT = 3
             
             if not is_special_user and current_count >= MAX_FREE_LIMIT:
-                st.error(f"⚠️ {user_name} 마스터님, 오늘은 3회 분석 기회를 모두 사용하셨습니다. 내일 다시 이용해 주세요!")
+                st.error(f"[주의] {user_name} 마스터님, 오늘은 3회 분석 기회를 모두 사용하셨습니다. 내일 다시 이용해 주세요!")
                 st.warning("🚀 **무제한 사용을 원하시면 월 15,000원의 프리미엄 구독으로 전환하세요!**")
                 components.html(s_voice("오늘의 무료 분석 기회를 모두 사용하셨습니다. 내일 뵙겠습니다."), height=0)
                 
                 # 답변창에 메시지 표시
-                st.session_state.analysis_result = "⚠️ **오늘의 분석 횟수를 모두 사용하셨습니다.**\n\n내일 다시 이용해 주세요!"
+                st.session_state.analysis_result = "[주의] **오늘의 분석 횟수를 모두 사용하셨습니다.**\n\n내일 다시 이용해 주세요!"
             else:
                 # 분석 실행
                 with st.spinner(f"🔍 {current_count + 1}번째 정밀 분석 중..."):
@@ -1298,7 +1298,7 @@ if is_mobile:
         📧 공식 메일: insusite@gmail.com  
         📱 상담 문의: 010-3074-2616
 
-        ⚠️ **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
+        [주의] **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
         """
                         
                         st.session_state.analysis_result = answer_text
@@ -1311,9 +1311,9 @@ if is_mobile:
                         st.success(f"✅ 분석 완료! (오늘 남은 횟수: {remaining}회)")
                         
                     except Exception as e:
-                        error_msg = f"⚠️ **분석 장애 발생**\n\n오류: {e}\n\n💡 해결책: API 키 확인 또는 관리자에게 문의하세요."
+                        error_msg = f"[주의] **분석 장애 발생**\n\n오류: {e}\n\n💡 해결책: API 키 확인 또는 관리자에게 문의하세요."
                         st.session_state.analysis_result = error_msg
-                        st.sidebar.error(f"⚠️ 분석 장애: {e}")
+                        st.sidebar.error(f"[주의] 분석 장애: {e}")
                         st.sidebar.info("💡 해결책: API 키 확인 또는 관리자에게 문의하세요.")
     
     else:
@@ -1376,12 +1376,12 @@ if is_mobile:
             MAX_FREE_LIMIT = 3
             
             if not is_special_user and current_count >= MAX_FREE_LIMIT:
-                st.error(f"⚠️ {user_name} 마스터님, 오늘은 3회 분석 기회를 모두 사용하셨습니다. 내일 다시 이용해 주세요!")
+                st.error(f"[주의] {user_name} 마스터님, 오늘은 3회 분석 기회를 모두 사용하셨습니다. 내일 다시 이용해 주세요!")
                 st.warning("🚀 **무제한 사용을 원하시면 월 15,000원의 프리미엄 구독으로 전환하세요!**")
                 components.html(s_voice("오늘의 무료 분석 기회를 모두 사용하셨습니다. 내일 뵙겠습니다."), height=0)
                 
                 # 답변창에 메시지 표시
-                st.session_state.analysis_result = "⚠️ **오늘의 분석 횟수를 모두 사용하셨습니다.**\n\n내일 다시 이용해 주세요!"
+                st.session_state.analysis_result = "[주의] **오늘의 분석 횟수를 모두 사용하셨습니다.**\n\n내일 다시 이용해 주세요!"
             else:
                 # 분석 실행
                 with st.spinner(f"🔍 {current_count + 1}번째 정밀 분석 중..."):
@@ -1421,7 +1421,7 @@ if is_mobile:
         📧 공식 메일: insusite@gmail.com  
         📱 상담 문의: 010-3074-2616
 
-        ⚠️ **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
+        [주의] **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
         """
                         
                         st.session_state.analysis_result = answer_text
@@ -1434,9 +1434,9 @@ if is_mobile:
                         st.success(f"✅ 분석 완료! (오늘 남은 횟수: {remaining}회)")
                         
                     except Exception as e:
-                        error_msg = f"⚠️ **분석 장애 발생**\n\n오류: {e}\n\n💡 해결책: API 키 확인 또는 관리자에게 문의하세요."
+                        error_msg = f"[주의] **분석 장애 발생**\n\n오류: {e}\n\n💡 해결책: API 키 확인 또는 관리자에게 문의하세요."
                         st.session_state.analysis_result = error_msg
-                        st.sidebar.error(f"⚠️ 분석 장애: {e}")
+                        st.sidebar.error(f"[주의] 분석 장애: {e}")
                         st.sidebar.info("💡 해결책: API 키 확인 또는 관리자에게 문의하세요.")
 
 # 음성 인식 함수 로드
@@ -1529,7 +1529,7 @@ if all_uploaded_images and st.button("🤖 AI 보험금 상담 분석 실행", t
     MAX_FREE_LIMIT = 3
     
     if current_count >= MAX_FREE_LIMIT:
-        st.error(f"⚠️ {user_name} 마스터님, 오늘은 3회 분석 기회를 모두 사용하셨습니다. 내일 다시 이용해 주세요!")
+        st.error(f"[주의] {user_name} 마스터님, 오늘은 3회 분석 기회를 모두 사용하셨습니다. 내일 다시 이용해 주세요!")
         st.warning("🚀 **무제한 사용을 원하시면 월 15,000원의 프리미엄 구독으로 전환하세요!**")
         components.html(s_voice("오늘의 무료 분석 기회를 모두 사용하셨습니다. 내일 뵙겠습니다."), height=0)
     else:
@@ -1583,7 +1583,7 @@ if all_uploaded_images and st.button("🤖 AI 보험금 상담 분석 실행", t
 📧 공식 메일: insusite@gmail.com  
 📱 상담 문의: 010-3074-2616
 
-⚠️ **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
+[주의] **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
 """
                 
                 st.session_state.analysis_result = answer_text
@@ -1596,9 +1596,9 @@ if all_uploaded_images and st.button("🤖 AI 보험금 상담 분석 실행", t
                 st.success(f"✅ 보험금 분석 완료! (오늘 남은 횟수: {remaining}회)")
                 
             except Exception as e:
-                error_msg = f"⚠️ **보험금 분석 장애 발생**\n\n오류: {e}\n\n💡 해결책: 이미지 파일 확인 또는 관리자에게 문의하세요."
+                error_msg = f"[주의] **보험금 분석 장애 발생**\n\n오류: {e}\n\n💡 해결책: 이미지 파일 확인 또는 관리자에게 문의하세요."
                 st.session_state.analysis_result = error_msg
-                st.sidebar.error(f"⚠️ 분석 장애: {e}")
+                st.sidebar.error(f"[주의] 분석 장애: {e}")
                 st.sidebar.info("💡 해결책: 이미지 파일 확인 또는 관리자에게 문의하세요.")
                 
                 # 결과 표시
@@ -1612,7 +1612,7 @@ if all_uploaded_images and st.button("🤖 AI 보험금 상담 분석 실행", t
                 📧 공식 메일: insusite@gmail.com  
                 📱 상담 문의: 010-3074-2616
                 
-                ⚠️ **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
+                [주의] **법적 책임**: 모든 분석 결과의 최종 책임은 사용자(회원)에게 귀속됩니다.
                 """)
                 st.markdown("---")
                 
@@ -1624,7 +1624,7 @@ if all_uploaded_images and st.button("🤖 AI 보험금 상담 분석 실행", t
                 st.success(f"✅ 이미지 분석 완료! (오늘 남은 횟수: {remaining}회)")
                 
             except Exception as e:
-                st.sidebar.error(f"⚠️ 이미지 분석 장애: {e}")
+                st.sidebar.error(f"[주의] 이미지 분석 장애: {e}")
                 st.sidebar.info("💡 해결책: 이미지 파일 확인 또는 API 키를 확인하세요.")
                 
     st.image("https://raw.githubusercontent.com/insusite-goldkey/goldkey/main/dispute_process.png")
@@ -1831,7 +1831,7 @@ if st.session_state.get('is_admin', False):
                     if selected_member:
                         members[selected_member]["is_active"] = False
                         save_members(members)
-                        st.warning(f"⚠️ {selected_member}님이 비활성화되었습니다.")
+                        st.warning(f"[주의] {selected_member}님이 비활성화되었습니다.")
     else:
         st.info("등록된 회원이 없습니다.")
 else:
@@ -1905,7 +1905,7 @@ if q_analyze:
         # 분석 처리 코드
         pass
     except Exception as e:
-        st.sidebar.error(f"⚠️ 분석 장애: {e}")
+        st.sidebar.error(f"[주의] 분석 장애: {e}")
         st.sidebar.info("💡 해결책: API 키 확인 또는 관리자에게 문의하세요.")
 
 if st.button("🏆 FC님 성공 응원", use_container_width=True):
