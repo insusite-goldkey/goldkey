@@ -120,7 +120,7 @@ def main():
     with tabs[0]:
         st.title("마스터 AI 정밀 상담")
         customer_name = st.text_input("고객 성함", "우량 고객", key="customer_name_main")
-        query = st.text_area("질문 입력", height=150, placeholder="보험, 재무, 건강 상담 내용을 입력하세요.")
+        query = st.text_area("질문 입력", height=150, placeholder="보험, 재무, 건강 상담 내용을 입력하세요.", key="query_main")
         
         if st.button("정밀 분석 실행", type="primary"):
             if 'user_id' not in st.session_state:
@@ -406,7 +406,7 @@ def main():
     with tabs[0]:
         st.title(" 마스터 AI 정밀 상담")
         customer_name = st.text_input("고객 성함", "우량 고객", key="customer_name_mobile")
-        query = st.text_area("질문 입력", height=150, placeholder="보험, 재무, 건강 상담 내용을 입력하세요.")
+        query = st.text_area("질문 입력", height=150, placeholder="보험, 재무, 건강 상담 내용을 입력하세요.", key="query_mobile")
         
         if st.button(" 정밀 분석 실행", type="primary"):
             if 'user_id' not in st.session_state:
