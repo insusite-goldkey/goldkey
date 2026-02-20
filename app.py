@@ -181,21 +181,6 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         st.error(f" 시스템 구동 중 오류 발생: {e}")
-        <div style="margin:20px 0; min-height:300px;">{content.replace('\\n', '<br>')}</div>
-        <div style="font-size:11px; color:#888; background:#f9f9f9; padding:10px; border-radius:5px;">
-            <b>[주의] 법적 책임 고지:</b> 본 리포트는 참고용이며 최종 결정의 책임은 사용자에게 있습니다.
-        </div>
-    </div>
-    """
-    st.components.v1.html(report_html, height=500, scrolling=True)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        share_msg = f"[{title}] {customer_name}님, 분석 리포트입니다.\\n\\n{content[:100]}..."
-        components.html(f"""<script>function sh(){{ navigator.share({{title:'리포트', text:`{share_msg}`, url:window.location.href}}); }}</script>
-        <button onclick="sh()" style="width:100%; padding:12px; background:#25D366; color:white; border:none; border-radius:8px; font-weight:bold;">[문자] 문자/카톡 공유</button>""", height=60)
-    with col2:
-        st.download_button("[다운로드] 내 문서에 저장", data=report_html, file_name=f"GK_Report_{customer_name}.html", mime="text/html", use_container_width=True)
 
 # -------------------------------------------------------------------------- 
 # [SECTION 5] 12~13번 페이지: 상속/증여/유언 정밀 로직 (보존)
@@ -683,7 +668,7 @@ SYSTEM_PROMPT = """
 | 손해배상 | 과실 비율 및 장해 등급 판정 시 법률적 쟁점 사전 고지한다. |
 
 ### 5. 보험금 청구서 준비 안내
-보험금청구 준비 서류안내는 생명.손해보험 보험회사의 공시실에 제공되는 '보험청구 서류'를 근거로 하며, 추가 부족 서류는 '민사소송과정'에서 판사.변호사의 요청 서류를 근거로 한다. 공시실 이외의 자료를 고객에게 안내할 때는 반드시 "본 준비 서류 목록은 2차적인 서류로 1차 보험사에 물어보고 준비하세요'라는 안내를 할 것.
+보험금청구 준비 서류안내는 생명.손해보험 보험회사의 공시실에 제공되는 '보험청구 서류'를 근거로 하며, 추가 부족 서류는 '민사소송과정'에서 판사.변호사의 요청 서류를 근거로 한다. 공시실 이외의 자료를 고객에게 안내할 때는 반드시 "본 준비 서류 목록은 2차적인 서류로 1차 보험사에 물어보고 준비하세요"라는 안내를 할 것.
 
 ## 인사 가이드라인:
 
@@ -801,7 +786,7 @@ SYSTEM_PROMPT = """
 
 ## [주의] 최종 강조 사항
 - 모든 대화의 끝은 설계사님의 30년 신뢰를 상징하는 연락처로 마무리하십시오.
-- 상담 문의: 010-3074-2616 이세윤 FC
+- 상담 문의: "010-3074-2616" 이세윤 FC
 
 [RAG 시스템 통합 지침]
 - RAG 검색 결과를 활용할 때는 반드시 출처와 유사도를 명시하고, 이를 3중 검증 프로세스의 근거 자료로 활용하십시오.
