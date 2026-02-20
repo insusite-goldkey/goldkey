@@ -100,8 +100,8 @@ def main():
     with st.sidebar:
         st.header("SaaS 마스터 센터")
         if 'user_id' not in st.session_state:
-            u_name = st.text_input("성함")
-            u_phone = st.text_input("연락처", type="password")
+            u_name = st.text_input("성함", key="sidebar_name")
+            u_phone = st.text_input("연락처", type="password", key="sidebar_phone")
             if st.button("접속"):
                 if u_name and u_phone:
                     st.session_state.user_id = f"GK_{u_name}"
@@ -119,7 +119,7 @@ def main():
 
     with tabs[0]:
         st.title("마스터 AI 정밀 상담")
-        customer_name = st.text_input("고객 성함", "우량 고객")
+        customer_name = st.text_input("고객 성함", "우량 고객", key="customer_name_main")
         query = st.text_area("질문 입력", height=150, placeholder="보험, 재무, 건강 상담 내용을 입력하세요.")
         
         if st.button("정밀 분석 실행", type="primary"):
@@ -190,7 +190,7 @@ def section_inheritance_will():
     st.markdown("##### 2026년 최신 세법 및 민법 제1000조(상속순위) 기준")
     
     # [입력 단계] 개인정보 마스킹 처리 예시
-    c_name = st.text_input("상담 고객 성함", "홍길동")
+    c_name = st.text_input("상담 고객 성함", "홍길동", key="inheritance_name")
     masked_name = c_name[0] + "*" + c_name[-1] if len(c_name) > 1 else c_name
     
     st.info(f" 보안 모드 가동 중: 분석 리포트에는 **'{masked_name}'**님으로 표기됩니다.")
@@ -377,8 +377,8 @@ def main():
     with st.sidebar:
         st.header(" SaaS 마스터 센터")
         if 'user_id' not in st.session_state:
-            u_name = st.text_input("성함")
-            u_phone = st.text_input("연락처", type="password")
+            u_name = st.text_input("성함", key="main_name")
+            u_phone = st.text_input("연락처", type="password", key="main_phone")
             if st.button(" 접속"):
                 if u_name and u_phone:
                     st.session_state.user_id = f"GK_{u_name}"
@@ -405,7 +405,7 @@ def main():
 
     with tabs[0]:
         st.title(" 마스터 AI 정밀 상담")
-        customer_name = st.text_input("고객 성함", "우량 고객")
+        customer_name = st.text_input("고객 성함", "우량 고객", key="customer_name_mobile")
         query = st.text_area("질문 입력", height=150, placeholder="보험, 재무, 건강 상담 내용을 입력하세요.")
         
         if st.button(" 정밀 분석 실행", type="primary"):
@@ -1066,8 +1066,8 @@ with st.sidebar:
                         st.error(" 이름과 연락처를 모두 입력해주세요.")
     else:
         # 기존 회원 로그인 상태
-        user_name = st.text_input("회원(상담원) 성함", value=st.session_state.get('user_name', '이세윤 마스터'))
-        customer_name = st.text_input("고객 성함", "우량 고객")
+        user_name = st.text_input("회원(상담원) 성함", value=st.session_state.get('user_name', '이세윤 마스터'), key="user_name_sidebar")
+        customer_name = st.text_input("고객 성함", "우량 고객", key="customer_name_sidebar")
         
         # user_name이 세션에 없으면 현재 입력값으로 설정
         if 'user_name' not in st.session_state:
