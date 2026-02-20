@@ -23,7 +23,7 @@ def get_encryption_key():
     if "ENCRYPTION_KEY" in st.secrets:
         return st.secrets["ENCRYPTION_KEY"].encode()
     # 주의: 실제 운영 시에는 반드시 secrets에 저장된 고정 키를 사용해야 함
-    return b'temporary_fixed_key_for_dev_only_12345='
+    return b'HPKZFd1CdX0smoXiKdn4KW9ErmyB76Z-qX3NzwEGe3c='
 
 cipher_suite = Fernet(get_encryption_key())
 
