@@ -2,6 +2,34 @@
 # 골드키지사 마스터 AI - 탭 구조 통합본 (전체 수정판)
 # 수정: 구조적/논리적/보안/모바일 문제 전체 반영
 # ==========================================================
+#
+# ██████████████████████████████████████████████████████████
+# ██  [코딩 규칙 — 삭제/수정 금지]                        ██
+# ██                                                      ██
+# ██  1. 아래 섹션 구조(SECTION 0 ~ SECTION 12)는         ██
+# ██     절대 삭제하거나 순서를 변경하지 말 것.            ██
+# ██                                                      ██
+# ██  2. 각 섹션 내 '삭제/수정 금지' 주석이 달린          ██
+# ██     코드 블록은 내용을 변경하지 말 것.               ██
+# ██                                                      ██
+# ██  3. 전문가 역산 로직(건보료/국민연금 기반 소득 역산,  ██
+# ██     보험료 황금비율, 호프만/라이프니쯔 계수 산출 등)  ██
+# ██     은 절대 변경하지 말 것.                          ██
+# ██                                                      ██
+# ██  섹션 구조 목록:                                     ██
+# ██   SECTION 0    — Google Play 결제 검증 & RTDN        ██
+# ██   SECTION 0.5  — 베타 모드 / 결제 플래그             ██
+# ██   SECTION 1.5  — Google Sheets 영구 저장소           ██
+# ██   SECTION 2    — 데이터베이스 & 회원 관리            ██
+# ██   SECTION 3    — 유틸리티 함수                       ██
+# ██   SECTION 4    — RAG 시스템                          ██
+# ██   SECTION 5    — AI 모델 & 프롬프트                  ██
+# ██   SECTION 6    — 메인 UI (사이드바 / 이용약관)       ██
+# ██   SECTION 7    — 탭 라우팅 & 각 상담 탭              ██
+# ██   SECTION 8    — 관리자 패널                         ██
+# ██   SECTION 9    — 엔트리포인트 (main)                 ██
+# ██   SECTION 12   — 배상책임보험 상담 탭                ██
+# ██████████████████████████████████████████████████████████
 
 import streamlit as st
 from google import genai
@@ -34,19 +62,27 @@ except ImportError:
 USAGE_DB = "usage_log.json"
 MEMBER_DB = "members.json"
 
-# 선택적 임포트 — Google Play Billing (미설치 시 결제 검증 기능만 비활성화)
-try:
-    from googleapiclient.discovery import build
-    from google.oauth2 import service_account
-    import google.auth.exceptions
-    BILLING_AVAILABLE = True
-except ImportError:
-    BILLING_AVAILABLE = False
+# 선택적 임포트 — Google Play Billing
+# BETA_MODE=True 시 완전 비활성화 (라이브러리 미설치 환경 포함)
+# 주의: BETA_MODE 플래그는 아래 [SECTION 0.5]에서 정의됨
+#   이 시점에서는 아직 정의 전이므로 False 리터럴로 임포트 차단
+_BILLING_IMPORT_ENABLED = False  # BETA_MODE 연동 전 임시 차단 플래그
 
-try:
-    from google.cloud import pubsub_v1
-    PUBSUB_AVAILABLE = True
-except ImportError:
+if _BILLING_IMPORT_ENABLED:
+    try:
+        from googleapiclient.discovery import build
+        from google.oauth2 import service_account
+        import google.auth.exceptions
+        BILLING_AVAILABLE = True
+    except ImportError:
+        BILLING_AVAILABLE = False
+    try:
+        from google.cloud import pubsub_v1
+        PUBSUB_AVAILABLE = True
+    except ImportError:
+        PUBSUB_AVAILABLE = False
+else:
+    BILLING_AVAILABLE = False
     PUBSUB_AVAILABLE = False
 
 # --------------------------------------------------------------------------
@@ -62,8 +98,19 @@ except ImportError:
 #   → run_worker() 백그라운드 스레드 → callback() → DB 동기화
 #   (Push 방식은 외부 공개 URL 필요 — 로컬/Streamlit Cloud는 Pull 권장)
 
-PLAY_PACKAGE_NAME    = "com.goldkey.insurance"      # 실제 패키지명으로 교체
-PLAY_SUBSCRIPTION_ID = "goldkey_ai_monthly_sub"     # Play Console 상품 ID
+def _get_play_config():
+    """Play Console 설정값을 secrets에서 가져옴 — 없으면 환경변수 폴백"""
+    try:
+        pkg  = st.secrets.get("PLAY_PACKAGE_NAME",    "") or os.environ.get("PLAY_PACKAGE_NAME",    "")
+        sub  = st.secrets.get("PLAY_SUBSCRIPTION_ID", "") or os.environ.get("PLAY_SUBSCRIPTION_ID", "")
+        return pkg, sub
+    except Exception:
+        return (
+            os.environ.get("PLAY_PACKAGE_NAME",    ""),
+            os.environ.get("PLAY_SUBSCRIPTION_ID", ""),
+        )
+
+PLAY_PACKAGE_NAME,    PLAY_SUBSCRIPTION_ID = _get_play_config()
 
 # Google Billing v7 기준 notificationType 매핑
 NOTIFICATION_TYPES = {
@@ -233,8 +280,14 @@ def run_worker():
         if not creds:
             print("[RTDN] GCP 인증 실패 — secrets.toml [gcp_service_account] 확인")
             return
-        project_id      = st.secrets.get("gcp_service_account", {}).get("project_id", "")
-        subscription_id = "play-subs-notifications-sub"  # Pub/Sub 구독 ID로 교체
+        try:
+            project_id = st.secrets.get("gcp_service_account", {}).get("project_id", "")
+        except Exception:
+            project_id = ""
+        try:
+            subscription_id = st.secrets.get("PUBSUB_SUBSCRIPTION_ID", "") or os.environ.get("PUBSUB_SUBSCRIPTION_ID", "play-subs-notifications-sub")
+        except Exception:
+            subscription_id = os.environ.get("PUBSUB_SUBSCRIPTION_ID", "play-subs-notifications-sub")
         subscriber      = pubsub_v1.SubscriberClient(credentials=creds)
         sub_path        = subscriber.subscription_path(project_id, subscription_id)
         print(f"[RTDN] 모니터링 시작: {sub_path}")
@@ -396,34 +449,53 @@ CEO_FS_PROMPT = """
 """
 
 CEO_EVAL_GUIDE = """
-#### 📘 비상장주식 평가 방법 안내
-
-**① 상증법 보충적 평가 (상속세 및 증여세법)**
-| 구분 | 산식 | 가중치 |
-|---|---|---|
-| 주당 순손익가치 | 3개년 가중평균 EPS ÷ 환원율(10%) | 3 |
-| 주당 순자산가치 | (순자산 + 영업권) ÷ 총주식수 | 2 |
-| **가중평균** | **(손익가치×3 + 자산가치×2) ÷ 5** | |
-| 하한선 | 순자산가치 × 80% | |
-| 경영권 할증 | 최대주주 등 → 평가액 × 1.2 | |
-
-> 부동산 과다 법인: 손익가치 2 : 자산가치 3 역전 적용
-
-**② 법인세법상 시가**
-- 매매사례가액 있으면 → 해당 가액 우선 적용
-- 없으면 → 상증법 보충적 평가방법 준용
-- 최대주주 20% 할증 동일 적용
-
-**③ 영업권 계산**
-```
-초과이익 = (가중평균EPS × 50%) - (주당순자산 × 10%)
-영업권   = max(0, 초과이익 × 연금현가계수 3.7908)
-```
-
-**④ 활용 목적**
-- 가업승계 증여·상속 시 과세표준 산정
-- 법인 간 주식 거래 시 부당행위계산 판단 기준
-- CEO 퇴직금·보험 설계 시 법인 가치 평가 근거
+<b style="font-size:0.88rem;color:#1a3a5c;">① 상증법 보충적 평가 (상속세 및 증여세법)</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.82rem;margin:6px 0 10px 0;">
+  <tr style="background:#1a3a5c;color:#fff;">
+    <th style="padding:5px 8px;text-align:left;">구분</th>
+    <th style="padding:5px 8px;text-align:left;">산식</th>
+    <th style="padding:5px 8px;text-align:center;">가중치</th>
+  </tr>
+  <tr style="border-bottom:1px solid #dde3ea;">
+    <td style="padding:5px 8px;">주당 순손익가치</td>
+    <td style="padding:5px 8px;">3개년 가중평균 EPS ÷ 환원율(10%)</td>
+    <td style="padding:5px 8px;text-align:center;font-weight:700;">3</td>
+  </tr>
+  <tr style="background:#f4f7fb;border-bottom:1px solid #dde3ea;">
+    <td style="padding:5px 8px;">주당 순자산가치</td>
+    <td style="padding:5px 8px;">(순자산 + 영업권) ÷ 총주식수</td>
+    <td style="padding:5px 8px;text-align:center;font-weight:700;">2</td>
+  </tr>
+  <tr style="border-bottom:1px solid #dde3ea;">
+    <td style="padding:5px 8px;font-weight:700;">가중평균</td>
+    <td style="padding:5px 8px;font-weight:700;">(손익가치×3 + 자산가치×2) ÷ 5</td>
+    <td style="padding:5px 8px;text-align:center;">—</td>
+  </tr>
+  <tr style="background:#f4f7fb;border-bottom:1px solid #dde3ea;">
+    <td style="padding:5px 8px;">하한선</td>
+    <td style="padding:5px 8px;">순자산가치 × 80%</td>
+    <td style="padding:5px 8px;text-align:center;">—</td>
+  </tr>
+  <tr>
+    <td style="padding:5px 8px;">경영권 할증</td>
+    <td style="padding:5px 8px;">최대주주 등 → 평가액 × 1.2</td>
+    <td style="padding:5px 8px;text-align:center;">—</td>
+  </tr>
+</table>
+<span style="font-size:0.8rem;color:#c0392b;">※ 부동산 과다 법인: 손익가치 2 : 자산가치 3 역전 적용</span><br><br>
+<b style="font-size:0.88rem;color:#1a3a5c;">② 법인세법상 시가</b><br>
+• 매매사례가액 있으면 → 해당 가액 우선 적용<br>
+• 없으면 → 상증법 보충적 평가방법 준용<br>
+• 최대주주 20% 할증 동일 적용<br><br>
+<b style="font-size:0.88rem;color:#1a3a5c;">③ 영업권 계산</b><br>
+<div style="background:#f0f4f8;border-radius:6px;padding:8px 12px;margin:4px 0 10px 0;font-family:monospace;font-size:0.82rem;">
+초과이익 = (가중평균EPS × 50%) − (주당순자산 × 10%)<br>
+영업권 &nbsp;&nbsp;= max(0, 초과이익 × 연금현가계수 3.7908)
+</div>
+<b style="font-size:0.88rem;color:#1a3a5c;">④ 활용 목적</b><br>
+• 가업승계 증여·상속 시 과세표준 산정<br>
+• 법인 간 주식 거래 시 부당행위계산 판단 기준<br>
+• CEO 퇴직금·보험 설계 시 법인 가치 평가 근거
 """
 
 def decrypt_data(stored_hash, input_data):
@@ -441,17 +513,197 @@ def sanitize_prompt(text):
             return "보안을 위해 부적절한 요청은 처리되지 않습니다."
     return text
 
+# --------------------------------------------------------------------------
+# [SECTION 0.5] 베타 모드 및 결제 모듈 활성화 플래그
+# --------------------------------------------------------------------------
+# BETA_MODE = True  → 결제 라이브러리/기능 완전 비활성화 (베타 배포/심사 대응)
+# BETA_MODE = False → 결제 연동 활성화 (실제 운영 시)
+BETA_MODE: bool = True
+
+# BETA_MODE 연동: 비활성화 시 임포트 차단 플래그 동기화
+_BILLING_IMPORT_ENABLED = not BETA_MODE
+
+# 이용약관 결제 조항: BETA_MODE일 때 숨김
+SHOW_PAYMENT_TERMS: bool = not BETA_MODE
+
 def get_admin_key():
     """관리자 키를 st.secrets에서 가져옴 (평문 하드코딩 금지)"""
     try:
-        return st.secrets.get("ADMIN_KEY", "goldkey777")
+        key = st.secrets.get("ADMIN_KEY", "goldkey777")
+        return key if key else "goldkey777"
     except Exception:
         return "goldkey777"
 
 # --------------------------------------------------------------------------
+# [SECTION 1.5] Google Sheets 영구 저장소 레이어
+# --------------------------------------------------------------------------
+# 구조: SQLite(빠른 읽기/쓰기) + Google Sheets(영구 백업)
+#   앱 시작 시: Sheets → SQLite 복원 (휘발성 /tmp 초기화 대응)
+#   쓰기 시:   SQLite 저장 후 Sheets 동기화 (비동기 처리)
+#
+# secrets.toml 설정:
+#   [gcp_service_account] 항목 재사용 (결제 연동과 동일 서비스 계정)
+#   SHEETS_MEMBERS_ID = "구글시트_스프레드시트_ID"
+#
+# Google Sheets 구조:
+#   시트1 "members"  : name | user_id | contact_hash | join_date | subscription_end | is_active | purchase_token
+#   시트2 "usage_log": user_name | log_date | count
+
+try:
+    import gspread
+    from google.oauth2.service_account import Credentials as _SACredentials
+    SHEETS_AVAILABLE = True
+except ImportError:
+    SHEETS_AVAILABLE = False
+
+_SHEETS_SCOPES = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive",
+]
+
+@st.cache_resource(show_spinner=False)
+def _get_sheets_client():
+    """gspread 클라이언트 — secrets.toml [gcp_service_account] 재사용"""
+    if not SHEETS_AVAILABLE:
+        return None
+    try:
+        info = dict(st.secrets["gcp_service_account"])
+        creds = _SACredentials.from_service_account_info(info, scopes=_SHEETS_SCOPES)
+        return gspread.authorize(creds)
+    except Exception:
+        return None
+
+def _get_spreadsheet():
+    """스프레드시트 객체 반환 — SHEETS_MEMBERS_ID secrets 키 사용"""
+    gc = _get_sheets_client()
+    if not gc:
+        return None
+    try:
+        sid = st.secrets.get("SHEETS_MEMBERS_ID", "")
+        if not sid:
+            return None
+        return gc.open_by_key(sid)
+    except Exception:
+        return None
+
+def _sheets_get_or_create_worksheet(ss, title: str, headers: list):
+    """시트가 없으면 생성 후 헤더 삽입"""
+    try:
+        ws = ss.worksheet(title)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = ss.add_worksheet(title=title, rows=1000, cols=len(headers))
+        ws.append_row(headers)
+    return ws
+
+# ── Sheets → SQLite 복원 ──────────────────────────────────────────────────
+def restore_from_sheets(conn):
+    """
+    앱 시작 시 1회 호출.
+    Google Sheets의 최신 데이터를 SQLite에 INSERT OR REPLACE.
+    Sheets 미설정 시 조용히 스킵.
+    """
+    ss = _get_spreadsheet()
+    if not ss:
+        return
+    try:
+        # members 복원
+        ws_m = _sheets_get_or_create_worksheet(
+            ss, "members",
+            ["name","user_id","contact_hash","join_date","subscription_end","is_active","purchase_token"]
+        )
+        rows = ws_m.get_all_records()
+        for r in rows:
+            conn.execute(
+                "INSERT OR REPLACE INTO members "
+                "(name,user_id,contact_hash,join_date,subscription_end,is_active,purchase_token) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (r.get("name",""), r.get("user_id",""), r.get("contact_hash",""),
+                 r.get("join_date",""), r.get("subscription_end",""),
+                 int(r.get("is_active", 1)), r.get("purchase_token",""))
+            )
+    except Exception:
+        pass
+    try:
+        # usage_log 복원
+        ws_u = _sheets_get_or_create_worksheet(
+            ss, "usage_log", ["user_name","log_date","count"]
+        )
+        rows = ws_u.get_all_records()
+        for r in rows:
+            conn.execute(
+                "INSERT OR IGNORE INTO usage_log (user_name,log_date,count) VALUES (?,?,?)",
+                (r.get("user_name",""), r.get("log_date",""), int(r.get("count", 0)))
+            )
+    except Exception:
+        pass
+
+# ── SQLite → Sheets 동기화 (쓰기 후 호출) ────────────────────────────────
+def _sync_member_to_sheets(name: str, user_id: str, contact_hash: str,
+                            join_date: str, subscription_end: str,
+                            is_active: int, purchase_token: str = ""):
+    """단일 회원 행을 Sheets에 upsert"""
+    ss = _get_spreadsheet()
+    if not ss:
+        return
+    try:
+        ws = _sheets_get_or_create_worksheet(
+            ss, "members",
+            ["name","user_id","contact_hash","join_date","subscription_end","is_active","purchase_token"]
+        )
+        cell = ws.find(name, in_column=1)
+        row_data = [name, user_id, contact_hash, join_date,
+                    subscription_end, is_active, purchase_token]
+        if cell:
+            ws.update(f"A{cell.row}:G{cell.row}", [row_data])
+        else:
+            ws.append_row(row_data)
+    except Exception:
+        pass
+
+def _sync_usage_to_sheets(user_name: str, log_date: str, count: int):
+    """usage_log 단일 행을 Sheets에 upsert"""
+    ss = _get_spreadsheet()
+    if not ss:
+        return
+    try:
+        ws = _sheets_get_or_create_worksheet(
+            ss, "usage_log", ["user_name","log_date","count"]
+        )
+        # user_name + log_date 조합으로 행 검색
+        records = ws.get_all_records()
+        for i, r in enumerate(records, start=2):  # 헤더가 1행
+            if r.get("user_name") == user_name and r.get("log_date") == log_date:
+                ws.update(f"C{i}", [[count]])
+                return
+        ws.append_row([user_name, log_date, count])
+    except Exception:
+        pass
+
+def _delete_member_from_sheets(name: str):
+    """Sheets에서 회원 행 삭제 (GDPR 파기 연동)"""
+    ss = _get_spreadsheet()
+    if not ss:
+        return
+    try:
+        ws = ss.worksheet("members")
+        cell = ws.find(name, in_column=1)
+        if cell:
+            ws.delete_rows(cell.row)
+    except Exception:
+        pass
+
+# --------------------------------------------------------------------------
 # [SECTION 2] 데이터베이스 및 회원 관리 (SQLite 영구 저장)
 # --------------------------------------------------------------------------
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "goldkey_data.db")
+# Streamlit Cloud: 앱 디렉터리는 읽기 전용 → /tmp 폴백 사용
+_app_dir = os.path.dirname(os.path.abspath(__file__))
+_db_local = os.path.join(_app_dir, "goldkey_data.db")
+try:
+    _test_write = open(_db_local, "ab")
+    _test_write.close()
+    DB_PATH = _db_local
+except OSError:
+    DB_PATH = "/tmp/goldkey_data.db"
 
 from contextlib import contextmanager
 
@@ -504,6 +756,7 @@ def setup_database():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )''')
         _migrate_json_to_db(conn)
+        restore_from_sheets(conn)  # Sheets → SQLite 복원 (휘발성 /tmp 대응)
 
 def _migrate_json_to_db(conn):
     """기존 members.json / usage_log.json 을 DB로 이전 후 백업 보관 (이미 열린 conn 재사용)"""
@@ -555,27 +808,36 @@ def save_members(members: dict):
                          "VALUES (?,?,?,?,?,?)",
                          (name, m["user_id"], m["contact"], m["join_date"],
                           m["subscription_end"], 1 if m.get("is_active", True) else 0))
+    # Sheets 동기화
+    for name, m in members.items():
+        _sync_member_to_sheets(
+            name, m["user_id"], m["contact"], m["join_date"],
+            m["subscription_end"], 1 if m.get("is_active", True) else 0
+        )
 
 def add_member(name, contact):
-    """신규 회원 등록 - 연락처는 SHA-256 해시 저장
-    무료 행사 기간(~2027.03.31): 가입 후 10일간 3회/일, 이후 10회/일
-    구독 기간: 3개월(90일)
+    """
+    신규 회원 등록 - 6개월 베타 테스트 무료 개방 버전
+    만료일: 2026-08-31 고정
     """
     user_id = "GK_" + name + "_" + str(int(time.time()))
     join_date = dt.now().strftime("%Y-%m-%d")
-    end_date = (dt.now() + timedelta(days=90)).strftime("%Y-%m-%d")  # 3개월
+    # [전문가 역산 로직] 베타 테스트 종료일 고정 설정
+    end_date = "2026-08-31"
     contact_hash = encrypt_contact(contact)
     with _get_conn() as conn:
         conn.execute("INSERT OR REPLACE INTO members "
                      "(name,user_id,contact_hash,join_date,subscription_end,is_active) "
                      "VALUES (?,?,?,?,?,1)",
                      (name, user_id, contact_hash, join_date, end_date))
+    # Sheets 동기화
+    _sync_member_to_sheets(name, user_id, contact_hash, join_date, end_date, 1)
     return {"user_id": user_id, "contact": contact_hash,
             "join_date": join_date, "subscription_end": end_date, "is_active": True}
 
 def gdpr_purge_member(name: str):
     """GDPR Art.17 / 개인정보보호법 기준 완전 파기
-       1) DB 레코드 삭제  2) VACUUM(빈 공간 덮어쓰기)  3) 세션 초기화"""
+       1) DB 레코드 삭제  2) VACUUM(빈 공간 덮어쓰기)  3) Sheets 삭제  4) 세션 초기화"""
     with _get_conn() as conn:
         conn.execute("DELETE FROM members WHERE name=?", (name,))
         conn.execute("DELETE FROM usage_log WHERE user_name=?", (name,))
@@ -585,10 +847,13 @@ def gdpr_purge_member(name: str):
         vconn.execute("VACUUM")
     finally:
         vconn.close()
+    # Sheets에서도 삭제 (GDPR 완전 파기)
+    _delete_member_from_sheets(name)
 
 # ── 무료 이용 정책 상수 ──────────────────────────────────────────────
-# 무료 행사 종료일: 2027-03-31
-FREE_EVENT_END = date(2027, 3, 31)
+# 베타 테스트 종료일: 2026-08-31 (6개월 베타)
+BETA_END_DATE  = date(2026, 8, 31)
+FREE_EVENT_END = BETA_END_DATE   # 하위 호환 별칭
 # 가입 후 10일 이내: 1일 3회 (결제카드 불필요)
 MAX_FREE_EARLY = 3
 EARLY_FREE_DAYS = 10
@@ -597,10 +862,83 @@ MAX_FREE_DAILY = 10
 # 무제한 사용 계정 (사용량 카운트 제외)
 UNLIMITED_USERS = {"이세윤", "PERMANENT_MASTER"}
 
-def get_daily_limit(join_date) -> int:
-    """가입일 기준 오늘의 일일 한도 반환"""
+# [전문가 역산 로직] 등급별 일일 한도 정책
+PLAN_POLICIES = {
+    "Free":     {"limit": 2,   "label": "체험용",            "color": "#6c757d"},
+    "Standard": {"limit": 10,  "label": "일반 설계사용",      "color": "#2e6da4"},
+    "Master":   {"limit": 999, "label": "전문가용 (무제한)",  "color": "#ffc107"},
+}
+
+def get_dynamic_limit(user_name: str, user_tier: str = "Standard"):
+    """
+    날짜 기반 자동 전환 엔진:
+    1. 2026-08-31 이전: 모든 가입자 10회 제공 (베타 프리미엄)
+    2. 2026-08-31 이후: 가입 등급(Free/Standard/Master)에 따른 차등 제한
+    반환: (tier_label: str, daily_limit: int)
+    """
     today_d = date.today()
-    # 무료 행사 종료 이후는 결제 필요 (여기서는 한도 0으로 처리)
+    if user_name in UNLIMITED_USERS:
+        return "MASTER", PLAN_POLICIES["Master"]["limit"]
+    if today_d <= BETA_END_DATE:
+        return "STANDARD (BETA)", MAX_FREE_DAILY
+    policy = PLAN_POLICIES.get(user_tier, PLAN_POLICIES["Free"])
+    return user_tier.upper(), policy["limit"]
+
+def display_usage_dashboard(user_name: str):
+    """사이드바 프리미엄 사용량 게이지 UI — get_dynamic_limit 기반"""
+    current_count = check_usage_count(user_name)
+    tier_label, daily_limit = get_dynamic_limit(user_name)
+
+    remaining = max(0, daily_limit - current_count)
+    is_unlimited = daily_limit > 100
+
+    if is_unlimited:
+        usage_percent = 0.05
+        display_limit = "∞"
+        rem_text = "무제한 이용 가능"
+    else:
+        usage_percent = min(1.0, current_count / daily_limit) if daily_limit else 1.0
+        display_limit = str(daily_limit)
+        rem_text = f"{remaining}회 남음"
+
+    upgrade_html = (
+        '<div style="margin-top:14px;border-top:1px dashed #e2e8f0;padding-top:10px;text-align:center;">'
+        '<a href="mailto:insusite@gmail.com" style="text-decoration:none;font-size:0.72rem;'
+        'color:#2e6da4;font-weight:700;">🚀 MASTER 플랜 업그레이드 문의</a></div>'
+        if not is_unlimited else ""
+    )
+
+    st.sidebar.markdown(f"""
+<div style="background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);
+            border:1px solid #e2e8f0;border-radius:16px;padding:18px;
+            margin:10px 0 25px 0;box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <span style="font-size:0.7rem;font-weight:900;color:#1e293b;
+                     background:#f1f5f9;padding:4px 10px;border-radius:20px;
+                     border:1px solid #cbd5e1;letter-spacing:0.05em;">
+            {tier_label}
+        </span>
+        <span style="font-size:0.9rem;font-weight:800;color:#2e6da4;">
+            {current_count} <span style="color:#94a3b8;font-weight:400;">/</span> {display_limit}
+        </span>
+    </div>
+    <div style="background:#f1f5f9;border-radius:12px;height:12px;width:100%;
+                overflow:hidden;border:1px solid #e2e8f0;position:relative;">
+        <div style="background:linear-gradient(90deg,#3b82f6 0%,#2e6da4 100%);
+                    width:{usage_percent * 100:.1f}%;height:100%;border-radius:12px;
+                    transition:width 1s cubic-bezier(0.4,0,0.2,1);"></div>
+    </div>
+    <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:0.75rem;color:#64748b;font-weight:500;">오늘의 잔여 분석</span>
+        <span style="font-size:0.85rem;color:#0f172a;font-weight:800;">{rem_text}</span>
+    </div>
+    {upgrade_html}
+</div>
+""", unsafe_allow_html=True)
+
+def get_daily_limit(join_date) -> int:
+    """가입일 기준 오늘의 일일 한도 반환 (하위 호환 유지)"""
+    today_d = date.today()
     if today_d > FREE_EVENT_END:
         return 0
     if not join_date:
@@ -628,6 +966,12 @@ def update_usage(user_name: str):
         conn.execute("INSERT INTO usage_log (user_name,log_date,count) VALUES (?,?,1) "
                      "ON CONFLICT(user_name,log_date) DO UPDATE SET count=count+1",
                      (user_name, today))
+        new_count = conn.execute(
+            "SELECT count FROM usage_log WHERE user_name=? AND log_date=?",
+            (user_name, today)
+        ).fetchone()[0]
+    # Sheets 동기화
+    _sync_usage_to_sheets(user_name, today, new_count)
 
 def get_remaining_usage(user_name: str, join_date=None) -> int:
     limit = get_daily_limit(join_date)
@@ -639,7 +983,7 @@ def calculate_subscription_days(join_date):
     try:
         if isinstance(join_date, str):
             join_date = dt.strptime(join_date, "%Y-%m-%d")
-        return max(0, (join_date + timedelta(days=90) - dt.now()).days)  # 3개월
+        return max(0, (join_date + timedelta(days=180) - dt.now()).days)  # 6개월
     except:
         return 0
 
@@ -771,6 +1115,51 @@ def process_pdf(file):
     except Exception as e:
         return f"PDF 처리 오류: {e}"
 
+def extract_pdf_chunks(file, char_limit: int = 8000) -> str:
+    """
+    PDF 전체 텍스트를 char_limit 내에서 최대한 추출.
+    전략:
+      1) 전체 페이지 텍스트를 추출
+      2) 총 길이가 char_limit 이하면 전문 반환
+      3) 초과 시 앞 40% / 중간 20% / 뒤 40% 균등 샘플링
+         → 보험 증권 특약은 뒷부분에 집중되므로 후반부 비중 높임
+    """
+    if not PDF_AVAILABLE:
+        return f"[PDF] {file.name} (pdfplumber 미설치)"
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
+            tmp.write(file.getvalue())
+            tmp_path = tmp.name
+        with pdfplumber.open(tmp_path) as pdf:
+            pages = [page.extract_text() or "" for page in pdf.pages]
+        os.unlink(tmp_path)
+    except Exception as e:
+        return f"PDF 처리 오류: {e}"
+
+    full_text = "\n".join(pages)
+    total = len(full_text)
+
+    if total <= char_limit:
+        return full_text
+
+    # 앞 40% / 중간 20% / 뒤 40% 샘플링
+    front_limit  = int(char_limit * 0.40)
+    mid_limit    = int(char_limit * 0.20)
+    back_limit   = char_limit - front_limit - mid_limit
+
+    front = full_text[:front_limit]
+    mid_start = total // 2 - mid_limit // 2
+    mid   = full_text[mid_start: mid_start + mid_limit]
+    back  = full_text[-back_limit:]
+
+    page_count = len(pages)
+    return (
+        f"[PDF 전체 {total:,}자 / {page_count}페이지 → {char_limit:,}자 샘플링]\n\n"
+        f"── 앞부분 (p.1~) ──\n{front}\n\n"
+        f"── 중간부분 (p.{page_count//2}~) ──\n{mid}\n\n"
+        f"── 뒷부분 (~p.{page_count}) ──\n{back}"
+    )
+
 def process_docx(file):
     try:
         import docx as _docx
@@ -783,7 +1172,7 @@ def process_docx(file):
         with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
             tmp.write(file.getvalue())
             tmp_path = tmp.name
-        doc_obj = docx.Document(tmp_path)
+        doc_obj = _docx.Document(tmp_path)
         text = "\n".join(p.text for p in doc_obj.paragraphs)
         os.unlink(tmp_path)
         return text
@@ -832,8 +1221,45 @@ def get_rag_engine():
     except:
         return None
 
-RAG_INDEX_PATH = "rag_index.faiss"
-RAG_DOCS_PATH  = "rag_docs.json"
+# --------------------------------------------------------------------------
+# RAG 파일 경로 전략 (휘발성 방지)
+# --------------------------------------------------------------------------
+# 우선순위:
+#   1) 앱 디렉터리(_app_dir) — GitHub에 커밋된 파일이 있으면 재시작 후에도 유지
+#   2) /tmp 폴백              — Streamlit Cloud 읽기전용 환경 대응
+#
+# [권장 워크플로우] 노하우 데이터를 영구 보존하려면:
+#   1. 로컬에서 관리자 탭 → RAG 문서 업로드 → 인덱스 빌드
+#   2. 생성된 rag_index.faiss / rag_docs.json 을 Git 저장소에 커밋
+#      $ git add rag_index.faiss rag_docs.json
+#      $ git commit -m "chore: update RAG knowledge base"
+#      $ git push
+#   3. Streamlit Cloud가 재배포되면 앱 디렉터리에서 파일을 자동 로드
+# --------------------------------------------------------------------------
+_app_dir_rag = os.path.dirname(os.path.abspath(__file__))
+_rag_app_index = os.path.join(_app_dir_rag, "rag_index.faiss")
+_rag_app_docs  = os.path.join(_app_dir_rag, "rag_docs.json")
+_rag_tmp_index = os.path.join("/tmp", "rag_index.faiss")
+_rag_tmp_docs  = os.path.join("/tmp", "rag_docs.json")
+
+# 앱 디렉터리 쓰기 가능 여부 확인
+try:
+    _rag_test = open(_rag_app_index if os.path.exists(_rag_app_index) else
+                     os.path.join(_app_dir_rag, ".rag_write_test"), "ab")
+    _rag_test.close()
+    if not os.path.exists(_rag_app_index):
+        os.remove(os.path.join(_app_dir_rag, ".rag_write_test"))
+    _rag_dir_writable = True
+except Exception:
+    _rag_dir_writable = False
+
+# 최종 경로 결정: 앱 디렉터리 우선, 쓰기 불가 시 /tmp 폴백
+if _rag_dir_writable:
+    RAG_INDEX_PATH = _rag_app_index
+    RAG_DOCS_PATH  = _rag_app_docs
+else:
+    RAG_INDEX_PATH = _rag_tmp_index
+    RAG_DOCS_PATH  = _rag_tmp_docs
 
 class InsuranceRAGSystem:
     def __init__(self):
@@ -1091,7 +1517,7 @@ def section_housing_pension():
 def main():
     # 모바일 최적화: wide 레이아웃 조건부 적용
     st.set_page_config(
-        page_title="골드키지사 마스터 AI",
+        page_title="Goldkey AI Master SaaS",
         page_icon="🏆",
         layout="centered",   # 모바일에서 wide 대신 centered 사용
         initial_sidebar_state="collapsed"  # 모바일 초기 사이드바 접힘
@@ -1101,6 +1527,9 @@ def main():
     if 'db_ready' not in st.session_state:
         setup_database()
         st.session_state.db_ready = True
+
+    # Google Play 결제 토큰 수신 처리 (query_params 방식)
+    handle_verify_purchase_query()
 
     if 'rag_system' not in st.session_state:
         try:
@@ -1128,10 +1557,10 @@ def main():
   <div style="font-size:1.15rem;font-weight:900;color:#ffffff;
     letter-spacing:0.04em; font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
     line-height:1.3;">
-    🏆 골드키지사 AI 마스터
+    🏆 Goldkey AI Master SaaS
   </div>
   <div style="font-size:0.72rem;color:#b8d4f0;margin-top:3px;letter-spacing:0.02em;">
-    SaaS 마스터 센터 · AI 상담 시스템
+    Goldkey AI Master SaaS · AI 상담 시스템
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1140,14 +1569,26 @@ def main():
         # 회원가입 혜택 안내
         if 'user_id' not in st.session_state:
             st.markdown("""
-            **🎁 회원가입 혜택 (무료 행사 ~2027.03.31)**
-            - ✅ 가입 후 **10일간** 1일 **3회** 무료 (결제카드 불필요)
-            - ✅ 10일 이후 매일 **10회** 무료 이용
-            - ✅ 보험금/이미지 분석
-            - ✅ 상속·증여·주택연금 시뮬레이션
-            - ✅ 건보료 기반 소득 역산
-            - 💎 구독회원: 3개월 이용권 (이름·연락처 가입)
-            """)
+<div style="font-size:1.0rem;font-weight:900;color:#1a3a5c;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  line-height:1.5; margin-bottom:6px;">
+🎁 회원가입 혜택<br>
+<span style="font-size:0.82rem;font-weight:700;color:#2e6da4;">
+(무료 행사 ~2026.08.31)
+</span>
+</div>
+""", unsafe_allow_html=True)
+            st.markdown("""
+<div style="
+  background:#eaf4fb; border-left:4px solid #2e6da4;
+  border-radius:8px; padding:10px 14px 10px 14px;
+  font-size:0.83rem; color:#1a1a2e;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  line-height:1.9; margin-bottom:4px;
+">
+🎉 <b>가입 회원</b>: 베타 테스트 기간 내 <b>모든 기능 개방</b>
+</div>
+""", unsafe_allow_html=True)
             st.divider()
 
         if 'user_id' not in st.session_state:
@@ -1203,27 +1644,8 @@ def main():
 
             is_member, status_msg = check_membership_status()
             remaining_days = calculate_subscription_days(st.session_state.get('join_date'))
-            join_date_ss = st.session_state.get('join_date')
-            remaining_usage = get_remaining_usage(user_name, join_date_ss)
-            daily_limit = get_daily_limit(join_date_ss)
-            days_since_join = 0
-            if join_date_ss:
-                try:
-                    jd = join_date_ss.date() if hasattr(join_date_ss, 'date') else dt.strptime(str(join_date_ss)[:10], "%Y-%m-%d").date()
-                    days_since_join = (date.today() - jd).days
-                except Exception:
-                    pass
-            if days_since_join < EARLY_FREE_DAYS:
-                usage_note = f"가입 {days_since_join+1}일차 · 1일 {daily_limit}회 (10일간 무료)"
-            else:
-                usage_note = f"가입 {days_since_join+1}일차 · 1일 {daily_limit}회"
-
-            st.info(
-                f"**구독 상태**: {status_msg}\n\n"
-                f"**잔여 기간**: {remaining_days}일\n\n"
-                f"**오늘 남은 횟수**: {remaining_usage}회\n\n"
-                f"**이용 정책**: {usage_note}"
-            )
+            st.caption(f"구독 상태: {status_msg}  |  잔여 기간: {remaining_days}일")
+            display_usage_dashboard(user_name)
 
             if st.button("안전 로그아웃", key="btn_logout"):
                 st.session_state.clear()
@@ -1248,11 +1670,11 @@ def main():
                     admin_code = st.text_input("관리자 코드", key="admin_code_sidebar", type="password")
                     if st.form_submit_button("관리자 로그인"):
                         try:
-                            master_code = st.secrets.get("MASTER_CODE", "01030742616")
-                            admin_code_secret = st.secrets.get("ADMIN_CODE", "gold1234")
+                            master_code = st.secrets.get("MASTER_CODE", "")
+                            admin_code_secret = st.secrets.get("ADMIN_CODE", "")
                         except Exception:
-                            master_code = "01030742616"
-                            admin_code_secret = "gold1234"
+                            master_code = ""
+                            admin_code_secret = ""
                         if admin_id == "이세윤" and admin_code == master_code:
                             st.session_state.user_id = "PERMANENT_MASTER"
                             st.session_state.user_name = "이세윤"
@@ -1320,9 +1742,12 @@ def main():
 
         # ── 이용약관 ──────────────────────────────────────────────────────
         with st.expander("📋 이용약관", expanded=False):
-            st.markdown("""
+            # SHOW_PAYMENT_TERMS=True 시 결제 조항(제5·6조) 표시, 이후 조번호 자동 조정
+            _n = (lambda base: base + 2) if SHOW_PAYMENT_TERMS else (lambda base: base)
+            _rev = " (제6조 Google Play 결제 연동 조항 포함)" if SHOW_PAYMENT_TERMS else ""
+            _tos = f"""
 **골드키지사 AI 마스터 서비스 이용약관**
-*시행일: 2025년 1월 1일 | 최종 개정: 2026년 2월 21일*
+*시행일: 2025년 1월 1일 | 최종 개정: 2026년 2월 22일{_rev}*
 
 **제1조 (목적)**
 본 약관은 케이지에이에셋 골드키지사(이하 "회사") 소속 이세윤(이하 "운영자")이 제공하는 AI 보험 상담 보조 도구 서비스(이하 "서비스")의 이용 조건 및 절차에 관한 사항을 규정합니다.
@@ -1345,6 +1770,7 @@ def main():
 - 세무사법 제2조: 세무 조정·신고 대리가 아닙니다.
 - 보험업법 제185조: 손해사정 업무가 아닙니다.
 - 의료법 제27조: 진단·처방·치료 권고가 아닙니다.
+- ⚠️ **본 서비스의 분석 결과는 보험금 지급을 보장하지 않으며, 실제 지급 여부는 해당 보험사의 심사 결과에 따릅니다.**
 - **최종 판단 및 법적 책임은 이용자에게 귀속됩니다.**
 
 **제4조 (이용 제한)**
@@ -1352,7 +1778,10 @@ def main():
 - 서비스를 이용한 불법 행위 금지
 - 프롬프트 인젝션 등 시스템 공격 행위 금지
 - 위반 시 이용 제한 및 법적 조치 가능
+"""  # _tos f-string 기본 블록 끝
 
+            if SHOW_PAYMENT_TERMS:
+                _tos += """
 **제5조 (이용 요금)**
 
 회사가 제공하는 유료 서비스의 이용요금은 앱 내 결제 화면 또는 공식 홈페이지에 게시된 가격표에 따릅니다.
@@ -1369,55 +1798,70 @@ def main():
 ① **결제 방식**
 - 유료 구독은 **Google Play 인앱 결제(In-App Purchase)** 를 통해 처리됩니다.
 - 결제 처리·영수증 발급은 Google Play 정책을 따릅니다.
+- 결제 수단 등록·변경·삭제는 Google Play 계정 설정에서 직접 관리하십시오.
 
-② **자동 갱신 (Automatic Renewal)**
+② **Google Play 결제 연동 기술 안내**
+본 서비스는 Google Play 공식 결제 시스템과 다음과 같이 연동되어 있습니다.
+
+- **결제 흐름**: Android 앱(Google Play) → 결제 완료 → Google이 발급한 `purchaseToken` → 본 서버의 Google Play Developer API 검증 → 구독 활성화
+- **서버 측 검증**: 이용자의 결제 완료 후, 운영자 서버는 Google Play Developer API(androidpublisher v3)를 통해 `purchaseToken`의 유효성·결제 상태·만료일을 **실시간으로 검증**합니다. 검증 실패 시 구독이 활성화되지 않습니다.
+- **실시간 구독 상태 동기화 (RTDN)**: Google Play는 구독 갱신·취소·만료·복구 등 상태 변경 시 **Google Cloud Pub/Sub**를 통해 운영자 서버에 실시간으로 알림(Real-Time Developer Notification)을 전송합니다. 운영자 서버는 이 알림을 수신하여 서비스 이용 가능 여부를 즉시 반영합니다.
+- **자동 갱신 처리**: 매월 결제 주기 도래 시 Google Play가 자동 결제를 처리하며, 성공 시 RTDN을 통해 구독 만료일이 자동 연장됩니다.
+- **결제 실패·유예 기간**: 결제 수단 문제로 자동 갱신이 실패할 경우, Google Play 정책에 따라 유예 기간(Grace Period) 동안 서비스가 유지될 수 있습니다. 유예 기간 내 결제 수단 업데이트 시 구독이 정상 복구됩니다.
+- **구독 취소 후 처리**: 구독 취소 시 현재 결제 주기 만료일까지 서비스가 유지되며, 만료 후 RTDN 알림에 의해 자동으로 서비스 이용이 제한됩니다.
+- **데이터 처리**: 결제 검증 과정에서 `purchaseToken`(Google이 발급한 불투명 식별자)만 서버에 저장되며, 카드번호·결제 수단 정보는 운영자 서버에 저장되지 않습니다.
+
+③ **자동 갱신 (Automatic Renewal)**
 - 본 서비스는 정기 구독 상품으로, **매월 결제 주기에 맞춰 자동 갱신**됩니다.
 - 자동 결제 예정일 및 청구 금액은 Google Play [구독 관리] 화면에서 상시 확인 가능합니다.
 - 결제 수단의 잔액 부족 등으로 결제 실패 시 서비스 이용이 제한될 수 있습니다.
 - **구독 취소**: 결제 예정일 **24시간 전**까지 아래 링크에서 직접 해지하십시오.
   👉 https://play.google.com/store/account/subscriptions
 
-③ **청약 철회 및 환불**
+④ **청약 철회 및 환불**
 - 결제 후 **7일 이내 미사용** 시 전액 환불 신청 가능합니다 (전자상거래법 제17조 기준).
 - ⚠️ **청약철회 제한 고지 (전자상거래법 제17조 제2항 제5호)**: AI 분석을 **1회 이상 실행한 경우**, 용역의 제공이 개시된 디지털 콘텐츠로 간주되어 청약철회가 제한될 수 있습니다. 이 사실에 동의한 후 서비스를 이용하십시오.
 - 7일 초과 또는 서비스 이용 후 환불은 Google Play 환불 정책에 따르며, 운영자 고객센터(insusite@gmail.com)에 별도 문의 가능합니다.
+- Google Play 환불 정책: https://support.google.com/googleplay/answer/2479637
 
-④ **중도 해지**
+⑤ **중도 해지**
 - 구독 해지 시 **남은 기간 서비스는 만료일까지 유지**됩니다.
 - 잔여 기간에 대한 일할 환불은 원칙적으로 제공되지 않으나, 운영자 귀책 사유 발생 시 예외 적용합니다.
 
-⑤ **공정 이용 정책 (Fair Use Policy)**
+⑥ **공정 이용 정책 (Fair Use Policy)**
 - 구독 회원은 일반적인 보험 상담 업무 범위를 벗어나지 않는 수준에서 충분히 이용할 수 있습니다.
 - 스크립트·자동화 도구를 이용한 대량 API 호출, 상업적 재판매, 비정상적 대량 호출로 시스템 부하 또는 API 원가 급증이 발생할 경우 서비스 속도를 제한(Throttling)하거나 이용을 제한할 수 있습니다.
 - 결제 관련 분쟁은 Google Play 결제 정책 및 전자상거래 등에서의 소비자보호에 관한 법률에 따릅니다.
+"""
 
-**제7조 (AI 생성물 고지)**
+            _tos += f"""
+**제{_n(5)}조 (AI 생성물 고지)**
 - 본 서비스의 모든 분석 리포트 및 답변은 **Google Gemini AI가 생성한 결과물**입니다.
 - Google 생성형 AI 사용 정책(Google Generative AI Prohibited Use Policy)을 준수합니다.
 - AI 생성 답변은 사실과 다를 수 있으며, **최종 판단은 반드시 전문가(변호사·세무사·손해사정사)와 확인**하십시오.
 - AI 답변을 법적 증거·공식 문서로 사용하는 것을 금지합니다.
 - 생성된 콘텐츠의 정확성에 대해 운영자는 법적 책임을 지지 않습니다.
 
-**제8조 (회원의 의무 및 손해배상)**
+**제{_n(6)}조 (회원의 의무 및 손해배상)**
 - 이용자는 본 약관 및 관련 법령을 준수하여야 합니다.
 - 이용자는 타인의 개인정보를 무단으로 입력하거나 서비스를 불법적인 목적으로 사용하여서는 안 됩니다.
 - 이용자가 본 약관을 위반하여 운영자 또는 제3자에게 손해를 끼친 경우, 이용자는 그 손해를 배상할 책임이 있습니다.
 - 프롬프트 인젝션·시스템 공격 등 고의적 서비스 침해 행위에 대해서는 민·형사상 책임을 물을 수 있습니다.
 
-**제9조 (서비스 중단)**
+**제{_n(7)}조 (서비스 중단)**
 - 시스템 점검·장애·천재지변 등으로 서비스가 중단될 수 있습니다.
 - 중단 시 사전 공지를 원칙으로 하되, 긴급 시 사후 공지 가능
 
-**제10조 (준거법 및 관할)**
+**제{_n(8)}조 (준거법 및 관할)**
 - 본 약관은 대한민국 법률에 따라 해석됩니다.
 - 분쟁 발생 시 **대한민국 민사소송법에 따른 법정 관할 법원**을 관할로 합니다.
 
-**제11조 (개인정보 보호)**
+**제{_n(9)}조 (개인정보 보호)**
 - 운영자는 별도의 **개인정보 처리방침**을 수립하여 앱 내에 공시합니다.
 - 이용자의 개인정보는 해당 방침에 따라 수집·이용·보호되며, 이용자는 앱 내 [개인정보처리방침] 항목에서 전문을 확인할 수 있습니다.
 - 개인정보 관련 문의: insusite@gmail.com
 
-**제12조 (회원 탈퇴 및 데이터 파기)**
+**제{_n(10)}조 (회원 탈퇴 및 데이터 파기)**
 
 ① **파기 원칙**
 운영자는 회원이 탈퇴를 요청하거나 개인정보 수집 및 이용 목적이 달성된 경우, 수집된 개인정보 및 상담 데이터를 「개인정보보호법」 및 **GDPR(유럽 개인정보보호규정)** 의 권고 기준에 따라 지체 없이 파기합니다.
@@ -1441,7 +1885,8 @@ def main():
 - **출력물 등 종이 문서**: 분쇄기로 분쇄하거나 소각하여 파기합니다.
 
 **문의: insusite@gmail.com (운영자: 이세윤)**
-""")
+"""
+            st.markdown(_tos)
 
         display_security_sidebar()
 
@@ -1468,11 +1913,53 @@ def main():
         bc1, bc2 = st.columns([3, 1])
         with bc1:
             do_analyze = st.button("정밀 분석 실행", type="primary", key=f"btn_analyze_{tab_key}")
+            # 버튼 색상: primary(빨간계열) → 파란색 강제 오버라이드
+            st.markdown("""
+<style>
+div[data-testid="stButton"] > button[kind="primary"] {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2e6da4 100%) !important;
+    border: none !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 6px rgba(46,109,164,0.35) !important;
+}
+div[data-testid="stButton"] > button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #0f2540 0%, #1a5a8a 100%) !important;
+}
+</style>""", unsafe_allow_html=True)
             if do_analyze:
                 components.html(s_voice("잠시만 기다려주세요. 답변 검색 중입니다."), height=0)
         with bc2:
-            if st.button("🎤 음성", key=f"btn_stt_{tab_key}"):
-                components.html(f'<script>window.startRecognition("{lang_code}",null);</script>', height=0)
+            _stt_id = f"stt_btn_{tab_key}"
+            _qkey   = f"query_{tab_key}"
+            components.html(f"""
+<button id="{_stt_id}"
+  onclick="(function(){{
+    var q = (window.parent.document.querySelector('[data-testid=stTextArea] textarea[aria-label]') || {{}}).value || '';
+    var q2 = '';
+    try {{ q2 = window.parent.document.querySelectorAll('[data-testid=stTextArea] textarea')[0].value || ''; }} catch(e){{}}
+    var hasInput = (q.trim().length > 0 || q2.trim().length > 0);
+    if (!hasInput) {{
+      var u = new SpeechSynthesisUtterance('상담 내용을 입력하세요');
+      u.lang = 'ko-KR'; window.speechSynthesis.speak(u);
+    }} else {{
+      var u2 = new SpeechSynthesisUtterance('AI 리포트 및 관련 자료를 참조하세요');
+      u2.lang = 'ko-KR'; window.speechSynthesis.speak(u2);
+    }}
+    window.startRecognition('{lang_code}', null);
+  }})()"
+  style="
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    width:100%; height:42px; cursor:pointer;
+    background:linear-gradient(135deg,#1a3a5c,#2e6da4);
+    color:#fff; font-size:0.92rem; font-weight:700;
+    border:none; border-radius:8px;
+    box-shadow:0 2px 6px rgba(26,58,92,0.3);
+    white-space:nowrap; letter-spacing:0.03em;
+    font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  ">
+  🎤&nbsp;음성
+</button>""", height=50)
         return c_name, query, hi, do_analyze
 
     def run_ai_analysis(c_name, query, hi_premium, result_key, prompt_prefix=""):
@@ -1605,7 +2092,8 @@ def main():
 
             # ── 하단: 상세 내용 스크롤 창 ────────────────────────────────
             st.markdown("##### 📋 상세 분석 내용")
-            detail_html = detail.replace('\n', '<br>').replace('**', '<b>').replace('**', '</b>')
+            detail_html = detail.replace('\n', '<br>')
+            detail_html = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', detail_html)
             components.html(
                 f"""
 <div style="
@@ -1702,9 +2190,16 @@ function printReport() {{
             components.html(pdf_js, height=60)
 
         else:
-            st.info("상담 내용을 입력하고 분석을 실행하세요.")
             if guide_md:
-                st.markdown(guide_md)
+                _guide_html = guide_md.replace('\n', '<br>').replace('**', '<b>', 1)
+                _guide_html = _guide_html.replace('**', '</b>')
+                components.html(f"""
+<div style="
+  height:180px; overflow-y:auto; padding:12px 16px;
+  background:#eef4fb; border-left:4px solid #2e6da4;
+  border-radius:8px; font-size:0.84rem; line-height:1.8;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">{_guide_html}</div>""", height=196)
 
     # ── 세션 상태 초기화 ──────────────────────────────────────────────────
     if 'current_tab' not in st.session_state:
@@ -1715,6 +2210,7 @@ function printReport() {{
         ("home",      "🏠 홈"),
         ("t0",        "📋 신규보험"),
         ("t1",        "💰 보험금"),
+        ("disability", "🩺 장해보험금"),
         ("t2",        "🛡️ 기본보험상담"),
         ("t3",        "🏥 통합보험"),
         ("t4",        "🚗 자동차사고"),
@@ -1723,6 +2219,7 @@ function printReport() {{
         ("t7",        "🏢 법인상담"),
         ("t8",        "👔 CEO플랜"),
         ("fire",      "🔥 화재보험"),
+        ("liability", "⚖️ 배상책임"),
         ("t9",        "⚙️ 관리자"),
     ]
 
@@ -1746,7 +2243,7 @@ function printReport() {{
     background:#2e6da4; color:#fff;
 }
 .dash-card-wrap {
-    height:170px; overflow-y:auto; overflow-x:hidden;
+    height:auto; min-height:150px; overflow-y:visible; overflow-x:hidden;
     background:#fff; border:1.5px solid #d0dce8;
     border-radius:12px;
     box-shadow:0 2px 8px rgba(46,109,164,0.07);
@@ -1771,7 +2268,7 @@ function printReport() {{
 }
 .dash-nav-btn:hover { background:#1a3a5c; }
 .ins-scroll-box {
-    height:148px; overflow-y:auto; overflow-x:hidden;
+    height:auto; min-height:130px; max-height:260px; overflow-y:auto; overflow-x:hidden;
     background:#fff;
     border-radius:10px;
     scrollbar-width:thin; scrollbar-color:#c0d4e8 #f5f8fc;
@@ -1783,16 +2280,16 @@ function printReport() {{
 /* ── 모바일 방향 자동전환 ── */
 @media screen and (orientation: portrait) {
     .block-container { max-width: 100% !important; padding: 0.5rem 0.6rem !important; }
-    .dash-card-wrap { height: 150px; }
-    .ins-scroll-box { height: 130px; }
+    .dash-card-wrap { min-height: 130px; }
+    .ins-scroll-box { min-height: 110px; max-height: 220px; }
     .dash-icon { font-size: 1.4rem; }
     .dash-title { font-size: 0.82rem; }
     .dash-desc { font-size: 0.7rem; }
 }
 @media screen and (orientation: landscape) and (max-width: 1024px) {
     .block-container { max-width: 100% !important; padding: 0.5rem 1rem !important; }
-    .dash-card-wrap { height: 160px; }
-    .ins-scroll-box { height: 140px; }
+    .dash-card-wrap { min-height: 140px; }
+    .ins-scroll-box { min-height: 120px; max-height: 240px; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -1888,6 +2385,8 @@ function printReport() {{
              "기존 보험증권 분석 → 보장 공백 진단 → 신규 보험 컨설팅\n실손·암·종신·CI·치아·간병 등 전 상품 상담"),
             ("t1", "💰", "보험금 상담",
              "보험금 청구 절차 안내 · 지급 거절 대응\n민원·손해사정·약관 해석 지원"),
+            ("disability", "🩺", "장해보험금 산출",
+             "AMA방식(개인보험) · 맥브라이드방식(배상책임) · 호프만계수 적용\n후유장해 보험금 및 일실수익 손해배상금 산출"),
             ("t2", "🛡️", "기본보험 상담",
              "자동차·화재·운전자·일상배상책임 기본 보험 점검\n🏗️ 화재보험 선택 시 건물 재조달가액 산출 통합 제공"),
             ("t3", "🏥", "통합보험 설계",
@@ -1904,6 +2403,8 @@ function printReport() {{
              "비상장주식 평가(상증법·법인세법)\n가업승계 · CEO 퇴직금 · 경영인정기보험 설계"),
             ("fire", "🔥", "화재보험(재조달가액평가)",
              "화재보험 설계 가이드 · 비례보상 방지 전략\n한국부동산원(REB) 기준 건물 재조달가액 산출\n건축물대장 AI OCR 분석 → 예상보험가액 산출"),
+            ("liability", "⚖️", "배상책임보험 상담",
+             "배상책임보험 개념 · 중복보험 독립책임액 안분방식\n민법·화재보험법·실화책임법 등 관련 법률 정리\n변호사 수임료·성과보수 기준 안내"),
         ]
 
         # ── 카드 클릭 이벤트 처리 (JS → Streamlit) ──────────────────────
@@ -2315,19 +2816,349 @@ function printReport() {{
             with _nonlife_cols[_ni % 4]:
                 st.markdown(_ins_card_html(_nins), unsafe_allow_html=True)
 
+    # ── [장해보험금 산출] 렌더 함수 ──────────────────────────────────────
+    def _disability_render():
+        _dh_col, _dh_sp = st.columns([1, 5])
+        with _dh_col:
+            if st.button(
+                "🏠  홈으로",
+                key="btn_home_disability",
+                use_container_width=True,
+                type="primary",
+                help="홈 메뉴로 돌아갑니다"
+            ):
+                st.session_state.current_tab = "home"
+                st.rerun()
+        st.divider()
+        st.subheader("🩺 장해보험금 산출")
+        st.caption("AMA방식(개인보험) · 맥브라이드방식(배상책임) · 호프만계수 적용 | 후유장해 보험금 및 일실수익 손해배상금 산출")
+
+        dis_sub = st.radio(
+            "산출 방식 선택",
+            ["AMA방식 (개인보험 후유장해)", "맥브라이드방식 (배상책임·손해배상)", "호프만계수 (중간이자 공제)"],
+            horizontal=True, key="dis_sub"
+        )
+
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            c_name_d, query_d, hi_d, do_d = ai_query_block(
+                "disability",
+                f"{dis_sub} 관련 상담 내용을 입력하세요.\n"
+                "(예: 남성 45세, 건설노동자, 월소득 350만원, 요추 추간판탈출증 수술 후 척추 장해 15% 판정)"
+            )
+
+            st.markdown("##### 📋 기본 준비서류 입력")
+            _dc1, _dc2 = st.columns(2)
+            with _dc1:
+                dis_gender = st.selectbox("성별", ["남성", "여성"], key="dis_gender")
+                dis_age    = st.number_input("나이 (세)", min_value=1, max_value=80, value=45, step=1, key="dis_age")
+                dis_job    = st.text_input("직업", "건설노동자", key="dis_job")
+            with _dc2:
+                dis_income = st.number_input("직전 3개월 평균 월소득 (만원)", min_value=0, value=350, step=10, key="dis_income")
+                dis_type   = st.selectbox("장해 유형", ["영구장해", "한시장해(5년 이상)"], key="dis_type")
+                dis_rate   = st.number_input("장해지급률 / 노동능력상실률 (%)", min_value=0.0, max_value=100.0, value=15.0, step=0.5, key="dis_rate")
+
+            dis_acc_date = st.date_input("사고일", key="dis_acc_date")
+            dis_sum      = st.number_input("보험가입금액 (만원, AMA방식 전용)", min_value=0, value=10000, step=500, key="dis_sum")
+
+            dis_diag = st.file_uploader(
+                "장해진단서 업로드 (PDF/JPG/PNG) — AI OCR 분석",
+                type=["pdf", "jpg", "jpeg", "png"],
+                accept_multiple_files=True,
+                key="dis_diag_files"
+            )
+            if dis_diag:
+                st.success(f"✅ {len(dis_diag)}개 파일 업로드 완료")
+                for _df in dis_diag:
+                    if _df.type.startswith("image/"):
+                        st.image(_df, caption=_df.name, width=200)
+
+            if do_d:
+                # 장해진단서 텍스트 추출
+                diag_text = ""
+                if dis_diag:
+                    for _df in dis_diag:
+                        if _df.type == "application/pdf":
+                            diag_text += f"\n[장해진단서: {_df.name}]\n" + extract_pdf_chunks(_df, char_limit=6000)
+                        else:
+                            diag_text += f"\n[장해진단서 이미지: {_df.name} — OCR 분석 요청]\n"
+
+                # 가동연한까지 잔여 개월 수 산출
+                _working_age = 65
+                _months_left = max(0, (_working_age - dis_age) * 12)
+                # AMA 예상 보험금 간이 산출
+                _ama_est = round(dis_sum * dis_rate / 100 * (0.2 if "한시" in dis_type else 1.0), 1)
+                # 호프만 계수 근사값 (단리 공제, 연 5% 기준)
+                _n_years = _months_left / 12
+                _hoffman = round(_n_years / (1 + 0.05 * _n_years / 2), 2) if _n_years > 0 else 0
+                # 맥브라이드 일실수익 간이 산출 (생활비율 1/3 공제)
+                _mcb_est = round(dis_income * (dis_rate / 100) * (2 / 3) * _hoffman, 1)
+
+                run_ai_analysis(c_name_d, query_d, hi_d, "res_disability",
+                    f"[장해보험금 산출 — {dis_sub}]\n"
+                    f"성별: {dis_gender}, 나이: {dis_age}세, 직업: {dis_job}\n"
+                    f"월평균소득: {dis_income}만원, 장해유형: {dis_type}, 장해율: {dis_rate}%\n"
+                    f"사고일: {dis_acc_date}, 보험가입금액: {dis_sum}만원\n"
+                    f"가동연한(65세)까지 잔여: {_months_left}개월({_n_years:.1f}년)\n"
+                    f"호프만계수(단리 5%): {_hoffman}\n"
+                    f"[간이 산출] AMA예상보험금: {_ama_est}만원 / 맥브라이드 일실수익: {_mcb_est}만원\n"
+                    f"{diag_text}\n"
+                    "아래 순서로 상세 분석하십시오:\n"
+                    "1. AMA방식: 보험가입금액 × 장해지급률(%) = 예상 보험금 (한시장해 시 20% 적용)\n"
+                    "2. 맥브라이드방식: 월평균소득 × 장해율(%) × (1-생활비율1/3) × 호프만계수 = 일실수익\n"
+                    "3. 호프만계수 vs 라이프니쯔계수 비교 설명\n"
+                    "4. 장해진단서 판독 결과 및 AMA·맥브라이드 테이블 대조\n"
+                    "5. 기왕증 기여도·과실상계 적용 시 감액 시나리오\n"
+                    "6. 전문가(손해사정사·변호사) 검토 필요 사항 명시\n"
+                    "⚠️ 본 산출은 참고용이며 최종 보험금은 보험사 심사 및 법원 판결에 따릅니다.\n"
+                )
+
+        with col2:
+            st.subheader("🤖 AI 분석 리포트")
+            show_result("res_disability")
+
+            # ── 보험사 vs 법원 장해 산출 차액 비교 ──────────────────────────
+            st.markdown("")
+            components.html("""
+<div style="
+  background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:12px; padding:16px 20px 14px 20px; margin:8px 0 4px 0;
+  box-shadow:0 3px 10px rgba(26,58,92,0.25);
+">
+  <div style="color:#fff;font-size:1.05rem;font-weight:800;letter-spacing:0.02em;line-height:1.5;">
+    📊 보험사(라이프니쯔) vs 법원(호프만) — 차액 비교 산출
+  </div>
+  <div style="color:#c8e0f8;font-size:0.82rem;margin-top:5px;line-height:1.4;">
+    동일 장해율에서 방식 차이로 발생하는 보상금 차액을 즉시 산출합니다
+  </div>
+</div>""", height=82)
+
+            with st.expander("▶ 입력값 설정 후 산출 실행 버튼(클릭)", expanded=True):
+                st.markdown(
+                    "<span style='color:#111;font-size:0.88rem;'>좌측 입력값이 자동 반영됩니다. 필요 시 아래에서 직접 수정하세요.</span>",
+                    unsafe_allow_html=True
+                )
+                st.markdown(
+                    "<span style='color:#111;font-size:0.88rem;'>📌 2023년 1월 1일 이후 사고는 <b>호프만(단리)</b> 방식이 표준약관 기준입니다.</span>",
+                    unsafe_allow_html=True
+                )
+
+                _cc1, _cc2, _cc3 = st.columns(3)
+                with _cc1:
+                    _cmp_income = st.number_input("💴 월평균소득 (만원)", min_value=0, value=int(dis_income), step=10, key="cmp_income")
+                with _cc2:
+                    _cmp_rate   = st.number_input("📉 노동능력상실률 (%)", min_value=0.0, max_value=100.0, value=float(dis_rate), step=0.5, key="cmp_rate")
+                with _cc3:
+                    _cmp_fault  = st.number_input("⚖️ 본인 과실 (%)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, key="cmp_fault")
+
+                _cmp_months = st.slider(
+                    "📅 장해 기간 (개월)",
+                    min_value=12, max_value=480,
+                    value=min(int(max(0, (65 - dis_age) * 12)), 480),
+                    step=12, key="cmp_months",
+                    help="가동연한(65세)까지 잔여 개월 수가 자동 계산됩니다"
+                )
+                _cmp_name = st.text_input("👤 고객명 (리포트용)", value=c_name_d if c_name_d else "고객", key="cmp_name")
+
+                _btn_col1, _btn_col2 = st.columns([3, 1])
+                with _btn_col1:
+                    _do_calc = st.button("🔢 차액 비교 산출 실행", key="btn_cmp_calc", use_container_width=True, type="primary")
+                with _btn_col2:
+                    _do_reset = st.button("🔄 초기화", key="btn_cmp_reset", use_container_width=True, type="secondary",
+                                          disabled=not bool(st.session_state.get("cmp_result")))
+
+                if _do_reset:
+                    st.session_state.pop("cmp_result", None)
+                    st.rerun()
+
+                if _do_calc:
+                    _r2 = 0.05 / 12
+                    _months = _cmp_months
+                    _h_factor = min(sum([1 / (1 + n * _r2) for n in range(1, _months + 1)]), 240.0)
+                    _l_factor = sum([1 / ((1 + _r2) ** n) for n in range(1, _months + 1)])
+                    _base = (_cmp_income * 10000) * (_cmp_rate / 100) * (2 / 3)
+                    _fault = _cmp_fault / 100
+                    _p_h = int(_base * _h_factor * (1 - _fault))
+                    _p_l = int(_base * _l_factor * (1 - _fault))
+                    _diff = _p_h - _p_l
+                    _inc_rate = round(_diff / _p_l * 100, 2) if _p_l > 0 else 0.0
+                    st.session_state["cmp_result"] = {
+                        "name": _cmp_name,
+                        "months": _months,
+                        "h_factor": round(_h_factor, 4),
+                        "l_factor": round(_l_factor, 4),
+                        "hoffman": _p_h,
+                        "leibniz": _p_l,
+                        "diff": _diff,
+                        "rate": _inc_rate,
+                    }
+
+                if st.session_state.get("cmp_result"):
+                    _rv = st.session_state["cmp_result"]
+                    components.html(f"""
+<style>
+  .cmp-wrap {{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;}}
+  .cmp-header {{
+    background:linear-gradient(135deg,#1a3a5c,#2e6da4);
+    color:#fff; border-radius:10px 10px 0 0;
+    padding:12px 18px; font-size:0.95rem; font-weight:800;
+  }}
+  .cmp-body {{
+    background:#f4f8fd; border:1.5px solid #b8d0ea;
+    border-top:none; border-radius:0 0 10px 10px;
+    padding:14px 18px 10px 18px;
+  }}
+  .cmp-row {{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:7px 0; border-bottom:1px solid #dde8f4;
+    font-size:0.85rem; color:#1a1a2e;
+  }}
+  .cmp-row:last-child {{border-bottom:none;}}
+  .cmp-label {{color:#555; font-size:0.82rem;}}
+  .cmp-val-h {{
+    font-size:1.05rem; font-weight:800; color:#1a6e2e;
+    background:#e6f4ea; border-radius:6px; padding:3px 10px;
+  }}
+  .cmp-val-l {{
+    font-size:1.05rem; font-weight:800; color:#8b1a1a;
+    background:#fdecea; border-radius:6px; padding:3px 10px;
+  }}
+  .cmp-diff {{
+    background:linear-gradient(90deg,#fffde7,#fff9c4);
+    border:1.5px solid #f39c12; border-radius:8px;
+    padding:10px 16px; margin-top:10px;
+    font-size:0.88rem; color:#7d5a00;
+  }}
+  .cmp-diff-amt {{font-size:1.2rem; font-weight:900; color:#c0392b;}}
+  .cmp-coeff {{
+    background:#eef4fb; border-radius:6px;
+    padding:6px 12px; margin-top:8px;
+    font-size:0.78rem; color:#2e6da4;
+  }}
+  .cmp-disclaimer {{
+    margin-top:10px; font-size:0.74rem; color:#888;
+    border-top:1px dashed #ccc; padding-top:7px;
+  }}
+</style>
+<div class="cmp-wrap">
+  <div class="cmp-header">
+    📋 Goldkey AI Master — 정밀 분석 리포트 &nbsp;|&nbsp;
+    <span style="font-size:0.82rem;font-weight:400;">{_rv['name']} 고객님</span>
+  </div>
+  <div class="cmp-body">
+    <div class="cmp-row">
+      <span class="cmp-label">장해 기간</span>
+      <span><b>{_rv['months']}개월</b> ({round(_rv['months']/12,1)}년)</span>
+    </div>
+    <div class="cmp-row">
+      <span class="cmp-label">✅ 법원 / 표준약관 기준 <b style="color:#1a6e2e;">(호프만·단리)</b></span>
+      <span class="cmp-val-h">{format(_rv['hoffman'], ',')} 원</span>
+    </div>
+    <div class="cmp-row">
+      <span class="cmp-label">🔴 보험사 구 방식 <b style="color:#8b1a1a;">(라이프니쯔·복리)</b></span>
+      <span class="cmp-val-l">{format(_rv['leibniz'], ',')} 원</span>
+    </div>
+    <div class="cmp-coeff">
+      호프만 계수: <b>{_rv['h_factor']}</b> &nbsp;/&nbsp; 라이프니쯔 계수: <b>{_rv['l_factor']}</b>
+    </div>
+    <div class="cmp-diff">
+      💡 방식 차이에 따른 <b>증액분</b>:
+      <span class="cmp-diff-amt">+{format(_rv['diff'], ',')} 원</span>
+      &nbsp;&nbsp;
+      <span style="font-size:0.95rem;font-weight:700;color:#c0392b;">▲ {_rv['rate']}%</span><br>
+      <span style="font-size:0.8rem;">전문적인 법리 검토 여부에 따라 보상금의 규모가 이만큼 달라질 수 있습니다.</span>
+    </div>
+    <div class="cmp-disclaimer">
+      ⚠️ 상기 내용은 AI가 산출한 것으로 전문가(손해사정사·변호사)의 검토가 반드시 필요합니다.
+      최종 보험금은 보험사 심사 및 법원 판결에 따릅니다.
+    </div>
+  </div>
+</div>""", height=390)
+
+            st.markdown("##### 참고")
+            components.html("""
+<div style="
+  height:480px; overflow-y:auto; padding:14px 16px;
+  background:#f8fafc; border:1px solid #d0d7de;
+  border-radius:8px; font-size:0.83rem; line-height:1.5;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">
+<b style="font-size:0.85rem;color:#1a3a5c;">1. 재산보험(AMA) vs 배상책임(McBride) 비교</b><br>
+• <b>개인보험(AMA)</b>: 약관상 '장해분류표'에 따라 정해진 지급률을 보험가입금액에 곱하여 정액 보상.<br>
+• <b>배상책임(McBride)</b>: 사고가 없었을 때 벌어들였을 소득에서 장해로 인해 상실된 수익을 계산하는 실손 보상 원칙.<br>
+<br>
+<b style="font-size:0.85rem;color:#c0392b;">▶ 용어의 정의: 호프만 vs 라이프니쯔 (중간이자 공제방식)</b><br>
+• <b>호프만(Hoffman)</b>과 <b>라이프니쯔(Leibniz)</b>는 장해율 자체가 아니라, 미래의 가치를 현재 시점으로 당겨올 때 발생하는 이자를 공제하는 <b>'중간이자 공제방식(계수)'</b>의 차이입니다.<br>
+• <b>법원</b>은 호프만 방식, <b>보험사</b>는 라이프니쯔 방식을 기준으로 적용 — 보험사는 이자 공제가 많은 라이프니쯔를 선호하고, 손해사정사 및 변호사는 호프만을 주장합니다.<br>
+• 동일한 장해율이라도 약 <b>15~20%의 보험금 수령액 차이</b> 발생.<br>
+• 근거: 한국손해사정사회 실무 지침 및 대법원 손해배상 산정 기준(2025-2026 개정판 예측치 반영)<br>
+<br>
+<b style="font-size:0.85rem;color:#c0392b;">▶ 2023년부터 시행된 「자동차보험 표준약관 개정안」</b><br>
+• <b>근거</b>: 금융감독원 공식 보도자료 (2022. 12. 26.) — 「자동차보험 표준약관 개선을 통한 소비자 권익 제고」<br>
+• <b>주요 골자</b>: 상실수익액 산정 시 할인율 적용 방식을 <b>복리(라이프니쯔) → 단리(호프만)로 변경</b><br>
+• <b>시행일</b>: 2023년 1월 1일 사고분부터 적용<br>
+• 2023년 이후 발생하는 모든 자동차 사고 및 주요 배상책임 사고에서 보험사는 <b>의무적으로 호프만 계수를 적용</b>해야 합니다.<br>
+• ⚠️ 만약 보험사에서 라이프니쯔 방식을 고수한다면 이는 <b>표준약관 위반</b>에 해당하여 민원 제기 및 정정 요구의 대상이 됩니다.<br>
+<br>
+<b style="font-size:0.85rem;color:#1a3a5c;">2. AMA 방식: 개인보험 후유장해 보험금 산식</b><br>
+• <b>보험가입금액 × 장해지급률(%) = 예상 보험금</b><br>
+• 의사 진단서상 부위별 장해 판정을 AMA 기준 지급률로 역산 적용<br>
+• 한시장해(5년 이상)인 경우 해당 지급률의 <b>20%만 인정</b><br>
+<br>
+<b style="font-size:0.85rem;color:#1a3a5c;">3. 맥브라이드 방식: 일실수익(손해배상금) 산식</b><br>
+• 법원 판결 및 자동차보험 실무에서 사용하는 산식<br>
+• <b>월평균소득 × 장해율(%) × (1 - 생활비율) × 호프만(또는 라이프니쯔) 계수</b><br>
+• 직업별 노동능력상실률(McBride Table) 적용, 가동연한(65세)까지 잔여 기간 계산<br>
+<br>
+<b style="font-size:0.85rem;color:#1a3a5c;">4. 중간이자 공제: 호프만 vs 라이프니쯔</b><br>
+• <b>호프만(Hoffman)</b>: 단리 공제 방식. 대한민국 법원에서 피해자에게 유리하게 적용 (이자 공제 적음)<br>
+• <b>라이프니쯔(Leibniz)</b>: 복리 공제 방식. 과거 자동차보험 약관·일본/유럽에서 주로 사용, 보상금 상대적으로 적음<br>
+• 남은 가동기간에 해당하는 계수를 적용하여 일시금으로 환산<br>
+<br>
+<b style="font-size:0.85rem;color:#1a3a5c;">5. 직업 및 성별 데이터 반영 (가동연한)</b><br>
+• <b>성별/나이</b>: 통계청 '간이생명표'로 기대여명 확인, 소득 상실 기간 확정<br>
+• <b>직업</b>: 맥브라이드 장해율표의 직종 번호 매칭 (옥내근로자 vs 건설노동자 등 동일 장해 부위라도 상실률 상이)<br>
+<br>
+<b style="font-size:0.85rem;color:#1a3a5c;">6. 장해 진단서 판독 및 분석 로직</b><br>
+• 진단서 내 '장해부위', '각도', '운동범위(ROM)', '검사 소견' 등을 분석하여 AMA·맥브라이드 테이블과 대조<br>
+• <b>한시장해</b>: 해당 기간만큼의 호프만 계수만 적용 / <b>영구장해</b>: 가동연한 종료 시까지 적용<br>
+<br>
+<b style="font-size:0.85rem;color:#1a3a5c;">7. 평균소득 산정 기준</b><br>
+• <b>급여소득자</b>: 사고 직전 3개월간 평균 세전 소득<br>
+• <b>사업·자영업자</b>: 세무신고 소득 기준, 미달 시 통계소득(시중노임단가) 적용<br>
+• <b>무직·가사</b>: 건설업 보통인부 노임 적용하여 산출<br>
+<br>
+<b style="font-size:0.85rem;color:#1a3a5c;">8. 예상 보험금 산출 프로세스</b><br>
+① 데이터 입력: 성별·연령·직업·소득·사고일<br>
+② 장해 확정: 진단서 판독 → AMA 지급률(보험용) &amp; 맥브라이드 상실률(법원용) 도출<br>
+③ 기간 확정: 가동연한(65세)까지 잔여 개월 수 산출<br>
+④ 계수 적용: 호프만 계수(법원 기준) 대입<br>
+⑤ 최종 결과: 보험금 및 손해배상금 각각 산출<br>
+<br>
+<b style="font-size:0.85rem;color:#1a3a5c;">9. 한계점 및 전문가 검토 사항</b><br>
+• <b>기왕증(Pre-existing condition) 기여도</b>: 사고 전 질환이 장해에 영향 시 해당 비율만큼 감액<br>
+• <b>과실 상계</b>: 배상책임(맥브라이드)의 경우 본인 과실분만큼 감액<br>
+<br>
+<b style="font-size:0.85rem;color:#555;">(기본 준비서류)</b><br>
+성별 · 직업 · 직전 3개월 평균소득 · 나이 · 장해부위(한시/영구) · 의사 장해진단서
+</div>
+""", height=500)
+
     # ── [화재보험(재조달가액평가)] 렌더 함수 ──────────────────────────────
     def _fire_render():
         import pandas as pd
         _fh_col, _fh_sp = st.columns([1, 5])
         with _fh_col:
-            if st.button("🏠 홈 메뉴", key="btn_home_fire", use_container_width=True):
+            if st.button(
+                "🏠  홈으로",
+                key="btn_home_fire",
+                use_container_width=True,
+                type="primary",
+                help="홈 메뉴로 돌아갑니다"
+            ):
                 st.session_state.current_tab = "home"
                 st.rerun()
         st.divider()
-        if 'user_id' in st.session_state:
-            st.info("💬 무엇을 도와드릴까요? 필요 항목을 클릭하세요.")
-        else:
-            st.warning("🔐 상담을 위해 로그인이 필요합니다.")
         st.subheader("🔥 화재보험(재조달가액평가)")
         st.caption("화재보험 설계 가이드 · 비례보상 방지 · 한국부동산원(REB) 기준 재조달가액 산출")
 
@@ -2406,7 +3237,7 @@ function printReport() {{
   <code>재조달가액 = (표준단가 × 부대설비 보정치) × 연면적 + 간접비(15%) + 수급인 이윤(6%)</code><br>
   &nbsp;• <b>표준단가</b>: 한국부동산원(REB) 건물신축단가표 (매년 갱신)<br>
   &nbsp;• <b>건설노임단가</b>: 대한건설협회(CAK) 연 2회 발표 기준
-  &nbsp;<a href="http://www.cak.or.kr" target="_blank" style="color:#c0392b;">[CAK 바로가기]</a>
+  &nbsp;<a href="https://www.cak.or.kr" target="_blank" style="color:#c0392b;">[CAK 바로가기]</a>
 </div>""", unsafe_allow_html=True)
 
                 if st.session_state.rag_system.index is not None:
@@ -2542,7 +3373,13 @@ function printReport() {{
         # ── 홈 복귀 버튼 (항상 최상단) ──
         _home_col, _spacer = st.columns([1, 5])
         with _home_col:
-            if st.button("🏠 홈 메뉴", key=f"btn_home_{tab_key}", use_container_width=True):
+            if st.button(
+                "🏠  홈으로",
+                key=f"btn_home_{tab_key}",
+                use_container_width=True,
+                type="primary",
+                help="홈 메뉴로 돌아갑니다"
+            ):
                 st.session_state.current_tab = "home"
                 st.rerun()
         st.divider()
@@ -2550,10 +3387,6 @@ function printReport() {{
         if not st.session_state.get(flag):
             st.session_state[flag] = True
             components.html(s_voice("무엇을 도와드릴까요? 필요 항목을 클릭하세요."), height=0)
-        if 'user_id' in st.session_state:
-            st.info("💬 무엇을 도와드릴까요? 필요 항목을 클릭하세요.")
-        else:
-            st.warning("🔐 상담을 위해 로그인이 필요합니다.")
 
     # ── [탭 0] 신규보험 상담 (기존보험 분석 + 신규 컨설팅) ──────────────
     if cur == "t0":
@@ -2574,7 +3407,7 @@ function printReport() {{
                 if policy_files:
                     for pf in policy_files:
                         if pf.type == 'application/pdf':
-                            doc_text += f"\n[증권: {pf.name}]\n" + process_pdf(pf)[:800]
+                            doc_text += f"\n[증권: {pf.name}]\n" + extract_pdf_chunks(pf, char_limit=8000)
                 run_ai_analysis(c_name0, query0, hi0, "res_t0",
                     "[신규보험 상담 · 증권분석]\n"
                     "### 1. 소득 역산 및 재무 진단\n"
@@ -2672,7 +3505,7 @@ function printReport() {{
                 if claim_files:
                     for cf in claim_files:
                         if cf.type == 'application/pdf':
-                            doc_text1 += f"\n[첨부: {cf.name}]\n" + process_pdf(cf)[:600]
+                            doc_text1 += f"\n[첨부: {cf.name}]\n" + extract_pdf_chunks(cf, char_limit=6000)
                 run_ai_analysis(c_name1, query1, hi1, "res_t1",
                     f"[보험금 상담 - {claim_type}]\n1.보험금 청구 가능 여부와 예상 지급액 분석\n"
                     "2.보험사 거절 시 대응 방안(민원/손해사정/소송)\n3.금융감독원 민원 절차와 필요 서류\n"
@@ -2715,6 +3548,10 @@ function printReport() {{
 • 참고 판례: 대법원 2016다248998 (약관 불명확 시 고객 유리 해석 원칙)
 </div>
 """, height=420)
+
+    # ── [장해보험금 산출] 독립 섹터 ──────────────────────────────────────
+    if cur == "disability":
+        _disability_render()
 
     # ── [탭 2] 필수보험 ──────────────────────────────────────────────────
     if cur == "t2":
@@ -2836,11 +3673,48 @@ function printReport() {{
     # ── [탭 3] 통합보험 (질병·상해 + 생명·헬스케어) ──────────────────────
     if cur == "t3":
         tab_greeting("t3")
-        st.subheader("🏥 질병·상해 통합보험 상담")
-        st.caption("실손보험 · 암보험 · 뇌심장 · 간병 · 생명보험 · 헬스케어 연동")
-        sub_type = st.radio("상담 분야",
-            ["실손/통합보험", "암·뇌·심장 3대질병", "간병·치매보험", "생명보험·헬스케어"],
-            horizontal=True, key="health_type")
+        _t3_left_col, _t3_right_col = st.columns([1, 1])
+        with _t3_left_col:
+            st.subheader("🏥 질병·상해 통합보험 상담")
+            st.caption("실손보험 · 암보험 · 뇌심장 · 간병 · 생명보험 · 헬스케어 연동")
+        with _t3_right_col:
+            st.subheader("🤖 AI 분석 리포트")
+            if st.session_state.get("res_t3"):
+                show_result("res_t3")
+            else:
+                components.html("""
+<div style="
+  height:180px; overflow-y:auto; padding:12px 16px;
+  background:#f8fafc; border:1px solid #d0d7de;
+  border-radius:8px; font-size:0.84rem; line-height:1.8;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#888;
+  display:flex; align-items:center; justify-content:center;
+">분석 실행 후 결과가 여기에 표시됩니다.</div>""", height=196)
+
+        # ── 상담 분야 2×2 버튼 그리드 ──
+        if "t3_sub" not in st.session_state:
+            st.session_state["t3_sub"] = "실손/통합보험"
+        _t3_opts = [
+            ("실손/통합보험",       "🏥 실손/통합보험"),
+            ("암·뇌·심장 3대질병", "🎗️ 암·뇌·심장 3대질병"),
+            ("간병·치매보험",       "🦽 간병·치매보험"),
+            ("생명보험·헬스케어",   "💊 생명보험·헬스케어"),
+        ]
+        _t3_r1, _t3_r2 = st.columns(2)
+        for _idx, (_val, _lbl) in enumerate(_t3_opts):
+            _col = _t3_r1 if _idx % 2 == 0 else _t3_r2
+            with _col:
+                _is_active = st.session_state["t3_sub"] == _val
+                if st.button(
+                    _lbl,
+                    key=f"t3_btn_{_idx}",
+                    use_container_width=True,
+                    type="primary" if _is_active else "secondary",
+                ):
+                    st.session_state["t3_sub"] = _val
+                    st.rerun()
+        sub_type = st.session_state["t3_sub"]
+
         col1, col2 = st.columns([1, 1])
         with col1:
             c_name3, query3, hi3, do3 = ai_query_block("t3",
@@ -2898,8 +3772,421 @@ function printReport() {{
 • 항암방사선: 3,000만원 ~ 6,000만원
 </div>
 """, height=538)
-            st.subheader("🤖 AI 분석 리포트")
-            show_result("res_t3")
+
+    # ── [SECTION 12] 배상책임보험 상담 탭 ────────────────────────────────
+    if cur == "liability":
+        tab_greeting("liability")
+        st.subheader("⚖️ 배상책임보험 상담")
+
+        _la_page = st.radio(
+            "상담 페이지 선택",
+            ["📋 배상책임보험 상담 1", "🏥 배상책임보험 상담 2 (시설·요양기관)"],
+            horizontal=True, key="la_page_sel"
+        )
+
+        # ════════════════════════════════════════════════════════
+        # 상담 1 — 기존 내용 유지
+        # ════════════════════════════════════════════════════════
+        if _la_page == "📋 배상책임보험 상담 1":
+            st.caption("배상책임보험 개념 · 관련 법률 · 보험금 분담 · 변호사 수임료")
+            _la_left, _la_right = st.columns([1, 1])
+
+            with _la_left:
+                # ── 스크롤박스 1: 배상책임보험 개념 & 중복가입 분담방식 ──
+                st.markdown("##### 📌 배상책임보험 개념 및 중복가입 분담방식")
+                components.html("""
+<div style="
+  height:260px; overflow-y:auto; padding:12px 15px;
+  background:#f8fafc; border:1px solid #d0dce8;
+  border-radius:8px; font-size:0.83rem; line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">
+<b style="font-size:0.88rem;color:#1a3a5c;">⚖️ 배상책임보험 개념</b><br>
+가해자로서 피보험자가 사고로 타인에게 손해를 입힘으로써 <b>법률상 배상책임</b>이 있는 금액을,
+보험 약관상 조건에 따라 산정하여 보험자가 피보험자에게 보상하거나
+피보험자를 대신하여 피해자에게 <b>직접 배상</b>하는 보험제도입니다.<br><br>
+<b style="font-size:0.88rem;color:#1a3a5c;">📋 핵심 구성요소</b><br>
+• <b>피보험자</b>: 법률상 배상책임을 지는 가해자<br>
+• <b>피해자</b>: 손해를 입은 제3자 (직접청구권 보유)<br>
+• <b>보험자</b>: 약관 조건에 따라 보상 또는 직접 배상<br>
+• <b>보상 범위</b>: 법률상 손해배상금 + 소송비용 + 긴급비용<br>
+• <b>면책사유</b>: 고의사고, 전쟁·지진, 계약상 가중책임 등<br><br>
+<b style="font-size:0.88rem;color:#1a3a5c;">🔄 중복가입 시 보험금 분담방식 — 독립책임액 안분방식</b><br>
+동일 사고에 대해 2개 이상의 배상책임보험이 중복 가입된 경우:<br>
+① 각 보험사가 <b>단독으로 부담할 책임액(독립책임액)</b>을 각각 산출<br>
+② 실제 손해액을 각 독립책임액의 비율로 안분하여 분담<br><br>
+<b>예시</b>: 손해액 1억원, A사 독립책임액 1억원, B사 독립책임액 5,000만원<br>
+→ 합계 1억 5,000만원 기준 비율: A사 2/3, B사 1/3<br>
+→ A사 분담: <b>6,667만원</b> / B사 분담: <b>3,333만원</b><br>
+• 근거: 상법 제672조(중복보험), 보험업감독규정<br>
+• 피보험자는 실손해액을 초과하여 이중 수령 불가
+</div>""", height=278)
+
+                # ── 스크롤박스 2: 민사배상(불법행위) 관련 법률 ──
+                st.markdown("##### 📜 민사배상(불법행위) 관련 법률")
+                components.html("""
+<div style="
+  height:300px; overflow-y:auto; padding:12px 15px;
+  background:#f8fafc; border:1px solid #d0dce8;
+  border-radius:8px; font-size:0.83rem; line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">
+<b style="font-size:0.85rem;color:#1a3a5c;">민법 제390조 — 채무불이행과 손해배상</b><br>
+채무자가 채무의 내용에 좇은 이행을 하지 아니한 때 채권자는 손해배상을 청구할 수 있음.
+고의·과실 없음을 채무자가 입증해야 면책.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">민법 제750조 — 불법행위의 내용</b><br>
+고의 또는 과실로 인한 위법행위로 타인에게 손해를 가한 자는 그 손해를 배상할 책임이 있음.
+<b>배상책임보험의 핵심 근거 조문</b>.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">민법 제753조 — 미성년자의 책임능력</b><br>
+미성년자가 타인에게 손해를 가한 경우 그 행위의 책임을 변식할 지능이 없는 때에는 배상책임 없음.
+→ 책임능력 없는 미성년자 사고 시 감독자(부모) 책임 전가.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">민법 제755조 — 감독자의 책임</b><br>
+책임능력 없는 미성년자·심신상실자를 감독할 법정의무 있는 자가 그 손해를 배상할 책임.
+감독 의무 해태 없음을 입증하면 면책 가능.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">민법 제756조 — 사용자의 배상책임</b><br>
+피용자가 사무집행에 관하여 제3자에게 손해를 가한 경우 사용자가 연대 배상책임.
+사용자가 상당한 주의를 기울였음을 입증하면 면책 가능(실무상 거의 인정 안 됨).<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">민법 제758조 — 공작물 점유자·소유자의 책임</b><br>
+공작물(건물·시설 등)의 설치·보존 하자로 타인에게 손해 발생 시 점유자 1차 책임,
+점유자가 면책 입증 시 소유자가 무과실 책임. <b>시설소유관리자배상책임보험 근거</b>.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">민법 제760조 — 공동불법행위자의 책임</b><br>
+수인이 공동의 불법행위로 타인에게 손해를 가한 때 연대하여 배상책임.
+가해자 불명 시에도 공동불법행위로 추정.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">민법 제396조 — 과실상계</b><br>
+채무불이행에 관하여 채권자(피해자)에게도 과실이 있는 때 법원은 손해배상액 산정 시 이를 참작.
+→ 피해자 과실 비율만큼 배상액 감액.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">민법 제777조 — 친족의 범위</b><br>
+8촌 이내 혈족, 4촌 이내 인척, 배우자. 일상생활배상책임보험의 피보험자 범위 판단 기준.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">상법 제680조 — 손해방지의무</b><br>
+보험사고 발생 시 피보험자는 손해 방지·경감을 위해 필요한 조치를 취할 의무.
+이를 위한 비용은 보험자가 부담(보험금액 초과 시에도).
+</div>""", height=318)
+
+                # ── 스크롤박스 3: 화재배상 및 기타 특별법 ──
+                st.markdown("##### 🔥 화재배상 및 기타 의무보험 관련 법률")
+                components.html("""
+<div style="
+  height:420px; overflow-y:auto; padding:12px 15px;
+  background:#f8fafc; border:1px solid #d0dce8;
+  border-radius:8px; font-size:0.83rem; line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">
+<b style="font-size:0.85rem;color:#1a3a5c;">화재보험법 제4조 — 특수건물 소유자의 손해배상책임</b><br>
+특수건물 소유자는 화재로 타인에게 손해를 입힌 경우 <b>무과실 배상책임</b>.
+과실 입증 불필요 — 소유 사실만으로 책임 성립.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">📋 특수건물의 종류 (화재로 인한 재해보상과 보험가입에 관한 법률 제2조)</b><br>
+① <b>11층 이상</b> 건물 (아파트·오피스텔·주상복합 등)<br>
+② <b>연면적 3,000㎡ 이상</b> 건물 (상가·판매시설·업무시설 등)<br>
+③ <b>학교</b>: 초·중·고·대학교 및 이에 준하는 각종 학교<br>
+④ <b>공장</b>: 연면적 1,000㎡ 이상의 공장·창고<br>
+⑤ <b>공동주택</b>: 16세대 이상 아파트·연립주택<br>
+⑥ <b>숙박업소</b>: 객실 30실 이상 호텔·여관·모텔<br>
+⑦ <b>병원</b>: 입원실 30병상 이상 의료기관<br>
+⑧ <b>방송국·촬영소</b>: 연면적 3,000㎡ 이상<br>
+⑨ <b>공항·항만</b>: 여객터미널 등 공중이용시설<br>
+⑩ <b>국유·공유 건물</b>: 국가·지자체 소유 연면적 1,000㎡ 이상<br>
+⑪ <b>전통시장</b>: 점포 수 50개 이상 또는 연면적 1,000㎡ 이상<br>
+⑫ <b>물류창고</b>: 연면적 1,500㎡ 이상<br>
+※ 위 요건 중 하나라도 해당하면 특수건물로 분류 → 의무보험 가입 대상<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">화재보험법 제8조 — 특수건물의 보험금액</b><br>
+특수건물 소유자는 신체손해배상특약부 화재보험 의무 가입.
+사망·후유장해: 1인당 1억 5천만원 이상 / 부상: 급수별 3천만원 이하 / 재물: 실손 기준.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">실화책임법 — 실화로 인한 손해배상 특례</b><br>
+경과실(중과실 아닌 실수)로 인한 화재 시 손해배상액을 법원이 <b>감경</b> 가능.
+감경 고려 요소: 과실 정도, 피해 규모, 피해자 보험 가입 여부, 가해자 경제력 등.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">재난배상책임보험 (재난안전법)</b><br>
+다중이용시설 소유·관리자 의무 가입. 대상: 공연장·전시장·박람회장·유원시설 등.
+사망 1인당 1억 5천만원, 부상 3천만원, 재물 10억원 한도.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">다중이용업소 화재배상책임보험 (다중이용업소법)</b><br>
+PC방·노래방·유흥주점·식품접객업소 등 의무 가입.
+사망 1인당 1억 5천만원 / 부상 3천만원 / 재물 10억원.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">승강기배상책임보험 (승강기안전관리법)</b><br>
+승강기 관리주체 의무 가입. 사망 8천만원, 부상 1,500만원, 재물 1천만원 이상.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">가스사고배상책임보험 (액화석유가스법·도시가스사업법)</b><br>
+가스 제조·공급·판매사업자 의무 가입. 사망 8천만원, 부상 1,500만원 이상.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">음식물배상책임보험</b><br>
+식품위생법상 집단급식소·식품접객업자 임의 가입(일부 지자체 의무화).
+식중독·이물질 등으로 인한 소비자 손해 배상 담보.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">차량정비업자배상책임보험</b><br>
+자동차관리법상 정비사업자가 정비 과정 중 발생한 차량 손상·인명 사고 배상 담보.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">이미용배상책임보험</b><br>
+이미용업소에서 시술 중 발생한 고객 신체 손해(화상·피부트러블 등) 배상 담보.
+공중위생관리법 적용 업종.
+</div>""", height=318)
+
+            with _la_right:
+                # ── 스크롤박스 4: 배상책임보험 종류별 정리 ──
+                st.markdown("##### 🛡️ 배상책임보험 종류별 핵심 정리")
+                components.html("""
+<div style="
+  height:300px; overflow-y:auto; padding:12px 15px;
+  background:#f8fafc; border:1px solid #d0dce8;
+  border-radius:8px; font-size:0.83rem; line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">
+<b style="font-size:0.85rem;color:#1a3a5c;">🏠 일상생활배상책임보험</b><br>
+• 피보험자: 가족형(동거 친족 + 별거 미혼 자녀)<br>
+• 담보: 일상생활 중 우연한 과실로 타인 신체·재물 손해<br>
+• 면책: 고의·자동차 사고·직무수행 중 사고·친족 간 사고<br>
+• 보상 사례: 아파트 누수·자녀 자전거 사고·반려동물 사고<br>
+• 권장 한도: 대인 무한 / 대물 1억 이상<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">🏢 시설소유관리자배상책임보험</b><br>
+• 피보험자: 건물·시설 소유자·관리자<br>
+• 담보: 시설 하자·관리 소홀로 제3자 손해 (민법 제758조)<br>
+• 대상: 상가·오피스텔·공장·주차장·스포츠시설 등<br>
+• 보상: 대인·대물 손해 + 소송비용 포함<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">👷 생산물배상책임보험 (PL보험)</b><br>
+• 담보: 제조·판매한 제품의 결함으로 소비자 손해 발생<br>
+• 근거: 제조물책임법(PL법)<br>
+• 대상: 제조업·식품업·수입업자 필수<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">🔨 도급업자배상책임보험</b><br>
+• 담보: 공사·작업 중 제3자 신체·재물 손해<br>
+• 대상: 건설·설비·청소·경비 도급업자<br>
+• 특이사항: 완성 후 하자 담보는 별도 하자보증보험<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">👨‍⚕️ 전문직업인배상책임보험 (E&O)</b><br>
+• 담보: 전문직 업무상 과실·태만으로 고객 손해<br>
+• 대상: 의사·변호사·회계사·건축사·보험설계사 등<br>
+• 특이사항: 클레임발생기준(Claims-made) 방식 적용<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">🌐 임원배상책임보험 (D&O)</b><br>
+• 담보: 이사·임원의 경영판단 오류로 주주·채권자 손해<br>
+• 대상: 상장법인·코스닥·스타트업 임원<br>
+• 보상: 방어비용(변호사비) + 손해배상금<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">🚗 자동차보험 대인·대물배상 (의무)</b><br>
+• 대인배상Ⅰ: 무한 (의무) / 대인배상Ⅱ: 임의<br>
+• 대물배상: 2,000만원 이상 의무 (권장: 1억 이상)<br>
+• 자동차손해배상보장법 제5조 의무가입 근거
+</div>""", height=318)
+
+                # ── 스크롤박스 5: 변호사 수임료 및 성과보수 ──
+                st.markdown("##### 💼 변호사 수임료 및 성과보수 기준")
+                components.html("""
+<div style="
+  height:300px; overflow-y:auto; padding:12px 15px;
+  background:#f8fafc; border:1px solid #d0dce8;
+  border-radius:8px; font-size:0.83rem; line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">
+<b style="font-size:0.85rem;color:#1a3a5c;">⚖️ 변호사보수의 소송비용 산입에 관한 규칙 (대법원규칙)</b><br>
+패소자 부담 소송비용에 산입되는 변호사보수 한도 (2024년 기준):<br>
+• 소가 500만원 이하: 소가의 <b>10%</b><br>
+• 소가 500만원 초과 ~ 2,000만원 이하: 50만원 + 초과액의 <b>8%</b><br>
+• 소가 2,000만원 초과 ~ 5,000만원 이하: 170만원 + 초과액의 <b>6%</b><br>
+• 소가 5,000만원 초과 ~ 1억원 이하: 350만원 + 초과액의 <b>4%</b><br>
+• 소가 1억원 초과 ~ 1.5억원 이하: 550만원 + 초과액의 <b>3%</b><br>
+• 소가 1.5억원 초과 ~ 2억원 이하: 700만원 + 초과액의 <b>2%</b><br>
+• 소가 2억원 초과 ~ 5억원 이하: 800만원 + 초과액의 <b>1%</b><br>
+• 소가 5억원 초과 ~ 10억원 이하: 1,100만원 + 초과액의 <b>0.5%</b><br>
+• 소가 10억원 초과: 1,350만원 + 초과액의 <b>0.1%</b><br>
+※ 실제 수임료와 다를 수 있으며, 패소자 부담 한도 기준임.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">💰 성과보수(성공보수)의 일반적 책정 기준</b><br>
+변호사법 제3조·제31조 및 대한변호사협회 윤리규정 기준:<br>
+• <b>착수금</b>: 사건 수임 시 선납. 결과에 무관하게 귀속.<br>
+  - 민사 일반: 소가의 5~10% (최소 100만원 이상)<br>
+  - 형사 사건: 500만원 ~ 2,000만원 (사건 중요도별)<br>
+• <b>성공보수</b>: 승소·유리한 결과 달성 시 추가 지급.<br>
+  - 민사 승소: 인용액의 5~15% (통상 10%)<br>
+  - 형사 무죄·집행유예: 착수금의 50~200%<br>
+  - 보험금 청구 대리: 수령액의 10~20%<br>
+• <b>형사사건 성공보수 금지</b>: 2015년 대법원 전원합의체 판결로<br>
+  형사사건 성공보수 약정은 <b>선량한 풍속 위반으로 무효</b> (대법원 2015다200111)<br>
+  → 형사사건은 착수금만 유효, 성공보수 약정 자체가 무효.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">📋 배상책임 사건 수임료 실무 참고</b><br>
+• 교통사고 손해배상: 착수금 100~300만원 + 성공보수 인용액의 10%<br>
+• 산재·의료과실: 착수금 200~500만원 + 성공보수 10~15%<br>
+• 보험금 분쟁 대리: 착수금 100~200만원 + 수령액의 10~20%<br>
+• 소액사건(3,000만원 이하): 착수금 50~100만원 (간이절차 적용)
+</div>""", height=318)
+
+                # ── AI 분석 블록 ──
+                st.markdown("##### 🤖 AI 배상책임 분석")
+                c_name_la, query_la, hi_la, do_la = ai_query_block(
+                    "liability",
+                    "배상책임 관련 상담 내용을 입력하세요.\n예) 아파트 누수로 아래층 피해 발생, 중복보험 2개 가입, 손해액 3,000만원"
+                )
+                if do_la:
+                    run_ai_analysis(c_name_la, query_la, hi_la, "res_liability",
+                        "[배상책임보험 상담]\n"
+                        "1. 해당 사고의 법률상 배상책임 성립 여부 분석 (민법 조문 근거 명시)\n"
+                        "2. 적용 가능한 배상책임보험 종류 및 담보 범위 안내\n"
+                        "3. 중복보험 해당 시 독립책임액 안분방식 계산 예시\n"
+                        "4. 보험사 면책 주장 대응 방안 및 분쟁 해결 절차\n"
+                        "5. 변호사 선임 필요 여부 및 예상 비용 안내\n"
+                        "※ 본 답변은 참고용이며 구체적 법률 판단은 전문가와 상의하십시오.\n")
+                show_result("res_liability")
+
+        # ════════════════════════════════════════════════════════
+        # 상담 2 — 시설소유관리자·병원·요양기관 배상책임
+        # ════════════════════════════════════════════════════════
+        elif _la_page == "🏥 배상책임보험 상담 2 (시설·요양기관)":
+            st.caption("시설소유관리자(병원·요양기관) 배상책임 · 보험 종류 · 일상생활배상책임 약관 · 화재배상")
+            _la2_left, _la2_right = st.columns([1, 1])
+
+            with _la2_left:
+                # ── 스크롤박스 1: 시설소유관리자 관련 법률 ──
+                st.markdown("##### 📜 시설소유관리자 배상책임 관련 법률")
+                components.html("""
+<div style="
+  height:340px; overflow-y:auto; padding:12px 15px;
+  background:#f8fafc; border:1px solid #d0dce8;
+  border-radius:8px; font-size:0.83rem; line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">
+<b style="font-size:0.85rem;color:#1a3a5c;">민법 제750조 — 불법행위의 내용</b><br>
+고의 또는 과실로 인한 위법행위로 타인에게 손해를 가한 자는 그 손해를 배상할 책임이 있음.<br>
+→ 병원·요양기관의 의료사고·낙상·감염 등 모든 과실 사고의 <b>기본 배상책임 근거</b>.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">민법 제756조 — 사용자의 배상책임</b><br>
+피용자(의사·간호사·간병인·직원)가 사무집행 중 제3자에게 손해를 가한 경우<br>
+<b>사용자(병원·요양기관)</b>가 연대 배상책임.<br>
+• 병원장·요양원장이 직원 과실에 대해 사용자로서 책임<br>
+• 면책 요건: 상당한 주의 기울임 입증 (실무상 거의 인정 안 됨)<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">민법 제758조 — 공작물 점유자·소유자의 책임</b><br>
+공작물(건물·시설·의료기기·침대·욕실 등)의 설치·보존 하자로 손해 발생 시:<br>
+• <b>점유자(관리자)</b>: 1차 책임 — 면책 입증 시 소유자 책임<br>
+• <b>소유자</b>: 무과실 책임 (면책 불가)<br>
+→ 병원 내 낙상(미끄러운 바닥), 침대 추락, 의료기기 오작동 사고 적용.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">의료법 제24조의2 — 의료행위에 관한 설명</b><br>
+의사는 수술·시술 전 환자에게 충분한 설명 후 서면 동의 취득 의무.<br>
+설명 의무 위반 시 손해배상책임 발생 (대법원 판례 다수).<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">노인장기요양보험법 — 요양기관 의무</b><br>
+장기요양기관은 수급자의 신체·정신 건강 보호 의무.<br>
+요양보호사 과실(낙상·욕창·투약 오류 등) → 기관 사용자 책임 적용.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">사회복지사업법 제34조의3 — 시설 안전관리</b><br>
+사회복지시설 운영자는 이용자 안전을 위한 시설 관리 의무.<br>
+위반 시 행정처분 + 민사 손해배상책임 병과 가능.
+</div>""", height=358)
+
+                # ── 스크롤박스 3: 일상생활배상책임 약관 / 배상책임 도표 ──
+                st.markdown("##### 📋 일상생활배상책임 약관 핵심 및 배상책임 도표")
+                components.html("""
+<div style="
+  height:340px; overflow-y:auto; padding:12px 15px;
+  background:#f8fafc; border:1px solid #d0dce8;
+  border-radius:8px; font-size:0.83rem; line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">
+<b style="font-size:0.85rem;color:#1a3a5c;">📄 일상생활배상책임보험 약관 핵심 정리</b><br>
+<b>① 보상하는 손해</b><br>
+• 피보험자가 일상생활 중 우연한 사고로 타인의 신체·재물에 손해를 입혀<br>
+&nbsp;&nbsp;법률상 배상책임을 부담함으로써 입은 손해<br>
+• 소송비용·변호사비용·긴급비용 포함<br><br>
+<b>② 피보험자 범위 (가족형)</b><br>
+• 기명피보험자 본인<br>
+• 배우자 (법률혼·사실혼)<br>
+• 동거 친족 (민법 제777조 기준)<br>
+• 별거 미혼 자녀<br><br>
+<b>③ 보상하지 않는 손해 (면책)</b><br>
+• 고의로 가한 손해<br>
+• 자동차·선박·항공기 소유·사용·관리 중 사고<br>
+• 직무수행 중 발생한 사고 (업무배상책임 별도)<br>
+• 피보험자 상호 간 손해<br>
+• 지진·분화·홍수 등 천재지변<br>
+• 전쟁·내란·테러<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">📊 배상책임 성립 요건 도표</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+<tr style="background:#e8f0fb;">
+  <th style="border:1px solid #c0d0e8;padding:4px 6px;">요건</th>
+  <th style="border:1px solid #c0d0e8;padding:4px 6px;">내용</th>
+  <th style="border:1px solid #c0d0e8;padding:4px 6px;">관련 조문</th>
+</tr>
+<tr><td style="border:1px solid #d0dce8;padding:4px 6px;">① 가해행위</td><td style="border:1px solid #d0dce8;padding:4px 6px;">고의·과실에 의한 행위</td><td style="border:1px solid #d0dce8;padding:4px 6px;">민법 750조</td></tr>
+<tr><td style="border:1px solid #d0dce8;padding:4px 6px;">② 위법성</td><td style="border:1px solid #d0dce8;padding:4px 6px;">법규·사회통념 위반</td><td style="border:1px solid #d0dce8;padding:4px 6px;">민법 750조</td></tr>
+<tr><td style="border:1px solid #d0dce8;padding:4px 6px;">③ 손해 발생</td><td style="border:1px solid #d0dce8;padding:4px 6px;">재산적·정신적 손해</td><td style="border:1px solid #d0dce8;padding:4px 6px;">민법 751조</td></tr>
+<tr><td style="border:1px solid #d0dce8;padding:4px 6px;">④ 인과관계</td><td style="border:1px solid #d0dce8;padding:4px 6px;">행위와 손해 간 상당인과관계</td><td style="border:1px solid #d0dce8;padding:4px 6px;">판례</td></tr>
+<tr><td style="border:1px solid #d0dce8;padding:4px 6px;">⑤ 책임능력</td><td style="border:1px solid #d0dce8;padding:4px 6px;">가해자의 책임변식능력</td><td style="border:1px solid #d0dce8;padding:4px 6px;">민법 753조</td></tr>
+</table>
+</div>""", height=358)
+
+            with _la2_right:
+                # ── 스크롤박스 2: 보험 종류별 상세 ──
+                st.markdown("##### 🛡️ 시설·요양기관 관련 배상책임보험 종류")
+                components.html("""
+<div style="
+  height:340px; overflow-y:auto; padding:12px 15px;
+  background:#f8fafc; border:1px solid #d0dce8;
+  border-radius:8px; font-size:0.83rem; line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">
+<b style="font-size:0.85rem;color:#1a3a5c;">🏥 간병인배상책임보험</b><br>
+• 피보험자: 간병인(개인·파견업체)<br>
+• 담보: 간병 업무 중 환자에게 가한 신체·재물 손해<br>
+• 주요 사고: 낙상 보조 실패, 투약 오류, 욕창 방치<br>
+• 특이사항: 간병인 개인 가입 또는 파견업체 단체 가입 가능<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">🏢 시설소유관리자배상책임보험 (병원·요양기관)</b><br>
+• 피보험자: 병원·요양원·노인복지시설 소유자·관리자<br>
+• 담보: 시설 내 사고(낙상·화재·시설 하자)로 입원환자·방문객 손해<br>
+• 구외업무수행특약: 직원이 <b>시설 외부</b>에서 업무 수행 중 발생한 사고도 담보<br>
+&nbsp;&nbsp;(왕진·외부 검사·이송 중 사고 포함)<br>
+• 권장 한도: 대인 무한 / 대물 5억 이상<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">🌐 영업배상책임보험 (CGL — Commercial General Liability)</b><br>
+• 담보 3가지:<br>
+&nbsp;&nbsp;① <b>시설위험</b>: 사업장 내 사고로 제3자 손해<br>
+&nbsp;&nbsp;② <b>작업위험</b>: 업무 수행 중 제3자 손해<br>
+&nbsp;&nbsp;③ <b>생산물위험</b>: 제조·판매 제품 결함으로 손해<br>
+• 병원·요양기관 적용: 시설위험 + 작업위험 담보 중심<br>
+• 의료행위 자체는 별도 의료배상책임보험(MPL) 필요<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">⚖️ 행정소송 법률비용담보</b><br>
+• 담보: 행정처분(면허취소·업무정지·과징금)에 대한 행정소송 비용<br>
+• 대상: 병원·요양기관 행정처분 불복 소송<br>
+• 보상: 변호사비용·소송비용·행정심판비용<br>
+• 특이사항: 의료분쟁 시 행정·민사 병행 소송 대응 가능<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">📋 민사소송 법률비용담보</b><br>
+• 담보: 환자·보호자가 제기한 민사손해배상 소송 방어 비용<br>
+• 보상: 변호사 착수금·성공보수·소송비용·감정비용<br>
+• 특이사항: 배상책임보험 본담보와 별도로 방어비용 선지급 가능<br>
+• 의료분쟁조정법상 조정·중재 비용도 포함
+</div>""", height=358)
+
+                # ── 스크롤박스 4: 화재배상책임 및 관련 법률 ──
+                st.markdown("##### 🔥 화재배상책임 및 관련 법률 (시설·요양기관)")
+                components.html("""
+<div style="
+  height:340px; overflow-y:auto; padding:12px 15px;
+  background:#f8fafc; border:1px solid #d0dce8;
+  border-radius:8px; font-size:0.83rem; line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">
+<b style="font-size:0.85rem;color:#1a3a5c;">🔥 화재보험법 제4조 — 특수건물 무과실 배상책임</b><br>
+병원(입원실 30병상 이상)·요양원(연면적 3,000㎡ 이상)은 <b>특수건물</b>에 해당.<br>
+화재 발생 시 과실 여부와 무관하게 소유자가 <b>무과실 배상책임</b> 부담.<br>
+→ 신체손해배상특약부 화재보험 <b>의무 가입</b> 대상.<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">🏥 의료기관 화재 시 배상책임 구조</b><br>
+① 입원환자 사망: 화재보험법 제4조 무과실 책임 + 민법 750조 과실책임 병존<br>
+② 방문객·보호자 피해: 시설소유관리자배상책임보험 담보<br>
+③ 인접 건물 피해: 실화책임법 적용 (경과실 시 감경 가능)<br>
+④ 의료기기·의무기록 소실: 재물손해 + 영업중단손해 별도 담보<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">🏠 요양기관 화재 특수 쟁점</b><br>
+• 거동 불편 수급자 대피 지원 의무 — 위반 시 중과실 인정 가능성<br>
+• 야간 당직 인력 부족으로 인한 피해 확대 → 관리 소홀 책임<br>
+• 스프링클러·방화문 미설치: 소방시설법 위반 + 민사 과실 가중<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">📋 다중이용업소 화재배상책임보험 (요양·복지시설)</b><br>
+노인요양시설·장애인거주시설 등 다중이용업소 해당 시 의무 가입.<br>
+• 사망: 1인당 1억 5천만원<br>
+• 부상: 급수별 최대 3천만원<br>
+• 재물: 10억원 한도<br><br>
+<b style="font-size:0.85rem;color:#1a3a5c;">⚠️ 실화책임법 적용 시 주의사항</b><br>
+경과실 화재라도 <b>요양·의료시설은 중과실 인정 가능성 높음</b>:<br>
+• 소방시설 미점검·불량<br>
+• 화재 예방 교육 미실시<br>
+• 위험물 부적절 보관<br>
+→ 중과실 인정 시 실화책임법 감경 혜택 없음 — 전액 배상 책임
+</div>""", height=358)
+
+                # ── AI 분석 블록 ──
+                st.markdown("##### 🤖 AI 시설배상책임 분석")
+                c_name_la2, query_la2, hi_la2, do_la2 = ai_query_block(
+                    "liability2",
+                    "시설·요양기관 배상책임 관련 상담 내용을 입력하세요.\n예) 요양원 입소자 낙상 사고, 병원 화재로 환자 피해, 간병인 투약 오류"
+                )
+                if do_la2:
+                    run_ai_analysis(c_name_la2, query_la2, hi_la2, "res_liability2",
+                        "[시설소유관리자·요양기관 배상책임 상담]\n"
+                        "1. 사고 유형별 법률상 배상책임 성립 여부 (민법 756·758조 근거)\n"
+                        "2. 적용 가능한 배상책임보험 종류 및 담보 범위\n"
+                        "3. 화재 사고 시 화재보험법·실화책임법 적용 분석\n"
+                        "4. 행정처분 병행 시 행정소송 법률비용담보 활용 방안\n"
+                        "5. 분쟁 해결 절차 (의료분쟁조정원·소송) 안내\n"
+                        "※ 본 답변은 참고용이며 구체적 법률 판단은 전문가와 상의하십시오.\n")
+                show_result("res_liability2")
 
     # ── [탭 5] 노후·상속설계 ─────────────────────────────────────────────
     if cur == "t5":
@@ -3200,7 +4487,7 @@ function printReport() {{
             if do7:
                 components.html(s_voice("잠시만 기다려주세요. 답변 검색 중입니다."), height=0)
                 bb_ctx = ""
-                if acc_sub == "📹 블랙박스 영상 분석" and 'bb_file' in dir() and bb_file:
+                if acc_sub == "📹 블랙박스 영상 분석" and bb_file:
                     bb_ctx = f"\n[블랙박스 영상 업로드됨: {bb_file.name} ({bb_file.size//1024}KB)]\n영상 내용을 바탕으로 사고 상황을 추정하여 과실비율을 분석하십시오.\n"
                 fault_ctx = ""
                 if checked_faults:
@@ -3327,10 +4614,10 @@ function printReport() {{
                     )
                     corp_r = evaluator.evaluate_corporate_tax()
                     inh_r  = evaluator.evaluate_inheritance_tax()
-                    st.session_state["ceo_eval_corp"] = corp_r
-                    st.session_state["ceo_eval_inh"]  = inh_r
-                    st.session_state["ceo_company"]   = ceo_company
-                    st.session_state["ceo_shares"]    = total_shares
+                    st.session_state["ceo_eval_corp"]    = corp_r
+                    st.session_state["ceo_eval_inh"]     = inh_r
+                    st.session_state["ceo_company_result"] = ceo_company
+                    st.session_state["ceo_shares_result"]  = total_shares
                     st.rerun()
 
             else:  # 재무제표 스캔 업로드
@@ -3362,7 +4649,7 @@ function printReport() {{
                         fs_text = ""
                         for f in fs_files:
                             if f.type == "application/pdf":
-                                fs_text += f"\n[재무제표: {f.name}]\n" + process_pdf(f)[:1500]
+                                fs_text += f"\n[재무제표: {f.name}]\n" + extract_pdf_chunks(f, char_limit=6000)
                             elif f.type.startswith("image/"):
                                 fs_text += f"\n[재무제표 이미지: {f.name} — OCR 분석 요청]\n"
                         run_ai_analysis(
@@ -3375,8 +4662,8 @@ function printReport() {{
                 st.markdown("##### 📊 비상장주식 평가 결과")
                 corp_r = st.session_state.get("ceo_eval_corp")
                 inh_r  = st.session_state.get("ceo_eval_inh")
-                company = st.session_state.get("ceo_company", "")
-                shares  = st.session_state.get("ceo_shares", 0)
+                company = st.session_state.get("ceo_company_result", "")
+                shares  = st.session_state.get("ceo_shares_result", 0)
 
                 if corp_r and inh_r:
                     corp_val = corp_r["법인세법상 시가"]
@@ -3430,18 +4717,35 @@ function printReport() {{
                             f"주당 순자산가치: {asset_ps:,.0f}원 | 주당 순손익가치: {earn_ps:,.0f}원\n"
                         )
                         run_ai_analysis(
-                            company, "CEO플랜 심층 분석", 0, "res_ceo_ai",
+                            company or "법인", "CEO플랜 심층 분석", 0, "res_ceo_ai",
                             CEO_PLAN_PROMPT + ai_prompt
                         )
                     show_result("res_ceo_ai")
 
                 else:
                     st.info("좌측 입력표를 작성하고 '비상장주식 평가 실행'을 클릭하세요.")
-                    st.markdown(CEO_EVAL_GUIDE)
+                    st.markdown("##### 📘 비상장주식 평가 방법 안내")
+                    components.html(f"""
+<div style="
+  height:320px; overflow-y:auto; padding:14px 16px;
+  background:#f8fafc; border:1px solid #d0d7de;
+  border-radius:8px; font-size:0.83rem; line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">{CEO_EVAL_GUIDE}</div>""", height=338)
 
             else:
                 st.subheader("🤖 AI 재무제표 분석 리포트")
-                show_result("res_ceo_fs", CEO_EVAL_GUIDE)
+                if st.session_state.get("res_ceo_fs"):
+                    show_result("res_ceo_fs")
+                else:
+                    st.markdown("##### 📘 비상장주식 평가 방법 안내")
+                    components.html(f"""
+<div style="
+  height:320px; overflow-y:auto; padding:14px 16px;
+  background:#f8fafc; border:1px solid #d0d7de;
+  border-radius:8px; font-size:0.83rem; line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif; color:#1a1a2e;
+">{CEO_EVAL_GUIDE}</div>""", height=338)
 
     # ── [탭 9] 관리자 ────────────────────────────────────────────────────
     if cur == "t9":
@@ -3552,6 +4856,29 @@ function printReport() {{
                                     st.rerun()
 
                 st.divider()
+                # ── GitHub 커밋 안내 ──
+                _rag_writable_now = _rag_dir_writable
+                _path_label = os.path.abspath(RAG_INDEX_PATH)
+                if _rag_writable_now:
+                    st.info(
+                        "💾 **RAG 파일 영구 보존 방법 (권장)**\n\n"
+                        "Streamlit Cloud는 서버 재시작 시 `/tmp` 데이터가 초기화됩니다.\n"
+                        "현재 저장 위치가 앱 디렉터리이면 아래 명령으로 GitHub에 커밋하세요:\n\n"
+                        "```bash\n"
+                        "git add rag_index.faiss rag_docs.json\n"
+                        "git commit -m \"chore: update RAG knowledge base\"\n"
+                        "git push\n"
+                        "```\n"
+                        f"현재 저장 경로: `{_path_label}`"
+                    )
+                else:
+                    st.warning(
+                        "⚠️ **앱 디렉터리 쓰기 불가 — `/tmp` 임시 저장 중**\n\n"
+                        "현재 RAG 데이터는 `/tmp`에 저장되어 서버 재시작 시 **소멸**됩니다.\n"
+                        "영구 보존하려면 로컬 환경에서 인덱스를 빌드한 후 "
+                        "`rag_index.faiss` / `rag_docs.json`을 GitHub 저장소에 커밋하세요."
+                    )
+                st.divider()
                 st.markdown("##### 🗑️ 지식베이스 전체 삭제 (관리자 전용)")
                 st.warning("삭제 시 디스크 파일까지 완전히 제거됩니다. 복구 불가합니다.")
                 if st.button("지식베이스 전체 삭제", type="primary", key="btn_rag_delete"):
@@ -3564,19 +4891,15 @@ function printReport() {{
                 st.warning("만료된 사용자 데이터를 영구 삭제합니다.")
                 if st.button("만료 데이터 파기 실행", type="primary", key="btn_purge_admin"):
                     try:
-                        conn = sqlite3.connect(DB_PATH)
-                        cursor = conn.cursor()
-                        cursor.execute(
-                            "SELECT COUNT(*) FROM user_documents "
-                            "WHERE status='EXPIRED' AND expiry_date <= date('now','-30 days')"
-                        )
-                        count = cursor.fetchone()[0]
-                        cursor.execute(
-                            "DELETE FROM user_documents "
-                            "WHERE status='EXPIRED' AND expiry_date <= date('now','-30 days')"
-                        )
-                        conn.commit()
-                        conn.close()
+                        with _get_conn() as conn:
+                            count = conn.execute(
+                                "SELECT COUNT(*) FROM user_documents "
+                                "WHERE status='EXPIRED' AND expiry_date <= date('now','-30 days')"
+                            ).fetchone()[0]
+                            conn.execute(
+                                "DELETE FROM user_documents "
+                                "WHERE status='EXPIRED' AND expiry_date <= date('now','-30 days')"
+                            )
                         st.success(f"{count}개의 만료 데이터가 파기되었습니다.")
                     except Exception as e:
                         st.error(f"파기 오류: {e}")
