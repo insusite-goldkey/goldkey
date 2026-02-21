@@ -1,10 +1,14 @@
-streamlit
+streamlit>=1.35.0
 google-genai>=0.3.0
-Pillow
+Pillow>=10.0.0
 sentence-transformers>=2.2.0
 faiss-cpu>=1.7.0
 pdfplumber>=0.9.0
 python-docx>=0.8.11
-numpy>=1.21.0
-tiktoken>=0.4.0
-cryptography
+numpy>=1.21.0,<2.0.0
+cryptography>=41.0.0
+gspread>=6.0.0
+# ── 베타 기간 비활성화 (Google Play 결제 연동 시 주석 해제) ──────────────
+# google-api-python-client>=2.100.0
+# google-auth>=2.23.0
+# google-cloud-pubsub>=2.18.0
