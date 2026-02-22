@@ -1659,6 +1659,84 @@ function startTTS_{tab_key}(){{
   </span>
 </div>""", unsafe_allow_html=True)
 
+        # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
+        components.html("""
+<div id="wx_wrap" style="
+  background:linear-gradient(135deg,#0f4c81 0%,#1a6fa8 60%,#2196f3 100%);
+  border-radius:14px;padding:14px 18px;margin-bottom:12px;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div id="wx_icon" style="font-size:2.6rem;line-height:1;">⏳</div>
+    <div>
+      <div id="wx_temp" style="color:#fff;font-size:1.6rem;font-weight:900;line-height:1.1;">--°C</div>
+      <div id="wx_desc" style="color:#cce8ff;font-size:0.82rem;margin-top:2px;">위치 확인 중...</div>
+    </div>
+  </div>
+  <div style="text-align:right;">
+    <div id="wx_loc"  style="color:#fff;font-size:0.78rem;font-weight:700;">📍 --</div>
+    <div id="wx_extra" style="color:#cce8ff;font-size:0.75rem;margin-top:3px;">습도 --% | 풍속 -- m/s</div>
+    <div id="wx_time"  style="color:#a0c8f0;font-size:0.70rem;margin-top:2px;"></div>
+  </div>
+</div>
+<script>
+var WX_CODE = {
+  0:"☀️ 맑음", 1:"🌤️ 대체로 맑음", 2:"⛅ 구름 조금", 3:"☁️ 흐림",
+  45:"🌫️ 안개", 48:"🌫️ 짙은 안개",
+  51:"🌦️ 이슬비", 53:"🌦️ 이슬비", 55:"🌧️ 이슬비(강)",
+  61:"🌧️ 비", 63:"🌧️ 비(보통)", 65:"🌧️ 비(강)",
+  71:"🌨️ 눈", 73:"🌨️ 눈(보통)", 75:"❄️ 눈(강)",
+  80:"🌦️ 소나기", 81:"🌧️ 소나기(보통)", 82:"⛈️ 소나기(강)",
+  95:"⛈️ 뇌우", 96:"⛈️ 뇌우+우박", 99:"⛈️ 뇌우+우박(강)"
+};
+function wxLoad(lat, lon, locName){
+  var url = "https://api.open-meteo.com/v1/forecast"
+    + "?latitude=" + lat + "&longitude=" + lon
+    + "&current=temperature_2m,relative_humidity_2m,weathercode,windspeed_10m"
+    + "&timezone=Asia%2FSeoul&forecast_days=1";
+  fetch(url).then(function(r){ return r.json(); }).then(function(d){
+    var c = d.current;
+    var code = c.weathercode;
+    var desc = WX_CODE[code] || "🌡️ 날씨 정보";
+    var icon = desc.split(" ")[0];
+    var label = desc.split(" ").slice(1).join(" ");
+    var now = new Date();
+    var hhmm = now.getHours() + "시 " + String(now.getMinutes()).padStart(2,"0") + "분 기준";
+    document.getElementById("wx_icon").textContent  = icon;
+    document.getElementById("wx_temp").textContent  = Math.round(c.temperature_2m) + "°C";
+    document.getElementById("wx_desc").textContent  = label;
+    document.getElementById("wx_loc").textContent   = "📍 " + (locName || "현재 위치");
+    document.getElementById("wx_extra").textContent =
+      "습도 " + c.relative_humidity_2m + "% | 풍속 " + c.windspeed_10m + " m/s";
+    document.getElementById("wx_time").textContent  = hhmm + " 업데이트";
+  }).catch(function(){
+    document.getElementById("wx_desc").textContent = "날씨 정보를 불러올 수 없습니다.";
+  });
+}
+function wxByGeo(){
+  if(!navigator.geolocation){
+    wxLoad(35.1595, 126.8526, "광주"); return;
+  }
+  navigator.geolocation.getCurrentPosition(function(pos){
+    var lat = pos.coords.latitude;
+    var lon = pos.coords.longitude;
+    // 역지오코딩 (nominatim)
+    fetch("https://nominatim.openstreetmap.org/reverse?lat="+lat+"&lon="+lon+"&format=json&accept-language=ko")
+      .then(function(r){ return r.json(); })
+      .then(function(geo){
+        var addr = geo.address || {};
+        var loc = addr.city || addr.county || addr.state || "현재 위치";
+        wxLoad(lat, lon, loc);
+      }).catch(function(){ wxLoad(lat, lon, "현재 위치"); });
+  }, function(){
+    // 위치 거부 시 광주 폴백
+    wxLoad(35.1595, 126.8526, "광주");
+  }, {timeout:5000});
+}
+wxByGeo();
+</script>
+""", height=100)
+
         # ── 제안 박스 (홈 첫 번째 칸) ─────────────────────────────────────
         st.markdown("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
