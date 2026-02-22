@@ -1235,7 +1235,7 @@ def main():
         if 'user_id' in st.session_state:
             # 로그인 상태
             user_name = st.session_state.get('user_name', '')
-            st.success(f"{user_name} 마스터님 접속 중")
+            st.success(f"✅ {user_name} 마스터님 · 로그인됨")
 
             is_member, status_msg = check_membership_status()
             remaining_usage = get_remaining_usage(user_name)
@@ -1685,7 +1685,7 @@ function startTTS_{tab_key}(){{
   display:flex;align-items:center;gap:10px;">
   <span style="font-size:1.5rem;">✅</span>
   <span style="color:#fff;font-size:1.0rem;font-weight:900;">
-    {_uname} 마스터님, 로그인되었습니다
+    {_uname} 마스터님 · 로그인됨
   </span>
 </div>""", unsafe_allow_html=True)
 
