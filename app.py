@@ -1307,18 +1307,16 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
 var _sttActive_{tab_key} = false;
 var _sttRec_{tab_key} = null;
 var _sttFinal_{tab_key} = '';
+var _sttLastIdx_{tab_key} = 0;  // 중복 방지용 인덱스
 
 function _getTA_{tab_key}(){{
-  // parent document에서 상담 내용 textarea 찾기
   var doc = window.parent.document;
   var tas = doc.querySelectorAll('textarea');
-  // placeholder로 상담 textarea 특정
   for(var i=0;i<tas.length;i++){{
     if(tas[i].placeholder && (tas[i].placeholder.includes('\uc0c1\ub2f4') || tas[i].placeholder.includes('\uc785\ub825'))){{
       return tas[i];
     }}
   }}
-  // 못 찾으면 마지막 textarea
   return tas.length ? tas[tas.length-1] : null;
 }}
 
@@ -1330,69 +1328,103 @@ function _setTA_{tab_key}(val){{
   ta.dispatchEvent(new Event('input',{{bubbles:true}}));
 }}
 
-function startSTT_{tab_key}(){{
-  var btn = document.getElementById('stt_btn_{tab_key}');
-  var interim_div = document.getElementById('stt_interim_{tab_key}');
-  if(_sttActive_{tab_key}){{
-    if(_sttRec_{tab_key}) _sttRec_{tab_key}.stop();
-    _sttActive_{tab_key}=false;
-    btn.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
-    btn.classList.remove('active');
-    interim_div.textContent='';
-    return;
+function _joinSentence_{tab_key}(prev, next){{
+  // 문장 간 자연스러운 연결 (맥락 보존)
+  if(!prev) return next;
+  var p = prev.trimEnd();
+  var n = next.trim();
+  if(!n) return p;
+  // 이전 문장이 마침표/쉼표/물음표로 끝나면 공백만 추가
+  var lastChar = p.slice(-1);
+  var punctEnd = ['.','?','!','。','？','！',',','，'].indexOf(lastChar) >= 0;
+  // 다음 문장 첫 글자가 소문자면 같은 문장 맥락으로 이어붙임
+  var firstChar = n.charAt(0);
+  var isLower = firstChar === firstChar.toLowerCase() && firstChar !== firstChar.toUpperCase();
+  if(!punctEnd && isLower){{
+    // 같은 문장 맥락 — 쉼표로 연결
+    return p + ', ' + n;
   }}
+  return p + ' ' + n;
+}}
+
+function _newRec_{tab_key}(btn, interim_div){{
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){{alert('Chrome/Edge \ube0c\ub77c\uc6b0\uc800\ub97c \uc0ac\uc6a9\ud574\uc8fc\uc138\uc694.'); return;}}
+  if(!SR) return null;
   var r=new SR();
   r.lang='{stt_lang_code}';
-  r.interimResults=true;   // 실시간 중간 결과 표시
-  r.continuous=true;        // 계속 인식
-  r.maxAlternatives=1;
+  r.interimResults=true;
+  r.continuous=false;   // 모바일 안정성: 문장 단위로 끊고 재시작
+  r.maxAlternatives=3;  // 여러 후보 중 최적 선택
 
   r.onresult=function(e){{
-    var interim='';
-    var final_new='';
+    var interim=''; var final_new='';
     for(var i=e.resultIndex;i<e.results.length;i++){{
       if(e.results[i].isFinal){{
-        final_new += e.results[i][0].transcript;
+        // 신뢰도 가장 높은 후보 선택
+        var best=''; var bestConf=0;
+        for(var j=0;j<e.results[i].length;j++){{
+          if(e.results[i][j].confidence >= bestConf){{
+            bestConf=e.results[i][j].confidence;
+            best=e.results[i][j].transcript;
+          }}
+        }}
+        final_new += best;
       }} else {{
         interim += e.results[i][0].transcript;
       }}
     }}
     if(final_new){{
-      _sttFinal_{tab_key} += final_new;
+      // 맥락 연결하여 누적
+      _sttFinal_{tab_key} = _joinSentence_{tab_key}(_sttFinal_{tab_key}, final_new);
       _setTA_{tab_key}(_sttFinal_{tab_key});
+      interim_div.textContent='';
     }}
-    // 중간 결과는 빨간 글씨로 실시간 표시
-    interim_div.textContent = interim ? '🎤 ' + interim : '';
+    if(interim) interim_div.textContent='🎤 '+interim;
   }};
 
   r.onerror=function(e){{
-    if(e.error==='no-speech') return; // 무음은 무시
-    if(e.error==='aborted') return;
-    interim_div.textContent='\u26a0\ufe0f \uc624\ub958: '+e.error;
-    _sttActive_{tab_key}=false;
-    btn.classList.remove('active');
+    if(e.error==='no-speech'||e.error==='aborted') return;
+    interim_div.textContent='⚠️ '+e.error;
   }};
 
   r.onend=function(){{
-    // continuous 모드: 활성 상태면 자동 재시작
     if(_sttActive_{tab_key}){{
-      try{{ r.start(); }}catch(ex){{}}
+      // 문장 끝나면 새 인스턴스로 재시작 (중복 방지 핵심)
+      setTimeout(function(){{
+        if(_sttActive_{tab_key}){{
+          _sttRec_{tab_key} = _newRec_{tab_key}(btn, interim_div);
+          if(_sttRec_{tab_key}) try{{ _sttRec_{tab_key}.start(); }}catch(ex){{}}
+        }}
+      }}, 200);
     }} else {{
       btn.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
       btn.classList.remove('active');
       interim_div.textContent='';
     }}
   }};
+  return r;
+}}
 
-  _sttFinal_{tab_key} = '';  // 새 녹음 시작 시 초기화
-  _sttRec_{tab_key}=r;
+function startSTT_{tab_key}(){{
+  var btn = document.getElementById('stt_btn_{tab_key}');
+  var interim_div = document.getElementById('stt_interim_{tab_key}');
+  if(_sttActive_{tab_key}){{
+    _sttActive_{tab_key}=false;
+    if(_sttRec_{tab_key}) try{{ _sttRec_{tab_key}.stop(); }}catch(ex){{}}
+    btn.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
+    btn.classList.remove('active');
+    interim_div.textContent='';
+    return;
+  }}
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.'); return;}}
+  _sttFinal_{tab_key}='';   // 새 녹음 시작 시 초기화
   _sttActive_{tab_key}=true;
   btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)';
   btn.classList.add('active');
-  interim_div.textContent='\uB9C8\uC774\uD06C\uB97C \uD5C8\uC6A9\ud558\uba74 \uBC14\ub85c \uc2dc\uc791\ub429\ub2c8\ub2e4...';
-  r.start();
+  interim_div.textContent='마이크를 허용하면 바로 시작됩니다...';
+  _sttRec_{tab_key} = _newRec_{tab_key}(btn, interim_div);
+  if(_sttRec_{tab_key}) try{{ _sttRec_{tab_key}.start(); }}catch(ex){{}}
 }}
 
 function startTTS_{tab_key}(){{
@@ -1495,6 +1527,29 @@ function startTTS_{tab_key}(){{
         # 홈 화면 첫 렌더 완료 플래그 — 다음 rerun 시 RAG/STT 지연 로드 트리거
         if not st.session_state.get('home_rendered'):
             st.session_state.home_rendered = True
+
+        # ── 비로그인 시 회원가입/로그인 안내 배너 ─────────────────────────
+        if 'user_id' not in st.session_state:
+            st.markdown("""
+<div style="background:linear-gradient(90deg,#e74c3c 0%,#c0392b 100%);
+  border-radius:12px;padding:12px 18px;margin-bottom:14px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+  <div style="color:#fff;font-size:0.88rem;font-weight:700;">
+    🔐 로그인 후 AI 상담을 이용하실 수 있습니다
+  </div>
+  <div style="font-size:0.78rem;color:#ffd6d6;">
+    ← 왼쪽 사이드바 상단 <b style="color:#fff;">☰</b> 메뉴에서 가입/로그인하세요
+  </div>
+</div>""", unsafe_allow_html=True)
+            _login_c1, _login_c2, _login_c3 = st.columns([1, 1, 2])
+            with _login_c1:
+                if st.button("📝 회원가입", key="home_goto_signup", use_container_width=True, type="primary"):
+                    st.session_state["_sidebar_tab"] = "signup"
+                    st.rerun()
+            with _login_c2:
+                if st.button("🔓 로그인", key="home_goto_login", use_container_width=True):
+                    st.session_state["_sidebar_tab"] = "login"
+                    st.rerun()
 
         # ── 제안 박스 (홈 첫 번째 칸) ─────────────────────────────────────
         st.markdown("""
