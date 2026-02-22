@@ -429,6 +429,38 @@ def load_error_log() -> list:
         pass
     return []
 
+# --------------------------------------------------------------------------
+# 관리자 지시 채널 (admin_directives.json)
+# --------------------------------------------------------------------------
+DIRECTIVE_DB = os.path.join(_DATA_DIR, "admin_directives.json")
+
+def load_directives():
+    try:
+        if os.path.exists(DIRECTIVE_DB):
+            with open(DIRECTIVE_DB, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        pass
+    return []
+
+def save_directives(directives):
+    try:
+        with open(DIRECTIVE_DB, "w", encoding="utf-8") as f:
+            json.dump(directives, f, ensure_ascii=False, indent=2)
+    except (IOError, OSError):
+        pass
+
+def add_directive(content: str):
+    directives = load_directives()
+    directives.append({
+        "id": len(directives) + 1,
+        "time": dt.now().strftime("%Y-%m-%d %H:%M"),
+        "content": content,
+        "status": "대기"
+    })
+    directives = directives[-100:]  # 최근 100건 유지
+    save_directives(directives)
+
 # 일일 무료 분석 횟수 상수 (단일 정의)
 MAX_FREE_DAILY = 10
 BETA_END_DATE  = date(2026, 8, 31)
@@ -1433,11 +1465,85 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                     st.rerun()
                 else:
                     st.error("ID 또는 코드가 올바르지 않습니다.")
-            # 관리자 로그인 상태일 때 제안 보기 버튼
+            # 관리자 로그인 상태일 때
             if st.session_state.get("is_admin"):
                 st.divider()
+                # ── 시스템 개선 지시 입력 ──
+                st.markdown("**📢 시스템 개선 지시 입력**")
+                with st.form("directive_form"):
+                    _dir_content = st.text_area(
+                        "지시 내용",
+                        placeholder="예) 홈 화면 날씨 위젯 색상을 파란색으로 변경해주세요.",
+                        height=100, key="directive_input"
+                    )
+                    if st.form_submit_button("📤 지시 전송", use_container_width=True):
+                        if _dir_content.strip():
+                            add_directive(_dir_content.strip())
+                            st.success("✅ 지시가 등록되었습니다.")
+                            st.rerun()
+                        else:
+                            st.error("지시 내용을 입력해주세요.")
+                st.divider()
+                _dir_all = load_directives()
+                _dir_pending = [d for d in _dir_all if d.get("status") == "대기"]
+                if _dir_pending:
+                    st.warning(f"🔔 미체크 지시 {len(_dir_pending)}건")
                 if st.button("📋 제안 목록 보기", key="btn_show_suggestions", use_container_width=True):
                     st.session_state["_show_suggestions"] = not st.session_state.get("_show_suggestions", False)
+                if st.button("📢 개선 지시 목록", key="btn_show_directives", use_container_width=True):
+                    st.session_state["_show_directives"] = not st.session_state.get("_show_directives", False)
+
+    # ── 관리자 지시 목록 (메인 영역) ──────────────────────────────────────
+    if st.session_state.get("is_admin") and st.session_state.get("_show_directives"):
+        st.markdown("---")
+        st.markdown("## 📢 시스템 개선 지시 목록")
+        _dir_all = load_directives()
+        _dc1, _dc2, _dc3 = st.columns(3)
+        _dc1.metric("총 지시", f"{len(_dir_all)}건")
+        _dc2.metric("대기", f"{sum(1 for d in _dir_all if d.get('status')=='대기')}건")
+        _dc3.metric("완료", f"{sum(1 for d in _dir_all if d.get('status')=='완료')}건")
+        if _dir_all:
+            with st.container():
+                if st.button("🗑️ 완료 항목 전체 삭제", key="btn_del_done_dir"):
+                    _dir_all = [d for d in _dir_all if d.get("status") != "완료"]
+                    save_directives(_dir_all)
+                    st.rerun()
+            for _di, _d in enumerate(reversed(_dir_all)):
+                _real_di = len(_dir_all) - 1 - _di
+                _ds = _d.get("status", "대기")
+                _ds_color = {"대기": "#f59e0b", "진행중": "#2e6da4", "완료": "#27ae60"}.get(_ds, "#888")
+                with st.expander(
+                    f"[{_d.get('id','?')}] {_d.get('time','')}  |  상태: {_ds}",
+                    expanded=(_di < 3)
+                ):
+                    st.markdown(
+                        f"<div style='background:#f8fafc;border-left:4px solid {_ds_color};"
+                        f"border-radius:6px;padding:10px 14px;font-size:0.9rem;"
+                        f"line-height:1.8;color:#1a1a2e;white-space:pre-wrap;'>{sanitize_unicode(_d.get('content',''))}</div>",
+                        unsafe_allow_html=True
+                    )
+                    _db1, _db2, _db3 = st.columns(3)
+                    with _db1:
+                        if st.button("🔧 진행중", key=f"dir_prog_{_real_di}",
+                                     use_container_width=True, disabled=(_ds == "진행중")):
+                            _dir_all[_real_di]["status"] = "진행중"
+                            save_directives(_dir_all)
+                            st.rerun()
+                    with _db2:
+                        if st.button("✅ 완료", key=f"dir_done_{_real_di}",
+                                     use_container_width=True, disabled=(_ds == "완료")):
+                            _dir_all[_real_di]["status"] = "완료"
+                            save_directives(_dir_all)
+                            st.rerun()
+                    with _db3:
+                        if st.button("🗑️ 삭제", key=f"dir_del_{_real_di}",
+                                     use_container_width=True):
+                            _dir_all.pop(_real_di)
+                            save_directives(_dir_all)
+                            st.rerun()
+        else:
+            st.info("등록된 지시가 없습니다.")
+        st.markdown("---")
 
     # ── 관리자 제안 목록 (메인 영역) ──────────────────────────────────────
     if st.session_state.get("is_admin") and st.session_state.get("_show_suggestions"):
