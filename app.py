@@ -357,6 +357,12 @@ def save_members(members):
     except (IOError, OSError):
         pass  # Cloud 환경 쓰기 실패 시 크래시 방지
 
+def mask_name(name: str) -> str:
+    """이름 마스킹 — 첫 글자만 표시, 나머지 * 처리 (예: 이** / 홍*동)"""
+    if not name or len(name) < 2:
+        return "*"
+    return name[0] + "*" * (len(name) - 1)
+
 def ensure_master_members():
     """마스터 회원 자동 등록 (앱 시작 시 1회) — 없으면 추가, 있으면 스킵"""
     masters = [("이세윤", "01030742616", "GK_이세윤_MASTER")]
@@ -1271,7 +1277,7 @@ def main():
         if 'user_id' in st.session_state:
             # 로그인 상태
             user_name = st.session_state.get('user_name', '')
-            st.success(f"✅ {user_name} 마스터님 · 로그인됨")
+            st.success(f"✅ {mask_name(user_name)} 마스터님 · 로그인됨")
 
             is_member, status_msg = check_membership_status()
             remaining_usage = get_remaining_usage(user_name)
@@ -1381,11 +1387,12 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                 for _idx, _s in enumerate(reversed(_sug_all)):
                     _real_idx = len(_sug_all) - 1 - _idx
                     _u = _s.get('user', '비회원')
+                    _u_masked = mask_name(_u)
                     _t = _s.get('time', '')
                     _c = sanitize_unicode(_s.get('content', ''))
                     _status = _s.get('status', '대기')
                     _status_color = {'대기':'#f59e0b','진행중':'#2e6da4','완료':'#27ae60'}.get(_status,'#888')
-                    with st.expander(f"[{len(_sug_all)-_idx}] {_u}  |  {_t}  |  상태: {_status}", expanded=(_idx < 3)):
+                    with st.expander(f"[{len(_sug_all)-_idx}] {_u_masked}  |  {_t}  |  상태: {_status}", expanded=(_idx < 3)):
                         st.markdown(
                             f"<div style='background:#f8fafc;border-left:4px solid {_status_color};"
                             f"border-radius:6px;padding:10px 14px;font-size:0.88rem;"
@@ -1737,7 +1744,7 @@ function startTTS_{tab_key}(){{
   </span>
 </div>""", unsafe_allow_html=True)
         else:
-            _uname = st.session_state.get("user_name", "")
+            _uname = mask_name(st.session_state.get("user_name", ""))
             st.markdown(f"""
 <div style="background:linear-gradient(135deg,#1a5c3a 0%,#27ae60 100%);
   border-radius:12px;padding:12px 18px;margin-bottom:6px;
