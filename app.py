@@ -557,29 +557,67 @@ def s_voice_answer(text):
     return s_voice(short)
 
 def load_stt_engine():
-    """STT 엔진 초기화 - 다국어 지원 (1회만 호출)"""
-    stt_js = (
-        '<script>if(!window._sttInit){window._sttInit=true;'
-        'window.startRecognition=function(lang,targetId){'
-        'var SR=window.SpeechRecognition||window.webkitSpeechRecognition;'
-        'if(!SR){alert("Chrome/Edge 브라우저를 사용해주세요.");return;}'
-        'var r=new SR();'
-        'r.lang=lang||"ko-KR";'
-        'r.interimResults=false;'
-        'r.continuous=false;'
-        'r.onresult=function(e){'
-        '  var t=e.results[0][0].transcript;'
-        '  var ta=targetId?document.getElementById(targetId):null;'
-        '  if(!ta){var all=document.querySelectorAll("textarea");ta=all[0];}'
-        '  if(ta){'
-        '    var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,"value").set;'
-        '    s.call(ta,t);ta.dispatchEvent(new Event("input",{bubbles:true}));'
-        '  }'
-        '};'
-        'r.onerror=function(e){alert("음성인식 오류: "+e.error);};'
-        'r.start();}'
-        '}</script>'
-    )
+    """STT 엔진 초기화 - 실시간 받아쓰기(continuous) 방식 (1회만 호출)"""
+    stt_js = """
+<script>
+if(!window._sttInit){
+  window._sttInit=true;
+  window._sttActive=false;
+  window._sttRec=null;
+  window._sttFinal='';
+
+  window.startRecognition=function(lang, targetId, interimId){
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){alert('Chrome/Edge 브라우저를 사용해주세요.');return;}
+    if(window._sttActive){
+      if(window._sttRec) window._sttRec.stop();
+      window._sttActive=false; return;
+    }
+    var r=new SR();
+    r.lang=lang||'ko-KR';
+    r.interimResults=true;
+    r.continuous=true;
+    r.maxAlternatives=1;
+    window._sttFinal='';
+
+    r.onresult=function(e){
+      var interim=''; var final_new='';
+      for(var i=e.resultIndex;i<e.results.length;i++){
+        if(e.results[i].isFinal){ final_new+=e.results[i][0].transcript; }
+        else { interim+=e.results[i][0].transcript; }
+      }
+      if(final_new){
+        window._sttFinal+=final_new;
+        var ta=targetId?document.getElementById(targetId):null;
+        if(!ta){ var all=document.querySelectorAll('textarea'); ta=all[all.length-1]; }
+        if(ta){
+          var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
+          s.call(ta,window._sttFinal);
+          ta.dispatchEvent(new Event('input',{bubbles:true}));
+        }
+      }
+      if(interimId){
+        var el=document.getElementById(interimId);
+        if(el) el.textContent=interim?'🎤 '+interim:'';
+      }
+    };
+    r.onerror=function(e){
+      if(e.error==='no-speech'||e.error==='aborted') return;
+    };
+    r.onend=function(){
+      if(window._sttActive){ try{r.start();}catch(ex){} }
+    };
+    window._sttRec=r;
+    window._sttActive=true;
+    r.start();
+  };
+
+  window.stopRecognition=function(){
+    if(window._sttRec) window._sttRec.stop();
+    window._sttActive=false;
+  };
+}
+</script>"""
     components.html(stt_js, height=0)
 
 def output_manager(masked_name, result_text):
