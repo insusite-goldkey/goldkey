@@ -1253,46 +1253,110 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
 .stt-btn{{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #2e6da4;
   background:#eef4fb;color:#1a3a5c;font-size:0.88rem;font-weight:700;cursor:pointer;}}
 .stt-btn:hover{{background:#2e6da4;color:#fff;}}
-.stt-btn.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;}}
+.stt-btn.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;animation:pulse 1s infinite;}}
 .tts-btn{{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #27ae60;
   background:#eafaf1;color:#1a5c3a;font-size:0.88rem;font-weight:700;cursor:pointer;}}
 .tts-btn:hover{{background:#27ae60;color:#fff;}}
+.stt-interim{{font-size:0.75rem;color:#e74c3c;margin-top:3px;min-height:16px;font-style:italic;}}
+@keyframes pulse{{0%{{opacity:1}}50%{{opacity:0.6}}100%{{opacity:1}}}}
 </style>
 <div class="stt-row">
-  <button class="stt-btn" id="stt_btn_{tab_key}" onclick="startSTT_{tab_key}()">🎙️ 음성입력 ({stt_lang_label})</button>
+  <button class="stt-btn" id="stt_btn_{tab_key}" onclick="startSTT_{tab_key}()">🎙️ 실시간 음성입력 ({stt_lang_label})</button>
   <button class="tts-btn" onclick="startTTS_{tab_key}()">🔊 인사말 재생</button>
 </div>
+<div class="stt-interim" id="stt_interim_{tab_key}"></div>
 <script>
 var _sttActive_{tab_key} = false;
 var _sttRec_{tab_key} = null;
+var _sttFinal_{tab_key} = '';
+
+function _getTA_{tab_key}(){{
+  // parent document에서 상담 내용 textarea 찾기
+  var doc = window.parent.document;
+  var tas = doc.querySelectorAll('textarea');
+  // placeholder로 상담 textarea 특정
+  for(var i=0;i<tas.length;i++){{
+    if(tas[i].placeholder && (tas[i].placeholder.includes('\uc0c1\ub2f4') || tas[i].placeholder.includes('\uc785\ub825'))){{
+      return tas[i];
+    }}
+  }}
+  // 못 찾으면 마지막 textarea
+  return tas.length ? tas[tas.length-1] : null;
+}}
+
+function _setTA_{tab_key}(val){{
+  var ta = _getTA_{tab_key}();
+  if(!ta) return;
+  var setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
+  setter.call(ta, val);
+  ta.dispatchEvent(new Event('input',{{bubbles:true}}));
+}}
+
 function startSTT_{tab_key}(){{
   var btn = document.getElementById('stt_btn_{tab_key}');
+  var interim_div = document.getElementById('stt_interim_{tab_key}');
   if(_sttActive_{tab_key}){{
     if(_sttRec_{tab_key}) _sttRec_{tab_key}.stop();
-    _sttActive_{tab_key}=false; btn.textContent='🎙️ 음성입력 ({stt_lang_label})'; btn.classList.remove('active'); return;
+    _sttActive_{tab_key}=false;
+    btn.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
+    btn.classList.remove('active');
+    interim_div.textContent='';
+    return;
   }}
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.'); return;}}
-  var r=new SR(); r.lang='{stt_lang_code}'; r.interimResults=false; r.continuous=false;
+  if(!SR){{alert('Chrome/Edge \ube0c\ub77c\uc6b0\uc800\ub97c \uc0ac\uc6a9\ud574\uc8fc\uc138\uc694.'); return;}}
+  var r=new SR();
+  r.lang='{stt_lang_code}';
+  r.interimResults=true;   // 실시간 중간 결과 표시
+  r.continuous=true;        // 계속 인식
+  r.maxAlternatives=1;
+
   r.onresult=function(e){{
-    var t=e.results[0][0].transcript;
-    var frames=window.parent.document.querySelectorAll('iframe');
-    var ta=null;
-    for(var i=0;i<frames.length;i++){{try{{var el=frames[i].contentDocument.querySelectorAll('textarea');if(el.length){{ta=el[el.length-1];break;}}}}catch(ex){{}}}}
-    if(!ta) ta=window.parent.document.querySelectorAll('textarea[data-testid]');
-    if(ta && ta.length){{
-      var target=ta[ta.length-1];
-      var nativeSetter=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
-      nativeSetter.call(target,t); target.dispatchEvent(new Event('input',{{bubbles:true}}));
+    var interim='';
+    var final_new='';
+    for(var i=e.resultIndex;i<e.results.length;i++){{
+      if(e.results[i].isFinal){{
+        final_new += e.results[i][0].transcript;
+      }} else {{
+        interim += e.results[i][0].transcript;
+      }}
     }}
-    _sttActive_{tab_key}=false; btn.textContent='🎙️ 음성입력 ({stt_lang_label})'; btn.classList.remove('active');
+    if(final_new){{
+      _sttFinal_{tab_key} += final_new;
+      _setTA_{tab_key}(_sttFinal_{tab_key});
+    }}
+    // 중간 결과는 빨간 글씨로 실시간 표시
+    interim_div.textContent = interim ? '🎤 ' + interim : '';
   }};
-  r.onerror=function(e){{alert('음성인식 오류: '+e.error); _sttActive_{tab_key}=false; btn.classList.remove('active');}};
-  r.onend=function(){{_sttActive_{tab_key}=false; btn.textContent='🎙️ 음성입력 ({stt_lang_label})'; btn.classList.remove('active');}};
-  _sttRec_{tab_key}=r; _sttActive_{tab_key}=true;
-  btn.textContent='⏹️ 녹음 중... (클릭하여 중지)'; btn.classList.add('active');
+
+  r.onerror=function(e){{
+    if(e.error==='no-speech') return; // 무음은 무시
+    if(e.error==='aborted') return;
+    interim_div.textContent='\u26a0\ufe0f \uc624\ub958: '+e.error;
+    _sttActive_{tab_key}=false;
+    btn.classList.remove('active');
+  }};
+
+  r.onend=function(){{
+    // continuous 모드: 활성 상태면 자동 재시작
+    if(_sttActive_{tab_key}){{
+      try{{ r.start(); }}catch(ex){{}}
+    }} else {{
+      btn.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
+      btn.classList.remove('active');
+      interim_div.textContent='';
+    }}
+  }};
+
+  _sttFinal_{tab_key} = '';  // 새 녹음 시작 시 초기화
+  _sttRec_{tab_key}=r;
+  _sttActive_{tab_key}=true;
+  btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)';
+  btn.classList.add('active');
+  interim_div.textContent='\uB9C8\uC774\uD06C\uB97C \uD5C8\uC6A9\ud558\uba74 \uBC14\ub85c \uc2dc\uc791\ub429\ub2c8\ub2e4...';
   r.start();
 }}
+
 function startTTS_{tab_key}(){{
   window.speechSynthesis.cancel();
   var msg=new SpeechSynthesisUtterance('{stt_greet}');
@@ -1303,7 +1367,7 @@ function startTTS_{tab_key}(){{
   window.speechSynthesis.speak(msg);
 }}
 </script>
-""", height=58)
+""", height=72)
         return c_name, query, hi_premium, do_analyze
 
     def run_ai_analysis(c_name, query, hi_premium, result_key, extra_prompt=""):
