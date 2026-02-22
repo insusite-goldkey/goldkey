@@ -1597,10 +1597,18 @@ function openSidebarLogin(){
   </div>
 </div>""", unsafe_allow_html=True)
 
-        _suggest_col1, _suggest_col2 = st.columns([3, 2], gap="small")
+        st.markdown("""
+<style>
+textarea[aria-label="개선 의견 입력"],
+div[data-testid="stTextArea"] textarea {
+    border: 2px solid #1a1a1a !important;
+    border-radius: 8px !important;
+}
+</style>""", unsafe_allow_html=True)
+        _suggest_col1 = st.container()
         with _suggest_col1:
             suggest_text = st.text_area(
-                "제안 내용 입력",
+                "개선 의견 입력",
                 height=110,
                 key="suggest_input",
                 placeholder="예: 홈 화면에 날씨 정보를 추가해주세요 / 보험금 계산기 개선이 필요합니다",
@@ -1662,19 +1670,6 @@ function startSugSTT(){
 }
 </script>
 """, height=50)
-
-        with _suggest_col2:
-            st.markdown("""
-<div style="background:#f8fafc;border:1.5px solid #d0dce8;border-radius:10px;
-  padding:12px 14px;font-size:0.76rem;color:#475569;line-height:1.7;height:110px;
-  overflow-y:auto;">
-  <b style="color:#1a3a5c;">📋 제안 가능 항목</b><br>
-  • 화면 구성 · 메뉴 배치<br>
-  • 기능 추가 · 개선 요청<br>
-  • 오류 · 불편 사항 신고<br>
-  • 새로운 상담 카테고리<br>
-  • 기타 시스템 의견
-</div>""", unsafe_allow_html=True)
 
         _sbtn_col1, _sbtn_col2 = st.columns([1, 1], gap="small")
         with _sbtn_col1:
