@@ -14,12 +14,11 @@ foreach ($path in $files) {
     $enc = [System.Text.UTF8Encoding]::new($false, $true)  # throwOnInvalidBytes=true
 
     try {
-        $text = $enc.GetString($bytes)
+        $null = $enc.GetString($bytes)
         Write-Host "  [UTF-8] 정상 ($($bytes.Length) bytes)" -ForegroundColor Green
     } catch {
         Write-Host "  [UTF-8 오류] $($_.Exception.Message)" -ForegroundColor Red
         # 오류 위치 근처 바이트 출력
-        $pos = 0
         for ($i = 0; $i -lt $bytes.Length; $i++) {
             $b = $bytes[$i]
             # surrogate 범위: ED A0 80 ~ ED BF BF (UTF-16 surrogate를 잘못 UTF-8로 인코딩)

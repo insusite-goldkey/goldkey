@@ -64,6 +64,16 @@ import streamlit.components.v1 as components
 os.environ["PYTHONIOENCODING"] = "utf-8:replace"
 os.environ["PYTHONUTF8"] = "1"
 
+# 환경변수 전체를 surrogate-safe하게 정제 (앱 시작 시 1회만 실행)
+try:
+    for _ekey in list(os.environ.keys()):
+        _eval = os.environ[_ekey]
+        _safe_eval = _eval.encode("utf-8", errors="ignore").decode("utf-8")
+        if _safe_eval != _eval:
+            os.environ[_ekey] = _safe_eval
+except Exception:
+    pass
+
 def _safe_str(obj) -> str:
     """surrogate 문자를 완전 제거한 안전한 문자열 반환 — 전역 사용"""
     try:
@@ -488,6 +498,8 @@ def get_client():
     if not api_key:
         st.error("GEMINI_API_KEY가 설정되지 않았습니다. secrets.toml 또는 환경변수를 확인하세요.")
         st.stop()
+    # API 키에 surrogate 문자가 포함되면 genai.Client 생성 시 터짐
+    api_key = api_key.encode("utf-8", errors="ignore").decode("utf-8")
     return genai.Client(
         api_key=api_key,
         http_options={"api_version": "v1beta"}
