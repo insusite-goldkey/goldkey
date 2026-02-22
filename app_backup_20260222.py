@@ -2,38 +2,6 @@
 # 골드키지사 마스터 AI - 탭 구조 통합본 (전체 수정판)
 # 수정: 구조적/논리적/보안/모바일 문제 전체 반영
 # ==========================================================
-#
-# ██████████████████████████████████████████████████████████
-# ██  [코딩 규칙 — 절대명령: 삭제/수정 금지]              ██
-# ██                                                      ██
-# ██  ★ 관리자 명령이 없으면 앱의 기능을                 ██
-# ██    축소하거나 삭제하지 못한다.                       ██
-# ██                                                      ██
-# ██  ★ 앱을 수정할 때 반드시 수정 전 백업 보관용을      ██
-# ██    만들어 놓고, 코딩에 변화가 있으면                 ██
-# ██    관리자에게 안내할 것.                             ██
-# ██                                                      ██
-# ██  1. 아래 섹션 구조(SECTION 0 ~ SECTION 12)는        ██
-# ██     절대 삭제하거나 순서를 변경하지 말 것.           ██
-# ██                                                      ██
-# ██  2. 각 섹션 내 '삭제/수정 금지' 주석이 달린         ██
-# ██     코드 블록은 내용을 변경하지 말 것.              ██
-# ██                                                      ██
-# ██  3. 전문가 역산 로직(건보료/국민연금 기반 소득 역산, ██
-# ██     보험료 황금비율, 호프만/라이프니쯔 계수 산출 등) ██
-# ██     은 절대 변경하지 말 것.                         ██
-# ██                                                      ██
-# ██  섹션 구조 목록:                                    ██
-# ██   SECTION 1    — 보안 및 암호화 엔진               ██
-# ██   SECTION 2    — 데이터베이스 & 회원 관리           ██
-# ██   SECTION 3    — 유틸리티 함수                      ██
-# ██   SECTION 4    — 시스템 프롬프트                    ██
-# ██   SECTION 5    — RAG 시스템                         ██
-# ██   SECTION 6    — 상속/증여 정밀 로직               ██
-# ██   SECTION 7    — 주택연금 시뮬레이션               ██
-# ██   SECTION 8    — 메인 UI (사이드바 / 탭)           ██
-# ██   SECTION 9    — 자가 복구 시스템 + 진입점         ██
-# ██████████████████████████████████████████████████████████
 
 import streamlit as st
 from google import genai
@@ -146,97 +114,6 @@ def get_admin_key():
         return "goldkey777"
 
 # --------------------------------------------------------------------------
-# [SECTION 1.5] 비상장주식 평가 엔진 (상증법 + 법인세법)
-# --------------------------------------------------------------------------
-class AdvancedStockEvaluator:
-    """
-    상증법 및 법인세법 통합 비상장주식 평가 엔진
-    """
-    def __init__(self, net_asset, net_incomes, total_shares,
-                 market_price=None, is_controlling=False, is_real_estate_rich=False):
-        self.net_asset           = net_asset
-        self.net_incomes         = net_incomes
-        self.total_shares        = total_shares
-        self.market_price        = market_price
-        self.is_controlling      = is_controlling
-        self.is_real_estate_rich = is_real_estate_rich
-        self.cap_rate            = 0.1
-        self.annuity_factor      = 3.7908
-
-    def evaluate_corporate_tax(self):
-        if self.market_price:
-            base_val    = self.market_price
-            method_name = "매매사례가액 (Primary Market Price)"
-        else:
-            result      = self.evaluate_inheritance_tax()
-            base_val    = result['최종 평가액 (할증 전)']
-            method_name = "보충적 평가방법 (Supplementary Method)"
-        final_val = base_val * 1.2 if self.is_controlling else base_val
-        return {
-            "평가 방식":        method_name,
-            "경영권 할증 적용": "Yes (20%)" if self.is_controlling else "No",
-            "법인세법상 시가":  round(final_val, 2),
-        }
-
-    def evaluate_inheritance_tax(self):
-        pure_asset_per_share = self.net_asset / self.total_shares
-        weighted_eps = (
-            self.net_incomes[0] / self.total_shares * 3 +
-            self.net_incomes[1] / self.total_shares * 2 +
-            self.net_incomes[2] / self.total_shares * 1
-        ) / 6
-        excess_earnings   = (weighted_eps * 0.5) - (pure_asset_per_share * 0.1)
-        goodwill          = max(0, excess_earnings * self.annuity_factor)
-        final_asset_value = pure_asset_per_share + goodwill
-        earnings_value    = weighted_eps / self.cap_rate
-        weight_eps, weight_asset = (2, 3) if self.is_real_estate_rich else (3, 2)
-        weighted_avg   = (earnings_value * weight_eps + final_asset_value * weight_asset) / 5
-        floor_value    = final_asset_value * 0.8
-        base_valuation = max(weighted_avg, floor_value)
-        final_valuation = base_valuation * 1.2 if self.is_controlling else base_valuation
-        return {
-            "주당 순자산가치":        round(final_asset_value, 2),
-            "주당 순손익가치":        round(earnings_value, 2),
-            "최종 평가액 (할증 전)": round(base_valuation, 2),
-            "경영권 할증 적용":       "Yes (20%)" if self.is_controlling else "No",
-            "상증법상 최종가액":      round(final_valuation, 2),
-        }
-
-# --------------------------------------------------------------------------
-# [SECTION 1.6] CEO플랜 AI 프롬프트 상수
-# --------------------------------------------------------------------------
-CEO_PLAN_PROMPT = """
-[역할] 당신은 법인 CEO플랜 전문 보험·세무 컨설턴트입니다.
-비상장주식 평가 결과를 바탕으로 아래 항목을 체계적으로 분석하십시오.
-
-[분석 항목]
-1. 비상장주식 평가 결과 해석 (법인세법 vs 상증법 비교)
-2. 가업승계 전략 — 증여세·상속세 절감 방안
-3. CEO 퇴직금 설계 — 임원 퇴직금 규정 정비 및 보험 재원 마련
-4. 경영인정기보험 활용 — 법인 납입 보험료 손금산입 가능 여부 및 한도
-5. 주가 관리 전략 — 평가액 조정을 통한 절세 시뮬레이션
-6. CEO 유고 리스크 대비 — 사망보험금 → 퇴직금·주식 매입 재원 활용
-7. 법인 절세 전략 종합 — 세무사 협업 필요 사항 명시
-
-[주의] 본 분석은 참고용이며, 구체적 세무·법률 사항은 반드시 세무사·변호사와 확인하십시오.
-"""
-
-CEO_FS_PROMPT = """
-[역할] 당신은 기업회계 전문가 겸 법인 보험 컨설턴트입니다.
-첨부된 재무제표를 분석하여 아래 항목을 보고하십시오.
-
-[재무제표 분석 항목]
-1. 수익성 분석 — 매출액·영업이익·당기순이익 3년 추이
-2. 안정성 분석 — 부채비율·유동비율·자기자본비율
-3. 성장성 분석 — 매출성장률·이익성장률·자산성장률
-4. 비상장주식 평가용 핵심 수치 추출
-5. CEO플랜 설계 관점 — 법인 재무 건전성 기반 보험 재원 마련 가능성
-6. 리스크 요인 — 재무제표상 주요 위험 신호
-
-[주의] 본 분석은 AI 보조 도구로서 참고용이며, 최종 판단은 공인회계사·세무사와 확인하십시오.
-"""
-
-# --------------------------------------------------------------------------
 # [SECTION 2] 데이터베이스 및 회원 관리
 # --------------------------------------------------------------------------
 def setup_database():
@@ -282,8 +159,6 @@ def add_member(name, contact):
 
 # 일일 무료 분석 횟수 상수 (단일 정의)
 MAX_FREE_DAILY = 10
-BETA_END_DATE  = date(2026, 8, 31)
-UNLIMITED_USERS = {"이세윤", "PERMANENT_MASTER"}
 
 def check_usage_count(user_name):
     today = str(date.today())
@@ -311,48 +186,6 @@ def update_usage(user_name):
 
 def get_remaining_usage(user_name):
     return max(0, MAX_FREE_DAILY - check_usage_count(user_name))
-
-def display_usage_dashboard(user_name: str):
-    """사이드바 프리미엄 사용량 게이지 UI"""
-    current_count = check_usage_count(user_name)
-    is_unlimited  = user_name in UNLIMITED_USERS
-    daily_limit   = 999 if is_unlimited else MAX_FREE_DAILY
-    remaining     = max(0, daily_limit - current_count)
-
-    if is_unlimited:
-        usage_percent = 0.05
-        display_limit = "∞"
-        rem_text      = "무제한 이용 가능"
-    else:
-        usage_percent = min(1.0, current_count / daily_limit) if daily_limit else 1.0
-        display_limit = str(daily_limit)
-        rem_text      = f"{remaining}회 남음"
-
-    st.sidebar.markdown(f"""
-<div style="background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);
-            border:1px solid #e2e8f0;border-radius:16px;padding:18px;
-            margin:10px 0 25px 0;box-shadow:0 4px 12px rgba(0,0,0,0.05);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <span style="font-size:0.7rem;font-weight:900;color:#1e293b;
-                     background:#f1f5f9;padding:4px 10px;border-radius:20px;
-                     border:1px solid #cbd5e1;letter-spacing:0.05em;">
-            {'MASTER' if is_unlimited else 'STANDARD'}
-        </span>
-        <span style="font-size:0.9rem;font-weight:800;color:#2e6da4;">
-            {current_count} <span style="color:#94a3b8;font-weight:400;">/</span> {display_limit}
-        </span>
-    </div>
-    <div style="background:#f1f5f9;border-radius:12px;height:12px;width:100%;
-                overflow:hidden;border:1px solid #e2e8f0;">
-        <div style="background:linear-gradient(90deg,#3b82f6 0%,#2e6da4 100%);
-                    width:{usage_percent * 100:.1f}%;height:100%;border-radius:12px;"></div>
-    </div>
-    <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:0.75rem;color:#64748b;font-weight:500;">오늘의 잔여 분석</span>
-        <span style="font-size:0.85rem;color:#0f172a;font-weight:800;">{rem_text}</span>
-    </div>
-</div>
-""", unsafe_allow_html=True)
 
 def calculate_subscription_days(join_date):
     if not join_date:
@@ -461,17 +294,6 @@ def get_master_model():
         system_instruction=SYSTEM_PROMPT
     )
     return client, config
-
-def extract_pdf_chunks(file, char_limit: int = 8000) -> str:
-    """PDF 전체 텍스트를 char_limit 내에서 최대한 추출"""
-    text = process_pdf(file)
-    if len(text) <= char_limit:
-        return text
-    front = int(char_limit * 0.4)
-    mid_s = int(char_limit * 0.2)
-    back  = char_limit - front - mid_s
-    mid_start = len(text) // 2 - mid_s // 2
-    return text[:front] + "\n...(중략)...\n" + text[mid_start:mid_start+mid_s] + "\n...(중략)...\n" + text[-back:]
 
 def process_pdf(file):
     if not PDF_AVAILABLE:
@@ -827,8 +649,6 @@ def main():
                 f"**오늘 남은 횟수**: {remaining_usage}회"
             )
 
-            display_usage_dashboard(user_name)
-
             if st.button("안전 로그아웃", key="btn_logout"):
                 st.session_state.clear()
                 st.rerun()
@@ -849,17 +669,7 @@ def main():
 
     # ── 메인 탭 구조 ──────────────────────────────────────────────────────
     st.title("골드키지사 AI 마스터")
-    tabs = st.tabs([
-        "🏥 통합 상담",
-        "📷 보험금/이미지",
-        "🚗 자동차사고",
-        "🌅 노후/연금",
-        "📊 세무상담",
-        "🏢 법인/CEO",
-        "👔 CEO플랜",
-        "🏛️ 상속/증여",
-        "⚙️ 관리자"
-    ])
+    tabs = st.tabs(["통합 상담", "보험금/이미지 분석", "상속/증여/주택연금", "관리자"])
 
     # ── [탭 0] 통합 상담 ──────────────────────────────────────────────────
     with tabs[0]:
@@ -1043,302 +853,14 @@ def main():
                             st.error(f"이미지 분석 오류: {e}")
 
 
-    # ── [탭 2] 자동차사고 상담 ───────────────────────────────────────────
+    # ── [탭 2] 상속/증여 + 주택연금 ──────────────────────────────────────
     with tabs[2]:
-        st.subheader("🚗 자동차사고 상담 · 과실비율 분석")
-        st.caption("교통사고처리특례법 13대 중과실 기준 · accident.knia.or.kr 기준")
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            c_name_acc = st.text_input("고객 성함", "우량 고객", key="c_name_acc")
-            acc_query  = st.text_area("사고 상황 입력", height=160, key="acc_query",
-                placeholder="예) 신호등 없는 교차로에서 직진 중 우측에서 좌회전 차량과 충돌.")
-            with st.expander("✅ 13대 중과실 해당 여부 체크", expanded=False):
-                fault_items = ["① 신호·지시 위반","② 중앙선 침범","③ 제한속도 20km/h 초과",
-                    "④ 앞지르기 방법·금지 위반","⑤ 철길건널목 통과방법 위반",
-                    "⑥ 횡단보도 보행자 보호의무 위반","⑦ 무면허 운전","⑧ 음주운전(0.03% 이상)",
-                    "⑨ 보도 침범·횡단방법 위반","⑩ 승객 추락 방지의무 위반",
-                    "⑪ 어린이 보호구역 안전운전의무 위반","⑫ 화물 추락 방지의무 위반","⑬ 개문발차 사고"]
-                checked_faults = [fi for fi in fault_items if st.checkbox(fi, key=f"fault_{fi[:3]}")]
-                if checked_faults:
-                    st.warning(f"⚠️ {len(checked_faults)}개 중과실 해당 → 운전자보험 필수")
-            do_acc = st.button("과실비율 AI 분석 실행", type="primary", key="btn_acc")
-            if do_acc:
-                if 'user_id' not in st.session_state:
-                    st.error("로그인이 필요합니다.")
-                else:
-                    user_name = st.session_state.get('user_name', '')
-                    if not st.session_state.get('is_admin') and check_usage_count(user_name) >= MAX_FREE_DAILY:
-                        st.error(f"오늘 {MAX_FREE_DAILY}회 분석을 모두 사용하셨습니다.")
-                    else:
-                        with st.spinner("분석 중..."):
-                            try:
-                                client, model_config = get_master_model()
-                                fault_ctx = f"\n[13대 중과실 해당: {', '.join(checked_faults)}]\n" if checked_faults else ""
-                                prompt = (f"[자동차사고 상담]{fault_ctx}\n고객: {sanitize_unicode(c_name_acc)}\n"
-                                    f"질문: {sanitize_prompt(acc_query)}\n"
-                                    "1. 과실비율 분쟁심의위원회 기준 과실비율 분석\n"
-                                    "2. 교통사고처리특례법 13대 중과실 해당 여부\n"
-                                    "3. 운전자보험 교통사고처리지원금 지급 가능 여부\n"
-                                    "⚠️ 최종 과실비율은 위원회/법원 판결에 따르며 본 답변은 참고용입니다.")
-                                resp = client.models.generate_content(model=GEMINI_MODEL, contents=prompt, config=model_config)
-                                st.session_state['res_acc'] = sanitize_unicode(resp.text) if resp.text else "응답 없음"
-                                update_usage(user_name)
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"분석 오류: {e}")
-        with col2:
-            st.subheader("AI 분석 리포트")
-            if st.session_state.get('res_acc'):
-                st.markdown(st.session_state['res_acc'])
-            else:
-                st.info("사고 상황을 입력하고 분석을 실행하세요.")
-
-    # ── [탭 3] 노후/연금 설계 ────────────────────────────────────────────
-    with tabs[3]:
-        st.subheader("🌅 노후설계 · 연금 3층 · 주택연금")
-        retire_sub = st.radio("상담 분야", ["노후/연금 설계", "상속·증여 설계", "주택연금"],
-            horizontal=True, key="retire_sub")
-        if retire_sub == "상속·증여 설계":
-            section_inheritance_will()
-        elif retire_sub == "주택연금":
-            section_housing_pension()
-        else:
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                c_name_t3 = st.text_input("고객 성함", "우량 고객", key="c_name_t3")
-                query_t3  = st.text_area("상담 내용", height=160, key="query_t3",
-                    placeholder="예) 55세, 은퇴 후 월 300만원 필요, 국민연금 20년 가입")
-                hi_t3  = st.number_input("월 건강보험료(원)", value=0, step=1000, key="hi_t3")
-                do_t3  = st.button("노후설계 AI 분석", type="primary", key="btn_t3")
-                if do_t3:
-                    if 'user_id' not in st.session_state:
-                        st.error("로그인이 필요합니다.")
-                    else:
-                        user_name = st.session_state.get('user_name', '')
-                        if not st.session_state.get('is_admin') and check_usage_count(user_name) >= MAX_FREE_DAILY:
-                            st.error(f"오늘 {MAX_FREE_DAILY}회 분석을 모두 사용하셨습니다.")
-                        else:
-                            with st.spinner("분석 중..."):
-                                try:
-                                    client, model_config = get_master_model()
-                                    income = hi_t3 / 0.0709 if hi_t3 > 0 else 0
-                                    prompt = (f"[노후설계 상담]\n고객: {sanitize_unicode(c_name_t3)}, 추정소득: {income:,.0f}원\n"
-                                        f"질문: {sanitize_prompt(query_t3)}\n"
-                                        "1. 국민연금·퇴직연금·개인연금 3층 연금 현황 분석 및 소득대체율 계산\n"
-                                        "2. 명목 소득대체율(65%)과 실질 소득대체율(40~50%) 격차 해소 방안\n"
-                                        "3. 은퇴 후 필요 생활비 역산 및 월 부족분 산출\n"
-                                        "4. 연금보험·즉시연금·종신보험으로 격차 보완 전략\n"
-                                        "5. IRP·연금저축 세액공제 최대 활용법")
-                                    resp = client.models.generate_content(model=GEMINI_MODEL, contents=prompt, config=model_config)
-                                    st.session_state['res_t3'] = sanitize_unicode(resp.text) if resp.text else "응답 없음"
-                                    update_usage(user_name)
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"분석 오류: {e}")
-            with col2:
-                st.subheader("AI 분석 리포트")
-                if st.session_state.get('res_t3'):
-                    st.markdown(st.session_state['res_t3'])
-                else:
-                    st.info("상담 내용을 입력하고 분석을 실행하세요.")
-
-    # ── [탭 4] 세무상담 ──────────────────────────────────────────────────
-    with tabs[4]:
-        st.subheader("📊 세무상담")
-        st.caption("보험 관련 세금 · 상속세 · 증여세 · 연금소득세 · 절세 전략")
-        tax_sub = st.radio("상담 분야", ["상속·증여세", "연금소득세", "CEO설계"],
-            horizontal=True, key="tax_sub")
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            c_name_t4 = st.text_input("고객 성함", "우량 고객", key="c_name_t4")
-            query_t4  = st.text_area(f"{tax_sub} 관련 세무 상담 내용을 입력하세요.", height=160, key="query_t4")
-            hi_t4  = st.number_input("월 건강보험료(원)", value=0, step=1000, key="hi_t4")
-            do_t4  = st.button("세무 AI 분석", type="primary", key="btn_t4")
-            if do_t4:
-                if 'user_id' not in st.session_state:
-                    st.error("로그인이 필요합니다.")
-                else:
-                    user_name = st.session_state.get('user_name', '')
-                    if not st.session_state.get('is_admin') and check_usage_count(user_name) >= MAX_FREE_DAILY:
-                        st.error(f"오늘 {MAX_FREE_DAILY}회 분석을 모두 사용하셨습니다.")
-                    else:
-                        with st.spinner("분석 중..."):
-                            try:
-                                client, model_config = get_master_model()
-                                income = hi_t4 / 0.0709 if hi_t4 > 0 else 0
-                                prompt = (f"[세무상담 - {tax_sub}]\n고객: {sanitize_unicode(c_name_t4)}, 추정소득: {income:,.0f}원\n"
-                                    f"질문: {sanitize_prompt(query_t4)}\n"
-                                    "1. 관련 세법 조항과 최신 개정 내용 안내\n2. 절세 전략과 합법적 세금 최소화 방안\n"
-                                    "3. 신고 기한과 필요 서류 안내\n4. 세무사 상담이 필요한 사항 명시\n"
-                                    "※ 본 답변은 참고용이며 구체적 사안은 세무사와 상의하십시오.")
-                                resp = client.models.generate_content(model=GEMINI_MODEL, contents=prompt, config=model_config)
-                                st.session_state['res_t4'] = sanitize_unicode(resp.text) if resp.text else "응답 없음"
-                                update_usage(user_name)
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"분석 오류: {e}")
-        with col2:
-            st.subheader("AI 분석 리포트")
-            if st.session_state.get('res_t4'):
-                st.markdown(st.session_state['res_t4'])
-            else:
-                defaults = {"상속·증여세": "**상속·증여세 핵심:**\n- 상속세: 일괄공제 5억 / 배우자공제 최소 5억\n- 증여세: 10년 합산 / 배우자 6억·자녀 5천만원 공제\n- 세율: 10%~50% 누진세율",
-                    "연금소득세": "**연금소득세 핵심:**\n- 연금저축·IRP 수령 시: 3.3~5.5% 연금소득세\n- 연간 1,500만원 초과 수령 시: 종합소득세 합산 또는 분리과세 선택",
-                    "CEO설계": "**CEO설계 핵심:**\n- 경영인정기보험: 법인 납입 보험료 손금산입 가능 여부 확인\n- CEO 유고 시: 사망보험금 → 퇴직금 재원 활용\n- 임원 퇴직금 규정 정비 필수"}
-                st.info(defaults.get(tax_sub, ""))
-
-    # ── [탭 5] 법인상담 ──────────────────────────────────────────────────
-    with tabs[5]:
-        st.subheader("🏢 법인상담 (CEO플랜 · 단체보험 · 기업보험)")
-        corp_sub = st.radio("상담 분야",
-            ["CEO플랜 (사망·퇴직)", "단체상해보험", "공장·기업 화재보험", "법인 절세 전략", "임원 퇴직금 설계"],
-            horizontal=True, key="corp_sub")
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            c_name_t5 = st.text_input("고객 성함", "우량 고객", key="c_name_t5")
-            query_t5  = st.text_area(f"{corp_sub} 관련 법인 상담 내용을 입력하세요.", height=160, key="query_t5",
-                placeholder="예) 직원 50명, 제조업, CEO 60세")
-            emp_count  = st.number_input("임직원 수", min_value=1, value=10, step=1, key="emp_count")
-            corp_asset = st.number_input("법인 자산 규모 (만원)", value=100000, step=10000, key="corp_asset")
-            do_t5 = st.button("법인 AI 분석", type="primary", key="btn_t5")
-            if do_t5:
-                if 'user_id' not in st.session_state:
-                    st.error("로그인이 필요합니다.")
-                else:
-                    user_name = st.session_state.get('user_name', '')
-                    if not st.session_state.get('is_admin') and check_usage_count(user_name) >= MAX_FREE_DAILY:
-                        st.error(f"오늘 {MAX_FREE_DAILY}회 분석을 모두 사용하셨습니다.")
-                    else:
-                        with st.spinner("분석 중..."):
-                            try:
-                                client, model_config = get_master_model()
-                                prompt = (f"[법인상담 - {corp_sub}]\n고객: {sanitize_unicode(c_name_t5)}, 임직원수: {emp_count}명, 법인자산: {corp_asset:,}만원\n"
-                                    f"질문: {sanitize_prompt(query_t5)}\n"
-                                    "1. 법인 보험의 세무처리(손금산입) 방법\n2. CEO 유고 시 법인 리스크 관리 방안\n"
-                                    "3. 단체보험 가입 기준과 보장 설계\n4. 퇴직금 재원 마련을 위한 보험 활용\n"
-                                    "5. 공장·기업 재산 보호를 위한 화재보험 설계")
-                                resp = client.models.generate_content(model=GEMINI_MODEL, contents=prompt, config=model_config)
-                                st.session_state['res_t5'] = sanitize_unicode(resp.text) if resp.text else "응답 없음"
-                                update_usage(user_name)
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"분석 오류: {e}")
-        with col2:
-            st.subheader("AI 분석 리포트")
-            if st.session_state.get('res_t5'):
-                st.markdown(st.session_state['res_t5'])
-            else:
-                st.info("**법인보험 핵심:**\n- CEO플랜: 사망보험금 → 퇴직금 재원\n- 단체상해: 전 직원 의무 가입 권장\n- 공장화재: 재조달가액 기준 가입\n- 임원 퇴직금 규정 정비 필수")
-
-    # ── [탭 6] CEO플랜 — 비상장주식 평가 ────────────────────────────────
-    with tabs[6]:
-        st.subheader("👔 CEO플랜 — 비상장주식 약식 평가 & 법인 재무분석")
-        st.caption("상증법·법인세법 통합 비상장주식 평가 | 재무제표 3년치 스캔 분석")
-        ceo_sub = st.radio("분석 방식 선택", ["📊 직접 입력 평가표", "📁 재무제표 스캔 업로드"],
-            horizontal=True, key="ceo_sub")
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if ceo_sub == "📊 직접 입력 평가표":
-                ceo_company    = st.text_input("법인명", "(주)예시기업", key="ceo_company")
-                total_shares   = st.number_input("발행주식 총수 (주)", value=10000, step=100, key="ceo_shares")
-                is_controlling = st.checkbox("최대주주 (경영권 할증 20% 적용)", value=True, key="ceo_ctrl")
-                is_re_rich     = st.checkbox("부동산 과다 법인 (자산 비중 80% 이상)", value=False, key="ceo_re")
-                mkt_price_in   = st.number_input("매매사례가액 (원, 없으면 0)", value=0, step=1000, key="ceo_mkt")
-                net_asset      = st.number_input("순자산 (원)", value=12_864_460_902, step=1_000_000, key="ceo_asset")
-                st.markdown("**당기순이익 3개년 (원)**")
-                c1, c2, c3 = st.columns(3)
-                with c1: ni_1 = st.number_input("최근년", value=688_182_031, step=1_000_000, key="ceo_ni1")
-                with c2: ni_2 = st.number_input("전년",   value=451_811_737, step=1_000_000, key="ceo_ni2")
-                with c3: ni_3 = st.number_input("전전년", value=553_750_281, step=1_000_000, key="ceo_ni3")
-                if st.button("📈 비상장주식 평가 실행", type="primary", key="btn_ceo_eval"):
-                    mkt = mkt_price_in if mkt_price_in > 0 else None
-                    ev  = AdvancedStockEvaluator(net_asset=net_asset, net_incomes=[ni_1, ni_2, ni_3],
-                        total_shares=total_shares, market_price=mkt,
-                        is_controlling=is_controlling, is_real_estate_rich=is_re_rich)
-                    st.session_state.update({"ceo_eval_corp": ev.evaluate_corporate_tax(),
-                        "ceo_eval_inh": ev.evaluate_inheritance_tax(),
-                        "ceo_company_result": ceo_company, "ceo_shares_result": total_shares})
-                    st.rerun()
-            else:
-                fs_files = st.file_uploader("재무제표 파일 업로드 (최대 3개)",
-                    type=["pdf","jpg","jpeg","png"], accept_multiple_files=True, key="ceo_fs_files")
-                if fs_files:
-                    st.success(f"{len(fs_files)}개 파일 업로드 완료")
-                ceo_c2   = st.text_input("법인명", "(주)예시기업", key="ceo_company2")
-                ceo_note = st.text_area("추가 분석 요청 사항 (선택)", height=100, key="ceo_note",
-                    placeholder="예) CEO 퇴직금 설계, 가업승계 전략도 함께 분석해주세요.")
-                if st.button("🔍 재무제표 AI 분석 실행", type="primary", key="btn_ceo_fs"):
-                    if not fs_files:
-                        st.error("재무제표 파일을 업로드하세요.")
-                    elif 'user_id' not in st.session_state:
-                        st.error("로그인이 필요합니다.")
-                    else:
-                        user_name = st.session_state.get('user_name', '')
-                        if not st.session_state.get('is_admin') and check_usage_count(user_name) >= MAX_FREE_DAILY:
-                            st.error(f"오늘 {MAX_FREE_DAILY}회 분석을 모두 사용하셨습니다.")
-                        else:
-                            with st.spinner("재무제표 분석 중..."):
-                                try:
-                                    client, model_config = get_master_model()
-                                    fs_text = "".join(
-                                        f"\n[재무제표: {f.name}]\n" + (extract_pdf_chunks(f, 6000) if f.type == "application/pdf" else f"[이미지: {f.name}]")
-                                        for f in fs_files)
-                                    resp = client.models.generate_content(model=GEMINI_MODEL,
-                                        contents=CEO_FS_PROMPT + f"\n법인명: {ceo_c2}\n{ceo_note or ''}\n{fs_text}",
-                                        config=model_config)
-                                    st.session_state['res_ceo_fs'] = sanitize_unicode(resp.text) if resp.text else "응답 없음"
-                                    update_usage(user_name)
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"분석 오류: {e}")
-        with col2:
-            if ceo_sub == "📊 직접 입력 평가표":
-                corp_r  = st.session_state.get("ceo_eval_corp")
-                inh_r   = st.session_state.get("ceo_eval_inh")
-                company = st.session_state.get("ceo_company_result", "")
-                shares  = st.session_state.get("ceo_shares_result", 0)
-                if corp_r and inh_r:
-                    corp_val = corp_r["법인세법상 시가"]
-                    inh_val  = inh_r["상증법상 최종가액"]
-                    st.metric("법인세법상 시가 (주당)", f"{corp_val:,.0f}원")
-                    st.metric("상증법상 최종가액 (주당)", f"{inh_val:,.0f}원")
-                    st.metric("총 평가액 (법인세법)", f"{corp_val*shares:,.0f}원")
-                    if st.button("🤖 AI 심층 분석 (CEO플랜 설계)", key="btn_ceo_ai"):
-                        if 'user_id' not in st.session_state:
-                            st.error("로그인이 필요합니다.")
-                        else:
-                            user_name = st.session_state.get('user_name', '')
-                            with st.spinner("CEO플랜 분석 중..."):
-                                try:
-                                    client, model_config = get_master_model()
-                                    ai_prompt = (CEO_PLAN_PROMPT +
-                                        f"\n법인명: {company}, 발행주식: {shares:,}주\n"
-                                        f"법인세법상 시가: {corp_val:,.0f}원/주 (총 {corp_val*shares:,.0f}원)\n"
-                                        f"상증법상 최종가액: {inh_val:,.0f}원/주 (총 {inh_val*shares:,.0f}원)\n")
-                                    resp = client.models.generate_content(model=GEMINI_MODEL, contents=ai_prompt, config=model_config)
-                                    st.session_state['res_ceo_ai'] = sanitize_unicode(resp.text) if resp.text else "응답 없음"
-                                    update_usage(user_name)
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"분석 오류: {e}")
-                    if st.session_state.get('res_ceo_ai'):
-                        st.markdown(st.session_state['res_ceo_ai'])
-                else:
-                    st.info("좌측 입력표를 작성하고 '비상장주식 평가 실행'을 클릭하세요.")
-            else:
-                if st.session_state.get('res_ceo_fs'):
-                    st.markdown(st.session_state['res_ceo_fs'])
-                else:
-                    st.info("재무제표 파일을 업로드하고 분석을 실행하세요.")
-
-    # ── [탭 7] 상속/증여 + 주택연금 ──────────────────────────────────────
-    with tabs[7]:
         section_inheritance_will()
         st.divider()
         section_housing_pension()
 
-    # ── [탭 8] 관리자 ────────────────────────────────────────────────────
-    with tabs[8]:
+    # ── [탭 3] 관리자 ────────────────────────────────────────────────────
+    with tabs[3]:
         st.subheader("관리자 전용 시스템")
         # 관리자 키를 st.secrets에서 가져옴 (평문 하드코딩 금지 - 보안 개선)
         admin_key_input = st.text_input("관리자 인증키", type="password", key="admin_key_tab3")
