@@ -1135,6 +1135,34 @@ try{
                                 st.error("이름 또는 연락처가 올바르지 않습니다.")
                         else:
                             st.error("이름과 연락처를 입력해주세요.")
+
+            # ── 모바일 키보드 최적화: 연락처=숫자패드, 이름=소문자 ──────────
+            components.html("""
+<script>
+(function(){
+  function fixInputs(){
+    var doc = window.parent.document;
+    // 연락처(비밀번호) 입력창 → 숫자패드
+    var pws = doc.querySelectorAll('input[type="password"]');
+    pws.forEach(function(el){
+      el.setAttribute('inputmode','tel');
+      el.setAttribute('autocomplete','tel');
+    });
+    // 이름 입력창 → 소문자 우선, 자동대문자 OFF
+    var txts = doc.querySelectorAll('input[type="text"]');
+    txts.forEach(function(el){
+      el.setAttribute('autocapitalize','none');
+      el.setAttribute('autocorrect','off');
+      el.setAttribute('spellcheck','false');
+    });
+  }
+  // 즉시 + 0.5초 후 재시도 (Streamlit 렌더 지연 대응)
+  fixInputs();
+  setTimeout(fixInputs, 500);
+  setTimeout(fixInputs, 1200);
+})();
+</script>
+""", height=0)
             st.divider()
             st.markdown("""
 <div style="background:linear-gradient(135deg,#f0f7ff 0%,#e8f4fd 100%);
