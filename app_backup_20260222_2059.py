@@ -38,7 +38,7 @@
 import streamlit as st
 from google import genai
 from google.genai import types
-import sys, json, os, time, hashlib, base64, re, tempfile, pathlib, codecs, unicodedata
+import sys, json, os, time, hashlib, base64, re, tempfile, pathlib, codecs, unicodedata, traceback as _traceback
 
 try:
     import ftfy as _ftfy
@@ -3256,7 +3256,7 @@ function startTTS_{tab_key}(){{
 def auto_recover(e: Exception) -> bool:
     """오류 유형별 자동 복구 시도. 복구 성공 시 True 반환."""
     # surrogate 문자가 포함된 예외 메시지 자체가 또 오류를 유발하지 않도록 먼저 정제
-    err = str(e).encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+    err = str(e).encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
 
     # 1. 인코딩 오류 → 세션 초기화 후 재시도
     if "codec" in err or "surrogate" in err or "encode" in err:
@@ -3309,8 +3309,9 @@ def _run_safe():
             main()
             break
         except UnicodeEncodeError as _ue:
-            # surrogate 오류 자체 → 세션 초기화 후 재시도
-            log_error("인코딩", _safe_str(_ue))
+            # traceback 전체를 로그에 기록 → 정확한 발생 위치 파악
+            _tb = _traceback.format_exc().encode("utf-8", errors="ignore").decode("utf-8")
+            log_error("인코딩[TB]", _tb)
             for _k in list(st.session_state.keys()):
                 if _k not in ("_force_tmp", "_error_log", "db_ready", "rag_system"):
                     st.session_state.pop(_k, None)
@@ -3318,9 +3319,12 @@ def _run_safe():
                 st.warning("⚠️ 인코딩 오류가 감지되어 자동 복구합니다. 잠시만 기다려주세요.")
                 st.rerun()
             else:
-                st.error("인코딩 오류가 반복됩니다. 페이지를 새로고침(F5)해주세요.")
+                st.error("인코딩 오류가 되풍됩니다. 페이지를 새로고침(F5)해주세요.")
                 break
         except Exception as _e:
+            # 일반 예외도 traceback 기록
+            _tb = _traceback.format_exc().encode("utf-8", errors="ignore").decode("utf-8")
+            log_error("예외[TB]", _tb)
             _recovered = auto_recover(_e)
             if _recovered and _attempt < _MAX_RETRY - 1:
                 st.rerun()
