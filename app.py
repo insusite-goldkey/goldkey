@@ -7,6 +7,7 @@ import streamlit as st
 from google import genai
 from google.genai import types
 import sys, json, os, time, hashlib, base64, re, tempfile
+
 from datetime import datetime as dt, timedelta, date
 from typing import List, Dict
 import numpy as np
@@ -14,6 +15,14 @@ import sqlite3
 import PIL.Image
 from cryptography.fernet import Fernet
 import streamlit.components.v1 as components
+
+# Cloud Run 환경 UTF-8 강제 설정 (서로게이트 문자 오류 방지)
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+os.environ.setdefault("PYTHONUTF8", "1")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # 선택적 임포트 (미설치 시 해당 기능만 비활성화)
 
