@@ -1548,42 +1548,46 @@ function startTTS_{tab_key}(){{
 
         # ── 비로그인 시 회원가입/로그인 안내 배너 ─────────────────────────
         if 'user_id' not in st.session_state:
-            st.markdown("""
+            components.html("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
-  border-radius:14px;padding:16px 18px;margin-bottom:14px;text-align:center;">
-  <div style="color:#fff;font-size:1.05rem;font-weight:900;margin-bottom:10px;">
+  border-radius:14px;padding:16px 18px 18px 18px;margin-bottom:4px;text-align:center;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;">
+  <div style="color:#fff;font-size:1.05rem;font-weight:900;margin-bottom:12px;">
     🔐 로그인 후 AI 상담을 이용하실 수 있습니다
   </div>
-  <div style="display:flex;gap:10px;justify-content:center;">
-    <button onclick="openSidebarSignup()" style="
-      flex:1;max-width:160px;padding:12px 0;border-radius:10px;
+  <div style="display:flex;gap:12px;justify-content:center;">
+    <button id="btn_signup" style="
+      flex:1;max-width:160px;padding:13px 0;border-radius:10px;
       border:none;background:#f59e0b;color:#1a1a1a;
       font-size:1.0rem;font-weight:900;cursor:pointer;
-      box-shadow:0 3px 10px rgba(0,0,0,0.25);">📝 회원가입</button>
-    <button onclick="openSidebarLogin()" style="
-      flex:1;max-width:160px;padding:12px 0;border-radius:10px;
-      border:2px solid #fff;background:rgba(255,255,255,0.15);color:#fff;
+      box-shadow:0 3px 10px rgba(0,0,0,0.3);">📝 회원가입</button>
+    <button id="btn_login" style="
+      flex:1;max-width:160px;padding:13px 0;border-radius:10px;
+      border:2.5px solid #fff;background:rgba(255,255,255,0.18);color:#fff;
       font-size:1.0rem;font-weight:900;cursor:pointer;
       box-shadow:0 3px 10px rgba(0,0,0,0.2);">🔓 로그인</button>
   </div>
 </div>
 <script>
-function _openSidebar(){
+function openSidebar(){
   var doc = window.parent.document;
-  // 사이드바 토글 버튼 클릭
-  var toggleBtns = doc.querySelectorAll('[data-testid="collapsedControl"], button[kind="header"]');
-  for(var i=0;i<toggleBtns.length;i++){
-    var r = toggleBtns[i].getBoundingClientRect();
-    if(r.width>0){ toggleBtns[i].click(); break; }
+  // 1순위: collapsedControl (사이드바 접힌 상태 토글)
+  var el = doc.querySelector('[data-testid="collapsedControl"]');
+  if(el){ el.click(); return; }
+  // 2순위: stSidebarCollapsedControl
+  el = doc.querySelector('[data-testid="stSidebarCollapsedControl"]');
+  if(el){ el.click(); return; }
+  // 3순위: 사이드바 열기 버튼 텍스트 탐색
+  var btns = doc.querySelectorAll('button');
+  for(var i=0;i<btns.length;i++){
+    var t = btns[i].getAttribute('aria-label') || '';
+    if(t.includes('sidebar') || t.includes('Open')){ btns[i].click(); return; }
   }
 }
-function openSidebarSignup(){
-  _openSidebar();
-}
-function openSidebarLogin(){
-  _openSidebar();
-}
-</script>""", unsafe_allow_html=True)
+document.getElementById('btn_signup').addEventListener('click', function(){ openSidebar(); });
+document.getElementById('btn_login').addEventListener('click', function(){ openSidebar(); });
+</script>
+""", height=130)
 
         # ── 제안 박스 (홈 첫 번째 칸) ─────────────────────────────────────
         st.markdown("""
