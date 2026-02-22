@@ -40,6 +40,12 @@ from google import genai
 from google.genai import types
 import sys, json, os, time, hashlib, base64, re, tempfile, pathlib, codecs, unicodedata
 
+try:
+    import ftfy as _ftfy
+    _FTFY_OK = True
+except ImportError:
+    _FTFY_OK = False
+
 from datetime import datetime as dt, timedelta, date
 from typing import List, Dict
 import numpy as np
@@ -145,12 +151,18 @@ def encrypt_contact(contact):
     return hashlib.sha256(contact.encode()).hexdigest()
 
 def sanitize_unicode(text) -> str:
-    """surrogate 문자 완전 제거 — 3단계 방어 (근본 해결판)"""
+    """surrogate 문자 완전 제거 — ftfy 우선 + 3단계 방어 (근본 해결판)"""
     if not isinstance(text, str):
         try:
             text = str(text)
         except Exception:
             return ""
+    # 0단계: ftfy로 잘못된 인코딩 자체를 수정 (가장 포괄적)
+    if _FTFY_OK:
+        try:
+            text = _ftfy.fix_text(text, normalization="NFC")
+        except Exception:
+            pass
     # 1단계: 유니코드 카테고리 Cs(surrogate) 문자를 문자 단위로 직접 제거
     try:
         text = "".join(ch for ch in text if unicodedata.category(ch) != "Cs")
@@ -1200,6 +1212,8 @@ function startTTS_{tab_key}(){{
                         rag_ctx = "\n\n[참고 자료]\n" + "".join(f"{i}. {sanitize_unicode(r['text'])}\n" for i, r in enumerate(results, 1))
                 prompt = (f"고객: {sanitize_unicode(c_name)}, 추정소득: {income:,.0f}원\n"
                           f"질문: {safe_q}{rag_ctx}\n{extra_prompt}")
+                # Gemini protobuf 직렬화 전 마지막 정제 — surrogate 가 남아있으면 API 자체가 터짐
+                prompt = sanitize_unicode(prompt)
                 resp   = client.models.generate_content(model=GEMINI_MODEL, contents=prompt, config=model_config)
                 answer = sanitize_unicode(resp.text) if resp.text else "AI 응답을 받지 못했습니다."
                 safe_name = sanitize_unicode(c_name)

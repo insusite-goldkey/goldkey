@@ -8,3 +8,4 @@ python-docx>=0.8.11
 numpy>=1.21.0
 cryptography
 pandas>=1.3.0
+ftfy>=6.1.1
