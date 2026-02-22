@@ -938,11 +938,20 @@ def main():
     if st.session_state.pop("_scroll_top", False):
         components.html("""
 <script>
-try{
-  window.parent.document.querySelector('[data-testid="stAppViewContainer"]').scrollTop=0;
+(function(){
+  var doc = window.parent.document;
+  var targets = [
+    doc.querySelector('[data-testid="stMainBlocksContainer"]'),
+    doc.querySelector('[data-testid="stAppViewContainer"]'),
+    doc.querySelector('.main'),
+    doc.querySelector('.block-container'),
+    doc.documentElement,
+    doc.body
+  ];
+  targets.forEach(function(el){ if(el) el.scrollTop = 0; });
   window.parent.scrollTo(0,0);
   window.scrollTo(0,0);
-}catch(e){}
+})();
 </script>""", height=0)
 
     # 핀치줌 + 자동회전 허용 + 백버튼 홈 이동 (모바일 최적화)
@@ -1274,32 +1283,55 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                     st.rerun()
                 else:
                     st.error("ID 또는 코드가 올바르지 않습니다.")
-            # 관리자 로그인 상태일 때 제안 목록 표시
+            # 관리자 로그인 상태일 때 제안 보기 버튼
             if st.session_state.get("is_admin"):
                 st.divider()
-                st.markdown("**📋 접수된 제안 목록**")
-                _sug_path = os.path.join(_DATA_DIR, "suggestions.json")
-                try:
-                    if os.path.exists(_sug_path):
-                        with open(_sug_path, "r", encoding="utf-8") as _f:
-                            _sug_list = json.load(_f)
-                        if _sug_list:
-                            for _s in reversed(_sug_list[-20:]):
-                                st.markdown(
-                                    f"<div style='font-size:0.74rem;background:#f8fafc;"
-                                    f"border:1px solid #e2e8f0;border-radius:6px;"
-                                    f"padding:6px 10px;margin-bottom:4px;'>"
-                                    f"<b style='color:#2e6da4;'>{_s.get('user','?')}</b> "
-                                    f"<span style='color:#94a3b8;'>{_s.get('time','')}</span><br>"
-                                    f"{sanitize_unicode(_s.get('content',''))}</div>",
-                                    unsafe_allow_html=True
-                                )
-                        else:
-                            st.caption("접수된 제안이 없습니다.")
-                    else:
-                        st.caption("접수된 제안이 없습니다.")
-                except Exception:
-                    st.caption("제안 목록을 불러올 수 없습니다.")
+                if st.button("📋 제안 목록 보기", key="btn_show_suggestions", use_container_width=True):
+                    st.session_state["_show_suggestions"] = not st.session_state.get("_show_suggestions", False)
+
+    # ── 관리자 제안 목록 (메인 영역) ──────────────────────────────────────
+    if st.session_state.get("is_admin") and st.session_state.get("_show_suggestions"):
+        _sug_path = os.path.join(_DATA_DIR, "suggestions.json")
+        st.markdown("---")
+        st.markdown("## 📋 접수된 제안 목록")
+        _sc1, _sc2, _sc3 = st.columns([2, 1, 1])
+        try:
+            _sug_all = []
+            if os.path.exists(_sug_path):
+                with open(_sug_path, "r", encoding="utf-8") as _f:
+                    _sug_all = json.load(_f)
+            if _sug_all:
+                _sc1.metric("총 제안 수", f"{len(_sug_all)}건")
+                _sc2.metric("최근 제안", _sug_all[-1].get("time","")[:10] if _sug_all else "-")
+                with _sc3:
+                    if st.button("🗑️ 전체 삭제", key="btn_del_all_sug"):
+                        with open(_sug_path, "w", encoding="utf-8") as _f:
+                            json.dump([], _f)
+                        st.success("전체 삭제 완료")
+                        st.rerun()
+                st.markdown("")
+                for _idx, _s in enumerate(reversed(_sug_all)):
+                    _real_idx = len(_sug_all) - 1 - _idx
+                    _u = _s.get('user', '비회원')
+                    _t = _s.get('time', '')
+                    _c = sanitize_unicode(_s.get('content', ''))
+                    with st.expander(f"[{len(_sug_all)-_idx}] {_u}  |  {_t}", expanded=(_idx < 3)):
+                        st.markdown(
+                            f"<div style='background:#f8fafc;border-left:4px solid #2e6da4;"
+                            f"border-radius:6px;padding:10px 14px;font-size:0.88rem;"
+                            f"line-height:1.7;color:#1a1a2e;white-space:pre-wrap;'>{_c}</div>",
+                            unsafe_allow_html=True
+                        )
+                        if st.button("🗑️ 이 항목 삭제", key=f"del_sug_{_real_idx}"):
+                            _sug_all.pop(_real_idx)
+                            with open(_sug_path, "w", encoding="utf-8") as _f:
+                                json.dump(_sug_all, _f, ensure_ascii=False)
+                            st.rerun()
+            else:
+                st.info("접수된 제안이 없습니다.")
+        except Exception as _e:
+            st.error(f"제안 목록 오류: {_e}")
+        st.markdown("---")
 
     # ── 메인 영역 — current_tab 라우팅 ───────────────────────────────────
     st.title("🏆 Goldkey AI Master")
