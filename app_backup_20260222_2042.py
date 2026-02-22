@@ -168,9 +168,9 @@ def sanitize_unicode(text) -> str:
         text = "".join(ch for ch in text if unicodedata.category(ch) != "Cs")
     except Exception:
         pass
-    # 2단계: UTF-8 왕복으로 잔여 surrogate 완전 제거
+    # 2단계: UTF-8 왕복으로 잔여 surrogate 완전 제거 (ignore = 흔적 없이 삭제)
     try:
-        text = text.encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+        text = text.encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
     except Exception:
         pass
     # 3단계: 최후 방어 — repr 폴백

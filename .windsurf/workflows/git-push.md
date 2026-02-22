@@ -9,4 +9,4 @@ description: 깃허브로 전송 (백업 자동 생성 → 최신 2개 유지 �
 
 1. 백업 생성 + 최신 2개 유지 + git push 한번에 실행
 // turbo
-Run: powershell -ExecutionPolicy Bypass -File "c:\Users\insus\CascadeProjects\backup_and_push.ps1"
+Run: powershell -ExecutionPolicy Bypass -File "D:\CascadeProjects\backup_and_push.ps1"

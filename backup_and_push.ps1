@@ -1,5 +1,5 @@
 # backup_and_push.ps1 — 백업 생성 + 최신 2개 유지 + git push
-$proj = "c:\Users\insus\CascadeProjects"
+$proj = "D:\CascadeProjects"
 $dst  = Join-Path $proj ("app_backup_" + (Get-Date -Format "yyyyMMdd_HHmm") + ".py")
 
 # 1. 백업 생성
