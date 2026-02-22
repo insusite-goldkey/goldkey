@@ -1175,7 +1175,7 @@ def main():
   padding:8px 12px;font-size:0.78rem;color:#92400e;margin-bottom:6px;">
   👆 <b>여기 &gt; 를 클릭</b>하여 회원가입 또는 로그인하세요
 </div>""", unsafe_allow_html=True)
-            tab_l, tab_s = st.tabs(["로그인", "회원가입"])
+            tab_l, tab_s, tab_pw = st.tabs(["로그인", "회원가입", "비번 변경"])
             with tab_l:
                 with st.form("login_form"):
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>🔑 가입 시 입력한 정보로 로그인하세요</div>", unsafe_allow_html=True)
@@ -1218,6 +1218,38 @@ def main():
                             st.rerun()
                         else:
                             st.error("이름과 연락처를 입력해주세요.")
+            with tab_pw:
+                st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:6px;'>🔐 가입 시 등록한 이름과 기존 연락처로 본인 확인 후 새 비번을 설정합니다.</div>", unsafe_allow_html=True)
+                with st.form("pw_change_form"):
+                    pw_name    = st.text_input("👤 이름", placeholder="홍길동", key="pw_name")
+                    pw_old     = st.text_input("📱 기존 연락처 (현재 비번)", type="password", placeholder="010-0000-0000", key="pw_old")
+                    pw_new1    = st.text_input("🔑 새 연락처 (새 비번)", type="password", placeholder="새 연락처 입력", key="pw_new1")
+                    pw_new2    = st.text_input("🔑 새 연락처 확인", type="password", placeholder="새 연락처 재입력", key="pw_new2")
+                    if st.form_submit_button("🔄 비번 변경", use_container_width=True):
+                        if not (pw_name and pw_old and pw_new1 and pw_new2):
+                            st.error("모든 항목을 입력해주세요.")
+                        elif pw_new1 != pw_new2:
+                            st.error("새 연락처(비번)가 일치하지 않습니다.")
+                        elif pw_new1 == pw_old:
+                            st.error("새 비번이 기존 비번과 동일합니다.")
+                        else:
+                            _pw_members = load_members()
+                            if pw_name not in _pw_members:
+                                st.error("미가입회원입니다.")
+                            elif not decrypt_data(_pw_members[pw_name]["contact"], pw_old):
+                                st.error("기존 연락처(비번)가 올바르지 않습니다.")
+                            else:
+                                _pw_members[pw_name]["contact"] = encrypt_contact(pw_new1)
+                                save_members(_pw_members)
+                                st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
+                st.markdown("""
+<div style='background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;
+  padding:8px 12px;font-size:0.76rem;color:#0369a1;margin-top:6px;line-height:1.7;'>
+🔒 <b>보안 안내</b><br>
+• 기존 연락처(비번) 확인 후에만 변경 가능합니다.<br>
+• 변경된 비번은 즉시 암호화(SHA-256 해시)되어 저장됩니다.<br>
+• 기존 비번은 변경 즉시 폐기되며 복구되지 않습니다.
+</div>""", unsafe_allow_html=True)
 
             # ── 모바일 키보드 최적화: 연락처=숫자패드, 이름=소문자 ──────────
             components.html("""
