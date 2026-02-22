@@ -974,14 +974,36 @@ def main():
     try{ screen.orientation.unlock(); }catch(e){}
   }
 
-  // ── 백버튼 → 홈 이동 처리 ──
+  // ── 백버튼 처리 ──
   if(!window._backBtnInit){
     window._backBtnInit = true;
     history.pushState({page:'app'}, '', window.location.href);
     window.addEventListener('popstate', function(e){
       try {
-        // 1) 홈으로 버튼 클릭 시도
-        var btns = window.parent.document.querySelectorAll('button');
+        var pdoc = window.parent.document;
+
+        // 1) 사이드바가 열려 있으면 → 닫기 버튼 클릭
+        var sidebar = pdoc.querySelector('[data-testid="stSidebar"]');
+        var isOpen  = sidebar && sidebar.offsetWidth > 50;
+        if(isOpen){
+          // Streamlit 사이드바 닫기 버튼 후보들
+          var closeSelectors = [
+            '[data-testid="stSidebarCollapseButton"] button',
+            '[data-testid="collapsedControl"]',
+            'button[aria-label="Close sidebar"]',
+            'button[aria-label="사이드바 닫기"]',
+            '[data-testid="stSidebar"] button[kind="header"]'
+          ];
+          for(var s=0; s<closeSelectors.length; s++){
+            var cb = pdoc.querySelector(closeSelectors[s]);
+            if(cb){ cb.click(); break; }
+          }
+          history.pushState({page:'app'}, '', window.location.href);
+          return;
+        }
+
+        // 2) 사이드바 닫힌 상태 → 홈으로 버튼 클릭
+        var btns = pdoc.querySelectorAll('button');
         for(var i=0; i<btns.length; i++){
           if(btns[i].innerText && btns[i].innerText.includes('홈으로')){
             btns[i].click();
@@ -989,9 +1011,6 @@ def main():
             return;
           }
         }
-        // 2) 홈 버튼 없으면(이미 홈) 사이드바 닫기
-        var sidebar = window.parent.document.querySelector('[data-testid="collapsedControl"]');
-        if(sidebar){ sidebar.click(); }
       } catch(ex){}
       history.pushState({page:'app'}, '', window.location.href);
     });
