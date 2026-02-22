@@ -357,6 +357,24 @@ def save_members(members):
     except (IOError, OSError):
         pass  # Cloud 환경 쓰기 실패 시 크래시 방지
 
+def ensure_master_members():
+    """마스터 회원 자동 등록 (앱 시작 시 1회) — 없으면 추가, 있으면 스킵"""
+    masters = [("이세윤", "01030742616", "GK_이세윤_MASTER")]
+    members = load_members()
+    changed = False
+    for name, contact, uid in masters:
+        if name not in members:
+            members[name] = {
+                "user_id": uid,
+                "contact": encrypt_contact(contact),
+                "join_date": dt.now().strftime("%Y-%m-%d"),
+                "subscription_end": (dt.now() + timedelta(days=3650)).strftime("%Y-%m-%d"),
+                "is_active": True
+            }
+            changed = True
+    if changed:
+        save_members(members)
+
 def add_member(name, contact):
     """신규 회원 등록 - 연락처는 해시 암호화 저장"""
     members = load_members()
@@ -413,7 +431,7 @@ def _get_unlimited_users():
         master = st.secrets.get("MASTER_NAME", "PERMANENT_MASTER")
     except Exception:
         master = "PERMANENT_MASTER"
-    return {master, "PERMANENT_MASTER"}
+    return {master, "PERMANENT_MASTER", "이세윤"}
 
 def check_usage_count(user_name):
     today = str(date.today())
@@ -916,6 +934,7 @@ def main():
     # ── 1단계: 즉시 초기화 (DB만 — 가볍고 필수) ────────────────────────
     if 'db_ready' not in st.session_state:
         setup_database()
+        ensure_master_members()
         st.session_state.db_ready = True
 
     # ── 2단계: 지연 초기화 (RAG·STT — 홈 화면 렌더 후 백그라운드) ────────
@@ -1155,7 +1174,10 @@ def main():
                                 st.success(f"{ln}님 환영합니다!")
                                 st.rerun()
                             else:
-                                st.error("이름 또는 연락처가 올바르지 않습니다.")
+                                if ln not in members:
+                                    st.error("미가입회원입니다. 회원가입 후 이용해주세요.")
+                                else:
+                                    st.error("연락처(비밀번호)가 올바르지 않습니다.")
             with tab_s:
                 with st.form("sb_signup_form"):
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
