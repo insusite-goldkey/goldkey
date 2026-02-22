@@ -1074,6 +1074,14 @@ def main():
 - ISO/IEC 27001 정보보안 관리체계 준거
 - GDPR 및 개인정보보호법 준거
 
+**제6조의2 (마이크 접근 권한 정책)**
+- 본 서비스는 음성 입력(STT) 기능 제공을 위해 **마이크 접근 권한**을 요청합니다.
+- 마이크 권한은 음성 상담 입력 시에만 일시적으로 사용되며, 녹음 파일은 서버에 저장되지 않습니다.
+- 권한 요청은 **최초 로그인 후 1회**만 브라우저를 통해 안내되며, 이후 동일 브라우저에서는 재요청하지 않습니다.
+- 마이크 권한을 거부하더라도 텍스트 입력 방식으로 모든 기능을 정상 이용할 수 있습니다.
+- 권한 설정 변경: 브라우저 주소창 왼쪽 🔒 아이콘 → 사이트 설정 → 마이크 → 허용
+- 본 서비스는 Web Speech API(Google 제공)를 통해 음성을 텍스트로 변환하며, 변환 처리는 Google 서버에서 이루어집니다.
+
 **제7조 (고객정보 폐기 지침)**
 - **즉시 파기:** 회원 탈퇴 요청 시 회원 DB에서 즉시 삭제
 - **자동 파기:** 세션 종료 시 메모리 내 상담 내용 자동 초기화
@@ -1121,6 +1129,7 @@ def main():
                                 st.session_state.user_name = name
                                 st.session_state.join_date = dt.strptime(info["join_date"], "%Y-%m-%d")
                                 st.session_state.is_admin = False
+                                st.session_state["_mic_notice"] = True  # 최초 1회 마이크 안내
                             st.success("가입 완료!")
                             st.rerun()
                         else:
@@ -1141,6 +1150,7 @@ def main():
                                 st.session_state.user_name = ln
                                 st.session_state.join_date = dt.strptime(m["join_date"], "%Y-%m-%d")
                                 st.session_state.is_admin = False
+                                st.session_state["_mic_notice"] = True  # 최초 1회 마이크 안내
                                 st.success(f"{ln}님 환영합니다!")
                                 st.rerun()
                             else:
@@ -1336,6 +1346,16 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
             st.error(f"제안 목록 오류: {_e}")
         st.markdown("---")
 
+    # ── 로그인 후 최초 1회 마이크 권한 안내 ────────────────────────────
+    if st.session_state.pop("_mic_notice", False):
+        st.info(
+            "🎙️ **음성 입력 권한 안내**\n\n"
+            "음성 입력 버튼을 처음 누르면 브라우저가 **마이크 허용 여부**를 묻습니다.  \n"
+            "**'허용'** 을 클릭하시면 이후 같은 브라우저에서는 다시 묻지 않습니다.  \n"
+            "마이크를 거부해도 텍스트 입력으로 모든 기능을 이용하실 수 있습니다.  \n\n"
+            "📜 자세한 내용은 이용약관 **제6조의2 (마이크 접근 권한 정책)** 를 참고하세요."
+        )
+
     # ── 메인 영역 — current_tab 라우팅 ───────────────────────────────────
     st.title("🏆 Goldkey AI Master")
 
@@ -1387,10 +1407,13 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
 </div>
 <div class="stt-interim" id="stt_interim_{tab_key}"></div>
 <script>
+// ── STT: 최초 1회 객체 생성 후 재사용 (권한 팝업 1회만) ──
 var _sttActive_{tab_key} = false;
-var _sttRec_{tab_key} = null;
+var _sttRec_{tab_key} = null;      // 최초 1회 생성 후 재사용
+var _sttReady_{tab_key} = false;   // 객체 초기화 완료 여부
 var _sttFinal_{tab_key} = '';
-var _sttLastIdx_{tab_key} = 0;  // 중복 방지용 인덱스
+var _sttBtn_{tab_key} = null;
+var _sttDiv_{tab_key} = null;
 
 function _getTA_{tab_key}(){{
   var doc = window.parent.document;
@@ -1412,38 +1435,33 @@ function _setTA_{tab_key}(val){{
 }}
 
 function _joinSentence_{tab_key}(prev, next){{
-  // 문장 간 자연스러운 연결 (맥락 보존)
   if(!prev) return next;
   var p = prev.trimEnd();
   var n = next.trim();
   if(!n) return p;
-  // 이전 문장이 마침표/쉼표/물음표로 끝나면 공백만 추가
   var lastChar = p.slice(-1);
   var punctEnd = ['.','?','!','。','？','！',',','，'].indexOf(lastChar) >= 0;
-  // 다음 문장 첫 글자가 소문자면 같은 문장 맥락으로 이어붙임
   var firstChar = n.charAt(0);
   var isLower = firstChar === firstChar.toLowerCase() && firstChar !== firstChar.toUpperCase();
-  if(!punctEnd && isLower){{
-    // 같은 문장 맥락 — 쉼표로 연결
-    return p + ', ' + n;
-  }}
+  if(!punctEnd && isLower) return p + ', ' + n;
   return p + ' ' + n;
 }}
 
-function _newRec_{tab_key}(btn, interim_div){{
+function _initRec_{tab_key}(){{
+  // 이미 생성된 객체 있으면 재사용
+  if(_sttReady_{tab_key}) return true;
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR) return null;
-  var r=new SR();
-  r.lang='{stt_lang_code}';
-  r.interimResults=true;
-  r.continuous=false;   // 모바일 안정성: 문장 단위로 끊고 재시작
-  r.maxAlternatives=3;  // 여러 후보 중 최적 선택
+  if(!SR){{ alert('Chrome/Edge 브라우저를 사용해주세요.'); return false; }}
+  var r = new SR();
+  r.lang = '{stt_lang_code}';
+  r.interimResults = true;
+  r.continuous = true;   // 단일 객체 유지 — 권한 팝업 1회만
+  r.maxAlternatives = 3;
 
-  r.onresult=function(e){{
+  r.onresult = function(e){{
     var interim=''; var final_new='';
     for(var i=e.resultIndex;i<e.results.length;i++){{
       if(e.results[i].isFinal){{
-        // 신뢰도 가장 높은 후보 선택
         var best=''; var bestConf=0;
         for(var j=0;j<e.results[i].length;j++){{
           if(e.results[i][j].confidence >= bestConf){{
@@ -1457,57 +1475,66 @@ function _newRec_{tab_key}(btn, interim_div){{
       }}
     }}
     if(final_new){{
-      // 맥락 연결하여 누적
       _sttFinal_{tab_key} = _joinSentence_{tab_key}(_sttFinal_{tab_key}, final_new);
       _setTA_{tab_key}(_sttFinal_{tab_key});
-      interim_div.textContent='';
+      if(_sttDiv_{tab_key}) _sttDiv_{tab_key}.textContent='';
     }}
-    if(interim) interim_div.textContent='🎤 '+interim;
+    if(interim && _sttDiv_{tab_key}) _sttDiv_{tab_key}.textContent='🎤 '+interim;
   }};
 
-  r.onerror=function(e){{
-    if(e.error==='no-speech'||e.error==='aborted') return;
-    interim_div.textContent='⚠️ '+e.error;
+  r.onerror = function(e){{
+    if(e.error==='no-speech') return;  // 묵음은 무시하고 계속
+    if(e.error==='aborted') return;
+    if(_sttDiv_{tab_key}) _sttDiv_{tab_key}.textContent='⚠️ '+e.error;
   }};
 
-  r.onend=function(){{
+  r.onend = function(){{
+    // continuous=true 이므로 비정상 종료 시에만 재시작
     if(_sttActive_{tab_key}){{
-      // 문장 끝나면 새 인스턴스로 재시작 (중복 방지 핵심)
       setTimeout(function(){{
         if(_sttActive_{tab_key}){{
-          _sttRec_{tab_key} = _newRec_{tab_key}(btn, interim_div);
-          if(_sttRec_{tab_key}) try{{ _sttRec_{tab_key}.start(); }}catch(ex){{}}
+          try{{ r.start(); }}catch(ex){{}}
         }}
-      }}, 200);
+      }}, 150);
     }} else {{
-      btn.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
-      btn.classList.remove('active');
-      interim_div.textContent='';
+      if(_sttBtn_{tab_key}){{
+        _sttBtn_{tab_key}.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
+        _sttBtn_{tab_key}.classList.remove('active');
+      }}
+      if(_sttDiv_{tab_key}) _sttDiv_{tab_key}.textContent='';
     }}
   }};
-  return r;
+
+  _sttRec_{tab_key} = r;
+  _sttReady_{tab_key} = true;
+  return true;
 }}
 
 function startSTT_{tab_key}(){{
   var btn = document.getElementById('stt_btn_{tab_key}');
   var interim_div = document.getElementById('stt_interim_{tab_key}');
+  _sttBtn_{tab_key} = btn;
+  _sttDiv_{tab_key} = interim_div;
+
   if(_sttActive_{tab_key}){{
-    _sttActive_{tab_key}=false;
+    // 중지
+    _sttActive_{tab_key} = false;
     if(_sttRec_{tab_key}) try{{ _sttRec_{tab_key}.stop(); }}catch(ex){{}}
     btn.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
     btn.classList.remove('active');
     interim_div.textContent='';
     return;
   }}
-  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.'); return;}}
-  _sttFinal_{tab_key}='';   // 새 녹음 시작 시 초기화
-  _sttActive_{tab_key}=true;
+
+  // 최초 1회만 객체 생성 (이후 재사용 → 권한 팝업 안 뜸)
+  if(!_initRec_{tab_key}()) return;
+
+  _sttFinal_{tab_key} = '';
+  _sttActive_{tab_key} = true;
   btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)';
   btn.classList.add('active');
-  interim_div.textContent='마이크를 허용하면 바로 시작됩니다...';
-  _sttRec_{tab_key} = _newRec_{tab_key}(btn, interim_div);
-  if(_sttRec_{tab_key}) try{{ _sttRec_{tab_key}.start(); }}catch(ex){{}}
+  interim_div.textContent='🟡 음성 입력 준비 중... (브라우저 허용 필요 시 허용 클릭)';
+  try{{ _sttRec_{tab_key}.start(); }}catch(ex){{}}
 }}
 
 function startTTS_{tab_key}(){{
