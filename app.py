@@ -932,6 +932,17 @@ def main():
     if 'rag_system' not in st.session_state:
         st.session_state.rag_system = DummyRAGSystem()
 
+    # ── 탭 전환 시 상단 스크롤 처리 ────────────────────────────────────
+    if st.session_state.pop("_scroll_top", False):
+        components.html("""
+<script>
+try{
+  window.parent.document.querySelector('[data-testid="stAppViewContainer"]').scrollTop=0;
+  window.parent.scrollTo(0,0);
+  window.scrollTo(0,0);
+}catch(e){}
+</script>""", height=0)
+
     # 핀치줌 + 자동회전 허용 + 백버튼 홈 이동 (모바일 최적화)
     components.html("""
 <script>
@@ -953,24 +964,24 @@ def main():
   }
 
   // ── 백버튼 → 홈 이동 처리 ──
-  // history에 더미 상태를 쌓아서 뒤로가기를 가로챔
   if(!window._backBtnInit){
     window._backBtnInit = true;
-    // 현재 상태 push (탭 진입 시마다 쌓임)
     history.pushState({page:'app'}, '', window.location.href);
     window.addEventListener('popstate', function(e){
-      // 뒤로가기 감지 → Streamlit 홈 버튼 클릭 트리거
-      // parent frame의 홈 버튼을 찾아 클릭
       try {
+        // 1) 홈으로 버튼 클릭 시도
         var btns = window.parent.document.querySelectorAll('button');
         for(var i=0; i<btns.length; i++){
           if(btns[i].innerText && btns[i].innerText.includes('홈으로')){
             btns[i].click();
-            break;
+            history.pushState({page:'app'}, '', window.location.href);
+            return;
           }
         }
+        // 2) 홈 버튼 없으면(이미 홈) 사이드바 닫기
+        var sidebar = window.parent.document.querySelector('[data-testid="collapsedControl"]');
+        if(sidebar){ sidebar.click(); }
       } catch(ex){}
-      // 다시 더미 상태 push (연속 백버튼 대비)
       history.pushState({page:'app'}, '', window.location.href);
     });
   }
@@ -1165,9 +1176,16 @@ def main():
 
             display_usage_dashboard(user_name)
 
-            if st.button("안전 로그아웃", key="btn_logout"):
-                st.session_state.clear()
-                st.rerun()
+            _lo_col1, _lo_col2 = st.columns(2)
+            with _lo_col1:
+                if st.button("🔓 로그아웃", key="btn_logout", use_container_width=True):
+                    st.session_state.clear()
+                    st.rerun()
+            with _lo_col2:
+                if st.button("🗑️ 초기화", key="btn_suggest_clear_sb", use_container_width=True):
+                    st.session_state["suggest_input"] = ""
+                    st.session_state.pop("suggest_submitted", None)
+                    st.rerun()
 
             if st.button("상담 자료 파기", key="btn_purge", use_container_width=True):
                 try:
@@ -1531,25 +1549,41 @@ function startTTS_{tab_key}(){{
         # ── 비로그인 시 회원가입/로그인 안내 배너 ─────────────────────────
         if 'user_id' not in st.session_state:
             st.markdown("""
-<div style="background:linear-gradient(90deg,#e74c3c 0%,#c0392b 100%);
-  border-radius:12px;padding:12px 18px;margin-bottom:14px;
-  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-  <div style="color:#fff;font-size:0.88rem;font-weight:700;">
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:14px;padding:16px 18px;margin-bottom:14px;text-align:center;">
+  <div style="color:#fff;font-size:1.05rem;font-weight:900;margin-bottom:10px;">
     🔐 로그인 후 AI 상담을 이용하실 수 있습니다
   </div>
-  <div style="font-size:0.78rem;color:#ffd6d6;">
-    ← 왼쪽 사이드바 상단 <b style="color:#fff;">☰</b> 메뉴에서 가입/로그인하세요
+  <div style="display:flex;gap:10px;justify-content:center;">
+    <button onclick="openSidebarSignup()" style="
+      flex:1;max-width:160px;padding:12px 0;border-radius:10px;
+      border:none;background:#f59e0b;color:#1a1a1a;
+      font-size:1.0rem;font-weight:900;cursor:pointer;
+      box-shadow:0 3px 10px rgba(0,0,0,0.25);">📝 회원가입</button>
+    <button onclick="openSidebarLogin()" style="
+      flex:1;max-width:160px;padding:12px 0;border-radius:10px;
+      border:2px solid #fff;background:rgba(255,255,255,0.15);color:#fff;
+      font-size:1.0rem;font-weight:900;cursor:pointer;
+      box-shadow:0 3px 10px rgba(0,0,0,0.2);">🔓 로그인</button>
   </div>
-</div>""", unsafe_allow_html=True)
-            _login_c1, _login_c2, _login_c3 = st.columns([1, 1, 2])
-            with _login_c1:
-                if st.button("📝 회원가입", key="home_goto_signup", use_container_width=True, type="primary"):
-                    st.session_state["_sidebar_tab"] = "signup"
-                    st.rerun()
-            with _login_c2:
-                if st.button("🔓 로그인", key="home_goto_login", use_container_width=True):
-                    st.session_state["_sidebar_tab"] = "login"
-                    st.rerun()
+</div>
+<script>
+function _openSidebar(){
+  var doc = window.parent.document;
+  // 사이드바 토글 버튼 클릭
+  var toggleBtns = doc.querySelectorAll('[data-testid="collapsedControl"], button[kind="header"]');
+  for(var i=0;i<toggleBtns.length;i++){
+    var r = toggleBtns[i].getBoundingClientRect();
+    if(r.width>0){ toggleBtns[i].click(); break; }
+  }
+}
+function openSidebarSignup(){
+  _openSidebar();
+}
+function openSidebarLogin(){
+  _openSidebar();
+}
+</script>""", unsafe_allow_html=True)
 
         # ── 제안 박스 (홈 첫 번째 칸) ─────────────────────────────────────
         st.markdown("""
@@ -1669,10 +1703,7 @@ function startSugSTT(){
                 else:
                     st.warning("제안 내용을 입력해주세요.")
         with _sbtn_col2:
-            if st.button("🗑️ 초기화", key="btn_suggest_clear", use_container_width=True):
-                st.session_state["suggest_input"] = ""
-                st.session_state.pop("suggest_submitted", None)
-                st.rerun()
+            pass  # 초기화 버튼은 사이드바로 이동
 
         if st.session_state.get("suggest_submitted"):
             st.success("✅ 말씀하신 제안이 반영되었습니다.")
@@ -1793,6 +1824,7 @@ function startSugSTT(){
                             f"</div></div>", unsafe_allow_html=True)
                         if st.button("▶ 클릭", key=f"{prefix}_{_k}", use_container_width=False):
                             st.session_state.current_tab = _k
+                            st.session_state["_scroll_top"] = True
                             st.rerun()
 
         _render_cards(PART1, "home_p1")
@@ -1822,8 +1854,10 @@ function startSugSTT(){
                 "<div class='gk-card-desc'>등기부등본·건축물대장 판독<br>투자수익 분석 · 보험 연계 설계</div>"
                 "</div>"
                 "</div></div>", unsafe_allow_html=True)
-            if st.button("▶ 클릭", key="home_p3_realty", use_container_width=True):
+            if st.button("▶ 클릭", key="home_p3_realty", use_container_width=False):
                 st.session_state.current_tab = "realty"
+                st.session_state["_scroll_top"] = True
+                components.html('<script>setTimeout(function(){window.scrollTo(0,0);}, 100);</script>', height=0)
                 st.rerun()
         with _rc2:
             st.markdown(
@@ -1835,8 +1869,10 @@ function startSugSTT(){
                 "<div class='gk-card-desc'>치매·뇌졸중·요양병원 간병비 산출<br>장기요양등급 · 간병보험 설계</div>"
                 "</div>"
                 "</div></div>", unsafe_allow_html=True)
-            if st.button("▶ 클릭", key="home_p3_nursing", use_container_width=True):
+            if st.button("▶ 클릭", key="home_p3_nursing", use_container_width=False):
                 st.session_state.current_tab = "nursing"
+                st.session_state["_scroll_top"] = True
+                components.html('<script>setTimeout(function(){window.scrollTo(0,0);}, 100);</script>', height=0)
                 st.rerun()
 
         st.divider()
