@@ -1,6 +1,12 @@
 # ==========================================================
 # 골드키지사 마스터 AI - 탭 구조 통합본 (전체 수정판)
 # 수정: 구조적/논리적/보안/모바일 문제 전체 반영
+# ----------------------------------------------------------
+# [파일 경로 메모]
+#   메인 파일  : D:\CascadeProjects\app.py
+#   백업 파일  : D:\CascadeProjects\app_backup_20260222_2112.py
+#   외부 게이트: D:\CascadeProjects\external_gateway.py
+#   Streamlit  : C:\Users\insus\CascadeProjects\.streamlit\secrets.toml
 # ==========================================================
 #
 # ██████████████████████████████████████████████████████████
@@ -1051,13 +1057,31 @@ def main():
                             st.error("이름과 연락처를 입력해주세요.")
             st.divider()
             st.markdown("""
-            **🎁 회원가입 혜택**
-            - 🆓 시스템 고도화 기간 전체 무료 (~2026.08.31.까지)
-            - ✅ 매일 무료 AI 상담 10회 (일일 10회 한도 · 데이터용량제한)
-            - ✅ 보험금/이미지 분석
-            - ✅ 상속·증여·주택연금 시뮬레이션
-            - ✅ 건보료 기반 소득 역산
-            """)
+<div style="background:linear-gradient(135deg,#f0f7ff 0%,#e8f4fd 100%);
+  border:1.5px solid #2e6da4;border-radius:12px;padding:10px 12px 4px 12px;
+  margin-bottom:8px;">
+  <div style="font-size:0.82rem;font-weight:900;color:#1a3a5c;margin-bottom:6px;">
+    🎁 회원가입 혜택
+  </div>
+  <div style="height:160px;overflow-y:auto;font-size:0.76rem;color:#334155;line-height:1.75;
+    padding-right:4px;">
+    🆓 시스템 고도화 기간 전체 무료<br>
+    &nbsp;&nbsp;&nbsp;(~2026.08.31.까지)<br>
+    ✅ 매일 무료 AI 상담 10회<br>
+    &nbsp;&nbsp;&nbsp;(일일 10회 한도 · 데이터용량제한)<br>
+    ✅ 보험금 / 이미지 분석<br>
+    ✅ 상속 · 증여 · 주택연금 시뮬레이션<br>
+    ✅ 건보료 기반 소득 역산<br>
+    <hr style="border:none;border-top:1px solid #cbd5e1;margin:6px 0;">
+    <b style="color:#1a3a5c;">📦 지원 도구 제공</b><br>
+    🛡️ 보험 컨설팅 지원 도구<br>
+    💰 자산관리 컨설팅 지원 도구<br>
+    📊 세무 컨설팅 지원 도구<br>
+    🏢 법인 컨설팅 지원 도구<br>
+    🏘️ 부동산 컨설팅 지원 도구<br>
+    🏥 간병 컨설팅 지원 도구
+  </div>
+</div>""", unsafe_allow_html=True)
 
         if 'user_id' in st.session_state:
             # 로그인 상태
@@ -1135,6 +1159,32 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                     st.rerun()
                 else:
                     st.error("ID 또는 코드가 올바르지 않습니다.")
+            # 관리자 로그인 상태일 때 제안 목록 표시
+            if st.session_state.get("is_admin"):
+                st.divider()
+                st.markdown("**📋 접수된 제안 목록**")
+                _sug_path = os.path.join(_DATA_DIR, "suggestions.json")
+                try:
+                    if os.path.exists(_sug_path):
+                        with open(_sug_path, "r", encoding="utf-8") as _f:
+                            _sug_list = json.load(_f)
+                        if _sug_list:
+                            for _s in reversed(_sug_list[-20:]):
+                                st.markdown(
+                                    f"<div style='font-size:0.74rem;background:#f8fafc;"
+                                    f"border:1px solid #e2e8f0;border-radius:6px;"
+                                    f"padding:6px 10px;margin-bottom:4px;'>"
+                                    f"<b style='color:#2e6da4;'>{_s.get('user','?')}</b> "
+                                    f"<span style='color:#94a3b8;'>{_s.get('time','')}</span><br>"
+                                    f"{sanitize_unicode(_s.get('content',''))}</div>",
+                                    unsafe_allow_html=True
+                                )
+                        else:
+                            st.caption("접수된 제안이 없습니다.")
+                    else:
+                        st.caption("접수된 제안이 없습니다.")
+                except Exception:
+                    st.caption("제안 목록을 불러올 수 없습니다.")
 
     # ── 메인 영역 — current_tab 라우팅 ───────────────────────────────────
     st.title("🏆 Goldkey AI Master")
@@ -1314,6 +1364,139 @@ function startTTS_{tab_key}(){{
         # 홈 화면 첫 렌더 완료 플래그 — 다음 rerun 시 RAG/STT 지연 로드 트리거
         if not st.session_state.get('home_rendered'):
             st.session_state.home_rendered = True
+
+        # ── 제안 박스 (홈 첫 번째 칸) ─────────────────────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:14px;padding:16px 18px 12px 18px;margin-bottom:18px;color:#fff;">
+  <div style="font-size:1.0rem;font-weight:900;letter-spacing:0.04em;margin-bottom:4px;">
+    💡 시스템 제안 · 개선 의견
+  </div>
+  <div style="font-size:0.78rem;opacity:0.88;">
+    내용 · 시스템 구성 · 개선 제안을 음성 또는 텍스트로 입력해주세요
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        _suggest_col1, _suggest_col2 = st.columns([3, 2], gap="small")
+        with _suggest_col1:
+            suggest_text = st.text_area(
+                "제안 내용 입력",
+                height=110,
+                key="suggest_input",
+                placeholder="예: 홈 화면에 날씨 정보를 추가해주세요 / 보험금 계산기 개선이 필요합니다",
+                label_visibility="collapsed"
+            )
+            # 음성 입력 버튼 (실시간 STT)
+            components.html("""
+<style>
+.sug-row{display:flex;gap:8px;margin-top:4px;}
+.sug-stt{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #2e6da4;
+  background:#eef4fb;color:#1a3a5c;font-size:0.86rem;font-weight:700;cursor:pointer;}
+.sug-stt:hover{background:#2e6da4;color:#fff;}
+.sug-stt.active{background:#e74c3c;color:#fff;border-color:#e74c3c;}
+</style>
+<div class="sug-row">
+  <button class="sug-stt" id="sug_stt_btn" onclick="startSugSTT()">🎙️ 음성으로 제안하기</button>
+</div>
+<script>
+var _sugActive = false;
+var _sugRec = null;
+function startSugSTT(){
+  var btn = document.getElementById('sug_stt_btn');
+  if(_sugActive){
+    if(_sugRec) _sugRec.stop();
+    _sugActive=false; btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active'); return;
+  }
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Chrome/Edge 브라우저를 사용해주세요.'); return;}
+  var r=new SR(); r.lang='ko-KR'; r.interimResults=true; r.continuous=true;
+  r.onresult=function(e){
+    var interim=''; var final_t='';
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal){ final_t+=e.results[i][0].transcript; }
+      else { interim+=e.results[i][0].transcript; }
+    }
+    var display = final_t || interim;
+    var tas = window.parent.document.querySelectorAll('textarea');
+    var ta = null;
+    for(var i=0;i<tas.length;i++){
+      if(tas[i].getAttribute('aria-label')==='제안 내용 입력' || tas[i].placeholder.includes('제안')){
+        ta=tas[i]; break;
+      }
+    }
+    if(!ta && tas.length) ta = tas[0];
+    if(ta && display){
+      var nativeSetter=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
+      nativeSetter.call(ta, display);
+      ta.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+  };
+  r.onerror=function(e){alert('음성인식 오류: '+e.error); _sugActive=false; btn.classList.remove('active');};
+  r.onend=function(){
+    if(_sugActive){ r.start(); }
+    else{ btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active'); }
+  };
+  _sugRec=r; _sugActive=true;
+  btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)'; btn.classList.add('active');
+  r.start();
+}
+</script>
+""", height=50)
+
+        with _suggest_col2:
+            st.markdown("""
+<div style="background:#f8fafc;border:1.5px solid #d0dce8;border-radius:10px;
+  padding:12px 14px;font-size:0.76rem;color:#475569;line-height:1.7;height:110px;
+  overflow-y:auto;">
+  <b style="color:#1a3a5c;">📋 제안 가능 항목</b><br>
+  • 화면 구성 · 메뉴 배치<br>
+  • 기능 추가 · 개선 요청<br>
+  • 오류 · 불편 사항 신고<br>
+  • 새로운 상담 카테고리<br>
+  • 기타 시스템 의견
+</div>""", unsafe_allow_html=True)
+
+        _sbtn_col1, _sbtn_col2 = st.columns([1, 1], gap="small")
+        with _sbtn_col1:
+            if st.button("📨 제안 제출", key="btn_suggest_submit", use_container_width=True, type="primary"):
+                _sug = st.session_state.get("suggest_input", "").strip()
+                if _sug:
+                    # 제안 내용 저장
+                    _sug_path = os.path.join(_DATA_DIR, "suggestions.json")
+                    try:
+                        _sug_list = []
+                        if os.path.exists(_sug_path):
+                            with open(_sug_path, "r", encoding="utf-8") as _f:
+                                _sug_list = json.load(_f)
+                        _sug_list.append({
+                            "time": dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "user": st.session_state.get("user_name", "비회원"),
+                            "content": sanitize_unicode(_sug)
+                        })
+                        with open(_sug_path, "w", encoding="utf-8") as _f:
+                            json.dump(_sug_list, _f, ensure_ascii=False)
+                        st.session_state["suggest_submitted"] = True
+                        st.rerun()
+                    except Exception:
+                        st.session_state["suggest_submitted"] = True
+                        st.rerun()
+                else:
+                    st.warning("제안 내용을 입력해주세요.")
+        with _sbtn_col2:
+            if st.button("🗑️ 초기화", key="btn_suggest_clear", use_container_width=True):
+                st.session_state["suggest_input"] = ""
+                st.session_state.pop("suggest_submitted", None)
+                st.rerun()
+
+        if st.session_state.get("suggest_submitted"):
+            st.success("✅ 말씀하신 제안이 반영되었습니다.")
+            components.html(
+                '<script>setTimeout(function(){}, 100);</script>' +
+                s_voice("말씀하신 제안이 반영되었습니다."),
+                height=0
+            )
+
+        st.divider()
         st.markdown("### 📌 상담 카테고리 — 원하는 항목을 선택하세요")
 
         # ── 카드 CSS: 전체 박스 클릭 + 동일 높이 ──
