@@ -1288,9 +1288,9 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                 placeholder="코드 입력")
             if st.button("관리자 로그인", key="btn_admin_login", use_container_width=True):
                 try:
-                    _admin_code = st.secrets.get("ADMIN_CODE", "gold1234")
+                    _admin_code = st.secrets.get("ADMIN_CODE", "goldkey777")
                 except Exception:
-                    _admin_code = "gold1234"
+                    _admin_code = "goldkey777"
                 try:
                     _master_code = st.secrets.get("MASTER_CODE", "01030742616")
                 except Exception:
@@ -1347,18 +1347,41 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                     _u = _s.get('user', '비회원')
                     _t = _s.get('time', '')
                     _c = sanitize_unicode(_s.get('content', ''))
-                    with st.expander(f"[{len(_sug_all)-_idx}] {_u}  |  {_t}", expanded=(_idx < 3)):
+                    _status = _s.get('status', '대기')
+                    _status_color = {'대기':'#f59e0b','진행중':'#2e6da4','완료':'#27ae60'}.get(_status,'#888')
+                    with st.expander(f"[{len(_sug_all)-_idx}] {_u}  |  {_t}  |  상태: {_status}", expanded=(_idx < 3)):
                         st.markdown(
-                            f"<div style='background:#f8fafc;border-left:4px solid #2e6da4;"
+                            f"<div style='background:#f8fafc;border-left:4px solid {_status_color};"
                             f"border-radius:6px;padding:10px 14px;font-size:0.88rem;"
                             f"line-height:1.7;color:#1a1a2e;white-space:pre-wrap;'>{_c}</div>",
                             unsafe_allow_html=True
                         )
-                        if st.button("🗑️ 이 항목 삭제", key=f"del_sug_{_real_idx}"):
-                            _sug_all.pop(_real_idx)
-                            with open(_sug_path, "w", encoding="utf-8") as _f:
-                                json.dump(_sug_all, _f, ensure_ascii=False)
-                            st.rerun()
+                        _btn_c1, _btn_c2, _btn_c3 = st.columns(3)
+                        with _btn_c1:
+                            if st.button("🔧 개선 진행 요청", key=f"req_sug_{_real_idx}",
+                                         use_container_width=True,
+                                         disabled=(_status == '진행중')):
+                                _sug_all[_real_idx]['status'] = '진행중'
+                                with open(_sug_path, "w", encoding="utf-8") as _f:
+                                    json.dump(_sug_all, _f, ensure_ascii=False)
+                                st.success("개선 진행 요청이 등록되었습니다.")
+                                st.rerun()
+                        with _btn_c2:
+                            if st.button("✅ 완료 처리", key=f"done_sug_{_real_idx}",
+                                         use_container_width=True,
+                                         disabled=(_status == '완료')):
+                                _sug_all[_real_idx]['status'] = '완료'
+                                with open(_sug_path, "w", encoding="utf-8") as _f:
+                                    json.dump(_sug_all, _f, ensure_ascii=False)
+                                st.success("완료 처리되었습니다.")
+                                st.rerun()
+                        with _btn_c3:
+                            if st.button("🗑️ 삭제", key=f"del_sug_{_real_idx}",
+                                         use_container_width=True):
+                                _sug_all.pop(_real_idx)
+                                with open(_sug_path, "w", encoding="utf-8") as _f:
+                                    json.dump(_sug_all, _f, ensure_ascii=False)
+                                st.rerun()
             else:
                 st.info("접수된 제안이 없습니다.")
         except Exception as _e:
