@@ -962,10 +962,52 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# [SECTION 9] 앱 진입점
+# [SECTION 9] 자가 복구 시스템 + 앱 진입점
 # --------------------------------------------------------------------------
+def auto_recover(e: Exception) -> bool:
+    """오류 유형별 자동 복구 시도. 복구 성공 시 True 반환."""
+    err = str(e)
+
+    # 1. 인코딩 오류 → 세션 초기화 후 재시도
+    if "codec" in err or "surrogate" in err or "encode" in err:
+        for key in ['analysis_result']:
+            st.session_state.pop(key, None)
+        st.warning("⚠️ 인코딩 오류가 발생했습니다. 자동 복구되었습니다. 다시 시도해주세요.")
+        return True
+
+    # 2. 파일 쓰기 오류 → /tmp/ 경로로 전환
+    if "Read-only" in err or "Permission denied" in err or "No such file" in err:
+        import app as _self
+        _self._DATA_DIR = "/tmp"
+        _self.USAGE_DB  = "/tmp/usage_log.json"
+        _self.MEMBER_DB = "/tmp/members.json"
+        st.warning("⚠️ 파일 경로 오류가 발생했습니다. 자동 복구되었습니다.")
+        return True
+
+    # 3. API 오류 → 안내 메시지
+    if "API" in err or "quota" in err.lower() or "rate" in err.lower():
+        st.warning("⚠️ AI API 오류입니다. 잠시 후 다시 시도해주세요.")
+        return True
+
+    # 4. 세션 오류 → 세션 초기화
+    if "session" in err.lower() or "StreamlitAPIException" in err:
+        st.session_state.clear()
+        st.warning("⚠️ 세션 오류가 발생했습니다. 자동 초기화되었습니다.")
+        return True
+
+    return False  # 복구 불가 → 원본 오류 표시
+
+
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        st.error(f"시스템 오류: {e}")
+    MAX_RETRY = 2
+    for attempt in range(MAX_RETRY):
+        try:
+            main()
+            break
+        except Exception as e:
+            recovered = auto_recover(e)
+            if recovered and attempt < MAX_RETRY - 1:
+                st.rerun()
+            else:
+                st.error(f"시스템 오류 (복구 불가): {sanitize_unicode(str(e))}")
+                st.info("페이지를 새로고침(F5)하거나 관리자에게 문의하세요: 010-3074-2616")
