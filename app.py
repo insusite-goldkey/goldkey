@@ -100,21 +100,31 @@ if hasattr(sys.stderr, "reconfigure"):
     except Exception:
         pass
 
-# 선택적 임포트 (미설치 시 해당 기능만 비활성화)
+# 선택적 임포트 — 앱 시작 시 즉시 로드하지 않음 (지연 로드)
+# RAG/PDF 라이브러리는 실제 사용 시점에 로드하여 콜드 스타트 최소화
+RAG_AVAILABLE = None  # None=미확인, True=사용가능, False=불가
+PDF_AVAILABLE = None
 
-try:
-    from sentence_transformers import SentenceTransformer
-    import faiss
-    RAG_AVAILABLE = True
-except ImportError:
-    RAG_AVAILABLE = False
+def _check_rag():
+    global RAG_AVAILABLE
+    if RAG_AVAILABLE is None:
+        try:
+            from sentence_transformers import SentenceTransformer  # noqa
+            import faiss  # noqa
+            RAG_AVAILABLE = True
+        except ImportError:
+            RAG_AVAILABLE = False
+    return RAG_AVAILABLE
 
-try:
-    import pdfplumber
-    import docx
-    PDF_AVAILABLE = True
-except ImportError:
-    PDF_AVAILABLE = False
+def _check_pdf():
+    global PDF_AVAILABLE
+    if PDF_AVAILABLE is None:
+        try:
+            import pdfplumber  # noqa
+            PDF_AVAILABLE = True
+        except ImportError:
+            PDF_AVAILABLE = False
+    return PDF_AVAILABLE
 
 # [시스템 필수 설정]
 # Streamlit Cloud / Cloud Run 모두 읽기 전용 파일시스템 → /tmp/ 경로 사용
@@ -596,13 +606,14 @@ def extract_pdf_chunks(file, char_limit: int = 8000) -> str:
     return text[:front] + "\n...(중략)...\n" + text[mid_start:mid_start+mid_s] + "\n...(중략)...\n" + text[-back:]
 
 def process_pdf(file):
-    if not PDF_AVAILABLE:
+    if not _check_pdf():  # 실제 호출 시점에 라이브러리 확인
         return f"[PDF] {file.name} (pdfplumber 미설치)"
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
             tmp.write(file.getvalue())
             tmp_path = tmp.name
+        import pdfplumber  # 실제 사용 시점에만 import
         with pdfplumber.open(tmp_path) as pdf:
             text = "".join(page.extract_text() or "" for page in pdf.pages)
         # [GATE 3] PDF 추출 텍스트 — surrogate 발생 최다 지점, gateway 정제 우선
@@ -697,9 +708,10 @@ SYSTEM_PROMPT = """
 # --------------------------------------------------------------------------
 @st.cache_resource
 def get_rag_engine():
-    if not RAG_AVAILABLE:
+    if not _check_rag():  # 실제 호출 시점에 라이브러리 확인
         return None
     try:
+        from sentence_transformers import SentenceTransformer
         return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
     except:
         return None
@@ -729,6 +741,7 @@ class InsuranceRAGSystem:
         if not self.model_loaded or not texts:
             return
         try:
+            import faiss  # 실제 사용 시점에만 import
             embeddings = self.create_embeddings(texts)
             if embeddings.size == 0:
                 return

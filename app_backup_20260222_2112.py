@@ -40,6 +40,13 @@ from google import genai
 from google.genai import types
 import sys, json, os, time, hashlib, base64, re, tempfile, pathlib, codecs, unicodedata, traceback as _traceback
 
+# 외부 격리 게이트웨이 — 모든 외부 접촉은 이 모듈을 통해서만
+try:
+    import external_gateway as _gw
+    _GW_OK = True
+except ImportError:
+    _GW_OK = False
+
 try:
     import ftfy as _ftfy
     _FTFY_OK = True
@@ -93,21 +100,31 @@ if hasattr(sys.stderr, "reconfigure"):
     except Exception:
         pass
 
-# 선택적 임포트 (미설치 시 해당 기능만 비활성화)
+# 선택적 임포트 — 앱 시작 시 즉시 로드하지 않음 (지연 로드)
+# RAG/PDF 라이브러리는 실제 사용 시점에 로드하여 콜드 스타트 최소화
+RAG_AVAILABLE = None  # None=미확인, True=사용가능, False=불가
+PDF_AVAILABLE = None
 
-try:
-    from sentence_transformers import SentenceTransformer
-    import faiss
-    RAG_AVAILABLE = True
-except ImportError:
-    RAG_AVAILABLE = False
+def _check_rag():
+    global RAG_AVAILABLE
+    if RAG_AVAILABLE is None:
+        try:
+            from sentence_transformers import SentenceTransformer  # noqa
+            import faiss  # noqa
+            RAG_AVAILABLE = True
+        except ImportError:
+            RAG_AVAILABLE = False
+    return RAG_AVAILABLE
 
-try:
-    import pdfplumber
-    import docx
-    PDF_AVAILABLE = True
-except ImportError:
-    PDF_AVAILABLE = False
+def _check_pdf():
+    global PDF_AVAILABLE
+    if PDF_AVAILABLE is None:
+        try:
+            import pdfplumber  # noqa
+            PDF_AVAILABLE = True
+        except ImportError:
+            PDF_AVAILABLE = False
+    return PDF_AVAILABLE
 
 # [시스템 필수 설정]
 # Streamlit Cloud / Cloud Run 모두 읽기 전용 파일시스템 → /tmp/ 경로 사용
@@ -487,19 +504,21 @@ def check_membership_status():
 # --------------------------------------------------------------------------
 @st.cache_resource
 def get_client():
-    # 우선순위: 1) st.secrets  2) 환경변수 (더 안전)
-    api_key = None
-    try:
-        api_key = st.secrets.get("GEMINI_API_KEY")
-    except Exception:
-        pass
-    if not api_key:
-        api_key = os.environ.get("GEMINI_API_KEY")
+    # [GATE 1] API 키는 반드시 gateway를 통해 읽음 — surrogate 정제 보장
+    if _GW_OK:
+        api_key = _gw.get_secret("GEMINI_API_KEY")
+    else:
+        api_key = None
+        try:
+            api_key = st.secrets.get("GEMINI_API_KEY")
+        except Exception:
+            pass
+        if not api_key:
+            api_key = os.environ.get("GEMINI_API_KEY", "")
+        api_key = api_key.encode("utf-8", errors="ignore").decode("utf-8")
     if not api_key:
         st.error("GEMINI_API_KEY가 설정되지 않았습니다. secrets.toml 또는 환경변수를 확인하세요.")
         st.stop()
-    # API 키에 surrogate 문자가 포함되면 genai.Client 생성 시 터짐
-    api_key = api_key.encode("utf-8", errors="ignore").decode("utf-8")
     return genai.Client(
         api_key=api_key,
         http_options={"api_version": "v1beta"}
@@ -587,16 +606,18 @@ def extract_pdf_chunks(file, char_limit: int = 8000) -> str:
     return text[:front] + "\n...(중략)...\n" + text[mid_start:mid_start+mid_s] + "\n...(중략)...\n" + text[-back:]
 
 def process_pdf(file):
-    if not PDF_AVAILABLE:
+    if not _check_pdf():  # 실제 호출 시점에 라이브러리 확인
         return f"[PDF] {file.name} (pdfplumber 미설치)"
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
             tmp.write(file.getvalue())
             tmp_path = tmp.name
+        import pdfplumber  # 실제 사용 시점에만 import
         with pdfplumber.open(tmp_path) as pdf:
             text = "".join(page.extract_text() or "" for page in pdf.pages)
-        return sanitize_unicode(text)
+        # [GATE 3] PDF 추출 텍스트 — surrogate 발생 최다 지점, gateway 정제 우선
+        return _gw.sanitize_pdf_text(text) if _GW_OK else sanitize_unicode(text)
     except Exception as e:
         return f"PDF 처리 오류: {sanitize_unicode(str(e))}"
     finally:
@@ -621,7 +642,8 @@ def process_docx(file):
             tmp_path = tmp.name
         doc_obj = _docx.Document(tmp_path)
         text = "\n".join(p.text for p in doc_obj.paragraphs)
-        return sanitize_unicode(text)
+        # [GATE 3] DOCX 추출 텍스트 — gateway 정제 우선
+        return _gw.sanitize_pdf_text(text) if _GW_OK else sanitize_unicode(text)
     except Exception as e:
         return f"DOCX 처리 오류: {sanitize_unicode(str(e))}"
     finally:
@@ -686,9 +708,10 @@ SYSTEM_PROMPT = """
 # --------------------------------------------------------------------------
 @st.cache_resource
 def get_rag_engine():
-    if not RAG_AVAILABLE:
+    if not _check_rag():  # 실제 호출 시점에 라이브러리 확인
         return None
     try:
+        from sentence_transformers import SentenceTransformer
         return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
     except:
         return None
@@ -718,6 +741,7 @@ class InsuranceRAGSystem:
         if not self.model_loaded or not texts:
             return
         try:
+            import faiss  # 실제 사용 시점에만 import
             embeddings = self.create_embeddings(texts)
             if embeddings.size == 0:
                 return
@@ -1224,10 +1248,13 @@ function startTTS_{tab_key}(){{
                         rag_ctx = "\n\n[참고 자료]\n" + "".join(f"{i}. {sanitize_unicode(r['text'])}\n" for i, r in enumerate(results, 1))
                 prompt = (f"고객: {sanitize_unicode(c_name)}, 추정소득: {income:,.0f}원\n"
                           f"질문: {safe_q}{rag_ctx}\n{extra_prompt}")
-                # Gemini protobuf 직렬화 전 마지막 정제 — surrogate 가 남아있으면 API 자체가 터짐
-                prompt = sanitize_unicode(prompt)
-                resp   = client.models.generate_content(model=GEMINI_MODEL, contents=prompt, config=model_config)
-                answer = sanitize_unicode(resp.text) if resp.text else "AI 응답을 받지 못했습니다."
+                # [GATE 2] Gemini 호출은 반드시 gateway를 통해 — 입출력 모두 격리 정제
+                if _GW_OK:
+                    answer = _gw.call_gemini(client, GEMINI_MODEL, prompt, model_config)
+                else:
+                    prompt = sanitize_unicode(prompt)
+                    resp   = client.models.generate_content(model=GEMINI_MODEL, contents=prompt, config=model_config)
+                    answer = sanitize_unicode(resp.text) if resp.text else "AI 응답을 받지 못했습니다."
                 safe_name = sanitize_unicode(c_name)
                 result_text = (f"### {safe_name}님 골드키AI마스터 정밀 리포트\n\n{answer}\n\n---\n"
                                f"**문의:** insusite@gmail.com | 010-3074-2616\n\n"
