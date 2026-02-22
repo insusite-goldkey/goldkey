@@ -1115,11 +1115,12 @@ def main():
                     contact = st.text_input("📱 연락처 (비밀번호)", type="password", placeholder="010-0000-0000", key="signup_contact")
                     if st.form_submit_button("✅ 가입하기", use_container_width=True):
                         if name and contact:
-                            info = add_member(name, contact)
-                            st.session_state.user_id = info["user_id"]
-                            st.session_state.user_name = name
-                            st.session_state.join_date = dt.strptime(info["join_date"], "%Y-%m-%d")
-                            st.session_state.is_admin = False
+                            with st.spinner("⏳ 가입 처리 중입니다. 잠시만 기다려주세요..."):
+                                info = add_member(name, contact)
+                                st.session_state.user_id = info["user_id"]
+                                st.session_state.user_name = name
+                                st.session_state.join_date = dt.strptime(info["join_date"], "%Y-%m-%d")
+                                st.session_state.is_admin = False
                             st.success("가입 완료!")
                             st.rerun()
                         else:
@@ -1131,8 +1132,10 @@ def main():
                     lc = st.text_input("📱 연락처 (비밀번호)", type="password", placeholder="010-0000-0000", key="login_contact")
                     if st.form_submit_button("🔓 로그인", use_container_width=True):
                         if ln and lc:
-                            members = load_members()
-                            if ln in members and decrypt_data(members[ln]["contact"], lc):
+                            with st.spinner("⏳ 로그인 중입니다. 잠시만 기다려주세요..."):
+                                members = load_members()
+                                _login_ok = ln in members and decrypt_data(members[ln]["contact"], lc)
+                            if _login_ok:
                                 m = members[ln]
                                 st.session_state.user_id = m["user_id"]
                                 st.session_state.user_name = ln
