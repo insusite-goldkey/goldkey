@@ -38,7 +38,7 @@
 import streamlit as st
 from google import genai
 from google.genai import types
-import sys, json, os, time, hashlib, base64, re, tempfile, pathlib, codecs, unicodedata
+import sys, json, os, time, hashlib, base64, re, tempfile, pathlib, codecs, unicodedata, traceback as _traceback
 
 try:
     import ftfy as _ftfy
@@ -63,6 +63,16 @@ import streamlit.components.v1 as components
 # ==========================================================
 os.environ["PYTHONIOENCODING"] = "utf-8:replace"
 os.environ["PYTHONUTF8"] = "1"
+
+# 환경변수 전체를 surrogate-safe하게 정제 (앱 시작 시 1회만 실행)
+try:
+    for _ekey in list(os.environ.keys()):
+        _eval = os.environ[_ekey]
+        _safe_eval = _eval.encode("utf-8", errors="ignore").decode("utf-8")
+        if _safe_eval != _eval:
+            os.environ[_ekey] = _safe_eval
+except Exception:
+    pass
 
 def _safe_str(obj) -> str:
     """surrogate 문자를 완전 제거한 안전한 문자열 반환 — 전역 사용"""
@@ -488,6 +498,8 @@ def get_client():
     if not api_key:
         st.error("GEMINI_API_KEY가 설정되지 않았습니다. secrets.toml 또는 환경변수를 확인하세요.")
         st.stop()
+    # API 키에 surrogate 문자가 포함되면 genai.Client 생성 시 터짐
+    api_key = api_key.encode("utf-8", errors="ignore").decode("utf-8")
     return genai.Client(
         api_key=api_key,
         http_options={"api_version": "v1beta"}
@@ -3256,7 +3268,7 @@ function startTTS_{tab_key}(){{
 def auto_recover(e: Exception) -> bool:
     """오류 유형별 자동 복구 시도. 복구 성공 시 True 반환."""
     # surrogate 문자가 포함된 예외 메시지 자체가 또 오류를 유발하지 않도록 먼저 정제
-    err = str(e).encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+    err = str(e).encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
 
     # 1. 인코딩 오류 → 세션 초기화 후 재시도
     if "codec" in err or "surrogate" in err or "encode" in err:
@@ -3309,8 +3321,9 @@ def _run_safe():
             main()
             break
         except UnicodeEncodeError as _ue:
-            # surrogate 오류 자체 → 세션 초기화 후 재시도
-            log_error("인코딩", _safe_str(_ue))
+            # traceback 전체를 로그에 기록 → 정확한 발생 위치 파악
+            _tb = _traceback.format_exc().encode("utf-8", errors="ignore").decode("utf-8")
+            log_error("인코딩[TB]", _tb)
             for _k in list(st.session_state.keys()):
                 if _k not in ("_force_tmp", "_error_log", "db_ready", "rag_system"):
                     st.session_state.pop(_k, None)
@@ -3318,9 +3331,12 @@ def _run_safe():
                 st.warning("⚠️ 인코딩 오류가 감지되어 자동 복구합니다. 잠시만 기다려주세요.")
                 st.rerun()
             else:
-                st.error("인코딩 오류가 반복됩니다. 페이지를 새로고침(F5)해주세요.")
+                st.error("인코딩 오류가 되풍됩니다. 페이지를 새로고침(F5)해주세요.")
                 break
         except Exception as _e:
+            # 일반 예외도 traceback 기록
+            _tb = _traceback.format_exc().encode("utf-8", errors="ignore").decode("utf-8")
+            log_error("예외[TB]", _tb)
             _recovered = auto_recover(_e)
             if _recovered and _attempt < _MAX_RETRY - 1:
                 st.rerun()
