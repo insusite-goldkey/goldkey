@@ -894,10 +894,11 @@ def main():
     if 'rag_system' not in st.session_state:
         st.session_state.rag_system = DummyRAGSystem()
 
-    # 핀치줌 + 자동회전 허용 (모바일 최적화)
+    # 핀치줌 + 자동회전 허용 + 백버튼 홈 이동 (모바일 최적화)
     components.html("""
 <script>
 (function(){
+  // ── 뷰포트 설정 ──
   var mv = document.querySelector('meta[name="viewport"]');
   if(mv){
     mv.setAttribute('content',
@@ -908,9 +909,32 @@ def main():
     m.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes';
     document.head.appendChild(m);
   }
-  // 화면 자동 회전 허용 (Screen Orientation API)
+  // 화면 자동 회전 허용
   if(screen.orientation && screen.orientation.unlock){
     try{ screen.orientation.unlock(); }catch(e){}
+  }
+
+  // ── 백버튼 → 홈 이동 처리 ──
+  // history에 더미 상태를 쌓아서 뒤로가기를 가로챔
+  if(!window._backBtnInit){
+    window._backBtnInit = true;
+    // 현재 상태 push (탭 진입 시마다 쌓임)
+    history.pushState({page:'app'}, '', window.location.href);
+    window.addEventListener('popstate', function(e){
+      // 뒤로가기 감지 → Streamlit 홈 버튼 클릭 트리거
+      // parent frame의 홈 버튼을 찾아 클릭
+      try {
+        var btns = window.parent.document.querySelectorAll('button');
+        for(var i=0; i<btns.length; i++){
+          if(btns[i].innerText && btns[i].innerText.includes('홈으로')){
+            btns[i].click();
+            break;
+          }
+        }
+      } catch(ex){}
+      // 다시 더미 상태 push (연속 백버튼 대비)
+      history.pushState({page:'app'}, '', window.location.href);
+    });
   }
 })();
 </script>
