@@ -1672,28 +1672,34 @@ function startSugSTT(){
 .gk-card-desc {
     font-size:0.80rem; color:#475569; line-height:1.55;
 }
-/* Streamlit 버튼을 전체 박스로 확장 — 텍스트·테두리 완전 숨김 */
+/* Streamlit 버튼 — 카드 우측 하단에 '▶ 클릭' 배지로 표시 */
 .gk-card-wrap > div[data-testid="stButton"] {
     position:absolute !important;
-    top:0 !important; left:0 !important;
-    width:100% !important; height:100% !important;
+    bottom:10px !important; right:12px !important;
+    width:auto !important; height:auto !important;
     margin:0 !important; padding:0 !important;
+    top:auto !important; left:auto !important;
 }
 .gk-card-wrap > div[data-testid="stButton"] > button {
-    position:absolute !important;
-    top:0 !important; left:0 !important;
-    width:100% !important; height:100% !important;
-    opacity:0 !important;
+    position:relative !important;
+    opacity:1 !important;
     cursor:pointer !important;
     z-index:10 !important;
-    border-radius:12px !important;
+    border-radius:20px !important;
     border:none !important;
-    background:transparent !important;
-    padding:0 !important;
+    background:#2e6da4 !important;
+    padding:4px 14px !important;
     margin:0 !important;
-    font-size:0 !important;
-    line-height:0 !important;
-    color:transparent !important;
+    font-size:0.75rem !important;
+    font-weight:700 !important;
+    line-height:1.4 !important;
+    color:#fff !important;
+    box-shadow:0 2px 6px rgba(46,109,164,0.3) !important;
+    transition:background 0.15s !important;
+    width:auto !important; height:auto !important;
+}
+.gk-card-wrap > div[data-testid="stButton"] > button:hover {
+    background:#1a3a5c !important;
 }
 .gk-card-wrap:hover .gk-card {
     border-color:#2e6da4;
@@ -1730,7 +1736,7 @@ function startSugSTT(){
                             f"<div class='gk-card-desc'>{_de.replace(chr(10),'<br>')}</div>"
                             f"</div>"
                             f"</div></div>", unsafe_allow_html=True)
-                        if st.button("​", key=f"{prefix}_{_k}", use_container_width=True):
+                        if st.button("▶ 클릭", key=f"{prefix}_{_k}", use_container_width=False):
                             st.session_state.current_tab = _k
                             st.rerun()
 
@@ -1761,7 +1767,7 @@ function startSugSTT(){
                 "<div class='gk-card-desc'>등기부등본·건축물대장 판독<br>투자수익 분석 · 보험 연계 설계</div>"
                 "</div>"
                 "</div></div>", unsafe_allow_html=True)
-            if st.button("\u200b", key="home_p3_realty", use_container_width=True):
+            if st.button("▶ 클릭", key="home_p3_realty", use_container_width=True):
                 st.session_state.current_tab = "realty"
                 st.rerun()
         with _rc2:
@@ -1774,7 +1780,7 @@ function startSugSTT(){
                 "<div class='gk-card-desc'>치매·뇌졸중·요양병원 간병비 산출<br>장기요양등급 · 간병보험 설계</div>"
                 "</div>"
                 "</div></div>", unsafe_allow_html=True)
-            if st.button("\u200b", key="home_p3_nursing", use_container_width=True):
+            if st.button("▶ 클릭", key="home_p3_nursing", use_container_width=True):
                 st.session_state.current_tab = "nursing"
                 st.rerun()
 
