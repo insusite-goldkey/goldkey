@@ -1638,7 +1638,7 @@ function startTTS_{tab_key}(){{
         if not st.session_state.get('home_rendered'):
             st.session_state.home_rendered = True
 
-        # ── 비로그인 시 회원가입/로그인 안내 배너 ─────────────────────────
+        # ── 로그인 상태에 따른 상단 배너 ──────────────────────────────────
         if 'user_id' not in st.session_state:
             _b1, _b2, _b3 = st.columns([1, 1, 0.01])
             with _b1:
@@ -1656,6 +1656,17 @@ function startTTS_{tab_key}(){{
   border-radius:12px;padding:12px 16px;margin-bottom:6px;text-align:center;">
   <span style="color:#fff;font-size:0.95rem;font-weight:800;">
     🔐 버튼을 클릭하면 가입/로그인 창이 열립니다
+  </span>
+</div>""", unsafe_allow_html=True)
+        else:
+            _uname = st.session_state.get("user_name", "")
+            st.markdown(f"""
+<div style="background:linear-gradient(135deg,#1a5c3a 0%,#27ae60 100%);
+  border-radius:12px;padding:12px 18px;margin-bottom:6px;
+  display:flex;align-items:center;gap:10px;">
+  <span style="font-size:1.5rem;">✅</span>
+  <span style="color:#fff;font-size:1.0rem;font-weight:900;">
+    {_uname} 마스터님, 로그인되었습니다
   </span>
 </div>""", unsafe_allow_html=True)
 
