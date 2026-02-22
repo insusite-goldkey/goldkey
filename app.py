@@ -1018,6 +1018,11 @@ def main():
         if 'user_id' not in st.session_state:
             st.info("👋 안녕하세요, 무엇을 도와드릴까요?")
             components.html(s_voice("안녕하세요. 무엇을 도와드릴까요?"), height=0)
+            st.markdown("""
+<div style="background:#fff3cd;border:1.5px solid #f59e0b;border-radius:8px;
+  padding:8px 12px;font-size:0.78rem;color:#92400e;margin-bottom:6px;">
+  👆 <b>여기 &gt; 를 클릭</b>하여 회원가입 또는 로그인하세요
+</div>""", unsafe_allow_html=True)
             tab_s, tab_l = st.tabs(["회원가입", "로그인"])
             with tab_s:
                 with st.form("sb_signup_form"):
@@ -1530,6 +1535,13 @@ function startSugSTT(){
 .gk-card-title {
     font-weight:900; font-size:1.08rem; color:#1a3a5c;
     margin-bottom:5px; line-height:1.2;
+    display:flex; align-items:center; justify-content:space-between;
+}
+.gk-card-click-badge {
+    font-size:0.68rem; font-weight:700; color:#fff;
+    background:#2e6da4; border-radius:20px;
+    padding:2px 8px; margin-left:6px; white-space:nowrap;
+    flex-shrink:0;
 }
 .gk-card-desc {
     font-size:0.80rem; color:#475569; line-height:1.55;
@@ -1588,7 +1600,7 @@ function startSugSTT(){
                             f"<div class='gk-card'>"
                             f"<div class='gk-card-icon'>{_ic}</div>"
                             f"<div class='gk-card-body'>"
-                            f"<div class='gk-card-title'>{_ti}</div>"
+                            f"<div class='gk-card-title'>{_ti}<span class='gk-card-click-badge'>▶ 클릭</span></div>"
                             f"<div class='gk-card-desc'>{_de.replace(chr(10),'<br>')}</div>"
                             f"</div>"
                             f"</div></div>", unsafe_allow_html=True)
@@ -1619,7 +1631,7 @@ function startSugSTT(){
                 "<div class='gk-card'>"
                 "<div class='gk-card-icon'>🏘️</div>"
                 "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>부동산 투자 상담</div>"
+                "<div class='gk-card-title'>부동산 투자 상담<span class='gk-card-click-badge'>▶ 클릭</span></div>"
                 "<div class='gk-card-desc'>등기부등본·건축물대장 판독<br>투자수익 분석 · 보험 연계 설계</div>"
                 "</div>"
                 "</div></div>", unsafe_allow_html=True)
@@ -1632,7 +1644,7 @@ function startSugSTT(){
                 "<div class='gk-card'>"
                 "<div class='gk-card-icon'>🏥</div>"
                 "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>간병비 컨설팅</div>"
+                "<div class='gk-card-title'>간병비 컨설팅<span class='gk-card-click-badge'>▶ 클릭</span></div>"
                 "<div class='gk-card-desc'>치매·뇌졸중·요양병원 간병비 산출<br>장기요양등급 · 간병보험 설계</div>"
                 "</div>"
                 "</div></div>", unsafe_allow_html=True)
