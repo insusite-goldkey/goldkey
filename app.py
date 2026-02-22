@@ -897,11 +897,13 @@ def section_housing_pension():
 # --------------------------------------------------------------------------
 def main():
     # 모바일 최적화: wide 레이아웃 조건부 적용
+    # 사이드바 열기 요청이 있으면 expanded, 아니면 collapsed
+    _sidebar_state = "expanded" if st.session_state.pop("_open_sidebar", False) else "collapsed"
     st.set_page_config(
         page_title="골드키지사 마스터 AI",
         page_icon="🏆",
-        layout="centered",   # 모바일에서 wide 대신 centered 사용
-        initial_sidebar_state="collapsed"  # 모바일 초기 사이드바 접힘
+        layout="centered",
+        initial_sidebar_state=_sidebar_state
     )
 
     # ── 0단계: 파일경로 복구 플래그 반영 (auto_recover 후 rerun 시) ─────
@@ -1548,46 +1550,24 @@ function startTTS_{tab_key}(){{
 
         # ── 비로그인 시 회원가입/로그인 안내 배너 ─────────────────────────
         if 'user_id' not in st.session_state:
-            components.html("""
+            _b1, _b2, _b3 = st.columns([1, 1, 0.01])
+            with _b1:
+                if st.button("📝 회원가입", key="home_open_signup",
+                             use_container_width=True, type="primary"):
+                    st.session_state["_open_sidebar"] = True
+                    st.rerun()
+            with _b2:
+                if st.button("🔓 로그인", key="home_open_login",
+                             use_container_width=True):
+                    st.session_state["_open_sidebar"] = True
+                    st.rerun()
+            st.markdown("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
-  border-radius:14px;padding:16px 18px 18px 18px;margin-bottom:4px;text-align:center;
-  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;">
-  <div style="color:#fff;font-size:1.05rem;font-weight:900;margin-bottom:12px;">
-    🔐 로그인 후 AI 상담을 이용하실 수 있습니다
-  </div>
-  <div style="display:flex;gap:12px;justify-content:center;">
-    <button id="btn_signup" style="
-      flex:1;max-width:160px;padding:13px 0;border-radius:10px;
-      border:none;background:#f59e0b;color:#1a1a1a;
-      font-size:1.0rem;font-weight:900;cursor:pointer;
-      box-shadow:0 3px 10px rgba(0,0,0,0.3);">📝 회원가입</button>
-    <button id="btn_login" style="
-      flex:1;max-width:160px;padding:13px 0;border-radius:10px;
-      border:2.5px solid #fff;background:rgba(255,255,255,0.18);color:#fff;
-      font-size:1.0rem;font-weight:900;cursor:pointer;
-      box-shadow:0 3px 10px rgba(0,0,0,0.2);">🔓 로그인</button>
-  </div>
-</div>
-<script>
-function openSidebar(){
-  var doc = window.parent.document;
-  // 1순위: collapsedControl (사이드바 접힌 상태 토글)
-  var el = doc.querySelector('[data-testid="collapsedControl"]');
-  if(el){ el.click(); return; }
-  // 2순위: stSidebarCollapsedControl
-  el = doc.querySelector('[data-testid="stSidebarCollapsedControl"]');
-  if(el){ el.click(); return; }
-  // 3순위: 사이드바 열기 버튼 텍스트 탐색
-  var btns = doc.querySelectorAll('button');
-  for(var i=0;i<btns.length;i++){
-    var t = btns[i].getAttribute('aria-label') || '';
-    if(t.includes('sidebar') || t.includes('Open')){ btns[i].click(); return; }
-  }
-}
-document.getElementById('btn_signup').addEventListener('click', function(){ openSidebar(); });
-document.getElementById('btn_login').addEventListener('click', function(){ openSidebar(); });
-</script>
-""", height=130)
+  border-radius:12px;padding:12px 16px;margin-bottom:6px;text-align:center;">
+  <span style="color:#fff;font-size:0.95rem;font-weight:800;">
+    🔐 버튼을 클릭하면 가입/로그인 창이 열립니다
+  </span>
+</div>""", unsafe_allow_html=True)
 
         # ── 제안 박스 (홈 첫 번째 칸) ─────────────────────────────────────
         st.markdown("""
