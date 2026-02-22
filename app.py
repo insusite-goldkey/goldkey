@@ -1134,25 +1134,7 @@ def main():
   padding:8px 12px;font-size:0.78rem;color:#92400e;margin-bottom:6px;">
   👆 <b>여기 &gt; 를 클릭</b>하여 회원가입 또는 로그인하세요
 </div>""", unsafe_allow_html=True)
-            tab_s, tab_l = st.tabs(["회원가입", "로그인"])
-            with tab_s:
-                with st.form("sb_signup_form"):
-                    st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
-                    name = st.text_input("👤 이름", placeholder="홍길동", key="signup_name")
-                    contact = st.text_input("📱 연락처 (비밀번호)", type="password", placeholder="010-0000-0000", key="signup_contact")
-                    if st.form_submit_button("✅ 가입하기", use_container_width=True):
-                        if name and contact:
-                            with st.spinner("⏳ 가입 처리 중입니다. 잠시만 기다려주세요..."):
-                                info = add_member(name, contact)
-                                st.session_state.user_id = info["user_id"]
-                                st.session_state.user_name = name
-                                st.session_state.join_date = dt.strptime(info["join_date"], "%Y-%m-%d")
-                                st.session_state.is_admin = False
-                                st.session_state["_mic_notice"] = True  # 최초 1회 마이크 안내
-                            st.success("가입 완료!")
-                            st.rerun()
-                        else:
-                            st.error("이름과 연락처를 입력해주세요.")
+            tab_l, tab_s = st.tabs(["로그인", "회원가입"])
             with tab_l:
                 with st.form("login_form"):
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>🔑 가입 시 입력한 정보로 로그인하세요</div>", unsafe_allow_html=True)
@@ -1174,6 +1156,22 @@ def main():
                                 st.rerun()
                             else:
                                 st.error("이름 또는 연락처가 올바르지 않습니다.")
+            with tab_s:
+                with st.form("sb_signup_form"):
+                    st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
+                    name = st.text_input("👤 이름", placeholder="홍길동", key="signup_name")
+                    contact = st.text_input("📱 연락처 (비밀번호)", type="password", placeholder="010-0000-0000", key="signup_contact")
+                    if st.form_submit_button("✅ 가입하기", use_container_width=True):
+                        if name and contact:
+                            with st.spinner("⏳ 가입 처리 중입니다. 잠시만 기다려주세요..."):
+                                info = add_member(name, contact)
+                                st.session_state.user_id = info["user_id"]
+                                st.session_state.user_name = name
+                                st.session_state.join_date = dt.strptime(info["join_date"], "%Y-%m-%d")
+                                st.session_state.is_admin = False
+                                st.session_state["_mic_notice"] = True  # 최초 1회 마이크 안내
+                            st.success("가입 완료!")
+                            st.rerun()
                         else:
                             st.error("이름과 연락처를 입력해주세요.")
 
