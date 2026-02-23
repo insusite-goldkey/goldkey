@@ -2453,51 +2453,185 @@ function startSugSTT(){
             st.session_state.current_tab = "home"
             st.rerun()
 
-    # ── [t0] 신규보험 상담 ────────────────────────────────────────────────
+    # ── [t0] 신규보험 상품 상담 — 보험설계사 전용 ───────────────────────
     if cur == "t0":
         tab_home_btn("t0")
-        st.subheader("📋 신규 보험 상품 상담")
-        st.caption("기존 보험증권 분석 → 보장 공백 파악 → 신규 보험 컨설팅")
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            c_name0, query0, hi0, do0 = ai_query_block("t0", "현재 보험 가입 현황, 신규 상담 내용을 입력하세요.")
-            policy_files = st.file_uploader("보험증권 PDF/이미지", accept_multiple_files=True,
-                type=['pdf','jpg','jpeg','png'], key="up_t0")
-            if policy_files:
-                st.success(f"{len(policy_files)}개 증권 업로드 완료")
-            if do0:
-                doc_text = "".join(f"\n[증권: {pf.name}]\n" + extract_pdf_chunks(pf, char_limit=8000)
-                    for pf in (policy_files or []) if pf.type == 'application/pdf')
-                run_ai_analysis(c_name0, query0, hi0, "res_t0",
-                    "[신규보험 상담 · 증권분석]\n1. 소득 역산 및 재무 진단\n"
-                    "2. 암·뇌·심장·실손 보장 공백 분석\n3. 보험료 황금비율 안내\n"
-                    "4. 신규 보험 컨설팅 및 우선순위 제안\n" + doc_text)
-        with col2:
-            st.subheader("🤖 AI 분석 리포트")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:12px;padding:14px 18px;margin-bottom:12px;">
+  <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
+    📋 신규 보험 상품 상담
+  </div>
+  <div style="color:#b3d4f5;font-size:0.78rem;margin-top:4px;">
+    🔒 보험설계사 전용 섹터 &nbsp;|&nbsp; 기존 증권 분석 → 보장 공백 진단 → 신규 컨설팅
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── 고객명 + 상담 입력창 (제목 바로 아래, 전체 너비) ──────────────
+        t0_c_name = st.text_input("👤 고객 성함", placeholder="홍길동", key="t0_cname")
+        t0_query  = st.text_area(
+            "📝 상담 내용 입력",
+            height=160,
+            key="query_t0",
+            placeholder="예) 40대 남성, 현재 실손+암보험 가입 중. 뇌·심장 보장 공백 점검 및 신규 담보 추가 상담 요청."
+        )
+        # 음성 입력 버튼 (전역 STT 설정 적용)
+        components.html(f"""
+<style>
+.t0-stt-row{{display:flex;gap:8px;margin-top:4px;margin-bottom:8px;}}
+.t0-stt-btn{{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #2e6da4;
+  background:#eef4fb;color:#1a3a5c;font-size:0.88rem;font-weight:700;cursor:pointer;}}
+.t0-stt-btn:hover{{background:#2e6da4;color:#fff;}}
+.t0-stt-btn.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;animation:t0pulse 1s infinite;}}
+.t0-interim{{font-size:0.75rem;color:#e74c3c;margin-top:2px;min-height:14px;font-style:italic;}}
+@keyframes t0pulse{{0%{{opacity:1}}50%{{opacity:0.6}}100%{{opacity:1}}}}
+</style>
+<div class="t0-stt-row">
+  <button class="t0-stt-btn" id="t0_stt_btn" onclick="t0StartSTT()">🎙️ 음성 입력 (한국어)</button>
+  <button class="t0-stt-btn" style="border-color:#27ae60;background:#eafaf1;color:#1a5c3a;"
+    onclick="t0StartTTS()">🔊 인사말 재생</button>
+</div>
+<div class="t0-interim" id="t0_interim"></div>
+<script>
+var _t0Active=false; var _t0Rec=null; var _t0Ready=false; var _t0Final='';
+function _t0GetTA(){{
+  var doc=window.parent.document;
+  var tas=doc.querySelectorAll('textarea');
+  for(var i=0;i<tas.length;i++){{
+    if(tas[i].placeholder&&tas[i].placeholder.includes('상담 내용')) return tas[i];
+  }}
+  return tas.length?tas[tas.length-1]:null;
+}}
+function _t0SetTA(val){{
+  var ta=_t0GetTA(); if(!ta) return;
+  var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
+  s.call(ta,val); ta.dispatchEvent(new Event('input',{{bubbles:true}}));
+}}
+function _t0Init(){{
+  if(_t0Ready) return true;
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.');return false;}}
+  var r=new SR();
+  r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=true; r.maxAlternatives={STT_MAX_ALT};
+  r.onresult=function(e){{
+    var interim=''; var fn='';
+    for(var i=e.resultIndex;i<e.results.length;i++){{
+      if(e.results[i].isFinal){{
+        var best=''; var bc=0;
+        for(var j=0;j<e.results[i].length;j++){{
+          if(e.results[i][j].confidence>=bc){{bc=e.results[i][j].confidence;best=e.results[i][j].transcript;}}
+        }}
+        fn+=best;
+      }}else{{interim+=e.results[i][0].transcript;}}
+    }}
+    if(fn){{_t0Final+=(_t0Final?' ':'')+fn; _t0SetTA(_t0Final); document.getElementById('t0_interim').textContent='';}}
+    if(interim) document.getElementById('t0_interim').textContent='🎤 '+interim;
+  }};
+  r.onerror=function(e){{
+    if(e.error==='no-speech'){{
+      if(_t0Active) setTimeout(function(){{if(_t0Active) try{{r.start();}}catch(ex){{}}}},{STT_NO_SPEECH_MS});
+      return;
+    }}
+    if(e.error==='aborted') return;
+    document.getElementById('t0_interim').textContent='⚠️ '+e.error;
+  }};
+  r.onend=function(){{
+    if(_t0Active) setTimeout(function(){{if(_t0Active) try{{r.start();}}catch(ex){{}}}},{STT_RESTART_MS});
+    else{{document.getElementById('t0_stt_btn').textContent='🎙️ 음성 입력 (한국어)';
+          document.getElementById('t0_stt_btn').classList.remove('active');
+          document.getElementById('t0_interim').textContent='';}}
+  }};
+  _t0Rec=r; _t0Ready=true; return true;
+}}
+function t0StartSTT(){{
+  var btn=document.getElementById('t0_stt_btn');
+  if(_t0Active){{
+    _t0Active=false; if(_t0Rec) try{{_t0Rec.stop();}}catch(ex){{}};
+    btn.textContent='🎙️ 음성 입력 (한국어)'; btn.classList.remove('active');
+    document.getElementById('t0_interim').textContent=''; return;
+  }}
+  if(!_t0Init()) return;
+  _t0Final=''; _t0Active=true;
+  btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)'; btn.classList.add('active');
+  document.getElementById('t0_interim').textContent='🟡 음성 입력 준비 중...';
+  try{{_t0Rec.start();}}catch(ex){{}}
+}}
+function t0StartTTS(){{
+  window.speechSynthesis.cancel();
+  var msg=new SpeechSynthesisUtterance('안녕하세요, 고객님. 신규 보험 상품 상담을 시작하겠습니다.');
+  msg.lang='{TTS_LANG}'; msg.rate={TTS_RATE}; msg.pitch={TTS_PITCH}; msg.volume={TTS_VOLUME};
+  var voices=window.speechSynthesis.getVoices();
+  var vp=[{','.join(repr(n) for n in TTS_VOICE_PRIORITY)}];
+  var fv=voices.find(function(v){{return v.lang==='{TTS_LANG}'&&vp.some(function(n){{return v.name.includes(n);}});}});
+  if(fv) msg.voice=fv;
+  window.speechSynthesis.speak(msg);
+}}
+</script>
+""", height=80)
+
+        # ── 증권 업로드 + 분석 버튼 ──────────────────────────────────────
+        t0_files = st.file_uploader("📎 보험증권 PDF/이미지 첨부 (선택)",
+            accept_multiple_files=True, type=['pdf','jpg','jpeg','png'], key="up_t0")
+        if t0_files:
+            st.success(f"✅ {len(t0_files)}개 파일 업로드 완료")
+        t0_do = st.button("🔍 AI 정밀 분석 실행", type="primary",
+                          key="btn_t0_analyze", use_container_width=True)
+
+        st.divider()
+
+        # ── 좌우 분할: AI 분석 리포트 | AI 검토 의견 ─────────────────────
+        col_res, col_review = st.columns([1, 1], gap="medium")
+
+        with col_res:
+            st.markdown("#### 🤖 AI 분석 리포트")
+            if t0_do:
+                if 'user_id' not in st.session_state:
+                    st.error("로그인이 필요합니다.")
+                else:
+                    doc_text = "".join(
+                        f"\n[증권: {pf.name}]\n" + extract_pdf_chunks(pf, char_limit=8000)
+                        for pf in (t0_files or []) if pf.type == 'application/pdf'
+                    )
+                    st.session_state['current_c_name'] = t0_c_name or "고객"
+                    run_ai_analysis(
+                        t0_c_name or "고객", t0_query, 0, "res_t0",
+                        "[신규보험 상담 · 증권분석 — 보험설계사 전용]\n"
+                        "1. 암·뇌·심장·실손 보장 공백 분석\n"
+                        "2. 보험료 황금비율 진단\n"
+                        "3. 신규 보험 컨설팅 및 우선순위 제안\n"
+                        "4. 설계사 활용 핵심 세일즈 포인트\n" + doc_text
+                    )
             show_result("res_t0")
-            components.html("""
-<div style="height:320px;overflow-y:auto;padding:12px 15px;
-  background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
-  font-size:0.83rem;line-height:1.5;
-  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
-<b style="font-size:0.85rem;color:#1a3a5c;">📋 신규보험 상담 안내</b><br><br>
-<b style="color:#c0392b;">▶ 증권 분석 체크리스트</b><br>
-• 실손보험 중복 여부 및 갱신 여부 확인<br>
-• 암·뇌·심장 3대 질환 보장 공백 점검<br>
-• 간병·치매·장해 담보 누락 여부<br>
-• 수수료 여부 확인 (연막 수술마취 포함 여부)<br><br>
-<b style="color:#c0392b;">▶ 보험료 황금비율 원칙</b><br>
-• 가처분 소득의 7~10% 적정 보험료<br>
-• 위험직군 최대 20%까지 허용<br>
-• 건보료 기반 역산 소득 활용<br><br>
-<b style="color:#c0392b;">▶ 신규 컨설팅 우선순위</b><br>
-1. 실손보험 갱신 (구실손 유지 여부)<br>
-2. 암보험 보장 강화<br>
-3. 뇌·심장혁관 담보 추가<br>
-4. 간병보험 설계 (간병인 인정 기준 확인)<br>
-5. 종신보험 또는 CI보험 검토<br><br>
-<b style="color:#555;font-size:0.78rem;">⚠️ 본 상담 내용은 참고용이며 최종 선택은 고객에게 있습니다.</b>
-</div>""", height=340)
+
+        with col_review:
+            st.markdown("#### 💡 AI 검토 의견")
+            st.markdown("""
+<div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:10px;
+  padding:14px 16px;font-size:0.82rem;line-height:1.75;color:#1a1a2e;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;">
+<b style="color:#1a3a5c;font-size:0.88rem;">📋 설계사 체크포인트</b><br><br>
+<b style="color:#c0392b;">▶ 증권 분석 우선순위</b><br>
+① 실손보험 — 구실손 유지 여부 / 갱신형 확인<br>
+② 암보험 — 비급여 항암 담보 포함 여부<br>
+③ 뇌·심장 — 3대 질환 보장 공백 점검<br>
+④ 간병·치매 — 장기요양등급 연계 여부<br>
+⑤ 종신·CI — 사망보장 vs 생존보장 균형<br><br>
+<b style="color:#c0392b;">▶ 보험료 황금비율</b><br>
+• 가처분 소득의 <b>7~10%</b> 적정<br>
+• 위험직군 최대 <b>20%</b>까지 허용<br>
+• 과잉 보험료 → 해지 위험 ↑<br><br>
+<b style="color:#c0392b;">▶ 신규 담보 추천 순서</b><br>
+1. 표적항암약물 허가치료비<br>
+2. 암 주요치료비 (비급여 항암)<br>
+3. 순환계질환 주요치료비<br>
+4. 간병인사용 일당<br>
+5. 치매 진단비<br><br>
+<b style="color:#c0392b;">▶ 세일즈 핵심 포인트</b><br>
+• "지금 가입하신 보험, 10년 후에도 보장되나요?"<br>
+• 갱신형 → 비갱신형 전환 필요성 강조<br>
+• 실손 단독 → 특약 추가로 보장 강화<br><br>
+<b style="color:#888;font-size:0.76rem;">⚠️ 본 내용은 참고용이며 최종 판단은 설계사에게 있습니다.</b>
+</div>""", unsafe_allow_html=True)
 
     # ── [t1] 보험금 상담 ──────────────────────────────────────────────────
     if cur == "t1":
