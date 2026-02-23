@@ -6447,11 +6447,11 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
 </div>""", unsafe_allow_html=True)
 
         # Supabase 연결 상태 확인
-        _gcs_ok = _get_sb_client() is not None
+        _gcs_ok = _SB_PKG_OK and (_get_sb_client() is not None)
         if _gcs_ok:
             st.success("✅ Supabase Storage 연결 정상 — goldkey 버킷 사용 중")
         else:
-            st.warning("⚠️ Supabase 미연결 — secrets.toml에 [supabase] 섹션 등록 필요. AI 분류는 정상 작동합니다.")
+            st.warning("⚠️ Supabase 미연결 — HF Secrets에 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 등록 필요. AI 분류는 정상 작동합니다.")
 
         st.divider()
         col_up, col_list = st.columns([1, 1], gap="medium")
@@ -6477,9 +6477,12 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
                     st.error("로그인이 필요합니다.")
                 else:
                     import re as _re
+                    import time as _time
                     results = []
-                    for lf in leaflet_files:
-                        with st.spinner(f"🔍 {lf.name} AI 분류 중..."):
+                    for _lf_idx, lf in enumerate(leaflet_files):
+                        if _lf_idx > 0:
+                            _time.sleep(3)  # 연속 Gemini 호출 429 방지
+                        with st.spinner(f"🔍 [{_lf_idx+1}/{len(leaflet_files)}] {lf.name} AI 분류 중..."):
                             try:
                                 # 파일 형식별 텍스트 추출
                                 _is_img = lf.name.lower().endswith(('.jpg', '.jpeg', '.png'))
@@ -6545,8 +6548,18 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
                                 gcs_path = _build_gcs_path(doc_type, ins_co, year, safe_fn)
 
                                 gcs_saved = False
+                                gcs_err = ""
                                 if _gcs_ok:
-                                    gcs_saved = gcs_upload_file(lf.getvalue(), gcs_path)
+                                    try:
+                                        sb_cl = _get_sb_client()
+                                        sb_cl.storage.from_(SB_BUCKET).upload(
+                                            path=gcs_path,
+                                            file=lf.getvalue(),
+                                            file_options={"content-type": "application/octet-stream", "upsert": "true"}
+                                        )
+                                        gcs_saved = True
+                                    except Exception as _ge:
+                                        gcs_err = str(_ge)[:120]
 
                                 # ── RAG 자동 등록 ──────────────────────
                                 rag_registered = False
@@ -6571,15 +6584,25 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
                                 except Exception:
                                     pass
 
+                                _gcs_label = (
+                                    "✅ 저장완료" if gcs_saved else
+                                    f"❌ 저장실패: {gcs_err}" if gcs_err else
+                                    "⚠️ Supabase 미연결"
+                                )
                                 results.append({
                                     "파일": lf.name,
                                     "분류결과": parsed,
                                     "GCS경로": gcs_path,
-                                    "GCS저장": "✅ 저장완료" if gcs_saved else "⚠️ Supabase 미연결",
+                                    "GCS저장": _gcs_label,
                                     "RAG등록": "✅ AI 지식베이스 등록" if rag_registered else "⚠️ RAG 미등록"
                                 })
                             except Exception as e:
-                                results.append({"파일": lf.name, "분류결과": {}, "오류": str(e)})
+                                _err_str = str(e)
+                                if "429" in _err_str or "RESOURCE_EXHAUSTED" in _err_str:
+                                    _time.sleep(10)
+                                    results.append({"파일": lf.name, "분류결과": {}, "오류": f"API 한도 초과 — 잠시 후 재시도하세요. ({_err_str[:80]})"})
+                                else:
+                                    results.append({"파일": lf.name, "분류결과": {}, "오류": _err_str})
 
                     st.session_state["leaflet_results"] = results
                     st.session_state.pop("leaflet_gcs_list", None)
