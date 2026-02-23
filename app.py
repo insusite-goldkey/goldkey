@@ -451,11 +451,23 @@ def load_error_log() -> list:
     return []
 
 # --------------------------------------------------------------------------
-# [GCS 연동] 보험 리플렛 자동 분류 시스템
+# [GCS 연동] 보험 문서 자동 분류 시스템
 # secrets.toml [gcs] 섹션에 서비스 계정 키 등록 필요
+#
+# GCS 폴더 구조 (자동 생성):
+#   goldkey/
+#   ├── 약관/{보험사}/{연도}/{파일명}.pdf
+#   ├── 리플렛/{보험사}/{파일명}.pdf
+#   └── 신규상품/{파일명}.pdf  ← 미분류 폴백
 # --------------------------------------------------------------------------
-GCS_BUCKET      = "goldkey"
-GCS_FOLDER      = "신규상품/"
+GCS_BUCKET = "goldkey"
+
+# 문서 유형별 GCS 루트 폴더 매핑
+GCS_FOLDER_MAP = {
+    "약관":   "약관",
+    "리플렛": "리플렛",
+    "신규상품": "신규상품",
+}
 
 def _get_gcs_client():
     """GCS 클라이언트 반환 — secrets.toml [gcs] 섹션 사용"""
@@ -473,46 +485,70 @@ def _get_gcs_client():
     except Exception:
         return None
 
-def gcs_upload_file(file_bytes: bytes, dest_name: str) -> bool:
-    """GCS 신규상품 폴더에 파일 업로드"""
+def _build_gcs_path(doc_type: str, ins_co: str, year: str, file_name: str) -> str:
+    """
+    문서유형·보험사·연도 → GCS 전체 경로 자동 생성
+    약관  : 약관/{보험사}/{연도}/{파일명}
+    리플렛: 리플렛/{보험사}/{파일명}
+    기타  : 신규상품/{파일명}
+    """
+    import re as _re
+    # 경로에 사용 불가한 문자 제거
+    safe = lambda s: _re.sub(r'[\\/:*?"<>|\s]', '_', s.strip()) if s else "미분류"
+    dt  = safe(doc_type)
+    co  = safe(ins_co)
+    yr  = safe(year) if year else ""
+    fn  = safe(file_name)
+    if dt == "약관":
+        return f"약관/{co}/{yr}/{fn}" if yr else f"약관/{co}/{fn}"
+    elif dt == "리플렛":
+        return f"리플렛/{co}/{fn}"
+    else:
+        return f"신규상품/{fn}"
+
+def gcs_upload_file(file_bytes: bytes, gcs_path: str,
+                    content_type: str = "application/pdf") -> bool:
+    """GCS 전체 경로(gcs_path)로 파일 업로드"""
     try:
         client = _get_gcs_client()
         if not client:
             return False
         bucket = client.bucket(GCS_BUCKET)
-        blob   = bucket.blob(GCS_FOLDER + dest_name)
-        blob.upload_from_string(file_bytes, content_type="application/pdf")
+        blob   = bucket.blob(gcs_path)
+        blob.upload_from_string(file_bytes, content_type=content_type)
         return True
     except Exception as e:
         log_error("GCS업로드", str(e))
         return False
 
-def gcs_list_files() -> list:
-    """GCS 신규상품 폴더 파일 목록 반환"""
+def gcs_list_files(prefix: str = "") -> list:
+    """GCS 버킷 내 prefix 경로의 파일 목록 반환"""
     try:
         client = _get_gcs_client()
         if not client:
             return []
         bucket = client.bucket(GCS_BUCKET)
-        blobs  = list(bucket.list_blobs(prefix=GCS_FOLDER))
+        blobs  = list(bucket.list_blobs(prefix=prefix))
         return [
-            {"name": b.name.replace(GCS_FOLDER, ""),
+            {"path": b.name,
+             "name": b.name.split("/")[-1],
+             "folder": "/".join(b.name.split("/")[:-1]),
              "size": b.size,
              "updated": b.updated.strftime("%Y-%m-%d %H:%M") if b.updated else ""}
-            for b in blobs if b.name != GCS_FOLDER
+            for b in blobs if not b.name.endswith("/")
         ]
     except Exception as e:
         log_error("GCS목록", str(e))
         return []
 
-def gcs_delete_file(file_name: str) -> bool:
-    """GCS 신규상품 폴더에서 파일 삭제"""
+def gcs_delete_file(gcs_path: str) -> bool:
+    """GCS 전체 경로(gcs_path)로 파일 삭제"""
     try:
         client = _get_gcs_client()
         if not client:
             return False
         bucket = client.bucket(GCS_BUCKET)
-        blob   = bucket.blob(GCS_FOLDER + file_name)
+        blob   = bucket.blob(gcs_path)
         blob.delete()
         return True
     except Exception as e:
@@ -4456,17 +4492,30 @@ function t0StartTTS(){{
                 if 'user_id' not in st.session_state:
                     st.error("로그인이 필요합니다.")
                 else:
+                    import re as _re
                     results = []
                     for lf in leaflet_files:
-                        with st.spinner(f"🔍 {lf.name} 분류 중..."):
+                        with st.spinner(f"🔍 {lf.name} AI 분류 중..."):
                             try:
                                 pdf_text = extract_pdf_chunks(lf, char_limit=4000)
                                 client, cfg = get_master_model()
                                 classify_prompt = (
-                                    f"다음은 보험 리플렛 내용입니다. 아래 항목을 JSON 형식으로 분류하세요.\n"
-                                    f"항목: 보험사명, 상품명, 보험종류(생명/손해/제3보험), 주요담보(3개 이내), 보험료범위, 가입연령, 특이사항\n"
-                                    f"반드시 JSON만 출력하세요. 예: {{\"보험사명\":\"삼성생명\",\"상품명\":\"...\"}}\n\n"
-                                    f"리플렛 내용:\n{pdf_text}"
+                                    "다음은 보험 문서(약관 또는 리플렛)입니다. 아래 항목을 JSON으로만 출력하세요.\n"
+                                    "항목:\n"
+                                    "  - 문서유형: 반드시 '약관' 또는 '리플렛' 중 하나 (약관=보험약관/표준약관/상품설명서, 리플렛=홍보물/상품안내장)\n"
+                                    "  - 보험사명: 예) 삼성생명, 현대해상 (모르면 '미분류')\n"
+                                    "  - 상품명: 예) 무배당암보험 (모르면 '미분류')\n"
+                                    "  - 보험종류: 생명보험/손해보험/제3보험 중 하나\n"
+                                    "  - 연도: 문서에 표기된 연도 4자리 숫자 (없으면 빈 문자열)\n"
+                                    "  - 주요담보: 핵심 담보 3개 이내 (쉼표 구분)\n"
+                                    "  - 보험료범위: 예) 월 3만~8만원 (모르면 빈 문자열)\n"
+                                    "  - 가입연령: 예) 0~65세 (모르면 빈 문자열)\n"
+                                    "  - 특이사항: 갱신형여부, 무심사여부 등 1줄\n"
+                                    "반드시 JSON만 출력. 예:\n"
+                                    "{\"문서유형\":\"약관\",\"보험사명\":\"삼성생명\",\"상품명\":\"암보험\","
+                                    "\"보험종류\":\"생명보험\",\"연도\":\"2026\",\"주요담보\":\"암진단비,수술비\","
+                                    "\"보험료범위\":\"월5만원\",\"가입연령\":\"0~65세\",\"특이사항\":\"비갱신형\"}\n\n"
+                                    f"문서 내용:\n{pdf_text}"
                                 )
                                 if _GW_OK:
                                     answer = _gw.call_gemini(client, GEMINI_MODEL, classify_prompt, cfg)
@@ -4476,99 +4525,132 @@ function t0StartTTS(){{
                                     answer = sanitize_unicode(resp.text) if resp.text else "{}"
 
                                 # JSON 파싱
-                                import re as _re
                                 json_match = _re.search(r'\{.*\}', answer, _re.DOTALL)
                                 parsed = {}
                                 if json_match:
                                     try:
                                         parsed = json.loads(json_match.group())
                                     except Exception:
-                                        parsed = {"원문": answer[:200]}
+                                        parsed = {}
 
-                                # GCS 저장 파일명: 보험사_상품명_원본파일명.pdf
-                                ins_co  = parsed.get("보험사명", "미분류").replace(" ", "")
-                                prod_nm = parsed.get("상품명", lf.name.replace(".pdf","")).replace(" ", "_")[:20]
-                                dest_nm = f"{ins_co}_{prod_nm}_{lf.name}"
-                                dest_nm = _re.sub(r'[\\/:*?"<>|]', '_', dest_nm)
+                                # GCS 경로 자동 생성
+                                doc_type = parsed.get("문서유형", "신규상품")
+                                ins_co   = parsed.get("보험사명", "미분류")
+                                year     = parsed.get("연도", "")
+                                prod_nm  = parsed.get("상품명", "미분류")
+                                # 파일명: 보험사_상품명_원본명.pdf
+                                safe_fn  = _re.sub(r'[\\/:*?"<>|\s]', '_',
+                                    f"{ins_co}_{prod_nm}_{lf.name}")[:80]
+                                if not safe_fn.endswith(".pdf"):
+                                    safe_fn += ".pdf"
+                                gcs_path = _build_gcs_path(doc_type, ins_co, year, safe_fn)
 
                                 gcs_saved = False
                                 if _gcs_ok:
-                                    gcs_saved = gcs_upload_file(lf.getvalue(), dest_nm)
+                                    gcs_saved = gcs_upload_file(lf.getvalue(), gcs_path)
 
                                 results.append({
                                     "파일": lf.name,
                                     "분류결과": parsed,
-                                    "저장파일명": dest_nm,
-                                    "GCS저장": "✅ 저장완료" if gcs_saved else "⚠️ 로컬(GCS 미연결)"
+                                    "GCS경로": gcs_path,
+                                    "GCS저장": "✅ 저장완료" if gcs_saved else "⚠️ GCS 미연결"
                                 })
                             except Exception as e:
                                 results.append({"파일": lf.name, "분류결과": {}, "오류": str(e)})
 
                     st.session_state["leaflet_results"] = results
+                    st.session_state.pop("leaflet_gcs_list", None)
                     st.success(f"✅ {len(results)}개 파일 분류 완료!")
                     st.rerun()
 
             # 분류 결과 표시
             if st.session_state.get("leaflet_results"):
                 st.markdown("---")
-                st.markdown("**📊 분류 결과**")
+                st.markdown("**📊 AI 분류 결과**")
                 for r in st.session_state["leaflet_results"]:
                     with st.expander(f"📄 {r['파일']}", expanded=True):
                         if "오류" in r:
                             st.error(f"오류: {r['오류']}")
                         else:
                             cl = r["분류결과"]
+                            dt_icon = "📜" if cl.get("문서유형") == "약관" else "🗂️"
                             st.markdown(f"""
 | 항목 | 내용 |
 |---|---|
+| **문서유형** | {dt_icon} {cl.get('문서유형','—')} |
 | **보험사** | {cl.get('보험사명','—')} |
 | **상품명** | {cl.get('상품명','—')} |
-| **종류** | {cl.get('보험종류','—')} |
+| **보험종류** | {cl.get('보험종류','—')} |
+| **연도** | {cl.get('연도','—')} |
 | **주요담보** | {cl.get('주요담보','—')} |
 | **보험료** | {cl.get('보험료범위','—')} |
 | **가입연령** | {cl.get('가입연령','—')} |
 | **특이사항** | {cl.get('특이사항','—')} |
-| **저장파일명** | `{r.get('저장파일명','—')}` |
-| **GCS 저장** | {r.get('GCS저장','—')} |
+| **GCS 저장 경로** | `{r.get('GCS경로','—')}` |
+| **저장 상태** | {r.get('GCS저장','—')} |
 """)
 
-        # ── 우측: GCS 파일 목록 ──────────────────────────────────────────
+        # ── 우측: GCS 폴더별 파일 목록 (탭) ─────────────────────────────
         with col_list:
-            st.markdown("#### 📂 GCS 신규상품 폴더 목록")
+            st.markdown("#### 📂 GCS 버킷 파일 목록")
             if st.button("🔄 목록 새로고침", key="btn_leaflet_refresh", use_container_width=True):
                 st.session_state.pop("leaflet_gcs_list", None)
                 st.rerun()
 
-            if "leaflet_gcs_list" not in st.session_state:
-                with st.spinner("GCS 목록 불러오는 중..."):
-                    st.session_state["leaflet_gcs_list"] = gcs_list_files()
-
-            gcs_files = st.session_state.get("leaflet_gcs_list", [])
-
             if not _gcs_ok:
-                st.info("GCS 연결 후 파일 목록이 표시됩니다.\n\n**등록 방법:**\n1. GCP 콘솔 → 서비스 계정 → JSON 키 발급\n2. `secrets.toml`에 `[gcs]` 섹션 추가\n3. Hugging Face Secrets에도 동일 등록")
-            elif not gcs_files:
-                st.info("📭 신규상품 폴더가 비어 있습니다.\n리플렛을 업로드하면 자동 저장됩니다.")
+                st.info("GCS 연결 후 파일 목록이 표시됩니다.\n\n**등록 방법:**\n"
+                        "1. GCP 콘솔 → 서비스 계정 → JSON 키 발급\n"
+                        "2. `secrets.toml`에 `[gcs]` 섹션 추가\n"
+                        "3. Hugging Face Secrets에도 동일 등록")
             else:
-                st.caption(f"총 {len(gcs_files)}개 파일")
-                for gf in gcs_files:
-                    size_kb = round((gf.get("size") or 0) / 1024, 1)
-                    fc1, fc2 = st.columns([3, 1])
-                    with fc1:
-                        st.markdown(
-                            f"<div style='font-size:0.82rem;padding:4px 0;border-bottom:1px solid #eee;'>"
-                            f"📄 <b>{gf['name']}</b><br>"
-                            f"<span style='color:#888;font-size:0.74rem;'>{size_kb}KB · {gf.get('updated','')}</span>"
-                            f"</div>", unsafe_allow_html=True)
-                    with fc2:
-                        if st.button("🗑️", key=f"del_gcs_{gf['name'][:20]}",
-                                     help=f"{gf['name']} 삭제"):
-                            if gcs_delete_file(gf["name"]):
-                                st.success("삭제 완료")
-                                st.session_state.pop("leaflet_gcs_list", None)
-                                st.rerun()
-                            else:
-                                st.error("삭제 실패")
+                if "leaflet_gcs_list" not in st.session_state:
+                    with st.spinner("GCS 목록 불러오는 중..."):
+                        st.session_state["leaflet_gcs_list"] = gcs_list_files()
+
+                all_files = st.session_state.get("leaflet_gcs_list", [])
+
+                # 폴더별 그룹핑
+                from collections import defaultdict as _dd
+                folder_groups = _dd(list)
+                for gf in all_files:
+                    top = gf["path"].split("/")[0] if "/" in gf["path"] else "기타"
+                    folder_groups[top].append(gf)
+
+                if not all_files:
+                    st.info("📭 버킷이 비어 있습니다.")
+                else:
+                    st.caption(f"전체 {len(all_files)}개 파일")
+                    # 폴더 탭 표시
+                    tab_labels = list(folder_groups.keys())
+                    tab_icons  = {"약관": "📜", "리플렛": "🗂️", "신규상품": "📋"}
+                    tab_display = [f"{tab_icons.get(t,'📁')} {t} ({len(folder_groups[t])})" for t in tab_labels]
+                    if tab_display:
+                        tabs = st.tabs(tab_display)
+                        for ti, (tab_key, tab_obj) in enumerate(zip(tab_labels, tabs)):
+                            with tab_obj:
+                                for gf in folder_groups[tab_key]:
+                                    size_kb = round((gf.get("size") or 0) / 1024, 1)
+                                    sub_path = "/".join(gf["path"].split("/")[1:])
+                                    fc1, fc2 = st.columns([4, 1])
+                                    with fc1:
+                                        st.markdown(
+                                            f"<div style='font-size:0.80rem;padding:3px 0;"
+                                            f"border-bottom:1px solid #eee;'>"
+                                            f"📄 <b>{gf['name']}</b><br>"
+                                            f"<span style='color:#888;font-size:0.72rem;'>"
+                                            f"📁 {sub_path.rsplit('/',1)[0] if '/' in sub_path else tab_key}"
+                                            f" · {size_kb}KB · {gf.get('updated','')}</span>"
+                                            f"</div>", unsafe_allow_html=True)
+                                    with fc2:
+                                        _del_key = f"del_{gf['path'][:25].replace('/','_')}"
+                                        if st.button("🗑️", key=_del_key,
+                                                     help=f"{gf['path']} 삭제"):
+                                            if gcs_delete_file(gf["path"]):
+                                                st.success("삭제 완료")
+                                                st.session_state.pop("leaflet_gcs_list", None)
+                                                st.rerun()
+                                            else:
+                                                st.error("삭제 실패")
 
         st.divider()
         st.markdown("""
