@@ -1990,8 +1990,8 @@ class LightRAGSystem:
     def __init__(self):
         self.index = None
         self.model_loaded = True
-        # 앱 시작 시 DB에서 메모리로 로드
-        _rag_sync_from_db()
+        # 항상 DB에서 강제 재로드 (로그아웃 후 재진입 시 빈 캐시 방지)
+        _rag_sync_from_db(force=True)
 
     def _tokenize(self, text: str):
         return re.findall(r'[가-힣a-zA-Z0-9]+', text.lower())
@@ -2277,10 +2277,11 @@ def main():
     # RAG: LightRAGSystem — 관리자 업로드 문서를 서버 전역 저장소에서 검색, 모든 사용자 참조
     if 'rag_system' not in st.session_state:
         st.session_state.rag_system = LightRAGSystem()
-    # 앱 재시작 후 첫 세션 진입 시 DB에서 강제 재동기화 (캐시 store가 비어있을 수 있음)
+    # docs가 비어있으면 항상 강제 재동기화 (로그아웃/재진입 시 캐시 복구)
     _rag_store = _get_rag_store()
     if not _rag_store.get("docs"):
         _rag_sync_from_db(force=True)
+        st.session_state.rag_system = LightRAGSystem()
 
     # ── 탭 전환 시 상단 스크롤 처리 ────────────────────────────────────
     if st.session_state.pop("_scroll_top", False):
@@ -2745,6 +2746,11 @@ def main():
             with _lo_col1:
                 if st.button("🔓 로그아웃", key="btn_logout", use_container_width=True):
                     _session_checkout(st.session_state.get("user_id", ""))
+                    # RAG 캐시 _db_loaded 리셋 — 재로그인 시 Supabase에서 강제 재로드
+                    try:
+                        _get_rag_store().update({"docs": [], "_db_loaded": False})
+                    except Exception:
+                        pass
                     st.session_state.clear()
                     st.rerun()
             with _lo_col2:
