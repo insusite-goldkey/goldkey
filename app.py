@@ -5461,39 +5461,101 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         st.warning("지식베이스가 초기화되었습니다.")
                         st.rerun()
 
-                # ── 등록 문서 목록 ────────────────────────────────────────
+                # ── 저장소 상태 배너 ─────────────────────────────────────
                 st.divider()
-                st.markdown("#### 📁 등록 문서 목록")
+                _sb_ok = _rag_use_supabase()
+                if _sb_ok:
+                    st.markdown("""<div style="background:#e8f5e9;border:1px solid #27ae60;border-radius:8px;
+padding:8px 14px;font-size:0.82rem;margin-bottom:8px;">
+🟢 <b>Supabase 연결됨</b> — 업로드 자료가 <b>완전 영구 보존</b>됩니다 (코드 재배포 후에도 유지)
+</div>""", unsafe_allow_html=True)
+                else:
+                    st.markdown("""<div style="background:#fff3cd;border:1px solid #f59e0b;border-radius:8px;
+padding:8px 14px;font-size:0.82rem;margin-bottom:8px;">
+🟡 <b>SQLite 임시 저장 중</b> — Supabase 미연결. 코드 재배포 시 자료가 초기화될 수 있습니다.
+</div>""", unsafe_allow_html=True)
+
+                # ── 등록 문서 목록 표 ─────────────────────────────────────
+                st.markdown("#### 📊 보관 자료 현황표")
                 _sources = _rag_db_get_sources()
                 if _sources:
-                    # 카테고리 필터
-                    _cats = ["전체"] + sorted(set(s["category"] for s in _sources))
-                    _sel_cat = st.selectbox("카테고리 필터", _cats, key="rag_cat_filter")
-                    _filtered = _sources if _sel_cat == "전체" else [s for s in _sources if s["category"] == _sel_cat]
+                    # ── 카테고리별 통계 요약 ──────────────────────────────
+                    _cat_stats = {}
+                    for _s in _sources:
+                        _c = _s.get("category","미분류")
+                        _cat_stats[_c] = _cat_stats.get(_c, {"건수":0,"청크":0})
+                        _cat_stats[_c]["건수"] += 1
+                        _cat_stats[_c]["청크"] += _s.get("chunk_cnt",0)
 
-                    for _src in _filtered:
-                        _cat_color = {"보험약관":"#c0392b","공문서":"#2e6da4","상담자료":"#27ae60",
-                                      "판례":"#8e44ad","보도자료":"#e67e22","세무자료":"#16a085"}.get(_src["category"],"#555")
-                        st.markdown(f"""
-<div style="background:#fafafa;border:1px solid #e0e0e0;border-radius:8px;
-  padding:10px 14px;margin-bottom:6px;font-size:0.78rem;">
-<div style="display:flex;justify-content:space-between;align-items:center;">
-  <span><b style="color:#1a3a5c;">{_src['filename']}</b>
-  &nbsp;<span style="background:{_cat_color};color:#fff;border-radius:4px;
-    padding:1px 7px;font-size:0.68rem;">{_src['category']}</span></span>
-  <span style="color:#888;font-size:0.68rem;">청크 {_src['chunk_cnt']}개</span>
-</div>
-<div style="color:#555;margin-top:4px;">
-  🏢 {_src['insurer'] or '미상'} &nbsp;|&nbsp; 📅 {_src['doc_date'] or '미상'} &nbsp;|&nbsp; 🕐 {_src['uploaded']}
-</div>
-{f'<div style="color:#333;margin-top:3px;">📝 {_src["summary"]}</div>' if _src['summary'] else ''}
-</div>""", unsafe_allow_html=True)
-                        if st.button(f"🗑️ 삭제", key=f"del_src_{_src['id']}"):
-                            _rag_db_delete_source(_src["id"])
+                    _cat_color_map = {"보험약관":"#c0392b","공문서":"#2e6da4","상담자료":"#27ae60",
+                                      "판례":"#8e44ad","보도자료":"#e67e22","세무자료":"#16a085","기타":"#555","미분류":"#888"}
+                    _stat_cols = st.columns(len(_cat_stats))
+                    for _ci, (_cname, _cval) in enumerate(_cat_stats.items()):
+                        _col = _cat_color_map.get(_cname,"#555")
+                        _stat_cols[_ci].markdown(f"""<div style="background:#fafafa;border-top:3px solid {_col};
+border-radius:6px;padding:8px 10px;text-align:center;font-size:0.78rem;">
+<div style="color:{_col};font-weight:700;font-size:0.85rem;">{_cname}</div>
+<div style="font-size:1.1rem;font-weight:900;">{_cval['건수']}건</div>
+<div style="color:#888;">{_cval['청크']}청크</div></div>""", unsafe_allow_html=True)
+
+                    st.markdown("<br>", unsafe_allow_html=True)
+
+                    # ── 필터 + 정렬 ──────────────────────────────────────
+                    _fc1, _fc2 = st.columns([2,2])
+                    with _fc1:
+                        _cats = ["전체"] + sorted(set(s["category"] for s in _sources))
+                        _sel_cat = st.selectbox("카테고리 필터", _cats, key="rag_cat_filter")
+                    with _fc2:
+                        _sel_sort = st.selectbox("정렬 기준", ["최신순","파일명순","청크수순"], key="rag_sort")
+
+                    _filtered = _sources if _sel_cat == "전체" else [s for s in _sources if s["category"] == _sel_cat]
+                    if _sel_sort == "파일명순":
+                        _filtered = sorted(_filtered, key=lambda x: x["filename"])
+                    elif _sel_sort == "청크수순":
+                        _filtered = sorted(_filtered, key=lambda x: x.get("chunk_cnt",0), reverse=True)
+
+                    # ── DataFrame 표 ──────────────────────────────────────
+                    if _filtered:
+                        _df_rows = []
+                        for _s in _filtered:
+                            _df_rows.append({
+                                "ID": _s["id"],
+                                "파일명": _s["filename"],
+                                "분류": _s["category"],
+                                "보험사/기관": _s.get("insurer","") or "미상",
+                                "문서날짜": _s.get("doc_date","") or "미상",
+                                "청크수": _s.get("chunk_cnt",0),
+                                "업로드일시": _s.get("uploaded",""),
+                                "요약": (_s.get("summary","") or "")[:40] + ("..." if len(_s.get("summary","") or "")>40 else ""),
+                            })
+                        _df = pd.DataFrame(_df_rows)
+                        st.dataframe(
+                            _df.drop(columns=["ID"]),
+                            use_container_width=True,
+                            height=min(400, 60 + len(_df_rows)*38),
+                            column_config={
+                                "파일명":    st.column_config.TextColumn("📄 파일명", width="large"),
+                                "분류":      st.column_config.TextColumn("📂 분류", width="small"),
+                                "보험사/기관": st.column_config.TextColumn("🏢 보험사/기관", width="medium"),
+                                "문서날짜":  st.column_config.TextColumn("📅 날짜", width="small"),
+                                "청크수":    st.column_config.NumberColumn("🔢 청크", width="small"),
+                                "업로드일시": st.column_config.TextColumn("🕐 업로드", width="medium"),
+                                "요약":      st.column_config.TextColumn("📝 요약", width="large"),
+                            }
+                        )
+
+                        # ── 개별 삭제 ────────────────────────────────────
+                        st.markdown("##### 🗑️ 개별 문서 삭제")
+                        _del_options = {f"[{_s['category']}] {_s['filename']} (청크 {_s.get('chunk_cnt',0)}개)": _s["id"]
+                                        for _s in _filtered}
+                        _del_sel = st.selectbox("삭제할 문서 선택", list(_del_options.keys()), key="rag_del_sel")
+                        if st.button("🗑️ 선택 문서 삭제", key="btn_del_single", type="primary"):
+                            _rag_db_delete_source(_del_options[_del_sel])
                             _rag_sync_from_db()
+                            st.success(f"삭제 완료: {_del_sel}")
                             st.rerun()
                 else:
-                    st.info("등록된 문서가 없습니다.")
+                    st.info("등록된 문서가 없습니다. 위에서 파일을 업로드하세요.")
 
                 # ── 검색 테스트 ───────────────────────────────────────────
                 st.divider()
