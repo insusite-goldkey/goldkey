@@ -1245,16 +1245,17 @@ def main():
     return m + '분 ' + (sec < 10 ? '0' : '') + sec + '초';
   }}
 
+  var pd = window.parent.document;
+
   function removeWarning() {{
-    if(warningDiv && warningDiv.parentNode) {{
-      warningDiv.parentNode.removeChild(warningDiv);
-      warningDiv = null;
-    }}
+    var existing = pd.getElementById('gk-session-warn');
+    if(existing) existing.parentNode.removeChild(existing);
+    warningDiv = null;
   }}
 
   function showWarning(sec) {{
-    if(!warningDiv) {{
-      warningDiv = document.createElement('div');
+    if(!pd.getElementById('gk-session-warn')) {{
+      warningDiv = pd.createElement('div');
       warningDiv.id = 'gk-session-warn';
       warningDiv.style.cssText = [
         'position:fixed','bottom:20px','right:20px','z-index:99999',
@@ -1270,32 +1271,30 @@ def main():
         '<button id="gk-extend-btn" style="flex:1;background:#2e6da4;color:#fff;border:none;border-radius:6px;padding:8px;font-size:0.85rem;cursor:pointer;font-weight:700;">✅ 세션 연장</button>' +
         '<button id="gk-dismiss-btn" style="flex:1;background:#eee;color:#555;border:none;border-radius:6px;padding:8px;font-size:0.85rem;cursor:pointer;">닫기</button>' +
         '</div>';
-      try {{ window.parent.document.body.appendChild(warningDiv); }}
-      catch(e) {{ document.body.appendChild(warningDiv); }}
+      pd.body.appendChild(warningDiv);
 
-      // 연장 버튼: Streamlit 아무 버튼 클릭 트리거 → 세션 체크인 갱신
-      document.getElementById('gk-extend-btn').onclick = function() {{
+      pd.getElementById('gk-extend-btn').addEventListener('click', function() {{
         removeWarning();
         warned = false;
-        // parent의 숨겨진 버튼 또는 페이지 클릭으로 rerun 유도
+        remaining += 600;  // 로컬 카운트다운 10분 추가
+        // Streamlit rerun 트리거: 실제 DOM 버튼 클릭 → _session_checkin 재호출
         try {{
-          var pd = window.parent.document;
-          var btns = pd.querySelectorAll('button');
-          // 홈으로 버튼이 아닌 아무 버튼이나 클릭 (세션 갱신 목적)
-          for(var i=0;i<btns.length;i++) {{
-            if(btns[i].innerText && btns[i].innerText.includes('연장')) {{
-              btns[i].click(); break;
-            }}
+          var btns = pd.querySelectorAll('button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"]');
+          if(btns.length > 0) {{
+            btns[0].click();
+          }} else {{
+            // fallback: 페이지 전체 클릭
+            pd.body.click();
           }}
-        }} catch(e) {{}}
-        // fallback: 페이지 자체 클릭으로 Streamlit rerun 유도
-        try {{ window.parent.document.body.click(); }} catch(e) {{}}
-      }};
-      document.getElementById('gk-dismiss-btn').onclick = function() {{
+        }} catch(e) {{
+          pd.body.click();
+        }}
+      }});
+      pd.getElementById('gk-dismiss-btn').addEventListener('click', function() {{
         removeWarning();
-      }};
+      }});
     }}
-    var el = document.getElementById('gk-countdown');
+    var el = pd.getElementById('gk-countdown');
     if(el) el.textContent = '남은 시간: ' + fmtTime(sec);
   }}
 
