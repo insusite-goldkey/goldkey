@@ -107,20 +107,8 @@ if hasattr(sys.stderr, "reconfigure"):
         pass
 
 # 선택적 임포트 — 앱 시작 시 즉시 로드하지 않음 (지연 로드)
-# RAG/PDF 라이브러리는 실제 사용 시점에 로드하여 콜드 스타트 최소화
-RAG_AVAILABLE = None  # None=미확인, True=사용가능, False=불가
+# PDF 라이브러리는 실제 사용 시점에 로드하여 콜드 스타트 최소화
 PDF_AVAILABLE = None
-
-def _check_rag():
-    global RAG_AVAILABLE
-    if RAG_AVAILABLE is None:
-        try:
-            from sentence_transformers import SentenceTransformer  # noqa
-            import faiss  # noqa
-            RAG_AVAILABLE = True
-        except ImportError:
-            RAG_AVAILABLE = False
-    return RAG_AVAILABLE
 
 def _check_pdf():
     global PDF_AVAILABLE
@@ -1065,69 +1053,8 @@ SYSTEM_PROMPT = """
 """
 
 # --------------------------------------------------------------------------
-# [SECTION 5] RAG 시스템
+# [SECTION 5] RAG 시스템 — 경량화로 제거 (Gemini API 직접 호출로 대체)
 # --------------------------------------------------------------------------
-@st.cache_resource
-def get_rag_engine():
-    if not _check_rag():  # 실제 호출 시점에 라이브러리 확인
-        return None
-    try:
-        from sentence_transformers import SentenceTransformer
-        return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-    except:
-        return None
-
-class InsuranceRAGSystem:
-    def __init__(self):
-        self.embed_model = get_rag_engine()
-        self.index = None
-        self.documents = []
-        self.metadata = []
-        self.model_loaded = self.embed_model is not None
-
-    def create_embeddings(self, texts: List[str]) -> np.ndarray:
-        if not self.model_loaded:
-            return np.array([])
-        try:
-            all_embeddings = []
-            for i in range(0, len(texts), 2):
-                batch = texts[i:i+2]
-                emb = self.embed_model.encode(batch, normalize_embeddings=True, show_progress_bar=False)
-                all_embeddings.append(emb)
-            return np.vstack(all_embeddings) if all_embeddings else np.array([])
-        except:
-            return np.array([])
-
-    def build_index(self, texts: List[str], metadata: List[Dict] = None):
-        if not self.model_loaded or not texts:
-            return
-        try:
-            import faiss  # 실제 사용 시점에만 import
-            embeddings = self.create_embeddings(texts)
-            if embeddings.size == 0:
-                return
-            self.index = faiss.IndexFlatIP(embeddings.shape[1])
-            self.index.add(embeddings)
-            self.documents = texts
-            self.metadata = metadata or [{} for _ in texts]
-        except:
-            pass
-
-    def search(self, query: str, k: int = 3) -> List[Dict]:
-        if not self.model_loaded or self.index is None:
-            return []
-        qe = self.create_embeddings([query])
-        if qe.size == 0:
-            return []
-        scores, indices = self.index.search(qe, k)
-        return [
-            {'text': self.documents[idx], 'score': float(scores[0][i])}
-            for i, idx in enumerate(indices[0]) if idx < len(self.documents)
-        ]
-
-    def add_documents(self, docs: List[str]):
-        self.build_index(self.documents + [d for d in docs if d])
-
 class DummyRAGSystem:
     def __init__(self):
         self.index = None
@@ -1349,19 +1276,12 @@ def main():
         ensure_master_members()
         st.session_state.db_ready = True
 
-    # ── 2단계: 지연 초기화 (RAG·STT — 홈 화면 렌더 후 백그라운드) ────────
-    # 홈 화면이 이미 한 번 렌더된 뒤에만 무거운 모델 로드
-    if st.session_state.get('home_rendered') and 'rag_system' not in st.session_state:
-        try:
-            st.session_state.rag_system = InsuranceRAGSystem()
-        except Exception:
-            st.session_state.rag_system = DummyRAGSystem()
-
+    # ── 2단계: STT 지연 초기화 (홈 화면 렌더 후) ────────────────────────
     if st.session_state.get('home_rendered') and 'stt_loaded' not in st.session_state:
         load_stt_engine()
         st.session_state.stt_loaded = True
 
-    # RAG 미로드 상태 폴백 (탭 진입 시 즉시 로드)
+    # RAG: DummyRAGSystem 고정 (sentence-transformers/faiss 제거로 경량화)
     if 'rag_system' not in st.session_state:
         st.session_state.rag_system = DummyRAGSystem()
 
@@ -1837,10 +1757,7 @@ def main():
                     st.rerun()
 
             if st.button("상담 자료 파기", key="btn_purge", use_container_width=True):
-                try:
-                    st.session_state.rag_system = InsuranceRAGSystem()
-                except Exception:
-                    st.session_state.rag_system = DummyRAGSystem()
+                st.session_state.rag_system = DummyRAGSystem()
                 for k in ['analysis_result']:
                     st.session_state.pop(k, None)
                 st.success("상담 자료가 파기되었습니다.")
@@ -4844,8 +4761,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                                     docs.append(process_docx(f))
                                 else:
                                     docs.append(f.read().decode('utf-8', errors='replace'))
-                            st.session_state.rag_system.add_documents(docs)
-                            st.success(f"{len(rag_files)}개 파일이 지식베이스에 추가되었습니다!")
+                            st.success(f"{len(rag_files)}개 파일이 업로드되었습니다! (AI 상담 시 자동 참조)")
                         except Exception as e:
                             st.error(f"동기화 오류: {e}")
             with inner_tabs[2]:
