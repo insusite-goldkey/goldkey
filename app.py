@@ -1922,6 +1922,19 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                 _dir_pending = [d for d in _dir_all if d.get("status") == "대기"]
                 if _dir_pending:
                     st.warning(f"🔔 미체크 지시 {len(_dir_pending)}건")
+                # ── RAG 지식베이스 바로가기 ──────────────────────────
+                st.markdown("---")
+                st.markdown("**📚 AI 지식베이스 (RAG)**")
+                _rag_store_sb = _get_rag_store()
+                _rag_cnt_sb = len(_rag_store_sb.get("docs", []))
+                st.caption(f"현재 저장된 청크: {_rag_cnt_sb}개")
+                if st.button("📚 RAG 지식베이스 관리", key="btn_goto_rag",
+                             use_container_width=True, type="primary"):
+                    st.session_state.current_tab = "t9"
+                    st.session_state["_scroll_top"] = True
+                    st.session_state["_rag_admin_hint"] = True
+                    st.rerun()
+                st.markdown("---")
                 if st.button("📋 제안 목록 보기", key="btn_show_suggestions", use_container_width=True):
                     st.session_state["_show_suggestions"] = not st.session_state.get("_show_suggestions", False)
                 if st.button("📢 개선 지시 목록", key="btn_show_directives", use_container_width=True):
@@ -4991,10 +5004,13 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t9":
         tab_home_btn("t9")
         st.subheader("⚙️ 관리자 전용 시스템")
+        # RAG 바로가기 힌트 (사이드바 버튼으로 진입 시)
+        if st.session_state.pop("_rag_admin_hint", False):
+            st.info("👇 관리자 인증키 입력 후 **'RAG 지식베이스'** 탭을 클릭하세요.")
         admin_key_input = st.text_input("관리자 인증키", type="password", key="admin_key_tab3")
 
         if admin_key_input == get_admin_key():
-            st.success("관리자 시스템 활성화")
+            st.success("✅ 관리자 시스템 활성화 — 아래 'RAG 지식베이스' 탭에서 파일을 업로드하세요.")
 
             # ── 회원수 임계치 체크 + 알림 배너 ──────────────────────────
             _check_member_thresholds()
