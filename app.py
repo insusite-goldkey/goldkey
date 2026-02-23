@@ -5692,10 +5692,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 st.divider()
                 # ── 파일 업로드 ──────────────────────────────────────────
                 st.markdown("#### 📎 문서 업로드 (자동 분류·영구 저장)")
+                _rag_upload_key = f"rag_uploader_admin_{st.session_state.get('_rag_upload_cnt', 0)}"
                 rag_files = st.file_uploader(
                     "PDF / DOCX / TXT / JPG / PNG — Gemini가 자동으로 분류·날짜·보험사를 추출합니다",
                     type=['pdf','docx','txt','jpg','jpeg','png'],
-                    accept_multiple_files=True, key="rag_uploader_admin")
+                    accept_multiple_files=True, key=_rag_upload_key)
 
                 _rbtn1, _rbtn2 = st.columns(2)
                 with _rbtn1:
@@ -5746,6 +5747,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         if _added > 0:
                             _rag_sync_from_db()
                             st.success(f"✅ {_added}건 영구 저장 완료!")
+                            st.session_state['_rag_upload_cnt'] = st.session_state.get('_rag_upload_cnt', 0) + 1
                             st.rerun()
 
                 with _rbtn2:
