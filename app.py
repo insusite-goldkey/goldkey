@@ -706,7 +706,7 @@ def gcs_delete_file(gcs_path: str) -> bool:
 # 카테고리: 의무기록, 증권분석, 청구서류, 계약서, 기타
 # DB 테이블: gk_customer_docs — 모든 탭에서 저장 시 동일 고객 폴더로 통합
 # --------------------------------------------------------------------------
-CUSTOMER_DOC_CATEGORIES = ["의무기록", "증권분석", "청구서류", "계약서", "기타"]
+CUSTOMER_DOC_CATEGORIES = ["의무기록", "증권분석", "청구서류", "계약서류", "사고관련", "기타"]
 
 # gk_customer_docs 테이블 생성 SQL (Supabase SQL Editor에서 1회 실행)
 _CUSTOMER_DOCS_SQL = """
@@ -725,23 +725,23 @@ CREATE TABLE IF NOT EXISTS gk_customer_docs (
 CREATE INDEX IF NOT EXISTS idx_gk_customer_docs_name ON gk_customer_docs(customer_name);
 """
 
-def _build_customer_path(customer_name: str, category: str, filename: str, birth6: str = "") -> str:
-    """고객 개인 저장 경로 생성: 고객/{고객명}_{생년월일}/{카테고리}/{파일명}"""
+def _build_customer_path(insured_name: str, category: str, filename: str, id6: str = "") -> str:
+    """피보험자 기준 저장 경로: 피보험자/{피보험자명}_{주민앞6}/{카테고리}/{파일명}"""
     import re as _re
     safe = lambda s: _re.sub(r'[\\/:*?"<>|\s]', '_', s.strip()) if s else "미분류"
-    _b6 = _re.sub(r'[^0-9]', '', birth6)[:6]  # 숫자만 6자리
-    _folder = f"{safe(customer_name)}_{_b6}" if _b6 else safe(customer_name)
-    return f"고객/{_folder}/{safe(category)}/{safe(filename)}"
+    _i6 = _re.sub(r'[^0-9]', '', id6)[:6]
+    _folder = f"{safe(insured_name)}_{_i6}" if _i6 else safe(insured_name)
+    return f"피보험자/{_folder}/{safe(category)}/{safe(filename)}"
 
-def customer_doc_save(file_bytes: bytes, filename: str, customer_name: str,
-                      category: str, birth6: str = "", memo: str = "",
+def customer_doc_save(file_bytes: bytes, filename: str, insured_name: str,
+                      category: str, id6: str = "", memo: str = "",
                       tab_source: str = "", uploaded_by: str = "") -> dict:
-    """고객 파일을 Storage에 저장 + DB에 메타 등록. 결과 dict 반환"""
+    """피보험자 파일을 Storage에 저장 + DB에 메타 등록. 결과 dict 반환"""
     import re as _re
     now = dt.now().strftime("%Y-%m-%d %H:%M")
     safe_fn = _re.sub(r'[\\/:*?"<>|\s]', '_', filename)[:80]
-    _b6 = _re.sub(r'[^0-9]', '', birth6)[:6]
-    storage_path = _build_customer_path(customer_name, category, safe_fn, _b6)
+    _i6 = _re.sub(r'[^0-9]', '', id6)[:6]
+    storage_path = _build_customer_path(insured_name, category, safe_fn, _i6)
     result = {"ok": False, "storage_path": storage_path, "error": ""}
     sb = _get_sb_client() if _SB_PKG_OK else None
     if not sb:
@@ -760,8 +760,8 @@ def customer_doc_save(file_bytes: bytes, filename: str, customer_name: str,
     # DB 메타 등록
     try:
         sb.table("gk_customer_docs").insert({
-            "customer_name": customer_name,
-            "birth6":        _b6,
+            "insured_name":  insured_name,
+            "id6":           _i6,
             "category":      category,
             "filename":      filename,
             "storage_path":  storage_path,
@@ -776,15 +776,15 @@ def customer_doc_save(file_bytes: bytes, filename: str, customer_name: str,
         result["error"] = f"DB 오류: {str(_e)[:80]}"
     return result
 
-def customer_doc_list(customer_name: str = "") -> list:
-    """고객 파일 목록 조회 — customer_name 없으면 전체"""
+def customer_doc_list(insured_name: str = "") -> list:
+    """피보험자 파일 목록 조회 — insured_name 없으면 전체"""
     sb = _get_sb_client() if _SB_PKG_OK else None
     if not sb:
         return []
     try:
         q = sb.table("gk_customer_docs").select("*").order("uploaded_at", desc=True)
-        if customer_name:
-            q = q.eq("customer_name", customer_name)
+        if insured_name:
+            q = q.eq("insured_name", insured_name)
         return q.execute().data or []
     except Exception:
         return []
@@ -805,20 +805,22 @@ def customer_doc_delete(doc_id: int, storage_path: str) -> bool:
         return False
 
 def customer_doc_get_names() -> list:
-    """등록된 고객명+생년월일 목록 반환 — '홍길동 (800101)' 형식"""
+    """등록된 피보험자명+주민앞6 목록 반환 — '홍길동 (800101)' 형식"""
     sb = _get_sb_client() if _SB_PKG_OK else None
     if not sb:
         return []
     try:
-        rows = sb.table("gk_customer_docs").select("customer_name,birth6").execute().data or []
+        rows = sb.table("gk_customer_docs").select("insured_name,id6").execute().data or []
         seen = set()
         result = []
         for r in rows:
-            _key = (r["customer_name"], r.get("birth6", ""))
+            _key = (r.get("insured_name",""), r.get("id6", ""))
             if _key not in seen:
                 seen.add(_key)
-                _label = f"{r['customer_name']} ({r['birth6']})".strip() if r.get("birth6") else r["customer_name"]
-                result.append({"label": _label, "name": r["customer_name"], "birth6": r.get("birth6","")})
+                _nm = r.get("insured_name","")
+                _i6 = r.get("id6","")
+                _label = f"{_nm} ({_i6})" if _i6 else _nm
+                result.append({"label": _label, "name": _nm, "id6": _i6})
         return sorted(result, key=lambda x: x["label"])
     except Exception:
         return []
@@ -1298,8 +1300,8 @@ CREATE TABLE IF NOT EXISTS gk_members (
 );
 CREATE TABLE IF NOT EXISTS gk_customer_docs (
     id            BIGSERIAL PRIMARY KEY,
-    customer_name TEXT NOT NULL,
-    birth6        TEXT DEFAULT '',
+    insured_name  TEXT NOT NULL,
+    id6           TEXT DEFAULT '',
     category      TEXT NOT NULL DEFAULT '기타',
     filename      TEXT NOT NULL,
     storage_path  TEXT NOT NULL,
@@ -1309,8 +1311,9 @@ CREATE TABLE IF NOT EXISTS gk_customer_docs (
     uploaded_at   TEXT NOT NULL,
     tab_source    TEXT DEFAULT ''
 );
-ALTER TABLE gk_customer_docs ADD COLUMN IF NOT EXISTS birth6 TEXT DEFAULT '';
-CREATE INDEX IF NOT EXISTS idx_gk_customer_docs_name ON gk_customer_docs(customer_name);
+ALTER TABLE gk_customer_docs ADD COLUMN IF NOT EXISTS insured_name TEXT DEFAULT '';
+ALTER TABLE gk_customer_docs ADD COLUMN IF NOT EXISTS id6 TEXT DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_gk_customer_docs_insured ON gk_customer_docs(insured_name);
 """
 
 def _rag_use_supabase() -> bool:
@@ -6872,49 +6875,53 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
-    👤 고객자료 통합저장 시스템
+    🛡️ 피보험자 자료 통합저장 시스템
   </div>
   <div style="color:#b3d4f5;font-size:0.78rem;margin-top:4px;">
-    대분류: 고객명 &nbsp;|&nbsp; 소분류: 의무기록·증권분석·청구서류·계약서<br>
-    어느 탭에서 저장해도 동일 고객 폴더에 통합 보관
+    대분류: <b>피보험자</b>(치료받은 사람·사고당한 사람) 성명+주민번호 앞6자리<br>
+    소분류: 의무기록·증권분석·청구서류·계약서류·사고관련 — 어느 탭에서도 동일 폴더 통합
   </div>
 </div>""", unsafe_allow_html=True)
 
         _cdb_ok = _SB_PKG_OK and (_get_sb_client() is not None)
         if _cdb_ok:
-            st.success("✅ Supabase 연결 정상 — goldkey/고객/ 버킷 사용 중")
+            st.success("✅ Supabase 연결 정상 — goldkey/피보험자/ 버킷 사용 중")
         else:
             st.warning("⚠️ Supabase 미연결 — HF Secrets에 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 등록 필요")
 
+        st.info("💡 **피보험자** = 치료받은 사람·사고당한 사람·보험의 직접 대상자. 계약자와 다를 수 있으므로 반드시 피보험자 기준으로 입력하세요.")
+
         st.divider()
-        _cd_tab_up, _cd_tab_view = st.tabs(["📤 파일 저장", "📂 고객별 자료 조회"])
+        _cd_tab_up, _cd_tab_view = st.tabs(["📤 파일 저장", "📂 피보험자별 자료 조회"])
 
         # ── 파일 저장 탭 ──────────────────────────────────────────────────
         with _cd_tab_up:
-            st.markdown("#### 📤 고객 파일 저장")
-            _existing_names = customer_doc_get_names()  # [{"label":..,"name":..,"birth6":..}]
+            st.markdown("#### 📤 피보험자 파일 저장")
+            _existing_names = customer_doc_get_names()  # [{"label":..,"name":..,"id6":..}]
 
-            _cd_name_mode = st.radio("고객명 입력 방식", ["기존 고객 선택", "신규 고객 입력"],
+            _cd_name_mode = st.radio("피보험자 입력 방식", ["기존 피보험자 선택", "신규 피보험자 입력"],
                                      horizontal=True, key="cd_name_mode")
             _cd_col1, _cd_col2 = st.columns(2)
             with _cd_col1:
-                if _cd_name_mode == "기존 고객 선택" and _existing_names:
+                if _cd_name_mode == "기존 피보험자 선택" and _existing_names:
                     _sel_labels = [x["label"] for x in _existing_names]
-                    _sel_idx = st.selectbox("고객 선택", range(len(_sel_labels)),
+                    _sel_idx = st.selectbox("피보험자 선택", range(len(_sel_labels)),
                                             format_func=lambda i: _sel_labels[i],
                                             key="cd_customer_sel")
-                    _cd_customer = _existing_names[_sel_idx]["name"]
-                    _cd_birth6   = _existing_names[_sel_idx]["birth6"]
-                    st.caption(f"👤 {_cd_customer}  생년월일: {_cd_birth6 or '미입력'}")
+                    _cd_insured = _existing_names[_sel_idx]["name"]
+                    _cd_id6     = _existing_names[_sel_idx]["id6"]
+                    st.caption(f"🛡️ {_cd_insured}  주민번호 앞6: {_cd_id6 or '미입력'}")
                 else:
-                    _cd_customer = st.text_input("고객명", placeholder="예) 홍길동",
-                                                  key="cd_customer_new")
-                    _cd_birth6_raw = st.text_input("생년월일 앞 6자리",
-                        placeholder="예) 800101  (YYMMDD)",
-                        max_chars=8, key="cd_birth6_new")
+                    _cd_insured = st.text_input("피보험자 성명", placeholder="예) 홍길동",
+                                                 key="cd_customer_new")
+                    _cd_id6_raw = st.text_input(
+                        "주민번호 앞 6자리",
+                        placeholder="예) 800101  (생년월일 YYMMDD)",
+                        max_chars=8, key="cd_birth6_new",
+                        help="동명이인 구분용 — 뒷자리는 저장하지 않습니다")
                     import re as _re_b
-                    _cd_birth6 = _re_b.sub(r'[^0-9]', '', _cd_birth6_raw)[:6]
-                    if _cd_birth6_raw and len(_cd_birth6) < 6:
+                    _cd_id6 = _re_b.sub(r'[^0-9]', '', _cd_id6_raw)[:6]
+                    if _cd_id6_raw and len(_cd_id6) < 6:
                         st.warning("숫자 6자리를 입력하세요 (예: 800101)")
             with _cd_col2:
                 _cd_category = st.selectbox("자료 분류", CUSTOMER_DOC_CATEGORIES, key="cd_category")
@@ -6932,8 +6939,8 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
 
             if st.button("💾 저장", key="btn_cd_save", type="primary",
                          use_container_width=True, disabled=not _cd_files):
-                if not _cd_customer or not _cd_customer.strip():
-                    st.error("고객명을 입력하세요.")
+                if not _cd_insured or not _cd_insured.strip():
+                    st.error("피보험자 성명을 입력하세요.")
                 elif not _cdb_ok:
                     st.error("Supabase 미연결 — 저장 불가")
                 else:
@@ -6945,77 +6952,77 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
                             text=f"[{_ci+1}/{len(_cd_files)}] {_cf.name[:40]} 저장 중...")
                         _res = customer_doc_save(
                             _cf.getvalue(), _cf.name,
-                            _cd_customer.strip(), _cd_category,
-                            birth6=_cd_birth6,
-                            memo=_cd_memo, tab_source="고객자료탭",
+                            _cd_insured.strip(), _cd_category,
+                            id6=_cd_id6,
+                            memo=_cd_memo, tab_source="피보험자자료탭",
                             uploaded_by=_uploader
                         )
                         if _res["ok"]:
                             _cd_ok_cnt += 1
-                            _b6_disp = f" ({_cd_birth6})" if _cd_birth6 else ""
+                            _i6_disp = f" ({_cd_id6})" if _cd_id6 else ""
                             st.markdown(f"""
 <div style="background:#f0fff4;border-left:3px solid #27ae60;border-radius:6px;
   padding:6px 10px;margin-bottom:4px;font-size:0.78rem;">
 ✅ <b>{_cf.name}</b><br>
-👤 {_cd_customer}{_b6_disp} &nbsp;|&nbsp; 📂 {_cd_category}<br>
+🛡️ 피보험자: <b>{_cd_insured}{_i6_disp}</b> &nbsp;|&nbsp; 📂 {_cd_category}<br>
 📁 <code style="font-size:0.7rem;">{_res['storage_path']}</code>
 </div>""", unsafe_allow_html=True)
                         else:
                             st.error(f"❌ {_cf.name}: {_res['error']}")
                     _cd_prog.progress(1.0, text=f"✅ {_cd_ok_cnt} / {len(_cd_files)} 저장 완료")
                     if _cd_ok_cnt > 0:
-                        _b6_disp = f" ({_cd_birth6})" if _cd_birth6 else ""
-                        st.success(f"✅ {_cd_customer}{_b6_disp}님 자료 {_cd_ok_cnt}건 저장 완료!")
+                        _i6_disp = f" ({_cd_id6})" if _cd_id6 else ""
+                        st.success(f"✅ 피보험자 {_cd_insured}{_i6_disp}님 자료 {_cd_ok_cnt}건 저장 완료!")
                         st.session_state.pop("cd_docs_cache", None)
 
-        # ── 고객별 자료 조회 탭 ───────────────────────────────────────────
+        # ── 피보험자별 자료 조회 탭 ──────────────────────────────────────
         with _cd_tab_view:
-            st.markdown("#### 📂 고객별 자료 조회")
-            _view_names = customer_doc_get_names()  # [{"label","name","birth6"}]
+            st.markdown("#### 📂 피보험자별 자료 조회")
+            _view_names = customer_doc_get_names()  # [{"label","name","id6"}]
             if not _view_names:
-                st.info("저장된 고객 자료가 없습니다.")
+                st.info("저장된 피보험자 자료가 없습니다.")
             else:
                 _view_labels = ["전체 보기"] + [x["label"] for x in _view_names]
-                _view_sel_idx = st.selectbox("고객 선택", range(len(_view_labels)),
+                _view_sel_idx = st.selectbox("피보험자 선택", range(len(_view_labels)),
                                               format_func=lambda i: _view_labels[i],
                                               key="cd_view_sel")
                 if _view_sel_idx == 0:
-                    _search_name  = ""
-                    _search_birth6 = ""
+                    _search_insured = ""
+                    _search_id6     = ""
                 else:
-                    _search_name   = _view_names[_view_sel_idx - 1]["name"]
-                    _search_birth6 = _view_names[_view_sel_idx - 1]["birth6"]
+                    _search_insured = _view_names[_view_sel_idx - 1]["name"]
+                    _search_id6     = _view_names[_view_sel_idx - 1]["id6"]
 
                 if st.button("🔄 새로고침", key="btn_cd_refresh"):
                     st.session_state.pop("cd_docs_cache", None)
 
                 if "cd_docs_cache" not in st.session_state:
-                    st.session_state["cd_docs_cache"] = customer_doc_list(_search_name)
+                    st.session_state["cd_docs_cache"] = customer_doc_list(_search_insured)
                 _docs = st.session_state["cd_docs_cache"]
 
-                # birth6 필터 (동명이인 구분)
-                if _search_birth6:
-                    _docs = [d for d in _docs if d.get("birth6","") == _search_birth6]
+                # id6 필터 (동명이인 구분)
+                if _search_id6:
+                    _docs = [d for d in _docs if d.get("id6","") == _search_id6]
 
                 if not _docs:
                     st.info(f"'{_view_labels[_view_sel_idx]}' 자료 없음")
                 else:
-                    # 고객명+birth6 → 카테고리별 그룹핑
+                    # 피보험자명+id6 → 카테고리별 그룹핑
                     from collections import defaultdict as _dd2
-                    _by_customer = _dd2(lambda: _dd2(list))
+                    _by_insured = _dd2(lambda: _dd2(list))
                     for _d in _docs:
-                        _ckey = f"{_d['customer_name']}_{_d.get('birth6','')}"
-                        _by_customer[_ckey][_d["category"]].append(_d)
+                        _ikey = f"{_d.get('insured_name','')}_{_d.get('id6','')}"
+                        _by_insured[_ikey][_d["category"]].append(_d)
 
-                    for _ckey, _cats in sorted(_by_customer.items()):
+                    for _ikey, _cats in sorted(_by_insured.items()):
                         _sample = next(iter(next(iter(_cats.values()))))
-                        _cn = _sample["customer_name"]
-                        _cb = _sample.get("birth6","")
-                        _cb_disp = f" <span style='font-size:0.75rem;color:#888;'>({_cb})</span>" if _cb else ""
+                        _in = _sample.get("insured_name", "")
+                        _i6 = _sample.get("id6", "")
+                        _i6_disp = f" <span style='font-size:0.75rem;color:#888;'>({_i6})</span>" if _i6 else ""
                         st.markdown(f"""
 <div style="background:#e8f4fd;border-left:4px solid #2e6da4;border-radius:8px;
   padding:8px 14px;margin:10px 0 4px 0;font-size:0.9rem;font-weight:900;color:#1a3a5c;">
-👤 {_cn}{_cb_disp} &nbsp;<span style="font-size:0.75rem;font-weight:400;color:#555;">
+🛡️ {_in}{_i6_disp} &nbsp;<span style="font-size:0.75rem;font-weight:400;color:#555;">
 ({sum(len(v) for v in _cats.values())}건)</span>
 </div>""", unsafe_allow_html=True)
                         for _cat, _items in sorted(_cats.items()):
