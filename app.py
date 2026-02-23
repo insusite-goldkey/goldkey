@@ -2468,11 +2468,13 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
         st.divider()
         # ── 관리자 콘솔 (최하단) ──────────────────────────────────────────
         with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
-            admin_id = st.text_input("관리자 ID", key="admin_id", type="password",
-                placeholder="admin")
-            admin_code = st.text_input("관리자 코드", key="admin_code", type="password",
-                placeholder="코드 입력")
-            if st.button("관리자 로그인", key="btn_admin_login", use_container_width=True):
+            with st.form("admin_login_form", clear_on_submit=False):
+                admin_id = st.text_input("관리자 ID", key="admin_id_f", type="password",
+                    placeholder="admin")
+                admin_code = st.text_input("관리자 코드", key="admin_code_f", type="password",
+                    placeholder="코드 입력")
+                _admin_submitted = st.form_submit_button("관리자 로그인", use_container_width=True)
+            if _admin_submitted:
                 try:
                     _admin_code = st.secrets.get("ADMIN_CODE", "kgagold6803")
                 except Exception:
@@ -5610,8 +5612,15 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         if st.session_state.pop("_rag_admin_hint", False):
             st.info("👇 관리자 인증키 입력 후 **'RAG 지식베이스'** 탭을 클릭하세요.")
         admin_key_input = st.text_input("관리자 인증키", type="password", key="admin_key_tab3")
+        if admin_key_input:
+            if admin_key_input == get_admin_key():
+                st.session_state["_admin_tab_auth"] = True
+            else:
+                st.session_state["_admin_tab_auth"] = False
+                st.error("인증키가 올바르지 않습니다.")
+        # admin_key_input이 빈 값이면 기존 session_state 유지 (입력 중 rerun 시 인증 풀림 방지)
 
-        if admin_key_input == get_admin_key():
+        if st.session_state.get("_admin_tab_auth"):
             st.success("✅ 관리자 시스템 활성화 — 아래 'RAG 지식베이스' 탭에서 파일을 업로드하세요.")
 
             # ── 회원수 임계치 체크 + 알림 배너 ──────────────────────────
