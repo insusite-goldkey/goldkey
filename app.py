@@ -144,6 +144,27 @@ _DATA_DIR = "/tmp" if _IS_CLOUD else "."
 USAGE_DB = os.path.join(_DATA_DIR, "usage_log.json")
 MEMBER_DB = os.path.join(_DATA_DIR, "members.json")
 
+# ==========================================================================
+# [STT/TTS 전역 설정 — 절대명령: 이 값을 직접 수정하지 말 것]
+# 본 앱의 모든 섹터(현재 및 신규 추가 섹터 포함)의 음성 입력(STT)·출력(TTS)은
+# 반드시 아래 상수를 참조해야 하며, 임의로 값을 하드코딩하는 것을 금지한다.
+# 설정 변경 시 이 블록만 수정하면 전체 앱에 즉시 반영된다.
+# ==========================================================================
+STT_LANG          = "ko-KR"          # 언어: 반드시 ko-KR 명시 (미설정 시 영어 오인식)
+STT_INTERIM       = "true"           # 중간 결과 실시간 표시 (사용자 안심 효과)
+STT_CONTINUOUS    = "true"           # 연속 인식 (단일 객체 유지 → 권한 팝업 1회)
+STT_MAX_ALT       = 3                # 후보 수: 신뢰도 최고값 자동 선택
+STT_NO_SPEECH_MS  = 3000             # 무음 대기(ms): 3초 — 문장 사이 숨 고르기 허용
+STT_RESTART_MS    = 300              # 비정상 종료 후 재시작 대기(ms)
+
+TTS_LANG          = "ko-KR"          # TTS 언어
+TTS_RATE          = 0.9              # 말하기 속도: 0.9 (명료·자연스러운 20대 여성 아나운서)
+TTS_PITCH         = 1.4              # 음높이: 1.4 (20대 여성 아나운서 톤)
+TTS_VOLUME        = 1.0              # 음량: 최대
+# 여성 목소리 우선순위: Yuna(삼성) > Female > Google 한국어 > Heami
+TTS_VOICE_PRIORITY = ["Yuna", "Female", "Google", "Heami"]
+# ==========================================================================
+
 # --------------------------------------------------------------------------
 # [SECTION 1] 보안 및 암호화 엔진
 # --------------------------------------------------------------------------
@@ -586,22 +607,22 @@ def get_client():
         http_options={"api_version": "v1beta"}
     )
 
-def s_voice(text, lang='ko-KR'):
-    """TTS - 20대 여성 아나운서 목소리 (pitch=1.4, rate=0.9 — 명료한 속도)"""
-    text = sanitize_unicode(text)
+def s_voice(text, lang=None):
+    """TTS - 전역 STT/TTS 설정(TTS_*) 상수 강제 적용"""
+    lang  = lang or TTS_LANG
+    vp    = '||'.join(f'v.name.includes("{n}")' for n in TTS_VOICE_PRIORITY)
+    text  = sanitize_unicode(text)
     clean = text.replace('"', '').replace("'", "").replace("\n", " ").replace("`", "")
     return (
         '<script>'
         'window.speechSynthesis.cancel();'
-        'var msg=new SpeechSynthesisUtterance("' + clean + '");'
-        'msg.lang="ko-KR";'
-        'msg.rate=0.9;'
-        'msg.pitch=1.4;'
-        'msg.volume=1.0;'
+        f'var msg=new SpeechSynthesisUtterance("{clean}");'
+        f'msg.lang="{lang}";'
+        f'msg.rate={TTS_RATE};'
+        f'msg.pitch={TTS_PITCH};'
+        f'msg.volume={TTS_VOLUME};'
         'var voices=window.speechSynthesis.getVoices();'
-        'var femaleVoice=voices.find(function(v){'
-        '  return v.lang==="ko-KR" && (v.name.includes("Female") || v.name.includes("Yuna") || v.name.includes("Google 한국의 목소") || v.name.includes("Heami"));'
-        '});'
+        f'var femaleVoice=voices.find(function(v){{return v.lang==="{lang}"&&({vp});}});'
         'if(femaleVoice) msg.voice=femaleVoice;'
         'window.speechSynthesis.speak(msg);'
         '</script>'
@@ -630,9 +651,9 @@ if(!window._sttInit){
       window._sttActive=false; return;
     }
     var r=new SR();
-    r.lang=lang||'ko-KR';
-    r.interimResults=true;
-    r.continuous=true;
+    r.lang=lang||'ko-KR';          // STT_LANG 강제
+    r.interimResults=true;          // STT_INTERIM
+    r.continuous=true;              // STT_CONTINUOUS
     r.maxAlternatives=1;
     window._sttFinal='';
 
@@ -1802,11 +1823,11 @@ function _initRec_{tab_key}(){{
 
   r.onerror = function(e){{
     if(e.error==='no-speech'){{
-      // 무음 감지: 3초 대기 후 자동 재시작 (문장 사이 숨 고르기 허용)
+      // STT_NO_SPEECH_MS({STT_NO_SPEECH_MS}ms) 대기 후 자동 재시작
       if(_sttActive_{tab_key}){{
         setTimeout(function(){{
           if(_sttActive_{tab_key}) try{{ r.start(); }}catch(ex){{}}
-        }}, 3000);
+        }}, {STT_NO_SPEECH_MS});
       }}
       return;
     }}
@@ -1815,13 +1836,13 @@ function _initRec_{tab_key}(){{
   }};
 
   r.onend = function(){{
-    // continuous=true 이므로 비정상 종료 시에만 재시작
+    // STT_RESTART_MS({STT_RESTART_MS}ms) 안정 대기 후 재시작
     if(_sttActive_{tab_key}){{
       setTimeout(function(){{
         if(_sttActive_{tab_key}){{
           try{{ r.start(); }}catch(ex){{}}
         }}
-      }}, 300);  // 300ms 안정 대기
+      }}, {STT_RESTART_MS});
     }} else {{
       if(_sttBtn_{tab_key}){{
         _sttBtn_{tab_key}.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
@@ -1864,16 +1885,14 @@ function startSTT_{tab_key}(){{
 }}
 
 function startTTS_{tab_key}(){{
+  // 전역 TTS 설정 강제 적용: TTS_RATE={TTS_RATE}, TTS_PITCH={TTS_PITCH}, TTS_LANG={TTS_LANG}
   window.speechSynthesis.cancel();
   var msg=new SpeechSynthesisUtterance('{stt_greet}');
-  msg.lang='{stt_lang_code}'; msg.rate=0.9; msg.pitch=1.4; msg.volume=1.0;
+  msg.lang='{stt_lang_code}'; msg.rate={TTS_RATE}; msg.pitch={TTS_PITCH}; msg.volume={TTS_VOLUME};
   var voices=window.speechSynthesis.getVoices();
-  // 20대 여성 아나운서 목소리 우선 선택
+  var _vp=[{','.join(repr(n) for n in TTS_VOICE_PRIORITY)}];
   var fv=voices.find(function(v){{
-    return v.lang==='{stt_lang_code}'&&(
-      v.name.includes('Yuna')||v.name.includes('Female')||
-      v.name.includes('Google')||v.name.includes('Heami')
-    );
+    return v.lang==='{stt_lang_code}'&&_vp.some(function(n){{return v.name.includes(n);}});
   }});
   if(fv) msg.voice=fv;
   window.speechSynthesis.speak(msg);
