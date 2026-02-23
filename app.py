@@ -1092,7 +1092,8 @@ CREATE TABLE IF NOT EXISTS rag_sources (
     doc_date  TEXT DEFAULT '',
     summary   TEXT DEFAULT '',
     uploaded  TEXT NOT NULL,
-    chunk_cnt INTEGER DEFAULT 0
+    chunk_cnt INTEGER DEFAULT 0,
+    error_flag TEXT DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS rag_docs (
     id        BIGSERIAL PRIMARY KEY,
@@ -1103,6 +1104,17 @@ CREATE TABLE IF NOT EXISTS rag_docs (
     insurer   TEXT DEFAULT '',
     doc_date  TEXT DEFAULT '',
     uploaded  TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS rag_quarantine (
+    id          BIGSERIAL PRIMARY KEY,
+    orig_src_id BIGINT,
+    filename    TEXT DEFAULT '',
+    category    TEXT DEFAULT '미분류',
+    insurer     TEXT DEFAULT '',
+    doc_date    TEXT DEFAULT '',
+    chunk       TEXT NOT NULL,
+    error_reason TEXT DEFAULT '',
+    quarantined TEXT NOT NULL
 );
 """
 
@@ -1291,6 +1303,271 @@ def _rag_db_clear_all():
         conn = sqlite3.connect(RAG_DB_PATH)
         conn.execute("DELETE FROM rag_docs")
         conn.execute("DELETE FROM rag_sources")
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+# ── 오류 자가진단 + 안전 격리 복구 시스템 ────────────────────────────────
+
+def _rag_quarantine_source(source_id: int, error_reason: str) -> int:
+    """특정 소스의 청크를 rag_quarantine으로 안전 이동 후 소스 삭제.
+    데이터는 보존, 문제 소스 레코드만 제거. 격리된 청크 수 반환."""
+    now = dt.now().strftime("%Y-%m-%d %H:%M")
+    moved = 0
+
+    if _rag_use_supabase():
+        try:
+            sb = _get_sb_client()
+            # 1. 해당 소스의 청크 조회
+            chunks_res = sb.table("rag_docs").select("*").eq("source_id", source_id).execute()
+            chunks = chunks_res.data or []
+            # 2. quarantine 테이블로 이동
+            if chunks:
+                qrows = [{
+                    "orig_src_id": source_id,
+                    "filename":    c.get("filename", ""),
+                    "category":    c.get("category", "미분류"),
+                    "insurer":     c.get("insurer", ""),
+                    "doc_date":    c.get("doc_date", ""),
+                    "chunk":       c.get("chunk", ""),
+                    "error_reason": error_reason,
+                    "quarantined": now
+                } for c in chunks]
+                for i in range(0, len(qrows), 100):
+                    sb.table("rag_quarantine").insert(qrows[i:i+100]).execute()
+                moved = len(qrows)
+            # 3. 원본 청크 + 소스 삭제
+            sb.table("rag_docs").delete().eq("source_id", source_id).execute()
+            sb.table("rag_sources").delete().eq("id", source_id).execute()
+            return moved
+        except Exception:
+            pass
+
+    # SQLite 폴백
+    try:
+        conn = sqlite3.connect(RAG_DB_PATH)
+        # quarantine 테이블 생성 (없으면)
+        conn.execute("""CREATE TABLE IF NOT EXISTS rag_quarantine (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            orig_src_id INTEGER, filename TEXT DEFAULT '',
+            category TEXT DEFAULT '미분류', insurer TEXT DEFAULT '',
+            doc_date TEXT DEFAULT '', chunk TEXT NOT NULL,
+            error_reason TEXT DEFAULT '', quarantined TEXT NOT NULL)""")
+        rows = conn.execute(
+            "SELECT chunk,filename,category,insurer,doc_date FROM rag_docs WHERE source_id=?",
+            (source_id,)).fetchall()
+        for r in rows:
+            conn.execute(
+                "INSERT INTO rag_quarantine "
+                "(orig_src_id,filename,category,insurer,doc_date,chunk,error_reason,quarantined) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (source_id, r[1], r[2], r[3], r[4], r[0], error_reason, now))
+        moved = len(rows)
+        conn.execute("DELETE FROM rag_docs WHERE source_id=?", (source_id,))
+        conn.execute("DELETE FROM rag_sources WHERE id=?", (source_id,))
+        conn.commit()
+        conn.close()
+        return moved
+    except Exception:
+        return 0
+
+def _rag_self_diagnose() -> list:
+    """자가진단: 오류 징후가 있는 소스를 자동 탐지.
+    탐지 기준:
+      1. chunk_cnt=0 이지만 소스 레코드 존재 (업로드 실패)
+      2. summary에 '[자동분류 폴백]' 포함 (Gemini 분류 실패)
+      3. category='미분류' AND insurer='' AND doc_date='' (분류 정보 전무)
+      4. rag_docs에 해당 source_id 청크가 없는 고아 소스
+    반환: [{"id", "filename", "category", "chunk_cnt", "reason"}, ...]
+    """
+    issues = []
+
+    if _rag_use_supabase():
+        try:
+            sb = _get_sb_client()
+            sources = (sb.table("rag_sources").select("*").execute().data or [])
+            # 실제 청크 수 집계
+            docs_res = sb.table("rag_docs").select("source_id").execute()
+            from collections import Counter as _Counter
+            actual_cnt = _Counter(d["source_id"] for d in (docs_res.data or []))
+            for s in sources:
+                sid = s["id"]
+                reasons = []
+                if s.get("chunk_cnt", 0) == 0:
+                    reasons.append("chunk_cnt=0 (업로드 실패)")
+                if actual_cnt.get(sid, 0) == 0:
+                    reasons.append("청크 없는 고아 소스")
+                if "[자동분류 폴백]" in (s.get("summary") or ""):
+                    reasons.append("Gemini 분류 실패 (폴백 사용)")
+                if (s.get("category","") in ("미분류","기타") and
+                        not s.get("insurer","") and not s.get("doc_date","")):
+                    reasons.append("분류 정보 전무")
+                if reasons:
+                    issues.append({
+                        "id": sid,
+                        "filename": s.get("filename",""),
+                        "category": s.get("category",""),
+                        "chunk_cnt": actual_cnt.get(sid, 0),
+                        "reason": " / ".join(reasons)
+                    })
+            return issues
+        except Exception:
+            pass
+
+    # SQLite 폴백
+    try:
+        from collections import Counter as _Counter
+        conn = sqlite3.connect(RAG_DB_PATH)
+        sources = conn.execute(
+            "SELECT id,filename,category,insurer,doc_date,summary,chunk_cnt FROM rag_sources"
+        ).fetchall()
+        actual_cnt = _Counter(
+            r[0] for r in conn.execute("SELECT source_id FROM rag_docs").fetchall())
+        conn.close()
+        for s in sources:
+            sid, fname, cat, ins, ddate, summ, ccnt = s
+            reasons = []
+            if ccnt == 0:
+                reasons.append("chunk_cnt=0 (업로드 실패)")
+            if actual_cnt.get(sid, 0) == 0:
+                reasons.append("청크 없는 고아 소스")
+            if "[자동분류 폴백]" in (summ or ""):
+                reasons.append("Gemini 분류 실패 (폴백 사용)")
+            if cat in ("미분류","기타") and not ins and not ddate:
+                reasons.append("분류 정보 전무")
+            if reasons:
+                issues.append({
+                    "id": sid, "filename": fname, "category": cat,
+                    "chunk_cnt": actual_cnt.get(sid, 0),
+                    "reason": " / ".join(reasons)
+                })
+        return issues
+    except Exception:
+        return []
+
+def _rag_quarantine_get() -> list:
+    """격리 보관함 목록 반환"""
+    if _rag_use_supabase():
+        try:
+            sb = _get_sb_client()
+            res = sb.table("rag_quarantine").select(
+                "id,orig_src_id,filename,category,insurer,doc_date,error_reason,quarantined"
+            ).order("id", desc=True).execute()
+            # 소스별 그룹핑
+            from collections import defaultdict as _dd
+            groups = _dd(lambda: {"filename":"","category":"","insurer":"",
+                                   "doc_date":"","error_reason":"","quarantined":"","chunk_cnt":0,"ids":[]})
+            for r in (res.data or []):
+                k = r["orig_src_id"]
+                g = groups[k]
+                g["filename"]     = r["filename"]
+                g["category"]     = r["category"]
+                g["insurer"]      = r["insurer"]
+                g["doc_date"]     = r["doc_date"]
+                g["error_reason"] = r["error_reason"]
+                g["quarantined"]  = r["quarantined"]
+                g["chunk_cnt"]   += 1
+                g["ids"].append(r["id"])
+            return [{"orig_src_id": k, **v} for k, v in groups.items()]
+        except Exception:
+            pass
+
+    try:
+        conn = sqlite3.connect(RAG_DB_PATH)
+        try:
+            rows = conn.execute(
+                "SELECT id,orig_src_id,filename,category,insurer,doc_date,error_reason,quarantined "
+                "FROM rag_quarantine ORDER BY id DESC").fetchall()
+        except Exception:
+            conn.close()
+            return []
+        conn.close()
+        from collections import defaultdict as _dd
+        groups = _dd(lambda: {"filename":"","category":"","insurer":"",
+                               "doc_date":"","error_reason":"","quarantined":"","chunk_cnt":0,"ids":[]})
+        for r in rows:
+            k = r[1]
+            g = groups[k]
+            g["filename"]     = r[2]; g["category"]    = r[3]
+            g["insurer"]      = r[4]; g["doc_date"]    = r[5]
+            g["error_reason"] = r[6]; g["quarantined"] = r[7]
+            g["chunk_cnt"]   += 1;   g["ids"].append(r[0])
+        return [{"orig_src_id": k, **v} for k, v in groups.items()]
+    except Exception:
+        return []
+
+def _rag_quarantine_restore(orig_src_id: int) -> int:
+    """격리된 청크를 rag_docs + rag_sources로 복원. 복원된 청크 수 반환."""
+    now = dt.now().strftime("%Y-%m-%d %H:%M")
+    restored = 0
+
+    if _rag_use_supabase():
+        try:
+            sb = _get_sb_client()
+            qrows = (sb.table("rag_quarantine").select("*")
+                     .eq("orig_src_id", orig_src_id).execute().data or [])
+            if not qrows:
+                return 0
+            r0 = qrows[0]
+            # 소스 재등록
+            src_res = sb.table("rag_sources").insert({
+                "filename": r0["filename"], "category": r0["category"],
+                "insurer": r0["insurer"], "doc_date": r0["doc_date"],
+                "summary": "[격리 복원]", "uploaded": now, "chunk_cnt": len(qrows)
+            }).execute()
+            new_src_id = src_res.data[0]["id"]
+            # 청크 재삽입
+            chunk_rows = [{"source_id": new_src_id, "chunk": q["chunk"],
+                           "filename": q["filename"], "category": q["category"],
+                           "insurer": q["insurer"], "doc_date": q["doc_date"],
+                           "uploaded": now} for q in qrows]
+            for i in range(0, len(chunk_rows), 100):
+                sb.table("rag_docs").insert(chunk_rows[i:i+100]).execute()
+            # 격리 레코드 삭제
+            sb.table("rag_quarantine").delete().eq("orig_src_id", orig_src_id).execute()
+            restored = len(qrows)
+            return restored
+        except Exception:
+            pass
+
+    try:
+        conn = sqlite3.connect(RAG_DB_PATH)
+        rows = conn.execute(
+            "SELECT chunk,filename,category,insurer,doc_date FROM rag_quarantine WHERE orig_src_id=?",
+            (orig_src_id,)).fetchall()
+        if not rows:
+            conn.close()
+            return 0
+        cur = conn.execute(
+            "INSERT INTO rag_sources (filename,category,insurer,doc_date,summary,uploaded,chunk_cnt) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (rows[0][1], rows[0][2], rows[0][3], rows[0][4], "[격리 복원]", now, len(rows)))
+        new_src_id = cur.lastrowid
+        for r in rows:
+            conn.execute(
+                "INSERT INTO rag_docs (chunk,filename,category,insurer,doc_date,uploaded,source_id) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (r[0], r[1], r[2], r[3], r[4], now, new_src_id))
+        conn.execute("DELETE FROM rag_quarantine WHERE orig_src_id=?", (orig_src_id,))
+        conn.commit()
+        conn.close()
+        return len(rows)
+    except Exception:
+        return 0
+
+def _rag_quarantine_purge(orig_src_id: int):
+    """격리 보관함에서 영구 삭제 (복원 불가)"""
+    if _rag_use_supabase():
+        try:
+            sb = _get_sb_client()
+            sb.table("rag_quarantine").delete().eq("orig_src_id", orig_src_id).execute()
+            return
+        except Exception:
+            pass
+    try:
+        conn = sqlite3.connect(RAG_DB_PATH)
+        conn.execute("DELETE FROM rag_quarantine WHERE orig_src_id=?", (orig_src_id,))
         conn.commit()
         conn.close()
     except Exception:
@@ -5573,6 +5850,87 @@ border-radius:6px;padding:8px 10px;text-align:center;font-size:0.78rem;">
                             st.rerun()
                 else:
                     st.info("등록된 문서가 없습니다. 위에서 파일을 업로드하세요.")
+
+                # ── 오류 자가진단 + 격리 보관함 ──────────────────────────
+                st.divider()
+                st.markdown("#### 🔬 오류 자가진단 · 격리 보관함")
+                _diag_col1, _diag_col2 = st.columns([1, 1])
+                with _diag_col1:
+                    if st.button("🔍 자가진단 실행", key="btn_rag_diagnose", use_container_width=True):
+                        st.session_state["_rag_diag_result"] = _rag_self_diagnose()
+                with _diag_col2:
+                    if st.button("🔄 격리 보관함 새로고침", key="btn_rag_qrefresh", use_container_width=True):
+                        st.session_state.pop("_rag_qlist_cache", None)
+                        st.rerun()
+
+                # 자가진단 결과
+                _diag_issues = st.session_state.get("_rag_diag_result")
+                if _diag_issues is not None:
+                    if _diag_issues:
+                        st.markdown(f"**⚠️ 문제 감지: {len(_diag_issues)}건**")
+                        for _di in _diag_issues:
+                            _dc1, _dc2 = st.columns([4, 1])
+                            with _dc1:
+                                st.markdown(f"""<div style="background:#fff8e1;border-left:3px solid #f59e0b;
+border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
+<b>{_di['filename']}</b> &nbsp;
+<span style="color:#888;">[{_di['category']}] 청크 {_di['chunk_cnt']}개</span><br>
+<span style="color:#c0392b;">⚠ {_di['reason']}</span>
+</div>""", unsafe_allow_html=True)
+                            with _dc2:
+                                if st.button("🚨 격리", key=f"btn_quarantine_{_di['id']}",
+                                             use_container_width=True):
+                                    _moved = _rag_quarantine_source(_di["id"], _di["reason"])
+                                    _rag_sync_from_db()
+                                    st.success(f"✅ {_di['filename']} → 격리 완료 ({_moved}청크 보존)")
+                                    st.session_state.pop("_rag_diag_result", None)
+                                    st.rerun()
+                        if st.button("🚨 전체 문제 항목 일괄 격리", key="btn_quarantine_all",
+                                     type="primary", use_container_width=True):
+                            _total_moved = 0
+                            for _di in _diag_issues:
+                                _total_moved += _rag_quarantine_source(_di["id"], _di["reason"])
+                            _rag_sync_from_db()
+                            st.success(f"✅ {len(_diag_issues)}건 격리 완료 — {_total_moved}청크 보존")
+                            st.session_state.pop("_rag_diag_result", None)
+                            st.rerun()
+                    else:
+                        st.success("✅ 이상 없음 — 모든 문서가 정상입니다.")
+
+                # 격리 보관함
+                if "_rag_qlist_cache" not in st.session_state:
+                    st.session_state["_rag_qlist_cache"] = _rag_quarantine_get()
+                _qlist = st.session_state["_rag_qlist_cache"]
+                if _qlist:
+                    st.markdown(f"**🗄️ 격리 보관함: {len(_qlist)}건** (데이터 보존 중 — 복원 또는 영구삭제 선택)")
+                    for _q in _qlist:
+                        _qc1, _qc2, _qc3 = st.columns([5, 1, 1])
+                        with _qc1:
+                            st.markdown(f"""<div style="background:#fce4ec;border-left:3px solid #c0392b;
+border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
+<b>{_q['filename']}</b> &nbsp;
+<span style="color:#888;">[{_q['category']}] {_q['chunk_cnt']}청크 보관 중</span><br>
+<span style="color:#555;">🕐 격리: {_q['quarantined']}</span><br>
+<span style="color:#c0392b;font-size:0.72rem;">사유: {_q['error_reason']}</span>
+</div>""", unsafe_allow_html=True)
+                        with _qc2:
+                            if st.button("♻️ 복원", key=f"btn_restore_{_q['orig_src_id']}",
+                                         use_container_width=True):
+                                _r = _rag_quarantine_restore(_q["orig_src_id"])
+                                _rag_sync_from_db()
+                                st.success(f"✅ 복원 완료: {_r}청크")
+                                st.session_state.pop("_rag_qlist_cache", None)
+                                st.rerun()
+                        with _qc3:
+                            if st.button("🗑️ 삭제", key=f"btn_purge_{_q['orig_src_id']}",
+                                         use_container_width=True):
+                                _rag_quarantine_purge(_q["orig_src_id"])
+                                st.warning(f"영구 삭제: {_q['filename']}")
+                                st.session_state.pop("_rag_qlist_cache", None)
+                                st.rerun()
+                else:
+                    st.markdown("<span style='color:#888;font-size:0.8rem;'>격리 보관함 비어 있음</span>",
+                                unsafe_allow_html=True)
 
                 # ── 검색 테스트 ───────────────────────────────────────────
                 st.divider()
