@@ -5075,8 +5075,9 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
                 st.divider()
                 rag_files = st.file_uploader(
-                    "📎 전문가 노하우 자료 업로드 (PDF / DOCX / TXT)",
-                    type=['pdf','docx','txt'], accept_multiple_files=True, key="rag_uploader_admin")
+                    "📎 전문가 노하우 자료 업로드 (PDF / DOCX / TXT / JPG / PNG)",
+                    type=['pdf','docx','txt','jpg','jpeg','png'], accept_multiple_files=True, key="rag_uploader_admin")
+                st.caption("🖼️ JPG/PNG: Gemini Vision이 이미지 내 텍스트를 자동 추출하여 지식베이스에 저장합니다.")
 
                 _rbtn1, _rbtn2 = st.columns(2)
                 with _rbtn1:
@@ -5089,6 +5090,26 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                                         docs.append(process_pdf(f))
                                     elif "wordprocessingml" in f.type:
                                         docs.append(process_docx(f))
+                                    elif f.type in ("image/jpeg", "image/jpg", "image/png") or f.name.lower().endswith(('.jpg','.jpeg','.png')):
+                                        # Gemini Vision OCR — 이미지 텍스트 추출
+                                        try:
+                                            import base64
+                                            _img_b64 = base64.b64encode(f.getvalue()).decode()
+                                            _mime = "image/jpeg" if f.name.lower().endswith(('.jpg','.jpeg')) else "image/png"
+                                            _ocr_client, _ = get_master_model()
+                                            _ocr_resp = _ocr_client.models.generate_content(
+                                                model=GEMINI_MODEL,
+                                                contents=[
+                                                    {"role": "user", "parts": [
+                                                        {"inline_data": {"mime_type": _mime, "data": _img_b64}},
+                                                        {"text": "이 이미지에 있는 모든 텍스트를 그대로 추출해주세요. 표·목록·항목명 포함 전체 내용을 빠짐없이 출력하세요."}
+                                                    ]}
+                                                ]
+                                            )
+                                            _ocr_text = sanitize_unicode(_ocr_resp.text) if _ocr_resp.text else ""
+                                            docs.append(f"[이미지: {f.name}]\n{_ocr_text}")
+                                        except Exception as _ocr_e:
+                                            docs.append(f"[이미지 OCR 오류: {f.name}] {str(_ocr_e)}")
                                     else:
                                         docs.append(f.read().decode('utf-8', errors='replace'))
                                 rag = st.session_state.get("rag_system")
