@@ -2056,7 +2056,37 @@ class LightRAGSystem:
 
         return max(0.0, base + bonus - penalty)
 
-    def search(self, query: str, k: int = 3):
+    # 제품유형 매핑 — 질문 키워드 → 집중 검색 그룹 / 배제 그룹
+    _PRODUCT_FILTER = {
+        "dementia": {
+            "focus":   {"\uce58\ub9e4", "\uac04\ubcd1", "\uc778\uc9c0", "\uc7a5\uae30\uc694\uc591", "\ub178\uc778\uc131", "CDR", "\uc54c\uce20\ud558\uc774\uba38", "\ud608\uad00\uc131"},
+            "exclude": {"\uc554", "\uc885\uc591", "\ud56d\uc554", "\uc545\uc131", "\ud45c\uc801\ud56d\uc554", "\uc18c\uc561\uc554", "\uc0c1\ud53c\ub0b4\uc554"},
+        },
+        "cancer": {
+            "focus":   {"\uc554", "\uc885\uc591", "\ud56d\uc554", "\uc545\uc131", "\ud45c\uc801\ud56d\uc554"},
+            "exclude": {"\uce58\ub9e4", "\uac04\ubcd1", "\uc778\uc9c0", "\uc7a5\uae30\uc694\uc591"},
+        },
+        "stroke": {
+            "focus":   {"\ub1cc\uc878\uc911", "\ub1cc\uacbd\uc0c9", "\ub1cc\ucd9c\ud608", "\ub1cc\ud608\uad00"},
+            "exclude": {"\uc554", "\uce58\ub9e4"},
+        },
+        "heart": {
+            "focus":   {"\uc2ec\uadfc\uacbd\uc0c9", "\uc2ec\uc7a5", "\ud611\uc2ec\uc99d"},
+            "exclude": {"\uc554", "\uce58\ub9e4"},
+        },
+    }
+
+    def _detect_product(self, q_tokens: list) -> str:
+        """\uc9c8\ubb38 \ud1a0\ud070\uc5d0\uc11c \uc81c\ud488 \uc720\ud615 \uac10\uc9c0"""
+        q_set = set(q_tokens)
+        best, best_cnt = "none", 0
+        for ptype, pmap in self._PRODUCT_FILTER.items():
+            cnt = len(q_set & pmap["focus"])
+            if cnt > best_cnt:
+                best, best_cnt = ptype, cnt
+        return best if best_cnt > 0 else "none"
+
+    def search(self, query: str, k: int = 3, product_hint: str = ""):
         store = _get_rag_store()
         docs = store.get("docs", [])
         if not docs:
@@ -2064,9 +2094,29 @@ class LightRAGSystem:
         q_tokens = self._tokenize(query)
         if not q_tokens:
             return []
-        scored = [(self._score(q_tokens, d), d) for d in docs]
+
+        # \uc81c\ud488 \uc720\ud615 \uac10\uc9c0 (\uc678\ubd80 hint \ub610\ub294 \uc9c8\ubb38 \uc790\ub3d9 \uac10\uc9c0)
+        ptype = product_hint if product_hint else self._detect_product(q_tokens)
+        exclude_kw = self._PRODUCT_FILTER.get(ptype, {}).get("exclude", set())
+
+        # \ubc30\uc81c \ud0a4\uc6cc\ub4dc\uac00 \ud3ec\ud568\ub41c \ubb38\uc11c \ud544\ud130
+        def _is_excluded(doc: str) -> bool:
+            if not exclude_kw:
+                return False
+            doc_tokens = set(self._tokenize(doc))
+            # \uc81c\ud488 \uc9d1\uc911 \ud0a4\uc6cc\ub4dc\uac00 \uc5c6\uace0 \ubc30\uc81c \ud0a4\uc6cc\ub4dc\ub9cc \uc788\ub294 \ubb38\uc11c \uc81c\uc678
+            focus_kw = self._PRODUCT_FILTER.get(ptype, {}).get("focus", set())
+            has_focus   = bool(doc_tokens & focus_kw)
+            has_exclude = bool(doc_tokens & exclude_kw)
+            return has_exclude and not has_focus
+
+        filtered_docs = [d for d in docs if not _is_excluded(d)]
+        if not filtered_docs:
+            filtered_docs = docs  # \ud544\ud130 \ud6c4 \ubb38\uc11c \uc5c6\uc73c\uba74 \uc804\uccb4 \uc0ac\uc6a9
+
+        scored = [(self._score(q_tokens, d), d) for d in filtered_docs]
         scored.sort(key=lambda x: x[0], reverse=True)
-        return [{"text": d[:600], "score": s} for s, d in scored[:k] if s > 0]
+        return [{"text": d[:600], "score": s, "product": ptype} for s, d in scored[:k] if s > 0]
 
     def add_documents(self, docs, filename="직접입력", meta=None):
         """호환성 유지 — 내부적으로 DB 저장"""
@@ -3303,7 +3353,52 @@ window['startTTS_{tab_key}']=function(){{
 """, height=72)
         return c_name, query, hi_premium, do_analyze
 
-    def run_ai_analysis(c_name, query, hi_premium, result_key, extra_prompt=""):
+    # ── 제품별 가드레일 시스템 프롬프트 ─────────────────────────────────────
+    _PRODUCT_GUARDRAILS = {
+        "치매·간병보험": (
+            {"치매", "간병", "인지", "장기요양", "CDR", "알츠하이머"},
+            {"암", "항암", "소액암", "상피내암", "표적항암"},
+            "dementia",
+            "이 상담은 [치매·간병보험] 전담입니다. "
+            "치매 진단 기준(CDR 척도), 장기요양 등급, 납입면제, 해지환급금 등 "
+            "치매보험 관련 내용만 답변하세요. "
+            "암보험 등 타 상품 정보는 제외하세요."
+        ),
+        "암보험": (
+            {"암", "종양", "항암", "악성", "표적항암"},
+            {"치매", "간병", "인지", "장기요양"},
+            "cancer",
+            "이 상담은 [암보험] 전담입니다. "
+            "암 진단비, 항암치료, 비급여 항암 담보 등 암보험 관련 내용만 답변하세요. "
+            "치매보험 등 타 상품 정보는 제외하세요."
+        ),
+        "뇌혈관·심장보험": (
+            {"뇌졸중", "뇌경색", "뇌출혈", "뇌혈관", "심근경색", "심장"},
+            {"암", "치매"},
+            "stroke",
+            "이 상담은 [뇌혈관·심장보험] 전담입니다. "
+            "뇌졸중, 심근경색 등 관련 내용만 답변하세요."
+        ),
+    }
+
+    def _validate_response(answer: str, product_key: str) -> str:
+        """포스트프로세싱: 답변에 금지 키워드 포함 시 경고 배너 삽입"""
+        info = _PRODUCT_GUARDRAILS.get(product_key)
+        if not info:
+            return answer
+        _, forbidden_kw, _, _ = info
+        found = [kw for kw in forbidden_kw if kw in answer]
+        if found:
+            warn = (
+                f"\n\n> ⚠️ **[상담 범위 경고]** "
+                f"이 답변에 상담 상품({product_key})과 "
+                f"직접 관련이 적은 키워드({', '.join(found)})가 "
+                f"포함되었습니다. 상담 상품에 집중하여 확인하세요."
+            )
+            return answer + warn
+        return answer
+
+    def run_ai_analysis(c_name, query, hi_premium, result_key, extra_prompt="", product_key=""):
         if 'user_id' not in st.session_state:
             st.error("로그인이 필요합니다.")
             return
@@ -3315,15 +3410,34 @@ window['startTTS_{tab_key}']=function(){{
         with st.spinner("골드키AI마스터 분석 중..."):
             try:
                 client, model_config = get_master_model()
-                income    = hi_premium / 0.0709 if hi_premium > 0 else 0
-                safe_q    = sanitize_prompt(query)
-                rag_ctx   = ""
+                income   = hi_premium / 0.0709 if hi_premium > 0 else 0
+                safe_q   = sanitize_prompt(query)
+
+                # ── 가드레일 정보 조회 ──────────────────────────────────────
+                guardrail = _PRODUCT_GUARDRAILS.get(product_key)
+                product_hint = guardrail[2] if guardrail else ""
+                sys_prefix   = f"[시스템 지시] {guardrail[3]}\n\n" if guardrail else ""
+
+                # ── RAG 검색 (제품 필터 적용) ───────────────────────────────
+                rag_ctx = ""
                 if st.session_state.rag_system.index is not None:
-                    results = st.session_state.rag_system.search(safe_q, k=3)
+                    results = st.session_state.rag_system.search(
+                        safe_q, k=3, product_hint=product_hint
+                    )
                     if results:
-                        rag_ctx = "\n\n[참고 자료]\n" + "".join(f"{i}. {sanitize_unicode(r['text'])}\n" for i, r in enumerate(results, 1))
-                prompt = (f"고객: {sanitize_unicode(c_name)}, 추정소득: {income:,.0f}원\n"
-                          f"질문: {safe_q}{rag_ctx}\n{extra_prompt}")
+                        label = product_key or "일반"
+                        rag_ctx = f"\n\n[참고 자료 - {label}]\n"
+                        rag_ctx += "".join(
+                            f"{i}. {sanitize_unicode(r['text'])}\n"
+                            for i, r in enumerate(results, 1)
+                        )
+
+                prompt = (
+                    f"{sys_prefix}"
+                    f"고객: {sanitize_unicode(c_name)}, 추정소득: {income:,.0f}원\n"
+                    f"질문: {safe_q}{rag_ctx}\n{extra_prompt}"
+                )
+
                 # [GATE 2] Gemini 호출은 반드시 gateway를 통해 — 입출력 모두 격리 정제
                 if _GW_OK:
                     answer = _gw.call_gemini(client, GEMINI_MODEL, prompt, model_config)
@@ -3331,6 +3445,10 @@ window['startTTS_{tab_key}']=function(){{
                     prompt = sanitize_unicode(prompt)
                     resp   = client.models.generate_content(model=GEMINI_MODEL, contents=prompt, config=model_config)
                     answer = sanitize_unicode(resp.text) if resp.text else "AI 응답을 받지 못했습니다."
+
+                # ── 포스트프로세싱: 금지 키워드 경고 ──────────────────────
+                answer = _validate_response(answer, product_key)
+
                 safe_name = sanitize_unicode(c_name)
                 result_text = (f"### {safe_name}님 골드키AI마스터 정밀 리포트\n\n{answer}\n\n---\n"
                                f"**문의:** insusite@gmail.com | 010-3074-2616\n\n"
@@ -4245,8 +4363,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     _t0_prod_ctx = f"\n\n## 상담 대상 상품: {t0_product}" if t0_product and t0_product != "선택 안 함 (자유 상담)" else ""
                     _t0_dir_ctx  = f"\n## 상담 방향: {t0_direction}"
                     _t0_focus    = f"\n\n⚠️ 반드시 [{t0_product}] 상품에 집중하여 답변하고, 다른 상품 위주로 답변하지 마시오." if t0_product and t0_product != "선택 안 함 (자유 상담)" else ""
-                    run_ai_analysis(
-                        t0_c_name or "고객", t0_query, 0, "res_t0",
+                    _t0_extra = (
                         f"[신규보험 상담 · 증권분석 — 보험설계사 전용]{_t0_prod_ctx}{_t0_dir_ctx}{_t0_focus}\n\n"
                         "## 필수 분석 항목 (아래 순서대로 빠짐없이 답변)\n\n"
                         "### 1. 보장 공백 분석\n"
@@ -4273,6 +4390,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         "- '20년 갱신' 구조의 실제 보험료 인상 시뮬레이션 (현실적 수치)\n"
                         "- 비갱신형 선택 시 장기 절감 효과 수치 제시\n"
                         + doc_text
+                    )
+                    run_ai_analysis(
+                        t0_c_name or "고객", t0_query, 0, "res_t0",
+                        extra_prompt=_t0_extra,
+                        product_key=t0_product if t0_product != "선택 안 함 (자유 상담)" else "",
                     )
             show_result("res_t0")
 
