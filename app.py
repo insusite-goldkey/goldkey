@@ -585,26 +585,30 @@ except Exception:
     _SB_PKG_OK = False
 
 @st.cache_resource
+def _get_sb_client_cached(url: str, key: str):
+    """Supabase 클라이언트 생성 및 캐시 — url/key가 있을 때만 호출"""
+    try:
+        return _sb_create_client(url, key)
+    except Exception:
+        return None
+
 def _get_sb_client():
-    """Supabase 클라이언트 반환 (캐시 — 앱 당 1회 생성)
+    """Supabase 클라이언트 반환 — 연결 실패 시 None 캐시 방지
     우선순위 1: HF 환경변수 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
     우선순위 2: secrets.toml [supabase] 섹션
     """
     if not _SB_PKG_OK:
         return None
     try:
-        # 1순위: 환경변수 (HF Spaces Secrets는 환경변수로 주입됨)
         url = os.environ.get("SUPABASE_URL", "").strip()
         key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
-        # 2순위: st.secrets
         if not url or not key:
             try:
-                sb = st.secrets.get("supabase", {})
-                url = url or sb.get("url", "").strip()
-                key = key or sb.get("service_role_key", "").strip()
+                _sb_sec = st.secrets.get("supabase", {})
+                url = url or _sb_sec.get("url", "").strip()
+                key = key or _sb_sec.get("service_role_key", "").strip()
             except Exception:
                 pass
-        # 3순위: st.secrets 최상위 키
         if not url or not key:
             try:
                 url = url or st.secrets.get("SUPABASE_URL", "").strip()
@@ -613,7 +617,8 @@ def _get_sb_client():
                 pass
         if not url or not key:
             return None
-        return _sb_create_client(url, key)
+        # url+key가 있을 때만 캐시 — None이 캐시되는 것을 방지
+        return _get_sb_client_cached(url, key)
     except Exception:
         return None
 
@@ -1170,9 +1175,8 @@ CREATE TABLE IF NOT EXISTS gk_members (
 );
 """
 
-@st.cache_resource
 def _rag_use_supabase() -> bool:
-    """Supabase 클라이언트가 사용 가능한지 확인 (캐시 — 앱 당 1회)"""
+    """Supabase 클라이언트가 사용 가능한지 확인 (캐시 없음 — False 캐시 방지)"""
     return _SB_PKG_OK and _get_sb_client() is not None
 
 def _rag_supabase_ensure_tables():
