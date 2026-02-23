@@ -352,10 +352,20 @@ CEO_FS_PROMPT = """
 # --------------------------------------------------------------------------
 # [SECTION 2] 데이터베이스 및 회원 관리
 # --------------------------------------------------------------------------
+def _get_db_conn(db_path: str):
+    """WAL 모드 + busy_timeout 적용 SQLite 커넥션 반환 (동시 접속 안정화)"""
+    conn = sqlite3.connect(db_path, check_same_thread=False, timeout=10)
+    conn.execute("PRAGMA journal_mode=WAL")   # 동시 읽기/쓰기 충돌 방지
+    conn.execute("PRAGMA busy_timeout=5000")  # 5초 대기 후 재시도
+    conn.execute("PRAGMA synchronous=NORMAL") # 성능/안정성 균형
+    conn.execute("PRAGMA cache_size=-8000")   # 8MB 캐시
+    conn.execute("PRAGMA temp_store=MEMORY")  # 임시 데이터 메모리 저장
+    return conn
+
 def setup_database():
     try:
         _db_path = os.path.join(_DATA_DIR, 'insurance_data.db')
-        conn = sqlite3.connect(_db_path)
+        conn = _get_db_conn(_db_path)
         cursor = conn.cursor()
         cursor.execute('''CREATE TABLE IF NOT EXISTS user_documents (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -380,8 +390,11 @@ def load_members():
 
 def save_members(members):
     try:
-        with open(MEMBER_DB, "w", encoding="utf-8") as f:
+        import tempfile, shutil
+        tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(MEMBER_DB) or '.', suffix='.tmp')
+        with os.fdopen(tmp_fd, 'w', encoding='utf-8') as f:
             json.dump(members, f, ensure_ascii=False)
+        shutil.move(tmp_path, MEMBER_DB)  # 원자적 교체 — 동시 쓰기 시 파일 손상 방지
     except (IOError, OSError):
         pass  # Cloud 환경 쓰기 실패 시 크래시 방지
 
@@ -4617,7 +4630,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 st.warning("만료된 사용자 데이터를 영구 삭제합니다.")
                 if st.button("만료 데이터 파기 실행", type="primary", key="btn_purge_admin"):
                     try:
-                        conn = sqlite3.connect(os.path.join(_DATA_DIR, 'insurance_data.db'))
+                        conn = _get_db_conn(os.path.join(_DATA_DIR, 'insurance_data.db'))
                         cursor = conn.cursor()
                         cursor.execute("SELECT COUNT(*) FROM user_documents WHERE status='EXPIRED' AND expiry_date <= date('now','-30 days')")
                         count = cursor.fetchone()[0]
