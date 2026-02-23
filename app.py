@@ -2604,6 +2604,14 @@ function startSugSTT(){
         # ── 카드 CSS: 전체 박스 클릭 + 동일 높이 ──
         st.markdown("""
 <style>
+/* 메인 스크롤 컨테이너 복원 — 스크롤 후 위로 올라오지 않는 문제 수정 */
+section[data-testid="stMain"] > div,
+.main .block-container,
+[data-testid="stMainBlocksContainer"] {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+}
 .gk-section-label {
     font-size:0.88rem; font-weight:900; letter-spacing:0.06em;
     color:#fff; background:#2e6da4; border-radius:6px;
@@ -2664,10 +2672,41 @@ function startSugSTT(){
 </style>
 """, unsafe_allow_html=True)
 
-        # ── 파트 1: 보험 상담 (6개, 2열×3행) ──
-        st.markdown('<div class="gk-section-label">�️ 보험 상담</div>', unsafe_allow_html=True)
+        # ── 파트 0: 상담 & LIFE 컨설팅 (최상단 고정) ──
+        st.markdown('<div class="gk-section-label">🌟 상담 &amp; LIFE 컨설팅</div>', unsafe_allow_html=True)
+        _p0c1, _p0c2 = st.columns(2, gap="small")
+        with _p0c1:
+            st.markdown(
+                "<div class='gk-card-wrap'>"
+                "<div class='gk-card'>"
+                "<div class='gk-card-icon'>📋</div>"
+                "<div class='gk-card-body'>"
+                "<div class='gk-card-title'>신규보험 상담</div>"
+                "<div class='gk-card-desc'>기존 보험증권 분석<br>보장 공백 진단 · 신규 컨설팅</div>"
+                "</div>"
+                "</div></div>", unsafe_allow_html=True)
+            if st.button("▶ 클릭", key="home_p0_t0", use_container_width=False):
+                st.session_state.current_tab = "t0"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+        with _p0c2:
+            st.markdown(
+                "<div class='gk-card-wrap'>"
+                "<div class='gk-card'>"
+                "<div class='gk-card-icon'>🔄</div>"
+                "<div class='gk-card-body'>"
+                "<div class='gk-card-title'>LIFE CYCLE 백지설계</div>"
+                "<div class='gk-card-desc'>인생 타임라인 시각화 상담자료<br>생존·상해·결혼·퇴직·노후 설계도</div>"
+                "</div>"
+                "</div></div>", unsafe_allow_html=True)
+            if st.button("▶ 클릭", key="home_p0_life_cycle", use_container_width=False):
+                st.session_state.current_tab = "life_cycle"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+
+        # ── 파트 1: 보험 상담 (5개, 2열) ──
+        st.markdown('<div class="gk-section-label">🛡️ 보험 상담</div>', unsafe_allow_html=True)
         PART1 = [
-            ("t0",  "📋", "신규보험 상담",      "기존 보험증권 분석\n보장 공백 진단 · 신규 컨설팅"),
             ("t1",  "💰", "보험금 상담",        "청구 절차 · 지급 거절 대응\n민원·손해사정·약관 해석"),
             ("disability","🩺","장해보험금 산출","AMA·맥브라이드·호프만계수\n후유장해 보험금 산출"),
             ("t2",  "🛡️", "기본보험 상담",      "자동차·화재·운전자\n일상배상책임 점검"),
@@ -2710,8 +2749,8 @@ function startSugSTT(){
         ]
         _render_cards(PART2, "home_p2")
 
-        # ── 파트 2.5: LIFE EVENT + LIFE CYCLE ──
-        st.markdown('<div class="gk-section-label">🎯 LIFE EVENT · LIFE CYCLE</div>', unsafe_allow_html=True)
+        # ── 파트 2.5: LIFE EVENT ──
+        st.markdown('<div class="gk-section-label">🎯 LIFE EVENT</div>', unsafe_allow_html=True)
         _le1, _le2 = st.columns(2, gap="small")
         with _le1:
             st.markdown(
@@ -2725,20 +2764,6 @@ function startSugSTT(){
                 "</div></div>", unsafe_allow_html=True)
             if st.button("▶ 클릭", key="home_p25_life_event", use_container_width=False):
                 st.session_state.current_tab = "life_event"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-        with _le2:
-            st.markdown(
-                "<div class='gk-card-wrap'>"
-                "<div class='gk-card'>"
-                "<div class='gk-card-icon'>🔄</div>"
-                "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>LIFE CYCLE 백지설계</div>"
-                "<div class='gk-card-desc'>인생 타임라인 시각화 상담자료<br>생존·상해·결혼·퇴직·노후 설계도</div>"
-                "</div>"
-                "</div></div>", unsafe_allow_html=True)
-            if st.button("▶ 클릭", key="home_p25_life_cycle", use_container_width=False):
-                st.session_state.current_tab = "life_cycle"
                 st.session_state["_scroll_top"] = True
                 st.rerun()
 
