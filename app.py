@@ -2497,6 +2497,24 @@ function startSugSTT(){
         ]
         _render_cards(PART2, "home_p2")
 
+        # ── 파트 2.5: LIFE EVENT ──
+        st.markdown('<div class="gk-section-label">🎯 LIFE EVENT 상담</div>', unsafe_allow_html=True)
+        _le1, _le2 = st.columns(2, gap="small")
+        with _le1:
+            st.markdown(
+                "<div class='gk-card-wrap'>"
+                "<div class='gk-card'>"
+                "<div class='gk-card-icon'>🎯</div>"
+                "<div class='gk-card-body'>"
+                "<div class='gk-card-title'>LIFE EVENT 상담</div>"
+                "<div class='gk-card-desc'>인생 주요 이벤트별 보험 설계<br>출생·결혼·취업·은퇴 맞춤 컨설팅</div>"
+                "</div>"
+                "</div></div>", unsafe_allow_html=True)
+            if st.button("▶ 클릭", key="home_p25_life_event", use_container_width=False):
+                st.session_state.current_tab = "life_event"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+
         # ── 파트 3: 부동산 투자 · 간병 컨설팅 ──
         st.markdown('<div class="gk-section-label">🏘️ 부동산 투자 · 간병 컨설팅</div>', unsafe_allow_html=True)
         _rc1, _rc2 = st.columns(2, gap="small")
@@ -2788,6 +2806,81 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         "4. 설계사 활용 핵심 세일즈 포인트\n" + doc_text
                     )
             show_result("res_t0")
+
+            # ── LIFE CYCLE 박스 ──────────────────────────────────────
+            st.markdown("#### 🔄 LIFE CYCLE")
+            components.html("""
+<div style="
+  border:2px solid #2e6da4; border-radius:12px;
+  padding:18px 16px; background:#f0f6ff;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  font-size:0.82rem; color:#1a1a2e; line-height:1.7;
+  overflow-y:auto; height:520px;">
+<b style="font-size:0.95rem;color:#1a3a5c;">🔄 인생 LIFE CYCLE &amp; 보험 필요 시점</b><br><br>
+
+<!-- 타임라인 -->
+<div style="position:relative;padding-left:18px;border-left:3px solid #2e6da4;">
+
+  <div style="margin-bottom:14px;">
+    <span style="background:#2e6da4;color:#fff;border-radius:20px;padding:2px 10px;font-size:0.78rem;font-weight:700;">0~20세</span>
+    <b style="color:#1a3a5c;"> 출생 · 성장기</b><br>
+    🍼 태아보험 → 어린이보험 전환<br>
+    📚 학교 상해·배상책임 담보<br>
+    💡 <i>핵심: 비갱신형 실손·암보험 조기 가입 (보험료 최저)</i>
+  </div>
+
+  <div style="margin-bottom:14px;">
+    <span style="background:#27ae60;color:#fff;border-radius:20px;padding:2px 10px;font-size:0.78rem;font-weight:700;">20~30세</span>
+    <b style="color:#1a3a5c;"> 사회 진출기</b><br>
+    💼 취업 · 독립 → 실손보험 단독 가입<br>
+    🚗 자동차보험 · 운전자보험 필수<br>
+    💍 결혼 준비 → 종신보험 설계 시작<br>
+    💡 <i>핵심: 건강할 때 보장성 보험 최대 확보</i>
+  </div>
+
+  <div style="margin-bottom:14px;">
+    <span style="background:#e67e22;color:#fff;border-radius:20px;padding:2px 10px;font-size:0.78rem;font-weight:700;">30~40세</span>
+    <b style="color:#1a3a5c;"> 가정 형성기</b><br>
+    👨‍👩‍👧 결혼 · 출산 → 가족 보장 확대<br>
+    🏠 주택 구입 → 화재보험 · 대출 연계 보험<br>
+    📈 소득 증가 → 보험료 황금비율 재설계<br>
+    💡 <i>핵심: 암·뇌·심장 3대 질병 + 간병 담보 추가</i>
+  </div>
+
+  <div style="margin-bottom:14px;">
+    <span style="background:#c0392b;color:#fff;border-radius:20px;padding:2px 10px;font-size:0.78rem;font-weight:700;">40~50세</span>
+    <b style="color:#1a3a5c;"> 자산 축적기</b><br>
+    📊 자녀 교육비 · 노후 준비 병행<br>
+    🏢 법인 설립 → CEO플랜 · 경영인정기보험<br>
+    🧬 건강검진 이상 → 보험 재점검 필수<br>
+    💡 <i>핵심: 연금보험 납입 + 상속·증여 절세 설계 시작</i>
+  </div>
+
+  <div style="margin-bottom:14px;">
+    <span style="background:#8e44ad;color:#fff;border-radius:20px;padding:2px 10px;font-size:0.78rem;font-weight:700;">50~60세</span>
+    <b style="color:#1a3a5c;"> 은퇴 준비기</b><br>
+    🌅 자녀 독립 → 보장 재조정<br>
+    💰 퇴직금 설계 · 연금 수령 시뮬레이션<br>
+    🏥 간병보험 · 치매보험 가입 마지노선<br>
+    💡 <i>핵심: 주택연금 검토 + 상속세 절세 플랜 완성</i>
+  </div>
+
+  <div style="margin-bottom:6px;">
+    <span style="background:#555;color:#fff;border-radius:20px;padding:2px 10px;font-size:0.78rem;font-weight:700;">60세+</span>
+    <b style="color:#1a3a5c;"> 노후 생활기</b><br>
+    🏡 주택연금 수령 · 연금 3층 활용<br>
+    🧓 장기요양등급 대비 간병비 준비<br>
+    📜 유언장 · 상속 집행 준비<br>
+    💡 <i>핵심: 의료비 실손 유지 + 유동성 확보</i>
+  </div>
+
+</div>
+<br>
+<div style="background:#fff3cd;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:0.78rem;">
+⚠️ <b>설계사 활용 포인트</b>: 고객 나이·가족 구성·소득 단계를 LIFE CYCLE에 대입하여<br>
+현재 위치를 파악하고 <b>다음 단계 보험 필요성</b>을 선제적으로 제안하세요.
+</div>
+</div>""", height=540)
 
         with col_review:
             st.markdown("#### ✅ CHECK POINT")
@@ -4520,6 +4613,123 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             st.error("관리자 인증키가 올바르지 않습니다.")
         else:
             st.info("관리자 인증키를 입력하세요.")
+
+    # ── [life_event] LIFE EVENT 상담 ────────────────────────────────────
+    if cur == "life_event":
+        tab_home_btn("life_event")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
+    🎯 LIFE EVENT 맞춤 보험 상담
+  </div>
+  <div style="color:#b3d4f5;font-size:0.78rem;margin-top:4px;">
+    인생 주요 이벤트별 보험 필요성 분석 · 맞춤 설계 컨설팅
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        col_le1, col_le2 = st.columns([1, 1], gap="medium")
+
+        with col_le1:
+            st.markdown("#### 📋 LIFE EVENT 상담 입력")
+            le_event = st.selectbox("이벤트 유형 선택", [
+                "🍼 출생 · 태아보험",
+                "📚 자녀 성장 · 어린이보험",
+                "💼 취업 · 사회 진출",
+                "💍 결혼 · 신혼 설계",
+                "🏠 주택 구입",
+                "👨‍👩‍👧 출산 · 가족 보장 확대",
+                "📈 소득 증가 · 보험 재설계",
+                "🏢 법인 설립 · CEO플랜",
+                "🌅 은퇴 준비",
+                "🏡 주택연금 검토",
+                "🧓 간병 · 치매 대비",
+                "📜 상속 · 유언 설계",
+            ], key="le_event_type")
+
+            le_name = st.text_input("고객 성함", placeholder="고객 이름 입력", key="le_name")
+            le_age  = st.number_input("고객 나이", min_value=0, max_value=100, value=35, key="le_age")
+            le_query = st.text_area("상담 내용",
+                placeholder="이벤트 관련 상황을 입력하세요.\n예) 결혼 예정, 맞벌이 부부, 월 건강보험료 15만원",
+                height=120, key="le_query")
+            le_hi = st.number_input("월 건강보험료(원, 소득 역산용)", min_value=0, value=0,
+                step=10000, key="le_hi")
+
+            le_files = st.file_uploader("📎 관련 서류 첨부 (선택)",
+                accept_multiple_files=True, type=['pdf','jpg','jpeg','png'], key="up_le")
+            if le_files:
+                st.success(f"✅ {len(le_files)}개 파일 업로드 완료")
+
+            le_do = st.button("🔍 LIFE EVENT AI 분석 실행", type="primary",
+                              key="btn_le_analyze", use_container_width=True)
+            if le_do:
+                if 'user_id' not in st.session_state:
+                    st.error("로그인이 필요합니다.")
+                else:
+                    doc_text_le = "".join(
+                        f"\n[첨부: {f.name}]\n" + extract_pdf_chunks(f, char_limit=6000)
+                        for f in (le_files or []) if f.type == 'application/pdf'
+                    )
+                    run_ai_analysis(
+                        le_name or "고객", le_query or le_event, le_hi, "res_le",
+                        f"[LIFE EVENT 상담 — {le_event}] 고객나이: {le_age}세\n"
+                        "1. 해당 이벤트 시점에 필요한 보험 종류와 우선순위\n"
+                        "2. 현재 보험 공백 및 추가 필요 담보 분석\n"
+                        "3. 보험료 황금비율 기준 적정 보험료 산출\n"
+                        "4. 이벤트별 맞춤 보험 설계 제안\n"
+                        "5. 설계사 세일즈 포인트 및 고객 설득 멘트\n" + doc_text_le
+                    )
+
+        with col_le2:
+            st.markdown("#### 🤖 AI 분석 리포트")
+            show_result("res_le")
+
+            st.markdown("#### 🎯 LIFE EVENT 가이드")
+            components.html("""
+<div style="
+  height:560px; overflow-y:auto; padding:14px 16px;
+  background:#f0f6ff; border:2px solid #2e6da4;
+  border-radius:12px; font-size:0.82rem; line-height:1.75; color:#1a1a2e;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;">
+<b style="font-size:0.92rem;color:#1a3a5c;">🎯 LIFE EVENT별 핵심 보험 가이드</b><br><br>
+
+<b style="color:#2e6da4;">🍼 출생 · 태아보험</b><br>
+• 임신 22주 이내 태아보험 가입 → 출생 후 어린이보험 자동 전환<br>
+• 선천성 이상·신생아 특약 포함 여부 확인<br>
+• 핵심: 비갱신형 실손 + 암·뇌·심장 조기 확보<br><br>
+
+<b style="color:#27ae60;">💍 결혼 · 신혼 설계</b><br>
+• 배우자 수익자 지정 → 종신보험 설계<br>
+• 맞벌이: 각자 실손 + 암보험 독립 가입<br>
+• 전업주부: 가사노동 가치 기준 사망보장 설계<br>
+• 주택 구입 예정 시 화재보험 연계 검토<br><br>
+
+<b style="color:#e67e22;">🏠 주택 구입</b><br>
+• 화재보험 (재조달가액 기준) 필수 가입<br>
+• 대출 연계 생명보험 (채무면제·유예) 검토<br>
+• 일상생활배상책임 담보 추가 (누수 등 대비)<br><br>
+
+<b style="color:#c0392b;">📈 소득 증가 · 재설계</b><br>
+• 보험료 황금비율 재산출 (소득의 7~10%)<br>
+• 연금보험 납입 시작 (노후 소득 30% 목표)<br>
+• 법인 설립 시 CEO플랜 · 경영인정기보험 검토<br><br>
+
+<b style="color:#8e44ad;">🌅 은퇴 준비</b><br>
+• 연금 3층 설계 점검 (국민연금·퇴직연금·개인연금)<br>
+• 간병보험 · 치매보험 가입 마지노선 (60세 이전)<br>
+• 주택연금 수령 시뮬레이션<br>
+• 상속세 절세 플랜 완성<br><br>
+
+<b style="color:#555;">📜 상속 · 유언 설계</b><br>
+• 종신보험 → 상속세 납부 재원 활용<br>
+• 유언대용신탁 · 유언장 작성 안내<br>
+• 법정상속인 확인 및 지분 정리<br><br>
+
+<div style="background:#fff3cd;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:0.78rem;">
+⚠️ <b>설계사 포인트</b>: 고객의 현재 LIFE EVENT를 파악하고<br>
+<b>다음 이벤트를 선제적으로 제안</b>하여 지속적 관계를 유지하세요.
+</div>
+</div>""", height=580)
 
     # ── [leaflet] 보험 리플렛 자동 분류 AI 시스템 ───────────────────────
     if cur == "leaflet":
