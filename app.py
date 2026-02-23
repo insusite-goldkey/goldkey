@@ -451,6 +451,75 @@ def load_error_log() -> list:
     return []
 
 # --------------------------------------------------------------------------
+# [GCS 연동] 보험 리플렛 자동 분류 시스템
+# secrets.toml [gcs] 섹션에 서비스 계정 키 등록 필요
+# --------------------------------------------------------------------------
+GCS_BUCKET      = "goldkey"
+GCS_FOLDER      = "신규상품/"
+
+def _get_gcs_client():
+    """GCS 클라이언트 반환 — secrets.toml [gcs] 섹션 사용"""
+    try:
+        from google.cloud import storage
+        from google.oauth2 import service_account
+        gcs_cfg = st.secrets.get("gcs", {})
+        if not gcs_cfg:
+            return None
+        creds = service_account.Credentials.from_service_account_info(
+            dict(gcs_cfg),
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        return storage.Client(credentials=creds, project=gcs_cfg.get("project_id"))
+    except Exception:
+        return None
+
+def gcs_upload_file(file_bytes: bytes, dest_name: str) -> bool:
+    """GCS 신규상품 폴더에 파일 업로드"""
+    try:
+        client = _get_gcs_client()
+        if not client:
+            return False
+        bucket = client.bucket(GCS_BUCKET)
+        blob   = bucket.blob(GCS_FOLDER + dest_name)
+        blob.upload_from_string(file_bytes, content_type="application/pdf")
+        return True
+    except Exception as e:
+        log_error("GCS업로드", str(e))
+        return False
+
+def gcs_list_files() -> list:
+    """GCS 신규상품 폴더 파일 목록 반환"""
+    try:
+        client = _get_gcs_client()
+        if not client:
+            return []
+        bucket = client.bucket(GCS_BUCKET)
+        blobs  = list(bucket.list_blobs(prefix=GCS_FOLDER))
+        return [
+            {"name": b.name.replace(GCS_FOLDER, ""),
+             "size": b.size,
+             "updated": b.updated.strftime("%Y-%m-%d %H:%M") if b.updated else ""}
+            for b in blobs if b.name != GCS_FOLDER
+        ]
+    except Exception as e:
+        log_error("GCS목록", str(e))
+        return []
+
+def gcs_delete_file(file_name: str) -> bool:
+    """GCS 신규상품 폴더에서 파일 삭제"""
+    try:
+        client = _get_gcs_client()
+        if not client:
+            return False
+        bucket = client.bucket(GCS_BUCKET)
+        blob   = bucket.blob(GCS_FOLDER + file_name)
+        blob.delete()
+        return True
+    except Exception as e:
+        log_error("GCS삭제", str(e))
+        return False
+
+# --------------------------------------------------------------------------
 # 관리자 지시 채널 (admin_directives.json)
 # --------------------------------------------------------------------------
 DIRECTIVE_DB = os.path.join(_DATA_DIR, "admin_directives.json")
@@ -2366,6 +2435,24 @@ function startSugSTT(){
                 st.session_state.current_tab = "nursing"
                 st.session_state["_scroll_top"] = True
                 components.html('<script>setTimeout(function(){window.scrollTo(0,0);}, 100);</script>', height=0)
+                st.rerun()
+
+        # ── 파트 4: 신규상품 리플렛 관리 ──
+        st.markdown('<div class="gk-section-label">📂 신규상품 리플렛 관리</div>', unsafe_allow_html=True)
+        _p4c1, _p4c2 = st.columns(2, gap="small")
+        with _p4c1:
+            st.markdown(
+                "<div class='gk-card-wrap'>"
+                "<div class='gk-card'>"
+                "<div class='gk-card-icon'>🗂️</div>"
+                "<div class='gk-card-body'>"
+                "<div class='gk-card-title'>보험 리플렛 AI 분류</div>"
+                "<div class='gk-card-desc'>리플렛 PDF 업로드 → AI 자동 분류<br>GCS 신규상품 폴더 저장·관리</div>"
+                "</div>"
+                "</div></div>", unsafe_allow_html=True)
+            if st.button("▶ 클릭", key="home_p4_leaflet", use_container_width=False):
+                st.session_state.current_tab = "leaflet"
+                st.session_state["_scroll_top"] = True
                 st.rerun()
 
         st.divider()
@@ -4324,6 +4411,176 @@ function t0StartTTS(){{
             st.error("관리자 인증키가 올바르지 않습니다.")
         else:
             st.info("관리자 인증키를 입력하세요.")
+
+    # ── [leaflet] 보험 리플렛 자동 분류 AI 시스템 ───────────────────────
+    if cur == "leaflet":
+        tab_home_btn("leaflet")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
+    🗂️ 보험 리플렛 자동 분류 AI 시스템
+  </div>
+  <div style="color:#b3d4f5;font-size:0.78rem;margin-top:4px;">
+    PDF 업로드 → Gemini AI 자동 분류 → GCS <b>goldkey/신규상품/</b> 폴더 저장
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # GCS 연결 상태 확인
+        _gcs_ok = _get_gcs_client() is not None
+        if _gcs_ok:
+            st.success("✅ GCS 연결 정상 — goldkey/신규상품/ 폴더 사용 중")
+        else:
+            st.warning("⚠️ GCS 미연결 — secrets.toml에 [gcs] 서비스 계정 키 등록 필요. AI 분류는 정상 작동합니다.")
+
+        st.divider()
+        col_up, col_list = st.columns([1, 1], gap="medium")
+
+        # ── 좌측: 업로드 + AI 분류 ──────────────────────────────────────
+        with col_up:
+            st.markdown("#### 📤 리플렛 업로드 & AI 분류")
+            leaflet_files = st.file_uploader(
+                "보험 리플렛 PDF 선택 (복수 가능)",
+                accept_multiple_files=True,
+                type=["pdf"],
+                key="up_leaflet"
+            )
+            if leaflet_files:
+                st.info(f"📎 {len(leaflet_files)}개 파일 선택됨")
+
+            do_classify = st.button("🤖 AI 자동 분류 + GCS 저장",
+                                    type="primary", use_container_width=True,
+                                    key="btn_leaflet_classify")
+
+            if do_classify and leaflet_files:
+                if 'user_id' not in st.session_state:
+                    st.error("로그인이 필요합니다.")
+                else:
+                    results = []
+                    for lf in leaflet_files:
+                        with st.spinner(f"🔍 {lf.name} 분류 중..."):
+                            try:
+                                pdf_text = extract_pdf_chunks(lf, char_limit=4000)
+                                client, cfg = get_master_model()
+                                classify_prompt = (
+                                    f"다음은 보험 리플렛 내용입니다. 아래 항목을 JSON 형식으로 분류하세요.\n"
+                                    f"항목: 보험사명, 상품명, 보험종류(생명/손해/제3보험), 주요담보(3개 이내), 보험료범위, 가입연령, 특이사항\n"
+                                    f"반드시 JSON만 출력하세요. 예: {{\"보험사명\":\"삼성생명\",\"상품명\":\"...\"}}\n\n"
+                                    f"리플렛 내용:\n{pdf_text}"
+                                )
+                                if _GW_OK:
+                                    answer = _gw.call_gemini(client, GEMINI_MODEL, classify_prompt, cfg)
+                                else:
+                                    resp = client.models.generate_content(
+                                        model=GEMINI_MODEL, contents=classify_prompt, config=cfg)
+                                    answer = sanitize_unicode(resp.text) if resp.text else "{}"
+
+                                # JSON 파싱
+                                import re as _re
+                                json_match = _re.search(r'\{.*\}', answer, _re.DOTALL)
+                                parsed = {}
+                                if json_match:
+                                    try:
+                                        parsed = json.loads(json_match.group())
+                                    except Exception:
+                                        parsed = {"원문": answer[:200]}
+
+                                # GCS 저장 파일명: 보험사_상품명_원본파일명.pdf
+                                ins_co  = parsed.get("보험사명", "미분류").replace(" ", "")
+                                prod_nm = parsed.get("상품명", lf.name.replace(".pdf","")).replace(" ", "_")[:20]
+                                dest_nm = f"{ins_co}_{prod_nm}_{lf.name}"
+                                dest_nm = _re.sub(r'[\\/:*?"<>|]', '_', dest_nm)
+
+                                gcs_saved = False
+                                if _gcs_ok:
+                                    gcs_saved = gcs_upload_file(lf.getvalue(), dest_nm)
+
+                                results.append({
+                                    "파일": lf.name,
+                                    "분류결과": parsed,
+                                    "저장파일명": dest_nm,
+                                    "GCS저장": "✅ 저장완료" if gcs_saved else "⚠️ 로컬(GCS 미연결)"
+                                })
+                            except Exception as e:
+                                results.append({"파일": lf.name, "분류결과": {}, "오류": str(e)})
+
+                    st.session_state["leaflet_results"] = results
+                    st.success(f"✅ {len(results)}개 파일 분류 완료!")
+                    st.rerun()
+
+            # 분류 결과 표시
+            if st.session_state.get("leaflet_results"):
+                st.markdown("---")
+                st.markdown("**📊 분류 결과**")
+                for r in st.session_state["leaflet_results"]:
+                    with st.expander(f"📄 {r['파일']}", expanded=True):
+                        if "오류" in r:
+                            st.error(f"오류: {r['오류']}")
+                        else:
+                            cl = r["분류결과"]
+                            st.markdown(f"""
+| 항목 | 내용 |
+|---|---|
+| **보험사** | {cl.get('보험사명','—')} |
+| **상품명** | {cl.get('상품명','—')} |
+| **종류** | {cl.get('보험종류','—')} |
+| **주요담보** | {cl.get('주요담보','—')} |
+| **보험료** | {cl.get('보험료범위','—')} |
+| **가입연령** | {cl.get('가입연령','—')} |
+| **특이사항** | {cl.get('특이사항','—')} |
+| **저장파일명** | `{r.get('저장파일명','—')}` |
+| **GCS 저장** | {r.get('GCS저장','—')} |
+""")
+
+        # ── 우측: GCS 파일 목록 ──────────────────────────────────────────
+        with col_list:
+            st.markdown("#### 📂 GCS 신규상품 폴더 목록")
+            if st.button("🔄 목록 새로고침", key="btn_leaflet_refresh", use_container_width=True):
+                st.session_state.pop("leaflet_gcs_list", None)
+                st.rerun()
+
+            if "leaflet_gcs_list" not in st.session_state:
+                with st.spinner("GCS 목록 불러오는 중..."):
+                    st.session_state["leaflet_gcs_list"] = gcs_list_files()
+
+            gcs_files = st.session_state.get("leaflet_gcs_list", [])
+
+            if not _gcs_ok:
+                st.info("GCS 연결 후 파일 목록이 표시됩니다.\n\n**등록 방법:**\n1. GCP 콘솔 → 서비스 계정 → JSON 키 발급\n2. `secrets.toml`에 `[gcs]` 섹션 추가\n3. Hugging Face Secrets에도 동일 등록")
+            elif not gcs_files:
+                st.info("📭 신규상품 폴더가 비어 있습니다.\n리플렛을 업로드하면 자동 저장됩니다.")
+            else:
+                st.caption(f"총 {len(gcs_files)}개 파일")
+                for gf in gcs_files:
+                    size_kb = round((gf.get("size") or 0) / 1024, 1)
+                    fc1, fc2 = st.columns([3, 1])
+                    with fc1:
+                        st.markdown(
+                            f"<div style='font-size:0.82rem;padding:4px 0;border-bottom:1px solid #eee;'>"
+                            f"📄 <b>{gf['name']}</b><br>"
+                            f"<span style='color:#888;font-size:0.74rem;'>{size_kb}KB · {gf.get('updated','')}</span>"
+                            f"</div>", unsafe_allow_html=True)
+                    with fc2:
+                        if st.button("🗑️", key=f"del_gcs_{gf['name'][:20]}",
+                                     help=f"{gf['name']} 삭제"):
+                            if gcs_delete_file(gf["name"]):
+                                st.success("삭제 완료")
+                                st.session_state.pop("leaflet_gcs_list", None)
+                                st.rerun()
+                            else:
+                                st.error("삭제 실패")
+
+        st.divider()
+        st.markdown("""
+<div style="background:#f0f7ff;border:1px solid #b3d4f5;border-radius:8px;
+  padding:10px 14px;font-size:0.78rem;color:#1a3a5c;">
+<b>📌 GCS 서비스 계정 키 등록 방법</b><br>
+1. GCP 콘솔 → IAM → 서비스 계정 → <code>goldkey-storage</code> 생성<br>
+2. 역할: <b>Storage 객체 관리자</b> 부여<br>
+3. 키 탭 → JSON 다운로드<br>
+4. <code>secrets.toml</code>에 <code>[gcs]</code> 섹션으로 추가<br>
+5. Hugging Face → Settings → Secrets에도 동일 등록
+</div>""", unsafe_allow_html=True)
 
     # 하단 공통 면책 고지
     st.divider()
