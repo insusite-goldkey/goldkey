@@ -1649,21 +1649,21 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                     _master_code = "01030742616"
                 if admin_id in ("admin", "이세윤") and admin_code == _admin_code:
                     st.session_state.user_id = "ADMIN_MASTER"
-                    st.session_state.user_name = "Admin"
+                    st.session_state.user_name = "이세윤"
                     st.session_state.join_date = dt.now()
                     st.session_state.is_admin = True
-                    st.success("관리자로 로그인되었습니다!")
+                    st.session_state["_login_welcome"] = "이세윤"
                     st.rerun()
                 elif admin_code == _master_code:
                     try:
-                        _master_name = st.secrets.get("MASTER_NAME", "PERMANENT_MASTER")
+                        _master_name = st.secrets.get("MASTER_NAME", "이세윤")
                     except Exception:
-                        _master_name = "PERMANENT_MASTER"
+                        _master_name = "이세윤"
                     st.session_state.user_id = "PERMANENT_MASTER"
                     st.session_state.user_name = _master_name
                     st.session_state.join_date = dt.now()
                     st.session_state.is_admin = True
-                    st.success("마스터로 로그인되었습니다! (무제한 사용)")
+                    st.session_state["_login_welcome"] = _master_name
                     st.rerun()
                 else:
                     st.error("ID 또는 코드가 올바르지 않습니다.")
