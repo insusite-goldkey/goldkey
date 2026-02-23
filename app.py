@@ -439,6 +439,65 @@ def add_member(name, contact):
     return members[name]
 
 # --------------------------------------------------------------------------
+# [SECTION 2-B] 동시접속 관리 + 회원수 임계치 알림
+# --------------------------------------------------------------------------
+MAX_CONCURRENT = 35  # 현재 무료 HF Spaces 안정 한계
+
+@st.cache_resource
+def _get_session_store():
+    """서버 전역 접속 세션 추적 저장소 {session_id: timestamp}"""
+    return {}
+
+@st.cache_resource
+def _get_alert_store():
+    """관리자 임계치 알림 발송 기록 {threshold: True}"""
+    return {}
+
+def _session_checkin(session_id: str) -> bool:
+    """
+    세션 체크인. 반환값:
+      True  = 접속 허용 (기존 로그인 세션 or 여유 있음)
+      False = 접속 거부 (신규 미로그인 + 초과)
+    """
+    store = _get_session_store()
+    now = time.time()
+    # 5분 이상 활동 없는 세션 자동 만료
+    expired = [k for k, v in list(store.items()) if now - v > 300]
+    for k in expired:
+        store.pop(k, None)
+    # 이미 등록된 세션이면 갱신 후 허용
+    if session_id in store:
+        store[session_id] = now
+        return True
+    # 신규 세션 — 여유 있으면 허용
+    if len(store) < MAX_CONCURRENT:
+        store[session_id] = now
+        return True
+    return False  # 초과 → 거부
+
+def _session_checkout(session_id: str):
+    """로그아웃 시 세션 해제"""
+    _get_session_store().pop(session_id, None)
+
+def _get_concurrent_count() -> int:
+    store = _get_session_store()
+    now = time.time()
+    return sum(1 for v in store.values() if now - v <= 300)
+
+def _check_member_thresholds():
+    """
+    회원 수가 50/80/200명 임계치 도달 시 관리자 탭 알림 플래그 설정.
+    실제 SMS 대신 앱 내 관리자 배너로 표시.
+    """
+    alert = _get_alert_store()
+    members = load_members()
+    cnt = len(members)
+    for threshold in [50, 80, 200, 500]:
+        key = f"th_{threshold}"
+        if cnt >= threshold and key not in alert:
+            alert[key] = {"count": cnt, "time": dt.now().strftime("%Y-%m-%d %H:%M")}
+
+# --------------------------------------------------------------------------
 # 에러 로그 기록 (파일 기반 — /tmp/error_log.json 영구 저장, 최근 200건)
 # --------------------------------------------------------------------------
 ERROR_LOG_PATH = "/tmp/error_log.json"
@@ -1155,6 +1214,34 @@ def main():
         initial_sidebar_state=_sidebar_state
     )
 
+    # ── 동시접속 관리 ─────────────────────────────────────────────────────
+    # 세션 ID: 로그인 사용자는 user_id, 미로그인은 브라우저 세션 키
+    _sid = st.session_state.get("user_id") or st.session_state.get("_anon_sid")
+    if not _sid:
+        import uuid
+        _sid = "anon_" + uuid.uuid4().hex[:12]
+        st.session_state["_anon_sid"] = _sid
+
+    _allowed = _session_checkin(_sid)
+
+    # 로그인된 사용자는 무조건 허용 (기존 세션 보호)
+    if not _allowed and "user_id" not in st.session_state:
+        st.markdown("""
+<div style="background:#fff3cd;border:2px solid #f59e0b;border-radius:12px;
+  padding:20px 24px;margin:40px auto;max-width:480px;text-align:center;
+  font-family:'Malgun Gothic',sans-serif;">
+  <div style="font-size:2rem;margin-bottom:8px;">⏳</div>
+  <div style="font-size:1.1rem;font-weight:900;color:#92400e;margin-bottom:8px;">
+    트래픽 증가로 잠시 후 접속해 주세요
+  </div>
+  <div style="font-size:0.85rem;color:#78350f;line-height:1.7;">
+    현재 많은 사용자가 동시에 접속 중입니다.<br>
+    <b>1~2분 후 새로고침</b>하시면 정상 이용 가능합니다.<br><br>
+    문의: 010-3074-2616
+  </div>
+</div>""", unsafe_allow_html=True)
+        st.stop()
+
     # ── 0단계: 파일경로 복구 플래그 반영 (auto_recover 후 rerun 시) ─────
     if st.session_state.get("_force_tmp"):
         global _DATA_DIR, USAGE_DB, MEMBER_DB
@@ -1642,6 +1729,7 @@ def main():
             _lo_col1, _lo_col2 = st.columns(2)
             with _lo_col1:
                 if st.button("🔓 로그아웃", key="btn_logout", use_container_width=True):
+                    _session_checkout(st.session_state.get("user_id", ""))
                     st.session_state.clear()
                     st.rerun()
             with _lo_col2:
@@ -4549,6 +4637,42 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
         if admin_key_input == get_admin_key():
             st.success("관리자 시스템 활성화")
+
+            # ── 회원수 임계치 체크 + 알림 배너 ──────────────────────────
+            _check_member_thresholds()
+            _alerts = _get_alert_store()
+            _members_now = load_members()
+            _cnt_now = len(_members_now)
+            _concurrent_now = _get_concurrent_count()
+
+            # 동시접속 현황
+            _cc_color = "#27ae60" if _concurrent_now < MAX_CONCURRENT * 0.7 else \
+                        "#e67e22" if _concurrent_now < MAX_CONCURRENT else "#c0392b"
+            st.markdown(f"""
+<div style="background:#f0f6ff;border:1.5px solid #2e6da4;border-radius:8px;
+  padding:10px 14px;margin-bottom:8px;font-size:0.82rem;">
+  📊 <b>현재 동시접속:</b> <span style="color:{_cc_color};font-weight:900;">{_concurrent_now}명</span>
+  &nbsp;/&nbsp; 최대 {MAX_CONCURRENT}명 &nbsp;|&nbsp;
+  <b>총 회원수:</b> {_cnt_now}명
+</div>""", unsafe_allow_html=True)
+
+            # 임계치 알림 배너 (관리자에게만 표시)
+            _threshold_msgs = {
+                "th_50":  ("🟡", "50명", "HF Spaces Pro($9/월) 업그레이드를 검토하세요."),
+                "th_80":  ("🟠", "80명", "HF Pro CPU 업그레이드 또는 Supabase DB 이전을 준비하세요."),
+                "th_200": ("🔴", "200명", "Supabase DB 이전 및 서버 업그레이드가 필요합니다."),
+                "th_500": ("🚨", "500명", "전용 서버(AWS/GCP) 이전을 즉시 검토하세요."),
+            }
+            for _key, (_icon, _label, _msg) in _threshold_msgs.items():
+                if _key in _alerts:
+                    _info = _alerts[_key]
+                    st.warning(
+                        f"{_icon} **[관리자 알림] 회원 {_label} 돌파!** "
+                        f"({_info['time']} · {_info['count']}명)\n\n"
+                        f"👉 {_msg}"
+                    )
+
+            st.divider()
             inner_tabs = st.tabs(["회원 관리", "RAG 지식베이스", "데이터 파기"])
             with inner_tabs[0]:
                 members = load_members()
