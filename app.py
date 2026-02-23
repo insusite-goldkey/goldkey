@@ -545,26 +545,33 @@ except Exception:
     _sb_create_client = None
     _SB_PKG_OK = False
 
+@st.cache_resource
 def _get_sb_client():
-    """Supabase 클라이언트 반환
-    우선순위 1: secrets.toml [supabase] 섹션
-    우선순위 2: HF 환경변수 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
+    """Supabase 클라이언트 반환 (캐시 — 앱 당 1회 생성)
+    우선순위 1: HF 환경변수 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
+    우선순위 2: secrets.toml [supabase] 섹션
     """
     if not _SB_PKG_OK:
         return None
     try:
-        url = ""
-        key = ""
-        try:
-            sb = st.secrets.get("supabase", {})
-            url = sb.get("url", "")
-            key = sb.get("service_role_key", "")
-        except Exception:
-            pass
-        if not url:
-            url = os.environ.get("SUPABASE_URL", "")
-        if not key:
-            key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        # 1순위: 환경변수 (HF Spaces Secrets는 환경변수로 주입됨)
+        url = os.environ.get("SUPABASE_URL", "").strip()
+        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+        # 2순위: st.secrets
+        if not url or not key:
+            try:
+                sb = st.secrets.get("supabase", {})
+                url = url or sb.get("url", "").strip()
+                key = key or sb.get("service_role_key", "").strip()
+            except Exception:
+                pass
+        # 3순위: st.secrets 최상위 키
+        if not url or not key:
+            try:
+                url = url or st.secrets.get("SUPABASE_URL", "").strip()
+                key = key or st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+            except Exception:
+                pass
         if not url or not key:
             return None
         return _sb_create_client(url, key)
