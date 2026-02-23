@@ -6266,9 +6266,9 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
         with col_up:
             st.markdown("#### 📤 리플렛 업로드 & AI 분류")
             leaflet_files = st.file_uploader(
-                "보험 리플렛 PDF 선택 (복수 가능)",
+                "보험 리플렛 PDF / JPG / PNG 선택 (복수 가능)",
                 accept_multiple_files=True,
-                type=["pdf"],
+                type=["pdf", "jpg", "jpeg", "png"],
                 key="up_leaflet"
             )
             if leaflet_files:
@@ -6287,7 +6287,22 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
                     for lf in leaflet_files:
                         with st.spinner(f"🔍 {lf.name} AI 분류 중..."):
                             try:
-                                pdf_text = extract_pdf_chunks(lf, char_limit=4000)
+                                # 파일 형식별 텍스트 추출
+                                _is_img = lf.name.lower().endswith(('.jpg', '.jpeg', '.png'))
+                                if _is_img:
+                                    _img_b64 = base64.b64encode(lf.getvalue()).decode()
+                                    _mime = "image/png" if lf.name.lower().endswith('.png') else "image/jpeg"
+                                    _ocr_cl, _ = get_master_model()
+                                    _ocr_r = _ocr_cl.models.generate_content(
+                                        model=GEMINI_MODEL,
+                                        contents=[{"role": "user", "parts": [
+                                            {"inline_data": {"mime_type": _mime, "data": _img_b64}},
+                                            {"text": "이 이미지의 모든 텍스트를 표·목록 포함 빠짐없이 추출하세요."}
+                                        ]}]
+                                    )
+                                    pdf_text = sanitize_unicode(_ocr_r.text or "")
+                                else:
+                                    pdf_text = extract_pdf_chunks(lf, char_limit=4000)
                                 client, cfg = get_master_model()
                                 classify_prompt = (
                                     "다음은 보험 문서(약관 또는 리플렛)입니다. 아래 항목을 JSON으로만 출력하세요.\n"
