@@ -430,7 +430,10 @@ def mask_name(name: str) -> str:
 
 def ensure_master_members():
     """마스터 회원 자동 등록 (앱 시작 시 1회) — 없으면 추가, 있으면 스킵"""
-    masters = [("이세윤", "01030742616", "GK_이세윤_MASTER")]
+    masters = [
+        ("이세윤", "01030742616", "GK_이세윤_MASTER"),
+        ("박보정", "01062534823", "GK_박보정_MASTER"),
+    ]
     members = load_members()
     changed = False
     for name, contact, uid in masters:
@@ -732,7 +735,7 @@ def _get_unlimited_users():
         master = st.secrets.get("MASTER_NAME", "PERMANENT_MASTER")
     except Exception:
         master = "PERMANENT_MASTER"
-    return {master, "PERMANENT_MASTER", "이세윤"}
+    return {master, "PERMANENT_MASTER", "이세윤", "박보정"}
 
 def check_usage_count(user_name):
     today = str(date.today())
