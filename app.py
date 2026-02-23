@@ -2765,6 +2765,11 @@ function t0StartTTS(){{
 
         with col_res:
             st.markdown("#### 🤖 AI 분석 리포트")
+            components.html("""
+<div style="border:1.5px solid #b8d0ea;border-radius:10px;padding:4px 8px;
+background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
+📊 AI가 분석한 보험 리포트가 아래에 표시됩니다.
+</div>""", height=36)
             if t0_do:
                 if 'user_id' not in st.session_state:
                     st.error("로그인이 필요합니다.")
@@ -2785,10 +2790,12 @@ function t0StartTTS(){{
             show_result("res_t0")
 
         with col_review:
-            st.markdown("#### 💡 AI 검토 의견")
-            st.markdown("""
-<div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:10px;
-  padding:14px 16px;font-size:0.82rem;line-height:1.75;color:#1a1a2e;
+            st.markdown("#### ✅ CHECK POINT")
+            components.html("""
+<div style="
+  height:620px; overflow-y:auto; padding:14px 16px;
+  background:#fffbeb; border:1.5px solid #f59e0b;
+  border-radius:10px; font-size:0.82rem; line-height:1.75; color:#1a1a2e;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;">
 <b style="color:#1a3a5c;font-size:0.88rem;">📋 설계사 체크포인트</b><br><br>
 <b style="color:#c0392b;">▶ 증권 분석 우선순위</b><br>
@@ -2811,8 +2818,16 @@ function t0StartTTS(){{
 • "지금 가입하신 보험, 10년 후에도 보장되나요?"<br>
 • 갱신형 → 비갱신형 전환 필요성 강조<br>
 • 실손 단독 → 특약 추가로 보장 강화<br><br>
+<b style="color:#c0392b;">▶ 신규보험 설계 체크리스트</b><br>
+☐ 고객 소득 역산 완료 (건보료 기준)<br>
+☐ 보험료 황금비율 계산 완료<br>
+☐ 기존 보험 보장 공백 파악<br>
+☐ 암·뇌·심장 3대 보장 확인<br>
+☐ 실손 세대 확인 (1~4세대)<br>
+☐ 신규 담보 우선순위 제안<br>
+☐ 고객 동의 및 설명 완료<br><br>
 <b style="color:#888;font-size:0.76rem;">⚠️ 본 내용은 참고용이며 최종 판단은 설계사에게 있습니다.</b>
-</div>""", unsafe_allow_html=True)
+</div>""", height=638)
 
     # ── [t1] 보험금 상담 ──────────────────────────────────────────────────
     if cur == "t1":
