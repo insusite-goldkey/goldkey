@@ -1470,14 +1470,14 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                 placeholder="코드 입력")
             if st.button("관리자 로그인", key="btn_admin_login", use_container_width=True):
                 try:
-                    _admin_code = st.secrets.get("ADMIN_CODE", "goldkey777")
+                    _admin_code = st.secrets.get("ADMIN_CODE", "goldkey6803")
                 except Exception:
-                    _admin_code = "goldkey777"
+                    _admin_code = "goldkey6803"
                 try:
                     _master_code = st.secrets.get("MASTER_CODE", "01030742616")
                 except Exception:
                     _master_code = "01030742616"
-                if admin_id == "admin" and admin_code == _admin_code:
+                if admin_id in ("admin", "이세윤") and admin_code == _admin_code:
                     st.session_state.user_id = "ADMIN_MASTER"
                     st.session_state.user_name = "Admin"
                     st.session_state.join_date = dt.now()
