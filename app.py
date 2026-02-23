@@ -1640,9 +1640,9 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                 placeholder="코드 입력")
             if st.button("관리자 로그인", key="btn_admin_login", use_container_width=True):
                 try:
-                    _admin_code = st.secrets.get("ADMIN_CODE", "goldkey6803")
+                    _admin_code = st.secrets.get("ADMIN_CODE", "kgagold6803")
                 except Exception:
-                    _admin_code = "goldkey6803"
+                    _admin_code = "kgagold6803"
                 try:
                     _master_code = st.secrets.get("MASTER_CODE", "01030742616")
                 except Exception:
