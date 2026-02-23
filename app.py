@@ -462,13 +462,21 @@ def load_error_log() -> list:
 # --------------------------------------------------------------------------
 SB_BUCKET = "goldkey"
 
+try:
+    from supabase import create_client as _sb_create_client
+    _SB_PKG_OK = True
+except Exception:
+    _sb_create_client = None
+    _SB_PKG_OK = False
+
 def _get_sb_client():
     """Supabase 클라이언트 반환
     우선순위 1: secrets.toml [supabase] 섹션
     우선순위 2: HF 환경변수 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
     """
+    if not _SB_PKG_OK:
+        return None
     try:
-        from supabase import create_client
         url = ""
         key = ""
         try:
@@ -483,7 +491,7 @@ def _get_sb_client():
             key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
         if not url or not key:
             return None
-        return create_client(url, key)
+        return _sb_create_client(url, key)
     except Exception:
         return None
 
