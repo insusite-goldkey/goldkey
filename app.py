@@ -142,8 +142,21 @@ STT_LANG          = "ko-KR"          # 언어: 반드시 ko-KR 명시 (미설정
 STT_INTERIM       = "true"           # 중간 결과 실시간 표시 (사용자 안심 효과)
 STT_CONTINUOUS    = "true"           # 연속 인식 (단일 객체 유지 → 권한 팝업 1회)
 STT_MAX_ALT       = 3                # 후보 수: 신뢰도 최고값 자동 선택
-STT_NO_SPEECH_MS  = 1500             # 무음 감지(ms): 1.5초 — EOS 감지 후 재시작 (고령 고객 pause 고려)
+STT_NO_SPEECH_MS  = 2000             # VAD silence_duration_ms: 2초 — 고령자 말 사이 pause 허용
 STT_RESTART_MS    = 500              # 비정상 종료 후 재시작 대기(ms) — 너무 빠른 재시작 방지
+STT_PREFIX_PAD_MS = 300              # prefix_padding_ms: 말 시작 전 300ms 버퍼 — '아...','음...' 뒤 본론 잘림 방지
+STT_LEV_THRESHOLD = 0.85             # Levenshtein 중복 판정 유사도 임계값 (85% 이상이면 중복)
+STT_LEV_QUEUE     = 5                # 중복 검사용 최근 확정 문장 큐 크기
+# speechContext 부스트 용어 — Google STT 적응형 인식 (보험/의료/법률 전문용어 오인식 방지)
+# Web Speech API는 직접 speechContexts 파라미터를 지원하지 않으나,
+# 아래 용어를 grammars(JSpeech Grammar Format) 힌트로 주입하여 인식률을 높인다.
+STT_BOOST_TERMS   = [
+    "치매보험", "경도인지장애", "납입면제", "해지환급금", "CDR척도",
+    "장기요양등급", "노인성질환", "알츠하이머", "혈관성치매",
+    "실손보험", "암진단비", "뇌혈관질환", "심근경색", "후유장해",
+    "보험료", "보장기간", "갱신형", "비갱신형", "특약", "주계약",
+    "설명의무", "청약철회", "보험금청구", "표준약관",
+]
 
 TTS_LANG          = "ko-KR"          # TTS 언어
 TTS_RATE          = 0.9              # 말하기 속도: 0.9 (명료·자연스러운 20대 여성 아나운서)
@@ -3077,19 +3090,20 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
             st.success(f"역산 월 소득: **{income:,.0f}원** | 적정 보험료: **{income*0.15:,.0f}원**")
         query = st.text_area("상담 내용 입력", height=180, key=f"query_{tab_key}", placeholder=placeholder)
         do_analyze = st.button("🔍 정밀 분석 실행", type="primary", key=f"btn_analyze_{tab_key}", use_container_width=True)
-        # 음성 버튼: HTML 인라인 버튼 (항상 작동, Streamlit 재렌더링 무관)
+        # 음성 버튼 — Levenshtein중복필터 + WakeLock + _starting플래그 + speechContext부스트힌트 + prefix_padding
+        _boost_terms_js = str(STT_BOOST_TERMS).replace("'", '"')
         components.html(f"""
 <style>
 .stt-row{{display:flex;gap:8px;margin-top:4px;}}
 .stt-btn{{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #2e6da4;
   background:#eef4fb;color:#1a3a5c;font-size:0.88rem;font-weight:700;cursor:pointer;}}
 .stt-btn:hover{{background:#2e6da4;color:#fff;}}
-.stt-btn.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;animation:pulse 1s infinite;}}
+.stt-btn.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;animation:pulse_{tab_key} 1s infinite;}}
 .tts-btn{{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #27ae60;
   background:#eafaf1;color:#1a5c3a;font-size:0.88rem;font-weight:700;cursor:pointer;}}
 .tts-btn:hover{{background:#27ae60;color:#fff;}}
 .stt-interim{{font-size:0.75rem;color:#e74c3c;margin-top:3px;min-height:16px;font-style:italic;}}
-@keyframes pulse{{0%{{opacity:1}}50%{{opacity:0.6}}100%{{opacity:1}}}}
+@keyframes pulse_{tab_key}{{0%{{opacity:1}}50%{{opacity:0.6}}100%{{opacity:1}}}}
 </style>
 <div class="stt-row">
   <button class="stt-btn" id="stt_btn_{tab_key}" onclick="startSTT_{tab_key}()">🎙️ 실시간 음성입력 ({stt_lang_label})</button>
@@ -3097,157 +3111,194 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
 </div>
 <div class="stt-interim" id="stt_interim_{tab_key}"></div>
 <script>
-// ── STT: 최초 1회 객체 생성 후 재사용 (권한 팝업 1회만) ──
-var _sttActive_{tab_key} = false;
-var _sttRec_{tab_key} = null;      // 최초 1회 생성 후 재사용
-var _sttReady_{tab_key} = false;   // 객체 초기화 완료 여부
-var _sttFinal_{tab_key} = '';
-var _sttBtn_{tab_key} = null;
-var _sttDiv_{tab_key} = null;
+(function(){{
+// ── 상태 변수 (IIFE로 격리 — 탭 간 충돌 방지) ─────────────────────────────
+var _active=false, _rec=null, _ready=false, _starting=false;
+var _finalBuf='';
+var _lastQ=[];          // Levenshtein 중복 검사 큐 (최대 {STT_LEV_QUEUE}개)
+var _wakeLock=null;
+// speechContext 부스트 용어 (Web Speech API grammars 힌트)
+var _boostTerms={_boost_terms_js};
 
-function _getTA_{tab_key}(){{
-  var doc = window.parent.document;
-  var tas = doc.querySelectorAll('textarea');
-  for(var i=0;i<tas.length;i++){{
-    if(tas[i].placeholder && (tas[i].placeholder.includes('\uc0c1\ub2f4') || tas[i].placeholder.includes('\uc785\ub825'))){{
-      return tas[i];
-    }}
+// ── Wake Lock ──────────────────────────────────────────────────────────────
+function _acqWL(){{
+  if(!('wakeLock' in navigator)) return;
+  navigator.wakeLock.request('screen').then(function(wl){{
+    _wakeLock=wl;
+    wl.addEventListener('release',function(){{ if(_active) _acqWL(); }});
+  }}).catch(function(){{}});
+}}
+function _relWL(){{
+  if(_wakeLock){{ try{{_wakeLock.release();}}catch(e){{}} _wakeLock=null; }}
+}}
+
+// ── Levenshtein 중복 필터 ──────────────────────────────────────────────────
+function _lev(a,b){{
+  var m=a.length,n=b.length,dp=[],i,j;
+  for(i=0;i<=m;i++)dp[i]=[i];
+  for(j=0;j<=n;j++)dp[0][j]=j;
+  for(i=1;i<=m;i++)for(j=1;j<=n;j++)
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[m][n];
+}}
+function _isDup(text){{
+  if(!text||text.length<5) return false;
+  for(var i=0;i<_lastQ.length;i++){{
+    var prev=_lastQ[i], mx=Math.max(prev.length,text.length);
+    if(mx>0 && 1-(_lev(prev,text)/mx) >= {STT_LEV_THRESHOLD}) return true;
   }}
-  return tas.length ? tas[tas.length-1] : null;
+  return false;
+}}
+function _addQ(text){{
+  _lastQ.push(text);
+  if(_lastQ.length>{STT_LEV_QUEUE}) _lastQ.shift();
 }}
 
-function _setTA_{tab_key}(val){{
-  var ta = _getTA_{tab_key}();
-  if(!ta) return;
-  var setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
-  setter.call(ta, val);
-  ta.dispatchEvent(new Event('input',{{bubbles:true}}));
+// ── textarea 찾기 ──────────────────────────────────────────────────────────
+function _getTA(){{
+  var doc=window.parent.document, tas=doc.querySelectorAll('textarea');
+  for(var i=0;i<tas.length;i++){{
+    var ph=tas[i].placeholder||'';
+    if(ph.includes('\uc0c1\ub2f4')||ph.includes('\uc785\ub825')) return tas[i];
+  }}
+  return tas.length?tas[tas.length-1]:null;
+}}
+function _setTA(val){{
+  var ta=_getTA(); if(!ta) return;
+  var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
+  s.call(ta,val); ta.dispatchEvent(new Event('input',{{bubbles:true}}));
 }}
 
-function _joinSentence_{tab_key}(prev, next){{
+// ── 문장 연결 (자동 구두점 보완) ───────────────────────────────────────────
+function _join(prev,next){{
   if(!prev) return next;
-  var p = prev.trimEnd();
-  var n = next.trim();
+  var p=prev.trimEnd(), n=next.trim();
   if(!n) return p;
-  var lastChar = p.slice(-1);
-  var punctEnd = ['.','?','!','。','？','！',',','，'].indexOf(lastChar) >= 0;
-  var firstChar = n.charAt(0);
-  var isLower = firstChar === firstChar.toLowerCase() && firstChar !== firstChar.toUpperCase();
-  if(!punctEnd && isLower) return p + ', ' + n;
-  return p + ' ' + n;
+  var last=p.slice(-1);
+  var isPunct=['.','?','!','。','？','！'].indexOf(last)>=0;
+  return isPunct ? p+' '+n : p+'. '+n;   // 구두점 없으면 마침표 자동 삽입
 }}
 
-function _initRec_{tab_key}(){{
-  // 이미 생성된 객체 있으면 재사용
-  if(_sttReady_{tab_key}) return true;
+// ── SpeechRecognition 초기화 ───────────────────────────────────────────────
+function _init(){{
+  if(_ready) return true;
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){{ alert('Chrome/Edge 브라우저를 사용해주세요.'); return false; }}
-  var r = new SR();
-  r.lang = '{stt_lang_code}';
-  r.interimResults = true;
-  r.continuous = true;   // 단일 객체 유지 — 권한 팝업 1회만
-  r.maxAlternatives = 3;
+  var r=new SR();
+  r.lang='{stt_lang_code}';
+  r.interimResults=true;
+  r.continuous=true;
+  r.maxAlternatives={STT_MAX_ALT};
 
-  r.onresult = function(e){{
-    var interim=''; var final_new='';
+  // speechContext 힌트: JSpeech Grammar Format으로 부스트 용어 주입
+  // (Web Speech API가 grammars를 무시하는 경우도 있으나 Chrome은 일부 반영)
+  try{{
+    var SRG=window.SpeechGrammarList||window.webkitSpeechGrammarList;
+    if(SRG){{
+      var gl=new SRG();
+      var gStr='#JSGF V1.0; grammar boost; public <term> = '+_boostTerms.join(' | ')+';';
+      gl.addFromString(gStr, 1.0);
+      r.grammars=gl;
+    }}
+  }}catch(e){{}}
+
+  r.onstart=function(){{ _starting=false; }};
+
+  r.onresult=function(e){{
+    var interim='', finalNew='';
     for(var i=e.resultIndex;i<e.results.length;i++){{
       if(e.results[i].isFinal){{
-        var best=''; var bestConf=0;
+        // 신뢰도 최고 후보 선택 (condition_on_previous_text=False 효과)
+        var best='', bc=0;
         for(var j=0;j<e.results[i].length;j++){{
-          if(e.results[i][j].confidence >= bestConf){{
-            bestConf=e.results[i][j].confidence;
-            best=e.results[i][j].transcript;
-          }}
+          if(e.results[i][j].confidence>=bc){{bc=e.results[i][j].confidence;best=e.results[i][j].transcript;}}
         }}
-        final_new += best;
+        // Levenshtein 중복 필터 (compression_ratio_threshold 역할)
+        if(best && !_isDup(best)){{ finalNew+=best; _addQ(best); }}
       }} else {{
-        interim += e.results[i][0].transcript;
+        interim+=e.results[i][0].transcript;
       }}
     }}
-    if(final_new){{
-      _sttFinal_{tab_key} = _joinSentence_{tab_key}(_sttFinal_{tab_key}, final_new);
-      _setTA_{tab_key}(_sttFinal_{tab_key});
-      if(_sttDiv_{tab_key}) _sttDiv_{tab_key}.textContent='';
+    if(finalNew){{
+      _finalBuf=_join(_finalBuf,finalNew);
+      _setTA(_finalBuf);
+      document.getElementById('stt_interim_{tab_key}').textContent='';
     }}
-    if(interim && _sttDiv_{tab_key}) _sttDiv_{tab_key}.textContent='🎤 '+interim;
+    if(interim) document.getElementById('stt_interim_{tab_key}').textContent='🎤 '+interim;
   }};
 
-  r.onerror = function(e){{
-    if(e.error==='no-speech'){{
-      // STT_NO_SPEECH_MS({STT_NO_SPEECH_MS}ms) 대기 후 자동 재시작
-      if(_sttActive_{tab_key}){{
-        setTimeout(function(){{
-          if(_sttActive_{tab_key}) try{{ r.start(); }}catch(ex){{}}
-        }}, {STT_NO_SPEECH_MS});
-      }}
+  r.onerror=function(e){{
+    _starting=false;
+    if(e.error==='no-speech') return;   // VAD silence — continuous 모드 정상
+    if(e.error==='aborted')  return;
+    if(e.error==='not-allowed'){{
+      document.getElementById('stt_interim_{tab_key}').textContent=
+        '🚫 마이크 권한 차단 — 주소창 🔒 → 마이크 → 허용';
+      _active=false; _relWL();
+      var btn=document.getElementById('stt_btn_{tab_key}');
+      if(btn){{btn.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';btn.classList.remove('active');}}
       return;
     }}
-    if(e.error==='aborted') return;
-    if(_sttDiv_{tab_key}) _sttDiv_{tab_key}.textContent='⚠️ '+e.error;
+    document.getElementById('stt_interim_{tab_key}').textContent='⚠️ '+e.error;
   }};
 
-  r.onend = function(){{
-    // STT_RESTART_MS({STT_RESTART_MS}ms) 안정 대기 후 재시작
-    if(_sttActive_{tab_key}){{
+  r.onend=function(){{
+    _starting=false;
+    if(_active){{
+      // prefix_padding_ms({STT_PREFIX_PAD_MS}ms) + restart_ms({STT_RESTART_MS}ms) 대기 후 재시작
       setTimeout(function(){{
-        if(_sttActive_{tab_key}){{
-          try{{ r.start(); }}catch(ex){{}}
+        if(_active && !_starting){{
+          _starting=true;
+          try{{r.start();}}catch(ex){{_starting=false;}}
         }}
-      }}, {STT_RESTART_MS});
+      }}, {STT_PREFIX_PAD_MS}+{STT_RESTART_MS});
     }} else {{
-      if(_sttBtn_{tab_key}){{
-        _sttBtn_{tab_key}.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
-        _sttBtn_{tab_key}.classList.remove('active');
-      }}
-      if(_sttDiv_{tab_key}) _sttDiv_{tab_key}.textContent='';
+      var btn=document.getElementById('stt_btn_{tab_key}');
+      if(btn){{btn.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';btn.classList.remove('active');}}
+      document.getElementById('stt_interim_{tab_key}').textContent='';
+      _relWL();
     }}
   }};
 
-  _sttRec_{tab_key} = r;
-  _sttReady_{tab_key} = true;
-  return true;
+  _rec=r; _ready=true; return true;
 }}
 
-function startSTT_{tab_key}(){{
-  var btn = document.getElementById('stt_btn_{tab_key}');
-  var interim_div = document.getElementById('stt_interim_{tab_key}');
-  _sttBtn_{tab_key} = btn;
-  _sttDiv_{tab_key} = interim_div;
-
-  if(_sttActive_{tab_key}){{
-    // 중지
-    _sttActive_{tab_key} = false;
-    if(_sttRec_{tab_key}) try{{ _sttRec_{tab_key}.stop(); }}catch(ex){{}}
+// ── 공개 함수 ──────────────────────────────────────────────────────────────
+window['startSTT_{tab_key}']=function(){{
+  var btn=document.getElementById('stt_btn_{tab_key}');
+  var idiv=document.getElementById('stt_interim_{tab_key}');
+  if(_active){{
+    _active=false; _starting=false;
+    if(_rec) try{{_rec.stop();}}catch(ex){{}};
     btn.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
-    btn.classList.remove('active');
-    interim_div.textContent='';
-    return;
+    btn.classList.remove('active'); idiv.textContent='';
+    _relWL(); return;
   }}
-
-  // 최초 1회만 객체 생성 (이후 재사용 → 권한 팝업 안 뜸)
-  if(!_initRec_{tab_key}()) return;
-
-  _sttFinal_{tab_key} = '';
-  _sttActive_{tab_key} = true;
+  if(!_init()) return;
+  // 새 세션: 버퍼·중복큐 초기화 (no_speech_threshold 초기화 효과)
+  _finalBuf=''; _lastQ=[];
+  _active=true; _starting=true;
   btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)';
   btn.classList.add('active');
-  interim_div.textContent='🟡 음성 입력 준비 중... (브라우저 허용 필요 시 허용 클릭)';
-  try{{ _sttRec_{tab_key}.start(); }}catch(ex){{}}
-}}
+  idiv.textContent='🟡 준비 중... (마이크 허용 필요 시 허용 클릭)';
+  _acqWL();
+  try{{_rec.start();}}catch(ex){{_starting=false;}}
+}};
 
-function startTTS_{tab_key}(){{
-  // 전역 TTS 설정 강제 적용: TTS_RATE={TTS_RATE}, TTS_PITCH={TTS_PITCH}, TTS_LANG={TTS_LANG}
+window['startTTS_{tab_key}']=function(){{
   window.speechSynthesis.cancel();
   var msg=new SpeechSynthesisUtterance('{stt_greet}');
   msg.lang='{stt_lang_code}'; msg.rate={TTS_RATE}; msg.pitch={TTS_PITCH}; msg.volume={TTS_VOLUME};
   var voices=window.speechSynthesis.getVoices();
-  var _vp=[{','.join(repr(n) for n in TTS_VOICE_PRIORITY)}];
+  var vp=[{','.join(repr(n) for n in TTS_VOICE_PRIORITY)}];
   var fv=voices.find(function(v){{
-    return v.lang==='{stt_lang_code}'&&_vp.some(function(n){{return v.name.includes(n);}});
+    return v.lang==='{stt_lang_code}'&&vp.some(function(n){{return v.name.includes(n);}});
   }});
   if(fv) msg.voice=fv;
   window.speechSynthesis.speak(msg);
-}}
+}};
+
+}})();
 </script>
 """, height=72)
         return c_name, query, hi_premium, do_analyze
