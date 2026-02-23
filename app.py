@@ -451,80 +451,55 @@ def load_error_log() -> list:
     return []
 
 # --------------------------------------------------------------------------
-# [GCS 연동] 보험 문서 자동 분류 시스템
-# secrets.toml [gcs] 섹션에 서비스 계정 키 등록 필요
+# [Supabase Storage 연동] 보험 문서 자동 분류 시스템
+# secrets.toml [supabase] 섹션에 url, service_role_key 등록 필요
 #
-# GCS 폴더 구조 (자동 생성):
-#   goldkey/
+# 버킷/폴더 구조 (자동 생성):
+#   버킷: goldkey
 #   ├── 약관/{보험사}/{연도}/{파일명}.pdf
 #   ├── 리플렛/{보험사}/{파일명}.pdf
 #   └── 신규상품/{파일명}.pdf  ← 미분류 폴백
 # --------------------------------------------------------------------------
-GCS_BUCKET = "goldkey"
+SB_BUCKET = "goldkey"
 
-# 문서 유형별 GCS 루트 폴더 매핑
-GCS_FOLDER_MAP = {
-    "약관":   "약관",
-    "리플렛": "리플렛",
-    "신규상품": "신규상품",
-}
-
-def _get_gcs_client():
-    """GCS 클라이언트 반환
-    우선순위 1: secrets.toml [gcs] 섹션
-    우선순위 2: HF Secrets 환경변수 GCS_* (Hugging Face 배포 환경)
+def _get_sb_client():
+    """Supabase 클라이언트 반환
+    우선순위 1: secrets.toml [supabase] 섹션
+    우선순위 2: HF 환경변수 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
     """
     try:
-        from google.cloud import storage
-        from google.oauth2 import service_account
-
-        # ── 우선순위 1: secrets.toml [gcs] 섹션 ──
-        gcs_cfg = {}
+        from supabase import create_client
+        url = ""
+        key = ""
         try:
-            gcs_cfg = dict(st.secrets.get("gcs", {}))
+            sb = st.secrets.get("supabase", {})
+            url = sb.get("url", "")
+            key = sb.get("service_role_key", "")
         except Exception:
             pass
-
-        # ── 우선순위 2: HF 환경변수 GCS_* ──
-        if not gcs_cfg or not gcs_cfg.get("private_key"):
-            pk = os.environ.get("GCS_PRIVATE_KEY", "")
-            if pk:
-                gcs_cfg = {
-                    "type":                        os.environ.get("GCS_TYPE", "service_account"),
-                    "project_id":                  os.environ.get("GCS_PROJECT_ID", ""),
-                    "private_key_id":              os.environ.get("GCS_PRIVATE_KEY_ID", ""),
-                    "private_key":                 pk.replace("\\n", "\n"),
-                    "client_email":                os.environ.get("GCS_CLIENT_EMAIL", ""),
-                    "client_id":                   os.environ.get("GCS_CLIENT_ID", ""),
-                    "auth_uri":                    "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri":                   "https://oauth2.googleapis.com/token",
-                }
-
-        if not gcs_cfg or not gcs_cfg.get("private_key"):
+        if not url:
+            url = os.environ.get("SUPABASE_URL", "")
+        if not key:
+            key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        if not url or not key:
             return None
-
-        creds = service_account.Credentials.from_service_account_info(
-            gcs_cfg,
-            scopes=["https://www.googleapis.com/auth/cloud-platform"]
-        )
-        return storage.Client(credentials=creds, project=gcs_cfg.get("project_id"))
+        return create_client(url, key)
     except Exception:
         return None
 
 def _build_gcs_path(doc_type: str, ins_co: str, year: str, file_name: str) -> str:
     """
-    문서유형·보험사·연도 → GCS 전체 경로 자동 생성
+    문서유형·보험사·연도 → 스토리지 전체 경로 자동 생성
     약관  : 약관/{보험사}/{연도}/{파일명}
     리플렛: 리플렛/{보험사}/{파일명}
     기타  : 신규상품/{파일명}
     """
     import re as _re
-    # 경로에 사용 불가한 문자 제거
     safe = lambda s: _re.sub(r'[\\/:*?"<>|\s]', '_', s.strip()) if s else "미분류"
-    dt  = safe(doc_type)
-    co  = safe(ins_co)
-    yr  = safe(year) if year else ""
-    fn  = safe(file_name)
+    dt = safe(doc_type)
+    co = safe(ins_co)
+    yr = safe(year) if year else ""
+    fn = safe(file_name)
     if dt == "약관":
         return f"약관/{co}/{yr}/{fn}" if yr else f"약관/{co}/{fn}"
     elif dt == "리플렛":
@@ -534,51 +509,60 @@ def _build_gcs_path(doc_type: str, ins_co: str, year: str, file_name: str) -> st
 
 def gcs_upload_file(file_bytes: bytes, gcs_path: str,
                     content_type: str = "application/pdf") -> bool:
-    """GCS 전체 경로(gcs_path)로 파일 업로드"""
+    """Supabase Storage에 파일 업로드"""
     try:
-        client = _get_gcs_client()
-        if not client:
+        sb = _get_sb_client()
+        if not sb:
             return False
-        bucket = client.bucket(GCS_BUCKET)
-        blob   = bucket.blob(gcs_path)
-        blob.upload_from_string(file_bytes, content_type=content_type)
+        sb.storage.from_(SB_BUCKET).upload(
+            path=gcs_path,
+            file=file_bytes,
+            file_options={"content-type": content_type, "upsert": "true"}
+        )
         return True
     except Exception as e:
-        log_error("GCS업로드", str(e))
+        log_error("SB업로드", str(e))
         return False
 
 def gcs_list_files(prefix: str = "") -> list:
-    """GCS 버킷 내 prefix 경로의 파일 목록 반환"""
+    """Supabase Storage 버킷 내 파일 목록 반환"""
     try:
-        client = _get_gcs_client()
-        if not client:
+        sb = _get_sb_client()
+        if not sb:
             return []
-        bucket = client.bucket(GCS_BUCKET)
-        blobs  = list(bucket.list_blobs(prefix=prefix))
-        return [
-            {"path": b.name,
-             "name": b.name.split("/")[-1],
-             "folder": "/".join(b.name.split("/")[:-1]),
-             "size": b.size,
-             "updated": b.updated.strftime("%Y-%m-%d %H:%M") if b.updated else ""}
-            for b in blobs if not b.name.endswith("/")
-        ]
+        # 최상위 폴더 목록 조회 후 재귀적으로 수집
+        results = []
+        folders = ["약관", "리플렛", "신규상품"]
+        for folder in folders:
+            try:
+                items = sb.storage.from_(SB_BUCKET).list(folder)
+                for item in (items or []):
+                    if item.get("id"):
+                        nm = item.get("name", "")
+                        results.append({
+                            "path": f"{folder}/{nm}",
+                            "name": nm,
+                            "folder": folder,
+                            "size": item.get("metadata", {}).get("size", 0),
+                            "updated": item.get("updated_at", "")[:16] if item.get("updated_at") else ""
+                        })
+            except Exception:
+                pass
+        return results
     except Exception as e:
-        log_error("GCS목록", str(e))
+        log_error("SB목록", str(e))
         return []
 
 def gcs_delete_file(gcs_path: str) -> bool:
-    """GCS 전체 경로(gcs_path)로 파일 삭제"""
+    """Supabase Storage에서 파일 삭제"""
     try:
-        client = _get_gcs_client()
-        if not client:
+        sb = _get_sb_client()
+        if not sb:
             return False
-        bucket = client.bucket(GCS_BUCKET)
-        blob   = bucket.blob(gcs_path)
-        blob.delete()
+        sb.storage.from_(SB_BUCKET).remove([gcs_path])
         return True
     except Exception as e:
-        log_error("GCS삭제", str(e))
+        log_error("SB삭제", str(e))
         return False
 
 # --------------------------------------------------------------------------
@@ -4484,16 +4468,16 @@ function t0StartTTS(){{
     🗂️ 보험 리플렛 자동 분류 AI 시스템
   </div>
   <div style="color:#b3d4f5;font-size:0.78rem;margin-top:4px;">
-    PDF 업로드 → Gemini AI 자동 분류 → GCS <b>goldkey/신규상품/</b> 폴더 저장
+    PDF 업로드 → Gemini AI 자동 분류 → Supabase <b>goldkey</b> 버킷 자동 저장
   </div>
 </div>""", unsafe_allow_html=True)
 
-        # GCS 연결 상태 확인
-        _gcs_ok = _get_gcs_client() is not None
+        # Supabase 연결 상태 확인
+        _gcs_ok = _get_sb_client() is not None
         if _gcs_ok:
-            st.success("✅ GCS 연결 정상 — goldkey/신규상품/ 폴더 사용 중")
+            st.success("✅ Supabase Storage 연결 정상 — goldkey 버킷 사용 중")
         else:
-            st.warning("⚠️ GCS 미연결 — secrets.toml에 [gcs] 서비스 계정 키 등록 필요. AI 분류는 정상 작동합니다.")
+            st.warning("⚠️ Supabase 미연결 — secrets.toml에 [supabase] 섹션 등록 필요. AI 분류는 정상 작동합니다.")
 
         st.divider()
         col_up, col_list = st.columns([1, 1], gap="medium")
@@ -4510,7 +4494,7 @@ function t0StartTTS(){{
             if leaflet_files:
                 st.info(f"📎 {len(leaflet_files)}개 파일 선택됨")
 
-            do_classify = st.button("🤖 AI 자동 분류 + GCS 저장",
+            do_classify = st.button("🤖 AI 자동 분류 + Supabase 저장",
                                     type="primary", use_container_width=True,
                                     key="btn_leaflet_classify")
 
@@ -4579,7 +4563,7 @@ function t0StartTTS(){{
                                     "파일": lf.name,
                                     "분류결과": parsed,
                                     "GCS경로": gcs_path,
-                                    "GCS저장": "✅ 저장완료" if gcs_saved else "⚠️ GCS 미연결"
+                                    "GCS저장": "✅ 저장완료" if gcs_saved else "⚠️ Supabase 미연결"
                                 })
                             except Exception as e:
                                 results.append({"파일": lf.name, "분류결과": {}, "오류": str(e)})
@@ -4618,16 +4602,14 @@ function t0StartTTS(){{
 
         # ── 우측: GCS 폴더별 파일 목록 (탭) ─────────────────────────────
         with col_list:
-            st.markdown("#### 📂 GCS 버킷 파일 목록")
+            st.markdown("#### 📂 Supabase Storage 파일 목록")
             if st.button("🔄 목록 새로고침", key="btn_leaflet_refresh", use_container_width=True):
                 st.session_state.pop("leaflet_gcs_list", None)
                 st.rerun()
 
             if not _gcs_ok:
-                st.info("GCS 연결 후 파일 목록이 표시됩니다.\n\n**등록 방법:**\n"
-                        "1. GCP 콘솔 → 서비스 계정 → JSON 키 발급\n"
-                        "2. `secrets.toml`에 `[gcs]` 섹션 추가\n"
-                        "3. Hugging Face Secrets에도 동일 등록")
+                st.info("Supabase 연결 후 파일 목록이 표시됩니다.\n\n"
+                        "`secrets.toml`의 `[supabase]` 섹션과 HF Secrets에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` 등록 필요")
             else:
                 if "leaflet_gcs_list" not in st.session_state:
                     with st.spinner("GCS 목록 불러오는 중..."):
@@ -4682,12 +4664,11 @@ function t0StartTTS(){{
         st.markdown("""
 <div style="background:#f0f7ff;border:1px solid #b3d4f5;border-radius:8px;
   padding:10px 14px;font-size:0.78rem;color:#1a3a5c;">
-<b>📌 GCS 서비스 계정 키 등록 방법</b><br>
-1. GCP 콘솔 → IAM → 서비스 계정 → <code>goldkey-storage</code> 생성<br>
-2. 역할: <b>Storage 객체 관리자</b> 부여<br>
-3. 키 탭 → JSON 다운로드<br>
-4. <code>secrets.toml</code>에 <code>[gcs]</code> 섹션으로 추가<br>
-5. Hugging Face → Settings → Secrets에도 동일 등록
+<b>📌 Supabase Storage 연동 정보</b><br>
+• URL: <code>https://idfzizqidhnpzbqioqqo.supabase.co</code><br>
+• 버킷: <code>goldkey</code> (Supabase Storage에서 생성 필요)<br>
+• HF Secrets: <code>SUPABASE_URL</code>, <code>SUPABASE_SERVICE_ROLE_KEY</code> 등록<br>
+• 버킷 생성: Supabase → Storage → New bucket → <code>goldkey</code>
 </div>""", unsafe_allow_html=True)
 
     # 하단 공통 면책 고지
