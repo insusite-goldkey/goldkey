@@ -5763,55 +5763,110 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
                 _rbtn1, _rbtn2 = st.columns(2)
                 with _rbtn1:
-                    if rag_files and st.button("📥 분류 후 영구 저장", key="btn_rag_sync",
+                    if rag_files and st.button("⚡ 즉시 저장 (파일명 분류)", key="btn_rag_sync",
                                                use_container_width=True, type="primary"):
                         _added = 0
-                        for _uf in rag_files:
-                            with st.spinner(f"🔍 {_uf.name} 분석 중..."):
-                                try:
-                                    # 텍스트 추출
-                                    if _uf.type == "application/pdf":
-                                        _raw_text = process_pdf(_uf)
-                                    elif "wordprocessingml" in _uf.type:
-                                        _raw_text = process_docx(_uf)
-                                    elif _uf.type in ("image/jpeg","image/jpg","image/png") or \
-                                         _uf.name.lower().endswith(('.jpg','.jpeg','.png')):
-                                        _img_b64 = base64.b64encode(_uf.getvalue()).decode()
-                                        _mime = "image/jpeg" if _uf.name.lower().endswith(('.jpg','.jpeg')) else "image/png"
-                                        _ocr_cl, _ = get_master_model()
-                                        _ocr_r = _ocr_cl.models.generate_content(
-                                            model=GEMINI_MODEL,
-                                            contents=[{"role":"user","parts":[
-                                                {"inline_data":{"mime_type":_mime,"data":_img_b64}},
-                                                {"text":"이 이미지의 모든 텍스트를 표·목록 포함 빠짐없이 추출하세요."}
-                                            ]}]
-                                        )
-                                        _raw_text = sanitize_unicode(_ocr_r.text or "")
-                                        _raw_text = f"[이미지: {_uf.name}]\n{_raw_text}"
-                                    else:
-                                        _raw_text = _uf.read().decode('utf-8', errors='replace')
+                        _total = len(rag_files)
+                        _prog_bar = st.progress(0, text=f"0 / {_total} 저장 중...")
+                        _status_box = st.empty()
+                        for _fi, _uf in enumerate(rag_files):
+                            _prog_bar.progress(_fi / _total,
+                                text=f"[{_fi+1}/{_total}] {_uf.name[:40]} 저장 중...")
+                            try:
+                                # 텍스트 추출
+                                _status_box.info(f"📄 [{_fi+1}/{_total}] **{_uf.name}** — 텍스트 추출 중...")
+                                if _uf.type == "application/pdf":
+                                    _raw_text = process_pdf(_uf)
+                                elif "wordprocessingml" in _uf.type:
+                                    _raw_text = process_docx(_uf)
+                                elif _uf.type in ("image/jpeg","image/jpg","image/png") or \
+                                     _uf.name.lower().endswith(('.jpg','.jpeg','.png')):
+                                    _img_b64 = base64.b64encode(_uf.getvalue()).decode()
+                                    _mime = "image/jpeg" if _uf.name.lower().endswith(('.jpg','.jpeg')) else "image/png"
+                                    _ocr_cl, _ = get_master_model()
+                                    _status_box.info(f"🖼️ [{_fi+1}/{_total}] **{_uf.name}** — OCR 처리 중...")
+                                    _ocr_r = _ocr_cl.models.generate_content(
+                                        model=GEMINI_MODEL,
+                                        contents=[{"role":"user","parts":[
+                                            {"inline_data":{"mime_type":_mime,"data":_img_b64}},
+                                            {"text":"이 이미지의 모든 텍스트를 표·목록 포함 빠짐없이 추출하세요."}
+                                        ]}]
+                                    )
+                                    _raw_text = sanitize_unicode(_ocr_r.text or "")
+                                    _raw_text = f"[이미지: {_uf.name}]\n{_raw_text}"
+                                else:
+                                    _raw_text = _uf.read().decode('utf-8', errors='replace')
 
-                                    # Gemini 자동 분류
-                                    _meta = _rag_classify_document(_raw_text, _uf.name)
-                                    _src_id = _rag_db_add_document(_raw_text, _uf.name, _meta)
-                                    if _src_id > 0:
-                                        _added += 1
-                                        st.markdown(f"""
+                                # 파일명 기반 즉시 분류 (AI 호출 없음 — 빠름)
+                                _fn_lower = _uf.name.lower()
+                                _quick_cat = (
+                                    "보험약관" if any(k in _fn_lower for k in ["약관","policy","특약","보험"]) else
+                                    "공문서"  if any(k in _fn_lower for k in ["공문","금감원","금융위","고시"]) else
+                                    "상담자료" if any(k in _fn_lower for k in ["상담","청구","서류","안내","리플렛","leaflet"]) else
+                                    "판례"    if any(k in _fn_lower for k in ["판례","판결","대법"]) else
+                                    "세무자료" if any(k in _fn_lower for k in ["세무","세금","절세","재무"]) else
+                                    "기타"
+                                )
+                                _meta = {"category": _quick_cat, "insurer": "", "doc_date": "",
+                                         "summary": f"[즉시저장] {_uf.name}"}
+
+                                # DB 저장
+                                _status_box.info(f"💾 [{_fi+1}/{_total}] **{_uf.name}** — 저장 중...")
+                                _src_id = _rag_db_add_document(_raw_text, _uf.name, _meta)
+                                if _src_id > 0:
+                                    _added += 1
+                                    _status_box.success(f"✅ [{_fi+1}/{_total}] **{_uf.name}** 저장 완료 — {_quick_cat}")
+                                    st.markdown(f"""
 <div style="background:#f0fff4;border-left:3px solid #27ae60;border-radius:6px;
   padding:6px 10px;margin-bottom:4px;font-size:0.78rem;">
-✅ <b>{_uf.name}</b><br>
-📂 분류: <b>{_meta.get('category','?')}</b> &nbsp;|&nbsp;
-🏢 기관: {_meta.get('insurer','미상')} &nbsp;|&nbsp;
-📅 날짜: {_meta.get('doc_date','미상')}<br>
-📝 {_meta.get('summary','')}
+⚡ <b>{_uf.name}</b> — 즉시 저장됨<br>
+📂 분류: <b>{_quick_cat}</b> (파일명 기반) &nbsp;|&nbsp;
+🤖 AI 재분류는 아래 버튼으로 실행 가능
 </div>""", unsafe_allow_html=True)
-                                except Exception as _ue:
-                                    st.error(f"❌ {_uf.name}: {_ue}")
+                            except Exception as _ue:
+                                st.error(f"❌ [{_fi+1}/{_total}] {_uf.name}: {_ue}")
+                        _prog_bar.progress(1.0, text=f"✅ {_added} / {_total} 저장 완료")
                         if _added > 0:
                             _rag_sync_from_db()
-                            st.success(f"✅ {_added}건 영구 저장 완료!")
+                            st.success(f"✅ {_added}건 영구 저장 완료! (AI 재분류는 아래 버튼으로 실행)")
                             st.session_state['_rag_upload_cnt'] = st.session_state.get('_rag_upload_cnt', 0) + 1
                             st.rerun()
+
+                # AI 재분류 버튼 (저장 후 선택적 실행)
+                if _db_src_cnt > 0:
+                    with st.expander("🤖 AI 정밀 분류 실행 (선택사항 — 파일당 10~30초 소요)", expanded=False):
+                        st.caption("저장된 문서의 보험사·날짜·요약을 Gemini AI가 정밀 분류합니다. 시간이 걸리므로 업로드 완료 후 실행하세요.")
+                        if st.button("🤖 AI 정밀 분류 시작", key="btn_rag_ai_classify", use_container_width=True):
+                            _sb = _get_sb_client() if _rag_use_supabase() else None
+                            _srcs = []
+                            if _sb:
+                                try:
+                                    _srcs = _sb.table("rag_sources").select("id,filename,summary").execute().data or []
+                                except Exception:
+                                    pass
+                            _unclassified = [s for s in _srcs if "[즉시저장]" in (s.get("summary") or "")]
+                            if not _unclassified:
+                                st.info("재분류할 문서가 없습니다. (이미 AI 분류 완료)")
+                            else:
+                                _cls_prog = st.progress(0, text=f"0 / {len(_unclassified)} 분류 중...")
+                                for _ci, _src in enumerate(_unclassified):
+                                    _cls_prog.progress(_ci / len(_unclassified),
+                                        text=f"[{_ci+1}/{len(_unclassified)}] {_src['filename'][:40]} AI 분류 중...")
+                                    try:
+                                        _chunks = _sb.table("rag_docs").select("chunk").eq("source_id", _src["id"]).limit(3).execute().data or []
+                                        _sample = " ".join(c["chunk"] for c in _chunks)[:1500]
+                                        _new_meta = _rag_classify_document(_sample, _src["filename"])
+                                        _sb.table("rag_sources").update({
+                                            "category": _new_meta.get("category","기타"),
+                                            "insurer":  _new_meta.get("insurer",""),
+                                            "doc_date": _new_meta.get("doc_date",""),
+                                            "summary":  _new_meta.get("summary",""),
+                                        }).eq("id", _src["id"]).execute()
+                                    except Exception:
+                                        pass
+                                _cls_prog.progress(1.0, text="✅ AI 분류 완료")
+                                st.success("✅ AI 정밀 분류 완료!")
+                                st.rerun()
 
                 with _rbtn2:
                     if st.button("🗑️ 전체 초기화", key="btn_rag_clear", use_container_width=True):
