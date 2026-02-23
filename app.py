@@ -470,15 +470,41 @@ GCS_FOLDER_MAP = {
 }
 
 def _get_gcs_client():
-    """GCS 클라이언트 반환 — secrets.toml [gcs] 섹션 사용"""
+    """GCS 클라이언트 반환
+    우선순위 1: secrets.toml [gcs] 섹션
+    우선순위 2: HF Secrets 환경변수 GCS_* (Hugging Face 배포 환경)
+    """
     try:
         from google.cloud import storage
         from google.oauth2 import service_account
-        gcs_cfg = st.secrets.get("gcs", {})
-        if not gcs_cfg:
+
+        # ── 우선순위 1: secrets.toml [gcs] 섹션 ──
+        gcs_cfg = {}
+        try:
+            gcs_cfg = dict(st.secrets.get("gcs", {}))
+        except Exception:
+            pass
+
+        # ── 우선순위 2: HF 환경변수 GCS_* ──
+        if not gcs_cfg or not gcs_cfg.get("private_key"):
+            pk = os.environ.get("GCS_PRIVATE_KEY", "")
+            if pk:
+                gcs_cfg = {
+                    "type":                        os.environ.get("GCS_TYPE", "service_account"),
+                    "project_id":                  os.environ.get("GCS_PROJECT_ID", ""),
+                    "private_key_id":              os.environ.get("GCS_PRIVATE_KEY_ID", ""),
+                    "private_key":                 pk.replace("\\n", "\n"),
+                    "client_email":                os.environ.get("GCS_CLIENT_EMAIL", ""),
+                    "client_id":                   os.environ.get("GCS_CLIENT_ID", ""),
+                    "auth_uri":                    "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri":                   "https://oauth2.googleapis.com/token",
+                }
+
+        if not gcs_cfg or not gcs_cfg.get("private_key"):
             return None
+
         creds = service_account.Credentials.from_service_account_info(
-            dict(gcs_cfg),
+            gcs_cfg,
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
         return storage.Client(credentials=creds, project=gcs_cfg.get("project_id"))
