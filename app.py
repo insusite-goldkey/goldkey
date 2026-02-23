@@ -2497,8 +2497,8 @@ function startSugSTT(){
         ]
         _render_cards(PART2, "home_p2")
 
-        # ── 파트 2.5: LIFE EVENT ──
-        st.markdown('<div class="gk-section-label">🎯 LIFE EVENT 상담</div>', unsafe_allow_html=True)
+        # ── 파트 2.5: LIFE EVENT + LIFE CYCLE ──
+        st.markdown('<div class="gk-section-label">🎯 LIFE EVENT · LIFE CYCLE</div>', unsafe_allow_html=True)
         _le1, _le2 = st.columns(2, gap="small")
         with _le1:
             st.markdown(
@@ -2512,6 +2512,20 @@ function startSugSTT(){
                 "</div></div>", unsafe_allow_html=True)
             if st.button("▶ 클릭", key="home_p25_life_event", use_container_width=False):
                 st.session_state.current_tab = "life_event"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+        with _le2:
+            st.markdown(
+                "<div class='gk-card-wrap'>"
+                "<div class='gk-card'>"
+                "<div class='gk-card-icon'>🔄</div>"
+                "<div class='gk-card-body'>"
+                "<div class='gk-card-title'>LIFE CYCLE 백지설계</div>"
+                "<div class='gk-card-desc'>인생 타임라인 시각화 상담자료<br>생존·상해·결혼·퇴직·노후 설계도</div>"
+                "</div>"
+                "</div></div>", unsafe_allow_html=True)
+            if st.button("▶ 클릭", key="home_p25_life_cycle", use_container_width=False):
+                st.session_state.current_tab = "life_cycle"
                 st.session_state["_scroll_top"] = True
                 st.rerun()
 
@@ -4613,6 +4627,274 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             st.error("관리자 인증키가 올바르지 않습니다.")
         else:
             st.info("관리자 인증키를 입력하세요.")
+
+    # ── [life_cycle] LIFE CYCLE 백지설계 상담자료 ────────────────────────
+    if cur == "life_cycle":
+        tab_home_btn("life_cycle")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
+    🔄 LIFE CYCLE 백지설계 상담자료
+  </div>
+  <div style="color:#b3d4f5;font-size:0.78rem;margin-top:4px;">
+    인생 타임라인 시각화 · 고객 맞춤 백지설계 상담 도구
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # 인쇄 버튼
+        if st.button("🖨️ 인쇄 / PDF 저장", key="btn_lc_print", type="primary"):
+            pass  # JS로 처리
+
+        components.html("""
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<style>
+  body {
+    font-family: 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+    background: #fff; margin: 0; padding: 16px;
+  }
+  .print-btn {
+    background:#1a3a5c; color:#fff; border:none; border-radius:6px;
+    padding:10px 24px; font-size:0.95rem; cursor:pointer; margin-bottom:16px;
+  }
+  .print-btn:hover { background:#2e6da4; }
+  @media print {
+    .print-btn { display:none; }
+    body { padding: 0; }
+  }
+  .lc-wrap {
+    border: 2px solid #1a3a5c; border-radius: 14px;
+    padding: 24px 20px 20px 20px; background: #fff;
+    max-width: 900px; margin: 0 auto;
+  }
+  .lc-title {
+    text-align:center; font-size:1.2rem; font-weight:900;
+    color:#1a3a5c; margin-bottom:6px; letter-spacing:0.04em;
+  }
+  .lc-subtitle {
+    text-align:center; font-size:0.78rem; color:#888; margin-bottom:20px;
+  }
+  /* 나이 축 */
+  .age-bar {
+    display:flex; align-items:center; margin-bottom:6px;
+  }
+  .age-label { font-size:0.72rem; color:#555; width:38px; text-align:right; padding-right:8px; flex-shrink:0; }
+  .age-line {
+    flex:1; height:3px; background:linear-gradient(to right,
+      #2e6da4 0%,#27ae60 25%,#e67e22 50%,#c0392b 70%,#8e44ad 85%,#555 100%);
+    border-radius:2px; position:relative;
+  }
+  /* 이벤트 마커 행 */
+  .event-row {
+    display:flex; align-items:flex-start; margin-bottom:0px; position:relative;
+  }
+  .event-spacer { width:38px; flex-shrink:0; padding-right:8px; }
+  .event-track { flex:1; position:relative; height:52px; }
+  /* 개별 이벤트 뱃지 */
+  .ev {
+    position:absolute; top:4px;
+    display:flex; flex-direction:column; align-items:center;
+    transform:translateX(-50%);
+  }
+  .ev-dot {
+    width:12px; height:12px; border-radius:50%;
+    border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,0.18);
+    margin-bottom:3px; flex-shrink:0;
+  }
+  .ev-label {
+    font-size:0.62rem; font-weight:700; color:#1a1a2e;
+    white-space:nowrap; text-align:center; line-height:1.3;
+  }
+  /* 보장 영역 행 */
+  .cover-row {
+    display:flex; align-items:center; margin-bottom:5px;
+  }
+  .cover-name {
+    font-size:0.68rem; color:#1a3a5c; font-weight:700;
+    width:38px; text-align:right; padding-right:8px; flex-shrink:0; line-height:1.3;
+  }
+  .cover-track { flex:1; position:relative; height:18px; }
+  .cover-bar {
+    position:absolute; height:14px; top:2px;
+    border-radius:6px; opacity:0.85;
+    display:flex; align-items:center; justify-content:center;
+    font-size:0.58rem; color:#fff; font-weight:700; white-space:nowrap;
+    overflow:hidden; padding:0 4px; box-sizing:border-box;
+  }
+  /* 섹션 구분 */
+  .section-title {
+    font-size:0.72rem; font-weight:900; color:#2e6da4;
+    border-left:3px solid #2e6da4; padding-left:6px;
+    margin:12px 0 6px 46px; letter-spacing:0.03em;
+  }
+  /* 메모란 */
+  .memo-row {
+    display:flex; align-items:flex-start; margin-bottom:4px;
+  }
+  .memo-label {
+    font-size:0.68rem; color:#1a3a5c; font-weight:700;
+    width:38px; text-align:right; padding-right:8px; flex-shrink:0;
+  }
+  .memo-box {
+    flex:1; border-bottom:1px solid #ccc; height:18px;
+  }
+  .footer-note {
+    text-align:center; font-size:0.62rem; color:#aaa;
+    margin-top:14px; border-top:1px solid #eee; padding-top:8px;
+  }
+</style>
+</head>
+<body>
+<button class="print-btn" onclick="window.print()">🖨️ 인쇄 / PDF 저장</button>
+
+<div class="lc-wrap">
+  <div class="lc-title">🔄 LIFE CYCLE 백지설계 상담자료</div>
+  <div class="lc-subtitle">케이지에이에셋 골드키지사 &nbsp;|&nbsp; 고객명: _________________________ &nbsp;|&nbsp; 상담일: _____________</div>
+
+  <!-- 나이 축 -->
+  <div class="age-bar">
+    <div class="age-label">나이</div>
+    <div class="age-line"></div>
+  </div>
+  <!-- 나이 눈금 -->
+  <div style="display:flex;margin-bottom:10px;">
+    <div style="width:38px;flex-shrink:0;"></div>
+    <div style="flex:1;display:flex;justify-content:space-between;padding:0 0px;">
+      <span style="font-size:0.62rem;color:#888;">0</span>
+      <span style="font-size:0.62rem;color:#888;">10</span>
+      <span style="font-size:0.62rem;color:#888;">20</span>
+      <span style="font-size:0.62rem;color:#888;">30</span>
+      <span style="font-size:0.62rem;color:#888;">40</span>
+      <span style="font-size:0.62rem;color:#888;">50</span>
+      <span style="font-size:0.62rem;color:#888;">60</span>
+      <span style="font-size:0.62rem;color:#888;">70</span>
+      <span style="font-size:0.62rem;color:#888;">80</span>
+      <span style="font-size:0.62rem;color:#888;">90세</span>
+    </div>
+  </div>
+
+  <!-- LIFE EVENT 마커 -->
+  <div class="section-title">📍 LIFE EVENT</div>
+  <div class="event-row">
+    <div class="event-spacer"></div>
+    <div class="event-track">
+      <!-- 위치: 0~90세 → 0%~100% -->
+      <div class="ev" style="left:0%">
+        <div class="ev-dot" style="background:#2e6da4;"></div>
+        <div class="ev-label">출생</div>
+      </div>
+      <div class="ev" style="left:7.8%">
+        <div class="ev-dot" style="background:#27ae60;"></div>
+        <div class="ev-label">취학</div>
+      </div>
+      <div class="ev" style="left:22.2%">
+        <div class="ev-dot" style="background:#27ae60;"></div>
+        <div class="ev-label">취업</div>
+      </div>
+      <div class="ev" style="left:33.3%">
+        <div class="ev-dot" style="background:#e67e22;"></div>
+        <div class="ev-label">결혼</div>
+      </div>
+      <div class="ev" style="left:38.9%">
+        <div class="ev-dot" style="background:#e67e22;"></div>
+        <div class="ev-label">출산</div>
+      </div>
+      <div class="ev" style="left:44.4%">
+        <div class="ev-dot" style="background:#c0392b;"></div>
+        <div class="ev-label">주택<br>구입</div>
+      </div>
+      <div class="ev" style="left:55.6%">
+        <div class="ev-dot" style="background:#c0392b;"></div>
+        <div class="ev-label">자녀<br>독립</div>
+      </div>
+      <div class="ev" style="left:66.7%">
+        <div class="ev-dot" style="background:#8e44ad;"></div>
+        <div class="ev-label">퇴직</div>
+      </div>
+      <div class="ev" style="left:77.8%">
+        <div class="ev-dot" style="background:#555;"></div>
+        <div class="ev-label">노후<br>생활</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 생존 보장 -->
+  <div class="section-title">🛡️ 생존 보장 (사망·질병·상해)</div>
+  <div class="cover-row">
+    <div class="cover-name">사망<br>보장</div>
+    <div class="cover-track">
+      <div class="cover-bar" style="left:22%;width:55%;background:#1a3a5c;">종신보험 / 정기보험</div>
+    </div>
+  </div>
+  <div class="cover-row">
+    <div class="cover-name">암·3대<br>질병</div>
+    <div class="cover-track">
+      <div class="cover-bar" style="left:0%;width:78%;background:#c0392b;">암·뇌·심장 진단비 / 치료비</div>
+    </div>
+  </div>
+  <div class="cover-row">
+    <div class="cover-name">실손<br>보험</div>
+    <div class="cover-track">
+      <div class="cover-bar" style="left:0%;width:88%;background:#2e6da4;">실손의료보험 (1~4세대)</div>
+    </div>
+  </div>
+
+  <!-- 상해 보장 -->
+  <div class="section-title">⚡ 상해 보장</div>
+  <div class="cover-row">
+    <div class="cover-name">상해<br>사고</div>
+    <div class="cover-track">
+      <div class="cover-bar" style="left:0%;width:88%;background:#e67e22;">상해수술비 / 골절 / 후유장해</div>
+    </div>
+  </div>
+  <div class="cover-row">
+    <div class="cover-name">운전자<br>보험</div>
+    <div class="cover-track">
+      <div class="cover-bar" style="left:22%;width:55%;background:#e67e22;">교통사고처리지원금 / 벌금</div>
+    </div>
+  </div>
+
+  <!-- 노후·간병 -->
+  <div class="section-title">🌅 노후 · 간병 보장</div>
+  <div class="cover-row">
+    <div class="cover-name">연금<br>준비</div>
+    <div class="cover-track">
+      <div class="cover-bar" style="left:22%;width:44%;background:#27ae60;">개인연금 납입</div>
+      <div class="cover-bar" style="left:66%;width:33%;background:#27ae60;opacity:0.6;">연금 수령</div>
+    </div>
+  </div>
+  <div class="cover-row">
+    <div class="cover-name">간병<br>치매</div>
+    <div class="cover-track">
+      <div class="cover-bar" style="left:44%;width:33%;background:#8e44ad;">간병보험 / 치매보험 가입</div>
+      <div class="cover-bar" style="left:77%;width:22%;background:#8e44ad;opacity:0.6;">간병 수령</div>
+    </div>
+  </div>
+  <div class="cover-row">
+    <div class="cover-name">상속<br>설계</div>
+    <div class="cover-track">
+      <div class="cover-bar" style="left:44%;width:44%;background:#555;">상속·증여 절세 플랜</div>
+    </div>
+  </div>
+
+  <!-- 고객 메모란 -->
+  <div class="section-title">📝 고객 현황 메모</div>
+  <div class="memo-row"><div class="memo-label">현재나이</div><div class="memo-box"></div></div>
+  <div class="memo-row"><div class="memo-label">월소득</div><div class="memo-box"></div></div>
+  <div class="memo-row"><div class="memo-label">현재보험</div><div class="memo-box"></div></div>
+  <div class="memo-row"><div class="memo-label">보장공백</div><div class="memo-box"></div></div>
+  <div class="memo-row"><div class="memo-label">설계방향</div><div class="memo-box"></div></div>
+
+  <div class="footer-note">
+    ⚠️ 본 자료는 보험 설계 참고용이며, 최종 판단은 설계사에게 있습니다. &nbsp;|&nbsp; 케이지에이에셋 골드키지사 &nbsp;010-3074-2616
+  </div>
+</div>
+</body>
+</html>
+""", height=1000, scrolling=True)
 
     # ── [life_event] LIFE EVENT 상담 ────────────────────────────────────
     if cur == "life_event":
