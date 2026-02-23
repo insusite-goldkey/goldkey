@@ -1106,8 +1106,9 @@ CREATE TABLE IF NOT EXISTS rag_docs (
 );
 """
 
+@st.cache_resource
 def _rag_use_supabase() -> bool:
-    """Supabase 클라이언트가 사용 가능한지 확인"""
+    """Supabase 클라이언트가 사용 가능한지 확인 (캐시 — 앱 당 1회)"""
     return _SB_PKG_OK and _get_sb_client() is not None
 
 def _rag_supabase_ensure_tables():
@@ -1192,7 +1193,7 @@ def _rag_db_init():
         pass
 
 _rag_db_init()
-_rag_supabase_ensure_tables()  # Supabase 테이블 없으면 자동 생성
+# Supabase 테이블 자동 생성은 main() 진입 후 호출 (모듈 로드 시점 오류 방지)
 
 def _rag_db_get_all_chunks():
     """전체 청크 텍스트 리스트 반환 — Supabase 우선, SQLite 폴백"""
@@ -1297,6 +1298,8 @@ def _rag_db_clear_all():
 
 def _rag_classify_document(text_sample: str, filename: str) -> dict:
     """Gemini로 문서 자동 분류 — 카테고리·보험사·작성일·요약 추출"""
+    import re as _re, json as _json
+    _classify_error = ""
     try:
         _cl, _ = get_master_model()
         _classify_prompt = f"""다음 문서를 분석하여 JSON으로만 답하세요. 다른 텍스트 없이 JSON만 출력하세요.
@@ -1314,21 +1317,27 @@ def _rag_classify_document(text_sample: str, filename: str) -> dict:
 }}"""
         _resp = _cl.models.generate_content(model=GEMINI_MODEL, contents=_classify_prompt)
         _raw = (_resp.text or "").strip()
-        # JSON 추출
-        import re as _re
+        # 마크다운 코드블록 제거 후 JSON 추출
+        _raw = _re.sub(r'```(?:json)?', '', _raw).strip()
         _m = _re.search(r'\{.*\}', _raw, _re.DOTALL)
         if _m:
-            import json as _json
-            return _json.loads(_m.group())
-    except Exception:
-        pass
-    # 파일명 기반 폴백 분류
+            _parsed = _json.loads(_m.group())
+            # 필수 키 검증
+            _valid_cats = {"보험약관","공문서","상담자료","판례","보도자료","세무자료","기타"}
+            if _parsed.get("category") not in _valid_cats:
+                _parsed["category"] = "기타"
+            return _parsed
+        _classify_error = f"JSON 파싱 실패: {_raw[:100]}"
+    except Exception as _e:
+        _classify_error = str(_e)[:120]
+    # 파일명 기반 폴백 분류 (Gemini 실패 시)
     _fn = filename.lower()
     _cat = ("보험약관" if any(k in _fn for k in ["약관","policy","특약"]) else
             "공문서"  if any(k in _fn for k in ["공문","금감원","금융위","고시"]) else
             "상담자료" if any(k in _fn for k in ["상담","청구","서류","안내"]) else
             "판례"    if any(k in _fn for k in ["판례","판결","대법"]) else "기타")
-    return {"category": _cat, "insurer": "", "doc_date": "", "summary": ""}
+    return {"category": _cat, "insurer": "", "doc_date": "",
+            "summary": f"[자동분류 폴백] {_classify_error}" if _classify_error else ""}
 
 def _rag_db_add_document(text: str, filename: str, meta: dict) -> int:
     """문서를 청크 분할 후 DB에 저장 — Supabase 우선, SQLite 폴백. source_id 반환"""
@@ -1658,6 +1667,7 @@ def main():
     if 'db_ready' not in st.session_state:
         setup_database()
         ensure_master_members()
+        _rag_supabase_ensure_tables()  # Supabase RAG 테이블 자동 생성 (모듈 로드 후 안전한 시점)
         st.session_state.db_ready = True
 
     # ── 2단계: STT 지연 초기화 (홈 화면 렌더 후) ────────────────────────
