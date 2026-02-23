@@ -1244,7 +1244,8 @@ def main():
                                 st.session_state.user_id = m["user_id"]
                                 st.session_state.user_name = ln
                                 st.session_state.join_date = dt.strptime(m["join_date"], "%Y-%m-%d")
-                                st.session_state.is_admin = False
+                                # 무제한 사용자(관리자)는 is_admin=True 자동 설정
+                                st.session_state.is_admin = (ln in _get_unlimited_users())
                                 st.session_state["_mic_notice"] = True  # 최초 1회 마이크 안내
                                 st.success(f"{ln}님 환영합니다!")
                                 st.rerun()
@@ -1440,6 +1441,26 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
         st.caption("문의: insusite@gmail.com")
         st.caption("앱 관리자 이세윤: 010-3074-2616")
         display_security_sidebar()
+        # ── 관리자 지시 입력창 (로그인 후 바로 노출) ─────────────────────
+        if st.session_state.get("is_admin") and st.session_state.get("user_id") not in ("ADMIN_MASTER",):
+            st.divider()
+            st.markdown("**📢 시스템 개선 지시**")
+            with st.form("directive_form_sidebar"):
+                _dir_sb = st.text_area(
+                    "지시 내용 입력",
+                    placeholder="예) 홈 화면 배너 색상을 변경해주세요.",
+                    height=90, key="directive_sb_input"
+                )
+                if st.form_submit_button("📤 지시 전송", use_container_width=True):
+                    if _dir_sb.strip():
+                        add_directive(_dir_sb.strip())
+                        st.success("✅ 지시가 등록되었습니다.")
+                        st.rerun()
+                    else:
+                        st.error("내용을 입력해주세요.")
+            _dir_pending_cnt = sum(1 for d in load_directives() if d.get("status") == "대기")
+            if _dir_pending_cnt:
+                st.warning(f"🔔 미처리 지시 {_dir_pending_cnt}건")
         st.divider()
         # ── 관리자 콘솔 (최하단) ──────────────────────────────────────────
         with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
