@@ -1075,40 +1075,70 @@ SYSTEM_PROMPT = """
 # --------------------------------------------------------------------------
 RAG_DB_PATH = "/tmp/goldkey_rag.db"
 
+# ── Supabase RAG 테이블 자동 생성 SQL (최초 1회) ─────────────────────────
+_RAG_SB_INIT_SQL = """
+CREATE TABLE IF NOT EXISTS rag_sources (
+    id        BIGSERIAL PRIMARY KEY,
+    filename  TEXT NOT NULL,
+    category  TEXT DEFAULT '미분류',
+    insurer   TEXT DEFAULT '',
+    doc_date  TEXT DEFAULT '',
+    summary   TEXT DEFAULT '',
+    uploaded  TEXT NOT NULL,
+    chunk_cnt INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS rag_docs (
+    id        BIGSERIAL PRIMARY KEY,
+    source_id BIGINT REFERENCES rag_sources(id) ON DELETE CASCADE,
+    chunk     TEXT NOT NULL,
+    filename  TEXT DEFAULT '',
+    category  TEXT DEFAULT '미분류',
+    insurer   TEXT DEFAULT '',
+    doc_date  TEXT DEFAULT '',
+    uploaded  TEXT DEFAULT ''
+);
+"""
+
+def _rag_use_supabase() -> bool:
+    """Supabase 클라이언트가 사용 가능한지 확인"""
+    return _SB_PKG_OK and _get_sb_client() is not None
+
 def _rag_db_init():
-    """RAG SQLite DB 초기화 — 테이블 없으면 생성"""
-    conn = sqlite3.connect(RAG_DB_PATH)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS rag_docs (
-            id        INTEGER PRIMARY KEY AUTOINCREMENT,
-            chunk     TEXT    NOT NULL,
-            filename  TEXT    DEFAULT '',
-            category  TEXT    DEFAULT '미분류',
-            insurer   TEXT    DEFAULT '',
-            doc_date  TEXT    DEFAULT '',
-            uploaded  TEXT    DEFAULT '',
-            source_id INTEGER DEFAULT 0
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS rag_sources (
-            id        INTEGER PRIMARY KEY AUTOINCREMENT,
-            filename  TEXT    NOT NULL,
-            category  TEXT    DEFAULT '미분류',
-            insurer   TEXT    DEFAULT '',
-            doc_date  TEXT    DEFAULT '',
-            summary   TEXT    DEFAULT '',
-            uploaded  TEXT    NOT NULL,
-            chunk_cnt INTEGER DEFAULT 0
-        )
-    """)
-    conn.commit()
-    conn.close()
+    """RAG SQLite DB 초기화 (폴백용)"""
+    try:
+        conn = sqlite3.connect(RAG_DB_PATH)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS rag_docs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chunk TEXT NOT NULL, filename TEXT DEFAULT '',
+                category TEXT DEFAULT '미분류', insurer TEXT DEFAULT '',
+                doc_date TEXT DEFAULT '', uploaded TEXT DEFAULT '',
+                source_id INTEGER DEFAULT 0)""")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS rag_sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                filename TEXT NOT NULL, category TEXT DEFAULT '미분류',
+                insurer TEXT DEFAULT '', doc_date TEXT DEFAULT '',
+                summary TEXT DEFAULT '', uploaded TEXT NOT NULL,
+                chunk_cnt INTEGER DEFAULT 0)""")
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 _rag_db_init()
 
 def _rag_db_get_all_chunks():
-    """전체 청크 텍스트 리스트 반환"""
+    """전체 청크 텍스트 리스트 반환 — Supabase 우선, SQLite 폴백"""
+    # Supabase
+    if _rag_use_supabase():
+        try:
+            sb = _get_sb_client()
+            res = sb.table("rag_docs").select("chunk").order("id").execute()
+            return [r["chunk"] for r in (res.data or [])]
+        except Exception:
+            pass
+    # SQLite 폴백
     try:
         conn = sqlite3.connect(RAG_DB_PATH)
         rows = conn.execute("SELECT chunk FROM rag_docs ORDER BY id").fetchall()
@@ -1118,7 +1148,19 @@ def _rag_db_get_all_chunks():
         return []
 
 def _rag_db_get_stats():
-    """통계: 총 청크수, 소스수, 마지막 업데이트"""
+    """통계: 총 청크수, 소스수, 마지막 업데이트 — Supabase 우선, SQLite 폴백"""
+    if _rag_use_supabase():
+        try:
+            sb = _get_sb_client()
+            c_res = sb.table("rag_docs").select("id", count="exact").execute()
+            s_res = sb.table("rag_sources").select("id,uploaded").order("id", desc=True).limit(1).execute()
+            chunk_cnt = c_res.count or 0
+            src_res   = sb.table("rag_sources").select("id", count="exact").execute()
+            src_cnt   = src_res.count or 0
+            last_upd  = s_res.data[0]["uploaded"] if s_res.data else "없음"
+            return chunk_cnt, src_cnt, last_upd
+        except Exception:
+            pass
     try:
         conn = sqlite3.connect(RAG_DB_PATH)
         chunk_cnt = conn.execute("SELECT COUNT(*) FROM rag_docs").fetchone()[0]
@@ -1130,13 +1172,19 @@ def _rag_db_get_stats():
         return 0, 0, "없음"
 
 def _rag_db_get_sources():
-    """소스 목록 전체 반환"""
+    """소스 목록 전체 반환 — Supabase 우선, SQLite 폴백"""
+    if _rag_use_supabase():
+        try:
+            sb = _get_sb_client()
+            res = sb.table("rag_sources").select("*").order("id", desc=True).execute()
+            return res.data or []
+        except Exception:
+            pass
     try:
         conn = sqlite3.connect(RAG_DB_PATH)
         rows = conn.execute(
-            "SELECT id, filename, category, insurer, doc_date, summary, uploaded, chunk_cnt "
-            "FROM rag_sources ORDER BY id DESC"
-        ).fetchall()
+            "SELECT id,filename,category,insurer,doc_date,summary,uploaded,chunk_cnt "
+            "FROM rag_sources ORDER BY id DESC").fetchall()
         conn.close()
         return [{"id":r[0],"filename":r[1],"category":r[2],"insurer":r[3],
                  "doc_date":r[4],"summary":r[5],"uploaded":r[6],"chunk_cnt":r[7]} for r in rows]
@@ -1144,7 +1192,15 @@ def _rag_db_get_sources():
         return []
 
 def _rag_db_delete_source(source_id: int):
-    """특정 소스 및 해당 청크 삭제"""
+    """특정 소스 및 청크 삭제 — Supabase 우선, SQLite 폴백"""
+    if _rag_use_supabase():
+        try:
+            sb = _get_sb_client()
+            sb.table("rag_docs").delete().eq("source_id", source_id).execute()
+            sb.table("rag_sources").delete().eq("id", source_id).execute()
+            return
+        except Exception:
+            pass
     try:
         conn = sqlite3.connect(RAG_DB_PATH)
         conn.execute("DELETE FROM rag_docs WHERE source_id=?", (source_id,))
@@ -1155,7 +1211,15 @@ def _rag_db_delete_source(source_id: int):
         pass
 
 def _rag_db_clear_all():
-    """전체 초기화"""
+    """전체 초기화 — Supabase 우선, SQLite 폴백"""
+    if _rag_use_supabase():
+        try:
+            sb = _get_sb_client()
+            sb.table("rag_docs").delete().neq("id", 0).execute()
+            sb.table("rag_sources").delete().neq("id", 0).execute()
+            return
+        except Exception:
+            pass
     try:
         conn = sqlite3.connect(RAG_DB_PATH)
         conn.execute("DELETE FROM rag_docs")
@@ -1201,28 +1265,49 @@ def _rag_classify_document(text_sample: str, filename: str) -> dict:
     return {"category": _cat, "insurer": "", "doc_date": "", "summary": ""}
 
 def _rag_db_add_document(text: str, filename: str, meta: dict) -> int:
-    """문서를 청크 분할 후 DB에 저장, source_id 반환"""
+    """문서를 청크 분할 후 DB에 저장 — Supabase 우선, SQLite 폴백. source_id 반환"""
+    now    = dt.now().strftime("%Y-%m-%d %H:%M")
+    cat    = meta.get("category", "미분류")
+    ins    = meta.get("insurer", "")
+    ddate  = meta.get("doc_date", "")
+    summ   = meta.get("summary", "")
+    chunks = [text[i:i+500] for i in range(0, len(text), 400) if text[i:i+500].strip()]
+
+    # ── Supabase 저장 ────────────────────────────────────────────────────
+    if _rag_use_supabase():
+        try:
+            sb = _get_sb_client()
+            # 소스 등록
+            src_res = sb.table("rag_sources").insert({
+                "filename": filename, "category": cat, "insurer": ins,
+                "doc_date": ddate, "summary": summ,
+                "uploaded": now, "chunk_cnt": len(chunks)
+            }).execute()
+            src_id = src_res.data[0]["id"]
+            # 청크 일괄 삽입
+            chunk_rows = [{"source_id": src_id, "chunk": c, "filename": filename,
+                           "category": cat, "insurer": ins, "doc_date": ddate,
+                           "uploaded": now} for c in chunks]
+            # 100개씩 배치 삽입
+            for i in range(0, len(chunk_rows), 100):
+                sb.table("rag_docs").insert(chunk_rows[i:i+100]).execute()
+            return src_id
+        except Exception:
+            pass
+
+    # ── SQLite 폴백 ──────────────────────────────────────────────────────
     try:
         conn = sqlite3.connect(RAG_DB_PATH)
-        now  = dt.now().strftime("%Y-%m-%d %H:%M")
-        # 소스 등록
-        cur = conn.execute(
+        cur  = conn.execute(
             "INSERT INTO rag_sources (filename,category,insurer,doc_date,summary,uploaded,chunk_cnt) "
-            "VALUES (?,?,?,?,?,?,0)",
-            (filename, meta.get("category","미분류"), meta.get("insurer",""),
-             meta.get("doc_date",""), meta.get("summary",""), now)
-        )
+            "VALUES (?,?,?,?,?,?,?)",
+            (filename, cat, ins, ddate, summ, now, len(chunks)))
         src_id = cur.lastrowid
-        # 청크 분할 (400자 슬라이딩, 500자 청크)
-        chunks = [text[i:i+500] for i in range(0, len(text), 400) if text[i:i+500].strip()]
         for chunk in chunks:
             conn.execute(
                 "INSERT INTO rag_docs (chunk,filename,category,insurer,doc_date,uploaded,source_id) "
                 "VALUES (?,?,?,?,?,?,?)",
-                (chunk, filename, meta.get("category","미분류"), meta.get("insurer",""),
-                 meta.get("doc_date",""), now, src_id)
-            )
-        conn.execute("UPDATE rag_sources SET chunk_cnt=? WHERE id=?", (len(chunks), src_id))
+                (chunk, filename, cat, ins, ddate, now, src_id))
         conn.commit()
         conn.close()
         return src_id
