@@ -725,20 +725,23 @@ CREATE TABLE IF NOT EXISTS gk_customer_docs (
 CREATE INDEX IF NOT EXISTS idx_gk_customer_docs_name ON gk_customer_docs(customer_name);
 """
 
-def _build_customer_path(customer_name: str, category: str, filename: str) -> str:
-    """고객 개인 저장 경로 생성: 고객/{고객명}/{카테고리}/{파일명}"""
+def _build_customer_path(customer_name: str, category: str, filename: str, birth6: str = "") -> str:
+    """고객 개인 저장 경로 생성: 고객/{고객명}_{생년월일}/{카테고리}/{파일명}"""
     import re as _re
     safe = lambda s: _re.sub(r'[\\/:*?"<>|\s]', '_', s.strip()) if s else "미분류"
-    return f"고객/{safe(customer_name)}/{safe(category)}/{safe(filename)}"
+    _b6 = _re.sub(r'[^0-9]', '', birth6)[:6]  # 숫자만 6자리
+    _folder = f"{safe(customer_name)}_{_b6}" if _b6 else safe(customer_name)
+    return f"고객/{_folder}/{safe(category)}/{safe(filename)}"
 
 def customer_doc_save(file_bytes: bytes, filename: str, customer_name: str,
-                      category: str, memo: str = "", tab_source: str = "",
-                      uploaded_by: str = "") -> dict:
+                      category: str, birth6: str = "", memo: str = "",
+                      tab_source: str = "", uploaded_by: str = "") -> dict:
     """고객 파일을 Storage에 저장 + DB에 메타 등록. 결과 dict 반환"""
     import re as _re
     now = dt.now().strftime("%Y-%m-%d %H:%M")
     safe_fn = _re.sub(r'[\\/:*?"<>|\s]', '_', filename)[:80]
-    storage_path = _build_customer_path(customer_name, category, safe_fn)
+    _b6 = _re.sub(r'[^0-9]', '', birth6)[:6]
+    storage_path = _build_customer_path(customer_name, category, safe_fn, _b6)
     result = {"ok": False, "storage_path": storage_path, "error": ""}
     sb = _get_sb_client() if _SB_PKG_OK else None
     if not sb:
@@ -758,6 +761,7 @@ def customer_doc_save(file_bytes: bytes, filename: str, customer_name: str,
     try:
         sb.table("gk_customer_docs").insert({
             "customer_name": customer_name,
+            "birth6":        _b6,
             "category":      category,
             "filename":      filename,
             "storage_path":  storage_path,
@@ -801,13 +805,21 @@ def customer_doc_delete(doc_id: int, storage_path: str) -> bool:
         return False
 
 def customer_doc_get_names() -> list:
-    """등록된 고객명 목록 반환"""
+    """등록된 고객명+생년월일 목록 반환 — '홍길동 (800101)' 형식"""
     sb = _get_sb_client() if _SB_PKG_OK else None
     if not sb:
         return []
     try:
-        rows = sb.table("gk_customer_docs").select("customer_name").execute().data or []
-        return sorted(set(r["customer_name"] for r in rows))
+        rows = sb.table("gk_customer_docs").select("customer_name,birth6").execute().data or []
+        seen = set()
+        result = []
+        for r in rows:
+            _key = (r["customer_name"], r.get("birth6", ""))
+            if _key not in seen:
+                seen.add(_key)
+                _label = f"{r['customer_name']} ({r['birth6']})".strip() if r.get("birth6") else r["customer_name"]
+                result.append({"label": _label, "name": r["customer_name"], "birth6": r.get("birth6","")})
+        return sorted(result, key=lambda x: x["label"])
     except Exception:
         return []
 
@@ -1287,6 +1299,7 @@ CREATE TABLE IF NOT EXISTS gk_members (
 CREATE TABLE IF NOT EXISTS gk_customer_docs (
     id            BIGSERIAL PRIMARY KEY,
     customer_name TEXT NOT NULL,
+    birth6        TEXT DEFAULT '',
     category      TEXT NOT NULL DEFAULT '기타',
     filename      TEXT NOT NULL,
     storage_path  TEXT NOT NULL,
@@ -1296,6 +1309,7 @@ CREATE TABLE IF NOT EXISTS gk_customer_docs (
     uploaded_at   TEXT NOT NULL,
     tab_source    TEXT DEFAULT ''
 );
+ALTER TABLE gk_customer_docs ADD COLUMN IF NOT EXISTS birth6 TEXT DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_gk_customer_docs_name ON gk_customer_docs(customer_name);
 """
 
@@ -6878,16 +6892,30 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
         # ── 파일 저장 탭 ──────────────────────────────────────────────────
         with _cd_tab_up:
             st.markdown("#### 📤 고객 파일 저장")
+            _existing_names = customer_doc_get_names()  # [{"label":..,"name":..,"birth6":..}]
+
+            _cd_name_mode = st.radio("고객명 입력 방식", ["기존 고객 선택", "신규 고객 입력"],
+                                     horizontal=True, key="cd_name_mode")
             _cd_col1, _cd_col2 = st.columns(2)
             with _cd_col1:
-                _existing_names = customer_doc_get_names()
-                _cd_name_mode = st.radio("고객명 입력 방식", ["기존 고객 선택", "신규 고객 입력"],
-                                         horizontal=True, key="cd_name_mode")
                 if _cd_name_mode == "기존 고객 선택" and _existing_names:
-                    _cd_customer = st.selectbox("고객 선택", _existing_names, key="cd_customer_sel")
+                    _sel_labels = [x["label"] for x in _existing_names]
+                    _sel_idx = st.selectbox("고객 선택", range(len(_sel_labels)),
+                                            format_func=lambda i: _sel_labels[i],
+                                            key="cd_customer_sel")
+                    _cd_customer = _existing_names[_sel_idx]["name"]
+                    _cd_birth6   = _existing_names[_sel_idx]["birth6"]
+                    st.caption(f"👤 {_cd_customer}  생년월일: {_cd_birth6 or '미입력'}")
                 else:
-                    _cd_customer = st.text_input("고객명 입력", placeholder="예) 홍길동",
+                    _cd_customer = st.text_input("고객명", placeholder="예) 홍길동",
                                                   key="cd_customer_new")
+                    _cd_birth6_raw = st.text_input("생년월일 앞 6자리",
+                        placeholder="예) 800101  (YYMMDD)",
+                        max_chars=8, key="cd_birth6_new")
+                    import re as _re_b
+                    _cd_birth6 = _re_b.sub(r'[^0-9]', '', _cd_birth6_raw)[:6]
+                    if _cd_birth6_raw and len(_cd_birth6) < 6:
+                        st.warning("숫자 6자리를 입력하세요 (예: 800101)")
             with _cd_col2:
                 _cd_category = st.selectbox("자료 분류", CUSTOMER_DOC_CATEGORIES, key="cd_category")
                 _cd_memo = st.text_input("메모 (선택)", placeholder="예) 2024년 건강검진 결과",
@@ -6918,35 +6946,45 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
                         _res = customer_doc_save(
                             _cf.getvalue(), _cf.name,
                             _cd_customer.strip(), _cd_category,
+                            birth6=_cd_birth6,
                             memo=_cd_memo, tab_source="고객자료탭",
                             uploaded_by=_uploader
                         )
                         if _res["ok"]:
                             _cd_ok_cnt += 1
+                            _b6_disp = f" ({_cd_birth6})" if _cd_birth6 else ""
                             st.markdown(f"""
 <div style="background:#f0fff4;border-left:3px solid #27ae60;border-radius:6px;
   padding:6px 10px;margin-bottom:4px;font-size:0.78rem;">
 ✅ <b>{_cf.name}</b><br>
-👤 {_cd_customer} &nbsp;|&nbsp; 📂 {_cd_category}<br>
+👤 {_cd_customer}{_b6_disp} &nbsp;|&nbsp; 📂 {_cd_category}<br>
 📁 <code style="font-size:0.7rem;">{_res['storage_path']}</code>
 </div>""", unsafe_allow_html=True)
                         else:
                             st.error(f"❌ {_cf.name}: {_res['error']}")
                     _cd_prog.progress(1.0, text=f"✅ {_cd_ok_cnt} / {len(_cd_files)} 저장 완료")
                     if _cd_ok_cnt > 0:
-                        st.success(f"✅ {_cd_customer}님 자료 {_cd_ok_cnt}건 저장 완료!")
+                        _b6_disp = f" ({_cd_birth6})" if _cd_birth6 else ""
+                        st.success(f"✅ {_cd_customer}{_b6_disp}님 자료 {_cd_ok_cnt}건 저장 완료!")
                         st.session_state.pop("cd_docs_cache", None)
 
         # ── 고객별 자료 조회 탭 ───────────────────────────────────────────
         with _cd_tab_view:
             st.markdown("#### 📂 고객별 자료 조회")
-            _view_names = customer_doc_get_names()
+            _view_names = customer_doc_get_names()  # [{"label","name","birth6"}]
             if not _view_names:
                 st.info("저장된 고객 자료가 없습니다.")
             else:
-                _sel_customer = st.selectbox("고객 선택", ["전체 보기"] + _view_names,
+                _view_labels = ["전체 보기"] + [x["label"] for x in _view_names]
+                _view_sel_idx = st.selectbox("고객 선택", range(len(_view_labels)),
+                                              format_func=lambda i: _view_labels[i],
                                               key="cd_view_sel")
-                _search_name = "" if _sel_customer == "전체 보기" else _sel_customer
+                if _view_sel_idx == 0:
+                    _search_name  = ""
+                    _search_birth6 = ""
+                else:
+                    _search_name   = _view_names[_view_sel_idx - 1]["name"]
+                    _search_birth6 = _view_names[_view_sel_idx - 1]["birth6"]
 
                 if st.button("🔄 새로고침", key="btn_cd_refresh"):
                     st.session_state.pop("cd_docs_cache", None)
@@ -6955,20 +6993,29 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
                     st.session_state["cd_docs_cache"] = customer_doc_list(_search_name)
                 _docs = st.session_state["cd_docs_cache"]
 
+                # birth6 필터 (동명이인 구분)
+                if _search_birth6:
+                    _docs = [d for d in _docs if d.get("birth6","") == _search_birth6]
+
                 if not _docs:
-                    st.info(f"'{_sel_customer}' 자료 없음")
+                    st.info(f"'{_view_labels[_view_sel_idx]}' 자료 없음")
                 else:
-                    # 고객별 → 카테고리별 그룹핑
+                    # 고객명+birth6 → 카테고리별 그룹핑
                     from collections import defaultdict as _dd2
                     _by_customer = _dd2(lambda: _dd2(list))
                     for _d in _docs:
-                        _by_customer[_d["customer_name"]][_d["category"]].append(_d)
+                        _ckey = f"{_d['customer_name']}_{_d.get('birth6','')}"
+                        _by_customer[_ckey][_d["category"]].append(_d)
 
-                    for _cname, _cats in sorted(_by_customer.items()):
+                    for _ckey, _cats in sorted(_by_customer.items()):
+                        _sample = next(iter(next(iter(_cats.values()))))
+                        _cn = _sample["customer_name"]
+                        _cb = _sample.get("birth6","")
+                        _cb_disp = f" <span style='font-size:0.75rem;color:#888;'>({_cb})</span>" if _cb else ""
                         st.markdown(f"""
 <div style="background:#e8f4fd;border-left:4px solid #2e6da4;border-radius:8px;
   padding:8px 14px;margin:10px 0 4px 0;font-size:0.9rem;font-weight:900;color:#1a3a5c;">
-👤 {_cname} &nbsp;<span style="font-size:0.75rem;font-weight:400;color:#555;">
+👤 {_cn}{_cb_disp} &nbsp;<span style="font-size:0.75rem;font-weight:400;color:#555;">
 ({sum(len(v) for v in _cats.values())}건)</span>
 </div>""", unsafe_allow_html=True)
                         for _cat, _items in sorted(_cats.items()):
@@ -6983,7 +7030,6 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
 <span style="color:#888;font-size:0.72rem;">
 🕐 {_item['uploaded_at']} &nbsp;|&nbsp; 📦 {_sz}KB
 {f" &nbsp;|&nbsp; 📝 {_item['memo']}" if _item.get('memo') else ""}
-{f" &nbsp;|&nbsp; 🔖 {_item['tab_source']}" if _item.get('tab_source') else ""}
 </span>
 </div>""", unsafe_allow_html=True)
                                     with _ic2:
