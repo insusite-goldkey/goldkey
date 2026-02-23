@@ -1071,21 +1071,188 @@ SYSTEM_PROMPT = """
 """
 
 # --------------------------------------------------------------------------
-# [SECTION 5] RAG 시스템 — 경량 키워드 매칭 방식 (관리자 전용 업로드 → 전체 사용자 참조)
+# [SECTION 5] RAG 시스템 — SQLite 영구 저장 + Gemini 자동 분류 (앱 재시작 후에도 유지)
 # --------------------------------------------------------------------------
+RAG_DB_PATH = "/tmp/goldkey_rag.db"
+
+def _rag_db_init():
+    """RAG SQLite DB 초기화 — 테이블 없으면 생성"""
+    conn = sqlite3.connect(RAG_DB_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS rag_docs (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            chunk     TEXT    NOT NULL,
+            filename  TEXT    DEFAULT '',
+            category  TEXT    DEFAULT '미분류',
+            insurer   TEXT    DEFAULT '',
+            doc_date  TEXT    DEFAULT '',
+            uploaded  TEXT    DEFAULT '',
+            source_id INTEGER DEFAULT 0
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS rag_sources (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename  TEXT    NOT NULL,
+            category  TEXT    DEFAULT '미분류',
+            insurer   TEXT    DEFAULT '',
+            doc_date  TEXT    DEFAULT '',
+            summary   TEXT    DEFAULT '',
+            uploaded  TEXT    NOT NULL,
+            chunk_cnt INTEGER DEFAULT 0
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+_rag_db_init()
+
+def _rag_db_get_all_chunks():
+    """전체 청크 텍스트 리스트 반환"""
+    try:
+        conn = sqlite3.connect(RAG_DB_PATH)
+        rows = conn.execute("SELECT chunk FROM rag_docs ORDER BY id").fetchall()
+        conn.close()
+        return [r[0] for r in rows]
+    except Exception:
+        return []
+
+def _rag_db_get_stats():
+    """통계: 총 청크수, 소스수, 마지막 업데이트"""
+    try:
+        conn = sqlite3.connect(RAG_DB_PATH)
+        chunk_cnt = conn.execute("SELECT COUNT(*) FROM rag_docs").fetchone()[0]
+        src_cnt   = conn.execute("SELECT COUNT(*) FROM rag_sources").fetchone()[0]
+        last_upd  = conn.execute("SELECT uploaded FROM rag_sources ORDER BY id DESC LIMIT 1").fetchone()
+        conn.close()
+        return chunk_cnt, src_cnt, last_upd[0] if last_upd else "없음"
+    except Exception:
+        return 0, 0, "없음"
+
+def _rag_db_get_sources():
+    """소스 목록 전체 반환"""
+    try:
+        conn = sqlite3.connect(RAG_DB_PATH)
+        rows = conn.execute(
+            "SELECT id, filename, category, insurer, doc_date, summary, uploaded, chunk_cnt "
+            "FROM rag_sources ORDER BY id DESC"
+        ).fetchall()
+        conn.close()
+        return [{"id":r[0],"filename":r[1],"category":r[2],"insurer":r[3],
+                 "doc_date":r[4],"summary":r[5],"uploaded":r[6],"chunk_cnt":r[7]} for r in rows]
+    except Exception:
+        return []
+
+def _rag_db_delete_source(source_id: int):
+    """특정 소스 및 해당 청크 삭제"""
+    try:
+        conn = sqlite3.connect(RAG_DB_PATH)
+        conn.execute("DELETE FROM rag_docs WHERE source_id=?", (source_id,))
+        conn.execute("DELETE FROM rag_sources WHERE id=?", (source_id,))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+def _rag_db_clear_all():
+    """전체 초기화"""
+    try:
+        conn = sqlite3.connect(RAG_DB_PATH)
+        conn.execute("DELETE FROM rag_docs")
+        conn.execute("DELETE FROM rag_sources")
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+def _rag_classify_document(text_sample: str, filename: str) -> dict:
+    """Gemini로 문서 자동 분류 — 카테고리·보험사·작성일·요약 추출"""
+    try:
+        _cl, _ = get_master_model()
+        _classify_prompt = f"""다음 문서를 분석하여 JSON으로만 답하세요. 다른 텍스트 없이 JSON만 출력하세요.
+
+파일명: {filename}
+문서 내용 (앞부분):
+{text_sample[:1500]}
+
+출력 형식 (JSON만):
+{{
+  "category": "보험약관|공문서|상담자료|판례|보도자료|세무자료|기타" 중 하나,
+  "insurer": "보험사명 또는 기관명 (없으면 빈 문자열)",
+  "doc_date": "문서 작성일 또는 발행연도 (YYYY-MM-DD 또는 YYYY 형식, 없으면 빈 문자열)",
+  "summary": "문서 핵심 내용 한 줄 요약 (50자 이내)"
+}}"""
+        _resp = _cl.models.generate_content(model=GEMINI_MODEL, contents=_classify_prompt)
+        _raw = (_resp.text or "").strip()
+        # JSON 추출
+        import re as _re
+        _m = _re.search(r'\{.*\}', _raw, _re.DOTALL)
+        if _m:
+            import json as _json
+            return _json.loads(_m.group())
+    except Exception:
+        pass
+    # 파일명 기반 폴백 분류
+    _fn = filename.lower()
+    _cat = ("보험약관" if any(k in _fn for k in ["약관","policy","특약"]) else
+            "공문서"  if any(k in _fn for k in ["공문","금감원","금융위","고시"]) else
+            "상담자료" if any(k in _fn for k in ["상담","청구","서류","안내"]) else
+            "판례"    if any(k in _fn for k in ["판례","판결","대법"]) else "기타")
+    return {"category": _cat, "insurer": "", "doc_date": "", "summary": ""}
+
+def _rag_db_add_document(text: str, filename: str, meta: dict) -> int:
+    """문서를 청크 분할 후 DB에 저장, source_id 반환"""
+    try:
+        conn = sqlite3.connect(RAG_DB_PATH)
+        now  = dt.now().strftime("%Y-%m-%d %H:%M")
+        # 소스 등록
+        cur = conn.execute(
+            "INSERT INTO rag_sources (filename,category,insurer,doc_date,summary,uploaded,chunk_cnt) "
+            "VALUES (?,?,?,?,?,?,0)",
+            (filename, meta.get("category","미분류"), meta.get("insurer",""),
+             meta.get("doc_date",""), meta.get("summary",""), now)
+        )
+        src_id = cur.lastrowid
+        # 청크 분할 (400자 슬라이딩, 500자 청크)
+        chunks = [text[i:i+500] for i in range(0, len(text), 400) if text[i:i+500].strip()]
+        for chunk in chunks:
+            conn.execute(
+                "INSERT INTO rag_docs (chunk,filename,category,insurer,doc_date,uploaded,source_id) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (chunk, filename, meta.get("category","미분류"), meta.get("insurer",""),
+                 meta.get("doc_date",""), now, src_id)
+            )
+        conn.execute("UPDATE rag_sources SET chunk_cnt=? WHERE id=?", (len(chunks), src_id))
+        conn.commit()
+        conn.close()
+        return src_id
+    except Exception:
+        return -1
+
+# 메모리 캐시 (DB 로드 → 세션 내 빠른 검색용)
 @st.cache_resource
 def _get_rag_store():
-    """서버 전역 RAG 문서 저장소 — 관리자가 업로드한 문서 텍스트 보관"""
-    return {"docs": [], "updated": ""}  # docs: List[str]
+    """호환성 유지용 — 실제 데이터는 SQLite에서 로드"""
+    return {"docs": [], "updated": "", "_db_loaded": False}
+
+def _rag_sync_from_db():
+    """DB → 메모리 캐시 동기화 (앱 시작 시 또는 업로드 후 호출)"""
+    store = _get_rag_store()
+    chunks = _rag_db_get_all_chunks()
+    store["docs"] = chunks
+    _, _, last = _rag_db_get_stats()
+    store["updated"] = last
+    store["_db_loaded"] = True
 
 class LightRAGSystem:
-    """sentence-transformers 없이 키워드 TF 기반 경량 검색"""
+    """SQLite 영구 저장 + 키워드 TF 기반 경량 검색"""
     def __init__(self):
-        self.index = None        # 호환성 유지
+        self.index = None
         self.model_loaded = True
+        # 앱 시작 시 DB에서 메모리로 로드
+        _rag_sync_from_db()
 
     def _tokenize(self, text: str):
-        import re
         return re.findall(r'[가-힣a-zA-Z0-9]+', text.lower())
 
     def _score(self, query_tokens, doc: str) -> float:
@@ -1107,20 +1274,17 @@ class LightRAGSystem:
         scored.sort(key=lambda x: x[0], reverse=True)
         return [{"text": d[:600], "score": s} for s, d in scored[:k] if s > 0]
 
-    def add_documents(self, docs):
-        store = _get_rag_store()
-        # 청크 분할 (500자 단위) 후 저장
+    def add_documents(self, docs, filename="직접입력", meta=None):
+        """호환성 유지 — 내부적으로 DB 저장"""
+        if meta is None:
+            meta = {"category": "기타", "insurer": "", "doc_date": "", "summary": ""}
         for doc in docs:
-            if not doc or not doc.strip():
-                continue
-            chunks = [doc[i:i+500] for i in range(0, len(doc), 400)]
-            store["docs"].extend(chunks)
-        store["updated"] = dt.now().strftime("%Y-%m-%d %H:%M")
-        # 최대 500청크 유지
-        if len(store["docs"]) > 500:
-            store["docs"] = store["docs"][-500:]
+            if doc and doc.strip():
+                _rag_db_add_document(doc, filename, meta)
+        _rag_sync_from_db()
 
     def clear(self):
+        _rag_db_clear_all()
         store = _get_rag_store()
         store["docs"] = []
         store["updated"] = ""
@@ -1131,7 +1295,7 @@ class DummyRAGSystem:
         self.model_loaded = False
     def search(self, query, k=3):
         return []
-    def add_documents(self, docs):
+    def add_documents(self, docs, filename="", meta=None):
         pass
 
 # --------------------------------------------------------------------------
@@ -5074,120 +5238,139 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     st.info("등록된 회원이 없습니다.")
             with inner_tabs[1]:
                 st.write("### 📚 AI 지식베이스 관리 (관리자 전용)")
-                st.caption("업로드한 문서는 **모든 사용자의 AI 상담**에 자동으로 참조됩니다.")
+                st.caption("업로드한 문서는 **앱 재시작 후에도 영구 보존**되며 모든 사용자의 AI 상담에 자동 참조됩니다.")
 
-                # 현재 지식베이스 현황
-                _rag_store = _get_rag_store()
-                _rag_cnt = len(_rag_store.get("docs", []))
-                _rag_upd = _rag_store.get("updated", "없음")
-                _rag_col1, _rag_col2 = st.columns(2)
-                _rag_col1.metric("📄 저장된 청크 수", f"{_rag_cnt}개")
-                _rag_col2.metric("🕐 마지막 업데이트", _rag_upd or "없음")
-
-                if _rag_cnt > 0:
-                    st.success(f"✅ 현재 {_rag_cnt}개 청크가 AI 상담에 참조 중입니다.")
+                # ── 현황 메트릭 ──────────────────────────────────────────
+                _db_chunk_cnt, _db_src_cnt, _db_last = _rag_db_get_stats()
+                _mc1, _mc2, _mc3 = st.columns(3)
+                _mc1.metric("📄 총 청크 수", f"{_db_chunk_cnt}개")
+                _mc2.metric("📁 등록 문서 수", f"{_db_src_cnt}건")
+                _mc3.metric("🕐 마지막 업데이트", _db_last)
+                if _db_chunk_cnt > 0:
+                    st.success(f"✅ {_db_chunk_cnt}개 청크 · {_db_src_cnt}건 문서가 SQLite에 영구 저장되어 AI 상담에 참조 중입니다.")
                 else:
-                    st.info("📭 아직 업로드된 자료가 없습니다. 문서를 업로드하면 AI가 참조합니다.")
+                    st.info("📭 아직 업로드된 자료가 없습니다.")
 
                 st.divider()
+                # ── 파일 업로드 ──────────────────────────────────────────
+                st.markdown("#### 📎 문서 업로드 (자동 분류·영구 저장)")
                 rag_files = st.file_uploader(
-                    "📎 전문가 노하우 자료 업로드 (PDF / DOCX / TXT / JPG / PNG)",
-                    type=['pdf','docx','txt','jpg','jpeg','png'], accept_multiple_files=True, key="rag_uploader_admin")
-                st.caption("🖼️ JPG/PNG: Gemini Vision이 이미지 내 텍스트를 자동 추출하여 지식베이스에 저장합니다.")
+                    "PDF / DOCX / TXT / JPG / PNG — Gemini가 자동으로 분류·날짜·보험사를 추출합니다",
+                    type=['pdf','docx','txt','jpg','jpeg','png'],
+                    accept_multiple_files=True, key="rag_uploader_admin")
 
                 _rbtn1, _rbtn2 = st.columns(2)
                 with _rbtn1:
-                    if rag_files and st.button("📥 지식베이스에 추가", key="btn_rag_sync", use_container_width=True, type="primary"):
-                        with st.spinner("문서 분석 및 저장 중..."):
-                            try:
-                                docs = []
-                                for f in rag_files:
-                                    if f.type == "application/pdf":
-                                        docs.append(process_pdf(f))
-                                    elif "wordprocessingml" in f.type:
-                                        docs.append(process_docx(f))
-                                    elif f.type in ("image/jpeg", "image/jpg", "image/png") or f.name.lower().endswith(('.jpg','.jpeg','.png')):
-                                        # Gemini Vision OCR — 이미지 텍스트 추출
-                                        try:
-                                            import base64
-                                            _img_b64 = base64.b64encode(f.getvalue()).decode()
-                                            _mime = "image/jpeg" if f.name.lower().endswith(('.jpg','.jpeg')) else "image/png"
-                                            _ocr_client, _ = get_master_model()
-                                            _ocr_resp = _ocr_client.models.generate_content(
-                                                model=GEMINI_MODEL,
-                                                contents=[
-                                                    {"role": "user", "parts": [
-                                                        {"inline_data": {"mime_type": _mime, "data": _img_b64}},
-                                                        {"text": "이 이미지에 있는 모든 텍스트를 그대로 추출해주세요. 표·목록·항목명 포함 전체 내용을 빠짐없이 출력하세요."}
-                                                    ]}
-                                                ]
-                                            )
-                                            _ocr_text = sanitize_unicode(_ocr_resp.text) if _ocr_resp.text else ""
-                                            docs.append(f"[이미지: {f.name}]\n{_ocr_text}")
-                                        except Exception as _ocr_e:
-                                            docs.append(f"[이미지 OCR 오류: {f.name}] {str(_ocr_e)}")
+                    if rag_files and st.button("📥 분류 후 영구 저장", key="btn_rag_sync",
+                                               use_container_width=True, type="primary"):
+                        _added = 0
+                        for _uf in rag_files:
+                            with st.spinner(f"🔍 {_uf.name} 분석 중..."):
+                                try:
+                                    # 텍스트 추출
+                                    if _uf.type == "application/pdf":
+                                        _raw_text = process_pdf(_uf)
+                                    elif "wordprocessingml" in _uf.type:
+                                        _raw_text = process_docx(_uf)
+                                    elif _uf.type in ("image/jpeg","image/jpg","image/png") or \
+                                         _uf.name.lower().endswith(('.jpg','.jpeg','.png')):
+                                        _img_b64 = base64.b64encode(_uf.getvalue()).decode()
+                                        _mime = "image/jpeg" if _uf.name.lower().endswith(('.jpg','.jpeg')) else "image/png"
+                                        _ocr_cl, _ = get_master_model()
+                                        _ocr_r = _ocr_cl.models.generate_content(
+                                            model=GEMINI_MODEL,
+                                            contents=[{"role":"user","parts":[
+                                                {"inline_data":{"mime_type":_mime,"data":_img_b64}},
+                                                {"text":"이 이미지의 모든 텍스트를 표·목록 포함 빠짐없이 추출하세요."}
+                                            ]}]
+                                        )
+                                        _raw_text = sanitize_unicode(_ocr_r.text or "")
+                                        _raw_text = f"[이미지: {_uf.name}]\n{_raw_text}"
                                     else:
-                                        docs.append(f.read().decode('utf-8', errors='replace'))
-                                rag = st.session_state.get("rag_system")
-                                if rag:
-                                    rag.add_documents(docs)
-                                _new_cnt = len(_get_rag_store().get("docs", []))
-                                st.success(f"✅ {len(rag_files)}개 파일 추가 완료! 총 {_new_cnt}개 청크 저장됨")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"업로드 오류: {e}")
+                                        _raw_text = _uf.read().decode('utf-8', errors='replace')
+
+                                    # Gemini 자동 분류
+                                    _meta = _rag_classify_document(_raw_text, _uf.name)
+                                    _src_id = _rag_db_add_document(_raw_text, _uf.name, _meta)
+                                    if _src_id > 0:
+                                        _added += 1
+                                        st.markdown(f"""
+<div style="background:#f0fff4;border-left:3px solid #27ae60;border-radius:6px;
+  padding:6px 10px;margin-bottom:4px;font-size:0.78rem;">
+✅ <b>{_uf.name}</b><br>
+📂 분류: <b>{_meta.get('category','?')}</b> &nbsp;|&nbsp;
+🏢 기관: {_meta.get('insurer','미상')} &nbsp;|&nbsp;
+📅 날짜: {_meta.get('doc_date','미상')}<br>
+📝 {_meta.get('summary','')}
+</div>""", unsafe_allow_html=True)
+                                except Exception as _ue:
+                                    st.error(f"❌ {_uf.name}: {_ue}")
+                        if _added > 0:
+                            _rag_sync_from_db()
+                            st.success(f"✅ {_added}건 영구 저장 완료!")
+                            st.rerun()
+
                 with _rbtn2:
-                    if st.button("🗑️ 지식베이스 전체 초기화", key="btn_rag_clear", use_container_width=True):
-                        rag = st.session_state.get("rag_system")
-                        if rag and hasattr(rag, "clear"):
-                            rag.clear()
+                    if st.button("🗑️ 전체 초기화", key="btn_rag_clear", use_container_width=True):
+                        _rag_db_clear_all()
+                        _rag_sync_from_db()
                         st.warning("지식베이스가 초기화되었습니다.")
                         st.rerun()
 
-                # ── RAG 저장 내용 확인 ──────────────────────────────────
+                # ── 등록 문서 목록 ────────────────────────────────────────
                 st.divider()
-                st.markdown("#### 🔍 저장된 자료 확인 및 검색 테스트")
+                st.markdown("#### 📁 등록 문서 목록")
+                _sources = _rag_db_get_sources()
+                if _sources:
+                    # 카테고리 필터
+                    _cats = ["전체"] + sorted(set(s["category"] for s in _sources))
+                    _sel_cat = st.selectbox("카테고리 필터", _cats, key="rag_cat_filter")
+                    _filtered = _sources if _sel_cat == "전체" else [s for s in _sources if s["category"] == _sel_cat]
 
-                _cur_store = _get_rag_store()
-                _cur_docs  = _cur_store.get("docs", [])
-                _cur_upd   = _cur_store.get("updated", "없음")
-
-                if _cur_docs:
-                    st.success(f"✅ 총 **{len(_cur_docs)}개** 청크 저장됨 (마지막 업데이트: {_cur_upd})")
-
-                    # 검색 테스트
-                    _test_q = st.text_input("🔎 검색 테스트 (실제 AI 상담과 동일한 방식)",
-                        placeholder="예) 간병인사용일당 청구서류", key="rag_test_query")
-                    if _test_q:
-                        _rag_sys = st.session_state.get("rag_system")
-                        if _rag_sys:
-                            _results = _rag_sys.search(_test_q, k=5)
-                            if _results:
-                                st.markdown(f"**'{_test_q}' 검색 결과 — {len(_results)}건 매칭:**")
-                                for _i, _r in enumerate(_results, 1):
-                                    st.markdown(f"""
-<div style="background:#f0f6ff;border-left:3px solid #2e6da4;border-radius:6px;
-  padding:8px 12px;margin-bottom:6px;font-size:0.78rem;">
-<b>#{_i} 관련도: {_r['score']:.3f}</b><br>
-<span style="color:#333;">{_r['text'][:300]}...</span>
+                    for _src in _filtered:
+                        _cat_color = {"보험약관":"#c0392b","공문서":"#2e6da4","상담자료":"#27ae60",
+                                      "판례":"#8e44ad","보도자료":"#e67e22","세무자료":"#16a085"}.get(_src["category"],"#555")
+                        st.markdown(f"""
+<div style="background:#fafafa;border:1px solid #e0e0e0;border-radius:8px;
+  padding:10px 14px;margin-bottom:6px;font-size:0.78rem;">
+<div style="display:flex;justify-content:space-between;align-items:center;">
+  <span><b style="color:#1a3a5c;">{_src['filename']}</b>
+  &nbsp;<span style="background:{_cat_color};color:#fff;border-radius:4px;
+    padding:1px 7px;font-size:0.68rem;">{_src['category']}</span></span>
+  <span style="color:#888;font-size:0.68rem;">청크 {_src['chunk_cnt']}개</span>
+</div>
+<div style="color:#555;margin-top:4px;">
+  🏢 {_src['insurer'] or '미상'} &nbsp;|&nbsp; 📅 {_src['doc_date'] or '미상'} &nbsp;|&nbsp; 🕐 {_src['uploaded']}
+</div>
+{f'<div style="color:#333;margin-top:3px;">📝 {_src["summary"]}</div>' if _src['summary'] else ''}
 </div>""", unsafe_allow_html=True)
-                            else:
-                                st.warning(f"'{_test_q}' 관련 자료를 찾지 못했습니다. 다른 키워드로 시도해보세요.")
-
-                    # 저장된 청크 전체 미리보기
-                    with st.expander(f"📄 저장된 청크 전체 보기 ({len(_cur_docs)}개)", expanded=False):
-                        for _ci, _chunk in enumerate(_cur_docs):
-                            st.markdown(f"""
-<div style="background:#fafafa;border:1px solid #e0e0e0;border-radius:6px;
-  padding:8px 10px;margin-bottom:4px;font-size:0.72rem;color:#333;">
-<b style="color:#1a3a5c;">청크 #{_ci+1}</b><br>{_chunk[:200]}{'...' if len(_chunk)>200 else ''}
-</div>""", unsafe_allow_html=True)
+                        if st.button(f"🗑️ 삭제", key=f"del_src_{_src['id']}"):
+                            _rag_db_delete_source(_src["id"])
+                            _rag_sync_from_db()
+                            st.rerun()
                 else:
-                    st.info("📭 저장된 자료가 없습니다. 위에서 파일을 업로드하세요.")
+                    st.info("등록된 문서가 없습니다.")
 
-                # ── 영구 저장 안내 ──────────────────────────────────────
+                # ── 검색 테스트 ───────────────────────────────────────────
                 st.divider()
-                st.warning("⚠️ **중요:** RAG 자료는 서버 메모리에 저장됩니다. HF Spaces 앱이 재시작되면 자료가 초기화됩니다. 중요한 자료는 매번 재업로드하거나, 앱 코드에 직접 내장하는 방식을 권장합니다.")
+                st.markdown("#### 🔎 검색 테스트")
+                _test_q = st.text_input("키워드 입력 (실제 AI 상담과 동일한 방식)",
+                    placeholder="예) 간병인사용일당 청구서류", key="rag_test_query")
+                if _test_q:
+                    _rag_sys = st.session_state.get("rag_system")
+                    if _rag_sys:
+                        _results = _rag_sys.search(_test_q, k=5)
+                        if _results:
+                            st.markdown(f"**'{_test_q}' — {len(_results)}건 매칭:**")
+                            for _i, _r in enumerate(_results, 1):
+                                st.markdown(f"""
+<div style="background:#f0f6ff;border-left:3px solid #2e6da4;border-radius:6px;
+  padding:8px 12px;margin-bottom:5px;font-size:0.76rem;">
+<b>#{_i} 관련도: {_r['score']:.3f}</b><br>
+<span style="color:#333;">{_r['text'][:300]}{'...' if len(_r['text'])>300 else ''}</span>
+</div>""", unsafe_allow_html=True)
+                        else:
+                            st.warning(f"'{_test_q}' 관련 자료 없음. 다른 키워드로 시도하세요.")
             with inner_tabs[2]:
                 # ── 에러 로그 스크롤창 ──────────────────────────────────
                 st.markdown("##### 📋 시스템 에러 로그")
