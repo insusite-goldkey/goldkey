@@ -461,8 +461,8 @@ def _session_checkin(session_id: str) -> bool:
     """
     store = _get_session_store()
     now = time.time()
-    # 5분 이상 활동 없는 세션 자동 만료
-    expired = [k for k, v in list(store.items()) if now - v > 300]
+    # 10분 이상 활동 없는 세션 자동 만료
+    expired = [k for k, v in list(store.items()) if now - v > 600]
     for k in expired:
         store.pop(k, None)
     # 이미 등록된 세션이면 갱신 후 허용
@@ -482,7 +482,16 @@ def _session_checkout(session_id: str):
 def _get_concurrent_count() -> int:
     store = _get_session_store()
     now = time.time()
-    return sum(1 for v in store.values() if now - v <= 300)
+    return sum(1 for v in store.values() if now - v <= 600)
+
+def _get_session_remaining(session_id: str) -> int:
+    """현재 세션의 남은 시간(초) 반환. 세션 없으면 0"""
+    store = _get_session_store()
+    last = store.get(session_id)
+    if last is None:
+        return 0
+    remaining = 600 - int(time.time() - last)
+    return max(0, remaining)
 
 def _check_member_thresholds():
     """
@@ -1241,6 +1250,91 @@ def main():
   </div>
 </div>""", unsafe_allow_html=True)
         st.stop()
+
+    # ── 세션 만료 경고 (2분 전 JS 카운트다운 팝업) ───────────────────────
+    _remaining = _get_session_remaining(_sid)
+    components.html(f"""
+<script>
+(function(){{
+  var remaining = {_remaining};
+  var warned = false;
+  var warningDiv = null;
+
+  function fmtTime(s) {{
+    var m = Math.floor(s/60);
+    var sec = s % 60;
+    return m + '분 ' + (sec < 10 ? '0' : '') + sec + '초';
+  }}
+
+  function removeWarning() {{
+    if(warningDiv && warningDiv.parentNode) {{
+      warningDiv.parentNode.removeChild(warningDiv);
+      warningDiv = null;
+    }}
+  }}
+
+  function showWarning(sec) {{
+    if(!warningDiv) {{
+      warningDiv = document.createElement('div');
+      warningDiv.id = 'gk-session-warn';
+      warningDiv.style.cssText = [
+        'position:fixed','bottom:20px','right:20px','z-index:99999',
+        'background:#fff3cd','border:2px solid #f59e0b','border-radius:12px',
+        'padding:16px 20px','max-width:320px','box-shadow:0 4px 16px rgba(0,0,0,0.18)',
+        'font-family:Malgun Gothic,sans-serif','font-size:0.85rem','color:#92400e'
+      ].join(';');
+      warningDiv.innerHTML =
+        '<div style="font-size:1rem;font-weight:900;margin-bottom:6px;">⏰ 세션 만료 예정</div>' +
+        '<div id="gk-countdown" style="font-size:1.1rem;font-weight:700;color:#c0392b;margin-bottom:8px;"></div>' +
+        '<div style="margin-bottom:10px;line-height:1.5;">비활동으로 곧 세션이 종료됩니다.<br>계속 이용하시려면 <b>연장</b>을 눌러주세요.</div>' +
+        '<div style="display:flex;gap:8px;">' +
+        '<button id="gk-extend-btn" style="flex:1;background:#2e6da4;color:#fff;border:none;border-radius:6px;padding:8px;font-size:0.85rem;cursor:pointer;font-weight:700;">✅ 세션 연장</button>' +
+        '<button id="gk-dismiss-btn" style="flex:1;background:#eee;color:#555;border:none;border-radius:6px;padding:8px;font-size:0.85rem;cursor:pointer;">닫기</button>' +
+        '</div>';
+      try {{ window.parent.document.body.appendChild(warningDiv); }}
+      catch(e) {{ document.body.appendChild(warningDiv); }}
+
+      // 연장 버튼: Streamlit 아무 버튼 클릭 트리거 → 세션 체크인 갱신
+      document.getElementById('gk-extend-btn').onclick = function() {{
+        removeWarning();
+        warned = false;
+        // parent의 숨겨진 버튼 또는 페이지 클릭으로 rerun 유도
+        try {{
+          var pd = window.parent.document;
+          var btns = pd.querySelectorAll('button');
+          // 홈으로 버튼이 아닌 아무 버튼이나 클릭 (세션 갱신 목적)
+          for(var i=0;i<btns.length;i++) {{
+            if(btns[i].innerText && btns[i].innerText.includes('연장')) {{
+              btns[i].click(); break;
+            }}
+          }}
+        }} catch(e) {{}}
+        // fallback: 페이지 자체 클릭으로 Streamlit rerun 유도
+        try {{ window.parent.document.body.click(); }} catch(e) {{}}
+      }};
+      document.getElementById('gk-dismiss-btn').onclick = function() {{
+        removeWarning();
+      }};
+    }}
+    var el = document.getElementById('gk-countdown');
+    if(el) el.textContent = '남은 시간: ' + fmtTime(sec);
+  }}
+
+  var timer = setInterval(function() {{
+    remaining--;
+    if(remaining <= 0) {{
+      clearInterval(timer);
+      removeWarning();
+      return;
+    }}
+    // 2분(120초) 이하이면 경고 팝업 표시
+    if(remaining <= 120) {{
+      showWarning(remaining);
+    }}
+  }}, 1000);
+}})();
+</script>
+""", height=0)
 
     # ── 0단계: 파일경로 복구 플래그 반영 (auto_recover 후 rerun 시) ─────
     if st.session_state.get("_force_tmp"):
