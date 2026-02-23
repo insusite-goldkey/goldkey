@@ -1672,9 +1672,11 @@ def _get_rag_store():
     """호환성 유지용 — 실제 데이터는 SQLite에서 로드"""
     return {"docs": [], "updated": "", "_db_loaded": False}
 
-def _rag_sync_from_db():
+def _rag_sync_from_db(force: bool = False):
     """DB → 메모리 캐시 동기화 (앱 시작 시 또는 업로드 후 호출)"""
     store = _get_rag_store()
+    if not force and store.get("_db_loaded"):
+        return
     chunks = _rag_db_get_all_chunks()
     store["docs"] = chunks
     _, _, last = _rag_db_get_stats()
@@ -1955,6 +1957,10 @@ def main():
     # RAG: LightRAGSystem — 관리자 업로드 문서를 서버 전역 저장소에서 검색, 모든 사용자 참조
     if 'rag_system' not in st.session_state:
         st.session_state.rag_system = LightRAGSystem()
+    # 앱 재시작 후 첫 세션 진입 시 DB에서 강제 재동기화 (캐시 store가 비어있을 수 있음)
+    _rag_store = _get_rag_store()
+    if not _rag_store.get("docs"):
+        _rag_sync_from_db(force=True)
 
     # ── 탭 전환 시 상단 스크롤 처리 ────────────────────────────────────
     if st.session_state.pop("_scroll_top", False):
