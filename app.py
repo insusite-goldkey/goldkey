@@ -6120,19 +6120,101 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         st.warning("지식베이스가 초기화되었습니다.")
                         st.rerun()
 
-                # ── 저장소 상태 배너 ─────────────────────────────────────
+                # ── 저장소 상태 배너 + 진단 ──────────────────────────────
                 st.divider()
                 _sb_ok = _rag_use_supabase()
+
+                # SQLite 현황 확인
+                _sqlite_cnt = 0
+                try:
+                    import sqlite3 as _sq3
+                    if os.path.exists(RAG_DB_PATH):
+                        _sc = _sq3.connect(RAG_DB_PATH)
+                        _sqlite_cnt = _sc.execute("SELECT COUNT(*) FROM rag_docs").fetchone()[0]
+                        _sc.close()
+                except Exception:
+                    pass
+
+                # Supabase 현황 확인
+                _sb_cnt = 0
                 if _sb_ok:
-                    st.markdown("""<div style="background:#e8f5e9;border:1px solid #27ae60;border-radius:8px;
+                    try:
+                        _sb_diag = _get_sb_client()
+                        _sb_cnt = (_sb_diag.table("rag_docs").select("id", count="exact").execute().count or 0)
+                    except Exception:
+                        pass
+
+                if _sb_ok:
+                    st.markdown(f"""<div style="background:#e8f5e9;border:1px solid #27ae60;border-radius:8px;
 padding:8px 14px;font-size:0.82rem;margin-bottom:8px;">
-🟢 <b>Supabase 연결됨</b> — 업로드 자료가 <b>완전 영구 보존</b>됩니다 (코드 재배포 후에도 유지)
+🟢 <b>Supabase 연결됨</b> — 업로드 자료 <b>완전 영구 보존</b> (재배포 후에도 유지)<br>
+📦 Supabase rag_docs: <b>{_sb_cnt}청크</b>
+{f" &nbsp;|&nbsp; ⚠️ SQLite에도 <b>{_sqlite_cnt}청크</b> 잔존 (마이그레이션 권장)" if _sqlite_cnt > 0 else ""}
 </div>""", unsafe_allow_html=True)
                 else:
-                    st.markdown("""<div style="background:#fff3cd;border:1px solid #f59e0b;border-radius:8px;
+                    st.markdown(f"""<div style="background:#fff3cd;border:1px solid #f59e0b;border-radius:8px;
 padding:8px 14px;font-size:0.82rem;margin-bottom:8px;">
-🟡 <b>SQLite 임시 저장 중</b> — Supabase 미연결. 코드 재배포 시 자료가 초기화될 수 있습니다.
+🟡 <b>SQLite 임시 저장 중</b> — Supabase 미연결. HF Spaces 재시작 시 자료 <b>휘발</b>됩니다.<br>
+📦 SQLite 현재 보유: <b>{_sqlite_cnt}청크</b>
 </div>""", unsafe_allow_html=True)
+
+                # SQLite → Supabase 마이그레이션 버튼
+                if _sb_ok and _sqlite_cnt > 0:
+                    st.warning(f"⚠️ SQLite에 {_sqlite_cnt}청크가 남아 있습니다. Supabase로 이전하면 영구 보존됩니다.")
+                    if st.button(f"🔄 SQLite → Supabase 마이그레이션 ({_sqlite_cnt}청크)",
+                                 key="btn_rag_migrate", type="primary", use_container_width=True):
+                        with st.spinner("마이그레이션 중..."):
+                            _mig_ok = 0
+                            _mig_fail = 0
+                            try:
+                                import sqlite3 as _sq3
+                                _mc = _sq3.connect(RAG_DB_PATH)
+                                _rows = _mc.execute(
+                                    "SELECT d.chunk, d.filename, d.category, d.insurer, d.doc_date, d.uploaded "
+                                    "FROM rag_docs d ORDER BY d.id"
+                                ).fetchall()
+                                _mc.close()
+                                _sb_m = _get_sb_client()
+                                # 소스별로 묶어서 insert
+                                _src_map = {}
+                                for _r in _rows:
+                                    _fn = _r[1] or "마이그레이션"
+                                    if _fn not in _src_map:
+                                        _src_map[_fn] = {"rows": [], "cat": _r[2], "ins": _r[3],
+                                                         "dd": _r[4], "up": _r[5]}
+                                    _src_map[_fn]["rows"].append(_r[0])
+
+                                for _fn, _sv in _src_map.items():
+                                    try:
+                                        _now = dt.now().strftime("%Y-%m-%d %H:%M")
+                                        _src_res = _sb_m.table("rag_sources").insert({
+                                            "filename": _fn, "category": _sv["cat"],
+                                            "insurer": _sv["ins"], "doc_date": _sv["dd"],
+                                            "summary": f"[SQLite 마이그레이션] {_fn}",
+                                            "uploaded": _sv["up"] or _now,
+                                            "chunk_cnt": len(_sv["rows"]), "processed": True
+                                        }).execute()
+                                        _new_src_id = _src_res.data[0]["id"]
+                                        _chunk_rows = [{"source_id": _new_src_id, "chunk": _ch,
+                                                        "filename": _fn, "category": _sv["cat"],
+                                                        "insurer": _sv["ins"], "doc_date": _sv["dd"],
+                                                        "uploaded": _sv["up"] or _now}
+                                                       for _ch in _sv["rows"]]
+                                        for _ci in range(0, len(_chunk_rows), 100):
+                                            _sb_m.table("rag_docs").insert(_chunk_rows[_ci:_ci+100]).execute()
+                                        _mig_ok += len(_sv["rows"])
+                                    except Exception:
+                                        _mig_fail += len(_sv["rows"])
+
+                                if _mig_ok > 0:
+                                    _rag_sync_from_db(force=True)
+                            except Exception as _me:
+                                st.error(f"마이그레이션 오류: {_me}")
+                        if _mig_ok > 0:
+                            st.success(f"✅ {_mig_ok}청크 Supabase 이전 완료! (실패: {_mig_fail})")
+                            st.rerun()
+                        else:
+                            st.error(f"마이그레이션 실패 ({_mig_fail}청크)")
 
                 # ── 등록 문서 목록 표 ─────────────────────────────────────
                 st.markdown("#### 📊 보관 자료 현황표")
