@@ -1993,15 +1993,55 @@ class LightRAGSystem:
         # 항상 DB에서 강제 재로드 (로그아웃 후 재진입 시 빈 캐시 방지)
         _rag_sync_from_db(force=True)
 
+    # 상호 배타적 핵심 키워드 그룹 — 질문에 A그룹 키워드가 있으면 B그룹 문서 패널티
+    _EXCLUSIVE_GROUPS = [
+        {"치매", "간병", "인지", "장기요양", "노인성"},
+        {"암", "종양", "항암", "악성", "표적"},
+        {"뇌졸중", "뇌경색", "뇌출혈", "뇌혈관"},
+        {"심근경색", "심장", "협심증"},
+        {"실손", "실비", "의료비"},
+        {"연금", "노후", "은퇴"},
+        {"종신", "사망", "유족"},
+    ]
+
     def _tokenize(self, text: str):
         return re.findall(r'[가-힣a-zA-Z0-9]+', text.lower())
+
+    def _get_exclusive_groups(self, tokens):
+        """쿼리 토큰이 속한 배타 그룹 반환"""
+        matched = []
+        for g in self._EXCLUSIVE_GROUPS:
+            if any(t in g for t in tokens):
+                matched.append(g)
+        return matched
 
     def _score(self, query_tokens, doc: str) -> float:
         doc_tokens = self._tokenize(doc)
         if not doc_tokens:
             return 0.0
         doc_set = set(doc_tokens)
-        return sum(1 for t in query_tokens if t in doc_set) / (len(query_tokens) + 1)
+        q_set   = set(query_tokens)
+
+        # 기본 점수: 쿼리 토큰 중 문서에 있는 비율
+        base = sum(1 for t in query_tokens if t in doc_set) / (len(query_tokens) + 1)
+
+        # 핵심 키워드 가중치: 쿼리와 문서가 같은 배타 그룹 키워드를 공유하면 +보너스
+        bonus = 0.0
+        penalty = 0.0
+        q_exclusive = self._get_exclusive_groups(query_tokens)
+        for grp in q_exclusive:
+            q_hit = q_set & grp          # 쿼리에서 이 그룹 키워드
+            d_hit = doc_set & grp        # 문서에서 이 그룹 키워드
+            if q_hit and d_hit:
+                bonus += 0.5             # 같은 그룹 → 강한 보너스
+            # 다른 배타 그룹 키워드가 문서에 있으면 패널티
+            for other_grp in self._EXCLUSIVE_GROUPS:
+                if other_grp is grp:
+                    continue
+                if q_hit and (doc_set & other_grp) and not (doc_set & grp):
+                    penalty += 0.3       # 쿼리 그룹 없고 다른 그룹만 있으면 패널티
+
+        return max(0.0, base + bonus - penalty)
 
     def search(self, query: str, k: int = 3):
         store = _get_rag_store()
@@ -3867,15 +3907,51 @@ section[data-testid="stMain"] > div,
   </div>
 </div>""", unsafe_allow_html=True)
 
-        # ── 고객명 + 상담 입력창 (제목 바로 아래, 전체 너비) ──────────────
+        # ── 고객명 + 상담방향 선택 ────────────────────────────────────────
         t0_c_name = st.text_input("👤 고객 성함", placeholder="홍길동", key="t0_cname")
+
+        # 상담 방향 선택 박스
+        _T0_PRODUCTS = [
+            "선택 안 함 (자유 상담)",
+            "실손보험 (실비)",
+            "암보험",
+            "치매·간병보험",
+            "뇌혈관·심장보험",
+            "종신보험",
+            "정기보험",
+            "연금보험",
+            "어린이·태아보험",
+            "운전자보험",
+            "화재·재물보험",
+            "경영인정기보험 (CEO플랜)",
+            "CI보험 (중대질병)",
+            "저축성보험",
+            "기타 (직접 입력)",
+        ]
+        _T0_DIRECTIONS = [
+            "신규 가입 상담",
+            "보장 공백 진단",
+            "갱신형 → 비갱신형 전환",
+            "보험료 절감 재설계",
+            "기존 증권 분석",
+            "청구 가능 여부 확인",
+            "해지/감액 검토",
+        ]
+        _t0_col1, _t0_col2 = st.columns(2)
+        with _t0_col1:
+            t0_product = st.selectbox("🏷️ 상담 상품", _T0_PRODUCTS, key="t0_product")
+            if t0_product == "기타 (직접 입력)":
+                t0_product = st.text_input("상품명 직접 입력", key="t0_product_custom")
+        with _t0_col2:
+            t0_direction = st.selectbox("🎯 상담 방향", _T0_DIRECTIONS, key="t0_direction")
+
         t0_query  = st.text_area(
             "📝 상담 내용 입력",
             height=160,
             key="query_t0",
             placeholder="예) 40대 남성, 현재 실손+암보험 가입 중. 뇌·심장 보장 공백 점검 및 신규 담보 추가 상담 요청."
         )
-        # 음성 입력 버튼 (전역 STT 설정 적용)
+        # 음성 입력 버튼 — textarea를 key 기반으로 정확히 찾아 입력 (엉뚱한 textarea 방지)
         components.html(f"""
 <style>
 .t0-stt-row{{display:flex;gap:8px;margin-top:4px;margin-bottom:8px;}}
@@ -3894,13 +3970,19 @@ section[data-testid="stMain"] > div,
 <div class="t0-interim" id="t0_interim"></div>
 <script>
 var _t0Active=false; var _t0Rec=null; var _t0Ready=false; var _t0Final='';
+var _t0Starting=false;  // start() 중복 호출 방지 플래그
+
 function _t0GetTA(){{
+  // data-testid 속성으로 Streamlit textarea를 정확히 찾음
   var doc=window.parent.document;
-  var tas=doc.querySelectorAll('textarea');
-  for(var i=0;i<tas.length;i++){{
-    if(tas[i].placeholder&&tas[i].placeholder.includes('상담 내용')) return tas[i];
+  var allTA=doc.querySelectorAll('textarea');
+  // key="query_t0" → aria-label 또는 placeholder로 매칭
+  for(var i=0;i<allTA.length;i++){{
+    var ph=allTA[i].placeholder||'';
+    if(ph.includes('40\ub300') || ph.includes('\uc0c1\ub2f4 \ub0b4\uc6a9')) return allTA[i];
   }}
-  return tas.length?tas[tas.length-1]:null;
+  // fallback: 마지막 textarea
+  return allTA.length ? allTA[allTA.length-1] : null;
 }}
 function _t0SetTA(val){{
   var ta=_t0GetTA(); if(!ta) return;
@@ -3913,6 +3995,7 @@ function _t0Init(){{
   if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.');return false;}}
   var r=new SR();
   r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=true; r.maxAlternatives={STT_MAX_ALT};
+  r.onstart=function(){{ _t0Starting=false; }};
   r.onresult=function(e){{
     var interim=''; var fn='';
     for(var i=e.resultIndex;i<e.results.length;i++){{
@@ -3928,33 +4011,49 @@ function _t0Init(){{
     if(interim) document.getElementById('t0_interim').textContent='🎤 '+interim;
   }};
   r.onerror=function(e){{
-    if(e.error==='no-speech'){{
-      if(_t0Active) setTimeout(function(){{if(_t0Active) try{{r.start();}}catch(ex){{}}}},{STT_NO_SPEECH_MS});
+    _t0Starting=false;
+    if(e.error==='no-speech') return;  // continuous 모드에서 no-speech는 무시
+    if(e.error==='aborted') return;
+    if(e.error==='not-allowed'){{
+      document.getElementById('t0_interim').textContent='🚫 마이크 권한을 허용해주세요 (주소창 자물쇠 아이콘)';
+      _t0Active=false;
+      var btn=document.getElementById('t0_stt_btn');
+      if(btn){{btn.textContent='🎙️ 음성 입력 (한국어)';btn.classList.remove('active');}}
       return;
     }}
-    if(e.error==='aborted') return;
     document.getElementById('t0_interim').textContent='⚠️ '+e.error;
   }};
   r.onend=function(){{
-    if(_t0Active) setTimeout(function(){{if(_t0Active) try{{r.start();}}catch(ex){{}}}},{STT_RESTART_MS});
-    else{{document.getElementById('t0_stt_btn').textContent='🎙️ 음성 입력 (한국어)';
-          document.getElementById('t0_stt_btn').classList.remove('active');
-          document.getElementById('t0_interim').textContent='';}}
+    _t0Starting=false;
+    if(_t0Active){{
+      // 재시작 — 이미 시작 중이면 skip
+      setTimeout(function(){{
+        if(_t0Active && !_t0Starting){{
+          _t0Starting=true;
+          try{{r.start();}}catch(ex){{_t0Starting=false;}}
+        }}
+      }},{STT_RESTART_MS});
+    }} else {{
+      var btn=document.getElementById('t0_stt_btn');
+      if(btn){{btn.textContent='🎙️ 음성 입력 (한국어)';btn.classList.remove('active');}}
+      document.getElementById('t0_interim').textContent='';
+    }}
   }};
   _t0Rec=r; _t0Ready=true; return true;
 }}
 function t0StartSTT(){{
   var btn=document.getElementById('t0_stt_btn');
   if(_t0Active){{
-    _t0Active=false; if(_t0Rec) try{{_t0Rec.stop();}}catch(ex){{}};
+    _t0Active=false; _t0Starting=false;
+    if(_t0Rec) try{{_t0Rec.stop();}}catch(ex){{}};
     btn.textContent='🎙️ 음성 입력 (한국어)'; btn.classList.remove('active');
     document.getElementById('t0_interim').textContent=''; return;
   }}
   if(!_t0Init()) return;
-  _t0Final=''; _t0Active=true;
+  _t0Final=''; _t0Active=true; _t0Starting=true;
   btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)'; btn.classList.add('active');
-  document.getElementById('t0_interim').textContent='🟡 음성 입력 준비 중...';
-  try{{_t0Rec.start();}}catch(ex){{}}
+  document.getElementById('t0_interim').textContent='🟡 준비 중... (마이크 허용 필요 시 허용 클릭)';
+  try{{_t0Rec.start();}}catch(ex){{_t0Starting=false;}}
 }}
 function t0StartTTS(){{
   window.speechSynthesis.cancel();
@@ -3998,9 +4097,13 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         for pf in (t0_files or []) if pf.type == 'application/pdf'
                     )
                     st.session_state['current_c_name'] = t0_c_name or "고객"
+                    # 상담 방향 컨텍스트 주입
+                    _t0_prod_ctx = f"\n\n## 상담 대상 상품: {t0_product}" if t0_product and t0_product != "선택 안 함 (자유 상담)" else ""
+                    _t0_dir_ctx  = f"\n## 상담 방향: {t0_direction}"
+                    _t0_focus    = f"\n\n⚠️ 반드시 [{t0_product}] 상품에 집중하여 답변하고, 다른 상품 위주로 답변하지 마시오." if t0_product and t0_product != "선택 안 함 (자유 상담)" else ""
                     run_ai_analysis(
                         t0_c_name or "고객", t0_query, 0, "res_t0",
-                        "[신규보험 상담 · 증권분석 — 보험설계사 전용]\n\n"
+                        f"[신규보험 상담 · 증권분석 — 보험설계사 전용]{_t0_prod_ctx}{_t0_dir_ctx}{_t0_focus}\n\n"
                         "## 필수 분석 항목 (아래 순서대로 빠짐없이 답변)\n\n"
                         "### 1. 보장 공백 분석\n"
                         "- 암·뇌·심장·실손 보장 공백 진단\n"
