@@ -368,23 +368,59 @@ def setup_database():
         pass  # Cloud 환경 DB 생성 실패 시 앱 크래시 방지
 
 def load_members():
+    """회원 목록 로드 — Supabase 우선, /tmp JSON 폴백"""
+    # ── Supabase 우선 ────────────────────────────────────────────────────
+    if _SB_PKG_OK:
+        try:
+            sb = _get_sb_client()
+            if sb:
+                rows = sb.table("gk_members").select("*").execute().data or []
+                return {r["name"]: {
+                    "user_id":          r.get("user_id", ""),
+                    "contact":          r.get("contact", ""),
+                    "join_date":        r.get("join_date", ""),
+                    "subscription_end": r.get("subscription_end", ""),
+                    "is_active":        bool(r.get("is_active", True))
+                } for r in rows}
+        except Exception:
+            pass
+    # ── /tmp JSON 폴백 ───────────────────────────────────────────────────
     if not os.path.exists(MEMBER_DB):
         return {}
     try:
         with open(MEMBER_DB, "r", encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, IOError):
-        return {}  # 파일 손상 시 빈 dict 반환
+        return {}
 
 def save_members(members):
+    """회원 목록 저장 — Supabase 우선, /tmp JSON 폴백"""
+    # ── Supabase 우선 ────────────────────────────────────────────────────
+    if _SB_PKG_OK:
+        try:
+            sb = _get_sb_client()
+            if sb:
+                for name, m in members.items():
+                    sb.table("gk_members").upsert({
+                        "name":             name,
+                        "user_id":          m.get("user_id", ""),
+                        "contact":          m.get("contact", ""),
+                        "join_date":        m.get("join_date", ""),
+                        "subscription_end": m.get("subscription_end", ""),
+                        "is_active":        bool(m.get("is_active", True))
+                    }, on_conflict="name").execute()
+                return
+        except Exception:
+            pass
+    # ── /tmp JSON 폴백 ───────────────────────────────────────────────────
     try:
         import tempfile, shutil
         tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(MEMBER_DB) or '.', suffix='.tmp')
         with os.fdopen(tmp_fd, 'w', encoding='utf-8') as f:
             json.dump(members, f, ensure_ascii=False)
-        shutil.move(tmp_path, MEMBER_DB)  # 원자적 교체 — 동시 쓰기 시 파일 손상 방지
+        shutil.move(tmp_path, MEMBER_DB)
     except (IOError, OSError):
-        pass  # Cloud 환경 쓰기 실패 시 크래시 방지
+        pass
 
 def mask_name(name: str) -> str:
     """이름 마스킹 — 첫 글자만 표시, 나머지 * 처리 (예: 이** / 홍*동)"""
@@ -1115,6 +1151,15 @@ CREATE TABLE IF NOT EXISTS rag_quarantine (
     chunk       TEXT NOT NULL,
     error_reason TEXT DEFAULT '',
     quarantined TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS gk_members (
+    id                BIGSERIAL PRIMARY KEY,
+    name              TEXT NOT NULL UNIQUE,
+    user_id           TEXT DEFAULT '',
+    contact           TEXT DEFAULT '',
+    join_date         TEXT DEFAULT '',
+    subscription_end  TEXT DEFAULT '',
+    is_active         BOOLEAN DEFAULT TRUE
 );
 """
 
