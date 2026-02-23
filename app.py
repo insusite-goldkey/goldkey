@@ -2679,6 +2679,7 @@ section[data-testid="stMain"] > div,
             ("disability","🩺","장해보험금 산출","AMA·맥브라이드·호프만계수\n후유장해 보험금 산출"),
             ("t2",  "🛡️", "기본보험 상담",      "자동차·화재·운전자\n일상배상책임 점검"),
             ("t3",  "🏥", "질병·상해 통합보험",  "암·뇌·심장 3대질병 보장\n간병·치매·생명보험 설계"),
+            ("cancer","🎗️","암 치료 상담",       "NGS·표적항암·면역항암·CAR-T\n혈액암·고형암 치료비 보장 분석"),
             ("t4",  "🚗", "자동차사고 상담",    "과실비율·합의금 분석\n13대 중과실·민식이법 안내"),
         ]
         def _render_cards(cards, prefix):
@@ -3454,6 +3455,140 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 항암방사선: 3,000만원 ~ 6,000만원
 </div>
 """, height=538)
+
+    # ── [cancer] 암 치료 상담 ─────────────────────────────────────────────
+    if cur == "cancer":
+        tab_home_btn("cancer")
+        st.subheader("🎗️ 암 치료 상담 — NGS · 표적항암 · 면역항암 · CAR-T")
+        st.caption("혈액암·고형암 치료 절차, 보험 보장 분석, 비급여 치료비 전략을 AI가 정밀 분석합니다.")
+
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            cancer_type = st.selectbox("암 종류 선택", [
+                "혈액암 (백혈병·림프종·다발성골수종)",
+                "폐암",
+                "유방암",
+                "대장·위암",
+                "간암·담도암·췌장암",
+                "갑상선암",
+                "전립선암",
+                "뇌종양",
+                "기타 고형암",
+            ], key="cancer_type_sel")
+
+            treatment_type = st.selectbox("치료 유형", [
+                "NGS 검사 및 표적항암 적합성 확인",
+                "표적항암약물 치료 (경구·주사)",
+                "면역항암 치료 (PD-1/PD-L1 억제제)",
+                "CAR-T 세포치료",
+                "중입자·양성자 방사선 치료",
+                "조혈모세포이식 (자가·동종)",
+                "선행항암 (수술 전 항암)",
+                "보조항암 (수술 후 항암)",
+                "복합 치료 (항암+방사선)",
+            ], key="cancer_treat_sel")
+
+            c_name_ca, query_ca, hi_ca, do_ca = ai_query_block("cancer",
+                "예) 백혈병 진단, NGS 검사 후 표적항암 예정. 보험 보장 범위와 치료비 분석 요청")
+
+            cancer_files = st.file_uploader("진단서·보험증권·의무기록 업로드",
+                type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_cancer")
+
+            if do_ca:
+                doc_text_ca = "".join(
+                    f"\n[첨부: {cf.name}]\n" + extract_pdf_chunks(cf, char_limit=5000)
+                    for cf in (cancer_files or []) if cf.type == 'application/pdf'
+                )
+                run_ai_analysis(c_name_ca, query_ca, hi_ca, "res_cancer", f"""
+[암 치료 상담 — {cancer_type} / {treatment_type}]
+
+## 필수 분석 항목 (순서대로 답변)
+
+### 1. 치료 절차 안내
+- NGS(차세대염기서열분석) 검사 목적·절차·비용 (급여/비급여 구분)
+- 해당 암종의 표준 치료 프로토콜 (선행항암 → 수술 → 보조항암 순서)
+- 표적항암 적합 유전자 변이 확인 방법 (EGFR·ALK·BRCA·BCR-ABL 등)
+- 면역항암·CAR-T·중입자 치료 적응증 및 병원 안내
+
+### 2. 보험 보장 분석
+- 실손보험 급여/비급여 항목별 보장 여부 (1~4세대 구분)
+- 암 진단비 지급 조건 (일반암·소액암·혈액암 구분)
+- 표적항암약물 허가치료비 담보 — 지급 요건·지급액·반복 지급 여부
+- 암 주요치료비 담보 — 비급여 항암 시술 시 지급 조건
+- 항암방사선·항암수술 담보 보장 범위
+
+### 3. 예상 치료비 분석
+- NGS 검사: 급여 적용 시 vs 비급여 시 비용 차이
+- 표적항암제 월 비용 (급여 적용 전·후)
+- 면역항암제 (키트루다·옵디보 등) 연간 비용
+- CAR-T 치료 (킴리아·예스카타) 총 비용
+- 조혈모세포이식 총 비용 (자가 vs 동종)
+
+### 4. 보장 공백 진단 및 추가 담보 권고
+- 현재 보험으로 커버 안 되는 비급여 항목
+- 우선 추가해야 할 담보 순서 (표적항암약물→암주요치료비→간병인일당)
+- 실손 4세대 전환 여부 검토
+
+### 5. 실무 대응 전략
+- 보험사 암 보험금 청구 시 필요 서류 목록
+- 지급 거절 시 대응 방안 (금감원 민원·손해사정)
+- 산정특례 등록으로 본인부담금 경감 방법
+{doc_text_ca}
+""")
+
+        with col2:
+            st.subheader("🤖 AI 분석 리포트")
+            show_result("res_cancer")
+            st.markdown("##### 📋 암 치료비 · 보장 핵심 정보")
+            components.html("""
+<div style="height:580px;overflow-y:auto;padding:12px 15px;
+  background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
+  font-size:0.82rem;line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+
+<b style="font-size:0.86rem;color:#1a3a5c;">🧬 NGS 검사 (차세대염기서열분석)</b><br>
+• <b>급여 적용</b>: 고형암 4기·혈액암 → 본인부담 20% (약 50~80만원)<br>
+• <b>비급여</b>: 급여 기준 미충족 시 → 100~300만원<br>
+• 목적: 표적항암제 적합 유전자 변이 확인 (EGFR·ALK·BRCA·BCR-ABL 등)<br><br>
+
+<b style="font-size:0.86rem;color:#1a3a5c;">🎯 표적항암약물 치료비</b><br>
+• 경구 표적항암제 (글리벡·타그리소 등): 월 300~800만원 (급여 전)<br>
+• 급여 적용 후 본인부담: 월 5~30만원<br>
+• 급여 미적용 비급여: 월 500만원 ~ 2억원/년<br>
+• <b>표적항암약물 허가치료비 담보</b>: 치료 시마다 반복 지급 가능<br><br>
+
+<b style="font-size:0.86rem;color:#1a3a5c;">💉 면역항암 치료</b><br>
+• 키트루다(펨브롤리주맙): 연간 약 1억 2,000만원 (비급여)<br>
+• 옵디보(니볼루맙): 연간 약 8,000만원 ~ 1억원<br>
+• 급여 적용 시: 본인부담 5~20%<br><br>
+
+<b style="font-size:0.86rem;color:#1a3a5c;">🔬 CAR-T 세포치료</b><br>
+• 킴리아(티사젠렉류셀): 약 4~5억원<br>
+• 예스카타(악시캅타진): 약 3~4억원<br>
+• 급여 적용(2024~): 일부 혈액암 본인부담 20%<br><br>
+
+<b style="font-size:0.86rem;color:#1a3a5c;">🏥 조혈모세포이식</b><br>
+• 자가이식: 약 3,000~5,000만원<br>
+• 동종이식: 약 5,000만원~1억원<br>
+• 급여 적용: 본인부담 5~10%<br><br>
+
+<b style="font-size:0.86rem;color:#1a3a5c;">⚛️ 중입자·양성자 치료</b><br>
+• 중입자: 약 5,000만원 (비급여)<br>
+• 양성자: 약 3,000만원 (일부 급여)<br><br>
+
+<b style="font-size:0.86rem;color:#1a3a5c;">📋 보험 청구 필수 서류</b><br>
+• 암 진단확정서 (조직검사 결과 포함)<br>
+• NGS 검사 결과지<br>
+• 처방전 및 투약 확인서<br>
+• 입원확인서 / 통원확인서<br>
+• 진료비 영수증 + 세부내역서<br><br>
+
+<b style="font-size:0.86rem;color:#c0392b;">⚠️ 산정특례 등록 필수</b><br>
+• 암 진단 후 <b>30일 이내</b> 건강보험공단 등록<br>
+• 등록 시 본인부담률 5% 적용 (5년간)<br>
+• 미등록 시 일반 본인부담률(20~60%) 적용
+</div>
+""", height=598)
 
     # ── [이미지 분석] 보험금/이미지 ──────────────────────────────────────
     if cur == "img":
