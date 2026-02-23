@@ -1,18 +1,17 @@
 # ==========================================================
-# 관리자 전용 멀티페이지
+# 관리자 전용 멀티페이지 — 비활성화됨
+# 관리자 기능은 app.py 내부 t9 탭으로 통합되어 있습니다.
+# 이 파일을 pages/ 폴더에 두면 set_page_config 중복 오류 발생.
 # ==========================================================
-
 import streamlit as st
+st.switch_page("app.py")
+
 import sys
 import os
 
 def main():
-    st.set_page_config(
-        page_title="관리자 콘솔", 
-        page_icon="🛠️", 
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
+    pass
+    # st.set_page_config 제거 — app.py에서 이미 호출됨
     
     # 관리자 인증
     if not authenticate_admin():
