@@ -1428,7 +1428,7 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
 <b>해당 전문가(변호사·세무사·의사·공인중개사)와 상담</b>이 필요합니다.
 </div>""", unsafe_allow_html=True)
         st.caption("문의: insusite@gmail.com")
-        st.caption("상담: 010-3074-2616 골드키지사")
+        st.caption("앱 관리자 이세윤: 010-3074-2616")
         display_security_sidebar()
         st.divider()
         # ── 관리자 콘솔 (최하단) ──────────────────────────────────────────
