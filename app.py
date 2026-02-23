@@ -1249,6 +1249,13 @@ def main():
 </script>
 """, height=0)
 
+    # ── 로그인 환영 메시지 (rerun 후 표시) ──────────────────────────────
+    _welcome_name = st.session_state.pop("_login_welcome", None)
+    if _welcome_name:
+        _is_adm = st.session_state.get("is_admin", False)
+        _badge  = " 👑 관리자" if _is_adm else ""
+        st.toast(f"✅ {_welcome_name}님{_badge} 로그인되었습니다!", icon="🎉")
+
     # ── 사이드바 ──────────────────────────────────────────────────────────
     with st.sidebar:
         # ── 아바타 이미지 base64 로드 ──
@@ -1410,7 +1417,7 @@ def main():
                                 # 무제한 사용자(관리자)는 is_admin=True 자동 설정
                                 st.session_state.is_admin = (ln in _get_unlimited_users())
                                 st.session_state["_mic_notice"] = True  # 최초 1회 마이크 안내
-                                st.success(f"{ln}님 환영합니다!")
+                                st.session_state["_login_welcome"] = ln  # rerun 후 환영 메시지 표시
                                 st.rerun()
                             else:
                                 if ln not in members:
