@@ -5143,6 +5143,51 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                             rag.clear()
                         st.warning("지식베이스가 초기화되었습니다.")
                         st.rerun()
+
+                # ── RAG 저장 내용 확인 ──────────────────────────────────
+                st.divider()
+                st.markdown("#### 🔍 저장된 자료 확인 및 검색 테스트")
+
+                _cur_store = _get_rag_store()
+                _cur_docs  = _cur_store.get("docs", [])
+                _cur_upd   = _cur_store.get("updated", "없음")
+
+                if _cur_docs:
+                    st.success(f"✅ 총 **{len(_cur_docs)}개** 청크 저장됨 (마지막 업데이트: {_cur_upd})")
+
+                    # 검색 테스트
+                    _test_q = st.text_input("🔎 검색 테스트 (실제 AI 상담과 동일한 방식)",
+                        placeholder="예) 간병인사용일당 청구서류", key="rag_test_query")
+                    if _test_q:
+                        _rag_sys = st.session_state.get("rag_system")
+                        if _rag_sys:
+                            _results = _rag_sys.search(_test_q, k=5)
+                            if _results:
+                                st.markdown(f"**'{_test_q}' 검색 결과 — {len(_results)}건 매칭:**")
+                                for _i, _r in enumerate(_results, 1):
+                                    st.markdown(f"""
+<div style="background:#f0f6ff;border-left:3px solid #2e6da4;border-radius:6px;
+  padding:8px 12px;margin-bottom:6px;font-size:0.78rem;">
+<b>#{_i} 관련도: {_r['score']:.3f}</b><br>
+<span style="color:#333;">{_r['text'][:300]}...</span>
+</div>""", unsafe_allow_html=True)
+                            else:
+                                st.warning(f"'{_test_q}' 관련 자료를 찾지 못했습니다. 다른 키워드로 시도해보세요.")
+
+                    # 저장된 청크 전체 미리보기
+                    with st.expander(f"📄 저장된 청크 전체 보기 ({len(_cur_docs)}개)", expanded=False):
+                        for _ci, _chunk in enumerate(_cur_docs):
+                            st.markdown(f"""
+<div style="background:#fafafa;border:1px solid #e0e0e0;border-radius:6px;
+  padding:8px 10px;margin-bottom:4px;font-size:0.72rem;color:#333;">
+<b style="color:#1a3a5c;">청크 #{_ci+1}</b><br>{_chunk[:200]}{'...' if len(_chunk)>200 else ''}
+</div>""", unsafe_allow_html=True)
+                else:
+                    st.info("📭 저장된 자료가 없습니다. 위에서 파일을 업로드하세요.")
+
+                # ── 영구 저장 안내 ──────────────────────────────────────
+                st.divider()
+                st.warning("⚠️ **중요:** RAG 자료는 서버 메모리에 저장됩니다. HF Spaces 앱이 재시작되면 자료가 초기화됩니다. 중요한 자료는 매번 재업로드하거나, 앱 코드에 직접 내장하는 방식을 권장합니다.")
             with inner_tabs[2]:
                 # ── 에러 로그 스크롤창 ──────────────────────────────────
                 st.markdown("##### 📋 시스템 에러 로그")
