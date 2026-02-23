@@ -1131,6 +1131,11 @@ def section_housing_pension():
 # --------------------------------------------------------------------------
 # [SECTION 8] 메인 앱 - 사이드바 + 탭0(상담) + 탭1(이미지분석)
 # --------------------------------------------------------------------------
+@st.cache_resource
+def _get_auth_store():
+    """서버 프로세스 메모리에 로그인 정보 보관 — rerun/탭전환 시 세션 복구용"""
+    return {}
+
 def main():
     # 모바일 최적화: wide 레이아웃 조건부 적용
     # 사이드바 열기 요청이 있으면 expanded, 아니면 collapsed
@@ -1141,6 +1146,14 @@ def main():
         layout="centered",
         initial_sidebar_state=_sidebar_state
     )
+
+    # ── 로그인 세션 복구 (서버 메모리 백업 → rerun 시 복원) ─────────
+    _auth_store = _get_auth_store()
+    if 'user_id' not in st.session_state and _auth_store.get('user_id'):
+        st.session_state.user_id   = _auth_store['user_id']
+        st.session_state.user_name = _auth_store['user_name']
+        st.session_state.join_date = _auth_store['join_date']
+        st.session_state.is_admin  = _auth_store['is_admin']
 
     # ── 0단계: 파일경로 복구 플래그 반영 (auto_recover 후 rerun 시) ─────
     if st.session_state.get("_force_tmp"):
@@ -1456,13 +1469,20 @@ def main():
                                 _login_ok = ln in members and decrypt_data(members[ln]["contact"], lc)
                             if _login_ok:
                                 m = members[ln]
-                                st.session_state.user_id = m["user_id"]
+                                _jd = dt.strptime(m["join_date"], "%Y-%m-%d")
+                                _adm = (ln in _get_unlimited_users())
+                                st.session_state.user_id   = m["user_id"]
                                 st.session_state.user_name = ln
-                                st.session_state.join_date = dt.strptime(m["join_date"], "%Y-%m-%d")
-                                # 무제한 사용자(관리자)는 is_admin=True 자동 설정
-                                st.session_state.is_admin = (ln in _get_unlimited_users())
-                                st.session_state["_mic_notice"] = True  # 최초 1회 마이크 안내
-                                st.session_state["_login_welcome"] = ln  # rerun 후 환영 메시지 표시
+                                st.session_state.join_date = _jd
+                                st.session_state.is_admin  = _adm
+                                st.session_state["_mic_notice"] = True
+                                st.session_state["_login_welcome"] = ln
+                                # ── 서버 메모리에 로그인 정보 백업 ──
+                                _auth = _get_auth_store()
+                                _auth['user_id']   = m["user_id"]
+                                _auth['user_name'] = ln
+                                _auth['join_date'] = _jd
+                                _auth['is_admin']  = _adm
                                 st.rerun()
                             else:
                                 if ln not in members:
@@ -1478,11 +1498,18 @@ def main():
                         if name and contact:
                             with st.spinner("⏳ 가입 처리 중입니다. 잠시만 기다려주세요..."):
                                 info = add_member(name, contact)
-                                st.session_state.user_id = info["user_id"]
+                                _jd2 = dt.strptime(info["join_date"], "%Y-%m-%d")
+                                st.session_state.user_id   = info["user_id"]
                                 st.session_state.user_name = name
-                                st.session_state.join_date = dt.strptime(info["join_date"], "%Y-%m-%d")
-                                st.session_state.is_admin = False
-                                st.session_state["_mic_notice"] = True  # 최초 1회 마이크 안내
+                                st.session_state.join_date = _jd2
+                                st.session_state.is_admin  = False
+                                st.session_state["_mic_notice"] = True
+                                # ── 서버 메모리에 로그인 정보 백업 ──
+                                _auth2 = _get_auth_store()
+                                _auth2['user_id']   = info["user_id"]
+                                _auth2['user_name'] = name
+                                _auth2['join_date'] = _jd2
+                                _auth2['is_admin']  = False
                             st.success("가입 완료!")
                             st.rerun()
                         else:
@@ -1627,6 +1654,7 @@ def main():
             _lo_col1, _lo_col2 = st.columns(2)
             with _lo_col1:
                 if st.button("🔓 로그아웃", key="btn_logout", use_container_width=True):
+                    _get_auth_store().clear()  # 서버 메모리 백업도 클리어
                     st.session_state.clear()
                     st.rerun()
             with _lo_col2:
