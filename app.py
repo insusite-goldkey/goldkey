@@ -587,7 +587,7 @@ def get_client():
     )
 
 def s_voice(text, lang='ko-KR'):
-    """TTS - 20대 여성 아나운서 목소리 (pitch=1.4, rate=1.05)"""
+    """TTS - 20대 여성 아나운서 목소리 (pitch=1.4, rate=0.9 — 명료한 속도)"""
     text = sanitize_unicode(text)
     clean = text.replace('"', '').replace("'", "").replace("\n", " ").replace("`", "")
     return (
@@ -595,7 +595,7 @@ def s_voice(text, lang='ko-KR'):
         'window.speechSynthesis.cancel();'
         'var msg=new SpeechSynthesisUtterance("' + clean + '");'
         'msg.lang="ko-KR";'
-        'msg.rate=1.05;'
+        'msg.rate=0.9;'
         'msg.pitch=1.4;'
         'msg.volume=1.0;'
         'var voices=window.speechSynthesis.getVoices();'
@@ -1801,7 +1801,15 @@ function _initRec_{tab_key}(){{
   }};
 
   r.onerror = function(e){{
-    if(e.error==='no-speech') return;  // 묵음은 무시하고 계속
+    if(e.error==='no-speech'){{
+      // 무음 감지: 3초 대기 후 자동 재시작 (문장 사이 숨 고르기 허용)
+      if(_sttActive_{tab_key}){{
+        setTimeout(function(){{
+          if(_sttActive_{tab_key}) try{{ r.start(); }}catch(ex){{}}
+        }}, 3000);
+      }}
+      return;
+    }}
     if(e.error==='aborted') return;
     if(_sttDiv_{tab_key}) _sttDiv_{tab_key}.textContent='⚠️ '+e.error;
   }};
@@ -1813,7 +1821,7 @@ function _initRec_{tab_key}(){{
         if(_sttActive_{tab_key}){{
           try{{ r.start(); }}catch(ex){{}}
         }}
-      }}, 150);
+      }}, 300);  // 300ms 안정 대기
     }} else {{
       if(_sttBtn_{tab_key}){{
         _sttBtn_{tab_key}.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
@@ -1858,9 +1866,15 @@ function startSTT_{tab_key}(){{
 function startTTS_{tab_key}(){{
   window.speechSynthesis.cancel();
   var msg=new SpeechSynthesisUtterance('{stt_greet}');
-  msg.lang='{stt_lang_code}'; msg.rate=1.05; msg.pitch=1.4; msg.volume=1.0;
+  msg.lang='{stt_lang_code}'; msg.rate=0.9; msg.pitch=1.4; msg.volume=1.0;
   var voices=window.speechSynthesis.getVoices();
-  var fv=voices.find(function(v){{return v.lang==='{stt_lang_code}'&&(v.name.includes('Female')||v.name.includes('Yuna')||v.name.includes('Google'));}}); 
+  // 20대 여성 아나운서 목소리 우선 선택
+  var fv=voices.find(function(v){{
+    return v.lang==='{stt_lang_code}'&&(
+      v.name.includes('Yuna')||v.name.includes('Female')||
+      v.name.includes('Google')||v.name.includes('Heami')
+    );
+  }});
   if(fv) msg.voice=fv;
   window.speechSynthesis.speak(msg);
 }}
