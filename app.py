@@ -1103,6 +1103,64 @@ def _rag_use_supabase() -> bool:
     """Supabase 클라이언트가 사용 가능한지 확인"""
     return _SB_PKG_OK and _get_sb_client() is not None
 
+def _rag_supabase_ensure_tables():
+    """Supabase에 RAG 테이블이 없으면 자동 생성 (앱 시작 시 1회 호출)"""
+    if not _rag_use_supabase():
+        return
+    try:
+        sb = _get_sb_client()
+        # rag_sources 테이블 존재 여부 확인 — 없으면 insert 시도 후 오류로 감지
+        # Supabase REST API는 DDL 직접 실행 불가 → postgrest rpc 또는 insert 테스트로 확인
+        try:
+            sb.table("rag_sources").select("id").limit(1).execute()
+        except Exception as _e:
+            if "relation" in str(_e).lower() or "does not exist" in str(_e).lower() or "42p01" in str(_e).lower():
+                # 테이블 없음 → Supabase Management API로 생성
+                import urllib.request as _ur, json as _jj
+                _sb_url = os.environ.get("SUPABASE_URL", "") or ""
+                _sb_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "") or ""
+                if not _sb_url:
+                    try:
+                        _sb_url = st.secrets.get("supabase", {}).get("url", "") or st.secrets.get("SUPABASE_URL", "")
+                    except Exception:
+                        pass
+                if not _sb_key:
+                    try:
+                        _sb_key = st.secrets.get("supabase", {}).get("service_role_key", "") or st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", "")
+                    except Exception:
+                        pass
+                # project ref 추출 (https://XXXX.supabase.co → XXXX)
+                _ref = _sb_url.replace("https://","").split(".")[0] if _sb_url else ""
+                if _ref and _sb_key:
+                    _sql = (
+                        "CREATE TABLE IF NOT EXISTS rag_sources ("
+                        "id bigserial PRIMARY KEY, filename text NOT NULL, "
+                        "category text DEFAULT '미분류', insurer text DEFAULT '', "
+                        "doc_date text DEFAULT '', summary text DEFAULT '', "
+                        "uploaded text NOT NULL, chunk_cnt integer DEFAULT 0);"
+                        "CREATE TABLE IF NOT EXISTS rag_docs ("
+                        "id bigserial PRIMARY KEY, "
+                        "source_id bigint REFERENCES rag_sources(id) ON DELETE CASCADE, "
+                        "chunk text NOT NULL, filename text DEFAULT '', "
+                        "category text DEFAULT '미분류', insurer text DEFAULT '', "
+                        "doc_date text DEFAULT '', uploaded text DEFAULT '');"
+                    )
+                    _body = _jj.dumps({"query": _sql}).encode()
+                    _req  = _ur.Request(
+                        f"https://api.supabase.com/v1/projects/{_ref}/database/query",
+                        data=_body,
+                        headers={"Authorization": f"Bearer {_sb_key}",
+                                 "Content-Type": "application/json"},
+                        method="POST"
+                    )
+                    try:
+                        with _ur.urlopen(_req, timeout=10) as _resp:
+                            pass
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
 def _rag_db_init():
     """RAG SQLite DB 초기화 (폴백용)"""
     try:
@@ -1127,6 +1185,7 @@ def _rag_db_init():
         pass
 
 _rag_db_init()
+_rag_supabase_ensure_tables()  # Supabase 테이블 없으면 자동 생성
 
 def _rag_db_get_all_chunks():
     """전체 청크 텍스트 리스트 반환 — Supabase 우선, SQLite 폴백"""
