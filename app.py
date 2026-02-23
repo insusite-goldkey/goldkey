@@ -1053,8 +1053,60 @@ SYSTEM_PROMPT = """
 """
 
 # --------------------------------------------------------------------------
-# [SECTION 5] RAG 시스템 — 경량화로 제거 (Gemini API 직접 호출로 대체)
+# [SECTION 5] RAG 시스템 — 경량 키워드 매칭 방식 (관리자 전용 업로드 → 전체 사용자 참조)
 # --------------------------------------------------------------------------
+@st.cache_resource
+def _get_rag_store():
+    """서버 전역 RAG 문서 저장소 — 관리자가 업로드한 문서 텍스트 보관"""
+    return {"docs": [], "updated": ""}  # docs: List[str]
+
+class LightRAGSystem:
+    """sentence-transformers 없이 키워드 TF 기반 경량 검색"""
+    def __init__(self):
+        self.index = None        # 호환성 유지
+        self.model_loaded = True
+
+    def _tokenize(self, text: str):
+        import re
+        return re.findall(r'[가-힣a-zA-Z0-9]+', text.lower())
+
+    def _score(self, query_tokens, doc: str) -> float:
+        doc_tokens = self._tokenize(doc)
+        if not doc_tokens:
+            return 0.0
+        doc_set = set(doc_tokens)
+        return sum(1 for t in query_tokens if t in doc_set) / (len(query_tokens) + 1)
+
+    def search(self, query: str, k: int = 3):
+        store = _get_rag_store()
+        docs = store.get("docs", [])
+        if not docs:
+            return []
+        q_tokens = self._tokenize(query)
+        if not q_tokens:
+            return []
+        scored = [(self._score(q_tokens, d), d) for d in docs]
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [{"text": d[:600], "score": s} for s, d in scored[:k] if s > 0]
+
+    def add_documents(self, docs):
+        store = _get_rag_store()
+        # 청크 분할 (500자 단위) 후 저장
+        for doc in docs:
+            if not doc or not doc.strip():
+                continue
+            chunks = [doc[i:i+500] for i in range(0, len(doc), 400)]
+            store["docs"].extend(chunks)
+        store["updated"] = dt.now().strftime("%Y-%m-%d %H:%M")
+        # 최대 500청크 유지
+        if len(store["docs"]) > 500:
+            store["docs"] = store["docs"][-500:]
+
+    def clear(self):
+        store = _get_rag_store()
+        store["docs"] = []
+        store["updated"] = ""
+
 class DummyRAGSystem:
     def __init__(self):
         self.index = None
@@ -1281,9 +1333,9 @@ def main():
         load_stt_engine()
         st.session_state.stt_loaded = True
 
-    # RAG: DummyRAGSystem 고정 (sentence-transformers/faiss 제거로 경량화)
+    # RAG: LightRAGSystem — 관리자 업로드 문서를 서버 전역 저장소에서 검색, 모든 사용자 참조
     if 'rag_system' not in st.session_state:
-        st.session_state.rag_system = DummyRAGSystem()
+        st.session_state.rag_system = LightRAGSystem()
 
     # ── 탭 전환 시 상단 스크롤 처리 ────────────────────────────────────
     if st.session_state.pop("_scroll_top", False):
@@ -1757,7 +1809,7 @@ def main():
                     st.rerun()
 
             if st.button("상담 자료 파기", key="btn_purge", use_container_width=True):
-                st.session_state.rag_system = DummyRAGSystem()
+                st.session_state.rag_system = LightRAGSystem()
                 for k in ['analysis_result']:
                     st.session_state.pop(k, None)
                 st.success("상담 자료가 파기되었습니다.")
@@ -4747,23 +4799,55 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 else:
                     st.info("등록된 회원이 없습니다.")
             with inner_tabs[1]:
-                st.write("### 마스터 전용 RAG 엔진")
-                rag_files = st.file_uploader("전문가용 노하우 PDF/DOCX/TXT 업로드",
+                st.write("### 📚 AI 지식베이스 관리 (관리자 전용)")
+                st.caption("업로드한 문서는 **모든 사용자의 AI 상담**에 자동으로 참조됩니다.")
+
+                # 현재 지식베이스 현황
+                _rag_store = _get_rag_store()
+                _rag_cnt = len(_rag_store.get("docs", []))
+                _rag_upd = _rag_store.get("updated", "없음")
+                _rag_col1, _rag_col2 = st.columns(2)
+                _rag_col1.metric("📄 저장된 청크 수", f"{_rag_cnt}개")
+                _rag_col2.metric("🕐 마지막 업데이트", _rag_upd or "없음")
+
+                if _rag_cnt > 0:
+                    st.success(f"✅ 현재 {_rag_cnt}개 청크가 AI 상담에 참조 중입니다.")
+                else:
+                    st.info("📭 아직 업로드된 자료가 없습니다. 문서를 업로드하면 AI가 참조합니다.")
+
+                st.divider()
+                rag_files = st.file_uploader(
+                    "📎 전문가 노하우 자료 업로드 (PDF / DOCX / TXT)",
                     type=['pdf','docx','txt'], accept_multiple_files=True, key="rag_uploader_admin")
-                if rag_files and st.button("지식베이스 동기화", key="btn_rag_sync"):
-                    with st.spinner("동기화 중..."):
-                        try:
-                            docs = []
-                            for f in rag_files:
-                                if f.type == "application/pdf":
-                                    docs.append(process_pdf(f))
-                                elif "wordprocessingml" in f.type:
-                                    docs.append(process_docx(f))
-                                else:
-                                    docs.append(f.read().decode('utf-8', errors='replace'))
-                            st.success(f"{len(rag_files)}개 파일이 업로드되었습니다! (AI 상담 시 자동 참조)")
-                        except Exception as e:
-                            st.error(f"동기화 오류: {e}")
+
+                _rbtn1, _rbtn2 = st.columns(2)
+                with _rbtn1:
+                    if rag_files and st.button("📥 지식베이스에 추가", key="btn_rag_sync", use_container_width=True, type="primary"):
+                        with st.spinner("문서 분석 및 저장 중..."):
+                            try:
+                                docs = []
+                                for f in rag_files:
+                                    if f.type == "application/pdf":
+                                        docs.append(process_pdf(f))
+                                    elif "wordprocessingml" in f.type:
+                                        docs.append(process_docx(f))
+                                    else:
+                                        docs.append(f.read().decode('utf-8', errors='replace'))
+                                rag = st.session_state.get("rag_system")
+                                if rag:
+                                    rag.add_documents(docs)
+                                _new_cnt = len(_get_rag_store().get("docs", []))
+                                st.success(f"✅ {len(rag_files)}개 파일 추가 완료! 총 {_new_cnt}개 청크 저장됨")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"업로드 오류: {e}")
+                with _rbtn2:
+                    if st.button("🗑️ 지식베이스 전체 초기화", key="btn_rag_clear", use_container_width=True):
+                        rag = st.session_state.get("rag_system")
+                        if rag and hasattr(rag, "clear"):
+                            rag.clear()
+                        st.warning("지식베이스가 초기화되었습니다.")
+                        st.rerun()
             with inner_tabs[2]:
                 # ── 에러 로그 스크롤창 ──────────────────────────────────
                 st.markdown("##### 📋 시스템 에러 로그")
