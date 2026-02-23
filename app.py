@@ -1385,8 +1385,10 @@ def main():
 })();
 </script>""", height=0)
 
-    # 핀치줌 + 자동회전 허용 + 백버튼 홈 이동 (모바일 최적화)
-    components.html("""
+    # 핀치줌 + 자동회전 허용 + 백버튼 홈 이동 (모바일 최적화) — 최초 1회만
+    if not st.session_state.get("_js_init_done"):
+        st.session_state["_js_init_done"] = True
+        components.html("""
 <script>
 (function(){
   // ── 뷰포트 설정 ──
@@ -1450,8 +1452,10 @@ def main():
 </script>
 """, height=0)
 
-    # ── Pull-to-Refresh 및 새로고침 차단 (모바일/데스크탑) ──────────────
-    components.html("""
+    # ── Pull-to-Refresh 및 새로고침 차단 (모바일/데스크탑) — 최초 1회만
+    if not st.session_state.get("_js_ptr_done"):
+        st.session_state["_js_ptr_done"] = True
+        components.html("""
 <script>
 (function(){
   // parent document에 overscroll-behavior 적용 (가장 효과적)
@@ -2073,7 +2077,7 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
     if 'current_tab' not in st.session_state:
         st.session_state.current_tab = "home"
 
-    cur = st.session_state.current_tab
+    cur = st.session_state.get("current_tab", "home")
 
     # ── 공통 AI 쿼리 블록 ────────────────────────────────────────────────
     def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요."):
@@ -2690,6 +2694,7 @@ function startSugSTT(){
                         if st.button("▶ 클릭", key=f"{prefix}_{_k}", use_container_width=False):
                             st.session_state.current_tab = _k
                             st.session_state["_scroll_top"] = True
+                            st.rerun()
 
         _render_cards(PART1, "home_p1")
 
@@ -2721,6 +2726,7 @@ function startSugSTT(){
             if st.button("▶ 클릭", key="home_p25_life_event", use_container_width=False):
                 st.session_state.current_tab = "life_event"
                 st.session_state["_scroll_top"] = True
+                st.rerun()
         with _le2:
             st.markdown(
                 "<div class='gk-card-wrap'>"
@@ -2734,6 +2740,7 @@ function startSugSTT(){
             if st.button("▶ 클릭", key="home_p25_life_cycle", use_container_width=False):
                 st.session_state.current_tab = "life_cycle"
                 st.session_state["_scroll_top"] = True
+                st.rerun()
 
         # ── 파트 3: 부동산 투자 · 간병 컨설팅 ──
         st.markdown('<div class="gk-section-label">🏘️ 부동산 투자 · 간병 컨설팅</div>', unsafe_allow_html=True)
@@ -2751,6 +2758,7 @@ function startSugSTT(){
             if st.button("▶ 클릭", key="home_p3_realty", use_container_width=False):
                 st.session_state.current_tab = "realty"
                 st.session_state["_scroll_top"] = True
+                st.rerun()
         with _rc2:
             st.markdown(
                 "<div class='gk-card-wrap'>"
@@ -2764,6 +2772,7 @@ function startSugSTT(){
             if st.button("▶ 클릭", key="home_p3_nursing", use_container_width=False):
                 st.session_state.current_tab = "nursing"
                 st.session_state["_scroll_top"] = True
+                st.rerun()
 
         # ── 파트 4: 신규상품 리플렛 관리 ──
         st.markdown('<div class="gk-section-label">📂 신규상품 리플렛 관리</div>', unsafe_allow_html=True)
@@ -2781,11 +2790,13 @@ function startSugSTT(){
             if st.button("▶ 클릭", key="home_p4_leaflet", use_container_width=False):
                 st.session_state.current_tab = "leaflet"
                 st.session_state["_scroll_top"] = True
+                st.rerun()
 
         st.divider()
         if st.session_state.get('is_admin'):
             if st.button("⚙️ 관리자 시스템 이동", key="home_dash_t9"):
                 st.session_state.current_tab = "t9"
+                st.rerun()
 
         # ── 보험사 연락처 섹션 ──────────────────────────────────────────
         st.divider()
@@ -2864,6 +2875,7 @@ function startSugSTT(){
     def tab_home_btn(tab_key):
         if st.button("🏠 홈으로", key=f"btn_home_{tab_key}", type="primary"):
             st.session_state.current_tab = "home"
+            st.rerun()
 
     # ── [t0] 신규보험 상품 상담 — 보험설계사 전용 ───────────────────────
     if cur == "t0":
