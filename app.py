@@ -1256,6 +1256,94 @@ def main():
 </script>
 """, height=0)
 
+    # ── localStorage 세션 복원 (새로고침/Pull-to-Refresh 대응) ──────────
+    if 'user_id' not in st.session_state:
+        _ls_data = st.query_params.get("_ls_restore", "")
+        if not _ls_data:
+            components.html("""
+<script>
+(function(){
+  try {
+    var d = localStorage.getItem('gk_session');
+    if(d){
+      var o = JSON.parse(d);
+      if(o && o.user_id && o.user_name){
+        var url = new URL(window.parent.location.href);
+        url.searchParams.set('_ls_restore', encodeURIComponent(d));
+        window.parent.location.replace(url.toString());
+      }
+    }
+  } catch(e){}
+})();
+</script>""", height=0)
+        else:
+            try:
+                import urllib.parse as _up
+                _sd = json.loads(_up.unquote(_ls_data))
+                if _sd.get("user_id") and _sd.get("user_name"):
+                    st.session_state.user_id   = _sd["user_id"]
+                    st.session_state.user_name = _sd["user_name"]
+                    st.session_state.is_admin  = _sd.get("is_admin", False)
+                    st.session_state.join_date = dt.now()
+                    st.query_params.clear()
+                    st.rerun()
+            except Exception:
+                st.query_params.clear()
+
+    # ── 로그인 시 localStorage에 세션 저장 ──────────────────────────────
+    if 'user_id' in st.session_state:
+        _ls_payload = json.dumps({
+            "user_id":   st.session_state.get("user_id", ""),
+            "user_name": st.session_state.get("user_name", ""),
+            "is_admin":  st.session_state.get("is_admin", False),
+        }, ensure_ascii=False)
+        components.html(f"""
+<script>
+(function(){{
+  try {{
+    localStorage.setItem('gk_session', {json.dumps(_ls_payload)});
+  }} catch(e){{}}
+}})();
+</script>""", height=0)
+    else:
+        components.html("""
+<script>
+(function(){
+  try { localStorage.removeItem('gk_session'); } catch(e){}
+})();
+</script>""", height=0)
+
+    # ── Pull-to-Refresh 차단 (모바일) ────────────────────────────────────
+    components.html("""
+<script>
+(function(){
+  var lastY = 0;
+  document.addEventListener('touchstart', function(e){
+    lastY = e.touches[0].clientY;
+  }, {passive: false});
+  document.addEventListener('touchmove', function(e){
+    var y = e.touches[0].clientY;
+    if(y > lastY && window.scrollY === 0){
+      e.preventDefault();
+    }
+    lastY = y;
+  }, {passive: false});
+  if(window.parent && window.parent.document){
+    var pdoc = window.parent.document;
+    pdoc.addEventListener('touchstart', function(e){
+      lastY = e.touches[0].clientY;
+    }, {passive: false});
+    pdoc.addEventListener('touchmove', function(e){
+      var y = e.touches[0].clientY;
+      if(y > lastY && window.parent.scrollY === 0){
+        e.preventDefault();
+      }
+      lastY = y;
+    }, {passive: false});
+  }
+})();
+</script>""", height=0)
+
     # ── 로그인 환영 메시지 (rerun 후 표시) ──────────────────────────────
     _welcome_name = st.session_state.pop("_login_welcome", None)
     if _welcome_name:
