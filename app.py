@@ -4559,11 +4559,35 @@ function t0StartTTS(){{
                                 if _gcs_ok:
                                     gcs_saved = gcs_upload_file(lf.getvalue(), gcs_path)
 
+                                # ── RAG 자동 등록 ──────────────────────
+                                rag_registered = False
+                                try:
+                                    rag = st.session_state.get("rag_system")
+                                    if rag and getattr(rag, "model_loaded", False):
+                                        cl = parsed
+                                        rag_text = (
+                                            f"[보험문서] 문서유형:{cl.get('문서유형','—')} "
+                                            f"보험사:{cl.get('보험사명','—')} "
+                                            f"상품명:{cl.get('상품명','—')} "
+                                            f"보험종류:{cl.get('보험종류','—')} "
+                                            f"연도:{cl.get('연도','—')} "
+                                            f"주요담보:{cl.get('주요담보','—')} "
+                                            f"보험료:{cl.get('보험료범위','—')} "
+                                            f"가입연령:{cl.get('가입연령','—')} "
+                                            f"특이사항:{cl.get('특이사항','—')}\n"
+                                            f"{pdf_text[:2000]}"
+                                        )
+                                        rag.add_documents([rag_text])
+                                        rag_registered = True
+                                except Exception:
+                                    pass
+
                                 results.append({
                                     "파일": lf.name,
                                     "분류결과": parsed,
                                     "GCS경로": gcs_path,
-                                    "GCS저장": "✅ 저장완료" if gcs_saved else "⚠️ Supabase 미연결"
+                                    "GCS저장": "✅ 저장완료" if gcs_saved else "⚠️ Supabase 미연결",
+                                    "RAG등록": "✅ AI 지식베이스 등록" if rag_registered else "⚠️ RAG 미등록"
                                 })
                             except Exception as e:
                                 results.append({"파일": lf.name, "분류결과": {}, "오류": str(e)})
@@ -4596,8 +4620,9 @@ function t0StartTTS(){{
 | **보험료** | {cl.get('보험료범위','—')} |
 | **가입연령** | {cl.get('가입연령','—')} |
 | **특이사항** | {cl.get('특이사항','—')} |
-| **GCS 저장 경로** | `{r.get('GCS경로','—')}` |
-| **저장 상태** | {r.get('GCS저장','—')} |
+| **저장 경로** | `{r.get('GCS경로','—')}` |
+| **Supabase 저장** | {r.get('GCS저장','—')} |
+| **AI 지식베이스** | {r.get('RAG등록','—')} |
 """)
 
         # ── 우측: GCS 폴더별 파일 목록 (탭) ─────────────────────────────
