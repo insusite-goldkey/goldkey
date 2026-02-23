@@ -1260,25 +1260,38 @@ def main():
     components.html("""
 <script>
 (function(){
-  // 1) 모바일: 최상단에서 아래로 당기는 Pull-to-Refresh 차단
-  var lastY = 0;
-  document.addEventListener('touchstart', function(e){
-    lastY = e.touches[0].clientY;
-  }, {passive: true});
-  document.addEventListener('touchmove', function(e){
-    var y = e.touches[0].clientY;
-    if(y > lastY && (window.scrollY === 0 || document.documentElement.scrollTop === 0)){
-      e.preventDefault();
-    }
-    lastY = y;
-  }, {passive: false});
+  // parent document에 overscroll-behavior 적용 (가장 효과적)
+  try {
+    var pd = window.parent.document;
+    var style = pd.createElement('style');
+    style.textContent = 'html,body{ overscroll-behavior-y: contain !important; }';
+    pd.head.appendChild(style);
+  } catch(e){}
 
-  // 2) F5 / Ctrl+R / Cmd+R 키보드 새로고침 차단
-  document.addEventListener('keydown', function(e){
-    if(e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'r')){
-      e.preventDefault();
-    }
-  });
+  // 1) 모바일: parent에서 pull-to-refresh 차단
+  try {
+    var lastY = 0;
+    var pd2 = window.parent.document;
+    pd2.addEventListener('touchstart', function(e){
+      lastY = e.touches[0].clientY;
+    }, {passive: true});
+    pd2.addEventListener('touchmove', function(e){
+      var y = e.touches[0].clientY;
+      if(y > lastY && (window.parent.scrollY === 0 || pd2.documentElement.scrollTop === 0)){
+        e.preventDefault();
+      }
+      lastY = y;
+    }, {passive: false});
+  } catch(e){}
+
+  // 2) F5 / Ctrl+R / Cmd+R 키보드 새로고침 차단 (parent)
+  try {
+    window.parent.document.addEventListener('keydown', function(e){
+      if(e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'r')){
+        e.preventDefault();
+      }
+    });
+  } catch(e){}
 })();
 </script>""", height=0)
 
@@ -1323,9 +1336,8 @@ def main():
 
 **제1조 (서비스 기본 정보)**
 - **서비스명:** Goldkey AI Master Lab. SaaS
-- **운영사:** 케이지에이에셋 골드키지사
 - **운영자:** 이세윤
-- **문의:** 010-3074-2616 / insusite@gmail.com
+- **앱 문의:** 010-3074-2616 / insusite@gmail.com
 
 ---
 
@@ -1333,7 +1345,7 @@ def main():
 - 시스템 고도화 기간 **전체 무료** 이용: **~ 2026.08.31.까지**
 - 회원가입 후 고도화 기간 내 모든 기능 무료 제공
 - 회원 1인당 **1일 10회** AI 상담 이용 제한 (데이터 용량 제한)
-- 만 19세 이상 보험설계사 및 관련 업무 종사자 대상
+- 만 19세 이상 보험 관련 업무 종사자, 전문가 및 관심 있는 고객 대상
 
 **제3조 (서비스 범위)**
 - 보험 상담 보조 AI 분석 도구 제공
