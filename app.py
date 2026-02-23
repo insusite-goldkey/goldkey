@@ -246,9 +246,16 @@ def sanitize_prompt(text):
 def get_admin_key():
     """관리자 키를 st.secrets에서 가져옴 (평문 하드코딩 금지)"""
     try:
-        return st.secrets.get("ADMIN_KEY", "goldkey777")
+        return st.secrets.get("ADMIN_KEY", "kgagold6803")
     except Exception:
-        return "goldkey777"
+        return "kgagold6803"
+
+def get_admin_code():
+    """관리자 코드를 st.secrets에서 가져옴 (평문 하드코딩 금지)"""
+    try:
+        return st.secrets.get("ADMIN_CODE", "kgagold6803")
+    except Exception:
+        return "kgagold6803"
 
 # --------------------------------------------------------------------------
 # [SECTION 1.5] 비상장주식 평가 엔진 (상증법 + 법인세법)
@@ -285,7 +292,7 @@ class AdvancedStockEvaluator:
 
     def evaluate_inheritance_tax(self):
         pure_asset_per_share = self.net_asset / max(self.total_shares, 1)
-        incomes = (self.net_incomes + [0, 0, 0])[:3]  # 3개 미만 시 0으로 패딩
+        incomes = (self.net_incomes + [0, 0, 0])[:3]
         weighted_eps = (
             incomes[0] / max(self.total_shares, 1) * 3 +
             incomes[1] / max(self.total_shares, 1) * 2 +
@@ -1644,9 +1651,9 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                 except Exception:
                     _admin_code = "kgagold6803"
                 try:
-                    _master_code = st.secrets.get("MASTER_CODE", "01030742616")
+                    _master_code = st.secrets.get("MASTER_CODE", "kgagold6803")
                 except Exception:
-                    _master_code = "01030742616"
+                    _master_code = "kgagold6803"
                 if admin_id in ("admin", "이세윤") and admin_code == _admin_code:
                     st.session_state.user_id = "ADMIN_MASTER"
                     st.session_state.user_name = "이세윤"
