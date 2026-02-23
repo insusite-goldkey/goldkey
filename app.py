@@ -1124,16 +1124,20 @@ RAG_DB_PATH = "/tmp/goldkey_rag.db"
 # ── Supabase RAG 테이블 자동 생성 SQL (최초 1회) ─────────────────────────
 _RAG_SB_INIT_SQL = """
 CREATE TABLE IF NOT EXISTS rag_sources (
-    id        BIGSERIAL PRIMARY KEY,
-    filename  TEXT NOT NULL,
-    category  TEXT DEFAULT '미분류',
-    insurer   TEXT DEFAULT '',
-    doc_date  TEXT DEFAULT '',
-    summary   TEXT DEFAULT '',
-    uploaded  TEXT NOT NULL,
-    chunk_cnt INTEGER DEFAULT 0,
-    error_flag TEXT DEFAULT ''
+    id           BIGSERIAL PRIMARY KEY,
+    filename     TEXT NOT NULL,
+    category     TEXT DEFAULT '미분류',
+    insurer      TEXT DEFAULT '',
+    doc_date     TEXT DEFAULT '',
+    summary      TEXT DEFAULT '',
+    uploaded     TEXT NOT NULL,
+    chunk_cnt    INTEGER DEFAULT 0,
+    error_flag   TEXT DEFAULT '',
+    storage_path TEXT DEFAULT '',
+    processed    BOOLEAN DEFAULT FALSE
 );
+ALTER TABLE rag_sources ADD COLUMN IF NOT EXISTS storage_path TEXT DEFAULT '';
+ALTER TABLE rag_sources ADD COLUMN IF NOT EXISTS processed BOOLEAN DEFAULT FALSE;
 CREATE TABLE IF NOT EXISTS rag_docs (
     id        BIGSERIAL PRIMARY KEY,
     source_id BIGINT REFERENCES rag_sources(id) ON DELETE CASCADE,
@@ -1714,6 +1718,111 @@ def _rag_db_add_document(text: str, filename: str, meta: dict) -> int:
     except Exception:
         return -1
 
+def _rag_quick_register(file_bytes: bytes, filename: str, category: str, insurer: str) -> int:
+    """주간 즉시 등록 — 파일을 Storage에 저장 + 메타만 DB 등록 (텍스트 추출 없음, 빠름)"""
+    import re as _re
+    now = dt.now().strftime("%Y-%m-%d %H:%M")
+    # Storage 경로 생성
+    safe_fn = _re.sub(r'[\\/:*?"<>|\s]', '_', filename)[:80]
+    storage_path = f"rag_pending/{category}/{insurer or '미분류'}/{safe_fn}"
+    # Supabase Storage 업로드
+    sb = _get_sb_client() if _rag_use_supabase() else None
+    if sb:
+        try:
+            sb.storage.from_(SB_BUCKET).upload(
+                path=storage_path,
+                file=file_bytes,
+                file_options={"content-type": "application/octet-stream", "upsert": "true"}
+            )
+        except Exception:
+            pass
+        try:
+            res = sb.table("rag_sources").insert({
+                "filename": filename, "category": category, "insurer": insurer,
+                "doc_date": "", "summary": f"[대기중] {filename}",
+                "uploaded": now, "chunk_cnt": 0,
+                "storage_path": storage_path, "processed": False
+            }).execute()
+            return res.data[0]["id"]
+        except Exception:
+            return -1
+    return -1
+
+def _rag_process_pending() -> tuple:
+    """심야 일괄 처리 — 미처리(processed=False) 파일 텍스트 추출 + RAG 저장. (처리수, 실패수) 반환"""
+    sb = _get_sb_client() if _rag_use_supabase() else None
+    if not sb:
+        return (0, 0)
+    try:
+        pending = sb.table("rag_sources").select("*").eq("processed", False).execute().data or []
+    except Exception:
+        return (0, 0)
+    ok, fail = 0, 0
+    for src in pending:
+        try:
+            storage_path = src.get("storage_path", "")
+            if not storage_path:
+                continue
+            # Storage에서 파일 다운로드
+            file_bytes = sb.storage.from_(SB_BUCKET).download(storage_path)
+            filename = src["filename"]
+            # 텍스트 추출
+            import io as _io
+            fn_lower = filename.lower()
+            if fn_lower.endswith(".pdf"):
+                import tempfile as _tf
+                with _tf.NamedTemporaryFile(delete=False, suffix=".pdf") as _tmp:
+                    _tmp.write(file_bytes)
+                    _tmp_path = _tmp.name
+                try:
+                    import pdfplumber
+                    with pdfplumber.open(_tmp_path) as _pdf:
+                        raw_text = "".join(p.extract_text() or "" for p in _pdf.pages)
+                    raw_text = sanitize_unicode(raw_text)
+                finally:
+                    try: os.unlink(_tmp_path)
+                    except Exception: pass
+            elif fn_lower.endswith((".jpg", ".jpeg", ".png")):
+                import base64 as _b64
+                _img_b64 = _b64.b64encode(file_bytes).decode()
+                _mime = "image/png" if fn_lower.endswith(".png") else "image/jpeg"
+                _cl, _ = get_master_model()
+                _r = _cl.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=[{"role":"user","parts":[
+                        {"inline_data":{"mime_type":_mime,"data":_img_b64}},
+                        {"text":"이 이미지의 모든 텍스트를 빠짐없이 추출하세요."}
+                    ]}]
+                )
+                raw_text = sanitize_unicode(_r.text or "")
+            else:
+                raw_text = file_bytes.decode("utf-8", errors="replace")
+            # AI 분류
+            meta = _rag_classify_document(raw_text, filename)
+            # 청크 저장
+            now = dt.now().strftime("%Y-%m-%d %H:%M")
+            cat = meta.get("category", src.get("category", "기타"))
+            ins = meta.get("insurer", src.get("insurer", ""))
+            chunks = [raw_text[i:i+500] for i in range(0, len(raw_text), 400) if raw_text[i:i+500].strip()]
+            chunk_rows = [{"source_id": src["id"], "chunk": c, "filename": filename,
+                           "category": cat, "insurer": ins,
+                           "doc_date": meta.get("doc_date",""), "uploaded": now} for c in chunks]
+            for i in range(0, len(chunk_rows), 100):
+                sb.table("rag_docs").insert(chunk_rows[i:i+100]).execute()
+            # 처리 완료 표시
+            sb.table("rag_sources").update({
+                "category": cat, "insurer": ins,
+                "doc_date": meta.get("doc_date",""),
+                "summary": meta.get("summary",""),
+                "chunk_cnt": len(chunks), "processed": True
+            }).eq("id", src["id"]).execute()
+            ok += 1
+        except Exception:
+            fail += 1
+    if ok > 0:
+        _rag_sync_from_db(force=True)
+    return (ok, fail)
+
 # 메모리 캐시 (DB 로드 → 세션 내 빠른 검색용)
 @st.cache_resource
 def _get_rag_store():
@@ -1996,6 +2105,24 @@ def main():
         ensure_master_members()
         _rag_supabase_ensure_tables()  # Supabase RAG 테이블 자동 생성 (모듈 로드 후 안전한 시점)
         st.session_state.db_ready = True
+
+    # ── 심야 자동 RAG 처리 (22:00~06:00) — 세션당 1회 ───────────────────
+    if not st.session_state.get("_night_process_done"):
+        _now_h = dt.now().hour  # 서버 시간 기준 (HF Spaces = UTC → KST +9)
+        _kst_h = (_now_h + 9) % 24
+        if _kst_h >= 22 or _kst_h < 6:
+            if _rag_use_supabase():
+                try:
+                    _sb_np = _get_sb_client()
+                    if _sb_np:
+                        _pend = _sb_np.table("rag_sources").select("id").eq("processed", False).execute().data or []
+                        if _pend:
+                            _np_ok, _np_fail = _rag_process_pending()
+                            if _np_ok > 0:
+                                _rag_sync_from_db(force=True)
+                except Exception:
+                    pass
+        st.session_state["_night_process_done"] = True
 
     # ── 2단계: STT 지연 초기화 (홈 화면 렌더 후) ────────────────────────
     if st.session_state.get('home_rendered') and 'stt_loaded' not in st.session_state:
@@ -5761,112 +5888,70 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     type=['pdf','docx','txt','jpg','jpeg','png'],
                     accept_multiple_files=True, key=_rag_upload_key)
 
+                # ── 보험사 직접 입력 ──────────────────────────────────────
+                _col_ins, _col_cat = st.columns(2)
+                with _col_ins:
+                    _manual_insurer = st.text_input("보험사명 (선택)", placeholder="예) 삼성생명, 현대해상", key="rag_insurer_input")
+                with _col_cat:
+                    _manual_cat = st.selectbox("문서 분류", ["보험약관","리플렛","상담자료","공문서","판례","세무자료","기타"], key="rag_cat_input")
+
                 _rbtn1, _rbtn2 = st.columns(2)
                 with _rbtn1:
-                    if rag_files and st.button("⚡ 즉시 저장 (파일명 분류)", key="btn_rag_sync",
+                    if rag_files and st.button("⚡ 즉시 등록 (주간용 — 빠름)", key="btn_rag_sync",
                                                use_container_width=True, type="primary"):
                         _added = 0
                         _total = len(rag_files)
-                        _prog_bar = st.progress(0, text=f"0 / {_total} 저장 중...")
-                        _status_box = st.empty()
+                        _prog_bar = st.progress(0, text=f"0 / {_total} 등록 중...")
                         for _fi, _uf in enumerate(rag_files):
                             _prog_bar.progress(_fi / _total,
-                                text=f"[{_fi+1}/{_total}] {_uf.name[:40]} 저장 중...")
+                                text=f"[{_fi+1}/{_total}] {_uf.name[:40]} 등록 중...")
                             try:
-                                # 텍스트 추출
-                                _status_box.info(f"📄 [{_fi+1}/{_total}] **{_uf.name}** — 텍스트 추출 중...")
-                                if _uf.type == "application/pdf":
-                                    _raw_text = process_pdf(_uf)
-                                elif "wordprocessingml" in _uf.type:
-                                    _raw_text = process_docx(_uf)
-                                elif _uf.type in ("image/jpeg","image/jpg","image/png") or \
-                                     _uf.name.lower().endswith(('.jpg','.jpeg','.png')):
-                                    _img_b64 = base64.b64encode(_uf.getvalue()).decode()
-                                    _mime = "image/jpeg" if _uf.name.lower().endswith(('.jpg','.jpeg')) else "image/png"
-                                    _ocr_cl, _ = get_master_model()
-                                    _status_box.info(f"🖼️ [{_fi+1}/{_total}] **{_uf.name}** — OCR 처리 중...")
-                                    _ocr_r = _ocr_cl.models.generate_content(
-                                        model=GEMINI_MODEL,
-                                        contents=[{"role":"user","parts":[
-                                            {"inline_data":{"mime_type":_mime,"data":_img_b64}},
-                                            {"text":"이 이미지의 모든 텍스트를 표·목록 포함 빠짐없이 추출하세요."}
-                                        ]}]
-                                    )
-                                    _raw_text = sanitize_unicode(_ocr_r.text or "")
-                                    _raw_text = f"[이미지: {_uf.name}]\n{_raw_text}"
-                                else:
-                                    _raw_text = _uf.read().decode('utf-8', errors='replace')
-
-                                # 파일명 기반 즉시 분류 (AI 호출 없음 — 빠름)
-                                _fn_lower = _uf.name.lower()
-                                _quick_cat = (
-                                    "보험약관" if any(k in _fn_lower for k in ["약관","policy","특약","보험"]) else
-                                    "공문서"  if any(k in _fn_lower for k in ["공문","금감원","금융위","고시"]) else
-                                    "상담자료" if any(k in _fn_lower for k in ["상담","청구","서류","안내","리플렛","leaflet"]) else
-                                    "판례"    if any(k in _fn_lower for k in ["판례","판결","대법"]) else
-                                    "세무자료" if any(k in _fn_lower for k in ["세무","세금","절세","재무"]) else
-                                    "기타"
+                                _src_id = _rag_quick_register(
+                                    _uf.getvalue(), _uf.name,
+                                    _manual_cat, _manual_insurer
                                 )
-                                _meta = {"category": _quick_cat, "insurer": "", "doc_date": "",
-                                         "summary": f"[즉시저장] {_uf.name}"}
-
-                                # DB 저장
-                                _status_box.info(f"💾 [{_fi+1}/{_total}] **{_uf.name}** — 저장 중...")
-                                _src_id = _rag_db_add_document(_raw_text, _uf.name, _meta)
                                 if _src_id > 0:
                                     _added += 1
-                                    _status_box.success(f"✅ [{_fi+1}/{_total}] **{_uf.name}** 저장 완료 — {_quick_cat}")
                                     st.markdown(f"""
 <div style="background:#f0fff4;border-left:3px solid #27ae60;border-radius:6px;
   padding:6px 10px;margin-bottom:4px;font-size:0.78rem;">
-⚡ <b>{_uf.name}</b> — 즉시 저장됨<br>
-📂 분류: <b>{_quick_cat}</b> (파일명 기반) &nbsp;|&nbsp;
-🤖 AI 재분류는 아래 버튼으로 실행 가능
+⚡ <b>{_uf.name}</b> — Storage 등록 완료<br>
+📂 분류: <b>{_manual_cat}</b> &nbsp;|&nbsp; 🏢 {_manual_insurer or '보험사 미입력'}<br>
+🕐 텍스트 추출은 <b>심야 처리</b> 버튼으로 실행하세요
 </div>""", unsafe_allow_html=True)
                             except Exception as _ue:
-                                st.error(f"❌ [{_fi+1}/{_total}] {_uf.name}: {_ue}")
-                        _prog_bar.progress(1.0, text=f"✅ {_added} / {_total} 저장 완료")
+                                st.error(f"❌ {_uf.name}: {_ue}")
+                        _prog_bar.progress(1.0, text=f"✅ {_added} / {_total} 등록 완료")
                         if _added > 0:
-                            _rag_sync_from_db()
-                            st.success(f"✅ {_added}건 영구 저장 완료! (AI 재분류는 아래 버튼으로 실행)")
+                            st.success(f"✅ {_added}건 Storage 등록 완료! 심야에 '텍스트 추출 + RAG 저장' 버튼을 실행하세요.")
                             st.session_state['_rag_upload_cnt'] = st.session_state.get('_rag_upload_cnt', 0) + 1
                             st.rerun()
 
-                # AI 재분류 버튼 (저장 후 선택적 실행)
-                if _db_src_cnt > 0:
-                    with st.expander("🤖 AI 정밀 분류 실행 (선택사항 — 파일당 10~30초 소요)", expanded=False):
-                        st.caption("저장된 문서의 보험사·날짜·요약을 Gemini AI가 정밀 분류합니다. 시간이 걸리므로 업로드 완료 후 실행하세요.")
-                        if st.button("🤖 AI 정밀 분류 시작", key="btn_rag_ai_classify", use_container_width=True):
-                            _sb = _get_sb_client() if _rag_use_supabase() else None
-                            _srcs = []
-                            if _sb:
-                                try:
-                                    _srcs = _sb.table("rag_sources").select("id,filename,summary").execute().data or []
-                                except Exception:
-                                    pass
-                            _unclassified = [s for s in _srcs if "[즉시저장]" in (s.get("summary") or "")]
-                            if not _unclassified:
-                                st.info("재분류할 문서가 없습니다. (이미 AI 분류 완료)")
-                            else:
-                                _cls_prog = st.progress(0, text=f"0 / {len(_unclassified)} 분류 중...")
-                                for _ci, _src in enumerate(_unclassified):
-                                    _cls_prog.progress(_ci / len(_unclassified),
-                                        text=f"[{_ci+1}/{len(_unclassified)}] {_src['filename'][:40]} AI 분류 중...")
-                                    try:
-                                        _chunks = _sb.table("rag_docs").select("chunk").eq("source_id", _src["id"]).limit(3).execute().data or []
-                                        _sample = " ".join(c["chunk"] for c in _chunks)[:1500]
-                                        _new_meta = _rag_classify_document(_sample, _src["filename"])
-                                        _sb.table("rag_sources").update({
-                                            "category": _new_meta.get("category","기타"),
-                                            "insurer":  _new_meta.get("insurer",""),
-                                            "doc_date": _new_meta.get("doc_date",""),
-                                            "summary":  _new_meta.get("summary",""),
-                                        }).eq("id", _src["id"]).execute()
-                                    except Exception:
-                                        pass
-                                _cls_prog.progress(1.0, text="✅ AI 분류 완료")
-                                st.success("✅ AI 정밀 분류 완료!")
-                                st.rerun()
+                # ── 심야 일괄 처리 버튼 ──────────────────────────────────
+                st.divider()
+                st.markdown("#### 🌙 심야 일괄 처리 (텍스트 추출 + AI 분류 + RAG 저장)")
+                st.caption("주간에 등록한 파일들을 텍스트 추출·AI 분류·RAG 저장합니다. 파일당 30초~2분 소요 — 사용자가 없는 심야에 실행하세요.")
+                _sb_pending_cnt = 0
+                try:
+                    _sb2 = _get_sb_client() if _rag_use_supabase() else None
+                    if _sb2:
+                        _pending_rows = _sb2.table("rag_sources").select("id").eq("processed", False).execute().data or []
+                        _sb_pending_cnt = len(_pending_rows)
+                except Exception:
+                    pass
+                if _sb_pending_cnt > 0:
+                    st.warning(f"⏳ 미처리 파일 **{_sb_pending_cnt}건** 대기 중")
+                else:
+                    st.info("✅ 미처리 파일 없음 (모두 처리 완료)")
+                if st.button(f"🌙 심야 일괄 처리 시작 ({_sb_pending_cnt}건)", key="btn_rag_night_process",
+                             use_container_width=True, disabled=(_sb_pending_cnt == 0)):
+                    with st.spinner(f"🔄 {_sb_pending_cnt}건 처리 중... (완료까지 기다려주세요)"):
+                        _ok, _fail = _rag_process_pending()
+                    if _ok > 0:
+                        st.success(f"✅ {_ok}건 처리 완료! {f'(실패: {_fail}건)' if _fail else ''}")
+                        st.rerun()
+                    else:
+                        st.warning(f"처리된 파일 없음. 실패: {_fail}건")
 
                 with _rbtn2:
                     if st.button("🗑️ 전체 초기화", key="btn_rag_clear", use_container_width=True):
