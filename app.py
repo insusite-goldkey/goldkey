@@ -701,6 +701,117 @@ def gcs_delete_file(gcs_path: str) -> bool:
         return False
 
 # --------------------------------------------------------------------------
+# [고객 개인 통합 저장 시스템]
+# 버킷 구조: goldkey/고객/{고객명}/{카테고리}/{파일명}
+# 카테고리: 의무기록, 증권분석, 청구서류, 계약서, 기타
+# DB 테이블: gk_customer_docs — 모든 탭에서 저장 시 동일 고객 폴더로 통합
+# --------------------------------------------------------------------------
+CUSTOMER_DOC_CATEGORIES = ["의무기록", "증권분석", "청구서류", "계약서", "기타"]
+
+# gk_customer_docs 테이블 생성 SQL (Supabase SQL Editor에서 1회 실행)
+_CUSTOMER_DOCS_SQL = """
+CREATE TABLE IF NOT EXISTS gk_customer_docs (
+    id           BIGSERIAL PRIMARY KEY,
+    customer_name TEXT NOT NULL,
+    category     TEXT NOT NULL DEFAULT '기타',
+    filename     TEXT NOT NULL,
+    storage_path TEXT NOT NULL,
+    file_size    INTEGER DEFAULT 0,
+    memo         TEXT DEFAULT '',
+    uploaded_by  TEXT DEFAULT '',
+    uploaded_at  TEXT NOT NULL,
+    tab_source   TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_gk_customer_docs_name ON gk_customer_docs(customer_name);
+"""
+
+def _build_customer_path(customer_name: str, category: str, filename: str) -> str:
+    """고객 개인 저장 경로 생성: 고객/{고객명}/{카테고리}/{파일명}"""
+    import re as _re
+    safe = lambda s: _re.sub(r'[\\/:*?"<>|\s]', '_', s.strip()) if s else "미분류"
+    return f"고객/{safe(customer_name)}/{safe(category)}/{safe(filename)}"
+
+def customer_doc_save(file_bytes: bytes, filename: str, customer_name: str,
+                      category: str, memo: str = "", tab_source: str = "",
+                      uploaded_by: str = "") -> dict:
+    """고객 파일을 Storage에 저장 + DB에 메타 등록. 결과 dict 반환"""
+    import re as _re
+    now = dt.now().strftime("%Y-%m-%d %H:%M")
+    safe_fn = _re.sub(r'[\\/:*?"<>|\s]', '_', filename)[:80]
+    storage_path = _build_customer_path(customer_name, category, safe_fn)
+    result = {"ok": False, "storage_path": storage_path, "error": ""}
+    sb = _get_sb_client() if _SB_PKG_OK else None
+    if not sb:
+        result["error"] = "Supabase 미연결"
+        return result
+    # Storage 업로드
+    try:
+        sb.storage.from_(SB_BUCKET).upload(
+            path=storage_path,
+            file=file_bytes,
+            file_options={"content-type": "application/octet-stream", "upsert": "true"}
+        )
+    except Exception as _e:
+        result["error"] = f"Storage 오류: {str(_e)[:80]}"
+        return result
+    # DB 메타 등록
+    try:
+        sb.table("gk_customer_docs").insert({
+            "customer_name": customer_name,
+            "category":      category,
+            "filename":      filename,
+            "storage_path":  storage_path,
+            "file_size":     len(file_bytes),
+            "memo":          memo,
+            "uploaded_by":   uploaded_by,
+            "uploaded_at":   now,
+            "tab_source":    tab_source,
+        }).execute()
+        result["ok"] = True
+    except Exception as _e:
+        result["error"] = f"DB 오류: {str(_e)[:80]}"
+    return result
+
+def customer_doc_list(customer_name: str = "") -> list:
+    """고객 파일 목록 조회 — customer_name 없으면 전체"""
+    sb = _get_sb_client() if _SB_PKG_OK else None
+    if not sb:
+        return []
+    try:
+        q = sb.table("gk_customer_docs").select("*").order("uploaded_at", desc=True)
+        if customer_name:
+            q = q.eq("customer_name", customer_name)
+        return q.execute().data or []
+    except Exception:
+        return []
+
+def customer_doc_delete(doc_id: int, storage_path: str) -> bool:
+    """고객 파일 삭제 — Storage + DB 동시 삭제"""
+    sb = _get_sb_client() if _SB_PKG_OK else None
+    if not sb:
+        return False
+    try:
+        sb.storage.from_(SB_BUCKET).remove([storage_path])
+    except Exception:
+        pass
+    try:
+        sb.table("gk_customer_docs").delete().eq("id", doc_id).execute()
+        return True
+    except Exception:
+        return False
+
+def customer_doc_get_names() -> list:
+    """등록된 고객명 목록 반환"""
+    sb = _get_sb_client() if _SB_PKG_OK else None
+    if not sb:
+        return []
+    try:
+        rows = sb.table("gk_customer_docs").select("customer_name").execute().data or []
+        return sorted(set(r["customer_name"] for r in rows))
+    except Exception:
+        return []
+
+# --------------------------------------------------------------------------
 # 관리자 지시 채널 (admin_directives.json)
 # --------------------------------------------------------------------------
 DIRECTIVE_DB = os.path.join(_DATA_DIR, "admin_directives.json")
@@ -1173,6 +1284,19 @@ CREATE TABLE IF NOT EXISTS gk_members (
     subscription_end  TEXT DEFAULT '',
     is_active         BOOLEAN DEFAULT TRUE
 );
+CREATE TABLE IF NOT EXISTS gk_customer_docs (
+    id            BIGSERIAL PRIMARY KEY,
+    customer_name TEXT NOT NULL,
+    category      TEXT NOT NULL DEFAULT '기타',
+    filename      TEXT NOT NULL,
+    storage_path  TEXT NOT NULL,
+    file_size     INTEGER DEFAULT 0,
+    memo          TEXT DEFAULT '',
+    uploaded_by   TEXT DEFAULT '',
+    uploaded_at   TEXT NOT NULL,
+    tab_source    TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_gk_customer_docs_name ON gk_customer_docs(customer_name);
 """
 
 def _rag_use_supabase() -> bool:
@@ -3603,6 +3727,21 @@ section[data-testid="stMain"] > div,
                 "</div></div>", unsafe_allow_html=True)
             if st.button("▶ 클릭", key="home_p4_leaflet", use_container_width=False):
                 st.session_state.current_tab = "leaflet"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+
+        with _p4c2:
+            st.markdown(
+                "<div class='gk-card-wrap'>"
+                "<div class='gk-card'>"
+                "<div class='gk-card-icon'>👤</div>"
+                "<div class='gk-card-body'>"
+                "<div class='gk-card-title'>고객자료 통합저장</div>"
+                "<div class='gk-card-desc'>의무기록·증권분석·청구서류<br>고객별 마인드맵 통합 저장</div>"
+                "</div>"
+                "</div></div>", unsafe_allow_html=True)
+            if st.button("▶ 클릭", key="home_p4_custdoc", use_container_width=False):
+                st.session_state.current_tab = "customer_docs"
                 st.session_state["_scroll_top"] = True
                 st.rerun()
 
@@ -6711,6 +6850,150 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
 • HF Secrets: <code>SUPABASE_URL</code>, <code>SUPABASE_SERVICE_ROLE_KEY</code> 등록<br>
 • 버킷 생성: Supabase → Storage → New bucket → <code>goldkey</code>
 </div>""", unsafe_allow_html=True)
+
+    # ── [customer_docs] 고객자료 통합저장 ───────────────────────────────
+    if cur == "customer_docs":
+        tab_home_btn("customer_docs")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
+    👤 고객자료 통합저장 시스템
+  </div>
+  <div style="color:#b3d4f5;font-size:0.78rem;margin-top:4px;">
+    대분류: 고객명 &nbsp;|&nbsp; 소분류: 의무기록·증권분석·청구서류·계약서<br>
+    어느 탭에서 저장해도 동일 고객 폴더에 통합 보관
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        _cdb_ok = _SB_PKG_OK and (_get_sb_client() is not None)
+        if _cdb_ok:
+            st.success("✅ Supabase 연결 정상 — goldkey/고객/ 버킷 사용 중")
+        else:
+            st.warning("⚠️ Supabase 미연결 — HF Secrets에 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 등록 필요")
+
+        st.divider()
+        _cd_tab_up, _cd_tab_view = st.tabs(["📤 파일 저장", "📂 고객별 자료 조회"])
+
+        # ── 파일 저장 탭 ──────────────────────────────────────────────────
+        with _cd_tab_up:
+            st.markdown("#### 📤 고객 파일 저장")
+            _cd_col1, _cd_col2 = st.columns(2)
+            with _cd_col1:
+                _existing_names = customer_doc_get_names()
+                _cd_name_mode = st.radio("고객명 입력 방식", ["기존 고객 선택", "신규 고객 입력"],
+                                         horizontal=True, key="cd_name_mode")
+                if _cd_name_mode == "기존 고객 선택" and _existing_names:
+                    _cd_customer = st.selectbox("고객 선택", _existing_names, key="cd_customer_sel")
+                else:
+                    _cd_customer = st.text_input("고객명 입력", placeholder="예) 홍길동",
+                                                  key="cd_customer_new")
+            with _cd_col2:
+                _cd_category = st.selectbox("자료 분류", CUSTOMER_DOC_CATEGORIES, key="cd_category")
+                _cd_memo = st.text_input("메모 (선택)", placeholder="예) 2024년 건강검진 결과",
+                                          key="cd_memo")
+
+            _cd_files = st.file_uploader(
+                "파일 선택 (PDF / JPG / PNG / DOCX — 복수 가능)",
+                accept_multiple_files=True,
+                type=["pdf", "jpg", "jpeg", "png", "docx", "txt"],
+                key="cd_uploader"
+            )
+            if _cd_files:
+                st.info(f"📎 {len(_cd_files)}개 파일 선택됨")
+
+            if st.button("💾 저장", key="btn_cd_save", type="primary",
+                         use_container_width=True, disabled=not _cd_files):
+                if not _cd_customer or not _cd_customer.strip():
+                    st.error("고객명을 입력하세요.")
+                elif not _cdb_ok:
+                    st.error("Supabase 미연결 — 저장 불가")
+                else:
+                    _cd_prog = st.progress(0, text=f"0 / {len(_cd_files)} 저장 중...")
+                    _cd_ok_cnt = 0
+                    _uploader = st.session_state.get("user_name", "설계사")
+                    for _ci, _cf in enumerate(_cd_files):
+                        _cd_prog.progress(_ci / len(_cd_files),
+                            text=f"[{_ci+1}/{len(_cd_files)}] {_cf.name[:40]} 저장 중...")
+                        _res = customer_doc_save(
+                            _cf.getvalue(), _cf.name,
+                            _cd_customer.strip(), _cd_category,
+                            memo=_cd_memo, tab_source="고객자료탭",
+                            uploaded_by=_uploader
+                        )
+                        if _res["ok"]:
+                            _cd_ok_cnt += 1
+                            st.markdown(f"""
+<div style="background:#f0fff4;border-left:3px solid #27ae60;border-radius:6px;
+  padding:6px 10px;margin-bottom:4px;font-size:0.78rem;">
+✅ <b>{_cf.name}</b><br>
+👤 {_cd_customer} &nbsp;|&nbsp; 📂 {_cd_category}<br>
+📁 <code style="font-size:0.7rem;">{_res['storage_path']}</code>
+</div>""", unsafe_allow_html=True)
+                        else:
+                            st.error(f"❌ {_cf.name}: {_res['error']}")
+                    _cd_prog.progress(1.0, text=f"✅ {_cd_ok_cnt} / {len(_cd_files)} 저장 완료")
+                    if _cd_ok_cnt > 0:
+                        st.success(f"✅ {_cd_customer}님 자료 {_cd_ok_cnt}건 저장 완료!")
+                        st.session_state.pop("cd_docs_cache", None)
+
+        # ── 고객별 자료 조회 탭 ───────────────────────────────────────────
+        with _cd_tab_view:
+            st.markdown("#### 📂 고객별 자료 조회")
+            _view_names = customer_doc_get_names()
+            if not _view_names:
+                st.info("저장된 고객 자료가 없습니다.")
+            else:
+                _sel_customer = st.selectbox("고객 선택", ["전체 보기"] + _view_names,
+                                              key="cd_view_sel")
+                _search_name = "" if _sel_customer == "전체 보기" else _sel_customer
+
+                if st.button("🔄 새로고침", key="btn_cd_refresh"):
+                    st.session_state.pop("cd_docs_cache", None)
+
+                if "cd_docs_cache" not in st.session_state:
+                    st.session_state["cd_docs_cache"] = customer_doc_list(_search_name)
+                _docs = st.session_state["cd_docs_cache"]
+
+                if not _docs:
+                    st.info(f"'{_sel_customer}' 자료 없음")
+                else:
+                    # 고객별 → 카테고리별 그룹핑
+                    from collections import defaultdict as _dd2
+                    _by_customer = _dd2(lambda: _dd2(list))
+                    for _d in _docs:
+                        _by_customer[_d["customer_name"]][_d["category"]].append(_d)
+
+                    for _cname, _cats in sorted(_by_customer.items()):
+                        st.markdown(f"""
+<div style="background:#e8f4fd;border-left:4px solid #2e6da4;border-radius:8px;
+  padding:8px 14px;margin:10px 0 4px 0;font-size:0.9rem;font-weight:900;color:#1a3a5c;">
+👤 {_cname} &nbsp;<span style="font-size:0.75rem;font-weight:400;color:#555;">
+({sum(len(v) for v in _cats.values())}건)</span>
+</div>""", unsafe_allow_html=True)
+                        for _cat, _items in sorted(_cats.items()):
+                            with st.expander(f"📂 {_cat} ({len(_items)}건)", expanded=False):
+                                for _item in _items:
+                                    _sz = round((_item.get("file_size") or 0) / 1024, 1)
+                                    _ic1, _ic2 = st.columns([5, 1])
+                                    with _ic1:
+                                        st.markdown(f"""
+<div style="font-size:0.78rem;padding:4px 0;border-bottom:1px solid #eee;">
+📄 <b>{_item['filename']}</b><br>
+<span style="color:#888;font-size:0.72rem;">
+🕐 {_item['uploaded_at']} &nbsp;|&nbsp; 📦 {_sz}KB
+{f" &nbsp;|&nbsp; 📝 {_item['memo']}" if _item.get('memo') else ""}
+{f" &nbsp;|&nbsp; 🔖 {_item['tab_source']}" if _item.get('tab_source') else ""}
+</span>
+</div>""", unsafe_allow_html=True)
+                                    with _ic2:
+                                        if st.button("🗑️", key=f"del_cd_{_item['id']}",
+                                                     help="삭제"):
+                                            if customer_doc_delete(_item["id"],
+                                                                   _item["storage_path"]):
+                                                st.success("삭제 완료")
+                                                st.session_state.pop("cd_docs_cache", None)
+                                                st.rerun()
 
     # 하단 공통 면책 고지
     st.divider()
