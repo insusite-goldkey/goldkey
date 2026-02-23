@@ -1131,11 +1131,6 @@ def section_housing_pension():
 # --------------------------------------------------------------------------
 # [SECTION 8] 메인 앱 - 사이드바 + 탭0(상담) + 탭1(이미지분석)
 # --------------------------------------------------------------------------
-@st.cache_resource
-def _get_auth_store():
-    """서버 프로세스 메모리에 로그인 정보 보관 — rerun/탭전환 시 세션 복구용"""
-    return {}
-
 def main():
     # 모바일 최적화: wide 레이아웃 조건부 적용
     # 사이드바 열기 요청이 있으면 expanded, 아니면 collapsed
@@ -1146,14 +1141,6 @@ def main():
         layout="centered",
         initial_sidebar_state=_sidebar_state
     )
-
-    # ── 로그인 세션 복구 (서버 메모리 백업 → rerun 시 복원) ─────────
-    _auth_store = _get_auth_store()
-    if 'user_id' not in st.session_state and _auth_store.get('user_id'):
-        st.session_state.user_id   = _auth_store['user_id']
-        st.session_state.user_name = _auth_store['user_name']
-        st.session_state.join_date = _auth_store['join_date']
-        st.session_state.is_admin  = _auth_store['is_admin']
 
     # ── 0단계: 파일경로 복구 플래그 반영 (auto_recover 후 rerun 시) ─────
     if st.session_state.get("_force_tmp"):
@@ -1477,12 +1464,6 @@ def main():
                                 st.session_state.is_admin  = _adm
                                 st.session_state["_mic_notice"] = True
                                 st.session_state["_login_welcome"] = ln
-                                # ── 서버 메모리에 로그인 정보 백업 ──
-                                _auth = _get_auth_store()
-                                _auth['user_id']   = m["user_id"]
-                                _auth['user_name'] = ln
-                                _auth['join_date'] = _jd
-                                _auth['is_admin']  = _adm
                                 st.rerun()
                             else:
                                 if ln not in members:
@@ -1504,12 +1485,6 @@ def main():
                                 st.session_state.join_date = _jd2
                                 st.session_state.is_admin  = False
                                 st.session_state["_mic_notice"] = True
-                                # ── 서버 메모리에 로그인 정보 백업 ──
-                                _auth2 = _get_auth_store()
-                                _auth2['user_id']   = info["user_id"]
-                                _auth2['user_name'] = name
-                                _auth2['join_date'] = _jd2
-                                _auth2['is_admin']  = False
                             st.success("가입 완료!")
                             st.rerun()
                         else:
@@ -1654,7 +1629,6 @@ def main():
             _lo_col1, _lo_col2 = st.columns(2)
             with _lo_col1:
                 if st.button("🔓 로그아웃", key="btn_logout", use_container_width=True):
-                    _get_auth_store().clear()  # 서버 메모리 백업도 클리어
                     st.session_state.clear()
                     st.rerun()
             with _lo_col2:
@@ -2521,7 +2495,6 @@ function startSugSTT(){
                         if st.button("▶ 클릭", key=f"{prefix}_{_k}", use_container_width=False):
                             st.session_state.current_tab = _k
                             st.session_state["_scroll_top"] = True
-                            st.rerun()
 
         _render_cards(PART1, "home_p1")
 
@@ -2553,7 +2526,6 @@ function startSugSTT(){
             if st.button("▶ 클릭", key="home_p25_life_event", use_container_width=False):
                 st.session_state.current_tab = "life_event"
                 st.session_state["_scroll_top"] = True
-                st.rerun()
         with _le2:
             st.markdown(
                 "<div class='gk-card-wrap'>"
@@ -2567,7 +2539,6 @@ function startSugSTT(){
             if st.button("▶ 클릭", key="home_p25_life_cycle", use_container_width=False):
                 st.session_state.current_tab = "life_cycle"
                 st.session_state["_scroll_top"] = True
-                st.rerun()
 
         # ── 파트 3: 부동산 투자 · 간병 컨설팅 ──
         st.markdown('<div class="gk-section-label">🏘️ 부동산 투자 · 간병 컨설팅</div>', unsafe_allow_html=True)
@@ -2585,8 +2556,6 @@ function startSugSTT(){
             if st.button("▶ 클릭", key="home_p3_realty", use_container_width=False):
                 st.session_state.current_tab = "realty"
                 st.session_state["_scroll_top"] = True
-                components.html('<script>setTimeout(function(){window.scrollTo(0,0);}, 100);</script>', height=0)
-                st.rerun()
         with _rc2:
             st.markdown(
                 "<div class='gk-card-wrap'>"
@@ -2600,8 +2569,6 @@ function startSugSTT(){
             if st.button("▶ 클릭", key="home_p3_nursing", use_container_width=False):
                 st.session_state.current_tab = "nursing"
                 st.session_state["_scroll_top"] = True
-                components.html('<script>setTimeout(function(){window.scrollTo(0,0);}, 100);</script>', height=0)
-                st.rerun()
 
         # ── 파트 4: 신규상품 리플렛 관리 ──
         st.markdown('<div class="gk-section-label">📂 신규상품 리플렛 관리</div>', unsafe_allow_html=True)
@@ -2619,13 +2586,11 @@ function startSugSTT(){
             if st.button("▶ 클릭", key="home_p4_leaflet", use_container_width=False):
                 st.session_state.current_tab = "leaflet"
                 st.session_state["_scroll_top"] = True
-                st.rerun()
 
         st.divider()
         if st.session_state.get('is_admin'):
             if st.button("⚙️ 관리자 시스템 이동", key="home_dash_t9"):
                 st.session_state.current_tab = "t9"
-                st.rerun()
 
         # ── 보험사 연락처 섹션 ──────────────────────────────────────────
         st.divider()
@@ -2704,7 +2669,6 @@ function startSugSTT(){
     def tab_home_btn(tab_key):
         if st.button("🏠 홈으로", key=f"btn_home_{tab_key}", type="primary"):
             st.session_state.current_tab = "home"
-            st.rerun()
 
     # ── [t0] 신규보험 상품 상담 — 보험설계사 전용 ───────────────────────
     if cur == "t0":
