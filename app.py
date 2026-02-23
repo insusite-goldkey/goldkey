@@ -2153,6 +2153,7 @@ function startSugSTT(){
 /* 카드 래퍼: 상대위치 컨테이너 */
 .gk-card-wrap {
     position:relative; height:120px; margin-bottom:8px;
+    cursor:pointer;
 }
 /* 실제 카드 내용: 가로 레이아웃 */
 .gk-card {
@@ -2175,43 +2176,26 @@ function startSugSTT(){
     margin-bottom:5px; line-height:1.2;
     display:flex; align-items:center; justify-content:space-between;
 }
-.gk-card-click-badge {
-    font-size:0.68rem; font-weight:700; color:#fff;
-    background:#2e6da4; border-radius:20px;
-    padding:2px 8px; margin-left:6px; white-space:nowrap;
-    flex-shrink:0;
-}
 .gk-card-desc {
     font-size:0.80rem; color:#475569; line-height:1.55;
 }
-/* Streamlit 버튼 — 카드 우측 하단에 '▶ 클릭' 배지로 표시 */
+/* Streamlit 버튼 숨김 — 카드 전체가 클릭 영역 */
 .gk-card-wrap > div[data-testid="stButton"] {
     position:absolute !important;
-    bottom:10px !important; right:12px !important;
-    width:auto !important; height:auto !important;
+    top:0 !important; left:0 !important;
+    width:100% !important; height:100% !important;
     margin:0 !important; padding:0 !important;
-    top:auto !important; left:auto !important;
+    z-index:5 !important;
 }
 .gk-card-wrap > div[data-testid="stButton"] > button {
-    position:relative !important;
-    opacity:1 !important;
+    width:100% !important; height:100% !important;
+    opacity:0 !important;
     cursor:pointer !important;
-    z-index:10 !important;
-    border-radius:20px !important;
+    position:absolute !important;
+    top:0 !important; left:0 !important;
     border:none !important;
-    background:#2e6da4 !important;
-    padding:4px 14px !important;
-    margin:0 !important;
-    font-size:0.75rem !important;
-    font-weight:700 !important;
-    line-height:1.4 !important;
-    color:#fff !important;
-    box-shadow:0 2px 6px rgba(46,109,164,0.3) !important;
-    transition:background 0.15s !important;
-    width:auto !important; height:auto !important;
-}
-.gk-card-wrap > div[data-testid="stButton"] > button:hover {
-    background:#1a3a5c !important;
+    background:transparent !important;
+    padding:0 !important; margin:0 !important;
 }
 .gk-card-wrap:hover .gk-card {
     border-color:#2e6da4;
@@ -2244,7 +2228,7 @@ function startSugSTT(){
                             f"<div class='gk-card'>"
                             f"<div class='gk-card-icon'>{_ic}</div>"
                             f"<div class='gk-card-body'>"
-                            f"<div class='gk-card-title'>{_ti}<span class='gk-card-click-badge'>▶ 클릭</span></div>"
+                            f"<div class='gk-card-title'>{_ti}</div>"
                             f"<div class='gk-card-desc'>{_de.replace(chr(10),'<br>')}</div>"
                             f"</div>"
                             f"</div></div>", unsafe_allow_html=True)
@@ -2276,7 +2260,7 @@ function startSugSTT(){
                 "<div class='gk-card'>"
                 "<div class='gk-card-icon'>🏘️</div>"
                 "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>부동산 투자 상담<span class='gk-card-click-badge'>▶ 클릭</span></div>"
+                "<div class='gk-card-title'>부동산 투자 상담</div>"
                 "<div class='gk-card-desc'>등기부등본·건축물대장 판독<br>투자수익 분석 · 보험 연계 설계</div>"
                 "</div>"
                 "</div></div>", unsafe_allow_html=True)
@@ -2291,7 +2275,7 @@ function startSugSTT(){
                 "<div class='gk-card'>"
                 "<div class='gk-card-icon'>🏥</div>"
                 "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>간병비 컨설팅<span class='gk-card-click-badge'>▶ 클릭</span></div>"
+                "<div class='gk-card-title'>간병비 컨설팅</div>"
                 "<div class='gk-card-desc'>치매·뇌졸중·요양병원 간병비 산출<br>장기요양등급 · 간병보험 설계</div>"
                 "</div>"
                 "</div></div>", unsafe_allow_html=True)
