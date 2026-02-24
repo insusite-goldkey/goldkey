@@ -6448,11 +6448,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 "일과성 뇌허혈발작 (TIA)",
                 "뇌혈관질환 (기타)",
                 "예방 상담 (미발병)",
-            ], key="brain_type_sel")
+            ], key="brain_type_tab")
 
             brain_risk = st.multiselect("위험인자 (복수 선택 가능)", [
                 "고혈압", "당뇨", "고지혈증", "흡연", "심방세동", "비만", "가족력", "음주", "스트레스"
-            ], key="brain_risk_sel")
+            ], key="brain_risk_tab")
 
             brain_stage = st.selectbox("현재 상태", [
                 "예방 상담 (미발병)",
@@ -6460,17 +6460,17 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 "재활기 (1~6개월)",
                 "만성기 (6개월 이후)",
                 "재발 우려",
-            ], key="brain_stage_sel")
+            ], key="brain_stage_tab")
 
             brain_disability = st.selectbox("장해 상태", [
                 "해당 없음",
                 "한시장해 (회복 가능성 있음)",
                 "영구장해 (고정 판정)",
                 "장해 판정 대기 중",
-            ], key="brain_disability_sel")
+            ], key="brain_disability_tab")
 
             brain_files = st.file_uploader("진단서·MRI·의무기록 업로드",
-                type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_brain")
+                type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_brain_tab")
 
             c_name_br, query_br, hi_br, do_br, _pkbr = ai_query_block("brain",
                 "예) 고혈압·심방세동 약 복용 중. 뇌졸중 대비 보험 공백 분석 요청",
@@ -6589,11 +6589,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 "관상동맥질환 (기타)",
                 "심혈관질환 (기타)",
                 "예방 상담 (미발병)",
-            ], key="heart_type_sel")
+            ], key="heart_type_tab")
 
             heart_risk = st.multiselect("위험인자 (복수 선택 가능)", [
                 "고혈압", "당뇨", "고지혈증", "흡연", "비만", "가족력", "스트레스", "음주", "운동 부족"
-            ], key="heart_risk_sel")
+            ], key="heart_risk_tab")
 
             heart_treatment = st.selectbox("치료 현황", [
                 "해당 없음 / 예방 상담",
@@ -6602,10 +6602,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 "약물 치료 중 (항응고제·항혈소판제)",
                 "심장 재활 치료 중",
                 "재발 우려 (추적 관찰 중)",
-            ], key="heart_treatment_sel")
+            ], key="heart_treatment_tab")
 
             heart_files = st.file_uploader("진단서·심전도·의무기록 업로드",
-                type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_heart")
+                type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_heart_tab")
 
             c_name_ht, query_ht, hi_ht, do_ht, _pkht = ai_query_block("heart",
                 "예) 고혈압·고지혈증 약 복용 중. 심근경색 대비 보험 공백 분석 요청",
