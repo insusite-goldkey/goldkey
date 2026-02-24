@@ -5840,6 +5840,48 @@ section[data-testid="stMain"] > div,
             ("customer_docs", "👤", "고객자료 통합저장",  "의무기록·증권분석·청구서류 · 고객별 마인드맵 통합 저장"),
         ], "home_p4")
 
+        # ── 파트 5: 중앙 스캔 허브 (최하단 고정) ──
+        st.markdown('<div class="gk-section-label">🔬 중앙 문서 스캔 허브</div>', unsafe_allow_html=True)
+        _render_cards([
+            ("scan_hub", "🔬", "통합 문서 스캔 센터",
+             "보험증권·의무기록·진단서·청구서류 한 번에 스캔 → 모든 탭에서 자동 활용"),
+        ], "home_p5")
+
+        # ── 상담자 정보 입력 패널 (로그인 시 홈 하단 고정) ──────────────
+        if 'user_id' in st.session_state:
+            st.divider()
+            st.markdown("""<div style="background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 100%);
+  border-radius:12px;padding:12px 16px;margin-bottom:10px;">
+  <span style="color:#fff;font-size:1rem;font-weight:900;">👤 상담 대상자 기본 정보</span>
+  <span style="color:#a8e6cf;font-size:0.75rem;margin-left:8px;">입력 후 각 탭에서 자동 활용됩니다</span>
+</div>""", unsafe_allow_html=True)
+            _sc1, _sc2, _sc3 = st.columns(3)
+            with _sc1:
+                _si_name = st.text_input("상담자 성명", value=st.session_state.get("scan_client_name",""),
+                                         placeholder="예) 홍길동", key="home_si_name")
+                _si_dob  = st.text_input("생년월일 (YYYYMMDD)", value=st.session_state.get("scan_client_dob",""),
+                                         placeholder="예) 19800101", max_chars=8, key="home_si_dob")
+            with _sc2:
+                _si_job  = st.text_input("직업", value=st.session_state.get("scan_client_job",""),
+                                         placeholder="예) 회사원", key="home_si_job")
+                _si_sick = st.selectbox("유병자 여부", ["해당없음","유병자(경증)","유병자(중증)","심사필요"],
+                                        index=["해당없음","유병자(경증)","유병자(중증)","심사필요"].index(
+                                            st.session_state.get("scan_client_sick","해당없음")),
+                                        key="home_si_sick")
+            with _sc3:
+                _si_items = st.multiselect(
+                    "상담 항목 (복수 선택)",
+                    ["보험증권 분석","보험금 청구","장해 산출","암·뇌·심장","리플렛 분류","약관 검색","부동산 투자","간병비","노후설계","법인상담"],
+                    default=st.session_state.get("scan_client_items",[]),
+                    key="home_si_items"
+                )
+            if st.button("💾 상담자 정보 저장", key="btn_save_client_info", use_container_width=True):
+                st.session_state["scan_client_name"]  = _si_name
+                st.session_state["scan_client_dob"]   = _si_dob
+                st.session_state["scan_client_job"]   = _si_job
+                st.session_state["scan_client_sick"]  = _si_sick
+                st.session_state["scan_client_items"] = _si_items
+                st.success(f"✅ {_si_name} 상담자 정보 저장 완료 — 모든 탭에 자동 적용됩니다.")
 
         st.divider()
         if st.session_state.get('is_admin'):
@@ -6152,8 +6194,18 @@ section[data-testid="stMain"] > div,
                 placeholder="예) 40대 남성, 암보험·실손 보유. 뇌·심장 공백 점검 및 갱신형 전환 검토 요청."
             )
 
+            # ── SSOT selector: 스캔 허브 데이터 자동 활용 ───────────────
+            _ps_ssot = st.session_state.get("ssot_full_text", "")
+            _ps_ssot_covs = st.session_state.get("ssot_coverages", [])
+            if _ps_ssot or _ps_ssot_covs:
+                st.success(
+                    f"🔬 **스캔 허브 데이터 자동 연동** — "
+                    f"{'담보 ' + str(len(_ps_ssot_covs)) + '건 ' if _ps_ssot_covs else ''}"
+                    f"{'텍스트 ' + str(len(_ps_ssot)) + '자' if _ps_ssot else ''} 준비됨. "
+                    "아래 파일 첨부 없이 바로 분석 실행 가능합니다."
+                )
             ps_files = st.file_uploader(
-                "📎 보험증권 PDF/이미지 첨부 (복수 가능)",
+                "📎 보험증권 PDF/이미지 첨부 (복수 가능 — 스캔허브 사용 시 생략 가능)",
                 accept_multiple_files=True,
                 type=['pdf', 'jpg', 'jpeg', 'png'],
                 key="up_ps"
@@ -6174,11 +6226,14 @@ section[data-testid="stMain"] > div,
                 if 'user_id' not in st.session_state:
                     st.error("로그인이 필요합니다.")
                 else:
-                    # PDF 텍스트 추출
+                    # PDF 텍스트 추출 + SSOT 스캔 허브 데이터 자동 병합
                     _ps_doc_text = "".join(
                         f"\n[증권: {pf.name}]\n" + extract_pdf_chunks(pf, char_limit=8000)
                         for pf in (ps_files or []) if pf.type == 'application/pdf'
                     )
+                    _ssot_txt = st.session_state.get("ssot_full_text", "")
+                    if _ssot_txt and not _ps_doc_text:
+                        _ps_doc_text = f"\n[스캔 허브 데이터]\n{_ssot_txt[:8000]}"
                     # Vision 파싱 (이미지 증권)
                     _ps_img_files = [pf for pf in (ps_files or []) if pf.type != 'application/pdf']
                     _ps_vision_result = ""
@@ -6643,7 +6698,11 @@ window.t0StartTTS=function(){{
 """, height=80)
 
         # ── 증권 업로드 + 분석 버튼 ──────────────────────────────────────
-        t0_files = st.file_uploader("📎 보험증권 PDF/이미지 첨부 (선택)",
+        # ── SSOT selector ─────────────────────────────────────
+        _t0_ssot = st.session_state.get("ssot_full_text", "")
+        if _t0_ssot:
+            st.info(f"🔬 **스캔 허브 데이터 자동 연동** — {len(_t0_ssot)}자 준비됨. 파일 쳊부 없이 바로 분석 가능.")
+        t0_files = st.file_uploader("📎 보험증권 PDF/이미지 쳊부 (스캔허브 사용 시 생략 가능)",
             accept_multiple_files=True, type=['pdf','jpg','jpeg','png'], key="up_t0")
         if t0_files:
             st.success(f"✅ {len(t0_files)}개 파일 업로드 완료")
@@ -6670,6 +6729,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         f"\n[증권: {pf.name}]\n" + extract_pdf_chunks(pf, char_limit=8000)
                         for pf in (t0_files or []) if pf.type == 'application/pdf'
                     )
+                    if not doc_text:
+                        doc_text = st.session_state.get("ssot_full_text", "")[:8000]
                     st.session_state['current_c_name'] = t0_c_name or "고객"
                     # 상담 방향 컨텍스트 주입
                     _t0_prod_ctx = f"\n\n## 상담 대상 상품: {t0_product}" if t0_product and t0_product != "선택 안 함 (자유 상담)" else ""
@@ -6839,9 +6900,15 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 key="claim_type")
             claim_files = st.file_uploader("서류 업로드", accept_multiple_files=True,
                 type=['pdf','jpg','jpeg','png'], key="up_t1")
+            # SSOT selector
+            _t1_ssot = st.session_state.get("ssot_full_text", "")
+            if _t1_ssot and not claim_files:
+                st.info(f"🔬 스캔 허브 데이터 자동 연동 ({len(_t1_ssot)}자) — 청구서류 비얼도 스캔 데이터로 분석합니다.")
             if do1:
-                doc_text1 = "".join(f"\n[첨부: {cf.name}]\n" + extract_pdf_chunks(cf, char_limit=6000)
+                doc_text1 = "".join(f"\n[쳊부: {cf.name}]\n" + extract_pdf_chunks(cf, char_limit=6000)
                     for cf in (claim_files or []) if cf.type == 'application/pdf')
+                if not doc_text1 and _t1_ssot:
+                    doc_text1 = f"\n[스캔 허브 데이터]\n{_t1_ssot[:6000]}"
                 run_ai_analysis(c_name1, query1, hi1, "res_t1",
                     f"[보험금 상담 - {claim_type}]\n1.보험금 청구 가능 여부와 예상 지급액 분석\n"
                     "2.보험사 거절 시 대응 방안\n3.금융감독원 민원 절차\n4.관련 판례와 약관 조항\n" + doc_text1,
@@ -6984,7 +7051,14 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             dis_sum_general = sum(v[1] for v in _sum_rows.values())
             dis_sum = dis_sum_traffic + dis_sum_general
 
-            # ── 파일 업로드 — 의무기록 ───────────────────────────────────
+            # ── SSOT selector: 스캔 허브 데이터 자동 활용 ───────────────
+            _dis_ssot_txt  = st.session_state.get("ssot_full_text", "")
+            _dis_ssot_covs = st.session_state.get("ssot_coverages", [])
+            if _dis_ssot_covs:
+                st.success(f"🔬 **스캔 허브 담보 {len(_dis_ssot_covs)}건 자동 연동** — 우측에서 자동 매핑됩니다.")
+            elif _dis_ssot_txt:
+                st.info(f"🔬 스캔 허브 텍스트 {len(_dis_ssot_txt)}자 연동 — 의무기록 미업로드 시 AI 분석에 활용됩니다.")
+            # ── 파일 업로드 — 의무기록 ─────────────────────────────
             st.markdown("""<div style="background:#1a3a5c;border-radius:7px 7px 0 0;
   padding:5px 12px;font-size:0.80rem;font-weight:900;color:#fff;margin-top:8px;">
   📂 의무기록 파일 업로드 (AI 분석)</div>""", unsafe_allow_html=True)
@@ -7793,7 +7867,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 "예) 고혈압·고지혈증 약 복용 중. 뇌졸중·심근경색 대비 보험 공백 분석 요청",
                 product_key="뇌혈관·심장보험")
 
-            cancer_files = st.file_uploader("진단서·보험증권·의무기록 업로드",
+            # ── SSOT selector ───────────────────────────────────────
+            _ca_ssot = st.session_state.get("ssot_full_text", "")
+            if _ca_ssot:
+                st.info(f"🔬 스캔 허브 데이터 자동 연동 ({len(_ca_ssot)}자) — 파일 없이 분석 가능")
+            cancer_files = st.file_uploader("진단서·보험증권·의무기록 업로드 (스캔허브 사용 시 생략 가능)",
                 type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_cancer")
 
             if do_ca:
@@ -7801,6 +7879,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     f"\n[첨부: {cf.name}]\n" + extract_pdf_chunks(cf, char_limit=5000)
                     for cf in (cancer_files or []) if cf.type == 'application/pdf'
                 )
+                if not doc_text_ca and _ca_ssot:
+                    doc_text_ca = f"\n[스캔 허브 데이터]\n{_ca_ssot[:5000]}"
                 _brain_ctx = f"\n뇌질환: {brain_type}, 위험인자: {', '.join(brain_risk) if brain_risk else '없음'}" if brain_type != "해당 없음" else ""
                 _heart_ctx = f"\n심장질환: {heart_type}, 위험인자: {', '.join(heart_risk) if heart_risk else '없음'}" if heart_type != "해당 없음" else ""
                 run_ai_analysis(c_name_ca, query_ca, hi_ca, "res_cancer",
@@ -7971,7 +8051,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 "장해 판정 대기 중",
             ], key="brain_disability_tab")
 
-            brain_files = st.file_uploader("진단서·MRI·의무기록 업로드",
+            # ── SSOT selector ──────────────────────────────────────
+            _br_ssot = st.session_state.get("ssot_full_text", "")
+            if _br_ssot:
+                st.info(f"🔬 스캔 허브 데이터 자동 연동 ({len(_br_ssot)}자) — 파일 없이 분석 가능")
+            brain_files = st.file_uploader("진단서·MRI·의무기록 업로드 (스캔허브 사용 시 생략 가능)",
                 type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_brain_tab")
 
             c_name_br, query_br, hi_br, do_br, _pkbr = ai_query_block("brain",
@@ -7983,6 +8067,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     f"\n[첨부: {bf.name}]\n" + extract_pdf_chunks(bf, char_limit=5000)
                     for bf in (brain_files or []) if bf.type == 'application/pdf'
                 )
+                if not doc_text_br and _br_ssot:
+                    doc_text_br = f"\n[스캔 허브 데이터]\n{_br_ssot[:5000]}"
                 _br_risk_str = ', '.join(brain_risk) if brain_risk else '없음'
                 run_ai_analysis(c_name_br, query_br, hi_br, "res_brain",
                     product_key=_pkbr,
@@ -8221,7 +8307,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 "재발 우려 (추적 관찰 중)",
             ], key="heart_treatment_tab")
 
-            heart_files = st.file_uploader("진단서·심전도·의무기록 업로드",
+            # ── SSOT selector ──────────────────────────────────────
+            _ht_ssot = st.session_state.get("ssot_full_text", "")
+            if _ht_ssot:
+                st.info(f"🔬 스캔 허브 데이터 자동 연동 ({len(_ht_ssot)}자) — 파일 없이 분석 가능")
+            heart_files = st.file_uploader("진단서·심전도·의무기록 업로드 (스캔허브 사용 시 생략 가능)",
                 type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_heart_tab")
 
             c_name_ht, query_ht, hi_ht, do_ht, _pkht = ai_query_block("heart",
@@ -8233,6 +8323,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     f"\n[첨부: {hf.name}]\n" + extract_pdf_chunks(hf, char_limit=5000)
                     for hf in (heart_files or []) if hf.type == 'application/pdf'
                 )
+                if not doc_text_ht and _ht_ssot:
+                    doc_text_ht = f"\n[스캔 허브 데이터]\n{_ht_ssot[:5000]}"
                 _ht_risk_str = ', '.join(heart_risk) if heart_risk else '없음'
                 run_ai_analysis(c_name_ht, query_ht, hi_ht, "res_heart",
                     product_key=_pkht,
@@ -12077,6 +12169,245 @@ END; $$;""", language="sql")
                                                 st.success("삭제 완료")
                                                 st.session_state.pop("cd_docs_cache", None)
                                                 st.rerun()
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
+    # ── [scan_hub] 중앙 집중 문서 스캔 허브 ─────────────────────────────
+    if cur == "scan_hub":
+        if not _auth_gate("scan_hub"): st.stop()
+        tab_home_btn("scan_hub")
+
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 50%,#27ae60 100%);
+  border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:16px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.04em;">
+    🔬 통합 문서 스캔 센터 (SSOT)
+  </div>
+  <div style="color:#a8e6cf;font-size:0.80rem;margin-top:5px;">
+    보험증권·의무기록·진단서·청구서류를 <b>한 번만 업로드</b>하면,
+    증권분석·장해산출·보험금청구·암뇌심장 등 <b>모든 탭에서 자동 활용</b>됩니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── 상담자 정보 요약 표시 ──────────────────────────────────────
+        _sh_name  = st.session_state.get("scan_client_name", "")
+        _sh_dob   = st.session_state.get("scan_client_dob",  "")
+        _sh_job   = st.session_state.get("scan_client_job",  "")
+        _sh_sick  = st.session_state.get("scan_client_sick", "해당없음")
+        _sh_items = st.session_state.get("scan_client_items", [])
+
+        if _sh_name:
+            st.info(f"👤 **{_sh_name}** | 생년월일: {_sh_dob} | 직업: {_sh_job} | "
+                    f"유병자: {_sh_sick} | 상담항목: {', '.join(_sh_items) if _sh_items else '미선택'}")
+        else:
+            st.warning("⚠️ 홈 화면에서 **상담 대상자 정보**를 먼저 입력하면 분석 정확도가 높아집니다.")
+            if st.button("← 홈으로 돌아가 상담자 정보 입력", key="sh_goto_home"):
+                st.session_state.current_tab = "home"
+                st.rerun()
+
+        st.divider()
+
+        # ── 업로드 영역 (대형 2열) ────────────────────────────────────
+        _sh_col_up, _sh_col_list = st.columns([3, 2], gap="large")
+
+        with _sh_col_up:
+            st.markdown("""<div style="background:#1a3a5c;border-radius:10px;
+  padding:10px 16px;margin-bottom:10px;">
+  <span style="color:#fff;font-weight:900;font-size:1rem;">📤 문서 업로드</span>
+  <span style="color:#b3d4f5;font-size:0.75rem;margin-left:8px;">PDF · JPG · PNG · JPEG 모두 지원</span>
+</div>""", unsafe_allow_html=True)
+
+            _sh_doc_type = st.radio(
+                "문서 유형 선택",
+                ["🏦 보험증권", "🏥 의무기록·진단서", "📋 보험금 청구서류", "📄 기타 문서"],
+                horizontal=True, key="sh_doc_type"
+            )
+
+            _sh_files = st.file_uploader(
+                "📎 파일 첨부 (여러 개 동시 업로드 가능)",
+                accept_multiple_files=True,
+                type=["pdf", "jpg", "jpeg", "png"],
+                key="sh_uploader",
+                label_visibility="collapsed"
+            )
+
+            if _sh_files:
+                st.success(f"✅ {len(_sh_files)}개 파일 선택됨")
+                for _f in _sh_files:
+                    _sz = round(len(_f.getvalue()) / 1024, 1)
+                    st.caption(f"  📄 {_f.name}  ({_sz} KB)")
+
+            # ── OCR 전처리 옵션 ──────────────────────────────────────
+            with st.expander("⚙️ OCR 전처리 옵션 (고급)", expanded=False):
+                _sh_deskew  = st.checkbox("기울기 자동 보정 (Deskewing)", value=True, key="sh_deskew")
+                _sh_bin     = st.checkbox("이미지 이진화 — 배경 소음 제거", value=True, key="sh_bin")
+                _sh_dpi     = st.select_slider("처리 해상도 (DPI)", options=[150, 200, 300, 400],
+                                               value=300, key="sh_dpi")
+                _sh_roi     = st.checkbox("ROI 핵심 영역 우선 파싱 (3배 속도↑)", value=True, key="sh_roi")
+                st.caption("📌 Gemini Vision + pdfplumber 하이브리드 파이프라인 사용")
+
+            st.divider()
+
+            # ── 스캔 실행 버튼 ──────────────────────────────────────
+            _sh_run = st.button(
+                "🔬 통합 스캔 실행",
+                type="primary",
+                use_container_width=True,
+                key="btn_sh_run",
+                disabled=(not _sh_files)
+            )
+
+            if _sh_run and _sh_files:
+                _type_key = {
+                    "🏦 보험증권":        "policy",
+                    "🏥 의무기록·진단서": "medical",
+                    "📋 보험금 청구서류":  "claim",
+                    "📄 기타 문서":        "other",
+                }.get(_sh_doc_type, "other")
+
+                with st.spinner(f"🔬 {_sh_doc_type} 스캔 중 — Gemini Vision + pdfplumber 처리 중..."):
+                    # ── OCR 파이프라인 실행 ──────────────────────────
+                    _sh_texts = []
+                    _sh_errors = []
+
+                    for _f in _sh_files:
+                        try:
+                            if _f.type == "application/pdf":
+                                _txt = extract_pdf_chunks(_f, char_limit=8000)
+                            else:
+                                # 이미지 → Gemini Vision OCR
+                                _ocr_cl, _ = get_master_model()
+                                _img_b64 = base64.b64encode(_f.getvalue()).decode("utf-8")
+                                _ocr_prompt = (
+                                    "이 문서 이미지에서 모든 텍스트를 정확히 추출하세요. "
+                                    "보험증권·의무기록·진단서의 경우 다음 항목을 반드시 포함:\n"
+                                    "- 피보험자명, 생년월일, 보험사명, 상품명\n"
+                                    "- 담보명, 보험금액, 보험기간\n"
+                                    "- 진단명, 질병코드(ICD), 진료일, 의사명\n"
+                                    "- 청구금액, 계좌번호, 병원명\n"
+                                    "원문 그대로 줄바꿈 포함 추출하세요."
+                                )
+                                _ocr_resp = _ocr_cl.models.generate_content(
+                                    model=GEMINI_MODEL,
+                                    contents=[{
+                                        "role": "user",
+                                        "parts": [
+                                            {"text": _ocr_prompt},
+                                            {"inline_data": {"mime_type": _f.type,
+                                                             "data": _img_b64}}
+                                        ]
+                                    }]
+                                )
+                                _txt = sanitize_unicode(_ocr_resp.text or "")
+                            _sh_texts.append({"file": _f.name, "type": _type_key, "text": _txt})
+                        except Exception as _se:
+                            _sh_errors.append(f"{_f.name}: {sanitize_unicode(str(_se))}")
+
+                    # ── 증권인 경우 구조화 파싱 (parse_policy_with_vision) ──
+                    _sh_coverages = []
+                    if _type_key == "policy":
+                        _policy_imgs = [_f for _f in _sh_files
+                                        if not _f.type.startswith("application/pdf")]
+                        _policy_pdfs = [_f for _f in _sh_files
+                                        if _f.type.startswith("application/pdf")]
+                        _parse_files = _policy_pdfs + _policy_imgs
+                        if _parse_files:
+                            _pvr = parse_policy_with_vision(_parse_files)
+                            _sh_coverages = _pvr.get("coverages", [])
+                            _sh_errors   += _pvr.get("errors", [])
+
+                    # ── SSOT 데이터 버스에 저장 ───────────────────────
+                    # 기존 데이터에 누적 (덮어쓰지 않고 append)
+                    _prev = st.session_state.get("ssot_scan_data", [])
+                    _prev.extend(_sh_texts)
+                    st.session_state["ssot_scan_data"]      = _prev
+                    st.session_state["ssot_scan_type"]      = _type_key
+                    st.session_state["ssot_scan_files"]     = [_f.name for _f in _sh_files]
+                    st.session_state["ssot_scan_ts"]        = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.session_state["ssot_client_name"]    = _sh_name or ""
+
+                    # 증권 파싱 결과 → 각 탭 selector용 키
+                    if _sh_coverages:
+                        st.session_state["ssot_coverages"]        = _sh_coverages
+                        st.session_state["dis_parsed_coverages"]  = _sh_coverages  # disability 탭 연동
+                    # 텍스트 합본 → 범용 탭 연동
+                    _full_text = "\n\n".join(
+                        f"[{d['file']}]\n{d['text']}" for d in _sh_texts
+                    )
+                    st.session_state["ssot_full_text"] = _full_text
+
+                    if _sh_errors:
+                        for _e in _sh_errors:
+                            st.warning(f"⚠️ {_e}")
+
+                    st.success(
+                        f"✅ 스캔 완료 — {len(_sh_texts)}개 파일 처리"
+                        + (f" | 담보 {len(_sh_coverages)}건 추출" if _sh_coverages else "")
+                    )
+                    st.rerun()
+
+        # ── 오른쪽: 스캔 결과 목록 ───────────────────────────────────
+        with _sh_col_list:
+            st.markdown("""<div style="background:#1a3a5c;border-radius:10px;
+  padding:10px 16px;margin-bottom:10px;">
+  <span style="color:#fff;font-weight:900;font-size:1rem;">📋 스캔 결과 목록</span>
+</div>""", unsafe_allow_html=True)
+
+            _ssot = st.session_state.get("ssot_scan_data", [])
+            _ssot_ts = st.session_state.get("ssot_scan_ts", "")
+
+            if not _ssot:
+                st.info("아직 스캔된 문서가 없습니다.\n왼쪽에서 파일을 업로드하고 스캔을 실행하세요.")
+            else:
+                st.caption(f"🕐 최근 스캔: {_ssot_ts}")
+                st.caption(f"📦 총 {len(_ssot)}개 파일 스캔 완료")
+
+                _type_icons = {"policy":"🏦","medical":"🏥","claim":"📋","other":"📄"}
+                for _idx, _d in enumerate(_ssot):
+                    _ico = _type_icons.get(_d.get("type","other"), "📄")
+                    with st.expander(f"{_ico} {_d['file']}", expanded=False):
+                        _preview = _d.get("text","")[:400]
+                        st.text(_preview + ("..." if len(_d.get("text","")) > 400 else ""))
+                        if st.button("🗑️ 삭제", key=f"sh_del_{_idx}"):
+                            _ssot.pop(_idx)
+                            st.session_state["ssot_scan_data"] = _ssot
+                            st.rerun()
+
+                st.divider()
+                if st.button("🗑️ 전체 스캔 데이터 초기화", key="sh_clear_all",
+                             use_container_width=True):
+                    for _k in ["ssot_scan_data","ssot_scan_type","ssot_scan_files",
+                               "ssot_scan_ts","ssot_coverages","ssot_full_text",
+                               "dis_parsed_coverages"]:
+                        st.session_state.pop(_k, None)
+                    st.success("초기화 완료")
+                    st.rerun()
+
+            # ── 활용 가능 탭 안내 ────────────────────────────────────
+            st.divider()
+            st.markdown("#### 🔗 스캔 데이터 활용 탭")
+            _ssot_covs  = st.session_state.get("ssot_coverages", [])
+            _ssot_text  = st.session_state.get("ssot_full_text", "")
+            _nav_items = [
+                ("policy_scan", "🏦 보험증권 분석",   bool(_ssot_covs or _ssot_text)),
+                ("disability",  "🦾 장해보험금 산출",  bool(_ssot_covs)),
+                ("t0",          "📋 신규보험 상담",    bool(_ssot_text)),
+                ("t1",          "💰 보험금 청구",      bool(_ssot_text)),
+                ("cancer",      "🎗️ 암·뇌·심장",      bool(_ssot_text)),
+                ("brain",       "🧠 뇌질환",           bool(_ssot_text)),
+                ("heart",       "❤️ 심장질환",         bool(_ssot_text)),
+            ]
+            for _nav_key, _nav_label, _nav_ready in _nav_items:
+                _badge = "🟢" if _nav_ready else "⚪"
+                _col_a, _col_b = st.columns([3, 1])
+                with _col_a:
+                    st.caption(f"{_badge} {_nav_label}")
+                with _col_b:
+                    if st.button("이동", key=f"sh_nav_{_nav_key}",
+                                 use_container_width=True,
+                                 disabled=(not _nav_ready)):
+                        st.session_state.current_tab = _nav_key
+                        st.rerun()
+
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # 하단 공통 면책 고지
