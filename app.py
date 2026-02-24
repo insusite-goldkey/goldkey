@@ -2890,24 +2890,39 @@ def section_housing_pension():
 
 # --------------------------------------------------------------------------
 def main():
-    # 모바일 최적화: wide 레이아웃 조건부 적용
-    # 사이드바 열기 요청이 있으면 expanded, 아니면 collapsed
-    _sidebar_state = "expanded"
+    # ── STEP 1: set_page_config (항상 가장 먼저) ─────────────────────────
     st.set_page_config(
         page_title="골드키지사 마스터 AI",
         page_icon="🏆",
         layout="centered",
-        initial_sidebar_state=_sidebar_state
+        initial_sidebar_state="expanded"
     )
 
-    # ── 동시접속 관리 — 세션 ID 생성만 먼저 (차단은 사이드바 렌더 후) ──
+    # ── STEP 2: 세션 ID 생성 ─────────────────────────────────────────────
     _sid = st.session_state.get("user_id") or st.session_state.get("_anon_sid")
     if not _sid:
         import uuid
         _sid = "anon_" + uuid.uuid4().hex[:12]
         st.session_state["_anon_sid"] = _sid
 
-    # ── 세션 만료 경고 (2분 전 JS 카운트다운 팝업) ───────────────────────
+    # ── STEP 3: 파일경로 복구 ────────────────────────────────────────────
+    if st.session_state.get("_force_tmp"):
+        global _DATA_DIR, USAGE_DB, MEMBER_DB
+        _DATA_DIR = "/tmp"
+        USAGE_DB  = "/tmp/usage_log.json"
+        MEMBER_DB = "/tmp/members.json"
+
+    # ── STEP 4: DB 초기화 (1회) ───────────────────────────────────────────
+    if 'db_ready' not in st.session_state:
+        try:
+            setup_database()
+            ensure_master_members()
+            _rag_supabase_ensure_tables()
+            st.session_state.db_ready = True
+        except Exception:
+            st.session_state.db_ready = True
+
+    # ── STEP 5: 사이드바 렌더링 (로그인폼 포함) — 초기화 로직보다 먼저 ──
     _remaining = _get_session_remaining(_sid)
     components.html(f"""
 <script>
@@ -2991,22 +3006,11 @@ def main():
 </script>
 """, height=0)
 
-    # ── 0단계: 파일경로 복구 플래그 반영 (auto_recover 후 rerun 시) ─────
-    if st.session_state.get("_force_tmp"):
-        global _DATA_DIR, USAGE_DB, MEMBER_DB
-        _DATA_DIR = "/tmp"
-        USAGE_DB  = "/tmp/usage_log.json"
-        MEMBER_DB = "/tmp/members.json"
-
-    # ── 1단계: 즉시 초기화 (DB만 — 가볍고 필수) ────────────────────────
-    if 'db_ready' not in st.session_state:
-        setup_database()
-        ensure_master_members()
-        _rag_supabase_ensure_tables()  # Supabase RAG 테이블 자동 생성 (모듈 로드 후 안전한 시점)
-        st.session_state.db_ready = True
-
-    # ── 자가 진단 엔진 — 세션당 1회 자동 실행 ──────────────────────────
-    _run_self_diagnosis()
+    # ── STEP 6: 자가 진단 ────────────────────────────────────────────────
+    try:
+        _run_self_diagnosis()
+    except Exception:
+        pass
 
     # ── 심야 자동 RAG 처리 (22:00~06:00) — 세션당 1회 ───────────────────
     if not st.session_state.get("_night_process_done"):
