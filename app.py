@@ -9280,6 +9280,44 @@ _ERROR_REGISTRY: list = [
         "check": lambda: _get_gcs_client() is None,
         "fix": lambda: log_error("자가진단", "GCS 클라이언트 없음 — secrets.toml [gcs] 확인 필요"),
     },
+    # ── 2026-02-24 세션 등록 오류 ─────────────────────────────────────────
+    {
+        "id": "fire_tab_product_key_missing",
+        "desc": "[화재탭] ai_query_block 반환값 5개 중 product_key(_pk) 미수신 → run_ai_analysis에 product_key 미전달",
+        # check: fire 탭 result_key 존재 시 product_key 세션값 확인
+        "check": lambda: (
+            st.session_state.get("current_tab") == "fire"
+            and not st.session_state.get("product_key_fire", "")
+            and bool(st.session_state.get("res_fire", ""))
+        ),
+        "fix": lambda: st.session_state.update({"product_key_fire": "화재보험"}),
+    },
+    {
+        "id": "rag_admin_btn_column_mismatch",
+        "desc": "[RAG관리] st.columns 블록 밖에서 with _rbtn2 사용 → '전체 초기화' 버튼 미표시",
+        # 런타임 감지 불가(레이아웃 오류) — 로그 기록용 패시브 항목
+        "check": lambda: False,
+        "fix": lambda: log_error("자가진단", "rag_admin_btn_column_mismatch: 코드 수정 완료(2026-02-24)"),
+    },
+    {
+        "id": "home_cards_row_overflow",
+        "desc": "[홈 대시보드] _render_cards 고정 3행(range(3)) → 카드 8개 이상 시 초과분 미표시",
+        "check": lambda: False,  # 코드 수정 완료 — math.ceil 동적 행 수로 변경됨
+        "fix": lambda: log_error("자가진단", "home_cards_row_overflow: 코드 수정 완료(2026-02-24)"),
+    },
+    {
+        "id": "unknown_tab_blank_screen",
+        "desc": "[탭 라우터] current_tab에 미등록 탭 ID 진입 시 빈 화면 — brain/heart 탭 추가 전 발생",
+        "check": lambda: (
+            st.session_state.get("current_tab", "home") not in (
+                "home", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
+                "cancer", "brain", "heart", "img", "fire", "liability", "nursing",
+                "realty", "disability", "life_cycle", "life_event", "leaflet",
+                "customer_docs", "stock_eval",
+            )
+        ),
+        "fix": lambda: st.session_state.update({"current_tab": "home"}),
+    },
 ]
 
 # ── 자가 진단 실행 함수 ───────────────────────────────────────────────────
