@@ -5907,11 +5907,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             horizontal=True, key="dis_sub")
         col1, col2 = st.columns([1, 1])
         with col1:
-            # ── 고객 성함 (ai_query_block 호출 전 먼저 렌더) ───────────────
+            # ── 고객 성함 ────────────────────────────────────────────────
             c_name_d = st.text_input("고객 성함", "우량 고객", key="c_name_disability")
             st.session_state.current_c_name = c_name_d
 
-            # ── 기본 정보 입력 (성함 바로 아래) ────────────────────────────
+            # ── 기본 정보 입력 ────────────────────────────────────────────
             st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
   border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 8px 0;font-weight:900;
   font-size:0.85rem;color:#1a3a5c;">📋 기본 정보 입력</div>""", unsafe_allow_html=True)
@@ -5921,9 +5921,19 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 dis_age    = st.number_input("나이 (세)", min_value=1, max_value=80, value=45, step=1, key="dis_age")
             with _dc2:
                 dis_type = st.selectbox("장해 유형", ["영구장해","한시장해(5년 이상)"], key="dis_type")
-                dis_rate = st.number_input("장해율 (%)", min_value=0.0, max_value=100.0, value=15.0, step=0.5, key="dis_rate")
 
-            # ── 직전 3개월 평균소득 산출 ────────────────────────────────────
+            # ── 장해율 2개 (교통 / 일반) ─────────────────────────────────
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 4px 0;font-weight:900;
+  font-size:0.85rem;color:#1a3a5c;">📐 장해율 입력</div>""", unsafe_allow_html=True)
+            _r1, _r2 = st.columns(2)
+            with _r1:
+                dis_rate_traffic = st.number_input("🚗 교통상해 장해율 (%)", min_value=0.0, max_value=100.0, value=0.0, step=0.5, key="dis_rate_traffic")
+            with _r2:
+                dis_rate_general = st.number_input("🏃 일반상해 장해율 (%)", min_value=0.0, max_value=100.0, value=15.0, step=0.5, key="dis_rate_general")
+            dis_rate = max(dis_rate_traffic, dis_rate_general)
+
+            # ── 직전 3개월 평균소득 산출 ─────────────────────────────────
             st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
   border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 4px 0;font-weight:900;
   font-size:0.85rem;color:#7d3c00;">💰 직전 3개월 평균소득 산출 방식</div>""", unsafe_allow_html=True)
@@ -5939,41 +5949,156 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             dis_income = round(dis_salary3 / 3 + dis_bonus12 / 12, 1)
             st.info(f"📊 산출 평균 월소득: **{dis_income:.1f}만원** (직전 3개월 급여 ÷ 3 + 연간상여 ÷ 12)")
 
-            # ── 보험가입금액 ────────────────────────────────────────────────
+            # ── 보험가입금액 — 담보별 5종 × 교통/일반 ───────────────────
             st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
   border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 4px 0;font-weight:900;
-  font-size:0.85rem;color:#1a3a5c;">🛡️ 보험가입금액 (만원)</div>""", unsafe_allow_html=True)
+  font-size:0.85rem;color:#1a3a5c;">🛡️ 보험가입금액 (만원) — 담보별 입력</div>""", unsafe_allow_html=True)
             st.markdown("""<div style="background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
-  padding:6px 10px;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;line-height:1.7;">
-  • 3% 가입금액 기준 입력 (20%·50%·80% 고도장해는 별도 산출 적용)<br>
-  • 상해후유장해 가입금액은 교통사고를 포함하여 적용
+  padding:5px 10px;font-size:0.77rem;color:#1a3a5c;margin-bottom:6px;line-height:1.65;">
+  • 장해율에 해당하는 담보만 활성화됩니다 (3%·20%·50%·80% 기준 자동 적용)<br>
+  • 3% 기입금액 기준 입력 | 교통상해와 일반상해를 각각 입력<br>
+  • 장해연금은 월 지급액(만원) 입력
 </div>""", unsafe_allow_html=True)
-            _sum1, _sum2 = st.columns(2)
-            with _sum1:
-                dis_sum_traffic = st.number_input("교통상해장해 가입금액 (만원)", min_value=0, value=0, step=500, key="dis_sum_traffic")
-            with _sum2:
-                dis_sum_general = st.number_input("일반상해장해 가입금액 (만원)", min_value=0, value=10000, step=500, key="dis_sum_general")
+
+            _dis_rate_max = max(dis_rate_traffic, dis_rate_general)
+            _active_3   = _dis_rate_max >= 3.0
+            _active_20  = _dis_rate_max >= 20.0
+            _active_50  = _dis_rate_max >= 50.0
+            _active_80  = _dis_rate_max >= 80.0
+
+            def _dis_badge(active):
+                return ("✅ 조건 해당" if active else "⛔ 조건 미달")
+
+            _tiers = [
+                ("3%",  _active_3,  "dis_t_3",  "dis_g_3"),
+                ("20%", _active_20, "dis_t_20", "dis_g_20"),
+                ("50%", _active_50, "dis_t_50", "dis_g_50"),
+                ("80%", _active_80, "dis_t_80", "dis_g_80"),
+            ]
+
+            _sum_rows = {}
+            for _label, _act, _kt, _kg in _tiers:
+                _color = "#1a7a2e" if _act else "#999"
+                _bg    = "#f0fff4" if _act else "#f5f5f5"
+                st.markdown(f"""<div style="background:{_bg};border:1px solid {'#6fcf97' if _act else '#ddd'};
+  border-radius:7px;padding:4px 10px;margin:4px 0 2px 0;font-size:0.80rem;
+  font-weight:900;color:{_color};">
+  상해후유장해 {_label} 이상 — {_dis_badge(_act)}</div>""", unsafe_allow_html=True)
+                _sa, _sb = st.columns(2)
+                with _sa:
+                    _vt = st.number_input(f"교통상해 {_label} 가입금액", min_value=0, value=0, step=500,
+                        key=_kt, disabled=(not _act))
+                with _sb:
+                    _vg = st.number_input(f"일반상해 {_label} 가입금액", min_value=0, value=0, step=500,
+                        key=_kg, disabled=(not _act))
+                _sum_rows[_label] = (_vt, _vg)
+
+            st.markdown("""<div style="background:#fff8f0;border:1px solid #f5a623;
+  border-radius:7px;padding:4px 10px;margin:4px 0 2px 0;font-size:0.80rem;
+  font-weight:900;color:#7d3c00;">장해연금 (월 지급액 만원)</div>""", unsafe_allow_html=True)
+            _pan1, _pan2 = st.columns(2)
+            with _pan1:
+                dis_annuity_traffic = st.number_input("교통상해 장해연금 (월/만원)", min_value=0, value=0, step=10, key="dis_annuity_t")
+            with _pan2:
+                dis_annuity_general = st.number_input("일반상해 장해연금 (월/만원)", min_value=0, value=0, step=10, key="dis_annuity_g")
+
+            dis_sum_traffic = sum(v[0] for v in _sum_rows.values())
+            dis_sum_general = sum(v[1] for v in _sum_rows.values())
             dis_sum = dis_sum_traffic + dis_sum_general
+
+            # ── 파일 업로드 — 의무기록 ───────────────────────────────────
+            st.markdown("""<div style="background:#1a3a5c;border-radius:7px 7px 0 0;
+  padding:5px 12px;font-size:0.80rem;font-weight:900;color:#fff;margin-top:8px;">
+  📂 의무기록 파일 업로드 (AI 분석)</div>""", unsafe_allow_html=True)
+            st.markdown("""<div style="background:#eef4fc;border:1px solid #b3c8e8;border-top:none;
+  border-radius:0 0 7px 7px;padding:5px 10px;font-size:0.76rem;color:#1a3a5c;margin-bottom:4px;">
+  • <b>장해진단서</b>: AMA·맥브라이드 장해율 자동 분석<br>
+  • <b>일반의무기록</b>: 사고원인·장해진단 여부·의사명 인식
+</div>""", unsafe_allow_html=True)
+            dis_med_files = st.file_uploader(
+                "의무기록 업로드 (PDF/JPG/PNG)",
+                type=["pdf","jpg","jpeg","png"],
+                accept_multiple_files=True,
+                key="dis_med_files"
+            )
+            if dis_med_files:
+                st.success(f"✅ 의무기록 {len(dis_med_files)}개 파일 업로드 완료")
+                for _f in dis_med_files:
+                    if _f.type.startswith("image/"):
+                        st.image(_f, caption=_f.name, width=180)
+
+            # ── 파일 업로드 — 개인보험증권 ──────────────────────────────
+            st.markdown("""<div style="background:#7d3c00;border-radius:7px 7px 0 0;
+  padding:5px 12px;font-size:0.80rem;font-weight:900;color:#fff;margin-top:6px;">
+  📋 개인보험증권 파일 업로드 (담보 자동 인식)</div>""", unsafe_allow_html=True)
+            st.markdown("""<div style="background:#fff8f0;border:1px solid #f5d5a0;border-top:none;
+  border-radius:0 0 7px 7px;padding:5px 10px;font-size:0.76rem;color:#5a3000;margin-bottom:4px;">
+  • 상해후유장해(3%·20%·50%·80%) 및 장해연금 담보 자동 도출<br>
+  • 교통상해 담보 vs 일반상해 담보 구분 인식 후 각각 출력
+</div>""", unsafe_allow_html=True)
+            dis_policy_files = st.file_uploader(
+                "보험증권 업로드 (PDF/JPG/PNG)",
+                type=["pdf","jpg","jpeg","png"],
+                accept_multiple_files=True,
+                key="dis_policy_files"
+            )
+            if dis_policy_files:
+                st.success(f"✅ 보험증권 {len(dis_policy_files)}개 파일 업로드 완료")
+                for _f in dis_policy_files:
+                    if _f.type.startswith("image/"):
+                        st.image(_f, caption=_f.name, width=180)
 
             # ── AI 입력 ─────────────────────────────────────────────────
             _pkd = "후유장해보험"
             hi_d = 0
-            query_d = st.text_area("상담 내용 입력", height=120, key="query_disability",
+            query_d = st.text_area("상담 내용 입력", height=100, key="query_disability",
                 placeholder="예: 남성 45세, 건설노동자, 요추 추간판탈출증 수술 후 척추 장해 15% 판정")
             do_d = st.button("🔍 정밀 분석 실행", type="primary", key="btn_analyze_disability", use_container_width=True)
             if do_d:
                 _n_years = max(0, (65 - dis_age))
                 _hoffman = round(_n_years / (1 + 0.05 * _n_years / 2), 2) if _n_years > 0 else 0
-                _ama_est = round(dis_sum * dis_rate / 100 * (0.2 if "한시" in dis_type else 1.0), 1)
+                _ama_t   = round(dis_sum_traffic * dis_rate_traffic / 100 * (0.2 if "한시" in dis_type else 1.0), 1)
+                _ama_g   = round(dis_sum_general * dis_rate_general / 100 * (0.2 if "한시" in dis_type else 1.0), 1)
                 _mcb_est = round(dis_income * (dis_rate / 100) * (2 / 3) * _hoffman, 1)
+
+                _med_text = ""
+                if dis_med_files:
+                    for _mf in dis_med_files:
+                        if _mf.type == "application/pdf":
+                            _med_text += f"\n[의무기록: {_mf.name}]\n" + extract_pdf_chunks(_mf, char_limit=4000)
+                        else:
+                            _med_text += f"\n[의무기록 이미지: {_mf.name} — OCR 분석 요청]\n"
+
+                _pol_text = ""
+                if dis_policy_files:
+                    for _pf in dis_policy_files:
+                        if _pf.type == "application/pdf":
+                            _pol_text += f"\n[보험증권: {_pf.name}]\n" + extract_pdf_chunks(_pf, char_limit=4000)
+                        else:
+                            _pol_text += f"\n[보험증권 이미지: {_pf.name} — OCR 분석 요청]\n"
+
+                _tier_summary = "\n".join([
+                    f"  {lb}이상: 교통 {_sum_rows[lb][0]}만원 / 일반 {_sum_rows[lb][1]}만원"
+                    for lb in ["3%","20%","50%","80%"]
+                ])
                 run_ai_analysis(c_name_d, query_d, hi_d, "res_disability",
                     product_key=_pkd,
                     extra_prompt=f"[장해보험금 산출 — {dis_sub}]\n"
                     f"성별: {dis_gender}, 나이: {dis_age}세, 월평균소득: {dis_income}만원\n"
-                    f"장해율: {dis_rate}%, 장해유형: {dis_type}\n"
-                    f"교통상해장해 가입금액: {dis_sum_traffic}만원, 일반상해장해 가입금액: {dis_sum_general}만원 (합계: {dis_sum}만원)\n"
+                    f"교통상해 장해율: {dis_rate_traffic}%, 일반상해 장해율: {dis_rate_general}%, 장해유형: {dis_type}\n"
+                    f"담보별 가입금액(교통/일반):\n{_tier_summary}\n"
+                    f"장해연금: 교통 {dis_annuity_traffic}만원/월, 일반 {dis_annuity_general}만원/월\n"
                     f"호프만계수(65세 기준): {_hoffman}\n"
-                    f"AMA 예상 보험금: {_ama_est}만원, 맥브라이드 일실수익: {_mcb_est}만원\n\n"
+                    f"AMA 예상 보험금: 교통 {_ama_t}만원 / 일반 {_ama_g}만원\n"
+                    f"맥브라이드 일실수익: {_mcb_est}만원\n"
+                    f"{_med_text}\n{_pol_text}\n\n"
+                    "## [의무기록 분석]\n"
+                    "- 장해진단서인 경우: AMA방식 장해율 / 맥브라이드방식 운동장해율 구분 출력\n"
+                    "- 일반의무기록인 경우: 사고원인, 장해진단 여부, 진단 병원명·의사명 인식 출력\n\n"
+                    "## [보험증권 분석]\n"
+                    "- 상해후유장해(3%·20%·50%·80%) 담보 도출\n"
+                    "- 교통상해 담보 vs 일반상해 담보 구분하여 각각 가입금액 표로 출력\n"
+                    "- 장해연금 담보(월 지급액) 별도 출력\n\n"
                     "## 필수 분석 항목 (순서대로 빠짐없이 답변)\n\n"
                     "### 1. 상해장해 보험금 정밀 산출\n"
                     "- AMA방식: 가입금액 × 장해지급률 = 예상 보험금 (영구/한시 구분)\n"
