@@ -1,3 +1,2 @@
 locales
 locales-all
-language-pack-ko
