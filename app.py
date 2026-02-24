@@ -12212,6 +12212,100 @@ END; $$;""", language="sql")
         except Exception:
             return []
 
+    def _sh_medical_ocr_prompt(doc_subtype: str) -> str:
+        """의무기록 유형별 Medical OCR 전용 프롬프트 반환"""
+        _base = (
+            "이 의무기록 이미지에서 다음 항목을 정확히 추출하세요.\n\n"
+            "## 필수 추출 항목\n"
+            "- 환자명 / 생년월일 / 성별\n"
+            "- 진단명 (한글명 + KCD 코드, 예: 뇌경색 I63.5)\n"
+            "- 수술명 / 시술명 (있는 경우)\n"
+            "- 입원일 / 퇴원일 / 진료일\n"
+            "- 담당의사명 / 과명\n"
+            "- 병원명 / 병원코드\n"
+            "- 처방약 (성분명, 용량, 용법: p.o, t.i.d, b.i.d, q.d 등 약어 포함)\n"
+            "- 검사 수치 (혈압, 혈당, 혈색소, 종양표지자 등 수치+단위)\n"
+            "- 직인/간인 존재 여부 (있음/없음/불명확)\n\n"
+            "## 출력 형식 (JSON)\n"
+            "```json\n"
+            "{\n"
+            '  "patient": {"name":"","dob":"","gender":""},\n'
+            '  "diagnoses": [{"name":"","kcd":""}],\n'
+            '  "surgeries": [],\n'
+            '  "admission": {"in":"","out":""},\n'
+            '  "doctor": {"name":"","dept":""},\n'
+            '  "hospital": {"name":"","code":""},\n'
+            '  "medications": [{"drug":"","dose":"","route":""}],\n'
+            '  "lab_values": [{"test":"","value":"","unit":""}],\n'
+            '  "seal_check": "있음|없음|불명확",\n'
+            '  "raw_text": "원문 전체"\n'
+            "}\n"
+            "```\n"
+        )
+        _extra = {
+            "surgery":   "수술 종류(전신/국소마취), 집도의, 보조의, 수술 시간을 반드시 포함하세요.",
+            "lab":       "검사 항목별 정상범위와 비교하여 이상 수치는 [이상]으로 표기하세요.",
+            "discharge": "퇴원 요약의 경우 주진단/부진단/합병증/퇴원 후 처방을 모두 추출하세요.",
+            "pharmacy":  "약국 조제 내역의 경우 성분명·제품명·용량·일수를 표로 추출하세요.",
+        }.get(doc_subtype, "")
+        return _base + ("\n" + _extra if _extra else "")
+
+    def _sh_parse_medical_json(raw: str) -> dict:
+        """Gemini 응답에서 JSON 파싱, 실패 시 raw_text만 보존"""
+        import re as _re3, json as _json2
+        _r = _re3.sub(r'^```(?:json)?', '', raw.strip()).strip()
+        _r = _re3.sub(r'```$', '', _r).strip()
+        try:
+            return _json2.loads(_r)
+        except Exception:
+            return {"raw_text": raw, "parse_error": True}
+
+    def _sh_encrypt_pdf(pdf_bytes: bytes, password: str) -> bytes:
+        """pypdf로 PDF 암호화. pypdf 미설치 시 원본 반환"""
+        try:
+            from pypdf import PdfReader, PdfWriter
+            import io as _io2
+            _reader = PdfReader(_io2.BytesIO(pdf_bytes))
+            _writer = PdfWriter()
+            for _pg in _reader.pages:
+                _writer.add_page(_pg)
+            _writer.encrypt(password)
+            _out = _io2.BytesIO()
+            _writer.write(_out)
+            return _out.getvalue()
+        except ImportError:
+            return pdf_bytes  # pypdf 미설치 시 원본 반환
+        except Exception:
+            return pdf_bytes
+
+    def _sh_index_medical_pages(pdf_file) -> list:
+        """페이지별 텍스트 키워드로 북마크 인덱스 생성"""
+        try:
+            import pdfplumber, io as _io3
+            _PAGE_LABELS = [
+                (["초진","외래","초진기록"],           "초진기록지"),
+                (["입원기록","입원경과"],              "입원기록"),
+                (["수술","집도","마취","수술기록"],    "수술기록지"),
+                (["퇴원요약","퇴원기록","discharge"],  "퇴원요약지"),
+                (["검사결과","판독","병리","lab"],      "검사결과지"),
+                (["처방","약국","조제","처방전"],       "처방/약국"),
+                (["진단서","소견서","certificate"],     "진단서/소견서"),
+            ]
+            _index = []
+            with pdfplumber.open(_io3.BytesIO(pdf_file.getvalue())) as _pdf:
+                for _pn, _pg in enumerate(_pdf.pages, 1):
+                    _txt = (_pg.extract_text() or "")[:500]
+                    _label = "기타"
+                    for _kws, _lbl in _PAGE_LABELS:
+                        if any(k in _txt for k in _kws):
+                            _label = _lbl
+                            break
+                    _index.append({"page": _pn, "label": _label,
+                                   "preview": _txt[:80]})
+            return _index
+        except Exception:
+            return []
+
     if cur == "scan_hub":
         if not _auth_gate("scan_hub"): st.stop()
         tab_home_btn("scan_hub")
@@ -12294,6 +12388,60 @@ END; $$;""", language="sql")
                     _sh_hash  = st.checkbox("🛡️ SHA-256 해시 기록",   value=True, key="sh_hash")
                 st.caption("📌 Gemini Vision + pdfplumber 하이브리드 파이프라인")
 
+            # ── 의무기록 전용 패널 (medical 선택 시만 표시) ──────────────
+            _sh_med_subtype  = "general"
+            _sh_med_encrypt  = False
+            _sh_med_pwd      = ""
+            _sh_med_index    = False
+            _sh_med_seal_chk = False
+
+            if _sh_doc_type == "🏥 의무기록·진단서":
+                with st.expander("🏥 의무기록 전용 옵션", expanded=True):
+                    st.markdown("""<div style="background:#1a1a2e;border-radius:8px;
+  padding:8px 14px;margin-bottom:10px;font-size:0.8rem;color:#a8d8ea;">
+  📋 의무기록 특화 Medical OCR — KCD코드·약어·검사수치 자동 구조화
+</div>""", unsafe_allow_html=True)
+
+                    _sh_med_subtype = st.selectbox(
+                        "문서 세부 유형 선택",
+                        ["general",  "surgery",    "lab",
+                         "discharge","pharmacy",   "diagnosis"],
+                        format_func=lambda x: {
+                            "general":   "🏥 일반 진료기록부 (초진·외래·입원경과)",
+                            "surgery":   "🔪 수술기록지 (마취·집도·수술시간)",
+                            "lab":       "🧪 검사결과지 (혈액·병리·영상 판독)",
+                            "discharge": "📋 퇴원요약지 (주진단·부진단·합병증)",
+                            "pharmacy":  "💊 약국처방전 (성분명·용량·용법)",
+                            "diagnosis": "📄 진단서·소견서",
+                        }.get(x, x),
+                        key="sh_med_subtype"
+                    )
+
+                    _med_c1, _med_c2 = st.columns(2)
+                    with _med_c1:
+                        _sh_med_index    = st.checkbox(
+                            "📑 페이지 북마크 인덱싱\n(초진/수술/검사 자동 분류)",
+                            value=True, key="sh_med_index")
+                        _sh_med_seal_chk = st.checkbox(
+                            "🔏 직인·간인 누락 감지\n(병원 도장 확인)",
+                            value=True, key="sh_med_seal")
+                    with _med_c2:
+                        _sh_med_encrypt  = st.checkbox(
+                            "🔐 PDF 암호화 후 다운로드\n(전송 전 보안 강화)",
+                            value=False, key="sh_med_encrypt")
+                        if _sh_med_encrypt:
+                            _sh_med_pwd = st.text_input(
+                                "암호화 비밀번호",
+                                type="password",
+                                placeholder="8자 이상 권장",
+                                key="sh_med_pwd"
+                            )
+
+                    st.caption(
+                        "💡 보험금 청구 핵심 데이터: 진단명(KCD) · 입퇴원일 · 수술명 · "
+                        "검사수치 · 처방약(t.i.d·p.o) 자동 추출 → JSON 저장"
+                    )
+
             st.divider()
 
             # ── 스캔 실행 버튼 ──────────────────────────────────────
@@ -12330,13 +12478,29 @@ END; $$;""", language="sql")
                             _fval = _f.getvalue()
                             _sha  = _hl.sha256(_fval).hexdigest() if _do_hash else ""
 
-                            # 텍스트 추출
+                            # ── 텍스트 추출 (유형별 분기) ──────────────────
+                            _med_struct  = {}   # Medical OCR 구조화 결과
+                            _page_index  = []   # 북마크 인덱스
+                            _seal_result = ""   # 직인 감지 결과
+                            _enc_bytes   = b""  # 암호화 PDF
+
                             if _f.type == "application/pdf":
                                 _txt = extract_pdf_chunks(_f, char_limit=8000)
+                                # 의무기록: 북마크 인덱싱
+                                if _type_key == "medical" and _sh_med_index:
+                                    _page_index = _sh_index_medical_pages(_f)
+                                # 의무기록: PDF 암호화
+                                if _type_key == "medical" and _sh_med_encrypt and _sh_med_pwd:
+                                    _enc_bytes = _sh_encrypt_pdf(_fval, _sh_med_pwd)
                             else:
                                 _ocr_cl, _ = get_master_model()
-                                _img_b64 = base64.b64encode(_fval).decode("utf-8")
-                                if _do_qr:
+                                _img_b64   = base64.b64encode(_fval).decode("utf-8")
+
+                                # 의무기록 → Medical OCR 전용 프롬프트
+                                if _type_key == "medical":
+                                    _med_sub = st.session_state.get("sh_med_subtype", "general")
+                                    _ocr_prompt = _sh_medical_ocr_prompt(_med_sub)
+                                elif _do_qr:
                                     _ocr_prompt = (
                                         "이 문서 이미지에서 다음 두 가지를 모두 추출하세요.\n"
                                         "1. 문서 전체 텍스트 (원문 그대로)\n"
@@ -12353,6 +12517,7 @@ END; $$;""", language="sql")
                                         "- 청구금액, 계좌번호, 병원명\n"
                                         "원문 그대로 줄바꿈 포함 추출하세요."
                                     )
+
                                 _ocr_resp = _ocr_cl.models.generate_content(
                                     model=GEMINI_MODEL,
                                     contents=[{"role":"user","parts":[
@@ -12360,7 +12525,17 @@ END; $$;""", language="sql")
                                         {"inline_data":{"mime_type":_f.type,"data":_img_b64}}
                                     ]}]
                                 )
-                                _txt = sanitize_unicode(_ocr_resp.text or "")
+                                _raw_ocr = sanitize_unicode(_ocr_resp.text or "")
+
+                                # 의무기록 JSON 파싱
+                                if _type_key == "medical":
+                                    _med_struct = _sh_parse_medical_json(_raw_ocr)
+                                    _txt = _med_struct.get("raw_text", _raw_ocr)
+                                    # 직인 감지 결과 추출
+                                    if _sh_med_seal_chk:
+                                        _seal_result = _med_struct.get("seal_check", "불명확")
+                                else:
+                                    _txt = _raw_ocr
 
                             # 민감정보 마스킹
                             if _do_mask:
@@ -12378,12 +12553,25 @@ END; $$;""", language="sql")
                             _ext      = _f.name.rsplit(".",1)[-1] if "." in _f.name else "pdf"
                             _autoname = _sh_auto_filename(_type_key, _sh_name, _ext)
 
+                            # 암호화 PDF 다운로드 버튼 (즉시 표시)
+                            if _enc_bytes:
+                                st.download_button(
+                                    f"🔐 {_f.name} — 암호화 PDF 다운로드",
+                                    data=_enc_bytes,
+                                    file_name=f"enc_{_autoname}",
+                                    mime="application/pdf",
+                                    key=f"sh_enc_{_f.name[:20]}"
+                                )
+
                             _sh_texts.append({
-                                "file":     _f.name,
-                                "autoname": _autoname,
-                                "type":     _type_key,
-                                "category": _category,
-                                "text":     _txt,
+                                "file":        _f.name,
+                                "autoname":    _autoname,
+                                "type":        _type_key,
+                                "category":    _category,
+                                "text":        _txt,
+                                "med_struct":  _med_struct,
+                                "page_index":  _page_index,
+                                "seal_result": _seal_result,
                                 "tables":   _tables,
                                 "sha256":   _sha,
                                 "ts":       dt.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -12471,13 +12659,16 @@ END; $$;""", language="sql")
                 _type_icons = {"policy":"🏦","medical":"🏥","claim":"📋",
                                "legal":"🏛️","other":"📄"}
                 for _idx, _d in enumerate(_ssot):
-                    _ico  = _type_icons.get(_d.get("type","other"), "📄")
-                    _cat  = _d.get("category", "")
+                    _ico   = _type_icons.get(_d.get("type","other"), "📄")
+                    _cat   = _d.get("category", "")
                     _aname = _d.get("autoname", "")
-                    _sha  = _d.get("sha256", "")
-                    _tbls = _d.get("tables", [])
-                    _ts   = _d.get("ts", "")
-                    _hdr  = f"{_ico} {_cat}  |  {_d['file']}"
+                    _sha   = _d.get("sha256", "")
+                    _tbls  = _d.get("tables", [])
+                    _ts    = _d.get("ts", "")
+                    _mst   = _d.get("med_struct", {})
+                    _pidx  = _d.get("page_index", [])
+                    _seal  = _d.get("seal_result", "")
+                    _hdr   = f"{_ico} {_cat}  |  {_d['file']}"
                     with st.expander(_hdr, expanded=False):
                         if _aname:
                             st.caption(f"📁 자동 파일명: `{_aname}`")
@@ -12487,6 +12678,58 @@ END; $$;""", language="sql")
                             st.caption(f"🛡️ SHA-256: `{_sha[:20]}…`")
                         if _tbls:
                             st.caption(f"📊 표 {len(_tbls)}개 추출 (Excel 다운로드 가능)")
+
+                        # ── 의무기록 Medical OCR 구조화 결과 ──────────
+                        if _mst and not _mst.get("parse_error"):
+                            st.markdown("**🏥 Medical OCR 구조화 결과**")
+                            _mc1, _mc2 = st.columns(2)
+                            with _mc1:
+                                _pat = _mst.get("patient", {})
+                                if _pat.get("name"):
+                                    st.caption(f"👤 환자: {_pat['name']} ({_pat.get('dob','')}, {_pat.get('gender','')})")
+                                _diags = _mst.get("diagnoses", [])
+                                if _diags:
+                                    for _dg in _diags[:3]:
+                                        st.caption(f"🔴 진단: {_dg.get('name','')} [{_dg.get('kcd','')}]")
+                                _surg = _mst.get("surgeries", [])
+                                if _surg:
+                                    st.caption(f"🔪 수술: {', '.join(str(s) for s in _surg[:2])}")
+                                _adm = _mst.get("admission", {})
+                                if _adm.get("in") or _adm.get("out"):
+                                    st.caption(f"🏨 입원: {_adm.get('in','-')} ~ {_adm.get('out','-')}")
+                            with _mc2:
+                                _labs = _mst.get("lab_values", [])
+                                if _labs:
+                                    st.caption(f"🧪 검사 {len(_labs)}건: " +
+                                               ", ".join(f"{l.get('test','')} {l.get('value','')}{l.get('unit','')}"
+                                                         for l in _labs[:3]))
+                                _meds = _mst.get("medications", [])
+                                if _meds:
+                                    st.caption(f"💊 처방 {len(_meds)}건: " +
+                                               ", ".join(f"{m.get('drug','')}({m.get('route','')})"
+                                                         for m in _meds[:3]))
+                                _doc = _mst.get("doctor", {})
+                                if _doc.get("name"):
+                                    st.caption(f"👨‍⚕️ 의사: {_doc['name']} ({_doc.get('dept','')})")
+                                _hosp = _mst.get("hospital", {})
+                                if _hosp.get("name"):
+                                    st.caption(f"🏥 병원: {_hosp['name']}")
+
+                        # 직인 감지 결과
+                        if _seal:
+                            _seal_color = {"있음":"🟢","없음":"🔴","불명확":"🟡"}.get(_seal,"🟡")
+                            st.caption(f"🔏 직인/간인: {_seal_color} {_seal}")
+                            if _seal in ("없음","불명확"):
+                                st.warning("⚠️ 직인/간인이 누락되었거나 불명확합니다. 병원에 재발급을 요청하세요.")
+
+                        # 북마크 인덱스
+                        if _pidx:
+                            st.markdown("**📑 페이지 인덱스 (북마크)**")
+                            _idx_rows = []
+                            for _pi in _pidx:
+                                _idx_rows.append(f"p.{_pi['page']}  {_pi['label']}  — {_pi['preview'][:40]}")
+                            st.text("\n".join(_idx_rows))
+
                         _preview = _d.get("text","")[:500]
                         st.text(_preview + ("..." if len(_d.get("text","")) > 500 else ""))
                         if st.button("🗑️ 삭제", key=f"sh_del_{_idx}"):
