@@ -3381,6 +3381,19 @@ section[data-testid="stSidebar"] > div:first-child {
                     ln = st.text_input("👤 이름", placeholder="홍길동", key="login_name")
                     lc = st.text_input("📱 연락처 (비밀번호)", type="password", placeholder="010-0000-0000", key="login_contact")
                     login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"], horizontal=True, key="login_is_pro")
+                    _ins_list_login = [
+                        "선택 안 함 (중립 분석)",
+                        "삼성생명", "한화생명", "교보생명", "신한라이프", "흥국생명",
+                        "동양생명", "ABL생명", "DB생명", "푸본현대생명", "처브라이프",
+                        "삼성화재", "현대해상", "DB손보", "KB손보", "메리츠화재",
+                        "한화손보", "롯데손보", "MG손보", "흥국화재", "농협손보",
+                    ]
+                    if login_is_pro == "종사자":
+                        st.markdown("<div style='font-size:0.78rem;color:#1a3a5c;margin-top:4px;'>🏢 집중판매 보험사 선택 (AI가 해당사 상품 우선 안내)</div>", unsafe_allow_html=True)
+                        login_insurer = st.selectbox("집중판매 보험사", _ins_list_login, key="login_insurer")
+                    else:
+                        login_insurer = "선택 안 함 (중립 분석)"
+                        st.markdown("<div style='font-size:0.78rem;color:#555;margin-top:4px;'>🟩 중립 분석 모드 — 특정 보험사 추천 없이 객관적 상담</div>", unsafe_allow_html=True)
                     if st.form_submit_button("🔓 로그인", use_container_width=True):
                         if ln and lc:
                             with st.spinner("⏳ 로그인 중입니다. 잠시만 기다려주세요..."):
@@ -3398,6 +3411,7 @@ section[data-testid="stSidebar"] > div:first-child {
                                 st.session_state["_login_welcome"] = ln
                                 _pro_val = st.session_state.get("login_is_pro", "비종사자")
                                 st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)" if _pro_val == "종사자" else "👤 비종사자 (고객·일반인)"
+                                st.session_state["preferred_insurer"] = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)")
                                 st.rerun()
                             else:
                                 if ln not in members:
