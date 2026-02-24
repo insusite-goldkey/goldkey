@@ -3396,7 +3396,8 @@ section[data-testid="stSidebar"] > div:first-child {
                                 st.session_state.is_admin  = _adm
                                 st.session_state["_mic_notice"] = True
                                 st.session_state["_login_welcome"] = ln
-                                st.session_state["user_consult_mode"] = st.session_state.get("login_is_pro", "비종사자")
+                                _pro_val = st.session_state.get("login_is_pro", "비종사자")
+                                st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)" if _pro_val == "종사자" else "👤 비종사자 (고객·일반인)"
                                 st.rerun()
                             else:
                                 if ln not in members:
