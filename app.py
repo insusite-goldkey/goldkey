@@ -12172,6 +12172,46 @@ END; $$;""", language="sql")
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [scan_hub] 중앙 집중 문서 스캔 허브 ─────────────────────────────
+    # ── scan_hub 전용 헬퍼 함수 ────────────────────────────────
+    def _sh_mask_pii(text: str) -> str:
+        import re as _re2
+        text = _re2.sub(r'(\d{6})-(\d{7})', r'\1-███████', text)
+        text = _re2.sub(r'(\d{3,6}-\d{2,6}-)(\d{4,})(\d{4})', r'\1████\3', text)
+        return text
+
+    def _sh_auto_filename(doc_type_key: str, client_name: str, file_ext: str) -> str:
+        _lbl = {"policy":"보험증권","medical":"의무기록","claim":"청구서류",
+                "legal":"법원경찰서류","other":"기타"}.get(doc_type_key, "문서")
+        _nm = (client_name or "피보험자").replace(" ","")
+        return f"{dt.now().strftime('%Y%m%d')}_{_lbl}_{_nm}.{file_ext}"
+
+    def _sh_auto_category(text: str) -> str:
+        _t = text[:2000]
+        for _kws, _lbl in [
+            (["화재","소방","화재증명"],           "🔥 화재사고"),
+            (["교통사고","충돌","다수당사하자"],  "🚗 교통사고"),
+            (["암","악성","종양","보험급 진단"],   "🎗️ 암질환"),
+            (["뇌졸중","뇌경색","중풍"],          "🧠 뇌질환"),
+            (["심근경색","협심증","심장"],         "❤️ 심장질환"),
+            (["배상","체임","소송","법원"],          "⚖️ 배상체임"),
+            (["보험증권","담보","특약"],           "🏦 보험증권"),
+        ]:
+            if any(k in _t for k in _kws): return _lbl
+        return "📄 기타"
+
+    def _sh_extract_tables(pdf_file) -> list:
+        try:
+            import pdfplumber, io
+            _tbls = []
+            with pdfplumber.open(io.BytesIO(pdf_file.getvalue())) as _p:
+                for _pn, _pg in enumerate(_p.pages, 1):
+                    for _t in (_pg.extract_tables() or []):
+                        if _t and len(_t) > 1:
+                            _tbls.append({"page": _pn, "rows": _t})
+            return _tbls
+        except Exception:
+            return []
+
     if cur == "scan_hub":
         if not _auth_gate("scan_hub"): st.stop()
         tab_home_btn("scan_hub")
@@ -12218,7 +12258,8 @@ END; $$;""", language="sql")
 
             _sh_doc_type = st.radio(
                 "문서 유형 선택",
-                ["🏦 보험증권", "🏥 의무기록·진단서", "📋 보험금 청구서류", "📄 기타 문서"],
+                ["🏦 보험증권", "🏥 의무기록·진단서",
+                 "📋 보험금 청구서류", "🏛️ 법원·경찰·소방 서류", "📄 기타 문서"],
                 horizontal=True, key="sh_doc_type"
             )
 
@@ -12237,13 +12278,21 @@ END; $$;""", language="sql")
                     st.caption(f"  📄 {_f.name}  ({_sz} KB)")
 
             # ── OCR 전처리 옵션 ──────────────────────────────────────
-            with st.expander("⚙️ OCR 전처리 옵션 (고급)", expanded=False):
-                _sh_deskew  = st.checkbox("기울기 자동 보정 (Deskewing)", value=True, key="sh_deskew")
-                _sh_bin     = st.checkbox("이미지 이진화 — 배경 소음 제거", value=True, key="sh_bin")
-                _sh_dpi     = st.select_slider("처리 해상도 (DPI)", options=[150, 200, 300, 400],
-                                               value=300, key="sh_dpi")
-                _sh_roi     = st.checkbox("ROI 핵심 영역 우선 파싱 (3배 속도↑)", value=True, key="sh_roi")
-                st.caption("📌 Gemini Vision + pdfplumber 하이브리드 파이프라인 사용")
+            with st.expander("⚙️ OCR 전처리 / 보안 / 추출 옵션 (고급)", expanded=False):
+                _oc1, _oc2 = st.columns(2)
+                with _oc1:
+                    st.markdown("**🔧 이미지 전처리**")
+                    _sh_deskew = st.checkbox("기울기 보정 (Deskewing)", value=True, key="sh_deskew")
+                    _sh_bin    = st.checkbox("이진화 — 배경 소음 제거", value=True, key="sh_bin")
+                    _sh_dpi    = st.select_slider("DPI", options=[150,200,300,400], value=300, key="sh_dpi")
+                    _sh_roi    = st.checkbox("ROI 핵심영역 우선", value=True, key="sh_roi")
+                with _oc2:
+                    st.markdown("**🔒 보안 / 추출**")
+                    _sh_mask  = st.checkbox("🔒 주민번호·계좌등 마스킹", value=True, key="sh_mask")
+                    _sh_table = st.checkbox("📊 표(Table) JSON 추출",    value=True, key="sh_table")
+                    _sh_qr    = st.checkbox("🔍 QR코드 인식 (정부서류)", value=False, key="sh_qr")
+                    _sh_hash  = st.checkbox("🛡️ SHA-256 해시 기록",   value=True, key="sh_hash")
+                st.caption("📌 Gemini Vision + pdfplumber 하이브리드 파이프라인")
 
             st.divider()
 
@@ -12258,90 +12307,123 @@ END; $$;""", language="sql")
 
             if _sh_run and _sh_files:
                 _type_key = {
-                    "🏦 보험증권":        "policy",
-                    "🏥 의무기록·진단서": "medical",
-                    "📋 보험금 청구서류":  "claim",
-                    "📄 기타 문서":        "other",
+                    "🏦 보험증권":           "policy",
+                    "🏥 의무기록·진단서":    "medical",
+                    "📋 보험금 청구서류":     "claim",
+                    "🏛️ 법원·경찰·소방 서류": "legal",
+                    "📄 기타 문서":           "other",
                 }.get(_sh_doc_type, "other")
 
-                with st.spinner(f"🔬 {_sh_doc_type} 스캔 중 — Gemini Vision + pdfplumber 처리 중..."):
-                    # ── OCR 파이프라인 실행 ──────────────────────────
-                    _sh_texts = []
+                _do_mask  = st.session_state.get("sh_mask",  True)
+                _do_table = st.session_state.get("sh_table", True)
+                _do_qr    = st.session_state.get("sh_qr",    False)
+                _do_hash  = st.session_state.get("sh_hash",  True)
+
+                with st.spinner(f"🔬 {_sh_doc_type} 스캔 중 — Gemini Vision + pdfplumber 하이브리드..."):
+                    _sh_texts  = []
                     _sh_errors = []
+                    _sh_tables_all = []  # 표 문서 목록 (Excel 다운로드용)
 
                     for _f in _sh_files:
                         try:
+                            import hashlib as _hl
+                            _fval = _f.getvalue()
+                            _sha  = _hl.sha256(_fval).hexdigest() if _do_hash else ""
+
+                            # 텍스트 추출
                             if _f.type == "application/pdf":
                                 _txt = extract_pdf_chunks(_f, char_limit=8000)
                             else:
-                                # 이미지 → Gemini Vision OCR
                                 _ocr_cl, _ = get_master_model()
-                                _img_b64 = base64.b64encode(_f.getvalue()).decode("utf-8")
-                                _ocr_prompt = (
-                                    "이 문서 이미지에서 모든 텍스트를 정확히 추출하세요. "
-                                    "보험증권·의무기록·진단서의 경우 다음 항목을 반드시 포함:\n"
-                                    "- 피보험자명, 생년월일, 보험사명, 상품명\n"
-                                    "- 담보명, 보험금액, 보험기간\n"
-                                    "- 진단명, 질병코드(ICD), 진료일, 의사명\n"
-                                    "- 청구금액, 계좌번호, 병원명\n"
-                                    "원문 그대로 줄바꿈 포함 추출하세요."
-                                )
+                                _img_b64 = base64.b64encode(_fval).decode("utf-8")
+                                if _do_qr:
+                                    _ocr_prompt = (
+                                        "이 문서 이미지에서 다음 두 가지를 모두 추출하세요.\n"
+                                        "1. 문서 전체 텍스트 (원문 그대로)\n"
+                                        "2. QR코드가 있다면 '[QR코드 내용]: ...' 형식으로 표기. "
+                                        "정부24·경찰청·소방청 QR URL을 반드시 명시하세요."
+                                    )
+                                else:
+                                    _ocr_prompt = (
+                                        "이 문서 이미지에서 모든 텍스트를 정확히 추출하세요.\n"
+                                        "보험증권·의무기록·진단서의 경우:\n"
+                                        "- 피보험자명, 생년월일, 보험사명, 상품명\n"
+                                        "- 담보명, 보험금액, 보험기간\n"
+                                        "- 진단명, 질병코드(ICD), 진료일\n"
+                                        "- 청구금액, 계좌번호, 병원명\n"
+                                        "원문 그대로 줄바꿈 포함 추출하세요."
+                                    )
                                 _ocr_resp = _ocr_cl.models.generate_content(
                                     model=GEMINI_MODEL,
-                                    contents=[{
-                                        "role": "user",
-                                        "parts": [
-                                            {"text": _ocr_prompt},
-                                            {"inline_data": {"mime_type": _f.type,
-                                                             "data": _img_b64}}
-                                        ]
-                                    }]
+                                    contents=[{"role":"user","parts":[
+                                        {"text": _ocr_prompt},
+                                        {"inline_data":{"mime_type":_f.type,"data":_img_b64}}
+                                    ]}]
                                 )
                                 _txt = sanitize_unicode(_ocr_resp.text or "")
-                            _sh_texts.append({"file": _f.name, "type": _type_key, "text": _txt})
+
+                            # 민감정보 마스킹
+                            if _do_mask:
+                                _txt = _sh_mask_pii(_txt)
+
+                            # 표 구조화 추출 (PDF만)
+                            _tables = []
+                            if _do_table and _f.type == "application/pdf":
+                                _tables = _sh_extract_tables(_f)
+                                if _tables:
+                                    _sh_tables_all.append({"file": _f.name, "tables": _tables})
+
+                            # 카테고리 / 파일명 자동생성
+                            _category = _sh_auto_category(_txt)
+                            _ext      = _f.name.rsplit(".",1)[-1] if "." in _f.name else "pdf"
+                            _autoname = _sh_auto_filename(_type_key, _sh_name, _ext)
+
+                            _sh_texts.append({
+                                "file":     _f.name,
+                                "autoname": _autoname,
+                                "type":     _type_key,
+                                "category": _category,
+                                "text":     _txt,
+                                "tables":   _tables,
+                                "sha256":   _sha,
+                                "ts":       dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            })
                         except Exception as _se:
                             _sh_errors.append(f"{_f.name}: {sanitize_unicode(str(_se))}")
 
-                    # ── 증권인 경우 구조화 파싱 (parse_policy_with_vision) ──
+                    # 보험증권 → 담보 구조화 파싱
                     _sh_coverages = []
                     if _type_key == "policy":
-                        _policy_imgs = [_f for _f in _sh_files
-                                        if not _f.type.startswith("application/pdf")]
-                        _policy_pdfs = [_f for _f in _sh_files
-                                        if _f.type.startswith("application/pdf")]
-                        _parse_files = _policy_pdfs + _policy_imgs
-                        if _parse_files:
-                            _pvr = parse_policy_with_vision(_parse_files)
-                            _sh_coverages = _pvr.get("coverages", [])
-                            _sh_errors   += _pvr.get("errors", [])
+                        _pvr = parse_policy_with_vision(_sh_files)
+                        _sh_coverages = _pvr.get("coverages", [])
+                        _sh_errors   += _pvr.get("errors", [])
 
-                    # ── SSOT 데이터 버스에 저장 ───────────────────────
-                    # 기존 데이터에 누적 (덮어쓰지 않고 append)
+                    # SSOT 데이터 버스 저장
                     _prev = st.session_state.get("ssot_scan_data", [])
                     _prev.extend(_sh_texts)
-                    st.session_state["ssot_scan_data"]      = _prev
-                    st.session_state["ssot_scan_type"]      = _type_key
-                    st.session_state["ssot_scan_files"]     = [_f.name for _f in _sh_files]
-                    st.session_state["ssot_scan_ts"]        = dt.now().strftime("%Y-%m-%d %H:%M:%S")
-                    st.session_state["ssot_client_name"]    = _sh_name or ""
+                    st.session_state["ssot_scan_data"]     = _prev
+                    st.session_state["ssot_scan_type"]     = _type_key
+                    st.session_state["ssot_scan_files"]    = [_f.name for _f in _sh_files]
+                    st.session_state["ssot_scan_ts"]       = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.session_state["ssot_client_name"]   = _sh_name or ""
+                    st.session_state["ssot_tables"]        = _sh_tables_all
 
-                    # 증권 파싱 결과 → 각 탭 selector용 키
                     if _sh_coverages:
-                        st.session_state["ssot_coverages"]        = _sh_coverages
-                        st.session_state["dis_parsed_coverages"]  = _sh_coverages  # disability 탭 연동
-                    # 텍스트 합본 → 범용 탭 연동
+                        st.session_state["ssot_coverages"]      = _sh_coverages
+                        st.session_state["dis_parsed_coverages"] = _sh_coverages
+
                     _full_text = "\n\n".join(
                         f"[{d['file']}]\n{d['text']}" for d in _sh_texts
                     )
                     st.session_state["ssot_full_text"] = _full_text
 
                     if _sh_errors:
-                        for _e in _sh_errors:
-                            st.warning(f"⚠️ {_e}")
+                        for _e in _sh_errors: st.warning(f"⚠️ {_e}")
 
                     st.success(
-                        f"✅ 스캔 완료 — {len(_sh_texts)}개 파일 처리"
-                        + (f" | 담보 {len(_sh_coverages)}건 추출" if _sh_coverages else "")
+                        f"✅ 스캔 완료 — {len(_sh_texts)}개 파일"
+                        + (f" | 담보 {len(_sh_coverages)}건" if _sh_coverages else "")
+                        + (f" | 표 {sum(len(t['tables']) for t in _sh_tables_all)}개" if _sh_tables_all else "")
                     )
                     st.rerun()
 
@@ -12352,7 +12434,7 @@ END; $$;""", language="sql")
   <span style="color:#fff;font-weight:900;font-size:1rem;">📋 스캔 결과 목록</span>
 </div>""", unsafe_allow_html=True)
 
-            _ssot = st.session_state.get("ssot_scan_data", [])
+            _ssot    = st.session_state.get("ssot_scan_data", [])
             _ssot_ts = st.session_state.get("ssot_scan_ts", "")
 
             if not _ssot:
@@ -12361,12 +12443,52 @@ END; $$;""", language="sql")
                 st.caption(f"🕐 최근 스캔: {_ssot_ts}")
                 st.caption(f"📦 총 {len(_ssot)}개 파일 스캔 완료")
 
-                _type_icons = {"policy":"🏦","medical":"🏥","claim":"📋","other":"📄"}
+                # Excel 다운로드 (표 추출 결과)
+                _ssot_tbls = st.session_state.get("ssot_tables", [])
+                if _ssot_tbls:
+                    try:
+                        import io as _io, pandas as _pd
+                        _xls_buf = _io.BytesIO()
+                        with _pd.ExcelWriter(_xls_buf, engine="openpyxl") as _xw:
+                            for _td in _ssot_tbls:
+                                for _ti, _tbl in enumerate(_td["tables"]):
+                                    _df = _pd.DataFrame(_tbl["rows"][1:],
+                                                        columns=_tbl["rows"][0] if _tbl["rows"] else [])
+                                    _sn = f"{_td['file'][:12]}_p{_tbl['page']}t{_ti+1}"
+                                    _df.to_excel(_xw, sheet_name=_sn[:31], index=False)
+                        _xls_buf.seek(0)
+                        st.download_button(
+                            "📥 표(Table) Excel 다운로드",
+                            data=_xls_buf.getvalue(),
+                            file_name=f"scan_tables_{dt.now().strftime('%Y%m%d')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True,
+                            key="sh_dl_excel"
+                        )
+                    except Exception as _xe:
+                        st.caption(f"Excel 변환 오류: {_xe}")
+
+                _type_icons = {"policy":"🏦","medical":"🏥","claim":"📋",
+                               "legal":"🏛️","other":"📄"}
                 for _idx, _d in enumerate(_ssot):
-                    _ico = _type_icons.get(_d.get("type","other"), "📄")
-                    with st.expander(f"{_ico} {_d['file']}", expanded=False):
-                        _preview = _d.get("text","")[:400]
-                        st.text(_preview + ("..." if len(_d.get("text","")) > 400 else ""))
+                    _ico  = _type_icons.get(_d.get("type","other"), "📄")
+                    _cat  = _d.get("category", "")
+                    _aname = _d.get("autoname", "")
+                    _sha  = _d.get("sha256", "")
+                    _tbls = _d.get("tables", [])
+                    _ts   = _d.get("ts", "")
+                    _hdr  = f"{_ico} {_cat}  |  {_d['file']}"
+                    with st.expander(_hdr, expanded=False):
+                        if _aname:
+                            st.caption(f"📁 자동 파일명: `{_aname}`")
+                        if _ts:
+                            st.caption(f"🕐 스캔 시각: {_ts}")
+                        if _sha:
+                            st.caption(f"🛡️ SHA-256: `{_sha[:20]}…`")
+                        if _tbls:
+                            st.caption(f"📊 표 {len(_tbls)}개 추출 (Excel 다운로드 가능)")
+                        _preview = _d.get("text","")[:500]
+                        st.text(_preview + ("..." if len(_d.get("text","")) > 500 else ""))
                         if st.button("🗑️ 삭제", key=f"sh_del_{_idx}"):
                             _ssot.pop(_idx)
                             st.session_state["ssot_scan_data"] = _ssot
@@ -12377,7 +12499,7 @@ END; $$;""", language="sql")
                              use_container_width=True):
                     for _k in ["ssot_scan_data","ssot_scan_type","ssot_scan_files",
                                "ssot_scan_ts","ssot_coverages","ssot_full_text",
-                               "dis_parsed_coverages"]:
+                               "dis_parsed_coverages","ssot_tables"]:
                         st.session_state.pop(_k, None)
                     st.success("초기화 완료")
                     st.rerun()
