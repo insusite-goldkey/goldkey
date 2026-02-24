@@ -1195,7 +1195,7 @@ JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십
 {
   "coverages": [          ← 모든 담보를 이 배열에 포함
     {
-      "category":      string,  ← ENUM: "disability"|"disability_annuity"|"surgery"|"diagnosis"|"daily"|"driver_expense"|"other"
+      "category":      string,  ← ENUM: "disability"|"disability_annuity"|"surgery"|"diagnosis"|"daily"|"driver_expense"|"nursing"|"cancer"|"realty"|"annuity"|"other"
       "subcategory":   string,  ← ENUM: "traffic"|"general"|"disease"|"driver"
       "name":          string,  ← 약관상 담보명 전체 (괄호 포함)
       "amount":        integer|null,  ← 가입금액(원). 만원 단위면 ×10000. 불명확→null
@@ -1213,7 +1213,11 @@ JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십
 • surgery           : 수술비(1~5종), 종수술비, 특정수술비
 • diagnosis         : 진단비(암·뇌·심장·골절·입원 진단 등)
 • daily             : 입원일당, 통원일당, 요양일당
-• driver_expense    : 벌금(대인·대물·스쿨존), 교통사고처리기지원금, 형사합의금, 변호사선임비용
+• driver_expense    : 벌금(대인·대물·스쿨존), 교통사고처리지원금, 형사합의금, 변호사선임비용, 면허정지·취소 위로금
+• nursing           : 간병인사용일당, 간병인지원서비스, 장기요양 관련 담보
+• cancer            : 암·뇌·심장 진단비, 표적항암약물허가치료비, 암수술비
+• realty            : 전세보증금반환보증, 임대료보증, 건물종합보험 관련 담보
+• annuity           : 연금, 주택연금, 노후연금, 즉시연금 관련 담보
 • other             : 위에 해당하지 않는 모든 담보
 
 [서브카테고리 분류 기준]
@@ -1237,14 +1241,14 @@ JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십
 
 [Few-shot 예시 2 — 운전자보험]
 <extracted_data>
-교통사고처리기지원금(대인) 2억원 / 벌금(대인) 2,000만원 / 벌금(대물) 500만원 / 변호사선임비용 500만원
+교통사고처리지원금(대인) 2억원 / 벌금(대인) 2,000만원 / 벌금(대물) 500만원 / 변호사선임비용(형사) 500만원
 </extracted_data>
 → 출력:
 {"coverages":[
-  {"category":"driver_expense","subcategory":"driver","name":"교통사고처리기지원금(대인)","amount":200000000,"threshold_min":null,"annuity_monthly":null,"condition":"실제손해액 비례분담","confidence":"high"},
+  {"category":"driver_expense","subcategory":"driver","name":"교통사고처리지원금(대인)","amount":200000000,"threshold_min":null,"annuity_monthly":null,"condition":"실제손해액 비례분담","confidence":"high"},
   {"category":"driver_expense","subcategory":"driver","name":"벌금(대인)","amount":20000000,"threshold_min":null,"annuity_monthly":null,"condition":"실손보상·법정한도 적용","confidence":"high"},
   {"category":"driver_expense","subcategory":"driver","name":"벌금(대물)","amount":5000000,"threshold_min":null,"annuity_monthly":null,"condition":"실손보상·법정한도 적용","confidence":"high"},
-  {"category":"driver_expense","subcategory":"driver","name":"변호사선임비용","amount":5000000,"threshold_min":null,"annuity_monthly":null,"condition":null,"confidence":"high"}
+  {"category":"driver_expense","subcategory":"driver","name":"변호사선임비용(형사)","amount":5000000,"threshold_min":null,"annuity_monthly":null,"condition":null,"confidence":"high"}
 ]}
 
 [오류 자가 진단]
@@ -1418,6 +1422,30 @@ STANDARD_DISABILITY_DB = [
     {"code": "THX_01",   "body_part": "thorax_abdomen","text": "흉·복부 장기의 기능에 심한 장해를 남긴 때",  "rate": 75.0},
     {"code": "THX_02",   "body_part": "thorax_abdomen","text": "흉·복부 장기의 기능에 뚜렷한 장해를 남긴 때","rate": 50.0},
     {"code": "THX_03",   "body_part": "thorax_abdomen","text": "흉·복부 장기의 기능에 약간의 장해를 남긴 때", "rate": 25.0},
+    # 코
+    {"code": "NOSE_01",  "body_part": "nose",          "text": "코의 기능을 완전히 잃었을 때",                "rate": 15.0},
+    {"code": "NOSE_02",  "body_part": "nose",          "text": "코로 호흡하는 것이 불가능하게 된 때",          "rate": 15.0},
+    {"code": "NOSE_03",  "body_part": "nose",          "text": "후각기능을 완전히 잃었을 때",                  "rate": 5.0},
+    # 씹어먹거나 말하는 장해
+    {"code": "CHEW_01",  "body_part": "chewing_speech","text": "씹는 기능과 말하는 기능을 완전히 잃었을 때",  "rate": 100.0},
+    {"code": "CHEW_02",  "body_part": "chewing_speech","text": "씹는 기능 또는 말하는 기능을 완전히 잃었을 때","rate": 80.0},
+    {"code": "CHEW_03",  "body_part": "chewing_speech","text": "씹는 기능에 심한 장해를 남긴 때",             "rate": 40.0},
+    {"code": "CHEW_04",  "body_part": "chewing_speech","text": "말하는 기능에 심한 장해를 남긴 때",           "rate": 40.0},
+    {"code": "CHEW_05",  "body_part": "chewing_speech","text": "씹는 기능 또는 말하는 기능에 뚜렷한 장해를 남긴 때", "rate": 20.0},
+    # 외모
+    {"code": "APP_01",   "body_part": "appearance",   "text": "외모에 심한 추상(추한 모습)을 남긴 때 (얼굴)",  "rate": 15.0},
+    {"code": "APP_02",   "body_part": "appearance",   "text": "외모에 뚜렷한 추상을 남긴 때 (얼굴)",          "rate": 10.0},
+    {"code": "APP_03",   "body_part": "appearance",   "text": "외모에 약간의 추상을 남긴 때 (얼굴)",          "rate": 5.0},
+    # 체간골
+    {"code": "TRK_01",   "body_part": "trunk_bone",   "text": "빗장뼈·골반뼈에 뚜렷한 기형을 남긴 때",       "rate": 20.0},
+    {"code": "TRK_02",   "body_part": "trunk_bone",   "text": "빗장뼈·골반뼈에 약간의 기형을 남긴 때",       "rate": 10.0},
+    {"code": "TRK_03",   "body_part": "trunk_bone",   "text": "흉골에 뚜렷한 기형을 남긴 때",               "rate": 15.0},
+    # 비뇨생식기
+    {"code": "URO_01",   "body_part": "urogenital",   "text": "두 고환을 잃었을 때",                        "rate": 40.0},
+    {"code": "URO_02",   "body_part": "urogenital",   "text": "음경을 잃었을 때",                           "rate": 40.0},
+    {"code": "URO_03",   "body_part": "urogenital",   "text": "자궁과 두 부속기를 잃었을 때",               "rate": 40.0},
+    {"code": "URO_04",   "body_part": "urogenital",   "text": "비뇨생식기 기능에 심한 장해를 남긴 때",       "rate": 35.0},
+    {"code": "URO_05",   "body_part": "urogenital",   "text": "비뇨생식기 기능에 뚜렷한 장해를 남긴 때",     "rate": 20.0},
 ]
 
 # 장해 문구 임베딩 캐시 (session_state가 아닌 모듈 레벨 캐시)
@@ -1494,12 +1522,15 @@ def match_disabilities_batch(text_list: list[str],
 
 # ── 운전자 비용담보 비례분담 계산기 ────────────────────────────────────────
 _DRIVER_LEGAL_LIMITS = {
-    "벌금(대인)":             {"max_won": 30_000_000, "law": "도로교통법 제156조"},
-    "벌금(대물)":             {"max_won": 20_000_000, "law": "도로교통법 제156조"},
-    "벌금(스쿨존·민식이법)":  {"max_won": 30_000_000, "law": "특정범죄가중처벌법 제5조의13"},
-    "교통사고처리기지원금":    {"max_won": 200_000_000,"law": "형사합의금·공탁금 실손 보상"},
-    "형사합의금":              {"max_won": 300_000_000,"law": "형사합의금 실손 보상 원칙"},
-    "변호사선임비용":          {"max_won": 30_000_000, "law": "실제 발생 비용 한도"},
+    "벌금(대인)":             {"max_won": 30_000_000,  "law": "도로교통법 제156조"},
+    "벌금(대물)":             {"max_won": 20_000_000,  "law": "도로교통법 제156조"},
+    "벌금(스쿨존·민식이법)":  {"max_won": 30_000_000,  "law": "특정범죄가중처벌법 제5조의13"},
+    "교통사고처리지원금":      {"max_won": 200_000_000, "law": "형사합의금·공탁금 실손 보상"},
+    "형사합의금":              {"max_won": 300_000_000, "law": "형사합의금 실손 보상 원칙"},
+    "변호사선임비용(형사)":    {"max_won": 30_000_000,  "law": "실제 발생 비용 한도"},
+    "변호사선임비용(민사)":    {"max_won": 50_000_000,  "law": "실제 발생 비용 한도"},
+    "면허정지 위로금":         {"max_won":  3_000_000,  "law": "약정 정액 지급"},
+    "면허취소 위로금":         {"max_won":  5_000_000,  "law": "약정 정액 지급"},
 }
 
 class ProRataCalculator:
@@ -1558,7 +1589,7 @@ class ProRataCalculator:
         if len(categories) > 1:
             self.warnings.append(
                 f"⚠️ 담보 카테고리 불일치 감지: {categories} — "
-                "동일 담보(예: 교통사고처리기지원금)끼리만 비례분담이 적용됩니다."
+                "동일 담보(예: 교통사고처리지원금)끼리만 비례분담이 적용됩니다."
             )
 
         effective_loss = self._validate()
