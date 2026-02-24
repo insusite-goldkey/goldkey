@@ -689,3 +689,429 @@ class InsuranceReportGenerator:
             "rag_hits":    rag_hits,
             "warnings":    calc_result.get("warnings", []),
         }
+
+
+# ---------------------------------------------------------------------------
+# 9. Gemini Vector Store (text-embedding-004, 차원 768)
+#    Pinecone/OpenAI 의존성 없이 Gemini 임베딩 + Supabase pgvector로 구현.
+#    Supabase gk_expert_knowledge 테이블의 embedding(VECTOR(768)) 컬럼 활용.
+#
+# Supabase SQL (1회 실행):
+# ALTER TABLE gk_expert_knowledge ADD COLUMN IF NOT EXISTS embedding VECTOR(768);
+# CREATE INDEX IF NOT EXISTS idx_gk_expert_knowledge_embedding
+#   ON gk_expert_knowledge USING ivfflat (embedding vector_cosine_ops)
+#   WITH (lists = 100);
+#
+# RPC 함수 (pgvector 유사도 검색용, 1회 실행):
+# CREATE OR REPLACE FUNCTION match_expert_knowledge(
+#   query_embedding VECTOR(768), match_count INT DEFAULT 5
+# )
+# RETURNS TABLE (id BIGINT, topic TEXT, summary_ko TEXT,
+#                source_type TEXT, source_url TEXT,
+#                confidence NUMERIC, similarity FLOAT)
+# LANGUAGE plpgsql AS $$
+# BEGIN
+#   RETURN QUERY
+#   SELECT e.id, e.topic, e.summary_ko, e.source_type, e.source_url,
+#          e.confidence,
+#          1 - (e.embedding <=> query_embedding) AS similarity
+#   FROM gk_expert_knowledge e
+#   WHERE e.embedding IS NOT NULL
+#   ORDER BY e.embedding <=> query_embedding
+#   LIMIT match_count;
+# END; $$;
+# ---------------------------------------------------------------------------
+class GeminiVectorStore:
+    """
+    Gemini text-embedding-004 (차원 768) + Supabase pgvector.
+    Pinecone/LangChain 없이 완전 독립 동작.
+
+    사용 예시:
+        vs = GeminiVectorStore(gemini_client=get_client(), sb_client=_get_sb_client())
+        vs.upsert(doc_id=42, text="경추 척수증 판례 요약...", metadata={"topic": "..."}
+        hits = vs.similarity_search("뇌경색 보험금", k=3)
+    """
+
+    EMBED_MODEL = "models/text-embedding-004"
+    EMBED_DIM   = 768
+    RPC_FUNC    = "match_expert_knowledge"
+    TABLE       = "gk_expert_knowledge"
+
+    def __init__(self, gemini_client, sb_client):
+        self.gc = gemini_client
+        self.sb = sb_client
+
+    # ── 텍스트 → 벡터 변환 ────────────────────────────────────────────────
+    def _embed(self, text: str) -> list[float] | None:
+        """Gemini text-embedding-004로 벡터화. 실패 시 None."""
+        if self.gc is None:
+            return None
+        try:
+            resp = self.gc.models.embed_content(
+                model    = self.EMBED_MODEL,
+                contents = text[:2000],
+            )
+            vec = resp.embeddings[0].values
+            return list(vec) if vec else None
+        except Exception:
+            return None
+
+    # ── 임베딩 저장 (기존 행 업데이트) ────────────────────────────────────
+    def upsert(self, doc_id: int, text: str) -> bool:
+        """
+        gk_expert_knowledge.id = doc_id 행의 embedding 컬럼을 갱신.
+        반환: True(성공) / False(실패)
+        """
+        if not self.sb:
+            return False
+        vec = self._embed(text)
+        if vec is None:
+            return False
+        try:
+            self.sb.table(self.TABLE).update({"embedding": vec}).eq("id", doc_id).execute()
+            return True
+        except Exception:
+            return False
+
+    # ── 텍스트 기반 유사도 검색 ────────────────────────────────────────────
+    def similarity_search(self, query: str, k: int = 5) -> list[dict]:
+        """
+        쿼리를 임베딩 후 pgvector 코사인 유사도 검색.
+        pgvector RPC 미설치 시 텍스트 ILIKE 폴백 자동 적용.
+        반환: [{"id","topic","summary_ko","source_type","confidence","similarity"}, ...]
+        """
+        if not self.sb:
+            return []
+
+        vec = self._embed(query)
+
+        # ── pgvector RPC 우선 시도 ─────────────────────────────────────
+        if vec is not None:
+            try:
+                rows = (self.sb.rpc(self.RPC_FUNC, {
+                    "query_embedding": vec,
+                    "match_count":     k,
+                }).execute().data or [])
+                if rows:
+                    return rows
+            except Exception:
+                pass  # RPC 미설치 → 텍스트 폴백
+
+        # ── 텍스트 ILIKE 폴백 ──────────────────────────────────────────
+        try:
+            return (self.sb
+                    .table(self.TABLE)
+                    .select("id,topic,summary_ko,source_type,source_url,confidence")
+                    .ilike("summary_ko", f"%{query}%")
+                    .order("confidence", desc=True)
+                    .limit(k)
+                    .execute().data or [])
+        except Exception:
+            return []
+
+    # ── 전체 임베딩 일괄 재생성 ───────────────────────────────────────────
+    def reindex_all(self, batch_size: int = 20) -> dict:
+        """
+        embedding이 NULL인 모든 행에 대해 임베딩을 생성/저장.
+        관리자 대시보드에서 '임베딩 재인덱싱' 버튼에 연결.
+        반환: {"total", "ok", "fail"}
+        """
+        if not self.sb:
+            return {"total": 0, "ok": 0, "fail": 0}
+        try:
+            rows = (self.sb.table(self.TABLE)
+                    .select("id,topic,summary_ko")
+                    .is_("embedding", "null")
+                    .limit(batch_size)
+                    .execute().data or [])
+        except Exception:
+            return {"total": 0, "ok": 0, "fail": 0}
+
+        ok, fail = 0, 0
+        for row in rows:
+            text = f"{row.get('topic','')} {row.get('summary_ko','')}"
+            if self.upsert(row["id"], text):
+                ok += 1
+            else:
+                fail += 1
+            time.sleep(0.1)  # API 레이트 리밋 방지
+        return {"total": len(rows), "ok": ok, "fail": fail}
+
+
+# ---------------------------------------------------------------------------
+# 10. 전문가 리포트 PDF 자동 생성기
+#     한글 폰트 자동 탐색 (Windows/Linux/macOS) + 페이지 자동 넘김
+#     + 민감정보(주민번호·전화번호) 마스킹 + 전송 후 자동 삭제
+# ---------------------------------------------------------------------------
+class ExpertPDFGenerator:
+    """
+    보상 분석 리포트를 A4 PDF로 변환.
+    reportlab 기반 — 한글 폰트 자동 탐색, 페이지 자동 넘김, 민감정보 마스킹.
+    생성된 PDF는 /tmp/에 임시 저장 → Streamlit download_button 제공 → 즉시 삭제.
+
+    사용 예시:
+        pdf_gen = ExpertPDFGenerator()
+        pdf_bytes = pdf_gen.generate(
+            title     = "보상 분석 리포트 — 홍길동",
+            report_md = result["report_md"],
+            calc_result = result["calc_result"],
+            customer_name = "홍길동",
+        )
+        # pdf_bytes → st.download_button(data=pdf_bytes, ...)
+    """
+
+    # 한글 폰트 탐색 경로 (우선순위 순)
+    _FONT_CANDIDATES = [
+        # Windows
+        "C:/Windows/Fonts/malgun.ttf",
+        "C:/Windows/Fonts/NanumGothic.ttf",
+        "C:/Windows/Fonts/gulim.ttc",
+        # Linux (HuggingFace Spaces)
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        # macOS
+        "/Library/Fonts/AppleGothic.ttf",
+        "/System/Library/Fonts/Supplemental/AppleGothic.ttf",
+    ]
+    _MARGIN_LEFT   = 55
+    _MARGIN_RIGHT  = 55
+    _MARGIN_TOP    = 60
+    _LINE_HEIGHT   = 16
+    _FONT_SIZE_H1  = 15
+    _FONT_SIZE_H2  = 12
+    _FONT_SIZE_BODY = 10
+    _FONT_SIZE_TINY = 8
+
+    # 민감정보 마스킹 패턴
+    _MASK_PATTERNS = [
+        (re.compile(r'\d{6}-\d{7}'),      lambda m: m.group()[:7] + "******"),   # 주민번호
+        (re.compile(r'0\d{1,2}-\d{3,4}-\d{4}'), lambda m: m.group()[:3] + "-****-****"), # 전화
+        (re.compile(r'\d{10,11}'),         lambda m: m.group()[:3] + "****" + m.group()[-2:]), # 번호류
+    ]
+
+    def __init__(self):
+        self._font_name  = "Helvetica"
+        self._font_registered = False
+        self._try_register_font()
+
+    def _try_register_font(self):
+        """한글 폰트 자동 탐색 및 등록"""
+        try:
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
+            for path in self._FONT_CANDIDATES:
+                if os.path.exists(path):
+                    try:
+                        pdfmetrics.registerFont(TTFont("KoreanFont", path))
+                        self._font_name       = "KoreanFont"
+                        self._font_registered = True
+                        break
+                    except Exception:
+                        continue
+        except ImportError:
+            pass
+
+    @staticmethod
+    def _mask_sensitive(text: str) -> str:
+        """주민번호·전화번호 등 민감정보 자동 마스킹"""
+        for pattern, repl in ExpertPDFGenerator._MASK_PATTERNS:
+            text = pattern.sub(repl, text)
+        return text
+
+    @staticmethod
+    def _strip_markdown(text: str) -> str:
+        """Markdown 기호 제거 → PDF 평문 변환"""
+        text = re.sub(r'^\s*#{1,6}\s*', '', text, flags=re.MULTILINE)  # 헤딩
+        text = re.sub(r'\*{1,3}([^*]+)\*{1,3}', r'\1', text)           # bold/italic
+        text = re.sub(r'`([^`]+)`', r'\1', text)                        # inline code
+        text = re.sub(r'^\s*[-*]\s+', '  • ', text, flags=re.MULTILINE) # 목록
+        return text
+
+    def generate(self, title: str, report_md: str,
+                 calc_result: dict | None = None,
+                 customer_name: str = "",
+                 topic: str = "") -> bytes:
+        """
+        PDF 생성 후 bytes로 반환.
+        반환된 bytes를 st.download_button(data=...) 에 직접 전달 가능.
+        파일시스템에 잔류하지 않음 (io.BytesIO 인메모리 처리).
+        """
+        try:
+            from reportlab.pdfgen import canvas as rl_canvas
+            from reportlab.lib.pagesizes import A4
+            import io
+        except ImportError:
+            return b""
+
+        buf    = __import__("io").BytesIO()
+        c      = rl_canvas.Canvas(buf, pagesize=A4)
+        width, height = A4
+        text_width = width - self._MARGIN_LEFT - self._MARGIN_RIGHT
+        y = height - self._MARGIN_TOP
+
+        def _set_font(size: int, bold: bool = False):
+            if self._font_registered:
+                c.setFont(self._font_name, size)
+            else:
+                c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+
+        def _new_page():
+            nonlocal y
+            c.showPage()
+            y = height - self._MARGIN_TOP
+            # 페이지 헤더
+            _set_font(self._FONT_SIZE_TINY)
+            c.setFillColorRGB(0.6, 0.6, 0.6)
+            c.drawString(self._MARGIN_LEFT, height - 30,
+                         f"골드키 보상 분석 리포트  |  {customer_name}  |  {dt.now().strftime('%Y-%m-%d')}")
+            c.setFillColorRGB(0, 0, 0)
+
+        def _check_page(lines_needed: int = 1):
+            nonlocal y
+            if y < self._MARGIN_TOP + self._LINE_HEIGHT * lines_needed:
+                _new_page()
+
+        def _draw_line(text: str, size: int = None, bold: bool = False,
+                       indent: int = 0, color=(0, 0, 0)):
+            nonlocal y
+            _check_page()
+            _set_font(size or self._FONT_SIZE_BODY, bold)
+            c.setFillColorRGB(*color)
+            c.drawString(self._MARGIN_LEFT + indent, y, text[:110])
+            y -= self._LINE_HEIGHT
+            c.setFillColorRGB(0, 0, 0)
+
+        def _draw_paragraph(text: str, size: int = None, indent: int = 0):
+            """긴 텍스트를 width 기준으로 자동 줄바꿈"""
+            nonlocal y
+            _set_font(size or self._FONT_SIZE_BODY)
+            max_chars = int(text_width / ((size or self._FONT_SIZE_BODY) * 0.55))
+            words = text.split()
+            line  = ""
+            for w in words:
+                if len(line) + len(w) + 1 <= max_chars:
+                    line = (line + " " + w).strip()
+                else:
+                    _check_page()
+                    c.drawString(self._MARGIN_LEFT + indent, y, line)
+                    y -= self._LINE_HEIGHT
+                    line = w
+            if line:
+                _check_page()
+                c.drawString(self._MARGIN_LEFT + indent, y, line)
+                y -= self._LINE_HEIGHT
+
+        # ── 표지 ────────────────────────────────────────────────────────
+        c.setFillColorRGB(0.18, 0.23, 0.36)
+        c.rect(0, height - 120, width, 120, fill=True, stroke=False)
+        c.setFillColorRGB(1, 1, 1)
+        _set_font(self._FONT_SIZE_H1 + 2, bold=True)
+        c.drawString(self._MARGIN_LEFT, height - 55, "보험 보상 전문가 분석 리포트")
+        _set_font(self._FONT_SIZE_BODY)
+        c.drawString(self._MARGIN_LEFT, height - 78,
+                     f"고객명: {customer_name or '(미입력)'}    "
+                     f"작성일: {dt.now().strftime('%Y년 %m월 %d일')}")
+        if topic:
+            c.drawString(self._MARGIN_LEFT, height - 96, f"주제: {topic[:60]}")
+        c.setFillColorRGB(0, 0, 0)
+        y = height - 140
+
+        # ── 면책 고지 박스 ──────────────────────────────────────────────
+        c.setFillColorRGB(1.0, 0.97, 0.85)
+        c.rect(self._MARGIN_LEFT, y - 36, width - 110, 34, fill=True, stroke=False)
+        c.setFillColorRGB(0.7, 0.3, 0)
+        _set_font(self._FONT_SIZE_TINY)
+        c.drawString(self._MARGIN_LEFT + 6, y - 16,
+                     "⚠ 본 리포트는 보험 보상 실무 참고용입니다. "
+                     "확정적 의학 진단은 전문의, 법률 해석은 변호사 소견에 따릅니다.")
+        c.drawString(self._MARGIN_LEFT + 6, y - 28,
+                     "개인정보는 업무 목적 외 사용 금지. 민감정보는 자동 마스킹 처리됩니다.")
+        c.setFillColorRGB(0, 0, 0)
+        y -= 50
+
+        # ── Deterministic 산출 결과 표 ───────────────────────────────────
+        if calc_result and calc_result.get("items"):
+            _draw_line("▶ 보험금 산출 결과 (확정적 계산)", self._FONT_SIZE_H2,
+                       bold=True, color=(0.18, 0.23, 0.36))
+            y -= 4
+            # 표 헤더
+            c.setFillColorRGB(0.18, 0.23, 0.36)
+            c.rect(self._MARGIN_LEFT, y - 2, width - 110, 16, fill=True, stroke=False)
+            c.setFillColorRGB(1, 1, 1)
+            _set_font(self._FONT_SIZE_TINY, bold=True)
+            c.drawString(self._MARGIN_LEFT + 4,  y + 8, "담보명")
+            c.drawString(self._MARGIN_LEFT + 200, y + 8, "장해율")
+            c.drawString(self._MARGIN_LEFT + 270, y + 8, "예상 지급액")
+            c.drawString(self._MARGIN_LEFT + 370, y + 8, "지급 여부")
+            c.setFillColorRGB(0, 0, 0)
+            y -= 18
+            # 표 행
+            for i, it in enumerate(calc_result["items"]):
+                _check_page(2)
+                bg = 0.96 if i % 2 == 0 else 1.0
+                c.setFillColorRGB(bg, bg, bg)
+                c.rect(self._MARGIN_LEFT, y - 2, width - 110, 14,
+                       fill=True, stroke=False)
+                c.setFillColorRGB(0, 0, 0)
+                _set_font(self._FONT_SIZE_TINY)
+                c.drawString(self._MARGIN_LEFT + 4,  y + 6, it.get("name","")[:30])
+                c.drawString(self._MARGIN_LEFT + 200, y + 6, f"{it.get('rate_pct',0):.1f}%")
+                c.drawString(self._MARGIN_LEFT + 270, y + 6,
+                             DeterministicBenefitCalc.format_won(it.get("benefit_won", 0)))
+                paid_color = (0.1, 0.5, 0.1) if it.get("payable") else (0.7, 0.1, 0.1)
+                c.setFillColorRGB(*paid_color)
+                c.drawString(self._MARGIN_LEFT + 370, y + 6,
+                             "✔ 지급" if it.get("payable") else "✘ 미지급")
+                c.setFillColorRGB(0, 0, 0)
+                y -= 14
+            # 합계
+            _draw_line(
+                f"총 예상 보험금: {DeterministicBenefitCalc.format_won(calc_result.get('total_won',0))}",
+                self._FONT_SIZE_BODY, bold=True, indent=4, color=(0.1, 0.3, 0.7)
+            )
+            if calc_result.get("warnings"):
+                for w in calc_result["warnings"]:
+                    _draw_line(w, self._FONT_SIZE_TINY, indent=4, color=(0.7, 0.3, 0))
+            y -= 8
+
+        # ── 리포트 본문 ──────────────────────────────────────────────────
+        _draw_line("▶ 전문가 분석 리포트", self._FONT_SIZE_H2,
+                   bold=True, color=(0.18, 0.23, 0.36))
+        y -= 4
+        report_plain = self._strip_markdown(self._mask_sensitive(report_md))
+        for raw_line in report_plain.split("\n"):
+            line = raw_line.rstrip()
+            if not line:
+                y -= self._LINE_HEIGHT // 2
+                continue
+            if line.startswith("  •"):
+                _draw_paragraph(line, indent=12)
+            elif line.startswith("[") and line.endswith("]"):
+                y -= 4
+                _draw_line(line, self._FONT_SIZE_H2, bold=True,
+                           color=(0.18, 0.23, 0.36))
+                y -= 2
+            else:
+                _draw_paragraph(line)
+
+        # ── 푸터 ─────────────────────────────────────────────────────────
+        _check_page(3)
+        y -= 10
+        c.setFillColorRGB(0.7, 0.7, 0.7)
+        c.line(self._MARGIN_LEFT, y, width - self._MARGIN_RIGHT, y)
+        y -= 14
+        _set_font(self._FONT_SIZE_TINY)
+        c.drawString(self._MARGIN_LEFT, y,
+                     f"케이지에이에셋 골드키지사  |  생성일시: {dt.now().strftime('%Y-%m-%d %H:%M')}  "
+                     f"|  본 문서는 AI 보조 분석 도구로 생성되었습니다.")
+        c.setFillColorRGB(0, 0, 0)
+
+        c.save()
+        return buf.getvalue()
+
+    def generate_and_delete(self, **kwargs) -> bytes:
+        """
+        generate()와 동일하나 명시적으로 인메모리 처리 강조.
+        파일시스템에 PDF가 잔류하지 않음 — 보안 원칙 준수.
+        """
+        return self.generate(**kwargs)

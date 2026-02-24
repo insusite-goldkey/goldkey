@@ -9883,6 +9883,134 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
                             else:
                                 st.error(f"❌ 저장 실패: {_sv.get('reason','')}")
 
+                        # ── PDF 다운로드 ──────────────────────────────────
+                        st.markdown("---")
+                        _pdf_col1, _pdf_col2 = st.columns([2, 1])
+                        with _pdf_col1:
+                            _pdf_cname = st.text_input(
+                                "고객명 (PDF 표지에 표시)",
+                                placeholder="예) 홍길동",
+                                key="ea_pdf_cname"
+                            )
+                        with _pdf_col2:
+                            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                            if st.button("📄 PDF 리포트 생성", key="btn_ea_pdf",
+                                         use_container_width=True):
+                                try:
+                                    from expert_agent import ExpertPDFGenerator
+                                    _pdf_gen = ExpertPDFGenerator()
+                                    _pdf_bytes = _pdf_gen.generate(
+                                        title         = f"보상 분석 리포트",
+                                        report_md     = _ea_res.get("summary_ko", ""),
+                                        calc_result   = _ea_res.get("calc_result"),
+                                        customer_name = _pdf_cname or "고객",
+                                        topic         = _ea_res.get("topic", ""),
+                                    )
+                                    st.session_state["_ea_pdf_bytes"] = _pdf_bytes
+                                    st.session_state["_ea_pdf_cname"] = _pdf_cname or "고객"
+                                except Exception as _pe:
+                                    st.error(f"PDF 생성 오류: {_pe}")
+
+                        if st.session_state.get("_ea_pdf_bytes"):
+                            _dl_name = (
+                                f"Report_{st.session_state.get('_ea_pdf_cname','고객')}_"
+                                f"{dt.now().strftime('%Y%m%d')}.pdf"
+                            )
+                            st.download_button(
+                                label    = "⬇️ PDF 다운로드",
+                                data     = st.session_state["_ea_pdf_bytes"],
+                                file_name = _dl_name,
+                                mime     = "application/pdf",
+                                key      = "btn_ea_pdf_dl",
+                                use_container_width = True,
+                            )
+                            st.caption("📌 다운로드 완료 후 파일은 서버에 잔류하지 않습니다 (인메모리 처리).")
+
+                    st.divider()
+
+                    # ── Vector Store 임베딩 관리 ──────────────────────────
+                    st.markdown("#### 🧮 Vector Store (Gemini text-embedding-004)")
+                    st.caption(
+                        "지식 버킷의 `embedding` 컬럼을 채워야 벡터 유사도 검색이 활성화됩니다. "
+                        "Supabase SQL Editor에서 DDL을 1회 실행한 뒤 아래 버튼을 클릭하세요."
+                    )
+                    with st.expander("📋 Supabase SQL DDL (1회 실행)", expanded=False):
+                        st.code("""-- 1. embedding 컬럼 추가
+ALTER TABLE gk_expert_knowledge
+  ADD COLUMN IF NOT EXISTS embedding VECTOR(768);
+
+-- 2. IVFFlat 인덱스 생성 (코사인 유사도)
+CREATE INDEX IF NOT EXISTS idx_gk_expert_knowledge_embedding
+  ON gk_expert_knowledge
+  USING ivfflat (embedding vector_cosine_ops)
+  WITH (lists = 100);
+
+-- 3. 유사도 검색 RPC 함수
+CREATE OR REPLACE FUNCTION match_expert_knowledge(
+  query_embedding VECTOR(768), match_count INT DEFAULT 5
+)
+RETURNS TABLE (
+  id BIGINT, topic TEXT, summary_ko TEXT,
+  source_type TEXT, source_url TEXT,
+  confidence NUMERIC, similarity FLOAT
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+  RETURN QUERY
+  SELECT e.id, e.topic, e.summary_ko, e.source_type, e.source_url,
+         e.confidence,
+         1 - (e.embedding <=> query_embedding) AS similarity
+  FROM gk_expert_knowledge e
+  WHERE e.embedding IS NOT NULL
+  ORDER BY e.embedding <=> query_embedding
+  LIMIT match_count;
+END; $$;""", language="sql")
+
+                    _vs_c1, _vs_c2 = st.columns(2)
+                    with _vs_c1:
+                        if st.button("🔄 임베딩 재인덱싱 (NULL 행 일괄 처리)",
+                                     key="btn_ea_reindex", use_container_width=True):
+                            with st.spinner("Gemini text-embedding-004 벡터화 중..."):
+                                try:
+                                    from expert_agent import GeminiVectorStore
+                                    _vs = GeminiVectorStore(_ea_gc, _ea_sb)
+                                    _ri = _vs.reindex_all(batch_size=20)
+                                    st.success(
+                                        f"완료: 총 {_ri['total']}건 처리 / "
+                                        f"성공 {_ri['ok']}건 / 실패 {_ri['fail']}건"
+                                    )
+                                except Exception as _ve:
+                                    st.error(f"재인덱싱 오류: {_ve}")
+                    with _vs_c2:
+                        _vs_srch = st.text_input(
+                            "벡터 유사도 검색 테스트",
+                            placeholder="예) 뇌경색 장해 판례",
+                            key="ea_vs_search"
+                        )
+                        if _vs_srch:
+                            try:
+                                from expert_agent import GeminiVectorStore
+                                _vs2 = GeminiVectorStore(_ea_gc, _ea_sb)
+                                _vh  = _vs2.similarity_search(_vs_srch, k=3)
+                                if _vh:
+                                    for _vh_item in _vh:
+                                        _sim = _vh_item.get("similarity", 0)
+                                        _sim_str = f"{_sim:.3f}" if _sim else "ILIKE"
+                                        st.markdown(
+                                            f"<div style='background:#f0f6ff;border-left:3px solid #2e6da4;"
+                                            f"border-radius:6px;padding:7px 10px;margin-bottom:4px;"
+                                            f"font-size:0.76rem;'>"
+                                            f"<b>{_vh_item.get('topic','')}</b>"
+                                            f" | 유사도 <b>{_sim_str}</b>"
+                                            f" | 신뢰도 {_vh_item.get('confidence',0):.0f}%<br>"
+                                            f"{_vh_item.get('summary_ko','')[:200]}...</div>",
+                                            unsafe_allow_html=True
+                                        )
+                                else:
+                                    st.info("결과 없음 — 임베딩 재인덱싱 후 재시도")
+                            except Exception as _ve2:
+                                st.error(f"벡터 검색 오류: {_ve2}")
+
                     st.divider()
 
                     # ── 승인 대기 목록 ───────────────────────────────────
