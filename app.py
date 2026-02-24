@@ -380,21 +380,36 @@ def setup_database():
     except (sqlite3.OperationalError, OSError):
         pass  # Cloud 환경 DB 생성 실패 시 앱 크래시 방지
 
-def load_members():
-    """회원 목록 로드 — Supabase 우선, /tmp JSON 폴백"""
+@st.cache_resource
+def _get_member_cache():
+    """회원 목록 TTL 캐시 저장소 {data, ts}"""
+    return {"data": None, "ts": 0.0}
+
+def load_members(force: bool = False):
+    """회원 목록 로드 — 30초 TTL 캐시 → Supabase → /tmp JSON 폴백
+    force=True: 캐시 무시하고 즉시 재로드 (가입/저장 직후 호출용)
+    """
+    _cache = _get_member_cache()
+    _now = time.time()
+    # ── 캐시 유효 시 즉시 반환 (30초 TTL) ────────────────────────────────
+    if not force and _cache["data"] is not None and (_now - _cache["ts"]) < 30:
+        return _cache["data"]
     # ── Supabase 우선 ────────────────────────────────────────────────────
     if _SB_PKG_OK:
         try:
             sb = _get_sb_client()
             if sb:
                 rows = sb.table("gk_members").select("*").execute().data or []
-                return {r["name"]: {
+                result = {r["name"]: {
                     "user_id":          r.get("user_id", ""),
                     "contact":          r.get("contact", ""),
                     "join_date":        r.get("join_date", ""),
                     "subscription_end": r.get("subscription_end", ""),
                     "is_active":        bool(r.get("is_active", True))
                 } for r in rows}
+                _cache["data"] = result
+                _cache["ts"]   = _now
+                return result
         except Exception:
             pass
     # ── /tmp JSON 폴백 ───────────────────────────────────────────────────
@@ -402,7 +417,10 @@ def load_members():
         return {}
     try:
         with open(MEMBER_DB, "r", encoding="utf-8") as f:
-            return json.load(f)
+            result = json.load(f)
+            _cache["data"] = result
+            _cache["ts"]   = _now
+            return result
     except (json.JSONDecodeError, IOError):
         return {}
 
@@ -422,6 +440,7 @@ def save_members(members):
                         "subscription_end": m.get("subscription_end", ""),
                         "is_active":        bool(m.get("is_active", True))
                     }, on_conflict="name").execute()
+                _get_member_cache().update({"data": None, "ts": 0.0})  # 캐시 무효화
                 return
         except Exception:
             pass
@@ -432,6 +451,7 @@ def save_members(members):
         with os.fdopen(tmp_fd, 'w', encoding='utf-8') as f:
             json.dump(members, f, ensure_ascii=False)
         shutil.move(tmp_path, MEMBER_DB)
+        _get_member_cache().update({"data": None, "ts": 0.0})  # 캐시 무효화
     except (IOError, OSError):
         pass
 
@@ -589,6 +609,7 @@ def load_error_log() -> list:
 #   └── 신규상품/{파일명}.pdf  ← 미분류 폴백
 # --------------------------------------------------------------------------
 SB_BUCKET = "goldkey"
+GCS_BUCKET = "insu-archive-2026"  # GCS 예비 버킷명 (용량 초과 시 자동 폴백)
 
 try:
     from supabase import create_client as _sb_create_client
@@ -596,6 +617,41 @@ try:
 except Exception:
     _sb_create_client = None
     _SB_PKG_OK = False
+
+def _get_gcs_client():
+    """GCS 클라이언트 반환 (폴백용)
+    우선순위 1: secrets.toml [gcs] 섹션
+    우선순위 2: HF Secrets 환경변수 GCS_*
+    """
+    try:
+        from google.cloud import storage
+        from google.oauth2 import service_account
+        gcs_cfg = {}
+        try:
+            gcs_cfg = dict(st.secrets.get("gcs", {}))
+        except Exception:
+            pass
+        if not gcs_cfg or not gcs_cfg.get("private_key"):
+            pk = os.environ.get("GCS_PRIVATE_KEY", "")
+            if pk:
+                gcs_cfg = {
+                    "type":           os.environ.get("GCS_TYPE", "service_account"),
+                    "project_id":     os.environ.get("GCS_PROJECT_ID", ""),
+                    "private_key_id": os.environ.get("GCS_PRIVATE_KEY_ID", ""),
+                    "private_key":    pk.replace("\\n", "\n"),
+                    "client_email":   os.environ.get("GCS_CLIENT_EMAIL", ""),
+                    "client_id":      os.environ.get("GCS_CLIENT_ID", ""),
+                    "auth_uri":       "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri":      "https://oauth2.googleapis.com/token",
+                }
+        if not gcs_cfg or not gcs_cfg.get("private_key"):
+            return None
+        creds = service_account.Credentials.from_service_account_info(
+            gcs_cfg, scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        return storage.Client(credentials=creds, project=gcs_cfg.get("project_id"))
+    except Exception:
+        return None
 
 @st.cache_resource
 def _get_sb_client_cached(url: str, key: str):
@@ -657,19 +713,32 @@ def _build_gcs_path(doc_type: str, ins_co: str, year: str, file_name: str) -> st
 
 def gcs_upload_file(file_bytes: bytes, gcs_path: str,
                     content_type: str = "application/pdf") -> bool:
-    """Supabase Storage에 파일 업로드"""
+    """Supabase Storage에 파일 업로드 — 실패 시 GCS 자동 폴백"""
+    # ── 1차: Supabase ────────────────────────────────────────────
     try:
         sb = _get_sb_client()
-        if not sb:
-            return False
-        sb.storage.from_(SB_BUCKET).upload(
-            path=gcs_path,
-            file=file_bytes,
-            file_options={"content-type": content_type, "upsert": "true"}
-        )
-        return True
+        if sb:
+            sb.storage.from_(SB_BUCKET).upload(
+                path=gcs_path,
+                file=file_bytes,
+                file_options={"content-type": content_type, "upsert": "true"}
+            )
+            return True
     except Exception as e:
-        log_error("SB업로드", str(e))
+        log_error("SB업로드_폴백시도", str(e))
+    # ── 2차 폴백: GCS (Supabase 실패·용량초과 시 자동 전환) ──────
+    try:
+        gcs = _get_gcs_client()
+        if not gcs:
+            log_error("GCS폴백", "GCS 클라이언트 없음 — secrets.toml [gcs] 확인 필요")
+            return False
+        bucket = gcs.bucket(GCS_BUCKET)
+        blob = bucket.blob(gcs_path)
+        blob.upload_from_string(file_bytes, content_type=content_type)
+        log_error("GCS폴백", f"Supabase 실패 → GCS 폴백 업로드 성공: {gcs_path}")
+        return True
+    except Exception as e2:
+        log_error("GCS폴백업로드", str(e2))
         return False
 
 def gcs_list_files(prefix: str = "") -> list:
@@ -2354,6 +2423,9 @@ def main():
         _rag_supabase_ensure_tables()  # Supabase RAG 테이블 자동 생성 (모듈 로드 후 안전한 시점)
         st.session_state.db_ready = True
 
+    # ── 자가 진단 엔진 — 세션당 1회 자동 실행 ──────────────────────────
+    _run_self_diagnosis()
+
     # ── 심야 자동 RAG 처리 (22:00~06:00) — 세션당 1회 ───────────────────
     if not st.session_state.get("_night_process_done"):
         _now_h = dt.now().hour  # 서버 시간 기준 (HF Spaces = UTC → KST +9)
@@ -2520,6 +2592,20 @@ def main():
         _is_adm = st.session_state.get("is_admin", False)
         _badge  = " 👑 관리자" if _is_adm else ""
         st.toast(f"✅ {_welcome_name}님{_badge} 로그인되었습니다!", icon="🎉")
+
+    # ── 사이드바 스크롤 CSS ───────────────────────────────────────────────
+    st.markdown("""
+<style>
+section[data-testid="stSidebar"] > div:first-child {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: 100vh !important;
+    padding-bottom: 40px !important;
+}
+section[data-testid="stSidebar"] {
+    overflow: hidden !important;
+}
+</style>""", unsafe_allow_html=True)
 
     # ── 사이드바 ──────────────────────────────────────────────────────────
     with st.sidebar:
@@ -3118,9 +3204,11 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
     cur = st.session_state.get("current_tab", "home")
 
     # ── 공통 AI 쿼리 블록 ────────────────────────────────────────────────
-    def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요."):
+    def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요.", product_key=""):
         c_name = st.text_input("고객 성함", "우량 고객", key=f"c_name_{tab_key}")
         st.session_state.current_c_name = c_name
+        if product_key:
+            st.session_state[f"product_key_{tab_key}"] = product_key
         stt_lang_map = {"한국어":"ko-KR","English":"en-US","日本語":"ja-JP","中文":"zh-CN","ภาษาไทย":"th-TH","Tiếng Việt":"vi-VN","Русский":"ru-RU"}
         stt_greet_map = {
             "한국어": "안녕하세요. 골드키 AI 마스터입니다. 무엇을 도와드릴까요?",
@@ -3351,7 +3439,89 @@ window['startTTS_{tab_key}']=function(){{
 }})();
 </script>
 """, height=72)
-        return c_name, query, hi_premium, do_analyze
+        _pkey = st.session_state.get(f"product_key_{tab_key}", product_key)
+        return c_name, query, hi_premium, do_analyze, _pkey
+
+    # ── 마스터 시스템 프롬프트 (30년 베테랑 멘토 페르소나) ────────────────────
+    MASTER_SYSTEM_PROMPT = """
+[시스템 지시 — 골드키AI마스터 핵심 정체성]
+
+# Role: 30년 경력의 보험 명장 (The Insurance Master)
+당신은 대한민국 보험 시장의 산전수전을 다 겪은 30년 경력의 베테랑 설계사입니다.
+주 사용자는 후배 설계사들이며, 그들에게 2인칭('후배님')으로 현장 실무 조언을 제공합니다.
+단순 정보 전달이 아니라, 고객 앞에서 바로 쓸 수 있는 '화법'과 '전략'을 전수하는 것이 목표입니다.
+
+# Core Logic: 보장분석 알고리즘 우선순위 (반드시 이 순서로 분석)
+1. [Survival] 실손의료비 / 일상생활배상책임 — 최신 4세대 실손 전환 이슈 반영
+2. [Critical] 3대 질병(암·뇌·심) 진단비 및 수술비 — 보장 범위 최적화
+3. [Care] 치매·간병·LTC — 가족 부양 리스크 방어
+4. [Legacy] 종신/정기보험 — 상속세 재원 및 유가족 생활비
+
+# Output Style & Tone
+- 후배 설계사에게 현장에서 바로 쓸 수 있는 '화법'을 구체적으로 전수합니다.
+- 법적 근거(금감원 보도자료, 대법원 판례, 표준약관)를 인용하여 전문성을 높여줍니다.
+- "후배님, 고객에게 이렇게 물어보세요:" 형식으로 실행 중심 지침을 제공합니다.
+- 분석 결과는 반드시 위 4단계 알고리즘 순서로 구조화하여 제시합니다.
+
+# Compliance (금소법 준수 — 절대 위반 금지)
+- "무조건", "100% 보장", "반드시 받을 수 있다" 등 단정적 표현 금지
+- 모든 보장 언급 시 "약관 기준 충족 시", "심사 결과에 따라" 전제 필수
+- 금소법 6대 판매원칙(적합성·적정성·설명의무·불공정영업금지·부당권유금지·광고규제) 준수
+- 중요 면책·감액 조항은 반드시 명시 (금소법 제19조 설명의무)
+- 종신보험 언급 시 납입자·수익자 관계 명시 (상증세법 제8조 준수)
+- 치매보험 언급 시 CDR 척도 기준 및 의학적 임상 진단 요건 명시 (표준약관 개정안)
+""".strip()
+
+    # ── 이의처리 화법 RAG 데이터 (현장 즉시 활용) ────────────────────────────
+    OBJECTION_SCRIPTS = {
+        "실손_보험료인상": {
+            "objection": "실손 보험료가 너무 많이 올랐어요",
+            "script": (
+                "후배님, 이렇게 말씀하세요: '고객님, 지금 가입하신 실손보험이 몇 세대인지 확인해 드릴게요. "
+                "4세대 실손으로 전환하시면 보험료를 낮추면서도 핵심 보장은 유지할 수 있습니다. "
+                "게다가 전환 후 6개월 이내에는 철회권이 보장됩니다.'"
+            ),
+            "legal_basis": "금융감독원 2024년 5월 실손의료보험 전환 활성화 보도자료 / 금소법 제46조 청약철회권",
+        },
+        "치매_자녀수발": {
+            "objection": "자녀가 수발하면 되지 않나요?",
+            "script": (
+                "후배님, 감성적 접근이 효과적입니다: '고객님, 자녀분의 효심을 지켜드리는 것이 "
+                "바로 부모님의 간병비 준비입니다. 간병비가 없으면 효심이 부담이 됩니다. "
+                "치매 환자 평균 간병 기간은 8.4년, 월 간병비는 200~300만원입니다.'"
+            ),
+            "legal_basis": "치매보험 지정대리청구인 제도 필수 안내 지침 / 장기요양보험법 제23조",
+        },
+        "암_기존보험있음": {
+            "objection": "암보험은 이미 있어요",
+            "script": (
+                "후배님, 이렇게 확인하세요: '고객님, 지금 가입하신 암보험에 "
+                "표적항암약물 허가치료비 담보가 있으신가요? "
+                "NGS 검사 후 표적항암 치료를 받으시면 연간 1억~2억 비용이 발생하는데, "
+                "이 담보 없이는 실손으로도 한계가 있습니다.'"
+            ),
+            "legal_basis": "건강보험심사평가원 항암제 급여 기준 / 암보험 표준약관 제3조",
+        },
+        "보험료_부담": {
+            "objection": "보험료가 너무 비싸요",
+            "script": (
+                "후배님, 황금비율로 접근하세요: '고객님 건강보험료를 알려주시면 "
+                "월 소득을 역산해 드릴게요. 적정 보험료는 가처분소득의 7~10%입니다. "
+                "지금 내시는 보험료가 이 범위 안에 있는지 먼저 확인해 보겠습니다.'"
+            ),
+            "legal_basis": "금소법 제17조 적합성 원칙 — 소득 대비 적정 보험료 산출 의무",
+        },
+        "종신_필요없음": {
+            "objection": "종신보험은 필요 없어요",
+            "script": (
+                "후배님, 상속 관점으로 전환하세요: '고객님, 종신보험의 핵심은 사망보장이 아니라 "
+                "상속세 재원 마련입니다. 사망보험금은 상속재산에서 제외되어 "
+                "유가족이 세금 없이 받을 수 있습니다. "
+                "단, 납입자와 수익자 관계 설정이 중요합니다.'"
+            ),
+            "legal_basis": "상증세법 제8조 — 보험금 상속세 과세 요건 / 대법원 2013다217498 판결",
+        },
+    }
 
     # ── 제품별 가드레일 시스템 프롬프트 ─────────────────────────────────────
     _PRODUCT_GUARDRAILS = {
@@ -3381,21 +3551,59 @@ window['startTTS_{tab_key}']=function(){{
         ),
     }
 
-    def _validate_response(answer: str, product_key: str) -> str:
-        """포스트프로세싱: 답변에 금지 키워드 포함 시 경고 배너 삽입"""
+    # ── 내부 검증 규칙 (Verifier) ────────────────────────────────────────────
+    _VERIFIER_RULES = [
+        {
+            "id": "compliance_disclaimer",
+            "triggers": ["보장", "지급", "청구", "진단비", "수술비", "보험금"],
+            "missing_check": lambda a: not any(k in a for k in ["약관 기준", "심사 결과", "충족 시", "해당 시"]),
+            "warning": "⚠️ **[컴플라이언스 확인]** 보장·지급 관련 내용에 '약관 기준 충족 시' 전제가 누락되었을 수 있습니다. 고객 안내 전 반드시 확인하세요. (금소법 제19조 설명의무)",
+        },
+        {
+            "id": "inheritance_tax",
+            "triggers": ["종신보험", "사망보험금", "상속세", "상속재산"],
+            "missing_check": lambda a: not any(k in a for k in ["납입자", "수익자", "계약자", "상증세법"]),
+            "warning": "⚠️ **[상속세 검증]** 종신보험·사망보험금 언급 시 납입자·수익자 관계 명시가 필요합니다. (상증세법 제8조)",
+        },
+        {
+            "id": "dementia_diagnosis",
+            "triggers": ["치매보험", "치매 진단", "치매진단", "장기요양"],
+            "missing_check": lambda a: not any(k in a for k in ["CDR", "임상 진단", "의학적", "척도"]),
+            "warning": "⚠️ **[치매 진단 기준]** 치매보험 언급 시 CDR 척도 기준 및 의학적 임상 진단 요건 명시가 필요합니다. (표준약관 개정안)",
+        },
+    ]
+
+    def _validate_response(answer: str, product_key: str, result_key: str = "") -> str:
+        """포스트프로세싱: 금지 키워드 감지 + 내부 Verifier 체크"""
+        # ── 1. 제품별 금지 키워드 감지 → 추가 답변 버튼용 세션 저장 ──────
         info = _PRODUCT_GUARDRAILS.get(product_key)
         if not info:
-            return answer
-        _, forbidden_kw, _, _ = info
-        found = [kw for kw in forbidden_kw if kw in answer]
-        if found:
-            warn = (
-                f"\n\n> ⚠️ **[상담 범위 경고]** "
-                f"이 답변에 상담 상품({product_key})과 "
-                f"직접 관련이 적은 키워드({', '.join(found)})가 "
-                f"포함되었습니다. 상담 상품에 집중하여 확인하세요."
-            )
-            return answer + warn
+            if result_key:
+                st.session_state.pop(f"_forbidden_{result_key}", None)
+        else:
+            _, forbidden_kw, _, _ = info
+            found = [kw for kw in forbidden_kw if kw in answer]
+            if result_key:
+                if found:
+                    st.session_state[f"_forbidden_{result_key}"] = {
+                        "hits": found,
+                        "product_key": product_key,
+                        "round": st.session_state.get(f"_forbidden_{result_key}", {}).get("round", 0),
+                    }
+                else:
+                    st.session_state.pop(f"_forbidden_{result_key}", None)
+
+        # ── 2. 내부 Verifier: 컴플라이언스·상속세·치매진단 체크 ──────────
+        verifier_warnings = []
+        for rule in _VERIFIER_RULES:
+            # 해당 트리거 키워드가 답변에 있을 때만 검사
+            if any(t in answer for t in rule["triggers"]):
+                if rule["missing_check"](answer):
+                    verifier_warnings.append(rule["warning"])
+        if verifier_warnings:
+            warn_block = "\n\n---\n" + "\n".join(verifier_warnings)
+            answer = answer + warn_block
+
         return answer
 
     def run_ai_analysis(c_name, query, hi_premium, result_key, extra_prompt="", product_key=""):
@@ -3416,7 +3624,9 @@ window['startTTS_{tab_key}']=function(){{
                 # ── 가드레일 정보 조회 ──────────────────────────────────────
                 guardrail = _PRODUCT_GUARDRAILS.get(product_key)
                 product_hint = guardrail[2] if guardrail else ""
-                sys_prefix   = f"[시스템 지시] {guardrail[3]}\n\n" if guardrail else ""
+                # MASTER_SYSTEM_PROMPT를 베이스로, 제품별 가드레일을 추가 주입
+                product_directive = f"\n\n[제품 전담 지시] {guardrail[3]}" if guardrail else ""
+                sys_prefix = MASTER_SYSTEM_PROMPT + product_directive + "\n\n"
 
                 # ── RAG 검색 (제품 필터 적용) ───────────────────────────────
                 rag_ctx = ""
@@ -3446,14 +3656,18 @@ window['startTTS_{tab_key}']=function(){{
                     resp   = client.models.generate_content(model=GEMINI_MODEL, contents=prompt, config=model_config)
                     answer = sanitize_unicode(resp.text) if resp.text else "AI 응답을 받지 못했습니다."
 
-                # ── 포스트프로세싱: 금지 키워드 경고 ──────────────────────
-                answer = _validate_response(answer, product_key)
+                # ── 포스트프로세싱: 금지 키워드 감지 → 세션 저장 ────────
+                answer = _validate_response(answer, product_key, result_key)
 
                 safe_name = sanitize_unicode(c_name)
                 result_text = (f"### {safe_name}님 골드키AI마스터 정밀 리포트\n\n{answer}\n\n---\n"
                                f"**문의:** insusite@gmail.com | 010-3074-2616\n\n"
                                f"[주의] 최종 책임은 사용자(상담원)에게 귀속됩니다.")
                 st.session_state[result_key] = sanitize_unicode(result_text)
+                # 추가 답변 라운드 초기화 (신규 분석 시)
+                fb_key = f"_forbidden_{result_key}"
+                if fb_key in st.session_state:
+                    st.session_state[fb_key]["round"] = 0
                 update_usage(user_name)
                 components.html(s_voice("분석이 완료되었습니다."), height=0)
                 st.rerun()
@@ -3462,10 +3676,89 @@ window['startTTS_{tab_key}']=function(){{
                 log_error("AI분석", safe_err)
                 st.error(f"분석 오류: {safe_err}")
 
+    def _run_followup_analysis(result_key, product_key, hits, followup_round):
+        """금지 키워드 범위의 추가 답변을 기존 결과에 append"""
+        if 'user_id' not in st.session_state:
+            st.error("로그인이 필요합니다.")
+            return
+        user_name  = st.session_state.get('user_name', '')
+        is_special = st.session_state.get('is_admin', False) or _is_unlimited_user(user_name)
+        if not is_special and check_usage_count(user_name) >= MAX_FREE_DAILY:
+            st.error(f"오늘 {MAX_FREE_DAILY}회 분석을 모두 사용하셨습니다.")
+            return
+        guardrail = _PRODUCT_GUARDRAILS.get(product_key)
+        if not guardrail:
+            return
+        allowed_kw = guardrail[0]
+        product_hint = guardrail[2]
+        hits_str = ', '.join(hits)
+        followup_prompt = (
+            f"[{followup_round}차 추가 답변 요청]\n"
+            f"상담 상품: {product_key}\n"
+            f"고객이 다음 키워드({hits_str})에 대한 추가 설명을 요청하였습니다.\n"
+            f"위 키워드와 [{product_key}] 상품의 연관성, 차이점, 주의사항을 "
+            f"상담원 관점에서 보완 설명하세요. 기존 답변과 중복되지 않도록 새로운 내용을 추가하세요."
+        )
+        with st.spinner(f"{followup_round}차 추가 답변 생성 중..."):
+            try:
+                client, model_config = get_master_model()
+                rag_ctx = ""
+                if st.session_state.rag_system.index is not None:
+                    results = st.session_state.rag_system.search(
+                        hits_str, k=2, product_hint=product_hint
+                    )
+                    if results:
+                        rag_ctx = f"\n\n[참고 자료]\n" + "".join(
+                            f"{i}. {sanitize_unicode(r['text'])}\n"
+                            for i, r in enumerate(results, 1)
+                        )
+                full_prompt = sanitize_unicode(followup_prompt + rag_ctx)
+                if _GW_OK:
+                    add_answer = _gw.call_gemini(client, GEMINI_MODEL, full_prompt, model_config)
+                else:
+                    resp = client.models.generate_content(model=GEMINI_MODEL, contents=full_prompt, config=model_config)
+                    add_answer = sanitize_unicode(resp.text) if resp.text else "추가 답변을 받지 못했습니다."
+                # 기존 결과에 append
+                existing = st.session_state.get(result_key, "")
+                separator = f"\n\n---\n### 📌 {followup_round}차 추가 답변 — {hits_str} 관련 보완\n\n"
+                st.session_state[result_key] = existing + separator + sanitize_unicode(add_answer)
+                # forbidden 상태 업데이트 (라운드 증가, hits 초기화)
+                fb_key = f"_forbidden_{result_key}"
+                st.session_state.pop(fb_key, None)
+                update_usage(user_name)
+                components.html(s_voice(f"{followup_round}차 추가 답변이 완료되었습니다."), height=0)
+                st.rerun()
+            except Exception as e:
+                safe_err = str(e).encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+                log_error("추가답변", safe_err)
+                st.error(f"추가 답변 오류: {safe_err}")
+
     def show_result(result_key, guide_md=""):
         if st.session_state.get(result_key):
             result_text = st.session_state[result_key]
             st.markdown(result_text)
+            # ── 금지 키워드 감지 시 추가 답변 버튼 ─────────────────────────
+            fb_key = f"_forbidden_{result_key}"
+            fb_info = st.session_state.get(fb_key)
+            if fb_info:
+                hits        = fb_info.get("hits", [])
+                pkey        = fb_info.get("product_key", "")
+                cur_round   = fb_info.get("round", 0)
+                next_round  = cur_round + 1
+                hits_str    = ', '.join(hits)
+                st.info(
+                    f"💬 답변에 **{hits_str}** 관련 내용이 포함되어 있습니다.\n\n"
+                    f"해당 내용에 대한 **{next_round}차 추가 답변**을 원하시면 아래 버튼을 누르세요."
+                )
+                if st.button(
+                    f"📋 {next_round}차 추가 답변 받기 — '{hits_str}' 보완 설명 버튼을 누르세요",
+                    key=f"btn_followup_{result_key}_{next_round}",
+                    type="primary",
+                    use_container_width=True,
+                ):
+                    # 라운드 증가 후 추가 분석 실행
+                    st.session_state[fb_key]["round"] = next_round
+                    _run_followup_analysis(result_key, pkey, hits, next_round)
             # ── 출력(인쇄) 기능 ──────────────────────────────────────────
             c_name_out = st.session_state.get('current_c_name', '고객')
             disclaimer = (
@@ -4519,7 +4812,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         st.subheader("💰 보험금 상담 · 민원 · 손해사정")
         col1, col2 = st.columns([1, 1])
         with col1:
-            c_name1, query1, hi1, do1 = ai_query_block("t1", "보험금 청구 내용을 입력하세요.")
+            c_name1, query1, hi1, do1, _pk1 = ai_query_block("t1", "보험금 청구 내용을 입력하세요.")
             claim_type = st.selectbox("상담 유형",
                 ["보험금 청구 안내","보험금 미지급 민원","금융감독원 민원","손해사정 의뢰","민사소송 검토"],
                 key="claim_type")
@@ -4530,7 +4823,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     for cf in (claim_files or []) if cf.type == 'application/pdf')
                 run_ai_analysis(c_name1, query1, hi1, "res_t1",
                     f"[보험금 상담 - {claim_type}]\n1.보험금 청구 가능 여부와 예상 지급액 분석\n"
-                    "2.보험사 거절 시 대응 방안\n3.금융감독원 민원 절차\n4.관련 판례와 약관 조항\n" + doc_text1)
+                    "2.보험사 거절 시 대응 방안\n3.금융감독원 민원 절차\n4.관련 판례와 약관 조항\n" + doc_text1,
+                    product_key=_pk1)
         with col2:
             st.subheader("🤖 AI 분석 리포트")
             show_result("res_t1")
@@ -4570,7 +4864,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             horizontal=True, key="dis_sub")
         col1, col2 = st.columns([1, 1])
         with col1:
-            c_name_d, query_d, hi_d, do_d = ai_query_block("disability",
+            c_name_d, query_d, hi_d, do_d, _pkd = ai_query_block("disability",
                 "예: 남성 45세, 건설노동자, 월소득 350만원, 요추 추간판탈출증 수술 후 척추 장해 15% 판정")
             _dc1, _dc2 = st.columns(2)
             with _dc1:
@@ -4587,7 +4881,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 _ama_est = round(dis_sum * dis_rate / 100 * (0.2 if "한시" in dis_type else 1.0), 1)
                 _mcb_est = round(dis_income * (dis_rate / 100) * (2 / 3) * _hoffman, 1)
                 run_ai_analysis(c_name_d, query_d, hi_d, "res_disability",
-                    f"[장해보험금 산출 — {dis_sub}]\n"
+                    product_key=_pkd,
+                    extra_prompt=f"[장해보험금 산출 — {dis_sub}]\n"
                     f"성별: {dis_gender}, 나이: {dis_age}세, 월평균소득: {dis_income}만원\n"
                     f"장해율: {dis_rate}%, 장해유형: {dis_type}, 가입금액: {dis_sum}만원\n"
                     f"호프만계수(65세 기준): {_hoffman}\n"
@@ -4643,6 +4938,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         with col2:
             st.subheader("🤖 AI 분석 리포트")
             show_result("res_disability")
+
             components.html("""
 <div style="height:340px;overflow-y:auto;padding:12px 15px;
   background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
@@ -4722,11 +5018,12 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             key="t2_ins_type")
         col1, col2 = st.columns([1, 1])
         with col1:
-            c_name2, query2, hi2, do2 = ai_query_block("t2", f"{ins_type} 관련 상담 내용을 입력하세요.")
+            c_name2, query2, hi2, do2, _pk2 = ai_query_block("t2", f"{ins_type} 관련 상담 내용을 입력하세요.")
             if do2:
                 run_ai_analysis(c_name2, query2, hi2, "res_t2",
-                    f"[기본보험 상담 - {ins_type}]\n1. 현재 가입 현황 분석 및 보장 공백\n"
-                    "2. 권장 가입 기준 및 특약 안내\n3. 보험료 절감 방법\n4. 면책 사항 안내")
+                    extra_prompt=f"[기본보험 상담 - {ins_type}]\n1. 현재 가입 현황 분석 및 보장 공백\n"
+                    "2. 권장 가입 기준 및 특약 안내\n3. 보험료 절감 방법\n4. 면책 사항 안내",
+                    product_key=_pk2)
         with col2:
             st.subheader("🤖 AI 분석 리포트")
             show_result("res_t2")
@@ -4819,13 +5116,14 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         st.subheader("🏥 질병·상해 통합보험 상담")
         col1, col2 = st.columns([1, 1])
         with col1:
-            c_name3, query3, hi3, do3 = ai_query_block("t3",
+            c_name3, query3, hi3, do3, _pk3 = ai_query_block("t3",
                 "예) 40세 남성, 실손+암보험 가입, 뇌·심장 보장 공백 분석 요청")
             if do3:
                 run_ai_analysis(c_name3, query3, hi3, "res_t3",
-                    "[통합보험 설계]\n1. 실손보험 현황 분석 (1~4세대 구분)\n"
+                    extra_prompt="[통합보험 설계]\n1. 실손보험 현황 분석 (1~4세대 구분)\n"
                     "2. 암·뇌·심장 3대 질병 보장 공백 파악\n3. 간병보험·치매보험 필요성 분석\n"
-                    "4. 생명보험·CI보험 통합 포트폴리오 최적화\n5. 헬스케어 서비스 연계 종합 설계")
+                    "4. 생명보험·CI보험 통합 포트폴리오 최적화\n5. 헬스케어 서비스 연계 종합 설계",
+                    product_key=_pk3)
         with col2:
             st.subheader("🤖 AI 분석 리포트")
             show_result("res_t3")
@@ -4907,8 +5205,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 "복합 치료 (항암+방사선)",
             ], key="cancer_treat_sel")
 
-            c_name_ca, query_ca, hi_ca, do_ca = ai_query_block("cancer",
-                "예) 백혈병 진단, NGS 검사 후 표적항암 예정. 보험 보장 범위와 치료비 분석 요청")
+            c_name_ca, query_ca, hi_ca, do_ca, _pkca = ai_query_block("cancer",
+                "예) 백혈병 진단, NGS 검사 후 표적항암 예정. 보험 보장 범위와 치료비 분석 요청", product_key="암보험")
 
             cancer_files = st.file_uploader("진단서·보험증권·의무기록 업로드",
                 type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_cancer")
@@ -4918,7 +5216,9 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     f"\n[첨부: {cf.name}]\n" + extract_pdf_chunks(cf, char_limit=5000)
                     for cf in (cancer_files or []) if cf.type == 'application/pdf'
                 )
-                run_ai_analysis(c_name_ca, query_ca, hi_ca, "res_cancer", f"""
+                run_ai_analysis(c_name_ca, query_ca, hi_ca, "res_cancer",
+                    product_key=_pkca,
+                    extra_prompt=f"""
 [암 치료 상담 — {cancer_type} / {treatment_type}]
 
 ## 필수 분석 항목 (순서대로 답변)
@@ -5066,7 +5366,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         st.subheader("🚗 자동차사고 상담 · 과실비율 분석")
         col1, col2 = st.columns([1, 1])
         with col1:
-            c_name4, query4, hi4, do4 = ai_query_block("t4", "예) 신호등 없는 교차로에서 직진 중 우측에서 좌회전 차량과 충돌.")
+            c_name4, query4, hi4, do4, _pk4 = ai_query_block("t4", "예) 신호등 없는 교차로에서 직진 중 우측에서 좌회전 차량과 충돌.")
             with st.expander("✅ 13대 중과실 해당 여부 체크", expanded=False):
                 fault_items = ["① 신호·지시 위반","② 중앙선 침범","③ 제한속도 20km/h 초과",
                     "④ 앞지르기 방법·금지 위반","⑤ 철길건널목 통과방법 위반",
@@ -5079,7 +5379,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             if do4:
                 fault_ctx = f"\n[13대 중과실 해당: {', '.join(checked_faults)}]\n" if checked_faults else ""
                 run_ai_analysis(c_name4, query4, hi4, "res_t4",
-                    f"[자동차사고 상담 — 전문 분석]{fault_ctx}\n\n"
+                    product_key=_pk4,
+                    extra_prompt=f"[자동차사고 상담 — 전문 분석]{fault_ctx}\n\n"
                     "## 필수 분석 항목 (순서대로 빠짐없이 답변)\n\n"
                     "### 1. 과실비율 분석\n"
                     "- 금융감독원·손해보험협회 과실비율 인정기준 기준 분석\n"
@@ -5169,12 +5470,13 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         else:
             col1, col2 = st.columns([1, 1])
             with col1:
-                c_name5, query5, hi5, do5 = ai_query_block("t5", "예) 55세, 은퇴 후 월 300만원 필요, 국민연금 20년 가입")
+                c_name5, query5, hi5, do5, _pk5 = ai_query_block("t5", "예) 55세, 은퇴 후 월 300만원 필요, 국민연금 20년 가입")
                 if do5:
                     run_ai_analysis(c_name5, query5, hi5, "res_t5",
-                        "[노후설계 상담]\n1. 국민연금·퇴직연금·개인연금 3층 연금 현황 분석\n"
+                        extra_prompt="[노후설계 상담]\n1. 국민연금·퇴직연금·개인연금 3층 연금 현황 분석\n"
                         "2. 소득대체율 격차 해소 방안\n3. 은퇴 후 필요 생활비 역산\n"
-                        "4. 연금보험·즉시연금·종신보험으로 격차 보완\n5. IRP·연금저축 세액공제 활용법")
+                        "4. 연금보험·즉시연금·종신보험으로 격차 보완\n5. IRP·연금저축 세액공제 활용법",
+                        product_key=_pk5)
             with col2:
                 st.subheader("🤖 AI 분석 리포트")
                 show_result("res_t5")
@@ -5211,12 +5513,13 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             horizontal=True, key="tax_sub")
         col1, col2 = st.columns([1, 1])
         with col1:
-            c_name6, query6, hi6, do6 = ai_query_block("t6", f"{tax_sub} 관련 세무 상담 내용을 입력하세요.")
+            c_name6, query6, hi6, do6, _pk6 = ai_query_block("t6", f"{tax_sub} 관련 세무 상담 내용을 입력하세요.")
             if do6:
                 run_ai_analysis(c_name6, query6, hi6, "res_t6",
-                    f"[세무상담 - {tax_sub}]\n1. 관련 세법 조항과 최신 개정 내용\n"
+                    extra_prompt=f"[세무상담 - {tax_sub}]\n1. 관련 세법 조항과 최신 개정 내용\n"
                     "2. 절세 전략과 합법적 세금 최소화 방안\n3. 신고 기한과 필요 서류\n"
-                    "4. 세무사 상담이 필요한 사항\n※ 본 답변은 참고용이며 구체적 사안은 세무사와 상의하십시오.")
+                    "4. 세무사 상담이 필요한 사항\n※ 본 답변은 참고용이며 구체적 사안은 세무사와 상의하십시오.",
+                    product_key=_pk6)
         with col2:
             st.subheader("🤖 AI 분석 리포트")
             if tax_sub == "상속·증여세":
@@ -5268,14 +5571,15 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             horizontal=True, key="corp_sub")
         col1, col2 = st.columns([1, 1])
         with col1:
-            c_name7, query7, hi7, do7 = ai_query_block("t7", f"{corp_sub} 관련 법인 상담 내용을 입력하세요.")
+            c_name7, query7, hi7, do7, _pk7 = ai_query_block("t7", f"{corp_sub} 관련 법인 상담 내용을 입력하세요.")
             emp_count  = st.number_input("임직원 수", min_value=1, value=10, step=1, key="emp_count")
             corp_asset = st.number_input("법인 자산 규모 (만원)", value=100000, step=10000, key="corp_asset")
             if do7:
                 run_ai_analysis(c_name7, query7, hi7, "res_t7",
-                    f"[법인상담 - {corp_sub}]\n임직원수: {emp_count}명, 법인자산: {corp_asset:,}만원\n"
+                    extra_prompt=f"[법인상담 - {corp_sub}]\n임직원수: {emp_count}명, 법인자산: {corp_asset:,}만원\n"
                     "1. 법인 보험의 세무처리(손금산입) 방법\n2. CEO 유고 시 법인 리스크 관리\n"
-                    "3. 단체보험 가입 기준과 보장 설계\n4. 퇴직금 재원 마련을 위한 보험 활용")
+                    "3. 단체보험 가입 기준과 보장 설계\n4. 퇴직금 재원 마련을 위한 보험 활용",
+                    product_key=_pk7)
         with col2:
             st.subheader("🤖 AI 분석 리포트")
             show_result("res_t7", "**법인보험 핵심 포인트:**\n"
@@ -6775,6 +7079,9 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
                         else:
                             st.warning(f"'{_test_q}' 관련 자료 없음. 다른 키워드로 시도하세요.")
             with inner_tabs[2]:
+                # ── 자가 진단 엔진 대시보드 ──────────────────────────────
+                _render_error_dashboard()
+                st.divider()
                 # ── 에러 로그 스크롤창 ──────────────────────────────────
                 st.markdown("##### 📋 시스템 에러 로그")
                 error_log = load_error_log()
@@ -7512,6 +7819,139 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
         "모든 분석 결과의 최종 판단 및 법적 책임은 사용자(상담원)에게 있습니다. "
         "앱 운영 문의: 010-3074-2616"
     )
+
+
+# --------------------------------------------------------------------------
+# [SECTION 9-A] 에러 레지스트리 + 자가 진단 엔진
+# --------------------------------------------------------------------------
+# ── 알려진 반복 에러 패턴 등록부 ─────────────────────────────────────────
+# 구조: { "에러ID": { "pattern": 감지문자열, "fix": 수정함수, "desc": 설명 } }
+_ERROR_REGISTRY: list = [
+    {
+        "id": "sidebar_scroll",
+        "desc": "사이드바 스크롤 불가 — 로그인 폼 잘림",
+        "check": lambda: not any(
+            "overflow-y: auto" in str(v)
+            for v in st.session_state.get("_injected_css", [])
+        ),
+        "fix": lambda: st.session_state.update({"_sidebar_css_needed": True}),
+    },
+    {
+        "id": "rag_empty_on_login",
+        "desc": "로그인 후 RAG 인덱스 비어있음 — 문서 검색 불가",
+        "check": lambda: (
+            "rag_system" in st.session_state
+            and hasattr(st.session_state.rag_system, "index")
+            and st.session_state.rag_system.index is None
+            and bool(_get_rag_store().get("docs"))
+        ),
+        "fix": lambda: (
+            _rag_sync_from_db(force=True),
+            st.session_state.update({"rag_system": LightRAGSystem()}),
+        ),
+    },
+    {
+        "id": "session_db_not_ready",
+        "desc": "DB 초기화 누락 — 회원/사용량 DB 미생성",
+        "check": lambda: not st.session_state.get("db_ready"),
+        "fix": lambda: (setup_database(), ensure_master_members(),
+                        st.session_state.update({"db_ready": True})),
+    },
+    {
+        "id": "encoding_surrogate",
+        "desc": "유니코드 surrogate 문자 — 화면 출력 오류",
+        "check": lambda: any(
+            isinstance(v, str) and "\ud800" <= v[:1] <= "\udfff"
+            for v in st.session_state.values()
+            if isinstance(v, str)
+        ),
+        "fix": lambda: [
+            st.session_state.update({k: sanitize_unicode(v)})
+            for k, v in list(st.session_state.items())
+            if isinstance(v, str)
+        ],
+    },
+    {
+        "id": "gcs_secret_missing",
+        "desc": "secrets.toml [gcs] 섹션 누락 — GCS 폴백 불가",
+        "admin_only": True,  # 관리자 전용 — 일반 세션에서 실행 안 함 (GCS 연결 시도 오버헤드)
+        "check": lambda: _get_gcs_client() is None,
+        "fix": lambda: log_error("자가진단", "GCS 클라이언트 없음 — secrets.toml [gcs] 확인 필요"),
+    },
+]
+
+# ── 자가 진단 실행 함수 ───────────────────────────────────────────────────
+def _run_self_diagnosis(force: bool = False, admin_mode: bool = False) -> list:
+    """
+    등록된 에러 패턴을 순회하며 자동 점검 + 수정.
+    - 세션당 1회 실행 (force=True 시 강제 재실행)
+    - admin_mode=False: 메모리 연산만 (가볍) — 일반 세션 자동 실행용
+    - admin_mode=True: admin_only 항목 포함 전체 실행 — 관리자 수동 실행용
+    - 수정된 항목 목록 반환
+    """
+    _DIAG_KEY = "_diag_done"
+    if not force and st.session_state.get(_DIAG_KEY):
+        return []
+
+    fixed = []
+    for rule in _ERROR_REGISTRY:
+        # admin_only 항목은 admin_mode일 때만 실행
+        if rule.get("admin_only") and not admin_mode:
+            continue
+        try:
+            if rule["check"]():
+                rule["fix"]()
+                log_error(f"자가진단[수정]", f"{rule['id']}: {rule['desc']}")
+                fixed.append(rule["id"])
+        except Exception as _de:
+            log_error(f"자가진단[오류]", f"{rule['id']}: {_de}")
+
+    st.session_state[_DIAG_KEY] = True
+    return fixed
+
+# ── 관리자용 에러 레지스트리 대시보드 ────────────────────────────────────
+def _render_error_dashboard():
+    """관리자 전용 — 에러 레지스트리 현황 + 수동 진단 실행"""
+    st.markdown("#### 🔧 자가 진단 엔진 — 에러 레지스트리")
+    col_run, col_reset = st.columns(2)
+    with col_run:
+        if st.button("🔍 지금 진단 실행", key="btn_diag_run", use_container_width=True):
+            fixed = _run_self_diagnosis(force=True, admin_mode=True)
+            if fixed:
+                st.success(f"✅ {len(fixed)}건 자동 수정: {', '.join(fixed)}")
+            else:
+                st.info("✅ 이상 없음 — 모든 항목 정상")
+    with col_reset:
+        if st.button("🔄 진단 초기화", key="btn_diag_reset", use_container_width=True):
+            st.session_state.pop("_diag_done", None)
+            st.success("진단 초기화 완료 — 다음 접속 시 재진단")
+
+    st.markdown("---")
+    for rule in _ERROR_REGISTRY:
+        try:
+            is_err = rule["check"]()
+        except Exception:
+            is_err = None
+        status = "🔴 이상 감지" if is_err else ("⚪ 확인불가" if is_err is None else "🟢 정상")
+        st.markdown(
+            f"**{status}** `{rule['id']}`  \n"
+            f"<span style='font-size:0.8rem;color:#555;'>{rule['desc']}</span>",
+            unsafe_allow_html=True,
+        )
+
+    # ── 최근 에러 로그 표시 ──
+    st.markdown("---")
+    st.markdown("#### 📋 최근 에러 로그")
+    try:
+        logs = load_error_log() if callable(globals().get("load_error_log")) else []
+        if logs:
+            import pandas as _pd
+            df = _pd.DataFrame(logs[-30:][::-1])
+            st.dataframe(df, use_container_width=True, height=300)
+        else:
+            st.info("기록된 에러 로그가 없습니다.")
+    except Exception as _le:
+        st.caption(f"로그 조회 오류: {_le}")
 
 
 # --------------------------------------------------------------------------
