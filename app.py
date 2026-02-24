@@ -1057,8 +1057,7 @@ def get_client():
             api_key = os.environ.get("GEMINI_API_KEY", "")
         api_key = api_key.encode("utf-8", errors="ignore").decode("utf-8")
     if not api_key:
-        st.error("GEMINI_API_KEY가 설정되지 않았습니다. secrets.toml 또는 환경변수를 확인하세요.")
-        st.stop()
+        return None
     return genai.Client(
         api_key=api_key,
         http_options={"api_version": "v1beta"}
@@ -1167,6 +1166,8 @@ GEMINI_MODEL = "gemini-2.0-flash"
 
 def get_master_model():
     client = get_client()
+    if client is None:
+        raise RuntimeError("GEMINI_API_KEY가 설정되지 않았습니다. HuggingFace Space → Settings → Variables and secrets 에서 GEMINI_API_KEY를 등록하세요.")
     config = types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT
     )
@@ -2893,7 +2894,9 @@ def section_housing_pension():
 def main():
     # 모바일 최적화: wide 레이아웃 조건부 적용
     # 사이드바 열기 요청이 있으면 expanded, 아니면 collapsed
-    _sidebar_state = "expanded" if st.session_state.pop("_open_sidebar", False) else "collapsed"
+    _sidebar_state = "collapsed" if st.session_state.pop("_open_sidebar", False) is False and st.session_state.get("_sidebar_once_shown") else "expanded"
+    if not st.session_state.get("_sidebar_once_shown"):
+        st.session_state["_sidebar_once_shown"] = True
     st.set_page_config(
         page_title="골드키지사 마스터 AI",
         page_icon="🏆",
