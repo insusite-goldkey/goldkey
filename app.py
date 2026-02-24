@@ -2889,12 +2889,10 @@ def section_housing_pension():
 
 
 # --------------------------------------------------------------------------
-# [SECTION 8] 메인 앱 - 사이드바 + 탭0(상담) + 탭1(이미지분석)
-# --------------------------------------------------------------------------
 def main():
     # 모바일 최적화: wide 레이아웃 조건부 적용
     # 사이드바 열기 요청이 있으면 expanded, 아니면 collapsed
-    _sidebar_state = "expanded" if st.session_state.pop("_open_sidebar", False) else "collapsed"
+    _sidebar_state = "expanded"
     st.set_page_config(
         page_title="골드키지사 마스터 AI",
         page_icon="🏆",
@@ -2902,33 +2900,12 @@ def main():
         initial_sidebar_state=_sidebar_state
     )
 
-    # ── 동시접속 관리 ─────────────────────────────────────────────────────
-    # 세션 ID: 로그인 사용자는 user_id, 미로그인은 브라우저 세션 키
+    # ── 동시접속 관리 — 세션 ID 생성만 먼저 (차단은 사이드바 렌더 후) ──
     _sid = st.session_state.get("user_id") or st.session_state.get("_anon_sid")
     if not _sid:
         import uuid
         _sid = "anon_" + uuid.uuid4().hex[:12]
         st.session_state["_anon_sid"] = _sid
-
-    _allowed = _session_checkin(_sid)
-
-    # 로그인된 사용자는 무조건 허용 (기존 세션 보호)
-    if not _allowed and "user_id" not in st.session_state:
-        st.markdown("""
-<div style="background:#fff3cd;border:2px solid #f59e0b;border-radius:12px;
-  padding:20px 24px;margin:40px auto;max-width:480px;text-align:center;
-  font-family:'Malgun Gothic',sans-serif;">
-  <div style="font-size:2rem;margin-bottom:8px;">⏳</div>
-  <div style="font-size:1.1rem;font-weight:900;color:#92400e;margin-bottom:8px;">
-    트래픽 증가로 잠시 후 접속해 주세요
-  </div>
-  <div style="font-size:0.85rem;color:#78350f;line-height:1.7;">
-    현재 많은 사용자가 동시에 접속 중입니다.<br>
-    <b>1~2분 후 새로고침</b>하시면 정상 이용 가능합니다.<br><br>
-    문의: 010-3074-2616
-  </div>
-</div>""", unsafe_allow_html=True)
-        st.stop()
 
     # ── 세션 만료 경고 (2분 전 JS 카운트다운 팝업) ───────────────────────
     _remaining = _get_session_remaining(_sid)
@@ -3883,6 +3860,11 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
             "마이크를 거부해도 텍스트 입력으로 모든 기능을 이용하실 수 있습니다.  \n\n"
             "📜 자세한 내용은 이용약관 **제6조의2 (마이크 접근 권한 정책)** 를 참고하세요."
         )
+
+    # ── 동시접속 차단 (사이드바 렌더 완료 후) ──────────────────────────
+    if not _session_checkin(_sid) and "user_id" not in st.session_state:
+        st.warning("⏳ 트래픽 증가로 잠시 후 접속해 주세요. (1~2분 후 새로고침)")
+        st.stop()
 
     # ── 메인 영역 — current_tab 라우팅 ───────────────────────────────────
     st.title("🏆 Goldkey AI Master")
