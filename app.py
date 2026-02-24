@@ -1037,7 +1037,7 @@ def calculate_subscription_days(join_date):
 def check_membership_status():
     if 'user_id' not in st.session_state:
         return False, "비회원"
-    return True, "무료 이용 중 (~2026.08.31.까지)"
+    return True, "무료 베타 서비스 이용 중"
 
 # --------------------------------------------------------------------------
 # [SECTION 3] 유틸리티 함수
@@ -3643,7 +3643,7 @@ section[data-testid="stSidebar"] > div:first-child {
     Goldkey_AI_Master
   </div>
   <div style="font-size:1.25rem;font-weight:900;letter-spacing:0.06em;line-height:1.4;">
-    Lab. &nbsp;·&nbsp; SaaS
+    Lab. &nbsp;·&nbsp; Beta
   </div>
   <div style="font-size:0.78rem;opacity:0.88;line-height:1.6;margin-top:8px;">
     30년 보험설계사 상담 실무 지식 기반
@@ -3652,19 +3652,19 @@ section[data-testid="stSidebar"] > div:first-child {
 
         with st.expander("📜 이용약관 · 서비스 안내", expanded=False):
             st.markdown("""
-## Goldkey AI Master Lab. SaaS 이용약관
+## Goldkey AI Master Lab. Beta 이용약관
 
 **제1조 (서비스 기본 정보)**
-- **서비스명:** Goldkey AI Master Lab. SaaS
+- **서비스명:** Goldkey AI Master Lab. Beta
 - **운영자:** 이세윤
 - **앱 문의:** 010-3074-2616 / insusite@gmail.com
 
 ---
 
 **제2조 (서비스 이용 조건)**
-- 시스템 고도화 기간 **전체 무료** 이용: **~ 2026.08.31.까지**
-- 회원가입 후 고도화 기간 내 모든 기능 무료 제공
-- 회원 1인당 **1일 10회** AI 상담 이용 제한 (데이터 용량 제한)
+- 현재 **전체 무료** 베타 서비스 운영 중
+- 회원가입 후 모든 기능 무료 제공
+- 회원 1인당 **1일 10회** AI 상담 이용 제한 (서버 부하 방지를 위한 기술적 제한)
 - 만 19세 이상 보험 관련 업무 종사자, 전문가 및 관심 있는 고객 대상
 
 **제3조 (서비스 범위)**
@@ -9310,18 +9310,18 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 if members:
                     st.write(f"**총 회원수: {len(members)}명**")
                     member_data = [{"이름": n, "가입일": info.get("join_date",""),
-                        "구독 종료": info.get("subscription_end",""),
+                        "이용기간": info.get("subscription_end",""),
                         "상태": "활성" if info.get("is_active") else "비활성"}
                         for n, info in members.items()]
                     st.dataframe(member_data, use_container_width=True)
                     selected = st.selectbox("회원 선택", list(members.keys()), key="admin_member_sel")
                     c1, c2 = st.columns(2)
                     with c1:
-                        if st.button("구독 30일 연장", key="btn_extend"):
+                        if st.button("베타 이용기간 연장 (30일)", key="btn_extend"):
                             end = dt.strptime(members[selected]["subscription_end"], "%Y-%m-%d")
                             members[selected]["subscription_end"] = (end + timedelta(days=30)).strftime("%Y-%m-%d")
                             save_members(members)
-                            st.success(f"{selected}님 구독 연장 완료")
+                            st.success(f"{selected}님 이용기간 연장 완료")
                     with c2:
                         if st.button("회원 비활성화", key="btn_deactivate"):
                             members[selected]["is_active"] = False
