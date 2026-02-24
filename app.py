@@ -3402,6 +3402,7 @@ section[data-testid="stSidebar"] {
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>🔑 가입 시 입력한 정보로 로그인하세요</div>", unsafe_allow_html=True)
                     ln = st.text_input("👤 이름", placeholder="홍길동", key="login_name")
                     lc = st.text_input("📱 연락처 (비밀번호)", type="password", placeholder="010-0000-0000", key="login_contact")
+                    login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"], horizontal=True, key="login_is_pro")
                     if st.form_submit_button("🔓 로그인", use_container_width=True):
                         if ln and lc:
                             with st.spinner("⏳ 로그인 중입니다. 잠시만 기다려주세요..."):
@@ -3417,6 +3418,7 @@ section[data-testid="stSidebar"] {
                                 st.session_state.is_admin  = _adm
                                 st.session_state["_mic_notice"] = True
                                 st.session_state["_login_welcome"] = ln
+                                st.session_state["user_consult_mode"] = st.session_state.get("login_is_pro", "비종사자")
                                 st.rerun()
                             else:
                                 if ln not in members:
