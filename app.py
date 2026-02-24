@@ -5902,23 +5902,65 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "disability":
         tab_home_btn("disability")
         st.subheader("🩺 장해보험금 산출")
-        st.caption("AMA방식(개인보험) · 맥브라이드방식(배상책임) · 호프만계수 적용")
         dis_sub = st.radio("산출 방식 선택",
-            ["AMA방식 (개인보험 후유장해)","맥브라이드방식 (배상책임·손해배상)","호프만계수 (중간이자 공제)"],
+            ["AMA 방식 (개인보험)", "맥브라이드 방식 (산재·일부 손보사)", "호프만계수 적용 (법원)"],
             horizontal=True, key="dis_sub")
         col1, col2 = st.columns([1, 1])
         with col1:
-            c_name_d, query_d, hi_d, do_d, _pkd = ai_query_block("disability",
-                "예: 남성 45세, 건설노동자, 월소득 350만원, 요추 추간판탈출증 수술 후 척추 장해 15% 판정")
+            # ── 고객 성함 (ai_query_block 호출 전 먼저 렌더) ───────────────
+            c_name_d = st.text_input("고객 성함", "우량 고객", key="c_name_disability")
+            st.session_state.current_c_name = c_name_d
+
+            # ── 기본 정보 입력 (성함 바로 아래) ────────────────────────────
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 8px 0;font-weight:900;
+  font-size:0.85rem;color:#1a3a5c;">📋 기본 정보 입력</div>""", unsafe_allow_html=True)
             _dc1, _dc2 = st.columns(2)
             with _dc1:
                 dis_gender = st.selectbox("성별", ["남성","여성"], key="dis_gender")
                 dis_age    = st.number_input("나이 (세)", min_value=1, max_value=80, value=45, step=1, key="dis_age")
             with _dc2:
-                dis_income = st.number_input("직전 3개월 평균 월소득 (만원)", min_value=0, value=350, step=10, key="dis_income")
-                dis_rate   = st.number_input("장해지급률 (%)", min_value=0.0, max_value=100.0, value=15.0, step=0.5, key="dis_rate")
-            dis_type = st.selectbox("장해 유형", ["영구장해","한시장해(5년 이상)"], key="dis_type")
-            dis_sum  = st.number_input("보험가입금액 (만원)", min_value=0, value=10000, step=500, key="dis_sum")
+                dis_type = st.selectbox("장해 유형", ["영구장해","한시장해(5년 이상)"], key="dis_type")
+                dis_rate = st.number_input("장해율 (%)", min_value=0.0, max_value=100.0, value=15.0, step=0.5, key="dis_rate")
+
+            # ── 직전 3개월 평균소득 산출 ────────────────────────────────────
+            st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 4px 0;font-weight:900;
+  font-size:0.85rem;color:#7d3c00;">💰 직전 3개월 평균소득 산출 방식</div>""", unsafe_allow_html=True)
+            st.markdown("""<div style="background:#fffaf5;border:1px solid #f5d5a0;border-radius:0 0 8px 8px;
+  padding:8px 12px;font-size:0.80rem;color:#5a3000;margin-bottom:6px;line-height:1.8;">
+  <b>(직전 3개월간 급여총액 ÷ 3) + (직전 1년간 정기상여금 ÷ 12) = 평균 월소득</b>
+</div>""", unsafe_allow_html=True)
+            _inc1, _inc2 = st.columns(2)
+            with _inc1:
+                dis_salary3 = st.number_input("직전 3개월 급여총액 (만원)", min_value=0, value=1050, step=10, key="dis_salary3")
+            with _inc2:
+                dis_bonus12 = st.number_input("직전 1년 정기상여금 (만원)", min_value=0, value=0, step=10, key="dis_bonus12")
+            dis_income = round(dis_salary3 / 3 + dis_bonus12 / 12, 1)
+            st.info(f"📊 산출 평균 월소득: **{dis_income:.1f}만원** (직전 3개월 급여 ÷ 3 + 연간상여 ÷ 12)")
+
+            # ── 보험가입금액 ────────────────────────────────────────────────
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 4px 0;font-weight:900;
+  font-size:0.85rem;color:#1a3a5c;">🛡️ 보험가입금액 (만원)</div>""", unsafe_allow_html=True)
+            st.markdown("""<div style="background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
+  padding:6px 10px;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;line-height:1.7;">
+  • 3% 가입금액 기준 입력 (20%·50%·80% 고도장해는 별도 산출 적용)<br>
+  • 상해후유장해 가입금액은 교통사고를 포함하여 적용
+</div>""", unsafe_allow_html=True)
+            _sum1, _sum2 = st.columns(2)
+            with _sum1:
+                dis_sum_traffic = st.number_input("교통상해장해 가입금액 (만원)", min_value=0, value=0, step=500, key="dis_sum_traffic")
+            with _sum2:
+                dis_sum_general = st.number_input("일반상해장해 가입금액 (만원)", min_value=0, value=10000, step=500, key="dis_sum_general")
+            dis_sum = dis_sum_traffic + dis_sum_general
+
+            # ── AI 입력 ─────────────────────────────────────────────────
+            _pkd = "후유장해보험"
+            hi_d = 0
+            query_d = st.text_area("상담 내용 입력", height=120, key="query_disability",
+                placeholder="예: 남성 45세, 건설노동자, 요추 추간판탈출증 수술 후 척추 장해 15% 판정")
+            do_d = st.button("🔍 정밀 분석 실행", type="primary", key="btn_analyze_disability", use_container_width=True)
             if do_d:
                 _n_years = max(0, (65 - dis_age))
                 _hoffman = round(_n_years / (1 + 0.05 * _n_years / 2), 2) if _n_years > 0 else 0
@@ -5928,7 +5970,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     product_key=_pkd,
                     extra_prompt=f"[장해보험금 산출 — {dis_sub}]\n"
                     f"성별: {dis_gender}, 나이: {dis_age}세, 월평균소득: {dis_income}만원\n"
-                    f"장해율: {dis_rate}%, 장해유형: {dis_type}, 가입금액: {dis_sum}만원\n"
+                    f"장해율: {dis_rate}%, 장해유형: {dis_type}\n"
+                    f"교통상해장해 가입금액: {dis_sum_traffic}만원, 일반상해장해 가입금액: {dis_sum_general}만원 (합계: {dis_sum}만원)\n"
                     f"호프만계수(65세 기준): {_hoffman}\n"
                     f"AMA 예상 보험금: {_ama_est}만원, 맥브라이드 일실수익: {_mcb_est}만원\n\n"
                     "## 필수 분석 항목 (순서대로 빠짐없이 답변)\n\n"
@@ -5980,7 +6023,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     "- 50대 여성 골다공증 기왕증 감액 주장 시 대응 전략\n"
                     "⚠️ 본 산출은 참고용이며 최종 보험금은 보험사 심사 및 법원 판결에 따릅니다.")
         with col2:
-            st.subheader("🤖 AI 분석 리포트")
+            st.subheader("📋 장해보험 참고사항")
             show_result("res_disability")
 
             components.html("""
@@ -6052,6 +6095,69 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 <b style="color:#555;font-size:0.78rem;">⚠️ 의무기록 해석은 전문의·손해사정사와 반드시 확인하십시오.</b>
 </div>
 """, height=498)
+
+            st.markdown("""<div style="background:#f0f4ff;border:1.5px solid #2e6da4;
+  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
+  font-weight:900;color:#1a3a5c;">📊 후유장해 보험금 산출 기준 — 실무 질문표</div>""", unsafe_allow_html=True)
+            components.html("""
+<div style="height:480px;overflow-y:auto;padding:12px 15px;
+  background:#f8fafc;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
+  font-size:0.82rem;line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+
+<b style="font-size:0.87rem;color:#1a3a5c;">1. 직전 3개월 소실소득 평균 산정 방식 기준</b><br><br>
+
+<b style="color:#2e6da4;">① 급여소득자 산정 원칙</b><br>
+평균 월소득 = <b>(직전 3개월간 급여총액 ÷ 3) + (직전 1년간 정기상여금 ÷ 12)</b><br>
+• 본봉·수당: 사고 전 3개월 지급된 기본급 및 통상 수당 포함<br>
+• 상여금·성과급: 전 1년 지급 총액 ÷ 12 (직전 3개월치만 합산 아님에 주의)<br>
+• 제외 항목: 출장비·식대 등 실비변상적 급여, 일시적·은혜적 급여<br><br>
+
+<b style="color:#2e6da4;">② 세부 상황별 계산</b><br>
+<b>소득 변동 있는 경우</b><br>
+• 사고 직전 소득 인상 — 단체협약·객관적 통계 등 확정 시 인상 소득 기준<br>
+• 일시적 초과근무로 급등 시 → 평균화 과정 조정 적용<br><br>
+<b>소득 증빙 어려운 경우</b><br>
+• 세무서 신고 소득 &lt; 실제 소득 → 급여대장·통장 입금내역 증명 시 실급여 인정<br>
+• 자료 없을 때: <b>고용노동부 '임금실태통계조사보고서'</b> 상 유사통계소득 적용<br><br>
+<b>일용근로자·무직</b><br>
+• 대한건설협회·중소기업중앙회 발표 <b>시중노임단가 × 월 22일</b> 기준 산정<br><br>
+
+<b style="font-size:0.87rem;color:#1a3a5c;">2. 후유장해 보험금 산출 및 담보별 적용 방식</b><br><br>
+
+<b style="color:#2e6da4;">① 상해후유장해 vs 교통상해 후유장해</b><br>
+• <b>상해후유장해</b>: 급격·우연·외래의 사고(일상 포함 모든 상해) → 영구 훼손 보상<br>
+• <b>교통상해 후유장해</b>: 약관상 교통사고 범위(운행 중 차량 탑승·충돌·접촉 등) 충족 필수<br>
+• 교통사고는 두 담보 요건 동시 충족 → <b>정액보상 원칙(상법 제727조)에 따라 합산 중복 수령 가능</b><br><br>
+
+<b style="color:#2e6da4;">② 담보별(3%·20%·50%·80%) 산출 방식</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.79rem;margin-bottom:8px;">
+<tr style="background:#dce8f8;"><th style="border:1px solid #b3c8e8;padding:3px 6px;">담보</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">지급 조건</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">특징</th></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">3% 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">3% ≤ 장해율 &lt; 100%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">가장 포괄적 — 경미한 장해부터 합산 지급</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">20% 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">20% ≤ 장해율 &lt; 100%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">합산 또는 단일 장해 20% 초과 시 지급 개시</td></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">50% 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">50% ≤ 장해율 &lt; 100%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">중등도 이상 장해 (소득보상형 담보 多)</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;color:#c0392b;">80% 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">80% ≤ 장해율</td><td style="border:1px solid #c8d8ec;padding:3px 6px;"><b>고도후유장해</b> — 식물인간·극심한 마비 등</td></tr>
+</table>
+[예시] 가입금액 1억, 장해율 20% 판정 시:<br>
+• 3% 이상 담보: 1억 × 20% = <b>2,000만원 지급</b><br>
+• 50% 이상 담보만 보유 시: <b>0원 (조건 미달)</b><br><br>
+
+<b style="font-size:0.87rem;color:#1a3a5c;">3. 인체 13개 부위 분류 (표준약관 장해분류표)</b><br><br>
+눈 / 귀 / 코 / 씹어먹거나 말하는 장해 / 외모 / 척추(등뼈) / 체간골 / 팔 / 다리 / 손가락 / 발가락 / 흉·복부 장기 및 비뇨생식기 / 신경계·정신행동<br><br>
+
+<b style="font-size:0.87rem;color:#1a3a5c;">4. 장해율 합산 원칙 (표준약관 장해분류표 총칙)</b><br><br>
+<b style="color:#2e6da4;">① 원칙: 부위별 합산 (다중장해)</b><br>
+서로 다른 부위(13개 중 2개 이상) 장해 → 각 장해지급률 <b>단순 합산</b><br>
+예) 척추 15% + 다리 10% = <b>최종 25%</b><br><br>
+<b style="color:#2e6da4;">② 예외: 동일 부위 내 여러 장해 → 최고 지급률만 적용</b><br>
+예) 같은 '팔' 부위 어깨관절 10% + 팔목관절 5% = <b>10%만 인정</b><br>
+단, 손가락·발가락은 약관상 각각 합산 허용 (별도 규정)<br><br>
+<b style="color:#2e6da4;">③ 지급 한도: 동일 사고 장해 합계 최대 100% 초과 불가</b><br><br>
+<b style="color:#c0392b;">⚠️ 실무 주의</b>: '팔'과 '손가락'은 별도 부위 → 각각 합산 적용<br>
+근거: 상법 제727조, 보험업법, 표준약관 [별표] 장해분류표 제1항<br>
+금감원 2018년 장해분류표 개정 — 부위별 정의 명확화
+</div>
+""", height=500)
 
     # ── [t2] 기본보험 상담 ────────────────────────────────────────────────
     if cur == "t2":
