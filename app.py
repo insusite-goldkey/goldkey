@@ -833,29 +833,40 @@ def gcs_upload_file(file_bytes: bytes, gcs_path: str,
         return False
 
 def gcs_list_files(prefix: str = "") -> list:
-    """Supabase Storage 버킷 내 파일 목록 반환"""
+    """Supabase Storage 버킷 내 파일 목록 반환 — 서브폴더 재귀 탐색"""
     try:
         sb = _get_sb_client()
         if not sb:
             return []
-        # 최상위 폴더 목록 조회 후 재귀적으로 수집
+
         results = []
-        folders = ["약관", "리플렛", "신규상품"]
-        for folder in folders:
+
+        def _recurse(path: str, folder_label: str, depth: int = 0):
+            """재귀로 서브폴더 탐색 (최대 4단계)"""
+            if depth > 4:
+                return
             try:
-                items = sb.storage.from_(SB_BUCKET).list(folder)
+                items = sb.storage.from_(SB_BUCKET).list(path)
                 for item in (items or []):
-                    if item.get("id"):
-                        nm = item.get("name", "")
+                    nm = item.get("name", "")
+                    full_path = f"{path}/{nm}" if path else nm
+                    if item.get("id"):  # 실제 파일 (id 있음)
                         results.append({
-                            "path": f"{folder}/{nm}",
+                            "path": full_path,
                             "name": nm,
-                            "folder": folder,
+                            "folder": folder_label,
                             "size": item.get("metadata", {}).get("size", 0),
                             "updated": item.get("updated_at", "")[:16] if item.get("updated_at") else ""
                         })
+                    else:  # 폴더 (id 없음) → 재귀 탐색
+                        _recurse(full_path, folder_label, depth + 1)
             except Exception:
                 pass
+
+        top_folders = ["약관", "리플렛", "신규상품"]
+        for folder in top_folders:
+            _recurse(folder, folder)
+
         return results
     except Exception as e:
         log_error("SB목록", str(e))
@@ -11309,14 +11320,30 @@ END; $$;""", language="sql")
                                 if _gcs_ok:
                                     try:
                                         sb_cl = _get_sb_client()
-                                        sb_cl.storage.from_(SB_BUCKET).upload(
-                                            path=gcs_path,
-                                            file=lf.getvalue(),
-                                            file_options={"content-type": "application/octet-stream", "upsert": "true"}
-                                        )
-                                        gcs_saved = True
+                                        if sb_cl is None:
+                                            gcs_err = "Supabase 클라이언트 None — SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 확인"
+                                        else:
+                                            _up_resp = sb_cl.storage.from_(SB_BUCKET).upload(
+                                                path=gcs_path,
+                                                file=lf.getvalue(),
+                                                file_options={"content-type": "application/octet-stream", "upsert": "true"}
+                                            )
+                                            # Supabase Python SDK v2: 성공 시 FileObject 반환
+                                            # 에러 시 StorageApiError 예외 발생
+                                            gcs_saved = True
                                     except Exception as _ge:
-                                        gcs_err = str(_ge)[:120]
+                                        _ge_str = str(_ge)
+                                        if "Bucket not found" in _ge_str or "bucket" in _ge_str.lower():
+                                            gcs_err = (
+                                                f"버킷 '{SB_BUCKET}' 없음 — "
+                                                "Supabase 대시보드 → Storage → New bucket → goldkey 생성 필요"
+                                            )
+                                        elif "policy" in _ge_str.lower() or "violates" in _ge_str.lower():
+                                            gcs_err = f"RLS 정책 차단 — Supabase Storage 버킷 권한 확인 필요: {_ge_str[:80]}"
+                                        elif "401" in _ge_str or "403" in _ge_str or "Unauthorized" in _ge_str:
+                                            gcs_err = f"인증 오류 (401/403) — SUPABASE_SERVICE_ROLE_KEY 확인: {_ge_str[:80]}"
+                                        else:
+                                            gcs_err = _ge_str[:200]
 
                                 # ── RAG 자동 등록 ──────────────────────
                                 rag_registered = False
@@ -11419,7 +11446,51 @@ END; $$;""", language="sql")
                     folder_groups[top].append(gf)
 
                 if not all_files:
-                    st.info("📭 버킷이 비어 있습니다.")
+                    st.warning("📭 파일 목록이 비어 있습니다.")
+                    # ── 진단 패널 ──────────────────────────────────────
+                    with st.expander("🔍 원인 진단 — 클릭하여 확인", expanded=True):
+                        _diag_sb = _get_sb_client()
+                        if _diag_sb is None:
+                            st.error("❌ Supabase 클라이언트 연결 실패\n\n"
+                                     "**Streamlit Cloud Secrets** 또는 **HF Secrets**에 아래 항목을 등록하세요:\n"
+                                     "- `SUPABASE_URL`\n- `SUPABASE_SERVICE_ROLE_KEY`")
+                        else:
+                            # 버킷 존재 여부 직접 확인
+                            try:
+                                _root = _diag_sb.storage.from_(SB_BUCKET).list("")
+                                if _root is None:
+                                    st.error(f"❌ 버킷 `{SB_BUCKET}` 조회 결과가 None — 버킷이 존재하지 않을 수 있습니다.")
+                                elif len(_root) == 0:
+                                    st.warning(
+                                        f"⚠️ 버킷 `{SB_BUCKET}` 루트가 비어있습니다.\n\n"
+                                        "**가능한 원인:**\n"
+                                        "1. 파일 업로드 시 에러가 발생해 저장 안 됨 → 업로드 결과 탭의 **Supabase 저장** 상태 확인\n"
+                                        "2. 업로드 경로가 잘못됨\n"
+                                        "3. 버킷은 있지만 파일이 실제로 없음 (정상 상태)"
+                                    )
+                                    st.info(f"✅ 버킷 `{SB_BUCKET}` 접근 성공 — 단순히 파일이 없는 상태입니다. 파일을 업로드해주세요.")
+                                else:
+                                    _root_names = [i.get("name","") for i in _root]
+                                    st.success(f"✅ 버킷 `{SB_BUCKET}` 루트에 {len(_root)}개 항목 있음: {_root_names}")
+                                    st.info("루트는 있는데 파일이 안 보이면 **🔄 목록 새로고침** 버튼을 눌러주세요.")
+                            except Exception as _de:
+                                _de_str = str(_de)
+                                if "Bucket not found" in _de_str or "not_found" in _de_str:
+                                    st.error(
+                                        f"❌ **버킷 `{SB_BUCKET}` 없음** — 아직 생성하지 않은 것이 원인입니다.\n\n"
+                                        "**해결 방법:**\n"
+                                        "1. [Supabase 대시보드](https://supabase.com) 접속\n"
+                                        "2. 좌측 **Storage** 메뉴 클릭\n"
+                                        "3. **New bucket** → 이름: `goldkey` → **Public 체크 해제** → 생성\n"
+                                        "4. 앱으로 돌아와 파일 다시 업로드"
+                                    )
+                                elif "401" in _de_str or "403" in _de_str or "Unauthorized" in _de_str:
+                                    st.error(
+                                        f"❌ **인증 오류 (401/403)** — `SUPABASE_SERVICE_ROLE_KEY`가 잘못됐습니다.\n\n"
+                                        f"오류 상세: `{_de_str[:120]}`"
+                                    )
+                                else:
+                                    st.error(f"❌ 진단 오류: `{_de_str[:200]}`")
                 else:
                     st.caption(f"전체 {len(all_files)}개 파일")
                     # 폴더 탭 표시
