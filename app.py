@@ -3399,7 +3399,15 @@ section[data-testid="stSidebar"] > div:first-child {
                                 st.session_state["_login_welcome"] = ln
                                 _pro_val = st.session_state.get("login_is_pro", "비종사자")
                                 st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)" if _pro_val == "종사자" else "👤 비종사자 (고객·일반인)"
-                                st.session_state["preferred_insurer"] = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)") if _pro_val == "종사자" else "선택 안 함 (중립 분석)"
+                                _raw_ins = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)")
+                                _ins_map = {
+                                    "선택 안 함 (중립 분석)": "선택 안 함 (중립 분석)",
+                                    "⬜ 선택 안 함 (중립 분석)": "선택 안 함 (중립 분석)",
+                                    "🏦 생명보험 주력": "🏦 생명보험 주력",
+                                    "🛡️ 손해보험 주력": "🛡️ 손해보험 주력",
+                                    "🏢 생명·손해 종합(GA)": "🏢 생명·손해 종합(GA)",
+                                }
+                                st.session_state["preferred_insurer"] = _ins_map.get(_raw_ins, "선택 안 함 (중립 분석)") if _pro_val == "종사자" else "선택 안 함 (중립 분석)"
                                 st.rerun()
                             else:
                                 if ln not in members:
@@ -3574,6 +3582,8 @@ section[data-testid="stSidebar"] > div:first-child {
   letter-spacing:0.03em;">👤 상담 모드 선택</div>""", unsafe_allow_html=True)
             _mode_options = ["👔 보험종사자 (설계사·전문가)", "👤 비종사자 (고객·일반인)"]
             _cur_mode = st.session_state.get("user_consult_mode", _mode_options[0])
+            if _cur_mode not in _mode_options:
+                _cur_mode = _mode_options[0]
             with st.container():
                 st.markdown("""<div style="background:#f0f4ff;border:2px solid #1a3a5c;
   border-top:none;border-radius:0 0 8px 8px;padding:6px 10px 8px 10px;
@@ -3581,9 +3591,8 @@ section[data-testid="stSidebar"] > div:first-child {
                 _sel_mode = st.radio(
                     "상담 모드",
                     _mode_options,
-                    index=_mode_options.index(_cur_mode) if _cur_mode in _mode_options else 0,
+                    index=_mode_options.index(_cur_mode),
                     label_visibility="collapsed",
-                    key="radio_consult_mode",
                 )
                 st.markdown("</div>", unsafe_allow_html=True)
             st.session_state["user_consult_mode"] = _sel_mode
@@ -3592,7 +3601,7 @@ section[data-testid="stSidebar"] > div:first-child {
             st.markdown("""<div style="background:#7d3c00;border-radius:8px 8px 0 0;
   padding:6px 12px;font-size:0.78rem;font-weight:900;color:#fff;
   letter-spacing:0.03em;">📋 주력 판매 분야</div>""", unsafe_allow_html=True)
-            _ins_options = ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)", "⬜ 선택 안 함 (중립 분석)"]
+            _ins_options = ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)", "선택 안 함 (중립 분석)"]
             _cur_ins = st.session_state.get("preferred_insurer", _ins_options[-1])
             if _cur_ins not in _ins_options:
                 _cur_ins = _ins_options[-1]
@@ -3605,7 +3614,6 @@ section[data-testid="stSidebar"] > div:first-child {
                     _ins_options,
                     index=_ins_options.index(_cur_ins),
                     label_visibility="collapsed",
-                    key="radio_preferred_insurer",
                 )
                 st.markdown("</div>", unsafe_allow_html=True)
             st.session_state["preferred_insurer"] = _sel_ins
