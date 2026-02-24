@@ -2894,11 +2894,12 @@ def section_housing_pension():
 def main():
     # 모바일 최적화: wide 레이아웃 조건부 적용
     # 사이드바 열기 요청이 있으면 expanded, 아니면 collapsed
+    _sidebar_state = "expanded" if st.session_state.pop("_open_sidebar", False) else "collapsed"
     st.set_page_config(
         page_title="골드키지사 마스터 AI",
         page_icon="🏆",
         layout="centered",
-        initial_sidebar_state="expanded"
+        initial_sidebar_state=_sidebar_state
     )
 
     # ── 동시접속 관리 ─────────────────────────────────────────────────────
