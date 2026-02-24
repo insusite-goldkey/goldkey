@@ -676,9 +676,11 @@ def log_error(source: str, message: str):
         logs = logs[-200:]  # 최근 200건만 유지
         with open(ERROR_LOG_PATH, "w", encoding="utf-8") as f:
             json.dump(logs, f, ensure_ascii=False)
+        load_error_log.clear()  # 캐시 무효화
     except (IOError, OSError, json.JSONDecodeError):
         pass  # 로그 저장 실패는 무시
 
+@st.cache_data(ttl=10)
 def load_error_log() -> list:
     """저장된 에러 로그 파일 읽기"""
     try:
@@ -1014,6 +1016,7 @@ def customer_doc_get_names() -> list:
 # --------------------------------------------------------------------------
 DIRECTIVE_DB = os.path.join(_DATA_DIR, "admin_directives.json")
 
+@st.cache_data(ttl=30)
 def load_directives():
     try:
         if os.path.exists(DIRECTIVE_DB):
@@ -1027,6 +1030,7 @@ def save_directives(directives):
     try:
         with open(DIRECTIVE_DB, "w", encoding="utf-8") as f:
             json.dump(directives, f, ensure_ascii=False, indent=2)
+        load_directives.clear()  # 캐시 무효화
     except (IOError, OSError):
         pass
 
