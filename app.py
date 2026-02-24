@@ -2212,6 +2212,392 @@ class DummyRAGSystem:
         pass
 
 # --------------------------------------------------------------------------
+# [SECTION 5.5] 공장 화재보험 전문 컨설팅 로직
+# --------------------------------------------------------------------------
+
+# 업종별 화재 위험 요율 DB (base_rate: 1,000원당 요율, risk_grade: 1~5)
+_INDUSTRY_RATE_DB = {
+    "금속가공업":       {"risk_grade": 2, "base_rate": 0.45, "is_high_heat": True,  "chemical": False},
+    "플라스틱사출업":   {"risk_grade": 4, "base_rate": 1.35, "is_high_heat": True,  "chemical": True},
+    "목재가공업":       {"risk_grade": 4, "base_rate": 1.20, "is_high_heat": False, "chemical": False},
+    "도장·도금업":      {"risk_grade": 5, "base_rate": 1.80, "is_high_heat": True,  "chemical": True},
+    "식품제조업":       {"risk_grade": 2, "base_rate": 0.50, "is_high_heat": False, "chemical": False},
+    "섬유·의류제조":    {"risk_grade": 3, "base_rate": 0.80, "is_high_heat": False, "chemical": False},
+    "전자부품제조":     {"risk_grade": 2, "base_rate": 0.40, "is_high_heat": False, "chemical": False},
+    "화학물질제조":     {"risk_grade": 5, "base_rate": 2.10, "is_high_heat": True,  "chemical": True},
+    "인쇄·출판업":      {"risk_grade": 3, "base_rate": 0.75, "is_high_heat": False, "chemical": True},
+    "창고·물류업":      {"risk_grade": 3, "base_rate": 0.70, "is_high_heat": False, "chemical": False},
+    "일반 사무실":      {"risk_grade": 1, "base_rate": 0.20, "is_high_heat": False, "chemical": False},
+}
+
+# 건물 구조별 감가율 및 내용연수
+_STRUCTURE_DB = {
+    "철골조 (H형강)":        {"annual_dep": 0.010, "useful_life": 40},
+    "철근콘크리트(RC)조":    {"annual_dep": 0.008, "useful_life": 50},
+    "샌드위치 판넬":         {"annual_dep": 0.020, "useful_life": 20},
+    "경량철골조":            {"annual_dep": 0.015, "useful_life": 30},
+    "조적조 (벽돌)":         {"annual_dep": 0.012, "useful_life": 40},
+}
+
+# 건설공사비지수(CCI) 기준값 (한국건설기술연구원 기준, 2015=100)
+_CCI_INDEX = {
+    2015: 100.0, 2016: 101.5, 2017: 103.2, 2018: 107.8, 2019: 110.4,
+    2020: 112.1, 2021: 118.6, 2022: 138.4, 2023: 149.7, 2024: 154.2,
+    2025: 156.8, 2026: 158.2,
+}
+
+
+def _calc_factory_fire(
+    owner_industry: str,
+    tenant_industries: list,
+    structure: str,
+    completion_year: int,
+    area_sqm: float,
+    current_insured_man: float,
+    has_ess: bool,
+    has_solar: bool,
+    special_facilities_man: float = 0,
+) -> dict:
+    """공장 화재보험 복합 진단 엔진.
+    반환: 적용업종, 요율, 재조달가액, 보험가액, 비례보상률, ESS리스크 등
+    단위: 만원
+    """
+    # 1. 복합업종 최고 위험 요율 판정
+    all_industries = [owner_industry] + tenant_industries
+    dominant = owner_industry
+    max_rate = 0.0
+    for ind in all_industries:
+        info = _INDUSTRY_RATE_DB.get(ind, {"risk_grade": 2, "base_rate": 0.45})
+        if info["base_rate"] > max_rate:
+            max_rate = info["base_rate"]
+            dominant = ind
+    dom_info = _INDUSTRY_RATE_DB.get(dominant, {"risk_grade": 2, "base_rate": 0.45,
+                                                  "is_high_heat": False, "chemical": False})
+
+    # 2. 재조달가액 산출 (건설공사비지수 연동)
+    # 평당 신축 단가 (만원/m²) — 구조별 기준
+    unit_cost_per_sqm = {
+        "철골조 (H형강)": 80.0,
+        "철근콘크리트(RC)조": 95.0,
+        "샌드위치 판넬": 45.0,
+        "경량철골조": 60.0,
+        "조적조 (벽돌)": 70.0,
+    }.get(structure, 75.0)
+
+    cci_base  = _CCI_INDEX.get(completion_year, 100.0)
+    cci_now   = _CCI_INDEX.get(2026, 158.2)
+    cci_ratio = cci_now / cci_base
+
+    replacement_cost = (unit_cost_per_sqm * area_sqm * cci_ratio) + special_facilities_man
+
+    # 3. 경년감가 적용 → 보험가액
+    struct_info  = _STRUCTURE_DB.get(structure, {"annual_dep": 0.010, "useful_life": 40})
+    elapsed      = max(2026 - completion_year, 0)
+    dep_rate     = min(struct_info["annual_dep"] * elapsed, 0.80)  # 최대 80% 감가
+    insurance_val = replacement_cost * (1 - dep_rate)
+
+    # 4. 비례보상률
+    if insurance_val > 0:
+        coverage_ratio = min(current_insured_man / insurance_val, 1.0)
+    else:
+        coverage_ratio = 1.0
+    under_insurance = coverage_ratio < 0.95
+
+    # 5. ESS 인수 제한
+    ess_blocked = has_ess  # ESS 있으면 일반 화재보험 인수 거절
+
+    # 6. 보험료 추정 (연간, 만원)
+    insured_for_rate = insurance_val  # 보험가액 기준
+    annual_premium_est = insured_for_rate * max_rate / 1000 * 10  # 만원 단위 환산
+
+    return {
+        "적용업종":       dominant,
+        "위험등급":       dom_info["risk_grade"],
+        "적용요율":       max_rate,
+        "고열작업":       dom_info["is_high_heat"],
+        "화학물질":       dom_info["chemical"],
+        "재조달가액":     round(replacement_cost),
+        "보험가액":       round(insurance_val),
+        "현재가입액":     current_insured_man,
+        "비례보상률":     round(coverage_ratio * 100, 1),
+        "일부보험여부":   under_insurance,
+        "경과연수":       elapsed,
+        "감가율":         round(dep_rate * 100, 1),
+        "CCI비율":        round(cci_ratio, 3),
+        "ESS인수제한":    ess_blocked,
+        "태양광":         has_solar,
+        "연간보험료추정": round(annual_premium_est),
+    }
+
+
+def _calc_fire_tax_benefit(annual_premium_man: float, corp_tax_rate: float = 0.20) -> dict:
+    """소멸성 보험료 손비처리 법인세 절감 계산기."""
+    tax_saving    = annual_premium_man * corp_tax_rate
+    net_premium   = annual_premium_man - tax_saving
+    monthly_net   = net_premium / 12
+    return {
+        "연간보험료":   annual_premium_man,
+        "법인세절감":   round(tax_saving),
+        "실질보험료":   round(net_premium),
+        "월실질보험료": round(monthly_net, 1),
+        "법인세율":     corp_tax_rate,
+    }
+
+
+def _calc_liability_recommendation(area_sqm: float, dominant_industry: str,
+                                    neighbor_density: str) -> dict:
+    """배상책임 한도 권고 — 주변 공장 밀집도 반영."""
+    density_mult = {"밀집 (50m 이내 다수)": 3.0, "보통 (100m 이내)": 2.0, "여유 (100m 초과)": 1.0}
+    mult = density_mult.get(neighbor_density, 2.0)
+
+    # 기본 대물 권고 (면적·업종 기반)
+    base_property = 10_000 if area_sqm < 1000 else (20_000 if area_sqm < 3000 else 30_000)
+    dom_info = _INDUSTRY_RATE_DB.get(dominant_industry, {"risk_grade": 2})
+    if dom_info["risk_grade"] >= 4:
+        base_property = int(base_property * 1.5)
+
+    recommended_property = int(base_property * mult)
+    recommended_personal = 10_000  # 대인 기본 10억
+    legal_cost           = 3_000   # 법률비용담보 3천만원
+
+    return {
+        "권고대물한도":   recommended_property,
+        "권고대인한도":   recommended_personal,
+        "법률비용담보":   legal_cost,
+        "소멸성한도":     5_000,  # 일반 소멸성 화재보험 기본 5억
+        "대물부족액":     max(recommended_property - 5_000, 0),
+        "대인별도가입필요": True,
+    }
+
+
+def _section_factory_fire_ui():
+    """공장·기업 화재보험 전문 컨설팅 UI — 4탭 구조."""
+    import pandas as pd
+    st.info("🔥 복합업종 요율 판정 · 재조달가액 · 배상책임 · 세무 손비처리")
+    fire_tabs = st.tabs(["🏭 리스크 진단", "⚖️ 임대차 법률", "💰 세무 손비처리", "🤖 AI 전문 보고서"])
+
+    # ── 탭1: 리스크 진단 ──────────────────────────────────────────────────
+    with fire_tabs[0]:
+        st.markdown("#### 📊 공장 화재보험 복합 진단")
+        fc1, fc2 = st.columns(2)
+        with fc1:
+            fire_cname  = st.text_input("고객(법인)명", "○○철골(주)", key="fire_cname")
+            owner_ind   = st.selectbox("건물주 업종", list(_INDUSTRY_RATE_DB.keys()), index=0, key="fire_owner_ind")
+            structure   = st.selectbox("건물 구조", list(_STRUCTURE_DB.keys()), index=0, key="fire_structure")
+            comp_year   = st.number_input("준공 연도", min_value=1980, max_value=2025, value=2015, step=1, key="fire_comp_year")
+            area_sqm    = st.number_input("연면적 (㎡)", min_value=100.0, value=2000.0, step=100.0, key="fire_area")
+        with fc2:
+            st.markdown("**임차인 업종 (복수 선택)**")
+            tenant_inds = st.multiselect("임차인 업종", list(_INDUSTRY_RATE_DB.keys()),
+                                         default=["플라스틱사출업"], key="fire_tenants")
+            cur_insured = st.number_input("현재 가입 금액 (만원)", value=80000, step=5000, key="fire_cur_insured")
+            special_fac = st.number_input("특수설비 가액 (만원)", value=0, step=1000, key="fire_special")
+            has_solar   = st.checkbox("태양광 발전설비 있음", key="fire_solar")
+            has_ess     = st.checkbox("ESS(에너지저장장치) 있음", key="fire_ess")
+            neighbor_den = st.selectbox("주변 공장 밀집도",
+                ["밀집 (50m 이내 다수)", "보통 (100m 이내)", "여유 (100m 초과)"], key="fire_density")
+
+        if st.button("🔍 화재보험 리스크 진단 실행", type="primary", key="btn_fire_diag"):
+            fr = _calc_factory_fire(owner_industry=owner_ind, tenant_industries=tenant_inds,
+                structure=structure, completion_year=int(comp_year), area_sqm=float(area_sqm),
+                current_insured_man=float(cur_insured), has_ess=has_ess, has_solar=has_solar,
+                special_facilities_man=float(special_fac))
+            lb = _calc_liability_recommendation(float(area_sqm), fr["적용업종"], neighbor_den)
+            st.session_state.update({"fire_result": fr, "fire_liability": lb,
+                                     "fire_cname_saved": fire_cname})
+            st.rerun()
+
+        fr = st.session_state.get("fire_result")
+        lb = st.session_state.get("fire_liability")
+        if fr and lb:
+            st.divider()
+            grade_color = ["", "🟢", "🟡", "🟠", "🔴", "🚨"][min(fr["위험등급"], 5)]
+            st.markdown(f"### {grade_color} 복합업종 요율 판정")
+            rc1, rc2, rc3 = st.columns(3)
+            rc1.metric("적용 업종", fr["적용업종"])
+            rc2.metric("위험 등급", f"{fr['위험등급']}등급 / 5")
+            rc3.metric("적용 요율", f"{fr['적용요율']}‰")
+            if fr["적용업종"] != st.session_state.get("fire_owner_ind", fr["적용업종"]):
+                st.error("⚠️ 고지의무 위반 경고: 임차인 업종 혼재로 전체 건물에 높은 요율 적용 필수. 사고 시 보험금 지급 거절 가능.")
+            st.divider()
+            st.markdown("### 🏗️ 보험가액 분석")
+            va1, va2, va3, va4 = st.columns(4)
+            va1.metric("재조달가액", f"{fr['재조달가액']:,}만원")
+            va2.metric("적정 보험가액", f"{fr['보험가액']:,}만원", delta=f"CCI {fr['CCI비율']:.1%} 반영")
+            va3.metric("현재 가입액", f"{fr['현재가입액']:,}만원")
+            va4.metric("비례보상률", f"{fr['비례보상률']}%",
+                       delta="⚠️ 부족" if fr["일부보험여부"] else "✅ 적정")
+            if fr["일부보험여부"]:
+                shortage = fr["보험가액"] - fr["현재가입액"]
+                st.warning(f"📉 일부보험(Under-insurance): 현재 가입액은 적정 보험가액의 **{fr['비례보상률']}%** 수준. "
+                           f"전손 시 {fr['비례보상률']}%만 보상 — **{shortage:,}만원 증액 필요**")
+            else:
+                st.success("✅ 현재 가입액이 적정 보험가액 수준입니다.")
+            st.divider()
+            st.markdown("### ⚡ 배상책임 한도 제안")
+            la1, la2, la3 = st.columns(3)
+            la1.metric("권고 대물 한도", f"{lb['권고대물한도']:,}만원",
+                       delta=f"소멸성 5억 대비 +{lb['대물부족액']:,}만원")
+            la2.metric("권고 대인 한도", f"{lb['권고대인한도']:,}만원",
+                       delta="영업배상책임 별도 가입 필요")
+            la3.metric("법률비용담보", f"{lb['법률비용담보']:,}만원")
+            st.info("💡 소멸성 화재보험 대물 5억은 공장 밀집지역에서 실효성 없음. **영업배상책임보험(대인특약)** 또는 장기화재보험 추가 가입 필수.")
+            if fr["ESS인수제한"]:
+                st.error("🚨 ESS 인수 제한: 보험사 일반 화재보험 인수 거절. **기계보험(CMI)** 별도 가입 절차 병행 필요.")
+            elif fr["태양광"]:
+                st.warning("☀️ 태양광 발전설비: ESS 없이 태양광만 있는 경우 가입 가능하나 설비 가액 별도 명기 필요.")
+            with st.expander("📋 업종별 화재 위험 요율 DB"):
+                rate_rows = [{"업종명": k, "위험등급": f"{v['risk_grade']}등급",
+                              "기본요율(‰)": v["base_rate"],
+                              "고열작업": "✅" if v["is_high_heat"] else "—",
+                              "화학물질": "✅" if v["chemical"] else "—"}
+                             for k, v in _INDUSTRY_RATE_DB.items()]
+                st.dataframe(pd.DataFrame(rate_rows), use_container_width=True, hide_index=True)
+                st.caption("※ 복합업종 시 최고 위험 요율 자동 적용 (Risk_Hierarchy 원칙)")
+
+    # ── 탭2: 임대차 법률 ──────────────────────────────────────────────────
+    with fire_tabs[1]:
+        st.markdown("#### ⚖️ 임대차 법률 리스크 진단")
+        components.html("""
+<div style="height:340px;overflow-y:auto;padding:14px 16px;
+  background:#fffbf0;border:2px solid #e67e22;border-radius:8px;
+  font-size:0.84rem;line-height:1.6;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="font-size:0.9rem;color:#c0392b;">⚠️ 임차자배상책임 특약의 함정</b><br><br>
+<b>[원인불명 화재 시나리오]</b><br>
+• 임차인이 '임차자배상책임' 특약만 가입한 경우:<br>
+&nbsp;&nbsp;→ 임차인의 <b>법적 과실이 입증되어야만</b> 보상 지급<br>
+&nbsp;&nbsp;→ 원인불명 화재 시 <b>보상 0원</b> — 임차인 빈털터리, 건물주 건물 보상 불가<br><br>
+<b>[민법 제615조 원상회복의무]</b><br>
+• 임차인은 임대차 종료 시 목적물을 원상회복할 의무<br>
+• 대법원 판례: 원인불명 화재 시에도 임차인에게 원상회복의무 발생 가능<br>
+• 단, 임차인이 <b>자신의 무과실을 입증</b>하면 면책 — 입증 실패 시 전액 배상<br><br>
+<b style="color:#1a7a4a;">✅ 올바른 구조: 임차인 명의 일반 화재보험</b><br>
+• 원인 불문하고 건물 피해 직접 보상<br>
+• 임대인(건물주)이 보험금으로 즉시 건물 복구 가능<br>
+• 임차인과의 소송 리스크 원천 차단<br><br>
+<b>[임대인·임차인 각각 가입 구조]</b><br>
+• <b>임대인</b>: 건물 전체 화재보험 (재조달가액 기준)<br>
+• <b>임차인</b>: 임차 구역 내 시설·집기·재고 화재보험 (본인 명의)<br><br>
+<b style="color:#c0392b;">⚠️ 임차자배상책임 특약은 임차인 과실 입증 시에만 유효 — 단독 가입 비권장</b>
+</div>""", height=360)
+        components.html("""
+<div style="padding:10px;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.83rem;">
+<table style="width:100%;border-collapse:collapse;">
+<tr style="background:#1a3a5c;color:white;">
+  <th style="padding:8px;border:1px solid #ccc;">비교 항목</th>
+  <th style="padding:8px;border:1px solid #ccc;">임차자배상책임 특약 ❌</th>
+  <th style="padding:8px;border:1px solid #ccc;">임차인 일반 화재보험 ✅</th>
+</tr>
+<tr style="background:#fff5f5;">
+  <td style="padding:7px;border:1px solid #ddd;"><b>보상 범위</b></td>
+  <td style="padding:7px;border:1px solid #ddd;color:#c0392b;">임차인 과실 입증 시에만</td>
+  <td style="padding:7px;border:1px solid #ddd;color:#1a7a4a;"><b>원인불명 화재 포함</b></td>
+</tr>
+<tr>
+  <td style="padding:7px;border:1px solid #ddd;"><b>법적 안정성</b></td>
+  <td style="padding:7px;border:1px solid #ddd;color:#c0392b;">원인불명 시 분쟁 발생</td>
+  <td style="padding:7px;border:1px solid #ddd;color:#1a7a4a;"><b>원상회복의무 즉시 이행</b></td>
+</tr>
+<tr style="background:#fff5f5;">
+  <td style="padding:7px;border:1px solid #ddd;"><b>건물주 이점</b></td>
+  <td style="padding:7px;border:1px solid #ddd;color:#c0392b;">임차인과 소송 가능성 높음</td>
+  <td style="padding:7px;border:1px solid #ddd;color:#1a7a4a;"><b>보험금으로 즉시 건물 복구</b></td>
+</tr>
+<tr>
+  <td style="padding:7px;border:1px solid #ddd;"><b>권장 여부</b></td>
+  <td style="padding:7px;border:1px solid #ddd;color:#c0392b;">단독 가입 비권장</td>
+  <td style="padding:7px;border:1px solid #ddd;color:#1a7a4a;"><b>필수 권장</b></td>
+</tr>
+</table></div>""", height=185)
+
+    # ── 탭3: 세무 손비처리 ────────────────────────────────────────────────
+    with fire_tabs[2]:
+        st.markdown("#### 💰 소멸성 보험료 손비처리 — 법인세 절감 계산기")
+        tc1, tc2 = st.columns(2)
+        with tc1:
+            fire_prem_in = st.number_input("연간 소멸성 보험료 (만원)", value=1200, step=100, key="fire_prem_input")
+            corp_tax_sel = st.selectbox("법인세율",
+                ["10% (과세표준 2억 이하)", "20% (2억~200억)", "22% (200억 초과)"],
+                index=1, key="fire_tax_sel")
+            _tax_map = {"10% (과세표준 2억 이하)": 0.10, "20% (2억~200억)": 0.20, "22% (200억 초과)": 0.22}
+            if st.button("💡 손비처리 효과 계산", type="primary", key="btn_fire_tax"):
+                st.session_state["fire_tax_result"] = _calc_fire_tax_benefit(
+                    float(fire_prem_in), _tax_map[corp_tax_sel])
+                st.rerun()
+        with tc2:
+            tb = st.session_state.get("fire_tax_result")
+            if tb:
+                st.metric("연간 보험료", f"{tb['연간보험료']:,}만원")
+                st.metric("법인세 절감액", f"{tb['법인세절감']:,}만원",
+                          delta=f"세율 {int(tb['법인세율']*100)}% 적용")
+                st.metric("실질 순보험료", f"{tb['실질보험료']:,}만원")
+                st.metric("월 실질 부담액", f"{tb['월실질보험료']:,}만원")
+            else:
+                st.info("좌측에서 보험료를 입력하고 계산 버튼을 누르세요.")
+        st.divider()
+        components.html("""
+<div style="padding:12px 15px;background:#f0f7ff;border:1px solid #3498db;border-radius:8px;
+  font-size:0.84rem;line-height:1.6;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="color:#1a3a5c;">📌 소멸성 보험료 손비처리 핵심 원칙</b><br><br>
+• <b>소멸성(순수보장형)</b> 화재보험료: <b>전액 손금산입</b> 가능 (법인세법 시행령 제44조)<br>
+• 적립성(저축성) 보험료: 자산 처리 — 손금 불가<br>
+• 실질 부담 = 보험료 × (1 - 법인세율)<br><br>
+<b style="color:#c0392b;">⚠️ 보험료 전액 손금 처리 전 세무사 확인 필수 (상품 구조에 따라 상이)</b>
+</div>""", height=160)
+
+    # ── 탭4: AI 전문 보고서 ───────────────────────────────────────────────
+    with fire_tabs[3]:
+        st.markdown("#### 🤖 AI 공장 화재보험 전문 보고서 생성")
+        fr  = st.session_state.get("fire_result", {})
+        lb  = st.session_state.get("fire_liability", {})
+        tb  = st.session_state.get("fire_tax_result", {})
+        ai_fc1, ai_fc2 = st.columns(2)
+        with ai_fc1:
+            fire_ai_name = st.text_input("고객명",
+                st.session_state.get("fire_cname_saved", "○○철골(주)"), key="fire_ai_name")
+            fire_ai_note = st.text_area("추가 상담 내용 (선택)", height=80, key="fire_ai_note")
+        with ai_fc2:
+            if fr:
+                st.info(f"진단 결과 반영됨\n"
+                        f"- 적용업종: {fr.get('적용업종','—')}\n"
+                        f"- 재조달가액: {fr.get('재조달가액',0):,}만원\n"
+                        f"- 비례보상률: {fr.get('비례보상률',0)}%")
+            else:
+                st.warning("리스크 진단 탭에서 먼저 진단을 실행하면 결과가 자동 반영됩니다.")
+        if st.button("📋 AI 공장 화재보험 전문 보고서 생성", type="primary", key="btn_fire_ai"):
+            sim_ctx = ""
+            if fr:
+                sim_ctx = (
+                    f"\n[진단 데이터]\n"
+                    f"적용업종: {fr.get('적용업종','—')} (위험등급 {fr.get('위험등급','—')}등급, 요율 {fr.get('적용요율','—')}‰)\n"
+                    f"재조달가액: {fr.get('재조달가액',0):,}만원 / 적정보험가액: {fr.get('보험가액',0):,}만원\n"
+                    f"현재가입액: {fr.get('현재가입액',0):,}만원 / 비례보상률: {fr.get('비례보상률',0)}%\n"
+                    f"ESS인수제한: {'있음' if fr.get('ESS인수제한') else '없음'}\n"
+                    f"권고대물한도: {lb.get('권고대물한도',0):,}만원 / 권고대인한도: {lb.get('권고대인한도',0):,}만원\n"
+                )
+                if tb:
+                    sim_ctx += (
+                        f"연간보험료: {tb.get('연간보험료',0):,}만원 / "
+                        f"법인세절감: {tb.get('법인세절감',0):,}만원 / "
+                        f"실질보험료: {tb.get('실질보험료',0):,}만원\n"
+                    )
+            fire_prompt = (
+                f"[공장 화재보험 전문 컨설팅 보고서]\n고객: {fire_ai_name}{sim_ctx}\n"
+                "다음 5개 항목으로 전문 보고서를 작성하라:\n"
+                "1. 자산 가치 진단 (재조달가액 vs 현재 가입액, 비례보상 위험)\n"
+                "2. 업종 요율 적합성 진단 (고지의무 위반 리스크, 보험금 지급 거절 가능성)\n"
+                "3. 임대차 법률 리스크 분석 (민법 제615조 원상회복의무, 임차자배상책임 vs 일반화재보험)\n"
+                "4. 배상책임 한도 제안 (대물·대인·법률비용담보, 소멸성 5억 한도 부족 근거)\n"
+                "5. 세무 및 비용 분석 (소멸성 보험료 손금산입, 법인세 절감, 실질 월 부담액)\n"
+                "ESS 설비 인수 제한 사항도 반드시 포함. 고객 설득력 있는 수치와 법적 근거 제시.\n"
+                f"{fire_ai_note or ''}"
+            )
+            run_ai_analysis(fire_ai_name, fire_prompt, 0, "res_t7_fire",
+                            extra_prompt="", product_key="")
+        show_result("res_t7_fire", "**AI 보고서 생성 버튼을 눌러 전문 보고서를 받으세요.**")
+
+
+# --------------------------------------------------------------------------
 # [SECTION 6] 상속/증여 정밀 로직
 # --------------------------------------------------------------------------
 def _calc_inheritance_tax(total_man: float, child_count: int, has_spouse: bool,
@@ -5789,27 +6175,30 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         corp_sub = st.radio("상담 분야",
             ["CEO플랜 (사망·퇴직)","단체상해보험","공장·기업 화재보험","법인 절세 전략","임원 퇴직금 설계"],
             horizontal=True, key="corp_sub")
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            c_name7, query7, hi7, do7, _pk7 = ai_query_block("t7", f"{corp_sub} 관련 법인 상담 내용을 입력하세요.")
-            emp_count  = st.number_input("임직원 수", min_value=1, value=10, step=1, key="emp_count")
-            corp_asset = st.number_input("법인 자산 규모 (만원)", value=100000, step=10000, key="corp_asset")
-            if do7:
-                run_ai_analysis(c_name7, query7, hi7, "res_t7",
-                    extra_prompt=f"[법인상담 - {corp_sub}]\n임직원수: {emp_count}명, 법인자산: {corp_asset:,}만원\n"
-                    "1. 법인 보험의 세무처리(손금산입) 방법\n2. CEO 유고 시 법인 리스크 관리\n"
-                    "3. 단체보험 가입 기준과 보장 설계\n4. 퇴직금 재원 마련을 위한 보험 활용",
-                    product_key=_pk7)
-        with col2:
-            st.subheader("🤖 AI 분석 리포트")
-            show_result("res_t7", "**법인보험 핵심 포인트:**\n"
-                "- CEO플랜: 사망보험금 → 퇴직금 재원\n"
-                "- 단체상해: 전 직원 의무 가입 권장\n"
-                "- 공장화재: 재조달가액 기준 가입\n"
-                "- 법인 납입 보험료 손금산입 가능\n"
-                "- 임원 퇴직금 규정 정비 필수")
-            st.markdown("##### 🏢 법인보험 핵심 안내")
-            components.html("""
+        if corp_sub == "공장·기업 화재보험":
+            _section_factory_fire_ui()
+        else:
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                c_name7, query7, hi7, do7, _pk7 = ai_query_block("t7", f"{corp_sub} 관련 법인 상담 내용을 입력하세요.")
+                emp_count  = st.number_input("임직원 수", min_value=1, value=10, step=1, key="emp_count")
+                corp_asset = st.number_input("법인 자산 규모 (만원)", value=100000, step=10000, key="corp_asset")
+                if do7:
+                    run_ai_analysis(c_name7, query7, hi7, "res_t7",
+                        extra_prompt=f"[법인상담 - {corp_sub}]\n임직원수: {emp_count}명, 법인자산: {corp_asset:,}만원\n"
+                        "1. 법인 보험의 세무처리(손금산입) 방법\n2. CEO 유고 시 법인 리스크 관리\n"
+                        "3. 단체보험 가입 기준과 보장 설계\n4. 퇴직금 재원 마련을 위한 보험 활용",
+                        product_key=_pk7)
+            with col2:
+                st.subheader("🤖 AI 분석 리포트")
+                show_result("res_t7", "**법인보험 핵심 포인트:**\n"
+                    "- CEO플랜: 사망보험금 → 퇴직금 재원\n"
+                    "- 단체상해: 전 직원 의무 가입 권장\n"
+                    "- 공장화재: 재조달가액 기준 가입\n"
+                    "- 법인 납입 보험료 손금산입 가능\n"
+                    "- 임원 퇴직금 규정 정비 필수")
+                st.markdown("##### 🏢 법인보험 핵심 안내")
+                components.html("""
 <div style="height:320px;overflow-y:auto;padding:12px 15px;
   background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
   font-size:0.84rem;line-height:1.45;
