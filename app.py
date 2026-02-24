@@ -4368,7 +4368,30 @@ window['startTTS_{tab_key}']=function(){{
                 answer = _validate_response(answer, product_key, result_key)
 
                 safe_name = sanitize_unicode(c_name)
-                result_text = (f"### {safe_name}님 골드키AI마스터 정밀 리포트\n\n{answer}\n\n---\n"
+
+                # ── 금소법 면책 문구 자동 생성 ──────────────────────────────
+                _pref_ins_rt = st.session_state.get("preferred_insurer", "선택 안 함 (중립 분석)")
+                if _pref_ins_rt and "선택 안 함" not in _pref_ins_rt:
+                    _fsa_disclaimer = (
+                        f"\n\n---\n"
+                        f"> ⚖️ **[금융소비자보호법 준수 안내]**  \n"
+                        f"> 본 분석은 사용자가 선택한 **{_pref_ins_rt}** 위주의 시뮬레이션이며, "
+                        f"전체 시장의 모든 상품을 포함하지 않을 수 있습니다.  \n"
+                        f"> 최종 상품 선택 전 반드시 **2개사 이상의 상품을 비교**하시고, "
+                        f"담당 설계사 및 해당 보험사 약관을 직접 확인하시기 바랍니다.  \n"
+                        f"> *(금융소비자보호법 제19조 설명의무 · 제20조 비교안내의무 준수)*"
+                    )
+                else:
+                    _fsa_disclaimer = (
+                        f"\n\n---\n"
+                        f"> ⚖️ **[금융소비자보호법 준수 안내]**  \n"
+                        f"> 본 분석은 AI가 제공하는 참고용 정보이며, 특정 상품의 가입을 권유하는 것이 아닙니다.  \n"
+                        f"> 최종 상품 선택 전 반드시 약관 및 전문가 상담을 통해 확인하시기 바랍니다.  \n"
+                        f"> *(금융소비자보호법 제19조 설명의무 준수)*"
+                    )
+
+                result_text = (f"### {safe_name}님 골드키AI마스터 정밀 리포트\n\n{answer}"
+                               f"{_fsa_disclaimer}\n\n---\n"
                                f"**문의:** insusite@gmail.com | 010-3074-2616\n\n"
                                f"[주의] 최종 책임은 사용자(상담원)에게 귀속됩니다.")
                 st.session_state[result_key] = sanitize_unicode(result_text)
