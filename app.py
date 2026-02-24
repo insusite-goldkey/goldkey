@@ -9304,7 +9304,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     )
 
             st.divider()
-            inner_tabs = st.tabs(["회원 관리", "RAG 지식베이스", "데이터 파기"])
+            inner_tabs = st.tabs(["회원 관리", "RAG 지식베이스", "데이터 파기", "🤖 자율학습 에이전트"])
             with inner_tabs[0]:
                 members = load_members()
                 if members:
@@ -9753,6 +9753,191 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
                         st.success(f"{count}개의 만료 데이터가 파기되었습니다.")
                     except Exception as e:
                         st.error(f"파기 오류: {e}")
+
+            with inner_tabs[3]:
+                # ── 자율 학습 에이전트 대시보드 ─────────────────────────
+                st.write("### 🤖 전문가 자율 학습 에이전트")
+                st.caption(
+                    "PubMed 의학 논문 + 국가법령정보 Open API를 자율 수집·분석하여 "
+                    "Supabase 전문 지식 버킷(gk_expert_knowledge)에 적재합니다."
+                )
+
+                # 에이전트 임포트 (지연 로드 — 사용 시에만)
+                try:
+                    from expert_agent import (
+                        ExpertStudyAgent, ExpertKnowledgeBucket,
+                        InsuranceReportGenerator, DeterministicBenefitCalc
+                    )
+                    _ea_ok = True
+                except ImportError as _ea_err:
+                    st.error(f"expert_agent.py 로드 실패: {_ea_err}")
+                    _ea_ok = False
+
+                if _ea_ok:
+                    _ea_sb  = _get_sb_client()
+                    _ea_gc  = get_client()
+                    try:
+                        _ea_law_key = st.secrets.get("LAW_API_KEY", "")
+                    except Exception:
+                        _ea_law_key = os.environ.get("LAW_API_KEY", "")
+
+                    # ── 학습 현황 메트릭 ────────────────────────────────
+                    _ea_bucket = ExpertKnowledgeBucket(_ea_sb)
+                    _ea_approved = _ea_bucket.search_similar("", limit=1)
+                    _ea_pending  = _ea_bucket.list_pending()
+                    _mc1, _mc2, _mc3 = st.columns(3)
+                    with _mc1:
+                        st.metric("✅ 승인 완료 지식", f"{len(_ea_approved)}건 미리보기")
+                    with _mc2:
+                        st.metric("⏳ 승인 대기", f"{len(_ea_pending)}건")
+                    with _mc3:
+                        _law_status = "🟢 연결됨" if _ea_law_key else "🔴 미설정"
+                        st.metric("국가법령 API", _law_status)
+
+                    if not _ea_law_key:
+                        st.info("💡 법령 수집을 활성화하려면 secrets.toml에 `LAW_API_KEY = '발급키'`를 추가하세요.\n"
+                                "발급처: https://open.law.go.kr")
+
+                    st.divider()
+
+                    # ── 자율 학습 실행 ───────────────────────────────────
+                    st.markdown("#### ▶ 자율 학습 실행")
+                    _ea_topic = st.text_input(
+                        "학습 주제",
+                        placeholder="예) 경추 척수증 후유장해 보험금 / 암 진단 후 보험금 청구 전략",
+                        key="ea_topic_input"
+                    )
+                    _ea_col1, _ea_col2 = st.columns(2)
+                    with _ea_col1:
+                        _ea_med_q = st.text_input(
+                            "PubMed 검색어 (선택 — 비우면 주제 자동 사용)",
+                            placeholder="예) cervical myelopathy disability insurance",
+                            key="ea_med_q"
+                        )
+                    with _ea_col2:
+                        _ea_law_q = st.text_input(
+                            "법령 검색어 (선택 — 비우면 주제 자동 사용)",
+                            placeholder="예) 후유장해 보험금 판례",
+                            key="ea_law_q"
+                        )
+                    _ea_tags_raw = st.text_input(
+                        "태그 (쉼표 구분)",
+                        placeholder="예) 장해, 척수, 판례",
+                        key="ea_tags_input"
+                    )
+
+                    if st.button("🚀 자율 학습 시작", type="primary",
+                                 key="btn_ea_run", use_container_width=True):
+                        if not _ea_topic.strip():
+                            st.warning("학습 주제를 입력하세요.")
+                        else:
+                            _tags = [t.strip() for t in _ea_tags_raw.split(",") if t.strip()]
+                            with st.spinner("🔍 의학 논문 + 법령 수집 중... (30초 내외)"):
+                                _agent = ExpertStudyAgent(
+                                    gemini_client = _ea_gc,
+                                    sb_client     = _ea_sb,
+                                    law_api_key   = _ea_law_key,
+                                )
+                                _result = _agent.run(
+                                    topic     = _ea_topic,
+                                    tags      = _tags,
+                                    law_query = _ea_law_q.strip() or None,
+                                    med_query = _ea_med_q.strip() or None,
+                                )
+                            st.session_state["_ea_last_result"] = _result
+
+                    # ── 학습 결과 출력 ───────────────────────────────────
+                    _ea_res = st.session_state.get("_ea_last_result")
+                    if _ea_res:
+                        _conf  = _ea_res.get("confidence", 0)
+                        _gate  = _ea_res.get("gate", "")
+                        _color = "#27ae60" if _conf >= 90 else "#e67e22"
+                        st.markdown(
+                            f"<div style='background:#f0f6ff;border-left:4px solid {_color};"
+                            f"border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:0.85rem;'>"
+                            f"<b>주제:</b> {_ea_res.get('topic','')}&nbsp;&nbsp;"
+                            f"<b>신뢰도:</b> <span style='color:{_color};font-weight:900;'>{_conf:.1f}%</span>"
+                            f"&nbsp;&nbsp;{_gate}</div>",
+                            unsafe_allow_html=True
+                        )
+
+                        with st.expander("📋 ReAct 루프 상세 로그", expanded=False):
+                            for _step in _ea_res.get("steps_log", []):
+                                st.markdown(
+                                    f"**[{_step['ts']}] {_step['step']}**\n\n"
+                                    f"- 💭 Thought: {_step['thought']}\n"
+                                    f"- ⚡ Action: `{_step['action']}`\n"
+                                    f"- 👁️ Observation: {_step['observation']}"
+                                )
+
+                        with st.expander("📝 전문가 요약 (30년 설계사 관점)", expanded=True):
+                            st.markdown(_ea_res.get("summary_ko", ""))
+
+                        for _sv in _ea_res.get("saved", []):
+                            if _sv.get("ok"):
+                                _tbl = _sv.get("table", "")
+                                if "pending" in _tbl:
+                                    st.warning(f"⏳ 신뢰도 미달 → `{_tbl}` (승인 대기)")
+                                else:
+                                    st.success(f"✅ `{_tbl}` 버킷에 저장 완료")
+                            else:
+                                st.error(f"❌ 저장 실패: {_sv.get('reason','')}")
+
+                    st.divider()
+
+                    # ── 승인 대기 목록 ───────────────────────────────────
+                    if _ea_pending:
+                        st.markdown(f"#### ⏳ 승인 대기 지식 ({len(_ea_pending)}건)")
+                        st.caption("신뢰도 90% 미만 항목입니다. 내용 검토 후 승인 또는 반려하세요.")
+                        for _pnd in _ea_pending:
+                            with st.expander(
+                                f"[{_pnd.get('source_type','')}] {_pnd.get('topic','')} "
+                                f"— 신뢰도 {_pnd.get('confidence',0):.0f}% "
+                                f"({_pnd.get('created_at','')[:10]})",
+                                expanded=False
+                            ):
+                                st.markdown(_pnd.get("summary_ko", "")[:500])
+                                _pc1, _pc2 = st.columns(2)
+                                with _pc1:
+                                    if st.button("✅ 승인", key=f"ea_approve_{_pnd['id']}",
+                                                 use_container_width=True, type="primary"):
+                                        _ea_bucket.approve(_pnd["id"], approved_by="master")
+                                        st.success("승인 완료 — 지식 버킷으로 이동됨")
+                                        st.rerun()
+                                with _pc2:
+                                    if st.button("❌ 반려", key=f"ea_reject_{_pnd['id']}",
+                                                 use_container_width=True):
+                                        _ea_bucket.reject(_pnd["id"])
+                                        st.warning("반려 처리됨")
+                                        st.rerun()
+                    else:
+                        st.info("승인 대기 항목이 없습니다.")
+
+                    st.divider()
+
+                    # ── 지식 버킷 검색 테스트 ────────────────────────────
+                    st.markdown("#### 🔎 지식 버킷 검색 테스트")
+                    _ea_srch = st.text_input(
+                        "검색어 (지식 버킷 내 유사 항목 조회)",
+                        placeholder="예) 뇌경색 보험금 판례",
+                        key="ea_search_input"
+                    )
+                    if _ea_srch:
+                        _hits = _ea_bucket.search_similar(_ea_srch, limit=5)
+                        if _hits:
+                            for _h in _hits:
+                                st.markdown(
+                                    f"<div style='background:#f0fff4;border-left:3px solid #27ae60;"
+                                    f"border-radius:6px;padding:8px 12px;margin-bottom:5px;"
+                                    f"font-size:0.78rem;'>"
+                                    f"<b>[{_h.get('source_type','')}]</b> {_h.get('topic','')}"
+                                    f" &nbsp;|&nbsp; 신뢰도 <b>{_h.get('confidence',0):.0f}%</b><br>"
+                                    f"{_h.get('summary_ko','')[:300]}...</div>",
+                                    unsafe_allow_html=True
+                                )
+                        else:
+                            st.info(f"'{_ea_srch}' 관련 지식 없음 — 자율 학습 실행 후 재시도")
+
         elif admin_key_input:
             st.error("관리자 인증키가 올바르지 않습니다.")
         else:
