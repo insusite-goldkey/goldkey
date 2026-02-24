@@ -5735,37 +5735,49 @@ section[data-testid="stMain"] > div,
 </style>
 """, unsafe_allow_html=True)
 
-        # ── 파트 -1: 증권분석 + 약관 (최최상단 — 모바일 터치 최적화) ──
-        st.markdown('<div class="gk-section-label" style="background:#0d8a4e;">📎 보험증권 분석 &amp; 약관</div>', unsafe_allow_html=True)
-        _pscan_c1, _pscan_c2 = st.columns(2, gap="small")
-        with _pscan_c1:
+        # ── 핵심 도구 3열 (첨단 고정) ──────────────────────────────────────
+        st.markdown(
+            '<div class="gk-section-label" style="background:linear-gradient(90deg,#0d3b2e,#0d2a4a);">'
+            '📋 핵심 도구 — 증권분석 &amp; 약관검색 &amp; 스캔허브</div>',
+            unsafe_allow_html=True)
+        _tool_c1, _tool_c2, _tool_c3 = st.columns(3, gap="small")
+        with _tool_c1:
             st.markdown("""
 <div style="background:linear-gradient(135deg,#0d3b2e,#1a6b4a);
-  border-radius:12px;padding:14px 12px 10px 12px;margin-bottom:4px;text-align:center;">
-  <div style="font-size:2rem;">📎</div>
-  <div style="color:#fff;font-size:0.95rem;font-weight:900;margin:4px 0 2px 0;">보험증권 AI 분석</div>
-  <div style="color:#a8f0c8;font-size:0.72rem;line-height:1.5;">
-    증권 PDF/이미지 업로드<br>담보 자동 파싱 · 보장 공백 진단
-  </div>
+  border-radius:14px;padding:16px 10px 12px 10px;text-align:center;min-height:110px;">
+  <div style="font-size:2.2rem;">📎</div>
+  <div style="color:#fff;font-size:0.9rem;font-weight:900;margin:6px 0 4px;">보험증권 AI 분석</div>
+  <div style="color:#a8f0c8;font-size:0.68rem;line-height:1.5;">증권 PDF 업로드<br>담보 자동파싱 · 보장공백</div>
 </div>""", unsafe_allow_html=True)
-            if st.button("📎 증권분석 시작", key="home_pscan_main",
+            if st.button("📎 증권분석", key="home_pscan_main",
                          use_container_width=True, type="primary"):
                 st.session_state.current_tab = "policy_scan"
                 st.session_state["_scroll_top"] = True
                 st.rerun()
-        with _pscan_c2:
+        with _tool_c2:
             st.markdown("""
 <div style="background:linear-gradient(135deg,#0d2137,#1e6fa8);
-  border-radius:12px;padding:14px 12px 10px 12px;margin-bottom:4px;text-align:center;">
-  <div style="font-size:2rem;">📜</div>
-  <div style="color:#fff;font-size:0.95rem;font-weight:900;margin:4px 0 2px 0;">보험약관 AI 검색</div>
-  <div style="color:#a8d4f5;font-size:0.72rem;line-height:1.5;">
-    공시실 실시간 탐색<br>가입 시점 정확 매칭 · 딥러닝 검색
-  </div>
+  border-radius:14px;padding:16px 10px 12px 10px;text-align:center;min-height:110px;">
+  <div style="font-size:2.2rem;">📜</div>
+  <div style="color:#fff;font-size:0.9rem;font-weight:900;margin:6px 0 4px;">보험약관 AI 검색</div>
+  <div style="color:#a8d4f5;font-size:0.68rem;line-height:1.5;">공시실 실시간 탐색<br>가입시점 정확매칭</div>
 </div>""", unsafe_allow_html=True)
-            if st.button("📜 약관검색 시작", key="home_pterm_main",
+            if st.button("📜 약관검색", key="home_pterm_main",
                          use_container_width=True, type="primary"):
                 st.session_state.current_tab = "policy_terms"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+        with _tool_c3:
+            st.markdown("""
+<div style="background:linear-gradient(135deg,#0d3b2e,#27ae60);
+  border-radius:14px;padding:16px 10px 12px 10px;text-align:center;min-height:110px;">
+  <div style="font-size:2.2rem;">🔬</div>
+  <div style="color:#fff;font-size:0.9rem;font-weight:900;margin:6px 0 4px;">통합 스캔 허브</div>
+  <div style="color:#a8e6cf;font-size:0.68rem;line-height:1.5;">증권·의무기록·진단서<br>1회 업로드 → 전탭 자동활용</div>
+</div>""", unsafe_allow_html=True)
+            if st.button("🔬 스캔허브", key="home_scanhub_main",
+                         use_container_width=True, type="primary"):
+                st.session_state.current_tab = "scan_hub"
                 st.session_state["_scroll_top"] = True
                 st.rerun()
 
@@ -5779,10 +5791,9 @@ section[data-testid="stMain"] > div,
         # ── 파트 1: 보험 상담 (5개, 2열) ──
         st.markdown('<div class="gk-section-label">🛡️ 보험 상담</div>', unsafe_allow_html=True)
         PART1 = [
-            ("policy_terms", "📜", "보험약관 AI 검색", "공시실 실시간 탐색 · 딥러닝 약관 매칭\n가입 시점 정확 매칭 + 시맨틱 검색"),
             ("t1",  "💰", "보험금 상담",        "청구 절차 · 지급 거절 대응\n민원·손해사정·약관 해석"),
             ("disability","🩺","장해보험금 산출","AMA·맥브라이드·호프만계수\n후유장해 보험금 산출"),
-            ("t2",  "🛡️", "기본보험 상담",      "자동차·화재·운전자\n일상배상책임 점검"),
+            ("t2",  "🛡️", "기본보험 상담",      "자동차·화재·운전자\n일상배상체임 점검"),
             ("t3",  "🏥", "질병·상해 통합보험",  "암·뇌·심장 3대질병 보장\n간병·치매·생명보험 설계"),
             ("cancer","🎗️","암.뇌.심장질환 상담", "NGS·표적항암·면역항암·CAR-T\n뇌심장 치료비 보장 실무 분석"),
             ("t4",  "🚗", "자동차사고 상담",    "과실비율·합의금 분석\n13대 중과실·민식이법 안내"),
@@ -5839,13 +5850,6 @@ section[data-testid="stMain"] > div,
             ("leaflet",       "🗂️", "보험 리플렛 AI 분류", "리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 폴더 저장·관리"),
             ("customer_docs", "👤", "고객자료 통합저장",  "의무기록·증권분석·청구서류 · 고객별 마인드맵 통합 저장"),
         ], "home_p4")
-
-        # ── 파트 5: 중앙 스캔 허브 (최하단 고정) ──
-        st.markdown('<div class="gk-section-label">🔬 중앙 문서 스캔 허브</div>', unsafe_allow_html=True)
-        _render_cards([
-            ("scan_hub", "🔬", "통합 문서 스캔 센터",
-             "보험증권·의무기록·진단서·청구서류 한 번에 스캔 → 모든 탭에서 자동 활용"),
-        ], "home_p5")
 
         # ── 상담자 정보 입력 패널 (로그인 시 홈 하단 고정) ──────────────
         if 'user_id' in st.session_state:
