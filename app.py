@@ -6560,6 +6560,124 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 </div>
 """, height=498)
 
+            st.markdown("""<div style="background:#f0f4ff;border:1.5px solid #2e6da4;
+  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
+  font-weight:900;color:#1a3a5c;">📋 뇌혈관질환 ICD 코드 & 약관 담보 범위</div>""", unsafe_allow_html=True)
+            components.html("""
+<div style="height:420px;overflow-y:auto;padding:10px 13px;
+  background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
+  font-size:0.80rem;line-height:1.65;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="color:#1a3a5c;">🔬 ICD-10 뇌혈관질환 코드 체계</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:8px;">
+<tr style="background:#dce8f8;"><th style="border:1px solid #b3c8e8;padding:3px 6px;">ICD 코드</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">질환명</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">담보 포함 여부</th></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;">I60</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">지주막하출혈</td><td style="border:1px solid #c8d8ec;padding:3px 6px;color:#c0392b;font-weight:700;">뇌졸중·광범위 모두 포함</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;">I61</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">뇌내출혈</td><td style="border:1px solid #c8d8ec;padding:3px 6px;color:#c0392b;font-weight:700;">뇌졸중·광범위 모두 포함</td></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;">I62</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">기타 비외상성 두개내출혈</td><td style="border:1px solid #c8d8ec;padding:3px 6px;color:#c0392b;font-weight:700;">뇌졸중·광범위 모두 포함</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;">I63</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">뇌경색증</td><td style="border:1px solid #c8d8ec;padding:3px 6px;color:#c0392b;font-weight:700;">뇌졸중·광범위 모두 포함</td></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;">I64</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">출혈·경색으로 명시 안 된 뇌졸중</td><td style="border:1px solid #c8d8ec;padding:3px 6px;color:#c0392b;font-weight:700;">뇌졸중·광범위 모두 포함</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;">I65~I66</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">뇌전동맥 폐색·협착</td><td style="border:1px solid #c8d8ec;padding:3px 6px;color:#e67e22;font-weight:700;">광범위 담보만 포함</td></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;">I67</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">기타 뇌혈관질환 (모야모야 등)</td><td style="border:1px solid #c8d8ec;padding:3px 6px;color:#e67e22;font-weight:700;">광범위 담보만 포함</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;">I69</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">뇌혈관질환 후유증</td><td style="border:1px solid #c8d8ec;padding:3px 6px;color:#e67e22;font-weight:700;">광범위 담보만 포함</td></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;">G45</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">일과성 뇌허혈발작 (TIA)</td><td style="border:1px solid #c8d8ec;padding:3px 6px;color:#27ae60;font-weight:700;">일부 광범위 담보 포함</td></tr>
+</table>
+<b style="color:#c0392b;">⚠️ 핵심 포인트</b><br>
+• <b>뇌졸중 한정 담보</b>: I60~I64만 보상 → TIA·모야모야·후유증 면책<br>
+• <b>뇌혈관질환 광범위 담보</b>: I60~I69 + G45 포함 → 훨씬 넓은 보장<br>
+• 계약 시 "뇌졸중" vs "뇌혈관질환" 문구 반드시 확인 필수<br><br>
+<b style="color:#1a3a5c;">📅 뇌혈관 담보 약관 변천사</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:6px;">
+<tr style="background:#dce8f8;"><th style="border:1px solid #b3c8e8;padding:3px 6px;">시기</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">주요 개정 내용</th></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;white-space:nowrap;font-weight:700;">~2005</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">뇌졸중 한정 담보 중심. 진단비 500만~1,000만원 수준.</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;white-space:nowrap;font-weight:700;">2006~2012</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">뇌혈관질환 광범위 담보 상품 출시. 진단비 3,000만원 시대 개막.</td></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;white-space:nowrap;font-weight:700;">2013~2017</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">간병인일당 담보 신설. 한시장해 보험금 지급 기준 명확화.</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;white-space:nowrap;font-weight:700;color:#c0392b;">2018~2021</td><td style="border:1px solid #c8d8ec;padding:3px 6px;"><b>[중요]</b> 유병자 간편심사 상품 활성화. 3.3.5 / 3.5.5 기준 도입. 고혈압·당뇨 복약자 가입 가능.</td></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;white-space:nowrap;font-weight:700;">2022~현재</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">뇌혈관질환 진단비 갱신형 상품 확대. 비갱신형 한도 축소 추세. 실손 4세대 연계 전략 중요.</td></tr>
+</table>
+</div>
+""", height=438)
+
+            st.markdown("""<div style="background:#f0f4ff;border:1.5px solid #2e6da4;
+  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
+  font-weight:900;color:#1a3a5c;">⚖️ 장해 판정 기준 & 보험금 청구 실무</div>""", unsafe_allow_html=True)
+            components.html("""
+<div style="height:460px;overflow-y:auto;padding:10px 13px;
+  background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
+  font-size:0.80rem;line-height:1.65;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="color:#1a3a5c;">🏥 뇌졸중 장해 판정 실무 절차</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:8px;">
+<tr style="background:#dce8f8;"><th style="border:1px solid #b3c8e8;padding:3px 6px;">단계</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">시기</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">내용</th></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">1단계</td><td style="border:1px solid #c8d8ec;padding:3px 6px;white-space:nowrap;">발병 즉시</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">진단비 청구 (뇌졸중·뇌혈관질환 진단서 + MRI 소견서)</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">2단계</td><td style="border:1px solid #c8d8ec;padding:3px 6px;white-space:nowrap;">1~6개월</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">한시장해 판정 신청. 재활치료비·간병인일당 청구 시작.</td></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">3단계</td><td style="border:1px solid #c8d8ec;padding:3px 6px;white-space:nowrap;">18~24개월</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">영구장해 판정 (증상 고정 확인). 장해보험금 청구.</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">4단계</td><td style="border:1px solid #c8d8ec;padding:3px 6px;white-space:nowrap;">판정 후</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">국가 장애인 등록 (장애등급 판정). 국가 지원 연계.</td></tr>
+</table>
+<b style="color:#c0392b;">⚠️ 한시장해 기간의 함정 — '암흑의 2년'</b><br>
+• 한시장해 기간: 국가 장애인 등록 <b>불가</b> → 국가 지원 전혀 없음<br>
+• 요양병원 본인부담: 월 150~300만원 (급여 적용 후에도)<br>
+• 간병인 비용: 월 300~500만원 (별도 추가)<br>
+• 합계 자비 부담: <b>월 500~700만원 × 24개월 = 최대 1억 6,800만원</b><br><br>
+<b style="color:#1a3a5c;">📋 장해등급별 보험금 지급 기준 (표준약관)</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:8px;">
+<tr style="background:#dce8f8;"><th style="border:1px solid #b3c8e8;padding:3px 6px;">장해 분류</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">지급률</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">해당 상태 예시</th></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;">1급 (100%)</td><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;color:#c0392b;">100%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">식물인간·완전 사지마비·일상생활 전 도움 필요</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;">2급 (89%)</td><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">89%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">편마비 + 일상생활 대부분 도움 필요</td></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;">3급 (79%)</td><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">79%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">편마비 + 보조기구로 보행 가능</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;">4~6급</td><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">57~69%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">언어장해·인지장해·경도 운동장해</td></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;">7~9급</td><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">27~46%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">경미한 신경학적 후유증</td></tr>
+</table>
+<b style="color:#1a3a5c;">📜 보험금 분쟁 시 활용 법리</b><br>
+• <b>상법 제657조</b>: 보험사고 발생 시 지체 없이 통지 의무 (피보험자)<br>
+• <b>상법 제658조</b>: 보험금 청구 후 10일 이내 지급 의무 (보험사)<br>
+• <b>약관규제법 제5조</b>: 뇌졸중 vs 뇌혈관질환 문구 불명확 시 고객 유리 해석<br>
+• <b>금감원 분쟁조정</b>: 장해 판정 이견 시 금감원 분쟁조정위원회 신청 가능<br>
+• <b>손해사정인 선임권</b>: 보험업법 제185조 — 피보험자의 손해사정인 선임 권리 보장
+</div>
+""", height=478)
+
+            st.markdown("""<div style="background:#f0f4ff;border:1.5px solid #2e6da4;
+  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
+  font-weight:900;color:#1a3a5c;">💰 뇌질환 보험 설계 실무 & 유병자 인수 전략</div>""", unsafe_allow_html=True)
+            components.html("""
+<div style="height:440px;overflow-y:auto;padding:10px 13px;
+  background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
+  font-size:0.80rem;line-height:1.65;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="color:#1a3a5c;">🛡️ 뇌질환 보장 설계 권장 기준</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:8px;">
+<tr style="background:#dce8f8;"><th style="border:1px solid #b3c8e8;padding:3px 6px;">담보 항목</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">권장 금액</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">비고</th></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;">뇌혈관질환 진단비</td><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;color:#c0392b;">3,000만원 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">광범위 담보 (I60~I69) 필수</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;">뇌졸중 진단비</td><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">2,000만원 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">광범위 담보와 중복 설계 가능</td></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;">간병인일당</td><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;color:#c0392b;">월 400~500만원</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">24개월 = 1억원 이상 확보 목표</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;">장해보험금</td><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">1억원 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">영구장해 판정 후 생활비 대체</td></tr>
+<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;">소득보상 담보</td><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">월 소득 60~80%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">소득 단절 대비 (취업불능 담보)</td></tr>
+<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;">실손보험</td><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">4세대 유지</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">급성기 입원비·MRI 청구 연계</td></tr>
+</table>
+<b style="color:#1a3a5c;">🔍 유병자 간편심사 인수 기준 (3.3.5 / 3.5.5)</b><br>
+<b>3.3.5 기준 (일반 간편심사)</b><br>
+• 최근 3개월 이내 입원·수술·추가 검사 소견 없음<br>
+• 최근 3년 이내 입원·수술 없음<br>
+• 최근 5년 이내 암·뇌혈관·심장질환 진단·치료 없음<br><br>
+<b>3.5.5 기준 (완화 간편심사)</b><br>
+• 최근 3개월 이내 입원·수술 없음<br>
+• 최근 5년 이내 입원·수술 없음<br>
+• 최근 5년 이내 암·뇌혈관·심장질환 진단·치료 없음<br><br>
+<b style="color:#c0392b;">⚠️ 고혈압·당뇨 복약자 가입 전략</b><br>
+• 고혈압 복약 중: 3.3.5 / 3.5.5 간편심사 상품 가입 가능<br>
+• 당뇨 복약 중: 혈당 조절 양호 시 일부 간편심사 가입 가능<br>
+• 뇌경색 기왕력: 5년 경과 후 일부 간편심사 상품 검토 가능<br>
+• 주의: 고지의무 위반 시 보험금 지급 거절 → 정확한 고지 필수<br><br>
+<b style="color:#1a3a5c;">📊 연령대별 뇌졸중 발생 통계 (국내)</b><br>
+• 40대: 인구 10만명당 약 50명<br>
+• 50대: 인구 10만명당 약 200명 (4배 급증)<br>
+• 60대: 인구 10만명당 약 600명<br>
+• 70대 이상: 인구 10만명당 약 1,500명<br>
+• 재발률: 1년 내 10~15%, 5년 내 25~30%<br>
+• 사망률: 발병 후 30일 내 약 15~20%
+</div>
+""", height=458)
+
     # ── [heart] 심장질환 전용 상담 ───────────────────────────────────────
     if cur == "heart":
         if not _auth_gate("heart"): st.stop()
@@ -6699,7 +6817,123 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 </div>
 """, height=498)
 
-    # ── [이미지 분석] 보험금/이미지 ──────────────────────────────────────
+            st.markdown("""<div style="background:#fff8f0;border:1.5px solid #e67e22;
+  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
+  font-weight:900;color:#7d3c00;">📋 심장질환 ICD 코드 & 약관 담보 범위</div>""", unsafe_allow_html=True)
+            components.html("""
+<div style="height:420px;overflow-y:auto;padding:10px 13px;
+  background:#fffaf5;border:1px solid #f5d5a0;border-radius:0 0 8px 8px;
+  font-size:0.80rem;line-height:1.65;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="color:#7d3c00;">🔬 ICD-10 심장질환 코드 체계</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:8px;">
+<tr style="background:#fdecea;"><th style="border:1px solid #f5c0a0;padding:3px 6px;">ICD 코드</th><th style="border:1px solid #f5c0a0;padding:3px 6px;">질환명</th><th style="border:1px solid #f5c0a0;padding:3px 6px;">담보 포함 여부</th></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;">I20</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">협심증 (안정형·불안정형)</td><td style="border:1px solid #f5d5b8;padding:3px 6px;color:#e67e22;font-weight:700;">허혈성심장질환 광범위만 포함</td></tr>
+<tr style="background:#fff5ee;"><td style="border:1px solid #f5d5b8;padding:3px 6px;">I21</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">급성 심근경색증 (AMI)</td><td style="border:1px solid #f5d5b8;padding:3px 6px;color:#c0392b;font-weight:700;">급성심근경색·광범위 모두 포함</td></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;">I22</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">속발성 심근경색증</td><td style="border:1px solid #f5d5b8;padding:3px 6px;color:#c0392b;font-weight:700;">급성심근경색·광범위 모두 포함</td></tr>
+<tr style="background:#fff5ee;"><td style="border:1px solid #f5d5b8;padding:3px 6px;">I23~I25</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">심근경색 합병증·만성허혈심장질환</td><td style="border:1px solid #f5d5b8;padding:3px 6px;color:#e67e22;font-weight:700;">허혈성심장질환 광범위만 포함</td></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;">I46</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">심장정지 (심실세동)</td><td style="border:1px solid #f5d5b8;padding:3px 6px;color:#27ae60;font-weight:700;">일부 상품 포함 (확인 필요)</td></tr>
+<tr style="background:#fff5ee;"><td style="border:1px solid #f5d5b8;padding:3px 6px;">I48</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">심방세동 및 조동</td><td style="border:1px solid #f5d5b8;padding:3px 6px;color:#27ae60;font-weight:700;">부정맥 담보 별도 확인</td></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;">I50</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">심부전</td><td style="border:1px solid #f5d5b8;padding:3px 6px;color:#27ae60;font-weight:700;">일부 광범위 담보 포함</td></tr>
+</table>
+<b style="color:#c0392b;">⚠️ 핵심 포인트</b><br>
+• <b>급성심근경색 한정 담보</b>: I21~I22만 보상 → 협심증·심부전·부정맥 면책<br>
+• <b>허혈성심장질환 광범위 담보</b>: I20~I25 포함 → 협심증·불안정협심증 보상<br>
+• 계약 시 "급성심근경색" vs "허혈성심장질환" 문구 반드시 확인 필수<br><br>
+<b style="color:#7d3c00;">📅 심장질환 담보 약관 변천사</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:6px;">
+<tr style="background:#fdecea;"><th style="border:1px solid #f5c0a0;padding:3px 6px;">시기</th><th style="border:1px solid #f5c0a0;padding:3px 6px;">주요 개정 내용</th></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;white-space:nowrap;font-weight:700;">~2005</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">급성심근경색 한정 담보 중심. 진단비 500만~1,000만원 수준.</td></tr>
+<tr style="background:#fff5ee;"><td style="border:1px solid #f5d5b8;padding:3px 6px;white-space:nowrap;font-weight:700;">2006~2012</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">허혈성심장질환 광범위 담보 출시. 협심증 포함 여부 상품별 상이.</td></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;white-space:nowrap;font-weight:700;">2013~2017</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">수술비 담보 세분화 (스텐트·CABG 별도 담보 신설). 재발 담보 등장.</td></tr>
+<tr style="background:#fff5ee;"><td style="border:1px solid #f5d5b8;padding:3px 6px;white-space:nowrap;font-weight:700;color:#c0392b;">2018~2021</td><td style="border:1px solid #f5d5b8;padding:3px 6px;"><b>[중요]</b> 스텐트 시술 후 유병자 간편심사 가입 가능 상품 확대. 3.3.5 / 3.5.5 기준 도입.</td></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;white-space:nowrap;font-weight:700;">2022~현재</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">심장질환 진단비 갱신형 확대. 비갱신형 한도 축소 추세. 재발 리스크 담보 강화.</td></tr>
+</table>
+</div>
+""", height=438)
+
+            st.markdown("""<div style="background:#fff8f0;border:1.5px solid #e67e22;
+  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
+  font-weight:900;color:#7d3c00;">⚖️ 심장 수술 종류 & 보험금 청구 실무</div>""", unsafe_allow_html=True)
+            components.html("""
+<div style="height:460px;overflow-y:auto;padding:10px 13px;
+  background:#fffaf5;border:1px solid #f5d5a0;border-radius:0 0 8px 8px;
+  font-size:0.80rem;line-height:1.65;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="color:#7d3c00;">🏥 주요 심장 시술·수술 종류 및 비용</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:8px;">
+<tr style="background:#fdecea;"><th style="border:1px solid #f5c0a0;padding:3px 6px;">시술·수술명</th><th style="border:1px solid #f5c0a0;padding:3px 6px;">비용(본인부담)</th><th style="border:1px solid #f5c0a0;padding:3px 6px;">보험 청구 포인트</th></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">스텐트 시술 (PCI)</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">300~500만원</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">급여 본인부담 20%. 수술비 담보 청구 가능.</td></tr>
+<tr style="background:#fff5ee;"><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">관상동맥우회술 (CABG)</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">1,000~2,000만원</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">개흉 수술 — 수술비 담보 최고액 청구 가능.</td></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">심장판막 수술</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">500~1,500만원</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">판막 치환·성형 — 수술 분류 확인 필요.</td></tr>
+<tr style="background:#fff5ee;"><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">제세동기(ICD) 삽입</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">300~700만원</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">부정맥 담보 + 수술비 담보 중복 청구 가능.</td></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">심장 재활 프로그램</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">월 50~100만원</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">3~6개월 — 실손보험 입원·외래 청구 연계.</td></tr>
+</table>
+<b style="color:#c0392b;">⚠️ 재발 리스크 — 핵심 수치</b><br>
+• 심근경색 후 1년 내 재발률: 약 10~15%<br>
+• 심근경색 후 5년 내 재발률: 약 20~30%<br>
+• 재발 시 추가 스텐트·CABG 비용 반복 발생<br>
+• 항혈소판제 복약 중단 시 재발 위험 3배 이상 증가<br><br>
+<b style="color:#7d3c00;">📋 보험금 청구 단계별 실무</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:8px;">
+<tr style="background:#fdecea;"><th style="border:1px solid #f5c0a0;padding:3px 6px;">단계</th><th style="border:1px solid #f5c0a0;padding:3px 6px;">시기</th><th style="border:1px solid #f5c0a0;padding:3px 6px;">청구 항목</th></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">1단계</td><td style="border:1px solid #f5d5b8;padding:3px 6px;white-space:nowrap;">발병 즉시</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">진단비 청구 (심근경색·허혈성심장질환 진단서 + 심전도·심장효소 검사결과)</td></tr>
+<tr style="background:#fff5ee;"><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">2단계</td><td style="border:1px solid #f5d5b8;padding:3px 6px;white-space:nowrap;">시술·수술 후</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">수술비 담보 청구 (스텐트·CABG 수술확인서 + 입원비)</td></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">3단계</td><td style="border:1px solid #f5d5b8;padding:3px 6px;white-space:nowrap;">재활 기간</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">실손보험 외래·입원 청구 + 간병인일당 청구</td></tr>
+<tr style="background:#fff5ee;"><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">4단계</td><td style="border:1px solid #f5d5b8;padding:3px 6px;white-space:nowrap;">장기 관리</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">장해 판정 시 장해보험금 청구 + 소득보상 담보 청구</td></tr>
+</table>
+<b style="color:#7d3c00;">📜 보험금 분쟁 시 활용 법리</b><br>
+• <b>약관규제법 제5조</b>: "급성심근경색" vs "허혈성심장질환" 문구 불명확 시 고객 유리 해석<br>
+• <b>상법 제658조</b>: 보험금 청구 후 10일 이내 지급 의무 (보험사)<br>
+• <b>협심증 보상 분쟁</b>: 불안정협심증 → 급성심근경색 전단계 → 광범위 담보 적용 주장 가능<br>
+• <b>손해사정인 선임권</b>: 보험업법 제185조 — 피보험자의 손해사정인 선임 권리 보장<br>
+• <b>금감원 분쟁조정</b>: 담보 범위 이견 시 금감원 분쟁조정위원회 신청 가능
+</div>
+""", height=478)
+
+            st.markdown("""<div style="background:#fff8f0;border:1.5px solid #e67e22;
+  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
+  font-weight:900;color:#7d3c00;">💰 심장질환 보험 설계 실무 & 유병자 인수 전략</div>""", unsafe_allow_html=True)
+            components.html("""
+<div style="height:440px;overflow-y:auto;padding:10px 13px;
+  background:#fffaf5;border:1px solid #f5d5a0;border-radius:0 0 8px 8px;
+  font-size:0.80rem;line-height:1.65;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="color:#7d3c00;">🛡️ 심장질환 보장 설계 권장 기준</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:8px;">
+<tr style="background:#fdecea;"><th style="border:1px solid #f5c0a0;padding:3px 6px;">담보 항목</th><th style="border:1px solid #f5c0a0;padding:3px 6px;">권장 금액</th><th style="border:1px solid #f5c0a0;padding:3px 6px;">비고</th></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;">허혈성심장질환 진단비</td><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;color:#c0392b;">3,000만원 이상</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">광범위 담보 (I20~I25) 필수</td></tr>
+<tr style="background:#fff5ee;"><td style="border:1px solid #f5d5b8;padding:3px 6px;">급성심근경색 진단비</td><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">2,000만원 이상</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">광범위 담보와 중복 설계 가능</td></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;">심장 수술비</td><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;color:#c0392b;">2,000만원 이상</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">스텐트·CABG 모두 포함 확인</td></tr>
+<tr style="background:#fff5ee;"><td style="border:1px solid #f5d5b8;padding:3px 6px;">간병인일당</td><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">월 300~500만원</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">재활 기간 + 재발 대비</td></tr>
+<tr><td style="border:1px solid #f5d5b8;padding:3px 6px;">소득보상 담보</td><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">월 소득 60~80%</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">소득 단절 대비 (취업불능 담보)</td></tr>
+<tr style="background:#fff5ee;"><td style="border:1px solid #f5d5b8;padding:3px 6px;">실손보험</td><td style="border:1px solid #f5d5b8;padding:3px 6px;font-weight:700;">4세대 유지</td><td style="border:1px solid #f5d5b8;padding:3px 6px;">급성기 입원비·시술비 청구 연계</td></tr>
+</table>
+<b style="color:#7d3c00;">🔍 유병자 간편심사 인수 전략 (심장질환)</b><br>
+<b>스텐트 시술 후 가입 가능 여부</b><br>
+• 시술 후 <b>3개월 이상</b> 경과 + 합병증 없음 → 일부 간편심사 상품 가입 가능<br>
+• 시술 후 <b>5년 이상</b> 경과 → 더 넓은 범위의 간편심사 상품 검토 가능<br>
+• CABG 후: 최소 6개월~1년 경과 후 간편심사 상품 검토<br><br>
+<b>3.3.5 / 3.5.5 기준 적용</b><br>
+• 최근 3개월 이내 입원·수술 없음 (3.3.5 기준)<br>
+• 최근 3~5년 이내 입원·수술 없음<br>
+• 최근 5년 이내 암·뇌혈관·심장질환 진단·치료 없음<br><br>
+<b style="color:#c0392b;">⚠️ 고혈압·고지혈증 복약자 가입 전략</b><br>
+• 고혈압 복약 중: 3.3.5 / 3.5.5 간편심사 상품 가입 가능<br>
+• 고지혈증 복약 중: 대부분 간편심사 상품 가입 가능<br>
+• 당뇨 복약 중: 혈당 조절 양호 시 일부 간편심사 가입 가능<br>
+• 주의: 고지의무 위반 시 보험금 지급 거절 → 정확한 고지 필수<br><br>
+<b style="color:#7d3c00;">📊 연령대별 심근경색 발생 통계 (국내)</b><br>
+• 40대: 인구 10만명당 약 30명<br>
+• 50대: 인구 10만명당 약 120명 (4배 급증)<br>
+• 60대: 인구 10만명당 약 350명<br>
+• 70대 이상: 인구 10만명당 약 800명<br>
+• 남성이 여성보다 약 3~4배 높은 발생률<br>
+• 재발률: 1년 내 10~15%, 5년 내 20~30%
+</div>
+""", height=458)
+
+    # ── [img]이미지 분석] 보험금/이미지 ──────────────────────────────────────
     if cur == "img":
         tab_home_btn("img")
         st.subheader("📷 의무기록 및 증권 이미지 분석")
