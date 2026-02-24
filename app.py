@@ -6059,6 +6059,7 @@ section[data-testid="stMain"] > div,
                             st.session_state.current_tab = tab_id
                             st.session_state["_scroll_top"] = True
                             st.rerun()
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [policy_scan] 보험증권 분석 — 독립 전용 탭 ──────────────────────
     if cur == "policy_scan":
@@ -6365,6 +6366,7 @@ section[data-testid="stMain"] > div,
                     st.info("검색 결과 없음 — 먼저 **🚀 공시실 실시간 약관 탐색**을 실행하세요.")
             except ImportError:
                 st.error("disclosure_crawler 모듈 로드 실패")
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t0] 신규보험 상품 상담 — 보험설계사 전용 ───────────────────────
     if cur == "t0":
@@ -6818,6 +6820,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 ☐ 고객 동의 및 설명 완료<br><br>
 <b style="color:#888;font-size:0.76rem;">⚠️ 본 내용은 참고용이며 최종 판단은 설계사에게 있습니다.</b>
 </div>""", height=638)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t1] 보험금 상담 ──────────────────────────────────────────────────
     if cur == "t1":
@@ -6867,6 +6870,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 통장사본 (입금 계좌)<br><br>
 <b style="color:#555;font-size:0.78rem;">⚠️ 보험금 지급 여부는 보험사 심사 및 약관에 따릅니다.</b>
 </div>""", height=340)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [disability] 장해보험금 산출 ─────────────────────────────────────
     if cur == "disability":
@@ -7440,6 +7444,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 금감원 2018년 장해분류표 개정 — 부위별 정의 명확화
 </div>
 """, height=500)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t2] 기본보험 상담 ────────────────────────────────────────────────
     if cur == "t2":
@@ -7635,6 +7640,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • <b>월 보험료</b>: 수천 원 수준으로 가성비 최고 담보
 </div>
 """, height=278)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t3] 통합보험 설계 ────────────────────────────────────────────────
     if cur == "t3":
@@ -7699,6 +7705,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 항암방사선: 3,000만원 ~ 6,000만원
 </div>
 """, height=538)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [cancer] 암·뇌·심장 중증질환 통합 상담 ──────────────────────────
     if cur == "cancer":
@@ -7909,6 +7916,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 심혈관질환 진단비 3천만원 + 수술비 + 간병인일당
 </div>
 """, height=238)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [brain] 뇌질환(중풍) 전용 상담 ──────────────────────────────────
     if cur == "brain":
@@ -8163,6 +8171,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 사망률: 발병 후 30일 내 약 15~20%
 </div>
 """, height=458)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [heart] 심장질환 전용 상담 ───────────────────────────────────────
     if cur == "heart":
@@ -8418,6 +8427,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 재발률: 1년 내 10~15%, 5년 내 20~30%
 </div>
 """, height=458)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [img]이미지 분석] 보험금/이미지 ──────────────────────────────────────
     if cur == "img":
@@ -8468,6 +8478,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         except Exception as e:
                             st.error(f"이미지 분석 오류: {sanitize_unicode(str(e))}")
         show_result("res_img")
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
 
     # ── [t4] 자동차사고 상담 ──────────────────────────────────────────────
@@ -8567,6 +8578,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 """, height=440)
             st.subheader("🤖 AI 분석 리포트")
             show_result("res_t4")
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t5] 노후·상속설계 ────────────────────────────────────────────────
     if cur == "t5":
@@ -8616,6 +8628,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 목표: 실질 소득대체율 <b>60~70%</b> 달성
 </div>
 """, height=278)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t6] 세무상담 ─────────────────────────────────────────────────────
     if cur == "t6":
@@ -8676,6 +8689,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 가입 전 법인 정관·세무처리 방식 반드시 세무사와 확인
 </div>
 """, height=278)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t7] 법인상담 ─────────────────────────────────────────────────────
     if cur == "t7":
@@ -8732,6 +8746,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 가업승계 전략: 비상장주식 평가 후 증여 시점 최적화
 </div>
 """, height=338)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t8] CEO플랜 ──────────────────────────────────────────────────────
     if cur == "t8":
@@ -8873,6 +8888,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 <b style="color:#555;font-size:0.78rem;">⚠️ 본 분석은 참고용이며 실제 세무처리는 세무사와 확인하십시오.</b>
 </div>
 """, height=338)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [fire] 화재보험 재조달가액 ────────────────────────────────────────
     if cur == "fire":
@@ -9058,6 +9074,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         product_key=_pk_f)
             with col2:
                 st.info("AI 분석 결과는 상단 '🤖 AI 분석 리포트'에 표시됩니다.")
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [liability] 배상책임보험 상담 ────────────────────────────────────
     if cur == "liability":
@@ -9187,6 +9204,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • <b>화재보험법</b>: 22층 이상 건물·연면적 3,000㎡ 이상 특수건물 의무가입<br><br>
 <b style="color:#555;font-size:0.78rem;">⚠️ 의무보험 미가입 시 행정처분 및 과태료 부과 대상입니다.</b>
 </div>""", height=578)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [nursing] 간병비 컨설팅 ──────────────────────────────────────────
     if cur == "nursing":
@@ -9462,6 +9480,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     if st.button("💰 간병비 산출기로 이동", key="nursing_ai_to_calc"):
                         st.session_state["_nursing_sub_goto"] = "🧮 간병비 산출기"
                         st.rerun()
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [realty] 부동산 투자 상담 ────────────────────────────────────────
     if cur == "realty":
@@ -9792,9 +9811,25 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 임대소득세: 연 2,000만원 초과 시 종합과세
 </div>
 """, height=438)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t9] 관리자 ───────────────────────────────────────────────────────
     if cur == "t9":
+        # 미인증 상태면 인증키 입력 화면만 표시 후 stop
+        if not (st.session_state.get("is_admin") or st.session_state.get("_admin_tab_auth")):
+            tab_home_btn("t9")
+            st.subheader("⚙️ 관리자 전용 시스템")
+            _pre_key = st.text_input("관리자 인증키", type="password", key="admin_key_pre")
+            if _pre_key:
+                if _pre_key == get_admin_key():
+                    st.session_state["_admin_tab_auth"] = True
+                    st.rerun()
+                else:
+                    st.error("인증키가 올바르지 않습니다.")
+            else:
+                st.info("관리자 인증키를 입력하세요.")
+            st.stop()
+    if cur == "t9" and (st.session_state.get("is_admin") or st.session_state.get("_admin_tab_auth")):
         tab_home_btn("t9")
         st.subheader("⚙️ 관리자 전용 시스템")
         # RAG 바로가기 힌트 (사이드바 버튼으로 진입 시)
@@ -10899,6 +10934,7 @@ END; $$;""", language="sql")
             st.error("관리자 인증키가 올바르지 않습니다.")
         else:
             st.info("관리자 인증키를 입력하세요.")
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [life_cycle] LIFE CYCLE 백지설계 상담자료 ────────────────────────
     if cur == "life_cycle":
@@ -11005,6 +11041,7 @@ END; $$;""", language="sql")
   <div class="lc-footer">⚠️ 본 자료는 보험 설계 참고용이며, 최종 판단은 설계사에게 있습니다. &nbsp;|&nbsp; 케이지에이에셋 골드키지사 &nbsp;010-3074-2616</div>
 </div>
 """, unsafe_allow_html=True)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [life_event] LIFE EVENT 상담 ────────────────────────────────────
     if cur == "life_event":
@@ -11123,6 +11160,7 @@ END; $$;""", language="sql")
 <b>다음 이벤트를 선제적으로 제안</b>하여 지속적 관계를 유지하세요.
 </div>
 </div>""", height=580)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [leaflet] 보험 리플렛 자동 분류 AI 시스템 ───────────────────────
     if cur == "leaflet":
@@ -11459,6 +11497,7 @@ END; $$;""", language="sql")
 • HF Secrets: <code>SUPABASE_URL</code>, <code>SUPABASE_SERVICE_ROLE_KEY</code> 등록<br>
 • 버킷 생성: Supabase → Storage → New bucket → <code>goldkey</code>
 </div>""", unsafe_allow_html=True)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [stock_eval] 비상장주식 평가 ─────────────────────────────────────
     if cur == "stock_eval":
@@ -11574,6 +11613,7 @@ END; $$;""", language="sql")
 
             st.markdown("##### 🤖 AI 분석 리포트")
             show_result("res_stock_eval")
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [policy_terms] AI 자동 약관 매칭 시스템 ─────────────────────────
     if cur == "policy_terms":
@@ -11851,6 +11891,7 @@ END; $$;""", language="sql")
 • 이미지 PDF(스캔본)는 텍스트 추출 불가 — 협회 통합 검색 시도 권장<br>
 • 모델: 합성 QA 생성 <code>gemini-2.0-flash</code> / 원문 저장 Supabase ILIKE 검색
 </div>""", unsafe_allow_html=True)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [customer_docs] 고객자료 통합저장 ───────────────────────────────
     if cur == "customer_docs":
@@ -12032,6 +12073,7 @@ END; $$;""", language="sql")
                                                 st.success("삭제 완료")
                                                 st.session_state.pop("cd_docs_cache", None)
                                                 st.rerun()
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # 하단 공통 면책 고지
     st.divider()
