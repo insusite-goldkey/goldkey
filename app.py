@@ -12439,11 +12439,22 @@ END; $$;""", language="sql")
                 label_visibility="collapsed"
             )
 
+            # ── 파일 업로드 시 바이너리 즉시 캐시 (탭 이동 시 유실 방지) ──
             if _sh_files:
+                st.session_state["sh_file_cache"] = [
+                    {"name": _f.name, "type": _f.type, "data": _f.getvalue()}
+                    for _f in _sh_files
+                ]
                 st.success(f"✅ {len(_sh_files)}개 파일 선택됨")
                 for _f in _sh_files:
                     _sz = round(len(_f.getvalue()) / 1024, 1)
                     st.caption(f"  📄 {_f.name}  ({_sz} KB)")
+            elif st.session_state.get("sh_file_cache"):
+                _cached = st.session_state["sh_file_cache"]
+                st.info(f"📁 이전 업로드 파일 {len(_cached)}개 유지 중 (탭 이동 후 복원)")
+                for _fc in _cached:
+                    _sz = round(len(_fc["data"]) / 1024, 1)
+                    st.caption(f"  📄 {_fc['name']}  ({_sz} KB)")
 
             # ── OCR 전처리 옵션 ──────────────────────────────────────
             with st.expander("⚙️ OCR 전처리 / 보안 / 추출 옵션 (고급)", expanded=False):
@@ -12518,21 +12529,43 @@ END; $$;""", language="sql")
 
             st.divider()
 
-            # ── 스캔 실행 버튼 ──────────────────────────────────────
+            # ── 스캔 실행 버튼 ──────────────────────────────
+            _has_files = bool(_sh_files or st.session_state.get("sh_file_cache"))
             _sh_run = st.button(
                 "🔬 통합 스캔 실행",
                 type="primary",
                 use_container_width=True,
                 key="btn_sh_run",
-                disabled=(not _sh_files)
+                disabled=(not _has_files)
             )
 
-            if _sh_run and _sh_files:
+            # 스캔 요청을 세션에 저장 (탭 이동 후에도 유지)
+            if _sh_run and _has_files:
+                st.session_state["sh_scan_pending"]   = True
+                st.session_state["sh_scan_doc_type"]  = _sh_doc_type
+
+            if st.session_state.get("sh_scan_pending"):
+                # 실제 스캔에 사용할 파일: 업로드 리스트 우선, 없으면 캐시 활용
+                class _CF:
+                    def __init__(self, d):
+                        self.name=d["name"]; self.type=d["type"]; self._d=d["data"]
+                    def getvalue(self): return self._d
+                    def read(self): return self._d
+
+                _scan_files = _sh_files or [
+                    _CF(c) for c in st.session_state.get("sh_file_cache", [])
+                ]
+                if not _scan_files:
+                    st.warning("⚠️ 스캔할 파일이 없습니다. 파일을 다시 업로드해 주세요.")
+                    st.session_state.pop("sh_scan_pending", None)
+                    st.stop()
+
+                _sh_doc_type = st.session_state.get("sh_scan_doc_type", _sh_doc_type)
                 _type_key = {
                     "🏦 보험증권":           "policy",
                     "🏥 의무기록·진단서":    "medical",
                     "📋 보험금 청구서류":     "claim",
-                    "🏛️ 법원·경찰·소방 서류": "legal",
+                    "🏗️ 법원·경찰·소방 서류": "legal",
                     "📄 기타 문서":           "other",
                 }.get(_sh_doc_type, "other")
 
@@ -12546,7 +12579,7 @@ END; $$;""", language="sql")
                     _sh_errors = []
                     _sh_tables_all = []  # 표 문서 목록 (Excel 다운로드용)
 
-                    for _f in _sh_files:
+                    for _f in _scan_files:
                         try:
                             import hashlib as _hl
                             _fval = _f.getvalue()
@@ -12656,7 +12689,7 @@ END; $$;""", language="sql")
                     # 보험증권 → 담보 구조화 파싱
                     _sh_coverages = []
                     if _type_key == "policy":
-                        _pvr = parse_policy_with_vision(_sh_files)
+                        _pvr = parse_policy_with_vision(_scan_files)
                         _sh_coverages = _pvr.get("coverages", [])
                         _sh_errors   += _pvr.get("errors", [])
 
@@ -12665,10 +12698,11 @@ END; $$;""", language="sql")
                     _prev.extend(_sh_texts)
                     st.session_state["ssot_scan_data"]     = _prev
                     st.session_state["ssot_scan_type"]     = _type_key
-                    st.session_state["ssot_scan_files"]    = [_f.name for _f in _sh_files]
+                    st.session_state["ssot_scan_files"]    = [_f.name for _f in _scan_files]
                     st.session_state["ssot_scan_ts"]       = dt.now().strftime("%Y-%m-%d %H:%M:%S")
                     st.session_state["ssot_client_name"]   = _sh_name or ""
                     st.session_state["ssot_tables"]        = _sh_tables_all
+                    st.session_state.pop("sh_scan_pending", None)  # 스캔 완료 후 플래그 해제
 
                     if _sh_coverages:
                         st.session_state["ssot_coverages"]      = _sh_coverages
