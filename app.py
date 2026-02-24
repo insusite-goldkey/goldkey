@@ -3190,11 +3190,7 @@ def main():
 section[data-testid="stSidebar"] > div:first-child {
     overflow-y: auto !important;
     overflow-x: hidden !important;
-    height: 100vh !important;
     padding-bottom: 40px !important;
-}
-section[data-testid="stSidebar"] {
-    overflow: hidden !important;
 }
 </style>""", unsafe_allow_html=True)
 
