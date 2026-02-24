@@ -1,4 +1,20 @@
 # ==========================================================
+# ★★★ [영업비밀 / TRADE SECRET] ★★★
+# ----------------------------------------------------------
+# 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
+# 구조는 대한민국 「부정경쟁방지 및 영업비밀보호에 관한 법률」
+# 제2조 제2호에 따른 영업비밀(Trade Secret)입니다.
+#
+# 정식 명칭 : goldkey_ai_insu_Master
+# 약    칭  : insuAi
+# 개발 시작 : 2026-02-01  (최초 커밋 기준)
+# 보호 기간 : 2026-08-31 이후에도 영업비밀 보호 지속
+# 저작권자  : 이세윤 (골드키지사)
+#
+# ※ 무단 복제·배포·역설계·유출 금지
+# ※ 열람 권한 없는 자의 접근은 형사처벌 대상입니다.
+#    (부정경쟁방지법 제18조, 형법 제316조)
+# ==========================================================
 # 골드키지사 마스터 AI - 탭 구조 통합본 (전체 수정판)
 # 수정: 구조적/논리적/보안/모바일 문제 전체 반영
 # ----------------------------------------------------------
@@ -167,6 +183,15 @@ TTS_VOICE_PRIORITY = ["Yuna", "Female", "Google", "Heami"]
 # ==========================================================================
 
 # --------------------------------------------------------------------------
+# [SECTION 0] 앱 아이덴티티 상수
+# --------------------------------------------------------------------------
+APP_NAME       = "goldkey_ai_insu_Master"   # 정식 명칭 (영업비밀 등록용)
+APP_SHORT      = "insuAi"                   # 약칭 (일상 호칭)
+APP_AUTHOR     = "이세윤 (골드키지사)"
+APP_START_DATE = "2026-02-01"               # 최초 개발 시작일
+APP_DEVLOG_DB  = os.path.join(_DATA_DIR if '_DATA_DIR' in dir() else ".", "devlog.json")
+
+# --------------------------------------------------------------------------
 # [SECTION 1] 보안 및 암호화 엔진
 # --------------------------------------------------------------------------
 DEFAULT_KEY = b'19IPhRNw7fLHub9g5Kp6BaQ6wi53gJ8-OKPF3Bd5Ays='
@@ -238,7 +263,15 @@ def sanitize_unicode(text) -> str:
 def sanitize_prompt(text):
     """프롬프트 인젝션 방어 - 모든 쿼리에 적용"""
     text = sanitize_unicode(text)
-    danger_words = ["system instruction", "지침 무시", "프롬프트 출력", "명령어 변경", "ignore previous"]
+    danger_words = [
+        # 기존
+        "system instruction", "지침 무시", "프롬프트 출력", "명령어 변경", "ignore previous",
+        # 확장 — 탈옥·롤플레이·Override 패턴
+        "forget", "jailbreak", "dan ", "act as", "역할극", "roleplay",
+        "이전 내용 무시", "너는 이제", "새로운 역할", "탈옥",
+        "override", "disregard", "do anything now", "pretend you are",
+        "너의 규칙", "규칙을 무시", "instructions above", "ignore all",
+    ]
     for word in danger_words:
         if word in text.lower():
             return "보안을 위해 부적절한 요청은 처리되지 않습니다."
@@ -257,6 +290,64 @@ def get_admin_code():
         return st.secrets.get("ADMIN_CODE", "kgagold6803")
     except Exception:
         return "kgagold6803"
+
+# --------------------------------------------------------------------------
+# [SECTION 1.8] Brute-force 로그인 방어 — _LoginGuard
+# --------------------------------------------------------------------------
+@st.cache_resource
+def _get_login_fail_store():
+    """
+    서버 전역 로그인 실패 기록 저장소.
+    구조: {user_name: {"count": N, "locked_until": float_timestamp}}
+    """
+    return {}
+
+class _LoginGuard:
+    """
+    로그인 Brute-force 방어.
+    - 5회 연속 실패 → LOCK_MINUTES(10분) 잠금
+    - 잠금 중 시도 시 남은 시간 반환
+    - 로그인 성공 시 카운터 초기화
+    """
+    MAX_FAIL    = 5
+    LOCK_MINUTES = 10
+
+    @staticmethod
+    def is_locked(user_name: str) -> tuple:
+        """
+        반환: (잠금여부: bool, 남은초: int)
+        """
+        store = _get_login_fail_store()
+        rec   = store.get(user_name)
+        if not rec:
+            return False, 0
+        locked_until = rec.get("locked_until", 0)
+        remaining    = int(locked_until - time.time())
+        if remaining > 0:
+            return True, remaining
+        return False, 0
+
+    @staticmethod
+    def record_fail(user_name: str):
+        """실패 1회 기록. MAX_FAIL 초과 시 잠금 설정."""
+        store = _get_login_fail_store()
+        rec   = store.setdefault(user_name, {"count": 0, "locked_until": 0})
+        rec["count"] += 1
+        if rec["count"] >= _LoginGuard.MAX_FAIL:
+            rec["locked_until"] = time.time() + _LoginGuard.LOCK_MINUTES * 60
+            rec["count"]        = 0  # 잠금 후 카운터 리셋
+
+    @staticmethod
+    def record_success(user_name: str):
+        """로그인 성공 시 실패 기록 초기화."""
+        _get_login_fail_store().pop(user_name, None)
+
+    @staticmethod
+    def remaining_attempts(user_name: str) -> int:
+        """남은 허용 횟수 (잠금 아닌 경우에만 의미 있음)"""
+        store = _get_login_fail_store()
+        rec   = store.get(user_name, {"count": 0})
+        return max(0, _LoginGuard.MAX_FAIL - rec.get("count", 0))
 
 # --------------------------------------------------------------------------
 # [SECTION 1.5] 비상장주식 평가 엔진 (상증법 + 법인세법)
@@ -3821,36 +3912,59 @@ section[data-testid="stSidebar"] > div:first-child {
                         st.markdown("<div style='font-size:0.78rem;color:#555;margin-top:4px;'>🟩 중립 분석 모드 — 특정 상품 유형 추천 없이 객관적 상담</div>", unsafe_allow_html=True)
                     if st.form_submit_button("🔓 로그인", use_container_width=True):
                         if ln and lc:
-                            with st.spinner("⏳ 로그인 중입니다. 잠시만 기다려주세요..."):
-                                members = load_members()
-                                _login_ok = ln in members and decrypt_data(members[ln]["contact"], lc)
-                            if _login_ok:
-                                m = members[ln]
-                                _jd = dt.strptime(m["join_date"], "%Y-%m-%d")
-                                _adm = (ln in _get_unlimited_users())
-                                st.session_state.user_id   = m["user_id"]
-                                st.session_state.user_name = ln
-                                st.session_state.join_date = _jd
-                                st.session_state.is_admin  = _adm
-                                st.session_state["_mic_notice"] = True
-                                st.session_state["_login_welcome"] = ln
-                                _pro_val = st.session_state.get("login_is_pro", "비종사자")
-                                st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)" if _pro_val == "종사자" else "👤 비종사자 (고객·일반인)"
-                                _raw_ins = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)")
-                                _ins_map = {
-                                    "선택 안 함 (중립 분석)": "선택 안 함 (중립 분석)",
-                                    "⬜ 선택 안 함 (중립 분석)": "선택 안 함 (중립 분석)",
-                                    "🏦 생명보험 주력": "🏦 생명보험 주력",
-                                    "🛡️ 손해보험 주력": "🛡️ 손해보험 주력",
-                                    "🏢 생명·손해 종합(GA)": "🏢 생명·손해 종합(GA)",
-                                }
-                                st.session_state["preferred_insurer"] = _ins_map.get(_raw_ins, "선택 안 함 (중립 분석)") if _pro_val == "종사자" else "선택 안 함 (중립 분석)"
-                                st.rerun()
+                            # ── Brute-force 잠금 확인 ────────────────────────
+                            _lk, _lk_sec = _LoginGuard.is_locked(ln)
+                            if _lk:
+                                _lk_min = _lk_sec // 60
+                                _lk_s   = _lk_sec % 60
+                                st.error(
+                                    f"🔒 로그인 시도 횟수 초과로 **{_lk_min}분 {_lk_s}초** 잠금 중입니다.\n\n"
+                                    f"잠금 해제 후 다시 시도하거나 운영자(010-3074-2616)에게 문의하세요."
+                                )
                             else:
-                                if ln not in members:
-                                    st.error("미가입회원입니다. 회원가입 후 이용해주세요.")
+                                with st.spinner("⏳ 로그인 중입니다. 잠시만 기다려주세요..."):
+                                    members = load_members()
+                                    _login_ok = ln in members and decrypt_data(members[ln]["contact"], lc)
+                                if _login_ok:
+                                    _LoginGuard.record_success(ln)
+                                    m = members[ln]
+                                    _jd = dt.strptime(m["join_date"], "%Y-%m-%d")
+                                    _adm = (ln in _get_unlimited_users())
+                                    st.session_state.user_id   = m["user_id"]
+                                    st.session_state.user_name = ln
+                                    st.session_state.join_date = _jd
+                                    st.session_state.is_admin  = _adm
+                                    st.session_state["_mic_notice"] = True
+                                    st.session_state["_login_welcome"] = ln
+                                    _pro_val = st.session_state.get("login_is_pro", "비종사자")
+                                    st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)" if _pro_val == "종사자" else "👤 비종사자 (고객·일반인)"
+                                    _raw_ins = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)")
+                                    _ins_map = {
+                                        "선택 안 함 (중립 분석)": "선택 안 함 (중립 분석)",
+                                        "⬜ 선택 안 함 (중립 분석)": "선택 안 함 (중립 분석)",
+                                        "🏦 생명보험 주력": "🏦 생명보험 주력",
+                                        "🛡️ 손해보험 주력": "🛡️ 손해보험 주력",
+                                        "🏢 생명·손해 종합(GA)": "🏢 생명·손해 종합(GA)",
+                                    }
+                                    st.session_state["preferred_insurer"] = _ins_map.get(_raw_ins, "선택 안 함 (중립 분석)") if _pro_val == "종사자" else "선택 안 함 (중립 분석)"
+                                    st.rerun()
                                 else:
-                                    st.error("연락처(비밀번호)가 올바르지 않습니다.")
+                                    if ln not in members:
+                                        st.error("미가입회원입니다. 회원가입 후 이용해주세요.")
+                                    else:
+                                        _LoginGuard.record_fail(ln)
+                                        _remain = _LoginGuard.remaining_attempts(ln)
+                                        _lk2, _ = _LoginGuard.is_locked(ln)
+                                        if _lk2:
+                                            st.error(
+                                                f"🔒 연속 {_LoginGuard.MAX_FAIL}회 실패로 **{_LoginGuard.LOCK_MINUTES}분 잠금**되었습니다.\n\n"
+                                                "운영자(010-3074-2616)에게 문의하세요."
+                                            )
+                                        else:
+                                            st.error(
+                                                f"연락처(비밀번호)가 올바르지 않습니다. "
+                                                f"(남은 시도: **{_remain}회** — {_LoginGuard.MAX_FAIL}회 초과 시 {_LoginGuard.LOCK_MINUTES}분 잠금)"
+                                            )
             with tab_s:
                 with st.form("sb_signup_form"):
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
@@ -3885,15 +3999,27 @@ section[data-testid="stSidebar"] > div:first-child {
                         elif pw_new1 == pw_old:
                             st.error("새 비번이 기존 비번과 동일합니다.")
                         else:
-                            _pw_members = load_members()
-                            if pw_name not in _pw_members:
-                                st.error("미가입회원입니다.")
-                            elif not decrypt_data(_pw_members[pw_name]["contact"], pw_old):
-                                st.error("기존 연락처(비번)가 올바르지 않습니다.")
+                            _pw_lk, _pw_lk_sec = _LoginGuard.is_locked(pw_name)
+                            if _pw_lk:
+                                _pm = _pw_lk_sec // 60; _ps = _pw_lk_sec % 60
+                                st.error(f"🔒 시도 횟수 초과로 **{_pm}분 {_ps}초** 잠금 중입니다. 운영자(010-3074-2616)에게 문의하세요.")
                             else:
-                                _pw_members[pw_name]["contact"] = encrypt_contact(pw_new1)
-                                save_members(_pw_members)
-                                st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
+                                _pw_members = load_members()
+                                if pw_name not in _pw_members:
+                                    st.error("미가입회원입니다.")
+                                elif not decrypt_data(_pw_members[pw_name]["contact"], pw_old):
+                                    _LoginGuard.record_fail(pw_name)
+                                    _pw_rem = _LoginGuard.remaining_attempts(pw_name)
+                                    _pw_lk2, _ = _LoginGuard.is_locked(pw_name)
+                                    if _pw_lk2:
+                                        st.error(f"🔒 {_LoginGuard.MAX_FAIL}회 실패로 **{_LoginGuard.LOCK_MINUTES}분 잠금**되었습니다.")
+                                    else:
+                                        st.error(f"기존 연락처(비번)가 올바르지 않습니다. (남은 시도: **{_pw_rem}회**)")
+                                else:
+                                    _LoginGuard.record_success(pw_name)
+                                    _pw_members[pw_name]["contact"] = encrypt_contact(pw_new1)
+                                    save_members(_pw_members)
+                                    st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
                 st.markdown("""
 <div style='background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;
   padding:8px 12px;font-size:0.76rem;color:#0369a1;margin-top:6px;line-height:1.7;'>
@@ -4084,6 +4210,16 @@ section[data-testid="stSidebar"] > div:first-child {
                 for k in ['analysis_result']:
                     st.session_state.pop(k, None)
                 st.success("상담 자료가 파기되었습니다.")
+
+            st.markdown("""<div style="background:linear-gradient(135deg,#0d2137,#1e6fa8);
+  border-radius:8px;padding:6px 10px;margin:8px 0 4px 0;
+  font-size:0.76rem;font-weight:900;color:#a8d4f5;letter-spacing:0.03em;">
+  🤖 AI 자동 약관 매칭 시스템</div>""", unsafe_allow_html=True)
+            if st.button("📜 약관 매칭 · 딥러닝 검색", key="sb_policy_terms",
+                         use_container_width=True):
+                st.session_state.current_tab = "policy_terms"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
 
         st.divider()
         st.markdown("""
@@ -4870,6 +5006,19 @@ window['startTTS_{tab_key}']=function(){{
                 income   = hi_premium / 0.0709 if hi_premium > 0 else 0
                 safe_q   = sanitize_prompt(query)
 
+                # ── 입력 길이 제한 (DoS·텍스트폭탄 방어) ───────────────────
+                _MAX_QUERY_LEN = 2000
+                if len(safe_q) > _MAX_QUERY_LEN:
+                    st.error(
+                        f"⚠️ 질문이 너무 깁니다. "
+                        f"**{_MAX_QUERY_LEN}자 이하**로 입력해주세요. "
+                        f"(현재 {len(safe_q)}자)"
+                    )
+                    return
+                if "보안을 위해 부적절한 요청" in safe_q:
+                    st.error("🔒 보안 필터에 의해 차단된 요청입니다.")
+                    return
+
                 # ── 가드레일 정보 조회 ──────────────────────────────────────
                 guardrail = _PRODUCT_GUARDRAILS.get(product_key)
                 product_hint = guardrail[2] if guardrail else ""
@@ -4937,10 +5086,29 @@ window['startTTS_{tab_key}']=function(){{
                             for i, r in enumerate(results, 1)
                         )
 
+                # ── 자율학습 지식 버킷 자동 주입 ──────────────────────────────
+                expert_ctx = ""
+                try:
+                    _ea_sb_inj = _get_sb_client()
+                    if _ea_sb_inj:
+                        from expert_agent import ExpertKnowledgeBucket
+                        _ea_bucket_inj = ExpertKnowledgeBucket(_ea_sb_inj)
+                        _ea_hits = _ea_bucket_inj.search_similar(safe_q, limit=2)
+                        if _ea_hits:
+                            expert_ctx = "\n\n[전문가 학습 지식 — 자율학습 버킷]\n"
+                            expert_ctx += "".join(
+                                f"{i}. [{sanitize_unicode(h.get('source_type',''))}] "
+                                f"{sanitize_unicode(h.get('topic',''))}: "
+                                f"{sanitize_unicode(h.get('summary_ko',''))[:300]}\n"
+                                for i, h in enumerate(_ea_hits, 1)
+                            )
+                except Exception:
+                    expert_ctx = ""
+
                 prompt = (
                     f"{sys_prefix}"
                     f"고객: {sanitize_unicode(c_name)}, 추정소득: {income:,.0f}원\n"
-                    f"질문: {safe_q}{rag_ctx}\n{extra_prompt}"
+                    f"질문: {safe_q}{rag_ctx}{expert_ctx}\n{extra_prompt}"
                 )
 
                 # [GATE 2] Gemini 호출은 반드시 gateway를 통해 — 입출력 모두 격리 정제
@@ -5463,6 +5631,38 @@ section[data-testid="stMain"] > div,
 </style>
 """, unsafe_allow_html=True)
 
+        # ── 파트 -1: 증권분석 (최최상단 단독 배치) ──
+        st.markdown('<div class="gk-section-label" style="background:#0d8a4e;">📎 보험증권 분석</div>', unsafe_allow_html=True)
+        _pscan_c1, _pscan_c2 = st.columns(2, gap="small")
+        with _pscan_c1:
+            st.markdown(
+                "<div class='gk-card-wrap'>"
+                "<div class='gk-card' style='background:linear-gradient(135deg,#f0fff8 0%,#d4f5e5 100%);border-color:#27ae60;'>"
+                "<div class='gk-card-icon'>📎</div>"
+                "<div class='gk-card-body'>"
+                "<div class='gk-card-title' style='color:#0d3b2e;'>보험증권 AI 분석</div>"
+                "<div class='gk-card-desc'>증권 PDF/이미지 업로드<br>담보 자동 파싱 · 보장 공백 진단 · 신규 설계 제안</div>"
+                "</div>"
+                "</div></div>", unsafe_allow_html=True)
+            if st.button("▶ 클릭", key="home_pscan_main", use_container_width=False):
+                st.session_state.current_tab = "policy_scan"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+        with _pscan_c2:
+            st.markdown(
+                "<div class='gk-card-wrap'>"
+                "<div class='gk-card'>"
+                "<div class='gk-card-icon'>📋</div>"
+                "<div class='gk-card-body'>"
+                "<div class='gk-card-title'>신규보험 상담</div>"
+                "<div class='gk-card-desc'>기존 보험증권 분석<br>보장 공백 진단 · 신규 컨설팅</div>"
+                "</div>"
+                "</div></div>", unsafe_allow_html=True)
+            if st.button("▶ 클릭", key="home_p0_t0_top", use_container_width=False):
+                st.session_state.current_tab = "t0"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+
         # ── 파트 0: 상담 & LIFE 컨설팅 (최상단 고정) ──
         st.markdown('<div class="gk-section-label">🌟 상담 &amp; LIFE 컨설팅</div>', unsafe_allow_html=True)
         _p0c1, _p0c2 = st.columns(2, gap="small")
@@ -5498,6 +5698,7 @@ section[data-testid="stMain"] > div,
         # ── 파트 1: 보험 상담 (5개, 2열) ──
         st.markdown('<div class="gk-section-label">🛡️ 보험 상담</div>', unsafe_allow_html=True)
         PART1 = [
+            ("policy_terms", "📜", "보험약관 AI 검색", "공시실 실시간 탐색 · 딥러닝 약관 매칭\n가입 시점 정확 매칭 + 시맨틱 검색"),
             ("t1",  "💰", "보험금 상담",        "청구 절차 · 지급 거절 대응\n민원·손해사정·약관 해석"),
             ("disability","🩺","장해보험금 산출","AMA·맥브라이드·호프만계수\n후유장해 보험금 산출"),
             ("t2",  "🛡️", "기본보험 상담",      "자동차·화재·운전자\n일상배상책임 점검"),
@@ -5537,6 +5738,7 @@ section[data-testid="stMain"] > div,
             ("t6",  "📊", "세무상담",           "소득세·법인세·부가세 절세\n건보료 역산 · 금융소득 분석"),
             ("t7",  "🏢", "법인상담",           "법인 보험 · 단체보험 설계\n법인세 절감 · 복리후생 플랜"),
             ("t8",  "👔", "CEO플랜",            "비상장주식 평가(상증법)\n가업승계 · CEO 퇴직금 설계"),
+            ("stock_eval","📈","비상장주식 평가","순자산·순손익 가중평균\n경영권 할증 · 법인세법 시가"),
             ("fire","🔥", "화재보험(재조달가액)","REB 기준 건물 재조달가액\n비례보상 방지 전략"),
             ("liability","⚖️","배상책임보험",   "중복보험 독립책임액 안분\n민법·실화책임법 정리"),
         ]
@@ -5624,6 +5826,7 @@ section[data-testid="stMain"] > div,
                 st.session_state.current_tab = "customer_docs"
                 st.session_state["_scroll_top"] = True
                 st.rerun()
+
 
         st.divider()
         if st.session_state.get('is_admin'):
@@ -5754,17 +5957,29 @@ section[data-testid="stMain"] > div,
     def _auth_gate(tab_key: str) -> bool:
         """로그인 상태 중앙 체크 — False 반환 시 해당 기둥 렌더 중단"""
         if "user_id" not in st.session_state:
-            st.warning("🔒 이 섹터는 로그인 후 이용 가능합니다.")
-            st.markdown(
-                "<div style='background:#fff3cd;border:1.5px solid #f59e0b;"
-                "border-radius:8px;padding:10px 14px;font-size:0.85rem;color:#92400e;'>"
-                "👈 왼쪽 사이드바에서 <b>로그인</b> 후 이용해주세요.</div>",
-                unsafe_allow_html=True
-            )
-            if st.button("🏠 홈으로 돌아가기", key=f"auth_gate_home_{tab_key}"):
-                st.session_state.current_tab = "home"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
+            st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:14px;padding:28px 22px;margin:20px 0;text-align:center;">
+  <div style="font-size:2.5rem;margin-bottom:10px;">🔒</div>
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;margin-bottom:8px;">
+    로그인 후 이용 가능합니다
+  </div>
+  <div style="color:#b3d4f5;font-size:0.85rem;">
+    왼쪽 사이드바 하단 <b style="color:#ffd700;">Admin Console</b>에서 로그인하세요
+  </div>
+</div>""", unsafe_allow_html=True)
+            _ag_c1, _ag_c2 = st.columns(2)
+            with _ag_c1:
+                if st.button("🏠 홈으로 돌아가기", key=f"auth_gate_home_{tab_key}",
+                             use_container_width=True, type="primary"):
+                    st.session_state.current_tab = "home"
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+            with _ag_c2:
+                if st.button("🔓 로그인 열기", key=f"auth_gate_login_{tab_key}",
+                             use_container_width=True):
+                    st.session_state["_open_sidebar"] = True
+                    st.rerun()
             return False
         # 직전 탭 기록 (Deep Link 복귀용)
         st.session_state["gs_last_tab"] = tab_key
@@ -5792,6 +6007,9 @@ section[data-testid="stMain"] > div,
         "liability":   [("fire", "🔥 화재보험"), ("t4", "🚗 자동차사고"), ("nursing", "🏥 간병")],
         "nursing":     [("cancer", "🎗️ 암 상담"), ("t3", "🛡️ 통합보험"), ("t5", "🏦 노후설계")],
         "realty":      [("t6", "💰 세무상담"), ("t5", "🏦 노후설계"), ("fire", "🔥 화재보험")],
+        "stock_eval":  [("t8", "👔 CEO플랜"), ("t6", "💰 세무상담"), ("t7", "🏭 법인상담")],
+        "policy_scan":  [("t0", "📋 신규보험 상담"), ("t1", "💰 보험금 상담"), ("policy_terms", "📜 약관검색")],
+        "policy_terms": [("t1", "💰 보험금 상담"), ("cancer", "🎗️ 암 상담"), ("brain", "🧠 뇌질환 상담")],
     }
 
     def _deep_link_bar(current_tab: str):
@@ -5832,6 +6050,189 @@ section[data-testid="stMain"] > div,
                             st.session_state.current_tab = tab_id
                             st.session_state["_scroll_top"] = True
                             st.rerun()
+
+    # ── [policy_scan] 보험증권 분석 — 독립 전용 탭 ──────────────────────
+    if cur == "policy_scan":
+        if not _auth_gate("policy_scan"): st.stop()
+        tab_home_btn("policy_scan")
+
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 50%,#27ae60 100%);
+  border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:14px;
+  box-shadow:0 4px 18px rgba(39,174,96,0.22);">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="font-size:2.2rem;">📎</div>
+    <div>
+      <div style="color:#fff;font-size:1.22rem;font-weight:900;letter-spacing:0.04em;line-height:1.2;">
+        보험증권 분석 시스템
+      </div>
+      <div style="color:#a8f0c8;font-size:0.78rem;margin-top:3px;">
+        PDF·이미지 업로드 → AI 담보 자동 파싱 → 보장 공백 진단 → 신규 컨설팅 제안
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+    <span style="background:rgba(255,255,255,0.15);color:#d0ffe8;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">📄 PDF 자동 파싱</span>
+    <span style="background:rgba(255,255,255,0.15);color:#d0ffe8;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">🔍 담보 구조 분석</span>
+    <span style="background:rgba(255,255,255,0.15);color:#d0ffe8;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">⚠️ 보장 공백 진단</span>
+    <span style="background:rgba(255,255,255,0.15);color:#d0ffe8;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">💡 신규 설계 제안</span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── 입력 영역 ─────────────────────────────────────────────────────
+        _ps_col1, _ps_col2 = st.columns([1, 1], gap="medium")
+
+        with _ps_col1:
+            st.markdown("""<div style="background:#f0fff6;border-left:4px solid #27ae60;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:10px;
+  font-weight:900;font-size:0.9rem;color:#0d3b2e;">📋 고객 정보 & 증권 업로드</div>""",
+                unsafe_allow_html=True)
+
+            ps_c_name = st.text_input("👤 고객 성함", placeholder="홍길동", key="ps_cname")
+
+            _PS_PRODUCTS = [
+                "선택 안 함 (전체 분석)",
+                "실손보험 (실비)",
+                "암보험",
+                "치매·간병보험",
+                "뇌혈관·심장보험",
+                "종신보험",
+                "정기보험",
+                "연금보험",
+                "어린이·태아보험",
+                "운전자보험",
+                "화재·재물보험",
+                "경영인정기보험 (CEO플랜)",
+                "CI보험 (중대질병)",
+                "저축성보험",
+                "기타",
+            ]
+            _PS_DIRECTIONS = [
+                "보장 공백 진단",
+                "기존 증권 전체 분석",
+                "갱신형 → 비갱신형 전환 검토",
+                "보험료 절감 재설계",
+                "청구 가능 여부 확인",
+                "해지/감액 검토",
+                "신규 가입 상담",
+            ]
+            _psc1, _psc2 = st.columns(2)
+            with _psc1:
+                ps_product = st.selectbox("🏷️ 상담 상품", _PS_PRODUCTS, key="ps_product")
+            with _psc2:
+                ps_direction = st.selectbox("🎯 상담 방향", _PS_DIRECTIONS, key="ps_direction")
+
+            ps_hi = st.number_input("💊 월 건강보험료(원)", value=0, step=1000, key="ps_hi")
+            if ps_hi > 0:
+                _ps_income = ps_hi / 0.0709
+                st.success(f"역산 월 소득: **{_ps_income:,.0f}원** | 적정 보험료: **{_ps_income*0.15:,.0f}원**")
+
+            ps_query = st.text_area(
+                "📝 추가 상담 내용 (선택)",
+                height=100,
+                key="query_ps",
+                placeholder="예) 40대 남성, 암보험·실손 보유. 뇌·심장 공백 점검 및 갱신형 전환 검토 요청."
+            )
+
+            ps_files = st.file_uploader(
+                "📎 보험증권 PDF/이미지 첨부 (복수 가능)",
+                accept_multiple_files=True,
+                type=['pdf', 'jpg', 'jpeg', 'png'],
+                key="up_ps"
+            )
+            if ps_files:
+                st.success(f"✅ {len(ps_files)}개 파일 업로드 완료")
+
+            ps_do = st.button("🔍 AI 증권 정밀 분석 실행", type="primary",
+                              key="btn_ps_analyze", use_container_width=True)
+
+        with _ps_col2:
+            st.markdown("""<div style="background:#f0fff6;border-left:4px solid #27ae60;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:10px;
+  font-weight:900;font-size:0.9rem;color:#0d3b2e;">🤖 AI 분석 리포트</div>""",
+                unsafe_allow_html=True)
+
+            if ps_do:
+                if 'user_id' not in st.session_state:
+                    st.error("로그인이 필요합니다.")
+                else:
+                    # PDF 텍스트 추출
+                    _ps_doc_text = "".join(
+                        f"\n[증권: {pf.name}]\n" + extract_pdf_chunks(pf, char_limit=8000)
+                        for pf in (ps_files or []) if pf.type == 'application/pdf'
+                    )
+                    # Vision 파싱 (이미지 증권)
+                    _ps_img_files = [pf for pf in (ps_files or []) if pf.type != 'application/pdf']
+                    _ps_vision_result = ""
+                    if _ps_img_files:
+                        with st.spinner("🔍 이미지 증권 Vision 파싱 중..."):
+                            _vr = parse_policy_with_vision(_ps_img_files)
+                            if _vr.get("coverages"):
+                                import json as _json
+                                _ps_vision_result = (
+                                    "\n\n[Vision 파싱 담보 목록]\n"
+                                    + _json.dumps(_vr["coverages"], ensure_ascii=False, indent=2)
+                                )
+                            if _vr.get("errors"):
+                                for _ve in _vr["errors"]:
+                                    st.warning(f"⚠️ Vision 오류: {_ve}")
+
+                    _ps_prod_ctx = f"\n## 상담 상품: {ps_product}" if ps_product != "선택 안 함 (전체 분석)" else ""
+                    _ps_dir_ctx  = f"\n## 상담 방향: {ps_direction}"
+                    _ps_extra = (
+                        f"[보험증권 분석 — 보험설계사 전용]{_ps_prod_ctx}{_ps_dir_ctx}\n\n"
+                        "## 필수 분석 항목 (아래 순서대로 빠짐없이 답변)\n\n"
+                        "### 1. 담보 구조 분석\n"
+                        "- 업로드된 증권의 모든 담보명·가입금액·갱신형 여부 정리 (표 형식)\n"
+                        "- 중복 담보 및 불필요 담보 지적\n\n"
+                        "### 2. 보장 공백 진단\n"
+                        "- 암·뇌·심장·실손 보장 공백 항목 우선순위별 나열\n"
+                        "- 간병·치매 보장 여부 확인\n\n"
+                        "### 3. 보험료 황금비율 진단\n"
+                        "- 건보료 기반 추정 소득 역산 (건보료 ÷ 0.0709)\n"
+                        "- 가처분 소득의 7~10% 기준 적정 보험료 범위 제시\n"
+                        "- 현재 납입 보험료 과다/과소 여부 평가\n\n"
+                        "### 4. 갱신형 vs 비갱신형 전략\n"
+                        "- 갱신형 담보 목록과 향후 보험료 인상 시뮬레이션\n"
+                        "- 비갱신형 전환 권고 담보 및 절감 효과 수치 제시\n\n"
+                        "### 5. 신규 설계 제안\n"
+                        "- 보장 공백 해소를 위한 추가 담보 우선순위 3가지\n"
+                        "- 예상 추가 보험료 범위 제시\n\n"
+                        "### 6. 고객 설득 멘트\n"
+                        "- 현장에서 바로 쓸 수 있는 세일즈 화법 2가지\n"
+                        + _ps_doc_text + _ps_vision_result
+                    )
+                    run_ai_analysis(
+                        ps_c_name or "고객", ps_query or "보험증권 분석 요청",
+                        ps_hi, "res_ps",
+                        extra_prompt=_ps_extra,
+                        product_key=ps_product if ps_product != "선택 안 함 (전체 분석)" else "",
+                    )
+
+            show_result("res_ps")
+
+            # ── 체크포인트 박스 ─────────────────────────────────────────
+            st.markdown("#### ✅ 증권 분석 체크포인트")
+            st.markdown("""
+<div style="background:#f0fff6;border:1.5px solid #27ae60;border-radius:10px;
+  padding:14px 16px;font-size:0.80rem;line-height:1.75;color:#1a1a2e;">
+<b style="color:#0d3b2e;">▶ 증권 분석 우선순위</b><br>
+① 실손보험 — 구실손 유지 여부 / 갱신형 확인<br>
+② 암보험 — 비급여 항암 담보 포함 여부<br>
+③ 뇌·심장 — 3대 질환 보장 공백 점검<br>
+④ 간병·치매 — 장기요양등급 연계 여부<br>
+⑤ 종신·CI — 사망보장 vs 생존보장 균형<br><br>
+<b style="color:#0d3b2e;">▶ 보험료 황금비율</b><br>
+• 가처분 소득의 <b>7~10%</b> 적정<br>
+• 위험직군 최대 <b>20%</b>까지 허용<br><br>
+<b style="color:#0d3b2e;">▶ 갱신형 전환 핵심 멘트</b><br>
+• "지금 보험, 10년 후에도 같은 금액 보장될까요?"<br>
+• 20년 갱신 시 보험료 2~3배 인상 시뮬레이션 제시<br>
+</div>""", unsafe_allow_html=True)
 
     # ── [t0] 신규보험 상품 상담 — 보험설계사 전용 ───────────────────────
     if cur == "t0":
@@ -7510,6 +7911,14 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 심방세동: 뇌경색 위험 5배 증가 (항응고제 필수)<br>
 • 당뇨: 뇌졸중 위험 2~3배 증가<br>
 • 흡연: 뇌졸중 위험 2배 증가<br><br>
+</div>
+""", height=200)
+
+            st.markdown("""<div style="background:#f0f4ff;border:1.5px solid #2e6da4;
+  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
+  font-weight:900;color:#1a3a5c;">🔬 ICD-10 뇌혈관질환 코드 & 약관 변천사</div>""", unsafe_allow_html=True)
+            components.html("""
+<div style="height:200px;overflow-y:auto;padding:10px 13px;
   background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
   font-size:0.80rem;line-height:1.65;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
@@ -8527,13 +8936,14 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             horizontal=True, key="liab_page")
         col1, col2 = st.columns([1, 1])
         with col1:
-            c_name_l, query_l, hi_l, do_l = ai_query_block("liability",
+            c_name_l, query_l, hi_l, do_l, _pk_l = ai_query_block("liability",
                 "예) 음식점 운영 중 고객 식중독 사고 발생, 배상책임보험 청구 가능 여부 문의")
             if do_l:
                 run_ai_analysis(c_name_l, query_l, hi_l, "res_liability",
                     "[배상책임보험 상담]\n1. 배상책임보험 개념 및 성립 요건 (민법 제750조)\n"
                     "2. 중복보험 독립책임액 안분방식 설명\n3. 민법·화재보험법·실화책임법 관련 법률\n"
-                    "4. 변호사 수임료·성과보수 기준 안내\n5. 보험금 청구 절차 및 필요 서류")
+                    "4. 변호사 수임료·성과보수 기준 안내\n5. 보험금 청구 절차 및 필요 서류",
+                    product_key=_pk_l)
         with col2:
             st.subheader("🤖 AI 분석 리포트")
             show_result("res_liability")
@@ -9209,13 +9619,14 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
         else:  # 보험 연계 설계
             with col1:
-                c_name_r, query_r, hi_r, do_r = ai_query_block("realty",
+                c_name_r, query_r, hi_r, do_r, _pk_r = ai_query_block("realty",
                     "예) 상가 건물 소유, 임차인 3명, 화재·배상책임 보험 연계 설계 요청")
                 if do_r:
                     run_ai_analysis(c_name_r, query_r, hi_r, "res_realty_ins",
                         "[부동산 보험 연계 설계]\n1. 건물 화재보험 (재조달가액 기준) 설계\n"
                         "2. 시설소유관리자 배상책임보험 설계\n3. 임대인·임차인 보험 역할 분담\n"
-                        "4. 전세보증보험·임대보증금 반환보증 안내\n5. 부동산 투자 리스크 헤지 전략")
+                        "4. 전세보증보험·임대보증금 반환보증 안내\n5. 부동산 투자 리스크 헤지 전략",
+                        product_key=_pk_r)
             with col2:
                 st.subheader("🤖 AI 분석 리포트")
                 show_result("res_realty_ins")
@@ -9303,8 +9714,84 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         f"👉 {_msg}"
                     )
 
+            # ── 보안 체크리스트 ────────────────────────────────────────────
+            _lf_store = _get_login_fail_store()
+            _lf_locked = [(n, int(r["locked_until"] - time.time()))
+                          for n, r in _lf_store.items()
+                          if r.get("locked_until", 0) > time.time()]
+            _lf_warn   = [(n, r["count"])
+                          for n, r in _lf_store.items()
+                          if r.get("count", 0) >= 3
+                          and r.get("locked_until", 0) <= time.time()]
+
+            try:
+                _sb_ok = bool(_get_sb_client())
+            except Exception:
+                _sb_ok = False
+            try:
+                _enc_key_ok = "ENCRYPTION_KEY" in st.secrets and bool(st.secrets["ENCRYPTION_KEY"])
+            except Exception:
+                _enc_key_ok = False
+            try:
+                _admin_code_ok = (st.secrets.get("ADMIN_CODE","kgagold6803") != "kgagold6803")
+            except Exception:
+                _admin_code_ok = False
+
+            _sec_items = [
+                ("🔒 로그인 Brute-force 방어 (5회 잠금)",
+                 True, "정상 동작 중"),
+                ("🧬 프롬프트 인젝션 필터 (16종)",
+                 True, "정상 동작 중"),
+                ("📏 AI 입력 2000자 제한",
+                 True, "정상 동작 중"),
+                ("🔑 ENCRYPTION_KEY secrets 설정",
+                 _enc_key_ok,
+                 "설정됨" if _enc_key_ok else "⚠️ 기본키 사용 중 — secrets.toml에 ENCRYPTION_KEY 설정 필요"),
+                ("🛡️ ADMIN_CODE 커스텀 설정",
+                 _admin_code_ok,
+                 "설정됨" if _admin_code_ok else "⚠️ 기본값 사용 중 — secrets.toml에 ADMIN_CODE 변경 필요"),
+                ("🗄️ Supabase 연결",
+                 _sb_ok,
+                 "연결됨" if _sb_ok else "⚠️ 미연결"),
+                ("🌐 Cloudflare / WAF",
+                 None,
+                 "직접 확인 필요 — Cloudflare DNS 앞단 배치 권장"),
+                ("🔐 Supabase RLS",
+                 None,
+                 "직접 확인 필요 — Supabase 대시보드 → Table Editor → RLS 활성화 확인"),
+            ]
+
+            with st.expander("🛡️ 보안 체크리스트", expanded=bool(_lf_locked or _lf_warn)):
+                for _sc_label, _sc_ok, _sc_msg in _sec_items:
+                    if _sc_ok is True:
+                        _sc_icon, _sc_color = "✅", "#27ae60"
+                    elif _sc_ok is False:
+                        _sc_icon, _sc_color = "❌", "#e74c3c"
+                    else:
+                        _sc_icon, _sc_color = "🔍", "#e67e22"
+                    st.markdown(
+                        f"<div style='font-size:0.81rem;padding:4px 0;color:{_sc_color};'>"
+                        f"{_sc_icon} <b>{_sc_label}</b> — {_sc_msg}</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                if _lf_locked:
+                    st.markdown("---")
+                    st.markdown("**🔒 현재 잠금 중인 계정**")
+                    for _ln, _ls in _lf_locked:
+                        st.warning(f"🔒 **{_ln}** — 잠금 {_ls//60}분 {_ls%60}초 남음")
+                    if st.button("🔓 전체 잠금 해제", key="btn_unlock_all"):
+                        _lf_store.clear()
+                        st.success("모든 잠금이 해제되었습니다.")
+                        st.rerun()
+
+                if _lf_warn:
+                    st.markdown("**⚠️ 반복 실패 감지 (잠금 임박)**")
+                    for _wn, _wc in _lf_warn:
+                        st.info(f"⚠️ **{_wn}** — 실패 {_wc}회 (5회 시 잠금)")
+
             st.divider()
-            inner_tabs = st.tabs(["회원 관리", "RAG 지식베이스", "데이터 파기", "🤖 자율학습 에이전트"])
+            inner_tabs = st.tabs(["회원 관리", "RAG 지식베이스", "데이터 파기", "🤖 자율학습 에이전트", "📔 개발일지"])
             with inner_tabs[0]:
                 members = load_members()
                 if members:
@@ -9315,7 +9802,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         for n, info in members.items()]
                     st.dataframe(member_data, use_container_width=True)
                     selected = st.selectbox("회원 선택", list(members.keys()), key="admin_member_sel")
-                    c1, c2 = st.columns(2)
+                    c1, c2, c3 = st.columns(3)
                     with c1:
                         if st.button("베타 이용기간 연장 (30일)", key="btn_extend"):
                             end = dt.strptime(members[selected]["subscription_end"], "%Y-%m-%d")
@@ -9327,6 +9814,27 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                             members[selected]["is_active"] = False
                             save_members(members)
                             st.warning(f"{selected}님 비활성화 완료")
+                    with c3:
+                        if st.button("🔑 비번 임시 초기화", key="btn_reset_pw", type="primary"):
+                            _tmp_pw = "0000"
+                            members[selected]["contact"] = encrypt_contact(_tmp_pw)
+                            save_members(members)
+                            # 로그인 잠금도 함께 해제
+                            _lf_s = _get_login_fail_store()
+                            _lf_s.pop(selected, None)
+                            st.success(
+                                f"✅ **{selected}**님 비번이 임시비번 **0000**으로 초기화됐습니다.\n\n"
+                                f"전화로 임시비번 **0000** 안내 후, 회원이 직접 비번 변경하도록 안내하세요."
+                            )
+
+                    # ── 비번 분실 안내 문구 ──────────────────────────────
+                    st.info(
+                        "💡 **비번 분실 회원 처리 순서**\n\n"
+                        "1. 위 '🔑 비번 임시 초기화' 클릭 → 해당 회원 비번이 **0000**으로 초기화됨\n"
+                        "2. 전화(010-3074-2616)로 회원에게 임시비번 **0000** 안내\n"
+                        "3. 회원이 **0000**으로 로그인 후 → 비번 변경 폼에서 새 비번으로 변경\n"
+                        "4. 변경 완료 후 정상 이용 가능"
+                    )
                 else:
                     st.info("등록된 회원이 없습니다.")
             with inner_tabs[1]:
@@ -10066,6 +10574,195 @@ END; $$;""", language="sql")
                         else:
                             st.info(f"'{_ea_srch}' 관련 지식 없음 — 자율 학습 실행 후 재시도")
 
+            with inner_tabs[4]:
+                # ── 📔 개발일지 (goldkey_ai_insu_Master / insuAi) ────────
+                st.markdown(f"""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:12px;padding:14px 18px;margin-bottom:12px;">
+  <div style="color:#fff;font-size:1.05rem;font-weight:900;letter-spacing:0.04em;">
+    📔 개발일지 — <span style="color:#ffd700;">goldkey_ai_insu_Master</span>
+    &nbsp;<span style="background:#fff3;border-radius:6px;padding:2px 8px;
+    font-size:0.75rem;color:#b3d4f5;">약칭: insuAi</span>
+  </div>
+  <div style="color:#b3d4f5;font-size:0.75rem;margin-top:4px;">
+    개발 시작: {APP_START_DATE} &nbsp;|&nbsp; 저작권자: {APP_AUTHOR}
+    &nbsp;|&nbsp; ★ [영업비밀 / TRADE SECRET]
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                # ── 개발일지 CRUD 함수 (인라인) ───────────────────────────
+                def _dl_load():
+                    try:
+                        if os.path.exists(APP_DEVLOG_DB):
+                            with open(APP_DEVLOG_DB, "r", encoding="utf-8") as _f:
+                                return json.load(_f)
+                    except Exception:
+                        pass
+                    return []
+
+                def _dl_save(logs):
+                    try:
+                        with open(APP_DEVLOG_DB, "w", encoding="utf-8") as _f:
+                            json.dump(logs, _f, ensure_ascii=False, indent=2)
+                        return True
+                    except Exception:
+                        return False
+
+                _dl_logs = _dl_load()
+
+                # D-day 카운트다운
+                _deadline = dt.strptime("2026-08-31", "%Y-%m-%d")
+                _dday = (_deadline - dt.now()).days
+                _dday_str = f"D-{_dday}" if _dday >= 0 else f"D+{abs(_dday)}"
+                _start_dt = dt.strptime(APP_START_DATE, "%Y-%m-%d")
+                _elapsed  = (dt.now() - _start_dt).days
+
+                _dc1, _dc2, _dc3 = st.columns(3)
+                _dc1.metric("총 일지 수", f"{len(_dl_logs)}건")
+                _dc2.metric("개발 경과일", f"{_elapsed}일")
+                _dc3.metric(f"목표 ({_deadline.strftime('%Y.%m.%d')})", _dday_str)
+
+                st.divider()
+
+                # ── 새 일지 작성 ────────────────────────────────────────
+                with st.expander("✏️ 새 개발일지 작성", expanded=len(_dl_logs) == 0):
+                    with st.form("devlog_write_form"):
+                        _dl_c1, _dl_c2, _dl_c3 = st.columns([2, 1, 1])
+                        with _dl_c1:
+                            _dl_date = st.date_input(
+                                "📅 날짜",
+                                value=dt.now().date(),
+                                min_value=dt.strptime("2026-02-01", "%Y-%m-%d").date(),
+                                max_value=dt.strptime("2026-08-31", "%Y-%m-%d").date(),
+                                key="dl_date"
+                            )
+                        with _dl_c2:
+                            _dl_cat = st.selectbox(
+                                "📂 카테고리",
+                                ["기능추가", "버그수정", "보안", "UI/UX", "성능개선",
+                                 "약관검색/크롤링", "AI매칭/RAG", "데이터베이스",
+                                 "리팩토링", "문서화", "아이디어", "기타"],
+                                key="dl_cat"
+                            )
+                        with _dl_c3:
+                            _dl_ver = st.text_input(
+                                "🏷️ 버전",
+                                placeholder="예) v1.3",
+                                key="dl_ver"
+                            )
+                        _dl_title = st.text_input(
+                            "📌 제목",
+                            placeholder="예) 로그인 Brute-force 방어 기능 추가",
+                            key="dl_title"
+                        )
+                        _dl_body = st.text_area(
+                            "📝 상세 내용",
+                            height=150,
+                            placeholder="어떤 코딩을 했는지, 어떤 문제가 있었는지, 어떻게 해결했는지 자유롭게 기록하세요.",
+                            key="dl_body"
+                        )
+                        if st.form_submit_button("💾 저장", use_container_width=True, type="primary"):
+                            if _dl_title and _dl_body:
+                                _new_entry = {
+                                    "id":       int(time.time() * 1000),
+                                    "date":     str(_dl_date),
+                                    "category": _dl_cat,
+                                    "version":  _dl_ver.strip(),
+                                    "title":    _dl_title.strip(),
+                                    "body":     _dl_body.strip(),
+                                    "app":      APP_NAME,
+                                    "author":   APP_AUTHOR,
+                                    "created_at": dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                    "tag":      "[영업비밀/TRADE SECRET]",
+                                }
+                                _dl_logs.append(_new_entry)
+                                _dl_logs.sort(key=lambda x: x["date"])
+                                if _dl_save(_dl_logs):
+                                    st.success("✅ 개발일지가 저장되었습니다.")
+                                    st.rerun()
+                                else:
+                                    st.error("저장 실패. 디스크 권한을 확인하세요.")
+                            else:
+                                st.error("제목과 내용을 모두 입력해주세요.")
+
+                # ── 필터 + 목록 ──────────────────────────────────────────
+                if _dl_logs:
+                    _fl1, _fl2 = st.columns([2, 2])
+                    with _fl1:
+                        _dl_cats = ["전체"] + sorted(set(e["category"] for e in _dl_logs))
+                        _dl_fcat = st.selectbox("카테고리 필터", _dl_cats, key="dl_filter_cat")
+                    with _fl2:
+                        _dl_fkw = st.text_input("🔍 키워드 검색", placeholder="제목·내용 검색", key="dl_filter_kw")
+
+                    _filtered_dl = _dl_logs
+                    if _dl_fcat != "전체":
+                        _filtered_dl = [e for e in _filtered_dl if e["category"] == _dl_fcat]
+                    if _dl_fkw:
+                        _kw = _dl_fkw.lower()
+                        _filtered_dl = [e for e in _filtered_dl
+                                        if _kw in e["title"].lower() or _kw in e["body"].lower()]
+
+                    st.markdown(f"**총 {len(_filtered_dl)}건** (전체 {len(_dl_logs)}건)")
+
+                    # CSV 내보내기 (법적 증거용 백업)
+                    if st.button("📥 CSV 내보내기 (백업)", key="btn_dl_csv"):
+                        import csv, io as _io
+                        _csv_buf = _io.StringIO()
+                        _writer  = csv.DictWriter(
+                            _csv_buf,
+                            fieldnames=["date","category","version","title","body","author","created_at","tag"],
+                            extrasaction="ignore"
+                        )
+                        _writer.writeheader()
+                        _writer.writerows(sorted(_dl_logs, key=lambda x: x["date"]))
+                        st.download_button(
+                            label     = "⬇️ devlog.csv 다운로드",
+                            data      = _csv_buf.getvalue().encode("utf-8-sig"),
+                            file_name = f"{APP_NAME}_devlog_{dt.now().strftime('%Y%m%d')}.csv",
+                            mime      = "text/csv",
+                            key       = "btn_dl_csv_dl",
+                        )
+
+                    st.divider()
+
+                    # ── 일지 목록 표시 ──────────────────────────────────
+                    _CAT_COLOR = {
+                        "기능추가": "#27ae60", "버그수정": "#e74c3c", "보안": "#8e44ad",
+                        "UI/UX": "#2980b9", "성능개선": "#e67e22", "리팩토링": "#16a085",
+                        "약관검색/크롤링": "#1a5276", "AI매칭/RAG": "#0e6655", "데이터베이스": "#6c3483",
+                        "문서화": "#7f8c8d", "아이디어": "#f39c12", "기타": "#95a5a6",
+                    }
+                    for _ei, _entry in enumerate(reversed(_filtered_dl)):
+                        _ecat  = _entry.get("category", "기타")
+                        _ecolor = _CAT_COLOR.get(_ecat, "#95a5a6")
+                        _ever  = f" &nbsp;<span style='background:#eef;border-radius:4px;padding:1px 6px;font-size:0.72rem;color:#2e6da4;'>{_entry.get('version','')}</span>" if _entry.get("version") else ""
+                        with st.expander(
+                            f"[{_entry['date']}] [{_ecat}] {_entry['title']}{(' ' + _entry.get('version','')) if _entry.get('version') else ''}",
+                            expanded=False
+                        ):
+                            st.markdown(
+                                f"<div style='border-left:4px solid {_ecolor};"
+                                f"padding:8px 12px;background:#fafafa;border-radius:0 8px 8px 0;"
+                                f"font-size:0.83rem;white-space:pre-wrap;'>"
+                                f"{_entry['body']}</div>",
+                                unsafe_allow_html=True
+                            )
+                            st.caption(
+                                f"작성: {_entry.get('created_at','')}  |  "
+                                f"{_entry.get('tag','')}  |  {APP_NAME}"
+                            )
+                            _btn_del_key = f"btn_dl_del_{_entry['id']}"
+                            if st.button("🗑️ 이 일지 삭제", key=_btn_del_key):
+                                _dl_logs = [e for e in _dl_logs if e["id"] != _entry["id"]]
+                                _dl_save(_dl_logs)
+                                st.rerun()
+                else:
+                    st.info(
+                        f"📭 아직 작성된 개발일지가 없습니다.\n\n"
+                        f"**{APP_NAME}** ({APP_SHORT}) 개발 시작일 **{APP_START_DATE}**부터의 "
+                        f"기록을 위에서 작성해주세요."
+                    )
+
         elif admin_key_input:
             st.error("관리자 인증키가 올바르지 않습니다.")
         else:
@@ -10179,6 +10876,7 @@ END; $$;""", language="sql")
 
     # ── [life_event] LIFE EVENT 상담 ────────────────────────────────────
     if cur == "life_event":
+        if not _auth_gate("life_event"): st.stop()
         tab_home_btn("life_event")
         st.markdown("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
@@ -10570,8 +11268,401 @@ END; $$;""", language="sql")
 • 버킷 생성: Supabase → Storage → New bucket → <code>goldkey</code>
 </div>""", unsafe_allow_html=True)
 
+    # ── [stock_eval] 비상장주식 평가 ─────────────────────────────────────
+    if cur == "stock_eval":
+        if not _auth_gate("stock_eval"): st.stop()
+        tab_home_btn("stock_eval")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:12px;padding:14px 18px;margin-bottom:12px;">
+  <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
+    📈 비상장주식 평가 (상증법·법인세법)
+  </div>
+  <div style="color:#b3d4f5;font-size:0.78rem;margin-top:4px;">
+    순자산가치·순손익가치 가중평균 · 경영권 할증 · 부동산 과다 법인 보정
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            st.markdown("##### 📋 기본 정보 입력")
+            se_company   = st.text_input("법인명", "(주)예시기업", key="se_company")
+            se_shares    = st.number_input("발행주식 총수 (주)", value=10000, step=100, key="se_shares")
+            se_ctrl      = st.checkbox("최대주주 (경영권 할증 20% 적용)", value=True, key="se_ctrl")
+            se_re        = st.checkbox("부동산 과다 법인 (자산 비중 80% 이상)", value=False, key="se_re")
+            se_mkt       = st.number_input("매매사례가액 (원, 없으면 0)", value=0, step=1000, key="se_mkt")
+            se_asset     = st.number_input("순자산 (원)", value=5_000_000_000, step=1_000_000, key="se_asset")
+            st.markdown("**당기순이익 3개년 (원)**")
+            sc1, sc2, sc3 = st.columns(3)
+            with sc1: se_ni1 = st.number_input("최근년", value=400_000_000, step=1_000_000, key="se_ni1")
+            with sc2: se_ni2 = st.number_input("전년",   value=350_000_000, step=1_000_000, key="se_ni2")
+            with sc3: se_ni3 = st.number_input("전전년", value=300_000_000, step=1_000_000, key="se_ni3")
+
+            if st.button("📊 비상장주식 평가 실행", type="primary", key="btn_se_eval"):
+                mkt = se_mkt if se_mkt > 0 else None
+                ev  = AdvancedStockEvaluator(
+                    net_asset=se_asset, net_incomes=[se_ni1, se_ni2, se_ni3],
+                    total_shares=se_shares, market_price=mkt,
+                    is_controlling=se_ctrl, is_real_estate_rich=se_re)
+                st.session_state.update({
+                    "se_corp": ev.evaluate_corporate_tax(),
+                    "se_inh":  ev.evaluate_inheritance_tax(),
+                    "se_company_name": se_company,
+                    "se_shares_cnt":   se_shares,
+                })
+                st.rerun()
+
+            st.markdown("---")
+            st.markdown("##### 🤖 AI 심층 분석")
+            c_name_se, query_se, hi_se, do_se, _pk_se = ai_query_block("stock_eval",
+                "예) 발행주식 10,000주, 순자산 50억, 가업승계 및 CEO플랜 연계 전략 요청",
+                product_key="비상장주식평가")
+            if do_se:
+                corp_r = st.session_state.get("se_corp")
+                inh_r  = st.session_state.get("se_inh")
+                extra  = ""
+                if corp_r and inh_r:
+                    extra = (f"\n법인명: {st.session_state.get('se_company_name','')}"
+                             f"\n발행주식: {st.session_state.get('se_shares_cnt',0):,}주"
+                             f"\n법인세법상 시가: {corp_r.get('법인세법상 시가',0):,.0f}원/주"
+                             f"\n상증법상 최종가액: {inh_r.get('상증법상 최종가액',0):,.0f}원/주")
+                run_ai_analysis(c_name_se, query_se, hi_se, "res_stock_eval",
+                    CEO_PLAN_PROMPT + extra, product_key=_pk_se)
+
+        with col2:
+            st.markdown("##### 📊 평가 결과")
+            corp_r = st.session_state.get("se_corp")
+            inh_r  = st.session_state.get("se_inh")
+            if corp_r and inh_r:
+                company  = st.session_state.get("se_company_name", "")
+                shares   = st.session_state.get("se_shares_cnt", 0)
+                corp_val = corp_r["법인세법상 시가"]
+                inh_val  = inh_r["상증법상 최종가액"]
+                st.markdown(f"**{company}** 평가 결과")
+                m1, m2 = st.columns(2)
+                m1.metric("법인세법상 시가 (주당)", f"{corp_val:,.0f}원")
+                m2.metric("상증법상 최종가액 (주당)", f"{inh_val:,.0f}원")
+                m3, m4 = st.columns(2)
+                m3.metric("총 평가액 (법인세법)", f"{corp_val * shares:,.0f}원")
+                m4.metric("총 평가액 (상증법)", f"{inh_val * shares:,.0f}원")
+                st.markdown("**상세 평가 내역**")
+                st.json({
+                    "상증법": inh_r,
+                    "법인세법": corp_r,
+                })
+            else:
+                st.info("좌측 입력표를 작성하고 '비상장주식 평가 실행'을 클릭하세요.")
+                components.html("""
+<div style="height:340px;overflow-y:auto;padding:14px 16px;
+  background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
+  font-size:0.83rem;line-height:1.6;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="font-size:0.88rem;color:#1a3a5c;">📌 비상장주식 평가 방법 (상증법 기준)</b><br>
+<b style="color:#c0392b;">① 순자산가치</b><br>
+• 공식: 순자산 ÷ 발행주식 총수<br>
+• 기준: 최근 사업연도 말 대차대조표 자본총계<br>
+<b style="color:#c0392b;">② 순손익가치</b><br>
+• 공식: 최근 3년 가중평균 순이익 ÷ 발행주식 총수 ÷ 10%<br>
+• 가중치: 최근년 3 / 전년 2 / 전전년 1 (합계 6)<br>
+<b style="color:#c0392b;">③ 상증법상 최종가액</b><br>
+• 일반법인: 순자산가치 40% + 순손익가치 60%<br>
+• 부동산 과다 법인: 순자산가치 60% + 순손익가치 40%<br>
+• 최대주주 경영권 할증: 평가액의 <b>20% 가산</b><br>
+<b style="color:#c0392b;">④ 법인세법상 시가</b><br>
+• 매매사례가액 우선 적용 (최근 거래가)<br>
+• 없을 경우: 상증법 보충적 평가방법 준용<br>
+<b style="color:#e67e22;">⚠️ 활용 포인트</b><br>
+• 주식 가치 낮을 때 증여 → 증여세 절감<br>
+• 사망보험금 → 퇴직금 재원 → 주식 매입 재원<br>
+• 가업승계: 증여세 과세특례 (최대 600억 공제)<br>
+• 상속세 연부연납: 최대 10년 분할 납부 가능<br>
+<b style="color:#555;font-size:0.78rem;">⚠️ 본 평가는 참고용이며 실제 세무처리는 세무사와 확인하십시오.</b>
+</div>
+""", height=358)
+
+            st.markdown("##### 🤖 AI 분석 리포트")
+            show_result("res_stock_eval")
+
+    # ── [policy_terms] AI 자동 약관 매칭 시스템 ─────────────────────────
+    if cur == "policy_terms":
+        if not _auth_gate("policy_terms"): st.stop()
+        tab_home_btn("policy_terms")
+
+        # ── 브랜드 헤더 ──────────────────────────────────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 40%,#1e6fa8 80%,#3a9bd5 100%);
+  border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:12px;
+  box-shadow:0 4px 18px rgba(30,111,168,0.22);">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="font-size:2rem;">🤖</div>
+    <div>
+      <div style="color:#fff;font-size:1.22rem;font-weight:900;letter-spacing:0.04em;line-height:1.2;">
+        AI 자동 약관 매칭 시스템
+      </div>
+      <div style="color:#a8d4f5;font-size:0.78rem;margin-top:3px;">
+        공시실 실시간 탐색 &nbsp;·&nbsp; 가입 시점 정확 매칭 &nbsp;·&nbsp;
+        딥러닝 합성 QA 인덱싱 &nbsp;·&nbsp; 시맨틱 약관 검색
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+    <span style="background:rgba(255,255,255,0.12);color:#d0eeff;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">📜 JIT 크롤링</span>
+    <span style="background:rgba(255,255,255,0.12);color:#d0eeff;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">🧬 합성 QA 생성</span>
+    <span style="background:rgba(255,255,255,0.12);color:#d0eeff;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">🔍 딥러닝 검색</span>
+    <span style="background:rgba(255,255,255,0.12);color:#d0eeff;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">💾 영구 캐시 DB</span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── Quick Action 버튼 바 ─────────────────────────────────────────
+        st.markdown("##### ⚡ Quick Action")
+        _qa_c1, _qa_c2, _qa_c3, _qa_c4 = st.columns(4)
+        with _qa_c1:
+            if st.button("🚫 면책 조항 검색", key="qa_excl", use_container_width=True):
+                st.session_state["pt_keyword"] = "면책"
+                st.session_state["_pt_qs"] = True
+        with _qa_c2:
+            if st.button("🔪 수술비 지급 기준", key="qa_surg", use_container_width=True):
+                st.session_state["pt_keyword"] = "수술비 지급"
+                st.session_state["_pt_qs"] = True
+        with _qa_c3:
+            if st.button("🏥 입원 일당 보장", key="qa_hosp", use_container_width=True):
+                st.session_state["pt_keyword"] = "입원 일당"
+                st.session_state["_pt_qs"] = True
+        with _qa_c4:
+            if st.button("📋 고지의무 위반", key="qa_notice", use_container_width=True):
+                st.session_state["pt_keyword"] = "고지의무"
+                st.session_state["_pt_qs"] = True
+        st.divider()
+
+        _pt_col1, _pt_col2 = st.columns([5, 6])
+
+        with _pt_col1:
+            st.markdown("""<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:10px;
+  font-weight:900;font-size:0.9rem;color:#1a3a5c;">📋 약관 조회 조건</div>""",
+                unsafe_allow_html=True)
+            _pt_company  = st.selectbox(
+                "보험사",
+                ["삼성화재", "현대해상", "DB손해보험", "KB손해보험", "메리츠화재",
+                 "롯데손해보험", "한화손해보험", "흥국화재",
+                 "삼성생명", "한화생명", "교보생명", "신한라이프",
+                 "NH농협생명", "미래에셋생명", "DB생명",
+                 "생명보험협회 (통합 검색)", "손해보험협회 (통합 검색)"],
+                key="pt_company",
+            )
+            _pt_product  = st.text_input(
+                "상품명",
+                placeholder="예) 무배당 삼성화재 암보험 / 현대해상 굿앤굿 어린이CI",
+                key="pt_product",
+            )
+            _pt_join_date = st.date_input(
+                "가입일자",
+                key="pt_join_date",
+                help="판매 기간 자동 매칭에 사용됩니다.",
+            )
+            _pt_enable_sdg = st.checkbox(
+                "🧬 딥러닝 합성 QA 생성 (Gemini SDG)",
+                value=True, key="pt_enable_sdg",
+                help="핵심 조항에서 예상 질문 20개를 자동 생성하여 검색 정확도를 높입니다.",
+            )
+            st.markdown("---")
+            st.markdown("""<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:8px;
+  font-weight:900;font-size:0.88rem;color:#1a3a5c;">🔍 딥러닝 약관 검색</div>""",
+                unsafe_allow_html=True)
+            _pt_keyword = st.text_input(
+                "검색 질문 또는 키워드",
+                placeholder="예) 암 진단 시 얼마를 받나요? / 면책 기간은?",
+                key="pt_keyword",
+                value=st.session_state.get("pt_keyword", ""),
+            )
+            _pt_include_syn = st.checkbox(
+                "합성 QA 포함 검색 (딥러닝 매칭 향상)",
+                value=True, key="pt_include_syn",
+            )
+            _btnc1, _btnc2 = st.columns(2)
+            with _btnc1:
+                _pt_run = st.button("🚀 약관 자동 매칭 시작",
+                                    type="primary", use_container_width=True,
+                                    key="btn_pt_run")
+            with _btnc2:
+                _pt_search_btn = st.button("🔎 딥러닝 검색",
+                                           use_container_width=True,
+                                           key="btn_pt_search")
+
+        with _pt_col2:
+            st.markdown("""<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:10px;
+  font-weight:900;font-size:0.9rem;color:#1a3a5c;">📊 분석 결과</div>""",
+                unsafe_allow_html=True)
+
+            # ── 약관 자동 매칭 실행 ───────────────────────────────────────
+            if _pt_run:
+                if not _pt_product.strip():
+                    st.error("상품명을 입력해주세요.")
+                else:
+                    _pt_cn = _pt_company.replace(" (통합 검색)", "")
+                    _pt_js = str(_pt_join_date)
+                    _pt_sb = _get_sb_client()
+                    _pt_gc = client if "client" in dir() else None
+
+                    with st.status("🤖 AI 자동 약관 매칭 진행 중...",
+                                   expanded=True) as _pt_status:
+                        try:
+                            from disclosure_crawler import (
+                                run_jit_policy_lookup, JITPipelineRunner,
+                                SyntheticQAGenerator,
+                            )
+                            st.write("**[1/3]** 공시실 실시간 탐색 중...")
+                            _pt_result = run_jit_policy_lookup(
+                                company_name=_pt_cn,
+                                product_name=_pt_product.strip(),
+                                join_date=_pt_js,
+                                sb_client=_pt_sb,
+                                progress_cb=lambda m: st.write(m),
+                            )
+                            _pt_result.setdefault("sdg_qa_saved", 0)
+                            _pt_result.setdefault("sdg_core", 0)
+
+                            if (_pt_enable_sdg
+                                    and _pt_result.get("pdf_url")
+                                    and not _pt_result.get("cached")):
+                                st.write("**[2/3]** 핵심 조항 선별 및 합성 QA 생성 중...")
+                                try:
+                                    _pipe2 = JITPipelineRunner(_pt_sb)
+                                    _pdf_b = _pipe2._download_pdf(_pt_result["pdf_url"])
+                                    _cks   = _pipe2._pdf_to_chunks(_pdf_b) if _pdf_b else []
+                                    if _cks:
+                                        _sdg = SyntheticQAGenerator(_pt_sb, _pt_gc)
+                                        _sr  = _sdg.run(
+                                            _pt_cn, _pt_product.strip(), _pt_js,
+                                            _cks, progress_cb=lambda m: st.write(m),
+                                        )
+                                        _pt_result["sdg_qa_saved"] = _sr.get("qa_saved", 0)
+                                        _pt_result["sdg_core"]     = _sr.get("core_chunks", 0)
+                                except Exception as _e2:
+                                    st.write(f"⚠️ SDG 오류 (원문 인덱싱 완료): {_e2}")
+                            else:
+                                st.write("**[2/3]** SDG 생략 (캐시 히트 또는 비활성화)")
+
+                            st.write("**[3/3]** 인덱싱 완료 — 딥러닝 검색 준비됨 ✅")
+                            _pt_status.update(
+                                label="✅ AI 자동 약관 매칭 완료"
+                                      if not _pt_result.get("error") else "⚠️ 부분 완료",
+                                state="complete" if not _pt_result.get("error") else "error",
+                            )
+                        except ImportError:
+                            _pt_result = {"error": "disclosure_crawler 모듈 로드 실패",
+                                          "pdf_url": "", "confidence": 0,
+                                          "chunks_indexed": 0, "period": "", "reason": "",
+                                          "sdg_qa_saved": 0, "sdg_core": 0}
+                            _pt_status.update(label="❌ 모듈 오류", state="error")
+
+                    if _pt_result.get("error") and not _pt_result.get("pdf_url"):
+                        st.error(f"❌ {_pt_result['error']}")
+                    elif _pt_result.get("pdf_url"):
+                        _conf = _pt_result.get("confidence", 0)
+                        _cc   = "#27ae60" if _conf >= 80 else "#e67e22" if _conf >= 50 else "#e74c3c"
+                        st.markdown(
+                            f"<div style='background:#eafaf1;border:1.5px solid #27ae60;"
+                            f"border-radius:10px;padding:12px 16px;margin-bottom:8px;'>"
+                            f"<div style='font-size:0.95rem;font-weight:900;color:#1a5c3a;"
+                            f"margin-bottom:6px;'>✅ 약관 매칭 성공</div>"
+                            f"<table style='width:100%;font-size:0.80rem;color:#333;"
+                            f"border-collapse:collapse;'>"
+                            f"<tr><td style='padding:2px 8px 2px 0;font-weight:700;"
+                            f"color:#555;width:90px;'>신뢰도</td>"
+                            f"<td><b style='color:{_cc};'>{_conf}%</b></td></tr>"
+                            f"<tr><td style='padding:2px 8px 2px 0;font-weight:700;color:#555;'>"
+                            f"판매 기간</td><td>{_pt_result.get('period') or '미확인'}</td></tr>"
+                            f"<tr><td style='padding:2px 8px 2px 0;font-weight:700;color:#555;'>"
+                            f"원문 청크</td><td>{_pt_result.get('chunks_indexed', 0)}개</td></tr>"
+                            f"<tr><td style='padding:2px 8px 2px 0;font-weight:700;color:#555;'>"
+                            f"합성 QA</td><td>{_pt_result.get('sdg_qa_saved', 0)}개 "
+                            f"(핵심조항 {_pt_result.get('sdg_core', 0)}섹션)</td></tr>"
+                            f"</table></div>",
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown(f"[📥 약관 PDF 원본 다운로드]({_pt_result['pdf_url']})")
+                        st.caption(f"💬 선택 근거: {_pt_result.get('reason', '')}")
+                        if _pt_result.get("cached"):
+                            st.info("💾 DB 캐시 히트 — 공시실 크롤링 생략")
+                    elif not _pt_result.get("error"):
+                        st.warning("약관 PDF를 확보하지 못했습니다. 상품명·보험사를 확인해주세요.")
+
+            # ── 딥러닝 약관 검색 ──────────────────────────────────────────
+            _do_search = (
+                _pt_search_btn
+                or st.session_state.pop("_pt_qs", False)
+            )
+            if _do_search:
+                _kw  = st.session_state.get("pt_keyword", "").strip()
+                _prd = st.session_state.get("pt_product", "").strip()
+                _cmp = st.session_state.get("pt_company", "").replace(" (통합 검색)", "")
+                _inc = st.session_state.get("pt_include_syn", True)
+                if not _prd or not _kw:
+                    st.warning("상품명과 검색 키워드를 모두 입력하세요.")
+                else:
+                    _sb4 = _get_sb_client()
+                    try:
+                        from disclosure_crawler import SyntheticQAGenerator, JITPipelineRunner
+                        _sdg4 = SyntheticQAGenerator(_sb4)
+                        _hits = _sdg4.search_semantic(_cmp, _prd, _kw, limit=6,
+                                                      include_synthetic=_inc)
+                        if not _hits:
+                            _pipe4 = JITPipelineRunner(_sb4)
+                            _hits  = _pipe4.search_terms(_cmp, _prd, _kw, limit=6)
+                        if _hits:
+                            st.markdown(f"**🔎 '{_kw}' 검색 결과 — {len(_hits)}건**")
+                            for _hi, _ch in enumerate(_hits, 1):
+                                _st = _ch.get("section_type", "original")
+                                _badge = "🧬 합성 QA" if _st == "synthetic_qa" else "📄 원문"
+                                _bc    = "#2e6da4"   if _st == "synthetic_qa" else "#27ae60"
+                                with st.expander(
+                                    f"[{_hi}] {_badge} — 청크 #{_ch.get('chunk_idx', _hi)}"
+                                ):
+                                    _txt = _ch["chunk_text"][:900]
+                                    _txt_hl = _txt.replace(
+                                        _kw,
+                                        f"<mark style='background:#fff176;"
+                                        f"padding:0 2px;border-radius:3px;'>{_kw}</mark>",
+                                    )
+                                    st.markdown(
+                                        f"<div style='font-size:0.82rem;line-height:1.75;"
+                                        f"font-family:\"Noto Sans KR\",sans-serif;padding:8px 0;'>"
+                                        f"<span style='background:{_bc};color:#fff;"
+                                        f"border-radius:4px;padding:1px 6px;font-size:0.70rem;"
+                                        f"font-weight:700;display:inline-block;"
+                                        f"margin-bottom:6px;'>{_badge}</span><br><br>"
+                                        f"{_txt_hl.replace(chr(10), '<br>')}</div>",
+                                        unsafe_allow_html=True,
+                                    )
+                        else:
+                            st.info(
+                                "검색 결과가 없습니다.\n\n"
+                                "먼저 **🚀 약관 자동 매칭 시작**을 실행해주세요."
+                            )
+                    except ImportError:
+                        st.error("disclosure_crawler 모듈을 불러올 수 없습니다.")
+
+        st.divider()
+        st.markdown("""
+<div style="background:#f0f7ff;border:1px solid #b3d4f5;border-radius:8px;
+  padding:10px 14px;font-size:0.78rem;color:#1a3a5c;">
+<b>📌 AI 자동 약관 매칭 시스템 안내</b><br>
+• Playwright 미설치 시: <code>pip install playwright &amp;&amp; playwright install chromium</code><br>
+• 합성 QA DB: Supabase <code>gk_policy_terms_qa</code> 테이블 (DDL은 disclosure_crawler.py 주석 참조)<br>
+• 이미지 PDF(스캔본)는 텍스트 추출 불가 — 협회 통합 검색 시도 권장<br>
+• 모델: 합성 QA 생성 <code>gemini-2.0-flash</code> / 원문 저장 Supabase ILIKE 검색
+</div>""", unsafe_allow_html=True)
+
     # ── [customer_docs] 고객자료 통합저장 ───────────────────────────────
     if cur == "customer_docs":
+        if not _auth_gate("customer_docs"): st.stop()
         tab_home_btn("customer_docs")
         st.markdown("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
@@ -10846,12 +11937,11 @@ _ERROR_REGISTRY: list = [
         "desc": "[탭 라우터] current_tab에 미등록 탭 ID 진입 시 빈 화면 — brain/heart 탭 추가 전 발생",
         "check": lambda: (
             st.session_state.get("current_tab", "home") not in (
-                "home", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-                "cancer", "brain", "heart", "img", "fire", "liability", "nursing",
-                "realty", "disability", "life_cycle", "life_event", "leaflet",
-                "customer_docs", "stock_eval",
-            )
-        ),
+            "home", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
+            "cancer", "brain", "heart", "img", "fire", "liability", "nursing",
+            "realty", "disability", "life_cycle", "life_event", "leaflet",
+            "customer_docs", "stock_eval", "policy_terms", "policy_scan",
+        )    ),
         "fix": lambda: st.session_state.update({"current_tab": "home"}),
     },
 ]
