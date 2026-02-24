@@ -3067,18 +3067,23 @@ def main():
         components.html("""
 <script>
 (function(){
-  var doc = window.parent.document;
-  var targets = [
-    doc.querySelector('[data-testid="stMainBlocksContainer"]'),
-    doc.querySelector('[data-testid="stAppViewContainer"]'),
-    doc.querySelector('.main'),
-    doc.querySelector('.block-container'),
-    doc.documentElement,
-    doc.body
-  ];
-  targets.forEach(function(el){ if(el) el.scrollTop = 0; });
-  window.parent.scrollTo(0,0);
-  window.scrollTo(0,0);
+  function _doScroll(){
+    var doc = window.parent.document;
+    var targets = [
+      doc.querySelector('[data-testid="stMainBlocksContainer"]'),
+      doc.querySelector('[data-testid="stAppViewContainer"]'),
+      doc.querySelector('.main'),
+      doc.querySelector('.block-container'),
+      doc.documentElement,
+      doc.body
+    ];
+    targets.forEach(function(el){ if(el) el.scrollTop = 0; });
+    window.parent.scrollTo(0,0);
+    window.scrollTo(0,0);
+  }
+  _doScroll();
+  setTimeout(_doScroll, 120);
+  setTimeout(_doScroll, 400);
 })();
 </script>""", height=0)
 
@@ -4957,6 +4962,7 @@ section[data-testid="stMain"] > div,
     def tab_home_btn(tab_key):
         if st.button("🏠 홈으로", key=f"btn_home_{tab_key}", type="primary"):
             st.session_state.current_tab = "home"
+            st.session_state["_scroll_top"] = True
             st.rerun()
 
     # ── [t0] 신규보험 상품 상담 — 보험설계사 전용 ───────────────────────
