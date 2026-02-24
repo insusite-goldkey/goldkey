@@ -1185,33 +1185,74 @@ def extract_pdf_chunks(file, char_limit: int = 8000) -> str:
     return text[:front] + "\n...(중략)...\n" + text[mid_start:mid_start+mid_s] + "\n...(중략)...\n" + text[-back:]
 
 
-# ── 보험증권 Vision 파싱 ────────────────────────────────────────────────────
-_POLICY_PARSE_PROMPT = """당신은 보험증권 분석 전문가입니다.
-첨부된 보험증권(이미지 또는 텍스트)에서 담보 정보를 추출하여 반드시 아래 JSON 형식으로만 응답하십시오.
-JSON 이외 설명 텍스트는 절대 포함하지 마십시오.
+# ── 보험증권 Vision 파싱 (Few-shot + Schema-driven 고도화) ──────────────────
+_POLICY_PARSE_PROMPT = """[SYSTEM]
+당신은 대한민국 보험증권 분석 전문 AI입니다.
+<extracted_data> 태그 안의 보험증권 데이터를 분석하여, 반드시 아래 JSON Schema에 맞는 JSON만 출력하십시오.
+JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십시오.
 
-추출 규칙:
-1. subcategory: 교통상해→"traffic", 일반상해→"general", 질병→"disease"
-2. category: 후유장해→"disability", 장해연금→"disability_annuity", 수술→"surgery", 진단→"diagnosis", 입원일당→"daily", 기타→"other"
-3. threshold_min: 담보명에서 지급 조건 최소 장해율(%) 추출 (3%, 20%, 50%, 80% 등). 없으면 null
-4. amount: 가입금액(원). 단위가 만원이면 ×10000 변환. 불명확하면 null
-5. annuity_monthly: 장해연금 월 지급액(원). 해당 없으면 null
-6. confidence: 추출 확신도 → "high"/"medium"/"low"
-
-출력 형식:
+[JSON Schema — 반드시 준수]
 {
-  "coverages": [
+  "coverages": [          ← 모든 담보를 이 배열에 포함
     {
-      "category": "disability",
-      "subcategory": "traffic",
-      "name": "교통상해후유장해(3~100%)",
-      "amount": 100000000,
-      "threshold_min": 3.0,
-      "annuity_monthly": null,
-      "confidence": "high"
+      "category":      string,  ← ENUM: "disability"|"disability_annuity"|"surgery"|"diagnosis"|"daily"|"driver_expense"|"other"
+      "subcategory":   string,  ← ENUM: "traffic"|"general"|"disease"|"driver"
+      "name":          string,  ← 약관상 담보명 전체 (괄호 포함)
+      "amount":        integer|null,  ← 가입금액(원). 만원 단위면 ×10000. 불명확→null
+      "threshold_min": number|null,   ← 최소 지급 장해율(%). 없으면 null
+      "annuity_monthly": integer|null,← 장해연금 월 지급액(원). 해당없으면 null
+      "condition":     string|null,   ← 지급 조건 또는 세부 특이사항. 없으면 null
+      "confidence":    string         ← ENUM: "high"|"medium"|"low"
     }
   ]
-}"""
+}
+
+[카테고리 분류 기준]
+• disability        : 후유장해(3%·20%·50%·80% 등), 상해·질병 후유장해
+• disability_annuity: 장해연금, 장해생활자금 (월 지급액 있는 경우)
+• surgery           : 수술비(1~5종), 종수술비, 특정수술비
+• diagnosis         : 진단비(암·뇌·심장·골절·입원 진단 등)
+• daily             : 입원일당, 통원일당, 요양일당
+• driver_expense    : 벌금(대인·대물·스쿨존), 교통사고처리기지원금, 형사합의금, 변호사선임비용
+• other             : 위에 해당하지 않는 모든 담보
+
+[서브카테고리 분류 기준]
+• traffic : 교통상해, 교통사고 명시
+• general : 일반상해, 상해(교통 미명시)
+• disease : 질병, 암, 뇌, 심장
+• driver  : 운전자 비용담보(벌금·합의금·변호사)
+
+[Few-shot 예시 1 — 일반 통합보험]
+<extracted_data>
+골절진단비(치아제외) 50만원 / 질병수술비(1-5종) 1,000만원 / 상해후유장해(3~100%) 5,000만원 / 교통상해후유장해(3~100%) 1억원 / 장해연금(50%이상) 월30만원
+</extracted_data>
+→ 출력:
+{"coverages":[
+  {"category":"diagnosis","subcategory":"general","name":"골절진단비(치아제외)","amount":500000,"threshold_min":null,"annuity_monthly":null,"condition":"치아파절 제외","confidence":"high"},
+  {"category":"surgery","subcategory":"disease","name":"질병수술비(1-5종)","amount":10000000,"threshold_min":null,"annuity_monthly":null,"condition":"1~5종 구분 지급","confidence":"high"},
+  {"category":"disability","subcategory":"general","name":"상해후유장해(3~100%)","amount":50000000,"threshold_min":3.0,"annuity_monthly":null,"condition":null,"confidence":"high"},
+  {"category":"disability","subcategory":"traffic","name":"교통상해후유장해(3~100%)","amount":100000000,"threshold_min":3.0,"annuity_monthly":null,"condition":null,"confidence":"high"},
+  {"category":"disability_annuity","subcategory":"general","name":"장해연금(50%이상)","amount":null,"threshold_min":50.0,"annuity_monthly":300000,"condition":"50% 이상 장해 시 지급","confidence":"high"}
+]}
+
+[Few-shot 예시 2 — 운전자보험]
+<extracted_data>
+교통사고처리기지원금(대인) 2억원 / 벌금(대인) 2,000만원 / 벌금(대물) 500만원 / 변호사선임비용 500만원
+</extracted_data>
+→ 출력:
+{"coverages":[
+  {"category":"driver_expense","subcategory":"driver","name":"교통사고처리기지원금(대인)","amount":200000000,"threshold_min":null,"annuity_monthly":null,"condition":"실제손해액 비례분담","confidence":"high"},
+  {"category":"driver_expense","subcategory":"driver","name":"벌금(대인)","amount":20000000,"threshold_min":null,"annuity_monthly":null,"condition":"실손보상·법정한도 적용","confidence":"high"},
+  {"category":"driver_expense","subcategory":"driver","name":"벌금(대물)","amount":5000000,"threshold_min":null,"annuity_monthly":null,"condition":"실손보상·법정한도 적용","confidence":"high"},
+  {"category":"driver_expense","subcategory":"driver","name":"변호사선임비용","amount":5000000,"threshold_min":null,"annuity_monthly":null,"condition":null,"confidence":"high"}
+]}
+
+[오류 자가 진단]
+만약 위 JSON Schema를 따르지 못하는 경우, 아래 형식으로 오류를 보고하십시오:
+{"parse_error": "오류 설명", "partial_coverages": [...가능한 항목...]}
+
+이제 아래 데이터를 분석하십시오:
+"""
 
 def parse_policy_with_vision(files: list) -> dict:
     """
@@ -1230,13 +1271,13 @@ def parse_policy_with_vision(files: list) -> dict:
         try:
             if f.type == "application/pdf":
                 raw_text = extract_pdf_chunks(f, char_limit=6000)
-                prompt_parts = [
-                    _POLICY_PARSE_PROMPT,
-                    f"\n\n[보험증권 텍스트]\n{raw_text}"
-                ]
+                full_prompt = (
+                    _POLICY_PARSE_PROMPT
+                    + f"\n<extracted_data>\n{raw_text}\n</extracted_data>"
+                )
                 resp = client.models.generate_content(
                     model=GEMINI_MODEL,
-                    contents=[{"role": "user", "parts": [{"text": "\n".join(str(p) for p in prompt_parts)}]}]
+                    contents=[{"role": "user", "parts": [{"text": full_prompt}]}]
                 )
             else:
                 img_bytes = f.getvalue()
@@ -1246,7 +1287,8 @@ def parse_policy_with_vision(files: list) -> dict:
                     contents=[{
                         "role": "user",
                         "parts": [
-                            {"text": _POLICY_PARSE_PROMPT},
+                            {"text": _POLICY_PARSE_PROMPT
+                                     + "\n<extracted_data>\n[첨부 이미지 참조]\n</extracted_data>"},
                             {"inline_data": {"mime_type": f.type, "data": img_b64}}
                         ]
                     }]
@@ -1256,7 +1298,13 @@ def parse_policy_with_vision(files: list) -> dict:
             raw = re.sub(r"^```(?:json)?", "", raw).strip()
             raw = re.sub(r"```$", "", raw).strip()
             parsed = json.loads(raw)
-            covs = parsed.get("coverages", [])
+
+            if "parse_error" in parsed:
+                errors.append(f"{f.name}: AI 자가진단 오류 — {parsed['parse_error']}")
+                covs = parsed.get("partial_coverages", [])
+            else:
+                covs = parsed.get("coverages", [])
+
             for c in covs:
                 c["_source_file"] = f.name
             all_coverages.extend(covs)
@@ -1324,6 +1372,223 @@ class DisabilityLogic:
             else:
                 result[key] = None
         return result
+
+
+# ── 표준 장해분류표 DB (금감원 표준약관 기준, 인체 13개 부위) ───────────────
+STANDARD_DISABILITY_DB = [
+    # 척추(등뼈)
+    {"code": "SPINE_01", "body_part": "spine", "text": "척추에 심한 운동장해를 남긴 때",         "rate": 40.0},
+    {"code": "SPINE_02", "body_part": "spine", "text": "척추에 뚜렷한 운동장해를 남긴 때",       "rate": 30.0},
+    {"code": "SPINE_03", "body_part": "spine", "text": "척추에 약간의 운동장해를 남긴 때",       "rate": 10.0},
+    {"code": "SPINE_04", "body_part": "spine", "text": "척추에 심한 기형을 남긴 때",             "rate": 50.0},
+    {"code": "SPINE_05", "body_part": "spine", "text": "척추에 뚜렷한 기형을 남긴 때",           "rate": 30.0},
+    {"code": "SPINE_06", "body_part": "spine", "text": "척추에 약간의 기형을 남긴 때",           "rate": 15.0},
+    # 팔
+    {"code": "ARM_01",   "body_part": "arm",   "text": "한 팔을 팔꿈치관절 이상에서 잃었을 때",  "rate": 60.0},
+    {"code": "ARM_02",   "body_part": "arm",   "text": "한 팔의 3대 관절 중 1관절의 기능을 완전히 잃었을 때", "rate": 30.0},
+    {"code": "ARM_03",   "body_part": "arm",   "text": "한 팔의 3대 관절 중 1관절에 뚜렷한 장해를 남긴 때",  "rate": 20.0},
+    {"code": "ARM_04",   "body_part": "arm",   "text": "한 팔의 3대 관절 중 1관절에 약간의 장해를 남긴 때",  "rate": 10.0},
+    # 다리
+    {"code": "LEG_01",   "body_part": "leg",   "text": "한 다리를 무릎관절 이상에서 잃었을 때",  "rate": 60.0},
+    {"code": "LEG_02",   "body_part": "leg",   "text": "한 다리의 3대 관절 중 1관절의 기능을 완전히 잃었을 때", "rate": 30.0},
+    {"code": "LEG_03",   "body_part": "leg",   "text": "한 다리의 3대 관절 중 1관절에 뚜렷한 장해를 남긴 때",  "rate": 20.0},
+    {"code": "LEG_04",   "body_part": "leg",   "text": "한 다리의 3대 관절 중 1관절에 약간의 장해를 남긴 때",  "rate": 10.0},
+    # 눈
+    {"code": "EYE_01",   "body_part": "eye",   "text": "두 눈이 실명되었을 때",                  "rate": 100.0},
+    {"code": "EYE_02",   "body_part": "eye",   "text": "한 눈이 실명되었을 때",                  "rate": 50.0},
+    {"code": "EYE_03",   "body_part": "eye",   "text": "한 눈의 교정시력이 0.02 이하로 된 때",   "rate": 35.0},
+    {"code": "EYE_04",   "body_part": "eye",   "text": "한 눈의 교정시력이 0.1 이하로 된 때",    "rate": 15.0},
+    # 귀
+    {"code": "EAR_01",   "body_part": "ear",   "text": "두 귀의 청력을 완전히 잃었을 때",        "rate": 80.0},
+    {"code": "EAR_02",   "body_part": "ear",   "text": "한 귀의 청력을 완전히 잃었을 때",        "rate": 45.0},
+    {"code": "EAR_03",   "body_part": "ear",   "text": "한 귀의 청력이 심한 장해로 남았을 때",   "rate": 35.0},
+    # 손가락
+    {"code": "FNG_01",   "body_part": "finger","text": "한 손의 엄지손가락을 잃었을 때",         "rate": 15.0},
+    {"code": "FNG_02",   "body_part": "finger","text": "한 손의 둘째손가락을 잃었을 때",         "rate": 10.0},
+    {"code": "FNG_03",   "body_part": "finger","text": "한 손의 엄지손가락 기능에 심한 장해를 남긴 때", "rate": 10.0},
+    # 발가락
+    {"code": "TOE_01",   "body_part": "toe",   "text": "한 발의 첫째발가락을 잃었을 때",         "rate": 8.0},
+    {"code": "TOE_02",   "body_part": "toe",   "text": "한 발의 다른 발가락 하나를 잃었을 때",   "rate": 5.0},
+    # 신경계·정신행동
+    {"code": "NEU_01",   "body_part": "neuro_psych","text": "신경계에 장해가 남아 일상생활 기본동작에 제한을 남긴 때", "rate": 100.0},
+    {"code": "NEU_02",   "body_part": "neuro_psych","text": "극심한 치매(CDR 3 이상)",            "rate": 100.0},
+    {"code": "NEU_03",   "body_part": "neuro_psych","text": "심한 치매(CDR 2)",                   "rate": 75.0},
+    {"code": "NEU_04",   "body_part": "neuro_psych","text": "경도 치매(CDR 1)",                   "rate": 40.0},
+    # 흉·복부 장기
+    {"code": "THX_01",   "body_part": "thorax_abdomen","text": "흉·복부 장기의 기능에 심한 장해를 남긴 때",  "rate": 75.0},
+    {"code": "THX_02",   "body_part": "thorax_abdomen","text": "흉·복부 장기의 기능에 뚜렷한 장해를 남긴 때","rate": 50.0},
+    {"code": "THX_03",   "body_part": "thorax_abdomen","text": "흉·복부 장기의 기능에 약간의 장해를 남긴 때", "rate": 25.0},
+]
+
+# 장해 문구 임베딩 캐시 (session_state가 아닌 모듈 레벨 캐시)
+_DIS_EMBED_CACHE: dict = {}
+
+
+def _cosine_similarity(a: list, b: list) -> float:
+    """두 벡터의 코사인 유사도 계산"""
+    dot = sum(x * y for x, y in zip(a, b))
+    na  = sum(x * x for x in a) ** 0.5
+    nb  = sum(x * x for x in b) ** 0.5
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def _get_gemini_embedding(text: str, client) -> list:
+    """Gemini text-embedding-004 로 텍스트 벡터화, 캐시 적용"""
+    if text in _DIS_EMBED_CACHE:
+        return _DIS_EMBED_CACHE[text]
+    try:
+        resp = client.models.embed_content(
+            model="models/text-embedding-004",
+            contents=text
+        )
+        vec = resp.embeddings[0].values
+        _DIS_EMBED_CACHE[text] = vec
+        return vec
+    except Exception:
+        return []
+
+
+def find_matched_disability(extracted_text: str,
+                             threshold: float = 0.82) -> dict | None:
+    """
+    AI가 추출한 장해 문구를 표준 장해분류표 DB와 시맨틱 매칭.
+    반환: {"code", "body_part", "text", "rate", "similarity"} 또는 None(임계값 미달)
+    """
+    client = get_client()
+    if client is None:
+        return None
+
+    query_vec = _get_gemini_embedding(extracted_text, client)
+    if not query_vec:
+        return None
+
+    best_score = -1.0
+    best_item  = None
+    for item in STANDARD_DISABILITY_DB:
+        std_vec = _get_gemini_embedding(item["text"], client)
+        if not std_vec:
+            continue
+        score = _cosine_similarity(query_vec, std_vec)
+        if score > best_score:
+            best_score = score
+            best_item  = item
+
+    if best_item and best_score >= threshold:
+        return {**best_item, "similarity": round(best_score, 4)}
+    return None
+
+
+def match_disabilities_batch(text_list: list[str],
+                              threshold: float = 0.82) -> list[dict]:
+    """
+    여러 장해 문구를 일괄 매칭.
+    반환: [{"input": str, "matched": dict|None}, ...]
+    """
+    return [
+        {"input": t, "matched": find_matched_disability(t, threshold)}
+        for t in text_list
+    ]
+
+
+# ── 운전자 비용담보 비례분담 계산기 ────────────────────────────────────────
+_DRIVER_LEGAL_LIMITS = {
+    "벌금(대인)":             {"max_won": 30_000_000, "law": "도로교통법 제156조"},
+    "벌금(대물)":             {"max_won": 20_000_000, "law": "도로교통법 제156조"},
+    "벌금(스쿨존·민식이법)":  {"max_won": 30_000_000, "law": "특정범죄가중처벌법 제5조의13"},
+    "교통사고처리기지원금":    {"max_won": 200_000_000,"law": "형사합의금·공탁금 실손 보상"},
+    "형사합의금":              {"max_won": 300_000_000,"law": "형사합의금 실손 보상 원칙"},
+    "변호사선임비용":          {"max_won": 30_000_000, "law": "실제 발생 비용 한도"},
+}
+
+class ProRataCalculator:
+    """
+    운전자 비용담보 비례분담(Pro-rata) 계산기.
+    실손보상 원칙: 실제 손해액 초과 지급 불가, 가입금액 비례 분담.
+    법정 상한선 검증 레이어 포함.
+    """
+
+    def __init__(self, coverage_category: str, actual_loss_won: int,
+                 policies: list[dict], accident_zone: str = "일반"):
+        """
+        coverage_category : 담보 종류 문자열 (예: "벌금(대인)")
+        actual_loss_won   : 실제 발생 손해액 (원)
+        policies          : [{"name": "A사", "limit": 3000만원(원 단위)}, ...]
+        accident_zone     : "일반" | "스쿨존" | "노인보호구역"
+        """
+        self.category      = coverage_category
+        self.actual_loss   = actual_loss_won
+        self.policies      = policies
+        self.accident_zone = accident_zone
+        self.warnings: list[str] = []
+
+    def _validate(self) -> int:
+        """법정 상한선 및 카테고리 검증, 유효 손해액 반환"""
+        legal = _DRIVER_LEGAL_LIMITS.get(self.category)
+
+        if legal:
+            legal_max = legal["max_won"]
+            if self.accident_zone in ("스쿨존", "노인보호구역") and "벌금" in self.category:
+                legal_max = _DRIVER_LEGAL_LIMITS.get(
+                    "벌금(스쿨존·민식이법)", {"max_won": 30_000_000}
+                )["max_won"]
+                self.warnings.append(
+                    f"⚠️ 스쿨존/노인보호구역 사고 — 특정범죄가중처벌법 적용, "
+                    f"법정 최고 한도 {legal_max//10000:,}만원"
+                )
+            if self.actual_loss > legal_max:
+                self.warnings.append(
+                    f"⚠️ 실제 손해액({self.actual_loss//10000:,}만원)이 "
+                    f"'{self.category}' 법정 최고 한도({legal_max//10000:,}만원)를 초과합니다. "
+                    f"한도 초과분은 보상 제외됩니다. (근거: {legal['law']})"
+                )
+                return legal_max
+        return self.actual_loss
+
+    def calculate(self) -> dict:
+        """
+        비례분담 계산 실행.
+        반환: {"category", "actual_loss", "payable", "shares": [...], "warnings": [...]}
+        """
+        self.warnings = []
+
+        # 카테고리 불일치 체크
+        categories = {p.get("category", self.category) for p in self.policies}
+        if len(categories) > 1:
+            self.warnings.append(
+                f"⚠️ 담보 카테고리 불일치 감지: {categories} — "
+                "동일 담보(예: 교통사고처리기지원금)끼리만 비례분담이 적용됩니다."
+            )
+
+        effective_loss = self._validate()
+        total_limit    = sum(p["limit"] for p in self.policies)
+
+        if total_limit == 0:
+            return {"category": self.category, "actual_loss": self.actual_loss,
+                    "payable": 0, "shares": [], "warnings": self.warnings}
+
+        payable = min(effective_loss, total_limit)
+        shares  = []
+        for p in self.policies:
+            share = int(payable * p["limit"] / total_limit)
+            shares.append({
+                "policy_name": p["name"],
+                "limit":       p["limit"],
+                "share":       share,
+                "ratio_pct":   round(p["limit"] / total_limit * 100, 1),
+            })
+
+        return {
+            "category":    self.category,
+            "actual_loss": self.actual_loss,
+            "effective_loss": effective_loss,
+            "payable":     payable,
+            "total_limit": total_limit,
+            "shares":      shares,
+            "warnings":    self.warnings,
+        }
+
 
 def process_pdf(file):
     if not _check_pdf():  # 실제 호출 시점에 라이브러리 확인
@@ -6679,6 +6944,99 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • <b>척추수술비</b>: 추간판탈출증(디스크) 등 척추 수술 시 별도 지급
 </div>
 """, height=438)
+
+                # ── 비례분담 계산기 ────────────────────────────────────────
+                st.divider()
+                st.markdown("""<div style="background:#1a3a5c;color:#fff;
+  border-radius:8px 8px 0 0;padding:5px 12px;font-size:0.82rem;font-weight:900;">
+  ⚖️ 비용담보 비례분담 계산기 (중복보험 실손보상 원칙)</div>""", unsafe_allow_html=True)
+                st.markdown("""<div style="background:#eef4fc;border:1px solid #b3c8e8;
+  border-top:none;border-radius:0 0 8px 8px;padding:5px 10px;font-size:0.76rem;
+  color:#1a3a5c;margin-bottom:6px;">
+  여러 보험사에 중복 가입 시 실제 손해액을 가입금액 비율로 분담 계산합니다.<br>
+  법정 상한선 자동 검증 · 스쿨존/민식이법 특례 반영
+</div>""", unsafe_allow_html=True)
+
+                _prc_cat = st.selectbox("담보 종류",
+                    list(_DRIVER_LEGAL_LIMITS.keys()),
+                    key="prc_category")
+                _prc_zone = st.selectbox("사고 구역",
+                    ["일반", "스쿨존", "노인보호구역"],
+                    key="prc_zone")
+                _prc_loss = st.number_input("실제 발생 손해액 (만원)",
+                    min_value=0, value=5000, step=100, key="prc_loss")
+
+                st.markdown("**가입 보험사별 한도 입력** (최대 5사)")
+                _prc_n = st.number_input("가입 보험사 수",
+                    min_value=1, max_value=5, value=2, step=1, key="prc_n")
+                _prc_policies = []
+                for _pi in range(int(_prc_n)):
+                    _pc1, _pc2 = st.columns([2, 3])
+                    with _pc1:
+                        _pname = st.text_input(f"보험사 {_pi+1}명",
+                            value=f"{'ABCDE'[_pi]}사",
+                            key=f"prc_name_{_pi}")
+                    with _pc2:
+                        _plimit = st.number_input(f"가입한도 (만원)",
+                            min_value=0, value=3000 if _pi == 0 else 7000,
+                            step=500, key=f"prc_limit_{_pi}")
+                    _prc_policies.append({
+                        "name": _pname,
+                        "limit": int(_plimit) * 10000,
+                        "category": _prc_cat,
+                    })
+
+                if st.button("⚖️ 비례분담 계산", key="btn_prc_calc",
+                             use_container_width=True, type="primary"):
+                    _calc = ProRataCalculator(
+                        coverage_category=_prc_cat,
+                        actual_loss_won=int(_prc_loss) * 10000,
+                        policies=_prc_policies,
+                        accident_zone=_prc_zone,
+                    )
+                    _prc_result = _calc.calculate()
+                    st.session_state["prc_result"] = _prc_result
+
+                _prc_res = st.session_state.get("prc_result")
+                if _prc_res:
+                    for _w in _prc_res.get("warnings", []):
+                        st.warning(_w)
+                    _eff = _prc_res["effective_loss"] // 10000
+                    _pay = _prc_res["payable"] // 10000
+                    _tot = _prc_res["total_limit"] // 10000
+                    _rows_html = ""
+                    for _s in _prc_res["shares"]:
+                        _rows_html += (
+                            f'<tr>'
+                            f'<td style="padding:4px 8px;border:1px solid #c8d8ec;">{_s["policy_name"]}</td>'
+                            f'<td style="padding:4px 8px;border:1px solid #c8d8ec;text-align:right;">{_s["limit"]//10000:,}만원</td>'
+                            f'<td style="padding:4px 8px;border:1px solid #c8d8ec;text-align:right;">{_s["ratio_pct"]}%</td>'
+                            f'<td style="padding:4px 8px;border:1px solid #c8d8ec;text-align:right;'
+                            f'color:#1a7a2e;font-weight:700;">{_s["share"]//10000:,}만원</td>'
+                            f'</tr>'
+                        )
+                    components.html(f"""
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:0.80rem;">
+<div style="background:#f0fff4;border:1px solid #6fcf97;border-radius:6px;
+  padding:6px 10px;margin-bottom:6px;">
+  실제손해: <b>{_prc_loss:,}만원</b> →
+  유효손해(법정한도적용): <b>{_eff:,}만원</b> →
+  총지급: <b style="color:#1a7a2e;">{_pay:,}만원</b>
+  (총한도 {_tot:,}만원)
+</div>
+<table style="width:100%;border-collapse:collapse;">
+<tr style="background:#2e6da4;color:#fff;">
+  <th style="padding:4px 8px;border:1px solid #1a4a7a;">보험사</th>
+  <th style="padding:4px 8px;border:1px solid #1a4a7a;">가입한도</th>
+  <th style="padding:4px 8px;border:1px solid #1a4a7a;">분담비율</th>
+  <th style="padding:4px 8px;border:1px solid #1a4a7a;">분담금액</th>
+</tr>
+{_rows_html}
+</table>
+<div style="font-size:0.72rem;color:#888;margin-top:4px;">
+  ⚠️ 실손보상 원칙: 총 지급액은 실제 손해액을 초과할 수 없습니다. (근거: {_DRIVER_LEGAL_LIMITS.get(_prc_cat, {}).get("law","보험업법")})
+</div>
+</div>""", height=260)
             elif ins_type == "🚗 자동차보험":
                 st.markdown("##### 🚗 자동차보험 권장 기준")
                 components.html("""
