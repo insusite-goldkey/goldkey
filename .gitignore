@@ -33,3 +33,15 @@ _check_deploy.py
 # IDE
 .vscode/
 .idea/
+
+# 백업 파일 (git 불필요)
+backups/
+app_backup_*.py
+
+# 이미지 바이너리 (HF Space LFS 처리 — .gitattributes 참조)
+avatar.png
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp

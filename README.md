@@ -1,3 +1,15 @@
+---
+title: GoldKey AI 보험 컨설팅
+emoji: 🛡️
+colorFrom: blue
+colorTo: indigo
+sdk: streamlit
+sdk_version: "1.41.0"
+python_version: "3.10"
+app_file: app.py
+pinned: false
+---
+
 # 골드키지사 AI 마스터 보험봇 (RAG 시스템 + AI 이미지 상담 탑재)
 
 ## 설치 및 실행 방법
