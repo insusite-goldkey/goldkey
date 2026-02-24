@@ -1,8 +1,0 @@
-import py_compile, sys
-try:
-    py_compile.compile('D:/CascadeProjects/app.py', doraise=True)
-    print("SYNTAX_OK")
-except py_compile.PyCompileError as e:
-    print(f"SYNTAX_ERROR: {e}")
-    sys.exit(1)
-  

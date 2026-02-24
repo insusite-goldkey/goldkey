@@ -751,7 +751,13 @@ class GeminiVectorStore:
                 model    = self.EMBED_MODEL,
                 contents = text[:2000],
             )
-            vec = resp.embeddings[0].values
+            # SDK 버전별 반환 구조 호환 처리
+            if hasattr(resp, 'embeddings') and resp.embeddings:
+                vec = resp.embeddings[0].values
+            elif hasattr(resp, 'embedding') and resp.embedding:
+                vec = resp.embedding.values
+            else:
+                return None
             return list(vec) if vec else None
         except Exception:
             return None
@@ -943,7 +949,7 @@ class ExpertPDFGenerator:
         except ImportError:
             return b""
 
-        buf    = __import__("io").BytesIO()
+        buf    = io.BytesIO()
         c      = rl_canvas.Canvas(buf, pagesize=A4)
         width, height = A4
         text_width = width - self._MARGIN_LEFT - self._MARGIN_RIGHT
