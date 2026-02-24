@@ -1184,6 +1184,147 @@ def extract_pdf_chunks(file, char_limit: int = 8000) -> str:
     mid_start = len(text) // 2 - mid_s // 2
     return text[:front] + "\n...(중략)...\n" + text[mid_start:mid_start+mid_s] + "\n...(중략)...\n" + text[-back:]
 
+
+# ── 보험증권 Vision 파싱 ────────────────────────────────────────────────────
+_POLICY_PARSE_PROMPT = """당신은 보험증권 분석 전문가입니다.
+첨부된 보험증권(이미지 또는 텍스트)에서 담보 정보를 추출하여 반드시 아래 JSON 형식으로만 응답하십시오.
+JSON 이외 설명 텍스트는 절대 포함하지 마십시오.
+
+추출 규칙:
+1. subcategory: 교통상해→"traffic", 일반상해→"general", 질병→"disease"
+2. category: 후유장해→"disability", 장해연금→"disability_annuity", 수술→"surgery", 진단→"diagnosis", 입원일당→"daily", 기타→"other"
+3. threshold_min: 담보명에서 지급 조건 최소 장해율(%) 추출 (3%, 20%, 50%, 80% 등). 없으면 null
+4. amount: 가입금액(원). 단위가 만원이면 ×10000 변환. 불명확하면 null
+5. annuity_monthly: 장해연금 월 지급액(원). 해당 없으면 null
+6. confidence: 추출 확신도 → "high"/"medium"/"low"
+
+출력 형식:
+{
+  "coverages": [
+    {
+      "category": "disability",
+      "subcategory": "traffic",
+      "name": "교통상해후유장해(3~100%)",
+      "amount": 100000000,
+      "threshold_min": 3.0,
+      "annuity_monthly": null,
+      "confidence": "high"
+    }
+  ]
+}"""
+
+def parse_policy_with_vision(files: list) -> dict:
+    """
+    보험증권 파일(PDF/이미지) 리스트를 받아 담보 JSON을 반환.
+    PDF는 텍스트 추출 후 텍스트 프롬프트로, 이미지는 인라인 바이트로 Vision 호출.
+    반환: {"coverages": [...], "errors": [...]}
+    """
+    client = get_client()
+    if client is None:
+        return {"coverages": [], "errors": ["API 클라이언트 초기화 실패"]}
+
+    all_coverages = []
+    errors = []
+
+    for f in files:
+        try:
+            if f.type == "application/pdf":
+                raw_text = extract_pdf_chunks(f, char_limit=6000)
+                prompt_parts = [
+                    _POLICY_PARSE_PROMPT,
+                    f"\n\n[보험증권 텍스트]\n{raw_text}"
+                ]
+                resp = client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=[{"role": "user", "parts": [{"text": "\n".join(str(p) for p in prompt_parts)}]}]
+                )
+            else:
+                img_bytes = f.getvalue()
+                img_b64   = base64.b64encode(img_bytes).decode("utf-8")
+                resp = client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=[{
+                        "role": "user",
+                        "parts": [
+                            {"text": _POLICY_PARSE_PROMPT},
+                            {"inline_data": {"mime_type": f.type, "data": img_b64}}
+                        ]
+                    }]
+                )
+
+            raw = resp.text.strip() if resp.text else ""
+            raw = re.sub(r"^```(?:json)?", "", raw).strip()
+            raw = re.sub(r"```$", "", raw).strip()
+            parsed = json.loads(raw)
+            covs = parsed.get("coverages", [])
+            for c in covs:
+                c["_source_file"] = f.name
+            all_coverages.extend(covs)
+
+        except json.JSONDecodeError as e:
+            errors.append(f"{f.name}: JSON 파싱 오류 — {e}")
+        except Exception as e:
+            errors.append(f"{f.name}: {sanitize_unicode(str(e))}")
+
+    return {"coverages": all_coverages, "errors": errors}
+
+
+# ── DisabilityLogic 계산 엔진 ───────────────────────────────────────────────
+_BODY_PARTS_AGGREGATE = {
+    "finger", "toe"
+}
+
+class DisabilityLogic:
+    """
+    표준약관 장해분류표 합산 원칙 구현:
+    - 다른 부위: 단순 합산
+    - 같은 부위: 최고율만 적용 (손가락·발가락 예외 — 각각 합산 허용)
+    - 합계 100% 초과 불가
+    """
+
+    def __init__(self, disability_items: list):
+        """
+        disability_items: [{"body_part": str, "rate": float, "desc": str}, ...]
+        body_part 예시: spine / eye / ear / arm / leg / finger / toe /
+                        nose / chewing_speech / appearance / trunk_bone /
+                        thorax_abdomen / neuro_psych
+        """
+        self.items = disability_items
+
+    def calculate_total_rate(self) -> float:
+        part_max: dict = {}
+        for i, item in enumerate(self.items):
+            part = item.get("body_part", "other")
+            rate = float(item.get("rate", 0.0))
+            if part in _BODY_PARTS_AGGREGATE:
+                part_max[f"{part}_{i}"] = rate
+            else:
+                part_max[part] = max(part_max.get(part, 0.0), rate)
+        return min(sum(part_max.values()), 100.0)
+
+    def calculate_benefit(self, coverage_amount: int,
+                           disability_type: str = "permanent",
+                           threshold_min: float = 3.0) -> int:
+        rate = self.calculate_total_rate()
+        if rate < threshold_min:
+            return 0
+        multiplier = 0.2 if disability_type == "temporary" else 1.0
+        return int(coverage_amount * (rate / 100.0) * multiplier)
+
+    @staticmethod
+    def benefit_by_tier(coverage_amount: int, rate: float,
+                         disability_type: str = "permanent") -> dict:
+        """담보별(3%/20%/50%/80%) 지급 가능 여부와 예상 보험금 일괄 계산"""
+        multiplier = 0.2 if disability_type == "temporary" else 1.0
+        result = {}
+        for threshold in (3.0, 20.0, 50.0, 80.0):
+            key = f"{int(threshold)}%"
+            if rate >= threshold and coverage_amount > 0:
+                result[key] = int(coverage_amount * (rate / 100.0) * multiplier)
+            else:
+                result[key] = None
+        return result
+
 def process_pdf(file):
     if not _check_pdf():  # 실제 호출 시점에 라이브러리 확인
         return f"[PDF] {file.name} (pdfplumber 미설치)"
@@ -6048,6 +6189,107 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     if _f.type.startswith("image/"):
                         st.image(_f, caption=_f.name, width=180)
 
+                _do_parse = st.button("🤖 담보 자동 파싱 (증권 인식)", key="btn_parse_policy",
+                                      use_container_width=True, type="secondary")
+                if _do_parse:
+                    with st.spinner("보험증권 담보 인식 중..."):
+                        _parsed_result = parse_policy_with_vision(dis_policy_files)
+                        st.session_state["dis_parsed_coverages"] = _parsed_result.get("coverages", [])
+                        st.session_state["dis_parsed_errors"]    = _parsed_result.get("errors", [])
+                    st.rerun()
+
+                # ── 파싱 결과 표시 및 자동 채우기 ───────────────────────
+                _parsed_covs = st.session_state.get("dis_parsed_coverages", [])
+                _parsed_errs = st.session_state.get("dis_parsed_errors", [])
+
+                if _parsed_errs:
+                    for _pe in _parsed_errs:
+                        st.warning(f"⚠️ {_pe}")
+
+                if _parsed_covs:
+                    st.markdown("""<div style="background:#1a7a2e;color:#fff;
+  border-radius:7px 7px 0 0;padding:4px 10px;font-size:0.79rem;font-weight:900;
+  margin-top:6px;">✅ 보험증권 파싱 결과 — 담보 자동 인식</div>""", unsafe_allow_html=True)
+
+                    _dis_covs  = [c for c in _parsed_covs if c.get("category") == "disability"]
+                    _ann_covs  = [c for c in _parsed_covs if c.get("category") == "disability_annuity"]
+                    _other_covs= [c for c in _parsed_covs if c.get("category") not in ("disability","disability_annuity")]
+
+                    # 담보 인식 결과 테이블 (HTML)
+                    _tbl_rows = ""
+                    for _cv in _parsed_covs:
+                        _conf_color = {"high":"#1a7a2e","medium":"#b8860b","low":"#c0392b"}.get(_cv.get("confidence",""),"#555")
+                        _amt = f'{int(_cv["amount"])//10000:,}만원' if _cv.get("amount") else "미확인"
+                        _ann = f'{int(_cv["annuity_monthly"])//10000:,}만원/월' if _cv.get("annuity_monthly") else "-"
+                        _sub_map = {"traffic":"🚗교통","general":"🏃일반","disease":"🏥질병"}
+                        _sub_label = _sub_map.get(_cv.get("subcategory",""), _cv.get("subcategory",""))
+                        _tbl_rows += (
+                            f'<tr><td style="padding:3px 6px;border:1px solid #ddd;">{_sub_label}</td>'
+                            f'<td style="padding:3px 6px;border:1px solid #ddd;font-size:0.77rem;">{_cv.get("name","")}</td>'
+                            f'<td style="padding:3px 6px;border:1px solid #ddd;text-align:right;">{_amt}</td>'
+                            f'<td style="padding:3px 6px;border:1px solid #ddd;text-align:right;">{_ann}</td>'
+                            f'<td style="padding:3px 6px;border:1px solid #ddd;color:{_conf_color};text-align:center;">{_cv.get("confidence","")}</td></tr>'
+                        )
+                    components.html(f"""
+<div style="overflow-x:auto;max-height:220px;overflow-y:auto;font-family:'Noto Sans KR',sans-serif;font-size:0.79rem;">
+<table style="width:100%;border-collapse:collapse;background:#fff;">
+<tr style="background:#2e6da4;color:#fff;">
+  <th style="padding:4px 6px;border:1px solid #1a4a7a;">구분</th>
+  <th style="padding:4px 6px;border:1px solid #1a4a7a;">담보명</th>
+  <th style="padding:4px 6px;border:1px solid #1a4a7a;">가입금액</th>
+  <th style="padding:4px 6px;border:1px solid #1a4a7a;">연금/월</th>
+  <th style="padding:4px 6px;border:1px solid #1a4a7a;">확신도</th>
+</tr>
+{_tbl_rows}
+</table></div>""", height=240)
+
+                    # ── 가입금액 자동 채우기 (장해율별 티어 매핑) ────────
+                    _fill_map = {"3%": {"traffic":0,"general":0},
+                                 "20%":{"traffic":0,"general":0},
+                                 "50%":{"traffic":0,"general":0},
+                                 "80%":{"traffic":0,"general":0}}
+                    _fill_annuity = {"traffic":0,"general":0}
+
+                    for _cv in _dis_covs:
+                        _thr = _cv.get("threshold_min")
+                        _amt_won = _cv.get("amount") or 0
+                        _amt_man = int(_amt_won) // 10000
+                        _sub = _cv.get("subcategory", "general")
+                        _side = "traffic" if _sub == "traffic" else "general"
+                        if _thr is not None:
+                            for _tk in ("3%","20%","50%","80%"):
+                                if abs(float(_thr) - float(_tk.rstrip("%"))) < 1.0:
+                                    _fill_map[_tk][_side] += _amt_man
+                                    break
+
+                    for _cv in _ann_covs:
+                        _ann_won = _cv.get("annuity_monthly") or 0
+                        _ann_man = int(_ann_won) // 10000
+                        _sub = _cv.get("subcategory","general")
+                        _side = "traffic" if _sub == "traffic" else "general"
+                        _fill_annuity[_side] += _ann_man
+
+                    _fill_keys = {
+                        "3%": ("dis_t_3","dis_g_3"),
+                        "20%":("dis_t_20","dis_g_20"),
+                        "50%":("dis_t_50","dis_g_50"),
+                        "80%":("dis_t_80","dis_g_80"),
+                    }
+                    for _lbl, (_kt, _kg) in _fill_keys.items():
+                        if _fill_map[_lbl]["traffic"] > 0:
+                            st.session_state[_kt] = _fill_map[_lbl]["traffic"]
+                        if _fill_map[_lbl]["general"] > 0:
+                            st.session_state[_kg] = _fill_map[_lbl]["general"]
+                    if _fill_annuity["traffic"] > 0:
+                        st.session_state["dis_annuity_t"] = _fill_annuity["traffic"]
+                    if _fill_annuity["general"] > 0:
+                        st.session_state["dis_annuity_g"] = _fill_annuity["general"]
+
+                    if any(v > 0 for d in _fill_map.values() for v in d.values()):
+                        st.info("📥 담보 자동 파싱 완료 — 위 가입금액 박스에 자동 반영됐습니다. 수정 후 분석을 실행하세요.")
+                    if _other_covs:
+                        st.caption(f"ℹ️ 장해 외 담보 {len(_other_covs)}건도 인식됨 (수술비·입원일당 등) — AI 분석에 포함됩니다.")
+
             # ── AI 입력 ─────────────────────────────────────────────────
             _pkd = "후유장해보험"
             hi_d = 0
@@ -6149,6 +6391,92 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     "⚠️ 본 산출은 참고용이며 최종 보험금은 보험사 심사 및 법원 판결에 따릅니다.")
         with col2:
             st.subheader("📋 장해보험 참고사항")
+
+            # ── DisabilityLogic 산출 결과 표 ─────────────────────────────
+            st.markdown("""<div style="background:#1a3a5c;color:#fff;
+  border-radius:8px 8px 0 0;padding:5px 12px;font-size:0.82rem;font-weight:900;
+  margin-bottom:0;">⚡ 예상 보험금 자동 산출 (확정적 계산 엔진)</div>""", unsafe_allow_html=True)
+
+            _dtype_mult = 0.2 if "한시" in dis_type else 1.0
+            _tiers_calc = [
+                ("3%",  dis_rate_traffic, dis_rate_general,
+                 st.session_state.get("dis_t_3", 0),
+                 st.session_state.get("dis_g_3", 0)),
+                ("20%", dis_rate_traffic, dis_rate_general,
+                 st.session_state.get("dis_t_20", 0),
+                 st.session_state.get("dis_g_20", 0)),
+                ("50%", dis_rate_traffic, dis_rate_general,
+                 st.session_state.get("dis_t_50", 0),
+                 st.session_state.get("dis_g_50", 0)),
+                ("80%", dis_rate_traffic, dis_rate_general,
+                 st.session_state.get("dis_t_80", 0),
+                 st.session_state.get("dis_g_80", 0)),
+            ]
+            _calc_rows = ""
+            _total_t = 0
+            _total_g = 0
+            for _lbl, _rt, _rg, _amt_t, _amt_g in _tiers_calc:
+                _thr = float(_lbl.rstrip("%"))
+                _pay_t = DisabilityLogic.benefit_by_tier(int(_amt_t) * 10000, _rt, dis_type)[_lbl] if _amt_t > 0 else None
+                _pay_g = DisabilityLogic.benefit_by_tier(int(_amt_g) * 10000, _rg, dis_type)[_lbl] if _amt_g > 0 else None
+                _pt_str = f"{_pay_t//10000:,}만원" if _pay_t is not None else "⛔ 미충족"
+                _pg_str = f"{_pay_g//10000:,}만원" if _pay_g is not None else "⛔ 미충족"
+                _row_bg = "#f0fff4" if (_pay_t or _pay_g) else "#f9f9f9"
+                _calc_rows += (
+                    f'<tr style="background:{_row_bg};">'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;font-weight:700;">{_lbl} 이상</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;">{_amt_t:,}만원</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;color:{"#1a7a2e" if _pay_t else "#c0392b"};">{_pt_str}</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;">{_amt_g:,}만원</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;color:{"#1a7a2e" if _pay_g else "#c0392b"};">{_pg_str}</td>'
+                    f'</tr>'
+                )
+                if _pay_t: _total_t += _pay_t
+                if _pay_g: _total_g += _pay_g
+
+            _ann_t_val = st.session_state.get("dis_annuity_t", 0)
+            _ann_g_val = st.session_state.get("dis_annuity_g", 0)
+            _ann_row = ""
+            if _ann_t_val > 0 or _ann_g_val > 0:
+                _ann_row = (
+                    f'<tr style="background:#fff8f0;">'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;font-weight:700;">장해연금</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;">-</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;color:#7d3c00;">{_ann_t_val:,}만/월</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;">-</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;color:#7d3c00;">{_ann_g_val:,}만/월</td>'
+                    f'</tr>'
+                )
+
+            _n_years_c = max(0, (65 - dis_age))
+            _hoffman_c = round(_n_years_c / (1 + 0.05 * _n_years_c / 2), 2) if _n_years_c > 0 else 0
+            _mcb_t = round(dis_income * (dis_rate_traffic / 100) * (2/3) * _hoffman_c, 1)
+            _mcb_g = round(dis_income * (dis_rate_general / 100) * (2/3) * _hoffman_c, 1)
+
+            components.html(f"""
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:0.80rem;">
+<table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
+<tr style="background:#2e6da4;color:#fff;">
+  <th style="padding:4px 6px;border:1px solid #1a4a7a;">담보</th>
+  <th style="padding:4px 6px;border:1px solid #1a4a7a;">교통가입</th>
+  <th style="padding:4px 6px;border:1px solid #1a4a7a;">교통지급</th>
+  <th style="padding:4px 6px;border:1px solid #1a4a7a;">일반가입</th>
+  <th style="padding:4px 6px;border:1px solid #1a4a7a;">일반지급</th>
+</tr>
+{_calc_rows}{_ann_row}
+<tr style="background:#1a3a5c;color:#fff;font-weight:900;">
+  <td style="padding:4px 6px;border:1px solid #0d2040;">합계</td>
+  <td colspan="2" style="padding:4px 6px;border:1px solid #0d2040;text-align:right;">교통: {_total_t//10000:,}만원</td>
+  <td colspan="2" style="padding:4px 6px;border:1px solid #0d2040;text-align:right;">일반: {_total_g//10000:,}만원</td>
+</tr>
+</table>
+<div style="background:#fff8f0;border:1px solid #f5a623;border-radius:5px;padding:5px 10px;font-size:0.77rem;color:#5a3000;">
+  <b>맥브라이드 일실수익</b> (호프만계수 {_hoffman_c})<br>
+  교통상해 {_mcb_t:,.1f}만원 &nbsp;|&nbsp; 일반상해 {_mcb_g:,.1f}만원<br>
+  <span style="font-size:0.72rem;color:#888;">장해유형: {dis_type} {"(한시 20% 적용)" if "한시" in dis_type else "(영구 100%)"}</span>
+</div>
+</div>""", height=310)
+
             show_result("res_disability")
 
             components.html("""
