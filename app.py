@@ -3441,6 +3441,39 @@ def main():
         except Exception:
             st.session_state.db_ready = True
 
+    # ── STEP 4-B: URL 토큰 자동 로그인 (기기 통합 — 핸드폰/태블릿 공용) ──
+    # 로그인 성공 시 ?t=TOKEN URL이 발급되며, 북마크 또는 재방문 시 자동 로그인
+    _qp_token = st.query_params.get("t", "")
+    if _qp_token and "user_id" not in st.session_state:
+        try:
+            # 토큰 = HMAC-SHA256(user_name + user_id, SECRET_KEY) 검증
+            import hmac as _hmac
+            _tok_secret = st.secrets.get("ENCRYPTION_KEY", "gk_token_secret_2026")
+            if isinstance(_tok_secret, bytes):
+                _tok_secret = _tok_secret.decode()
+            _tok_members = load_members()
+            _tok_found = False
+            for _tok_name, _tok_m in _tok_members.items():
+                _expected = _hmac.new(
+                    _tok_secret.encode(), (_tok_name + _tok_m["user_id"]).encode(), "sha256"
+                ).hexdigest()[:32]
+                if _hmac.compare_digest(_expected, _qp_token[:32]):
+                    # 토큰 유효 → 자동 로그인
+                    _jd_tok = dt.strptime(_tok_m["join_date"], "%Y-%m-%d")
+                    st.session_state.user_id   = _tok_m["user_id"]
+                    st.session_state.user_name = _tok_name
+                    st.session_state.join_date = _jd_tok
+                    st.session_state.is_admin  = (_tok_name in _get_unlimited_users())
+                    st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)"
+                    st.session_state["preferred_insurer"] = "선택 안 함 (중립 분석)"
+                    st.query_params.clear()
+                    _tok_found = True
+                    break
+            if not _tok_found:
+                st.query_params.clear()  # 유효하지 않은 토큰 제거
+        except Exception:
+            pass
+
     # ── STEP 5: 사이드바 렌더링 (로그인폼 포함) — 초기화 로직보다 먼저 ──
     _remaining = _get_session_remaining(_sid)
     components.html(f"""
@@ -3947,6 +3980,15 @@ section[data-testid="stSidebar"] > div:first-child {
                                         "🏢 생명·손해 종합(GA)": "🏢 생명·손해 종합(GA)",
                                     }
                                     st.session_state["preferred_insurer"] = _ins_map.get(_raw_ins, "선택 안 함 (중립 분석)") if _pro_val == "종사자" else "선택 안 함 (중립 분석)"
+                                    # ── 기기 통합 자동 로그인 토큰 생성 ──
+                                    try:
+                                        import hmac as _hmac2
+                                        _ts = st.secrets.get("ENCRYPTION_KEY", "gk_token_secret_2026")
+                                        if isinstance(_ts, bytes): _ts = _ts.decode()
+                                        _tok = _hmac2.new(_ts.encode(), (ln + m["user_id"]).encode(), "sha256").hexdigest()[:32]
+                                        st.session_state["_auto_login_token"] = _tok
+                                    except Exception:
+                                        pass
                                     st.rerun()
                                 else:
                                     if ln not in members:
@@ -4122,6 +4164,31 @@ section[data-testid="stSidebar"] > div:first-child {
             # 로그인 상태
             user_name = st.session_state.get('user_name', '')
             st.success(f"✅ {mask_name(user_name)} 마스터님 · 로그인됨")
+
+            # ── 기기 통합 자동 로그인 URL 북마크 안내 ─────────────────────
+            _auto_tok = st.session_state.get("_auto_login_token", "")
+            if _auto_tok:
+                try:
+                    _app_url = st.secrets.get("APP_URL", "https://goldkey-ai.streamlit.app")
+                    _bookmark_url = f"{_app_url}?t={_auto_tok}"
+                except Exception:
+                    _bookmark_url = ""
+                if _bookmark_url:
+                    with st.expander("📱 다른 기기 자동 로그인 URL", expanded=False):
+                        st.markdown(
+                            f"""<div style="background:#f0fff6;border:1.5px solid #27ae60;
+  border-radius:8px;padding:8px 12px;font-size:0.76rem;color:#0d3b2e;line-height:1.8;">
+  <b>📌 북마크 방법</b><br>
+  아래 URL을 핸드폰·태블릿 브라우저에서 열면<br>
+  이름/비번 입력 없이 <b>자동 로그인</b>됩니다.<br><br>
+  <div style="background:#fff;border:1px solid #86efac;border-radius:6px;
+    padding:6px 8px;word-break:break-all;font-size:0.72rem;color:#1a1a2e;">
+  {_bookmark_url}
+  </div><br>
+  ⚠️ 이 URL은 <b>본인만</b> 사용하세요. 타인에게 공유 시 계정이 도용될 수 있습니다.
+  </div>""", unsafe_allow_html=True
+                        )
+                        st.code(_bookmark_url, language=None)
 
             is_member, status_msg = check_membership_status()
             remaining_usage = get_remaining_usage(user_name)
@@ -6233,6 +6300,129 @@ section[data-testid="stMain"] > div,
 • "지금 보험, 10년 후에도 같은 금액 보장될까요?"<br>
 • 20년 갱신 시 보험료 2~3배 인상 시뮬레이션 제시<br>
 </div>""", unsafe_allow_html=True)
+
+        # ── [policy_scan ↔ 약관 실시간 조회] JIT 크롤러 연동 ────────────
+        st.divider()
+        st.markdown("""
+<div style="background:linear-gradient(90deg,#0d3b2e,#1a6b4a);
+  border-radius:10px;padding:10px 16px;margin-bottom:10px;">
+  <span style="color:#fff;font-size:1rem;font-weight:900;">📜 해당 증권 약관 실시간 조회</span>
+  <span style="color:#a8f0c8;font-size:0.76rem;margin-left:10px;">
+    상품명·가입년월 입력 → 공시실 자동 탐색 → Supabase 버킷 영구 보관
+  </span>
+</div>""", unsafe_allow_html=True)
+
+        _jit_c1, _jit_c2, _jit_c3 = st.columns([2, 2, 1])
+        with _jit_c1:
+            _jit_company = st.selectbox(
+                "보험사",
+                ["삼성화재", "현대해상", "DB손해보험", "KB손해보험", "메리츠화재",
+                 "롯데손해보험", "한화손해보험", "흥국화재",
+                 "삼성생명", "한화생명", "교보생명", "신한라이프",
+                 "NH농협생명", "미래에셋생명", "DB생명",
+                 "생명보험협회 (통합 검색)", "손해보험협회 (통합 검색)"],
+                key="ps_jit_company",
+            )
+        with _jit_c2:
+            _jit_product = st.text_input(
+                "상품명",
+                placeholder="예) 무배당 삼성화재 암보험",
+                key="ps_jit_product",
+                value=st.session_state.get("ps_product", ""),
+            )
+        with _jit_c3:
+            _jit_join = st.date_input("가입일자", key="ps_jit_join")
+
+        _jit_kw = st.text_input(
+            "🔍 약관 내 검색 키워드 (조회 후 입력)",
+            placeholder="예) 면책 기간 / 수술비 지급 기준 / 암 진단비",
+            key="ps_jit_keyword",
+        )
+        _jit_col1, _jit_col2 = st.columns(2)
+        with _jit_col1:
+            _jit_run = st.button("🚀 공시실 실시간 약관 탐색", type="primary",
+                                 key="btn_ps_jit_run", use_container_width=True)
+        with _jit_col2:
+            _jit_search = st.button("🔎 약관 내 키워드 검색",
+                                    key="btn_ps_jit_search", use_container_width=True)
+
+        if _jit_run:
+            if not _jit_product.strip():
+                st.error("상품명을 입력해주세요.")
+            else:
+                _jit_cn = _jit_company.replace(" (통합 검색)", "")
+                _jit_js = str(_jit_join)
+                _jit_sb = _get_sb_client()
+                with st.status("🤖 공시실 실시간 탐색 중...", expanded=True) as _jit_st:
+                    try:
+                        from disclosure_crawler import run_jit_policy_lookup
+                        _jit_r = run_jit_policy_lookup(
+                            company_name=_jit_cn,
+                            product_name=_jit_product.strip(),
+                            join_date=_jit_js,
+                            sb_client=_jit_sb,
+                            progress_cb=lambda m: st.write(m),
+                        )
+                        _jit_st.update(
+                            label="✅ 약관 탐색 완료" if not _jit_r.get("error") else "⚠️ 부분 완료",
+                            state="complete" if not _jit_r.get("error") else "error",
+                        )
+                        if _jit_r.get("pdf_url"):
+                            _jit_conf = _jit_r.get("confidence", 0)
+                            _jit_cc = "#27ae60" if _jit_conf >= 80 else "#e67e22" if _jit_conf >= 50 else "#e74c3c"
+                            st.markdown(
+                                f"<div style='background:#eafaf1;border:1.5px solid #27ae60;"
+                                f"border-radius:8px;padding:10px 14px;margin-top:6px;"
+                                f"font-size:0.82rem;'>"
+                                f"✅ <b>약관 확보 성공</b> &nbsp; 신뢰도 "
+                                f"<b style='color:{_jit_cc};'>{_jit_conf}%</b>"
+                                f" &nbsp;|&nbsp; 판매 기간: {_jit_r.get('period') or '미확인'}"
+                                f"<br>원문 청크: {_jit_r.get('chunks_indexed', 0)}개 "
+                                f"— Supabase <code>gk_policy_terms</code> 버킷 영구 저장 완료"
+                                f"</div>",
+                                unsafe_allow_html=True,
+                            )
+                            st.markdown(f"[📥 약관 PDF 원본]({_jit_r['pdf_url']})")
+                            if _jit_r.get("cached"):
+                                st.info("💾 이미 DB에 캐싱된 약관 — 공시실 크롤링 생략")
+                        elif _jit_r.get("error"):
+                            st.error(f"❌ {_jit_r['error']}")
+                        else:
+                            st.warning("약관 PDF를 찾지 못했습니다. 상품명·보험사를 확인해주세요.")
+                    except ImportError:
+                        st.error("disclosure_crawler 모듈 로드 실패 — requirements.txt에 playwright, pdfplumber 확인")
+
+        if _jit_search and _jit_kw.strip() and _jit_product.strip():
+            _jit_sb2 = _get_sb_client()
+            try:
+                from disclosure_crawler import JITPipelineRunner, SyntheticQAGenerator
+                _jit_hits = SyntheticQAGenerator(_jit_sb2).search_semantic(
+                    _jit_company.replace(" (통합 검색)", ""), _jit_product.strip(),
+                    _jit_kw.strip(), limit=5
+                )
+                if not _jit_hits:
+                    _jit_hits = JITPipelineRunner(_jit_sb2).search_terms(
+                        _jit_company.replace(" (통합 검색)", ""), _jit_product.strip(),
+                        _jit_kw.strip(), limit=5
+                    )
+                if _jit_hits:
+                    st.markdown(f"**🔎 '{_jit_kw}' 검색 결과 — {len(_jit_hits)}건**")
+                    for _hi, _ch in enumerate(_jit_hits, 1):
+                        with st.expander(f"[{_hi}] 약관 청크 #{_ch.get('chunk_idx', _hi)}"):
+                            _ht = _ch["chunk_text"][:800].replace(
+                                _jit_kw,
+                                f"<mark style='background:#fff176;padding:0 2px;"
+                                f"border-radius:3px;'>{_jit_kw}</mark>",
+                            )
+                            st.markdown(
+                                f"<div style='font-size:0.82rem;line-height:1.75;'>"
+                                f"{_ht.replace(chr(10), '<br>')}</div>",
+                                unsafe_allow_html=True,
+                            )
+                else:
+                    st.info("검색 결과 없음 — 먼저 **🚀 공시실 실시간 약관 탐색**을 실행하세요.")
+            except ImportError:
+                st.error("disclosure_crawler 모듈 로드 실패")
 
     # ── [t0] 신규보험 상품 상담 — 보험설계사 전용 ───────────────────────
     if cur == "t0":

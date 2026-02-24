@@ -34,12 +34,20 @@ git add -A
 $msg = "update: " + (Get-Date -Format "yyyy-MM-dd HH:mm") + " 자동 커밋"
 git commit -m $msg
 
-# 5. GitHub push
-git push origin main
+# 5. GitHub push (--force-with-lease: 로컬 커밋이 remote보다 뒤처지면 push 중단 — 수동 작업 보호)
+git push origin main --force-with-lease
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ GitHub push 완료"
 } else {
-    Write-Host "⚠️ GitHub push 실패 (exit code: $LASTEXITCODE)"
+    # remote에 새 커밋 있으면 pull 후 재시도
+    Write-Host "⚠️ push 실패 — remote 최신화 후 재시도 중..."
+    git pull origin main --rebase
+    git push origin main --force-with-lease
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✅ GitHub push 완료 (재시도 성공)"
+    } else {
+        Write-Host "⚠️ GitHub push 최종 실패 (exit code: $LASTEXITCODE) — 수동 확인 필요"
+    }
 }
 
 # 6. HuggingFace Space push
