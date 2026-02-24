@@ -4278,10 +4278,15 @@ section[data-testid="stSidebar"] > div:first-child {
                     st.session_state.pop(k, None)
                 st.success("상담 자료가 파기되었습니다.")
 
-            st.markdown("""<div style="background:linear-gradient(135deg,#0d2137,#1e6fa8);
+            st.markdown("""<div style="background:linear-gradient(135deg,#0d3b2e,#1a6b4a);
   border-radius:8px;padding:6px 10px;margin:8px 0 4px 0;
-  font-size:0.76rem;font-weight:900;color:#a8d4f5;letter-spacing:0.03em;">
-  🤖 AI 자동 약관 매칭 시스템</div>""", unsafe_allow_html=True)
+  font-size:0.76rem;font-weight:900;color:#a8f0c8;letter-spacing:0.03em;">
+  📎 보험증권 분석 &amp; 약관 검색</div>""", unsafe_allow_html=True)
+            if st.button("📎 보험증권 AI 분석", key="sb_policy_scan",
+                         use_container_width=True, type="primary"):
+                st.session_state.current_tab = "policy_scan"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
             if st.button("📜 약관 매칭 · 딥러닝 검색", key="sb_policy_terms",
                          use_container_width=True):
                 st.session_state.current_tab = "policy_terms"
@@ -5698,35 +5703,37 @@ section[data-testid="stMain"] > div,
 </style>
 """, unsafe_allow_html=True)
 
-        # ── 파트 -1: 증권분석 (최최상단 단독 배치) ──
-        st.markdown('<div class="gk-section-label" style="background:#0d8a4e;">📎 보험증권 분석</div>', unsafe_allow_html=True)
+        # ── 파트 -1: 증권분석 + 약관 (최최상단 — 모바일 터치 최적화) ──
+        st.markdown('<div class="gk-section-label" style="background:#0d8a4e;">📎 보험증권 분석 &amp; 약관</div>', unsafe_allow_html=True)
         _pscan_c1, _pscan_c2 = st.columns(2, gap="small")
         with _pscan_c1:
-            st.markdown(
-                "<div class='gk-card-wrap'>"
-                "<div class='gk-card' style='background:linear-gradient(135deg,#f0fff8 0%,#d4f5e5 100%);border-color:#27ae60;'>"
-                "<div class='gk-card-icon'>📎</div>"
-                "<div class='gk-card-body'>"
-                "<div class='gk-card-title' style='color:#0d3b2e;'>보험증권 AI 분석</div>"
-                "<div class='gk-card-desc'>증권 PDF/이미지 업로드<br>담보 자동 파싱 · 보장 공백 진단 · 신규 설계 제안</div>"
-                "</div>"
-                "</div></div>", unsafe_allow_html=True)
-            if st.button("▶ 클릭", key="home_pscan_main", use_container_width=False):
+            st.markdown("""
+<div style="background:linear-gradient(135deg,#0d3b2e,#1a6b4a);
+  border-radius:12px;padding:14px 12px 10px 12px;margin-bottom:4px;text-align:center;">
+  <div style="font-size:2rem;">📎</div>
+  <div style="color:#fff;font-size:0.95rem;font-weight:900;margin:4px 0 2px 0;">보험증권 AI 분석</div>
+  <div style="color:#a8f0c8;font-size:0.72rem;line-height:1.5;">
+    증권 PDF/이미지 업로드<br>담보 자동 파싱 · 보장 공백 진단
+  </div>
+</div>""", unsafe_allow_html=True)
+            if st.button("📎 증권분석 시작", key="home_pscan_main",
+                         use_container_width=True, type="primary"):
                 st.session_state.current_tab = "policy_scan"
                 st.session_state["_scroll_top"] = True
                 st.rerun()
         with _pscan_c2:
-            st.markdown(
-                "<div class='gk-card-wrap'>"
-                "<div class='gk-card'>"
-                "<div class='gk-card-icon'>📋</div>"
-                "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>신규보험 상담</div>"
-                "<div class='gk-card-desc'>기존 보험증권 분석<br>보장 공백 진단 · 신규 컨설팅</div>"
-                "</div>"
-                "</div></div>", unsafe_allow_html=True)
-            if st.button("▶ 클릭", key="home_p0_t0_top", use_container_width=False):
-                st.session_state.current_tab = "t0"
+            st.markdown("""
+<div style="background:linear-gradient(135deg,#0d2137,#1e6fa8);
+  border-radius:12px;padding:14px 12px 10px 12px;margin-bottom:4px;text-align:center;">
+  <div style="font-size:2rem;">📜</div>
+  <div style="color:#fff;font-size:0.95rem;font-weight:900;margin:4px 0 2px 0;">보험약관 AI 검색</div>
+  <div style="color:#a8d4f5;font-size:0.72rem;line-height:1.5;">
+    공시실 실시간 탐색<br>가입 시점 정확 매칭 · 딥러닝 검색
+  </div>
+</div>""", unsafe_allow_html=True)
+            if st.button("📜 약관검색 시작", key="home_pterm_main",
+                         use_container_width=True, type="primary"):
+                st.session_state.current_tab = "policy_terms"
                 st.session_state["_scroll_top"] = True
                 st.rerun()
 
