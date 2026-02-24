@@ -3583,19 +3583,19 @@ section[data-testid="stSidebar"] > div:first-child {
                 "상담 모드",
                 _mode_options,
                 index=_mode_options.index(_cur_mode) if _cur_mode in _mode_options else 0,
-                key="user_consult_mode",
                 label_visibility="collapsed",
             )
+            st.session_state["user_consult_mode"] = _sel_mode
 
             _ins_options = ["선택 안 함 (중립 분석)", "🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"]
             _cur_ins = st.session_state.get("preferred_insurer", _ins_options[0])
-            st.radio(
+            _sel_ins = st.radio(
                 "📋 주력 판매 분야",
                 _ins_options,
                 index=_ins_options.index(_cur_ins) if _cur_ins in _ins_options else 0,
-                key="preferred_insurer",
                 label_visibility="collapsed",
             )
+            st.session_state["preferred_insurer"] = _sel_ins
 
             _mode_badge = "🟦 종사자" if "종사자" in st.session_state.get("user_consult_mode","") else "🟩 비종사자"
             _ins_badge  = st.session_state.get("preferred_insurer","선택 안 함")
