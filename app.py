@@ -3382,10 +3382,10 @@ section[data-testid="stSidebar"] > div:first-child {
                     lc = st.text_input("📱 연락처 (비밀번호)", type="password", placeholder="010-0000-0000", key="login_contact")
                     login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"], horizontal=True, key="login_is_pro")
                     if login_is_pro == "종사자":
-                        st.markdown("<div style='font-size:0.78rem;color:#1a3a5c;margin-top:4px;'>📋 주력 판매 상품 선택 (AI가 해당 분야 상품 우선 안내)</div>", unsafe_allow_html=True)
+                        st.markdown("<div style='font-size:0.78rem;color:#1a3a5c;margin-top:4px;'>📋 주력 판매 분야 선택 (AI가 해당 분야 상품 우선 안내)</div>", unsafe_allow_html=True)
                         login_insurer = st.radio(
                             "주력 판매",
-                            ["🏦 생명보험 주력", "🛡️ 손해보험 주력"],
+                            ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"],
                             horizontal=True,
                             key="login_insurer"
                         )
@@ -3588,7 +3588,7 @@ section[data-testid="stSidebar"] > div:first-child {
                 label_visibility="collapsed",
             )
 
-            _ins_options = ["선택 안 함 (중립 분석)", "🏦 생명보험 주력", "🛡️ 손해보험 주력"]
+            _ins_options = ["선택 안 함 (중립 분석)", "🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"]
             _cur_ins = st.session_state.get("preferred_insurer", _ins_options[0])
             st.radio(
                 "📋 주력 판매 분야",
@@ -4456,6 +4456,14 @@ window['startTTS_{tab_key}']=function(){{
                         "\n• 손해보험의 장점(실손 보장·일상 리스크 커버·갱신형 유연성)을 구체적으로 부각하세요."
                         "\n• 생명보험 상품이 필요한 경우에는 보완적으로 언급하되, 손해보험 중심으로 구성하세요."
                         "\n• (금소법 제20조) 답변 하단에 손해보험 주요 상품 비교 요약을 제시하세요."
+                    )
+                elif "GA" in _pref_ins or "종합" in _pref_ins:
+                    _ins_directive = (
+                        "\n\n[주력 판매 분야: 생명·손해 종합판매대리점(GA) — 전상품 비교 분석 모드]"
+                        "\n• 생명보험·손해보험 전 상품을 동등하게 비교하여 고객에게 가장 유리한 상품 조합을 제시하세요."
+                        "\n• GA의 강점(다사 비교·중립 추천·최적 상품 조합)을 활용하여 분석하세요."
+                        "\n• 생명보험과 손해보험 상품의 역할 분담(보장 공백 최소화)을 명확히 설명하세요."
+                        "\n• (금소법 제20조) 답변 하단에 생명·손해 통합 상품 비교표를 제시하세요."
                     )
                 else:
                     _ins_directive = (
