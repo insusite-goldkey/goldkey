@@ -2214,44 +2214,262 @@ class DummyRAGSystem:
 # --------------------------------------------------------------------------
 # [SECTION 6] 상속/증여 정밀 로직
 # --------------------------------------------------------------------------
-def section_inheritance_will():
-    st.subheader("상속증여 및 유류분 통합 설계")
-    st.caption("2026년 최신 세법 및 민법 제1000조(상속순위) 기준")
-
-    c_name = st.text_input("상담 고객 성함", "홍길동", key="inh_c_name")
-    if len(c_name) >= 3:
-        masked_name = c_name[0] + "*" * (len(c_name) - 2) + c_name[-1]
-    elif len(c_name) == 2:
-        masked_name = c_name[0] + "*"
+def _calc_inheritance_tax(total_man: float, child_count: int, has_spouse: bool,
+                           use_2026: bool) -> dict:
+    """상속세 계산 엔진 — 구법(2024) / 신법(2026 예정안) 비교. 단위: 만원"""
+    total = total_man
+    if use_2026:
+        child_deduct  = child_count * 50_000
+        spouse_deduct = 50_000 if has_spouse else 0
+        total_deduct  = 20_000 + child_deduct + spouse_deduct
     else:
-        masked_name = c_name
+        child_deduct  = child_count * 5_000
+        spouse_deduct = 50_000 if has_spouse else 0
+        personal      = 20_000 + child_deduct
+        total_deduct  = max(50_000, personal) + spouse_deduct
 
-    col1, col2 = st.columns(2)
-    with col1:
-        spouse = st.radio("배우자 관계", ["법률혼 (상속권 있음)", "사실혼 (상속권 없음)"], key="inh_spouse")
-        val_real = st.number_input("부동산 시가(만원)", value=100000, step=1000, key="inh_real")
-    with col2:
-        child_count = st.number_input("자녀 수", min_value=0, value=1, key="inh_child")
-        val_cash = st.number_input("금융 자산(만원)", value=50000, step=1000, key="inh_cash")
+    taxable = max(total - total_deduct, 0)
 
-    shares = "배우자 1.5 : 자녀 1.0" if spouse.startswith("법률혼") else "자녀 100%"
-    st.info(f"법정 상속 비율: {shares}")
+    def _tax_2024(t):
+        if t <= 10_000:  return t * 0.10
+        if t <= 50_000:  return 1_000 + (t - 10_000) * 0.20
+        if t <= 100_000: return 9_000 + (t - 50_000) * 0.30
+        if t <= 300_000: return 24_000 + (t - 100_000) * 0.40
+        return 104_000 + (t - 300_000) * 0.50
 
-    if st.button("상속세 시뮬레이션", type="primary", key="btn_inh_calc"):
-        taxable = max((val_real + val_cash) - 100000, 0)
-        est_tax = max(taxable * 0.3 - 6000, 0)
-        res_text = (
-            f"총 자산 {val_real+val_cash:,.0f}만원 중 예상 상속세는 약 {est_tax:,.0f}만원입니다.\n\n"
-            "부동산 비중이 높아 종신보험을 통한 세원 마련이 시급합니다."
-        )
-        output_manager(masked_name, res_text)
+    def _tax_2026(t):
+        if t <= 10_000:  return t * 0.10
+        if t <= 50_000:  return 1_000 + (t - 10_000) * 0.20
+        if t <= 100_000: return 9_000 + (t - 50_000) * 0.30
+        return 24_000 + (t - 100_000) * 0.40
 
-    st.divider()
-    st.warning("2024년 최신 판례: 형제자매의 유류분 청구권은 폐지되었습니다.")
-    if st.checkbox("자필유언장 표준 양식 보기", key="inh_will_checkbox"):
-        will_text = "나 유언자 [성함]은 주소 [주소]에서 다음과 같이 유언한다...\n1. 부동산은 [동거인]에게 사인증여한다..."
-        st.code(will_text, language="text")
-        st.success("반드시 전체 내용을 직접 자필로 작성하고 날인하십시오.")
+    raw_tax   = _tax_2026(taxable) if use_2026 else _tax_2024(taxable)
+    final_tax = raw_tax * 0.97  # 신고세액공제 3%
+    eff_rate  = (final_tax / total * 100) if total > 0 else 0
+
+    if use_2026:
+        bracket = ("10%" if taxable<=10_000 else "20%" if taxable<=50_000
+                   else "30%" if taxable<=100_000 else "40%")
+    else:
+        bracket = ("10%" if taxable<=10_000 else "20%" if taxable<=50_000
+                   else "30%" if taxable<=100_000 else "40%" if taxable<=300_000 else "50%")
+
+    return {"총자산": total, "공제합계": total_deduct, "과세표준": taxable,
+            "최고세율구간": bracket, "산출세액": round(final_tax, 0),
+            "실효세율": round(eff_rate, 2)}
+
+
+def _calc_pci_defense(child_age: int, child_annual_income_man: float,
+                       annual_premium_man: float) -> dict:
+    """PCI(재산지출 분석) 방어 로직 — 국세청 자금출처 조사 시뮬레이션"""
+    safe_premium = child_annual_income_man * 0.30
+    is_safe      = annual_premium_man <= safe_premium
+    risk_level   = "안전" if is_safe else ("주의" if annual_premium_man <= safe_premium * 1.5 else "위험")
+    gap          = max(annual_premium_man - child_annual_income_man * 0.80, 0)
+
+    if child_age < 30:
+        age_risk = "⚠️ 30세 미만 — 근로계약서·원천징수영수증 필수"
+    elif child_age < 35:
+        age_risk = "🔶 30대 초반 — 급여명세서 3개월치 준비 권장"
+    else:
+        age_risk = "✅ 소득 입증 상대적으로 용이한 연령대"
+
+    strategies = []
+    if not is_safe:
+        strategies.append("증여세 신고 후 합법적 증여로 보험료 재원 마련 (증여세 납부 영수증 보관)")
+    strategies.append("자녀 명의 계좌로 보험료 자동이체 설정 (대납 흔적 차단)")
+    strategies.append("보험 계약자·수익자 모두 자녀로 설정 (실질과세 원칙 준수)")
+    if gap > 0:
+        strategies.append(f"연간 {gap:,.0f}만원 자금출처 소명 준비 — 증여계약서 작성 권장")
+
+    return {"자녀연령": child_age, "연간소득": child_annual_income_man,
+            "연간보험료": annual_premium_man, "안전납입한도": round(safe_premium, 0),
+            "리스크등급": risk_level, "소명필요금액": round(gap, 0),
+            "연령리스크": age_risk, "방어전략": strategies}
+
+
+def section_inheritance_will():
+    st.subheader("🏛️ 상속·증여 통합 설계 — 2026 개정안 시뮬레이션")
+    st.caption("2026년 시행 예정 상속·증여세법 개정안 반영 | 민법 제1000조(상속순위) 기준")
+
+    inh_tabs = st.tabs(["📊 세금 시뮬레이션", "🛡️ 자금출처 방어", "📜 유언장 양식"])
+
+    # ── TAB 1: 2026 개정안 세금 시뮬레이션 ──────────────────────────────
+    with inh_tabs[0]:
+        st.markdown("##### 고객 자산 정보 입력")
+        col1, col2 = st.columns(2)
+        with col1:
+            c_name      = st.text_input("상담 고객 성함", "홍길동", key="inh_c_name")
+            spouse_opt  = st.radio("배우자 관계", ["법률혼 (상속권 있음)", "사실혼 (상속권 없음)"], key="inh_spouse")
+            child_count = st.number_input("자녀 수", min_value=0, max_value=10, value=2, key="inh_child")
+        with col2:
+            val_real = st.number_input("부동산 시가 (만원)", value=100_000, step=1_000, key="inh_real")
+            val_corp = st.number_input("법인 지분 평가액 (만원)", value=50_000, step=1_000, key="inh_corp")
+            val_cash = st.number_input("금융 자산 (만원)", value=30_000, step=1_000, key="inh_cash")
+
+        total_asset = val_real + val_corp + val_cash
+        has_spouse  = spouse_opt.startswith("법률혼")
+        st.info(f"**총 자산: {total_asset:,.0f}만원** | 법정 상속 비율: {'배우자 1.5 : 자녀 1.0' if has_spouse else '자녀 100%'}")
+
+        if st.button("📊 구법/신법 비교 시뮬레이션 실행", type="primary", key="btn_inh_sim"):
+            r24 = _calc_inheritance_tax(total_asset, int(child_count), has_spouse, use_2026=False)
+            r26 = _calc_inheritance_tax(total_asset, int(child_count), has_spouse, use_2026=True)
+            st.session_state.update({"inh_r24": r24, "inh_r26": r26,
+                                     "inh_c_name_result": c_name, "inh_total": total_asset,
+                                     "inh_val_real": val_real, "inh_val_corp": val_corp,
+                                     "inh_val_cash": val_cash, "inh_child_cnt": int(child_count),
+                                     "inh_has_spouse": has_spouse})
+
+        r24 = st.session_state.get("inh_r24")
+        r26 = st.session_state.get("inh_r26")
+        if r24 and r26:
+            c_name_r = st.session_state.get("inh_c_name_result", "고객")
+            total_r  = st.session_state.get("inh_total", 0)
+            saving   = r24["산출세액"] - r26["산출세액"]
+            st.markdown("---")
+            st.markdown(f"#### 📋 {c_name_r}님 상속세 비교 리포트")
+            mc1, mc2, mc3 = st.columns(3)
+            mc1.metric("현행(2024) 상속세", f"{r24['산출세액']:,.0f}만원", f"실효세율 {r24['실효세율']}%")
+            mc2.metric("2026 개정안 상속세", f"{r26['산출세액']:,.0f}만원", f"실효세율 {r26['실효세율']}%")
+            mc3.metric("개정안 절세 효과", f"{saving:,.0f}만원",
+                       "↓ 세부담 감소" if saving > 0 else "변동 없음", delta_color="inverse")
+
+            components.html(f"""
+<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.83rem;line-height:1.7;">
+<table style="width:100%;border-collapse:collapse;">
+<thead><tr style="background:#1a3a5c;color:#fff;">
+  <th style="padding:8px 10px;text-align:left;">구분</th>
+  <th style="padding:8px 10px;text-align:right;">현행(2024)</th>
+  <th style="padding:8px 10px;text-align:right;">2026 예정안</th>
+  <th style="padding:8px 10px;text-align:right;">차이</th>
+</tr></thead>
+<tbody>
+<tr style="background:#f8fafc;"><td style="padding:7px 10px;">공제 합계</td>
+  <td style="padding:7px 10px;text-align:right;">{r24['공제합계']:,.0f}만원</td>
+  <td style="padding:7px 10px;text-align:right;color:#1a7a4a;font-weight:700;">{r26['공제합계']:,.0f}만원</td>
+  <td style="padding:7px 10px;text-align:right;color:#1a7a4a;">+{r26['공제합계']-r24['공제합계']:,.0f}</td></tr>
+<tr><td style="padding:7px 10px;">과세표준</td>
+  <td style="padding:7px 10px;text-align:right;">{r24['과세표준']:,.0f}만원</td>
+  <td style="padding:7px 10px;text-align:right;color:#1a7a4a;font-weight:700;">{r26['과세표준']:,.0f}만원</td>
+  <td style="padding:7px 10px;text-align:right;color:#1a7a4a;">{r26['과세표준']-r24['과세표준']:,.0f}</td></tr>
+<tr style="background:#f8fafc;"><td style="padding:7px 10px;">최고세율</td>
+  <td style="padding:7px 10px;text-align:right;color:#c0392b;">{r24['최고세율구간']}</td>
+  <td style="padding:7px 10px;text-align:right;color:#1a7a4a;font-weight:700;">{r26['최고세율구간']}</td>
+  <td style="padding:7px 10px;text-align:right;">—</td></tr>
+<tr style="background:#fff8e1;"><td style="padding:7px 10px;font-weight:700;">산출세액(신고공제 3%)</td>
+  <td style="padding:7px 10px;text-align:right;color:#c0392b;font-weight:700;">{r24['산출세액']:,.0f}만원</td>
+  <td style="padding:7px 10px;text-align:right;color:#1a7a4a;font-weight:700;">{r26['산출세액']:,.0f}만원</td>
+  <td style="padding:7px 10px;text-align:right;color:#1a7a4a;font-weight:700;">-{saving:,.0f}</td></tr>
+</tbody></table>
+<div style="margin-top:10px;padding:10px 12px;background:#eaf4fb;border-left:4px solid #2e6da4;
+  border-radius:4px;font-size:0.82rem;color:#1a3a5c;">
+<b>💡 전략 포인트:</b> 개정안 시행 후에도 <b>{r26['산출세액']:,.0f}만원의 현금</b>이 필요합니다.
+종신보험(자녀 계약자·수익자)으로 <b>1:1 매칭 펀드</b>를 구축하는 것이 핵심 전략입니다.
+</div></div>""", height=300)
+
+            if st.button("🤖 AI 고액자산가 1:1 상담 전략 생성", key="btn_inh_ai"):
+                if 'user_id' not in st.session_state:
+                    st.error("로그인이 필요합니다.")
+                else:
+                    _vr = st.session_state.get("inh_val_real", 0)
+                    _vc = st.session_state.get("inh_val_corp", 0)
+                    _vca = st.session_state.get("inh_val_cash", 0)
+                    _cc = st.session_state.get("inh_child_cnt", 0)
+                    _hs = st.session_state.get("inh_has_spouse", False)
+                    with st.spinner("2026 개정안 기반 맞춤 전략 분석 중..."):
+                        try:
+                            client, model_config = get_master_model()
+                            ai_prompt = (
+                                f"[고액자산가 1:1 상속·가업승계 컨설팅 — 2026 개정안 기준]\n"
+                                f"총자산: {total_r:,.0f}만원 (부동산 {_vr:,.0f} + 법인지분 {_vc:,.0f} + 금융 {_vca:,.0f})\n"
+                                f"배우자: {'있음(법률혼)' if _hs else '없음'} | 자녀: {_cc}명\n"
+                                f"현행 상속세: {r24['산출세액']:,.0f}만원 → 2026안: {r26['산출세액']:,.0f}만원 (절세 {saving:,.0f}만원)\n\n"
+                                "다음을 전문가 수준으로 분석하십시오:\n"
+                                "1. 2026 개정안이 이 고객에게 미치는 영향\n"
+                                "2. 전략적 증여(Seed Money) + 종신보험(Cash Cow) 연계 설계안\n"
+                                "   - 자녀 계약자·수익자 구조의 법적 근거 (상증세법 실질과세 원칙)\n"
+                                "3. 법인 지분 승계 전략 (가업승계 증여세 과세특례)\n"
+                                "4. 종신보험 납입 재원 마련 시나리오\n"
+                                "5. 상속세 연부연납(최대 10년) 활용법\n"
+                                "6. 즉시 실행 가능한 3단계 액션플랜\n"
+                                "[주의] 구체적 세무·법률 사항은 반드시 세무사·변호사와 확인하십시오."
+                            )
+                            resp = client.models.generate_content(
+                                model=GEMINI_MODEL, contents=ai_prompt, config=model_config)
+                            st.session_state["res_inh_ai"] = sanitize_unicode(resp.text) if resp.text else "응답 없음"
+                            update_usage(st.session_state.get('user_name', ''))
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"분석 오류: {sanitize_unicode(str(e))}")
+
+            if st.session_state.get("res_inh_ai"):
+                st.markdown("---")
+                st.markdown("#### 🤖 AI 고액자산가 맞춤 전략")
+                st.markdown(st.session_state["res_inh_ai"])
+
+    # ── TAB 2: PCI 자금출처 방어 로직 ────────────────────────────────────
+    with inh_tabs[1]:
+        st.markdown("##### 🛡️ 국세청 PCI 자금출처 조사 방어 시뮬레이션")
+        st.caption("자녀가 보험료를 납입할 능력이 있는지 사전 검증 — 증여세 추징 원천 차단")
+        col1, col2 = st.columns(2)
+        with col1:
+            pci_age    = st.number_input("자녀 연령", min_value=19, max_value=60, value=35, key="pci_age")
+            pci_income = st.number_input("자녀 연간 소득 (만원)", value=6_000, step=500, key="pci_income")
+        with col2:
+            pci_prem   = st.number_input("연간 보험료 납입액 (만원)", value=2_400, step=100, key="pci_premium")
+            pci_gift   = st.number_input("사전 증여 계획액 (만원, 없으면 0)", value=0, step=1_000, key="pci_gift")
+
+        if st.button("🔍 PCI 방어 능력 검증", type="primary", key="btn_pci"):
+            eff_income = pci_income + pci_gift
+            st.session_state["pci_result"] = _calc_pci_defense(int(pci_age), eff_income, pci_prem)
+
+        pci = st.session_state.get("pci_result")
+        if pci:
+            rc = {"안전": "#1a7a4a", "주의": "#e67e22", "위험": "#c0392b"}.get(pci["리스크등급"], "#333")
+            pc1, pc2, pc3 = st.columns(3)
+            pc1.metric("연간 보험료", f"{pci['연간보험료']:,.0f}만원")
+            pc2.metric("안전 납입 한도", f"{pci['안전납입한도']:,.0f}만원", "소득의 30% 이내")
+            pc3.metric("리스크 등급", pci["리스크등급"])
+            so명 = (f'<b style="color:#c0392b;">⚠️ 소명 필요: {pci["소명필요금액"]:,.0f}만원</b><br>'
+                    if pci["소명필요금액"] > 0 else "")
+            strats = "<br>".join(f"• {s}" for s in pci["방어전략"])
+            components.html(f"""
+<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.83rem;line-height:1.8;
+  padding:14px 16px;background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;">
+<div style="font-size:0.9rem;font-weight:700;color:{rc};margin-bottom:8px;">
+  ● 자금출처 리스크: {pci['리스크등급']}</div>
+{pci['연령리스크']}<br>{so명}
+<br><b style="color:#1a3a5c;">✅ 방어 전략:</b><br>{strats}
+<br><br><div style="padding:10px;background:#fff3cd;border-left:4px solid #f59e0b;border-radius:4px;
+  font-size:0.80rem;color:#92400e;">
+<b>핵심 원칙:</b> 자녀가 계약자·피보험자·수익자인 구조에서, 보험료 납입 재원이
+<b>자녀 본인의 소득 또는 적법하게 증여받은 자금</b>임을 입증해야 합니다.
+사망보험금은 <b>자녀의 고유재산</b>으로 상속재산에 포함되지 않습니다.
+</div></div>""", height=310)
+
+    # ── TAB 3: 유언장 양식 ────────────────────────────────────────────────
+    with inh_tabs[2]:
+        st.warning("⚖️ 2024년 최신 판례: **형제자매의 유류분 청구권은 폐지**되었습니다. (헌법재판소 2024.4.25 결정)")
+        st.markdown("##### 📜 자필유언장 표준 양식 (민법 제1066조)")
+        components.html("""
+<div style="height:260px;overflow-y:auto;padding:14px 16px;
+  background:#fffdf0;border:1px solid #d4c17f;border-radius:8px;
+  font-size:0.83rem;line-height:1.8;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="color:#1a3a5c;">【자필유언장 필수 요건】 민법 제1066조</b><br>
+① 전문(全文)을 자필로 작성 ② 작성 연월일 기재 ③ 주소 기재 ④ 성명 자서 ⑤ 날인<br><br>
+<b>유 언 장</b><br>
+나 유언자 [성명] (생년월일: )은 주소 [주소]에서 다음과 같이 유언한다.<br><br>
+제1조 (부동산) 별지 목록 기재 부동산 전부를 [수증자 성명]에게 유증한다.<br>
+제2조 (금융자산) [은행명] [계좌번호] 예금 전액을 [수증자 성명]에게 유증한다.<br>
+제3조 (법인 지분) [법인명] 주식 [수량]주 전부를 [수증자 성명]에게 유증한다.<br>
+제4조 (유언집행자) 본 유언의 집행자로 [성명]을 지정한다.<br><br>
+[작성연도]년 [월]월 [일]일<br>
+주소: [자필 기재]<br>
+성명: [자필 서명] (인)<br><br>
+<b style="color:#c0392b;">⚠️ 반드시 전문을 직접 자필로 작성하고 날인하십시오. 타이핑·대필 무효.</b>
+</div>""", height=290)
+        st.success("✅ 공증유언(공증인 앞 작성)도 동일한 법적 효력이 있으며, 분실·위조 위험이 없어 권장됩니다.")
 
 # --------------------------------------------------------------------------
 # [SECTION 7] 주택연금 시뮬레이션
@@ -5523,11 +5741,12 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         with col2:
             st.subheader("🤖 AI 분석 리포트")
             if tax_sub == "상속·증여세":
-                show_result("res_t6", "**상속·증여세 핵심 포인트:**\n"
-                    "- 상속세: 일괄공제 5억 / 배우자공제 최소 5억\n"
-                    "- 증여세: 10년 합산 / 배우자 6억·자녀 5시만원 공제\n"
-                    "- 사망보험금(생명보험사 종신·정기): 상속재산 제외 가능 (세무사 확인 필수)\n"
-                    "- 세율: 10%~50% 누진세율 적용")
+                show_result("res_t6", "**상속·증여세 핵심 포인트 (2026 개정안 반영):**\n"
+                    "- [현행] 상속세: 일괄공제 5억 / 자녀공제 1인당 5천만원 / 최고세율 50%(30억 초과)\n"
+                    "- [2026안] 자녀공제 1인당 **5억원**으로 확대 / 최고세율 **40%**(25억 초과)로 인하\n"
+                    "- 사망보험금(자녀 계약자·수익자): 상속재산 제외 — 자녀 고유재산 (실질과세 원칙)\n"
+                    "- 핵심전략: 증여(Seed Money) + 종신보험(Cash Cow) 연계 설계\n"
+                    "- ⚠️ 개정안은 예정안이며 확정 시 세무사 재검토 필수")
             elif tax_sub == "연금소득세":
                 show_result("res_t6", "**연금소득세 핵심 포인트:**\n"
                     "- 연금저축·IRP 수령 시: 3.3~5.5% 연금소득세\n"
@@ -5545,11 +5764,12 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
   background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
   font-size:0.84rem;line-height:1.45;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
-<b style="font-size:0.85rem;color:#1a3a5c;">🏠 상속·증여세 핵심</b><br>
-• 상속세 일괄공제: <b>5억원</b> / 배우자공제: 최소 5억원<br>
-• 증여세 10년 합산 공제: 배우자 6억 / 성년자녀 5시만원 / 미성년자녀 2시만원<br>
-• 세율: 10%~50% 누진세율<br>
-• 생명보험 사망보험금: 상속재산 제외 가능 (세무사 확인 필수)<br>
+<b style="font-size:0.85rem;color:#1a3a5c;">🏠 상속·증여세 핵심 (2026 개정안 반영)</b><br>
+• <b style="color:#c0392b;">[현행]</b> 자녀공제 1인당 5천만원 / 최고세율 50%(30억 초과)<br>
+• <b style="color:#1a7a4a;">[2026안]</b> 자녀공제 1인당 <b>5억원</b> / 최고세율 <b>40%</b>(25억 초과)<br>
+• 증여세 10년 합산 공제: 배우자 6억 / 성년자녀 5천만원 / 미성년자녀 2천만원<br>
+• 사망보험금(자녀 계약자·수익자): <b>자녀 고유재산</b> — 상속재산 미포함<br>
+• 핵심전략: 증여(Seed Money) + 종신보험(Cash Cow) 연계 → <b>노후설계 탭 상세 시뮬레이션</b><br>
 <b style="font-size:0.85rem;color:#1a3a5c;">💰 연금소득세 핵심</b><br>
 • 연금저축·IRP 수령 시: 3.3~5.5% 연금소득세<br>
 • 연간 1,500만원 초과: 종합소득세 합산 또는 <b>16.5% 분리과세</b> 선택<br>
