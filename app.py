@@ -7409,6 +7409,48 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • <b>면책</b>: 고의 사고·천재지변·차량 관련 사고<br>
 • <b>보상 사례</b>: 아파트 누수 → 아래층 피해 / 자녀 자전거 사고 → 타인 부상<br>
 • <b>권장 한도</b>: 대인 무한 / 대물 1억 이상<br><br>
+<b style="font-size:0.85rem;color:#c0392b;">📅 일상생활배상책임보험 연도별 개정 변천사</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.79rem;margin-bottom:6px;">
+<tr style="background:#fdecea;">
+  <th style="border:1px solid #e8b0a8;padding:4px 6px;white-space:nowrap;">개정 시기</th>
+  <th style="border:1px solid #e8b0a8;padding:4px 6px;">주요 항목</th>
+  <th style="border:1px solid #e8b0a8;padding:4px 6px;">상세 내용 및 영향</th>
+</tr>
+<tr>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;white-space:nowrap;font-weight:700;">2009.10</td>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;">표준약관 제정</td>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;">실손의료보험과 함께 일배책 약관 표준화. 이전에는 보험사마다 약관 상이.</td>
+</tr>
+<tr style="background:#fdf5f5;">
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;white-space:nowrap;font-weight:700;">2010.04</td>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;">자기부담금 신설</td>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;">대물 배상 시 자기부담금 <b>20만원</b> 설정 (기존 0원 또는 2만원).</td>
+</tr>
+<tr>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;white-space:nowrap;font-weight:700;">2018.07</td>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;">PM기기 면책 명확화</td>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;">전동휠·세그웨이 등 <b>개인형 이동장치(PM)</b> 사고를 보상 제외 항목으로 명확히 규정.</td>
+</tr>
+<tr style="background:#fdf5f5;">
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;white-space:nowrap;font-weight:700;color:#c0392b;">2020.04 ★</td>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;color:#c0392b;font-weight:700;">피보험 주택 정의 개정</td>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;"><b>[가장 중요]</b> 보상 대상 주택을 <b>"보험증권에 기재된 주택"</b>으로 엄격 제한. 이전에는 "실제 거주하는 주택"이면 보상 가능 → 이사 후 주소 미변경(배서 미신청) 시 누수 사고 면책 위험.</td>
+</tr>
+<tr>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;white-space:nowrap;font-weight:700;">2024.04~</td>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;">누수 자기부담금 상향</td>
+  <td style="border:1px solid #f0c8c0;padding:4px 6px;">누수 사고 대물 배상 자기부담금 <b>50만원</b>으로 상향 상품 대거 출시 (일반 대물은 20만원 유지).</td>
+</tr>
+</table>
+<b style="font-size:0.82rem;color:#1a3a5c;">⚖️ 2020.04 개정 핵심 — 주소지 기재 의무화</b><br>
+• <b>개정 전</b>: "피보험자가 주거용으로 사용하는 주택" → 이사 후 배서 없어도 실거주 입증 시 보상 가능<br>
+• <b>개정 후</b>: "보험증권에 기재된 주택" 문구 추가 → 이사 즉시 보험사 통지·증권 수정 필수<br>
+• <b>2018년 이전 계약</b>: 개정 전 약관 적용 → '실제 거주 여부' 다툼 여지 있음<br>
+• <b>2020년 이후 계약</b>: 주소 미이전 시 원칙적 면책 → 상법 제638조의3(약관 설명의무) 위반 여부 확인 필요<br><br>
+<b style="font-size:0.82rem;color:#1a3a5c;">📜 관련 법리 — 보상 다툼 시 활용</b><br>
+• <b>상법 제638조의3</b>: 보험사가 개정 약관('주소지 기재' 필수)을 충분히 설명하지 않았다면 개정 약관 효력 주장 불가<br>
+• <b>약관규제법 제5조</b>: 약관 해석 불분명 시 <b>작성자 불이익 원칙</b> → 고객에게 유리하게 해석<br>
+• <b>이사 당일 사고</b>: 거주지 전환 시점 → 고객 유리 해석 가능성 높음<br><br>
 <b style="font-size:0.85rem;color:#1a3a5c;">🏥 시설·요양기관 관련 배상책임보험 종류</b><br>
 • <b>시설소유관리자 배상책임</b>: 건물·시설 결함으로 인한 제3자 피해<br>
 • <b>요양기관 배상책임</b>: 요양원·요양병원 입소자 낙상·사고 배상<br>
