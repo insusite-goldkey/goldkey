@@ -5053,10 +5053,13 @@ section[data-testid="stMain"] > div,
             ("t2",  "🛡️", "기본보험 상담",      "자동차·화재·운전자\n일상배상책임 점검"),
             ("t3",  "🏥", "질병·상해 통합보험",  "암·뇌·심장 3대질병 보장\n간병·치매·생명보험 설계"),
             ("cancer","🎗️","암 치료 상담",       "NGS·표적항암·면역항암·CAR-T\n혈액암·고형암 치료비 보장 분석"),
+            ("brain","🧠","뇌질환(중풍) 상담",   "뇌졸중·뇌경색·뇌출혈\n한시장해·간병 파산 방지 설계"),
+            ("heart","❤️","심장질환 상담",       "심근경색·협심증·심부전\n스텐트·CABG 치료비·재발 리스크"),
             ("t4",  "🚗", "자동차사고 상담",    "과실비율·합의금 분석\n13대 중과실·민식이법 안내"),
         ]
         def _render_cards(cards, prefix):
-            for row in range(3):
+            import math as _math
+            for row in range(_math.ceil(len(cards) / 2)):
                 c1, c2 = st.columns(2, gap="small")
                 for ci, col in enumerate([c1, c2]):
                     idx = row * 2 + ci
@@ -5253,15 +5256,139 @@ section[data-testid="stMain"] > div,
                 with cols_n[i % 2]:
                     st.markdown(_ins_card(ins), unsafe_allow_html=True)
 
+    # ══════════════════════════════════════════════════════════════════════
+    # [아키텍처 — Global Store] 기둥 간 공용 메모리 초기화 & 접근 함수
+    # 전문가 제언: 응접실(메뉴창) 하부에 가벼운 공용 메모리를 두어
+    # 기둥 간 데이터 공유를 매끄럽게 처리 (Data Consistency 보완)
+    # ══════════════════════════════════════════════════════════════════════
+    _GS_DEFAULTS = {
+        "gs_c_name":       "",      # 현재 상담 고객명 (기둥 간 공유)
+        "gs_hi_premium":   0,       # 건강보험료 (기둥 간 공유)
+        "gs_product_key":  "",      # 현재 상담 상품 키
+        "gs_last_tab":     "home",  # 직전 방문 탭 (Deep Link 복귀용)
+        "gs_last_result":  "",      # 직전 AI 분석 결과 요약 (기둥 간 참조)
+        "gs_consult_mode": "",      # 종사자/비종사자 모드 (사이드바 연동)
+        "gs_pref_ins":     "",      # 선호 보험사 (사이드바 연동)
+    }
+
+    def _gs_init():
+        """Global Store 초기화 — 미설정 키만 기본값으로 채움"""
+        for k, v in _GS_DEFAULTS.items():
+            if k not in st.session_state:
+                st.session_state[k] = v
+        # 사이드바 설정값을 GS에 동기화
+        st.session_state["gs_consult_mode"] = st.session_state.get("user_consult_mode", "")
+        st.session_state["gs_pref_ins"]     = st.session_state.get("preferred_insurer", "")
+
+    def _gs_set_client(c_name: str, hi_premium: int = 0, product_key: str = ""):
+        """ai_query_block 호출 시 GS에 고객 정보 동기화"""
+        if c_name:
+            st.session_state["gs_c_name"]      = c_name
+        if hi_premium:
+            st.session_state["gs_hi_premium"]  = hi_premium
+        if product_key:
+            st.session_state["gs_product_key"] = product_key
+
+    def _gs_save_result(result_key: str):
+        """AI 분석 완료 후 결과 요약을 GS에 저장 (기둥 간 참조용)"""
+        result = st.session_state.get(result_key, "")
+        if result:
+            # 첫 300자만 요약 저장 (메모리 절약)
+            st.session_state["gs_last_result"] = result[:300] + ("…" if len(result) > 300 else "")
+
+    # GS 초기화 실행 (매 렌더 사이클마다)
+    _gs_init()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [아키텍처 — 중앙 인증 게이트] 회랑(라우터)에서 로그인 상태 중앙 체크
+    # 전문가 제언: 토큰 기반 인증을 회랑(메뉴)에서 관리하여 흐름 유지
+    # ══════════════════════════════════════════════════════════════════════
+    def _auth_gate(tab_key: str) -> bool:
+        """로그인 상태 중앙 체크 — False 반환 시 해당 기둥 렌더 중단"""
+        if "user_id" not in st.session_state:
+            st.warning("🔒 이 섹터는 로그인 후 이용 가능합니다.")
+            st.markdown(
+                "<div style='background:#fff3cd;border:1.5px solid #f59e0b;"
+                "border-radius:8px;padding:10px 14px;font-size:0.85rem;color:#92400e;'>"
+                "👈 왼쪽 사이드바에서 <b>로그인</b> 후 이용해주세요.</div>",
+                unsafe_allow_html=True
+            )
+            if st.button("🏠 홈으로 돌아가기", key=f"auth_gate_home_{tab_key}"):
+                st.session_state.current_tab = "home"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+            return False
+        # 직전 탭 기록 (Deep Link 복귀용)
+        st.session_state["gs_last_tab"] = tab_key
+        return True
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [아키텍처 — Deep Linking] 기둥 간 직접 이동 버튼
+    # 전문가 제언: 기둥에서 기둥으로 바로 넘어가는 '비밀통로' 설계
+    # ══════════════════════════════════════════════════════════════════════
+    # 탭 간 연관 관계 정의 (현재 탭 → 관련 탭 목록)
+    _TAB_LINKS = {
+        "t0":          [("cancer", "🎗️ 암 상담"), ("t3", "🛡️ 통합보험 설계"), ("t2", "🚗 기본보험")],
+        "t1":          [("cancer", "🎗️ 암 상담"), ("nursing", "🏥 간병 컨설팅"), ("t3", "🛡️ 통합보험")],
+        "t2":          [("t3", "🛡️ 통합보험 설계"), ("fire", "🔥 화재보험"), ("liability", "⚖️ 배상책임")],
+        "t3":          [("cancer", "🎗️ 암 상담"), ("nursing", "🏥 간병 컨설팅"), ("t5", "🏦 노후설계")],
+        "cancer":      [("brain", "🧠 뇌질환 상담"), ("heart", "❤️ 심장질환 상담"), ("nursing", "🏥 간병 컨설팅")],
+        "brain":       [("cancer", "🎗️ 암 상담"), ("heart", "❤️ 심장질환 상담"), ("nursing", "🏥 간병 컨설팅")],
+        "heart":       [("cancer", "🎗️ 암 상담"), ("brain", "🧠 뇌질환 상담"), ("nursing", "🏥 간병 컨설팅")],
+        "t4":          [("t2", "🚗 기본보험"), ("liability", "⚖️ 배상책임"), ("t0", "📋 신규상품")],
+        "t5":          [("t6", "💰 세무상담"), ("t8", "🏢 CEO플랜"), ("t7", "🏭 법인상담")],
+        "t6":          [("t5", "🏦 노후설계"), ("t7", "🏭 법인상담"), ("t8", "🏢 CEO플랜")],
+        "t7":          [("t6", "💰 세무상담"), ("t8", "🏢 CEO플랜"), ("fire", "🔥 화재보험")],
+        "t8":          [("t7", "🏭 법인상담"), ("t6", "💰 세무상담"), ("t5", "🏦 노후설계")],
+        "fire":        [("t7", "🏭 법인상담"), ("liability", "⚖️ 배상책임"), ("t2", "🚗 기본보험")],
+        "liability":   [("fire", "🔥 화재보험"), ("t4", "🚗 자동차사고"), ("nursing", "🏥 간병")],
+        "nursing":     [("cancer", "🎗️ 암 상담"), ("t3", "🛡️ 통합보험"), ("t5", "🏦 노후설계")],
+        "realty":      [("t6", "💰 세무상담"), ("t5", "🏦 노후설계"), ("fire", "🔥 화재보험")],
+    }
+
+    def _deep_link_bar(current_tab: str):
+        """현재 기둥에서 관련 기둥으로 바로 이동하는 Deep Link 버튼 바"""
+        links = _TAB_LINKS.get(current_tab, [])
+        if not links:
+            return
+        st.markdown(
+            "<div style='background:#f0f6ff;border:1px solid #2e6da4;border-radius:8px;"
+            "padding:6px 12px;margin:8px 0 4px 0;font-size:0.74rem;color:#1a3a5c;font-weight:700;'>"
+            "🔗 연관 섹터 바로가기</div>",
+            unsafe_allow_html=True
+        )
+        _dl_cols = st.columns(len(links))
+        for i, (tab_id, label) in enumerate(links):
+            with _dl_cols[i]:
+                if st.button(label, key=f"dl_{current_tab}_{tab_id}", use_container_width=True):
+                    st.session_state.current_tab = tab_id
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+
     # ── [홈 복귀 버튼] 각 탭 공통 ────────────────────────────────────────
     def tab_home_btn(tab_key):
-        if st.button("🏠 홈으로", key=f"btn_home_{tab_key}", type="primary"):
-            st.session_state.current_tab = "home"
-            st.session_state["_scroll_top"] = True
-            st.rerun()
+        _col_home, _col_links = st.columns([1, 3])
+        with _col_home:
+            if st.button("🏠 홈으로", key=f"btn_home_{tab_key}", type="primary", use_container_width=True):
+                st.session_state.current_tab = "home"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+        # Deep Link 버튼 바 (홈 버튼 오른쪽)
+        with _col_links:
+            links = _TAB_LINKS.get(tab_key, [])
+            if links:
+                _dl_sub = st.columns(len(links))
+                for i, (tab_id, label) in enumerate(links):
+                    with _dl_sub[i]:
+                        if st.button(label, key=f"dl_{tab_key}_{tab_id}", use_container_width=True):
+                            st.session_state.current_tab = tab_id
+                            st.session_state["_scroll_top"] = True
+                            st.rerun()
 
     # ── [t0] 신규보험 상품 상담 — 보험설계사 전용 ───────────────────────
     if cur == "t0":
+        if not _auth_gate("t0"):
+            st.stop()
         tab_home_btn("t0")
         st.markdown("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
@@ -5713,6 +5840,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [t1] 보험금 상담 ──────────────────────────────────────────────────
     if cur == "t1":
+        if not _auth_gate("t1"): st.stop()
         tab_home_btn("t1")
         st.subheader("💰 보험금 상담 · 민원 · 손해사정")
         col1, col2 = st.columns([1, 1])
@@ -5916,6 +6044,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [t2] 기본보험 상담 ────────────────────────────────────────────────
     if cur == "t2":
+        if not _auth_gate("t2"): st.stop()
         tab_home_btn("t2")
         st.subheader("🛡️ 기본보험 상담")
         ins_type = st.selectbox("보험 유형 선택",
@@ -6017,6 +6146,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [t3] 통합보험 설계 ────────────────────────────────────────────────
     if cur == "t3":
+        if not _auth_gate("t3"): st.stop()
         tab_home_btn("t3")
         st.subheader("🏥 질병·상해 통합보험 상담")
         col1, col2 = st.columns([1, 1])
@@ -6080,6 +6210,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [cancer] 암·뇌·심장 중증질환 통합 상담 ──────────────────────────
     if cur == "cancer":
+        if not _auth_gate("cancer"): st.stop()
         tab_home_btn("cancer")
         st.markdown("""
 <div style="background:linear-gradient(135deg,#6b1a1a 0%,#c0392b 60%,#e74c3c 100%);
@@ -6287,6 +6418,285 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 </div>
 """, height=238)
 
+    # ── [brain] 뇌질환(중풍) 전용 상담 ──────────────────────────────────
+    if cur == "brain":
+        if not _auth_gate("brain"): st.stop()
+        tab_home_btn("brain")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 60%,#5b9bd5 100%);
+  border-radius:12px;padding:14px 18px;margin-bottom:10px;">
+  <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
+    🧠 뇌질환(중풍) 전문 상담
+  </div>
+  <div style="color:#d0e8ff;font-size:0.78rem;margin-top:4px;">
+    뇌졸중 · 뇌경색 · 뇌출혈 — 치료비·간병비·한시장해·보장 공백 AI 정밀 분석
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        col1b, col2b = st.columns([1, 1])
+        with col1b:
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:7px 12px;margin-bottom:8px;font-weight:900;
+  font-size:0.9rem;color:#1a3a5c;">🧠 뇌질환 유형 선택</div>""", unsafe_allow_html=True)
+
+            brain_type = st.selectbox("뇌질환 유형", [
+                "뇌졸중 (뇌경색·뇌출혈 통합)",
+                "뇌경색 (허혈성 뇌졸중)",
+                "뇌출혈 (출혈성 뇌졸중)",
+                "일과성 뇌허혈발작 (TIA)",
+                "뇌혈관질환 (기타)",
+                "예방 상담 (미발병)",
+            ], key="brain_type_sel")
+
+            brain_risk = st.multiselect("위험인자 (복수 선택 가능)", [
+                "고혈압", "당뇨", "고지혈증", "흡연", "심방세동", "비만", "가족력", "음주", "스트레스"
+            ], key="brain_risk_sel")
+
+            brain_stage = st.selectbox("현재 상태", [
+                "예방 상담 (미발병)",
+                "급성기 (발병 후 1개월 이내)",
+                "재활기 (1~6개월)",
+                "만성기 (6개월 이후)",
+                "재발 우려",
+            ], key="brain_stage_sel")
+
+            brain_disability = st.selectbox("장해 상태", [
+                "해당 없음",
+                "한시장해 (회복 가능성 있음)",
+                "영구장해 (고정 판정)",
+                "장해 판정 대기 중",
+            ], key="brain_disability_sel")
+
+            brain_files = st.file_uploader("진단서·MRI·의무기록 업로드",
+                type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_brain")
+
+            c_name_br, query_br, hi_br, do_br, _pkbr = ai_query_block("brain",
+                "예) 고혈압·심방세동 약 복용 중. 뇌졸중 대비 보험 공백 분석 요청",
+                product_key="뇌혈관보험")
+
+            if do_br:
+                doc_text_br = "".join(
+                    f"\n[첨부: {bf.name}]\n" + extract_pdf_chunks(bf, char_limit=5000)
+                    for bf in (brain_files or []) if bf.type == 'application/pdf'
+                )
+                _br_risk_str = ', '.join(brain_risk) if brain_risk else '없음'
+                run_ai_analysis(c_name_br, query_br, hi_br, "res_brain",
+                    product_key=_pkbr,
+                    extra_prompt=f"""
+[뇌질환(중풍) 전문 상담]
+뇌질환 유형: {brain_type}
+위험인자: {_br_risk_str}
+현재 상태: {brain_stage}
+장해 상태: {brain_disability}
+
+## 1. 뇌졸중 치료비·재활비·간병비 구조 분석
+- 급성기(ICU·수술): 500~2,000만원
+- 재활기(재활병원): 월 200~400만원 × 3~6개월
+- 만성기(요양병원): 월 150~300만원 (장기)
+- 간병인 비용: 월 300~500만원 (별도)
+
+## 2. 한시장해 vs 영구장해 실무 판정
+- 뇌 신경계 손상: 최소 18~24개월 추적 관찰 후 영구장해 판정
+- 한시장해 기간: 국가 장애인 등록 불가 → 국가 지원 전혀 없음
+- '암흑의 2년': 요양병원 본인부담 100% + 간병인 월 400만원 = 월 500~600만원 자비
+- 간병 파산 방지 플랜: 월 500만원 × 24개월 = 최소 1억 2천만원 준비 필요
+
+## 3. 유병자 간편심사 상품 인수 전략
+- 3.3.5 / 3.5.5 간편심사 상품 인수 가능성 분석
+- 고혈압·당뇨 복약 중 가입 가능 상품 안내
+- 뇌혈관질환 광범위 담보 vs 뇌졸중 한정 담보 비교
+
+## 4. 보장 공백 진단 및 설계 권고
+- 뇌혈관질환 진단비: 최소 3,000만원 이상 권장
+- 간병인일당 담보: 월 400~500만원 × 24개월 = 1억원 이상
+- 소득보상 담보 필요 금액 산출
+- 실손 4세대 연계 청구 전략
+{doc_text_br}
+""")
+
+        with col2b:
+            st.subheader("🤖 AI 분석 리포트")
+            show_result("res_brain")
+
+            st.markdown("""<div style="background:#f0f4ff;border:1.5px solid #2e6da4;
+  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
+  font-weight:900;color:#1a3a5c;">🧠 뇌졸중(중풍) 핵심 — 간병 파산 방지</div>""", unsafe_allow_html=True)
+            components.html("""
+<div style="height:480px;overflow-y:auto;padding:10px 13px;
+  background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
+  font-size:0.80rem;line-height:1.65;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="color:#2e6da4;">🚨 한시장해 vs 영구장해 실무</b><br>
+• 뇌 신경계 손상: 최소 <b>18~24개월</b> 추적 관찰 후 영구장해 판정<br>
+• 한시장해: 국가 장애인 등록 <b>불가</b> → 국가 지원 전혀 없음<br>
+• 요양병원 본인부담 100% + 간병인 월 400만원 = <b>월 500~600만원 자비</b><br><br>
+<b style="color:#c0392b;">💸 간병 파산 시나리오</b><br>
+• 영구장해 판정까지 24개월 × 500만원 = <b>최소 1억 2천만원</b><br>
+• 진단비 2~3천만원 → 간병비 5~6개월이면 소멸<br>
+• 재산 처분 → 가족 붕괴 → 간병 파산<br><br>
+<b style="color:#2e6da4;">🏥 치료비 구조 (단계별)</b><br>
+• 급성기(ICU·수술): 500~2,000만원<br>
+• 재활기(재활병원): 월 200~400만원 × 3~6개월<br>
+• 만성기(요양병원): 월 150~300만원 (장기)<br>
+• 간병인 비용: 월 300~500만원 (별도 추가)<br><br>
+<b style="color:#2e6da4;">🛡️ 필요 보장 설계</b><br>
+• 간병지원금 월 400~500만원 × 24개월 = <b>1억원 이상</b><br>
+• 뇌혈관질환 광범위 담보 (뇌졸중 한정 X)<br>
+• 유병자 간편심사: 3.3.5 / 3.5.5 상품 인수 전략<br><br>
+<b style="color:#2e6da4;">📊 필요 자금 공식</b><br>
+• 총 필요 자금 = (월 간병비 × 24) + (월 생활비 × 12)<br>
+• 예시: (500만 × 24) + (300만 × 12) = <b>1억 5,600만원</b><br><br>
+<b style="color:#2e6da4;">⚕️ 위험인자별 발병 리스크</b><br>
+• 고혈압: 뇌졸중 위험 4~6배 증가<br>
+• 심방세동: 뇌경색 위험 5배 증가 (항응고제 필수)<br>
+• 당뇨: 뇌졸중 위험 2~3배 증가<br>
+• 흡연: 뇌졸중 위험 2배 증가<br><br>
+<b style="color:#2e6da4;">📋 뇌혈관 담보 핵심 비교</b><br>
+• 뇌졸중 한정: ICD I60~I64 (출혈·경색만)<br>
+• 뇌혈관질환 광범위: ICD I60~I69 (TIA·후유증 포함)<br>
+• 권장: 광범위 담보 + 진단비 3,000만원 이상
+</div>
+""", height=498)
+
+    # ── [heart] 심장질환 전용 상담 ───────────────────────────────────────
+    if cur == "heart":
+        if not _auth_gate("heart"): st.stop()
+        tab_home_btn("heart")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#7d1a1a 0%,#c0392b 50%,#e67e22 100%);
+  border-radius:12px;padding:14px 18px;margin-bottom:10px;">
+  <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
+    ❤️ 심장질환 전문 상담
+  </div>
+  <div style="color:#ffd5b0;font-size:0.78rem;margin-top:4px;">
+    심근경색 · 협심증 · 심부전 — 치료비·재발 리스크·보장 공백 AI 정밀 분석
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        col1h, col2h = st.columns([1, 1])
+        with col1h:
+            st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
+  border-radius:0 8px 8px 0;padding:7px 12px;margin-bottom:8px;font-weight:900;
+  font-size:0.9rem;color:#7d3c00;">❤️ 심장질환 유형 선택</div>""", unsafe_allow_html=True)
+
+            heart_type = st.selectbox("심장질환 유형", [
+                "급성 심근경색 (AMI)",
+                "협심증 (안정형·불안정형)",
+                "심부전",
+                "부정맥 (심방세동 포함)",
+                "관상동맥질환 (기타)",
+                "심혈관질환 (기타)",
+                "예방 상담 (미발병)",
+            ], key="heart_type_sel")
+
+            heart_risk = st.multiselect("위험인자 (복수 선택 가능)", [
+                "고혈압", "당뇨", "고지혈증", "흡연", "비만", "가족력", "스트레스", "음주", "운동 부족"
+            ], key="heart_risk_sel")
+
+            heart_treatment = st.selectbox("치료 현황", [
+                "해당 없음 / 예방 상담",
+                "스텐트 시술(PCI) 완료",
+                "관상동맥우회술(CABG) 완료",
+                "약물 치료 중 (항응고제·항혈소판제)",
+                "심장 재활 치료 중",
+                "재발 우려 (추적 관찰 중)",
+            ], key="heart_treatment_sel")
+
+            heart_files = st.file_uploader("진단서·심전도·의무기록 업로드",
+                type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_heart")
+
+            c_name_ht, query_ht, hi_ht, do_ht, _pkht = ai_query_block("heart",
+                "예) 고혈압·고지혈증 약 복용 중. 심근경색 대비 보험 공백 분석 요청",
+                product_key="심장보험")
+
+            if do_ht:
+                doc_text_ht = "".join(
+                    f"\n[첨부: {hf.name}]\n" + extract_pdf_chunks(hf, char_limit=5000)
+                    for hf in (heart_files or []) if hf.type == 'application/pdf'
+                )
+                _ht_risk_str = ', '.join(heart_risk) if heart_risk else '없음'
+                run_ai_analysis(c_name_ht, query_ht, hi_ht, "res_heart",
+                    product_key=_pkht,
+                    extra_prompt=f"""
+[심장질환 전문 상담]
+심장질환 유형: {heart_type}
+위험인자: {_ht_risk_str}
+치료 현황: {heart_treatment}
+
+## 1. 심장질환 치료비 분석
+- 스텐트 시술(PCI): 300~500만원 (급여 본인부담 20%)
+- 관상동맥우회술(CABG): 1,000~2,000만원
+- 재활·약물 치료: 월 10~30만원 (장기 지속)
+- 심장 재활 프로그램: 3~6개월, 월 50~100만원
+
+## 2. 보험 담보 핵심 비교
+- 급성심근경색 한정 담보: 보장 범위 좁음 (ICD I21)
+- 허혈성심장질환 광범위 담보: 협심증·불안정협심증 포함 (ICD I20~I25)
+- 심장질환 진단비: 최소 3,000만원 이상 권장
+- 수술비 담보: 스텐트·CABG 모두 포함 여부 확인
+
+## 3. 재발 리스크 및 장기 관리
+- 심근경색 후 5년 내 재발률: 약 20~30%
+- 재발 시 추가 스텐트·CABG 비용 반복 발생
+- 소득 단절 + 간병비 이중 부담 대비 필수
+- 항응고제·항혈소판제 장기 복약 비용 분석
+
+## 4. 유병자 간편심사 상품 인수 전략
+- 스텐트 시술 후 가입 가능 상품 안내
+- 3.3.5 / 3.5.5 간편심사 상품 인수 가능성 분석
+- 고혈압·당뇨 복약 중 가입 가능 상품 안내
+
+## 5. 보장 공백 진단 및 설계 권고
+- 현재 보험으로 커버 안 되는 항목 우선순위
+- 심혈관질환 진단비 3천만원 + 수술비 + 간병인일당
+- 소득보상 담보 필요 금액 산출
+{doc_text_ht}
+""")
+
+        with col2h:
+            st.subheader("🤖 AI 분석 리포트")
+            show_result("res_heart")
+
+            st.markdown("""<div style="background:#fff8f0;border:1.5px solid #e67e22;
+  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
+  font-weight:900;color:#7d3c00;">❤️ 심근경색 · 심장질환 핵심</div>""", unsafe_allow_html=True)
+            components.html("""
+<div style="height:480px;overflow-y:auto;padding:10px 13px;
+  background:#fffaf5;border:1px solid #f5d5a0;border-radius:0 0 8px 8px;
+  font-size:0.80rem;line-height:1.65;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="color:#e67e22;">🏥 급성 심근경색 치료비</b><br>
+• 스텐트 시술(PCI): 300~500만원 (급여 본인부담 20%)<br>
+• 관상동맥우회술(CABG): 1,000~2,000만원<br>
+• 재활·약물 치료: 월 10~30만원 (장기 지속)<br><br>
+<b style="color:#e67e22;">📋 보험 담보 핵심 비교</b><br>
+• <b>급성심근경색 한정</b>: 보장 범위 좁음 (ICD I21)<br>
+• <b>허혈성심장질환 광범위</b>: 협심증·불안정협심증 포함 (ICD I20~I25)<br>
+• 심장질환 진단비: 최소 3,000만원 이상 권장<br>
+• 수술비: 스텐트·CABG 모두 포함 여부 확인 필수<br><br>
+<b style="color:#e67e22;">⚠️ 재발 리스크</b><br>
+• 심근경색 후 5년 내 재발률: 약 20~30%<br>
+• 재발 시 추가 스텐트·CABG 비용 반복 발생<br>
+• 소득 단절 + 간병비 이중 부담 대비 필수<br><br>
+<b style="color:#e67e22;">💊 장기 약물 치료 비용</b><br>
+• 항혈소판제(아스피린·클로피도그렐): 월 2~5만원<br>
+• 항응고제(와파린·자렐토): 월 5~15만원<br>
+• 스타틴(고지혈증약): 월 3~8만원<br>
+• 총 월 약제비: 10~30만원 (평생 지속 가능)<br><br>
+<b style="color:#e67e22;">⚕️ 위험인자별 발병 리스크</b><br>
+• 고혈압: 심근경색 위험 2~3배 증가<br>
+• 당뇨: 심혈관질환 위험 2~4배 증가<br>
+• 고지혈증: LDL 10mg/dL 증가 시 위험 10% 상승<br>
+• 흡연: 심근경색 위험 2~3배 증가<br><br>
+<b style="color:#e67e22;">🛡️ 권장 보장 설계</b><br>
+• 심혈관질환 진단비: 3,000만원 이상<br>
+• 수술비 담보: 스텐트·CABG 포함 확인<br>
+• 간병인일당: 월 300~500만원<br>
+• 소득보상 담보: 월 소득의 60~80%<br>
+• 유병자 간편심사: 3.3.5 / 3.5.5 상품 검토
+</div>
+""", height=498)
+
     # ── [이미지 분석] 보험금/이미지 ──────────────────────────────────────
     if cur == "img":
         tab_home_btn("img")
@@ -6340,6 +6750,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [t4] 자동차사고 상담 ──────────────────────────────────────────────
     if cur == "t4":
+        if not _auth_gate("t4"): st.stop()
         tab_home_btn("t4")
         st.subheader("🚗 자동차사고 상담 · 과실비율 분석")
         col1, col2 = st.columns([1, 1])
@@ -6437,6 +6848,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [t5] 노후·상속설계 ────────────────────────────────────────────────
     if cur == "t5":
+        if not _auth_gate("t5"): st.stop()
         tab_home_btn("t5")
         st.subheader("🌅 노후설계 · 연금 3층 · 상속·증여")
         retire_sub = st.radio("상담 분야", ["노후/연금 설계","상속·증여 설계","주택연금"],
@@ -6485,6 +6897,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [t6] 세무상담 ─────────────────────────────────────────────────────
     if cur == "t6":
+        if not _auth_gate("t6"): st.stop()
         tab_home_btn("t6")
         st.subheader("📊 세무상담")
         tax_sub = st.radio("상담 분야", ["상속·증여세","연금소득세","CEO설계"],
@@ -6544,6 +6957,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [t7] 법인상담 ─────────────────────────────────────────────────────
     if cur == "t7":
+        if not _auth_gate("t7"): st.stop()
         tab_home_btn("t7")
         st.subheader("🏢 법인상담 (CEO플랜 · 단체보험 · 기업보험)")
         corp_sub = st.radio("상담 분야",
@@ -6599,6 +7013,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [t8] CEO플랜 ──────────────────────────────────────────────────────
     if cur == "t8":
+        if not _auth_gate("t8"): st.stop()
         tab_home_btn("t8")
         st.subheader("👔 CEO플랜 — 비상장주식 약식 평가 & 법인 재무분석")
         ceo_sub = st.radio("분석 방식 선택", ["📊 직접 입력 평가표","📁 재무제표 스캔 업로드"],
@@ -6739,6 +7154,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [fire] 화재보험 재조달가액 ────────────────────────────────────────
     if cur == "fire":
+        if not _auth_gate("fire"): st.stop()
         tab_home_btn("fire")
         st.subheader("🔥 화재보험 재조달가액 산출")
         st.caption("한국부동산원(REB) 기준 건물 재조달가액 산출 · 비례보상 방지 전략")
@@ -6910,18 +7326,20 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         else:  # AI 화재보험 상담
             col1, col2 = st.columns([1, 1])
             with col1:
-                c_name_f, query_f, hi_f, do_f = ai_query_block("fire",
+                c_name_f, query_f, hi_f, do_f, _pk_f = ai_query_block("fire",
                     "예) 철근콘크리트 5층 상가, 연면적 1,200㎡, 1995년 준공")
                 if do_f:
                     run_ai_analysis(c_name_f, query_f, hi_f, "res_fire",
                         "[화재보험 재조달가액 산출]\n1. 한국부동산원(REB) 기준 건물 재조달가액 산출\n"
                         "2. 비례보상 방지를 위한 적정 보험가액 설정\n3. 화재보험 설계 가이드\n"
-                        "4. 건물 구조별 표준단가 안내\n5. 실손담보·비례담보 차이 및 보험금 산출식 안내")
+                        "4. 건물 구조별 표준단가 안내\n5. 실손담보·비례담보 차이 및 보험금 산출식 안내",
+                        product_key=_pk_f)
             with col2:
                 st.info("AI 분석 결과는 상단 '🤖 AI 분석 리포트'에 표시됩니다.")
 
     # ── [liability] 배상책임보험 상담 ────────────────────────────────────
     if cur == "liability":
+        if not _auth_gate("liability"): st.stop()
         tab_home_btn("liability")
         st.subheader("⚖️ 배상책임보험 상담")
         liab_page = st.radio("페이지 선택", ["📋 1페이지 — 기본 배상책임", "🏢 2페이지 — 시설·요양기관 배상책임"],
@@ -7007,6 +7425,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [nursing] 간병비 컨설팅 ──────────────────────────────────────────
     if cur == "nursing":
+        if not _auth_gate("nursing"): st.stop()
         tab_home_btn("nursing")
         st.subheader("🏥 간병비 컨설팅")
         st.caption("국민연금 장애등급·장기요양등급 기반 간병비 산출 및 보험 설계 (참고용 추정치)")
@@ -7281,6 +7700,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [realty] 부동산 투자 상담 ────────────────────────────────────────
     if cur == "realty":
+        if not _auth_gate("realty"): st.stop()
         tab_home_btn("realty")
         st.subheader("🏘️ 부동산 투자 상담")
         realty_sub = st.radio("상담 분야",
@@ -7748,6 +8168,12 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                             st.success(f"✅ {_added}건 Storage 등록 완료! 심야에 '텍스트 추출 + RAG 저장' 버튼을 실행하세요.")
                             st.session_state['_rag_upload_cnt'] = st.session_state.get('_rag_upload_cnt', 0) + 1
                             st.rerun()
+                with _rbtn2:
+                    if st.button("🗑️ 전체 초기화", key="btn_rag_clear", use_container_width=True):
+                        _rag_db_clear_all()
+                        _rag_sync_from_db()
+                        st.warning("지식베이스가 초기화되었습니다.")
+                        st.rerun()
 
                 # ── 심야 일괄 처리 버튼 ──────────────────────────────────
                 st.divider()
@@ -7774,13 +8200,6 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         st.rerun()
                     else:
                         st.warning(f"처리된 파일 없음. 실패: {_fail}건")
-
-                with _rbtn2:
-                    if st.button("🗑️ 전체 초기화", key="btn_rag_clear", use_container_width=True):
-                        _rag_db_clear_all()
-                        _rag_sync_from_db()
-                        st.warning("지식베이스가 초기화되었습니다.")
-                        st.rerun()
 
                 # ── 저장소 상태 배너 + 진단 ──────────────────────────────
                 st.divider()
@@ -9006,7 +9425,7 @@ def _run_safe():
                 st.warning("⚠️ 인코딩 오류가 감지되어 자동 복구합니다. 잠시만 기다려주세요.")
                 st.rerun()
             else:
-                st.error("인코딩 오류가 되풍됩니다. 페이지를 새로고침(F5)해주세요.")
+                st.error("인코딩 오류가 반복됩니다. 페이지를 새로고침(F5)해주세요.")
                 break
         except Exception as _e:
             # 일반 예외도 traceback 기록
