@@ -2133,16 +2133,7 @@ class LightRAGSystem:
             "exclude": {"\uc554", "\uc885\uc591", "\ud56d\uc554", "\uc545\uc131", "\ud45c\uc801\ud56d\uc554", "\uc18c\uc561\uc554", "\uc0c1\ud53c\ub0b4\uc554"},
         },
         "cancer": {
-            "focus":   {"\uc554", "\uc885\uc591", "\ud56d\uc554", "\uc545\uc131", "\ud45c\uc801\ud56d\uc554"},
-            "exclude": {"\uce58\ub9e4", "\uac04\ubcd1", "\uc778\uc9c0", "\uc7a5\uae30\uc694\uc591"},
-        },
-        "stroke": {
-            "focus":   {"\ub1cc\uc878\uc911", "\ub1cc\uacbd\uc0c9", "\ub1cc\ucd9c\ud608", "\ub1cc\ud608\uad00"},
-            "exclude": {"\uc554", "\uce58\ub9e4"},
-        },
-        "heart": {
-            "focus":   {"\uc2ec\uadfc\uacbd\uc0c9", "\uc2ec\uc7a5", "\ud611\uc2ec\uc99d"},
-            "exclude": {"\uc554", "\uce58\ub9e4"},
+            ("t4",  "\U0001f697", "\uc790\ub3d9\ucc28\uc0ac\uace0 \uc0c1\ub2f4",    "\uacfc\uc2e4\ube44\uc728\u00b7\ud569\uc758\uae08 \ubd84\uc11d\n13\ub300 \uc911\uacfc\uc2e4\u00b7\ubbfc\uc2dd\uc774\ubc95 \uc548\ub0b4"),
         },
     }
 
@@ -5044,9 +5035,7 @@ section[data-testid="stMain"] > div,
             ("disability","🩺","장해보험금 산출","AMA·맥브라이드·호프만계수\n후유장해 보험금 산출"),
             ("t2",  "🛡️", "기본보험 상담",      "자동차·화재·운전자\n일상배상책임 점검"),
             ("t3",  "🏥", "질병·상해 통합보험",  "암·뇌·심장 3대질병 보장\n간병·치매·생명보험 설계"),
-            ("cancer","🎗️","암 치료 상담",       "NGS·표적항암·면역항암·CAR-T\n혈액암·고형암 치료비 보장 분석"),
-            ("brain","🧠","뇌질환(중풍) 상담",   "뇌졸중·뇌경색·뇌출혈\n한시장해·간병 파산 방지 설계"),
-            ("heart","❤️","심장질환 상담",       "심근경색·협심증·심부전\n스텐트·CABG 치료비·재발 리스크"),
+            ("cancer","🎗️","암.뇌.심장질환 상담", "NGS·표적항암·면역항암·CAR-T\n뇌심장 치료비 보장 실무 분석"),
             ("t4",  "🚗", "자동차사고 상담",    "과실비율·합의금 분석\n13대 중과실·민식이법 안내"),
         ]
         def _render_cards(cards, prefix):
@@ -6514,7 +6503,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
   border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
   font-weight:900;color:#1a3a5c;">🧠 뇌졸중(중풍) 핵심 — 간병 파산 방지</div>""", unsafe_allow_html=True)
             components.html("""
-<div style="height:480px;overflow-y:auto;padding:10px 13px;
+<div style="height:220px;overflow-y:auto;padding:10px 13px;
   background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
   font-size:0.80rem;line-height:1.65;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
@@ -6543,18 +6532,6 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 심방세동: 뇌경색 위험 5배 증가 (항응고제 필수)<br>
 • 당뇨: 뇌졸중 위험 2~3배 증가<br>
 • 흡연: 뇌졸중 위험 2배 증가<br><br>
-<b style="color:#2e6da4;">📋 뇌혈관 담보 핵심 비교</b><br>
-• 뇌졸중 한정: ICD I60~I64 (출혈·경색만)<br>
-• 뇌혈관질환 광범위: ICD I60~I69 (TIA·후유증 포함)<br>
-• 권장: 광범위 담보 + 진단비 3,000만원 이상
-</div>
-""", height=498)
-
-            st.markdown("""<div style="background:#f0f4ff;border:1.5px solid #2e6da4;
-  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
-  font-weight:900;color:#1a3a5c;">📋 뇌혈관질환 ICD 코드 & 약관 담보 범위</div>""", unsafe_allow_html=True)
-            components.html("""
-<div style="height:420px;overflow-y:auto;padding:10px 13px;
   background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
   font-size:0.80rem;line-height:1.65;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
@@ -6585,13 +6562,13 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 <tr><td style="border:1px solid #c8d8ec;padding:3px 6px;white-space:nowrap;font-weight:700;">2022~현재</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">뇌혈관질환 진단비 갱신형 상품 확대. 비갱신형 한도 축소 추세. 실손 4세대 연계 전략 중요.</td></tr>
 </table>
 </div>
-""", height=438)
+""", height=200)
 
             st.markdown("""<div style="background:#f0f4ff;border:1.5px solid #2e6da4;
   border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
   font-weight:900;color:#1a3a5c;">⚖️ 장해 판정 기준 & 보험금 청구 실무</div>""", unsafe_allow_html=True)
             components.html("""
-<div style="height:460px;overflow-y:auto;padding:10px 13px;
+<div style="height:200px;overflow-y:auto;padding:10px 13px;
   background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
   font-size:0.80rem;line-height:1.65;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
@@ -6624,13 +6601,13 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • <b>금감원 분쟁조정</b>: 장해 판정 이견 시 금감원 분쟁조정위원회 신청 가능<br>
 • <b>손해사정인 선임권</b>: 보험업법 제185조 — 피보험자의 손해사정인 선임 권리 보장
 </div>
-""", height=478)
+""", height=200)
 
             st.markdown("""<div style="background:#f0f4ff;border:1.5px solid #2e6da4;
   border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
   font-weight:900;color:#1a3a5c;">💰 뇌질환 보험 설계 실무 & 유병자 인수 전략</div>""", unsafe_allow_html=True)
             components.html("""
-<div style="height:440px;overflow-y:auto;padding:10px 13px;
+<div style="height:180px;overflow-y:auto;padding:10px 13px;
   background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
   font-size:0.80rem;line-height:1.65;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
