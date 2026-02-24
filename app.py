@@ -3382,9 +3382,8 @@ section[data-testid="stSidebar"] > div:first-child {
                     lc = st.text_input("📱 연락처 (비밀번호)", type="password", placeholder="010-0000-0000", key="login_contact")
                     login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"], horizontal=True, key="login_is_pro")
                     if login_is_pro == "종사자":
-                        st.markdown("<div style='font-size:0.78rem;color:#1a3a5c;margin-top:4px;'>📋 주력판매 분야 선택 (상담반영)</div>", unsafe_allow_html=True)
                         login_insurer = st.radio(
-                            "주력판매 분야 선택(상담반영)",
+                            "📋 주력판매 분야 선택(상담반영)",
                             ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"],
                             horizontal=True,
                             key="login_insurer"
