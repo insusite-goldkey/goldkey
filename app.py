@@ -3485,6 +3485,31 @@ def main():
         except Exception:
             pass
 
+    # ── STEP 4-C: 뒤로가기 로그아웃 방지 — query_params 탭 상태 복원 ──
+    # 브라우저 "<" 뒤로가기 시 Streamlit이 session_state를 재초기화함
+    # → ?tab=XXX 파라미터로 탭 상태를 URL에 보존, 재진입 시 복원
+    _qp_tab = st.query_params.get("tab", "")
+    if _qp_tab and "current_tab" not in st.session_state:
+        # session_state가 날아갔지만 URL에 탭 정보가 남아있는 경우
+        # → 홈으로 보내되 로그인 화면은 유지 (강제 로그아웃 방지)
+        st.session_state.current_tab = "home"
+        st.query_params.clear()
+
+    # 로그인 상태일 때 현재 탭을 URL에 기록 (뒤로가기 히스토리 방지용)
+    if "user_id" in st.session_state:
+        _cur_tab_for_url = st.session_state.get("current_tab", "home")
+        if _cur_tab_for_url != "home":
+            try:
+                st.query_params["tab"] = _cur_tab_for_url
+            except Exception:
+                pass
+        else:
+            try:
+                if "tab" in st.query_params:
+                    st.query_params.clear()
+            except Exception:
+                pass
+
     # ── STEP 5: 사이드바 렌더링 (로그인폼 포함) — 초기화 로직보다 먼저 ──
     _remaining = _get_session_remaining(_sid)
     components.html(f"""
@@ -5688,23 +5713,15 @@ section[data-testid="stMain"] > div,
 .gk-card-desc {
     font-size:0.80rem; color:#475569; line-height:1.55;
 }
-/* Streamlit 버튼 숨김 — 카드 전체가 클릭 영역 */
-.gk-card-wrap > div[data-testid="stButton"] {
-    position:absolute !important;
-    top:0 !important; left:0 !important;
-    width:100% !important; height:100% !important;
-    margin:0 !important; padding:0 !important;
-    z-index:5 !important;
-}
+/* 카드 버튼 — 모바일 터치 완전 호환 visible 버튼 */
 .gk-card-wrap > div[data-testid="stButton"] > button {
-    width:100% !important; height:100% !important;
-    opacity:0 !important;
-    cursor:pointer !important;
-    position:absolute !important;
-    top:0 !important; left:0 !important;
-    border:none !important;
+    width:100% !important;
     background:transparent !important;
-    padding:0 !important; margin:0 !important;
+    border:none !important;
+    padding:0 !important;
+    margin:0 !important;
+    cursor:pointer !important;
+    text-align:left !important;
 }
 .gk-card-wrap:hover .gk-card {
     border-color:#2e6da4;
@@ -5750,35 +5767,10 @@ section[data-testid="stMain"] > div,
 
         # ── 파트 0: 상담 & LIFE 컨설팅 (최상단 고정) ──
         st.markdown('<div class="gk-section-label">🌟 상담 &amp; LIFE 컨설팅</div>', unsafe_allow_html=True)
-        _p0c1, _p0c2 = st.columns(2, gap="small")
-        with _p0c1:
-            st.markdown(
-                "<div class='gk-card-wrap'>"
-                "<div class='gk-card'>"
-                "<div class='gk-card-icon'>📋</div>"
-                "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>신규보험 상담</div>"
-                "<div class='gk-card-desc'>기존 보험증권 분석<br>보장 공백 진단 · 신규 컨설팅</div>"
-                "</div>"
-                "</div></div>", unsafe_allow_html=True)
-            if st.button("▶ 클릭", key="home_p0_t0", use_container_width=False):
-                st.session_state.current_tab = "t0"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-        with _p0c2:
-            st.markdown(
-                "<div class='gk-card-wrap'>"
-                "<div class='gk-card'>"
-                "<div class='gk-card-icon'>🔄</div>"
-                "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>LIFE CYCLE 백지설계</div>"
-                "<div class='gk-card-desc'>인생 타임라인 시각화 상담자료<br>생존·상해·결혼·퇴직·노후 설계도</div>"
-                "</div>"
-                "</div></div>", unsafe_allow_html=True)
-            if st.button("▶ 클릭", key="home_p0_life_cycle", use_container_width=False):
-                st.session_state.current_tab = "life_cycle"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
+        _render_cards([
+            ("t0",         "📋", "신규보험 상담",       "기존 보험증권 분석 · 보장 공백 진단 · 신규 컨설팅"),
+            ("life_cycle", "🔄", "LIFE CYCLE 백지설계", "인생 타임라인 시각화 상담자료 · 생존·상해·결혼·퇴직·노후 설계도"),
+        ], "home_p0")
 
         # ── 파트 1: 보험 상담 (5개, 2열) ──
         st.markdown('<div class="gk-section-label">🛡️ 보험 상담</div>', unsafe_allow_html=True)
@@ -5800,16 +5792,11 @@ section[data-testid="stMain"] > div,
                     if idx >= len(cards): break
                     _k, _ic, _ti, _de = cards[idx]
                     with col:
-                        st.markdown(
-                            f"<div class='gk-card-wrap'>"
-                            f"<div class='gk-card'>"
-                            f"<div class='gk-card-icon'>{_ic}</div>"
-                            f"<div class='gk-card-body'>"
-                            f"<div class='gk-card-title'>{_ti}</div>"
-                            f"<div class='gk-card-desc'>{_de.replace(chr(10),'<br>')}</div>"
-                            f"</div>"
-                            f"</div></div>", unsafe_allow_html=True)
-                        if st.button("▶ 클릭", key=f"{prefix}_{_k}", use_container_width=False):
+                        if st.button(
+                            f"{_ic} {_ti}\n{_de.replace(chr(10), ' · ')}",
+                            key=f"{prefix}_{_k}",
+                            use_container_width=True,
+                        ):
                             st.session_state.current_tab = _k
                             st.session_state["_scroll_top"] = True
                             st.rerun()
@@ -5831,86 +5818,23 @@ section[data-testid="stMain"] > div,
 
         # ── 파트 2.5: LIFE EVENT ──
         st.markdown('<div class="gk-section-label">🎯 LIFE EVENT</div>', unsafe_allow_html=True)
-        _le1, _le2 = st.columns(2, gap="small")
-        with _le1:
-            st.markdown(
-                "<div class='gk-card-wrap'>"
-                "<div class='gk-card'>"
-                "<div class='gk-card-icon'>🎯</div>"
-                "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>LIFE EVENT 상담</div>"
-                "<div class='gk-card-desc'>인생 주요 이벤트별 보험 설계<br>출생·결혼·취업·은퇴 맞춤 컨설팅</div>"
-                "</div>"
-                "</div></div>", unsafe_allow_html=True)
-            if st.button("▶ 클릭", key="home_p25_life_event", use_container_width=False):
-                st.session_state.current_tab = "life_event"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
+        _render_cards([
+            ("life_event", "🎯", "LIFE EVENT 상담", "인생 주요 이벤트별 보험 설계 · 출생·결혼·취업·은퇴 맞춤 컨설팅"),
+        ], "home_p25")
 
         # ── 파트 3: 부동산 투자 · 간병 컨설팅 ──
         st.markdown('<div class="gk-section-label">🏘️ 부동산 투자 · 간병 컨설팅</div>', unsafe_allow_html=True)
-        _rc1, _rc2 = st.columns(2, gap="small")
-        with _rc1:
-            st.markdown(
-                "<div class='gk-card-wrap'>"
-                "<div class='gk-card'>"
-                "<div class='gk-card-icon'>🏘️</div>"
-                "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>부동산 투자 상담</div>"
-                "<div class='gk-card-desc'>등기부등본·건축물대장 판독<br>투자수익 분석 · 보험 연계 설계</div>"
-                "</div>"
-                "</div></div>", unsafe_allow_html=True)
-            if st.button("▶ 클릭", key="home_p3_realty", use_container_width=False):
-                st.session_state.current_tab = "realty"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-        with _rc2:
-            st.markdown(
-                "<div class='gk-card-wrap'>"
-                "<div class='gk-card'>"
-                "<div class='gk-card-icon'>🏥</div>"
-                "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>간병비 컨설팅</div>"
-                "<div class='gk-card-desc'>치매·뇌졸중·요양병원 간병비 산출<br>장기요양등급 · 간병보험 설계</div>"
-                "</div>"
-                "</div></div>", unsafe_allow_html=True)
-            if st.button("▶ 클릭", key="home_p3_nursing", use_container_width=False):
-                st.session_state.current_tab = "nursing"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
+        _render_cards([
+            ("realty",  "🏘️", "부동산 투자 상담", "등기부등본·건축물대장 판독 · 투자수익 분석 · 보험 연계 설계"),
+            ("nursing", "🏥", "간병비 컨설팅",   "치매·뇌졸중·요양병원 간병비 산출 · 장기요양등급 · 간병보험 설계"),
+        ], "home_p3")
 
         # ── 파트 4: 신규상품 리플렛 관리 ──
         st.markdown('<div class="gk-section-label">📂 신규상품 리플렛 관리</div>', unsafe_allow_html=True)
-        _p4c1, _p4c2 = st.columns(2, gap="small")
-        with _p4c1:
-            st.markdown(
-                "<div class='gk-card-wrap'>"
-                "<div class='gk-card'>"
-                "<div class='gk-card-icon'>🗂️</div>"
-                "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>보험 리플렛 AI 분류</div>"
-                "<div class='gk-card-desc'>리플렛 PDF 업로드 → AI 자동 분류<br>GCS 신규상품 폴더 저장·관리</div>"
-                "</div>"
-                "</div></div>", unsafe_allow_html=True)
-            if st.button("▶ 클릭", key="home_p4_leaflet", use_container_width=False):
-                st.session_state.current_tab = "leaflet"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-
-        with _p4c2:
-            st.markdown(
-                "<div class='gk-card-wrap'>"
-                "<div class='gk-card'>"
-                "<div class='gk-card-icon'>👤</div>"
-                "<div class='gk-card-body'>"
-                "<div class='gk-card-title'>고객자료 통합저장</div>"
-                "<div class='gk-card-desc'>의무기록·증권분석·청구서류<br>고객별 마인드맵 통합 저장</div>"
-                "</div>"
-                "</div></div>", unsafe_allow_html=True)
-            if st.button("▶ 클릭", key="home_p4_custdoc", use_container_width=False):
-                st.session_state.current_tab = "customer_docs"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
+        _render_cards([
+            ("leaflet",       "🗂️", "보험 리플렛 AI 분류", "리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 폴더 저장·관리"),
+            ("customer_docs", "👤", "고객자료 통합저장",  "의무기록·증권분석·청구서류 · 고객별 마인드맵 통합 저장"),
+        ], "home_p4")
 
 
         st.divider()
