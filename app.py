@@ -4616,6 +4616,34 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                     st.session_state["_rag_admin_hint"] = True
                     st.rerun()
                 st.markdown("---")
+                # ── Supabase DB 관리 바로가기 ────────────────────────────
+                st.markdown("**🗄️ Supabase DB 관리**")
+                try:
+                    _sb_url = st.secrets.get("SUPABASE_URL", "")
+                    _sb_proj = _sb_url.replace("https://","").split(".")[0] if _sb_url else ""
+                except Exception:
+                    _sb_proj = ""
+                if _sb_proj:
+                    _sql_editor_url = f"https://supabase.com/dashboard/project/{_sb_proj}/sql/new"
+                    st.markdown(
+                        f'<a href="{_sql_editor_url}" target="_blank">'
+                        f'<button style="width:100%;padding:8px;background:#3ecf8e;color:#fff;'
+                        f'border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;">'
+                        f'🔗 Supabase SQL Editor 열기</button></a>',
+                        unsafe_allow_html=True
+                    )
+                    st.code("ALTER TABLE user_files ADD COLUMN IF NOT EXISTS client_name TEXT;", language="sql")
+                    st.caption("↑ 위 SQL을 복사하여 SQL Editor에서 실행하세요.")
+                else:
+                    st.markdown(
+                        '<a href="https://supabase.com/dashboard" target="_blank">'
+                        '<button style="width:100%;padding:8px;background:#3ecf8e;color:#fff;'
+                        'border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;">'
+                        '🔗 Supabase 대시보드 열기</button></a>',
+                        unsafe_allow_html=True
+                    )
+                    st.code("ALTER TABLE user_files ADD COLUMN IF NOT EXISTS client_name TEXT;", language="sql")
+                st.markdown("---")
                 if st.button("📋 제안 목록 보기", key="btn_show_suggestions", use_container_width=True):
                     st.session_state["_show_suggestions"] = not st.session_state.get("_show_suggestions", False)
                 if st.button("📢 개선 지시 목록", key="btn_show_directives", use_container_width=True):
