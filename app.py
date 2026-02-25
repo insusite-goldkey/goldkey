@@ -6250,6 +6250,10 @@ section[data-testid="stMain"] > div,
     왼쪽 사이드바 하단 <b style="color:#ffd700;">Admin Console</b>에서 로그인하세요
   </div>
 </div>""", unsafe_allow_html=True)
+            # ── 디버그: 세션 상태 확인 (관리자 로그인 후에도 막히는 문제 추적) ──
+            if st.session_state.get("is_admin"):
+                _sess_keys = [k for k in st.session_state.keys() if not k.startswith("_")]
+                st.caption(f"🔍 [디버그] tab={tab_key} | 세션키={_sess_keys[:10]} | user_id={st.session_state.get('user_id','없음')}")
             _ag_c1, _ag_c2 = st.columns(2)
             with _ag_c1:
                 if st.button("🏠 홈으로 돌아가기", key=f"auth_gate_home_{tab_key}",
@@ -15239,11 +15243,20 @@ def auto_recover(e: Exception) -> bool:
         components.html(s_voice(_tts_msg), height=0)
         return False
 
-    # 4. 세션 오류 → 세션 초기화
+    # 4. 세션 오류 → 로그인 키 보존 후 부분 초기화
     if "session" in err.lower() or "StreamlitAPIException" in err:
         log_error("세션", err)
+        # 로그인 관련 핵심 키는 보존 (user_id 등이 날아가면 재로그인 필요)
+        _PRESERVE_KEYS = {
+            "user_id", "user_name", "is_admin", "join_date",
+            "user_consult_mode", "preferred_insurer",
+            "_auto_login_token", "current_tab",
+            "db_ready", "rag_system", "_force_tmp", "_error_log",
+        }
+        _saved = {k: v for k, v in st.session_state.items() if k in _PRESERVE_KEYS}
         st.session_state.clear()
-        st.warning("⚠️ 세션 오류가 발생했습니다. 자동 초기화되었습니다.")
+        st.session_state.update(_saved)
+        st.warning("⚠️ 세션 오류가 발생했습니다. 자동 복구되었습니다.")
         return True
 
     # 5. 기타 오류 → 로그만 기록
@@ -15266,8 +15279,11 @@ def _run_safe():
             # traceback 전체를 로그에 기록 → 정확한 발생 위치 파악
             _tb = _traceback.format_exc().encode("utf-8", errors="ignore").decode("utf-8")
             log_error("인코딩[TB]", _tb)
+            _KEEP = {"user_id","user_name","is_admin","join_date",
+                     "user_consult_mode","preferred_insurer","current_tab",
+                     "_force_tmp","_error_log","db_ready","rag_system"}
             for _k in list(st.session_state.keys()):
-                if _k not in ("_force_tmp", "_error_log", "db_ready", "rag_system"):
+                if _k not in _KEEP:
                     st.session_state.pop(_k, None)
             if _attempt < _MAX_RETRY - 1:
                 st.warning("⚠️ 인코딩 오류가 감지되어 자동 복구합니다. 잠시만 기다려주세요.")
