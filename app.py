@@ -61,6 +61,7 @@ import streamlit as st
 from google import genai
 from google.genai import types
 import sys, json, os, time, hashlib, base64, re, tempfile, pathlib, codecs, unicodedata, traceback as _traceback
+from functools import lru_cache as _lru_cache
 
 # 외부 격리 게이트웨이 — 모든 외부 접촉은 이 모듈을 통해서만
 try:
@@ -1554,10 +1555,7 @@ STANDARD_DISABILITY_DB = [
     {"code": "URO_05",   "body_part": "urogenital",   "text": "비뇨생식기 기능에 뚜렷한 장해를 남긴 때",     "rate": 20.0},
 ]
 
-# 장해 문구 임베딩 캐시 (session_state가 아닌 모듈 레벨 캐시)
-_DIS_EMBED_CACHE: dict = {}
-
-
+# 장해 문구 임베딩 캐시 — LRU 최대 200건 (~1.2MB 상한)
 def _cosine_similarity(a: list, b: list) -> float:
     """두 벡터의 코사인 유사도 계산"""
     dot = sum(x * y for x, y in zip(a, b))
@@ -1568,8 +1566,12 @@ def _cosine_similarity(a: list, b: list) -> float:
     return dot / (na * nb)
 
 
+_DIS_EMBED_CACHE: dict = {}
+_DIS_EMBED_CACHE_MAX = 200
+
+
 def _get_gemini_embedding(text: str, client) -> list:
-    """Gemini text-embedding-004 로 텍스트 벡터화, 캐시 적용"""
+    """Gemini text-embedding-004 로 텍스트 벡터화, LRU 200건 캐시 적용"""
     if text in _DIS_EMBED_CACHE:
         return _DIS_EMBED_CACHE[text]
     try:
@@ -1578,6 +1580,8 @@ def _get_gemini_embedding(text: str, client) -> list:
             contents=text
         )
         vec = resp.embeddings[0].values
+        if len(_DIS_EMBED_CACHE) >= _DIS_EMBED_CACHE_MAX:
+            _DIS_EMBED_CACHE.pop(next(iter(_DIS_EMBED_CACHE)))
         _DIS_EMBED_CACHE[text] = vec
         return vec
     except Exception:
