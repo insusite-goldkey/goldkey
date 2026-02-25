@@ -8917,12 +8917,19 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
   font-weight:900;font-size:0.90rem;color:#1a3a5c;">
 📄 자동차사고 과실비율 인정기준 (금융감독원·손해보험협회)
 </div>""", unsafe_allow_html=True)
-            # Supabase Storage에서 PDF URL 조회
-            _pdf_url = ""
+            # PDF 경로: static 폴더 (HF Space git-lfs 배포) 우선, 없으면 base64 embed
             _pdf_filename = "230630_자동차사고 과실비율 인정기준_최종.pdf"
-            try:
-                _sb_cl = _get_sb_client()
-                if _sb_cl:
+            _pdf_static_path = pathlib.Path(__file__).parent / "static" / _pdf_filename
+            _pdf_url = ""
+            _pdf_b64 = ""
+            if _pdf_static_path.exists():
+                # Streamlit static 서빙: /app/static/{filename} 경로
+                _pdf_data = _pdf_static_path.read_bytes()
+                _pdf_b64 = base64.b64encode(_pdf_data).decode()
+                _pdf_url = f"data:application/pdf;base64,{_pdf_b64}"
+            else:
+                # 폴백: Supabase Storage 공개 URL
+                try:
                     _sb_base = (
                         os.environ.get("SUPABASE_URL", "").strip()
                         or st.secrets.get("SUPABASE_URL", "")
@@ -8930,8 +8937,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     ).rstrip("/")
                     if _sb_base:
                         _pdf_url = f"{_sb_base}/storage/v1/object/public/{SB_BUCKET}/{_pdf_filename}"
-            except Exception:
-                pass
+                except Exception:
+                    pass
             if _pdf_url:
                 components.html(
                     f'<iframe src="{_pdf_url}" width="100%" height="700" '
@@ -8940,19 +8947,18 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     height=715,
                     scrolling=False,
                 )
-                st.markdown(
-                    f"<div style='text-align:right;margin-top:4px;'>"
-                    f"<a href='{_pdf_url}' target='_blank' style='font-size:0.78rem;"
-                    f"color:#1e6fa8;font-weight:700;text-decoration:none;'>"
-                    f"⬇️ PDF 새 탭에서 열기 ↗</a></div>",
-                    unsafe_allow_html=True,
-                )
+                if not _pdf_b64:
+                    st.markdown(
+                        f"<div style='text-align:right;margin-top:4px;'>"
+                        f"<a href='{_pdf_url}' target='_blank' style='font-size:0.78rem;"
+                        f"color:#1e6fa8;font-weight:700;text-decoration:none;'>"
+                        f"⬇️ PDF 새 탭에서 열기 ↗</a></div>",
+                        unsafe_allow_html=True,
+                    )
             else:
-                st.info(
-                    "📌 **과실비율 인정기준 PDF**\n\n"
-                    "REG 시스템(문서 등록)에서 아래 파일명으로 업로드하면 이 위치에 자동 표시됩니다:\n\n"
-                    f"`{_pdf_filename}`\n\n"
-                    "업로드 경로: **문서 등록 탭 → 신규상품 폴더** 또는 루트 경로"
+                st.warning(
+                    f"📌 **과실비율 인정기준 PDF 파일을 찾을 수 없습니다.**\n\n"
+                    f"`static/{_pdf_filename}` 파일이 배포에 포함되어 있는지 확인하세요."
                 )
                 st.markdown(
                     "<div style='background:#fef9e7;border:1px solid #f1c40f;border-radius:7px;"
