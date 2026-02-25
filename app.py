@@ -3604,9 +3604,10 @@ def main():
     except Exception:
         pass
 
-    # ── STEP 6-b: 헬스체크 자동 tick (10분 간격) ─────────────────────────
+    # ── STEP 6-b: 헬스체크 자동 tick (10분 간격) + 기준 스냅샷 ─────────
     try:
-        _hc_auto_tick()
+        _hc_take_baseline()   # 세션당 1회 — 비교 기준 기록
+        _hc_auto_tick()       # 10분 경과 시 자동 점검
     except Exception:
         pass
 
@@ -7946,17 +7947,12 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             # ── SSOT selector ───────────────────────────────────────
             _ca_ssot = st.session_state.get("ssot_full_text", "")
             if _ca_ssot:
-                st.info(f"🔬 스캔 허브 데이터 자동 연동 ({len(_ca_ssot)}자) — 파일 없이 분석 가능")
-            cancer_files = st.file_uploader("진단서·보험증권·의무기록 업로드 (스캔허브 사용 시 생략 가능)",
-                type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_cancer")
+                st.info(f"🔬 스캔 허브 연동 완료 ({len(_ca_ssot)}자) — 스캔허브 문서가 AI 분석에 자동 활용됩니다.")
+            else:
+                st.caption("📌 문서를 분석하려면 먼저 [통합 스캔 허브]에서 파일을 스캔하세요.")
 
             if do_ca:
-                doc_text_ca = "".join(
-                    f"\n[첨부: {cf.name}]\n" + extract_pdf_chunks(cf, char_limit=5000)
-                    for cf in (cancer_files or []) if cf.type == 'application/pdf'
-                )
-                if not doc_text_ca and _ca_ssot:
-                    doc_text_ca = f"\n[스캔 허브 데이터]\n{_ca_ssot[:5000]}"
+                doc_text_ca = f"\n[스캔 허브 데이터]\n{_ca_ssot[:5000]}" if _ca_ssot else ""
                 _brain_ctx = f"\n뇌질환: {brain_type}, 위험인자: {', '.join(brain_risk) if brain_risk else '없음'}" if brain_type != "해당 없음" else ""
                 _heart_ctx = f"\n심장질환: {heart_type}, 위험인자: {', '.join(heart_risk) if heart_risk else '없음'}" if heart_type != "해당 없음" else ""
                 run_ai_analysis(c_name_ca, query_ca, hi_ca, "res_cancer",
@@ -8130,21 +8126,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             # ── SSOT selector ──────────────────────────────────────
             _br_ssot = st.session_state.get("ssot_full_text", "")
             if _br_ssot:
-                st.info(f"🔬 스캔 허브 데이터 자동 연동 ({len(_br_ssot)}자) — 파일 없이 분석 가능")
-            brain_files = st.file_uploader("진단서·MRI·의무기록 업로드 (스캔허브 사용 시 생략 가능)",
-                type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_brain_tab")
+                st.info(f"🔬 스캔 허브 연동 완료 ({len(_br_ssot)}자) — 스캔허브 문서가 AI 분석에 자동 활용됩니다.")
+            else:
+                st.caption("📌 문서를 분석하려면 먼저 [통합 스캔 허브]에서 파일을 스캔하세요.")
 
             c_name_br, query_br, hi_br, do_br, _pkbr = ai_query_block("brain",
                 "예) 고혈압·심방세동 약 복용 중. 뇌졸중 대비 보험 공백 분석 요청",
                 product_key="뇌혈관보험")
 
             if do_br:
-                doc_text_br = "".join(
-                    f"\n[첨부: {bf.name}]\n" + extract_pdf_chunks(bf, char_limit=5000)
-                    for bf in (brain_files or []) if bf.type == 'application/pdf'
-                )
-                if not doc_text_br and _br_ssot:
-                    doc_text_br = f"\n[스캔 허브 데이터]\n{_br_ssot[:5000]}"
+                doc_text_br = f"\n[스캔 허브 데이터]\n{_br_ssot[:5000]}" if _br_ssot else ""
                 _br_risk_str = ', '.join(brain_risk) if brain_risk else '없음'
                 run_ai_analysis(c_name_br, query_br, hi_br, "res_brain",
                     product_key=_pkbr,
@@ -8386,21 +8377,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             # ── SSOT selector ──────────────────────────────────────
             _ht_ssot = st.session_state.get("ssot_full_text", "")
             if _ht_ssot:
-                st.info(f"🔬 스캔 허브 데이터 자동 연동 ({len(_ht_ssot)}자) — 파일 없이 분석 가능")
-            heart_files = st.file_uploader("진단서·심전도·의무기록 업로드 (스캔허브 사용 시 생략 가능)",
-                type=['pdf','jpg','jpeg','png'], accept_multiple_files=True, key="up_heart_tab")
+                st.info(f"🔬 스캔 허브 연동 완료 ({len(_ht_ssot)}자) — 스캔허브 문서가 AI 분석에 자동 활용됩니다.")
+            else:
+                st.caption("📌 문서를 분석하려면 먼저 [통합 스캔 허브]에서 파일을 스캔하세요.")
 
             c_name_ht, query_ht, hi_ht, do_ht, _pkht = ai_query_block("heart",
                 "예) 고혈압·고지혈증 약 복용 중. 심근경색 대비 보험 공백 분석 요청",
                 product_key="심장보험")
 
             if do_ht:
-                doc_text_ht = "".join(
-                    f"\n[첨부: {hf.name}]\n" + extract_pdf_chunks(hf, char_limit=5000)
-                    for hf in (heart_files or []) if hf.type == 'application/pdf'
-                )
-                if not doc_text_ht and _ht_ssot:
-                    doc_text_ht = f"\n[스캔 허브 데이터]\n{_ht_ssot[:5000]}"
+                doc_text_ht = f"\n[스캔 허브 데이터]\n{_ht_ssot[:5000]}" if _ht_ssot else ""
                 _ht_risk_str = ', '.join(heart_risk) if heart_risk else '없음'
                 run_ai_analysis(c_name_ht, query_ht, hi_ht, "res_heart",
                     product_key=_pkht,
@@ -13135,6 +13121,133 @@ _HC_INTERVAL_SEC = 600   # 10분
 _HC_SESSION_KEY  = "_hc_last_run"
 _HC_RESULT_KEY   = "_hc_last_result"
 
+# --------------------------------------------------------------------------
+# [기준 스냅샷] 배포 시점 기준값을 세션에 기록 — 이후 비교 대상으로 활용
+# --------------------------------------------------------------------------
+def _hc_take_baseline(force: bool = False):
+    """
+    앱 최초 로드 시 기준 스냅샷 기록.
+    비교 항목:
+      1. app.py SHA-256 해시 — 파일이 런타임 중 변조됐는지 감지
+      2. 핵심 함수 smoke test — 기준 반환값 저장
+      3. 기준 탭 목록 — 알려진 유효 탭 ID 세트
+    force=False: 세션당 1회만 기록
+    """
+    import hashlib as _hl
+    _BL_KEY = "_hc_baseline"
+    if not force and st.session_state.get(_BL_KEY):
+        return st.session_state[_BL_KEY]
+
+    baseline = {}
+
+    # 1. app.py 파일 해시 (배포된 파일 원본 체크섬)
+    try:
+        _app_path = os.path.abspath(__file__)
+        _h = _hl.sha256()
+        with open(_app_path, "rb") as _f:
+            for _chunk in iter(lambda: _f.read(65536), b""):
+                _h.update(_chunk)
+        baseline["app_sha256"]   = _h.hexdigest()
+        baseline["app_size"]     = os.path.getsize(_app_path)
+        baseline["app_mtime"]    = os.path.getmtime(_app_path)
+    except Exception as _e:
+        baseline["app_sha256"] = f"ERROR:{_e}"
+
+    # 2. 핵심 함수 smoke test — 기준 반환 타입 기록
+    _smoke = {}
+    _smoke_tests = [
+        ("get_client",       lambda: type(get_client()).__name__),
+        ("load_members",     lambda: type(load_members()).__name__),
+        ("load_error_log",   lambda: type(load_error_log()).__name__),
+        ("_get_sb_client",   lambda: type(_get_sb_client()).__name__),
+    ]
+    for _fn, _t in _smoke_tests:
+        try:
+            _smoke[_fn] = {"baseline_type": _t(), "status": "ok"}
+        except Exception as _se:
+            _smoke[_fn] = {"baseline_type": "ERROR", "status": str(_se)}
+    baseline["smoke"] = _smoke
+
+    # 3. 기준 탭 목록
+    baseline["valid_tabs"] = [
+        "home","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
+        "cancer","brain","heart","img","fire","liability","nursing",
+        "realty","disability","life_cycle","life_event","leaflet",
+        "customer_docs","stock_eval","policy_terms","policy_scan","scan_hub"
+    ]
+
+    baseline["recorded_at"] = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    st.session_state[_BL_KEY] = baseline
+    return baseline
+
+
+def _hc_compare_snapshot() -> list:
+    """
+    현재 상태를 기준 스냅샷과 비교.
+    반환: [{"item": ..., "baseline": ..., "current": ..., "match": bool}, ...]
+    """
+    import hashlib as _hl
+    baseline = st.session_state.get("_hc_baseline", {})
+    if not baseline:
+        return []
+
+    diffs = []
+
+    # 1. app.py 파일 해시 비교
+    try:
+        _app_path = os.path.abspath(__file__)
+        _h = _hl.sha256()
+        with open(_app_path, "rb") as _f:
+            for _chunk in iter(lambda: _f.read(65536), b""):
+                _h.update(_chunk)
+        _cur_hash = _h.hexdigest()
+        _bl_hash  = baseline.get("app_sha256", "")
+        diffs.append({
+            "item": "app.py 파일 해시",
+            "baseline": _bl_hash[:16] + "..." if len(_bl_hash) > 16 else _bl_hash,
+            "current":  _cur_hash[:16] + "...",
+            "match": _cur_hash == _bl_hash,
+        })
+    except Exception as _e:
+        diffs.append({"item": "app.py 파일 해시", "baseline": "?", "current": f"ERROR:{_e}", "match": False})
+
+    # 2. 핵심 함수 smoke test 비교
+    _smoke_tests = [
+        ("get_client",       lambda: type(get_client()).__name__),
+        ("load_members",     lambda: type(load_members()).__name__),
+        ("load_error_log",   lambda: type(load_error_log()).__name__),
+    ]
+    for _fn, _t in _smoke_tests:
+        _bl_type = baseline.get("smoke", {}).get(_fn, {}).get("baseline_type", "?")
+        try:
+            _cur_type = _t()
+            diffs.append({
+                "item": f"{_fn}() 반환타입",
+                "baseline": _bl_type,
+                "current":  _cur_type,
+                "match": _cur_type == _bl_type,
+            })
+        except Exception as _se:
+            diffs.append({
+                "item": f"{_fn}() 반환타입",
+                "baseline": _bl_type,
+                "current": f"ERROR:{_se}",
+                "match": False,
+            })
+
+    # 3. 탭 목록 일치 여부
+    _bl_tabs  = set(baseline.get("valid_tabs", []))
+    _cur_tab  = st.session_state.get("current_tab", "home")
+    _tab_ok   = _cur_tab in _bl_tabs
+    diffs.append({
+        "item": "현재 탭 유효성",
+        "baseline": "등록 탭 목록 내",
+        "current":  _cur_tab,
+        "match": _tab_ok,
+    })
+
+    return diffs
+
 def _hc_run_all(force: bool = False) -> dict:
     """
     전체 섹터 헬스체크 실행.
@@ -13295,7 +13408,7 @@ def _render_healthcheck_dashboard():
         st.info("아직 점검이 실행되지 않았습니다. 아래 버튼으로 점검을 시작하세요.")
 
     # ── 점검 제어 버튼 ─────────────────────────────────────────────────────
-    _hc_b1, _hc_b2, _hc_b3 = st.columns(3)
+    _hc_b1, _hc_b2, _hc_b3, _hc_b4 = st.columns(4)
     with _hc_b1:
         if st.button("🔍 즉시 점검 시작", key="btn_hc_run",
                      use_container_width=True, type="primary"):
@@ -13321,6 +13434,12 @@ def _render_healthcheck_dashboard():
                 st.success(f"자가진단 수정: {', '.join(_fixed)}")
             else:
                 st.info("자가진단 이상 없음")
+    with _hc_b4:
+        if st.button("📸 기준 스냅샷 갱신", key="btn_hc_baseline",
+                     use_container_width=True):
+            _hc_take_baseline(force=True)
+            st.success("기준 스냅샷 갱신 완료 — 지금 상태가 새 비교 기준입니다.")
+            st.rerun()
 
     st.divider()
 
@@ -13356,8 +13475,44 @@ def _render_healthcheck_dashboard():
         for _e in last_result["errors"]:
             st.error(f"`{_e['sector']}` ({_e['name']}): {_e['error']}")
 
+    # ── 기준 스냅샷 비교 ────────────────────────────────────────────────
     st.divider()
-    st.caption(f"⏰ 자동 점검 주기: 10분 | 점검 항목: {len(_hc_run_all.__code__.co_consts)}개 섹터")
+    _bl = st.session_state.get("_hc_baseline", {})
+    if _bl:
+        st.markdown(f"**🔬 기준 스냅샷 비교** <span style='font-size:0.78rem;color:#888;'>(기준 기록: {_bl.get('recorded_at','—')})</span>",
+                    unsafe_allow_html=True)
+        _diffs = _hc_compare_snapshot()
+        _all_match = all(d["match"] for d in _diffs)
+        if _all_match:
+            st.success("✅ 모든 항목이 기준 스냅샷과 일치합니다 — 코드 변조 없음")
+        else:
+            st.warning("⚠️ 일부 항목이 기준과 다릅니다 — 아래 상세 확인")
+        for _d in _diffs:
+            _ic  = "🟢" if _d["match"] else "🔴"
+            _clr = "#27ae60" if _d["match"] else "#e74c3c"
+            st.markdown(
+                f"<div style='padding:5px 10px;border-left:4px solid {_clr};"
+                f"border-radius:0 6px 6px 0;background:#f8fafc;margin-bottom:3px;"
+                f"font-size:0.85rem;'>"
+                f"{_ic} <b>{_d['item']}</b>"
+                f"<span style='float:right;color:#555;font-size:0.78rem;'>"
+                f"기준: <code>{_d['baseline']}</code> → "
+                f"현재: <code style='color:{_clr};'>{_d['current']}</code></span></div>",
+                unsafe_allow_html=True
+            )
+        # 파일 해시 불일치 시 자동 경고
+        _hash_diff = next((d for d in _diffs if d["item"] == "app.py 파일 해시" and not d["match"]), None)
+        if _hash_diff:
+            st.error(
+                "🚨 **app.py 파일이 기준 스냅샷과 다릅니다.**\n"
+                "배포 후 파일이 변경되었거나 다른 버전이 실행 중일 수 있습니다.\n"
+                "최신 상태가 맞다면 [기준 스냅샷 갱신] 버튼으로 새 기준을 설정하세요."
+            )
+    else:
+        st.info("📸 기준 스냅샷이 없습니다. [기준 스냅샷 갱신] 버튼을 눌러 현재 상태를 기준으로 저장하세요.")
+
+    st.divider()
+    st.caption("⏰ 자동 점검 주기: 10분 | 비교 방식: SHA-256 파일 해시 + 핵심 함수 smoke test")
 
 
 # ── 관리자용 에러 레지스트리 대시보드 ────────────────────────────────────
