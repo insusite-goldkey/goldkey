@@ -7104,6 +7104,111 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 통장사본 (입금 계좌)<br><br>
 <b style="color:#555;font-size:0.78rem;">⚠️ 보험금 지급 여부는 보험사 심사 및 약관에 따릅니다.</b>
 </div>""", height=340)
+        # ── 보험금 청구 시 조심할 사항 안내 박스 ────────────────────────────
+        st.markdown("""<div style="background:#fdf2f8;border-left:4px solid #c0392b;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin-top:18px;margin-bottom:8px;
+  font-weight:900;font-size:0.92rem;color:#7b241c;">
+⚠️ 보험금 청구할 때 조심할 사항 (설계사·수익자 필독)
+</div>""", unsafe_allow_html=True)
+        components.html("""
+<div style="height:560px;overflow-y:auto;padding:14px 18px;
+  background:#fffafa;border:2px solid #e74c3c;border-radius:10px;
+  font-size:0.81rem;line-height:1.78;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+
+<!-- 1 -->
+<div style="background:#c0392b;color:#fff;border-radius:6px;padding:4px 12px;
+  font-size:0.85rem;font-weight:900;margin-bottom:8px;display:inline-block;">
+  1. 고지의무 위반 여부 재확인 (상법 제651조)
+</div><br>
+보험금 청구는 보험사가 고객의 과거 병력을 <b>정밀 조사(현장심사)</b>할 수 있는 명분을 주는 행위입니다.<br><br>
+<b style="color:#c0392b;">위험 요인:</b> 청구한 사고와 직접 관련이 없더라도, 가입 시 알리지 않은 과거 치료 이력이 조사 과정에서 드러나면 보험사는 <b>계약을 강제 해지</b>할 수 있습니다.<br><br>
+<b style="color:#27ae60;">전문가 조언:</b> 청구 전, 본인의 가입 시점 '알릴 의무' 답변 내용을 반드시 복기하십시오. 누락된 내용이 있다면 보상 실무 전문가와 상담하여 <b>인과관계 유무</b>를 먼저 따져봐야 합니다.<br>
+<div style="background:#fef9e7;border-left:3px solid #f1c40f;padding:5px 10px;border-radius:0 5px 5px 0;margin:6px 0 12px 0;font-size:0.78rem;">
+⚖️ <b>근거:</b> 상법 제651조(고지의무 위반으로 인한 계약해지) · 대법원 판례 94다11672 등
+</div>
+
+<!-- 2 -->
+<div style="background:#8e44ad;color:#fff;border-radius:6px;padding:4px 12px;
+  font-size:0.85rem;font-weight:900;margin-bottom:8px;display:inline-block;">
+  2. '의료자문 동의'는 신중하게 (금융감독원 권고)
+</div><br>
+보험사가 심사 중 외부 전문의 소견을 받겠다며 <b>'의료자문 동의서'</b>를 요구할 수 있습니다.<br><br>
+<b style="color:#c0392b;">위험 요인:</b> 보험사 자문 의사는 환자를 직접 보지 않고 기록만으로 판단하며, <b>부지급 방향</b>으로 결론이 나는 경우가 많습니다.<br><br>
+<b style="color:#27ae60;">전문가 조언:</b> 무조건 거부보다는 <b>'제3의료기관 감정'</b> 카드를 활용하십시오.<br>
+보험약관상 분쟁 해결 절차에 따라 수익자와 보험사가 합의한 제3의 <b>상급종합병원</b>에서 재판정을 받을 수 있습니다.<br><br>
+
+<!-- 3 -->
+<div style="background:#1a5c3a;color:#fff;border-radius:6px;padding:4px 12px;
+  font-size:0.85rem;font-weight:900;margin-bottom:8px;display:inline-block;">
+  3. 손해사정사 선임권 활용 (보험업법 제185조)
+</div><br>
+보험사가 고용한 손해사정사는 보험사의 입장을 대변할 가능성이 높습니다.<br><br>
+<b style="color:#1e6fa8;">권리:</b> 고객은 조사 통보를 받은 날로부터 <b>3영업일 이내</b>에 직접 <b>독립 손해사정사</b>를 선임할 수 있습니다.<br>
+<b style="color:#1e6fa8;">혜택:</b> 단독실손 등 일정 요건 충족 시 손해사정 비용을 <b>보험사가 부담</b>하게 할 수 있습니다.<br>
+<div style="background:#e8f8f5;border-left:3px solid #27ae60;padding:5px 10px;border-radius:0 5px 5px 0;margin:6px 0 12px 0;font-size:0.78rem;">
+📌 <b>참고:</b> 금융감독원 '내 보험금 찾기' 및 '손해사정사 선임권' 보도자료
+</div>
+
+<!-- 4 -->
+<div style="background:#1e6fa8;color:#fff;border-radius:6px;padding:4px 12px;
+  font-size:0.85rem;font-weight:900;margin-bottom:8px;display:inline-block;">
+  4. 진단서 및 의무기록지의 문구 체크
+</div><br>
+의사의 주관적인 소견 한 줄이 보상 여부를 가릅니다.<br><br>
+<b>• KCD 코드(질병분류코드):</b> 약관상 보상하는 코드인지 확인<br>
+<b>• 확정진단 vs 의증:</b> <b style="color:#c0392b;">'의증(R/O)'</b>은 보상이 안 되는 경우가 많으므로 확정진단 여부 반드시 확인<br>
+<b>• 외상 기여도:</b> 기왕증(원래 있던 병) 수치가 높게 잡히면 보험금이 <b>삭감</b>됩니다<br>
+<div style="background:#fdf2f8;border:1.5px solid #e74c3c;border-radius:7px;padding:7px 11px;margin:6px 0 12px 0;font-size:0.78rem;">
+⚠️ <b>주의:</b> 의무기록지에 <i>"과거에도 아팠음"</i>, <i>"오래전부터 증상 있었음"</i> 같은 문구가 있다면 고지의무 위반·면책 사유로 악용될 수 있습니다.
+</div>
+
+<!-- 5 -->
+<div style="background:#7d3c00;color:#fff;border-radius:6px;padding:4px 12px;
+  font-size:0.85rem;font-weight:900;margin-bottom:8px;display:inline-block;">
+  5. 보험사 '현장조사' 시 대응 (금감원 유의사항)
+</div><br>
+조사원 방문 시 가장 위험한 서류:<br>
+• <b style="color:#c0392b;">국세청(홈택스) 자료 동의</b> — 별건 조사로 이어질 수 있음<br>
+• <b style="color:#c0392b;">포괄적 위임장</b> — 조사 범위가 무제한으로 확장됨<br><br>
+<div style="background:#fef9e7;border:1.5px solid #e67e22;border-radius:7px;padding:7px 11px;margin-bottom:12px;font-size:0.79rem;">
+<b style="color:#7d3c00;">대응 원칙:</b><br>
+조사 범위가 불분명한 <b>포괄적 위임은 거부</b>하고, 해당 사고와 관련된 병원만 특정하여 위임하십시오.<br>
+건강보험공단 급여 내역·국세청 자료 제출은 <b>법적 의무가 아님</b>을 인지하십시오.
+</div>
+
+<!-- 법조문 박스 -->
+<div style="background:#1a3a5c;color:#fff;border-radius:6px;padding:4px 12px;
+  font-size:0.85rem;font-weight:900;margin-bottom:8px;display:inline-block;">
+  🔍 관련 법조문 핵심 정리
+</div><br>
+
+<b style="color:#f39c12;">① 고지의무 위반 — 3년 제척기간 (상법 제651조)</b><br>
+해지권 소멸 조건 (둘 중 하나라도 해당 시 해지 불가):<br>
+• 보험사가 위반 사실을 <b>안 날로부터 1개월</b> 경과<br>
+• 보험계약 체결일로부터 <b>3년</b> 경과<br>
+• (약관 기준) 보험금 지급 사유 없이 <b>2년(진단계약 1년)</b> 경과<br><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:10px;">
+<tr style="background:#2e4a6a;"><th style="padding:4px 8px;text-align:left;">시점</th><th style="padding:4px 8px;text-align:left;">보험금</th><th style="padding:4px 8px;text-align:left;">계약</th></tr>
+<tr style="background:#1e3a54;"><td style="padding:4px 8px;">3년 미경과 + 인과관계 있음</td><td style="padding:4px 8px;color:#e74c3c;">부지급</td><td style="padding:4px 8px;color:#e74c3c;">해지</td></tr>
+<tr style="background:#1e3a54;"><td style="padding:4px 8px;">3년 미경과 + 인과관계 없음</td><td style="padding:4px 8px;color:#27ae60;">지급</td><td style="padding:4px 8px;color:#e74c3c;">해지</td></tr>
+<tr style="background:#1e3a54;"><td style="padding:4px 8px;">3년 경과 후</td><td style="padding:4px 8px;color:#27ae60;">원칙 지급</td><td style="padding:4px 8px;color:#27ae60;">해지 불가</td></tr>
+</table>
+<div style="background:#fdf2f8;border:1.5px solid #e74c3c;border-radius:6px;padding:6px 10px;margin-bottom:10px;font-size:0.78rem;">
+⚠️ <b>기왕증 면책:</b> 해지는 못 하더라도, 가입 전 발생한 질병(기왕증)에 대해서는 '보험사고의 우연성' 결여를 이유로 해당 부위 보상을 거절할 수 있습니다.
+</div>
+
+<b style="color:#f39c12;">② 사기에 의한 계약 — 5년 취소권 (표준약관 제19조)</b><br>
+처음부터 보험금 목적으로 보험사를 속인 경우 적용됩니다.<br><br>
+취소권 행사 조건: 뚜렷한 사기 의사가 증명되는 경우 계약일로부터 <b>5년</b>(사기 사실을 안 날로부터 1개월) 이내 취소 가능.<br><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:6px;">
+<tr style="background:#2e4a6a;"><th style="padding:4px 8px;text-align:left;">결과</th><th style="padding:4px 8px;text-align:left;">내용</th></tr>
+<tr style="background:#1e3a54;"><td style="padding:4px 8px;color:#e74c3c;">보험금 지급 불가</td><td style="padding:4px 8px;">인과관계 무관, 계약 무효에 준하는 효과</td></tr>
+<tr style="background:#1e3a54;"><td style="padding:4px 8px;color:#e74c3c;">기지급 보험금 환수</td><td style="padding:4px 8px;">부당이득반환청구권 (소멸시효 5년)</td></tr>
+</table>
+</div>
+""", height=590)
+
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [disability] 장해보험금 산출 ─────────────────────────────────────
