@@ -13536,6 +13536,41 @@ END; $$;""", language="sql")
                 _extra = f" 외 {len(_dc_files)-4}건" if len(_dc_files) > 4 else ""
                 st.success(f"📎 **{len(_dc_files)}개 파일** 선택됨: {_names_preview}{_extra}")
 
+            # ── 고객 이름 연동 ────────────────────────────────────────────
+            _dc_consult_name = (
+                st.session_state.get("gs_c_name", "")
+                or st.session_state.get("current_c_name", "")
+            )
+            _dc_name_opts = ["상담 중인 고객 이름 자동 연동"]
+            if _dc_consult_name and _dc_consult_name not in ("우량 고객", ""):
+                _dc_name_opts.insert(0, f"✅ 현재 상담: {_dc_consult_name}")
+            _dc_name_opts.append("✏️ 직접 입력")
+            _dc_name_opts.append("👤 이름 없음 (일반 자료)")
+
+            _dc_name_choice = st.radio(
+                "📌 이 파일의 고객 이름",
+                _dc_name_opts,
+                key="dc_name_choice",
+                horizontal=True,
+                help="상담 탭에서 고객 성함을 입력하면 자동으로 여기에 연동됩니다."
+            )
+
+            if "직접 입력" in _dc_name_choice:
+                _dc_client_name = st.text_input(
+                    "고객 이름 직접 입력",
+                    placeholder="예) 홍길동",
+                    key="dc_client_name_manual"
+                )
+            elif "이름 없음" in _dc_name_choice:
+                _dc_client_name = ""
+            elif _dc_consult_name and _dc_consult_name not in ("우량 고객", ""):
+                _dc_client_name = _dc_consult_name
+            else:
+                _dc_client_name = ""
+
+            if _dc_client_name:
+                st.caption(f"👤 저장될 고객 이름: **{_dc_client_name}**")
+
             _dc_note = st.text_input("메모 (선택 — 전체 파일에 공통 적용)",
                                      placeholder="예) 삼성화재 2024년 암보험 신상품",
                                      key="dc_note")
@@ -13662,6 +13697,7 @@ END; $$;""", language="sql")
                                 "ai_doc_type":   st.session_state.get("dc_ai_doctype", "기타"),
                                 "ai_tags":       st.session_state.get("dc_ai_tags", []),
                                 "note":          _dc_note,
+                                "client_name":   _dc_client_name,
                                 "is_encrypted":  True,
                             }).execute()
                             _ok_cnt += 1
@@ -13803,11 +13839,15 @@ END; $$;""", language="sql")
                 # 본인 UID도 등록 (맵에 없을 경우 대비)
                 _uid_name_map[_lib_uid] = st.session_state.get("user_name", "나")
 
-                # 대분류1: 사람이름
+                # 대분류1: 사람이름 (client_name 우선 → uid 역조회 → UID 표시)
                 _name_grp2 = {}
                 for _r2 in _lib_box2:
-                    _r2_uid  = str(_r2.get("uid",""))
-                    _r2_name = _uid_name_map.get(_r2_uid, f"UID:{_r2_uid[:6]}")
+                    _r2_client = (_r2.get("client_name") or "").strip()
+                    if _r2_client:
+                        _r2_name = _r2_client
+                    else:
+                        _r2_uid  = str(_r2.get("uid",""))
+                        _r2_name = _uid_name_map.get(_r2_uid, f"UID:{_r2_uid[:6]}")
                     _name_grp2.setdefault(_r2_name, []).append(_r2)
 
                 with st.container(height=320):
