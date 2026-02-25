@@ -8911,6 +8911,59 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     "- 절대 하면 안 되는 행동 (합의 서명 금지 등)\n"
                     "⚠️ 최종 과실비율은 분쟁심의위원회/법원 판결에 따르며 본 답변은 참고용입니다.")
         with col2:
+            # ── 과실비율 인정기준 PDF 뷰어 ───────────────────────────────────
+            st.markdown("""<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:8px;
+  font-weight:900;font-size:0.90rem;color:#1a3a5c;">
+📄 자동차사고 과실비율 인정기준 (금융감독원·손해보험협회)
+</div>""", unsafe_allow_html=True)
+            # Supabase Storage에서 PDF URL 조회
+            _pdf_url = ""
+            _pdf_filename = "230630_자동차사고 과실비율 인정기준_최종.pdf"
+            try:
+                _sb_cl = _get_sb_client()
+                if _sb_cl:
+                    _sb_base = (
+                        os.environ.get("SUPABASE_URL", "").strip()
+                        or st.secrets.get("SUPABASE_URL", "")
+                        or st.secrets.get("supabase", {}).get("url", "")
+                    ).rstrip("/")
+                    if _sb_base:
+                        _pdf_url = f"{_sb_base}/storage/v1/object/public/{SB_BUCKET}/{_pdf_filename}"
+            except Exception:
+                pass
+            if _pdf_url:
+                components.html(
+                    f'<iframe src="{_pdf_url}" width="100%" height="700" '
+                    f'style="border:1px solid #b3d4f5;border-radius:8px;" '
+                    f'allow="fullscreen"></iframe>',
+                    height=715,
+                    scrolling=False,
+                )
+                st.markdown(
+                    f"<div style='text-align:right;margin-top:4px;'>"
+                    f"<a href='{_pdf_url}' target='_blank' style='font-size:0.78rem;"
+                    f"color:#1e6fa8;font-weight:700;text-decoration:none;'>"
+                    f"⬇️ PDF 새 탭에서 열기 ↗</a></div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.info(
+                    "📌 **과실비율 인정기준 PDF**\n\n"
+                    "REG 시스템(문서 등록)에서 아래 파일명으로 업로드하면 이 위치에 자동 표시됩니다:\n\n"
+                    f"`{_pdf_filename}`\n\n"
+                    "업로드 경로: **문서 등록 탭 → 신규상품 폴더** 또는 루트 경로"
+                )
+                st.markdown(
+                    "<div style='background:#fef9e7;border:1px solid #f1c40f;border-radius:7px;"
+                    "padding:8px 12px;font-size:0.79rem;color:#7d6608;margin-top:6px;'>"
+                    "💡 임시 대안: 손해보험협회 과실비율 분쟁심의위원회 사이트에서 직접 확인 가능<br>"
+                    "<a href='https://accident.knia.or.kr' target='_blank' "
+                    "style='color:#1e6fa8;font-weight:700;'>🔗 accident.knia.or.kr ↗</a>"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+            st.markdown("---")
             st.markdown("##### 📋 자동차사고 상담 절차")
             components.html("""
 <div style="height:420px;overflow-y:auto;padding:12px 15px;
@@ -9843,6 +9896,68 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • <b>성공보수 약정 전 반드시 업무 범위 확인</b> — 불법 약정은 무효<br>
 </div>
 """, height=680)
+                # ── 간병인 컨설팅 주의 안내 박스 ────────────────────────────────
+                st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin-top:16px;margin-bottom:8px;
+  font-weight:900;font-size:0.90rem;color:#7d3c00;">
+🧑‍⚕️ 간병인사용·간병인 지원 컨설팅 주의사항 (설계사 전용)
+</div>""", unsafe_allow_html=True)
+                components.html("""
+<div style="height:500px;overflow-y:auto;padding:14px 18px;
+  background:#fffdf9;border:2px solid #e67e22;border-radius:10px;
+  font-size:0.81rem;line-height:1.78;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+
+<!-- 설계사 점검 POINT -->
+<div style="background:#e67e22;color:#fff;border-radius:6px;padding:4px 12px;
+  font-size:0.86rem;font-weight:900;margin-bottom:10px;display:inline-block;">
+  ✅ 설계사 점검 POINT — 지원형 vs 사용형 구분
+</div><br>
+
+<b style="color:#c0392b;">▶ 간병인 지원형</b><br>
+보험사가 직접 간병인 파견. <b>인건비 상승에 따른 리스크를 보험사가 부담</b>합니다 (갱신형 구조).<br><br>
+
+<b style="color:#1e6fa8;">▶ 간병인 사용형</b><br>
+고객이 간병인을 쓰고 영수증 청구 → 정해진 금액(예: 1일 15만원) 지급.<br>
+<b>인건비가 오르면 고객의 자부담이 늘어나는 구조</b>임을 반드시 설명해야 합니다.<br><br>
+
+<div style="background:#fef9e7;border-left:3px solid #f1c40f;padding:6px 10px;
+  border-radius:0 5px 5px 0;margin-bottom:10px;">
+<b style="color:#7d6608;">▶ '간병인'의 법적 범위</b><br>
+사업자 등록을 한 업체 소속인지, 단순 개인 간병인인지에 따라 <b>지급 여부 판단</b>이 달라집니다.<br><br>
+<b>시설급여 vs 재가급여 매칭:</b> 치매·노인성 질환 대비 시, 장기요양등급(1~5등급) 판정 시
+지급되는 급여금과 <b>연동 여부를 반드시 체크</b>하십시오.
+</div>
+
+<!-- 고객 점검 포인트 -->
+<div style="background:#c0392b;color:#fff;border-radius:6px;padding:4px 12px;
+  font-size:0.86rem;font-weight:900;margin-bottom:10px;display:inline-block;">
+  🔍 고객 점검 포인트 — 보상 거절 위험 요인
+</div><br>
+
+<b style="color:#c0392b;">① 입원 목적의 적정성 (대법원 2008다46624)</b><br>
+단순히 <b>'돌볼 사람이 없어서'</b> 입원하여 간병인을 사용하는 경우,<br>
+보험사는 <b>'치료 목적의 입원'이 아니라고 판단</b>하여 보상 거절할 수 있습니다.<br>
+<div style="background:#fdf2f8;border:1.5px solid #e74c3c;border-radius:6px;padding:6px 10px;margin:6px 0 10px 0;font-size:0.79rem;">
+⚕️ <b>손해사정 팁:</b> 진료기록부에<br>
+<i>"집중적인 투약 및 처치가 필요하여 입원함"</i><br>
+이라는 의사 소견이 <b>반드시 뒷받침되어야</b> 안전합니다.
+</div>
+
+<b style="color:#c0392b;">② 간호·간병 통합서비스 구역 확인</b><br>
+<b>'간호·간병 통합서비스'</b> 병동 입원 시, 일반 간병인 일당(소액 ~15만원) 지급 특약이 많습니다.<br>
+병동 구분 여부를 사전에 확인하고 설계에 반영하십시오.<br><br>
+
+<b style="color:#c0392b;">③ 영수증 및 증빙서류의 규격</b><br>
+<div style="background:#fff3e0;border:1.5px solid #e67e22;border-radius:6px;padding:7px 11px;margin-top:4px;font-size:0.79rem;">
+⚠️ <b>개인 간병인에게 현금으로 지급한 경우:</b><br>
+• 증빙이 어려워 <b>보상 거절 사례 多</b><br>
+• 반드시 <b>사업자 번호 있는 업체</b>를 통해 이용해야 합니다<br>
+• 법적 효력 있는 <b>세금계산서 또는 현금영수증</b> 확보 필수
+</div>
+
+</div>
+""", height=530)
                 with st.expander("🧮 간병비 산출기 바로가기", expanded=False):
                     if st.button("💰 간병비 산출기로 이동", key="nursing_ai_to_calc"):
                         st.session_state["_nursing_sub_goto"] = "🧮 간병비 산출기"
