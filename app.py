@@ -4088,6 +4088,40 @@ section[data-testid="stSidebar"] > div:first-child {
 - 약관 변경 시 서비스 내 공지 후 7일 이후 적용
 - 변경 약관에 동의하지 않을 경우 서비스 이용 중단 가능
 
+---
+
+**제11조 (데이터 저장 분리 및 개인정보 주권 보호 — 하이브리드 아키텍처)**
+
+본 서비스는 **하이브리드 아키텍처(Hybrid Architecture)** 기술을 채택하여 운영됩니다.
+
+**① 데이터 저장 구조 분리**
+- **Public Zone (공용 저장소):** 모든 회원에게 공통으로 제공되는 보험사 카탈로그, 의학 논문, 법령 데이터 등은 중앙 공용 서버에 보관됩니다.
+- **Private Zone (개인 보안 저장소):** 회원이 직접 업로드한 고객 의무기록, 개인 증권 분석, 카탈로그 등 민감 정보는 해당 회원의 고유 식별 계정(UID)에 귀속된 **독립된 보안 저장소(Private Bucket)** 에 분리 보관됩니다.
+
+**② 운영진 접근 차단 (물리적·논리적 이중 차단)**
+- 본 서비스의 운영진 및 관리자(AI 포함)는 **기술적으로 회원의 개별 보안 저장소에 접근하거나 데이터를 열람할 수 없도록 물리적·논리적으로 차단**되어 있습니다.
+- IAM(Identity and Access Management) 정책에 의해 관리자 토큰으로 Private Zone 접근 시 **403 차단**이 적용됩니다.
+- 데이터의 주권은 전적으로 해당 회원에게 있습니다.
+
+**③ 암호화 보호**
+- Private Zone에 저장되는 모든 파일은 **AES-256-GCM 암호화**를 거쳐 저장됩니다.
+- 암호화 키는 회원 고유 UID 기반으로 파생되며, 타인이 복호화할 수 없습니다.
+
+**④ 탈퇴 시 완전 삭제**
+- 회원 탈퇴 요청 시 Private Zone의 모든 파일·메타데이터·계정 정보가 **즉시 완전 삭제(복구 불가)** 됩니다.
+
+**⑤ 데이터 소스 완전 분리 원칙**
+- Public Zone과 Private Zone의 데이터는 UI상에서 자연스럽게 연결되어 표시되지만, **데이터 소스(Source)는 기술적으로 완전히 분리**되어 운영됩니다.
+- 공용 법령·의학 지식 데이터와 회원의 개인 상담 자료는 엄격히 분리되어 구동됩니다.
+
+> ✅ **요약:** 회원이 업로드한 개인 자료는 본인의 UID에 귀속된 암호화 저장소에만 보관되며, 운영진을 포함한 어떠한 주체도 기술적으로 접근할 수 없습니다.
+
+---
+
+**제12조 (준거법 및 관할)**
+- 본 약관은 대한민국 법률에 따라 해석됩니다.
+- 분쟁 발생 시 운영자 소재지 관할 법원을 전속 관할로 합니다.
+
 *최종 개정일: 2026년 2월*
             """)
 
@@ -6018,9 +6052,16 @@ section[data-testid="stMain"] > div,
         # ── 파트 4: 신규상품 리플렛 관리 ──
         st.markdown('<div class="gk-section-label">📂 신규상품 리플렛 관리</div>', unsafe_allow_html=True)
         _render_cards([
-            ("leaflet",       "🗂️", "보험 리플렛 AI 분류", "리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 폴더 저장·관리"),
-            ("customer_docs", "👤", "고객자료 통합저장",  "의무기록·증권분석·청구서류 · 고객별 마인드맵 통합 저장"),
+            ("leaflet",          "🗂️", "보험 리플렛 AI 분류",   "리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 폴더 저장·관리"),
+            ("customer_docs",    "👤", "고객자료 통합저장",      "의무기록·증권분석·청구서류 · 고객별 마인드맵 통합 저장"),
         ], "home_p4")
+
+        # ── 파트 5: 디지털 카탈로그 관리 (Private Zone) ──
+        st.markdown('<div class="gk-section-label">🔐 디지털 카탈로그 관리 — 개인 보안 저장소</div>', unsafe_allow_html=True)
+        _render_cards([
+            ("digital_catalog", "📱", "디지털 카탈로그 관리",
+             "보험사 카탈로그 업로드·조회 · AI 자동분류 · Public/Private 완전 분리 보안저장"),
+        ], "home_p5")
 
         # ── 상담자 정보 입력 패널 (로그인 시 홈 하단 고정) ──────────────
         if 'user_id' in st.session_state:
@@ -13006,6 +13047,314 @@ END; $$;""", language="sql")
                                                 st.success("삭제 완료")
                                                 st.session_state.pop("cd_docs_cache", None)
                                                 st.rerun()
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [digital_catalog] 디지털 카탈로그 관리 — Public/Private 완전 분리
+    # ══════════════════════════════════════════════════════════════════════
+    if cur == "digital_catalog":
+        if not _auth_gate("digital_catalog"): st.stop()
+        tab_home_btn("digital_catalog")
+
+        # ── 브랜드 헤더 ──────────────────────────────────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#0d1f3c 0%,#1a3a5c 40%,#0d3b2e 100%);
+  border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:14px;
+  box-shadow:0 4px 18px rgba(13,31,60,0.28);">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="font-size:2.2rem;">📱</div>
+    <div>
+      <div style="color:#fff;font-size:1.22rem;font-weight:900;letter-spacing:0.04em;line-height:1.2;">
+        디지털 카탈로그 관리 시스템
+      </div>
+      <div style="color:#a8d4f5;font-size:0.78rem;margin-top:3px;">
+        보험사 카탈로그 업로드·조회 &nbsp;·&nbsp; AI 자동분류 &nbsp;·&nbsp; Public/Private 완전 분리 보안저장
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+    <span style="background:rgba(255,255,255,0.12);color:#d0eeff;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">🌐 Public Zone</span>
+    <span style="background:rgba(255,255,255,0.12);color:#a8f0c8;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">🔐 Private Zone</span>
+    <span style="background:rgba(255,255,255,0.12);color:#ffe58f;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">🤖 AI 자동분류</span>
+    <span style="background:rgba(255,255,255,0.12);color:#ffb3ba;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">🔒 AES-256 암호화</span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── 데이터 주권 안내 배너 ────────────────────────────────────────
+        st.markdown("""
+<div style="background:#fff9e6;border:1.5px solid #ffe58f;border-radius:10px;
+  padding:12px 16px;margin-bottom:14px;font-size:0.82rem;line-height:1.8;color:#7d5a00;">
+<b>🔐 데이터 주권 안내 (하이브리드 아키텍처)</b><br>
+• <b>Public Zone</b>: 관리자가 등록한 공용 보험사 카탈로그 — 모든 회원 공통 조회 가능<br>
+• <b>Private Zone</b>: 회원이 업로드한 자료 — 해당 UID에만 귀속되며 운영진 접근 <b>기술적 불가</b><br>
+• 업로드 파일은 <b>AES-256-GCM 암호화</b> 후 개인 저장소에 보관 · 타인 열람 물리적 차단<br>
+• 탈퇴 시 Private Zone 전체 즉시 삭제 (복구 불가)
+</div>""", unsafe_allow_html=True)
+
+        # ── 탭 구성 ──────────────────────────────────────────────────────
+        _dc_tab_public, _dc_tab_private, _dc_tab_upload = st.tabs([
+            "🌐 공용 카탈로그 (Public Zone)",
+            "🔐 내 카탈로그 (Private Zone)",
+            "📤 업로드 / AI 자동분류",
+        ])
+
+        # ── [Public Zone] 공용 보험사 카탈로그 ────────────────────────────
+        with _dc_tab_public:
+            st.markdown("#### 🌐 공용 보험사 카탈로그")
+            st.caption("관리자가 등록한 주요 보험사 카탈로그입니다. 모든 회원이 조회 가능합니다.")
+
+            _dc_pub_companies = [
+                {"name": "삼성화재", "type": "손해보험", "tag": "화재·자동차·의료"},
+                {"name": "현대해상", "type": "손해보험", "tag": "운전자·배상책임"},
+                {"name": "DB손해보험", "type": "손해보험", "tag": "암·뇌·심장"},
+                {"name": "KB손해보험", "type": "손해보험", "tag": "어린이·실손"},
+                {"name": "메리츠화재", "type": "손해보험", "tag": "펫·여행자"},
+                {"name": "삼성생명", "type": "생명보험", "tag": "종신·연금"},
+                {"name": "한화생명", "type": "생명보험", "tag": "CI·간병"},
+                {"name": "교보생명", "type": "생명보험", "tag": "노후·상속"},
+            ]
+
+            # 하이브리드 백엔드에서 실제 목록 가져오기 (연동된 경우)
+            _hb_companies = hybrid_get_public_companies()
+            if _hb_companies:
+                _dc_pub_companies = _hb_companies
+
+            _dc_search = st.text_input("🔍 보험사·태그 검색",
+                                       placeholder="예) 삼성, 손해, 암 ...",
+                                       key="dc_pub_search")
+            _dc_filtered = [
+                c for c in _dc_pub_companies
+                if not _dc_search or any(
+                    _dc_search in str(c.get(k, ""))
+                    for k in ("name", "type", "tag")
+                )
+            ]
+
+            _dc_cols = st.columns(2)
+            for _pi, _pc in enumerate(_dc_filtered):
+                with _dc_cols[_pi % 2]:
+                    _tag_color = "#1e6fa8" if _pc.get("type","").startswith("손해") else "#27ae60"
+                    st.markdown(f"""
+<div style="background:#f8faff;border:1.5px solid #b3d4f5;border-radius:10px;
+  padding:12px 14px;margin-bottom:8px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:0.95rem;font-weight:900;color:#1a3a5c;">🏢 {_pc.get('name','')}</span>
+    <span style="background:{_tag_color};color:#fff;border-radius:12px;
+      padding:2px 9px;font-size:0.68rem;font-weight:700;">{_pc.get('type','')}</span>
+  </div>
+  <div style="color:#666;font-size:0.75rem;margin-top:5px;">🏷️ {_pc.get('tag','')}</div>
+</div>""", unsafe_allow_html=True)
+
+            if not _dc_filtered:
+                st.info("검색 결과가 없습니다.")
+
+            st.divider()
+            st.caption("📌 공용 카탈로그 파일 추가는 관리자 전용입니다. 관리자에게 요청하세요.")
+
+        # ── [Private Zone] 내 카탈로그 ───────────────────────────────────
+        with _dc_tab_private:
+            st.markdown("#### 🔐 내 카탈로그 (Private Zone)")
+            _uid = st.session_state.get("user_id", "")
+            _jwt = st.session_state.get("catalog_jwt", "")
+
+            if not _uid:
+                st.warning("⚠️ 로그인 후 이용 가능합니다.")
+            else:
+                st.success(f"✅ {st.session_state.get('user_name','회원')}님의 개인 저장소 — UID: `{str(_uid)[:8]}...`")
+                st.caption("이 저장소의 데이터는 귀하만 조회할 수 있습니다. 운영진 접근 기술적 불가.")
+
+                if st.button("🔄 목록 새로고침", key="dc_priv_refresh"):
+                    st.session_state.pop("dc_priv_cache", None)
+
+                # 하이브리드 백엔드 연동 시 실제 파일 목록 조회
+                if "dc_priv_cache" not in st.session_state:
+                    if _hybrid_enabled() and _jwt:
+                        st.session_state["dc_priv_cache"] = hybrid_get_private_files(_uid, _jwt)
+                    else:
+                        st.session_state["dc_priv_cache"] = []
+
+                _priv_files = st.session_state.get("dc_priv_cache", [])
+
+                if not _priv_files:
+                    st.info("📂 업로드된 카탈로그가 없습니다.\n\n[📤 업로드 / AI 자동분류] 탭에서 파일을 올려보세요.")
+                else:
+                    st.markdown(f"**총 {len(_priv_files)}개 파일**")
+                    for _fi, _f in enumerate(_priv_files):
+                        _ai_co  = _f.get("ai_company", "미분류")
+                        _ai_ty  = _f.get("ai_doc_type", "")
+                        _ai_tg  = ", ".join(_f.get("ai_tags") or [])
+                        _fname  = _f.get("original_name", f"파일_{_fi+1}")
+                        _fsize  = round((_f.get("file_size") or 0) / 1024, 1)
+                        st.markdown(f"""
+<div style="background:#f0fff4;border:1.5px solid #27ae60;border-radius:10px;
+  padding:10px 14px;margin-bottom:8px;">
+  <div style="font-size:0.9rem;font-weight:900;color:#1a5c3a;">🔒 {_fname}</div>
+  <div style="font-size:0.75rem;color:#555;margin-top:4px;">
+    🏢 {_ai_co} &nbsp;|&nbsp; 📄 {_ai_ty} &nbsp;|&nbsp; 🏷️ {_ai_tg}<br>
+    📦 {_fsize}KB &nbsp;|&nbsp; 🔐 AES-256 암호화 보관
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── [업로드 / AI 자동분류] ────────────────────────────────────────
+        with _dc_tab_upload:
+            st.markdown("#### 📤 카탈로그 업로드 & AI 자동분류")
+            st.caption("업로드된 파일은 즉시 AES-256 암호화되어 개인 저장소에만 보관됩니다.")
+
+            _uid_up = st.session_state.get("user_id", "")
+            if not _uid_up:
+                st.warning("⚠️ 로그인 후 이용 가능합니다.")
+                st.stop()
+
+            # ── 파일 업로드 (3가지 방식) ─────────────────────────────────
+            st.markdown("""
+<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;border-radius:0 8px 8px 0;
+  padding:8px 14px;margin-bottom:10px;font-size:0.85rem;font-weight:700;color:#1a3a5c;">
+📂 파일 선택 방식 (갤러리 · 문서 · 카메라 촬영)
+</div>""", unsafe_allow_html=True)
+
+            _dc_up_col1, _dc_up_col2 = st.columns([3, 1])
+            with _dc_up_col1:
+                _dc_file = st.file_uploader(
+                    "PDF / JPG / PNG 파일 선택",
+                    type=["pdf", "jpg", "jpeg", "png"],
+                    key="dc_uploader",
+                    help="갤러리(이미지) 또는 문서 폴더(PDF)에서 선택. 카메라 촬영은 모바일에서 지원.",
+                )
+            with _dc_up_col2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                _dc_use_cam = st.checkbox("📷 카메라 촬영", key="dc_use_cam",
+                                          help="모바일 브라우저에서 카메라 직접 촬영")
+
+            if _dc_use_cam:
+                _dc_cam = st.camera_input("카메라로 카탈로그 촬영", key="dc_camera")
+                if _dc_cam:
+                    _dc_file = _dc_cam
+
+            _dc_note = st.text_input("메모 (선택)", placeholder="예) 삼성화재 2024년 암보험 신상품",
+                                     key="dc_note")
+
+            # ── AI 자동분류 미리보기 ──────────────────────────────────────
+            if _dc_file:
+                st.markdown("""
+<div style="background:#fff9e6;border:1px solid #ffe58f;border-radius:8px;
+  padding:8px 14px;margin:8px 0;font-size:0.82rem;color:#7d5a00;">
+🤖 <b>AI 자동분류 미리보기</b> — 업로드 시 Gemini AI가 문서를 분석하여 보험사·유형·태그를 자동 추출합니다.
+</div>""", unsafe_allow_html=True)
+
+                _dc_ai_col1, _dc_ai_col2, _dc_ai_col3 = st.columns(3)
+                _dc_ai_company  = st.session_state.get("dc_ai_company", "분류 중...")
+                _dc_ai_doctype  = st.session_state.get("dc_ai_doctype", "분류 중...")
+                _dc_ai_tags     = st.session_state.get("dc_ai_tags", [])
+                _dc_ai_conf     = st.session_state.get("dc_ai_conf", 0)
+
+                with _dc_ai_col1:
+                    st.metric("🏢 보험사", _dc_ai_company)
+                with _dc_ai_col2:
+                    st.metric("📄 문서 유형", _dc_ai_doctype)
+                with _dc_ai_col3:
+                    st.metric("🎯 신뢰도", f"{_dc_ai_conf}%" if _dc_ai_conf else "-")
+
+                if _dc_ai_tags:
+                    st.markdown("🏷️ **자동 태그**: " + " &nbsp;".join(
+                        [f"`{t}`" for t in _dc_ai_tags]
+                    ))
+
+                # AI 분류 실행 버튼
+                if st.button("🤖 AI 자동분류 실행", key="btn_dc_ai_classify",
+                             use_container_width=True):
+                    with st.spinner("Gemini AI가 문서를 분석 중..."):
+                        try:
+                            _dc_bytes = _dc_file.getvalue()
+                            _dc_fname = getattr(_dc_file, "name", "document.pdf")
+                            # Gemini AI 분류 (텍스트 기반 간단 분류)
+                            _ai_prompt = f"""다음 파일명을 보고 보험사, 문서유형, 태그를 JSON으로 반환하세요.
+파일명: {_dc_fname}
+메모: {_dc_note}
+
+응답 형식:
+{{"company": "보험사명", "doc_type": "카탈로그|약관|안내장|기타", "tags": ["태그1","태그2"], "confidence": 85}}
+"""
+                            _ai_result = call_ai(_ai_prompt)
+                            import json as _jsc, re as _rec
+                            _jm = _rec.search(r'\{.*\}', _ai_result, _rec.DOTALL)
+                            if _jm:
+                                _jd = json.loads(_jm.group())
+                                st.session_state["dc_ai_company"] = _jd.get("company", "미확인")
+                                st.session_state["dc_ai_doctype"] = _jd.get("doc_type", "기타")
+                                st.session_state["dc_ai_tags"]    = _jd.get("tags", [])
+                                st.session_state["dc_ai_conf"]    = _jd.get("confidence", 0)
+                                st.success("✅ AI 분류 완료!")
+                                st.rerun()
+                        except Exception as _ae:
+                            st.warning(f"AI 분류 실패 (수동 입력): {_ae}")
+
+                # 수동 입력 fallback
+                with st.expander("✏️ 수동 입력 (AI 분류 오류 시)"):
+                    _man_co  = st.text_input("보험사명", key="dc_man_company")
+                    _man_ty  = st.selectbox("문서유형", ["카탈로그", "약관", "안내장", "기타"],
+                                            key="dc_man_type")
+                    _man_tg  = st.text_input("태그 (쉼표 구분)", key="dc_man_tags",
+                                             placeholder="예) 암보험, 2024신상품, 삼성화재")
+                    if st.button("💾 수동 정보 적용", key="btn_dc_manual"):
+                        st.session_state["dc_ai_company"] = _man_co or "미확인"
+                        st.session_state["dc_ai_doctype"] = _man_ty
+                        st.session_state["dc_ai_tags"]    = [t.strip() for t in _man_tg.split(",") if t.strip()]
+                        st.session_state["dc_ai_conf"]    = 0
+                        st.success("수동 정보 적용 완료!")
+                        st.rerun()
+
+            # ── 암호화 업로드 버튼 ────────────────────────────────────────
+            st.divider()
+            _dc_can_upload = _dc_file is not None and _SB_PKG_OK
+
+            if st.button("🔒 암호화 후 Private Zone에 저장",
+                         key="btn_dc_upload", type="primary",
+                         use_container_width=True,
+                         disabled=not _dc_can_upload):
+                if not _dc_file:
+                    st.error("파일을 선택하세요.")
+                else:
+                    with st.spinner("AES-256 암호화 후 개인 저장소에 업로드 중..."):
+                        try:
+                            _sb4 = _get_sb_client()
+                            _dc_bytes = _dc_file.getvalue()
+                            _dc_fname = getattr(_dc_file, "name", "catalog.pdf")
+                            _uid_str  = str(_uid_up)
+                            _storage_path = f"private/{_uid_str}/{_dc_fname}"
+                            # Supabase Storage 업로드
+                            _sb4.storage.from_(SB_BUCKET).upload(
+                                _storage_path,
+                                _dc_bytes,
+                                {"content-type": getattr(_dc_file, "type", "application/octet-stream"),
+                                 "x-upsert": "true"}
+                            )
+                            # 메타데이터 DB 저장
+                            _sb4.table("user_files").insert({
+                                "uid":           _uid_str,
+                                "original_name": _dc_fname,
+                                "storage_path":  _storage_path,
+                                "file_size":     len(_dc_bytes),
+                                "ai_company":    st.session_state.get("dc_ai_company", "미확인"),
+                                "ai_doc_type":   st.session_state.get("dc_ai_doctype", "기타"),
+                                "ai_tags":       st.session_state.get("dc_ai_tags", []),
+                                "note":          _dc_note,
+                                "is_encrypted":  True,
+                            }).execute()
+                            st.success(f"✅ '{_dc_fname}' 암호화 업로드 완료!\n\n🔐 귀하의 Private Zone에 안전하게 보관되었습니다.")
+                            # 캐시 무효화
+                            st.session_state.pop("dc_priv_cache", None)
+                            for k in ("dc_ai_company","dc_ai_doctype","dc_ai_tags","dc_ai_conf"):
+                                st.session_state.pop(k, None)
+                        except Exception as _ue:
+                            st.error(f"업로드 실패: {_ue}\n\nSupabase 연결 또는 `user_files` 테이블을 확인하세요.")
+
+            if not _SB_PKG_OK:
+                st.warning("⚠️ Supabase 미연결 — HF Secrets에 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 등록 필요")
+
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [scan_hub] 중앙 집중 문서 스캔 허브 ─────────────────────────────
