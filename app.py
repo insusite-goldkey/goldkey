@@ -10128,8 +10128,113 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         st.info(f"⚠️ **{_wn}** — 실패 {_wc}회 (5회 시 잠금)")
 
             st.divider()
-            inner_tabs = st.tabs(["회원 관리", "RAG 지식베이스", "데이터 파기", "🤖 자율학습 에이전트", "📔 개발일지"])
+            inner_tabs = st.tabs(["📢 수정지시", "회원 관리", "RAG 지식베이스", "데이터 파기", "🤖 자율학습 에이전트", "📔 개발일지"])
+            # ── 탭[0]: 원격 수정지시 전용 패널 ─────────────────────────────
             with inner_tabs[0]:
+                st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c,#2e6da4);border-radius:10px;
+  padding:14px 18px;margin-bottom:14px;">
+  <span style="color:#fff;font-size:1rem;font-weight:900;">📢 원격 수정지시 채널</span><br>
+  <span style="color:#b3d4f5;font-size:0.78rem;">앱 수정 요청을 등록하면 개발자가 확인 후 반영합니다.</span>
+</div>""", unsafe_allow_html=True)
+
+                # ── 단축 버튼 (자주 쓰는 지시 1-클릭) ──────────────────────
+                st.markdown("**⚡ 자주 쓰는 수정 단축버튼**")
+                _qb_cols = st.columns(3)
+                _quick_directives = [
+                    ("🐛 버그 수정 요청",    "버그 수정 요청: [증상을 구체적으로 입력하세요]"),
+                    ("✨ 기능 추가 요청",    "기능 추가 요청: [추가할 기능을 설명하세요]"),
+                    ("🎨 UI 개선 요청",     "UI 개선 요청: [개선할 화면/항목을 설명하세요]"),
+                    ("📝 문구 수정 요청",   "문구 수정 요청: [현재 문구] → [변경할 문구]"),
+                    ("⚡ 성능 개선 요청",   "성능 개선 요청: [느린 기능/화면을 설명하세요]"),
+                    ("🔒 보안 이슈 보고",   "보안 이슈 보고: [이슈 내용을 설명하세요]"),
+                ]
+                for _qi, (_qlabel, _qtemplate) in enumerate(_quick_directives):
+                    with _qb_cols[_qi % 3]:
+                        if st.button(_qlabel, key=f"qdir_{_qi}", use_container_width=True):
+                            st.session_state["_dir_prefill"] = _qtemplate
+
+                st.divider()
+
+                # ── 지시 입력창 ──────────────────────────────────────────────
+                st.markdown("**📝 수정 지시 입력**")
+                _dir_prefill = st.session_state.pop("_dir_prefill", "")
+                with st.form("t9_directive_form", clear_on_submit=True):
+                    _dir_t9_content = st.text_area(
+                        "지시 내용",
+                        value=_dir_prefill,
+                        placeholder="예) 홈 화면 화재보험 카드를 맨 앞으로 이동해주세요.\n예) t2 탭에서 날짜 선택 위젯이 동작하지 않습니다.",
+                        height=130, key="t9_directive_input"
+                    )
+                    _dir_priority = st.selectbox(
+                        "우선순위", ["🔴 긴급", "🟠 높음", "🟡 보통", "🟢 낮음"],
+                        key="t9_dir_priority"
+                    )
+                    _dir_submit = st.form_submit_button("📤 지시 전송", use_container_width=True, type="primary")
+
+                if _dir_submit:
+                    if _dir_t9_content.strip():
+                        _full_content = f"[{_dir_priority}] {_dir_t9_content.strip()}"
+                        add_directive(_full_content)
+                        st.success("✅ 지시가 등록되었습니다. 개발자가 확인 후 처리합니다.")
+                        st.rerun()
+                    else:
+                        st.error("지시 내용을 입력해주세요.")
+
+                st.divider()
+
+                # ── 지시 목록 (최신순) ────────────────────────────────────────
+                _t9_dir_all = load_directives()
+                _t9_pending = [d for d in _t9_dir_all if d.get("status") == "대기"]
+                _t9_wip     = [d for d in _t9_dir_all if d.get("status") == "진행중"]
+                _t9_done    = [d for d in _t9_dir_all if d.get("status") == "완료"]
+
+                _dm1, _dm2, _dm3, _dm4 = st.columns(4)
+                _dm1.metric("전체",   f"{len(_t9_dir_all)}건")
+                _dm2.metric("🟡 대기", f"{len(_t9_pending)}건")
+                _dm3.metric("🔵 진행", f"{len(_t9_wip)}건")
+                _dm4.metric("✅ 완료", f"{len(_t9_done)}건")
+
+                if _t9_dir_all:
+                    if st.button("🗑️ 완료 항목 전체 삭제", key="btn_del_done_t9"):
+                        save_directives([d for d in _t9_dir_all if d.get("status") != "완료"])
+                        st.rerun()
+                    for _tdi, _td in enumerate(reversed(_t9_dir_all)):
+                        _real_tdi = len(_t9_dir_all) - 1 - _tdi
+                        _tds = _td.get("status", "대기")
+                        _tds_color = {"대기": "#f59e0b", "진행중": "#2e6da4", "완료": "#27ae60"}.get(_tds, "#888")
+                        with st.expander(
+                            f"[{_td.get('id','?')}] {_td.get('time','')}  |  {_tds}",
+                            expanded=(_tdi < 5 and _tds != "완료")
+                        ):
+                            st.markdown(
+                                f"<div style='background:#f8fafc;border-left:4px solid {_tds_color};"
+                                f"border-radius:6px;padding:10px 14px;font-size:0.9rem;"
+                                f"line-height:1.8;color:#1a1a2e;white-space:pre-wrap;'>"
+                                f"{sanitize_unicode(_td.get('content',''))}</div>",
+                                unsafe_allow_html=True
+                            )
+                            _tb1, _tb2, _tb3 = st.columns(3)
+                            with _tb1:
+                                if st.button("🔧 진행중", key=f"t9dir_prog_{_real_tdi}",
+                                             use_container_width=True, disabled=(_tds=="진행중")):
+                                    _t9_dir_all[_real_tdi]["status"] = "진행중"
+                                    save_directives(_t9_dir_all); st.rerun()
+                            with _tb2:
+                                if st.button("✅ 완료", key=f"t9dir_done_{_real_tdi}",
+                                             use_container_width=True, disabled=(_tds=="완료")):
+                                    _t9_dir_all[_real_tdi]["status"] = "완료"
+                                    save_directives(_t9_dir_all); st.rerun()
+                            with _tb3:
+                                if st.button("🗑️ 삭제", key=f"t9dir_del_{_real_tdi}",
+                                             use_container_width=True):
+                                    _t9_dir_all.pop(_real_tdi)
+                                    save_directives(_t9_dir_all); st.rerun()
+                else:
+                    st.info("등록된 지시가 없습니다.")
+
+            # ── 탭[1]: 회원 관리 ─────────────────────────────────────────────
+            with inner_tabs[1]:
                 members = load_members()
                 if members:
                     st.write(f"**총 회원수: {len(members)}명**")
@@ -10174,7 +10279,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     )
                 else:
                     st.info("등록된 회원이 없습니다.")
-            with inner_tabs[1]:
+            with inner_tabs[2]:
                 st.write("### 📚 AI 지식베이스 관리 (관리자 전용)")
                 st.caption("업로드한 문서는 **앱 재시작 후에도 영구 보존**되며 모든 사용자의 AI 상담에 자동 참조됩니다.")
 
@@ -10548,7 +10653,7 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
 </div>""", unsafe_allow_html=True)
                         else:
                             st.warning(f"'{_test_q}' 관련 자료 없음. 다른 키워드로 시도하세요.")
-            with inner_tabs[2]:
+            with inner_tabs[3]:
                 # ── 자가 진단 엔진 대시보드 ──────────────────────────────
                 _render_error_dashboard()
                 st.divider()
@@ -10599,7 +10704,7 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
                     except Exception as e:
                         st.error(f"파기 오류: {e}")
 
-            with inner_tabs[3]:
+            with inner_tabs[4]:
                 # ── 자율 학습 에이전트 대시보드 ─────────────────────────
                 st.write("### 🤖 전문가 자율 학습 에이전트")
                 st.caption(
@@ -10911,7 +11016,7 @@ END; $$;""", language="sql")
                         else:
                             st.info(f"'{_ea_srch}' 관련 지식 없음 — 자율 학습 실행 후 재시도")
 
-            with inner_tabs[4]:
+            with inner_tabs[5]:
                 # ── 📔 개발일지 (goldkey_ai_insu_Master / insuAi) ────────
                 st.markdown(f"""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
