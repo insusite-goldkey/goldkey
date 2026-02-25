@@ -13089,6 +13089,83 @@ END; $$;""", language="sql")
             st.warning("⚠️ 로그인 후 이용 가능합니다.")
             st.stop()
 
+        # ── 안내 버튼 ────────────────────────────────────────────────────
+        st.info(
+            "📋 **상담 카탈로그 사용법**\n\n"
+            "1️⃣ **디지털 카탈로그 관리** → 업로드 & AI 자동분류 탭에서 파일을 업로드하세요.\n"
+            "2️⃣ 업로드탭 하단 **관리 라이브러리 박스**에서 원하는 파일을 ✅ 체크 선택하세요.\n"
+            "3️⃣ 이 화면에서 선택한 파일이 **상단 고정 표시**되어 고객 상담용으로 바로 활용됩니다."
+        )
+
+        # ── 관리자 업로드 파일 선택 기능 ─────────────────────────────────
+        _cc_is_admin = st.session_state.get("is_admin", False)
+        _cc_sb = _get_sb_client()
+        _admin_rows = []
+        if _cc_sb:
+            try:
+                # 관리자가 올린 파일: 본인 UID와 다른 uid의 파일 목록
+                _all_rows = _cc_sb.table("user_files").select("*").order("created_at", desc=True).execute().data or []
+                _admin_rows = [r for r in _all_rows if r.get("uid", "") != str(_cc_uid)]
+            except Exception:
+                _admin_rows = []
+
+        if _admin_rows:
+            with st.expander(f"👨‍💼 관리자 업로드 카탈로그 선택 ({len(_admin_rows)}건) — 클릭하여 펼치기", expanded=False):
+                st.caption("관리자가 업로드한 카탈로그입니다. 체크하면 아래 상담 목록에 추가됩니다.")
+                _adm_col1, _adm_col2 = st.columns(2)
+                for _ai_idx, _ar in enumerate(_admin_rows):
+                    _ar_name = _ar.get("original_name", f"파일{_ai_idx+1}")
+                    _ar_co   = _ar.get("ai_company", "미분류")
+                    _ar_date = str(_ar.get("created_at", ""))[:10]
+                    _ar_fid  = _ar.get("file_id", "")
+                    _ar_key  = f"cc_adm_{_ar_fid}"
+                    _ar_already = _ar_fid in st.session_state.get("cc_selected_ids", [])
+                    with (_adm_col1 if _ai_idx % 2 == 0 else _adm_col2):
+                        _ar_chk = st.checkbox(
+                            f"{'✅' if _ar_already else '☐'} [{_ar_co}] {_ar_name[:35]}  ({_ar_date})",
+                            value=_ar_already, key=_ar_key
+                        )
+                        if _ar_chk and _ar_fid not in st.session_state.get("cc_selected_ids", []):
+                            st.session_state.setdefault("cc_selected_ids", []).append(_ar_fid)
+                            st.session_state.setdefault("cc_selected_rows", []).append(_ar)
+                        elif not _ar_chk:
+                            _ar_ids = st.session_state.get("cc_selected_ids", [])
+                            if _ar_fid in _ar_ids:
+                                _ar_idx2 = _ar_ids.index(_ar_fid)
+                                st.session_state["cc_selected_ids"].pop(_ar_idx2)
+                                if len(st.session_state.get("cc_selected_rows", [])) > _ar_idx2:
+                                    st.session_state["cc_selected_rows"].pop(_ar_idx2)
+
+        # ── 선택된 파일 상단 고정 표시 ───────────────────────────────────
+        _sel_rows = st.session_state.get("cc_selected_rows", [])
+        if _sel_rows:
+            st.markdown(f"### ⭐ 선택된 상담 자료 ({len(_sel_rows)}건)")
+            for _sr in _sel_rows:
+                _sr_name = _sr.get("original_name", "파일")
+                _sr_co   = _sr.get("ai_company", "미분류")
+                _sr_ty   = _sr.get("ai_doc_type", "")
+                _sr_sp   = _sr.get("storage_path", "")
+                _sr_ext  = _sr_name.rsplit(".", 1)[-1].lower() if "." in _sr_name else ""
+                _sr_url  = ""
+                try:
+                    _sr_sb = _get_sb_client()
+                    if _sr_sb and _sr_sp:
+                        _sr_sgn = _sr_sb.storage.from_(SB_BUCKET).create_signed_url(_sr_sp, 86400)
+                        _sr_url = _sr_sgn.get("signedURL", "") or _sr_sgn.get("signedUrl", "")
+                except Exception:
+                    pass
+                _sc1, _sc2 = st.columns([3, 1])
+                with _sc1:
+                    st.markdown(f"⭐ **{_sr_name}** &nbsp;|&nbsp; 🏢 {_sr_co} &nbsp;|&nbsp; 📄 {_sr_ty}")
+                with _sc2:
+                    if _sr_url:
+                        st.markdown(f'<a href="{_sr_url}" target="_blank" style="background:#e74c3c;color:#fff;border-radius:8px;padding:5px 14px;font-size:0.8rem;font-weight:700;text-decoration:none;">📂 열기</a>', unsafe_allow_html=True)
+            if st.button("❌ 선택 초기화", key="cc_clear_sel"):
+                st.session_state.pop("cc_selected_ids", None)
+                st.session_state.pop("cc_selected_rows", None)
+                st.rerun()
+            st.divider()
+
         # ── 검색 / 필터 ──────────────────────────────────────────────────
         _cc_col1, _cc_col2 = st.columns([3, 1])
         with _cc_col1:
@@ -13377,6 +13454,8 @@ END; $$;""", language="sql")
         # ── [업로드 & AI 자동분류] ────────────────────────────────────────
         with _dc_tab_upload:
             st.markdown("#### 📤 카탈로그 업로드 & AI 자동분류")
+            st.info("💡 **사용 안내:** 아래 박스에서 로딩한 카탈로그는 **상담 카탈로그 섹션**에서 보실 수 있습니다.\n"
+                        "🏠 아래 관리 박스에서 원하는 자료를 선택 후 → 상담 카탈로그 섹션에서 고객 상담용으로 활용하세요.")
 
             # 음성 안내 버튼 (누르면 읽어주기)
             import streamlit.components.v1 as _cmp_dc
@@ -13593,6 +13672,146 @@ END; $$;""", language="sql")
 
             if not _SB_PKG_OK:
                 st.warning("⚠️ Supabase 미연결 — HF Secrets에 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 등록 필요")
+
+            # ── 관리 박스: 월별×분류 라이브러리 ─────────────────────────
+            st.divider()
+            st.markdown("##### 🗂️ 업로드 자료 관리 라이브러리")
+            st.caption("📌 아래 라이브러리에서 파일을 선택하면 상담 카탈로그 섹션에서 표시 후 브라우저로 열람할 수 있습니다.")
+
+            # Supabase 전체 user_files 조회 (본인 + 관리자)
+            _lib_is_admin = st.session_state.get("is_admin", False)
+            _lib_uid = str(st.session_state.get("user_id", ""))
+            _lib_sb  = _get_sb_client()
+            _lib_rows = []
+            if _lib_sb:
+                try:
+                    if _lib_is_admin:
+                        _lib_rows = _lib_sb.table("user_files").select("*").order("created_at", desc=True).execute().data or []
+                    else:
+                        _lib_rows = _lib_sb.table("user_files").select("*").eq("uid", _lib_uid).order("created_at", desc=True).execute().data or []
+                except Exception:
+                    _lib_rows = []
+
+            # 월별 그룹화 함수
+            def _group_by_month(rows):
+                import collections
+                _m = collections.OrderedDict()
+                for r in rows:
+                    _ym = str(r.get("created_at",""))[:7] or "날짜미상"
+                    _m.setdefault(_ym, []).append(r)
+                return _m
+
+            _lib_box1 = [r for r in _lib_rows if r.get("ai_company","") not in ("","미확인","고객서류") or r.get("ai_doc_type","") in ("카탈로그","약관","안내장")]
+            _lib_box2 = [r for r in _lib_rows if r not in _lib_box1]
+
+            _lbc1, _lbc2 = st.columns(2, gap="small")
+
+            # ─ 라이브러리 박스 1: 보험사 카탈로그 ────────────────────
+            with _lbc1:
+                st.markdown("""
+<div style="background:#1a3a5c;color:#fff;border-radius:10px 10px 0 0;
+  padding:8px 14px;font-size:0.88rem;font-weight:900;">
+  🏢 보험사 카탈로그 &nbsp;<span style="font-size:0.72rem;font-weight:400;
+  color:#a8d4f5;">(관리자는 전체 대원 파일 표시)</span>
+</div>""", unsafe_allow_html=True)
+                _mg1 = _group_by_month(_lib_box1)
+                with st.container(height=320):
+                    if not _mg1:
+                        st.caption("📢 보험사 카탈로그가 없습니다. 업로드 후 표시됩니다.")
+                    for _ym1, _files1 in _mg1.items():
+                        _yr1, _mn1 = (_ym1[:4], _ym1[5:7]) if len(_ym1) >= 7 else (_ym1, "")
+                        st.markdown(f"""
+<div style="background:#2e6da4;color:#fff;border-radius:6px;
+  padding:4px 10px;margin:6px 0 3px 0;font-size:0.8rem;font-weight:700;">
+  📅 {_yr1}년 {_mn1}월 &nbsp;({len(_files1)}건)
+</div>""", unsafe_allow_html=True)
+                        # 보험사별 다시 그룹
+                        _co_grp1 = {}
+                        for _f1 in _files1:
+                            _co1 = _f1.get("ai_company","") or "미분류"
+                            _co_grp1.setdefault(_co1, []).append(_f1)
+                        for _co1, _cfiles1 in _co_grp1.items():
+                            with st.expander(f"🏢 {_co1} ({len(_cfiles1)}건)", expanded=False):
+                                for _fi1 in _cfiles1:
+                                    _fn1  = _fi1.get("original_name","파일")
+                                    _fid1 = _fi1.get("file_id","")
+                                    _sel_key1 = f"lib_sel_{_fid1}"
+                                    _already1 = _fid1 in st.session_state.get("cc_selected_ids", [])
+                                    _chk1 = st.checkbox(
+                                        f"{'✅' if _already1 else '☐'} {_fn1[:40]}",
+                                        value=_already1, key=_sel_key1
+                                    )
+                                    if _chk1 and _fid1 not in st.session_state.get("cc_selected_ids",[]):
+                                        st.session_state.setdefault("cc_selected_ids", []).append(_fid1)
+                                        st.session_state.setdefault("cc_selected_rows", []).append(_fi1)
+                                    elif not _chk1:
+                                        _ids = st.session_state.get("cc_selected_ids",[])
+                                        if _fid1 in _ids:
+                                            _idx = _ids.index(_fid1)
+                                            st.session_state["cc_selected_ids"].pop(_idx)
+                                            st.session_state.get("cc_selected_rows",[]).pop(_idx) if len(st.session_state.get("cc_selected_rows",[]))>_idx else None
+
+            # ─ 라이브러리 박스 2: 고객 서류 ──────────────────────────
+            with _lbc2:
+                st.markdown("""
+<div style="background:#0d3b2e;color:#fff;border-radius:10px 10px 0 0;
+  padding:8px 14px;font-size:0.88rem;font-weight:900;">
+  📁 고객 상담 서류 &nbsp;<span style="font-size:0.72rem;font-weight:400;
+  color:#a8e6cf;">(사고·질병·기타 상담)</span>
+</div>""", unsafe_allow_html=True)
+                _mg2 = _group_by_month(_lib_box2)
+                with st.container(height=320):
+                    if not _mg2:
+                        st.caption("📢 고객 서류가 없습니다.")
+                    for _ym2, _files2 in _mg2.items():
+                        _yr2, _mn2 = (_ym2[:4], _ym2[5:7]) if len(_ym2) >= 7 else (_ym2, "")
+                        st.markdown(f"""
+<div style="background:#1a6b4a;color:#fff;border-radius:6px;
+  padding:4px 10px;margin:6px 0 3px 0;font-size:0.8rem;font-weight:700;">
+  📅 {_yr2}년 {_mn2}월 &nbsp;({len(_files2)}건)
+</div>""", unsafe_allow_html=True)
+                        # 유형별 그룹 (사고/질병/기타)
+                        _ty_grp2 = {}
+                        for _f2 in _files2:
+                            _ty2 = _f2.get("ai_doc_type","") or "기타"
+                            _ty_grp2.setdefault(_ty2, []).append(_f2)
+                        for _ty2, _tfiles2 in _ty_grp2.items():
+                            with st.expander(f"📄 {_ty2} ({len(_tfiles2)}건)", expanded=False):
+                                for _fi2 in _tfiles2:
+                                    _fn2  = _fi2.get("original_name","파일")
+                                    _fid2 = _fi2.get("file_id","")
+                                    _sel_key2 = f"lib_sel_{_fid2}"
+                                    _already2 = _fid2 in st.session_state.get("cc_selected_ids", [])
+                                    _chk2 = st.checkbox(
+                                        f"{'✅' if _already2 else '☐'} {_fn2[:40]}",
+                                        value=_already2, key=_sel_key2
+                                    )
+                                    if _chk2 and _fid2 not in st.session_state.get("cc_selected_ids",[]):
+                                        st.session_state.setdefault("cc_selected_ids", []).append(_fid2)
+                                        st.session_state.setdefault("cc_selected_rows", []).append(_fi2)
+                                    elif not _chk2:
+                                        _ids2 = st.session_state.get("cc_selected_ids",[])
+                                        if _fid2 in _ids2:
+                                            _idx2 = _ids2.index(_fid2)
+                                            st.session_state["cc_selected_ids"].pop(_idx2)
+                                            st.session_state.get("cc_selected_rows",[]).pop(_idx2) if len(st.session_state.get("cc_selected_rows",[]))>_idx2 else None
+
+            # 선택 요약 바
+            _sel_cnt = len(st.session_state.get("cc_selected_ids", []))
+            if _sel_cnt > 0:
+                st.success(f"✅ **{_sel_cnt}개 선택됨** — 상담 카탈로그 섹션에서 확인하세요.")
+                _sc_col1, _sc_col2 = st.columns([2,1])
+                with _sc_col1:
+                    if st.button("📖 상담 카탈로그로 이동", key="btn_goto_consult",
+                                 use_container_width=True, type="primary"):
+                        st.session_state.current_tab = "consult_catalog"
+                        st.session_state["_scroll_top"] = True
+                        st.rerun()
+                with _sc_col2:
+                    if st.button("❌ 선택 초기화", key="btn_clear_sel", use_container_width=True):
+                        st.session_state.pop("cc_selected_ids", None)
+                        st.session_state.pop("cc_selected_rows", None)
+                        st.rerun()
 
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
