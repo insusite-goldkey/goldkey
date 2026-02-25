@@ -13408,13 +13408,13 @@ END; $$;""", language="sql")
 <span style="font-weight:400;">갤러리(이미지) &nbsp;·&nbsp; 문서 폴더(PDF) &nbsp;·&nbsp; 카메라 촬영(모바일)</span>
 </div>""", unsafe_allow_html=True)
 
-            # ── 드래그앤드롭 영역 — 외곽선 강화 ─────────────────────────
+            # ── 드래그앤드롭 안내 배너 (위젯과 분리된 순수 HTML) ──────────
             st.markdown("""
 <div style="border:3.5px solid #1e6fa8;border-radius:18px;
   background:linear-gradient(135deg,#dbeeff 0%,#c8e6ff 60%,#e8f4fb 100%);
-  padding:20px 22px 8px 22px;margin-bottom:12px;
+  padding:16px 20px 14px 20px;margin-bottom:4px;
   box-shadow:0 4px 18px rgba(30,111,168,0.22);">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
     <span style="font-size:2rem;">📂</span>
     <div>
       <div style="color:#0d2a4a;font-size:1.0rem;font-weight:900;line-height:1.4;">
@@ -13427,16 +13427,18 @@ END; $$;""", language="sql")
       </div>
     </div>
   </div>
-  <div style="background:rgba(30,111,168,0.08);border:2px dashed #2e6da4;
-    border-radius:12px;padding:10px 14px;margin-bottom:8px;text-align:center;
-    color:#1a3a5c;font-size:0.82rem;font-weight:700;">
-    ↓ &nbsp; Drag and drop file here &nbsp; ↓
-  </div>""", unsafe_allow_html=True)
+  <div style="background:rgba(30,111,168,0.10);border:2px dashed #2e6da4;
+    border-radius:10px;padding:8px 14px;text-align:center;
+    color:#1a3a5c;font-size:0.85rem;font-weight:700;">
+    ↓ &nbsp; Drag and drop file here &nbsp; (아래 박스에 파일을 올려주세요) &nbsp; ↓
+  </div>
+</div>""", unsafe_allow_html=True)
 
+            # ── file_uploader는 HTML 바깥 독립 위젯으로 배치 ──────────────
             _dc_up_col1, _dc_up_col2 = st.columns([4, 1])
             with _dc_up_col1:
                 _dc_files = st.file_uploader(
-                    "파일 전송하세요  (PDF / JPG / PNG — 여러 장 동시 선택 가능)",
+                    "📎 파일을 여기에 끌어다 놓거나 클릭하여 선택 (PDF / JPG / PNG)",
                     type=["pdf", "jpg", "jpeg", "png"],
                     accept_multiple_files=True,
                     key="dc_uploader",
@@ -13446,7 +13448,6 @@ END; $$;""", language="sql")
                 st.markdown("<br>", unsafe_allow_html=True)
                 _dc_use_cam = st.checkbox("📷 카메라\n촬영", key="dc_use_cam",
                                           help="모바일: 카메라로 직접 촬영")
-            st.markdown("</div>", unsafe_allow_html=True)
 
             if _dc_use_cam:
                 _dc_cam = st.camera_input("카메라로 카탈로그 촬영", key="dc_camera")
