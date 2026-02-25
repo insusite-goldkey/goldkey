@@ -5821,23 +5821,6 @@ section[data-testid="stMain"] > div,
                 st.session_state["_scroll_top"] = True
                 st.rerun()
 
-        # ── 파트 0: 상담 & LIFE 컨설팅 (최상단 고정) ──
-        st.markdown('<div class="gk-section-label">🌟 상담 &amp; LIFE 컨설팅</div>', unsafe_allow_html=True)
-        _render_cards([
-            ("t0",         "📋", "신규보험 상담",       "기존 보험증권 분석 · 보장 공백 진단 · 신규 컨설팅"),
-            ("life_cycle", "🔄", "LIFE CYCLE 백지설계", "인생 타임라인 시각화 상담자료 · 생존·상해·결혼·퇴직·노후 설계도"),
-        ], "home_p0")
-
-        # ── 파트 1: 보험 상담 (5개, 2열) ──
-        st.markdown('<div class="gk-section-label">🛡️ 보험 상담</div>', unsafe_allow_html=True)
-        PART1 = [
-            ("t1",  "💰", "보험금 상담",        "청구 절차 · 지급 거절 대응\n민원·손해사정·약관 해석"),
-            ("disability","🩺","장해보험금 산출","AMA·맥브라이드·호프만계수\n후유장해 보험금 산출"),
-            ("t2",  "🛡️", "기본보험 상담",      "자동차·화재·운전자\n일상배상체임 점검"),
-            ("t3",  "🏥", "질병·상해 통합보험",  "암·뇌·심장 3대질병 보장\n간병·치매·생명보험 설계"),
-            ("cancer","🎗️","암.뇌.심장질환 상담", "NGS·표적항암·면역항암·CAR-T\n뇌심장 치료비 보장 실무 분석"),
-            ("t4",  "🚗", "자동차사고 상담",    "과실비율·합의금 분석\n13대 중과실·민식이법 안내"),
-        ]
         def _render_cards(cards, prefix):
             import math as _math
             for row in range(_math.ceil(len(cards) / 2)):
@@ -5856,6 +5839,23 @@ section[data-testid="stMain"] > div,
                             st.session_state["_scroll_top"] = True
                             st.rerun()
 
+        # ── 파트 0: 상담 & LIFE 컨설팅 (최상단 고정) ──
+        st.markdown('<div class="gk-section-label">🌟 상담 &amp; LIFE 컨설팅</div>', unsafe_allow_html=True)
+        _render_cards([
+            ("t0",         "📋", "신규보험 상담",       "기존 보험증권 분석 · 보장 공백 진단 · 신규 컨설팅"),
+            ("life_cycle", "🔄", "LIFE CYCLE 백지설계", "인생 타임라인 시각화 상담자료 · 생존·상해·결혼·퇴직·노후 설계도"),
+        ], "home_p0")
+
+        # ── 파트 1: 보험 상담 (5개, 2열) ──
+        st.markdown('<div class="gk-section-label">🛡️ 보험 상담</div>', unsafe_allow_html=True)
+        PART1 = [
+            ("t1",  "💰", "보험금 상담",        "청구 절차 · 지급 거절 대응\n민원·손해사정·약관 해석"),
+            ("disability","🩺","장해보험금 산출","AMA·맥브라이드·호프만계수\n후유장해 보험금 산출"),
+            ("t2",  "🛡️", "기본보험 상담",      "자동차·화재·운전자\n일상배상체임 점검"),
+            ("t3",  "🏥", "질병·상해 통합보험",  "암·뇌·심장 3대질병 보장\n간병·치매·생명보험 설계"),
+            ("cancer","🎗️","암.뇌.심장질환 상담", "NGS·표적항암·면역항암·CAR-T\n뇌심장 치료비 보장 실무 분석"),
+            ("t4",  "🚗", "자동차사고 상담",    "과실비율·합의금 분석\n13대 중과실·민식이법 안내"),
+        ]
         _render_cards(PART1, "home_p1")
 
         # ── 파트 2: 자산·세무·법인 (6개, 2열×3행) ──
