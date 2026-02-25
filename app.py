@@ -11230,22 +11230,107 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     st.info("등록된 회원이 없습니다.")
             with inner_tabs[3]:
                 st.write("### 📚 AI 지식베이스 관리 (관리자 전용)")
-                st.caption("업로드한 문서는 **앱 재시작 후에도 영구 보존**되며 모든 사용자의 AI 상담에 자동 참조됩니다.")
 
-                # ── 현황 메트릭 ──────────────────────────────────────────
-                _db_chunk_cnt, _db_src_cnt, _db_last = _rag_db_get_stats()
-                _mc1, _mc2, _mc3 = st.columns(3)
-                _mc1.metric("📄 총 청크 수", f"{_db_chunk_cnt}개")
-                _mc2.metric("📁 등록 문서 수", f"{_db_src_cnt}건")
-                _mc3.metric("🕐 마지막 업데이트", _db_last)
-                if _db_chunk_cnt > 0:
-                    st.success(f"✅ {_db_chunk_cnt}개 청크 · {_db_src_cnt}건 문서가 SQLite에 영구 저장되어 AI 상담에 참조 중입니다.")
+                # ══════════════════════════════════════════════════════
+                # ① 정확한 현황 통계표 — Supabase 실시간 집계
+                # ══════════════════════════════════════════════════════
+                _sb3 = _get_sb_client() if _rag_use_supabase() else None
+                _stat_processed   = 0   # 처리완료 (청크 생성됨)
+                _stat_pending     = 0   # 미처리 (Storage에만 있음)
+                _stat_total_src   = 0   # 전체 소스 수
+                _stat_total_chunk = 0   # 전체 청크 수
+                _stat_last_upload = "없음"  # 마지막 업로드 시각
+                _stat_last_processed = "없음"  # 마지막 처리 완료 시각
+                _stat_error_cnt   = 0   # 에러 플래그 있는 소스
+
+                if _sb3:
+                    try:
+                        _all_src = _sb3.table("rag_sources").select(
+                            "id,filename,chunk_cnt,processed,uploaded,error_flag"
+                        ).order("uploaded", desc=True).execute().data or []
+                        _stat_total_src = len(_all_src)
+                        _stat_pending   = sum(1 for r in _all_src if not r.get("processed"))
+                        _stat_processed = _stat_total_src - _stat_pending
+                        _stat_error_cnt = sum(1 for r in _all_src if r.get("error_flag"))
+                        if _all_src:
+                            _stat_last_upload = _all_src[0].get("uploaded","없음")[:16]
+                        _done_rows = [r for r in _all_src if r.get("processed")]
+                        if _done_rows:
+                            _done_rows_sorted = sorted(_done_rows, key=lambda x: x.get("uploaded",""), reverse=True)
+                            _stat_last_processed = _done_rows_sorted[0].get("uploaded","없음")[:16]
+                        _chunk_res = _sb3.table("rag_docs").select("id", count="exact").execute()
+                        _stat_total_chunk = _chunk_res.count or 0
+                    except Exception:
+                        pass
                 else:
-                    st.info("📭 아직 업로드된 자료가 없습니다.")
+                    # SQLite 폴백
+                    _stat_total_chunk, _stat_total_src, _stat_last_upload = _rag_db_get_stats()
+                    _stat_processed = _stat_total_src
+
+                # 현황 통계 표
+                st.markdown("""<div style="background:linear-gradient(135deg,#1a3a5c,#2e6da4);
+  border-radius:10px;padding:10px 16px;margin-bottom:10px;">
+  <span style="color:#fff;font-size:0.95rem;font-weight:900;">📊 RAG 지식베이스 현황</span>
+</div>""", unsafe_allow_html=True)
+
+                _sm1, _sm2, _sm3, _sm4, _sm5, _sm6 = st.columns(6)
+                _sm1.metric("📁 전체 소스",   f"{_stat_total_src}건")
+                _sm2.metric("✅ 처리완료",     f"{_stat_processed}건")
+                _sm3.metric("⏳ 미처리대기",   f"{_stat_pending}건",
+                            delta=f"-{_stat_pending}건 처리필요" if _stat_pending else None,
+                            delta_color="inverse")
+                _sm4.metric("🔢 총 청크",      f"{_stat_total_chunk}개")
+                _sm5.metric("🕐 마지막 업로드", _stat_last_upload)
+                _sm6.metric("✅ 마지막 처리",   _stat_last_processed)
+
+                # 상태 배너
+                if _stat_pending > 0:
+                    st.warning(
+                        f"⚠️ **Storage에 미처리 파일 {_stat_pending}건**이 대기 중입니다. "
+                        f"아래 **'🔄 Storage 미처리 파일 즉시 처리'** 버튼을 눌러 청크를 생성하세요."
+                    )
+                elif _stat_total_chunk > 0:
+                    st.success(f"✅ {_stat_total_chunk}개 청크 · {_stat_processed}건 문서 — AI 상담에 참조 중")
+                else:
+                    st.info("📭 아직 등록된 자료가 없습니다. 아래에서 파일을 업로드하세요.")
+
+                if _stat_error_cnt > 0:
+                    st.error(f"❗ 에러 플래그 {_stat_error_cnt}건 감지 — 하단 자가진단 실행 권장")
+
+                # ══════════════════════════════════════════════════════
+                # ② Storage 미처리 파일 즉시 처리 섹션
+                # ══════════════════════════════════════════════════════
+                if _stat_pending > 0 and _sb3:
+                    st.divider()
+                    st.markdown("#### 🔄 Storage 미처리 파일 즉시 처리")
+                    # 미처리 파일 목록 표시
+                    _pending_list = [r for r in (_all_src if _sb3 else []) if not r.get("processed")]
+                    _pend_df = pd.DataFrame([{
+                        "파일명": r["filename"][:50],
+                        "업로드": r.get("uploaded","")[:16],
+                        "에러": r.get("error_flag","") or "",
+                    } for r in _pending_list])
+                    st.dataframe(_pend_df, use_container_width=True, hide_index=True)
+                    if st.button(
+                        f"🔄 위 {_stat_pending}건 즉시 텍스트추출·청크생성 실행",
+                        key="btn_rag_process_pending_now",
+                        type="primary", use_container_width=True
+                    ):
+                        with st.spinner(f"🔄 {_stat_pending}건 처리 중... 파일당 30초~2분 소요"):
+                            _ok2, _fail2 = _rag_process_pending()
+                        if _ok2 > 0:
+                            _rag_sync_from_db(force=True)
+                            st.session_state.rag_system = LightRAGSystem()
+                            st.success(f"✅ {_ok2}건 처리 완료! AI 상담에 즉시 반영됩니다. {'(실패: '+str(_fail2)+'건)' if _fail2 else ''}")
+                            st.rerun()
+                        else:
+                            st.error(f"처리 실패 {_fail2}건 — 파일 형식 또는 Supabase 연결 확인")
 
                 st.divider()
-                # ── 파일 업로드 ──────────────────────────────────────────
-                st.markdown("#### 📎 문서 업로드 (자동 분류·영구 저장)")
+                # ══════════════════════════════════════════════════════
+                # ③ 새 파일 업로드
+                # ══════════════════════════════════════════════════════
+                st.markdown("#### 📎 새 문서 업로드 (자동 분류·즉시 처리)")
                 _rag_upload_key = f"rag_uploader_admin_{st.session_state.get('_rag_upload_cnt', 0)}"
                 rag_files = st.file_uploader(
                     "PDF / DOCX / TXT / JPG / PNG — Gemini가 자동으로 분류·날짜·보험사를 추출합니다",
@@ -11261,74 +11346,78 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
                 _rbtn1, _rbtn2 = st.columns(2)
                 with _rbtn1:
-                    if rag_files and st.button("⚡ 즉시 등록 + 텍스트 추출 (한 번에 처리)", key="btn_rag_sync",
-                                               use_container_width=True, type="primary"):
-                        _added = 0
-                        _total = len(rag_files)
-                        _prog_bar = st.progress(0, text=f"0 / {_total} 처리 중...")
-                        for _fi, _uf in enumerate(rag_files):
-                            _prog_bar.progress(_fi / _total,
-                                text=f"[{_fi+1}/{_total}] {_uf.name[:40]} 처리 중...")
-                            try:
-                                _fbytes = _uf.getvalue()
-                                _fn_lower = _uf.name.lower()
-                                # 텍스트 추출
-                                _raw_text = ""
-                                if _fn_lower.endswith(".pdf"):
-                                    import tempfile as _tf2, pdfplumber as _plumb
-                                    with _tf2.NamedTemporaryFile(delete=False, suffix=".pdf") as _t2:
-                                        _t2.write(_fbytes); _t2p = _t2.name
-                                    try:
-                                        with _plumb.open(_t2p) as _pp:
-                                            _raw_text = sanitize_unicode("".join(p.extract_text() or "" for p in _pp.pages))
-                                    finally:
-                                        try: os.unlink(_t2p)
-                                        except Exception: pass
-                                elif _fn_lower.endswith(".docx"):
-                                    _raw_text = sanitize_unicode(process_docx(_uf))
-                                elif _fn_lower.endswith(".txt"):
-                                    _raw_text = _fbytes.decode("utf-8", errors="replace")
-                                elif _fn_lower.endswith((".jpg",".jpeg",".png")):
-                                    import base64 as _b64r
-                                    _img_b64r = _b64r.b64encode(_fbytes).decode()
-                                    _mime_r = "image/png" if _fn_lower.endswith(".png") else "image/jpeg"
-                                    _cl_r, _ = get_master_model()
-                                    _rr = _cl_r.models.generate_content(
-                                        model=GEMINI_MODEL,
-                                        contents=[{"role":"user","parts":[
-                                            {"inline_data":{"mime_type":_mime_r,"data":_img_b64r}},
-                                            {"text":"이 이미지의 모든 텍스트를 빠짐없이 추출하세요."}
-                                        ]}])
-                                    _raw_text = sanitize_unicode(_rr.text or "")
-                                else:
-                                    _raw_text = _fbytes.decode("utf-8", errors="replace")
+                    # 버튼은 항상 표시 — 파일이 없으면 클릭 시 안내
+                    if st.button("⚡ 즉시 등록 + 텍스트 추출 (한 번에 처리)", key="btn_rag_sync",
+                                 use_container_width=True, type="primary"):
+                        if not rag_files:
+                            st.warning("⚠️ 먼저 위에서 파일을 선택(드롭)한 후 버튼을 누르세요.")
+                        else:
+                            _added = 0
+                            _total = len(rag_files)
+                            _prog_bar = st.progress(0, text=f"0 / {_total} 처리 중...")
+                            for _fi, _uf in enumerate(rag_files):
+                                _prog_bar.progress(_fi / _total,
+                                    text=f"[{_fi+1}/{_total}] {_uf.name[:40]} 처리 중...")
+                                try:
+                                    _fbytes = _uf.getvalue()
+                                    _fn_lower = _uf.name.lower()
+                                    # 텍스트 추출
+                                    _raw_text = ""
+                                    if _fn_lower.endswith(".pdf"):
+                                        import tempfile as _tf2, pdfplumber as _plumb
+                                        with _tf2.NamedTemporaryFile(delete=False, suffix=".pdf") as _t2:
+                                            _t2.write(_fbytes); _t2p = _t2.name
+                                        try:
+                                            with _plumb.open(_t2p) as _pp:
+                                                _raw_text = sanitize_unicode("".join(p.extract_text() or "" for p in _pp.pages))
+                                        finally:
+                                            try: os.unlink(_t2p)
+                                            except Exception: pass
+                                    elif _fn_lower.endswith(".docx"):
+                                        _raw_text = sanitize_unicode(process_docx(_uf))
+                                    elif _fn_lower.endswith(".txt"):
+                                        _raw_text = _fbytes.decode("utf-8", errors="replace")
+                                    elif _fn_lower.endswith((".jpg",".jpeg",".png")):
+                                        import base64 as _b64r
+                                        _img_b64r = _b64r.b64encode(_fbytes).decode()
+                                        _mime_r = "image/png" if _fn_lower.endswith(".png") else "image/jpeg"
+                                        _cl_r, _ = get_master_model()
+                                        _rr = _cl_r.models.generate_content(
+                                            model=GEMINI_MODEL,
+                                            contents=[{"role":"user","parts":[
+                                                {"inline_data":{"mime_type":_mime_r,"data":_img_b64r}},
+                                                {"text":"이 이미지의 모든 텍스트를 빠짐없이 추출하세요."}
+                                            ]}])
+                                        _raw_text = sanitize_unicode(_rr.text or "")
+                                    else:
+                                        _raw_text = _fbytes.decode("utf-8", errors="replace")
 
-                                if _raw_text.strip():
-                                    _meta = _rag_classify_document(_raw_text, _uf.name)
-                                    _meta["category"] = _manual_cat or _meta.get("category", "보험약관")
-                                    if _manual_insurer:
-                                        _meta["insurer"] = _manual_insurer
-                                    _src_id = _rag_db_add_document(_raw_text, _uf.name, _meta)
-                                    if _src_id and _src_id > 0:
-                                        _added += 1
-                                        st.markdown(f"""
+                                    if _raw_text.strip():
+                                        _meta = _rag_classify_document(_raw_text, _uf.name)
+                                        _meta["category"] = _manual_cat or _meta.get("category", "보험약관")
+                                        if _manual_insurer:
+                                            _meta["insurer"] = _manual_insurer
+                                        _src_id = _rag_db_add_document(_raw_text, _uf.name, _meta)
+                                        if _src_id and _src_id > 0:
+                                            _added += 1
+                                            st.markdown(f"""
 <div style="background:#f0fff4;border-left:3px solid #27ae60;border-radius:6px;
   padding:6px 10px;margin-bottom:4px;font-size:0.78rem;">
 ✅ <b>{_uf.name}</b> — 텍스트 추출·분류·저장 완료<br>
 📂 분류: <b>{_meta.get('category','?')}</b> &nbsp;|&nbsp; 🏢 {_meta.get('insurer') or _manual_insurer or '미분류'} &nbsp;|&nbsp; 📅 {_meta.get('doc_date','')}<br>
 💬 요약: {_meta.get('summary','')[:60]}
 </div>""", unsafe_allow_html=True)
-                                else:
-                                    st.warning(f"⚠️ {_uf.name}: 텍스트 추출 결과가 비어있습니다.")
-                            except Exception as _ue:
-                                st.error(f"❌ {_uf.name}: {str(_ue)[:120]}")
-                        _prog_bar.progress(1.0, text=f"✅ {_added} / {_total} 처리 완료")
-                        if _added > 0:
-                            _rag_sync_from_db(force=True)
-                            st.session_state.rag_system = LightRAGSystem()
-                            st.success(f"🎉 {_added}건 즉시 등록 완료 — AI 상담에 바로 반영됩니다!")
-                            st.session_state['_rag_upload_cnt'] = st.session_state.get('_rag_upload_cnt', 0) + 1
-                            st.rerun()
+                                    else:
+                                        st.warning(f"⚠️ {_uf.name}: 텍스트 추출 결과가 비어있습니다.")
+                                except Exception as _ue:
+                                    st.error(f"❌ {_uf.name}: {str(_ue)[:120]}")
+                            _prog_bar.progress(1.0, text=f"✅ {_added} / {_total} 처리 완료")
+                            if _added > 0:
+                                _rag_sync_from_db(force=True)
+                                st.session_state.rag_system = LightRAGSystem()
+                                st.success(f"🎉 {_added}건 즉시 등록 완료 — AI 상담에 바로 반영됩니다!")
+                                st.session_state['_rag_upload_cnt'] = st.session_state.get('_rag_upload_cnt', 0) + 1
+                                st.rerun()
                 with _rbtn2:
                     if st.button("🗑️ 전체 초기화", key="btn_rag_clear", use_container_width=True):
                         _rag_db_clear_all()
