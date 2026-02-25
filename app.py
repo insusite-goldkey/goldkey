@@ -4174,29 +4174,26 @@ section[data-testid="stSidebar"] > div:first-child {
 """, height=0)
             st.divider()
             st.markdown("""
-<div style="background:linear-gradient(135deg,#f0f7ff 0%,#e8f4fd 100%);
-  border:1.5px solid #2e6da4;border-radius:12px;padding:10px 12px 4px 12px;
-  margin-bottom:8px;">
-  <div style="font-size:0.82rem;font-weight:900;color:#1a3a5c;margin-bottom:6px;">
-    🎁 회원가입 혜택
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:14px;padding:16px 16px 14px 16px;margin-bottom:10px;">
+  <div style="font-size:1.15rem;font-weight:900;color:#ffffff;
+    letter-spacing:0.03em;margin-bottom:12px;text-align:center;">
+    🎁 지금 가입하면 무료!
   </div>
-  <div style="height:160px;overflow-y:auto;font-size:0.76rem;color:#334155;line-height:1.75;
-    padding-right:4px;">
-    🆓 시스템 고도화 기간 전체 무료<br>
-    &nbsp;&nbsp;&nbsp;(~2026.08.31.까지)<br>
-    ✅ 매일 무료 AI 상담 10회<br>
-    &nbsp;&nbsp;&nbsp;(일일 10회 한도 · 데이터용량제한)<br>
-    ✅ 보험금 / 이미지 분석<br>
-    ✅ 상속 · 증여 · 주택연금 시뮬레이션<br>
-    ✅ 건보료 기반 소득 역산<br>
-    <hr style="border:none;border-top:1px solid #cbd5e1;margin:6px 0;">
-    <b style="color:#1a3a5c;">📦 지원 도구 제공</b><br>
-    🛡️ 보험 컨설팅 지원 도구<br>
-    💰 자산관리 컨설팅 지원 도구<br>
-    📊 세무 컨설팅 지원 도구<br>
-    🏢 법인 컨설팅 지원 도구<br>
-    🏘️ 부동산 컨설팅 지원 도구<br>
-    🏥 간병 컨설팅 지원 도구
+  <div style="background:rgba(255,255,255,0.12);border-radius:10px;
+    padding:12px 14px;margin-bottom:10px;">
+    <div style="font-size:1.05rem;font-weight:900;color:#ffd700;
+      margin-bottom:8px;">⏰ ~2026.08.31 한정</div>
+    <div style="font-size:1.0rem;font-weight:700;color:#ffffff;
+      line-height:2.0;">
+      ✅ 모든 기능 전체 무료<br>
+      ✅ AI 상담 매일 10회<br>
+      ✅ 보험·세무·자산·법인 도구
+    </div>
+  </div>
+  <div style="font-size:0.88rem;color:#b3d4f5;text-align:center;
+    font-weight:600;">
+    👇 아래에서 바로 가입하세요
   </div>
 </div>""", unsafe_allow_html=True)
 
