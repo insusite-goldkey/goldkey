@@ -7183,28 +7183,28 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
   🔍 관련 법조문 핵심 정리
 </div><br>
 
-<b style="color:#f39c12;">① 고지의무 위반 — 3년 제척기간 (상법 제651조)</b><br>
+<b style="color:#1a3a5c;">① 고지의무 위반 — 3년 제척기간 (상법 제651조)</b><br>
 해지권 소멸 조건 (둘 중 하나라도 해당 시 해지 불가):<br>
 • 보험사가 위반 사실을 <b>안 날로부터 1개월</b> 경과<br>
 • 보험계약 체결일로부터 <b>3년</b> 경과<br>
 • (약관 기준) 보험금 지급 사유 없이 <b>2년(진단계약 1년)</b> 경과<br><br>
 <table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:10px;">
-<tr style="background:#2e4a6a;"><th style="padding:4px 8px;text-align:left;">시점</th><th style="padding:4px 8px;text-align:left;">보험금</th><th style="padding:4px 8px;text-align:left;">계약</th></tr>
-<tr style="background:#1e3a54;"><td style="padding:4px 8px;">3년 미경과 + 인과관계 있음</td><td style="padding:4px 8px;color:#e74c3c;">부지급</td><td style="padding:4px 8px;color:#e74c3c;">해지</td></tr>
-<tr style="background:#1e3a54;"><td style="padding:4px 8px;">3년 미경과 + 인과관계 없음</td><td style="padding:4px 8px;color:#27ae60;">지급</td><td style="padding:4px 8px;color:#e74c3c;">해지</td></tr>
-<tr style="background:#1e3a54;"><td style="padding:4px 8px;">3년 경과 후</td><td style="padding:4px 8px;color:#27ae60;">원칙 지급</td><td style="padding:4px 8px;color:#27ae60;">해지 불가</td></tr>
+<tr style="background:#e8eef5;"><th style="padding:4px 8px;text-align:left;color:#1a3a5c;">시점</th><th style="padding:4px 8px;text-align:left;color:#1a3a5c;">보험금</th><th style="padding:4px 8px;text-align:left;color:#1a3a5c;">계약</th></tr>
+<tr style="background:#fff;"><td style="padding:4px 8px;color:#333;">3년 미경과 + 인과관계 있음</td><td style="padding:4px 8px;color:#c0392b;font-weight:700;">부지급</td><td style="padding:4px 8px;color:#c0392b;font-weight:700;">해지</td></tr>
+<tr style="background:#f8f8f8;"><td style="padding:4px 8px;color:#333;">3년 미경과 + 인과관계 없음</td><td style="padding:4px 8px;color:#27ae60;font-weight:700;">지급</td><td style="padding:4px 8px;color:#c0392b;font-weight:700;">해지</td></tr>
+<tr style="background:#fff;"><td style="padding:4px 8px;color:#333;">3년 경과 후</td><td style="padding:4px 8px;color:#27ae60;font-weight:700;">원칙 지급</td><td style="padding:4px 8px;color:#27ae60;font-weight:700;">해지 불가</td></tr>
 </table>
 <div style="background:#fdf2f8;border:1.5px solid #e74c3c;border-radius:6px;padding:6px 10px;margin-bottom:10px;font-size:0.78rem;">
 ⚠️ <b>기왕증 면책:</b> 해지는 못 하더라도, 가입 전 발생한 질병(기왕증)에 대해서는 '보험사고의 우연성' 결여를 이유로 해당 부위 보상을 거절할 수 있습니다.
 </div>
 
-<b style="color:#f39c12;">② 사기에 의한 계약 — 5년 취소권 (표준약관 제19조)</b><br>
+<b style="color:#1a3a5c;">② 사기에 의한 계약 — 5년 취소권 (표준약관 제19조)</b><br>
 처음부터 보험금 목적으로 보험사를 속인 경우 적용됩니다.<br><br>
 취소권 행사 조건: 뚜렷한 사기 의사가 증명되는 경우 계약일로부터 <b>5년</b>(사기 사실을 안 날로부터 1개월) 이내 취소 가능.<br><br>
 <table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin-bottom:6px;">
-<tr style="background:#2e4a6a;"><th style="padding:4px 8px;text-align:left;">결과</th><th style="padding:4px 8px;text-align:left;">내용</th></tr>
-<tr style="background:#1e3a54;"><td style="padding:4px 8px;color:#e74c3c;">보험금 지급 불가</td><td style="padding:4px 8px;">인과관계 무관, 계약 무효에 준하는 효과</td></tr>
-<tr style="background:#1e3a54;"><td style="padding:4px 8px;color:#e74c3c;">기지급 보험금 환수</td><td style="padding:4px 8px;">부당이득반환청구권 (소멸시효 5년)</td></tr>
+<tr style="background:#e8eef5;"><th style="padding:4px 8px;text-align:left;color:#1a3a5c;">결과</th><th style="padding:4px 8px;text-align:left;color:#1a3a5c;">내용</th></tr>
+<tr style="background:#fff;"><td style="padding:4px 8px;color:#c0392b;font-weight:700;">보험금 지급 불가</td><td style="padding:4px 8px;color:#333;">인과관계 무관, 계약 무효에 준하는 효과</td></tr>
+<tr style="background:#f8f8f8;"><td style="padding:4px 8px;color:#c0392b;font-weight:700;">기지급 보험금 환수</td><td style="padding:4px 8px;color:#333;">부당이득반환청구권 (소멸시효 5년)</td></tr>
 </table>
 </div>
 """, height=590)
