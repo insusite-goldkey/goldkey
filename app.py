@@ -11962,6 +11962,39 @@ END; $$;""", language="sql")
                  "생명보험협회 (통합 검색)", "손해보험협회 (통합 검색)"],
                 key="pt_company",
             )
+            # ── 선택 보험사 공시실 직접 링크 ─────────────────────────────
+            _PT_DISCLOSURE_URLS: dict = {
+                "삼성화재":    "https://www.samsungfire.com/cust/disclosure/productDisclosure.do",
+                "현대해상":    "https://www.hi.co.kr/cms/disclosure/product/list.do",
+                "DB손해보험":  "https://www.idb.co.kr/cust/disclosure/product.do",
+                "KB손해보험":  "https://www.kbinsure.co.kr/cust/disclosure/product.do",
+                "메리츠화재":  "https://www.meritzfire.com/cust/disclosure/product.do",
+                "롯데손해보험":"https://www.lotteins.co.kr/cust/disclosure/product.do",
+                "한화손해보험":"https://www.hwgeneralins.com/cust/disclosure/product.do",
+                "흥국화재":    "https://www.heungkukfire.co.kr/cust/disclosure/product.do",
+                "삼성생명":    "https://www.samsunglife.com/customer/publicInfo/productDisclosure.do",
+                "한화생명":    "https://www.hanwhalife.com/cust/disclosure/productlist.do",
+                "교보생명":    "https://www.kyobo.co.kr/prd/disclosures/productDisclosure",
+                "신한라이프":  "https://www.shinhanlife.co.kr/hp/cdha0100.do",
+                "NH농협생명":  "https://www.nhlife.co.kr/disclosure/product",
+                "미래에셋생명":"https://life.miraeasset.com/csc/disclosure/productTerms.do",
+                "DB생명":      "https://www.db-life.com/customer/publicInfo/product.do",
+                "생명보험협회 (통합 검색)": "https://klia.or.kr/consumer/publicRelation/productDisclosure.do",
+                "손해보험협회 (통합 검색)": "https://www.knia.or.kr/consumer/publicRelation/productDisclosure.do",
+            }
+            _pt_disc_url = _PT_DISCLOSURE_URLS.get(_pt_company, "")
+            if _pt_disc_url:
+                _pt_cn_label = _pt_company.replace(" (통합 검색)", "")
+                st.markdown(
+                    f"<a href='{_pt_disc_url}' target='_blank' style='"
+                    f"display:inline-flex;align-items:center;gap:6px;"
+                    f"background:#1e6fa8;color:#fff;border-radius:7px;"
+                    f"padding:5px 13px;font-size:0.78rem;font-weight:700;"
+                    f"text-decoration:none;margin-bottom:6px;"
+                    f"box-shadow:0 2px 6px rgba(30,111,168,0.18);'>"
+                    f"🔗 {_pt_cn_label} 공시실 바로가기 ↗</a>",
+                    unsafe_allow_html=True,
+                )
             _pt_product  = st.text_input(
                 "상품명",
                 placeholder="예) 무배당 삼성화재 암보험 / 현대해상 굿앤굿 어린이CI",
