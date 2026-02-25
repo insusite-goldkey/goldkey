@@ -6045,10 +6045,11 @@ section[data-testid="stMain"] > div,
         ]
         _render_cards(PART2, "home_p2")
 
-        # ── 파트 2.5: LIFE EVENT ──
+        # ── 파트 2.5: LIFE EVENT + 디지털 카탈로그 관리 ──
         st.markdown('<div class="gk-section-label">🎯 LIFE EVENT</div>', unsafe_allow_html=True)
         _render_cards([
-            ("life_event", "🎯", "LIFE EVENT 상담", "인생 주요 이벤트별 보험 설계 · 출생·결혼·취업·은퇴 맞춤 컨설팅"),
+            ("life_event",     "🎯", "LIFE EVENT 상담",    "인생 주요 이벤트별 보험 설계 · 출생·결혼·취업·은퇴 맞춤 컨설팅"),
+            ("digital_catalog","📱", "디지털 카탈로그 관리","보험사 카탈로그 업로드·AI분류 · Public/Private 보안 저장"),
         ], "home_p25")
 
         # ── 파트 3: 부동산 투자 · 간병 컨설팅 ──
@@ -6058,18 +6059,17 @@ section[data-testid="stMain"] > div,
             ("nursing", "🏥", "간병비 컨설팅",   "치매·뇌졸중·요양병원 간병비 산출 · 장기요양등급 · 간병보험 설계"),
         ], "home_p3")
 
-        # ── 파트 4: 신규상품 리플렛 관리 ──
+        # ── 파트 4: 신규상품 리플렛 관리 + 상담 카탈로그 ──
         st.markdown('<div class="gk-section-label">📂 신규상품 리플렛 관리</div>', unsafe_allow_html=True)
         _render_cards([
             ("leaflet",          "🗂️", "보험 리플렛 AI 분류",   "리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 폴더 저장·관리"),
             ("customer_docs",    "👤", "고객자료 통합저장",      "의무기록·증권분석·청구서류 · 고객별 마인드맵 통합 저장"),
         ], "home_p4")
 
-        # ── 파트 5: 디지털 카탈로그 관리 (Private Zone) ──
-        st.markdown('<div class="gk-section-label">🔐 디지털 카탈로그 관리 — 개인 보안 저장소</div>', unsafe_allow_html=True)
+        # ── 파트 5: 상담 카탈로그 (내 카탈로그 열람) ──
+        st.markdown('<div class="gk-section-label">📖 상담 카탈로그</div>', unsafe_allow_html=True)
         _render_cards([
-            ("digital_catalog", "📱", "디지털 카탈로그 관리",
-             "보험사 카탈로그 업로드·조회 · AI 자동분류 · Public/Private 완전 분리 보안저장"),
+            ("consult_catalog",  "📖", "상담 카탈로그",          "내가 올린 카탈로그 열람 · PDF/이미지 뷰어 · 보험사별 분류 조회"),
         ], "home_p5")
 
         # ── 상담자 정보 입력 패널 (로그인 시 홈 하단 고정) ──────────────
@@ -13059,6 +13059,146 @@ END; $$;""", language="sql")
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ══════════════════════════════════════════════════════════════════════
+    # [consult_catalog] 상담 카탈로그 — 내 카탈로그 열람
+    # ══════════════════════════════════════════════════════════════════════
+    if cur == "consult_catalog":
+        if not _auth_gate("consult_catalog"): st.stop()
+        tab_home_btn("consult_catalog")
+
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:14px;
+  box-shadow:0 4px 18px rgba(26,58,92,0.28);">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="font-size:2.2rem;">📖</div>
+    <div>
+      <div style="color:#fff;font-size:1.22rem;font-weight:900;letter-spacing:0.04em;line-height:1.2;">
+        상담 카탈로그
+      </div>
+      <div style="color:#a8d4f5;font-size:0.78rem;margin-top:3px;">
+        내가 업로드한 카탈로그 열람 &nbsp;·&nbsp; PDF / 이미지 뷰어 &nbsp;·&nbsp; 보험사별 분류 조회
+      </div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        _cc_uid = st.session_state.get("user_id", "")
+        if not _cc_uid:
+            st.warning("⚠️ 로그인 후 이용 가능합니다.")
+            st.stop()
+
+        # ── 검색 / 필터 ──────────────────────────────────────────────────
+        _cc_col1, _cc_col2 = st.columns([3, 1])
+        with _cc_col1:
+            _cc_search = st.text_input("🔍 파일명 · 보험사 · 태그 검색",
+                                       placeholder="예) 삼성화재, 암보험, 2024",
+                                       key="cc_search")
+        with _cc_col2:
+            if st.button("🔄 새로고침", key="cc_refresh", use_container_width=True):
+                st.session_state.pop("cc_file_cache", None)
+                st.rerun()
+
+        # ── Supabase user_files 조회 ──────────────────────────────────────
+        if "cc_file_cache" not in st.session_state:
+            _sb_cc = _get_sb_client()
+            if _sb_cc:
+                try:
+                    _cc_rows = _sb_cc.table("user_files")\
+                        .select("*")\
+                        .eq("uid", str(_cc_uid))\
+                        .order("created_at", desc=True)\
+                        .execute().data or []
+                    st.session_state["cc_file_cache"] = _cc_rows
+                except Exception as _cce:
+                    st.session_state["cc_file_cache"] = []
+                    st.error(f"목록 조회 오류: {_cce}")
+            else:
+                st.session_state["cc_file_cache"] = []
+                st.warning("⚠️ Supabase 미연결 — HF Secrets에 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 등록 필요")
+
+        _cc_all = st.session_state.get("cc_file_cache", [])
+
+        # ── 검색 필터 적용 ────────────────────────────────────────────────
+        if _cc_search.strip():
+            _kw = _cc_search.strip().lower()
+            _cc_list = [
+                f for f in _cc_all
+                if _kw in str(f.get("original_name","")).lower()
+                or _kw in str(f.get("ai_company","")).lower()
+                or _kw in str(f.get("ai_doc_type","")).lower()
+                or _kw in str(f.get("ai_tags","")).lower()
+                or _kw in str(f.get("note","")).lower()
+            ]
+        else:
+            _cc_list = _cc_all
+
+        # ── 결과 표시 ─────────────────────────────────────────────────────
+        if not _cc_list:
+            st.info("📂 표시할 카탈로그가 없습니다.\n\n📤 디지털 카탈로그 관리 → 업로드 & AI 자동분류 탭에서 먼저 파일을 올려보세요.")
+        else:
+            st.markdown(f"**총 {len(_cc_list)}개** / 전체 {len(_cc_all)}개")
+            for _ci, _cf in enumerate(_cc_list):
+                _cfname  = _cf.get("original_name", f"파일_{_ci+1}")
+                _cco     = _cf.get("ai_company", "미분류")
+                _cty     = _cf.get("ai_doc_type", "")
+                _ctags   = ", ".join(_cf.get("ai_tags") or [])
+                _cnote   = _cf.get("note", "")
+                _cdate   = str(_cf.get("created_at",""))[:16]
+                _csp     = _cf.get("storage_path", "")
+                _cext    = _cfname.rsplit(".", 1)[-1].lower() if "." in _cfname else ""
+
+                # 서명 URL 생성 (24h)
+                _curl = ""
+                try:
+                    _sb_v2 = _get_sb_client()
+                    if _sb_v2 and _csp:
+                        _sgn = _sb_v2.storage.from_(SB_BUCKET).create_signed_url(_csp, 86400)
+                        _curl = _sgn.get("signedURL","") or _sgn.get("signedUrl","")
+                except Exception:
+                    pass
+
+                with st.expander(f"{'📄' if _cext=='pdf' else '🖼️'} {_cfname}  |  🏢 {_cco}  |  📅 {_cdate}", expanded=False):
+                    _cv1, _cv2 = st.columns([2, 1])
+                    with _cv1:
+                        st.markdown(f"""
+<div style="font-size:0.82rem;line-height:1.9;color:#333;">
+  🏢 <b>보험사:</b> {_cco}<br>
+  📄 <b>문서유형:</b> {_cty}<br>
+  🏷️ <b>태그:</b> {_ctags or '—'}<br>
+  📝 <b>메모:</b> {_cnote or '—'}<br>
+  📅 <b>업로드:</b> {_cdate}<br>
+  🔐 <b>암호화 보관:</b> AES-256
+</div>""", unsafe_allow_html=True)
+                    with _cv2:
+                        if _curl:
+                            # PDF는 미리보기 iframe, 이미지는 직접 표시
+                            if _cext == "pdf":
+                                st.markdown(f"""
+<a href="{_curl}" target="_blank" style="display:block;background:#1e6fa8;color:#fff;
+  border-radius:10px;padding:10px 0;text-align:center;font-size:0.85rem;
+  font-weight:700;text-decoration:none;margin-bottom:8px;">
+  📄 PDF 열기 (새 탭)
+</a>""", unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"""
+<a href="{_curl}" target="_blank" style="display:block;background:#27ae60;color:#fff;
+  border-radius:10px;padding:10px 0;text-align:center;font-size:0.85rem;
+  font-weight:700;text-decoration:none;margin-bottom:8px;">
+  🖼️ 이미지 열기 (새 탭)
+</a>""", unsafe_allow_html=True)
+                                try:
+                                    import requests as _req
+                                    _img_resp = _req.get(_curl, timeout=5)
+                                    if _img_resp.status_code == 200:
+                                        st.image(_img_resp.content, use_container_width=True)
+                                except Exception:
+                                    pass
+                        else:
+                            st.caption("🔗 URL 생성 불가 (Supabase 미연결)")
+
+        st.stop()
+
+    # ══════════════════════════════════════════════════════════════════════
     # [digital_catalog] 디지털 카탈로그 관리 — Public/Private 완전 분리
     # ══════════════════════════════════════════════════════════════════════
     if cur == "digital_catalog":
@@ -13270,20 +13410,28 @@ END; $$;""", language="sql")
 
             # ── 드래그앤드롭 영역 — 외곽선 강화 ─────────────────────────
             st.markdown("""
-<div style="border:3px dashed #1e6fa8;border-radius:16px;
-  background:linear-gradient(135deg,#dbeeff 0%,#eaf4fb 100%);
-  padding:18px 20px 6px 20px;margin-bottom:10px;
-  box-shadow:0 2px 12px rgba(30,111,168,0.13);">
-<div style="color:#1a3a5c;font-size:0.92rem;font-weight:800;margin-bottom:6px;
-  display:flex;align-items:center;gap:10px;">
-  <span style="font-size:1.5rem;">📂</span>
-  <span>파일을 여기에 <b>끌어다 놓거나</b>, 아래 버튼으로 <b>파일 전송하세요</b></span>
-  <span style="background:#e74c3c;color:#fff;border-radius:10px;padding:2px 10px;
-    font-size:0.72rem;font-weight:700;margin-left:4px;">★ 여러 장 동시 선택 가능</span>
-</div>
-<div style="color:#2e6da4;font-size:0.76rem;margin-bottom:6px;">
-  💡 PDF · JPG · PNG 지원 &nbsp;|&nbsp; 갤러리·문서 폴더에서 선택 &nbsp;|&nbsp; 모바일: 카메라 촬영
-</div>""", unsafe_allow_html=True)
+<div style="border:3.5px solid #1e6fa8;border-radius:18px;
+  background:linear-gradient(135deg,#dbeeff 0%,#c8e6ff 60%,#e8f4fb 100%);
+  padding:20px 22px 8px 22px;margin-bottom:12px;
+  box-shadow:0 4px 18px rgba(30,111,168,0.22);">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+    <span style="font-size:2rem;">📂</span>
+    <div>
+      <div style="color:#0d2a4a;font-size:1.0rem;font-weight:900;line-height:1.4;">
+        파일을 아래 Drag 박스에 <b>끌어다 놓거나</b> 스캔로드하세요
+      </div>
+      <div style="color:#1e6fa8;font-size:0.78rem;margin-top:2px;">
+        📄 PDF &nbsp;·&nbsp; 🖼️ JPG / PNG &nbsp;·&nbsp; 📷 카메라 촬영(모바일)
+        &nbsp;&nbsp;<span style="background:#e74c3c;color:#fff;border-radius:8px;
+          padding:2px 9px;font-size:0.7rem;font-weight:700;">★ 여러 장 동시 선택</span>
+      </div>
+    </div>
+  </div>
+  <div style="background:rgba(30,111,168,0.08);border:2px dashed #2e6da4;
+    border-radius:12px;padding:10px 14px;margin-bottom:8px;text-align:center;
+    color:#1a3a5c;font-size:0.82rem;font-weight:700;">
+    ↓ &nbsp; Drag and drop file here &nbsp; ↓
+  </div>""", unsafe_allow_html=True)
 
             _dc_up_col1, _dc_up_col2 = st.columns([4, 1])
             with _dc_up_col1:
