@@ -2032,6 +2032,255 @@ SYSTEM_PROMPT = """
 """
 
 # --------------------------------------------------------------------------
+# [SECTION 4-B] 금융상품 통합비교공시 API (금감원 finlife) 연동
+# API 키: HF Spaces → Settings → Secrets → FINLIFE_API_KEY
+# 공식 문서: https://finlife.fss.or.kr/finlife/api/fncCoApiList/list.do
+# --------------------------------------------------------------------------
+import urllib.request as _urlreq
+import urllib.parse as _urlparse
+
+_FINLIFE_BASE = "https://finlife.fss.or.kr/finlifeapi"
+
+def _get_finlife_key() -> str:
+    """Secrets / 환경변수에서 finlife API 키 읽기"""
+    try:
+        key = st.secrets.get("FINLIFE_API_KEY", "")
+        if key:
+            return key
+    except Exception:
+        pass
+    return os.environ.get("FINLIFE_API_KEY", "")
+
+@st.cache_data(ttl=3600)
+def finlife_get_deposit(topFinGrpNo: str = "020000", pageNo: int = 1) -> dict:
+    """
+    예금 금리 비교 — 정기예금 상품 목록 조회
+    topFinGrpNo: 020000=은행, 030300=저축은행
+    반환: {"result": {...}, "error": str|None}
+    """
+    api_key = _get_finlife_key()
+    if not api_key:
+        return {"result": None, "error": "FINLIFE_API_KEY 미설정"}
+    try:
+        params = _urlparse.urlencode({
+            "auth": api_key,
+            "topFinGrpNo": topFinGrpNo,
+            "pageNo": pageNo,
+        })
+        url = f"{_FINLIFE_BASE}/depositProductsSearch.json?{params}"
+        with _urlreq.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return {"result": data.get("result", {}), "error": None}
+    except Exception as e:
+        return {"result": None, "error": str(e)[:120]}
+
+@st.cache_data(ttl=3600)
+def finlife_get_saving(topFinGrpNo: str = "020000", pageNo: int = 1) -> dict:
+    """
+    적금 금리 비교 — 적립식 예금 상품 목록 조회
+    """
+    api_key = _get_finlife_key()
+    if not api_key:
+        return {"result": None, "error": "FINLIFE_API_KEY 미설정"}
+    try:
+        params = _urlparse.urlencode({
+            "auth": api_key,
+            "topFinGrpNo": topFinGrpNo,
+            "pageNo": pageNo,
+        })
+        url = f"{_FINLIFE_BASE}/savingProductsSearch.json?{params}"
+        with _urlreq.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return {"result": data.get("result", {}), "error": None}
+    except Exception as e:
+        return {"result": None, "error": str(e)[:120]}
+
+@st.cache_data(ttl=3600)
+def finlife_get_annuity_saving(topFinGrpNo: str = "060000", pageNo: int = 1) -> dict:
+    """
+    연금저축 상품 비교 (060000=생명보험, 060001=손해보험, 060002=은행·증권)
+    """
+    api_key = _get_finlife_key()
+    if not api_key:
+        return {"result": None, "error": "FINLIFE_API_KEY 미설정"}
+    try:
+        params = _urlparse.urlencode({
+            "auth": api_key,
+            "topFinGrpNo": topFinGrpNo,
+            "pageNo": pageNo,
+        })
+        url = f"{_FINLIFE_BASE}/annuitySavingProductsSearch.json?{params}"
+        with _urlreq.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return {"result": data.get("result", {}), "error": None}
+    except Exception as e:
+        return {"result": None, "error": str(e)[:120]}
+
+@st.cache_data(ttl=3600)
+def finlife_get_mortgage(topFinGrpNo: str = "020000", pageNo: int = 1) -> dict:
+    """
+    주택담보대출 금리 비교
+    """
+    api_key = _get_finlife_key()
+    if not api_key:
+        return {"result": None, "error": "FINLIFE_API_KEY 미설정"}
+    try:
+        params = _urlparse.urlencode({
+            "auth": api_key,
+            "topFinGrpNo": topFinGrpNo,
+            "pageNo": pageNo,
+        })
+        url = f"{_FINLIFE_BASE}/mortgageLoanProductsSearch.json?{params}"
+        with _urlreq.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return {"result": data.get("result", {}), "error": None}
+    except Exception as e:
+        return {"result": None, "error": str(e)[:120]}
+
+def finlife_top_deposit_rates(topFinGrpNo: str = "020000", top_n: int = 10) -> list:
+    """
+    정기예금 최고금리 Top N 파싱 — 반환: [{"fin_prdt_nm","kor_co_nm","intr_rate","intr_rate2","save_trm"}, ...]
+    intr_rate=기본금리, intr_rate2=최고금리, save_trm=저축기간(개월)
+    """
+    res = finlife_get_deposit(topFinGrpNo)
+    if res["error"] or not res["result"]:
+        return []
+    try:
+        options = res["result"].get("baseList", [])
+        parsed = []
+        for o in options:
+            parsed.append({
+                "fin_prdt_nm": o.get("fin_prdt_nm", ""),
+                "kor_co_nm":   o.get("kor_co_nm", ""),
+                "intr_rate":   o.get("intr_rate", 0),
+                "intr_rate2":  o.get("intr_rate2", 0),
+                "save_trm":    o.get("save_trm", ""),
+            })
+        parsed.sort(key=lambda x: float(x["intr_rate2"] or 0), reverse=True)
+        return parsed[:top_n]
+    except Exception:
+        return []
+
+def finlife_top_annuity_rates(topFinGrpNo: str = "060000", top_n: int = 10) -> list:
+    """
+    연금저축 수익률 Top N 파싱 — 반환: [{"fin_prdt_nm","kor_co_nm","dcls_rate","prdt_type_nm"}, ...]
+    """
+    res = finlife_get_annuity_saving(topFinGrpNo)
+    if res["error"] or not res["result"]:
+        return []
+    try:
+        options = res["result"].get("baseList", [])
+        parsed = []
+        for o in options:
+            parsed.append({
+                "fin_prdt_nm":  o.get("fin_prdt_nm", ""),
+                "kor_co_nm":    o.get("kor_co_nm", ""),
+                "dcls_rate":    o.get("dcls_rate", 0),
+                "prdt_type_nm": o.get("prdt_type_nm", ""),
+            })
+        parsed.sort(key=lambda x: float(x["dcls_rate"] or 0), reverse=True)
+        return parsed[:top_n]
+    except Exception:
+        return []
+
+def _render_finlife_dashboard():
+    """금융상품 비교공시 대시보드 UI — 관리자 콘솔 또는 노후설계 탭에서 호출"""
+    st.markdown("### 📊 금융상품 통합비교공시 (금감원 실시간)")
+
+    api_key = _get_finlife_key()
+    if not api_key:
+        st.error(
+            "**FINLIFE_API_KEY가 설정되지 않았습니다.**\n\n"
+            "HuggingFace Space → Settings → Secrets → `FINLIFE_API_KEY` 이름으로 등록하세요."
+        )
+        return
+
+    fl_tab1, fl_tab2, fl_tab3, fl_tab4 = st.tabs([
+        "🏦 정기예금 금리", "💰 적금 금리", "📈 연금저축", "🏠 주담대 금리"
+    ])
+
+    # ── 정기예금 ────────────────────────────────────────────────────────
+    with fl_tab1:
+        grp_sel = st.selectbox("금융기관 구분", ["은행 (020000)", "저축은행 (030300)"],
+                               key="fl_dep_grp")
+        grp_code = grp_sel.split("(")[1].rstrip(")")
+        if st.button("🔄 정기예금 최고금리 조회", key="btn_fl_dep", type="primary"):
+            with st.spinner("금감원 API 조회 중..."):
+                rows = finlife_top_deposit_rates(grp_code, top_n=20)
+            if rows:
+                st.success(f"{len(rows)}개 상품 조회 완료")
+                df = pd.DataFrame(rows)
+                df.columns = ["상품명", "금융기관", "기본금리(%)", "최고금리(%)", "저축기간(개월)"]
+                st.dataframe(df, use_container_width=True, hide_index=True)
+            else:
+                st.warning("조회 결과가 없습니다. API 키를 확인하세요.")
+
+    # ── 적금 ────────────────────────────────────────────────────────────
+    with fl_tab2:
+        grp_sel2 = st.selectbox("금융기관 구분", ["은행 (020000)", "저축은행 (030300)"],
+                                key="fl_sav_grp")
+        grp_code2 = grp_sel2.split("(")[1].rstrip(")")
+        if st.button("🔄 적금 금리 조회", key="btn_fl_sav", type="primary"):
+            with st.spinner("금감원 API 조회 중..."):
+                res = finlife_get_saving(grp_code2)
+            if res["error"]:
+                st.error(f"API 오류: {res['error']}")
+            elif res["result"]:
+                base = res["result"].get("baseList", [])
+                if base:
+                    df2 = pd.DataFrame([{
+                        "상품명":      r.get("fin_prdt_nm",""),
+                        "금융기관":    r.get("kor_co_nm",""),
+                        "적립방식":    r.get("rsrv_type_nm",""),
+                        "기본금리(%)": r.get("intr_rate", 0),
+                        "최고금리(%)": r.get("intr_rate2", 0),
+                    } for r in base])
+                    df2 = df2.sort_values("최고금리(%)", ascending=False)
+                    st.dataframe(df2, use_container_width=True, hide_index=True)
+                else:
+                    st.info("데이터 없음")
+
+    # ── 연금저축 ─────────────────────────────────────────────────────────
+    with fl_tab3:
+        grp_sel3 = st.selectbox("상품유형", [
+            "생명보험 (060000)", "손해보험 (060001)", "은행·증권 (060002)"
+        ], key="fl_ann_grp")
+        grp_code3 = grp_sel3.split("(")[1].rstrip(")")
+        if st.button("🔄 연금저축 수익률 조회", key="btn_fl_ann", type="primary"):
+            with st.spinner("금감원 API 조회 중..."):
+                rows3 = finlife_top_annuity_rates(grp_code3, top_n=20)
+            if rows3:
+                df3 = pd.DataFrame(rows3)
+                df3.columns = ["상품명", "금융기관", "공시이율/수익률(%)", "상품유형"]
+                df3 = df3.sort_values("공시이율/수익률(%)", ascending=False)
+                st.dataframe(df3, use_container_width=True, hide_index=True)
+            else:
+                st.warning("조회 결과가 없습니다.")
+
+    # ── 주담대 ───────────────────────────────────────────────────────────
+    with fl_tab4:
+        if st.button("🔄 주택담보대출 금리 조회 (은행)", key="btn_fl_mort", type="primary"):
+            with st.spinner("금감원 API 조회 중..."):
+                res4 = finlife_get_mortgage("020000")
+            if res4["error"]:
+                st.error(f"API 오류: {res4['error']}")
+            elif res4["result"]:
+                base4 = res4["result"].get("baseList", [])
+                if base4:
+                    df4 = pd.DataFrame([{
+                        "상품명":       r.get("fin_prdt_nm",""),
+                        "금융기관":     r.get("kor_co_nm",""),
+                        "대출종류":     r.get("loan_type_nm",""),
+                        "대출금리유형": r.get("lend_rate_type_nm",""),
+                        "최저금리(%)":  r.get("lend_rate_min", 0),
+                        "최고금리(%)":  r.get("lend_rate_max", 0),
+                    } for r in base4])
+                    df4 = df4.sort_values("최저금리(%)", ascending=True)
+                    st.dataframe(df4, use_container_width=True, hide_index=True)
+                else:
+                    st.info("데이터 없음")
+
+# --------------------------------------------------------------------------
 # [SECTION 5] RAG 시스템 — SQLite 영구 저장 + Gemini 자동 분류 (앱 재시작 후에도 유지)
 # --------------------------------------------------------------------------
 RAG_DB_PATH = "/tmp/goldkey_rag.db"
@@ -9286,6 +9535,9 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             with col2:
                 st.subheader("🤖 AI 분석 리포트")
                 show_result("res_t5")
+                st.divider()
+                with st.expander("📊 금융상품 통합비교공시 — 금감원 실시간 조회 (예금·적금·연금저축·주담대)", expanded=False):
+                    _render_finlife_dashboard()
                 st.markdown("##### 🏗️ 연금 3층 설계 핵심 전략")
                 components.html("""
 <div style="height:260px;overflow-y:auto;padding:12px 15px;
@@ -10812,7 +11064,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         st.info(f"⚠️ **{_wn}** — 실패 {_wc}회 (5회 시 잠금)")
 
             st.divider()
-            inner_tabs = st.tabs(["📢 수정지시", "🩺 헬스체크", "회원 관리", "RAG 지식베이스", "데이터 파기", "🤖 자율학습 에이전트", "📔 개발일지"])
+            inner_tabs = st.tabs(["📢 수정지시", "🩺 헬스체크", "회원 관리", "RAG 지식베이스", "데이터 파기", "🤖 자율학습 에이전트", "📔 개발일지", "📊 금융상품비교공시"])
             # ── 탭[0]: 원격 수정지시 전용 패널 ─────────────────────────────
             with inner_tabs[0]:
                 st.markdown("""
@@ -11909,6 +12161,9 @@ END; $$;""", language="sql")
                         f"**{APP_NAME}** ({APP_SHORT}) 개발 시작일 **{APP_START_DATE}**부터의 "
                         f"기록을 위에서 작성해주세요."
                     )
+
+            with inner_tabs[7]:
+                _render_finlife_dashboard()
 
         elif admin_key_input:
             st.error("관리자 인증키가 올바르지 않습니다.")
