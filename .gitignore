@@ -14,9 +14,10 @@ build/
 # 데이터베이스 및 로그 (개인정보 포함 가능)
 *.db
 *.sqlite
-usage_log.json
-members.json
-rag_docs.json
+*.json
+# ↑ JSON 전체 차단 — members.json, devlog.json, error_log.json,
+#   admin_directives.json, usage_log.json 등 모든 런타임 데이터 보호
+#   (단, 소스코드에 포함된 JSON은 영향 없음)
 
 # 암호화 키 파일 (절대 Git에 올리지 말 것)
 .goldkey
