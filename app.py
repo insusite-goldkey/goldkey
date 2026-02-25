@@ -9913,7 +9913,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             st.markdown("#### 🤖 AI 간병 설계 상담")
             na_c1, na_c2 = st.columns([1, 1])
             with na_c1:
-                c_name_n, query_n, hi_n, do_n = ai_query_block(
+                c_name_n, query_n, hi_n, do_n, _pk_n = ai_query_block(
                     "nursing",
                     "환자 나이, 질환명, 장애등급, 장기요양등급, 현재 간병 상황을 입력하세요.\n"
                     "(예: 72세 여성, 알츠하이머 치매 중기, 장기요양 2등급, 재택 방문요양 중, 간병보험 미가입)")
