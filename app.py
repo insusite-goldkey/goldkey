@@ -10164,6 +10164,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     if _dir_t9_content.strip():
                         _full_content = f"[{_dir_priority}] {_dir_t9_content.strip()}"
                         add_directive(_full_content)
+                        try:
+                            _hc_baseline_on_admin_directive()  # 지시 등록 시점 기준 갱신
+                        except Exception:
+                            pass
                         st.success("✅ 지시가 등록되었습니다. 개발자가 확인 후 처리합니다.")
                         st.rerun()
                     else:
@@ -10212,7 +10216,12 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                                 if st.button("✅ 완료", key=f"t9dir_done_{_real_tdi}",
                                              use_container_width=True, disabled=(_tds=="완료")):
                                     _t9_dir_all[_real_tdi]["status"] = "완료"
-                                    save_directives(_t9_dir_all); st.rerun()
+                                    save_directives(_t9_dir_all)
+                                    try:
+                                        _hc_baseline_on_admin_directive()  # 완료 시점 기준 갱신
+                                    except Exception:
+                                        pass
+                                    st.rerun()
                             with _tb3:
                                 if st.button("🗑️ 삭제", key=f"t9dir_del_{_real_tdi}",
                                              use_container_width=True):
@@ -13122,53 +13131,64 @@ _HC_SESSION_KEY  = "_hc_last_run"
 _HC_RESULT_KEY   = "_hc_last_result"
 
 # --------------------------------------------------------------------------
-# [기준 스냅샷] 배포 시점 기준값을 세션에 기록 — 이후 비교 대상으로 활용
+# [기준 스냅샷] 직전 24시간 정상 상태 자동저장 — 파일 영구보존
+# 갱신 트리거: ① 24시간 경과 시 자동 ② 관리자 지시 실행 시점
 # --------------------------------------------------------------------------
-def _hc_take_baseline(force: bool = False):
-    """
-    앱 최초 로드 시 기준 스냅샷 기록.
-    비교 항목:
-      1. app.py SHA-256 해시 — 파일이 런타임 중 변조됐는지 감지
-      2. 핵심 함수 smoke test — 기준 반환값 저장
-      3. 기준 탭 목록 — 알려진 유효 탭 ID 세트
-    force=False: 세션당 1회만 기록
-    """
-    import hashlib as _hl
-    _BL_KEY = "_hc_baseline"
-    if not force and st.session_state.get(_BL_KEY):
-        return st.session_state[_BL_KEY]
+_HC_BASELINE_PATH = "/tmp/hc_baseline.json"  # 파일 영구저장 경로
+_HC_BASELINE_TTL  = 86400                     # 24시간(초)
 
+def _hc_load_baseline_file() -> dict:
+    """저장된 기준 스냅샷 파일 읽기. 없으면 {}."""
+    try:
+        if os.path.exists(_HC_BASELINE_PATH):
+            with open(_HC_BASELINE_PATH, "r", encoding="utf-8") as _f:
+                return json.load(_f)
+    except Exception:
+        pass
+    return {}
+
+def _hc_save_baseline_file(baseline: dict):
+    """기준 스냅샷을 파일에 저장."""
+    try:
+        with open(_HC_BASELINE_PATH, "w", encoding="utf-8") as _f:
+            json.dump(baseline, _f, ensure_ascii=False, indent=2)
+    except Exception as _e:
+        log_error("헬스체크", f"기준 스냅샷 저장 실패: {_e}")
+
+def _hc_build_snapshot(reason: str = "auto") -> dict:
+    """현재 시스템 상태로 스냅샷 생성 (저장은 하지 않음)."""
+    import hashlib as _hl
+    import time as _time
     baseline = {}
 
-    # 1. app.py 파일 해시 (배포된 파일 원본 체크섬)
+    # 1. app.py 파일 해시
     try:
         _app_path = os.path.abspath(__file__)
         _h = _hl.sha256()
         with open(_app_path, "rb") as _f:
             for _chunk in iter(lambda: _f.read(65536), b""):
                 _h.update(_chunk)
-        baseline["app_sha256"]   = _h.hexdigest()
-        baseline["app_size"]     = os.path.getsize(_app_path)
-        baseline["app_mtime"]    = os.path.getmtime(_app_path)
+        baseline["app_sha256"] = _h.hexdigest()
+        baseline["app_size"]   = os.path.getsize(_app_path)
+        baseline["app_mtime"]  = os.path.getmtime(_app_path)
     except Exception as _e:
         baseline["app_sha256"] = f"ERROR:{_e}"
 
-    # 2. 핵심 함수 smoke test — 기준 반환 타입 기록
+    # 2. 핵심 함수 smoke test
     _smoke = {}
-    _smoke_tests = [
-        ("get_client",       lambda: type(get_client()).__name__),
-        ("load_members",     lambda: type(load_members()).__name__),
-        ("load_error_log",   lambda: type(load_error_log()).__name__),
-        ("_get_sb_client",   lambda: type(_get_sb_client()).__name__),
-    ]
-    for _fn, _t in _smoke_tests:
+    for _fn, _t in [
+        ("get_client",     lambda: type(get_client()).__name__),
+        ("load_members",   lambda: type(load_members()).__name__),
+        ("load_error_log", lambda: type(load_error_log()).__name__),
+        ("_get_sb_client", lambda: type(_get_sb_client()).__name__),
+    ]:
         try:
             _smoke[_fn] = {"baseline_type": _t(), "status": "ok"}
         except Exception as _se:
             _smoke[_fn] = {"baseline_type": "ERROR", "status": str(_se)}
     baseline["smoke"] = _smoke
 
-    # 3. 기준 탭 목록
+    # 3. 유효 탭 목록
     baseline["valid_tabs"] = [
         "home","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
         "cancer","brain","heart","img","fire","liability","nursing",
@@ -13176,9 +13196,57 @@ def _hc_take_baseline(force: bool = False):
         "customer_docs","stock_eval","policy_terms","policy_scan","scan_hub"
     ]
 
-    baseline["recorded_at"] = dt.now().strftime("%Y-%m-%d %H:%M:%S")
-    st.session_state[_BL_KEY] = baseline
+    baseline["recorded_at"]  = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    baseline["recorded_ts"]  = _time.time()
+    baseline["reason"]       = reason   # "auto_24h" | "admin_directive" | "init"
     return baseline
+
+def _hc_take_baseline(force: bool = False, reason: str = "auto"):
+    """
+    기준 스냅샷 자동 관리.
+    갱신 규칙:
+      - 파일이 없거나 24시간 경과: 자동 갱신 (reason="auto_24h")
+      - force=True: 즉시 갱신 (관리자 지시 시점 등)
+      - 세션 내 이미 로드됐으면 파일 재읽기 생략
+    """
+    import time as _time
+    _BL_KEY = "_hc_baseline"
+
+    # 세션에 이미 있고 force 아니면 바로 반환
+    if not force and st.session_state.get(_BL_KEY):
+        return st.session_state[_BL_KEY]
+
+    # 파일에서 기존 스냅샷 로드
+    _existing = _hc_load_baseline_file()
+    _now_ts   = _time.time()
+    _recorded = _existing.get("recorded_ts", 0)
+    _age_sec  = _now_ts - _recorded
+
+    if force:
+        # 관리자 지시 또는 강제 갱신
+        _new = _hc_build_snapshot(reason=reason)
+        _hc_save_baseline_file(_new)
+        st.session_state[_BL_KEY] = _new
+        log_error("헬스체크", f"기준 스냅샷 갱신 [{reason}] — {_new['recorded_at']}")
+        return _new
+    elif not _existing or _age_sec >= _HC_BASELINE_TTL:
+        # 최초 또는 24시간 경과 → 자동 갱신
+        _new = _hc_build_snapshot(reason="auto_24h" if _existing else "init")
+        _hc_save_baseline_file(_new)
+        st.session_state[_BL_KEY] = _new
+        if _existing:  # 갱신 시 로그 기록
+            log_error("헬스체크", f"기준 스냅샷 24시간 자동갱신 — {_new['recorded_at']}")
+        return _new
+    else:
+        # 아직 유효 — 기존 스냅샷 세션에 올리기만
+        st.session_state[_BL_KEY] = _existing
+        return _existing
+
+def _hc_baseline_on_admin_directive():
+    """
+    관리자 지시(수정 등록/완료) 시 호출 — 해당 시점을 새 기준으로 즉시 저장.
+    """
+    _hc_take_baseline(force=True, reason="admin_directive")
 
 
 def _hc_compare_snapshot() -> list:
@@ -13408,7 +13476,28 @@ def _render_healthcheck_dashboard():
         st.info("아직 점검이 실행되지 않았습니다. 아래 버튼으로 점검을 시작하세요.")
 
     # ── 점검 제어 버튼 ─────────────────────────────────────────────────────
-    _hc_b1, _hc_b2, _hc_b3, _hc_b4 = st.columns(4)
+    # ── 기준 스냅샷 현황 표시 ──────────────────────────────────────────────
+    import time as _time2
+    _bl_info = st.session_state.get("_hc_baseline") or _hc_load_baseline_file()
+    if _bl_info:
+        _bl_age  = int(_time2.time() - _bl_info.get("recorded_ts", 0))
+        _bl_h    = _bl_age // 3600
+        _bl_m    = (_bl_age % 3600) // 60
+        _bl_reason_map = {"init": "최초 기록", "auto_24h": "24시간 자동갱신",
+                          "admin_directive": "관리자 지시 시점", "auto": "자동"}
+        _bl_reason_ko = _bl_reason_map.get(_bl_info.get("reason", ""), _bl_info.get("reason", ""))
+        _bl_next = max(0, _HC_BASELINE_TTL - _bl_age)
+        _bl_next_h = _bl_next // 3600
+        _bl_next_m = (_bl_next % 3600) // 60
+        st.info(
+            f"📸 기준 스냅샷 — **{_bl_info.get('recorded_at','—')}** 기록 "
+            f"({_bl_reason_ko}) | 경과: {_bl_h}시간 {_bl_m}분 "
+            f"| 다음 자동갱신: {_bl_next_h}시간 {_bl_next_m}분 후"
+        )
+    else:
+        st.warning("⚠️ 기준 스냅샷 없음 — 앱 재시작 후 자동 생성됩니다.")
+
+    _hc_b1, _hc_b2, _hc_b3 = st.columns(3)
     with _hc_b1:
         if st.button("🔍 즉시 점검 시작", key="btn_hc_run",
                      use_container_width=True, type="primary"):
@@ -13434,12 +13523,6 @@ def _render_healthcheck_dashboard():
                 st.success(f"자가진단 수정: {', '.join(_fixed)}")
             else:
                 st.info("자가진단 이상 없음")
-    with _hc_b4:
-        if st.button("📸 기준 스냅샷 갱신", key="btn_hc_baseline",
-                     use_container_width=True):
-            _hc_take_baseline(force=True)
-            st.success("기준 스냅샷 갱신 완료 — 지금 상태가 새 비교 기준입니다.")
-            st.rerun()
 
     st.divider()
 
@@ -13477,7 +13560,7 @@ def _render_healthcheck_dashboard():
 
     # ── 기준 스냅샷 비교 ────────────────────────────────────────────────
     st.divider()
-    _bl = st.session_state.get("_hc_baseline", {})
+    _bl = st.session_state.get("_hc_baseline") or _hc_load_baseline_file()
     if _bl:
         st.markdown(f"**🔬 기준 스냅샷 비교** <span style='font-size:0.78rem;color:#888;'>(기준 기록: {_bl.get('recorded_at','—')})</span>",
                     unsafe_allow_html=True)
@@ -13506,13 +13589,13 @@ def _render_healthcheck_dashboard():
             st.error(
                 "🚨 **app.py 파일이 기준 스냅샷과 다릅니다.**\n"
                 "배포 후 파일이 변경되었거나 다른 버전이 실행 중일 수 있습니다.\n"
-                "최신 상태가 맞다면 [기준 스냅샷 갱신] 버튼으로 새 기준을 설정하세요."
+                "정상 상태라면 24시간 후 자동 갱신되거나, 관리자 지시 등록/완료 시 즉시 새 기준이 저장됩니다."
             )
     else:
-        st.info("📸 기준 스냅샷이 없습니다. [기준 스냅샷 갱신] 버튼을 눌러 현재 상태를 기준으로 저장하세요.")
+        st.info("📸 기준 스냅샷 없음 — 앱 재시작 시 자동 생성됩니다.")
 
     st.divider()
-    st.caption("⏰ 자동 점검 주기: 10분 | 비교 방식: SHA-256 파일 해시 + 핵심 함수 smoke test")
+    st.caption("⏰ 자동 점검 주기: 10분 | 기준 스냅샷 갱신: 24시간 자동 + 관리자 지시 시점 | 비교: SHA-256 해시 + smoke test")
 
 
 # ── 관리자용 에러 레지스트리 대시보드 ────────────────────────────────────
