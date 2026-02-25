@@ -6014,7 +6014,14 @@ section[data-testid="stMain"] > div,
                             st.session_state["_scroll_top"] = True
                             st.rerun()
 
-        # ── 파트 0: 상담 & LIFE 컨설팅 (최상단 고정) ──
+        # ── 파트 최상단: 카탈로그 섹션 (가장 먼저 표시) ──
+        st.markdown('<div class="gk-section-label">📖 상담 카탈로그</div>', unsafe_allow_html=True)
+        _render_cards([
+            ("consult_catalog",  "📖", "상담 카탈로그",       "내가 올린 카탈로그 열람 · PDF/이미지 뷰어 · 보험사별 분류 조회"),
+            ("digital_catalog",  "📱", "디지털 카탈로그 관리", "보험사 카탈로그 업로드·AI분류 · Public/Private 보안 저장"),
+        ], "home_p_catalog")
+
+        # ── 파트 0: 상담 & LIFE 컨설팅 ──
         st.markdown('<div class="gk-section-label">🌟 상담 &amp; LIFE 컨설팅</div>', unsafe_allow_html=True)
         _render_cards([
             ("t0",         "📋", "신규보험 상담",       "기존 보험증권 분석 · 보장 공백 진단 · 신규 컨설팅"),
@@ -6046,11 +6053,10 @@ section[data-testid="stMain"] > div,
         ]
         _render_cards(PART2, "home_p2")
 
-        # ── 파트 2.5: LIFE EVENT + 디지털 카탈로그 관리 ──
+        # ── 파트 2.5: LIFE EVENT ──
         st.markdown('<div class="gk-section-label">🎯 LIFE EVENT</div>', unsafe_allow_html=True)
         _render_cards([
-            ("life_event",     "🎯", "LIFE EVENT 상담",    "인생 주요 이벤트별 보험 설계 · 출생·결혼·취업·은퇴 맞춤 컨설팅"),
-            ("digital_catalog","📱", "디지털 카탈로그 관리","보험사 카탈로그 업로드·AI분류 · Public/Private 보안 저장"),
+            ("life_event", "🎯", "LIFE EVENT 상담", "인생 주요 이벤트별 보험 설계 · 출생·결혼·취업·은퇴 맞춤 컨설팅"),
         ], "home_p25")
 
         # ── 파트 3: 부동산 투자 · 간병 컨설팅 ──
@@ -6067,11 +6073,6 @@ section[data-testid="stMain"] > div,
             ("customer_docs",    "👤", "고객자료 통합저장",      "의무기록·증권분석·청구서류 · 고객별 마인드맵 통합 저장"),
         ], "home_p4")
 
-        # ── 파트 5: 상담 카탈로그 (내 카탈로그 열람) ──
-        st.markdown('<div class="gk-section-label">📖 상담 카탈로그</div>', unsafe_allow_html=True)
-        _render_cards([
-            ("consult_catalog",  "📖", "상담 카탈로그",          "내가 올린 카탈로그 열람 · PDF/이미지 뷰어 · 보험사별 분류 조회"),
-        ], "home_p5")
 
         # ── 상담자 정보 입력 패널 (로그인 시 홈 하단 고정) ──────────────
         if 'user_id' in st.session_state:
