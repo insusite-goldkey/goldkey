@@ -241,7 +241,7 @@ class PolicyDisclosureCrawler:
         if not info:
             return self._err(f"'{company_name}' 공시실 미등록")
         if not self._launch():
-            return self._err("playwright 미설치. pip install playwright && playwright install chromium")
+            return self._err("실시간 공시실 크롤링은 서버 환경에서 비활성화됩니다. DB 캐시 검색을 이용하세요.")
 
         res = dict(pdf_url="", period="", revision_date="",
                    confidence=0, reason="", candidates_count=0, error="")
