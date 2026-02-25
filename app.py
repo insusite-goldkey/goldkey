@@ -8917,29 +8917,27 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
   font-weight:900;font-size:0.90rem;color:#1a3a5c;">
 📄 자동차사고 과실비율 인정기준 (금융감독원·손해보험협회)
 </div>""", unsafe_allow_html=True)
-            # PDF 경로: static 폴더 (HF Space git-lfs 배포) 우선, 없으면 base64 embed
-            _pdf_filename = "230630_자동차사고 과실비율 인정기준_최종.pdf"
-            _pdf_static_path = pathlib.Path(__file__).parent / "static" / _pdf_filename
+            # PDF 뷰어: Supabase Storage 공개 URL (goldkey 버킷 Public 설정 필요)
+            _pdf_filename = "230630_fault_ratio_standard_final.pdf"
             _pdf_url = ""
-            _pdf_b64 = ""
-            if _pdf_static_path.exists():
-                # Streamlit static 서빙: /app/static/{filename} 경로
-                _pdf_data = _pdf_static_path.read_bytes()
-                _pdf_b64 = base64.b64encode(_pdf_data).decode()
-                _pdf_url = f"data:application/pdf;base64,{_pdf_b64}"
-            else:
-                # 폴백: Supabase Storage 공개 URL
-                try:
-                    _sb_base = (
-                        os.environ.get("SUPABASE_URL", "").strip()
-                        or st.secrets.get("SUPABASE_URL", "")
-                        or st.secrets.get("supabase", {}).get("url", "")
-                    ).rstrip("/")
-                    if _sb_base:
-                        _pdf_url = f"{_sb_base}/storage/v1/object/public/{SB_BUCKET}/{_pdf_filename}"
-                except Exception:
-                    pass
+            try:
+                _sb_base = (
+                    os.environ.get("SUPABASE_URL", "").strip()
+                    or st.secrets.get("SUPABASE_URL", "")
+                    or st.secrets.get("supabase", {}).get("url", "")
+                ).rstrip("/")
+                if _sb_base:
+                    _pdf_url = f"{_sb_base}/storage/v1/object/public/{SB_BUCKET}/{_pdf_filename}"
+            except Exception:
+                pass
             if _pdf_url:
+                st.markdown(
+                    f"<div style='text-align:right;margin-bottom:4px;'>"
+                    f"<a href='{_pdf_url}' target='_blank' style='font-size:0.82rem;"
+                    f"color:#1e6fa8;font-weight:700;text-decoration:none;'>"
+                    f"⬇️ PDF 새 탭에서 열기 ↗</a></div>",
+                    unsafe_allow_html=True,
+                )
                 components.html(
                     f'<iframe src="{_pdf_url}" width="100%" height="700" '
                     f'style="border:1px solid #b3d4f5;border-radius:8px;" '
@@ -8947,19 +8945,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     height=715,
                     scrolling=False,
                 )
-                if not _pdf_b64:
-                    st.markdown(
-                        f"<div style='text-align:right;margin-top:4px;'>"
-                        f"<a href='{_pdf_url}' target='_blank' style='font-size:0.78rem;"
-                        f"color:#1e6fa8;font-weight:700;text-decoration:none;'>"
-                        f"⬇️ PDF 새 탭에서 열기 ↗</a></div>",
-                        unsafe_allow_html=True,
-                    )
             else:
-                st.warning(
-                    f"📌 **과실비율 인정기준 PDF 파일을 찾을 수 없습니다.**\n\n"
-                    f"`static/{_pdf_filename}` 파일이 배포에 포함되어 있는지 확인하세요."
-                )
+                st.warning("📌 Supabase URL을 가져올 수 없습니다. secrets 설정을 확인하세요.")
                 st.markdown(
                     "<div style='background:#fef9e7;border:1px solid #f1c40f;border-radius:7px;"
                     "padding:8px 12px;font-size:0.79rem;color:#7d6608;margin-top:6px;'>"
