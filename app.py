@@ -4171,6 +4171,15 @@ section[data-testid="stSidebar"] > div:first-child {
                                     m = members[ln]
                                     _jd = dt.strptime(m["join_date"], "%Y-%m-%d")
                                     _adm = (ln in _get_unlimited_users())
+                                    # ── 로그인 시 캐시 완전 초기화 (앱 재시작 후 최신 데이터 반영) ──
+                                    _cache_keys_to_clear = [
+                                        "dc_priv_cache",          # 내 카탈로그 목록
+                                        "dc_ai_company", "dc_ai_doctype",
+                                        "dc_ai_tags", "dc_ai_conf", "dc_ai_fileno",
+                                        "catalog_jwt",            # 하이브리드 JWT
+                                    ]
+                                    for _ck in _cache_keys_to_clear:
+                                        st.session_state.pop(_ck, None)
                                     st.session_state.user_id   = m["user_id"]
                                     st.session_state.user_name = ln
                                     st.session_state.join_date = _jd
@@ -13170,9 +13179,21 @@ END; $$;""", language="sql")
                 if st.button("🔄 목록 새로고침", key="dc_priv_refresh"):
                     st.session_state.pop("dc_priv_cache", None)
 
-                # 하이브리드 백엔드 연동 시 실제 파일 목록 조회
+                # ── Supabase user_files 직접 조회 (로그인 시 캐시 초기화됨) ──
                 if "dc_priv_cache" not in st.session_state:
-                    if _hybrid_enabled() and _jwt:
+                    _sb_priv = _get_sb_client()
+                    if _sb_priv:
+                        try:
+                            _rows = _sb_priv.table("user_files")\
+                                .select("*")\
+                                .eq("uid", str(_uid))\
+                                .order("created_at", desc=True)\
+                                .execute().data or []
+                            st.session_state["dc_priv_cache"] = _rows
+                        except Exception as _pe:
+                            st.session_state["dc_priv_cache"] = []
+                            st.caption(f"목록 조회 오류: {_pe}")
+                    elif _hybrid_enabled() and _jwt:
                         st.session_state["dc_priv_cache"] = hybrid_get_private_files(_uid, _jwt)
                     else:
                         st.session_state["dc_priv_cache"] = []
@@ -13180,7 +13201,7 @@ END; $$;""", language="sql")
                 _priv_files = st.session_state.get("dc_priv_cache", [])
 
                 if not _priv_files:
-                    st.info("📂 업로드된 카탈로그가 없습니다.\n\n[📤 업로드 / AI 자동분류] 탭에서 파일을 올려보세요.")
+                    st.info("📂 업로드된 카탈로그가 없습니다.\n\n📤 업로드 & AI 자동분류 탭에서 파일을 올려보세요.")
                 else:
                     st.markdown(f"**총 {len(_priv_files)}개 파일**")
                     for _fi, _f in enumerate(_priv_files):
@@ -13188,15 +13209,27 @@ END; $$;""", language="sql")
                         _ai_ty  = _f.get("ai_doc_type", "")
                         _ai_tg  = ", ".join(_f.get("ai_tags") or [])
                         _fname  = _f.get("original_name", f"파일_{_fi+1}")
-                        _fsize  = round((_f.get("file_size") or 0) / 1024, 1)
+                        _sp     = _f.get("storage_path", "")
+                        _created = str(_f.get("created_at", ""))[:16]
+                        # 서명된 URL 생성 (24시간 유효)
+                        _view_url = ""
+                        try:
+                            _sb_v = _get_sb_client()
+                            if _sb_v and _sp:
+                                _signed = _sb_v.storage.from_(SB_BUCKET)\
+                                    .create_signed_url(_sp, 86400)
+                                _view_url = _signed.get("signedURL", "") or _signed.get("signedUrl", "")
+                        except Exception:
+                            pass
                         st.markdown(f"""
 <div style="background:#f0fff4;border:1.5px solid #27ae60;border-radius:10px;
   padding:10px 14px;margin-bottom:8px;">
   <div style="font-size:0.9rem;font-weight:900;color:#1a5c3a;">🔒 {_fname}</div>
   <div style="font-size:0.75rem;color:#555;margin-top:4px;">
     🏢 {_ai_co} &nbsp;|&nbsp; 📄 {_ai_ty} &nbsp;|&nbsp; 🏷️ {_ai_tg}<br>
-    📦 {_fsize}KB &nbsp;|&nbsp; 🔐 AES-256 암호화 보관
+    📅 {_created} &nbsp;|&nbsp; 🔐 AES-256 암호화 보관
   </div>
+  {f'<a href="{_view_url}" target="_blank" style="display:inline-block;margin-top:6px;background:#1e6fa8;color:#fff;border-radius:8px;padding:4px 14px;font-size:0.75rem;font-weight:700;text-decoration:none;">👁️ 파일 열기</a>' if _view_url else '<span style="font-size:0.72rem;color:#999;">🔗 URL 생성 불가 (Supabase 미연결)</span>'}
 </div>""", unsafe_allow_html=True)
 
         # ── [업로드 & AI 자동분류] ────────────────────────────────────────
