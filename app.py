@@ -6146,7 +6146,6 @@ section[data-testid="stMain"] > div,
                             st.session_state.current_tab = tab_id
                             st.session_state["_scroll_top"] = True
                             st.rerun()
-        st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [policy_scan] 보험증권 분석 — 독립 전용 탭 ──────────────────────
     if cur == "policy_scan":
