@@ -11953,6 +11953,85 @@ END; $$;""", language="sql")
   border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:10px;
   font-weight:900;font-size:0.9rem;color:#1a3a5c;">📋 약관 조회 조건</div>""",
                 unsafe_allow_html=True)
+            # ── 공시실 링크 데이터 ─────────────────────────────────────
+            _PT_DISC_DATA = [
+                ("손해", "삼성화재",    "https://www.samsungfire.com/cust/disclosure/productDisclosure.do"),
+                ("손해", "현대해상",    "https://www.hi.co.kr/cms/disclosure/product/list.do"),
+                ("손해", "DB손해보험",  "https://www.idb.co.kr/cust/disclosure/product.do"),
+                ("손해", "KB손해보험",  "https://www.kbinsure.co.kr/cust/disclosure/product.do"),
+                ("손해", "메리츠화재",  "https://www.meritzfire.com/cust/disclosure/product.do"),
+                ("손해", "롯데손해보험","https://www.lotteins.co.kr/cust/disclosure/product.do"),
+                ("손해", "한화손해보험","https://www.hwgeneralins.com/cust/disclosure/product.do"),
+                ("손해", "흥국화재",    "https://www.heungkukfire.co.kr/cust/disclosure/product.do"),
+                ("생명", "삼성생명",    "https://www.samsunglife.com/customer/publicInfo/productDisclosure.do"),
+                ("생명", "한화생명",    "https://www.hanwhalife.com/cust/disclosure/productlist.do"),
+                ("생명", "교보생명",    "https://www.kyobo.co.kr/prd/disclosures/productDisclosure"),
+                ("생명", "신한라이프",  "https://www.shinhanlife.co.kr/hp/cdha0100.do"),
+                ("생명", "NH농협생명",  "https://www.nhlife.co.kr/disclosure/product"),
+                ("생명", "미래에셋생명","https://life.miraeasset.com/csc/disclosure/productTerms.do"),
+                ("생명", "DB생명",      "https://www.db-life.com/customer/publicInfo/product.do"),
+                ("협회", "생명보험협회","https://klia.or.kr/consumer/publicRelation/productDisclosure.do"),
+                ("협회", "손해보험협회","https://www.knia.or.kr/consumer/publicRelation/productDisclosure.do"),
+            ]
+            # ── 공시실 링크 박스 ──────────────────────────────────────────
+            st.markdown("""<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:6px;
+  font-weight:900;font-size:0.88rem;color:#1a3a5c;">🏢 보험사 공시실 바로가기</div>""",
+                unsafe_allow_html=True)
+            _disc_filter = st.text_input(
+                "", placeholder="🔍 보험사명 검색 (예: 삼성, 현대, KB...)",
+                key="pt_disc_filter", label_visibility="collapsed"
+            ).strip()
+            _disc_filtered = [
+                (cat, name, url) for cat, name, url in _PT_DISC_DATA
+                if _disc_filter == "" or _disc_filter in name
+            ]
+            # 스크롤 가능한 링크 테이블 생성
+            _disc_rows = ""
+            _cat_colors = {"손해": "#e8f4fd", "생명": "#eafaf1", "협회": "#fef9e7"}
+            _cat_badges = {"손해": "<span style='background:#1e6fa8;color:#fff;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:700;'>손해</span>",
+                           "생명": "<span style='background:#27ae60;color:#fff;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:700;'>생명</span>",
+                           "협회": "<span style='background:#e67e22;color:#fff;border-radius:4px;padding:1px 6px;font-size:0.68rem;font-weight:700;'>협회</span>"}
+            for _cat, _cname, _curl in _disc_filtered:
+                _bg = _cat_colors.get(_cat, "#fff")
+                _badge = _cat_badges.get(_cat, "")
+                _disc_rows += (
+                    f"<tr style='background:{_bg};'>"
+                    f"<td style='padding:5px 8px;font-size:0.8rem;font-weight:700;white-space:nowrap;'>"
+                    f"{_badge} {_cname}</td>"
+                    f"<td style='padding:5px 8px;'>"
+                    f"<a href='{_curl}' target='_blank' style='color:#1e6fa8;font-size:0.75rem;"
+                    f"font-weight:600;text-decoration:none;'>🔗 공시실 열기 ↗</a></td>"
+                    f"</tr>"
+                )
+            if not _disc_rows:
+                _disc_rows = "<tr><td colspan='2' style='text-align:center;padding:10px;color:#999;font-size:0.8rem;'>검색 결과 없음</td></tr>"
+            st.markdown(
+                f"<div style='border:1px solid #b3d4f5;border-radius:8px;overflow:hidden;margin-bottom:8px;'>"
+                f"<div style='max-height:190px;overflow-y:auto;'>"
+                f"<table style='width:100%;border-collapse:collapse;'>"
+                f"<thead><tr style='background:#1a3a5c;color:#fff;font-size:0.75rem;'>"
+                f"<th style='padding:5px 8px;text-align:left;'>보험사</th>"
+                f"<th style='padding:5px 8px;text-align:left;'>공시실</th></tr></thead>"
+                f"<tbody>{_disc_rows}</tbody></table></div></div>",
+                unsafe_allow_html=True,
+            )
+            # ── AI 약관 매칭 연동 안내 ────────────────────────────────────
+            st.markdown(
+                "<div style='background:#fffbe6;border:1px solid #ffe58f;border-radius:7px;"
+                "padding:7px 12px;font-size:0.76rem;color:#7d5a00;margin-bottom:8px;line-height:1.6;'>"
+                "💡 <b>AI 약관 매칭 프로세스</b><br>"
+                "① 위 공시실에서 약관 PDF를 확인<br>"
+                "② 아래 <b>보험사·상품명·가입일자</b> 입력<br>"
+                "③ <b>🚀 약관 자동 매칭 시작</b> → AI가 DB 캐시 검색 후 결과 표시<br>"
+                "④ 결과에서 <b>PDF 원본 다운로드</b> 링크 제공"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown("""<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:8px;
+  font-weight:900;font-size:0.88rem;color:#1a3a5c;">📋 약관 조회 조건</div>""",
+                unsafe_allow_html=True)
             _pt_company  = st.selectbox(
                 "보험사",
                 ["삼성화재", "현대해상", "DB손해보험", "KB손해보험", "메리츠화재",
@@ -11962,39 +12041,6 @@ END; $$;""", language="sql")
                  "생명보험협회 (통합 검색)", "손해보험협회 (통합 검색)"],
                 key="pt_company",
             )
-            # ── 선택 보험사 공시실 직접 링크 ─────────────────────────────
-            _PT_DISCLOSURE_URLS: dict = {
-                "삼성화재":    "https://www.samsungfire.com/cust/disclosure/productDisclosure.do",
-                "현대해상":    "https://www.hi.co.kr/cms/disclosure/product/list.do",
-                "DB손해보험":  "https://www.idb.co.kr/cust/disclosure/product.do",
-                "KB손해보험":  "https://www.kbinsure.co.kr/cust/disclosure/product.do",
-                "메리츠화재":  "https://www.meritzfire.com/cust/disclosure/product.do",
-                "롯데손해보험":"https://www.lotteins.co.kr/cust/disclosure/product.do",
-                "한화손해보험":"https://www.hwgeneralins.com/cust/disclosure/product.do",
-                "흥국화재":    "https://www.heungkukfire.co.kr/cust/disclosure/product.do",
-                "삼성생명":    "https://www.samsunglife.com/customer/publicInfo/productDisclosure.do",
-                "한화생명":    "https://www.hanwhalife.com/cust/disclosure/productlist.do",
-                "교보생명":    "https://www.kyobo.co.kr/prd/disclosures/productDisclosure",
-                "신한라이프":  "https://www.shinhanlife.co.kr/hp/cdha0100.do",
-                "NH농협생명":  "https://www.nhlife.co.kr/disclosure/product",
-                "미래에셋생명":"https://life.miraeasset.com/csc/disclosure/productTerms.do",
-                "DB생명":      "https://www.db-life.com/customer/publicInfo/product.do",
-                "생명보험협회 (통합 검색)": "https://klia.or.kr/consumer/publicRelation/productDisclosure.do",
-                "손해보험협회 (통합 검색)": "https://www.knia.or.kr/consumer/publicRelation/productDisclosure.do",
-            }
-            _pt_disc_url = _PT_DISCLOSURE_URLS.get(_pt_company, "")
-            if _pt_disc_url:
-                _pt_cn_label = _pt_company.replace(" (통합 검색)", "")
-                st.markdown(
-                    f"<a href='{_pt_disc_url}' target='_blank' style='"
-                    f"display:inline-flex;align-items:center;gap:6px;"
-                    f"background:#1e6fa8;color:#fff;border-radius:7px;"
-                    f"padding:5px 13px;font-size:0.78rem;font-weight:700;"
-                    f"text-decoration:none;margin-bottom:6px;"
-                    f"box-shadow:0 2px 6px rgba(30,111,168,0.18);'>"
-                    f"🔗 {_pt_cn_label} 공시실 바로가기 ↗</a>",
-                    unsafe_allow_html=True,
-                )
             _pt_product  = st.text_input(
                 "상품명",
                 placeholder="예) 무배당 삼성화재 암보험 / 현대해상 굿앤굿 어린이CI",
