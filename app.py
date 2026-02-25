@@ -6936,6 +6936,106 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 ☐ 고객 동의 및 설명 완료<br><br>
 <b style="color:#888;font-size:0.76rem;">⚠️ 본 내용은 참고용이며 최종 판단은 설계사에게 있습니다.</b>
 </div>""", height=638)
+        # ── 선택 상품 고지의무 핵심 가이드 ──────────────────────────────────
+        st.markdown("""<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin-top:16px;margin-bottom:8px;
+  font-weight:900;font-size:0.92rem;color:#1a3a5c;">
+📌 선택 상품 — 고지의무 핵심 가이드 (설계사 전용)
+</div>""", unsafe_allow_html=True)
+        _guide_col1, _guide_col2 = st.columns(2)
+
+        with _guide_col1:
+            components.html("""
+<div style="height:520px;overflow-y:auto;padding:14px 16px;
+  background:#fff8f0;border:2px solid #e67e22;border-radius:10px;
+  font-size:0.81rem;line-height:1.75;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+
+<div style="background:#e67e22;color:#fff;border-radius:6px;padding:5px 12px;
+  font-size:0.88rem;font-weight:900;margin-bottom:10px;display:inline-block;">
+  ① 유병자보험 (간편심사형) &nbsp;·&nbsp; 3.2.5형
+</div><br>
+
+<b style="color:#c0392b;font-size:0.83rem;">▶ '3' — 3개월 내 의사 소견</b><br>
+단순 진단뿐만 아니라 <b>'추가검사(재검사) 소견'</b> 여부를 반드시 확인.<br>
+• 3개월 이내 단순 통원도 반드시 고지<br>
+• 기존 당뇨 등 계속 투약 중 <b>약물 변경·증액</b>이 있으면 고지 대상<br>
+• 설계 시: "3개월 이내 병원 근처라도 가셨는지 (감기 포함)"를 먼저 묻고,<br>
+&nbsp;&nbsp;&nbsp;"의사가 나중에 다시 오세요 했는지" 반드시 확인<br><br>
+
+<div style="background:#fef9e7;border-left:3px solid #f1c40f;padding:6px 10px;
+  border-radius:0 5px 5px 0;margin-bottom:10px;">
+<b style="color:#7d6608;">⚖️ 판례 근거</b><br>
+대법원은 의사가 정기 검진 중 <b>"나중에 다시 보자"</b>라고 한 발언도
+고지 대상인 <b>'재검사 필요 소견'</b>으로 보는 경향이 있습니다.
+</div>
+
+<b style="color:#c0392b;font-size:0.83rem;">▶ '2' — 2년 내 입원/수술</b><br>
+질병의 종류를 불문합니다.<br>
+<b>'경증이니까 괜찮겠지'</b>라는 설계사의 임의 판단은 위험합니다.<br><br>
+
+<b style="color:#c0392b;font-size:0.83rem;">▶ '5' — 5년 내 암 진단/입원/수술</b><br>
+3.2.5형은 보통 <b>'암'만</b> 묻지만, 상품에 따라 <b>'8대 질병'</b> 등을
+묻는 경우도 있으니 <b>질문표를 직독직해</b>해야 합니다.<br><br>
+
+<div style="background:#fdf2f8;border:1.5px solid #e74c3c;border-radius:7px;
+  padding:8px 12px;margin-top:6px;">
+<b style="color:#c0392b;font-size:0.83rem;">⚠️ 주의사항 (상법 제651조)</b><br>
+고지의무 위반 시 보험사는 <b>사고와 인과관계가 없더라도 계약을 해지</b>할 수
+있습니다.<br>
+특히 유병자 보험은 '알릴의무' 자체가 간소화된 것이므로, 그 간소화된 항목조차
+누락될 경우 <b>사기행위에 의한 계약취소 법리</b>가 적용될 여지가 큽니다.
+</div>
+</div>
+""", height=540)
+
+        with _guide_col2:
+            components.html("""
+<div style="height:520px;overflow-y:auto;padding:14px 16px;
+  background:#f0faf5;border:2px solid #27ae60;border-radius:10px;
+  font-size:0.81rem;line-height:1.75;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+
+<div style="background:#27ae60;color:#fff;border-radius:6px;padding:5px 12px;
+  font-size:0.88rem;font-weight:900;margin-bottom:10px;display:inline-block;">
+  ② 건강고지형보험 (표준체) &nbsp;·&nbsp; 5.10.10형
+</div><br>
+
+<b style="color:#1a5c3a;font-size:0.83rem;">▶ 설계 핵심 주의사항</b><br>
+5.N.N형 보험은 고지 기간이 길고 항목이 세분화되어 있어<br>
+<b>'기록 누락' 사고가 빈번</b>합니다.<br>
+• 10년이라는 기간은 매우 깁니다.<br>
+• 계약자에게 <b>'보험금 청구 앱'</b> 등을 통해 본인의 과거 이력을
+  <b>직접 조회</b>하게 하는 절차를 반드시 거치십시오.<br><br>
+
+<b style="color:#1a5c3a;font-size:0.85rem;">🔎 손해사정 핵심 체크리스트</b><br><br>
+
+<b style="color:#c0392b;">▶ '5' — 5년 내 수술/입원/7일↑ 치료/30일↑ 투약</b><br>
+가장 사고가 많이 나는 구간입니다.<br><br>
+
+<div style="background:#e8f8f5;border-left:3px solid #27ae60;padding:6px 10px;
+  border-radius:0 5px 5px 0;margin-bottom:10px;">
+<b>누적 투약 일수:</b> 고혈압·고지혈증 약을 <b>끊었다 하더라도</b> 5년 이내에
+<b>30일 이상 처방</b>받은 이력이 있다면 반드시 고지해야 합니다.
+</div>
+
+<b style="color:#c0392b;">▶ '10' — 10년 내 입원/수술</b><br>
+일반 표준체(5년)보다 훨씬 긴 기간을 요구합니다.<br>
+고객은 <b>7~8년 전 수술을 기억하지 못하는 경우가 많습니다.</b><br>
+반드시 아래를 고객 동의하에 확인하도록 권고하십시오:<br>
+• 📋 <b>국민건강보험공단 진료내역</b><br>
+• 💳 <b>보험금 지급 이력</b><br><br>
+
+<div style="background:#fef9e7;border:1.5px solid #f1c40f;border-radius:7px;
+  padding:8px 12px;margin-top:4px;">
+<b style="color:#7d6608;">💡 무사고 할인 적용 여부</b><br>
+5.10.10형은 매년 무사고 시 보험료가 인하되는 구조가 많습니다.<br>
+고지 누락으로 인해 추후 <b>'유사고'로 판명될 경우</b>,<br>
+<b>보험료 차액 환수 및 계약 해지</b> 문제가 발생합니다.
+</div>
+</div>
+""", height=540)
+
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t1] 보험금 상담 ──────────────────────────────────────────────────
