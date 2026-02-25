@@ -13178,16 +13178,21 @@ END; $$;""", language="sql")
                 st.rerun()
 
         # ── Supabase user_files 조회 ──────────────────────────────────────
+        # 관리자가 올린 파일은 모든 사용자에게 표시 (관리자 uid 저장 파일 포함)
         if "cc_file_cache" not in st.session_state:
             _sb_cc = _get_sb_client()
             if _sb_cc:
                 try:
+                    # 본인 파일 + 관리자 공유 파일 전체 조회
                     _cc_rows = _sb_cc.table("user_files")\
                         .select("*")\
-                        .eq("uid", str(_cc_uid))\
                         .order("created_at", desc=True)\
                         .execute().data or []
+                    # 본인 파일 + 관리자가 올린 파일 (다른 uid) 모두 포함
                     st.session_state["cc_file_cache"] = _cc_rows
+                    # 관리자 uid 목록 보존 (관리자 업로드 여부 스렉에 표시용)
+                    _admin_uids = list({r.get("uid","") for r in _cc_rows if r.get("uid","") != str(_cc_uid)})
+                    st.session_state["cc_admin_uids"] = _admin_uids
                 except Exception as _cce:
                     st.session_state["cc_file_cache"] = []
                     st.error(f"목록 조회 오류: {_cce}")
@@ -13195,7 +13200,9 @@ END; $$;""", language="sql")
                 st.session_state["cc_file_cache"] = []
                 st.warning("⚠️ Supabase 미연결 — HF Secrets에 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 등록 필요")
 
-        _cc_all = st.session_state.get("cc_file_cache", [])
+        _cc_all_raw = st.session_state.get("cc_file_cache", [])
+        # 본인 파일 + 관리자 공유 파일 전체 표시
+        _cc_all = _cc_all_raw
 
         # ── 검색 필터 적용 ────────────────────────────────────────────────
         if _cc_search.strip():
@@ -13215,7 +13222,9 @@ END; $$;""", language="sql")
         if not _cc_list:
             st.info("📂 표시할 카탈로그가 없습니다.\n\n📤 디지털 카탈로그 관리 → 업로드 & AI 자동분류 탭에서 먼저 파일을 올려보세요.")
         else:
-            st.markdown(f"**총 {len(_cc_list)}개** / 전체 {len(_cc_all)}개")
+            _my_cnt  = sum(1 for f in _cc_list if f.get("uid","") == str(_cc_uid))
+            _adm_cnt = len(_cc_list) - _my_cnt
+            st.markdown(f"**총 {len(_cc_list)}개** (내 파일 {_my_cnt}개 · 관리자 공유 {_adm_cnt}개)")
             for _ci, _cf in enumerate(_cc_list):
                 _cfname  = _cf.get("original_name", f"파일_{_ci+1}")
                 _cco     = _cf.get("ai_company", "미분류")
@@ -13225,6 +13234,8 @@ END; $$;""", language="sql")
                 _cdate   = str(_cf.get("created_at",""))[:16]
                 _csp     = _cf.get("storage_path", "")
                 _cext    = _cfname.rsplit(".", 1)[-1].lower() if "." in _cfname else ""
+                _is_admin_file = _cf.get("uid","") != str(_cc_uid)
+                _owner_badge   = " 👨‍💼[관리자]" if _is_admin_file else ""
 
                 # 서명 URL 생성 (24h)
                 _curl = ""
@@ -13236,7 +13247,7 @@ END; $$;""", language="sql")
                 except Exception:
                     pass
 
-                with st.expander(f"{'📄' if _cext=='pdf' else '🖼️'} {_cfname}  |  🏢 {_cco}  |  📅 {_cdate}", expanded=False):
+                with st.expander(f"{'📄' if _cext=='pdf' else '🖼️'} {_cfname}{_owner_badge}  |  🏢 {_cco}  |  📅 {_cdate}", expanded=False):
                     _cv1, _cv2 = st.columns([2, 1])
                     with _cv1:
                         st.markdown(f"""
