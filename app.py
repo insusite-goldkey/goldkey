@@ -4378,7 +4378,9 @@ section[data-testid="stSidebar"] > div:first-child {
         if 'user_id' in st.session_state:
             # 로그인 상태
             user_name = st.session_state.get('user_name', '')
-            st.success(f"✅ {mask_name(user_name)} 마스터님 · 로그인됨")
+            # ── is_admin 매 렌더마다 재검증 (세션 복구 후 권한 소실 방지) ──
+            st.session_state.is_admin = user_name in _get_unlimited_users()
+            st.success(f"✅ {mask_name(user_name)} {'👑 관리자' if st.session_state.is_admin else '마스터님'} · 로그인됨")
 
             # ── 기기 통합 자동 로그인 URL 북마크 안내 ─────────────────────
             _auto_tok = st.session_state.get("_auto_login_token", "")
