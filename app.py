@@ -13732,7 +13732,7 @@ END; $$;""", language="sql")
 
             # 분류: 보험사 카탈로그 vs 고객서류
             # 미확인 포함 전부 박스 1에 (고객서류 doc_type인 것만 박스 2로)
-            _CLIENT_DOC_TYPES = {"의뢴기록","슬립지","청구서류","고객서류","기타"}
+            _CLIENT_DOC_TYPES = {"의뢴기록","슬립지","청구서류","고객서류"}
             _lib_box2 = [r for r in _lib_rows if r.get("ai_doc_type","") in _CLIENT_DOC_TYPES]
             _lib_box1 = [r for r in _lib_rows if r not in _lib_box2]
 
@@ -13783,50 +13783,75 @@ END; $$;""", language="sql")
                                             st.session_state["cc_selected_ids"].pop(_idx)
                                             st.session_state.get("cc_selected_rows",[]).pop(_idx) if len(st.session_state.get("cc_selected_rows",[]))>_idx else None
 
-            # ─ 라이브러리 박스 2: 고객 서류 ──────────────────────────
+            # ─ 라이브러리 박스 2: 고객 서류 (사람이름→날짜→문서유형→파일명) ──
             with _lbc2:
                 st.markdown("""
 <div style="background:#0d3b2e;color:#fff;border-radius:10px 10px 0 0;
   padding:8px 14px;font-size:0.88rem;font-weight:900;">
   📁 고객 상담 서류 &nbsp;<span style="font-size:0.72rem;font-weight:400;
-  color:#a8e6cf;">(사고·질병·기타 상담)</span>
+  color:#a8e6cf;">이름 → 날짜 → 문서유형 → 파일명</span>
 </div>""", unsafe_allow_html=True)
-                _mg2 = _group_by_month(_lib_box2)
+
+                # uid → 이름 역방향 조회 맵 구성
+                _uid_name_map = {}
+                try:
+                    _mbs = load_members()
+                    for _nm, _md in _mbs.items():
+                        _uid_name_map[str(_md.get("user_id",""))] = _nm
+                except Exception:
+                    pass
+                # 본인 UID도 등록 (맵에 없을 경우 대비)
+                _uid_name_map[_lib_uid] = st.session_state.get("user_name", "나")
+
+                # 대분류1: 사람이름
+                _name_grp2 = {}
+                for _r2 in _lib_box2:
+                    _r2_uid  = str(_r2.get("uid",""))
+                    _r2_name = _uid_name_map.get(_r2_uid, f"UID:{_r2_uid[:6]}")
+                    _name_grp2.setdefault(_r2_name, []).append(_r2)
+
                 with st.container(height=320):
-                    if not _mg2:
+                    if not _name_grp2:
                         st.caption("📢 고객 서류가 없습니다.")
-                    for _ym2, _files2 in _mg2.items():
-                        _yr2, _mn2 = (_ym2[:4], _ym2[5:7]) if len(_ym2) >= 7 else (_ym2, "")
+                    for _pname, _pfiles in _name_grp2.items():
                         st.markdown(f"""
 <div style="background:#1a6b4a;color:#fff;border-radius:6px;
   padding:4px 10px;margin:6px 0 3px 0;font-size:0.8rem;font-weight:700;">
-  📅 {_yr2}년 {_mn2}월 &nbsp;({len(_files2)}건)
+  👤 {_pname} &nbsp;({len(_pfiles)}건)
 </div>""", unsafe_allow_html=True)
-                        # 유형별 그룹 (사고/질병/기타)
-                        _ty_grp2 = {}
-                        for _f2 in _files2:
-                            _ty2 = _f2.get("ai_doc_type","") or "기타"
-                            _ty_grp2.setdefault(_ty2, []).append(_f2)
-                        for _ty2, _tfiles2 in _ty_grp2.items():
-                            with st.expander(f"📄 {_ty2} ({len(_tfiles2)}건)", expanded=False):
-                                for _fi2 in _tfiles2:
-                                    _fn2  = _fi2.get("original_name","파일")
-                                    _fid2 = _fi2.get("file_id","")
-                                    _sel_key2 = f"lib_sel_{_fid2}"
-                                    _already2 = _fid2 in st.session_state.get("cc_selected_ids", [])
-                                    _chk2 = st.checkbox(
-                                        f"{'✅' if _already2 else '☐'} {_fn2[:40]}",
-                                        value=_already2, key=_sel_key2
-                                    )
-                                    if _chk2 and _fid2 not in st.session_state.get("cc_selected_ids",[]):
-                                        st.session_state.setdefault("cc_selected_ids", []).append(_fid2)
-                                        st.session_state.setdefault("cc_selected_rows", []).append(_fi2)
-                                    elif not _chk2:
-                                        _ids2 = st.session_state.get("cc_selected_ids",[])
-                                        if _fid2 in _ids2:
-                                            _idx2 = _ids2.index(_fid2)
-                                            st.session_state["cc_selected_ids"].pop(_idx2)
-                                            st.session_state.get("cc_selected_rows",[]).pop(_idx2) if len(st.session_state.get("cc_selected_rows",[]))>_idx2 else None
+                        # 중분류: 날짜 (YYYY-MM-DD)
+                        _date_grp2 = {}
+                        for _f2 in _pfiles:
+                            _d2 = str(_f2.get("created_at",""))[:10] or "날짜미상"
+                            _date_grp2.setdefault(_d2, []).append(_f2)
+                        for _d2, _dfiles2 in _date_grp2.items():
+                            with st.expander(f"📅 {_d2} ({len(_dfiles2)}건)", expanded=False):
+                                # 소분류: 문서유형
+                                _ty_grp2 = {}
+                                for _f2 in _dfiles2:
+                                    _ty2 = _f2.get("ai_doc_type","") or "기타"
+                                    _ty_grp2.setdefault(_ty2, []).append(_f2)
+                                for _ty2, _tfiles2 in _ty_grp2.items():
+                                    st.markdown(f"<span style='font-size:0.75rem;color:#1a6b4a;font-weight:700;'>📄 {_ty2}</span>", unsafe_allow_html=True)
+                                    for _fi2 in _tfiles2:
+                                        _fn2  = _fi2.get("original_name","파일")
+                                        _fid2 = _fi2.get("file_id","")
+                                        _sel_key2 = f"lib_sel_{_fid2}"
+                                        _already2 = _fid2 in st.session_state.get("cc_selected_ids", [])
+                                        _chk2 = st.checkbox(
+                                            f"{'✅' if _already2 else '☐'} {_fn2[:38]}",
+                                            value=_already2, key=_sel_key2
+                                        )
+                                        if _chk2 and _fid2 not in st.session_state.get("cc_selected_ids",[]):
+                                            st.session_state.setdefault("cc_selected_ids", []).append(_fid2)
+                                            st.session_state.setdefault("cc_selected_rows", []).append(_fi2)
+                                        elif not _chk2:
+                                            _ids2 = st.session_state.get("cc_selected_ids",[])
+                                            if _fid2 in _ids2:
+                                                _idx2 = _ids2.index(_fid2)
+                                                st.session_state["cc_selected_ids"].pop(_idx2)
+                                                if len(st.session_state.get("cc_selected_rows",[])) > _idx2:
+                                                    st.session_state["cc_selected_rows"].pop(_idx2)
 
             # 선택 요약 바
             _sel_cnt = len(st.session_state.get("cc_selected_ids", []))
