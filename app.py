@@ -13237,12 +13237,19 @@ END; $$;""", language="sql")
 
             # ── 드래그앤드롭 영역 — 외곽선 강화 ─────────────────────────
             st.markdown("""
-<div style="border:2.5px dashed #2e6da4;border-radius:14px;
-  background:linear-gradient(135deg,#f0f7ff 0%,#e8f4fb 100%);
-  padding:14px 16px 4px 16px;margin-bottom:8px;">
-<div style="color:#1a3a5c;font-size:0.85rem;font-weight:700;margin-bottom:4px;">
-  📎 파일을 여기에 끌어다 놓거나, 아래 버튼으로 <b>파일 전송하세요</b>
-  <span style="color:#e74c3c;font-size:0.75rem;margin-left:8px;">★ 여러 장 동시 선택 가능</span>
+<div style="border:3px dashed #1e6fa8;border-radius:16px;
+  background:linear-gradient(135deg,#dbeeff 0%,#eaf4fb 100%);
+  padding:18px 20px 6px 20px;margin-bottom:10px;
+  box-shadow:0 2px 12px rgba(30,111,168,0.13);">
+<div style="color:#1a3a5c;font-size:0.92rem;font-weight:800;margin-bottom:6px;
+  display:flex;align-items:center;gap:10px;">
+  <span style="font-size:1.5rem;">📂</span>
+  <span>파일을 여기에 <b>끌어다 놓거나</b>, 아래 버튼으로 <b>파일 전송하세요</b></span>
+  <span style="background:#e74c3c;color:#fff;border-radius:10px;padding:2px 10px;
+    font-size:0.72rem;font-weight:700;margin-left:4px;">★ 여러 장 동시 선택 가능</span>
+</div>
+<div style="color:#2e6da4;font-size:0.76rem;margin-bottom:6px;">
+  💡 PDF · JPG · PNG 지원 &nbsp;|&nbsp; 갤러리·문서 폴더에서 선택 &nbsp;|&nbsp; 모바일: 카메라 촬영
 </div>""", unsafe_allow_html=True)
 
             _dc_up_col1, _dc_up_col2 = st.columns([4, 1])
@@ -13315,27 +13322,35 @@ END; $$;""", language="sql")
                         with st.spinner("Gemini AI 분류 중..."):
                             try:
                                 import re as _rec_dc
-                                _fnames_all = ", ".join([getattr(f, "name", "") for f in _dc_files])
-                                _ai_p = (
-                                    f"다음 파일 목록을 분석하여 보험사, 문서유형, 태그, 파일번호를 JSON으로 반환하세요.\n"
-                                    f"파일명 목록: {_fnames_all}\n메모: {_dc_note}\n파일 수: {len(_dc_files)}\n\n"
-                                    f"응답 형식(JSON만):\n"
-                                    f'{{\"company\":\"보험사명\",\"doc_type\":\"카탈로그|약관|안내장|기타\",'
-                                    f'\"tags\":[\"태그1\",\"태그2\"],\"file_no\":\"DOC-YYYYMMDD-001\",\"confidence\":85}}'
-                                )
-                                _ai_r = call_ai(_ai_p)
-                                _jm = _rec_dc.search(r'\{[^{}]*\}', _ai_r, _rec_dc.DOTALL)
-                                if _jm:
-                                    _jd = json.loads(_jm.group())
-                                    st.session_state["dc_ai_company"] = _jd.get("company", "미확인")
-                                    st.session_state["dc_ai_doctype"] = _jd.get("doc_type", "기타")
-                                    st.session_state["dc_ai_tags"]    = _jd.get("tags", [])
-                                    st.session_state["dc_ai_fileno"]  = _jd.get("file_no", "—")
-                                    st.session_state["dc_ai_conf"]    = _jd.get("confidence", 0)
-                                    st.success(f"✅ AI 분류 완료! 파일번호: {_jd.get('file_no','—')}")
-                                    st.rerun()
+                                _dc_client = get_client()
+                                if _dc_client is None:
+                                    st.error("GEMINI_API_KEY가 설정되지 않았습니다. HF Secrets에 등록하세요.")
                                 else:
-                                    st.warning("AI 응답 파싱 실패 — 수동 입력을 이용하세요.")
+                                    _fnames_all = ", ".join([getattr(f, "name", "") for f in _dc_files])
+                                    _ai_p = (
+                                        f"다음 파일 목록을 분석하여 보험사, 문서유형, 태그, 파일번호를 JSON으로 반환하세요.\n"
+                                        f"파일명 목록: {_fnames_all}\n메모: {_dc_note}\n파일 수: {len(_dc_files)}\n\n"
+                                        f'응답 형식(JSON만):\n'
+                                        f'{{"company":"보험사명","doc_type":"카탈로그|약관|안내장|기타",'
+                                        f'"tags":["태그1","태그2"],"file_no":"DOC-YYYYMMDD-001","confidence":85}}'
+                                    )
+                                    _ai_resp = _dc_client.models.generate_content(
+                                        model=GEMINI_MODEL,
+                                        contents=[{"role": "user", "parts": [{"text": _ai_p}]}]
+                                    )
+                                    _ai_r = _ai_resp.text.strip() if _ai_resp.text else ""
+                                    _jm = _rec_dc.search(r'\{[^{}]*\}', _ai_r, _rec_dc.DOTALL)
+                                    if _jm:
+                                        _jd = json.loads(_jm.group())
+                                        st.session_state["dc_ai_company"] = _jd.get("company", "미확인")
+                                        st.session_state["dc_ai_doctype"] = _jd.get("doc_type", "기타")
+                                        st.session_state["dc_ai_tags"]    = _jd.get("tags", [])
+                                        st.session_state["dc_ai_fileno"]  = _jd.get("file_no", "—")
+                                        st.session_state["dc_ai_conf"]    = _jd.get("confidence", 0)
+                                        st.success(f"✅ AI 분류 완료! 파일번호: {_jd.get('file_no','—')}")
+                                        st.rerun()
+                                    else:
+                                        st.warning("AI 응답 파싱 실패 — 수동 입력을 이용하세요.")
                             except Exception as _ae:
                                 st.warning(f"AI 분류 실패: {_ae}")
 
