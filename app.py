@@ -10974,7 +10974,13 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                                 st.error(f"❌ {_uf.name}: {_ue}")
                         _prog_bar.progress(1.0, text=f"✅ {_added} / {_total} 등록 완료")
                         if _added > 0:
-                            st.success(f"✅ {_added}건 Storage 등록 완료! 심야에 '텍스트 추출 + RAG 저장' 버튼을 실행하세요.")
+                            _rag_sync_from_db(force=True)  # 기존 청크 메모리 캐시 즉시 갱신
+                            st.session_state.rag_system = LightRAGSystem()  # 검색 엔진 재초기화
+                            st.warning(
+                                f"⚠️ {_added}건 Storage 등록 완료 — "
+                                f"**현재 AI 상담에는 미반영 상태**입니다.\n\n"
+                                f"아래 **🌙 심야 일괄 처리** 버튼을 반드시 실행해야 텍스트 추출 후 AI에 반영됩니다."
+                            )
                             st.session_state['_rag_upload_cnt'] = st.session_state.get('_rag_upload_cnt', 0) + 1
                             st.rerun()
                 with _rbtn2:
@@ -11005,7 +11011,9 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     with st.spinner(f"🔄 {_sb_pending_cnt}건 처리 중... (완료까지 기다려주세요)"):
                         _ok, _fail = _rag_process_pending()
                     if _ok > 0:
-                        st.success(f"✅ {_ok}건 처리 완료! {f'(실패: {_fail}건)' if _fail else ''}")
+                        _rag_sync_from_db(force=True)  # 처리 완료 후 메모리 캐시 강제 갱신
+                        st.session_state.rag_system = LightRAGSystem()  # 검색 엔진 재초기화
+                        st.success(f"✅ {_ok}건 처리 완료 — AI 상담에 즉시 반영됩니다! {f'(실패: {_fail}건)' if _fail else ''}")
                         st.rerun()
                     else:
                         st.warning(f"처리된 파일 없음. 실패: {_fail}건")
