@@ -40,10 +40,16 @@
 
 ## 출력 기능 점검 체크리스트
 
-- [ ] `show_result()` 면책조항 포함 출력 — 텍스트 다운로드(.txt) 정상
-- [ ] `show_result()` 브라우저 인쇄/PDF 저장 — `window.print()` JS 호출 정상
-- [ ] 각 탭 결과 카카오/문자 전송용 텍스트 복사 정상
-- [ ] 관리자 계정 로그인 시 `👑 관리자` 배지 표시 정상
+- [x] `show_result()` 면책조항 포함 출력 — `full_text.encode("utf-8")` 다운로드 정상 (코드 검토 완료)
+- [x] `show_result()` 브라우저 인쇄/PDF 저장 — `window.print()` JS `components.html()` 호출 정상
+- [x] 출력 내용 텍스트영역 (`print_area_{result_key}`) key 충돌 없음 — result_key별 고유 key 사용
+- [x] 다운로드 버튼 (`dl_{result_key}`) key 충돌 없음 — result_key별 고유 key 사용
+- [x] 관리자 계정 로그인 시 `👑 관리자` 배지 표시 — `4c7c758` 수정 후 정상
+- [ ] 실환경 테스트 필요 — HF Space 재빌드 후 실제 출력 버튼 동작 확인
+
+### 출력 기능 잠재적 주의사항
+- `full_text`에 마크다운 기호(`**`, `#`)가 그대로 포함 — 텍스트 파일로는 읽기에 문제없으나, 인쇄 시 마크다운이 렌더링되지 않는 plain text로 출력됨
+- `window.print()`는 Streamlit iFrame 구조상 **전체 페이지**를 인쇄함 — 결과 부분만 출력하려면 별도 팝업 창 필요 (workspace/insurance_bot.py의 A4 PDF 방식이 더 적합)
 
 ---
 
