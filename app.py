@@ -13400,54 +13400,36 @@ END; $$;""", language="sql")
 &nbsp;— 회원 고유 UID 최상단 배치 · 타인 접근 불가
 </div>""", unsafe_allow_html=True)
 
-            # ── 파일 선택 방식 안내 ──────────────────────────────────────
-            st.markdown("""
-<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;border-radius:0 8px 8px 0;
-  padding:8px 14px;margin-bottom:6px;font-size:0.85rem;font-weight:700;color:#1a3a5c;">
-📂 파일 선택 방식 &nbsp;|&nbsp;
-<span style="font-weight:400;">갤러리(이미지) &nbsp;·&nbsp; 문서 폴더(PDF) &nbsp;·&nbsp; 카메라 촬영(모바일)</span>
-</div>""", unsafe_allow_html=True)
+            # ── 파일 업로드 — 순수 Streamlit 위젯 (HTML 간섭 없음) ──────────
+            st.info("📂 **파일을 아래 박스에 끌어다 놓거나, 박스를 클릭하여 선택하세요**\n\n"
+                    "📄 PDF · 🖼️ JPG / PNG 지원 &nbsp;|&nbsp; ★ 여러 파일 동시 선택 가능 (Ctrl 또는 Shift 클릭)")
 
-            # ── 드래그앤드롭 안내 배너 (위젯과 분리된 순수 HTML) ──────────
-            st.markdown("""
-<div style="border:3.5px solid #1e6fa8;border-radius:18px;
-  background:linear-gradient(135deg,#dbeeff 0%,#c8e6ff 60%,#e8f4fb 100%);
-  padding:16px 20px 14px 20px;margin-bottom:4px;
-  box-shadow:0 4px 18px rgba(30,111,168,0.22);">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-    <span style="font-size:2rem;">📂</span>
-    <div>
-      <div style="color:#0d2a4a;font-size:1.0rem;font-weight:900;line-height:1.4;">
-        파일을 아래 Drag 박스에 <b>끌어다 놓거나</b> 스캔로드하세요
-      </div>
-      <div style="color:#1e6fa8;font-size:0.78rem;margin-top:2px;">
-        📄 PDF &nbsp;·&nbsp; 🖼️ JPG / PNG &nbsp;·&nbsp; 📷 카메라 촬영(모바일)
-        &nbsp;&nbsp;<span style="background:#e74c3c;color:#fff;border-radius:8px;
-          padding:2px 9px;font-size:0.7rem;font-weight:700;">★ 여러 장 동시 선택</span>
-      </div>
-    </div>
-  </div>
-  <div style="background:rgba(30,111,168,0.10);border:2px dashed #2e6da4;
-    border-radius:10px;padding:8px 14px;text-align:center;
-    color:#1a3a5c;font-size:0.85rem;font-weight:700;">
-    ↓ &nbsp; Drag and drop file here &nbsp; (아래 박스에 파일을 올려주세요) &nbsp; ↓
-  </div>
-</div>""", unsafe_allow_html=True)
+            _dc_files = st.file_uploader(
+                "📎 Drag and drop files here — 파일을 여기에 끌어다 놓거나 클릭하여 선택",
+                type=["pdf", "jpg", "jpeg", "png"],
+                accept_multiple_files=True,
+                key="dc_uploader",
+                help="PC: Ctrl+클릭으로 여러 파일 선택 | 모바일: 갤러리에서 여러 장 선택",
+            )
 
-            # ── file_uploader는 HTML 바깥 독립 위젯으로 배치 ──────────────
-            _dc_up_col1, _dc_up_col2 = st.columns([4, 1])
-            with _dc_up_col1:
-                _dc_files = st.file_uploader(
-                    "📎 파일을 여기에 끌어다 놓거나 클릭하여 선택 (PDF / JPG / PNG)",
-                    type=["pdf", "jpg", "jpeg", "png"],
-                    accept_multiple_files=True,
-                    key="dc_uploader",
-                    help="갤러리·문서 폴더에서 여러 파일 동시 선택 가능. 모바일에서는 카메라 촬영도 지원.",
-                )
-            with _dc_up_col2:
-                st.markdown("<br>", unsafe_allow_html=True)
-                _dc_use_cam = st.checkbox("📷 카메라\n촬영", key="dc_use_cam",
-                                          help="모바일: 카메라로 직접 촬영")
+            # JS: input[type=file] 에 multiple 속성 강제 주입 (모바일 갤러리 다중선택)
+            _cmp_dc.html("""<script>
+(function(){
+  function patchUploader(){
+    var doc = window.parent.document;
+    doc.querySelectorAll('input[type="file"]').forEach(function(el){
+      el.setAttribute('multiple','');
+      el.removeAttribute('capture');
+    });
+  }
+  patchUploader();
+  setTimeout(patchUploader, 600);
+  setTimeout(patchUploader, 1500);
+})();
+</script>""", height=0)
+
+            _dc_use_cam = st.checkbox("📷 카메라 촬영 (모바일)", key="dc_use_cam",
+                                      help="모바일에서 카메라로 직접 촬영")
 
             if _dc_use_cam:
                 _dc_cam = st.camera_input("카메라로 카탈로그 촬영", key="dc_camera")
