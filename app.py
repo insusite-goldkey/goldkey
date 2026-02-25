@@ -4174,6 +4174,7 @@ section[data-testid="stSidebar"] > div:first-child {
                                     # ── 로그인 시 캐시 완전 초기화 (앱 재시작 후 최신 데이터 반영) ──
                                     _cache_keys_to_clear = [
                                         "dc_priv_cache",          # 내 카탈로그 목록
+                                        "cc_file_cache",          # 상담 카탈로그 목록
                                         "dc_ai_company", "dc_ai_doctype",
                                         "dc_ai_tags", "dc_ai_conf", "dc_ai_fileno",
                                         "catalog_jwt",            # 하이브리드 JWT
@@ -13583,7 +13584,9 @@ END; $$;""", language="sql")
                     _prog.progress(1.0, text=f"✅ {_ok_cnt} / {len(_dc_files)} 완료")
                     if _ok_cnt > 0:
                         st.success(f"🔐 {_ok_cnt}개 파일이 귀하의 Private Zone에 안전하게 보관되었습니다.")
+                        # 상담 카탈로그 + Private Zone 캐시 동시 삭제 → 즉시 반영
                         st.session_state.pop("dc_priv_cache", None)
+                        st.session_state.pop("cc_file_cache", None)
                         for _k in ("dc_ai_company","dc_ai_doctype","dc_ai_tags","dc_ai_conf","dc_ai_fileno"):
                             st.session_state.pop(_k, None)
 
