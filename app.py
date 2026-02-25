@@ -13675,33 +13675,51 @@ END; $$;""", language="sql")
                     _prog.progress(1.0, text=f"✅ {_ok_cnt} / {len(_dc_files)} 완료")
                     if _ok_cnt > 0:
                         st.success(f"🔐 {_ok_cnt}개 파일이 귀하의 Private Zone에 안전하게 보관되었습니다.")
-                        # 상담 카탈로그 + Private Zone 캐시 동시 삭제 → 즉시 반영
+                        # 캐시 전체 삭제 → 라이브러리 즉시 갱신
                         st.session_state.pop("dc_priv_cache", None)
                         st.session_state.pop("cc_file_cache", None)
+                        st.session_state.pop("_lib_rows_cache", None)  # 라이브러리 캐시 삭제
                         for _k in ("dc_ai_company","dc_ai_doctype","dc_ai_tags","dc_ai_conf","dc_ai_fileno"):
                             st.session_state.pop(_k, None)
+                        st.rerun()  # 라이브러리 즉시 갱신
 
             if not _SB_PKG_OK:
                 st.warning("⚠️ Supabase 미연결 — HF Secrets에 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 등록 필요")
 
             # ── 관리 박스: 월별×분류 라이브러리 ─────────────────────────
             st.divider()
-            st.markdown("##### 🗂️ 업로드 자료 관리 라이브러리")
-            st.caption("📌 아래 라이브러리에서 파일을 선택하면 상담 카탈로그 섹션에서 표시 후 브라우저로 열람할 수 있습니다.")
+            _lib_hdr_col1, _lib_hdr_col2 = st.columns([4, 1])
+            with _lib_hdr_col1:
+                st.markdown("##### 🗂️ 업로드 자료 관리 라이브러리")
+                st.caption("📌 아래 라이브러리에서 파일을 선택하면 상담 카탈로그 섹션에서 보실 수 있습니다.")
+            with _lib_hdr_col2:
+                if st.button("🔄 라이브러리 갱신", key="btn_lib_refresh", use_container_width=True):
+                    st.session_state.pop("_lib_rows_cache", None)
+                    st.rerun()
 
-            # Supabase 전체 user_files 조회 (본인 + 관리자)
+            # Supabase 전체 user_files 조회 — 세션 캐시 활용
             _lib_is_admin = st.session_state.get("is_admin", False)
             _lib_uid = str(st.session_state.get("user_id", ""))
             _lib_sb  = _get_sb_client()
-            _lib_rows = []
-            if _lib_sb:
-                try:
-                    if _lib_is_admin:
-                        _lib_rows = _lib_sb.table("user_files").select("*").order("created_at", desc=True).execute().data or []
-                    else:
-                        _lib_rows = _lib_sb.table("user_files").select("*").eq("uid", _lib_uid).order("created_at", desc=True).execute().data or []
-                except Exception:
-                    _lib_rows = []
+
+            if "_lib_rows_cache" not in st.session_state:
+                _lib_rows = []
+                if _lib_sb:
+                    try:
+                        if _lib_is_admin:
+                            _lib_rows = _lib_sb.table("user_files").select("*").order("created_at", desc=True).execute().data or []
+                        else:
+                            _lib_rows = _lib_sb.table("user_files").select("*").eq("uid", _lib_uid).order("created_at", desc=True).execute().data or []
+                        st.session_state["_lib_rows_cache"] = _lib_rows
+                    except Exception as _lib_e:
+                        st.warning(f"⚠️ 라이브러리 조회 실패: {_lib_e}")
+                        st.session_state["_lib_rows_cache"] = []
+                else:
+                    st.warning("⚠️ Supabase 미연결 — 라이브러리를 표시할 수 없습니다.")
+                    st.session_state["_lib_rows_cache"] = []
+
+            _lib_rows = st.session_state.get("_lib_rows_cache", [])
+            st.caption(f"📂 전체 {len(_lib_rows)}건 로드됨 {'(모든 대원)' if _lib_is_admin else '(내 파일)'}")
 
             # 월별 그룹화 함수
             def _group_by_month(rows):
@@ -13712,8 +13730,11 @@ END; $$;""", language="sql")
                     _m.setdefault(_ym, []).append(r)
                 return _m
 
-            _lib_box1 = [r for r in _lib_rows if r.get("ai_company","") not in ("","미확인","고객서류") or r.get("ai_doc_type","") in ("카탈로그","약관","안내장")]
-            _lib_box2 = [r for r in _lib_rows if r not in _lib_box1]
+            # 분류: 보험사 카탈로그 vs 고객서류
+            # 미확인 포함 전부 박스 1에 (고객서류 doc_type인 것만 박스 2로)
+            _CLIENT_DOC_TYPES = {"의뢴기록","슬립지","청구서류","고객서류","기타"}
+            _lib_box2 = [r for r in _lib_rows if r.get("ai_doc_type","") in _CLIENT_DOC_TYPES]
+            _lib_box1 = [r for r in _lib_rows if r not in _lib_box2]
 
             _lbc1, _lbc2 = st.columns(2, gap="small")
 
