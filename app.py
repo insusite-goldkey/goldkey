@@ -11992,15 +11992,38 @@ END; $$;""", language="sql")
                 "합성 QA 포함 검색 (딥러닝 매칭 향상)",
                 value=True, key="pt_include_syn",
             )
-            _btnc1, _btnc2 = st.columns(2)
+            _btnc1, _btnc2, _btnc3 = st.columns(3)
             with _btnc1:
                 _pt_run = st.button("🚀 약관 자동 매칭 시작",
                                     type="primary", use_container_width=True,
-                                    key="btn_pt_run")
+                                    key="btn_pt_run",
+                                    disabled=st.session_state.get("_pt_running", False))
             with _btnc2:
                 _pt_search_btn = st.button("🔎 딥러닝 검색",
                                            use_container_width=True,
-                                           key="btn_pt_search")
+                                           key="btn_pt_search",
+                                           disabled=st.session_state.get("_pt_running", False))
+            with _btnc3:
+                _pt_stop_btn = st.button("⏹ 중단",
+                                         use_container_width=True,
+                                         key="btn_pt_stop",
+                                         disabled=not st.session_state.get("_pt_running", False))
+            if _pt_stop_btn:
+                st.session_state["_pt_running"] = False
+                st.session_state.pop("_pt_result", None)
+                st.info("⏹ 약관 탐색이 중단되었습니다.")
+                st.rerun()
+            # 시작 버튼 → session_state에 실행 플래그 + 파라미터 저장
+            if _pt_run and _pt_product.strip():
+                st.session_state["_pt_running"]  = True
+                st.session_state["_pt_run_company"]  = _pt_company
+                st.session_state["_pt_run_product"]  = _pt_product.strip()
+                st.session_state["_pt_run_date"]     = str(_pt_join_date)
+                st.session_state["_pt_run_sdg"]      = _pt_enable_sdg
+                st.session_state.pop("_pt_result", None)
+                st.rerun()
+            elif _pt_run and not _pt_product.strip():
+                st.error("상품명을 입력해주세요.")
 
         with _pt_col2:
             st.markdown("""<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;
@@ -12008,99 +12031,110 @@ END; $$;""", language="sql")
   font-weight:900;font-size:0.9rem;color:#1a3a5c;">📊 분석 결과</div>""",
                 unsafe_allow_html=True)
 
-            # ── 약관 자동 매칭 실행 ───────────────────────────────────────
-            if _pt_run:
-                if not _pt_product.strip():
-                    st.error("상품명을 입력해주세요.")
-                else:
-                    _pt_cn = _pt_company.replace(" (통합 검색)", "")
-                    _pt_js = str(_pt_join_date)
-                    _pt_sb = _get_sb_client()
-                    _pt_gc = client if "client" in dir() else None
+            # ── 약관 자동 매칭 실행 (session_state 기반 — 스크롤 무관) ────
+            if st.session_state.get("_pt_running"):
+                _pt_cn = st.session_state.get("_pt_run_company", "").replace(" (통합 검색)", "")
+                _pt_js = st.session_state.get("_pt_run_date", str(_pt_join_date))
+                _pt_pn = st.session_state.get("_pt_run_product", "")
+                _pt_sdg_on = st.session_state.get("_pt_run_sdg", True)
+                _pt_sb = _get_sb_client()
+                _pt_gc = client if "client" in dir() else None
 
-                    with st.status("🤖 AI 자동 약관 매칭 진행 중...",
-                                   expanded=True) as _pt_status:
-                        try:
-                            from disclosure_crawler import (
-                                run_jit_policy_lookup, JITPipelineRunner,
-                                SyntheticQAGenerator,
-                            )
-                            st.write("**[1/3]** 공시실 실시간 탐색 중...")
-                            _pt_result = run_jit_policy_lookup(
-                                company_name=_pt_cn,
-                                product_name=_pt_product.strip(),
-                                join_date=_pt_js,
-                                sb_client=_pt_sb,
-                                progress_cb=lambda m: st.write(m),
-                            )
-                            _pt_result.setdefault("sdg_qa_saved", 0)
-                            _pt_result.setdefault("sdg_core", 0)
-
-                            if (_pt_enable_sdg
-                                    and _pt_result.get("pdf_url")
-                                    and not _pt_result.get("cached")):
-                                st.write("**[2/3]** 핵심 조항 선별 및 합성 QA 생성 중...")
-                                try:
-                                    _pipe2 = JITPipelineRunner(_pt_sb)
-                                    _pdf_b = _pipe2._download_pdf(_pt_result["pdf_url"])
-                                    _cks   = _pipe2._pdf_to_chunks(_pdf_b) if _pdf_b else []
-                                    if _cks:
-                                        _sdg = SyntheticQAGenerator(_pt_sb, _pt_gc)
-                                        _sr  = _sdg.run(
-                                            _pt_cn, _pt_product.strip(), _pt_js,
-                                            _cks, progress_cb=lambda m: st.write(m),
-                                        )
-                                        _pt_result["sdg_qa_saved"] = _sr.get("qa_saved", 0)
-                                        _pt_result["sdg_core"]     = _sr.get("core_chunks", 0)
-                                except Exception as _e2:
-                                    st.write(f"⚠️ SDG 오류 (원문 인덱싱 완료): {_e2}")
-                            else:
-                                st.write("**[2/3]** SDG 생략 (캐시 히트 또는 비활성화)")
-
-                            st.write("**[3/3]** 인덱싱 완료 — 딥러닝 검색 준비됨 ✅")
-                            _pt_status.update(
-                                label="✅ AI 자동 약관 매칭 완료"
-                                      if not _pt_result.get("error") else "⚠️ 부분 완료",
-                                state="complete" if not _pt_result.get("error") else "error",
-                            )
-                        except ImportError:
-                            _pt_result = {"error": "disclosure_crawler 모듈 로드 실패",
-                                          "pdf_url": "", "confidence": 0,
-                                          "chunks_indexed": 0, "period": "", "reason": "",
-                                          "sdg_qa_saved": 0, "sdg_core": 0}
-                            _pt_status.update(label="❌ 모듈 오류", state="error")
-
-                    if _pt_result.get("error") and not _pt_result.get("pdf_url"):
-                        st.error(f"❌ {_pt_result['error']}")
-                    elif _pt_result.get("pdf_url"):
-                        _conf = _pt_result.get("confidence", 0)
-                        _cc   = "#27ae60" if _conf >= 80 else "#e67e22" if _conf >= 50 else "#e74c3c"
-                        st.markdown(
-                            f"<div style='background:#eafaf1;border:1.5px solid #27ae60;"
-                            f"border-radius:10px;padding:12px 16px;margin-bottom:8px;'>"
-                            f"<div style='font-size:0.95rem;font-weight:900;color:#1a5c3a;"
-                            f"margin-bottom:6px;'>✅ 약관 매칭 성공</div>"
-                            f"<table style='width:100%;font-size:0.80rem;color:#333;"
-                            f"border-collapse:collapse;'>"
-                            f"<tr><td style='padding:2px 8px 2px 0;font-weight:700;"
-                            f"color:#555;width:90px;'>신뢰도</td>"
-                            f"<td><b style='color:{_cc};'>{_conf}%</b></td></tr>"
-                            f"<tr><td style='padding:2px 8px 2px 0;font-weight:700;color:#555;'>"
-                            f"판매 기간</td><td>{_pt_result.get('period') or '미확인'}</td></tr>"
-                            f"<tr><td style='padding:2px 8px 2px 0;font-weight:700;color:#555;'>"
-                            f"원문 청크</td><td>{_pt_result.get('chunks_indexed', 0)}개</td></tr>"
-                            f"<tr><td style='padding:2px 8px 2px 0;font-weight:700;color:#555;'>"
-                            f"합성 QA</td><td>{_pt_result.get('sdg_qa_saved', 0)}개 "
-                            f"(핵심조항 {_pt_result.get('sdg_core', 0)}섹션)</td></tr>"
-                            f"</table></div>",
-                            unsafe_allow_html=True,
+                with st.status("🤖 AI 자동 약관 매칭 진행 중...",
+                               expanded=True) as _pt_status:
+                    try:
+                        from disclosure_crawler import (
+                            run_jit_policy_lookup, JITPipelineRunner,
+                            SyntheticQAGenerator,
                         )
-                        st.markdown(f"[📥 약관 PDF 원본 다운로드]({_pt_result['pdf_url']})")
-                        st.caption(f"💬 선택 근거: {_pt_result.get('reason', '')}")
-                        if _pt_result.get("cached"):
-                            st.info("💾 DB 캐시 히트 — 공시실 크롤링 생략")
-                    elif not _pt_result.get("error"):
-                        st.warning("약관 PDF를 확보하지 못했습니다. 상품명·보험사를 확인해주세요.")
+                        st.write("**[1/3]** 공시실 실시간 탐색 중...")
+                        _pt_result = run_jit_policy_lookup(
+                            company_name=_pt_cn,
+                            product_name=_pt_pn,
+                            join_date=_pt_js,
+                            sb_client=_pt_sb,
+                            progress_cb=lambda m: st.write(m),
+                        )
+                        _pt_result.setdefault("sdg_qa_saved", 0)
+                        _pt_result.setdefault("sdg_core", 0)
+
+                        if (_pt_sdg_on
+                                and _pt_result.get("pdf_url")
+                                and not _pt_result.get("cached")):
+                            st.write("**[2/3]** 핵심 조항 선별 및 합성 QA 생성 중...")
+                            try:
+                                _pipe2 = JITPipelineRunner(_pt_sb)
+                                _pdf_b = _pipe2._download_pdf(_pt_result["pdf_url"])
+                                _cks   = _pipe2._pdf_to_chunks(_pdf_b) if _pdf_b else []
+                                if _cks:
+                                    _sdg = SyntheticQAGenerator(_pt_sb, _pt_gc)
+                                    _sr  = _sdg.run(
+                                        _pt_cn, _pt_pn, _pt_js,
+                                        _cks, progress_cb=lambda m: st.write(m),
+                                    )
+                                    _pt_result["sdg_qa_saved"] = _sr.get("qa_saved", 0)
+                                    _pt_result["sdg_core"]     = _sr.get("core_chunks", 0)
+                            except Exception as _e2:
+                                st.write(f"⚠️ SDG 오류 (원문 인덱싱 완료): {_e2}")
+                        else:
+                            st.write("**[2/3]** SDG 생략 (캐시 히트 또는 비활성화)")
+
+                        st.write("**[3/3]** 인덱싱 완료 — 딥러닝 검색 준비됨 ✅")
+                        _pt_status.update(
+                            label="✅ AI 자동 약관 매칭 완료"
+                                  if not _pt_result.get("error") else "⚠️ 부분 완료",
+                            state="complete" if not _pt_result.get("error") else "error",
+                        )
+                        # 결과 저장 + 실행 플래그 해제
+                        st.session_state["_pt_result"]  = _pt_result
+                        st.session_state["_pt_running"] = False
+                    except ImportError:
+                        st.session_state["_pt_result"] = {
+                            "error": "disclosure_crawler 모듈 로드 실패",
+                            "pdf_url": "", "confidence": 0,
+                            "chunks_indexed": 0, "period": "", "reason": "",
+                            "sdg_qa_saved": 0, "sdg_core": 0}
+                        st.session_state["_pt_running"] = False
+                        _pt_status.update(label="❌ 모듈 오류", state="error")
+
+            # ── 저장된 결과 표시 (스크롤 후에도 유지) ─────────────────────
+            _pt_result = st.session_state.get("_pt_result", {})
+            if _pt_result.get("error") and not _pt_result.get("pdf_url"):
+                # playwright 미설치 에러는 사용자 친화적 메시지로
+                _err_msg = _pt_result['error']
+                if "playwright" in _err_msg.lower():
+                    st.warning("⚠️ 실시간 공시실 크롤링은 서버 환경에서 지원되지 않습니다.\n\nDB 캐시에 해당 약관이 없습니다. 보험사·상품명을 다시 확인하거나 협회 통합 검색을 이용하세요.")
+                else:
+                    st.error(f"❌ {_err_msg}")
+            elif _pt_result.get("pdf_url"):
+                _conf = _pt_result.get("confidence", 0)
+                _cc   = "#27ae60" if _conf >= 80 else "#e67e22" if _conf >= 50 else "#e74c3c"
+                st.markdown(
+                    f"<div style='background:#eafaf1;border:1.5px solid #27ae60;"
+                    f"border-radius:10px;padding:12px 16px;margin-bottom:8px;'>"
+                    f"<div style='font-size:0.95rem;font-weight:900;color:#1a5c3a;"
+                    f"margin-bottom:6px;'>✅ 약관 매칭 성공</div>"
+                    f"<table style='width:100%;font-size:0.80rem;color:#333;"
+                    f"border-collapse:collapse;'>"
+                    f"<tr><td style='padding:2px 8px 2px 0;font-weight:700;"
+                    f"color:#555;width:90px;'>신뢰도</td>"
+                    f"<td><b style='color:{_cc};'>{_conf}%</b></td></tr>"
+                    f"<tr><td style='padding:2px 8px 2px 0;font-weight:700;color:#555;'>"
+                    f"판매 기간</td><td>{_pt_result.get('period') or '미확인'}</td></tr>"
+                    f"<tr><td style='padding:2px 8px 2px 0;font-weight:700;color:#555;'>"
+                    f"원문 청크</td><td>{_pt_result.get('chunks_indexed', 0)}개</td></tr>"
+                    f"<tr><td style='padding:2px 8px 2px 0;font-weight:700;color:#555;'>"
+                    f"합성 QA</td><td>{_pt_result.get('sdg_qa_saved', 0)}개 "
+                    f"(핵심조항 {_pt_result.get('sdg_core', 0)}섹션)</td></tr>"
+                    f"</table></div>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(f"[📥 약관 PDF 원본 다운로드]({_pt_result['pdf_url']})")
+                st.caption(f"💬 선택 근거: {_pt_result.get('reason', '')}")
+                if _pt_result.get("cached"):
+                    st.info("💾 DB 캐시 히트 — 공시실 크롤링 생략")
+            elif _pt_result and not _pt_result.get("error"):
+                st.warning("약관 PDF를 확보하지 못했습니다. 상품명·보험사를 확인해주세요.")
 
             # ── 딥러닝 약관 검색 ──────────────────────────────────────────
             _do_search = (
@@ -12162,7 +12196,6 @@ END; $$;""", language="sql")
 <div style="background:#f0f7ff;border:1px solid #b3d4f5;border-radius:8px;
   padding:10px 14px;font-size:0.78rem;color:#1a3a5c;">
 <b>📌 AI 자동 약관 매칭 시스템 안내</b><br>
-• Playwright 미설치 시: <code>pip install playwright &amp;&amp; playwright install chromium</code><br>
 • 합성 QA DB: Supabase <code>gk_policy_terms_qa</code> 테이블 (DDL은 disclosure_crawler.py 주석 참조)<br>
 • 이미지 PDF(스캔본)는 텍스트 추출 불가 — 협회 통합 검색 시도 권장<br>
 • 모델: 합성 QA 생성 <code>gemini-2.0-flash</code> / 원문 저장 Supabase ILIKE 검색
