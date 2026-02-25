@@ -13095,11 +13095,11 @@ END; $$;""", language="sql")
 • 탈퇴 시 Private Zone 전체 즉시 삭제 (복구 불가)
 </div>""", unsafe_allow_html=True)
 
-        # ── 탭 구성 ──────────────────────────────────────────────────────
-        _dc_tab_public, _dc_tab_private, _dc_tab_upload = st.tabs([
-            "🌐 공용 카탈로그 (Public Zone)",
+        # ── 탭 구성 (순서: 업로드 → 내 카탈로그 → 공용) ──────────────────
+        _dc_tab_upload, _dc_tab_private, _dc_tab_public = st.tabs([
+            "📤 업로드 & AI 자동분류",
             "🔐 내 카탈로그 (Private Zone)",
-            "📤 업로드 / AI 자동분류",
+            "🌐 공용 카탈로그 (Public Zone)",
         ])
 
         # ── [Public Zone] 공용 보험사 카탈로그 ────────────────────────────
@@ -13199,158 +13199,214 @@ END; $$;""", language="sql")
   </div>
 </div>""", unsafe_allow_html=True)
 
-        # ── [업로드 / AI 자동분류] ────────────────────────────────────────
+        # ── [업로드 & AI 자동분류] ────────────────────────────────────────
         with _dc_tab_upload:
             st.markdown("#### 📤 카탈로그 업로드 & AI 자동분류")
-            st.caption("업로드된 파일은 즉시 AES-256 암호화되어 개인 저장소에만 보관됩니다.")
+
+            # 음성 안내 버튼 (누르면 읽어주기)
+            import streamlit.components.v1 as _cmp_dc
+            _dc_tts = "카탈로그 업로드 화면입니다. 파일 전송하세요 버튼을 눌러 PDF나 이미지를 선택하거나, 카메라 촬영 체크박스로 직접 촬영할 수 있습니다. 여러 장을 동시에 선택할 수 있습니다."
+            _cmp_dc.html(f"""<button onclick="(function(){{var u=new SpeechSynthesisUtterance('{_dc_tts}');u.lang='ko-KR';u.rate=0.92;speechSynthesis.speak(u);}})();"
+  style="background:linear-gradient(135deg,#1a3a5c,#2e6da4);color:#fff;border:none;
+  border-radius:20px;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;
+  box-shadow:0 2px 8px rgba(30,111,168,0.3);margin-bottom:8px;">
+  🔊 음성 안내 듣기
+</button>""", height=46)
 
             _uid_up = st.session_state.get("user_id", "")
             if not _uid_up:
                 st.warning("⚠️ 로그인 후 이용 가능합니다.")
                 st.stop()
 
-            # ── 파일 업로드 (3가지 방식) ─────────────────────────────────
-            st.markdown("""
-<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;border-radius:0 8px 8px 0;
-  padding:8px 14px;margin-bottom:10px;font-size:0.85rem;font-weight:700;color:#1a3a5c;">
-📂 파일 선택 방식 (갤러리 · 문서 · 카메라 촬영)
+            # ── UID 최상단 저장 경로 안내 ────────────────────────────────
+            _uid_str = str(_uid_up)
+            st.markdown(f"""
+<div style="background:#eaf4fb;border:1px solid #b3d4f5;border-radius:8px;
+  padding:7px 14px;margin-bottom:10px;font-size:0.78rem;color:#1a3a5c;">
+🗂️ <b>저장 경로:</b> <code>private / {_uid_str[:8]}... / [파일명]</code>
+&nbsp;— 회원 고유 UID 최상단 배치 · 타인 접근 불가
 </div>""", unsafe_allow_html=True)
 
-            _dc_up_col1, _dc_up_col2 = st.columns([3, 1])
+            # ── 파일 선택 방식 안내 ──────────────────────────────────────
+            st.markdown("""
+<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;border-radius:0 8px 8px 0;
+  padding:8px 14px;margin-bottom:6px;font-size:0.85rem;font-weight:700;color:#1a3a5c;">
+📂 파일 선택 방식 &nbsp;|&nbsp;
+<span style="font-weight:400;">갤러리(이미지) &nbsp;·&nbsp; 문서 폴더(PDF) &nbsp;·&nbsp; 카메라 촬영(모바일)</span>
+</div>""", unsafe_allow_html=True)
+
+            # ── 드래그앤드롭 영역 — 외곽선 강화 ─────────────────────────
+            st.markdown("""
+<div style="border:2.5px dashed #2e6da4;border-radius:14px;
+  background:linear-gradient(135deg,#f0f7ff 0%,#e8f4fb 100%);
+  padding:14px 16px 4px 16px;margin-bottom:8px;">
+<div style="color:#1a3a5c;font-size:0.85rem;font-weight:700;margin-bottom:4px;">
+  📎 파일을 여기에 끌어다 놓거나, 아래 버튼으로 <b>파일 전송하세요</b>
+  <span style="color:#e74c3c;font-size:0.75rem;margin-left:8px;">★ 여러 장 동시 선택 가능</span>
+</div>""", unsafe_allow_html=True)
+
+            _dc_up_col1, _dc_up_col2 = st.columns([4, 1])
             with _dc_up_col1:
-                _dc_file = st.file_uploader(
-                    "PDF / JPG / PNG 파일 선택",
+                _dc_files = st.file_uploader(
+                    "파일 전송하세요  (PDF / JPG / PNG — 여러 장 동시 선택 가능)",
                     type=["pdf", "jpg", "jpeg", "png"],
+                    accept_multiple_files=True,
                     key="dc_uploader",
-                    help="갤러리(이미지) 또는 문서 폴더(PDF)에서 선택. 카메라 촬영은 모바일에서 지원.",
+                    help="갤러리·문서 폴더에서 여러 파일 동시 선택 가능. 모바일에서는 카메라 촬영도 지원.",
                 )
             with _dc_up_col2:
                 st.markdown("<br>", unsafe_allow_html=True)
-                _dc_use_cam = st.checkbox("📷 카메라 촬영", key="dc_use_cam",
-                                          help="모바일 브라우저에서 카메라 직접 촬영")
+                _dc_use_cam = st.checkbox("📷 카메라\n촬영", key="dc_use_cam",
+                                          help="모바일: 카메라로 직접 촬영")
+            st.markdown("</div>", unsafe_allow_html=True)
 
             if _dc_use_cam:
                 _dc_cam = st.camera_input("카메라로 카탈로그 촬영", key="dc_camera")
                 if _dc_cam:
-                    _dc_file = _dc_cam
+                    _dc_files = [_dc_cam]
 
-            _dc_note = st.text_input("메모 (선택)", placeholder="예) 삼성화재 2024년 암보험 신상품",
+            if not isinstance(_dc_files, list):
+                _dc_files = [_dc_files] if _dc_files else []
+
+            if _dc_files:
+                _names_preview = ", ".join([getattr(f, "name", f"파일{i+1}") for i, f in enumerate(_dc_files[:4])])
+                _extra = f" 외 {len(_dc_files)-4}건" if len(_dc_files) > 4 else ""
+                st.success(f"📎 **{len(_dc_files)}개 파일** 선택됨: {_names_preview}{_extra}")
+
+            _dc_note = st.text_input("메모 (선택 — 전체 파일에 공통 적용)",
+                                     placeholder="예) 삼성화재 2024년 암보험 신상품",
                                      key="dc_note")
 
-            # ── AI 자동분류 미리보기 ──────────────────────────────────────
-            if _dc_file:
+            # ══════════════════════════════════════════════════════════
+            # 🤖 AI 자동분류 모듈
+            # ══════════════════════════════════════════════════════════
+            if _dc_files:
                 st.markdown("""
-<div style="background:#fff9e6;border:1px solid #ffe58f;border-radius:8px;
-  padding:8px 14px;margin:8px 0;font-size:0.82rem;color:#7d5a00;">
-🤖 <b>AI 자동분류 미리보기</b> — 업로드 시 Gemini AI가 문서를 분석하여 보험사·유형·태그를 자동 추출합니다.
+<div style="background:linear-gradient(135deg,#fffbe6,#fff3cd);
+  border:2px solid #ffe58f;border-radius:12px;padding:12px 16px;margin:10px 0 6px 0;">
+<div style="font-size:0.9rem;font-weight:900;color:#7d5a00;margin-bottom:6px;">
+  🤖 AI 자동분류 모듈
+  <span style="font-size:0.72rem;font-weight:400;margin-left:8px;">
+    Gemini AI — 보험사 · 문서유형 · 파일번호 · 태그 자동 추출
+  </span>
 </div>""", unsafe_allow_html=True)
 
-                _dc_ai_col1, _dc_ai_col2, _dc_ai_col3 = st.columns(3)
-                _dc_ai_company  = st.session_state.get("dc_ai_company", "분류 중...")
-                _dc_ai_doctype  = st.session_state.get("dc_ai_doctype", "분류 중...")
-                _dc_ai_tags     = st.session_state.get("dc_ai_tags", [])
-                _dc_ai_conf     = st.session_state.get("dc_ai_conf", 0)
+                _mc1, _mc2, _mc3, _mc4 = st.columns(4)
+                with _mc1:
+                    st.metric("🏢 보험사",   st.session_state.get("dc_ai_company", "—"))
+                with _mc2:
+                    st.metric("📄 문서유형", st.session_state.get("dc_ai_doctype", "—"))
+                with _mc3:
+                    st.metric("🔢 파일번호", st.session_state.get("dc_ai_fileno",  "—"))
+                with _mc4:
+                    _conf_v = st.session_state.get("dc_ai_conf", 0)
+                    st.metric("🎯 신뢰도",   f"{_conf_v}%" if _conf_v else "—")
 
-                with _dc_ai_col1:
-                    st.metric("🏢 보험사", _dc_ai_company)
-                with _dc_ai_col2:
-                    st.metric("📄 문서 유형", _dc_ai_doctype)
-                with _dc_ai_col3:
-                    st.metric("🎯 신뢰도", f"{_dc_ai_conf}%" if _dc_ai_conf else "-")
-
+                _dc_ai_tags = st.session_state.get("dc_ai_tags", [])
                 if _dc_ai_tags:
-                    st.markdown("🏷️ **자동 태그**: " + " &nbsp;".join(
-                        [f"`{t}`" for t in _dc_ai_tags]
-                    ))
+                    st.markdown("🏷️ **자동 태그**: " + "  ".join([f"`{t}`" for t in _dc_ai_tags]))
 
-                # AI 분류 실행 버튼
-                if st.button("🤖 AI 자동분류 실행", key="btn_dc_ai_classify",
-                             use_container_width=True):
-                    with st.spinner("Gemini AI가 문서를 분석 중..."):
-                        try:
-                            _dc_bytes = _dc_file.getvalue()
-                            _dc_fname = getattr(_dc_file, "name", "document.pdf")
-                            # Gemini AI 분류 (텍스트 기반 간단 분류)
-                            _ai_prompt = f"""다음 파일명을 보고 보험사, 문서유형, 태그를 JSON으로 반환하세요.
-파일명: {_dc_fname}
-메모: {_dc_note}
+                st.markdown("</div>", unsafe_allow_html=True)
 
-응답 형식:
-{{"company": "보험사명", "doc_type": "카탈로그|약관|안내장|기타", "tags": ["태그1","태그2"], "confidence": 85}}
-"""
-                            _ai_result = call_ai(_ai_prompt)
-                            import json as _jsc, re as _rec
-                            _jm = _rec.search(r'\{.*\}', _ai_result, _rec.DOTALL)
-                            if _jm:
-                                _jd = json.loads(_jm.group())
-                                st.session_state["dc_ai_company"] = _jd.get("company", "미확인")
-                                st.session_state["dc_ai_doctype"] = _jd.get("doc_type", "기타")
-                                st.session_state["dc_ai_tags"]    = _jd.get("tags", [])
-                                st.session_state["dc_ai_conf"]    = _jd.get("confidence", 0)
-                                st.success("✅ AI 분류 완료!")
-                                st.rerun()
-                        except Exception as _ae:
-                            st.warning(f"AI 분류 실패 (수동 입력): {_ae}")
+                _ab1, _ab2 = st.columns([1, 1])
+                with _ab1:
+                    if st.button("🤖 AI 자동분류 실행", key="btn_dc_ai_classify",
+                                 use_container_width=True, type="primary"):
+                        with st.spinner("Gemini AI 분류 중..."):
+                            try:
+                                import re as _rec_dc
+                                _fnames_all = ", ".join([getattr(f, "name", "") for f in _dc_files])
+                                _ai_p = (
+                                    f"다음 파일 목록을 분석하여 보험사, 문서유형, 태그, 파일번호를 JSON으로 반환하세요.\n"
+                                    f"파일명 목록: {_fnames_all}\n메모: {_dc_note}\n파일 수: {len(_dc_files)}\n\n"
+                                    f"응답 형식(JSON만):\n"
+                                    f'{{\"company\":\"보험사명\",\"doc_type\":\"카탈로그|약관|안내장|기타\",'
+                                    f'\"tags\":[\"태그1\",\"태그2\"],\"file_no\":\"DOC-YYYYMMDD-001\",\"confidence\":85}}'
+                                )
+                                _ai_r = call_ai(_ai_p)
+                                _jm = _rec_dc.search(r'\{[^{}]*\}', _ai_r, _rec_dc.DOTALL)
+                                if _jm:
+                                    _jd = json.loads(_jm.group())
+                                    st.session_state["dc_ai_company"] = _jd.get("company", "미확인")
+                                    st.session_state["dc_ai_doctype"] = _jd.get("doc_type", "기타")
+                                    st.session_state["dc_ai_tags"]    = _jd.get("tags", [])
+                                    st.session_state["dc_ai_fileno"]  = _jd.get("file_no", "—")
+                                    st.session_state["dc_ai_conf"]    = _jd.get("confidence", 0)
+                                    st.success(f"✅ AI 분류 완료! 파일번호: {_jd.get('file_no','—')}")
+                                    st.rerun()
+                                else:
+                                    st.warning("AI 응답 파싱 실패 — 수동 입력을 이용하세요.")
+                            except Exception as _ae:
+                                st.warning(f"AI 분류 실패: {_ae}")
 
-                # 수동 입력 fallback
-                with st.expander("✏️ 수동 입력 (AI 분류 오류 시)"):
-                    _man_co  = st.text_input("보험사명", key="dc_man_company")
-                    _man_ty  = st.selectbox("문서유형", ["카탈로그", "약관", "안내장", "기타"],
-                                            key="dc_man_type")
-                    _man_tg  = st.text_input("태그 (쉼표 구분)", key="dc_man_tags",
-                                             placeholder="예) 암보험, 2024신상품, 삼성화재")
-                    if st.button("💾 수동 정보 적용", key="btn_dc_manual"):
-                        st.session_state["dc_ai_company"] = _man_co or "미확인"
-                        st.session_state["dc_ai_doctype"] = _man_ty
-                        st.session_state["dc_ai_tags"]    = [t.strip() for t in _man_tg.split(",") if t.strip()]
-                        st.session_state["dc_ai_conf"]    = 0
-                        st.success("수동 정보 적용 완료!")
-                        st.rerun()
+                with _ab2:
+                    with st.expander("✏️ 수동 입력"):
+                        _man_co = st.text_input("보험사명",  key="dc_man_company")
+                        _man_ty = st.selectbox("문서유형", ["카탈로그","약관","안내장","기타"], key="dc_man_type")
+                        _man_fn = st.text_input("파일번호", key="dc_man_fileno", placeholder="예) DOC-20240101-001")
+                        _man_tg = st.text_input("태그 (쉼표 구분)", key="dc_man_tags",
+                                                placeholder="예) 암보험, 2024신상품")
+                        if st.button("💾 적용", key="btn_dc_manual"):
+                            st.session_state["dc_ai_company"] = _man_co or "미확인"
+                            st.session_state["dc_ai_doctype"] = _man_ty
+                            st.session_state["dc_ai_fileno"]  = _man_fn or "—"
+                            st.session_state["dc_ai_tags"]    = [t.strip() for t in _man_tg.split(",") if t.strip()]
+                            st.session_state["dc_ai_conf"]    = 0
+                            st.success("적용 완료!")
+                            st.rerun()
 
             # ── 암호화 업로드 버튼 ────────────────────────────────────────
             st.divider()
-            _dc_can_upload = _dc_file is not None and _SB_PKG_OK
+            _dc_can_upload = bool(_dc_files) and _SB_PKG_OK
 
             if st.button("🔒 암호화 후 Private Zone에 저장",
                          key="btn_dc_upload", type="primary",
                          use_container_width=True,
                          disabled=not _dc_can_upload):
-                if not _dc_file:
+                if not _dc_files:
                     st.error("파일을 선택하세요.")
                 else:
-                    with st.spinner("AES-256 암호화 후 개인 저장소에 업로드 중..."):
+                    import uuid as _uuid_mod
+                    _sb4    = _get_sb_client()
+                    _ok_cnt = 0
+                    _prog   = st.progress(0, text=f"0 / {len(_dc_files)} 업로드 중...")
+                    for _di, _df in enumerate(_dc_files):
+                        _prog.progress(_di / len(_dc_files),
+                                       text=f"[{_di+1}/{len(_dc_files)}] {getattr(_df,'name','파일')} 암호화 중...")
                         try:
-                            _sb4 = _get_sb_client()
-                            _dc_bytes = _dc_file.getvalue()
-                            _dc_fname = getattr(_dc_file, "name", "catalog.pdf")
-                            _uid_str  = str(_uid_up)
-                            _storage_path = f"private/{_uid_str}/{_dc_fname}"
-                            # Supabase Storage 업로드
+                            _dc_bytes_i = _df.getvalue()
+                            _dc_fname_i = getattr(_df, "name", f"catalog_{_di+1}.pdf")
+                            _sp_i = f"private/{_uid_str}/{_dc_fname_i}"
                             _sb4.storage.from_(SB_BUCKET).upload(
-                                _storage_path,
-                                _dc_bytes,
-                                {"content-type": getattr(_dc_file, "type", "application/octet-stream"),
+                                _sp_i, _dc_bytes_i,
+                                {"content-type": getattr(_df, "type", "application/octet-stream"),
                                  "x-upsert": "true"}
                             )
-                            # 메타데이터 DB 저장
                             _sb4.table("user_files").insert({
+                                "file_id":       str(_uuid_mod.uuid4()),
                                 "uid":           _uid_str,
-                                "original_name": _dc_fname,
-                                "storage_path":  _storage_path,
-                                "file_size":     len(_dc_bytes),
+                                "original_name": _dc_fname_i,
+                                "storage_path":  _sp_i,
                                 "ai_company":    st.session_state.get("dc_ai_company", "미확인"),
                                 "ai_doc_type":   st.session_state.get("dc_ai_doctype", "기타"),
                                 "ai_tags":       st.session_state.get("dc_ai_tags", []),
                                 "note":          _dc_note,
                                 "is_encrypted":  True,
                             }).execute()
-                            st.success(f"✅ '{_dc_fname}' 암호화 업로드 완료!\n\n🔐 귀하의 Private Zone에 안전하게 보관되었습니다.")
-                            # 캐시 무효화
-                            st.session_state.pop("dc_priv_cache", None)
-                            for k in ("dc_ai_company","dc_ai_doctype","dc_ai_tags","dc_ai_conf"):
-                                st.session_state.pop(k, None)
+                            _ok_cnt += 1
+                            st.markdown(f"""
+<div style="background:#f0fff4;border-left:3px solid #27ae60;border-radius:6px;
+  padding:5px 10px;margin-bottom:3px;font-size:0.78rem;">
+✅ <b>{_dc_fname_i}</b> — 🔐 private/{_uid_str[:8]}.../{_dc_fname_i}
+</div>""", unsafe_allow_html=True)
                         except Exception as _ue:
-                            st.error(f"업로드 실패: {_ue}\n\nSupabase 연결 또는 `user_files` 테이블을 확인하세요.")
+                            st.error(f"❌ {getattr(_df,'name','파일')}: {_ue}")
+                    _prog.progress(1.0, text=f"✅ {_ok_cnt} / {len(_dc_files)} 완료")
+                    if _ok_cnt > 0:
+                        st.success(f"🔐 {_ok_cnt}개 파일이 귀하의 Private Zone에 안전하게 보관되었습니다.")
+                        st.session_state.pop("dc_priv_cache", None)
+                        for _k in ("dc_ai_company","dc_ai_doctype","dc_ai_tags","dc_ai_conf","dc_ai_fileno"):
+                            st.session_state.pop(_k, None)
 
             if not _SB_PKG_OK:
                 st.warning("⚠️ Supabase 미연결 — HF Secrets에 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 등록 필요")
