@@ -9250,6 +9250,116 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                                 except Exception as e:
                                     st.error(f"분석 오류: {sanitize_unicode(str(e))}")
                     show_result("res_ceo_ai")
+                    # ── 추가 참고 자료 스크롤 박스 3개 ─────────────────────────
+                    st.markdown("""<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin-top:18px;margin-bottom:6px;
+  font-weight:900;font-size:0.90rem;color:#1a3a5c;">
+📚 CEO플랜 심화 참고자료 (설계사 전용)
+</div>""", unsafe_allow_html=True)
+                    # ── 박스1: 법률 전문가 핵심 Advice ──────────────────────
+                    st.markdown("##### 💡 법률 전문가의 핵심 Advice")
+                    components.html("""
+<div style="height:180px;overflow-y:auto;padding:14px 18px;
+  background:#fffdf5;border:2px solid #f1c40f;border-radius:10px;
+  font-size:0.82rem;line-height:1.78;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<div style="background:#e67e22;color:#fff;border-radius:6px;padding:3px 11px;
+  font-size:0.84rem;font-weight:900;margin-bottom:10px;display:inline-block;">
+  💡 법률 전문가의 핵심 Advice
+</div><br>
+<b style="color:#c0392b;">① 비상장주식 50억 원 보유 시 최대 리스크 — '현금 유동성 부족'</b><br>
+국세청은 비상장주식의 <b>물납(주식으로 세금을 대신 내는 것)</b>을 매우 까다롭게 승인하며,
+승인되더라도 주식 가치가 <b>저평가</b>되어 경영권 방어에 치명적입니다.<br><br>
+<b style="color:#1e6fa8;">② 종신보험금 — 가장 강력한 법적 납세 수단</b><br>
+종신보험금은 <b>국세청의 압류나 상속재산 합산 없이</b> 즉시 세금을 완납할 수 있는
+가장 강력한 법적 수단입니다.<br>
+<div style="background:#fef9e7;border:1.5px solid #f1c40f;border-radius:6px;
+  padding:6px 10px;margin-top:8px;font-size:0.79rem;color:#7d6608;">
+⚠️ 자녀가 계약자인 경우, 지급되는 보험금은 <b>상속재산에 합산되지 않아</b>
+추가 상속세 부담이 0원입니다.
+</div>
+</div>
+""", height=200)
+                    # ── 박스2: 상속 절차 흐름도 ─────────────────────────────
+                    st.markdown("##### 📋 비상장 법인 대표 사망에 따른 상속 절차 흐름도")
+                    components.html("""
+<div style="height:400px;overflow-y:auto;padding:14px 18px;
+  background:#f8fafc;border:2px solid #2e6da4;border-radius:10px;
+  font-size:0.81rem;line-height:1.75;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<div style="background:#1e6fa8;color:#fff;border-radius:6px;padding:3px 11px;
+  font-size:0.85rem;font-weight:900;margin-bottom:10px;display:inline-block;">
+  📋 비상장 법인 대표 사망 → 상속 절차 흐름도
+</div><br>
+<b style="color:#1e6fa8;">1단계: 상속 개시 및 기초 조사 (사망 후 1개월 이내)</b><br>
+• <b>사망신고:</b> 시·읍·면의 장에게 신고 (가족관계등록법)<br>
+• <b>안심상속 원스톱 서비스:</b> 예금·대출·보험·주식 등 일괄 조회<br>
+• <b>유언장 확인:</b> 지정상속 또는 법정상속 여부 결정<br><br>
+<b style="color:#1e6fa8;">2단계: 상속재산 평가 및 확정 (사망 후 3개월 이내)</b><br>
+• <b>비상장주식 평가:</b> 상증세법 제63조 — 직전 3개년 순손익가치·순자산가치 3:2(또는 2:3) 가중평균<br>
+• <b>부동산 및 금융자산:</b> 사망일 전후 6개월 내 매매사례가액 확인<br>
+• <b>상속 포기·한정승인:</b> 채무 > 재산 시 3개월 이내 법원 신청 (민법 제1019조)<br><br>
+<b style="color:#1e6fa8;">3단계: 상속인 간 협의 및 분할 (사망 후 6개월 이내)</b><br>
+• <b>상속재산 분할협의서 작성:</b> 배우자·자녀 주식·부동산 배분 합의 (인감증명서 첨부)<br>
+• <b>보험금 청구:</b> 자녀 계약자 종신보험 청구 → 납부 재원(현금) 확보<br><br>
+<b style="color:#1e6fa8;">4단계: 상속세 신고 및 납부 (사망일 속한 달 말일부터 6개월 이내)</b><br>
+• <b>과세표준 신고:</b> 상속세 신고서 및 평가명세서 제출 (관할 세무서)<br>
+• <b>세액 납부:</b> 확보된 보험금 또는 현금으로 납부<br>
+• <b>연부연납 가능:</b> 금액이 클 경우 최대 10년 (가업상속 시 20년) 신청<br>
+• <b>주식 명의개서:</b> 법인 주주명부를 상속인 명의로 변경<br><br>
+<b style="color:#1e6fa8;">5단계: 세무조사 및 결정 (신고 후 6~9개월 이내)</b><br>
+• <b>상속세 조사:</b> 비상장주식 평가의 적절성 등 조사 후 최종 세액 확정
+</div>
+""", height=420)
+                    # ── 박스3: 상속세 산출 + 보험 플랜 ──────────────────────
+                    st.markdown("##### 💰 비상장 법인 대표 상속 흐름 및 예상 상속세 산출")
+                    components.html("""
+<div style="height:460px;overflow-y:auto;padding:14px 18px;
+  background:#fdf8ff;border:2px solid #8e44ad;border-radius:10px;
+  font-size:0.81rem;line-height:1.78;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<div style="background:#8e44ad;color:#fff;border-radius:6px;padding:3px 11px;
+  font-size:0.85rem;font-weight:900;margin-bottom:10px;display:inline-block;">
+  💰 상속 흐름 및 예상 상속세 산출 예시
+</div><br>
+<div style="background:#f3e5f5;border:1.5px solid #8e44ad;border-radius:7px;
+  padding:7px 11px;margin-bottom:10px;font-size:0.80rem;color:#4a235a;">
+📌 <b>가정 조건:</b> 상속자산 약 70억 원 (비상장주식 50억 + 개인자산 10억 + 주택 10억)<br>
+유가족: 배우자 + 성인 자녀 2명
+</div>
+
+<b style="color:#8e44ad;">① 상속공제 계산</b><br>
+• 일괄공제: <b>5억 원</b> (기초공제+인적공제 대신 선택)<br>
+• 배우자 상속공제: 실제 상속액 공제, 최소 5억~최대 <b>30억 원</b><br>
+• 금융재산 상속공제: (10억 기준) 최대 <b>2억 원</b><br>
+• 가업상속공제: 요건 충족 시 최대 600억 — <b>본 계산에서는 일반 상속 가정</b><br><br>
+
+<b style="color:#8e44ad;">② 예상 상속세 (개략 계산)</b><br>
+<div style="background:#fff;border:1.5px solid #ce93d8;border-radius:7px;
+  padding:8px 12px;margin:6px 0 10px 0;font-size:0.80rem;">
+• 과세가액: <b>70억 원</b><br>
+• 공제: 일괄공제(5억) + 배우자공제(약 25억) + 금융공제(2억) = <b>32억 원</b><br>
+• 과세표준: <b>약 38억 원</b><br>
+• 세율: 30억 초과분 <b>50%</b> (누진공제 4.6억 적용)<br>
+• 산출세액: (38억 × 50%) - 4.6억 = <b style="color:#c0392b;font-size:0.88rem;">약 14.4억 원</b><br>
+<span style="color:#888;font-size:0.76rem;">※ 배우자 실제 상속 가액, 가업상속공제 여부, 신고세액공제에 따라 변동</span>
+</div>
+
+<b style="color:#8e44ad;">③ 종신보험 가입 플랜 (구체적 실행 전략)</b><br>
+• <b>보험금 규모:</b> 예상 상속세액 약 <b>15억~20억 원</b> 규모 종신보험 가입<br>
+• <b>유동성 확보:</b> 대표 사망 즉시 현금 지급 → 상속세 즉시 납부<br>
+• <b>경영권 방어:</b> 주식 매각·담보 대출 불필요 → 지배구조 온전히 유지<br>
+• <b>절세 효과:</b> 자녀 계약자 시 보험금 상속재산 미합산 → 추가 상속세 0원<br><br>
+
+<b style="color:#8e44ad;">④ 플랜의 법률적 구조 (계약자/피보험자 설정)</b><br>
+<div style="background:#f3e5f5;border:1.5px solid #ce93d8;border-radius:6px;
+  padding:7px 11px;font-size:0.80rem;">
+• <b>피보험자:</b> 대표이사 (부친)<br>
+• <b>계약자·수익자:</b> ① 법인 또는 ② 성인 자녀 (또는 소득 있는 배우자)<br>
+• <b>보험료 재원:</b> ① 법인 또는 ② 자녀의 근로소득·배당소득
+</div>
+</div>
+""", height=480)
                 else:
                     st.info("좌측 입력표를 작성하고 '비상장주식 평가 실행'을 클릭하세요.")
                     st.markdown("##### 📘 비상장주식 평가 방법 안내")
