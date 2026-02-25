@@ -3604,6 +3604,12 @@ def main():
     except Exception:
         pass
 
+    # ── STEP 6-b: 헬스체크 자동 tick (10분 간격) ─────────────────────────
+    try:
+        _hc_auto_tick()
+    except Exception:
+        pass
+
     # ── 심야 자동 RAG 처리 (22:00~06:00) — 세션당 1회 ───────────────────
     if not st.session_state.get("_night_process_done"):
         _now_h = dt.now().hour  # 서버 시간 기준 (HF Spaces = UTC → KST +9)
@@ -10124,7 +10130,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         st.info(f"⚠️ **{_wn}** — 실패 {_wc}회 (5회 시 잠금)")
 
             st.divider()
-            inner_tabs = st.tabs(["📢 수정지시", "회원 관리", "RAG 지식베이스", "데이터 파기", "🤖 자율학습 에이전트", "📔 개발일지"])
+            inner_tabs = st.tabs(["📢 수정지시", "🩺 헬스체크", "회원 관리", "RAG 지식베이스", "데이터 파기", "🤖 자율학습 에이전트", "📔 개발일지"])
             # ── 탭[0]: 원격 수정지시 전용 패널 ─────────────────────────────
             with inner_tabs[0]:
                 st.markdown("""
@@ -10229,8 +10235,12 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 else:
                     st.info("등록된 지시가 없습니다.")
 
-            # ── 탭[1]: 회원 관리 ─────────────────────────────────────────────
+            # ── 탭[1]: 헬스체크 ──────────────────────────────────────────────
             with inner_tabs[1]:
+                _render_healthcheck_dashboard()
+
+            # ── 탭[2]: 회원 관리 ─────────────────────────────────────────────
+            with inner_tabs[2]:
                 members = load_members()
                 if members:
                     st.write(f"**총 회원수: {len(members)}명**")
@@ -10275,7 +10285,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     )
                 else:
                     st.info("등록된 회원이 없습니다.")
-            with inner_tabs[2]:
+            with inner_tabs[3]:
                 st.write("### 📚 AI 지식베이스 관리 (관리자 전용)")
                 st.caption("업로드한 문서는 **앱 재시작 후에도 영구 보존**되며 모든 사용자의 AI 상담에 자동 참조됩니다.")
 
@@ -10649,7 +10659,7 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
 </div>""", unsafe_allow_html=True)
                         else:
                             st.warning(f"'{_test_q}' 관련 자료 없음. 다른 키워드로 시도하세요.")
-            with inner_tabs[3]:
+            with inner_tabs[4]:
                 # ── 자가 진단 엔진 대시보드 ──────────────────────────────
                 _render_error_dashboard()
                 st.divider()
@@ -10700,7 +10710,7 @@ border-radius:6px;padding:7px 12px;font-size:0.78rem;margin-bottom:4px;">
                     except Exception as e:
                         st.error(f"파기 오류: {e}")
 
-            with inner_tabs[4]:
+            with inner_tabs[5]:
                 # ── 자율 학습 에이전트 대시보드 ─────────────────────────
                 st.write("### 🤖 전문가 자율 학습 에이전트")
                 st.caption(
@@ -11012,7 +11022,7 @@ END; $$;""", language="sql")
                         else:
                             st.info(f"'{_ea_srch}' 관련 지식 없음 — 자율 학습 실행 후 재시도")
 
-            with inner_tabs[5]:
+            with inner_tabs[6]:
                 # ── 📔 개발일지 (goldkey_ai_insu_Master / insuAi) ────────
                 st.markdown(f"""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
@@ -13117,6 +13127,238 @@ def _run_self_diagnosis(force: bool = False, admin_mode: bool = False) -> list:
 
     st.session_state[_DIAG_KEY] = True
     return fixed
+
+# ==========================================================================
+# [HEALTH CHECK SYSTEM] 섹터별 자동 점검 + 10분 간격 스케줄러 + 자동 수리
+# ==========================================================================
+_HC_INTERVAL_SEC = 600   # 10분
+_HC_SESSION_KEY  = "_hc_last_run"
+_HC_RESULT_KEY   = "_hc_last_result"
+
+def _hc_run_all(force: bool = False) -> dict:
+    """
+    전체 섹터 헬스체크 실행.
+    - force=False: _HC_INTERVAL_SEC(10분) 이내 재실행 방지
+    - 반환: {"time": ..., "sectors": [...], "fixed": [...], "errors": [...]}
+    """
+    import time as _time
+    now = _time.time()
+    if not force:
+        last = st.session_state.get(_HC_SESSION_KEY, 0)
+        if now - last < _HC_INTERVAL_SEC:
+            return st.session_state.get(_HC_RESULT_KEY, {})
+
+    ts = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    sectors = []
+    fixed   = []
+    errors  = []
+
+    # ── 섹터 점검 목록 ─────────────────────────────────────────────────────
+    checks = [
+        # (섹터ID, 섹터명, 점검함수, 자동수리함수)
+        ("api_client",    "AI API 클라이언트",
+         lambda: get_client() is None,
+         lambda: st.session_state.pop("_gemini_client", None)),
+
+        ("supabase",      "Supabase DB 연결",
+         lambda: _get_sb_client() is None,
+         lambda: None),
+
+        ("session_tab",   "탭 라우터 — 미등록 탭 ID",
+         lambda: st.session_state.get("current_tab","home") not in (
+             "home","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
+             "cancer","brain","heart","img","fire","liability","nursing",
+             "realty","disability","life_cycle","life_event","leaflet",
+             "customer_docs","stock_eval","policy_terms","policy_scan","scan_hub"),
+         lambda: st.session_state.update({"current_tab": "home"})),
+
+        ("session_encoding", "세션 유니코드 surrogate 오염",
+         lambda: any(
+             isinstance(v, str) and "\ud800" <= v[:1] <= "\udfff"
+             for v in st.session_state.values() if isinstance(v, str)),
+         lambda: [st.session_state.update({k: sanitize_unicode(v)})
+                  for k, v in list(st.session_state.items()) if isinstance(v, str)]),
+
+        ("error_log_path", "에러 로그 파일 접근",
+         lambda: not os.path.exists(os.path.dirname(ERROR_LOG_PATH))
+                 if os.path.dirname(ERROR_LOG_PATH) else False,
+         lambda: None),
+
+        ("rag_db",        "RAG 지식베이스 DB",
+         lambda: not os.path.exists(RAG_DB_PATH),
+         lambda: None),
+
+        ("scan_cache",    "스캔 파일 캐시 상태",
+         lambda: (st.session_state.get("sh_scan_pending", False)
+                  and not st.session_state.get("sh_file_cache")),
+         lambda: st.session_state.pop("sh_scan_pending", None)),
+
+        ("directive_db",  "수정지시 채널 DB",
+         lambda: (os.path.exists(DIRECTIVE_DB)
+                  and os.path.getsize(DIRECTIVE_DB) == 0),
+         lambda: None),
+
+        ("members_db",    "회원 DB 접근",
+         lambda: (os.path.exists(MEMBERS_DB)
+                  and os.path.getsize(MEMBERS_DB) < 2),
+         lambda: None),
+
+        ("import_pdfplumber", "pdfplumber 패키지",
+         lambda: __import__("importlib").util.find_spec("pdfplumber") is None,
+         lambda: log_error("헬스체크", "pdfplumber 미설치 — requirements.txt 확인")),
+
+        ("import_openpyxl", "openpyxl 패키지",
+         lambda: __import__("importlib").util.find_spec("openpyxl") is None,
+         lambda: log_error("헬스체크", "openpyxl 미설치 — requirements.txt 확인")),
+
+        ("import_pypdf",  "pypdf 패키지",
+         lambda: __import__("importlib").util.find_spec("pypdf") is None,
+         lambda: log_error("헬스체크", "pypdf 미설치 — requirements.txt 확인")),
+    ]
+
+    for sid, sname, check_fn, fix_fn in checks:
+        try:
+            is_err = check_fn()
+        except Exception as _ce:
+            is_err = None
+            errors.append({"sector": sid, "name": sname, "error": str(_ce)})
+
+        repaired = False
+        if is_err:
+            try:
+                fix_fn()
+                repaired = True
+                fixed.append(sid)
+                log_error("헬스체크[수리]", f"{sid}: {sname} 자동수리 완료")
+            except Exception as _fe:
+                errors.append({"sector": sid, "name": sname, "error": f"수리실패: {_fe}"})
+
+        status = "error" if is_err and not repaired else \
+                 "repaired" if repaired else \
+                 "unknown" if is_err is None else "ok"
+        sectors.append({
+            "id": sid, "name": sname,
+            "status": status,
+            "repaired": repaired,
+        })
+
+    result = {"time": ts, "sectors": sectors, "fixed": fixed, "errors": errors}
+    st.session_state[_HC_SESSION_KEY]  = now
+    st.session_state[_HC_RESULT_KEY]   = result
+    if fixed:
+        log_error("헬스체크", f"자동수리 완료: {', '.join(fixed)}")
+    if errors:
+        for _e in errors:
+            log_error("헬스체크[오류]", f"{_e['sector']}: {_e['error']}")
+    return result
+
+
+def _hc_auto_tick():
+    """매 Streamlit rerun 시 호출 — 10분 경과 시 자동 헬스체크 실행 (비강제)"""
+    import time as _time
+    last = st.session_state.get(_HC_SESSION_KEY, 0)
+    if _time.time() - last >= _HC_INTERVAL_SEC:
+        _hc_run_all(force=False)
+
+
+def _render_healthcheck_dashboard():
+    """t9 관리자 탭 — 헬스체크 전용 패널"""
+    import time as _time
+
+    st.markdown("""
+<div style="background:linear-gradient(135deg,#0d3b2e,#1a6b4a);border-radius:10px;
+  padding:14px 18px;margin-bottom:14px;">
+  <span style="color:#fff;font-size:1rem;font-weight:900;">🩺 시스템 헬스체크</span><br>
+  <span style="color:#a8e6cf;font-size:0.78rem;">
+    전체 섹터 자동 점검 · 10분 간격 자동실행 · 이상 감지 시 즉시 자동수리
+  </span>
+</div>""", unsafe_allow_html=True)
+
+    last_result = st.session_state.get(_HC_RESULT_KEY, {})
+    last_run    = st.session_state.get(_HC_SESSION_KEY, 0)
+    elapsed     = int(_time.time() - last_run) if last_run else None
+
+    # ── 상태 배너 ──────────────────────────────────────────────────────────
+    if last_result:
+        n_ok  = sum(1 for s in last_result.get("sectors",[]) if s["status"] == "ok")
+        n_err = sum(1 for s in last_result.get("sectors",[]) if s["status"] == "error")
+        n_rep = sum(1 for s in last_result.get("sectors",[]) if s["status"] == "repaired")
+        n_unk = sum(1 for s in last_result.get("sectors",[]) if s["status"] == "unknown")
+        _hm1, _hm2, _hm3, _hm4 = st.columns(4)
+        _hm1.metric("🟢 정상", n_ok)
+        _hm2.metric("🔴 이상", n_err)
+        _hm3.metric("🔧 자동수리", n_rep)
+        _hm4.metric("⚪ 확인불가", n_unk)
+        st.caption(f"마지막 점검: {last_result.get('time','—')} "
+                   f"({'방금 전' if elapsed and elapsed < 60 else f'{elapsed//60}분 전' if elapsed else '—'})")
+    else:
+        st.info("아직 점검이 실행되지 않았습니다. 아래 버튼으로 점검을 시작하세요.")
+
+    # ── 점검 제어 버튼 ─────────────────────────────────────────────────────
+    _hc_b1, _hc_b2, _hc_b3 = st.columns(3)
+    with _hc_b1:
+        if st.button("🔍 즉시 점검 시작", key="btn_hc_run",
+                     use_container_width=True, type="primary"):
+            with st.spinner("전체 섹터 점검 중..."):
+                _res = _hc_run_all(force=True)
+            st.success(f"✅ 점검 완료 — "
+                       f"정상 {sum(1 for s in _res['sectors'] if s['status']=='ok')}개 / "
+                       f"수리 {len(_res['fixed'])}개 / "
+                       f"이상 {sum(1 for s in _res['sectors'] if s['status']=='error')}개")
+            st.rerun()
+    with _hc_b2:
+        if st.button("⏰ 자동점검 리셋 (10분)", key="btn_hc_reset",
+                     use_container_width=True):
+            st.session_state.pop(_HC_SESSION_KEY, None)
+            st.session_state.pop(_HC_RESULT_KEY, None)
+            st.success("타이머 초기화 — 다음 rerun 시 자동 점검 실행")
+            st.rerun()
+    with _hc_b3:
+        if st.button("🔧 자가진단 엔진 실행", key="btn_hc_registry",
+                     use_container_width=True):
+            _fixed = _run_self_diagnosis(force=True, admin_mode=True)
+            if _fixed:
+                st.success(f"자가진단 수정: {', '.join(_fixed)}")
+            else:
+                st.info("자가진단 이상 없음")
+
+    st.divider()
+
+    # ── 섹터별 점검 결과 테이블 ────────────────────────────────────────────
+    if last_result.get("sectors"):
+        st.markdown("**📊 섹터별 점검 결과**")
+        _icon_map = {"ok": "🟢", "error": "🔴", "repaired": "🔧", "unknown": "⚪"}
+        _label_map = {"ok": "정상", "error": "이상감지", "repaired": "자동수리완료", "unknown": "확인불가"}
+        for _sec in last_result["sectors"]:
+            _si  = _icon_map.get(_sec["status"], "⚪")
+            _sl  = _label_map.get(_sec["status"], _sec["status"])
+            _clr = {"ok":"#27ae60","error":"#e74c3c","repaired":"#2e6da4","unknown":"#888"}.get(_sec["status"],"#888")
+            st.markdown(
+                f"<div style='padding:6px 10px;border-left:4px solid {_clr};"
+                f"border-radius:0 6px 6px 0;background:#f8fafc;margin-bottom:4px;"
+                f"font-size:0.88rem;'>"
+                f"{_si} <b>{_sec['name']}</b>"
+                f"<span style='float:right;color:{_clr};font-weight:700;'>{_sl}</span></div>",
+                unsafe_allow_html=True
+            )
+
+    # ── 자동수리 내역 ──────────────────────────────────────────────────────
+    if last_result.get("fixed"):
+        st.divider()
+        st.markdown("**🔧 이번 점검 자동수리 내역**")
+        for _f in last_result["fixed"]:
+            st.success(f"수리완료: `{_f}`")
+
+    # ── 점검 오류 내역 ─────────────────────────────────────────────────────
+    if last_result.get("errors"):
+        st.divider()
+        st.markdown("**⚠️ 점검 중 발생한 오류**")
+        for _e in last_result["errors"]:
+            st.error(f"`{_e['sector']}` ({_e['name']}): {_e['error']}")
+
+    st.divider()
+    st.caption(f"⏰ 자동 점검 주기: 10분 | 점검 항목: {len(_hc_run_all.__code__.co_consts)}개 섹터")
+
 
 # ── 관리자용 에러 레지스트리 대시보드 ────────────────────────────────────
 def _render_error_dashboard():
