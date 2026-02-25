@@ -39,6 +39,10 @@ _check_deploy.py
 backups/
 app_backup_*.py
 
+# catalog_app 서브프로젝트 — JSON/PNG 예외 허용
+!catalog_app/**/*.json
+!catalog_app/**/*.png
+
 # 이미지 바이너리 (HF Space LFS 처리 — .gitattributes 참조)
 avatar.png
 *.png

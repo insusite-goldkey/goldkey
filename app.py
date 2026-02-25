@@ -705,6 +705,100 @@ def load_error_log() -> list:
 SB_BUCKET = "goldkey"
 GCS_BUCKET = "insu-archive-2026"  # GCS 예비 버킷명 (용량 초과 시 자동 폴백)
 
+# ══════════════════════════════════════════════════════════════════════════════
+# [하이브리드 아키텍처 연동] 카탈로그 API 클라이언트
+# catalog_app/backend (FastAPI) 와 app.py 를 연결하는 경량 클라이언트
+# 환경변수 HYBRID_BACKEND_URL 이 없으면 자동으로 비활성화 (기존 앱 영향 없음)
+# ══════════════════════════════════════════════════════════════════════════════
+_HYBRID_BACKEND_URL = os.environ.get("HYBRID_BACKEND_URL", "").rstrip("/")
+
+def _hybrid_enabled() -> bool:
+    return bool(_HYBRID_BACKEND_URL)
+
+def _hybrid_headers(jwt_token: str = "") -> dict:
+    h = {"Content-Type": "application/json"}
+    if jwt_token:
+        h["Authorization"] = f"Bearer {jwt_token}"
+    return h
+
+def hybrid_login(email: str, password: str) -> dict:
+    """카탈로그 API 로그인 → JWT 토큰 반환. 실패 시 빈 dict."""
+    if not _hybrid_enabled():
+        return {}
+    try:
+        import urllib.request, json as _json
+        data = _json.dumps({"email": email, "password": password}).encode()
+        req  = urllib.request.Request(
+            f"{_HYBRID_BACKEND_URL}/auth/login", data=data,
+            headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return _json.loads(resp.read())
+    except Exception:
+        return {}
+
+def hybrid_get_public_companies() -> list:
+    """공용 보험사 카탈로그 목록 조회 (Public Zone)."""
+    if not _hybrid_enabled():
+        return []
+    try:
+        import urllib.request, json as _json
+        with urllib.request.urlopen(
+                f"{_HYBRID_BACKEND_URL}/public/companies", timeout=8) as resp:
+            return _json.loads(resp.read())
+    except Exception:
+        return []
+
+def hybrid_get_private_files(uid: str, jwt_token: str) -> list:
+    """해당 UID 의 개인 카탈로그 목록 조회 (Private Zone)."""
+    if not _hybrid_enabled() or not uid or not jwt_token:
+        return []
+    try:
+        import urllib.request, json as _json
+        req = urllib.request.Request(
+            f"{_HYBRID_BACKEND_URL}/private/{uid}/list",
+            headers=_hybrid_headers(jwt_token))
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return _json.loads(resp.read())
+    except Exception:
+        return []
+
+def hybrid_rag_query(uid: str, jwt_token: str, query: str) -> str:
+    """
+    RAG 통합 상담 — 공용 지식 + 개인 문서 병합 후 Gemini 답변 반환.
+    답변 후 서버측 컨텍스트 즉시 휘발.
+    """
+    if not _hybrid_enabled() or not uid or not jwt_token:
+        return ""
+    try:
+        import urllib.request, json as _json
+        data = _json.dumps({"query": query}).encode()
+        req  = urllib.request.Request(
+            f"{_HYBRID_BACKEND_URL}/private/{uid}/rag",
+            data=data, headers=_hybrid_headers(jwt_token), method="POST")
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = _json.loads(resp.read())
+            return result.get("answer", "")
+    except Exception:
+        return ""
+
+def hybrid_purge_user(uid: str, jwt_token: str) -> bool:
+    """
+    회원 탈퇴 시 Private Zone 완전 삭제.
+    Storage 파일 + DB 메타데이터 + 계정 모두 제거.
+    """
+    if not _hybrid_enabled() or not uid or not jwt_token:
+        return False
+    try:
+        import urllib.request, json as _json
+        req = urllib.request.Request(
+            f"{_HYBRID_BACKEND_URL}/private/{uid}/purge",
+            headers=_hybrid_headers(jwt_token), method="DELETE")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return _json.loads(resp.read()).get("status") == "purged"
+    except Exception:
+        return False
+# ══════════════════════════════════════════════════════════════════════════════
+
 try:
     from supabase import create_client as _sb_create_client
     _SB_PKG_OK = True
