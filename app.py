@@ -11949,10 +11949,6 @@ END; $$;""", language="sql")
         _pt_col1, _pt_col2 = st.columns([5, 6])
 
         with _pt_col1:
-            st.markdown("""<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;
-  border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:10px;
-  font-weight:900;font-size:0.9rem;color:#1a3a5c;">📋 약관 조회 조건</div>""",
-                unsafe_allow_html=True)
             # ── 공시실 링크 데이터 ─────────────────────────────────────
             _PT_DISC_DATA = [
                 ("손해", "삼성화재",    "https://www.samsungfire.com/cust/disclosure/productDisclosure.do"),
@@ -12065,7 +12061,6 @@ END; $$;""", language="sql")
                 "검색 질문 또는 키워드",
                 placeholder="예) 암 진단 시 얼마를 받나요? / 면책 기간은?",
                 key="pt_keyword",
-                value=st.session_state.get("pt_keyword", ""),
             )
             _pt_include_syn = st.checkbox(
                 "합성 QA 포함 검색 (딥러닝 매칭 향상)",
