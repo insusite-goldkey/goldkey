@@ -63,7 +63,14 @@ class CompanyUrlRegistry:
         "DB": "DB손해보험", "동부화재": "DB손해보험", "동부생명": "DB생명",
         "KB": "KB손해보험", "한화": "한화생명",
         "농협": "NH농협생명", "미래에셋": "미래에셋생명", "메리츠": "메리츠화재",
+        "롯데": "롯데손해보험", "흥국": "흥국화재",
+        "신한": "신한라이프", "오렌지라이프": "신한라이프",
+        "AIA": "AIA생명", "처브": "처브라이프",
     }
+    # 손해보험사 키워드 (미등록 시 손보협회로 폴백)
+    _NON_LIFE_KW = [
+        "화재", "손해", "손보", "다이렉트", "캐롯", "하나손해",
+    ]
 
     @classmethod
     def normalize(cls, name: str) -> str:
@@ -71,7 +78,14 @@ class CompanyUrlRegistry:
 
     @classmethod
     def get(cls, company_name: str) -> Optional[dict]:
-        return cls._REG.get(cls.normalize(company_name))
+        normalized = cls.normalize(company_name)
+        direct = cls._REG.get(normalized)
+        if direct:
+            return direct
+        # 미등록 보험사 → 생명/손해보험협회 공시실 폴백
+        if any(kw in normalized for kw in cls._NON_LIFE_KW):
+            return cls._REG["손해보험협회"]
+        return cls._REG["생명보험협회"]
 
     @classmethod
     def all_companies(cls) -> list:
