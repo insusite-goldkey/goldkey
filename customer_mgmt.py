@@ -18,20 +18,27 @@ import streamlit as st
 # ---------------------------------------------------------------------------
 # 암호화 헬퍼 — modules/auth.py의 encrypt_val/decrypt_val 재사용
 # ---------------------------------------------------------------------------
+def _get_enc_key() -> bytes:
+    """암호화 키 조회 — 환경변수 우선, 없으면 secrets, 없으면 기본값."""
+    key = os.environ.get("ENCRYPTION_KEY", "")
+    if not key:
+        try:
+            import streamlit as _st
+            key = _st.secrets.get("ENCRYPTION_KEY", "") or ""
+        except Exception:
+            key = ""
+    if not key:
+        return b"temporary_fixed_key_for_dev_only_12345="
+    return key.encode() if isinstance(key, str) else key
+
+
 def _enc(text: str) -> str:
     """실명 등 민감 정보 암호화. 실패 시 원문 반환 (가용성 우선)."""
     if not text:
         return text
     try:
         from cryptography.fernet import Fernet
-        import streamlit as _st
-        try:
-            _key = _st.secrets.get("ENCRYPTION_KEY", b"temporary_fixed_key_for_dev_only_12345=")
-        except Exception:
-            _key = b"temporary_fixed_key_for_dev_only_12345="
-        if isinstance(_key, str):
-            _key = _key.encode()
-        return Fernet(_key).encrypt(text.encode()).decode()
+        return Fernet(_get_enc_key()).encrypt(text.encode()).decode()
     except Exception:
         return text
 
@@ -42,14 +49,7 @@ def _dec(text: str) -> str:
         return text
     try:
         from cryptography.fernet import Fernet
-        import streamlit as _st
-        try:
-            _key = _st.secrets.get("ENCRYPTION_KEY", b"temporary_fixed_key_for_dev_only_12345=")
-        except Exception:
-            _key = b"temporary_fixed_key_for_dev_only_12345="
-        if isinstance(_key, str):
-            _key = _key.encode()
-        return Fernet(_key).decrypt(text.encode()).decode()
+        return Fernet(_get_enc_key()).decrypt(text.encode()).decode()
     except Exception:
         return text  # 복호화 실패 시 원문(평문) 그대로 반환 — 레거시 호환
 
