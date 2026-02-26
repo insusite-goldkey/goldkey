@@ -5768,6 +5768,22 @@ summary[data-testid="stExpanderToggle"] {
                     st.session_state.pop(k, None)
                 st.success("상담 자료가 파기되었습니다.")
 
+            # ── 앱 스토리 문구 ────────────────────────────────────────────
+            st.markdown("""
+<div style="background:linear-gradient(135deg,#1e3a5f,#1e40af);
+border-radius:10px;padding:10px 14px;margin:8px 0 6px 0;">
+  <div style="font-size:0.78rem;font-weight:900;color:#93c5fd;letter-spacing:0.04em;margin-bottom:3px;">
+    🤖 초개인화 인텔리전스 비서
+  </div>
+  <div style="font-size:0.72rem;color:#bfdbfe;line-height:1.5;">
+    고객을 기억하고, 다음 만남을<br>준비하며, 설계사의 전문성을 지킵니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+            if st.button("👥 고객 관리", key="sb_customer_mgmt",
+                         use_container_width=True, type="primary"):
+                st.session_state.current_tab = "customer_mgmt"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
             st.markdown("""<div style="background:linear-gradient(135deg,#0d3b2e,#1a6b4a);
   border-radius:8px;padding:6px 10px;margin:8px 0 4px 0;
   font-size:0.76rem;font-weight:900;color:#a8f0c8;letter-spacing:0.03em;">
@@ -8192,6 +8208,19 @@ section[data-testid="stMain"] > div,
                             st.session_state.current_tab = tab_id
                             st.session_state["_scroll_top"] = True
                             st.rerun()
+
+    # ── [customer_mgmt] 고객 관리 탭 (Phase 1) ───────────────────────────
+    if cur == "customer_mgmt":
+        if not _auth_gate("customer_mgmt"): st.stop()
+        tab_home_btn("customer_mgmt")
+        try:
+            from customer_mgmt import render_customer_tab as _render_cm
+            _cm_sb  = _get_sb_client()
+            _cm_llm = get_client()
+            _render_cm(_cm_sb, _cm_llm)
+        except ImportError as _cm_ie:
+            st.error(f"customer_mgmt 모듈 로드 실패: {_cm_ie}")
+        st.stop()
 
     # ── [policy_scan] 보험증권 분석 — 독립 전용 탭 ──────────────────────
     if cur == "policy_scan":
