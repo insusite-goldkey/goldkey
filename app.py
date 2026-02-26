@@ -14197,6 +14197,8 @@ END; $$;""", language="sql")
                 ("생명", "KB라이프생명(판매중지)","https://www.kblife.co.kr/customer-common/productList.do"),
                 ("생명", "MetLife생명(판매중)",  "https://brand.metlife.co.kr/pn/mcvrgProd/retrieveMcvrgProdMain.do"),
                 ("생명", "MetLife생명(판매중지)","https://brand.metlife.co.kr/pn/saleStop/retrieveSaleStopProdMain.do"),
+                ("생명", "iM라이프생명(판매중)",  "https://www.imlifeins.co.kr/BA/BA_A020.do"),
+                ("생명", "iM라이프생명(판매중지)","https://www.imlifeins.co.kr/BA/BA_A020.do"),
                 ("생명", "라이나생명(판매중)",      "https://www.lina.co.kr/disclosure/product-public-announcement/product-on-sales?key=0"),
                 ("생명", "라이나생명(판매중지)",    "https://www.lina.co.kr/disclosure/product-public-announcement/product-on-sales?key=1"),
                 ("생명", "라이나생명-간병인비용지원","https://www.lina.co.kr/disclosure/product-public-announcement/support-costs"),
