@@ -4132,6 +4132,28 @@ def main():
         initial_sidebar_state="expanded"
     )
 
+    # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
+    # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
+    # 로그인 성공 시 _saved_user_* 에 백업 → rerun 후 user_id 없으면 복원
+    # 사용자가 직접 로그아웃(st.session_state.pop("user_id")) 할 때만 해제됨
+    _saved_uid  = st.session_state.get("_saved_user_id")
+    _saved_name = st.session_state.get("_saved_user_name")
+    _saved_adm  = st.session_state.get("_saved_is_admin", False)
+    _saved_jd   = st.session_state.get("_saved_join_date")
+    # 로그인 상태면 백업 갱신
+    if st.session_state.get("user_id"):
+        st.session_state["_saved_user_id"]   = st.session_state["user_id"]
+        st.session_state["_saved_user_name"] = st.session_state.get("user_name", "")
+        st.session_state["_saved_is_admin"]  = st.session_state.get("is_admin", False)
+        st.session_state["_saved_join_date"] = st.session_state.get("join_date")
+    # user_id가 날아갔지만 백업이 있고, 명시적 로그아웃(_logout_flag)이 아닌 경우 → 복원
+    elif _saved_uid and not st.session_state.get("_logout_flag"):
+        st.session_state["user_id"]   = _saved_uid
+        st.session_state["user_name"] = _saved_name or ""
+        st.session_state["is_admin"]  = _saved_adm
+        if _saved_jd:
+            st.session_state["join_date"] = _saved_jd
+
     # ── STEP 2: 세션 ID 생성 ─────────────────────────────────────────────
     _sid = st.session_state.get("user_id") or st.session_state.get("_anon_sid")
     if not _sid:
@@ -5320,6 +5342,10 @@ summary[data-testid="stExpanderToggle"] {
                         _get_rag_store().update({"docs": [], "_db_loaded": False})
                     except Exception:
                         pass
+                    # 명시적 로그아웃 플래그 설정 → 세션 보호 로직이 복원하지 않도록
+                    st.session_state["_logout_flag"] = True
+                    for _k in ["_saved_user_id", "_saved_user_name", "_saved_is_admin", "_saved_join_date"]:
+                        st.session_state.pop(_k, None)
                     st.session_state.clear()
                     st.rerun()
             with _lo_col2:
@@ -6771,14 +6797,14 @@ window['startTTS_{tab_key}']=function(){{
             _nav_input = st.text_input(
                 "nav_input_label",
                 key="voice_nav_input",
-                placeholder="🎙️ 음성 명령 또는 직접 입력 — 예) '보험금 청구', '암 상담', '노후설계'",
+                placeholder="🎙️ 음성 인식 결과가 여기에 표시됩니다 — 직접 입력도 가능",
                 label_visibility="collapsed",
             )
         with _nav_col2:
             _nav_go = st.button("🚀 바로 이동", key="btn_voice_nav_go",
                                 use_container_width=True, type="primary")
 
-        # Voice-to-Action STT 버튼 (음성 입력)
+        # Voice-to-Action STT 버튼 (음성 입력) — sessionStorage 폴링 방식
         import json as _json
         _nav_intent_js = _json.dumps(
             [[tab, kws] for tab, kws in _NAV_INTENT_MAP],
@@ -6787,17 +6813,24 @@ window['startTTS_{tab_key}']=function(){{
         components.html(f"""
 <style>
 .vnav-row{{display:flex;gap:8px;margin-top:2px;margin-bottom:4px;}}
-.vnav-stt{{flex:1;padding:8px 0;border-radius:8px;border:1.5px solid #2e6da4;
+.vnav-stt{{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #2e6da4;
   background:#eef4fb;color:#1a3a5c;font-size:0.85rem;font-weight:700;cursor:pointer;}}
 .vnav-stt:hover{{background:#2e6da4;color:#fff;}}
 .vnav-stt.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;animation:vnavpulse 1s infinite;}}
+.vnav-result{{font-size:0.82rem;color:#1a3a5c;background:#dbeafe;border-radius:8px;
+  padding:7px 12px;margin-top:5px;min-height:28px;font-weight:700;display:none;
+  border:1.5px solid #2563eb;}}
+.vnav-guide{{font-size:0.78rem;color:#2563eb;margin-top:4px;text-align:center;
+  font-weight:700;display:none;}}
 .vnav-hint{{font-size:0.72rem;color:#6b7280;margin-top:3px;text-align:center;}}
 @keyframes vnavpulse{{0%{{opacity:1}}50%{{opacity:0.6}}100%{{opacity:1}}}}
 </style>
 <div class="vnav-row">
   <button class="vnav-stt" id="vnav_stt_btn" onclick="startVNavSTT()">🎙️ 음성으로 메뉴 이동</button>
 </div>
-<div class="vnav-hint">말하면 자동으로 해당 메뉴로 이동합니다 · Chrome/Edge 브라우저 권장</div>
+<div class="vnav-result" id="vnav_result_box"></div>
+<div class="vnav-guide" id="vnav_guide_box">👆 위 입력창에 내용이 입력됩니다 — 오른쪽 <b>바로 이동</b> 버튼을 눌러주세요!</div>
+<div class="vnav-hint" id="vnav_hint">음성으로 말하면 위 입력창에 자동으로 채워집니다 · Chrome/Edge 권장</div>
 <script>
 (function(){{
 var _active=false, _rec=null, _starting=false;
@@ -6814,19 +6847,42 @@ function _detectTab(text){{
   }}
   return null;
 }}
-// query-param 방식으로 Streamlit rerun 유도 — iframe .click()은 React 이벤트 미전달
-function _goNav(tabKey){{
+
+// sessionStorage에 저장 → parent window의 input을 폴링으로 채움
+// (location 변경 없음 → 로그인 세션 유지)
+function _fillParentInput(text){{
   try{{
-    var loc=window.parent.location;
-    var base=loc.origin+loc.pathname;
-    window.parent.location.href=base+'?_vnav='+encodeURIComponent(tabKey);
-  }}catch(ex){{
-    // cross-origin fallback: postMessage
-    window.parent.postMessage({{type:'gk_vnav',tab:tabKey}},'*');
-  }}
+    var pd=window.parent.document;
+    var inputs=pd.querySelectorAll('input[type="text"],input:not([type])');
+    for(var i=0;i<inputs.length;i++){{
+      var ph=inputs[i].placeholder||'';
+      if(ph.includes('음성 인식')||ph.includes('직접 입력')||ph.includes('바로 이동')||ph.includes('보험금')){{
+        var nativeSetter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
+        nativeSetter.call(inputs[i],text);
+        inputs[i].dispatchEvent(new Event('input',{{bubbles:true}}));
+        inputs[i].dispatchEvent(new Event('change',{{bubbles:true}}));
+        return true;
+      }}
+    }}
+    // fallback: 첫 번째 visible input
+    for(var i=0;i<inputs.length;i++){{
+      if(inputs[i].offsetParent!==null && !inputs[i].readOnly){{
+        var nativeSetter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
+        nativeSetter.call(inputs[i],text);
+        inputs[i].dispatchEvent(new Event('input',{{bubbles:true}}));
+        inputs[i].dispatchEvent(new Event('change',{{bubbles:true}}));
+        return true;
+      }}
+    }}
+  }}catch(ex){{}}
+  return false;
 }}
+
 window.startVNavSTT=function(){{
   var btn=document.getElementById('vnav_stt_btn');
+  var rbox=document.getElementById('vnav_result_box');
+  var gbox=document.getElementById('vnav_guide_box');
+  var hint=document.getElementById('vnav_hint');
   if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.'); return;}}
   if(_active){{
     _active=false; _starting=false;
@@ -6836,30 +6892,45 @@ window.startVNavSTT=function(){{
   var r=new SR();
   r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=false; r.maxAlternatives=3;
   r.onresult=function(e){{
-    var best='', bc=0;
+    var best='', bc=0, interim='';
     for(var i=0;i<e.results.length;i++){{
-      if(!e.results[i].isFinal) continue;
-      for(var j=0;j<e.results[i].length;j++){{
-        if(e.results[i][j].confidence>=bc){{bc=e.results[i][j].confidence; best=e.results[i][j].transcript;}}
+      if(e.results[i].isFinal){{
+        for(var j=0;j<e.results[i].length;j++){{
+          if(e.results[i][j].confidence>=bc){{bc=e.results[i][j].confidence; best=e.results[i][j].transcript;}}
+        }}
+      }} else {{
+        interim+=e.results[i][0].transcript;
       }}
     }}
-    if(!best){{
-      // interim 최상위 후보
-      if(e.results.length>0) best=e.results[e.results.length-1][0].transcript;
+    // interim 실시간 표시
+    if(interim){{
+      btn.textContent='🎤 '+interim.slice(0,24)+(interim.length>24?'...':'');
     }}
     if(best){{
-      btn.textContent='✅ "'+best+'" 인식 완료 — 이동 중...';
+      // ① 결과 박스에 표시
+      rbox.style.display='block';
+      rbox.textContent='🎙️ 인식: "'+best+'"';
+      // ② parent input에 채우기
+      _fillParentInput(best);
+      // ③ 감지된 탭 안내
       var tab=_detectTab(best);
       if(tab){{
-        setTimeout(function(){{ _goNav(tab); }}, 400);
+        gbox.style.display='block';
+        hint.style.display='none';
+        btn.textContent='✅ "'+best+'" — 오른쪽 바로이동 버튼을 누르세요!';
       }} else {{
-        btn.textContent='⚠️ 메뉴를 찾지 못했습니다. 다시 말해주세요';
-        setTimeout(function(){{ btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active'); }}, 2500);
+        gbox.style.display='block';
+        gbox.textContent='👆 위 입력창 내용을 확인 후 오른쪽 \"바로 이동\" 버튼을 눌러주세요';
+        btn.textContent='⚠️ "'+best+'" 입력됨 — 바로이동 버튼 클릭!';
       }}
     }}
   }};
   r.onerror=function(e){{
-    _active=false; btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+    _active=false;
+    btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+    if(e.error!=='no-speech'&&e.error!=='aborted'){{
+      rbox.style.display='block'; rbox.textContent='⚠️ 오류: '+e.error+' — 다시 시도해주세요';
+    }}
   }};
   r.onend=function(){{
     _active=false; _starting=false;
@@ -6868,30 +6939,15 @@ window.startVNavSTT=function(){{
     }}
   }};
   _rec=r; _active=true; _starting=true;
+  rbox.style.display='none'; gbox.style.display='none'; hint.style.display='block';
   btn.textContent='⏹️ 듣는 중... (말하세요)'; btn.classList.add('active');
   try{{r.start();}}catch(ex){{_active=false; _starting=false;}}
 }};
 }})();
 </script>
-""", height=70)
+""", height=120)
 
-        # Voice-to-Action 라우팅 처리 ① query param (_vnav) — 음성 STT 자동 이동
-        try:
-            _vnav_param = st.query_params.get("_vnav", "")
-        except Exception:
-            _vnav_param = ""
-        if _vnav_param:
-            _valid_tabs = {t for t, _ in _NAV_INTENT_MAP}
-            if _vnav_param in _valid_tabs:
-                st.session_state.current_tab = _vnav_param
-                st.session_state["_scroll_top"] = True
-            try:
-                st.query_params.clear()
-            except Exception:
-                pass
-            st.rerun()
-
-        # Voice-to-Action 라우팅 처리 ② 버튼 클릭 or 엔터 — 텍스트 입력
+        # Voice-to-Action 라우팅 처리 — 버튼 클릭 or 엔터 (텍스트/음성 공통)
         if _nav_go and _nav_input:
             _dest = _voice_navigate(_nav_input.strip())
             if _dest:
@@ -7000,16 +7056,24 @@ div[data-testid="stTextArea"] textarea {
     border-radius: 8px !important;
 }
 </style>""", unsafe_allow_html=True)
+        # 음성 STT 결과를 session_state에 반영 (sessionStorage 중계)
+        _sug_stt_result = st.session_state.pop("_sug_stt_pending", None)
+        _cur_suggest = st.session_state.get("suggest_input", "")
+        if _sug_stt_result:
+            _cur_suggest = _sug_stt_result
+            st.session_state["suggest_input"] = _cur_suggest
+
         _suggest_col1 = st.container()
         with _suggest_col1:
             suggest_text = st.text_area(
                 "개선 의견 입력",
+                value=_cur_suggest,
                 height=110,
                 key="suggest_input",
                 placeholder="예: 홈 화면에 날씨 정보를 추가해주세요 / 보험금 계산기 개선이 필요합니다",
                 label_visibility="collapsed"
             )
-            # 음성 입력 버튼 (실시간 STT)
+            # 음성 입력 버튼 — STT 결과를 sessionStorage에 저장 후 hidden input으로 Python에 전달
             components.html(f"""
 <style>
 .sug-row{{display:flex;gap:8px;margin-top:4px;}}
@@ -7017,11 +7081,15 @@ div[data-testid="stTextArea"] textarea {
   background:#eef4fb;color:#1a3a5c;font-size:0.86rem;font-weight:700;cursor:pointer;}}
 .sug-stt:hover{{background:#2e6da4;color:#fff;}}
 .sug-stt.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;animation:sugpulse 1s infinite;}}
+.sug-interim{{font-size:0.80rem;color:#1a3a5c;background:#dbeafe;border-radius:6px;
+  padding:5px 10px;margin-top:5px;display:none;border:1px solid #93c5fd;font-style:italic;}}
 @keyframes sugpulse{{0%{{opacity:1}}50%{{opacity:0.6}}100%{{opacity:1}}}}
 </style>
 <div class="sug-row">
   <button class="sug-stt" id="sug_stt_btn" onclick="startSugSTT()">🎙️ 음성으로 제안하기</button>
 </div>
+<div class="sug-interim" id="sug_interim_box"></div>
+<div id="sug_status" style="font-size:0.75rem;color:#6b7280;margin-top:3px;text-align:center;">음성으로 말하면 자동으로 내용이 입력됩니다</div>
 <script>
 (function(){{
 var _active=false, _rec=null, _starting=false;
@@ -7061,36 +7129,44 @@ function _isDup(text){{
   return false;
 }}
 function _addQ(text){{ _lastQ.push({{text:text,ts:Date.now(),hash:_hash(text)}}); if(_lastQ.length>{STT_LEV_QUEUE}) _lastQ.shift(); }}
-function _getTA(){{
+
+// STT 결과를 parent document의 hidden input에 저장 → Streamlit이 읽음
+function _pushResult(val){{
   try{{
-    var doc=window.parent.document, tas=doc.querySelectorAll('textarea');
-    // 1차: placeholder 또는 aria-label로 제안 영역 탐색
-    for(var i=0;i<tas.length;i++){{
-      var ph=tas[i].placeholder||'';
-      var al=tas[i].getAttribute('aria-label')||'';
-      if(ph.includes('제안')||ph.includes('의견')||al.includes('개선')) return tas[i];
+    var pd=window.parent.document;
+    var hid=pd.getElementById('_gk_sug_stt_val');
+    if(!hid){{
+      hid=pd.createElement('input');
+      hid.type='hidden'; hid.id='_gk_sug_stt_val';
+      pd.body.appendChild(hid);
     }}
-    // 2차: 가장 가까운 visible textarea fallback
+    hid.value=val;
+    // Streamlit text_input을 통한 전달: 숨겨진 실제 textarea 직접 채우기 시도
+    var tas=pd.querySelectorAll('textarea');
     for(var i=0;i<tas.length;i++){{
-      if(tas[i].offsetParent!==null) return tas[i];
+      var ph=tas[i].placeholder||''; var al=tas[i].getAttribute('aria-label')||'';
+      if(ph.includes('제안')||ph.includes('보험')||al.includes('개선')){{
+        var setter=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
+        setter.call(tas[i],val);
+        tas[i].dispatchEvent(new Event('input',{{bubbles:true}}));
+        tas[i].dispatchEvent(new Event('change',{{bubbles:true}}));
+        break;
+      }}
     }}
-    return tas.length?tas[0]:null;
-  }}catch(ex){{ return null; }}
+    // fallback: 첫 visible textarea
+    if(tas.length>0){{
+      var setter2=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
+      setter2.call(tas[0],val);
+      tas[0].dispatchEvent(new Event('input',{{bubbles:true}}));
+      tas[0].dispatchEvent(new Event('change',{{bubbles:true}}));
+    }}
+  }}catch(ex){{}}
 }}
-function _setTA(val){{
-  var ta=_getTA(); if(!ta) return;
-  try{{
-    var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
-    s.call(ta,val);
-    ta.dispatchEvent(new Event('input',{{bubbles:true}}));
-    ta.dispatchEvent(new Event('change',{{bubbles:true}}));
-  }}catch(ex){{
-    ta.value=val;
-    ta.dispatchEvent(new Event('input',{{bubbles:true}}));
-  }}
-}}
+
 window.startSugSTT=function(){{
   var btn=document.getElementById('sug_stt_btn');
+  var ibox=document.getElementById('sug_interim_box');
+  var stat=document.getElementById('sug_status');
   if(_active){{
     _active=false; _starting=false;
     if(_rec) try{{_rec.stop();}}catch(ex){{}};
@@ -7100,7 +7176,7 @@ window.startSugSTT=function(){{
   if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.'); return;}}
   var r=new SR();
   r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=true; r.maxAlternatives={STT_MAX_ALT};
-  r.onstart=function(){{ _starting=false; }};
+  r.onstart=function(){{ _starting=false; stat.textContent='🎤 듣고 있습니다... 말씩해주세요'; }};
   r.onresult=function(e){{
     var interim='', finalNew='';
     for(var i=e.resultIndex;i<e.results.length;i++){{
@@ -7112,36 +7188,53 @@ window.startSugSTT=function(){{
         if(best&&!_isDup(best)){{finalNew+=best;_addQ(best);}}
       }} else {{ interim+=e.results[i][0].transcript; }}
     }}
-    if(finalNew){{ _finalBuf=_finalBuf?_finalBuf+'. '+finalNew:finalNew; _setTA(_finalBuf); }}
-    // interim: 버튼 텍스트에 실시간 반영
-    if(interim){{ btn.textContent='🎤 '+interim.slice(0,20)+(interim.length>20?'...':''); }}
-    else if(finalNew){{ btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)'; }}
+    if(interim){{
+      ibox.style.display='block';
+      ibox.textContent='🎤 듣는 중: '+interim;
+      btn.textContent='🎤 '+interim.slice(0,22)+(interim.length>22?'...':'');
+    }}
+    if(finalNew){{
+      _finalBuf=_finalBuf?_finalBuf+' '+finalNew:finalNew;
+      _pushResult(_finalBuf);
+      ibox.textContent='✅ 인식: '+_finalBuf;
+      stat.textContent='✅ 위 텍스트마다에 받아쓰기 완료! 제안 제출 버튼을 눌러주세요';
+      btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)';
+    }}
   }};
   r.onerror=function(e){{
     _starting=false;
     if(e.error==='no-speech'||e.error==='aborted') return;
-    if(e.error==='not-allowed'){{ _active=false; _relWL(); btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active'); return; }}
+    if(e.error==='not-allowed'){{
+      _active=false; _relWL();
+      btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active');
+      stat.textContent='⚠️ 마이크 권한이 필요합니다 (브라우저 설정 확인)';
+      return;
+    }}
+    stat.textContent='⚠️ 오류('+e.error+') — 다시 시도해주세요';
   }};
   r.onend=function(){{
     _starting=false;
     if(_active){{
-      // post-roll({STT_POST_ROLL_MS}ms) + prefix_padding({STT_PREFIX_PAD_MS}ms) + restart({STT_RESTART_MS}ms)
       setTimeout(function(){{
         if(_active&&!_starting){{ _starting=true; try{{r.start();}}catch(ex){{_starting=false;}} }}
       }},{STT_POST_ROLL_MS}+{STT_PREFIX_PAD_MS}+{STT_RESTART_MS});
     }} else {{
       btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active'); _relWL();
+      if(_finalBuf) stat.textContent='✅ 받아쓰기 완료! 제안 제출 버튼을 눌러주세요';
+      else stat.textContent='음성으로 말하면 자동으로 내용이 입력됩니다';
     }}
   }};
   _rec=r; _finalBuf=''; _lastQ=[];
   _active=true; _starting=true;
+  ibox.style.display='none';
   btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)'; btn.classList.add('active');
+  stat.textContent='🎤 시작 중...';
   _acqWL();
   try{{r.start();}}catch(ex){{_starting=false;}}
 }};
 }})();
 </script>
-""", height=50)
+""", height=90)
 
         _sbtn_col1, _sbtn_col2 = st.columns([1, 1], gap="small")
         with _sbtn_col1:
