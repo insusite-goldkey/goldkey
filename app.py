@@ -896,12 +896,14 @@ def _get_sb_client():
 # ── 중앙집중 서비스 관리자 (GoldKeyServiceManager) 초기화 ──────────────────
 # scan / STT / crawler / RAG 4개 서비스를 단일 진입점으로 관리
 # 이 한 곳만 수정하면 모든 탭(scan_hub, policy_scan, disability 등)에 즉시 반영
+_gsm_err_msg = ""
 try:
     from service_manager import GoldKeyServiceManager as _GSM
     _gsm = _GSM.get()
     _gsm.initialize(_get_sb_client())
 except Exception as _gsm_err:
     _gsm = None  # 모듈 없으면 기존 방식으로 동작 (하위호환)
+    _gsm_err_msg = str(_gsm_err)
 
 def get_service_manager():
     """GoldKeyServiceManager 싱글톤 반환. app.py 어디서나 호출 가능."""
@@ -12952,7 +12954,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
             _gsm_admin = get_service_manager()
             if _gsm_admin is None:
-                st.error("⚠️ ServiceManager 초기화 실패 — service_manager.py 확인 필요")
+                st.error(f"⚠️ ServiceManager 초기화 실패 — {_gsm_err_msg or 'service_manager.py 확인 필요'}")
             else:
                 _svc_status = _gsm_admin.get_status(st.session_state)
                 _adm_t1, _adm_t2, _adm_t3, _adm_t4 = st.tabs([
