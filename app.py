@@ -1655,6 +1655,13 @@ _POLICY_PARSE_PROMPT = """[SYSTEM]
 <extracted_data> 태그 안의 보험증권 데이터를 분석하여, 반드시 아래 JSON Schema에 맞는 JSON만 출력하십시오.
 JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십시오.
 
+[⚠️ 절대 금지 — 할루시네이션 방지]
+• 증권 원문에 명시되지 않은 담보는 절대로 추가하지 마십시오.
+• 보험 상품 유형에서 "일반적으로 포함될 것 같은" 담보를 추론하거나 생성하지 마십시오.
+• 담보명·금액·조건이 불분명한 경우 confidence를 "low"로 표기하되, 원문에 없으면 아예 포함하지 마십시오.
+• 뇌혈관질환·심장질환·암 등 고액 진단비 담보는 반드시 원문에 금액과 담보명이 명시된 경우에만 포함하십시오.
+• 원문에서 확인되지 않는 항목의 amount는 null로 하고, 근거 없는 추정값을 입력하지 마십시오.
+
 [JSON Schema — 반드시 준수]
 {
   "policy_info": {        ← 증권 기본 정보 (반드시 포함, 없으면 null)
@@ -16680,11 +16687,17 @@ END; $$;""", language="sql")
                         st.rerun()
 
         # ── [scan_hub ↔ 약관 JIT 크롤링] 보험증권 스캔 기반 약관 자동 연동 ──
-        _ssot_policy = [
+        # ── 약관 크롤링 대상 구성:
+        #    우선순위 1) ssot_policy_info (AI 정밀 추출값, 가장 정확)
+        #    우선순위 2) ssot_scan_data 정규식 재파싱 (fallback)
+        _ssot_pi_card  = st.session_state.get("ssot_policy_info", {})
+        _ssot_pol_data = [
             d for d in st.session_state.get("ssot_scan_data", [])
             if d.get("type") == "policy"
         ]
-        if _ssot_policy:
+
+        # ssot_policy_info 또는 policy 타입 스캔 데이터가 있을 때 크롤링 박스 표시
+        if _ssot_pi_card or _ssot_pol_data:
             st.divider()
             st.markdown("""
 <div style="background:linear-gradient(90deg,#0d3b2e,#1a5c3b);
@@ -16695,24 +16708,44 @@ END; $$;""", language="sql")
   </span>
 </div>""", unsafe_allow_html=True)
 
-            try:
-                from insurance_scan import extract_policies_from_scan, extract_with_llm
-                _scan_pols = extract_policies_from_scan(_ssot_policy)
-            except ImportError:
-                _scan_pols = []
-                st.error("insurance_scan 모듈 로드 실패")
+            # ── ssot_policy_info를 1순위로 사용 (AI 정밀 추출)
+            if _ssot_pi_card and (_ssot_pi_card.get("company") or _ssot_pi_card.get("product_name")):
+                _scan_pols = [{
+                    "source_file":  "증권 AI 자동추출",
+                    "company":      _ssot_pi_card.get("company", ""),
+                    "product":      _ssot_pi_card.get("product_name", ""),
+                    "join_date":    _ssot_pi_card.get("join_date", ""),
+                    "confidence":   100,   # AI Vision 추출 = 최고 신뢰도
+                    "already_indexed": False,
+                }]
+                st.success("✅ AI 증권 분석 결과가 자동 반영되었습니다. 내용을 확인 후 크롤링을 시작하세요.")
+            else:
+                # fallback: 정규식 재파싱
+                try:
+                    from insurance_scan import extract_policies_from_scan, extract_with_llm
+                    _scan_pols = extract_policies_from_scan(_ssot_pol_data)
+                except ImportError:
+                    _scan_pols = []
+                    st.error("insurance_scan 모듈 로드 실패")
+                if not _scan_pols:
+                    st.warning("⚠️ 증권 정보를 자동으로 추출하지 못했습니다. 아래 항목을 직접 입력하거나 먼저 '🔬 통합 스캔 실행'을 눌러주세요.")
+                    _scan_pols = [{
+                        "source_file": "", "company": "", "product": "",
+                        "join_date": "", "confidence": 0, "already_indexed": False,
+                    }]
 
             if _scan_pols:
-                st.markdown(f"**📋 증권에서 추출된 상품 {len(_scan_pols)}건**")
+                st.markdown(f"**📋 약관 크롤링 대상 {len(_scan_pols)}건**")
                 _edited_pols = []
                 for _pi, _pol in enumerate(_scan_pols):
                     _conf = _pol.get("confidence", 0)
-                    _conf_label = "높음" if _conf >= 70 else "보통" if _conf >= 40 else "낮음"
+                    _conf_label = "AI추출" if _conf == 100 else ("높음" if _conf >= 70 else "보통" if _conf >= 40 else "낮음")
+                    _expand_flag = _conf < 70  # 낮은 신뢰도는 펼쳐서 확인 유도
                     with st.expander(
                         f"[{_pi+1}] {_pol.get('company','?')} / "
                         f"{(_pol.get('product','?'))[:30]} "
                         f"— 신뢰도 {_conf}%({_conf_label})",
-                        expanded=(_conf < 70)
+                        expanded=(_conf >= 70),  # AI추출·높음은 항상 펼쳐서 바로 확인
                     ):
                         _ec1, _ec2, _ec3 = st.columns([2, 3, 2])
                         with _ec1:
@@ -16728,8 +16761,10 @@ END; $$;""", language="sql")
                             st.caption("⚠️ 신뢰도 낮음 — 상품명·보험사를 직접 수정하거나 AI 재추출을 사용하세요.")
                             if st.button(f"🤖 AI 재추출", key=f"sh_llm_reext_{_pi}"):
                                 try:
+                                    from insurance_scan import extract_with_llm
                                     _gc, _ = get_master_model()
-                                    _src_text = _ssot_policy[_pi].get("text", "")
+                                    _src_text = (_ssot_pol_data[_pi].get("text", "")
+                                                 if _pi < len(_ssot_pol_data) else "")
                                     _llm_info = extract_with_llm(_src_text, _gc, GEMINI_MODEL)
                                     st.session_state[f"sh_jit_co_{_pi}"] = _llm_info["company"]
                                     st.session_state[f"sh_jit_pr_{_pi}"] = _llm_info["product"]
