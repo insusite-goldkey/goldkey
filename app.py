@@ -14157,7 +14157,8 @@ END; $$;""", language="sql")
             # ── 공시실 링크 데이터 ─────────────────────────────────────
             _PT_DISC_DATA = [
                 ("손해", "삼성화재",    "https://www.samsungfire.com/cust/disclosure/productDisclosure.do"),
-                ("손해", "현대해상",    "https://www.hi.co.kr/cms/disclosure/product/list.do"),
+                ("손해", "현대해상(판매중)",  "https://www.hi.co.kr/serviceAction.do"),
+                ("손해", "현대해상(판매중지)","https://www.hi.co.kr/serviceAction.do"),
                 ("손해", "DB손해보험",  "https://www.idb.co.kr/cust/disclosure/product.do"),
                 ("손해", "KB손해보험",  "https://www.kbinsure.co.kr/cust/disclosure/product.do"),
                 ("손해", "메리츠화재",  "https://www.meritzfire.com/cust/disclosure/product.do"),
