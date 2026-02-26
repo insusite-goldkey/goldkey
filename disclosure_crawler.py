@@ -12,7 +12,7 @@
 import io, re, time, hashlib, requests, logging
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, List, Tuple
 
 logger = logging.getLogger("disclosure_crawler")
 
@@ -211,64 +211,109 @@ class PolicyDisclosureCrawler:
         except Exception:
             return False
 
+    # ── 퍼지 상품명 매칭 헬퍼 ─────────────────────────────────────────────
+    # 보험 상품명에서 불필요한 수식어·조사를 제거하고 핵심 토큰만 추출
+    _NOISE_WORDS = {
+        "보험", "보장", "가입", "특약", "형", "(무)", "무배당", "배당",
+        "the", "The", "NEW", "new", "Plus", "plus", "I", "II", "III",
+        "1종", "2종", "3종", "갱신", "비갱신", "실손", "실비",
+    }
+
+    @classmethod
+    def _core_tokens(cls, name: str) -> List[str]:
+        """상품명에서 핵심 토큰 리스트 반환 (2자 이상, 노이즈 제거)."""
+        # 괄호·특수문자 제거 후 공백 분리
+        cleaned = re.sub(r"[()\[\]《》<>·•]", " ", name)
+        tokens  = [t.strip() for t in re.split(r"[\s_\-]+", cleaned) if t.strip()]
+        core    = [t for t in tokens if len(t) >= 2 and t not in cls._NOISE_WORDS]
+        return core if core else tokens  # 전부 노이즈면 원본 반환
+
+    @classmethod
+    def _match_score(cls, product_name: str, row_text: str) -> float:
+        """
+        상품명 핵심 토큰이 row_text에 몇 개나 포함되는지 비율(0~1) 반환.
+        - 완전 포함: 1.0 / 토큰
+        - 부분 포함(row 토큰이 product 토큰을 포함): 0.6 / 토큰
+        최소 1개 핵심 토큰 매칭 시 후보로 채택 (임계값 0.0 초과).
+        """
+        core = cls._core_tokens(product_name)
+        if not core:
+            return 0.0
+        score = 0.0
+        for tok in core:
+            if tok in row_text:
+                score += 1.0
+            else:
+                # 부분 매칭: 한글 2자 이상 접두/접미 포함 여부
+                if len(tok) >= 3 and any(tok[:i] in row_text for i in range(len(tok)-1, 1, -1)):
+                    score += 0.6
+        return score / len(core)
+
+    @classmethod
+    def _period_from_text(cls, text: str):
+        return re.search(
+            r"\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}\s*[~\-－–—]\s*"
+            r"(?:\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}|현재|판매중|판매 중)",
+            text,
+        )
+
+    # 매칭 임계값 (0.0 초과이면 후보 포함 → 핵심 토큰 1개 이상 매칭)
+    _MATCH_THRESHOLD = 0.0
+
     def _extract_candidates(self, page, product_name: str) -> list:
-        candidates = []
-        keywords   = [kw for kw in product_name.split() if len(kw) >= 2]
+        scored: List[Tuple[float, dict]] = []
 
         # 전략 1: PDF 링크 직접 수집
         try:
             links = page.query_selector_all("a[href$='.pdf'], a[href*='pdf'], a[href*='PDF']")
             for link in links:
                 href = link.get_attribute("href") or ""
+                if not href:
+                    continue
                 text = (link.inner_text() or "").strip()
                 try:
                     row_text = str(link.evaluate(
                         "el => el.closest('tr')?.innerText || el.closest('li')?.innerText || ''"
-                    ))
+                    )) or text
                 except Exception:
                     row_text = text
-                if not any(kw in row_text for kw in keywords):
+                score = self._match_score(product_name, row_text)
+                if score <= self._MATCH_THRESHOLD:
                     continue
-                period_m = re.search(
-                    r"\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}\s*[~\-－–—]\s*"
-                    r"(?:\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}|현재|판매중|판매 중)",
-                    row_text,
-                )
-                rev_m = re.search(r"\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}", text)
-                if href:
-                    candidates.append({
-                        "url": href, "text": text,
-                        "period": period_m.group(0) if period_m else "",
-                        "revision_date": rev_m.group(0) if rev_m else "",
-                    })
+                period_m = self._period_from_text(row_text)
+                rev_m    = re.search(r"\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}", text)
+                scored.append((score, {
+                    "url": href, "text": text,
+                    "period": period_m.group(0) if period_m else "",
+                    "revision_date": rev_m.group(0) if rev_m else "",
+                }))
         except Exception:
             pass
 
         # 전략 2: 행 기반 탐색 (JS 렌더링 공시실 대응)
-        if not candidates:
+        if not scored:
             try:
                 rows = page.query_selector_all("tr, .list-item, .product-item")
                 for row in rows:
                     row_text = row.inner_text() or ""
-                    if not any(kw in row_text for kw in keywords):
+                    score = self._match_score(product_name, row_text)
+                    if score <= self._MATCH_THRESHOLD:
                         continue
                     btn  = row.query_selector("a[href], button")
                     href = (btn.get_attribute("href") or "") if btn else ""
-                    period_m = re.search(
-                        r"\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}\s*[~\-－–—]\s*"
-                        r"(?:\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}|현재|판매중)",
-                        row_text,
-                    )
-                    candidates.append({
+                    period_m = self._period_from_text(row_text)
+                    scored.append((score, {
                         "url": href,
                         "text": (btn.inner_text()[:80] if btn else ""),
                         "period": period_m.group(0) if period_m else "",
                         "revision_date": "",
-                    })
+                    }))
             except Exception:
                 pass
 
-        return candidates
+        # 점수 내림차순 정렬 후 후보 리스트 반환
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [c for _, c in scored]
 
     def _try_discontinued_tab(self, page, product_name: str) -> list:
         """판매중지 탭/버튼을 자동 탐색하여 후보 추출."""
@@ -350,16 +395,25 @@ class PolicyDisclosureCrawler:
             if _normalized_co == "메리츠화재":
                 candidates = self._fetch_meritz(page, product_name, join_date, info["base"])
             else:
-                search_url = f"{info['url']}?{info['p']}={requests.utils.quote(product_name)}"
+                # 핵심 토큰 중 가장 긴 1개를 검색어로 사용 (너무 긴 이름은 검색 히트율 ↓)
+                _core = PolicyDisclosureCrawler._core_tokens(product_name)
+                _search_q = max(_core, key=len) if _core else product_name
+                search_url = f"{info['url']}?{info['p']}={requests.utils.quote(_search_q)}"
                 if not self._safe_goto(page, search_url):
                     self._safe_goto(page, info["url"])
                     try:
-                        page.fill(f"input[name='{info['p']}']", product_name)
+                        page.fill(f"input[name='{info['p']}']", _search_q)
                         page.keyboard.press("Enter")
                         time.sleep(self._NAV_WAIT)
                     except Exception:
                         pass
                 candidates = self._extract_candidates(page, product_name)
+                # 결과 없으면 핵심 토큰 2개 조합으로 재시도
+                if not candidates and len(_core) >= 2:
+                    _search_q2 = " ".join(_core[:2])
+                    search_url2 = f"{info['url']}?{info['p']}={requests.utils.quote(_search_q2)}"
+                    if self._safe_goto(page, search_url2):
+                        candidates = self._extract_candidates(page, product_name)
                 if not candidates:
                     candidates = self._try_discontinued_tab(page, product_name)
 
