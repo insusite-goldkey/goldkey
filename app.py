@@ -3550,14 +3550,54 @@ _INDUSTRY_RATE_DB = {
 }
 
 # 건물 구조별 감가율 및 내용연수
+# [공장 건물 특수 구조 — 설계사 제공 데이터 최우선 적용]
+# 철골조: 40년/2.0% 고정 / 조립식판넬조: 20년(4.5%) or 25년(3.6%) 선택
 _STRUCTURE_DB = {
-    "철골조 (H형강)":                    {"annual_dep": 0.010, "useful_life": 40},
-    "철골조+조립식판넬 (외벽·지붕)": {"annual_dep": 0.018, "useful_life": 25},
-    "철근콘크리트(RC)조":              {"annual_dep": 0.008, "useful_life": 50},
-    "샌드위치 판넬":                   {"annual_dep": 0.020, "useful_life": 20},
-    "경량철골조":                      {"annual_dep": 0.015, "useful_life": 30},
-    "조적조 (벽돌)":                   {"annual_dep": 0.012, "useful_life": 40},
+    "철골조 (H빔/H형강)":              {"annual_dep": 0.020, "useful_life": 40, "residual_min": 0.20},
+    "조립식판넬조 — 25년형 (3.6%)":    {"annual_dep": 0.036, "useful_life": 25, "residual_min": 0.20},
+    "조립식판넬조 — 20년형 (4.5%)":    {"annual_dep": 0.045, "useful_life": 20, "residual_min": 0.20},
+    "철골조+조립식판넬 복합":           {"annual_dep": 0.028, "useful_life": 30, "residual_min": 0.20},
+    "철근콘크리트(RC)조":              {"annual_dep": 0.008, "useful_life": 50, "residual_min": 0.20},
+    "경량철골조":                      {"annual_dep": 0.015, "useful_life": 30, "residual_min": 0.20},
+    "조적조 (벽돌)":                   {"annual_dep": 0.012, "useful_life": 40, "residual_min": 0.20},
 }
+
+def get_building_depreciation(structure_type: str, years_passed: int,
+                              replacement_cost_man: float = 0.0) -> dict:
+    """공장 건물 구조별 경년감가 계산기 (설계사 제공 데이터 반영).
+
+    structure_type : _STRUCTURE_DB 키 그대로 전달
+    years_passed   : 경과 연수 (준공연도 기준)
+    replacement_cost_man : 재조달가액(만원), 0이면 잔존율만 반환
+
+    공식: 현재가액 = 재조달가액 × max(1 - (연간감가율 × 경과연수), 최종잔가율)
+    최종잔가율: 재조달가액의 20% (내구연한 초과 시에도 하한 보장)
+    """
+    rule = _STRUCTURE_DB.get(structure_type)
+    if not rule:
+        return {"error": f"알 수 없는 구조: {structure_type}"}
+
+    annual_rate   = rule["annual_dep"]
+    lifespan      = rule["useful_life"]
+    residual_min  = rule.get("residual_min", 0.20)
+
+    total_dep_rate = annual_rate * years_passed
+    residual_rate  = max(1.0 - total_dep_rate, residual_min)
+
+    current_value_man = replacement_cost_man * residual_rate if replacement_cost_man else 0.0
+
+    return {
+        "구조":           structure_type,
+        "내구연한":        lifespan,
+        "연간감가율":      f"{annual_rate * 100:.1f}%",
+        "경과연수":        years_passed,
+        "총감가율":        f"{min(total_dep_rate, 1.0 - residual_min) * 100:.1f}%",
+        "최종잔존율":      f"{residual_rate * 100:.1f}%",
+        "재조달가액_만원": round(replacement_cost_man),
+        "현재가액_만원":   round(current_value_man),
+        "내구연한초과여부": years_passed > lifespan,
+    }
+
 
 # 건설공사비지수(CCI) 기준값 (한국건설기술연구원 기준, 2015=100)
 _CCI_INDEX = {
@@ -3597,12 +3637,13 @@ def _calc_factory_fire(
     # 2. 재조달가액 산출 (건설공사비지수 연동)
     # 평당 신축 단가 (만원/m²) — 구조별 기준
     unit_cost_per_sqm = {
-        "철골조 (H형강)": 80.0,
-        "철골조+조립식판넬 (외벽·지붕)": 58.0,
-        "철근콘크리트(RC)조": 95.0,
-        "샌드위치 판넬": 45.0,
-        "경량철골조": 60.0,
-        "조적조 (벽돌)": 70.0,
+        "철골조 (H빔/H형강)":           80.0,
+        "조립식판넬조 — 25년형 (3.6%)": 48.0,
+        "조립식판넬조 — 20년형 (4.5%)": 42.0,
+        "철골조+조립식판넬 복합":        58.0,
+        "철근콘크리트(RC)조":           95.0,
+        "경량철골조":                   60.0,
+        "조적조 (벽돌)":                70.0,
     }.get(structure, 75.0)
 
     cci_base  = _CCI_INDEX.get(completion_year, 100.0)
@@ -3611,11 +3652,13 @@ def _calc_factory_fire(
 
     replacement_cost = (unit_cost_per_sqm * area_sqm * cci_ratio) + special_facilities_man
 
-    # 3. 경년감가 적용 → 보험가액
-    struct_info  = _STRUCTURE_DB.get(structure, {"annual_dep": 0.010, "useful_life": 40})
-    elapsed      = max(2026 - completion_year, 0)
-    dep_rate     = min(struct_info["annual_dep"] * elapsed, 0.80)  # 최대 80% 감가
-    insurance_val = replacement_cost * (1 - dep_rate)
+    # 3. 경년감가 적용 → 보험가액 (최종잔존율 20% 하한 보장)
+    struct_info   = _STRUCTURE_DB.get(structure, {"annual_dep": 0.020, "useful_life": 40, "residual_min": 0.20})
+    elapsed       = max(2026 - completion_year, 0)
+    residual_min  = struct_info.get("residual_min", 0.20)
+    dep_rate      = struct_info["annual_dep"] * elapsed
+    residual_rate = max(1.0 - dep_rate, residual_min)   # 20% 하한
+    insurance_val = replacement_cost * residual_rate
 
     # 4. 비례보상률
     if insurance_val > 0:
@@ -3705,6 +3748,73 @@ def _section_factory_fire_ui():
             fire_cname  = st.text_input("고객(법인)명", "○○철골(주)", key="fire_cname")
             owner_ind   = st.selectbox("건물주 업종", list(_INDUSTRY_RATE_DB.keys()), index=0, key="fire_owner_ind")
             structure   = st.selectbox("건물 구조", list(_STRUCTURE_DB.keys()), index=0, key="fire_structure")
+
+            # ── 구조별 자동 세팅 안내 카드 ──────────────────────────────
+            _sel_struct = _STRUCTURE_DB.get(structure, {})
+            _s_life  = _sel_struct.get("useful_life", "—")
+            _s_rate  = _sel_struct.get("annual_dep", 0)
+            _s_res   = _sel_struct.get("residual_min", 0.20)
+            _is_panel = "판넬" in structure or "판넬조" in structure
+
+            if "철골조 (H빔" in structure:
+                _struct_color = "#1a3a5c"
+                _struct_icon  = "🏗️"
+                _struct_note  = "H빔 강구조 — 내구성 최상"
+            elif "판넬조" in structure:
+                _struct_color = "#3a1a1a"
+                _struct_icon  = "⚠️"
+                _struct_note  = "조립식 판넬 — 화재 위험 등급 주의"
+            elif "복합" in structure:
+                _struct_color = "#1a2a3a"
+                _struct_icon  = "🔩"
+                _struct_note  = "철골+판넬 복합 구조"
+            else:
+                _struct_color = "#1a2a1a"
+                _struct_icon  = "🏢"
+                _struct_note  = ""
+
+            st.markdown(
+                f"<div style='background:{_struct_color};border-radius:8px;padding:8px 12px;"
+                f"margin:4px 0 8px;border-left:3px solid #ffd700;font-size:0.8rem;'>"
+                f"<b style='color:#ffd700;'>{_struct_icon} 자동 적용 데이터</b>"
+                f"<table style='width:100%;margin-top:4px;color:#fff;font-size:0.78rem;'>"
+                f"<tr><td style='color:#aad4f5;'>경제적 내구연한</td><td><b>{_s_life}년</b></td></tr>"
+                f"<tr><td style='color:#aad4f5;'>연간 경년 감가율</td><td><b>{_s_rate*100:.1f}%</b></td></tr>"
+                f"<tr><td style='color:#aad4f5;'>최종 잔존가액 하한</td><td><b>재조달가액의 {int(_s_res*100)}%</b></td></tr>"
+                f"<tr><td style='color:#aad4f5;'>적용 공식</td>"
+                f"<td style='font-size:0.72rem;'>현재가액 = 재조달가액 × max(1 - 감가율×경과년, 20%)</td></tr>"
+                f"</table>"
+                f"<div style='color:#d4b87a;font-size:0.7rem;margin-top:4px;'>{_struct_note}</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+
+            # ── 조립식 판넬조 화재 위험 등급 경고 팝업 ─────────────────
+            if _is_panel:
+                with st.expander("🚨 조립식 판넬조 화재 위험 주의사항 (클릭하여 확인)", expanded=True):
+                    st.markdown("""
+<div style='background:#3a0000;border:2px solid #e74c3c;border-radius:8px;
+  padding:12px 16px;font-size:0.82rem;line-height:1.7;color:#fff;'>
+<b style='color:#ff6b6b;font-size:0.92rem;'>🔥 조립식 판넬조 화재 위험 등급 주의사항</b><br><br>
+
+<b style='color:#ffd700;'>① 단열재 종류에 따른 인수 거절 위험</b><br>
+• <b>EPS(스티로폼) 심재 판넬</b>: 대부분 보험사 인수 거절 또는 고요율 적용<br>
+• <b>PU(폴리우레탄) 판넬</b>: 화재 시 유독가스 발생 — 일부 보험사 인수 제한<br>
+• <b>그라스울·미네랄울 판넬</b>: 준불연/불연 인증 시 정상 인수 가능<br><br>
+
+<b style='color:#ffd700;'>② 보험 가입 전 반드시 확인사항</b><br>
+• 판넬 단열재 종류 및 준불연 인증서 구비 여부<br>
+• 스프링클러·자동소화장치 설치 여부 (할인 요인)<br>
+• 내부 가연성 자재 적재 여부<br><br>
+
+<b style='color:#ffd700;'>③ 내용연수 선택 기준</b><br>
+• <b>20년형(4.5%)</b>: 노후 판넬, 단순 창고·작업장 용도<br>
+• <b>25년형(3.6%)</b>: 준공 10년 미만, 보강공사 완료, 복합 구조 보조재<br><br>
+
+<b style='color:#ff6b6b;'>⚠️ 화재 발생 시 급격한 연소 확산으로 전손(全損) 가능성 매우 높음.<br>
+재조달가액 기준 충분한 보험 가입이 필수입니다.</b>
+</div>""", unsafe_allow_html=True)
+
             comp_year   = st.number_input("준공 연도", min_value=1980, max_value=2025, value=2015, step=1, key="fire_comp_year")
             area_sqm    = st.number_input("연면적 (㎡)", min_value=100.0, value=2000.0, step=100.0, key="fire_area")
         with fc2:
@@ -3754,6 +3864,52 @@ def _section_factory_fire_ui():
                            f"전손 시 {fr['비례보상률']}%만 보상 — **{shortage:,}만원 증액 필요**")
             else:
                 st.success("✅ 현재 가입액이 적정 보험가액 수준입니다.")
+
+            # ── 구조별 경년감가 상세 분석 카드 ────────────────────────────
+            _saved_structure = st.session_state.get("fire_structure", "")
+            _dep_result = get_building_depreciation(
+                structure_type=_saved_structure,
+                years_passed=fr.get("경과연수", 0),
+                replacement_cost_man=fr.get("재조달가액", 0),
+            )
+            if "error" not in _dep_result:
+                _exceeded = _dep_result.get("내구연한초과여부", False)
+                _dep_border = "#e74c3c" if _exceeded else "#ffd700"
+                _dep_bg     = "#2a0a0a" if _exceeded else "#1a1400"
+                st.markdown(
+                    f"<div style='background:{_dep_bg};border:1px solid {_dep_border};"
+                    f"border-radius:8px;padding:10px 14px;margin-top:10px;font-size:0.82rem;'>"
+                    f"<b style='color:{_dep_border};'>📐 경년감가 상세 산출 ({_dep_result['구조']})</b>"
+                    f"<table style='width:100%;margin-top:6px;color:#fff;border-collapse:collapse;font-size:0.80rem;'>"
+                    f"<tr style='border-bottom:1px solid #333;'>"
+                    f"<td style='color:#aad4f5;padding:3px 6px;'>경제적 내구연한</td>"
+                    f"<td style='padding:3px 6px;'><b>{_dep_result['내구연한']}년</b></td>"
+                    f"<td style='color:#aad4f5;padding:3px 6px;'>연간 경년 감가율</td>"
+                    f"<td style='padding:3px 6px;'><b>{_dep_result['연간감가율']}</b></td>"
+                    f"</tr>"
+                    f"<tr style='border-bottom:1px solid #333;'>"
+                    f"<td style='color:#aad4f5;padding:3px 6px;'>경과 연수</td>"
+                    f"<td style='padding:3px 6px;'><b>{_dep_result['경과연수']}년</b></td>"
+                    f"<td style='color:#aad4f5;padding:3px 6px;'>누적 감가율</td>"
+                    f"<td style='padding:3px 6px;'><b>{_dep_result['총감가율']}</b></td>"
+                    f"</tr>"
+                    f"<tr>"
+                    f"<td style='color:#aad4f5;padding:3px 6px;'>최종 잔존율</td>"
+                    f"<td style='padding:3px 6px;'><b style='color:#ffd700;'>{_dep_result['최종잔존율']}</b>"
+                    f"  <span style='font-size:0.68rem;color:#95a5a6;'>(하한 20% 보장)</span></td>"
+                    f"<td style='color:#aad4f5;padding:3px 6px;'>현재가액 (시가)</td>"
+                    f"<td style='padding:3px 6px;'><b style='color:#e74c3c;'>{_dep_result['현재가액_만원']:,}만원</b></td>"
+                    f"</tr>"
+                    f"</table>"
+                    f"<div style='margin-top:6px;font-size:0.70rem;color:#d4b87a;'>"
+                    f"공식: 현재가액 = 재조달가액 × max(1 - {_dep_result['연간감가율']} × {_dep_result['경과연수']}년, 20%)"
+                    f"  =  {fr.get('재조달가액',0):,}만원 × {_dep_result['최종잔존율']}"
+                    f"  =  <b>{_dep_result['현재가액_만원']:,}만원</b>"
+                    f"</div>"
+                    f"{'<div style=\"margin-top:6px;color:#ff6b6b;font-weight:700;font-size:0.78rem;\">⚠️ 내구연한 초과 — 최종잔존가액 하한(20%) 적용 중. 보험사 물건 심사 시 감액 가능성 있음.</div>' if _exceeded else ''}"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
             st.divider()
             st.markdown("### ⚡ 배상책임 한도 제안")
             la1, la2, la3 = st.columns(3)
