@@ -902,8 +902,9 @@ try:
     _gsm = _GSM.get()
     _gsm.initialize(_get_sb_client())
 except Exception as _gsm_err:
-    _gsm = None  # 모듈 없으면 기존 방식으로 동작 (하위호환)
-    _gsm_err_msg = str(_gsm_err)
+    import traceback as _tb
+    _gsm = None
+    _gsm_err_msg = f"{type(_gsm_err).__name__}: {_gsm_err}\n{_tb.format_exc()}"
 
 def get_service_manager():
     """GoldKeyServiceManager 싱글톤 반환. app.py 어디서나 호출 가능."""
@@ -12954,7 +12955,9 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
             _gsm_admin = get_service_manager()
             if _gsm_admin is None:
-                st.error(f"⚠️ ServiceManager 초기화 실패 — {_gsm_err_msg or 'service_manager.py 확인 필요'}")
+                st.error("⚠️ ServiceManager 초기화 실패")
+                if _gsm_err_msg:
+                    st.code(_gsm_err_msg, language="python")
             else:
                 _svc_status = _gsm_admin.get_status(st.session_state)
                 _adm_t1, _adm_t2, _adm_t3, _adm_t4 = st.tabs([
