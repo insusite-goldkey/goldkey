@@ -5691,13 +5691,9 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
     <div style="font-size:1.0rem;font-weight:700;color:#ffffff;
       line-height:2.0;">
       ✅ 모든 기능 전체 무료<br>
-      ✅ AI 상담 매일 10회<br>
-      ✅ 보험·세무·자산·법인 도구
+      ✅ AI 상담 매일 10회 (무료)<br>
+      ✅ 보험·연금·CEO(법인). 상담지원
     </div>
-  </div>
-  <div style="font-size:0.88rem;color:#b3d4f5;text-align:center;
-    font-weight:600;">
-    👆 여기 &gt; 를 클릭하여 회원가입 또는 로그인하세요
   </div>
 </div>""", unsafe_allow_html=True)
 
