@@ -1649,94 +1649,136 @@ def extract_pdf_chunks(file, char_limit: int = 8000) -> str:
     return text[:front] + "\n...(중략)...\n" + text[mid_start:mid_start+mid_s] + "\n...(중략)...\n" + text[-back:]
 
 
-# ── 보험증권 Vision 파싱 (Few-shot + Schema-driven 고도화) ──────────────────
-_POLICY_PARSE_PROMPT = """[SYSTEM]
-당신은 대한민국 보험증권 분석 전문 AI입니다.
+# ── 보험증권 Vision 파싱 (Few-shot + Schema-driven + 절대명령 Guardrails) ────
+_POLICY_PARSE_PROMPT = """[SYSTEM — Role: 30년 경력 수석 보험분석 에이전트]
+당신은 업계 0.1% 정확도를 가진 증권분석 전문가입니다.
 <extracted_data> 태그 안의 보험증권 데이터를 분석하여, 반드시 아래 JSON Schema에 맞는 JSON만 출력하십시오.
 JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십시오.
 
-[⚠️ 절대 금지 — 할루시네이션 방지]
-• 증권 원문에 명시되지 않은 담보는 절대로 추가하지 마십시오.
-• 보험 상품 유형에서 "일반적으로 포함될 것 같은" 담보를 추론하거나 생성하지 마십시오.
-• 담보명·금액·조건이 불분명한 경우 confidence를 "low"로 표기하되, 원문에 없으면 아예 포함하지 마십시오.
-• 뇌혈관질환·심장질환·암 등 고액 진단비 담보는 반드시 원문에 금액과 담보명이 명시된 경우에만 포함하십시오.
-• 원문에서 확인되지 않는 항목의 amount는 null로 하고, 근거 없는 추정값을 입력하지 마십시오.
+╔══════════════════════════════════════════════════════════════════╗
+║            ⚡ AI 절대명령 (GUARDRAILS) — 위반 시 결과 무효       ║
+╠══════════════════════════════════════════════════════════════════╣
+║ [G-1] 미가입 담보 제거 (Zero-Tolerance for Ghosts)              ║
+║   • 증권 원문에 담보명+금액이 명시되지 않은 항목은 절대 포함 금지  ║
+║   • 보험료가 0원이거나 담보명이 없는 항목은 제거                  ║
+║   • "일반적으로 포함될 것 같다"는 추론 기반 생성 절대 금지        ║
+║   • 뇌·심장·암 고액 진단비는 원문에 금액+담보명 동시 명시 필수    ║
+║                                                                  ║
+║ [G-2] 판독 불가 처리 (No Probabilistic Guessing)                 ║
+║   • 금액이 흐리거나 불명확하면 amount=null, unreadable=true       ║
+║   • unreadable=true 항목은 expert_comment에 반드시                ║
+║     "판독 불가: 원본 확인 필요"를 포함할 것                       ║
+║   • 임의 추정값·평균값 입력 절대 금지                             ║
+║                                                                  ║
+║ [G-3] 갱신형/비갱신형 엄격 구분 (Renewal Warning)               ║
+║   • 갱신형 담보: is_renewal=true, expert_comment에                ║
+║     "[!] 보험료 상승 위험: 갱신 시 보험료가 지속 상승할 수 있음" 필수 ║
+║   • 만기: 1년 갱신/3년 갱신/5년 갱신 → 반드시 is_renewal=true   ║
+║   • 비갱신형은 is_renewal=false                                   ║
+║                                                                  ║
+║ [G-4] 약관 근거 제시 (Clause Citation)                           ║
+║   • 담보 지급 조건이 있으면 source_clause에 약관 조항명 또는      ║
+║     페이지 추정 정보를 기재 (예: "제5조 제2항", "별표2 장해분류표") ║
+║   • 근거 불명확 시 source_clause=null (추측 기재 금지)            ║
+╚══════════════════════════════════════════════════════════════════╝
 
 [JSON Schema — 반드시 준수]
 {
-  "policy_info": {        ← 증권 기본 정보 (반드시 포함, 없으면 null)
-    "insured_name":   string|null,  ← 피보험자 성명
-    "insured_dob":    string|null,  ← 피보험자 생년월일 (YYYY-MM-DD 또는 YYYYMMDD)
-    "contractor_name": string|null, ← 계약자 성명 (피보험자와 다를 경우)
-    "company":        string|null,  ← 보험회사명 (예: 삼성화재, 교보생명)
-    "product_name":   string|null,  ← 보험상품명 전체 (증권 표지 기준)
-    "policy_number":  string|null,  ← 증권번호
-    "join_date":      string|null,  ← 가입일(계약일) YYYY-MM-DD
-    "expiry_date":    string|null,  ← 만기일 YYYY-MM-DD
-    "expiry_age":     integer|null, ← 세만기 (예: 80, 100, 110)
-    "payment_period": string|null,  ← 납입기간 (예: 20년납, 60세납, 전기납)
-    "monthly_premium": integer|null ← 월납 보험료(원). 불명확→null
+  "policy_info": {
+    "insured_name":    string|null,  ← 피보험자 성명
+    "insured_dob":     string|null,  ← 피보험자 생년월일 YYYY-MM-DD
+    "contractor_name": string|null,  ← 계약자 성명 (피보험자와 다를 경우)
+    "company":         string|null,  ← 보험회사명
+    "product_name":    string|null,  ← 보험상품명 전체 (증권 표지 기준)
+    "policy_number":   string|null,  ← 증권번호
+    "join_date":       string|null,  ← 가입일(계약일) YYYY-MM-DD
+    "expiry_date":     string|null,  ← 만기일 YYYY-MM-DD
+    "expiry_age":      integer|null, ← 세만기 (예: 80, 100, 110)
+    "payment_period":  string|null,  ← 납입기간 (예: 20년납, 60세납)
+    "monthly_premium": integer|null  ← 월납 보험료(원). 불명확→null
   },
-  "coverages": [          ← 모든 담보를 이 배열에 포함
+  "coverages": [
     {
-      "category":      string,  ← ENUM: "disability"|"disability_annuity"|"surgery"|"diagnosis"|"daily"|"driver_expense"|"nursing"|"cancer"|"realty"|"annuity"|"other"
-      "subcategory":   string,  ← ENUM: "traffic"|"general"|"disease"|"driver"
-      "name":          string,  ← 약관상 담보명 전체 (괄호 포함)
-      "amount":        integer|null,  ← 가입금액(원). 만원 단위면 ×10000. 불명확→null
-      "threshold_min": number|null,   ← 최소 지급 장해율(%). 없으면 null
-      "annuity_monthly": integer|null,← 장해연금 월 지급액(원). 해당없으면 null
-      "condition":     string|null,   ← 지급 조건 또는 세부 특이사항. 없으면 null
-      "confidence":    string         ← ENUM: "high"|"medium"|"low"
+      "category":       string,       ← ENUM 아래 참조
+      "subcategory":    string,       ← ENUM 아래 참조
+      "name":           string,       ← 증권 원문 담보명 전체 (괄호 포함)
+      "standard_name":  string,       ← 표준 분류명 (예: "뇌출혈진단비", "급성심근경색진단비", "암진단비")
+                                         원문 담보명이 다를 경우 표준명(원문명) 형태로 기재
+      "amount":         integer|null, ← 가입금액(원). 만원단위→×10000. 불명확→null
+      "is_renewal":     boolean,      ← 갱신형=true, 비갱신형=false [G-3 참조]
+      "unreadable":     boolean,      ← 금액/조건 판독불가=true [G-2 참조]
+      "threshold_min":  number|null,  ← 최소 지급 장해율(%). 없으면 null
+      "annuity_monthly":integer|null, ← 장해연금 월 지급액(원). 해당없으면 null
+      "condition":      string|null,  ← 지급조건·세부특이사항
+      "source_clause":  string|null,  ← 약관 근거 조항명/페이지 [G-4 참조]
+      "expert_comment": string|null,  ← 전문가 한줄 평 (갱신형 경고·판독불가 경고 포함)
+      "confidence":     string        ← ENUM: "high"|"medium"|"low"
     }
   ]
 }
 
-[카테고리 분류 기준]
-• disability        : 후유장해(3%·20%·50%·80% 등), 상해·질병 후유장해
-• disability_annuity: 장해연금, 장해생활자금 (월 지급액 있는 경우)
-• surgery           : 수술비(1~5종), 종수술비, 특정수술비
-• diagnosis         : 진단비(암·뇌·심장·골절·입원 진단 등)
-• daily             : 입원일당, 통원일당, 요양일당
-• driver_expense    : 벌금(대인·대물·스쿨존), 교통사고처리지원금, 형사합의금, 변호사선임비용, 면허정지·취소 위로금
-• nursing           : 간병인사용일당, 간병인지원서비스, 장기요양 관련 담보
-• cancer            : 암·뇌·심장 진단비, 표적항암약물허가치료비, 암수술비
-• realty            : 전세보증금반환보증, 임대료보증, 건물종합보험 관련 담보
-• annuity           : 연금, 주택연금, 노후연금, 즉시연금 관련 담보
-• other             : 위에 해당하지 않는 모든 담보
+[카테고리 ENUM]
+• disability         : 후유장해(3%·20%·50%·80% 등)
+• disability_annuity : 장해연금, 장해생활자금
+• surgery            : 수술비(1~5종), 종수술비, 특정수술비
+• diagnosis          : 진단비(골절·입원 등 암/뇌/심장 외 경증 진단)
+• daily              : 입원일당, 통원일당, 요양일당
+• driver_expense     : 벌금, 교통사고처리지원금, 형사합의금, 변호사선임비용
+• nursing            : 간병인사용일당, 장기요양 관련
+• cancer             : 암·뇌·심장 진단비, 표적항암, 암수술비
+• realty             : 전세보증금반환보증, 임대료보증
+• annuity            : 연금, 주택연금, 노후연금
+• other              : 위에 해당하지 않는 모든 담보
 
-[서브카테고리 분류 기준]
-• traffic : 교통상해, 교통사고 명시
-• general : 일반상해, 상해(교통 미명시)
-• disease : 질병, 암, 뇌, 심장
-• driver  : 운전자 비용담보(벌금·합의금·변호사)
+[서브카테고리 ENUM]
+• traffic  : 교통상해·교통사고 명시
+• general  : 일반상해 (교통 미명시)
+• disease  : 질병·암·뇌·심장
+• driver   : 운전자 비용담보
 
-[Few-shot 예시 1 — 일반 통합보험]
+[표준명 매핑 원칙 — standard_name 작성 시 반드시 적용]
+아래 유사 담보명들은 모두 동일한 표준명으로 통합하되, 원문명은 name 필드에 유지:
+• 뇌출혈진단비 / 뇌출혈진단소급 / 뇌혈관질환(뇌출혈포함) / 뇌혈관질환진단비
+  → standard_name: "뇌출혈진단비"
+• 급성심근경색진단비 / 허혈성심장질환진단비 / 심장질환(급성심근경색포함)
+  → standard_name: "급성심근경색진단비"
+• 일반암진단비 / 암진단비(소액암제외) / 악성신생물진단비
+  → standard_name: "암진단비"
+• 뇌졸중진단비 / 뇌경색진단비 / 뇌출혈및뇌경색진단비
+  → standard_name: "뇌졸중진단비"
+• 상해후유장해 / 상해로 인한 후유장해 / 재해후유장해
+  → standard_name: "상해후유장해"
+
+[Few-shot 예시 1 — 일반 통합보험 (갱신형 포함)]
 <extracted_data>
-피보험자: 홍길동 (1985.03.15) / 보험회사: 삼성화재 / 상품명: 무배당 삼성화재 New통합보험 / 증권번호: 12-345-6789 / 가입일: 2018.05.01 / 만기: 80세 / 납입: 20년납 / 월보험료: 120,000원
-골절진단비(치아제외) 50만원 / 질병수술비(1-5종) 1,000만원 / 상해후유장해(3~100%) 5,000만원 / 교통상해후유장해(3~100%) 1억원 / 장해연금(50%이상) 월30만원
+피보험자: 홍길동 (1985.03.15) / 보험회사: 삼성화재 / 상품명: 무배당 삼성화재 New통합보험
+증권번호: 12-345-6789 / 가입일: 2018.05.01 / 만기: 80세 / 납입: 20년납 / 월보험료: 120,000원
+골절진단비(치아제외) 50만원 비갱신 / 질병수술비(1-5종) 1,000만원 비갱신 /
+상해후유장해(3~100%) 5,000만원 / 교통상해후유장해(3~100%) 1억원 / 장해연금(50%이상) 월30만원 /
+뇌혈관질환(뇌출혈포함)진단비 2,000만원 갱신형(1년) / 급성심근경색진단비 2,000만원 갱신형(1년)
 </extracted_data>
 → 출력:
 {"policy_info":{"insured_name":"홍길동","insured_dob":"1985-03-15","contractor_name":null,"company":"삼성화재","product_name":"무배당 삼성화재 New통합보험","policy_number":"12-345-6789","join_date":"2018-05-01","expiry_date":null,"expiry_age":80,"payment_period":"20년납","monthly_premium":120000},
 "coverages":[
-  {"category":"diagnosis","subcategory":"general","name":"골절진단비(치아제외)","amount":500000,"threshold_min":null,"annuity_monthly":null,"condition":"치아파절 제외","confidence":"high"},
-  {"category":"surgery","subcategory":"disease","name":"질병수술비(1-5종)","amount":10000000,"threshold_min":null,"annuity_monthly":null,"condition":"1~5종 구분 지급","confidence":"high"},
-  {"category":"disability","subcategory":"general","name":"상해후유장해(3~100%)","amount":50000000,"threshold_min":3.0,"annuity_monthly":null,"condition":null,"confidence":"high"},
-  {"category":"disability","subcategory":"traffic","name":"교통상해후유장해(3~100%)","amount":100000000,"threshold_min":3.0,"annuity_monthly":null,"condition":null,"confidence":"high"},
-  {"category":"disability_annuity","subcategory":"general","name":"장해연금(50%이상)","amount":null,"threshold_min":50.0,"annuity_monthly":300000,"condition":"50% 이상 장해 시 지급","confidence":"high"}
+  {"category":"diagnosis","subcategory":"general","name":"골절진단비(치아제외)","standard_name":"골절진단비","amount":500000,"is_renewal":false,"unreadable":false,"threshold_min":null,"annuity_monthly":null,"condition":"치아파절 제외","source_clause":"제5조(골절진단비)","expert_comment":"비갱신형으로 보험료 변동 없음. 스포츠·낙상 사고 시 즉시 수령 가능.","confidence":"high"},
+  {"category":"surgery","subcategory":"disease","name":"질병수술비(1-5종)","standard_name":"질병수술비","amount":10000000,"is_renewal":false,"unreadable":false,"threshold_min":null,"annuity_monthly":null,"condition":"1~5종 구분 지급","source_clause":null,"expert_comment":"비갱신형. 수술 종류에 따라 차등 지급되므로 약관 확인 필요.","confidence":"high"},
+  {"category":"disability","subcategory":"general","name":"상해후유장해(3~100%)","standard_name":"상해후유장해","amount":50000000,"is_renewal":false,"unreadable":false,"threshold_min":3.0,"annuity_monthly":null,"condition":null,"source_clause":"별표2 장해분류표","expert_comment":"비갱신형. 3% 이상 장해 시 비율 지급. 장해분류표 확인 필수.","confidence":"high"},
+  {"category":"disability","subcategory":"traffic","name":"교통상해후유장해(3~100%)","standard_name":"교통상해후유장해","amount":100000000,"is_renewal":false,"unreadable":false,"threshold_min":3.0,"annuity_monthly":null,"condition":null,"source_clause":"별표2 장해분류표","expert_comment":"비갱신형. 교통사고 전용. 일반 상해와 중복 수령 가능.","confidence":"high"},
+  {"category":"disability_annuity","subcategory":"general","name":"장해연금(50%이상)","standard_name":"장해연금","amount":null,"is_renewal":false,"unreadable":false,"threshold_min":50.0,"annuity_monthly":300000,"condition":"50% 이상 장해 시 월 지급","source_clause":"제12조(장해연금)","expert_comment":"비갱신형. 중증 장해 시 생활비 보완 역할. 중증장해 50% 이상 판정 기준 숙지 필요.","confidence":"high"},
+  {"category":"cancer","subcategory":"disease","name":"뇌혈관질환(뇌출혈포함)진단비","standard_name":"뇌출혈진단비","amount":20000000,"is_renewal":true,"unreadable":false,"threshold_min":null,"annuity_monthly":null,"condition":"뇌출혈 포함 뇌혈관질환 진단 시","source_clause":"제8조(뇌혈관질환진단비)","expert_comment":"[!] 보험료 상승 위험: 갱신 시 보험료가 지속 상승할 수 있음. 뇌출혈·뇌경색 모두 포함 유리한 담보.","confidence":"high"},
+  {"category":"cancer","subcategory":"disease","name":"급성심근경색진단비","standard_name":"급성심근경색진단비","amount":20000000,"is_renewal":true,"unreadable":false,"threshold_min":null,"annuity_monthly":null,"condition":"급성심근경색 진단 확정 시","source_clause":"제9조(급성심근경색진단비)","expert_comment":"[!] 보험료 상승 위험: 갱신 시 보험료가 지속 상승할 수 있음. 허혈성심장질환 포함 여부 약관 확인 필요.","confidence":"high"}
 ]}
 
-[Few-shot 예시 2 — 운전자보험]
+[Few-shot 예시 2 — 판독불가 사례]
 <extracted_data>
-피보험자: 김영희 (1990.07.22) / 보험회사: 현대해상 / 상품명: 현대해상 굿앤굿운전자보험 / 가입일: 2021.01.10 / 만기: 1년 갱신형 / 납입: 월납
-교통사고처리지원금(대인) 2억원 / 벌금(대인) 2,000만원 / 벌금(대물) 500만원 / 변호사선임비용(형사) 500만원
+피보험자: 이순신 / 보험회사: 교보생명 / 가입일: 2009.03.01
+암진단비 ????만원(잉크번짐) / 입원일당 1만원 비갱신
 </extracted_data>
 → 출력:
-{"policy_info":{"insured_name":"김영희","insured_dob":"1990-07-22","contractor_name":null,"company":"현대해상","product_name":"현대해상 굿앤굿운전자보험","policy_number":null,"join_date":"2021-01-10","expiry_date":null,"expiry_age":null,"payment_period":"월납","monthly_premium":null},
+{"policy_info":{"insured_name":"이순신","insured_dob":null,"contractor_name":null,"company":"교보생명","product_name":null,"policy_number":null,"join_date":"2009-03-01","expiry_date":null,"expiry_age":null,"payment_period":null,"monthly_premium":null},
 "coverages":[
-  {"category":"driver_expense","subcategory":"driver","name":"교통사고처리지원금(대인)","amount":200000000,"threshold_min":null,"annuity_monthly":null,"condition":"실제손해액 비례분담","confidence":"high"},
-  {"category":"driver_expense","subcategory":"driver","name":"벌금(대인)","amount":20000000,"threshold_min":null,"annuity_monthly":null,"condition":"실손보상·법정한도 적용","confidence":"high"},
-  {"category":"driver_expense","subcategory":"driver","name":"벌금(대물)","amount":5000000,"threshold_min":null,"annuity_monthly":null,"condition":"실손보상·법정한도 적용","confidence":"high"},
-  {"category":"driver_expense","subcategory":"driver","name":"변호사선임비용(형사)","amount":5000000,"threshold_min":null,"annuity_monthly":null,"condition":null,"confidence":"high"}
+  {"category":"cancer","subcategory":"disease","name":"암진단비","standard_name":"암진단비","amount":null,"is_renewal":false,"unreadable":true,"threshold_min":null,"annuity_monthly":null,"condition":null,"source_clause":null,"expert_comment":"판독 불가: 원본 확인 필요. 2009년 가입 시점 기준 암 진단비 면책기간(90일) 확인 요망.","confidence":"low"},
+  {"category":"daily","subcategory":"disease","name":"입원일당","standard_name":"질병입원일당","amount":10000,"is_renewal":false,"unreadable":false,"threshold_min":null,"annuity_monthly":null,"condition":"1일 이상 입원 시","source_clause":null,"expert_comment":"비갱신형. 입원 1일당 1만원. 실손보험과 중복 수령 가능 여부 확인 필요.","confidence":"high"}
 ]}
 
 [오류 자가 진단]
@@ -1807,6 +1849,42 @@ def parse_policy_with_vision(files: list) -> dict:
             for k, v in pi.items():
                 if v is not None and v != "":
                     merged_policy_info[k] = v
+
+            # ── [G-1] amount=0 또는 담보명 없는 항목 제거 ──
+            covs = [c for c in covs
+                    if c.get("name") and c.get("amount") != 0]
+
+            # ── is_renewal / unreadable 기본값 보정 ──
+            for c in covs:
+                if "is_renewal" not in c:
+                    c["is_renewal"] = False
+                if "unreadable" not in c:
+                    c["unreadable"] = (c.get("amount") is None
+                                       and c.get("annuity_monthly") is None)
+                if not c.get("standard_name"):
+                    c["standard_name"] = c.get("name", "")
+
+            # ── Fuzzy 표준명 매핑 (동일 담보 계열 통합) ──
+            _STD_NAME_MAP = [
+                (["뇌출혈진단비","뇌출혈진단소급","뇌혈관질환","뇌혈관진단비",
+                  "뇌혈관질환진단비","뇌혈관질환(뇌출혈포함)"],   "뇌출혈진단비"),
+                (["뇌졸중","뇌경색","뇌출혈및뇌경색","뇌졸중진단비","뇌경색진단비"], "뇌졸중진단비"),
+                (["급성심근경색","심근경색","허혈성심장","심장질환"],               "급성심근경색진단비"),
+                (["일반암진단비","암진단비","악성신생물","암진단"],                  "암진단비"),
+                (["소액암","유사암"],                                               "소액암진단비"),
+                (["상해후유장해","재해후유장해","상해로인한후유장해"],                "상해후유장해"),
+                (["질병후유장해","질병으로인한후유장해"],                             "질병후유장해"),
+                (["교통상해후유장해","교통사고후유장해"],                             "교통상해후유장해"),
+                (["입원일당","입원비","질병입원"],                                   "질병입원일당"),
+                (["수술비","종수술비","질병수술비"],                                  "질병수술비"),
+            ]
+            for c in covs:
+                raw_name = (c.get("standard_name") or c.get("name", "")).replace(" ", "")
+                for keywords, std in _STD_NAME_MAP:
+                    if any(kw.replace(" ", "") in raw_name for kw in keywords):
+                        if not c.get("standard_name") or c["standard_name"] == c.get("name",""):
+                            c["standard_name"] = std
+                        break
 
             for c in covs:
                 c["_source_file"] = f.name
@@ -16585,6 +16663,119 @@ END; $$;""", language="sql")
     </tr>
   </table>
 </div>""", unsafe_allow_html=True)
+
+            # ── 🛡️ 전문가 정밀 분석 리포트 (담보 3컬럼) ──────────────────
+            _rep_covs = st.session_state.get("ssot_coverages", [])
+            # [G-1] 프론트엔드 최종 필터: amount=0 또는 (amount=None AND unreadable=False) 제거
+            _active_covs = [
+                c for c in _rep_covs
+                if c.get("name")
+                and c.get("amount") != 0
+                and not (c.get("amount") is None
+                         and not c.get("unreadable", False)
+                         and c.get("annuity_monthly") is None)
+            ]
+            if _active_covs:
+                st.markdown("""
+<div style="background:linear-gradient(90deg,#1a1400,#2d2000);
+  border-radius:10px;padding:10px 16px;margin:8px 0 6px;
+  border-left:4px solid #ffd700;">
+  <span style="color:#ffd700;font-weight:900;font-size:0.95rem;">
+    🛡️ 전문가 정밀 분석 리포트
+  </span>
+  <span style="color:#d4b87a;font-size:0.72rem;margin-left:10px;">
+    * 실제 가입된 담보 항목만 분석된 결과입니다
+  </span>
+</div>""", unsafe_allow_html=True)
+
+                # 컬럼 헤더
+                _rh1, _rh2, _rh3 = st.columns([3, 2, 3])
+                with _rh1:
+                    st.markdown("<div style='font-size:0.72rem;color:#7ec8f5;"
+                                "font-weight:700;padding:2px 0;border-bottom:1px solid #1e3a5f;'>"
+                                "담보 항목 (표준명)</div>", unsafe_allow_html=True)
+                with _rh2:
+                    st.markdown("<div style='font-size:0.72rem;color:#7ec8f5;"
+                                "font-weight:700;padding:2px 0;border-bottom:1px solid #1e3a5f;'>"
+                                "가입금액 / 갱신여부</div>", unsafe_allow_html=True)
+                with _rh3:
+                    st.markdown("<div style='font-size:0.72rem;color:#7ec8f5;"
+                                "font-weight:700;padding:2px 0;border-bottom:1px solid #1e3a5f;'>"
+                                "30년 베테랑의 한줄 평</div>", unsafe_allow_html=True)
+
+                for _rc in _active_covs:
+                    _rc1, _rc2, _rc3 = st.columns([3, 2, 3])
+                    _std  = _rc.get("standard_name") or _rc.get("name","")
+                    _raw  = _rc.get("name","")
+                    _amt  = _rc.get("amount")
+                    _ann  = _rc.get("annuity_monthly")
+                    _renew = _rc.get("is_renewal", False)
+                    _unread= _rc.get("unreadable", False)
+                    _clause= _rc.get("source_clause","")
+                    _comment=_rc.get("expert_comment","")
+                    _conf  = _rc.get("confidence","")
+
+                    # 금액 표시
+                    if _unread:
+                        _amt_str = "<span style='color:#e74c3c;font-weight:700;'>판독 불가</span>"
+                    elif _ann:
+                        _amt_str = f"<span style='color:#27ae60;font-weight:700;'>월 {_ann:,}원</span>"
+                    elif _amt:
+                        _amt_str = f"<span style='color:#e74c3c;font-weight:700;'>{_amt:,}원</span>"
+                    else:
+                        _amt_str = "<span style='color:#95a5a6;'>—</span>"
+
+                    # 갱신 배지
+                    if _renew:
+                        _renew_badge = "<span style='background:#e67e22;color:#fff;border-radius:4px;" \
+                                       "padding:1px 6px;font-size:0.68rem;font-weight:700;'>갱신형⚠️</span>"
+                    else:
+                        _renew_badge = "<span style='background:#27ae60;color:#fff;border-radius:4px;" \
+                                       "padding:1px 6px;font-size:0.68rem;font-weight:700;'>비갱신</span>"
+
+                    # 신뢰도 색상
+                    _conf_c = {"high":"#27ae60","medium":"#e67e22","low":"#e74c3c"}.get(_conf,"#7f8c8d")
+
+                    with _rc1:
+                        _orig_label = (f"<br><span style='font-size:0.68rem;color:#95a5a6;'>"
+                                       f"({_raw})</span>") if _std != _raw else ""
+                        st.markdown(
+                            f"<div style='padding:6px 4px;border-bottom:1px solid #1e2a3a;'>"
+                            f"<span style='font-weight:700;color:#fff;font-size:0.82rem;'>{_std}</span>"
+                            f"{_orig_label}"
+                            f"<br><span style='font-size:0.65rem;color:{_conf_c};'>신뢰도:{_conf}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                    with _rc2:
+                        st.markdown(
+                            f"<div style='padding:6px 4px;border-bottom:1px solid #1e2a3a;'>"
+                            f"{_amt_str}<br>{_renew_badge}"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                    with _rc3:
+                        _clause_note = (f"<br><span style='font-size:0.65rem;color:#7ec8f5;'>"
+                                        f"📌 {_clause}</span>") if _clause else ""
+                        _comment_html = (_comment or "").replace(
+                            "[!]", "<span style='color:#e67e22;font-weight:700;'>[!]</span>"
+                        ).replace(
+                            "판독 불가", "<span style='color:#e74c3c;font-weight:700;'>판독 불가</span>"
+                        )
+                        st.markdown(
+                            f"<div style='padding:6px 4px;border-bottom:1px solid #1e2a3a;"
+                            f"font-size:0.78rem;color:#d4e8ff;font-style:italic;line-height:1.5;'>"
+                            f"{_comment_html}{_clause_note}"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+
+                st.markdown(
+                    "<div style='font-size:0.65rem;color:#7f8c8d;margin-top:8px;padding:6px;"
+                    "border-top:1px solid #1e2a3a;'>"
+                    "⚠️ 본 리포트는 증권 데이터 기반의 참고 자료이며, 최종 보상 여부는 보험사 심사에 따름"
+                    "</div>", unsafe_allow_html=True
+                )
 
             if not _ssot:
                 st.info("아직 스캔된 문서가 없습니다.\n왼쪽에서 파일을 업로드하고 스캔을 실행하세요.")
