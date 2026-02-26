@@ -5697,7 +5697,7 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
   </div>
   <div style="font-size:0.88rem;color:#b3d4f5;text-align:center;
     font-weight:600;">
-    👇 아래에서 바로 가입하세요
+    👆 여기 &gt; 를 클릭하여 회원가입 또는 로그인하세요
   </div>
 </div>""", unsafe_allow_html=True)
 
