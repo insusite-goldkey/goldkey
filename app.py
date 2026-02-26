@@ -5266,8 +5266,8 @@ summary[data-testid="stExpanderToggle"] {
             with tab_l:
                 with st.form("login_form"):
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>🔑 가입 시 입력한 정보로 로그인하세요</div>", unsafe_allow_html=True)
-                    ln = st.text_input("👤 이름", key="login_name")
-                    lc = st.text_input("📱 연락처 (비밀번호)", type="password", key="login_contact")
+                    ln = st.text_input("👤 이름", placeholder="이름 입력", key="login_name")
+                    lc = st.text_input("📱 연락처 (비밀번호)", placeholder="전화번호 입력 (- 제외)", type="password", key="login_contact")
                     login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"], horizontal=True, key="login_is_pro")
                     if login_is_pro == "종사자":
                         login_insurer = st.radio(
@@ -5357,8 +5357,8 @@ summary[data-testid="stExpanderToggle"] {
             with tab_s:
                 with st.form("sb_signup_form"):
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
-                    name = st.text_input("👤 이름", key="signup_name")
-                    contact = st.text_input("📱 연락처 (비밀번호)", type="password", key="signup_contact")
+                    name = st.text_input("👤 이름", placeholder="이름 입력", key="signup_name")
+                    contact = st.text_input("📱 연락처 (비밀번호)", placeholder="전화번호 입력 (- 제외)", type="password", key="signup_contact")
                     if st.form_submit_button("✅ 가입하기", use_container_width=True):
                         if name and contact:
                             with st.spinner("⏳ 가입 처리 중입니다. 잠시만 기다려주세요..."):
@@ -5377,10 +5377,10 @@ summary[data-testid="stExpanderToggle"] {
             with tab_pw:
                 st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:6px;'>🔐 가입 시 등록한 이름과 기존 연락처로 본인 확인 후 새 비번을 설정합니다.</div>", unsafe_allow_html=True)
                 with st.form("pw_change_form"):
-                    pw_name    = st.text_input("👤 이름", key="pw_name")
-                    pw_old     = st.text_input("📱 기존 연락처 (현재 비번)", type="password", key="pw_old")
-                    pw_new1    = st.text_input("🔑 새 연락처 (새 비번)", type="password", key="pw_new1")
-                    pw_new2    = st.text_input("🔑 새 연락처 확인", type="password", key="pw_new2")
+                    pw_name    = st.text_input("👤 이름", placeholder="이름 입력", key="pw_name")
+                    pw_old     = st.text_input("📱 기존 연락처 (현재 비번)", placeholder="기존 전화번호 입력 (- 제외)", type="password", key="pw_old")
+                    pw_new1    = st.text_input("🔑 새 연락처 (새 비번)", placeholder="새 전화번호 입력 (- 제외)", type="password", key="pw_new1")
+                    pw_new2    = st.text_input("🔑 새 연락처 확인", placeholder="새 전화번호 재입력", type="password", key="pw_new2")
                     if st.form_submit_button("🔄 비번 변경", use_container_width=True):
                         if not (pw_name and pw_old and pw_new1 and pw_new2):
                             st.error("모든 항목을 입력해주세요.")
@@ -5429,10 +5429,10 @@ summary[data-testid="stExpanderToggle"] {
 변경이 어려운 경우 운영자(010-3074-2616)에게 문의하세요.
 </div>""", unsafe_allow_html=True)
                 with st.form("name_change_form"):
-                    nm_old   = st.text_input("👤 현재 이름 (기존 이름)", key="nm_old")
-                    nm_pw    = st.text_input("📱 연락처 (비번)", type="password", key="nm_pw")
-                    nm_new   = st.text_input("✏️ 새 이름 (변경할 이름)", key="nm_new")
-                    nm_new2  = st.text_input("✏️ 새 이름 확인", key="nm_new2")
+                    nm_old   = st.text_input("👤 현재 이름 (기존 이름)", placeholder="현재 이름 입력", key="nm_old")
+                    nm_pw    = st.text_input("📱 연락처 (비번)", placeholder="전화번호 입력 (- 제외)", type="password", key="nm_pw")
+                    nm_new   = st.text_input("✏️ 새 이름 (변경할 이름)", placeholder="변경할 이름 입력", key="nm_new")
+                    nm_new2  = st.text_input("✏️ 새 이름 확인", placeholder="변경할 이름 재입력", key="nm_new2")
                     if st.form_submit_button("🔄 이름 변경", use_container_width=True):
                         if not (nm_old and nm_pw and nm_new and nm_new2):
                             st.error("모든 항목을 입력해주세요.")
