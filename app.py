@@ -1829,13 +1829,21 @@ def parse_policy_with_vision(files: list) -> dict:
             else:
                 img_bytes = f.getvalue()
                 img_b64   = base64.b64encode(img_bytes).decode("utf-8")
+                # 이미지는 extracted_data 텍스트 없이 직접 Vision으로 분석
+                # extracted_data 태그로 [첨부 이미지 참조] 텍스트만 넣으면 AI가 이미지를 무시하고 추측 생성함
+                _img_prompt = (
+                    _POLICY_PARSE_PROMPT
+                    + "\n\n"
+                    + "첨부 이미지에서 보이는 보험증권 내용만 추출하십시오. "
+                    + "이미지에 실제로 적혀 있는 담보만 출력하고, "
+                    + "더 추가하지 마십시오."
+                )
                 resp = client.models.generate_content(
                     model=GEMINI_MODEL,
                     contents=[{
                         "role": "user",
                         "parts": [
-                            {"text": _POLICY_PARSE_PROMPT
-                                     + "\n<extracted_data>\n[첨부 이미지 참조]\n</extracted_data>"},
+                            {"text": _img_prompt},
                             {"inline_data": {"mime_type": f.type, "data": img_b64}}
                         ]
                     }]
@@ -1872,27 +1880,47 @@ def parse_policy_with_vision(files: list) -> dict:
                 if not c.get("standard_name"):
                     c["standard_name"] = c.get("name", "")
 
-            # ── Fuzzy 표준명 매핑 (동일 담보 계열 통합) ──
+            # ── Fuzzy 표준명 매핑: 원문에 존재하는 담보의 standard_name만 정규화 ──
+            # 주의: 이 매핑은 표준명 통일 전용. 새 담보를 추가하지 않음.
             _STD_NAME_MAP = [
-                (["뇌출혈진단비","뇌출혈진단소급","뇌혈관질환","뇌혈관진단비",
-                  "뇌혈관질환진단비","뇌혈관질환(뇌출혈포함)"],   "뇌출혈진단비"),
-                (["뇌졸중","뇌경색","뇌출혈및뇌경색","뇌졸중진단비","뇌경색진단비"], "뇌졸중진단비"),
-                (["급성심근경색","심근경색","허혈성심장","심장질환"],               "급성심근경색진단비"),
-                (["일반암진단비","암진단비","악성신생물","암진단"],                  "암진단비"),
-                (["소액암","유사암"],                                               "소액암진단비"),
-                (["상해후유장해","재해후유장해","상해로인한후유장해"],                "상해후유장해"),
-                (["질병후유장해","질병으로인한후유장해"],                             "질병후유장해"),
-                (["교통상해후유장해","교통사고후유장해"],                             "교통상해후유장해"),
-                (["입원일당","입원비","질병입원"],                                   "질병입원일당"),
-                (["수술비","종수술비","질병수술비"],                                  "질병수술비"),
+                (["뇌출혈진단비","뇌출혈진단소급","뇌혈관질환진단비",
+                  "뇌혈관질환(뇌출혈포함)"],              "뇌출혈진단비"),
+                (["뇌졸중진단비","뇌경색진단비","뇌출혈및뇌경색진단비"], "뇌졸중진단비"),
+                (["급성심근경색진단비","허혈성심장질환진단비",
+                  "심장질환(급성심근경색포함)진단비"],    "급성심근경색진단비"),
+                (["일반암진단비","악성신생물진단비",
+                  "암진단비(소액암제외)"],                 "암진단비"),
+                (["소액암진단비","유사암진단비"],            "소액암진단비"),
+                (["상해후유장해","재해후유장해","상해로인한후유장해"],   "상해후유장해"),
+                (["질병후유장해","질병으로인한후유장해"],    "질병후유장해"),
+                (["교통상해후유장해","교통사고후유장해"],    "교통상해후유장해"),
+                (["질병입원일당","입원일당(질병)"],          "질병입원일당"),
+                (["질병수술비","종수술비(질병)"],            "질병수술비"),
             ]
             for c in covs:
-                raw_name = (c.get("standard_name") or c.get("name", "")).replace(" ", "")
+                orig_name = (c.get("name") or "").replace(" ", "")
+                std_name  = (c.get("standard_name") or "").replace(" ", "")
+                # 원문명과 standard_name 중 하나가 정확히 키워드와 일치할 때만 매핑
                 for keywords, std in _STD_NAME_MAP:
-                    if any(kw.replace(" ", "") in raw_name for kw in keywords):
-                        if not c.get("standard_name") or c["standard_name"] == c.get("name",""):
-                            c["standard_name"] = std
+                    norm_kws = [kw.replace(" ", "") for kw in keywords]
+                    if any(nk == orig_name or nk == std_name for nk in norm_kws):
+                        c["standard_name"] = std
                         break
+
+            # ── [G-1] 백엔드 추가 안전망: 암·뇌·심장 고액 담보 단어 포함 항목 제거 ──
+            # AI가 할루시네이션으로 넜·심장·암 담보를 생성해도 amount=None이면 제거
+            _HIGH_RISK_KEYWORDS = [
+                "뇌출혈","뇌혈관","뇌졸중","뇌경색","심근경색",
+                "허혈성심장","심장질환","암진단","악성신생물",
+            ]
+            def _is_high_risk_ghost(c):
+                """amount=None 이고 unreadable=False인 고액 진단보는 할루시네이션 가능성 높음"""
+                if c.get("unreadable", False):
+                    return False   # 판독불가 표기된 것은 유지
+                name_check = (c.get("name","") + c.get("standard_name","")).replace(" ","")
+                is_high = any(kw.replace(" ","") in name_check for kw in _HIGH_RISK_KEYWORDS)
+                return is_high and c.get("amount") is None and c.get("annuity_monthly") is None
+            covs = [c for c in covs if not _is_high_risk_ghost(c)]
 
             for c in covs:
                 c["_source_file"] = f.name
