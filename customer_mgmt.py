@@ -583,22 +583,48 @@ def render_customer_tab(sb, gemini_client):
         )
         if _purge_btn:
             if _confirm_text.strip() != "파기확인":
-                st.error("확인 문구가 다릅니다. '파기확인'을 정확히 입력하세요.")
+                st.error("❌ 확인 문구가 다릅니다. '파기확인'을 정확히 입력하세요.")
             elif not sb:
                 st.error("Supabase 연결 필요")
             else:
-                try:
-                    _del_uid = agent_uid
-                    # PII → 상담 → 고객 순서로 삭제 (FK 제약 순서)
-                    sb.table(TABLE_PII).delete().eq("agent_uid", _del_uid).execute()
-                    sb.table(TABLE_CONSULT).delete().eq("agent_uid", _del_uid).execute()
-                    sb.table(TABLE_CUSTOMERS).delete().eq("agent_uid", _del_uid).execute()
-                    st.success(
-                        "✅ 모든 고객 데이터가 파기되었습니다.\n\n"
-                        f"삭제 시각: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
-                        "데이터는 복구 불가능합니다."
-                    )
-                    st.session_state.pop("memo_customer_sel", None)
-                    st.session_state.pop("brief_sel", None)
-                except Exception as _pe:
-                    st.error(f"파기 중 오류: {_pe}")
+                # ── 최종 경고 확인 단계 ──
+                if not st.session_state.get("_purge_step2"):
+                    st.session_state["_purge_step2"] = True
+                    st.rerun()
+
+                st.markdown(
+                    "<div style='background:#7f1d1d;border:2px solid #ef4444;"
+                    "border-radius:10px;padding:16px 18px;margin:10px 0'>"
+                    "<div style='color:#fca5a5;font-size:1rem;font-weight:900;"
+                    "margin-bottom:8px;'>⚠️ 최종 확인</div>"
+                    "<div style='color:#fecaca;font-size:0.88rem;line-height:1.7;'>"
+                    "파기 버튼 실행이 맞습니까?<br>"
+                    "<b>고객 정보는 완전 파기되며 회복 불가능합니다.</b><br>"
+                    f"대상: {agent_uid} 의 전체 고객 데이터"
+                    "</div></div>",
+                    unsafe_allow_html=True,
+                )
+                _col_yes, _col_no = st.columns(2)
+                with _col_yes:
+                    if st.button("🔴 예, 즉시 파기합니다", key="btn_purge_yes",
+                                 type="primary", use_container_width=True):
+                        try:
+                            _del_uid = agent_uid
+                            sb.table(TABLE_PII).delete().eq("agent_uid", _del_uid).execute()
+                            sb.table(TABLE_CONSULT).delete().eq("agent_uid", _del_uid).execute()
+                            sb.table(TABLE_CUSTOMERS).delete().eq("agent_uid", _del_uid).execute()
+                            st.session_state.pop("_purge_step2", None)
+                            st.session_state.pop("memo_customer_sel", None)
+                            st.session_state.pop("brief_sel", None)
+                            st.success(
+                                f"✅ 파기 완료\n\n"
+                                f"삭제 시각: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n\n"
+                                "모든 고객 데이터가 영구 삭제되었습니다. 복구 불가능합니다."
+                            )
+                        except Exception as _pe:
+                            st.error(f"파기 중 오류: {_pe}")
+                with _col_no:
+                    if st.button("⬅️ 취소", key="btn_purge_no",
+                                 use_container_width=True):
+                        st.session_state.pop("_purge_step2", None)
+                        st.rerun()
