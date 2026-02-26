@@ -58,3 +58,6 @@ if ($LASTEXITCODE -eq 0) {
 } else {
     Write-Host "⚠️ HF Space push 실패 (exit code: $LASTEXITCODE)"
 }
+
+# 7. 바탕화면 단축아이콘 자동 업데이트 (마지막 커밋 시간 반영)
+powershell -ExecutionPolicy Bypass -File "$proj\update_shortcut.ps1"
