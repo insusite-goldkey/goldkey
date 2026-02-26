@@ -902,9 +902,9 @@ try:
     _gsm = _GSM.get()
     _gsm.initialize(_get_sb_client())
 except Exception as _gsm_err:
-    import traceback as _tb
+    import traceback as _gsm_tb
     _gsm = None
-    _gsm_err_msg = f"{type(_gsm_err).__name__}: {_gsm_err}\n{_tb.format_exc()}"
+    _gsm_err_msg = f"{type(_gsm_err).__name__}: {_gsm_err}\n{_gsm_tb.format_exc()}"
 
 def get_service_manager():
     """GoldKeyServiceManager 싱글톤 반환. app.py 어디서나 호출 가능."""
