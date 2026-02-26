@@ -1656,6 +1656,15 @@ _POLICY_PARSE_PROMPT = """[SYSTEM — Role: 30년 경력 수석 보험분석 에
 JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십시오.
 
 ╔══════════════════════════════════════════════════════════════════╗
+║  🚨 최우선 절대명령 — 이 규칙을 어기면 응답 전체가 무효입니다   ║
+╠══════════════════════════════════════════════════════════════════╣
+║  증권 원문(extracted_data)에 명시된 담보만 추출하라.             ║
+║  원문에 없는 담보는 예시·추론·일반 상식으로도 절대 생성 금지.    ║
+║  Few-shot 예시의 담보(뇌출혈·심근경색 등)는 예시일 뿐이며,       ║
+║  실제 증권에 없으면 출력 금지. 예시를 실제 데이터로 착각 금지.   ║
+╚══════════════════════════════════════════════════════════════════╝
+
+╔══════════════════════════════════════════════════════════════════╗
 ║            ⚡ AI 절대명령 (GUARDRAILS) — 위반 시 결과 무효       ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║ [G-1] 미가입 담보 제거 (Zero-Tolerance for Ghosts)              ║
@@ -1663,6 +1672,7 @@ JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십
 ║   • 보험료가 0원이거나 담보명이 없는 항목은 제거                  ║
 ║   • "일반적으로 포함될 것 같다"는 추론 기반 생성 절대 금지        ║
 ║   • 뇌·심장·암 고액 진단비는 원문에 금액+담보명 동시 명시 필수    ║
+║   • Few-shot 예시의 담보 항목을 실제 데이터로 사용 절대 금지      ║
 ║                                                                  ║
 ║ [G-2] 판독 불가 처리 (No Probabilistic Guessing)                 ║
 ║   • 금액이 흐리거나 불명확하면 amount=null, unreadable=true       ║
@@ -9402,6 +9412,28 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         _parsed_result = parse_policy_with_vision(dis_policy_files)
                         st.session_state["dis_parsed_coverages"] = _parsed_result.get("coverages", [])
                         st.session_state["dis_parsed_errors"]    = _parsed_result.get("errors", [])
+                        # ── policy_info를 scan_hub SSOT에도 동기화 (약관 크롤링 자동 반영) ──
+                        _dis_pi = _parsed_result.get("policy_info") or {}
+                        if _dis_pi:
+                            st.session_state["ssot_policy_info"] = _dis_pi
+                            if _dis_pi.get("insured_name"):
+                                st.session_state["ssot_client_name"] = _dis_pi["insured_name"]
+                            # ssot_scan_data에도 policy 타입으로 추가 (약관 추적 fallback 대비)
+                            _dis_texts = []
+                            for _df in dis_policy_files:
+                                try:
+                                    _dis_txt = extract_pdf_chunks(_df, char_limit=6000) if _df.type == "application/pdf" else f"[이미지: {_df.name}]"
+                                except Exception:
+                                    _dis_txt = f"[{_df.name}]"
+                                _dis_texts.append({"file": _df.name, "type": "policy", "text": _dis_txt,
+                                                   "ts": dt.now().strftime("%Y-%m-%d %H:%M:%S")})
+                            _prev_ssot = st.session_state.get("ssot_scan_data", [])
+                            _prev_ssot = [d for d in _prev_ssot if d.get("type") != "policy"]
+                            _prev_ssot.extend(_dis_texts)
+                            st.session_state["ssot_scan_data"] = _prev_ssot
+                            st.session_state["ssot_scan_type"] = "policy"
+                            st.session_state["ssot_scan_ts"]   = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+                            st.session_state["ssot_coverages"] = _parsed_result.get("coverages", [])
                     st.rerun()
 
                 # ── 파싱 결과 표시 및 자동 채우기 ───────────────────────
