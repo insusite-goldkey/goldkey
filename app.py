@@ -5188,6 +5188,16 @@ summary[data-testid="stExpanderToggle"] {
 
     # ── 사이드바 ──────────────────────────────────────────────────────────
     with st.sidebar:
+        # ── 앱 스토리 문구 (최상단) ──────────────────────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1e3a5f,#1e40af);
+border-radius:10px;padding:10px 14px;margin:0 0 10px 0;">
+  <div style="font-size:0.78rem;font-weight:900;color:#93c5fd;
+  letter-spacing:0.04em;margin-bottom:3px;">🤖 초개인화 인텔리전스 비서</div>
+  <div style="font-size:0.72rem;color:#bfdbfe;line-height:1.5;">
+    고객을 기억하고, 다음 만남을<br>준비하며, 설계사의 전문성을 지킵니다.
+  </div>
+</div>""", unsafe_allow_html=True)
         # ── 아바타 이미지 base64 로드 ──
         _avatar_path = pathlib.Path(__file__).parent / "avatar.png"
         _avatar_b64 = ""
@@ -5768,17 +5778,6 @@ summary[data-testid="stExpanderToggle"] {
                     st.session_state.pop(k, None)
                 st.success("상담 자료가 파기되었습니다.")
 
-            # ── 앱 스토리 문구 ────────────────────────────────────────────
-            st.markdown("""
-<div style="background:linear-gradient(135deg,#1e3a5f,#1e40af);
-border-radius:10px;padding:10px 14px;margin:8px 0 6px 0;">
-  <div style="font-size:0.78rem;font-weight:900;color:#93c5fd;letter-spacing:0.04em;margin-bottom:3px;">
-    🤖 초개인화 인텔리전스 비서
-  </div>
-  <div style="font-size:0.72rem;color:#bfdbfe;line-height:1.5;">
-    고객을 기억하고, 다음 만남을<br>준비하며, 설계사의 전문성을 지킵니다.
-  </div>
-</div>""", unsafe_allow_html=True)
             if st.button("👥 고객 관리", key="sb_customer_mgmt",
                          use_container_width=True, type="primary"):
                 st.session_state.current_tab = "customer_mgmt"
