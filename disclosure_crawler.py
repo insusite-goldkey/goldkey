@@ -50,7 +50,7 @@ class CompanyUrlRegistry:
         "현대해상":    {"base": "https://www.hi.co.kr",            "url": "https://www.hi.co.kr/cms/disclosure/product/list.do",                    "p": "searchKeyword"},
         "DB손해보험":  {"base": "https://www.idb.co.kr",           "url": "https://www.idb.co.kr/cust/disclosure/product.do",                       "p": "keyword"},
         "KB손해보험":  {"base": "https://www.kbinsure.co.kr",      "url": "https://www.kbinsure.co.kr/cust/disclosure/product.do",                  "p": "searchWord"},
-        "메리츠화재":  {"base": "https://www.meritzfire.com",      "url": "https://www.meritzfire.com/cust/disclosure/product.do",                  "p": "searchKeyword"},
+        "메리츠화재":  {"base": "https://www.meritzfire.com",      "url": "https://www.meritzfire.com/disclosure/product-announcement/product-list.do", "p": "searchKeyword"},
         "롯데손해보험":{"base": "https://www.lotteins.co.kr",      "url": "https://www.lotteins.co.kr/cust/disclosure/product.do",                  "p": "keyword"},
         "한화손해보험":{"base": "https://www.hwgeneralins.com",    "url": "https://www.hwgeneralins.com/cust/disclosure/product.do",                "p": "keyword"},
         "흥국화재":    {"base": "https://www.heungkukfire.co.kr",  "url": "https://www.heungkukfire.co.kr/cust/disclosure/product.do",              "p": "keyword"},
@@ -304,6 +304,30 @@ class PolicyDisclosureCrawler:
         from urllib.parse import urljoin
         return urljoin(base, href)
 
+    def _fetch_meritz(self, page, product_name: str, join_date: str, base: str) -> list:
+        """메리츠화재 SPA 공시실 전용 탐색 (판매중 + 판매중지 탭 모두 시도)."""
+        _MERITZ_BASE = "https://www.meritzfire.com/disclosure/product-announcement/product-list.do"
+        candidates = []
+        for hash_frag in ["", "#!/02"]:   # 판매중 탭, 판매중지 탭
+            url = _MERITZ_BASE + hash_frag
+            try:
+                page.goto(url, timeout=self._TIMEOUT_MS, wait_until="networkidle")
+                time.sleep(3.0)   # SPA 렌더링 대기
+            except Exception:
+                continue
+            # 검색창 시도
+            try:
+                inp = page.query_selector("input[type='text'], input[placeholder]")
+                if inp:
+                    inp.fill(product_name)
+                    page.keyboard.press("Enter")
+                    time.sleep(2.0)
+            except Exception:
+                pass
+            cands = self._extract_candidates(page, product_name)
+            candidates.extend(cands)
+        return candidates
+
     def _fetch_core(self, company_name: str, product_name: str, join_date: str) -> dict:
         """실제 크롤링 로직 (별도 스레드에서 실행됨)."""
         info = CompanyUrlRegistry.get(company_name)
@@ -321,20 +345,23 @@ class PolicyDisclosureCrawler:
                 "Object.defineProperty(navigator,'webdriver',{get:()=>undefined})"
             )
 
-            search_url = f"{info['url']}?{info['p']}={requests.utils.quote(product_name)}"
-            if not self._safe_goto(page, search_url):
-                self._safe_goto(page, info["url"])
-                try:
-                    page.fill(f"input[name='{info['p']}']" , product_name)
-                    page.keyboard.press("Enter")
-                    time.sleep(self._NAV_WAIT)
-                except Exception:
-                    pass
-
-            candidates = self._extract_candidates(page, product_name)
-
-            if not candidates:
-                candidates = self._try_discontinued_tab(page, product_name)
+            # 메리츠화재: SPA(해시 라우팅) 공시실 전용 탐색
+            _normalized_co = CompanyUrlRegistry.normalize(company_name)
+            if _normalized_co == "메리츠화재":
+                candidates = self._fetch_meritz(page, product_name, join_date, info["base"])
+            else:
+                search_url = f"{info['url']}?{info['p']}={requests.utils.quote(product_name)}"
+                if not self._safe_goto(page, search_url):
+                    self._safe_goto(page, info["url"])
+                    try:
+                        page.fill(f"input[name='{info['p']}']", product_name)
+                        page.keyboard.press("Enter")
+                        time.sleep(self._NAV_WAIT)
+                    except Exception:
+                        pass
+                candidates = self._extract_candidates(page, product_name)
+                if not candidates:
+                    candidates = self._try_discontinued_tab(page, product_name)
 
             res["candidates_count"] = len(candidates)
 
