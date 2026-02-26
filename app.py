@@ -14186,7 +14186,12 @@ END; $$;""", language="sql")
                 ("생명", "미래에셋생명(판매중지)","https://life.miraeasset.com/micro/disclosure/product/PC-HO-080301-000000.do"),
                 ("생명", "DB생명(판매중)",  "https://www.idblife.com/insurance/calculation?seq=501"),
                 ("생명", "DB생명(판매중지)","https://www.idblife.com/insurance/calculation?seq=501"),
-                ("협회", "생명보험협회","https://klia.or.kr/consumer/publicRelation/productDisclosure.do"),
+                ("협회", "생명보험협회-보장성상품비교",  "https://pub.insure.or.kr/compareDis/prodCompare/assurance/listNew.do"),
+                ("협회", "생명보험협회-저축성상품비교",  "https://pub.insure.or.kr/compareDis/prodCompare/saving/list.do"),
+                ("협회", "생명보험협회-변액보험(보장성)", "https://pub.insure.or.kr/compareDis/variableInsrn/prodCompare/assurance/listNew.do?search_prodGroup=024400010001"),
+                ("협회", "생명보험협회-변액보험(저축성)", "https://pub.insure.or.kr/compareDis/variableInsrn/prodCompare/saving/list.do?search_prodGroup=024400020002"),
+                ("협회", "생명보험협회-연금저축비교",    "https://pub.insure.or.kr/compareDis/prodCompare/saving/list.do?search_prodGroup=024400020001"),
+                ("협회", "생명보험협회-실손의료보험비교","https://pub.insure.or.kr/compareDis/prodCompare/assurance/listNew.do?search_prodGroup=024400010008"),
                 ("협회", "손해보험협회","https://www.knia.or.kr/consumer/publicRelation/productDisclosure.do"),
             ]
             # ── 공시실 링크 박스 ──────────────────────────────────────────
