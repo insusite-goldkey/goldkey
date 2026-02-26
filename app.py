@@ -14156,7 +14156,8 @@ END; $$;""", language="sql")
         with _pt_col1:
             # ── 공시실 링크 데이터 ─────────────────────────────────────
             _PT_DISC_DATA = [
-                ("손해", "삼성화재",    "https://www.samsungfire.com/cust/disclosure/productDisclosure.do"),
+                ("손해", "삼성화재(판매중)",  "https://www.samsungfire.com/vh/page/VH.HPIF0103.do"),
+                ("손해", "삼성화재(판매중지)","https://www.samsungfire.com/vh/page/VH.HPIF0103.do"),
                 ("손해", "현대해상(판매중)",  "https://www.hi.co.kr/serviceAction.do"),
                 ("손해", "현대해상(판매중지)","https://www.hi.co.kr/serviceAction.do"),
                 ("손해", "DB손해보험",  "https://www.idb.co.kr/cust/disclosure/product.do"),
