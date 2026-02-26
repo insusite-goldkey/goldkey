@@ -10721,12 +10721,239 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         if not _auth_gate("t5"): st.stop()
         tab_home_btn("t5")
         st.subheader("🌅 노후설계 · 연금 3층 · 상속·증여")
-        retire_sub = st.radio("상담 분야", ["노후/연금 설계","상속·증여 설계","주택연금"],
+        retire_sub = st.radio("상담 분야", ["노후/연금 설계","💰 노후준비자금 시뮬레이터","상속·증여 설계","주택연금"],
             horizontal=True, key="retire_sub")
         if retire_sub == "상속·증여 설계":
             section_inheritance_will()
         elif retire_sub == "주택연금":
             section_housing_pension()
+        elif retire_sub == "💰 노후준비자금 시뮬레이터":
+            # ══════════════════════════════════════════════════════════════
+            # 노후준비자금 수치 시뮬레이션 계산기
+            # ══════════════════════════════════════════════════════════════
+            st.markdown("""
+<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+  border-radius:14px;padding:16px 22px 12px;margin-bottom:16px;
+  box-shadow:0 4px 18px rgba(245,158,11,0.2);">
+  <div style="color:#ffd700;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
+    💰 노후준비자금 시뮬레이터
+  </div>
+  <div style="color:#fde68a;font-size:0.78rem;margin-top:4px;">
+    국민연금·퇴직연금·개인연금 3층 합산 → 부족 자금 자동 계산 → 보험 상품 보완 설계
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            _sim_c1, _sim_c2 = st.columns([1, 1], gap="large")
+
+            with _sim_c1:
+                st.markdown("#### 📋 기본 정보")
+                _s_age      = st.number_input("현재 나이 (세)", min_value=20, max_value=80, value=45, step=1, key="sim_age")
+                _s_ret_age  = st.number_input("은퇴 예정 나이 (세)", min_value=50, max_value=80, value=60, step=1, key="sim_ret_age")
+                _s_life_age = st.number_input("기대 수명 (세)", min_value=70, max_value=110, value=90, step=1, key="sim_life_age")
+                _s_need     = st.number_input("은퇴 후 월 필요 생활비 (만원)", min_value=50, max_value=1000, value=300, step=10, key="sim_need")
+                _s_inflation = st.slider("물가상승률 (%/년)", min_value=0.0, max_value=5.0, value=2.5, step=0.5, key="sim_infl")
+
+                st.markdown("#### 🏛️ 1층 — 국민연금")
+                _s_nps_yn   = st.number_input("국민연금 가입 기간 (년)", min_value=0, max_value=45, value=20, step=1, key="sim_nps_yn")
+                _s_nps_salary = st.number_input("현재 월 소득 (만원)", min_value=0, max_value=2000, value=400, step=10, key="sim_nps_sal")
+                _s_nps_start = st.number_input("국민연금 수령 시작 나이 (세)", min_value=60, max_value=70, value=65, step=1, key="sim_nps_start")
+                # 연기신청 여부
+                _s_nps_defer = st.checkbox("연기연금 신청 (최대 5년, 월 0.6% 증액)", key="sim_nps_defer")
+                _s_nps_defer_yr = 0
+                if _s_nps_defer:
+                    _s_nps_defer_yr = st.slider("연기 기간 (년)", 1, 5, 3, key="sim_nps_defer_yr")
+
+                st.markdown("#### 🏢 2층 — 퇴직연금")
+                _s_dc_balance = st.number_input("현재 퇴직연금 잔액 (만원)", min_value=0, max_value=100000, value=3000, step=100, key="sim_dc_bal")
+                _s_dc_annual  = st.number_input("연간 퇴직연금 납입액 (만원)", min_value=0, max_value=5000, value=600, step=50, key="sim_dc_ann")
+                _s_dc_rate    = st.slider("퇴직연금 운용 수익률 (%/년)", 0.0, 10.0, 4.0, 0.5, key="sim_dc_rate")
+                _s_dc_annuity = st.checkbox("퇴직연금 연금 수령 (분할)", value=True, key="sim_dc_annuity")
+
+                st.markdown("#### 💼 3층 — 개인연금")
+                _s_ipa_balance = st.number_input("연금저축·IRP 현재 잔액 (만원)", min_value=0, max_value=100000, value=1500, step=100, key="sim_ipa_bal")
+                _s_ipa_annual  = st.number_input("연간 개인연금 납입액 (만원)", min_value=0, max_value=5000, value=300, step=50, key="sim_ipa_ann")
+                _s_ipa_rate    = st.slider("개인연금 운용 수익률 (%/년)", 0.0, 10.0, 3.5, 0.5, key="sim_ipa_rate")
+
+                _sim_run = st.button("🔢 노후자금 시뮬레이션 계산", type="primary",
+                                     use_container_width=True, key="btn_sim_run")
+
+            with _sim_c2:
+                st.markdown("#### 📊 시뮬레이션 결과")
+
+                if _sim_run or st.session_state.get("sim_result_ready"):
+                    import math as _math
+
+                    # ── 계산 로직 ───────────────────────────────────────
+                    _ret_yrs  = max(_s_ret_age - _s_age, 0)       # 은퇴까지 남은 년수
+                    _life_yrs = max(_s_life_age - _s_ret_age, 0)  # 은퇴 후 생존 년수
+
+                    # 1) 총 필요 노후자금 (현재가치 기준 → 미래가치 환산)
+                    _infl_r   = _s_inflation / 100
+                    _need_fv  = _s_need * ((1 + _infl_r) ** _ret_yrs)  # 은퇴 시점 월 필요액
+                    _total_need = _need_fv * 12 * _life_yrs             # 단순 합산 (보수적)
+
+                    # 2) 국민연금 예상 수령액 (간이 계산)
+                    # 공식: A값(평균소득월액) × 가입기간 × 1.2% (기본연금) + 연기 증액
+                    _nps_base = _s_nps_salary * _s_nps_yn * 0.012   # 월 수령액(만원) 추정
+                    if _s_nps_defer:
+                        _nps_base = _nps_base * (1 + _s_nps_defer_yr * 12 * 0.006)
+                    _nps_start_yrs = max(_s_nps_start - _s_ret_age, 0)  # 공백 기간
+                    _nps_receive_yrs = max(_s_life_age - _s_nps_start, 0)
+                    _nps_total = _nps_base * 12 * _nps_receive_yrs  # 총 국민연금 수령액
+
+                    # 3) 퇴직연금 은퇴 시점 잔액
+                    _dc_r = _s_dc_rate / 100
+                    if _dc_r > 0:
+                        _dc_fv = (_s_dc_balance * (1 + _dc_r) ** _ret_yrs +
+                                  _s_dc_annual * ((1 + _dc_r) ** _ret_yrs - 1) / _dc_r)
+                    else:
+                        _dc_fv = _s_dc_balance + _s_dc_annual * _ret_yrs
+                    _dc_monthly = (_dc_fv / (_life_yrs * 12)) if _life_yrs > 0 else 0
+
+                    # 4) 개인연금 은퇴 시점 잔액
+                    _ipa_r = _s_ipa_rate / 100
+                    if _ipa_r > 0:
+                        _ipa_fv = (_s_ipa_balance * (1 + _ipa_r) ** _ret_yrs +
+                                   _s_ipa_annual * ((1 + _ipa_r) ** _ret_yrs - 1) / _ipa_r)
+                    else:
+                        _ipa_fv = _s_ipa_balance + _s_ipa_annual * _ret_yrs
+                    _ipa_monthly = (_ipa_fv / (_life_yrs * 12)) if _life_yrs > 0 else 0
+
+                    # 5) 합산 월 수령액 vs Gap
+                    _total_monthly = _nps_base + _dc_monthly + _ipa_monthly
+                    _gap_monthly   = _need_fv - _total_monthly
+                    _gap_total     = max(_gap_monthly * 12 * _life_yrs, 0)
+                    _replace_rate  = (_total_monthly / _s_nps_salary * 100) if _s_nps_salary > 0 else 0
+
+                    st.session_state["sim_result_ready"] = True
+                    st.session_state["sim_gap_monthly"]  = _gap_monthly
+                    st.session_state["sim_gap_total"]    = _gap_total
+
+                    # ── 결과 카드 ────────────────────────────────────────
+                    _gap_color = "#e74c3c" if _gap_monthly > 0 else "#27ae60"
+                    _rep_color = "#27ae60" if _replace_rate >= 60 else "#e67e22" if _replace_rate >= 40 else "#e74c3c"
+
+                    st.markdown(f"""
+<div style="background:#0d1b2a;border-radius:12px;padding:16px 18px;margin-bottom:12px;
+  border:1px solid #1a3a5c;">
+  <div style="color:#7ec8f5;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;
+    margin-bottom:10px;">📊 노후준비자금 시뮬레이션 결과</div>
+  <table style="width:100%;border-collapse:collapse;font-size:0.85rem;color:#fff;">
+    <tr style="border-bottom:1px solid #1a3a5c;">
+      <td style="color:#b3d4f5;padding:5px 0;width:55%;">🎯 은퇴 시 월 필요 생활비</td>
+      <td style="font-weight:700;color:#ffd700;">{_need_fv:,.0f}만원/월</td>
+    </tr>
+    <tr style="border-bottom:1px solid #1a3a5c;">
+      <td style="color:#b3d4f5;padding:5px 0;">🏛️ 국민연금 예상 월 수령액</td>
+      <td style="color:#a8f0c8;">{_nps_base:,.1f}만원/월</td>
+    </tr>
+    <tr style="border-bottom:1px solid #1a3a5c;">
+      <td style="color:#b3d4f5;padding:5px 0;">🏢 퇴직연금 월 환산</td>
+      <td style="color:#a8f0c8;">{_dc_monthly:,.1f}만원/월</td>
+    </tr>
+    <tr style="border-bottom:1px solid #1a3a5c;">
+      <td style="color:#b3d4f5;padding:5px 0;">💼 개인연금 월 환산</td>
+      <td style="color:#a8f0c8;">{_ipa_monthly:,.1f}만원/월</td>
+    </tr>
+    <tr style="border-bottom:2px solid #0ea5e9;">
+      <td style="color:#0ea5e9;padding:5px 0;font-weight:700;">✅ 3층 합산 월 수령액</td>
+      <td style="color:#0ea5e9;font-weight:900;font-size:1rem;">{_total_monthly:,.1f}만원/월</td>
+    </tr>
+    <tr style="border-bottom:1px solid #1a3a5c;">
+      <td style="color:#b3d4f5;padding:5px 0;">📈 실질 소득대체율</td>
+      <td style="color:{_rep_color};font-weight:700;">{_replace_rate:.1f}%</td>
+    </tr>
+    <tr>
+      <td style="color:#fde68a;padding:6px 0;font-weight:700;">⚠️ 월 부족 자금 (Gap)</td>
+      <td style="color:{_gap_color};font-weight:900;font-size:1.05rem;">{_gap_monthly:+,.1f}만원/월</td>
+    </tr>
+  </table>
+</div>""", unsafe_allow_html=True)
+
+                    # 총 부족자금 + 보완 전략
+                    if _gap_monthly > 0:
+                        _add_prem_est = _gap_total / (_ret_yrs * 12) if _ret_yrs > 0 else 0
+                        st.markdown(f"""
+<div style="background:linear-gradient(135deg,#3b0d0d,#7f1d1d);
+  border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid #e74c3c;">
+  <div style="color:#fca5a5;font-size:0.8rem;font-weight:900;margin-bottom:6px;">
+    🚨 부족 자금 분석
+  </div>
+  <div style="color:#fff;font-size:0.83rem;line-height:1.8;">
+    • 총 부족 노후자금: <b style="color:#ffd700;">{_gap_total:,.0f}만원</b>
+      ({_life_yrs}년 × 12개월 기준)<br>
+    • 은퇴 시까지 추가 월 적립 필요액: <b style="color:#ffd700;">{_add_prem_est:,.0f}만원/월</b><br>
+    • 권고: 연금보험·즉시연금·종신보험 활용하여 부족분 보완
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                        # 국민연금 공백 기간 안내
+                        if _nps_start_yrs > 0:
+                            st.warning(
+                                f"⚠️ 은퇴({_s_ret_age}세) ~ 국민연금 수령({_s_nps_start}세) "
+                                f"**{_nps_start_yrs}년 공백** — "
+                                f"이 기간 월 {_need_fv:,.0f}만원 × {_nps_start_yrs * 12}개월 = "
+                                f"**{_need_fv * _nps_start_yrs * 12:,.0f}만원** 별도 준비 필요"
+                            )
+                    else:
+                        st.success(
+                            f"✅ 노후 자금 충분! 월 {abs(_gap_monthly):,.1f}만원 여유 "
+                            f"(소득대체율 {_replace_rate:.1f}%)"
+                        )
+
+                    # 연금저축 세액공제 환급액 표시
+                    _tax_refund = min(_s_ipa_annual, 400) * (0.165 if _s_nps_salary <= 550 else 0.132)
+                    st.markdown(f"""
+<div style="background:#0d2b4a;border-radius:8px;padding:10px 14px;
+  font-size:0.8rem;color:#b3d4f5;line-height:1.8;margin-top:6px;">
+  💡 <b style="color:#ffd700;">세액공제 절세 효과</b><br>
+  • 연금저축 세액공제 환급 추정: <b style="color:#a8f0c8;">{_tax_refund:,.0f}만원/년</b><br>
+  • IRP 추가납입 세액공제(300만원 한도): <b style="color:#a8f0c8;">
+    {min(_s_ipa_annual, 300) * (0.165 if _s_nps_salary <= 550 else 0.132):,.0f}만원/년</b><br>
+  • 퇴직연금 적립원금 (은퇴 시): <b style="color:#a8f0c8;">{_dc_fv:,.0f}만원</b><br>
+  • 개인연금 적립원금 (은퇴 시): <b style="color:#a8f0c8;">{_ipa_fv:,.0f}만원</b>
+</div>""", unsafe_allow_html=True)
+
+                    # AI 분석 연동 버튼
+                    if st.button("🤖 AI에게 보완 전략 요청", key="btn_sim_ai",
+                                 use_container_width=True, type="primary"):
+                        _sim_prompt = (
+                            f"[노후준비자금 시뮬레이션 결과]\n"
+                            f"현재나이: {_s_age}세 / 은퇴예정: {_s_ret_age}세 / 기대수명: {_s_life_age}세\n"
+                            f"월 필요생활비(은퇴시): {_need_fv:,.0f}만원\n"
+                            f"국민연금 예상: {_nps_base:,.1f}만원/월 (가입{_s_nps_yn}년)\n"
+                            f"퇴직연금 월환산: {_dc_monthly:,.1f}만원 (잔액{_s_dc_balance}만원+연{_s_dc_annual}만원 적립)\n"
+                            f"개인연금 월환산: {_ipa_monthly:,.1f}만원 (잔액{_s_ipa_balance}만원+연{_s_ipa_annual}만원 적립)\n"
+                            f"3층 합산: {_total_monthly:,.1f}만원/월 | 소득대체율: {_replace_rate:.1f}%\n"
+                            f"월 부족자금(Gap): {_gap_monthly:+,.1f}만원 | 총 부족액: {_gap_total:,.0f}만원\n\n"
+                            f"위 수치를 바탕으로:\n"
+                            f"1. 부족 자금 보완을 위한 구체적 보험상품(연금보험·즉시연금·종신보험) 설계안\n"
+                            f"2. 은퇴 전 남은 {_ret_yrs}년간 추가 적립 전략 (IRP·연금저축 세액공제 극대화)\n"
+                            f"3. 국민연금 수령 전략 (연기연금 vs 조기수령 시뮬레이션)\n"
+                            f"4. 현장 판매 화법 2가지"
+                        )
+                        run_ai_analysis(
+                            st.session_state.get("gs_c_name", "고객"),
+                            "노후준비자금 보완 전략 수립",
+                            0, "res_t5",
+                            extra_prompt=_sim_prompt,
+                        )
+
+                    show_result("res_t5")
+
+                else:
+                    st.info("👈 왼쪽에서 정보를 입력하고 **시뮬레이션 계산** 버튼을 클릭하세요.")
+                    st.markdown("""
+<div style="background:#0d2b4a;border-radius:10px;padding:14px 16px;
+  font-size:0.8rem;color:#b3d4f5;line-height:1.9;">
+  <b style="color:#ffd700;">📌 계산 방식 안내</b><br>
+  • <b>국민연금</b>: 월소득 × 가입년수 × 1.2% (간이 추정)<br>
+  • <b>퇴직연금</b>: 현재잔액 + 연납입액을 복리 계산 → 은퇴 후 균등 분할<br>
+  • <b>개인연금</b>: 연금저축·IRP 잔액 + 납입액 복리 → 은퇴 후 균등 분할<br>
+  • <b>물가상승률</b> 반영: 필요 생활비를 은퇴 시점으로 미래가치 환산<br>
+  • NPS 공식과 동일한 3층 Gap 분석 방식
+</div>""", unsafe_allow_html=True)
+
         else:
             col1, col2 = st.columns([1, 1])
             with col1:
