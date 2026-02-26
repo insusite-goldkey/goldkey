@@ -3906,8 +3906,12 @@ def _section_factory_fire_ui():
                     f"  =  {fr.get('재조달가액',0):,}만원 × {_dep_result['최종잔존율']}"
                     f"  =  <b>{_dep_result['현재가액_만원']:,}만원</b>"
                     f"</div>"
-                    f"{'<div style=\"margin-top:6px;color:#ff6b6b;font-weight:700;font-size:0.78rem;\">⚠️ 내구연한 초과 — 최종잔존가액 하한(20%) 적용 중. 보험사 물건 심사 시 감액 가능성 있음.</div>' if _exceeded else ''}"
-                    f"</div>",
+                    + (
+                        "<div style='margin-top:6px;color:#ff6b6b;font-weight:700;font-size:0.78rem;'>"
+                        "⚠️ 내구연한 초과 — 최종잔존가액 하한(20%) 적용 중. 보험사 물건 심사 시 감액 가능성 있음."
+                        "</div>" if _exceeded else ""
+                    )
+                    + "</div>",
                     unsafe_allow_html=True
                 )
             st.divider()
