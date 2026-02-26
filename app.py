@@ -17916,9 +17916,9 @@ END; $$;""", language="sql")
                                     unsafe_allow_html=True)
                     _edited_pols.append({
                         "source_file": _pol.get("source_file",""),
-                        "company": st.session_state.get(f"sh_jit_co_{_pi}", _pol.get("company","")),
-                        "product": st.session_state.get(f"sh_jit_pr_{_pi}", _pol.get("product","")),
-                        "join_date": st.session_state.get(f"sh_jit_jd_{_pi}", _pol.get("join_date","")),
+                        "company":    _new_co,
+                        "product":    _new_pr,
+                        "join_date":  _new_jd,
                         "confidence": _conf,
                     })
 
