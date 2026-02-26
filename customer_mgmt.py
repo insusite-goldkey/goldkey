@@ -552,14 +552,16 @@ def render_customer_tab(sb, gemini_client):
                 else:
                     st.info("아직 쌓인 프로필 데이터가 없습니다. 상담 메모를 입력하면 채워집니다.")
 
-    # ── 긴급 데이터 파기 섹터 ──────────────────────────────────────────────
+    # ── 긴급 데이터 파기 섹터 (본인 데이터 전용) ──────────────────────────
+    _my_name = st.session_state.get("user_name", agent_uid)
     st.markdown("---")
     st.markdown(
         "<div style='background:#1a0000;border:2px solid #ef4444;border-radius:10px;"
         "padding:12px 16px;margin-top:8px'>"
         "<span style='color:#ef4444;font-weight:900;font-size:0.9rem;'>🚨 긴급 데이터 파기</span>"
-        "<span style='color:#fca5a5;font-size:0.78rem;margin-left:10px;'>"
-        "보안 위협 감지 시 — 본인 고객 데이터 전체를 즉시 삭제합니다.</span>"
+        f"<span style='color:#fca5a5;font-size:0.78rem;margin-left:10px;'>"
+        f"보안 위협 감지 시 — <b>{_my_name}</b> 본인의 고객 데이터만 삭제됩니다. "
+        f"다른 설계사 데이터에는 영향 없음.</span>"
         "</div>",
         unsafe_allow_html=True,
     )
