@@ -159,11 +159,15 @@ STT_LANG          = "ko-KR"          # 언어: 반드시 ko-KR 명시 (미설정
 STT_INTERIM       = "true"           # 중간 결과 실시간 표시 (사용자 안심 효과)
 STT_CONTINUOUS    = "true"           # 연속 인식 (단일 객체 유지 → 권한 팝업 1회)
 STT_MAX_ALT       = 3                # 후보 수: 신뢰도 최고값 자동 선택
-STT_NO_SPEECH_MS  = 2000             # VAD silence_duration_ms: 2초 — 고령자 말 사이 pause 허용
-STT_RESTART_MS    = 500              # 비정상 종료 후 재시작 대기(ms) — 너무 빠른 재시작 방지
-STT_PREFIX_PAD_MS = 300              # prefix_padding_ms: 말 시작 전 300ms 버퍼 — '아...','음...' 뒤 본론 잘림 방지
+STT_NO_SPEECH_MS      = 2500         # VAD silence_duration_ms: 2.5초 — 고령자/사투리 말 사이 pause 충분히 허용
+STT_SILENCE_TIMEOUT_MS= 1400         # End-point 판단 침묵 기준: 1.4초 (보험상담 망설임 허용, 권장 1200~1500ms)
+STT_MIN_UTTERANCE_MS  = 250          # 최소 발화 길이: 0.25초 미만 노이즈(기침·클릭음) 무시 (권장 200~300ms)
+STT_POST_ROLL_MS      = 500          # Post-roll 버퍼: 말 끝난 후 0.5초 추가 캡처 — Chop-off 방지 (권장 500ms)
+STT_RESTART_MS    = 800              # 비정상 종료 후 재시작 대기(ms) — 빠른 재시작으로 인한 중복 바인딩 방지
+STT_PREFIX_PAD_MS = 500              # prefix_padding_ms: 말 시작 전 500ms 버퍼 — '아...','음...' 뒤 본론 잘림 방지 (Pre-roll)
 STT_LEV_THRESHOLD = 0.85             # Levenshtein 중복 판정 유사도 임계값 (85% 이상이면 중복)
-STT_LEV_QUEUE     = 5                # 중복 검사용 최근 확정 문장 큐 크기
+STT_LEV_QUEUE     = 8                # 중복 검사용 최근 확정 문장 큐 크기 (5→8 확장)
+STT_DUP_TIME_MS   = 3000             # 시간 기반 중복 차단: 동일 문장이 3초 내 재입력 시 무시
 # speechContext 부스트 용어 — Google STT 적응형 인식 (보험/의료/법률 전문용어 오인식 방지)
 # Web Speech API는 직접 speechContexts 파라미터를 지원하지 않으나,
 # 아래 용어를 grammars(JSpeech Grammar Format) 힌트로 주입하여 인식률을 높인다.
@@ -177,10 +181,20 @@ STT_BOOST_TERMS   = [
 
 TTS_LANG          = "ko-KR"          # TTS 언어
 TTS_RATE          = 0.9              # 말하기 속도: 0.9 (명료·자연스러운 20대 여성 아나운서)
+TTS_RATE_ELDERLY  = 0.75             # 고령자 모드 속도: 0.75 (또박또박 천천히)
 TTS_PITCH         = 1.4              # 음높이: 1.4 (20대 여성 아나운서 톤)
 TTS_VOLUME        = 1.0              # 음량: 최대
 # 여성 목소리 우선순위: Yuna(삼성) > Female > Google 한국어 > Heami
 TTS_VOICE_PRIORITY = ["Yuna", "Female", "Google", "Heami"]
+# Prosody Control — 컨텍스트 톤 프리셋 (rate, pitch)
+# 사용: s_voice(text, tone="calm") / s_voice(text, tone="bright") 등
+TTS_TONE_PRESETS = {
+    "default": (0.9,  1.4),   # 기본: 명료 아나운서
+    "calm":    (0.78, 1.1),   # 차분: 사고접수·보험금 청구·불만 응대
+    "bright":  (1.0,  1.6),   # 밝음: 상품 안내·신규 가입 권유
+    "empathy": (0.75, 1.0),   # 공감: 사망·입원·진단 등 민감 상황
+    "clear":   (0.85, 1.3),   # 또렷: 약관·법률 안내 — 정확성 중시
+}
 # ==========================================================================
 
 # --------------------------------------------------------------------------
@@ -1264,19 +1278,267 @@ def get_client():
         http_options={"api_version": "v1beta"}
     )
 
-def s_voice(text, lang=None):
-    """TTS - 전역 STT/TTS 설정(TTS_*) 상수 강제 적용"""
-    lang  = lang or TTS_LANG
+_STT_CORRECT_MAP = {
+    # 사투리/오인식 → 표준 보험 용어
+    "치매보험": ["치대보험", "치메보험", "치마보험", "치미보험"],
+    "실손보험": ["실손 보험", "실손보험료", "실손의료비"],
+    "암진단비": ["암 진단비", "암진단 비"],
+    "후유장해": ["후유 장해", "후유장해비", "휴유장해"],
+    "납입면제": ["납입 면제", "납이면제", "납입면재"],
+    "해지환급금": ["해지 환급금", "해지환급", "해지환급비"],
+    "장기요양등급": ["장기 요양 등급", "장기요양 등급", "장기요양"],
+    "경도인지장애": ["경도 인지 장애", "경도인지 장애"],
+    "알츠하이머": ["알츠 하이머", "알쯔하이머", "알츠하이마"],
+    "CDR척도": ["CDR 척도", "씨디알척도", "씨디알 척도"],
+    "보장기간": ["보장 기간"],
+    "갱신형": ["갱신 형"],
+    "비갱신형": ["비갱신 형", "비 갱신형"],
+    "청약철회": ["청약 철회"],
+    "보험금청구": ["보험금 청구"],
+    "표준약관": ["표준 약관"],
+    "설명의무": ["설명 의무"],
+    "심근경색": ["심근 경색", "심근경색증"],
+    "뇌혈관질환": ["뇌혈관 질환", "뇌 혈관 질환"],
+}
+
+# ── Voice-to-Action 네비게이션 매핑 테이블 ──────────────────────────────────
+# 키: current_tab 값 / 값: 감지 키워드 리스트 (앞에서부터 매칭 우선순위)
+_NAV_INTENT_MAP = [
+    # (tab_key, [키워드 ...])  — 순서가 우선순위
+    ("policy_scan",  ["증권 분석", "보험증권 분석", "증권분석", "보험증권", "증권 업로드", "증권 봐줘", "증권 보여"]),
+    ("policy_terms", ["약관", "약관 검색", "약관 찾아", "약관 보여", "약관 알려"]),
+    ("scan_hub",     ["스캔허브", "스캔 허브", "통합 스캔", "의무기록 올려", "서류 올려"]),
+    ("t0",           ["신규 보험", "신규상담", "새 보험", "보험 추천", "보험 가입", "보험 설계", "신규 상담"]),
+    ("t1",           ["보험금 청구", "보험금", "청구", "지급 거절", "보험금 얼마", "청구 방법"]),
+    ("disability",   ["장해", "장해보험금", "후유장해", "맥브라이드", "AMA", "장해율", "장해 산출"]),
+    ("cancer",       ["암", "뇌", "심장", "3대질병", "NGS", "CAR-T", "표적항암", "면역항암", "뇌경색", "심근경색"]),
+    ("t2",           ["자동차보험", "자동차 보험", "화재보험", "운전자보험", "기본보험"]),
+    ("t3",           ["질병", "상해", "통합보험", "간병", "치매", "생명보험", "3대 질병"]),
+    ("t4",           ["자동차사고", "자동차 사고", "교통사고", "과실비율", "합의금", "민식이법"]),
+    ("t5",           ["노후", "연금", "상속", "증여", "주택연금", "노후설계", "연금설계", "상속설계"]),
+    ("t6",           ["세무", "세금", "절세", "소득세", "법인세", "건보료", "금융소득", "세무 상담"]),
+    ("t7",           ["법인", "법인보험", "단체보험", "법인 상담", "복리후생"]),
+    ("t8",           ["CEO", "대표", "비상장", "가업승계", "퇴직금 설계", "CEO플랜"]),
+    ("stock_eval",   ["비상장주식", "주식 평가", "상증법", "순자산", "경영권"]),
+    ("fire",         ["화재", "재조달", "REB", "화재보험", "건물 보험"]),
+    ("liability",    ["배상책임", "배상", "중복보험", "실화책임", "독립책임"]),
+    ("nursing",      ["간병비", "장기요양", "요양병원", "간병보험", "치매 보험", "간병 컨설팅"]),
+    ("realty",       ["부동산", "등기부", "건축물대장", "투자 수익", "부동산 투자"]),
+    ("life_cycle",   ["라이프사이클", "life cycle", "생애설계", "타임라인", "백지설계"]),
+    ("life_event",   ["라이프이벤트", "life event", "결혼", "출산", "퇴직", "은퇴", "취업", "인생 이벤트"]),
+    ("leaflet",      ["리플렛", "카탈로그 분류", "상품 카탈로그", "리플렛 올려", "신상품 등록"]),
+    ("consult_catalog", ["카탈로그 열람", "카탈로그 보여", "내 카탈로그", "상담 카탈로그"]),
+    ("customer_docs",["고객자료", "의무기록", "서류 저장", "고객 문서", "마인드맵"]),
+    ("digital_catalog",["디지털 카탈로그", "카탈로그 관리", "카탈로그 업로드"]),
+]
+
+def _voice_navigate(text: str) -> str | None:
+    """음성/텍스트 입력에서 Intent 감지 → 이동할 current_tab 반환.
+    매칭 없으면 None 반환 (라우팅 없음).
+    """
+    if not text or not text.strip():
+        return None
+    t = text.lower().strip()
+    for tab_key, keywords in _NAV_INTENT_MAP:
+        if any(kw.lower() in t for kw in keywords):
+            return tab_key
+    return None
+
+
+def stt_correct(text: str) -> str:
+    """STT 결과 후처리 — 보험 전문용어 오인식 자동 교정 (매핑 테이블 기반)"""
+    for correct, wrong_list in _STT_CORRECT_MAP.items():
+        for wrong in wrong_list:
+            text = text.replace(wrong, correct)
+    return text
+
+_STT_LLM_SYSTEM_PROMPT = """너는 대한민국 보험 전문 상담사 및 언어학 전문가이다.
+입력되는 텍스트는 STT(음성인식) 엔진을 통해 변환된 것으로,
+경상도/전라도/충청도 등 강한 사투리와 음성 인식 오류(오타)가 포함되어 있다.
+너의 임무는 이를 보험 상담 맥락에 맞게 표준어로 교정하는 것이다.
+
+[핵심 지시 사항]
+1. 의미 보존: 사용자의 의도(의문·불만·요청)를 100% 유지할 것
+2. 보험 용어 교정: "실비아"→"실손의료보험", "치매 보험"→"치매보험" 등 문맥 기반 교정
+3. 사투리 매핑: 지역별 종결어미("-노","-당께","-해유","-가꼬","-인디","-능가")를 표준어로 변환
+4. 출력 형식: 교정된 문장만 출력할 것. 설명·부연·추가 내용 생성 절대 금지
+5. 원문에 없는 내용을 절대 추가하지 말 것 (Hallucination 방지)
+6. 이미 표준어인 경우 그대로 반환할 것
+
+[Few-Shot 예시]
+Input: "이거 보험료가 억수로 비싸가꼬 좀 깎아주이소"
+Output: "이 보험료가 매우 비싸서 조금 할인해 주세요"
+
+Input: "내 아까 가입했는디 왜 문자가 안 오능가"
+Output: "제가 조금 전에 가입했는데 왜 문자가 오지 않습니까"
+
+Input: "실비아 있으면 병원비 다 나오는 거 아닝교"
+Output: "실손의료보험이 있으면 병원비가 다 나오는 건가요"
+
+Input: "치매 걸리면 보험금 얼마나 나와유"
+Output: "치매에 걸리면 보험금이 얼마나 나오나요"
+
+Input: "납입 면재 특약이 뭔지 설명해 줘봐"
+Output: "납입면제 특약이 무엇인지 설명해 주세요"
+
+Input: "이 상품 갱신형인가요 비갱신형인가요"
+Output: "이 상품은 갱신형인가요, 비갱신형인가요"
+"""
+
+def stt_llm_correct(text: str, client=None, strictness: float = 0.7) -> str:
+    """STT 결과 LLM 기반 사투리·오인식 교정 (Context-Aware Normalization)
+    - 매핑 테이블 교정(stt_correct) 이후 2차 후처리로 사용
+    - temperature=0.1: 일관성 확보, Hallucination 방지
+    - strictness (0.0~1.0): 교정 강도 파라미터
+        0.3 이하 — 보험 용어 오인식만 교정, 사투리 어투 유지
+        0.7 (기본) — 보험 용어 + 주요 사투리 종결어미 교정
+        1.0 — 전면 표준어 교정 (고강도, Hallucination 위험↑)
+    - client가 None이거나 호출 실패 시 원문 반환 (Graceful Degradation)
+    """
+    if not text or not text.strip():
+        return text
+    strictness = max(0.0, min(1.0, strictness))  # 0~1 클램프
+    # 짧은 입력은 LLM 호출 불필요
+    if len(text) <= 20:
+        return text
+    # 사투리 키워드 감지 — 없으면 LLM 호출 생략 (비용/지연 절약)
+    _dialect_markers = [
+        "가꼬", "이소", "이소요", "인디", "능가", "당께", "해유", "랑께",
+        "하이소", "드이소", "주이소", "가이소", "-노", "아이가", "아임마",
+        "억수로", "겁나", "와", "와요", "예", "예요", "아잉교", "닝교",
+        "뭐라카노", "어찌", "어케", "워째", "그랬는디", "했는디",
+    ]
+    has_dialect = any(m in text for m in _dialect_markers)
+    # STT 오인식 패턴 감지 (공백 삽입 오류 등)
+    _stt_noise = ["실비아", "납입 면재", "치매 보험", "실손 의료비", "뇌혈관 질환"]
+    has_noise = any(n in text for n in _stt_noise)
+
+    if not has_dialect and not has_noise:
+        return text  # 교정 불필요
+
+    if client is None:
+        try:
+            client, _ = get_master_model()
+        except Exception:
+            return text
+
+    # strictness에 따라 교정 지시 강도 동적 조정
+    if strictness <= 0.3:
+        _strict_directive = (
+            "\n[교정 강도: 최소] 보험 전문용어 오인식(예: 실비아→실손의료보험)만 교정하고, "
+            "사투리 어투·종결어미는 그대로 유지할 것."
+        )
+        _max_len_ratio = 1.3   # 교정 후 길이가 원문의 1.3배 초과 시 원문 반환
+    elif strictness <= 0.7:
+        _strict_directive = (
+            "\n[교정 강도: 표준] 보험 전문용어 + 주요 사투리 종결어미만 교정. "
+            "문장 전체를 재작성하지 말고 최소한의 수정만 할 것."
+        )
+        _max_len_ratio = 1.6
+    else:
+        _strict_directive = (
+            "\n[교정 강도: 고강도] 전체 문장을 자연스러운 표준어로 교정. "
+            "단, 원문의 의미와 질문 의도는 100% 보존할 것."
+        )
+        _max_len_ratio = 2.0
+
+    try:
+        resp = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[
+                {"role": "user", "parts": [{"text": (
+                    _STT_LLM_SYSTEM_PROMPT
+                    + _strict_directive
+                    + f"\n\nInput: \"{text}\"\nOutput:"
+                )}]}
+            ],
+            config={
+                "temperature": 0.1,
+                "max_output_tokens": 512,
+                "candidate_count": 1,
+            }
+        )
+        corrected = resp.text.strip().strip('"').strip("'")
+        # Hallucination 방지: 교정 결과가 원문 대비 _max_len_ratio 초과 시 원문 반환
+        if corrected and len(corrected) <= len(text) * _max_len_ratio:
+            return corrected
+        return text
+    except Exception:
+        return text
+
+def _tts_normalize(text: str) -> str:
+    """TTS 출력 전처리 — 마크다운 제거, 숫자/단위 정규화, 자연어 pause 삽입"""
+    import re
+    t = sanitize_unicode(text)
+    # 마크다운 제거
+    t = re.sub(r'#{1,6}\s*', '', t)          # 헤딩
+    t = re.sub(r'\*{1,3}([^*]+)\*{1,3}', r'\1', t)  # bold/italic
+    t = re.sub(r'`{1,3}[^`]*`{1,3}', '', t)  # 코드블록
+    t = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', t)  # 링크
+    t = re.sub(r'^[-*>|]+\s*', '', t, flags=re.MULTILINE)  # 목록/인용/표
+    # 숫자+단위 자연어 변환 (TTS 오독 방지)
+    t = re.sub(r'(\d+)%', r'\1 퍼센트', t)
+    t = re.sub(r'(\d+)원', r'\1 원', t)
+    t = re.sub(r'(\d+)만원', r'\1 만원', t)
+    t = re.sub(r'(\d+)억원', r'\1 억원', t)
+    t = re.sub(r'(\d+)ms', r'\1 밀리초', t)
+    # 문장 끝 pause — 마침표·물음표·느낌표 뒤 공백 정리
+    t = re.sub(r'([.?!。？！])\s*', r'\1 ', t)
+    # 줄바꿈 → 공백
+    t = t.replace('\n', ' ')
+    # 특수문자 제거 (JS 문자열 이스케이프 방지)
+    t = t.replace('"', '').replace("'", '').replace('`', '').replace('\\', '')
+    # 연속 공백 정리
+    t = re.sub(r'\s{2,}', ' ', t).strip()
+    return t
+
+def _detect_tone(text: str) -> str:
+    """상담 텍스트에서 Prosody 톤 자동 감지 — TTS_TONE_PRESETS 키 반환
+    우선순위: empathy > calm > clear > bright > default
+    """
+    t = text.lower()
+    # 공감 톤: 사망·입원·진단·암·수술 등 민감 상황
+    _empathy_kw = ["사망", "돌아가", "입원", "수술", "암", "진단", "사고", "응급", "위독", "상실", "슬프"]
+    if any(k in t for k in _empathy_kw):
+        return "empathy"
+    # 차분 톤: 보험금 청구·불만·해지·민원
+    _calm_kw = ["보험금 청구", "청구", "불만", "항의", "해지", "환급", "민원", "지연", "거절", "왜 안"]
+    if any(k in t for k in _calm_kw):
+        return "calm"
+    # 또렷 톤: 약관·법률·설명의무 등 정확성 중시
+    _clear_kw = ["약관", "법", "설명의무", "청약", "철회", "면책", "면제", "특약 내용", "조항"]
+    if any(k in t for k in _clear_kw):
+        return "clear"
+    # 밝은 톤: 상품 안내·신규 가입·추천
+    _bright_kw = ["상품 안내", "추천", "가입", "혜택", "할인", "프로모션", "신규", "소개", "이벤트"]
+    if any(k in t for k in _bright_kw):
+        return "bright"
+    return "default"
+
+def s_voice(text, lang=None, elderly=False, tone: str = "auto"):
+    """TTS - 전역 TTS_* 상수 강제 적용 + Prosody Control + 자연어 전처리(_tts_normalize)
+    elderly=True 시 TTS_RATE_ELDERLY(0.75) 적용 — 고령 고객 응대용
+    tone: "auto"(컨텍스트 자동 감지) | "default"|"calm"|"bright"|"empathy"|"clear"
+    """
+    lang = lang or TTS_LANG
+    if elderly:
+        rate  = TTS_RATE_ELDERLY
+        pitch = TTS_PITCH
+    else:
+        # Prosody Control: tone 파라미터 기반 rate/pitch 결정
+        _tone = _detect_tone(text) if tone == "auto" else tone
+        _preset = TTS_TONE_PRESETS.get(_tone, TTS_TONE_PRESETS["default"])
+        rate  = _preset[0]
+        pitch = _preset[1]
     vp    = '||'.join(f'v.name.includes("{n}")' for n in TTS_VOICE_PRIORITY)
-    text  = sanitize_unicode(text)
-    clean = text.replace('"', '').replace("'", "").replace("\n", " ").replace("`", "")
+    clean = _tts_normalize(text)
     return (
         '<script>'
         'window.speechSynthesis.cancel();'
         f'var msg=new SpeechSynthesisUtterance("{clean}");'
         f'msg.lang="{lang}";'
-        f'msg.rate={TTS_RATE};'
-        f'msg.pitch={TTS_PITCH};'
+        f'msg.rate={rate};'
+        f'msg.pitch={pitch};'
         f'msg.volume={TTS_VOLUME};'
         'var voices=window.speechSynthesis.getVoices();'
         f'var femaleVoice=voices.find(function(v){{return v.lang==="{lang}"&&({vp});}});'
@@ -1286,9 +1548,10 @@ def s_voice(text, lang=None):
     )
 
 def s_voice_answer(text):
-    """AI 답변 음성 읽기 - 첫 200자만 읽음"""
-    short = text[:200].replace('**', '').replace('#', '').replace('`', '')
-    return s_voice(short)
+    """AI 답변 음성 읽기 - 첫 250자만 읽음 (마크다운/특수문자 전처리 포함)
+    Prosody Control: 답변 텍스트 기반 tone 자동 감지 적용"""
+    short = _tts_normalize(text)[:250]
+    return s_voice(short, tone="auto")
 
 def load_stt_engine():
     """STT 엔진 초기화 - 실시간 받아쓰기(continuous) 방식 (1회만 호출)"""
@@ -4071,14 +4334,26 @@ def main():
         load_stt_engine()
         st.session_state.stt_loaded = True
 
-    # RAG: LightRAGSystem — 관리자 업로드 문서를 서버 전역 저장소에서 검색, 모든 사용자 참조
+    # RAG: LightRAGSystem — Event-driven 2단계 Chunking
+    # · 1단계: 세션 최초 진입 시 LightRAGSystem 인스턴스만 생성 (경량)
+    # · 2단계: 홈 화면 첫 렌더 완료(home_rendered) 후 → 백그라운드 DB sync 1회
+    #   → 이후 rerun 에서는 docs 존재 시 sync 생략 (Pre-fetching 과부하 방지)
     if 'rag_system' not in st.session_state:
         st.session_state.rag_system = LightRAGSystem()
-    # docs가 비어있으면 항상 강제 재동기화 (로그아웃/재진입 시 캐시 복구)
+
     _rag_store = _get_rag_store()
-    if not _rag_store.get("docs"):
-        _rag_sync_from_db(force=True)
-        st.session_state.rag_system = LightRAGSystem()
+    _rag_needs_sync = (
+        not _rag_store.get("docs")                        # docs 없는 경우 (최초 or 로그아웃 후)
+        and st.session_state.get('home_rendered')         # 홈 첫 렌더 완료 후에만
+        and not st.session_state.get('_rag_sync_done')    # 이번 세션에서 아직 sync 안 한 경우
+    )
+    if _rag_needs_sync:
+        try:
+            _rag_sync_from_db(force=True)
+            st.session_state.rag_system = LightRAGSystem()
+            st.session_state['_rag_sync_done'] = True
+        except Exception:
+            st.session_state['_rag_sync_done'] = True   # 오류 시도 플래그 세팅해 무한 루프 방지
 
     # ── 탭 전환 시 상단 스크롤 처리 ────────────────────────────────────
     if st.session_state.pop("_scroll_top", False):
@@ -4228,6 +4503,216 @@ section[data-testid="stSidebar"] > div:first-child {
     overflow-x: hidden !important;
     padding-bottom: 40px !important;
 }
+</style>""", unsafe_allow_html=True)
+
+    # ── 전역 4060 UX CSS ─────────────────────────────────────────────────
+    # 설계 원칙:
+    #   · WCAG 2.1 AA 대비비 (4.5:1 이상) — 노안 가독성
+    #   · 최소 16px 본문 폰트, 버튼 18px bold
+    #   · 44×44px 최소 터치타겟 (Apple HIG / Google Material)
+    #   · 결론 우선형 레이아웃 — 핵심 수치·요약 최상단
+    #   · EV 대시보드 팔레트: 딥네이비 배경, 시안/골드 액센트
+    #   · Pre-fetching 과부하 방지: 스켈레톤/지연렌더 CSS 지원
+    st.markdown("""
+<style>
+/* ── 전체 기본 폰트 & 배경 ── */
+html, body, [data-testid="stApp"] {
+    font-family: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif !important;
+    font-size: 16px !important;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── 메인 컨테이너 여백 ── */
+.block-container {
+    padding-top: 1.2rem !important;
+    padding-bottom: 2rem !important;
+    max-width: 820px !important;
+}
+
+/* ── 전체 텍스트 최소 16px, 충분한 줄간격 ── */
+p, li, span, div, label {
+    font-size: 1rem !important;
+    line-height: 1.75 !important;
+}
+
+/* ── 마크다운 헤더 크기 ── */
+h1 { font-size: 1.65rem !important; font-weight: 900 !important; }
+h2 { font-size: 1.35rem !important; font-weight: 800 !important; }
+h3 { font-size: 1.15rem !important; font-weight: 800 !important; }
+
+/* ── Streamlit 버튼 — 44px 터치타겟, 18px bold ── */
+.stButton > button {
+    min-height: 48px !important;
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    border-radius: 10px !important;
+    padding: 10px 16px !important;
+    letter-spacing: 0.02em !important;
+    transition: background 0.18s, box-shadow 0.18s, transform 0.1s !important;
+}
+.stButton > button:active {
+    transform: scale(0.97) !important;
+}
+
+/* ── Primary 버튼 — 시안 액센트 (WCAG AA #0ea5e9 on #0d1b2a = 5.2:1) ── */
+.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 2px 10px rgba(14,165,233,0.35) !important;
+}
+.stButton > button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%) !important;
+    box-shadow: 0 4px 16px rgba(14,165,233,0.50) !important;
+}
+
+/* ── Secondary 버튼 ── */
+.stButton > button[kind="secondary"] {
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+    border: 1.5px solid #334155 !important;
+}
+.stButton > button[kind="secondary"]:hover {
+    background: #334155 !important;
+    border-color: #0ea5e9 !important;
+}
+
+/* ── 일반(default) 버튼 — 도메인 카드용 ── */
+.stButton > button:not([kind]) {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    border: 1.5px solid #cbd5e1 !important;
+}
+.stButton > button:not([kind]):hover {
+    border-color: #0ea5e9 !important;
+    background: #f0f9ff !important;
+    box-shadow: 0 2px 10px rgba(14,165,233,0.18) !important;
+}
+
+/* ── 입력 필드 — 큰 폰트, 충분한 높이 ── */
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea,
+.stSelectbox > div > div > div {
+    font-size: 1rem !important;
+    min-height: 48px !important;
+    border-radius: 8px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    padding: 10px 14px !important;
+}
+.stTextInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {
+    border-color: #0ea5e9 !important;
+    box-shadow: 0 0 0 3px rgba(14,165,233,0.18) !important;
+}
+
+/* ── 라벨 — 충분히 크고 굵게 ── */
+.stTextInput label, .stTextArea label,
+.stSelectbox label, .stMultiSelect label {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
+    margin-bottom: 4px !important;
+}
+
+/* ── 섹션 구분자 ── */
+hr[data-testid="stDivider"] {
+    border-color: #e2e8f0 !important;
+    margin: 1.2rem 0 !important;
+}
+
+/* ── 도메인 그룹 헤더 라벨 (gk-section-label) — 확대 ── */
+.gk-section-label {
+    font-size: 0.95rem !important;
+    font-weight: 900 !important;
+    padding: 7px 18px !important;
+    letter-spacing: 0.05em !important;
+}
+
+/* ── 도메인 카드 — 높이·폰트 확대 ── */
+.gk-card-wrap { height: 130px !important; }
+.gk-card-icon { font-size: 2.8rem !important; }
+.gk-card-title { font-size: 1.12rem !important; font-weight: 900 !important; color: #0f172a !important; }
+.gk-card-desc  { font-size: 0.82rem !important; color: #334155 !important; line-height: 1.6 !important; }
+
+/* ── AI 한줄 요약 박스 (결론 우선형) ── */
+.gk-ai-summary {
+    background: linear-gradient(135deg, #0c2340 0%, #0369a1 100%);
+    border-left: 5px solid #fbbf24;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+    color: #ffffff;
+    font-size: 1.05rem !important;
+    font-weight: 700;
+    line-height: 1.7;
+    box-shadow: 0 4px 16px rgba(3,105,161,0.25);
+}
+.gk-ai-summary .gk-summary-label {
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.10em;
+    color: #fbbf24;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    display: block;
+}
+
+/* ── Voice-to-Action 네비게이션 입력창 ── */
+input[data-testid="stTextInputRootElement"],
+div[data-baseweb="input"] input {
+    font-size: 1rem !important;
+}
+
+/* ── 스켈레톤 로더 — Pre-fetch 지연 중 표시 ── */
+.gk-skeleton {
+    background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: gk-shimmer 1.4s infinite;
+    border-radius: 8px;
+    height: 20px;
+    margin: 6px 0;
+}
+@keyframes gk-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── toast/success/warning — 폰트 크기 ── */
+[data-testid="stNotification"] {
+    font-size: 1rem !important;
+}
+
+/* ── 사이드바 텍스트 ── */
+section[data-testid="stSidebar"] {
+    font-size: 0.95rem !important;
+}
+section[data-testid="stSidebar"] .stButton > button {
+    min-height: 44px !important;
+    font-size: 0.95rem !important;
+}
+
+/* ── expander 헤더 ── */
+summary[data-testid="stExpanderToggle"] {
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+/* ── 체크박스/라디오 터치 영역 확대 ── */
+.stCheckbox label, .stRadio label {
+    min-height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    font-size: 1rem !important;
+    cursor: pointer !important;
+}
+
+/* ── 스크롤바 ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
 </style>""", unsafe_allow_html=True)
 
     # ── 사이드바 ──────────────────────────────────────────────────────────
@@ -5118,7 +5603,11 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
             "Tiếng Việt": "Xin chào. Tôi là Goldkey AI Master. Tôi có thể giúp gì cho bạn?",
             "Русский": "Здравствуйте. Я Goldkey AI Master. Чем могу помочь?",
         }
-        stt_lang_label = st.selectbox("음성입력 언어", list(stt_lang_map.keys()), key=f"stt_{tab_key}")
+        _stt_col1, _stt_col2 = st.columns([3, 1])
+        with _stt_col1:
+            stt_lang_label = st.selectbox("음성입력 언어", list(stt_lang_map.keys()), key=f"stt_{tab_key}")
+        with _stt_col2:
+            elderly_mode = st.checkbox("👴 고령자 모드", key=f"elderly_{tab_key}", help="TTS 속도를 0.75로 낮춰 또박또박 천천히 읽습니다")
         stt_lang_code  = stt_lang_map[stt_lang_label]
         stt_greet      = stt_greet_map[stt_lang_label]
         hi_premium = st.number_input("월 건강보험료(원)", value=0, step=1000, key=f"hi_{tab_key}")
@@ -5152,8 +5641,12 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
 // ── 상태 변수 (IIFE로 격리 — 탭 간 충돌 방지) ─────────────────────────────
 var _active=false, _rec=null, _ready=false, _starting=false;
 var _finalBuf='';
-var _lastQ=[];          // Levenshtein 중복 검사 큐 (최대 {STT_LEV_QUEUE}개)
+var _lastQ=[];          // 중복 검사 큐: {{text, ts}} 객체 배열 (최대 {STT_LEV_QUEUE}개)
 var _wakeLock=null;
+// VAD 파라미터 (전역 상수에서 주입)
+var _MIN_UTTERANCE_MS={STT_MIN_UTTERANCE_MS};  // 최소 발화 길이: 노이즈 무시
+var _POST_ROLL_MS={STT_POST_ROLL_MS};          // Post-roll: Chop-off 방지
+var _utterStart=0;     // 발화 시작 타임스탬프
 // speechContext 부스트 용어 (Web Speech API grammars 힌트)
 var _boostTerms={_boost_terms_js};
 
@@ -5169,7 +5662,15 @@ function _relWL(){{
   if(_wakeLock){{ try{{_wakeLock.release();}}catch(e){{}} _wakeLock=null; }}
 }}
 
-// ── Levenshtein 중복 필터 ──────────────────────────────────────────────────
+// ── Content Hash + Levenshtein 병행 중복 필터 ────────────────────────────
+// djb2 해시: 브라우저 내장 crypto 불필요, O(N_chars) 경량
+function _hash(s){{
+  var h=5381, i=s.length;
+  // 공백 제거·소문자화 정규화 후 해싱 (Content Hashing)
+  s=s.replace(/\s/g,'').toLowerCase();
+  while(i--){{ h=((h<<5)+h)^s.charCodeAt(i); h=h>>>0; }}
+  return h.toString(36);
+}}
 function _lev(a,b){{
   var m=a.length,n=b.length,dp=[],i,j;
   for(i=0;i<=m;i++)dp[i]=[i];
@@ -5180,14 +5681,26 @@ function _lev(a,b){{
 }}
 function _isDup(text){{
   if(!text||text.length<5) return false;
+  var now=Date.now();
+  var curHash=_hash(text);
   for(var i=0;i<_lastQ.length;i++){{
-    var prev=_lastQ[i], mx=Math.max(prev.length,text.length);
-    if(mx>0 && 1-(_lev(prev,text)/mx) >= {STT_LEV_THRESHOLD}) return true;
+    var entry=_lastQ[i];
+    var age=now-entry.ts;
+    // TTL 만료 항목은 건너뜀 (오래된 데이터 유효성 제한)
+    if(age>{STT_DUP_TIME_MS}*2) continue;
+    // 1단계: Content Hash 완전일치 O(1) — {STT_DUP_TIME_MS}ms 이내
+    if(curHash===entry.hash && age<{STT_DUP_TIME_MS}) return true;
+    // 2단계: Levenshtein 유사도 — 95% 이상이면 사실상 동일 입력
+    var mx=Math.max(entry.text.length,text.length);
+    var sim=mx>0?1-(_lev(entry.text,text)/mx):1;
+    if(sim>=0.95) return true;
+    // 3단계: 기존 LEV 임계값 ({STT_LEV_THRESHOLD}) — 짧은 시간 내 유사 문장 차단
+    if(sim>={STT_LEV_THRESHOLD} && age<{STT_DUP_TIME_MS}) return true;
   }}
   return false;
 }}
 function _addQ(text){{
-  _lastQ.push(text);
+  _lastQ.push({{text:text, ts:Date.now(), hash:_hash(text)}});
   if(_lastQ.length>{STT_LEV_QUEUE}) _lastQ.shift();
 }}
 
@@ -5242,9 +5755,15 @@ function _init(){{
   r.onstart=function(){{ _starting=false; }};
 
   r.onresult=function(e){{
+    var now=Date.now();
+    if(!_utterStart) _utterStart=now;  // 발화 시작 시각 기록
     var interim='', finalNew='';
     for(var i=e.resultIndex;i<e.results.length;i++){{
       if(e.results[i].isFinal){{
+        // VAD min_utterance 필터: 발화 길이 {STT_MIN_UTTERANCE_MS}ms 미만 노이즈 무시
+        var uttDur=now-_utterStart;
+        _utterStart=0;  // 다음 발화를 위해 초기화
+        if(uttDur < _MIN_UTTERANCE_MS) continue;
         // 신뢰도 최고 후보 선택 (condition_on_previous_text=False 효과)
         var best='', bc=0;
         for(var j=0;j<e.results[i].length;j++){{
@@ -5253,15 +5772,20 @@ function _init(){{
         // Levenshtein 중복 필터 (compression_ratio_threshold 역할)
         if(best && !_isDup(best)){{ finalNew+=best; _addQ(best); }}
       }} else {{
+        if(!_utterStart) _utterStart=now;
         interim+=e.results[i][0].transcript;
       }}
     }}
     if(finalNew){{
       _finalBuf=_join(_finalBuf,finalNew);
       _setTA(_finalBuf);
-      document.getElementById('stt_interim_{tab_key}').textContent='';
+      var idv=document.getElementById('stt_interim_{tab_key}');
+      if(idv) idv.textContent='';
     }}
-    if(interim) document.getElementById('stt_interim_{tab_key}').textContent='🎤 '+interim;
+    if(interim){{
+      var idv=document.getElementById('stt_interim_{tab_key}');
+      if(idv) idv.textContent='🎤 '+interim+' ('+interim.length+'자)';
+    }}
   }};
 
   r.onerror=function(e){{
@@ -5282,13 +5806,14 @@ function _init(){{
   r.onend=function(){{
     _starting=false;
     if(_active){{
-      // prefix_padding_ms({STT_PREFIX_PAD_MS}ms) + restart_ms({STT_RESTART_MS}ms) 대기 후 재시작
+      // post-roll({STT_POST_ROLL_MS}ms) + prefix_padding({STT_PREFIX_PAD_MS}ms) + restart({STT_RESTART_MS}ms) 대기 후 재시작
+      // post-roll: 말 끝난 직후 잔향 포함, Chop-off 방지
       setTimeout(function(){{
         if(_active && !_starting){{
           _starting=true;
           try{{r.start();}}catch(ex){{_starting=false;}}
         }}
-      }}, {STT_PREFIX_PAD_MS}+{STT_RESTART_MS});
+      }}, {STT_POST_ROLL_MS}+{STT_PREFIX_PAD_MS}+{STT_RESTART_MS});
     }} else {{
       var btn=document.getElementById('stt_btn_{tab_key}');
       if(btn){{btn.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';btn.classList.remove('active');}}
@@ -5325,7 +5850,8 @@ window['startSTT_{tab_key}']=function(){{
 window['startTTS_{tab_key}']=function(){{
   window.speechSynthesis.cancel();
   var msg=new SpeechSynthesisUtterance('{stt_greet}');
-  msg.lang='{stt_lang_code}'; msg.rate={TTS_RATE}; msg.pitch={TTS_PITCH}; msg.volume={TTS_VOLUME};
+  var _ttsRate={TTS_RATE_ELDERLY if elderly_mode else TTS_RATE};
+  msg.lang='{stt_lang_code}'; msg.rate=_ttsRate; msg.pitch={TTS_PITCH}; msg.volume={TTS_VOLUME};
   var voices=window.speechSynthesis.getVoices();
   var vp=[{','.join(repr(n) for n in TTS_VOICE_PRIORITY)}];
   var fv=voices.find(function(v){{
@@ -5671,7 +6197,13 @@ window['startTTS_{tab_key}']=function(){{
             try:
                 client, model_config = get_master_model()
                 income   = hi_premium / 0.0709 if hi_premium > 0 else 0
-                safe_q   = sanitize_prompt(query)
+                # ── STT 후처리 파이프라인 (음성입력 품질 향상) ──────────────
+                # 1단계: 매핑 테이블 기반 보험 전문용어 오인식 교정
+                _q_corrected = stt_correct(query)
+                # 2단계: LLM 기반 사투리·오인식 교정 (사투리 감지 시에만 호출)
+                # strictness=0.7: 보험 용어+주요 사투리 교정, 과교정 방지
+                _q_corrected = stt_llm_correct(_q_corrected, client=client, strictness=0.7)
+                safe_q   = sanitize_prompt(_q_corrected)
 
                 # ── 입력 길이 제한 (DoS·텍스트폭탄 방어) ───────────────────
                 _MAX_QUERY_LEN = 2000
@@ -5925,6 +6457,32 @@ window['startTTS_{tab_key}']=function(){{
     def show_result(result_key, guide_md=""):
         if st.session_state.get(result_key):
             result_text = st.session_state[result_key]
+            # ── 결론 우선형 AI 한줄 요약 블록 (4060 가독성 최적화) ──────────
+            # 첫 번째 굵은 문장 또는 ★/✅/💡 포함 줄을 요약으로 추출
+            _summary_line = ""
+            for _ln in result_text.splitlines():
+                _ln_s = _ln.strip()
+                if not _ln_s:
+                    continue
+                # 핵심 결론 패턴: ★ / ✅ / 💡 / **..** 굵은 텍스트
+                if any(tok in _ln_s for tok in ["★", "✅", "💡", "🔑", "핵심", "결론", "요약"]):
+                    _summary_line = re.sub(r"\*+", "", _ln_s).strip(" #>-·")
+                    break
+            if not _summary_line:
+                # 패턴 없으면 첫 비빈 줄에서 80자 추출
+                for _ln in result_text.splitlines():
+                    _ln_s = re.sub(r"[#*_>`\-]", "", _ln).strip()
+                    if len(_ln_s) > 20:
+                        _summary_line = _ln_s[:80] + ("…" if len(_ln_s) > 80 else "")
+                        break
+            if _summary_line:
+                st.markdown(
+                    f'<div class="gk-ai-summary">'
+                    f'<span class="gk-summary-label">AI 핵심 결론</span>'
+                    f'{_summary_line}'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
             st.markdown(result_text)
             # ── 금지 키워드 감지 시 추가 답변 버튼 ─────────────────────────
             fb_key = f"_forbidden_{result_key}"
@@ -6022,6 +6580,208 @@ window['startTTS_{tab_key}']=function(){{
     {_uname} 마스터님 · 로그인됨
   </span>
 </div>""", unsafe_allow_html=True)
+
+        # ── 아바타 + Voice-to-Action 네비게이션 블록 (Glassmorphism / EV Dashboard) ──
+        _uname_disp = mask_name(st.session_state.get("user_name","")) if "user_id" in st.session_state else "마스터"
+        components.html(f"""
+<style>
+/* Glassmorphism 카드 */
+.gk-hero {{
+  background: linear-gradient(135deg,rgba(13,27,42,0.95) 0%,rgba(26,58,92,0.92) 55%,rgba(46,109,164,0.90) 100%);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(14,165,233,0.30);
+  border-radius: 18px;
+  padding: 20px 22px 16px 22px;
+  margin-bottom: 10px;
+  box-shadow: 0 8px 32px rgba(3,105,161,0.28), inset 0 1px 0 rgba(255,255,255,0.08);
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}}
+.gk-hero-avatar {{
+  font-size: 3.6rem; line-height: 1; flex-shrink: 0;
+  filter: drop-shadow(0 0 12px rgba(14,165,233,0.6));
+  position: relative;
+}}
+/* 음성파동 링 — EV 시동 on 느낌 */
+.gk-pulse-ring {{
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  width: 68px; height: 68px;
+  border-radius: 50%;
+  border: 2px solid rgba(14,165,233,0.55);
+  animation: gk-pulse 2.2s ease-out infinite;
+  pointer-events: none;
+}}
+.gk-pulse-ring:nth-child(2) {{ animation-delay: 0.7s; }}
+.gk-pulse-ring:nth-child(3) {{ animation-delay: 1.4s; }}
+@keyframes gk-pulse {{
+  0%   {{ transform: translate(-50%,-50%) scale(0.85); opacity: 0.8; }}
+  100% {{ transform: translate(-50%,-50%) scale(2.2);  opacity: 0; }}
+}}
+.gk-hero-body {{ flex: 1; min-width: 0; }}
+.gk-hero-title {{
+  color: #fbbf24; font-size: 1.08rem; font-weight: 900;
+  margin-bottom: 4px; letter-spacing: 0.03em;
+  text-shadow: 0 0 12px rgba(251,191,36,0.4);
+}}
+.gk-hero-sub {{
+  color: #bae6fd; font-size: 0.82rem; line-height: 1.65;
+}}
+.gk-hero-sub b {{ color: #ffffff; }}
+.gk-hero-sub i {{ color: #7dd3fc; font-style: normal; }}
+/* 상태 인디케이터 (EV 배터리 바 스타일) */
+.gk-status-bar {{
+  margin-top: 10px; display: flex; align-items: center; gap: 8px;
+}}
+.gk-dot {{ width: 8px; height: 8px; border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34,197,94,0.7);
+  animation: gk-blink 1.8s ease-in-out infinite;
+}}
+@keyframes gk-blink {{
+  0%,100% {{ opacity:1; }} 50% {{ opacity:0.35; }}
+}}
+.gk-status-text {{ color: #86efac; font-size: 0.73rem; font-weight: 700;
+  letter-spacing: 0.08em; }}
+</style>
+<div class="gk-hero">
+  <div class="gk-hero-avatar">
+    🤖
+    <div class="gk-pulse-ring"></div>
+    <div class="gk-pulse-ring"></div>
+    <div class="gk-pulse-ring"></div>
+  </div>
+  <div class="gk-hero-body">
+    <div class="gk-hero-title">안녕하세요, {_uname_disp}님 &nbsp;·&nbsp; 골드키 AI 어시스턴트</div>
+    <div class="gk-hero-sub">
+      🎙️ 아래 <b>음성 명령</b>으로 원하는 메뉴로 바로 이동합니다<br>
+      예: <i>"보험증권 분석"</i> &nbsp;·&nbsp; <i>"암 상담"</i> &nbsp;·&nbsp; <i>"세무 상담"</i> &nbsp;·&nbsp; <i>"노후설계"</i>
+    </div>
+    <div class="gk-status-bar">
+      <div class="gk-dot"></div>
+      <span class="gk-status-text">AI ONLINE &nbsp;·&nbsp; GEMINI 2.0 FLASH &nbsp;·&nbsp; 30년 실무 지식 탑재</span>
+    </div>
+  </div>
+</div>
+""", height=150)
+
+        # Voice-to-Action STT 입력창
+        _nav_col1, _nav_col2 = st.columns([3, 1], gap="small")
+        with _nav_col1:
+            _nav_input = st.text_input(
+                "nav_input_label",
+                key="voice_nav_input",
+                placeholder="🎙️ 음성 명령 또는 직접 입력 — 예) '보험금 청구', '암 상담', '노후설계'",
+                label_visibility="collapsed",
+            )
+        with _nav_col2:
+            _nav_go = st.button("🚀 바로 이동", key="btn_voice_nav_go",
+                                use_container_width=True, type="primary")
+
+        # Voice-to-Action STT 버튼 (음성 입력)
+        import json as _json
+        _nav_intent_js = _json.dumps(
+            [[tab, kws] for tab, kws in _NAV_INTENT_MAP],
+            ensure_ascii=False
+        )
+        components.html(f"""
+<style>
+.vnav-row{{display:flex;gap:8px;margin-top:2px;margin-bottom:4px;}}
+.vnav-stt{{flex:1;padding:8px 0;border-radius:8px;border:1.5px solid #2e6da4;
+  background:#eef4fb;color:#1a3a5c;font-size:0.85rem;font-weight:700;cursor:pointer;}}
+.vnav-stt:hover{{background:#2e6da4;color:#fff;}}
+.vnav-stt.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;animation:vnavpulse 1s infinite;}}
+.vnav-hint{{font-size:0.72rem;color:#6b7280;margin-top:3px;text-align:center;}}
+@keyframes vnavpulse{{0%{{opacity:1}}50%{{opacity:0.6}}100%{{opacity:1}}}}
+</style>
+<div class="vnav-row">
+  <button class="vnav-stt" id="vnav_stt_btn" onclick="startVNavSTT()">🎙️ 음성으로 메뉴 이동</button>
+</div>
+<div class="vnav-hint">말하면 자동으로 해당 메뉴로 이동합니다 · Chrome/Edge 브라우저 권장</div>
+<script>
+(function(){{
+var _active=false, _rec=null, _starting=false;
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+var _INTENTS={_nav_intent_js};
+
+function _detectTab(text){{
+  var t=text.toLowerCase();
+  for(var i=0;i<_INTENTS.length;i++){{
+    var item=_INTENTS[i];
+    for(var j=0;j<item[1].length;j++){{
+      if(t.indexOf(item[1][j].toLowerCase())>=0) return item[0];
+    }}
+  }}
+  return null;
+}}
+function _fillInput(text){{
+  var doc=window.parent.document;
+  var inputs=doc.querySelectorAll('input[type=text]');
+  for(var i=0;i<inputs.length;i++){{
+    var ph=inputs[i].placeholder||'';
+    if(ph.includes('음성 명령')||ph.includes('바로 이동')){{
+      var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
+      s.call(inputs[i],text);
+      inputs[i].dispatchEvent(new Event('input',{{bubbles:true}}));
+      return;
+    }}
+  }}
+}}
+function _clickGo(){{
+  var doc=window.parent.document;
+  var btns=doc.querySelectorAll('button');
+  for(var i=0;i<btns.length;i++){{
+    if(btns[i].textContent.includes('바로 이동')){{
+      btns[i].click(); return;
+    }}
+  }}
+}}
+window.startVNavSTT=function(){{
+  var btn=document.getElementById('vnav_stt_btn');
+  if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.'); return;}}
+  if(_active){{
+    _active=false; _starting=false;
+    if(_rec) try{{_rec.stop();}}catch(ex){{}};
+    btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active'); return;
+  }}
+  var r=new SR();
+  r.lang='{STT_LANG}'; r.interimResults=false; r.continuous=false; r.maxAlternatives=3;
+  r.onresult=function(e){{
+    var best='', bc=0;
+    for(var j=0;j<e.results[0].length;j++){{
+      if(e.results[0][j].confidence>=bc){{bc=e.results[0][j].confidence; best=e.results[0][j].transcript;}}
+    }}
+    if(best){{
+      _fillInput(best);
+      // 인텐트 감지 시 자동 클릭
+      if(_detectTab(best)) setTimeout(_clickGo, 300);
+    }}
+  }};
+  r.onerror=function(e){{
+    _active=false; btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+  }};
+  r.onend=function(){{
+    _active=false; _starting=false;
+    btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+  }};
+  _rec=r; _active=true; _starting=true;
+  btn.textContent='⏹️ 듣는 중... (말하세요)'; btn.classList.add('active');
+  try{{r.start();}}catch(ex){{_active=false; _starting=false;}}
+}};
+}})();
+</script>
+""", height=70)
+
+        # Voice-to-Action 라우팅 처리 (버튼 클릭 or 엔터)
+        if _nav_go and _nav_input:
+            _dest = _voice_navigate(_nav_input.strip())
+            if _dest:
+                _label_map = {t: kws[0] for t, kws in _NAV_INTENT_MAP}
+                st.session_state.current_tab = _dest
+                st.session_state["_scroll_top"] = True
+                st.session_state["voice_nav_input"] = ""
+                st.rerun()
+            else:
+                st.warning("⚠️ 해당 메뉴를 찾지 못했습니다. 더 구체적으로 입력해주세요. 예) '암 상담', '보험증권 분석'")
 
         # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
         components.html("""
@@ -6131,59 +6891,118 @@ div[data-testid="stTextArea"] textarea {
                 label_visibility="collapsed"
             )
             # 음성 입력 버튼 (실시간 STT)
-            components.html("""
+            components.html(f"""
 <style>
-.sug-row{display:flex;gap:8px;margin-top:4px;}
-.sug-stt{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #2e6da4;
-  background:#eef4fb;color:#1a3a5c;font-size:0.86rem;font-weight:700;cursor:pointer;}
-.sug-stt:hover{background:#2e6da4;color:#fff;}
-.sug-stt.active{background:#e74c3c;color:#fff;border-color:#e74c3c;}
+.sug-row{{display:flex;gap:8px;margin-top:4px;}}
+.sug-stt{{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #2e6da4;
+  background:#eef4fb;color:#1a3a5c;font-size:0.86rem;font-weight:700;cursor:pointer;}}
+.sug-stt:hover{{background:#2e6da4;color:#fff;}}
+.sug-stt.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;animation:sugpulse 1s infinite;}}
+@keyframes sugpulse{{0%{{opacity:1}}50%{{opacity:0.6}}100%{{opacity:1}}}}
 </style>
 <div class="sug-row">
   <button class="sug-stt" id="sug_stt_btn" onclick="startSugSTT()">🎙️ 음성으로 제안하기</button>
 </div>
 <script>
-var _sugActive = false;
-var _sugRec = null;
-function startSugSTT(){
-  var btn = document.getElementById('sug_stt_btn');
-  if(_sugActive){
-    if(_sugRec) _sugRec.stop();
-    _sugActive=false; btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active'); return;
-  }
+(function(){{
+var _active=false, _rec=null, _starting=false;
+var _finalBuf='';
+var _lastQ=[];
+var _wakeLock=null;
+function _acqWL(){{
+  if(!('wakeLock' in navigator)) return;
+  navigator.wakeLock.request('screen').then(function(wl){{
+    _wakeLock=wl; wl.addEventListener('release',function(){{ if(_active) _acqWL(); }});
+  }}).catch(function(){{}});
+}}
+function _relWL(){{
+  if(_wakeLock){{ try{{_wakeLock.release();}}catch(e){{}} _wakeLock=null; }}
+}}
+function _hash(s){{ var h=5381,i; s=s.replace(/\s/g,'').toLowerCase(); for(i=0;i<s.length;i++){{h=((h<<5)+h)^s.charCodeAt(i);h=h>>>0;}} return h.toString(36); }}
+function _lev(a,b){{
+  var m=a.length,n=b.length,dp=[],i,j;
+  for(i=0;i<=m;i++)dp[i]=[i];
+  for(j=0;j<=n;j++)dp[0][j]=j;
+  for(i=1;i<=m;i++)for(j=1;j<=n;j++)
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[m][n];
+}}
+function _isDup(text){{
+  if(!text||text.length<5) return false;
+  var now=Date.now(), curHash=_hash(text);
+  for(var i=0;i<_lastQ.length;i++){{
+    var entry=_lastQ[i]; var age=now-entry.ts;
+    if(age>{STT_DUP_TIME_MS}*2) continue;
+    if(curHash===entry.hash&&age<{STT_DUP_TIME_MS}) return true;
+    var mx=Math.max(entry.text.length,text.length);
+    var sim=mx>0?1-(_lev(entry.text,text)/mx):1;
+    if(sim>=0.95) return true;
+    if(sim>={STT_LEV_THRESHOLD}&&age<{STT_DUP_TIME_MS}) return true;
+  }}
+  return false;
+}}
+function _addQ(text){{ _lastQ.push({{text:text,ts:Date.now(),hash:_hash(text)}}); if(_lastQ.length>{STT_LEV_QUEUE}) _lastQ.shift(); }}
+function _getTA(){{
+  var doc=window.parent.document, tas=doc.querySelectorAll('textarea');
+  for(var i=0;i<tas.length;i++){{
+    var ph=tas[i].placeholder||'';
+    if(ph.includes('제안')||ph.includes('의견')) return tas[i];
+  }}
+  return tas.length?tas[0]:null;
+}}
+function _setTA(val){{
+  var ta=_getTA(); if(!ta) return;
+  var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
+  s.call(ta,val); ta.dispatchEvent(new Event('input',{{bubbles:true}}));
+}}
+window.startSugSTT=function(){{
+  var btn=document.getElementById('sug_stt_btn');
+  if(_active){{
+    _active=false; _starting=false;
+    if(_rec) try{{_rec.stop();}}catch(ex){{}};
+    btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active'); _relWL(); return;
+  }}
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){alert('Chrome/Edge 브라우저를 사용해주세요.'); return;}
-  var r=new SR(); r.lang='ko-KR'; r.interimResults=true; r.continuous=true;
-  r.onresult=function(e){
-    var interim=''; var final_t='';
-    for(var i=e.resultIndex;i<e.results.length;i++){
-      if(e.results[i].isFinal){ final_t+=e.results[i][0].transcript; }
-      else { interim+=e.results[i][0].transcript; }
-    }
-    var display = final_t || interim;
-    var tas = window.parent.document.querySelectorAll('textarea');
-    var ta = null;
-    for(var i=0;i<tas.length;i++){
-      if(tas[i].getAttribute('aria-label')==='제안 내용 입력' || tas[i].placeholder.includes('제안')){
-        ta=tas[i]; break;
-      }
-    }
-    if(!ta && tas.length) ta = tas[0];
-    if(ta && display){
-      var nativeSetter=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
-      nativeSetter.call(ta, display);
-      ta.dispatchEvent(new Event('input',{bubbles:true}));
-    }
-  };
-  r.onerror=function(e){alert('음성인식 오류: '+e.error); _sugActive=false; btn.classList.remove('active');};
-  r.onend=function(){
-    if(_sugActive){ r.start(); }
-    else{ btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active'); }
-  };
-  _sugRec=r; _sugActive=true;
+  if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.'); return;}}
+  var r=new SR();
+  r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=true; r.maxAlternatives={STT_MAX_ALT};
+  r.onstart=function(){{ _starting=false; }};
+  r.onresult=function(e){{
+    var interim='', finalNew='';
+    for(var i=e.resultIndex;i<e.results.length;i++){{
+      if(e.results[i].isFinal){{
+        var best='',bc=0;
+        for(var j=0;j<e.results[i].length;j++){{
+          if(e.results[i][j].confidence>=bc){{bc=e.results[i][j].confidence;best=e.results[i][j].transcript;}}
+        }}
+        if(best&&!_isDup(best)){{finalNew+=best;_addQ(best);}}
+      }} else {{ interim+=e.results[i][0].transcript; }}
+    }}
+    if(finalNew){{ _finalBuf=_finalBuf?_finalBuf+'. '+finalNew:finalNew; _setTA(_finalBuf); }}
+  }};
+  r.onerror=function(e){{
+    _starting=false;
+    if(e.error==='no-speech'||e.error==='aborted') return;
+    if(e.error==='not-allowed'){{ _active=false; _relWL(); btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active'); return; }}
+  }};
+  r.onend=function(){{
+    _starting=false;
+    if(_active){{
+      // post-roll({STT_POST_ROLL_MS}ms) + prefix_padding({STT_PREFIX_PAD_MS}ms) + restart({STT_RESTART_MS}ms)
+      setTimeout(function(){{
+        if(_active&&!_starting){{ _starting=true; try{{r.start();}}catch(ex){{_starting=false;}} }}
+      }},{STT_POST_ROLL_MS}+{STT_PREFIX_PAD_MS}+{STT_RESTART_MS});
+    }} else {{
+      btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active'); _relWL();
+    }}
+  }};
+  _rec=r; _finalBuf=''; _lastQ=[];
+  _active=true; _starting=true;
   btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)'; btn.classList.add('active');
-  r.start();
-}
+  _acqWL();
+  try{{r.start();}}catch(ex){{_starting=false;}}
+}};
+}})();
 </script>
 """, height=50)
 
@@ -6225,7 +7044,7 @@ function startSugSTT(){
             )
 
         st.divider()
-        st.markdown("### 📌 상담 카테고리 — 원하는 항목을 선택하세요")
+        st.markdown("### 🗂️ 4개 도메인 그룹 네비게이션 — 원하는 항목을 선택하거나 음성으로 이동하세요")
 
         # ── 카드 CSS: 전체 박스 클릭 + 동일 높이 ──
         st.markdown("""
@@ -6290,52 +7109,6 @@ section[data-testid="stMain"] > div,
 </style>
 """, unsafe_allow_html=True)
 
-        # ── 핵심 도구 3열 (첨단 고정) ──────────────────────────────────────
-        st.markdown(
-            '<div class="gk-section-label" style="background:linear-gradient(90deg,#0d3b2e,#0d2a4a);">'
-            '📋 핵심 도구 — 증권분석 &amp; 약관검색 &amp; 스캔허브</div>',
-            unsafe_allow_html=True)
-        _tool_c1, _tool_c2, _tool_c3 = st.columns(3, gap="small")
-        with _tool_c1:
-            st.markdown("""
-<div style="background:linear-gradient(135deg,#0d3b2e,#1a6b4a);
-  border-radius:14px;padding:16px 10px 12px 10px;text-align:center;min-height:110px;">
-  <div style="font-size:2.2rem;">📎</div>
-  <div style="color:#fff;font-size:0.9rem;font-weight:900;margin:6px 0 4px;">보험증권 AI 분석</div>
-  <div style="color:#a8f0c8;font-size:0.68rem;line-height:1.5;">증권 PDF 업로드<br>담보 자동파싱 · 보장공백</div>
-</div>""", unsafe_allow_html=True)
-            if st.button("📎 증권분석", key="home_pscan_main",
-                         use_container_width=True, type="primary"):
-                st.session_state.current_tab = "policy_scan"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-        with _tool_c2:
-            st.markdown("""
-<div style="background:linear-gradient(135deg,#0d2137,#1e6fa8);
-  border-radius:14px;padding:16px 10px 12px 10px;text-align:center;min-height:110px;">
-  <div style="font-size:2.2rem;">📜</div>
-  <div style="color:#fff;font-size:0.9rem;font-weight:900;margin:6px 0 4px;">보험약관 AI 검색</div>
-  <div style="color:#a8d4f5;font-size:0.68rem;line-height:1.5;">공시실 실시간 탐색<br>가입시점 정확매칭</div>
-</div>""", unsafe_allow_html=True)
-            if st.button("📜 약관검색", key="home_pterm_main",
-                         use_container_width=True, type="primary"):
-                st.session_state.current_tab = "policy_terms"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-        with _tool_c3:
-            st.markdown("""
-<div style="background:linear-gradient(135deg,#0d3b2e,#27ae60);
-  border-radius:14px;padding:16px 10px 12px 10px;text-align:center;min-height:110px;">
-  <div style="font-size:2.2rem;">🔬</div>
-  <div style="color:#fff;font-size:0.9rem;font-weight:900;margin:6px 0 4px;">통합 스캔 허브</div>
-  <div style="color:#a8e6cf;font-size:0.68rem;line-height:1.5;">증권·의무기록·진단서<br>1회 업로드 → 전탭 자동활용</div>
-</div>""", unsafe_allow_html=True)
-            if st.button("🔬 스캔허브", key="home_scanhub_main",
-                         use_container_width=True, type="primary"):
-                st.session_state.current_tab = "scan_hub"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-
         def _render_cards(cards, prefix):
             import math as _math
             for row in range(_math.ceil(len(cards) / 2)):
@@ -6354,64 +7127,102 @@ section[data-testid="stMain"] > div,
                             st.session_state["_scroll_top"] = True
                             st.rerun()
 
-        # ── 파트 최상단: 카탈로그 섹션 (가장 먼저 표시) ──
-        st.markdown('<div class="gk-section-label">📖 상담 카탈로그</div>', unsafe_allow_html=True)
+        # ══════════════════════════════════════════════════════════════
+        # 4개 도메인 그룹 카드 네비게이션
+        # A. Smart Analysis & Hub  (분석·허브)
+        # B. Expert Consulting     (전문 상담)
+        # C. Wealth & Corporate    (자산·세무·법인)
+        # D. Life & Care           (생애·케어)
+        # ══════════════════════════════════════════════════════════════
+
+        # ── 도메인 A: Smart Analysis & Hub (디직털 딥블루/시안) ─────────────────
+        st.markdown("""
+<div style="background:linear-gradient(90deg,#0c2340,#0369a1);
+  border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
+  display:flex;align-items:center;gap:10px;
+  box-shadow:0 2px 12px rgba(3,105,161,0.35);
+  border-left:4px solid #0ea5e9;">
+  <span style="font-size:1.2rem;">🔬</span>
+  <div>
+    <div style="color:#fff;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">A &nbsp;🛡️ Smart Analysis &amp; Hub</div>
+    <div style="color:#7dd3fc;font-size:0.72rem;margin-top:2px;">증권분석 · 약관검색 · 스캔허브 · 리플렛 · 고객자료</div>
+  </div>
+</div>""", unsafe_allow_html=True)
         _render_cards([
-            ("consult_catalog",  "📖", "상담 카탈로그",       "내가 올린 카탈로그 열람 · PDF/이미지 뷰어 · 보험사별 분류 조회"),
-            ("digital_catalog",  "📱", "디지털 카탈로그 관리", "보험사 카탈로그 업로드·AI분류 · Public/Private 보안 저장"),
-        ], "home_p_catalog")
+            ("policy_scan",       "📎", "보험증권 AI 분석",      "증권 PDF 업로드 · 담보 자동파싱 · 보장공백 진단"),
+            ("policy_terms",      "📜", "보험약관 AI 검색",      "공시실 실시간 탐색 · 가입시점 정확매칭"),
+            ("scan_hub",          "🔬", "통합 스캔 허브",        "증권·의무기록·진단서 1회 업로드 → 전탭 자동활용"),
+            ("leaflet",           "🗂️", "보험 리플렛 AI 분류",   "리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 저장"),
+            ("consult_catalog",   "📖", "상담 카탈로그 열람",    "내가 올린 카탈로그 · PDF/이미지 뷰어 · 보험사별 분류"),
+            ("digital_catalog",   "📱", "디지털 카탈로그 관리",  "보험사 카탈로그 업로드·AI분류 · Public/Private 저장"),
+            ("customer_docs",     "👤", "고객자료 통합저장",     "의무기록·증권분석·청구서류 · 고객별 마인드맵 저장"),
+        ], "home_grpA")
 
-        # ── 파트 0: 상담 & LIFE 컨설팅 ──
-        st.markdown('<div class="gk-section-label">🌟 상담 &amp; LIFE 컨설팅</div>', unsafe_allow_html=True)
+        # ── 도메인 B: Expert Consulting (에메랄드그린) ─────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(90deg,#064e3b,#059669);
+  border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
+  display:flex;align-items:center;gap:10px;
+  box-shadow:0 2px 12px rgba(5,150,105,0.35);
+  border-left:4px solid #10b981;">
+  <span style="font-size:1.2rem;">🌏</span>
+  <div>
+    <div style="color:#fff;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">B &nbsp;🛡️ Expert Consulting</div>
+    <div style="color:#6ee7b7;font-size:0.72rem;margin-top:2px;">신규/보험금 상담 · 장해 · 자동차사고 · 암·뇌·심장 · LIFE CYCLE</div>
+  </div>
+</div>""", unsafe_allow_html=True)
         _render_cards([
-            ("t0",         "📋", "신규보험 상담",       "기존 보험증권 분석 · 보장 공백 진단 · 신규 컨설팅"),
-            ("life_cycle", "🔄", "LIFE CYCLE 백지설계", "인생 타임라인 시각화 상담자료 · 생존·상해·결혼·퇴직·노후 설계도"),
-        ], "home_p0")
+            ("t0",          "📋", "신규보험 상담",        "기존 보험증권 분석 · 보장 공백 진단 · 신규 컨설팅"),
+            ("t1",          "💰", "보험금 상담",          "청구 절차 · 지급 거절 대응\n민원·손해사정·약관 해석"),
+            ("disability",  "🩺", "장해보험금 산출",      "AMA·맥브라이드·호프만계수 후유장해 보험금 산출"),
+            ("t2",          "🛡️", "기본보험 상담",        "자동차·화재·운전자 · 일상배상책임 점검"),
+            ("t3",          "🏥", "질병·상해 통합보험",   "암·뇌·심장 3대질병 보장 · 간병·치매·생명보험 설계"),
+            ("cancer",      "🎗️", "암·뇌·심장질환 상담", "NGS·표적항암·면역항암·CAR-T 뇌심장 보장 실무 분석"),
+            ("t4",          "🚗", "자동차사고 상담",      "과실비율·합의금 분석 · 13대 중과실·민식이법 안내"),
+            ("life_cycle",  "🔄", "LIFE CYCLE 백지설계", "인생 타임라인 시각화 · 생존·상해·결혼·퇴직·노후 설계도"),
+        ], "home_grpB")
 
-        # ── 파트 1: 보험 상담 (5개, 2열) ──
-        st.markdown('<div class="gk-section-label">🛡️ 보험 상담</div>', unsafe_allow_html=True)
-        PART1 = [
-            ("t1",  "💰", "보험금 상담",        "청구 절차 · 지급 거절 대응\n민원·손해사정·약관 해석"),
-            ("disability","🩺","장해보험금 산출","AMA·맥브라이드·호프만계수\n후유장해 보험금 산출"),
-            ("t2",  "🛡️", "기본보험 상담",      "자동차·화재·운전자\n일상배상체임 점검"),
-            ("t3",  "🏥", "질병·상해 통합보험",  "암·뇌·심장 3대질병 보장\n간병·치매·생명보험 설계"),
-            ("cancer","🎗️","암.뇌.심장질환 상담", "NGS·표적항암·면역항암·CAR-T\n뇌심장 치료비 보장 실무 분석"),
-            ("t4",  "🚗", "자동차사고 상담",    "과실비율·합의금 분석\n13대 중과실·민식이법 안내"),
-        ]
-        _render_cards(PART1, "home_p1")
-
-        # ── 파트 2: 자산·세무·법인 (6개, 2열×3행) ──
-        st.markdown('<div class="gk-section-label">💼 자산·세무·법인</div>', unsafe_allow_html=True)
-        PART2 = [
-            ("t5",  "🌅", "노후·연금·상속설계",  "연금 3층 설계 · 주택연금\n상속·증여 절세 전략"),
-            ("t6",  "📊", "세무상담",           "소득세·법인세·부가세 절세\n건보료 역산 · 금융소득 분석"),
-            ("t7",  "🏢", "법인상담",           "법인 보험 · 단체보험 설계\n법인세 절감 · 복리후생 플랜"),
-            ("t8",  "👔", "CEO플랜",            "비상장주식 평가(상증법)\n가업승계 · CEO 퇴직금 설계"),
-            ("stock_eval","📈","비상장주식 평가","순자산·순손익 가중평균\n경영권 할증 · 법인세법 시가"),
-            ("fire","🔥", "화재보험(재조달가액)","REB 기준 건물 재조달가액\n비례보상 방지 전략"),
-            ("liability","⚖️","배상책임보험",   "중복보험 독립책임액 안분\n민법·실화책임법 정리"),
-        ]
-        _render_cards(PART2, "home_p2")
-
-        # ── 파트 2.5: LIFE EVENT ──
-        st.markdown('<div class="gk-section-label">🎯 LIFE EVENT</div>', unsafe_allow_html=True)
+        # ── 도메인 C: Wealth & Corporate (골드/네이비) ──────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(90deg,#1c1400,#78350f);
+  border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
+  display:flex;align-items:center;gap:10px;
+  box-shadow:0 2px 12px rgba(120,53,15,0.45);
+  border-left:4px solid #f59e0b;">
+  <span style="font-size:1.2rem;">🏆</span>
+  <div>
+    <div style="color:#fef3c7;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">C &nbsp;💼 Wealth &amp; Corporate</div>
+    <div style="color:#fcd34d;font-size:0.72rem;margin-top:2px;">노후·연금·상속 · 세무 · 법인 · CEO · 비상장주식 · 화재·배상</div>
+  </div>
+</div>""", unsafe_allow_html=True)
         _render_cards([
-            ("life_event", "🎯", "LIFE EVENT 상담", "인생 주요 이벤트별 보험 설계 · 출생·결혼·취업·은퇴 맞춤 컨설팅"),
-        ], "home_p25")
+            ("t5",          "🌅", "노후·연금·상속설계",  "연금 3층 설계 · 주택연금 · 상속·증여 절세 전략"),
+            ("t6",          "📊", "세무상담",            "소득세·법인세·부가세 절세 · 건보료 역산 · 금융소득 분석"),
+            ("t7",          "🏢", "법인상담",            "법인 보험 · 단체보험 설계 · 법인세 절감 · 복리후생 플랜"),
+            ("t8",          "👔", "CEO플랜",             "비상장주식 평가(상증법) · 가업승계 · CEO 퇴직금 설계"),
+            ("stock_eval",  "📈", "비상장주식 평가",     "순자산·순손익 가중평균 · 경영권 할증 · 법인세법 시가"),
+            ("fire",        "🔥", "화재보험(재조달가액)", "REB 기준 건물 재조달가액 · 비례보상 방지 전략"),
+            ("liability",   "⚖️", "배상책임보험",        "중복보험 독립책임액 안분 · 민법·실화책임법 정리"),
+        ], "home_grpC")
 
-        # ── 파트 3: 부동산 투자 · 간병 컨설팅 ──
-        st.markdown('<div class="gk-section-label">🏘️ 부동산 투자 · 간병 컨설팅</div>', unsafe_allow_html=True)
+        # ── 도메인 D: Life & Care (오렌지/테라코타) ────────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(90deg,#431407,#c2410c);
+  border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
+  display:flex;align-items:center;gap:10px;
+  box-shadow:0 2px 12px rgba(194,65,12,0.35);
+  border-left:4px solid #fb923c;">
+  <span style="font-size:1.2rem;">🌱</span>
+  <div>
+    <div style="color:#fff;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">D &nbsp;🌸 Life &amp; Care</div>
+    <div style="color:#fed7aa;font-size:0.72rem;margin-top:2px;">LIFE EVENT · 부동산 투자 · 간병비 컨설팅</div>
+  </div>
+</div>""", unsafe_allow_html=True)
         _render_cards([
-            ("realty",  "🏘️", "부동산 투자 상담", "등기부등본·건축물대장 판독 · 투자수익 분석 · 보험 연계 설계"),
-            ("nursing", "🏥", "간병비 컨설팅",   "치매·뇌졸중·요양병원 간병비 산출 · 장기요양등급 · 간병보험 설계"),
-        ], "home_p3")
-
-        # ── 파트 4: 신규상품 리플렛 관리 + 상담 카탈로그 ──
-        st.markdown('<div class="gk-section-label">📂 신규상품 리플렛 관리</div>', unsafe_allow_html=True)
-        _render_cards([
-            ("leaflet",          "🗂️", "보험 리플렛 AI 분류",   "리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 폴더 저장·관리"),
-            ("customer_docs",    "👤", "고객자료 통합저장",      "의무기록·증권분석·청구서류 · 고객별 마인드맵 통합 저장"),
-        ], "home_p4")
+            ("life_event",  "🎯", "LIFE EVENT 상담",  "인생 주요 이벤트별 보험 설계 · 출생·결혼·취업·은퇴 맞춤 컨설팅"),
+            ("realty",      "🏘️", "부동산 투자 상담", "등기부등본·건축물대장 판독 · 투자수익 분석 · 보험 연계 설계"),
+            ("nursing",     "🏥", "간병비 컨설팅",   "치매·뇌졸중·요양병원 간병비 산출 · 장기요양등급 · 간병보험 설계"),
+        ], "home_grpD")
 
 
         # ── 상담자 정보 입력 패널 (로그인 시 홈 하단 고정) ──────────────
