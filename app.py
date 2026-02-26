@@ -1818,15 +1818,50 @@ def parse_policy_with_vision(files: list) -> dict:
     for f in files:
         try:
             if f.type == "application/pdf":
+                # ── 1단계: pdfplumber로 텍스트 추출 시도 ──
                 raw_text = extract_pdf_chunks(f, char_limit=6000)
-                full_prompt = (
-                    _POLICY_PARSE_PROMPT
-                    + f"\n<extracted_data>\n{raw_text}\n</extracted_data>"
-                )
-                resp = client.models.generate_content(
-                    model=GEMINI_MODEL,
-                    contents=[{"role": "user", "parts": [{"text": full_prompt}]}]
-                )
+                _text_meaningful = raw_text and len(raw_text.strip().replace("...(중략)...", "")) > 100
+
+                if _text_meaningful:
+                    # 텍스트 PDF: 추출 텍스트를 그대로 AI에 전달
+                    full_prompt = (
+                        _POLICY_PARSE_PROMPT
+                        + f"\n<extracted_data>\n{raw_text}\n</extracted_data>"
+                    )
+                    resp = client.models.generate_content(
+                        model=GEMINI_MODEL,
+                        contents=[{"role": "user", "parts": [{"text": full_prompt}]}]
+                    )
+                else:
+                    # ── 2단계: 이미지 PDF(스캔본) → pymupdf로 페이지 이미지 변환 → Gemini Vision ──
+                    _pdf_parts = [{"text": _POLICY_PARSE_PROMPT
+                                   + "\n\n첨부된 보험증권 이미지에서 보이는 내용만 추출하십시오. "
+                                   + "이미지에 실제로 적혀 있는 담보만 출력하고, 추가하지 마십시오."}]
+                    try:
+                        import fitz  # pymupdf
+                        f.seek(0)
+                        _pdf_doc = fitz.open(stream=f.read(), filetype="pdf")
+                        _page_count = min(len(_pdf_doc), 8)  # 최대 8페이지
+                        for _pno in range(_page_count):
+                            _page = _pdf_doc[_pno]
+                            _mat  = fitz.Matrix(2.0, 2.0)  # 2x 확대 (해상도 향상)
+                            _pix  = _page.get_pixmap(matrix=_mat, alpha=False)
+                            _img_bytes = _pix.tobytes("png")
+                            _img_b64   = base64.b64encode(_img_bytes).decode("utf-8")
+                            _pdf_parts.append({
+                                "inline_data": {"mime_type": "image/png", "data": _img_b64}
+                            })
+                        _pdf_doc.close()
+                    except ImportError:
+                        # pymupdf 미설치 시 원본 PDF를 그대로 Vision에 전달 (fallback)
+                        f.seek(0)
+                        _pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
+                        _pdf_parts.append({"inline_data": {"mime_type": "application/pdf", "data": _pdf_b64}})
+
+                    resp = client.models.generate_content(
+                        model=GEMINI_MODEL,
+                        contents=[{"role": "user", "parts": _pdf_parts}]
+                    )
             else:
                 img_bytes = f.getvalue()
                 img_b64   = base64.b64encode(img_bytes).decode("utf-8")
@@ -8227,28 +8262,25 @@ section[data-testid="stMain"] > div,
                 if 'user_id' not in st.session_state:
                     st.error("로그인이 필요합니다.")
                 else:
-                    # PDF 텍스트 추출 + SSOT 스캔 허브 데이터 자동 병합
-                    _ps_doc_text = "".join(
-                        f"\n[증권: {pf.name}]\n" + extract_pdf_chunks(pf, char_limit=8000)
-                        for pf in (ps_files or []) if pf.type == 'application/pdf'
-                    )
-                    _ssot_txt = st.session_state.get("ssot_full_text", "")
-                    if _ssot_txt and not _ps_doc_text:
-                        _ps_doc_text = f"\n[스캔 허브 데이터]\n{_ssot_txt[:8000]}"
-                    # Vision 파싱 (이미지 증권)
-                    _ps_img_files = [pf for pf in (ps_files or []) if pf.type != 'application/pdf']
+                    # ── 모든 증권 파일(PDF+이미지)을 parse_policy_with_vision으로 통합 처리 ──
+                    # PDF는 내부에서 텍스트 추출 시도 → 스캔본이면 자동으로 pymupdf→Gemini Vision으로 전환
+                    _ps_doc_text = ""
                     _ps_vision_result = ""
-                    if _ps_img_files:
-                        with st.spinner("🔍 이미지 증권 Vision 파싱 중..."):
-                            _vr = parse_policy_with_vision(_ps_img_files)
+                    _ssot_txt = st.session_state.get("ssot_full_text", "")
+
+                    if ps_files:
+                        with st.spinner("🔍 증권 파일 분석 중 (스캔본은 Vision OCR 자동 적용)..."):
+                            _vr = parse_policy_with_vision(ps_files)
                             if _vr.get("coverages"):
                                 _ps_vision_result = (
-                                    "\n\n[Vision 파싱 담보 목록 — 증권에 실제 있는 담보만]\n"
+                                    "\n\n[증권 파싱 담보 목록 — 증권에 실제 있는 담보만]\n"
                                     + json.dumps(_vr["coverages"], ensure_ascii=False, indent=2)
                                 )
                             if _vr.get("errors"):
                                 for _ve in _vr["errors"]:
-                                    st.warning(f"⚠️ Vision 오류: {_ve}")
+                                    st.warning(f"⚠️ 파싱 오류: {_ve}")
+                    elif _ssot_txt:
+                        _ps_doc_text = f"\n[스캔 허브 데이터]\n{_ssot_txt[:8000]}"
 
                     _ps_prod_ctx = f"\n상담 상품: {ps_product}" if ps_product != "선택 안 함 (전체 분석)" else ""
                     _ps_dir_ctx  = f"\n상담 방향: {ps_direction}"
