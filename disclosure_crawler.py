@@ -140,14 +140,26 @@ class DateRangeMatcher:
 
     @classmethod
     def best_match(cls, join_date_str: str, candidates: list) -> Optional[dict]:
+        # 1순위: 판매 기간이 가입일을 포함하는 후보
         matched = [c for c in candidates if cls.is_date_in_period(join_date_str, c.get("period", ""))]
-        if not matched:
-            return None
-        matched.sort(
-            key=lambda c: cls._parse(c.get("revision_date", "")) or date(1900, 1, 1),
-            reverse=True,
-        )
-        return matched[0]
+        if matched:
+            matched.sort(
+                key=lambda c: cls._parse(c.get("revision_date", "")) or date(1900, 1, 1),
+                reverse=True,
+            )
+            return matched[0]
+        # 2순위: period 없지만 revision_date가 가입일 이전인 후보 (개정일 기준 최근 것)
+        jd = cls._parse(join_date_str)
+        dated = [c for c in candidates
+                 if not c.get("period") and cls._parse(c.get("revision_date", ""))]
+        if dated and jd:
+            before = [c for c in dated
+                      if (cls._parse(c["revision_date"]) or date(9999,1,1)) <= jd]
+            pool = before if before else dated
+            pool.sort(key=lambda c: cls._parse(c.get("revision_date", "")) or date(1900,1,1),
+                      reverse=True)
+            return pool[0]
+        return None
 
 
 # ---------------------------------------------------------------------------
