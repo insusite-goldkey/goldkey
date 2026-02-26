@@ -10,6 +10,7 @@
 # ==========================================================================
 
 import io, re, time, hashlib, requests, logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from datetime import date, datetime
 from typing import Optional
 
@@ -289,8 +290,8 @@ class PolicyDisclosureCrawler:
         from urllib.parse import urljoin
         return urljoin(base, href)
 
-    def fetch(self, company_name: str, product_name: str, join_date: str) -> dict:
-        """공시실 탐색 실행. 반환: {pdf_url, period, revision_date, confidence, reason, candidates_count, error}"""
+    def _fetch_core(self, company_name: str, product_name: str, join_date: str) -> dict:
+        """실제 크롤링 로직 (별도 스레드에서 실행됨)."""
         info = CompanyUrlRegistry.get(company_name)
         if not info:
             return self._err(f"'{company_name}' 공시실 미등록")
@@ -302,7 +303,6 @@ class PolicyDisclosureCrawler:
         try:
             page = self._browser.new_page()
             page.set_extra_http_headers(self._STEALTH_HEADERS)
-            # navigator.webdriver 속성 제거 (봇 탐지 우회)
             page.add_init_script(
                 "Object.defineProperty(navigator,'webdriver',{get:()=>undefined})"
             )
@@ -311,7 +311,7 @@ class PolicyDisclosureCrawler:
             if not self._safe_goto(page, search_url):
                 self._safe_goto(page, info["url"])
                 try:
-                    page.fill(f"input[name='{info['p']}']", product_name)
+                    page.fill(f"input[name='{info['p']}']" , product_name)
                     page.keyboard.press("Enter")
                     time.sleep(self._NAV_WAIT)
                 except Exception:
@@ -319,7 +319,6 @@ class PolicyDisclosureCrawler:
 
             candidates = self._extract_candidates(page, product_name)
 
-            # (3) 판매중지 탭 자동 탐색: 결과 없으면 판매중지 탭 클릭 시도
             if not candidates:
                 candidates = self._try_discontinued_tab(page, product_name)
 
@@ -359,6 +358,17 @@ class PolicyDisclosureCrawler:
         finally:
             self._close()
         return res
+
+    def fetch(self, company_name: str, product_name: str, join_date: str) -> dict:
+        """공시실 탐색 실행. Streamlit asyncio 루프와 충돌 방지를 위해 별도 스레드에서 실행."""
+        try:
+            with ThreadPoolExecutor(max_workers=1) as _ex:
+                future = _ex.submit(self._fetch_core, company_name, product_name, join_date)
+                return future.result(timeout=120)
+        except FuturesTimeoutError:
+            return self._err("크롤링 시간 초과 (120초)")
+        except Exception as e:
+            return self._err(f"크롤링 스레드 오류: {e}")
 
     @staticmethod
     def _err(msg: str) -> dict:
