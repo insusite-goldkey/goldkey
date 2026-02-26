@@ -16200,6 +16200,136 @@ END; $$;""", language="sql")
                         st.session_state.current_tab = _nav_key
                         st.rerun()
 
+        # ── [scan_hub ↔ 약관 JIT 크롤링] 보험증권 스캔 기반 약관 자동 연동 ──
+        _ssot_policy = [
+            d for d in st.session_state.get("ssot_scan_data", [])
+            if d.get("type") == "policy"
+        ]
+        if _ssot_policy:
+            st.divider()
+            st.markdown("""
+<div style="background:linear-gradient(90deg,#0d3b2e,#1a5c3b);
+  border-radius:10px;padding:10px 18px;margin-bottom:10px;">
+  <span style="color:#fff;font-size:1rem;font-weight:900;">📜 스캔 증권 → 약관 자동 크롤링</span>
+  <span style="color:#a8f0c8;font-size:0.76rem;margin-left:10px;">
+    증권에서 보험사·상품명·가입일 추출 → 공시실 실시간 탐색 → Supabase 영구 저장
+  </span>
+</div>""", unsafe_allow_html=True)
+
+            try:
+                from insurance_scan import extract_policies_from_scan, extract_with_llm
+                _scan_pols = extract_policies_from_scan(_ssot_policy)
+            except ImportError:
+                _scan_pols = []
+                st.error("insurance_scan 모듈 로드 실패")
+
+            if _scan_pols:
+                st.markdown(f"**📋 증권에서 추출된 상품 {len(_scan_pols)}건**")
+                _edited_pols = []
+                for _pi, _pol in enumerate(_scan_pols):
+                    _conf = _pol.get("confidence", 0)
+                    _conf_label = "높음" if _conf >= 70 else "보통" if _conf >= 40 else "낮음"
+                    with st.expander(
+                        f"[{_pi+1}] {_pol.get('company','?')} / "
+                        f"{(_pol.get('product','?'))[:30]} "
+                        f"— 신뢰도 {_conf}%({_conf_label})",
+                        expanded=(_conf < 70)
+                    ):
+                        _ec1, _ec2, _ec3 = st.columns([2, 3, 2])
+                        with _ec1:
+                            _new_co = st.text_input("보험사명",
+                                value=_pol.get("company",""), key=f"sh_jit_co_{_pi}")
+                        with _ec2:
+                            _new_pr = st.text_input("상품명",
+                                value=_pol.get("product",""), key=f"sh_jit_pr_{_pi}")
+                        with _ec3:
+                            _new_jd = st.text_input("가입일 (YYYY-MM-DD)",
+                                value=_pol.get("join_date",""), key=f"sh_jit_jd_{_pi}")
+                        if _conf < 50:
+                            st.caption("⚠️ 신뢰도 낮음 — 상품명·보험사를 직접 수정하거나 AI 재추출을 사용하세요.")
+                            if st.button(f"🤖 AI 재추출", key=f"sh_llm_reext_{_pi}"):
+                                try:
+                                    _gc, _ = get_master_model()
+                                    _src_text = _ssot_policy[_pi].get("text", "")
+                                    _llm_info = extract_with_llm(_src_text, _gc, GEMINI_MODEL)
+                                    st.session_state[f"sh_jit_co_{_pi}"] = _llm_info["company"]
+                                    st.session_state[f"sh_jit_pr_{_pi}"] = _llm_info["product"]
+                                    st.session_state[f"sh_jit_jd_{_pi}"] = _llm_info["join_date"]
+                                    st.success(f"AI 재추출: {_llm_info['company']} / {_llm_info['product']} / {_llm_info['join_date']}")
+                                    st.rerun()
+                                except Exception as _llex:
+                                    st.error(f"AI 재추출 실패: {_llex}")
+                        st.caption(f"📄 출처: {_pol.get('source_file','')}")
+                        _edited_pols.append({
+                            "source_file": _pol.get("source_file",""),
+                            "company": _new_co, "product": _new_pr,
+                            "join_date": _new_jd, "confidence": _conf,
+                        })
+
+                st.divider()
+                _sh_crawl_mode = st.radio(
+                    "크롤링 범위",
+                    ["✅ 신뢰도 높은 상품만 (70% 이상)", "⚡ 전체 상품 크롤링", "🔲 선택한 상품만"],
+                    horizontal=True, key="sh_crawl_mode",
+                )
+                _selected_indices = []
+                if _sh_crawl_mode == "🔲 선택한 상품만":
+                    for _si, _sp in enumerate(_edited_pols):
+                        if st.checkbox(f"{_sp['company']} / {_sp['product'][:30]}",
+                                       key=f"sh_sel_{_si}"):
+                            _selected_indices.append(_si)
+
+                if st.button("🚀 선택 약관 일괄 크롤링 시작", type="primary",
+                             use_container_width=True, key="btn_sh_batch_crawl"):
+                    if _sh_crawl_mode == "✅ 신뢰도 높은 상품만 (70% 이상)":
+                        _target_pols = [p for p in _edited_pols if p["confidence"] >= 70]
+                    elif _sh_crawl_mode == "🔲 선택한 상품만":
+                        _target_pols = [_edited_pols[i] for i in _selected_indices]
+                    else:
+                        _target_pols = _edited_pols
+
+                    if not _target_pols:
+                        st.warning("크롤링할 상품이 없습니다. 범위를 조정해주세요.")
+                    else:
+                        _jit_sb3 = _get_sb_client()
+                        with st.status(
+                            f"📜 {len(_target_pols)}건 약관 공시실 탐색 중...", expanded=True
+                        ) as _batch_st:
+                            try:
+                                from disclosure_crawler import run_batch_jit_from_scan
+                                _batch_res = run_batch_jit_from_scan(
+                                    scan_policies=_target_pols,
+                                    sb_client=_jit_sb3,
+                                    progress_cb=lambda m: st.write(m),
+                                )
+                                _ok   = [r for r in _batch_res if r["status"] in ("indexed","cached")]
+                                _fail = [r for r in _batch_res if r["status"] == "failed"]
+                                _skip = [r for r in _batch_res if r["status"] == "skipped"]
+                                _batch_st.update(
+                                    label=f"✅ 완료 — 성공/캐시: {len(_ok)}건 | 실패: {len(_fail)}건 | 건너뜀: {len(_skip)}건",
+                                    state="complete" if not _fail else "error",
+                                )
+                                st.markdown("#### 📊 크롤링 결과")
+                                for _r in _batch_res:
+                                    _icon = {"indexed":"✅","cached":"💾","failed":"❌","skipped":"⚠️"}.get(_r["status"],"❓")
+                                    _rmsg = (f"{_icon} **{_r['company']}** / {_r['product'][:30]} "
+                                             f"({_r['join_date'] or '가입일 미확인'})")
+                                    if _r["status"] == "indexed":
+                                        _rmsg += f" — {_r['chunks_indexed']}청크 저장"
+                                    elif _r["status"] == "cached":
+                                        _rmsg += " — 기존 캐시 활용"
+                                    elif _r.get("error"):
+                                        _rmsg += f" — {_r['error'][:60]}"
+                                    st.markdown(_rmsg)
+                                st.session_state["sh_batch_crawl_result"] = _batch_res
+                            except ImportError:
+                                st.error("disclosure_crawler 모듈 로드 실패")
+            else:
+                st.info(
+                    "증권 텍스트에서 상품 정보를 자동 추출할 수 없었습니다.\n"
+                    "**📎 보험증권 분석** 탭에서 직접 상품명·가입일을 입력해 약관을 조회하세요."
+                )
+
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # 하단 공통 면책 고지

@@ -651,6 +651,109 @@ def run_jit_policy_lookup(
 
 
 # ---------------------------------------------------------------------------
+# 5-b. 스캔 결과 기반 일괄 JIT 크롤링 (scan_hub 연동)
+# ---------------------------------------------------------------------------
+
+def run_batch_jit_from_scan(
+    scan_policies: list,
+    sb_client,
+    progress_cb=None,
+) -> list:
+    """
+    insurance_scan.extract_policies_from_scan() 결과 리스트를 받아
+    캐시 미존재 상품만 선택적으로 JIT 크롤링·인덱싱.
+
+    Args:
+        scan_policies: [{"company","product","join_date","source_file",...}, ...]
+        sb_client:     Supabase 클라이언트
+        progress_cb:   진행 메시지 콜백 함수 (선택)
+
+    Returns: [
+        {
+            "source_file": str,
+            "company":     str,
+            "product":     str,
+            "join_date":   str,
+            "status":      "cached" | "indexed" | "failed" | "skipped",
+            "pdf_url":     str,
+            "chunks_indexed": int,
+            "error":       str,
+        }, ...
+    ]
+    """
+    def _log(msg: str):
+        if progress_cb:
+            progress_cb(msg)
+        else:
+            logger.info(msg)
+
+    results = []
+    pipeline = JITPipelineRunner(sb_client)
+
+    for idx, pol in enumerate(scan_policies):
+        company   = pol.get("company", "").strip()
+        product   = pol.get("product", "").strip()
+        join_date = pol.get("join_date", "").strip()
+        src_file  = pol.get("source_file", "")
+        conf      = pol.get("confidence", 0)
+
+        base = {"source_file": src_file, "company": company,
+                "product": product, "join_date": join_date,
+                "pdf_url": "", "chunks_indexed": 0, "error": ""}
+
+        _log(f"\n[{idx+1}/{len(scan_policies)}] {company} / {product} ({join_date})")
+
+        # 추출 신뢰도가 너무 낮으면 건너뜀
+        if conf < 40 or not company or not product:
+            _log(f"  ⚠️ 추출 신뢰도 부족({conf}%) — 건너뜀")
+            base["status"] = "skipped"
+            base["error"]  = f"추출 신뢰도 {conf}% (보험사/상품명 확인 필요)"
+            results.append(base)
+            continue
+
+        # 캐시 확인
+        if pipeline.is_cached(company, product, join_date):
+            _log(f"  💾 이미 인덱싱됨 — 크롤링 생략")
+            base["status"] = "cached"
+            results.append(base)
+            continue
+
+        # 가입일 없으면 오늘 날짜로 대체
+        if not join_date:
+            join_date = datetime.utcnow().strftime("%Y-%m-%d")
+            base["join_date"] = join_date
+            _log(f"  ℹ️ 가입일 미확인 → 오늘 날짜({join_date}) 사용")
+
+        # JIT 크롤링 실행
+        jit_res = run_jit_policy_lookup(
+            company_name=company,
+            product_name=product,
+            join_date=join_date,
+            sb_client=sb_client,
+            progress_cb=_log,
+        )
+
+        base["pdf_url"]        = jit_res.get("pdf_url", "")
+        base["chunks_indexed"] = jit_res.get("chunks_indexed", 0)
+        base["error"]          = jit_res.get("error", "")
+
+        if jit_res.get("cached"):
+            base["status"] = "cached"
+        elif jit_res.get("pdf_url") and jit_res.get("chunks_indexed", 0) > 0:
+            base["status"] = "indexed"
+        else:
+            base["status"] = "failed"
+
+        results.append(base)
+
+    ok  = sum(1 for r in results if r["status"] in ("indexed", "cached"))
+    fail = sum(1 for r in results if r["status"] == "failed")
+    skip = sum(1 for r in results if r["status"] == "skipped")
+    _log(f"\n✅ 일괄 크롤링 완료 — 성공/캐시: {ok}건 | 실패: {fail}건 | 건너뜀: {skip}건")
+    return results
+
+
+# ---------------------------------------------------------------------------
 # 6. 합성 데이터 생성 (Synthetic QA Generator) — Gemini 기반
 # ---------------------------------------------------------------------------
 
