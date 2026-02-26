@@ -8538,6 +8538,109 @@ section[data-testid="stMain"] > div,
 
             show_result("res_ps")
 
+            # ── 증권 자동추출 정보 표시 + 고객 파일 저장 버튼 ──────────
+            _pi = st.session_state.get("ssot_policy_info", {})
+            _ps_uploaded = st.session_state.get("up_ps")  # 업로드된 파일 목록
+            if _pi or _ps_uploaded:
+                st.divider()
+                st.markdown("#### 📋 증권 자동추출 정보 & 파일 저장")
+
+                # ── 자동추출 정보 표시 (policy_info 있을 때) ──────────────
+                if _pi and any(_pi.values()):
+                    _pi_cols = st.columns(5)
+                    _pi_fields = [
+                        ("👤 피보험자", _pi.get("insured_name") or _pi.get("contractor_name") or ""),
+                        ("🎂 생년월일", _pi.get("insured_dob") or ""),
+                        ("🏢 보험회사", _pi.get("company") or ""),
+                        ("📄 상품명",   _pi.get("product_name") or ""),
+                        ("🔢 증권번호", _pi.get("policy_number") or ""),
+                    ]
+                    for _col, (_label, _val) in zip(_pi_cols, _pi_fields):
+                        with _col:
+                            st.markdown(
+                                f'<div style="background:#f0fff6;border:1px solid #27ae60;'
+                                f'border-radius:8px;padding:6px 10px;font-size:0.78rem;'
+                                f'text-align:center;">'
+                                f'<div style="color:#666;font-size:0.68rem;">{_label}</div>'
+                                f'<div style="font-weight:900;color:#0d3b2e;margin-top:2px;">'
+                                f'{_val if _val else "<span style=\\"color:#bbb\\">미확인</span>"}</div>'
+                                f'</div>',
+                                unsafe_allow_html=True
+                            )
+                    st.caption("※ AI Vision으로 자동 추출된 정보입니다. 부정확 시 직접 수정 후 저장하세요.")
+                else:
+                    st.info("증권 파싱 후 피보험자명·생년월일·보험사·상품명·증권번호가 자동 추출됩니다.")
+
+                # ── 저장 폼 ────────────────────────────────────────────────
+                with st.expander("💾 고객 파일로 저장", expanded=bool(_ps_uploaded)):
+                    _sv_c1, _sv_c2, _sv_c3 = st.columns([2, 2, 2])
+                    with _sv_c1:
+                        _sv_name = st.text_input(
+                            "피보험자명",
+                            value=_pi.get("insured_name") or _pi.get("contractor_name") or ps_c_name or "",
+                            key="ps_sv_name"
+                        )
+                        _sv_id6 = st.text_input(
+                            "주민번호 앞 6자리",
+                            value=(_pi.get("insured_dob") or "").replace("-","")[:6],
+                            placeholder="800101",
+                            key="ps_sv_id6",
+                            max_chars=6
+                        )
+                    with _sv_c2:
+                        _sv_category = st.selectbox(
+                            "자료 분류",
+                            CUSTOMER_DOC_CATEGORIES,
+                            index=CUSTOMER_DOC_CATEGORIES.index("증권분석") if "증권분석" in CUSTOMER_DOC_CATEGORIES else 0,
+                            key="ps_sv_cat"
+                        )
+                        _sv_memo = st.text_input(
+                            "메모 (선택)",
+                            value=f"{_pi.get('company','')} {_pi.get('product_name','')}".strip(),
+                            placeholder="예) 삼성 운전자 2024",
+                            key="ps_sv_memo"
+                        )
+                    with _sv_c3:
+                        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                        _sv_btn = st.button(
+                            "💾 고객 파일로 저장",
+                            key="btn_ps_save_doc",
+                            type="primary",
+                            use_container_width=True
+                        )
+                        st.caption("홈 → 👤 고객자료 통합저장에서 확인")
+
+                    if _sv_btn:
+                        if not _sv_name.strip():
+                            st.error("피보험자명을 입력하세요.")
+                        elif not _ps_uploaded:
+                            st.error("저장할 파일이 없습니다. 증권 파일을 먼저 업로드하세요.")
+                        else:
+                            _sv_ok_cnt = 0
+                            _sv_fail_cnt = 0
+                            for _sf in _ps_uploaded:
+                                _sf.seek(0)
+                                _res = customer_doc_save(
+                                    _sf.read(), _sf.name,
+                                    _sv_name.strip(), _sv_category,
+                                    id6=_sv_id6.strip(),
+                                    memo=_sv_memo,
+                                    tab_source="policy_scan",
+                                    uploaded_by=st.session_state.get("user_name", "")
+                                )
+                                if _res["ok"]:
+                                    _sv_ok_cnt += 1
+                                else:
+                                    _sv_fail_cnt += 1
+                                    st.warning(f"⚠️ {_sf.name}: {_res['error']}")
+                            if _sv_ok_cnt > 0:
+                                st.success(
+                                    f"✅ {_sv_ok_cnt}개 파일 저장 완료 "
+                                    f"— 홈 > 👤 고객자료 통합저장에서 확인하세요."
+                                )
+                            if _sv_fail_cnt > 0:
+                                st.error(f"❌ {_sv_fail_cnt}개 저장 실패 (Supabase 연결 확인)")
+
             # ── 체크포인트 박스 — 상품별 분기 ──────────────────────────
             st.markdown("#### ✅ 증권 분석 체크포인트")
             _cp_product = st.session_state.get("ps_product", "")
