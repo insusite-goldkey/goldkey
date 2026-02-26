@@ -7803,10 +7803,74 @@ window.startSugSTT=function(){{
         # ── 고객 정보 입력·관리 섹터 (도메인 네비 위 고정) ─────────────
         if 'user_id' in st.session_state:
             st.markdown("""<div style="background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 100%);
-  border-radius:14px;padding:14px 18px;margin-bottom:14px;">
+  border-radius:14px;padding:14px 18px;margin-bottom:10px;">
   <span style="color:#fff;font-size:1.05rem;font-weight:900;">🗂️ 고객 정보 입력 · 관리</span>
   <span style="color:#a8e6cf;font-size:0.75rem;margin-left:10px;">고객에 대한 정보 관리 — 상담의 주요 목적</span>
 </div>""", unsafe_allow_html=True)
+
+            # ── 고객 검색창 (Customer-Centric Contextual Filtering) ──────
+            try:
+                from customer_mgmt import load_customers as _load_cust
+                _sb = st.session_state.get("supabase_client") or st.session_state.get("sb")
+                _cust_rows = _load_cust(st.session_state["user_id"], _sb) if _sb else []
+            except Exception:
+                _cust_rows = []
+
+            # 검색용 표시 목록: "이름 (생년월일)" 형식 — 생년월일은 profile.dob 또는 scan 값
+            def _cust_label(row):
+                _n = row.get("name", "")
+                _dob = (row.get("profile") or {}).get("dob", "")
+                return f"{_n}  ({_dob})" if _dob else _n
+
+            _cust_options_map = {"🆕 신규 고객 직접 입력": None}
+            for _cr in _cust_rows:
+                _cust_options_map[_cust_label(_cr)] = _cr
+
+            _search_label = st.session_state.get("_home_selected_cust_label", "🆕 신규 고객 직접 입력")
+            if _search_label not in _cust_options_map:
+                _search_label = "🆕 신규 고객 직접 입력"
+
+            st.markdown("""<div style="background:#e8f5e9;border:1.5px solid #1a6b4a;border-radius:10px;
+  padding:10px 14px;margin-bottom:10px;">
+  <span style="color:#0d3b2e;font-size:0.88rem;font-weight:900;">🔍 고객 검색 — 이름으로 검색 후 선택하면 해당 고객 정보가 자동 로드됩니다</span>
+</div>""", unsafe_allow_html=True)
+
+            _srch_col1, _srch_col2 = st.columns([3, 1])
+            with _srch_col1:
+                _selected_label = st.selectbox(
+                    "고객 선택 (이름 검색)",
+                    options=list(_cust_options_map.keys()),
+                    index=list(_cust_options_map.keys()).index(_search_label),
+                    key="home_cust_selectbox",
+                    help="등록된 고객 이름으로 검색·선택하면 아래 정보가 자동 채워집니다"
+                )
+            with _srch_col2:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                if st.button("🔄 목록 새로고침", key="btn_cust_refresh", use_container_width=True):
+                    st.session_state.pop("_home_selected_cust_label", None)
+                    st.rerun()
+
+            # 선택된 고객 → scan_client_* 자동 로드
+            _selected_row = _cust_options_map.get(_selected_label)
+            if _selected_row and _selected_label != "🆕 신규 고객 직접 입력":
+                st.session_state["_home_selected_cust_label"] = _selected_label
+                st.session_state["selected_customer_id"]   = _selected_row.get("id")
+                _prof = _selected_row.get("profile") or {}
+                # 기존 session_state와 비교해서 다를 때만 덮어쓰기 (불필요한 rerun 방지)
+                _auto_map = {
+                    "scan_client_name":  _selected_row.get("name", ""),
+                    "scan_client_dob":   _prof.get("dob", ""),
+                    "scan_client_job":   _prof.get("job", ""),
+                    "scan_client_sick":  _prof.get("sick", "해당없음"),
+                    "scan_client_items": _prof.get("items", []),
+                }
+                for _k, _v in _auto_map.items():
+                    if st.session_state.get(_k) != _v:
+                        st.session_state[_k] = _v
+                st.success(f"✅ [{_selected_row.get('name','')}] 고객 선택됨 — 아래 정보가 자동 로드되었습니다")
+            else:
+                st.session_state["selected_customer_id"] = None
+                st.session_state["_home_selected_cust_label"] = "🆕 신규 고객 직접 입력"
 
             # ── 상담 대상자 기본 정보 ────────────────────────────────────
             st.markdown("""<div style="background:rgba(13,59,46,0.08);border:1px solid #1a6b4a;
@@ -7885,17 +7949,25 @@ window.startSugSTT=function(){{
                     )
                     _note_submitted = st.form_submit_button("💾 상담노트 저장", use_container_width=True)
                     if _note_submitted:
+                        _cid = st.session_state.get("selected_customer_id")
                         _notes = st.session_state.get("consult_notes", [])
                         _notes.insert(0, {
                             "date": str(_note_date),
                             "summary": _note_summary,
                             "content": _note_text,
+                            "customer_id": _cid,
+                            "customer_name": st.session_state.get("scan_client_name", ""),
                         })
                         st.session_state["consult_notes"] = _notes
-                        st.success(f"✅ [{_note_date}] {_note_summary or ''} 상담노트 저장됨")
-                _notes_saved = st.session_state.get("consult_notes", [])
+                        _cname = st.session_state.get("scan_client_name", "")
+                        st.success(f"✅ [{_note_date}]{' — ' + _cname if _cname else ''} {_note_summary or ''} 상담노트 저장됨")
+                # 선택된 고객 기준으로 필터링
+                _cur_cid = st.session_state.get("selected_customer_id")
+                _notes_all = st.session_state.get("consult_notes", [])
+                _notes_saved = [_n for _n in _notes_all if _n.get("customer_id") == _cur_cid] if _cur_cid else _notes_all
                 if _notes_saved:
-                    st.markdown("**📋 저장된 상담 노트 (최근순)**")
+                    _cname_disp = st.session_state.get("scan_client_name", "")
+                    st.markdown(f"**📋 저장된 상담 노트{' — ' + _cname_disp if _cname_disp else ''} (최근순)**")
                     for _n in _notes_saved:
                         _n_summary = _n.get('summary', '')
                         st.markdown(
@@ -7934,18 +8006,25 @@ window.startSugSTT=function(){{
                     )
                     _ins_submitted = st.form_submit_button("💾 보험가입 상담 저장", use_container_width=True)
                     if _ins_submitted:
+                        _cid = st.session_state.get("selected_customer_id")
                         _ins_list = st.session_state.get("insurance_consults", [])
                         _ins_list.insert(0, {
                             "date": str(_ins_date),
                             "product": _ins_product,
                             "background": _ins_bg,
                             "special": _ins_special,
+                            "customer_id": _cid,
+                            "customer_name": st.session_state.get("scan_client_name", ""),
                         })
                         st.session_state["insurance_consults"] = _ins_list
-                        st.success(f"✅ [{_ins_date}] {_ins_product or ''} 보험가입 상담 저장됨")
-                _ins_saved = st.session_state.get("insurance_consults", [])
+                        _cname = st.session_state.get("scan_client_name", "")
+                        st.success(f"✅ [{_ins_date}]{' — ' + _cname if _cname else ''} {_ins_product or ''} 보험가입 상담 저장됨")
+                _cur_cid2 = st.session_state.get("selected_customer_id")
+                _ins_all = st.session_state.get("insurance_consults", [])
+                _ins_saved = [_i for _i in _ins_all if _i.get("customer_id") == _cur_cid2] if _cur_cid2 else _ins_all
                 if _ins_saved:
-                    st.markdown("**📋 저장된 보험가입 상담 (최근순)**")
+                    _cname_ins = st.session_state.get("scan_client_name", "")
+                    st.markdown(f"**📋 저장된 보험가입 상담{' — ' + _cname_ins if _cname_ins else ''} (최근순)**")
                     for _ins in _ins_saved:
                         _ins_prod = _ins.get('product', '')
                         st.markdown(
