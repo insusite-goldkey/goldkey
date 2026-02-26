@@ -5696,7 +5696,7 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
   <div style="background:rgba(255,255,255,0.12);border-radius:10px;
     padding:12px 14px;margin-bottom:10px;">
     <div style="font-size:1.05rem;font-weight:900;color:#ffd700;
-      margin-bottom:8px;">⏰ ~2026.08.31. 한정. (앱 고도화기간임)</div>
+      margin-bottom:8px;">⏰ ~2026.08.31. 한정. (앱 고도화기간)</div>
     <div style="font-size:1.0rem;font-weight:700;color:#ffffff;
       line-height:2.0;">
       ✅ 모든 기능 전체 무료<br>
