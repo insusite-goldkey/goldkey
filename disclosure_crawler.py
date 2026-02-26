@@ -9,9 +9,11 @@
 #   playwright install chromium
 # ==========================================================================
 
-import io, re, time, hashlib, requests
-from datetime import date
+import io, re, time, hashlib, requests, logging
+from datetime import date, datetime
 from typing import Optional
+
+logger = logging.getLogger("disclosure_crawler")
 
 
 # ---------------------------------------------------------------------------
@@ -142,6 +144,23 @@ class PolicyDisclosureCrawler:
     _TIMEOUT_MS = 20_000
     _NAV_WAIT   = 2.0
 
+    # Stealth: 봇 탐지 우회용 추가 헤더/인자
+    _STEALTH_ARGS = [
+        "--disable-blink-features=AutomationControlled",
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+    ]
+    _STEALTH_HEADERS = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/122.0.0.0 Safari/537.36"
+        ),
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Referer": "https://www.google.co.kr/",
+    }
+
     def __init__(self, headless: bool = True):
         self.headless = headless
 
@@ -149,7 +168,10 @@ class PolicyDisclosureCrawler:
         try:
             from playwright.sync_api import sync_playwright
             self._pw      = sync_playwright().__enter__()
-            self._browser = self._pw.chromium.launch(headless=self.headless)
+            self._browser = self._pw.chromium.launch(
+                headless=self.headless,
+                args=self._STEALTH_ARGS,
+            )
             return True
         except ImportError:
             return False
@@ -228,6 +250,33 @@ class PolicyDisclosureCrawler:
 
         return candidates
 
+    def _try_discontinued_tab(self, page, product_name: str) -> list:
+        """판매중지 탭/버튼을 자동 탐색하여 후보 추출."""
+        _DISC_KEYWORDS = [
+            "판매중지", "판매 중지", "과거상품", "과거 상품",
+            "discontinued", "판매종료", "판매 종료",
+        ]
+        try:
+            for kw in _DISC_KEYWORDS:
+                btns = page.query_selector_all(
+                    f"a, button, li, span, div"
+                )
+                for btn in btns:
+                    try:
+                        txt = (btn.inner_text() or "").strip()
+                        if kw in txt and len(txt) < 30:
+                            btn.click()
+                            time.sleep(self._NAV_WAIT)
+                            cands = self._extract_candidates(page, product_name)
+                            if cands:
+                                logger.info(f"판매중지 탭 '{txt}' 클릭으로 {len(cands)}개 후보 발견")
+                                return cands
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+        return []
+
     @staticmethod
     def _resolve_url(base: str, href: str) -> str:
         if href.startswith("http"):
@@ -247,12 +296,11 @@ class PolicyDisclosureCrawler:
                    confidence=0, reason="", candidates_count=0, error="")
         try:
             page = self._browser.new_page()
-            page.set_extra_http_headers({
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                )
-            })
+            page.set_extra_http_headers(self._STEALTH_HEADERS)
+            # navigator.webdriver 속성 제거 (봇 탐지 우회)
+            page.add_init_script(
+                "Object.defineProperty(navigator,'webdriver',{get:()=>undefined})"
+            )
 
             search_url = f"{info['url']}?{info['p']}={requests.utils.quote(product_name)}"
             if not self._safe_goto(page, search_url):
@@ -265,6 +313,11 @@ class PolicyDisclosureCrawler:
                     pass
 
             candidates = self._extract_candidates(page, product_name)
+
+            # (3) 판매중지 탭 자동 탐색: 결과 없으면 판매중지 탭 클릭 시도
+            if not candidates:
+                candidates = self._try_discontinued_tab(page, product_name)
+
             res["candidates_count"] = len(candidates)
 
             if not candidates:
@@ -351,11 +404,27 @@ class JITPipelineRunner:
             return None
 
     def _pdf_to_chunks(self, pdf_bytes: bytes) -> list:
+        full_text = ""
+        # 1차: pdfplumber (텍스트 PDF)
         try:
             import pdfplumber
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
                 full_text = "\n".join(p.extract_text() or "" for p in pdf.pages)
         except Exception:
+            pass
+        # 2차: pypdf fallback (암호화/구형 PDF 대응)
+        if not full_text.strip():
+            try:
+                from pypdf import PdfReader
+                reader = PdfReader(io.BytesIO(pdf_bytes))
+                full_text = "\n".join(
+                    (page.extract_text() or "") for page in reader.pages
+                )
+            except Exception:
+                pass
+        # 3차: 텍스트 추출 완전 실패 시 경고 로그
+        if not full_text.strip():
+            logger.warning("PDF 텍스트 추출 실패 — 이미지 전용 PDF이거나 암호화됨")
             return []
         step = self.CHUNK_SIZE - self.CHUNK_OVERLAP
         return [
@@ -364,7 +433,8 @@ class JITPipelineRunner:
             if len(full_text[i: i + self.CHUNK_SIZE].strip()) > 50
         ]
 
-    def _upsert(self, company, product, join_date, pdf_url, idx, text) -> bool:
+    def _upsert(self, company, product, join_date, pdf_url, idx, text,
+                revision_date: str = "", period: str = "") -> bool:
         h = hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
         if not self.sb:
             return False
@@ -372,7 +442,11 @@ class JITPipelineRunner:
             self.sb.table(self.TABLE).upsert(
                 {"company": company, "product": product, "join_date": join_date,
                  "pdf_url": pdf_url, "chunk_idx": idx,
-                 "chunk_text": text[:4000], "char_count": len(text), "content_hash": h},
+                 "chunk_text": text[:4000], "char_count": len(text),
+                 "content_hash": h,
+                 "revision_date": revision_date,   # (4) 메타데이터 아카이브
+                 "sale_period": period,
+                 "indexed_at": datetime.utcnow().isoformat()},
                 on_conflict="content_hash",
             ).execute()
             return True
@@ -427,6 +501,11 @@ class JITPipelineRunner:
 
         res["ok"] = res["chunks_indexed"] > 0
         _log(f"✅ 인덱싱 완료: {res['chunks_indexed']}개 성공 / {res['chunks_failed']}개 실패")
+
+        # (5) 오류 알림: 인덱싱 전체 실패 시 Supabase 오류 로그 기록
+        if not res["ok"]:
+            _write_crawl_error_log(self.sb, company, product, join_date,
+                                   pdf_url, "인덱싱 전체 실패")
         return res
 
     def search_terms(self, company: str, product: str, keyword: str, limit: int = 5) -> list:
@@ -442,6 +521,57 @@ class JITPipelineRunner:
             return r.data or []
         except Exception:
             return []
+
+
+# ---------------------------------------------------------------------------
+# 4-b. 오류 알림 시스템 (5번 기능)
+# ---------------------------------------------------------------------------
+_ERROR_LOG_TABLE = "gk_crawl_error_log"
+"""
+DDL (Supabase SQL Editor에서 1회 실행):
+    CREATE TABLE IF NOT EXISTS gk_crawl_error_log (
+        id          BIGSERIAL PRIMARY KEY,
+        company     TEXT,
+        product     TEXT,
+        join_date   TEXT,
+        pdf_url     TEXT,
+        error_msg   TEXT,
+        logged_at   TIMESTAMPTZ DEFAULT now()
+    );
+"""
+
+def _write_crawl_error_log(
+    sb_client, company: str, product: str, join_date: str,
+    pdf_url: str, error_msg: str
+):
+    """크롤링/인덱싱 실패 시 Supabase 오류 로그 테이블에 기록."""
+    if not sb_client:
+        logger.error(f"[CrawlError] {company}/{product}/{join_date}: {error_msg}")
+        return
+    try:
+        sb_client.table(_ERROR_LOG_TABLE).insert({
+            "company": company, "product": product,
+            "join_date": join_date, "pdf_url": pdf_url,
+            "error_msg": error_msg[:500],
+            "logged_at": datetime.utcnow().isoformat(),
+        }).execute()
+    except Exception as e:
+        logger.error(f"[CrawlError 로그 기록 실패] {e}")
+
+
+def get_crawl_error_logs(sb_client, limit: int = 50) -> list:
+    """관리자용: 최근 크롤링 오류 로그 조회."""
+    if not sb_client:
+        return []
+    try:
+        r = (sb_client.table(_ERROR_LOG_TABLE)
+             .select("*")
+             .order("logged_at", desc=True)
+             .limit(limit)
+             .execute())
+        return r.data or []
+    except Exception:
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -500,6 +630,11 @@ def run_jit_policy_lookup(
 
     if not crawl["pdf_url"]:
         _log(f"❌ 공시실 크롤링 실패: {crawl['error']}")
+        # (5) 오류 알림: 크롤링 실패 로그 기록
+        _write_crawl_error_log(
+            sb_client, company_name, product_name, join_date,
+            "", crawl["error"]
+        )
         return result
 
     _log(f"✅ 약관 PDF 확보 (신뢰도 {crawl['confidence']}%) → 인덱싱 시작")

@@ -1,4 +1,5 @@
 streamlit
+playwright>=1.40.0
 google-genai>=0.3.0
 supabase>=2.3.0
 Pillow
