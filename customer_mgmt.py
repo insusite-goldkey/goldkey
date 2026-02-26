@@ -551,3 +551,54 @@ def render_customer_tab(sb, gemini_client):
                             st.markdown(f"- {q}")
                 else:
                     st.info("아직 쌓인 프로필 데이터가 없습니다. 상담 메모를 입력하면 채워집니다.")
+
+    # ── 긴급 데이터 파기 섹터 ──────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown(
+        "<div style='background:#1a0000;border:2px solid #ef4444;border-radius:10px;"
+        "padding:12px 16px;margin-top:8px'>"
+        "<span style='color:#ef4444;font-weight:900;font-size:0.9rem;'>🚨 긴급 데이터 파기</span>"
+        "<span style='color:#fca5a5;font-size:0.78rem;margin-left:10px;'>"
+        "보안 위협 감지 시 — 본인 고객 데이터 전체를 즉시 삭제합니다.</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    with st.expander("⚠️ 긴급 파기 실행 (클릭하여 열기)", expanded=False):
+        st.warning(
+            "**이 작업은 되돌릴 수 없습니다.**\n\n"
+            "현재 로그인된 설계사의 **모든 고객 정보, 상담 메모, PII 매핑**이 "
+            "Supabase DB에서 영구 삭제됩니다.\n\n"
+            "보안 위협이 확실한 경우에만 실행하세요."
+        )
+        _confirm_text = st.text_input(
+            "확인 문구 입력 (정확히 입력: **파기확인**)",
+            key="emergency_purge_confirm",
+            placeholder="파기확인",
+        )
+        _purge_btn = st.button(
+            "🔴 지금 즉시 모든 고객 데이터 파기",
+            key="btn_emergency_purge",
+            type="primary",
+            use_container_width=True,
+        )
+        if _purge_btn:
+            if _confirm_text.strip() != "파기확인":
+                st.error("확인 문구가 다릅니다. '파기확인'을 정확히 입력하세요.")
+            elif not sb:
+                st.error("Supabase 연결 필요")
+            else:
+                try:
+                    _del_uid = agent_uid
+                    # PII → 상담 → 고객 순서로 삭제 (FK 제약 순서)
+                    sb.table(TABLE_PII).delete().eq("agent_uid", _del_uid).execute()
+                    sb.table(TABLE_CONSULT).delete().eq("agent_uid", _del_uid).execute()
+                    sb.table(TABLE_CUSTOMERS).delete().eq("agent_uid", _del_uid).execute()
+                    st.success(
+                        "✅ 모든 고객 데이터가 파기되었습니다.\n\n"
+                        f"삭제 시각: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
+                        "데이터는 복구 불가능합니다."
+                    )
+                    st.session_state.pop("memo_customer_sel", None)
+                    st.session_state.pop("brief_sel", None)
+                except Exception as _pe:
+                    st.error(f"파기 중 오류: {_pe}")
