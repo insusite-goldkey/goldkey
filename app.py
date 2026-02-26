@@ -8242,53 +8242,76 @@ section[data-testid="stMain"] > div,
                         with st.spinner("🔍 이미지 증권 Vision 파싱 중..."):
                             _vr = parse_policy_with_vision(_ps_img_files)
                             if _vr.get("coverages"):
-                                import json as _json
                                 _ps_vision_result = (
-                                    "\n\n[Vision 파싱 담보 목록]\n"
-                                    + _json.dumps(_vr["coverages"], ensure_ascii=False, indent=2)
+                                    "\n\n[Vision 파싱 담보 목록 — 증권에 실제 있는 담보만]\n"
+                                    + json.dumps(_vr["coverages"], ensure_ascii=False, indent=2)
                                 )
                             if _vr.get("errors"):
                                 for _ve in _vr["errors"]:
                                     st.warning(f"⚠️ Vision 오류: {_ve}")
 
-                    _ps_prod_ctx = f"\n## 상담 상품: {ps_product}" if ps_product != "선택 안 함 (전체 분석)" else ""
-                    _ps_dir_ctx  = f"\n## 상담 방향: {ps_direction}"
-                    _ps_extra = (
-                        f"[보험증권 분석 — 보험설계사 전용]{_ps_prod_ctx}{_ps_dir_ctx}\n\n"
-                        "## ⚠️ 절대 준수 사항\n"
-                        "- 아래 증권 데이터에 실제로 명시된 담보만 분석하라.\n"
-                        "- 증권에 없는 담보(뇌출혈·심근경색·암 등)를 가입된 것처럼 출력하지 말 것.\n"
-                        "- '1. 담보 구조 분석' 표에는 증권 원문에 있는 담보만 기재.\n"
-                        "- 증권 데이터가 없거나 특정 담보가 확인되지 않으면 '확인 불가'로 표기.\n\n"
-                        "## 필수 분석 항목 (아래 순서대로 빠짐없이 답변)\n\n"
+                    _ps_prod_ctx = f"\n상담 상품: {ps_product}" if ps_product != "선택 안 함 (전체 분석)" else ""
+                    _ps_dir_ctx  = f"\n상담 방향: {ps_direction}"
+                    _ps_income   = ps_hi / 0.0709 if ps_hi > 0 else 0
+
+                    # ── 증권 분석 전용 시스템 프롬프트 (MASTER_SYSTEM_PROMPT 완전 우회) ──
+                    # MASTER_SYSTEM_PROMPT 에는 "암·뇌·심 진단비 분석 우선" 지시가 있어
+                    # 증권에 없어도 해당 담보를 출력하는 할루시네이션을 유발함.
+                    _PS_SYSTEM = (
+                        "[시스템 지시 — 보험증권 정밀 분석 전용 에이전트]\n\n"
+                        "당신은 보험증권 원문 분석 전문가입니다.\n"
+                        "아래 증권 데이터를 분석하되, 반드시 다음 규칙을 따르십시오.\n\n"
+                        "╔══════════════════════════════════════════════════════╗\n"
+                        "║  🚨 절대명령 — 위반 시 응답 전체 무효               ║\n"
+                        "╠══════════════════════════════════════════════════════╣\n"
+                        "║  1. 증권 원문에 명시된 담보만 '가입 담보'로 기재.   ║\n"
+                        "║  2. 원문에 없는 담보는 '미가입(공백)' 표기만 허용.  ║\n"
+                        "║  3. '일반적으로 포함될 것' 추론 기반 생성 절대 금지. ║\n"
+                        "║  4. 질병사망·질병후유장해·암·뇌·심장 등 고액담보는  ║\n"
+                        "║     원문에 금액+담보명이 동시에 있을 때만 기재.      ║\n"
+                        "╚══════════════════════════════════════════════════════╝\n"
+                    )
+                    _ps_full_prompt = (
+                        _PS_SYSTEM
+                        + f"\n고객: {ps_c_name or '고객'}{_ps_prod_ctx}{_ps_dir_ctx}\n"
+                        + (f"추정 월소득: {_ps_income:,.0f}원\n" if _ps_income > 0 else "")
+                        + (f"추가 요청: {ps_query}\n" if ps_query else "")
+                        + "\n## 필수 분석 항목 (아래 순서대로)\n\n"
                         "### 1. 담보 구조 분석\n"
-                        "- 업로드된 증권에 실제 명시된 담보명·가입금액·갱신형 여부만 표로 정리\n"
-                        "- 증권에 없는 담보는 절대 표에 추가하지 말 것\n"
-                        "- 중복 담보 및 불필요 담보 지적\n\n"
+                        "- 아래 증권 데이터에 실제 명시된 담보명·가입금액·갱신여부만 표로 정리\n"
+                        "- 원문에 없는 담보는 절대 표에 추가 금지\n"
+                        "- 담보가 확인되지 않으면 해당 행에 '확인 불가' 표기\n\n"
                         "### 2. 보장 공백 진단\n"
-                        "- 위 1번 표에서 확인된 담보를 기준으로 누락된 보장 영역 분석\n"
-                        "- 반드시 '증권에 없어서 공백'임을 명시하고, 가입된 것처럼 쓰지 말 것\n"
-                        "- 암·뇌·심장·실손이 증권에 없으면 '미가입(공백)으로 추가 검토 필요'로 표현\n\n"
+                        "- 1번 표 기준으로 없는 보장 영역을 '미가입(공백)' 형태로 명시\n"
+                        "- 절대 공백 담보를 '가입된 것'처럼 쓰지 말 것\n\n"
                         "### 3. 보험료 황금비율 진단\n"
-                        "- 건보료 기반 추정 소득 역산 (건보료 ÷ 0.0709)\n"
-                        "- 가처분 소득의 7~10% 기준 적정 보험료 범위 제시\n"
-                        "- 현재 납입 보험료 과다/과소 여부 평가\n\n"
+                        "- 건보료 역산 소득 기준 적정 보험료 7~10% 범위 평가\n\n"
                         "### 4. 갱신형 vs 비갱신형 전략\n"
-                        "- 갱신형 담보 목록(증권 원문 기준)과 향후 보험료 인상 시뮬레이션\n"
-                        "- 비갱신형 전환 권고 담보 및 절감 효과 수치 제시\n\n"
+                        "- 원문에 있는 갱신형 담보 목록과 향후 보험료 인상 시뮬레이션\n\n"
                         "### 5. 신규 설계 제안\n"
-                        "- 보장 공백 해소를 위한 추가 담보 우선순위 3가지\n"
-                        "- 예상 추가 보험료 범위 제시\n\n"
+                        "- 공백 보장 해소를 위한 추가 담보 우선순위 3가지\n\n"
                         "### 6. 고객 설득 멘트\n"
-                        "- 현장에서 바로 쓸 수 있는 세일즈 화법 2가지\n"
+                        "- 현장에서 바로 쓸 수 있는 세일즈 화법 2가지\n\n"
+                        "---\n[증권 데이터 시작]\n"
                         + _ps_doc_text + _ps_vision_result
+                        + "\n[증권 데이터 끝]"
                     )
-                    run_ai_analysis(
-                        ps_c_name or "고객", ps_query or "보험증권 분석 요청",
-                        ps_hi, "res_ps",
-                        extra_prompt=_ps_extra,
-                        product_key=ps_product if ps_product != "선택 안 함 (전체 분석)" else "",
-                    )
+
+                    with st.spinner("골드키AI마스터 분석 중..."):
+                        try:
+                            _ps_client = get_client()
+                            if _ps_client is None:
+                                st.error("API 클라이언트 초기화 실패")
+                            else:
+                                _ps_resp = _ps_client.models.generate_content(
+                                    model=GEMINI_MODEL,
+                                    contents=_ps_full_prompt
+                                )
+                                _ps_answer = sanitize_unicode(_ps_resp.text) if _ps_resp.text else "AI 응답을 받지 못했습니다."
+                                st.session_state["res_ps"] = _ps_answer
+                                increment_usage_count(st.session_state.get('user_name', ''))
+                        except Exception as _ps_err:
+                            st.error(f"분석 오류: {sanitize_unicode(str(_ps_err))}")
 
             show_result("res_ps")
 
