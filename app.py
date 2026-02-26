@@ -96,17 +96,34 @@ os.environ["PYTHONUTF8"] = "1"
 
 # ── Playwright Chromium 자동 설치 (HuggingFace Space / 서버 환경) ──────────
 # requirements.txt에 playwright가 있어도 'playwright install chromium'은
-# 별도로 실행해야 함. 앱 첫 기동 시 1회 자동 실행 후 플래그 파일로 중복 방지.
+# 별도로 실행해야 함. 홈 디렉터리에 플래그 파일로 중복 방지 (영구 경로).
 try:
     import subprocess as _subprocess
-    _pw_flag = pathlib.Path(tempfile.gettempdir()) / ".pw_chromium_installed"
-    if not _pw_flag.exists():
+    # 영구 경로 사용 (tmpdir는 재시작마다 초기화됨)
+    _pw_flag = pathlib.Path.home() / ".pw_chromium_ok"
+    _need_install = not _pw_flag.exists()
+    if not _need_install:
+        # 이미 설치됐어도 chromium 바이너리 실제 존재 확인
+        try:
+            from playwright.sync_api import sync_playwright as _spw
+            _t = _spw().__enter__()
+            _b = _t.chromium.launch(headless=True, args=["--no-sandbox"])
+            _b.close()
+            _t.__exit__(None, None, None)
+        except Exception:
+            _need_install = True   # 바이너리 없으면 재설치
+            _pw_flag.unlink(missing_ok=True)
+    if _need_install:
         _pw_result = _subprocess.run(
             [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
-            capture_output=True, text=True, timeout=120
+            capture_output=True, text=True, timeout=180
         )
         if _pw_result.returncode == 0:
             _pw_flag.write_text("ok")
+        else:
+            # 설치 실패 시 stderr를 임시 로그에 기록 (앱은 계속 기동)
+            _err_log = pathlib.Path(tempfile.gettempdir()) / "pw_install_err.txt"
+            _err_log.write_text(_pw_result.stderr or _pw_result.stdout or "unknown error")
 except Exception:
     pass
 
