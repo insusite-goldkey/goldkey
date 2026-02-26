@@ -16,6 +16,44 @@ from typing import Optional
 import streamlit as st
 
 # ---------------------------------------------------------------------------
+# 암호화 헬퍼 — modules/auth.py의 encrypt_val/decrypt_val 재사용
+# ---------------------------------------------------------------------------
+def _enc(text: str) -> str:
+    """실명 등 민감 정보 암호화. 실패 시 원문 반환 (가용성 우선)."""
+    if not text:
+        return text
+    try:
+        from cryptography.fernet import Fernet
+        import streamlit as _st
+        try:
+            _key = _st.secrets.get("ENCRYPTION_KEY", b"temporary_fixed_key_for_dev_only_12345=")
+        except Exception:
+            _key = b"temporary_fixed_key_for_dev_only_12345="
+        if isinstance(_key, str):
+            _key = _key.encode()
+        return Fernet(_key).encrypt(text.encode()).decode()
+    except Exception:
+        return text
+
+
+def _dec(text: str) -> str:
+    """암호화된 실명 복호화. 실패 시 원문 반환 (평문 저장 레거시 호환)."""
+    if not text:
+        return text
+    try:
+        from cryptography.fernet import Fernet
+        import streamlit as _st
+        try:
+            _key = _st.secrets.get("ENCRYPTION_KEY", b"temporary_fixed_key_for_dev_only_12345=")
+        except Exception:
+            _key = b"temporary_fixed_key_for_dev_only_12345="
+        if isinstance(_key, str):
+            _key = _key.encode()
+        return Fernet(_key).decrypt(text.encode()).decode()
+    except Exception:
+        return text  # 복호화 실패 시 원문(평문) 그대로 반환 — 레거시 호환
+
+# ---------------------------------------------------------------------------
 # 상수
 # ---------------------------------------------------------------------------
 TABLE_CUSTOMERS  = "gk_customers"
@@ -53,7 +91,7 @@ def _make_code_name(agent_uid: str, sb) -> str:
 # ---------------------------------------------------------------------------
 
 def build_pii_map(agent_uid: str, customer_id: int, sb) -> dict:
-    """DB에서 실명→코드명 매핑 딕셔너리 반환 {실명: 코드명}"""
+    """DB에서 실명→코드명 매핑 딕셔너리 반환 {복호화된 실명: 코드명}"""
     if not sb:
         return {}
     try:
@@ -62,7 +100,7 @@ def build_pii_map(agent_uid: str, customer_id: int, sb) -> dict:
              .eq("agent_uid", agent_uid)
              .eq("customer_id", customer_id)
              .execute())
-        return {row["real_name"]: row["code_name"] for row in (r.data or [])}
+        return {_dec(row["real_name"]): row["code_name"] for row in (r.data or [])}
     except Exception:
         return {}
 
@@ -87,11 +125,16 @@ def save_pii_entry(agent_uid: str, customer_id: int,
     if not sb or not real_name.strip():
         return False
     try:
+        _enc_name = _enc(real_name.strip())
+        # unique 충돌 키는 암호화 전 해시로 관리
+        _name_hash = hashlib.sha256(real_name.strip().encode()).hexdigest()[:32]
         sb.table(TABLE_PII).upsert(
             {"agent_uid": agent_uid, "customer_id": customer_id,
-             "real_name": real_name.strip(), "code_name": code_name,
+             "real_name": _enc_name,
+             "name_hash": _name_hash,
+             "code_name": code_name,
              "relation": relation},
-            on_conflict="agent_uid,real_name",
+            on_conflict="agent_uid,name_hash",
         ).execute()
         return True
     except Exception:
@@ -103,6 +146,7 @@ def save_pii_entry(agent_uid: str, customer_id: int,
 # ---------------------------------------------------------------------------
 
 def load_customers(agent_uid: str, sb) -> list:
+    """고객 목록 반환 — name/phone 복호화 후 반환 (설계사에게 실명 표시)"""
     if not sb:
         return []
     try:
@@ -111,23 +155,27 @@ def load_customers(agent_uid: str, sb) -> list:
              .eq("agent_uid", agent_uid)
              .order("created_at", desc=True)
              .execute())
-        return r.data or []
+        rows = r.data or []
+        for row in rows:
+            row["name"]  = _dec(row.get("name", ""))
+            row["phone"] = _dec(row.get("phone", ""))
+        return rows
     except Exception:
         return []
 
 
 def save_customer(agent_uid: str, name: str, phone: str, sb) -> Optional[int]:
-    """고객 등록 → 신규 id 반환"""
+    """고객 등록 → 신규 id 반환 (name/phone 암호화 저장)"""
     if not sb:
         return None
     code_name = _make_code_name(agent_uid, sb)
     try:
         r = sb.table(TABLE_CUSTOMERS).insert({
             "agent_uid": agent_uid,
-            "name": name.strip(),
+            "name":      _enc(name.strip()),
             "code_name": code_name,
-            "phone": phone.strip(),
-            "profile": {},
+            "phone":     _enc(phone.strip()) if phone.strip() else "",
+            "profile":   {},
         }).execute()
         new_id = (r.data or [{}])[0].get("id")
         return new_id
