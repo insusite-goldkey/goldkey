@@ -556,7 +556,8 @@ class JITPipelineRunner:
         ]
 
     def _upsert(self, company, product, join_date, pdf_url, idx, text,
-                revision_date: str = "", period: str = "") -> bool:
+                revision_date: str = "", period: str = "",
+                storage_path: str = "") -> bool:
         h = hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
         if not self.sb:
             return False
@@ -566,8 +567,9 @@ class JITPipelineRunner:
                  "pdf_url": pdf_url, "chunk_idx": idx,
                  "chunk_text": text[:4000], "char_count": len(text),
                  "content_hash": h,
-                 "revision_date": revision_date,   # (4) 메타데이터 아카이브
+                 "revision_date": revision_date,
                  "sale_period": period,
+                 "storage_path": storage_path,
                  "indexed_at": datetime.utcnow().isoformat()},
                 on_conflict="content_hash",
             ).execute()
@@ -594,7 +596,7 @@ class JITPipelineRunner:
                 progress_cb(msg)
 
         res = dict(ok=False, chunks_indexed=0, chunks_failed=0,
-                   pdf_bytes_size=0, error="")
+                   pdf_bytes_size=0, pdf_bytes=None, storage_path="", error="")
 
         _log(f"📥 PDF 다운로드 중: {pdf_url[:80]}...")
         pdf_bytes = self._download_pdf(pdf_url)
@@ -603,8 +605,15 @@ class JITPipelineRunner:
             _log(f"❌ {res['error']}")
             return res
 
+        res["pdf_bytes"] = pdf_bytes
         res["pdf_bytes_size"] = len(pdf_bytes)
         _log(f"✅ 다운로드 완료 ({len(pdf_bytes)//1024}KB). 텍스트 추출 중...")
+
+        # Supabase Storage에 원본 PDF 저장
+        storage_path = self._save_pdf_to_storage(company, product, join_date, pdf_bytes)
+        if storage_path:
+            res["storage_path"] = storage_path
+            _log(f"💾 원본 PDF 저장됨: {storage_path}")
 
         chunks = self._pdf_to_chunks(pdf_bytes)
         if not chunks:
@@ -614,7 +623,8 @@ class JITPipelineRunner:
 
         _log(f"📄 {len(chunks)}개 청크 → Supabase 적재 중...")
         for idx, chunk in enumerate(chunks):
-            if self._upsert(company, product, join_date, pdf_url, idx, chunk):
+            if self._upsert(company, product, join_date, pdf_url, idx, chunk,
+                            storage_path=storage_path):
                 res["chunks_indexed"] += 1
             else:
                 res["chunks_failed"] += 1
@@ -624,11 +634,28 @@ class JITPipelineRunner:
         res["ok"] = res["chunks_indexed"] > 0
         _log(f"✅ 인덱싱 완료: {res['chunks_indexed']}개 성공 / {res['chunks_failed']}개 실패")
 
-        # (5) 오류 알림: 인덱싱 전체 실패 시 Supabase 오류 로그 기록
         if not res["ok"]:
             _write_crawl_error_log(self.sb, company, product, join_date,
                                    pdf_url, "인덱싱 전체 실패")
         return res
+
+    def _save_pdf_to_storage(self, company: str, product: str,
+                              join_date: str, pdf_bytes: bytes) -> str:
+        """Supabase Storage 'policy-terms' 버킷에 원본 PDF 저장. 경로 반환."""
+        if not self.sb or not pdf_bytes:
+            return ""
+        import re as _re
+        safe = lambda s: _re.sub(r"[^\w가-힣]", "_", s)[:40]
+        path = f"policy_terms/{safe(company)}/{safe(product)}_{join_date or 'unknown'}.pdf"
+        try:
+            self.sb.storage.from_("policy-terms").upload(
+                path, pdf_bytes,
+                file_options={"content-type": "application/pdf", "upsert": "true"},
+            )
+            return path
+        except Exception:
+            # 버킷 없거나 권한 없으면 조용히 무시
+            return ""
 
     def search_terms(self, company: str, product: str, keyword: str, limit: int = 5) -> list:
         """인덱싱된 약관에서 키워드 ILIKE 검색"""
@@ -679,6 +706,89 @@ def _write_crawl_error_log(
         }).execute()
     except Exception as e:
         logger.error(f"[CrawlError 로그 기록 실패] {e}")
+
+
+def get_product_suggestions(sb_client, company: str = "", query: str = "",
+                            limit: int = 20) -> list:
+    """
+    DB에 인덱싱된 상품명 목록에서 자동완성 후보 반환.
+    - company: 보험사명으로 필터 (빈 문자열이면 전체)
+    - query: 입력어 포함 필터 (빈 문자열이면 전체)
+    반환: [{"company": str, "product": str}, ...]
+    """
+    if not sb_client:
+        return _BUILTIN_PRODUCT_DICT.get(company, []) if company else []
+    try:
+        q = (sb_client.table(JITPipelineRunner.TABLE)
+             .select("company, product")
+             .order("product"))
+        if company:
+            q = q.eq("company", company)
+        if query:
+            q = q.ilike("product", f"%{query}%")
+        r = q.limit(limit * 5).execute()   # 중복 제거 위해 넉넉히
+        seen, result = set(), []
+        for row in (r.data or []):
+            key = (row["company"], row["product"])
+            if key not in seen:
+                seen.add(key)
+                result.append({"company": row["company"], "product": row["product"]})
+            if len(result) >= limit:
+                break
+        # DB 결과 없으면 내장 사전 폴백
+        if not result:
+            pool = _BUILTIN_PRODUCT_DICT.get(company, []) if company else [
+                {"company": c, "product": p}
+                for c, plist in _BUILTIN_PRODUCT_DICT.items()
+                for p in plist
+            ]
+            if query:
+                core = PolicyDisclosureCrawler._core_tokens(query)
+                pool = [x for x in pool
+                        if any(t in x["product"] for t in core)]
+            return pool[:limit]
+        return result
+    except Exception:
+        return []
+
+
+# 내장 상품명 사전 (DB 미연결 시 폴백 / 초기 자동완성 시드)
+_BUILTIN_PRODUCT_DICT: dict = {
+    "메리츠화재": [
+        "무배당 메리츠 운전자보험", "무배당 메리츠 The행복한 운전자보험",
+        "무배당 웰스라이프운전자보험", "무배당 메리츠 어린이보험",
+        "무배당 메리츠 암보험", "무배당 메리츠 종합보험",
+    ],
+    "삼성화재": [
+        "무배당 삼성 애니카 운전자보험", "무배당 삼성 New 운전자보험",
+        "무배당 삼성 암보험", "무배당 삼성 종합보험",
+        "무배당 삼성 어린이보험", "무배당 삼성 건강보험",
+    ],
+    "현대해상": [
+        "무배당 현대 하이카 운전자보험", "무배당 현대해상 운전자보험",
+        "무배당 현대 암보험", "무배당 현대 종합보험",
+    ],
+    "DB손해보험": [
+        "무배당 DB 참좋은 운전자보험", "무배당 DB 암보험",
+        "무배당 DB 종합보험", "무배당 DB 어린이보험",
+    ],
+    "KB손해보험": [
+        "무배당 KB 금쪽같은 자녀보험", "무배당 KB 운전자보험",
+        "무배당 KB 암보험", "무배당 KB 종합보험",
+    ],
+    "한화생명": [
+        "무배당 한화생명 운전자보험", "무배당 한화 암보험",
+        "무배당 한화 종신보험", "무배당 한화 건강보험",
+    ],
+    "삼성생명": [
+        "무배당 삼성생명 암보험", "무배당 삼성 종신보험",
+        "무배당 삼성생명 건강보험", "무배당 삼성생명 치아보험",
+    ],
+    "교보생명": [
+        "무배당 교보 암보험", "무배당 교보 종신보험",
+        "무배당 교보 건강보험", "무배당 교보 어린이보험",
+    ],
+}
 
 
 def get_crawl_error_logs(sb_client, limit: int = 50) -> list:
@@ -766,6 +876,8 @@ def run_jit_policy_lookup(
         company_name, product_name, join_date, crawl["pdf_url"], progress_cb=_log
     )
     result["chunks_indexed"] = pipe_res["chunks_indexed"]
+    result["pdf_bytes"]       = pipe_res.get("pdf_bytes")
+    result["storage_path"]    = pipe_res.get("storage_path", "")
     if pipe_res["error"]:
         result["error"] = pipe_res["error"]
 
@@ -857,6 +969,8 @@ def run_batch_jit_from_scan(
 
         base["pdf_url"]        = jit_res.get("pdf_url", "")
         base["chunks_indexed"] = jit_res.get("chunks_indexed", 0)
+        base["pdf_bytes"]      = jit_res.get("pdf_bytes")
+        base["storage_path"]   = jit_res.get("storage_path", "")
         base["error"]          = jit_res.get("error", "")
 
         if jit_res.get("cached"):

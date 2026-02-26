@@ -17890,23 +17890,50 @@ END; $$;""", language="sql")
 
             if _scan_pols:
                 st.markdown(f"**🔍 가입 약관 자동 추적 대상 {len(_scan_pols)}건** — 내용 확인 후 추적 버튼을 누르세요")
-                # ── 테이블형 입력 (expander 제거 → 중간 인식 없음) ──
-                _hdr1, _hdr2, _hdr3, _hdr4 = st.columns([2, 3, 2, 1])
+                try:
+                    from disclosure_crawler import get_product_suggestions as _get_sugg
+                except ImportError:
+                    _get_sugg = None
+                # ── 테이블 헤더 ──
+                _hdr1, _hdr2, _hdr3, _hdr4 = st.columns([2, 4, 2, 1])
                 _hdr1.caption("보험사명")
-                _hdr2.caption("상품명")
+                _hdr2.caption("상품명 (실제 약관 이름 입력 후 후보 선택)")
                 _hdr3.caption("가입일 (YYYY-MM-DD)")
                 _hdr4.caption("신뢰도")
                 _edited_pols = []
+                _jit_sb_sugg = _get_sb_client()
                 for _pi, _pol in enumerate(_scan_pols):
                     _conf = _pol.get("confidence", 0)
                     _conf_label = "AI" if _conf == 100 else ("높음" if _conf >= 70 else "보통" if _conf >= 40 else "낮음")
-                    _ec1, _ec2, _ec3, _ec4 = st.columns([2, 3, 2, 1])
+                    _ec1, _ec2, _ec3, _ec4 = st.columns([2, 4, 2, 1])
                     with _ec1:
                         _new_co = st.text_input("보험사", label_visibility="collapsed",
                             value=_pol.get("company",""), key=f"sh_jit_co_{_pi}")
                     with _ec2:
+                        # 상품명 자동완성: 현재 보험사명으로 후보 조회
+                        _cur_co = st.session_state.get(f"sh_jit_co_{_pi}", _new_co)
+                        _sugg_list = []
+                        if _get_sugg and _cur_co:
+                            try:
+                                _sugg_raw = _get_sugg(_jit_sb_sugg, company=_cur_co,
+                                                      query=st.session_state.get(f"sh_jit_pr_{_pi}",""),
+                                                      limit=15)
+                                _sugg_list = [s["product"] for s in _sugg_raw]
+                            except Exception:
+                                _sugg_list = []
+                        # 자유입력 + 후보 선택을 함께 제공
+                        _pr_val = _pol.get("product","")
                         _new_pr = st.text_input("상품명", label_visibility="collapsed",
-                            value=_pol.get("product",""), key=f"sh_jit_pr_{_pi}")
+                            value=_pr_val, key=f"sh_jit_pr_{_pi}")
+                        if _sugg_list:
+                            # 현재 입력값과 다른 후보가 있으면 선택박스 표시
+                            _sugg_opts = ["(직접 입력)"] + [s for s in _sugg_list if s != _new_pr]
+                            _sel = st.selectbox("후보", _sugg_opts,
+                                                label_visibility="collapsed",
+                                                key=f"sh_jit_sugg_{_pi}")
+                            if _sel and _sel != "(직접 입력)" and _sel != _new_pr:
+                                st.session_state[f"sh_jit_pr_{_pi}"] = _sel
+                                _new_pr = _sel
                     with _ec3:
                         _new_jd = st.text_input("가입일", label_visibility="collapsed",
                             value=_pol.get("join_date",""), key=f"sh_jit_jd_{_pi}")
@@ -17997,12 +18024,15 @@ END; $$;""", language="sql")
                                     state="complete" if not _fail else "error",
                                 )
                                 st.markdown("#### 📊 약관 추적 결과")
-                                for _r in _batch_res:
+                                from disclosure_crawler import CompanyUrlRegistry as _CUR
+                                for _ri, _r in enumerate(_batch_res):
                                     _icon = {"indexed":"✅","cached":"💾","failed":"❌","skipped":"⚠️"}.get(_r["status"],"❓")
-                                    _r_co  = _r.get("company","")
-                                    _r_pr  = _r.get("product","")[:30]
-                                    _r_jd  = _r.get("join_date","") or "가입일 미확인"
-                                    _r_url = _r.get("pdf_url","")
+                                    _r_co    = _r.get("company","")
+                                    _r_pr    = _r.get("product","")[:30]
+                                    _r_jd    = _r.get("join_date","") or "가입일 미확인"
+                                    _r_url   = _r.get("pdf_url","")
+                                    _r_bytes = _r.get("pdf_bytes")
+                                    _r_path  = _r.get("storage_path","")
                                     _rmsg = f"{_icon} **{_r_co}** / {_r_pr} ({_r_jd})"
                                     if _r["status"] == "indexed":
                                         _rmsg += f" — {_r['chunks_indexed']}청크 저장"
@@ -18010,17 +18040,26 @@ END; $$;""", language="sql")
                                         _rmsg += " — 기존 캐시 활용"
                                     elif _r.get("error"):
                                         _rmsg += f" — {_r['error'][:80]}"
-                                    # PDF URL이 있으면 같은 행에 링크 추가
+                                    # 공시실/PDF 링크
                                     if _r_url:
-                                        _rmsg += f'　<a href="{_r_url}" target="_blank" style="color:#0ea5e9;font-size:0.82rem;">📄 약관 PDF 원본 열기</a>'
+                                        _rmsg += f'　<a href="{_r_url}" target="_blank" style="color:#0ea5e9;font-size:0.82rem;">🔗 공시실 PDF 열기</a>'
                                     else:
-                                        # PDF URL 없어도 공시실 직접 열기 링크
-                                        from disclosure_crawler import CompanyUrlRegistry as _CUR
                                         _co_info = _CUR.get(_r_co)
                                         if _co_info:
-                                            _disc_url = _co_info["url"]
-                                            _rmsg += f'　<a href="{_disc_url}" target="_blank" style="color:#94a3b8;font-size:0.82rem;">🔗 공시실 바로가기</a>'
+                                            _rmsg += f'　<a href="{_co_info["url"]}" target="_blank" style="color:#94a3b8;font-size:0.82rem;">🔗 공시실 바로가기</a>'
                                     st.markdown(_rmsg, unsafe_allow_html=True)
+                                    # ── PDF 직접 다운로드 버튼 ──
+                                    if _r_bytes:
+                                        import re as _re2
+                                        _safe_fn = _re2.sub(r"[^\w가-힣]", "_", f"{_r_co}_{_r_pr}_{_r_jd}")[:60]
+                                        st.download_button(
+                                            label=f"⬇️ 약관 PDF 다운로드",
+                                            data=_r_bytes,
+                                            file_name=f"{_safe_fn}.pdf",
+                                            mime="application/pdf",
+                                            key=f"dl_pdf_{_ri}",
+                                            use_container_width=False,
+                                        )
                                 st.session_state["sh_batch_crawl_result"] = _batch_res
                             except ImportError:
                                 st.error("disclosure_crawler 모듈 로드 실패")
