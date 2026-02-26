@@ -7968,13 +7968,13 @@ window.startSugSTT=function(){{
                 _dob = (row.get("profile") or {}).get("dob", "")
                 return f"{_n}  ({_dob})" if _dob else _n
 
-            _cust_options_map = {"🆕 신규 고객 직접 입력": None}
+            _cust_options_map = {"✏️ 고객 입력 & 검색": None}
             for _cr in _cust_rows:
                 _cust_options_map[_cust_label(_cr)] = _cr
 
-            _search_label = st.session_state.get("_home_selected_cust_label", "🆕 신규 고객 직접 입력")
+            _search_label = st.session_state.get("_home_selected_cust_label", "✏️ 고객 입력 & 검색")
             if _search_label not in _cust_options_map:
-                _search_label = "🆕 신규 고객 직접 입력"
+                _search_label = "✏️ 고객 입력 & 검색"
 
             st.markdown("""<div style="background:#e8f5e9;border:1.5px solid #1a6b4a;border-radius:10px;
   padding:10px 14px;margin-bottom:10px;">
@@ -7992,13 +7992,13 @@ window.startSugSTT=function(){{
                 )
             with _srch_col2:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-                if st.button("🔄 목록 새로고침", key="btn_cust_refresh", use_container_width=True):
+                if st.button("🔍 검색", key="btn_cust_search", use_container_width=True, type="primary"):
                     st.session_state.pop("_home_selected_cust_label", None)
                     st.rerun()
 
             # 선택된 고객 → scan_client_* 자동 로드
             _selected_row = _cust_options_map.get(_selected_label)
-            if _selected_row and _selected_label != "🆕 신규 고객 직접 입력":
+            if _selected_row and _selected_label != "✏️ 고객 입력 & 검색":
                 st.session_state["_home_selected_cust_label"] = _selected_label
                 st.session_state["selected_customer_id"]   = _selected_row.get("id")
                 _prof = _selected_row.get("profile") or {}
@@ -8016,7 +8016,7 @@ window.startSugSTT=function(){{
                 st.success(f"✅ [{_selected_row.get('name','')}] 고객 선택됨 — 아래 정보가 자동 로드되었습니다")
             else:
                 st.session_state["selected_customer_id"] = None
-                st.session_state["_home_selected_cust_label"] = "🆕 신규 고객 직접 입력"
+                st.session_state["_home_selected_cust_label"] = "✏️ 고객 입력 & 검색"
 
             # ── 상담 대상자 기본 정보 ────────────────────────────────────
             st.markdown("""<div style="background:rgba(13,59,46,0.08);border:1px solid #1a6b4a;
