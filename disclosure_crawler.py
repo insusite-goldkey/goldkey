@@ -165,6 +165,7 @@ class PolicyDisclosureCrawler:
         self.headless = headless
 
     def _launch(self) -> bool:
+        self._launch_error = ""
         try:
             from playwright.sync_api import sync_playwright
             self._pw      = sync_playwright().__enter__()
@@ -173,7 +174,11 @@ class PolicyDisclosureCrawler:
                 args=self._STEALTH_ARGS,
             )
             return True
-        except ImportError:
+        except ImportError as e:
+            self._launch_error = f"playwright 미설치: {e}"
+            return False
+        except Exception as e:
+            self._launch_error = f"Chromium 실행 실패: {e}"
             return False
 
     def _close(self):
@@ -290,7 +295,7 @@ class PolicyDisclosureCrawler:
         if not info:
             return self._err(f"'{company_name}' 공시실 미등록")
         if not self._launch():
-            return self._err("실시간 공시실 크롤링은 서버 환경에서 비활성화됩니다. DB 캐시 검색을 이용하세요.")
+            return self._err(getattr(self, "_launch_error", None) or "Chromium 실행 실패 (playwright install chromium --with-deps 필요)")
 
         res = dict(pdf_url="", period="", revision_date="",
                    confidence=0, reason="", candidates_count=0, error="")
