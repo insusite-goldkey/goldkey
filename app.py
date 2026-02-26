@@ -7092,7 +7092,7 @@ div[data-testid="stTextArea"] textarea {
 <div id="sug_status" style="font-size:0.75rem;color:#6b7280;margin-top:3px;text-align:center;">음성으로 말하면 자동으로 내용이 입력됩니다</div>
 <script>
 (function(){{
-var _active=false, _rec=null, _starting=false;
+var _active=false, _starting=false;
 var _finalBuf='';
 var _lastQ=[];
 var _wakeLock=null;
@@ -7163,74 +7163,133 @@ function _pushResult(val){{
   }}catch(ex){{}}
 }}
 
+// ── VAD / silence 파라미터 (메인 ai_query_block과 동일) ─────────────────
+var _MIN_UTTERANCE_MS={STT_MIN_UTTERANCE_MS};
+var _POST_ROLL_MS={STT_POST_ROLL_MS};
+var _SILENCE_MS={STT_SILENCE_TIMEOUT_MS};
+var _CONF_THRESHOLD=0.45;
+var _pendingFinal='';
+var _silenceTimer=null;
+var _utterStart=0;
+var _ready=false, _rec=null;
+var _noiseRx=[/^[아어으음네예]+[\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\s]*$/,/^.{{1,2}}$/];
+function _isNoise(t){{ t=t.trim(); for(var i=0;i<_noiseRx.length;i++) if(_noiseRx[i].test(t)) return true; return false; }}
+var _nRules=[
+  [/실\s*손/g,'실손'],[/암\s*진\s*단/g,'암진단'],[/뇌\s*혈\s*관/g,'뇌혈관'],
+  [/심\s*근\s*경\s*색/g,'심근경색'],[/후\s*유\s*장\s*해/g,'후유장해'],
+  [/납\s*입\s*면\s*제/g,'납입면제'],[/갱\s*신\s*형/g,'갱신형'],[/비\s*갱\s*신\s*형/g,'비갱신형'],
+  [/치\s*매\s*보\s*험/g,'치매보험'],[/장\s*기\s*요\s*양/g,'장기요양'],
+  [/^(어+|음+|그+)[,\.\s]*/,'']
+];
+function _normKo(t){{ t=t.trim(); for(var i=0;i<_nRules.length;i++) t=t.replace(_nRules[i][0],_nRules[i][1]); return t.trim(); }}
+
+function _flushPending(){{
+  if(_silenceTimer){{ clearTimeout(_silenceTimer); _silenceTimer=null; }}
+  if(!_pendingFinal) return;
+  var txt=_normKo(_pendingFinal); _pendingFinal='';
+  if(!txt||_isNoise(txt)||_isDup(txt)) return;
+  _addQ(txt);
+  _finalBuf=_finalBuf?_finalBuf+' '+txt:txt;
+  _pushResult(_finalBuf);
+  var ibox=document.getElementById('sug_interim_box');
+  var stat=document.getElementById('sug_status');
+  if(ibox){{ ibox.style.display='block'; ibox.textContent='✅ 인식: '+_finalBuf; }}
+  if(stat) stat.textContent='✅ 받아쓰기 완료! 제안 제출 버튼을 눌러주세요';
+}}
+function _scheduleSilence(){{
+  if(_silenceTimer) clearTimeout(_silenceTimer);
+  _silenceTimer=setTimeout(_flushPending, _SILENCE_MS+_POST_ROLL_MS);
+}}
+
+function _initSug(){{
+  if(_ready) return true;
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.'); return false;}}
+  var r=new SR();
+  r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=true; r.maxAlternatives={STT_MAX_ALT};
+  r.onstart=function(){{
+    _starting=false;
+    var stat=document.getElementById('sug_status');
+    if(stat) stat.textContent='🎤 듣고 있습니다... 말씀해주세요';
+  }};
+  r.onresult=function(e){{
+    var now=Date.now();
+    if(!_utterStart) _utterStart=now;
+    var interim='';
+    var ibox=document.getElementById('sug_interim_box');
+    var btn=document.getElementById('sug_stt_btn');
+    for(var i=e.resultIndex;i<e.results.length;i++){{
+      if(e.results[i].isFinal){{
+        var uttDur=now-_utterStart; _utterStart=0;
+        if(uttDur<_MIN_UTTERANCE_MS) continue;
+        var best='',bc=0;
+        for(var j=0;j<e.results[i].length;j++){{
+          if(e.results[i][j].confidence>=bc){{bc=e.results[i][j].confidence;best=e.results[i][j].transcript;}}
+        }}
+        if(bc>0&&bc<_CONF_THRESHOLD) continue;
+        if(!best||_isNoise(best)) continue;
+        _pendingFinal=_pendingFinal?_pendingFinal+' '+best:best;
+        _scheduleSilence();
+      }} else {{
+        if(!_utterStart) _utterStart=now;
+        interim+=e.results[i][0].transcript;
+        if(_silenceTimer){{ clearTimeout(_silenceTimer); _silenceTimer=null; }}
+      }}
+    }}
+    if(interim){{
+      if(ibox){{ ibox.style.display='block'; ibox.textContent='🎤 듣는 중: '+interim; }}
+      if(btn) btn.textContent='🎤 '+interim.slice(0,22)+(interim.length>22?'...':'');
+    }}
+  }};
+  r.onerror=function(e){{
+    _starting=false;
+    var btn=document.getElementById('sug_stt_btn');
+    var stat=document.getElementById('sug_status');
+    if(e.error==='no-speech'||e.error==='aborted') return;
+    if(e.error==='not-allowed'){{
+      _active=false; _relWL();
+      if(btn){{btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active');}}
+      if(stat) stat.textContent='⚠️ 마이크 권한이 필요합니다 (브라우저 설정 확인)';
+      return;
+    }}
+    if(stat) stat.textContent='⚠️ 오류('+e.error+') — 다시 시도해주세요';
+  }};
+  r.onend=function(){{
+    _starting=false;
+    _flushPending();
+    var btn=document.getElementById('sug_stt_btn');
+    var stat=document.getElementById('sug_status');
+    if(_active){{
+      setTimeout(function(){{
+        if(_active&&!_starting){{ _starting=true; try{{r.start();}}catch(ex){{_starting=false;}} }}
+      }},{STT_POST_ROLL_MS}+{STT_PREFIX_PAD_MS}+{STT_RESTART_MS});
+    }} else {{
+      if(btn){{btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active');}} _relWL();
+      if(stat) stat.textContent=_finalBuf?'✅ 받아쓰기 완료! 제안 제출 버튼을 눌러주세요':'음성으로 말하면 자동으로 내용이 입력됩니다';
+    }}
+  }};
+  _rec=r; _ready=true; return true;
+}}
+
 window.startSugSTT=function(){{
   var btn=document.getElementById('sug_stt_btn');
   var ibox=document.getElementById('sug_interim_box');
   var stat=document.getElementById('sug_status');
   if(_active){{
     _active=false; _starting=false;
+    _flushPending();
     if(_rec) try{{_rec.stop();}}catch(ex){{}};
-    btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active'); _relWL(); return;
+    if(btn){{btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active');}} _relWL(); return;
   }}
-  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.'); return;}}
-  var r=new SR();
-  r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=true; r.maxAlternatives={STT_MAX_ALT};
-  r.onstart=function(){{ _starting=false; stat.textContent='🎤 듣고 있습니다... 말씩해주세요'; }};
-  r.onresult=function(e){{
-    var interim='', finalNew='';
-    for(var i=e.resultIndex;i<e.results.length;i++){{
-      if(e.results[i].isFinal){{
-        var best='',bc=0;
-        for(var j=0;j<e.results[i].length;j++){{
-          if(e.results[i][j].confidence>=bc){{bc=e.results[i][j].confidence;best=e.results[i][j].transcript;}}
-        }}
-        if(best&&!_isDup(best)){{finalNew+=best;_addQ(best);}}
-      }} else {{ interim+=e.results[i][0].transcript; }}
-    }}
-    if(interim){{
-      ibox.style.display='block';
-      ibox.textContent='🎤 듣는 중: '+interim;
-      btn.textContent='🎤 '+interim.slice(0,22)+(interim.length>22?'...':'');
-    }}
-    if(finalNew){{
-      _finalBuf=_finalBuf?_finalBuf+' '+finalNew:finalNew;
-      _pushResult(_finalBuf);
-      ibox.textContent='✅ 인식: '+_finalBuf;
-      stat.textContent='✅ 위 텍스트마다에 받아쓰기 완료! 제안 제출 버튼을 눌러주세요';
-      btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)';
-    }}
-  }};
-  r.onerror=function(e){{
-    _starting=false;
-    if(e.error==='no-speech'||e.error==='aborted') return;
-    if(e.error==='not-allowed'){{
-      _active=false; _relWL();
-      btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active');
-      stat.textContent='⚠️ 마이크 권한이 필요합니다 (브라우저 설정 확인)';
-      return;
-    }}
-    stat.textContent='⚠️ 오류('+e.error+') — 다시 시도해주세요';
-  }};
-  r.onend=function(){{
-    _starting=false;
-    if(_active){{
-      setTimeout(function(){{
-        if(_active&&!_starting){{ _starting=true; try{{r.start();}}catch(ex){{_starting=false;}} }}
-      }},{STT_POST_ROLL_MS}+{STT_PREFIX_PAD_MS}+{STT_RESTART_MS});
-    }} else {{
-      btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active'); _relWL();
-      if(_finalBuf) stat.textContent='✅ 받아쓰기 완료! 제안 제출 버튼을 눌러주세요';
-      else stat.textContent='음성으로 말하면 자동으로 내용이 입력됩니다';
-    }}
-  }};
-  _rec=r; _finalBuf=''; _lastQ=[];
-  _active=true; _starting=true;
-  ibox.style.display='none';
-  btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)'; btn.classList.add('active');
-  stat.textContent='🎤 시작 중...';
+  if(!_initSug()) return;
+  _finalBuf=''; _pendingFinal=''; _lastQ=[];
+  if(_silenceTimer){{ clearTimeout(_silenceTimer); _silenceTimer=null; }}
+  _active=true; _starting=true; _utterStart=0;
+  if(ibox) ibox.style.display='none';
+  if(btn){{btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)'; btn.classList.add('active');}}
+  if(stat) stat.textContent='🟡 준비 중... (마이크 허용 필요 시 허용 클릭)';
   _acqWL();
-  try{{r.start();}}catch(ex){{_starting=false;}}
+  try{{_rec.start();}}catch(ex){{_starting=false;}}
 }};
 }})();
 </script>
@@ -8146,38 +8205,68 @@ function _releaseWakeLock(){{
   if(_wakeLock){{ try{{_wakeLock.release();}}catch(e){{}} _wakeLock=null; }}
 }}
 
-// ── Levenshtein 거리 (중복 문장 필터링) ───────────────────────────────────
-function _lev(a, b){{
-  var m=a.length, n=b.length;
-  if(m===0) return n; if(n===0) return m;
-  var dp=[];
-  for(var i=0;i<=m;i++){{ dp[i]=[i]; }}
-  for(var j=0;j<=n;j++){{ dp[0][j]=j; }}
-  for(var i=1;i<=m;i++){{
-    for(var j=1;j<=n;j++){{
-      dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1]
-               : 1+Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
-    }}
-  }}
+// ── Content Hash + Levenshtein 병행 중복 필터 (메인 ai_query_block과 동일) ──
+var _MIN_UTTERANCE_MS={STT_MIN_UTTERANCE_MS};
+var _POST_ROLL_MS={STT_POST_ROLL_MS};
+var _SILENCE_MS={STT_SILENCE_TIMEOUT_MS};
+var _CONF_THRESHOLD=0.45;
+var _pendingFinal='';
+var _silenceTimer=null;
+var _utterStart=0;
+var _lastQ=[];
+var _boostTerms={str(STT_BOOST_TERMS).replace("'",'"')};
+
+var _noiseRx=[/^[아어으음네예]+[\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\s]*$/,/^.{{1,2}}$/];
+function _isNoise(t){{ t=t.trim(); for(var i=0;i<_noiseRx.length;i++) if(_noiseRx[i].test(t)) return true; return false; }}
+
+function _hash(s){{ var h=5381,i; s=s.replace(/\s/g,'').toLowerCase(); while((i=s.length--)){{ h=((h<<5)+h)^s.charCodeAt(i-1); h=h>>>0; }} return h.toString(36); }}
+function _lev(a,b){{
+  var m=a.length,n=b.length,dp=[],i,j;
+  for(i=0;i<=m;i++)dp[i]=[i];
+  for(j=0;j<=n;j++)dp[0][j]=j;
+  for(i=1;i<=m;i++)for(j=1;j<=n;j++)
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
   return dp[m][n];
 }}
-function _isDuplicate(text){{
-  // 짧은 문장(5자 미만)은 중복 체크 생략
-  if(!text || text.length < 5) return false;
-  for(var i=0;i<_lastSentences.length;i++){{
-    var prev=_lastSentences[i];
-    var maxLen=Math.max(prev.length, text.length);
-    if(maxLen===0) continue;
-    var dist=_lev(prev, text);
-    var similarity=1-(dist/maxLen);
-    // 유사도 85% 이상이면 중복으로 간주
-    if(similarity >= 0.85) return true;
+function _isDup(text){{
+  if(!text||text.length<5) return false;
+  var now=Date.now(), curHash=_hash(text);
+  for(var i=0;i<_lastQ.length;i++){{
+    var entry=_lastQ[i]; var age=now-entry.ts;
+    if(age>{STT_DUP_TIME_MS}*2) continue;
+    if(curHash===entry.hash&&age<{STT_DUP_TIME_MS}) return true;
+    var mx=Math.max(entry.text.length,text.length);
+    var sim=mx>0?1-(_lev(entry.text,text)/mx):1;
+    if(sim>=0.95) return true;
+    if(sim>={STT_LEV_THRESHOLD}&&age<{STT_DUP_TIME_MS}) return true;
   }}
   return false;
 }}
-function _addSentence(text){{
-  _lastSentences.push(text);
-  if(_lastSentences.length > 5) _lastSentences.shift();
+function _addQ(text){{ _lastQ.push({{text:text,ts:Date.now(),hash:_hash(text)}}); if(_lastQ.length>{STT_LEV_QUEUE}) _lastQ.shift(); }}
+
+var _nRules=[
+  [/실\s*손/g,'실손'],[/암\s*진\s*단/g,'암진단'],[/뇌\s*혈\s*관/g,'뇌혈관'],
+  [/심\s*근\s*경\s*색/g,'심근경색'],[/후\s*유\s*장\s*해/g,'후유장해'],
+  [/납\s*입\s*면\s*제/g,'납입면제'],[/갱\s*신\s*형/g,'갱신형'],[/비\s*갱\s*신\s*형/g,'비갱신형'],
+  [/치\s*매\s*보\s*험/g,'치매보험'],[/장\s*기\s*요\s*양/g,'장기요양'],
+  [/^(어+|음+|그+)[,\.\s]*/,'']
+];
+function _normKo(t){{ t=t.trim(); for(var i=0;i<_nRules.length;i++) t=t.replace(_nRules[i][0],_nRules[i][1]); return t.trim(); }}
+
+// ── silence 타이머 기반 end_pointing_delay ────────────────────────────────
+function _flushPending(){{
+  if(_silenceTimer){{ clearTimeout(_silenceTimer); _silenceTimer=null; }}
+  if(!_pendingFinal) return;
+  var txt=_normKo(_pendingFinal); _pendingFinal='';
+  if(!txt||_isNoise(txt)||_isDup(txt)) return;
+  _addQ(txt);
+  _finalBuf=_finalBuf?_finalBuf+'. '+txt:txt;
+  _setTA(_finalBuf);
+  document.getElementById('t0_interim').textContent='';
+}}
+function _scheduleSilence(){{
+  if(_silenceTimer) clearTimeout(_silenceTimer);
+  _silenceTimer=setTimeout(_flushPending, _SILENCE_MS+_POST_ROLL_MS);
 }}
 
 // ── textarea 찾기 ─────────────────────────────────────────────────────────
@@ -8186,15 +8275,14 @@ function _getTA(){{
   var allTA=doc.querySelectorAll('textarea');
   for(var i=0;i<allTA.length;i++){{
     var ph=allTA[i].placeholder||'';
-    if(ph.includes('40\ub300') || ph.includes('\uc0c1\ub2f4 \ub0b4\uc6a9')) return allTA[i];
+    if(ph.includes('40\ub300')||ph.includes('\uc0c1\ub2f4 \ub0b4\uc6a9')) return allTA[i];
   }}
-  return allTA.length ? allTA[allTA.length-1] : null;
+  return allTA.length?allTA[allTA.length-1]:null;
 }}
 function _setTA(val){{
   var ta=_getTA(); if(!ta) return;
   var setter=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
-  setter.call(ta,val);
-  ta.dispatchEvent(new Event('input',{{bubbles:true}}));
+  setter.call(ta,val); ta.dispatchEvent(new Event('input',{{bubbles:true}}));
 }}
 
 // ── SpeechRecognition 초기화 ──────────────────────────────────────────────
@@ -8203,51 +8291,43 @@ function _init(){{
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){{ alert('Chrome/Edge 브라우저를 사용해주세요.'); return false; }}
   var r=new SR();
-  r.lang='{STT_LANG}';
-  r.interimResults=true;
-  r.continuous=true;
-  r.maxAlternatives={STT_MAX_ALT};
-
+  r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=true; r.maxAlternatives={STT_MAX_ALT};
+  try{{
+    var SRG=window.SpeechGrammarList||window.webkitSpeechGrammarList;
+    if(SRG){{ var gl=new SRG(); gl.addFromString('#JSGF V1.0; grammar boost; public <term> = '+_boostTerms.join(' | ')+';',1.0); r.grammars=gl; }}
+  }}catch(e){{}}
   r.onstart=function(){{ _starting=false; }};
-
   r.onresult=function(e){{
-    var interim='', finalNew='';
+    var now=Date.now();
+    if(!_utterStart) _utterStart=now;
+    var interim='';
     for(var i=e.resultIndex;i<e.results.length;i++){{
       if(e.results[i].isFinal){{
-        // 신뢰도 최고 후보 선택
-        var best='', bestConf=0;
+        var uttDur=now-_utterStart; _utterStart=0;
+        if(uttDur<_MIN_UTTERANCE_MS) continue;
+        var best='',bc=0;
         for(var j=0;j<e.results[i].length;j++){{
-          if(e.results[i][j].confidence >= bestConf){{
-            bestConf=e.results[i][j].confidence;
-            best=e.results[i][j].transcript;
-          }}
+          if(e.results[i][j].confidence>=bc){{ bc=e.results[i][j].confidence; best=e.results[i][j].transcript; }}
         }}
-        // Levenshtein 중복 필터: 직전 문장과 85% 이상 유사하면 버림
-        if(best && !_isDuplicate(best)){{
-          finalNew += best;
-          _addSentence(best);
-        }}
+        if(bc>0&&bc<_CONF_THRESHOLD) continue;
+        if(!best) continue;
+        if(_isNoise(best)) continue;
+        _pendingFinal=_pendingFinal?_pendingFinal+' '+best:best;
+        _scheduleSilence();
       }} else {{
-        interim += e.results[i][0].transcript;
+        if(!_utterStart) _utterStart=now;
+        interim+=e.results[i][0].transcript;
+        if(_silenceTimer){{ clearTimeout(_silenceTimer); _silenceTimer=null; }}
       }}
     }}
-    if(finalNew){{
-      _finalBuf += (_finalBuf ? ' ' : '') + finalNew;
-      _setTA(_finalBuf);
-      document.getElementById('t0_interim').textContent='';
-    }}
-    if(interim){{
-      document.getElementById('t0_interim').textContent='🎤 ' + interim;
-    }}
+    if(interim){{ document.getElementById('t0_interim').textContent='🎤 '+interim+' ('+interim.length+'자)'; }}
   }};
-
   r.onerror=function(e){{
     _starting=false;
-    if(e.error==='no-speech') return;   // 무음 — continuous 모드에서 정상
-    if(e.error==='aborted')  return;    // 수동 중지 — 정상
+    if(e.error==='no-speech') return;
+    if(e.error==='aborted') return;
     if(e.error==='not-allowed'){{
-      document.getElementById('t0_interim').textContent=
-        '🚫 마이크 권한 차단됨 — 주소창 🔒 아이콘 → 마이크 → 허용';
+      document.getElementById('t0_interim').textContent='🚫 마이크 권한 차단됨 — 주소창 🔒 → 마이크 → 허용';
       _active=false; _releaseWakeLock();
       var btn=document.getElementById('t0_stt_btn');
       if(btn){{ btn.textContent='🎙️ 음성 입력 (한국어)'; btn.classList.remove('active'); }}
@@ -8255,17 +8335,13 @@ function _init(){{
     }}
     document.getElementById('t0_interim').textContent='⚠️ '+e.error;
   }};
-
   r.onend=function(){{
     _starting=false;
+    _flushPending();
     if(_active){{
-      // 재시작 — _starting 플래그로 중복 start() 방지
       setTimeout(function(){{
-        if(_active && !_starting){{
-          _starting=true;
-          try{{ r.start(); }}catch(ex){{ _starting=false; }}
-        }}
-      }}, {STT_RESTART_MS});
+        if(_active&&!_starting){{ _starting=true; try{{r.start();}}catch(ex){{_starting=false;}} }}
+      }}, {STT_POST_ROLL_MS}+{STT_PREFIX_PAD_MS}+{STT_RESTART_MS});
     }} else {{
       var btn=document.getElementById('t0_stt_btn');
       if(btn){{ btn.textContent='🎙️ 음성 입력 (한국어)'; btn.classList.remove('active'); }}
@@ -8273,7 +8349,6 @@ function _init(){{
       _releaseWakeLock();
     }}
   }};
-
   _rec=r; _ready=true; return true;
 }}
 
@@ -8281,17 +8356,16 @@ function _init(){{
 window.t0StartSTT=function(){{
   var btn=document.getElementById('t0_stt_btn');
   if(_active){{
-    // 중지
     _active=false; _starting=false;
+    _flushPending();
     if(_rec) try{{_rec.stop();}}catch(ex){{}};
     btn.textContent='🎙️ 음성 입력 (한국어)'; btn.classList.remove('active');
     document.getElementById('t0_interim').textContent='';
-    _releaseWakeLock();
-    return;
+    _releaseWakeLock(); return;
   }}
   if(!_init()) return;
-  // 새 세션 시작 — 버퍼·중복큐 초기화
-  _finalBuf=''; _lastSentences=[];
+  _finalBuf=''; _pendingFinal=''; _lastQ=[];
+  if(_silenceTimer){{ clearTimeout(_silenceTimer); _silenceTimer=null; }}
   _active=true; _starting=true;
   btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)'; btn.classList.add('active');
   document.getElementById('t0_interim').textContent='🟡 준비 중... (마이크 허용 필요 시 허용 클릭)';
