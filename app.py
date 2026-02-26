@@ -893,6 +893,20 @@ def _get_sb_client():
     except Exception:
         return None
 
+# ── 중앙집중 서비스 관리자 (GoldKeyServiceManager) 초기화 ──────────────────
+# scan / STT / crawler / RAG 4개 서비스를 단일 진입점으로 관리
+# 이 한 곳만 수정하면 모든 탭(scan_hub, policy_scan, disability 등)에 즉시 반영
+try:
+    from service_manager import GoldKeyServiceManager as _GSM
+    _gsm = _GSM.get()
+    _gsm.initialize(_get_sb_client())
+except Exception as _gsm_err:
+    _gsm = None  # 모듈 없으면 기존 방식으로 동작 (하위호환)
+
+def get_service_manager():
+    """GoldKeyServiceManager 싱글톤 반환. app.py 어디서나 호출 가능."""
+    return _gsm
+
 def _build_gcs_path(doc_type: str, ins_co: str, year: str, file_name: str) -> str:
     """
     문서유형·보험사·연도 → 스토리지 전체 경로 자동 생성
@@ -12923,6 +12937,167 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         if st.session_state.get("_admin_tab_auth"):
             st.success("✅ 관리자 시스템 활성화 — 아래 'RAG 지식베이스' 탭에서 파일을 업로드하세요.")
 
+            # ══════════════════════════════════════════════════════════════
+            # 🏭 중앙집중 서비스 관리 대시보드 (GoldKeyServiceManager)
+            # ══════════════════════════════════════════════════════════════
+            st.markdown("""
+<div style="background:linear-gradient(135deg,#0d1b2a,#1a2e4a);
+  border-radius:12px;padding:14px 18px;margin:10px 0 6px;
+  border-left:5px solid #0ea5e9;">
+  <span style="color:#7ec8f5;font-weight:900;font-size:1rem;">🏭 중앙집중 서비스 관리 센터 (Control Tower)</span>
+  <span style="color:#4a7fa8;font-size:0.72rem;margin-left:10px;">
+    스캔·STT·크롤링·RAG 4개 서비스를 1곳에서 통합 관리
+  </span>
+</div>""", unsafe_allow_html=True)
+
+            _gsm_admin = get_service_manager()
+            if _gsm_admin is None:
+                st.error("⚠️ ServiceManager 초기화 실패 — service_manager.py 확인 필요")
+            else:
+                _svc_status = _gsm_admin.get_status(st.session_state)
+                _adm_t1, _adm_t2, _adm_t3, _adm_t4 = st.tabs([
+                    "📡 스캔 상태", "🎤 STT 설정", "🔍 크롤링 관리", "📚 RAG 인덱스"
+                ])
+
+                # ── 탭1: 스캔 SSOT 상태 ──────────────────────────────────
+                with _adm_t1:
+                    _sc = _svc_status["scan"]
+                    _sc_col1, _sc_col2, _sc_col3 = st.columns(3)
+                    _sc_col1.metric("📁 스캔 파일", f"{_sc['scan_count']}건")
+                    _sc_col2.metric("🛡️ 담보 항목", f"{_sc['coverage_count']}건")
+                    _sc_col3.metric("👤 피보험자", _sc['client_name'] or "미확인")
+
+                    _pi_adm = _sc.get("policy_info", {})
+                    if _pi_adm:
+                        st.markdown("**📋 현재 SSOT 증권 정보**")
+                        _pi_cols = st.columns(4)
+                        _pi_cols[0].caption(f"🏢 {_pi_adm.get('company','—')}")
+                        _pi_cols[1].caption(f"📄 {str(_pi_adm.get('product_name','—'))[:20]}")
+                        _pi_cols[2].caption(f"📅 가입: {_pi_adm.get('join_date','—')}")
+                        _mp_str = f"{_pi_adm['monthly_premium']:,}원" if _pi_adm.get('monthly_premium') else "—"
+                        _pi_cols[3].caption(f"💰 월보험료: {_mp_str}")
+
+                    if _sc['last_scan_ts']:
+                        st.caption(f"🕐 마지막 스캔: {_sc['last_scan_ts']} | 텍스트: {_sc['full_text_len']:,}자")
+
+                    if st.button("🗑️ 전체 SSOT 초기화", key="adm_clear_ssot",
+                                 type="secondary", use_container_width=True):
+                        _gsm_admin.reset_all(st.session_state)
+                        st.success("✅ SSOT 초기화 완료")
+                        st.rerun()
+
+                # ── 탭2: STT 설정 ─────────────────────────────────────────
+                with _adm_t2:
+                    _stt_cfg = _gsm_admin.stt.get_config()
+                    st.markdown("**🎤 STT 핵심 파라미터** — 변경 시 전체 탭 즉시 적용")
+                    _stt_c1, _stt_c2 = st.columns(2)
+                    with _stt_c1:
+                        st.metric("언어", _stt_cfg["lang"])
+                        st.metric("침묵 감지(ms)", _stt_cfg["no_speech_ms"])
+                        st.metric("Post-roll(ms)", _stt_cfg["post_roll_ms"])
+                        st.metric("Lev 유사도 임계값", _stt_cfg["lev_threshold"])
+                    with _stt_c2:
+                        st.metric("중복차단 시간(ms)", _stt_cfg["dup_time_ms"])
+                        st.metric("최소 발화(ms)", _stt_cfg["min_utterance_ms"])
+                        st.metric("재시작 대기(ms)", _stt_cfg["restart_ms"])
+                        st.metric("부스트 용어 수", len(_stt_cfg["boost_terms"]))
+
+                    st.markdown("**📝 보험 전문용어 부스트 목록**")
+                    st.caption(" · ".join(_gsm_admin.stt.BOOST_TERMS))
+
+                    _new_term = st.text_input("용어 추가", placeholder="예: 배상책임보험",
+                                              key="adm_stt_add_term")
+                    _adm_stt_c1, _adm_stt_c2 = st.columns(2)
+                    with _adm_stt_c1:
+                        if st.button("➕ 용어 추가", key="adm_stt_add",
+                                     use_container_width=True):
+                            if _new_term.strip():
+                                _gsm_admin.stt.add_boost_term(_new_term.strip())
+                                st.success(f"추가됨: {_new_term.strip()}")
+                                st.rerun()
+                    with _adm_stt_c2:
+                        if st.button("➖ 마지막 용어 제거", key="adm_stt_rem",
+                                     use_container_width=True):
+                            if _gsm_admin.stt.BOOST_TERMS:
+                                _removed = _gsm_admin.stt.BOOST_TERMS[-1]
+                                _gsm_admin.stt.BOOST_TERMS.pop()
+                                st.success(f"제거됨: {_removed}")
+                                st.rerun()
+
+                # ── 탭3: 크롤링 관리 ──────────────────────────────────────
+                with _adm_t3:
+                    _cr = _svc_status["crawler"]
+                    st.metric("Supabase 연결", "✅ 연결됨" if _cr["sb_connected"] else "❌ 미연결")
+
+                    st.markdown("**🔍 단건 약관 JIT 크롤링 테스트**")
+                    _cr_c1, _cr_c2, _cr_c3 = st.columns(3)
+                    with _cr_c1:
+                        _test_co = st.text_input("보험사", placeholder="삼성화재", key="adm_cr_co")
+                    with _cr_c2:
+                        _test_pr = st.text_input("상품명", placeholder="무배당암보험", key="adm_cr_pr")
+                    with _cr_c3:
+                        _test_jd = st.text_input("가입일", placeholder="2019-01-01", key="adm_cr_jd")
+
+                    if st.button("🔍 크롤링 테스트 실행", key="adm_cr_test",
+                                 type="primary", use_container_width=True):
+                        if _test_co and _test_pr:
+                            with st.spinner("약관 크롤링 중..."):
+                                _cr_res = _gsm_admin.crawler.lookup_single(
+                                    _test_co, _test_pr, _test_jd,
+                                    progress_cb=lambda m: st.write(m)
+                                )
+                            if _cr_res.get("error"):
+                                st.error(f"❌ 실패: {_cr_res['error']}")
+                            elif _cr_res.get("cached"):
+                                st.success(f"💾 캐시 히트 — 이미 인덱싱됨")
+                            else:
+                                st.success(
+                                    f"✅ 완료 — 청크 {_cr_res.get('chunks_indexed',0)}개 인덱싱 "
+                                    f"(신뢰도 {_cr_res.get('confidence',0)}%)"
+                                )
+                        else:
+                            st.warning("보험사와 상품명을 입력하세요.")
+
+                # ── 탭4: RAG 인덱스 관리 ─────────────────────────────────
+                with _adm_t4:
+                    _rag_st = _svc_status["rag"]
+                    st.metric("인덱싱된 상품", f"{_rag_st['indexed_count']}개")
+
+                    if _rag_st["products"]:
+                        st.markdown("**최근 인덱싱 상품 (최대 5개)**")
+                        for _rp in _rag_st["products"]:
+                            _rp_c1, _rp_c2 = st.columns([4, 1])
+                            with _rp_c1:
+                                st.caption(f"🏢 {_rp.get('company','')} · "
+                                           f"{_rp.get('product','')} · "
+                                           f"{_rp.get('join_date','')}")
+                            with _rp_c2:
+                                if st.button("🗑️", key=f"adm_rag_del_{_rp.get('company','')}_{_rp.get('product','')}",
+                                             help="이 상품 인덱스 삭제"):
+                                    _gsm_admin.rag.delete_product(
+                                        _rp.get("company",""),
+                                        _rp.get("product",""),
+                                        _rp.get("join_date","")
+                                    )
+                                    st.success("삭제 완료")
+                                    st.rerun()
+
+                    st.markdown("**🔎 약관 Semantic Search 테스트**")
+                    _rag_q = st.text_input("검색 질문", placeholder="암 진단 시 보험금 지급 조건",
+                                           key="adm_rag_q")
+                    if st.button("🔍 검색", key="adm_rag_search", use_container_width=True):
+                        if _rag_q:
+                            _hits = _gsm_admin.rag.search(_rag_q, st.session_state, k=3)
+                            if _hits:
+                                for i, h in enumerate(_hits, 1):
+                                    with st.expander(f"결과 {i}: {h.get('source','')}"):
+                                        st.text(h.get("text","")[:400])
+                            else:
+                                st.info("검색 결과 없음")
+
+            st.divider()
+            # ══════════════════════════════════════════════════════════════
+
             # ── 회원수 임계치 체크 + 알림 배너 ──────────────────────────
             _check_member_thresholds()
             _alerts = _get_alert_store()
@@ -16860,35 +17035,45 @@ END; $$;""", language="sql")
                         _sh_policy_info = _pvr.get("policy_info") or {}
                         _sh_errors     += _pvr.get("errors", [])
 
-                    # SSOT 데이터 버스 저장
-                    _prev = st.session_state.get("ssot_scan_data", [])
-                    _prev.extend(_sh_texts)
-                    st.session_state["ssot_scan_data"]     = _prev
-                    st.session_state["ssot_scan_type"]     = _type_key
-                    st.session_state["ssot_scan_files"]    = [_f.name for _f in _scan_files]
-                    st.session_state["ssot_scan_ts"]       = dt.now().strftime("%Y-%m-%d %H:%M:%S")
-                    st.session_state["ssot_tables"]        = _sh_tables_all
-                    st.session_state.pop("sh_scan_pending", None)
-
-                    # policy_info SSOT 저장 (피보험자명·생년월일·보험사·상품명·만기·가입일)
-                    if _sh_policy_info:
-                        st.session_state["ssot_policy_info"] = _sh_policy_info
-                        # 고객 이름 자동 동기화 (미입력 시)
-                        if not _sh_name and _sh_policy_info.get("insured_name"):
-                            st.session_state["ssot_client_name"] = _sh_policy_info["insured_name"]
+                    # ── SSOT 데이터 버스 저장 (ServiceManager 중앙집중 위임) ──
+                    _gsm_ref = get_service_manager()
+                    if _gsm_ref:
+                        # ServiceManager를 통해 저장 (중앙집중 관리)
+                        _parse_result_for_gsm = {
+                            "policy_info":       _sh_policy_info or {},
+                            "coverages":         _sh_coverages or [],
+                            "errors":            _sh_errors or [],
+                            "_raw_ai_response":  st.session_state.get("dis_parsed_raw_debug", ""),
+                        }
+                        _gsm_ref.scan.save_to_ssot(
+                            parse_result  = _parse_result_for_gsm,
+                            ss            = st.session_state,
+                            client_name   = _sh_name or "",
+                            scan_texts    = _sh_texts,
+                            type_key      = _type_key,
+                        )
+                    else:
+                        # 폴백: 기존 방식 직접 저장 (ServiceManager 없을 때)
+                        _prev = st.session_state.get("ssot_scan_data", [])
+                        _prev.extend(_sh_texts)
+                        st.session_state["ssot_scan_data"] = _prev
+                        st.session_state["ssot_scan_type"] = _type_key
+                        st.session_state["ssot_scan_ts"]   = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+                        if _sh_policy_info:
+                            st.session_state["ssot_policy_info"] = _sh_policy_info
+                            st.session_state["ssot_client_name"] = (
+                                _sh_name or _sh_policy_info.get("insured_name", ""))
                         else:
                             st.session_state["ssot_client_name"] = _sh_name or ""
-                    else:
-                        st.session_state["ssot_client_name"] = _sh_name or ""
+                        if _sh_coverages:
+                            st.session_state["ssot_coverages"]      = _sh_coverages
+                            st.session_state["dis_parsed_coverages"] = _sh_coverages
+                        st.session_state["ssot_full_text"] = "\n\n".join(
+                            f"[{d['file']}]\n{d['text']}" for d in _sh_texts)
 
-                    if _sh_coverages:
-                        st.session_state["ssot_coverages"]      = _sh_coverages
-                        st.session_state["dis_parsed_coverages"] = _sh_coverages
-
-                    _full_text = "\n\n".join(
-                        f"[{d['file']}]\n{d['text']}" for d in _sh_texts
-                    )
-                    st.session_state["ssot_full_text"] = _full_text
+                    st.session_state["ssot_scan_files"] = [_f.name for _f in _scan_files]
+                    st.session_state["ssot_tables"]     = _sh_tables_all
+                    st.session_state.pop("sh_scan_pending", None)
 
                     if _sh_errors:
                         for _e in _sh_errors: st.warning(f"⚠️ {_e}")
