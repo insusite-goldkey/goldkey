@@ -94,6 +94,22 @@ import streamlit.components.v1 as components
 os.environ["PYTHONIOENCODING"] = "utf-8:replace"
 os.environ["PYTHONUTF8"] = "1"
 
+# ── Playwright Chromium 자동 설치 (HuggingFace Space / 서버 환경) ──────────
+# requirements.txt에 playwright가 있어도 'playwright install chromium'은
+# 별도로 실행해야 함. 앱 첫 기동 시 1회 자동 실행 후 플래그 파일로 중복 방지.
+try:
+    import subprocess as _subprocess
+    _pw_flag = pathlib.Path(tempfile.gettempdir()) / ".pw_chromium_installed"
+    if not _pw_flag.exists():
+        _pw_result = _subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
+            capture_output=True, text=True, timeout=120
+        )
+        if _pw_result.returncode == 0:
+            _pw_flag.write_text("ok")
+except Exception:
+    pass
+
 # 환경변수 전체를 surrogate-safe하게 정제 (앱 시작 시 1회만 실행)
 try:
     for _ekey in list(os.environ.keys()):
