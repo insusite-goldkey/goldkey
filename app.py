@@ -245,6 +245,9 @@ APP_DEVLOG_DB  = os.path.join(_DATA_DIR if '_DATA_DIR' in dir() else ".", "devlo
 DEFAULT_KEY = b'19IPhRNw7fLHub9g5Kp6BaQ6wi53gJ8-OKPF3Bd5Ays='
 
 def get_encryption_key():
+    key = os.environ.get("ENCRYPTION_KEY", "")
+    if key:
+        return key.encode() if isinstance(key, str) else key
     try:
         if "ENCRYPTION_KEY" in st.secrets:
             return st.secrets["ENCRYPTION_KEY"].encode()
