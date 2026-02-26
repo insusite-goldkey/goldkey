@@ -558,8 +558,12 @@ def load_members(force: bool = False):
         return {}
 
 def save_members(members):
-    """회원 목록 저장 — Supabase 우선, /tmp JSON 폴백"""
-    # ── Supabase 우선 ────────────────────────────────────────────────────
+    """회원 목록 저장 — Supabase 우선(필수), /tmp JSON 보조 이중 저장
+    ⚠️ Cloud 환경(/tmp)는 재시작 시 휘발 — Supabase가 진짜 영속 저장소
+    """
+    _sb_ok = False
+    _sb_err = ""
+    # ── Supabase 우선 (Cloud 환경에서는 여기만이 영속 저장) ────────────
     if _SB_PKG_OK:
         try:
             sb = _get_sb_client()
@@ -573,18 +577,27 @@ def save_members(members):
                         "subscription_end": m.get("subscription_end", ""),
                         "is_active":        bool(m.get("is_active", True))
                     }, on_conflict="name").execute()
-                _get_member_cache().update({"data": None, "ts": 0.0})  # 캐시 무효화
-                return
-        except Exception:
-            pass
-    # ── /tmp JSON 폴백 ───────────────────────────────────────────────────
+                _get_member_cache().update({"data": None, "ts": 0.0})
+                _sb_ok = True
+        except Exception as _e:
+            _sb_err = str(_e)
+    # Supabase 저장 성공 시 이미 return
+    if _sb_ok:
+        return
+    # ── Cloud 환경에서 Supabase 실패 — 경고 기록 (session_state 저장) ─────
+    if _IS_CLOUD:
+        _warn_key = "_member_save_warn"
+        st.session_state[_warn_key] = (
+            f"⚠️ 회원 저장 Supabase 실패 — 재시작 시 회원정보가 소실될 수 있습니다. | {_sb_err}"
+        )
+    # ── /tmp JSON 보조 저장 (Cloud에서는 Supabase 복구 시까지 임시 보유용) ──
     try:
         import tempfile, shutil
         tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(MEMBER_DB) or '.', suffix='.tmp')
         with os.fdopen(tmp_fd, 'w', encoding='utf-8') as f:
             json.dump(members, f, ensure_ascii=False)
         shutil.move(tmp_path, MEMBER_DB)
-        _get_member_cache().update({"data": None, "ts": 0.0})  # 캐시 무효화
+        _get_member_cache().update({"data": None, "ts": 0.0})
     except (IOError, OSError):
         pass
 
@@ -1165,6 +1178,139 @@ def customer_doc_get_names() -> list:
         return sorted(result, key=lambda x: x["label"])
     except Exception:
         return []
+
+# --------------------------------------------------------------------------
+# 홈화면 상담노트 / 보험가입상담 — Supabase 영구 저장/로드
+# 테이블: gk_home_notes, gk_home_ins
+# HuggingFace Spaces /tmp 휘발 대응 — Supabase만이 진짜 영속 저장소
+# --------------------------------------------------------------------------
+_HOME_NOTES_TABLE = "gk_home_notes"
+_HOME_INS_TABLE   = "gk_home_ins"
+
+# DDL (Supabase SQL Editor에서 1회 실행)
+_HOME_NOTES_DDL = """
+CREATE TABLE IF NOT EXISTS gk_home_notes (
+    id           BIGSERIAL PRIMARY KEY,
+    agent_uid    TEXT NOT NULL,
+    customer_id  BIGINT,
+    customer_name TEXT DEFAULT '',
+    note_date    TEXT NOT NULL,
+    summary      TEXT DEFAULT '',
+    content      TEXT DEFAULT '',
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_gk_home_notes_agent ON gk_home_notes(agent_uid);
+"""
+
+_HOME_INS_DDL = """
+CREATE TABLE IF NOT EXISTS gk_home_ins (
+    id           BIGSERIAL PRIMARY KEY,
+    agent_uid    TEXT NOT NULL,
+    customer_id  BIGINT,
+    customer_name TEXT DEFAULT '',
+    ins_date     TEXT NOT NULL,
+    product      TEXT DEFAULT '',
+    background   TEXT DEFAULT '',
+    special      TEXT DEFAULT '',
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_gk_home_ins_agent ON gk_home_ins(agent_uid);
+"""
+
+def _ensure_home_tables(sb):
+    """gk_home_notes / gk_home_ins 테이블 자동 생성 시도 (없으면 생성)"""
+    if not sb:
+        return
+    for ddl in (_HOME_NOTES_DDL, _HOME_INS_DDL):
+        try:
+            sb.rpc("exec_sql", {"sql": ddl}).execute()
+        except Exception:
+            pass  # 이미 존재하거나 RPC 미지원 시 무시 — SQL Editor에서 수동 실행 필요
+
+
+def save_home_note(agent_uid: str, customer_id, customer_name: str,
+                   note_date: str, summary: str, content: str) -> bool:
+    """상담노트 1건 Supabase 영구 저장. 실패 시 False 반환."""
+    sb = _get_sb_client() if _SB_PKG_OK else None
+    if not sb:
+        return False
+    try:
+        sb.table(_HOME_NOTES_TABLE).insert({
+            "agent_uid":     agent_uid,
+            "customer_id":   customer_id,
+            "customer_name": customer_name or "",
+            "note_date":     note_date,
+            "summary":       summary or "",
+            "content":       content or "",
+        }).execute()
+        return True
+    except Exception:
+        return False
+
+
+def load_home_notes(agent_uid: str, customer_id=None) -> list:
+    """상담노트 로드 — agent_uid 기준, customer_id 있으면 해당 고객만"""
+    sb = _get_sb_client() if _SB_PKG_OK else None
+    if not sb:
+        return []
+    try:
+        q = (sb.table(_HOME_NOTES_TABLE)
+             .select("*")
+             .eq("agent_uid", agent_uid)
+             .order("note_date", desc=True)
+             .order("created_at", desc=True))
+        if customer_id is not None:
+            q = q.eq("customer_id", customer_id)
+        rows = q.execute().data or []
+        return [{"date": r["note_date"], "summary": r.get("summary",""),
+                 "content": r.get("content",""), "customer_id": r.get("customer_id"),
+                 "customer_name": r.get("customer_name","")} for r in rows]
+    except Exception:
+        return []
+
+
+def save_home_ins(agent_uid: str, customer_id, customer_name: str,
+                  ins_date: str, product: str, background: str, special: str) -> bool:
+    """보험가입상담 1건 Supabase 영구 저장. 실패 시 False 반환."""
+    sb = _get_sb_client() if _SB_PKG_OK else None
+    if not sb:
+        return False
+    try:
+        sb.table(_HOME_INS_TABLE).insert({
+            "agent_uid":     agent_uid,
+            "customer_id":   customer_id,
+            "customer_name": customer_name or "",
+            "ins_date":      ins_date,
+            "product":       product or "",
+            "background":    background or "",
+            "special":       special or "",
+        }).execute()
+        return True
+    except Exception:
+        return False
+
+
+def load_home_ins(agent_uid: str, customer_id=None) -> list:
+    """보험가입상담 로드 — agent_uid 기준, customer_id 있으면 해당 고객만"""
+    sb = _get_sb_client() if _SB_PKG_OK else None
+    if not sb:
+        return []
+    try:
+        q = (sb.table(_HOME_INS_TABLE)
+             .select("*")
+             .eq("agent_uid", agent_uid)
+             .order("ins_date", desc=True)
+             .order("created_at", desc=True))
+        if customer_id is not None:
+            q = q.eq("customer_id", customer_id)
+        rows = q.execute().data or []
+        return [{"date": r["ins_date"], "product": r.get("product",""),
+                 "background": r.get("background",""), "special": r.get("special",""),
+                 "customer_id": r.get("customer_id"),
+                 "customer_name": r.get("customer_name","")} for r in rows]
+    except Exception:
+        return []
+
 
 # --------------------------------------------------------------------------
 # 관리자 지시 채널 — Supabase 우선, 로컬 JSON 폴백
@@ -7922,6 +8068,18 @@ window.startSugSTT=function(){{
                 st.session_state["scan_client_job"]   = _si_job
                 st.session_state["scan_client_sick"]  = _si_sick
                 st.session_state["scan_client_items"] = _si_items
+                # ── gk_customers profile에 영구 저장 (Supabase) ────────────────
+                _cid_save = st.session_state.get("selected_customer_id")
+                if _cid_save:
+                    try:
+                        from customer_mgmt import update_profile as _upd_prof
+                        _sb_s = st.session_state.get("supabase_client") or st.session_state.get("sb")
+                        _upd_prof(_cid_save, {
+                            "dob": _si_dob, "job": _si_job,
+                            "sick": _si_sick, "items": _si_items,
+                        }, _sb_s)
+                    except Exception:
+                        pass
                 st.success(f"✅ {_si_name} 상담자 정보 저장 완료 — 모든 탭에 자동 적용됩니다.")
 
             st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
@@ -7950,21 +8108,31 @@ window.startSugSTT=function(){{
                     _note_submitted = st.form_submit_button("💾 상담노트 저장", use_container_width=True)
                     if _note_submitted:
                         _cid = st.session_state.get("selected_customer_id")
+                        _cname = st.session_state.get("scan_client_name", "")
+                        # ── Supabase 영구 저장 ─────────────────────────────────
+                        _sb_saved = save_home_note(
+                            st.session_state.get("user_id", ""),
+                            _cid, _cname, str(_note_date), _note_summary, _note_text
+                        )
+                        # ── session_state 보조 (Supabase 실패 시 임시 보유) ─────────
                         _notes = st.session_state.get("consult_notes", [])
                         _notes.insert(0, {
-                            "date": str(_note_date),
-                            "summary": _note_summary,
-                            "content": _note_text,
-                            "customer_id": _cid,
-                            "customer_name": st.session_state.get("scan_client_name", ""),
+                            "date": str(_note_date), "summary": _note_summary,
+                            "content": _note_text, "customer_id": _cid,
+                            "customer_name": _cname,
                         })
                         st.session_state["consult_notes"] = _notes
-                        _cname = st.session_state.get("scan_client_name", "")
-                        st.success(f"✅ [{_note_date}]{' — ' + _cname if _cname else ''} {_note_summary or ''} 상담노트 저장됨")
-                # 선택된 고객 기준으로 필터링
+                        if _sb_saved:
+                            st.success(f"✅ [{_note_date}]{' — ' + _cname if _cname else ''} {_note_summary or ''} 상담노트 저장됨 (영구저장✔️)")
+                        else:
+                            st.warning(f"⚠️ [{_note_date}] 임시저장됨 — Supabase 연결 확인 필요")
+                # ── 저장목록: Supabase 우선, 폴백 session_state ──────────────
                 _cur_cid = st.session_state.get("selected_customer_id")
-                _notes_all = st.session_state.get("consult_notes", [])
-                _notes_saved = [_n for _n in _notes_all if _n.get("customer_id") == _cur_cid] if _cur_cid else _notes_all
+                _uid_now = st.session_state.get("user_id", "")
+                _notes_saved = load_home_notes(_uid_now, _cur_cid) if _uid_now else []
+                if not _notes_saved:  # Supabase 비어있으면 session_state 폴백
+                    _notes_all = st.session_state.get("consult_notes", [])
+                    _notes_saved = [_n for _n in _notes_all if _n.get("customer_id") == _cur_cid] if _cur_cid else _notes_all
                 if _notes_saved:
                     _cname_disp = st.session_state.get("scan_client_name", "")
                     st.markdown(f"**📋 저장된 상담 노트{' — ' + _cname_disp if _cname_disp else ''} (최근순)**")
@@ -8007,21 +8175,31 @@ window.startSugSTT=function(){{
                     _ins_submitted = st.form_submit_button("💾 보험가입 상담 저장", use_container_width=True)
                     if _ins_submitted:
                         _cid = st.session_state.get("selected_customer_id")
+                        _cname = st.session_state.get("scan_client_name", "")
+                        # ── Supabase 영구 저장 ─────────────────────────────────
+                        _sb_saved2 = save_home_ins(
+                            st.session_state.get("user_id", ""),
+                            _cid, _cname, str(_ins_date), _ins_product, _ins_bg, _ins_special
+                        )
+                        # ── session_state 보조 (Supabase 실패 시 임시 보유) ─────────
                         _ins_list = st.session_state.get("insurance_consults", [])
                         _ins_list.insert(0, {
-                            "date": str(_ins_date),
-                            "product": _ins_product,
-                            "background": _ins_bg,
-                            "special": _ins_special,
-                            "customer_id": _cid,
-                            "customer_name": st.session_state.get("scan_client_name", ""),
+                            "date": str(_ins_date), "product": _ins_product,
+                            "background": _ins_bg, "special": _ins_special,
+                            "customer_id": _cid, "customer_name": _cname,
                         })
                         st.session_state["insurance_consults"] = _ins_list
-                        _cname = st.session_state.get("scan_client_name", "")
-                        st.success(f"✅ [{_ins_date}]{' — ' + _cname if _cname else ''} {_ins_product or ''} 보험가입 상담 저장됨")
+                        if _sb_saved2:
+                            st.success(f"✅ [{_ins_date}]{' — ' + _cname if _cname else ''} {_ins_product or ''} 보험가입 상담 저장됨 (영구저장✔️)")
+                        else:
+                            st.warning(f"⚠️ [{_ins_date}] 임시저장됨 — Supabase 연결 확인 필요")
+                # ── 저장목록: Supabase 우선, 폴백 session_state ──────────────
                 _cur_cid2 = st.session_state.get("selected_customer_id")
-                _ins_all = st.session_state.get("insurance_consults", [])
-                _ins_saved = [_i for _i in _ins_all if _i.get("customer_id") == _cur_cid2] if _cur_cid2 else _ins_all
+                _uid_now2 = st.session_state.get("user_id", "")
+                _ins_saved = load_home_ins(_uid_now2, _cur_cid2) if _uid_now2 else []
+                if not _ins_saved:  # Supabase 비어있으면 session_state 폴백
+                    _ins_all = st.session_state.get("insurance_consults", [])
+                    _ins_saved = [_i for _i in _ins_all if _i.get("customer_id") == _cur_cid2] if _cur_cid2 else _ins_all
                 if _ins_saved:
                     _cname_ins = st.session_state.get("scan_client_name", "")
                     st.markdown(f"**📋 저장된 보험가입 상담{' — ' + _cname_ins if _cname_ins else ''} (최근순)**")
