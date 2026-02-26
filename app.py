@@ -7864,29 +7864,35 @@ window.startSugSTT=function(){{
 
             # ── 상담 노트 ────────────────────────────────────────────────
             with st.expander("📝 상담 노트  (사용방법: 고객 상담내용 전부 적으세요)", expanded=False):
-                st.markdown("""<div style="border:1.5px solid #1a6b4a;border-radius:8px;
+                with st.form(key="form_consult_note", clear_on_submit=True):
+                    st.markdown("""<div style="border:1.5px solid #1a6b4a;border-radius:8px;
   padding:10px 14px;margin-bottom:10px;background:#f0faf5;">
-  <span style="color:#0d3b2e;font-size:0.82rem;font-weight:700;">📅 상담 일자 &amp; 상담 일 주된 목적 요약</span>
+  <span style="color:#0d3b2e;font-size:0.82rem;font-weight:700;">📅 상담일자 + 상담요약 + 상담내용 — 모두 동일날짜에 연동 저장</span>
 </div>""", unsafe_allow_html=True)
-                _nd_col1, _nd_col2 = st.columns([1, 2])
-                with _nd_col1:
-                    _note_date = st.date_input("상담 일자", key="home_note_date")
-                with _nd_col2:
-                    _note_summary = st.text_input(
-                        "상담 요약 (주된 목적)",
-                        placeholder="예) 자동차상담, 암보험상담, 병문안 방문 등",
-                        key="home_note_summary"
+                    _nd_col1, _nd_col2 = st.columns([1, 2])
+                    with _nd_col1:
+                        _note_date = st.date_input("상담 일자", key="form_note_date")
+                    with _nd_col2:
+                        _note_summary = st.text_input(
+                            "상담 요약 (주된 목적)",
+                            placeholder="예) 자동차상담, 암보험상담, 병문안 방문 등",
+                            key="form_note_summary"
+                        )
+                    _note_text = st.text_area(
+                        "상담 내용 (상세)",
+                        placeholder="고객과 관련된 모든 상담 내용을 입력하세요...",
+                        height=160, key="form_note_text"
                     )
-                _note_text = st.text_area(
-                    "상담 내용 (상세)",
-                    placeholder="고객과 관련된 모든 상담 내용을 입력하세요...",
-                    height=160, key="home_note_text"
-                )
-                if st.button("💾 상담노트 저장", key="btn_save_note", use_container_width=True):
-                    _notes = st.session_state.get("consult_notes", [])
-                    _notes.insert(0, {"date": str(_note_date), "summary": _note_summary, "content": _note_text})
-                    st.session_state["consult_notes"] = _notes
-                    st.success("✅ 상담노트 저장됨")
+                    _note_submitted = st.form_submit_button("💾 상담노트 저장", use_container_width=True)
+                    if _note_submitted:
+                        _notes = st.session_state.get("consult_notes", [])
+                        _notes.insert(0, {
+                            "date": str(_note_date),
+                            "summary": _note_summary,
+                            "content": _note_text,
+                        })
+                        st.session_state["consult_notes"] = _notes
+                        st.success(f"✅ [{_note_date}] {_note_summary or ''} 상담노트 저장됨")
                 _notes_saved = st.session_state.get("consult_notes", [])
                 if _notes_saved:
                     st.markdown("**📋 저장된 상담 노트 (최근순)**")
@@ -7895,47 +7901,48 @@ window.startSugSTT=function(){{
                         st.markdown(
                             f"""<div style="border:1px solid #cbd5e1;border-radius:6px;
   padding:8px 12px;margin-bottom:6px;background:#f8fafc;">
-  <span style="color:#1e3a5f;font-size:0.85rem;font-weight:700;">"""
-                            f"""{_n['date']}</span>"""
+  <span style="color:#1e3a5f;font-size:0.85rem;font-weight:700;">{_n['date']}</span>"""
                             f"""{'&nbsp;&nbsp;|&nbsp;&nbsp;<span style="color:#1a6b4a;font-size:0.85rem;font-weight:700;">' + _n_summary + '</span>' if _n_summary else ''}"""
                             f"""<br><span style="color:#475569;font-size:0.8rem;">{_n.get('content','')[:120]}{'...' if len(_n.get('content',''))>120 else ''}</span>
 </div>""", unsafe_allow_html=True)
 
             # ── 보험 가입 상담 창 ────────────────────────────────────────
             with st.expander("🛡️ 보험 가입 상담  (사용방법: 청약과정에서 발생한 특이사항은 '특이사항'란에 입력하세요)", expanded=False):
-                st.markdown("""<div style="border:1.5px solid #1e40af;border-radius:8px;
+                with st.form(key="form_ins_consult", clear_on_submit=True):
+                    st.markdown("""<div style="border:1.5px solid #1e40af;border-radius:8px;
   padding:10px 14px;margin-bottom:10px;background:#eff6ff;">
-  <span style="color:#1e3a8a;font-size:0.82rem;font-weight:700;">📅 가입 일자 &amp; 상담 상품 요약</span>
+  <span style="color:#1e3a8a;font-size:0.82rem;font-weight:700;">📅 가입일자 + 상담상품명 + 청약배경 + 특이사항 — 모두 동일날짜에 연동 저장</span>
 </div>""", unsafe_allow_html=True)
-                _id_col1, _id_col2 = st.columns([1, 2])
-                with _id_col1:
-                    _ins_date = st.date_input("가입 일자", key="home_ins_date")
-                with _id_col2:
-                    _ins_product = st.text_input(
-                        "상담 상품명 (요약)",
-                        placeholder="예) ○○생명 통합보험, 신규 암보험 청약 등",
-                        key="home_ins_product"
+                    _id_col1, _id_col2 = st.columns([1, 2])
+                    with _id_col1:
+                        _ins_date = st.date_input("가입 일자", key="form_ins_date")
+                    with _id_col2:
+                        _ins_product = st.text_input(
+                            "상담 상품명 (요약)",
+                            placeholder="예) ○○생명 통합보험, 신규 암보험 청약 등",
+                            key="form_ins_product"
+                        )
+                    _ins_bg = st.text_area(
+                        "청약 배경",
+                        placeholder="신규 가입 당시 청약 배경을 입력하세요\n예시) 고지항목 병력 등을 적고, 고지 명확히 했음 등 표기",
+                        height=110, key="form_ins_bg"
                     )
-                _ins_bg = st.text_area(
-                    "청약 배경",
-                    placeholder="신규 가입 당시 청약 배경을 입력하세요\n예시) 고지항목 병력 등을 적고, 고지 명확히 했음 등 표기",
-                    height=110, key="home_ins_bg"
-                )
-                _ins_special = st.text_area(
-                    "특이사항",
-                    placeholder="청약 관련 특이사항 입력\n예시) 사용한 판촉물 내용, 심사 결과 특이사항 등",
-                    height=110, key="home_ins_special"
-                )
-                if st.button("💾 보험가입 상담 저장", key="btn_save_ins", use_container_width=True):
-                    _ins_list = st.session_state.get("insurance_consults", [])
-                    _ins_list.insert(0, {
-                        "date": str(_ins_date),
-                        "product": _ins_product,
-                        "background": _ins_bg,
-                        "special": _ins_special,
-                    })
-                    st.session_state["insurance_consults"] = _ins_list
-                    st.success("✅ 보험가입 상담 저장됨")
+                    _ins_special = st.text_area(
+                        "특이사항",
+                        placeholder="청약 관련 특이사항 입력\n예시) 사용한 판촉물 내용, 심사 결과 특이사항 등",
+                        height=110, key="form_ins_special"
+                    )
+                    _ins_submitted = st.form_submit_button("💾 보험가입 상담 저장", use_container_width=True)
+                    if _ins_submitted:
+                        _ins_list = st.session_state.get("insurance_consults", [])
+                        _ins_list.insert(0, {
+                            "date": str(_ins_date),
+                            "product": _ins_product,
+                            "background": _ins_bg,
+                            "special": _ins_special,
+                        })
+                        st.session_state["insurance_consults"] = _ins_list
+                        st.success(f"✅ [{_ins_date}] {_ins_product or ''} 보험가입 상담 저장됨")
                 _ins_saved = st.session_state.get("insurance_consults", [])
                 if _ins_saved:
                     st.markdown("**📋 저장된 보험가입 상담 (최근순)**")
@@ -7944,8 +7951,7 @@ window.startSugSTT=function(){{
                         st.markdown(
                             f"""<div style="border:1px solid #bfdbfe;border-radius:6px;
   padding:8px 12px;margin-bottom:6px;background:#f0f7ff;">
-  <span style="color:#1e3a8a;font-size:0.85rem;font-weight:700;">"""
-                            f"""{_ins['date']}</span>"""
+  <span style="color:#1e3a8a;font-size:0.85rem;font-weight:700;">{_ins['date']}</span>"""
                             f"""{'&nbsp;&nbsp;|&nbsp;&nbsp;<span style="color:#1e40af;font-size:0.85rem;font-weight:700;">' + _ins_prod + '</span>' if _ins_prod else ''}"""
                             f"""<br><span style="color:#475569;font-size:0.78rem;">청약배경: {_ins.get('background','')[:80]}{'...' if len(_ins.get('background',''))>80 else ''}</span>
   <br><span style="color:#7c3aed;font-size:0.78rem;">특이사항: {_ins.get('special','')[:80]}{'...' if len(_ins.get('special',''))>80 else ''}</span>
