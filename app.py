@@ -8428,7 +8428,7 @@ section[data-testid="stMain"] > div,
                                 )
                                 _ps_answer = sanitize_unicode(_ps_resp.text) if _ps_resp.text else "AI 응답을 받지 못했습니다."
                                 st.session_state["res_ps"] = _ps_answer
-                                increment_usage_count(st.session_state.get('user_name', ''))
+                                update_usage(st.session_state.get('user_name', ''))
                         except Exception as _ps_err:
                             st.error(f"분석 오류: {sanitize_unicode(str(_ps_err))}")
 
