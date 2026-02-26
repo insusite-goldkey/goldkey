@@ -7981,128 +7981,181 @@ section[data-testid="stMain"] > div,
 • 20년 갱신 시 보험료 2~3배 인상 시뮬레이션 제시<br>
 </div>""", unsafe_allow_html=True)
 
-        # ── [policy_scan ↔ 약관 실시간 조회] JIT 크롤러 연동 ────────────
+        # ── [증권 없이 약관 직접 조회] ────────────────────────────────────
         st.divider()
         st.markdown("""
-<div style="background:linear-gradient(90deg,#0d3b2e,#1a6b4a);
-  border-radius:10px;padding:10px 16px;margin-bottom:10px;">
-  <span style="color:#fff;font-size:1rem;font-weight:900;">📜 해당 증권 약관 실시간 조회</span>
-  <span style="color:#a8f0c8;font-size:0.76rem;margin-left:10px;">
-    상품명·가입년월 입력 → 공시실 자동 탐색 → Supabase 버킷 영구 보관
-  </span>
+<div style="background:linear-gradient(135deg,#0d2b4a 0%,#1a4a7a 100%);
+  border-radius:12px;padding:14px 18px 10px 18px;margin-bottom:12px;
+  box-shadow:0 3px 14px rgba(14,165,233,0.18);">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+    <span style="font-size:1.6rem;">📋</span>
+    <div>
+      <div style="color:#fff;font-size:1.05rem;font-weight:900;letter-spacing:0.03em;">
+        약관 설명이 필요하신가요?
+      </div>
+      <div style="color:#b3d4f5;font-size:0.76rem;margin-top:2px;">
+        보험증권 없이도 보험사·상품명·가입년월만 알면 해당 약관을 즉시 불러옵니다
+      </div>
+    </div>
+  </div>
+  <div style="color:#7ec8f5;font-size:0.72rem;margin-top:6px;padding-top:6px;
+    border-top:1px solid rgba(255,255,255,0.12);">
+    아래 조건에 맞춰 선택하세요 → <b style="color:#ffd700;">약관 크롤링 시작</b> 버튼 클릭
+  </div>
 </div>""", unsafe_allow_html=True)
 
-        _jit_c1, _jit_c2, _jit_c3 = st.columns([2, 2, 1])
-        with _jit_c1:
-            _jit_company = st.selectbox(
-                "보험사",
-                ["삼성화재", "현대해상", "DB손해보험", "KB손해보험", "메리츠화재",
-                 "롯데손해보험", "한화손해보험", "흥국화재",
-                 "삼성생명", "한화생명", "교보생명", "신한라이프",
-                 "NH농협생명", "미래에셋생명", "DB생명",
-                 "생명보험협회 (통합 검색)", "손해보험협회 (통합 검색)"],
-                key="ps_jit_company",
-            )
-        with _jit_c2:
-            _jit_product = st.text_input(
-                "상품명",
-                placeholder="예) 무배당 삼성화재 암보험",
-                key="ps_jit_product",
-                value=st.session_state.get("ps_product", ""),
-            )
-        with _jit_c3:
-            _jit_join = st.date_input("가입일자", key="ps_jit_join")
+        _dq_companies = [
+            "── 손해보험 ──",
+            "삼성화재", "현대해상", "DB손해보험", "KB손해보험", "메리츠화재",
+            "롯데손해보험", "한화손해보험", "흥국화재", "MG손해보험",
+            "라이나손보(Chubb)",
+            "── 생명보험 ──",
+            "삼성생명", "한화생명", "교보생명", "신한라이프", "NH농협생명",
+            "미래에셋생명", "DB생명", "KDB생명", "라이나생명", "KB라이프생명",
+            "MetLife생명", "iM라이프생명", "푸본현대생명", "흥국생명",
+            "동양생명", "ABL생명", "하나생명",
+            "── 협회 ──",
+            "생명보험협회", "손해보험협회",
+        ]
 
-        _jit_kw = st.text_input(
-            "🔍 약관 내 검색 키워드 (조회 후 입력)",
-            placeholder="예) 면책 기간 / 수술비 지급 기준 / 암 진단비",
-            key="ps_jit_keyword",
+        _dq_col1, _dq_col2, _dq_col3 = st.columns([2, 3, 2])
+        with _dq_col1:
+            _dq_company_raw = st.selectbox(
+                "🏢 보험회사",
+                [c for c in _dq_companies if not c.startswith("──")],
+                key="dq_company",
+                help="가입한 보험회사를 선택하세요",
+            )
+        with _dq_col2:
+            _dq_product = st.text_input(
+                "📄 상품이름",
+                placeholder="보험증권에 나온 상품이름을 최대한 근접하게 입력  예) 무배당 삼성화재 New암보험 3.0",
+                key="dq_product",
+                help="증권 표지의 상품명을 그대로 입력하면 정확도가 높아집니다",
+            )
+        with _dq_col3:
+            import datetime as _dt_mod
+            _dq_year = st.selectbox(
+                "📅 가입년도",
+                [str(y) for y in range(_dt_mod.date.today().year, 1989, -1)],
+                key="dq_year",
+            )
+            _dq_month = st.selectbox(
+                "가입월",
+                [f"{m:02d}월" for m in range(1, 13)],
+                key="dq_month",
+            )
+
+        _dq_join_date = f"{_dq_year}-{_dq_month.replace('월','')}-01"
+
+        _dq_run = st.button(
+            "🔍 약관 크롤링 시작",
+            type="primary",
+            use_container_width=True,
+            key="btn_dq_run",
+            disabled=(not _dq_product.strip()),
         )
-        _jit_col1, _jit_col2 = st.columns(2)
-        with _jit_col1:
-            _jit_run = st.button("🚀 공시실 실시간 약관 탐색", type="primary",
-                                 key="btn_ps_jit_run", use_container_width=True)
-        with _jit_col2:
-            _jit_search = st.button("🔎 약관 내 키워드 검색",
-                                    key="btn_ps_jit_search", use_container_width=True)
 
-        if _jit_run:
-            if not _jit_product.strip():
-                st.error("상품명을 입력해주세요.")
-            else:
-                _jit_cn = _jit_company.replace(" (통합 검색)", "")
-                _jit_js = str(_jit_join)
-                _jit_sb = _get_sb_client()
-                with st.status("🤖 공시실 실시간 탐색 중...", expanded=True) as _jit_st:
-                    try:
-                        from disclosure_crawler import run_jit_policy_lookup
-                        _jit_r = run_jit_policy_lookup(
-                            company_name=_jit_cn,
-                            product_name=_jit_product.strip(),
-                            join_date=_jit_js,
-                            sb_client=_jit_sb,
-                            progress_cb=lambda m: st.write(m),
-                        )
-                        _jit_st.update(
-                            label="✅ 약관 탐색 완료" if not _jit_r.get("error") else "⚠️ 부분 완료",
-                            state="complete" if not _jit_r.get("error") else "error",
-                        )
-                        if _jit_r.get("pdf_url"):
-                            _jit_conf = _jit_r.get("confidence", 0)
-                            _jit_cc = "#27ae60" if _jit_conf >= 80 else "#e67e22" if _jit_conf >= 50 else "#e74c3c"
-                            st.markdown(
-                                f"<div style='background:#eafaf1;border:1.5px solid #27ae60;"
-                                f"border-radius:8px;padding:10px 14px;margin-top:6px;"
-                                f"font-size:0.82rem;'>"
-                                f"✅ <b>약관 확보 성공</b> &nbsp; 신뢰도 "
-                                f"<b style='color:{_jit_cc};'>{_jit_conf}%</b>"
-                                f" &nbsp;|&nbsp; 판매 기간: {_jit_r.get('period') or '미확인'}"
-                                f"<br>원문 청크: {_jit_r.get('chunks_indexed', 0)}개 "
-                                f"— Supabase <code>gk_policy_terms</code> 버킷 영구 저장 완료"
-                                f"</div>",
-                                unsafe_allow_html=True,
-                            )
-                            st.markdown(f"[📥 약관 PDF 원본]({_jit_r['pdf_url']})")
-                            if _jit_r.get("cached"):
-                                st.info("💾 이미 DB에 캐싱된 약관 — 공시실 크롤링 생략")
-                        elif _jit_r.get("error"):
-                            st.error(f"❌ {_jit_r['error']}")
-                        else:
-                            st.warning("약관 PDF를 찾지 못했습니다. 상품명·보험사를 확인해주세요.")
-                    except ImportError:
-                        st.error("disclosure_crawler 모듈 로드 실패 — requirements.txt에 playwright, pdfplumber 확인")
+        if not _dq_product.strip():
+            st.caption("⬆️ 상품이름을 입력하면 버튼이 활성화됩니다")
 
-        if _jit_search and _jit_kw.strip() and _jit_product.strip():
-            _jit_sb2 = _get_sb_client()
-            try:
-                from disclosure_crawler import JITPipelineRunner, SyntheticQAGenerator
-                _jit_hits = SyntheticQAGenerator(_jit_sb2).search_semantic(
-                    _jit_company.replace(" (통합 검색)", ""), _jit_product.strip(),
-                    _jit_kw.strip(), limit=5
-                )
-                if not _jit_hits:
-                    _jit_hits = JITPipelineRunner(_jit_sb2).search_terms(
-                        _jit_company.replace(" (통합 검색)", ""), _jit_product.strip(),
-                        _jit_kw.strip(), limit=5
+        if _dq_run and _dq_product.strip():
+            _dq_cn  = _dq_company_raw
+            _dq_sb  = _get_sb_client()
+            with st.status(
+                f"🤖 [{_dq_cn}] {_dq_product.strip()} 약관 탐색 중...", expanded=True
+            ) as _dq_st:
+                try:
+                    from disclosure_crawler import run_jit_policy_lookup
+                    _dq_r = run_jit_policy_lookup(
+                        company_name=_dq_cn,
+                        product_name=_dq_product.strip(),
+                        join_date=_dq_join_date,
+                        sb_client=_dq_sb,
+                        progress_cb=lambda m: st.write(m),
                     )
-                if _jit_hits:
-                    st.markdown(f"**🔎 '{_jit_kw}' 검색 결과 — {len(_jit_hits)}건**")
-                    for _hi, _ch in enumerate(_jit_hits, 1):
-                        with st.expander(f"[{_hi}] 약관 청크 #{_ch.get('chunk_idx', _hi)}"):
-                            _ht = _ch["chunk_text"][:800].replace(
-                                _jit_kw,
-                                f"<mark style='background:#fff176;padding:0 2px;"
-                                f"border-radius:3px;'>{_jit_kw}</mark>",
-                            )
-                            st.markdown(
-                                f"<div style='font-size:0.82rem;line-height:1.75;'>"
-                                f"{_ht.replace(chr(10), '<br>')}</div>",
-                                unsafe_allow_html=True,
-                            )
-                else:
-                    st.info("검색 결과 없음 — 먼저 **🚀 공시실 실시간 약관 탐색**을 실행하세요.")
-            except ImportError:
-                st.error("disclosure_crawler 모듈 로드 실패")
+                    _dq_conf = _dq_r.get("confidence", 0)
+                    _dq_cc = "#27ae60" if _dq_conf >= 80 else "#e67e22" if _dq_conf >= 50 else "#e74c3c"
+                    _dq_st.update(
+                        label="✅ 약관 확보 완료" if _dq_r.get("pdf_url") else "⚠️ 약관을 찾지 못했습니다",
+                        state="complete" if _dq_r.get("pdf_url") else "error",
+                    )
+                    if _dq_r.get("pdf_url"):
+                        st.markdown(
+                            f"<div style='background:#eaf4ff;border:1.5px solid #0ea5e9;"
+                            f"border-radius:8px;padding:10px 14px;margin-top:6px;"
+                            f"font-size:0.83rem;'>"
+                            f"✅ <b>약관 확보 성공</b> &nbsp; 신뢰도 "
+                            f"<b style='color:{_dq_cc};'>{_dq_conf}%</b>"
+                            f" &nbsp;|&nbsp; 판매 기간: {_dq_r.get('period') or '미확인'}"
+                            f"<br>원문 청크: {_dq_r.get('chunks_indexed', 0)}개 "
+                            f"— Supabase <code>gk_policy_terms</code> 영구 저장 완료"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown(f"[📥 약관 PDF 원본 열기]({_dq_r['pdf_url']})")
+                        if _dq_r.get("cached"):
+                            st.info("💾 이미 DB에 저장된 약관 — 공시실 크롤링 생략")
+                        # 약관 내 검색 키워드 바로 제공
+                        st.session_state["ps_jit_company"] = _dq_cn
+                        st.session_state["ps_jit_product"] = _dq_product.strip()
+                        st.session_state["ps_jit_join"]    = _dq_join_date
+                    elif _dq_r.get("error"):
+                        st.error(f"❌ {_dq_r['error']}")
+                        st.info(
+                            "💡 상품명을 더 짧게 또는 다르게 입력해 보세요.\n"
+                            "예) '삼성화재 암보험' → '무배당 삼성화재 New암보험'"
+                        )
+                    else:
+                        st.warning("약관 PDF를 찾지 못했습니다. 상품명·보험사를 확인해주세요.")
+                except ImportError:
+                    st.error("disclosure_crawler 모듈 로드 실패")
+
+        # ── 약관 내 키워드 검색 (크롤링 완료 후 활용) ─────────────────────
+        _dq_jit_product = st.session_state.get("ps_jit_product", "")
+        _dq_jit_company = st.session_state.get("ps_jit_company", "")
+        _dq_jit_join    = st.session_state.get("ps_jit_join", "")
+        if _dq_jit_product:
+            st.divider()
+            st.markdown("#### 🔎 약관 내 키워드 검색")
+            _kw_col1, _kw_col2 = st.columns([4, 1])
+            with _kw_col1:
+                _dq_kw = st.text_input(
+                    "검색 키워드",
+                    placeholder="예) 면책 기간 / 수술비 지급 기준 / 암 진단비",
+                    key="dq_jit_keyword",
+                )
+            with _kw_col2:
+                st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+                _dq_kw_run = st.button("🔎 검색", key="btn_dq_kw_search",
+                                       use_container_width=True)
+
+            if _dq_kw_run and _dq_kw.strip():
+                _kw_sb = _get_sb_client()
+                try:
+                    from disclosure_crawler import JITPipelineRunner
+                    _kw_hits = JITPipelineRunner(_kw_sb).search_terms(
+                        _dq_jit_company, _dq_jit_product, _dq_kw.strip(), limit=5
+                    )
+                    if _kw_hits:
+                        st.markdown(f"**🔎 '{_dq_kw}' 검색 결과 — {len(_kw_hits)}건**")
+                        for _hi, _ch in enumerate(_kw_hits, 1):
+                            with st.expander(f"[{_hi}] 약관 청크 #{_ch.get('chunk_idx', _hi)}"):
+                                _ht = _ch["chunk_text"][:800].replace(
+                                    _dq_kw,
+                                    f"<mark style='background:#fff176;padding:0 2px;"
+                                    f"border-radius:3px;'>{_dq_kw}</mark>",
+                                )
+                                st.markdown(
+                                    f"<div style='font-size:0.82rem;line-height:1.75;'>"
+                                    f"{_ht.replace(chr(10), '<br>')}</div>",
+                                    unsafe_allow_html=True,
+                                )
+                    else:
+                        st.info("검색 결과 없음 — 먼저 위에서 **약관 크롤링 시작**을 실행하세요.")
+                except ImportError:
+                    st.error("disclosure_crawler 모듈 로드 실패")
+
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t0] 신규보험 상품 상담 — 보험설계사 전용 ───────────────────────
