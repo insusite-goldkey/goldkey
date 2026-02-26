@@ -5264,7 +5264,7 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
             'style="width:88px;height:88px;border-radius:50%;'
             'object-fit:cover;border:3px solid rgba(255,255,255,0.7);'
             'margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.25);">'
-        ) if _avatar_b64 else '<div style="font-size:2.5rem;margin-bottom:8px;">🏆</div>'
+        ) if _avatar_b64 else '<div style="margin-bottom:8px;"></div>'
         st.markdown(f"""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:18px 16px 14px 16px;margin-bottom:12px;color:#fff;text-align:center;">
