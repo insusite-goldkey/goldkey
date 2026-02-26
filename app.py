@@ -8573,13 +8573,14 @@ section[data-testid="stMain"] > div,
                     ]
                     for _col, (_label, _val) in zip(_pi_cols, _pi_fields):
                         with _col:
+                            _disp = _val if _val else '<span style="color:#bbb">미확인</span>'
                             st.markdown(
                                 f'<div style="background:#f0fff6;border:1px solid #27ae60;'
                                 f'border-radius:8px;padding:6px 10px;font-size:0.78rem;'
                                 f'text-align:center;">'
                                 f'<div style="color:#666;font-size:0.68rem;">{_label}</div>'
                                 f'<div style="font-weight:900;color:#0d3b2e;margin-top:2px;">'
-                                f'{_val if _val else "<span style=\\"color:#bbb\\">미확인</span>"}</div>'
+                                f'{_disp}</div>'
                                 f'</div>',
                                 unsafe_allow_html=True
                             )
