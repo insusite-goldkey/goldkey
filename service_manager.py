@@ -21,7 +21,7 @@ import hashlib
 import json
 import os
 from datetime import datetime as _dt
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -125,7 +125,7 @@ class ScanService:
         for key in [
             _SSOT.SCAN_DATA, _SSOT.SCAN_TYPE, _SSOT.SCAN_FILES,
             _SSOT.SCAN_TS, _SSOT.COVERAGES, _SSOT.FULL_TEXT,
-            _SSOT.PARSED_COVS, _SSOT.TABLES if hasattr(_SSOT, 'TABLES') else _SSOT.SCAN_TABLES,
+            _SSOT.PARSED_COVS, _SSOT.SCAN_TABLES,
             _SSOT.POLICY_INFO, _SSOT.CLIENT_NAME, _SSOT.PARSED_RAW, _SSOT.PARSED_ERRS,
         ]:
             ss.pop(key, None)
@@ -156,7 +156,7 @@ class STTService:
     DUP_TIME_MS       = 4000
 
     # ── 보험 전문용어 부스트 목록 ─────────────────────────────────────────
-    BOOST_TERMS: list[str] = [
+    BOOST_TERMS: List[str] = [
         "치매보험", "경도인지장애", "납입면제", "해지환급금", "CDR척도",
         "장기요양등급", "노인성질환", "알츠하이머", "혈관성치매",
         "실손보험", "암진단비", "뇌혈관질환", "심근경색", "후유장해",
@@ -249,8 +249,8 @@ class CrawlerService:
             return {"error": str(e), "cached": False, "pdf_url": "",
                     "period": "", "confidence": 0, "reason": "", "chunks_indexed": 0}
 
-    def lookup_batch(self, policies: list[dict],
-                     progress_cb: Optional[Callable] = None) -> list[dict]:
+    def lookup_batch(self, policies: List[Dict],
+                     progress_cb: Optional[Callable] = None) -> List[Dict]:
         """
         복수 증권 배치 JIT 조회.
         policies: [{company, product, join_date, confidence, source_file}, ...]
@@ -274,7 +274,7 @@ class CrawlerService:
                      "join_date": p.get("join_date",""), "chunks_indexed": 0}
                     for p in policies]
 
-    def build_target_list(self, ss: Any, mode: str = "high_confidence") -> list[dict]:
+    def build_target_list(self, ss: Any, mode: str = "high_confidence") -> List[Dict]:
         """
         SSOT에서 약관 추적 대상 리스트 구성.
         mode: 'high_confidence'(70%↑) | 'all' | 'ssot_only'
