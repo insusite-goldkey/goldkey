@@ -8035,7 +8035,7 @@ section[data-testid="stMain"] > div,
   </div>
   <div style="color:#7ec8f5;font-size:0.72rem;margin-top:6px;padding-top:6px;
     border-top:1px solid rgba(255,255,255,0.12);">
-    아래 조건에 맞춰 선택하세요 → <b style="color:#ffd700;">약관 크롤링 시작</b> 버튼 클릭
+    아래 조건에 맞춰 선택하세요 → <b style="color:#ffd700;">🔍 가입 약관 자동 추적 시작</b> 버튼 클릭
   </div>
 </div>""", unsafe_allow_html=True)
 
@@ -8084,7 +8084,7 @@ section[data-testid="stMain"] > div,
         _dq_join_date = f"{_dq_year}-{_dq_month.replace('월','')}-01"
 
         _dq_run = st.button(
-            "🔍 약관 크롤링 시작",
+            "🔍 가입 약관 자동 추적",
             type="primary",
             use_container_width=True,
             key="btn_dq_run",
@@ -8097,8 +8097,56 @@ section[data-testid="stMain"] > div,
         if _dq_run and _dq_product.strip():
             _dq_cn  = _dq_company_raw
             _dq_sb  = _get_sb_client()
+            # ── 돋보기 애니메이션 로딩 화면 ──
+            import streamlit.components.v1 as _dq_comp
+            _dq_comp.html("""
+<div id="magnify-loader" style="
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:28px 0 18px;">
+  <div style="position:relative;width:90px;height:90px;">
+    <!-- 서류 아이콘 -->
+    <svg width="52" height="60" viewBox="0 0 52 60" fill="none"
+      style="position:absolute;left:4px;top:8px;opacity:0.92;"
+      xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="2" width="40" height="52" rx="4" fill="#1a3a5c" stroke="#0ea5e9" stroke-width="2"/>
+      <rect x="10" y="14" width="28" height="3" rx="1.5" fill="#7ec8f5"/>
+      <rect x="10" y="22" width="22" height="3" rx="1.5" fill="#7ec8f5"/>
+      <rect x="10" y="30" width="26" height="3" rx="1.5" fill="#7ec8f5"/>
+      <rect x="10" y="38" width="18" height="3" rx="1.5" fill="#a8f0c8"/>
+    </svg>
+    <!-- 돋보기 (움직임 애니메이션) -->
+    <svg id="mag" width="46" height="46" viewBox="0 0 46 46" fill="none"
+      style="position:absolute;top:0;right:0;
+        animation:scan 1.8s ease-in-out infinite;"
+      xmlns="http://www.w3.org/2000/svg">
+      <circle cx="18" cy="18" r="14" stroke="#ffd700" stroke-width="3.5" fill="rgba(255,215,0,0.08)"/>
+      <line x1="29" y1="29" x2="43" y2="43" stroke="#ffd700" stroke-width="3.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div style="margin-top:14px;color:#ffd700;font-weight:900;
+    font-size:0.95rem;font-family:'Noto Sans KR',sans-serif;
+    letter-spacing:0.03em;">
+    🔍 AI가 약관 돋보기로 분석 중입니다...
+  </div>
+  <div style="margin-top:6px;color:#a8f0c8;font-size:0.75rem;
+    font-family:'Noto Sans KR',sans-serif;text-align:center;max-width:320px;
+    line-height:1.55;">
+    보험사 공시실에 숨겨진 과거 판매 중지 약관까지<br>
+    AI가 1분 만에 추적하여 분석합니다.
+  </div>
+  <style>
+    @keyframes scan {
+      0%   { transform: translate(0px,  0px)  rotate(0deg);  }
+      25%  { transform: translate(-8px, 6px)  rotate(-8deg); }
+      50%  { transform: translate(0px,  12px) rotate(0deg);  }
+      75%  { transform: translate(8px,  6px)  rotate(8deg);  }
+      100% { transform: translate(0px,  0px)  rotate(0deg);  }
+    }
+  </style>
+</div>
+""", height=180)
             with st.status(
-                f"🤖 [{_dq_cn}] {_dq_product.strip()} 약관 탐색 중...", expanded=True
+                f"🔍 [{_dq_cn}] {_dq_product.strip()} — 가입 약관 자동 추적 중...", expanded=True
             ) as _dq_st:
                 try:
                     from disclosure_crawler import run_jit_policy_lookup
@@ -8112,7 +8160,7 @@ section[data-testid="stMain"] > div,
                     _dq_conf = _dq_r.get("confidence", 0)
                     _dq_cc = "#27ae60" if _dq_conf >= 80 else "#e67e22" if _dq_conf >= 50 else "#e74c3c"
                     _dq_st.update(
-                        label="✅ 약관 확보 완료" if _dq_r.get("pdf_url") else "⚠️ 약관을 찾지 못했습니다",
+                        label="✅ 약관 추적 완료" if _dq_r.get("pdf_url") else "⚠️ 약관을 찾지 못했습니다",
                         state="complete" if _dq_r.get("pdf_url") else "error",
                     )
                     if _dq_r.get("pdf_url"):
@@ -8130,7 +8178,7 @@ section[data-testid="stMain"] > div,
                         )
                         st.markdown(f"[📥 약관 PDF 원본 열기]({_dq_r['pdf_url']})")
                         if _dq_r.get("cached"):
-                            st.info("💾 이미 DB에 저장된 약관 — 공시실 크롤링 생략")
+                            st.info("💾 이미 DB에 저장된 약관 — 추적 생략 (캐시 활용)")
                         # 약관 내 검색 키워드 바로 제공
                         st.session_state["ps_jit_company"] = _dq_cn
                         st.session_state["ps_jit_product"] = _dq_product.strip()
@@ -8146,7 +8194,7 @@ section[data-testid="stMain"] > div,
                 except ImportError:
                     st.error("disclosure_crawler 모듈 로드 실패")
 
-        # ── 약관 내 키워드 검색 (크롤링 완료 후 활용) ─────────────────────
+        # ── 약관 내 키워드 검색 (약관 추적 완료 후 활용) ─────────────────────
         _dq_jit_product = st.session_state.get("ps_jit_product", "")
         _dq_jit_company = st.session_state.get("ps_jit_company", "")
         _dq_jit_join    = st.session_state.get("ps_jit_join", "")
@@ -8187,7 +8235,7 @@ section[data-testid="stMain"] > div,
                                     unsafe_allow_html=True,
                                 )
                     else:
-                        st.info("검색 결과 없음 — 먼저 위에서 **약관 크롤링 시작**을 실행하세요.")
+                        st.info("검색 결과 없음 — 먼저 위에서 **🔍 가입 약관 자동 추적**을 실행하세요.")
                 except ImportError:
                     st.error("disclosure_crawler 모듈 로드 실패")
 
@@ -14539,7 +14587,7 @@ END; $$;""", language="sql")
   </div>
   <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
     <span style="background:rgba(255,255,255,0.12);color:#d0eeff;border-radius:20px;
-      padding:3px 11px;font-size:0.72rem;font-weight:600;">📜 JIT 크롤링</span>
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">🔍 약관 자동 추적</span>
     <span style="background:rgba(255,255,255,0.12);color:#d0eeff;border-radius:20px;
       padding:3px 11px;font-size:0.72rem;font-weight:600;">🧬 합성 QA 생성</span>
     <span style="background:rgba(255,255,255,0.12);color:#d0eeff;border-radius:20px;
@@ -14850,7 +14898,7 @@ END; $$;""", language="sql")
                 # playwright 미설치 에러는 사용자 친화적 메시지로
                 _err_msg = _pt_result['error']
                 if "playwright" in _err_msg.lower():
-                    st.warning("⚠️ 실시간 공시실 크롤링은 서버 환경에서 지원되지 않습니다.\n\nDB 캐시에 해당 약관이 없습니다. 보험사·상품명을 다시 확인하거나 협회 통합 검색을 이용하세요.")
+                    st.warning("⚠️ 실시간 약관 추적은 서버 환경에서 지원되지 않습니다.\n\nDB 캐시에 해당 약관이 없습니다. 보험사·상품명을 다시 확인하거나 협회 통합 검색을 이용하세요.")
                 else:
                     st.error(f"❌ {_err_msg}")
             elif _pt_result.get("pdf_url"):
@@ -14879,7 +14927,7 @@ END; $$;""", language="sql")
                 st.markdown(f"[📥 약관 PDF 원본 다운로드]({_pt_result['pdf_url']})")
                 st.caption(f"💬 선택 근거: {_pt_result.get('reason', '')}")
                 if _pt_result.get("cached"):
-                    st.info("💾 DB 캐시 히트 — 공시실 크롤링 생략")
+                    st.info("💾 DB 캐시 히트 — 추적 생략 (기존 약관 활용)")
             elif _pt_result and not _pt_result.get("error"):
                 st.warning("약관 PDF를 확보하지 못했습니다. 상품명·보험사를 확인해주세요.")
 
@@ -16686,8 +16734,8 @@ END; $$;""", language="sql")
                         st.session_state.current_tab = _nav_key
                         st.rerun()
 
-        # ── [scan_hub ↔ 약관 JIT 크롤링] 보험증권 스캔 기반 약관 자동 연동 ──
-        # ── 약관 크롤링 대상 구성:
+        # ── [scan_hub ↔ 가입 약관 자동 추적] 보험증권 스캔 기반 약관 자동 연동 ──
+        # ── 약관 추적 대상 구성:
         #    우선순위 1) ssot_policy_info (AI 정밀 추출값, 가장 정확)
         #    우선순위 2) ssot_scan_data 정규식 재파싱 (fallback)
         _ssot_pi_card  = st.session_state.get("ssot_policy_info", {})
@@ -16696,15 +16744,15 @@ END; $$;""", language="sql")
             if d.get("type") == "policy"
         ]
 
-        # ssot_policy_info 또는 policy 타입 스캔 데이터가 있을 때 크롤링 박스 표시
+        # ssot_policy_info 또는 policy 타입 스캔 데이터가 있을 때 약관 추적 박스 표시
         if _ssot_pi_card or _ssot_pol_data:
             st.divider()
             st.markdown("""
 <div style="background:linear-gradient(90deg,#0d3b2e,#1a5c3b);
   border-radius:10px;padding:10px 18px;margin-bottom:10px;">
-  <span style="color:#fff;font-size:1rem;font-weight:900;">📜 스캔 증권 → 약관 자동 크롤링</span>
+  <span style="color:#fff;font-size:1rem;font-weight:900;">🔍 스캔 증권 → 가입 약관 자동 추적</span>
   <span style="color:#a8f0c8;font-size:0.76rem;margin-left:10px;">
-    증권에서 보험사·상품명·가입일 추출 → 공시실 실시간 탐색 → Supabase 영구 저장
+    보험사 공시실에 숨겨진 과거 판매 중지 약관까지 AI가 1분 만에 추적·분석합니다
   </span>
 </div>""", unsafe_allow_html=True)
 
@@ -16718,7 +16766,7 @@ END; $$;""", language="sql")
                     "confidence":   100,   # AI Vision 추출 = 최고 신뢰도
                     "already_indexed": False,
                 }]
-                st.success("✅ AI 증권 분석 결과가 자동 반영되었습니다. 내용을 확인 후 크롤링을 시작하세요.")
+                st.success("✅ AI 증권 분석 결과가 자동 반영되었습니다. 내용을 확인 후 약관 자동 추적을 시작하세요.")
             else:
                 # fallback: 정규식 재파싱
                 try:
@@ -16735,7 +16783,7 @@ END; $$;""", language="sql")
                     }]
 
             if _scan_pols:
-                st.markdown(f"**📋 약관 크롤링 대상 {len(_scan_pols)}건**")
+                st.markdown(f"**🔍 가입 약관 자동 추적 대상 {len(_scan_pols)}건**")
                 _edited_pols = []
                 for _pi, _pol in enumerate(_scan_pols):
                     _conf = _pol.get("confidence", 0)
@@ -16782,8 +16830,8 @@ END; $$;""", language="sql")
 
                 st.divider()
                 _sh_crawl_mode = st.radio(
-                    "크롤링 범위",
-                    ["✅ 신뢰도 높은 상품만 (70% 이상)", "⚡ 전체 상품 크롤링", "🔲 선택한 상품만"],
+                    "추적 범위",
+                    ["✅ 신뢰도 높은 상품만 (70% 이상)", "⚡ 전체 약관 추적", "🔲 선택한 상품만"],
                     horizontal=True, key="sh_crawl_mode",
                 )
                 _selected_indices = []
@@ -16793,7 +16841,7 @@ END; $$;""", language="sql")
                                        key=f"sh_sel_{_si}"):
                             _selected_indices.append(_si)
 
-                if st.button("🚀 선택 약관 일괄 크롤링 시작", type="primary",
+                if st.button("🔍 가입 약관 자동 추적 시작", type="primary",
                              use_container_width=True, key="btn_sh_batch_crawl"):
                     if _sh_crawl_mode == "✅ 신뢰도 높은 상품만 (70% 이상)":
                         _target_pols = [p for p in _edited_pols if p["confidence"] >= 70]
@@ -16803,11 +16851,42 @@ END; $$;""", language="sql")
                         _target_pols = _edited_pols
 
                     if not _target_pols:
-                        st.warning("크롤링할 상품이 없습니다. 범위를 조정해주세요.")
+                        st.warning("추적할 상품이 없습니다. 범위를 조정해주세요.")
                     else:
                         _jit_sb3 = _get_sb_client()
+                        # ── scan_hub 돋보기 애니메이션 로딩 ──
+                        import streamlit.components.v1 as _sh_comp
+                        _sh_comp.html("""
+<div style="display:flex;flex-direction:column;align-items:center;padding:20px 0 10px;">
+  <div style="position:relative;width:80px;height:80px;">
+    <svg width="48" height="56" viewBox="0 0 52 60" fill="none"
+      style="position:absolute;left:4px;top:8px;"
+      xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="2" width="40" height="52" rx="4" fill="#1a3a5c" stroke="#0ea5e9" stroke-width="2"/>
+      <rect x="10" y="14" width="28" height="3" rx="1.5" fill="#7ec8f5"/>
+      <rect x="10" y="22" width="22" height="3" rx="1.5" fill="#7ec8f5"/>
+      <rect x="10" y="30" width="26" height="3" rx="1.5" fill="#7ec8f5"/>
+      <rect x="10" y="38" width="18" height="3" rx="1.5" fill="#a8f0c8"/>
+    </svg>
+    <svg width="42" height="42" viewBox="0 0 46 46" fill="none"
+      style="position:absolute;top:0;right:0;
+        animation:scan 1.8s ease-in-out infinite;"
+      xmlns="http://www.w3.org/2000/svg">
+      <circle cx="18" cy="18" r="14" stroke="#ffd700" stroke-width="3.5" fill="rgba(255,215,0,0.08)"/>
+      <line x1="29" y1="29" x2="43" y2="43" stroke="#ffd700" stroke-width="3.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div style="margin-top:10px;color:#ffd700;font-weight:900;font-size:0.9rem;
+    font-family:'Noto Sans KR',sans-serif;">🔍 AI가 약관 돋보기로 분석 중입니다...</div>
+  <div style="color:#a8f0c8;font-size:0.73rem;margin-top:4px;
+    font-family:'Noto Sans KR',sans-serif;text-align:center;">
+    보험사 공시실에 숨겨진 과거 판매 중지 약관까지 AI가 1분 만에 추적하여 분석합니다.
+  </div>
+  <style>@keyframes scan{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(-8px,6px) rotate(-8deg)}50%{transform:translate(0,12px) rotate(0)}75%{transform:translate(8px,6px) rotate(8deg)}100%{transform:translate(0,0) rotate(0)}}</style>
+</div>
+""", height=160)
                         with st.status(
-                            f"📜 {len(_target_pols)}건 약관 공시실 탐색 중...", expanded=True
+                            f"🔍 {len(_target_pols)}건 가입 약관 자동 추적 중...", expanded=True
                         ) as _batch_st:
                             try:
                                 from disclosure_crawler import run_batch_jit_from_scan
@@ -16823,7 +16902,7 @@ END; $$;""", language="sql")
                                     label=f"✅ 완료 — 성공/캐시: {len(_ok)}건 | 실패: {len(_fail)}건 | 건너뜀: {len(_skip)}건",
                                     state="complete" if not _fail else "error",
                                 )
-                                st.markdown("#### 📊 크롤링 결과")
+                                st.markdown("#### 📊 약관 추적 결과")
                                 for _r in _batch_res:
                                     _icon = {"indexed":"✅","cached":"💾","failed":"❌","skipped":"⚠️"}.get(_r["status"],"❓")
                                     _rmsg = (f"{_icon} **{_r['company']}** / {_r['product'][:30]} "
@@ -16831,7 +16910,7 @@ END; $$;""", language="sql")
                                     if _r["status"] == "indexed":
                                         _rmsg += f" — {_r['chunks_indexed']}청크 저장"
                                     elif _r["status"] == "cached":
-                                        _rmsg += " — 기존 캐시 활용"
+                                        _rmsg += " — 기존 캐시 활용 (추적 생략)"
                                     elif _r.get("error"):
                                         _rmsg += f" — {_r['error'][:60]}"
                                     st.markdown(_rmsg)
