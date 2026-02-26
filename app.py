@@ -1176,12 +1176,28 @@ def customer_doc_get_names() -> list:
         return []
 
 # --------------------------------------------------------------------------
-# 관리자 지시 채널 (admin_directives.json)
+# 관리자 지시 채널 — Supabase 우선, 로컬 JSON 폴백
+# HuggingFace Spaces는 파일 휘발성 → Supabase에 영구 저장
 # --------------------------------------------------------------------------
-DIRECTIVE_DB = os.path.join(_DATA_DIR, "admin_directives.json")
+DIRECTIVE_DB   = os.path.join(_DATA_DIR, "admin_directives.json")
+_DIR_SB_TABLE  = "gk_directives"
 
-@st.cache_data(ttl=30)
+def _dir_sb():
+    """지시 채널용 Supabase 클라이언트 반환 (간편 래퍼)"""
+    return _get_sb_client() if _SB_PKG_OK else None
+
+@st.cache_data(ttl=20)
 def load_directives():
+    # ── 1순위: Supabase ──────────────────────────────────────────────────
+    sb = _dir_sb()
+    if sb:
+        try:
+            rows = (sb.table(_DIR_SB_TABLE)
+                    .select("*").order("id", desc=False).execute().data or [])
+            return rows
+        except Exception:
+            pass
+    # ── 2순위: 로컬 JSON 폴백 ────────────────────────────────────────────
     try:
         if os.path.exists(DIRECTIVE_DB):
             with open(DIRECTIVE_DB, "r", encoding="utf-8") as f:
@@ -1191,22 +1207,50 @@ def load_directives():
     return []
 
 def save_directives(directives):
+    """상태 변경(진행중/완료) 시 Supabase 일괄 반영"""
+    sb = _dir_sb()
+    if sb:
+        try:
+            for d in directives:
+                if d.get("id"):
+                    sb.table(_DIR_SB_TABLE).update(
+                        {"status": d.get("status", "대기")}
+                    ).eq("id", d["id"]).execute()
+            load_directives.clear()
+            return
+        except Exception:
+            pass
+    # 폴백: 로컬 JSON
     try:
         with open(DIRECTIVE_DB, "w", encoding="utf-8") as f:
             json.dump(directives, f, ensure_ascii=False, indent=2)
-        load_directives.clear()  # 캐시 무효화
+        load_directives.clear()
     except (IOError, OSError):
         pass
 
 def add_directive(content: str):
+    sb = _dir_sb()
+    _now = dt.now().strftime("%Y-%m-%d %H:%M")
+    if sb:
+        try:
+            sb.table(_DIR_SB_TABLE).insert({
+                "time":    _now,
+                "content": content,
+                "status":  "대기",
+            }).execute()
+            load_directives.clear()
+            return
+        except Exception:
+            pass
+    # 폴백: 로컬 JSON
     directives = load_directives()
     directives.append({
-        "id": len(directives) + 1,
-        "time": dt.now().strftime("%Y-%m-%d %H:%M"),
+        "id":      len(directives) + 1,
+        "time":    _now,
         "content": content,
-        "status": "대기"
+        "status":  "대기",
     })
-    directives = directives[-100:]  # 최근 100건 유지
+    directives = directives[-100:]
     save_directives(directives)
 
 # 일일 무료 분석 횟수 상수 (단일 정의)
