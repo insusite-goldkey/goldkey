@@ -14191,6 +14191,8 @@ END; $$;""", language="sql")
                 ("생명", "미래에셋생명(판매중지)","https://life.miraeasset.com/micro/disclosure/product/PC-HO-080301-000000.do"),
                 ("생명", "DB생명(판매중)",  "https://www.idblife.com/insurance/calculation?seq=501"),
                 ("생명", "DB생명(판매중지)","https://www.idblife.com/insurance/calculation?seq=501"),
+                ("생명", "KDB생명(판매중)",  "https://www.kdblife.co.kr/ajax.do?scrId=HDLMA002M02P"),
+                ("생명", "KDB생명(판매중지)","https://www.kdblife.co.kr/ajax.do?scrId=HDLMA002M03P"),
                 ("협회", "생명보험협회-보장성상품비교",  "https://pub.insure.or.kr/compareDis/prodCompare/assurance/listNew.do"),
                 ("협회", "생명보험협회-저축성상품비교",  "https://pub.insure.or.kr/compareDis/prodCompare/saving/list.do"),
                 ("협회", "생명보험협회-변액보험(보장성)", "https://pub.insure.or.kr/compareDis/variableInsrn/prodCompare/assurance/listNew.do?search_prodGroup=024400010001"),
