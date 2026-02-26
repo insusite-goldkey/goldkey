@@ -1813,6 +1813,7 @@ def parse_policy_with_vision(files: list) -> dict:
     all_coverages = []
     merged_policy_info = {}   # 복수 파일 시 마지막 non-null 값 우선 병합
     errors = []
+    _last_raw = ""  # 디버그용 마지막 AI raw 응답
 
     for f in files:
         try:
@@ -1852,6 +1853,7 @@ def parse_policy_with_vision(files: list) -> dict:
             raw = resp.text.strip() if resp.text else ""
             raw = re.sub(r"^```(?:json)?", "", raw).strip()
             raw = re.sub(r"```$", "", raw).strip()
+            _last_raw = raw  # 디버그용
             parsed = json.loads(raw)
 
             if "parse_error" in parsed:
@@ -1931,7 +1933,8 @@ def parse_policy_with_vision(files: list) -> dict:
         except Exception as e:
             errors.append(f"{f.name}: {sanitize_unicode(str(e))}")
 
-    return {"policy_info": merged_policy_info, "coverages": all_coverages, "errors": errors}
+    return {"policy_info": merged_policy_info, "coverages": all_coverages, "errors": errors,
+            "_raw_ai_response": _last_raw}
 
 
 # ── DisabilityLogic 계산 엔진 ───────────────────────────────────────────────
@@ -9438,6 +9441,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         _parsed_result = parse_policy_with_vision(dis_policy_files)
                         st.session_state["dis_parsed_coverages"] = _parsed_result.get("coverages", [])
                         st.session_state["dis_parsed_errors"]    = _parsed_result.get("errors", [])
+                        st.session_state["dis_parsed_raw_debug"] = _parsed_result.get("_raw_ai_response", "")
                         # ── policy_info를 scan_hub SSOT에도 동기화 (약관 크롤링 자동 반영) ──
                         _dis_pi = _parsed_result.get("policy_info") or {}
                         if _dis_pi:
@@ -9465,6 +9469,12 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 # ── 파싱 결과 표시 및 자동 채우기 ───────────────────────
                 _parsed_covs = st.session_state.get("dis_parsed_coverages", [])
                 _parsed_errs = st.session_state.get("dis_parsed_errors", [])
+                _raw_debug   = st.session_state.get("dis_parsed_raw_debug", "")
+
+                # ── 🔬 AI raw 응답 디버그 (할루시네이션 추적용) ──
+                if _raw_debug:
+                    with st.expander("🔬 [디버그] AI 원본 응답 — 할루시네이션 추적", expanded=False):
+                        st.code(_raw_debug, language="json")
 
                 if _parsed_errs:
                     for _pe in _parsed_errs:
