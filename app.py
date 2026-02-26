@@ -7799,6 +7799,126 @@ window.startSugSTT=function(){{
             )
 
         st.divider()
+
+        # ── 고객 정보 입력·관리 섹터 (도메인 네비 위 고정) ─────────────
+        if 'user_id' in st.session_state:
+            st.markdown("""<div style="background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 100%);
+  border-radius:14px;padding:14px 18px;margin-bottom:14px;">
+  <span style="color:#fff;font-size:1.05rem;font-weight:900;">🗂️ 고객 정보 입력 · 관리</span>
+  <span style="color:#a8e6cf;font-size:0.75rem;margin-left:10px;">고객에 대한 정보 관리 — 상담의 주요 목적</span>
+</div>""", unsafe_allow_html=True)
+
+            # ── 상담 대상자 기본 정보 ────────────────────────────────────
+            st.markdown("""<div style="background:rgba(13,59,46,0.08);border:1px solid #1a6b4a;
+  border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+  <span style="color:#0d3b2e;font-size:0.9rem;font-weight:900;">👤 상담 대상자 기본 정보 입력 후 각 탭에서 자동 활용됩니다</span>
+</div>""", unsafe_allow_html=True)
+
+            _sc1, _sc2, _sc3 = st.columns(3)
+            _SICK_OPTIONS = [
+                "해당없음",
+                "심사필요(3개월이내 치료 있음)",
+                "유병자(입원·수술이력 있음)",
+                "유병자(당뇨·고혈압·심장 등 약 투약중)",
+                "유병자(암·중풍 발병 있음)",
+            ]
+            _SICK_GUIDE = {
+                "해당없음":                           "✅ 일반·건강체 보험가입 설계 가능 대상자",
+                "심사필요(3개월이내 치료 있음)":        "⚠️ 최종 통원일(투약 마지막일) 경과 후 신규보험 상담 진행\n단, 유병자 운전자보험은 1개월 경과 후 심사 요청 가능",
+                "유병자(입원·수술이력 있음)":          "📋 유병자보험 3.0.5 ~ 3.5.5 — 병력에 따라 구분 가입 상담",
+                "유병자(당뇨·고혈압·심장 등 약 투약중)": "📋 유병자보험 3.0.5 ~ 3.5.5 — 병력에 따라 구분 가입 상담",
+                "유병자(암·중풍 발병 있음)":           "⚠️ 최종 통원일 이후 5년 경과 후 암 상담 진행\n향후 유병자 신규 상품에서 가입 가능 여부 확인",
+            }
+            _cur_sick = st.session_state.get("scan_client_sick", "해당없음")
+            if _cur_sick not in _SICK_OPTIONS:
+                _cur_sick = "해당없음"
+            with _sc1:
+                _si_name = st.text_input("상담자 성명", value=st.session_state.get("scan_client_name",""),
+                                         placeholder="예) 홍길동", key="home_si_name")
+                _si_dob  = st.text_input("생년월일 (YYYYMMDD)", value=st.session_state.get("scan_client_dob",""),
+                                         placeholder="예) 19800101", max_chars=8, key="home_si_dob")
+            with _sc2:
+                _si_job  = st.text_input("직업", value=st.session_state.get("scan_client_job",""),
+                                         placeholder="예) 회사원", key="home_si_job")
+                _si_sick = st.selectbox("유병자 여부", _SICK_OPTIONS,
+                                        index=_SICK_OPTIONS.index(_cur_sick),
+                                        key="home_si_sick")
+                if _si_sick != "해당없음":
+                    st.caption(_SICK_GUIDE.get(_si_sick, ""))
+            with _sc3:
+                _si_items = st.multiselect(
+                    "상담 항목 (복수 선택)",
+                    ["신규보험상담","보험증권 분석","보험금 청구","장해 산출","암·뇌·심장","리플렛 분류","약관 검색","부동산 투자","간병비","노후설계","법인상담"],
+                    default=st.session_state.get("scan_client_items",[]),
+                    key="home_si_items"
+                )
+            if st.button("💾 상담자 정보 저장", key="btn_save_client_info", use_container_width=True):
+                st.session_state["scan_client_name"]  = _si_name
+                st.session_state["scan_client_dob"]   = _si_dob
+                st.session_state["scan_client_job"]   = _si_job
+                st.session_state["scan_client_sick"]  = _si_sick
+                st.session_state["scan_client_items"] = _si_items
+                st.success(f"✅ {_si_name} 상담자 정보 저장 완료 — 모든 탭에 자동 적용됩니다.")
+
+            st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
+
+            # ── 상담 노트 ────────────────────────────────────────────────
+            with st.expander("📝 상담 노트  (사용방법: 고객 상담내용 전부 적으세요)", expanded=False):
+                _note_date = st.date_input("상담 일자", key="home_note_date")
+                _note_text = st.text_area(
+                    "상담 내용",
+                    placeholder="고객과 관련된 모든 상담 내용을 입력하세요...",
+                    height=180, key="home_note_text"
+                )
+                if st.button("💾 상담노트 저장", key="btn_save_note", use_container_width=True):
+                    _notes = st.session_state.get("consult_notes", [])
+                    _notes.insert(0, {"date": str(_note_date), "content": _note_text})
+                    st.session_state["consult_notes"] = _notes
+                    st.success("✅ 상담노트 저장됨")
+                _notes_saved = st.session_state.get("consult_notes", [])
+                if _notes_saved:
+                    st.markdown("**📋 저장된 상담 노트 (최근순)**")
+                    for _n in _notes_saved:
+                        st.markdown(f"`{_n['date']}` {_n['content']}")
+                        st.divider()
+
+            # ── 보험 가입 상담 창 ────────────────────────────────────────
+            with st.expander("🛡️ 보험 가입 상담  (사용방법: 청약과정에서 발생한 특이사항은 '특이사항'란에 입력하세요)", expanded=False):
+                _ins_date = st.date_input("가입 일자", key="home_ins_date")
+                _ins_product = st.text_input("상담 상품명", placeholder="예) ○○생명 통합보험", key="home_ins_product")
+                _ins_bg = st.text_area(
+                    "청약 배경",
+                    placeholder="신규 가입 당시 청약 배경을 입력하세요\n예시) 고지항목 병력 등을 적고, 고지 명확히 했음 등 표기",
+                    height=120, key="home_ins_bg"
+                )
+                _ins_special = st.text_area(
+                    "특이사항",
+                    placeholder="청약 관련 특이사항 입력\n예시) 사용한 판촉물 내용, 심사 결과 특이사항 등",
+                    height=120, key="home_ins_special"
+                )
+                if st.button("💾 보험가입 상담 저장", key="btn_save_ins", use_container_width=True):
+                    _ins_list = st.session_state.get("insurance_consults", [])
+                    _ins_list.insert(0, {
+                        "date": str(_ins_date),
+                        "product": _ins_product,
+                        "background": _ins_bg,
+                        "special": _ins_special,
+                    })
+                    st.session_state["insurance_consults"] = _ins_list
+                    st.success("✅ 보험가입 상담 저장됨")
+                _ins_saved = st.session_state.get("insurance_consults", [])
+                if _ins_saved:
+                    st.markdown("**📋 저장된 보험가입 상담 (최근순)**")
+                    for _ins in _ins_saved:
+                        st.markdown(
+                            f"`{_ins['date']}` **{_ins.get('product','')}**\n"
+                            f"- 청약배경: {_ins.get('background','')}\n"
+                            f"- 특이사항: {_ins.get('special','')}"
+                        )
+                        st.divider()
+
+            st.divider()
+
         st.markdown("### 🗂️ 4개 도메인 그룹 네비게이션 — 원하는 항목을 선택하거나 음성으로 이동하세요")
 
         # ── 카드 CSS: 전체 박스 클릭 + 동일 높이 ──
@@ -7979,42 +8099,6 @@ section[data-testid="stMain"] > div,
             ("nursing",     "🏥", "간병비 컨설팅",   "치매·뇌졸중·요양병원 간병비 산출 · 장기요양등급 · 간병보험 설계"),
         ], "home_grpD")
 
-
-        # ── 상담자 정보 입력 패널 (로그인 시 홈 하단 고정) ──────────────
-        if 'user_id' in st.session_state:
-            st.divider()
-            st.markdown("""<div style="background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 100%);
-  border-radius:12px;padding:12px 16px;margin-bottom:10px;">
-  <span style="color:#fff;font-size:1rem;font-weight:900;">👤 상담 대상자 기본 정보</span>
-  <span style="color:#a8e6cf;font-size:0.75rem;margin-left:8px;">입력 후 각 탭에서 자동 활용됩니다</span>
-</div>""", unsafe_allow_html=True)
-            _sc1, _sc2, _sc3 = st.columns(3)
-            with _sc1:
-                _si_name = st.text_input("상담자 성명", value=st.session_state.get("scan_client_name",""),
-                                         placeholder="예) 홍길동", key="home_si_name")
-                _si_dob  = st.text_input("생년월일 (YYYYMMDD)", value=st.session_state.get("scan_client_dob",""),
-                                         placeholder="예) 19800101", max_chars=8, key="home_si_dob")
-            with _sc2:
-                _si_job  = st.text_input("직업", value=st.session_state.get("scan_client_job",""),
-                                         placeholder="예) 회사원", key="home_si_job")
-                _si_sick = st.selectbox("유병자 여부", ["해당없음","유병자(경증)","유병자(중증)","심사필요"],
-                                        index=["해당없음","유병자(경증)","유병자(중증)","심사필요"].index(
-                                            st.session_state.get("scan_client_sick","해당없음")),
-                                        key="home_si_sick")
-            with _sc3:
-                _si_items = st.multiselect(
-                    "상담 항목 (복수 선택)",
-                    ["보험증권 분석","보험금 청구","장해 산출","암·뇌·심장","리플렛 분류","약관 검색","부동산 투자","간병비","노후설계","법인상담"],
-                    default=st.session_state.get("scan_client_items",[]),
-                    key="home_si_items"
-                )
-            if st.button("💾 상담자 정보 저장", key="btn_save_client_info", use_container_width=True):
-                st.session_state["scan_client_name"]  = _si_name
-                st.session_state["scan_client_dob"]   = _si_dob
-                st.session_state["scan_client_job"]   = _si_job
-                st.session_state["scan_client_sick"]  = _si_sick
-                st.session_state["scan_client_items"] = _si_items
-                st.success(f"✅ {_si_name} 상담자 정보 저장 완료 — 모든 탭에 자동 적용됩니다.")
 
         st.divider()
         if st.session_state.get('is_admin'):
