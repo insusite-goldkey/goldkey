@@ -8432,6 +8432,98 @@ section[data-testid="stMain"] > div,
                         except Exception as _ps_err:
                             st.error(f"분석 오류: {sanitize_unicode(str(_ps_err))}")
 
+            # ── 운전자보험 전용: 핵심6개+보완5개 가입유무 체크 박스 ──────
+            # 분석 실행 전후 모두 항상 표시 — 기본 비교항목으로 고정
+            _drv_product = st.session_state.get("ps_product", "")
+            if "운전자보험" in _drv_product:
+                _drv_col1, _drv_col2 = st.columns(2, gap="small")
+
+                with _drv_col1:
+                    # ── 박스1: 핵심 6개 담보 가입유무 ─────────────────────
+                    st.markdown("""<div style="background:#1a0a00;border:2px solid #e8a000;
+  border-radius:10px;padding:10px 14px 6px 14px;margin-bottom:4px;">
+<span style="color:#ffd966;font-weight:900;font-size:0.85rem;">
+  🔑 박스1 · 핵심 6개 담보 (충족 여부)</span>
+<div style="color:#f5c77a;font-size:0.70rem;margin-top:2px;">
+  미충족 시 즉시 보완 권고</div></div>""", unsafe_allow_html=True)
+                    # 교통사고처리지원금: 2억 이상 + 불기소 단계 보장
+                    st.checkbox("① 교통사고처리지원금 **2억↑** · 불기소단계 보장",
+                                key="drv_c1", value=False)
+                    # 형사합의금: 6주미만 상해 보장 포함
+                    st.checkbox("② 형사합의금 (6주미만 상해) 보장",
+                                key="drv_c2", value=False)
+                    # 대인벌금 3천만 / 대물벌금 500만
+                    st.checkbox("③ 대인벌금 **3,000만↑** / 대물벌금 **500만↑**",
+                                key="drv_c3", value=False)
+                    # 변호사선임비용: 수사단계부터 보장
+                    st.checkbox("④ 변호사선임비용 · 수사단계부터 보장",
+                                key="drv_c4", value=False)
+                    # 상해후유장해 3%~10%: 최소 1억 (이상적 5억)
+                    st.checkbox("⑤ 상해후유장해 3%~10% **1억↑** (이상적 5억)",
+                                key="drv_c5", value=False)
+                    # 자동차사고부상위로금 또는 교통사고처리지원금 보완 여부
+                    st.checkbox("⑥ 자동차사고부상위로금 (14급) 또는 보완 담보",
+                                key="drv_c6", value=False)
+                    # 충족 개수 집계
+                    _drv_core_ok = sum([
+                        st.session_state.get("drv_c1", False),
+                        st.session_state.get("drv_c2", False),
+                        st.session_state.get("drv_c3", False),
+                        st.session_state.get("drv_c4", False),
+                        st.session_state.get("drv_c5", False),
+                        st.session_state.get("drv_c6", False),
+                    ])
+                    _drv_core_color = "#22c55e" if _drv_core_ok >= 5 else ("#f59e0b" if _drv_core_ok >= 3 else "#ef4444")
+                    _drv_core_label = "충분" if _drv_core_ok >= 5 else ("보완필요" if _drv_core_ok >= 3 else "취약")
+                    st.markdown(
+                        f'<div style="background:{_drv_core_color}22;border:1.5px solid {_drv_core_color};'
+                        f'border-radius:7px;padding:5px 10px;text-align:center;font-weight:900;'
+                        f'font-size:0.82rem;color:{_drv_core_color};margin-top:4px;">'
+                        f'핵심담보 {_drv_core_ok}/6 충족 — {_drv_core_label}</div>',
+                        unsafe_allow_html=True
+                    )
+
+                with _drv_col2:
+                    # ── 박스2: 보완 5개 담보 가입유무 ─────────────────────
+                    st.markdown("""<div style="background:#001a2e;border:2px solid #0ea5e9;
+  border-radius:10px;padding:10px 14px 6px 14px;margin-bottom:4px;">
+<span style="color:#7ec8f5;font-weight:900;font-size:0.85rem;">
+  🛡️ 박스2 · 보완 5개 담보 (충족 여부)</span>
+<div style="color:#4a9fd4;font-size:0.70rem;margin-top:2px;">
+  핵심 6개 확보 후 순차 보완</div></div>""", unsafe_allow_html=True)
+                    # 골절 관련: 골절진단·수술 / 5대골절
+                    st.checkbox("① 골절진단·수술 / 5대골절·수술",
+                                key="drv_s1", value=False)
+                    # 상해수술비
+                    st.checkbox("② 상해수술비",
+                                key="drv_s2", value=False)
+                    # 상해후유장해 20%·50%·80% (일반+교통)
+                    st.checkbox("③ 상해후유장해 20%·50%·80% (일반·교통)",
+                                key="drv_s3", value=False)
+                    # 상해입원일당 / 중상해입원일당
+                    st.checkbox("④ 상해입원일당 / 중상해입원일당",
+                                key="drv_s4", value=False)
+                    # 민사소송법률비용
+                    st.checkbox("⑤ 민사소송법률비용",
+                                key="drv_s5", value=False)
+                    # 충족 개수 집계
+                    _drv_supp_ok = sum([
+                        st.session_state.get("drv_s1", False),
+                        st.session_state.get("drv_s2", False),
+                        st.session_state.get("drv_s3", False),
+                        st.session_state.get("drv_s4", False),
+                        st.session_state.get("drv_s5", False),
+                    ])
+                    _drv_supp_color = "#22c55e" if _drv_supp_ok >= 4 else ("#f59e0b" if _drv_supp_ok >= 2 else "#ef4444")
+                    _drv_supp_label = "충분" if _drv_supp_ok >= 4 else ("보완필요" if _drv_supp_ok >= 2 else "취약")
+                    st.markdown(
+                        f'<div style="background:{_drv_supp_color}22;border:1.5px solid {_drv_supp_color};'
+                        f'border-radius:7px;padding:5px 10px;text-align:center;font-weight:900;'
+                        f'font-size:0.82rem;color:{_drv_supp_color};margin-top:4px;">'
+                        f'보완담보 {_drv_supp_ok}/5 충족 — {_drv_supp_label}</div>',
+                        unsafe_allow_html=True
+                    )
+
             show_result("res_ps")
 
             # ── 체크포인트 박스 — 상품별 분기 ──────────────────────────
