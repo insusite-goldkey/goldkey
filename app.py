@@ -159,15 +159,15 @@ STT_LANG          = "ko-KR"          # 언어: 반드시 ko-KR 명시 (미설정
 STT_INTERIM       = "true"           # 중간 결과 실시간 표시 (사용자 안심 효과)
 STT_CONTINUOUS    = "true"           # 연속 인식 (단일 객체 유지 → 권한 팝업 1회)
 STT_MAX_ALT       = 3                # 후보 수: 신뢰도 최고값 자동 선택
-STT_NO_SPEECH_MS      = 2500         # VAD silence_duration_ms: 2.5초 — 고령자/사투리 말 사이 pause 충분히 허용
-STT_SILENCE_TIMEOUT_MS= 1400         # End-point 판단 침묵 기준: 1.4초 (보험상담 망설임 허용, 권장 1200~1500ms)
-STT_MIN_UTTERANCE_MS  = 250          # 최소 발화 길이: 0.25초 미만 노이즈(기침·클릭음) 무시 (권장 200~300ms)
-STT_POST_ROLL_MS      = 500          # Post-roll 버퍼: 말 끝난 후 0.5초 추가 캡처 — Chop-off 방지 (권장 500ms)
-STT_RESTART_MS    = 800              # 비정상 종료 후 재시작 대기(ms) — 빠른 재시작으로 인한 중복 바인딩 방지
-STT_PREFIX_PAD_MS = 500              # prefix_padding_ms: 말 시작 전 500ms 버퍼 — '아...','음...' 뒤 본론 잘림 방지 (Pre-roll)
-STT_LEV_THRESHOLD = 0.85             # Levenshtein 중복 판정 유사도 임계값 (85% 이상이면 중복)
-STT_LEV_QUEUE     = 8                # 중복 검사용 최근 확정 문장 큐 크기 (5→8 확장)
-STT_DUP_TIME_MS   = 3000             # 시간 기반 중복 차단: 동일 문장이 3초 내 재입력 시 무시
+STT_NO_SPEECH_MS      = 3500         # VAD silence_duration_ms: 3.5초 — 고령자/사투리 말 사이 pause 충분히 허용 (+1초)
+STT_SILENCE_TIMEOUT_MS= 2000         # End-point 판단 침묵 기준: 2.0초 — 말 끝 후 800ms 추가 대기로 Chop-off 방지
+STT_MIN_UTTERANCE_MS  = 300          # 최소 발화 길이: 0.3초 미만 노이즈(기침·클릭·환경음) 무시
+STT_POST_ROLL_MS      = 800          # Post-roll 버퍼: 말 끝난 후 0.8초 추가 캡처 — end_pointing_delay +500~1000ms 적용
+STT_RESTART_MS    = 1000             # 비정상 종료 후 재시작 대기(ms) — Race Condition 방지 (800→1000ms)
+STT_PREFIX_PAD_MS = 600              # prefix_padding_ms: 말 시작 전 600ms 버퍼 — '아...','음...' 뒤 본론 잘림 방지 (Pre-roll)
+STT_LEV_THRESHOLD = 0.88             # Levenshtein 중복 판정 유사도 임계값 (88% — 사투리 변형 허용폭 유지하되 중복 차단 강화)
+STT_LEV_QUEUE     = 10               # De-duplication 큐 크기 (8→10 확장 — Race Condition 시 중복 문장 흡수)
+STT_DUP_TIME_MS   = 4000             # 시간 기반 중복 차단: 동일 문장 4초 내 재입력 차단 (3→4초, 다중 입력 Race Condition 방지)
 # speechContext 부스트 용어 — Google STT 적응형 인식 (보험/의료/법률 전문용어 오인식 방지)
 # Web Speech API는 직접 speechContexts 파라미터를 지원하지 않으나,
 # 아래 용어를 grammars(JSpeech Grammar Format) 힌트로 주입하여 인식률을 높인다.
@@ -4495,15 +4495,56 @@ def main():
         _badge  = " 👑 관리자" if _is_adm else ""
         st.toast(f"✅ {_welcome_name}님{_badge} 로그인되었습니다!", icon="🎉")
 
-    # ── 사이드바 스크롤 CSS ───────────────────────────────────────────────
+    # ── 사이드바 스크롤 복원 CSS ─────────────────────────────────────────
+    # overscroll-behavior: auto 로 강제 복원 — pull-to-refresh 차단 스크립트가
+    # 사이드바 scroll까지 막는 부작용 해소
     st.markdown("""
 <style>
 section[data-testid="stSidebar"] > div:first-child {
     overflow-y: auto !important;
     overflow-x: hidden !important;
     padding-bottom: 40px !important;
+    overscroll-behavior-y: auto !important;
+    scroll-behavior: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+section[data-testid="stSidebar"] {
+    overscroll-behavior: auto !important;
 }
 </style>""", unsafe_allow_html=True)
+
+    # ── 로그인 후 사이드바 자동 접힘 JS ─────────────────────────────────
+    # _login_welcome 플래그가 있으면(로그인 직후 rerun) 사이드바를 닫는다
+    _just_logged_in = bool(st.session_state.get("_login_welcome") or
+                           st.session_state.get("_auto_close_sidebar"))
+    if _just_logged_in:
+        st.session_state.pop("_auto_close_sidebar", None)
+        components.html("""
+<script>
+(function(){
+  // 로그인 직후: 500ms 대기 후 사이드바 닫기 버튼 클릭
+  setTimeout(function(){
+    try {
+      var pd = window.parent.document;
+      var selectors = [
+        '[data-testid="stSidebarCollapseButton"] button',
+        'button[aria-label="Close sidebar"]',
+        'button[aria-label="사이드바 닫기"]',
+        '[data-testid="stSidebar"] button[kind="header"]',
+        '[data-testid="collapsedControl"]'
+      ];
+      for (var i = 0; i < selectors.length; i++) {
+        var btn = pd.querySelector(selectors[i]);
+        if (btn) { btn.click(); break; }
+      }
+    } catch(e) {}
+  }, 500);
+})();
+</script>""", height=0)
+
+    # ── 가입 직후에도 사이드바 자동 접힘 트리거 세팅 ────────────────────
+    # add_member 후 rerun 시 _auto_close_sidebar 플래그를 세팅하는 로직은
+    # 가입 성공 분기(st.rerun() 직전)에서 처리 → 아래 FIX-4b 참조
 
     # ── 전역 4060 UX CSS ─────────────────────────────────────────────────
     # 설계 원칙:
@@ -4758,6 +4799,7 @@ summary[data-testid="stExpanderToggle"] {
 - 현재 **전체 무료** 베타 서비스 운영 중
 - 회원가입 후 모든 기능 무료 제공
 - 회원 1인당 **1일 10회** AI 상담 이용 제한 (서버 부하 방지를 위한 기술적 제한)
+- **사용기간: 2026.08.31. 한정 (앱 고도화기간)**
 - 만 19세 이상 보험 관련 업무 종사자, 전문가 및 관심 있는 고객 대상
 
 **제3조 (서비스 범위)**
@@ -4933,8 +4975,8 @@ summary[data-testid="stExpanderToggle"] {
             with tab_l:
                 with st.form("login_form"):
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>🔑 가입 시 입력한 정보로 로그인하세요</div>", unsafe_allow_html=True)
-                    ln = st.text_input("👤 이름", placeholder="홍길동", key="login_name")
-                    lc = st.text_input("📱 연락처 (비밀번호)", type="password", placeholder="010-0000-0000", key="login_contact")
+                    ln = st.text_input("👤 이름", key="login_name")
+                    lc = st.text_input("📱 연락처 (비밀번호)", type="password", key="login_contact")
                     login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"], horizontal=True, key="login_is_pro")
                     if login_is_pro == "종사자":
                         login_insurer = st.radio(
@@ -4982,6 +5024,7 @@ summary[data-testid="stExpanderToggle"] {
                                     st.session_state.is_admin  = _adm
                                     st.session_state["_mic_notice"] = True
                                     st.session_state["_login_welcome"] = ln
+                                    st.session_state["_auto_close_sidebar"] = True
                                     _pro_val = st.session_state.get("login_is_pro", "비종사자")
                                     st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)" if _pro_val == "종사자" else "👤 비종사자 (고객·일반인)"
                                     _raw_ins = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)")
@@ -5023,8 +5066,8 @@ summary[data-testid="stExpanderToggle"] {
             with tab_s:
                 with st.form("sb_signup_form"):
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
-                    name = st.text_input("👤 이름", placeholder="홍길동", key="signup_name")
-                    contact = st.text_input("📱 연락처 (비밀번호)", type="password", placeholder="010-0000-0000", key="signup_contact")
+                    name = st.text_input("👤 이름", key="signup_name")
+                    contact = st.text_input("📱 연락처 (비밀번호)", type="password", key="signup_contact")
                     if st.form_submit_button("✅ 가입하기", use_container_width=True):
                         if name and contact:
                             with st.spinner("⏳ 가입 처리 중입니다. 잠시만 기다려주세요..."):
@@ -5035,6 +5078,7 @@ summary[data-testid="stExpanderToggle"] {
                                 st.session_state.join_date = _jd2
                                 st.session_state.is_admin  = False
                                 st.session_state["_mic_notice"] = True
+                                st.session_state["_auto_close_sidebar"] = True
                             st.success("가입 완료!")
                             st.rerun()
                         else:
@@ -5042,10 +5086,10 @@ summary[data-testid="stExpanderToggle"] {
             with tab_pw:
                 st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:6px;'>🔐 가입 시 등록한 이름과 기존 연락처로 본인 확인 후 새 비번을 설정합니다.</div>", unsafe_allow_html=True)
                 with st.form("pw_change_form"):
-                    pw_name    = st.text_input("👤 이름", placeholder="홍길동", key="pw_name")
-                    pw_old     = st.text_input("📱 기존 연락처 (현재 비번)", type="password", placeholder="010-0000-0000", key="pw_old")
-                    pw_new1    = st.text_input("🔑 새 연락처 (새 비번)", type="password", placeholder="새 연락처 입력", key="pw_new1")
-                    pw_new2    = st.text_input("🔑 새 연락처 확인", type="password", placeholder="새 연락처 재입력", key="pw_new2")
+                    pw_name    = st.text_input("👤 이름", key="pw_name")
+                    pw_old     = st.text_input("📱 기존 연락처 (현재 비번)", type="password", key="pw_old")
+                    pw_new1    = st.text_input("🔑 새 연락처 (새 비번)", type="password", key="pw_new1")
+                    pw_new2    = st.text_input("🔑 새 연락처 확인", type="password", key="pw_new2")
                     if st.form_submit_button("🔄 비번 변경", use_container_width=True):
                         if not (pw_name and pw_old and pw_new1 and pw_new2):
                             st.error("모든 항목을 입력해주세요.")
@@ -5094,10 +5138,10 @@ summary[data-testid="stExpanderToggle"] {
 변경이 어려운 경우 운영자(010-3074-2616)에게 문의하세요.
 </div>""", unsafe_allow_html=True)
                 with st.form("name_change_form"):
-                    nm_old   = st.text_input("👤 현재 이름 (기존 이름)", placeholder="홍길동", key="nm_old")
-                    nm_pw    = st.text_input("📱 연락처 (비번)", type="password", placeholder="010-0000-0000", key="nm_pw")
-                    nm_new   = st.text_input("✏️ 새 이름 (변경할 이름)", placeholder="홍길순", key="nm_new")
-                    nm_new2  = st.text_input("✏️ 새 이름 확인", placeholder="홍길순 재입력", key="nm_new2")
+                    nm_old   = st.text_input("👤 현재 이름 (기존 이름)", key="nm_old")
+                    nm_pw    = st.text_input("📱 연락처 (비번)", type="password", key="nm_pw")
+                    nm_new   = st.text_input("✏️ 새 이름 (변경할 이름)", key="nm_new")
+                    nm_new2  = st.text_input("✏️ 새 이름 확인", key="nm_new2")
                     if st.form_submit_button("🔄 이름 변경", use_container_width=True):
                         if not (nm_old and nm_pw and nm_new and nm_new2):
                             st.error("모든 항목을 입력해주세요.")
@@ -5341,8 +5385,7 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
         # ── 관리자 콘솔 (최하단) ──────────────────────────────────────────
         with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
             with st.form("admin_login_form", clear_on_submit=False):
-                admin_id = st.text_input("관리자 ID", key="admin_id_f", type="password",
-                    placeholder="admin")
+                admin_id = st.text_input("관리자 ID", key="admin_id_f", type="password")
                 admin_code = st.text_input("관리자 코드", key="admin_code_f", type="password",
                     placeholder="코드 입력")
                 _admin_submitted = st.form_submit_button("관리자 로그인", use_container_width=True)
@@ -5641,12 +5684,16 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
 // ── 상태 변수 (IIFE로 격리 — 탭 간 충돌 방지) ─────────────────────────────
 var _active=false, _rec=null, _ready=false, _starting=false;
 var _finalBuf='';
-var _lastQ=[];          // 중복 검사 큐: {{text, ts}} 객체 배열 (최대 {STT_LEV_QUEUE}개)
+var _pendingFinal='';   // end_pointing_delay 버퍼: silence 타이머 만료 후 확정
+var _silenceTimer=null; // silence 타이머 핸들
+var _lastQ=[];          // 중복 검사 큐: {text, ts} 객체 배열 (최대 {STT_LEV_QUEUE}개)
 var _wakeLock=null;
 // VAD 파라미터 (전역 상수에서 주입)
 var _MIN_UTTERANCE_MS={STT_MIN_UTTERANCE_MS};  // 최소 발화 길이: 노이즈 무시
-var _POST_ROLL_MS={STT_POST_ROLL_MS};          // Post-roll: Chop-off 방지
+var _POST_ROLL_MS={STT_POST_ROLL_MS};          // Post-roll / end_pointing_delay
+var _SILENCE_MS={STT_SILENCE_TIMEOUT_MS};      // End-point 침묵 기준
 var _utterStart=0;     // 발화 시작 타임스탬프
+var _CONF_THRESHOLD=0.45; // 신뢰도 최저 임계값 — 0.45 미만은 노이즈로 간주
 // speechContext 부스트 용어 (Web Speech API grammars 힌트)
 var _boostTerms={_boost_terms_js};
 
@@ -5726,7 +5773,53 @@ function _join(prev,next){{
   if(!n) return p;
   var last=p.slice(-1);
   var isPunct=['.','?','!','。','？','！'].indexOf(last)>=0;
-  return isPunct ? p+' '+n : p+'. '+n;   // 구두점 없으면 마침표 자동 삽입
+  return isPunct ? p+' '+n : p+'. '+n;
+}}
+
+// ── Context-Aware 한국어 텍스트 정규화 (경량 LLM Post-Processing) ─────────
+// 보험/의료 전문 용어 오인식 패턴 규칙 기반 교정 — 서버 의존 없음, 즉시 적용
+var _nRules=[
+  [/실\s*손/g,'실손'],[/암\s*진\s*단/g,'암진단'],[/뇌\s*혈\s*관/g,'뇌혈관'],
+  [/심\s*근\s*경\s*색/g,'심근경색'],[/해\s*지\s*환\s*급\s*금/g,'해지환급금'],
+  [/납\s*입\s*면\s*제/g,'납입면제'],[/갱\s*신\s*형/g,'갱신형'],
+  [/비\s*갱\s*신\s*형/g,'비갱신형'],[/후\s*유\s*장\s*해/g,'후유장해'],
+  [/치\s*매\s*보\s*험/g,'치매보험'],[/알\s*츠\s*하\s*이\s*머/g,'알츠하이머'],
+  [/청\s*약\s*철\s*회/g,'청약철회'],[/보\s*험\s*금\s*청\s*구/g,'보험금청구'],
+  [/경\s*도\s*인\s*지\s*장\s*애/g,'경도인지장애'],[/장\s*기\s*요\s*양/g,'장기요양'],
+  [/일\s*백\s*만/g,'100만'],[/이\s*백\s*만/g,'200만'],[/삼\s*백\s*만/g,'300만'],
+  [/이\s*천\s*만/g,'2천만'],[/삼\s*천\s*만/g,'3천만'],[/오\s*천\s*만/g,'5천만'],
+  [/^(어+|음+|그+)[,\.\s]*/,'']
+];
+function _normKo(t){{
+  t=t.trim();
+  for(var i=0;i<_nRules.length;i++) t=t.replace(_nRules[i][0],_nRules[i][1]);
+  return t.trim();
+}}
+
+// ── 노이즈 패턴 필터 (환경음·클릭음·짧은 감탄사 제거) ─────────────────────
+var _noiseRx=[/^[아어으음네예]+[\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\s]*$/,/^.{1,2}$/];
+function _isNoise(t){{
+  t=t.trim();
+  for(var i=0;i<_noiseRx.length;i++) if(_noiseRx[i].test(t)) return true;
+  return false;
+}}
+
+// ── silence 타이머 기반 end_pointing_delay 확정 ───────────────────────────
+function _flushPending(){{
+  if(_silenceTimer){{ clearTimeout(_silenceTimer); _silenceTimer=null; }}
+  if(!_pendingFinal) return;
+  var txt=_normKo(_pendingFinal);
+  _pendingFinal='';
+  if(!txt || _isNoise(txt) || _isDup(txt)) return;
+  _addQ(txt);
+  _finalBuf=_join(_finalBuf,txt);
+  _setTA(_finalBuf);
+  var idv=document.getElementById('stt_interim_{tab_key}');
+  if(idv) idv.textContent='';
+}}
+function _scheduleSilence(){{
+  if(_silenceTimer) clearTimeout(_silenceTimer);
+  _silenceTimer=setTimeout(_flushPending, _SILENCE_MS+_POST_ROLL_MS);
 }}
 
 // ── SpeechRecognition 초기화 ───────────────────────────────────────────────
@@ -5756,31 +5849,36 @@ function _init(){{
 
   r.onresult=function(e){{
     var now=Date.now();
-    if(!_utterStart) _utterStart=now;  // 발화 시작 시각 기록
-    var interim='', finalNew='';
+    if(!_utterStart) _utterStart=now;
+    var interim='';
     for(var i=e.resultIndex;i<e.results.length;i++){{
       if(e.results[i].isFinal){{
-        // VAD min_utterance 필터: 발화 길이 {STT_MIN_UTTERANCE_MS}ms 미만 노이즈 무시
+        // ① VAD min_utterance 필터: 발화 길이 미달은 환경음으로 무시
         var uttDur=now-_utterStart;
-        _utterStart=0;  // 다음 발화를 위해 초기화
+        _utterStart=0;
         if(uttDur < _MIN_UTTERANCE_MS) continue;
-        // 신뢰도 최고 후보 선택 (condition_on_previous_text=False 효과)
+        // ② 신뢰도 최고 후보 선택 + 임계값 필터 (노이즈 저신뢰도 결과 차단)
         var best='', bc=0;
         for(var j=0;j<e.results[i].length;j++){{
-          if(e.results[i][j].confidence>=bc){{bc=e.results[i][j].confidence;best=e.results[i][j].transcript;}}
+          if(e.results[i][j].confidence>=bc){{
+            bc=e.results[i][j].confidence;
+            best=e.results[i][j].transcript;
+          }}
         }}
-        // Levenshtein 중복 필터 (compression_ratio_threshold 역할)
-        if(best && !_isDup(best)){{ finalNew+=best; _addQ(best); }}
+        // 신뢰도 0이면 브라우저가 confidence를 제공 안 하는 경우 → 통과시킴
+        if(bc > 0 && bc < _CONF_THRESHOLD) continue;
+        if(!best) continue;
+        // ③ 노이즈 패턴 필터 (감탄사·자모·공백·2자 미만)
+        if(_isNoise(best)) continue;
+        // ④ pendingFinal에 누적 후 silence 타이머로 end_pointing_delay 적용
+        _pendingFinal = _pendingFinal ? _pendingFinal+' '+best : best;
+        _scheduleSilence();
       }} else {{
         if(!_utterStart) _utterStart=now;
         interim+=e.results[i][0].transcript;
+        // 중간 결과 수신 시 silence 타이머 리셋 (계속 말하는 중)
+        if(_silenceTimer){{ clearTimeout(_silenceTimer); _silenceTimer=null; }}
       }}
-    }}
-    if(finalNew){{
-      _finalBuf=_join(_finalBuf,finalNew);
-      _setTA(_finalBuf);
-      var idv=document.getElementById('stt_interim_{tab_key}');
-      if(idv) idv.textContent='';
     }}
     if(interim){{
       var idv=document.getElementById('stt_interim_{tab_key}');
@@ -5805,9 +5903,10 @@ function _init(){{
 
   r.onend=function(){{
     _starting=false;
+    // STT 세션 종료 시 누적된 pendingFinal 즉시 확정 (버퍼 유실 방지)
+    _flushPending();
     if(_active){{
       // post-roll({STT_POST_ROLL_MS}ms) + prefix_padding({STT_PREFIX_PAD_MS}ms) + restart({STT_RESTART_MS}ms) 대기 후 재시작
-      // post-roll: 말 끝난 직후 잔향 포함, Chop-off 방지
       setTimeout(function(){{
         if(_active && !_starting){{
           _starting=true;
@@ -5831,14 +5930,16 @@ window['startSTT_{tab_key}']=function(){{
   var idiv=document.getElementById('stt_interim_{tab_key}');
   if(_active){{
     _active=false; _starting=false;
+    _flushPending();  // 누적 버퍼 즉시 확정 후 중지
     if(_rec) try{{_rec.stop();}}catch(ex){{}};
     btn.textContent='🎙️ 실시간 음성입력 ({stt_lang_label})';
     btn.classList.remove('active'); idiv.textContent='';
     _relWL(); return;
   }}
   if(!_init()) return;
-  // 새 세션: 버퍼·중복큐 초기화 (no_speech_threshold 초기화 효과)
-  _finalBuf=''; _lastQ=[];
+  // 새 세션: 버퍼·중복큐·pendingFinal 초기화
+  _finalBuf=''; _pendingFinal=''; _lastQ=[];
+  if(_silenceTimer){{ clearTimeout(_silenceTimer); _silenceTimer=null; }}
   _active=true; _starting=true;
   btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)';
   btn.classList.add('active');
