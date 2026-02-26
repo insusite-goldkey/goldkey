@@ -1657,6 +1657,19 @@ JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십
 
 [JSON Schema — 반드시 준수]
 {
+  "policy_info": {        ← 증권 기본 정보 (반드시 포함, 없으면 null)
+    "insured_name":   string|null,  ← 피보험자 성명
+    "insured_dob":    string|null,  ← 피보험자 생년월일 (YYYY-MM-DD 또는 YYYYMMDD)
+    "contractor_name": string|null, ← 계약자 성명 (피보험자와 다를 경우)
+    "company":        string|null,  ← 보험회사명 (예: 삼성화재, 교보생명)
+    "product_name":   string|null,  ← 보험상품명 전체 (증권 표지 기준)
+    "policy_number":  string|null,  ← 증권번호
+    "join_date":      string|null,  ← 가입일(계약일) YYYY-MM-DD
+    "expiry_date":    string|null,  ← 만기일 YYYY-MM-DD
+    "expiry_age":     integer|null, ← 세만기 (예: 80, 100, 110)
+    "payment_period": string|null,  ← 납입기간 (예: 20년납, 60세납, 전기납)
+    "monthly_premium": integer|null ← 월납 보험료(원). 불명확→null
+  },
   "coverages": [          ← 모든 담보를 이 배열에 포함
     {
       "category":      string,  ← ENUM: "disability"|"disability_annuity"|"surgery"|"diagnosis"|"daily"|"driver_expense"|"nursing"|"cancer"|"realty"|"annuity"|"other"
@@ -1692,10 +1705,12 @@ JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십
 
 [Few-shot 예시 1 — 일반 통합보험]
 <extracted_data>
+피보험자: 홍길동 (1985.03.15) / 보험회사: 삼성화재 / 상품명: 무배당 삼성화재 New통합보험 / 증권번호: 12-345-6789 / 가입일: 2018.05.01 / 만기: 80세 / 납입: 20년납 / 월보험료: 120,000원
 골절진단비(치아제외) 50만원 / 질병수술비(1-5종) 1,000만원 / 상해후유장해(3~100%) 5,000만원 / 교통상해후유장해(3~100%) 1억원 / 장해연금(50%이상) 월30만원
 </extracted_data>
 → 출력:
-{"coverages":[
+{"policy_info":{"insured_name":"홍길동","insured_dob":"1985-03-15","contractor_name":null,"company":"삼성화재","product_name":"무배당 삼성화재 New통합보험","policy_number":"12-345-6789","join_date":"2018-05-01","expiry_date":null,"expiry_age":80,"payment_period":"20년납","monthly_premium":120000},
+"coverages":[
   {"category":"diagnosis","subcategory":"general","name":"골절진단비(치아제외)","amount":500000,"threshold_min":null,"annuity_monthly":null,"condition":"치아파절 제외","confidence":"high"},
   {"category":"surgery","subcategory":"disease","name":"질병수술비(1-5종)","amount":10000000,"threshold_min":null,"annuity_monthly":null,"condition":"1~5종 구분 지급","confidence":"high"},
   {"category":"disability","subcategory":"general","name":"상해후유장해(3~100%)","amount":50000000,"threshold_min":3.0,"annuity_monthly":null,"condition":null,"confidence":"high"},
@@ -1705,10 +1720,12 @@ JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십
 
 [Few-shot 예시 2 — 운전자보험]
 <extracted_data>
+피보험자: 김영희 (1990.07.22) / 보험회사: 현대해상 / 상품명: 현대해상 굿앤굿운전자보험 / 가입일: 2021.01.10 / 만기: 1년 갱신형 / 납입: 월납
 교통사고처리지원금(대인) 2억원 / 벌금(대인) 2,000만원 / 벌금(대물) 500만원 / 변호사선임비용(형사) 500만원
 </extracted_data>
 → 출력:
-{"coverages":[
+{"policy_info":{"insured_name":"김영희","insured_dob":"1990-07-22","contractor_name":null,"company":"현대해상","product_name":"현대해상 굿앤굿운전자보험","policy_number":null,"join_date":"2021-01-10","expiry_date":null,"expiry_age":null,"payment_period":"월납","monthly_premium":null},
+"coverages":[
   {"category":"driver_expense","subcategory":"driver","name":"교통사고처리지원금(대인)","amount":200000000,"threshold_min":null,"annuity_monthly":null,"condition":"실제손해액 비례분담","confidence":"high"},
   {"category":"driver_expense","subcategory":"driver","name":"벌금(대인)","amount":20000000,"threshold_min":null,"annuity_monthly":null,"condition":"실손보상·법정한도 적용","confidence":"high"},
   {"category":"driver_expense","subcategory":"driver","name":"벌금(대물)","amount":5000000,"threshold_min":null,"annuity_monthly":null,"condition":"실손보상·법정한도 적용","confidence":"high"},
@@ -1724,15 +1741,20 @@ JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십
 
 def parse_policy_with_vision(files: list) -> dict:
     """
-    보험증권 파일(PDF/이미지) 리스트를 받아 담보 JSON을 반환.
-    PDF는 텍스트 추출 후 텍스트 프롬프트로, 이미지는 인라인 바이트로 Vision 호출.
-    반환: {"coverages": [...], "errors": [...]}
+    보험증권 파일(PDF/이미지) 리스트를 받아 담보 + 증권 기본정보 JSON을 반환.
+    반환: {
+        "policy_info": {insured_name, insured_dob, company, product_name,
+                        join_date, expiry_date, expiry_age, payment_period, ...},
+        "coverages": [...],
+        "errors": [...]
+    }
     """
     client = get_client()
     if client is None:
-        return {"coverages": [], "errors": ["API 클라이언트 초기화 실패"]}
+        return {"policy_info": {}, "coverages": [], "errors": ["API 클라이언트 초기화 실패"]}
 
     all_coverages = []
+    merged_policy_info = {}   # 복수 파일 시 마지막 non-null 값 우선 병합
     errors = []
 
     for f in files:
@@ -1773,6 +1795,12 @@ def parse_policy_with_vision(files: list) -> dict:
             else:
                 covs = parsed.get("coverages", [])
 
+            # policy_info 병합 (non-null 값 우선)
+            pi = parsed.get("policy_info") or {}
+            for k, v in pi.items():
+                if v is not None and v != "":
+                    merged_policy_info[k] = v
+
             for c in covs:
                 c["_source_file"] = f.name
             all_coverages.extend(covs)
@@ -1782,7 +1810,7 @@ def parse_policy_with_vision(files: list) -> dict:
         except Exception as e:
             errors.append(f"{f.name}: {sanitize_unicode(str(e))}")
 
-    return {"coverages": all_coverages, "errors": errors}
+    return {"policy_info": merged_policy_info, "coverages": all_coverages, "errors": errors}
 
 
 # ── DisabilityLogic 계산 엔진 ───────────────────────────────────────────────
@@ -16059,11 +16087,13 @@ END; $$;""", language="sql")
                             _sh_errors.append(f"{_f.name}: {sanitize_unicode(str(_se))}")
 
                     # 보험증권 → 담보 구조화 파싱
-                    _sh_coverages = []
+                    _sh_coverages  = []
+                    _sh_policy_info = {}
                     if _type_key == "policy":
                         _pvr = parse_policy_with_vision(_scan_files)
-                        _sh_coverages = _pvr.get("coverages", [])
-                        _sh_errors   += _pvr.get("errors", [])
+                        _sh_coverages   = _pvr.get("coverages", [])
+                        _sh_policy_info = _pvr.get("policy_info") or {}
+                        _sh_errors     += _pvr.get("errors", [])
 
                     # SSOT 데이터 버스 저장
                     _prev = st.session_state.get("ssot_scan_data", [])
@@ -16072,9 +16102,19 @@ END; $$;""", language="sql")
                     st.session_state["ssot_scan_type"]     = _type_key
                     st.session_state["ssot_scan_files"]    = [_f.name for _f in _scan_files]
                     st.session_state["ssot_scan_ts"]       = dt.now().strftime("%Y-%m-%d %H:%M:%S")
-                    st.session_state["ssot_client_name"]   = _sh_name or ""
                     st.session_state["ssot_tables"]        = _sh_tables_all
-                    st.session_state.pop("sh_scan_pending", None)  # 스캔 완료 후 플래그 해제
+                    st.session_state.pop("sh_scan_pending", None)
+
+                    # policy_info SSOT 저장 (피보험자명·생년월일·보험사·상품명·만기·가입일)
+                    if _sh_policy_info:
+                        st.session_state["ssot_policy_info"] = _sh_policy_info
+                        # 고객 이름 자동 동기화 (미입력 시)
+                        if not _sh_name and _sh_policy_info.get("insured_name"):
+                            st.session_state["ssot_client_name"] = _sh_policy_info["insured_name"]
+                        else:
+                            st.session_state["ssot_client_name"] = _sh_name or ""
+                    else:
+                        st.session_state["ssot_client_name"] = _sh_name or ""
 
                     if _sh_coverages:
                         st.session_state["ssot_coverages"]      = _sh_coverages
@@ -16088,10 +16128,19 @@ END; $$;""", language="sql")
                     if _sh_errors:
                         for _e in _sh_errors: st.warning(f"⚠️ {_e}")
 
+                    _pi = _sh_policy_info
+                    _pi_summary = (
+                        f" | 피보험자: {_pi.get('insured_name','?')}"
+                        f" ({_pi.get('insured_dob','생년월일 미확인')})"
+                        f" | {_pi.get('company','?')} {_pi.get('product_name','?')[:20]}"
+                        f" | 가입: {_pi.get('join_date','?')}"
+                        f" | 만기: {str(_pi.get('expiry_age','')) + '세' if _pi.get('expiry_age') else _pi.get('expiry_date','미확인')}"
+                    ) if _pi else ""
                     st.success(
                         f"✅ 스캔 완료 — {len(_sh_texts)}개 파일"
                         + (f" | 담보 {len(_sh_coverages)}건" if _sh_coverages else "")
                         + (f" | 표 {sum(len(t['tables']) for t in _sh_tables_all)}개" if _sh_tables_all else "")
+                        + _pi_summary
                     )
                     st.rerun()
 
@@ -16104,6 +16153,52 @@ END; $$;""", language="sql")
 
             _ssot    = st.session_state.get("ssot_scan_data", [])
             _ssot_ts = st.session_state.get("ssot_scan_ts", "")
+
+            # ── 피보험자 정보 카드 (보험증권 스캔 시 자동 표시) ──────────
+            _pi_card = st.session_state.get("ssot_policy_info", {})
+            if _pi_card:
+                _pi_exp  = str(_pi_card.get("expiry_age","")) + "세" if _pi_card.get("expiry_age") else (_pi_card.get("expiry_date") or "미확인")
+                st.markdown(f"""
+<div style="background:linear-gradient(135deg,#0d3b2e,#1a6b4a);
+  border-radius:10px;padding:12px 16px;margin-bottom:10px;
+  border-left:4px solid #27ae60;">
+  <div style="color:#a8f0c8;font-size:0.72rem;font-weight:700;
+    letter-spacing:0.08em;margin-bottom:6px;">📋 피보험자 정보 (증권 자동 추출)</div>
+  <table style="width:100%;border-collapse:collapse;font-size:0.82rem;color:#fff;">
+    <tr>
+      <td style="color:#a8f0c8;width:38%;padding:2px 0;">👤 피보험자</td>
+      <td style="font-weight:700;">{_pi_card.get("insured_name") or "—"}</td>
+    </tr>
+    <tr>
+      <td style="color:#a8f0c8;padding:2px 0;">🎂 생년월일</td>
+      <td>{_pi_card.get("insured_dob") or "—"}</td>
+    </tr>
+    <tr>
+      <td style="color:#a8f0c8;padding:2px 0;">🏢 보험회사</td>
+      <td>{_pi_card.get("company") or "—"}</td>
+    </tr>
+    <tr>
+      <td style="color:#a8f0c8;padding:2px 0;">📄 상품명</td>
+      <td style="font-size:0.78rem;">{(_pi_card.get("product_name") or "—")[:35]}</td>
+    </tr>
+    <tr>
+      <td style="color:#a8f0c8;padding:2px 0;">📅 가입일</td>
+      <td>{_pi_card.get("join_date") or "—"}</td>
+    </tr>
+    <tr>
+      <td style="color:#a8f0c8;padding:2px 0;">⏳ 만기</td>
+      <td>{_pi_exp}</td>
+    </tr>
+    <tr>
+      <td style="color:#a8f0c8;padding:2px 0;">💳 납입기간</td>
+      <td>{_pi_card.get("payment_period") or "—"}</td>
+    </tr>
+    <tr>
+      <td style="color:#a8f0c8;padding:2px 0;">💰 월보험료</td>
+      <td>{f"{_pi_card['monthly_premium']:,}원" if _pi_card.get("monthly_premium") else "—"}</td>
+    </tr>
+  </table>
+</div>""", unsafe_allow_html=True)
 
             if not _ssot:
                 st.info("아직 스캔된 문서가 없습니다.\n왼쪽에서 파일을 업로드하고 스캔을 실행하세요.")
