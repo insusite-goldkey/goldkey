@@ -933,10 +933,12 @@ def _get_sb_client():
 # scan / STT / crawler / RAG 4개 서비스를 단일 진입점으로 관리
 # 이 한 곳만 수정하면 모든 탭(scan_hub, policy_scan, disability 등)에 즉시 반영
 _gsm_err_msg = ""
+_gsm = None
 try:
     from service_manager import GoldKeyServiceManager as _GSM
     _gsm = _GSM.get()
-    _gsm.initialize(_get_sb_client())
+    # initialize()는 st.secrets 접근이 필요하므로 main() 진입 후 호출
+    # (모듈 레벨에서 호출 시 set_page_config 전에 st 명령 실행되어 오류 발생)
 except Exception as _gsm_err:
     import traceback as _gsm_tb
     _gsm = None
@@ -4585,6 +4587,13 @@ def main():
             setup_database()
             ensure_master_members()
             _rag_supabase_ensure_tables()
+            # GoldKeyServiceManager 지연 초기화 (set_page_config 이후 안전 실행)
+            if _gsm is not None and not st.session_state.get("_gsm_initialized"):
+                try:
+                    _gsm.initialize(_get_sb_client())
+                    st.session_state["_gsm_initialized"] = True
+                except Exception:
+                    pass
             st.session_state.db_ready = True
         except Exception:
             st.session_state.db_ready = True
