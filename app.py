@@ -6814,26 +6814,15 @@ function _detectTab(text){{
   }}
   return null;
 }}
-function _fillInput(text){{
-  var doc=window.parent.document;
-  var inputs=doc.querySelectorAll('input[type=text]');
-  for(var i=0;i<inputs.length;i++){{
-    var ph=inputs[i].placeholder||'';
-    if(ph.includes('음성 명령')||ph.includes('바로 이동')){{
-      var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-      s.call(inputs[i],text);
-      inputs[i].dispatchEvent(new Event('input',{{bubbles:true}}));
-      return;
-    }}
-  }}
-}}
-function _clickGo(){{
-  var doc=window.parent.document;
-  var btns=doc.querySelectorAll('button');
-  for(var i=0;i<btns.length;i++){{
-    if(btns[i].textContent.includes('바로 이동')){{
-      btns[i].click(); return;
-    }}
+// query-param 방식으로 Streamlit rerun 유도 — iframe .click()은 React 이벤트 미전달
+function _goNav(tabKey){{
+  try{{
+    var loc=window.parent.location;
+    var base=loc.origin+loc.pathname;
+    window.parent.location.href=base+'?_vnav='+encodeURIComponent(tabKey);
+  }}catch(ex){{
+    // cross-origin fallback: postMessage
+    window.parent.postMessage({{type:'gk_vnav',tab:tabKey}},'*');
   }}
 }}
 window.startVNavSTT=function(){{
@@ -6845,16 +6834,28 @@ window.startVNavSTT=function(){{
     btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active'); return;
   }}
   var r=new SR();
-  r.lang='{STT_LANG}'; r.interimResults=false; r.continuous=false; r.maxAlternatives=3;
+  r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=false; r.maxAlternatives=3;
   r.onresult=function(e){{
     var best='', bc=0;
-    for(var j=0;j<e.results[0].length;j++){{
-      if(e.results[0][j].confidence>=bc){{bc=e.results[0][j].confidence; best=e.results[0][j].transcript;}}
+    for(var i=0;i<e.results.length;i++){{
+      if(!e.results[i].isFinal) continue;
+      for(var j=0;j<e.results[i].length;j++){{
+        if(e.results[i][j].confidence>=bc){{bc=e.results[i][j].confidence; best=e.results[i][j].transcript;}}
+      }}
+    }}
+    if(!best){{
+      // interim 최상위 후보
+      if(e.results.length>0) best=e.results[e.results.length-1][0].transcript;
     }}
     if(best){{
-      _fillInput(best);
-      // 인텐트 감지 시 자동 클릭
-      if(_detectTab(best)) setTimeout(_clickGo, 300);
+      btn.textContent='✅ "'+best+'" 인식 완료 — 이동 중...';
+      var tab=_detectTab(best);
+      if(tab){{
+        setTimeout(function(){{ _goNav(tab); }}, 400);
+      }} else {{
+        btn.textContent='⚠️ 메뉴를 찾지 못했습니다. 다시 말해주세요';
+        setTimeout(function(){{ btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active'); }}, 2500);
+      }}
     }}
   }};
   r.onerror=function(e){{
@@ -6862,7 +6863,9 @@ window.startVNavSTT=function(){{
   }};
   r.onend=function(){{
     _active=false; _starting=false;
-    btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+    if(btn.textContent.includes('듣는 중')){{
+      btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+    }}
   }};
   _rec=r; _active=true; _starting=true;
   btn.textContent='⏹️ 듣는 중... (말하세요)'; btn.classList.add('active');
@@ -6872,11 +6875,26 @@ window.startVNavSTT=function(){{
 </script>
 """, height=70)
 
-        # Voice-to-Action 라우팅 처리 (버튼 클릭 or 엔터)
+        # Voice-to-Action 라우팅 처리 ① query param (_vnav) — 음성 STT 자동 이동
+        try:
+            _vnav_param = st.query_params.get("_vnav", "")
+        except Exception:
+            _vnav_param = ""
+        if _vnav_param:
+            _valid_tabs = {t for t, _ in _NAV_INTENT_MAP}
+            if _vnav_param in _valid_tabs:
+                st.session_state.current_tab = _vnav_param
+                st.session_state["_scroll_top"] = True
+            try:
+                st.query_params.clear()
+            except Exception:
+                pass
+            st.rerun()
+
+        # Voice-to-Action 라우팅 처리 ② 버튼 클릭 or 엔터 — 텍스트 입력
         if _nav_go and _nav_input:
             _dest = _voice_navigate(_nav_input.strip())
             if _dest:
-                _label_map = {t: kws[0] for t, kws in _NAV_INTENT_MAP}
                 st.session_state.current_tab = _dest
                 st.session_state["_scroll_top"] = True
                 st.session_state["voice_nav_input"] = ""
@@ -7044,17 +7062,32 @@ function _isDup(text){{
 }}
 function _addQ(text){{ _lastQ.push({{text:text,ts:Date.now(),hash:_hash(text)}}); if(_lastQ.length>{STT_LEV_QUEUE}) _lastQ.shift(); }}
 function _getTA(){{
-  var doc=window.parent.document, tas=doc.querySelectorAll('textarea');
-  for(var i=0;i<tas.length;i++){{
-    var ph=tas[i].placeholder||'';
-    if(ph.includes('제안')||ph.includes('의견')) return tas[i];
-  }}
-  return tas.length?tas[0]:null;
+  try{{
+    var doc=window.parent.document, tas=doc.querySelectorAll('textarea');
+    // 1차: placeholder 또는 aria-label로 제안 영역 탐색
+    for(var i=0;i<tas.length;i++){{
+      var ph=tas[i].placeholder||'';
+      var al=tas[i].getAttribute('aria-label')||'';
+      if(ph.includes('제안')||ph.includes('의견')||al.includes('개선')) return tas[i];
+    }}
+    // 2차: 가장 가까운 visible textarea fallback
+    for(var i=0;i<tas.length;i++){{
+      if(tas[i].offsetParent!==null) return tas[i];
+    }}
+    return tas.length?tas[0]:null;
+  }}catch(ex){{ return null; }}
 }}
 function _setTA(val){{
   var ta=_getTA(); if(!ta) return;
-  var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
-  s.call(ta,val); ta.dispatchEvent(new Event('input',{{bubbles:true}}));
+  try{{
+    var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
+    s.call(ta,val);
+    ta.dispatchEvent(new Event('input',{{bubbles:true}}));
+    ta.dispatchEvent(new Event('change',{{bubbles:true}}));
+  }}catch(ex){{
+    ta.value=val;
+    ta.dispatchEvent(new Event('input',{{bubbles:true}}));
+  }}
 }}
 window.startSugSTT=function(){{
   var btn=document.getElementById('sug_stt_btn');
@@ -7080,6 +7113,9 @@ window.startSugSTT=function(){{
       }} else {{ interim+=e.results[i][0].transcript; }}
     }}
     if(finalNew){{ _finalBuf=_finalBuf?_finalBuf+'. '+finalNew:finalNew; _setTA(_finalBuf); }}
+    // interim: 버튼 텍스트에 실시간 반영
+    if(interim){{ btn.textContent='🎤 '+interim.slice(0,20)+(interim.length>20?'...':''); }}
+    else if(finalNew){{ btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)'; }}
   }};
   r.onerror=function(e){{
     _starting=false;
@@ -7238,15 +7274,15 @@ section[data-testid="stMain"] > div,
 
         # ── 도메인 A: Smart Analysis & Hub (디직털 딥블루/시안) ─────────────────
         st.markdown("""
-<div style="background:linear-gradient(90deg,#0c2340,#0369a1);
+<div style="background:linear-gradient(90deg,#dbeafe,#eff6ff);
   border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
   display:flex;align-items:center;gap:10px;
-  box-shadow:0 2px 12px rgba(3,105,161,0.35);
-  border-left:4px solid #0ea5e9;">
+  box-shadow:0 2px 8px rgba(3,105,161,0.15);
+  border-left:4px solid #2563eb;border:1px solid #bfdbfe;">
   <span style="font-size:1.2rem;">🔬</span>
   <div>
-    <div style="color:#fff;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">A &nbsp;🛡️ Smart Analysis &amp; Hub</div>
-    <div style="color:#7dd3fc;font-size:0.72rem;margin-top:2px;">증권분석 · 약관검색 · 스캔허브 · 리플렛 · 고객자료</div>
+    <div style="color:#1e3a8a;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">A &nbsp;🛡️ Smart Analysis &amp; Hub</div>
+    <div style="color:#1d4ed8;font-size:0.72rem;margin-top:2px;">증권분석 · 약관검색 · 스캔허브 · 리플렛 · 고객자료</div>
   </div>
 </div>""", unsafe_allow_html=True)
         _render_cards([
@@ -7261,15 +7297,15 @@ section[data-testid="stMain"] > div,
 
         # ── 도메인 B: Expert Consulting (에메랄드그린) ─────────────────────
         st.markdown("""
-<div style="background:linear-gradient(90deg,#064e3b,#059669);
+<div style="background:linear-gradient(90deg,#d1fae5,#ecfdf5);
   border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
   display:flex;align-items:center;gap:10px;
-  box-shadow:0 2px 12px rgba(5,150,105,0.35);
-  border-left:4px solid #10b981;">
+  box-shadow:0 2px 8px rgba(5,150,105,0.15);
+  border-left:4px solid #059669;border:1px solid #a7f3d0;">
   <span style="font-size:1.2rem;">🌏</span>
   <div>
-    <div style="color:#fff;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">B &nbsp;🛡️ Expert Consulting</div>
-    <div style="color:#6ee7b7;font-size:0.72rem;margin-top:2px;">신규/보험금 상담 · 장해 · 자동차사고 · 암·뇌·심장 · LIFE CYCLE</div>
+    <div style="color:#064e3b;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">B &nbsp;🛡️ Expert Consulting</div>
+    <div style="color:#065f46;font-size:0.72rem;margin-top:2px;">신규/보험금 상담 · 장해 · 자동차사고 · 암·뇌·심장 · LIFE CYCLE</div>
   </div>
 </div>""", unsafe_allow_html=True)
         _render_cards([
@@ -7285,15 +7321,15 @@ section[data-testid="stMain"] > div,
 
         # ── 도메인 C: Wealth & Corporate (골드/네이비) ──────────────────────
         st.markdown("""
-<div style="background:linear-gradient(90deg,#1c1400,#78350f);
+<div style="background:linear-gradient(90deg,#fef3c7,#fffbeb);
   border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
   display:flex;align-items:center;gap:10px;
-  box-shadow:0 2px 12px rgba(120,53,15,0.45);
-  border-left:4px solid #f59e0b;">
+  box-shadow:0 2px 8px rgba(180,120,0,0.15);
+  border-left:4px solid #d97706;border:1px solid #fde68a;">
   <span style="font-size:1.2rem;">🏆</span>
   <div>
-    <div style="color:#fef3c7;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">C &nbsp;💼 Wealth &amp; Corporate</div>
-    <div style="color:#fcd34d;font-size:0.72rem;margin-top:2px;">노후·연금·상속 · 세무 · 법인 · CEO · 비상장주식 · 화재·배상</div>
+    <div style="color:#78350f;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">C &nbsp;💼 Wealth &amp; Corporate</div>
+    <div style="color:#92400e;font-size:0.72rem;margin-top:2px;">노후·연금·상속 · 세무 · 법인 · CEO · 비상장주식 · 화재·배상</div>
   </div>
 </div>""", unsafe_allow_html=True)
         _render_cards([
@@ -7308,15 +7344,15 @@ section[data-testid="stMain"] > div,
 
         # ── 도메인 D: Life & Care (오렌지/테라코타) ────────────────────────
         st.markdown("""
-<div style="background:linear-gradient(90deg,#431407,#c2410c);
+<div style="background:linear-gradient(90deg,#ffedd5,#fff7ed);
   border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
   display:flex;align-items:center;gap:10px;
-  box-shadow:0 2px 12px rgba(194,65,12,0.35);
-  border-left:4px solid #fb923c;">
+  box-shadow:0 2px 8px rgba(194,65,12,0.15);
+  border-left:4px solid #ea580c;border:1px solid #fed7aa;">
   <span style="font-size:1.2rem;">🌱</span>
   <div>
-    <div style="color:#fff;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">D &nbsp;🌸 Life &amp; Care</div>
-    <div style="color:#fed7aa;font-size:0.72rem;margin-top:2px;">LIFE EVENT · 부동산 투자 · 간병비 컨설팅</div>
+    <div style="color:#7c2d12;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">D &nbsp;🌸 Life &amp; Care</div>
+    <div style="color:#9a3412;font-size:0.72rem;margin-top:2px;">LIFE EVENT · 부동산 투자 · 간병비 컨설팅</div>
   </div>
 </div>""", unsafe_allow_html=True)
         _render_cards([
@@ -7364,7 +7400,16 @@ section[data-testid="stMain"] > div,
 
         st.divider()
         if st.session_state.get('is_admin'):
-            if st.button("⚙️ 관리자 시스템 이동", key="home_dash_t9"):
+            st.markdown("""
+<div style="background:#f0f4ff;border:2px solid #4f46e5;border-radius:10px;
+  padding:10px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+  <span style="font-size:1.3rem;">⚙️</span>
+  <div>
+    <div style="color:#312e81;font-size:0.92rem;font-weight:900;">관리자 시스템</div>
+    <div style="color:#4338ca;font-size:0.73rem;margin-top:1px;">아래 버튼을 눌러 관리자 대시보드로 이동합니다</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+            if st.button("⚙️ 관리자 시스템 이동", key="home_dash_t9", use_container_width=True):
                 st.session_state.current_tab = "t9"
                 st.rerun()
 
