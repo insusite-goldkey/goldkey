@@ -14205,6 +14205,14 @@ END; $$;""", language="sql")
                 ("협회", "손해보험협회-장기보장성(어린이)", "https://kpub.knia.or.kr/popup/disclosurePopup.do?tabType=1&tptyCode=PB24&refreshYn=&detailYn=&pCode=&channel=&prdNm=&payNm=&payReason="),
                 ("협회", "손해보험협회-장기보장성(치아)",   "https://kpub.knia.or.kr/popup/disclosurePopup.do?tabType=1&tptyCode=PB25&refreshYn=&detailYn=&pCode=&channel=&prdNm=&payNm=&payReason="),
                 ("협회", "손해보험협회-장기보장성(간병치매)","https://kpub.knia.or.kr/popup/disclosurePopup.do?tabType=1&tptyCode=PB16&refreshYn=&detailYn=&pCode=&channel=&prdNm=&payNm=&payReason="),
+                ("협회", "손해보험협회-장기보장성(암)",     "https://kpub.knia.or.kr/popup/disclosurePopup.do?tabType=1&tptyCode=PB22&refreshYn=&detailYn=&pCode=&channel=&prdNm=&payNm=&payReason="),
+                ("협회", "손해보험협회-장기보장성(상해)",   "https://kpub.knia.or.kr/popup/disclosurePopup.do?tabType=1&tptyCode=PB14&refreshYn=&detailYn=&pCode=&channel=&prdNm=&payNm=&payReason="),
+                ("협회", "손해보험협회-장기보장성(질병)",   "https://kpub.knia.or.kr/popup/disclosurePopup.do?tabType=1&tptyCode=PB15&refreshYn=&detailYn=&pCode=&channel=&prdNm=&payNm=&payReason="),
+                ("협회", "손해보험협회-장기보장성(비용)",   "https://kpub.knia.or.kr/popup/disclosurePopup.do?tabType=1&tptyCode=PB18&refreshYn=&detailYn=&pCode=&channel=&prdNm=&payNm=&payReason="),
+                ("협회", "손해보험협회-실손의료보험",       "https://kpub.knia.or.kr/popup/disclosurePopup.do?tabType=3&tptyCode=PB26"),
+                ("협회", "손해보험협회-노후실손의료보험",   "https://kpub.knia.or.kr/popup/disclosurePopup.do?tabType=3&tptyCode=PB26"),
+                ("협회", "손해보험협회-유병력자실손",       "https://kpub.knia.or.kr/popup/disclosurePopup.do?tabType=3&tptyCode=PB26"),
+                ("협회", "손해보험협회-연금저축",           "https://kpub.knia.or.kr/popup/disclosurePopup.do?tabType=4&tptyCode=PC99"),
             ]
             # ── 공시실 링크 박스 ──────────────────────────────────────────
             st.markdown("""<div style="background:#f0f7ff;border-left:4px solid #1e6fa8;
