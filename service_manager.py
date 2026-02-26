@@ -317,7 +317,7 @@ class RAGService:
         self._sb = sb_client
 
     def search(self, query: str, ss: Any, k: int = 3,
-               product_hint: str = "") -> list[dict]:
+               product_hint: str = "") -> List[Dict]:
         """
         RAG 시스템으로 유사 문서 검색.
         ss에 rag_system이 있으면 그것을 사용, 없으면 Supabase 직접 검색 시도.
@@ -331,7 +331,7 @@ class RAGService:
         # Supabase fallback
         return self._search_supabase(query, k)
 
-    def _search_supabase(self, query: str, k: int = 3) -> list[dict]:
+    def _search_supabase(self, query: str, k: int = 3) -> List[Dict]:
         """Supabase gk_policy_terms_qa 테이블에서 텍스트 검색 (keyword fallback)."""
         if not self._sb:
             return []
@@ -351,7 +351,7 @@ class RAGService:
 
     def search_policy_terms(self, company: str, product: str,
                             join_date: str, query: str,
-                            k: int = 5) -> list[dict]:
+                            k: int = 5) -> List[Dict]:
         """
         특정 상품의 약관 청크에서 Semantic Search.
         반환: [{chunk_text, section_type, chunk_idx}, ...]
@@ -372,7 +372,7 @@ class RAGService:
         except Exception:
             return []
 
-    def get_indexed_products(self) -> list[dict]:
+    def get_indexed_products(self) -> List[Dict]:
         """Supabase에 인덱싱된 상품 목록 반환 — 관리 화면용."""
         if not self._sb:
             return []
