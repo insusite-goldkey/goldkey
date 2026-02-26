@@ -1759,24 +1759,22 @@ JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십
 • 상해후유장해 / 상해로 인한 후유장해 / 재해후유장해
   → standard_name: "상해후유장해"
 
-[Few-shot 예시 1 — 일반 통합보험 (갱신형 포함)]
+[Few-shot 예시 1 — 일반 통합보험 (장해·수술 담보만 포함, 암·뇌·심장 담보 없는 증권)]
+⚠️ 주의: 이 예시에는 암·뇌·심장 담보가 없습니다. 실제 증권에 없는 담보는 절대 추가하지 마십시오.
 <extracted_data>
 피보험자: 홍길동 (1985.03.15) / 보험회사: 삼성화재 / 상품명: 무배당 삼성화재 New통합보험
 증권번호: 12-345-6789 / 가입일: 2018.05.01 / 만기: 80세 / 납입: 20년납 / 월보험료: 120,000원
 골절진단비(치아제외) 50만원 비갱신 / 질병수술비(1-5종) 1,000만원 비갱신 /
-상해후유장해(3~100%) 5,000만원 / 교통상해후유장해(3~100%) 1억원 / 장해연금(50%이상) 월30만원 /
-뇌혈관질환(뇌출혈포함)진단비 2,000만원 갱신형(1년) / 급성심근경색진단비 2,000만원 갱신형(1년)
+상해후유장해(3~100%) 5,000만원 비갱신 / 교통상해후유장해(3~100%) 1억원 비갱신 / 장해연금(50%이상) 월30만원 비갱신
 </extracted_data>
-→ 출력:
+→ 출력 (원문에 있는 담보만, 총 5건):
 {"policy_info":{"insured_name":"홍길동","insured_dob":"1985-03-15","contractor_name":null,"company":"삼성화재","product_name":"무배당 삼성화재 New통합보험","policy_number":"12-345-6789","join_date":"2018-05-01","expiry_date":null,"expiry_age":80,"payment_period":"20년납","monthly_premium":120000},
 "coverages":[
   {"category":"diagnosis","subcategory":"general","name":"골절진단비(치아제외)","standard_name":"골절진단비","amount":500000,"is_renewal":false,"unreadable":false,"threshold_min":null,"annuity_monthly":null,"condition":"치아파절 제외","source_clause":"제5조(골절진단비)","expert_comment":"비갱신형으로 보험료 변동 없음. 스포츠·낙상 사고 시 즉시 수령 가능.","confidence":"high"},
   {"category":"surgery","subcategory":"disease","name":"질병수술비(1-5종)","standard_name":"질병수술비","amount":10000000,"is_renewal":false,"unreadable":false,"threshold_min":null,"annuity_monthly":null,"condition":"1~5종 구분 지급","source_clause":null,"expert_comment":"비갱신형. 수술 종류에 따라 차등 지급되므로 약관 확인 필요.","confidence":"high"},
   {"category":"disability","subcategory":"general","name":"상해후유장해(3~100%)","standard_name":"상해후유장해","amount":50000000,"is_renewal":false,"unreadable":false,"threshold_min":3.0,"annuity_monthly":null,"condition":null,"source_clause":"별표2 장해분류표","expert_comment":"비갱신형. 3% 이상 장해 시 비율 지급. 장해분류표 확인 필수.","confidence":"high"},
   {"category":"disability","subcategory":"traffic","name":"교통상해후유장해(3~100%)","standard_name":"교통상해후유장해","amount":100000000,"is_renewal":false,"unreadable":false,"threshold_min":3.0,"annuity_monthly":null,"condition":null,"source_clause":"별표2 장해분류표","expert_comment":"비갱신형. 교통사고 전용. 일반 상해와 중복 수령 가능.","confidence":"high"},
-  {"category":"disability_annuity","subcategory":"general","name":"장해연금(50%이상)","standard_name":"장해연금","amount":null,"is_renewal":false,"unreadable":false,"threshold_min":50.0,"annuity_monthly":300000,"condition":"50% 이상 장해 시 월 지급","source_clause":"제12조(장해연금)","expert_comment":"비갱신형. 중증 장해 시 생활비 보완 역할. 중증장해 50% 이상 판정 기준 숙지 필요.","confidence":"high"},
-  {"category":"cancer","subcategory":"disease","name":"뇌혈관질환(뇌출혈포함)진단비","standard_name":"뇌출혈진단비","amount":20000000,"is_renewal":true,"unreadable":false,"threshold_min":null,"annuity_monthly":null,"condition":"뇌출혈 포함 뇌혈관질환 진단 시","source_clause":"제8조(뇌혈관질환진단비)","expert_comment":"[!] 보험료 상승 위험: 갱신 시 보험료가 지속 상승할 수 있음. 뇌출혈·뇌경색 모두 포함 유리한 담보.","confidence":"high"},
-  {"category":"cancer","subcategory":"disease","name":"급성심근경색진단비","standard_name":"급성심근경색진단비","amount":20000000,"is_renewal":true,"unreadable":false,"threshold_min":null,"annuity_monthly":null,"condition":"급성심근경색 진단 확정 시","source_clause":"제9조(급성심근경색진단비)","expert_comment":"[!] 보험료 상승 위험: 갱신 시 보험료가 지속 상승할 수 있음. 허혈성심장질환 포함 여부 약관 확인 필요.","confidence":"high"}
+  {"category":"disability_annuity","subcategory":"general","name":"장해연금(50%이상)","standard_name":"장해연금","amount":null,"is_renewal":false,"unreadable":false,"threshold_min":50.0,"annuity_monthly":300000,"condition":"50% 이상 장해 시 월 지급","source_clause":"제12조(장해연금)","expert_comment":"비갱신형. 중증 장해 시 생활비 보완 역할.","confidence":"high"}
 ]}
 
 [Few-shot 예시 2 — 판독불가 사례]
