@@ -102,17 +102,8 @@ try:
     # 영구 경로 사용 (tmpdir는 재시작마다 초기화됨)
     _pw_flag = pathlib.Path.home() / ".pw_chromium_ok"
     _need_install = not _pw_flag.exists()
-    if not _need_install:
-        # 이미 설치됐어도 chromium 바이너리 실제 존재 확인
-        try:
-            from playwright.sync_api import sync_playwright as _spw
-            _t = _spw().__enter__()
-            _b = _t.chromium.launch(headless=True, args=["--no-sandbox"])
-            _b.close()
-            _t.__exit__(None, None, None)
-        except Exception:
-            _need_install = True   # 바이너리 없으면 재설치
-            _pw_flag.unlink(missing_ok=True)
+    # ※ 플래그 파일 존재 시 chromium 실제 구동 확인 생략 (시작 3~5초 단축)
+    #   바이너리 실제 확인이 필요하면 플래그 파일을 수동 삭제할 것
     if _need_install:
         _pw_result = _subprocess.run(
             [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
