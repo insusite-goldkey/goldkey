@@ -14172,6 +14172,8 @@ END; $$;""", language="sql")
                 ("손해", "한화손해보험(판매중지)","https://www.hwgeneralins.com/notice/ir/product-stop01.do"),
                 ("손해", "흥국화재(판매중)",  "https://www.heungkukfire.co.kr/FRW/announce/insGoodsGongsiSale.do"),
                 ("손해", "흥국화재(판매중지)","https://www.heungkukfire.co.kr/FRW/announce/insGoodsGongsiSale.do"),
+                ("손해", "하나손해보험(판매중)",  "https://www.hanainsure.co.kr/w/disclosure/product/saleProduct"),
+                ("손해", "하나손해보험(판매중지)","https://www.hanainsure.co.kr/w/disclosure/product/saleProduct"),
                 ("생명", "삼성생명(판매중)",  "https://www.samsunglife.com/individual/products/disclosure/sales/PDO-PRPRI010110M"),
                 ("생명", "삼성생명(판매중지)","https://www.samsunglife.com/individual/products/disclosure/sales/PDO-PRPRI010110M"),
                 ("생명", "한화생명(판매중)",  "https://www.hanwhalife.com/index.jsp"),
