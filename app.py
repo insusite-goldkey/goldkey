@@ -3873,47 +3873,58 @@ def _section_factory_fire_ui():
                 replacement_cost_man=fr.get("재조달가액", 0),
             )
             if "error" not in _dep_result:
-                _exceeded = _dep_result.get("내구연한초과여부", False)
-                _dep_border = "#e74c3c" if _exceeded else "#ffd700"
-                _dep_bg     = "#2a0a0a" if _exceeded else "#1a1400"
-                st.markdown(
-                    f"<div style='background:{_dep_bg};border:1px solid {_dep_border};"
-                    f"border-radius:8px;padding:10px 14px;margin-top:10px;font-size:0.82rem;'>"
-                    f"<b style='color:{_dep_border};'>📐 경년감가 상세 산출 ({_dep_result['구조']})</b>"
-                    f"<table style='width:100%;margin-top:6px;color:#fff;border-collapse:collapse;font-size:0.80rem;'>"
-                    f"<tr style='border-bottom:1px solid #333;'>"
-                    f"<td style='color:#aad4f5;padding:3px 6px;'>경제적 내구연한</td>"
-                    f"<td style='padding:3px 6px;'><b>{_dep_result['내구연한']}년</b></td>"
-                    f"<td style='color:#aad4f5;padding:3px 6px;'>연간 경년 감가율</td>"
-                    f"<td style='padding:3px 6px;'><b>{_dep_result['연간감가율']}</b></td>"
-                    f"</tr>"
-                    f"<tr style='border-bottom:1px solid #333;'>"
-                    f"<td style='color:#aad4f5;padding:3px 6px;'>경과 연수</td>"
-                    f"<td style='padding:3px 6px;'><b>{_dep_result['경과연수']}년</b></td>"
-                    f"<td style='color:#aad4f5;padding:3px 6px;'>누적 감가율</td>"
-                    f"<td style='padding:3px 6px;'><b>{_dep_result['총감가율']}</b></td>"
-                    f"</tr>"
-                    f"<tr>"
-                    f"<td style='color:#aad4f5;padding:3px 6px;'>최종 잔존율</td>"
-                    f"<td style='padding:3px 6px;'><b style='color:#ffd700;'>{_dep_result['최종잔존율']}</b>"
-                    f"  <span style='font-size:0.68rem;color:#95a5a6;'>(하한 20% 보장)</span></td>"
-                    f"<td style='color:#aad4f5;padding:3px 6px;'>현재가액 (시가)</td>"
-                    f"<td style='padding:3px 6px;'><b style='color:#e74c3c;'>{_dep_result['현재가액_만원']:,}만원</b></td>"
-                    f"</tr>"
-                    f"</table>"
-                    f"<div style='margin-top:6px;font-size:0.70rem;color:#d4b87a;'>"
-                    f"공식: 현재가액 = 재조달가액 × max(1 - {_dep_result['연간감가율']} × {_dep_result['경과연수']}년, 20%)"
-                    f"  =  {fr.get('재조달가액',0):,}만원 × {_dep_result['최종잔존율']}"
-                    f"  =  <b>{_dep_result['현재가액_만원']:,}만원</b>"
-                    f"</div>"
-                    + (
-                        "<div style='margin-top:6px;color:#ff6b6b;font-weight:700;font-size:0.78rem;'>"
-                        "⚠️ 내구연한 초과 — 최종잔존가액 하한(20%) 적용 중. 보험사 물건 심사 시 감액 가능성 있음."
-                        "</div>" if _exceeded else ""
-                    )
-                    + "</div>",
-                    unsafe_allow_html=True
+                _exceeded    = _dep_result.get("내구연한초과여부", False)
+                _dep_border  = "#e74c3c" if _exceeded else "#ffd700"
+                _dep_bg      = "#2a0a0a" if _exceeded else "#1a1400"
+                _d_struct    = _dep_result.get("구조", "")
+                _d_life      = _dep_result.get("내구연한", "")
+                _d_rate      = _dep_result.get("연간감가율", "")
+                _d_elapsed   = _dep_result.get("경과연수", "")
+                _d_total     = _dep_result.get("총감가율", "")
+                _d_residual  = _dep_result.get("최종잔존율", "")
+                _d_curval    = _dep_result.get("현재가액_만원", 0)
+                _d_replace   = fr.get("재조달가액", 0)
+                _exceeded_html = (
+                    "<div style='margin-top:6px;color:#ff6b6b;font-weight:700;font-size:0.78rem;'>"
+                    "⚠️ 내구연한 초과 — 최종잔존가액 하한(20%) 적용 중. 보험사 물건 심사 시 감액 가능성 있음."
+                    "</div>"
+                ) if _exceeded else ""
+                _dep_html = (
+                    "<div style='background:" + _dep_bg + ";border:1px solid " + _dep_border + ";"
+                    "border-radius:8px;padding:10px 14px;margin-top:10px;font-size:0.82rem;'>"
+                    "<b style='color:" + _dep_border + ";'>📐 경년감가 상세 산출 (" + _d_struct + ")</b>"
+                    "<table style='width:100%;margin-top:6px;color:#fff;border-collapse:collapse;font-size:0.80rem;'>"
+                    "<tr style='border-bottom:1px solid #333;'>"
+                    "<td style='color:#aad4f5;padding:3px 6px;'>경제적 내구연한</td>"
+                    "<td style='padding:3px 6px;'><b>" + str(_d_life) + "년</b></td>"
+                    "<td style='color:#aad4f5;padding:3px 6px;'>연간 경년 감가율</td>"
+                    "<td style='padding:3px 6px;'><b>" + str(_d_rate) + "</b></td>"
+                    "</tr>"
+                    "<tr style='border-bottom:1px solid #333;'>"
+                    "<td style='color:#aad4f5;padding:3px 6px;'>경과 연수</td>"
+                    "<td style='padding:3px 6px;'><b>" + str(_d_elapsed) + "년</b></td>"
+                    "<td style='color:#aad4f5;padding:3px 6px;'>누적 감가율</td>"
+                    "<td style='padding:3px 6px;'><b>" + str(_d_total) + "</b></td>"
+                    "</tr>"
+                    "<tr>"
+                    "<td style='color:#aad4f5;padding:3px 6px;'>최종 잔존율</td>"
+                    "<td style='padding:3px 6px;'>"
+                    "<b style='color:#ffd700;'>" + str(_d_residual) + "</b>"
+                    "  <span style='font-size:0.68rem;color:#95a5a6;'>(하한 20% 보장)</span></td>"
+                    "<td style='color:#aad4f5;padding:3px 6px;'>현재가액 (시가)</td>"
+                    "<td style='padding:3px 6px;'>"
+                    "<b style='color:#e74c3c;'>" + f"{_d_curval:,}" + "만원</b></td>"
+                    "</tr>"
+                    "</table>"
+                    "<div style='margin-top:6px;font-size:0.70rem;color:#d4b87a;'>"
+                    "공식: 현재가액 = 재조달가액 × max(1 - " + str(_d_rate) + " × " + str(_d_elapsed) + "년, 20%)"
+                    "  =  " + f"{_d_replace:,}" + "만원 × " + str(_d_residual)
+                    + "  =  <b>" + f"{_d_curval:,}" + "만원</b>"
+                    "</div>"
+                    + _exceeded_html
+                    + "</div>"
                 )
+                st.markdown(_dep_html, unsafe_allow_html=True)
             st.divider()
             st.markdown("### ⚡ 배상책임 한도 제안")
             la1, la2, la3 = st.columns(3)
