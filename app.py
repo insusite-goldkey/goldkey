@@ -5652,21 +5652,43 @@ section[data-testid="stSidebar"] {
     # add_member 후 rerun 시 _auto_close_sidebar 플래그를 세팅하는 로직은
     # 가입 성공 분기(st.rerun() 직전)에서 처리 → 아래 FIX-4b 참조
 
-    # ── 전역 4060 UX CSS ─────────────────────────────────────────────────
+    # ── 전역 UX CSS v2 — Glassmorphism + Dynamic Theme + Spring Interaction ─
     # 설계 원칙:
     #   · WCAG 2.1 AA 대비비 (4.5:1 이상) — 노안 가독성
-    #   · 최소 16px 본문 폰트, 버튼 18px bold
-    #   · 44×44px 최소 터치타겟 (Apple HIG / Google Material)
-    #   · 결론 우선형 레이아웃 — 핵심 수치·요약 최상단
-    #   · EV 대시보드 팔레트: 딥네이비 배경, 시안/골드 액센트
-    #   · Pre-fetching 과부하 방지: 스켈레톤/지연렌더 CSS 지원
+    #   · Glassmorphism: backdrop-blur + 반투명 테두리 (신뢰·투명성)
+    #   · Spring Interaction: 버튼 hover/active 에 cubic-bezier 스프링
+    #   · Dynamic Theme: JS로 접속 시마다 배경 미세 변화 + 응원문구
+    #   · Shimmer 스켈레톤, Count-up, Haptic API 지원
     st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+
+/* ══════════════════════════════════════════════════
+   GOLDKEY AI MASTER — Global Design System v2
+   Glassmorphism · Spring Motion · Dynamic Theme
+══════════════════════════════════════════════════ */
+
+/* ── CSS 변수 — 다이내믹 테마 JS가 override ── */
+:root {
+    --gk-bg-h:        220;
+    --gk-bg-s:        18%;
+    --gk-bg-l:        97%;
+    --gk-accent:      #0ea5e9;
+    --gk-accent2:     #fbbf24;
+    --gk-glass-bg:    rgba(255,255,255,0.60);
+    --gk-glass-border:rgba(255,255,255,0.80);
+    --gk-glass-shadow:0 8px 32px rgba(14,165,233,0.12);
+    --gk-spring:      cubic-bezier(0.34,1.56,0.64,1);
+    --gk-ease:        cubic-bezier(0.25,0.46,0.45,0.94);
+}
+
 /* ── 전체 기본 폰트 & 배경 ── */
 html, body, [data-testid="stApp"] {
     font-family: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif !important;
     font-size: 16px !important;
     -webkit-font-smoothing: antialiased;
+    background-color: hsl(var(--gk-bg-h), var(--gk-bg-s), var(--gk-bg-l)) !important;
+    transition: background-color 2s var(--gk-ease) !important;
 }
 
 /* ── 메인 컨테이너 여백 ── */
@@ -5687,72 +5709,108 @@ h1 { font-size: 1.65rem !important; font-weight: 900 !important; }
 h2 { font-size: 1.35rem !important; font-weight: 800 !important; }
 h3 { font-size: 1.15rem !important; font-weight: 800 !important; }
 
-/* ── Streamlit 버튼 — 44px 터치타겟, 18px bold ── */
+/* ══ GLASSMORPHISM 카드 공통 ══ */
+.gk-glass {
+    background: var(--gk-glass-bg) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1.5px solid var(--gk-glass-border) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--gk-glass-shadow) !important;
+}
+
+/* ── Streamlit 버튼 — 44px 터치타겟, Spring Animation ── */
 .stButton > button {
     min-height: 48px !important;
     font-size: 1.05rem !important;
     font-weight: 800 !important;
-    border-radius: 10px !important;
+    border-radius: 12px !important;
     padding: 10px 16px !important;
     letter-spacing: 0.02em !important;
-    transition: background 0.18s, box-shadow 0.18s, transform 0.1s !important;
+    transition: background 0.22s var(--gk-ease),
+                box-shadow 0.22s var(--gk-ease),
+                transform 0.3s var(--gk-spring) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+/* 물결 ripple 레이어 */
+.stButton > button::after {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: radial-gradient(circle at var(--mx,50%) var(--my,50%),
+        rgba(255,255,255,0.35) 0%, transparent 70%) !important;
+    opacity: 0 !important;
+    transition: opacity 0.4s !important;
+}
+.stButton > button:active::after { opacity: 1 !important; }
+.stButton > button:hover {
+    transform: translateY(-3px) scale(1.01) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.14) !important;
 }
 .stButton > button:active {
-    transform: scale(0.97) !important;
+    transform: scale(0.96) !important;
+    transition-duration: 0.1s !important;
 }
 
-/* ── Primary 버튼 — 시안 액센트 (WCAG AA #0ea5e9 on #0d1b2a = 5.2:1) ── */
+/* ── Primary 버튼 — 시안 그라디언트 (WCAG AA 5.2:1) ── */
 .stButton > button[kind="primary"] {
     background: linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%) !important;
     color: #ffffff !important;
     border: none !important;
-    box-shadow: 0 2px 10px rgba(14,165,233,0.35) !important;
+    box-shadow: 0 3px 12px rgba(14,165,233,0.40) !important;
 }
 .stButton > button[kind="primary"]:hover {
     background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%) !important;
-    box-shadow: 0 4px 16px rgba(14,165,233,0.50) !important;
+    box-shadow: 0 6px 20px rgba(14,165,233,0.55) !important;
 }
 
 /* ── Secondary 버튼 ── */
 .stButton > button[kind="secondary"] {
-    background: #1e293b !important;
+    background: rgba(30,41,59,0.82) !important;
+    backdrop-filter: blur(8px) !important;
     color: #e2e8f0 !important;
-    border: 1.5px solid #334155 !important;
+    border: 1.5px solid rgba(51,65,85,0.8) !important;
 }
 .stButton > button[kind="secondary"]:hover {
-    background: #334155 !important;
+    background: rgba(51,65,85,0.90) !important;
     border-color: #0ea5e9 !important;
 }
 
-/* ── 일반(default) 버튼 — 도메인 카드용 ── */
+/* ── 일반(default) 버튼 — Glass 스타일 ── */
 .stButton > button:not([kind]) {
-    background: #f8fafc !important;
+    background: rgba(248,250,252,0.75) !important;
+    backdrop-filter: blur(8px) !important;
     color: #0f172a !important;
-    border: 1.5px solid #cbd5e1 !important;
+    border: 1.5px solid rgba(203,213,225,0.70) !important;
 }
 .stButton > button:not([kind]):hover {
     border-color: #0ea5e9 !important;
-    background: #f0f9ff !important;
-    box-shadow: 0 2px 10px rgba(14,165,233,0.18) !important;
+    background: rgba(240,249,255,0.90) !important;
+    box-shadow: 0 4px 14px rgba(14,165,233,0.20) !important;
 }
 
-/* ── 입력 필드 — 큰 폰트, 충분한 높이 ── */
+/* ── 입력 필드 — Glassmorphism ── */
 .stTextInput > div > div > input,
 .stTextArea > div > div > textarea,
 .stSelectbox > div > div > div {
     font-size: 1rem !important;
     min-height: 48px !important;
-    border-radius: 8px !important;
-    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+    border: 1.5px solid rgba(203,213,225,0.70) !important;
     padding: 10px 14px !important;
+    background: rgba(255,255,255,0.72) !important;
+    backdrop-filter: blur(8px) !important;
+    transition: border-color 0.2s, box-shadow 0.2s !important;
 }
 .stTextInput > div > div > input:focus,
 .stTextArea > div > div > textarea:focus {
     border-color: #0ea5e9 !important;
     box-shadow: 0 0 0 3px rgba(14,165,233,0.18) !important;
+    background: rgba(255,255,255,0.95) !important;
 }
 
-/* ── 라벨 — 충분히 크고 굵게 ── */
+/* ── 라벨 ── */
 .stTextInput label, .stTextArea label,
 .stSelectbox label, .stMultiSelect label {
     font-size: 0.95rem !important;
@@ -5763,11 +5821,11 @@ h3 { font-size: 1.15rem !important; font-weight: 800 !important; }
 
 /* ── 섹션 구분자 ── */
 hr[data-testid="stDivider"] {
-    border-color: #e2e8f0 !important;
+    border-color: rgba(226,232,240,0.60) !important;
     margin: 1.2rem 0 !important;
 }
 
-/* ── 도메인 그룹 헤더 라벨 (gk-section-label) — 확대 ── */
+/* ── 도메인 그룹 헤더 라벨 ── */
 .gk-section-label {
     font-size: 0.95rem !important;
     font-weight: 900 !important;
@@ -5775,9 +5833,22 @@ hr[data-testid="stDivider"] {
     letter-spacing: 0.05em !important;
 }
 
-/* ── 도메인 카드 — 높이·폰트 확대 ── */
-.gk-card-wrap { height: 130px !important; }
-.gk-card-icon { font-size: 2.8rem !important; }
+/* ── 도메인 카드 ── */
+.gk-card-wrap {
+    height: 130px !important;
+    background: var(--gk-glass-bg) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1.5px solid var(--gk-glass-border) !important;
+    border-radius: 14px !important;
+    transition: transform 0.3s var(--gk-spring),
+                box-shadow 0.3s var(--gk-ease) !important;
+}
+.gk-card-wrap:hover {
+    transform: translateY(-4px) scale(1.02) !important;
+    box-shadow: 0 12px 32px rgba(14,165,233,0.18) !important;
+}
+.gk-card-icon  { font-size: 2.8rem !important; }
 .gk-card-title { font-size: 1.12rem !important; font-weight: 900 !important; color: #0f172a !important; }
 .gk-card-desc  { font-size: 0.82rem !important; color: #334155 !important; line-height: 1.6 !important; }
 
@@ -5785,14 +5856,15 @@ hr[data-testid="stDivider"] {
 .gk-ai-summary {
     background: linear-gradient(135deg, #0c2340 0%, #0369a1 100%);
     border-left: 5px solid #fbbf24;
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 14px 18px;
     margin-bottom: 14px;
     color: #ffffff;
     font-size: 1.05rem !important;
     font-weight: 700;
     line-height: 1.7;
-    box-shadow: 0 4px 16px rgba(3,105,161,0.25);
+    box-shadow: 0 6px 24px rgba(3,105,161,0.30);
+    animation: gk-fadeup 0.5s var(--gk-spring) both;
 }
 .gk-ai-summary .gk-summary-label {
     font-size: 0.72rem;
@@ -5804,15 +5876,41 @@ hr[data-testid="stDivider"] {
     display: block;
 }
 
-/* ── Voice-to-Action 네비게이션 입력창 ── */
-input[data-testid="stTextInputRootElement"],
-div[data-baseweb="input"] input {
-    font-size: 1rem !important;
+/* ── 응원문구 배너 (Dynamic Theme) ── */
+.gk-cheer-banner {
+    background: var(--gk-glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1.5px solid var(--gk-glass-border);
+    border-radius: 14px;
+    padding: 10px 18px;
+    margin-bottom: 12px;
+    color: #1e3a5f;
+    font-size: 0.90rem;
+    font-weight: 700;
+    text-align: center;
+    box-shadow: 0 4px 16px rgba(14,165,233,0.10);
+    animation: gk-fadeup 0.7s var(--gk-spring) both;
 }
 
-/* ── 스켈레톤 로더 — Pre-fetch 지연 중 표시 ── */
+/* ── 공통 등장 애니메이션 ── */
+@keyframes gk-fadeup {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes gk-pop {
+    0%   { transform: scale(0.85); opacity: 0; }
+    70%  { transform: scale(1.04); }
+    100% { transform: scale(1);   opacity: 1; }
+}
+.gk-pop { animation: gk-pop 0.45s var(--gk-spring) both; }
+
+/* ── 스켈레톤 로더 ── */
 .gk-skeleton {
-    background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%);
+    background: linear-gradient(90deg,
+        rgba(226,232,240,0.8) 25%,
+        rgba(248,250,252,0.95) 50%,
+        rgba(226,232,240,0.8) 75%);
     background-size: 200% 100%;
     animation: gk-shimmer 1.4s infinite;
     border-radius: 8px;
@@ -5824,27 +5922,74 @@ div[data-baseweb="input"] input {
     100% { background-position: -200% 0; }
 }
 
-/* ── toast/success/warning — 폰트 크기 ── */
-[data-testid="stNotification"] {
-    font-size: 1rem !important;
+/* ── Lottie 오버레이 (약관 돋보기) ── */
+#gk-lottie-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(10,20,40,0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    animation: gk-fadeup 0.3s ease both;
+}
+#gk-lottie-overlay.show { display: flex !important; }
+#gk-lottie-overlay .gk-lottie-label {
+    color: #e0f2fe;
+    font-size: 1.1rem;
+    font-weight: 900;
+    margin-top: 18px;
+    letter-spacing: 0.05em;
+    animation: gk-pop 0.5s var(--gk-spring) 0.2s both;
 }
 
-/* ── 사이드바 텍스트 ── */
+/* ── Count-up 숫자 하이라이트 ── */
+.gk-countup {
+    font-size: 1.5rem !important;
+    font-weight: 900 !important;
+    color: #0369a1 !important;
+    font-variant-numeric: tabular-nums;
+    display: inline-block;
+    min-width: 4ch;
+}
+.gk-countup.danger { color: #dc2626 !important; }
+.gk-countup.success { color: #16a34a !important; }
+
+/* ── toast/success/warning ── */
+[data-testid="stNotification"] {
+    font-size: 1rem !important;
+    border-radius: 12px !important;
+    backdrop-filter: blur(8px) !important;
+}
+
+/* ── 사이드바 Glassmorphism ── */
 section[data-testid="stSidebar"] {
     font-size: 0.95rem !important;
+    background: rgba(240,247,255,0.85) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-right: 1px solid rgba(203,213,225,0.50) !important;
 }
 section[data-testid="stSidebar"] .stButton > button {
     min-height: 44px !important;
     font-size: 0.95rem !important;
 }
 
-/* ── expander 헤더 ── */
+/* ── expander 헤더 — Glass ── */
 summary[data-testid="stExpanderToggle"] {
     font-size: 1rem !important;
     font-weight: 700 !important;
     min-height: 44px !important;
     display: flex !important;
     align-items: center !important;
+    border-radius: 10px !important;
+    transition: background 0.2s !important;
+}
+summary[data-testid="stExpanderToggle"]:hover {
+    background: rgba(14,165,233,0.06) !important;
 }
 
 /* ── 체크박스/라디오 터치 영역 확대 ── */
@@ -5858,9 +6003,284 @@ summary[data-testid="stExpanderToggle"] {
 
 /* ── 스크롤바 ── */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+::-webkit-scrollbar-track { background: rgba(241,245,249,0.5); }
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #0ea5e9, #0369a1);
+    border-radius: 3px;
+}
+
+/* ── metric 카드 ── */
+[data-testid="stMetricValue"] {
+    font-size: 1.5rem !important;
+    font-weight: 900 !important;
+    color: #0f172a !important;
+}
+[data-testid="stMetric"] {
+    background: var(--gk-glass-bg) !important;
+    backdrop-filter: blur(8px) !important;
+    border-radius: 12px !important;
+    padding: 10px 14px !important;
+    border: 1px solid var(--gk-glass-border) !important;
+    transition: transform 0.3s var(--gk-spring) !important;
+}
+[data-testid="stMetric"]:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(14,165,233,0.12) !important;
+}
 </style>""", unsafe_allow_html=True)
+
+    # ── Dynamic Theme + Lottie 돋보기 + Count-up + Haptic JS ────────────
+    components.html("""
+<script>
+(function(){
+/* ══════════════════════════════════════════════════════════════
+   GOLDKEY AI MASTER — UX v2 JavaScript Engine
+   1) Dynamic Theme  2) 응원문구  3) Lottie 돋보기  4) Count-up  5) Haptic
+══════════════════════════════════════════════════════════════ */
+
+/* ─── 1. Dynamic Theme: 접속마다 배경 색상 미세 변화 ─── */
+var THEMES = [
+  { h:220, s:18, l:97, accent:'#0ea5e9', label:'🌊 오늘도 최고의 하루!' },
+  { h:210, s:22, l:96, accent:'#0284c7', label:'☀️ 좋은 아침! 오늘 계약 하나 더!' },
+  { h:225, s:20, l:96, accent:'#6366f1', label:'💜 전문성이 신뢰를 만듭니다!' },
+  { h:200, s:24, l:97, accent:'#0891b2', label:'🏆 설계사님의 실력을 믿습니다!' },
+  { h:215, s:16, l:97, accent:'#0369a1', label:'✨ 고객의 미래를 설계하는 전문가!' },
+  { h:230, s:18, l:96, accent:'#4f46e5', label:'🎯 오늘도 목표를 향해 전진!' },
+  { h:195, s:26, l:97, accent:'#0e7490', label:'💎 최고의 설계사는 준비된 사람!' },
+];
+var _dayIdx = new Date().getDay() + Math.floor(new Date().getHours() / 4);
+var theme = THEMES[_dayIdx % THEMES.length];
+
+function applyTheme(t) {
+  try {
+    var pd = window.parent.document;
+    var root = pd.documentElement;
+    root.style.setProperty('--gk-bg-h',   t.h);
+    root.style.setProperty('--gk-bg-s',   t.s + '%');
+    root.style.setProperty('--gk-bg-l',   t.l + '%');
+    root.style.setProperty('--gk-accent', t.accent);
+    // stApp 배경도 직접 적용 (iframe 외부)
+    var app = pd.querySelector('[data-testid="stApp"]');
+    if (app) {
+      app.style.transition = 'background-color 2s ease';
+      app.style.backgroundColor = 'hsl(' + t.h + ',' + t.s + '%,' + t.l + '%)';
+    }
+  } catch(e){}
+}
+
+// 300ms 지연 후 테마 적용 (DOM 준비 대기)
+setTimeout(function(){ applyTheme(theme); }, 300);
+setTimeout(function(){ applyTheme(theme); }, 1200);
+
+/* ─── 2. 응원문구 배너 주입 ─── */
+function injectCheerBanner() {
+  try {
+    var pd = window.parent.document;
+    if (pd.getElementById('gk-cheer-el')) return;
+    var container = pd.querySelector('.block-container');
+    if (!container) return;
+    var banner = pd.createElement('div');
+    banner.id = 'gk-cheer-el';
+    banner.className = 'gk-cheer-banner';
+    banner.style.cssText = [
+      'background:rgba(255,255,255,0.62)',
+      'backdrop-filter:blur(16px)',
+      '-webkit-backdrop-filter:blur(16px)',
+      'border:1.5px solid rgba(255,255,255,0.80)',
+      'border-radius:14px',
+      'padding:9px 18px',
+      'margin-bottom:10px',
+      'color:#1e3a5f',
+      'font-size:0.88rem',
+      'font-weight:700',
+      'text-align:center',
+      'box-shadow:0 4px 16px rgba(14,165,233,0.10)',
+      'animation:gk-fadeup 0.7s cubic-bezier(0.34,1.56,0.64,1) both',
+      'font-family:Noto Sans KR,Malgun Gothic,sans-serif',
+    ].join(';');
+    banner.innerHTML = theme.label + ' &nbsp;<span style="opacity:0.55;font-weight:400;font-size:0.78rem;">Goldkey AI Master</span>';
+    container.insertBefore(banner, container.firstChild);
+  } catch(e){}
+}
+setTimeout(injectCheerBanner, 800);
+setTimeout(injectCheerBanner, 2000);
+
+/* ─── 3. Lottie 돋보기 오버레이 (순수 CSS 애니메이션) ─── */
+function buildLottieOverlay() {
+  try {
+    var pd = window.parent.document;
+    if (pd.getElementById('gk-lottie-overlay')) return;
+    var ov = pd.createElement('div');
+    ov.id = 'gk-lottie-overlay';
+    ov.style.cssText = [
+      'display:none',
+      'position:fixed',
+      'inset:0',
+      'z-index:99999',
+      'background:rgba(8,16,36,0.78)',
+      'backdrop-filter:blur(8px)',
+      '-webkit-backdrop-filter:blur(8px)',
+      'flex-direction:column',
+      'align-items:center',
+      'justify-content:center',
+    ].join(';');
+
+    // 돋보기 SVG 애니메이션 (Lottie 대체 — 순수 SVG+CSS, zero-bytes)
+    ov.innerHTML = [
+      '<div id="gk-mag-wrap" style="position:relative;width:110px;height:110px;">',
+        '<svg viewBox="0 0 100 100" width="110" height="110" style="overflow:visible;">',
+          '<defs>',
+            '<radialGradient id="gl1" cx="40%" cy="35%">',
+              '<stop offset="0%" stop-color="#7dd3fc" stop-opacity="0.6"/>',
+              '<stop offset="100%" stop-color="#0369a1" stop-opacity="0.1"/>',
+            '</radialGradient>',
+          '</defs>',
+          // 렌즈 테두리
+          '<circle cx="40" cy="40" r="28" fill="url(#gl1)" stroke="#0ea5e9" stroke-width="5"',
+            ' style="animation:gk-lens-pulse 1.6s ease-in-out infinite;transform-origin:40px 40px;"/>',
+          // 렌즈 내부 빛 반사
+          '<circle cx="32" cy="30" r="6" fill="rgba(255,255,255,0.25)"',
+            ' style="animation:gk-shimmer2 1.6s ease-in-out infinite;"/>',
+          // 스캔 라인
+          '<line x1="16" y1="40" x2="64" y2="40" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4 3"',
+            ' style="animation:gk-scan 0.8s linear infinite;transform-origin:40px 40px;"/>',
+          // 손잡이
+          '<line x1="61" y1="61" x2="82" y2="82" stroke="#0369a1" stroke-width="7"',
+            ' stroke-linecap="round" style="animation:gk-handle 1.6s ease-in-out infinite;transform-origin:61px 61px;"/>',
+        '</svg>',
+      '</div>',
+      '<div id="gk-lottie-label" style="',
+        'color:#e0f2fe;font-size:1.05rem;font-weight:900;',
+        'margin-top:20px;letter-spacing:0.06em;text-align:center;',
+        'font-family:Noto Sans KR,Malgun Gothic,sans-serif;',
+        'animation:gk-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.2s both;',
+      '">약관을 분석하고 있습니다...</div>',
+      '<div style="color:#7dd3fc;font-size:0.78rem;margin-top:8px;font-family:Noto Sans KR,sans-serif;">',
+        'AI가 핵심 조항을 추출 중입니다</div>',
+
+      // 애니메이션 keyframes
+      '<style>',
+        '@keyframes gk-lens-pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}',
+        '@keyframes gk-shimmer2{0%,100%{opacity:0.4;}50%{opacity:0.9;}}',
+        '@keyframes gk-scan{0%{transform:translateY(-14px);}100%{transform:translateY(14px);}}',
+        '@keyframes gk-handle{0%,100%{transform:rotate(0deg);}50%{transform:rotate(8deg);}}',
+        '@keyframes gk-pop{0%{opacity:0;transform:scale(0.8);}70%{transform:scale(1.05);}100%{opacity:1;transform:scale(1);}}',
+        '@keyframes gk-fadeup{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}',
+        '#gk-lottie-overlay.show{display:flex!important;}',
+      '</style>',
+    ].join('');
+
+    pd.body.appendChild(ov);
+
+    // 약관 검색 버튼 감지 → 오버레이 표시
+    function watchTermsBtn() {
+      try {
+        pd.querySelectorAll('button').forEach(function(btn){
+          var txt = (btn.textContent || '').trim();
+          if ((txt.includes('약관') || txt.includes('검색') || txt.includes('찾기') || txt.includes('추적'))
+              && !btn._gk_terms_watched) {
+            btn._gk_terms_watched = true;
+            btn.addEventListener('click', function(){
+              var el = pd.getElementById('gk-lottie-overlay');
+              if (el) { el.classList.add('show'); }
+              setTimeout(function(){
+                var el2 = pd.getElementById('gk-lottie-overlay');
+                if (el2) { el2.classList.remove('show'); }
+              }, 6000);
+            });
+          }
+        });
+      } catch(e){}
+      setTimeout(watchTermsBtn, 2000);
+    }
+    watchTermsBtn();
+
+    // 오버레이 클릭 시 닫기
+    ov.addEventListener('click', function(){ ov.classList.remove('show'); });
+  } catch(e){}
+}
+setTimeout(buildLottieOverlay, 1000);
+
+/* ─── 4. Count-up 숫자 효과 ─── */
+function countUp(el, target, duration, suffix) {
+  var start = 0;
+  var step  = target / (duration / 16);
+  var timer = setInterval(function(){
+    start += step;
+    if (start >= target) { start = target; clearInterval(timer); }
+    el.textContent = Math.round(start).toLocaleString('ko-KR') + (suffix || '');
+  }, 16);
+}
+// gk-countup 클래스 감지 후 자동 실행
+function activateCountups() {
+  try {
+    var pd = window.parent.document;
+    pd.querySelectorAll('.gk-countup[data-target]').forEach(function(el){
+      if (el._gk_counted) return;
+      el._gk_counted = true;
+      var target = parseFloat(el.getAttribute('data-target')) || 0;
+      var suffix = el.getAttribute('data-suffix') || '';
+      var dur    = parseInt(el.getAttribute('data-dur')) || 1200;
+      countUp(el, target, dur, suffix);
+    });
+  } catch(e){}
+}
+setInterval(activateCountups, 1500);
+
+/* ─── 5. Haptic API — 버튼 클릭 시 진동 ─── */
+function triggerHaptic(type) {
+  try {
+    if (!navigator.vibrate) return;
+    if (type === 'light')  { navigator.vibrate(10); }
+    else if (type === 'success') { navigator.vibrate([20, 60, 20]); }
+    else if (type === 'heavy')   { navigator.vibrate([30, 50, 30, 50, 30]); }
+    else { navigator.vibrate(15); }
+  } catch(e){}
+}
+function watchHapticButtons() {
+  try {
+    var pd = window.parent.document;
+    pd.querySelectorAll('button').forEach(function(btn){
+      if (btn._gk_haptic) return;
+      btn._gk_haptic = true;
+      var txt = (btn.textContent || '').trim();
+      btn.addEventListener('click', function(){
+        if (txt.includes('AI') || txt.includes('분석') || txt.includes('실행')) {
+          triggerHaptic('success');
+        } else if (txt.includes('삭제') || txt.includes('초기화')) {
+          triggerHaptic('heavy');
+        } else {
+          triggerHaptic('light');
+        }
+      });
+    });
+  } catch(e){}
+  setTimeout(watchHapticButtons, 2000);
+}
+watchHapticButtons();
+
+/* ─── 6. Spring Ripple — 버튼 클릭 위치 추적 ─── */
+function watchRipple() {
+  try {
+    var pd = window.parent.document;
+    pd.querySelectorAll('.stButton > button').forEach(function(btn){
+      if (btn._gk_ripple) return;
+      btn._gk_ripple = true;
+      btn.addEventListener('mousemove', function(e){
+        var r = btn.getBoundingClientRect();
+        var x = ((e.clientX - r.left) / r.width  * 100).toFixed(1) + '%';
+        var y = ((e.clientY - r.top)  / r.height * 100).toFixed(1) + '%';
+        btn.style.setProperty('--mx', x);
+        btn.style.setProperty('--my', y);
+      });
+    });
+  } catch(e){}
+  setTimeout(watchRipple, 2000);
+}
+watchRipple();
+
+})();
+</script>""", height=0)
 
     # ── 사이드바 ──────────────────────────────────────────────────────────
     with st.sidebar:
