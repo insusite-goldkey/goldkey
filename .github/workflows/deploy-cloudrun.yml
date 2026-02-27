@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  PROJECT_ID: gen-lang-client-0536067004
+  GCP_PROJECT: gen-lang-client-0536067004
   REGION: asia-northeast3
   SERVICE: goldkey-ai
   REPO: goldkey
@@ -27,6 +27,9 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Set GCP project
+        run: gcloud config set project ${{ env.GCP_PROJECT }}
+
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
@@ -35,18 +38,18 @@ jobs:
           gcloud artifacts repositories create ${{ env.REPO }} \
             --repository-format=docker \
             --location=${{ env.REGION }} \
-            --project=${{ env.PROJECT_ID }} \
+            --project=${{ env.GCP_PROJECT }} \
             --quiet || true
 
       - name: Build and Push Docker image
         run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
 
       - name: Deploy to Cloud Run
         run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
           gcloud run deploy ${{ env.SERVICE }} \
             --image "$IMAGE" \
             --region ${{ env.REGION }} \
@@ -58,4 +61,4 @@ jobs:
             --max-instances 10 \
             --port 8080 \
             --set-env-vars "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }},ADMIN_CODE=${{ secrets.ADMIN_CODE }},ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}" \
-            --project ${{ env.PROJECT_ID }}
+            --project ${{ env.GCP_PROJECT }}
