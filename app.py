@@ -13711,29 +13711,152 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "cancer":
         if not _auth_gate("cancer"): st.stop()
         tab_home_btn("cancer")
+
+        # ── Glassmorphism + Chip 전역 CSS ────────────────────────────
+        st.markdown("""<style>
+.gk-section-label{font-size:0.76rem;font-weight:900;letter-spacing:0.07em;
+  text-transform:uppercase;color:#64748b;margin:12px 0 5px 0;padding-left:2px;}
+.gk-report-header{background:linear-gradient(135deg,#0c2340 0%,#0369a1 100%);
+  border-radius:12px 12px 0 0;padding:14px 18px;}
+.gk-status-pill{display:inline-block;padding:3px 11px;border-radius:12px;
+  font-size:0.74rem;font-weight:900;margin:2px 3px 2px 0;}
+</style>""", unsafe_allow_html=True)
+
+        # ── 페이지 타이틀 헤더 ──────────────────────────────────────
         st.markdown("""
-<div style="background:linear-gradient(135deg,#6b1a1a 0%,#c0392b 60%,#e74c3c 100%);
-  border-radius:12px;padding:14px 18px;margin-bottom:10px;">
-  <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
-    🎗️ 암·뇌·심장 중증질환 통합 상담
-  </div>
-  <div style="color:#ffd5d5;font-size:0.78rem;margin-top:4px;">
+<div style="background:linear-gradient(135deg,#6b1a1a 0%,#c0392b 55%,#e74c3c 100%);
+  border-radius:14px;padding:16px 22px;margin-bottom:16px;
+  box-shadow:0 6px 24px rgba(192,57,43,0.28);">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.04em;">
+    🎗️ 암·뇌·심장 중증질환 통합 상담</div>
+  <div style="color:#ffd5d5;font-size:0.8rem;margin-top:5px;">
     암 치료 · 뇌졸중(중풍) · 심근경색 — 치료비·간병비·보장 공백 AI 정밀 분석
-  </div>
+    <span style="background:rgba(255,255,255,0.18);border-radius:8px;
+    padding:2px 10px;margin-left:10px;font-size:0.74rem;font-weight:900;">
+    ✦ 아래 항목 선택 → 우측 리포트 실시간 반영</span></div>
 </div>""", unsafe_allow_html=True)
 
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            # ── ① 암 파트 ──────────────────────────────────────────────
-            st.markdown("""<div style="background:#fff0f0;border-left:4px solid #c0392b;
-  border-radius:0 8px 8px 0;padding:7px 12px;margin-bottom:8px;font-weight:900;
-  font-size:0.9rem;color:#6b1a1a;">🎗️ 암 종류 선택</div>""", unsafe_allow_html=True)
-            cancer_type = st.selectbox("암 종류", [
-                "혈액암 (백혈병·림프종·다발성골수종)",
-                "폐암", "유방암", "대장·위암",
-                "간암·담도암·췌장암", "갑상선암",
-                "전립선암", "뇌종양", "기타 고형암",
-            ], key="cancer_type_sel")
+        # ═══════════════════════════════════════════════════════════
+        # 5 : 5 Two-Column 레이아웃
+        # ═══════════════════════════════════════════════════════════
+        _ca_left, _ca_right = st.columns([1, 1], gap="large")
+
+        with _ca_left:
+            # ══ 카드 1: 암·뇌·심장 통합 분석 ══════════════════════════
+            st.markdown("""
+<div style="background:linear-gradient(135deg,rgba(107,26,26,0.07),rgba(46,109,164,0.07));
+  border:1.5px solid rgba(192,57,43,0.25);border-radius:14px;
+  padding:10px 16px 4px 16px;margin-bottom:8px;">
+  <span style="font-size:1rem;font-weight:900;color:#1a1a2e;">🩺 암·뇌·심장 질환 통합 분석</span>
+</div>""", unsafe_allow_html=True)
+
+            # ── 담보 선택 (멀티 체크박스) ──────────────────────────
+            _ca_cov_opts = [
+                "암진단비", "표적항암치료비", "면역항암치료비", "CAR-T치료비",
+                "중입자·양성자치료비", "뇌혈관질환진단비", "뇌졸중진단비",
+                "심혈관질환진단비", "급성심근경색진단비", "간병인일당", "소득보상",
+            ]
+            if "ca_cov_sel" not in st.session_state:
+                st.session_state["ca_cov_sel"] = []
+            st.markdown('<p style="font-size:0.76rem;font-weight:900;color:#64748b;'
+                'letter-spacing:0.07em;text-transform:uppercase;margin:10px 0 4px 0;">'
+                '📌 담보 선택 (중복 가능)</p>', unsafe_allow_html=True)
+            _cv1, _cv2, _cv3 = st.columns(3)
+            for _i, _opt in enumerate(_ca_cov_opts):
+                with [_cv1, _cv2, _cv3][_i % 3]:
+                    _on = _opt in st.session_state["ca_cov_sel"]
+                    if st.checkbox(_opt, value=_on, key=f"ca_cov_{_i}"):
+                        if _opt not in st.session_state["ca_cov_sel"]:
+                            st.session_state["ca_cov_sel"].append(_opt)
+                    else:
+                        if _opt in st.session_state["ca_cov_sel"]:
+                            st.session_state["ca_cov_sel"].remove(_opt)
+            _ca_cov_sel = st.session_state["ca_cov_sel"]
+
+            st.markdown("---")
+
+            # ── 질환 유형 (멀티 체크박스 — 3그룹) ────────────────────
+            st.markdown('<p style="font-size:0.76rem;font-weight:900;color:#64748b;'
+                'letter-spacing:0.07em;text-transform:uppercase;margin:8px 0 4px 0;">'
+                '🔬 질환 유형 (중복 가능)</p>', unsafe_allow_html=True)
+            if "ca_dis_sel" not in st.session_state:
+                st.session_state["ca_dis_sel"] = []
+
+            st.caption("🎗️ 암")
+            _dc1, _dc2, _dc3 = st.columns(3)
+            for _i, _opt in enumerate(["혈액암","폐암","유방암","대장·위암","간·담·췌암","갑상선암","전립선암","뇌종양","기타고형암"]):
+                with [_dc1,_dc2,_dc3][_i%3]:
+                    _on = _opt in st.session_state["ca_dis_sel"]
+                    if st.checkbox(_opt, value=_on, key=f"ca_dis_c{_i}"):
+                        if _opt not in st.session_state["ca_dis_sel"]: st.session_state["ca_dis_sel"].append(_opt)
+                    else:
+                        if _opt in st.session_state["ca_dis_sel"]: st.session_state["ca_dis_sel"].remove(_opt)
+
+            st.caption("🧠 뇌")
+            _db1, _db2, _db3 = st.columns(3)
+            for _i, _opt in enumerate(["뇌졸중","뇌경색","뇌출혈","TIA","뇌혈관(기타)"]):
+                with [_db1,_db2,_db3][_i%3]:
+                    _on = _opt in st.session_state["ca_dis_sel"]
+                    if st.checkbox(_opt, value=_on, key=f"ca_dis_b{_i}"):
+                        if _opt not in st.session_state["ca_dis_sel"]: st.session_state["ca_dis_sel"].append(_opt)
+                    else:
+                        if _opt in st.session_state["ca_dis_sel"]: st.session_state["ca_dis_sel"].remove(_opt)
+
+            st.caption("❤️ 심장")
+            _dh1, _dh2, _dh3 = st.columns(3)
+            for _i, _opt in enumerate(["급성심근경색","협심증","심부전","부정맥","심혈관(기타)"]):
+                with [_dh1,_dh2,_dh3][_i%3]:
+                    _on = _opt in st.session_state["ca_dis_sel"]
+                    if st.checkbox(_opt, value=_on, key=f"ca_dis_h{_i}"):
+                        if _opt not in st.session_state["ca_dis_sel"]: st.session_state["ca_dis_sel"].append(_opt)
+                    else:
+                        if _opt in st.session_state["ca_dis_sel"]: st.session_state["ca_dis_sel"].remove(_opt)
+            _ca_dis_sel = st.session_state["ca_dis_sel"]
+
+            st.markdown("---")
+
+            # ── 위험인자 (멀티 체크박스) ──────────────────────────────
+            st.markdown('<p style="font-size:0.76rem;font-weight:900;color:#64748b;'
+                'letter-spacing:0.07em;text-transform:uppercase;margin:8px 0 4px 0;">'
+                '⚠️ 위험인자 (중복 가능)</p>', unsafe_allow_html=True)
+            if "ca_risk_sel" not in st.session_state:
+                st.session_state["ca_risk_sel"] = []
+            _rk1, _rk2, _rk3 = st.columns(3)
+            for _i, _opt in enumerate(["고혈압","당뇨","고지혈증","흡연","심방세동","비만","가족력","음주","스트레스"]):
+                with [_rk1,_rk2,_rk3][_i%3]:
+                    _on = _opt in st.session_state["ca_risk_sel"]
+                    if st.checkbox(_opt, value=_on, key=f"ca_risk_{_i}"):
+                        if _opt not in st.session_state["ca_risk_sel"]: st.session_state["ca_risk_sel"].append(_opt)
+                    else:
+                        if _opt in st.session_state["ca_risk_sel"]: st.session_state["ca_risk_sel"].remove(_opt)
+            _ca_risk_sel = st.session_state["ca_risk_sel"]
+
+            st.markdown("---")
+
+            # ── 현재 상태 / 장해 상태 (2열 selectbox) ─────────────────
+            _st_col, _ds_col = st.columns(2)
+            with _st_col:
+                st.markdown('<p style="font-size:0.76rem;font-weight:900;color:#64748b;'
+                    'letter-spacing:0.07em;text-transform:uppercase;margin:8px 0 4px 0;">'
+                    '📍 현재 상태</p>', unsafe_allow_html=True)
+                ca_current_status = st.selectbox("현재 상태", [
+                    "예방 상담 (미발병)", "진단 직후 (치료 계획 중)",
+                    "급성기 치료 중", "재활기 (수술 후 1~6개월)",
+                    "만성기·유지 관리", "재발·전이 우려",
+                ], key="ca_cur_status", label_visibility="collapsed")
+            with _ds_col:
+                st.markdown('<p style="font-size:0.76rem;font-weight:900;color:#64748b;'
+                    'letter-spacing:0.07em;text-transform:uppercase;margin:8px 0 4px 0;">'
+                    '🩹 장해 상태</p>', unsafe_allow_html=True)
+                ca_disability = st.selectbox("장해 상태", [
+                    "해당 없음", "한시장해 (회복 가능성)",
+                    "영구장해 (고정 판정)", "장해 판정 대기 (18~24개월)",
+                    "후유증 관리 중",
+                ], key="ca_disability", label_visibility="collapsed")
+
+            st.markdown('<p style="font-size:0.76rem;font-weight:900;color:#64748b;'
+                'letter-spacing:0.07em;text-transform:uppercase;margin:8px 0 4px 0;">'
+                '💊 치료 유형</p>', unsafe_allow_html=True)
             treatment_type = st.selectbox("치료 유형", [
                 "NGS 검사 및 표적항암 적합성 확인",
                 "표적항암약물 치료 (경구·주사)",
@@ -13744,67 +13867,87 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 "선행항암 (수술 전 항암)",
                 "보조항암 (수술 후 항암)",
                 "복합 치료 (항암+방사선)",
-            ], key="cancer_treat_sel")
-
-            st.divider()
-
-            # ── ② 뇌질환(중풍) 파트 ────────────────────────────────────
-            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:7px 12px;margin-bottom:8px;font-weight:900;
-  font-size:0.9rem;color:#1a3a5c;">🧠 뇌질환(중풍) 파트</div>""", unsafe_allow_html=True)
-            brain_type = st.selectbox("뇌질환 유형", [
                 "해당 없음",
-                "뇌졸중 (뇌경색·뇌출혈 통합)",
-                "뇌경색 (허혈성 뇌졸중)",
-                "뇌출혈 (출혈성 뇌졸중)",
-                "일과성 뇌허혈발작 (TIA)",
-                "뇌혈관질환 (기타)",
-            ], key="brain_type_sel")
-            brain_risk = st.multiselect("위험인자 (복수 선택)", [
-                "고혈압", "당뇨", "고지혈증", "흡연", "심방세동", "비만", "가족력"
-            ], key="brain_risk_sel")
+            ], key="cancer_treat_sel", label_visibility="collapsed")
 
-            st.divider()
+            st.markdown("---")
 
-            # ── ③ 심장 파트 ────────────────────────────────────────────
-            st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
-  border-radius:0 8px 8px 0;padding:7px 12px;margin-bottom:8px;font-weight:900;
-  font-size:0.9rem;color:#7d3c00;">❤️ 심장 파트</div>""", unsafe_allow_html=True)
-            heart_type = st.selectbox("심장질환 유형", [
-                "해당 없음",
-                "급성 심근경색 (AMI)",
-                "협심증 (안정형·불안정형)",
-                "심부전",
-                "부정맥 (심방세동 포함)",
-                "심혈관질환 (기타)",
-            ], key="heart_type_sel")
-            heart_risk = st.multiselect("위험인자 (복수 선택)", [
-                "고혈압", "당뇨", "고지혈증", "흡연", "비만", "가족력", "스트레스"
-            ], key="heart_risk_sel")
+            # ══ 카드 2: 간병 컨설팅 ════════════════════════════════════
+            st.markdown("""
+<div style="background:linear-gradient(135deg,rgba(39,174,96,0.07),rgba(46,109,164,0.05));
+  border:1.5px solid rgba(39,174,96,0.3);border-radius:14px;
+  padding:10px 16px 4px 16px;margin:8px 0 6px 0;">
+  <span style="font-size:1rem;font-weight:900;color:#1a1a2e;">🦽 간병 컨설팅 전문 상담</span>
+</div>""", unsafe_allow_html=True)
 
-            st.divider()
+            _ng_c1, _ng_c2 = st.columns(2)
+            with _ng_c1:
+                st.markdown('<p style="font-size:0.76rem;font-weight:900;color:#64748b;'
+                    'letter-spacing:0.07em;text-transform:uppercase;margin:8px 0 4px 0;">'
+                    '🏥 간병 질환 유형</p>', unsafe_allow_html=True)
+                ca_nursing_disease = st.selectbox("간병 질환", [
+                    "해당 없음", "치매(알츠하이머)", "뇌졸중(중증)",
+                    "파킨슨병", "사지마비(척수손상)", "ALS/루게릭병",
+                    "말기 암", "중증 심부전", "기타",
+                ], key="ca_nursing_disease", label_visibility="collapsed")
+                st.markdown('<p style="font-size:0.76rem;font-weight:900;color:#64748b;'
+                    'letter-spacing:0.07em;text-transform:uppercase;margin:8px 0 4px 0;">'
+                    '📊 장기요양 등급</p>', unsafe_allow_html=True)
+                ca_ltc_grade = st.selectbox("장기요양 등급", [
+                    "미판정","1등급","2등급","3등급","4등급","5등급","인지지원등급"
+                ], key="ca_ltc_grade", label_visibility="collapsed")
+            with _ng_c2:
+                st.markdown('<p style="font-size:0.76rem;font-weight:900;color:#64748b;'
+                    'letter-spacing:0.07em;text-transform:uppercase;margin:8px 0 4px 0;">'
+                    '📅 예상 간병 기간 (년)</p>', unsafe_allow_html=True)
+                ca_nursing_years = st.number_input("간병 기간", value=10, min_value=1, max_value=50,
+                    key="ca_nursing_years", label_visibility="collapsed")
+                st.markdown('<p style="font-size:0.76rem;font-weight:900;color:#64748b;'
+                    'letter-spacing:0.07em;text-transform:uppercase;margin:8px 0 4px 0;">'
+                    '💰 간병인 일당 (만원)</p>', unsafe_allow_html=True)
+                ca_nursing_daily = st.number_input("간병인 일당", value=10, min_value=0,
+                    key="ca_nursing_daily", label_visibility="collapsed")
+                st.markdown('<p style="font-size:0.76rem;font-weight:900;color:#64748b;'
+                    'letter-spacing:0.07em;text-transform:uppercase;margin:8px 0 4px 0;">'
+                    '🛡️ 현재 간병보험 일당 (만원)</p>', unsafe_allow_html=True)
+                ca_nursing_ins = st.number_input("간병보험 일당", value=0, min_value=0,
+                    key="ca_nursing_ins", label_visibility="collapsed")
 
-            # ── 공통 AI 입력 ────────────────────────────────────────────
+            # ── AI 입력 + 분석 실행 ───────────────────────────────────
+            st.markdown("---")
             c_name_ca, query_ca, hi_ca, do_ca, _pkca = ai_query_block("cancer",
                 "예) 고혈압·고지혈증 약 복용 중. 뇌졸중·심근경색 대비 보험 공백 분석 요청",
                 product_key="뇌혈관·심장보험")
 
-            # ── SSOT selector ───────────────────────────────────────
             _ca_ssot = st.session_state.get("ssot_full_text", "")
             if _ca_ssot:
-                st.info(f"🔬 스캔 허브 연동 완료 ({len(_ca_ssot)}자) — 스캔허브 문서가 AI 분석에 자동 활용됩니다.")
+                st.info(f"🔬 스캔 허브 연동 완료 ({len(_ca_ssot)}자)")
             else:
-                st.caption("📌 문서를 분석하려면 먼저 [통합 스캔 허브]에서 파일을 스캔하세요.")
+                st.caption("📌 [통합 스캔 허브]에서 파일 스캔 후 AI 분석에 자동 활용됩니다.")
 
             if do_ca:
-                doc_text_ca = f"\n[스캔 허브 데이터]\n{_ca_ssot[:5000]}" if _ca_ssot else ""
-                _brain_ctx = f"\n뇌질환: {brain_type}, 위험인자: {', '.join(brain_risk) if brain_risk else '없음'}" if brain_type != "해당 없음" else ""
-                _heart_ctx = f"\n심장질환: {heart_type}, 위험인자: {', '.join(heart_risk) if heart_risk else '없음'}" if heart_type != "해당 없음" else ""
+                _ca_cov_txt  = ", ".join(_ca_cov_sel)  if _ca_cov_sel  else "미선택"
+                _ca_dis_txt  = ", ".join(_ca_dis_sel)  if _ca_dis_sel  else "미선택"
+                _ca_risk_txt = ", ".join(_ca_risk_sel) if _ca_risk_sel else "없음"
+                doc_text_ca  = f"\n[스캔 허브 데이터]\n{_ca_ssot[:5000]}" if _ca_ssot else ""
+                _nursing_ctx = ""
+                if ca_nursing_disease != "해당 없음":
+                    _est = ca_nursing_daily * 365 * ca_nursing_years
+                    _nursing_ctx = (
+                        f"\n[간병 정보] 질환:{ca_nursing_disease}, 장기요양:{ca_ltc_grade}, "
+                        f"기간:{ca_nursing_years}년, 일당:{ca_nursing_daily}만원, "
+                        f"보험일당:{ca_nursing_ins}만원\n추정 총 간병비:{_est:,}만원"
+                    )
                 run_ai_analysis(c_name_ca, query_ca, hi_ca, "res_cancer",
                     product_key=_pkca,
                     extra_prompt=f"""
 [중증질환 통합 상담 — 암·뇌·심장]
-암 종류: {cancer_type} / 치료 유형: {treatment_type}{_brain_ctx}{_heart_ctx}
+▸ 선택 담보: {_ca_cov_txt}
+▸ 질환 유형: {_ca_dis_txt}
+▸ 위험인자: {_ca_risk_txt}
+▸ 현재 상태: {ca_current_status} / 장해: {ca_disability}
+▸ 치료 유형: {treatment_type}
+{_nursing_ctx}
 
 ## 1. 암 치료 분석
 - NGS 검사·표적항암·면역항암·CAR-T 치료비 (급여/비급여)
@@ -13812,45 +13955,85 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 - 산정특례 등록 및 보험 청구 전략
 
 ## 2. 뇌졸중(중풍) 리스크 분석
-- 뇌졸중 발생 시 치료비·재활비·간병비 구조 (급성기 → 재활기 → 장기요양)
-- 한시장해 vs 영구장해 판정 실무 (신경과 전문의 기준, 최소 18~24개월 관찰)
-- 한시장해 기간 '암흑의 2년': 국가 지원 불가, 월 400~600만원 자비 부담 구조
-- 간병 파산 방지 플랜: 월 400~500만원 × 24개월 = 최소 1억원 준비 필요
-- 유병자(고혈압·당뇨) 간편심사 상품 인수 가능성 분석
+- 한시장해 vs 영구장해 판정 실무 (18~24개월 추적)
+- '암흑의 2년' 월 400~600만원 자비 부담 구조
+- 간병 파산 방지 플랜: 월 500만 × 24개월 = 1억 2천만원
 
 ## 3. 심근경색 리스크 분석
-- 급성 심근경색 치료비 (스텐트·CABG 수술비, 재활비)
-- 심장질환 진단비 담보 범위 (급성심근경색 vs 허혈성심장질환 차이)
-- 재발 리스크 및 장기 약물 치료비 부담 분석
+- 스텐트·CABG 치료비 / 급성심근경색 vs 허혈성심장질환 담보 비교
+- 재발 리스크 및 장기 약물치료비
 
 ## 4. 통합 보장 공백 진단 및 설계 권고
-- 현재 보험으로 커버 안 되는 항목 우선순위
-- 뇌혈관·심혈관 광범위 담보 vs 뇌졸중·심근경색 한정 담보 비교
-- 간병인일당·소득보상 담보 필요 금액 산출
-- 유병자 간편심사 3.3.5 / 3.5.5 상품 인수 전략
+- 선택 담보별 현재 보장 공백 우선순위
+- 뇌혈관·심혈관 광범위 담보 vs 한정 담보 비교
+- 유병자 간편심사 3.3.5/3.5.5 상품 인수 전략
+- 간병비 파산 방지 목표 금액 및 복합 설계안
 {doc_text_ca}
 """)
 
-        with col2:
-            st.subheader("🤖 AI 분석 리포트")
-            show_result("res_cancer")
+        # ── RIGHT COLUMN: AI 리포트 패널 ─────────────────────────────
+        with _ca_right:
+            _rt_cov  = st.session_state.get("ca_cov_sel",  [])
+            _rt_dis  = st.session_state.get("ca_dis_sel",  [])
+            _rt_risk = st.session_state.get("ca_risk_sel", [])
 
-            # ── 핵심정보 3개 스크롤박스 ────────────────────────────────
+            _pill_html = ""
+            for _p in _rt_cov:
+                _pill_html += (f'<span class="gk-status-pill" style="background:#c0392b;'
+                               f'color:#fff;">📌 {_p}</span>')
+            for _p in _rt_dis:
+                _pill_html += (f'<span class="gk-status-pill" style="background:#2e6da4;'
+                               f'color:#fff;">🔬 {_p}</span>')
+            for _p in _rt_risk:
+                _pill_html += (f'<span class="gk-status-pill" style="background:#d97706;'
+                               f'color:#fff;">⚠️ {_p}</span>')
+            if not _pill_html:
+                _pill_html = ('<span style="color:#94a3b8;font-size:0.8rem;">'
+                              '← 좌측에서 담보·질환·위험인자를 선택하세요</span>')
+
+            st.markdown(f"""
+<div class="gk-report-header">
+  <div style="color:#fff;font-size:0.95rem;font-weight:900;margin-bottom:6px;">
+    🤖 AI 통합 분석 리포트</div>
+  <div style="font-size:0.75rem;color:#b3d4f5;margin-bottom:8px;">
+    선택 항목이 AI 프롬프트에 실시간 반영됩니다</div>
+  <div style="line-height:2.1;">{_pill_html}</div>
+</div>""", unsafe_allow_html=True)
+
+            _res_ca = st.session_state.get("res_cancer")
+            if _res_ca:
+                st.markdown("""
+<div style="background:#fafbfc;border:1.5px solid #d0d7de;border-top:none;
+  border-radius:0 0 12px 12px;padding:16px 18px;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;">""",
+                    unsafe_allow_html=True)
+                show_result("res_cancer")
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.markdown("""
+<div style="background:#fafbfc;border:1.5px solid #d0d7de;border-top:none;
+  border-radius:0 0 12px 12px;padding:32px 18px;text-align:center;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;">
+  <span style="color:#94a3b8;font-size:0.9rem;">
+    ✦ 좌측 항목 선택 후 <b>AI 분석 실행</b>을 누르면<br>상세 리포트가 여기에 표시됩니다.
+  </span>
+</div>""", unsafe_allow_html=True)
+
+            # ── 핵심 참고 정보 탭 ───────────────────────────────────
             st.markdown("""<div style="font-size:0.88rem;font-weight:900;color:#1a3a5c;
-  margin:10px 0 6px 0;">📋 핵심 정보 — 암 · 뇌 · 심장</div>""", unsafe_allow_html=True)
+  margin:18px 0 8px 0;">📋 핵심 치료비·보장 참고</div>""", unsafe_allow_html=True)
 
-            # 박스 1 — 암
-            st.markdown("""<div style="background:#fff0f0;border:1.5px solid #e74c3c;
-  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
-  font-weight:900;color:#6b1a1a;">🎗️ 암 치료비 · 보장 핵심</div>""", unsafe_allow_html=True)
-            components.html("""
-<div style="height:220px;overflow-y:auto;padding:10px 13px;
-  background:#fff8f8;border:1px solid #f5c6c6;border-radius:0 0 8px 8px;
-  font-size:0.80rem;line-height:1.65;
+            _rt1, _rt2, _rt3 = st.tabs(["🎗️ 암 치료비", "🧠 뇌졸중 간병", "❤️ 심장질환"])
+
+            with _rt1:
+                components.html("""
+<div style="height:300px;overflow-y:auto;padding:12px 14px;
+  background:#fff8f8;border:1px solid #f5c6c6;border-radius:8px;
+  font-size:0.82rem;line-height:1.7;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
 <b style="color:#c0392b;">🧬 NGS 검사</b><br>
 • 급여(고형암 4기·혈액암): 본인부담 20% (50~80만원)<br>
-• 비급여: 100~300만원 / 목적: EGFR·ALK·BRCA 변이 확인<br>
+• 비급여: 100~300만원 / EGFR·ALK·BRCA 변이 확인<br>
 <b style="color:#c0392b;">🎯 표적항암약물</b><br>
 • 급여 전: 월 300~800만원 / 급여 후: 월 5~30만원<br>
 • <b>표적항암약물 허가치료비 담보</b>: 치료 시마다 반복 지급<br>
@@ -13861,18 +14044,17 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 <b style="color:#c0392b;">⚛️ 중입자·양성자</b><br>
 • 중입자: 5천만원(비급여) / 양성자: 3천만원(일부 급여)<br>
 <b style="color:#c0392b;">⚠️ 산정특례</b><br>
-• 진단 후 <b>30일 이내</b> 등록 → 본인부담 5% (5년간)
+• 진단 후 <b>30일 이내</b> 등록 → 본인부담 5% (5년간)<br>
+<b style="color:#c0392b;">📊 조혈모세포이식</b><br>
+• 자가: 1,500~2,500만원 / 동종: 3,000~5,000만원
 </div>
-""", height=238)
+""", height=318)
 
-            # 박스 2 — 뇌
-            st.markdown("""<div style="background:#f0f4ff;border:1.5px solid #2e6da4;
-  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
-  font-weight:900;color:#1a3a5c;">🧠 뇌졸중(중풍) 핵심 — 간병 파산 방지</div>""", unsafe_allow_html=True)
-            components.html("""
-<div style="height:260px;overflow-y:auto;padding:10px 13px;
-  background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
-  font-size:0.80rem;line-height:1.65;
+            with _rt2:
+                components.html("""
+<div style="height:300px;overflow-y:auto;padding:12px 14px;
+  background:#f8faff;border:1px solid #b3c8e8;border-radius:8px;
+  font-size:0.82rem;line-height:1.7;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
 <b style="color:#2e6da4;">🚨 한시장해 vs 영구장해 실무</b><br>
 • 뇌 신경계 손상: 최소 <b>18~24개월</b> 추적 관찰 후 영구장해 판정<br>
@@ -13881,7 +14063,6 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 <b style="color:#c0392b;">💸 간병 파산 시나리오</b><br>
 • 영구장해 판정까지 24개월 × 500만원 = <b>최소 1억 2천만원</b><br>
 • 진단비 2~3천만원 → 간병비 5~6개월이면 소멸<br>
-• 재산 처분 → 가족 붕괴 → 간병 파산<br>
 <b style="color:#2e6da4;">🛡️ 필요 보장 설계</b><br>
 • 간병지원금 월 400~500만원 × 24개월 = <b>1억원 이상</b><br>
 • 뇌혈관질환 광범위 담보 (뇌졸중 한정 X)<br>
@@ -13890,16 +14071,13 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 총 필요 자금 = (월 간병비 × 24) + (월 생활비 × 12)<br>
 • 예시: (500만 × 24) + (300만 × 12) = <b>1억 5,600만원</b>
 </div>
-""", height=278)
+""", height=318)
 
-            # 박스 3 — 심장
-            st.markdown("""<div style="background:#fff8f0;border:1.5px solid #e67e22;
-  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
-  font-weight:900;color:#7d3c00;">❤️ 심근경색 · 심장질환 핵심</div>""", unsafe_allow_html=True)
-            components.html("""
-<div style="height:220px;overflow-y:auto;padding:10px 13px;
-  background:#fffaf5;border:1px solid #f5d5a0;border-radius:0 0 8px 8px;
-  font-size:0.80rem;line-height:1.65;
+            with _rt3:
+                components.html("""
+<div style="height:300px;overflow-y:auto;padding:12px 14px;
+  background:#fffaf5;border:1px solid #f5d5a0;border-radius:8px;
+  font-size:0.82rem;line-height:1.7;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
 <b style="color:#e67e22;">🏥 급성 심근경색 치료비</b><br>
 • 스텐트 시술(PCI): 300~500만원 (급여 본인부담 20%)<br>
@@ -13914,9 +14092,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 재발 시 추가 스텐트·CABG 비용 반복 발생<br>
 • 소득 단절 + 간병비 이중 부담 대비 필수<br>
 <b style="color:#e67e22;">🛡️ 권장 보장</b><br>
-• 심혈관질환 진단비 3천만원 + 수술비 + 간병인일당
+• 심혈관질환 진단비 3천만원 + 수술비 + 간병인일당<br>
+• 심부전 진단비 추가 (부정맥·심방세동 합병 대비)
 </div>
-""", height=238)
+""", height=318)
+
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [brain] 뇌질환(중풍) 전용 상담 ──────────────────────────────────
