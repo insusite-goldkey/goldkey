@@ -5136,7 +5136,110 @@ section[data-testid="stSidebar"] {
 }
 </style>""", unsafe_allow_html=True)
 
-    # ── 로그인 후 사이드바 자동 접힘 JS ─────────────────────────────────
+    # ── (1) _open_sidebar: 로그인 버튼 클릭 시 JS로 사이드바 열기 ──────────────
+    if st.session_state.pop("_open_sidebar", False):
+        components.html("""
+<script>
+(function(){
+  setTimeout(function(){
+    try {
+      var pd = window.parent.document;
+      var selectors = [
+        '[data-testid="stSidebarCollapseButton"] button',
+        'button[aria-label="Open sidebar"]',
+        'button[aria-label="\uc0ac\uc774\ub4dc\ubc14\ub97c \uc5f4거\ub098 \ub2eb\uc73c\uc138\uc694"]',
+        '[data-testid="collapsedControl"] button',
+        '[data-testid="stSidebarNav"] button'
+      ];
+      for (var i = 0; i < selectors.length; i++) {
+        var btn = pd.querySelector(selectors[i]);
+        if (btn) { btn.click(); break; }
+      }
+    } catch(e) {}
+  }, 200);
+})();
+</script>""", height=0)
+
+    # ── (5) 전역 로딩 오버레이 JS ────────────────────────────────────
+    # 로그인 중 / AI 분석 중: 돋보기 애니메이션 오버레이 표시
+    components.html("""
+<style>
+#gk-loading-overlay {
+  display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(13,27,42,0.82);z-index:99999;
+  flex-direction:column;align-items:center;justify-content:center;
+  font-family:'Noto Sans KR',sans-serif;
+}
+#gk-loading-overlay.show { display:flex; }
+.gk-loading-icon {
+  font-size:3.2rem;animation:gk-magnify 1.2s ease-in-out infinite;
+  margin-bottom:16px;
+}
+.gk-loading-msg {
+  color:#e0f2fe;font-size:1.05rem;font-weight:700;
+  text-align:center;line-height:1.8;
+  text-shadow:0 1px 4px rgba(0,0,0,0.5);
+}
+@keyframes gk-magnify {
+  0%,100%{transform:scale(1) rotate(-8deg);}
+  50%{transform:scale(1.25) rotate(8deg);}
+}
+</style>
+<div id="gk-loading-overlay">
+  <div class="gk-loading-icon">🔍</div>
+  <div class="gk-loading-msg" id="gk-loading-text">로그인 중입니다.잠시만 기다려주세요.</div>
+</div>
+<script>
+(function(){
+  var overlay = document.getElementById('gk-loading-overlay');
+  var loadingText = document.getElementById('gk-loading-text');
+  
+  // 문서에 노출 (iframe 내부)
+  var _overlay = overlay;
+  var _text = loadingText;
+
+  // 상위 문서에서 버튼 감시
+  function watchButtons() {
+    try {
+      var pd = window.parent.document;
+      // 로그인 버튼
+      pd.querySelectorAll('button').forEach(function(btn){
+        var txt = btn.textContent || '';
+        if (txt.includes('로그인') && !btn._gk_watched) {
+          btn._gk_watched = true;
+          btn.addEventListener('click', function(){
+            _text.textContent = '🔍  로그인 중입니다. 잠시만 기다려주세요.';
+            _overlay.classList.add('show');
+            setTimeout(function(){ _overlay.classList.remove('show'); }, 8000);
+          });
+        }
+        // AI 분석 버튼
+        if ((txt.includes('AI') || txt.includes('분석') || txt.includes('실행')) && !btn._gk_watched_ai) {
+          btn._gk_watched_ai = true;
+          btn.addEventListener('click', function(){
+            _text.textContent = '🔍  AI 마스터가 답을 찾고 있습니다. 잠시만 기다려주세요.';
+            _overlay.classList.add('show');
+            setTimeout(function(){ _overlay.classList.remove('show'); }, 15000);
+          });
+        }
+        // 가입 버튼
+        if (txt.includes('가입') && !btn._gk_watched_su) {
+          btn._gk_watched_su = true;
+          btn.addEventListener('click', function(){
+            _text.textContent = '🔍  회원가입 처리 중입니다. 잠시만 기다려주세요.';
+            _overlay.classList.add('show');
+            setTimeout(function(){ _overlay.classList.remove('show'); }, 8000);
+          });
+        }
+      });
+    } catch(e) {}
+    setTimeout(watchButtons, 1500);
+  }
+  watchButtons();
+})();
+</script>""", height=0)
+
+    # ── 로그인 후 사이드바 자동 접힌 JS ────────────────────────────────────
     # _login_welcome 플래그가 있으면(로그인 직후 rerun) 사이드바를 닫는다
     _just_logged_in = bool(st.session_state.get("_login_welcome") or
                            st.session_state.get("_auto_close_sidebar"))
@@ -5999,6 +6102,49 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
         st.caption("문의: insusite@gmail.com")
         st.caption("앱 관리자 이세윤: 010-3074-2616")
         display_security_sidebar()
+
+        # ── (2) 앱 내 에러 로그 확인 패널 ──────────────────────────────
+        with st.expander("🔍 앱 상태 · 오류 확인", expanded=False):
+            _err_items = []
+            # 회원 저장 경고
+            _msw = st.session_state.get("_member_save_warn", "")
+            if _msw:
+                _err_items.append(("⚠️ 회원저장", _msw))
+            # Supabase 연결 상태
+            _sb_status = "✅ 연결됨" if _SB_PKG_OK else "❌ 패키지 없음"
+            try:
+                if _SB_PKG_OK:
+                    _test_sb = _get_sb_client()
+                    _sb_status = "✅ 연결됨" if _test_sb else "❌ 클라이언트 생성 실패"
+            except Exception as _sbe:
+                _sb_status = f"❌ 오류: {str(_sbe)[:60]}"
+            _err_items.append(("🗄️ Supabase", _sb_status))
+            # 로그인 상태
+            _uid_stat = st.session_state.get("user_id", "")
+            _err_items.append(("👤 로그인", f"✅ {mask_name(st.session_state.get('user_name',''))} ({_uid_stat[:12]}...)" if _uid_stat else "❌ 미로그인"))
+            # 환경
+            _err_items.append(("🌐 환경", "☁️ Cloud (HuggingFace)" if _IS_CLOUD else "💻 로컬"))
+            # 최근 오류 로그 (session_state에 수집된 것)
+            _recent_errs = st.session_state.get("_app_error_log", [])
+            for _k, _v in _err_items:
+                _color = "#dc2626" if "❌" in _v else "#16a34a" if "✅" in _v else "#d97706"
+                st.markdown(
+                    f"<div style='font-size:0.78rem;padding:3px 6px;border-radius:4px;"
+                    f"background:#f8fafc;border-left:3px solid {_color};margin-bottom:3px;'>"
+                    f"<b>{_k}</b>: {_v}</div>",
+                    unsafe_allow_html=True
+                )
+            if _recent_errs:
+                st.markdown("**최근 오류 로그:**")
+                for _re in _recent_errs[-5:]:
+                    st.caption(_re)
+            st.markdown("""
+<div style='font-size:0.72rem;color:#64748b;margin-top:6px;line-height:1.7;'>
+<b>💡 오류 원인 안내</b><br>
+• <b>동시접속 오류</b>: HuggingFace Free 플랜 동시접속 제한 → 잠시 후 새로고침<br>
+• <b>접속 오류</b>: Supabase 일시 지연 또는 HF Space 재시작 중 → 1~2분 대기<br>
+• <b>고객 안 보임</b>: 🔍 검색 버튼 클릭으로 목록 새로고침
+</div>""", unsafe_allow_html=True)
         # ── 관리자 지시 입력창 (로그인 후 바로 노출) ─────────────────────
         if st.session_state.get("is_admin") and st.session_state.get("user_id") not in ("ADMIN_MASTER",):
             st.divider()
@@ -7955,12 +8101,26 @@ window.startSugSTT=function(){{
 </div>""", unsafe_allow_html=True)
 
             # ── 고객 검색창 (Customer-Centric Contextual Filtering) ──────
-            try:
-                from customer_mgmt import load_customers as _load_cust
-                _sb = st.session_state.get("supabase_client") or st.session_state.get("sb")
-                _cust_rows = _load_cust(st.session_state["user_id"], _sb) if _sb else []
-            except Exception:
-                _cust_rows = []
+            # (3) 고객 목록 로드: _get_sb_client() 직접 호출 (supabase_client 세션키 의존 제거)
+            # (4) 60초 TTL 캐시 — 매 rerun마다 Supabase 호출 방지
+            _uid_for_cust = st.session_state.get("user_id", "")
+            _cust_cache_key  = f"_cust_rows_{_uid_for_cust}"
+            _cust_cache_ts   = f"_cust_rows_ts_{_uid_for_cust}"
+            _cust_cache_valid = (
+                _cust_cache_key in st.session_state
+                and (time.time() - st.session_state.get(_cust_cache_ts, 0)) < 60
+            )
+            if _cust_cache_valid:
+                _cust_rows = st.session_state[_cust_cache_key]
+            else:
+                try:
+                    from customer_mgmt import load_customers as _load_cust
+                    _sb_cust = _get_sb_client() if _SB_PKG_OK else None
+                    _cust_rows = _load_cust(_uid_for_cust, _sb_cust) if (_sb_cust and _uid_for_cust) else []
+                    st.session_state[_cust_cache_key] = _cust_rows
+                    st.session_state[_cust_cache_ts]  = time.time()
+                except Exception:
+                    _cust_rows = st.session_state.get(_cust_cache_key, [])
 
             # 검색용 표시 목록: "이름 (생년월일)" 형식 — 생년월일은 profile.dob 또는 scan 값
             def _cust_label(row):
@@ -7994,6 +8154,10 @@ window.startSugSTT=function(){{
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
                 if st.button("🔍 검색", key="btn_cust_search", use_container_width=True, type="primary"):
                     st.session_state.pop("_home_selected_cust_label", None)
+                    # 고객 목록 캐시 무효화 (검색 버튼 클릭 시 최신 목록 로드)
+                    _uid_inv = st.session_state.get("user_id", "")
+                    st.session_state.pop(f"_cust_rows_{_uid_inv}", None)
+                    st.session_state.pop(f"_cust_rows_ts_{_uid_inv}", None)
                     st.rerun()
 
             # 선택된 고객 → scan_client_* 자동 로드
