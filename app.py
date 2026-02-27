@@ -9635,6 +9635,9 @@ section[data-testid="stMain"] > div,
 </style>
 """, unsafe_allow_html=True)
 
+        # 준비중 탭 목록 — 홈 카드에 🚧 배지 + 탭 진입 시 안내 배너
+        _WIP_TABS = {"policy_terms", "customer_docs", "digital_catalog"}
+
         def _render_cards(cards, prefix):
             import math as _math
             for row in range(_math.ceil(len(cards) / 2)):
@@ -9642,10 +9645,13 @@ section[data-testid="stMain"] > div,
                 for ci, col in enumerate([c1, c2]):
                     idx = row * 2 + ci
                     if idx >= len(cards): break
-                    _k, _ic, _ti, _de = cards[idx]
+                    _entry = cards[idx]
+                    _k, _ic, _ti, _de = _entry[0], _entry[1], _entry[2], _entry[3]
+                    _wip = _k in _WIP_TABS
+                    _wip_badge = " 🚧" if _wip else ""
                     with col:
                         if st.button(
-                            f"{_ic} {_ti}\n{_de.replace(chr(10), ' · ')}",
+                            f"{_ic} {_ti}{_wip_badge}\n{_de.replace(chr(10), ' · ')}",
                             key=f"{prefix}_{_k}",
                             use_container_width=True,
                         ):
@@ -9674,12 +9680,12 @@ section[data-testid="stMain"] > div,
 </div>""", unsafe_allow_html=True)
         _render_cards([
             ("policy_scan",       "📎", "보험증권 AI 분석",      "증권 PDF 업로드 · 담보 자동파싱 · 보장공백 진단"),
-            ("policy_terms",      "📜", "보험약관 AI 검색",      "공시실 실시간 탐색 · 가입시점 정확매칭"),
+            ("policy_terms",      "📜", "보험약관 AI 검색",      "공시실 실시간 탐색 · 가입시점 정확매칭 ※준비중"),
             ("scan_hub",          "🔬", "통합 스캔 허브",        "증권·의무기록·진단서 1회 업로드 → 전탭 자동활용"),
             ("leaflet",           "🗂️", "보험 리플렛 AI 분류",   "리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 저장"),
             ("consult_catalog",   "📖", "상담 카탈로그 열람",    "내가 올린 카탈로그 · PDF/이미지 뷰어 · 보험사별 분류"),
-            ("digital_catalog",   "📱", "디지털 카탈로그 관리",  "보험사 카탈로그 업로드·AI분류 · Public/Private 저장"),
-            ("customer_docs",     "👤", "고객자료 통합저장",     "의무기록·증권분석·청구서류 · 고객별 마인드맵 저장"),
+            ("digital_catalog",   "📱", "디지털 카탈로그 관리",  "보험사 카탈로그 업로드·AI분류 · Public/Private 저장 ※준비중"),
+            ("customer_docs",     "👤", "고객자료 통합저장",     "의무기록·증권분석·청구서류 · 고객별 마인드맵 저장 ※준비중"),
         ], "home_grpA")
 
         # ── 도메인 B: Expert Consulting (에메랄드그린) ─────────────────────
@@ -19156,6 +19162,22 @@ END; $$;""", language="sql")
         if not _auth_gate("policy_terms"): st.stop()
         tab_home_btn("policy_terms")
 
+        # ── 준비중 안내 배너 ──────────────────────────────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:12px;
+  padding:14px 18px;margin-bottom:14px;border:2px solid #fb923c;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:1.8rem;">🚧</span>
+    <div>
+      <div style="color:#fff;font-size:1.0rem;font-weight:900;">준비중 기능입니다</div>
+      <div style="color:#fed7aa;font-size:0.80rem;margin-top:3px;">
+        보험약관 AI 검색(공시실 실시간 탐색)은 현재 안정화 작업 중입니다.<br>
+        빠른 시일 내 정식 오픈 예정이며, 이용에 불편을 드려 죄송합니다.
+      </div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
         # ── 브랜드 헤더 ──────────────────────────────────────────────────
         st.markdown("""
 <div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 40%,#1e6fa8 80%,#3a9bd5 100%);
@@ -19589,6 +19611,23 @@ END; $$;""", language="sql")
     if cur == "customer_docs":
         if not _auth_gate("customer_docs"): st.stop()
         tab_home_btn("customer_docs")
+
+        # ── 준비중 안내 배너 ──────────────────────────────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:12px;
+  padding:14px 18px;margin-bottom:14px;border:2px solid #fb923c;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:1.8rem;">🚧</span>
+    <div>
+      <div style="color:#fff;font-size:1.0rem;font-weight:900;">준비중 기능입니다</div>
+      <div style="color:#fed7aa;font-size:0.80rem;margin-top:3px;">
+        고객자료 통합저장은 현재 안정화 작업 중입니다.<br>
+        빠른 시일 내 정식 오픈 예정이며, 이용에 불편을 드려 죄송합니다.
+      </div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
         st.markdown("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
@@ -20001,6 +20040,22 @@ END; $$;""", language="sql")
     if cur == "digital_catalog":
         if not _auth_gate("digital_catalog"): st.stop()
         tab_home_btn("digital_catalog")
+
+        # ── 준비중 안내 배너 ──────────────────────────────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:12px;
+  padding:14px 18px;margin-bottom:14px;border:2px solid #fb923c;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:1.8rem;">🚧</span>
+    <div>
+      <div style="color:#fff;font-size:1.0rem;font-weight:900;">준비중 기능입니다</div>
+      <div style="color:#fed7aa;font-size:0.80rem;margin-top:3px;">
+        디지털 카탈로그 관리(Hybrid RAG 개인문서)는 현재 백엔드 연동 작업 중입니다.<br>
+        빠른 시일 내 정식 오픈 예정이며, 이용에 불편을 드려 죄송합니다.
+      </div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
 
         # ── 브랜드 헤더 ──────────────────────────────────────────────────
         st.markdown("""
