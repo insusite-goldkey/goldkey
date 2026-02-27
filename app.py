@@ -11672,6 +11672,193 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 st.session_state["current_tab"] = "t3"
                 st.rerun()
 
+        # ── 상해 디멘드 참고사항 ─────────────────────────────────────────
+        with st.expander("📚 상해 디멘드 참고사항 — KCD 코드 체계·코드 전환·분쟁 실무", expanded=False):
+            components.html("""
+<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.80rem;
+  line-height:1.85;color:#1a1a2e;padding:4px 2px;">
+
+<!-- ═══════════════ PART 1 ═══════════════ -->
+<div style="background:#1a3a5c;color:#fff;border-radius:8px 8px 0 0;
+  padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;">
+  PART 1 &nbsp;|&nbsp; 상해사고 × KCD 코드 상관관계 &amp; S·T → M 전환 메커니즘
+</div>
+<div style="background:#f4f8ff;border:1px solid #b3c8e8;border-top:none;
+  border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:14px;">
+
+  <b style="color:#1a3a5c;">1. 코드 체계 한눈에 보기</b><br>
+  <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
+    <tr style="background:#2e6da4;color:#fff;">
+      <th style="padding:4px 8px;border:1px solid #1a4a7a;width:12%;">코드</th>
+      <th style="padding:4px 8px;border:1px solid #1a4a7a;width:28%;">분류명</th>
+      <th style="padding:4px 8px;border:1px solid #1a4a7a;">보험 실무 의미</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#e74c3c;">S</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">신체 부위별 손상</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">상해보험금 청구 1차 인정 코드 (예: S82.2 경골골절)</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#e74c3c;">T</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">중독·외인 특정 결과</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">화상·중독·다발성 외상 등 (예: T20 화상)</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#27ae60;">M</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">근골격계·결합조직 질환</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">원칙적 '질병' → 보험사 상해 지급 거절 근거</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#8e44ad;">V·W·X·Y</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">외인(사고 원인)</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">사고 경위 코드 — 단독 청구 불가, S/T와 병기</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#555;">Z</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">건강상태·보건서비스</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">후속 추적 관찰 코드 — 장해 판정 이후 혼용</td>
+    </tr>
+  </table>
+
+  <b style="color:#c0392b;">⚠️ 핵심 법리 (대법원 98다158)</b><br>
+  진단서 코드보다 <b>'사고의 외래성'</b>과 <b>'신체 손상 간 상당인과관계'</b>가 판단 우선순위.<br>
+  → M코드라도 인과관계 입증 시 상해 인정 가능.<br><br>
+
+  <b style="color:#1a3a5c;">2. S·T → M 전환 3대 원인</b><br>
+  <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
+    <tr style="background:#2e6da4;color:#fff;">
+      <th style="padding:4px 8px;border:1px solid #1a4a7a;width:22%;">원인</th>
+      <th style="padding:4px 8px;border:1px solid #1a4a7a;">메커니즘</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:700;">① 퇴행성 병변 개입</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">MRI에서 이미 노화성 변성 발견 → 의사가 M코드 부여 (예: M51 추간판탈출증, M75 회전근개)</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:700;">② 증상 고착 (6개월)</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">보험약관상 장해 판정 기점(사고 후 6개월). 급성기(S) 치유 후 만성 통증·기능장애 잔존 → M코드 전환</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:700;">③ 의료법 제18조</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">의사는 현재 주된 병변 기준으로 진단서 작성 의무 → 6개월 후 염증·퇴행이 주병변이면 M 부여 불가피</td>
+    </tr>
+  </table>
+
+  <b style="color:#1a3a5c;">3. 기여도 공제 법리 (표준약관 제7조)</b><br>
+  기왕증이 손상을 악화시킨 경우 → <b>사고 기여도만큼만 보상</b> (통상 20~50% 범위 결정).<br>
+  → 금감원·대법원 모두 "기여도 감액 후 지급" 원칙 적용.<br><br>
+
+  <b style="color:#27ae60;">✅ 피보험자 대응 전략 4단계</b>
+  <ol style="margin:4px 0 0 14px;padding:0;">
+    <li><b>사고 직후 초진 차트·영상 보존</b> — 급성 외상 소견(부종·신호강도 변화) 결정적 증거</li>
+    <li><b>사고 前 증상 부재 입증</b> — 과거 병력 조회로 기왕증 없음 확인</li>
+    <li><b>외상 기여도 소견서 확보</b> — 주치의에게 사고 기여도(%) 명기 요청</li>
+    <li><b>코드 병기 요청</b> — S코드(손상) + M코드(현 상태) 진단서 병기 가능 여부 확인</li>
+  </ol>
+</div>
+
+<!-- ═══════════════ PART 2 ═══════════════ -->
+<div style="background:#7d3c00;color:#fff;border-radius:8px 8px 0 0;
+  padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;margin-top:4px;">
+  PART 2 &nbsp;|&nbsp; 고빈도 분쟁 부위 — 허리 디스크(M51) · 어깨 회전근개(M75)
+</div>
+<div style="background:#fff8f0;border:1px solid #f5d5a0;border-top:none;
+  border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:8px;">
+
+  <!-- 허리 디스크 -->
+  <b style="color:#7d3c00;font-size:0.83rem;">🦴 허리 디스크 (추간판탈출증 M51)</b><br>
+  <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
+    <tr style="background:#e67e22;color:#fff;">
+      <th style="padding:4px 8px;border:1px solid #c0621c;width:30%;">장해 등급 (통합약관)</th>
+      <th style="padding:4px 8px;border:1px solid #c0621c;width:12%;">지급률</th>
+      <th style="padding:4px 8px;border:1px solid #c0621c;">인정 요건</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;">심한 추간판탈출증</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#c0392b;">20%</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">마미신경증후군 → 하지 마비 또는 대소변 장해</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 8px;border:1px solid #ddd;">뚜렷한 추간판탈출증</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#e67e22;">15%</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">수술 후에도 신경증상 잔존 OR 수술 없이 뚜렷한 마비</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;">약간의 추간판탈출증</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#27ae60;">10%</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">단순 신경증상(저림·통증) 잔존</td>
+    </tr>
+  </table>
+  <b style="color:#c0392b;">주요 판례 (대법원 2002다3040)</b><br>
+  사고 전 퇴행성 소인이 있어도 <b>사고로 급격 악화</b>되었다면 기여도 분담 보상.<br>
+  입증 책임: 보험사(M코드·노화 주장) vs 피보험자(급성 외상 MRI 소견 제출).<br>
+  사고 관여도 통상 <b>20~50%</b> 범위 내 결정.<br><br>
+
+  <!-- 어깨 회전근개 -->
+  <b style="color:#7d3c00;font-size:0.83rem;">🦾 어깨 회전근개 파열 (M75)</b><br>
+  <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
+    <tr style="background:#e67e22;color:#fff;">
+      <th style="padding:4px 8px;border:1px solid #c0621c;width:30%;">장해 등급</th>
+      <th style="padding:4px 8px;border:1px solid #c0621c;width:12%;">지급률</th>
+      <th style="padding:4px 8px;border:1px solid #c0621c;">인정 요건 (운동범위 기준)</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;">한 팔 기능 완전 상실</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#c0392b;">30%</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">완전 마비 또는 관절 강직</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 8px;border:1px solid #ddd;">팔 뚜렷한 장해</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#e67e22;">10%</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">정상 운동범위 <b>1/2 이하</b> 제한</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;">팔 약간의 장해</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#27ae60;">5%</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">정상 운동범위 <b>3/4 이하</b> 제한</td>
+    </tr>
+  </table>
+  <b style="color:#c0392b;">금감원 분쟁조정 제2014-4호</b><br>
+  50대 이상은 외상 없이도 자연 파열 가능 → 명백한 외력(고소 추락·교통사고) 미입증 시 <b>질병으로 판정</b>.<br>
+  단, 사고 전 치료력 없음 + 사고 강도 충분 → S코드 인정·상해보험금 지급 판결 추세.<br><br>
+
+  <!-- 공통 쟁점 -->
+  <div style="background:#fff0e0;border:1px solid #e8a87c;border-radius:7px;
+    padding:8px 12px;margin-top:6px;font-size:0.77rem;">
+    <b style="color:#7d3c00;">⚖️ AMA vs 맥브라이드 방식 선택 기준</b><br>
+    <table style="width:100%;border-collapse:collapse;margin:5px 0 0 0;font-size:0.75rem;">
+      <tr style="background:#e67e22;color:#fff;">
+        <th style="padding:3px 7px;border:1px solid #c0621c;width:20%;">방식</th>
+        <th style="padding:3px 7px;border:1px solid #c0621c;width:28%;">적용 상황</th>
+        <th style="padding:3px 7px;border:1px solid #c0621c;">허리·어깨 장해 특이사항</th>
+      </tr>
+      <tr style="background:#fff;">
+        <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">AMA (개인보험)</td>
+        <td style="padding:3px 7px;border:1px solid #ddd;">생명·손보 표준약관</td>
+        <td style="padding:3px 7px;border:1px solid #ddd;">운동범위 제한율 × 지급률 — 퇴행성 포함 전체 기능 기준</td>
+      </tr>
+      <tr style="background:#f8f8f8;">
+        <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">맥브라이드</td>
+        <td style="padding:3px 7px;border:1px solid #ddd;">산재·일부 손보사·법원</td>
+        <td style="padding:3px 7px;border:1px solid #ddd;">직업계수 반영 → 육체노동자 유리, 퇴행성 기여도 별도 감산</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 결론 요약 -->
+  <div style="background:#1a3a5c;color:#fff;border-radius:7px;
+    padding:8px 12px;margin-top:10px;font-size:0.77rem;line-height:1.8;">
+    <b>📌 실무 핵심 체크리스트</b><br>
+    ① 사고 직후 초진 MRI·X-ray <b>보존</b> (급성 외상 소견이 S코드 수호 열쇠)<br>
+    ② 6개월 이내 <b>장해 판정 준비</b> — M코드 고착 전 S코드 유지 기간 활용<br>
+    ③ 주치의 외상 기여도(%) 소견서 — 보험사 의료자문 대응 카드<br>
+    ④ 코드가 M으로 전환된 경우 → <b>'질병·상해 경합' 법리</b>로 인과관계 재입증<br>
+    ⑤ 금감원 분쟁조정 또는 독립 손해사정사 선임 (보험업법 제185조, 3영업일 이내)
+  </div>
+</div>
+
+</div>""", height=1080)
+
         st.stop()  # lazy-dispatch
 
     # ── [disability] 장해보험금 산출 ─────────────────────────────────────
