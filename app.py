@@ -10167,6 +10167,16 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                     _ps_vision_result = ""
                     _ssot_txt = st.session_state.get("ssot_full_text", "")
 
+                    # ── 파일 · SSOT 둘 다 없으면 조기 종료 ────────────────
+                    _ssot_covs = st.session_state.get("ssot_coverages", [])
+                    if not ps_files and not _ssot_txt and not _ssot_covs:
+                        st.warning(
+                            "⚠️ 분석할 증권 데이터가 없습니다.\n\n"
+                            "**📎 보험증권 PDF/이미지를 업로드**하거나, "
+                            "**스캔 허브**에서 먼저 증권을 스캔한 뒤 분석을 실행하세요."
+                        )
+                        st.stop()
+
                     if ps_files:
                         with st.spinner("🔍 증권 파일 분석 중 (스캔본은 Vision OCR 자동 적용)..."):
                             _vr = parse_policy_with_vision(ps_files)
@@ -10176,11 +10186,8 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                                     + json.dumps(_vr["coverages"], ensure_ascii=False, indent=2)
                                 )
                             # ── policy_info → ssot_policy_info 동기화
-                            # scan_hub 크롤링 버튼 표시 조건(_ssot_pi_card) 충족을 위해 저장
                             _vr_pi = _vr.get("policy_info") or {}
                             if not _vr_pi:
-                                # parse_policy_with_vision이 policy_info를 주지 않으면
-                                # 상품 선택값·고객명으로 최소 정보 채워서 저장
                                 _vr_pi = {
                                     "company":      "",
                                     "product_name": ps_product if ps_product != "선택 안 함 (전체 분석)" else "",
@@ -10192,6 +10199,11 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                                     st.warning(f"⚠️ 파싱 오류: {_ve}")
                     elif _ssot_txt:
                         _ps_doc_text = f"\n[스캔 허브 데이터]\n{_ssot_txt[:8000]}"
+                    elif _ssot_covs:
+                        _ps_doc_text = (
+                            "\n[스캔 허브 담보 목록]\n"
+                            + json.dumps(_ssot_covs, ensure_ascii=False, indent=2)
+                        )
 
                     _ps_prod_ctx = f"\n상담 상품: {ps_product}" if ps_product != "선택 안 함 (전체 분석)" else ""
                     _ps_dir_ctx  = f"\n상담 방향: {ps_direction}"
@@ -10437,10 +10449,205 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                     )
 
 
-                    # 상품 선택에 따라 전용 프롬프트 적용
-                    _is_driver_ins = "운전자보험" in ps_product
+                    # ── 암보험 전용 프롬프트 ────────────────────────────────
+                    _PS_CANCER_PROMPT = (
+                        _PS_COMMON_CRITERIA
+                        + """
+[암보험 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
 
-                    _ps_product_section = _PS_DRIVER_PROMPT if _is_driver_ins else _PS_GENERAL_PROMPT
+▶ 암보험 핵심 분석 포인트
+• 일반암 vs 유사암(소액암) 구분 — 진단비 차등 여부
+• 비급여 항암 담보: 표적항암(레이저·면역·CAR-T) 보장 여부
+• 고액암(혈액암·뇌암·췌장암 등) 별도 진단비 포함 여부
+• 암수술비·항암약물치료비 가입 여부
+• 갱신형 암보험: 재진단 갱신 시 보험료 폭등 위험
+• 실손과의 중복 여부 (비급여 항암은 실손으로 보완)
+
+▶▶ 출력 형식 (아래 순서대로 출력)
+
+[1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
+
+```json
+{
+  "coverages": [
+    {"category": "암 진단", "name": "일반암진단비", "recommended": "5,000만원", "enrolled": "3,000만원", "diff": "-2,000만원", "status": "부족"},
+    {"category": "암 진단", "name": "고액암진단비", "recommended": "2억이상", "enrolled": "0", "diff": "-2억", "status": "미가입"},
+    {"category": "암 진단", "name": "표적항암치료비", "recommended": "1억5,000만원이상", "enrolled": "0", "diff": "-1억5,000만원", "status": "미가입"}
+  ]
+}
+```
+※ status 값: "충분" | "부족" | "미가입". 증권에 없는 담보는 enrolled="0", status="미가입".
+※ 암 관련 담보 위주로 분석. 사망/실손 등은 보조적으로 포함.
+
+[2단계 — 서술형 전문가 의견]
+
+### 📋 총평
+[암보험 전문가 시각 3~4문장: 일반암·고액암·표적항암 커버리지 전체 수준, 비급여 항암 공백 여부, 갱신형 리스크]
+
+### ✅ 충분 항목
+[충족된 담보 나열 및 충분 이유 서술]
+
+### ⚠️ 불충분·공백 항목
+[미달·미가입 암 담보를 긴급도 순으로 나열. 특히 표적항암·고액암 공백의 재정적 위험 구체 서술]
+
+### 💡 전문가 권고
+[① 가장 시급한 보완 ② 갱신형→비갱신형 전환 검토 ③ 실손과의 조합 전략 순으로 3가지 번호 서술]
+"""
+                    )
+
+                    # ── 치매·간병보험 전용 프롬프트 ─────────────────────────
+                    _PS_DEMENTIA_PROMPT = (
+                        _PS_COMMON_CRITERIA
+                        + """
+[치매·간병보험 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
+
+▶ 치매·간병보험 핵심 분석 포인트
+• CDR 척도 기준: CDR1(경증)·CDR2(중등도)·CDR3(중증) 각각 보장 여부
+• 장기요양 등급 연계: 1~2등급 자동 지급 상품 vs 별도 진단 필요 상품
+• 간호간병입원일당: 일반병동(15만원)/통합병동(10만원) 수준 확인
+• 레킴비(알츠하이머 치료제) 비급여 비용 대비 표적치료비 담보 여부
+• 지정대리청구인 설정 여부 (치매 발병 후 본인 청구 불가 위험)
+• 납입면제 조건: 장기요양 등급 취득 시 보험료 면제 여부
+
+▶▶ 출력 형식 (아래 순서대로 출력)
+
+[1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
+
+```json
+{
+  "coverages": [
+    {"category": "치매/간병", "name": "경증치매진단비(CDR1)", "recommended": "3,000만원~5,000만원", "enrolled": "0", "diff": "-3,000만원", "status": "미가입"},
+    {"category": "치매/간병", "name": "중증치매진단비(CDR3)", "recommended": "5,000만원이상", "enrolled": "3,000만원", "diff": "-2,000만원", "status": "부족"},
+    {"category": "치매/간병", "name": "간호간병입원일당(일반병동)", "recommended": "15만원", "enrolled": "10만원", "diff": "-5만원", "status": "부족"}
+  ]
+}
+```
+※ status 값: "충분" | "부족" | "미가입". 치매·간병 담보 위주 분석.
+
+[2단계 — 서술형 전문가 의견]
+
+### 📋 총평
+[치매보험 전문가 시각 3~4문장: CDR 단계별 보장 구조 충족 여부, 간병비 현실 대비 일당 수준, 지정대리청구인 설정 여부]
+
+### ✅ 충분 항목
+[충족된 치매·간병 담보 나열 및 이유 서술]
+
+### ⚠️ 불충분·공백 항목
+[CDR1~3 단계 공백, 간병일당 부족분, 레킴비 등 비급여 치료 대비 부족 항목 구체 서술]
+
+### 💡 전문가 권고
+[① CDR1 경증 단계 보완 필요성 ② 지정대리청구인 즉시 설정 ③ 간병일당 현실화 방안 순으로 3가지 번호 서술]
+"""
+                    )
+
+                    # ── 실손의료비 전용 프롬프트 ─────────────────────────────
+                    _PS_SILSON_PROMPT = (
+                        _PS_COMMON_CRITERIA
+                        + """
+[실손의료보험 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
+
+▶ 실손의료비 핵심 분석 포인트
+• 세대 구분: 1세대(~2009)·2세대(2009~2017)·3세대(2017~2021)·4세대(2021~)
+  - 1·2세대: 비급여 100% 보장 / 3세대: 비급여 특약 분리 / 4세대: 비급여 자기부담 30~40%
+• 갱신 주기 및 차기 갱신 예상 인상률 확인
+• 도수치료·비급여 주사·MRI 특약 가입 여부 (3·4세대 분리특약)
+• 중복가입 여부 — 상법 제672조 비례보상 원칙 적용 (2건 중복 시 낭비)
+• 상급병실료(2인실 이상) 보장 포함 여부
+
+▶▶ 출력 형식 (아래 순서대로 출력)
+
+[1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
+
+```json
+{
+  "coverages": [
+    {"category": "실손의료비", "name": "상해입원의료비(실손)", "recommended": "가입필수", "enrolled": "4세대 가입", "diff": "-", "status": "충분"},
+    {"category": "실손의료비", "name": "비급여도수치료특약", "recommended": "가입권장", "enrolled": "0", "diff": "미가입", "status": "미가입"},
+    {"category": "실손의료비", "name": "비급여MRI특약", "recommended": "가입권장", "enrolled": "0", "diff": "미가입", "status": "미가입"}
+  ]
+}
+```
+※ 실손은 금액 비교보다 세대·특약 유무·갱신위험이 핵심. recommended에 "가입필수"/"가입권장" 사용 가능.
+
+[2단계 — 서술형 전문가 의견]
+
+### 📋 총평
+[실손 세대 확인 결과, 자기부담금 구조, 갱신 위험, 비급여 특약 커버리지 전반 3~4문장]
+
+### ✅ 충분 항목
+[충족된 실손 담보 및 보장 항목]
+
+### ⚠️ 불충분·공백 항목
+[비급여 특약 누락, 구실손 갱신 리스크, 자기부담금 과다 항목 구체 서술]
+
+### 💡 전문가 권고
+[① 세대별 전환/유지 전략 ② 비급여 특약 보완 ③ 중복가입 정리 방안 순으로 3가지 번호 서술]
+"""
+                    )
+
+                    # ── 뇌혈관·심장 전용 프롬프트 ───────────────────────────
+                    _PS_BRAIN_HEART_PROMPT = (
+                        _PS_COMMON_CRITERIA
+                        + """
+[뇌혈관·심장보험 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
+
+▶ 뇌혈관·심장 핵심 분석 포인트
+• 뇌혈관질환(광의) vs 뇌졸중(협의) vs 뇌출혈(최협의): 보장 범위 단계별 확인
+• 허혈성심장질환(광의) vs 급성심근경색증(협의): 진단 범위 차이 인지
+• 권장: 뇌졸중 5,000만↑ / 급성심근경색 3,000만↑ / 심장질환 5,000만↑
+• 뇌·심장 수술비 1,000만원 이상 별도 가입 여부
+• 가족력(중풍·심근경색) 있을 경우 간병보험 추가 권고
+
+▶▶ 출력 형식 (아래 순서대로 출력)
+
+[1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
+
+```json
+{
+  "coverages": [
+    {"category": "뇌/심장 진단", "name": "뇌졸중진단비", "recommended": "5,000만원이상", "enrolled": "2,000만원", "diff": "-3,000만원", "status": "부족"},
+    {"category": "뇌/심장 진단", "name": "급성심근경색증진단비", "recommended": "3,000만원이상", "enrolled": "0", "diff": "-3,000만원", "status": "미가입"},
+    {"category": "수술/입원", "name": "뇌혈관질환수술비", "recommended": "1,000만원", "enrolled": "500만원", "diff": "-500만원", "status": "부족"}
+  ]
+}
+```
+※ 뇌·심장 관련 담보 위주 분석. status: "충분"|"부족"|"미가입".
+
+[2단계 — 서술형 전문가 의견]
+
+### 📋 총평
+[뇌·심장 전문가 시각 3~4문장: 광의/협의 보장범위 커버리지, 진단비 수준 대비 실제 치료비, 가족력 리스크]
+
+### ✅ 충분 항목
+[충족된 뇌·심장 담보 나열 및 이유 서술]
+
+### ⚠️ 불충분·공백 항목
+[뇌졸중·심근경색·심장질환 공백 항목과 실제 치료비 대비 부족분 구체 서술]
+
+### 💡 전문가 권고
+[① 가장 시급한 뇌·심장 담보 보완 ② 광의→협의 보장범위 전략 ③ 가족력 고려 간병보험 연계 방안 순으로 3가지 번호 서술]
+"""
+                    )
+
+                    # 상품 선택에 따라 전용 프롬프트 적용
+                    _is_driver_ins   = "운전자보험" in ps_product
+                    _is_cancer_ins   = ps_product in ("암보험",)
+                    _is_dementia_ins = ps_product in ("치매·간병보험",)
+                    _is_silson_ins   = ps_product in ("실손보험 (실비)",)
+                    _is_brainheart   = ps_product in ("뇌혈관·심장보험",)
+
+                    if _is_driver_ins:
+                        _ps_product_section = _PS_DRIVER_PROMPT
+                    elif _is_cancer_ins:
+                        _ps_product_section = _PS_CANCER_PROMPT
+                    elif _is_dementia_ins:
+                        _ps_product_section = _PS_DEMENTIA_PROMPT
+                    elif _is_silson_ins:
+                        _ps_product_section = _PS_SILSON_PROMPT
+                    elif _is_brainheart:
+                        _ps_product_section = _PS_BRAIN_HEART_PROMPT
+                    else:
+                        _ps_product_section = _PS_GENERAL_PROMPT
 
                     _ps_full_prompt = (
                         _PS_SYSTEM
@@ -10566,17 +10773,31 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
             if _res_ps:
                 import re as _re, json as _json
 
-                # ── JSON 블록 추출 ────────────────────────────────────────
+                # ── JSON 블록 추출 (중첩 중괄호 안전 파싱) ───────────────
                 _ps_json_data = None
-                _ps_json_match = _re.search(
-                    r'```json\s*(\{.*?\})\s*```',
-                    _res_ps, _re.DOTALL
-                )
+                # 1차: ```json ... ``` 블록에서 최외곽 { } 추출
+                _ps_json_match = _re.search(r'```json\s*(\{[\s\S]*?\})\s*```', _res_ps)
                 if _ps_json_match:
+                    _raw_json = _ps_json_match.group(1)
+                    # 중첩 괄호 균형 맞추기: 첫 { 부터 균형 잡힌 } 까지만 추출
                     try:
-                        _ps_json_data = _json.loads(_ps_json_match.group(1))
+                        _depth = 0
+                        _start = _raw_json.index('{')
+                        _end = _start
+                        for _ci, _ch in enumerate(_raw_json[_start:], _start):
+                            if _ch == '{': _depth += 1
+                            elif _ch == '}':
+                                _depth -= 1
+                                if _depth == 0:
+                                    _end = _ci + 1
+                                    break
+                        _ps_json_data = _json.loads(_raw_json[_start:_end])
                     except Exception:
-                        _ps_json_data = None
+                        # 2차 fallback: 전체 블록 직접 파싱
+                        try:
+                            _ps_json_data = _json.loads(_raw_json)
+                        except Exception:
+                            _ps_json_data = None
 
                 # ── JSON 성공 시: KB 스타일 담보 진단 렌더링 ─────────────
                 if _ps_json_data and _ps_json_data.get("coverages"):
