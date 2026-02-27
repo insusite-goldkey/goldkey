@@ -10123,390 +10123,411 @@ section[data-testid="stMain"] > div,
             st.session_state["gs_c_name"] = _effective_name
             st.session_state["current_c_name"] = _effective_name
 
-        # 등록고객 여부 표시
+        # ══════════════════════════════════════════════════════════════════
+        # ★ 고객 정보 통합 센터 (최상단 고정)
+        # ══════════════════════════════════════════════════════════════════
         if _effective_name != "익명 고객":
             _ana_count = len(_reg[_effective_name]["analyses"])
             _crm_init(_reg, _effective_name)
-            _badge = "🟢 등록고객" if _reg[_effective_name].get("registered") else "🔵 임시고객"
-            if _ana_count > 0:
-                st.caption(f"📋 {_effective_name}님 — 누적 분석 **{_ana_count}회** | {_badge}")
-            else:
-                st.caption(f"👤 {_effective_name}님 | {_badge}")
-
-        # ── CRM 지능형 토글 시스템 ─────────────────────────────────────────
-        if _effective_name != "익명 고객":
-            _crm_init(_reg, _effective_name)
             _crm_p = crm_get_profile(_reg, _effective_name)
-
-            # ══ ENTITY TOGGLE: 개인 / 법인대표 ══════════════════════════════
-            # CSS 슬라이드 토글 스타일
-            components.html("""
-<style>
-.ent-toggle-wrap{display:flex;align-items:center;gap:10px;margin:6px 0 2px 0;}
-.ent-toggle-label{font-size:0.82rem;font-weight:700;color:#1a3a5c;}
-.ent-toggle-label.active{color:#e65c00;}
-</style>
-<div class="ent-toggle-wrap">
-  <span class="ent-toggle-label" id="lbl_personal" style="color:#2e6da4;font-weight:900;">👤 개인</span>
-  <span style="font-size:0.75rem;color:#aaa;">|</span>
-  <span class="ent-toggle-label" id="lbl_corp">🏢 법인대표</span>
-</div>""", height=36)
-
-            _saved_entity = _crm_p.get("entity_type", "개인")
-            _entity_type = st.radio(
-                "고객 유형",
-                ["👤 개인", "🏢 법인대표"],
-                index=0 if _saved_entity == "개인" else 1,
-                key="t0_entity_toggle",
-                horizontal=True,
-                label_visibility="collapsed",
-                help="법인대표 선택 시 법인 정보 입력 섹션이 확장됩니다"
-            )
-            _is_corp_mode = (_entity_type == "🏢 법인대표")
-
-            # ══ ZONE A: 법인대표 모드 — 동적 확장 섹션 ══════════════════════
-            _pf_company   = _crm_p.get("company", "")
-            _pf_title     = _crm_p.get("title", "")
-            _pf_is_ceo    = _crm_p.get("is_ceo", False)
-            _pf_biz_no    = _crm_p.get("biz_no", "")
-            _pf_biz_addr  = _crm_p.get("biz_addr", "")
-            _pf_family_raw= ", ".join(_crm_p.get("family", []))
-            _pf_phone     = _crm_p.get("phone", "")
-            _pf_carrier   = _crm_p.get("carrier", "")
-            _pf_referrer  = _crm_p.get("referrer", "")
-            _pf_affinity  = _crm_p.get("affinity", "")
-            _pf_memo      = _crm_p.get("memo", "")
-
-            if _is_corp_mode:
-                # 법인 정보 — 동적 확장 (항상 표시)
-                st.markdown(
-                    "<div style='background:linear-gradient(90deg,#fff8e1,#fff3cd);"
-                    "border-left:4px solid #f59e0b;border-radius:6px;"
-                    "padding:8px 12px;margin:4px 0 8px 0;font-size:0.8rem;color:#92400e;'>"
-                    "🏢 <b>법인대표 모드</b> — 법인 정보 입력 후 저장하면 AI가 <b>CEO플랜(경영인정기)</b>을 자동 검토합니다"
-                    "</div>", unsafe_allow_html=True
-                )
-                _corp_c1, _corp_c2 = st.columns([3, 2])
-                with _corp_c1:
-                    _pf_company = st.text_input(
-                        "🏢 법인명", value=_crm_p.get("company", ""),
-                        key="t0_pf_company", max_chars=80,
-                        placeholder="예) (주)삼성전자",
-                        help="같은 법인 소속 고객 자동 그룹화"
-                    )
-                    _pf_biz_no = st.text_input(
-                        "사업자등록번호", value=_crm_p.get("biz_no", ""),
-                        key="t0_pf_biz_no", max_chars=12,
-                        placeholder="000-00-00000"
-                    )
-                with _corp_c2:
-                    _TITLE_OPTIONS = ["대표이사", "공동대표", "이사", "감사", "부장", "차장", "과장", "대리", "사원", "직원", "직접 입력"]
-                    _saved_title = _crm_p.get("title", "")
-                    _title_sel = st.selectbox(
-                        "직위",
-                        _TITLE_OPTIONS,
-                        index=(_TITLE_OPTIONS.index(_saved_title) if _saved_title in _TITLE_OPTIONS else len(_TITLE_OPTIONS)-1),
-                        key="t0_pf_title_sel"
-                    )
-                    if _title_sel == "직접 입력":
-                        _pf_title = st.text_input(
-                            "직위 직접 입력",
-                            value=_saved_title if _saved_title not in _TITLE_OPTIONS else "",
-                            key="t0_pf_title", max_chars=30, placeholder="예) 전무이사"
-                        )
-                    else:
-                        _pf_title = _title_sel
-                    _pf_is_ceo = st.checkbox(
-                        "👑 대표이사 (법인 연동)",
-                        value=bool(_crm_p.get("is_ceo", False)),
-                        key="t0_pf_is_ceo",
-                        help="법인 노드에 대표이사로 연동"
-                    )
-                _pf_biz_addr = st.text_input(
-                    "🏠 회사 주소", value=_crm_p.get("biz_addr", ""),
-                    key="t0_pf_biz_addr", max_chars=100,
-                    placeholder="예) 서울시 강남구 테헤란로 123"
-                )
-                # 같은 법인 소속 고객 자동 리스트업
-                if _pf_company or _crm_p.get("company"):
-                    _search_corp = normalize_corp_name(_pf_company or _crm_p.get("company", ""))
-                    _corp_peers = [
-                        n for n, nd in _reg.items()
-                        if n not in ("", "익명 고객", _effective_name)
-                        and normalize_corp_name(nd.get("profile", {}).get("company", "")) == _search_corp
-                        and _search_corp
-                    ]
-                    if _corp_peers:
-                        _peer_tags = []
-                        for _pn in _corp_peers[:8]:
-                            _pp = _reg[_pn].get("profile", {})
-                            _peer_tags.append(
-                                f"{'👑' if _pp.get('is_ceo') else '👤'} **{_pn}** ({_pp.get('title','소속')})"
-                            )
-                        st.info("🏢 **동일 법인 구성원**: " + " | ".join(_peer_tags))
-
-            else:
-                # 개인 모드 — 가족 관계 입력
-                _pf_family_raw = st.text_input(
-                    "👨‍👩‍👧 가족 구성원 (이름(관계), 쉼표 구분)",
-                    value=", ".join(_crm_p.get("family", [])),
-                    key="t0_pf_family", max_chars=200,
-                    placeholder="예) 홍길순(배우자), 홍민준(자녀), 홍갑동(부)",
-                    help="입력된 가족은 자동 양방향 연결 — 가족 이름 검색 시 함께 표시"
-                )
-
-            # ══ ZONE B: 연락처 (모든 유형 공통) ═══════════════════════════
-            _ct_c1, _ct_c2 = st.columns([3, 2])
-            with _ct_c1:
-                _pf_phone = st.text_input(
-                    "📱 휴대폰", value=_crm_p.get("phone", ""),
-                    key="t0_pf_phone", max_chars=20, placeholder="010-0000-0000"
-                )
-            with _ct_c2:
-                _CARRIERS = ["─ 통신사 선택 ─", "SKT", "KT", "LG U+", "SKT 알뜰폰", "KT 알뜰폰", "LG 알뜰폰"]
-                _saved_carrier = _crm_p.get("carrier", "─ 통신사 선택 ─")
-                _pf_carrier = st.selectbox(
-                    "통신사", _CARRIERS,
-                    index=(_CARRIERS.index(_saved_carrier) if _saved_carrier in _CARRIERS else 0),
-                    key="t0_pf_carrier"
-                )
-                if _pf_carrier == "─ 통신사 선택 ─":
-                    _pf_carrier = ""
-
-            # ══ ZONE C: 소개자/연고 토글 (Relationship Toggle) ═════════════
-            _known_names = [n for n in _reg.keys() if n not in ("", "익명 고객", _effective_name)]
-            _rel_toggle = st.toggle(
-                "🤝 소개자 / 연고인 연결",
-                value=bool(_crm_p.get("referrer") or _crm_p.get("affinity")),
-                key="t0_rel_toggle"
-            )
-            if _rel_toggle:
-                _rel_c1, _rel_c2 = st.columns(2)
-                with _rel_c1:
-                    # 소개자 자동완성 — 기존 고객 검색 + 직접 입력
-                    _saved_ref = _crm_p.get("referrer", "")
-                    _ref_search = st.text_input(
-                        "🤝 소개자 검색",
-                        value=_saved_ref,
-                        key="t0_ref_search",
-                        placeholder="이름 일부 입력 → 후보 선택",
-                        max_chars=60
-                    )
-                    # 자동완성 후보
-                    _ref_candidates = [
-                        n for n in _known_names
-                        if _ref_search and _ref_search.lower() in n.lower()
-                    ] if _ref_search else []
-                    if _ref_candidates:
-                        _ref_pick = st.selectbox(
-                            "소개자 후보", ["직접 입력으로 확정"] + _ref_candidates,
-                            key="t0_ref_pick"
-                        )
-                        _pf_referrer = _ref_search if _ref_pick == "직접 입력으로 확정" else _ref_pick
-                    else:
-                        _pf_referrer = _ref_search
-                    # 소개자 프로필 링크 표시
-                    if _pf_referrer and _pf_referrer in _reg:
-                        _rp = crm_get_profile(_reg, _pf_referrer)
-                        _rp_tags = []
-                        if _rp.get("company"): _rp_tags.append(f"🏢{_rp['company']}")
-                        if _rp.get("title"): _rp_tags.append(f"💼{_rp['title']}")
-                        if _rp.get("is_ceo"): _rp_tags.append("👑대표")
-                        _rp_str = " · ".join(_rp_tags) or "등록 고객"
-                        _lnk_col1, _lnk_col2 = st.columns([4, 1])
-                        with _lnk_col1:
-                            st.caption(f"🔗 소개자: **{_pf_referrer}** — {_rp_str}")
-                        with _lnk_col2:
-                            if st.button("이동", key="t0_ref_goto", help=f"{_pf_referrer} 고객으로 전환"):
-                                st.session_state["t0_cname"] = _pf_referrer
-                                st.session_state["gs_c_name"] = _pf_referrer
-                                st.rerun()
-                with _rel_c2:
-                    _saved_aff = _crm_p.get("affinity", "")
-                    _aff_search = st.text_input(
-                        "📌 연고인 검색",
-                        value=_saved_aff,
-                        key="t0_aff_search",
-                        placeholder="직장·학교·지인·교회 등 연고",
-                        max_chars=60
-                    )
-                    _aff_candidates = [
-                        n for n in _known_names
-                        if _aff_search and _aff_search.lower() in n.lower()
-                    ] if _aff_search else []
-                    if _aff_candidates:
-                        _aff_pick = st.selectbox(
-                            "연고인 후보", ["직접 입력으로 확정"] + _aff_candidates,
-                            key="t0_aff_pick"
-                        )
-                        _pf_affinity = _aff_search if _aff_pick == "직접 입력으로 확정" else _aff_pick
-                    else:
-                        _pf_affinity = _aff_search
-                    if _pf_affinity and _pf_affinity in _reg:
-                        _ap = crm_get_profile(_reg, _pf_affinity)
-                        _ap_str = _ap.get("company", "") or "등록 고객"
-                        _al1, _al2 = st.columns([4, 1])
-                        with _al1:
-                            st.caption(f"🔗 연고인: **{_pf_affinity}** — {_ap_str}")
-                        with _al2:
-                            if st.button("이동", key="t0_aff_goto", help=f"{_pf_affinity} 고객으로 전환"):
-                                st.session_state["t0_cname"] = _pf_affinity
-                                st.session_state["gs_c_name"] = _pf_affinity
-                                st.rerun()
-
-            # ══ ZONE D: 메모 (접기/펴기) ═══════════════════════════════════
-            _memo_toggle = st.toggle(
-                "📝 메모 입력",
-                value=bool(_crm_p.get("memo")),
-                key="t0_memo_toggle"
-            )
-            if _memo_toggle:
-                _pf_memo = st.text_area(
-                    "자유 메모", value=_crm_p.get("memo", ""),
-                    key="t0_pf_memo", max_chars=400, height=72,
-                    placeholder="특이사항, 건강정보, 직업, 관심사 등",
-                    label_visibility="collapsed"
-                )
-
-            # ══ 저장 버튼 ══════════════════════════════════════════════════
-            _sv_c1, _sv_c2 = st.columns([1, 1])
-            with _sv_c1:
-                if st.button("💾 고객 정보 저장", key="t0_pf_save", type="primary", use_container_width=True):
-                    _fam_list, _fam_rel = [], {}
-                    for _fp in _pf_family_raw.split(","):
-                        _fp = _fp.strip()
-                        if not _fp:
-                            continue
-                        _m = re.match(r"^(.+?)\((.+?)\)$", _fp)
-                        if _m:
-                            _fn, _fr = _m.group(1).strip(), _m.group(2).strip()
-                        else:
-                            _fn, _fr = _fp, "가족"
-                        if _fn:
-                            _fam_list.append(_fn)
-                            _fam_rel[_fn] = _fr
-                    crm_set_profile(
-                        _reg, _effective_name,
-                        entity_type="법인대표" if _is_corp_mode else "개인",
-                        company=_pf_company.strip() if _is_corp_mode else "",
-                        title=_pf_title.strip() if isinstance(_pf_title, str) else "",
-                        is_ceo=bool(_pf_is_ceo) if _is_corp_mode else False,
-                        biz_no=_pf_biz_no.strip() if _is_corp_mode else "",
-                        biz_addr=_pf_biz_addr.strip() if _is_corp_mode else "",
-                        family=_fam_list,
-                        family_rel=_fam_rel,
-                        phone=_pf_phone.strip(),
-                        carrier=_pf_carrier,
-                        referrer=_pf_referrer.strip() if (_rel_toggle and isinstance(_pf_referrer, str)) else _crm_p.get("referrer", ""),
-                        affinity=_pf_affinity.strip() if (_rel_toggle and isinstance(_pf_affinity, str)) else _crm_p.get("affinity", ""),
-                        memo=_pf_memo.strip() if (_memo_toggle and isinstance(_pf_memo, str)) else _crm_p.get("memo", ""),
-                    )
-                    st.session_state["gk_client_registry"] = _reg
-                    # ── Supabase 영구 저장 ──────────────────────────────
-                    _sv_uid = st.session_state.get("user_id", "")
-                    crm_save_one(_reg, _effective_name, _sv_uid)
-                    # 가족/소개 역방향 엣지도 함께 저장
-                    for _edge_name in _fam_list + ([_pf_referrer] if _pf_referrer and _pf_referrer in _reg else []):
-                        crm_save_one(_reg, _edge_name, _sv_uid)
-                    _sb_ok = _get_sb_client() is not None
-                    st.success("✅ 저장 완료" + (" · ☁️ DB 반영" if _sb_ok else " (오프라인 — 세션에만 저장)"))
-                    st.rerun()
-            with _sv_c2:
-                # 등록 고객 확정 버튼
-                if st.button(
-                    "🟢 등록고객 확정" if not _reg[_effective_name].get("registered") else "✅ 등록고객",
-                    key="t0_pf_register", use_container_width=True,
-                    disabled=_reg[_effective_name].get("registered", False)
-                ):
-                    _reg[_effective_name]["registered"] = True
-                    st.session_state["gk_client_registry"] = _reg
-                    crm_save_one(_reg, _effective_name, st.session_state.get("user_id", ""))
-                    st.success(f"🟢 {_effective_name}님이 등록고객으로 확정되었습니다.")
-                    st.rerun()
-
-            # ══ 연관 고객 네트워크 현황 ════════════════════════════════════
-            _rel = crm_get_related(_reg, _effective_name)
-            _has_rel = any([
-                _rel["corp_members"], _rel["ceo_of"], _rel["referred_by"],
-                _rel["referrals"], _rel["family"], _rel["affinity"]
+            _badge = "🟢 등록고객" if _reg[_effective_name].get("registered") else "🔵 임시고객"
+            _has_profile = any([
+                _crm_p.get("company"), _crm_p.get("phone"), _crm_p.get("dob"),
+                _crm_p.get("family"), _crm_p.get("referrer"), _crm_p.get("ins_list"),
             ])
-            if _has_rel:
-                with st.expander("🔍 연관 고객 네트워크", expanded=False):
-                    if _rel["ceo_of"]:
-                        st.markdown(f"👑 **대표법인**: {', '.join(_rel['ceo_of'])}")
-                    if _rel["corp_members"]:
-                        for _cm in _rel["corp_members"]:
-                            _cm_c1, _cm_c2 = st.columns([4, 1])
-                            with _cm_c1:
-                                st.markdown(
-                                    f"{'👑' if _cm['is_ceo'] else '👤'} **{_cm['name']}** "
-                                    f"({_cm['title'] or '소속'})"
-                                )
-                            with _cm_c2:
-                                if st.button("이동", key=f"t0_cm_goto_{_cm['name']}"):
-                                    st.session_state["t0_cname"] = _cm["name"]
-                                    st.session_state["gs_c_name"] = _cm["name"]
-                                    st.rerun()
-                    if _rel["referred_by"]:
-                        _rb_c1, _rb_c2 = st.columns([4, 1])
-                        with _rb_c1:
-                            st.markdown(f"🤝 **소개자**: {_rel['referred_by']}")
-                        with _rb_c2:
-                            if st.button("이동", key="t0_rb_goto"):
-                                st.session_state["t0_cname"] = _rel["referred_by"]
-                                st.session_state["gs_c_name"] = _rel["referred_by"]
-                                st.rerun()
-                    if _rel["referrals"]:
-                        st.markdown(f"➡️ **피소개 고객**: {', '.join(_rel['referrals'])}")
-                    if _rel["family"]:
-                        for _fm in _rel["family"]:
-                            _fm_c1, _fm_c2 = st.columns([4, 1])
-                            with _fm_c1:
-                                st.markdown(f"👨‍👩‍👧 **{_fm['name']}** ({_fm['rel']})")
-                            with _fm_c2:
-                                if st.button("이동", key=f"t0_fm_goto_{_fm['name']}"):
-                                    st.session_state["t0_cname"] = _fm["name"]
-                                    st.session_state["gs_c_name"] = _fm["name"]
-                                    st.rerun()
-                    if _rel["affinity"]:
-                        st.markdown(f"📌 **연고인**: {_rel['affinity']}")
+            # 프로필 있으면 자동 확장, 없으면 접힘
+            with st.expander(
+                f"👤 **{_effective_name}** 님 &nbsp;|&nbsp; {_badge} &nbsp;|&nbsp; 분석 {_ana_count}회",
+                expanded=_has_profile
+            ):
+                # ── 내부 탭 구성 ─────────────────────────────────────────
+                _ctab1, _ctab2, _ctab3, _ctab4 = st.tabs([
+                    "📋 기본정보", "💊 보험현황", "📅 상담이력", "👥 고객목록"
+                ])
 
-        # ── 고객 통합 검색 ────────────────────────────────────────────────
-        with st.expander("🔍 고객 통합 검색 (이름·법인·소개자·직위)", expanded=False):
-            _srch_q = st.text_input(
-                "검색어", key="t0_crm_search",
-                placeholder="이름, 회사명, 소개자, 직위 등 모두 검색 가능",
-            )
-            if _srch_q:
-                _srch_results = crm_search(_reg, _srch_q)
-                if _srch_results:
-                    for _sr in _srch_results[:10]:
-                        _sp = _sr["profile"]
-                        _tags = []
-                        if _sp.get("company"):
-                            _tags.append(f"🏢 {_sp['company']}")
-                        if _sp.get("title"):
-                            _tags.append(f"💼 {_sp['title']}")
-                        if _sp.get("is_ceo"):
-                            _tags.append("👑 대표이사")
-                        if _sp.get("referrer"):
-                            _tags.append(f"🤝 소개: {_sp['referrer']}")
-                        _ana_c = len(_reg.get(_sr["name"], {}).get("analyses", []))
-                        _tag_str = " | ".join(_tags) if _tags else "정보 없음"
-                        _col_a, _col_b = st.columns([3, 1])
-                        with _col_a:
+                # ── 공통 변수 초기화 ──────────────────────────────────────
+                _pf_company   = _crm_p.get("company", "")
+                _pf_title     = _crm_p.get("title", "")
+                _pf_is_ceo    = _crm_p.get("is_ceo", False)
+                _pf_biz_no    = _crm_p.get("biz_no", "")
+                _pf_biz_addr  = _crm_p.get("biz_addr", "")
+                _pf_family_raw= ", ".join(_crm_p.get("family", []))
+                _pf_phone     = _crm_p.get("phone", "")
+                _pf_carrier   = _crm_p.get("carrier", "")
+                _pf_referrer  = _crm_p.get("referrer", "")
+                _pf_affinity  = _crm_p.get("affinity", "")
+                _pf_memo      = _crm_p.get("memo", "")
+                _pf_dob       = _crm_p.get("dob", "")
+                _rel_toggle   = bool(_crm_p.get("referrer") or _crm_p.get("affinity"))
+                _memo_toggle  = bool(_crm_p.get("memo"))
+                _is_corp_mode = (_crm_p.get("entity_type", "개인") == "법인대표")
+
+                with _ctab1:
+                    _saved_entity = _crm_p.get("entity_type", "개인")
+                    _entity_type = st.radio(
+                        "고객 유형",
+                        ["👤 개인", "🏢 법인대표"],
+                        index=0 if _saved_entity == "개인" else 1,
+                        key="t0_entity_toggle",
+                        horizontal=True,
+                        help="법인대표 선택 시 법인 정보 입력 섹션이 확장됩니다"
+                    )
+                    _is_corp_mode = (_entity_type == "🏢 법인대표")
+
+                    # ── 생년월일 / 나이 ───────────────────────────────────────
+                    _dob_c1, _dob_c2 = st.columns([3, 2])
+                    with _dob_c1:
+                        _pf_dob = st.text_input(
+                            "🎂 생년월일", value=_crm_p.get("dob", ""),
+                            key="t0_pf_dob", max_chars=10,
+                            placeholder="YYYY-MM-DD",
+                            help="나이 자동 계산 및 AI 적정 상품 연동"
+                        )
+                    with _dob_c2:
+                        _age_str = ""
+                        _dob_clean = re.sub(r'\D', '', _pf_dob)
+                        if len(_dob_clean) == 8 and _dob_clean.isdigit():
+                            try:
+                                import datetime as _dt2
+                                _bd = _dt2.date(int(_dob_clean[:4]), int(_dob_clean[4:6]), int(_dob_clean[6:]))
+                                _today = _dt2.date.today()
+                                _age = _today.year - _bd.year - ((_today.month, _today.day) < (_bd.month, _bd.day))
+                                _age_str = f"{_age}세"
+                            except Exception:
+                                pass
+                        if _age_str:
+                            st.markdown(f"<div style='margin-top:28px;font-size:1.1rem;font-weight:700;color:#2e6da4;'>👤 현재 {_age_str}</div>", unsafe_allow_html=True)
+
+                    if _is_corp_mode:
+                        st.markdown(
+                            "<div style='background:linear-gradient(90deg,#fff8e1,#fff3cd);"
+                            "border-left:4px solid #f59e0b;border-radius:6px;"
+                            "padding:8px 12px;margin:4px 0 8px 0;font-size:0.8rem;color:#92400e;'>"
+                            "🏢 <b>법인대표 모드</b> — AI가 <b>CEO플랜(경영인정기)</b>을 자동 검토합니다"
+                            "</div>", unsafe_allow_html=True
+                        )
+                        _corp_c1, _corp_c2 = st.columns([3, 2])
+                        with _corp_c1:
+                            _pf_company = st.text_input(
+                                "🏢 법인명", value=_crm_p.get("company", ""),
+                                key="t0_pf_company", max_chars=80,
+                                placeholder="예) (주)삼성전자", help="같은 법인 소속 고객 자동 그룹화"
+                            )
+                            _pf_biz_no_raw = st.text_input(
+                                "사업자등록번호", value=_crm_p.get("biz_no", ""),
+                                key="t0_pf_biz_no", max_chars=12, placeholder="000-00-00000"
+                            )
+                            _biz_digits = re.sub(r'\D', '', _pf_biz_no_raw)
+                            if len(_biz_digits) == 10:
+                                _pf_biz_no = f"{_biz_digits[:3]}-{_biz_digits[3:5]}-{_biz_digits[5:]}"
+                                if _pf_biz_no != _pf_biz_no_raw:
+                                    st.caption(f"✅ 자동 포맷: {_pf_biz_no}")
+                            elif _pf_biz_no_raw and len(_biz_digits) != 10:
+                                st.caption("⚠️ 사업자번호는 10자리입니다")
+                                _pf_biz_no = _pf_biz_no_raw
+                            else:
+                                _pf_biz_no = _pf_biz_no_raw
+                        with _corp_c2:
+                            _TITLE_OPTIONS = ["대표이사", "공동대표", "이사", "감사", "부장", "차장", "과장", "대리", "사원", "직원", "직접 입력"]
+                            _saved_title = _crm_p.get("title", "")
+                            _title_sel = st.selectbox(
+                                "직위", _TITLE_OPTIONS,
+                                index=(_TITLE_OPTIONS.index(_saved_title) if _saved_title in _TITLE_OPTIONS else len(_TITLE_OPTIONS)-1),
+                                key="t0_pf_title_sel"
+                            )
+                            if _title_sel == "직접 입력":
+                                _pf_title = st.text_input(
+                                    "직위 직접 입력",
+                                    value=_saved_title if _saved_title not in _TITLE_OPTIONS else "",
+                                    key="t0_pf_title", max_chars=30, placeholder="예) 전무이사"
+                                )
+                            else:
+                                _pf_title = _title_sel
+                            _pf_is_ceo = st.checkbox(
+                                "👑 대표이사 (법인 연동)",
+                                value=bool(_crm_p.get("is_ceo", False)),
+                                key="t0_pf_is_ceo"
+                            )
+                        _pf_biz_addr = st.text_input(
+                            "🏠 회사 주소", value=_crm_p.get("biz_addr", ""),
+                            key="t0_pf_biz_addr", max_chars=100,
+                            placeholder="예) 서울시 강남구 테헤란로 123"
+                        )
+                        if _pf_company or _crm_p.get("company"):
+                            _search_corp = normalize_corp_name(_pf_company or _crm_p.get("company", ""))
+                            _corp_peers = [
+                                n for n, nd in _reg.items()
+                                if n not in ("", "익명 고객", _effective_name)
+                                and normalize_corp_name(nd.get("profile", {}).get("company", "")) == _search_corp
+                                and _search_corp
+                            ]
+                            if _corp_peers:
+                                _peer_tags = [f"{'👑' if _reg[_pn].get('profile',{}).get('is_ceo') else '👤'} **{_pn}** ({_reg[_pn].get('profile',{}).get('title','소속')})" for _pn in _corp_peers[:8]]
+                                st.info("🏢 **동일 법인 구성원**: " + " | ".join(_peer_tags))
+                    else:
+                        _pf_family_raw = st.text_input(
+                            "👨‍👩‍👧 가족 구성원 (이름(관계), 쉼표 구분)",
+                            value=", ".join(_crm_p.get("family", [])),
+                            key="t0_pf_family", max_chars=200,
+                            placeholder="예) 홍길순(배우자), 홍민준(자녀), 홍갑동(부)"
+                        )
+
+                    # ── 연락처 ────────────────────────────────────────────────
+                    _ct_c1, _ct_c2 = st.columns([3, 2])
+                    with _ct_c1:
+                        _pf_phone = st.text_input(
+                            "📱 휴대폰", value=_crm_p.get("phone", ""),
+                            key="t0_pf_phone", max_chars=20, placeholder="010-0000-0000"
+                        )
+                    with _ct_c2:
+                        _CARRIERS = ["─ 통신사 ─", "SKT", "KT", "LG U+", "SKT 알뜰폰", "KT 알뜰폰", "LG 알뜰폰"]
+                        _saved_carrier = _crm_p.get("carrier", "─ 통신사 ─")
+                        _pf_carrier = st.selectbox(
+                            "통신사", _CARRIERS,
+                            index=(_CARRIERS.index(_saved_carrier) if _saved_carrier in _CARRIERS else 0),
+                            key="t0_pf_carrier"
+                        )
+                        if _pf_carrier == "─ 통신사 ─":
+                            _pf_carrier = ""
+
+                    # ── 소개자/연고 토글 ──────────────────────────────────────
+                    _known_names = [n for n in _reg.keys() if n not in ("", "익명 고객", _effective_name)]
+                    _rel_toggle = st.toggle(
+                        "🤝 소개자 / 연고인 연결",
+                        value=bool(_crm_p.get("referrer") or _crm_p.get("affinity")),
+                        key="t0_rel_toggle"
+                    )
+                    if _rel_toggle:
+                        _rel_c1, _rel_c2 = st.columns(2)
+                        with _rel_c1:
+                            _ref_search = st.text_input(
+                                "🤝 소개자 검색", value=_crm_p.get("referrer", ""),
+                                key="t0_ref_search", placeholder="이름 일부 입력 → 후보 선택", max_chars=60
+                            )
+                            _ref_cands = [n for n in _known_names if _ref_search and _ref_search.lower() in n.lower()]
+                            if _ref_cands:
+                                _ref_pick = st.selectbox("소개자 후보", ["직접 입력으로 확정"] + _ref_cands, key="t0_ref_pick")
+                                _pf_referrer = _ref_search if _ref_pick == "직접 입력으로 확정" else _ref_pick
+                            else:
+                                _pf_referrer = _ref_search
+                            if _pf_referrer and _pf_referrer in _reg:
+                                _rp = crm_get_profile(_reg, _pf_referrer)
+                                _rp_str = " · ".join(filter(None, [_rp.get("company",""), _rp.get("title","")]))
+                                _lc1, _lc2 = st.columns([4, 1])
+                                with _lc1: st.caption(f"🔗 소개자: **{_pf_referrer}** — {_rp_str or '등록고객'}")
+                                with _lc2:
+                                    if st.button("이동", key="t0_ref_goto"):
+                                        st.session_state["t0_cname"] = _pf_referrer
+                                        st.session_state["gs_c_name"] = _pf_referrer
+                                        st.rerun()
+                        with _rel_c2:
+                            _aff_search = st.text_input(
+                                "📌 연고인 검색", value=_crm_p.get("affinity", ""),
+                                key="t0_aff_search", placeholder="직장·학교·지인·교회 등", max_chars=60
+                            )
+                            _aff_cands = [n for n in _known_names if _aff_search and _aff_search.lower() in n.lower()]
+                            if _aff_cands:
+                                _aff_pick = st.selectbox("연고인 후보", ["직접 입력으로 확정"] + _aff_cands, key="t0_aff_pick")
+                                _pf_affinity = _aff_search if _aff_pick == "직접 입력으로 확정" else _aff_pick
+                            else:
+                                _pf_affinity = _aff_search
+                            if _pf_affinity and _pf_affinity in _reg:
+                                _ap_str = crm_get_profile(_reg, _pf_affinity).get("company","") or "등록고객"
+                                _ac1, _ac2 = st.columns([4, 1])
+                                with _ac1: st.caption(f"🔗 연고인: **{_pf_affinity}** — {_ap_str}")
+                                with _ac2:
+                                    if st.button("이동", key="t0_aff_goto"):
+                                        st.session_state["t0_cname"] = _pf_affinity
+                                        st.session_state["gs_c_name"] = _pf_affinity
+                                        st.rerun()
+
+                    # ── 메모 ──────────────────────────────────────────────────
+                    _memo_toggle = st.toggle("📝 메모", value=bool(_crm_p.get("memo")), key="t0_memo_toggle")
+                    if _memo_toggle:
+                        _pf_memo = st.text_area(
+                            "자유 메모", value=_crm_p.get("memo", ""),
+                            key="t0_pf_memo", max_chars=400, height=72,
+                            placeholder="특이사항, 건강정보, 직업, 관심사 등",
+                            label_visibility="collapsed"
+                        )
+
+                    # ── 저장 버튼 ──────────────────────────────────────────────
+                    _sv_c1, _sv_c2 = st.columns(2)
+                    with _sv_c1:
+                        if st.button("💾 고객 정보 저장", key="t0_pf_save", type="primary", use_container_width=True):
+                            _fam_list, _fam_rel = [], {}
+                            for _fp in _pf_family_raw.split(","):
+                                _fp = _fp.strip()
+                                if not _fp: continue
+                                _m = re.match(r"^(.+?)\((.+?)\)$", _fp)
+                                _fn, _fr = (_m.group(1).strip(), _m.group(2).strip()) if _m else (_fp, "가족")
+                                if _fn:
+                                    _fam_list.append(_fn)
+                                    _fam_rel[_fn] = _fr
+                            crm_set_profile(
+                                _reg, _effective_name,
+                                entity_type="법인대표" if _is_corp_mode else "개인",
+                                dob=(_pf_dob.strip() if isinstance(_pf_dob, str) else ""),
+                                company=_pf_company.strip() if _is_corp_mode else "",
+                                title=_pf_title.strip() if isinstance(_pf_title, str) else "",
+                                is_ceo=bool(_pf_is_ceo) if _is_corp_mode else False,
+                                biz_no=_pf_biz_no.strip() if _is_corp_mode else "",
+                                biz_addr=_pf_biz_addr.strip() if _is_corp_mode else "",
+                                family=_fam_list, family_rel=_fam_rel,
+                                phone=_pf_phone.strip(), carrier=_pf_carrier,
+                                referrer=_pf_referrer.strip() if (_rel_toggle and isinstance(_pf_referrer, str)) else _crm_p.get("referrer",""),
+                                affinity=_pf_affinity.strip() if (_rel_toggle and isinstance(_pf_affinity, str)) else _crm_p.get("affinity",""),
+                                memo=_pf_memo.strip() if (_memo_toggle and isinstance(_pf_memo, str)) else _crm_p.get("memo",""),
+                            )
+                            st.session_state["gk_client_registry"] = _reg
+                            _sv_uid = st.session_state.get("user_id", "")
+                            crm_save_one(_reg, _effective_name, _sv_uid)
+                            for _en in _fam_list + ([_pf_referrer] if _pf_referrer and _pf_referrer in _reg else []):
+                                crm_save_one(_reg, _en, _sv_uid)
+                            _sb_ok = _get_sb_client() is not None
+                            st.success("✅ 저장 완료" + (" · ☁️ DB 반영" if _sb_ok else " (오프라인)"))
+                            st.rerun()
+                    with _sv_c2:
+                        if st.button(
+                            "🟢 등록고객 확정" if not _reg[_effective_name].get("registered") else "✅ 등록고객",
+                            key="t0_pf_register", use_container_width=True,
+                            disabled=_reg[_effective_name].get("registered", False)
+                        ):
+                            _reg[_effective_name]["registered"] = True
+                            st.session_state["gk_client_registry"] = _reg
+                            crm_save_one(_reg, _effective_name, st.session_state.get("user_id",""))
+                            st.success(f"🟢 {_effective_name}님 등록고객 확정")
+                            st.rerun()
+
+                    # ── 연관 고객 네트워크 ────────────────────────────────────
+                    _rel = crm_get_related(_reg, _effective_name)
+                    _has_rel = any([_rel["corp_members"], _rel["ceo_of"], _rel["referred_by"], _rel["referrals"], _rel["family"], _rel["affinity"]])
+                    if _has_rel:
+                        with st.expander("🔍 연관 고객 네트워크", expanded=False):
+                            if _rel["ceo_of"]: st.markdown(f"👑 **대표법인**: {', '.join(_rel['ceo_of'])}")
+                            for _cm in _rel.get("corp_members", []):
+                                _cx1, _cx2 = st.columns([4,1])
+                                with _cx1: st.markdown(f"{'👑' if _cm['is_ceo'] else '👤'} **{_cm['name']}** ({_cm['title'] or '소속'})")
+                                with _cx2:
+                                    if st.button("이동", key=f"t0_cm_{_cm['name']}"):
+                                        st.session_state["t0_cname"] = _cm["name"]; st.session_state["gs_c_name"] = _cm["name"]; st.rerun()
+                            if _rel["referred_by"]:
+                                _rx1, _rx2 = st.columns([4,1])
+                                with _rx1: st.markdown(f"🤝 **소개자**: {_rel['referred_by']}")
+                                with _rx2:
+                                    if st.button("이동", key="t0_rb_goto"):
+                                        st.session_state["t0_cname"] = _rel["referred_by"]; st.session_state["gs_c_name"] = _rel["referred_by"]; st.rerun()
+                            if _rel["referrals"]: st.markdown(f"➡️ **피소개**: {', '.join(_rel['referrals'])}")
+                            for _fm in _rel.get("family", []):
+                                _fx1, _fx2 = st.columns([4,1])
+                                with _fx1: st.markdown(f"👨‍👩‍👧 **{_fm['name']}** ({_fm['rel']})")
+                                with _fx2:
+                                    if st.button("이동", key=f"t0_fm_{_fm['name']}"):
+                                        st.session_state["t0_cname"] = _fm["name"]; st.session_state["gs_c_name"] = _fm["name"]; st.rerun()
+                            if _rel["affinity"]: st.markdown(f"📌 **연고인**: {_rel['affinity']}")
+
+                with _ctab2:
+                    st.caption("현재 가입된 보험 상품을 입력하세요. AI 분석 시 보장 공백 진단에 활용됩니다.")
+                    _ins_list = list(_crm_p.get("ins_list", []))
+                    if _ins_list:
+                        for _ii, _ins in enumerate(_ins_list):
+                            _ic1, _ic2, _ic3 = st.columns([3, 2, 1])
+                            with _ic1:
+                                st.markdown(f"💳 **{_ins.get('product','상품명 없음')}** &nbsp;<small style='color:#888'>{_ins.get('company','')}</small>", unsafe_allow_html=True)
+                            with _ic2:
+                                st.caption(f"보험료: {_ins.get('premium','?')} | 만기: {_ins.get('expire','?')}")
+                            with _ic3:
+                                if st.button("❌", key=f"t0_ins_del_{_ii}", help="삭제"):
+                                    _ins_list.pop(_ii)
+                                    crm_set_profile(_reg, _effective_name, ins_list=_ins_list)
+                                    crm_save_one(_reg, _effective_name, st.session_state.get("user_id",""))
+                                    st.session_state["gk_client_registry"] = _reg
+                                    st.rerun()
+                    else:
+                        st.info("📋 등록된 보험 상품 없음")
+                    with st.expander("➕ 보험 상품 추가", expanded=False):
+                        _INS_TYPES = ["실손보험(실비)","암보험","치매·간병보험","뇌혈관·심장보험","종신보험","정기보험","연금보험","어린이·태아보험","운전자보험","화재·재물보험","경영인정기(CEO플랜)","CI보험","저축성보험","기타"]
+                        _ni_c1, _ni_c2 = st.columns(2)
+                        with _ni_c1:
+                            _new_prod = st.selectbox("상품 종류", _INS_TYPES, key="t0_ins_new_prod")
+                            _new_comp = st.text_input("보험사", key="t0_ins_new_comp", placeholder="예) 삼성생명", max_chars=30)
+                        with _ni_c2:
+                            _new_prem = st.text_input("월 보험료", key="t0_ins_new_prem", placeholder="예) 55,000원", max_chars=20)
+                            _new_exp  = st.text_input("만기/보장기간", key="t0_ins_new_exp", placeholder="예) 2045-05 / 100세", max_chars=20)
+                        if st.button("💾 추가 저장", key="t0_ins_add", type="primary", use_container_width=True):
+                            _ins_list.append({"product": _new_prod, "company": _new_comp, "premium": _new_prem, "expire": _new_exp})
+                            crm_set_profile(_reg, _effective_name, ins_list=_ins_list)
+                            crm_save_one(_reg, _effective_name, st.session_state.get("user_id",""))
+                            st.session_state["gk_client_registry"] = _reg
+                            st.success("✅ 보험 상품 추가 완료")
+                            st.rerun()
+
+                with _ctab3:
+                    _analyses = _reg[_effective_name].get("analyses", [])
+                    if _analyses:
+                        for _ai, _a in enumerate(reversed(_analyses)):
+                            _a_idx = len(_analyses) - _ai
+                            _a_prod = _a.get("product", "자유상담")
+                            _a_dir  = _a.get("direction", "")
+                            _a_q    = _a.get("query", "")[:80]
                             st.markdown(
-                                f"**{_sr['name']}** &nbsp; <small style='color:#666'>{_tag_str}</small> "
-                                f"&nbsp;|&nbsp; 분석 {_ana_c}회",
+                                f"<div style='border-left:3px solid #0ea5e9;padding:6px 12px;"
+                                f"margin:4px 0;background:#f0f8ff;border-radius:0 6px 6px 0;'>"
+                                f"<b>분석{_a_idx}</b> &nbsp; "
+                                f"<span style='color:#0369a1'>{_a_prod}</span>"
+                                f"{'&nbsp;|&nbsp;' + _a_dir if _a_dir else ''}"
+                                f"<br><small style='color:#555'>{_a_q}{'...' if len(_a.get('query','')) > 80 else ''}</small>"
+                                f"</div>",
                                 unsafe_allow_html=True
                             )
-                        with _col_b:
-                            if st.button("선택", key=f"t0_crm_sel_{_sr['name']}", use_container_width=True):
-                                st.session_state["t0_cname"] = _sr["name"]
-                                st.session_state["gs_c_name"] = _sr["name"]
-                                st.rerun()
-                else:
-                    st.info("검색 결과 없음")
+                    else:
+                        st.info("📅 상담 이력 없음 — AI 분석 실행 시 자동 기록됩니다")
+
+                with _ctab4:
+                    _all_clients = [(n, _reg[n]) for n in _reg if n not in ("", "익명 고객")]
+                    if not _all_clients:
+                        st.info("등록된 고객 없음")
+                    else:
+                        # 필터
+                        _f_col1, _f_col2 = st.columns(2)
+                        with _f_col1:
+                            _srch_q = st.text_input("🔍 검색", key="t0_crm_search", placeholder="이름·법인·직위·소개자")
+                        with _f_col2:
+                            _filter_type = st.selectbox("필터", ["전체", "등록고객만", "법인대표만", "개인만"], key="t0_filter_type")
+                        # 필터 적용
+                        _filtered = []
+                        for _cn, _cd in _all_clients:
+                            _cp = _cd.get("profile", {})
+                            if _srch_q and _srch_q.lower() not in _cn.lower() \
+                               and _srch_q.lower() not in _cp.get("company","").lower() \
+                               and _srch_q.lower() not in _cp.get("title","").lower() \
+                               and _srch_q.lower() not in _cp.get("referrer","").lower():
+                                continue
+                            if _filter_type == "등록고객만" and not _cd.get("registered"): continue
+                            if _filter_type == "법인대표만" and _cp.get("entity_type") != "법인대표": continue
+                            if _filter_type == "개인만" and _cp.get("entity_type") == "법인대표": continue
+                            _filtered.append((_cn, _cd, _cp))
+                        st.caption(f"총 {len(_filtered)}명")
+                        for _cn, _cd, _cp in _filtered:
+                            _tags = []
+                            if _cp.get("company"): _tags.append(f"🏢{_cp['company']}")
+                            if _cp.get("title"): _tags.append(f"💼{_cp['title']}")
+                            if _cp.get("referrer"): _tags.append(f"🤝{_cp['referrer']}")
+                            _ana_c = len(_cd.get("analyses", []))
+                            _reg_mark = "🟢" if _cd.get("registered") else "🔵"
+                            _tstr = " | ".join(_tags) if _tags else "정보 없음"
+                            _da, _db = st.columns([5, 1])
+                            with _da:
+                                st.markdown(
+                                    f"{_reg_mark} **{_cn}** &nbsp;<small style='color:#666'>{_tstr}</small>"
+                                    f" &nbsp;|&nbsp; 분석 {_ana_c}회",
+                                    unsafe_allow_html=True
+                                )
+                            with _db:
+                                if st.button("선택", key=f"t0_cl_{_cn}", use_container_width=True):
+                                    st.session_state["t0_cname"] = _cn
+                                    st.session_state["gs_c_name"] = _cn
+                                    st.rerun()
 
         # 상담 방향 선택 박스
         _T0_PRODUCTS = [
