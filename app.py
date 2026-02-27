@@ -343,6 +343,173 @@ def detect_corp_name_conflict(new_name: str, registry: dict) -> tuple[str | None
             )
     return None, ""
 
+# ══════════════════════════════════════════════════════════════════════
+# ★ CRM 관계형 데이터 엔진 (Graph-based Customer Relationship Manager)
+# ══════════════════════════════════════════════════════════════════════
+# 노드(Node) 스키마:
+# registry[이름] = {
+#   "analyses": [],          # 분석 이력
+#   "registered": bool,      # 등록 여부
+#   "profile": {
+#     "company":   str,      # 소속 법인명 (정규화 전 원본)
+#     "title":     str,      # 직위 (대표이사·이사·직원·개인 등)
+#     "is_ceo":    bool,     # 법인 대표이사 여부
+#     "referrer":  str,      # 소개자 이름 (registry 키)
+#     "affinity":  str,      # 연고인 이름
+#     "family":    list[str],# 가족 구성원 이름 목록 (registry 키)
+#     "family_rel":dict,     # {이름: 관계} e.g. {"홍길순": "배우자"}
+#     "memo":      str,      # 자유 메모
+#   }
+# }
+
+def _crm_init(reg: dict, name: str) -> dict:
+    """registry에 name이 없으면 기본 노드 생성 후 반환"""
+    if name not in reg:
+        reg[name] = {"analyses": [], "registered": False, "profile": {}}
+    if "profile" not in reg[name]:
+        reg[name]["profile"] = {}
+    return reg[name]
+
+def crm_get_profile(reg: dict, name: str) -> dict:
+    node = _crm_init(reg, name)
+    return node.get("profile", {})
+
+def crm_set_profile(reg: dict, name: str, **kwargs):
+    """프로필 필드 업데이트. is_ceo=True 시 법인-대표 연동 자동 처리."""
+    node = _crm_init(reg, name)
+    p = node["profile"]
+    for k, v in kwargs.items():
+        if k == "family" and isinstance(v, list):
+            p["family"] = list(dict.fromkeys(p.get("family", []) + v))
+        elif k == "family_rel" and isinstance(v, dict):
+            p.setdefault("family_rel", {}).update(v)
+        else:
+            p[k] = v
+    # 법인-대표 연동: company + is_ceo → 법인 노드에 역참조
+    if p.get("is_ceo") and p.get("company"):
+        corp = normalize_corp_name(p["company"]) or p["company"]
+        _crm_init(reg, corp)
+        reg[corp]["profile"].setdefault("ceo_list", [])
+        if name not in reg[corp]["profile"]["ceo_list"]:
+            reg[corp]["profile"]["ceo_list"].append(name)
+    # 소개자 역방향 엣지: referrer → referred_list
+    if "referrer" in kwargs and kwargs["referrer"]:
+        ref = kwargs["referrer"]
+        _crm_init(reg, ref)
+        reg[ref]["profile"].setdefault("referred_list", [])
+        if name not in reg[ref]["profile"]["referred_list"]:
+            reg[ref]["profile"]["referred_list"].append(name)
+    # 가족 관계 양방향 엣지
+    if "family" in kwargs:
+        for fam_name in kwargs["family"]:
+            _crm_init(reg, fam_name)
+            reg[fam_name]["profile"].setdefault("family", [])
+            if name not in reg[fam_name]["profile"]["family"]:
+                reg[fam_name]["profile"]["family"].append(name)
+
+def crm_search(reg: dict, query: str) -> list[dict]:
+    """이름·회사·소개자·직위 통합 검색 → [{name, profile, score}] 반환"""
+    q = query.strip().lower()
+    if not q:
+        return []
+    results = []
+    q_corp = normalize_corp_name(q)
+    for name, node in reg.items():
+        if name in ("", "익명 고객"):
+            continue
+        p = node.get("profile", {})
+        score = 0
+        if q in name.lower():
+            score += 10
+        if q_corp and q_corp in normalize_corp_name(name).lower():
+            score += 8
+        comp = normalize_corp_name(p.get("company", "")).lower()
+        if q in comp or (q_corp and q_corp in comp):
+            score += 6
+        if q in p.get("title", "").lower():
+            score += 3
+        if q in p.get("referrer", "").lower():
+            score += 2
+        if any(q in f.lower() for f in p.get("family", [])):
+            score += 4
+        if score > 0:
+            results.append({"name": name, "profile": p, "score": score})
+    return sorted(results, key=lambda x: x["score"], reverse=True)
+
+def crm_get_related(reg: dict, name: str) -> dict:
+    """name 기준 연관 고객 전체 조회
+    반환: {
+      "corp_members": [같은 법인 소속],
+      "ceo_of":       [대표인 법인명],
+      "referred_by":  소개자 이름,
+      "referrals":    [피소개자 목록],
+      "family":       [{name, rel}],
+      "affinity":     연고인 이름,
+    }
+    """
+    p = crm_get_profile(reg, name)
+    result = {
+        "corp_members": [], "ceo_of": [], "referred_by": "",
+        "referrals": [], "family": [], "affinity": "",
+    }
+    # 같은 법인 소속
+    my_corp = normalize_corp_name(p.get("company", ""))
+    if my_corp:
+        for n2, node2 in reg.items():
+            if n2 == name:
+                continue
+            p2 = node2.get("profile", {})
+            if normalize_corp_name(p2.get("company", "")) == my_corp:
+                result["corp_members"].append({
+                    "name": n2, "title": p2.get("title", ""), "is_ceo": p2.get("is_ceo", False)
+                })
+    # 대표이사인 법인
+    if p.get("is_ceo") and p.get("company"):
+        result["ceo_of"].append(normalize_corp_name(p["company"]) or p["company"])
+    # 법인 노드의 ceo_list
+    corp_node_key = normalize_corp_name(p.get("company", ""))
+    if corp_node_key and corp_node_key in reg:
+        result["ceo_of"] = reg[corp_node_key]["profile"].get("ceo_list", [])
+    # 소개자·피소개자
+    result["referred_by"] = p.get("referrer", "")
+    result["referrals"] = p.get("referred_list", [])
+    # 가족
+    fam_rel = p.get("family_rel", {})
+    for fn in p.get("family", []):
+        result["family"].append({"name": fn, "rel": fam_rel.get(fn, "가족")})
+    # 연고인
+    result["affinity"] = p.get("affinity", "")
+    return result
+
+def crm_context_for_prompt(reg: dict, name: str) -> str:
+    """AI 프롬프트에 주입할 고객 관계 컨텍스트 문자열 생성"""
+    if not name or name == "익명 고객":
+        return ""
+    p = crm_get_profile(reg, name)
+    rel = crm_get_related(reg, name)
+    lines = []
+    if p.get("company"):
+        lines.append(f"소속법인: {p['company']} (핵심명: {normalize_corp_name(p['company'])})")
+    if p.get("title"):
+        lines.append(f"직위: {p['title']}")
+    if p.get("is_ceo"):
+        lines.append("※ 법인 대표이사 — 개인보험과 법인플랜(경영인정기·CEO플랜) 동시 검토 필요")
+    if rel["corp_members"]:
+        mlist = ", ".join(f"{m['name']}({m['title'] or '소속'})" for m in rel["corp_members"][:5])
+        lines.append(f"동일법인 구성원: {mlist}")
+    if rel["referred_by"]:
+        lines.append(f"소개자: {rel['referred_by']}")
+    if rel["referrals"]:
+        lines.append(f"피소개 고객: {', '.join(rel['referrals'][:5])}")
+    if rel["family"]:
+        fstr = ", ".join(f"{f['name']}({f['rel']})" for f in rel["family"][:5])
+        lines.append(f"가족 구성원: {fstr}")
+    if rel["affinity"]:
+        lines.append(f"연고인: {rel['affinity']}")
+    if not lines:
+        return ""
+    return "\n[고객 관계 정보]\n" + "\n".join(f"- {l}" for l in lines) + "\n"
+
 def sanitize_prompt(text):
     """프롬프트 인젝션 방어 - 모든 쿼리에 적용"""
     text = sanitize_unicode(text)
@@ -6820,6 +6987,26 @@ window['startTTS_{tab_key}']=function(){{
 }})();
 </script>
 """, height=72)
+        # ── CRM 연관 고객 요약 (모든 탭 공통 표시) ──────────────────────
+        if c_name not in ("익명 고객", ""):
+            _blk_reg2 = st.session_state.get("gk_client_registry", {})
+            _blk_rel = crm_get_related(_blk_reg2, c_name)
+            _blk_p   = crm_get_profile(_blk_reg2, c_name)
+            _blk_tags = []
+            if _blk_p.get("company"):
+                _blk_tags.append(f"🏢 {_blk_p['company']}")
+            if _blk_p.get("title"):
+                _blk_tags.append(f"💼 {_blk_p['title']}")
+            if _blk_p.get("is_ceo"):
+                _blk_tags.append("👑 대표이사")
+            if _blk_rel["referred_by"]:
+                _blk_tags.append(f"🤝 소개: {_blk_rel['referred_by']}")
+            if _blk_rel["corp_members"]:
+                _blk_tags.append(f"🏢 동일법인 {len(_blk_rel['corp_members'])}명")
+            if _blk_rel["family"]:
+                _blk_tags.append(f"👨‍👩‍👧 가족 {len(_blk_rel['family'])}명")
+            if _blk_tags:
+                st.caption("🔗 " + " | ".join(_blk_tags))
         _pkey = st.session_state.get(f"product_key_{tab_key}", product_key)
         return c_name, query, hi_premium, do_analyze, _pkey
 
@@ -7260,9 +7447,18 @@ window['startTTS_{tab_key}']=function(){{
                 except Exception:
                     expert_ctx = ""
 
+                # ── CRM 관계 컨텍스트 주입 ────────────────────────────────
+                _crm_ctx = ""
+                try:
+                    _crm_reg = st.session_state.get("gk_client_registry", {})
+                    _crm_ctx = crm_context_for_prompt(_crm_reg, c_name)
+                except Exception:
+                    _crm_ctx = ""
+
                 prompt = (
                     f"{sys_prefix}"
                     f"고객: {sanitize_unicode(c_name)}, 추정소득: {income:,.0f}원\n"
+                    f"{_crm_ctx}"
                     f"질문: {safe_q}{rag_ctx}{expert_ctx}\n{extra_prompt}"
                 )
 
@@ -9824,10 +10020,157 @@ section[data-testid="stMain"] > div,
         # 등록고객 여부 표시
         if _effective_name != "익명 고객":
             _ana_count = len(_reg[_effective_name]["analyses"])
+            _crm_init(_reg, _effective_name)
+            _badge = "🟢 등록고객" if _reg[_effective_name].get("registered") else "🔵 임시고객"
             if _ana_count > 0:
-                st.caption(f"📋 {_effective_name}님 — 누적 분석 **{_ana_count}회** | "
-                           f"{'🟢 등록고객' if _reg[_effective_name].get('registered') else '🔵 임시고객'}")
+                st.caption(f"📋 {_effective_name}님 — 누적 분석 **{_ana_count}회** | {_badge}")
+            else:
+                st.caption(f"👤 {_effective_name}님 | {_badge}")
 
+        # ── CRM 프로필 & 관계 입력 ─────────────────────────────────────────
+        if _effective_name != "익명 고객":
+            with st.expander("🔗 고객 관계 정보 (법인·소개·가족·연고)", expanded=False):
+                _crm_p = crm_get_profile(_reg, _effective_name)
+                _pf_c1, _pf_c2 = st.columns(2)
+                with _pf_c1:
+                    _pf_company = st.text_input(
+                        "🏢 소속 법인명",
+                        value=_crm_p.get("company", ""),
+                        key="t0_pf_company", max_chars=80,
+                        placeholder="예) (주)삼성전자",
+                        help="법인명 입력 시 같은 회사 고객 그룹 자동 연동"
+                    )
+                    _pf_title = st.text_input(
+                        "💼 직위",
+                        value=_crm_p.get("title", ""),
+                        key="t0_pf_title", max_chars=30,
+                        placeholder="예) 대표이사 / 이사 / 직원 / 개인",
+                    )
+                    _pf_is_ceo = st.checkbox(
+                        "👑 법인 대표이사 여부",
+                        value=bool(_crm_p.get("is_ceo", False)),
+                        key="t0_pf_is_ceo",
+                        help="체크 시 법인 노드에 대표이사로 연동, AI가 CEO플랜 자동 검토"
+                    )
+                with _pf_c2:
+                    _pf_referrer = st.text_input(
+                        "🤝 소개자 이름",
+                        value=_crm_p.get("referrer", ""),
+                        key="t0_pf_referrer", max_chars=60,
+                        placeholder="소개해 준 고객 이름",
+                    )
+                    _pf_affinity = st.text_input(
+                        "📌 연고인 이름",
+                        value=_crm_p.get("affinity", ""),
+                        key="t0_pf_affinity", max_chars=60,
+                        placeholder="직장·지인·교회·학교 등 연고",
+                    )
+                    _pf_family_raw = st.text_input(
+                        "👨‍👩‍👧 가족 구성원",
+                        value=", ".join(_crm_p.get("family", [])),
+                        key="t0_pf_family", max_chars=120,
+                        placeholder="예) 홍길순(배우자), 홍민준(자녀)",
+                        help="이름(관계) 형식으로 쉼표 구분 입력"
+                    )
+                _pf_memo = st.text_input(
+                    "📝 메모",
+                    value=_crm_p.get("memo", ""),
+                    key="t0_pf_memo", max_chars=200,
+                    placeholder="특이사항, 건강정보, 직업 등 자유 메모"
+                )
+                if st.button("💾 관계 정보 저장", key="t0_pf_save", type="primary"):
+                    # 가족 파싱: "홍길순(배우자), 홍민준(자녀)" → list + dict
+                    _fam_list, _fam_rel = [], {}
+                    for _fp in _pf_family_raw.split(","):
+                        _fp = _fp.strip()
+                        if not _fp:
+                            continue
+                        _m = re.match(r"^(.+?)\((.+?)\)$", _fp)
+                        if _m:
+                            _fn, _fr = _m.group(1).strip(), _m.group(2).strip()
+                        else:
+                            _fn, _fr = _fp, "가족"
+                        if _fn:
+                            _fam_list.append(_fn)
+                            _fam_rel[_fn] = _fr
+                    crm_set_profile(
+                        _reg, _effective_name,
+                        company=_pf_company.strip(),
+                        title=_pf_title.strip(),
+                        is_ceo=_pf_is_ceo,
+                        referrer=_pf_referrer.strip(),
+                        affinity=_pf_affinity.strip(),
+                        family=_fam_list,
+                        family_rel=_fam_rel,
+                        memo=_pf_memo.strip(),
+                    )
+                    st.session_state["gk_client_registry"] = _reg
+                    st.success("✅ 관계 정보가 저장되었습니다.")
+                    st.rerun()
+
+                # ── 연관 고객 현황 표시 ───────────────────────────────────
+                _rel = crm_get_related(_reg, _effective_name)
+                _has_rel = any([
+                    _rel["corp_members"], _rel["ceo_of"], _rel["referred_by"],
+                    _rel["referrals"], _rel["family"], _rel["affinity"]
+                ])
+                if _has_rel:
+                    st.markdown("---")
+                    st.markdown("**🔍 연관 고객 네트워크**")
+                    if _rel["ceo_of"]:
+                        st.markdown(f"👑 **대표법인**: {', '.join(_rel['ceo_of'])}")
+                    if _rel["corp_members"]:
+                        _cm_str = " | ".join(
+                            f"{'👑' if m['is_ceo'] else '👤'} {m['name']} ({m['title'] or '소속'})"
+                            for m in _rel["corp_members"]
+                        )
+                        st.markdown(f"🏢 **동일법인 구성원**: {_cm_str}")
+                    if _rel["referred_by"]:
+                        st.markdown(f"🤝 **소개자**: {_rel['referred_by']}")
+                    if _rel["referrals"]:
+                        st.markdown(f"➡️ **피소개 고객**: {', '.join(_rel['referrals'])}")
+                    if _rel["family"]:
+                        _f_str = " | ".join(f"👨‍👩‍👧 {f['name']} ({f['rel']})" for f in _rel["family"])
+                        st.markdown(f"👨‍👩‍👧 **가족**: {_f_str}")
+                    if _rel["affinity"]:
+                        st.markdown(f"📌 **연고인**: {_rel['affinity']}")
+
+        # ── 고객 통합 검색 ────────────────────────────────────────────────
+        with st.expander("🔍 고객 통합 검색 (이름·법인·소개자·직위)", expanded=False):
+            _srch_q = st.text_input(
+                "검색어", key="t0_crm_search",
+                placeholder="이름, 회사명, 소개자, 직위 등 모두 검색 가능",
+            )
+            if _srch_q:
+                _srch_results = crm_search(_reg, _srch_q)
+                if _srch_results:
+                    for _sr in _srch_results[:10]:
+                        _sp = _sr["profile"]
+                        _tags = []
+                        if _sp.get("company"):
+                            _tags.append(f"🏢 {_sp['company']}")
+                        if _sp.get("title"):
+                            _tags.append(f"💼 {_sp['title']}")
+                        if _sp.get("is_ceo"):
+                            _tags.append("👑 대표이사")
+                        if _sp.get("referrer"):
+                            _tags.append(f"🤝 소개: {_sp['referrer']}")
+                        _ana_c = len(_reg.get(_sr["name"], {}).get("analyses", []))
+                        _tag_str = " | ".join(_tags) if _tags else "정보 없음"
+                        _col_a, _col_b = st.columns([3, 1])
+                        with _col_a:
+                            st.markdown(
+                                f"**{_sr['name']}** &nbsp; <small style='color:#666'>{_tag_str}</small> "
+                                f"&nbsp;|&nbsp; 분석 {_ana_c}회",
+                                unsafe_allow_html=True
+                            )
+                        with _col_b:
+                            if st.button("선택", key=f"t0_crm_sel_{_sr['name']}", use_container_width=True):
+                                st.session_state["t0_cname"] = _sr["name"]
+                                st.session_state["gs_c_name"] = _sr["name"]
+                                st.rerun()
+                else:
+                    st.info("검색 결과 없음")
 
         # 상담 방향 선택 박스
         _T0_PRODUCTS = [
