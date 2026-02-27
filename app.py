@@ -374,6 +374,74 @@ def crm_get_profile(reg: dict, name: str) -> dict:
     node = _crm_init(reg, name)
     return node.get("profile", {})
 
+# ── 상해 통합 계산 엔진 (LCRM: Life-Cycle Risk Management) ──────────────────
+def hoffman_coeff(n_months: float, rate: float = 0.05) -> float:
+    """호프만 단리 계수 — 중간이자 공제 현재가치 환산
+    H(n) = n / (1 + n * r / 12)  (r: 연 할인율, 기본 5%)
+    """
+    if n_months <= 0:
+        return 0.0
+    return n_months / (1 + n_months * rate / 12)
+
+def classify_injury_type(text: str) -> str:
+    """자연어 입력에서 사고 성격 자동 분류 → 'traffic' / 'industrial' / 'general'"""
+    t = text.lower()
+    traffic_kw  = ["자동차", "오토바이", "차량", "교통사고", "운전", "보행 중", "신호", "추돌", "충돌"]
+    industrial_kw = ["업무 중", "출퇴근", "작업장", "공장", "현장", "산재", "근무 중", "직장"]
+    if any(k in t for k in traffic_kw):
+        return "traffic"
+    if any(k in t for k in industrial_kw):
+        return "industrial"
+    return "general"
+
+def calculate_insurance_gap(
+    monthly_income: float,
+    disability_rate: float,
+    work_loss_months: float,
+    rehab_months: float,
+    existing_insurance: float = 0,
+    social_security: float = 0,
+    market_cap: float = 1_500_000_000,
+    apply_hoffman: bool = True,
+) -> dict:
+    """소득 보전형 보장 공백(Gap) 역산 엔진 — 파트1·2·3 설계서 구현
+    
+    S = ( M × H(T+B) ) / (D/100) - G - P
+    M: 월 가처분 소득(원)
+    T+B: 휴업+재활 기간(개월)
+    D: 장해율(%)
+    G: 사회보장 보전액(원)
+    P: 기 가입금액(원)
+    H: 호프만 계수 (apply_hoffman=False 시 단순 합산)
+    """
+    if disability_rate <= 0:
+        return {"required": 0, "current": existing_insurance, "gap": 0,
+                "is_over_limit": False, "depletion_months": 0, "hoffman_applied": apply_hoffman}
+
+    total_months = work_loss_months + rehab_months
+    h = hoffman_coeff(total_months) if apply_hoffman else total_months
+    total_income_loss = monthly_income * h
+
+    raw_face = total_income_loss / (disability_rate / 100)
+    capped   = min(raw_face, market_cap)
+    net      = max(0.0, capped - social_security - existing_insurance)
+    gap      = net
+
+    # 소득 단절 기간 시각화용: gap / 월소득 = 소득 고갈까지 남은 개월
+    depletion_months = round(existing_insurance / monthly_income) if monthly_income > 0 else 0
+
+    return {
+        "required":        round(capped),
+        "current":         round(existing_insurance),
+        "gap":             round(gap),
+        "raw_uncapped":    round(raw_face),
+        "is_over_limit":   raw_face > market_cap,
+        "depletion_months": depletion_months,
+        "hoffman_applied": apply_hoffman,
+        "total_months":    total_months,
+        "h_coeff":         round(h, 2),
+    }
+
 def crm_set_profile(reg: dict, name: str, **kwargs):
     """프로필 필드 업데이트. is_ceo=True 시 법인-대표 연동 자동 처리."""
     node = _crm_init(reg, name)
@@ -1856,6 +1924,7 @@ _NAV_INTENT_MAP = [
     ("policy_terms", ["약관", "약관 검색", "약관 찾아", "약관 보여", "약관 알려"]),
     ("scan_hub",     ["스캔허브", "스캔 허브", "통합 스캔", "의무기록 올려", "서류 올려"]),
     ("t0",           ["신규 보험", "신규상담", "새 보험", "보험 추천", "보험 가입", "보험 설계", "신규 상담"]),
+    ("injury",       ["상해", "상해사고", "상해보험", "사고났어", "사고 났어", "소득 끊겨", "일 못해", "보장 공백", "gap 분석", "상해 설계", "상해 통합"]),
     ("t1",           ["보험금 청구", "보험금", "청구", "지급 거절", "보험금 얼마", "청구 방법"]),
     ("disability",   ["장해", "장해보험금", "후유장해", "맥브라이드", "AMA", "장해율", "장해 산출"]),
     ("cancer",       ["암", "뇌", "심장", "3대질병", "NGS", "CAR-T", "표적항암", "면역항암", "뇌경색", "심근경색"]),
@@ -8879,6 +8948,7 @@ section[data-testid="stMain"] > div,
 </div>""", unsafe_allow_html=True)
         _render_cards([
             ("t0",          "📋", "신규보험 상담",        "기존 보험증권 분석 · 보장 공백 진단 · 신규 컨설팅"),
+            ("injury",      "🚑", "상해 통합 관리",       "사고 유형 자동 분류 · 소득보전 역산 · Gap 시각화\n치료→장해→소득→사망 생애 전 흐름 One-Stop"),
             ("t1",          "💰", "보험금 상담",          "청구 절차 · 지급 거절 대응\n민원·손해사정·약관 해석"),
             ("disability",  "🩺", "장해보험금 산출",      "AMA·맥브라이드·호프만계수 후유장해 보험금 산출"),
             ("t2",          "🛡️", "기본보험 상담",        "자동차·화재·운전자 · 일상배상책임 점검"),
@@ -9123,6 +9193,7 @@ section[data-testid="stMain"] > div,
         "nursing":     [("cancer", "🎗️ 암 상담"), ("t3", "🛡️ 통합보험"), ("t5", "🏦 노후설계")],
         "realty":      [("t6", "💰 세무상담"), ("t5", "🏦 노후설계"), ("fire", "🔥 화재보험")],
         "stock_eval":  [("t8", "👔 CEO플랜"), ("t6", "💰 세무상담"), ("t7", "🏭 법인상담")],
+        "injury":       [("t1", "💰 보험금 상담"), ("disability", "🩺 장해 산출"), ("t4", "🚗 자동차사고")],
         "policy_scan":  [("t0", "📋 신규보험 상담"), ("t1", "💰 보험금 상담"), ("policy_terms", "📜 약관검색")],
         "policy_terms": [("t1", "💰 보험금 상담"), ("cancer", "🎗️ 암 상담"), ("brain", "🧠 뇌질환 상담")],
     }
@@ -11273,6 +11344,335 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 """, height=590)
 
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
+    # ── [injury] 상해 통합 관리 (LCRM) ──────────────────────────────────
+    if cur == "injury":
+        if not _auth_gate("injury"): st.stop()
+        tab_home_btn("injury")
+
+        # ── 헤더 ──────────────────────────────────────────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 60%,#1abc9c 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    🚑 상해 통합 관리 — Life-Cycle Risk Management
+  </div>
+  <div style="color:#cce8ff;font-size:0.78rem;margin-top:4px;">
+    사고 유형 자동 분류 · 소득 보전 역산 · 보장 공백(Gap) 시각화 · 치료→장해→소득→사망 전 흐름 One-Stop
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── STEP 1: Life Stage 카드 선택 ─────────────────────────────────
+        st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 14px;margin-bottom:8px;
+  font-weight:900;font-size:0.88rem;color:#1a3a5c;">
+  ① 생애 단계 선택 (기본값 자동 설정)</div>""", unsafe_allow_html=True)
+
+        _life_stages = {
+            "사회초년생": {"income": 250, "work_loss": 12, "rehab": 6,  "disability": 15, "social_sec": 0,    "icon": "🎓"},
+            "가    장":   {"income": 400, "work_loss": 24, "rehab": 12, "disability": 15, "social_sec": 500,  "icon": "👨‍👩‍👧"},
+            "사 업 자":   {"income": 600, "work_loss": 24, "rehab": 12, "disability": 20, "social_sec": 0,    "icon": "💼"},
+            "시 니 어":   {"income": 200, "work_loss": 18, "rehab": 12, "disability": 30, "social_sec": 800,  "icon": "🌅"},
+        }
+        _ls_keys = list(_life_stages.keys())
+        _ls_cols = st.columns(4)
+        if "inj_life_stage" not in st.session_state:
+            st.session_state["inj_life_stage"] = "가    장"
+        for _i, (_lk, _lv) in enumerate(_life_stages.items()):
+            with _ls_cols[_i]:
+                _is_sel = st.session_state["inj_life_stage"] == _lk
+                _bg = "linear-gradient(135deg,#1a3a5c,#2e6da4)" if _is_sel else "#f8fafc"
+                _fc = "#fff" if _is_sel else "#1a3a5c"
+                st.markdown(f"""<div style="background:{_bg};border:2px solid {'#2e6da4' if _is_sel else '#d0d7de'};
+  border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;margin-bottom:4px;">
+  <div style="font-size:1.4rem;">{_lv['icon']}</div>
+  <div style="font-size:0.78rem;font-weight:900;color:{_fc};margin-top:4px;">{_lk}</div>
+  <div style="font-size:0.68rem;color:{'#add8ff' if _is_sel else '#888'};margin-top:2px;">
+    월소득 {_lv['income']}만</div>
+</div>""", unsafe_allow_html=True)
+                if st.button("선택", key=f"inj_ls_{_i}", use_container_width=True,
+                             type="primary" if _is_sel else "secondary"):
+                    st.session_state["inj_life_stage"] = _lk
+                    _d = _life_stages[_lk]
+                    st.session_state["inj_income"]     = _d["income"]
+                    st.session_state["inj_work_loss"]  = _d["work_loss"]
+                    st.session_state["inj_rehab"]      = _d["rehab"]
+                    st.session_state["inj_dis_rate"]   = _d["disability"]
+                    st.session_state["inj_social_sec"] = _d["social_sec"]
+                    st.rerun()
+
+        _sel_stage = _life_stages[st.session_state["inj_life_stage"]]
+
+        st.divider()
+
+        # ── STEP 2: Intelligence Box + 변수 입력 ─────────────────────────
+        _inj_left, _inj_right = st.columns([1, 1])
+
+        with _inj_left:
+            st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
+  border-radius:0 8px 8px 0;padding:6px 14px;margin-bottom:8px;
+  font-weight:900;font-size:0.88rem;color:#7d3c00;">
+  ② 상황 입력 — 오늘 있었던 사고나 걱정되는 상황을 말씀해 주세요</div>""", unsafe_allow_html=True)
+
+            _inj_c_name = st.text_input("고객 성함", st.session_state.get("global_c_name", "우량 고객"),
+                                        key="inj_c_name")
+            st.session_state.current_c_name = _inj_c_name
+
+            _inj_query = st.text_area(
+                "사고·상황 입력",
+                height=110,
+                key="inj_query",
+                placeholder='예) "월 400만원 버는 가장입니다. 빗길 운전 중 사고로 2년 정도 일을 못 하게 되면 가족은 어떻게 될까요?"',
+                label_visibility="collapsed",
+            )
+
+            # 자동 분류 표시
+            if _inj_query:
+                _inj_type = classify_injury_type(_inj_query)
+                _type_map = {
+                    "traffic":    ("🚗 교통상해", "#e74c3c", "맥브라이드 방식 + 자동차/운전자보험 연동"),
+                    "industrial": ("🏭 산재사고", "#e67e22", "근로복지공단 장해등급 + 단체보험 연동"),
+                    "general":    ("🏃 일반상해", "#2e6da4", "AMA 방식 + 개인보험 상해담보 연동"),
+                }
+                _tl, _tc, _td = _type_map[_inj_type]
+                st.markdown(f"""<div style="background:#f8fafc;border:1px solid {_tc};
+  border-radius:7px;padding:6px 12px;margin:4px 0 8px 0;font-size:0.80rem;">
+  <b style="color:{_tc};">{_tl}</b> 자동 분류됨<br>
+  <span style="color:#555;font-size:0.75rem;">{_td}</span>
+</div>""", unsafe_allow_html=True)
+                st.session_state["inj_auto_type"] = _inj_type
+            else:
+                _inj_type = st.session_state.get("inj_auto_type", "general")
+
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 14px;margin:8px 0 6px 0;
+  font-weight:900;font-size:0.85rem;color:#1a3a5c;">③ 소득 보전 역산 변수</div>""", unsafe_allow_html=True)
+
+            _vi1, _vi2 = st.columns(2)
+            with _vi1:
+                _inj_income = st.number_input("월 가처분 소득 (만원)",
+                    min_value=50, max_value=5000,
+                    value=int(st.session_state.get("inj_income", _sel_stage["income"])),
+                    step=50, key="inj_income_input")
+                _inj_work_loss = st.number_input("휴업 기간 T (개월)",
+                    min_value=1, max_value=120,
+                    value=int(st.session_state.get("inj_work_loss", _sel_stage["work_loss"])),
+                    step=1, key="inj_work_loss_input")
+            with _vi2:
+                _inj_dis_rate = st.number_input("예상 장해율 D (%)",
+                    min_value=3.0, max_value=100.0,
+                    value=float(st.session_state.get("inj_dis_rate", _sel_stage["disability"])),
+                    step=0.5, key="inj_dis_rate_input")
+                _inj_rehab = st.number_input("재활 기간 B (개월)",
+                    min_value=0, max_value=60,
+                    value=int(st.session_state.get("inj_rehab", _sel_stage["rehab"])),
+                    step=1, key="inj_rehab_input")
+
+            _inj_existing = st.number_input("현재 상해 가입금액 합계 (만원)",
+                min_value=0, value=20000, step=1000, key="inj_existing_input")
+            _inj_social = st.number_input("사회보장 예상 수령액 (산재·국민연금, 만원)",
+                min_value=0,
+                value=int(st.session_state.get("inj_social_sec", _sel_stage["social_sec"])),
+                step=100, key="inj_social_input")
+
+            # Gap 계산
+            _gap_result = calculate_insurance_gap(
+                monthly_income    = _inj_income * 10000,
+                disability_rate   = _inj_dis_rate,
+                work_loss_months  = _inj_work_loss,
+                rehab_months      = _inj_rehab,
+                existing_insurance= _inj_existing * 10000,
+                social_security   = _inj_social * 10000,
+            )
+
+            # AI 분석 버튼
+            _inj_hi = st.number_input("월 건강보험료 (원, 소득 역산용)",
+                value=0, step=1000, key="inj_hi")
+            if _inj_hi > 0:
+                _inj_est_inc = _inj_hi / 0.0709
+                st.success(f"역산 월소득: **{_inj_est_inc/10000:,.1f}만원** | 적정 보험료: **{_inj_est_inc*0.15/10000:,.1f}만원**")
+
+            _do_inj_ai = st.button("🔍 AI 통합 상해 분석", type="primary",
+                                   key="btn_inj_ai", use_container_width=True)
+
+        with _inj_right:
+            # ── Gap 시각화 대시보드 ───────────────────────────────────────
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 14px;margin-bottom:8px;
+  font-weight:900;font-size:0.88rem;color:#1a3a5c;">④ 보장 공백(Gap) 시각화</div>""", unsafe_allow_html=True)
+
+            _req_man  = _gap_result["required"] // 10000
+            _cur_man  = _gap_result["current"] // 10000
+            _gap_man  = _gap_result["gap"] // 10000
+            _dep_mon  = _gap_result["depletion_months"]
+            _h_coeff  = _gap_result["h_coeff"]
+            _over_lim = _gap_result["is_over_limit"]
+
+            # 바 차트 HTML
+            _bar_max  = max(_req_man, _cur_man, 1)
+            _req_pct  = min(100, round(_req_man / _bar_max * 100))
+            _cur_pct  = min(100, round(_cur_man / _bar_max * 100))
+            _gap_pct  = max(0, _req_pct - _cur_pct)
+
+            components.html(f"""
+<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;padding:10px 4px;">
+
+  <div style="margin-bottom:14px;">
+    <div style="font-size:0.75rem;color:#c0392b;font-weight:700;margin-bottom:3px;">
+      📌 필요 가입금액 (역산) — S = M×H(T+B) / D - G - P
+    </div>
+    <div style="background:#ffe0e0;border-radius:6px;height:28px;position:relative;overflow:hidden;">
+      <div style="background:#e74c3c;height:100%;width:{_req_pct}%;border-radius:6px;
+        display:flex;align-items:center;justify-content:flex-end;padding-right:8px;">
+        <span style="color:#fff;font-size:0.78rem;font-weight:900;">{_req_man:,}만원</span>
+      </div>
+    </div>
+    <div style="font-size:0.68rem;color:#999;margin-top:2px;">
+      호프만 계수 H={_h_coeff} 적용 (5% 단리 · {_gap_result['total_months']}개월)
+      {'&nbsp;⚠️ <b style="color:#c0392b;">업계 한도 15억 초과 → 분산 가입 필요</b>' if _over_lim else ''}
+    </div>
+  </div>
+
+  <div style="margin-bottom:14px;">
+    <div style="font-size:0.75rem;color:#2e6da4;font-weight:700;margin-bottom:3px;">
+      🛡️ 현재 준비 (기 가입금액 합계)
+    </div>
+    <div style="background:#e0eeff;border-radius:6px;height:28px;overflow:hidden;">
+      <div style="background:#2e6da4;height:100%;width:{_cur_pct}%;border-radius:6px;
+        display:flex;align-items:center;justify-content:flex-end;padding-right:8px;">
+        <span style="color:#fff;font-size:0.78rem;font-weight:900;">{_cur_man:,}만원</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:10px;">
+    <div style="font-size:0.75rem;color:#e67e22;font-weight:700;margin-bottom:3px;">
+      ⚠️ 보장 공백 (Gap)
+    </div>
+    <div style="background:#fff3e0;border:2px dashed #e67e22;border-radius:6px;
+      height:28px;display:flex;align-items:center;padding:0 12px;">
+      <span style="color:#c0392b;font-size:0.88rem;font-weight:900;">{_gap_man:,}만원 부족</span>
+    </div>
+  </div>
+
+  <div style="background:{'#fff5f5' if _gap_man > 0 else '#f0fff4'};
+    border:1px solid {'#f5a6a6' if _gap_man > 0 else '#6fcf97'};
+    border-radius:8px;padding:10px 14px;margin-top:8px;font-size:0.80rem;line-height:1.8;">
+    <b style="color:{'#c0392b' if _gap_man > 0 else '#1a7a2e'};">
+      {'⏱️ 소득 단절 시나리오' if _gap_man > 0 else '✅ 보장 적정'}
+    </b><br>
+    현재 준비금으로 <b style="color:#2e6da4;">{_dep_mon}개월</b> 뒤 생활비 고갈 예상<br>
+    {'<b style="color:#e74c3c;">→ 월 ' + f'{round(_gap_man * 10000 / max(_inj_work_loss + _inj_rehab, 1) / 10000):,}만원' + ' 규모 추가 담보 설계 권장</b>' if _gap_man > 0 else ''}
+  </div>
+
+  {'<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 14px;margin-top:8px;font-size:0.77rem;color:#856404;font-weight:700;">⚠️ 역산 필요 가입금액이 업계 한도(15억) 초과 → 보험사 분산 가입 전략 필요<br><span style="font-weight:400;">1순위: 고도장해(80%) · 2순위: 중도장해(20%~50%) · 3순위: 소액장해 실손 연동</span></div>' if _over_lim else ''}
+
+</div>""", height=340)
+
+            # ── 5단계 생애 흐름 ───────────────────────────────────────────
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 14px;margin:10px 0 6px 0;
+  font-weight:900;font-size:0.85rem;color:#1a3a5c;">⑤ 상해의 일생 — 5단계 통합 흐름</div>""", unsafe_allow_html=True)
+
+            _inj_type_disp = {"traffic": "🚗 교통상해 (맥브라이드)",
+                               "industrial": "🏭 산재사고 (근복 장해등급)",
+                               "general": "🏃 일반상해 (AMA)"}
+            components.html(f"""
+<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.77rem;line-height:1.7;">
+<table style="width:100%;border-collapse:collapse;">
+<tr style="background:#1a3a5c;color:#fff;">
+  <th style="padding:5px 8px;border:1px solid #2e6da4;text-align:center;width:18%;">단계</th>
+  <th style="padding:5px 8px;border:1px solid #2e6da4;width:25%;">항목</th>
+  <th style="padding:5px 8px;border:1px solid #2e6da4;">적용 로직 · 연동 담보</th>
+</tr>
+<tr style="background:#fff0f0;">
+  <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#c0392b;">1️⃣ 유입</td>
+  <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">사고 접수</td>
+  <td style="padding:5px 8px;border:1px solid #ddd;">{_inj_type_disp.get(_inj_type,"일반상해")} 자동 분류</td>
+</tr>
+<tr style="background:#fff8f0;">
+  <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#e67e22;">2️⃣ 치료</td>
+  <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">요양·수술·입원</td>
+  <td style="padding:5px 8px;border:1px solid #ddd;">실손보험 · 수술비 · 입원일당 연동</td>
+</tr>
+<tr style="background:#f0fff4;">
+  <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#1a7a2e;">3️⃣ 평가</td>
+  <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">장해율 산정</td>
+  <td style="padding:5px 8px;border:1px solid #ddd;">장해율 {_inj_dis_rate}% → 후유장해 3%~100% 담보 자동 매핑</td>
+</tr>
+<tr style="background:#f0f4ff;">
+  <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#2e6da4;">4️⃣ 소득</td>
+  <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">소득 보전</td>
+  <td style="padding:5px 8px;border:1px solid #ddd;">{_inj_work_loss+_inj_rehab}개월 × {_inj_income:,}만원 → H={_h_coeff} 할인 → <b>필요 {_req_man:,}만원</b></td>
+</tr>
+<tr style="background:#fdf0ff;">
+  <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#8e44ad;">5️⃣ 종결</td>
+  <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">사망 보장</td>
+  <td style="padding:5px 8px;border:1px solid #ddd;">고도장해(80%) ↔ 사망보험금 Offset 로직 적용 · 유가족 소득 자본화</td>
+</tr>
+</table>
+
+<div style="background:#f8fafc;border:1px solid #d0d7de;border-radius:7px;padding:8px 12px;margin-top:8px;font-size:0.73rem;color:#555;">
+  <b>담보 간 상충(Offset) 주의:</b> 고도후유장해(80%↑) 지급 시 사망보험금과 연동 여부를 반드시 약관 확인<br>
+  1순위 고액장해(50~80%) · 2순위 중간장해(20%) · 3순위 소액장해 → 실손 연동으로 보험료 최적화
+</div>
+</div>""", height=310)
+
+            # ── AI 분석 결과 ──────────────────────────────────────────────
+            st.markdown("##### 🤖 AI 통합 분석 리포트")
+            show_result("res_injury")
+
+        # ── AI 분석 실행 ──────────────────────────────────────────────────
+        if _do_inj_ai:
+            _type_prompt = {
+                "traffic":    "[교통상해] 맥브라이드 방식 + 자동차/운전자보험 연동\n",
+                "industrial": "[산재사고] 근로복지공단 장해등급 + 단체보험 연동\n",
+                "general":    "[일반상해] AMA 방식 + 개인보험 상해담보 연동\n",
+            }
+            _over_txt = "\n⚠️ 역산 가입금액이 업계 한도 15억 초과 → 보험사 분산 가입 전략 포함 제시 필요" if _over_lim else ""
+            run_ai_analysis(
+                _inj_c_name, _inj_query, _inj_hi, "res_injury",
+                extra_prompt=(
+                    "[상해 통합 관리 — LCRM 분석]\n"
+                    f"{_type_prompt.get(_inj_type, '')}"
+                    f"월소득: {_inj_income}만원 / 휴업: {_inj_work_loss}개월 / 재활: {_inj_rehab}개월\n"
+                    f"장해율: {_inj_dis_rate}% / 호프만계수 H={_h_coeff} / 필요 가입금액: {_req_man:,}만원\n"
+                    f"현재 준비: {_cur_man:,}만원 / 보장 공백: {_gap_man:,}만원 / 소득단절: {_dep_mon}개월 후 고갈\n"
+                    f"사회보장 보전액: {_inj_social}만원{_over_txt}\n\n"
+                    "## 분석 지시 (순서대로)\n"
+                    "1. 사고 성격 확인 및 적용 산출 방식(AMA/맥브라이드/산재) 근거 설명\n"
+                    "2. 치료비·수술비·입원일당 단계 보장 현황 분석\n"
+                    "3. 후유장해 3%~100% 구간별 보험금 시뮬레이션 (현재 가입 기준)\n"
+                    "4. 소득 보전 공백 기간 및 필요 추가 담보 우선순위 제안 (예산 효율 최적화)\n"
+                    "5. 고도장해 ↔ 사망 담보 Offset 관계 분석 (중복 산출 방지)\n"
+                    "6. 보험사 분산 가입 필요 여부 및 포트폴리오 구성안\n"
+                    "7. 민법 판례·국가배상법 기준 오차 자가 검증 후 최종 리포트 발행\n"
+                ),
+            )
+
+        # ── 딥링크: 세부 탭 바로가기 ─────────────────────────────────────
+        st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 14px;margin:14px 0 6px 0;
+  font-weight:900;font-size:0.85rem;color:#1a3a5c;">🔗 세부 전문 도구 바로가기</div>""", unsafe_allow_html=True)
+        _dl1, _dl2, _dl3, _dl4 = st.columns(4)
+        with _dl1:
+            if st.button("🩺 장해보험금\n정밀 산출", key="inj_goto_dis", use_container_width=True):
+                st.session_state["current_tab"] = "disability"
+                st.rerun()
+        with _dl2:
+            if st.button("💰 보험금\n청구 상담", key="inj_goto_t1", use_container_width=True):
+                st.session_state["current_tab"] = "t1"
+                st.rerun()
+        with _dl3:
+            if st.button("🚗 자동차사고\n과실비율", key="inj_goto_t4", use_container_width=True):
+                st.session_state["current_tab"] = "t4"
+                st.rerun()
+        with _dl4:
+            if st.button("🏥 통합보험\n설계", key="inj_goto_t3", use_container_width=True):
+                st.session_state["current_tab"] = "t3"
+                st.rerun()
+
+        st.stop()  # lazy-dispatch
 
     # ── [disability] 장해보험금 산출 ─────────────────────────────────────
     if cur == "disability":
