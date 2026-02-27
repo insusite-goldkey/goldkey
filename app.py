@@ -515,6 +515,104 @@ def crm_context_for_prompt(reg: dict, name: str) -> str:
         return ""
     return "\n[고객 관계 정보]\n" + "\n".join(f"- {l}" for l in lines) + "\n"
 
+# ══════════════════════════════════════════════════════════════════════
+# ★ CRM Supabase 영구 저장/로드 엔진
+# 테이블: gk_crm_clients
+#   id           BIGSERIAL PRIMARY KEY
+#   agent_uid    TEXT NOT NULL          -- 설계사 user_id
+#   client_name  TEXT NOT NULL          -- 고객 이름 (registry 키)
+#   profile      JSONB DEFAULT '{}'     -- 프로필 전체 (entity_type, company, title ...)
+#   analyses     JSONB DEFAULT '[]'     -- 분석 이력
+#   registered   BOOLEAN DEFAULT false  -- 등록고객 여부
+#   updated_at   TIMESTAMPTZ DEFAULT now()
+#   UNIQUE(agent_uid, client_name)
+# ══════════════════════════════════════════════════════════════════════
+_CRM_TABLE = "gk_crm_clients"
+
+def crm_save_to_db(reg: dict, agent_uid: str) -> tuple[int, str]:
+    """레지스트리 전체를 Supabase에 upsert. 반환: (저장건수, 오류메시지)"""
+    sb = _get_sb_client()
+    if not sb:
+        return 0, "Supabase 미연결"
+    if not agent_uid:
+        return 0, "로그인 필요"
+    rows = []
+    for name, node in reg.items():
+        if not name or name == "익명 고객":
+            continue
+        rows.append({
+            "agent_uid":   agent_uid,
+            "client_name": name,
+            "profile":     node.get("profile", {}),
+            "analyses":    node.get("analyses", []),
+            "registered":  bool(node.get("registered", False)),
+        })
+    if not rows:
+        return 0, ""
+    try:
+        for i in range(0, len(rows), 50):
+            sb.table(_CRM_TABLE).upsert(
+                rows[i:i+50],
+                on_conflict="agent_uid,client_name"
+            ).execute()
+        return len(rows), ""
+    except Exception as e:
+        return 0, str(e)
+
+def crm_load_from_db(agent_uid: str) -> dict:
+    """Supabase에서 해당 설계사의 CRM 레지스트리 로드. 반환: registry dict"""
+    sb = _get_sb_client()
+    if not sb or not agent_uid:
+        return {}
+    try:
+        rows = (
+            sb.table(_CRM_TABLE)
+            .select("client_name,profile,analyses,registered")
+            .eq("agent_uid", agent_uid)
+            .execute()
+            .data or []
+        )
+        reg = {}
+        for r in rows:
+            name = r.get("client_name", "")
+            if not name:
+                continue
+            reg[name] = {
+                "profile":    r.get("profile") or {},
+                "analyses":   r.get("analyses") or [],
+                "registered": bool(r.get("registered", False)),
+            }
+        return reg
+    except Exception:
+        return {}
+
+def crm_sync_session(force: bool = False):
+    """세션에 gk_client_registry 없거나 force=True 시 DB에서 복원."""
+    uid = st.session_state.get("user_id", "")
+    if not uid:
+        return
+    if force or "gk_client_registry" not in st.session_state or not st.session_state["gk_client_registry"]:
+        loaded = crm_load_from_db(uid)
+        if loaded:
+            st.session_state["gk_client_registry"] = loaded
+
+def crm_save_one(reg: dict, name: str, agent_uid: str):
+    """단일 고객만 즉시 upsert (저장 버튼 클릭 시 호출)."""
+    sb = _get_sb_client()
+    if not sb or not agent_uid or not name or name == "익명 고객":
+        return
+    node = reg.get(name, {})
+    try:
+        sb.table(_CRM_TABLE).upsert({
+            "agent_uid":   agent_uid,
+            "client_name": name,
+            "profile":     node.get("profile", {}),
+            "analyses":    node.get("analyses", []),
+            "registered":  bool(node.get("registered", False)),
+        }, on_conflict="agent_uid,client_name").execute()
+    except Exception:
+        pass
+
 def sanitize_prompt(text):
     """프롬프트 인젝션 방어 - 모든 쿼리에 적용"""
     text = sanitize_unicode(text)
@@ -9940,6 +10038,9 @@ section[data-testid="stMain"] > div,
         # gk_client_registry: {이름: {analyses: [], registered: bool}}
         if "gk_client_registry" not in st.session_state:
             st.session_state["gk_client_registry"] = {}
+        # ── DB 자동 복원: 세션 비어있으면 Supabase에서 로드 ──────────────
+        if not st.session_state["gk_client_registry"]:
+            crm_sync_session()
         if "t0_name_edit_mode" not in st.session_state:
             st.session_state["t0_name_edit_mode"] = False
 
@@ -10301,7 +10402,14 @@ section[data-testid="stMain"] > div,
                         memo=_pf_memo.strip() if (_memo_toggle and isinstance(_pf_memo, str)) else _crm_p.get("memo", ""),
                     )
                     st.session_state["gk_client_registry"] = _reg
-                    st.success("✅ 저장 완료")
+                    # ── Supabase 영구 저장 ──────────────────────────────
+                    _sv_uid = st.session_state.get("user_id", "")
+                    crm_save_one(_reg, _effective_name, _sv_uid)
+                    # 가족/소개 역방향 엣지도 함께 저장
+                    for _edge_name in _fam_list + ([_pf_referrer] if _pf_referrer and _pf_referrer in _reg else []):
+                        crm_save_one(_reg, _edge_name, _sv_uid)
+                    _sb_ok = _get_sb_client() is not None
+                    st.success("✅ 저장 완료" + (" · ☁️ DB 반영" if _sb_ok else " (오프라인 — 세션에만 저장)"))
                     st.rerun()
             with _sv_c2:
                 # 등록 고객 확정 버튼
@@ -10312,6 +10420,7 @@ section[data-testid="stMain"] > div,
                 ):
                     _reg[_effective_name]["registered"] = True
                     st.session_state["gk_client_registry"] = _reg
+                    crm_save_one(_reg, _effective_name, st.session_state.get("user_id", ""))
                     st.success(f"🟢 {_effective_name}님이 등록고객으로 확정되었습니다.")
                     st.rerun()
 
@@ -10751,6 +10860,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         "result_key": f"res_t0_hist_{_analysis_name}_{_ana_idx}",
                     })
                     st.session_state["gk_client_registry"] = _reg
+                    # ── 분석 이력 DB 즉시 반영 ───────────────────────────
+                    crm_save_one(_reg, _analysis_name, st.session_state.get("user_id", ""))
             show_result("res_t0")
 
             # ── LIFE CYCLE 박스 ──────────────────────────────────────
