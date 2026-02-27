@@ -11859,6 +11859,243 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
 </div>""", height=1080)
 
+        # ── 사망 디멘드 참고사항 ─────────────────────────────────────────
+        with st.expander("💀 사망 디멘드 참고사항 — CFP 설계 논리·생애주기 가입금액·상속 전략·후킹 대화법", expanded=False):
+            components.html("""
+<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.80rem;
+  line-height:1.85;color:#1a1a2e;padding:4px 2px;">
+
+<!-- ═══ PART 1: 생애주기별 사망보험 필요성 ═══ -->
+<div style="background:#1a3a5c;color:#fff;border-radius:8px 8px 0 0;
+  padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;">
+  PART 1 &nbsp;|&nbsp; CFP 관점 — 생애주기(Life Cycle)별 사망보험 필요성 &amp; 가입금액
+</div>
+<div style="background:#f4f8ff;border:1px solid #b3c8e8;border-top:none;
+  border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:14px;">
+
+  <b style="color:#c0392b;">핵심 정의:</b> 사망보험 = 가장이 미래에 벌어올 모든 가처분 소득을 오늘 시점으로 당겨와 예치하는 장치.<br>
+  CFP 산출 공식: <b>① 자본운용법</b> (연 필요생활비 ÷ 투자수익률) · <b>② 인적가치법</b> (은퇴 시점까지 총소득 현재가치 PV)<br><br>
+
+  <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-bottom:10px;">
+    <tr style="background:#2e6da4;color:#fff;">
+      <th style="padding:4px 7px;border:1px solid #1a4a7a;width:18%;">생애주기</th>
+      <th style="padding:4px 7px;border:1px solid #1a4a7a;width:20%;">주요 Event</th>
+      <th style="padding:4px 7px;border:1px solid #1a4a7a;">사망보험 필요성</th>
+      <th style="padding:4px 7px;border:1px solid #1a4a7a;width:24%;">권장 가입금액 범위</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">미혼/사회초년생</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">취업·독립</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">장례비·학자금 채무 정리. 부양 책임 최소</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;color:#2e6da4;font-weight:700;">연소득 1~2배 (5천~1억)</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족형성기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">결혼·출산</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;"><b style="color:#c0392b;">필요성 최대.</b> 배우자 생활비 + 양육비 확보</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;color:#c0392b;font-weight:700;">연소득 5~10배 + 부채 (3~5억)</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족확장기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">교육·주택</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">교육비 목적자금 수요 정점. 고액 보장 유지</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;color:#c0392b;font-weight:700;">연소득 7~10배 + 교육비 (5~10억)</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족성숙기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">자녀독립·은퇴</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">상속세 재원·사후정리 자금으로 성격 전환</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;color:#1a7a2e;font-weight:700;">상속세 추정액 or 소득 3~5년분</td>
+    </tr>
+  </table>
+
+  <b style="color:#1a3a5c;">▶ 상속 관점 종신보험 설계 가이드 (2026년 기준 누진세율 적용)</b><br>
+  <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-top:6px;">
+    <tr style="background:#2e6da4;color:#fff;">
+      <th style="padding:4px 7px;border:1px solid #1a4a7a;width:22%;">상속재산 규모</th>
+      <th style="padding:4px 7px;border:1px solid #1a4a7a;width:20%;">예상 상속세액</th>
+      <th style="padding:4px 7px;border:1px solid #1a4a7a;width:22%;">종신보험 설계 범위</th>
+      <th style="padding:4px 7px;border:1px solid #1a4a7a;">CFP 핵심 전략</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;">10억 ~ 30억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 0.9억 ~ 8억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">3억 ~ 8억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">배우자·일괄공제 활용 후 현금 흐름 보완</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;">30억 ~ 100억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 8억 ~ 35억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">10억 ~ 30억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">부동산 비중 높을 경우 <b>급매 방지</b> 유동성 확보</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;">100억 ~ 200억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 35억 ~ 85억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">50억 이상</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">가업상속공제 병행 · <b>수익자 부담 원칙</b>(자녀 소득 증빙)</td>
+    </tr>
+  </table>
+
+  <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:7px;padding:7px 12px;margin-top:8px;font-size:0.76rem;color:#856404;">
+    <b>⚠️ 간주상속재산 주의 (상증세법 제8조):</b> 피보험자=피상속인·보험료납입=피상속인 → 사망보험금 상속재산 포함 (세금 증가)<br>
+    <b>절세 구조:</b> 계약자/수익자=자녀, 피보험자=부모 → 사망보험금 상속재산 제외. 단, 자녀 보험료 납입 능력 없으면 <b>증여세 이슈</b> 발생 → 사전 증여로 자금출처 확보 선행.
+  </div>
+</div>
+
+<!-- ═══ PART 2: 생애주기별 평균 가처분소득 × 사망보험금 산출 ═══ -->
+<div style="background:#7d3c00;color:#fff;border-radius:8px 8px 0 0;
+  padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;margin-top:4px;">
+  PART 2 &nbsp;|&nbsp; 생애주기별 평균 가처분소득 &amp; 적정 사망보험금 산출 (통계청 2023 기준)
+</div>
+<div style="background:#fff8f0;border:1px solid #f5d5a0;border-top:none;
+  border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:14px;">
+
+  <b style="color:#7d3c00;">산출 로직:</b> 유가족 생활비(연소득×소득대체율×5년) + 부채(평균 9,100만원) + 목적자금<br>
+  소득대체율: 가족형성 70% / 확장기 80% / 성숙기 50% (가장 본인 소비분 20~30% 제외)<br><br>
+
+  <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-bottom:10px;">
+    <tr style="background:#e67e22;color:#fff;">
+      <th style="padding:4px 7px;border:1px solid #c0621c;width:20%;">생애 Event</th>
+      <th style="padding:4px 7px;border:1px solid #c0621c;width:20%;">평균 가처분소득(연)</th>
+      <th style="padding:4px 7px;border:1px solid #c0621c;">산출 근거</th>
+      <th style="padding:4px 7px;border:1px solid #c0621c;width:22%;">적정 가입금액</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">사회초년생/미혼</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 3,400만원</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">사후정리비 + 소액부채 + 부모 부양(2년)</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#2e6da4;">5천만 ~ 1억원</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족형성기(신혼)</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 6,200만원</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">6,200만×70%×5년 + 주택대출</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#c0392b;">3억 ~ 5억원</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족확장기(자녀양육)</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 7,800만원</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">7,800만×80%×5년 + 교육비(1억) + 대출</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#c0392b;">5억 ~ 8억원 (피크)</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족성숙기(노후준비)</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 6,500만원</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">6,500만×50%×5년 + 상속세 재원</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#1a7a2e;">2억 ~ 상속세액</td>
+    </tr>
+  </table>
+
+  <b style="color:#1a3a5c;">▶ 증권분석 기준 — Event별 적정 가입금액 (기가입 충족도 판단표)</b><br>
+  <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-top:6px;">
+    <tr style="background:#e67e22;color:#fff;">
+      <th style="padding:4px 7px;border:1px solid #c0621c;width:22%;">생애 Event</th>
+      <th style="padding:4px 7px;border:1px solid #c0621c;">산출 로직</th>
+      <th style="padding:4px 7px;border:1px solid #c0621c;width:25%;">증권분석 적정 금액</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">자녀 출산기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">가처분소득 100%×5년 + 주택대출</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#c0392b;">4억 ~ 6억원</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">자녀 교육기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">가처분소득 80%×5년 + 대학교육비 + 대출</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#c0392b;">6억 ~ 10억원 (최고)</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">자녀 독립기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">가처분소득 50%×5년 + 사후정리</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#1a7a2e;">2억 ~ 3억원</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">상속 대비기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">추정 상속세액 + 유동성</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#8e44ad;">상속세액의 120% 수준</td>
+    </tr>
+  </table>
+
+  <div style="background:#e8f4fd;border:1px solid #b3d7f0;border-radius:7px;padding:7px 12px;margin-top:8px;font-size:0.76rem;">
+    <b style="color:#1a3a5c;">CFP 복합 설계 원칙 (자녀확장기 최적안):</b><br>
+    • <b>종신보험</b> 1~2억: 평생 보장 + 상속세 재원<br>
+    • <b>정기보험</b> 3~5억: 자녀 독립 전까지 집중 보장 → 보험료 효율 극대화<br>
+    • 보장성 보험료 지출 기준: 가처분소득의 <b>8~12% 이내</b> (금감원 권고)
+  </div>
+</div>
+
+<!-- ═══ PART 3: 후킹 대화법 + 가입 논리 ═══ -->
+<div style="background:#4a1259;color:#fff;border-radius:8px 8px 0 0;
+  padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;margin-top:4px;">
+  PART 3 &nbsp;|&nbsp; 1:1 가입 논리 &amp; 후킹(Hooking) 대화법 — 클로징 실전 기법
+</div>
+<div style="background:#fdf4ff;border:1px solid #d9b3e8;border-top:none;
+  border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:8px;">
+
+  <b style="color:#4a1259;font-size:0.83rem;">① 인적가치(Human Life Value) 가입 논리</b><br>
+  가장이 월 500만원 가처분소득 창출 → 향후 20년간 <b>약 12억원</b> 현금흐름 발생.<br>
+  사망보험 = 이 '미래 자산'에 대한 확실한 담보.<br><br>
+
+  <div style="background:#fff0fa;border-left:4px solid #8e44ad;border-radius:0 7px 7px 0;
+    padding:8px 12px;margin:6px 0 10px 0;font-size:0.78rem;font-style:italic;color:#4a1259;">
+    "고객님, 지금 타시는 차에는 자차보험을 드시면서, 그 차와 집을 유지하게 해주는
+    <b>'고객님이라는 엔진'</b>에는 얼마짜리 보험을 드셨습니까?<br>
+    고객님의 부재는 단순한 슬픔이 아니라, 가족에게 <b>'수입 0원'</b>이라는 경영 위기입니다."
+  </div>
+
+  <b style="color:#4a1259;font-size:0.83rem;">② 후킹 대화법 — 왜 필요한가</b><br>
+  사망보험은 고객이 회피하는 <b>'죽음'</b> 주제를 다룸 → 낙관적 편향(Optimism Bias) 극복 필요.<br>
+  목적: 위험의 시각화(Risk Visualization)로 심리적 장벽 해제.<br><br>
+
+  <div style="background:#fff0fa;border-left:4px solid #c0392b;border-radius:0 7px 7px 0;
+    padding:8px 12px;margin:6px 0 10px 0;font-size:0.78rem;font-style:italic;color:#4a1259;">
+    <b>The "Empty Chair" Logic (빈 의자 기법):</b><br>
+    "오늘 저녁 식탁에 온 가족이 앉아 있습니다. 그런데 내일 저녁, 그 식탁에 고객님 의자만
+    비어 있다면, 남겨진 아내와 아이들이 그 식탁을 오늘처럼 풍성하게 유지할 수 있을까요?<br>
+    <b>그 비어 있는 의자의 무게만큼을 채워주는 것이 사망보험금입니다.</b>"
+  </div>
+
+  <b style="color:#4a1259;font-size:0.83rem;">③ 관련 법조문 체크리스트</b>
+  <table style="width:100%;border-collapse:collapse;font-size:0.75rem;margin-top:5px;">
+    <tr style="background:#8e44ad;color:#fff;">
+      <th style="padding:3px 7px;border:1px solid #6c2e87;width:30%;">법조문</th>
+      <th style="padding:3px 7px;border:1px solid #6c2e87;">실무 적용 포인트</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">상법 제732조</td>
+      <td style="padding:3px 7px;border:1px solid #ddd;">15세 미만·심신상실자 사망보험 계약 무효 — 설계 시 필수 확인</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">상법 제733조</td>
+      <td style="padding:3px 7px;border:1px solid #ddd;">보험수익자 지정 → 사망보험금은 수익자 고유재산 (압류·상속채무 제외)</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">대법원 2001다61175</td>
+      <td style="padding:3px 7px;border:1px solid #ddd;">수익자='상속인' 지정 시 보험금은 상속재산 제외 → 채권자 압류 불가</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">상증세법 제26조</td>
+      <td style="padding:3px 7px;border:1px solid #ddd;">상속세율: 1억 이하 10% ~ 30억 초과 50% 누진 (2026년 현행)</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">금감원 권고</td>
+      <td style="padding:3px 7px;border:1px solid #ddd;">보장성 보험료 = 가처분소득 8~12% 이내 / 종신보험 ≠ 저축 (불완전판매 주의)</td>
+    </tr>
+  </table>
+
+  <!-- 상속 구간 재정립 -->
+  <div style="background:#1a3a5c;color:#fff;border-radius:7px;
+    padding:8px 12px;margin-top:10px;font-size:0.77rem;line-height:1.8;">
+    <b>📌 상속 관점 종신보험 — 실무 핵심 원칙</b><br>
+    • <b>10억~50억:</b> 부동산 비중 높음 → 상속세 급매 손실(30~40%) 방지 = 자산의 10~20% 보험금 설정<br>
+    • <b>100억~200억 (최고세율 50%):</b> 보험금액 확대보다 <b>수익자 부담 원칙</b>(자녀 소득 증빙) 구조 핵심<br>
+    • <b>종신보험의 본질:</b> '절세'가 아닌 <b>'상속세 납부 재원(Liquidity) 마련'</b><br>
+    • 물가 반영: PV = Σ C/(1+r)^t — 정액 보험금의 실질가치 하락 고객 안내 필수
+  </div>
+</div>
+
+</div>""", height=1260)
+
         st.stop()  # lazy-dispatch
 
     # ── [disability] 장해보험금 산출 ─────────────────────────────────────
