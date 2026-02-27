@@ -5716,7 +5716,8 @@ def main():
     try{ screen.orientation.unlock(); }catch(e){}
   }
 
-  // ── 백버튼 처리 ──
+  // ── 백버튼 처리 — 비활성화 (TODO: Streamlit 라우팅 충돌 해소 후 재활성화) ──
+  /* DISABLED_BACKBTN
   if(!window._backBtnInit){
     window._backBtnInit = true;
     history.pushState({page:'app'}, '', window.location.href);
@@ -5728,7 +5729,6 @@ def main():
         var sidebar = pdoc.querySelector('[data-testid="stSidebar"]');
         var isOpen  = sidebar && sidebar.offsetWidth > 50;
         if(isOpen){
-          // Streamlit 사이드바 닫기 버튼 후보들
           var closeSelectors = [
             '[data-testid="stSidebarCollapseButton"] button',
             '[data-testid="collapsedControl"]',
@@ -5757,6 +5757,7 @@ def main():
       history.pushState({page:'app'}, '', window.location.href);
     });
   }
+  END_DISABLED_BACKBTN */
 })();
 </script>
 """, height=0)
@@ -8897,8 +8898,8 @@ window.startVNavSTT=function(){{
 </script>
 """, height=120)
 
-        # Voice-to-Action 라우팅 처리 — 버튼 클릭 or 엔터 (텍스트/음성 공통)
-        if _nav_go and _nav_input:
+        # Voice-to-Action 라우팅 처리 — 비활성화 (TODO: STT 완성 후 재활성화)
+        if False:  # DISABLED: STT 준비중 — 재활성화 시 'if False:' → 'if _nav_go and _nav_input:' 으로 변경
             _dest = _voice_navigate(_nav_input.strip())
             if _dest:
                 st.session_state["voice_nav_input"] = ""
