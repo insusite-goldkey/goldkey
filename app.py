@@ -6416,8 +6416,20 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
 
     # ── 공통 AI 쿼리 블록 ────────────────────────────────────────────────
     def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요.", product_key=""):
-        c_name = st.text_input("고객 성함", "우량 고객", key=f"c_name_{tab_key}")
+        # 기본값: gs_c_name(탭 간 공유) → 없으면 빈 문자열 (이전 "우량 고객" 하드코딩 제거)
+        _default_name = st.session_state.get("gs_c_name", "") or st.session_state.get("current_c_name", "")
+        if f"c_name_{tab_key}" not in st.session_state and _default_name:
+            st.session_state[f"c_name_{tab_key}"] = _default_name
+        c_name = st.text_input(
+            "👤 고객 성함",
+            placeholder="홍길동 (미입력 시 익명 처리)",
+            key=f"c_name_{tab_key}",
+            max_chars=60,
+        )
+        # 빈 이름 안전 처리 (4조건: 등록고객 무관, name 'text' is not defined 방지)
+        c_name = c_name.strip() or st.session_state.get("gs_c_name", "").strip() or "익명 고객"
         st.session_state.current_c_name = c_name
+        st.session_state["gs_c_name"] = c_name
         if product_key:
             st.session_state[f"product_key_{tab_key}"] = product_key
         stt_lang_map = {"한국어":"ko-KR","English":"en-US","日本語":"ja-JP","中文":"zh-CN","ภาษาไทย":"th-TH","Tiếng Việt":"vi-VN","Русский":"ru-RU"}
@@ -9664,8 +9676,80 @@ section[data-testid="stMain"] > div,
   </div>
 </div>""", unsafe_allow_html=True)
 
-        # ── 고객명 + 상담방향 선택 ────────────────────────────────────────
-        t0_c_name = st.text_input("👤 고객 성함", placeholder="홍길동", key="t0_cname")
+        # ── 고객 성명 통합 관리 ────────────────────────────────────────────
+        # gk_client_registry: {이름: {analyses: [], registered: bool}}
+        if "gk_client_registry" not in st.session_state:
+            st.session_state["gk_client_registry"] = {}
+        if "t0_name_edit_mode" not in st.session_state:
+            st.session_state["t0_name_edit_mode"] = False
+
+        _reg = st.session_state["gk_client_registry"]
+        _gs_name = st.session_state.get("gs_c_name", "")
+        # 이름 초기값: gs_c_name이 있고 아직 t0_cname이 세션에 없으면 채워줌
+        if "t0_cname" not in st.session_state and _gs_name:
+            st.session_state["t0_cname"] = _gs_name
+
+        # 이름 수정 모드 (3-1 조건)
+        _name_col, _edit_col = st.columns([5, 1])
+        with _name_col:
+            t0_c_name = st.text_input(
+                "👤 고객 성함",
+                placeholder="홍길동 (미입력 시 익명 처리)",
+                key="t0_cname",
+                help="한국어·영어·일본어 등 모든 이름 입력 가능 (외국인 포함)",
+                max_chars=60,
+            )
+        with _edit_col:
+            st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+            if st.button("✏️", key="t0_name_edit_btn", help="이름 수정(오타 정정)"):
+                st.session_state["t0_name_edit_mode"] = not st.session_state["t0_name_edit_mode"]
+
+        # 이름 오타 정정 UI (3-1, 3 조건)
+        if st.session_state["t0_name_edit_mode"]:
+            _old_names = [n for n in _reg.keys() if n not in ("", "익명 고객")]
+            if _old_names:
+                _fix_col1, _fix_col2, _fix_col3 = st.columns([2, 2, 1])
+                with _fix_col1:
+                    _from_name = st.selectbox("🔄 수정할 이름", _old_names, key="t0_fix_from")
+                with _fix_col2:
+                    _to_name = st.text_input("→ 올바른 이름", key="t0_fix_to", max_chars=60)
+                with _fix_col3:
+                    st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+                    if st.button("통합", key="t0_fix_apply", type="primary"):
+                        if _to_name and _from_name != _to_name:
+                            # (3) 기존 분석 기록 통합 — 분석1, 분석2 형식 유지
+                            _existing = _reg.get(_to_name, {"analyses": [], "registered": False})
+                            _from_data = _reg.pop(_from_name, {"analyses": []})
+                            _existing["analyses"] = _existing["analyses"] + _from_data["analyses"]
+                            _reg[_to_name] = _existing
+                            # result_key 세션도 통합
+                            for _ak, _av in list(st.session_state.items()):
+                                if isinstance(_ak, str) and _from_name in _ak:
+                                    st.session_state[_ak.replace(_from_name, _to_name)] = _av
+                            st.session_state["gs_c_name"] = _to_name
+                            st.session_state["t0_name_edit_mode"] = False
+                            st.success(f"✅ '{_from_name}' → '{_to_name}' 으로 통합 완료")
+                            st.rerun()
+            else:
+                st.info("등록된 고객 이름이 없습니다.")
+
+        # (1) 동일 성명 → 등록고객 우선, (2) 다른 이름 → 별도 고객
+        _effective_name = (t0_c_name.strip() or "익명 고객")
+        if _effective_name not in _reg:
+            # (2) 신규 고객으로 등록
+            _reg[_effective_name] = {"analyses": [], "registered": False}
+        # (1) gs_c_name 동기화
+        if t0_c_name.strip():
+            st.session_state["gs_c_name"] = _effective_name
+            st.session_state["current_c_name"] = _effective_name
+
+        # 등록고객 여부 표시
+        if _effective_name != "익명 고객":
+            _ana_count = len(_reg[_effective_name]["analyses"])
+            if _ana_count > 0:
+                st.caption(f"📋 {_effective_name}님 — 누적 분석 **{_ana_count}회** | "
+                           f"{'🟢 등록고객' if _reg[_effective_name].get('registered') else '🔵 임시고객'}")
+
 
         # 상담 방향 선택 박스
         _T0_PRODUCTS = [
@@ -10000,11 +10084,25 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                         "- 비갱신형 선택 시 장기 절감 효과 수치 제시\n"
                         + doc_text
                     )
+                    _analysis_name = st.session_state.get("current_c_name") or t0_c_name.strip() or "익명 고객"
                     run_ai_analysis(
-                        t0_c_name or "고객", t0_query, 0, "res_t0",
+                        _analysis_name, t0_query, 0, "res_t0",
                         extra_prompt=_t0_extra,
                         product_key=t0_product if t0_product != "선택 안 함 (자유 상담)" else "",
                     )
+                    # (3) 분석 기록 누적 저장 — 분석1, 분석2 형식
+                    _reg = st.session_state.get("gk_client_registry", {})
+                    if _analysis_name not in _reg:
+                        _reg[_analysis_name] = {"analyses": [], "registered": False}
+                    _ana_idx = len(_reg[_analysis_name]["analyses"]) + 1
+                    _reg[_analysis_name]["analyses"].append({
+                        "label": f"분석{_ana_idx}",
+                        "product": t0_product,
+                        "direction": t0_direction,
+                        "query": t0_query[:100],
+                        "result_key": f"res_t0_hist_{_analysis_name}_{_ana_idx}",
+                    })
+                    st.session_state["gk_client_registry"] = _reg
             show_result("res_t0")
 
             # ── LIFE CYCLE 박스 ──────────────────────────────────────
