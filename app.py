@@ -7147,23 +7147,17 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
 
             if st.button("👥 고객 관리", key="sb_customer_mgmt",
                          use_container_width=True, type="primary"):
-                st.session_state.current_tab = "customer_mgmt"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
+                _go_tab("customer_mgmt")
             st.markdown("""<div style="background:linear-gradient(135deg,#0d3b2e,#1a6b4a);
   border-radius:8px;padding:6px 10px;margin:8px 0 4px 0;
   font-size:0.76rem;font-weight:900;color:#a8f0c8;letter-spacing:0.03em;">
   📎 보험증권 분석 &amp; 약관 검색</div>""", unsafe_allow_html=True)
             if st.button("📎 보험증권 AI 분석", key="sb_policy_scan",
                          use_container_width=True, type="primary"):
-                st.session_state.current_tab = "policy_scan"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
+                _go_tab("policy_scan")
             if st.button("📜 약관 매칭 · 딥러닝 검색", key="sb_policy_terms",
                          use_container_width=True):
-                st.session_state.current_tab = "policy_terms"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
+                _go_tab("policy_terms")
 
         st.divider()
         st.markdown("""
@@ -7308,10 +7302,8 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                 st.caption(f"현재 저장된 청크: {_rag_cnt_sb}개")
                 if st.button("📚 RAG 지식베이스 관리", key="btn_goto_rag",
                              use_container_width=True, type="primary"):
-                    st.session_state.current_tab = "t9"
-                    st.session_state["_scroll_top"] = True
                     st.session_state["_rag_admin_hint"] = True
-                    st.rerun()
+                    _go_tab("t9")
                 st.markdown("---")
                 # ── Supabase DB 관리 바로가기 ────────────────────────────
                 st.markdown("**🗄️ Supabase DB 관리**")
@@ -7486,8 +7478,24 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
 
     if 'current_tab' not in st.session_state:
         st.session_state.current_tab = "home"
+    if '_nav_history' not in st.session_state:
+        st.session_state._nav_history = []
 
     cur = st.session_state.get("current_tab", "home")
+
+    def _go_tab(dest: str):
+        """탭 전환 헬퍼 — 현재 탭을 히스토리 스택에 push 후 이동."""
+        _prev = st.session_state.get("current_tab", "home")
+        if _prev != dest:
+            _hist = st.session_state.get("_nav_history", [])
+            # 동일 탭 연속 push 방지, 홈은 스택에 유지 (항상 돌아갈 수 있도록)
+            if not _hist or _hist[-1] != _prev:
+                _hist.append(_prev)
+            # 스택 최대 20개 유지
+            st.session_state._nav_history = _hist[-20:]
+        st.session_state.current_tab = dest
+        st.session_state["_scroll_top"] = True
+        st.rerun()
 
     # ── 공통 AI 쿼리 블록 ────────────────────────────────────────────────
     def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요.", product_key=""):
@@ -8843,10 +8851,8 @@ window.startVNavSTT=function(){{
         if _nav_go and _nav_input:
             _dest = _voice_navigate(_nav_input.strip())
             if _dest:
-                st.session_state.current_tab = _dest
-                st.session_state["_scroll_top"] = True
                 st.session_state["voice_nav_input"] = ""
-                st.rerun()
+                _go_tab(_dest)
             else:
                 st.warning("⚠️ 해당 메뉴를 찾지 못했습니다. 더 구체적으로 입력해주세요. 예) '암 상담', '보험증권 분석'")
 
@@ -9593,9 +9599,7 @@ section[data-testid="stMain"] > div,
                             key=f"{prefix}_{_k}",
                             use_container_width=True,
                         ):
-                            st.session_state.current_tab = _k
-                            st.session_state["_scroll_top"] = True
-                            st.rerun()
+                            _go_tab(_k)
 
         # ══════════════════════════════════════════════════════════════
         # 4개 도메인 그룹 카드 네비게이션
@@ -9708,8 +9712,7 @@ section[data-testid="stMain"] > div,
   </div>
 </div>""", unsafe_allow_html=True)
             if st.button("⚙️ 관리자 시스템 이동", key="home_dash_t9", use_container_width=True):
-                st.session_state.current_tab = "t9"
-                st.rerun()
+                _go_tab("t9")
 
         # ── 보험사 연락처 섹션 ──────────────────────────────────────────
         st.divider()
@@ -9908,15 +9911,40 @@ section[data-testid="stMain"] > div,
         for i, (tab_id, label) in enumerate(links):
             with _dl_cols[i]:
                 if st.button(label, key=f"dl_{current_tab}_{tab_id}", use_container_width=True):
-                    st.session_state.current_tab = tab_id
-                    st.session_state["_scroll_top"] = True
-                    st.rerun()
+                    _go_tab(tab_id)
 
     # ── [홈 복귀 버튼] 각 탭 공통 ────────────────────────────────────────
     def tab_home_btn(tab_key):
+        # ── 이전 버튼 (홈에서는 숨김) ──────────────────────────────────
+        _hist = st.session_state.get("_nav_history", [])
+        if tab_key != "home" and _hist:
+            st.markdown("""
+<style>
+div[data-testid="stButton"] button[kind="secondary"].back-btn {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+}
+</style>""", unsafe_allow_html=True)
+            _prev_label = _hist[-1] if _hist else "홈"
+            _back_col, _ = st.columns([1, 5])
+            with _back_col:
+                if st.button(
+                    "‹ 이전",
+                    key=f"btn_back_{tab_key}",
+                    use_container_width=True,
+                    help=f"이전 화면({_prev_label})으로 돌아가기",
+                ):
+                    _dest = st.session_state._nav_history.pop()
+                    st.session_state.current_tab = _dest
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+        # ── 홈 버튼 + Deep Link 바 ──────────────────────────────────────
         _col_home, _col_links = st.columns([1, 3])
         with _col_home:
             if st.button("🏠 홈으로", key=f"btn_home_{tab_key}", type="primary", use_container_width=True):
+                st.session_state._nav_history = []
                 st.session_state.current_tab = "home"
                 st.session_state["_scroll_top"] = True
                 st.rerun()
@@ -9928,9 +9956,7 @@ section[data-testid="stMain"] > div,
                 for i, (tab_id, label) in enumerate(links):
                     with _dl_sub[i]:
                         if st.button(label, key=f"dl_{tab_key}_{tab_id}", use_container_width=True):
-                            st.session_state.current_tab = tab_id
-                            st.session_state["_scroll_top"] = True
-                            st.rerun()
+                            _go_tab(tab_id)
 
     # ── [customer_mgmt] 고객 관리 탭 (Phase 1) ───────────────────────────
     if cur == "customer_mgmt":
@@ -13442,8 +13468,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             show_result("res_t2")
             if ins_type == "🔥 화재보험":
                 if st.button("🏗️ 화재보험 재조달가액 산출 이동", key="btn_fire_from_t2"):
-                    st.session_state.current_tab = "fire"
-                    st.rerun()
+                    _go_tab("fire")
             elif ins_type == "🚙 운전자보험":
                 st.markdown("##### 🚙 운전자보험 플랜 안내")
                 components.html("""
@@ -20353,9 +20378,7 @@ END; $$;""", language="sql")
                 with _sc_col1:
                     if st.button("📖 상담 카탈로그로 이동", key="btn_goto_consult",
                                  use_container_width=True, type="primary"):
-                        st.session_state.current_tab = "consult_catalog"
-                        st.session_state["_scroll_top"] = True
-                        st.rerun()
+                        _go_tab("consult_catalog")
                 with _sc_col2:
                     if st.button("❌ 선택 초기화", key="btn_clear_sel", use_container_width=True):
                         st.session_state.pop("cc_selected_ids", None)
@@ -20528,8 +20551,7 @@ END; $$;""", language="sql")
         else:
             st.warning("⚠️ 홈 화면에서 **상담 대상자 정보**를 먼저 입력하면 분석 정확도가 높아집니다.")
             if st.button("← 홈으로 돌아가 상담자 정보 입력", key="sh_goto_home"):
-                st.session_state.current_tab = "home"
-                st.rerun()
+                _go_tab("home")
 
         st.divider()
 
@@ -21187,8 +21209,7 @@ END; $$;""", language="sql")
                     if st.button("이동", key=f"sh_nav_{_nav_key}",
                                  use_container_width=True,
                                  disabled=(not _nav_ready)):
-                        st.session_state.current_tab = _nav_key
-                        st.rerun()
+                        _go_tab(_nav_key)
 
         # ── [scan_hub ↔ 가입 약관 자동 추적] 보험증권 스캔 기반 약관 자동 연동 ──
         # ── 약관 추적 대상 구성:
