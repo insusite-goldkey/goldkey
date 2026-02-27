@@ -5,6 +5,12 @@ on:
     branches:
       - main
 
+env:
+  PROJECT_ID: gen-lang-client-0536067004
+  REGION: asia-northeast3
+  SERVICE: goldkey-ai
+  REPO: goldkey
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -21,21 +27,35 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure Docker for GCR
-        run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev --quiet
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Create Artifact Registry repository (if not exists)
+        run: |
+          gcloud artifacts repositories create ${{ env.REPO }} \
+            --repository-format=docker \
+            --location=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --quiet || true
 
       - name: Build and Push Docker image
         run: |
-          IMAGE="asia-northeast3-docker.pkg.dev/insusite-ai-2026/goldkey/goldkey:${{ github.sha }}"
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
 
       - name: Deploy to Cloud Run
         run: |
-          IMAGE="asia-northeast3-docker.pkg.dev/insusite-ai-2026/goldkey/goldkey:${{ github.sha }}"
-          gcloud run deploy goldkey \
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
+          gcloud run deploy ${{ env.SERVICE }} \
             --image "$IMAGE" \
-            --region asia-northeast3 \
+            --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
-            --project insusite-ai-2026
+            --memory 2Gi \
+            --cpu 2 \
+            --min-instances 0 \
+            --max-instances 10 \
+            --port 8080 \
+            --set-env-vars "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }},ADMIN_CODE=${{ secrets.ADMIN_CODE }},ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}" \
+            --project ${{ env.PROJECT_ID }}
