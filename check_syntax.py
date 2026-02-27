@@ -1,25 +1,15 @@
 import ast, sys
-
-files = [
-    "D:/CascadeProjects/app.py",
-    "D:/CascadeProjects/customer_mgmt.py",
-    "D:/CascadeProjects/modules/auth.py",
-]
-
-all_ok = True
-for path in files:
-    try:
-        with open(path, encoding="utf-8") as f:
-            src = f.read()
-        ast.parse(src)
-        print(f"OK : {path}")
-    except SyntaxError as e:
-        print(f"ERR: {path}  line {e.lineno}: {e.msg}")
-        all_ok = False
-    except Exception as e:
-        print(f"ERR: {path}  {e}")
-        all_ok = False
-
-print("---")
-print("RESULT: ALL OK" if all_ok else "RESULT: ERRORS FOUND")
-sys.exit(0 if all_ok else 1)
+out = open('d:/CascadeProjects/syn_result.txt', 'w', encoding='utf-8')
+try:
+    src = open('d:/CascadeProjects/app.py', encoding='utf-8').read()
+    ast.parse(src)
+    out.write('SYNTAX OK\n')
+except SyntaxError as e:
+    out.write(f'SyntaxError at line {e.lineno}: {e.msg}\n')
+    lines = src.splitlines()
+    start = max(0, e.lineno - 3)
+    end   = min(len(lines), e.lineno + 2)
+    for i, ln in enumerate(lines[start:end], start=start+1):
+        marker = ' >>>' if i == e.lineno else '    '
+        out.write(f'{marker} {i:6}: {ln}\n')
+out.close()
