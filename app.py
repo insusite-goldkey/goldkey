@@ -1773,11 +1773,13 @@ def add_directive(content: str):
 MAX_FREE_DAILY = 10
 BETA_END_DATE  = date(2026, 8, 31)
 def _get_unlimited_users():
-    try:
-        master = st.secrets.get("MASTER_NAME", "PERMANENT_MASTER")
-    except Exception:
-        master = "PERMANENT_MASTER"
-    return {master, "PERMANENT_MASTER", "이세윤", "박보정"}
+    if '_unlimited_users_cache' not in st.session_state:
+        try:
+            master = st.secrets.get("MASTER_NAME", "PERMANENT_MASTER")
+        except Exception:
+            master = "PERMANENT_MASTER"
+        st.session_state['_unlimited_users_cache'] = {master, "PERMANENT_MASTER", "이세윤", "박보정"}
+    return st.session_state['_unlimited_users_cache']
 
 def check_usage_count(user_name):
     today = str(date.today())
@@ -1813,8 +1815,14 @@ def get_remaining_usage(user_name):
     return max(0, MAX_FREE_DAILY - check_usage_count(user_name))
 
 def display_usage_dashboard(user_name: str):
-    """사이드바 사용량 게이지 UI"""
-    current_count = check_usage_count(user_name)
+    """사이드바 사용량 게이지 UI — TTL 60초 캐시로 DB 조회 최소화"""
+    import time as _t
+    _ck = f"_ud_cnt_{user_name}"; _tk = f"_ud_ts_{user_name}"
+    _now = _t.time()
+    if st.session_state.get(_ck) is None or (_now - st.session_state.get(_tk, 0)) > 60:
+        _cnt = check_usage_count(user_name)
+        st.session_state[_ck] = _cnt; st.session_state[_tk] = _now
+    current_count = st.session_state[_ck]
     is_unlimited  = _is_unlimited_user(user_name)
     daily_limit   = 999 if is_unlimited else MAX_FREE_DAILY
     remaining     = max(0, daily_limit - current_count)
@@ -5422,17 +5430,24 @@ def main():
         try:
             setup_database()
             ensure_master_members()
+            st.session_state.db_ready = True
+        except Exception:
+            st.session_state.db_ready = True
+
+    # ── STEP 4-RAG: Supabase 테이블 초기화 (세션당 1회, DB ready 후 지연) ──
+    if st.session_state.get('db_ready') and not st.session_state.get('_rag_tables_ready'):
+        try:
             _rag_supabase_ensure_tables()
-            # GoldKeyServiceManager 지연 초기화 (set_page_config 이후 안전 실행)
+            # GoldKeyServiceManager 지연 초기화
             if _gsm is not None and not st.session_state.get("_gsm_initialized"):
                 try:
                     _gsm.initialize(_get_sb_client())
                     st.session_state["_gsm_initialized"] = True
                 except Exception:
                     pass
-            st.session_state.db_ready = True
         except Exception:
-            st.session_state.db_ready = True
+            pass
+        st.session_state['_rag_tables_ready'] = True
 
     # ── STEP 4-B: URL 토큰 자동 로그인 (기기 통합 — 핸드폰/태블릿 공용) ──
     # 로그인 성공 시 ?t=TOKEN URL이 발급되며, 북마크 또는 재방문 시 자동 로그인
@@ -5492,11 +5507,18 @@ def main():
             except Exception:
                 pass
 
-    # ── STEP 5: 사이드바 렌더링 (로그인폼 포함) — 초기화 로직보다 먼저 ──
-    _remaining = _get_session_remaining(_sid)
+    # ── STEP 5: 세션 타이머 JS (세션당 1회만 주입) ─────────────────────
+    if not st.session_state.get('_session_timer_injected'):
+        st.session_state['_session_timer_injected'] = True
+        _remaining = _get_session_remaining(_sid)
+    else:
+        _remaining = st.session_state.get('_session_remaining_last', 3600)
+    st.session_state['_session_remaining_last'] = max(0, _remaining - 1)
     components.html(f"""
 <script>
 (function(){{
+  if(window._gkTimerRunning) return;
+  window._gkTimerRunning = true;
   var remaining = {_remaining};
   var warned = false;
   var warningDiv = null;
@@ -5576,21 +5598,34 @@ def main():
 </script>
 """, height=0)
 
-    # ── STEP 6: 자가 진단 ────────────────────────────────────────────────
-    try:
-        _run_self_diagnosis()
-    except Exception:
-        pass
+    # ── STEP 6: 로그인 직후 첫 rerun 감지 → 무거운 초기화 defer ────────
+    # 로그인 성공 시 st.rerun()이 트리거됨 — 이 첫 rerun에서는
+    # 자가진단·헬스체크·RAG sync를 건너뛰고 사이드바·홈탭만 빠르게 렌더
+    _login_first_run = st.session_state.pop("_login_just_done", False)
 
-    # ── STEP 6-b: 헬스체크 자동 tick (10분 간격) + 기준 스냅샷 ─────────
-    try:
-        _hc_take_baseline()   # 세션당 1회 — 비교 기준 기록
-        _hc_auto_tick()       # 10분 경과 시 자동 점검
-    except Exception:
-        pass
+    # ── STEP 6-a: 자가 진단 (세션당 1회 — 로그인 첫 rerun 제외) ─────────
+    if not st.session_state.get('_self_diag_done') and not _login_first_run:
+        try:
+            _run_self_diagnosis()
+        except Exception:
+            pass
+        st.session_state['_self_diag_done'] = True
 
-    # ── 심야 자동 RAG 처리 (22:00~06:00) — 세션당 1회 ───────────────────
-    if not st.session_state.get("_night_process_done"):
+    # ── STEP 6-b: 헬스체크 (로그인 첫 rerun 제외, 10분 간격 tick) ────────
+    if not _login_first_run:
+        if not st.session_state.get('_hc_baseline_done'):
+            try:
+                _hc_take_baseline()
+            except Exception:
+                pass
+            st.session_state['_hc_baseline_done'] = True
+        try:
+            _hc_auto_tick()       # 10분 경과 시만 실행 (내부 시간 체크)
+        except Exception:
+            pass
+
+    # ── 심야 자동 RAG 처리 (22:00~06:00) — 세션당 1회, 로그인 첫 rerun 제외
+    if not st.session_state.get("_night_process_done") and not _login_first_run:
         _now_h = dt.now().hour  # 서버 시간 기준 (HF Spaces = UTC → KST +9)
         _kst_h = (_now_h + 9) % 24
         if _kst_h >= 22 or _kst_h < 6:
@@ -5607,8 +5642,8 @@ def main():
                     pass
         st.session_state["_night_process_done"] = True
 
-    # ── 2단계: STT 지연 초기화 (홈 화면 렌더 후) ────────────────────────
-    if st.session_state.get('home_rendered') and 'stt_loaded' not in st.session_state:
+    # ── 2단계: STT 지연 초기화 (홈 화면 렌더 후, 로그인 첫 rerun 제외) ──
+    if st.session_state.get('home_rendered') and 'stt_loaded' not in st.session_state and not _login_first_run:
         load_stt_engine()
         st.session_state.stt_loaded = True
 
@@ -5624,6 +5659,7 @@ def main():
         not _rag_store.get("docs")                        # docs 없는 경우 (최초 or 로그아웃 후)
         and st.session_state.get('home_rendered')         # 홈 첫 렌더 완료 후에만
         and not st.session_state.get('_rag_sync_done')    # 이번 세션에서 아직 sync 안 한 경우
+        and not _login_first_run                          # 로그인 직후 첫 rerun 제외 (defer)
     )
     if _rag_needs_sync:
         try:
@@ -5773,10 +5809,10 @@ def main():
         _badge  = " 👑 관리자" if _is_adm else ""
         st.toast(f"✅ {_welcome_name}님{_badge} 로그인되었습니다!", icon="🎉")
 
-    # ── 사이드바 스크롤 복원 CSS ─────────────────────────────────────────
-    # overscroll-behavior: auto 로 강제 복원 — pull-to-refresh 차단 스크립트가
-    # 사이드바 scroll까지 막는 부작용 해소
-    st.markdown("""
+    # ── 사이드바 스크롤 복원 CSS (세션당 1회만 주입) ─────────────────────
+    if not st.session_state.get("_sidebar_css_injected"):
+        st.session_state["_sidebar_css_injected"] = True
+        st.markdown("""
 <style>
 section[data-testid="stSidebar"] > div:first-child {
     overflow-y: auto !important;
@@ -6569,11 +6605,14 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
     고객을 기억하고, 다음 만남을 준비하며,<br>설계사의 전문성을 지킵니다.
   </div>
 </div>""", unsafe_allow_html=True)
-        # ── 아바타 이미지 base64 로드 ──
-        _avatar_path = pathlib.Path(__file__).parent / "avatar.png"
-        _avatar_b64 = ""
-        if _avatar_path.exists():
-            _avatar_b64 = base64.b64encode(_avatar_path.read_bytes()).decode()
+        # ── 아바타 이미지 base64 로드 (session_state 캐시 — 파일 I/O 1회만) ──
+        if '_avatar_b64_cache' not in st.session_state:
+            _avatar_path = pathlib.Path(__file__).parent / "avatar.png"
+            if _avatar_path.exists():
+                st.session_state['_avatar_b64_cache'] = base64.b64encode(_avatar_path.read_bytes()).decode()
+            else:
+                st.session_state['_avatar_b64_cache'] = ""
+        _avatar_b64 = st.session_state['_avatar_b64_cache']
         _avatar_html = (
             f'<img src="data:image/png;base64,{_avatar_b64}" '
             'style="width:88px;height:88px;border-radius:50%;'
@@ -6836,6 +6875,7 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                                     st.session_state["_mic_notice"] = True
                                     st.session_state["_login_welcome"] = ln
                                     st.session_state["_auto_close_sidebar"] = True
+                                    st.session_state["_login_just_done"] = True  # defer 무거운 초기화
                                     _pro_val = st.session_state.get("login_is_pro", "비종사자")
                                     st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)" if _pro_val == "종사자" else "👤 비종사자 (고객·일반인)"
                                     _raw_ins = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)")
@@ -7053,12 +7093,22 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                         )
                         st.code(_bookmark_url, language=None)
 
-            is_member, status_msg = check_membership_status()
-            remaining_usage = get_remaining_usage(user_name)
+            # ── 사이드바 사용량 표시: TTL 60초 캐시로 DB 조회 최소화 ────────
+            import time as _time
+            _usage_cache_key = f"_sb_usage_cache_{user_name}"
+            _usage_cache = st.session_state.get(_usage_cache_key)
+            _usage_ts_key = f"_sb_usage_ts_{user_name}"
+            _now_ts = _time.time()
+            if _usage_cache is None or (_now_ts - st.session_state.get(_usage_ts_key, 0)) > 60:
+                _remaining_usage = get_remaining_usage(user_name)
+                st.session_state[_usage_cache_key] = _remaining_usage
+                st.session_state[_usage_ts_key] = _now_ts
+            else:
+                _remaining_usage = _usage_cache
 
             st.info(
                 f"**서비스 상태**: 무료 이용 중\n\n"
-                f"**오늘 남은 횟수**: {remaining_usage}회"
+                f"**오늘 남은 횟수**: {_remaining_usage}회"
             )
 
             display_usage_dashboard(user_name)
