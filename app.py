@@ -302,6 +302,47 @@ def sanitize_unicode(text) -> str:
         text = repr(text).encode("utf-8", errors="replace").decode("utf-8", errors="replace")
     return text
 
+def normalize_corp_name(name: str) -> str:
+    """법인명 정규화 — (주)·주식회사·(유)·유한회사 위치 무관하게 핵심 회사명 추출
+    반환: 정규화된 핵심명 (비교·중복 감지용)
+    예) '(주)삼성전자' → '삼성전자' / '삼성전자(주식회사)' → '삼성전자'
+    """
+    if not name:
+        return name
+    n = name.strip()
+    # 앞·뒤 접두/접미 제거 패턴 (순서 중요: 긴 패턴 먼저)
+    _corp_patterns = [
+        r"^\(주식회사\)\s*", r"^\(주\)\s*", r"^\(유한회사\)\s*", r"^\(유\)\s*",
+        r"^주식회사\s*",      r"^유한회사\s*",
+        r"\s*\(주식회사\)$",  r"\s*\(주\)$", r"\s*\(유한회사\)$", r"\s*\(유\)$",
+        r"\s*주식회사$",      r"\s*유한회사$",
+    ]
+    for pat in _corp_patterns:
+        n = re.sub(pat, "", n).strip()
+    return n
+
+def detect_corp_name_conflict(new_name: str, registry: dict) -> tuple[str | None, str]:
+    """새 이름이 기존 registry의 이름과 법인명 정규화 기준으로 동일한지 검사
+    반환: (기존_키, 경고메시지) or (None, "")
+    """
+    if not new_name:
+        return None, ""
+    new_core = normalize_corp_name(new_name)
+    for existing_key in registry:
+        if existing_key in (new_name, "", "익명 고객"):
+            continue
+        existing_core = normalize_corp_name(existing_key)
+        if existing_core and new_core and existing_core == existing_key and new_name != existing_key:
+            continue
+        if existing_core and new_core and existing_core == new_core and new_name != existing_key:
+            return existing_key, (
+                f"⚠️ **법인명 중복 주의**: '{new_name}'은 이미 등록된 '{existing_key}'와 "
+                f"동일한 회사로 판단됩니다.\n"
+                f"   핵심명: **{new_core}**\n"
+                f"   표기를 통일하려면 ✏️ 수정 버튼을 이용하세요."
+            )
+    return None, ""
+
 def sanitize_prompt(text):
     """프롬프트 인젝션 방어 - 모든 쿼리에 적용"""
     text = sanitize_unicode(text)
@@ -6428,6 +6469,24 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
         )
         # 빈 이름 안전 처리 (4조건: 등록고객 무관, name 'text' is not defined 방지)
         c_name = c_name.strip() or st.session_state.get("gs_c_name", "").strip() or "익명 고객"
+        # ── 법인명 중복 감지 (모든 탭 공통) ─────────────────────────────────
+        if c_name not in ("익명 고객", ""):
+            _blk_reg = st.session_state.get("gk_client_registry", {})
+            _blk_dup_key, _blk_dup_msg = detect_corp_name_conflict(c_name, _blk_reg)
+            if _blk_dup_key:
+                st.warning(_blk_dup_msg)
+                # 핵심명으로 자동 통합
+                _blk_core = normalize_corp_name(c_name)
+                if _blk_core and _blk_core != c_name:
+                    if _blk_core not in _blk_reg:
+                        _blk_reg[_blk_core] = _blk_reg.get(_blk_dup_key, {"analyses": [], "registered": False})
+                    if _blk_dup_key in _blk_reg and _blk_dup_key != _blk_core:
+                        _blk_reg[_blk_core]["analyses"] = (
+                            _blk_reg[_blk_core]["analyses"] + _blk_reg[_blk_dup_key]["analyses"]
+                        )
+                        _blk_reg.pop(_blk_dup_key, None)
+                    st.session_state["gk_client_registry"] = _blk_reg
+                    c_name = _blk_core
         st.session_state.current_c_name = c_name
         st.session_state["gs_c_name"] = c_name
         if product_key:
@@ -9735,6 +9794,25 @@ section[data-testid="stMain"] > div,
 
         # (1) 동일 성명 → 등록고객 우선, (2) 다른 이름 → 별도 고객
         _effective_name = (t0_c_name.strip() or "익명 고객")
+
+        # ── 법인명 중복 감지 (주식회사·(주)·유한회사·(유) 정규화 비교) ──────
+        if _effective_name != "익명 고객":
+            _corp_dup_key, _corp_dup_msg = detect_corp_name_conflict(_effective_name, _reg)
+            if _corp_dup_key:
+                st.warning(_corp_dup_msg)
+                # 핵심명(정규화명)을 실제 키로 사용하여 자동 통합
+                _core = normalize_corp_name(_effective_name)
+                if _core and _core != _effective_name:
+                    if _core not in _reg:
+                        _reg[_core] = _reg.get(_corp_dup_key, {"analyses": [], "registered": False})
+                    # 기존 키와 병합
+                    if _corp_dup_key in _reg and _corp_dup_key != _core:
+                        _reg[_core]["analyses"] = (
+                            _reg[_core]["analyses"] + _reg[_corp_dup_key]["analyses"]
+                        )
+                        _reg.pop(_corp_dup_key, None)
+                    _effective_name = _core
+
         if _effective_name not in _reg:
             # (2) 신규 고객으로 등록
             _reg[_effective_name] = {"analyses": [], "registered": False}
