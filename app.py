@@ -9844,6 +9844,20 @@ section[data-testid="stMain"] > div,
                 with cols_n[i % 2]:
                     st.markdown(_ins_card(ins), unsafe_allow_html=True)
 
+        # ── 면책 공고 (홈 하단 고정) ─────────────────────────────────────
+        st.markdown("""
+<div style="background:#1a1a2e;border:1.5px solid #4a4a6a;border-radius:10px;
+  padding:12px 18px;margin:18px 0 8px 0;">
+  <div style="color:#a0a0c0;font-size:0.72rem;line-height:1.8;">
+    <span style="color:#f59e0b;font-weight:900;font-size:0.78rem;">⚠️ 면책 고지 (Disclaimer)</span><br>
+    본 서비스(Goldkey AI Master Lab.)는 <b style="color:#e2e8f0;">참고용 정보 제공 목적</b>으로만 운영되며,
+    법적 효력을 갖는 보험 계약·청구·설계 행위가 아닙니다.<br>
+    AI 분석 결과는 <b style="color:#e2e8f0;">보조 참고 자료</b>이며, 정확한 보장 내용·약관 해석·보험금 청구는
+    반드시 <b style="color:#e2e8f0;">해당 보험회사 또는 공인 설계사</b>에게 확인하시기 바랍니다.<br>
+    오답(AI 할루시네이션) 발생 가능성이 있으며, 이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+
     # ══════════════════════════════════════════════════════════════════════
     # [아키텍처 — Global Store] 기둥 간 공용 메모리 초기화 & 접근 함수
     # 전문가 제언: 응접실(메뉴창) 하부에 가벼운 공용 메모리를 두어
@@ -10280,8 +10294,25 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
 • 보완: 골절진단·수술, 상해수술비, 상해입원일당, 민사소송법률비용
 
 
-▶▶ 출력 형식 (반드시 아래 구조로만 출력 — 표/행 목록 절대 금지)
+▶▶ 출력 형식 (아래 순서대로 출력)
 
+
+[1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
+
+```json
+{
+  "coverages": [
+    {"category": "사망/장해", "name": "상해사망", "recommended": "2억", "enrolled": "3억4백만", "diff": "+1억4백만", "status": "충분"},
+    {"category": "사망/장해", "name": "질병사망", "recommended": "1억", "enrolled": "1천만", "diff": "-9천만", "status": "부족"},
+    {"category": "운전자/기타", "name": "교통사고처리지원금", "recommended": "2억", "enrolled": "0", "diff": "-2억", "status": "미가입"}
+  ]
+}
+```
+※ status 값: "충분" | "부족" | "미가입" 중 하나만 사용. 증권에 없는 담보는 enrolled를 "0"으로, status를 "미가입"으로.
+※ recommended는 위 기준표 숫자 그대로 사용. 모든 담보 항목 빠짐없이 포함.
+
+
+[2단계 — 서술형 전문가 의견]
 
 ### 📋 총평
 
@@ -10312,11 +10343,27 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                         _PS_COMMON_CRITERIA
 
                         + """
-[보험증권 전문 분석 — 서술형 총평 출력 지시]
+[보험증권 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
 
 
-▶▶ 출력 형식 (반드시 아래 구조로만 출력 — 표/행 목록 절대 금지)
+▶▶ 출력 형식 (아래 순서대로 출력)
 
+
+[1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
+
+```json
+{
+  "coverages": [
+    {"category": "사망/장해", "name": "상해사망", "recommended": "2억", "enrolled": "3억", "diff": "+1억", "status": "충분"},
+    {"category": "암 진단", "name": "일반암", "recommended": "1억", "enrolled": "0", "diff": "-1억", "status": "미가입"}
+  ]
+}
+```
+※ status 값: "충분" | "부족" | "미가입" 중 하나만 사용. 증권에 없는 담보는 enrolled를 "0"으로, status를 "미가입"으로.
+※ recommended는 위 기준표 숫자 그대로. 모든 분석 대상 담보 항목 포함.
+
+
+[2단계 — 서술형 전문가 의견]
 
 ### 📋 총평
 
@@ -10465,24 +10512,187 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                         unsafe_allow_html=True
                     )
 
-            # ── AI 증권분석 결과 — 스크롤 박스 전문가 의견 형식 ────────
+            # ── AI 증권분석 결과 — KB 스타일 담보 진단 카드 + 서술형 의견 ──
             _res_ps = st.session_state.get("res_ps", "")
             if _res_ps:
-                st.markdown(
-                    '<div style="background:#0d1b2a;border:2px solid #0ea5e9;border-radius:12px;'
-                    'padding:4px 16px 4px 16px;margin:12px 0 8px 0;">'
-                    '<span style="color:#7ec8f5;font-weight:900;font-size:0.88rem;">'
-                    '📊 AI 증권분석 — 전문가 의견</span></div>',
-                    unsafe_allow_html=True
+                import re as _re, json as _json
+
+                # ── JSON 블록 추출 ────────────────────────────────────────
+                _ps_json_data = None
+                _ps_json_match = _re.search(
+                    r'```json\s*(\{.*?\})\s*```',
+                    _res_ps, _re.DOTALL
                 )
-                st.markdown(
-                    f'<div style="background:#0d1b2a;border:1.5px solid #1e3a5a;border-radius:10px;'
-                    f'padding:18px 22px;max-height:520px;overflow-y:auto;'
-                    f'font-size:0.88rem;line-height:1.75;color:#d0e8f8;">'
-                    f'{_res_ps.replace(chr(10), "<br>")}'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
+                if _ps_json_match:
+                    try:
+                        _ps_json_data = _json.loads(_ps_json_match.group(1))
+                    except Exception:
+                        _ps_json_data = None
+
+                # ── JSON 성공 시: KB 스타일 담보 진단 렌더링 ─────────────
+                if _ps_json_data and _ps_json_data.get("coverages"):
+                    _covs = _ps_json_data["coverages"]
+
+                    # 상태별 색상/배경 정의 (KB 스타일)
+                    def _cov_style(status):
+                        if status == "충분":
+                            return {"bg": "#dbeafe", "border": "#3b82f6",
+                                    "label_bg": "#3b82f6", "label_color": "#fff",
+                                    "text": "#1e3a8a", "diff_color": "#1d4ed8"}
+                        elif status == "부족":
+                            return {"bg": "#fce7f3", "border": "#ec4899",
+                                    "label_bg": "#ec4899", "label_color": "#fff",
+                                    "text": "#831843", "diff_color": "#be185d"}
+                        else:  # 미가입
+                            return {"bg": "#fee2e2", "border": "#ef4444",
+                                    "label_bg": "#ef4444", "label_color": "#fff",
+                                    "text": "#7f1d1d", "diff_color": "#dc2626"}
+
+                    # ── 종합 요약 표 (006 스타일) ──────────────────────────
+                    st.markdown("""
+<div style="background:#1a2744;border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;
+  padding:6px 14px;margin:14px 0 6px 0;">
+  <span style="color:#fcd34d;font-weight:900;font-size:0.9rem;">
+  📊 주요 담보별 과부족 현황</span>
+  <span style="color:#94a3b8;font-size:0.72rem;margin-left:8px;">권장금액 기준 비교</span>
+</div>""", unsafe_allow_html=True)
+
+                    # 종합 요약 표 HTML
+                    _tbl_rows = ""
+                    for _c in _covs:
+                        _st = _c.get("status", "미가입")
+                        _sty = _cov_style(_st)
+                        _diff_val = _c.get("diff", "")
+                        _tbl_rows += (
+                            f'<tr style="border-bottom:1px solid #2a3a5a;">'
+                            f'<td style="padding:6px 10px;color:#94a3b8;font-size:0.72rem;">{_c.get("category","")}</td>'
+                            f'<td style="padding:6px 10px;font-weight:700;color:#e2e8f0;font-size:0.80rem;">{_c.get("name","")}</td>'
+                            f'<td style="padding:6px 10px;text-align:right;color:#fcd34d;font-size:0.80rem;font-weight:700;">{_c.get("recommended","")}</td>'
+                            f'<td style="padding:6px 10px;text-align:right;color:#e2e8f0;font-size:0.80rem;">{_c.get("enrolled","0") if _c.get("enrolled","0") != "0" else "미가입"}</td>'
+                            f'<td style="padding:6px 10px;text-align:right;font-weight:900;font-size:0.80rem;color:{_sty["diff_color"]};">{_diff_val}</td>'
+                            f'<td style="padding:5px 8px;text-align:center;">'
+                            f'<span style="background:{_sty["label_bg"]};color:{_sty["label_color"]};'
+                            f'border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:900;">{_st}</span>'
+                            f'</td>'
+                            f'</tr>'
+                        )
+                    st.markdown(
+                        f'<div style="overflow-x:auto;margin-bottom:14px;">'
+                        f'<table style="width:100%;border-collapse:collapse;background:#0d1b2a;border-radius:10px;overflow:hidden;">'
+                        f'<thead><tr style="background:#1e3a5a;">'
+                        f'<th style="padding:7px 10px;text-align:left;color:#7ec8f5;font-size:0.72rem;">구분</th>'
+                        f'<th style="padding:7px 10px;text-align:left;color:#7ec8f5;font-size:0.72rem;">담보명</th>'
+                        f'<th style="padding:7px 10px;text-align:right;color:#fcd34d;font-size:0.72rem;">권장금액</th>'
+                        f'<th style="padding:7px 10px;text-align:right;color:#7ec8f5;font-size:0.72rem;">가입금액</th>'
+                        f'<th style="padding:7px 10px;text-align:right;color:#7ec8f5;font-size:0.72rem;">과부족</th>'
+                        f'<th style="padding:7px 10px;text-align:center;color:#7ec8f5;font-size:0.72rem;">진단</th>'
+                        f'</tr></thead>'
+                        f'<tbody>{_tbl_rows}</tbody>'
+                        f'</table></div>',
+                        unsafe_allow_html=True
+                    )
+
+                    # ── 카테고리별 담보 카드 (007~013 스타일) ────────────
+                    _cat_order = ["사망/장해", "치매/간병", "암 진단", "뇌/심장 진단",
+                                  "실손의료비", "수술/입원", "운전자/기타"]
+                    _cats = {}
+                    for _c in _covs:
+                        _cat = _c.get("category", "기타")
+                        _cats.setdefault(_cat, []).append(_c)
+                    _sorted_cats = sorted(
+                        _cats.items(),
+                        key=lambda x: _cat_order.index(x[0]) if x[0] in _cat_order else 99
+                    )
+
+                    _cat_icons = {
+                        "사망/장해": "💀", "치매/간병": "🧠", "암 진단": "🎗️",
+                        "뇌/심장 진단": "❤️", "실손의료비": "🏥",
+                        "수술/입원": "🔪", "운전자/기타": "🚗"
+                    }
+                    _cat_subtitles = {
+                        "사망/장해": "남겨진 가족을 위한 보장",
+                        "치매/간병": "온 가족이 고통받는 질병",
+                        "암 진단": "이제는 생존을 위한 치료보장",
+                        "뇌/심장 진단": "어느날 갑자기 쓰러지는 질환",
+                        "실손의료비": "평생 든든한 치료비!",
+                        "수술/입원": "폭 넓은 보장을 위한 선택!",
+                        "운전자/기타": "안전한 생활을 위한 필수보장"
+                    }
+
+                    for _cat_name, _cat_covs in _sorted_cats:
+                        _icon = _cat_icons.get(_cat_name, "📋")
+                        _sub = _cat_subtitles.get(_cat_name, "")
+                        st.markdown(
+                            f'<div style="background:#1a2744;border-bottom:2px solid #f59e0b;'
+                            f'padding:7px 14px;margin:18px 0 8px 0;border-radius:6px 6px 0 0;">'
+                            f'<span style="color:#fcd34d;font-weight:900;font-size:0.88rem;">'
+                            f'{_icon} {_cat_name}</span>'
+                            f'<span style="color:#94a3b8;font-size:0.72rem;margin-left:8px;">{_sub}</span>'
+                            f'</div>',
+                            unsafe_allow_html=True
+                        )
+                        st.markdown('<div style="background:#0d1b2a;padding:8px;border-radius:0 0 10px 10px;margin-bottom:4px;">', unsafe_allow_html=True)
+
+                        # 4개씩 행으로 배치
+                        _cols_per_row = 4
+                        for _row_start in range(0, len(_cat_covs), _cols_per_row):
+                            _row_items = _cat_covs[_row_start:_row_start + _cols_per_row]
+                            _card_cols = st.columns(len(_row_items))
+                            for _ci, _cov in enumerate(_row_items):
+                                _st = _cov.get("status", "미가입")
+                                _sty = _cov_style(_st)
+                                _enrolled_disp = _cov.get("enrolled", "0")
+                                _is_unenrolled = _enrolled_disp in ("0", "", "미가입")
+                                _diff_disp = _cov.get("diff", "")
+                                with _card_cols[_ci]:
+                                    st.markdown(
+                                        f'<div style="background:{_sty["bg"]};border:1.5px solid {_sty["border"]};'
+                                        f'border-radius:10px;padding:10px 12px;margin:3px 2px;min-height:110px;">'
+                                        f'<div style="color:{_sty["text"]};font-size:0.66rem;margin-bottom:2px;">{_cat_name}</div>'
+                                        f'<div style="color:{_sty["text"]};font-weight:900;font-size:0.80rem;margin-bottom:6px;line-height:1.3;">{_cov.get("name","")}</div>'
+                                        f'<div style="display:flex;justify-content:space-between;font-size:0.68rem;color:{_sty["text"]};margin-bottom:1px;">'
+                                        f'<span>권장</span><span style="font-weight:700;">{_cov.get("recommended","")}</span></div>'
+                                        f'<div style="display:flex;justify-content:space-between;font-size:0.68rem;color:{_sty["text"]};margin-bottom:6px;">'
+                                        f'<span>가입</span><span style="font-weight:700;">{"미가입" if _is_unenrolled else _enrolled_disp}</span></div>'
+                                        f'<div style="background:{_sty["label_bg"]};color:{_sty["label_color"]};'
+                                        f'border-radius:5px;padding:3px 6px;text-align:center;'
+                                        f'font-weight:900;font-size:0.72rem;">'
+                                        f'{_st}&nbsp;&nbsp;<span style="font-size:0.78rem;">{_diff_disp}</span>'
+                                        f'</div>'
+                                        f'</div>',
+                                        unsafe_allow_html=True
+                                    )
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                # ── 서술형 AI 의견 (JSON 이후 또는 JSON 없을 때) ──────────
+                # JSON 블록 제거한 순수 서술형 텍스트만 표시
+                _narrative = _re.sub(r'```json.*?```', '', _res_ps, flags=_re.DOTALL).strip()
+                if _narrative:
+                    st.markdown("""
+<div style="background:#0d1b2a;border-left:4px solid #0ea5e9;border-radius:0 8px 8px 0;
+  padding:6px 14px;margin:18px 0 6px 0;">
+  <span style="color:#7ec8f5;font-weight:900;font-size:0.88rem;">
+  🏥 보험 전문가의 한 마디</span>
+</div>""", unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div style="background:#0d1b2a;border:1.5px solid #1e3a5a;border-radius:10px;'
+                        f'padding:18px 22px;font-size:0.88rem;line-height:1.8;color:#d0e8f8;">'
+                        f'{_narrative.replace(chr(10), "<br>")}'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+
+                # ── 증권분석 전용 면책 공고 ────────────────────────────────
+                st.markdown("""
+<div style="background:#1a0d00;border:1px solid #7c3a00;border-radius:8px;
+  padding:9px 14px;margin-top:8px;">
+  <span style="color:#f59e0b;font-weight:900;font-size:0.74rem;">⚠️ 면책 고지</span>
+  <span style="color:#d4a76a;font-size:0.72rem;">
+  &nbsp;본 AI 증권분석 결과는 <b>참고용</b>이며, 실제 보장 내용·보험금 청구 여부는
+  반드시 <b>해당 보험회사 약관 및 공인 설계사</b>를 통해 확인하시기 바랍니다.
+  AI 오답으로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.
+  </span>
+</div>""", unsafe_allow_html=True)
 
             # ── 증권 자동추출 정보 표시 + 고객 파일 저장 버튼 ──────────
             _pi = st.session_state.get("ssot_policy_info", {})
