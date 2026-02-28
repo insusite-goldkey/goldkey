@@ -56,8 +56,8 @@ def render_login_page():
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        u_name = st.text_input("성함", placeholder="이름을 입력하세요")
-        u_phone = st.text_input("연락처", type="password", placeholder="연락처를 입력하세요")
+        u_name = st.text_input("성함", key="auth_name", label_visibility="collapsed")
+        u_phone = st.text_input("연락처", type="password", key="auth_phone", label_visibility="collapsed")
         
         if st.button("🚀 접속", use_container_width=True, type="primary"):
             if u_name and u_phone:
