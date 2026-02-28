@@ -9510,18 +9510,19 @@ window['startTTS_{tab_key}']=function(){{
 </div>
 """, height=150)
 
-        # Voice-to-Action STT 입력창
-        _nav_col1, _nav_col2 = st.columns([3, 1], gap="small")
-        with _nav_col1:
-            _nav_input = st.text_input(
-                "nav_input_label",
-                key="voice_nav_input",
-                placeholder="🎙️ 음성 인식 결과가 여기에 표시됩니다 — 직접 입력도 가능",
-                label_visibility="collapsed",
-            )
-        with _nav_col2:
-            _nav_go = st.button("🚀 바로 이동", key="btn_voice_nav_go",
-                                use_container_width=True, type="primary")
+        # Voice-to-Action STT 입력창 — form으로 감싸 버튼 클릭 시 값 커밋 보장
+        with st.form(key="_nav_form", clear_on_submit=False):
+            _nav_col1, _nav_col2 = st.columns([3, 1], gap="small")
+            with _nav_col1:
+                _nav_input = st.text_input(
+                    "nav_input_label",
+                    key="voice_nav_input",
+                    placeholder="🎙️ 음성 인식 결과가 여기에 표시됩니다 — 직접 입력도 가능",
+                    label_visibility="collapsed",
+                )
+            with _nav_col2:
+                _nav_go = st.form_submit_button("🚀 바로 이동",
+                                               use_container_width=True, type="primary")
 
         # Voice-to-Action STT 버튼 — SECTOR_CODES 기반 하이브리드 엔진
         # JS→Python: components.html 방식 (v1 호환)
@@ -9749,16 +9750,16 @@ export default function(component) {{
             if _stt_dest:
                 _go_tab(_stt_dest)
 
-        # 수동 직접입력 → 바로이동 버튼 처리 (키워드 또는 4자리 ID 모두 지원)
-        # 버튼 클릭 시 session_state에서 직접 읽기 (rerun 후 text_input 값 소실 방지)
-        _nav_input_val = st.session_state.get("voice_nav_input", "").strip()
-        if _nav_go and _nav_input_val:
-            _dest = _voice_navigate(_nav_input_val)
-            if _dest:
-                st.session_state["voice_nav_input"] = ""
-                _go_tab(_dest)
-            else:
-                st.warning("⚠️ 해당 섹터를 찾지 못했습니다. 섹터명 또는 ID(예: 3000)를 입력해주세요.")
+        # 수동 직접입력 → 바로이동 버튼 처리 (form submit 시 값 확정 후 읽기)
+        if _nav_go:
+            _nav_input_val = st.session_state.get("voice_nav_input", "").strip()
+            if _nav_input_val:
+                _dest = _voice_navigate(_nav_input_val)
+                if _dest:
+                    st.session_state["voice_nav_input"] = ""
+                    _go_tab(_dest)
+                else:
+                    st.warning("⚠️ 해당 섹터를 찾지 못했습니다. 섹터명 또는 ID(예: 3000)를 입력해주세요.")
 
         # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
         components.html("""
