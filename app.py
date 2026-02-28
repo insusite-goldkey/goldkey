@@ -6926,7 +6926,7 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
             st.markdown("""
 <div style="background:#fff3cd;border:1.5px solid #f59e0b;border-radius:8px;
   padding:8px 12px;font-size:0.78rem;color:#92400e;margin-bottom:6px;">
-  👆 <b>여기 &gt; 를 클릭</b>하여 회원가입 또는 로그인하세요
+  👆 <b>클릭! 회원가입 &amp; 로그인창 입력 하세요.</b>
 </div>""", unsafe_allow_html=True)
             tab_l, tab_s, tab_pw, tab_nm = st.tabs(["로그인", "회원가입", "비번 변경", "이름 변경"])
             components.html("""<script>
@@ -8070,7 +8070,42 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
         st.stop()
 
     # ── 메인 영역 — current_tab 라우팅 ───────────────────────────────────
-    st.title("🏆 Goldkey AI Master")
+    st.markdown("""
+<div style="font-size:clamp(2rem,6vw,3.2rem);font-weight:900;letter-spacing:-0.01em;
+line-height:1.1;color:#0f172a;padding:4px 0 10px 0;
+font-family:'Noto Sans KR',Malgun Gothic,sans-serif;">
+  🏆 Goldkey AI Master
+</div>""", unsafe_allow_html=True)
+
+    # ── 로그인 안된 경우에만 사이드바 강제 오픈 버튼 표시 ──────────
+    if 'user_id' not in st.session_state:
+        components.html("""
+<style>
+#_gk_login_btn {
+  width:100%;padding:14px 0;font-size:1.15rem;font-weight:800;
+  background:linear-gradient(90deg,#1d4ed8,#0ea5e9);color:#fff;
+  border:none;border-radius:12px;cursor:pointer;
+  box-shadow:0 4px 14px rgba(14,165,233,0.35);
+  letter-spacing:0.03em;margin-bottom:4px;
+  transition:transform .12s,box-shadow .12s;
+}
+#_gk_login_btn:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(14,165,233,0.5);}
+#_gk_login_btn:active{transform:translateY(0);}
+</style>
+<button id="_gk_login_btn" onclick="
+  (function(){
+    var btn = parent.document.querySelector('[data-testid=\"stSidebarCollapsedControl\"]')
+           || parent.document.querySelector('[data-testid=\"collapsedControl\"]')
+           || parent.document.querySelector('button[aria-label=\"Open sidebar\"]')
+           || parent.document.querySelector('button[aria-expanded=\"false\"]');
+    if(btn){btn.click();}
+    setTimeout(function(){
+      var loginTab = parent.document.querySelector('[data-baseweb=\"tab\"]');
+      if(loginTab){loginTab.click();}
+    },400);
+  })();
+">🔓 회원가입 &amp; 로그인</button>
+""", height=60)
 
     if 'current_tab' not in st.session_state:
         st.session_state.current_tab = "home"
@@ -9517,12 +9552,8 @@ export default function(component) {{
 }}
 """
         # STT 컴포넌트 등록 — 앱 전체에서 이름 충돌 없도록 고유명 사용
-        _vnav_comp = st.components.v2.component(
-            "vnav_sector_engine",
-            css=_vnav_css,
-            js=_vnav_js,
-        )
-        _vnav_result = _vnav_comp(key="vnav_stt", on_nav_change=lambda: None)
+        components.html(f"""<style>{_vnav_css}</style><script>{_vnav_js}</script>""", height=72)
+        _vnav_result = None
 
         # JS→Python setTriggerValue 수신 — 섹터 tab_key로 즉시 이동
         if _vnav_result and _vnav_result.nav:
