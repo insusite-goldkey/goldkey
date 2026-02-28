@@ -8430,53 +8430,7 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
             st.error(f"제안 목록 오류: {_e}")
         st.markdown("---")
 
-        # ── 💡 시스템 제안 · 개선 의견 (사이드바 하단) ──────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
-  border-radius:12px;padding:12px 16px 10px 16px;margin-bottom:10px;color:#fff;">
-  <div style="font-size:0.92rem;font-weight:900;letter-spacing:0.03em;margin-bottom:2px;">
-    💡 시스템 제안 · 개선 의견
-  </div>
-  <div style="font-size:0.74rem;opacity:0.88;">
-    내용 · 시스템 구성 · 개선 제안을 텍스트로 입력해주세요
-  </div>
-</div>""", unsafe_allow_html=True)
-
-        _sb_suggest_val = st.session_state.get("suggest_input_sb", "")
-        _sb_suggest_new = st.text_area(
-            "개선 의견 입력",
-            value=_sb_suggest_val,
-            height=100,
-            key="suggest_input_sb",
-            placeholder="예: 홈 화면 개선이 필요합니다 / 보험금 계산기 추가 요청",
-            label_visibility="collapsed"
-        )
-        if st.button("📨 제안 제출", key="btn_suggest_submit_sb", use_container_width=True, type="primary"):
-            _sug = st.session_state.get("suggest_input_sb", "").strip()
-            if _sug:
-                _sug_path = os.path.join(_DATA_DIR, "suggestions.json")
-                try:
-                    _sug_list = []
-                    if os.path.exists(_sug_path):
-                        with open(_sug_path, "r", encoding="utf-8") as _f:
-                            _sug_list = json.load(_f)
-                    _sug_list.append({
-                        "time": dt.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "user": st.session_state.get("user_name", "비회원"),
-                        "content": sanitize_unicode(_sug)
-                    })
-                    with open(_sug_path, "w", encoding="utf-8") as _f:
-                        json.dump(_sug_list, _f, ensure_ascii=False)
-                    st.session_state["suggest_input_sb"] = ""
-                    st.session_state["suggest_submitted_sb"] = True
-                    st.rerun()
-                except Exception:
-                    st.session_state["suggest_submitted_sb"] = True
-                    st.rerun()
-            else:
-                st.warning("제안 내용을 입력해주세요.")
-        if st.session_state.pop("suggest_submitted_sb", False):
-            st.success("✅ 제안이 반영되었습니다.")
+        pass  # 제안 블록 → 홈 면책고지 위로 이동
 
     # ── 로그인 후 최초 1회 마이크 권한 안내 ────────────────────────────
     if st.session_state.pop("_mic_notice", False):
@@ -10655,6 +10609,55 @@ section[data-testid="stMain"] {
             for i, ins in enumerate(NON_LIFE_INS):
                 with cols_n[i % 2]:
                     st.markdown(_ins_card(ins), unsafe_allow_html=True)
+
+        # ── 💡 시스템 제안 · 개선 의견 + 면책 고지 그룹 ────────────────
+        st.markdown("""
+<div style="background:#f0f6ff;border:2px solid #2e6da4;border-radius:14px;
+  padding:16px 18px 12px 18px;margin:18px 0 10px 0;
+  box-shadow:0 2px 10px rgba(46,109,164,0.10);">
+  <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+    border-radius:10px;padding:10px 14px 8px 14px;margin-bottom:12px;color:#fff;">
+    <div style="font-size:0.92rem;font-weight:900;letter-spacing:0.03em;margin-bottom:2px;">
+      💡 시스템 제안 · 개선 의견
+    </div>
+    <div style="font-size:0.74rem;opacity:0.88;">
+      내용 · 시스템 구성 · 개선 제안을 텍스트로 입력해주세요
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+        _home_suggest_new = st.text_area(
+            "개선 의견 입력",
+            height=100,
+            key="suggest_input_home",
+            placeholder="제안사항을 위 박스에 입력하세요.",
+            label_visibility="collapsed"
+        )
+        if st.button("📨 제안 제출", key="btn_suggest_submit_home", use_container_width=True, type="primary"):
+            _sug_h = st.session_state.get("suggest_input_home", "").strip()
+            if _sug_h:
+                _sug_path_h = os.path.join(_DATA_DIR, "suggestions.json")
+                try:
+                    _sug_list_h = []
+                    if os.path.exists(_sug_path_h):
+                        with open(_sug_path_h, "r", encoding="utf-8") as _f:
+                            _sug_list_h = json.load(_f)
+                    _sug_list_h.append({
+                        "time": dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "user": st.session_state.get("user_name", "비회원"),
+                        "content": sanitize_unicode(_sug_h)
+                    })
+                    with open(_sug_path_h, "w", encoding="utf-8") as _f:
+                        json.dump(_sug_list_h, _f, ensure_ascii=False)
+                    st.session_state["suggest_input_home"] = ""
+                    st.session_state["suggest_submitted_home"] = True
+                    st.rerun()
+                except Exception:
+                    st.session_state["suggest_submitted_home"] = True
+                    st.rerun()
+            else:
+                st.warning("제안 내용을 입력해주세요.")
+        if st.session_state.pop("suggest_submitted_home", False):
+            st.success("✅ 제안이 반영되었습니다.")
 
         # ── 면책 공고 (홈 하단 고정) ─────────────────────────────────────
         st.markdown("""
