@@ -8292,41 +8292,11 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
 
     # ── 메인 영역 — current_tab 라우팅 ───────────────────────────────────
     st.markdown("""
-<div style="font-size:clamp(2rem,6vw,3.2rem);font-weight:900;letter-spacing:-0.01em;
-line-height:1.1;color:#0f172a;padding:4px 0 10px 0;
+<div style="font-size:clamp(2.4rem,8vw,4.2rem);font-weight:900;letter-spacing:-0.02em;
+line-height:1.05;color:#0f172a;padding:2px 0 12px 0;
 font-family:'Noto Sans KR',Malgun Gothic,sans-serif;">
   🏆 Goldkey AI Master
 </div>""", unsafe_allow_html=True)
-
-    # ── 로그인 안된 경우에만 사이드바 강제 오픈 버튼 표시 ──────────
-    if 'user_id' not in st.session_state:
-        components.html("""
-<style>
-#_gk_login_btn {
-  width:100%;padding:14px 0;font-size:1.15rem;font-weight:800;
-  background:linear-gradient(90deg,#1d4ed8,#0ea5e9);color:#fff;
-  border:none;border-radius:12px;cursor:pointer;
-  box-shadow:0 4px 14px rgba(14,165,233,0.35);
-  letter-spacing:0.03em;margin-bottom:4px;
-  transition:transform .12s,box-shadow .12s;
-}
-#_gk_login_btn:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(14,165,233,0.5);}
-#_gk_login_btn:active{transform:translateY(0);}
-</style>
-<button id="_gk_login_btn" onclick="
-  (function(){
-    var btn = parent.document.querySelector('[data-testid=\"stSidebarCollapsedControl\"]')
-           || parent.document.querySelector('[data-testid=\"collapsedControl\"]')
-           || parent.document.querySelector('button[aria-label=\"Open sidebar\"]')
-           || parent.document.querySelector('button[aria-expanded=\"false\"]');
-    if(btn){btn.click();}
-    setTimeout(function(){
-      var loginTab = parent.document.querySelector('[data-baseweb=\"tab\"]');
-      if(loginTab){loginTab.click();}
-    },400);
-  })();
-">🔓 회원가입 &amp; 로그인</button>
-""", height=60)
 
     if 'current_tab' not in st.session_state:
         st.session_state.current_tab = "home"
