@@ -6721,20 +6721,20 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:18px 16px 14px 16px;margin-bottom:12px;color:#fff;text-align:center;">
   {_avatar_html}
-  <div style="font-size:1.25rem;font-weight:900;letter-spacing:0.06em;line-height:1.5;">
+  <div style="font-size:1.6rem;font-weight:900;letter-spacing:0.04em;line-height:1.4;">
     Goldkey_AI_Master
   </div>
-  <div style="font-size:1.25rem;font-weight:900;letter-spacing:0.06em;line-height:1.4;">
+  <div style="font-size:1.6rem;font-weight:900;letter-spacing:0.04em;line-height:1.3;">
     Lab. &nbsp;·&nbsp; Beta
   </div>
-  <div style="margin-top:6px;">
+  <div style="margin-top:8px;">
     <span style="background:rgba(14,165,233,0.25);color:#7dd3fc;
       border:1px solid rgba(14,165,233,0.5);border-radius:20px;
-      padding:2px 10px;font-size:0.68rem;font-weight:700;letter-spacing:0.06em;">
+      padding:3px 12px;font-size:0.82rem;font-weight:700;letter-spacing:0.06em;">
       v1.3.0
     </span>
   </div>
-  <div style="font-size:0.78rem;opacity:0.88;line-height:1.6;margin-top:8px;">
+  <div style="font-size:0.95rem;opacity:0.92;line-height:1.6;margin-top:10px;font-weight:600;">
     30년 보험설계사 상담 실무 지식 기반
   </div>
 </div>""", unsafe_allow_html=True)
@@ -6949,10 +6949,16 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                 import random as _rnd, re as _re2
 
                 # 세션 초기값
-                if "_lp" not in st.session_state:
-                    st.session_state["_lp"] = "TERMS"       # 최초 진입 시 약관 동의 필수
                 if "_lp_terms" not in st.session_state:
                     st.session_state["_lp_terms"] = {"t1": False, "t2": False, "t3": False}
+                # 약관 이미 동의 완료된 경우 → TERMS 스킵, A 직행
+                _terms_done = (st.session_state["_lp_terms"].get("t1")
+                               and st.session_state["_lp_terms"].get("t2")
+                               and st.session_state["_lp_terms"].get("t3"))
+                if "_lp" not in st.session_state:
+                    st.session_state["_lp"] = "A" if _terms_done else "TERMS"
+                elif st.session_state["_lp"] == "TERMS" and _terms_done:
+                    st.session_state["_lp"] = "A"
                 if "_lp_name" not in st.session_state:
                     st.session_state["_lp_name"] = ""
                 if "_lp_otp" not in st.session_state:
@@ -7018,117 +7024,37 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                 # ─────────────────────────────────────────────────────────────
                 if _lp == "TERMS":
                     _tr = st.session_state["_lp_terms"]
+                    _all_agreed = _tr.get("t1") and _tr.get("t2") and _tr.get("t3")
                     st.markdown("""
 <div style='background:linear-gradient(135deg,#1e1b4b,#312e81);border-radius:14px;
-  padding:16px 20px;margin-bottom:14px;text-align:center;'>
-  <div style='font-size:1.8rem;margin-bottom:6px;'>📋</div>
-  <div style='color:#e0e7ff;font-size:1.05rem;font-weight:700;'>서비스 이용 전 동의가 필요합니다</div>
-  <div style='color:#a5b4fc;font-size:0.78rem;margin-top:4px;'>아래 3가지 항목에 모두 동의하셔야 서비스를 이용하실 수 있습니다</div>
-</div>""", unsafe_allow_html=True)
-
-                    # ① 서비스 이용약관
-                    _t1 = _tr.get("t1", False)
-                    st.markdown(f"""
-<div style='background:{"#eff6ff" if _t1 else "#f8fafc"};
-  border:2px solid {"#2563eb" if _t1 else "#cbd5e1"};
-  border-radius:12px;padding:14px 16px;margin-bottom:8px;'>
-  <div style='display:flex;align-items:flex-start;gap:10px;'>
-    <span style='font-size:1.3rem;'>{"✅" if _t1 else "⬜"}</span>
-    <div>
-      <div style='font-weight:700;color:#1e3a5f;font-size:0.9rem;'>[필수] 서비스 이용약관 동의</div>
-      <div style='font-size:0.76rem;color:#64748b;margin-top:4px;line-height:1.6;'>
-        본 서비스의 AI 분석 결과는 <b>참고용 정보</b>에 한하며, 보험 계약 체결·보험금 수령에 대한
-        <b>법적 책임을 지지 않습니다.</b> 최종 판단은 이용자 본인 및 전문가에게 있습니다.
-      </div>
-    </div>
+  padding:20px 20px 16px 20px;margin-bottom:16px;text-align:center;'>
+  <div style='font-size:2rem;margin-bottom:8px;'>📋</div>
+  <div style='color:#e0e7ff;font-size:1.1rem;font-weight:800;'>서비스 이용 전 동의가 필요합니다</div>
+  <div style='color:#a5b4fc;font-size:0.82rem;margin-top:6px;line-height:1.6;'>
+    이용약관 · 개인정보 수집 · 민감정보(질병/보험) 처리에 일괄 동의합니다.
   </div>
 </div>""", unsafe_allow_html=True)
-                    _c1t, _c2t = st.columns([3, 1])
-                    with _c2t:
-                        if st.button("약관 보기 / 동의" if not _t1 else "✅ 동의 완료", key="terms_t1",
-                                     use_container_width=True, type="primary" if not _t1 else "secondary"):
-                            st.session_state["_lp_terms"]["t1"] = not _t1
-                            st.rerun()
 
-                    # ② 개인정보 수집·이용 동의
-                    _t2 = _tr.get("t2", False)
-                    st.markdown(f"""
-<div style='background:{"#f0fdf4" if _t2 else "#f8fafc"};
-  border:2px solid {"#16a34a" if _t2 else "#cbd5e1"};
-  border-radius:12px;padding:14px 16px;margin-bottom:8px;'>
-  <div style='display:flex;align-items:flex-start;gap:10px;'>
-    <span style='font-size:1.3rem;'>{"✅" if _t2 else "⬜"}</span>
-    <div>
-      <div style='font-weight:700;color:#14532d;font-size:0.9rem;'>[필수] 개인정보 수집 및 이용 동의</div>
-      <div style='font-size:0.76rem;color:#64748b;margin-top:4px;line-height:1.6;'>
-        수집 항목: 성명, 연락처(암호화 저장)<br>
-        이용 목적: 회원 식별, 서비스 제공, 보안 인증<br>
-        보유 기간: 회원 탈퇴 시 즉시 삭제
-      </div>
-    </div>
-  </div>
+                    st.markdown("""
+<div style='background:#1e293b;border-radius:10px;padding:12px 16px;margin-bottom:14px;
+  font-size:0.78rem;color:#94a3b8;line-height:1.8;'>
+  <b style='color:#f59e0b;'>⚠️ 면책 조항</b><br>
+  본 앱의 AI 분석 결과는 <b style='color:#e2e8f0;'>보조 지표</b>일 뿐 법적 효력이 없습니다.<br>
+  최종 보험 가입·해지 결정은 <b style='color:#e2e8f0;'>전문 자격을 갖춘 설계사</b>와 상담하시기 바랍니다.<br>
+  수집 항목: 성명·연락처·질병 이력(AES-256 암호화 저장) / 탈퇴 시 즉시 삭제
 </div>""", unsafe_allow_html=True)
-                    _c3t, _c4t = st.columns([3, 1])
-                    with _c4t:
-                        if st.button("약관 보기 / 동의" if not _t2 else "✅ 동의 완료", key="terms_t2",
-                                     use_container_width=True, type="primary" if not _t2 else "secondary"):
-                            st.session_state["_lp_terms"]["t2"] = not _t2
-                            st.rerun()
 
-                    # ③ 민감정보 수집·이용 동의 (강조)
-                    _t3 = _tr.get("t3", False)
-                    st.markdown(f"""
-<div style='background:{"#fff7ed" if not _t3 else "#fef9c3"};
-  border:2px solid {"#ea580c" if not _t3 else "#ca8a04"};
-  border-radius:12px;padding:14px 16px;margin-bottom:14px;
-  {"box-shadow:0 0 0 3px rgba(234,88,12,0.18);" if not _t3 else ""}'>
-  <div style='display:flex;align-items:flex-start;gap:10px;'>
-    <span style='font-size:1.3rem;'>{"✅" if _t3 else "⚠️"}</span>
-    <div>
-      <div style='font-weight:800;color:#9a3412;font-size:0.92rem;'>
-        [필수] 민감정보 수집 및 이용 <span style='background:#ea580c;color:#fff;
-        border-radius:4px;padding:1px 6px;font-size:0.72rem;'>별도 동의</span>
-      </div>
-      <div style='font-size:0.76rem;color:#78350f;margin-top:5px;line-height:1.7;background:#fef3c7;
-        border-radius:6px;padding:6px 10px;margin-top:6px;'>
-        ⚠️ <b>수집 항목</b>: 질병 이력, 보험 가입 내역, 의무기록 등 민감 개인정보<br>
-        📌 <b>이용 목적</b>: AI 보장 분석, 공백 진단, 보험 설계 지원<br>
-        🔒 <b>보관 방식</b>: AES-256 암호화, 본인 계정 외 접근 차단<br>
-        🗑️ <b>삭제</b>: 탈퇴 요청 시 즉시 완전 삭제 (복구 불가)
-      </div>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
-                    _c5t, _c6t = st.columns([3, 1])
-                    with _c6t:
-                        if st.button("별도 동의" if not _t3 else "✅ 동의 완료", key="terms_t3",
-                                     use_container_width=True, type="primary" if not _t3 else "secondary"):
-                            st.session_state["_lp_terms"]["t3"] = not _t3
-                            st.rerun()
-
-                    # 전체 동의 버튼
-                    _all_agreed = _tr.get("t1") and _tr.get("t2") and _tr.get("t3")
-                    if not _all_agreed:
-                        st.markdown("""
-<div style='background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;
-  padding:8px 12px;font-size:0.76rem;color:#991b1b;text-align:center;margin-bottom:8px;'>
-  ⛔ 3가지 항목 모두 동의하셔야 다음 단계로 진행할 수 있습니다
-</div>""", unsafe_allow_html=True)
-                    _col_all1, _col_all2 = st.columns(2)
-                    with _col_all1:
-                        if st.button("☑️ 모두 동의", key="terms_all", use_container_width=True):
-                            st.session_state["_lp_terms"] = {"t1": True, "t2": True, "t3": True}
-                            st.rerun()
-                    with _col_all2:
-                        if st.button(
-                            "다음 단계 →",
-                            key="terms_next",
-                            use_container_width=True,
-                            type="primary" if _all_agreed else "secondary",
-                            disabled=not _all_agreed,
-                        ):
-                            st.session_state["_lp"] = "A"
-                            st.rerun()
+                    if _all_agreed:
+                        st.success("✅ 동의 완료 — 아래 '다음 단계'를 눌러 로그인하세요")
+                    if st.button(
+                        "☑️ 전체 동의 후 로그인 진행" if not _all_agreed else "✅ 동의 완료 · 다음 단계 →",
+                        key="terms_all_in_one",
+                        use_container_width=True,
+                        type="primary",
+                    ):
+                        st.session_state["_lp_terms"] = {"t1": True, "t2": True, "t3": True}
+                        st.session_state["_lp"] = "A"
+                        st.rerun()
 
                 # ─────────────────────────────────────────────────────────────
                 # Phase A — 이름 + 연락처 확인 → OTP 발급
