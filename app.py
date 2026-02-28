@@ -19676,6 +19676,70 @@ END; $$;""", language="sql")
             show_result("res_stock_eval")
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
+    # ── 미구현 탭 일괄 처리 — 빈 페이지 방지 ─────────────────────────────
+    _WIP_HANDLER = {
+        "scan_hub": {
+            "icon": "🔬", "title": "통합 스캔 허브",
+            "desc": "증권·의무기록·진단서 1회 업로드 → 전탭 자동활용 기능을 구현 중입니다.",
+            "eta": "v1.4 예정",
+        },
+        "leaflet": {
+            "icon": "🗂️", "title": "보험 리플렛 AI 분류",
+            "desc": "리플렛 PDF 업로드 후 AI 자동 분류 및 GCS 신규상품 저장 기능을 구현 중입니다.",
+            "eta": "v1.4 예정",
+        },
+        "consult_catalog": {
+            "icon": "📖", "title": "상담 카탈로그 열람",
+            "desc": "업로드한 카탈로그 PDF/이미지 뷰어와 보험사별 분류 기능을 구현 중입니다.",
+            "eta": "v1.4 예정",
+        },
+        "customer_docs": {
+            "icon": "👤", "title": "고객자료 통합저장",
+            "desc": "의무기록·증권분석·청구서류를 고객별로 저장하는 개인 문서 RAG 기능은\n별도 백엔드 서버 연동이 필요하여 현재 준비 중입니다.",
+            "eta": "v2.0 예정 (Hybrid Backend 서버 연동 후)",
+        },
+        "digital_catalog": {
+            "icon": "📱", "title": "디지털 카탈로그 관리",
+            "desc": "보험사 카탈로그 업로드·AI 분류 및 Public/Private 저장 기능은\nHybrid RAG 백엔드 서버 연동이 필요하여 현재 준비 중입니다.",
+            "eta": "v2.0 예정 (Hybrid Backend 서버 연동 후)",
+        },
+        "life_event": {
+            "icon": "🎯", "title": "LIFE EVENT 상담",
+            "desc": "인생 주요 이벤트별(출생·결혼·취업·은퇴) 맞춤 보험 설계 기능을 구현 중입니다.",
+            "eta": "v1.4 예정",
+        },
+    }
+    if cur in _WIP_HANDLER:
+        if not _auth_gate(cur): st.stop()
+        tab_home_btn(cur)
+        _wh = _WIP_HANDLER[cur]
+        st.markdown(f"""
+<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:14px;
+  padding:20px 24px;margin-bottom:20px;border:2px solid #fb923c;
+  box-shadow:0 4px 18px rgba(194,65,12,0.25);">
+  <div style="display:flex;align-items:center;gap:14px;">
+    <span style="font-size:2.8rem;">🚧</span>
+    <div>
+      <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.02em;">
+        {_wh['icon']} {_wh['title']} — 준비 중입니다
+      </div>
+      <div style="color:#fed7aa;font-size:0.82rem;margin-top:5px;line-height:1.6;">
+        {_wh['desc'].replace(chr(10), '<br>')}
+      </div>
+      <div style="margin-top:10px;">
+        <span style="background:rgba(255,255,255,0.15);color:#fef9c3;border-radius:20px;
+          padding:3px 12px;font-size:0.72rem;font-weight:700;letter-spacing:0.04em;">
+          ⏱️ {_wh['eta']}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+        st.info("🏠 홈 화면으로 돌아가 다른 기능을 이용하거나, 사이드바에서 원하는 탭을 선택하세요.")
+        if st.button("🏠 홈으로 돌아가기", key=f"wip_home_{cur}", type="primary"):
+            _go_tab("home")
+        st.stop()
+
     # ── [policy_terms] AI 자동 약관 매칭 시스템 ─────────────────────────
     if cur == "policy_terms":
         if not _auth_gate("policy_terms"): st.stop()
