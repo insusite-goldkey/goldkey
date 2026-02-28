@@ -6921,20 +6921,9 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
 
         # ── 회원가입 / 로그인 (헤더 바로 아래) ──────────────────────────
         if 'user_id' not in st.session_state:
-            st.info("👋 안녕하세요, 무엇을 도와드릴까요?")
-            components.html(s_voice("안녕하세요. 무엇을 도와드릴까요?"), height=0)
-            # 메인 버튼 클릭 시 강조 배너
-            if st.session_state.pop("_sidebar_hint", False):
-                st.markdown("""
-<div style="background:#1d4ed8;border-radius:10px;padding:12px 16px;
-  color:#fff;font-size:1rem;font-weight:800;margin-bottom:8px;text-align:center;
-  box-shadow:0 4px 14px rgba(29,78,216,0.4);">
-  👇 아래에서 바로 로그인 / 회원가입하세요!
-</div>""", unsafe_allow_html=True)
             st.markdown("""
-<div style="background:#fff3cd;border:1.5px solid #f59e0b;border-radius:8px;
-  padding:8px 12px;font-size:0.78rem;color:#92400e;margin-bottom:6px;">
-  👆 <b>클릭! 회원가입 &amp; 로그인창 입력 하세요.</b>
+<div style="font-size:0.80rem;color:#555;margin-bottom:6px;">
+  👈 <b>(회원가입 &amp; 로그인)</b> 버튼 클릭! 사이드 창 열림.
 </div>""", unsafe_allow_html=True)
             tab_l, tab_s, tab_pw, tab_nm = st.tabs(["로그인", "회원가입", "비번 변경", "이름 변경"])
             components.html("""<script>
@@ -8305,18 +8294,6 @@ line-height:1.05;color:#0f172a;padding:2px 0 12px 0;
 font-family:'Noto Sans KR',Malgun Gothic,sans-serif;">
   🏆 Goldkey AI Master
 </div>""", unsafe_allow_html=True)
-
-    # ── 로그인 안 된 경우: 사이드바 유도 버튼 (Python native) ────────────
-    if 'user_id' not in st.session_state:
-        _lc1, _lc2, _lc3 = st.columns([1, 2, 1])
-        with _lc2:
-            if st.button("🔓 회원가입 & 로그인",
-                         key="_main_login_btn",
-                         use_container_width=True,
-                         type="primary",
-                         help="왼쪽 사이드바에서 로그인 / 회원가입하세요"):
-                st.session_state["_sidebar_hint"] = True
-                st.rerun()
 
     if 'current_tab' not in st.session_state:
         st.session_state.current_tab = "home"
