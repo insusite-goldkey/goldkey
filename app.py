@@ -9557,7 +9557,7 @@ window['startTTS_{tab_key}']=function(){{
                                 use_container_width=True, type="primary")
 
         # Voice-to-Action STT 버튼 — SECTOR_CODES 기반 하이브리드 엔진
-        # JS→Python: setTriggerValue (st.components.v2 공식 통신 방식)
+        # JS→Python: components.html 방식 (v1 호환)
         import json as _json
         # SECTOR_CODES를 JS로 직렬화 — {id: {name, tab_key, keywords}} 형태
         _sector_js = _json.dumps(SECTOR_CODES, ensure_ascii=False)
