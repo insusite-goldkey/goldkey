@@ -2309,20 +2309,21 @@ def stt_llm_correct(text: str, client=None, strictness: float = 0.7) -> str:
         _max_len_ratio = 2.0
 
     try:
+        # [수칙5 수정] 교정 지시문(system)과 사용자 음성텍스트(user)를 분리
+        # _STT_LLM_SYSTEM_PROMPT + _strict_directive → system_instruction으로 주입
+        # 실제 교정 입력만 user role로 전달 (기존 user role 오남용 제거)
+        _stt_call_config = types.GenerateContentConfig(
+            temperature=0.1,
+            top_p=0.2,
+            max_output_tokens=512,
+            system_instruction=_STT_LLM_SYSTEM_PROMPT + _strict_directive,
+        )
         resp = client.models.generate_content(
             model="gemini-2.0-flash",
             contents=[
-                {"role": "user", "parts": [{"text": (
-                    _STT_LLM_SYSTEM_PROMPT
-                    + _strict_directive
-                    + f"\n\nInput: \"{text}\"\nOutput:"
-                )}]}
+                {"role": "user", "parts": [{"text": f"Input: \"{text}\"\nOutput:"}]}
             ],
-            config={
-                "temperature": 0.1,
-                "max_output_tokens": 512,
-                "candidate_count": 1,
-            }
+            config=_stt_call_config,
         )
         corrected = resp.text.strip().strip('"').strip("'")
         # Hallucination 방지: 교정 결과가 원문 대비 _max_len_ratio 초과 시 원문 반환
@@ -2714,7 +2715,8 @@ def parse_policy_with_vision(files: list) -> dict:
                     )
                     resp = client.models.generate_content(
                         model=GEMINI_MODEL,
-                        contents=[{"role": "user", "parts": [{"text": full_prompt}]}]
+                        contents=[{"role": "user", "parts": [{"text": full_prompt}]}],
+                        config=_STRICT_CONFIG,
                     )
                 else:
                     # ── 2단계: 이미지 PDF(스캔본) → pymupdf로 페이지 이미지 변환 → Gemini Vision ──
@@ -2744,7 +2746,8 @@ def parse_policy_with_vision(files: list) -> dict:
 
                     resp = client.models.generate_content(
                         model=GEMINI_MODEL,
-                        contents=[{"role": "user", "parts": _pdf_parts}]
+                        contents=[{"role": "user", "parts": _pdf_parts}],
+                        config=_STRICT_CONFIG,
                     )
             else:
                 img_bytes = f.getvalue()
@@ -2768,7 +2771,8 @@ def parse_policy_with_vision(files: list) -> dict:
                             {"text": _img_prompt},
                             {"inline_data": {"mime_type": _proc_mime, "data": img_b64}}
                         ]
-                    }]
+                    }],
+                    config=_STRICT_CONFIG,
                 )
 
             raw = resp.text.strip() if resp.text else ""
@@ -3230,6 +3234,38 @@ def display_security_sidebar():
 # --------------------------------------------------------------------------
 # [SECTION 4] 시스템 프롬프트
 # --------------------------------------------------------------------------
+# ── 중앙 통제: 절대 헌법 + 강제 설정 (모든 LLM 호출의 공통 기반) ──────────
+# 이 블록은 앱 내 모든 generate_content 호출에 system_instruction으로 주입됨.
+# 6대 수칙 요약본 — 상세 내용은 SYSTEM_PROMPT 내 '6대 절대 수칙' 섹션 참조.
+_ABSOLUTE_SYSTEM_INSTRUCTION = """\
+[절대 헌법 — 모든 AI 호출 최우선 적용, 위반 시 답변 무효]
+1. 법조문·판례 창작 절대 금지 — 원본 미기재 시 "원본 기재 없음" 출력
+2. 손해사정·보험금 산출 시 약관 조항 또는 KCD 코드 출처 반드시 명시
+3. 법적 기한(Deadline) AI 임의 계산 금지 — "법원 서류 직접 확인 필수" 문구 강제
+4. AI 작성 초안은 [AI_TEXT]...[/AI_TEXT] 태그로 명시적 분리
+5. 모든 추출·분석 결과에 confidenceScore(0~100) 포함, 70 미만 시 경고 출력
+6. 시뮬레이션·추정치임을 반드시 명시 — "AI 추정치" 생략 금지
+"""
+
+# 할루시네이션 방지용 강제 설정 (temperature=0 고정)
+# 창의적 답변이 필요한 상황에서도 정확도 우선 — 보험·법률 도메인 특성상 0.0 강제
+_STRICT_CONFIG = types.GenerateContentConfig(
+    temperature=0.0,
+    top_p=0.1,
+    system_instruction=_ABSOLUTE_SYSTEM_INSTRUCTION,
+)
+
+# STT 교정 전용 설정 (문맥 교정을 위해 temperature=0.1 허용, 나머지는 동일)
+_STT_STRICT_CONFIG = types.GenerateContentConfig(
+    temperature=0.1,
+    top_p=0.2,
+    system_instruction=(
+        "[STT 교정 전용] 보험·의료 전문 용어 오타를 문맥에 맞게 수정하되, "
+        "원문에 없는 내용을 절대 추가하지 말 것. 교정된 문장만 출력하라."
+    ),
+)
+# ─────────────────────────────────────────────────────────────────────────────
+
 SYSTEM_PROMPT = """
 [SYSTEM INSTRUCTIONS: 골드키AI_MASTER 보험·재무 전략 파트너 엔진]
 
@@ -4191,7 +4227,7 @@ def _rag_classify_document(text_sample: str, filename: str) -> dict:
   "doc_date": "문서 작성일 또는 발행연도 (YYYY-MM-DD 또는 YYYY 형식, 없으면 빈 문자열)",
   "summary": "문서 핵심 내용 한 줄 요약 (50자 이내)"
 }}"""
-        _resp = _cl.models.generate_content(model=GEMINI_MODEL, contents=_classify_prompt)
+        _resp = _cl.models.generate_content(model=GEMINI_MODEL, contents=_classify_prompt, config=_STRICT_CONFIG)
         _raw = (_resp.text or "").strip()
         # 마크다운 코드블록 제거 후 JSON 추출
         _raw = _re.sub(r'```(?:json)?', '', _raw).strip()
@@ -11523,7 +11559,8 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                             else:
                                 _ps_resp = _ps_client.models.generate_content(
                                     model=GEMINI_MODEL,
-                                    contents=_ps_full_prompt
+                                    contents=_ps_full_prompt,
+                                    config=_STRICT_CONFIG,
                                 )
                                 _ps_answer = sanitize_unicode(_ps_resp.text) if _ps_resp.text else "AI 응답을 받지 못했습니다."
                                 st.session_state["res_ps"] = _ps_answer
