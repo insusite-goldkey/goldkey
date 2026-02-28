@@ -1970,6 +1970,124 @@ SECTOR_CODES: dict = {
     "8300": {"name": "디지털 카탈로그", "tab_key": "digital_catalog","keywords": ["디지털카탈로그", "카탈로그관리", "카탈로그업로드"]},
 }
 
+# ==========================================================================
+# SUB_CODES — 섹터 내 핵심 용어 하위 번호 체계 (10단위)
+# 규칙: X000 섹터 → X010, X020, X030 ... (최대 X090)
+#       전체 앱에서 키워드 중복 없음 (부득이한 경우 "ambig_sectors" 표기)
+#       tab_key는 부모 SECTOR_CODES와 동일 — 해당 섹터로 이동
+# ==========================================================================
+SUB_CODES: dict = {
+    # ── 1100: 통합 스캔 허브 ──────────────────────────────────────────────
+    "1110": {"name": "증권 업로드",       "tab_key": "scan_hub",       "keywords": ["증권올려", "증권파일", "pdf올려", "증권업로드"]},
+    "1120": {"name": "의무기록 업로드",   "tab_key": "scan_hub",       "keywords": ["의무기록올려", "진단서올려", "의무기록업로드", "병원서류"]},
+    "1130": {"name": "서류 통합 분석",    "tab_key": "scan_hub",       "keywords": ["통합분석", "서류분석", "한번에분석", "서류한번에"]},
+    # ── 1200: 보험증권 분석 ───────────────────────────────────────────────
+    "1210": {"name": "보험증권 AI 분석",  "tab_key": "policy_scan",    "keywords": ["증권ai분석", "보험증권분석", "증권자동파싱", "담보파싱"]},
+    "1220": {"name": "보장공백 진단",     "tab_key": "policy_scan",    "keywords": ["보장공백진단", "보장공백", "보장빈틈", "보장분석"]},
+    "1230": {"name": "담보 자동파싱",     "tab_key": "policy_scan",    "keywords": ["담보자동", "담보목록", "특약목록", "담보확인"]},
+    "1240": {"name": "증권 비교",         "tab_key": "policy_scan",    "keywords": ["증권비교", "보험비교", "기존증권비교"]},
+    # ── 1300: 약관 매칭 ───────────────────────────────────────────────────
+    "1310": {"name": "약관 AI 검색",      "tab_key": "policy_terms",   "keywords": ["약관ai", "약관자동검색", "약관검색엔진"]},
+    "1320": {"name": "가입약관 추적",     "tab_key": "policy_terms",   "keywords": ["가입약관", "가입시점약관", "약관추적", "자동추적"]},
+    "1330": {"name": "약관 설명",         "tab_key": "policy_terms",   "keywords": ["약관설명", "약관내용", "약관해석", "약관봐줘"]},
+    # ── 2000: 신규보험 상담 ───────────────────────────────────────────────
+    "2010": {"name": "신규 보험 상담",    "tab_key": "t0",             "keywords": ["신규상담", "보험상담시작", "처음상담", "신규보험시작"]},
+    "2020": {"name": "보험 추천",         "tab_key": "t0",             "keywords": ["보험추천해줘", "맞는보험", "보험뭐가좋아", "보험추천"]},
+    "2030": {"name": "보험 설계",         "tab_key": "t0",             "keywords": ["보험설계해줘", "설계요청", "보험플랜", "보험가입설계"]},
+    # ── 2100: 상해 통합 관리 ─────────────────────────────────────────────
+    "2110": {"name": "상해 진단",         "tab_key": "injury",         "keywords": ["상해진단", "사고진단", "부상진단", "상해확인"]},
+    "2120": {"name": "소득 보상",         "tab_key": "injury",         "keywords": ["소득보상", "소득상실", "휴업급여", "소득보장"]},
+    "2130": {"name": "보장 공백 분석",    "tab_key": "injury",         "keywords": ["보장공백분석", "공백분석", "보장빈곳", "빈틈분석"]},
+    # ── 2200: 보험금 청구 상담 ────────────────────────────────────────────
+    "2210": {"name": "청구 방법 안내",    "tab_key": "t1",             "keywords": ["청구방법안내", "보험금어떻게", "청구절차", "청구안내"]},
+    "2220": {"name": "지급 거절 대응",    "tab_key": "t1",             "keywords": ["지급거절", "거절대응", "보험금거절", "지급안해줘"]},
+    "2230": {"name": "보험금 계산",       "tab_key": "t1",             "keywords": ["보험금계산", "얼마받아", "보험금얼마", "지급액계산"]},
+    # ── 2300: 장해 산출 ───────────────────────────────────────────────────
+    "2310": {"name": "맥브라이드 산출",   "tab_key": "disability",     "keywords": ["맥브라이드산출", "맥브라이드계산", "맥브라이드"]},
+    "2320": {"name": "AMA 장해율",        "tab_key": "disability",     "keywords": ["ama장해", "ama산출", "ama계산", "ama비율"]},
+    "2330": {"name": "후유장해 보험금",   "tab_key": "disability",     "keywords": ["후유장해보험금", "장해보험금계산", "장해보험금"]},
+    # ── 3000: 암 질환 상담 ────────────────────────────────────────────────
+    "3010": {"name": "표적항암 상담",     "tab_key": "cancer",         "keywords": ["표적항암상담", "표적치료", "타겟항암", "표적항암"]},
+    "3020": {"name": "면역항암 상담",     "tab_key": "cancer",         "keywords": ["면역항암상담", "면역치료", "면역항암"]},
+    "3030": {"name": "NGS 유전자검사",    "tab_key": "cancer",         "keywords": ["ngs검사", "유전자검사", "ngs", "유전자분석"]},
+    "3040": {"name": "CAR-T 치료",        "tab_key": "cancer",         "keywords": ["cart치료", "car-t", "cart", "세포치료"]},
+    "3050": {"name": "암 진단비",         "tab_key": "cancer",         "keywords": ["암진단비", "진단비얼마", "암진단금", "암보험금"]},
+    # ── 3100: 뇌 질환 상담 ────────────────────────────────────────────────
+    "3110": {"name": "뇌졸중 상담",       "tab_key": "brain",          "keywords": ["뇌졸중상담", "뇌졸중", "중풍상담"]},
+    "3120": {"name": "뇌경색 상담",       "tab_key": "brain",          "keywords": ["뇌경색상담", "뇌경색", "허혈성뇌졸중"]},
+    "3130": {"name": "뇌출혈 상담",       "tab_key": "brain",          "keywords": ["뇌출혈상담", "뇌출혈", "출혈성뇌졸중"]},
+    # ── 3200: 심장 질환 상담 ─────────────────────────────────────────────
+    "3210": {"name": "심근경색 상담",     "tab_key": "heart",          "keywords": ["심근경색상담", "심근경색", "심장마비상담"]},
+    "3220": {"name": "협심증 상담",       "tab_key": "heart",          "keywords": ["협심증상담", "협심증", "협심"]},
+    "3230": {"name": "급성심장 진단비",   "tab_key": "heart",          "keywords": ["급성심장진단비", "심장진단비", "심장보험금"]},
+    # ── 4000: 기본보험 상담 ───────────────────────────────────────────────
+    "4010": {"name": "운전자보험 상담",   "tab_key": "t2",             "keywords": ["운전자보험상담", "운전자보험추천", "운전자보험"]},
+    "4020": {"name": "자동차보험 상담",   "tab_key": "t2",             "keywords": ["자동차보험상담", "자동차보험추천", "자동차보험"]},
+    # ── 4100: 통합보험 설계 ───────────────────────────────────────────────
+    "4110": {"name": "생명보험 설계",     "tab_key": "t3",             "keywords": ["생명보험설계", "생명보험상담", "생명설계"]},
+    "4120": {"name": "종합보험 설계",     "tab_key": "t3",             "keywords": ["종합보험설계", "종합설계", "올인원설계"]},
+    # ── 4200: 자동차사고 상담 ─────────────────────────────────────────────
+    "4210": {"name": "과실비율 산정",     "tab_key": "t4",             "keywords": ["과실비율산정", "과실산정", "과실계산", "과실비율"]},
+    "4220": {"name": "합의금 산정",       "tab_key": "t4",             "keywords": ["합의금산정", "합의금계산", "합의금얼마", "합의금"]},
+    "4230": {"name": "민식이법 상담",     "tab_key": "t4",             "keywords": ["민식이법상담", "민식이법", "어린이사고"]},
+    # ── 5000: 노후·상속 설계 ─────────────────────────────────────────────
+    "5010": {"name": "연금 설계",         "tab_key": "t5",             "keywords": ["연금설계해줘", "연금플랜", "개인연금설계"]},
+    "5020": {"name": "상속 설계",         "tab_key": "t5",             "keywords": ["상속설계해줘", "상속플랜", "상속준비"]},
+    "5030": {"name": "증여 설계",         "tab_key": "t5",             "keywords": ["증여설계해줘", "증여플랜", "증여준비", "증여"]},
+    "5040": {"name": "주택연금 상담",     "tab_key": "t5",             "keywords": ["주택연금상담", "주택연금추천", "주택연금"]},
+    # ── 5100: 세무 상담 ───────────────────────────────────────────────────
+    "5110": {"name": "소득세 절세",       "tab_key": "t6",             "keywords": ["소득세절세", "소득세줄이기", "근로소득세", "소득세"]},
+    "5120": {"name": "법인세 절세",       "tab_key": "t6",             "keywords": ["법인세절세", "법인세줄이기", "법인세상담"]},
+    "5130": {"name": "건보료 절감",       "tab_key": "t6",             "keywords": ["건보료절감", "건보료줄이기", "건강보험료절감", "건보료"]},
+    "5140": {"name": "금융소득 종합과세", "tab_key": "t6",             "keywords": ["금융소득종합과세", "금융소득과세", "이자소득세", "금융소득"]},
+    # ── 5200: 법인 상담 ───────────────────────────────────────────────────
+    "5210": {"name": "단체보험 설계",     "tab_key": "t7",             "keywords": ["단체보험설계", "단체보험추천", "단체보험"]},
+    "5220": {"name": "복리후생 설계",     "tab_key": "t7",             "keywords": ["복리후생설계", "복리후생보험", "복리후생"]},
+    # ── 5300: CEO플랜 ─────────────────────────────────────────────────────
+    "5310": {"name": "퇴직금 설계",       "tab_key": "t8",             "keywords": ["퇴직금설계", "임원퇴직금", "퇴직금플랜", "퇴직금"]},
+    "5320": {"name": "가업승계 설계",     "tab_key": "t8",             "keywords": ["가업승계설계", "가업승계플랜", "가업승계"]},
+    "5330": {"name": "경영인정기보험",    "tab_key": "t8",             "keywords": ["경영인정기", "경영인보험", "ceo정기보험"]},
+    # ── 5400: 비상장주식 평가 ─────────────────────────────────────────────
+    "5410": {"name": "순자산 평가",       "tab_key": "stock_eval",     "keywords": ["순자산평가", "순자산산출", "순자산계산"]},
+    "5420": {"name": "경영권 할증",       "tab_key": "stock_eval",     "keywords": ["경영권할증계산", "경영권할증산출", "경영권할증"]},
+    # ── 6000: 화재보험 ────────────────────────────────────────────────────
+    "6010": {"name": "재조달가액 산출",   "tab_key": "fire",           "keywords": ["재조달가액산출", "재조달계산", "재조달가액"]},
+    "6020": {"name": "건물보험 설계",     "tab_key": "fire",           "keywords": ["건물보험설계", "건물보험추천", "건물보험"]},
+    "6030": {"name": "REB 화재설계",      "tab_key": "fire",           "keywords": ["reb설계", "reb화재", "reb", "화재reb"]},
+    # ── 6100: 배상책임보험 ────────────────────────────────────────────────
+    "6110": {"name": "실화책임 상담",     "tab_key": "liability",      "keywords": ["실화책임상담", "실화보험", "실화책임"]},
+    "6120": {"name": "독립책임액 산정",   "tab_key": "liability",      "keywords": ["독립책임액", "독립책임산정", "독립책임"]},
+    "6130": {"name": "중복보험 정산",     "tab_key": "liability",      "keywords": ["중복보험정산", "중복보험계산", "중복보험"]},
+    # ── 6200: 간병비 컨설팅 ───────────────────────────────────────────────
+    "6210": {"name": "장기요양 등급",     "tab_key": "nursing",        "keywords": ["장기요양등급", "요양등급산정", "요양등급"]},
+    "6220": {"name": "치매보험 설계",     "tab_key": "nursing",        "keywords": ["치매보험설계", "치매보험추천", "치매설계"]},
+    "6230": {"name": "요양병원 보장",     "tab_key": "nursing",        "keywords": ["요양병원보장", "요양병원비", "요양병원"]},
+    # ── 6300: 부동산 투자 ─────────────────────────────────────────────────
+    "6310": {"name": "등기부 분석",       "tab_key": "realty",         "keywords": ["등기부분석", "등기부확인", "등기부등본"]},
+    "6320": {"name": "건축물대장 분석",   "tab_key": "realty",         "keywords": ["건축물대장분석", "건축물대장확인", "건축물대장"]},
+    "6330": {"name": "투자수익률 계산",   "tab_key": "realty",         "keywords": ["투자수익률계산", "수익률계산", "투자수익률"]},
+    # ── 7000: LIFE CYCLE 설계 ─────────────────────────────────────────────
+    "7010": {"name": "생애 타임라인",     "tab_key": "life_cycle",     "keywords": ["생애타임라인", "인생타임라인", "타임라인설계"]},
+    "7020": {"name": "백지 설계",         "tab_key": "life_cycle",     "keywords": ["백지설계시작", "백지보험설계", "처음부터설계"]},
+    # ── 7100: LIFE EVENT 상담 ─────────────────────────────────────────────
+    "7110": {"name": "결혼 설계",         "tab_key": "life_event",     "keywords": ["결혼설계", "결혼보험", "신혼설계"]},
+    "7120": {"name": "출산 설계",         "tab_key": "life_event",     "keywords": ["출산설계", "태아보험설계", "출산보험"]},
+    "7130": {"name": "은퇴 설계",         "tab_key": "life_event",     "keywords": ["은퇴설계", "은퇴준비", "노후은퇴"]},
+    # ── 8000: 리플렛 분류 ─────────────────────────────────────────────────
+    "8010": {"name": "신상품 등록",       "tab_key": "leaflet",        "keywords": ["신상품등록", "신상품올려", "상품등록"]},
+    "8020": {"name": "리플렛 AI 분류",    "tab_key": "leaflet",        "keywords": ["리플렛분류", "리플렛자동분류", "리플렛ai"]},
+    # ── 8100: 상담 카탈로그 ───────────────────────────────────────────────
+    "8110": {"name": "카탈로그 열람",     "tab_key": "consult_catalog","keywords": ["카탈로그열람", "카탈로그보여줘", "내카탈로그보여"]},
+    "8120": {"name": "상담자료 검색",     "tab_key": "consult_catalog","keywords": ["상담자료검색", "상담자료찾아", "상담자료"]},
+    # ── 8200: 고객자료 ────────────────────────────────────────────────────
+    "8210": {"name": "의무기록 저장",     "tab_key": "customer_docs",  "keywords": ["의무기록저장", "의무기록보관", "병원서류저장"]},
+    "8220": {"name": "마인드맵 작성",     "tab_key": "customer_docs",  "keywords": ["마인드맵작성", "마인드맵그려", "마인드맵"]},
+    "8230": {"name": "고객 문서 관리",    "tab_key": "customer_docs",  "keywords": ["고객문서관리", "고객서류관리", "문서관리"]},
+    # ── 8300: 디지털 카탈로그 ─────────────────────────────────────────────
+    "8310": {"name": "카탈로그 업로드",   "tab_key": "digital_catalog","keywords": ["카탈로그업로드", "디지털카탈로그올려", "카탈로그올려"]},
+    "8320": {"name": "카탈로그 관리",     "tab_key": "digital_catalog","keywords": ["카탈로그관리", "디지털카탈로그관리", "카탈로그수정"]},
+}
+
 # ── Voice-to-Action 네비게이션 매핑 테이블 ──────────────────────────────────
 # SECTOR_CODES에서 자동 생성 — 수동 편집 금지, SECTOR_CODES만 수정할 것
 # ※ 충돌 방지: 각 섹션 고유 키워드만 사용 / 중복 금지
@@ -1979,33 +2097,73 @@ _NAV_INTENT_MAP = [
     if v["tab_key"] != "home"
 ]
 
-def _voice_navigate(text: str) -> str | None:
+# SUB_CODES에서도 자동 생성 — SECTOR_CODES와 합산하여 ID/키워드 검색에 활용
+_ALL_CODES: dict = {**SECTOR_CODES, **SUB_CODES}
+
+def _voice_navigate(text: str):
     """음성/텍스트 입력에서 Intent 감지 → 이동할 current_tab 반환.
-    0순위: 4자리 섹터 ID 직접 매칭 (SECTOR_CODES 참조)
-    1차:   원문 키워드 매칭
-    2차:   공백 제거 후 재매칭 (붙여쓰기 발화 대응)
-    매칭 없으면 None 반환 (라우팅 없음).
+    반환값:
+      - str  : 단일 매칭 — 해당 tab_key
+      - list : 중복 매칭 — [{"tab_key":..,"name":..,"code":..}, ...]
+      - None : 매칭 없음
+    우선순위:
+      0순위: 4자리 코드 직접 매칭 (SECTOR_CODES + SUB_CODES 통합)
+      1차:   SUB_CODES 키워드 원문 매칭 (더 구체적이므로 SECTOR보다 우선)
+      2차:   SECTOR_CODES 키워드 원문 매칭
+      3차:   공백 제거 후 SUB+SECTOR 통합 재매칭
     """
     import re as _re
     if not text or not text.strip():
         return None
     t = text.strip()
-    # 0순위 — 4자리 섹터 ID 추출 (예: "3100번", "코드 3100", "3100 실행")
+
+    # 0순위 — 4자리 코드 직접 추출 (SECTOR + SUB 통합)
     _id_match = _re.search(r'\b(\d{4})\b', t)
     if _id_match:
         _code = _id_match.group(1)
-        if _code in SECTOR_CODES:
-            return SECTOR_CODES[_code]["tab_key"]
+        if _code in _ALL_CODES:
+            _entry = _ALL_CODES[_code]
+            return _entry["tab_key"]
+
     t_lower = t.lower()
-    # 1차 — 원문 매칭
+    t_nospace = t_lower.replace(" ", "").replace(".", "").replace(",", "")
+
+    # 1차 — SUB_CODES 원문 키워드 매칭 (구체적 용어 우선)
+    _sub_hits: list[dict] = []
+    for _code, _entry in SUB_CODES.items():
+        if any(kw.lower() in t_lower for kw in _entry["keywords"]):
+            _sub_hits.append({"tab_key": _entry["tab_key"], "name": _entry["name"], "code": _code})
+    if len(_sub_hits) == 1:
+        return _sub_hits[0]["tab_key"]
+    if len(_sub_hits) > 1:
+        # 중복 탭이면 첫 번째로 단일 반환, 다른 탭이면 선택지 반환
+        _tabs = list({h["tab_key"] for h in _sub_hits})
+        if len(_tabs) == 1:
+            return _tabs[0]
+        return _sub_hits  # 다중 선택 UI 표시용
+
+    # 2차 — SECTOR_CODES 원문 키워드 매칭
     for tab_key, keywords in _NAV_INTENT_MAP:
         if any(kw.lower() in t_lower for kw in keywords):
             return tab_key
-    # 2차 — 공백 완전 제거 후 재매칭 ("신규 보험 상담" → "신규보험상담")
-    t_nospace = t_lower.replace(" ", "").replace(".", "").replace(",", "")
+
+    # 3차 — 공백 제거 후 SUB+SECTOR 통합 재매칭
+    _sub_hits2: list[dict] = []
+    for _code, _entry in SUB_CODES.items():
+        if any(kw.lower().replace(" ", "") in t_nospace for kw in _entry["keywords"]):
+            _sub_hits2.append({"tab_key": _entry["tab_key"], "name": _entry["name"], "code": _code})
+    if len(_sub_hits2) == 1:
+        return _sub_hits2[0]["tab_key"]
+    if len(_sub_hits2) > 1:
+        _tabs2 = list({h["tab_key"] for h in _sub_hits2})
+        if len(_tabs2) == 1:
+            return _tabs2[0]
+        return _sub_hits2
+
     for tab_key, keywords in _NAV_INTENT_MAP:
         if any(kw.lower().replace(" ", "") in t_nospace for kw in keywords):
             return tab_key
+
     return None
 
 
@@ -7949,8 +8107,8 @@ if(!CRED_ID) setTimeout(doBioAuth, 400);
                     st.rerun()
             with _lo_col2:
                 if st.button("🗑️ 초기화", key="btn_suggest_clear_sb", use_container_width=True):
-                    st.session_state["suggest_input"] = ""
-                    st.session_state.pop("suggest_submitted", None)
+                    st.session_state["suggest_input_sb"] = ""
+                    st.session_state.pop("suggest_submitted_sb", None)
                     st.rerun()
 
             if st.button("상담 자료 파기", key="btn_purge", use_container_width=True):
@@ -8271,6 +8429,54 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
         except Exception as _e:
             st.error(f"제안 목록 오류: {_e}")
         st.markdown("---")
+
+        # ── 💡 시스템 제안 · 개선 의견 (사이드바 하단) ──────────────────
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border-radius:12px;padding:12px 16px 10px 16px;margin-bottom:10px;color:#fff;">
+  <div style="font-size:0.92rem;font-weight:900;letter-spacing:0.03em;margin-bottom:2px;">
+    💡 시스템 제안 · 개선 의견
+  </div>
+  <div style="font-size:0.74rem;opacity:0.88;">
+    내용 · 시스템 구성 · 개선 제안을 텍스트로 입력해주세요
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        _sb_suggest_val = st.session_state.get("suggest_input_sb", "")
+        _sb_suggest_new = st.text_area(
+            "개선 의견 입력",
+            value=_sb_suggest_val,
+            height=100,
+            key="suggest_input_sb",
+            placeholder="예: 홈 화면 개선이 필요합니다 / 보험금 계산기 추가 요청",
+            label_visibility="collapsed"
+        )
+        if st.button("📨 제안 제출", key="btn_suggest_submit_sb", use_container_width=True, type="primary"):
+            _sug = st.session_state.get("suggest_input_sb", "").strip()
+            if _sug:
+                _sug_path = os.path.join(_DATA_DIR, "suggestions.json")
+                try:
+                    _sug_list = []
+                    if os.path.exists(_sug_path):
+                        with open(_sug_path, "r", encoding="utf-8") as _f:
+                            _sug_list = json.load(_f)
+                    _sug_list.append({
+                        "time": dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "user": st.session_state.get("user_name", "비회원"),
+                        "content": sanitize_unicode(_sug)
+                    })
+                    with open(_sug_path, "w", encoding="utf-8") as _f:
+                        json.dump(_sug_list, _f, ensure_ascii=False)
+                    st.session_state["suggest_input_sb"] = ""
+                    st.session_state["suggest_submitted_sb"] = True
+                    st.rerun()
+                except Exception:
+                    st.session_state["suggest_submitted_sb"] = True
+                    st.rerun()
+            else:
+                st.warning("제안 내용을 입력해주세요.")
+        if st.session_state.pop("suggest_submitted_sb", False):
+            st.success("✅ 제안이 반영되었습니다.")
 
     # ── 로그인 후 최초 1회 마이크 권한 안내 ────────────────────────────
     if st.session_state.pop("_mic_notice", False):
@@ -9510,14 +9716,100 @@ window['startTTS_{tab_key}']=function(){{
 </div>
 """, height=150)
 
+        # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
+        components.html("""
+<div id="wx_wrap" style="
+  background:linear-gradient(135deg,#0f4c81 0%,#1a6fa8 60%,#2196f3 100%);
+  border-radius:14px;padding:14px 18px;margin-bottom:12px;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div id="wx_icon" style="font-size:2.6rem;line-height:1;">⏳</div>
+    <div>
+      <div id="wx_temp" style="color:#fff;font-size:1.6rem;font-weight:900;line-height:1.1;">--°C</div>
+      <div id="wx_desc" style="color:#cce8ff;font-size:0.82rem;margin-top:2px;">위치 확인 중...</div>
+    </div>
+  </div>
+  <div style="text-align:right;">
+    <div id="wx_loc"  style="color:#fff;font-size:0.78rem;font-weight:700;">📍 --</div>
+    <div id="wx_extra" style="color:#cce8ff;font-size:0.75rem;margin-top:3px;">습도 --% | 풍속 -- m/s</div>
+    <div id="wx_time"  style="color:#a0c8f0;font-size:0.70rem;margin-top:2px;"></div>
+  </div>
+</div>
+<script>
+var WX_CODE = {
+  0:"☀️ 맑음", 1:"🌤️ 대체로 맑음", 2:"⛅ 구름 조금", 3:"☁️ 흐림",
+  45:"🌫️ 안개", 48:"🌫️ 짗은 안개",
+  51:"🌦️ 이슬비", 53:"🌦️ 이슬비", 55:"🌧️ 이슬비(강)",
+  61:"🌧️ 비", 63:"🌧️ 비(보통)", 65:"🌧️ 비(강)",
+  71:"🌨️ 눈", 73:"🌨️ 눈(보통)", 75:"❄️ 눈(강)",
+  80:"🌦️ 소나기", 81:"🌧️ 소나기(보통)", 82:"⛈️ 소나기(강)",
+  95:"⛈️ 뇌우", 96:"⛈️ 뇌우+우박", 99:"⛈️ 뇌우+우박(강)"
+};
+function wxLoad(lat, lon, locName){
+  var url = "https://api.open-meteo.com/v1/forecast"
+    + "?latitude=" + lat + "&longitude=" + lon
+    + "&current=temperature_2m,relative_humidity_2m,weathercode,windspeed_10m"
+    + "&timezone=Asia%2FSeoul&forecast_days=1";
+  fetch(url).then(function(r){ return r.json(); }).then(function(d){
+    var c = d.current;
+    var code = c.weathercode;
+    var desc = WX_CODE[code] || "🌡️ 날씨 정보";
+    var icon = desc.split(" ")[0];
+    var label = desc.split(" ").slice(1).join(" ");
+    var now = new Date();
+    var hhmm = now.getHours() + "시 " + String(now.getMinutes()).padStart(2,"0") + "분 기준";
+    document.getElementById("wx_icon").textContent  = icon;
+    document.getElementById("wx_temp").textContent  = Math.round(c.temperature_2m) + "°C";
+    document.getElementById("wx_desc").textContent  = label;
+    document.getElementById("wx_loc").textContent   = "📍 " + (locName || "현재 위치");
+    document.getElementById("wx_extra").textContent =
+      "습도 " + c.relative_humidity_2m + "% | 풍속 " + c.windspeed_10m + " m/s";
+    document.getElementById("wx_time").textContent  = hhmm + " 업데이트";
+  }).catch(function(){
+    document.getElementById("wx_desc").textContent = "날씨 정보를 불러올 수 없습니다.";
+  });
+}
+function wxByGeo(){
+  if(!navigator.geolocation){
+    wxLoad(35.1595, 126.8526, "광주"); return;
+  }
+  navigator.geolocation.getCurrentPosition(function(pos){
+    var lat = pos.coords.latitude;
+    var lon = pos.coords.longitude;
+    fetch("https://nominatim.openstreetmap.org/reverse?lat="+lat+"&lon="+lon+"&format=json&accept-language=ko")
+      .then(function(r){ return r.json(); })
+      .then(function(geo){
+        var addr = geo.address || {};
+        var loc = addr.city || addr.county || addr.state || "현재 위치";
+        wxLoad(lat, lon, loc);
+      }).catch(function(){ wxLoad(lat, lon, "현재 위치"); });
+  }, function(){
+    wxLoad(35.1595, 126.8526, "광주");
+  }, {timeout:5000});
+}
+wxByGeo();
+</script>
+""", height=100)
+
         # Voice-to-Action STT 입력창 — form으로 감싸 버튼 클릭 시 값 커밋 보장
+        st.markdown("""
+<div style="border:2px solid #2e6da4;border-radius:12px;padding:10px 14px 6px 14px;
+  background:linear-gradient(135deg,#f0f6ff 0%,#e8f0fb 100%);
+  margin-bottom:4px;box-shadow:0 2px 8px rgba(46,109,164,0.12);">
+  <div style="font-size:0.78rem;font-weight:800;color:#1a3a5c;margin-bottom:6px;
+    letter-spacing:0.04em;">🧭 메뉴 이동 네비게이션</div>
+  <div style="font-size:0.72rem;color:#4a6fa5;margin-bottom:4px;">
+    섹터 코드(예: <b>3000</b>, <b>1220</b>) 또는 용어(예: <b>보장공백</b>, <b>맥브라이드</b>)를 입력하면 해당 메뉴로 즉시 이동합니다
+  </div>
+</div>""", unsafe_allow_html=True)
         with st.form(key="_nav_form", clear_on_submit=False):
             _nav_col1, _nav_col2 = st.columns([3, 1], gap="small")
             with _nav_col1:
                 _nav_input = st.text_input(
                     "nav_input_label",
                     key="voice_nav_input",
-                    placeholder="🎙️ 음성 인식 결과가 여기에 표시됩니다 — 직접 입력도 가능",
+                    placeholder="코드(예: 3000·1220) 또는 용어(예: 보장공백·맥브라이드) 입력 후 → 바로 이동",
                     label_visibility="collapsed",
                 )
             with _nav_col2:
@@ -9755,387 +10047,43 @@ export default function(component) {{
             _nav_input_val = st.session_state.get("voice_nav_input", "").strip()
             if _nav_input_val:
                 _dest = _voice_navigate(_nav_input_val)
-                if _dest:
+                if isinstance(_dest, str):
+                    # 단일 매칭 — 즉시 이동
                     st.session_state["voice_nav_input"] = ""
+                    st.session_state.pop("_nav_ambig", None)
                     _go_tab(_dest)
+                elif isinstance(_dest, list):
+                    # 중복 매칭 — 선택지 저장 후 버튼 노출
+                    st.session_state["_nav_ambig"] = _dest
                 else:
-                    st.warning("⚠️ 해당 섹터를 찾지 못했습니다. 섹터명 또는 ID(예: 3000)를 입력해주세요.")
+                    import re as _re2
+                    st.session_state.pop("_nav_ambig", None)
+                    _num_try = _re2.search(r'\d+', _nav_input_val)
+                    if _num_try:
+                        st.warning(f"⚠️ '{_num_try.group()}' — 등록되지 않은 번호입니다. 1000~8390 사이 코드를 입력해주세요.")
+                    else:
+                        st.warning(f"⚠️ '{_nav_input_val}' — 섹터를 찾지 못했습니다. 섹터명(예: 암 상담) 또는 코드(예: 3000, 1220)를 입력해주세요.")
 
-        # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
-        components.html("""
-<div id="wx_wrap" style="
-  background:linear-gradient(135deg,#0f4c81 0%,#1a6fa8 60%,#2196f3 100%);
-  border-radius:14px;padding:14px 18px;margin-bottom:12px;
-  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
-  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-  <div style="display:flex;align-items:center;gap:12px;">
-    <div id="wx_icon" style="font-size:2.6rem;line-height:1;">⏳</div>
-    <div>
-      <div id="wx_temp" style="color:#fff;font-size:1.6rem;font-weight:900;line-height:1.1;">--°C</div>
-      <div id="wx_desc" style="color:#cce8ff;font-size:0.82rem;margin-top:2px;">위치 확인 중...</div>
-    </div>
-  </div>
-  <div style="text-align:right;">
-    <div id="wx_loc"  style="color:#fff;font-size:0.78rem;font-weight:700;">📍 --</div>
-    <div id="wx_extra" style="color:#cce8ff;font-size:0.75rem;margin-top:3px;">습도 --% | 풍속 -- m/s</div>
-    <div id="wx_time"  style="color:#a0c8f0;font-size:0.70rem;margin-top:2px;"></div>
-  </div>
-</div>
-<script>
-var WX_CODE = {
-  0:"☀️ 맑음", 1:"🌤️ 대체로 맑음", 2:"⛅ 구름 조금", 3:"☁️ 흐림",
-  45:"🌫️ 안개", 48:"🌫️ 짙은 안개",
-  51:"🌦️ 이슬비", 53:"🌦️ 이슬비", 55:"🌧️ 이슬비(강)",
-  61:"🌧️ 비", 63:"🌧️ 비(보통)", 65:"🌧️ 비(강)",
-  71:"🌨️ 눈", 73:"🌨️ 눈(보통)", 75:"❄️ 눈(강)",
-  80:"🌦️ 소나기", 81:"🌧️ 소나기(보통)", 82:"⛈️ 소나기(강)",
-  95:"⛈️ 뇌우", 96:"⛈️ 뇌우+우박", 99:"⛈️ 뇌우+우박(강)"
-};
-function wxLoad(lat, lon, locName){
-  var url = "https://api.open-meteo.com/v1/forecast"
-    + "?latitude=" + lat + "&longitude=" + lon
-    + "&current=temperature_2m,relative_humidity_2m,weathercode,windspeed_10m"
-    + "&timezone=Asia%2FSeoul&forecast_days=1";
-  fetch(url).then(function(r){ return r.json(); }).then(function(d){
-    var c = d.current;
-    var code = c.weathercode;
-    var desc = WX_CODE[code] || "🌡️ 날씨 정보";
-    var icon = desc.split(" ")[0];
-    var label = desc.split(" ").slice(1).join(" ");
-    var now = new Date();
-    var hhmm = now.getHours() + "시 " + String(now.getMinutes()).padStart(2,"0") + "분 기준";
-    document.getElementById("wx_icon").textContent  = icon;
-    document.getElementById("wx_temp").textContent  = Math.round(c.temperature_2m) + "°C";
-    document.getElementById("wx_desc").textContent  = label;
-    document.getElementById("wx_loc").textContent   = "📍 " + (locName || "현재 위치");
-    document.getElementById("wx_extra").textContent =
-      "습도 " + c.relative_humidity_2m + "% | 풍속 " + c.windspeed_10m + " m/s";
-    document.getElementById("wx_time").textContent  = hhmm + " 업데이트";
-  }).catch(function(){
-    document.getElementById("wx_desc").textContent = "날씨 정보를 불러올 수 없습니다.";
-  });
-}
-function wxByGeo(){
-  if(!navigator.geolocation){
-    wxLoad(35.1595, 126.8526, "광주"); return;
-  }
-  navigator.geolocation.getCurrentPosition(function(pos){
-    var lat = pos.coords.latitude;
-    var lon = pos.coords.longitude;
-    // 역지오코딩 (nominatim)
-    fetch("https://nominatim.openstreetmap.org/reverse?lat="+lat+"&lon="+lon+"&format=json&accept-language=ko")
-      .then(function(r){ return r.json(); })
-      .then(function(geo){
-        var addr = geo.address || {};
-        var loc = addr.city || addr.county || addr.state || "현재 위치";
-        wxLoad(lat, lon, loc);
-      }).catch(function(){ wxLoad(lat, lon, "현재 위치"); });
-  }, function(){
-    // 위치 거부 시 광주 폴백
-    wxLoad(35.1595, 126.8526, "광주");
-  }, {timeout:5000});
-}
-wxByGeo();
-</script>
-""", height=100)
+        # 중복 매칭 선택 버튼 UI
+        if st.session_state.get("_nav_ambig"):
+            _ambig_list = st.session_state["_nav_ambig"]
+            st.markdown("""<div style="background:#fef9c3;border:1.5px solid #ca8a04;border-radius:10px;
+  padding:8px 12px;margin-bottom:6px;font-size:0.8rem;font-weight:700;color:#713f12;">
+  ⚠️ 여러 섹터가 감지되었습니다. 이동할 섹터를 선택해주세요:</div>""",
+                unsafe_allow_html=True)
+            _ambig_cols = st.columns(min(len(_ambig_list), 3))
+            for _ai, _aitem in enumerate(_ambig_list):
+                with _ambig_cols[_ai % 3]:
+                    if st.button(
+                        f"[{_aitem['code']}] {_aitem['name']}",
+                        key=f"_ambig_btn_{_aitem['code']}",
+                        use_container_width=True,
+                        type="primary"
+                    ):
+                        st.session_state.pop("_nav_ambig", None)
+                        st.session_state["voice_nav_input"] = ""
+                        _go_tab(_aitem["tab_key"])
 
-        # ── 제안 박스 (홈 첫 번째 칸) ─────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
-  border-radius:14px;padding:16px 18px 12px 18px;margin-bottom:18px;color:#fff;">
-  <div style="font-size:1.0rem;font-weight:900;letter-spacing:0.04em;margin-bottom:4px;">
-    💡 시스템 제안 · 개선 의견
-  </div>
-  <div style="font-size:0.78rem;opacity:0.88;">
-    내용 · 시스템 구성 · 개선 제안을 음성 또는 텍스트로 입력해주세요
-  </div>
-</div>""", unsafe_allow_html=True)
-
-        st.markdown("""
-<style>
-textarea[aria-label="개선 의견 입력"],
-div[data-testid="stTextArea"] textarea {
-    border: 2px solid #1a1a1a !important;
-    border-radius: 8px !important;
-}
-</style>""", unsafe_allow_html=True)
-        # 음성 STT 결과를 session_state에 반영 (sessionStorage 중계)
-        _sug_stt_result = st.session_state.pop("_sug_stt_pending", None)
-        _cur_suggest = st.session_state.get("suggest_input", "")
-        if _sug_stt_result:
-            _cur_suggest = _sug_stt_result
-            st.session_state["suggest_input"] = _cur_suggest
-
-        _suggest_col1 = st.container()
-        with _suggest_col1:
-            suggest_text = st.text_area(
-                "개선 의견 입력",
-                value=_cur_suggest,
-                height=110,
-                key="suggest_input",
-                placeholder="예: 홈 화면에 날씨 정보를 추가해주세요 / 보험금 계산기 개선이 필요합니다",
-                label_visibility="collapsed"
-            )
-            # 음성 입력 버튼 — STT 결과를 sessionStorage에 저장 후 hidden input으로 Python에 전달
-            components.html(f"""
-<style>
-.sug-row{{display:flex;gap:8px;margin-top:4px;}}
-.sug-stt{{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #2e6da4;
-  background:#eef4fb;color:#1a3a5c;font-size:0.86rem;font-weight:700;cursor:pointer;}}
-.sug-stt:hover{{background:#2e6da4;color:#fff;}}
-.sug-stt.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;animation:sugpulse 1s infinite;}}
-.sug-interim{{font-size:0.80rem;color:#1a3a5c;background:#dbeafe;border-radius:6px;
-  padding:5px 10px;margin-top:5px;display:none;border:1px solid #93c5fd;font-style:italic;}}
-@keyframes sugpulse{{0%{{opacity:1}}50%{{opacity:0.6}}100%{{opacity:1}}}}
-</style>
-<div class="sug-row">
-  <button class="sug-stt" id="sug_stt_btn" onclick="startSugSTT()">🎙️ 음성으로 제안하기</button>
-</div>
-<div class="sug-interim" id="sug_interim_box"></div>
-<div id="sug_status" style="font-size:0.75rem;color:#6b7280;margin-top:3px;text-align:center;">음성으로 말하면 자동으로 내용이 입력됩니다</div>
-<script>
-(function(){{
-var _active=false, _starting=false;
-var _finalBuf='';
-var _lastQ=[];
-var _wakeLock=null;
-function _acqWL(){{
-  if(!('wakeLock' in navigator)) return;
-  navigator.wakeLock.request('screen').then(function(wl){{
-    _wakeLock=wl; wl.addEventListener('release',function(){{ if(_active) _acqWL(); }});
-  }}).catch(function(){{}});
-}}
-function _relWL(){{
-  if(_wakeLock){{ try{{_wakeLock.release();}}catch(e){{}} _wakeLock=null; }}
-}}
-function _hash(s){{ var h=5381,i; s=s.replace(/\s/g,'').toLowerCase(); for(i=0;i<s.length;i++){{h=((h<<5)+h)^s.charCodeAt(i);h=h>>>0;}} return h.toString(36); }}
-function _lev(a,b){{
-  var m=a.length,n=b.length,dp=[],i,j;
-  for(i=0;i<=m;i++)dp[i]=[i];
-  for(j=0;j<=n;j++)dp[0][j]=j;
-  for(i=1;i<=m;i++)for(j=1;j<=n;j++)
-    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
-  return dp[m][n];
-}}
-function _isDup(text){{
-  if(!text||text.length<5) return false;
-  var now=Date.now(), curHash=_hash(text);
-  for(var i=0;i<_lastQ.length;i++){{
-    var entry=_lastQ[i]; var age=now-entry.ts;
-    if(age>{STT_DUP_TIME_MS}*2) continue;
-    if(curHash===entry.hash&&age<{STT_DUP_TIME_MS}) return true;
-    var mx=Math.max(entry.text.length,text.length);
-    var sim=mx>0?1-(_lev(entry.text,text)/mx):1;
-    if(sim>=0.95) return true;
-    if(sim>={STT_LEV_THRESHOLD}&&age<{STT_DUP_TIME_MS}) return true;
-  }}
-  return false;
-}}
-function _addQ(text){{ _lastQ.push({{text:text,ts:Date.now(),hash:_hash(text)}}); if(_lastQ.length>{STT_LEV_QUEUE}) _lastQ.shift(); }}
-
-// STT 결과를 parent document의 hidden input에 저장 → Streamlit이 읽음
-function _pushResult(val){{
-  try{{
-    var pd=window.parent.document;
-    var hid=pd.getElementById('_gk_sug_stt_val');
-    if(!hid){{
-      hid=pd.createElement('input');
-      hid.type='hidden'; hid.id='_gk_sug_stt_val';
-      pd.body.appendChild(hid);
-    }}
-    hid.value=val;
-    // Streamlit text_input을 통한 전달: 숨겨진 실제 textarea 직접 채우기 시도
-    var tas=pd.querySelectorAll('textarea');
-    for(var i=0;i<tas.length;i++){{
-      var ph=tas[i].placeholder||''; var al=tas[i].getAttribute('aria-label')||'';
-      if(ph.includes('제안')||ph.includes('보험')||al.includes('개선')){{
-        var setter=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
-        setter.call(tas[i],val);
-        tas[i].dispatchEvent(new Event('input',{{bubbles:true}}));
-        tas[i].dispatchEvent(new Event('change',{{bubbles:true}}));
-        break;
-      }}
-    }}
-    // fallback: 첫 visible textarea
-    if(tas.length>0){{
-      var setter2=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set;
-      setter2.call(tas[0],val);
-      tas[0].dispatchEvent(new Event('input',{{bubbles:true}}));
-      tas[0].dispatchEvent(new Event('change',{{bubbles:true}}));
-    }}
-  }}catch(ex){{}}
-}}
-
-// ── VAD / silence 파라미터 (메인 ai_query_block과 동일) ─────────────────
-var _MIN_UTTERANCE_MS={STT_MIN_UTTERANCE_MS};
-var _POST_ROLL_MS={STT_POST_ROLL_MS};
-var _SILENCE_MS={STT_SILENCE_TIMEOUT_MS};
-var _CONF_THRESHOLD=0.45;
-var _pendingFinal='';
-var _silenceTimer=null;
-var _utterStart=0;
-var _ready=false, _rec=null;
-var _noiseRx=[/^[아어으음네예]+[\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\s]*$/,/^.{{1,2}}$/];
-function _isNoise(t){{ t=t.trim(); for(var i=0;i<_noiseRx.length;i++) if(_noiseRx[i].test(t)) return true; return false; }}
-var _nRules=[
-  [/실\s*손/g,'실손'],[/암\s*진\s*단/g,'암진단'],[/뇌\s*혈\s*관/g,'뇌혈관'],
-  [/심\s*근\s*경\s*색/g,'심근경색'],[/후\s*유\s*장\s*해/g,'후유장해'],
-  [/납\s*입\s*면\s*제/g,'납입면제'],[/갱\s*신\s*형/g,'갱신형'],[/비\s*갱\s*신\s*형/g,'비갱신형'],
-  [/치\s*매\s*보\s*험/g,'치매보험'],[/장\s*기\s*요\s*양/g,'장기요양'],
-  [/^(어+|음+|그+)[,\.\s]*/,'']
-];
-function _normKo(t){{ t=t.trim(); for(var i=0;i<_nRules.length;i++) t=t.replace(_nRules[i][0],_nRules[i][1]); return t.trim(); }}
-
-function _flushPending(){{
-  if(_silenceTimer){{ clearTimeout(_silenceTimer); _silenceTimer=null; }}
-  if(!_pendingFinal) return;
-  var txt=_normKo(_pendingFinal); _pendingFinal='';
-  if(!txt||_isNoise(txt)||_isDup(txt)) return;
-  _addQ(txt);
-  _finalBuf=_finalBuf?_finalBuf+' '+txt:txt;
-  _pushResult(_finalBuf);
-  var ibox=document.getElementById('sug_interim_box');
-  var stat=document.getElementById('sug_status');
-  if(ibox){{ ibox.style.display='block'; ibox.textContent='✅ 인식: '+_finalBuf; }}
-  if(stat) stat.textContent='✅ 받아쓰기 완료! 제안 제출 버튼을 눌러주세요';
-}}
-function _scheduleSilence(){{
-  if(_silenceTimer) clearTimeout(_silenceTimer);
-  _silenceTimer=setTimeout(_flushPending, _SILENCE_MS+_POST_ROLL_MS);
-}}
-
-function _initSug(){{
-  if(_ready) return true;
-  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.'); return false;}}
-  var r=new SR();
-  r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=true; r.maxAlternatives={STT_MAX_ALT};
-  r.onstart=function(){{
-    _starting=false;
-    var stat=document.getElementById('sug_status');
-    if(stat) stat.textContent='🎤 듣고 있습니다... 말씀해주세요';
-  }};
-  r.onresult=function(e){{
-    var now=Date.now();
-    if(!_utterStart) _utterStart=now;
-    var interim='';
-    var ibox=document.getElementById('sug_interim_box');
-    var btn=document.getElementById('sug_stt_btn');
-    for(var i=e.resultIndex;i<e.results.length;i++){{
-      if(e.results[i].isFinal){{
-        var uttDur=now-_utterStart; _utterStart=0;
-        if(uttDur<_MIN_UTTERANCE_MS) continue;
-        var best='',bc=0;
-        for(var j=0;j<e.results[i].length;j++){{
-          if(e.results[i][j].confidence>=bc){{bc=e.results[i][j].confidence;best=e.results[i][j].transcript;}}
-        }}
-        if(bc>0&&bc<_CONF_THRESHOLD) continue;
-        if(!best||_isNoise(best)) continue;
-        _pendingFinal=_pendingFinal?_pendingFinal+' '+best:best;
-        _scheduleSilence();
-      }} else {{
-        if(!_utterStart) _utterStart=now;
-        interim+=e.results[i][0].transcript;
-        if(_silenceTimer){{ clearTimeout(_silenceTimer); _silenceTimer=null; }}
-      }}
-    }}
-    if(interim){{
-      if(ibox){{ ibox.style.display='block'; ibox.textContent='🎤 듣는 중: '+interim; }}
-      if(btn) btn.textContent='🎤 '+interim.slice(0,22)+(interim.length>22?'...':'');
-    }}
-  }};
-  r.onerror=function(e){{
-    _starting=false;
-    var btn=document.getElementById('sug_stt_btn');
-    var stat=document.getElementById('sug_status');
-    if(e.error==='no-speech'||e.error==='aborted') return;
-    if(e.error==='not-allowed'){{
-      _active=false; _relWL();
-      if(btn){{btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active');}}
-      if(stat) stat.textContent='⚠️ 마이크 권한이 필요합니다 (브라우저 설정 확인)';
-      return;
-    }}
-    if(stat) stat.textContent='⚠️ 오류('+e.error+') — 다시 시도해주세요';
-  }};
-  r.onend=function(){{
-    _starting=false;
-    _flushPending();
-    var btn=document.getElementById('sug_stt_btn');
-    var stat=document.getElementById('sug_status');
-    if(_active){{
-      setTimeout(function(){{
-        if(_active&&!_starting){{ _starting=true; try{{r.start();}}catch(ex){{_starting=false;}} }}
-      }},{STT_POST_ROLL_MS}+{STT_PREFIX_PAD_MS}+{STT_RESTART_MS});
-    }} else {{
-      if(btn){{btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active');}} _relWL();
-      if(stat) stat.textContent=_finalBuf?'✅ 받아쓰기 완료! 제안 제출 버튼을 눌러주세요':'음성으로 말하면 자동으로 내용이 입력됩니다';
-    }}
-  }};
-  _rec=r; _ready=true; return true;
-}}
-
-window.startSugSTT=function(){{
-  var btn=document.getElementById('sug_stt_btn');
-  var ibox=document.getElementById('sug_interim_box');
-  var stat=document.getElementById('sug_status');
-  if(_active){{
-    _active=false; _starting=false;
-    _flushPending();
-    if(_rec) try{{_rec.stop();}}catch(ex){{}};
-    if(btn){{btn.textContent='🎙️ 음성으로 제안하기'; btn.classList.remove('active');}} _relWL(); return;
-  }}
-  if(!_initSug()) return;
-  _finalBuf=''; _pendingFinal=''; _lastQ=[];
-  if(_silenceTimer){{ clearTimeout(_silenceTimer); _silenceTimer=null; }}
-  _active=true; _starting=true; _utterStart=0;
-  if(ibox) ibox.style.display='none';
-  if(btn){{btn.textContent='⏹️ 받아쓰는 중... (클릭하여 중지)'; btn.classList.add('active');}}
-  if(stat) stat.textContent='🟡 준비 중... (마이크 허용 필요 시 허용 클릭)';
-  _acqWL();
-  try{{_rec.start();}}catch(ex){{_starting=false;}}
-}};
-}})();
-</script>
-""", height=90)
-
-        _sbtn_col1, _sbtn_col2 = st.columns([1, 1], gap="small")
-        with _sbtn_col1:
-            if st.button("📨 제안 제출", key="btn_suggest_submit", use_container_width=True, type="primary"):
-                _sug = st.session_state.get("suggest_input", "").strip()
-                if _sug:
-                    # 제안 내용 저장
-                    _sug_path = os.path.join(_DATA_DIR, "suggestions.json")
-                    try:
-                        _sug_list = []
-                        if os.path.exists(_sug_path):
-                            with open(_sug_path, "r", encoding="utf-8") as _f:
-                                _sug_list = json.load(_f)
-                        _sug_list.append({
-                            "time": dt.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "user": st.session_state.get("user_name", "비회원"),
-                            "content": sanitize_unicode(_sug)
-                        })
-                        with open(_sug_path, "w", encoding="utf-8") as _f:
-                            json.dump(_sug_list, _f, ensure_ascii=False)
-                        st.session_state["suggest_submitted"] = True
-                        st.rerun()
-                    except Exception:
-                        st.session_state["suggest_submitted"] = True
-                        st.rerun()
-                else:
-                    st.warning("제안 내용을 입력해주세요.")
-        with _sbtn_col2:
-            pass  # 초기화 버튼은 사이드바로 이동
-
-        if st.session_state.get("suggest_submitted"):
-            st.success("✅ 말씀하신 제안이 반영되었습니다.")
-            components.html(
-                '<script>setTimeout(function(){}, 100);</script>' +
-                s_voice("말씀하신 제안이 반영되었습니다."),
-                height=0
-            )
-
-        st.divider()
 
         # ── 고객 정보 입력·관리 섹터 (도메인 네비 위 고정) ─────────────
         if 'user_id' in st.session_state:
@@ -10710,15 +10658,15 @@ section[data-testid="stMain"] {
 
         # ── 면책 공고 (홈 하단 고정) ─────────────────────────────────────
         st.markdown("""
-<div style="background:#1a1a2e;border:1.5px solid #4a4a6a;border-radius:10px;
-  padding:12px 18px;margin:18px 0 8px 0;">
-  <div style="color:#a0a0c0;font-size:0.72rem;line-height:1.8;">
-    <span style="color:#f59e0b;font-weight:900;font-size:0.78rem;">⚠️ 면책 고지 (Disclaimer)</span><br>
-    본 서비스(Goldkey AI Master Lab.)는 <b style="color:#e2e8f0;">참고용 정보 제공 목적</b>으로만 운영되며,
-    법적 효력을 갖는 보험 계약·청구·설계 행위가 아닙니다.<br>
-    AI 분석 결과는 <b style="color:#e2e8f0;">보조 참고 자료</b>이며, 정확한 보장 내용·약관 해석·보험금 청구는
-    반드시 <b style="color:#e2e8f0;">해당 보험회사 또는 공인 설계사</b>에게 확인하시기 바랍니다.<br>
-    오답(AI 할루시네이션) 발생 가능성이 있으며, 이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.
+<div style="background:#ffffff;border:2px solid #dc2626;border-radius:10px;
+  padding:12px 18px;margin:18px 0 8px 0;box-shadow:0 2px 8px rgba(220,38,38,0.15);">
+  <div style="color:#1a1a1a;font-size:0.72rem;line-height:1.8;">
+    <span style="color:#dc2626;font-weight:900;font-size:0.78rem;">⚠️ 면책 고지 (Disclaimer)</span><br>
+    본 서비스(Goldkey AI Master Lab.)는 <b style="color:#dc2626;">참고용 정보 제공 목적</b>으로만 운영되며,
+    법적 효력을 갖는 <b style="color:#dc2626;">보험 계약·청구·설계 행위가 아닙</b>니다.<br>
+    <b style="color:#dc2626;">AI 분석 결과</b>는 <b style="color:#dc2626;">보조 참고 자료</b>이며, 정확한 <b style="color:#dc2626;">보장 내용·약관 해석·보험금 청구</b>는
+    반드시 <b style="color:#dc2626;">해당 보험회사 보상담당자 또는 손해사정인(독립사정인 포함) 등</b>에게 확인하시기 바랍니다.<br>
+    <b style="color:#dc2626;">오답(AI 할루시네이션) 발생 가능성</b>이 있으며, 이로 인한 손해에 대해 당사는 <b style="color:#dc2626;">법적 책임을 지지 않습니다</b>.
   </div>
 </div>""", unsafe_allow_html=True)
 
@@ -15490,14 +15438,14 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
         # ── 면책 조항 (cancer 하단 고정) ─────────────────────────────────
         st.markdown("""
-<div style="background:#1a1a2e;border:1.5px solid #4a4a6a;border-radius:10px;
-  padding:12px 18px;margin:18px 0 8px 0;">
-  <div style="color:#a0a0c0;font-size:0.72rem;line-height:1.8;">
-    <span style="color:#f59e0b;font-weight:900;font-size:0.78rem;">⚠️ 면책 조항 (Disclaimer)</span><br>
-    본 앱의 AI 분석 결과는 <b style="color:#e2e8f0;">보조 지표</b>일 뿐 법적 효력이 없습니다.
-    최종적인 보험 가입·해지·리모델링 결정은 반드시
-    <b style="color:#e2e8f0;">전문 자격을 갖춘 설계사</b>와 상담하시기 바랍니다.
-    앱 사용으로 인한 결과의 책임은 <b style="color:#e2e8f0;">사용자 본인</b>에게 있습니다.
+<div style="background:#ffffff;border:2px solid #dc2626;border-radius:10px;
+  padding:12px 18px;margin:18px 0 8px 0;box-shadow:0 2px 8px rgba(220,38,38,0.15);">
+  <div style="color:#1a1a1a;font-size:0.72rem;line-height:1.8;">
+    <span style="color:#dc2626;font-weight:900;font-size:0.78rem;">⚠️ 면책 조항 (Disclaimer)</span><br>
+    본 앱의 <b style="color:#dc2626;">AI 분석 결과</b>는 <b style="color:#dc2626;">보조 참고 자료</b>일 뿐 법적 효력이 없습니다.
+    최종적인 <b style="color:#dc2626;">보장 내용·약관 해석·보험금 청구</b>는 반드시
+    <b style="color:#dc2626;">해당 보험회사 보상담당자 또는 손해사정인(독립사정인 포함) 등</b>에게 확인하시기 바랍니다.
+    앱 사용으로 인한 결과의 <b style="color:#dc2626;">법적 책임을 지지 않습니다</b>.
   </div>
 </div>""", unsafe_allow_html=True)
 
