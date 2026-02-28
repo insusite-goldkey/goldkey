@@ -5824,31 +5824,26 @@ def main():
         components.html("""
 <script>
 (function(){
-  // parent document에 overscroll-behavior 적용 (가장 효과적)
+  // pull-to-refresh 차단: CSS overscroll-behavior-y:contain 만 사용 (touchmove 간섭 없음)
   try {
     var pd = window.parent.document;
-    var style = pd.createElement('style');
-    style.textContent = 'html,body{ overscroll-behavior-y: contain !important; }';
-    pd.head.appendChild(style);
+    if (!pd.getElementById('gk-ptr-style')) {
+      var style = pd.createElement('style');
+      style.id = 'gk-ptr-style';
+      style.textContent = [
+        'html, body {',
+        '  overscroll-behavior-y: contain !important;',
+        '  overscroll-behavior-x: none !important;',
+        '}',
+        'section[data-testid="stMain"] {',
+        '  overscroll-behavior-y: contain !important;',
+        '}'
+      ].join('');
+      pd.head.appendChild(style);
+    }
   } catch(e){}
 
-  // 1) 모바일: parent에서 pull-to-refresh 차단
-  try {
-    var lastY = 0;
-    var pd2 = window.parent.document;
-    pd2.addEventListener('touchstart', function(e){
-      lastY = e.touches[0].clientY;
-    }, {passive: true});
-    pd2.addEventListener('touchmove', function(e){
-      var y = e.touches[0].clientY;
-      if(y > lastY && (window.parent.scrollY === 0 || pd2.documentElement.scrollTop === 0)){
-        e.preventDefault();
-      }
-      lastY = y;
-    }, {passive: false});
-  } catch(e){}
-
-  // 2) F5 / Ctrl+R / Cmd+R 키보드 새로고침 차단 (parent)
+  // F5 / Ctrl+R / Cmd+R 키보드 새로고침 차단 (parent)
   try {
     window.parent.document.addEventListener('keydown', function(e){
       if(e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'r')){
@@ -9742,6 +9737,16 @@ section[data-testid="stMain"] > div,
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: auto !important;
+}
+/* 전체 앱 스크롤 복원 — pull-to-refresh만 차단, 일반 위/아래 스크롤 허용 */
+html, body {
+    overscroll-behavior-y: contain !important;
+    overflow-y: auto !important;
+}
+section[data-testid="stMain"] {
+    overscroll-behavior-y: auto !important;
+    overflow-y: auto !important;
 }
 .gk-section-label {
     font-size:0.88rem; font-weight:900; letter-spacing:0.06em;
