@@ -84,6 +84,11 @@ import pandas as pd
 import PIL.Image
 from cryptography.fernet import Fernet
 import streamlit.components.v1 as components
+try:
+    from modules.smart_scanner import render_smart_scanner, render_scan_report, render_ssot_banner
+    _SMART_SCANNER_OK = True
+except Exception:
+    _SMART_SCANNER_OK = False
 
 # ==========================================================
 # [SURROGATE 전역 차단] — 모든 문자열 처리 전 최우선 적용
@@ -14165,6 +14170,17 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "disability":
         tab_home_btn("disability")
         st.subheader("🩺 장해보험금 산출")
+
+        # ── SmartScanner 연동 ──────────────────────────────────────────
+        if _SMART_SCANNER_OK:
+            render_ssot_banner(sector="disability")
+            with st.expander("🔬 SmartScanner — AI 의무기록 자동 판독", expanded=False):
+                render_smart_scanner(
+                    doc_type="의무기록",
+                    session_key="smart_scanner_result",
+                    uploader_key="disability_smart_uploader",
+                    show_result_inline=True,
+                )
         dis_sub = st.radio("산출 방식 선택",
             ["AMA 방식 (개인보험)", "맥브라이드 방식 (산재·일부 손보사)", "호프만계수 적용 (법원)"],
             horizontal=True, key="dis_sub")
@@ -15714,6 +15730,18 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "heart":
         if not _auth_gate("heart"): st.stop()
         tab_home_btn("heart")
+
+        # ── SmartScanner 연동 ──────────────────────────────────────────
+        if _SMART_SCANNER_OK:
+            render_ssot_banner(sector="heart")
+            with st.expander("🔬 SmartScanner — AI 의무기록 자동 판독", expanded=False):
+                render_smart_scanner(
+                    doc_type="의무기록",
+                    session_key="smart_scanner_result",
+                    uploader_key="heart_smart_uploader",
+                    show_result_inline=True,
+                )
+
         st.markdown("""
 <div style="background:linear-gradient(135deg,#7d1a1a 0%,#c0392b 50%,#e67e22 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:10px;">
@@ -22204,6 +22232,20 @@ END; $$;""", language="sql")
                 _go_tab("home")
 
         st.divider()
+
+        # ── SmartScanner (AI 의무기록 판독) ──────────────────────────
+        with st.expander("🔬 SmartScanner — AI 의무기록 자동 판독", expanded=False):
+            if _SMART_SCANNER_OK:
+                render_smart_scanner(
+                    doc_type="의무기록",
+                    session_key="smart_scanner_result",
+                    uploader_key="sh_smart_uploader",
+                    show_result_inline=True,
+                )
+            else:
+                st.warning("SmartScanner 모듈 로드 실패 — modules/smart_scanner.py 확인")
+
+        st.markdown("""<div style="background:#1e3a5f;border-radius:8px;padding:6px 14px;margin:8px 0 4px;"><span style="color:#b3d4f5;font-size:0.85rem;">📤 기존 통합 스캔</span></div>""", unsafe_allow_html=True)
 
         # ── 업로드 영역 (대형 2열) ────────────────────────────────────
         _sh_col_up, _sh_col_list = st.columns([3, 2], gap="large")
