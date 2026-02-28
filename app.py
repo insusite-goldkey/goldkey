@@ -6721,20 +6721,20 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:18px 16px 14px 16px;margin-bottom:12px;color:#fff;text-align:center;">
   {_avatar_html}
-  <div style="font-size:1.6rem;font-weight:900;letter-spacing:0.04em;line-height:1.4;">
+  <div style="font-size:2.2rem;font-weight:900;letter-spacing:0.02em;line-height:1.3;text-shadow:0 2px 8px rgba(0,0,0,0.3);">
     Goldkey_AI_Master
   </div>
-  <div style="font-size:1.6rem;font-weight:900;letter-spacing:0.04em;line-height:1.3;">
+  <div style="font-size:2.2rem;font-weight:900;letter-spacing:0.02em;line-height:1.2;text-shadow:0 2px 8px rgba(0,0,0,0.3);">
     Lab. &nbsp;·&nbsp; Beta
   </div>
-  <div style="margin-top:8px;">
-    <span style="background:rgba(14,165,233,0.25);color:#7dd3fc;
-      border:1px solid rgba(14,165,233,0.5);border-radius:20px;
-      padding:3px 12px;font-size:0.82rem;font-weight:700;letter-spacing:0.06em;">
+  <div style="margin-top:10px;">
+    <span style="background:rgba(14,165,233,0.3);color:#7dd3fc;
+      border:1.5px solid rgba(14,165,233,0.6);border-radius:20px;
+      padding:4px 14px;font-size:1rem;font-weight:800;letter-spacing:0.06em;">
       v1.3.0
     </span>
   </div>
-  <div style="font-size:0.95rem;opacity:0.92;line-height:1.6;margin-top:10px;font-weight:600;">
+  <div style="font-size:1.1rem;opacity:0.95;line-height:1.6;margin-top:12px;font-weight:700;letter-spacing:0.01em;">
     30년 보험설계사 상담 실무 지식 기반
   </div>
 </div>""", unsafe_allow_html=True)
