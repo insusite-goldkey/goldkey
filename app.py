@@ -1924,101 +1924,125 @@ _STT_CORRECT_MAP = {
     "뇌혈관질환": ["뇌혈관 질환", "뇌 혈관 질환"],
 }
 
+# ==========================================================================
+# [전사적 섹터 ID 관리 시스템 — 4자리 분류 체계]
+# ※ 절대명령: 신규 섹터 추가 시 반드시 이 블록에 ID를 먼저 등록할 것
+# ※ ID 체계: 1000단위=대분류 / 100단위=중분류 / 10단위=소분류
+# ※ JS·Python 양측에서 SECTOR_CODES[id]["tab_key"]로 동일 참조
+# ==========================================================================
+SECTOR_CODES: dict = {
+    # ── 1000번대: 홈 / 스캔 / 분석 허브 ──────────────────────────────────
+    "1000": {"name": "홈 화면",         "tab_key": "home",          "keywords": ["홈", "메인", "처음", "홈화면", "첫화면"]},
+    "1100": {"name": "통합 스캔 허브",  "tab_key": "scan_hub",      "keywords": ["스캔허브", "통합스캔", "서류올려", "의무기록올려", "스캔"]},
+    "1200": {"name": "보험증권 분석",   "tab_key": "policy_scan",   "keywords": ["증권분석", "보험증권분석", "보험증권", "증권업로드", "증권봐줘", "내증권"]},
+    "1300": {"name": "약관 매칭",       "tab_key": "policy_terms",  "keywords": ["약관검색", "약관찾아", "약관보여", "약관알려", "약관매칭", "약관"]},
+    # ── 2000번대: 상해·청구·장해 상담 ───────────────────────────────────
+    "2000": {"name": "신규보험 상담",   "tab_key": "t0",            "keywords": ["신규보험상담", "신규보험", "신규상담", "새보험", "보험추천", "보험가입", "보험설계", "신규"]},
+    "2100": {"name": "상해 통합 관리",  "tab_key": "injury",        "keywords": ["상해사고", "상해보험", "상해통합", "상해설계", "사고났어", "소득끊겨", "보장공백"]},
+    "2200": {"name": "보험금 청구 상담","tab_key": "t1",            "keywords": ["보험금청구상담", "보험금청구", "보험금상담", "청구방법", "지급거절", "청구상담"]},
+    "2300": {"name": "장해 산출",       "tab_key": "disability",    "keywords": ["장해산출", "장해보험금", "후유장해", "맥브라이드", "AMA", "장해율", "장해"]},
+    # ── 3000번대: 질환 상담 (암·뇌·심장) ───────────────────────────────
+    "3000": {"name": "암 질환 상담",    "tab_key": "cancer",        "keywords": ["암상담", "암질환", "표적항암", "면역항암", "NGS", "CAR-T", "항암치료", "암진단", "암보험"]},
+    "3100": {"name": "뇌 질환 상담",    "tab_key": "brain",         "keywords": ["뇌상담", "뇌졸중", "뇌경색", "뇌출혈", "중풍", "뇌질환", "뇌혈관"]},
+    "3200": {"name": "심장 질환 상담",  "tab_key": "heart",         "keywords": ["심장상담", "심근경색", "협심증", "허혈", "심장질환", "급성심장"]},
+    # ── 4000번대: 보험 설계 ──────────────────────────────────────────────
+    "4000": {"name": "기본보험 상담",   "tab_key": "t2",            "keywords": ["자동차보험", "운전자보험", "기본보험상담", "기본보험"]},
+    "4100": {"name": "통합보험 설계",   "tab_key": "t3",            "keywords": ["통합보험설계", "통합보험", "통합설계", "생명보험설계", "종합설계"]},
+    "4200": {"name": "자동차사고 상담", "tab_key": "t4",            "keywords": ["자동차사고", "교통사고", "과실비율", "합의금", "민식이법"]},
+    # ── 5000번대: 자산 / 세무 / 법인 ────────────────────────────────────
+    "5000": {"name": "노후·상속 설계",  "tab_key": "t5",            "keywords": ["노후설계", "연금설계", "상속설계", "증여설계", "주택연금", "노후상담", "상속상담", "노후", "연금", "상속"]},
+    "5100": {"name": "세무 상담",       "tab_key": "t6",            "keywords": ["세무상담", "세금상담", "절세방법", "소득세", "법인세", "건보료", "금융소득", "세무"]},
+    "5200": {"name": "법인 상담",       "tab_key": "t7",            "keywords": ["법인상담", "법인보험", "단체보험", "복리후생", "법인"]},
+    "5300": {"name": "CEO플랜",         "tab_key": "t8",            "keywords": ["CEO플랜", "씨이오플랜", "대표설계", "가업승계", "퇴직금설계", "CEO상담", "씨이오"]},
+    "5400": {"name": "비상장주식 평가", "tab_key": "stock_eval",    "keywords": ["비상장주식", "주식평가", "상증법", "순자산평가", "경영권할증"]},
+    # ── 6000번대: 전문 보험 ──────────────────────────────────────────────
+    "6000": {"name": "화재보험",        "tab_key": "fire",          "keywords": ["화재상담", "재조달가액", "화재보험설계", "건물보험", "REB", "화재보험"]},
+    "6100": {"name": "배상책임보험",    "tab_key": "liability",     "keywords": ["배상책임", "배상상담", "중복보험", "실화책임", "독립책임", "배상보험"]},
+    "6200": {"name": "간병비 컨설팅",   "tab_key": "nursing",       "keywords": ["간병비", "간병컨설팅", "장기요양", "요양병원", "간병보험", "간병상담", "요양상담", "치매보험", "치매"]},
+    "6300": {"name": "부동산 투자",     "tab_key": "realty",        "keywords": ["부동산투자", "부동산상담", "등기부", "건축물대장", "투자수익률"]},
+    # ── 7000번대: 라이프 플랜 ────────────────────────────────────────────
+    "7000": {"name": "LIFE CYCLE 설계", "tab_key": "life_cycle",    "keywords": ["라이프사이클", "생애설계", "타임라인", "백지설계", "인생설계"]},
+    "7100": {"name": "LIFE EVENT 상담", "tab_key": "life_event",    "keywords": ["라이프이벤트", "인생이벤트", "결혼설계", "출산설계", "은퇴설계"]},
+    # ── 8000번대: 콘텐츠 / 자료 관리 ────────────────────────────────────
+    "8000": {"name": "리플렛 분류",     "tab_key": "leaflet",       "keywords": ["리플렛", "신상품등록", "상품리플렛"]},
+    "8100": {"name": "상담 카탈로그",   "tab_key": "consult_catalog","keywords": ["카탈로그열람", "카탈로그보여", "내카탈로그", "상담카탈로그"]},
+    "8200": {"name": "고객자료",        "tab_key": "customer_docs", "keywords": ["고객자료", "의무기록저장", "서류저장", "고객문서", "마인드맵"]},
+    "8300": {"name": "디지털 카탈로그", "tab_key": "digital_catalog","keywords": ["디지털카탈로그", "카탈로그관리", "카탈로그업로드"]},
+}
+
 # ── Voice-to-Action 네비게이션 매핑 테이블 ──────────────────────────────────
-# 키: current_tab 값 / 값: 감지 키워드 리스트 (앞에서부터 매칭 우선순위)
-# ※ 충돌 방지 원칙: 각 섹션 고유 키워드만 사용, 다른 탭과 겹치는 단어 금지
-# ※ 섹션 번호 체계: S01~S26 (JS/Python 양쪽에서 동일 순서 참조)
+# SECTOR_CODES에서 자동 생성 — 수동 편집 금지, SECTOR_CODES만 수정할 것
+# ※ 충돌 방지: 각 섹션 고유 키워드만 사용 / 중복 금지
 _NAV_INTENT_MAP = [
-    # S01 — 보험증권 분석
-    ("policy_scan",     ["증권분석", "보험증권분석", "증권 분석", "보험증권 분석", "보험증권", "증권업로드", "증권 업로드", "증권봐줘", "증권 봐줘", "내증권", "내 증권"]),
-    # S02 — 약관 매칭
-    ("policy_terms",    ["약관검색", "약관 검색", "약관찾아", "약관 찾아", "약관보여", "약관 보여", "약관알려", "약관 알려", "약관매칭", "약관"]),
-    # S03 — 통합 스캔 허브
-    ("scan_hub",        ["스캔허브", "스캔 허브", "통합스캔", "통합 스캔", "서류올려", "서류 올려", "의무기록올려"]),
-    # S04 — 신규보험 상담  ★ 핵심단어: 신규, 새보험, 보험추천, 보험가입
-    ("t0",              ["신규보험상담", "신규보험", "신규 보험", "신규상담", "신규 상담", "새보험", "새 보험",
-                         "보험추천", "보험 추천", "보험가입", "보험 가입", "보험설계", "보험 설계", "신규"]),
-    # S05 — 상해 통합 관리  ★ 핵심단어: 상해사고, 사고, 보장공백
-    ("injury",          ["상해사고", "상해보험", "상해통합", "상해 통합", "상해설계", "상해 설계", "상해관리",
-                         "사고났어", "사고 났어", "소득끊겨", "소득 끊겨", "일못해", "일 못해", "보장공백", "보장 공백"]),
-    # S06 — 보험금 청구 상담  ★ 핵심단어: 보험금청구, 청구, 지급거절
-    ("t1",              ["보험금청구상담", "보험금청구", "보험금 청구", "보험금상담", "보험금 상담",
-                         "청구방법", "청구 방법", "지급거절", "지급 거절", "보험금얼마", "보험금 얼마",
-                         "보험금받", "보험금 받", "청구상담", "청구 상담"]),
-    # S07 — 장해 산출  ★ 핵심단어: 장해, 후유장해, 맥브라이드
-    ("disability",      ["장해산출", "장해 산출", "장해보험금", "후유장해", "맥브라이드", "AMA", "장해율", "장해"]),
-    # S08 — 암 질환  ★ 핵심단어: 암상담, 표적항암, NGS, CAR-T
-    ("cancer",          ["암상담", "암 상담", "암질환", "암 질환", "표적항암", "면역항암", "NGS", "CAR-T",
-                         "항암치료", "암진단", "암 진단", "암보험"]),
-    # S09 — 뇌 질환  ★ 핵심단어: 뇌졸중, 뇌경색, 뇌출혈
-    ("brain",           ["뇌상담", "뇌 상담", "뇌졸중", "뇌경색", "뇌출혈", "중풍", "뇌질환", "뇌혈관"]),
-    # S10 — 심장 질환  ★ 핵심단어: 심근경색, 협심증
-    ("heart",           ["심장상담", "심장 상담", "심근경색", "협심증", "허혈", "심장질환", "심장혈관", "급성심장"]),
-    # S11 — 기본보험 상담  ★ 핵심단어: 자동차보험, 운전자보험
-    ("t2",              ["자동차보험", "운전자보험", "기본보험상담", "기본보험 상담", "기본 보험", "기본보험"]),
-    # S12 — 통합보험 설계  ★ 핵심단어: 통합보험, 종합설계
-    ("t3",              ["통합보험설계", "통합보험 설계", "통합보험", "통합설계", "통합 설계",
-                         "생명보험설계", "생명보험 설계", "종합설계", "종합 설계"]),
-    # S13 — 자동차사고 상담  ★ 핵심단어: 교통사고, 과실비율, 합의금
-    ("t4",              ["자동차사고", "자동차 사고", "교통사고", "과실비율", "합의금", "민식이법"]),
-    # S14 — 노후·상속 설계  ★ 핵심단어: 노후설계, 연금설계, 상속
-    ("t5",              ["노후설계", "연금설계", "상속설계", "증여설계", "증여 설계", "주택연금",
-                         "노후상담", "노후 상담", "상속상담", "상속 상담", "노후", "연금", "상속"]),
-    # S15 — 세무 상담  ★ 핵심단어: 세무, 절세, 건보료
-    ("t6",              ["세무상담", "세무 상담", "세금상담", "세금 상담", "절세방법", "절세 방법",
-                         "소득세", "법인세", "건보료", "금융소득", "세무"]),
-    # S16 — 법인 상담  ★ 핵심단어: 법인, 단체보험, 복리후생
-    ("t7",              ["법인상담", "법인 상담", "법인보험", "단체보험", "복리후생", "법인"]),
-    # S17 — CEO플랜  ★ 핵심단어: CEO, 가업승계, 퇴직금설계
-    ("t8",              ["CEO플랜", "CEO 플랜", "씨이오플랜", "대표설계", "대표 설계", "가업승계",
-                         "퇴직금설계", "퇴직금 설계", "CEO상담", "CEO 상담", "씨이오"]),
-    # S18 — 비상장주식 평가  ★ 핵심단어: 비상장주식, 상증법
-    ("stock_eval",      ["비상장주식", "주식평가", "주식 평가", "상증법", "순자산평가", "순자산 평가", "경영권할증"]),
-    # S19 — 화재보험  ★ 핵심단어: 화재, 재조달가액
-    ("fire",            ["화재상담", "화재 상담", "재조달가액", "화재보험설계", "화재보험 설계",
-                         "건물보험", "건물 보험", "REB", "화재보험"]),
-    # S20 — 배상책임보험  ★ 핵심단어: 배상책임, 실화책임
-    ("liability",       ["배상책임", "배상상담", "배상 상담", "중복보험", "실화책임", "독립책임", "배상보험"]),
-    # S21 — 간병비 컨설팅  ★ 핵심단어: 간병비, 장기요양, 요양병원
-    ("nursing",         ["간병비", "간병컨설팅", "간병 컨설팅", "장기요양", "요양병원",
-                         "간병보험", "간병상담", "간병 상담", "요양상담", "요양 상담", "치매보험", "치매"]),
-    # S22 — 부동산 투자  ★ 핵심단어: 부동산, 등기부
-    ("realty",          ["부동산투자", "부동산 투자", "부동산상담", "부동산 상담", "등기부", "건축물대장", "투자수익률"]),
-    # S23 — LIFE CYCLE  ★ 핵심단어: 라이프사이클, 생애설계
-    ("life_cycle",      ["라이프사이클", "라이프 사이클", "생애설계", "타임라인", "백지설계", "인생설계", "인생 설계"]),
-    # S24 — LIFE EVENT  ★ 핵심단어: 라이프이벤트, 결혼, 출산, 은퇴
-    ("life_event",      ["라이프이벤트", "라이프 이벤트", "인생이벤트", "인생 이벤트",
-                         "결혼설계", "결혼 설계", "출산설계", "출산 설계", "은퇴설계", "은퇴 설계"]),
-    # S25 — 리플렛  ★ 핵심단어: 리플렛, 신상품등록
-    ("leaflet",         ["리플렛", "리플렛올려", "리플렛 올려", "신상품등록", "신상품 등록", "상품리플렛"]),
-    # S26 — 상담 카탈로그  ★ 핵심단어: 카탈로그열람, 내카탈로그
-    ("consult_catalog", ["카탈로그열람", "카탈로그 열람", "카탈로그보여", "카탈로그 보여",
-                         "내카탈로그", "내 카탈로그", "상담카탈로그", "상담 카탈로그"]),
-    # S27 — 고객자료  ★ 핵심단어: 고객자료, 의무기록
-    ("customer_docs",   ["고객자료", "의무기록저장", "의무기록 저장", "서류저장", "서류 저장", "고객문서", "마인드맵"]),
-    # S28 — 디지털 카탈로그  ★ 핵심단어: 디지털카탈로그
-    ("digital_catalog", ["디지털카탈로그", "디지털 카탈로그", "카탈로그관리", "카탈로그 관리", "카탈로그업로드"]),
+    (v["tab_key"], v["keywords"])
+    for v in SECTOR_CODES.values()
+    if v["tab_key"] != "home"
 ]
 
 def _voice_navigate(text: str) -> str | None:
     """음성/텍스트 입력에서 Intent 감지 → 이동할 current_tab 반환.
-    1차: 원문 그대로 매칭
-    2차: 공백 제거 후 재매칭 (붙여쓰기 발화 대응)
+    0순위: 4자리 섹터 ID 직접 매칭 (SECTOR_CODES 참조)
+    1차:   원문 키워드 매칭
+    2차:   공백 제거 후 재매칭 (붙여쓰기 발화 대응)
     매칭 없으면 None 반환 (라우팅 없음).
     """
+    import re as _re
     if not text or not text.strip():
         return None
-    t = text.lower().strip()
+    t = text.strip()
+    # 0순위 — 4자리 섹터 ID 추출 (예: "3100번", "코드 3100", "3100 실행")
+    _id_match = _re.search(r'\b(\d{4})\b', t)
+    if _id_match:
+        _code = _id_match.group(1)
+        if _code in SECTOR_CODES:
+            return SECTOR_CODES[_code]["tab_key"]
+    t_lower = t.lower()
     # 1차 — 원문 매칭
     for tab_key, keywords in _NAV_INTENT_MAP:
-        if any(kw.lower() in t for kw in keywords):
+        if any(kw.lower() in t_lower for kw in keywords):
             return tab_key
     # 2차 — 공백 완전 제거 후 재매칭 ("신규 보험 상담" → "신규보험상담")
-    t_nospace = t.replace(" ", "").replace(".", "").replace(",", "")
+    t_nospace = t_lower.replace(" ", "").replace(".", "").replace(",", "")
     for tab_key, keywords in _NAV_INTENT_MAP:
         if any(kw.lower().replace(" ", "") in t_nospace for kw in keywords):
             return tab_key
     return None
+
+
+def log_error(msg: str, sector_id: str = "", tab_key: str = "", exc: Exception = None) -> None:
+    """런타임 오류 기록 — /tmp/gk_error_log.json (최근 300건 순환 저장)
+    sector_id: SECTOR_CODES 4자리 ID (어느 섹터에서 오류 발생했는지 즉시 파악)
+    tab_key:   current_tab 키 (섹터 ID를 모를 때 tab_key로 역조회 가능)
+    exc:       Exception 객체 (traceback 포함 저장)
+    """
+    import json as _j, traceback as _tb, datetime as _dt
+    _log_path = pathlib.Path(tempfile.gettempdir()) / "gk_error_log.json"
+    try:
+        _entries = _j.loads(_log_path.read_text("utf-8")) if _log_path.exists() else []
+    except Exception:
+        _entries = []
+    # sector_id가 없으면 tab_key로 역조회
+    _sid = sector_id
+    if not _sid and tab_key:
+        for _k, _v in SECTOR_CODES.items():
+            if _v["tab_key"] == tab_key:
+                _sid = _k
+                break
+    _entry = {
+        "ts":        _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "sector_id": _sid,
+        "sector_nm": SECTOR_CODES.get(_sid, {}).get("name", "") if _sid else "",
+        "tab_key":   tab_key or "",
+        "msg":       str(msg),
+        "tb":        _tb.format_exc() if exc else "",
+    }
+    _entries.append(_entry)
+    if len(_entries) > 300:
+        _entries = _entries[-300:]
+    try:
+        _log_path.write_text(_j.dumps(_entries, ensure_ascii=False, indent=2), "utf-8")
+    except Exception:
+        pass
 
 
 def stt_correct(text: str) -> str:
@@ -5559,19 +5583,6 @@ def main():
         except Exception:
             pass
 
-    # ── STEP 4-C-1: 음성 네비게이션 ?nav= 파라미터 처리 ──────────────────
-    # JS STT 매칭 성공 시 window.parent.location에 ?nav=XXX 추가 → Streamlit rerun
-    # → 여기서 읽어 session_state.current_tab 설정 후 파라미터 제거
-    _qp_nav = st.query_params.get("nav", "")
-    if _qp_nav and "user_id" in st.session_state:
-        st.session_state.current_tab = _qp_nav
-        st.session_state["_scroll_top"] = True
-        try:
-            del st.query_params["nav"]
-        except Exception:
-            pass
-        st.rerun()
-
     # ── STEP 4-C: 뒤로가기 로그아웃 방지 — query_params 탭 상태 복원 ──
     # 브라우저 "<" 뒤로가기 시 Streamlit이 session_state를 재초기화함
     # → ?tab=XXX 파라미터로 탭 상태를 URL에 보존, 재진입 시 복원
@@ -8877,250 +8888,244 @@ window['startTTS_{tab_key}']=function(){{
             _nav_go = st.button("🚀 바로 이동", key="btn_voice_nav_go",
                                 use_container_width=True, type="primary")
 
-        # Voice-to-Action STT 버튼 (음성 입력) — sessionStorage 폴링 방식
+        # Voice-to-Action STT 버튼 — SECTOR_CODES 기반 하이브리드 엔진
+        # JS→Python: setTriggerValue (st.components.v2 공식 통신 방식)
         import json as _json
-        _nav_intent_js = _json.dumps(
-            [[tab, kws] for tab, kws in _NAV_INTENT_MAP],
-            ensure_ascii=False
-        )
-        components.html(f"""
-<style>
-/* ── Voice Navigation UI ── */
-.vnav-row{{display:flex;gap:8px;margin-top:2px;margin-bottom:4px;}}
-.vnav-stt{{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #2e6da4;
+        # SECTOR_CODES를 JS로 직렬화 — {id: {name, tab_key, keywords}} 형태
+        _sector_js = _json.dumps(SECTOR_CODES, ensure_ascii=False)
+
+        _vnav_css = """
+.vnav-row{display:flex;gap:8px;margin-top:2px;margin-bottom:4px;}
+.vnav-stt{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #2e6da4;
   background:#eef4fb;color:#1a3a5c;font-size:0.85rem;font-weight:700;cursor:pointer;
-  transition:background 0.2s,color 0.2s;}}
-.vnav-stt:hover{{background:#2e6da4;color:#fff;}}
-.vnav-stt.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;}}
-.vnav-result{{font-size:0.82rem;color:#1a3a5c;background:#dbeafe;border-radius:8px;
+  transition:background 0.2s,color 0.2s;}
+.vnav-stt:hover{background:#2e6da4;color:#fff;}
+.vnav-stt.active{background:#e74c3c;color:#fff;border-color:#e74c3c;}
+.vnav-result{font-size:0.82rem;color:#1a3a5c;background:#dbeafe;border-radius:8px;
   padding:7px 12px;margin-top:5px;min-height:28px;font-weight:700;display:none;
-  border:1.5px solid #2563eb;}}
-.vnav-result.matched{{background:#dcfce7;border-color:#16a34a;color:#14532d;}}
-.vnav-result.ambig{{background:#fef9c3;border-color:#ca8a04;color:#713f12;}}
-.vnav-result.unmatched{{background:#fee2e2;border-color:#dc2626;color:#7f1d1d;}}
-.vnav-guide{{font-size:0.78rem;margin-top:4px;text-align:center;font-weight:700;display:none;
-  padding:6px 10px;border-radius:6px;}}
-.vnav-hint{{font-size:0.72rem;color:#6b7280;margin-top:3px;text-align:center;}}
-/* Voice Wave 애니메이션 — 음성 인식 중 표시 */
-.vnav-wave-wrap{{display:none;justify-content:center;align-items:flex-end;
-  gap:3px;height:28px;margin-top:4px;}}
-.vnav-wave-wrap.on{{display:flex;}}
-.vnav-bar{{width:4px;border-radius:3px;background:linear-gradient(to top,#0ea5e9,#6366f1);
-  animation:vnav-wave 1.0s ease-in-out infinite;}}
-.vnav-bar:nth-child(1){{height:8px; animation-delay:0.0s;}}
-.vnav-bar:nth-child(2){{height:16px;animation-delay:0.1s;}}
-.vnav-bar:nth-child(3){{height:24px;animation-delay:0.2s;}}
-.vnav-bar:nth-child(4){{height:16px;animation-delay:0.3s;}}
-.vnav-bar:nth-child(5){{height:10px;animation-delay:0.4s;}}
-.vnav-bar:nth-child(6){{height:20px;animation-delay:0.15s;}}
-.vnav-bar:nth-child(7){{height:12px;animation-delay:0.25s;}}
-@keyframes vnav-wave{{
-  0%,100%{{transform:scaleY(0.4);opacity:0.6;}}
-  50%{{transform:scaleY(1.0);opacity:1.0;}}
-}}
-</style>
-<div class="vnav-row">
-  <button class="vnav-stt" id="vnav_stt_btn" onclick="startVNavSTT()">🎙️ 음성으로 메뉴 이동</button>
-</div>
-<!-- Voice Wave 시각 피드백 -->
-<div class="vnav-wave-wrap" id="vnav_wave">
+  border:1.5px solid #2563eb;}
+.vnav-result.matched{background:#dcfce7;border-color:#16a34a;color:#14532d;}
+.vnav-result.id-matched{background:#f0fdf4;border-color:#16a34a;color:#14532d;border-width:2px;}
+.vnav-result.ambig{background:#fef9c3;border-color:#ca8a04;color:#713f12;}
+.vnav-result.unmatched{background:#fee2e2;border-color:#dc2626;color:#7f1d1d;}
+.vnav-guide{font-size:0.78rem;margin-top:4px;text-align:center;font-weight:700;display:none;
+  padding:6px 10px;border-radius:6px;}
+.vnav-hint{font-size:0.72rem;color:#6b7280;margin-top:3px;text-align:center;}
+.vnav-wave-wrap{display:none;justify-content:center;align-items:flex-end;
+  gap:3px;height:28px;margin-top:4px;}
+.vnav-wave-wrap.on{display:flex;}
+.vnav-bar{width:4px;border-radius:3px;background:linear-gradient(to top,#0ea5e9,#6366f1);
+  animation:vnav-wave 1.0s ease-in-out infinite;}
+.vnav-bar:nth-child(1){height:8px;animation-delay:0.0s;}
+.vnav-bar:nth-child(2){height:16px;animation-delay:0.1s;}
+.vnav-bar:nth-child(3){height:24px;animation-delay:0.2s;}
+.vnav-bar:nth-child(4){height:16px;animation-delay:0.3s;}
+.vnav-bar:nth-child(5){height:10px;animation-delay:0.4s;}
+.vnav-bar:nth-child(6){height:20px;animation-delay:0.15s;}
+.vnav-bar:nth-child(7){height:12px;animation-delay:0.25s;}
+@keyframes vnav-wave{0%,100%{transform:scaleY(0.4);opacity:0.6;}50%{transform:scaleY(1.0);opacity:1.0;}}
+.vnav-toast{position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-80px);
+  background:linear-gradient(135deg,#0f4c81,#1a6fa8);color:#fff;
+  padding:12px 24px;border-radius:12px;font-size:0.9rem;font-weight:700;
+  box-shadow:0 4px 20px rgba(0,0,0,0.35);z-index:99999;
+  transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);}
+.vnav-toast.show{transform:translateX(-50%) translateY(0);}
+"""
+        _vnav_js = f"""
+export default function(component) {{
+  const {{ setTriggerValue, parentElement }} = component;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  // SECTOR_CODES — Python SECTOR_CODES와 동기화 (수동 편집 금지)
+  const SECTORS = {_sector_js};
+  const STT_LANG = '{STT_LANG}';
+
+  // DOM 주입
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `
+<div class="vnav-row"><button class="vnav-stt" id="vs_btn">🎙️ 음성으로 메뉴 이동</button></div>
+<div class="vnav-wave-wrap" id="vs_wave">
   <div class="vnav-bar"></div><div class="vnav-bar"></div><div class="vnav-bar"></div>
   <div class="vnav-bar"></div><div class="vnav-bar"></div><div class="vnav-bar"></div>
   <div class="vnav-bar"></div>
 </div>
-<div class="vnav-result" id="vnav_result_box"></div>
-<div class="vnav-guide" id="vnav_guide_box"></div>
-<div class="vnav-hint" id="vnav_hint">음성으로 말하면 위 입력창에 자동으로 채워집니다 · Chrome/Edge 권장</div>
-<script>
-(function(){{
-var _active=false, _rec=null;
-var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-// Intent 매핑 테이블 (Python _NAV_INTENT_MAP 과 동기화)
-var _INTENTS={_nav_intent_js};
-// 섹션 한국어 이름 매핑 (라우팅 결과 안내용)
-var _TAB_NAMES={{
-  policy_scan:'보험증권 분석',policy_terms:'약관 매칭',scan_hub:'통합 스캔',
-  t0:'신규보험 상담',injury:'상해 통합',t1:'보험금 청구 상담',
-  disability:'장해 산출',cancer:'암 질환 상담',brain:'뇌 질환 상담',heart:'심장 질환 상담',
-  t2:'기본보험 상담',t3:'통합보험 설계',t4:'자동차사고 상담',
-  t5:'노후·상속 설계',t6:'세무 상담',t7:'법인 상담',t8:'CEO플랜',
-  stock_eval:'비상장주식 평가',fire:'화재보험',liability:'배상책임',
-  nursing:'간병비 컨설팅',realty:'부동산 투자',
-  life_cycle:'LIFE CYCLE 설계',life_event:'LIFE EVENT 상담',
-  leaflet:'리플렛 분류',consult_catalog:'상담 카탈로그',
-  customer_docs:'고객자료',digital_catalog:'디지털 카탈로그'
-}};
+<div class="vnav-result" id="vs_rbox"></div>
+<div class="vnav-guide"  id="vs_gbox"></div>
+<div class="vnav-hint"   id="vs_hint">섹터명 또는 ID(예: 3000)를 말하면 자동 이동합니다 · Chrome/Edge 권장</div>
+  `;
+  parentElement.appendChild(wrap);
 
-// KWS: 모든 매칭 탭 반환 (중복 감지용)
-// 1차: 원문 매칭 / 2차: 공백·마침표 제거 후 재매칭 (붙여쓰기 발화 대응)
-function _detectAllTabs(text){{
-  var t=text.toLowerCase().trim();
-  var matched=[];
-  // 1차 — 원문
-  for(var i=0;i<_INTENTS.length;i++){{
-    var item=_INTENTS[i];
-    for(var j=0;j<item[1].length;j++){{
-      if(t.indexOf(item[1][j].toLowerCase())>=0){{
-        matched.push(item[0]);
-        break;
-      }}
-    }}
-  }}
-  // 2차 — 공백·마침표·쉼표 제거 재매칭
-  if(matched.length===0){{
-    var tn=t.replace(/[\s.,。]/g,'');
-    for(var i=0;i<_INTENTS.length;i++){{
-      var item=_INTENTS[i];
-      for(var j=0;j<item[1].length;j++){{
-        var kn=item[1][j].toLowerCase().replace(/\s/g,'');
-        if(tn.indexOf(kn)>=0){{
-          matched.push(item[0]);
-          break;
-        }}
-      }}
-    }}
-  }}
-  return matched;
-}}
+  const btn  = wrap.querySelector('#vs_btn');
+  const rbox = wrap.querySelector('#vs_rbox');
+  const gbox = wrap.querySelector('#vs_gbox');
+  const hint = wrap.querySelector('#vs_hint');
+  const wave = wrap.querySelector('#vs_wave');
 
-function _fillParentInput(text){{
-  try{{
-    var pd=window.parent.document;
-    var inputs=pd.querySelectorAll('input[type="text"],input:not([type])');
-    for(var i=0;i<inputs.length;i++){{
-      var ph=inputs[i].placeholder||'';
-      if(ph.includes('음성 인식')||ph.includes('직접 입력')||ph.includes('바로 이동')){{
-        var ns=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-        ns.call(inputs[i],text);
-        inputs[i].dispatchEvent(new Event('input',{{bubbles:true}}));
-        inputs[i].dispatchEvent(new Event('change',{{bubbles:true}}));
-        return true;
-      }}
-    }}
-    // fallback: 첫 번째 편집 가능한 input
-    for(var i=0;i<inputs.length;i++){{
-      if(inputs[i].offsetParent!==null && !inputs[i].readOnly && !inputs[i].disabled){{
-        var ns=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-        ns.call(inputs[i],text);
-        inputs[i].dispatchEvent(new Event('input',{{bubbles:true}}));
-        inputs[i].dispatchEvent(new Event('change',{{bubbles:true}}));
-        return true;
-      }}
-    }}
-  }}catch(ex){{}}
-  return false;
-}}
-
-window.startVNavSTT=function(){{
-  var btn =document.getElementById('vnav_stt_btn');
-  var rbox=document.getElementById('vnav_result_box');
-  var gbox=document.getElementById('vnav_guide_box');
-  var hint=document.getElementById('vnav_hint');
-  var wave=document.getElementById('vnav_wave');
-  if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.'); return;}}
-  if(_active){{
-    _active=false;
-    if(_rec) try{{_rec.stop();}}catch(ex){{}};
-    btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
-    wave.classList.remove('on'); return;
+  // 토스트 메시지 표시 (1초간)
+  function showToast(msg) {{
+    let t = document.querySelector('.vnav-toast');
+    if (!t) {{ t = document.createElement('div'); t.className = 'vnav-toast'; document.body.appendChild(t); }}
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1800);
   }}
-  var r=new SR();
-  r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=false; r.maxAlternatives=5;
-  r.onstart=function(){{
-    wave.classList.add('on');
-    hint.style.display='none';
-    rbox.style.display='none'; gbox.style.display='none';
-  }};
-  r.onresult=function(e){{
-    var best='', bc=0, interim='';
-    for(var i=0;i<e.results.length;i++){{
-      if(e.results[i].isFinal){{
-        for(var j=0;j<e.results[i].length;j++){{
-          if(e.results[i][j].confidence>=bc){{bc=e.results[i][j].confidence; best=e.results[i][j].transcript;}}
-        }}
-      }} else {{ interim+=e.results[i][0].transcript; }}
+
+  // ── 핵심 매칭 엔진 ──
+  // 0순위: 4자리 섹터 ID (예: "3000번", "코드 3100", "3100 실행")
+  // 1차: 원문 키워드 매칭
+  // 2차: 공백 제거 후 매칭
+  function resolve(text) {{
+    // 0순위 — ID 코드 추출
+    const idMatch = text.match(/\\b(\\d{{4}})\\b/);
+    if (idMatch && SECTORS[idMatch[1]]) {{
+      return {{ tab_key: SECTORS[idMatch[1]].tab_key, name: SECTORS[idMatch[1]].name, id: idMatch[1], by_id: true }};
     }}
-    if(interim){{
-      btn.textContent='🎤 '+interim.slice(0,24)+(interim.length>24?'...':'');
+    const t = text.toLowerCase().trim();
+    const tn = t.replace(/[\\s.,。]/g, '');
+    // 1차·2차 — 키워드 매칭
+    for (const [id, sec] of Object.entries(SECTORS)) {{
+      if (sec.tab_key === 'home') continue;
+      const kws = sec.keywords;
+      if (kws.some(k => t.includes(k.toLowerCase()))) {{
+        return {{ tab_key: sec.tab_key, name: sec.name, id: id, by_id: false }};
+      }}
     }}
-    if(best){{
-      wave.classList.remove('on');
-      _fillParentInput(best);
-      var tabs=_detectAllTabs(best);
-      rbox.style.display='block';
-      gbox.style.display='block';
-      if(tabs.length===1){{
-        // 명확한 단일 매칭 ✅ — URL ?nav= 변경으로 Streamlit rerun 트리거
-        var nm=_TAB_NAMES[tabs[0]]||tabs[0];
-        var destKey=tabs[0];
-        rbox.className='vnav-result matched';
-        rbox.textContent='✅ 인식: "'+best+'" → '+nm+' 섹션으로 자동 이동 중...';
-        gbox.className='vnav-guide';
-        gbox.style.background='#dcfce7';gbox.style.color='#14532d';
-        gbox.innerHTML='🚀 <b>'+nm+'</b> 섹션으로 자동 이동합니다!';
-        btn.textContent='🚀 "'+best+'" → '+nm+' 이동 중...';
-        // ?nav=탭키 URL 파라미터 변경 → Streamlit 자동 rerun → Python이 읽어 탭 전환
-        setTimeout(function(){{
-          try{{
-            var u=new URL(window.parent.location.href);
-            u.searchParams.set('nav', destKey);
-            window.parent.location.href=u.toString();
-          }}catch(ex){{
-            window.parent.location.search='?nav='+destKey;
+    for (const [id, sec] of Object.entries(SECTORS)) {{
+      if (sec.tab_key === 'home') continue;
+      const kws = sec.keywords;
+      if (kws.some(k => tn.includes(k.toLowerCase().replace(/\\s/g,'')))) {{
+        return {{ tab_key: sec.tab_key, name: sec.name, id: id, by_id: false }};
+      }}
+    }}
+    return null;
+  }}
+
+  // 중복 매칭 감지 (1차)
+  function resolveAll(text) {{
+    const t = text.toLowerCase().trim();
+    const tn = t.replace(/[\\s.,。]/g, '');
+    const matched = [];
+    for (const [id, sec] of Object.entries(SECTORS)) {{
+      if (sec.tab_key === 'home') continue;
+      if (sec.keywords.some(k => t.includes(k.toLowerCase())) ||
+          sec.keywords.some(k => tn.includes(k.toLowerCase().replace(/\\s/g,'')))) {{
+        matched.push({{ tab_key: sec.tab_key, name: sec.name, id: id }});
+      }}
+    }}
+    return matched;
+  }}
+
+  let active = false, rec = null;
+
+  btn.onclick = function() {{
+    if (!SR) {{ alert('Chrome 또는 Edge 브라우저를 사용해주세요.'); return; }}
+    if (active) {{
+      active = false;
+      if (rec) try {{ rec.stop(); }} catch(e) {{}}
+      btn.textContent = '🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+      wave.classList.remove('on'); return;
+    }}
+    const r = new SR();
+    r.lang = STT_LANG; r.interimResults = true; r.continuous = false; r.maxAlternatives = 5;
+    r.onstart = () => {{
+      wave.classList.add('on'); hint.style.display = 'none';
+      rbox.style.display = 'none'; gbox.style.display = 'none';
+    }};
+    r.onresult = (e) => {{
+      let best = '', bc = 0, interim = '';
+      for (let i = 0; i < e.results.length; i++) {{
+        if (e.results[i].isFinal) {{
+          for (let j = 0; j < e.results[i].length; j++) {{
+            if (e.results[i][j].confidence >= bc) {{ bc = e.results[i][j].confidence; best = e.results[i][j].transcript; }}
           }}
-        }}, 200);
-      }} else if(tabs.length>1){{
-        // 중복 매칭 — 재묻기 ⚠️
-        var names=tabs.map(function(k){{return _TAB_NAMES[k]||k;}}).join(' / ');
-        rbox.className='vnav-result ambig';
-        rbox.textContent='⚠️ "'+best+'" — 여러 섹션이 감지되었습니다: '+names;
-        gbox.className='vnav-guide';
-        gbox.style.background='#fef9c3';gbox.style.color='#713f12';
-        gbox.innerHTML='🔄 어느 보장 내용을 확인해 드릴까요? 더 구체적으로 말씀해 주세요.<br>'
-          +'예) <b>"암 보험금 청구"</b> → 보험금 청구 상담 &nbsp;|&nbsp; <b>"암 상담"</b> → 암 질환 상담';
-        btn.textContent='⚠️ 중복 감지 — 더 구체적으로 말씀해주세요';
-      }} else {{
-        // 매칭 없음 ❌
-        rbox.className='vnav-result unmatched';
-        rbox.textContent='❓ "'+best+'" — 해당 메뉴를 찾지 못했습니다';
-        gbox.className='vnav-guide';
-        gbox.style.background='#fee2e2';gbox.style.color='#7f1d1d';
-        gbox.innerHTML='💡 예시: <b>"암 상담"</b> / <b>"보험금 청구 상담"</b> / <b>"간병비"</b> / <b>"보험증권 분석"</b><br>또는 위 입력창에 직접 입력 후 바로 이동 버튼을 눌러주세요';
-        btn.textContent='❓ 인식됨 — 직접 입력 후 바로이동 버튼 클릭';
+        }} else {{ interim += e.results[i][0].transcript; }}
       }}
-    }}
-  }};
-  r.onerror=function(e){{
-    _active=false; wave.classList.remove('on');
-    btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
-    if(e.error!=='no-speech'&&e.error!=='aborted'){{
-      rbox.style.display='block';
-      rbox.className='vnav-result unmatched';
-      rbox.textContent='⚠️ 오류: '+e.error+' — 다시 시도해주세요';
-    }}
-  }};
-  r.onend=function(){{
-    _active=false; wave.classList.remove('on');
-    if(btn.textContent.includes('듣는 중')){{
-      btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
-    }}
-  }};
-  _rec=r; _active=true;
-  btn.textContent='⏹️ 듣는 중... (말하세요)'; btn.classList.add('active');
-  try{{r.start();}}catch(ex){{_active=false; wave.classList.remove('on');}}
-}};
-}})();
-</script>
-""", height=160)
+      if (interim) btn.textContent = '🎤 ' + interim.slice(0, 24) + (interim.length > 24 ? '...' : '');
+      if (best) {{
+        wave.classList.remove('on');
+        rbox.style.display = 'block'; gbox.style.display = 'block';
 
-        # Voice-to-Action 라우팅 처리 — 활성화
+        // 0순위: ID 코드 직접 매칭
+        const idMatch = best.match(/\\b(\\d{{4}})\\b/);
+        if (idMatch && SECTORS[idMatch[1]]) {{
+          const sec = SECTORS[idMatch[1]];
+          rbox.className = 'vnav-result id-matched';
+          rbox.textContent = '🔢 ID: ' + idMatch[1] + ' → ' + sec.name + ' 섹터로 이동합니다';
+          gbox.className = 'vnav-guide'; gbox.style.background = '#f0fdf4'; gbox.style.color = '#14532d';
+          gbox.innerHTML = '🚀 <b>[' + idMatch[1] + '] ' + sec.name + '</b> 섹터로 이동 중...';
+          btn.textContent = '🚀 이동 중...';
+          showToast('ID: ' + idMatch[1] + ' ' + sec.name + ' 섹터로 이동합니다');
+          setTriggerValue('nav', sec.tab_key);
+          return;
+        }}
+
+        // 1차·2차: 키워드 매칭
+        const all = resolveAll(best);
+        if (all.length === 1) {{
+          const sec = all[0];
+          rbox.className = 'vnav-result matched';
+          rbox.textContent = '✅ "' + best + '" → ' + sec.name + ' 섹션으로 이동합니다...';
+          gbox.className = 'vnav-guide'; gbox.style.background = '#dcfce7'; gbox.style.color = '#14532d';
+          gbox.innerHTML = '🚀 <b>' + sec.name + '</b> 섹션으로 이동 중...';
+          btn.textContent = '🚀 이동 중...';
+          setTriggerValue('nav', sec.tab_key);
+        }} else if (all.length > 1) {{
+          const names = all.map(s => '[' + s.id + '] ' + s.name).join(' / ');
+          rbox.className = 'vnav-result ambig';
+          rbox.textContent = '⚠️ "' + best + '" — 여러 섹터가 감지되었습니다: ' + names;
+          gbox.className = 'vnav-guide'; gbox.style.background = '#fef9c3'; gbox.style.color = '#713f12';
+          gbox.innerHTML = '🔄 섹터 ID(4자리)를 직접 말씀해 주세요.<br>예) <b>"3000번"</b> → 암 질환 상담 / <b>"3100번"</b> → 뇌 질환 상담';
+          btn.textContent = '⚠️ 중복 감지 — ID 번호로 다시 말씀해주세요';
+        }} else {{
+          rbox.className = 'vnav-result unmatched';
+          rbox.textContent = '❓ "' + best + '" — 섹터를 찾지 못했습니다';
+          gbox.className = 'vnav-guide'; gbox.style.background = '#fee2e2'; gbox.style.color = '#7f1d1d';
+          gbox.innerHTML = '💡 섹터명을 말씀해 주세요<br>예) <b>"암 상담"</b> / <b>"3000번"</b> / <b>"보험금 청구"</b> / <b>"간병비"</b>';
+          btn.textContent = '❓ 인식됨 — 섹터명을 말씀해 주세요';
+        }}
+      }}
+    }};
+    r.onerror = (e) => {{
+      active = false; wave.classList.remove('on');
+      btn.textContent = '🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+      if (e.error !== 'no-speech' && e.error !== 'aborted') {{
+        rbox.style.display = 'block'; rbox.className = 'vnav-result unmatched';
+        rbox.textContent = '⚠️ 오류: ' + e.error + ' — 다시 시도해주세요';
+      }}
+    }};
+    r.onend = () => {{
+      active = false; wave.classList.remove('on');
+      if (btn.textContent.includes('듣는 중')) {{
+        btn.textContent = '🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+      }}
+    }};
+    rec = r; active = true;
+    btn.textContent = '⏹️ 듣는 중... (말하세요)'; btn.classList.add('active');
+    try {{ r.start(); }} catch(ex) {{ active = false; wave.classList.remove('on'); }}
+  }};
+}}
+"""
+        # STT 컴포넌트 등록 — 앱 전체에서 이름 충돌 없도록 고유명 사용
+        _vnav_comp = st.components.v2.component(
+            "vnav_sector_engine",
+            css=_vnav_css,
+            js=_vnav_js,
+        )
+        _vnav_result = _vnav_comp(key="vnav_stt", on_nav_change=lambda: None)
+
+        # JS→Python setTriggerValue 수신 — 섹터 tab_key로 즉시 이동
+        if _vnav_result and _vnav_result.nav:
+            _stt_dest = str(_vnav_result.nav).strip()
+            if _stt_dest:
+                _go_tab(_stt_dest)
+
+        # 수동 직접입력 → 바로이동 버튼 처리 (키워드 또는 4자리 ID 모두 지원)
         if _nav_go and _nav_input and _nav_input.strip():
             _dest = _voice_navigate(_nav_input.strip())
             if _dest:
                 st.session_state["voice_nav_input"] = ""
                 _go_tab(_dest)
             else:
-                st.warning("⚠️ 해당 메뉴를 찾지 못했습니다. 더 구체적으로 입력해주세요. 예) '암 상담', '보험금 청구 상담', '간병비 상담'")
+                st.warning("⚠️ 해당 섹터를 찾지 못했습니다. 섹터명 또는 ID(예: 3000)를 입력해주세요.")
 
         # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
         components.html("""
