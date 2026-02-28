@@ -5788,10 +5788,13 @@ def main():
     _saved_jd   = st.session_state.get("_saved_join_date")
     # 로그인 상태면 백업 갱신
     if st.session_state.get("user_id"):
-        st.session_state["_saved_user_id"]   = st.session_state["user_id"]
-        st.session_state["_saved_user_name"] = st.session_state.get("user_name", "")
-        st.session_state["_saved_is_admin"]  = st.session_state.get("is_admin", False)
-        st.session_state["_saved_join_date"] = st.session_state.get("join_date")
+        st.session_state["_saved_user_id"]     = st.session_state["user_id"]
+        st.session_state["_saved_user_name"]   = st.session_state.get("user_name", "")
+        st.session_state["_saved_is_admin"]    = st.session_state.get("is_admin", False)
+        st.session_state["_saved_join_date"]   = st.session_state.get("join_date")
+        # [S1] 관리자 탭 인증도 백업 — RAG rerun 후 풀리지 않도록
+        if st.session_state.get("_admin_tab_auth"):
+            st.session_state["_saved_admin_tab_auth"] = True
     # user_id가 날아갔지만 백업이 있고, 명시적 로그아웃(_logout_flag)이 아닌 경우 → 복원
     elif _saved_uid and not st.session_state.get("_logout_flag"):
         st.session_state["user_id"]   = _saved_uid
@@ -5799,6 +5802,9 @@ def main():
         st.session_state["is_admin"]  = _saved_adm
         if _saved_jd:
             st.session_state["join_date"] = _saved_jd
+        # [S1] 관리자 탭 인증 복원
+        if st.session_state.get("_saved_admin_tab_auth"):
+            st.session_state["_admin_tab_auth"] = True
 
     # ── STEP 2: 세션 ID 생성 ─────────────────────────────────────────────
     _sid = st.session_state.get("user_id") or st.session_state.get("_anon_sid")
@@ -8232,7 +8238,8 @@ if(!CRED_ID) setTimeout(doBioAuth, 400);
                         pass
                     # 명시적 로그아웃 플래그 설정 → 세션 보호 로직이 복원하지 않도록
                     st.session_state["_logout_flag"] = True
-                    for _k in ["_saved_user_id", "_saved_user_name", "_saved_is_admin", "_saved_join_date"]:
+                    for _k in ["_saved_user_id", "_saved_user_name", "_saved_is_admin",
+                                "_saved_join_date", "_saved_admin_tab_auth", "_admin_tab_auth"]:
                         st.session_state.pop(_k, None)
                     st.session_state.clear()
                     st.rerun()
