@@ -6739,7 +6739,9 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
   </div>
 </div>""", unsafe_allow_html=True)
 
-        with st.expander("📜 이용약관 · 서비스 안내", expanded=False):
+        with st.expander("📜 이용약관 · 서비스 안내 (로그인 후 이용 가능)", expanded=False):
+            st.caption("로그인 후 사이드바 하단에서 전체 약관을 확인하실 수 있습니다.")
+        if False:  # 약관 전문 — 로딩 지연 방지용 비활성화 블록
             st.markdown("""
 ## Goldkey AI Master Lab. Beta 이용약관
 
@@ -7163,63 +7165,87 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                         st.rerun()
 
                 # ─────────────────────────────────────────────────────────────
-                # Phase SETUP — 다중 보안 방식 설정 (생체/패턴/PIN)
+                # Phase SETUP — 다중 보안 방식 설정 (지문인식/패턴/PIN)
                 # ─────────────────────────────────────────────────────────────
                 elif _lp == "SETUP":
                     _lp_name = st.session_state.get("_lp_name", "")
                     _mth = st.session_state["_lp_methods"]
+
                     st.markdown("""
 <div style='background:linear-gradient(135deg,#1c1400,#78350f);border-radius:14px;
-  padding:14px 18px;margin-bottom:12px;text-align:center;'>
-  <div style='color:#fef08a;font-size:0.95rem;font-weight:700;'>🔐 간편 로그인 방식 설정</div>
-  <div style='color:#fde68a;font-size:0.78rem;margin-top:3px;'>사용하실 방식을 모두 선택 (다중 선택 가능)</div>
+  padding:16px 20px;margin-bottom:14px;text-align:center;'>
+  <div style='color:#fef08a;font-size:1.05rem;font-weight:800;'>🔐 간편 로그인 방식 설정</div>
+  <div style='color:#fde68a;font-size:0.82rem;margin-top:4px;'>원하는 방식을 선택하세요 (중복 선택 가능)</div>
 </div>""", unsafe_allow_html=True)
 
-                    # ① 생체 인식
+                    # ── 3가지 방식 통합 카드 박스 ─────────────────────────────
                     _bio_sel = _mth.get("bio", False)
-                    _bio_cls = "background:#eff6ff;border:2px solid #2563eb;" if _bio_sel else "background:#f8fafc;border:2px solid #e2e8f0;"
-                    st.markdown(f"""
-<div style='{_bio_cls}border-radius:12px;padding:14px 16px;margin-bottom:8px;cursor:pointer;'>
-  <span style='font-size:1.4rem;'>👆</span>
-  <span style='font-weight:700;color:#1e3a5f;margin-left:10px;'>지문 / 얼굴 인식 (생체)</span>
-  {'<span style="float:right;color:#2563eb;font-size:1.2rem;">✅</span>' if _bio_sel else ''}
-</div>""", unsafe_allow_html=True)
-                    if st.button("지문/얼굴 인식 선택" if not _bio_sel else "지문/얼굴 인식 해제",
-                                 key="hlp_bio_tog", use_container_width=True):
-                        st.session_state["_lp_methods"]["bio"] = not _bio_sel
-                        st.rerun()
-
-                    # ② 패턴
                     _pat_sel = _mth.get("pat", False)
-                    _pat_cls = "background:#faf5ff;border:2px solid #7c3aed;" if _pat_sel else "background:#f8fafc;border:2px solid #e2e8f0;"
-                    st.markdown(f"""
-<div style='{_pat_cls}border-radius:12px;padding:14px 16px;margin-bottom:8px;'>
-  <span style='font-size:1.4rem;'>⬛</span>
-  <span style='font-weight:700;color:#1e3a5f;margin-left:10px;'>디자인 코드 (3×3 패턴)</span>
-  {'<span style="float:right;color:#7c3aed;font-size:1.2rem;">✅</span>' if _pat_sel else ''}
-</div>""", unsafe_allow_html=True)
-                    if st.button("패턴 선택" if not _pat_sel else "패턴 해제",
-                                 key="hlp_pat_tog", use_container_width=True):
-                        st.session_state["_lp_methods"]["pat"] = not _pat_sel
-                        st.rerun()
-
-                    # ③ PIN
                     _pin_sel = _mth.get("pin", False)
-                    _pin_cls = "background:#f0fdfa;border:2px solid #0d9488;" if _pin_sel else "background:#f8fafc;border:2px solid #e2e8f0;"
-                    st.markdown(f"""
-<div style='{_pin_cls}border-radius:12px;padding:14px 16px;margin-bottom:14px;'>
-  <span style='font-size:1.4rem;'>🔢</span>
-  <span style='font-weight:700;color:#1e3a5f;margin-left:10px;'>간편 비밀번호 (6자리 PIN)</span>
-  {'<span style="float:right;color:#0d9488;font-size:1.2rem;">✅</span>' if _pin_sel else ''}
-</div>""", unsafe_allow_html=True)
-                    if st.button("PIN 선택" if not _pin_sel else "PIN 해제",
-                                 key="hlp_pin_tog", use_container_width=True):
-                        st.session_state["_lp_methods"]["pin"] = not _pin_sel
-                        st.rerun()
 
-                    # 패턴 등록 UI (패턴 선택 시 표시)
-                    if _mth.get("pat"):
-                        st.markdown("<div style='font-size:0.8rem;color:#7c3aed;font-weight:700;margin-bottom:6px;'>⬛ 패턴 등록 — 9개 점 중 순서대로 클릭하세요 (최소 4개)</div>", unsafe_allow_html=True)
+                    st.markdown("""
+<div style='background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:14px;
+  padding:10px 14px;margin-bottom:10px;'>
+  <div style='font-size:0.8rem;font-weight:700;color:#475569;margin-bottom:8px;'>로그인 방식 선택</div>
+</div>""", unsafe_allow_html=True)
+
+                    _sc1, _sc2, _sc3 = st.columns(3)
+                    with _sc1:
+                        _bio_border = "2px solid #2563eb" if _bio_sel else "2px solid #e2e8f0"
+                        _bio_bg     = "#eff6ff" if _bio_sel else "#ffffff"
+                        st.markdown(f"""
+<div style='background:{_bio_bg};border:{_bio_border};border-radius:12px;
+  padding:14px 10px;text-align:center;cursor:pointer;'>
+  <div style='font-size:2rem;'>👆</div>
+  <div style='font-size:0.8rem;font-weight:800;color:#1e3a5f;margin-top:6px;'>지문 인식</div>
+  <div style='font-size:0.7rem;color:#64748b;margin-top:2px;'>생체 인증</div>
+  <div style='margin-top:6px;font-size:1.1rem;'>{'✅' if _bio_sel else '⬜'}</div>
+</div>""", unsafe_allow_html=True)
+                        if st.button("선택" if not _bio_sel else "해제", key="hlp_bio_tog",
+                                     use_container_width=True,
+                                     type="primary" if not _bio_sel else "secondary"):
+                            st.session_state["_lp_methods"]["bio"] = not _bio_sel
+                            st.rerun()
+
+                    with _sc2:
+                        _pat_border = "2px solid #7c3aed" if _pat_sel else "2px solid #e2e8f0"
+                        _pat_bg     = "#faf5ff" if _pat_sel else "#ffffff"
+                        st.markdown(f"""
+<div style='background:{_pat_bg};border:{_pat_border};border-radius:12px;
+  padding:14px 10px;text-align:center;cursor:pointer;'>
+  <div style='font-size:2rem;'>⬛</div>
+  <div style='font-size:0.8rem;font-weight:800;color:#1e3a5f;margin-top:6px;'>디자인 코드</div>
+  <div style='font-size:0.7rem;color:#64748b;margin-top:2px;'>3×3 패턴</div>
+  <div style='margin-top:6px;font-size:1.1rem;'>{'✅' if _pat_sel else '⬜'}</div>
+</div>""", unsafe_allow_html=True)
+                        if st.button("선택" if not _pat_sel else "해제", key="hlp_pat_tog",
+                                     use_container_width=True,
+                                     type="primary" if not _pat_sel else "secondary"):
+                            st.session_state["_lp_methods"]["pat"] = not _pat_sel
+                            st.rerun()
+
+                    with _sc3:
+                        _pin_border = "2px solid #0d9488" if _pin_sel else "2px solid #e2e8f0"
+                        _pin_bg     = "#f0fdfa" if _pin_sel else "#ffffff"
+                        st.markdown(f"""
+<div style='background:{_pin_bg};border:{_pin_border};border-radius:12px;
+  padding:14px 10px;text-align:center;cursor:pointer;'>
+  <div style='font-size:2rem;'>🔢</div>
+  <div style='font-size:0.8rem;font-weight:800;color:#1e3a5f;margin-top:6px;'>간편 비밀번호</div>
+  <div style='font-size:0.7rem;color:#64748b;margin-top:2px;'>6자리 PIN</div>
+  <div style='margin-top:6px;font-size:1.1rem;'>{'✅' if _pin_sel else '⬜'}</div>
+</div>""", unsafe_allow_html=True)
+                        if st.button("선택" if not _pin_sel else "해제", key="hlp_pin_tog",
+                                     use_container_width=True,
+                                     type="primary" if not _pin_sel else "secondary"):
+                            st.session_state["_lp_methods"]["pin"] = not _pin_sel
+                            st.rerun()
+
+                    st.markdown("<div style='margin-top:4px;'></div>", unsafe_allow_html=True)
+
+                    # ── 패턴 등록 UI (패턴 선택 시) ──────────────────────────
+                    if _pat_sel:
+                        st.markdown("<div style='font-size:0.82rem;color:#7c3aed;font-weight:700;margin:10px 0 6px 0;'>⬛ 디자인 코드 등록 — 9개 점을 순서대로 클릭하세요 (최소 4개)</div>", unsafe_allow_html=True)
                         _nodes = st.session_state.get("_lp_pat", [])
                         _pat_cols = st.columns(3)
                         for _ni in range(9):
@@ -7233,7 +7259,7 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
   display:flex;align-items:center;justify-content:center;
   margin:4px auto;font-weight:900;color:{_fc};font-size:1rem;'>{_order}</div>""",
                                             unsafe_allow_html=True)
-                                if st.button(f"•", key=f"pat_n{_ni}", use_container_width=True):
+                                if st.button("•", key=f"pat_n{_ni}", use_container_width=True):
                                     _ns = list(st.session_state.get("_lp_pat", []))
                                     if _ni in _ns:
                                         _ns.remove(_ni)
@@ -7242,35 +7268,45 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                                     st.session_state["_lp_pat"] = _ns
                                     st.rerun()
                         if _nodes:
-                            st.markdown(f"<div style='font-size:0.75rem;color:#6b7280;'>선택: {' → '.join(str(n+1) for n in _nodes)}</div>", unsafe_allow_html=True)
-                        if st.button("패턴 초기화", key="pat_reset"):
+                            st.caption(f"선택 순서: {' → '.join(str(n+1) for n in _nodes)}")
+                        if st.button("🔄 패턴 초기화", key="pat_reset"):
                             st.session_state["_lp_pat"] = []
                             st.rerun()
 
-                    # PIN 등록 UI (PIN 선택 시 표시)
-                    if _mth.get("pin"):
-                        st.markdown("<div style='font-size:0.8rem;color:#0d9488;font-weight:700;margin-bottom:4px;'>🔢 PIN 등록 — 6자리 숫자를 입력하세요</div>", unsafe_allow_html=True)
-                        _pin_reg = st.text_input("6자리 PIN", type="password", key="hlp_pin_reg",
-                                                 placeholder="숫자 6자리", max_chars=6,
+                    # ── PIN 등록 UI (PIN 선택 시) ─────────────────────────────
+                    if _pin_sel:
+                        st.markdown("<div style='font-size:0.82rem;color:#0d9488;font-weight:700;margin:10px 0 4px 0;'>🔢 간편 비밀번호 등록 — 숫자 6자리</div>", unsafe_allow_html=True)
+                        _pin_reg = st.text_input("PIN 6자리", type="password", key="hlp_pin_reg",
+                                                 placeholder="숫자 6자리 입력", max_chars=6,
                                                  label_visibility="collapsed")
                         if _pin_reg:
                             st.session_state["_lp_pin"] = _pin_reg
 
-                    _setup_ok = st.button("✅ 설정 완료 — 로그인", key="hlp_setup_done",
-                                          use_container_width=True, type="primary")
-                    if _setup_ok:
+                    st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
+
+                    # ── 설정 완료 버튼 ────────────────────────────────────────
+                    _any_sel = _bio_sel or _pat_sel or _pin_sel
+                    if not _any_sel:
+                        st.markdown("<div style='background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:8px 12px;font-size:0.78rem;color:#991b1b;text-align:center;margin-bottom:8px;'>⛔ 1가지 이상 방식을 선택해 주세요</div>", unsafe_allow_html=True)
+
+                    if st.button("✅ 설정 완료 — 로그인 시작", key="hlp_setup_done",
+                                 use_container_width=True, type="primary",
+                                 disabled=not _any_sel):
                         _m = st.session_state["_lp_methods"]
-                        if not any(_m.values()):
-                            st.error("⚠️ 최소 1가지 이상 보안 방식을 선택해 주세요.")
-                        elif _m.get("pat") and len(st.session_state.get("_lp_pat", [])) < 4:
-                            st.error("⚠️ 패턴은 4개 이상 점을 선택해야 합니다.")
+                        _err = None
+                        if _m.get("pat") and len(st.session_state.get("_lp_pat", [])) < 4:
+                            _err = "⚠️ 디자인 코드는 4개 이상 점을 선택해야 합니다."
                         elif _m.get("pin") and not _re2.fullmatch(r'[0-9]{6}', st.session_state.get("_lp_pin", "")):
-                            st.error("⚠️ PIN은 숫자 6자리여야 합니다.")
+                            _err = "⚠️ PIN은 숫자 6자리여야 합니다."
+                        if _err:
+                            st.error(_err)
                         else:
                             _def2 = "bio" if _m.get("bio") else ("pat" if _m.get("pat") else "pin")
                             st.session_state["_lp_mode"] = _def2
+                            st.session_state["_sec_methods"] = dict(_m)
                             st.session_state["_lp"]      = "C"
                             st.rerun()
+
                     if st.button("↩️ 처음으로", key="hlp_back_s"):
                         st.session_state["_lp"] = "A"
                         st.rerun()
