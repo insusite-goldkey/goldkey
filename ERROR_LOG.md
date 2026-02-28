@@ -1,5 +1,5 @@
 # GoldKey AI — 에러 관리 기록부
-> 마지막 업데이트: 2026-02-25
+> 마지막 업데이트: 2026-02-28
 
 ---
 
@@ -54,6 +54,38 @@
 - **예방책**:
   - 새 패키지 `import` 추가 시 즉시 requirements.txt 동시 업데이트
   - `try: import X` 패턴 사용 시에도 requirements.txt 등록 필수
+
+---
+
+### [E005] 스크롤 아래로 내린 후 위로 올라가지 않는 문제 ⚠️ 반복 3회 이상
+- **발생일**: 2026-02-28 (누적 반복 — 3차 이상 수정 지시)
+- **증상**: 앱을 아래로 스크롤한 뒤 위로 다시 올라가지 않음 (스크롤 잠금)
+- **원인**: Pull-to-Refresh 차단 목적으로 삽입한 `touchmove` 이벤트 리스너
+  - `{passive: false}` + `e.preventDefault()` 조합이 위 방향 스크롤까지 차단
+  - 조건: `y > lastY && scrollY === 0` → 최상단이 아닐 때도 간섭 발생
+- **수정 이력**:
+  - 1차: CSS `overflow-y: auto` 추가 — 미해결
+  - 2차: `overscroll-behavior-y: contain` CSS 추가 — 미해결
+  - 3차 (2026-02-28): `touchmove` 리스너 완전 제거 → CSS `overscroll-behavior-y: contain` 단독 적용
+- **현재 상태**: ✅ 3차 수정 적용 완료 (`app.py` line ~5826)
+- **예방책**:
+  - **`touchmove` + `passive:false` + `e.preventDefault()` 조합 절대 사용 금지**
+  - Pull-to-Refresh 차단은 CSS `overscroll-behavior-y: contain` 만 사용
+  - 스크롤 관련 JS 수정 시 상하 양방향 테스트 필수
+
+---
+
+### [E006] 로그인 입력창 "Press Enter to submit form" 영문 툴팁 노출
+- **발생일**: 2026-02-28
+- **증상**: 이름·전화번호 입력창 클릭 시 "Press Enter to submit form" 영문 툴팁 출력
+- **원인**: Streamlit이 `st.form` 내 `st.text_input`에 `title` 속성 자동 주입
+  - CSS로는 `title` 속성 tooltip 제어 불가 (HTML 표준 브라우저 동작)
+- **수정**: JavaScript `MutationObserver`로 `input[title]` 속성 실시간 제거
+  - `app.py` line ~6890 — 로그인 탭 렌더 직후 `components.html` 삽입
+- **현재 상태**: ✅ 수정 완료
+- **예방책**:
+  - `st.form` 내 `st.text_input` 사용 시 title 자동 주입 인지
+  - `label_visibility="collapsed"` + JS title 제거 조합 표준으로 유지
 
 ---
 
