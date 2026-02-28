@@ -5559,6 +5559,19 @@ def main():
         except Exception:
             pass
 
+    # ── STEP 4-C-1: 음성 네비게이션 ?nav= 파라미터 처리 ──────────────────
+    # JS STT 매칭 성공 시 window.parent.location에 ?nav=XXX 추가 → Streamlit rerun
+    # → 여기서 읽어 session_state.current_tab 설정 후 파라미터 제거
+    _qp_nav = st.query_params.get("nav", "")
+    if _qp_nav and "user_id" in st.session_state:
+        st.session_state.current_tab = _qp_nav
+        st.session_state["_scroll_top"] = True
+        try:
+            del st.query_params["nav"]
+        except Exception:
+            pass
+        st.rerun()
+
     # ── STEP 4-C: 뒤로가기 로그아웃 방지 — query_params 탭 상태 복원 ──
     # 브라우저 "<" 뒤로가기 시 Streamlit이 session_state를 재초기화함
     # → ?tab=XXX 파라미터로 탭 상태를 URL에 보존, 재진입 시 복원
@@ -9037,14 +9050,25 @@ window.startVNavSTT=function(){{
       rbox.style.display='block';
       gbox.style.display='block';
       if(tabs.length===1){{
-        // 명확한 단일 매칭 ✅
+        // 명확한 단일 매칭 ✅ — URL ?nav= 변경으로 Streamlit rerun 트리거
         var nm=_TAB_NAMES[tabs[0]]||tabs[0];
+        var destKey=tabs[0];
         rbox.className='vnav-result matched';
-        rbox.textContent='✅ 인식: "'+best+'" → '+nm+' 섹션으로 이동합니다';
+        rbox.textContent='✅ 인식: "'+best+'" → '+nm+' 섹션으로 자동 이동 중...';
         gbox.className='vnav-guide';
         gbox.style.background='#dcfce7';gbox.style.color='#14532d';
-        gbox.innerHTML='👆 오른쪽 <b>바로 이동</b> 버튼을 눌러주세요!';
-        btn.textContent='✅ "'+best+'" 인식 완료 — 바로이동 버튼 클릭!';
+        gbox.innerHTML='🚀 <b>'+nm+'</b> 섹션으로 자동 이동합니다!';
+        btn.textContent='🚀 "'+best+'" → '+nm+' 이동 중...';
+        // ?nav=탭키 URL 파라미터 변경 → Streamlit 자동 rerun → Python이 읽어 탭 전환
+        setTimeout(function(){{
+          try{{
+            var u=new URL(window.parent.location.href);
+            u.searchParams.set('nav', destKey);
+            window.parent.location.href=u.toString();
+          }}catch(ex){{
+            window.parent.location.search='?nav='+destKey;
+          }}
+        }}, 200);
       }} else if(tabs.length>1){{
         // 중복 매칭 — 재묻기 ⚠️
         var names=tabs.map(function(k){{return _TAB_NAMES[k]||k;}}).join(' / ');
