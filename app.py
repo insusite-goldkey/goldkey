@@ -2420,6 +2420,24 @@ JSON 외 설명·주석·마크다운 코드블록은 절대 포함하지 마십
 이제 아래 데이터를 분석하십시오:
 """
 
+# ── OCR 후처리 엔진 임포트 (미설치 시 graceful 비활성화) ──────────────
+try:
+    from policy_ocr_engine import (
+        prepare_image_for_vision,
+        postprocess_ocr_text,
+        postprocess_coverages as _ocr_postprocess_covs,
+        mask_personal_info as _ocr_mask_pii,
+        get_engine_status as _ocr_engine_status,
+    )
+    _OCR_ENGINE_AVAILABLE = True
+except ImportError:
+    _OCR_ENGINE_AVAILABLE = False
+    def prepare_image_for_vision(b, m): return b, m  # type: ignore
+    def postprocess_ocr_text(t): return t             # type: ignore
+    def _ocr_postprocess_covs(c): return c            # type: ignore
+    def _ocr_mask_pii(t): return t                    # type: ignore
+
+
 def parse_policy_with_vision(files: list) -> dict:
     """
     보험증권 파일(PDF/이미지) 리스트를 받아 담보 + 증권 기본정보 JSON을 반환.
@@ -2488,6 +2506,8 @@ def parse_policy_with_vision(files: list) -> dict:
                     )
             else:
                 img_bytes = f.getvalue()
+                # ── OCR 전처리: 이진화·잡음제거·투영변환 보정 ──────────────
+                img_bytes, _proc_mime = prepare_image_for_vision(img_bytes, f.type)
                 img_b64   = base64.b64encode(img_bytes).decode("utf-8")
                 # 이미지는 extracted_data 텍스트 없이 직접 Vision으로 분석
                 # extracted_data 태그로 [첨부 이미지 참조] 텍스트만 넣으면 AI가 이미지를 무시하고 추측 생성함
@@ -2504,7 +2524,7 @@ def parse_policy_with_vision(files: list) -> dict:
                         "role": "user",
                         "parts": [
                             {"text": _img_prompt},
-                            {"inline_data": {"mime_type": f.type, "data": img_b64}}
+                            {"inline_data": {"mime_type": _proc_mime, "data": img_b64}}
                         ]
                     }]
                 )
@@ -2512,6 +2532,8 @@ def parse_policy_with_vision(files: list) -> dict:
             raw = resp.text.strip() if resp.text else ""
             raw = re.sub(r"^```(?:json)?", "", raw).strip()
             raw = re.sub(r"```$", "", raw).strip()
+            # ── OCR 후처리: 개인정보 마스킹 + 날짜·금액 정규화 ────────────
+            raw = postprocess_ocr_text(raw)
             _last_raw = raw  # 디버그용
             parsed = json.loads(raw)
 
@@ -2540,6 +2562,9 @@ def parse_policy_with_vision(files: list) -> dict:
                                        and c.get("annuity_monthly") is None)
                 if not c.get("standard_name"):
                     c["standard_name"] = c.get("name", "")
+
+            # ── OCR 퍼지 교정: 도메인 사전 + 유사도 기반 담보명 치환 ──────
+            covs = _ocr_postprocess_covs(covs)
 
             # ── Fuzzy 표준명 매핑: 원문에 존재하는 담보의 standard_name만 정규화 ──
             # 주의: 이 매핑은 표준명 통일 전용. 새 담보를 추가하지 않음.
@@ -6630,6 +6655,13 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
   <div style="font-size:1.25rem;font-weight:900;letter-spacing:0.06em;line-height:1.4;">
     Lab. &nbsp;·&nbsp; Beta
   </div>
+  <div style="margin-top:6px;">
+    <span style="background:rgba(14,165,233,0.25);color:#7dd3fc;
+      border:1px solid rgba(14,165,233,0.5);border-radius:20px;
+      padding:2px 10px;font-size:0.68rem;font-weight:700;letter-spacing:0.06em;">
+      v1.3.0
+    </span>
+  </div>
   <div style="font-size:0.78rem;opacity:0.88;line-height:1.6;margin-top:8px;">
     30년 보험설계사 상담 실무 지식 기반
   </div>
@@ -10039,7 +10071,11 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
             _cm_llm = get_client()
             _render_cm(_cm_sb, _cm_llm)
         except ImportError as _cm_ie:
-            st.error(f"customer_mgmt 모듈 로드 실패: {_cm_ie}")
+            st.error(f"고객관리 모듈 로드 실패: {_cm_ie}")
+            st.info("customer_mgmt.py 파일을 확인하세요.")
+        except Exception as _cm_ex:
+            st.error(f"고객관리 탭 오류: {_cm_ex}")
+            st.info("데이터베이스 연결을 확인하거나 잠시 후 다시 시도하세요.")
         st.stop()
 
     # ── [policy_scan] 보험증권 분석 — 독립 전용 탭 ──────────────────────
@@ -15151,6 +15187,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
     # ── [img]이미지 분석] 보험금/이미지 ──────────────────────────────────────
     if cur == "img":
+        if not _auth_gate("img"): st.stop()
         tab_home_btn("img")
         st.subheader("📷 의무기록 및 증권 이미지 분석")
         st.caption("보험 증권, 진단서, 의료 기록, 사고 현장 사진을 AI가 정밀 분석합니다.")
@@ -16275,7 +16312,8 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             col1, col2 = st.columns([1, 1])
             with col1:
                 c_name_f, query_f, hi_f, do_f, _pk_f = ai_query_block("fire",
-                    "예) 철근콘크리트 5층 상가, 연면적 1,200㎡, 1995년 준공")
+                    "예) 철근콘크리트 5층 상가, 연면적 1,200㎡, 1995년 준공",
+                    product_key="화재·재물보험")
                 if do_f:
                     run_ai_analysis(c_name_f, query_f, hi_f, "res_fire",
                         "[화재보험 재조달가액 산출]\n1. 한국부동산원(REB) 기준 건물 재조달가액 산출\n"
