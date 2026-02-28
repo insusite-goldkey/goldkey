@@ -6036,6 +6036,7 @@ section[data-testid="stSidebar"] {
    Glassmorphism · Spring Motion · Dynamic Theme
 ══════════════════════════════════════════════════ */
 
+
 /* ── CSS 변수 — 다이내믹 테마 JS가 override ── */
 :root {
     --gk-bg-h:        220;
@@ -6886,6 +6887,18 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
   👆 <b>여기 &gt; 를 클릭</b>하여 회원가입 또는 로그인하세요
 </div>""", unsafe_allow_html=True)
             tab_l, tab_s, tab_pw, tab_nm = st.tabs(["로그인", "회원가입", "비번 변경", "이름 변경"])
+            components.html("""<script>
+(function _rmTitle(){
+  function clean(){
+    document.querySelectorAll('input[title]').forEach(function(el){
+      el.removeAttribute('title');
+    });
+  }
+  clean();
+  var ob=new MutationObserver(clean);
+  ob.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['title']});
+})();
+</script>""", height=0)
             with tab_l:
                 with st.form("login_form"):
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>🔑 가입 시 입력한 정보로 로그인하세요</div>", unsafe_allow_html=True)
