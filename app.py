@@ -6950,7 +6950,9 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
 
                 # 세션 초기값
                 if "_lp" not in st.session_state:
-                    st.session_state["_lp"] = "A"           # login phase
+                    st.session_state["_lp"] = "TERMS"       # 최초 진입 시 약관 동의 필수
+                if "_lp_terms" not in st.session_state:
+                    st.session_state["_lp_terms"] = {"t1": False, "t2": False, "t3": False}
                 if "_lp_name" not in st.session_state:
                     st.session_state["_lp_name"] = ""
                 if "_lp_otp" not in st.session_state:
@@ -6982,13 +6984,21 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                     st.session_state["_login_welcome"]      = ln
                     st.session_state["_auto_close_sidebar"] = True
                     st.session_state["_login_just_done"]    = True
-                    st.session_state["user_consult_mode"]   = "👔 보험종사자 (설계사·전문가)"
-                    st.session_state["preferred_insurer"]   = "선택 안 함 (중립 분석)"
+                    # Phase A에서 선택한 종사자 여부 반영
+                    _is_pro = st.session_state.get("_lp_is_pro", "비종사자")
+                    if _is_pro == "종사자":
+                        st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)"
+                        st.session_state["preferred_insurer"] = st.session_state.get(
+                            "_lp_insurer", "선택 안 함 (중립 분석)")
+                    else:
+                        st.session_state["user_consult_mode"] = "🙋 일반고객 (중립 분석)"
+                        st.session_state["preferred_insurer"] = "선택 안 함 (중립 분석)"
                     # 보안 방식 등록 이력 저장 (다음 로그인에서 Fallback UI 구성용)
                     st.session_state["_sec_methods"]        = dict(st.session_state["_lp_methods"])
                     # 로그인 단계 초기화
                     for _k in ["_lp","_lp_name","_lp_otp","_lp_methods",
-                               "_lp_mode","_lp_pat","_lp_pin"]:
+                               "_lp_mode","_lp_pat","_lp_pin",
+                               "_lp_is_pro","_lp_insurer"]:
                         st.session_state.pop(_k, None)
                     try:
                         import hmac as _hmac2
@@ -7001,12 +7011,129 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                     _LoginGuard.record_success(ln)
                     st.rerun()
 
-                _lp = st.session_state.get("_lp", "A")
+                _lp = st.session_state.get("_lp", "TERMS")
+
+                # ─────────────────────────────────────────────────────────────
+                # Phase TERMS — 이용약관 및 개인정보 동의 (최초 1회 필수)
+                # ─────────────────────────────────────────────────────────────
+                if _lp == "TERMS":
+                    _tr = st.session_state["_lp_terms"]
+                    st.markdown("""
+<div style='background:linear-gradient(135deg,#1e1b4b,#312e81);border-radius:14px;
+  padding:16px 20px;margin-bottom:14px;text-align:center;'>
+  <div style='font-size:1.8rem;margin-bottom:6px;'>📋</div>
+  <div style='color:#e0e7ff;font-size:1.05rem;font-weight:700;'>서비스 이용 전 동의가 필요합니다</div>
+  <div style='color:#a5b4fc;font-size:0.78rem;margin-top:4px;'>아래 3가지 항목에 모두 동의하셔야 서비스를 이용하실 수 있습니다</div>
+</div>""", unsafe_allow_html=True)
+
+                    # ① 서비스 이용약관
+                    _t1 = _tr.get("t1", False)
+                    st.markdown(f"""
+<div style='background:{"#eff6ff" if _t1 else "#f8fafc"};
+  border:2px solid {"#2563eb" if _t1 else "#cbd5e1"};
+  border-radius:12px;padding:14px 16px;margin-bottom:8px;'>
+  <div style='display:flex;align-items:flex-start;gap:10px;'>
+    <span style='font-size:1.3rem;'>{"✅" if _t1 else "⬜"}</span>
+    <div>
+      <div style='font-weight:700;color:#1e3a5f;font-size:0.9rem;'>[필수] 서비스 이용약관 동의</div>
+      <div style='font-size:0.76rem;color:#64748b;margin-top:4px;line-height:1.6;'>
+        본 서비스의 AI 분석 결과는 <b>참고용 정보</b>에 한하며, 보험 계약 체결·보험금 수령에 대한
+        <b>법적 책임을 지지 않습니다.</b> 최종 판단은 이용자 본인 및 전문가에게 있습니다.
+      </div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+                    _c1t, _c2t = st.columns([3, 1])
+                    with _c2t:
+                        if st.button("약관 보기 / 동의" if not _t1 else "✅ 동의 완료", key="terms_t1",
+                                     use_container_width=True, type="primary" if not _t1 else "secondary"):
+                            st.session_state["_lp_terms"]["t1"] = not _t1
+                            st.rerun()
+
+                    # ② 개인정보 수집·이용 동의
+                    _t2 = _tr.get("t2", False)
+                    st.markdown(f"""
+<div style='background:{"#f0fdf4" if _t2 else "#f8fafc"};
+  border:2px solid {"#16a34a" if _t2 else "#cbd5e1"};
+  border-radius:12px;padding:14px 16px;margin-bottom:8px;'>
+  <div style='display:flex;align-items:flex-start;gap:10px;'>
+    <span style='font-size:1.3rem;'>{"✅" if _t2 else "⬜"}</span>
+    <div>
+      <div style='font-weight:700;color:#14532d;font-size:0.9rem;'>[필수] 개인정보 수집 및 이용 동의</div>
+      <div style='font-size:0.76rem;color:#64748b;margin-top:4px;line-height:1.6;'>
+        수집 항목: 성명, 연락처(암호화 저장)<br>
+        이용 목적: 회원 식별, 서비스 제공, 보안 인증<br>
+        보유 기간: 회원 탈퇴 시 즉시 삭제
+      </div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+                    _c3t, _c4t = st.columns([3, 1])
+                    with _c4t:
+                        if st.button("약관 보기 / 동의" if not _t2 else "✅ 동의 완료", key="terms_t2",
+                                     use_container_width=True, type="primary" if not _t2 else "secondary"):
+                            st.session_state["_lp_terms"]["t2"] = not _t2
+                            st.rerun()
+
+                    # ③ 민감정보 수집·이용 동의 (강조)
+                    _t3 = _tr.get("t3", False)
+                    st.markdown(f"""
+<div style='background:{"#fff7ed" if not _t3 else "#fef9c3"};
+  border:2px solid {"#ea580c" if not _t3 else "#ca8a04"};
+  border-radius:12px;padding:14px 16px;margin-bottom:14px;
+  {"box-shadow:0 0 0 3px rgba(234,88,12,0.18);" if not _t3 else ""}'>
+  <div style='display:flex;align-items:flex-start;gap:10px;'>
+    <span style='font-size:1.3rem;'>{"✅" if _t3 else "⚠️"}</span>
+    <div>
+      <div style='font-weight:800;color:#9a3412;font-size:0.92rem;'>
+        [필수] 민감정보 수집 및 이용 <span style='background:#ea580c;color:#fff;
+        border-radius:4px;padding:1px 6px;font-size:0.72rem;'>별도 동의</span>
+      </div>
+      <div style='font-size:0.76rem;color:#78350f;margin-top:5px;line-height:1.7;background:#fef3c7;
+        border-radius:6px;padding:6px 10px;margin-top:6px;'>
+        ⚠️ <b>수집 항목</b>: 질병 이력, 보험 가입 내역, 의무기록 등 민감 개인정보<br>
+        📌 <b>이용 목적</b>: AI 보장 분석, 공백 진단, 보험 설계 지원<br>
+        🔒 <b>보관 방식</b>: AES-256 암호화, 본인 계정 외 접근 차단<br>
+        🗑️ <b>삭제</b>: 탈퇴 요청 시 즉시 완전 삭제 (복구 불가)
+      </div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+                    _c5t, _c6t = st.columns([3, 1])
+                    with _c6t:
+                        if st.button("별도 동의" if not _t3 else "✅ 동의 완료", key="terms_t3",
+                                     use_container_width=True, type="primary" if not _t3 else "secondary"):
+                            st.session_state["_lp_terms"]["t3"] = not _t3
+                            st.rerun()
+
+                    # 전체 동의 버튼
+                    _all_agreed = _tr.get("t1") and _tr.get("t2") and _tr.get("t3")
+                    if not _all_agreed:
+                        st.markdown("""
+<div style='background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;
+  padding:8px 12px;font-size:0.76rem;color:#991b1b;text-align:center;margin-bottom:8px;'>
+  ⛔ 3가지 항목 모두 동의하셔야 다음 단계로 진행할 수 있습니다
+</div>""", unsafe_allow_html=True)
+                    _col_all1, _col_all2 = st.columns(2)
+                    with _col_all1:
+                        if st.button("☑️ 모두 동의", key="terms_all", use_container_width=True):
+                            st.session_state["_lp_terms"] = {"t1": True, "t2": True, "t3": True}
+                            st.rerun()
+                    with _col_all2:
+                        if st.button(
+                            "다음 단계 →",
+                            key="terms_next",
+                            use_container_width=True,
+                            type="primary" if _all_agreed else "secondary",
+                            disabled=not _all_agreed,
+                        ):
+                            st.session_state["_lp"] = "A"
+                            st.rerun()
 
                 # ─────────────────────────────────────────────────────────────
                 # Phase A — 이름 + 연락처 확인 → OTP 발급
                 # ─────────────────────────────────────────────────────────────
-                if _lp == "A":
+                elif _lp == "A":
                     st.markdown("""
 <div style='background:linear-gradient(135deg,#0f4c81,#1a6fa8);border-radius:14px;
   padding:18px 20px;margin-bottom:14px;text-align:center;'>
@@ -7049,9 +7176,11 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                                 _ok_a = _ln_a in _mbs and decrypt_data(_mbs[_ln_a]["contact"], _lc_a)
                                 if _ok_a:
                                     _otp_val = str(_rnd.randint(100000, 999999))
-                                    st.session_state["_lp_name"] = _ln_a
-                                    st.session_state["_lp_otp"]  = _otp_val
-                                    st.session_state["_lp"]      = "B"
+                                    st.session_state["_lp_name"]    = _ln_a
+                                    st.session_state["_lp_otp"]     = _otp_val
+                                    st.session_state["_lp_is_pro"]  = st.session_state.get("login_is_pro", "비종사자")
+                                    st.session_state["_lp_insurer"] = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)")
+                                    st.session_state["_lp"]         = "B"
                                     st.rerun()
                                 elif _ln_a not in _mbs:
                                     st.error("미가입회원입니다. 회원가입 탭에서 가입 후 이용해주세요.")
@@ -7344,34 +7473,51 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                         st.session_state["_lp"] = "A"
                         st.rerun()
             with tab_s:
-                with st.form("sb_signup_form"):
-                    st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
-                    name = st.text_input("👤 이름", key="signup_name", label_visibility="collapsed")
-                    contact = st.text_input("📱 연락처", type="password", key="signup_contact", label_visibility="collapsed")
-                    if st.form_submit_button("✅ 가입하기", use_container_width=True):
-                        _su_err = None
-                        if not name or not name.strip():
-                            _su_err = "⚠️ 성함을 입력해 주세요."
-                        elif len(name.strip()) < 2:
-                            _su_err = "⚠️ 이름을 2자 이상 정확히 입력해 주세요."
-                        elif not contact or not contact.strip():
-                            _su_err = "⚠️ 연락처(비밀번호)를 입력해 주세요."
-                        elif not __import__('re').fullmatch(r'[0-9]{10,11}', contact.strip()):
-                            _su_err = "⚠️ 올바른 전화번호 형식이 아닙니다. (숫자만, - 제외 10~11자리)"
-                        if _su_err:
-                            st.error(_su_err)
-                        else:
-                            with st.spinner("⏳ 가입 처리 중입니다. 잠시만 기다려주세요..."):
-                                info = add_member(name, contact)
-                                _jd2 = dt.strptime(info["join_date"], "%Y-%m-%d")
-                                st.session_state.user_id   = info["user_id"]
-                                st.session_state.user_name = name
-                                st.session_state.join_date = _jd2
-                                st.session_state.is_admin  = False
-                                st.session_state["_mic_notice"] = True
-                                st.session_state["_auto_close_sidebar"] = True
-                            st.success("가입 완료!")
-                            st.rerun()
+                # 약관 동의 완료 여부 확인 — 미동의 시 로그인 탭 약관 동의 먼저 안내
+                _su_terms = st.session_state.get("_lp_terms", {})
+                _su_agreed = _su_terms.get("t1") and _su_terms.get("t2") and _su_terms.get("t3")
+                if not _su_agreed:
+                    st.markdown("""
+<div style='background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;
+  padding:16px 18px;text-align:center;margin-bottom:10px;'>
+  <div style='font-size:1.5rem;margin-bottom:6px;'>📋</div>
+  <div style='font-weight:700;color:#991b1b;font-size:0.95rem;'>약관 동의가 필요합니다</div>
+  <div style='font-size:0.78rem;color:#7f1d1d;margin-top:6px;line-height:1.6;'>
+    가입 전 <b>[로그인]</b> 탭에서 이용약관·개인정보·민감정보<br>3가지 항목에 모두 동의해 주세요.
+  </div>
+</div>""", unsafe_allow_html=True)
+                    if st.button("📋 약관 동의하러 가기", key="su_go_terms", use_container_width=True, type="primary"):
+                        st.session_state["_lp"] = "TERMS"
+                        st.rerun()
+                else:
+                    with st.form("sb_signup_form"):
+                        st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
+                        name = st.text_input("👤 이름", key="signup_name", label_visibility="collapsed")
+                        contact = st.text_input("📱 연락처", type="password", key="signup_contact", label_visibility="collapsed")
+                        if st.form_submit_button("✅ 가입하기", use_container_width=True):
+                            _su_err = None
+                            if not name or not name.strip():
+                                _su_err = "⚠️ 성함을 입력해 주세요."
+                            elif len(name.strip()) < 2:
+                                _su_err = "⚠️ 이름을 2자 이상 정확히 입력해 주세요."
+                            elif not contact or not contact.strip():
+                                _su_err = "⚠️ 연락처(비밀번호)를 입력해 주세요."
+                            elif not __import__('re').fullmatch(r'[0-9]{10,11}', contact.strip()):
+                                _su_err = "⚠️ 올바른 전화번호 형식이 아닙니다. (숫자만, - 제외 10~11자리)"
+                            if _su_err:
+                                st.error(_su_err)
+                            else:
+                                with st.spinner("⏳ 가입 처리 중입니다. 잠시만 기다려주세요..."):
+                                    info = add_member(name, contact)
+                                    _jd2 = dt.strptime(info["join_date"], "%Y-%m-%d")
+                                    st.session_state.user_id   = info["user_id"]
+                                    st.session_state.user_name = name
+                                    st.session_state.join_date = _jd2
+                                    st.session_state.is_admin  = False
+                                    st.session_state["_mic_notice"] = True
+                                    st.session_state["_auto_close_sidebar"] = True
+                                st.success("가입 완료!")
+                                st.rerun()
             with tab_pw:
                 st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:6px;'>🔐 가입 시 등록한 이름과 기존 연락처로 본인 확인 후 새 비번을 설정합니다.</div>", unsafe_allow_html=True)
                 with st.form("pw_change_form"):
@@ -15171,6 +15317,19 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 심부전 진단비 추가 (부정맥·심방세동 합병 대비)
 </div>
 """, height=318)
+
+        # ── 면책 조항 (cancer 하단 고정) ─────────────────────────────────
+        st.markdown("""
+<div style="background:#1a1a2e;border:1.5px solid #4a4a6a;border-radius:10px;
+  padding:12px 18px;margin:18px 0 8px 0;">
+  <div style="color:#a0a0c0;font-size:0.72rem;line-height:1.8;">
+    <span style="color:#f59e0b;font-weight:900;font-size:0.78rem;">⚠️ 면책 조항 (Disclaimer)</span><br>
+    본 앱의 AI 분석 결과는 <b style="color:#e2e8f0;">보조 지표</b>일 뿐 법적 효력이 없습니다.
+    최종적인 보험 가입·해지·리모델링 결정은 반드시
+    <b style="color:#e2e8f0;">전문 자격을 갖춘 설계사</b>와 상담하시기 바랍니다.
+    앱 사용으로 인한 결과의 책임은 <b style="color:#e2e8f0;">사용자 본인</b>에게 있습니다.
+  </div>
+</div>""", unsafe_allow_html=True)
 
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
