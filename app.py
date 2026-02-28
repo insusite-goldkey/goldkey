@@ -10977,6 +10977,7 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
 
             _PS_PRODUCTS = [
                 "선택 안 함 (전체 분석)",
+                "통합보험 (종합설계)",
                 "실손보험 (실비)",
                 "암보험",
                 "치매·간병보험",
@@ -12751,6 +12752,7 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
         # 상담 방향 선택 박스
         _T0_PRODUCTS = [
             "선택 안 함 (자유 상담)",
+            "통합보험 (종합설계)",
             "실손보험 (실비)",
             "암보험",
             "치매·간병보험",
