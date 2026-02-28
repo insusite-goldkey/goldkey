@@ -2499,8 +2499,12 @@ def get_master_model():
     client = get_client()
     if client is None:
         raise RuntimeError("GEMINI_API_KEY가 설정되지 않았습니다. HuggingFace Space → Settings → Variables and secrets 에서 GEMINI_API_KEY를 등록하세요.")
+    # [R1] 6대 절대 수칙(_ABSOLUTE_SYSTEM_INSTRUCTION) + SYSTEM_PROMPT 통합
+    # _ABSOLUTE_SYSTEM_INSTRUCTION이 앞에 위치해야 LLM이 최우선 적용
     config = types.GenerateContentConfig(
-        system_instruction=SYSTEM_PROMPT
+        temperature=0.0,
+        top_p=0.1,
+        system_instruction=_ABSOLUTE_SYSTEM_INSTRUCTION + "\n\n" + SYSTEM_PROMPT,
     )
     return client, config
 
@@ -4488,7 +4492,8 @@ class LightRAGSystem:
             "exclude": {"\uc554", "\uc885\uc591", "\ud56d\uc554", "\uc545\uc131", "\ud45c\uc801\ud56d\uc554", "\uc18c\uc561\uc554", "\uc0c1\ud53c\ub0b4\uc554"},
         },
         "cancer": {
-            ("t4",  "\U0001f697", "\uc790\ub3d9\ucc28\uc0ac\uace0 \uc0c1\ub2f4",    "\uacfc\uc2e4\ube44\uc728\u00b7\ud569\uc758\uae08 \ubd84\uc11d\n13\ub300 \uc911\uacfc\uc2e4\u00b7\ubbfc\uc2dd\uc774\ubc95 \uc548\ub0b4"),
+            "focus":   {"암", "종양", "항암", "악성", "표적항암", "소액암", "상피내암", "진단비"},
+            "exclude": {"치매", "간병", "인지", "장기요양", "노인성"},
         },
     }
 
@@ -9347,9 +9352,10 @@ window['startTTS_{tab_key}']=function(){{
                     )
                     if results:
                         label = product_key or "일반"
-                        rag_ctx = f"\n\n[참고 자료 - {label}]\n"
+                        rag_ctx = f"\n\n[참고 자료 - {label}] (출처 명시 — 할루시네이션 방지)\n"
                         rag_ctx += "".join(
-                            f"{i}. {sanitize_unicode(r['text'])}\n"
+                            f"{i}. [출처: {sanitize_unicode(str(r.get('source', r.get('product', '내부문서'))))}] "
+                            f"{sanitize_unicode(r['text'])}\n"
                             for i, r in enumerate(results, 1)
                         )
 
@@ -9506,8 +9512,9 @@ window['startTTS_{tab_key}']=function(){{
                         hits_str, k=2, product_hint=product_hint
                     )
                     if results:
-                        rag_ctx = f"\n\n[참고 자료]\n" + "".join(
-                            f"{i}. {sanitize_unicode(r['text'])}\n"
+                        rag_ctx = f"\n\n[참고 자료] (출처 명시 — 할루시네이션 방지)\n" + "".join(
+                            f"{i}. [출처: {sanitize_unicode(str(r.get('source', r.get('product', '내부문서'))))}] "
+                            f"{sanitize_unicode(r['text'])}\n"
                             for i, r in enumerate(results, 1)
                         )
                 full_prompt = sanitize_unicode(followup_prompt + rag_ctx)
