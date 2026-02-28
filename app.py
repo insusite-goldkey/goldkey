@@ -6923,6 +6923,14 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
         if 'user_id' not in st.session_state:
             st.info("👋 안녕하세요, 무엇을 도와드릴까요?")
             components.html(s_voice("안녕하세요. 무엇을 도와드릴까요?"), height=0)
+            # 메인 버튼 클릭 시 강조 배너
+            if st.session_state.pop("_sidebar_hint", False):
+                st.markdown("""
+<div style="background:#1d4ed8;border-radius:10px;padding:12px 16px;
+  color:#fff;font-size:1rem;font-weight:800;margin-bottom:8px;text-align:center;
+  box-shadow:0 4px 14px rgba(29,78,216,0.4);">
+  👇 아래에서 바로 로그인 / 회원가입하세요!
+</div>""", unsafe_allow_html=True)
             st.markdown("""
 <div style="background:#fff3cd;border:1.5px solid #f59e0b;border-radius:8px;
   padding:8px 12px;font-size:0.78rem;color:#92400e;margin-bottom:6px;">
@@ -8297,6 +8305,18 @@ line-height:1.05;color:#0f172a;padding:2px 0 12px 0;
 font-family:'Noto Sans KR',Malgun Gothic,sans-serif;">
   🏆 Goldkey AI Master
 </div>""", unsafe_allow_html=True)
+
+    # ── 로그인 안 된 경우: 사이드바 유도 버튼 (Python native) ────────────
+    if 'user_id' not in st.session_state:
+        _lc1, _lc2, _lc3 = st.columns([1, 2, 1])
+        with _lc2:
+            if st.button("🔓 회원가입 & 로그인",
+                         key="_main_login_btn",
+                         use_container_width=True,
+                         type="primary",
+                         help="왼쪽 사이드바에서 로그인 / 회원가입하세요"):
+                st.session_state["_sidebar_hint"] = True
+                st.rerun()
 
     if 'current_tab' not in st.session_state:
         st.session_state.current_tab = "home"
@@ -9753,8 +9773,10 @@ export default function(component) {{
                 _go_tab(_stt_dest)
 
         # 수동 직접입력 → 바로이동 버튼 처리 (키워드 또는 4자리 ID 모두 지원)
-        if _nav_go and _nav_input and _nav_input.strip():
-            _dest = _voice_navigate(_nav_input.strip())
+        # 버튼 클릭 시 session_state에서 직접 읽기 (rerun 후 text_input 값 소실 방지)
+        _nav_input_val = st.session_state.get("voice_nav_input", "").strip()
+        if _nav_go and _nav_input_val:
+            _dest = _voice_navigate(_nav_input_val)
             if _dest:
                 st.session_state["voice_nav_input"] = ""
                 _go_tab(_dest)
