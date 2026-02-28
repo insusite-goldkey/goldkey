@@ -6903,7 +6903,15 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                         login_insurer = "선택 안 함 (중립 분석)"
                         st.markdown("<div style='font-size:0.78rem;color:#555;margin-top:4px;'>🟩 중립 분석 모드 — 특정 상품 유형 추천 없이 객관적 상담</div>", unsafe_allow_html=True)
                     if st.form_submit_button("🔓 로그인", use_container_width=True):
-                        if ln and lc:
+                        if not ln:
+                            st.error("⚠️ 성함을 입력해 주세요.")
+                        elif len(ln.strip()) < 2:
+                            st.error("⚠️ 이름을 2자 이상 정확히 입력해 주세요.")
+                        elif not lc:
+                            st.error("⚠️ 연락처(비밀번호)를 입력해 주세요.")
+                        elif not __import__('re').fullmatch(r'[0-9]{10,11}', lc.strip()):
+                            st.error("⚠️ 올바른 전화번호 형식이 아닙니다. (숫자만, - 제외 10~11자리)")
+                        else:
                             # ── Brute-force 잠금 확인 ────────────────────────
                             _lk, _lk_sec = _LoginGuard.is_locked(ln)
                             if _lk:
@@ -6984,7 +6992,18 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                     name = st.text_input("👤 이름", placeholder="이름 입력", key="signup_name")
                     contact = st.text_input("📱 연락처 (비밀번호)", placeholder="전화번호 입력 (- 제외)", type="password", key="signup_contact")
                     if st.form_submit_button("✅ 가입하기", use_container_width=True):
-                        if name and contact:
+                        _su_err = None
+                        if not name or not name.strip():
+                            _su_err = "⚠️ 성함을 입력해 주세요."
+                        elif len(name.strip()) < 2:
+                            _su_err = "⚠️ 이름을 2자 이상 정확히 입력해 주세요."
+                        elif not contact or not contact.strip():
+                            _su_err = "⚠️ 연락처(비밀번호)를 입력해 주세요."
+                        elif not __import__('re').fullmatch(r'[0-9]{10,11}', contact.strip()):
+                            _su_err = "⚠️ 올바른 전화번호 형식이 아닙니다. (숫자만, - 제외 10~11자리)"
+                        if _su_err:
+                            st.error(_su_err)
+                        else:
                             with st.spinner("⏳ 가입 처리 중입니다. 잠시만 기다려주세요..."):
                                 info = add_member(name, contact)
                                 _jd2 = dt.strptime(info["join_date"], "%Y-%m-%d")
@@ -6996,8 +7015,6 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
                                 st.session_state["_auto_close_sidebar"] = True
                             st.success("가입 완료!")
                             st.rerun()
-                        else:
-                            st.error("이름과 연락처를 입력해주세요.")
             with tab_pw:
                 st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:6px;'>🔐 가입 시 등록한 이름과 기존 연락처로 본인 확인 후 새 비번을 설정합니다.</div>", unsafe_allow_html=True)
                 with st.form("pw_change_form"):
