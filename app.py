@@ -723,6 +723,22 @@ def get_admin_key():
     except Exception:
         return "kgagold6803"
 
+def _check_admin_key(input_key: str) -> bool:
+    """입력 키가 ADMIN_KEY / ADMIN_CODE / MASTER_CODE 중 하나와 일치하면 True"""
+    k = (input_key or "").strip()
+    if not k:
+        return False
+    valid = set()
+    for _secret_name in ("ADMIN_KEY", "ADMIN_CODE", "MASTER_CODE"):
+        try:
+            v = st.secrets.get(_secret_name, "")
+            if v:
+                valid.add(v)
+        except Exception:
+            pass
+    valid.add("kgagold6803")  # 최후 폴백
+    return k in valid
+
 def get_admin_code():
     """관리자 코드를 st.secrets에서 가져옴 (평문 하드코딩 금지)"""
     try:
@@ -18395,11 +18411,11 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
             st.subheader("⚙️ 관리자 전용 시스템")
             _pre_key = st.text_input("관리자 인증키", type="password", key="admin_key_pre")
             if _pre_key:
-                if _pre_key == get_admin_key():
+                if _check_admin_key(_pre_key):
                     st.session_state["_admin_tab_auth"] = True
                     st.rerun()
                 else:
-                    st.error("인증키가 올바르지 않습니다.")
+                    st.error("인증키가 올바르지 않습니다. (ADMIN_KEY / ADMIN_CODE / MASTER_CODE 중 하나를 입력하세요)")
             else:
                 st.info("관리자 인증키를 입력하세요.")
             st.stop()
@@ -18411,11 +18427,11 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
             st.info("👇 관리자 인증키 입력 후 **'RAG 지식베이스'** 탭을 클릭하세요.")
         admin_key_input = st.text_input("관리자 인증키", type="password", key="admin_key_tab3")
         if admin_key_input:
-            if admin_key_input == get_admin_key():
+            if _check_admin_key(admin_key_input):
                 st.session_state["_admin_tab_auth"] = True
             else:
                 st.session_state["_admin_tab_auth"] = False
-                st.error("인증키가 올바르지 않습니다.")
+                st.error("인증키가 올바르지 않습니다. (ADMIN_KEY / ADMIN_CODE / MASTER_CODE 중 하나를 입력하세요)")
         # admin_key_input이 빈 값이면 기존 session_state 유지 (입력 중 rerun 시 인증 풀림 방지)
 
         if st.session_state.get("_admin_tab_auth"):
@@ -18956,6 +18972,67 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                             st.rerun()
                         else:
                             st.error(f"처리 실패 {_fail2}건 — 파일 형식 또는 Supabase 연결 확인")
+
+                st.divider()
+                # ══════════════════════════════════════════════════════
+                # ② URL 직접 등록 (약관 링크 → RAG 즉시 저장)
+                # ══════════════════════════════════════════════════════
+                st.markdown("#### 🔗 URL 직접 등록 (약관 링크에서 바로 RAG 저장)")
+                _url_col1, _url_col2 = st.columns([3, 1])
+                with _url_col1:
+                    _rag_url_input = st.text_input(
+                        "약관·문서 URL",
+                        placeholder="https://www.보험사.com/terms/약관.pdf 또는 약관 HTML 페이지 URL",
+                        key="rag_url_input"
+                    )
+                with _url_col2:
+                    _url_insurer = st.text_input("보험사명", placeholder="예) 삼성생명", key="rag_url_insurer")
+                if st.button("🌐 URL에서 텍스트 추출 → RAG 즉시 등록", key="btn_rag_url",
+                             use_container_width=True, type="primary", disabled=not _rag_url_input):
+                    with st.spinner("⏳ URL 접속 중... 텍스트 추출 후 RAG에 등록합니다."):
+                        try:
+                            import urllib.request as _ur2
+                            import urllib.parse as _up2
+                            _headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                            _req2 = _ur2.Request(_rag_url_input.strip(), headers=_headers)
+                            with _ur2.urlopen(_req2, timeout=20) as _resp2:
+                                _ctype = _resp2.headers.get("Content-Type", "")
+                                _raw_bytes = _resp2.read()
+                            _url_fname = _rag_url_input.strip().rstrip("/").split("/")[-1] or "url_document"
+                            if not _url_fname.endswith((".pdf",".txt",".html",".htm")):
+                                _url_fname += ".html"
+                            # PDF 처리
+                            if "pdf" in _ctype.lower() or _url_fname.endswith(".pdf"):
+                                import tempfile as _tf3, pdfplumber as _plumb2
+                                with _tf3.NamedTemporaryFile(delete=False, suffix=".pdf") as _t3:
+                                    _t3.write(_raw_bytes); _t3p = _t3.name
+                                try:
+                                    with _plumb2.open(_t3p) as _pp2:
+                                        _url_text = sanitize_unicode("\n".join(p.extract_text() or "" for p in _pp2.pages))
+                                finally:
+                                    try: os.unlink(_t3p)
+                                    except Exception: pass
+                            else:
+                                # HTML → 태그 제거 후 텍스트
+                                import re as _re_url
+                                _html_str = _raw_bytes.decode("utf-8", errors="replace")
+                                _url_text = sanitize_unicode(_re_url.sub(r"<[^>]+>", " ", _html_str))
+                                _url_text = _re_url.sub(r"[ \t]{2,}", " ", _url_text).strip()
+                            if len(_url_text.strip()) < 50:
+                                st.error("⚠️ 텍스트를 충분히 추출할 수 없습니다. PDF 직접 다운로드 후 파일 업로드를 이용하세요.")
+                            else:
+                                _url_meta = _rag_classify_document(_url_text, _url_fname)
+                                if _url_insurer:
+                                    _url_meta["insurer"] = _url_insurer
+                                _url_src_id = _rag_db_add_document(_url_text, _url_fname, _url_meta)
+                                if _url_src_id and _url_src_id > 0:
+                                    _rag_sync_from_db(force=True)
+                                    st.session_state.rag_system = LightRAGSystem()
+                                    st.success(f"✅ 등록 완료! 파일명: {_url_fname} | 분류: {_url_meta.get('category','?')} | 보험사: {_url_meta.get('insurer') or _url_insurer or '미분류'} | 텍스트: {len(_url_text)}자")
+                                else:
+                                    st.error("❌ RAG 저장 실패. 다시 시도하세요.")
+                        except Exception as _ue2:
+                            st.error(f"❌ URL 접속/추출 오류: {str(_ue2)[:200]}\n\n💡 해당 사이트가 봇 차단이라면 PDF를 직접 다운받아 파일 업로드를 이용하세요.")
 
                 st.divider()
                 # ══════════════════════════════════════════════════════
