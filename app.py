@@ -7243,35 +7243,127 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
 
                     st.markdown("<div style='margin-top:4px;'></div>", unsafe_allow_html=True)
 
-                    # ── 패턴 등록 UI (패턴 선택 시) ──────────────────────────
+                    # ── 패턴 등록 UI — 터치/마우스 드래그 3×3 캔버스 ────────
                     if _pat_sel:
-                        st.markdown("<div style='font-size:0.82rem;color:#7c3aed;font-weight:700;margin:10px 0 6px 0;'>⬛ 디자인 코드 등록 — 9개 점을 순서대로 클릭하세요 (최소 4개)</div>", unsafe_allow_html=True)
-                        _nodes = st.session_state.get("_lp_pat", [])
-                        _pat_cols = st.columns(3)
-                        for _ni in range(9):
-                            with _pat_cols[_ni % 3]:
-                                _selected = _ni in _nodes
-                                _order = _nodes.index(_ni) + 1 if _selected else ""
-                                _bg = "#7c3aed" if _selected else "#e2e8f0"
-                                _fc = "#fff" if _selected else "#64748b"
-                                st.markdown(f"""
-<div style='background:{_bg};border-radius:50%;width:48px;height:48px;
-  display:flex;align-items:center;justify-content:center;
-  margin:4px auto;font-weight:900;color:{_fc};font-size:1rem;'>{_order}</div>""",
-                                            unsafe_allow_html=True)
-                                if st.button("•", key=f"pat_n{_ni}", use_container_width=True):
-                                    _ns = list(st.session_state.get("_lp_pat", []))
-                                    if _ni in _ns:
-                                        _ns.remove(_ni)
-                                    else:
-                                        _ns.append(_ni)
-                                    st.session_state["_lp_pat"] = _ns
-                                    st.rerun()
-                        if _nodes:
-                            st.caption(f"선택 순서: {' → '.join(str(n+1) for n in _nodes)}")
-                        if st.button("🔄 패턴 초기화", key="pat_reset"):
-                            st.session_state["_lp_pat"] = []
-                            st.rerun()
+                        _reg_pat_saved = st.session_state.get("_lp_pat", [])
+                        components.html(f"""
+<style>
+#pat-wrap{{background:#faf5ff;border:2px solid #7c3aed;border-radius:14px;
+  padding:14px;text-align:center;font-family:sans-serif;}}
+#pat-title{{font-size:0.88rem;font-weight:800;color:#4c1d95;margin-bottom:10px;}}
+#pat-canvas{{touch-action:none;cursor:crosshair;border-radius:10px;
+  background:#f3f0ff;display:block;margin:0 auto;}}
+#pat-hint{{font-size:0.72rem;color:#7c3aed;margin-top:6px;min-height:18px;}}
+#pat-btns{{display:flex;gap:8px;justify-content:center;margin-top:10px;}}
+.pat-btn{{padding:8px 22px;border:none;border-radius:8px;font-weight:700;
+  font-size:0.88rem;cursor:pointer;}}
+#pat-save{{background:#7c3aed;color:#fff;}}
+#pat-clear{{background:#e2e8f0;color:#374151;}}
+#pat-ok{{display:none;background:#16a34a;color:#fff;padding:8px 22px;
+  border:none;border-radius:8px;font-weight:700;font-size:0.88rem;}}
+</style>
+<div id="pat-wrap">
+  <div id="pat-title">⬛ 디자인 코드 등록 — 점 4개 이상을 순서대로 드래그하세요</div>
+  <canvas id="pat-canvas" width="210" height="210"></canvas>
+  <div id="pat-hint">드래그하여 패턴을 그리세요</div>
+  <div id="pat-btns">
+    <button class="pat-btn" id="pat-clear">🔄 초기화</button>
+    <button class="pat-btn" id="pat-save">✅ 저장</button>
+  </div>
+  <div id="pat-ok">✅ 패턴 저장됨! 설정 완료 버튼을 눌러주세요.</div>
+</div>
+<script>
+(function(){{
+  var canvas = document.getElementById('pat-canvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+  var GAP = W/4, R = 16;
+  var nodes = [], drawing = false, sequence = [];
+  // 9개 점 좌표
+  var pts = [];
+  for(var r=0;r<3;r++) for(var c=0;c<3;c++)
+    pts.push({{x:GAP*(c+1), y:GAP*(r+1), i:r*3+c}});
+
+  function dist(a,b){{return Math.hypot(a.x-b.x,a.y-b.y);}}
+  function getNode(x,y){{
+    for(var i=0;i<pts.length;i++)
+      if(dist(pts[i],{{x:x,y:y}})<R*2) return pts[i];
+    return null;
+  }}
+  function draw(){{
+    ctx.clearRect(0,0,W,H);
+    // 라인
+    ctx.strokeStyle='#7c3aed'; ctx.lineWidth=3; ctx.lineCap='round';
+    if(sequence.length>1){{
+      ctx.beginPath();
+      ctx.moveTo(sequence[0].x,sequence[0].y);
+      for(var i=1;i<sequence.length;i++) ctx.lineTo(sequence[i].x,sequence[i].y);
+      ctx.stroke();
+    }}
+    // 점
+    for(var i=0;i<pts.length;i++){{
+      var idx = sequence.indexOf(pts[i]);
+      var sel = idx>=0;
+      ctx.beginPath();
+      ctx.arc(pts[i].x,pts[i].y,R,0,Math.PI*2);
+      ctx.fillStyle = sel?'#7c3aed':'#c4b5fd';
+      ctx.fill();
+      if(sel){{
+        ctx.fillStyle='#fff';
+        ctx.font='bold 13px sans-serif';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(idx+1,pts[i].x,pts[i].y);
+      }}
+    }}
+  }}
+  function getXY(e){{
+    var rect=canvas.getBoundingClientRect();
+    var scaleX=W/rect.width, scaleY=H/rect.height;
+    if(e.touches){{return{{x:(e.touches[0].clientX-rect.left)*scaleX,y:(e.touches[0].clientY-rect.top)*scaleY}};}} 
+    return{{x:(e.clientX-rect.left)*scaleX,y:(e.clientY-rect.top)*scaleY}};
+  }}
+  function onStart(e){{e.preventDefault();drawing=true;sequence=[];draw();}}
+  function onMove(e){{e.preventDefault();if(!drawing)return;var p=getXY(e);var n=getNode(p.x,p.y);if(n&&sequence.indexOf(n)<0){{sequence.push(n);draw();}}}}
+  function onEnd(e){{drawing=false;
+    document.getElementById('pat-hint').textContent=sequence.length>=4?'순서: '+sequence.map(function(n){{return n.i+1;}}).join(' → '):'패턴 4개 이상 선택하세요 (현재 '+sequence.length+'개)';
+  }}
+  canvas.addEventListener('mousedown',onStart);
+  canvas.addEventListener('mousemove',onMove);
+  canvas.addEventListener('mouseup',onEnd);
+  canvas.addEventListener('touchstart',onStart,{{passive:false}});
+  canvas.addEventListener('touchmove',onMove,{{passive:false}});
+  canvas.addEventListener('touchend',onEnd);
+  document.getElementById('pat-clear').onclick=function(){{
+    sequence=[];draw();
+    document.getElementById('pat-hint').textContent='드래그하여 패턴을 그리세요';
+    document.getElementById('pat-ok').style.display='none';
+  }};
+  document.getElementById('pat-save').onclick=function(){{
+    if(sequence.length<4){{alert('패턴 4개 이상 선택해 주세요.');return;}}
+    var seq = sequence.map(function(n){{return n.i;}});
+    // Streamlit 세션 저장 — URL 파라미터로 전달 (카도가 떠다닔)
+    var url = new URL(window.parent.location.href);
+    url.searchParams.set('_pat_reg', seq.join(','));
+    window.parent.history.replaceState(null,'',url.toString());
+    document.getElementById('pat-ok').style.display='block';
+    document.getElementById('pat-hint').textContent='✅ 등록 완료: '+sequence.map(function(n){{return n.i+1;}}).join('→');
+  }};
+  draw();
+}})();
+</script>
+""", height=340)
+                        # URL param에서 패턴 읽기 (보안 대안: Streamlit query_params)
+                        try:
+                            _pat_qp = st.query_params.get("_pat_reg", "")
+                            if _pat_qp:
+                                _pat_from_js = [int(x) for x in _pat_qp.split(",") if x.isdigit()]
+                                if len(_pat_from_js) >= 4:
+                                    st.session_state["_lp_pat"] = _pat_from_js
+                                    st.query_params.pop("_pat_reg", None)
+                        except Exception:
+                            pass
+                        if st.session_state.get("_lp_pat"):
+                            st.caption(f"✅ 저장된 패턴: {' → '.join(str(n+1) for n in st.session_state['_lp_pat'])}")
 
                     # ── PIN 등록 UI (PIN 선택 시) ─────────────────────────────
                     if _pin_sel:
@@ -7328,54 +7420,183 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
 
                     # ── 현재 활성 인증 모드 UI ──────────────────────────────
                     if _mode_c == "bio":
-                        st.markdown("""
-<div style='background:#eff6ff;border:2px solid #2563eb;border-radius:16px;
-  padding:28px 20px;text-align:center;margin-bottom:12px;'>
-  <div style='font-size:3.5rem;margin-bottom:10px;animation:pulse 2s infinite;'>👆</div>
-  <div style='font-weight:700;color:#1e3a5f;font-size:1rem;'>지문 센서에 손가락을 대주세요</div>
-  <div style='font-size:0.75rem;color:#64748b;margin-top:6px;'>또는 아래 버튼으로 시뮬레이션 인증</div>
+                        # WebAuthn 등록된 credentialId 확인
+                        _cred_id = st.session_state.get("_lp_bio_cred", "")
+                        components.html(f"""
+<style>
+#bio-wrap{{background:#eff6ff;border:2px solid #2563eb;border-radius:16px;
+  padding:24px 20px;text-align:center;font-family:sans-serif;}}
+#bio-icon{{font-size:3.5rem;animation:pulse 2s infinite;}}
+@keyframes pulse{{0%,100%{{opacity:1;}}50%{{opacity:0.5;}}}}
+#bio-msg{{font-size:0.9rem;font-weight:700;color:#1e3a5f;margin:10px 0 6px;}}
+#bio-sub{{font-size:0.75rem;color:#64748b;margin-bottom:14px;}}
+#bio-btn{{width:100%;padding:14px;font-size:1rem;font-weight:800;
+  background:linear-gradient(90deg,#1d4ed8,#0ea5e9);color:#fff;
+  border:none;border-radius:10px;cursor:pointer;}}
+#bio-result{{margin-top:10px;font-size:0.85rem;font-weight:700;}}
+</style>
+<div id="bio-wrap">
+  <div id="bio-icon">👆</div>
+  <div id="bio-msg">지문 또는 얼굴 인식으로 로그인</div>
+  <div id="bio-sub">행드폰/태블릿 생체인증 센서를 사용합니다</div>
+  <button id="bio-btn" onclick="doBioAuth()">🔐 지문 / 얼굴 인증 시작</button>
+  <div id="bio-result"></div>
 </div>
-<style>@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}</style>""", unsafe_allow_html=True)
-                        if st.button("👆 지문 인증 (시뮬레이션)", key="hlp_bio_auth",
-                                     use_container_width=True, type="primary"):
-                            st.success("✅ 인증 성공! 메인 시스템으로 이동합니다...")
-                            _do_final_login(_lp_name)
+<script>
+var CRED_ID = '{_cred_id}';
+var RP_ID  = window.parent.location.hostname || 'localhost';
+async function doBioAuth(){{
+  var res = document.getElementById('bio-result');
+  res.style.color='#1d4ed8';
+  res.textContent = '🔐 생체인증 요청 중...';
+  try {{
+    // WebAuthn get (assertion)
+    var challenge = new Uint8Array(32);
+    window.crypto.getRandomValues(challenge);
+    var opts = {{
+      publicKey: {{
+        challenge: challenge,
+        rpId: RP_ID,
+        timeout: 60000,
+        userVerification: 'required',
+      }}
+    }};
+    if(CRED_ID){{
+      var raw = atob(CRED_ID);
+      var buf = new Uint8Array(raw.length);
+      for(var i=0;i<raw.length;i++) buf[i]=raw.charCodeAt(i);
+      opts.publicKey.allowCredentials=[{{id:buf,type:'public-key'}}];
+    }}
+    var cred = await navigator.credentials.get(opts);
+    if(cred){{
+      res.style.color='#16a34a';
+      res.textContent = '✅ 생체인증 성공! 잘맞습니다.';
+      // Streamlit에 성공 신호 전달
+      var url = new URL(window.parent.location.href);
+      url.searchParams.set('_bio_ok','1');
+      window.parent.history.replaceState(null,'',url.toString());
+      setTimeout(function(){{window.parent.location.reload();}},800);
+    }}
+  }} catch(e) {{
+    if(e.name==='NotAllowedError'){{
+      res.style.color='#dc2626';
+      res.textContent = '❌ 인증 취소 또는 실패. 다시 시도해주세요.';
+    }} else if(e.name==='NotSupportedError'||e.name==='SecurityError'){{
+      res.style.color='#d97706';
+      res.textContent = '⚠️ 이 기기는 생체인증을 지원하지 않습니다. PIN 인증을 사용하세요.';
+    }} else {{
+      res.style.color='#d97706';
+      res.textContent = '⚠️ '+e.message;
+    }}
+  }}
+}}
+// 등록된 크레덴셜이 없으면 자동 실행
+if(!CRED_ID) setTimeout(doBioAuth, 400);
+</script>
+""", height=230)
+                        # URL param 수신 → 로그인 완료
+                        try:
+                            if st.query_params.get("_bio_ok") == "1":
+                                st.query_params.pop("_bio_ok", None)
+                                st.success("✅ 생체인증 성공!")
+                                _do_final_login(_lp_name)
+                        except Exception:
+                            pass
+                        # 폴백: 지원 안 되는 기기를 위한 PIN 대체 안내
+                        if st.button("🔢 PIN으로 대신 로그인", key="hlp_bio_fallback",
+                                     use_container_width=False):
+                            st.session_state["_lp_mode"] = "pin"
+                            st.rerun()
 
                     elif _mode_c == "pat":
                         _reg_pat = st.session_state.get("_lp_pat", [])
-                        st.markdown("""
-<div style='background:#faf5ff;border:2px solid #7c3aed;border-radius:16px;
-  padding:16px;margin-bottom:12px;text-align:center;'>
-  <div style='font-weight:700;color:#4c1d95;margin-bottom:8px;'>⬛ 패턴을 그려주세요</div>
-</div>""", unsafe_allow_html=True)
-                        _inp_pat = []
-                        _pc2 = st.columns(3)
-                        for _ni2 in range(9):
-                            with _pc2[_ni2 % 3]:
-                                if st.button(f"⬛ {_ni2+1}", key=f"cpat_{_ni2}", use_container_width=True):
-                                    _cur = list(st.session_state.get("_lp_pat_inp", []))
-                                    if _ni2 not in _cur:
-                                        _cur.append(_ni2)
-                                    st.session_state["_lp_pat_inp"] = _cur
-                                    st.rerun()
-                        _inp_pat = st.session_state.get("_lp_pat_inp", [])
-                        if _inp_pat:
-                            st.markdown(f"<div style='font-size:0.75rem;color:#7c3aed;'>입력: {' → '.join(str(n+1) for n in _inp_pat)}</div>", unsafe_allow_html=True)
-                        _c1p, _c2p = st.columns(2)
-                        with _c1p:
-                            if st.button("🔄 초기화", key="cpat_reset", use_container_width=True):
-                                st.session_state["_lp_pat_inp"] = []
-                                st.rerun()
-                        with _c2p:
-                            if st.button("✅ 패턴 확인", key="cpat_confirm", use_container_width=True, type="primary"):
-                                if _inp_pat == _reg_pat:
-                                    st.success("✅ 인증 성공!")
-                                    st.session_state.pop("_lp_pat_inp", None)
-                                    _do_final_login(_lp_name)
-                                else:
-                                    st.error("❌ 패턴이 일치하지 않습니다.")
-                                    st.session_state["_lp_pat_inp"] = []
-                                    st.rerun()
+                        _reg_pat_js = str(_reg_pat)  # e.g. [0,3,6,7,8]
+                        components.html(f"""
+<style>
+#cpat-wrap{{background:#faf5ff;border:2px solid #7c3aed;border-radius:16px;
+  padding:14px;text-align:center;font-family:sans-serif;}}
+#cpat-title{{font-size:0.9rem;font-weight:800;color:#4c1d95;margin-bottom:10px;}}
+#cpat-canvas{{touch-action:none;cursor:crosshair;border-radius:10px;
+  background:#f3f0ff;display:block;margin:0 auto;}}
+#cpat-hint{{font-size:0.75rem;color:#7c3aed;margin-top:6px;min-height:18px;}}
+#cpat-btns{{display:flex;gap:8px;justify-content:center;margin-top:10px;}}
+.cpat-btn{{padding:9px 22px;border:none;border-radius:8px;font-weight:700;
+  font-size:0.9rem;cursor:pointer;}}
+#cpat-confirm{{background:#7c3aed;color:#fff;}}
+#cpat-reset2{{background:#e2e8f0;color:#374151;}}
+</style>
+<div id="cpat-wrap">
+  <div id="cpat-title">⬛ 등록한 디자인 코드를 그려주세요</div>
+  <canvas id="cpat-canvas" width="210" height="210"></canvas>
+  <div id="cpat-hint">스와이프하여 패턴 입력</div>
+  <div id="cpat-btns">
+    <button class="cpat-btn" id="cpat-reset2">🔄 초기화</button>
+    <button class="cpat-btn" id="cpat-confirm">✅ 확인</button>
+  </div>
+</div>
+<script>
+(function(){{
+  var REG = {_reg_pat_js};
+  var canvas=document.getElementById('cpat-canvas');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height,GAP=W/4,R=16;
+  var pts=[],drawing=false,sequence=[];
+  for(var r=0;r<3;r++) for(var c=0;c<3;c++)
+    pts.push({{x:GAP*(c+1),y:GAP*(r+1),i:r*3+c}});
+  function dist(a,b){{return Math.hypot(a.x-b.x,a.y-b.y);}}
+  function getNode(x,y){{for(var i=0;i<pts.length;i++) if(dist(pts[i],{{x:x,y:y}})<R*2) return pts[i]; return null;}}
+  function draw(){{
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='#7c3aed';ctx.lineWidth=3;ctx.lineCap='round';
+    if(sequence.length>1){{ctx.beginPath();ctx.moveTo(sequence[0].x,sequence[0].y);for(var i=1;i<sequence.length;i++)ctx.lineTo(sequence[i].x,sequence[i].y);ctx.stroke();}}
+    for(var i=0;i<pts.length;i++){{
+      var idx=sequence.indexOf(pts[i]),sel=idx>=0;
+      ctx.beginPath();ctx.arc(pts[i].x,pts[i].y,R,0,Math.PI*2);
+      ctx.fillStyle=sel?'#7c3aed':'#c4b5fd';ctx.fill();
+      if(sel){{ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(idx+1,pts[i].x,pts[i].y);}}
+    }}
+  }}
+  function getXY(e){{
+    var rect=canvas.getBoundingClientRect(),scaleX=W/rect.width,scaleY=H/rect.height;
+    if(e.touches)return{{x:(e.touches[0].clientX-rect.left)*scaleX,y:(e.touches[0].clientY-rect.top)*scaleY}};
+    return{{x:(e.clientX-rect.left)*scaleX,y:(e.clientY-rect.top)*scaleY}};
+  }}
+  canvas.addEventListener('mousedown',function(e){{e.preventDefault();drawing=true;sequence=[];draw();}});
+  canvas.addEventListener('mousemove',function(e){{e.preventDefault();if(!drawing)return;var p=getXY(e);var n=getNode(p.x,p.y);if(n&&sequence.indexOf(n)<0){{sequence.push(n);draw();}}}});
+  canvas.addEventListener('mouseup',function(){{drawing=false;document.getElementById('cpat-hint').textContent='순서: '+sequence.map(function(n){{return n.i+1;}}).join(' → ');}});
+  canvas.addEventListener('touchstart',function(e){{e.preventDefault();drawing=true;sequence=[];draw();}},{{passive:false}});
+  canvas.addEventListener('touchmove',function(e){{e.preventDefault();if(!drawing)return;var p=getXY(e);var n=getNode(p.x,p.y);if(n&&sequence.indexOf(n)<0){{sequence.push(n);draw();}}}},{{passive:false}});
+  canvas.addEventListener('touchend',function(){{drawing=false;document.getElementById('cpat-hint').textContent='순서: '+sequence.map(function(n){{return n.i+1;}}).join(' → ');}});
+  document.getElementById('cpat-reset2').onclick=function(){{sequence=[];draw();document.getElementById('cpat-hint').textContent='스와이프하여 패턴 입력';}};
+  document.getElementById('cpat-confirm').onclick=function(){{
+    var seq=sequence.map(function(n){{return n.i;}});
+    var match=JSON.stringify(seq)===JSON.stringify(REG);
+    if(match){{
+      document.getElementById('cpat-hint').style.color='#16a34a';
+      document.getElementById('cpat-hint').textContent='✅ 패턴 일치!';
+      var url=new URL(window.parent.location.href);
+      url.searchParams.set('_pat_ok','1');
+      window.parent.history.replaceState(null,'',url.toString());
+      setTimeout(function(){{window.parent.location.reload();}},600);
+    }} else {{
+      document.getElementById('cpat-hint').style.color='#dc2626';
+      document.getElementById('cpat-hint').textContent='❌ 패턴이 다릅니다. 다시 그려주세요.';
+      sequence=[];draw();
+    }}
+  }};
+  draw();
+}})();
+</script>
+""", height=330)
+                        # URL param 수신 → 로그인 완료
+                        try:
+                            if st.query_params.get("_pat_ok") == "1":
+                                st.query_params.pop("_pat_ok", None)
+                                st.success("✅ 패턴 인증 성공!")
+                                st.session_state.pop("_lp_pat_inp", None)
+                                _do_final_login(_lp_name)
+                        except Exception:
+                            pass
 
                     elif _mode_c == "pin":
                         _reg_pin = st.session_state.get("_lp_pin", "")
