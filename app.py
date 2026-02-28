@@ -11690,63 +11690,47 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                         except Exception:
                             _ps_json_data = None
 
-                # ── JSON 성공 시: KB 스타일 담보 진단 렌더링 ─────────────
+                # ── JSON 성공 시: 담보 진단 렌더링 ───────────────────────
                 if _ps_json_data and _ps_json_data.get("coverages"):
-                    _covs = _ps_json_data["coverages"]
+                    _covs = _ps_json_data["coverages"][:10]  # 상위 10개만 표시
 
-                    # 상태별 색상/배경 정의 (KB 스타일)
-                    def _cov_style(status):
-                        if status == "충분":
-                            return {"bg": "#dbeafe", "border": "#3b82f6",
-                                    "label_bg": "#3b82f6", "label_color": "#fff",
-                                    "text": "#1e3a8a", "diff_color": "#1d4ed8"}
-                        elif status == "부족":
-                            return {"bg": "#fce7f3", "border": "#ec4899",
-                                    "label_bg": "#ec4899", "label_color": "#fff",
-                                    "text": "#831843", "diff_color": "#be185d"}
-                        else:  # 미가입
-                            return {"bg": "#fee2e2", "border": "#ef4444",
-                                    "label_bg": "#ef4444", "label_color": "#fff",
-                                    "text": "#7f1d1d", "diff_color": "#dc2626"}
-
-                    # ── 종합 요약 표 (006 스타일) ──────────────────────────
+                    # ── 종합 요약 표 ────────────────────────────────────────
                     st.markdown("""
-<div style="background:#1a2744;border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;
-  padding:6px 14px;margin:14px 0 6px 0;">
-  <span style="color:#fcd34d;font-weight:900;font-size:0.9rem;">
+<div style="border-left:4px solid #1a3a5c;padding:6px 14px;margin:14px 0 6px 0;">
+  <span style="color:#1a3a5c;font-weight:900;font-size:0.9rem;">
   📊 주요 담보별 과부족 현황</span>
-  <span style="color:#94a3b8;font-size:0.72rem;margin-left:8px;">권장금액 기준 비교</span>
+  <span style="color:#555;font-size:0.72rem;margin-left:8px;">권장금액 기준 비교 (상위 10개)</span>
 </div>""", unsafe_allow_html=True)
 
-                    # 종합 요약 표 HTML
+                    # 종합 요약 표 HTML — 흰 배경 검은 글자, 구분 컬럼 없음
                     _tbl_rows = ""
-                    for _c in _covs:
+                    for _i, _c in enumerate(_covs):
                         _st = _c.get("status", "미가입")
-                        _sty = _cov_style(_st)
-                        _diff_val = _c.get("diff", "")
+                        _row_bg = "#ffffff" if _i % 2 == 0 else "#f8f9fa"
+                        _enrolled_val = _c.get("enrolled", "0")
+                        _enrolled_disp = _enrolled_val if _enrolled_val != "0" else "미가입"
                         _tbl_rows += (
-                            f'<tr style="border-bottom:1px solid #2a3a5a;">'
-                            f'<td style="padding:6px 10px;color:#94a3b8;font-size:0.72rem;">{_c.get("category","")}</td>'
-                            f'<td style="padding:6px 10px;font-weight:700;color:#e2e8f0;font-size:0.80rem;">{_c.get("name","")}</td>'
-                            f'<td style="padding:6px 10px;text-align:right;color:#fcd34d;font-size:0.80rem;font-weight:700;">{_c.get("recommended","")}</td>'
-                            f'<td style="padding:6px 10px;text-align:right;color:#e2e8f0;font-size:0.80rem;">{_c.get("enrolled","0") if _c.get("enrolled","0") != "0" else "미가입"}</td>'
-                            f'<td style="padding:6px 10px;text-align:right;font-weight:900;font-size:0.80rem;color:{_sty["diff_color"]};">{_diff_val}</td>'
+                            f'<tr style="border-bottom:1px solid #e0e0e0;background:{_row_bg};">'
+                            f'<td style="padding:7px 10px;font-weight:700;color:#111;font-size:0.82rem;">{_c.get("name","")}</td>'
+                            f'<td style="padding:7px 10px;text-align:right;color:#111;font-size:0.82rem;font-weight:700;">{_c.get("recommended","")}</td>'
+                            f'<td style="padding:7px 10px;text-align:right;color:#111;font-size:0.82rem;">{_enrolled_disp}</td>'
+                            f'<td style="padding:7px 10px;text-align:right;font-weight:900;font-size:0.82rem;color:#111;">{_c.get("diff","")}</td>'
                             f'<td style="padding:5px 8px;text-align:center;">'
-                            f'<span style="background:{_sty["label_bg"]};color:{_sty["label_color"]};'
-                            f'border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:900;">{_st}</span>'
+                            f'<span style="border:1.5px solid #333;border-radius:4px;padding:2px 8px;'
+                            f'font-size:0.70rem;font-weight:900;color:#111;background:#fff;">{_st}</span>'
                             f'</td>'
                             f'</tr>'
                         )
                     st.markdown(
                         f'<div style="overflow-x:auto;margin-bottom:14px;">'
-                        f'<table style="width:100%;border-collapse:collapse;background:#0d1b2a;border-radius:10px;overflow:hidden;">'
-                        f'<thead><tr style="background:#1e3a5a;">'
-                        f'<th style="padding:7px 10px;text-align:left;color:#7ec8f5;font-size:0.72rem;">구분</th>'
-                        f'<th style="padding:7px 10px;text-align:left;color:#7ec8f5;font-size:0.72rem;">담보명</th>'
-                        f'<th style="padding:7px 10px;text-align:right;color:#fcd34d;font-size:0.72rem;">권장금액</th>'
-                        f'<th style="padding:7px 10px;text-align:right;color:#7ec8f5;font-size:0.72rem;">가입금액</th>'
-                        f'<th style="padding:7px 10px;text-align:right;color:#7ec8f5;font-size:0.72rem;">과부족</th>'
-                        f'<th style="padding:7px 10px;text-align:center;color:#7ec8f5;font-size:0.72rem;">진단</th>'
+                        f'<table style="width:100%;border-collapse:collapse;background:#fff;'
+                        f'border:1.5px solid #ccc;border-radius:8px;overflow:hidden;">'
+                        f'<thead><tr style="background:#f0f0f0;border-bottom:2px solid #bbb;">'
+                        f'<th style="padding:8px 10px;text-align:left;color:#111;font-size:0.75rem;">담보명</th>'
+                        f'<th style="padding:8px 10px;text-align:right;color:#111;font-size:0.75rem;">권장금액</th>'
+                        f'<th style="padding:8px 10px;text-align:right;color:#111;font-size:0.75rem;">가입금액</th>'
+                        f'<th style="padding:8px 10px;text-align:right;color:#111;font-size:0.75rem;">과부족</th>'
+                        f'<th style="padding:8px 10px;text-align:center;color:#111;font-size:0.75rem;">진단</th>'
                         f'</tr></thead>'
                         f'<tbody>{_tbl_rows}</tbody>'
                         f'</table></div>',
