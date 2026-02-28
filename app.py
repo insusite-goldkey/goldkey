@@ -6940,105 +6940,409 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
 })();
 </script>""", height=0)
             with tab_l:
-                with st.form("login_form"):
-                    st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>🔑 가입 시 입력한 정보로 로그인하세요</div>", unsafe_allow_html=True)
-                    ln = st.text_input("👤 이름", key="login_name", label_visibility="collapsed")
-                    lc = st.text_input("📱 연락처", type="password", key="login_contact", label_visibility="collapsed")
-                    login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"], horizontal=True, key="login_is_pro")
-                    if login_is_pro == "종사자":
-                        login_insurer = st.radio(
-                            "📋 주력판매 분야 선택(상담반영)",
-                            ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"],
-                            horizontal=True,
-                            key="login_insurer"
-                        )
-                    else:
-                        login_insurer = "선택 안 함 (중립 분석)"
-                        st.markdown("<div style='font-size:0.78rem;color:#555;margin-top:4px;'>🟩 중립 분석 모드 — 특정 상품 유형 추천 없이 객관적 상담</div>", unsafe_allow_html=True)
-                    if st.form_submit_button("🔓 로그인", use_container_width=True):
-                        if not ln:
-                            st.error("⚠️ 성함을 입력해 주세요.")
-                        elif len(ln.strip()) < 2:
-                            st.error("⚠️ 이름을 2자 이상 정확히 입력해 주세요.")
-                        elif not lc:
-                            st.error("⚠️ 연락처(비밀번호)를 입력해 주세요.")
-                        elif not __import__('re').fullmatch(r'[0-9]{10,11}', lc.strip()):
+                # ══════════════════════════════════════════════════════════════
+                # 하이브리드 보안 로그인 — 3단계 플로우
+                # Phase A: 이름+연락처 확인 → OTP 발급
+                # Phase B: OTP 인증 → 보안 방식 선택 (생체/패턴/PIN 다중)
+                # Phase C: 이후 실전 로그인 (Fallback 시스템)
+                # ══════════════════════════════════════════════════════════════
+                import random as _rnd, re as _re2
+
+                # 세션 초기값
+                if "_lp" not in st.session_state:
+                    st.session_state["_lp"] = "A"           # login phase
+                if "_lp_name" not in st.session_state:
+                    st.session_state["_lp_name"] = ""
+                if "_lp_otp" not in st.session_state:
+                    st.session_state["_lp_otp"] = ""
+                if "_lp_methods" not in st.session_state:
+                    st.session_state["_lp_methods"] = {"bio": False, "pat": False, "pin": False}
+                if "_lp_mode" not in st.session_state:
+                    st.session_state["_lp_mode"] = "bio"
+                if "_lp_pat" not in st.session_state:
+                    st.session_state["_lp_pat"] = []        # 패턴 선택 노드
+                if "_lp_pin" not in st.session_state:
+                    st.session_state["_lp_pin"] = ""        # PIN 입력
+
+                def _do_final_login(ln: str):
+                    """인증 성공 처리 — 기존 session_state 세팅 그대로 유지"""
+                    members = load_members()
+                    m = members[ln]
+                    _jd = dt.strptime(m["join_date"], "%Y-%m-%d")
+                    _adm = (ln in _get_unlimited_users())
+                    for _ck in ["dc_priv_cache","cc_file_cache","dc_ai_company",
+                                "dc_ai_doctype","dc_ai_tags","dc_ai_conf",
+                                "dc_ai_fileno","catalog_jwt"]:
+                        st.session_state.pop(_ck, None)
+                    st.session_state.user_id   = m["user_id"]
+                    st.session_state.user_name = ln
+                    st.session_state.join_date = _jd
+                    st.session_state.is_admin  = _adm
+                    st.session_state["_mic_notice"]         = True
+                    st.session_state["_login_welcome"]      = ln
+                    st.session_state["_auto_close_sidebar"] = True
+                    st.session_state["_login_just_done"]    = True
+                    st.session_state["user_consult_mode"]   = "👔 보험종사자 (설계사·전문가)"
+                    st.session_state["preferred_insurer"]   = "선택 안 함 (중립 분석)"
+                    # 보안 방식 등록 이력 저장 (다음 로그인에서 Fallback UI 구성용)
+                    st.session_state["_sec_methods"]        = dict(st.session_state["_lp_methods"])
+                    # 로그인 단계 초기화
+                    for _k in ["_lp","_lp_name","_lp_otp","_lp_methods",
+                               "_lp_mode","_lp_pat","_lp_pin"]:
+                        st.session_state.pop(_k, None)
+                    try:
+                        import hmac as _hmac2
+                        _ts = st.secrets.get("ENCRYPTION_KEY", "gk_token_secret_2026")
+                        if isinstance(_ts, bytes): _ts = _ts.decode()
+                        _tok = _hmac2.new(_ts.encode(), (ln + m["user_id"]).encode(), "sha256").hexdigest()[:32]
+                        st.session_state["_auto_login_token"] = _tok
+                    except Exception:
+                        pass
+                    _LoginGuard.record_success(ln)
+                    st.rerun()
+
+                _lp = st.session_state.get("_lp", "A")
+
+                # ─────────────────────────────────────────────────────────────
+                # Phase A — 이름 + 연락처 확인 → OTP 발급
+                # ─────────────────────────────────────────────────────────────
+                if _lp == "A":
+                    st.markdown("""
+<div style='background:linear-gradient(135deg,#0f4c81,#1a6fa8);border-radius:14px;
+  padding:18px 20px;margin-bottom:14px;text-align:center;'>
+  <div style='font-size:2rem;margin-bottom:6px;'>🛡️</div>
+  <div style='color:#fff;font-size:1.05rem;font-weight:700;'>골드키지사 보안 로그인</div>
+  <div style='color:#b3d4f0;font-size:0.78rem;margin-top:4px;'>가입 시 등록한 정보로 본인 확인 후 OTP를 발급합니다</div>
+</div>""", unsafe_allow_html=True)
+                    with st.form("hlp_a_form"):
+                        ln_a = st.text_input("👤 이름", key="hlp_name_a", placeholder="가입 시 등록한 이름",
+                                             label_visibility="collapsed")
+                        lc_a = st.text_input("📱 연락처", type="password", key="hlp_contact_a",
+                                             placeholder="연락처 (숫자만, - 제외)",
+                                             label_visibility="collapsed")
+                        login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"],
+                                                horizontal=True, key="login_is_pro")
+                        if login_is_pro == "종사자":
+                            st.radio("📋 주력판매 분야 선택(상담반영)",
+                                     ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"],
+                                     horizontal=True, key="login_insurer")
+                        else:
+                            st.session_state["login_insurer"] = "선택 안 함 (중립 분석)"
+                            st.markdown("<div style='font-size:0.76rem;color:#555;'>🟩 중립 분석 모드</div>",
+                                        unsafe_allow_html=True)
+                        _btn_otp = st.form_submit_button("🔐 보안 인증 시작", use_container_width=True, type="primary")
+
+                    if _btn_otp:
+                        _ln_a = ln_a.strip() if ln_a else ""
+                        _lc_a = lc_a.strip() if lc_a else ""
+                        if not _ln_a or len(_ln_a) < 2:
+                            st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
+                        elif not _re2.fullmatch(r'[0-9]{10,11}', _lc_a):
                             st.error("⚠️ 올바른 전화번호 형식이 아닙니다. (숫자만, - 제외 10~11자리)")
                         else:
-                            # ── Brute-force 잠금 확인 ────────────────────────
-                            _lk, _lk_sec = _LoginGuard.is_locked(ln)
-                            if _lk:
-                                _lk_min = _lk_sec // 60
-                                _lk_s   = _lk_sec % 60
-                                st.error(
-                                    f"🔒 로그인 시도 횟수 초과로 **{_lk_min}분 {_lk_s}초** 잠금 중입니다.\n\n"
-                                    f"잠금 해제 후 다시 시도하거나 운영자(010-3074-2616)에게 문의하세요."
-                                )
+                            _lk_a, _lk_sec_a = _LoginGuard.is_locked(_ln_a)
+                            if _lk_a:
+                                _lm = _lk_sec_a // 60; _ls = _lk_sec_a % 60
+                                st.error(f"🔒 **{_lm}분 {_ls}초** 잠금 중입니다. 운영자(010-3074-2616)에게 문의하세요.")
                             else:
-                                with st.spinner("⏳ 로그인 중입니다. 잠시만 기다려주세요..."):
-                                    members = load_members()
-                                    _login_ok = ln in members and decrypt_data(members[ln]["contact"], lc)
-                                if _login_ok:
-                                    _LoginGuard.record_success(ln)
-                                    m = members[ln]
-                                    _jd = dt.strptime(m["join_date"], "%Y-%m-%d")
-                                    _adm = (ln in _get_unlimited_users())
-                                    # ── 로그인 시 캐시 완전 초기화 (앱 재시작 후 최신 데이터 반영) ──
-                                    _cache_keys_to_clear = [
-                                        "dc_priv_cache",          # 내 카탈로그 목록
-                                        "cc_file_cache",          # 상담 카탈로그 목록
-                                        "dc_ai_company", "dc_ai_doctype",
-                                        "dc_ai_tags", "dc_ai_conf", "dc_ai_fileno",
-                                        "catalog_jwt",            # 하이브리드 JWT
-                                    ]
-                                    for _ck in _cache_keys_to_clear:
-                                        st.session_state.pop(_ck, None)
-                                    st.session_state.user_id   = m["user_id"]
-                                    st.session_state.user_name = ln
-                                    st.session_state.join_date = _jd
-                                    st.session_state.is_admin  = _adm
-                                    st.session_state["_mic_notice"] = True
-                                    st.session_state["_login_welcome"] = ln
-                                    st.session_state["_auto_close_sidebar"] = True
-                                    st.session_state["_login_just_done"] = True  # defer 무거운 초기화
-                                    _pro_val = st.session_state.get("login_is_pro", "비종사자")
-                                    st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)" if _pro_val == "종사자" else "👤 비종사자 (고객·일반인)"
-                                    _raw_ins = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)")
-                                    _ins_map = {
-                                        "선택 안 함 (중립 분석)": "선택 안 함 (중립 분석)",
-                                        "⬜ 선택 안 함 (중립 분석)": "선택 안 함 (중립 분석)",
-                                        "🏦 생명보험 주력": "🏦 생명보험 주력",
-                                        "🛡️ 손해보험 주력": "🛡️ 손해보험 주력",
-                                        "🏢 생명·손해 종합(GA)": "🏢 생명·손해 종합(GA)",
-                                    }
-                                    st.session_state["preferred_insurer"] = _ins_map.get(_raw_ins, "선택 안 함 (중립 분석)") if _pro_val == "종사자" else "선택 안 함 (중립 분석)"
-                                    # ── 기기 통합 자동 로그인 토큰 생성 ──
-                                    try:
-                                        import hmac as _hmac2
-                                        _ts = st.secrets.get("ENCRYPTION_KEY", "gk_token_secret_2026")
-                                        if isinstance(_ts, bytes): _ts = _ts.decode()
-                                        _tok = _hmac2.new(_ts.encode(), (ln + m["user_id"]).encode(), "sha256").hexdigest()[:32]
-                                        st.session_state["_auto_login_token"] = _tok
-                                    except Exception:
-                                        pass
+                                _mbs = load_members()
+                                _ok_a = _ln_a in _mbs and decrypt_data(_mbs[_ln_a]["contact"], _lc_a)
+                                if _ok_a:
+                                    _otp_val = str(_rnd.randint(100000, 999999))
+                                    st.session_state["_lp_name"] = _ln_a
+                                    st.session_state["_lp_otp"]  = _otp_val
+                                    st.session_state["_lp"]      = "B"
                                     st.rerun()
+                                elif _ln_a not in _mbs:
+                                    st.error("미가입회원입니다. 회원가입 탭에서 가입 후 이용해주세요.")
                                 else:
-                                    if ln not in members:
-                                        st.error("미가입회원입니다. 회원가입 후 이용해주세요.")
+                                    _LoginGuard.record_fail(_ln_a)
+                                    _rem_a = _LoginGuard.remaining_attempts(_ln_a)
+                                    _lk2_a, _ = _LoginGuard.is_locked(_ln_a)
+                                    if _lk2_a:
+                                        st.error(f"🔒 {_LoginGuard.MAX_FAIL}회 실패 — {_LoginGuard.LOCK_MINUTES}분 잠금.")
                                     else:
-                                        _LoginGuard.record_fail(ln)
-                                        _remain = _LoginGuard.remaining_attempts(ln)
-                                        _lk2, _ = _LoginGuard.is_locked(ln)
-                                        if _lk2:
-                                            st.error(
-                                                f"🔒 연속 {_LoginGuard.MAX_FAIL}회 실패로 **{_LoginGuard.LOCK_MINUTES}분 잠금**되었습니다.\n\n"
-                                                "운영자(010-3074-2616)에게 문의하세요."
-                                            )
-                                        else:
-                                            st.error(
-                                                f"연락처(비밀번호)가 올바르지 않습니다. "
-                                                f"(남은 시도: **{_remain}회** — {_LoginGuard.MAX_FAIL}회 초과 시 {_LoginGuard.LOCK_MINUTES}분 잠금)"
-                                            )
+                                        st.error(f"연락처가 올바르지 않습니다. (남은 시도: **{_rem_a}회**)")
+
+                # ─────────────────────────────────────────────────────────────
+                # Phase B — OTP 인증 + 보안 방식 선택
+                # ─────────────────────────────────────────────────────────────
+                elif _lp == "B":
+                    _otp_target = st.session_state.get("_lp_otp", "")
+                    _lp_name    = st.session_state.get("_lp_name", "")
+                    st.markdown(f"""
+<div style='background:linear-gradient(135deg,#064e3b,#059669);border-radius:14px;
+  padding:14px 18px;margin-bottom:12px;text-align:center;'>
+  <div style='color:#fff;font-size:0.95rem;font-weight:700;margin-bottom:4px;'>
+    ✅ 본인 확인 완료 — 추가 보안 인증
+  </div>
+  <div style='color:#a7f3d0;font-size:0.8rem;'>
+    {_lp_name}님, 아래 OTP로 인증 후 간편 보안 방식을 설정하세요
+  </div>
+</div>
+<div style='background:#fef9c3;border:2px solid #f59e0b;border-radius:12px;
+  padding:14px;margin-bottom:12px;text-align:center;'>
+  <div style='font-size:0.78rem;color:#92400e;margin-bottom:6px;'>📱 인증번호 (테스트용 화면 표시)</div>
+  <div style='font-size:2.2rem;font-weight:900;letter-spacing:8px;color:#1a3a5c;'>{_otp_target}</div>
+</div>""", unsafe_allow_html=True)
+
+                    _otp_input = st.text_input("6자리 인증번호 입력", key="hlp_otp_in",
+                                               placeholder="000000", max_chars=6,
+                                               label_visibility="collapsed")
+                    if st.button("✅ OTP 확인", key="hlp_otp_btn", use_container_width=True, type="primary"):
+                        if (_otp_input or "").strip() == _otp_target:
+                            # 이미 보안 방식을 이전에 등록한 경우 → Phase C (실전 로그인)
+                            _prev_methods = st.session_state.get("_sec_methods", {})
+                            if any(_prev_methods.values()):
+                                _def = "bio" if _prev_methods.get("bio") else ("pat" if _prev_methods.get("pat") else "pin")
+                                st.session_state["_lp_methods"] = dict(_prev_methods)
+                                st.session_state["_lp_mode"]    = _def
+                                st.session_state["_lp"]         = "C"
+                            else:
+                                st.session_state["_lp"] = "SETUP"
+                            st.rerun()
+                        else:
+                            st.error("❌ 인증번호가 올바르지 않습니다. 다시 확인해 주세요.")
+                    if st.button("↩️ 처음으로", key="hlp_back_b", use_container_width=False):
+                        st.session_state["_lp"] = "A"
+                        st.rerun()
+
+                # ─────────────────────────────────────────────────────────────
+                # Phase SETUP — 다중 보안 방식 설정 (생체/패턴/PIN)
+                # ─────────────────────────────────────────────────────────────
+                elif _lp == "SETUP":
+                    _lp_name = st.session_state.get("_lp_name", "")
+                    _mth = st.session_state["_lp_methods"]
+                    st.markdown("""
+<div style='background:linear-gradient(135deg,#1c1400,#78350f);border-radius:14px;
+  padding:14px 18px;margin-bottom:12px;text-align:center;'>
+  <div style='color:#fef08a;font-size:0.95rem;font-weight:700;'>🔐 간편 로그인 방식 설정</div>
+  <div style='color:#fde68a;font-size:0.78rem;margin-top:3px;'>사용하실 방식을 모두 선택 (다중 선택 가능)</div>
+</div>""", unsafe_allow_html=True)
+
+                    # ① 생체 인식
+                    _bio_sel = _mth.get("bio", False)
+                    _bio_cls = "background:#eff6ff;border:2px solid #2563eb;" if _bio_sel else "background:#f8fafc;border:2px solid #e2e8f0;"
+                    st.markdown(f"""
+<div style='{_bio_cls}border-radius:12px;padding:14px 16px;margin-bottom:8px;cursor:pointer;'>
+  <span style='font-size:1.4rem;'>👆</span>
+  <span style='font-weight:700;color:#1e3a5f;margin-left:10px;'>지문 / 얼굴 인식 (생체)</span>
+  {'<span style="float:right;color:#2563eb;font-size:1.2rem;">✅</span>' if _bio_sel else ''}
+</div>""", unsafe_allow_html=True)
+                    if st.button("지문/얼굴 인식 선택" if not _bio_sel else "지문/얼굴 인식 해제",
+                                 key="hlp_bio_tog", use_container_width=True):
+                        st.session_state["_lp_methods"]["bio"] = not _bio_sel
+                        st.rerun()
+
+                    # ② 패턴
+                    _pat_sel = _mth.get("pat", False)
+                    _pat_cls = "background:#faf5ff;border:2px solid #7c3aed;" if _pat_sel else "background:#f8fafc;border:2px solid #e2e8f0;"
+                    st.markdown(f"""
+<div style='{_pat_cls}border-radius:12px;padding:14px 16px;margin-bottom:8px;'>
+  <span style='font-size:1.4rem;'>⬛</span>
+  <span style='font-weight:700;color:#1e3a5f;margin-left:10px;'>디자인 코드 (3×3 패턴)</span>
+  {'<span style="float:right;color:#7c3aed;font-size:1.2rem;">✅</span>' if _pat_sel else ''}
+</div>""", unsafe_allow_html=True)
+                    if st.button("패턴 선택" if not _pat_sel else "패턴 해제",
+                                 key="hlp_pat_tog", use_container_width=True):
+                        st.session_state["_lp_methods"]["pat"] = not _pat_sel
+                        st.rerun()
+
+                    # ③ PIN
+                    _pin_sel = _mth.get("pin", False)
+                    _pin_cls = "background:#f0fdfa;border:2px solid #0d9488;" if _pin_sel else "background:#f8fafc;border:2px solid #e2e8f0;"
+                    st.markdown(f"""
+<div style='{_pin_cls}border-radius:12px;padding:14px 16px;margin-bottom:14px;'>
+  <span style='font-size:1.4rem;'>🔢</span>
+  <span style='font-weight:700;color:#1e3a5f;margin-left:10px;'>간편 비밀번호 (6자리 PIN)</span>
+  {'<span style="float:right;color:#0d9488;font-size:1.2rem;">✅</span>' if _pin_sel else ''}
+</div>""", unsafe_allow_html=True)
+                    if st.button("PIN 선택" if not _pin_sel else "PIN 해제",
+                                 key="hlp_pin_tog", use_container_width=True):
+                        st.session_state["_lp_methods"]["pin"] = not _pin_sel
+                        st.rerun()
+
+                    # 패턴 등록 UI (패턴 선택 시 표시)
+                    if _mth.get("pat"):
+                        st.markdown("<div style='font-size:0.8rem;color:#7c3aed;font-weight:700;margin-bottom:6px;'>⬛ 패턴 등록 — 9개 점 중 순서대로 클릭하세요 (최소 4개)</div>", unsafe_allow_html=True)
+                        _nodes = st.session_state.get("_lp_pat", [])
+                        _pat_cols = st.columns(3)
+                        for _ni in range(9):
+                            with _pat_cols[_ni % 3]:
+                                _selected = _ni in _nodes
+                                _order = _nodes.index(_ni) + 1 if _selected else ""
+                                _bg = "#7c3aed" if _selected else "#e2e8f0"
+                                _fc = "#fff" if _selected else "#64748b"
+                                st.markdown(f"""
+<div style='background:{_bg};border-radius:50%;width:48px;height:48px;
+  display:flex;align-items:center;justify-content:center;
+  margin:4px auto;font-weight:900;color:{_fc};font-size:1rem;'>{_order}</div>""",
+                                            unsafe_allow_html=True)
+                                if st.button(f"•", key=f"pat_n{_ni}", use_container_width=True):
+                                    _ns = list(st.session_state.get("_lp_pat", []))
+                                    if _ni in _ns:
+                                        _ns.remove(_ni)
+                                    else:
+                                        _ns.append(_ni)
+                                    st.session_state["_lp_pat"] = _ns
+                                    st.rerun()
+                        if _nodes:
+                            st.markdown(f"<div style='font-size:0.75rem;color:#6b7280;'>선택: {' → '.join(str(n+1) for n in _nodes)}</div>", unsafe_allow_html=True)
+                        if st.button("패턴 초기화", key="pat_reset"):
+                            st.session_state["_lp_pat"] = []
+                            st.rerun()
+
+                    # PIN 등록 UI (PIN 선택 시 표시)
+                    if _mth.get("pin"):
+                        st.markdown("<div style='font-size:0.8rem;color:#0d9488;font-weight:700;margin-bottom:4px;'>🔢 PIN 등록 — 6자리 숫자를 입력하세요</div>", unsafe_allow_html=True)
+                        _pin_reg = st.text_input("6자리 PIN", type="password", key="hlp_pin_reg",
+                                                 placeholder="숫자 6자리", max_chars=6,
+                                                 label_visibility="collapsed")
+                        if _pin_reg:
+                            st.session_state["_lp_pin"] = _pin_reg
+
+                    _setup_ok = st.button("✅ 설정 완료 — 로그인", key="hlp_setup_done",
+                                          use_container_width=True, type="primary")
+                    if _setup_ok:
+                        _m = st.session_state["_lp_methods"]
+                        if not any(_m.values()):
+                            st.error("⚠️ 최소 1가지 이상 보안 방식을 선택해 주세요.")
+                        elif _m.get("pat") and len(st.session_state.get("_lp_pat", [])) < 4:
+                            st.error("⚠️ 패턴은 4개 이상 점을 선택해야 합니다.")
+                        elif _m.get("pin") and not _re2.fullmatch(r'[0-9]{6}', st.session_state.get("_lp_pin", "")):
+                            st.error("⚠️ PIN은 숫자 6자리여야 합니다.")
+                        else:
+                            _def2 = "bio" if _m.get("bio") else ("pat" if _m.get("pat") else "pin")
+                            st.session_state["_lp_mode"] = _def2
+                            st.session_state["_lp"]      = "C"
+                            st.rerun()
+                    if st.button("↩️ 처음으로", key="hlp_back_s"):
+                        st.session_state["_lp"] = "A"
+                        st.rerun()
+
+                # ─────────────────────────────────────────────────────────────
+                # Phase C — 실전 로그인 (생체 우선 + Fallback)
+                # ─────────────────────────────────────────────────────────────
+                elif _lp == "C":
+                    _lp_name  = st.session_state.get("_lp_name", "")
+                    _mth_c    = st.session_state.get("_lp_methods", {"bio": True, "pat": False, "pin": False})
+                    _mode_c   = st.session_state.get("_lp_mode", "bio")
+
+                    st.markdown(f"""
+<div style='background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:14px;
+  padding:14px 18px;margin-bottom:12px;text-align:center;'>
+  <div style='color:#fff;font-size:0.95rem;font-weight:700;'>🔒 안전하게 로그인</div>
+  <div style='color:#94a3b8;font-size:0.78rem;margin-top:3px;'>{_lp_name}님 — 아래 방식으로 인증해 주세요</div>
+</div>""", unsafe_allow_html=True)
+
+                    # ── 현재 활성 인증 모드 UI ──────────────────────────────
+                    if _mode_c == "bio":
+                        st.markdown("""
+<div style='background:#eff6ff;border:2px solid #2563eb;border-radius:16px;
+  padding:28px 20px;text-align:center;margin-bottom:12px;'>
+  <div style='font-size:3.5rem;margin-bottom:10px;animation:pulse 2s infinite;'>👆</div>
+  <div style='font-weight:700;color:#1e3a5f;font-size:1rem;'>지문 센서에 손가락을 대주세요</div>
+  <div style='font-size:0.75rem;color:#64748b;margin-top:6px;'>또는 아래 버튼으로 시뮬레이션 인증</div>
+</div>
+<style>@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}</style>""", unsafe_allow_html=True)
+                        if st.button("👆 지문 인증 (시뮬레이션)", key="hlp_bio_auth",
+                                     use_container_width=True, type="primary"):
+                            st.success("✅ 인증 성공! 메인 시스템으로 이동합니다...")
+                            _do_final_login(_lp_name)
+
+                    elif _mode_c == "pat":
+                        _reg_pat = st.session_state.get("_lp_pat", [])
+                        st.markdown("""
+<div style='background:#faf5ff;border:2px solid #7c3aed;border-radius:16px;
+  padding:16px;margin-bottom:12px;text-align:center;'>
+  <div style='font-weight:700;color:#4c1d95;margin-bottom:8px;'>⬛ 패턴을 그려주세요</div>
+</div>""", unsafe_allow_html=True)
+                        _inp_pat = []
+                        _pc2 = st.columns(3)
+                        for _ni2 in range(9):
+                            with _pc2[_ni2 % 3]:
+                                if st.button(f"⬛ {_ni2+1}", key=f"cpat_{_ni2}", use_container_width=True):
+                                    _cur = list(st.session_state.get("_lp_pat_inp", []))
+                                    if _ni2 not in _cur:
+                                        _cur.append(_ni2)
+                                    st.session_state["_lp_pat_inp"] = _cur
+                                    st.rerun()
+                        _inp_pat = st.session_state.get("_lp_pat_inp", [])
+                        if _inp_pat:
+                            st.markdown(f"<div style='font-size:0.75rem;color:#7c3aed;'>입력: {' → '.join(str(n+1) for n in _inp_pat)}</div>", unsafe_allow_html=True)
+                        _c1p, _c2p = st.columns(2)
+                        with _c1p:
+                            if st.button("🔄 초기화", key="cpat_reset", use_container_width=True):
+                                st.session_state["_lp_pat_inp"] = []
+                                st.rerun()
+                        with _c2p:
+                            if st.button("✅ 패턴 확인", key="cpat_confirm", use_container_width=True, type="primary"):
+                                if _inp_pat == _reg_pat:
+                                    st.success("✅ 인증 성공!")
+                                    st.session_state.pop("_lp_pat_inp", None)
+                                    _do_final_login(_lp_name)
+                                else:
+                                    st.error("❌ 패턴이 일치하지 않습니다.")
+                                    st.session_state["_lp_pat_inp"] = []
+                                    st.rerun()
+
+                    elif _mode_c == "pin":
+                        _reg_pin = st.session_state.get("_lp_pin", "")
+                        st.markdown("""
+<div style='background:#f0fdfa;border:2px solid #0d9488;border-radius:16px;
+  padding:16px;margin-bottom:12px;text-align:center;'>
+  <div style='font-weight:700;color:#134e4a;margin-bottom:10px;'>🔢 6자리 PIN을 입력하세요</div>
+</div>""", unsafe_allow_html=True)
+                        _pin_in = st.text_input("PIN 입력", type="password", key="hlp_pin_in",
+                                                placeholder="숫자 6자리", max_chars=6,
+                                                label_visibility="collapsed")
+                        # 숫자패드 UI
+                        _num_rows = [["1","2","3"],["4","5","6"],["7","8","9"],["","0","⌫"]]
+                        for _nr in _num_rows:
+                            _nc = st.columns(3)
+                            for _ci, _digit in enumerate(_nr):
+                                with _nc[_ci]:
+                                    if _digit and st.button(_digit, key=f"cpin_{_digit}_{_ci}", use_container_width=True):
+                                        _cur_pin = st.session_state.get("_pin_buf", "")
+                                        if _digit == "⌫":
+                                            _cur_pin = _cur_pin[:-1]
+                                        elif len(_cur_pin) < 6:
+                                            _cur_pin += _digit
+                                        st.session_state["_pin_buf"] = _cur_pin
+                                        st.rerun()
+                        _cur_pin_disp = st.session_state.get("_pin_buf", "")
+                        st.markdown(f"<div style='text-align:center;font-size:1.8rem;letter-spacing:12px;color:#0d9488;'>{'●' * len(_cur_pin_disp)}</div>", unsafe_allow_html=True)
+                        if st.button("✅ PIN 확인", key="cpin_confirm", use_container_width=True, type="primary"):
+                            _check_pin = _pin_in.strip() or st.session_state.get("_pin_buf", "")
+                            if _check_pin == _reg_pin:
+                                st.success("✅ 인증 성공!")
+                                st.session_state.pop("_pin_buf", None)
+                                _do_final_login(_lp_name)
+                            else:
+                                st.error("❌ PIN이 일치하지 않습니다.")
+                                st.session_state["_pin_buf"] = ""
+                                st.rerun()
+
+                    # ── Fallback 대체 방식 버튼 ─────────────────────────────
+                    _fallback_opts = [
+                        ("bio", "👆 생체 인식", "#2563eb"),
+                        ("pat", "⬛ 패턴", "#7c3aed"),
+                        ("pin", "🔢 PIN", "#0d9488"),
+                    ]
+                    _fb_available = [o for o in _fallback_opts if _mth_c.get(o[0]) and o[0] != _mode_c]
+                    if _fb_available:
+                        st.markdown("<div style='text-align:center;font-size:0.75rem;color:#94a3b8;margin-top:10px;margin-bottom:6px;'>다른 방식으로 로그인</div>", unsafe_allow_html=True)
+                        _fb_cols = st.columns(len(_fb_available))
+                        for _fi, (_fk, _fl, _fc) in enumerate(_fb_available):
+                            with _fb_cols[_fi]:
+                                if st.button(_fl, key=f"fb_{_fk}", use_container_width=True):
+                                    st.session_state["_lp_mode"] = _fk
+                                    st.session_state.pop("_lp_pat_inp", None)
+                                    st.session_state.pop("_pin_buf", None)
+                                    st.rerun()
+                    if st.button("↩️ 처음으로", key="hlp_back_c"):
+                        st.session_state["_lp"] = "A"
+                        st.rerun()
             with tab_s:
                 with st.form("sb_signup_form"):
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
