@@ -103,26 +103,36 @@ os.environ["PYTHONIOENCODING"] = "utf-8:replace"
 os.environ["PYTHONUTF8"] = "1"
 
 # ── Playwright Chromium 자동 설치 (HuggingFace Space / 서버 환경) ──────────
-# requirements.txt에 playwright가 있어도 'playwright install chromium'은
-# 별도로 실행해야 함. 홈 디렉터리에 플래그 파일로 중복 방지 (영구 경로).
+# 백그라운드 스레드로 실행 → 부팅 블로킹 제거 (기존 최대 180초 → 0초 대기)
+# 플래그 파일 유효기간 7일: 재시작 시 재설치 방지
+def _install_playwright_bg():
+    try:
+        import subprocess as _subprocess
+        _pw_flag = pathlib.Path.home() / ".pw_chromium_ok"
+        _need_install = True
+        if _pw_flag.exists():
+            try:
+                import time as _t
+                _age_days = (_t.time() - _pw_flag.stat().st_mtime) / 86400
+                _need_install = _age_days > 7  # 7일 이내면 재설치 생략
+            except Exception:
+                _need_install = False
+        if _need_install:
+            _pw_result = _subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
+                capture_output=True, text=True, timeout=180
+            )
+            if _pw_result.returncode == 0:
+                _pw_flag.write_text("ok")
+            else:
+                _err_log = pathlib.Path(tempfile.gettempdir()) / "pw_install_err.txt"
+                _err_log.write_text(_pw_result.stderr or _pw_result.stdout or "unknown error")
+    except Exception:
+        pass
+
 try:
-    import subprocess as _subprocess
-    # 영구 경로 사용 (tmpdir는 재시작마다 초기화됨)
-    _pw_flag = pathlib.Path.home() / ".pw_chromium_ok"
-    _need_install = not _pw_flag.exists()
-    # ※ 플래그 파일 존재 시 chromium 실제 구동 확인 생략 (시작 3~5초 단축)
-    #   바이너리 실제 확인이 필요하면 플래그 파일을 수동 삭제할 것
-    if _need_install:
-        _pw_result = _subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
-            capture_output=True, text=True, timeout=180
-        )
-        if _pw_result.returncode == 0:
-            _pw_flag.write_text("ok")
-        else:
-            # 설치 실패 시 stderr를 임시 로그에 기록 (앱은 계속 기동)
-            _err_log = pathlib.Path(tempfile.gettempdir()) / "pw_install_err.txt"
-            _err_log.write_text(_pw_result.stderr or _pw_result.stdout or "unknown error")
+    import threading as _threading
+    _threading.Thread(target=_install_playwright_bg, daemon=True).start()
 except Exception:
     pass
 
@@ -7925,11 +7935,12 @@ if(!CRED_ID) setTimeout(doBioAuth, 400);
   <div style='font-size:1.5rem;margin-bottom:6px;'>📋</div>
   <div style='font-weight:700;color:#991b1b;font-size:0.95rem;'>약관 동의가 필요합니다</div>
   <div style='font-size:0.78rem;color:#7f1d1d;margin-top:6px;line-height:1.6;'>
-    가입 전 <b>[로그인]</b> 탭에서 이용약관·개인정보·민감정보<br>3가지 항목에 모두 동의해 주세요.
+    아래 버튼을 눌러 이용약관·개인정보·민감정보 3가지에 일괄 동의하세요.
   </div>
 </div>""", unsafe_allow_html=True)
-                    if st.button("📋 약관 동의하러 가기", key="su_go_terms", use_container_width=True, type="primary"):
-                        st.session_state["_lp"] = "TERMS"
+                    # [B2 수정] st.tabs는 프로그래매틱 전환 불가 → 회원가입 탭 안에서 직접 동의 처리
+                    if st.button("☑️ 이용약관·개인정보·민감정보 전체 동의", key="su_agree_inline", use_container_width=True, type="primary"):
+                        st.session_state["_lp_terms"] = {"t1": True, "t2": True, "t3": True}
                         st.rerun()
                 else:
                     with st.form("sb_signup_form"):
@@ -8314,11 +8325,15 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
         # ── 관리자 콘솔 (최하단) ──────────────────────────────────────────
         with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
             with st.form("admin_login_form", clear_on_submit=False):
-                admin_id = st.text_input("관리자 ID", key="admin_id_f", type="password")
+                admin_id = st.text_input("관리자 ID", key="admin_id_f",
+                    placeholder="admin 또는 이세윤")
                 admin_code = st.text_input("관리자 코드", key="admin_code_f", type="password",
                     placeholder="코드 입력")
                 _admin_submitted = st.form_submit_button("관리자 로그인", use_container_width=True)
             if _admin_submitted:
+                # [B3 수정] strip/lower 처리로 공백·대소문자 무관하게 비교
+                _aid = (admin_id or "").strip()
+                _acd = (admin_code or "").strip()
                 try:
                     _admin_code = st.secrets.get("ADMIN_CODE", "kgagold6803")
                 except Exception:
@@ -8327,14 +8342,14 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                     _master_code = st.secrets.get("MASTER_CODE", "kgagold6803")
                 except Exception:
                     _master_code = "kgagold6803"
-                if admin_id in ("admin", "이세윤") and admin_code == _admin_code:
+                if _aid.lower() in ("admin", "이세윤") and _acd == _admin_code:
                     st.session_state.user_id = "ADMIN_MASTER"
                     st.session_state.user_name = "이세윤"
                     st.session_state.join_date = dt.now()
                     st.session_state.is_admin = True
                     st.session_state["_login_welcome"] = "이세윤"
                     st.rerun()
-                elif admin_code == _master_code:
+                elif _acd == _master_code:
                     try:
                         _master_name = st.secrets.get("MASTER_NAME", "이세윤")
                     except Exception:
