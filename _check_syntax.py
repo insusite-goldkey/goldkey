@@ -1,11 +1,19 @@
-import py_compile, sys
+import ast, sys
 
-out = open('D:/CascadeProjects/_syntax_result.txt', 'w', encoding='utf-8')
+result_path = 'D:/CascadeProjects/_syntax_result.txt'
+src_path    = 'D:/CascadeProjects/app.py'
+
 try:
-    py_compile.compile('D:/CascadeProjects/app.py', doraise=True)
-    out.write('SYNTAX OK\n')
-except py_compile.PyCompileError as e:
-    out.write('ERROR: ' + str(e) + '\n')
+    with open(src_path, encoding='utf-8') as f:
+        src = f.read()
+    ast.parse(src, filename=src_path)
+    msg = 'SYNTAX OK\n'
 except SyntaxError as e:
-    out.write(f'SyntaxError line {e.lineno}: {e.msg}\n')
-out.close()
+    msg = f'SyntaxError line {e.lineno}: {e.msg}\n  >>> {repr(e.text)}\n'
+except Exception as e:
+    msg = f'Error: {e}\n'
+
+with open(result_path, 'w', encoding='utf-8') as out:
+    out.write(msg)
+
+print(msg, end='')
