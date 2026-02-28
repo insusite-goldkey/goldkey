@@ -1926,34 +1926,65 @@ _STT_CORRECT_MAP = {
 
 # ── Voice-to-Action 네비게이션 매핑 테이블 ──────────────────────────────────
 # 키: current_tab 값 / 값: 감지 키워드 리스트 (앞에서부터 매칭 우선순위)
+# ※ 충돌 방지 원칙: 각 섹션 고유 키워드만 사용, 다른 탭과 겹치는 단어 금지
+# ※ 섹션 번호 체계: S01~S26 (JS/Python 양쪽에서 동일 순서 참조)
 _NAV_INTENT_MAP = [
-    # (tab_key, [키워드 ...])  — 순서가 우선순위
-    ("policy_scan",  ["증권 분석", "보험증권 분석", "증권분석", "보험증권", "증권 업로드", "증권 봐줘", "증권 보여"]),
-    ("policy_terms", ["약관", "약관 검색", "약관 찾아", "약관 보여", "약관 알려"]),
-    ("scan_hub",     ["스캔허브", "스캔 허브", "통합 스캔", "의무기록 올려", "서류 올려"]),
-    ("t0",           ["신규 보험", "신규상담", "새 보험", "보험 추천", "보험 가입", "보험 설계", "신규 상담"]),
-    ("injury",       ["상해", "상해사고", "상해보험", "사고났어", "사고 났어", "소득 끊겨", "일 못해", "보장 공백", "gap 분석", "상해 설계", "상해 통합"]),
-    ("t1",           ["보험금 청구", "보험금", "청구", "지급 거절", "보험금 얼마", "청구 방법"]),
-    ("disability",   ["장해", "장해보험금", "후유장해", "맥브라이드", "AMA", "장해율", "장해 산출"]),
-    ("cancer",       ["암", "뇌", "심장", "3대질병", "NGS", "CAR-T", "표적항암", "면역항암", "뇌경색", "심근경색"]),
-    ("t2",           ["자동차보험", "자동차 보험", "화재보험", "운전자보험", "기본보험"]),
-    ("t3",           ["질병", "상해", "통합보험", "간병", "치매", "생명보험", "3대 질병"]),
-    ("t4",           ["자동차사고", "자동차 사고", "교통사고", "과실비율", "합의금", "민식이법"]),
-    ("t5",           ["노후", "연금", "상속", "증여", "주택연금", "노후설계", "연금설계", "상속설계"]),
-    ("t6",           ["세무", "세금", "절세", "소득세", "법인세", "건보료", "금융소득", "세무 상담"]),
-    ("t7",           ["법인", "법인보험", "단체보험", "법인 상담", "복리후생"]),
-    ("t8",           ["CEO", "대표", "비상장", "가업승계", "퇴직금 설계", "CEO플랜"]),
-    ("stock_eval",   ["비상장주식", "주식 평가", "상증법", "순자산", "경영권"]),
-    ("fire",         ["화재", "재조달", "REB", "화재보험", "건물 보험"]),
-    ("liability",    ["배상책임", "배상", "중복보험", "실화책임", "독립책임"]),
-    ("nursing",      ["간병비", "장기요양", "요양병원", "간병보험", "치매 보험", "간병 컨설팅"]),
-    ("realty",       ["부동산", "등기부", "건축물대장", "투자 수익", "부동산 투자"]),
-    ("life_cycle",   ["라이프사이클", "life cycle", "생애설계", "타임라인", "백지설계"]),
-    ("life_event",   ["라이프이벤트", "life event", "결혼", "출산", "퇴직", "은퇴", "취업", "인생 이벤트"]),
-    ("leaflet",      ["리플렛", "카탈로그 분류", "상품 카탈로그", "리플렛 올려", "신상품 등록"]),
+    # S01 — 보험증권 분석
+    ("policy_scan",     ["증권 분석", "보험증권 분석", "증권분석", "보험증권", "증권 업로드", "증권 봐줘", "증권 보여", "내 증권"]),
+    # S02 — 약관 매칭
+    ("policy_terms",    ["약관 검색", "약관 찾아", "약관 보여", "약관 알려", "약관 매칭"]),
+    # S03 — 통합 스캔 허브
+    ("scan_hub",        ["스캔허브", "스캔 허브", "통합 스캔", "서류 올려"]),
+    # S04 — 신규보험 상담
+    ("t0",              ["신규 보험", "신규상담", "새 보험", "보험 추천", "보험 가입", "보험 설계", "신규 상담"]),
+    # S05 — 상해 통합 관리
+    ("injury",          ["상해사고", "상해보험", "사고났어", "사고 났어", "소득 끊겨", "일 못해", "보장 공백", "상해 설계", "상해 통합", "상해 관리"]),
+    # S06 — 보험금 청구 상담
+    ("t1",              ["보험금 청구", "보험금 상담", "보험금 청구 상담", "청구 방법", "지급 거절", "보험금 얼마", "보험금 받", "청구 상담", "암 청구", "암 보험 청구"]),
+    # S07 — 장해 산출
+    ("disability",      ["장해", "장해보험금", "후유장해", "맥브라이드", "AMA", "장해율", "장해 산출"]),
+    # S08 — 암 질환 (고유: 표적·NGS·CAR-T·면역항암)
+    ("cancer",          ["암 상담", "암 질환", "표적항암", "면역항암", "NGS", "CAR-T", "항암치료", "암 진단", "암보험"]),
+    # S09 — 뇌 질환 (고유: 뇌졸중·뇌경색·뇌출혈)
+    ("brain",           ["뇌 상담", "뇌졸중", "뇌경색", "뇌출혈", "중풍", "뇌질환", "뇌혈관"]),
+    # S10 — 심장 질환 (고유: 심근경색·협심증·허혈)
+    ("heart",           ["심장 상담", "심근경색", "협심증", "허혈", "심장질환", "심장혈관", "급성심장"]),
+    # S11 — 기본보험 상담
+    ("t2",              ["자동차보험", "운전자보험", "기본보험 상담", "기본 보험"]),
+    # S12 — 통합보험 설계
+    ("t3",              ["통합보험", "통합 설계", "생명보험 설계", "종합 설계", "통합보험 설계"]),
+    # S13 — 자동차사고 상담
+    ("t4",              ["자동차사고", "자동차 사고", "교통사고", "과실비율", "합의금", "민식이법"]),
+    # S14 — 노후·상속 설계
+    ("t5",              ["노후설계", "연금설계", "상속설계", "증여 설계", "주택연금", "노후 상담", "상속 상담"]),
+    # S15 — 세무 상담
+    ("t6",              ["세무 상담", "세금 상담", "절세 방법", "소득세", "법인세", "건보료", "금융소득", "세무"]),
+    # S16 — 법인 상담
+    ("t7",              ["법인 상담", "법인보험", "단체보험", "복리후생", "법인 보험"]),
+    # S17 — CEO플랜
+    ("t8",              ["CEO플랜", "CEO 플랜", "대표 설계", "가업승계", "퇴직금 설계", "CEO 상담"]),
+    # S18 — 비상장주식 평가
+    ("stock_eval",      ["비상장주식", "주식 평가", "상증법", "순자산 평가", "경영권 할증"]),
+    # S19 — 화재보험
+    ("fire",            ["화재 상담", "재조달가액", "화재보험 설계", "건물 보험", "REB"]),
+    # S20 — 배상책임보험
+    ("liability",       ["배상책임", "배상 상담", "중복보험", "실화책임", "독립책임", "배상보험"]),
+    # S21 — 간병비 컨설팅 (고유: 간병비·장기요양·요양병원)
+    ("nursing",         ["간병비", "간병 컨설팅", "장기요양", "요양병원", "간병보험", "간병 상담", "요양 상담"]),
+    # S22 — 부동산 투자
+    ("realty",          ["부동산 투자", "부동산 상담", "등기부", "건축물대장", "투자 수익률"]),
+    # S23 — LIFE CYCLE
+    ("life_cycle",      ["라이프사이클", "life cycle", "생애설계", "타임라인", "백지설계", "인생 설계"]),
+    # S24 — LIFE EVENT
+    ("life_event",      ["라이프이벤트", "life event", "인생 이벤트", "결혼 설계", "출산 설계", "은퇴 설계"]),
+    # S25 — 리플렛
+    ("leaflet",         ["리플렛", "리플렛 올려", "신상품 등록", "상품 리플렛"]),
+    # S26 — 상담 카탈로그
     ("consult_catalog", ["카탈로그 열람", "카탈로그 보여", "내 카탈로그", "상담 카탈로그"]),
-    ("customer_docs",["고객자료", "의무기록", "서류 저장", "고객 문서", "마인드맵"]),
-    ("digital_catalog",["디지털 카탈로그", "카탈로그 관리", "카탈로그 업로드"]),
+    # S27 — 고객자료
+    ("customer_docs",   ["고객자료", "의무기록 저장", "서류 저장", "고객 문서", "마인드맵"]),
+    # S28 — 디지털 카탈로그
+    ("digital_catalog", ["디지털 카탈로그", "카탈로그 관리", "카탈로그 업로드"]),
 ]
 
 def _voice_navigate(text: str) -> str | None:
@@ -8795,63 +8826,107 @@ window['startTTS_{tab_key}']=function(){{
         )
         components.html(f"""
 <style>
+/* ── Voice Navigation UI ── */
 .vnav-row{{display:flex;gap:8px;margin-top:2px;margin-bottom:4px;}}
 .vnav-stt{{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #2e6da4;
-  background:#eef4fb;color:#1a3a5c;font-size:0.85rem;font-weight:700;cursor:pointer;}}
+  background:#eef4fb;color:#1a3a5c;font-size:0.85rem;font-weight:700;cursor:pointer;
+  transition:background 0.2s,color 0.2s;}}
 .vnav-stt:hover{{background:#2e6da4;color:#fff;}}
-.vnav-stt.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;animation:vnavpulse 1s infinite;}}
+.vnav-stt.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;}}
 .vnav-result{{font-size:0.82rem;color:#1a3a5c;background:#dbeafe;border-radius:8px;
   padding:7px 12px;margin-top:5px;min-height:28px;font-weight:700;display:none;
   border:1.5px solid #2563eb;}}
-.vnav-guide{{font-size:0.78rem;color:#2563eb;margin-top:4px;text-align:center;
-  font-weight:700;display:none;}}
+.vnav-result.matched{{background:#dcfce7;border-color:#16a34a;color:#14532d;}}
+.vnav-result.ambig{{background:#fef9c3;border-color:#ca8a04;color:#713f12;}}
+.vnav-result.unmatched{{background:#fee2e2;border-color:#dc2626;color:#7f1d1d;}}
+.vnav-guide{{font-size:0.78rem;margin-top:4px;text-align:center;font-weight:700;display:none;
+  padding:6px 10px;border-radius:6px;}}
 .vnav-hint{{font-size:0.72rem;color:#6b7280;margin-top:3px;text-align:center;}}
-@keyframes vnavpulse{{0%{{opacity:1}}50%{{opacity:0.6}}100%{{opacity:1}}}}
+/* Voice Wave 애니메이션 — 음성 인식 중 표시 */
+.vnav-wave-wrap{{display:none;justify-content:center;align-items:flex-end;
+  gap:3px;height:28px;margin-top:4px;}}
+.vnav-wave-wrap.on{{display:flex;}}
+.vnav-bar{{width:4px;border-radius:3px;background:linear-gradient(to top,#0ea5e9,#6366f1);
+  animation:vnav-wave 1.0s ease-in-out infinite;}}
+.vnav-bar:nth-child(1){{height:8px; animation-delay:0.0s;}}
+.vnav-bar:nth-child(2){{height:16px;animation-delay:0.1s;}}
+.vnav-bar:nth-child(3){{height:24px;animation-delay:0.2s;}}
+.vnav-bar:nth-child(4){{height:16px;animation-delay:0.3s;}}
+.vnav-bar:nth-child(5){{height:10px;animation-delay:0.4s;}}
+.vnav-bar:nth-child(6){{height:20px;animation-delay:0.15s;}}
+.vnav-bar:nth-child(7){{height:12px;animation-delay:0.25s;}}
+@keyframes vnav-wave{{
+  0%,100%{{transform:scaleY(0.4);opacity:0.6;}}
+  50%{{transform:scaleY(1.0);opacity:1.0;}}
+}}
 </style>
 <div class="vnav-row">
   <button class="vnav-stt" id="vnav_stt_btn" onclick="startVNavSTT()">🎙️ 음성으로 메뉴 이동</button>
 </div>
+<!-- Voice Wave 시각 피드백 -->
+<div class="vnav-wave-wrap" id="vnav_wave">
+  <div class="vnav-bar"></div><div class="vnav-bar"></div><div class="vnav-bar"></div>
+  <div class="vnav-bar"></div><div class="vnav-bar"></div><div class="vnav-bar"></div>
+  <div class="vnav-bar"></div>
+</div>
 <div class="vnav-result" id="vnav_result_box"></div>
-<div class="vnav-guide" id="vnav_guide_box">👆 위 입력창에 내용이 입력됩니다 — 오른쪽 <b>바로 이동</b> 버튼을 눌러주세요!</div>
+<div class="vnav-guide" id="vnav_guide_box"></div>
 <div class="vnav-hint" id="vnav_hint">음성으로 말하면 위 입력창에 자동으로 채워집니다 · Chrome/Edge 권장</div>
 <script>
 (function(){{
-var _active=false, _rec=null, _starting=false;
+var _active=false, _rec=null;
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+// Intent 매핑 테이블 (Python _NAV_INTENT_MAP 과 동기화)
 var _INTENTS={_nav_intent_js};
+// 섹션 한국어 이름 매핑 (라우팅 결과 안내용)
+var _TAB_NAMES={{
+  policy_scan:'보험증권 분석',policy_terms:'약관 매칭',scan_hub:'통합 스캔',
+  t0:'신규보험 상담',injury:'상해 통합',t1:'보험금 청구 상담',
+  disability:'장해 산출',cancer:'암 질환 상담',brain:'뇌 질환 상담',heart:'심장 질환 상담',
+  t2:'기본보험 상담',t3:'통합보험 설계',t4:'자동차사고 상담',
+  t5:'노후·상속 설계',t6:'세무 상담',t7:'법인 상담',t8:'CEO플랜',
+  stock_eval:'비상장주식 평가',fire:'화재보험',liability:'배상책임',
+  nursing:'간병비 컨설팅',realty:'부동산 투자',
+  life_cycle:'LIFE CYCLE 설계',life_event:'LIFE EVENT 상담',
+  leaflet:'리플렛 분류',consult_catalog:'상담 카탈로그',
+  customer_docs:'고객자료',digital_catalog:'디지털 카탈로그'
+}};
 
-function _detectTab(text){{
+// KWS: 모든 매칭 탭 반환 (중복 감지용)
+function _detectAllTabs(text){{
   var t=text.toLowerCase();
+  var matched=[];
   for(var i=0;i<_INTENTS.length;i++){{
     var item=_INTENTS[i];
     for(var j=0;j<item[1].length;j++){{
-      if(t.indexOf(item[1][j].toLowerCase())>=0) return item[0];
+      if(t.indexOf(item[1][j].toLowerCase())>=0){{
+        matched.push(item[0]);
+        break;  // 탭당 1회만 추가
+      }}
     }}
   }}
-  return null;
+  return matched;
 }}
 
-// sessionStorage에 저장 → parent window의 input을 폴링으로 채움
-// (location 변경 없음 → 로그인 세션 유지)
 function _fillParentInput(text){{
   try{{
     var pd=window.parent.document;
     var inputs=pd.querySelectorAll('input[type="text"],input:not([type])');
     for(var i=0;i<inputs.length;i++){{
       var ph=inputs[i].placeholder||'';
-      if(ph.includes('음성 인식')||ph.includes('직접 입력')||ph.includes('바로 이동')||ph.includes('보험금')){{
-        var nativeSetter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-        nativeSetter.call(inputs[i],text);
+      if(ph.includes('음성 인식')||ph.includes('직접 입력')||ph.includes('바로 이동')){{
+        var ns=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
+        ns.call(inputs[i],text);
         inputs[i].dispatchEvent(new Event('input',{{bubbles:true}}));
         inputs[i].dispatchEvent(new Event('change',{{bubbles:true}}));
         return true;
       }}
     }}
-    // fallback: 첫 번째 visible input
+    // fallback: 첫 번째 편집 가능한 input
     for(var i=0;i<inputs.length;i++){{
-      if(inputs[i].offsetParent!==null && !inputs[i].readOnly){{
-        var nativeSetter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-        nativeSetter.call(inputs[i],text);
+      if(inputs[i].offsetParent!==null && !inputs[i].readOnly && !inputs[i].disabled){{
+        var ns=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
+        ns.call(inputs[i],text);
         inputs[i].dispatchEvent(new Event('input',{{bubbles:true}}));
         inputs[i].dispatchEvent(new Event('change',{{bubbles:true}}));
         return true;
@@ -8862,18 +8937,25 @@ function _fillParentInput(text){{
 }}
 
 window.startVNavSTT=function(){{
-  var btn=document.getElementById('vnav_stt_btn');
+  var btn =document.getElementById('vnav_stt_btn');
   var rbox=document.getElementById('vnav_result_box');
   var gbox=document.getElementById('vnav_guide_box');
   var hint=document.getElementById('vnav_hint');
+  var wave=document.getElementById('vnav_wave');
   if(!SR){{alert('Chrome/Edge 브라우저를 사용해주세요.'); return;}}
   if(_active){{
-    _active=false; _starting=false;
+    _active=false;
     if(_rec) try{{_rec.stop();}}catch(ex){{}};
-    btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active'); return;
+    btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+    wave.classList.remove('on'); return;
   }}
   var r=new SR();
-  r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=false; r.maxAlternatives=3;
+  r.lang='{STT_LANG}'; r.interimResults=true; r.continuous=false; r.maxAlternatives=5;
+  r.onstart=function(){{
+    wave.classList.add('on');
+    hint.style.display='none';
+    rbox.style.display='none'; gbox.style.display='none';
+  }};
   r.onresult=function(e){{
     var best='', bc=0, interim='';
     for(var i=0;i<e.results.length;i++){{
@@ -8881,63 +8963,78 @@ window.startVNavSTT=function(){{
         for(var j=0;j<e.results[i].length;j++){{
           if(e.results[i][j].confidence>=bc){{bc=e.results[i][j].confidence; best=e.results[i][j].transcript;}}
         }}
-      }} else {{
-        interim+=e.results[i][0].transcript;
-      }}
+      }} else {{ interim+=e.results[i][0].transcript; }}
     }}
-    // interim 실시간 표시
     if(interim){{
       btn.textContent='🎤 '+interim.slice(0,24)+(interim.length>24?'...':'');
     }}
     if(best){{
-      // ① 결과 박스에 표시
-      rbox.style.display='block';
-      rbox.textContent='🎙️ 인식: "'+best+'"';
-      // ② parent input에 채우기
+      wave.classList.remove('on');
       _fillParentInput(best);
-      // ③ 감지된 탭 안내
-      var tab=_detectTab(best);
-      if(tab){{
-        gbox.style.display='block';
-        hint.style.display='none';
-        btn.textContent='✅ "'+best+'" — 오른쪽 바로이동 버튼을 누르세요!';
+      var tabs=_detectAllTabs(best);
+      rbox.style.display='block';
+      gbox.style.display='block';
+      if(tabs.length===1){{
+        // 명확한 단일 매칭 ✅
+        var nm=_TAB_NAMES[tabs[0]]||tabs[0];
+        rbox.className='vnav-result matched';
+        rbox.textContent='✅ 인식: "'+best+'" → '+nm+' 섹션으로 이동합니다';
+        gbox.className='vnav-guide';
+        gbox.style.background='#dcfce7';gbox.style.color='#14532d';
+        gbox.innerHTML='👆 오른쪽 <b>바로 이동</b> 버튼을 눌러주세요!';
+        btn.textContent='✅ "'+best+'" 인식 완료 — 바로이동 버튼 클릭!';
+      }} else if(tabs.length>1){{
+        // 중복 매칭 — 재묻기 ⚠️
+        var names=tabs.map(function(k){{return _TAB_NAMES[k]||k;}}).join(' / ');
+        rbox.className='vnav-result ambig';
+        rbox.textContent='⚠️ "'+best+'" — 여러 섹션이 감지되었습니다: '+names;
+        gbox.className='vnav-guide';
+        gbox.style.background='#fef9c3';gbox.style.color='#713f12';
+        gbox.innerHTML='🔄 어느 보장 내용을 확인해 드릴까요? 더 구체적으로 말씀해 주세요.<br>'
+          +'예) <b>"암 보험금 청구"</b> → 보험금 청구 상담 &nbsp;|&nbsp; <b>"암 상담"</b> → 암 질환 상담';
+        btn.textContent='⚠️ 중복 감지 — 더 구체적으로 말씀해주세요';
       }} else {{
-        gbox.style.display='block';
-        gbox.textContent='👆 위 입력창 내용을 확인 후 오른쪽 \"바로 이동\" 버튼을 눌러주세요';
-        btn.textContent='⚠️ "'+best+'" 입력됨 — 바로이동 버튼 클릭!';
+        // 매칭 없음 ❌
+        rbox.className='vnav-result unmatched';
+        rbox.textContent='❓ "'+best+'" — 해당 메뉴를 찾지 못했습니다';
+        gbox.className='vnav-guide';
+        gbox.style.background='#fee2e2';gbox.style.color='#7f1d1d';
+        gbox.innerHTML='💡 예시: <b>"암 상담"</b> / <b>"보험금 청구 상담"</b> / <b>"간병비"</b> / <b>"보험증권 분석"</b><br>또는 위 입력창에 직접 입력 후 바로 이동 버튼을 눌러주세요';
+        btn.textContent='❓ 인식됨 — 직접 입력 후 바로이동 버튼 클릭';
       }}
     }}
   }};
   r.onerror=function(e){{
-    _active=false;
+    _active=false; wave.classList.remove('on');
     btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
     if(e.error!=='no-speech'&&e.error!=='aborted'){{
-      rbox.style.display='block'; rbox.textContent='⚠️ 오류: '+e.error+' — 다시 시도해주세요';
+      rbox.style.display='block';
+      rbox.className='vnav-result unmatched';
+      rbox.textContent='⚠️ 오류: '+e.error+' — 다시 시도해주세요';
     }}
   }};
   r.onend=function(){{
-    _active=false; _starting=false;
+    _active=false; wave.classList.remove('on');
     if(btn.textContent.includes('듣는 중')){{
       btn.textContent='🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
     }}
   }};
-  _rec=r; _active=true; _starting=true;
-  rbox.style.display='none'; gbox.style.display='none'; hint.style.display='block';
+  _rec=r; _active=true;
   btn.textContent='⏹️ 듣는 중... (말하세요)'; btn.classList.add('active');
-  try{{r.start();}}catch(ex){{_active=false; _starting=false;}}
+  try{{r.start();}}catch(ex){{_active=false; wave.classList.remove('on');}}
 }};
 }})();
 </script>
-""", height=120)
+""", height=160)
 
-        # Voice-to-Action 라우팅 처리 — 비활성화 (TODO: STT 완성 후 재활성화)
-        if False:  # DISABLED: STT 준비중 — 재활성화 시 'if False:' → 'if _nav_go and _nav_input:' 으로 변경
+        # Voice-to-Action 라우팅 처리 — 활성화
+        if _nav_go and _nav_input and _nav_input.strip():
             _dest = _voice_navigate(_nav_input.strip())
             if _dest:
                 st.session_state["voice_nav_input"] = ""
                 _go_tab(_dest)
             else:
-                st.warning("⚠️ 해당 메뉴를 찾지 못했습니다. 더 구체적으로 입력해주세요. 예) '암 상담', '보험증권 분석'")
+                st.warning("⚠️ 해당 메뉴를 찾지 못했습니다. 더 구체적으로 입력해주세요. 예) '암 상담', '보험금 청구 상담', '간병비 상담'")
 
         # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
         components.html("""
