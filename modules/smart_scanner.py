@@ -3,10 +3,15 @@
 # SmartScanner — 중앙통제형 재사용 스캔 컴포넌트 (DRY 원칙)
 #
 # 사용법:
-#   from modules.smart_scanner import render_smart_scanner, render_scan_report
+#   from modules.smart_scanner import (
+#       render_smart_scanner, render_scan_report,   # 의료 스캔
+#       render_legal_scanner, render_legal_report,  # 법률 스캔
+#       render_ssot_banner,
+#   )
 #
-#   render_smart_scanner(doc_type="의무기록")   # 어느 섹터에서든 동일 UI
-#   render_scan_report()                        # 분석 결과 리포트 + 출력 버튼
+#   render_smart_scanner(doc_type="의무기록")   # 의료: 어느 섹터에서든 동일 UI
+#   render_legal_scanner()                      # 법률: 판결문·소장·행정처분 분석
+#   render_legal_report()                       # 법률: A4 리포트 + 답변서 초안 생성
 # ============================================================
 
 import time
@@ -406,3 +411,479 @@ def render_ssot_banner(sector: str = ""):
     <b>KCD:</b> {_kcd} &nbsp;|&nbsp; <b>진단명:</b> {_dis}
   </span>
 </div>""", unsafe_allow_html=True)
+
+
+# =============================================================
+# ██  법률·행정 SmartScanner (LegalTech)  ██
+# =============================================================
+# 3단계 구조:
+#   1단계 — Legal NER   : 사건번호·법원·당사자·청구취지·적용법조 추출
+#   2단계 — Legal Trans : 판결문 평어 번역 (법률 용어 → 쉬운 우리말)
+#   3단계 — Generative  : 답변서·내용증명 초안 자동 작성
+# =============================================================
+
+# ─────────────────────────────────────────────────────────────
+# Mock Legal NER 결과 — 실제 Gemini Vision 연동 전 시뮬레이션
+# ─────────────────────────────────────────────────────────────
+_MOCK_LEGAL_NER: list[dict] = [
+    {
+        "doc_type":      "구상금 청구 소장",
+        "case_number":   "2026가소98765",
+        "court":         "서울중앙지방법원",
+        "plaintiff":     "A 화재해상보험(주)",
+        "defendant":     "김고객 (본인)",
+        "claim_amount":  5_000_000,
+        "claim_summary": "원고는 2024년 9월 3일 발생한 교통사고로 인하여 피해자에게 보험금 5,000,000원을 지급하였는바, 피고의 과실에 의한 구상금 청구의 소를 제기함.",
+        "legal_basis":   "상법 제682조 (대위권), 민법 제750조 (불법행위)",
+        "deadline_days": 30,
+        "easy_summary":  "상대방(A보험사)이 과거 교통사고와 관련해 고객님께 500만 원을 물어내라는 소송을 걸었습니다. 답변서를 30일 이내에 법원에 제출하지 않으면 자동으로 지게 됩니다(무변론 패소). 지금 바로 답변서를 준비하세요.",
+        "verdict":       None,
+        "sector":        "t1",   # 보험금 청구 상담
+    },
+    {
+        "doc_type":      "보험금 지급 거절 통보서 (행정처분)",
+        "case_number":   "금감원-2026-민원-00123",
+        "court":         "금융감독원 분쟁조정위원회",
+        "plaintiff":     "B 생명보험(주)",
+        "defendant":     "이고객 (청구인)",
+        "claim_amount":  20_000_000,
+        "claim_summary": "피보험자의 진단서상 KCD I21.9(급성심근경색)에 대해 '계약 전 알릴 의무 위반(고지의무 위반)'을 이유로 보험금 지급을 거절함.",
+        "legal_basis":   "보험업법 제651조 (고지의무), 약관규제법 제5조 (불명확 약관 고객 유리 해석)",
+        "deadline_days": 90,
+        "easy_summary":  "B보험사가 '가입할 때 병력을 숨겼다'는 이유로 심근경색 보험금 2,000만 원 지급을 거절했습니다. 하지만 약관 문구가 불명확하면 고객에게 유리하게 해석해야 합니다. 90일 이내에 금감원 분쟁조정을 신청하세요.",
+        "verdict":       None,
+        "sector":        "t1",
+    },
+    {
+        "doc_type":      "손해배상 청구 판결문",
+        "case_number":   "2025나11234",
+        "court":         "서울고등법원 제3민사부",
+        "plaintiff":     "박원고",
+        "defendant":     "C 손해보험(주)",
+        "claim_amount":  15_000_000,
+        "claim_summary": "원고의 청구를 인용하여 피고는 원고에게 15,000,000원 및 이에 대한 소장 송달일 다음날부터 다 갚는 날까지 연 12%의 비율에 의한 금원을 지급하라.",
+        "legal_basis":   "상법 제658조 (보험금 지연지급), 소비자기본법 제19조",
+        "deadline_days": 14,
+        "easy_summary":  "고객님(원고)이 승소하셨습니다! C보험사가 보험금 1,500만 원과 연 12% 이자를 지급해야 합니다. 판결 확정 후 14일 이내에 보험사가 자진 지급하지 않으면 강제집행(압류)을 신청할 수 있습니다.",
+        "verdict":       "원고 승소",
+        "sector":        "t1",
+    },
+]
+
+# ─────────────────────────────────────────────────────────────
+# 답변서 초안 템플릿 생성기
+# ─────────────────────────────────────────────────────────────
+def _generate_answer_draft(data: dict) -> str:
+    """법원 제출용 표준 답변서 초안 텍스트 생성 (Mock)."""
+    today = __import__("datetime").date.today().strftime("%Y. %m. %d.")
+    return f"""답  변  서
+
+사 건: {data.get('case_number', '')}  {data.get('doc_type', '')}
+원 고: {data.get('plaintiff', '')}
+피 고: {data.get('defendant', '')}
+
+위 사건에 관하여 피고는 다음과 같이 답변합니다.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[청구 취지에 대한 답변]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. 원고의 청구를 기각한다.
+2. 소송비용은 원고가 부담한다.
+라는 판결을 구합니다.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[청구 원인에 대한 답변]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. 원고 주장의 요지
+원고는 "{data.get('claim_summary', '')}"라고 주장하나, 이는 사실과 다르며
+아래와 같이 반박합니다.
+
+2. 피고의 반박 사유
+(AI 생성 초안 — 실제 사실관계 기재 필요)
+· 피고는 해당 사고 당시 법령을 준수하였으며 원고 주장과 같은 귀책사유가 없습니다.
+· 적용 법조 ({data.get('legal_basis', '')}) 검토 결과,
+  피고에게 배상 책임을 귀속시킬 인과관계가 성립하지 않습니다.
+· 원고가 제출한 증거자료의 신빙성에 대하여 다툽니다.
+
+3. 결론
+원고의 청구는 이유 없으므로 기각되어야 합니다.
+
+{today}
+위 피고  {data.get('defendant', '')}  (인)
+
+[제출처] {data.get('court', '')}  귀중
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+※ 본 초안은 AI가 생성한 참고용 문서입니다.
+   실제 제출 전 반드시 변호사·손해사정인의 검토를 받으시기 바랍니다.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+
+
+def _generate_complaint_draft(data: dict) -> str:
+    """내용증명 초안 텍스트 생성 (Mock)."""
+    today = __import__("datetime").date.today().strftime("%Y. %m. %d.")
+    return f"""내  용  증  명
+
+수 신: {data.get('plaintiff', '')} 귀중
+발 신: {data.get('defendant', '')}
+제 목: {data.get('doc_type', '')} 관련 이의 및 보험금 지급 촉구
+
+귀사의 무궁한 발전을 기원합니다.
+
+본인({data.get('defendant', '')})은 귀사가 {data.get('case_number', '')}와 관련하여
+청구금액 {data.get('claim_amount', 0):,}원의 지급 거절(또는 청구)에 대해
+다음과 같이 공식적으로 이의를 제기합니다.
+
+1. 이의 사유
+(AI 생성 초안 — 실제 사실관계 기재 필요)
+· 귀사의 처분/청구는 {data.get('legal_basis', '')}에 근거하고 있으나,
+  해당 조항의 적용 요건이 충족되지 않았습니다.
+· 본인은 계약 체결 시 성실히 고지의무를 이행하였으며,
+  관련 증빙자료를 보유하고 있습니다.
+
+2. 요구 사항
+본 내용증명 수령 후 14일 이내에 서면으로 답변해 주시기 바랍니다.
+정당한 사유 없이 답변이 없을 경우 금융감독원 분쟁조정 신청 및
+민사소송을 제기할 예정임을 알립니다.
+
+{today}
+발신인  {data.get('defendant', '')}  (인)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+※ 본 초안은 AI가 생성한 참고용 문서입니다.
+   실제 발송 전 반드시 전문가의 검토를 받으시기 바랍니다.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+
+
+def _run_mock_legal_ner(files: list, doc_subtype: str) -> dict:
+    """Mock Legal NER — 문서 유형에 따라 결과 반환."""
+    import random
+    _map = {
+        "소장·답변서":       _MOCK_LEGAL_NER[0],
+        "행정처분·거절통보": _MOCK_LEGAL_NER[1],
+        "판결문":            _MOCK_LEGAL_NER[2],
+        "내용증명":          _MOCK_LEGAL_NER[0],
+        "준비서면":          _MOCK_LEGAL_NER[2],
+        "조정조서":          _MOCK_LEGAL_NER[1],
+    }
+    result = _map.get(doc_subtype, random.choice(_MOCK_LEGAL_NER))
+    return {**result, "file_count": len(files) if files else 0, "doc_subtype": doc_subtype}
+
+
+# ─────────────────────────────────────────────────────────────
+# [메인] 법률 SmartScanner UI
+# ─────────────────────────────────────────────────────────────
+_LEGAL_DISCLAIMER = """⚖️ 법적 고지 (필독): 본 AI 분석 리포트 및 답변서·내용증명 초안은 \
+참고용 보조 자료이며, 변호사법 제109조에 의거하여 유상 법률 대리 및 법률 감정을 \
+수행하지 않습니다. 실제 문서 제출로 인한 모든 법적 책임은 사용자에게 있으며, \
+제출 전 반드시 변호사·손해사정인(독립사정인 포함)의 검토를 받으시기 바랍니다."""
+
+_LEGAL_DOC_TYPES = [
+    "소장·답변서",
+    "판결문",
+    "행정처분·거절통보",
+    "내용증명",
+    "준비서면",
+    "조정조서",
+]
+
+
+def render_legal_scanner(
+    session_key: str = "legal_scanner_result",
+    uploader_key: str = "legal_scanner_files",
+    show_result_inline: bool = True,
+):
+    """
+    법률·행정 SmartScanner 컴포넌트 (Navy 테마).
+
+    Parameters
+    ----------
+    session_key       : 결과를 저장할 session_state 키
+    uploader_key      : file_uploader 위젯 키
+    show_result_inline: True면 스캔 완료 후 같은 화면에 리포트 표시
+    """
+    # ── Print CSS 주입 (의료 스캐너와 공유) ───────────────────
+    components.html(_PRINT_CSS, height=0)
+
+    # ── 법적 면책 조항 (최상단 고정) ──────────────────────────
+    st.markdown(f"""
+<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;
+  padding:10px 16px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px;">
+  <span style="font-size:1.1rem;flex-shrink:0;">⚠️</span>
+  <span style="font-size:0.76rem;color:#7f1d1d;line-height:1.7;font-weight:600;">
+    {_LEGAL_DISCLAIMER}
+  </span>
+</div>""", unsafe_allow_html=True)
+
+    # ── 헤더 (Navy 테마) ───────────────────────────────────────
+    st.markdown("""
+<div style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);
+  border-radius:12px;padding:12px 18px 10px;margin-bottom:12px;">
+  <div style="color:#fff;font-size:1rem;font-weight:900;letter-spacing:0.04em;">
+    ⚖️ LegalScanner — AI 법률·행정 문서 분석
+  </div>
+  <div style="color:#bfdbfe;font-size:0.74rem;margin-top:3px;">
+    판결문·소장·행정처분서를 업로드하면 사건번호 자동 추출 → 평어 번역 → 답변서 초안 생성
+  </div>
+</div>""", unsafe_allow_html=True)
+
+    # ── 문서 유형 선택 ─────────────────────────────────────────
+    _dtype = st.radio(
+        "법률 문서 유형",
+        _LEGAL_DOC_TYPES,
+        horizontal=True,
+        key=f"{uploader_key}_ltype",
+    )
+
+    # ── 파일 업로더 ────────────────────────────────────────────
+    _files = st.file_uploader(
+        "📎 파일 첨부 (PDF / JPG / PNG — 복수 업로드 가능)",
+        type=["pdf", "jpg", "jpeg", "png"],
+        accept_multiple_files=True,
+        key=uploader_key,
+    )
+
+    # ── 스캔 실행 버튼 ─────────────────────────────────────────
+    _btn_col, _info_col = st.columns([2, 1])
+    with _btn_col:
+        _do_scan = st.button(
+            "⚖️ AI 법률 문서 분석 시작",
+            key=f"{uploader_key}_run",
+            use_container_width=True,
+            type="primary",
+            disabled=not _files,
+        )
+    with _info_col:
+        st.caption("📌 PDF·스캔 이미지 모두 지원\nGemini Vision 연동 예정")
+
+    # ── 스캔 실행 로직 ─────────────────────────────────────────
+    if _do_scan and _files:
+        with st.spinner("⚖️ 법률 문서를 판독 중입니다... (Legal NER 분석)"):
+            time.sleep(2)
+            _result = _run_mock_legal_ner(_files, _dtype)
+
+        st.session_state[session_key] = _result
+        st.session_state["legal_scan_ready"] = True
+        st.success(
+            f"✅ 판독 완료 — **{_result['doc_type']}** "
+            f"(사건번호: `{_result['case_number']}`)"
+        )
+        st.rerun()
+
+    # ── 인라인 리포트 출력 ─────────────────────────────────────
+    if show_result_inline and st.session_state.get("legal_scan_ready"):
+        _result = st.session_state.get(session_key)
+        if _result:
+            render_legal_report(_result)
+
+
+# ─────────────────────────────────────────────────────────────
+# [서브] 법률 분석 리포트 렌더러 (Navy 테마)
+# ─────────────────────────────────────────────────────────────
+def render_legal_report(result: dict):
+    """
+    법률 분석 결과를 A4 리포트 형식으로 렌더링.
+    - 1단계: Legal NER 추출 정보 표시
+    - 2단계: 평어 번역 (easy_summary)
+    - 3단계: 답변서 / 내용증명 초안 생성 버튼
+    """
+    if not result:
+        return
+
+    doc_type    = result.get("doc_type",      "-")
+    case_num    = result.get("case_number",   "-")
+    court       = result.get("court",         "-")
+    plaintiff   = result.get("plaintiff",     "-")
+    defendant   = result.get("defendant",     "-")
+    amount      = result.get("claim_amount",  0)
+    summary     = result.get("claim_summary", "-")
+    easy        = result.get("easy_summary",  "-")
+    legal_basis = result.get("legal_basis",   "-")
+    deadline    = result.get("deadline_days", 0)
+    verdict     = result.get("verdict",       None)
+    fcnt        = result.get("file_count",    0)
+
+    # ── 출력 버튼 (우측 상단) ──────────────────────────────────
+    _hdr_l, _hdr_r = st.columns([4, 1])
+    with _hdr_l:
+        st.markdown("""
+<div style="font-size:1rem;font-weight:900;color:#1e3a5f;
+  border-left:4px solid #2563eb;padding-left:10px;margin:8px 0;">
+  ⚖️ AI 법률 문서 분석 리포트
+</div>""", unsafe_allow_html=True)
+    with _hdr_r:
+        components.html("""
+<button onclick="window.print()"
+  style="width:100%;padding:8px 12px;background:#1e3a5f;color:#fff;
+  border:none;border-radius:8px;font-weight:900;font-size:0.82rem;
+  cursor:pointer;white-space:nowrap;">
+  🖨️ 출력
+</button>""", height=44)
+
+    # ── 리포트 본체 ────────────────────────────────────────────
+    # 판결 결과 뱃지 색상
+    _verdict_color = "#166534" if verdict and "승소" in verdict else "#7f1d1d" if verdict else "#1e3a5f"
+    _verdict_bg    = "#f0fdf4" if verdict and "승소" in verdict else "#fef2f2" if verdict else "#eff6ff"
+
+    st.markdown(f"""
+<div id="gk-print-report">
+<div class="gk-report-card" style="background:#fff;border:1.5px solid #e2e8f0;
+  border-radius:14px;padding:20px 24px;margin-bottom:12px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.07);">
+
+  <!-- 헤더: 문서종류 + 파일수 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;
+    border-bottom:2px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px;">
+    <div>
+      <div style="font-size:0.70rem;font-weight:700;color:#94a3b8;letter-spacing:0.08em;">문서 종류</div>
+      <div style="font-size:1.3rem;font-weight:900;color:#1e3a5f;">{doc_type}</div>
+    </div>
+    <div style="background:{_verdict_bg};border:1px solid #c7d2fe;border-radius:8px;
+      padding:6px 14px;font-size:0.78rem;font-weight:900;color:{_verdict_color};">
+      {"⚖️ " + verdict if verdict else f"📂 {fcnt}개 파일 분석 완료"}
+    </div>
+  </div>
+
+  <!-- 2열: 사건번호 + 청구금액 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+      <div style="font-size:0.70rem;font-weight:700;color:#94a3b8;margin-bottom:4px;">사건번호 · 법원</div>
+      <div style="font-size:0.88rem;font-weight:900;color:#1e293b;">{case_num}</div>
+      <div style="font-size:0.76rem;color:#64748b;margin-top:2px;">{court}</div>
+    </div>
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+      <div style="font-size:0.70rem;font-weight:700;color:#94a3b8;margin-bottom:4px;">청구 금액</div>
+      <div style="font-size:1.3rem;font-weight:900;color:#1e3a5f;">{amount:,}원</div>
+      {"<div style='font-size:0.72rem;font-weight:700;color:#dc2626;margin-top:2px;'>⏰ 답변 기한: " + str(deadline) + "일 이내</div>" if deadline else ""}
+    </div>
+  </div>
+
+  <!-- 2열: 원고 / 피고 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+    <div style="border:1px solid #fecaca;background:#fff5f5;border-radius:10px;padding:10px 14px;">
+      <div style="font-size:0.70rem;font-weight:700;color:#94a3b8;margin-bottom:4px;">원고 (청구인)</div>
+      <div style="font-size:0.85rem;font-weight:900;color:#7f1d1d;">{plaintiff}</div>
+    </div>
+    <div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:10px 14px;">
+      <div style="font-size:0.70rem;font-weight:700;color:#94a3b8;margin-bottom:4px;">피고 (응소인)</div>
+      <div style="font-size:0.85rem;font-weight:900;color:#1e3a5f;">{defendant}</div>
+    </div>
+  </div>
+
+  <!-- 청구 원인 요약 -->
+  <div style="background:#f8faff;border:1px solid #c7d2fe;border-radius:10px;
+    padding:12px 16px;margin-bottom:12px;">
+    <div style="font-size:0.70rem;font-weight:700;color:#4f46e5;margin-bottom:6px;">
+      📋 청구 원인 요약 (원문)
+    </div>
+    <div style="font-size:0.82rem;color:#1e293b;line-height:1.75;font-weight:500;">{summary}</div>
+  </div>
+
+  <!-- 적용 법조 -->
+  <div style="background:#f0f9ff;border:1px solid #7dd3fc;border-radius:10px;
+    padding:10px 16px;margin-bottom:12px;">
+    <div style="font-size:0.70rem;font-weight:700;color:#0369a1;margin-bottom:4px;">
+      📜 적용 법조
+    </div>
+    <div style="font-size:0.82rem;color:#0c4a6e;font-weight:700;">{legal_basis}</div>
+  </div>
+
+  <!-- 평어 번역 (핵심) -->
+  <div style="background:#eef2ff;border:2px solid #6366f1;border-radius:12px;
+    padding:14px 18px;margin-bottom:10px;">
+    <div style="font-size:0.76rem;font-weight:900;color:#4338ca;margin-bottom:8px;">
+      💡 AI 핵심 요약 — 쉬운 우리말 번역
+    </div>
+    <div style="font-size:0.9rem;color:#1e293b;line-height:1.8;font-weight:600;">
+      {easy}
+    </div>
+  </div>
+
+  <div style="margin-top:8px;font-size:0.67rem;color:#94a3b8;text-align:right;">
+    * 본 리포트는 참고용 보조 지표이며 법적 효력이 없습니다. 반드시 전문가 검토 후 활용하세요.
+  </div>
+</div>
+</div>
+""", unsafe_allow_html=True)
+
+    # ── 3단계: 초안 생성 버튼 ──────────────────────────────────
+    st.markdown("---")
+    _d1, _d2, _d3 = st.columns([1, 1, 1])
+
+    with _d1:
+        if st.button(
+            "📝 법원 제출용 답변서 초안 생성",
+            key="legal_draft_answer_btn",
+            use_container_width=True,
+            type="primary",
+        ):
+            st.session_state["legal_show_answer"] = not st.session_state.get("legal_show_answer", False)
+            st.session_state["legal_show_complaint"] = False
+
+    with _d2:
+        if st.button(
+            "📮 내용증명 초안 생성",
+            key="legal_draft_complaint_btn",
+            use_container_width=True,
+        ):
+            st.session_state["legal_show_complaint"] = not st.session_state.get("legal_show_complaint", False)
+            st.session_state["legal_show_answer"] = False
+
+    with _d3:
+        if st.button("🔄 새 문서 재스캔", key="legal_scan_reset_btn", use_container_width=True):
+            st.session_state["legal_scan_ready"] = False
+            st.session_state.pop("legal_scanner_result", None)
+            st.session_state["legal_show_answer"]    = False
+            st.session_state["legal_show_complaint"] = False
+            st.rerun()
+
+    # ── 답변서 초안 표시 ───────────────────────────────────────
+    if st.session_state.get("legal_show_answer"):
+        _draft_text = _generate_answer_draft(result)
+        st.markdown("""
+<div style="background:#1e3a5f;border-radius:10px;padding:8px 16px;margin:10px 0 4px;">
+  <span style="color:#bfdbfe;font-size:0.85rem;font-weight:900;">
+    📝 [초안] 답변서 — 법원 제출용 표준 양식
+  </span>
+</div>""", unsafe_allow_html=True)
+        # 편집 가능한 텍스트 영역
+        _edited = st.text_area(
+            "아래 내용을 확인·수정 후 복사하세요",
+            value=_draft_text,
+            height=400,
+            key="legal_answer_textarea",
+        )
+        # 복사 버튼 (JS clipboard)
+        components.html(f"""
+<button onclick="navigator.clipboard.writeText(document.querySelector('textarea[data-testid]')?.value || {repr(_draft_text)})
+  .then(()=>this.innerText='✅ 복사 완료!').catch(()=>this.innerText='❌ 복사 실패')"
+  style="width:100%;padding:10px;background:#1e3a5f;color:#fff;border:none;
+  border-radius:8px;font-weight:900;font-size:0.88rem;cursor:pointer;margin-top:4px;">
+  📋 클립보드에 복사하기
+</button>""", height=46)
+        st.warning("⚠️ 본 초안은 AI가 생성한 참고용 문서입니다. 실제 제출 전 반드시 변호사·손해사정인의 검토를 받으세요.")
+
+    # ── 내용증명 초안 표시 ─────────────────────────────────────
+    if st.session_state.get("legal_show_complaint"):
+        _comp_text = _generate_complaint_draft(result)
+        st.markdown("""
+<div style="background:#1e3a5f;border-radius:10px;padding:8px 16px;margin:10px 0 4px;">
+  <span style="color:#bfdbfe;font-size:0.85rem;font-weight:900;">
+    📮 [초안] 내용증명 — 보험사 발송용
+  </span>
+</div>""", unsafe_allow_html=True)
+        _edited_comp = st.text_area(
+            "아래 내용을 확인·수정 후 복사하세요",
+            value=_comp_text,
+            height=380,
+            key="legal_complaint_textarea",
+        )
+        components.html(f"""
+<button onclick="navigator.clipboard.writeText(document.querySelector('textarea[data-testid]')?.value || {repr(_comp_text)})
+  .then(()=>this.innerText='✅ 복사 완료!').catch(()=>this.innerText='❌ 복사 실패')"
+  style="width:100%;padding:10px;background:#1e3a5f;color:#fff;border:none;
+  border-radius:8px;font-weight:900;font-size:0.88rem;cursor:pointer;margin-top:4px;">
+  📋 클립보드에 복사하기
+</button>""", height=46)
+        st.warning("⚠️ 본 초안은 AI가 생성한 참고용 문서입니다. 실제 발송 전 반드시 전문가의 검토를 받으세요.")

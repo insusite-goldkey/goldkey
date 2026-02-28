@@ -85,7 +85,10 @@ import PIL.Image
 from cryptography.fernet import Fernet
 import streamlit.components.v1 as components
 try:
-    from modules.smart_scanner import render_smart_scanner, render_scan_report, render_ssot_banner
+    from modules.smart_scanner import (
+        render_smart_scanner, render_scan_report, render_ssot_banner,
+        render_legal_scanner, render_legal_report,
+    )
     _SMART_SCANNER_OK = True
 except Exception:
     _SMART_SCANNER_OK = False
@@ -22240,6 +22243,17 @@ END; $$;""", language="sql")
                     doc_type="의무기록",
                     session_key="smart_scanner_result",
                     uploader_key="sh_smart_uploader",
+                    show_result_inline=True,
+                )
+            else:
+                st.warning("SmartScanner 모듈 로드 실패 — modules/smart_scanner.py 확인")
+
+        # ── LegalScanner (AI 법률·행정 문서 분석) ────────────────────
+        with st.expander("⚖️ LegalScanner — AI 법률·행정 문서 분석 (판결문·소장·내용증명)", expanded=False):
+            if _SMART_SCANNER_OK:
+                render_legal_scanner(
+                    session_key="legal_scanner_result",
+                    uploader_key="sh_legal_uploader",
                     show_result_inline=True,
                 )
             else:
