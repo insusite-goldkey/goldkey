@@ -6889,8 +6889,8 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
             with tab_l:
                 with st.form("login_form"):
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>🔑 가입 시 입력한 정보로 로그인하세요</div>", unsafe_allow_html=True)
-                    ln = st.text_input("👤 이름", placeholder="👤 성함 입력 (2자 이상)", key="login_name", label_visibility="collapsed")
-                    lc = st.text_input("📱 연락처", placeholder="📱 전화번호 입력 (- 제외, 숫자만)", type="password", key="login_contact", label_visibility="collapsed")
+                    ln = st.text_input("👤 이름", key="login_name", label_visibility="collapsed")
+                    lc = st.text_input("📱 연락처", type="password", key="login_contact", label_visibility="collapsed")
                     login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"], horizontal=True, key="login_is_pro")
                     if login_is_pro == "종사자":
                         login_insurer = st.radio(
@@ -6989,8 +6989,8 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
             with tab_s:
                 with st.form("sb_signup_form"):
                     st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
-                    name = st.text_input("👤 이름", placeholder="👤 성함 입력 (2자 이상)", key="signup_name", label_visibility="collapsed")
-                    contact = st.text_input("📱 연락처", placeholder="📱 전화번호 입력 (- 제외, 숫자만)", type="password", key="signup_contact", label_visibility="collapsed")
+                    name = st.text_input("👤 이름", key="signup_name", label_visibility="collapsed")
+                    contact = st.text_input("📱 연락처", type="password", key="signup_contact", label_visibility="collapsed")
                     if st.form_submit_button("✅ 가입하기", use_container_width=True):
                         _su_err = None
                         if not name or not name.strip():
@@ -7018,10 +7018,10 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
             with tab_pw:
                 st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:6px;'>🔐 가입 시 등록한 이름과 기존 연락처로 본인 확인 후 새 비번을 설정합니다.</div>", unsafe_allow_html=True)
                 with st.form("pw_change_form"):
-                    pw_name    = st.text_input("👤 이름", placeholder="👤 가입 시 등록한 이름", key="pw_name", label_visibility="collapsed")
-                    pw_old     = st.text_input("📱 기존 연락처", placeholder="📱 기존 전화번호 (현재 비번)", type="password", key="pw_old", label_visibility="collapsed")
-                    pw_new1    = st.text_input("🔑 새 연락처", placeholder="🔑 새 전화번호 입력 (- 제외, 숫자만)", type="password", key="pw_new1", label_visibility="collapsed")
-                    pw_new2    = st.text_input("🔑 새 연락처 확인", placeholder="🔑 새 전화번호 재입력", type="password", key="pw_new2", label_visibility="collapsed")
+                    pw_name    = st.text_input("👤 이름", key="pw_name", label_visibility="collapsed")
+                    pw_old     = st.text_input("📱 기존 연락처", type="password", key="pw_old", label_visibility="collapsed")
+                    pw_new1    = st.text_input("🔑 새 연락처", type="password", key="pw_new1", label_visibility="collapsed")
+                    pw_new2    = st.text_input("🔑 새 연락처 확인", type="password", key="pw_new2", label_visibility="collapsed")
                     if st.form_submit_button("🔄 비번 변경", use_container_width=True):
                         if not (pw_name and pw_old and pw_new1 and pw_new2):
                             st.error("모든 항목을 입력해주세요.")
@@ -7070,10 +7070,10 @@ border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
 변경이 어려운 경우 운영자(010-3074-2616)에게 문의하세요.
 </div>""", unsafe_allow_html=True)
                 with st.form("name_change_form"):
-                    nm_old   = st.text_input("👤 현재 이름", placeholder="👤 현재 이름 (기존에 가입한 이름)", key="nm_old", label_visibility="collapsed")
-                    nm_pw    = st.text_input("📱 연락처", placeholder="📱 전화번호 (비번, - 제외 숫자만)", type="password", key="nm_pw", label_visibility="collapsed")
-                    nm_new   = st.text_input("✏️ 새 이름", placeholder="✏️ 변경할 새 이름 입력", key="nm_new", label_visibility="collapsed")
-                    nm_new2  = st.text_input("✏️ 새 이름 확인", placeholder="✏️ 새 이름 재입력 (확인)", key="nm_new2", label_visibility="collapsed")
+                    nm_old   = st.text_input("👤 현재 이름", key="nm_old", label_visibility="collapsed")
+                    nm_pw    = st.text_input("📱 연락처", type="password", key="nm_pw", label_visibility="collapsed")
+                    nm_new   = st.text_input("✏️ 새 이름", key="nm_new", label_visibility="collapsed")
+                    nm_new2  = st.text_input("✏️ 새 이름 확인", key="nm_new2", label_visibility="collapsed")
                     if st.form_submit_button("🔄 이름 변경", use_container_width=True):
                         if not (nm_old and nm_pw and nm_new and nm_new2):
                             st.error("모든 항목을 입력해주세요.")
