@@ -7041,32 +7041,57 @@ section[data-testid="stSidebar"] {
 })();
 </script>""", height=0)
 
-    # ── 로그인 후 사이드바 자동 접힌 JS ────────────────────────────────────
-    # _login_welcome 플래그가 있으면(로그인 직후 rerun) 사이드바를 닫는다
+    # ── 로그인 후 사이드바 자동 접힘 JS ────────────────────────────────────
+    # _login_welcome 또는 _auto_close_sidebar 플래그가 있으면 사이드바를 닫는다
     _just_logged_in = bool(st.session_state.get("_login_welcome") or
                            st.session_state.get("_auto_close_sidebar"))
     if _just_logged_in:
+        # 두 플래그 모두 제거 (매 rerun 중복 실행 방지)
         st.session_state.pop("_auto_close_sidebar", None)
+        st.session_state.pop("_login_welcome", None)
         components.html("""
 <script>
 (function(){
-  // 로그인 직후: 500ms 대기 후 사이드바 닫기 버튼 클릭
-  setTimeout(function(){
+  // 로그인 직후 사이드바 자동 접기 — 800ms 대기 후 실행, 실패 시 300ms 간격 3회 재시도
+  function tryClose(pd) {
+    var selectors = [
+      '[data-testid="stSidebarCollapseButton"] button',
+      '[data-testid="stSidebarCollapseButton"]',
+      'button[aria-label="Close sidebar"]',
+      'button[aria-label="사이드바 닫기"]',
+      'button[aria-label="collapse sidebar"]',
+      'button[aria-label="Collapse sidebar"]',
+      '[data-testid="stSidebar"] button[kind="header"]',
+      '[data-testid="collapsedControl"]',
+      'section[data-testid="stSidebar"] button'
+    ];
+    for (var i = 0; i < selectors.length; i++) {
+      var btn = pd.querySelector(selectors[i]);
+      if (btn) { btn.click(); return true; }
+    }
+    return false;
+  }
+  var attempts = 0;
+  function run() {
     try {
       var pd = window.parent.document;
-      var selectors = [
-        '[data-testid="stSidebarCollapseButton"] button',
-        'button[aria-label="Close sidebar"]',
-        'button[aria-label="사이드바 닫기"]',
-        '[data-testid="stSidebar"] button[kind="header"]',
-        '[data-testid="collapsedControl"]'
-      ];
-      for (var i = 0; i < selectors.length; i++) {
-        var btn = pd.querySelector(selectors[i]);
-        if (btn) { btn.click(); break; }
+      var sidebar = pd.querySelector('[data-testid="stSidebar"]');
+      // 사이드바가 실제로 열려있을 때만 닫기 시도
+      if (sidebar && sidebar.getAttribute('aria-expanded') !== 'false') {
+        if (!tryClose(pd) && attempts < 4) {
+          attempts++;
+          setTimeout(run, 400);
+        }
+      } else if (sidebar && !sidebar.getAttribute('aria-expanded')) {
+        // aria-expanded 없는 구버전 — 무조건 시도
+        if (!tryClose(pd) && attempts < 3) {
+          attempts++;
+          setTimeout(run, 400);
+        }
       }
     } catch(e) {}
-  }, 500);
+  }
+  setTimeout(run, 800);
 })();
 </script>""", height=0)
 
