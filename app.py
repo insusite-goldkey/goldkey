@@ -6379,124 +6379,97 @@ def main():
     )
 
     # ── STEP 1-A: 프리미엄 스플래시 화면 (최초 방문 1회만, 10초) ──────────
-    # [딜레이 제로 설계]
-    # - 1단계: set_page_config 직후 이미지 없이 즉시 렌더 (0ms)
-    # - 백그라운드 스레드: 이미지 base64 로드 (I/O 논블로킹)
-    # - 2단계~: 이미지 포함 완전한 스플래시
+    # [비동기 설계] Python → HTML 1회 렌더 후 즉시 리턴. JS가 타이머/전환/페이드아웃 전담.
     if not st.session_state.get("_splash_done"):
         st.session_state["_splash_done"] = True
 
-        # ── 이미지를 백그라운드 스레드로 로드 (I/O 블로킹 제거) ──────────
-        # src 형식: "data:image/png;base64,..." (로컬 정상) 또는 "url:https://..." (HF LFS 폴백)
-        import threading as _spl_th
+        # ── 이미지 src 결정 (동기, 파일 I/O만) ──────────────────────────
         _HF_RAW = "https://huggingface.co/spaces/goldkey-rich/goldkey-ai/resolve/main/assets/"
-        _spl_imgs = {"v": "", "h": ""}
-        def _bg_load_imgs():
+        def _get_img_src(fn):
             try:
-                _base = pathlib.Path(__file__).parent / "assets"
-                for _k, _fn in (("v", "splash_goldkey.png"), ("h", "splash1_goldkey.png")):
-                    _pp = _base / _fn
-                    if _pp.exists():
-                        _raw = _pp.read_bytes()
-                        # LFS 포인터 감지: 실제 PNG는 8바이트 시그니처 \x89PNG로 시작
-                        if len(_raw) > 200 and _raw[:4] == b'\x89PNG':
-                            _spl_imgs[_k] = base64.b64encode(_raw).decode()
-                        else:
-                            # LFS 포인터 파일 → HF resolve URL 사용
-                            _spl_imgs[_k] = "url:" + _HF_RAW + _fn
-                    else:
-                        # 파일 없음 → HF resolve URL 폴백
-                        _spl_imgs[_k] = "url:" + _HF_RAW + _fn
-                if not _spl_imgs["h"]:
-                    _spl_imgs["h"] = _spl_imgs["v"]
+                _p = pathlib.Path(__file__).parent / "assets" / fn
+                if _p.exists():
+                    _raw = _p.read_bytes()
+                    if len(_raw) > 200 and _raw[:4] == b'\x89PNG':
+                        return "data:image/png;base64," + base64.b64encode(_raw).decode()
             except Exception:
                 pass
-        _img_thread = _spl_th.Thread(target=_bg_load_imgs, daemon=True)
-        _img_thread.start()
+            return _HF_RAW + fn
 
-        _spl_steps = [
+        _src_v = _get_img_src("splash_goldkey.png")
+        _src_h = _get_img_src("splash1_goldkey.png")
+
+        import json as _json
+        _spl_msgs_js = ",".join(_json.dumps(m, ensure_ascii=False) for m in [
             "🔐 보안 시스템 (Fernet 256bit) 체크 완료...",
             "🤖 AI 분석 엔진 (Gemini 1.5 Pro) 초기화...",
             "📊 전문가 통합 DB (KCD-8 / AMA) 동기화 완료...",
             "🧬 초개인화 알고리즘 및 UI 레이아웃 매핑 중...",
             "✦ 전략 파트너 Goldkey AI가 준비되었습니다.",
-        ]
+        ])
 
-        # ── 공통 HTML 빌더 ────────────────────────────────────────────────
-        def _spl_html(msg: str, src_v: str, src_h: str) -> str:
-            def _to_src(s):
-                if not s:
-                    return ""
-                if s.startswith("url:"):
-                    return s[4:]  # HF resolve URL 직접 사용
-                return "data:image/png;base64," + s  # 로컬 base64
-            _img_tags = ""
-            _sv = _to_src(src_v)
-            _sh = _to_src(src_h)
-            if _sv:
-                _img_tags += f'<img id="imgV" class="spl-img" src="{_sv}" alt="v">'
-            if _sh:
-                _img_tags += f'<img id="imgH" class="spl-img" src="{_sh}" alt="h">'
-            if not _img_tags:
-                _img_tags = '<div class="spl-fallback">🏆</div>'
-            return f"""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap');
-*{{box-sizing:border-box;margin:0;padding:0;}}
-html,body{{width:100%;height:100%;background:#060d1a;overflow:hidden;}}
-.spl-wrap{{position:fixed;top:0;left:0;width:100%;height:100%;
-  background:#060d1a;display:flex;flex-direction:column;
-  align-items:stretch;justify-content:flex-end;}}
-.spl-img{{position:absolute;top:0;left:0;width:100%;height:100%;
-  object-fit:cover;object-position:center center;display:none;}}
-.spl-img.active{{display:block;}}
-.spl-msg-bar{{position:relative;z-index:10;width:100%;
-  padding:16px 20px 24px;
-  background:linear-gradient(0deg,rgba(4,9,18,0.97) 55%,transparent 100%);
-  text-align:center;}}
-.spl-msg{{font-family:'Noto Sans KR','Segoe UI',sans-serif;
-  font-size:clamp(0.82rem,2.8vw,1.05rem);font-weight:700;color:#f0c040;
-  letter-spacing:0.05em;
-  text-shadow:0 0 16px rgba(240,192,64,0.9),0 2px 6px rgba(0,0,0,0.7);
-  animation:fadeIn 0.3s ease;}}
-.spl-fallback{{position:absolute;top:50%;left:50%;
-  transform:translate(-50%,-50%);font-size:5rem;}}
-@keyframes fadeIn{{from{{opacity:0;transform:translateY(4px)}}to{{opacity:1;transform:translateY(0)}}}}
-</style>
-<div class="spl-wrap">
-  {_img_tags}
-  <div class="spl-msg-bar"><div class="spl-msg">{msg}</div></div>
-</div>
-<script>
+        # JS가 parent document 에 오버레이를 직접 생성 → iframe 격리 우회
+        # Python은 st.markdown 1회 호출 후 즉시 다음 로직으로 진행 (블로킹 없음)
+        _spl_js = f"""<script>
 (function(){{
-  var ph=(window.parent&&window.parent.innerHeight)||window.innerHeight||812;
-  var pw=(window.parent&&window.parent.innerWidth)||window.innerWidth||390;
-  var ifr=window.frameElement;
-  if(ifr){{ifr.style.height=ph+'px';ifr.style.width='100%';}}
-  var isL=pw>ph;
-  var v=document.getElementById('imgV');
-  var h=document.getElementById('imgH');
-  if(isL){{if(h)h.classList.add('active');else if(v)v.classList.add('active');}}
-  else{{if(v)v.classList.add('active');else if(h)h.classList.add('active');}}
+  var D=(window.parent&&window.parent.document)||document;
+  if(D.getElementById('gk-splash'))return;
+  var srcV='{_src_v}';
+  var srcH='{_src_h}';
+  var msgs=[{_spl_msgs_js}];
+
+  var sty=D.createElement('style');
+  sty.id='gk-spl-css';
+  sty.textContent=
+    '@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap");'
+    +'#gk-splash{{position:fixed;inset:0;z-index:2147483647;background:#060d1a;transition:opacity .8s;}}'
+    +'#gk-splash img{{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;}}'
+    +'#gk-splash img.on{{display:block;}}'
+    +'#gk-sbar{{position:absolute;bottom:0;left:0;right:0;padding:16px 20px 28px;'
+    +'background:linear-gradient(0deg,rgba(4,9,18,.97) 55%,transparent);text-align:center;}}'
+    +'#gk-smsg{{font-family:"Noto Sans KR",sans-serif;font-size:clamp(.82rem,2.8vw,1.05rem);'
+    +'font-weight:700;color:#f0c040;letter-spacing:.05em;'
+    +'text-shadow:0 0 16px rgba(240,192,64,.9),0 2px 6px rgba(0,0,0,.7);'
+    +'opacity:0;transition:opacity .3s;}}';
+  D.head.appendChild(sty);
+
+  var wrap=D.createElement('div'); wrap.id='gk-splash';
+  var iV=D.createElement('img'); iV.src=srcV; iV.alt='v';
+  var iH=D.createElement('img'); iH.src=srcH; iH.alt='h';
+  var bar=D.createElement('div'); bar.id='gk-sbar';
+  var msgEl=D.createElement('div'); msgEl.id='gk-smsg';
+  bar.appendChild(msgEl);
+  wrap.appendChild(iV); wrap.appendChild(iH); wrap.appendChild(bar);
+  D.body.appendChild(wrap);
+
+  var pw=(window.parent||window).innerWidth||390;
+  var ph=(window.parent||window).innerHeight||812;
+  if(pw>ph){{iH.classList.add('on');}}else{{iV.classList.add('on');}}
+
+  var step=0;
+  function tick(){{
+    if(step>=msgs.length)return;
+    msgEl.style.opacity='0';
+    setTimeout(function(){{
+      msgEl.textContent=msgs[step++];
+      msgEl.style.opacity='1';
+      if(step<msgs.length)setTimeout(tick,2000);
+    }},150);
+  }}
+  tick();
+
+  setTimeout(function(){{
+    wrap.style.opacity='0';
+    setTimeout(function(){{
+      if(wrap.parentNode)wrap.parentNode.removeChild(wrap);
+      var s=D.getElementById('gk-spl-css');
+      if(s&&s.parentNode)s.parentNode.removeChild(s);
+    }},850);
+  }},10000);
 }})();
 </script>"""
 
-        _spl_slot = st.empty()
-
-        for _i, _spl_msg in enumerate(_spl_steps):
-            # 1단계: 이미지 로드 전 → 빈 배경에 메시지만 즉시 표시
-            # 2단계~: 스레드 join(최대 1.5초) 후 이미지 포함
-            if _i == 0:
-                _sv, _sh = "", ""
-            else:
-                _img_thread.join(timeout=1.5)
-                _sv = _spl_imgs["v"]
-                _sh = _spl_imgs["h"]
-            with _spl_slot:
-                components.html(_spl_html(_spl_msg, _sv, _sh), height=900, scrolling=False)
-            time.sleep(2)
-
-        _spl_slot.empty()
+        st.markdown(_spl_js, unsafe_allow_html=True)
 
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
     # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
