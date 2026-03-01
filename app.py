@@ -3620,20 +3620,21 @@ GOLD_AVATAR_PATH = os.path.join(
 
 @st.cache_resource(show_spinner=False)
 def get_goldkey_avatar() -> str:
-    """골드키 전용 아바타를 base64 문자열로 반환 (캐시 1회 로드).
-    SVG → PNG 순으로 탐색. 파일 없으면 빈 문자열 반환(Fallback).
+    """골드키 전용 아바타를 base64 data-URI 문자열로 반환 (캐시 1회 로드).
+    JPG → SVG → PNG 순으로 탐색. 파일 없으면 빈 문자열 반환(Fallback).
     """
+    _base = os.path.dirname(os.path.abspath(__file__))
     candidates = [
-        GOLD_AVATAR_PATH,
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "avatar_goldkey.png"),
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatar.png"),
+        (os.path.join(_base, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
+        (GOLD_AVATAR_PATH, "image/svg+xml"),
+        (os.path.join(_base, "assets", "avatar_goldkey.png"), "image/png"),
+        (os.path.join(_base, "avatar.png"), "image/png"),
     ]
-    for _p in candidates:
+    for _p, _mime in candidates:
         try:
             _path = pathlib.Path(_p)
             if _path.exists():
                 _raw = _path.read_bytes()
-                _mime = "image/svg+xml" if _p.endswith(".svg") else "image/png"
                 return f"data:{_mime};base64,{base64.b64encode(_raw).decode()}"
         except Exception:
             continue
@@ -10662,6 +10663,13 @@ window['startTTS_{tab_key}']=function(){{
 
         # ── 아바타 + Voice-to-Action 네비게이션 블록 (Glassmorphism / EV Dashboard) ──
         _uname_disp = mask_name(st.session_state.get("user_name","")) if "user_id" in st.session_state else "마스터"
+        _hero_avatar_uri = get_goldkey_avatar()
+        _hero_avatar_html = (
+            f'<img src="{_hero_avatar_uri}" '
+            'style="width:58px;height:58px;border-radius:50%;object-fit:cover;'
+            'border:2.5px solid rgba(251,191,36,0.7);'
+            'box-shadow:0 0 14px rgba(14,165,233,0.55);display:block;">'
+        ) if _hero_avatar_uri else '<span style="font-size:3.6rem;line-height:1;">🔑</span>'
         components.html(f"""
 <style>
 /* Glassmorphism 카드 */
@@ -10676,9 +10684,10 @@ window['startTTS_{tab_key}']=function(){{
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
 }}
 .gk-hero-avatar {{
-  font-size: 3.6rem; line-height: 1; flex-shrink: 0;
+  width: 62px; height: 62px; flex-shrink: 0;
   filter: drop-shadow(0 0 12px rgba(14,165,233,0.6));
   position: relative;
+  display: flex; align-items: center; justify-content: center;
 }}
 /* 음성파동 링 — EV 시동 on 느낌 */
 .gk-pulse-ring {{
@@ -10724,7 +10733,7 @@ window['startTTS_{tab_key}']=function(){{
 </style>
 <div class="gk-hero">
   <div class="gk-hero-avatar">
-    🤖
+    {_hero_avatar_html}
     <div class="gk-pulse-ring"></div>
     <div class="gk-pulse-ring"></div>
     <div class="gk-pulse-ring"></div>
