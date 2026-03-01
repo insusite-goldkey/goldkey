@@ -6475,7 +6475,7 @@ img.on{{display:block;}}
     setTimeout(function(){{
       if(ifr&&ifr.parentNode)ifr.parentNode.removeChild(ifr);
     }},850);
-  }},10000);
+  }},5000);
 }})();
 </script>
 </body>
