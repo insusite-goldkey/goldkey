@@ -2321,6 +2321,7 @@ SECTOR_CODES: dict = {
     "4000": {"name": "기본보험 상담",   "tab_key": "t2",            "keywords": ["자동차보험", "운전자보험", "기본보험상담", "기본보험"]},
     "4100": {"name": "통합보험 설계",   "tab_key": "t3",            "keywords": ["통합보험설계", "통합보험", "통합설계", "생명보험설계", "종합설계"]},
     "4200": {"name": "자동차사고 상담", "tab_key": "t4",            "keywords": ["자동차사고", "교통사고", "과실비율", "합의금", "민식이법"]},
+    "4300": {"name": "자동차보험 상담", "tab_key": "car_ins",       "keywords": ["자동차보험상담", "자동차보험설계", "대인배상", "대물배상", "자기차량손해", "자차보험", "자손자상", "무보험차", "운전자범위", "연령한정", "차보험", "자동차보험가입", "차량보험"]},
     # ── 5000번대: 자산 / 세무 / 법인 ────────────────────────────────────
     "5000": {"name": "노후·상속 설계",  "tab_key": "t5",            "keywords": ["노후설계", "연금설계", "상속설계", "증여설계", "주택연금", "노후상담", "상속상담", "노후", "연금", "상속"]},
     "5100": {"name": "세무 상담",       "tab_key": "t6",            "keywords": ["세무상담", "세금상담", "절세방법", "소득세", "법인세", "건보료", "금융소득", "세무"]},
@@ -11559,6 +11560,7 @@ section[data-testid="stMain"] {
             ("t3",          "🏥", "질병·상해 통합보험",   "암·뇌·심장 3대질병 보장 · 간병·치매·생명보험 설계"),
             ("cancer",      "🎗️", "암·뇌·심장질환 상담", "NGS·표적항암·면역항암·CAR-T 뇌심장 보장 실무 분석"),
             ("t4",          "🚗", "자동차사고 상담",      "과실비율·합의금 분석 · 13대 중과실·민식이법 안내"),
+            ("car_ins",     "🚘", "자동차보험 상담",      "5대 섹터 정밀 분석 · 면책 필터링 · 담보 최적화 · 사고처리 가이드"),
             ("life_cycle",  "🔄", "LIFE CYCLE 백지설계", "인생 타임라인 시각화 · 생존·상해·결혼·퇴직·노후 설계도"),
         ], "home_grpB")
 
@@ -17287,6 +17289,207 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             st.subheader("🤖 AI 분석 리포트")
             show_result("res_t4")
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
+    # ── [car_ins] 자동차보험 상담 ─────────────────────────────────────────
+    if cur == "car_ins":
+        if not _auth_gate("car_ins"): st.stop()
+        tab_home_btn("car_ins")
+        st.subheader("🚘 자동차보험 상담 · 5대 섹터 정밀 분석")
+
+        # ── 섹터 체크박스 패널 ────────────────────────────────────────────
+        st.markdown("""<div style="background:linear-gradient(135deg,#0d1b2a,#1a3a5c);
+  border-radius:12px;padding:12px 18px 6px 18px;margin-bottom:12px;
+  border:1px solid rgba(14,165,233,0.3);">
+<span style="color:#7dd3fc;font-weight:900;font-size:0.92rem;">
+📌 AI 분석 필터 — 해당 항목을 먼저 체크하세요 (섹터 4 면책 필터링 우선)
+</span></div>""", unsafe_allow_html=True)
+
+        _ci_col1, _ci_col2 = st.columns([1, 1])
+
+        with _ci_col1:
+            # ── 섹터 4: 면책 필터링 (최우선) ─────────────────────────────
+            with st.expander("🔴 섹터 4 — 면책·계약 조건 (★ 1순위 체크)", expanded=True):
+                st.caption("이 항목이 어긋나면 섹터 1·2·3이 전부 면책 처리됩니다.")
+                _age_limit = st.checkbox("연령 한정 특약 위반 (예: 30세 이상 한정인데 28세 운전)", key="ci_age_limit")
+                _scope_limit = st.checkbox("운전자 범위 한정 특약 위반 (예: 부부 한정인데 자녀 운전)", key="ci_scope_limit")
+                _short_expand = st.checkbox("단기 운전자 확대 특약 적용 중 (명절·일시 확대)", key="ci_short_expand")
+                _drunk = st.checkbox("음주운전 (혈중알코올 0.03% 이상)", key="ci_drunk")
+                _nolic = st.checkbox("무면허 운전", key="ci_nolic")
+
+                _exemption_flags = []
+                if _age_limit:   _exemption_flags.append("연령 한정 위반")
+                if _scope_limit: _exemption_flags.append("운전자 범위 한정 위반")
+                if _drunk:       _exemption_flags.append("음주운전")
+                if _nolic:       _exemption_flags.append("무면허 운전")
+                if _short_expand: _exemption_flags.append("단기 운전자 확대 특약 적용")
+
+                if _exemption_flags and not _short_expand:
+                    st.error(f"⛔ 면책 위험! — {', '.join(_exemption_flags)}\n→ 대인배상 I만 지급, 나머지 전면 면책 가능성 있음")
+                elif _short_expand:
+                    st.success("✅ 단기 운전자 확대 특약 적용 시: 범위·연령 제한 일시 해제됨")
+
+            # ── 섹터 1: 타인 배상 ────────────────────────────────────────
+            with st.expander("🟠 섹터 1 — 타인 배상 (대인·대물)", expanded=False):
+                _tp_injury = st.checkbox("대인배상 I (의무) — 자배법 기준 한도 내 배상", key="ci_tp_injury1")
+                _tp_injury2 = st.checkbox("대인배상 II (임의·무한 권장) — 형사처벌 면제 특례", key="ci_tp_injury2")
+                _tp_property = st.checkbox("대물배상 — 외제차·도로시설물 파손 (최소 5억~10억 권장)", key="ci_tp_prop")
+                if _tp_injury2:
+                    st.info("💡 대인Ⅱ 무한 가입 시 → 피해자 합의 없어도 공소권 없음 특례 적용 가능")
+                if _tp_property:
+                    st.info("💡 대물 최소 5억 권장 — 외제차(람보르기니, 포르쉐 등) 수리비 현실 반영")
+
+            # ── 섹터 2: 자체 손해 ────────────────────────────────────────
+            with st.expander("🟡 섹터 2 — 피보험자 자체 손해 (자손/자상/자차)", expanded=False):
+                _self_injury_type = st.radio(
+                    "자신/동승자 부상 담보",
+                    ["미가입", "자기신체사고(자손) — 급수별 정액 지급", "자동차상해(자상) — 치료비 전액+위자료+휴업손해 (권장)"],
+                    key="ci_self_type",
+                )
+                _own_car = st.checkbox("자기차량손해(자차) 가입", key="ci_own_car")
+                _deductible = st.selectbox("자차 자기부담금 비율", ["선택 안 함", "20%", "30%"], key="ci_deduct") if _own_car else "선택 안 함"
+                if "자손" in _self_injury_type:
+                    st.warning("⚠️ 자손 → 약관 급수표 기준 **정액** 지급. 실손 치료비 초과분은 보상 불가.")
+                elif "자상" in _self_injury_type:
+                    st.success("✅ 자상 → 과실 비율 무관, 치료비 **전액** + 위자료 + 휴업손해 지급")
+
+            # ── 섹터 3: 사각지대 방어 ────────────────────────────────────
+            with st.expander("🟢 섹터 3 — 무보험·사각지대 방어", expanded=False):
+                _unins = st.checkbox("무보험자동차에 의한 상해 (상대방 뺑소니·무보험)", key="ci_unins")
+                _other_car = st.checkbox("다른 자동차 운전 담보 특약 (남의 차 운전 시)", key="ci_other_car")
+                if _unins:
+                    st.info("💡 무보험차 특약 가입 시 '다른 자동차 운전 담보'도 자동 포함됩니다.")
+                if _other_car:
+                    st.info("💡 렌터카·지인 차량 운전 사고 시 내 보험으로 처리 가능")
+
+        with _ci_col2:
+            # ── 섹터 5: 비용·할인 특약 ────────────────────────────────────
+            with st.expander("🔵 섹터 5 — 비용 보전·할인 특약", expanded=False):
+                st.caption("사고 처리비용 절감 및 서비스 특약")
+                _legal_cost = st.checkbox("법률비용 지원 특약 (형사합의금·벌금·변호사비)", key="ci_legal")
+                _rental = st.checkbox("렌터카 대여비용 특약", key="ci_rental")
+                _tow = st.checkbox("긴급출동·견인 서비스", key="ci_tow")
+                _mileage = st.checkbox("마일리지(주행거리) 환급 특약", key="ci_mileage")
+                _blackbox = st.checkbox("블랙박스 할인 특약", key="ci_blackbox")
+                _tmap = st.checkbox("T맵 안전운전 할인 특약", key="ci_tmap")
+                _adas = st.checkbox("첨단안전장치(ADAS) 할인 특약", key="ci_adas")
+                _child_disc = st.checkbox("자녀 할인 특약", key="ci_child")
+
+                if _legal_cost:
+                    st.warning("⚖️ 중과실 사고(음주·신호위반 등) 시 형사합의금 최대 2억, 벌금 최대 2,000만원 지원 확인 필수")
+
+            # ── AI 상담 입력 ──────────────────────────────────────────────
+            st.markdown("---")
+            c_name_ci, query_ci, hi_ci, do_ci, _pk_ci = ai_query_block(
+                "car_ins",
+                placeholder="예) 아들이 제 차를 몰다가 외제차를 박았어요. 부부 한정 특약인데 괜찮나요?",
+                product_key="car_ins",
+            )
+
+            # ── 사고 분석 실행 ───────────────────────────────────────────
+            if do_ci:
+                # 섹터별 컨텍스트 구성
+                _ci_ctx_parts = []
+                if _exemption_flags and not _short_expand:
+                    _ci_ctx_parts.append(f"[섹터4-면책위험] {', '.join(_exemption_flags)} → 대인I만 보상, 나머지 면책")
+                elif _short_expand:
+                    _ci_ctx_parts.append("[섹터4] 단기 운전자 확대 특약 적용 중 (면책 없음)")
+                else:
+                    _ci_ctx_parts.append("[섹터4] 면책 조건 해당 없음 — 정상 보상 구조")
+
+                if _tp_injury:   _ci_ctx_parts.append("[섹터1] 대인배상I(의무) 가입")
+                if _tp_injury2:  _ci_ctx_parts.append("[섹터1] 대인배상II(무한) 가입 → 형사처벌 면제 특례")
+                if _tp_property: _ci_ctx_parts.append("[섹터1] 대물배상 가입")
+                if "자손" in _self_injury_type: _ci_ctx_parts.append("[섹터2] 자기신체사고(자손·정액) 가입")
+                elif "자상" in _self_injury_type: _ci_ctx_parts.append("[섹터2] 자동차상해(자상·실손전액) 가입")
+                if _own_car: _ci_ctx_parts.append(f"[섹터2] 자기차량손해(자차) 가입 · 자기부담금 {_deductible}")
+                if _unins:   _ci_ctx_parts.append("[섹터3] 무보험자동차 상해 특약 가입")
+                if _other_car: _ci_ctx_parts.append("[섹터3] 다른 자동차 운전 담보 특약 가입")
+                if _legal_cost: _ci_ctx_parts.append("[섹터5] 법률비용 지원 특약 가입")
+                if _rental:  _ci_ctx_parts.append("[섹터5] 렌터카 대여비용 특약 가입")
+                if _tow:     _ci_ctx_parts.append("[섹터5] 긴급출동·견인 서비스 가입")
+
+                _ci_coverage_ctx = "\n".join(_ci_ctx_parts) if _ci_ctx_parts else "(가입 담보 미선택 — 일반 상담 모드)"
+
+                run_ai_analysis(c_name_ci, query_ci, hi_ci, "res_car_ins",
+                    product_key=_pk_ci,
+                    extra_prompt=(
+                        "[자동차보험 전문 상담 — 5대 섹터 정밀 분석]\n\n"
+                        f"## 고객 보험 가입 현황 및 체크 항목\n{_ci_coverage_ctx}\n\n"
+                        "## AI 분석 순서 (반드시 섹터 순서 준수)\n\n"
+                        "### ① 섹터 4 — 면책·계약 조건 필터링 (최우선)\n"
+                        "- 연령 한정·운전자 범위 한정 특약 위반 여부 → 면책 범위 명확히 판단\n"
+                        "- 위반 시: 대인배상 I만 지급, 대인II·대물·자손/자상·자차 전면 면책 구조 설명\n"
+                        "- 단기 운전자 확대 특약 적용 시: 면책 해제 효과 설명\n\n"
+                        "### ② 섹터 1 — 타인 배상 (대인·대물) 분석\n"
+                        "- 대인배상 I(자배법 기준) vs 대인배상 II(무한) 차이 및 형사처벌 면제 특례 조건\n"
+                        "- 대물배상 한도 적정성 — 외제차 수리비 현실 기준 (최소 5억~10억 권장)\n"
+                        "- 실제 사고 상황에서 지급되는 금액 추정\n\n"
+                        "### ③ 섹터 2 — 피보험자 자체 손해 분석\n"
+                        "- 자기신체사고(자손) vs 자동차상해(자상) 차이 명확 비교:\n"
+                        "  · 자손: 약관 급수별 정액 지급 / 자상: 치료비 전액+위자료+휴업손해\n"
+                        "- 자기차량손해(자차) 자기부담금 계산 (20%~30% 적용)\n"
+                        "- 단독사고 vs 차대차 사고 시 처리 방식 차이\n\n"
+                        "### ④ 섹터 3 — 사각지대·무보험 방어 분석\n"
+                        "- 무보험차 상해 특약: 뺑소니·책임보험만 가입·무보험 상대방 사고 시 구상권 전제 처리\n"
+                        "- 다른 자동차 운전 담보: 지인·렌터카 차량 운전 중 사고 처리 가능 여부\n\n"
+                        "### ⑤ 섹터 5 — 비용 보전·할인 특약 활용\n"
+                        "- 법률비용 지원 특약: 중과실 사고 시 형사합의금·벌금·변호사비 지원 한도\n"
+                        "- 긴급출동·렌터카 특약 활용 방법\n"
+                        "- 마일리지·블랙박스·T맵·ADAS·자녀할인 적용 가능 여부 안내\n\n"
+                        "### ⑥ 종합 결론 및 즉시 조치 사항\n"
+                        "- 현재 보험 구조의 보장 공백(Gap) 지적\n"
+                        "- 가장 시급한 보완 담보 1순위~3순위 제시\n"
+                        "- 사고 발생 시 즉시 해야 할 행동 체크리스트 (번호 순)\n"
+                        "⚠️ 본 분석은 상담 참고용이며 최종 보상 여부는 약관 및 보험사 심사 기준에 따릅니다."
+                    )
+                )
+
+        st.markdown("---")
+        st.subheader("🤖 AI 분석 리포트")
+        show_result("res_car_ins")
+
+        # ── 참고 인포박스 ─────────────────────────────────────────────────
+        with st.expander("📚 자동차보험 5대 섹터 요약 가이드", expanded=False):
+            components.html("""
+<div style="height:520px;overflow-y:auto;padding:14px 18px;
+  background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
+  font-size:0.84rem;line-height:1.5;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="font-size:0.92rem;color:#1a3a5c;">🚘 자동차보험 5대 섹터 핵심 요약</b><br><br>
+
+<b style="color:#dc2626;">🔴 섹터 4 — 면책·계약 조건 (1순위 필터)</b><br>
+• 연령 한정 위반(예: 30세↑ 한정 ← 28세 운전) → 대인I만 보상, 나머지 <b>전면 면책</b><br>
+• 운전자 범위 위반(예: 부부 한정 ← 자녀 운전) → 동일 면책 구조<br>
+• 단기 운전자 확대 특약: 명절 등 일정 기간 한정 해제 가능<br><br>
+
+<b style="color:#ea580c;">🟠 섹터 1 — 타인 배상 (남의 손해)</b><br>
+• <b>대인배상 I (의무)</b>: 자배법 한도 내 — 사망 최대 1.5억, 부상 14등급 기준<br>
+• <b>대인배상 II (임의·무한 권장)</b>: 초과 손해 전액 보상 + 형사처벌 면제 특례<br>
+• <b>대물배상</b>: 최소 5억~10억 권장 (외제차 증가 추세 반영)<br><br>
+
+<b style="color:#ca8a04;">🟡 섹터 2 — 내 손해 (자손/자상/자차)</b><br>
+• <b>자손(자기신체사고)</b>: 약관 급수별 <b>정액</b> 지급 → 중상 시 실손 치료비 초과분 미보상<br>
+• <b>자상(자동차상해) ★권장</b>: 과실 무관 치료비 <b>전액</b> + 위자료 + 휴업손해<br>
+• <b>자차(자기차량손해)</b>: 자기부담금 20%~30% 공제 후 수리비 지급<br><br>
+
+<b style="color:#16a34a;">🟢 섹터 3 — 사각지대 방어</b><br>
+• <b>무보험차 상해</b>: 뺑소니·책임보험만 가입·무보험 상대방 사고 → 내 보험 선지급 후 구상<br>
+• <b>다른 자동차 운전 담보</b>: 무보험차 특약 가입 시 자동 포함 → 지인·렌터카 운전 중 사고 처리<br><br>
+
+<b style="color:#2563eb;">🔵 섹터 5 — 비용·할인 특약</b><br>
+• <b>법률비용 지원</b>: 형사합의금(최대 2억) + 벌금(최대 2,000만원) + 변호사비 ← 중과실 사고 필수<br>
+• 렌터카 대여비 / 긴급출동·견인 서비스<br>
+• 마일리지 환급 / 블랙박스 / T맵 안전운전 / ADAS / 자녀할인<br><br>
+
+<b style="color:#7c3aed;">⚡ AI 사고 분석 순서 (실전 예시)</b><br>
+고객: "아들이 제 차 몰다가 외제차 박았어요!"<br>
+① <b>[섹터4]</b> "부부 한정인데 아드님 나이 연령 한정 맞나요?" → 면책 여부 우선 확인<br>
+② <b>[섹터1]</b> "상대 차 수리비 → 대물배상(한도 10억 확인)"<br>
+③ <b>[섹터2]</b> "아드님 부상 → 자상 가입 시 치료비 전액 + 합의금 지급"<br>
+④ <b>[섹터5]</b> "사고 현장 → 긴급출동(견인) 접수 바로 도와드릴까요?"
+</div>
+""", height=540)
+        st.stop()
 
     # ── [t5] 노후·상속설계 ────────────────────────────────────────────────
     if cur == "t5":
