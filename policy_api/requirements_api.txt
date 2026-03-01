@@ -1,0 +1,12 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+google-cloud-storage>=2.16.0
+google-auth>=2.29.0
+pdfplumber>=0.9.0
+python-dotenv>=1.0.0
+# RAG 파이프라인 (선택 — rag_ingest.py 뼈대 활성화 시 주석 해제)
+# langchain>=0.2.0
+# langchain-google-genai>=1.0.0
+# langchain-community>=0.2.0
+# supabase>=2.3.0

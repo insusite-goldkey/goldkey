@@ -1,0 +1,29 @@
+LINE   3822 [UNDEFINED?]:                         "id bigserial PRIMARY KEY, filename text NOT NULL, "
+LINE   3823 [UNDEFINED?]:                         "category text DEFAULT '미분류', insurer text DEFAULT '', "
+LINE   3824 [UNDEFINED?]:                         "doc_date text DEFAULT '', summary text DEFAULT '', "
+LINE   3825 [UNDEFINED?]:                         "uploaded text NOT NULL, chunk_cnt integer DEFAULT 0);"
+LINE   3829 [UNDEFINED?]:                         "chunk text NOT NULL, filename text DEFAULT '', "
+LINE   3830 [UNDEFINED?]:                         "category text DEFAULT '미분류', insurer text DEFAULT '', "
+LINE   3831 [UNDEFINED?]:                         "doc_date text DEFAULT '', uploaded text DEFAULT '');"
+LINE   5360 [UNDEFINED?]: $$\text{보상액} = \text{손해액} \times \frac{\text{가입금액}}{\text{보험가액} \times \text{비율}}$$
+LINE   5384 [UNDEFINED?]: > $$\text{보상액} = \text{청구금액} \times \frac{\text{고지 시 적용 요율}}{\text{정상 적용 요율}}$$
+LINE   6272 [UNDEFINED?]:   <div class="gk-loading-msg" id="gk-loading-text">로그인 중입니다.잠시만 기다려주세요.</div>
+LINE   6277 [UNDEFINED?]:   var loadingText = document.getElementById('gk-loading-text');
+LINE   8747 [UNDEFINED?]: function _isDup(text){{
+LINE   8748 [UNDEFINED?]:   if(!text||text.length<5) return false;
+LINE   8750 [UNDEFINED?]:   var curHash=_hash(text);
+LINE   8760 [UNDEFINED?]:     var sim=mx>0?1-(_lev(entry.text,text)/mx):1;
+LINE   8767 [UNDEFINED?]: function _addQ(text){{
+LINE   8768 [UNDEFINED?]:   _lastQ.push({{text:text, ts:Date.now(), hash:_hash(text)}});
+LINE   9688 [UNDEFINED?]:                         mime="text/plain",
+LINE   9793 [UNDEFINED?]: .gk-status-text {{ color: #86efac; font-size: 0.73rem; font-weight: 700;
+LINE   9811 [UNDEFINED?]:       <span class="gk-status-text">AI ONLINE &nbsp;·&nbsp; GEMINI 2.0 FLASH &nbsp;·&nbsp; 30년 실무 지식 탑재</span>
+LINE  10002 [UNDEFINED?]:   function resolve(text) {{
+LINE  10029 [UNDEFINED?]:   function resolveAll(text) {{
+LINE  10724 [UNDEFINED?]:                 _rep, text)
+LINE  12915 [UNDEFINED?]: function _isDup(text){{
+LINE  12916 [UNDEFINED?]:   if(!text||text.length<5) return false;
+LINE  12917 [UNDEFINED?]:   var now=Date.now(), curHash=_hash(text);
+LINE  12923 [UNDEFINED?]:     var sim=mx>0?1-(_lev(entry.text,text)/mx):1;
+LINE  12929 [UNDEFINED?]: function _addQ(text){{ _lastQ.push({{text:text,ts:Date.now(),hash:_hash(text)}}); if(_lastQ.length>{STT_LEV_QUEUE}) _las
+LINE  19958 [UNDEFINED?]:                             mime      = "text/csv",

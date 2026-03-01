@@ -43,6 +43,15 @@ app_backup_*.py
 !catalog_app/**/*.json
 !catalog_app/**/*.png
 
+# chrome_extension — manifest.json, icons 예외 허용
+!chrome_extension/**/*.json
+!chrome_extension/**/*.js
+!chrome_extension/**/*.png
+
+# crm_app — React Native 프로젝트 파일 예외 허용
+!crm_app/**/*.json
+!crm_app/**/*.js
+
 # 이미지 바이너리 (HF Space LFS 처리 — .gitattributes 참조)
 avatar.png
 *.png
