@@ -7399,7 +7399,7 @@ hr[data-testid="stDivider"] {
 }
 .gk-pop { animation: gk-pop 0.45s var(--gk-spring) both; }
 
-/* ── 스켈레톤 로더 ── */
+/* ── 스켈레톤 로더 (GPU 가속 적용) ── */
 .gk-skeleton {
     background: linear-gradient(90deg,
         rgba(226,232,240,0.8) 25%,
@@ -7410,10 +7410,74 @@ hr[data-testid="stDivider"] {
     border-radius: 8px;
     height: 20px;
     margin: 6px 0;
+    /* GPU 레이어 분리 — CPU 렌더링 부하 제거 */
+    will-change: background-position;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
 }
 @keyframes gk-shimmer {
     0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
+}
+
+/* ── 탭 전환 Skeleton Screen (섹터 이동 시 흰 화면 방지) ── */
+#gk-tab-skeleton {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: hsl(var(--gk-bg-h), var(--gk-bg-s), var(--gk-bg-l));
+    padding: 60px 24px 24px 24px;
+    pointer-events: none;
+    /* GPU 레이어 — 페이드 애니메이션 compositor 처리 */
+    will-change: opacity;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+}
+#gk-tab-skeleton.show { display: block; animation: gk-skel-in 0.18s ease both; }
+#gk-tab-skeleton.hide { animation: gk-skel-out 0.25s ease both; }
+@keyframes gk-skel-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gk-skel-out { from { opacity: 1; } to { opacity: 0; } }
+
+.gk-skel-bar {
+    background: linear-gradient(90deg,
+        rgba(226,232,240,0.9) 25%,
+        rgba(248,250,252,1.0) 50%,
+        rgba(226,232,240,0.9) 75%);
+    background-size: 200% 100%;
+    animation: gk-shimmer 1.2s infinite;
+    border-radius: 8px;
+    margin: 10px 0;
+    will-change: background-position;
+    transform: translateZ(0);
+}
+
+/* ── 탭 콘텐츠 등장 Fade-in (Crossfade 효과) ── */
+.gk-tab-content {
+    animation: gk-tab-fadein 0.3s var(--gk-ease) both;
+    will-change: opacity, transform;
+    transform: translateZ(0);
+}
+@keyframes gk-tab-fadein {
+    from { opacity: 0; transform: translateY(8px) translateZ(0); }
+    to   { opacity: 1; transform: translateY(0)   translateZ(0); }
+}
+
+/* ── GPU 가속 버튼/카드 (hover 프레임드랍 방지) ── */
+.stButton > button,
+[data-testid="stMetric"],
+.gk-glass,
+.dash-card-wrap {
+    will-change: transform;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* ── CLS 방지: 메인 콘텐츠 영역 최소 높이 예약 ── */
+.block-container > div:first-child {
+    min-height: 80vh;
 }
 
 /* ── Lottie 오버레이 (약관 돋보기) ── */
@@ -7796,6 +7860,116 @@ function watchRipple() {
   setTimeout(watchRipple, 2000);
 }
 watchRipple();
+
+/* ─── 7. Tab Skeleton Screen — 섹터 이동 시 흰 화면 방지 ───────────────
+   설계: 탭 전환 버튼 클릭 → Skeleton DOM 즉시 표시 (18ms)
+         Streamlit rerun 완료 후 새 콘텐츠 등장 → Skeleton 페이드아웃 (250ms)
+         GPU 가속: will-change:opacity, transform:translateZ(0)
+──────────────────────────────────────────────────────────────────────── */
+(function(){
+  var pd = window.parent.document;
+
+  /* Skeleton DOM 생성 (최초 1회) */
+  function ensureSkeleton() {
+    if (pd.getElementById('gk-tab-skeleton')) return;
+    var skel = pd.createElement('div');
+    skel.id = 'gk-tab-skeleton';
+    /* 헤더 1줄 + 본문 5줄 shimmer 바 */
+    skel.innerHTML = [
+      '<div class="gk-skel-bar" style="height:32px;width:55%;margin-bottom:18px;border-radius:10px;"></div>',
+      '<div class="gk-skel-bar" style="height:18px;width:90%;"></div>',
+      '<div class="gk-skel-bar" style="height:18px;width:80%;"></div>',
+      '<div class="gk-skel-bar" style="height:18px;width:85%;"></div>',
+      '<div class="gk-skel-bar" style="height:120px;width:100%;border-radius:12px;margin-top:12px;"></div>',
+      '<div class="gk-skel-bar" style="height:18px;width:70%;margin-top:12px;"></div>',
+    ].join('');
+    pd.body.appendChild(skel);
+  }
+
+  function showSkeleton() {
+    ensureSkeleton();
+    var s = pd.getElementById('gk-tab-skeleton');
+    s.className = 'show';
+  }
+
+  function hideSkeleton() {
+    var s = pd.getElementById('gk-tab-skeleton');
+    if (!s || s.className === '') return;
+    s.className = 'hide';
+    setTimeout(function(){
+      if (s.className === 'hide') s.className = '';
+    }, 300);
+  }
+
+  /* Streamlit rerun 완료 감지: stMainBlocksContainer DOM 변경 감시 */
+  function watchRerunComplete() {
+    try {
+      var target = pd.querySelector('[data-testid="stMainBlocksContainer"]')
+                || pd.querySelector('.block-container')
+                || pd.body;
+      var obs = new MutationObserver(function(muts) {
+        /* 새 콘텐츠가 추가됐으면 Skeleton 숨김 */
+        var added = false;
+        muts.forEach(function(m){ if (m.addedNodes.length) added = true; });
+        if (added) hideSkeleton();
+      });
+      obs.observe(target, { childList: true, subtree: true });
+    } catch(e){}
+  }
+  watchRerunComplete();
+
+  /* 탭 전환 버튼 감지 — 버튼 클릭 시 Skeleton 즉시 표시 */
+  function watchTabButtons() {
+    try {
+      pd.querySelectorAll('.stButton > button').forEach(function(btn){
+        if (btn._gk_skel) return;
+        btn._gk_skel = true;
+        btn.addEventListener('click', function(){
+          /* 홈 내 카드버튼 또는 섹터 이동 버튼만 (AI 분석 실행 버튼 제외) */
+          var txt = (btn.textContent || '').trim();
+          var isNav = /▶|🏠|홈으로|← 뒤로|섹터|분석 실행/.test(txt) === false
+                      || /▶/.test(txt)
+                      || /홈으로/.test(txt)
+                      || /← 뒤로/.test(txt);
+          /* AI 분석 실행 버튼은 Skeleton 표시 안 함 */
+          var isAnalyze = /정밀 분석|분석 실행|AI 분석|OTP|보안 인증|로그인/.test(txt);
+          if (isNav && !isAnalyze) {
+            showSkeleton();
+            /* 최대 3초 후 자동 해제 (rerun 무응답 방지) */
+            setTimeout(hideSkeleton, 3000);
+          }
+        });
+      });
+    } catch(e){}
+    setTimeout(watchTabButtons, 1500);
+  }
+  watchTabButtons();
+
+  /* 탭 콘텐츠 등장 시 Fade-in 클래스 자동 부여 */
+  function watchContentFade() {
+    try {
+      var main = pd.querySelector('[data-testid="stMainBlocksContainer"]')
+               || pd.querySelector('.block-container');
+      if (!main) return;
+      var mo = new MutationObserver(function(muts){
+        muts.forEach(function(m){
+          m.addedNodes.forEach(function(node){
+            if (node.nodeType === 1 && !node._gk_faded) {
+              node._gk_faded = true;
+              /* 직접 자식 섹션 블록에만 fade-in 적용 (너무 깊은 노드 제외) */
+              if (node.tagName === 'DIV' || node.tagName === 'SECTION') {
+                node.classList.add('gk-tab-content');
+              }
+            }
+          });
+        });
+      });
+      mo.observe(main, { childList: true });
+    } catch(e){}
+  }
+  setTimeout(watchContentFade, 500);
+
+})();
 
 })();
 </script>""", height=0)
