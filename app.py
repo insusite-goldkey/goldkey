@@ -6371,6 +6371,81 @@ def section_housing_pension():
 
 
 # --------------------------------------------------------------------------
+# @st.fragment — AI 결과 섹터 격리 렌더러
+# 설계 원칙:
+#   · 전체 페이지가 아닌 이 fragment 내부만 재실행 (Streamlit 1.33+)
+#   · run_ai_analysis 버튼, 추가답변 버튼, 출력 버튼 클릭 시 전체 rerun 차단
+#   · result_key: session_state 키 — 분석 결과 텍스트 저장 위치
+#   · on_click_run: 호출 시 run_ai_analysis 를 실행하는 callable (None=표시만)
+# --------------------------------------------------------------------------
+@st.fragment
+def _fragment_ai_result(result_key: str):
+    """AI 분석 결과 표시 전용 Fragment — 전체 rerun 없이 결과 섹터만 갱신."""
+    if not st.session_state.get(result_key):
+        return
+    result_text = st.session_state[result_key]
+
+    # ── 결론 우선형 한줄 요약 ──────────────────────────────────────────────
+    _summary_line = ""
+    for _ln in result_text.splitlines():
+        _ln_s = _ln.strip()
+        if not _ln_s:
+            continue
+        if any(tok in _ln_s for tok in ["★", "✅", "💡", "🔑", "핵심", "결론", "요약"]):
+            import re as _re
+            _summary_line = _re.sub(r"\*+", "", _ln_s).strip(" #>-·")
+            break
+    if not _summary_line:
+        import re as _re
+        for _ln in result_text.splitlines():
+            _ln_s = _re.sub(r"[#*_>`\-]", "", _ln).strip()
+            if len(_ln_s) > 20:
+                _summary_line = _ln_s[:80] + ("…" if len(_ln_s) > 80 else "")
+                break
+    if _summary_line:
+        st.markdown(
+            f'<div class="gk-ai-summary">'
+            f'<span class="gk-summary-label">AI 핵심 결론</span>'
+            f'{_summary_line}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown(result_text)
+
+    # ── 출력 · 전송 expander ──────────────────────────────────────────────
+    _c_name_out = st.session_state.get('current_c_name', '고객')
+    _disclaimer = (
+        "\n\n---\n"
+        "**[면책 고지]** 본 분석 결과는 AI 보조 도구에 의한 참고용 자료이며, "
+        "최종 판단 및 법적 책임은 사용자(상담원)에게 귀속됩니다. "
+        "보험금 지급 여부의 최종 결정은 보험사 심사 및 관련 법령에 따르며, "
+        "법률·세무·의료 분야의 최종 판단은 반드시 해당 전문가와 확인하십시오.\n\n"
+        "**문의:** insusite@gmail.com | 010-3074-2616 골드키지사"
+    )
+    _full_text = result_text + _disclaimer
+    with st.expander("📤 출력 · 전송", expanded=False):
+        st.text_area("출력 내용 (복사 후 카톡/문서 전송)", value=_full_text,
+            height=200, key=f"_frag_print_{result_key}")
+        _pc1, _pc2 = st.columns(2)
+        with _pc1:
+            import streamlit.components.v1 as _cv1
+            _cv1.html("""<button onclick="window.print()" style="
+  width:100%;padding:9px 0;border-radius:8px;
+  border:1.5px solid #2e6da4;background:#eef4fb;
+  color:#1a3a5c;font-size:0.88rem;font-weight:700;cursor:pointer;">
+  🖨️ 인쇄 / PDF 저장
+</button>""", height=44)
+        with _pc2:
+            st.download_button("📩 문서 다운로드 (.txt)",
+                data=_full_text.encode("utf-8"),
+                file_name=f"골드키AI_{_c_name_out}_상담결과.txt",
+                mime="text/plain",
+                key=f"_frag_dl_{result_key}",
+                use_container_width=True)
+
+
+# --------------------------------------------------------------------------
 def main():
     # ── STEP 1: set_page_config (항상 가장 먼저) ─────────────────────────
     st.set_page_config(
@@ -6379,6 +6454,24 @@ def main():
         layout="centered",
         initial_sidebar_state="collapsed"
     )
+
+    # ── STEP 1-FOUC: 흰 화면(FOUC) 즉시 차단 ────────────────────────────
+    # set_page_config 직후 배경색을 강제 주입 → JS/CSS 로딩 전 흰 화면 방지
+    # Dynamic Theme JS가 이후 배경을 덮어씀 (2단계 전환)
+    st.markdown("""
+<style>
+/* FOUC(Flash of Unstyled Content) 방지 — 레이아웃 렌더 전 배경 선점 */
+html, body, [data-testid="stApp"], .stApp {
+    background-color: hsl(220, 18%, 97%) !important;
+    /* GPU 레이어 분리 — 탭 전환 시 repaint 방지 */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+}
+/* 탭 전환 리렌더 중 메인 블록 최소 높이 유지 (CLS 방지) */
+[data-testid="stMainBlocksContainer"] {
+    min-height: 100vh !important;
+}
+</style>""", unsafe_allow_html=True)
 
     # ── STEP 1-A: 프리미엄 스플래시 화면 (최초 방문 1회만, 10초) ──────────
     # [비동기 설계] Python → HTML 1회 렌더 후 즉시 리턴. JS가 타이머/전환/페이드아웃 전담.
@@ -10772,35 +10865,9 @@ window['startTTS_{tab_key}']=function(){{
 
     def show_result(result_key, guide_md=""):
         if st.session_state.get(result_key):
-            result_text = st.session_state[result_key]
-            # ── 결론 우선형 AI 한줄 요약 블록 (4060 가독성 최적화) ──────────
-            # 첫 번째 굵은 문장 또는 ★/✅/💡 포함 줄을 요약으로 추출
-            _summary_line = ""
-            for _ln in result_text.splitlines():
-                _ln_s = _ln.strip()
-                if not _ln_s:
-                    continue
-                # 핵심 결론 패턴: ★ / ✅ / 💡 / **..** 굵은 텍스트
-                if any(tok in _ln_s for tok in ["★", "✅", "💡", "🔑", "핵심", "결론", "요약"]):
-                    _summary_line = re.sub(r"\*+", "", _ln_s).strip(" #>-·")
-                    break
-            if not _summary_line:
-                # 패턴 없으면 첫 비빈 줄에서 80자 추출
-                for _ln in result_text.splitlines():
-                    _ln_s = re.sub(r"[#*_>`\-]", "", _ln).strip()
-                    if len(_ln_s) > 20:
-                        _summary_line = _ln_s[:80] + ("…" if len(_ln_s) > 80 else "")
-                        break
-            if _summary_line:
-                st.markdown(
-                    f'<div class="gk-ai-summary">'
-                    f'<span class="gk-summary-label">AI 핵심 결론</span>'
-                    f'{_summary_line}'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
-            st.markdown(result_text)
-            # ── 금지 키워드 감지 시 추가 답변 버튼 ─────────────────────────
+            # ── @st.fragment 위임 — 결과 표시/출력 버튼 클릭이 전체 rerun 유발 안 함 ──
+            _fragment_ai_result(result_key)
+            # ── 금지 키워드 감지 시 추가 답변 버튼 (fragment 외부 — rerun 필요) ──
             fb_key = f"_forbidden_{result_key}"
             fb_info = st.session_state.get(fb_key)
             if fb_info:
@@ -10819,41 +10886,8 @@ window['startTTS_{tab_key}']=function(){{
                     type="primary",
                     use_container_width=True,
                 ):
-                    # 라운드 증가 후 추가 분석 실행
                     st.session_state[fb_key]["round"] = next_round
                     _run_followup_analysis(result_key, pkey, hits, next_round)
-            # ── 출력(인쇄) 기능 ──────────────────────────────────────────
-            c_name_out = st.session_state.get('current_c_name', '고객')
-            disclaimer = (
-                "\n\n---\n"
-                "**[면책 고지]** 본 분석 결과는 AI 보조 도구에 의한 참고용 자료이며, "
-                "최종 판단 및 법적 책임은 사용자(상담원)에게 귀속됩니다. "
-                "보험금 지급 여부의 최종 결정은 보험사 심사 및 관련 법령에 따르며, "
-                "법률·세무·의료 분야의 최종 판단은 반드시 해당 전문가와 확인하십시오.\n\n"
-                "**문의:** insusite@gmail.com | 010-3074-2616 골드키지사"
-            )
-            full_text = result_text + disclaimer
-            with st.expander("📤 출력 · 전송", expanded=False):
-                st.markdown("**면책조항 포함 출력물 미리보기**")
-                st.text_area("출력 내용 (복사 후 카톡/문서 전송)", value=full_text,
-                    height=200, key=f"print_area_{result_key}")
-                pcol1, pcol2 = st.columns(2)
-                with pcol1:
-                    components.html(f"""
-<button onclick="window.print()" style="
-  width:100%;padding:9px 0;border-radius:8px;
-  border:1.5px solid #2e6da4;background:#eef4fb;
-  color:#1a3a5c;font-size:0.88rem;font-weight:700;cursor:pointer;">
-  🖨️ 인쇄 / PDF 저장
-</button>""", height=44)
-                with pcol2:
-                    kakao_text = f"[골드키AI마스터 상담결과]\n{c_name_out}님\n" + full_text[:200] + "...\n문의: 010-3074-2616"
-                    st.download_button("📩 문서 다운로드 (.txt)",
-                        data=full_text.encode("utf-8"),
-                        file_name=f"골드키AI_{c_name_out}_상담결과.txt",
-                        mime="text/plain",
-                        key=f"dl_{result_key}",
-                        use_container_width=True)
         elif guide_md:
             st.markdown(guide_md)
         else:
