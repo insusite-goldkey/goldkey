@@ -25,22 +25,11 @@
   <circle cx="100" cy="100" r="84" fill="none" stroke="rgba(240,192,32,0.25)" stroke-width="1"/>
   <circle cx="100" cy="100" r="72" fill="none" stroke="rgba(240,192,32,0.12)" stroke-width="1"/>
 
-  <!-- 골드 열쇠 몸체 (키 링) -->
-  <circle cx="82" cy="80" r="24" fill="none" stroke="url(#goldKey)" stroke-width="9"
+  <!-- 중앙 골드 엠블럼 심볼 -->
+  <circle cx="100" cy="88" r="28" fill="none" stroke="url(#goldKey)" stroke-width="7"
     filter="url(#glow)"/>
-
-  <!-- 키 손잡이 장식 점 -->
-  <circle cx="82" cy="80" r="10" fill="url(#goldKey)" opacity="0.5"/>
-  <circle cx="82" cy="80" r="4" fill="url(#goldKey)"/>
-
-  <!-- 열쇠 몸체 (shaft) -->
-  <rect x="100" y="76" width="44" height="9" rx="4.5" fill="url(#goldKey)"
-    filter="url(#shadow)"/>
-
-  <!-- 열쇠 이빨 1 -->
-  <rect x="126" y="85" width="8" height="10" rx="3" fill="url(#goldKey)"/>
-  <!-- 열쇠 이빨 2 -->
-  <rect x="138" y="85" width="6" height="7" rx="2.5" fill="url(#goldKey)"/>
+  <circle cx="100" cy="88" r="12" fill="url(#goldKey)" opacity="0.45"/>
+  <circle cx="100" cy="88" r="5" fill="url(#goldKey)"/>
 
   <!-- AI 텍스트 -->
   <text x="100" y="136" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif"

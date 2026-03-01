@@ -6358,7 +6358,7 @@ def main():
         page_title="골드키지사 마스터 AI",
         page_icon="🏆",
         layout="centered",
-        initial_sidebar_state="expanded"
+        initial_sidebar_state="collapsed"
     )
 
     # ── STEP 1-A: 스플래시 화면 (최초 방문 1회만) ──────────────────────────
@@ -6382,103 +6382,78 @@ def main():
         # ── 공통 스플래시 HTML 빌더 ────────────────────────────────────────
         def _splash_html(msg: str, pct: int) -> str:
             _bar_w = max(4, pct)
-            return f"""
-<div style="
-  position:fixed;top:0;left:0;width:100vw;height:100vh;
-  background:linear-gradient(160deg,#060d1a 0%,#0d2444 40%,#1a3a5c 70%,#0a1628 100%);
+            return """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+body{margin:0;padding:0;background:#060d1a;}
+.sp-wrap{
+  width:100%;min-height:100vh;
+  background:linear-gradient(160deg,#060d1a 0%%,#0d2444 40%%,#1a3a5c 70%%,#0a1628 100%%);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  z-index:99999;font-family:'Segoe UI','Noto Sans KR',sans-serif;">
-
-  <!-- 배경 파티클 장식 -->
-  <div style="position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;pointer-events:none;">
-    <div style="position:absolute;top:8%;left:12%;width:180px;height:180px;
-      border-radius:50%;border:1px solid rgba(240,192,32,0.08);"></div>
-    <div style="position:absolute;top:15%;right:10%;width:120px;height:120px;
-      border-radius:50%;border:1px solid rgba(168,200,240,0.06);"></div>
-    <div style="position:absolute;bottom:12%;left:8%;width:90px;height:90px;
-      border-radius:50%;border:1px solid rgba(240,192,32,0.06);"></div>
-    <div style="position:absolute;bottom:20%;right:15%;width:60px;height:60px;
-      border-radius:50%;border:1px solid rgba(168,200,240,0.08);"></div>
-  </div>
-
-  <!-- 메인 카드 -->
-  <div style="
-    background:rgba(255,255,255,0.03);
-    border:1.5px solid rgba(240,192,32,0.25);
-    border-radius:24px;
-    padding:48px 52px 40px 52px;
-    text-align:center;
-    max-width:480px;width:88%;
-    box-shadow:0 8px 40px rgba(0,0,0,0.5),
-               0 0 60px rgba(240,192,32,0.08),
-               inset 0 1px 0 rgba(255,255,255,0.06);
-    backdrop-filter:blur(12px);">
-
-    <!-- 엠블럼 -->
-    <div style="
-      width:80px;height:80px;border-radius:50%;
-      background:linear-gradient(135deg,#1a3a5c,#0a1628);
-      border:2.5px solid #f0c040;
-      display:inline-flex;align-items:center;justify-content:center;
-      font-size:36px;margin-bottom:20px;
-      box-shadow:0 0 24px rgba(240,192,32,0.35),0 4px 12px rgba(0,0,0,0.4);">
-      🔑
+  font-family:'Noto Sans KR','Segoe UI',sans-serif;
+  padding:20px 0;
+}
+.sp-card{
+  background:rgba(255,255,255,0.03);
+  border:1.5px solid rgba(240,192,32,0.3);
+  border-radius:24px;
+  padding:40px 44px 34px 44px;
+  text-align:center;
+  max-width:460px;width:90%%;
+  box-shadow:0 8px 40px rgba(0,0,0,0.5),0 0 60px rgba(240,192,32,0.08);
+  backdrop-filter:blur(12px);
+}
+.sp-avatar{
+  width:88px;height:88px;border-radius:50%;
+  background:linear-gradient(135deg,#1a3a5c,#0a1628);
+  border:2.5px solid #f0c040;
+  display:inline-flex;align-items:center;justify-content:center;
+  margin-bottom:18px;
+  box-shadow:0 0 28px rgba(240,192,32,0.4),0 4px 12px rgba(0,0,0,0.4);
+  overflow:hidden;
+}
+.sp-avatar img{width:82px;height:82px;border-radius:50%;object-fit:cover;}
+.sp-brand{font-size:1.4rem;font-weight:900;color:#f0c040;letter-spacing:0.06em;line-height:1.2;text-shadow:0 2px 12px rgba(240,192,32,0.4);}
+.sp-brand span{color:#7dd3fc;font-size:0.95rem;font-weight:700;}
+.sp-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(240,192,32,0.45),transparent);margin:12px auto;width:80%%;}
+.sp-sub{font-size:0.86rem;color:#a8c8f0;line-height:1.7;font-weight:600;margin-bottom:4px;}
+.sp-sub2{font-size:0.76rem;color:rgba(168,200,240,0.65);font-style:italic;margin-bottom:24px;}
+.sp-msg{
+  background:rgba(0,0,0,0.25);
+  border:1px solid rgba(240,192,32,0.2);
+  border-radius:10px;padding:9px 14px;margin-bottom:16px;
+  font-size:0.78rem;color:#93c5fd;
+  text-align:left;letter-spacing:0.02em;min-height:34px;
+  display:flex;align-items:center;gap:8px;
+}
+.sp-check{color:#4ade80;font-size:0.9rem;}
+.sp-bar-track{width:100%%;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;margin-bottom:12px;}
+.sp-bar-fill{height:100%%;background:linear-gradient(90deg,#f0c040,#7dd3fc);border-radius:3px;}
+.sp-footer{display:flex;justify-content:space-between;align-items:center;}
+.sp-copy{font-size:0.68rem;color:rgba(168,200,240,0.5);font-style:italic;}
+.sp-pct{font-size:0.72rem;color:#f0c040;font-weight:700;}
+</style>
+<div class="sp-wrap">
+  <div class="sp-card">
+    <div class="sp-avatar">
+      <img src="https://huggingface.co/spaces/goldkey-rich/goldkey-ai/resolve/main/assets/avatar_goldkey.svg"
+           onerror="this.style.display='none';this.parentNode.innerHTML='🤖';"
+           alt="avatar">
     </div>
-
-    <!-- 브랜드명 -->
-    <div style="font-size:1.45rem;font-weight:900;color:#f0c040;
-      letter-spacing:0.06em;line-height:1.2;
-      text-shadow:0 2px 12px rgba(240,192,32,0.4);">
-      Goldkey_AI_Masters
-      <span style="color:#7dd3fc;font-size:1rem;font-weight:700;">2026</span>
+    <div class="sp-brand">Goldkey_AI_Masters<span> 2026</span></div>
+    <div class="sp-divider"></div>
+    <div class="sp-sub">전문 보장 상담 동반자</div>
+    <div class="sp-sub2">인텔리전트 Goldkey AI Masters가 함께합니다</div>
+    <div class="sp-msg">
+      <span class="sp-check">✓</span>
+      <span>""" + msg + """</span>
     </div>
-
-    <!-- 구분선 -->
-    <div style="height:1px;
-      background:linear-gradient(90deg,transparent,rgba(240,192,32,0.45),transparent);
-      margin:14px auto;width:80%;"></div>
-
-    <!-- 메인 슬로건 -->
-    <div style="font-size:0.88rem;color:#a8c8f0;line-height:1.7;
-      font-weight:600;letter-spacing:0.02em;margin-bottom:6px;">
-      전문 보장 상담 동반자
+    <div class="sp-bar-track">
+      <div class="sp-bar-fill" style="width:""" + str(_bar_w) + """%%"></div>
     </div>
-    <div style="font-size:0.78rem;color:rgba(168,200,240,0.65);
-      font-style:italic;letter-spacing:0.01em;margin-bottom:28px;">
-      인텔리전트 Goldkey AI Masters가 함께합니다
-    </div>
-
-    <!-- 진행 메시지 -->
-    <div style="
-      background:rgba(0,0,0,0.25);
-      border:1px solid rgba(240,192,32,0.2);
-      border-radius:10px;padding:10px 16px;margin-bottom:18px;
-      font-size:0.78rem;color:#93c5fd;
-      text-align:left;letter-spacing:0.02em;min-height:36px;
-      display:flex;align-items:center;gap:8px;">
-      <span style="color:#4ade80;font-size:0.9rem;">✓</span>
-      <span>{msg}</span>
-    </div>
-
-    <!-- 진행 바 트랙 -->
-    <div style="
-      width:100%;height:5px;
-      background:rgba(255,255,255,0.08);
-      border-radius:3px;overflow:hidden;margin-bottom:14px;">
-      <div style="
-        width:{_bar_w}%;height:100%;
-        background:linear-gradient(90deg,#f0c040,#7dd3fc);
-        border-radius:3px;
-        transition:width 0.4s ease;">
-      </div>
-    </div>
-
-    <!-- 퍼센트 + 하단 서브카피 -->
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-size:0.7rem;color:rgba(168,200,240,0.5);font-style:italic;">
-        초개인화 인텔리전트 AI 기반 시스템
-      </div>
-      <div style="font-size:0.72rem;color:#f0c040;font-weight:700;">{pct}%</div>
+    <div class="sp-footer">
+      <span class="sp-copy">초개인화 인텔리전트 AI 기반 시스템</span>
+      <span class="sp-pct">""" + str(pct) + """%%</span>
     </div>
   </div>
 </div>"""
@@ -6493,10 +6468,11 @@ def main():
             ("전략 파트너 Goldkey AI가 준비되었습니다. ✦",        100, 0.6),
         ]
         for _msg, _pct, _dur in _steps:
-            _splash.markdown(_splash_html(_msg, _pct), unsafe_allow_html=True)
+            with _splash:
+                components.html(_splash_html(_msg, _pct), height=520, scrolling=False)
             time.sleep(_dur)
 
-        _splash.empty()  # 3단계: 스플래시 제거 → 로그인 화면 전환
+        _splash.empty()  # 스플래시 제거 → 로그인 화면 전환
 
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
     # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
