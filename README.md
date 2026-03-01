@@ -3,10 +3,8 @@ title: GoldKey AI 보험 컨설팅
 emoji: 🛡️
 colorFrom: blue
 colorTo: indigo
-sdk: streamlit
-sdk_version: "1.41.0"
-python_version: "3.10"
-app_file: app.py
+sdk: docker
+app_port: 7860
 pinned: false
 ---
 
