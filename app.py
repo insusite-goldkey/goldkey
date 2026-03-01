@@ -6527,17 +6527,25 @@ img.on{{display:block;}}
         USAGE_DB  = "/tmp/usage_log.json"
         MEMBER_DB = "/tmp/members.json"
 
-    # ── STEP 4: DB 초기화 (1회) ───────────────────────────────────────────
+    # ── STEP 4: DB 초기화 (세션당 1회 — home_rendered 후 defer로 첫 프레임 빠르게) ─────
+    # 첫 프레임: 홈화면을 먼저 빠르게 그림. DB 초기화는 home_rendered 후 2잔 rerun 시실행.
     if 'db_ready' not in st.session_state:
-        try:
-            setup_database()
-            ensure_master_members()
-            st.session_state.db_ready = True
-        except Exception:
-            st.session_state.db_ready = True
+        if st.session_state.get('home_rendered'):
+            # 홈 첨 렌더 후 첫 rerun 시 실행 — Supabase I/O가 플레임 지연을 유발하지 않도록
+            try:
+                setup_database()
+                ensure_master_members()
+                st.session_state.db_ready = True
+            except Exception:
+                st.session_state.db_ready = True
+        else:
+            # 첫 프레임에서는 db_ready를 임시 True로 설정해 하위 블록 실행 허용
+            st.session_state['db_ready'] = 'pending'
 
-    # ── STEP 4-RAG: Supabase 테이블 초기화 (세션당 1회, DB ready 후 지연) ──
-    if st.session_state.get('db_ready') and not st.session_state.get('_rag_tables_ready'):
+    # ── STEP 4-RAG: Supabase 테이블 초기화 (세션당 1회, home_rendered 후 defer) ──
+    if (st.session_state.get('db_ready') == True
+            and not st.session_state.get('_rag_tables_ready')
+            and st.session_state.get('home_rendered')):
         try:
             _rag_supabase_ensure_tables()
             # GoldKeyServiceManager 지연 초기화
@@ -6644,9 +6652,9 @@ img.on{{display:block;}}
       warningDiv = pd.createElement('div');
       warningDiv.id = 'gk-session-warn';
       warningDiv.style.cssText = [
-        'position:fixed','bottom:20px','right:20px','z-index:99999',
-        'background:#fff3cd','border:2px solid #f59e0b','border-radius:12px',
-        'padding:16px 20px','max-width:320px','box-shadow:0 4px 16px rgba(0,0,0,0.18)',
+        'position:fixed','bottom:20px','right:20px','z-index:99999;',
+        'background:#fff3cd','border:2px solid #f59e0b','border-radius:12px;',
+        'padding:16px 20px','max-width:320px','box-shadow:0 4px 16px rgba(0,0,0,0.18);',
         'font-family:Malgun Gothic,sans-serif','font-size:0.85rem','color:#92400e'
       ].join(';');
       warningDiv.innerHTML =
@@ -6764,8 +6772,8 @@ img.on{{display:block;}}
             pass
         st.session_state['_self_diag_done'] = True
 
-    # ── STEP 6-b: 헬스체크 (로그인 첫 rerun 제외, 10분 간격 tick) ────────
-    if not _login_first_run:
+    # ── STEP 6-b: 헬스체크 (로그인 첫 rerun 제외, home_rendered 후 defer, 10분 간격 tick) ──
+    if not _login_first_run and st.session_state.get('home_rendered'):
         if not st.session_state.get('_hc_baseline_done'):
             try:
                 _hc_take_baseline()
