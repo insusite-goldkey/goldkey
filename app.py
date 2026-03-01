@@ -6390,7 +6390,7 @@ def get_location_by_ip():
     """
     try:
         import httpx as _httpx
-        _r = _httpx.get("https://ipapi.co/json/", timeout=5.0)
+        _r = _httpx.get("https://ipapi.co/json/", timeout=2.0)
         _data = _r.json()
         _city = _data.get("city") or _data.get("region") or "Seoul"
         _lat  = float(_data.get("latitude",  37.5665))
@@ -6422,7 +6422,7 @@ def fetch_weather_data(lat: float = 37.5665, lon: float = 126.9780):
             "current": "european_aqi",
             "timezone": "Asia/Seoul",
         }
-        with _httpx.Client(timeout=6.0) as _c:
+        with _httpx.Client(timeout=3.0) as _c:
             _rw = _c.get(_BASE, params=_params_w)
             _ra = _c.get(_AQI,  params=_params_a)
         _w = _rw.json()
@@ -6490,10 +6490,9 @@ def fetch_weather_data(lat: float = 37.5665, lon: float = 126.9780):
 def weather_bar_fragment():
     """
     날씨 대시보드 Fragment — 20분마다 자동 갱신.
-    위치 우선순위: GPS(session_state) → IP 기반 → Seoul 기본값.
-    get_geolocation()은 fragment 밖(main)'에서 호출 → session_state에 저장 → 여기서만 읽음.
+    위치: IP 기반 → Seoul 기본값. 전체 try/except로 에러 격리.
     """
-    # ── 1. IP 기반 위치 획득 → 실패 시 Seoul 기본값 ───────────────────────
+    # ── 1. IP 기반 위치 획득 → 실패 시 Seoul 기본값 ─────────────────────
     _lat, _lon, _loc_name, _loc_src = 37.5665, 126.9780, "Seoul", "default"
     try:
         _ip_city, _ip_lat, _ip_lon = get_location_by_ip()
@@ -6501,17 +6500,20 @@ def weather_bar_fragment():
     except Exception:
         pass  # Seoul 기본값 유지
 
-    # ── 3. 좌표로 날씨 데이터 취득 ────────────────────────────────────────
-    _d = fetch_weather_data(_lat, _lon)
+    # ── 2. 좌표로 날씨 데이터 취득 ──────────────────────────────────────
+    try:
+        _d = fetch_weather_data(_lat, _lon)
+    except Exception:
+        return  # 날씨 API 실패 시 위젯 숨김
 
-    # ── 4. 위치 출처 배지 ─────────────────────────────────────────────────
+    # ── 3. 위치 출처 배지 ─────────────────────────────────────────────────
     _src_badge = {
         "gps":     '<span style="font-size:0.68rem;color:#27ae60;">📡 GPS</span>',
         "ip":      '<span style="font-size:0.68rem;color:#2980b9;">🌐 IP</span>',
         "default": '<span style="font-size:0.68rem;color:#888;">🏙️ 기본</span>',
-    }[_loc_src]
+    }.get(_loc_src, '')
 
-    # ── 5. 대시보드 렌더링 ────────────────────────────────────────────────
+    # ── 4. 대시보드 렌더링 ────────────────────────────────────────────────
     with st.container(border=True):
         _c0, _c1, _c2, _c3, _c4, _c5 = st.columns([0.9, 0.9, 0.9, 1.0, 1.1, 1.5])
         with _c0:
