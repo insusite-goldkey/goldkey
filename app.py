@@ -6689,6 +6689,57 @@ body{margin:0;padding:0;background:#060d1a;}
 </script>
 """, height=0)
 
+    # ── autocomplete 차단 — 삼성 인터넷 비밀번호 저장 팝업 방지 ─────────
+    # password 타입 input에 autocomplete="off" 강제 주입
+    # MutationObserver: 동적으로 생성되는 필드(PIN·연락처)도 즉시 처리
+    components.html("""
+<script>
+(function(){
+  function blockAutocomplete(root) {
+    root = root || window.parent.document;
+    root.querySelectorAll('input[type="password"], input[type="tel"]').forEach(function(el){
+      el.setAttribute('autocomplete', 'off');
+      el.setAttribute('autocorrect', 'off');
+      el.setAttribute('autocapitalize', 'off');
+      el.setAttribute('spellcheck', 'false');
+      // 삼성/크롬 계열 추가 차단
+      el.setAttribute('data-lpignore', 'true');
+      el.setAttribute('data-form-type', 'other');
+    });
+    // form 태그에도 설정
+    root.querySelectorAll('form').forEach(function(f){
+      f.setAttribute('autocomplete', 'off');
+    });
+  }
+  // 초기 실행
+  setTimeout(function(){ blockAutocomplete(); }, 800);
+  setTimeout(function(){ blockAutocomplete(); }, 2000);
+  // 동적 생성 요소 감시
+  try {
+    var pd = window.parent.document;
+    var obs = new MutationObserver(function(mutations){
+      mutations.forEach(function(m){
+        m.addedNodes.forEach(function(node){
+          if(node.nodeType === 1) {
+            if(node.tagName === 'INPUT') {
+              if(node.type === 'password' || node.type === 'tel') {
+                node.setAttribute('autocomplete', 'off');
+                node.setAttribute('data-lpignore', 'true');
+                node.setAttribute('data-form-type', 'other');
+              }
+            }
+            if(typeof node.querySelectorAll === 'function') {
+              blockAutocomplete(node);
+            }
+          }
+        });
+      });
+    });
+    obs.observe(pd.body, { childList: true, subtree: true });
+  } catch(e) {}
+})();
+</script>""", height=0)
+
     # ── STEP 6: 로그인 직후 첫 rerun 감지 → 무거운 초기화 defer ────────
     # 로그인 성공 시 st.rerun()이 트리거됨 — 이 첫 rerun에서는
     # 자가진단·헬스체크·RAG sync를 건너뛰고 사이드바·홈탭만 빠르게 렌더
