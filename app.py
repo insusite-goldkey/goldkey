@@ -6875,6 +6875,37 @@ function buildLottieOverlay() {
 
     pd.body.appendChild(ov);
 
+    // ── 오버레이 표시/숨기기 헬퍼 ─────────────────────────────────────────
+    function showOverlay() {
+      var el = pd.getElementById('gk-lottie-overlay');
+      if (!el) return;
+      // 이전 타이머 취소 (중복 타이머 방지)
+      if (el._gk_timer) { clearTimeout(el._gk_timer); el._gk_timer = null; }
+      el.classList.add('show');
+      // 하드캡: 최대 10초 후 강제 해제 (st.rerun 타이머 유실 대비)
+      el._gk_timer = setTimeout(function(){
+        el.classList.remove('show');
+        el._gk_timer = null;
+      }, 10000);
+    }
+    function hideOverlay() {
+      var el = pd.getElementById('gk-lottie-overlay');
+      if (!el) return;
+      if (el._gk_timer) { clearTimeout(el._gk_timer); el._gk_timer = null; }
+      el.classList.remove('show');
+    }
+
+    // ── Streamlit rerun 감지 → 오버레이 강제 해제 ────────────────────────
+    // Streamlit은 rerun 시 #root 하위 DOM을 교체하므로 MutationObserver로 감지
+    try {
+      var _gk_root = pd.getElementById('root') || pd.body;
+      var _gk_obs = new MutationObserver(function(mutations) {
+        var changed = mutations.some(function(m){ return m.addedNodes.length > 0; });
+        if (changed) { hideOverlay(); }
+      });
+      _gk_obs.observe(_gk_root, { childList: true, subtree: false });
+    } catch(e){}
+
     // 약관 검색 버튼 감지 → 오버레이 표시
     function watchTermsBtn() {
       try {
@@ -6883,14 +6914,7 @@ function buildLottieOverlay() {
           if ((txt.includes('약관') || txt.includes('검색') || txt.includes('찾기') || txt.includes('추적'))
               && !btn._gk_terms_watched) {
             btn._gk_terms_watched = true;
-            btn.addEventListener('click', function(){
-              var el = pd.getElementById('gk-lottie-overlay');
-              if (el) { el.classList.add('show'); }
-              setTimeout(function(){
-                var el2 = pd.getElementById('gk-lottie-overlay');
-                if (el2) { el2.classList.remove('show'); }
-              }, 6000);
-            });
+            btn.addEventListener('click', function(){ showOverlay(); });
           }
         });
       } catch(e){}
@@ -6899,7 +6923,7 @@ function buildLottieOverlay() {
     watchTermsBtn();
 
     // 오버레이 클릭 시 닫기
-    ov.addEventListener('click', function(){ ov.classList.remove('show'); });
+    ov.addEventListener('click', function(){ hideOverlay(); });
   } catch(e){}
 }
 setTimeout(buildLottieOverlay, 1000);

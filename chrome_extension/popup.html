@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>골드키 RAG 설정</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+      background: #f0f4f8;
+      width: 320px;
+      padding: 16px;
+      color: #1a2a3a;
+    }
+    .header {
+      background: linear-gradient(135deg, #1a3a5c, #2e6da4);
+      color: #fff;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+    .header h1 { font-size: 0.95rem; font-weight: 900; }
+    .header p  { font-size: 0.72rem; opacity: 0.85; margin-top: 2px; }
+    .field { margin-bottom: 10px; }
+    .field label {
+      display: block;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #2e6da4;
+      margin-bottom: 4px;
+    }
+    .field input {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1.5px solid #c8d8e8;
+      border-radius: 7px;
+      font-size: 0.8rem;
+      color: #1a2a3a;
+      background: #fff;
+      outline: none;
+    }
+    .field input:focus { border-color: #2e6da4; }
+    .btn-save {
+      width: 100%;
+      padding: 9px;
+      background: #2e6da4;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    .btn-save:hover { background: #1a3a5c; }
+    .status {
+      font-size: 0.75rem;
+      text-align: center;
+      margin-top: 8px;
+      min-height: 18px;
+      color: #27ae60;
+      font-weight: 700;
+    }
+    .tip {
+      background: #e8f0fe;
+      border-left: 3px solid #2e6da4;
+      border-radius: 5px;
+      padding: 8px 10px;
+      font-size: 0.72rem;
+      color: #1a3a5c;
+      margin-top: 12px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📤 골드키 RAG 전송기</h1>
+    <p>보험사 약관 PDF → GCS 자동 업로드</p>
+  </div>
+
+  <div class="field">
+    <label>API 서버 주소</label>
+    <input id="apiEndpoint" type="url"
+      placeholder="http://localhost:8000/api/upload-policy">
+  </div>
+
+  <div class="field">
+    <label>API 키 (X-API-Key)</label>
+    <input id="apiKey" type="password" placeholder="서버에서 설정한 API 키">
+  </div>
+
+  <div class="field">
+    <label>보험사명 (선택)</label>
+    <input id="insurer" type="text" placeholder="예) 삼성화재, DB손보">
+  </div>
+
+  <button class="btn-save" id="btnSave">💾 설정 저장</button>
+  <div class="status" id="status"></div>
+
+  <div class="tip">
+    💡 <b>사용법:</b> 보험사 공시실에서 약관 PDF 링크를
+    <b>우클릭</b> → <b>"RAG 버킷으로 전송"</b> 선택
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
