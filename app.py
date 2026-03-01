@@ -8260,7 +8260,6 @@ watchRipple();
                                      use_container_width=True,
                                      type="primary" if not _bio_sel else "secondary"):
                             st.session_state["_lp_methods"]["bio"] = not _bio_sel
-                            st.rerun()
 
                     with _sc2:
                         _pat_border = "2px solid #7c3aed" if _pat_sel else "2px solid #e2e8f0"
@@ -8277,7 +8276,6 @@ watchRipple();
                                      use_container_width=True,
                                      type="primary" if not _pat_sel else "secondary"):
                             st.session_state["_lp_methods"]["pat"] = not _pat_sel
-                            st.rerun()
 
                     with _sc3:
                         _pin_border = "2px solid #0d9488" if _pin_sel else "2px solid #e2e8f0"
@@ -8294,7 +8292,6 @@ watchRipple();
                                      use_container_width=True,
                                      type="primary" if not _pin_sel else "secondary"):
                             st.session_state["_lp_methods"]["pin"] = not _pin_sel
-                            st.rerun()
 
                     st.markdown("<div style='margin-top:4px;'></div>", unsafe_allow_html=True)
 
