@@ -1830,19 +1830,48 @@ def _is_unlimited_user(user_name):
     return user_name in _get_unlimited_users()
 
 def update_usage(user_name):
-    """분석 성공 후에만 호출해야 함"""
+    """분석 성공 후에만 호출해야 함 — Supabase 우선, 로컬 JSON 폴백"""
     today = str(date.today())
+    # ── Supabase 우선 (멀티프로세스 안전 — atomic upsert) ───────────────
     try:
-        data = {}
-        if os.path.exists(USAGE_DB):
-            with open(USAGE_DB, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        if user_name not in data:
-            data[user_name] = {}
-        data[user_name][today] = data[user_name].get(today, 0) + 1
-        with open(USAGE_DB, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False)
-    except (IOError, OSError):
+        _sb = _get_sb_client()
+        if _sb:
+            _sb.table("usage_log").upsert(
+                {"user_name": user_name, "log_date": today,
+                 "count": check_usage_count(user_name) + 1},
+                on_conflict="user_name,log_date"
+            ).execute()
+            # 세션 캐시 무효화 (즉시 최신값 반영)
+            st.session_state.pop(f"_ud_cnt_{user_name}", None)
+            return
+    except Exception:
+        pass
+    # ── 로컬 JSON 폴백 (단일 프로세스 환경용) ────────────────────────────
+    try:
+        import fcntl as _fcntl  # Unix 파일 잠금 (HF Linux 환경)
+        _lock_path = USAGE_DB + ".lock"
+        with open(_lock_path, "w") as _lf:
+            try:
+                _fcntl.flock(_lf, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+            except (BlockingIOError, AttributeError):
+                pass  # Windows 또는 잠금 실패 시 그냥 진행
+            data = {}
+            if os.path.exists(USAGE_DB):
+                try:
+                    with open(USAGE_DB, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except (json.JSONDecodeError, IOError):
+                    data = {}
+            if user_name not in data:
+                data[user_name] = {}
+            data[user_name][today] = data[user_name].get(today, 0) + 1
+            with open(USAGE_DB, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False)
+            try:
+                _fcntl.flock(_lf, _fcntl.LOCK_UN)
+            except Exception:
+                pass
+    except (IOError, OSError, ImportError):
         pass  # Cloud 환경 쓰기 실패 시 앱 크래시 방지
 
 def get_remaining_usage(user_name):
@@ -9483,13 +9512,39 @@ window['startTTS_{tab_key}']=function(){{
                     f"질문: {safe_q}{rag_ctx}{expert_ctx}\n{extra_prompt}"
                 )
 
-                # [GATE 2] Gemini 호출은 반드시 gateway를 통해 — 입출력 모두 격리 정제
-                if _GW_OK:
-                    answer = _gw.call_gemini(client, GEMINI_MODEL, prompt, model_config)
-                else:
-                    prompt = sanitize_unicode(prompt)
-                    resp   = client.models.generate_content(model=GEMINI_MODEL, contents=prompt, config=model_config)
-                    answer = sanitize_unicode(resp.text) if resp.text else "AI 응답을 받지 못했습니다."
+                # [GATE 2] Gemini 호출 — 429/동시접속 대비 폴백 모델 + 지수 백오프 재시도
+                _FALLBACK_MODELS = [GEMINI_MODEL, "gemini-2.0-flash-lite", "gemini-1.5-flash"]
+                _MAX_ATTEMPTS = len(_FALLBACK_MODELS)
+                answer = None
+                _last_err = None
+                import time as _time_mod
+                for _attempt, _model_name in enumerate(_FALLBACK_MODELS):
+                    try:
+                        if _attempt > 0:
+                            _wait = min(2 ** _attempt, 8)  # 2s → 4s → 8s 지수 백오프
+                            _time_mod.sleep(_wait)
+                        if _GW_OK:
+                            answer = _gw.call_gemini(client, _model_name, prompt, model_config)
+                        else:
+                            _prompt_safe = sanitize_unicode(prompt)
+                            _resp = client.models.generate_content(model=_model_name, contents=_prompt_safe, config=model_config)
+                            answer = sanitize_unicode(_resp.text) if _resp and _resp.text else None
+                        if answer:
+                            break
+                    except Exception as _api_err:
+                        _last_err = _api_err
+                        _err_str = str(_api_err)
+                        if "429" in _err_str or "RESOURCE_EXHAUSTED" in _err_str or "quota" in _err_str.lower():
+                            continue  # 다음 폴백 모델로
+                        raise  # 429 외 오류는 즉시 상위로
+                if not answer:
+                    if _last_err and ("429" in str(_last_err) or "RESOURCE_EXHAUSTED" in str(_last_err)):
+                        st.warning(
+                            "⏳ **AI 서버가 잠시 혼잡합니다.** (동시 사용자 증가)\n\n"
+                            "1~2분 후 다시 시도해 주세요. 골드키 팀이 용량을 확인 중입니다."
+                        )
+                        return
+                    answer = "AI 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요."
 
                 # ── 포스트프로세싱: 금지 키워드 감지 → 세션 저장 ────────
                 answer = _validate_response(answer, product_key, result_key)
