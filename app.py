@@ -11730,9 +11730,6 @@ section[data-testid="stMain"] {
     왼쪽 사이드바 하단 <b style="color:#ffd700;">Admin Console</b>에서 로그인하세요
   </div>
 </div>""", unsafe_allow_html=True)
-            # ── 디버그: 세션 상태 확인 (원인 파악 후 제거 예정) ──
-            _sess_keys = [k for k in st.session_state.keys() if not k.startswith("_")]
-            st.caption(f"🔍 [진단] tab={tab_key} | 세션키={_sess_keys[:8]} | user_id={st.session_state.get('user_id','없음')} | is_admin={st.session_state.get('is_admin','없음')}")
             _ag_c1, _ag_c2 = st.columns(2)
             with _ag_c1:
                 if st.button("🏠 홈으로 돌아가기", key=f"auth_gate_home_{tab_key}",
