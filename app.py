@@ -6996,7 +6996,7 @@ section[data-testid="stSidebar"] {
         if (btn) { btn.click(); break; }
       }
     } catch(e) {}
-  }, 200);
+  }, 50);
 })();
 </script>""", height=0)
 
@@ -10693,12 +10693,10 @@ window['startTTS_{tab_key}']=function(){{
                 if st.button("📝 회원가입", key="home_open_signup",
                              use_container_width=True, type="primary"):
                     st.session_state["_open_sidebar"] = True
-                    st.rerun()
             with _b2:
                 if st.button("🔓 로그인", key="home_open_login",
                              use_container_width=True):
                     st.session_state["_open_sidebar"] = True
-                    st.rerun()
             st.markdown("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:12px 16px;margin-bottom:6px;text-align:center;">
@@ -11903,7 +11901,6 @@ section[data-testid="stMain"] {
                 if st.button("🔓 로그인 열기", key=f"auth_gate_login_{tab_key}",
                              use_container_width=True):
                     st.session_state["_open_sidebar"] = True
-                    st.rerun()
             return False
         # 직전 탭 기록 (Deep Link 복귀용)
         st.session_state["gs_last_tab"] = tab_key
