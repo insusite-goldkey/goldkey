@@ -6392,10 +6392,18 @@ def main():
         def _bg_load_imgs():
             try:
                 _base = pathlib.Path(__file__).parent / "assets"
-                for _k, _fn in (("v", "splash_goldkey.png"), ("h", "splash1_goldkey.png")):
-                    _p = _base / _fn
-                    if _p.exists():
-                        _spl_imgs[_k] = base64.b64encode(_p.read_bytes()).decode()
+                for _k, _fn_b64, _fn_png in (
+                    ("v", "splash_goldkey.b64",  "splash_goldkey.png"),
+                    ("h", "splash1_goldkey.b64", "splash1_goldkey.png"),
+                ):
+                    _pb = _base / _fn_b64
+                    _pp = _base / _fn_png
+                    if _pb.exists():
+                        _spl_imgs[_k] = _pb.read_text(encoding="utf-8").strip()
+                    elif _pp.exists():
+                        _raw = _pp.read_bytes()
+                        if len(_raw) > 200:
+                            _spl_imgs[_k] = base64.b64encode(_raw).decode()
                 if not _spl_imgs["h"]:
                     _spl_imgs["h"] = _spl_imgs["v"]
             except Exception:
