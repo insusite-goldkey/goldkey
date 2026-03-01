@@ -6493,25 +6493,13 @@ def weather_bar_fragment():
     위치 우선순위: GPS(session_state) → IP 기반 → Seoul 기본값.
     get_geolocation()은 fragment 밖(main)'에서 호출 → session_state에 저장 → 여기서만 읽음.
     """
-    # ── 1. GPS 좌표 읽기 (session_state 경유 — fragment 본체에서는 JS 호출 안 함) ──
+    # ── 1. IP 기반 위치 획득 → 실패 시 Seoul 기본값 ───────────────────────
     _lat, _lon, _loc_name, _loc_src = 37.5665, 126.9780, "Seoul", "default"
-    _geo = st.session_state.get("_wx_geo")
-    if _geo and isinstance(_geo, dict) and "coords" in _geo:
-        try:
-            _lat      = float(_geo["coords"]["latitude"])
-            _lon      = float(_geo["coords"]["longitude"])
-            _loc_name = "현재 위치"
-            _loc_src  = "gps"
-        except Exception:
-            pass
-
-    # ── 2. GPS 미승인/실패 → IP 기반 fallback ─────────────────────────────
-    if _loc_src == "default":
-        try:
-            _ip_city, _ip_lat, _ip_lon = get_location_by_ip()
-            _lat, _lon, _loc_name, _loc_src = _ip_lat, _ip_lon, _ip_city, "ip"
-        except Exception:
-            pass  # Seoul 기본값 유지
+    try:
+        _ip_city, _ip_lat, _ip_lon = get_location_by_ip()
+        _lat, _lon, _loc_name, _loc_src = _ip_lat, _ip_lon, _ip_city, "ip"
+    except Exception:
+        pass  # Seoul 기본값 유지
 
     # ── 3. 좌표로 날씨 데이터 취득 ────────────────────────────────────────
     _d = fetch_weather_data(_lat, _lon)
@@ -11279,14 +11267,6 @@ if (window.sessionStorage.getItem("_wx_geo")) {
 }
 </script>
 """, height=100)
-
-        # ── GPS 위치 획득 (fragment 밖에서 1회 — session_state 저장) ──────────
-        if "_wx_geo" not in st.session_state:
-            try:
-                from streamlit_js_eval import get_geolocation as _get_geo
-                st.session_state["_wx_geo"] = _get_geo()
-            except Exception:
-                st.session_state["_wx_geo"] = None
 
         # ── 날씨 대시보드 (Fragment — 20분 TTL 캐시, 전체 rerun 격리) ──────────
         weather_bar_fragment()
