@@ -9384,20 +9384,104 @@ font-family:'Noto Sans KR',Malgun Gothic,sans-serif;">
 
     # ── 공통 AI 쿼리 블록 ────────────────────────────────────────────────
     def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요.", product_key=""):
-        # 기본값: gs_c_name(탭 간 공유) → 없으면 빈 문자열 (이전 "우량 고객" 하드코딩 제거)
-        _default_name = st.session_state.get("gs_c_name", "") or st.session_state.get("current_c_name", "")
-        if f"c_name_{tab_key}" not in st.session_state and _default_name:
-            st.session_state[f"c_name_{tab_key}"] = _default_name
-        c_name = st.text_input(
-            "👤 고객 성함",
-            placeholder="홍길동 (미입력 시 익명 처리)",
-            key=f"c_name_{tab_key}",
-            max_chars=60,
+        # ── 연령대 → 대표 나이 변환 맵 ──────────────────────────────────────
+        _AGE_MAP = {
+            "10대": 15, "20대": 25, "30대": 35, "40대": 45, "50대": 55,
+            "60대": 60, "65세 이전(연금상담)": 64, "70대": 75, "80대": 80,
+        }
+        _AGE_OPTIONS = list(_AGE_MAP.keys())
+
+        def _make_virtual_data(age_label: str):
+            """연령대 → (가상생년월일, 대표나이, 더미주민번호앞자리) 반환 — DB 저장 금지"""
+            import datetime as _dt
+            _age = _AGE_MAP.get(age_label, 45)
+            _birth_year = _dt.datetime.now().year - _age
+            _birth_str = f"{_birth_year}-01-01"
+            _gender_code = "1"  # 기본 남성 더미
+            _jum_front = f"{str(_birth_year)[2:]}0101"
+            _dummy_jumin = f"{_jum_front}-{_gender_code}000000"
+            return _birth_str, _age, _dummy_jumin
+
+        # ── 상담 모드 선택 ─────────────────────────────────────────────────
+        _consult_mode = st.radio(
+            "상담 모드",
+            ["실명 상담", "익명 상담(빠른 산출)"],
+            key=f"consult_mode_{tab_key}",
+            horizontal=True,
+            help="익명 상담: 이름 없이 연령대만으로 빠르게 산출. 나중에 실명 전환 가능.",
         )
-        # 빈 이름 안전 처리 (4조건: 등록고객 무관, name 'text' is not defined 방지)
-        c_name = c_name.strip() or st.session_state.get("gs_c_name", "").strip() or "익명 고객"
+        _is_anon = (_consult_mode == "익명 상담(빠른 산출)")
+
+        if _is_anon:
+            # 익명 모드: 연령대 선택만 노출
+            _age_label = st.selectbox(
+                "📅 연령대 선택",
+                _AGE_OPTIONS,
+                index=3,  # 기본: 40대
+                key=f"age_label_{tab_key}",
+            )
+            _virt_birth, _virt_age, _dummy_jumin = _make_virtual_data(_age_label)
+            st.caption(f"🔒 가상 기준: {_age_label}({_virt_age}세) · 생년월일 {_virt_birth} (AI 산출 전용, 미저장)")
+            # 이름은 나중에 무명씨N으로 DB 저장 — 여기서는 임시 표시용
+            c_name = f"익명({_age_label})"
+            # 세션에 가상 데이터 저장 (산출 로직에서 참조 가능)
+            st.session_state[f"virt_birth_{tab_key}"] = _virt_birth
+            st.session_state[f"virt_age_{tab_key}"]   = _virt_age
+            st.session_state[f"virt_jumin_{tab_key}"] = _dummy_jumin
+            st.session_state[f"is_anon_{tab_key}"]    = True
+            st.session_state[f"age_label_{tab_key}"]  = _age_label
+        else:
+            # 실명 모드: 이름 입력 + 생년월일 선택
+            _default_name = st.session_state.get("gs_c_name", "") or st.session_state.get("current_c_name", "")
+            if f"c_name_{tab_key}" not in st.session_state and _default_name:
+                st.session_state[f"c_name_{tab_key}"] = _default_name
+            _ri_col1, _ri_col2 = st.columns([2, 1])
+            with _ri_col1:
+                c_name = st.text_input(
+                    "👤 고객 성함",
+                    placeholder="홍길동 (미입력 시 익명 40대 기준으로 자동 처리)",
+                    key=f"c_name_{tab_key}",
+                    max_chars=60,
+                )
+            with _ri_col2:
+                _birth_input = st.text_input(
+                    "생년월일(YYYY-MM-DD)",
+                    placeholder="1980-01-01",
+                    key=f"birth_{tab_key}",
+                    max_chars=10,
+                )
+            # 미입력 Fallback: 자동으로 익명 40대 기준 적용
+            if not c_name.strip() and not _birth_input.strip():
+                _virt_birth, _virt_age, _dummy_jumin = _make_virtual_data("40대")
+                st.session_state[f"virt_birth_{tab_key}"] = _virt_birth
+                st.session_state[f"virt_age_{tab_key}"]   = _virt_age
+                st.session_state[f"virt_jumin_{tab_key}"] = _dummy_jumin
+                st.session_state[f"is_anon_{tab_key}"]    = True
+                st.session_state[f"age_label_{tab_key}"]  = "40대"
+            elif _birth_input.strip():
+                # 생년월일 입력 시: 실제 나이 역산 + 성별 더미 조합
+                import datetime as _dt2
+                try:
+                    _by = int(_birth_input[:4])
+                    _real_age = _dt2.datetime.now().year - _by
+                    _jf = _birth_input.replace("-", "")[2:8] if len(_birth_input) >= 8 else f"{str(_by)[2:]}0101"
+                    _dummy_jumin = f"{_jf}-1000000"
+                    st.session_state[f"virt_birth_{tab_key}"] = _birth_input.strip()
+                    st.session_state[f"virt_age_{tab_key}"]   = _real_age
+                    st.session_state[f"virt_jumin_{tab_key}"] = _dummy_jumin
+                except Exception:
+                    _virt_birth, _virt_age, _dummy_jumin = _make_virtual_data("40대")
+                    st.session_state[f"virt_birth_{tab_key}"] = _virt_birth
+                    st.session_state[f"virt_age_{tab_key}"]   = _virt_age
+                    st.session_state[f"virt_jumin_{tab_key}"] = _dummy_jumin
+                st.session_state[f"is_anon_{tab_key}"] = False
+            else:
+                st.session_state[f"is_anon_{tab_key}"] = False
+
+            # 빈 이름 안전 처리
+            c_name = c_name.strip() or st.session_state.get("gs_c_name", "").strip() or "익명 고객"
         # ── 법인명 중복 감지 (모든 탭 공통) ─────────────────────────────────
-        if c_name not in ("익명 고객", ""):
+        if c_name not in ("익명 고객", "") and not c_name.startswith("익명("):
             _blk_reg = st.session_state.get("gk_client_registry", {})
             _blk_dup_key, _blk_dup_msg = detect_corp_name_conflict(c_name, _blk_reg)
             if _blk_dup_key:

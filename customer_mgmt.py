@@ -10,6 +10,9 @@ import os
 import re
 import json
 import hashlib
+import sqlite3
+import pathlib
+import tempfile
 from datetime import datetime, date
 from typing import Optional
 
@@ -61,6 +64,169 @@ TABLE_CONSULT    = "gk_consultation_logs"
 TABLE_PII        = "gk_pii_mapping"
 
 _RELATION_OPTIONS = ["본인", "배우자", "자녀1", "자녀2", "자녀3", "부모(부)", "부모(모)", "기타"]
+
+# ---------------------------------------------------------------------------
+# SQLite 로컬 DB (익명 고객 / 오프라인 환경 폴백)
+# ---------------------------------------------------------------------------
+_LOCAL_DB_PATH = pathlib.Path(tempfile.gettempdir()) / "gk_local_crm.db"
+
+def _local_db() -> sqlite3.Connection:
+    """로컬 SQLite 연결 반환 — WAL 모드, 자동 테이블 생성"""
+    conn = sqlite3.connect(str(_LOCAL_DB_PATH), check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS lc_customers (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_uid   TEXT    NOT NULL DEFAULT '',
+            name        TEXT    NOT NULL,
+            birth_date  TEXT    DEFAULT '',
+            gender      TEXT    DEFAULT '',
+            age_label   TEXT    DEFAULT '',
+            is_anon     INTEGER DEFAULT 1,
+            phone       TEXT    DEFAULT '',
+            memo        TEXT    DEFAULT '',
+            created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+            updated_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+        );
+        CREATE TABLE IF NOT EXISTS lc_consult_logs (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER NOT NULL REFERENCES lc_customers(id) ON DELETE CASCADE,
+            agent_uid   TEXT    NOT NULL DEFAULT '',
+            consult_date TEXT   NOT NULL,
+            memo_raw    TEXT    DEFAULT '',
+            ner_result  TEXT    DEFAULT '{}',
+            created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+        );
+    """)
+    conn.commit()
+    return conn
+
+
+def _next_anon_slot(agent_uid: str) -> str:
+    """무명씨N 빈자리 재활용 — 1부터 가장 먼저 비어있는 N 반환"""
+    conn = _local_db()
+    try:
+        rows = conn.execute(
+            "SELECT name FROM lc_customers WHERE agent_uid=? AND name LIKE '무명씨%'",
+            (agent_uid,)
+        ).fetchall()
+    finally:
+        conn.close()
+    used = set()
+    for r in rows:
+        m = re.match(r"무명씨(\d+)$", r["name"])
+        if m:
+            used.add(int(m.group(1)))
+    n = 1
+    while n in used:
+        n += 1
+    return f"무명씨{n}"
+
+
+def lc_save_customer(agent_uid: str, name: str, birth_date: str = "",
+                     gender: str = "", age_label: str = "",
+                     is_anon: bool = True, phone: str = "") -> int:
+    """로컬 SQLite에 고객 저장 → 고유 id(PK) 반환"""
+    conn = _local_db()
+    try:
+        cur = conn.execute(
+            """INSERT INTO lc_customers
+               (agent_uid, name, birth_date, gender, age_label, is_anon, phone)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (agent_uid, name, birth_date, gender, age_label, int(is_anon), phone),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def lc_update_customer(customer_id: int, name: str, birth_date: str,
+                       gender: str = "", age_label: str = "",
+                       is_anon: bool = False) -> bool:
+    """고객 실명 전환 UPDATE — id(PK) 기준, 이름 기준 절대 금지"""
+    conn = _local_db()
+    try:
+        cur = conn.execute(
+            """UPDATE lc_customers
+               SET name=?, birth_date=?, gender=?, age_label=?, is_anon=?,
+                   updated_at=datetime('now','localtime')
+               WHERE id=?""",
+            (name, birth_date, gender, age_label, int(is_anon), customer_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def lc_load_customers(agent_uid: str) -> list:
+    """로컬 고객 목록 반환 — id(PK) 기준 정렬"""
+    conn = _local_db()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM lc_customers WHERE agent_uid=? ORDER BY id DESC",
+            (agent_uid,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def lc_delete_customer(customer_id: int) -> bool:
+    """고객 삭제 — CASCADE로 상담 로그도 함께 삭제"""
+    conn = _local_db()
+    try:
+        conn.execute("DELETE FROM lc_customers WHERE id=?", (customer_id,))
+        conn.commit()
+        return True
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+
+def lc_save_consult(agent_uid: str, customer_id: int,
+                    consult_date: str, memo_raw: str,
+                    ner_result: dict = None) -> int:
+    """상담 로그 저장 — customer_id(PK) 기준 연결"""
+    conn = _local_db()
+    try:
+        cur = conn.execute(
+            """INSERT INTO lc_consult_logs
+               (agent_uid, customer_id, consult_date, memo_raw, ner_result)
+               VALUES (?, ?, ?, ?, ?)""",
+            (agent_uid, customer_id, consult_date, memo_raw,
+             json.dumps(ner_result or {}, ensure_ascii=False)),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def lc_load_consults(customer_id: int, limit: int = 10) -> list:
+    """고객 상담 로그 로드 — customer_id(PK) 기준"""
+    conn = _local_db()
+    try:
+        rows = conn.execute(
+            """SELECT * FROM lc_consult_logs
+               WHERE customer_id=? ORDER BY consult_date DESC LIMIT ?""",
+            (customer_id, limit)
+        ).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d["ner_result"] = json.loads(d.get("ner_result") or "{}")
+            except Exception:
+                d["ner_result"] = {}
+            result.append(d)
+        return result
+    finally:
+        conn.close()
+
 
 # ---------------------------------------------------------------------------
 # 내부 유틸
@@ -304,8 +470,8 @@ def render_customer_tab(sb, gemini_client):
         unsafe_allow_html=True,
     )
 
-    tab_list, tab_new, tab_memo, tab_brief = st.tabs(
-        ["📋 고객 목록", "➕ 고객 등록", "📝 상담 메모", "🎯 미팅 브리핑"]
+    tab_list, tab_new, tab_anon, tab_memo, tab_brief = st.tabs(
+        ["📋 고객 목록", "➕ 고객 등록", "🕵️ 익명 고객 관리", "📝 상담 메모", "🎯 미팅 브리핑"]
     )
 
     # ── 탭 1: 고객 목록 ────────────────────────────────────────────────────
@@ -404,7 +570,125 @@ def render_customer_tab(sb, gemini_client):
                 else:
                     st.error("등록 실패. Supabase 연결 상태를 확인하세요.")
 
-    # ── 탭 3: 상담 메모 입력 ──────────────────────────────────────────────
+    # ── 탭 3: 익명 고객 관리 ─────────────────────────────────────────────
+    with tab_anon:
+        st.markdown("#### 🕵️ 익명 고객 관리 (로컬 SQLite)")
+        st.caption(
+            "익명 상담(빠른 산출) 모드로 진행된 고객을 관리합니다. "
+            "무명씨N 슬롯은 실명 전환 후 자동 재활용됩니다."
+        )
+
+        _anon_sub1, _anon_sub2 = st.tabs(["📋 익명 고객 목록", "➕ 익명 고객 등록"])
+
+        with _anon_sub2:
+            st.markdown("##### 새 익명 고객 등록")
+            _AGE_OPTS = ["10대","20대","30대","40대","50대","60대","65세 이전(연금상담)","70대","80대"]
+            with st.form("form_anon_customer", clear_on_submit=True):
+                _a_age   = st.selectbox("연령대", _AGE_OPTS, index=3, key="anon_age_sel")
+                _a_phone = st.text_input("연락처 (선택)", placeholder="010-0000-0000", key="anon_phone")
+                _a_memo  = st.text_area("메모 (선택)", height=70, key="anon_memo")
+                _a_sub   = st.form_submit_button("✅ 무명씨N 자동 지정 후 등록", type="primary",
+                                                  use_container_width=True)
+            if _a_sub:
+                _AGE_MAP2 = {"10대":15,"20대":25,"30대":35,"40대":45,"50대":55,
+                             "60대":60,"65세 이전(연금상담)":64,"70대":75,"80대":80}
+                import datetime as _dta
+                _age_v = _AGE_MAP2.get(_a_age, 45)
+                _bdate = f"{_dta.datetime.now().year - _age_v}-01-01"
+                _aname = _next_anon_slot(agent_uid)
+                _aid = lc_save_customer(
+                    agent_uid=agent_uid, name=_aname,
+                    birth_date=_bdate, age_label=_a_age,
+                    is_anon=True, phone=_a_phone.strip(),
+                )
+                if _aid:
+                    if _a_memo.strip():
+                        lc_save_consult(agent_uid, _aid,
+                                        str(date.today()), _a_memo.strip())
+                    st.success(f"✅ **{_aname}** 등록 완료 (id={_aid}, 연령대: {_a_age}, 기준생년: {_bdate})")
+                    st.rerun()
+                else:
+                    st.error("등록 실패.")
+
+        with _anon_sub1:
+            _lc_custs = lc_load_customers(agent_uid)
+            if not _lc_custs:
+                st.info("등록된 익명 고객이 없습니다. '➕ 익명 고객 등록' 탭에서 추가하세요.")
+            else:
+                st.caption(f"총 {len(_lc_custs)}명 (SQLite 로컬 저장)")
+                for _lc in _lc_custs:
+                    _lc_badge = "🕵️ 익명" if _lc["is_anon"] else "✅ 실명"
+                    _lc_label = (f"**{_lc['name']}** {_lc_badge} "
+                                 f"| 연령대: {_lc.get('age_label') or '-'} "
+                                 f"| 생년: {(_lc.get('birth_date') or '-')[:10]}")
+                    with st.expander(_lc_label, expanded=False):
+                        _lc_logs = lc_load_consults(_lc["id"], limit=5)
+                        if _lc_logs:
+                            st.markdown("**상담 기록**")
+                            for _ll in _lc_logs:
+                                st.markdown(
+                                    f"<div style='background:#1e293b;padding:6px 10px;"
+                                    f"border-radius:6px;font-size:0.82rem;margin-bottom:4px;'>"
+                                    f"<span style='color:#94a3b8'>{_ll['consult_date']}</span>"
+                                    f"　{_ll.get('memo_raw','')[:100]}"
+                                    f"{'...' if len(_ll.get('memo_raw',''))>100 else ''}</div>",
+                                    unsafe_allow_html=True,
+                                )
+
+                        # ── 실명 전환 form ────────────────────────────────
+                        st.markdown("---")
+                        st.markdown("##### ✏️ 고객 정보 수정 (실명 전환)")
+                        with st.form(f"form_update_{_lc['id']}", clear_on_submit=False):
+                            _u_cols = st.columns([2, 1, 1])
+                            _u_name  = _u_cols[0].text_input(
+                                "실제 이름",
+                                value=_lc["name"],
+                                key=f"u_name_{_lc['id']}",
+                            )
+                            _u_birth = _u_cols[1].text_input(
+                                "생년월일(YYYY-MM-DD)",
+                                value=_lc.get("birth_date", ""),
+                                key=f"u_birth_{_lc['id']}",
+                                max_chars=10,
+                            )
+                            _u_gender = _u_cols[2].selectbox(
+                                "성별",
+                                ["미입력", "남", "여"],
+                                index=0,
+                                key=f"u_gender_{_lc['id']}",
+                            )
+                            _u_submit = st.form_submit_button(
+                                "💾 저장 (id 기준 UPDATE)",
+                                use_container_width=True,
+                            )
+                        if _u_submit:
+                            _u_is_anon = _u_name.strip().startswith("무명씨")
+                            _ok = lc_update_customer(
+                                customer_id=_lc["id"],
+                                name=_u_name.strip() or _lc["name"],
+                                birth_date=_u_birth.strip(),
+                                gender="" if _u_gender == "미입력" else _u_gender,
+                                age_label=_lc.get("age_label", ""),
+                                is_anon=_u_is_anon,
+                            )
+                            if _ok:
+                                st.success(
+                                    f"✅ id={_lc['id']} 업데이트 완료 → **{_u_name.strip()}**"
+                                    + (" (무명씨 슬롯 반환됨)" if _u_is_anon else " (실명 전환 완료)")
+                                )
+                                st.rerun()
+                            else:
+                                st.error("수정 실패.")
+
+                        # ── 삭제 버튼 ─────────────────────────────────────
+                        if st.button(f"🗑️ 삭제 (id={_lc['id']})",
+                                     key=f"del_{_lc['id']}",
+                                     help="이 고객과 모든 상담 기록이 삭제됩니다."):
+                            if lc_delete_customer(_lc["id"]):
+                                st.success(f"삭제 완료 — {_lc['name']} 슬롯이 반환됩니다.")
+                                st.rerun()
+
+    # ── 탭 4: 상담 메모 입력 ──────────────────────────────────────────────
     with tab_memo:
         st.markdown("#### 상담 메모 입력 → AI 인사이트 추출")
         customers = load_customers(agent_uid, sb)
