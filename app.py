@@ -6490,22 +6490,20 @@ def fetch_weather_data(lat: float = 37.5665, lon: float = 126.9780):
 def weather_bar_fragment():
     """
     날씨 대시보드 Fragment — 20분마다 자동 갱신.
-    위치 우선순위: GPS 정밀 위치 → IP 기반 도시 → Seoul 기본값.
-    전체 앱 rerun 없이 이 섹터만 독립적으로 업데이트됨.
+    위치 우선순위: GPS(session_state) → IP 기반 → Seoul 기본값.
+    get_geolocation()은 fragment 밖(main)'에서 호출 → session_state에 저장 → 여기서만 읽음.
     """
-    # ── 1. GPS 정밀 위치 시도 (브라우저 Geolocation API) ──────────────────
+    # ── 1. GPS 좌표 읽기 (session_state 경유 — fragment 본체에서는 JS 호출 안 함) ──
     _lat, _lon, _loc_name, _loc_src = 37.5665, 126.9780, "Seoul", "default"
-    try:
-        from streamlit_js_eval import get_geolocation as _get_geo
-        _geo = _get_geo()
-        if _geo and isinstance(_geo, dict) and "coords" in _geo:
-            _coords = _geo["coords"]
-            _lat      = float(_coords["latitude"])
-            _lon      = float(_coords["longitude"])
+    _geo = st.session_state.get("_wx_geo")
+    if _geo and isinstance(_geo, dict) and "coords" in _geo:
+        try:
+            _lat      = float(_geo["coords"]["latitude"])
+            _lon      = float(_geo["coords"]["longitude"])
             _loc_name = "현재 위치"
             _loc_src  = "gps"
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     # ── 2. GPS 미승인/실패 → IP 기반 fallback ─────────────────────────────
     if _loc_src == "default":
@@ -11273,9 +11271,22 @@ function wxByGeo(){
     wxLoad(35.1595, 126.8526, "광주");
   }, {timeout:5000});
 }
-wxByGeo();
+if (window.sessionStorage.getItem("_wx_geo")) {
+  var _geo = JSON.parse(window.sessionStorage.getItem("_wx_geo"));
+  wxLoad(_geo.latitude, _geo.longitude, _geo.locName);
+} else {
+  wxByGeo();
+}
 </script>
 """, height=100)
+
+        # ── GPS 위치 획득 (fragment 밖에서 1회 — session_state 저장) ──────────
+        if "_wx_geo" not in st.session_state:
+            try:
+                from streamlit_js_eval import get_geolocation as _get_geo
+                st.session_state["_wx_geo"] = _get_geo()
+            except Exception:
+                st.session_state["_wx_geo"] = None
 
         # ── 날씨 대시보드 (Fragment — 20분 TTL 캐시, 전체 rerun 격리) ──────────
         weather_bar_fragment()
