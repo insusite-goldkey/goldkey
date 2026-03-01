@@ -11486,7 +11486,7 @@ section[data-testid="stMain"] {
 """, unsafe_allow_html=True)
 
         # 준비중 탭 목록 — 홈 카드에 🚧 배지 + 탭 진입 시 안내 배너
-        _WIP_TABS = {"policy_terms", "customer_docs", "digital_catalog"}
+        _WIP_TABS = set()  # 전체 오픈
 
         def _render_cards(cards, prefix):
             import math as _math
@@ -22168,39 +22168,8 @@ END; $$;""", language="sql")
             show_result("res_stock_eval")
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
-    # ── 미구현 탭 일괄 처리 — 빈 페이지 방지 ─────────────────────────────
-    _WIP_HANDLER = {
-        "scan_hub": {
-            "icon": "🔬", "title": "통합 스캔 허브",
-            "desc": "증권·의무기록·진단서 1회 업로드 → 전탭 자동활용 기능을 구현 중입니다.",
-            "eta": "v1.4 예정",
-        },
-        "leaflet": {
-            "icon": "🗂️", "title": "보험 리플렛 AI 분류",
-            "desc": "리플렛 PDF 업로드 후 AI 자동 분류 및 GCS 신규상품 저장 기능을 구현 중입니다.",
-            "eta": "v1.4 예정",
-        },
-        "consult_catalog": {
-            "icon": "📖", "title": "상담 카탈로그 열람",
-            "desc": "업로드한 카탈로그 PDF/이미지 뷰어와 보험사별 분류 기능을 구현 중입니다.",
-            "eta": "v1.4 예정",
-        },
-        "customer_docs": {
-            "icon": "👤", "title": "고객자료 통합저장",
-            "desc": "의무기록·증권분석·청구서류를 고객별로 저장하는 개인 문서 RAG 기능은\n별도 백엔드 서버 연동이 필요하여 현재 준비 중입니다.",
-            "eta": "v2.0 예정 (Hybrid Backend 서버 연동 후)",
-        },
-        "digital_catalog": {
-            "icon": "📱", "title": "디지털 카탈로그 관리",
-            "desc": "보험사 카탈로그 업로드·AI 분류 및 Public/Private 저장 기능은\nHybrid RAG 백엔드 서버 연동이 필요하여 현재 준비 중입니다.",
-            "eta": "v2.0 예정 (Hybrid Backend 서버 연동 후)",
-        },
-        "life_event": {
-            "icon": "🎯", "title": "LIFE EVENT 상담",
-            "desc": "인생 주요 이벤트별(출생·결혼·취업·은퇴) 맞춤 보험 설계 기능을 구현 중입니다.",
-            "eta": "v1.4 예정",
-        },
-    }
+    # ── 미구현 탭 일괄 처리 — 전체 오픈 (차단 해제)
+    _WIP_HANDLER = {}  # 전체 기능 오픈
     if cur in _WIP_HANDLER:
         if not _auth_gate(cur): st.stop()
         tab_home_btn(cur)
@@ -22236,22 +22205,6 @@ END; $$;""", language="sql")
     if cur == "policy_terms":
         if not _auth_gate("policy_terms"): st.stop()
         tab_home_btn("policy_terms")
-
-        # ── 준비중 안내 배너 ──────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:12px;
-  padding:14px 18px;margin-bottom:14px;border:2px solid #fb923c;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:1.8rem;">🚧</span>
-    <div>
-      <div style="color:#fff;font-size:1.0rem;font-weight:900;">준비중 기능입니다</div>
-      <div style="color:#fed7aa;font-size:0.80rem;margin-top:3px;">
-        보험약관 AI 검색(공시실 실시간 탐색)은 현재 안정화 작업 중입니다.<br>
-        빠른 시일 내 정식 오픈 예정이며, 이용에 불편을 드려 죄송합니다.
-      </div>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
 
         # ── 브랜드 헤더 ──────────────────────────────────────────────────
         st.markdown("""
@@ -22687,22 +22640,6 @@ END; $$;""", language="sql")
         if not _auth_gate("customer_docs"): st.stop()
         tab_home_btn("customer_docs")
 
-        # ── 준비중 안내 배너 ──────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:12px;
-  padding:14px 18px;margin-bottom:14px;border:2px solid #fb923c;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:1.8rem;">🚧</span>
-    <div>
-      <div style="color:#fff;font-size:1.0rem;font-weight:900;">준비중 기능입니다</div>
-      <div style="color:#fed7aa;font-size:0.80rem;margin-top:3px;">
-        고객자료 통합저장은 현재 안정화 작업 중입니다.<br>
-        빠른 시일 내 정식 오픈 예정이며, 이용에 불편을 드려 죄송합니다.
-      </div>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
-
         st.markdown("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
@@ -23115,22 +23052,6 @@ END; $$;""", language="sql")
     if cur == "digital_catalog":
         if not _auth_gate("digital_catalog"): st.stop()
         tab_home_btn("digital_catalog")
-
-        # ── 준비중 안내 배너 ──────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:12px;
-  padding:14px 18px;margin-bottom:14px;border:2px solid #fb923c;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:1.8rem;">🚧</span>
-    <div>
-      <div style="color:#fff;font-size:1.0rem;font-weight:900;">준비중 기능입니다</div>
-      <div style="color:#fed7aa;font-size:0.80rem;margin-top:3px;">
-        디지털 카탈로그 관리(Hybrid RAG 개인문서)는 현재 백엔드 연동 작업 중입니다.<br>
-        빠른 시일 내 정식 오픈 예정이며, 이용에 불편을 드려 죄송합니다.
-      </div>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
 
         # ── 브랜드 헤더 ──────────────────────────────────────────────────
         st.markdown("""
