@@ -6408,44 +6408,55 @@ def main():
             "✦ 전략 파트너 Goldkey AI가 준비되었습니다.",
         ])
 
-        # JS가 parent document 에 오버레이를 직접 생성 → iframe 격리 우회
-        # Python은 st.markdown 1회 호출 후 즉시 다음 로직으로 진행 (블로킹 없음)
-        _spl_js = f"""<script>
+        # components.html: iframe 자체를 fixed full-screen으로 확장
+        # Python은 1회 호출 후 즉시 리턴 → JS 타이머가 독립 작동
+        _spl_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap');
+*{{box-sizing:border-box;margin:0;padding:0;}}
+html,body{{width:100%;height:100%;overflow:hidden;background:#060d1a;}}
+#wrap{{position:fixed;inset:0;background:#060d1a;transition:opacity .8s;}}
+img{{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;}}
+img.on{{display:block;}}
+#bar{{position:absolute;bottom:0;left:0;right:0;padding:16px 20px 28px;
+  background:linear-gradient(0deg,rgba(4,9,18,.97) 55%,transparent);text-align:center;}}
+#msg{{font-family:'Noto Sans KR',sans-serif;font-size:clamp(.82rem,2.8vw,1.05rem);
+  font-weight:700;color:#f0c040;letter-spacing:.05em;
+  text-shadow:0 0 16px rgba(240,192,64,.9),0 2px 6px rgba(0,0,0,.7);
+  opacity:0;transition:opacity .3s;}}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <img id="iV" src="{_src_v}" alt="v">
+  <img id="iH" src="{_src_h}" alt="h">
+  <div id="bar"><div id="msg"></div></div>
+</div>
+<script>
 (function(){{
-  var D=(window.parent&&window.parent.document)||document;
-  if(D.getElementById('gk-splash'))return;
-  var srcV='{_src_v}';
-  var srcH='{_src_h}';
+  // iframe 자신을 fixed full-screen으로 확장
+  var ifr=window.frameElement;
+  if(ifr){{
+    ifr.style.cssText='position:fixed!important;top:0!important;left:0!important;'
+      +'width:100vw!important;height:100vh!important;z-index:2147483647!important;'
+      +'border:none!important;background:#060d1a!important;';
+  }}
+
   var msgs=[{_spl_msgs_js}];
+  var wrap=document.getElementById('wrap');
+  var msgEl=document.getElementById('msg');
+  var iV=document.getElementById('iV');
+  var iH=document.getElementById('iH');
 
-  var sty=D.createElement('style');
-  sty.id='gk-spl-css';
-  sty.textContent=
-    '@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap");'
-    +'#gk-splash{{position:fixed;inset:0;z-index:2147483647;background:#060d1a;transition:opacity .8s;}}'
-    +'#gk-splash img{{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;}}'
-    +'#gk-splash img.on{{display:block;}}'
-    +'#gk-sbar{{position:absolute;bottom:0;left:0;right:0;padding:16px 20px 28px;'
-    +'background:linear-gradient(0deg,rgba(4,9,18,.97) 55%,transparent);text-align:center;}}'
-    +'#gk-smsg{{font-family:"Noto Sans KR",sans-serif;font-size:clamp(.82rem,2.8vw,1.05rem);'
-    +'font-weight:700;color:#f0c040;letter-spacing:.05em;'
-    +'text-shadow:0 0 16px rgba(240,192,64,.9),0 2px 6px rgba(0,0,0,.7);'
-    +'opacity:0;transition:opacity .3s;}}';
-  D.head.appendChild(sty);
-
-  var wrap=D.createElement('div'); wrap.id='gk-splash';
-  var iV=D.createElement('img'); iV.src=srcV; iV.alt='v';
-  var iH=D.createElement('img'); iH.src=srcH; iH.alt='h';
-  var bar=D.createElement('div'); bar.id='gk-sbar';
-  var msgEl=D.createElement('div'); msgEl.id='gk-smsg';
-  bar.appendChild(msgEl);
-  wrap.appendChild(iV); wrap.appendChild(iH); wrap.appendChild(bar);
-  D.body.appendChild(wrap);
-
+  // 가로/세로 감지
   var pw=(window.parent||window).innerWidth||390;
   var ph=(window.parent||window).innerHeight||812;
   if(pw>ph){{iH.classList.add('on');}}else{{iV.classList.add('on');}}
 
+  // 메시지 순차 표시 (2초 간격)
   var step=0;
   function tick(){{
     if(step>=msgs.length)return;
@@ -6458,18 +6469,19 @@ def main():
   }}
   tick();
 
+  // 10초 후 페이드아웃 → iframe 제거
   setTimeout(function(){{
     wrap.style.opacity='0';
     setTimeout(function(){{
-      if(wrap.parentNode)wrap.parentNode.removeChild(wrap);
-      var s=D.getElementById('gk-spl-css');
-      if(s&&s.parentNode)s.parentNode.removeChild(s);
+      if(ifr&&ifr.parentNode)ifr.parentNode.removeChild(ifr);
     }},850);
   }},10000);
 }})();
-</script>"""
+</script>
+</body>
+</html>"""
 
-        st.markdown(_spl_js, unsafe_allow_html=True)
+        components.html(_spl_html, height=0, scrolling=False)
 
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
     # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
