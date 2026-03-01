@@ -9075,6 +9075,7 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                     st.session_state.join_date = dt.now()
                     st.session_state.is_admin = True
                     st.session_state["_login_welcome"] = "이세윤"
+                    st.session_state["_auto_close_sidebar"] = True
                     st.rerun()
                 elif _acd == _master_code:
                     try:
@@ -9086,6 +9087,7 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                     st.session_state.join_date = dt.now()
                     st.session_state.is_admin = True
                     st.session_state["_login_welcome"] = _master_name
+                    st.session_state["_auto_close_sidebar"] = True
                     st.rerun()
                 else:
                     st.error("ID 또는 코드가 올바르지 않습니다.")
