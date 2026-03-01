@@ -59,3 +59,10 @@ avatar.png
 *.jpeg
 *.gif
 *.webp
+
+# assets 폴더 이미지는 배포에 필요하므로 예외 허용
+!assets/*.png
+!assets/*.svg
+!assets/*.jpg
+!assets/*.jpeg
+!assets/*.webp
