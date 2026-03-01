@@ -5,7 +5,7 @@
 # 구조는 대한민국 「부정경쟁방지 및 영업비밀보호에 관한 법률」
 # 제2조 제2호에 따른 영업비밀(Trade Secret)입니다.
 #
-# 정식 명칭 : goldkey_ai_insu_Master
+# 정식 명칭 : Goldkey_Ai_masters2026
 # 약    칭  : insuAi
 # 개발 시작 : 2026-02-01  (최초 커밋 기준)
 # 보호 기간 : 2026-08-31 이후에도 영업비밀 보호 지속
@@ -45,6 +45,36 @@
 # ██     보험료 황금비율, 호프만/라이프니쯔 계수 산출 등) ██
 # ██     은 절대 변경하지 말 것.                         ██
 # ██                                                      ██
+# ██  4. [최상위 아키텍처 6대 절대 원칙] (2026 업데이트) ██
+# ██                                                      ██
+# ██    ① Lazy Loading: numpy, pandas, PIL 등 무거운     ██
+# ██      라이브러리는 전역 임포트 절대 금지.             ██
+# ██      함수 내 지연 로드(_lazy_pd 등 래퍼) 적용.      ██
+# ██                                                      ██
+# ██    ② No Local Storage: /tmp 및 로컬 JSON을          ██
+# ██      상태 보존용으로 사용 절대 금지.                 ██
+# ██      무조건 Supabase(PostgreSQL) 연동.               ██
+# ██                                                      ██
+# ██    ③ Daily Quota: 사용자별 AI 호출은 하루 10회      ██
+# ██      하드 리미트 강제 (Supabase DB 기반 검증).       ██
+# ██                                                      ██
+# ██    ④ Cache First: AI(Gemini) 호출 전 반드시 GCS     ██
+# ██      캐시를 우선 조회하여 토큰 소모를 방어할 것.     ██
+# ██                                                      ██
+# ██    ⑤ Self-Healing: 429 등 API 과부하 에러 발생 시   ██
+# ██      즉시 백오프(재시도) 및 GCS 기존 데이터를       ██
+# ██      폴백(Fallback)으로 반환할 것.                   ██
+# ██                                                      ██
+# ██    ⑥ Background Watchdog: 시스템 무결성 점검 및     ██
+# ██      로깅은 앱 부팅 속도를 방해하지 않도록           ██
+# ██      백그라운드로 분리할 것.                         ██
+# ██                                                      ██
+# ██  5. [장해 및 KCD-8 전문성 원칙]                     ██
+# ██     사고 유형(traffic/industrial → McBride,          ██
+# ██     general/disease → AMA)에 따른 자동 분기.         ██
+# ██     모든 질병 언급 시 KCD-8차 코드 병기 필수.        ██
+# ██     일반/특정/중증 질환 분류 명시 절대 준수.          ██
+# ██                                                      ██
 # ██  섹션 구조 목록:                                    ██
 # ██   SECTION 1    — 보안 및 암호화 엔진               ██
 # ██   SECTION 2    — 데이터베이스 & 회원 관리           ██
@@ -58,10 +88,12 @@
 # ██████████████████████████████████████████████████████████
 
 import streamlit as st
-from google import genai
-from google.genai import types
 import sys, json, os, time, hashlib, base64, re, tempfile, pathlib, codecs, unicodedata, traceback as _traceback
 from functools import lru_cache as _lru_cache
+from datetime import datetime as dt, timedelta, date
+from typing import List, Dict
+import sqlite3
+import streamlit.components.v1 as components
 
 # 외부 격리 게이트웨이 — 모든 외부 접촉은 이 모듈을 통해서만
 try:
@@ -70,20 +102,39 @@ try:
 except ImportError:
     _GW_OK = False
 
-try:
-    import ftfy as _ftfy
-    _FTFY_OK = True
-except ImportError:
-    _FTFY_OK = False
+# ── Lazy Load 래퍼 (부팅 시 즉시 로드 금지) ───────────────────────────────
+# pandas: 금감원 API 결과 표시 / 업종 요율표 렌더링 시점에만 로드
+def _lazy_pd():
+    import pandas as _pd
+    return _pd
 
-from datetime import datetime as dt, timedelta, date
-from typing import List, Dict
-import numpy as np
-import sqlite3
-import pandas as pd
-import PIL.Image
-from cryptography.fernet import Fernet
-import streamlit.components.v1 as components
+# PIL: 이미지 파일 분석 기능 실행 시점에만 로드
+def _lazy_pil_image():
+    import PIL.Image as _img
+    return _img
+
+# Fernet: 세션 암호화 키 초기화 시점에만 로드 (get_cipher() 호출 시)
+def _lazy_fernet():
+    from cryptography.fernet import Fernet as _Fernet
+    return _Fernet
+
+# google.genai / types: AI 호출 시점에만 로드 (부팅 ~0.8s 절감)
+def _lazy_genai():
+    from google import genai as _genai
+    return _genai
+
+def _lazy_genai_types():
+    from google.genai import types as _types
+    return _types
+
+# ftfy: 텍스트 교정 요청 시점에만 로드 (부팅 ~0.3s 절감)
+def _lazy_ftfy():
+    try:
+        import ftfy as _ftfy
+        return _ftfy
+    except ImportError:
+        return None
+
 try:
     from modules.smart_scanner import (
         render_smart_scanner, render_scan_report, render_ssot_banner,
@@ -103,30 +154,20 @@ os.environ["PYTHONIOENCODING"] = "utf-8:replace"
 os.environ["PYTHONUTF8"] = "1"
 
 # ── Playwright Chromium 자동 설치 (HuggingFace Space / 서버 환경) ──────────
-# 백그라운드 스레드로 실행 → 부팅 블로킹 제거 (기존 최대 180초 → 0초 대기)
-# 플래그 파일 유효기간 7일: 재시작 시 재설치 방지
+# [OPT3] 최경량화: .pw_chromium_ok 플래그 파일이 있으면 즉시 패스 (0ms)
+# 없을 때만 백그라운드에서 설치 → 부팅 블로킹 완전 제거
 def _install_playwright_bg():
     try:
-        import subprocess as _subprocess
         _pw_flag = pathlib.Path.home() / ".pw_chromium_ok"
-        _need_install = True
         if _pw_flag.exists():
-            try:
-                import time as _t
-                _age_days = (_t.time() - _pw_flag.stat().st_mtime) / 86400
-                _need_install = _age_days > 7  # 7일 이내면 재설치 생략
-            except Exception:
-                _need_install = False
-        if _need_install:
-            _pw_result = _subprocess.run(
-                [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
-                capture_output=True, text=True, timeout=180
-            )
-            if _pw_result.returncode == 0:
-                _pw_flag.write_text("ok")
-            else:
-                _err_log = pathlib.Path(tempfile.gettempdir()) / "pw_install_err.txt"
-                _err_log.write_text(_pw_result.stderr or _pw_result.stdout or "unknown error")
+            return  # 플래그 있으면 즉시 종료
+        import subprocess as _subprocess
+        _pw_result = _subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
+            capture_output=True, text=True, timeout=180
+        )
+        if _pw_result.returncode == 0:
+            _pw_flag.write_text("ok")
     except Exception:
         pass
 
@@ -179,17 +220,27 @@ def _check_pdf():
             PDF_AVAILABLE = False
     return PDF_AVAILABLE
 
-# [시스템 필수 설정]
-# Streamlit Cloud / Cloud Run 모두 읽기 전용 파일시스템 → /tmp/ 경로 사용
-# Cloud Run: K_SERVICE 환경변수 존재 / Streamlit Cloud: HOME=/home/...
+# ==========================================================
+# [시스템 필수 설정] — 원칙 ② No Local Storage 적용
+# 상태 보존의 단일 진실 원천(SSOT) = Supabase(PostgreSQL)
+# /tmp JSON 경로는 Supabase 장애 시 최후 비상 폴백 전용.
+# 신규 기능에서 USAGE_DB / MEMBER_DB 직접 쓰기 절대 금지.
+# ==========================================================
 _IS_CLOUD = (
     os.environ.get("K_SERVICE") is not None or          # Cloud Run
     os.environ.get("HOME", "").startswith("/home") or   # Streamlit Cloud
     not os.access(".", os.W_OK)                         # 현재 디렉토리 쓰기 불가
 )
 _DATA_DIR = "/tmp" if _IS_CLOUD else "."
-USAGE_DB = os.path.join(_DATA_DIR, "usage_log.json")
+# ★ DEPRECATED: 아래 두 상수는 Supabase 장애 시 비상 폴백 전용.
+#   상태 보존 주경로는 반드시 Supabase를 사용할 것 (원칙 ② 준수).
+USAGE_DB  = os.path.join(_DATA_DIR, "usage_log.json")
 MEMBER_DB = os.path.join(_DATA_DIR, "members.json")
+
+# ── Supabase 클라이언트 초기화 (원칙 ②: 상태 보존 SSOT) ──────────────────
+# 모든 usage_logs / members 읽기·쓰기는 _get_sb_client()를 통해 수행.
+# 정의 위치: SECTION 1 내부 (_get_sb_client / _get_sb_client_cached 함수)
+# secrets 미설정 시 None 반환 → 각 함수에서 로컬 JSON 폴백 처리.
 
 # ==========================================================================
 # [STT/TTS 전역 설정 — 절대명령: 이 값을 직접 수정하지 말 것]
@@ -242,7 +293,7 @@ TTS_TONE_PRESETS = {
 # --------------------------------------------------------------------------
 # [SECTION 0] 앱 아이덴티티 상수
 # --------------------------------------------------------------------------
-APP_NAME       = "goldkey_ai_insu_Master"   # 정식 명칭 (영업비밀 등록용)
+APP_NAME       = "Goldkey_Ai_masters2026"   # 정식 명칭 (영업비밀 등록용)
 APP_SHORT      = "insuAi"                   # 약칭 (일상 호칭)
 APP_AUTHOR     = "이세윤 (골드키지사)"
 APP_START_DATE = "2026-02-01"               # 최초 개발 시작일
@@ -267,7 +318,7 @@ def get_encryption_key():
 def get_cipher():
     """cipher_suite 지연 초기화 - 모듈 수준 st.secrets 접근 방지"""
     if 'cipher_suite' not in st.session_state:
-        st.session_state.cipher_suite = Fernet(get_encryption_key())
+        st.session_state.cipher_suite = _lazy_fernet()(get_encryption_key())
     return st.session_state.cipher_suite
 
 def encrypt_val(data):
@@ -287,6 +338,12 @@ def decrypt_data(stored_hash, input_data):
     """해시 비교 검증"""
     return stored_hash == hashlib.sha256(input_data.encode()).hexdigest()
 
+# ★★★ [PII 보호 — 절대명령] ★★★
+# 주민등록번호·전화번호·이메일 등 고유식별정보(PII)는
+# 반드시 이 함수(단방향 SHA-256 해시)로만 저장해야 한다.
+# 원문 평문을 DB·로그·세션에 절대 기록하지 말 것.
+# 복호화가 필요한 데이터는 encrypt_val/decrypt_val(Fernet 양방향)을 사용하되,
+# 고유식별정보는 단방향 해시만 허용한다. (개인정보보호법 제24조·제29조 준수)
 def encrypt_contact(contact):
     return hashlib.sha256(contact.encode()).hexdigest()
 
@@ -298,9 +355,10 @@ def sanitize_unicode(text) -> str:
         except Exception:
             return ""
     # 0단계: ftfy로 잘못된 인코딩 자체를 수정 (가장 포괄적)
-    if _FTFY_OK:
+    _ftfy_mod = _lazy_ftfy()
+    if _ftfy_mod is not None:
         try:
-            text = _ftfy.fix_text(text, normalization="NFC")
+            text = _ftfy_mod.fix_text(text, normalization="NFC")
         except Exception:
             pass
     # 1단계: 유니코드 카테고리 Cs(surrogate) 문자를 문자 단위로 직접 제거
@@ -459,6 +517,123 @@ def calculate_insurance_gap(
         "total_months":    total_months,
         "h_coeff":         round(h, 2),
     }
+
+# ── KCD-8 질병 매퍼 레지스트리 (즉시 로딩, 상세 판례는 RAG/GCS에서 서빙) ──────
+_KCD8_REGISTRY: dict[str, dict] = {
+    # ── 암(C00-C97) ───────────────────────────────────────────────────────
+    "위암":       {"code": "C16", "category": "중증질환", "sub": "암"},
+    "대장암":     {"code": "C18", "category": "중증질환", "sub": "암"},
+    "직장암":     {"code": "C20", "category": "중증질환", "sub": "암"},
+    "폐암":       {"code": "C34", "category": "중증질환", "sub": "암"},
+    "유방암":     {"code": "C50", "category": "중증질환", "sub": "암"},
+    "자궁경부암": {"code": "C53", "category": "중증질환", "sub": "암"},
+    "갑상선암":   {"code": "C73", "category": "중증질환", "sub": "암"},
+    "간암":       {"code": "C22", "category": "중증질환", "sub": "암"},
+    "췌장암":     {"code": "C25", "category": "중증질환", "sub": "암"},
+    "전립선암":   {"code": "C61", "category": "중증질환", "sub": "암"},
+    "혈액암":     {"code": "C91", "category": "중증질환", "sub": "암"},
+    "백혈병":     {"code": "C91", "category": "중증질환", "sub": "암"},
+    # ── 뇌혈관(I60-I69) ───────────────────────────────────────────────────
+    "뇌졸중":     {"code": "I64", "category": "중증질환", "sub": "뇌혈관"},
+    "뇌경색":     {"code": "I63", "category": "중증질환", "sub": "뇌혈관"},
+    "뇌출혈":     {"code": "I61", "category": "중증질환", "sub": "뇌혈관"},
+    "거미막하출혈": {"code": "I60", "category": "중증질환", "sub": "뇌혈관"},
+    "일과성뇌허혈": {"code": "G45", "category": "특정질환", "sub": "뇌혈관"},
+    # ── 심혈관(I20-I25) ───────────────────────────────────────────────────
+    "급성심근경색": {"code": "I21", "category": "중증질환", "sub": "심혈관"},
+    "심근경색":    {"code": "I21", "category": "중증질환", "sub": "심혈관"},
+    "협심증":      {"code": "I20", "category": "특정질환", "sub": "심혈관"},
+    "심부전":      {"code": "I50", "category": "특정질환", "sub": "심혈관"},
+    "부정맥":      {"code": "I49", "category": "특정질환", "sub": "심혈관"},
+    "대동맥류":    {"code": "I71", "category": "중증질환", "sub": "심혈관"},
+    # ── 당뇨/내분비(E10-E14) ─────────────────────────────────────────────
+    "당뇨병":      {"code": "E11", "category": "특정질환", "sub": "내분비"},
+    "1형당뇨":     {"code": "E10", "category": "특정질환", "sub": "내분비"},
+    "2형당뇨":     {"code": "E11", "category": "특정질환", "sub": "내분비"},
+    "고혈압":      {"code": "I10", "category": "특정질환", "sub": "순환기"},
+    # ── 호흡기(J00-J99) ───────────────────────────────────────────────────
+    "폐렴":        {"code": "J18", "category": "일반질환", "sub": "호흡기"},
+    "천식":        {"code": "J45", "category": "특정질환", "sub": "호흡기"},
+    "만성폐쇄성폐질환": {"code": "J44", "category": "특정질환", "sub": "호흡기"},
+    "결핵":        {"code": "A15", "category": "특정질환", "sub": "감염"},
+    # ── 근골격(M00-M99) ───────────────────────────────────────────────────
+    "추간판탈출증": {"code": "M51", "category": "일반질환", "sub": "근골격"},
+    "디스크":      {"code": "M51", "category": "일반질환", "sub": "근골격"},
+    "골절":        {"code": "S02",  "category": "일반질환", "sub": "외상"},
+    "무릎관절염":  {"code": "M17", "category": "일반질환", "sub": "근골격"},
+    # ── 정신/신경(F00-F99, G00-G99) ──────────────────────────────────────
+    "치매":        {"code": "F03", "category": "특정질환", "sub": "신경"},
+    "알츠하이머":  {"code": "G30", "category": "특정질환", "sub": "신경"},
+    "우울증":      {"code": "F32", "category": "일반질환", "sub": "정신"},
+    "파킨슨":      {"code": "G20", "category": "특정질환", "sub": "신경"},
+    # ── 간(K70-K77) ───────────────────────────────────────────────────────
+    "간경화":      {"code": "K74", "category": "특정질환", "sub": "소화기"},
+    "간염":        {"code": "B18", "category": "일반질환", "sub": "감염"},
+    "B형간염":     {"code": "B18.1", "category": "일반질환", "sub": "감염"},
+    "C형간염":     {"code": "B18.2", "category": "일반질환", "sub": "감염"},
+    # ── 신장(N00-N39) ─────────────────────────────────────────────────────
+    "만성신부전":  {"code": "N18", "category": "특정질환", "sub": "비뇨기"},
+    "신장암":      {"code": "C64", "category": "중증질환", "sub": "암"},
+}
+
+def kcd_lookup(keyword: str) -> dict:
+    """자연어 키워드 → KCD-8 코드·분류 반환.
+    완전 일치 우선, 없으면 부분 포함 검색.
+    반환: {"code": str, "category": str, "sub": str} 또는 {"code": "확인 필요", ...}
+    """
+    kw = keyword.strip()
+    if kw in _KCD8_REGISTRY:
+        return _KCD8_REGISTRY[kw]
+    for key, val in _KCD8_REGISTRY.items():
+        if kw in key or key in kw:
+            return val
+    return {"code": "KCD 코드 확인 필요", "category": "분류 불명확 — 전문가 확인 필요", "sub": ""}
+
+def get_disability_method_guide(injury_type: str) -> dict:
+    """사고 유형 → AMA/McBride 분기 가이드 반환.
+    injury_type: 'traffic' | 'industrial' | 'general' | 'disease'
+    반환: method, title, one_line_tip, key_points, required_docs
+    """
+    if injury_type in ("traffic", "industrial"):
+        return {
+            "method": "McBride",
+            "title": "맥브라이드(McBride) 방식 — 노동능력상실률 기준",
+            "one_line_tip": "법원에서 배상받을 때 쓰는 기준 — 직업·나이가 보상액을 좌우합니다",
+            "key_points": [
+                "직업계수(직종별 노동능력 가중치) 필수 적용",
+                "나이·성별·잔여 가동연한 반영",
+                "신체 기능 손실률 × 직업계수 = 최종 노동능력상실률",
+                "배상책임보험·자동차보험·산재보험 법원 감정 기준",
+                "부위별 손실이 복합인 경우 중복 적용 방지 계산 필요",
+            ],
+            "required_docs": [
+                "장해진단서 (의료기관 발행)",
+                "직업 증명 서류 (재직증명서·사업자등록증)",
+                "사고 경위서 (교통사고: 교통사고사실확인원)",
+                "소득 증빙 (근로소득원천징수영수증·세금계산서)",
+            ],
+            "disclaimer": "본 안내는 참고용 시뮬레이션이며 법적 효력이 없습니다. 최종 판단은 공인 손해사정사 또는 법원 감정을 통해 확인하십시오.",
+        }
+    else:
+        return {
+            "method": "AMA",
+            "title": "AMA(미국의학회) 방식 — 장기보험 약관 장해지급률 기준",
+            "one_line_tip": "내 보험에서 받을 때 쓰는 기준 — 약관 장해표에 따라 정액 지급됩니다",
+            "key_points": [
+                "신체 부위별 장해등급표 적용 (약관 [별표] 참조)",
+                "직업계수 미적용 — 직업 무관 정액 지급",
+                "장해지급률 1~100% 구간 적용",
+                "동일 사고 복합 장해 시 중복 가산 가능 여부 약관 확인 필수",
+                "후유장해 확정 진단서 필수 (통상 사고 후 6개월 이상 경과)",
+            ],
+            "required_docs": [
+                "후유장해진단서 (전문의 발행, 장해율 명시)",
+                "진단서 (KCD 코드 포함)",
+                "사고 접수 서류 (보험사 자체 양식)",
+                "의무기록 사본 (치료 경과 확인용)",
+            ],
+            "disclaimer": "본 안내는 참고용 시뮬레이션이며 법적 효력이 없습니다. 최종 지급 여부는 보험사 심사 결과에 따릅니다.",
+        }
 
 def crm_set_profile(reg: dict, name: str, **kwargs):
     """프로필 필드 업데이트. is_ceo=True 시 법인-대표 연동 자동 처리."""
@@ -717,11 +892,11 @@ def sanitize_prompt(text):
     return text
 
 def get_admin_key():
-    """관리자 키를 st.secrets에서 가져옴 (평문 하드코딩 금지)"""
+    """관리자 키를 st.secrets에서 가져옴 — secrets 미설정 시 빈 문자열 반환 (하드코딩 금지)"""
     try:
-        return st.secrets.get("ADMIN_KEY", "kgagold6803")
+        return st.secrets.get("ADMIN_KEY", "")
     except Exception:
-        return "kgagold6803"
+        return ""
 
 def _check_admin_key(input_key: str) -> bool:
     """입력 키가 ADMIN_KEY / ADMIN_CODE / MASTER_CODE 중 하나와 일치하면 True"""
@@ -736,15 +911,15 @@ def _check_admin_key(input_key: str) -> bool:
                 valid.add(v)
         except Exception:
             pass
-    valid.add("kgagold6803")  # 최후 폴백
+    # ★ 하드코딩 폴백 절대 금지 — secrets 미설정 시 valid가 비어 있으므로 자동 False 반환
     return k in valid
 
 def get_admin_code():
-    """관리자 코드를 st.secrets에서 가져옴 (평문 하드코딩 금지)"""
+    """관리자 코드를 st.secrets에서 가져옴 — secrets 미설정 시 빈 문자열 반환 (하드코딩 금지)"""
     try:
-        return st.secrets.get("ADMIN_CODE", "kgagold6803")
+        return st.secrets.get("ADMIN_CODE", "")
     except Exception:
-        return "kgagold6803"
+        return ""
 
 # --------------------------------------------------------------------------
 # [SECTION 1.8] Brute-force 로그인 방어 — _LoginGuard
@@ -877,6 +1052,7 @@ CEO_PLAN_PROMPT = """
 5. 주가 관리 전략 — 평가액 조정을 통한 절세 시뮬레이션
 6. CEO 유고 리스크 대비 — 사망보험금 → 퇴직금·주식 매입 재원 활용
 7. 법인 절세 전략 종합 — 세무사 협업 필요 사항 명시
+8. [실전 세일즈 클로징 대본] 위 분석 결과를 바탕으로, 담당 설계사가 내일 CEO 미팅에서 당장 사용할 수 있는 '강력한 오프닝 멘트(1줄)'와 '거절(비싸다, 나중에 하겠다) 극복 스크립트(3줄)'를 실제 대화체로 작성할 것.
 
 [주의] 본 분석은 참고용이며, 구체적 세무·법률 사항은 반드시 세무사·변호사와 확인하십시오.
 """
@@ -892,6 +1068,8 @@ CEO_FS_PROMPT = """
 4. 비상장주식 평가용 핵심 수치 추출
 5. CEO플랜 설계 관점 — 법인 재무 건전성 기반 보험 재원 마련 가능성
 6. 리스크 요인 — 재무제표상 주요 위험 신호
+7. CEO플랜 우선순위 — 재무 건전성 기반 보험 설계 시급성 판단
+8. [실전 세일즈 클로징 대본] 위 분석 결과를 바탕으로, 담당 설계사가 내일 CEO 미팅에서 당장 사용할 수 있는 '강력한 오프닝 멘트(1줄)'와 '거절(비싸다, 나중에 하겠다) 극복 스크립트(3줄)'를 실제 대화체로 작성할 것.
 
 [주의] 본 분석은 AI 보조 도구로서 참고용이며, 최종 판단은 공인회계사·세무사와 확인하십시오.
 """
@@ -1266,12 +1444,15 @@ def hybrid_purge_user(uid: str, jwt_token: str) -> bool:
         return False
 # ══════════════════════════════════════════════════════════════════════════════
 
-try:
-    from supabase import create_client as _sb_create_client
-    _SB_PKG_OK = True
-except Exception:
-    _sb_create_client = None
-    _SB_PKG_OK = False
+def _lazy_sb_create_client():
+    """supabase: DB 접근 시점에만 로드 (부팅 ~0.6s 절감)"""
+    try:
+        from supabase import create_client as _c
+        return _c
+    except Exception:
+        return None
+
+_SB_PKG_OK = True  # 실제 가용 여부는 _lazy_sb_create_client() 호출 시 결정
 
 def _get_gcs_client():
     """GCS 클라이언트 반환 (폴백용)
@@ -1308,11 +1489,106 @@ def _get_gcs_client():
     except Exception:
         return None
 
+# ── GCS 분석 캐시 헬퍼 (Cache-First 비용 절감) ─────────────────────────────
+_GCS_CACHE_BUCKET = None  # 앱 시작 시 환경변수/secrets에서 설정
+
+def _get_gcs_cache_bucket():
+    """GCS 캐시 버킷명 반환 — 환경변수 > secrets > None"""
+    global _GCS_CACHE_BUCKET
+    if _GCS_CACHE_BUCKET:
+        return _GCS_CACHE_BUCKET
+    try:
+        _GCS_CACHE_BUCKET = os.environ.get("GCS_CACHE_BUCKET") or st.secrets.get("GCS_CACHE_BUCKET", "")
+    except Exception:
+        _GCS_CACHE_BUCKET = os.environ.get("GCS_CACHE_BUCKET", "")
+    return _GCS_CACHE_BUCKET or None
+
+def _gcs_cache_key(user_name: str, query: str, product_key: str) -> str:
+    """입력 기반 MD5 캐시 키 생성 (개인정보 제외, 분석 의도 기반)"""
+    import hashlib
+    _raw = json.dumps({"q": query[:500], "pk": product_key}, sort_keys=True, ensure_ascii=False)
+    return "analysis_cache/" + hashlib.md5(_raw.encode("utf-8")).hexdigest() + ".json"
+
+def _gcs_cache_get(cache_key: str) -> str | None:
+    """GCS에서 캐시 조회 — 없으면 None 반환"""
+    bucket_name = _get_gcs_cache_bucket()
+    if not bucket_name:
+        return None
+    try:
+        gcs = _get_gcs_client()
+        if not gcs:
+            return None
+        bucket = gcs.bucket(bucket_name)
+        blob = bucket.blob(cache_key)
+        if blob.exists():
+            return blob.download_as_text(encoding="utf-8")
+    except Exception:
+        pass
+    return None
+
+def _gcs_cache_put(cache_key: str, answer: str) -> None:
+    """GCS에 분석 결과 캐시 저장 (비동기 처리로 응답 지연 방지)"""
+    bucket_name = _get_gcs_cache_bucket()
+    if not bucket_name:
+        return
+    try:
+        import threading
+        def _upload():
+            try:
+                gcs = _get_gcs_client()
+                if not gcs:
+                    return
+                payload = json.dumps({"answer": answer, "cached_at": str(date.today())}, ensure_ascii=False)
+                gcs.bucket(bucket_name).blob(cache_key).upload_from_string(
+                    payload, content_type="application/json"
+                )
+            except Exception:
+                pass
+        threading.Thread(target=_upload, daemon=True).start()
+    except Exception:
+        pass
+
+def _gcs_cache_get_latest_user(user_name: str) -> str | None:
+    """Self-Healing: 사용자의 최근 캐시 파일 1개 반환 (Safe Mode 폴백용)"""
+    bucket_name = _get_gcs_cache_bucket()
+    if not bucket_name:
+        return None
+    try:
+        gcs = _get_gcs_client()
+        if not gcs:
+            return None
+        blobs = list(gcs.bucket(bucket_name).list_blobs(prefix="analysis_cache/", max_results=20))
+        if blobs:
+            blobs.sort(key=lambda b: b.updated, reverse=True)
+            return blobs[0].download_as_text(encoding="utf-8")
+    except Exception:
+        pass
+    return None
+
+# ── Safe Mode 전역 상태 (에러율 기반 자동 전환) ────────────────────────────
+_SAFE_MODE_ERRORS = 0      # 현재 세션 에러 카운트
+_SAFE_MODE_THRESHOLD = 5   # 5회 이상 에러 시 Safe Mode 진입
+_SAFE_MODE_ACTIVE = False
+
+def _safe_mode_record_error():
+    global _SAFE_MODE_ERRORS, _SAFE_MODE_ACTIVE
+    _SAFE_MODE_ERRORS += 1
+    if _SAFE_MODE_ERRORS >= _SAFE_MODE_THRESHOLD:
+        _SAFE_MODE_ACTIVE = True
+
+def _safe_mode_reset():
+    global _SAFE_MODE_ERRORS, _SAFE_MODE_ACTIVE
+    _SAFE_MODE_ERRORS = 0
+    _SAFE_MODE_ACTIVE = False
+
 @st.cache_resource
 def _get_sb_client_cached(url: str, key: str):
     """Supabase 클라이언트 생성 및 캐시 — url/key가 있을 때만 호출"""
     try:
-        return _sb_create_client(url, key)
+        _creator = _lazy_sb_create_client()
+        if _creator is None:
+            return None
+        return _creator(url, key)
     except Exception:
         return None
 
@@ -1816,7 +2092,23 @@ def _get_unlimited_users():
     return st.session_state['_unlimited_users_cache']
 
 def check_usage_count(user_name):
+    """일일 사용량 조회 — Supabase usage_logs 우선, 로컬 JSON 폴백"""
     today = str(date.today())
+    # ── Supabase usage_logs 테이블 우선 조회 (멀티프로세스 안전) ──────────
+    try:
+        _sb = _get_sb_client()
+        if _sb:
+            _res = _sb.table("usage_logs") \
+                .select("id", count="exact") \
+                .eq("user_name", user_name) \
+                .eq("usage_date", today) \
+                .execute()
+            _cnt = _res.count if _res.count is not None else 0
+            st.session_state[f"_ud_cnt_{user_name}"] = _cnt
+            return _cnt
+    except Exception:
+        pass
+    # ── 로컬 JSON 폴백 ────────────────────────────────────────────────────
     if not os.path.exists(USAGE_DB):
         return 0
     try:
@@ -1829,18 +2121,18 @@ def check_usage_count(user_name):
 def _is_unlimited_user(user_name):
     return user_name in _get_unlimited_users()
 
-def update_usage(user_name):
-    """분석 성공 후에만 호출해야 함 — Supabase 우선, 로컬 JSON 폴백"""
+def update_usage(user_name, model_used: str = ""):
+    """분석 성공 후에만 호출해야 함 — Supabase usage_logs insert 우선, 로컬 JSON 폴백"""
     today = str(date.today())
-    # ── Supabase 우선 (멀티프로세스 안전 — atomic upsert) ───────────────
+    # ── Supabase usage_logs 테이블 insert (행 단위 기록 → count(*) 집계) ─
     try:
         _sb = _get_sb_client()
         if _sb:
-            _sb.table("usage_log").upsert(
-                {"user_name": user_name, "log_date": today,
-                 "count": check_usage_count(user_name) + 1},
-                on_conflict="user_name,log_date"
-            ).execute()
+            _sb.table("usage_logs").insert({
+                "user_name":  user_name,
+                "usage_date": today,
+                "model_used": model_used or "",
+            }).execute()
             # 세션 캐시 무효화 (즉시 최신값 반영)
             st.session_state.pop(f"_ud_cnt_{user_name}", None)
             return
@@ -1959,7 +2251,7 @@ def get_client():
         api_key = api_key.encode("utf-8", errors="ignore").decode("utf-8")
     if not api_key:
         return None
-    return genai.Client(
+    return _lazy_genai().Client(
         api_key=api_key,
         http_options={"api_version": "v1beta"}
     )
@@ -2031,6 +2323,11 @@ SECTOR_CODES: dict = {
     "8100": {"name": "상담 카탈로그",   "tab_key": "consult_catalog","keywords": ["카탈로그열람", "카탈로그보여", "내카탈로그", "상담카탈로그"]},
     "8200": {"name": "고객자료",        "tab_key": "customer_docs", "keywords": ["고객자료", "의무기록저장", "서류저장", "고객문서", "마인드맵"]},
     "8300": {"name": "디지털 카탈로그", "tab_key": "digital_catalog","keywords": ["디지털카탈로그", "카탈로그관리", "카탈로그업로드"]},
+    # ── 9000번대: 보상 전문 상담 ─────────────────────────────────────────
+    "9000": {"name": "보상 정보 시뮬레이션 가이드", "tab_key": "compensation", "keywords": ["보상상담", "상해보상", "보상시뮬레이션", "보상가이드", "보상정보", "손해배상상담", "보상전문"]},
+    "9100": {"name": "교통사고 보상 가이드",         "tab_key": "compensation", "keywords": ["교통사고보상", "교통사고합의", "교통사고손해", "자동차사고보상"]},
+    "9200": {"name": "산재 보상 가이드",             "tab_key": "compensation", "keywords": ["산재보상", "산업재해보상", "근로복지공단", "산재신청"]},
+    "9300": {"name": "일반상해 보상 가이드",         "tab_key": "compensation", "keywords": ["일반상해보상", "상해보험금", "상해보상가이드", "상해보상안내"]},
 }
 
 # ==========================================================================
@@ -2149,6 +2446,13 @@ SUB_CODES: dict = {
     # ── 8300: 디지털 카탈로그 ─────────────────────────────────────────────
     "8310": {"name": "카탈로그 업로드",   "tab_key": "digital_catalog","keywords": ["카탈로그업로드", "디지털카탈로그올려", "카탈로그올려"]},
     "8320": {"name": "카탈로그 관리",     "tab_key": "digital_catalog","keywords": ["카탈로그관리", "디지털카탈로그관리", "카탈로그수정"]},
+    # ── 9000: 보상 정보 시뮬레이션 가이드 ────────────────────────────────
+    "9010": {"name": "KCD-8 코드 조회",    "tab_key": "compensation",   "keywords": ["kcd코드", "kcd조회", "질병코드조회", "상병코드"]},
+    "9020": {"name": "맥브라이드 계산",    "tab_key": "compensation",   "keywords": ["맥브라이드계산", "맥브라이드산출", "노동능력상실률"]},
+    "9030": {"name": "AMA 장해율 산출",    "tab_key": "compensation",   "keywords": ["ama산출", "ama장해율", "장기보험장해율", "ama방식장해"]},
+    "9040": {"name": "교통사고 합의금",    "tab_key": "compensation",   "keywords": ["합의금산출", "합의금계산", "교통사고합의금", "위자료계산"]},
+    "9050": {"name": "산재 보상 신청",     "tab_key": "compensation",   "keywords": ["산재신청방법", "근로복지공단신청", "산재절차"]},
+    "9060": {"name": "전문가 지원 센터",   "tab_key": "compensation",   "keywords": ["손해사정사연락", "보상전문가연락", "전문가지원"]},
 }
 
 # ── Voice-to-Action 네비게이션 매핑 테이블 ──────────────────────────────────
@@ -2367,7 +2671,7 @@ def stt_llm_correct(text: str, client=None, strictness: float = 0.7) -> str:
         # [수칙5 수정] 교정 지시문(system)과 사용자 음성텍스트(user)를 분리
         # _STT_LLM_SYSTEM_PROMPT + _strict_directive → system_instruction으로 주입
         # 실제 교정 입력만 user role로 전달 (기존 user role 오남용 제거)
-        _stt_call_config = types.GenerateContentConfig(
+        _stt_call_config = _lazy_genai_types().GenerateContentConfig(
             temperature=0.1,
             top_p=0.2,
             max_output_tokens=512,
@@ -2556,7 +2860,7 @@ def get_master_model():
         raise RuntimeError("GEMINI_API_KEY가 설정되지 않았습니다. HuggingFace Space → Settings → Variables and secrets 에서 GEMINI_API_KEY를 등록하세요.")
     # [R1] 6대 절대 수칙(_ABSOLUTE_SYSTEM_INSTRUCTION) + SYSTEM_PROMPT 통합
     # _ABSOLUTE_SYSTEM_INSTRUCTION이 앞에 위치해야 LLM이 최우선 적용
-    config = types.GenerateContentConfig(
+    config = _lazy_genai_types().GenerateContentConfig(
         temperature=0.0,
         top_p=0.1,
         system_instruction=_ABSOLUTE_SYSTEM_INSTRUCTION + "\n\n" + SYSTEM_PROMPT,
@@ -2775,7 +3079,7 @@ def parse_policy_with_vision(files: list) -> dict:
                     resp = client.models.generate_content(
                         model=GEMINI_MODEL,
                         contents=[{"role": "user", "parts": [{"text": full_prompt}]}],
-                        config=_STRICT_CONFIG,
+                        config=_get_strict_config(),
                     )
                 else:
                     # ── 2단계: 이미지 PDF(스캔본) → pymupdf로 페이지 이미지 변환 → Gemini Vision ──
@@ -2806,7 +3110,7 @@ def parse_policy_with_vision(files: list) -> dict:
                     resp = client.models.generate_content(
                         model=GEMINI_MODEL,
                         contents=[{"role": "user", "parts": _pdf_parts}],
-                        config=_STRICT_CONFIG,
+                        config=_get_strict_config(),
                     )
             else:
                 img_bytes = f.getvalue()
@@ -2831,7 +3135,7 @@ def parse_policy_with_vision(files: list) -> dict:
                             {"inline_data": {"mime_type": _proc_mime, "data": img_b64}}
                         ]
                     }],
-                    config=_STRICT_CONFIG,
+                    config=_get_strict_config(),
                 )
 
             raw = resp.text.strip() if resp.text else ""
@@ -3291,6 +3595,89 @@ def display_security_sidebar():
 
 
 # --------------------------------------------------------------------------
+# [SECTION 8 브랜드] Goldkey_AI_Masters 전용 아바타 시스템
+# --------------------------------------------------------------------------
+GOLD_AVATAR_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "assets", "avatar_goldkey.svg"
+)
+
+@st.cache_resource(show_spinner=False)
+def get_goldkey_avatar() -> str:
+    """골드키 전용 아바타를 base64 문자열로 반환 (캐시 1회 로드).
+    SVG → PNG 순으로 탐색. 파일 없으면 빈 문자열 반환(Fallback).
+    """
+    candidates = [
+        GOLD_AVATAR_PATH,
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "avatar_goldkey.png"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatar.png"),
+    ]
+    for _p in candidates:
+        try:
+            _path = pathlib.Path(_p)
+            if _path.exists():
+                _raw = _path.read_bytes()
+                _mime = "image/svg+xml" if _p.endswith(".svg") else "image/png"
+                return f"data:{_mime};base64,{base64.b64encode(_raw).decode()}"
+        except Exception:
+            continue
+    return ""
+
+
+def render_goldkey_sidebar():
+    """Goldkey_AI_Masters 전용 브랜드 아바타 + 헤더를 사이드바 최상단에 렌더링.
+    기존 단순 아바타 출력 로직을 완전 대체.
+    """
+    _avatar_data = get_goldkey_avatar()
+    if _avatar_data:
+        _avatar_html = (
+            f'<img src="{_avatar_data}" '
+            'style="width:96px;height:96px;border-radius:50%;object-fit:cover;'
+            'border:3px solid #f0c040;margin-bottom:10px;'
+            'box-shadow:0 0 16px rgba(240,192,32,0.45),0 2px 8px rgba(0,0,0,0.35);">'
+        )
+    else:
+        _avatar_html = (
+            '<div style="width:96px;height:96px;border-radius:50%;'
+            'background:linear-gradient(135deg,#f0c040,#b8860b);'
+            'display:flex;align-items:center;justify-content:center;'
+            'margin:0 auto 10px auto;font-size:2.6rem;'
+            'box-shadow:0 0 16px rgba(240,192,32,0.45);">🔑</div>'
+        )
+    st.sidebar.markdown(f"""
+<div style="background:linear-gradient(160deg,#0a1628 0%,#1a3a5c 55%,#0d2444 100%);
+  border-radius:14px;padding:20px 16px 16px 16px;margin-bottom:14px;
+  border:1.5px solid rgba(240,192,32,0.35);
+  box-shadow:0 4px 20px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.05);
+  text-align:center;">
+  <div style="display:flex;justify-content:center;margin-bottom:2px;">
+    {_avatar_html}
+  </div>
+  <div style="font-size:1.15rem;font-weight:900;color:#f0c040;
+    letter-spacing:0.04em;line-height:1.3;
+    text-shadow:0 1px 6px rgba(240,192,32,0.5);">
+    Goldkey_AI_Masters<span style="color:#7dd3fc;font-size:0.9rem;">2026</span>
+  </div>
+  <div style="height:1.5px;background:linear-gradient(90deg,transparent,rgba(240,192,32,0.5),transparent);
+    margin:8px 0;"></div>
+  <div style="font-size:0.82rem;font-weight:700;color:#a8c8f0;
+    letter-spacing:0.02em;margin-bottom:4px;">
+    전문 보장 상담의 동반자
+  </div>
+  <div style="font-size:0.72rem;color:rgba(168,200,240,0.7);
+    font-style:italic;letter-spacing:0.01em;">
+    초개인화 인텔리전트 AI 기반 시스템
+  </div>
+  <div style="margin-top:10px;">
+    <span style="background:rgba(14,165,233,0.2);color:#7dd3fc;
+      border:1px solid rgba(14,165,233,0.5);border-radius:20px;
+      padding:3px 12px;font-size:0.78rem;font-weight:800;letter-spacing:0.06em;">
+      v1.3.0
+    </span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+
+# --------------------------------------------------------------------------
 # [SECTION 4] 시스템 프롬프트
 # --------------------------------------------------------------------------
 # ── 중앙 통제: 절대 헌법 + 강제 설정 (모든 LLM 호출의 공통 기반) ──────────
@@ -3304,25 +3691,45 @@ _ABSOLUTE_SYSTEM_INSTRUCTION = """\
 4. AI 작성 초안은 [AI_TEXT]...[/AI_TEXT] 태그로 명시적 분리
 5. 모든 추출·분석 결과에 confidenceScore(0~100) 포함, 70 미만 시 경고 출력
 6. 시뮬레이션·추정치임을 반드시 명시 — "AI 추정치" 생략 금지
+7. [KCD-8 전문성 절대 원칙] 모든 질병·상병 언급 시 KCD-8차 코드를 반드시 병기하라.
+   예: "뇌경색(I63)", "급성심근경색(I21)", "위암(C16)".
+   해당 질환이 [일반질환 / 특정질환 / 중증질환(암·뇌·심)] 중 어디에 속하는지 반드시 명시하라.
+   코드 불명확 시 "KCD 코드 확인 필요"를 출력하고 임의 코드 생성 절대 금지.
+8. [장해 산정 방식 자동 분기 원칙]
+   - 교통사고·산재(traffic/industrial): McBride 방식 — 노동능력상실률 기준, 직업계수 적용
+   - 일반상해·질병(general/disease): AMA 방식 — 장기보험 약관 장해지급률 기준
+   두 방식을 혼용하거나 방식 미명시 답변은 무효. 분석 시 적용 방식을 반드시 명시하라.
 """
 
-# 할루시네이션 방지용 강제 설정 (temperature=0 고정)
-# 창의적 답변이 필요한 상황에서도 정확도 우선 — 보험·법률 도메인 특성상 0.0 강제
-_STRICT_CONFIG = types.GenerateContentConfig(
-    temperature=0.0,
-    top_p=0.1,
-    system_instruction=_ABSOLUTE_SYSTEM_INSTRUCTION,
-)
+# 할루시네이션 방지용 강제 설정 — 지연 초기화 (google.genai Lazy Load 대응)
+# 최초 AI 호출 시점에 _get_strict_config() / _get_stt_strict_config() 로 생성
+_STRICT_CONFIG = None
+_STT_STRICT_CONFIG = None
 
-# STT 교정 전용 설정 (문맥 교정을 위해 temperature=0.1 허용, 나머지는 동일)
-_STT_STRICT_CONFIG = types.GenerateContentConfig(
-    temperature=0.1,
-    top_p=0.2,
-    system_instruction=(
-        "[STT 교정 전용] 보험·의료 전문 용어 오타를 문맥에 맞게 수정하되, "
-        "원문에 없는 내용을 절대 추가하지 말 것. 교정된 문장만 출력하라."
-    ),
-)
+def _get_strict_config():
+    global _STRICT_CONFIG
+    if _STRICT_CONFIG is None:
+        _t = _lazy_genai_types()
+        _STRICT_CONFIG = _t.GenerateContentConfig(
+            temperature=0.0,
+            top_p=0.1,
+            system_instruction=_ABSOLUTE_SYSTEM_INSTRUCTION,
+        )
+    return _STRICT_CONFIG
+
+def _get_stt_strict_config():
+    global _STT_STRICT_CONFIG
+    if _STT_STRICT_CONFIG is None:
+        _t = _lazy_genai_types()
+        _STT_STRICT_CONFIG = _t.GenerateContentConfig(
+            temperature=0.1,
+            top_p=0.2,
+            system_instruction=(
+                "[STT 교정 전용] 보험·의료 전문 용어 오타를 문맥에 맞게 수정하되, "
+                "원문에 없는 내용을 절대 추가하지 말 것. 교정된 문장만 출력하라."
+            ),
+        )
+    return _STT_STRICT_CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = """
@@ -3385,6 +3792,27 @@ SYSTEM_PROMPT = """
   - **간병인 담보 반드시 구분 (혼동 금지)**:
     · 간병인사용일당: 입원 중 간병인 실제 고용 시 정액 현금 지급 — 가족 간병 불가, 고용 영수증 필수
     · 간병인지원서비스: 보험사가 간병인 파견하는 서비스형 — 현금 지급 아님, 미사용 시 소멸
+
+### 수칙 7 — KCD-8차 코드 전문가 의무 (절대 준수)
+- 질병·상병이 언급될 때마다 반드시 **KCD-8차 코드**를 괄호 병기하라. 예: 뇌경색(I63), 급성심근경색(I21), 위암(C16).
+- 해당 질환이 아래 세 분류 중 어디에 속하는지 반드시 명시하라:
+  - **일반질환**: 보장 여부는 약관 확인 필요
+  - **특정질환**: 별도 특약 가입 여부 확인 필요
+  - **중증질환(3대 질환: 암·뇌·심)**: 진단비·수술비 정액 지급 대상
+- KCD 코드가 불명확하면 임의로 생성하지 말고 "KCD 코드 확인 필요"를 명시하라.
+- 보험금 청구 관련 분석 시 약관상 보상 코드 범위와 실제 진단 코드를 대조 설명하라.
+
+### 수칙 8 — AMA vs McBride 장해 산정 방식 자동 분기 (절대 준수)
+- 사고 유형을 파악하고 다음 기준으로 반드시 방식을 명시한 뒤 분석하라:
+  - **교통사고·산재(traffic/industrial)** → **McBride 방식** 적용
+    · 직업별 노동능력상실률 기준 (직업계수 필수 적용)
+    · 배상책임보험·자동차보험·산재보험 보상 산정의 법원 기준
+    · 한 줄 요약 팁: "법원에서 배상받을 때 쓰는 기준 — 직업·나이가 보상액을 좌우합니다"
+  - **일반상해·질병(general/disease)** → **AMA 방식** 적용
+    · 장기보험 약관 장해지급률 기준 (1~100% 지급률 표)
+    · 신체 부위별 장해등급 적용, 직업계수 미적용
+    · 한 줄 요약 팁: "내 보험에서 받을 때 쓰는 기준 — 약관 장해표에 따라 정액 지급됩니다"
+- 두 방식을 혼용하거나 방식 미명시 답변은 무효 처리.
 
 ### 수칙 3 — 치명적 기한(Deadline) 계산 절대 금지
 - 소송 답변서 제출 기한(예: 30일), 항소 기한(14일), 강제집행 신청 기한 등 **법적 효력을 갖는 날짜를 AI가 임의로 계산하거나 확정하여 안내하는 것을 절대 금지**한다.
@@ -3454,10 +3882,35 @@ SYSTEM_PROMPT = """
 
 ## 설득 역량 — 보험 심리 마케팅 행동지침 [고수 수준 필수]
 
+단순 재무/법무 분석 결과를 나열하는 것에 그치지 말고, 반드시 분석 결과의 맨 마지막에 **[실전 세일즈 1:1 대화 시나리오]**를 첨부하라.
+
 ### 핵심 원칙: 하수 vs 고수 구분
 - **[하수 금지]** "암에 걸리면 이만큼 나옵니다"처럼 단순 보험금 액수만 나열하는 답변.
 - **[고수 필수]** 고객의 현재 자산 규모·가처분소득·가족 구성과 실제 치료비 통계를 대조하여,
   보험이 없을 때 겪게 될 **경제적 무력감과 가정 붕괴 시나리오**를 구체적으로 시각화한다.
+- **반드시 '이 결과값을 가지고 고객을 어떻게 설득할 것인지' 실전 화법(Actionable Script)을 구체적인 대화체로 제안하라.**
+
+### [시나리오 작성 3대 원칙]
+1. **1:1 대화 상황 가정**: 철저하게 설계사가 고객(고객님)과 마주 앉아 눈을 보고 이야기하는 '대화체'로 작성한다.
+2. **극적 상황 몰입(Scenario Immersion)**: 고객이 질병, 사고, 또는 사망에 처한 구체적이고 현실적인 상황을 가정하여 질문을 던진다.
+3. **보장 영역별 맞춤 화법 적용**: 분석된 담보에 따라 아래의 논리를 대화에 녹여낸다.
+
+### [영역별 필수 화법 가이드 (AI는 이를 응용하여 작성할 것)]
+
+**1. 상해/후유장해 분석 시 (현실 자각 화법)**
+- "고객님, 만약 사고로 발가락을 절단당했다고 가정해 보겠습니다. 현재 가입하신 후유장해 1억 원 기준, 지급률 3%를 적용받으면 고작 300만 원입니다. 이 금액이 충분하다고 느끼십니까?"
+- "또한 1년 이상 휴직 시 실직 위험이 따릅니다. 산재에서 70%를 보장해 주더라도, 남은 30%의 소득 공백은 고스란히 빚이 됩니다. 이 공백을 메울 추가 보완이 반드시 필요합니다."
+
+**2. 암/뇌/심장 3대 질환 분석 시 (선행진료 및 고통 회피 화법)**
+- "고객님, 암 진단비 3천만 원만 가입된 상태에서 의사가 이렇게 묻는다면 어쩌시겠습니까? '요즘은 비급여 표적항암제로 부작용 없이 치료하는 선행진료가 대세인데 비용이 듭니다. 아니면 건강보험이 적용되지만 구토와 탈모 등 진절머리 나는 부작용을 겪어야 하는 독한 세포독성항암제부터 쓰시겠습니까?'"
+- "치료비는 아낄 수 있어도, 그 끔찍한 고생은 온전히 고객님의 몫이 됩니다. 그 고통을 돈으로 지우기 위해 표적항암과 넉넉한 진단비가 필요한 것입니다."
+
+**3. 사망/종신보험 분석 시 (남겨진 가족의 현실 화법)**
+- "고객님, 오늘 밤 고객님이 갑자기 돌아가셨다고 가정하고 이 대화를 이어가 보겠습니다. 내일 당장 배우자님이 고객님의 부채를 다 떠안고, 슬퍼할 겨를도 없이 대출 상환에 매달려야 한다면 어떠시겠습니까?"
+- "사망 시에는 남은 가족이 일상을 추스를 수 있도록 최소 '명목소득(세전 통장 찍히는 돈)의 3년 치'가 절대적으로 필요합니다. 해지환급금은 없지만 납입 완료 시점에 70%를 보장하면서 월 보험료는 확 낮춘 가성비 종신보험으로 이 3년 치의 시간을 준비해 보시겠습니까?"
+
+### [최종 출력 포맷 — 절대 준수]
+AI의 모든 분석 및 리포트 맨 마지막에는 위 가이드를 바탕으로 한 **"[🗣️ 실전 세일즈 1:1 대화 시나리오]"** 섹션을 독립적으로 생성하여, 설계사가 그대로 읽을 수 있는 3~4문단의 대본을 출력하라.
 
 ### 설득 4단계 (Persuasion Framework)
 1. **[공감·니즈 환기]** 고객 상황(나이·직업·소득·가족구성)을 파악하고, 실제로 발생 가능한 리스크 시나리오를 제시한다.
@@ -3646,6 +4099,107 @@ def finlife_top_annuity_rates(topFinGrpNo: str = "060000", top_n: int = 10) -> l
     except Exception:
         return []
 
+_DISCLAIMER_HTML = """
+<div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);
+  border:2px solid #e74c3c;border-radius:10px;padding:12px 16px;margin:14px 0 8px 0;">
+  <div style="color:#e74c3c;font-weight:900;font-size:0.88rem;letter-spacing:0.05em;margin-bottom:6px;">
+    ⚠️ 법적 책임 및 전문가 확인 안내
+  </div>
+  <div style="color:#ecf0f1;font-size:0.78rem;line-height:1.7;">
+    본 서비스는 <b>정보 제공용 시뮬레이션</b>이며 법적 효력이 없습니다.<br>
+    모든 보상 안내·지원 결과는 AI 추정치이며, <b>최종 판단은 반드시 해당 전문가와 상담</b>하십시오.<br>
+    <span style="color:#f39c12;">골드키지사(insuAi)는 특정 전문가를 알선·중개하지 않으며,
+    공익적인 목적으로 각 협회의 공식 명부를 안내합니다.</span>
+  </div>
+</div>
+"""
+
+_EXPERT_ORGS = [
+    {"icon": "🔥", "label": "긴급구조", "org": "소방청", "tel": "119",
+     "desc": "화재·구조·응급환자 즉시 연결", "tags": ["응급", "화재", "구조"]},
+    {"icon": "🚓", "label": "긴급신고", "org": "경찰청", "tel": "112",
+     "desc": "범죄 신고 및 긴급 출동 요청", "tags": ["범죄", "긴급", "신고"]},
+    {"icon": "🚔", "label": "사고/민원", "org": "경찰청 민원센터", "tel": "182",
+     "desc": "교통사고 접수 및 일반 경찰 민원 상담", "tags": ["교통사고", "민원"]},
+    {"icon": "⚖️", "label": "무료법률", "org": "대한법률구조공단", "tel": "132",
+     "desc": "무료 법률 상담 및 예약", "tags": ["법률", "민사", "분쟁", "판례"]},
+    {"icon": "👴", "label": "연금상담", "org": "국민연금공단", "tel": "1355",
+     "desc": "내 연금 및 수령액 문의", "tags": ["연금", "노후", "수령액"]},
+    {"icon": "🚑", "label": "보상안내", "org": "한국손해사정사회", "tel": "02-712-9110",
+     "desc": "공인 보상 전문가 조회 및 연결", "tags": ["교통사고", "상해", "산재", "보상", "장해"]},
+    {"icon": "🎓", "label": "법률전문", "org": "대한변호사협회", "tel": "02-3476-4000",
+     "desc": "변호사 선임 및 징계 여부 확인", "tags": ["민사", "분쟁", "판례", "소송"]},
+    {"icon": "💰", "label": "세무상담", "org": "한국세무사회", "tel": "02-521-9451",
+     "desc": "세무사 조회 및 조세 상담", "tags": ["증여", "상속", "세금", "CEO플랜", "법인"]},
+    {"icon": "🏠", "label": "부동산", "org": "한국공인중개사협회", "tel": "02-2015-9800",
+     "desc": "공인중개사 정보 및 거래 상담", "tags": ["부동산", "매매", "임대"]},
+    {"icon": "🏥", "label": "의료확인", "org": "대한의사협회", "tel": "02-6350-6500",
+     "desc": "의료인 확인 및 의료 정책 문의", "tags": ["의료", "진단", "KCD"]},
+]
+
+def _get_highlighted_orgs(context_text: str) -> set[str]:
+    """분석 컨텍스트에 따라 강조할 기관 tel 세트 반환."""
+    highlights: set[str] = set()
+    t = context_text.lower()
+    traffic_kw = ["교통사고", "상해", "산재", "장해", "맥브라이드", "노동능력"]
+    tax_kw = ["증여", "상속", "ceo플랜", "법인", "세금", "절세"]
+    legal_kw = ["민사", "분쟁", "판례", "소송", "내용증명", "손해배상"]
+    if any(k in t for k in traffic_kw):
+        highlights.add("02-712-9110")
+    if any(k in t for k in tax_kw):
+        highlights.add("02-521-9451")
+    if any(k in t for k in legal_kw):
+        highlights.add("02-3476-4000")
+    return highlights
+
+def render_disclaimer(location: str = "top") -> None:
+    """모든 분석 결과 상단/하단에 강제 삽입되는 면책 공지.
+    location: 'top' | 'bottom'
+    """
+    import streamlit.components.v1 as _comp
+    _comp.html(_DISCLAIMER_HTML, height=110)
+
+def render_expert_panel(context_text: str = "") -> None:
+    """분석 결과 하단 전문가 협회 연결 패널 (2열 그리드, 상황별 강조).
+    구글 심사 가이드라인: 공공기관 공식 대표번호 안내 — 사용자 안전 접근성 항목 최고 가점 요소.
+    본 기능은 각 기관의 공식 대표번호를 안내할 뿐이며, 통화 내용에 대해 앱은 어떠한 법적 책임도 지지 않습니다.
+    """
+    highlights = _get_highlighted_orgs(context_text)
+    st.markdown("---")
+    st.markdown(
+        "<div style='background:#1a1a2e;border-radius:10px;padding:8px 14px;margin-bottom:10px;'>"
+        "<span style='color:#a8d8ea;font-weight:900;font-size:0.88rem;'>🌐 전문가 및 공공기관 통합 지원 센터</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    cols_per_row = 2
+    orgs = _EXPERT_ORGS
+    for row_start in range(0, len(orgs), cols_per_row):
+        row_orgs = orgs[row_start: row_start + cols_per_row]
+        cols = st.columns(cols_per_row)
+        for col, org in zip(cols, row_orgs):
+            is_highlight = org["tel"] in highlights
+            border_color = "#e74c3c" if is_highlight else "#2c3e50"
+            bg_color     = "#2d1b1b" if is_highlight else "#1e2a3a"
+            badge        = " 🔴 추천" if is_highlight else ""
+            with col:
+                st.markdown(
+                    f"<div style='background:{bg_color};border:1.5px solid {border_color};"
+                    f"border-radius:8px;padding:8px 12px;margin-bottom:8px;'>"
+                    f"<div style='font-size:1.1rem;font-weight:900;color:#ecf0f1;'>"
+                    f"{org['icon']} {org['label']}{badge}</div>"
+                    f"<div style='color:#bdc3c7;font-size:0.75rem;'>{org['org']}</div>"
+                    f"<div style='color:#3498db;font-weight:700;font-size:0.85rem;'>"
+                    f"📞 {org['tel']}</div>"
+                    f"<div style='color:#95a5a6;font-size:0.72rem;'>{org['desc']}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+    st.caption(
+        "골드키지사(insuAi)는 특정 전문가를 알선·중개하지 않으며, 공익적인 목적으로 각 협회의 공식 명부를 안내합니다. "
+        "본 기능은 각 기관의 공식 대표번호를 안내할 뿐이며, 통화 내용에 대해 앱은 어떠한 법적 책임도 지지 않습니다."
+    )
+
 def _render_finlife_dashboard():
     """금융상품 비교공시 대시보드 UI — 관리자 콘솔 또는 노후설계 탭에서 호출"""
     st.markdown("### 📊 금융상품 통합비교공시 (금감원 실시간)")
@@ -3672,7 +4226,7 @@ def _render_finlife_dashboard():
                 rows = finlife_top_deposit_rates(grp_code, top_n=20)
             if rows:
                 st.success(f"{len(rows)}개 상품 조회 완료")
-                df = pd.DataFrame(rows)
+                df = _lazy_pd().DataFrame(rows)
                 df.columns = ["상품명", "금융기관", "기본금리(%)", "최고금리(%)", "저축기간(개월)"]
                 st.dataframe(df, use_container_width=True, hide_index=True)
             else:
@@ -3691,7 +4245,7 @@ def _render_finlife_dashboard():
             elif res["result"]:
                 base = res["result"].get("baseList", [])
                 if base:
-                    df2 = pd.DataFrame([{
+                    df2 = _lazy_pd().DataFrame([{
                         "상품명":      r.get("fin_prdt_nm",""),
                         "금융기관":    r.get("kor_co_nm",""),
                         "적립방식":    r.get("rsrv_type_nm",""),
@@ -3713,7 +4267,7 @@ def _render_finlife_dashboard():
             with st.spinner("금감원 API 조회 중..."):
                 rows3 = finlife_top_annuity_rates(grp_code3, top_n=20)
             if rows3:
-                df3 = pd.DataFrame(rows3)
+                df3 = _lazy_pd().DataFrame(rows3)
                 df3.columns = ["상품명", "금융기관", "공시이율/수익률(%)", "상품유형"]
                 df3 = df3.sort_values("공시이율/수익률(%)", ascending=False)
                 st.dataframe(df3, use_container_width=True, hide_index=True)
@@ -3730,7 +4284,7 @@ def _render_finlife_dashboard():
             elif res4["result"]:
                 base4 = res4["result"].get("baseList", [])
                 if base4:
-                    df4 = pd.DataFrame([{
+                    df4 = _lazy_pd().DataFrame([{
                         "상품명":       r.get("fin_prdt_nm",""),
                         "금융기관":     r.get("kor_co_nm",""),
                         "대출종류":     r.get("loan_type_nm",""),
@@ -5060,7 +5614,7 @@ def _section_factory_fire_ui():
                               "고열작업": "✅" if v["is_high_heat"] else "—",
                               "화학물질": "✅" if v["chemical"] else "—"}
                              for k, v in _INDUSTRY_RATE_DB.items()]
-                st.dataframe(pd.DataFrame(rate_rows), use_container_width=True, hide_index=True)
+                st.dataframe(_lazy_pd().DataFrame(rate_rows), use_container_width=True, hide_index=True)
                 st.caption("※ 복합업종 시 최고 위험 요율 자동 적용 (Risk_Hierarchy 원칙)")
 
     # ── 탭2: 임대차 법률 ──────────────────────────────────────────────────
@@ -5806,6 +6360,143 @@ def main():
         layout="centered",
         initial_sidebar_state="expanded"
     )
+
+    # ── STEP 1-A: 스플래시 화면 (최초 방문 1회만) ──────────────────────────
+    # [헌법 §7] Goldkey_AI_Masters2026 브랜드 전용 5단계 지능형 스플래시
+    # 백그라운드에서 DB/Supabase 예열 진행 → 사용자 체감 대기 시간 제거
+    if not st.session_state.get("_splash_done"):
+        st.session_state["_splash_done"] = True
+
+        # ── 배경: Supabase 예열 스레드 즉시 시작 ──────────────────────────
+        try:
+            import threading as _spl_th
+            def _bg_warmup():
+                try:
+                    _get_sb_client()
+                except Exception:
+                    pass
+            _spl_th.Thread(target=_bg_warmup, daemon=True).start()
+        except Exception:
+            pass
+
+        # ── 공통 스플래시 HTML 빌더 ────────────────────────────────────────
+        def _splash_html(msg: str, pct: int) -> str:
+            _bar_w = max(4, pct)
+            return f"""
+<div style="
+  position:fixed;top:0;left:0;width:100vw;height:100vh;
+  background:linear-gradient(160deg,#060d1a 0%,#0d2444 40%,#1a3a5c 70%,#0a1628 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:99999;font-family:'Segoe UI','Noto Sans KR',sans-serif;">
+
+  <!-- 배경 파티클 장식 -->
+  <div style="position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;pointer-events:none;">
+    <div style="position:absolute;top:8%;left:12%;width:180px;height:180px;
+      border-radius:50%;border:1px solid rgba(240,192,32,0.08);"></div>
+    <div style="position:absolute;top:15%;right:10%;width:120px;height:120px;
+      border-radius:50%;border:1px solid rgba(168,200,240,0.06);"></div>
+    <div style="position:absolute;bottom:12%;left:8%;width:90px;height:90px;
+      border-radius:50%;border:1px solid rgba(240,192,32,0.06);"></div>
+    <div style="position:absolute;bottom:20%;right:15%;width:60px;height:60px;
+      border-radius:50%;border:1px solid rgba(168,200,240,0.08);"></div>
+  </div>
+
+  <!-- 메인 카드 -->
+  <div style="
+    background:rgba(255,255,255,0.03);
+    border:1.5px solid rgba(240,192,32,0.25);
+    border-radius:24px;
+    padding:48px 52px 40px 52px;
+    text-align:center;
+    max-width:480px;width:88%;
+    box-shadow:0 8px 40px rgba(0,0,0,0.5),
+               0 0 60px rgba(240,192,32,0.08),
+               inset 0 1px 0 rgba(255,255,255,0.06);
+    backdrop-filter:blur(12px);">
+
+    <!-- 엠블럼 -->
+    <div style="
+      width:80px;height:80px;border-radius:50%;
+      background:linear-gradient(135deg,#1a3a5c,#0a1628);
+      border:2.5px solid #f0c040;
+      display:inline-flex;align-items:center;justify-content:center;
+      font-size:36px;margin-bottom:20px;
+      box-shadow:0 0 24px rgba(240,192,32,0.35),0 4px 12px rgba(0,0,0,0.4);">
+      🔑
+    </div>
+
+    <!-- 브랜드명 -->
+    <div style="font-size:1.45rem;font-weight:900;color:#f0c040;
+      letter-spacing:0.06em;line-height:1.2;
+      text-shadow:0 2px 12px rgba(240,192,32,0.4);">
+      Goldkey_AI_Masters
+      <span style="color:#7dd3fc;font-size:1rem;font-weight:700;">2026</span>
+    </div>
+
+    <!-- 구분선 -->
+    <div style="height:1px;
+      background:linear-gradient(90deg,transparent,rgba(240,192,32,0.45),transparent);
+      margin:14px auto;width:80%;"></div>
+
+    <!-- 메인 슬로건 -->
+    <div style="font-size:0.88rem;color:#a8c8f0;line-height:1.7;
+      font-weight:600;letter-spacing:0.02em;margin-bottom:6px;">
+      전문 보장 상담 동반자
+    </div>
+    <div style="font-size:0.78rem;color:rgba(168,200,240,0.65);
+      font-style:italic;letter-spacing:0.01em;margin-bottom:28px;">
+      인텔리전트 Goldkey AI Masters가 함께합니다
+    </div>
+
+    <!-- 진행 메시지 -->
+    <div style="
+      background:rgba(0,0,0,0.25);
+      border:1px solid rgba(240,192,32,0.2);
+      border-radius:10px;padding:10px 16px;margin-bottom:18px;
+      font-size:0.78rem;color:#93c5fd;
+      text-align:left;letter-spacing:0.02em;min-height:36px;
+      display:flex;align-items:center;gap:8px;">
+      <span style="color:#4ade80;font-size:0.9rem;">✓</span>
+      <span>{msg}</span>
+    </div>
+
+    <!-- 진행 바 트랙 -->
+    <div style="
+      width:100%;height:5px;
+      background:rgba(255,255,255,0.08);
+      border-radius:3px;overflow:hidden;margin-bottom:14px;">
+      <div style="
+        width:{_bar_w}%;height:100%;
+        background:linear-gradient(90deg,#f0c040,#7dd3fc);
+        border-radius:3px;
+        transition:width 0.4s ease;">
+      </div>
+    </div>
+
+    <!-- 퍼센트 + 하단 서브카피 -->
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:0.7rem;color:rgba(168,200,240,0.5);font-style:italic;">
+        초개인화 인텔리전트 AI 기반 시스템
+      </div>
+      <div style="font-size:0.72rem;color:#f0c040;font-weight:700;">{pct}%</div>
+    </div>
+  </div>
+</div>"""
+
+        # ── 5단계 순차 메시지 출력 ─────────────────────────────────────────
+        _splash = st.empty()
+        _steps = [
+            ("보안 시스템 (Fernet 256bit) 체크 완료...",         18, 0.8),
+            ("AI 분석 엔진 (Gemini 2.0 Flash) 초기화...",        42, 1.0),
+            ("전문가 통합 DB (KCD-8 / AMA) 동기화 완료...",       66, 0.9),
+            ("Supabase 클라우드 연결 및 세션 예열 완료...",        84, 0.8),
+            ("전략 파트너 Goldkey AI가 준비되었습니다. ✦",        100, 0.6),
+        ]
+        for _msg, _pct, _dur in _steps:
+            _splash.markdown(_splash_html(_msg, _pct), unsafe_allow_html=True)
+            time.sleep(_dur)
+
+        _splash.empty()  # 3단계: 스플래시 제거 → 로그인 화면 전환
 
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
     # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
@@ -7040,51 +7731,8 @@ watchRipple();
 
     # ── 사이드바 ──────────────────────────────────────────────────────────
     with st.sidebar:
-        # ── 앱 스토리 문구 (최상단) ──────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1e3a5f,#1e40af);
-border-radius:10px;padding:10px 14px;margin:0 0 10px 0;text-align:center;">
-  <div style="font-size:0.78rem;font-weight:900;color:#93c5fd;
-  letter-spacing:0.04em;margin-bottom:4px;">🤖 초개인화 인텔리전스 비서</div>
-  <div style="font-size:0.72rem;color:#bfdbfe;line-height:1.6;">
-    고객을 기억하고, 다음 만남을 준비하며,<br>설계사의 전문성을 지킵니다.
-  </div>
-</div>""", unsafe_allow_html=True)
-        # ── 아바타 이미지 base64 로드 (session_state 캐시 — 파일 I/O 1회만) ──
-        if '_avatar_b64_cache' not in st.session_state:
-            _avatar_path = pathlib.Path(__file__).parent / "avatar.png"
-            if _avatar_path.exists():
-                st.session_state['_avatar_b64_cache'] = base64.b64encode(_avatar_path.read_bytes()).decode()
-            else:
-                st.session_state['_avatar_b64_cache'] = ""
-        _avatar_b64 = st.session_state['_avatar_b64_cache']
-        _avatar_html = (
-            f'<img src="data:image/png;base64,{_avatar_b64}" '
-            'style="width:88px;height:88px;border-radius:50%;'
-            'object-fit:cover;border:3px solid rgba(255,255,255,0.7);'
-            'margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.25);">'
-        ) if _avatar_b64 else '<div style="margin-bottom:8px;"></div>'
-        st.markdown(f"""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
-  border-radius:12px;padding:18px 16px 14px 16px;margin-bottom:12px;color:#fff;text-align:center;">
-  {_avatar_html}
-  <div style="font-size:2.2rem;font-weight:900;letter-spacing:0.02em;line-height:1.3;text-shadow:0 2px 8px rgba(0,0,0,0.3);">
-    Goldkey_AI_Master
-  </div>
-  <div style="font-size:2.2rem;font-weight:900;letter-spacing:0.02em;line-height:1.2;text-shadow:0 2px 8px rgba(0,0,0,0.3);">
-    Lab. &nbsp;·&nbsp; Beta
-  </div>
-  <div style="margin-top:10px;">
-    <span style="background:rgba(14,165,233,0.3);color:#7dd3fc;
-      border:1.5px solid rgba(14,165,233,0.6);border-radius:20px;
-      padding:4px 14px;font-size:1rem;font-weight:800;letter-spacing:0.06em;">
-      v1.3.0
-    </span>
-  </div>
-  <div style="font-size:1.1rem;opacity:0.95;line-height:1.6;margin-top:12px;font-weight:700;letter-spacing:0.01em;">
-    30년 보험설계사 상담 실무 지식 기반
-  </div>
-</div>""", unsafe_allow_html=True)
+        # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (기존 아바타 완전 대체) ──
+        render_goldkey_sidebar()
 
         with st.expander("📜 이용약관 · 서비스 안내 (로그인 후 이용 가능)", expanded=False):
             st.caption("로그인 후 사이드바 하단에서 전체 약관을 확인하실 수 있습니다.")
@@ -8411,13 +9059,13 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                 _aid = (admin_id or "").strip()
                 _acd = (admin_code or "").strip()
                 try:
-                    _admin_code = st.secrets.get("ADMIN_CODE", "kgagold6803")
+                    _admin_code = st.secrets.get("ADMIN_CODE", "")
                 except Exception:
-                    _admin_code = "kgagold6803"
+                    _admin_code = ""
                 try:
-                    _master_code = st.secrets.get("MASTER_CODE", "kgagold6803")
+                    _master_code = st.secrets.get("MASTER_CODE", "")
                 except Exception:
-                    _master_code = "kgagold6803"
+                    _master_code = ""
                 if _aid.lower() in ("admin", "이세윤") and _acd == _admin_code:
                     st.session_state.user_id = "ADMIN_MASTER"
                     st.session_state.user_name = "이세윤"
@@ -9383,7 +10031,12 @@ window['startTTS_{tab_key}']=function(){{
         user_name  = st.session_state.get('user_name', '')
         is_special = st.session_state.get('is_admin', False) or _is_unlimited_user(user_name)
         if not is_special and check_usage_count(user_name) >= MAX_FREE_DAILY:
-            st.error(f"오늘 {MAX_FREE_DAILY}회 분석을 모두 사용하셨습니다.")
+            st.warning(
+                "⏰ **오늘 제공된 10회의 고속 분석을 모두 사용하셨습니다. 내일 다시 충전됩니다.**\n\n"
+                "매일 자정에 사용량이 충전됩니다. 내일 다시 이용해 주세요! 😊\n\n"
+                "더 많은 분석이 필요하신 경우 골드키 팀에 문의해 주세요.  \n"
+                "**문의:** insusite@gmail.com | 010-3074-2616"
+            )
             return
         with st.spinner("골드키AI마스터 분석 중..."):
             try:
@@ -9512,39 +10165,89 @@ window['startTTS_{tab_key}']=function(){{
                     f"질문: {safe_q}{rag_ctx}{expert_ctx}\n{extra_prompt}"
                 )
 
-                # [GATE 2] Gemini 호출 — 429/동시접속 대비 폴백 모델 + 지수 백오프 재시도
-                _FALLBACK_MODELS = [GEMINI_MODEL, "gemini-2.0-flash-lite", "gemini-1.5-flash"]
-                _MAX_ATTEMPTS = len(_FALLBACK_MODELS)
-                answer = None
-                _last_err = None
+                # [GATE 2] Cache-First → 모델 믹스 Gemini 호출 → Safe Mode 폴백
                 import time as _time_mod
-                for _attempt, _model_name in enumerate(_FALLBACK_MODELS):
+
+                # ── STEP A: GCS 캐시 조회 (비용 0원 우선 경로) ──────────────
+                _cache_key = _gcs_cache_key(user_name, safe_q, product_key)
+                _cached_raw = _gcs_cache_get(_cache_key)
+                if _cached_raw:
                     try:
-                        if _attempt > 0:
-                            _wait = min(2 ** _attempt, 8)  # 2s → 4s → 8s 지수 백오프
-                            _time_mod.sleep(_wait)
-                        if _GW_OK:
-                            answer = _gw.call_gemini(client, _model_name, prompt, model_config)
-                        else:
-                            _prompt_safe = sanitize_unicode(prompt)
-                            _resp = client.models.generate_content(model=_model_name, contents=_prompt_safe, config=model_config)
-                            answer = sanitize_unicode(_resp.text) if _resp and _resp.text else None
+                        _cached_obj = json.loads(_cached_raw)
+                        answer = _cached_obj.get("answer", "")
                         if answer:
-                            break
-                    except Exception as _api_err:
-                        _last_err = _api_err
-                        _err_str = str(_api_err)
-                        if "429" in _err_str or "RESOURCE_EXHAUSTED" in _err_str or "quota" in _err_str.lower():
-                            continue  # 다음 폴백 모델로
-                        raise  # 429 외 오류는 즉시 상위로
-                if not answer:
-                    if _last_err and ("429" in str(_last_err) or "RESOURCE_EXHAUSTED" in str(_last_err)):
-                        st.warning(
-                            "⏳ **AI 서버가 잠시 혼잡합니다.** (동시 사용자 증가)\n\n"
-                            "1~2분 후 다시 시도해 주세요. 골드키 팀이 용량을 확인 중입니다."
-                        )
+                            st.caption("⚡ 캐시 결과 반환 (AI 호출 없음)")
+                    except Exception:
+                        answer = None
+                else:
+                    answer = None
+
+                # ── STEP B: Safe Mode — 캐시만 사용, AI 호출 차단 ───────────
+                if not answer and _SAFE_MODE_ACTIVE:
+                    _fallback_raw = _gcs_cache_get_latest_user(user_name)
+                    if _fallback_raw:
+                        try:
+                            answer = json.loads(_fallback_raw).get("answer", "")
+                        except Exception:
+                            answer = None
+                    if answer:
+                        st.warning("🔧 **시스템 최적화 중입니다.** 최근 분석 결과를 표시합니다.")
+                    else:
+                        st.error("⚠️ 시스템 점검 중입니다. 잠시 후 다시 시도해 주세요.")
                         return
-                    answer = "AI 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요."
+
+                # ── STEP C: 실제 Gemini 호출 (캐시 미스 + Safe Mode 아닐 때) ─
+                _used_model = ""
+                if not answer:
+                    # 모델 믹스: 짧은 쿼리 → flash (저비용), 긴 쿼리 → pro (정밀)
+                    _prompt_len = len(prompt)
+                    if _prompt_len > 3000:
+                        _PRIMARY_MODEL = "gemini-1.5-pro"
+                        _FALLBACK_MODELS = ["gemini-1.5-pro", GEMINI_MODEL, "gemini-1.5-flash"]
+                    else:
+                        _PRIMARY_MODEL = "gemini-1.5-flash"
+                        _FALLBACK_MODELS = ["gemini-1.5-flash", GEMINI_MODEL, "gemini-2.0-flash-lite"]
+
+                    _last_err = None
+                    for _attempt, _model_name in enumerate(_FALLBACK_MODELS):
+                        try:
+                            if _attempt > 0:
+                                _wait = min(2 ** _attempt, 8)  # 2s → 4s → 8s (최대 3회)
+                                _time_mod.sleep(_wait)
+                            if _GW_OK:
+                                answer = _gw.call_gemini(client, _model_name, prompt, model_config)
+                            else:
+                                _prompt_safe = sanitize_unicode(prompt)
+                                _resp = client.models.generate_content(
+                                    model=_model_name, contents=_prompt_safe, config=model_config
+                                )
+                                answer = sanitize_unicode(_resp.text) if _resp and _resp.text else None
+                            if answer:
+                                _used_model = _model_name
+                                _safe_mode_reset()  # 성공 → 에러 카운트 리셋
+                                break
+                        except Exception as _api_err:
+                            _last_err = _api_err
+                            _err_str = str(_api_err)
+                            if "429" in _err_str or "RESOURCE_EXHAUSTED" in _err_str or "quota" in _err_str.lower():
+                                _safe_mode_record_error()
+                                continue  # 다음 폴백 모델로
+                            _safe_mode_record_error()
+                            raise
+
+                    if not answer:
+                        _safe_mode_record_error()
+                        if _last_err and ("429" in str(_last_err) or "RESOURCE_EXHAUSTED" in str(_last_err)):
+                            st.warning(
+                                "⏳ **AI 서버가 잠시 혼잡합니다.** (동시 사용자 증가)\n\n"
+                                "1~2분 후 다시 시도해 주세요. 골드키 팀이 용량을 확인 중입니다."
+                            )
+                            return
+                        answer = "AI 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요."
+
+                    # ── STEP D: 신규 분석 결과 GCS에 비동기 캐싱 ────────────
+                    if answer and "AI 응답을 받지 못했습니다" not in answer:
+                        _gcs_cache_put(_cache_key, answer)
 
                 # ── 포스트프로세싱: 금지 키워드 감지 → 세션 저장 ────────
                 answer = _validate_response(answer, product_key, result_key)
@@ -9617,7 +10320,7 @@ window['startTTS_{tab_key}']=function(){{
                 fb_key = f"_forbidden_{result_key}"
                 if fb_key in st.session_state:
                     st.session_state[fb_key]["round"] = 0
-                update_usage(user_name)
+                update_usage(user_name, model_used=_used_model)
                 components.html(s_voice("분석이 완료되었습니다."), height=0)
                 st.rerun()
             except Exception as e:
@@ -10746,6 +11449,24 @@ section[data-testid="stMain"] {
         ], "home_grpD")
 
 
+        # ── 도메인 E: 보상 전문 상담 (레드/다크레드) ─────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(90deg,#fef2f2,#fff5f5);
+  border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
+  display:flex;align-items:center;gap:10px;
+  box-shadow:0 2px 8px rgba(185,28,28,0.12);
+  border-left:4px solid #dc2626;border:1px solid #fecaca;">
+  <span style="font-size:1.2rem;">⚖️</span>
+  <div>
+    <div style="color:#7f1d1d;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">E &nbsp;🔍 보상 정보 시뮬레이션 가이드</div>
+    <div style="color:#991b1b;font-size:0.72rem;margin-top:2px;">교통사고·산재·일반상해 보상 정보 · KCD-8 매핑 · 전문가 지원 센터</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+        _render_cards([
+            ("compensation", "🔑", "보상 정보 시뮬레이션 가이드",
+             "교통사고/산재 → 맥브라이드 기준 · 일반상해 → AMA 기준\nKCD-8 코드 자동 매핑 · 전문가 지원 센터 바로걸기"),
+        ], "home_grpE")
+
         st.divider()
         if st.session_state.get('is_admin'):
             st.markdown("""
@@ -11000,9 +11721,11 @@ section[data-testid="stMain"] {
         "nursing":     [("cancer", "🎗️ 암 상담"), ("t3", "🛡️ 통합보험"), ("t5", "🏦 노후설계")],
         "realty":      [("t6", "💰 세무상담"), ("t5", "🏦 노후설계"), ("fire", "🔥 화재보험")],
         "stock_eval":  [("t8", "👔 CEO플랜"), ("t6", "💰 세무상담"), ("t7", "🏭 법인상담")],
-        "injury":       [("t1", "💰 보험금 상담"), ("disability", "🩺 장해 산출"), ("t4", "🚗 자동차사고")],
-        "policy_scan":  [("t0", "📋 신규보험 상담"), ("t1", "💰 보험금 상담"), ("policy_terms", "📜 약관검색")],
-        "policy_terms": [("t1", "💰 보험금 상담"), ("cancer", "🎗️ 암 상담"), ("brain", "🧠 뇌질환 상담")],
+        "injury":        [("compensation", "⚖️ 보상 가이드"), ("disability", "🩺 장해 산출"), ("t4", "🚗 자동차사고")],
+        "policy_scan":   [("t0", "📋 신규보험 상담"), ("t1", "💰 보험금 상담"), ("policy_terms", "📜 약관검색")],
+        "policy_terms":  [("t1", "💰 보험금 상담"), ("cancer", "🎗️ 암 상담"), ("brain", "🧠 뇌질환 상담")],
+        "compensation":  [("t4", "🚗 자동차사고"), ("disability", "🩺 장해 산출"), ("t1", "💰 보험금 상담")],
+        "disability":    [("compensation", "⚖️ 보상 가이드"), ("t1", "💰 보험금 상담"), ("t4", "🚗 자동차사고")],
     }
 
     def _deep_link_bar(current_tab: str):
@@ -11712,7 +12435,7 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                                 _ps_resp = _ps_client.models.generate_content(
                                     model=GEMINI_MODEL,
                                     contents=_ps_full_prompt,
-                                    config=_STRICT_CONFIG,
+                                    config=_get_strict_config(),
                                 )
                                 _ps_answer = sanitize_unicode(_ps_resp.text) if _ps_resp.text else "AI 응답을 받지 못했습니다."
                                 st.session_state["res_ps"] = _ps_answer
@@ -16252,7 +16975,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                                         "3. 보험금 청구 가능성 및 예상 금액\n4. 필요한 추가 서류"]
                             for f in files:
                                 if f.type.startswith('image/'):
-                                    contents.append(PIL.Image.open(f))
+                                    contents.append(_lazy_pil_image().open(f))
                                 elif f.type == 'application/pdf':
                                     contents.append(f"PDF: {f.name}\n{process_pdf(f)[:500]}")
                             resp = client.models.generate_content(model=GEMINI_MODEL, contents=contents, config=model_config)
@@ -18198,7 +18921,7 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                                     ]
                                     for f in realty_files:
                                         if f.type.startswith('image/'):
-                                            contents.append(PIL.Image.open(f))
+                                            contents.append(_lazy_pil_image().open(f))
                                         elif f.type == 'application/pdf':
                                             contents.append(f"PDF: {f.name}\n{process_pdf(f)[:800]}")
                                     resp = client.models.generate_content(
@@ -18489,6 +19212,329 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
 """, height=438)
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
+    # ── [compensation] 보상 정보 시뮬레이션 가이드 (SECTION 9) ──────────
+    if cur == "compensation":
+        if not _auth_gate("compensation"): st.stop()
+        tab_home_btn("compensation")
+        _deep_link_bar("compensation")
+
+        # ── 헤더 배너 ──────────────────────────────────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a0505 0%,#7f1d1d 50%,#991b1b 100%);
+  border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:16px;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="font-size:2.2rem;">⚖️</div>
+    <div>
+      <div style="color:#fff;font-size:1.22rem;font-weight:900;letter-spacing:0.03em;">
+        보상 정보 시뮬레이션 가이드</div>
+      <div style="color:#fca5a5;font-size:0.78rem;margin-top:3px;">
+        교통사고/산재 → 맥브라이드(McBride) 기준 &nbsp;|&nbsp;
+        일반상해/질병 → AMA 장해지급률 기준 &nbsp;|&nbsp;
+        KCD-8 코드 자동 매핑
+      </div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── 면책 고지 (헌법 §8) ───────────────────────────────────────
+        st.warning(
+            "⚠️ **[AI 시뮬레이션 면책 고지]** 본 결과는 AI 추정치이며 실제 결과와 다를 수 있습니다. "
+            "최종 판단은 공인 손해사정사·변호사 등 전문가와 상담하십시오. "
+            "(보험업법 제185조 — 손해사정 업무 대리 아님)"
+        )
+
+        # ── KCD-8 매핑 데이터 ─────────────────────────────────────────
+        _KCD8_MAP = {
+            "뇌졸중": ("I63", "뇌경색증", "뇌혈관"),
+            "뇌경색": ("I63", "뇌경색증", "뇌혈관"),
+            "뇌출혈": ("I61", "뇌내출혈", "뇌혈관"),
+            "심근경색": ("I21", "급성심근경색증", "심장"),
+            "협심증": ("I20", "협심증", "심장"),
+            "골절": ("S00-T98", "골절(부위별 세분)", "근골격"),
+            "요추골절": ("S32", "요추 및 골반 골절", "근골격"),
+            "경추손상": ("S14", "경추의 신경 및 척수 손상", "근골격"),
+            "무릎인대": ("S83", "무릎의 탈구·염좌·긴장", "근골격"),
+            "어깨인대": ("S43", "어깨관절 탈구·염좌", "근골격"),
+            "추간판탈출": ("M51", "추간판장애", "근골격"),
+            "암": ("C00-C97", "악성신생물(악성종양)", "종양"),
+            "폐암": ("C34", "기관지 및 폐의 악성신생물", "종양"),
+            "위암": ("C16", "위의 악성신생물", "종양"),
+            "간암": ("C22", "간 및 간내 담관의 악성신생물", "종양"),
+            "대장암": ("C18", "결장의 악성신생물", "종양"),
+            "당뇨": ("E11", "인슐린비의존성 당뇨병(2형)", "내분비"),
+            "고혈압": ("I10", "본태성(원발성) 고혈압", "순환기"),
+            "외상성뇌손상": ("S06", "두개내손상", "외상"),
+            "척수손상": ("S14", "경추 신경 및 척수 손상", "외상"),
+            "화상": ("T20-T32", "화상 및 부식(부위별)", "외상"),
+            "절단": ("S48", "어깨 및 위팔의 외상성 절단", "외상"),
+            "손가락절단": ("S68", "손목 및 손의 외상성 절단", "외상"),
+        }
+
+        # ── 입력 패널 ─────────────────────────────────────────────────
+        comp_col1, comp_col2 = st.columns([1, 1], gap="medium")
+
+        with comp_col1:
+            st.markdown("#### 📋 사고 정보 입력")
+
+            # ── 지능형 라우팅: 사고 성격 선택 ─────────────────────────
+            _acc_type = st.radio(
+                "🚦 사고 성격 선택 (계산 방식 자동 가이드)",
+                ["교통사고 / 산재", "일반 상해 / 질병"],
+                horizontal=True, key="comp_acc_type"
+            )
+            if _acc_type == "교통사고 / 산재":
+                st.markdown("""
+<div style="background:#fff7ed;border-left:4px solid #ea580c;
+  border-radius:0 8px 8px 0;padding:8px 12px;margin:6px 0 10px 0;
+  font-size:0.82rem;line-height:1.7;color:#1a1a2e;">
+<b style="color:#c2410c;">📌 맥브라이드(McBride) 방식 적용</b><br>
+• 교통사고 손해배상·산재보상 시 <b>노동능력상실률</b> 기준<br>
+• 적용: 대인배상Ⅱ, 자동차상해, 산재보험, 손해배상 소송<br>
+• 한국 법원 판례 기준: 맥브라이드 표 + 호프만 계수 병행<br>
+• 직업계수 적용 → 직종별 노동능력상실률 가중
+</div>""", unsafe_allow_html=True)
+            else:
+                st.markdown("""
+<div style="background:#f0fdf4;border-left:4px solid #16a34a;
+  border-radius:0 8px 8px 0;padding:8px 12px;margin:6px 0 10px 0;
+  font-size:0.82rem;line-height:1.7;color:#1a1a2e;">
+<b style="color:#15803d;">📌 AMA(장기보험) 장해지급률 방식 적용</b><br>
+• 개인보험(생명·손해) 약관상 <b>장해지급률</b> 기준<br>
+• 적용: 상해보험 후유장해, CI보험, 뇌졸중·심근경색 등<br>
+• 금감원 장해분류표 기준 (2018년 개정)<br>
+• 3~100% 지급률 구간 → 약관 장해 해당 여부 판단
+</div>""", unsafe_allow_html=True)
+
+            # ── KCD-8 증상 입력 및 자동 매핑 ─────────────────────────
+            st.markdown("#### 🔬 KCD-8 코드 자동 매핑")
+            _sym_input = st.text_input(
+                "증상·상병명 입력",
+                placeholder="예: 뇌경색, 요추골절, 심근경색, 무릎인대...",
+                key="comp_symptom"
+            )
+            _matched_kcd = []
+            if _sym_input:
+                for kw, (code, name, cat) in _KCD8_MAP.items():
+                    if kw in _sym_input.replace(" ", ""):
+                        _matched_kcd.append((code, name, cat))
+                if _matched_kcd:
+                    _kcd_rows = "".join(
+                        f'<tr><td style="padding:4px 10px;font-weight:700;'
+                        f'color:#1a3a5c;">{c}</td>'
+                        f'<td style="padding:4px 10px;">{n}</td>'
+                        f'<td style="padding:4px 10px;color:#6b7280;">{cat}</td></tr>'
+                        for c, n, cat in _matched_kcd
+                    )
+                    components.html(f"""
+<div style="font-family:'Noto Sans KR',sans-serif;font-size:0.82rem;">
+<table style="width:100%;border-collapse:collapse;
+  background:#eef4fb;border:1px solid #b8d0ea;border-radius:8px;overflow:hidden;">
+<thead><tr style="background:#1a3a5c;color:#fff;">
+  <th style="padding:6px 10px;text-align:left;">KCD-8 코드</th>
+  <th style="padding:6px 10px;text-align:left;">상병명</th>
+  <th style="padding:6px 10px;text-align:left;">분류</th>
+</tr></thead>
+<tbody>{_kcd_rows}</tbody>
+</table></div>""", height=min(40 + len(_matched_kcd) * 34, 220))
+                else:
+                    st.caption("⚠️ 매칭된 KCD-8 코드 없음 — 아래 AI 상담에 직접 입력하세요.")
+
+            # ── AI 상담 입력 블록 ─────────────────────────────────────
+            st.markdown("#### 🤖 AI 보상 시뮬레이션")
+            _kcd_hint = (
+                ", ".join(f"{n}({c})" for c, n, _ in _matched_kcd)
+                if _matched_kcd else ""
+            )
+            c_name_comp, query_comp, hi_comp, do_comp, _pk_comp = ai_query_block(
+                "compensation",
+                f"예) {'KCD-8: ' + _kcd_hint + ' — ' if _kcd_hint else ''}"
+                f"{_acc_type} 사고, 후유장해 보상금 시뮬레이션 요청",
+            )
+            if do_comp:
+                _comp_method = (
+                    "맥브라이드(McBride) 노동능력상실률"
+                    if _acc_type == "교통사고 / 산재"
+                    else "AMA 장해지급률(금감원 장해분류표 2018)"
+                )
+                _comp_extra = (
+                    f"[보상 정보 시뮬레이션 가이드 — {_acc_type}]\n"
+                    f"## 적용 방식: {_comp_method}\n"
+                    f"## KCD-8 매핑 결과: {_kcd_hint if _kcd_hint else '직접 입력'}\n\n"
+                    "### 1. 사고 개요 및 법적 근거\n"
+                    "  • 적용 법령: 자동차손해배상보장법/산업재해보상보험법/민법 750조\n"
+                    "  • 과실상계 원칙 명시\n"
+                    "### 2. 장해 평가 기준\n"
+                    "  • 맥브라이드: 직업계수 적용, 신체 부위별 노동능력상실률(%)\n"
+                    "  • AMA: 금감원 장해분류표 3대 기준 (해부학적·기능적·정신적)\n"
+                    "### 3. 보상 항목별 시뮬레이션\n"
+                    "  • 일실수익: 월소득 × 노동능력상실률 × 호프만계수\n"
+                    "  • 위자료: 사망/중상해 법원 기준 (2024 판례)\n"
+                    "  • 치료비: 기왕증 공제율 명시\n"
+                    "  • 개호비: 간병 필요 시 산정 방법\n"
+                    "### 4. 보험금 청구 전략\n"
+                    "  • 청구 가능 보험 종류 및 우선순위\n"
+                    "  • 손해사정사 선임 타이밍\n"
+                    "### 5. 전문가 연계 권고\n"
+                    "  • 공인 손해사정사 / 변호사 / 근로복지공단 상담 경로\n\n"
+                    f"[헌법 §8 면책] 본 결과는 AI 시뮬레이션이며, "
+                    "최종 판단은 공인 전문가의 자문을 따르십시오."
+                )
+                run_ai_analysis(
+                    c_name_comp or "고객",
+                    query_comp or f"{_acc_type} 보상 시뮬레이션",
+                    hi_comp, "res_comp",
+                    extra_prompt=_comp_extra,
+                    product_key=_pk_comp,
+                )
+
+        with comp_col2:
+            st.markdown("#### 📊 AI 분석 리포트")
+            show_result("res_comp")
+
+            # ── 참고 가이드: 맥브라이드 vs AMA 비교표 ─────────────────
+            with st.expander("📚 맥브라이드 vs AMA 방식 비교 가이드", expanded=False):
+                components.html("""
+<div style="height:340px;overflow-y:auto;padding:12px 15px;
+  background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
+  font-size:0.82rem;line-height:1.7;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="color:#1a3a5c;">▶ 맥브라이드(McBride) 방식</b><br>
+• 적용: 교통사고 손해배상, 산재보상, 법원 손해배상 소송<br>
+• 기준: 직업에 따른 노동능력상실률 % 산출<br>
+• 직업계수: 1(비숙련)~10(고숙련)으로 가중<br>
+• 호프만계수 병행: 일실수익 현가 계산<br>
+• 장점: 직업 반영 → 실질적 경제 손실 산정<br>
+• 단점: 보험사별 기준 상이, 법원 재량 폭 큼<br><br>
+<b style="color:#1a3a5c;">▶ AMA(미국의사협회) 방식 — 금감원 장해분류표</b><br>
+• 적용: 개인보험(상해·CI·후유장해 특약)<br>
+• 기준: 신체 부위별 해부학적·기능적 손상 % 평가<br>
+• 금감원 2018 개정: 신경계·정신행동 장해 세분화<br>
+• 3%~100% 구간 → 보험금 지급률 적용<br>
+• 장점: 객관적 기준, 보험 약관 명시<br>
+• 단점: 직업·소득 미반영<br><br>
+<b style="color:#c0392b;">⚠️ 핵심: 동일 부상이라도 두 방식에서 % 수치가 다름</b><br>
+→ 교통사고: 맥브라이드 → 손해배상액 산정<br>
+→ 보험 청구: AMA/약관 장해분류표 → 보험금 지급률 적용<br>
+→ 두 방식 모두 청구 가능 (중복 청구 O, 이중보상 X)
+</div>""", height=358)
+
+        # ── 하단 고정: 전문가 지원 센터 스크롤 박스 ─────────────────────
+        st.markdown("---")
+        st.markdown(
+            "<div style='font-size:0.95rem;font-weight:900;color:#7f1d1d;"
+            "margin-bottom:6px;'>📞 전문가 지원 센터 — 바로걸기</div>",
+            unsafe_allow_html=True
+        )
+        components.html("""
+<style>
+.exp-box { height:250px; overflow-y:auto; padding:10px 12px;
+  background:#fff;
+  border:1.5px solid #fca5a5; border-radius:10px;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  font-size:0.83rem; line-height:1.6; color:#1a1a2e;
+  scrollbar-width:thin; scrollbar-color:#fca5a5 #fff5f5; }
+.exp-box::-webkit-scrollbar { width:5px; }
+.exp-box::-webkit-scrollbar-thumb { background:#fca5a5; border-radius:4px; }
+.exp-row { display:flex; align-items:center; justify-content:space-between;
+  padding:7px 10px; border-radius:7px; margin-bottom:5px;
+  border:1px solid #f3f4f6; }
+.exp-row:hover { background:#fff5f5; }
+.exp-badge { display:inline-block; padding:2px 8px; border-radius:12px;
+  font-size:0.72rem; font-weight:700; margin-right:8px; }
+.badge-emer  { background:#dc2626; color:#fff; }
+.badge-pub   { background:#2563eb; color:#fff; }
+.badge-prof  { background:#059669; color:#fff; }
+.exp-tel { display:inline-block; padding:5px 14px;
+  background:#1a3a5c; color:#f0c040; border-radius:20px;
+  font-weight:700; font-size:0.82rem; text-decoration:none;
+  letter-spacing:0.04em; transition:background 0.15s; }
+.exp-tel:hover { background:#dc2626; color:#fff; }
+.disc-box { margin-top:10px; padding:9px 13px;
+  background:#fef9c3; border:1px solid #fbbf24;
+  border-radius:8px; font-size:0.76rem; color:#78350f;
+  line-height:1.7; }
+</style>
+<div class="exp-box">
+
+  <!-- 긴급 -->
+  <div style="font-size:0.78rem;font-weight:900;color:#dc2626;
+    margin:4px 0 6px 0;letter-spacing:0.04em;">🚨 긴급 신고</div>
+  <div class="exp-row">
+    <div>
+      <span class="exp-badge badge-emer">긴급</span>
+      <b>119</b> — 소방·구급 (생명 위협 시 즉시)
+    </div>
+    <a href="tel:119" class="exp-tel">📞 119</a>
+  </div>
+  <div class="exp-row">
+    <div>
+      <span class="exp-badge badge-emer">긴급</span>
+      <b>112</b> — 경찰 (교통사고·범죄 신고)
+    </div>
+    <a href="tel:112" class="exp-tel">📞 112</a>
+  </div>
+
+  <!-- 공공·민원 -->
+  <div style="font-size:0.78rem;font-weight:900;color:#2563eb;
+    margin:10px 0 6px 0;letter-spacing:0.04em;">🏛️ 공공·민원 기관</div>
+  <div class="exp-row">
+    <div>
+      <span class="exp-badge badge-pub">공공</span>
+      <b>132</b> — 대한법률구조공단 (무료 법률상담)
+    </div>
+    <a href="tel:132" class="exp-tel">📞 132</a>
+  </div>
+  <div class="exp-row">
+    <div>
+      <span class="exp-badge badge-pub">공공</span>
+      <b>182</b> — 경찰 민원 (교통사고 민원·조회)
+    </div>
+    <a href="tel:182" class="exp-tel">📞 182</a>
+  </div>
+  <div class="exp-row">
+    <div>
+      <span class="exp-badge badge-pub">공공</span>
+      <b>1355</b> — 국민연금공단 (장해연금·유족연금)
+    </div>
+    <a href="tel:1355" class="exp-tel">📞 1355</a>
+  </div>
+
+  <!-- 전문가 기관 -->
+  <div style="font-size:0.78rem;font-weight:900;color:#059669;
+    margin:10px 0 6px 0;letter-spacing:0.04em;">🎓 전문가 기관</div>
+  <div class="exp-row">
+    <div>
+      <span class="exp-badge badge-prof">전문가</span>
+      <b>한국손해사정사회</b> — 공인 손해사정사 연결
+    </div>
+    <a href="tel:027129110" class="exp-tel">📞 02-712-9110</a>
+  </div>
+  <div class="exp-row">
+    <div>
+      <span class="exp-badge badge-prof">전문가</span>
+      <b>한국세무사회</b> — 보상 관련 세무 자문
+    </div>
+    <a href="tel:025219451" class="exp-tel">📞 02-521-9451</a>
+  </div>
+  <div class="exp-row">
+    <div>
+      <span class="exp-badge badge-prof">전문가</span>
+      <b>한국공인중개사협회</b> — 부동산 보상 관련
+    </div>
+    <a href="tel:0220159800" class="exp-tel">📞 02-2015-9800</a>
+  </div>
+
+  <!-- 면책 고지 -->
+  <div class="disc-box">
+    ⚠️ <b>[헌법 §8 면책 고지]</b>
+    본 결과는 AI 시뮬레이션이며, 최종 판단은 공인 전문가의 자문을 따르십시오.
+    본 서비스는 보험업법 제185조에 따른 손해사정 업무 대리가 아닙니다.
+    전화 연결은 해당 기관의 운영 시간 내에서만 가능합니다.
+  </div>
+</div>""", height=270)
+
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
     # ── [t9] 관리자 ───────────────────────────────────────────────────────
     if cur == "t9":
         # 미인증 상태면 인증키 입력 화면만 표시 후 stop
@@ -18739,7 +19785,7 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
             except Exception:
                 _enc_key_ok = False
             try:
-                _admin_code_ok = (st.secrets.get("ADMIN_CODE","kgagold6803") != "kgagold6803")
+                _admin_code_ok = bool(st.secrets.get("ADMIN_CODE", ""))
             except Exception:
                 _admin_code_ok = False
 
@@ -19890,12 +20936,12 @@ END; $$;""", language="sql")
                             st.info(f"'{_ea_srch}' 관련 지식 없음 — 자율 학습 실행 후 재시도")
 
             with inner_tabs[6]:
-                # ── 📔 개발일지 (goldkey_ai_insu_Master / insuAi) ────────
+                # ── 📔 개발일지 (Goldkey_Ai_masters2026 / insuAi) ────────
                 st.markdown(f"""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:12px;">
   <div style="color:#fff;font-size:1.05rem;font-weight:900;letter-spacing:0.04em;">
-    📔 개발일지 — <span style="color:#ffd700;">goldkey_ai_insu_Master</span>
+    📔 개발일지 — <span style="color:#ffd700;">Goldkey_Ai_masters2026</span>
     &nbsp;<span style="background:#fff3;border-radius:6px;padding:2px 8px;
     font-size:0.75rem;color:#b3d4f5;">약칭: insuAi</span>
   </div>

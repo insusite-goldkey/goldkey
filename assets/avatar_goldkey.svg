@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0a1628"/>
+    </radialGradient>
+    <radialGradient id="goldKey" cx="40%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#ffe066"/>
+      <stop offset="50%" stop-color="#f0c020"/>
+      <stop offset="100%" stop-color="#b8860b"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- 배경 원 -->
+  <circle cx="100" cy="100" r="98" fill="url(#bg)" stroke="#f0c020" stroke-width="2.5"/>
+
+  <!-- 내부 장식 원 -->
+  <circle cx="100" cy="100" r="84" fill="none" stroke="rgba(240,192,32,0.25)" stroke-width="1"/>
+  <circle cx="100" cy="100" r="72" fill="none" stroke="rgba(240,192,32,0.12)" stroke-width="1"/>
+
+  <!-- 골드 열쇠 몸체 (키 링) -->
+  <circle cx="82" cy="80" r="24" fill="none" stroke="url(#goldKey)" stroke-width="9"
+    filter="url(#glow)"/>
+
+  <!-- 키 손잡이 장식 점 -->
+  <circle cx="82" cy="80" r="10" fill="url(#goldKey)" opacity="0.5"/>
+  <circle cx="82" cy="80" r="4" fill="url(#goldKey)"/>
+
+  <!-- 열쇠 몸체 (shaft) -->
+  <rect x="100" y="76" width="44" height="9" rx="4.5" fill="url(#goldKey)"
+    filter="url(#shadow)"/>
+
+  <!-- 열쇠 이빨 1 -->
+  <rect x="126" y="85" width="8" height="10" rx="3" fill="url(#goldKey)"/>
+  <!-- 열쇠 이빨 2 -->
+  <rect x="138" y="85" width="6" height="7" rx="2.5" fill="url(#goldKey)"/>
+
+  <!-- AI 텍스트 -->
+  <text x="100" y="136" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif"
+    font-size="13" font-weight="900" fill="#f0c040" letter-spacing="2"
+    filter="url(#glow)">AI MASTERS</text>
+
+  <!-- GOLDKEY 텍스트 -->
+  <text x="100" y="155" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif"
+    font-size="10" font-weight="700" fill="rgba(168,200,240,0.9)" letter-spacing="3">
+    GOLDKEY
+  </text>
+
+  <!-- 하단 장식 라인 -->
+  <line x1="62" y1="163" x2="138" y2="163" stroke="rgba(240,192,32,0.4)" stroke-width="1"/>
+
+  <!-- 코너 장식 다이아몬드 -->
+  <polygon points="100,170 104,175 100,180 96,175" fill="#f0c040" opacity="0.5"/>
+</svg>
