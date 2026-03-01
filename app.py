@@ -6373,11 +6373,33 @@ def section_housing_pension():
 # --------------------------------------------------------------------------
 # 날씨 바 — Non-blocking UI (TTL 20분 캐시 + @st.fragment run_every)
 # 설계 원칙:
-#   · Open-Meteo 무료 API (키 불필요, Seoul 좌표 고정)
-#   · httpx Lazy Load — 부팅 시 import 없음, 첫 호출 시 로드
+#   · GPS 우선(streamlit_js_eval.get_geolocation) → IP 기반 fallback → 서울 하드코딩
+#   · Graceful Degradation: GPS 미승인 시 ipapi.co → 실패 시 Seoul 기본값
+#   · Open-Meteo 무료 API (키 불필요, 좌표 동적 적용)
+#   · httpx / streamlit_js_eval Lazy Load — 부팅 시 import 없음
 #   · @st.cache_data(ttl=1200) — 20분 TTL: API rate limit 방지
 #   · @st.fragment(run_every=1200) — 20분마다 자동 갱신, 전체 rerun 차단
 # --------------------------------------------------------------------------
+
+@st.cache_data(ttl=1200, show_spinner=False)
+def get_location_by_ip():
+    """
+    IP 기반 대략적 위치 획득 — GPS 미승인 시 Fallback.
+    TTL 20분 캐시 (ipapi.co 무료 플랜 한도 보호).
+    반환: (city_name: str, lat: float, lon: float)
+    """
+    try:
+        import httpx as _httpx
+        _r = _httpx.get("https://ipapi.co/json/", timeout=5.0)
+        _data = _r.json()
+        _city = _data.get("city") or _data.get("region") or "Seoul"
+        _lat  = float(_data.get("latitude",  37.5665))
+        _lon  = float(_data.get("longitude", 126.9780))
+        return _city, _lat, _lon
+    except Exception:
+        return "Seoul", 37.5665, 126.9780
+
+
 @st.cache_data(ttl=1200, show_spinner=False)
 def fetch_weather_data(lat: float = 37.5665, lon: float = 126.9780):
     """
@@ -6468,9 +6490,42 @@ def fetch_weather_data(lat: float = 37.5665, lon: float = 126.9780):
 def weather_bar_fragment():
     """
     날씨 대시보드 Fragment — 20분마다 자동 갱신.
+    위치 우선순위: GPS 정밀 위치 → IP 기반 도시 → Seoul 기본값.
     전체 앱 rerun 없이 이 섹터만 독립적으로 업데이트됨.
     """
-    _d = fetch_weather_data()
+    # ── 1. GPS 정밀 위치 시도 (브라우저 Geolocation API) ──────────────────
+    _lat, _lon, _loc_name, _loc_src = 37.5665, 126.9780, "Seoul", "default"
+    try:
+        from streamlit_js_eval import get_geolocation as _get_geo
+        _geo = _get_geo()
+        if _geo and isinstance(_geo, dict) and "coords" in _geo:
+            _coords = _geo["coords"]
+            _lat      = float(_coords["latitude"])
+            _lon      = float(_coords["longitude"])
+            _loc_name = "현재 위치"
+            _loc_src  = "gps"
+    except Exception:
+        pass
+
+    # ── 2. GPS 미승인/실패 → IP 기반 fallback ─────────────────────────────
+    if _loc_src == "default":
+        try:
+            _ip_city, _ip_lat, _ip_lon = get_location_by_ip()
+            _lat, _lon, _loc_name, _loc_src = _ip_lat, _ip_lon, _ip_city, "ip"
+        except Exception:
+            pass  # Seoul 기본값 유지
+
+    # ── 3. 좌표로 날씨 데이터 취득 ────────────────────────────────────────
+    _d = fetch_weather_data(_lat, _lon)
+
+    # ── 4. 위치 출처 배지 ─────────────────────────────────────────────────
+    _src_badge = {
+        "gps":     '<span style="font-size:0.68rem;color:#27ae60;">📡 GPS</span>',
+        "ip":      '<span style="font-size:0.68rem;color:#2980b9;">🌐 IP</span>',
+        "default": '<span style="font-size:0.68rem;color:#888;">🏙️ 기본</span>',
+    }[_loc_src]
+
+    # ── 5. 대시보드 렌더링 ────────────────────────────────────────────────
     with st.container(border=True):
         _c0, _c1, _c2, _c3, _c4, _c5 = st.columns([0.9, 0.9, 0.9, 1.0, 1.1, 1.5])
         with _c0:
@@ -6489,7 +6544,7 @@ def weather_bar_fragment():
             _sync_color = "#888" if _d['ok'] else "#e74c3c"
             st.markdown(
                 f'<span style="font-size:0.72rem;color:{_sync_color};">'
-                f'🕐 {_d["last_updated"]} 기준 · 20분마다 자동갱신'
+                f'📍 {_loc_name} · {_src_badge} · 🕐 {_d["last_updated"]} · 20분마다 자동갱신'
                 f'{"" if _d["ok"] else " ⚠️ API 연결 실패"}'
                 f'</span>',
                 unsafe_allow_html=True
