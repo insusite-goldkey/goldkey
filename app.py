@@ -6387,23 +6387,26 @@ def main():
         st.session_state["_splash_done"] = True
 
         # ── 이미지를 백그라운드 스레드로 로드 (I/O 블로킹 제거) ──────────
+        # src 형식: "data:image/png;base64,..." (로컬 정상) 또는 "url:https://..." (HF LFS 폴백)
         import threading as _spl_th
+        _HF_RAW = "https://huggingface.co/spaces/goldkey-rich/goldkey-ai/resolve/main/assets/"
         _spl_imgs = {"v": "", "h": ""}
         def _bg_load_imgs():
             try:
                 _base = pathlib.Path(__file__).parent / "assets"
-                for _k, _fn_b64, _fn_png in (
-                    ("v", "splash_goldkey.b64",  "splash_goldkey.png"),
-                    ("h", "splash1_goldkey.b64", "splash1_goldkey.png"),
-                ):
-                    _pb = _base / _fn_b64
-                    _pp = _base / _fn_png
-                    if _pb.exists():
-                        _spl_imgs[_k] = _pb.read_text(encoding="utf-8").strip()
-                    elif _pp.exists():
+                for _k, _fn in (("v", "splash_goldkey.png"), ("h", "splash1_goldkey.png")):
+                    _pp = _base / _fn
+                    if _pp.exists():
                         _raw = _pp.read_bytes()
-                        if len(_raw) > 200:
+                        # LFS 포인터 감지: 실제 PNG는 8바이트 시그니처 \x89PNG로 시작
+                        if len(_raw) > 200 and _raw[:4] == b'\x89PNG':
                             _spl_imgs[_k] = base64.b64encode(_raw).decode()
+                        else:
+                            # LFS 포인터 파일 → HF resolve URL 사용
+                            _spl_imgs[_k] = "url:" + _HF_RAW + _fn
+                    else:
+                        # 파일 없음 → HF resolve URL 폴백
+                        _spl_imgs[_k] = "url:" + _HF_RAW + _fn
                 if not _spl_imgs["h"]:
                     _spl_imgs["h"] = _spl_imgs["v"]
             except Exception:
@@ -6421,11 +6424,19 @@ def main():
 
         # ── 공통 HTML 빌더 ────────────────────────────────────────────────
         def _spl_html(msg: str, src_v: str, src_h: str) -> str:
+            def _to_src(s):
+                if not s:
+                    return ""
+                if s.startswith("url:"):
+                    return s[4:]  # HF resolve URL 직접 사용
+                return "data:image/png;base64," + s  # 로컬 base64
             _img_tags = ""
-            if src_v:
-                _img_tags += f'<img id="imgV" class="spl-img" src="{src_v}" alt="v">'
-            if src_h:
-                _img_tags += f'<img id="imgH" class="spl-img" src="{src_h}" alt="h">'
+            _sv = _to_src(src_v)
+            _sh = _to_src(src_h)
+            if _sv:
+                _img_tags += f'<img id="imgV" class="spl-img" src="{_sv}" alt="v">'
+            if _sh:
+                _img_tags += f'<img id="imgH" class="spl-img" src="{_sh}" alt="h">'
             if not _img_tags:
                 _img_tags = '<div class="spl-fallback">🏆</div>'
             return f"""
@@ -6479,8 +6490,8 @@ html,body{{width:100%;height:100%;background:#060d1a;overflow:hidden;}}
                 _sv, _sh = "", ""
             else:
                 _img_thread.join(timeout=1.5)
-                _sv = f"data:image/png;base64,{_spl_imgs['v']}" if _spl_imgs["v"] else ""
-                _sh = f"data:image/png;base64,{_spl_imgs['h']}" if _spl_imgs["h"] else ""
+                _sv = _spl_imgs["v"]
+                _sh = _spl_imgs["h"]
             with _spl_slot:
                 components.html(_spl_html(_spl_msg, _sv, _sh), height=900, scrolling=False)
             time.sleep(2)
