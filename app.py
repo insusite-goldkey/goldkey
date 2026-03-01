@@ -6361,28 +6361,34 @@ def main():
         initial_sidebar_state="collapsed"
     )
 
-    # ── STEP 1-A: 프리미엄 스플래시 화면 (최초 방문 1회만, 8초) ───────────
+    # ── STEP 1-A: 프리미엄 스플래시 화면 (최초 방문 1회만, 10초) ──────────
     if not st.session_state.get("_splash_done"):
         st.session_state["_splash_done"] = True
 
-        # splash_goldkey.png → base64 인라인 임베드
-        _spl_img_b64 = ""
-        try:
-            _spl_path = pathlib.Path(__file__).parent / "assets" / "splash_goldkey.png"
-            if _spl_path.exists():
-                _spl_img_b64 = base64.b64encode(_spl_path.read_bytes()).decode()
-        except Exception:
-            pass
+        # 세로 이미지(핸드폰용) + 가로 이미지(태블릿/PC용) base64 로드
+        def _load_b64(fname):
+            try:
+                p = pathlib.Path(__file__).parent / "assets" / fname
+                if p.exists():
+                    return base64.b64encode(p.read_bytes()).decode()
+            except Exception:
+                pass
+            return ""
 
-        _spl_img_src = (
-            f'data:image/png;base64,{_spl_img_b64}'
-            if _spl_img_b64 else ""
-        )
+        _spl_v = _load_b64("splash_goldkey.png")    # 세로
+        _spl_h = _load_b64("splash1_goldkey.png")   # 가로
+        # 가로 이미지 없으면 세로로 대체
+        if not _spl_h:
+            _spl_h = _spl_v
+
+        _src_v = f"data:image/png;base64,{_spl_v}" if _spl_v else ""
+        _src_h = f"data:image/png;base64,{_spl_h}" if _spl_h else ""
 
         _spl_steps = [
             "🔐 보안 시스템 (Fernet 256bit) 체크 완료...",
             "🤖 AI 분석 엔진 (Gemini 1.5 Pro) 초기화...",
             "📊 전문가 통합 DB (KCD-8 / AMA) 동기화 완료...",
+            "🔗 클라우드 세션 연결 및 예열 완료...",
             "✦ 전략 파트너 Goldkey AI가 준비되었습니다.",
         ]
 
@@ -6395,54 +6401,70 @@ def main():
 *{{box-sizing:border-box;margin:0;padding:0;}}
 html,body{{width:100%;height:100%;background:#060d1a;overflow:hidden;}}
 .spl-wrap{{
-  position:fixed;top:0;left:0;
-  width:100vw;height:100vh;
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:flex-end;
+  position:fixed;top:0;left:0;width:100%;height:100%;
   background:#060d1a;
+  display:flex;flex-direction:column;
+  align-items:stretch;justify-content:flex-end;
 }}
+/* 이미지: 화면 전체를 커버, 비율 유지하며 잘림 없이 */
 .spl-img{{
   position:absolute;top:0;left:0;
-  width:100vw;height:100vh;
-  object-fit:contain;
-  object-position:center top;
+  width:100%;height:100%;
+  object-fit:cover;
+  object-position:center center;
+  display:none;
 }}
-.spl-fallback{{
-  position:absolute;top:50%;left:50%;
-  transform:translate(-50%,-50%);
-  font-size:5rem;
-}}
+.spl-img.active{{display:block;}}
+/* 하단 메시지 바 */
 .spl-msg-bar{{
   position:relative;z-index:10;
   width:100%;
-  padding:14px 20px 20px 20px;
-  background:linear-gradient(0deg,rgba(6,13,26,0.95) 60%,transparent 100%);
+  padding:16px 20px 24px;
+  background:linear-gradient(0deg,rgba(4,9,18,0.97) 55%,rgba(4,9,18,0.0) 100%);
   text-align:center;
 }}
 .spl-msg{{
   font-family:'Noto Sans KR','Segoe UI',sans-serif;
-  font-size:clamp(0.85rem,2.5vw,1.1rem);
-  font-weight:700;
-  color:#f0c040;
+  font-size:clamp(0.82rem,2.8vw,1.05rem);
+  font-weight:700;color:#f0c040;
   letter-spacing:0.05em;
-  text-shadow:0 0 18px rgba(240,192,64,0.8),0 2px 6px rgba(0,0,0,0.6);
-  animation:fadeIn 0.35s ease;
+  text-shadow:0 0 16px rgba(240,192,64,0.9),0 2px 6px rgba(0,0,0,0.7);
+  animation:fadeIn 0.3s ease;
 }}
-@keyframes fadeIn{{from{{opacity:0;transform:translateY(5px)}}to{{opacity:1;transform:translateY(0)}}}}
+.spl-fallback{{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);font-size:5rem;
+}}
+@keyframes fadeIn{{from{{opacity:0;transform:translateY(4px)}}to{{opacity:1;transform:translateY(0)}}}}
 </style>
-<div class="spl-wrap">
-  {'<img class="spl-img" src="' + _spl_img_src + '" alt="Goldkey AI">' if _spl_img_src else '<div class="spl-fallback">🏆</div>'}
+<div class="spl-wrap" id="splWrap">
+  {'<img id="imgV" class="spl-img" src="' + _src_v + '" alt="v">' if _src_v else ''}
+  {'<img id="imgH" class="spl-img" src="' + _src_h + '" alt="h">' if _src_h else ''}
+  {'<div class="spl-fallback">🏆</div>' if not _src_v and not _src_h else ''}
   <div class="spl-msg-bar">
-    <div class="spl-msg">{_spl_msg}</div>
+    <div class="spl-msg" id="splMsg">{_spl_msg}</div>
   </div>
 </div>
 <script>
 (function(){{
-  var h = window.innerHeight || window.parent.innerHeight || 800;
-  var iframe = window.frameElement;
-  if(iframe) iframe.style.height = h + 'px';
+  /* iframe 높이를 부모 뷰포트에 맞춤 */
+  var ph = (window.parent && window.parent.innerHeight) || window.innerHeight || 812;
+  var pw = (window.parent && window.parent.innerWidth)  || window.innerWidth  || 390;
+  var ifr = window.frameElement;
+  if(ifr){{ ifr.style.height = ph + 'px'; ifr.style.width = '100%'; }}
+
+  /* 가로/세로 기기 감지 → 해당 이미지 활성화 */
+  var imgV = document.getElementById('imgV');
+  var imgH = document.getElementById('imgH');
+  var isLandscape = pw > ph;
+  if(isLandscape){{
+    if(imgH) imgH.classList.add('active');
+  }} else {{
+    if(imgV) imgV.classList.add('active');
+    else if(imgH) imgH.classList.add('active');
+  }}
 }})();
-</script>""", height=800, scrolling=False)
+</script>""", height=900, scrolling=False)
             time.sleep(2)
 
         _spl_slot.empty()
