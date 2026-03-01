@@ -6374,12 +6374,9 @@ def main():
         except Exception:
             pass
 
-        _spl_img_tag = (
-            f'<img src="data:image/png;base64,{_spl_img_b64}" '
-            f'style="width:100%;max-width:680px;border-radius:16px;'
-            f'box-shadow:0 8px 40px rgba(0,0,0,0.6);" alt="Goldkey AI">'
-            if _spl_img_b64 else
-            '<div style="font-size:3rem;text-align:center;">🏆</div>'
+        _spl_img_src = (
+            f'data:image/png;base64,{_spl_img_b64}'
+            if _spl_img_b64 else ""
         )
 
         _spl_steps = [
@@ -6395,32 +6392,57 @@ def main():
                 components.html(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
-body{{margin:0;padding:0;background:#060d1a;}}
+*{{box-sizing:border-box;margin:0;padding:0;}}
+html,body{{width:100%;height:100%;background:#060d1a;overflow:hidden;}}
 .spl-wrap{{
-  width:100%;min-height:100vh;
-  background:linear-gradient(160deg,#060d1a 0%,#0d2444 45%,#0a1628 100%);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  font-family:'Noto Sans KR','Segoe UI',sans-serif;
-  padding:24px 16px;box-sizing:border-box;
+  position:fixed;top:0;left:0;
+  width:100vw;height:100vh;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-end;
+  background:#060d1a;
 }}
-.spl-img-wrap{{
-  width:100%;max-width:680px;margin-bottom:28px;
-  display:flex;justify-content:center;
+.spl-img{{
+  position:absolute;top:0;left:0;
+  width:100vw;height:100vh;
+  object-fit:contain;
+  object-position:center top;
+}}
+.spl-fallback{{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  font-size:5rem;
+}}
+.spl-msg-bar{{
+  position:relative;z-index:10;
+  width:100%;
+  padding:14px 20px 20px 20px;
+  background:linear-gradient(0deg,rgba(6,13,26,0.95) 60%,transparent 100%);
+  text-align:center;
 }}
 .spl-msg{{
-  font-size:1.05rem;font-weight:700;
+  font-family:'Noto Sans KR','Segoe UI',sans-serif;
+  font-size:clamp(0.85rem,2.5vw,1.1rem);
+  font-weight:700;
   color:#f0c040;
-  letter-spacing:0.06em;
-  text-align:center;
-  text-shadow:0 0 18px rgba(240,192,64,0.7),0 2px 8px rgba(0,0,0,0.5);
-  animation:fadeIn 0.4s ease;
+  letter-spacing:0.05em;
+  text-shadow:0 0 18px rgba(240,192,64,0.8),0 2px 6px rgba(0,0,0,0.6);
+  animation:fadeIn 0.35s ease;
 }}
-@keyframes fadeIn{{from{{opacity:0;transform:translateY(6px)}}to{{opacity:1;transform:translateY(0)}}}}
+@keyframes fadeIn{{from{{opacity:0;transform:translateY(5px)}}to{{opacity:1;transform:translateY(0)}}}}
 </style>
 <div class="spl-wrap">
-  <div class="spl-img-wrap">{_spl_img_tag}</div>
-  <div class="spl-msg">{_spl_msg}</div>
-</div>""", height=600, scrolling=False)
+  {'<img class="spl-img" src="' + _spl_img_src + '" alt="Goldkey AI">' if _spl_img_src else '<div class="spl-fallback">🏆</div>'}
+  <div class="spl-msg-bar">
+    <div class="spl-msg">{_spl_msg}</div>
+  </div>
+</div>
+<script>
+(function(){{
+  var h = window.innerHeight || window.parent.innerHeight || 800;
+  var iframe = window.frameElement;
+  if(iframe) iframe.style.height = h + 'px';
+}})();
+</script>""", height=800, scrolling=False)
             time.sleep(2)
 
         _spl_slot.empty()
