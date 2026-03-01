@@ -6361,6 +6361,70 @@ def main():
         initial_sidebar_state="collapsed"
     )
 
+    # ── STEP 1-A: 프리미엄 스플래시 화면 (최초 방문 1회만, 8초) ───────────
+    if not st.session_state.get("_splash_done"):
+        st.session_state["_splash_done"] = True
+
+        # splash_goldkey.png → base64 인라인 임베드
+        _spl_img_b64 = ""
+        try:
+            _spl_path = pathlib.Path(__file__).parent / "assets" / "splash_goldkey.png"
+            if _spl_path.exists():
+                _spl_img_b64 = base64.b64encode(_spl_path.read_bytes()).decode()
+        except Exception:
+            pass
+
+        _spl_img_tag = (
+            f'<img src="data:image/png;base64,{_spl_img_b64}" '
+            f'style="width:100%;max-width:680px;border-radius:16px;'
+            f'box-shadow:0 8px 40px rgba(0,0,0,0.6);" alt="Goldkey AI">'
+            if _spl_img_b64 else
+            '<div style="font-size:3rem;text-align:center;">🏆</div>'
+        )
+
+        _spl_steps = [
+            "🔐 보안 시스템 (Fernet 256bit) 체크 완료...",
+            "🤖 AI 분석 엔진 (Gemini 1.5 Pro) 초기화...",
+            "📊 전문가 통합 DB (KCD-8 / AMA) 동기화 완료...",
+            "✦ 전략 파트너 Goldkey AI가 준비되었습니다.",
+        ]
+
+        _spl_slot = st.empty()
+        for _spl_msg in _spl_steps:
+            with _spl_slot:
+                components.html(f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+body{{margin:0;padding:0;background:#060d1a;}}
+.spl-wrap{{
+  width:100%;min-height:100vh;
+  background:linear-gradient(160deg,#060d1a 0%,#0d2444 45%,#0a1628 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:'Noto Sans KR','Segoe UI',sans-serif;
+  padding:24px 16px;box-sizing:border-box;
+}}
+.spl-img-wrap{{
+  width:100%;max-width:680px;margin-bottom:28px;
+  display:flex;justify-content:center;
+}}
+.spl-msg{{
+  font-size:1.05rem;font-weight:700;
+  color:#f0c040;
+  letter-spacing:0.06em;
+  text-align:center;
+  text-shadow:0 0 18px rgba(240,192,64,0.7),0 2px 8px rgba(0,0,0,0.5);
+  animation:fadeIn 0.4s ease;
+}}
+@keyframes fadeIn{{from{{opacity:0;transform:translateY(6px)}}to{{opacity:1;transform:translateY(0)}}}}
+</style>
+<div class="spl-wrap">
+  <div class="spl-img-wrap">{_spl_img_tag}</div>
+  <div class="spl-msg">{_spl_msg}</div>
+</div>""", height=600, scrolling=False)
+            time.sleep(2)
+
+        _spl_slot.empty()
+
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
     # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
     # 로그인 성공 시 _saved_user_* 에 백업 → rerun 후 user_id 없으면 복원
