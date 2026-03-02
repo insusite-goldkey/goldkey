@@ -4043,17 +4043,17 @@ GOLD_AVATAR_PATH = os.path.join(
 )
 
 def get_goldkey_avatar() -> str:
-    """골드키 전용 아바타를 base64 문자열로 반환 (매 호출 시 탐색, 캐시 없음).
-    goldkey_ai_avatar.svg → jpg → png 순 최우선 탐색.
-    파일 없으면 빈 문자열 반환(Fallback).
+    """골드키 전용 아바타를 base64 data-URI 또는 CDN URL로 반환.
+    로컬 assets/ 탐색 후 실패 시 HF CDN URL 반환 (빈 문자열 없음).
     """
+    _HF_CDN = "https://huggingface.co/spaces/goldkey-rich/goldkey-ai/resolve/main/assets/goldkey_ai_avatar.jpg"
     _base = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         (os.path.join(_base, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
         (os.path.join(_base, "assets", "goldkey_ai_avatar.png"), "image/png"),
         (os.path.join(_base, "assets", "goldkey_ai_avatar.svg"), "image/svg+xml"),
-        (os.path.join(_base, "assets", "avatar_goldkey.svg"), "image/svg+xml"),
-        (os.path.join(_base, "assets", "avatar_goldkey.png"), "image/png"),
+        (os.path.join(_base, "assets", "avatar_goldkey.svg"),    "image/svg+xml"),
+        (os.path.join(_base, "assets", "avatar_goldkey.png"),    "image/png"),
         (GOLD_AVATAR_PATH, "image/svg+xml" if GOLD_AVATAR_PATH.endswith(".svg") else "image/png"),
     ]
     for _p, _mime in candidates:
@@ -4065,7 +4065,7 @@ def get_goldkey_avatar() -> str:
                     return f"data:{_mime};base64,{base64.b64encode(_raw).decode()}"
         except Exception:
             continue
-    return ""
+    return _HF_CDN
 
 
 def render_goldkey_sidebar():
@@ -6815,19 +6815,20 @@ def main():
     )
 
     # ── STEP 1-A: 프리미엄 스플래시 화면 (앱 구동마다 노출) ──────────────
-    # st.markdown 방식: Streamlit 메인 DOM에 직접 <style>+<div>+<script> 삽입.
-    # iframe 불필요 — HF Spaces cross-origin 제한 완전 우회.
+    # components.html 단독 자기완결 방식:
+    # CSS + div + JS 모두 iframe 내부에서 처리.
+    # window.parent 접근 불필요 — iframe 자체가 전체화면 overlay 역할.
     if not st.session_state.get("_splash_shown_this_run"):
         st.session_state["_splash_shown_this_run"] = True
 
-        # ── 이미지 src 결정 (동기, 파일 I/O만) ──────────────────────────
+        # ── 이미지 src 결정: 로컬 base64 우선, 실패 시 HF CDN URL ──────
         _HF_RAW = "https://huggingface.co/spaces/goldkey-rich/goldkey-ai/resolve/main/assets/"
         def _get_img_src(fn):
             _stem = fn.rsplit(".", 1)[0]
             _candidates = [
                 (_stem + ".webp", "image/webp"),
+                (_stem + ".png",  "image/png"),
                 (_stem + ".jpg",  "image/jpeg"),
-                (fn,              "image/png"),
             ]
             try:
                 for _cf, _cm in _candidates:
@@ -6838,7 +6839,8 @@ def main():
                             return f"data:{_cm};base64," + base64.b64encode(_raw).decode()
             except Exception:
                 pass
-            return _HF_RAW + fn
+            # 로컬 실패 → HF CDN URL (webp 우선)
+            return _HF_RAW + _stem + ".webp"
 
         _src_v = _get_img_src("splash_goldkey.png")
         _src_h = _get_img_src("splash1_goldkey.png")
@@ -6852,106 +6854,95 @@ def main():
             "✦ 전략 파트너 Goldkey AI가 준비되었습니다.",
         ])
 
-        # ── STEP A: CSS + div 삽입 (st.markdown — HTML만, JS 없음) ──────
-        # Streamlit은 st.markdown 내 <script>를 실행하지 않으므로
-        # div/style만 여기서 주입하고 JS는 components.html로 분리.
-        st.markdown(f"""
+        # ── components.html 단독: CSS + div + JS 자기완결 ────────────────
+        # iframe이 position:fixed로 전체화면 덮음 → 자체 DOM 내에서 타이머 동작
+        components.html(f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
 <style>
+*{{margin:0;padding:0;box-sizing:border-box;}}
+html,body{{width:100%;height:100%;overflow:hidden;background:#060d1a;}}
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap');
-#gk-splash{{
-  position:fixed;inset:0;background:#060d1a;
-  z-index:2147483647;overflow:hidden;
-  transition:opacity .8s ease;
-  pointer-events:none;
+#sp{{
+  position:fixed;inset:0;
+  background:#060d1a;
+  z-index:9999;
+  overflow:hidden;
+  transition:opacity .9s ease;
 }}
-#gk-splash img{{
+#sp img{{
   position:absolute;inset:0;width:100%;height:100%;
   object-fit:cover;display:none;
 }}
-#gk-splash img.on{{display:block;}}
-#gk-splash-logo{{
+#sp img.on{{display:block;}}
+#sp-logo{{
   position:absolute;top:clamp(18px,5vw,44px);left:50%;
   transform:translateX(-50%);
   font-family:'Noto Sans KR',sans-serif;
-  font-size:clamp(1.1rem,4vw,1.65rem);font-weight:900;
+  font-size:clamp(1.1rem,4vw,1.55rem);font-weight:900;
   color:#f0c040;letter-spacing:.08em;
-  text-shadow:0 0 28px rgba(240,192,64,.75);white-space:nowrap;
+  text-shadow:0 0 28px rgba(240,192,64,.8);white-space:nowrap;
 }}
-#gk-splash-bar{{
+#sp-bar{{
   position:absolute;bottom:0;left:0;right:0;
   padding:18px 22px 36px;text-align:center;
   background:linear-gradient(0deg,rgba(4,9,18,.97) 55%,transparent);
 }}
-#gk-splash-msg{{
+#sp-msg{{
   font-family:'Noto Sans KR',sans-serif;
-  font-size:clamp(.82rem,2.8vw,1.05rem);font-weight:700;
+  font-size:clamp(.82rem,2.8vw,1.0rem);font-weight:700;
   color:#f0c040;letter-spacing:.05em;
-  text-shadow:0 0 16px rgba(240,192,64,.9),0 2px 6px rgba(0,0,0,.7);
+  text-shadow:0 0 16px rgba(240,192,64,.9);
   opacity:0;transition:opacity .35s;
 }}
 </style>
-<div id="gk-splash">
-  <img id="gk-spl-v" src="{_src_v}" alt="">
-  <img id="gk-spl-h" src="{_src_h}" alt="">
-  <div id="gk-splash-logo">🏆 GOLDKEY AI MASTER</div>
-  <div id="gk-splash-bar"><div id="gk-splash-msg"></div></div>
-</div>""", unsafe_allow_html=True)
-
-        # ── STEP B: JS 실행 — components.html (Streamlit이 보장하는 JS 런타임) ──
-        # window.parent.document로 위에서 삽입한 #gk-splash를 제어
-        _spl_js = f"""
+</head>
+<body>
+<div id="sp">
+  <img id="sp-v" src="{_src_v}" alt="">
+  <img id="sp-h" src="{_src_h}" alt="">
+  <div id="sp-logo">🏆 GOLDKEY AI MASTER</div>
+  <div id="sp-bar"><div id="sp-msg"></div></div>
+</div>
 <script>
 (function(){{
   var MSGS  = [{_spl_msgs_js}];
-  var TOTAL = 5500;
+  var TOTAL = 5000;
+  var ov    = document.getElementById('sp');
 
-  function run(){{
-    var pd  = (typeof window.parent !== 'undefined') ? window.parent.document : document;
-    var ov  = pd.getElementById('gk-splash');
-    if(!ov){{ setTimeout(run, 200); return; }}
+  // 방향 감지
+  var pw = window.innerWidth || 390, ph = window.innerHeight || 812;
+  var imgEl = document.getElementById(pw > ph ? 'sp-h' : 'sp-v');
+  if(imgEl) imgEl.classList.add('on');
 
-    // 방향 감지 — 이미지 표시
-    var pw = (window.parent||window).innerWidth  || 390;
-    var ph = (window.parent||window).innerHeight || 812;
-    var imgEl = pd.getElementById(pw > ph ? 'gk-spl-h' : 'gk-spl-v');
-    if(imgEl) imgEl.classList.add('on');
-
-    // 메시지 순차 표시
-    var msgEl = pd.getElementById('gk-splash-msg');
-    var step = 0;
-    var INTERVAL = Math.floor((TOTAL - 800) / MSGS.length);
-    function tick(){{
-      if(!msgEl || step >= MSGS.length) return;
-      msgEl.style.opacity = '0';
-      setTimeout(function(){{
-        msgEl.textContent = MSGS[step++];
-        msgEl.style.opacity = '1';
-        if(step < MSGS.length) setTimeout(tick, INTERVAL);
-      }}, 150);
-    }}
-    setTimeout(tick, 300);
-
-    // 페이드아웃 후 완전 제거
+  // 메시지 순차 표시
+  var msgEl = document.getElementById('sp-msg');
+  var step = 0, INTERVAL = Math.floor((TOTAL - 700) / MSGS.length);
+  function tick(){{
+    if(!msgEl || step >= MSGS.length) return;
+    msgEl.style.opacity = '0';
     setTimeout(function(){{
-      ov.style.opacity = '0';
-      setTimeout(function(){{
-        try{{ if(ov.parentNode) ov.parentNode.removeChild(ov); }}catch(e){{}}
-        // <style> 태그도 제거
-        var s = pd.getElementById('gk-splash-css');
-        try{{ if(s && s.parentNode) s.parentNode.removeChild(s); }}catch(e){{}}
-      }}, 900);
-    }}, TOTAL);
+      msgEl.textContent = MSGS[step++];
+      msgEl.style.opacity = '1';
+      if(step < MSGS.length) setTimeout(tick, INTERVAL);
+    }}, 130);
   }}
+  setTimeout(tick, 200);
 
-  // DOM 준비 후 즉시 + 재시도
-  if(document.readyState === 'loading'){{
-    document.addEventListener('DOMContentLoaded', run);
-  }} else {{
-    run();
-  }}
+  // 페이드아웃 후 iframe 자체를 숨김
+  setTimeout(function(){{
+    ov.style.opacity = '0';
+    setTimeout(function(){{
+      // iframe 전체를 display:none (부모 Streamlit이 height=0이므로 자연스럽게 사라짐)
+      document.body.style.display = 'none';
+    }}, 950);
+  }}, TOTAL);
 }})();
-</script>"""
-        components.html(_spl_js, height=0, scrolling=False)
+</script>
+</body>
+</html>""", height=700, scrolling=False)
 
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
     # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
@@ -8584,7 +8575,7 @@ watchRipple();
                         _all_cb = st.checkbox("", value=_all_agreed, key="_terms_all_cb",
                                               label_visibility="collapsed")
                     with _tc2:
-                        st.markdown("<div style='padding-top:4px;font-size:0.95rem;font-weight:800;color:#e2e8f0;'>네, 모두 동의합니다</div>", unsafe_allow_html=True)
+                        st.markdown("<div style='padding-top:4px;font-size:0.95rem;font-weight:800;color:#1e293b;'>네, 모두 동의합니다</div>", unsafe_allow_html=True)
                     if _all_cb != _all_agreed:
                         st.session_state["_lp_terms"] = {"t1": _all_cb, "t2": _all_cb, "t3": _all_cb, "t4": _all_cb}
                         st.rerun()
@@ -8592,11 +8583,20 @@ watchRipple();
                     st.markdown("<hr style='border:none;border-top:1px solid #334155;margin:10px 0;'>", unsafe_allow_html=True)
 
                     # ── 개별 약관 항목 ──────────────────────────────────────────
+                    # ── 필수 항목 미체크 시 안내 (목록 위에 표시) ────────────
+                    if not _req_agreed:
+                        st.markdown("""
+<div style='background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px;
+  padding:10px 14px;margin:6px 0 10px 0;font-size:0.82rem;
+  color:#1e293b;font-weight:700;text-align:center;'>
+  ⬆️ 아래 필수 항목 3개를 모두 체크해주세요
+</div>""", unsafe_allow_html=True)
+
                     _terms_items = [
-                        ("t1", "[필수]", "서비스 이용약관 동의",              False, "#e2e8f0"),
-                        ("t2", "[필수]", "개인정보 수집 및 이용 동의",         False, "#e2e8f0"),
-                        ("t3", "[필수]", "민감정보(의료·건강기록) 수집 및 AI 분석 동의", True,  "#7dd3fc"),
-                        ("t4", "[선택]", "맞춤형 보험·건강 정보 알림 수신 동의",False, "#94a3b8"),
+                        ("t1", "[필수]", "서비스 이용약관 동의",              False, "#1e293b"),
+                        ("t2", "[필수]", "개인정보 수집 및 이용 동의",         False, "#1e293b"),
+                        ("t3", "[필수]", "민감정보(의료·건강기록) 수집 및 AI 분석 동의", True,  "#0369a1"),
+                        ("t4", "[선택]", "맞춤형 보험·건강 정보 알림 수신 동의",False, "#475569"),
                     ]
                     for _tk, _badge, _title, _highlight, _color in _terms_items:
                         _ci1, _ci2 = st.columns([1, 8])
@@ -8619,15 +8619,15 @@ watchRipple();
 
                     # ── 면책조항 ──────────────────────────────────────────────
                     st.markdown("""
-<div style='background:#1e293b;border-radius:10px;padding:10px 14px;margin:10px 0;
-  font-size:0.72rem;color:#94a3b8;line-height:1.7;'>
-  <b style='color:#f59e0b;'>⚠️ 면책 조항</b><br>
-  본 앱의 AI 분석 결과는 <b style='color:#e2e8f0;'>보조 지표</b>일 뿐 법적 효력이 없습니다.<br>
-  최종 보험 가입·해지 결정은 <b style='color:#e2e8f0;'>전문 자격을 갖춘 설계사</b>와 상담하시기 바랍니다.<br>
+<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin:10px 0;
+  font-size:0.72rem;color:#475569;line-height:1.7;'>
+  <b style='color:#b45309;'>⚠️ 면책 조항</b><br>
+  본 앱의 AI 분석 결과는 <b style='color:#1e293b;'>보조 지표</b>일 뿐 법적 효력이 없습니다.<br>
+  최종 보험 가입·해지 결정은 <b style='color:#1e293b;'>전문 자격을 갖춘 설계사</b>와 상담하시기 바랍니다.<br>
   수집 항목: 성명·연락처·질병 이력(AES-256 암호화 저장) / 탈퇴 시 즉시 삭제
 </div>""", unsafe_allow_html=True)
 
-                    # ── 시작 버튼 (필수 3개 미체크 시 비활성화) ───────────────
+                    # ── 시작 버튼 (필수 3개 체크 시만 활성화) ─────────────────
                     if _req_agreed:
                         if st.button(
                             "✅ 동의하고 시작하기",
@@ -8635,17 +8635,9 @@ watchRipple();
                             use_container_width=True,
                             type="primary",
                         ):
-                            # 마케팅 동의 여부를 session_state에 저장
                             st.session_state["_terms_marketing"] = _tr.get("t4", False)
                             st.session_state["_lp"] = "A"
                             st.rerun()
-                    else:
-                        st.markdown("""
-<button disabled style='width:100%;background:#334155;color:#64748b;border:none;
-  border-radius:8px;padding:12px 0;font-size:0.95rem;font-weight:800;
-  cursor:not-allowed;margin-top:4px;'>
-  ⬆️ 필수 항목 3개를 모두 체크해주세요
-</button>""", unsafe_allow_html=True)
 
                 # ─────────────────────────────────────────────────────────────
                 # Phase A — 이름 + 연락처 확인 → OTP 발급
