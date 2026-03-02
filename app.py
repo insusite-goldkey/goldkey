@@ -2350,6 +2350,7 @@ SECTOR_CODES: dict = {
     "2100": {"name": "상해 통합 관리",  "tab_key": "injury",        "keywords": ["상해사고", "상해보험", "상해통합", "상해설계", "사고났어", "소득끊겨", "보장공백"]},
     "2200": {"name": "보험금 청구 상담","tab_key": "t1",            "keywords": ["보험금청구상담", "보험금청구", "보험금상담", "청구방법", "지급거절", "청구상담"]},
     "2300": {"name": "장해 산출",       "tab_key": "disability",    "keywords": ["장해산출", "장해보험금", "후유장해", "맥브라이드", "AMA", "장해율", "장해"]},
+    "2400": {"name": "KCD 상해 분석",  "tab_key": "kcd_injury",    "keywords": ["KCD상해", "S코드", "M코드", "외인코드", "kcd분석", "상해코드", "손해사정", "6개월전환", "기여도", "S.T.V.W.X.Y"]},
     # ── 3000번대: 질환 상담 (암·뇌·심장) ───────────────────────────────
     "3000": {"name": "암 질환 상담",    "tab_key": "cancer",        "keywords": ["암상담", "암질환", "표적항암", "면역항암", "NGS", "CAR-T", "항암치료", "암진단", "암보험"]},
     "3100": {"name": "뇌 질환 상담",    "tab_key": "brain",         "keywords": ["뇌상담", "뇌졸중", "뇌경색", "뇌출혈", "중풍", "뇌질환", "뇌혈관"]},
@@ -11583,6 +11584,7 @@ section[data-testid="stMain"] {
             ("injury",      "🚑", "상해 통합 관리",       "사고 유형 자동 분류 · 소득보전 역산 · Gap 시각화\n치료→장해→소득→사망 생애 전 흐름 One-Stop"),
             ("t1",          "💰", "보험금 상담",          "청구 절차 · 지급 거절 대응\n민원·손해사정·약관 해석"),
             ("disability",  "🩺", "장해보험금 산출",      "AMA·맥브라이드·호프만계수 후유장해 보험금 산출"),
+            ("kcd_injury",  "🔬", "상해(S·T·V·W·X·Y)와 M의 상관관계", "후유장해·손해사정 · S↔M 코드 전환 논리 · 외인코드 결합 실무"),
             ("t2",          "🛡️", "기본보험 상담",        "자동차·화재·운전자 · 일상배상책임 점검"),
             ("t3",          "🏥", "질병·상해 통합보험",   "암·뇌·심장 3대질병 보장 · 간병·치매·생명보험 설계"),
             ("cancer",      "🎗️", "암·뇌·심장질환 상담", "NGS·표적항암·면역항암·CAR-T 뇌심장 보장 실무 분석"),
@@ -15908,6 +15910,359 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 금감원 2018년 장해분류표 개정 — 부위별 정의 명확화
 </div>
 """, height=500)
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
+    # ── [kcd_injury] 상해(S·T·V·W·X·Y)와 M의 상관관계 ───────────────────
+    if cur == "kcd_injury":
+        if not _auth_gate("kcd_injury"): st.stop()
+        tab_home_btn("kcd_injury")
+
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1a2e4a 0%,#1a4a3a 60%,#0e6655 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:16px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    🔬 상해(S·T·V·W·X·Y)와 M의 상관관계
+  </div>
+  <div style="color:#a7f3d0;font-size:0.78rem;margin-top:4px;">
+    후유장해 손해사정 · KCD 코드 전환 논리 · 외인코드 결합 실무 · 주체별 심사 기준
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        kcd_tab1, kcd_tab2, kcd_tab3, kcd_tab4, kcd_tab5 = st.tabs([
+            "📋 분석 원칙 & 코드 체계",
+            "🔄 S·T→M 전환 논리",
+            "👁️ 주체별 심사 기준",
+            "⚖️ 외인코드 결합 실무",
+            "🤖 AI 손해사정 분석",
+        ])
+
+        with kcd_tab1:
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+  font-size:0.9rem;color:#1a3a5c;">📌 상해 분석 원칙</div>""", unsafe_allow_html=True)
+            st.markdown("""<div style="background:#f8faff;border:1px solid #b3c8e8;border-radius:8px;
+  padding:12px 16px;font-size:0.83rem;color:#1a2e4a;line-height:1.9;">
+<b>① 상해 인정 3대 요건</b><br>
+• <b>급격성</b>: 돌발적·순간적 사고 — 서서히 발생한 직업병·과로는 해당 없음<br>
+• <b>우연성</b>: 피보험자가 예측·의도하지 않은 사고 — 고의성 입증 시 면책<br>
+• <b>외래성</b>: 신체 외부에서 기인한 사고 — 질병의 내인적 악화는 해당 없음<br><br>
+<b>② KCD 분류 원칙</b><br>
+• <b>S코드</b>: 특정 신체 부위의 <u>외상성 급성 손상</u> → 사고 직후 적용<br>
+• <b>T코드</b>: 중독·화상·부식·수술 합병증 등 <u>외인에 의한 특수 손상</u><br>
+• <b>M코드</b>: 근골격계·결합조직 <u>질환</u> → 퇴행성·만성 병변<br>
+• <b>V·W·X·Y코드</b>: 사고의 <u>원인(외인)</u> 보조 코드 — S·T코드와 반드시 병기<br><br>
+<b style="color:#c0392b;">⚠️ 실무 핵심</b>: S·T코드는 외인코드(V~Y)가 병기되어야 인과관계가 법적으로 명확해집니다.
+</div>""", unsafe_allow_html=True)
+
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:14px 0 8px 0;font-weight:900;
+  font-size:0.9rem;color:#1a3a5c;">📊 KCD 코드 대분류 체계</div>""", unsafe_allow_html=True)
+            st.components.v1.html("""
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;">
+<thead>
+<tr style="background:#1a3a5c;color:#fff;">
+  <th style="padding:8px 10px;text-align:left;">코드 분류</th>
+  <th style="padding:8px 10px;text-align:left;">정의 및 특징</th>
+  <th style="padding:8px 10px;text-align:left;">주요 적용 상병 예시</th>
+</tr>
+</thead>
+<tbody>
+<tr style="background:#f0f8ff;">
+  <td style="padding:7px 10px;font-weight:700;color:#1a6bb5;">S코드 (Injury)</td>
+  <td style="padding:7px 10px;">특정 신체 부위의 외상성 급성 손상</td>
+  <td style="padding:7px 10px;">골절(S82), 탈구(S43), 뇌진탕(S06), 인대파열(S83), 척수손상(S14)</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:7px 10px;font-weight:700;color:#1a6bb5;">T코드 (Poisoning 등)</td>
+  <td style="padding:7px 10px;">외인에 의한 중독·화상·부식·합병증</td>
+  <td style="padding:7px 10px;">화상(T30), 약물중독(T36), 수술 후 합병증(T81), 질식(T71), 감전(T75.4)</td>
+</tr>
+<tr style="background:#f0fff4;">
+  <td style="padding:7px 10px;font-weight:700;color:#15803d;">M코드 (Musculoskeletal)</td>
+  <td style="padding:7px 10px;">근골격계·결합조직 질환 (퇴행성)</td>
+  <td style="padding:7px 10px;">추간판탈출증(M51), 회전근개증후군(M75), 관절염(M17), 반월상연골(M23)</td>
+</tr>
+<tr style="background:#fffbeb;">
+  <td style="padding:7px 10px;font-weight:700;color:#d97706;">V코드 (운수사고)</td>
+  <td style="padding:7px 10px;">보행자·차량 운수사고 원인 코드</td>
+  <td style="padding:7px 10px;">보행자 사고(V01~V09), 이륜차(V20~V29), 승용차(V40~V49)</td>
+</tr>
+<tr style="background:#fff7ed;">
+  <td style="padding:7px 10px;font-weight:700;color:#d97706;">W코드 (추락·물리적 힘)</td>
+  <td style="padding:7px 10px;">추락·전도·물체충격 원인 코드</td>
+  <td style="padding:7px 10px;">미끄러짐(W01), 계단추락(W10), 사다리추락(W11), 물체충격(W20~W64)</td>
+</tr>
+<tr style="background:#fef2f2;">
+  <td style="padding:7px 10px;font-weight:700;color:#dc2626;">X코드 (환경노출)</td>
+  <td style="padding:7px 10px;">화재·유독물·자연재해·자해 원인</td>
+  <td style="padding:7px 10px;">화재(X00), 낙뢰(X33), 유독동물접촉(X20~X29), 고의자해(X60~X84)</td>
+</tr>
+<tr style="background:#fdf4ff;">
+  <td style="padding:7px 10px;font-weight:700;color:#7c3aed;">Y코드 (의료처치·폭행)</td>
+  <td style="padding:7px 10px;">수술사고·약물부작용·타인폭행</td>
+  <td style="padding:7px 10px;">수술 중 사고(Y60), 약물부작용(Y40~Y59), 타인에 의한 폭행(Y00~Y09)</td>
+</tr>
+</tbody>
+</table>
+</div>""", height=280)
+
+        with kcd_tab2:
+            st.markdown("""<div style="background:#f0fff4;border-left:4px solid #059669;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+  font-size:0.9rem;color:#064e3b;">🔄 S·T코드 → M코드 전환 시점 및 논리</div>""", unsafe_allow_html=True)
+            st.components.v1.html("""
+<div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#1a2e1a;padding:4px;">
+<b style="font-size:0.9rem;color:#059669;">▶ 핵심 전환 기점: 사고 후 6개월(180일)</b><br><br>
+
+<b>① 증상의 고착화</b><br>
+급성 외상(S코드)은 통상 6개월 이내 치유되거나 고착됩니다.<br>
+이후 남은 통증은 '손상(Injury)'이 아닌 <b style="color:#dc2626;">'상태(Condition)'인 질환(M코드)</b>으로 분류됩니다.<br><br>
+
+<b>② 퇴행성 병변 가시화</b><br>
+사고 초기엔 부종으로 보이지 않던 퇴행성 변화가 시간이 지나며 MRI상 명확해질 때,<br>
+전문의는 정밀 검사 결과에 따라 M코드를 추가하거나 변경합니다.<br><br>
+
+<b>③ 장해 판정 시점</b><br>
+보험약관 및 맥브라이드 평가는 <b>사고 후 180일 경과 후</b> 가능합니다.<br>
+'영구적 기능 장해'는 급성 손상이 아닌 <b>만성적 변형(M코드)</b>으로 간주되는 경우가 많습니다.<br><br>
+
+<b style="color:#1a6bb5;">▶ 부위별 전환 논리 예시</b><br>
+• <b>허리(추간판)</b>: S33.5(요추염좌) → <span style="color:#dc2626;">M51(추간판탈출증)</span><br>
+&nbsp;&nbsp;지급률 기준: 20%(고도) / 15%(중등도) / 10%(경도), 외상 기여도 20~50% 산출<br>
+• <b>어깨(회전근개)</b>: S43.0(탈구)·S46(힘줄손상) → <span style="color:#dc2626;">M75.1(회전근개증후군)</span><br>
+&nbsp;&nbsp;ROM 제한 지급률: 30%(고도) / 10%(중등도) / 5%(경도), 사고 전 치료력 필수 확인<br>
+• <b>무릎(연골)</b>: S83.2(인대파열) → <span style="color:#dc2626;">M23.2(반월상연골파열)</span><br><br>
+
+<b style="color:#7c3aed;">▶ 법적 근거</b><br>
+• 대법원 98다158: 상해 입증책임은 청구권자에게 있음<br>
+• 대법원 2002다3040: 기왕증과 사고의 복합 기여 인정<br>
+• 상법 제737조·표준약관 제7조: 상해·질병 경합 시 상해 부분만 보상<br>
+• 금감원 분쟁조정: 질병의 영향이 있는 상해 → 기왕증 기여도 공제 권고
+</div>""", height=420)
+
+            st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:12px 0 8px 0;font-weight:900;
+  font-size:0.9rem;color:#7d3c00;">💊 건강보험 적용 변화 및 지불 주체 전환</div>""", unsafe_allow_html=True)
+            st.components.v1.html("""
+<div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#3d1f00;padding:4px;">
+<b>① 본인부담금 변화</b><br>
+단순 상해(S) → 만성 질환(M) 전환 시, 산정특례·본인부담상한제 적용 범위가 달라질 수 있습니다.<br><br>
+
+<b>② 지불 주체 전환</b><br>
+• 사고 초기: 자동차보험(자보) 또는 산재보험으로 처리<br>
+• 6개월 후 질병 판명 시: <b style="color:#1a6bb5;">지불 주체 → 국민건강보험공단</b>으로 전환 가능<br>
+• 보험사는 기지불 치료비 중 질병 분에 대해 <b style="color:#dc2626;">부당이득 반환 청구</b> 가능<br><br>
+
+<b>③ 의료법 제18조</b><br>
+의사는 KCD 지침에 따라 진단해야 하므로, 환자 요구만으로 M→S 유지 불가.<br>
+단, <b>'외상성(Traumatic)'</b> 문구를 비고란에 기재하면 상해성을 법적으로 보전 가능.
+</div>""", height=220)
+
+        with kcd_tab3:
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+  font-size:0.9rem;color:#1a3a5c;">👁️ 주체별 관점에서의 코드 운용 및 심사 기준</div>""", unsafe_allow_html=True)
+
+            with st.expander("① 전문의(Clinician) 관점 — 임상적 상태와 치료 단계", expanded=True):
+                st.components.v1.html("""
+<div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#1a2e4a;padding:4px;">
+<b>판단 기준: '외력에 의한 급성 손상'인가 vs '내인적 퇴행성 변화'인가</b><br><br>
+• <b style="color:#1a6bb5;">S·T코드 부여</b>: 사고 직후 외상 소견(부종·출혈·골절)이 명확할 때<br>
+• <b style="color:#dc2626;">M코드 부여</b>: 급성기 치료 후 통증 지속 또는 MRI상 사고 전부터 존재하던<br>
+&nbsp;&nbsp;신경 퇴행·연골 마모 등이 주된 원인일 때<br><br>
+<b>실무 Tip</b>: 초진 차트에 <b>'외상성(Traumatic)'</b> 명시 및 영상 판독지 보관이 핵심
+</div>""", height=160)
+
+            with st.expander("② 심사평가원(HIRA) 관점 — 급여 적정성과 책임 소재"):
+                st.components.v1.html("""
+<div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#1a2e4a;padding:4px;">
+<b>목적: 건강보험 재정 보호 — '사고의 외래성' 엄격 모니터링</b><br><br>
+• <b>심사 핵심</b>: S코드 청구 → 동일 부위 M코드 과거 치료력 반복 확인 시<br>
+&nbsp;&nbsp;→ '질병의 재발'로 간주, 심사 조정(삭감) 또는 건보공단 통보<br>
+• <b>연동 체계</b>: 자동차보험·산재보험과의 중복 청구 방지를 위해<br>
+&nbsp;&nbsp;외인코드(V~Y) 기재 여부 필수 체크
+</div>""", height=145)
+
+            with st.expander("③ 손해사정인 관점 — 입증 책임과 보험금 지급"):
+                st.components.v1.html("""
+<div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#1a2e4a;padding:4px;">
+<b>핵심 업무: 보험약관상 '상해' 요건(급격·우연·외래) 충족 여부를 코드로 1차 판단</b><br><br>
+• <b>분쟁 지점</b>: S코드 → M코드 전환 시 보험사는 <b style="color:#dc2626;">'기왕증 기여도'</b> 주장 → 보험금 감액 시도<br>
+• <b>대응 전략</b>: 진단서상 코드가 M이라도,<br>
+&nbsp;&nbsp;<b>사고와의 상당인과관계</b> 입증 → 상해 보험금(또는 배상금) 확보<br>
+• <b>필수 서류</b>: 사고 직후 초진 기록 + 영상 판독지 (최우선 증거)<br>
+&nbsp;&nbsp;기여도 입증: 주치의에게 <b>"외상 기여도 %"</b> 소견서 요청
+</div>""", height=170)
+
+        with kcd_tab4:
+            st.markdown("""<div style="background:#fef3c7;border-left:4px solid #d97706;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+  font-size:0.9rem;color:#78350f;">⚖️ S·T코드(결과)와 V·W·X·Y코드(원인)의 법적·실무적 결합</div>""", unsafe_allow_html=True)
+
+            st.components.v1.html("""
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:0.81rem;font-family:sans-serif;">
+<thead>
+<tr style="background:#78350f;color:#fff;">
+  <th style="padding:7px 10px;">대분류</th>
+  <th style="padding:7px 10px;">코드 범위</th>
+  <th style="padding:7px 10px;">상세 내용 및 예시</th>
+</tr>
+</thead>
+<tbody>
+<tr style="background:#fffbeb;">
+  <td style="padding:6px 10px;font-weight:700;">운수 사고 (V)</td>
+  <td style="padding:6px 10px;">V01–V99</td>
+  <td style="padding:6px 10px;">보행자 사고, 자전거, 이륜차, 승용차 사고 등 (교통사고 처리 시 필수)</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:6px 10px;font-weight:700;">추락·전도 (W)</td>
+  <td style="padding:6px 10px;">W00–W19</td>
+  <td style="padding:6px 10px;">미끄러짐, 걸려 넘어짐(W01), 계단 추락(W10), 사다리 추락(W11)</td>
+</tr>
+<tr style="background:#fffbeb;">
+  <td style="padding:6px 10px;font-weight:700;">물리적 힘 (W)</td>
+  <td style="padding:6px 10px;">W20–W64</td>
+  <td style="padding:6px 10px;">물체에 부딪힘, 끼임, 날카로운 물체에 베임, 기계 사고</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:6px 10px;font-weight:700;">환경적 노출 (X)</td>
+  <td style="padding:6px 10px;">X00–X59</td>
+  <td style="padding:6px 10px;">화재, 연기 노출, 유독 동물(뱀·벌) 접촉, 자연재해(낙뢰·폭염)</td>
+</tr>
+<tr style="background:#fef2f2;">
+  <td style="padding:6px 10px;font-weight:700;color:#dc2626;">의도적 자해/공격 (X/Y)</td>
+  <td style="padding:6px 10px;">X60–Y09</td>
+  <td style="padding:6px 10px;">고의적 자해(X60~) → 우연성 파괴 → 면책 사유 / 타인 폭행(Y00~)</td>
+</tr>
+<tr style="background:#fffbeb;">
+  <td style="padding:6px 10px;font-weight:700;">의료 처치 부작용 (Y)</td>
+  <td style="padding:6px 10px;">Y40–Y84</td>
+  <td style="padding:6px 10px;">수술 중 사고, 약물 부작용, 의료기기 결함에 의한 손상</td>
+</tr>
+</tbody>
+</table>
+</div>""", height=230)
+
+            st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:14px 0 8px 0;font-weight:900;
+  font-size:0.9rem;color:#7d3c00;">🔍 손해사정인 3대 검증 포인트</div>""", unsafe_allow_html=True)
+            st.components.v1.html("""
+<div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#3d1f00;padding:4px;">
+<b>① 사고의 외래성 및 일관성 검토</b><br>
+• 청구 경위(V~Y)와 의무기록지 '초진 차트' 내용 일치 여부 확인<br>
+• 예시: "계단에서 굴렀다(W10)" 주장 vs 병원 기록 "아침에 갑자기 허리 통증" → <span style="color:#dc2626;">외래성 결여로 지급 거절</span><br><br>
+
+<b>② 상병 부위와 사고 기전의 정합성</b><br>
+• 사고의 물리적 에너지 방향이 진단된 S코드 부위에 영향을 줄 수 있는지 분석<br>
+• 예시: "후방 추돌(V43) → 무릎 십자인대 파열(S83)" → 직접 충격 흔적 없으면 퇴행성(M코드) 간주<br><br>
+
+<b>③ 고의 및 면책 사유 해당 여부</b><br>
+• X60~X84(자해) 외인코드 → <b>'우연성' 파괴</b> → 면책 처리<br>
+• 추락(W13) 신고이나 고의성 의심 시 경찰 조사·유서 등 정밀 조사 필요<br><br>
+
+<b style="color:#1a6bb5;">▶ 실무 사례: 허리 압박골절(S32.0) + 화장실 미끄러짐(W01)</b><br>
+• 골밀도 T-score 확인 → 골다공증 심하면 사고 기여도 30~50%만 인정<br>
+• MRI 신호강도 확인 → 진구성(오래된) 골절이면 금번 사고와 무관 → 지급 거절<br>
+• 사고 장소 조사: 화장실 물기·신발 종류 등 객관적 증거 확보
+</div>""", height=310)
+
+            st.info("📌 실무 권고: 진단서에 S코드만 기재된 경우, 반드시 추가 진단서나 소견서를 통해 V~Y코드를 보완하십시오. 향후 재보험사 심사나 금감원 민원 시 강력한 방어 논리가 됩니다.")
+
+        with kcd_tab5:
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+  font-size:0.9rem;color:#1a3a5c;">🤖 AI 손해사정 분석 — 후유장해 기여도 산출</div>""", unsafe_allow_html=True)
+
+            col_ki1, col_ki2 = st.columns([1, 1])
+            with col_ki1:
+                ki_c_name = st.text_input("고객 성함", "우량 고객", key="ki_c_name")
+                st.session_state.current_c_name = ki_c_name
+                ki_accident_date = st.date_input("사고 발생일", key="ki_accident_date")
+                ki_initial_code  = st.text_input("초진 KCD 코드 (예: S13.4, S32.0)", "S13.4", key="ki_initial_code")
+                ki_current_code  = st.text_input("현재 KCD 코드 (예: M51, M75.1)", "M51",   key="ki_current_code")
+                ki_body_part = st.selectbox("손상 부위", ["허리(추간판)", "어깨(회전근개)", "무릎(연골·인대)", "경추(목)", "기타"], key="ki_body_part")
+                ki_contribution  = st.slider("외상 기여도 추정 (%)", min_value=0, max_value=100, value=50, step=5, key="ki_contribution")
+                ki_severity = st.selectbox("중증도", ["고도(High)", "중등도(Mid)", "경도(Low)"], key="ki_severity")
+                ki_prior_history = st.checkbox("사고 전 동일 부위 치료력 있음", key="ki_prior_history")
+                ki_query_extra   = st.text_area("추가 사항 (MRI 소견, 초진 내용 등)", height=80, key="ki_query_extra")
+            with col_ki2:
+                import datetime as _dt
+                _today    = _dt.date.today()
+                _acc_date = ki_accident_date if ki_accident_date else _today
+                _months   = (_today.year - _acc_date.year) * 12 + (_today.month - _acc_date.month)
+                _is_6m    = _months >= 6
+                _sev_map  = {"고도(High)": "high", "중등도(Mid)": "mid", "경도(Low)": "low"}
+                _part_map = {"허리(추간판)": "spine", "어깨(회전근개)": "shoulder", "무릎(연골·인대)": "knee",
+                             "경추(목)": "cervical", "기타": "other"}
+                _base_rates = {
+                    "spine":    {"high": 0.20, "mid": 0.15, "low": 0.10},
+                    "shoulder": {"high": 0.30, "mid": 0.10, "low": 0.05},
+                    "knee":     {"high": 0.20, "mid": 0.10, "low": 0.05},
+                    "cervical": {"high": 0.20, "mid": 0.15, "low": 0.10},
+                    "other":    {"high": 0.20, "mid": 0.10, "low": 0.05},
+                }
+                _part_key = _part_map.get(ki_body_part, "other")
+                _sev_key  = _sev_map.get(ki_severity, "mid")
+                _base     = _base_rates.get(_part_key, {}).get(_sev_key, 0.10)
+                _contrib  = ki_contribution / 100
+                _final    = _base * _contrib
+
+                st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:0 0 8px 0;font-weight:900;
+  font-size:0.85rem;color:#1a3a5c;">📐 자동 산출 결과</div>""", unsafe_allow_html=True)
+                _badge_color = "#dc2626" if _is_6m else "#16a34a"
+                _badge_text  = f"사고 후 {_months}개월 경과 → {'M코드 전환 가능성 높음 ⚠️' if _is_6m else '급성기(S코드) 유지 단계 ✅'}"
+                st.markdown(f"""<div style="background:#{'fff0f0' if _is_6m else '#f0fff4'};
+  border:1px solid {'#fca5a5' if _is_6m else '#86efac'};border-radius:6px;
+  padding:8px 12px;font-size:0.82rem;font-weight:700;color:{_badge_color};margin-bottom:8px;">
+  {_badge_text}
+</div>""", unsafe_allow_html=True)
+                st.markdown(f"""<div style="background:#f8faff;border:1px solid #b3c8e8;border-radius:8px;
+  padding:12px;font-size:0.83rem;color:#1a2e4a;line-height:2.0;">
+  <b>초진 코드:</b> {ki_initial_code} &nbsp;→&nbsp; <b>현재 코드:</b> {ki_current_code}<br>
+  <b>기준 장해율(약관):</b> {_base*100:.0f}%<br>
+  <b>외상 기여도:</b> {ki_contribution}%<br>
+  <b>최종 지급률:</b> <span style="color:#dc2626;font-size:1.05rem;font-weight:900;">{_final*100:.1f}%</span><br>
+  <b>계산식:</b> {_base*100:.0f}% × {ki_contribution}% = {_final*100:.1f}%<br>
+  {'<b style="color:#e67e22;">⚠️ 사고 전 치료력 있음 → 기왕증 공제 추가 검토 필요</b>' if ki_prior_history else ''}
+</div>""", unsafe_allow_html=True)
+
+                if st.button("🤖 AI 심층 손해사정 분석 실행", key="ki_ai_run", use_container_width=True):
+                    _ai_prompt = (
+                        f"[KCD 상해 손해사정 분석 — 후유장해 기여도 산출]\n"
+                        f"고객: {ki_c_name} | 사고일: {_acc_date} | 경과: {_months}개월\n"
+                        f"초진코드: {ki_initial_code} → 현재코드: {ki_current_code}\n"
+                        f"손상부위: {ki_body_part} | 중증도: {ki_severity} | 외상기여도: {ki_contribution}%\n"
+                        f"사고 전 치료력: {'있음' if ki_prior_history else '없음'}\n"
+                        f"추가소견: {ki_query_extra}\n\n"
+                        "다음 3개 파트로 분석하십시오:\n"
+                        "【의학적 소견】\n"
+                        f"1. {ki_initial_code}(S/T코드) → {ki_current_code}(M코드) 전환의 의학적 타당성\n"
+                        "2. 사고 후 6개월 기점 증상 고착화 및 퇴행성 병변 개입 여부\n"
+                        "3. MRI 소견상 외상성 변화와 기왕증 구분 기준\n\n"
+                        "【법리적 검토】\n"
+                        "4. 대법원 98다158, 2002다3040 판례 적용 — 인과관계 입증 기준\n"
+                        "5. 상법 제737조·표준약관 제7조 기왕증 공제 적용 가능성\n"
+                        "6. 금감원 분쟁조정사례 기준 보험금 지급 여부 판단\n\n"
+                        "【실무적 대응 전략】\n"
+                        f"7. 외상 기여도 {ki_contribution}% 적용 시 예상 보험금 지급률\n"
+                        "8. 손해사정인이 확보해야 할 필수 서류 목록\n"
+                        "9. 보험사 지급 거절 시 대응 전략 (소견서 요청, 금감원 민원 등)\n"
+                        "[주의] 모든 법조문·판례 인용 시 원본 출처 명시 필수."
+                    )
+                    try:
+                        _client, _cfg = get_master_model()
+                        _resp = _client.models.generate_content(
+                            model=GEMINI_MODEL, contents=_ai_prompt, config=_cfg)
+                        st.session_state["res_kcd_injury"] = sanitize_unicode(_resp.text) if _resp.text else "응답 없음"
+                        update_usage(st.session_state.get('user_name', ''))
+                        st.rerun()
+                    except Exception as _e:
+                        st.error(f"AI 분석 오류: {sanitize_unicode(str(_e))}")
+
+            show_result("res_kcd_injury")
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t2] 기본보험 상담 ────────────────────────────────────────────────
