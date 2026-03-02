@@ -184,11 +184,99 @@ export const useCustomerStore = create((set, get) => ({
       return { schedules: { ...s.schedules, [id]: { ...prev, done: !prev.done } } };
     }),
 
+  // ── 스캔 결과 해시맵 (SSOT) ─────────────────────────────────────────────
+  /**
+   * scanResults: {
+   *   [scanId]: {
+   *     id, customerId, agentId,
+   *     docType,        // 'medical_certificate' | 'diagnosis' | 'surgery' | 'disability' | 'other'
+   *     rawText,        // 원본 OCR 텍스트 (마스킹 전)
+   *     masked,         // PII 마스킹 완료 여부
+   *     analysis: {
+   *       summary,      // AI 요약 (설계사용)
+   *       clientSummary,// 고객용 안심 요약
+   *       kcdCodes,     // [{code, name, note}]
+   *       disabilityRate,
+   *       surgeries,    // [string]
+   *       expectedPayout,  // 예상 수령 보험금(만원)
+   *       upsellPoints, // AI 업셀링 추천 포인트 [string]
+   *       kakaoScript,  // 카톡 멘트 초안
+   *     },
+   *     scannedAt, status // 'pending'|'done'|'error'
+   *   }
+   * }
+   */
+  scanResults: {},
+
+  /** 스캔 결과 upsert (신규 추가 또는 수정) — Firestore stub 포함 */
+  upsertScanResult: (customerId, agentId, scanData) => {
+    const id = scanData.id || `SCAN_${uid()}`;
+    const record = {
+      id, customerId, agentId,
+      docType: 'other', rawText: '', masked: false,
+      analysis: {
+        summary: '', clientSummary: '', kcdCodes: [],
+        disabilityRate: null, surgeries: [], expectedPayout: 0,
+        upsellPoints: [], kakaoScript: '',
+      },
+      scannedAt: now(), status: 'pending',
+      ...scanData,
+      id,
+    };
+    set((s) => ({ scanResults: { ...s.scanResults, [id]: record } }));
+    // TODO: Firestore upsert
+    // firebaseUpsertScan(customerId, agentId, record);
+    return id;
+  },
+
+  /** 스캔 분석 완료 후 결과 patch */
+  completeScanResult: (scanId, analysis, docType) =>
+    set((s) => {
+      const prev = s.scanResults[scanId];
+      if (!prev) return s;
+      return {
+        scanResults: {
+          ...s.scanResults,
+          [scanId]: { ...prev, analysis, docType, masked: true, status: 'done' },
+        },
+      };
+    }),
+
+  /** 스캔 삭제 — 2중 확인은 UI 레이어에서 처리, 여기서는 audit_log 기록 후 삭제 */
+  removeScanResult: (scanId, agentId) => {
+    const record = get().scanResults[scanId];
+    if (!record) return;
+    // audit_log stub
+    const log = {
+      action: 'DELETE_SCAN', scanId, agentId,
+      customerId: record.customerId, at: now(),
+    };
+    console.info('[audit_log]', JSON.stringify(log));
+    // TODO: Firestore audit_logs 컬렉션에 저장
+    // firebaseAddAuditLog(log);
+    set((s) => {
+      const next = { ...s.scanResults };
+      delete next[scanId];
+      return { scanResults: next };
+    });
+  },
+
+  /** 고객별 스캔 결과 배열 (최신순) */
+  getScansByCustomer: (customerId) =>
+    Object.values(get().scanResults)
+      .filter((r) => r.customerId === customerId)
+      .sort((a, b) => (a.scannedAt < b.scannedAt ? 1 : -1)),
+
   // ── 내비게이션 상태 ──────────────────────────────────────────────────────
   /** 현재 열려있는 프로필 고객 ID */
   activeProfileId: null,
   openProfile: (id) => set({ activeProfileId: id }),
   closeProfile: ()  => set({ activeProfileId: null }),
+
+  /** 스캔 결과 뷰 상태 */
+  activeScanId: null,
+  openScanView:  (scanId) => set({ activeScanId: scanId }),
+  closeScanView: ()       => set({ activeScanId: null }),
 
   /** 일정 모달 상태 */
   scheduleModal: { open: false, prefillCustomerId: null, editScheduleId: null },
@@ -198,14 +286,20 @@ export const useCustomerStore = create((set, get) => ({
     set({ scheduleModal: { open: false, prefillCustomerId: null, editScheduleId: null } }),
 }));
 
-// ── Selector 헬퍼 (메모이제이션 없이 사용 가능) ──────────────────────────────
-export const selCustomer    = (id) => (s) => s.customers[id] ?? null;
-export const selCustomerList= (s) => Object.values(s.customers);
-export const selSchedules   = (customerId) => (s) =>
+// ── Selector 헬퍼 ──────────────────────────────────────────────────────────
+export const selCustomer      = (id) => (s) => s.customers[id] ?? null;
+export const selCustomerList  = (s) => Object.values(s.customers);
+export const selSchedules     = (customerId) => (s) =>
   Object.values(s.schedules)
     .filter((sc) => sc.customerId === customerId)
     .sort((a, b) => (a.date > b.date ? 1 : -1));
 export const selDateSchedules = (date) => (s) =>
   Object.values(s.schedules).filter((sc) => sc.date === date);
-export const selModal       = (s) => s.scheduleModal;
+export const selModal         = (s) => s.scheduleModal;
 export const selActiveProfile = (s) => s.activeProfileId;
+export const selActiveScan    = (s) => s.activeScanId;
+export const selScan          = (id) => (s) => s.scanResults[id] ?? null;
+export const selScansByCustomer = (customerId) => (s) =>
+  Object.values(s.scanResults)
+    .filter((r) => r.customerId === customerId)
+    .sort((a, b) => (a.scannedAt < b.scannedAt ? 1 : -1));

@@ -25,7 +25,16 @@ import {
   useCustomerStore,
   selCustomer,
   selSchedules,
+  selScansByCustomer,
 } from '../store/customerStore';
+
+const DOC_TYPE_LABEL = {
+  diagnosis:           { label: '진단서',    color: '#3b82f6', bg: '#dbeafe' },
+  surgery:             { label: '수술확인서', color: '#ef4444', bg: '#fee2e2' },
+  disability:          { label: '장해진단서', color: '#f59e0b', bg: '#fef3c7' },
+  medical_certificate: { label: '진료확인서', color: '#22c55e', bg: '#dcfce7' },
+  other:               { label: '기타문서',  color: '#6b7280', bg: '#f3f4f6' },
+};
 
 // ── 카테고리 메타 ─────────────────────────────────────────────────────────────
 const CAT_META = {
@@ -40,11 +49,13 @@ const CustomerProfileView = () => {
   const activeId         = useCustomerStore((s) => s.activeProfileId);
   const customer         = useCustomerStore(selCustomer(activeId));
   const schedules        = useCustomerStore(selSchedules(activeId));
+  const scans            = useCustomerStore(selScansByCustomer(activeId));
   const updateCustomer   = useCustomerStore((s) => s.updateCustomer);
   const closeProfile     = useCustomerStore((s) => s.closeProfile);
   const openScheduleModal= useCustomerStore((s) => s.openScheduleModal);
   const toggleDone       = useCustomerStore((s) => s.toggleScheduleDone);
   const openEditSchedule = useCustomerStore((s) => s.openScheduleModal);
+  const openScanView     = useCustomerStore((s) => s.openScanView);
 
   const [editMode, setEditMode] = useState(false);
   const [draft, setDraft]       = useState({});
@@ -309,6 +320,56 @@ const CustomerProfileView = () => {
             )}
           </View>
 
+          {/* ── 스캔 이력 섹션 (제2·3장 연동) ── */}
+          <View style={styles.scheduleSection}>
+            <View style={styles.scheduleSectionHeader}>
+              <Text style={styles.scheduleSectionTitle}>🔬 의료문서 스캔 이력</Text>
+              <View style={styles.scanBadge}>
+                <Text style={styles.scanBadgeText}>{scans.length}건</Text>
+              </View>
+            </View>
+
+            {scans.length === 0 ? (
+              <View style={styles.emptyScheduleWrap}>
+                <Text style={styles.emptyScheduleText}>
+                  {'스캔 이력이 없습니다.\nAI 분석 후 결과가 여기에 자동 표시됩니다.'}
+                </Text>
+              </View>
+            ) : (
+              scans.map((scan) => {
+                const meta = DOC_TYPE_LABEL[scan.docType] || DOC_TYPE_LABEL.other;
+                const dateStr = new Date(scan.scannedAt).toLocaleDateString('ko-KR');
+                return (
+                  <TouchableOpacity
+                    key={scan.id}
+                    style={styles.scanRow}
+                    onPress={() => openScanView(scan.id)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.scanDocBadge, { backgroundColor: meta.bg }]}>
+                      <Text style={[styles.scanDocBadgeText, { color: meta.color }]}>
+                        {meta.label}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.scanTitle} numberOfLines={1}>
+                        {scan.analysis?.summary
+                          ? scan.analysis.summary.slice(0, 36) + '…'
+                          : '분석 대기 중'}
+                      </Text>
+                      <Text style={styles.scanMeta}>
+                        {dateStr}
+                        {scan.masked ? '  ·  🛡️ PII 마스킹' : ''}
+                        {scan.status === 'error' ? '  ·  ⚠️ 오류' : ''}
+                      </Text>
+                    </View>
+                    <Text style={styles.custChevron}>›</Text>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+
           <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -530,6 +591,24 @@ const styles = StyleSheet.create({
 
   emptyScheduleWrap: { paddingVertical: 24, alignItems: 'center' },
   emptyScheduleText: { fontSize: 13, color: '#94a3b8', textAlign: 'center', lineHeight: 20 },
+
+  // ── 스캔 이력
+  scanBadge: {
+    paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12,
+    backgroundColor: '#dbeafe',
+  },
+  scanBadgeText: { fontSize: 11, fontWeight: '800', color: '#1d4ed8' },
+  scanRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 11, paddingHorizontal: 12,
+    backgroundColor: '#f8fafc', borderRadius: 10,
+    marginBottom: 6, borderWidth: 1, borderColor: '#f1f5f9',
+  },
+  scanDocBadge:     { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10, flexShrink: 0 },
+  scanDocBadgeText: { fontSize: 11, fontWeight: '800' },
+  scanTitle:        { fontSize: 13, fontWeight: '700', color: '#1e293b' },
+  scanMeta:         { fontSize: 11, color: '#94a3b8', marginTop: 2 },
+  custChevron:      { fontSize: 20, color: '#94a3b8', fontWeight: '300' },
 });
 
 export default CustomerProfileView;

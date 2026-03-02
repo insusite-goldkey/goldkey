@@ -2,20 +2,26 @@
  * 골드키 CRM 앱 진입점 (App.js)
  * React Native CLI 기준
  *
- * ┌ 라우팅 흐름 ────────────────────────────────────────────────────┐
- * │  앱 시작                                                         │
- * │    └─▶ <SplashScreen onFinish={handleSplashDone} />             │
- * │          │  (5초 + 백그라운드 prefetch)                          │
- * │          └─▶ showSplash = false                                 │
- * │                └─▶ <RoutingGuard />                             │
- * │                      ├─ <Dashboard />          (기본 화면)      │
- * │                      ├─ <CustomerProfileView /> (activeProfileId) │
- * │                      └─ <ScheduleInputModal />  (전역 오버레이) │
- * └─────────────────────────────────────────────────────────────────┘
+ * ┌ 라우팅 흐름 ─────────────────────────────────────────────────────────┐
+ * │  앱 시작                                                              │
+ * │    └─▶ <SplashScreen onFinish={handleSplashDone} />                  │
+ * │          │  (5초 + 백그라운드 prefetch)                               │
+ * │          └─▶ showSplash = false                                      │
+ * │                └─▶ <RoutingGuard />                                  │
+ * │                      ├─ <Dashboard />              (기본 화면)       │
+ * │                      ├─ <CustomerProfileView />    (activeProfileId) │
+ * │                      ├─ <MedicalScanResultView />  (activeScanId)    │
+ * │                      └─ <ScheduleInputModal />     (전역 오버레이)   │
+ * └──────────────────────────────────────────────────────────────────────┘
  *
- * SSOT 동기화:
- *   모든 화면은 useCustomerStore(customerId) 구독 → 프로필 저장 시
- *   해당 id 하나만 patch → Dashboard·검색창·달력 즉시 일제 반영
+ * 전역 데이터 동기화 헌법 (SSOT Constitution):
+ *   제1장 — 모든 화면은 useCustomerStore 단 하나만 구독.
+ *            수정 시 해당 id 하나만 patch → 앱 전역 0.1초 즉시 동기화.
+ *   제2장 — analyzeMedicalDocument() 단일 AI 파이프라인.
+ *            PII 2중 마스킹(클라이언트 정규식 + Gemini System Prompt).
+ *            삭제 시 2중 확인 팝업 + audit_log 영구 기록.
+ *   제3장 — MedicalScanResultView 듀얼뷰(설계사/고객).
+ *            [일정 추가] → openScheduleModal → 메인 달력 즉시 반영.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -24,6 +30,7 @@ import { useCustomerStore }    from './src/store/customerStore';
 import SplashScreen            from './src/screens/SplashScreen';
 import Dashboard               from './src/screens/Dashboard';
 import CustomerProfileView     from './src/screens/CustomerProfileView';
+import MedicalScanResultView   from './src/screens/MedicalScanResultView';
 import ScheduleInputModal      from './src/components/ScheduleInputModal';
 
 /**
@@ -36,20 +43,28 @@ import ScheduleInputModal      from './src/components/ScheduleInputModal';
  */
 const RoutingGuard = () => {
   const activeProfileId = useCustomerStore((s) => s.activeProfileId);
+  const activeScanId    = useCustomerStore((s) => s.activeScanId);
 
   return (
     <View style={styles.root}>
-      {/* 메인 대시보드 — 항상 마운트 유지 (unmount 없이 overlay로 가림) */}
+      {/* 제1장: 메인 대시보드 — 항상 마운트 유지 (unmount 없이 overlay로 가림) */}
       <Dashboard />
 
-      {/* 고객 프로필 오버레이 — activeProfileId 있을 때만 표시 */}
+      {/* 제1장: 고객 프로필 오버레이 — activeProfileId 있을 때만 표시 */}
       {activeProfileId && (
-        <View style={styles.profileOverlay}>
+        <View style={styles.fullOverlay}>
           <CustomerProfileView />
         </View>
       )}
 
-      {/* 일정 입력 모달 — 전역 단일 인스턴스 */}
+      {/* 제3장: 스캔 결과 듀얼뷰 — activeScanId 있을 때만 표시 (z:200, 프로필 위) */}
+      {activeScanId && (
+        <View style={[styles.fullOverlay, styles.scanOverlay]}>
+          <MedicalScanResultView />
+        </View>
+      )}
+
+      {/* 제1장·제3장: 일정 입력 모달 — 전역 단일 인스턴스, 최상단 */}
       <ScheduleInputModal />
     </View>
   );
@@ -73,10 +88,13 @@ const App = () => {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#ffffff' },
-  profileOverlay: {
+  fullOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#f8fafc',
     zIndex: 100,
+  },
+  scanOverlay: {
+    zIndex: 200,   // 프로필뷰(100) 위에 렌더
   },
 });
 
