@@ -6432,6 +6432,29 @@ def main():
         layout="centered",
         initial_sidebar_state="collapsed"
     )
+    # ── [DEBUG] HF Space 런타임 에러 진단 배너 (확인 후 제거) ─────────────
+    import os as _os
+    if _os.environ.get("SPACE_ID"):
+        import sys as _sys
+        _dbg = []
+        _dbg.append(f"Python: {_sys.version}")
+        _dbg.append(f"SPACE_ID: {_os.environ.get('SPACE_ID','?')}")
+        try:
+            import pdfplumber; _dbg.append("pdfplumber OK")
+        except Exception as _e: _dbg.append(f"pdfplumber ERR: {_e}")
+        try:
+            import pymupdf; _dbg.append("pymupdf OK")
+        except Exception as _e: _dbg.append(f"pymupdf ERR: {_e}")
+        try:
+            import cryptography; _dbg.append("cryptography OK")
+        except Exception as _e: _dbg.append(f"cryptography ERR: {_e}")
+        try:
+            import supabase; _dbg.append("supabase OK")
+        except Exception as _e: _dbg.append(f"supabase ERR: {_e}")
+        try:
+            import google.genai; _dbg.append("google-genai OK")
+        except Exception as _e: _dbg.append(f"google-genai ERR: {_e}")
+        st.info("🔧 DEBUG: " + " | ".join(_dbg))
 
     # ── STEP 1-FOUC: 흰 화면(FOUC) 즉시 차단 ────────────────────────────
     # set_page_config 직후 배경색을 강제 주입 → JS/CSS 로딩 전 흰 화면 방지
