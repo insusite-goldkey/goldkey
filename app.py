@@ -11427,41 +11427,253 @@ window['startTTS_{tab_key}']=function(){{
   <span class="gk-dash-badge-green">대기 {_wait_cnt}명</span>
 </div>""", unsafe_allow_html=True)
 
-        # ── 고객 검색 ───────────────────────────────────────────────────
-        st.markdown("""
-<div class="gk-search-wrap">
-<div style="font-size:0.76rem;font-weight:900;color:#e2e8f0;
-  text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
-  🔍 고객 빠른 검색
-</div>""", unsafe_allow_html=True)
+        # ── 고객 빠른 검색 (초고속 자동완성 검색바) ────────────────────
+        import json as _json_srch
+        _crm_reg_srch = st.session_state.get("gk_client_registry", {})
+        # 고객 데이터 배열로 변환 (name, company, memo, registered, analyses_count)
+        _cust_arr = []
+        for _cn, _cv in _crm_reg_srch.items():
+            _pf = _cv.get("profile", {})
+            _cust_arr.append({
+                "name":    _cn,
+                "company": _pf.get("company", ""),
+                "title":   _pf.get("title", ""),
+                "memo":    _pf.get("memo", "")[:40] if _pf.get("memo") else "",
+                "registered": bool(_cv.get("registered", False)),
+                "count":   len(_cv.get("analyses", [])),
+            })
+        _cust_json = _json_srch.dumps(_cust_arr, ensure_ascii=False)
 
-        _intro_search = st.text_input(
-            "고객명 또는 연락처 입력",
-            placeholder="예: 홍길동  /  010-1234-5678",
-            key="intro_client_search",
-            label_visibility="collapsed"
-        )
-        if _intro_search and _intro_search.strip():
-            _crm_reg2 = st.session_state.get("gk_client_registry", {})
-            _hits = [
-                (k, v) for k, v in _crm_reg2.items()
-                if _intro_search.strip() in k or _intro_search.strip() in str(v.get("phone",""))
-            ] if _crm_reg2 else []
-            if _hits:
-                for _cn, _cd in _hits[:5]:
-                    st.markdown(
-                        f'<div class="gk-dash-badge" style="cursor:pointer;">'
-                        f'👤 {_cn} &nbsp; {_cd.get("phone","")}</div>',
-                        unsafe_allow_html=True
-                    )
-                    if st.button(f"상담 이동 → {_cn}", key=f"intro_goto_{_cn}",
-                                 use_container_width=False):
-                        st.session_state["_crm_search_name"] = _cn
-                        _go_tab("customer_mgmt")
-            else:
-                st.caption("검색 결과 없음 — 신규 고객은 고객관리 탭에서 등록하세요.")
+        # query_params 경유로 검색 결과 클릭 이동 처리
+        _srch_nav = st.query_params.get("srch_nav", None)
+        if _srch_nav:
+            st.session_state["_crm_search_name"] = _srch_nav
+            st.query_params.clear()
+            _go_tab("customer_mgmt")
 
-        st.markdown("</div>", unsafe_allow_html=True)
+        import streamlit.components.v1 as _cv1_srch
+        _cv1_srch.html(f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<style>
+*{{box-sizing:border-box;margin:0;padding:0;font-family:'Malgun Gothic','Noto Sans KR',sans-serif;}}
+body{{background:transparent;padding:0;}}
+
+.csb-wrap{{
+  position:relative;
+  background:#fff;
+  border:2px solid #4a90c4;
+  border-radius:14px;
+  padding:14px 16px 12px 16px;
+}}
+.csb-label{{
+  font-size:0.72rem;font-weight:900;color:#1a3a5c;
+  text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;
+  display:flex;align-items:center;gap:6px;
+}}
+.csb-input-wrap{{
+  position:relative;display:flex;align-items:center;
+}}
+.csb-icon{{
+  position:absolute;left:13px;font-size:1.05rem;color:#64748b;pointer-events:none;
+}}
+.csb-input{{
+  width:100%;
+  border:2px solid #e2e8f0;
+  border-radius:10px;
+  padding:11px 14px 11px 40px;
+  font-size:1.05rem;
+  font-weight:700;
+  color:#0f172a;
+  background:#fff;
+  outline:none;
+  transition:border-color 0.15s,box-shadow 0.15s;
+}}
+.csb-input:focus{{
+  border-color:#3b82f6;
+  box-shadow:0 0 0 3px rgba(59,130,246,0.15);
+}}
+.csb-input::placeholder{{color:#94a3b8;font-weight:400;}}
+.csb-clear{{
+  position:absolute;right:12px;
+  background:none;border:none;cursor:pointer;
+  font-size:1.1rem;color:#94a3b8;display:none;
+  padding:4px;border-radius:50%;
+}}
+.csb-clear:hover{{color:#475569;background:#f1f5f9;}}
+
+/* 드롭다운 */
+.csb-dropdown{{
+  display:none;
+  position:absolute;
+  top:calc(100% + 6px);
+  left:0;right:0;
+  background:#fff;
+  border:1.5px solid #e2e8f0;
+  border-radius:12px;
+  box-shadow:0 8px 32px rgba(15,23,42,0.16),0 2px 8px rgba(15,23,42,0.08);
+  z-index:9999;
+  max-height:320px;
+  overflow-y:auto;
+  scrollbar-width:thin;
+  scrollbar-color:#cbd5e1 #f8fafc;
+}}
+.csb-dropdown.open{{display:block;animation:dropDown 0.18s ease;}}
+@keyframes dropDown{{from{{opacity:0;transform:translateY(-8px);}}to{{opacity:1;transform:translateY(0);}}}}
+
+.csb-row{{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 16px;cursor:pointer;
+  border-bottom:1px solid #f1f5f9;
+  transition:background 0.1s;
+}}
+.csb-row:last-child{{border-bottom:none;}}
+.csb-row:hover{{background:#eff6ff;}}
+.csb-avatar{{
+  width:36px;height:36px;border-radius:50%;
+  background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.9rem;font-weight:900;color:#fff;flex-shrink:0;
+}}
+.csb-avatar.reg{{background:linear-gradient(135deg,#22c55e,#15803d);}}
+.csb-info{{flex:1;min-width:0;}}
+.csb-name{{font-size:0.95rem;font-weight:700;color:#0f172a;}}
+.csb-name mark{{background:none;color:#2563eb;font-weight:900;}}
+.csb-sub{{font-size:0.75rem;color:#64748b;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
+.csb-badge{{
+  flex-shrink:0;font-size:0.68rem;font-weight:700;
+  padding:2px 8px;border-radius:20px;
+  background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;
+}}
+.csb-badge.reg{{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}}
+.csb-empty{{
+  padding:18px 16px;text-align:center;
+  font-size:0.85rem;color:#94a3b8;
+}}
+.csb-hint{{
+  font-size:0.72rem;color:#94a3b8;margin-top:8px;text-align:right;
+}}
+</style>
+</head>
+<body>
+<div class="csb-wrap">
+  <div class="csb-label">🔍 고객 빠른 검색</div>
+  <div class="csb-input-wrap" id="inputWrap">
+    <span class="csb-icon">🔍</span>
+    <input class="csb-input" id="csb" type="text"
+      placeholder="고객명 · 법인명 · 메모 키워드 입력..."
+      autocomplete="off" spellcheck="false">
+    <button class="csb-clear" id="clearBtn" onclick="clearSearch()">✕</button>
+    <div class="csb-dropdown" id="dropdown"></div>
+  </div>
+  <div class="csb-hint" id="hint">총 <b id="totalCnt">0</b>명 등록</div>
+</div>
+
+<script>
+var customers = {_cust_json};
+document.getElementById('totalCnt').textContent = customers.length;
+
+var inp = document.getElementById('csb');
+var dd  = document.getElementById('dropdown');
+var clr = document.getElementById('clearBtn');
+
+function esc(s) {{
+  return s.replace(/[&<>"']/g, function(c) {{
+    return {{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c];
+  }});
+}}
+
+function highlight(text, kw) {{
+  if (!kw || !text) return esc(text || '');
+  var re = new RegExp('(' + kw.replace(/[.*+?^${{}}()|[\\]\\\\]/g,'\\\\$&') + ')', 'gi');
+  return esc(text).replace(re, '<mark>$1</mark>');
+}}
+
+function render(kw) {{
+  var q = kw.trim().toLowerCase();
+  if (!q) {{ dd.classList.remove('open'); return; }}
+
+  var hits = customers.filter(function(c) {{
+    return c.name.toLowerCase().indexOf(q) >= 0
+        || (c.company || '').toLowerCase().indexOf(q) >= 0
+        || (c.memo || '').toLowerCase().indexOf(q) >= 0;
+  }});
+
+  dd.innerHTML = '';
+  if (!hits.length) {{
+    dd.innerHTML = '<div class="csb-empty">검색 결과 없음<br><span style="font-size:0.72rem;">신규 고객은 고객관리 탭에서 등록하세요.</span></div>';
+  }} else {{
+    hits.slice(0, 8).forEach(function(c) {{
+      var row = document.createElement('div');
+      row.className = 'csb-row';
+      var initial = c.name.charAt(0) || '?';
+      var avatarCls = 'csb-avatar' + (c.registered ? ' reg' : '');
+      var badgeCls  = 'csb-badge'  + (c.registered ? ' reg' : '');
+      var badgeTxt  = c.registered ? '등록' : '미등록';
+      var subParts = [];
+      if (c.company) subParts.push(c.company + (c.title ? ' · ' + c.title : ''));
+      if (c.count)   subParts.push('상담 ' + c.count + '건');
+      if (c.memo)    subParts.push(c.memo);
+      var sub = subParts.join('  /  ') || '등록 정보 없음';
+      row.innerHTML =
+        '<div class="' + avatarCls + '">' + esc(initial) + '</div>' +
+        '<div class="csb-info">' +
+          '<div class="csb-name">' + highlight(c.name, kw.trim()) + '</div>' +
+          '<div class="csb-sub">' + esc(sub) + '</div>' +
+        '</div>' +
+        '<span class="' + badgeCls + '">' + badgeTxt + '</span>';
+      row.addEventListener('click', function() {{
+        selectCustomer(c.name);
+      }});
+      dd.appendChild(row);
+    }});
+    if (hits.length > 8) {{
+      var more = document.createElement('div');
+      more.className = 'csb-empty';
+      more.style.color = '#3b82f6';
+      more.textContent = '+ ' + (hits.length - 8) + '명 더 있습니다. 검색어를 좁혀보세요.';
+      dd.appendChild(more);
+    }}
+  }}
+  dd.classList.add('open');
+}}
+
+inp.addEventListener('input', function() {{
+  clr.style.display = inp.value ? 'block' : 'none';
+  render(inp.value);
+}});
+
+inp.addEventListener('keydown', function(e) {{
+  if (e.key === 'Escape') {{ dd.classList.remove('open'); inp.blur(); }}
+}});
+
+document.addEventListener('click', function(e) {{
+  if (!e.target.closest('.csb-input-wrap')) dd.classList.remove('open');
+}});
+
+function clearSearch() {{
+  inp.value = '';
+  clr.style.display = 'none';
+  dd.classList.remove('open');
+  inp.focus();
+}}
+
+function selectCustomer(name) {{
+  inp.value = name;
+  dd.classList.remove('open');
+  // Streamlit query_params 경유 이동
+  try {{
+    var url = new URL(window.parent.location.href);
+    url.searchParams.set('srch_nav', name);
+    window.parent.location.href = url.toString();
+  }} catch(e) {{
+    window.parent.postMessage({{type:'streamlit:setComponentValue',value:'nav:'+name}}, '*');
+  }}
+}}
+</script>
+</body>
+</html>""", height=160, scrolling=False)
 
         # ── Start 버튼 ─────────────────────────────────────────────────
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
