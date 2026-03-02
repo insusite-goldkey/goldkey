@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  GCP_PROJECT: gen-lang-client-0777682955
+  GCP_PROJECT: gen-lang-client-0536067004
   REGION: asia-northeast3
   SERVICE: goldkey-ai
   REPO: goldkey
@@ -14,40 +14,74 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
-
-      - name: Authenticate to Google Cloud
-        run: |
-          echo '${{ secrets.GCP_SA_KEY }}' > /tmp/sa_key.json
-          gcloud auth activate-service-account --key-file=/tmp/sa_key.json
-          gcloud config set project ${{ env.GCP_PROJECT }}
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
       - name: Create Artifact Registry repository (if not exists)
         run: |
+          gcloud artifacts repositories describe ${{ env.REPO }} \
+            --location=${{ env.REGION }} --project=${{ env.GCP_PROJECT }} \
+            --quiet 2>/dev/null || \
           gcloud artifacts repositories create ${{ env.REPO }} \
             --repository-format=docker \
             --location=${{ env.REGION }} \
             --project=${{ env.GCP_PROJECT }} \
-            --quiet || true
+            --quiet
 
       - name: Build and Push Docker image
         run: |
           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Push secrets to GCP Secret Manager
+        run: |
+          push_secret() {
+            local NAME=$1 VALUE=$2
+            if gcloud secrets describe "$NAME" --project=${{ env.GCP_PROJECT }} --quiet 2>/dev/null; then
+              printf '%s' "$VALUE" | gcloud secrets versions add "$NAME" \
+                --project=${{ env.GCP_PROJECT }} --data-file=- --quiet
+            else
+              printf '%s' "$VALUE" | gcloud secrets create "$NAME" \
+                --project=${{ env.GCP_PROJECT }} --data-file=- --replication-policy=automatic --quiet
+            fi
+          }
+          push_secret GCP_SA_KEY              '${{ secrets.GCP_SA_KEY }}'
+          push_secret GEMINI_API_KEY          '${{ secrets.GEMINI_API_KEY }}'
+          push_secret SUPABASE_URL            '${{ secrets.SUPABASE_URL }}'
+          push_secret SUPABASE_SERVICE_ROLE_KEY '${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}'
+          push_secret ADMIN_CODE              '${{ secrets.ADMIN_CODE }}'
+          push_secret ENCRYPTION_KEY          '${{ secrets.ENCRYPTION_KEY }}'
+          push_secret GCS_BUCKET_NAME         '${{ secrets.GCS_BUCKET_NAME }}'
+          push_secret FINLIFE_API_KEY         '${{ secrets.FINLIFE_API_KEY }}'
 
       - name: Deploy to Cloud Run
         run: |
-          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
+          SECRETS="GCP_SA_KEY=GCP_SA_KEY:latest"
+          SECRETS="$SECRETS,GEMINI_API_KEY=GEMINI_API_KEY:latest"
+          SECRETS="$SECRETS,SUPABASE_URL=SUPABASE_URL:latest"
+          SECRETS="$SECRETS,SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest"
+          SECRETS="$SECRETS,ADMIN_CODE=ADMIN_CODE:latest"
+          SECRETS="$SECRETS,ENCRYPTION_KEY=ENCRYPTION_KEY:latest"
+          SECRETS="$SECRETS,GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest"
+          SECRETS="$SECRETS,FINLIFE_API_KEY=FINLIFE_API_KEY:latest"
           gcloud run deploy ${{ env.SERVICE }} \
             --image "$IMAGE" \
             --region ${{ env.REGION }} \
@@ -55,8 +89,17 @@ jobs:
             --allow-unauthenticated \
             --memory 2Gi \
             --cpu 2 \
+            --concurrency 80 \
             --min-instances 0 \
-            --max-instances 10 \
+            --max-instances 3 \
             --port 8080 \
-            --set-env-vars "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }},ADMIN_CODE=${{ secrets.ADMIN_CODE }},ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}" \
+            --timeout 300 \
+            --set-secrets "$SECRETS" \
             --project ${{ env.GCP_PROJECT }}
+
+      - name: Show service URL
+        run: |
+          gcloud run services describe ${{ env.SERVICE }} \
+            --region ${{ env.REGION }} \
+            --project ${{ env.GCP_PROJECT }} \
+            --format="value(status.url)"

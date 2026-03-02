@@ -19,6 +19,8 @@ ENV STREAMLIT_SERVER_MAX_UPLOAD_SIZE=50
 ENV STREAMLIT_SERVER_ENABLE_CORS=false
 ENV STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
 ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+# Cloud Run: $PORT 환경변수 사용 (기본 8080)
+ENV PORT=8080
 
 # ── HF Space 필수: non-root 유저 설정 (권한 문제 방지) ─────────────────────
 RUN useradd -m -u 1000 user
@@ -42,16 +44,17 @@ COPY --chown=user . .
 # ── non-root 유저로 전환 ────────────────────────────────────────────────────
 USER user
 
-# ── HF Space 기본 포트 7860 ─────────────────────────────────────────────────
-EXPOSE 7860
+# Cloud Run: 8080 포트 노출
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
-    CMD curl -f http://localhost:7860/_stcore/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8080}/_stcore/health || exit 1
 
-CMD ["streamlit", "run", "app.py", \
-     "--server.port=7860", \
-     "--server.address=0.0.0.0", \
-     "--server.headless=true", \
-     "--server.maxUploadSize=50", \
-     "--server.enableCORS=false", \
-     "--server.enableXsrfProtection=false"]
+# $PORT는 Cloud Run이 런타임에 주입 (기본 8080)
+CMD streamlit run app.py \
+    --server.port=${PORT:-8080} \
+    --server.address=0.0.0.0 \
+    --server.headless=true \
+    --server.maxUploadSize=50 \
+    --server.enableCORS=false \
+    --server.enableXsrfProtection=false
