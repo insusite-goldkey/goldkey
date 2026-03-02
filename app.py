@@ -4042,27 +4042,27 @@ GOLD_AVATAR_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "assets", "avatar_goldkey.svg"
 )
 
-@st.cache_resource(show_spinner=False)
 def get_goldkey_avatar() -> str:
-    """골드키 전용 아바타를 base64 문자열로 반환 (캐시 1회 로드).
-    goldkey_ai_avatar.jpg (여성 아바타) 최우선 탐색.
+    """골드키 전용 아바타를 base64 문자열로 반환 (매 호출 시 탐색, 캐시 없음).
+    goldkey_ai_avatar.svg → jpg → png 순 최우선 탐색.
     파일 없으면 빈 문자열 반환(Fallback).
     """
     _base = os.path.dirname(os.path.abspath(__file__))
     candidates = [
+        (os.path.join(_base, "assets", "goldkey_ai_avatar.svg"), "image/svg+xml"),
         (os.path.join(_base, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
         (os.path.join(_base, "assets", "goldkey_ai_avatar.png"), "image/png"),
         (GOLD_AVATAR_PATH, "image/svg+xml" if GOLD_AVATAR_PATH.endswith(".svg") else "image/png"),
-        (os.path.join(_base, "assets", "avatar_master.png"), "image/png"),
+        (os.path.join(_base, "assets", "avatar_goldkey.svg"), "image/svg+xml"),
         (os.path.join(_base, "assets", "avatar_goldkey.png"), "image/png"),
-        (os.path.join(_base, "avatar.png"), "image/png"),
     ]
     for _p, _mime in candidates:
         try:
             _path = pathlib.Path(_p)
             if _path.exists():
                 _raw = _path.read_bytes()
-                return f"data:{_mime};base64,{base64.b64encode(_raw).decode()}"
+                if len(_raw) > 50:
+                    return f"data:{_mime};base64,{base64.b64encode(_raw).decode()}"
         except Exception:
             continue
     return ""
@@ -6814,10 +6814,10 @@ def main():
         initial_sidebar_state="collapsed"
     )
 
-    # ── STEP 1-A: 프리미엄 스플래시 화면 (최초 방문 1회만, 10초) ──────────
+    # ── STEP 1-A: 프리미엄 스플래시 화면 (앱 구동마다 노출) ──────────────
     # [비동기 설계] Python → HTML 1회 렌더 후 즉시 리턴. JS가 타이머/전환/페이드아웃 전담.
-    if not st.session_state.get("_splash_done"):
-        st.session_state["_splash_done"] = True
+    if not st.session_state.get("_splash_shown_this_run"):
+        st.session_state["_splash_shown_this_run"] = True
 
         # ── 이미지 src 결정 (동기, 파일 I/O만) ──────────────────────────
         _HF_RAW = "https://huggingface.co/spaces/goldkey-rich/goldkey-ai/resolve/main/assets/"
@@ -9930,7 +9930,7 @@ font-family:'Noto Sans KR',Malgun Gothic,sans-serif;">
 </div>""", unsafe_allow_html=True)
 
     if 'current_tab' not in st.session_state:
-        st.session_state.current_tab = "home"
+        st.session_state.current_tab = "intro"
     if '_nav_history' not in st.session_state:
         st.session_state._nav_history = []
 
@@ -11205,6 +11205,164 @@ window['startTTS_{tab_key}']=function(){{
             st.markdown(guide_md)
         else:
             pass  # 빈 상태 — 별도 안내 불필요
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [INTRO] 설계사 대시보드 — 앱 최초 진입 페이지
+    # ══════════════════════════════════════════════════════════════════════
+    if cur == "intro":
+        st.markdown("""
+<style>
+.gk-intro-wrap{
+  border:3px solid #f0c040;
+  border-radius:18px;
+  padding:22px 20px 20px 20px;
+  background:linear-gradient(160deg,#050d1c 0%,#0a1a38 60%,#0d2444 100%);
+  box-shadow:0 0 32px rgba(240,192,64,0.18),0 4px 24px rgba(0,0,0,0.55);
+  margin-bottom:18px;
+}
+.gk-intro-title{
+  font-size:1.35rem;font-weight:900;color:#f0c040;
+  letter-spacing:0.04em;margin-bottom:4px;
+}
+.gk-intro-sub{
+  font-size:0.8rem;color:#94a3b8;margin-bottom:18px;
+}
+.gk-dash-card{
+  background:rgba(255,255,255,0.05);
+  border:1.5px solid rgba(240,192,64,0.25);
+  border-radius:14px;
+  padding:14px 16px;
+  margin-bottom:10px;
+}
+.gk-dash-card-title{
+  font-size:0.72rem;font-weight:900;color:#94a3b8;
+  text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;
+}
+.gk-dash-badge{
+  display:inline-block;padding:4px 12px;border-radius:20px;
+  font-size:0.8rem;font-weight:900;margin:2px 3px;
+  background:rgba(240,192,64,0.15);color:#f0c040;
+  border:1px solid rgba(240,192,64,0.35);
+}
+.gk-dash-badge-blue{
+  background:rgba(56,189,248,0.13);color:#38bdf8;
+  border:1px solid rgba(56,189,248,0.3);
+}
+.gk-dash-badge-green{
+  background:rgba(52,211,153,0.13);color:#34d399;
+  border:1px solid rgba(52,211,153,0.3);
+}
+.gk-dash-num{
+  font-size:2.2rem;font-weight:900;color:#f0c040;
+  line-height:1;margin-bottom:3px;
+}
+.gk-dash-num-blue{font-size:2.2rem;font-weight:900;color:#38bdf8;line-height:1;margin-bottom:3px;}
+.gk-dash-num-green{font-size:2.2rem;font-weight:900;color:#34d399;line-height:1;margin-bottom:3px;}
+</style>
+""", unsafe_allow_html=True)
+
+        import datetime as _dt_intro
+        _today_str = _dt_intro.date.today().strftime("%Y년 %m월 %d일")
+        _weekdays = ["월","화","수","목","금","토","일"]
+        _wd = _weekdays[_dt_intro.date.today().weekday()]
+
+        st.markdown(f"""
+<div class="gk-intro-wrap">
+  <div class="gk-intro-title">🏆 Goldkey AI Master — 설계사 대시보드</div>
+  <div class="gk-intro-sub">{_today_str} ({_wd}) &nbsp;·&nbsp; AI 보험컨설팅 통합 플랫폼</div>
+""", unsafe_allow_html=True)
+
+        # ── 3개 위젯 컬럼 ──────────────────────────────────────────────
+        _ic1, _ic2, _ic3 = st.columns(3, gap="small")
+
+        # 오늘 할 일
+        with _ic1:
+            _todo_cnt = len(st.session_state.get("_gk_todos", [])) or 0
+            _todo_done = len([t for t in st.session_state.get("_gk_todos", []) if t.get("done")]) if _todo_cnt else 0
+            st.markdown(f"""
+<div class="gk-dash-card">
+  <div class="gk-dash-card-title">📋 오늘 할 일</div>
+  <div class="gk-dash-num">{_todo_cnt}</div>
+  <div style="font-size:0.76rem;color:#64748b;margin-bottom:8px;">완료 {_todo_done} / 전체 {_todo_cnt}건</div>
+  <span class="gk-dash-badge">미완료 {_todo_cnt - _todo_done}</span>
+</div>""", unsafe_allow_html=True)
+
+        # 오늘의 약속
+        with _ic2:
+            _appt_list = [
+                a for a in st.session_state.get("_gk_appointments", [])
+                if a.get("date","") == str(_dt_intro.date.today())
+            ] if st.session_state.get("_gk_appointments") else []
+            _appt_cnt = len(_appt_list)
+            st.markdown(f"""
+<div class="gk-dash-card">
+  <div class="gk-dash-card-title">📅 오늘의 약속</div>
+  <div class="gk-dash-num-blue">{_appt_cnt}</div>
+  <div style="font-size:0.76rem;color:#64748b;margin-bottom:8px;">오늘 예정된 미팅</div>
+  <span class="gk-dash-badge-blue">예정 {_appt_cnt}건</span>
+</div>""", unsafe_allow_html=True)
+
+        # 상담 대기
+        with _ic3:
+            _wait_cnt = st.session_state.get("_gk_waiting_cnt", 0)
+            _crm_reg = st.session_state.get("gk_client_registry", {})
+            _total_clients = len(_crm_reg) if _crm_reg else 0
+            st.markdown(f"""
+<div class="gk-dash-card">
+  <div class="gk-dash-card-title">⏳ 상담 대기</div>
+  <div class="gk-dash-num-green">{_wait_cnt}</div>
+  <div style="font-size:0.76rem;color:#64748b;margin-bottom:8px;">총 고객 {_total_clients}명 등록</div>
+  <span class="gk-dash-badge-green">대기 {_wait_cnt}명</span>
+</div>""", unsafe_allow_html=True)
+
+        # ── 고객 검색 ───────────────────────────────────────────────────
+        st.markdown("""
+<div style="border-top:1px solid rgba(240,192,64,0.2);margin:14px 0 10px 0;"></div>
+<div style="font-size:0.76rem;font-weight:900;color:#94a3b8;
+  text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
+  🔍 고객 빠른 검색
+</div>""", unsafe_allow_html=True)
+
+        _intro_search = st.text_input(
+            "고객명 또는 연락처 입력",
+            placeholder="예: 홍길동  /  010-1234-5678",
+            key="intro_client_search",
+            label_visibility="collapsed"
+        )
+        if _intro_search and _intro_search.strip():
+            _crm_reg2 = st.session_state.get("gk_client_registry", {})
+            _hits = [
+                (k, v) for k, v in _crm_reg2.items()
+                if _intro_search.strip() in k or _intro_search.strip() in str(v.get("phone",""))
+            ] if _crm_reg2 else []
+            if _hits:
+                for _cn, _cd in _hits[:5]:
+                    st.markdown(
+                        f'<div class="gk-dash-badge" style="cursor:pointer;">'
+                        f'👤 {_cn} &nbsp; {_cd.get("phone","")}</div>',
+                        unsafe_allow_html=True
+                    )
+                    if st.button(f"상담 이동 → {_cn}", key=f"intro_goto_{_cn}",
+                                 use_container_width=False):
+                        st.session_state["_crm_search_name"] = _cn
+                        _go_tab("customer_mgmt")
+            else:
+                st.caption("검색 결과 없음 — 신규 고객은 고객관리 탭에서 등록하세요.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── Start 버튼 ─────────────────────────────────────────────────
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        _is_col1, _is_col2, _is_col3 = st.columns([1, 2, 1])
+        with _is_col2:
+            if st.button("🚀  AI 상담 시작하기  →", key="intro_start_btn",
+                         type="primary", use_container_width=True):
+                _go_tab("home")
+
+        st.markdown("""
+<div style="text-align:center;font-size:0.7rem;color:#475569;margin-top:8px;">
+  버튼을 누르거나 좌측 사이드바 메뉴를 선택하면 해당 페이지로 이동합니다.
+</div>""", unsafe_allow_html=True)
 
     # ── [홈] 카드 네비게이션 ──────────────────────────────────────────────
     if cur == "home":
