@@ -73,6 +73,7 @@ jobs:
             --max-instances 3 \
             --port 8080 \
             --timeout 300 \
+            --session-affinity \
             --set-env-vars "$ENVVARS" \
             --service-account "github-deploy@gen-lang-client-0777682955.iam.gserviceaccount.com" \
             --project ${{ env.GCP_PROJECT }}
