@@ -23,6 +23,10 @@ build/
 .goldkey
 *.goldkey
 
+# GCP 서비스 계정 키 (절대 Git에 올리지 말 것)
+sa_key*.json
+sa_key*
+
 # 임시/점검 스크립트
 _check_deploy.py
 *.migrated
