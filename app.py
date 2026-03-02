@@ -4049,12 +4049,12 @@ def get_goldkey_avatar() -> str:
     """
     _base = os.path.dirname(os.path.abspath(__file__))
     candidates = [
-        (os.path.join(_base, "assets", "goldkey_ai_avatar.svg"), "image/svg+xml"),
         (os.path.join(_base, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
         (os.path.join(_base, "assets", "goldkey_ai_avatar.png"), "image/png"),
-        (GOLD_AVATAR_PATH, "image/svg+xml" if GOLD_AVATAR_PATH.endswith(".svg") else "image/png"),
+        (os.path.join(_base, "assets", "goldkey_ai_avatar.svg"), "image/svg+xml"),
         (os.path.join(_base, "assets", "avatar_goldkey.svg"), "image/svg+xml"),
         (os.path.join(_base, "assets", "avatar_goldkey.png"), "image/png"),
+        (GOLD_AVATAR_PATH, "image/svg+xml" if GOLD_AVATAR_PATH.endswith(".svg") else "image/png"),
     ]
     for _p, _mime in candidates:
         try:
@@ -6815,7 +6815,8 @@ def main():
     )
 
     # ── STEP 1-A: 프리미엄 스플래시 화면 (앱 구동마다 노출) ──────────────
-    # [비동기 설계] Python → HTML 1회 렌더 후 즉시 리턴. JS가 타이머/전환/페이드아웃 전담.
+    # st.markdown 방식: Streamlit 메인 DOM에 직접 <style>+<div>+<script> 삽입.
+    # iframe 불필요 — HF Spaces cross-origin 제한 완전 우회.
     if not st.session_state.get("_splash_shown_this_run"):
         st.session_state["_splash_shown_this_run"] = True
 
@@ -6851,114 +6852,82 @@ def main():
             "✦ 전략 파트너 Goldkey AI가 준비되었습니다.",
         ])
 
-        # ── 스플래시: 부모 DOM에 overlay div를 직접 주입 ──────────────────
-        # Streamlit iframe은 same-origin이므로 window.parent.document 접근 가능.
-        # components.html height=1 → iframe 최소 생성 → JS가 부모에 overlay 삽입.
-        _spl_html = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"></head>
-<body style="margin:0;background:transparent;">
+        # ── st.markdown으로 현재 페이지 DOM에 직접 overlay 삽입 ────────
+        st.markdown(f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap');
+#gk-splash{{
+  position:fixed;inset:0;background:#060d1a;
+  z-index:2147483647;overflow:hidden;
+  transition:opacity .8s ease;
+}}
+#gk-splash img{{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;display:none;
+}}
+#gk-splash img.on{{display:block;}}
+#gk-splash-logo{{
+  position:absolute;top:clamp(18px,5vw,44px);left:50%;
+  transform:translateX(-50%);
+  font-family:'Noto Sans KR',sans-serif;
+  font-size:clamp(1.1rem,4vw,1.65rem);font-weight:900;
+  color:#f0c040;letter-spacing:.08em;
+  text-shadow:0 0 28px rgba(240,192,64,.75);white-space:nowrap;
+}}
+#gk-splash-bar{{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:18px 22px 36px;text-align:center;
+  background:linear-gradient(0deg,rgba(4,9,18,.97) 55%,transparent);
+}}
+#gk-splash-msg{{
+  font-family:'Noto Sans KR',sans-serif;
+  font-size:clamp(.82rem,2.8vw,1.05rem);font-weight:700;
+  color:#f0c040;letter-spacing:.05em;
+  text-shadow:0 0 16px rgba(240,192,64,.9),0 2px 6px rgba(0,0,0,.7);
+  opacity:0;transition:opacity .35s;
+}}
+</style>
+<div id="gk-splash">
+  <img id="gk-spl-v" src="{_src_v}" alt="">
+  <img id="gk-spl-h" src="{_src_h}" alt="">
+  <div id="gk-splash-logo">🏆 GOLDKEY AI MASTER</div>
+  <div id="gk-splash-bar"><div id="gk-splash-msg"></div></div>
+</div>
 <script>
 (function(){{
-  var SRC_V = {repr(_src_v)};
-  var SRC_H = {repr(_src_h)};
   var MSGS  = [{_spl_msgs_js}];
-  var TOTAL = 5200;  // 표시 지속 ms (메시지 5개 × ~1s + 여유)
+  var TOTAL = 5500;
+  var ov    = document.getElementById('gk-splash');
+  if(!ov)return;
 
-  function inject(){{
-    try{{
-      var pd = window.parent.document;
-      if(pd.getElementById('gk-splash'))return;
+  // 방향 감지
+  var pw = window.innerWidth||390, ph = window.innerHeight||812;
+  var imgEl = document.getElementById(pw>ph?'gk-spl-h':'gk-spl-v');
+  if(imgEl)imgEl.classList.add('on');
 
-      // ── 스타일 ──
-      var style = pd.createElement('style');
-      style.id  = 'gk-splash-css';
-      style.textContent = [
-        '@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap");',
-        '#gk-splash{{position:fixed;inset:0;background:#060d1a;z-index:2147483647;',
-        '  transition:opacity .8s ease;overflow:hidden;}}',
-        '#gk-splash img{{position:absolute;inset:0;width:100%;height:100%;',
-        '  object-fit:cover;display:none;}}',
-        '#gk-splash img.on{{display:block;}}',
-        '#gk-splash-bar{{position:absolute;bottom:0;left:0;right:0;',
-        '  padding:18px 22px 32px;text-align:center;',
-        '  background:linear-gradient(0deg,rgba(4,9,18,.97) 55%,transparent);}}',
-        '#gk-splash-msg{{font-family:\'Noto Sans KR\',sans-serif;',
-        '  font-size:clamp(.82rem,2.8vw,1.05rem);font-weight:700;color:#f0c040;',
-        '  letter-spacing:.05em;',
-        '  text-shadow:0 0 16px rgba(240,192,64,.9),0 2px 6px rgba(0,0,0,.7);',
-        '  opacity:0;transition:opacity .3s;}}',
-        '#gk-splash-logo{{position:absolute;top:clamp(18px,5vw,40px);left:50%;',
-        '  transform:translateX(-50%);',
-        '  font-family:\'Noto Sans KR\',sans-serif;',
-        '  font-size:clamp(1.1rem,4vw,1.6rem);font-weight:900;',
-        '  color:#f0c040;letter-spacing:.08em;',
-        '  text-shadow:0 0 24px rgba(240,192,64,.7);white-space:nowrap;}}',
-      ].join('');
-      (pd.head||pd.documentElement).appendChild(style);
-
-      // ── overlay ──
-      var ov = pd.createElement('div');
-      ov.id  = 'gk-splash';
-      ov.innerHTML = [
-        '<img id="gk-spl-v" src="'+SRC_V+'" alt="">',
-        '<img id="gk-spl-h" src="'+SRC_H+'" alt="">',
-        '<div id="gk-splash-logo">🏆 GOLDKEY AI MASTER</div>',
-        '<div id="gk-splash-bar"><div id="gk-splash-msg"></div></div>',
-      ].join('');
-      (pd.body||pd.documentElement).appendChild(ov);
-
-      // ── 방향 감지 ──
-      var pw = window.parent.innerWidth  || 390;
-      var ph = window.parent.innerHeight || 812;
-      var imgEl = pd.getElementById(pw > ph ? 'gk-spl-h' : 'gk-spl-v');
-      if(imgEl) imgEl.classList.add('on');
-
-      // ── 메시지 순차 표시 ──
-      var msgEl = pd.getElementById('gk-splash-msg');
-      var step  = 0;
-      var INTERVAL = Math.floor((TOTAL - 800) / MSGS.length);
-      function tick(){{
-        if(!msgEl||step>=MSGS.length)return;
-        msgEl.style.opacity='0';
-        setTimeout(function(){{
-          msgEl.textContent=MSGS[step++];
-          msgEl.style.opacity='1';
-          if(step<MSGS.length)setTimeout(tick,INTERVAL);
-        }},150);
-      }}
-      setTimeout(tick, 200);
-
-      // ── 페이드아웃 후 제거 ──
-      setTimeout(function(){{
-        ov.style.opacity='0';
-        setTimeout(function(){{
-          try{{
-            if(ov.parentNode)ov.parentNode.removeChild(ov);
-            var s=pd.getElementById('gk-splash-css');
-            if(s&&s.parentNode)s.parentNode.removeChild(s);
-          }}catch(e){{}}
-        }},850);
-      }},TOTAL);
-
-    }}catch(e){{
-      // same-origin 접근 불가 환경 — fallback: iframe 자신을 확장
-      var ifr = window.frameElement;
-      if(ifr){{
-        ifr.style.cssText='position:fixed!important;top:0!important;left:0!important;'
-          +'width:100vw!important;height:100vh!important;z-index:2147483647!important;'
-          +'border:none!important;background:#060d1a!important;';
-      }}
-    }}
+  // 메시지 순차 표시
+  var msgEl = document.getElementById('gk-splash-msg');
+  var step=0, INTERVAL=Math.floor((TOTAL-800)/MSGS.length);
+  function tick(){{
+    if(!msgEl||step>=MSGS.length)return;
+    msgEl.style.opacity='0';
+    setTimeout(function(){{
+      msgEl.textContent=MSGS[step++];
+      msgEl.style.opacity='1';
+      if(step<MSGS.length)setTimeout(tick,INTERVAL);
+    }},150);
   }}
+  setTimeout(tick,300);
 
-  // DOM 준비 후 즉시 실행, 150ms 후 재시도
-  inject();
-  setTimeout(inject, 150);
+  // 페이드아웃 후 제거
+  setTimeout(function(){{
+    ov.style.opacity='0';
+    setTimeout(function(){{
+      if(ov.parentNode)ov.parentNode.removeChild(ov);
+    }},850);
+  }},TOTAL);
 }})();
-</script>
-</body></html>"""
-
-        components.html(_spl_html, height=1, scrolling=False)
+</script>""", unsafe_allow_html=True)
 
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
     # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
@@ -11446,10 +11415,10 @@ window['startTTS_{tab_key}']=function(){{
                          type="primary", use_container_width=True):
                 _go_tab("home")
 
-        st.markdown("""
-<div style="text-align:center;font-size:0.7rem;color:#475569;margin-top:8px;">
+        st.markdown("""<div style="text-align:center;font-size:0.7rem;color:#475569;margin-top:8px;">
   버튼을 누르거나 좌측 사이드바 메뉴를 선택하면 해당 페이지로 이동합니다.
 </div>""", unsafe_allow_html=True)
+        st.stop()
 
     # ── [홈] 카드 네비게이션 ──────────────────────────────────────────────
     if cur == "home":
@@ -11536,7 +11505,6 @@ window['startTTS_{tab_key}']=function(){{
                 import datetime as _adt, json as _ahj
                 _now_adt = _adt.datetime.now()
 
-                # ── To-Do / 약속 / 상담대기 샘플 데이터 (session_state 기반) ───────
                 if "_agent_todo" not in st.session_state:
                     st.session_state["_agent_todo"] = [
                         {"done": False, "text": "김○○ 고객 암보험 설계서 발송"},
@@ -11565,60 +11533,8 @@ window['startTTS_{tab_key}']=function(){{
                   letter-spacing:0.08em;text-transform:uppercase;margin:10px 0 6px 2px;">
                   📋 설계사 업무 대시보드</div>""", unsafe_allow_html=True)
 
-                _w1, _w2, _w3 = st.columns(3)
-
-                # 위젯 1 — 오늘 할 일 (To-Do)
-                with _w1:
-                    st.markdown(f"""
-<div style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);
-  border-radius:12px;padding:14px 16px;min-height:120px;">
-  <div style="color:#93c5fd;font-size:0.72rem;font-weight:700;margin-bottom:6px;">📌 오늘 할 일</div>
-  <div style="color:#fff;font-size:1.6rem;font-weight:900;line-height:1;">{_todo_cnt}</div>
-  <div style="color:#bfdbfe;font-size:0.72rem;margin-top:2px;">미완료 · 완료 {_done_cnt}건</div>
-  <div style="margin-top:8px;">{"".join(
-    f'<div style="font-size:0.72rem;color:{"#6ee7b7" if t["done"] else "#fde68a"};'
-    f'text-decoration:{"line-through" if t["done"] else "none"};'
-    f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-    f'{"✅" if t["done"] else "⬜"} {t["text"]}</div>'
-    for t in _todo_list[:3]
-  )}</div>
-</div>""", unsafe_allow_html=True)
-
-                # 위젯 2 — 오늘의 약속
-                with _w2:
-                    st.markdown(f"""
-<div style="background:linear-gradient(135deg,#3b1f5e 0%,#7c3aed 100%);
-  border-radius:12px;padding:14px 16px;min-height:120px;">
-  <div style="color:#c4b5fd;font-size:0.72rem;font-weight:700;margin-bottom:6px;">📅 오늘의 약속</div>
-  <div style="color:#fff;font-size:1.6rem;font-weight:900;line-height:1;">{len(_appt_list)}</div>
-  <div style="color:#ddd6fe;font-size:0.72rem;margin-top:2px;">건 예약됨</div>
-  <div style="margin-top:8px;">{"".join(
-    f'<div style="font-size:0.72rem;color:#e9d5ff;'
-    f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-    f'🕐 {a["time"]} {a["name"]} ({a["type"]})</div>'
-    for a in _appt_list[:3]
-  )}</div>
-</div>""", unsafe_allow_html=True)
-
-                # 위젯 3 — 상담 대기 현황
-                with _w3:
-                    st.markdown(f"""
-<div style="background:linear-gradient(135deg,#1c3d2a 0%,#16a34a 100%);
-  border-radius:12px;padding:14px 16px;min-height:120px;">
-  <div style="color:#86efac;font-size:0.72rem;font-weight:700;margin-bottom:6px;">⏳ 상담 대기</div>
-  <div style="color:#fff;font-size:1.6rem;font-weight:900;line-height:1;">{len(_wait_list)}</div>
-  <div style="color:#bbf7d0;font-size:0.72rem;margin-top:2px;">건 처리 대기중</div>
-  <div style="margin-top:8px;">{"".join(
-    f'<div style="font-size:0.72rem;color:#d1fae5;'
-    f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-    f'👤 {w["name"]} — {w["status"]}</div>'
-    for w in _wait_list[:3]
-  )}</div>
-</div>""", unsafe_allow_html=True)
-
                 # ── [C4b] To-Do 인터랙션 (체크 / 추가 / 삭제) ────────────────────
                 with st.expander("📌 할 일 관리", expanded=False):
-                    # 체크 토글 + 삭제
                     _del_idx = None
                     for _ti, _task in enumerate(_todo_list):
                         _tc1, _tc2, _tc3 = st.columns([0.08, 0.80, 0.12])
@@ -11646,7 +11562,6 @@ window['startTTS_{tab_key}']=function(){{
                     if _del_idx is not None:
                         st.session_state["_agent_todo"].pop(_del_idx)
                         st.rerun()
-                    # 새 항목 추가
                     st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
                     with st.form("add_todo_form", clear_on_submit=True):
                         _new_todo = st.text_input("새 할 일", placeholder="내용 입력 후 Enter",
