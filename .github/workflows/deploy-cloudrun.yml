@@ -51,37 +51,15 @@ jobs:
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
 
-      - name: Push secrets to GCP Secret Manager
-        run: |
-          push_secret() {
-            local NAME=$1 VALUE=$2
-            if gcloud secrets describe "$NAME" --project=${{ env.GCP_PROJECT }} --quiet 2>/dev/null; then
-              printf '%s' "$VALUE" | gcloud secrets versions add "$NAME" \
-                --project=${{ env.GCP_PROJECT }} --data-file=- --quiet
-            else
-              printf '%s' "$VALUE" | gcloud secrets create "$NAME" \
-                --project=${{ env.GCP_PROJECT }} --data-file=- --replication-policy=automatic --quiet
-            fi
-          }
-          push_secret GCP_SA_KEY              '${{ secrets.GCP_SA_KEY }}'
-          push_secret GEMINI_API_KEY          '${{ secrets.GEMINI_API_KEY }}'
-          push_secret SUPABASE_URL            '${{ secrets.SUPABASE_URL }}'
-          push_secret SUPABASE_SERVICE_ROLE_KEY '${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}'
-          push_secret ADMIN_CODE              '${{ secrets.ADMIN_CODE }}'
-          push_secret ENCRYPTION_KEY          '${{ secrets.ENCRYPTION_KEY }}'
-          push_secret GCS_BUCKET_NAME         '${{ secrets.GCS_BUCKET_NAME }}'
-          push_secret FINLIFE_API_KEY         '${{ secrets.FINLIFE_API_KEY }}'
-
       - name: Deploy to Cloud Run
         run: |
-          SECRETS="GCP_SA_KEY=GCP_SA_KEY:latest"
-          SECRETS="$SECRETS,GEMINI_API_KEY=GEMINI_API_KEY:latest"
-          SECRETS="$SECRETS,SUPABASE_URL=SUPABASE_URL:latest"
-          SECRETS="$SECRETS,SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest"
-          SECRETS="$SECRETS,ADMIN_CODE=ADMIN_CODE:latest"
-          SECRETS="$SECRETS,ENCRYPTION_KEY=ENCRYPTION_KEY:latest"
-          SECRETS="$SECRETS,GCS_BUCKET_NAME=GCS_BUCKET_NAME:latest"
-          SECRETS="$SECRETS,FINLIFE_API_KEY=FINLIFE_API_KEY:latest"
+          ENVVARS="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
+          ENVVARS="$ENVVARS,SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
+          ENVVARS="$ENVVARS,SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+          ENVVARS="$ENVVARS,ADMIN_CODE=${{ secrets.ADMIN_CODE }}"
+          ENVVARS="$ENVVARS,ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}"
+          ENVVARS="$ENVVARS,GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}"
+          ENVVARS="$ENVVARS,FINLIFE_API_KEY=${{ secrets.FINLIFE_API_KEY }}"
           gcloud run deploy ${{ env.SERVICE }} \
             --image "$IMAGE" \
             --region ${{ env.REGION }} \
@@ -94,7 +72,7 @@ jobs:
             --max-instances 3 \
             --port 8080 \
             --timeout 300 \
-            --set-secrets "$SECRETS" \
+            --set-env-vars "$ENVVARS" \
             --project ${{ env.GCP_PROJECT }}
 
       - name: Show service URL
