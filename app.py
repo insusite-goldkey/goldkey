@@ -6852,7 +6852,9 @@ def main():
             "✦ 전략 파트너 Goldkey AI가 준비되었습니다.",
         ])
 
-        # ── st.markdown으로 현재 페이지 DOM에 직접 overlay 삽입 ────────
+        # ── STEP A: CSS + div 삽입 (st.markdown — HTML만, JS 없음) ──────
+        # Streamlit은 st.markdown 내 <script>를 실행하지 않으므로
+        # div/style만 여기서 주입하고 JS는 components.html로 분리.
         st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap');
@@ -6860,6 +6862,7 @@ def main():
   position:fixed;inset:0;background:#060d1a;
   z-index:2147483647;overflow:hidden;
   transition:opacity .8s ease;
+  pointer-events:none;
 }}
 #gk-splash img{{
   position:absolute;inset:0;width:100%;height:100%;
@@ -6892,42 +6895,63 @@ def main():
   <img id="gk-spl-h" src="{_src_h}" alt="">
   <div id="gk-splash-logo">🏆 GOLDKEY AI MASTER</div>
   <div id="gk-splash-bar"><div id="gk-splash-msg"></div></div>
-</div>
+</div>""", unsafe_allow_html=True)
+
+        # ── STEP B: JS 실행 — components.html (Streamlit이 보장하는 JS 런타임) ──
+        # window.parent.document로 위에서 삽입한 #gk-splash를 제어
+        _spl_js = f"""
 <script>
 (function(){{
   var MSGS  = [{_spl_msgs_js}];
   var TOTAL = 5500;
-  var ov    = document.getElementById('gk-splash');
-  if(!ov)return;
 
-  // 방향 감지
-  var pw = window.innerWidth||390, ph = window.innerHeight||812;
-  var imgEl = document.getElementById(pw>ph?'gk-spl-h':'gk-spl-v');
-  if(imgEl)imgEl.classList.add('on');
+  function run(){{
+    var pd  = (typeof window.parent !== 'undefined') ? window.parent.document : document;
+    var ov  = pd.getElementById('gk-splash');
+    if(!ov){{ setTimeout(run, 200); return; }}
 
-  // 메시지 순차 표시
-  var msgEl = document.getElementById('gk-splash-msg');
-  var step=0, INTERVAL=Math.floor((TOTAL-800)/MSGS.length);
-  function tick(){{
-    if(!msgEl||step>=MSGS.length)return;
-    msgEl.style.opacity='0';
+    // 방향 감지 — 이미지 표시
+    var pw = (window.parent||window).innerWidth  || 390;
+    var ph = (window.parent||window).innerHeight || 812;
+    var imgEl = pd.getElementById(pw > ph ? 'gk-spl-h' : 'gk-spl-v');
+    if(imgEl) imgEl.classList.add('on');
+
+    // 메시지 순차 표시
+    var msgEl = pd.getElementById('gk-splash-msg');
+    var step = 0;
+    var INTERVAL = Math.floor((TOTAL - 800) / MSGS.length);
+    function tick(){{
+      if(!msgEl || step >= MSGS.length) return;
+      msgEl.style.opacity = '0';
+      setTimeout(function(){{
+        msgEl.textContent = MSGS[step++];
+        msgEl.style.opacity = '1';
+        if(step < MSGS.length) setTimeout(tick, INTERVAL);
+      }}, 150);
+    }}
+    setTimeout(tick, 300);
+
+    // 페이드아웃 후 완전 제거
     setTimeout(function(){{
-      msgEl.textContent=MSGS[step++];
-      msgEl.style.opacity='1';
-      if(step<MSGS.length)setTimeout(tick,INTERVAL);
-    }},150);
+      ov.style.opacity = '0';
+      setTimeout(function(){{
+        try{{ if(ov.parentNode) ov.parentNode.removeChild(ov); }}catch(e){{}}
+        // <style> 태그도 제거
+        var s = pd.getElementById('gk-splash-css');
+        try{{ if(s && s.parentNode) s.parentNode.removeChild(s); }}catch(e){{}}
+      }}, 900);
+    }}, TOTAL);
   }}
-  setTimeout(tick,300);
 
-  // 페이드아웃 후 제거
-  setTimeout(function(){{
-    ov.style.opacity='0';
-    setTimeout(function(){{
-      if(ov.parentNode)ov.parentNode.removeChild(ov);
-    }},850);
-  }},TOTAL);
+  // DOM 준비 후 즉시 + 재시도
+  if(document.readyState === 'loading'){{
+    document.addEventListener('DOMContentLoaded', run);
+  }} else {{
+    run();
+  }}
 }})();
-</script>""", unsafe_allow_html=True)
+</script>"""
+        components.html(_spl_js, height=0, scrolling=False)
 
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
     # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
