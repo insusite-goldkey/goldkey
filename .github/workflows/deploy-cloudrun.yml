@@ -8,7 +8,7 @@ on:
 env:
   GCP_PROJECT: gen-lang-client-0536067004
   REGION: asia-northeast3
-  SERVICE: goldkey-ai
+  SERVICE: goldkey
   REPO: goldkey
 
 jobs:
@@ -56,7 +56,7 @@ jobs:
           ENVVARS="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
           ENVVARS="$ENVVARS,SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
           ENVVARS="$ENVVARS,SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
-          ENVVARS="$ENVVARS,ADMIN_CODE=${{ secrets.ADMIN_CODE }}"
+          ENVVARS="$ENVVARS,ADMIN_CODE=${{ secrets.ADMIN_CODE || 'kgagold6803' }}"
           ENVVARS="$ENVVARS,ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}"
           ENVVARS="$ENVVARS,GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}"
           ENVVARS="$ENVVARS,FINLIFE_API_KEY=${{ secrets.FINLIFE_API_KEY }}"
