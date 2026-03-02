@@ -6,6 +6,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCustomerStore, selCustomerList } from '../store/customerStore';
 import {
   Alert,
   Animated,
@@ -35,7 +36,7 @@ import SilsonBadge from '../components/SilsonBadge';
 import { useDeviceLayout } from '../utils/deviceCheck';
 import { runWatchdog } from '../utils/SystemWatchdog';
 
-const TAB = { TODO: 'todo', CUSTOMER: 'customer' };
+const TAB = { TODO: 'todo', CUSTOMER: 'customer', CUSTOMERS: 'customers' };
 const CUSTOMER_TAB = { BASIC: 'basic', COVERAGE: 'coverage' };
 
 // ── Toast 컴포넌트 (다크 네이비, 100% 달성용) ─────────────────────────────────
@@ -131,6 +132,11 @@ const Dashboard = () => {
 
   const { isTablet, isLegacyDevice, contentPadding, sidebarWidth, mainWidth } = useDeviceLayout();
 
+  // ── SSOT 고객 목록 + 프로필 이동 ────────────────────────────────────────
+  const customerList = useCustomerStore(selCustomerList);
+  const openProfile  = useCustomerStore((s) => s.openProfile);
+  const openScheduleModal = useCustomerStore((s) => s.openScheduleModal);
+
   // Zustand 슬라이스
   const tasks                                         = useCrmStore(selectTasks);
   const { date: silsonDate, gen: silsonGen, calc }    = useCrmStore(selectSilson);
@@ -159,6 +165,60 @@ const Dashboard = () => {
     }
     prevProgress.current = progress;
   }, [progress]);
+
+  // ── 렌더: 고객 목록 탭 (SSOT 구독) ──────────────────────────────────────
+  const renderCustomersTab = () => (
+    <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+      <View style={styles.custListHeader}>
+        <Text style={styles.custListTitle}>👥 담당 고객 목록</Text>
+        <Text style={styles.custListSub}>{customerList.length}명 등록</Text>
+      </View>
+      {customerList.length === 0 && (
+        <Text style={styles.emptyText}>등록된 고객이 없습니다.</Text>
+      )}
+      {customerList.map((c) => (
+        <TouchableOpacity
+          key={c.id}
+          style={styles.custRow}
+          onPress={() => openProfile(c.id)}
+          activeOpacity={0.75}
+        >
+          <View style={[styles.custAvatar, c.registered ? styles.custAvatarReg : styles.custAvatarUnreg]}>
+            <Text style={styles.custAvatarText}>{c.name?.charAt(0) || '?'}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.custName}>{c.name}</Text>
+            <Text style={styles.custSub} numberOfLines={1}>
+              {[c.job, c.phone].filter(Boolean).join('  ·  ') || '정보 없음'}
+            </Text>
+            {(c.tags || []).length > 0 && (
+              <View style={styles.custTagRow}>
+                {c.tags.slice(0, 2).map((t, i) => (
+                  <View key={i} style={styles.custTag}>
+                    <Text style={styles.custTagText}>{t}</Text>
+                  </View>
+                ))}
+                {c.tags.length > 2 && (
+                  <Text style={styles.custTagMore}>+{c.tags.length - 2}</Text>
+                )}
+              </View>
+            )}
+          </View>
+          <View style={styles.custActions}>
+            <TouchableOpacity
+              style={styles.custSchedBtn}
+              onPress={() => openScheduleModal(c.id)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.custSchedBtnText}>📅</Text>
+            </TouchableOpacity>
+            <Text style={styles.custChevron}>›</Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+      <View style={{ height: 30 }} />
+    </ScrollView>
+  );
 
   // ── 렌더: Task 탭 ────────────────────────────────────────────────────────
   const renderTodoTab = () => (
@@ -303,8 +363,9 @@ const Dashboard = () => {
           <View style={[styles.tabletMain, { width: mainWidth, paddingHorizontal: contentPadding }]}>
             <View style={styles.tabRow}>
               {[
-                { key: TAB.TODO,     label: '📋 오늘의 업무' },
-                { key: TAB.CUSTOMER, label: '👤 고객 등록' },
+                { key: TAB.TODO,      label: '📋 업무' },
+                { key: TAB.CUSTOMERS, label: '� 고객' },
+                { key: TAB.CUSTOMER,  label: '📐 분석' },
               ].map(({ key, label }) => (
                 <TouchableOpacity key={key}
                   onPress={() => { setActiveTab(key); Keyboard.dismiss(); }}
@@ -315,7 +376,9 @@ const Dashboard = () => {
               ))}
             </View>
             <View style={{ flex: 1, paddingTop: 14 }}>
-              {activeTab === TAB.TODO ? renderTodoTab() : renderCustomerTab()}
+              {activeTab === TAB.TODO      && renderTodoTab()}
+              {activeTab === TAB.CUSTOMERS && renderCustomersTab()}
+              {activeTab === TAB.CUSTOMER  && renderCustomerTab()}
             </View>
           </View>
           {/* 우측 사이드바: AI 리포트 */}
@@ -337,8 +400,9 @@ const Dashboard = () => {
       </View>
       <View style={styles.tabRow}>
         {[
-          { key: TAB.TODO,     label: '📋 오늘의 업무' },
-          { key: TAB.CUSTOMER, label: '👤 고객 등록' },
+          { key: TAB.TODO,      label: '📋 업무' },
+          { key: TAB.CUSTOMERS, label: '� 고객' },
+          { key: TAB.CUSTOMER,  label: '📐 분석' },
         ].map(({ key, label }) => (
           <TouchableOpacity key={key}
             onPress={() => { setActiveTab(key); Keyboard.dismiss(); }}
@@ -349,7 +413,9 @@ const Dashboard = () => {
         ))}
       </View>
       <View style={[styles.content, { paddingHorizontal: contentPadding }]}>
-        {activeTab === TAB.TODO ? renderTodoTab() : renderCustomerTab()}
+        {activeTab === TAB.TODO      && renderTodoTab()}
+        {activeTab === TAB.CUSTOMERS && renderCustomersTab()}
+        {activeTab === TAB.CUSTOMER  && renderCustomerTab()}
       </View>
       <SuccessToast visible={showToast} />
     </SafeAreaView>
@@ -500,6 +566,42 @@ const styles = StyleSheet.create({
   generateBtnText: { color: '#ffd700', fontWeight: '800', fontSize: 14 },
 
   // Toast
+  // ── 고객 목록 탭
+  custListHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 },
+  custListTitle:  { fontSize: 15, fontWeight: '800', color: '#1e293b' },
+  custListSub:    { fontSize: 12, color: '#94a3b8' },
+  custRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#ffffff', borderRadius: 12,
+    paddingVertical: 13, paddingHorizontal: 14,
+    marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+  },
+  custAvatar: {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  custAvatarReg:   { backgroundColor: '#1e3a5f' },
+  custAvatarUnreg: { backgroundColor: '#94a3b8' },
+  custAvatarText:  { fontSize: 18, fontWeight: '900', color: '#ffffff' },
+  custName:    { fontSize: 15, fontWeight: '800', color: '#1e293b', marginBottom: 2 },
+  custSub:     { fontSize: 12, color: '#64748b' },
+  custTagRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 },
+  custTag: {
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10,
+    backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe',
+  },
+  custTagText: { fontSize: 10, fontWeight: '700', color: '#1d4ed8' },
+  custTagMore: { fontSize: 10, color: '#94a3b8', alignSelf: 'center' },
+  custActions: { alignItems: 'center', gap: 6 },
+  custSchedBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center',
+  },
+  custSchedBtnText: { fontSize: 15 },
+  custChevron: { fontSize: 20, color: '#94a3b8', fontWeight: '300' },
+
   toast: {
     position: 'absolute', bottom: 36, alignSelf: 'center',
     backgroundColor: '#1e3a5f',
