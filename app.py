@@ -4045,20 +4045,23 @@ GOLD_AVATAR_PATH = os.path.join(
 @st.cache_resource(show_spinner=False)
 def get_goldkey_avatar() -> str:
     """골드키 전용 아바타를 base64 문자열로 반환 (캐시 1회 로드).
-    SVG → PNG 순으로 탐색. 파일 없으면 빈 문자열 반환(Fallback).
+    goldkey_ai_avatar.jpg (여성 아바타) 최우선 탐색.
+    파일 없으면 빈 문자열 반환(Fallback).
     """
+    _base = os.path.dirname(os.path.abspath(__file__))
     candidates = [
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "avatar_master.png"),
-        GOLD_AVATAR_PATH,
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "avatar_goldkey.png"),
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatar.png"),
+        (os.path.join(_base, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
+        (os.path.join(_base, "assets", "goldkey_ai_avatar.png"), "image/png"),
+        (GOLD_AVATAR_PATH, "image/svg+xml" if GOLD_AVATAR_PATH.endswith(".svg") else "image/png"),
+        (os.path.join(_base, "assets", "avatar_master.png"), "image/png"),
+        (os.path.join(_base, "assets", "avatar_goldkey.png"), "image/png"),
+        (os.path.join(_base, "avatar.png"), "image/png"),
     ]
-    for _p in candidates:
+    for _p, _mime in candidates:
         try:
             _path = pathlib.Path(_p)
             if _path.exists():
                 _raw = _path.read_bytes()
-                _mime = "image/svg+xml" if _p.endswith(".svg") else "image/png"
                 return f"data:{_mime};base64,{base64.b64encode(_raw).decode()}"
         except Exception:
             continue
@@ -4080,10 +4083,18 @@ def render_goldkey_sidebar():
     else:
         _avatar_html = (
             '<div style="width:96px;height:96px;border-radius:50%;'
-            'background:linear-gradient(135deg,#f0c040,#b8860b);'
+            'background:linear-gradient(135deg,#1a3a5c,#0d2444);'
             'display:flex;align-items:center;justify-content:center;'
             'margin:0 auto 10px auto;font-size:2.6rem;'
-            'box-shadow:0 0 16px rgba(240,192,32,0.45);">🔑</div>'
+            'border:3px solid #f0c040;'
+            'box-shadow:0 0 16px rgba(240,192,32,0.45);">'
+            '<svg viewBox="0 0 64 64" width="72" height="72" xmlns="http://www.w3.org/2000/svg">'
+            '<circle cx="32" cy="22" r="13" fill="#f5cba7"/>'
+            '<ellipse cx="32" cy="52" rx="20" ry="14" fill="#f5cba7"/>'
+            '<ellipse cx="32" cy="20" rx="13" ry="8" fill="#4a2e0a"/>'
+            '<path d="M19 22 Q32 8 45 22" fill="#4a2e0a"/>'
+            '</svg>'
+            '</div>'
         )
     st.sidebar.markdown(f"""
 <div style="background:linear-gradient(160deg,#0a1628 0%,#1a3a5c 55%,#0d2444 100%);
@@ -11599,8 +11610,8 @@ window['startTTS_{tab_key}']=function(){{
 </style>
 <div class="gk-hero">
   <div class="gk-hero-avatar">
-    <img src="{_hero_avatar_b64}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2.5px solid #f0c040;box-shadow:0 0 14px rgba(240,192,32,0.5);" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-    <span style="display:none;font-size:3.6rem;">🤖</span>
+    <img src="{_hero_avatar_b64}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;object-position:center top;border:3px solid #f0c040;box-shadow:0 0 18px rgba(240,192,32,0.6),0 2px 10px rgba(0,0,0,0.5);" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    <div style="display:none;width:64px;height:64px;border-radius:50%;border:3px solid #f0c040;background:linear-gradient(160deg,#1a3a5c,#0d2444);align-items:center;justify-content:center;box-shadow:0 0 18px rgba(240,192,32,0.6);flex-shrink:0;"><svg viewBox="0 0 64 64" width="46" height="46" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="22" r="13" fill="#f5cba7"/><ellipse cx="32" cy="52" rx="20" ry="14" fill="#f5cba7"/><ellipse cx="32" cy="20" rx="13" ry="8" fill="#4a2e0a"/><path d="M19 22 Q32 8 45 22" fill="#4a2e0a"/><circle cx="27" cy="23" r="2" fill="#5d3a1a"/><circle cx="37" cy="23" r="2" fill="#5d3a1a"/><path d="M28 29 Q32 33 36 29" stroke="#c0392b" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg></div>
     <div class="gk-pulse-ring"></div>
     <div class="gk-pulse-ring"></div>
     <div class="gk-pulse-ring"></div>
