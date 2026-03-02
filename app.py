@@ -2138,8 +2138,10 @@ def update_usage(user_name, model_used: str = ""):
         with open(_lock_path, "w") as _lf:
             try:
                 _fcntl.flock(_lf, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
-            except (BlockingIOError, AttributeError):
-                pass  # Windows 또는 잠금 실패 시 그냥 진행
+            except BlockingIOError:
+                return  # 잠금 실패 시 파일 쓰기 중단 — JSON 손상 방지
+            except AttributeError:
+                pass  # Windows: fcntl 없음, 단일 프로세스이므로 계속
             data = {}
             if os.path.exists(USAGE_DB):
                 try:
@@ -9830,7 +9832,7 @@ function _relWL(){{
 function _hash(s){{
   var h=5381, i=s.length;
   // 공백 제거·소문자화 정규화 후 해싱 (Content Hashing)
-  s=s.replace(/\s/g,'').toLowerCase();
+  s=s.replace(/\\s/g,'').toLowerCase();
   while(i--){{ h=((h<<5)+h)^s.charCodeAt(i); h=h>>>0; }}
   return h.toString(36);
 }}
@@ -9895,16 +9897,16 @@ function _join(prev,next){{
 // ── Context-Aware 한국어 텍스트 정규화 (경량 LLM Post-Processing) ─────────
 // 보험/의료 전문 용어 오인식 패턴 규칙 기반 교정 — 서버 의존 없음, 즉시 적용
 var _nRules=[
-  [/실\s*손/g,'실손'],[/암\s*진\s*단/g,'암진단'],[/뇌\s*혈\s*관/g,'뇌혈관'],
-  [/심\s*근\s*경\s*색/g,'심근경색'],[/해\s*지\s*환\s*급\s*금/g,'해지환급금'],
-  [/납\s*입\s*면\s*제/g,'납입면제'],[/갱\s*신\s*형/g,'갱신형'],
-  [/비\s*갱\s*신\s*형/g,'비갱신형'],[/후\s*유\s*장\s*해/g,'후유장해'],
-  [/치\s*매\s*보\s*험/g,'치매보험'],[/알\s*츠\s*하\s*이\s*머/g,'알츠하이머'],
-  [/청\s*약\s*철\s*회/g,'청약철회'],[/보\s*험\s*금\s*청\s*구/g,'보험금청구'],
-  [/경\s*도\s*인\s*지\s*장\s*애/g,'경도인지장애'],[/장\s*기\s*요\s*양/g,'장기요양'],
-  [/일\s*백\s*만/g,'100만'],[/이\s*백\s*만/g,'200만'],[/삼\s*백\s*만/g,'300만'],
-  [/이\s*천\s*만/g,'2천만'],[/삼\s*천\s*만/g,'3천만'],[/오\s*천\s*만/g,'5천만'],
-  [/^(어+|음+|그+)[,\.\s]*/,'']
+  [/실\\s*손/g,'실손'],[/암\\s*진\\s*단/g,'암진단'],[/뇌\\s*혈\\s*관/g,'뇌혈관'],
+  [/심\\s*근\\s*경\\s*색/g,'심근경색'],[/해\\s*지\\s*환\\s*급\\s*금/g,'해지환급금'],
+  [/납\\s*입\\s*면\\s*제/g,'납입면제'],[/갱\\s*신\\s*형/g,'갱신형'],
+  [/비\\s*갱\\s*신\\s*형/g,'비갱신형'],[/후\\s*유\\s*장\\s*해/g,'후유장해'],
+  [/치\\s*매\\s*보\\s*험/g,'치매보험'],[/알\\s*츠\\s*하\\s*이\\s*머/g,'알츠하이머'],
+  [/청\\s*약\\s*철\\s*회/g,'청약철회'],[/보\\s*험\\s*금\\s*청\\s*구/g,'보험금청구'],
+  [/경\\s*도\\s*인\\s*지\\s*장\\s*애/g,'경도인지장애'],[/장\\s*기\\s*요\\s*양/g,'장기요양'],
+  [/일\\s*백\\s*만/g,'100만'],[/이\\s*백\\s*만/g,'200만'],[/삼\\s*백\\s*만/g,'300만'],
+  [/이\\s*천\\s*만/g,'2천만'],[/삼\\s*천\\s*만/g,'3천만'],[/오\\s*천\\s*만/g,'5천만'],
+  [/^(어+|음+|그+)[,\\.\\s]*/,'']
 ];
 function _normKo(t){{
   t=t.trim();
@@ -9913,7 +9915,7 @@ function _normKo(t){{
 }}
 
 // ── 노이즈 패턴 필터 (환경음·클릭음·짧은 감탄사 제거) ─────────────────────
-var _noiseRx=[/^[아어으음네예]+[\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\s]*$/,/^.{1,2}$/];
+var _noiseRx=[/^[아어으음네예]+[\\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\\s]*$/,/^.{1,2}$/];
 function _isNoise(t){{
   t=t.trim();
   for(var i=0;i<_noiseRx.length;i++) if(_noiseRx[i].test(t)) return true;
@@ -14104,10 +14106,10 @@ var _utterStart=0;
 var _lastQ=[];
 var _boostTerms={str(STT_BOOST_TERMS).replace("'",'"')};
 
-var _noiseRx=[/^[아어으음네예]+[\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\s]*$/,/^.{{1,2}}$/];
+var _noiseRx=[/^[아어으음네예]+[\\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\\s]*$/,/^.{{1,2}}$/];
 function _isNoise(t){{ t=t.trim(); for(var i=0;i<_noiseRx.length;i++) if(_noiseRx[i].test(t)) return true; return false; }}
 
-function _hash(s){{ var h=5381,i; s=s.replace(/\s/g,'').toLowerCase(); while((i=s.length--)){{ h=((h<<5)+h)^s.charCodeAt(i-1); h=h>>>0; }} return h.toString(36); }}
+function _hash(s){{ var h=5381,i; s=s.replace(/\\s/g,'').toLowerCase(); while((i=s.length--)){{ h=((h<<5)+h)^s.charCodeAt(i-1); h=h>>>0; }} return h.toString(36); }}
 function _lev(a,b){{
   var m=a.length,n=b.length,dp=[],i,j;
   for(i=0;i<=m;i++)dp[i]=[i];
@@ -14133,11 +14135,11 @@ function _isDup(text){{
 function _addQ(text){{ _lastQ.push({{text:text,ts:Date.now(),hash:_hash(text)}}); if(_lastQ.length>{STT_LEV_QUEUE}) _lastQ.shift(); }}
 
 var _nRules=[
-  [/실\s*손/g,'실손'],[/암\s*진\s*단/g,'암진단'],[/뇌\s*혈\s*관/g,'뇌혈관'],
-  [/심\s*근\s*경\s*색/g,'심근경색'],[/후\s*유\s*장\s*해/g,'후유장해'],
-  [/납\s*입\s*면\s*제/g,'납입면제'],[/갱\s*신\s*형/g,'갱신형'],[/비\s*갱\s*신\s*형/g,'비갱신형'],
-  [/치\s*매\s*보\s*험/g,'치매보험'],[/장\s*기\s*요\s*양/g,'장기요양'],
-  [/^(어+|음+|그+)[,\.\s]*/,'']
+  [/실\\s*손/g,'실손'],[/암\\s*진\\s*단/g,'암진단'],[/뇌\\s*혈\\s*관/g,'뇌혈관'],
+  [/심\\s*근\\s*경\\s*색/g,'심근경색'],[/후\\s*유\\s*장\\s*해/g,'후유장해'],
+  [/납\\s*입\\s*면\\s*제/g,'납입면제'],[/갱\\s*신\\s*형/g,'갱신형'],[/비\\s*갱\\s*신\\s*형/g,'비갱신형'],
+  [/치\\s*매\\s*보\\s*험/g,'치매보험'],[/장\\s*기\\s*요\\s*양/g,'장기요양'],
+  [/^(어+|음+|그+)[,\\.\\s]*/,'']
 ];
 function _normKo(t){{ t=t.trim(); for(var i=0;i<_nRules.length;i++) t=t.replace(_nRules[i][0],_nRules[i][1]); return t.trim(); }}
 
