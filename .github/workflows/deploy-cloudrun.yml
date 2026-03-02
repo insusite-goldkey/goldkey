@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  GCP_PROJECT: gen-lang-client-0536067004
+  GCP_PROJECT: gen-lang-client-0777682955
   REGION: asia-northeast3
   SERVICE: goldkey
   REPO: cloud-run-source-deploy
