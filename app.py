@@ -2341,48 +2341,49 @@ _STT_CORRECT_MAP = {
 # ==========================================================================
 SECTOR_CODES: dict = {
     # ── 1000번대: 홈 / 스캔 / 분석 허브 ──────────────────────────────────
-    "1000": {"name": "홈 화면",         "tab_key": "home",          "keywords": ["홈", "메인", "처음", "홈화면", "첫화면"]},
-    "1100": {"name": "통합 스캔 허브",  "tab_key": "scan_hub",      "keywords": ["스캔허브", "통합스캔", "서류올려", "의무기록올려", "스캔"]},
-    "1200": {"name": "보험증권 분석",   "tab_key": "policy_scan",   "keywords": ["증권분석", "보험증권분석", "보험증권", "증권업로드", "증권봐줘", "내증권"]},
-    "1300": {"name": "약관 매칭",       "tab_key": "policy_terms",  "keywords": ["약관검색", "약관찾아", "약관보여", "약관알려", "약관매칭", "약관"]},
+    "1000": {"name": "홈 화면",         "tab_key": "home",          "keywords": ["홈", "메인", "처음", "홈화면", "첫화면", "대시보드", "시작"]},
+    "1100": {"name": "통합 스캔 허브",  "tab_key": "scan_hub",      "keywords": ["스캔허브", "통합스캔", "서류올려", "의무기록올려", "스캔", "파일올려", "업로드"]},
+    "1200": {"name": "보험증권 분석",   "tab_key": "policy_scan",   "keywords": ["증권분석", "보험증권분석", "보험증권", "증권업로드", "증권봐줘", "내증권", "증권", "담보확인", "보장확인"]},
+    "1300": {"name": "약관 매칭",       "tab_key": "policy_terms",  "keywords": ["약관검색", "약관찾아", "약관보여", "약관알려", "약관매칭", "약관", "약관ai", "약관분석"]},
     # ── 2000번대: 상해·청구·장해 상담 ───────────────────────────────────
-    "2000": {"name": "신규보험 상담",   "tab_key": "t0",            "keywords": ["신규보험상담", "신규보험", "신규상담", "새보험", "보험추천", "보험가입", "보험설계", "신규"]},
-    "2100": {"name": "상해 통합 관리",  "tab_key": "injury",        "keywords": ["상해사고", "상해보험", "상해통합", "상해설계", "사고났어", "소득끊겨", "보장공백"]},
-    "2200": {"name": "보험금 청구 상담","tab_key": "t1",            "keywords": ["보험금청구상담", "보험금청구", "보험금상담", "청구방법", "지급거절", "청구상담"]},
-    "2300": {"name": "장해 산출",       "tab_key": "disability",    "keywords": ["장해산출", "장해보험금", "후유장해", "맥브라이드", "AMA", "장해율", "장해"]},
-    "2400": {"name": "KCD 상해 분석",  "tab_key": "kcd_injury",    "keywords": ["KCD상해", "S코드", "M코드", "외인코드", "kcd분석", "상해코드", "손해사정", "6개월전환", "기여도", "S.T.V.W.X.Y"]},
+    "2000": {"name": "신규보험 상담",   "tab_key": "t0",            "keywords": ["신규보험상담", "신규보험", "신규상담", "새보험", "보험추천", "보험가입", "보험설계", "신규", "보험상담", "보험견적"]},
+    "2100": {"name": "상해 통합 관리",  "tab_key": "injury",        "keywords": ["상해사고", "상해보험", "상해통합", "상해설계", "사고났어", "소득끊겨", "보장공백", "상해관리", "다쳤어"]},
+    "2200": {"name": "보험금 청구 상담","tab_key": "t1",            "keywords": ["보험금청구상담", "보험금청구", "보험금상담", "청구방법", "지급거절", "청구상담", "보험금받기", "청구"]},
+    "2300": {"name": "장해 산출",       "tab_key": "disability",    "keywords": ["장해산출", "장해보험금", "후유장해", "맥브라이드", "AMA", "장해율", "장해", "장해계산", "장해판정"]},
+    "2400": {"name": "KCD 상해 분석",  "tab_key": "kcd_injury",    "keywords": ["KCD상해", "S코드", "M코드", "외인코드", "kcd분석", "상해코드", "손해사정", "6개월전환", "기여도", "S.T.V.W.X.Y", "질병코드", "kcd"]},
+    "2500": {"name": "자동차보험 보상 실무", "tab_key": "auto_comp", "keywords": ["자동차보험실무", "자상자신비교", "산재경합", "과실상계", "캠핑카보험", "자동차상해", "자기신체사고", "휴업급여", "위자료", "보상비교", "산재자동차", "자동차보상", "자동차실무", "보상실무"]},
     # ── 3000번대: 질환 상담 (암·뇌·심장) ───────────────────────────────
-    "3000": {"name": "암 질환 상담",    "tab_key": "cancer",        "keywords": ["암상담", "암질환", "표적항암", "면역항암", "NGS", "CAR-T", "항암치료", "암진단", "암보험"]},
-    "3100": {"name": "뇌 질환 상담",    "tab_key": "brain",         "keywords": ["뇌상담", "뇌졸중", "뇌경색", "뇌출혈", "중풍", "뇌질환", "뇌혈관"]},
-    "3200": {"name": "심장 질환 상담",  "tab_key": "heart",         "keywords": ["심장상담", "심근경색", "협심증", "허혈", "심장질환", "급성심장"]},
+    "3000": {"name": "암 질환 상담",    "tab_key": "cancer",        "keywords": ["암상담", "암질환", "표적항암", "면역항암", "NGS", "CAR-T", "항암치료", "암진단", "암보험", "암", "항암", "암보장"]},
+    "3100": {"name": "뇌 질환 상담",    "tab_key": "brain",         "keywords": ["뇌상담", "뇌졸중", "뇌경색", "뇌출혈", "중풍", "뇌질환", "뇌혈관", "뇌", "뇌보장"]},
+    "3200": {"name": "심장 질환 상담",  "tab_key": "heart",         "keywords": ["심장상담", "심근경색", "협심증", "허혈", "심장질환", "급성심장", "심장", "심장보장"]},
     # ── 4000번대: 보험 설계 ──────────────────────────────────────────────
-    "4000": {"name": "기본보험 상담",   "tab_key": "t2",            "keywords": ["자동차보험", "운전자보험", "기본보험상담", "기본보험"]},
-    "4100": {"name": "통합보험 설계",   "tab_key": "t3",            "keywords": ["통합보험설계", "통합보험", "통합설계", "생명보험설계", "종합설계"]},
-    "4200": {"name": "자동차사고 상담", "tab_key": "t4",            "keywords": ["자동차사고", "교통사고", "과실비율", "합의금", "민식이법"]},
+    "4000": {"name": "기본보험 상담",   "tab_key": "t2",            "keywords": ["자동차보험", "운전자보험", "기본보험상담", "기본보험", "기본보장", "기초보험"]},
+    "4100": {"name": "통합보험 설계",   "tab_key": "t3",            "keywords": ["통합보험설계", "통합보험", "통합설계", "생명보험설계", "종합설계", "통합설계해줘", "전체설계"]},
+    "4200": {"name": "자동차사고 상담", "tab_key": "t4",            "keywords": ["자동차사고", "교통사고", "과실비율", "합의금", "민식이법", "교통사고상담", "사고합의"]},
     # ── 5000번대: 자산 / 세무 / 법인 ────────────────────────────────────
-    "5000": {"name": "노후·상속 설계",  "tab_key": "t5",            "keywords": ["노후설계", "연금설계", "상속설계", "증여설계", "주택연금", "노후상담", "상속상담", "노후", "연금", "상속"]},
-    "5100": {"name": "세무 상담",       "tab_key": "t6",            "keywords": ["세무상담", "세금상담", "절세방법", "소득세", "법인세", "건보료", "금융소득", "세무"]},
-    "5200": {"name": "법인 상담",       "tab_key": "t7",            "keywords": ["법인상담", "법인보험", "단체보험", "복리후생", "법인"]},
-    "5300": {"name": "CEO플랜",         "tab_key": "t8",            "keywords": ["CEO플랜", "씨이오플랜", "대표설계", "가업승계", "퇴직금설계", "CEO상담", "씨이오"]},
-    "5400": {"name": "비상장주식 평가", "tab_key": "stock_eval",    "keywords": ["비상장주식", "주식평가", "상증법", "순자산평가", "경영권할증"]},
+    "5000": {"name": "노후·상속 설계",  "tab_key": "t5",            "keywords": ["노후설계", "연금설계", "상속설계", "증여설계", "주택연금", "노후상담", "상속상담", "노후", "연금", "상속", "은퇴준비", "노후준비"]},
+    "5100": {"name": "세무 상담",       "tab_key": "t6",            "keywords": ["세무상담", "세금상담", "절세방법", "소득세", "법인세", "건보료", "금융소득", "세무", "세금", "절세", "세금줄이기"]},
+    "5200": {"name": "법인 상담",       "tab_key": "t7",            "keywords": ["법인상담", "법인보험", "단체보험", "복리후생", "법인", "법인설계", "사업자보험"]},
+    "5300": {"name": "CEO플랜",         "tab_key": "t8",            "keywords": ["CEO플랜", "씨이오플랜", "대표설계", "가업승계", "퇴직금설계", "CEO상담", "씨이오", "대표님보험", "임원보험"]},
+    "5400": {"name": "비상장주식 평가", "tab_key": "stock_eval",    "keywords": ["비상장주식", "주식평가", "상증법", "순자산평가", "경영권할증", "비상장평가", "주식가치"]},
     # ── 6000번대: 전문 보험 ──────────────────────────────────────────────
-    "6000": {"name": "화재보험",        "tab_key": "fire",          "keywords": ["화재상담", "재조달가액", "화재보험설계", "건물보험", "REB", "화재보험"]},
-    "6100": {"name": "배상책임보험",    "tab_key": "liability",     "keywords": ["배상책임", "배상상담", "중복보험", "실화책임", "독립책임", "배상보험"]},
-    "6200": {"name": "간병비 컨설팅",   "tab_key": "nursing",       "keywords": ["간병비", "간병컨설팅", "장기요양", "요양병원", "간병보험", "간병상담", "요양상담", "치매보험", "치매"]},
-    "6300": {"name": "부동산 투자",     "tab_key": "realty",        "keywords": ["부동산투자", "부동산상담", "등기부", "건축물대장", "투자수익률"]},
+    "6000": {"name": "화재보험",        "tab_key": "fire",          "keywords": ["화재상담", "재조달가액", "화재보험설계", "건물보험", "REB", "화재보험", "화재", "건물화재"]},
+    "6100": {"name": "배상책임보험",    "tab_key": "liability",     "keywords": ["배상책임", "배상상담", "중복보험", "실화책임", "독립책임", "배상보험", "배상", "책임보험"]},
+    "6200": {"name": "간병비 컨설팅",   "tab_key": "nursing",       "keywords": ["간병비", "간병컨설팅", "장기요양", "요양병원", "간병보험", "간병상담", "요양상담", "치매보험", "치매", "간병", "요양"]},
+    "6300": {"name": "부동산 투자",     "tab_key": "realty",        "keywords": ["부동산투자", "부동산상담", "등기부", "건축물대장", "투자수익률", "부동산", "부동산분석"]},
     # ── 7000번대: 라이프 플랜 ────────────────────────────────────────────
-    "7000": {"name": "LIFE CYCLE 설계", "tab_key": "life_cycle",    "keywords": ["라이프사이클", "생애설계", "타임라인", "백지설계", "인생설계"]},
-    "7100": {"name": "LIFE EVENT 상담", "tab_key": "life_event",    "keywords": ["라이프이벤트", "인생이벤트", "결혼설계", "출산설계", "은퇴설계"]},
+    "7000": {"name": "LIFE CYCLE 설계", "tab_key": "life_cycle",    "keywords": ["라이프사이클", "생애설계", "타임라인", "백지설계", "인생설계", "생애계획", "인생계획", "라이프플랜"]},
+    "7100": {"name": "LIFE EVENT 상담", "tab_key": "life_event",    "keywords": ["라이프이벤트", "인생이벤트", "결혼설계", "출산설계", "은퇴설계", "이벤트상담", "생애이벤트"]},
     # ── 8000번대: 콘텐츠 / 자료 관리 ────────────────────────────────────
-    "8000": {"name": "리플렛 분류",     "tab_key": "leaflet",       "keywords": ["리플렛", "신상품등록", "상품리플렛"]},
-    "8100": {"name": "상담 카탈로그",   "tab_key": "consult_catalog","keywords": ["카탈로그열람", "카탈로그보여", "내카탈로그", "상담카탈로그"]},
-    "8200": {"name": "고객자료",        "tab_key": "customer_docs", "keywords": ["고객자료", "의무기록저장", "서류저장", "고객문서", "마인드맵"]},
-    "8300": {"name": "디지털 카탈로그", "tab_key": "digital_catalog","keywords": ["디지털카탈로그", "카탈로그관리", "카탈로그업로드"]},
+    "8000": {"name": "리플렛 분류",     "tab_key": "leaflet",       "keywords": ["리플렛", "신상품등록", "상품리플렛", "신상품", "상품등록", "리플렛분류"]},
+    "8100": {"name": "상담 카탈로그",   "tab_key": "consult_catalog","keywords": ["카탈로그열람", "카탈로그보여", "내카탈로그", "상담카탈로그", "상담자료", "카탈로그"]},
+    "8200": {"name": "고객자료",        "tab_key": "customer_docs", "keywords": ["고객자료", "의무기록저장", "서류저장", "고객문서", "마인드맵", "고객서류", "서류보관"]},
+    "8300": {"name": "디지털 카탈로그", "tab_key": "digital_catalog","keywords": ["디지털카탈로그", "카탈로그관리", "카탈로그업로드", "디지털자료", "자료관리"]},
     # ── 9000번대: 보상 전문 상담 ─────────────────────────────────────────
-    "9000": {"name": "보상 정보 시뮬레이션 가이드", "tab_key": "compensation", "keywords": ["보상상담", "상해보상", "보상시뮬레이션", "보상가이드", "보상정보", "손해배상상담", "보상전문"]},
-    "9100": {"name": "교통사고 보상 가이드",         "tab_key": "compensation", "keywords": ["교통사고보상", "교통사고합의", "교통사고손해", "자동차사고보상"]},
-    "9200": {"name": "산재 보상 가이드",             "tab_key": "compensation", "keywords": ["산재보상", "산업재해보상", "근로복지공단", "산재신청"]},
-    "9300": {"name": "일반상해 보상 가이드",         "tab_key": "compensation", "keywords": ["일반상해보상", "상해보험금", "상해보상가이드", "상해보상안내"]},
+    "9000": {"name": "보상 정보 시뮬레이션 가이드", "tab_key": "compensation", "keywords": ["보상상담", "상해보상", "보상시뮬레이션", "보상가이드", "보상정보", "손해배상상담", "보상전문", "보상", "손해배상"]},
+    "9100": {"name": "교통사고 보상 가이드",         "tab_key": "compensation", "keywords": ["교통사고보상", "교통사고합의", "교통사고손해", "자동차사고보상", "교통사고가이드"]},
+    "9200": {"name": "산재 보상 가이드",             "tab_key": "compensation", "keywords": ["산재보상", "산업재해보상", "근로복지공단", "산재신청", "산재", "산업재해"]},
+    "9300": {"name": "일반상해 보상 가이드",         "tab_key": "compensation", "keywords": ["일반상해보상", "상해보험금", "상해보상가이드", "상해보상안내", "일반상해"]},
 }
 
 # ==========================================================================
@@ -2521,6 +2522,318 @@ _NAV_INTENT_MAP = [
 
 # SUB_CODES에서도 자동 생성 — SECTOR_CODES와 합산하여 ID/키워드 검색에 활용
 _ALL_CODES: dict = {**SECTOR_CODES, **SUB_CODES}
+
+# ==========================================================================
+# [SECURITY] 계층형 APP_REGISTRY — 은닉형 메모리 라우팅 핵심 객체
+# ※ 이 객체는 URL·외부에 절대 노출하지 않음 (In-memory only)
+# ※ 대분류(X000) → 중분류(X100) → 소분류(X110) 3단계 계층
+# ※ path: Semantic URL (ID 미포함) — 브라우저 주소창 노출 안전
+# ==========================================================================
+def _build_app_registry() -> dict:
+    """_ALL_CODES에서 계층형 APP_REGISTRY를 자동 생성."""
+    _reg = {}
+    for _code, _entry in _ALL_CODES.items():
+        _cint = int(_code)
+        # 계층 판별 — X000=대분류, X00X(100단위)=중분류, X0XX=소분류
+        if _cint % 1000 == 0:
+            _level = "대분류"
+        elif _cint % 100 == 0:
+            _level = "중분류"
+        else:
+            _level = "소분류"
+        # Semantic path: /대분류tab/중분류id 형태 (ID 미노출)
+        _path = "/" + _entry["tab_key"].replace("_", "-")
+        if _level != "대분류":
+            _path += "/" + _code
+        _reg[_code] = {
+            "id": _code,
+            "level": _level,
+            "title": _entry["name"],
+            "tab_key": _entry["tab_key"],
+            "path": _path,
+            "keywords": _entry.get("keywords", []),
+        }
+    return _reg
+
+APP_REGISTRY: dict = _build_app_registry()
+
+# --------------------------------------------------------------------------
+# [SECURITY] 은닉형 메모리 라우팅 — currentMenuId는 session_state에만 보관
+# URL에는 Semantic Path만 노출, 실제 ID는 절대 외부 유출 금지
+# --------------------------------------------------------------------------
+def _gk_route(code: str) -> None:
+    """APP_REGISTRY 기반 은닉 라우팅.
+    - currentMenuId를 session_state._gk_cur_id 에만 저장 (URL 미노출)
+    - 동시에 클릭 추적 (_gk_track 호출)
+    - tab 전환은 기존 _go_tab 패턴 위임 (호출측에서 처리)
+    """
+    if code not in APP_REGISTRY:
+        return
+    import streamlit as _st2
+    _st2.session_state["_gk_cur_id"] = code
+    _gk_track(code)
+
+def _gk_track(code: str) -> None:
+    """클릭 이벤트를 해시 마스킹하여 in-memory 추적 로그에 기록.
+    - Payload: base64(sha256(code + timestamp)) — 원본 ID 비노출
+    - _gk_nav_log: list[dict] — 최근 500건 순환
+    """
+    import hashlib as _hl, base64 as _b64, time as _tm
+    import streamlit as _st3
+    _ts = str(int(_tm.time() * 1000))
+    _raw = f"{code}:{_ts}"
+    _masked = _b64.b64encode(_hl.sha256(_raw.encode()).digest()).decode()[:16]
+    _log: list = _st3.session_state.get("_gk_nav_log", [])
+    _log.append({"code": code, "masked": _masked, "ts": int(_ts)})
+    if len(_log) > 500:
+        _log = _log[-500:]
+    _st3.session_state["_gk_nav_log"] = _log
+    # 클릭 카운터 누적 (코드별 집계)
+    _cnt: dict = _st3.session_state.get("_gk_nav_cnt", {})
+    _cnt[code] = _cnt.get(code, 0) + 1
+    _st3.session_state["_gk_nav_cnt"] = _cnt
+
+def _gk_top_menus(n: int = 20) -> list:
+    """클릭 수 기준 상위 N개 메뉴 반환 (설계사 대시보드용).
+    반환: [{"code","title","tab_key","level","clicks","pct"}, ...]
+    """
+    import streamlit as _st4
+    _cnt: dict = _st4.session_state.get("_gk_nav_cnt", {})
+    if not _cnt:
+        return []
+    _max_c = max(_cnt.values()) if _cnt else 1
+    _sorted = sorted(_cnt.items(), key=lambda x: x[1], reverse=True)[:n]
+    _result = []
+    for _code, _clicks in _sorted:
+        _entry = APP_REGISTRY.get(_code, {})
+        _result.append({
+            "code": _code,
+            "title": _entry.get("title", _code),
+            "tab_key": _entry.get("tab_key", ""),
+            "level": _entry.get("level", "?"),
+            "clicks": _clicks,
+            "pct": round(_clicks / _max_c * 100),
+        })
+    return _result
+
+# ==========================================================================
+# [C1] 통합 Entity ID 체계 (Global Entity ID Registry)
+# MENU_  : 화면/메뉴 (기존 APP_REGISTRY 코드 — 1000, 3110 등)
+# CUST_  : 일반 고객 (가입 순번 기반, 예: CUST_10045)
+# AGNT_  : 설계사/관리자 (예: AGNT_90001)
+# DOC_   : 스캔 문서 (업로드 순번 기반, 예: DOC_50123)
+# ※ 모든 ID는 session_state에만 보관 — URL·외부 절대 미노출
+# ==========================================================================
+import hashlib as _eid_hl, base64 as _eid_b64, time as _eid_tm
+
+def _eid_issue(entity_type: str, seed: str = "") -> str:
+    """Entity 고유 ID 발급.
+    - entity_type: 'CUST' | 'AGNT' | 'DOC'
+    - seed: 로그인 아이디 또는 파일명 등 고유 값
+    반환: 예) 'CUST_10045', 'AGNT_90001', 'DOC_50123'
+    """
+    _PREFIXES = {"CUST": 10000, "AGNT": 90000, "DOC": 50000}
+    _base = _PREFIXES.get(entity_type, 10000)
+    _raw  = f"{entity_type}:{seed}:{int(_eid_tm.time()*1000)}"
+    _num  = int(_eid_hl.md5(_raw.encode()).hexdigest(), 16) % 9000 + _base
+    return f"{entity_type}_{_num}"
+
+def _eid_get_current_user() -> dict:
+    """현재 로그인 사용자의 Entity 정보 반환.
+    반환: {"entity_id": "CUST_10045", "user_type": "customer"|"agent"|"guest"}
+    """
+    import streamlit as _stu
+    _uid   = _stu.session_state.get("_gk_entity_id", None)
+    _utype = _stu.session_state.get("_gk_user_type", "guest")
+    if not _uid:
+        _uid = "GUEST_000"
+    return {"entity_id": _uid, "user_type": _utype}
+
+def _eid_set_login_user(login_id: str, user_type: str) -> str:
+    """로그인 성공 시 Entity ID 발급 후 session_state에 저장.
+    - user_type: 'customer' → CUST_, 'agent' → AGNT_
+    반환: 발급된 entity_id 문자열
+    """
+    import streamlit as _stu2
+    _prefix = "AGNT" if user_type == "agent" else "CUST"
+    _eid    = _eid_issue(_prefix, login_id)
+    _stu2.session_state["_gk_entity_id"] = _eid
+    _stu2.session_state["_gk_user_type"]  = user_type
+    return _eid
+
+# --------------------------------------------------------------------------
+# [C2] 사용자-메뉴 결합 추적 (Relational Tracking)
+# 기존 _gk_track을 확장: userId + menuId + timestamp → Base64 암호화 로그
+# --------------------------------------------------------------------------
+def _gk_track_v2(code: str) -> None:
+    """결합 추적: (entity_id × menu_code × timestamp) → Base64 암호화 후 로그 기록.
+    로그 구조:
+      _gk_nav_log  : 최근 500건 순환 리스트 (per-session, in-memory)
+      _gk_nav_cnt  : 코드별 클릭 카운터 (설계사 대시보드용)
+      _gk_user_log : entity_id별 [(code, ts, weight)] — AI 추천용
+    """
+    import streamlit as _st5
+    import json as _jsn
+    _user  = _eid_get_current_user()
+    _ts    = int(_eid_tm.time() * 1000)
+    _entry = APP_REGISTRY.get(code, {})
+    _weight = _entry.get("ai_weight", 1)
+
+    # Base64 암호화 payload
+    _raw_payload = _jsn.dumps({
+        "userId":  _user["entity_id"],
+        "menuId":  f"MENU_{code}",
+        "menuTitle": _entry.get("title", code),
+        "actionTime": _ts,
+    }, ensure_ascii=False)
+    _encrypted = _eid_b64.b64encode(_raw_payload.encode()).decode()
+
+    # 전체 nav 로그 (최근 500건)
+    _log: list = _st5.session_state.get("_gk_nav_log", [])
+    _log.append({
+        "code": code, "userId": _user["entity_id"],
+        "masked": _encrypted[:24], "ts": _ts
+    })
+    if len(_log) > 500:
+        _log = _log[-500:]
+    _st5.session_state["_gk_nav_log"] = _log
+
+    # 코드별 클릭 카운터
+    _cnt: dict = _st5.session_state.get("_gk_nav_cnt", {})
+    _cnt[code] = _cnt.get(code, 0) + 1
+    _st5.session_state["_gk_nav_cnt"] = _cnt
+
+    # 추적 대시보드용 _gk_track_log 동기화
+    _tlog: dict = _st5.session_state.get("_gk_track_log", {})
+    _tlog[code] = _tlog.get(code, 0) + 1
+    _st5.session_state["_gk_track_log"] = _tlog
+
+    # [AI 추천용] entity별 (code, ts, weight) 누적
+    _ulog: dict = _st5.session_state.get("_gk_user_log", {})
+    _uid  = _user["entity_id"]
+    if _uid not in _ulog:
+        _ulog[_uid] = []
+    _ulog[_uid].append({"code": code, "ts": _ts, "weight": _weight})
+    if len(_ulog[_uid]) > 1000:
+        _ulog[_uid] = _ulog[_uid][-1000:]
+    _st5.session_state["_gk_user_log"] = _ulog
+
+# 기존 _gk_route도 v2 추적으로 업그레이드 (원본 유지, 내부 호출만 교체)
+def _gk_route(code: str) -> None:
+    """APP_REGISTRY 기반 은닉 라우팅 (v2 추적 통합)."""
+    if code not in APP_REGISTRY:
+        return
+    import streamlit as _st6
+    _st6.session_state["_gk_cur_id"] = code
+    _gk_track_v2(code)
+
+# --------------------------------------------------------------------------
+# [C5] AI 타겟 고객 추천 알고리즘 — calculateTopTargets()
+# 공식: Score = Σ(weight × freq) + recency_bonus
+# weight: APP_REGISTRY[code].get("ai_weight") — 중증질환 고가중치
+# recency_bonus: 48h 이내 +20점, 24h 이내 +50점, 1h 이내 +100점
+# --------------------------------------------------------------------------
+
+# 메뉴 AI 가중치 테이블 (중증 질환일수록 높음)
+_AI_WEIGHT_MAP: dict = {
+    # 암 질환 계열 (1000번대)
+    "1000": 5,  "1100": 2,  "1110": 8,  "1120": 8,  "1130": 8,
+    "1200": 6,  "1210": 9,  "1220": 9,
+    # 뇌·심장·중증 계열 (3000번대)
+    "3000": 8,  "3100": 10, "3110": 10, "3120": 10,
+    "3200": 10, "3210": 10, "3220": 10,
+    # 기타 보장공백 등
+    "5000": 7,  "5100": 6,  "5200": 6,
+}
+
+def _apply_ai_weights() -> None:
+    """APP_REGISTRY에 ai_weight 필드를 사후 적용 (앱 기동 시 1회)."""
+    for _code, _entry in APP_REGISTRY.items():
+        _entry["ai_weight"] = _AI_WEIGHT_MAP.get(_code, 1)
+
+_apply_ai_weights()
+
+def calculate_top_targets(n: int = 5, hours: int = 48) -> list:
+    """AI 타겟 고객 추천 TOP N.
+
+    공식:
+      score = Σ (ai_weight × click_count_in_window)
+              + recency_bonus(last_click_ts)
+
+    recency_bonus:
+      last click < 1h  → +100
+      last click < 24h → +50
+      last click < 48h → +20
+
+    반환:
+      [{"entity_id", "user_type", "score", "top_menu", "last_ts",
+        "detail": [{"code","title","weight","count","sub_score"}, ...]}, ...]
+    """
+    import streamlit as _st7
+    _now_ms  = int(_eid_tm.time() * 1000)
+    _win_ms  = hours * 3600 * 1000
+    _ulog: dict = _st7.session_state.get("_gk_user_log", {})
+    if not _ulog:
+        return []
+
+    _scores = []
+    for _uid, _events in _ulog.items():
+        # 윈도우 내 이벤트만 필터
+        _in_win = [e for e in _events if _now_ms - e["ts"] <= _win_ms]
+        if not _in_win:
+            continue
+
+        # 코드별 집계
+        _code_stats: dict = {}
+        for _ev in _in_win:
+            _c = _ev["code"]
+            if _c not in _code_stats:
+                _code_stats[_c] = {"count": 0, "weight": _ev["weight"], "last_ts": 0}
+            _code_stats[_c]["count"] += 1
+            if _ev["ts"] > _code_stats[_c]["last_ts"]:
+                _code_stats[_c]["last_ts"] = _ev["ts"]
+
+        # 가중치 × 빈도 합산
+        _base_score = sum(
+            v["weight"] * v["count"] for v in _code_stats.values()
+        )
+
+        # 최신성 보너스 (가장 최근 클릭 기준)
+        _last_ts = max(v["last_ts"] for v in _code_stats.values())
+        _diff_h  = (_now_ms - _last_ts) / 3_600_000
+        _recency = 100 if _diff_h < 1 else (50 if _diff_h < 24 else 20)
+
+        _total = _base_score + _recency
+
+        # 가장 많이 클릭한 메뉴
+        _top_code = max(_code_stats, key=lambda c: _code_stats[c]["weight"] * _code_stats[c]["count"])
+        _top_entry = APP_REGISTRY.get(_top_code, {})
+
+        _detail = sorted([
+            {
+                "code":      _c,
+                "title":     APP_REGISTRY.get(_c, {}).get("title", _c),
+                "weight":    v["weight"],
+                "count":     v["count"],
+                "sub_score": v["weight"] * v["count"],
+            }
+            for _c, v in _code_stats.items()
+        ], key=lambda x: x["sub_score"], reverse=True)[:5]
+
+        _scores.append({
+            "entity_id": _uid,
+            "user_type": _st7.session_state.get("_gk_user_log_type", {}).get(_uid, "고객"),
+            "score":     _total,
+            "top_menu":  _top_entry.get("title", _top_code),
+            "top_code":  _top_code,
+            "last_ts":   _last_ts,
+            "detail":    _detail,
+        })
+
+    _scores.sort(key=lambda x: x["score"], reverse=True)
+    return _scores[:n]
+
+# ==========================================================================
 
 def _voice_navigate(text: str):
     """음성/텍스트 입력에서 Intent 감지 → 이동할 current_tab 반환.
@@ -2915,10 +3228,20 @@ def get_master_model():
         raise RuntimeError("GEMINI_API_KEY가 설정되지 않았습니다. HuggingFace Space → Settings → Variables and secrets 에서 GEMINI_API_KEY를 등록하세요.")
     # [R1] 6대 절대 수칙(_ABSOLUTE_SYSTEM_INSTRUCTION) + SYSTEM_PROMPT 통합
     # _ABSOLUTE_SYSTEM_INSTRUCTION이 앞에 위치해야 LLM이 최우선 적용
+    # [버킷 AI 설정] 관리자 탭에서 저장한 시스템 프롬프트/파라미터 우선 적용
+    try:
+        _bk_prompt = st.session_state.get("_bucket_system_prompt", "")
+        _bk_temp   = float(st.session_state.get("_bucket_temperature", 0.0))
+        _bk_topp   = float(st.session_state.get("_bucket_top_p", 0.1))
+    except Exception:
+        _bk_prompt, _bk_temp, _bk_topp = "", 0.0, 0.1
+    _combined_sys = _ABSOLUTE_SYSTEM_INSTRUCTION + "\n\n" + SYSTEM_PROMPT
+    if _bk_prompt:
+        _combined_sys = _combined_sys + "\n\n[관리자 추가 지침]\n" + _bk_prompt
     config = _lazy_genai_types().GenerateContentConfig(
-        temperature=0.0,
-        top_p=0.1,
-        system_instruction=_ABSOLUTE_SYSTEM_INSTRUCTION + "\n\n" + SYSTEM_PROMPT,
+        temperature=_bk_temp,
+        top_p=_bk_topp,
+        system_instruction=_combined_sys,
     )
     return client, config
 
@@ -3662,6 +3985,7 @@ def get_goldkey_avatar() -> str:
     SVG → PNG 순으로 탐색. 파일 없으면 빈 문자열 반환(Fallback).
     """
     candidates = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "avatar_master.png"),
         GOLD_AVATAR_PATH,
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "avatar_goldkey.png"),
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatar.png"),
@@ -7835,6 +8159,16 @@ watchRipple();
 
         with st.expander("📜 이용약관 · 서비스 안내 (로그인 후 이용 가능)", expanded=False):
             st.caption("로그인 후 사이드바 하단에서 전체 약관을 확인하실 수 있습니다.")
+
+        st.sidebar.markdown("""
+<div style="background:#fff8e1;border-left:3px solid #f59e0b;border-radius:10px;
+  padding:11px 14px;margin:8px 0 6px 0;font-size:0.74rem;color:#555;line-height:1.65;">
+<b style="color:#b45309;">⚠️ 면책 안내 (Disclaimer)</b><br>
+이 앱은 전문적인 의료·법률·회계 등 진단·상담 앱이 아니며,
+사용자가 고객과 상담 과정에서 <b>보험 등의 내용 이해를 돕기 위한 업무 보조 도구</b>입니다.<br><br>
+모든 AI 분석 결과 및 상담 내용에는 <b>면책조항(Disclaimer)</b>이 포함되어 있습니다.
+최종 판단과 책임은 이용자 본인에게 있습니다.
+</div>""", unsafe_allow_html=True)
         if False:  # 약관 전문 — 로딩 지연 방지용 비활성화 블록
             st.markdown("""
 ## Goldkey AI Master Lab. Beta 이용약관
@@ -8083,6 +8417,10 @@ watchRipple();
                     st.session_state["_login_welcome"]      = ln
                     st.session_state["_auto_close_sidebar"] = True
                     st.session_state["_login_just_done"]    = True
+                    # [C1] Entity ID 자동 발급 — AGNT_ (설계사) / CUST_ (일반고객)
+                    _is_pro_eid = st.session_state.get("_lp_is_pro", "비종사자")
+                    _eid_type   = "agent" if _is_pro_eid == "종사자" or _adm else "customer"
+                    _eid_set_login_user(ln, _eid_type)
                     # Phase A에서 선택한 종사자 여부 반영
                     _is_pro = st.session_state.get("_lp_is_pro", "비종사자")
                     if _is_pro == "종사자":
@@ -8691,40 +9029,96 @@ if(!CRED_ID) setTimeout(doBioAuth, 400);
 
                     elif _mode_c == "pin":
                         _reg_pin = st.session_state.get("_lp_pin", "")
-                        st.markdown("""
-<div style='background:#f0fdfa;border:2px solid #0d9488;border-radius:16px;
-  padding:16px;margin-bottom:12px;text-align:center;'>
-  <div style='font-weight:700;color:#134e4a;margin-bottom:10px;'>🔢 6자리 PIN을 입력하세요</div>
+                        _cur_pin_disp = st.session_state.get("_pin_buf", "")
+                        _pin_len = len(_cur_pin_disp)
+
+                        # ── [C3] Glassmorphism PIN 헤더 ───────────────────────
+                        # 진행 도트 (빈 ○ / 채워진 ●)
+                        _dots_html = "".join(
+                            f'<span style="display:inline-block;width:16px;height:16px;'
+                            f'border-radius:50%;margin:0 5px;'
+                            f'background:{"#0d9488" if i < _pin_len else "transparent"};'
+                            f'border:2px solid {"#0d9488" if i < _pin_len else "#94a3b8"};'
+                            f'vertical-align:middle;'
+                            f'box-shadow:{"0 0 8px rgba(13,148,136,0.7)" if i < _pin_len else "none"};'
+                            f'transition:all 0.15s;"></span>'
+                            for i in range(6)
+                        )
+                        # 단계 진행바 (PIN = 마지막 Phase C)
+                        st.markdown(f"""
+<div style="background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  border-radius:16px;padding:18px 20px 14px;margin-bottom:10px;
+  border:1px solid rgba(13,148,136,0.35);
+  box-shadow:0 8px 32px rgba(13,148,136,0.15);">
+  <div style="display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:10px;">
+    <span style="color:#5eead4;font-size:0.7rem;font-weight:700;
+      letter-spacing:0.08em;text-transform:uppercase;">🔢 PIN 인증</span>
+    <span style="color:#94a3b8;font-size:0.68rem;">Phase C · 마지막 단계</span>
+  </div>
+  <div style="background:#1e293b;border-radius:8px;height:4px;margin-bottom:14px;">
+    <div style="background:linear-gradient(90deg,#0d9488,#06b6d4);
+      height:100%;border-radius:8px;width:{int(_pin_len/6*100)}%;
+      transition:width 0.2s;"></div>
+  </div>
+  <div style="text-align:center;margin-bottom:6px;">{_dots_html}</div>
+  <div style="text-align:center;color:#94a3b8;font-size:0.72rem;margin-top:6px;">
+    {_lp_name}님 · {_pin_len}/6 입력됨
+  </div>
 </div>""", unsafe_allow_html=True)
-                        _pin_in = st.text_input("PIN 입력", type="password", key="hlp_pin_in",
-                                                placeholder="숫자 6자리", max_chars=6,
-                                                label_visibility="collapsed")
-                        # 숫자패드 UI
+
+                        # ── 숫자패드 (3×4 그리드 Glassmorphism) ──────────────
                         _num_rows = [["1","2","3"],["4","5","6"],["7","8","9"],["","0","⌫"]]
                         for _nr in _num_rows:
                             _nc = st.columns(3)
                             for _ci, _digit in enumerate(_nr):
                                 with _nc[_ci]:
-                                    if _digit and st.button(_digit, key=f"cpin_{_digit}_{_ci}", use_container_width=True):
-                                        _cur_pin = st.session_state.get("_pin_buf", "")
+                                    if not _digit:
+                                        st.empty()
+                                    elif st.button(
+                                        _digit,
+                                        key=f"cpin_{_digit}_{_ci}",
+                                        use_container_width=True,
+                                    ):
+                                        _buf = st.session_state.get("_pin_buf", "")
                                         if _digit == "⌫":
-                                            _cur_pin = _cur_pin[:-1]
-                                        elif len(_cur_pin) < 6:
-                                            _cur_pin += _digit
-                                        st.session_state["_pin_buf"] = _cur_pin
+                                            _buf = _buf[:-1]
+                                        elif len(_buf) < 6:
+                                            _buf += _digit
+                                        st.session_state["_pin_buf"] = _buf
+                                        # 6자리 자동 확인
+                                        if len(_buf) == 6:
+                                            if _buf == _reg_pin:
+                                                st.session_state.pop("_pin_buf", None)
+                                                _do_final_login(_lp_name)
+                                            else:
+                                                st.session_state["_pin_buf"] = ""
+                                                st.session_state["_pin_error"] = True
                                         st.rerun()
-                        _cur_pin_disp = st.session_state.get("_pin_buf", "")
-                        st.markdown(f"<div style='text-align:center;font-size:1.8rem;letter-spacing:12px;color:#0d9488;'>{'●' * len(_cur_pin_disp)}</div>", unsafe_allow_html=True)
-                        if st.button("✅ PIN 확인", key="cpin_confirm", use_container_width=True, type="primary"):
-                            _check_pin = _pin_in.strip() or st.session_state.get("_pin_buf", "")
-                            if _check_pin == _reg_pin:
-                                st.success("✅ 인증 성공!")
-                                st.session_state.pop("_pin_buf", None)
-                                _do_final_login(_lp_name)
-                            else:
-                                st.error("❌ PIN이 일치하지 않습니다.")
-                                st.session_state["_pin_buf"] = ""
-                                st.rerun()
+
+                        # 오류 메시지
+                        if st.session_state.pop("_pin_error", False):
+                            st.markdown("""
+<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);
+  border-radius:10px;padding:10px;text-align:center;
+  color:#fca5a5;font-size:0.82rem;font-weight:700;margin-top:6px;">
+  ❌ PIN이 일치하지 않습니다. 다시 입력해 주세요.
+</div>""", unsafe_allow_html=True)
+
+                        # 직접 입력 폴백 (text_input)
+                        with st.expander("⌨️ 직접 입력", expanded=False):
+                            _pin_in = st.text_input("PIN 입력", type="password",
+                                                    key="hlp_pin_in",
+                                                    placeholder="숫자 6자리",
+                                                    max_chars=6,
+                                                    label_visibility="collapsed")
+                            if st.button("✅ 확인", key="cpin_confirm_text",
+                                         use_container_width=True, type="primary"):
+                                if _pin_in.strip() == _reg_pin:
+                                    st.session_state.pop("_pin_buf", None)
+                                    _do_final_login(_lp_name)
+                                else:
+                                    st.error("❌ PIN이 일치하지 않습니다.")
 
                     # ── Fallback 대체 방식 버튼 ─────────────────────────────
                     _fallback_opts = [
@@ -8791,6 +9185,8 @@ if(!CRED_ID) setTimeout(doBioAuth, 400);
                                     st.session_state.is_admin  = False
                                     st.session_state["_mic_notice"] = True
                                     st.session_state["_auto_close_sidebar"] = True
+                                    # [C1] 회원가입 시 CUST_ Entity ID 자동 발급
+                                    _eid_set_login_user(name, "customer")
                                 st.success("가입 완료!")
                                 st.rerun()
             with tab_pw:
@@ -10600,6 +10996,22 @@ window['startTTS_{tab_key}']=function(){{
                     f'</div>',
                     unsafe_allow_html=True
                 )
+            # ── 안전망: '확인 불가' 키워드 감지 오렌지 경고 ─────────────────
+            _safety_kw_str = st.session_state.get("_bucket_safety_kw", "확인 불가,알 수 없,정보 없,불확실")
+            _safety_kw_list = [k.strip() for k in _safety_kw_str.split(",") if k.strip()]
+            _safety_hits = [k for k in _safety_kw_list if k in (result_text or "")]
+            if _safety_hits:
+                st.markdown(
+                    f'<div style="background:#fff3cd;border:2px solid #fb923c;border-radius:10px;'
+                    f'padding:10px 16px;margin-bottom:8px;">'
+                    f'<span style="font-size:1.2rem;">⚠️</span>'
+                    f' <b style="color:#c2410c;">불확실 정보 감지</b>'
+                    f' — <code>{", ".join(_safety_hits)}</code><br>'
+                    f'<span style="font-size:0.78rem;color:#555;">'
+                    f'이 답변에는 불확실한 내용이 포함될 수 있습니다. '
+                    f'반드시 원본 약관 또는 전문가에게 확인하세요.</span></div>',
+                    unsafe_allow_html=True
+                )
             st.markdown(result_text)
             # ── 금지 키워드 감지 시 추가 답변 버튼 ─────────────────────────
             fb_key = f"_forbidden_{result_key}"
@@ -10688,18 +11100,232 @@ window['startTTS_{tab_key}']=function(){{
 </div>""", unsafe_allow_html=True)
         else:
             _uname = mask_name(st.session_state.get("user_name", ""))
+            _cur_eid  = st.session_state.get("_gk_entity_id", "")
+            _cur_utype = st.session_state.get("_gk_user_type", "customer")
+            _eid_badge = f'<span style="font-size:0.72rem;background:#0f172a;color:#7dd3fc;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;letter-spacing:0.04em;">{_cur_eid}</span>' if _cur_eid else ""
             st.markdown(f"""
 <div style="background:linear-gradient(135deg,#1a5c3a 0%,#27ae60 100%);
   border-radius:12px;padding:12px 18px;margin-bottom:6px;
-  display:flex;align-items:center;gap:10px;">
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
   <span style="font-size:1.5rem;">✅</span>
   <span style="color:#fff;font-size:1.0rem;font-weight:900;">
     {_uname} 마스터님 · 로그인됨
-  </span>
+  </span>{_eid_badge}
 </div>""", unsafe_allow_html=True)
+
+            # ── [C7] 설계사 대시보드 미리보기 토글 (관리자 또는 테스트 모드) ──────
+            _is_admin_now = st.session_state.get("is_admin", False)
+            if _is_admin_now and _cur_utype != "agent":
+                _dbg_toggle = st.toggle(
+                    "🧪 설계사 대시보드 미리보기",
+                    value=st.session_state.get("_agent_dash_preview", False),
+                    key="_agent_dash_preview_toggle",
+                    help="관리자 전용 — 설계사(AGNT_) 대시보드를 현재 계정에서 미리봅니다",
+                )
+                st.session_state["_agent_dash_preview"] = _dbg_toggle
+            else:
+                st.session_state.setdefault("_agent_dash_preview", False)
+
+            # ── [C4] AgentHome 대시보드 — 설계사(AGNT_) 계정 전용 ─────────────────
+            if _cur_utype == "agent" or _is_admin_now or st.session_state.get("_agent_dash_preview", False):
+                import datetime as _adt, json as _ahj
+                _now_adt = _adt.datetime.now()
+
+                # ── To-Do / 약속 / 상담대기 샘플 데이터 (session_state 기반) ───────
+                if "_agent_todo" not in st.session_state:
+                    st.session_state["_agent_todo"] = [
+                        {"done": False, "text": "김○○ 고객 암보험 설계서 발송"},
+                        {"done": False, "text": "이○○ 고객 청구서류 취합"},
+                        {"done": True,  "text": "월간 실적 보고서 제출"},
+                    ]
+                if "_agent_appt" not in st.session_state:
+                    st.session_state["_agent_appt"] = [
+                        {"time": "10:30", "name": "박○○", "type": "신규상담"},
+                        {"time": "14:00", "name": "최○○", "type": "갱신안내"},
+                    ]
+                if "_agent_wait" not in st.session_state:
+                    st.session_state["_agent_wait"] = [
+                        {"name": "정○○", "status": "서류검토중"},
+                        {"name": "강○○", "status": "심사대기"},
+                        {"name": "윤○○", "status": "출금확인"},
+                    ]
+
+                _todo_list  = st.session_state["_agent_todo"]
+                _appt_list  = st.session_state["_agent_appt"]
+                _wait_list  = st.session_state["_agent_wait"]
+                _done_cnt   = sum(1 for t in _todo_list if t["done"])
+                _todo_cnt   = len(_todo_list) - _done_cnt
+
+                st.markdown("""<div style="font-size:0.72rem;font-weight:800;color:#64748b;
+                  letter-spacing:0.08em;text-transform:uppercase;margin:10px 0 6px 2px;">
+                  📋 설계사 업무 대시보드</div>""", unsafe_allow_html=True)
+
+                _w1, _w2, _w3 = st.columns(3)
+
+                # 위젯 1 — 오늘 할 일 (To-Do)
+                with _w1:
+                    st.markdown(f"""
+<div style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);
+  border-radius:12px;padding:14px 16px;min-height:120px;">
+  <div style="color:#93c5fd;font-size:0.72rem;font-weight:700;margin-bottom:6px;">📌 오늘 할 일</div>
+  <div style="color:#fff;font-size:1.6rem;font-weight:900;line-height:1;">{_todo_cnt}</div>
+  <div style="color:#bfdbfe;font-size:0.72rem;margin-top:2px;">미완료 · 완료 {_done_cnt}건</div>
+  <div style="margin-top:8px;">{"".join(
+    f'<div style="font-size:0.72rem;color:{"#6ee7b7" if t["done"] else "#fde68a"};'
+    f'text-decoration:{"line-through" if t["done"] else "none"};'
+    f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+    f'{"✅" if t["done"] else "⬜"} {t["text"]}</div>'
+    for t in _todo_list[:3]
+  )}</div>
+</div>""", unsafe_allow_html=True)
+
+                # 위젯 2 — 오늘의 약속
+                with _w2:
+                    st.markdown(f"""
+<div style="background:linear-gradient(135deg,#3b1f5e 0%,#7c3aed 100%);
+  border-radius:12px;padding:14px 16px;min-height:120px;">
+  <div style="color:#c4b5fd;font-size:0.72rem;font-weight:700;margin-bottom:6px;">📅 오늘의 약속</div>
+  <div style="color:#fff;font-size:1.6rem;font-weight:900;line-height:1;">{len(_appt_list)}</div>
+  <div style="color:#ddd6fe;font-size:0.72rem;margin-top:2px;">건 예약됨</div>
+  <div style="margin-top:8px;">{"".join(
+    f'<div style="font-size:0.72rem;color:#e9d5ff;'
+    f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+    f'🕐 {a["time"]} {a["name"]} ({a["type"]})</div>'
+    for a in _appt_list[:3]
+  )}</div>
+</div>""", unsafe_allow_html=True)
+
+                # 위젯 3 — 상담 대기 현황
+                with _w3:
+                    st.markdown(f"""
+<div style="background:linear-gradient(135deg,#1c3d2a 0%,#16a34a 100%);
+  border-radius:12px;padding:14px 16px;min-height:120px;">
+  <div style="color:#86efac;font-size:0.72rem;font-weight:700;margin-bottom:6px;">⏳ 상담 대기</div>
+  <div style="color:#fff;font-size:1.6rem;font-weight:900;line-height:1;">{len(_wait_list)}</div>
+  <div style="color:#bbf7d0;font-size:0.72rem;margin-top:2px;">건 처리 대기중</div>
+  <div style="margin-top:8px;">{"".join(
+    f'<div style="font-size:0.72rem;color:#d1fae5;'
+    f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+    f'👤 {w["name"]} — {w["status"]}</div>'
+    for w in _wait_list[:3]
+  )}</div>
+</div>""", unsafe_allow_html=True)
+
+                # ── [C4b] To-Do 인터랙션 (체크 / 추가 / 삭제) ────────────────────
+                with st.expander("📌 할 일 관리", expanded=False):
+                    # 체크 토글 + 삭제
+                    _del_idx = None
+                    for _ti, _task in enumerate(_todo_list):
+                        _tc1, _tc2, _tc3 = st.columns([0.08, 0.80, 0.12])
+                        with _tc1:
+                            _checked = st.checkbox(
+                                "", value=_task["done"],
+                                key=f"todo_chk_{_ti}",
+                                label_visibility="collapsed",
+                            )
+                            if _checked != _task["done"]:
+                                st.session_state["_agent_todo"][_ti]["done"] = _checked
+                                st.rerun()
+                        with _tc2:
+                            _style = ("line-through;color:#94a3b8" if _task["done"]
+                                      else "none;color:#e2e8f0")
+                            st.markdown(
+                                f'<div style="font-size:0.82rem;text-decoration:{_style};'
+                                f'padding-top:4px;">{_task["text"]}</div>',
+                                unsafe_allow_html=True,
+                            )
+                        with _tc3:
+                            if st.button("🗑", key=f"todo_del_{_ti}",
+                                         help="삭제", use_container_width=True):
+                                _del_idx = _ti
+                    if _del_idx is not None:
+                        st.session_state["_agent_todo"].pop(_del_idx)
+                        st.rerun()
+                    # 새 항목 추가
+                    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                    with st.form("add_todo_form", clear_on_submit=True):
+                        _new_todo = st.text_input("새 할 일", placeholder="내용 입력 후 Enter",
+                                                  label_visibility="collapsed")
+                        if st.form_submit_button("➕ 추가", use_container_width=True):
+                            if _new_todo.strip():
+                                st.session_state["_agent_todo"].append(
+                                    {"done": False, "text": _new_todo.strip()}
+                                )
+                                st.rerun()
+
+                # ── [C5] AI 타겟 고객 추천 TOP 5 ──────────────────────────────────
+                st.markdown("""<div style="font-size:0.72rem;font-weight:800;color:#64748b;
+                  letter-spacing:0.08em;text-transform:uppercase;margin:14px 0 6px 2px;">
+                  🤖 AI 타겟 고객 추천 TOP 5</div>""", unsafe_allow_html=True)
+
+                _top5 = calculate_top_targets(n=5, hours=48)
+                if _top5:
+                    for _rank, _tgt in enumerate(_top5, 1):
+                        _diff_h2 = (_adt.datetime.now().timestamp()*1000 - _tgt["last_ts"]) / 3_600_000
+                        _recency_str = (f"{int(_diff_h2*60)}분 전" if _diff_h2 < 1
+                                        else f"{int(_diff_h2)}시간 전" if _diff_h2 < 24
+                                        else f"{int(_diff_h2/24)}일 전")
+                        _detail_str = " · ".join(
+                            f'{d["title"]}({d["count"]}회×w{d["weight"]}={d["sub_score"]}점)'
+                            for d in _tgt["detail"][:2]
+                        )
+                        _score_color = ("#ef4444" if _tgt["score"] >= 80
+                                        else "#f59e0b" if _tgt["score"] >= 40
+                                        else "#22c55e")
+                        st.markdown(f"""
+<div style="background:#0f172a;border:1px solid #1e3a5f;border-radius:10px;
+  padding:10px 14px;margin-bottom:5px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <div style="font-size:1.1rem;font-weight:900;color:#fbbf24;min-width:22px;">#{_rank}</div>
+  <div style="flex:1;min-width:0;">
+    <div style="color:#e2e8f0;font-size:0.85rem;font-weight:800;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      {_tgt["entity_id"]} <span style="color:#64748b;font-size:0.7rem;font-weight:400;">· {_tgt["user_type"]}</span>
+    </div>
+    <div style="color:#94a3b8;font-size:0.7rem;margin-top:2px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      🔥 {_detail_str}
+    </div>
+    <div style="color:#64748b;font-size:0.68rem;margin-top:1px;">
+      🕐 마지막 활동: {_recency_str}
+    </div>
+  </div>
+  <div style="text-align:right;flex-shrink:0;">
+    <div style="color:{_score_color};font-size:1.05rem;font-weight:900;">{_tgt["score"]}점</div>
+    <div style="color:#475569;font-size:0.65rem;">관심도 점수</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+<div style="background:#0f172a;border:1px dashed #334155;border-radius:10px;
+  padding:16px;text-align:center;color:#475569;font-size:0.82rem;">
+  📊 아직 추적 데이터가 없습니다.<br>
+  <span style="font-size:0.72rem;">고객이 메뉴를 클릭하면 자동으로 점수가 집계됩니다.</span>
+</div>""", unsafe_allow_html=True)
+
+                # ── CRM 섹터 바로가기 ──────────────────────────────────────────
+                st.markdown("""<div style="font-size:0.72rem;font-weight:800;color:#64748b;
+                  letter-spacing:0.08em;text-transform:uppercase;margin:14px 0 6px 2px;">
+                  🔗 CRM 빠른 이동</div>""", unsafe_allow_html=True)
+                _crm_c1, _crm_c2, _crm_c3, _crm_c4 = st.columns(4)
+                _crm_links = [
+                    ("_crm_c1", "🩺 암진단\n설계", "cancer"),
+                    ("_crm_c2", "🧠 뇌·심장\n설계", "brain"),
+                    ("_crm_c3", "📄 고객\n문서함", "customer_docs"),
+                    ("_crm_c4", "🛡️ 보장공백\n분석", "t3"),
+                ]
+                for (_col_k, _label, _tab), _col in zip(_crm_links,
+                                                         [_crm_c1, _crm_c2, _crm_c3, _crm_c4]):
+                    with _col:
+                        if st.button(_label, key=f"crm_quick_{_tab}", use_container_width=True):
+                            _go_tab(_tab)
+
+                st.markdown("<hr style='border:none;border-top:1px solid #1e3a5f;margin:10px 0;'>",
+                            unsafe_allow_html=True)
 
         # ── 아바타 + Voice-to-Action 네비게이션 블록 (Glassmorphism / EV Dashboard) ──
         _uname_disp = mask_name(st.session_state.get("user_name","")) if "user_id" in st.session_state else "마스터"
+        # 아바타 이미지 사전 계산 (base64)
+        _hero_avatar_b64 = get_goldkey_avatar()
         components.html(f"""
 <style>
 /* Glassmorphism 카드 */
@@ -10762,7 +11388,8 @@ window['startTTS_{tab_key}']=function(){{
 </style>
 <div class="gk-hero">
   <div class="gk-hero-avatar">
-    🤖
+    <img src="{_hero_avatar_b64}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2.5px solid #f0c040;box-shadow:0 0 14px rgba(240,192,32,0.5);" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span style="display:none;font-size:3.6rem;">🤖</span>
     <div class="gk-pulse-ring"></div>
     <div class="gk-pulse-ring"></div>
     <div class="gk-pulse-ring"></div>
@@ -10856,6 +11483,160 @@ function wxByGeo(){
 wxByGeo();
 </script>
 """, height=100)
+
+        # ── [B3] 통합 검색 모달 (Global Search Bar — Slide-down + O(1) + 폭포수 애니메이션) ──
+        import json as _gsb_json
+        _gsb_reg_js = _gsb_json.dumps(
+            [{"id": v["id"], "level": v["level"], "title": v["title"],
+              "tab_key": v["tab_key"], "keywords": v["keywords"]}
+             for v in APP_REGISTRY.values()],
+            ensure_ascii=False
+        )
+        components.html(f"""
+<style>
+/* ── Global Search Bar ── */
+#gk-gsb-wrap{{position:relative;margin-bottom:6px;}}
+#gk-gsb-btn{{
+  width:100%;padding:9px 16px;border-radius:10px;border:2px solid #2e6da4;
+  background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  color:#fff;font-size:0.85rem;font-weight:800;cursor:pointer;
+  letter-spacing:0.04em;transition:all 0.2s;display:flex;align-items:center;gap:8px;}}
+#gk-gsb-btn:hover{{background:linear-gradient(135deg,#2e6da4 0%,#1a5276 100%);}}
+#gk-gsb-modal{{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;
+  background:#fff;border-radius:16px;
+  box-shadow:0 8px 32px rgba(30,60,120,0.18);
+  z-index:9999;padding:14px 14px 10px 14px;
+  transform:translateY(-18px);opacity:0;
+  transition:transform 0.28s cubic-bezier(.4,0,.2,1),opacity 0.22s;
+  pointer-events:none;}}
+#gk-gsb-modal.open{{transform:translateY(0);opacity:1;pointer-events:auto;}}
+#gk-gsb-input{{
+  width:100%;box-sizing:border-box;padding:10px 14px 10px 38px;
+  border-radius:10px;border:1.8px solid #c7d8f0;background:#f5f8ff;
+  font-size:0.88rem;font-weight:600;outline:none;
+  transition:border-color 0.18s;}}
+#gk-gsb-input:focus{{border-color:#2e6da4;background:#fff;}}
+#gk-gsb-icon{{position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  font-size:1rem;pointer-events:none;}}
+.gk-gsb-list{{max-height:300px;overflow-y:auto;margin-top:8px;
+  scrollbar-width:thin;scrollbar-color:#c7d8f0 #f5f8ff;}}
+.gk-gsb-list::-webkit-scrollbar{{width:5px;}}
+.gk-gsb-list::-webkit-scrollbar-thumb{{background:#c7d8f0;border-radius:4px;}}
+.gk-gsb-item{{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 12px;margin-bottom:5px;border-radius:10px;
+  border:1.5px solid #e8f0fb;background:#fff;cursor:pointer;
+  opacity:0;transform:translateX(-14px);
+  transition:background 0.16s,border-color 0.16s,opacity 0.22s,transform 0.22s;}}
+.gk-gsb-item.visible{{opacity:1;transform:translateX(0);}}
+.gk-gsb-item:hover{{background:#eef6ff;border-color:#2e6da4;}}
+.gk-gsb-badge{{
+  font-size:0.68rem;font-weight:800;padding:2px 7px;border-radius:5px;
+  margin-right:7px;}}
+.gk-gsb-badge.대분류{{background:#dbeafe;color:#1e40af;}}
+.gk-gsb-badge.중분류{{background:#dcfce7;color:#166534;}}
+.gk-gsb-badge.소분류{{background:#fef9c3;color:#713f12;}}
+.gk-gsb-title{{font-size:0.82rem;font-weight:700;color:#1a3a5c;}}
+.gk-gsb-arrow{{font-size:0.9rem;color:#9ca3af;transition:color 0.15s;}}
+.gk-gsb-item:hover .gk-gsb-arrow{{color:#2e6da4;}}
+.gk-gsb-empty{{text-align:center;color:#9ca3af;font-size:0.8rem;padding:18px 0;}}
+.gk-gsb-close{{float:right;background:none;border:none;color:#9ca3af;
+  font-size:1.1rem;cursor:pointer;margin-top:-4px;}}
+</style>
+<div id="gk-gsb-wrap">
+  <button id="gk-gsb-btn" onclick="gkGsbToggle()">
+    🔍 통합 검색 &nbsp;|&nbsp; 메뉴·코드·용어 빠른 이동
+    <span style="margin-left:auto;font-size:0.75rem;opacity:0.75;">▼ 클릭하여 검색</span>
+  </button>
+  <div id="gk-gsb-modal">
+    <button class="gk-gsb-close" onclick="gkGsbClose()">✕</button>
+    <div style="position:relative;">
+      <span id="gk-gsb-icon">🔍</span>
+      <input id="gk-gsb-input" type="text" placeholder="메뉴명·용어·코드 입력 (예: 암, 3000, 맥브라이드)" autocomplete="off" oninput="gkGsbSearch(this.value)" />
+    </div>
+    <div class="gk-gsb-list" id="gk-gsb-list"></div>
+  </div>
+</div>
+<script>
+(function(){{
+  var REG = {_gsb_reg_js};
+  var modal = document.getElementById('gk-gsb-modal');
+  var list  = document.getElementById('gk-gsb-list');
+  var input = document.getElementById('gk-gsb-input');
+  var open  = false;
+  var _closeTimer = null;
+
+  window.gkGsbToggle = function(){{
+    open = !open;
+    modal.classList.toggle('open', open);
+    if(open){{ setTimeout(function(){{input.focus();}},80); gkGsbSearch(''); }}
+  }};
+  window.gkGsbClose = function(){{
+    open=false; modal.classList.remove('open');
+  }};
+
+  // O(1) 검색: 사전 색인된 REG 배열에서 필터링
+  window.gkGsbSearch = function(q){{
+    var t = (q||'').toLowerCase().replace(/\\s+/g,'');
+    var results = REG.filter(function(m){{
+      if(!t) return true;
+      if(m.id.includes(t)) return true;
+      if(m.title.toLowerCase().replace(/\\s+/g,'').includes(t)) return true;
+      return m.keywords.some(function(k){{
+        return k.toLowerCase().replace(/\\s+/g,'').includes(t);
+      }});
+    }});
+    // 대분류→중분류→소분류 정렬 (폭포수 순서)
+    var ORDER = {{'대분류':0,'중분류':1,'소분류':2}};
+    results.sort(function(a,b){{
+      return (ORDER[a.level]||3)-(ORDER[b.level]||3) || a.id.localeCompare(b.id);
+    }});
+    list.innerHTML = '';
+    if(!results.length){{
+      list.innerHTML = '<div class="gk-gsb-empty">검색 결과 없음</div>';
+      return;
+    }}
+    // 폭포수 순차 렌더링: delay(i * 60ms)
+    results.slice(0,40).forEach(function(m,i){{
+      var div = document.createElement('div');
+      div.className = 'gk-gsb-item';
+      div.innerHTML =
+        '<div style="display:flex;align-items:center;">'
+        + '<span class="gk-gsb-badge '+m.level+'">'+m.level+'</span>'
+        + '<span class="gk-gsb-title">'+m.title+'</span>'
+        + '</div>'
+        + '<span class="gk-gsb-arrow">&#8250;</span>';
+      div.onclick = (function(menu){{
+        return function(){{
+          // 네비게이션: 부모 프레임으로 tab_key 메시지 전송
+          var payload = btoa(JSON.stringify({{id:menu.id,ts:Date.now()}}));
+          try{{window.parent.postMessage({{type:'gk_nav',tab_key:menu.tab_key,payload:payload}},'*');}}catch(e){{}}
+          // 검색창 입력란에 코드 채워서 form submit 트리거
+          var navInp = window.parent.document.querySelector('input[data-testid="stTextInput"]');
+          if(navInp){{
+            var nativeInputValueSetter=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;
+            nativeInputValueSetter.call(navInp,menu.id);
+            navInp.dispatchEvent(new Event('input',{{bubbles:true}}));
+          }}
+          gkGsbClose();
+        }};
+      }})(m);
+      // 폭포수 delay
+      setTimeout(function(){{ div.classList.add('visible'); }}, i*55+20);
+      list.appendChild(div);
+    }});
+  }};
+
+  // 외부 클릭 시 닫기
+  document.addEventListener('click', function(e){{
+    if(open && !document.getElementById('gk-gsb-wrap').contains(e.target)){{
+      gkGsbClose();
+    }}
+  }});
+}})();
+</script>
+""", height=52)
 
         # Voice-to-Action STT 입력창 — form으로 감싸 버튼 클릭 시 값 커밋 보장
         st.markdown("""
@@ -11113,7 +11894,10 @@ export default function(component) {{
             if _nav_input_val:
                 _dest = _voice_navigate(_nav_input_val)
                 if isinstance(_dest, str):
-                    # 단일 매칭 — 즉시 이동
+                    # 단일 매칭 — 즉시 이동 + 은닉 추적
+                    _hit_code = next((c for c,e in _ALL_CODES.items() if e["tab_key"]==_dest), None)
+                    if _hit_code:
+                        _gk_route(_hit_code)
                     st.session_state["voice_nav_input"] = ""
                     st.session_state.pop("_nav_ambig", None)
                     _go_tab(_dest)
@@ -11145,6 +11929,7 @@ export default function(component) {{
                         use_container_width=True,
                         type="primary"
                     ):
+                        _gk_route(_aitem["code"])  # 은닉 추적
                         st.session_state.pop("_nav_ambig", None)
                         st.session_state["voice_nav_input"] = ""
                         _go_tab(_aitem["tab_key"])
@@ -11514,7 +12299,7 @@ section[data-testid="stMain"] {
 """, unsafe_allow_html=True)
 
         # 준비중 탭 목록 — 홈 카드에 🚧 배지 + 탭 진입 시 안내 배너
-        _WIP_TABS = {"policy_terms", "customer_docs", "digital_catalog"}
+        _WIP_TABS = set()  # 모든 탭 정식 오픈
 
         def _render_cards(cards, prefix):
             import math as _math
@@ -11558,12 +12343,12 @@ section[data-testid="stMain"] {
 </div>""", unsafe_allow_html=True)
         _render_cards([
             ("policy_scan",       "📎", "보험증권 AI 분석",      "증권 PDF 업로드 · 담보 자동파싱 · 보장공백 진단"),
-            ("policy_terms",      "📜", "보험약관 AI 검색",      "공시실 실시간 탐색 · 가입시점 정확매칭 ※준비중"),
+            ("policy_terms",      "📜", "보험약관 AI 검색",      "공시실 실시간 탐색 · 가입시점 정확매칭 · 딥러닝 약관 검색"),
             ("scan_hub",          "🔬", "통합 스캔 허브",        "증권·의무기록·진단서 1회 업로드 → 전탭 자동활용"),
             ("leaflet",           "🗂️", "보험 리플렛 AI 분류",   "리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 저장"),
             ("consult_catalog",   "📖", "상담 카탈로그 열람",    "내가 올린 카탈로그 · PDF/이미지 뷰어 · 보험사별 분류"),
-            ("digital_catalog",   "📱", "디지털 카탈로그 관리",  "보험사 카탈로그 업로드·AI분류 · Public/Private 저장 ※준비중"),
-            ("customer_docs",     "👤", "고객자료 통합저장",     "의무기록·증권분석·청구서류 · 고객별 마인드맵 저장 ※준비중"),
+            ("digital_catalog",   "📱", "디지털 카탈로그 관리",  "보험사 카탈로그 업로드·AI분류 · Public/Private 저장"),
+            ("customer_docs",     "👤", "고객자료 통합저장",     "의무기록·증권분석·청구서류 · 고객별 통합 RAG 저장"),
         ], "home_grpA")
 
         # ── 도메인 B: Expert Consulting (에메랄드그린) ─────────────────────
@@ -11585,6 +12370,7 @@ section[data-testid="stMain"] {
             ("t1",          "💰", "보험금 상담",          "청구 절차 · 지급 거절 대응\n민원·손해사정·약관 해석"),
             ("disability",  "🩺", "장해보험금 산출",      "AMA·맥브라이드·호프만계수 후유장해 보험금 산출"),
             ("kcd_injury",  "🔬", "상해(S·T·V·W·X·Y)와 M의 상관관계", "후유장해·손해사정 · S↔M 코드 전환 논리 · 외인코드 결합 실무"),
+            ("auto_comp",   "🚗", "자동차보험 및 보상 실무",  "자상vs자신·산재경합·과실시뮬레이션 · 캠핑카·영구장해·사망 보상 통합"),
             ("t2",          "🛡️", "기본보험 상담",        "자동차·화재·운전자 · 일상배상책임 점검"),
             ("t3",          "🏥", "질병·상해 통합보험",   "암·뇌·심장 3대질병 보장 · 간병·치매·생명보험 설계"),
             ("cancer",      "🎗️", "암·뇌·심장질환 상담", "NGS·표적항암·면역항암·CAR-T 뇌심장 보장 실무 분석"),
@@ -16265,6 +17051,500 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             show_result("res_kcd_injury")
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
+    # ── [auto_comp] 자동차보험 및 보상 실무 통합 ─────────────────────────
+    if cur == "auto_comp":
+        if not _auth_gate("auto_comp"): st.stop()
+        tab_home_btn("auto_comp")
+
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#0c2340 0%,#1a3a5c 50%,#1e4d70 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:16px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    🚗 자동차보험 및 보상 실무 통합 정리
+  </div>
+  <div style="color:#93c5fd;font-size:0.78rem;margin-top:4px;">
+    담보 선택 가이드 · 산재 경합 시뮬레이션 · 캠핑카 요율 · 영구장해·사망 보상 체계
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        ac_tab1, ac_tab2, ac_tab3, ac_tab4, ac_tab5, ac_tab6 = st.tabs([
+            "📋 분류 & 담보 가이드",
+            "🏕️ 캠핑카 특별요율",
+            "⚖️ 자상 vs 자신 비교",
+            "🔄 산재 경합 & 우선순위",
+            "📊 보상액 시뮬레이터",
+            "🤖 AI 보상 전략 분석",
+        ])
+
+        with ac_tab1:
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #1e40af;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+  font-size:0.9rem;color:#1e3a5f;">[A] 자동차보험 분류 체계 및 가입 기준</div>""", unsafe_allow_html=True)
+            st.components.v1.html("""
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;">
+<thead>
+<tr style="background:#1e3a5f;color:#fff;">
+  <th style="padding:8px 10px;">분류 기준</th>
+  <th style="padding:8px 10px;">세부 종목</th>
+  <th style="padding:8px 10px;">요율 특이사항</th>
+</tr>
+</thead>
+<tbody>
+<tr style="background:#f0f8ff;">
+  <td style="padding:7px 10px;font-weight:700;">사용 목적</td>
+  <td style="padding:7px 10px;">개인용 / 업무용 / 영업용 / 이륜차</td>
+  <td style="padding:7px 10px;">영업용 &gt; 업무용 &gt; 개인용 순 보험료 높음</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:7px 10px;font-weight:700;">차종</td>
+  <td style="padding:7px 10px;">승용 / 승합 / 화물 / 특수</td>
+  <td style="padding:7px 10px;">승합이 승용보다 통상 10% 이상 비쌈</td>
+</tr>
+<tr style="background:#f0f8ff;">
+  <td style="padding:7px 10px;font-weight:700;">개조 차량</td>
+  <td style="padding:7px 10px;">캠핑카(승합→승용 개조)</td>
+  <td style="padding:7px 10px;">2022 금감원 개선: '개인용' 가입 가능, 승용캠핑카 특별요율 약 40% 저렴</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:7px 10px;font-weight:700;">부속품 고지</td>
+  <td style="padding:7px 10px;">튜닝·추가 장착물</td>
+  <td style="padding:7px 10px;">품목·가액·사진 개별 등재 필수 — '일체 고지'는 사고 시 분쟁 위험</td>
+</tr>
+</tbody>
+</table>
+</div>""", height=175)
+
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #1e40af;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:14px 0 8px 0;font-weight:900;
+  font-size:0.9rem;color:#1e3a5f;">[B] 주요 담보별 특성 요약</div>""", unsafe_allow_html=True)
+            st.components.v1.html("""
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;">
+<thead>
+<tr style="background:#1e3a5f;color:#fff;">
+  <th style="padding:8px 10px;">담보명</th>
+  <th style="padding:8px 10px;">보상 대상</th>
+  <th style="padding:8px 10px;">과실상계</th>
+  <th style="padding:8px 10px;">핵심 특징</th>
+</tr>
+</thead>
+<tbody>
+<tr style="background:#f0fff4;">
+  <td style="padding:7px 10px;font-weight:700;color:#059669;">자동차상해(자상)</td>
+  <td style="padding:7px 10px;">피보험자 본인 부상</td>
+  <td style="padding:7px 10px;font-weight:700;color:#059669;">미적용 ✅</td>
+  <td style="padding:7px 10px;">실치료비 전액 + 위자료 + 휴업손해 실손 — 압도적 유리</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:7px 10px;font-weight:700;color:#dc2626;">자기신체사고(자신)</td>
+  <td style="padding:7px 10px;">피보험자 본인 부상</td>
+  <td style="padding:7px 10px;font-weight:700;color:#dc2626;">적용 ⚠️</td>
+  <td style="padding:7px 10px;">부상등급(1~14급)별 한도 제한, 초과분 본인부담 — 보험료만 저렴</td>
+</tr>
+<tr style="background:#f0f8ff;">
+  <td style="padding:7px 10px;font-weight:700;">대인배상 I</td>
+  <td style="padding:7px 10px;">타인 사망·부상</td>
+  <td style="padding:7px 10px;">적용</td>
+  <td style="padding:7px 10px;">의무보험 (가입 필수), 한도 제한 있음</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:7px 10px;font-weight:700;">대인배상 II</td>
+  <td style="padding:7px 10px;">타인 사망·부상</td>
+  <td style="padding:7px 10px;">적용</td>
+  <td style="padding:7px 10px;">치료비 지불보증 + 위자료 + 상실수익액 담당, 무한 가입 권장</td>
+</tr>
+<tr style="background:#f0f8ff;">
+  <td style="padding:7px 10px;font-weight:700;">대물배상</td>
+  <td style="padding:7px 10px;">타인 재물 손상</td>
+  <td style="padding:7px 10px;">적용</td>
+  <td style="padding:7px 10px;">2억 이상 가입 권장 (고가 차량·시설물 대비)</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:7px 10px;font-weight:700;">자차(자기차량손해)</td>
+  <td style="padding:7px 10px;">본인 차량 손상</td>
+  <td style="padding:7px 10px;">적용</td>
+  <td style="padding:7px 10px;">차량가액 기준 — 부속품 개별 등재 필수</td>
+</tr>
+</tbody>
+</table>
+</div>""", height=220)
+
+            st.info("📌 **상담 원칙**: '자기신체사고(자신)' 가입 고객에게는 반드시 '자동차상해(자상)'으로의 전환을 검토하도록 안내하십시오. 보험료 차이 대비 보장 격차가 매우 큽니다.")
+
+        with ac_tab2:
+            st.markdown("""<div style="background:#fef3c7;border-left:4px solid #d97706;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+  font-size:0.9rem;color:#78350f;">🏕️ 캠핑카 개조 차량 보험료 산출 및 고지 실무</div>""", unsafe_allow_html=True)
+
+            st.components.v1.html("""
+<div style="font-size:0.83rem;font-family:sans-serif;line-height:2.0;color:#1a2e4a;padding:4px;">
+<b style="color:#d97706;font-size:0.88rem;">① 차종 분류 변화 (2022 금감원 제도 개선)</b><br><br>
+
+<b>승합차(11인승 이상) → 캠핑카(10인승 이하) 개조:</b><br>
+• 기존: '업무용(승합)' 요율 — 비쌈<br>
+• 변경: <b style="color:#059669;">'개인용(승용)'</b>으로 가입 가능 → 약 10% 저렴 + 마일리지 특약 등 개인용 전용 혜택<br><br>
+
+<b>승용차(레이 등) → 승용 캠핑카 개조:</b><br>
+• <b style="color:#059669;">'승용캠핑카 특별요율'</b> 신설<br>
+• 주행거리 짧고 사고 위험 낮음 → 일반 개인용 승용차 대비 <b>약 40% 저렴</b><br><br>
+
+<b style="color:#d97706;font-size:0.88rem;">② 차량가액 산정 (자차 담보)</b><br>
+차량가액 = <b>[순정 차량 가액 + 튜닝(개조) 비용]</b><br>
+→ 개조 비용 증빙(영수증) 확인 필수 — 사고 시 개조 부분 보상 가능<br><br>
+
+<b style="color:#d97706;font-size:0.88rem;">③ 과납 보험료 환급 (AIPIS)</b><br>
+과거 캠핑카를 업무용으로 가입한 고객 → <b>보험개발원 자동차보험 과납보험료 통합조회시스템(AIPIS)</b>을 통해<br>
+환급 가능 여부 조회 서비스 제공 (금감원 2022년 제도 개선 후속 조치)
+</div>""", height=300)
+
+            st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:14px 0 8px 0;font-weight:900;
+  font-size:0.9rem;color:#7d3c00;">📋 상담 시 필수 고지 및 확인 사항</div>""", unsafe_allow_html=True)
+            st.components.v1.html("""
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:0.81rem;font-family:sans-serif;">
+<thead>
+<tr style="background:#78350f;color:#fff;">
+  <th style="padding:7px 10px;">확인 항목</th>
+  <th style="padding:7px 10px;">고지 내용</th>
+</tr>
+</thead>
+<tbody>
+<tr style="background:#fffbeb;">
+  <td style="padding:6px 10px;font-weight:700;">구조변경 승인 여부</td>
+  <td style="padding:6px 10px;">"자동차관리법에 따라 승인된 구조변경(튜닝)을 완료하셨습니까?"<br>불법 개조 차량은 가입 거절 또는 사고 시 보험금 지급 제한</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:6px 10px;font-weight:700;">캠핑 설비 가액</td>
+  <td style="padding:6px 10px;">"차량 내부에 고정된 캠핑 설비의 가액은 얼마입니까?"<br>부속품으로 별도 등재하지 않으면 자차 사고 시 해당 설비 보상 제외</td>
+</tr>
+<tr style="background:#fffbeb;">
+  <td style="padding:6px 10px;font-weight:700;color:#dc2626;">고지의무 위반 경고</td>
+  <td style="padding:6px 10px;">승용차로 가입 후 사후 캠핑카 개조 및 미고지 사고 →<br><b>상법 제652조(위험변경증가 통지) 위반</b> → 보험금 지급 거절 가능</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:6px 10px;font-weight:700;color:#dc2626;">유상운송 금지</td>
+  <td style="padding:6px 10px;">캠핑카를 대가를 받고 대여(렌트)하거나 숙박업 운영 중 사고 →<br>표준약관상 <b>면책 사유</b> 해당</td>
+</tr>
+<tr style="background:#fffbeb;">
+  <td style="padding:6px 10px;font-weight:700;">차종 불일치</td>
+  <td style="padding:6px 10px;">등록증상 '특수자동차'로 분류되었으나 '승용차'로 가입 시<br>요율 차이에 따른 보상 제한 (금감원 분쟁조정사례)</td>
+</tr>
+</tbody>
+</table>
+</div>""", height=225)
+
+        with ac_tab3:
+            st.markdown("""<div style="background:#f0fff4;border-left:4px solid #059669;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+  font-size:0.9rem;color:#064e3b;">⚖️ 자동차상해(자상) vs 자기신체사고(자신) 상세 비교</div>""", unsafe_allow_html=True)
+
+            st.components.v1.html("""
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;">
+<thead>
+<tr style="background:#064e3b;color:#fff;">
+  <th style="padding:8px 10px;">비교 항목</th>
+  <th style="padding:8px 10px;text-align:center;">🟢 자동차상해(자상)</th>
+  <th style="padding:8px 10px;text-align:center;">🔴 자기신체사고(자신)</th>
+</tr>
+</thead>
+<tbody>
+<tr style="background:#f0fff4;">
+  <td style="padding:7px 10px;font-weight:700;">과실상계</td>
+  <td style="padding:7px 10px;text-align:center;color:#059669;font-weight:700;">미적용 ✅</td>
+  <td style="padding:7px 10px;text-align:center;color:#dc2626;font-weight:700;">적용 ⚠️</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:7px 10px;font-weight:700;">치료비 보상</td>
+  <td style="padding:7px 10px;">실제 치료비 전액 (등급 한도 없음)</td>
+  <td style="padding:7px 10px;color:#dc2626;">부상등급별 한도 내 — 초과분 본인부담</td>
+</tr>
+<tr style="background:#f0fff4;">
+  <td style="padding:7px 10px;font-weight:700;">위자료</td>
+  <td style="padding:7px 10px;">대인배상 기준 지급 ✅</td>
+  <td style="padding:7px 10px;color:#dc2626;">지급 안 함 ✗</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:7px 10px;font-weight:700;">휴업손해</td>
+  <td style="padding:7px 10px;">실소득 기준 85% 지급 ✅</td>
+  <td style="padding:7px 10px;color:#dc2626;">지급 안 함 ✗</td>
+</tr>
+<tr style="background:#f0fff4;">
+  <td style="padding:7px 10px;font-weight:700;">상실수익액</td>
+  <td style="padding:7px 10px;">대인배상 동일 기준 지급 ✅</td>
+  <td style="padding:7px 10px;color:#dc2626;">지급 안 함 ✗</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:7px 10px;font-weight:700;">보험료</td>
+  <td style="padding:7px 10px;color:#d97706;">비쌈 (보장 반영)</td>
+  <td style="padding:7px 10px;color:#059669;">저렴</td>
+</tr>
+<tr style="background:#f0fff4;">
+  <td style="padding:7px 10px;font-weight:700;">추천 대상</td>
+  <td style="padding:7px 10px;font-weight:700;color:#059669;">모든 운전자 (강력 권장)</td>
+  <td style="padding:7px 10px;color:#6b7280;">극단적 절약 목적 외 비권장</td>
+</tr>
+</tbody>
+</table>
+</div>""", height=255)
+
+            st.markdown("""<div style="background:#f8faff;border:1px solid #b3c8e8;border-radius:8px;
+  padding:12px 16px;font-size:0.83rem;color:#1a2e4a;line-height:1.9;margin-top:10px;">
+<b style="color:#1e40af;">【실무 핵심 한 문장】</b><br>
+자상은 내 과실이 100%여도 대인배상 기준(위자료+휴업손해+상실수익액)으로 산출된 금액을 가입 한도 내에서 전액 지급합니다.<br><br>
+<b style="color:#059669;">✅ 자신이 유리한 유일한 경우:</b>
+보험료를 극도로 낮추려는 경우. 단, 심각한 부상 시 보장 격차가 수천만 원에 이를 수 있습니다.
+법적 근거: 자동차보험 표준약관 제24조(자동차상해) — "과실상계를 적용하지 아니하고 지급기준에 따라 산출된 금액을 지급"
+</div>""", unsafe_allow_html=True)
+
+        with ac_tab4:
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #7c3aed;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+  font-size:0.9rem;color:#3b0764;">🔄 산재보험 vs 자동차보험 경합 — 우선순위 판단 기준</div>""", unsafe_allow_html=True)
+
+            st.components.v1.html("""
+<div style="overflow-x:auto;">
+<table style="width:100%;border-collapse:collapse;font-size:0.81rem;font-family:sans-serif;">
+<thead>
+<tr style="background:#4c1d95;color:#fff;">
+  <th style="padding:8px 10px;">비교 항목</th>
+  <th style="padding:8px 10px;text-align:center;">자동차보험 (대인/자상)</th>
+  <th style="padding:8px 10px;text-align:center;">산재보험</th>
+</tr>
+</thead>
+<tbody>
+<tr style="background:#f5f3ff;">
+  <td style="padding:7px 10px;font-weight:700;">과실상계</td>
+  <td style="padding:7px 10px;text-align:center;color:#dc2626;">적용 (자상 제외)</td>
+  <td style="padding:7px 10px;text-align:center;color:#059669;font-weight:700;">미적용 (무과실 보상)</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:7px 10px;font-weight:700;">소득 상한선</td>
+  <td style="padding:7px 10px;text-align:center;color:#059669;">없음 — 실소득 기준</td>
+  <td style="padding:7px 10px;text-align:center;color:#dc2626;">있음 (2024년 1일 약 24.6만원)</td>
+</tr>
+<tr style="background:#f5f3ff;">
+  <td style="padding:7px 10px;font-weight:700;">비급여 치료비</td>
+  <td style="padding:7px 10px;text-align:center;color:#059669;">자동차보험 진료수가로 폭넓게 인정</td>
+  <td style="padding:7px 10px;text-align:center;color:#dc2626;">원칙적 급여 항목만 지원</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:7px 10px;font-weight:700;">위자료</td>
+  <td style="padding:7px 10px;text-align:center;color:#059669;">지급 (과실상계 후)</td>
+  <td style="padding:7px 10px;text-align:center;color:#dc2626;">지급 안 함</td>
+</tr>
+<tr style="background:#f5f3ff;">
+  <td style="padding:7px 10px;font-weight:700;">영구장해 지급</td>
+  <td style="padding:7px 10px;">호프만 방식 일시금 (65세 가동연한)</td>
+  <td style="padding:7px 10px;color:#059669;">연금 선택 가능 (사망 시까지) ← 유리</td>
+</tr>
+<tr style="background:#fff;">
+  <td style="padding:7px 10px;font-weight:700;">사망 유족 보상</td>
+  <td style="padding:7px 10px;">일실수입 일시금 + 위자료 (과실상계)</td>
+  <td style="padding:7px 10px;color:#059669;">유족연금 원칙 (평균임금 47~62%) ← 생계 강점</td>
+</tr>
+<tr style="background:#f5f3ff;">
+  <td style="padding:7px 10px;font-weight:700;">휴업보상 비율</td>
+  <td style="padding:7px 10px;">실소득 85% (자상 기준)</td>
+  <td style="padding:7px 10px;">평균임금 70% (상한선 적용)</td>
+</tr>
+</tbody>
+</table>
+</div>""", height=270)
+
+            with st.expander("📌 산재 우선 청구가 유리한 케이스 (과실 50% 이상·중저소득층)"):
+                st.markdown("""
+**[사례: 과실 70%, 월 400만원 소득 근로자]**
+
+| 항목 | 자동차보험만(과실상계) | 산재 선처리 후 자동차보험 위자료 추가 |
+|------|----------------------|--------------------------------------|
+| 치료비(1,000만원) | 300만원(30%만 지급) | **1,000만원 전액** |
+| 휴업급여(2개월) | 204만원 | **560만원** (70%×2개월) |
+| 위자료(200만원) | 60만원 | **60만원** (자동차보험에서 추가) |
+| **합계** | **264만원** | **620만원 (2.3배)** |
+
+법적 근거: **산재보험법 제80조(다른 급여와의 관계)** — 산재 급여 수령 금액만큼 민사 손해배상 책임 면제""")
+
+            with st.expander("💎 자동차상해(자상) 가입자가 자동차보험이 유리한 케이스 (고소득·과실 多)"):
+                st.markdown("""
+**[사례: 과실 70%, 월 1,000만원 소득 IT전문가 B씨 (자상 가입)]**
+
+| 항목 | 산재보험 | 자동차상해(자상) |
+|------|---------|-----------------|
+| 치료비(2,000만원, 비급여 500만원 포함) | 1,500만원(비급여 본인부담 500만원) | **2,000만원 전액 0원 부담** |
+| 휴업보상(3개월) | **1,560만원** (상한선 1일 24.6만원) | **2,550만원** (실소득 85%, 과실상계 없음) |
+| 위자료 | 없음 | **100~200만원** |
+| **합계(실수령)** | **약 1,060만원**(비급여 500만원 제외 시) | **약 2,700만원** |
+
+**결론**: 고소득자이면서 자동차상해(자상) 가입자라면 과실이 70%여도 자동차보험이 압도적으로 유리""")
+
+            with st.expander("🏥 영구장해·사망 — 산재 연금 vs 자동차보험 일시금"):
+                st.markdown("""
+**영구장해**
+- **젊은 고소득자**: 65세까지 남은 기간 길어 → 자동차보험(호프만 일시금) 유리 가능
+- **과실多·고령자**: 산재 연금(사망 시까지 무과실 지급) 압도적 유리
+
+**사망**
+- **산재 강점**: 유족연금(평균임금 47~62%), 무과실, 배우자·자녀 생계 보장
+- **자동차보험 강점**: 위자료 최대 8,000만원~1억원 (산재에 없는 항목)
+- **실무 원칙**: 산재로 유족연금 확보 + 자동차보험에서 **위자료 반드시 별도 청구**
+
+법적 근거: 산재보험법 제62~68조(유족급여), 대법원 2011다46234(비급여 추가청구 가능)""")
+
+            st.info("⚠️ **상담 오류 주의**: 고소득자이거나 자동차상해(자상) 가입자에게 '과실이 많으니 산재로 가세요'라고 안내하는 것은 명백한 상담 오류입니다. 반드시 증권(자상 여부)과 소득 수준을 먼저 확인하십시오.")
+
+        with ac_tab5:
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #1e40af;
+  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 12px 0;font-weight:900;
+  font-size:0.9rem;color:#1e3a5f;">📊 자동차보험 vs 산재보험 보상액 시뮬레이터</div>""", unsafe_allow_html=True)
+
+            ac_col1, ac_col2 = st.columns(2)
+            with ac_col1:
+                ac_income = st.number_input("월 평균소득 (만원)", min_value=100, max_value=5000, value=400, step=50, key="ac_income")
+                ac_fault = st.slider("본인 과실 비율 (%)", 0, 100, 70, step=5, key="ac_fault")
+                ac_treatment = st.number_input("치료비 총액 (만원)", min_value=0, max_value=20000, value=1000, step=100, key="ac_treatment")
+                ac_noncov = st.number_input("비급여 치료비 포함 (만원)", min_value=0, max_value=5000, value=0, step=50, key="ac_noncov",
+                    help="비급여: 산재에서 보상 제외, 자동차보험은 진료수가 기준 인정")
+            with ac_col2:
+                ac_consolation = st.number_input("위자료 산정액 (만원)", min_value=0, max_value=10000, value=200, step=50, key="ac_consolation")
+                ac_months = st.number_input("휴업 기간 (개월)", min_value=0, max_value=36, value=2, step=1, key="ac_months")
+                ac_has_car_injury = st.checkbox("자동차상해(자상) 담보 가입", value=True, key="ac_has_car_injury")
+                ac_case_type = st.selectbox("사고 유형", ["출퇴근·업무 중 사고 (산재 대상)", "일반 교통사고 (산재 제외)"], key="ac_case_type")
+
+            if st.button("💰 보상액 비교 계산", key="ac_calc_btn", use_container_width=True):
+                _fault_r = ac_fault / 100.0
+                _comp_r = 1.0 - _fault_r
+
+                # ── 자동차보험 계산 ──
+                if ac_has_car_injury:
+                    _auto_treat = ac_treatment
+                    _auto_holi = ac_income * 0.85 * ac_months
+                    _auto_conso = ac_consolation
+                    _auto_note = "자상(과실상계 미적용) — 실소득 85% 기준"
+                else:
+                    _auto_treat = ac_treatment * _comp_r
+                    _auto_holi = ac_income * 0.85 * ac_months * _comp_r
+                    _auto_conso = ac_consolation * _comp_r
+                    _auto_note = f"대인배상(과실상계 {ac_fault}% 적용)"
+                _auto_total = _auto_holi + _auto_conso
+
+                # ── 산재보험 계산 ──
+                _wc_daily_cap = 24.6
+                _wc_daily_actual = (ac_income / 30)
+                _wc_daily = min(_wc_daily_actual, _wc_daily_cap)
+                _wc_treat = ac_treatment - ac_noncov
+                _wc_holi = _wc_daily * 30 * 0.7 * ac_months
+                _wc_conso = 0.0
+                _wc_total = _wc_holi
+
+                st.markdown("---")
+                r1, r2 = st.columns(2)
+                with r1:
+                    st.markdown(f"""<div style="background:#f0fff4;border:2px solid #059669;border-radius:10px;padding:14px;">
+<div style="font-size:0.88rem;font-weight:900;color:#064e3b;margin-bottom:8px;">🚗 자동차보험</div>
+<div style="font-size:0.8rem;color:#374151;line-height:2.0;">
+치료비: <b>{_auto_treat:,.0f}만원</b><br>
+휴업손해: <b>{_auto_holi:,.0f}만원</b><br>
+위자료: <b>{_auto_conso:,.0f}만원</b><br>
+<hr style="margin:6px 0;border-color:#d1fae5;">
+현금 수령: <b style="color:#059669;font-size:1.0rem;">{_auto_total:,.0f}만원</b><br>
+<span style="font-size:0.72rem;color:#6b7280;">{_auto_note}</span>
+</div></div>""", unsafe_allow_html=True)
+                with r2:
+                    _wc_label = "산재 대상" if "산재" in ac_case_type else "산재 비대상"
+                    if "산재" in ac_case_type:
+                        st.markdown(f"""<div style="background:#f5f3ff;border:2px solid #7c3aed;border-radius:10px;padding:14px;">
+<div style="font-size:0.88rem;font-weight:900;color:#4c1d95;margin-bottom:8px;">🏭 산재보험</div>
+<div style="font-size:0.8rem;color:#374151;line-height:2.0;">
+요양급여(치료비): <b>{_wc_treat:,.0f}만원</b><br>
+<span style="font-size:0.71rem;color:#dc2626;">비급여 {ac_noncov:,.0f}만원 본인부담</span><br>
+휴업급여(70%): <b>{_wc_holi:,.0f}만원</b><br>
+위자료: <b>0만원</b><br>
+<hr style="margin:6px 0;border-color:#ede9fe;">
+현금 수령: <b style="color:#7c3aed;font-size:1.0rem;">{_wc_total:,.0f}만원</b><br>
+<span style="font-size:0.72rem;color:#6b7280;">무과실 보상 / 상한선 1일 {_wc_daily_cap}만원 적용</span>
+</div></div>""", unsafe_allow_html=True)
+                    else:
+                        st.markdown("""<div style="background:#f9fafb;border:2px solid #9ca3af;border-radius:10px;padding:14px;">
+<div style="font-size:0.88rem;font-weight:900;color:#6b7280;margin-bottom:8px;">🏭 산재보험</div>
+<div style="font-size:0.8rem;color:#9ca3af;">일반 교통사고는 산재 적용 제외<br>(업무·출퇴근 사고에 한해 산재 청구 가능)</div>
+</div>""", unsafe_allow_html=True)
+
+                if "산재" in ac_case_type:
+                    _diff = _auto_total - _wc_total
+                    if _auto_total > _wc_total:
+                        st.success(f"✅ **자동차보험이 {_diff:,.0f}만원 더 유리합니다** — {'자상 과실상계 미적용 효과' if ac_has_car_injury else '위자료 포함 효과'}")
+                    else:
+                        st.warning(f"⚠️ **산재보험이 {abs(_diff):,.0f}만원 더 유리합니다** — 위자료({ac_consolation * _comp_r:,.0f}만원)는 자동차보험에 추가 청구하세요")
+                    _wc_tip_amt = f"{ac_consolation*_comp_r:,.0f}"
+                    _wc_tip = f"산재 선처리 후 자동차보험에서 위자료 {_wc_tip_amt}만원 추가 청구 권장" if _wc_total > _auto_total else "자동차보험(자상) 우선 처리 후 필요 시 산재 차액 청구"
+                    st.info(f"💡 **최적 전략**: {_wc_tip}")
+
+        with ac_tab6:
+            st.markdown("""<div style="background:linear-gradient(90deg,#1e1b4b,#312e81);
+  border-radius:8px;padding:10px 16px;margin-bottom:12px;">
+  <div style="color:#c4b5fd;font-size:0.88rem;font-weight:900;">🤖 AI 자동차보험 보상 전략 분석</div>
+  <div style="color:#a5b4fc;font-size:0.75rem;margin-top:3px;">고객 상황을 입력하면 최적 보상 전략을 AI가 분석합니다</div>
+</div>""", unsafe_allow_html=True)
+
+            ac_ai_col1, ac_ai_col2 = st.columns(2)
+            with ac_ai_col1:
+                ac_ai_name = st.text_input("고객명 (선택)", value="", placeholder="홍길동", key="ac_ai_name")
+                ac_ai_fault2 = st.slider("본인 과실 (%)", 0, 100, 50, step=5, key="ac_ai_fault2")
+                ac_ai_income2 = st.number_input("월 소득 (만원)", min_value=50, max_value=5000, value=400, step=50, key="ac_ai_income2")
+                ac_ai_has_car_inj = st.checkbox("자동차상해(자상) 담보 가입 여부", value=True, key="ac_ai_has_car_inj")
+            with ac_ai_col2:
+                ac_ai_injury_grade = st.selectbox("부상 등급", ["1급(최중상)", "2급", "3급", "4급", "5급", "6급", "7급", "8급", "9급", "10급", "11급", "12급", "13급", "14급(경상)"], index=6, key="ac_ai_injury_grade")
+                ac_ai_perm_disability = st.checkbox("영구장해 발생 (후유장해)", value=False, key="ac_ai_perm_disability")
+                ac_ai_fatal = st.checkbox("사망 사고", value=False, key="ac_ai_fatal")
+                ac_ai_worker = st.checkbox("근로자 (산재 대상 여부)", value=True, key="ac_ai_worker")
+            ac_ai_extra = st.text_area("추가 상황 설명 (선택)", placeholder="예: 척추골절로 수술 진행, 비급여 500만원 발생, 고령자...", height=80, key="ac_ai_extra")
+
+            if st.button("🤖 AI 보상 전략 분석 실행", key="ac_ai_run", use_container_width=True):
+                _disability_flag = "영구장해 발생" if ac_ai_perm_disability else "영구장해 없음"
+                _fatal_flag = "사망 사고" if ac_ai_fatal else "생존"
+                _worker_flag = "근로자(산재 적용 가능)" if ac_ai_worker else "비근로자(산재 적용 불가)"
+                _car_inj_flag = "자동차상해(자상) 가입" if ac_ai_has_car_inj else "자기신체사고(자신) 가입 또는 미가입"
+                _extra_text = ac_ai_extra.strip() if ac_ai_extra.strip() else "추가 상황 없음"
+                _client_label = ac_ai_name.strip() if ac_ai_name.strip() else "의뢰인"
+
+                _ac_ai_prompt = (
+                    f"[자동차보험 및 산재보험 보상 전략 분석 — 전문 손해사정 기준]\n\n"
+                    f"고객: {_client_label}\n"
+                    f"본인 과실: {ac_ai_fault2}%\n"
+                    f"월 소득: {ac_ai_income2:,}만원\n"
+                    f"담보 현황: {_car_inj_flag}\n"
+                    f"부상 등급: {ac_ai_injury_grade}\n"
+                    f"장해 여부: {_disability_flag}\n"
+                    f"사망 여부: {_fatal_flag}\n"
+                    f"근로 여부: {_worker_flag}\n"
+                    f"추가 상황: {_extra_text}\n\n"
+                    "다음 항목을 전문 손해사정인 수준으로 분석하십시오:\n"
+                    "1. 【보상 우선순위 결정】자동차보험 vs 산재보험 중 어느 쪽을 먼저 청구해야 하는가 (근거 포함)\n"
+                    "2. 【자상 vs 자신 최적 선택】현재 담보 기준으로 자상 전환 또는 유지 여부 판단\n"
+                    "3. 【항목별 예상 수령액】치료비/휴업급여(손해)/위자료/영구장해/유족급여 각 항목 산출 논리\n"
+                    "4. 【중복 청구 전략】양 보험에서 합법적으로 최대한 받을 수 있는 조합 전략\n"
+                    "5. 【주의사항 및 Critical Note】위자료 별도 청구, 고지의무, 분쟁 예방 포인트\n"
+                    "6. 【즉시 실행 액션플랜】3단계 실무 절차\n"
+                    "[주의] 최종 보상액은 실제 사고 경위·진단서·약관 조건에 따라 달라집니다. 전문가 확인을 권장합니다."
+                )
+                try:
+                    with st.spinner("AI 보상 전략 분석 중..."):
+                        _ac_client, _ac_cfg = get_master_model()
+                        _ac_resp = _ac_client.models.generate_content(
+                            model=GEMINI_MODEL, contents=_ac_ai_prompt, config=_ac_cfg)
+                        st.session_state["res_auto_comp"] = sanitize_unicode(_ac_resp.text) if _ac_resp.text else "응답 없음"
+                        update_usage(st.session_state.get('user_name', ''))
+                        st.rerun()
+                except Exception as _ac_e:
+                    st.error(f"AI 분석 오류: {sanitize_unicode(str(_ac_e))}")
+
+            show_result("res_auto_comp")
+
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
     # ── [t2] 기본보험 상담 ────────────────────────────────────────────────
     if cur == "t2":
         if not _auth_gate("t2"): st.stop()
@@ -20379,7 +21659,7 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                         st.info(f"⚠️ **{_wn}** — 실패 {_wc}회 (5회 시 잠금)")
 
             st.divider()
-            inner_tabs = st.tabs(["📢 수정지시", "🩺 헬스체크", "회원 관리", "RAG 지식베이스", "데이터 파기", "🤖 자율학습 에이전트", "📔 개발일지", "📊 금융상품비교공시"])
+            inner_tabs = st.tabs(["📢 수정지시", "🩺 헬스체크", "회원 관리", "RAG 지식베이스", "데이터 파기", "🤖 자율학습 에이전트", "📔 개발일지", "📊 금융상품비교공시", "🪣 버킷 AI 설정", "📡 추적 대시보드"])
             # ── 탭[0]: 원격 수정지시 전용 패널 ─────────────────────────────
             with inner_tabs[0]:
                 st.markdown("""
@@ -21663,6 +22943,596 @@ END; $$;""", language="sql")
             with inner_tabs[7]:
                 _render_finlife_dashboard()
 
+            with inner_tabs[8]:
+                # ════════════════════════════════════════════════════════════
+                # 🪣 버킷 AI 설정 — RAG/캐싱 최적화 + 데이터 인제스션 파이프라인
+                # ════════════════════════════════════════════════════════════
+                st.markdown("""
+<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 40%,#0d3b2e 100%);
+  border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:14px;
+  box-shadow:0 4px 18px rgba(13,31,60,0.28);">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="font-size:2.2rem;">🪣</div>
+    <div>
+      <div style="color:#fff;font-size:1.18rem;font-weight:900;letter-spacing:0.04em;">
+        버킷 AI 자동 설정 (AI API Gateway + RAG/캐싱 최적화)
+      </div>
+      <div style="color:#a5d6a7;font-size:0.78rem;margin-top:4px;">
+        토큰 소모 · 속도 저하를 막는 버킷(Bucket) 우회 전략 — Context Caching · 벡터 RAG · 데이터 인제스션 파이프라인
+      </div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                # ── 전략 개요 ──────────────────────────────────────────────
+                st.markdown("""
+<div style="background:#e8f5e9;border-left:4px solid #27ae60;border-radius:8px;
+  padding:12px 16px;margin-bottom:14px;font-size:0.82rem;">
+<b>📐 AI 중앙 통제기(API Gateway) 3단계 전략</b><br>
+① <b>소형 문서 (1~5 페이지 업로드)</b> → Vision API 직접 처리 (토큰 효율 최대)<br>
+② <b>대형 내부 규정서 (50페이지+)</b> → Gemini Context Caching API 또는 벡터 DB RAG<br>
+③ <b>안전망</b> → AI 응답에 "확인 불가" 포함 시 오렌지 경고 UI 자동 표시
+</div>""", unsafe_allow_html=True)
+
+                _bk_tab1, _bk_tab2, _bk_tab3, _bk_tab4 = st.tabs([
+                    "⚙️ 시스템 프롬프트 설정",
+                    "📥 데이터 인제스션",
+                    "🔍 RAG 검색 테스트",
+                    "📊 버킷 현황",
+                ])
+
+                with _bk_tab1:
+                    st.markdown("#### ⚙️ AI 절대 지침 (통합 시스템 프롬프트)")
+                    st.caption("temperature=0.0, top_p=0.1 — 할루시네이션 방지 + 페르소나 고정")
+                    _cur_prompt = st.session_state.get("_bucket_system_prompt", "")
+                    if not _cur_prompt:
+                        _cur_prompt = (
+                            "당신은 대한민국 보험 전문 AI 어시스턴트입니다.\n"
+                            "반드시 다음 원칙을 준수하십시오:\n"
+                            "1. 확인되지 않은 정보는 반드시 '확인 불가'라고 명시하십시오.\n"
+                            "2. 보험약관, 법령, 판례에 근거한 답변만 제공하십시오.\n"
+                            "3. 추측이나 일반론은 금지합니다. 근거 조항을 반드시 인용하십시오.\n"
+                            "4. 고객에게 유리한 정보를 우선 제공하되, 법적 한계를 명확히 하십시오.\n"
+                            "5. 답변 형식: 결론 → 근거 → 유의사항 순서로 작성하십시오."
+                        )
+                    _new_prompt = st.text_area(
+                        "시스템 프롬프트 편집",
+                        value=_cur_prompt,
+                        height=200,
+                        key="bucket_system_prompt_editor"
+                    )
+                    _sp_col1, _sp_col2 = st.columns(2)
+                    with _sp_col1:
+                        _temp_val = st.slider("temperature", 0.0, 1.0, 0.0, 0.05, key="bucket_temperature")
+                    with _sp_col2:
+                        _topp_val = st.slider("top_p", 0.0, 1.0, 0.1, 0.05, key="bucket_top_p")
+                    if st.button("💾 시스템 프롬프트 저장", key="btn_save_bucket_prompt", type="primary"):
+                        st.session_state["_bucket_system_prompt"] = _new_prompt
+                        st.session_state["_bucket_temperature"] = _temp_val
+                        st.session_state["_bucket_top_p"] = _topp_val
+                        st.success("✅ AI 절대 지침이 저장되었습니다. 이후 모든 AI 호출에 적용됩니다.")
+
+                    st.divider()
+                    st.markdown("#### 🛡️ 안전망 — '확인 불가' 자동 감지 설정")
+                    _safety_keywords = st.text_input(
+                        "경고 트리거 키워드 (쉼표 구분)",
+                        value=st.session_state.get("_bucket_safety_kw", "확인 불가,알 수 없,정보 없,불확실"),
+                        key="bucket_safety_kw_input"
+                    )
+                    if st.button("💾 안전망 키워드 저장", key="btn_save_safety_kw"):
+                        st.session_state["_bucket_safety_kw"] = _safety_keywords
+                        st.success("✅ 안전망 키워드가 저장되었습니다.")
+                    st.caption("AI 응답에 위 키워드가 포함되면 오렌지 경고 배너가 자동으로 표시됩니다.")
+
+                with _bk_tab2:
+                    st.markdown("#### 📥 데이터 인제스션 파이프라인")
+                    st.markdown("""
+<div style="background:#fff8e1;border-left:4px solid #f59e0b;border-radius:8px;
+  padding:10px 14px;margin-bottom:12px;font-size:0.80rem;">
+<b>파이프라인 순서:</b> PDF 업로드 → 텍스트 추출 → AI 자동 분류 (보험약관/판례/공문서 등) →
+청크 분할 (512토큰) → 메타데이터 태깅 (보험사·날짜·카테고리) → RAG DB 저장
+</div>""", unsafe_allow_html=True)
+
+                    # 일괄 파일 업로드
+                    _ing_files = st.file_uploader(
+                        "📂 파일 업로드 (PDF, TXT, DOCX — 복수 선택 가능)",
+                        type=["pdf", "txt", "docx"],
+                        accept_multiple_files=True,
+                        key="bucket_ingest_files"
+                    )
+
+                    _ing_col1, _ing_col2, _ing_col3 = st.columns(3)
+                    with _ing_col1:
+                        _ing_insurer = st.text_input("보험사/기관명", placeholder="예) 삼성생명", key="bucket_ing_insurer")
+                    with _ing_col2:
+                        _ing_category = st.selectbox(
+                            "문서 분류",
+                            ["AI 자동분류", "보험약관", "공문서", "상담자료", "판례", "보도자료", "세무자료", "기타"],
+                            key="bucket_ing_category"
+                        )
+                    with _ing_col3:
+                        _ing_doc_date = st.text_input("문서 날짜", placeholder="예) 2024-01", key="bucket_ing_doc_date")
+
+                    _ing_chunk_size = st.slider(
+                        "청크 크기 (토큰 수)",
+                        min_value=256, max_value=1024, value=512, step=64,
+                        key="bucket_chunk_size",
+                        help="클수록 컨텍스트 보존↑ 검색 정확도↓, 작을수록 반대"
+                    )
+
+                    if _ing_files and st.button(
+                        f"🚀 {len(_ing_files)}개 파일 인제스션 시작",
+                        key="btn_bucket_ingest_start",
+                        type="primary", use_container_width=True
+                    ):
+                        _ing_ok = 0
+                        _ing_fail = 0
+                        _ing_prog = st.progress(0, text="준비 중...")
+                        for _fi, _uf in enumerate(_ing_files):
+                            _ing_prog.progress(
+                                (_fi) / len(_ing_files),
+                                text=f"처리 중: {_uf.name} ({_fi+1}/{len(_ing_files)})"
+                            )
+                            try:
+                                _raw = _uf.read()
+                                _text = ""
+                                _fn_lower = _uf.name.lower()
+                                # 텍스트 추출
+                                if _fn_lower.endswith(".pdf"):
+                                    try:
+                                        import io as _io2
+                                        import pypdf as _pypdf
+                                        _reader = _pypdf.PdfReader(_io2.BytesIO(_raw))
+                                        _text = "\n".join(
+                                            p.extract_text() or "" for p in _reader.pages
+                                        )
+                                    except Exception:
+                                        try:
+                                            import pdfplumber as _plumb
+                                            import io as _io3
+                                            with _plumb.open(_io3.BytesIO(_raw)) as _pdf:
+                                                _text = "\n".join(
+                                                    pg.extract_text() or "" for pg in _pdf.pages
+                                                )
+                                        except Exception as _pe:
+                                            _text = ""
+                                elif _fn_lower.endswith(".txt"):
+                                    _text = _raw.decode("utf-8", errors="replace")
+                                elif _fn_lower.endswith(".docx"):
+                                    try:
+                                        import docx as _docx2
+                                        import io as _io4
+                                        _doc = _docx2.Document(_io4.BytesIO(_raw))
+                                        _text = "\n".join(p.text for p in _doc.paragraphs)
+                                    except Exception:
+                                        _text = ""
+
+                                if not _text or len(_text.strip()) < 50:
+                                    _ing_fail += 1
+                                    continue
+
+                                # AI 자동 분류
+                                _auto_cat = _ing_category
+                                if _auto_cat == "AI 자동분류":
+                                    try:
+                                        _cl_client = get_client()
+                                        _cl_prompt = (
+                                            f"다음 문서의 분류를 정확히 하나만 선택하세요.\n"
+                                            f"선택지: 보험약관, 공문서, 상담자료, 판례, 보도자료, 세무자료, 기타\n"
+                                            f"문서 앞부분:\n{_text[:500]}\n\n분류:"
+                                        )
+                                        _cl_resp = _cl_client.models.generate_content(
+                                            model="gemini-2.0-flash",
+                                            contents=_cl_prompt,
+                                        )
+                                        _cl_raw = (_cl_resp.text or "기타").strip().split()[0]
+                                        _valid_cats = ["보험약관", "공문서", "상담자료", "판례", "보도자료", "세무자료", "기타"]
+                                        _auto_cat = _cl_raw if _cl_raw in _valid_cats else "기타"
+                                    except Exception:
+                                        _auto_cat = "기타"
+
+                                # 청크 분할 (단순 슬라이딩 윈도우)
+                                _words = _text.split()
+                                _chunks = []
+                                _step = _ing_chunk_size
+                                _overlap = _ing_chunk_size // 4
+                                _i = 0
+                                while _i < len(_words):
+                                    _chunk_words = _words[_i:_i + _step]
+                                    _chunks.append(" ".join(_chunk_words))
+                                    _i += (_step - _overlap)
+
+                                # RAG DB 저장
+                                _meta = {
+                                    "category": _auto_cat,
+                                    "insurer": _ing_insurer or "",
+                                    "doc_date": _ing_doc_date or "",
+                                }
+                                _src_id = _rag_db_add_document(
+                                    "\n\n".join(_chunks),
+                                    _uf.name,
+                                    _meta
+                                )
+                                if _src_id and _src_id > 0:
+                                    _ing_ok += 1
+                                else:
+                                    _ing_fail += 1
+                            except Exception as _ue:
+                                _ing_fail += 1
+
+                        _ing_prog.progress(1.0, text=f"✅ 완료: {_ing_ok}건 성공 / {_ing_fail}건 실패")
+                        if _ing_ok > 0:
+                            _rag_sync_from_db(force=True)
+                            st.session_state.rag_system = LightRAGSystem()
+                            st.success(
+                                f"🎉 {_ing_ok}건 인제스션 완료! "
+                                f"{'실패: ' + str(_ing_fail) + '건 ' if _ing_fail else ''}"
+                                f"AI 상담에 즉시 반영됩니다."
+                            )
+                            st.rerun()
+                        else:
+                            st.error(f"인제스션 실패: {_ing_fail}건 — PDF 텍스트 추출 불가 또는 연결 오류")
+
+                    st.divider()
+                    st.markdown("#### 🔗 URL 일괄 인제스션")
+                    _url_bulk = st.text_area(
+                        "URL 목록 (줄바꿈으로 구분)",
+                        placeholder="https://www.ins.co.kr/terms/약관.pdf\nhttps://...",
+                        height=100,
+                        key="bucket_url_bulk"
+                    )
+                    _url_bulk_insurer = st.text_input("일괄 보험사명", placeholder="예) KB손해보험", key="bucket_url_bulk_insurer")
+                    if _url_bulk and st.button("🌐 URL 일괄 인제스션", key="btn_bucket_url_bulk", type="primary"):
+                        _urls = [u.strip() for u in _url_bulk.strip().splitlines() if u.strip()]
+                        _u_ok = 0
+                        _u_fail = 0
+                        _u_prog = st.progress(0, text="URL 처리 중...")
+                        for _ui, _url in enumerate(_urls):
+                            _u_prog.progress((_ui) / len(_urls), text=f"{_url[:60]}...")
+                            try:
+                                import urllib.request as _ur3
+                                _req3 = _ur3.Request(_url, headers={"User-Agent": "Mozilla/5.0 GoldKey/1.0"})
+                                with _ur3.urlopen(_req3, timeout=20) as _resp3:
+                                    _raw3 = _resp3.read()
+                                _text3 = ""
+                                if _url.lower().endswith(".pdf"):
+                                    try:
+                                        import io as _io5
+                                        import pypdf as _pypdf2
+                                        _reader3 = _pypdf2.PdfReader(_io5.BytesIO(_raw3))
+                                        _text3 = "\n".join(p.extract_text() or "" for p in _reader3.pages)
+                                    except Exception:
+                                        pass
+                                else:
+                                    import html as _html_mod
+                                    import re as _re2
+                                    _txt3 = _raw3.decode("utf-8", errors="replace")
+                                    _txt3 = _re2.sub(r'<[^>]+>', ' ', _txt3)
+                                    _text3 = _html_mod.unescape(_txt3)
+                                if _text3 and len(_text3.strip()) >= 50:
+                                    _fname3 = _url.split("/")[-1] or f"url_{_ui+1}"
+                                    _meta3 = {"category": "보험약관", "insurer": _url_bulk_insurer or ""}
+                                    _sid3 = _rag_db_add_document(_text3, _fname3, _meta3)
+                                    if _sid3 and _sid3 > 0:
+                                        _u_ok += 1
+                                    else:
+                                        _u_fail += 1
+                                else:
+                                    _u_fail += 1
+                            except Exception:
+                                _u_fail += 1
+                        _u_prog.progress(1.0, text=f"✅ URL 인제스션 완료")
+                        if _u_ok > 0:
+                            _rag_sync_from_db(force=True)
+                            st.session_state.rag_system = LightRAGSystem()
+                            st.success(f"✅ {_u_ok}건 URL 인제스션 완료! {f'실패: {_u_fail}건' if _u_fail else ''}")
+                            st.rerun()
+                        else:
+                            st.error(f"URL 인제스션 실패 ({_u_fail}건)")
+
+                with _bk_tab3:
+                    st.markdown("#### 🔍 RAG 실시간 검색 테스트")
+                    st.caption("실제 AI 상담과 동일한 벡터 검색 엔진 — 키워드 입력 후 결과를 확인하세요")
+                    _bk_q = st.text_input(
+                        "검색 쿼리",
+                        placeholder="예) 후유장해 지급률 맥브라이드 방식",
+                        key="bucket_rag_test_q"
+                    )
+                    _bk_k = st.slider("반환 청크 수", 1, 10, 5, key="bucket_rag_k")
+                    if _bk_q:
+                        _bk_sys = st.session_state.get("rag_system")
+                        if _bk_sys:
+                            _bk_results = _bk_sys.search(_bk_q, k=_bk_k)
+                            if _bk_results:
+                                st.markdown(f"**'{_bk_q}' — {len(_bk_results)}건 검색 결과:**")
+                                for _bi, _br in enumerate(_bk_results, 1):
+                                    _bk_color = "#e8f5e9" if _br['score'] > 0.7 else "#fff8e1" if _br['score'] > 0.4 else "#f5f5f5"
+                                    _bk_border = "#27ae60" if _br['score'] > 0.7 else "#f59e0b" if _br['score'] > 0.4 else "#aaa"
+                                    st.markdown(f"""
+<div style="background:{_bk_color};border-left:3px solid {_bk_border};border-radius:6px;
+  padding:8px 12px;margin-bottom:6px;font-size:0.78rem;">
+<b>#{_bi} 관련도: {_br['score']:.3f}</b>
+<span style="color:#888;margin-left:8px;">[{_br.get('category','?')}] {_br.get('filename','?')}</span><br>
+<span style="color:#333;">{_br['text'][:350]}{'...' if len(_br['text'])>350 else ''}</span>
+</div>""", unsafe_allow_html=True)
+                            else:
+                                st.warning(f"'{_bk_q}' 관련 자료 없음. RAG DB에 자료를 먼저 인제스션하세요.")
+                        else:
+                            st.warning("RAG 시스템이 초기화되지 않았습니다. 페이지를 새로고침하세요.")
+
+                    st.divider()
+                    st.markdown("#### 🧪 안전망 테스트 — '확인 불가' 감지")
+                    _safety_test_txt = st.text_area(
+                        "AI 응답 시뮬레이션 텍스트",
+                        placeholder="여기에 AI가 반환한 텍스트를 붙여넣으세요...",
+                        height=100,
+                        key="bucket_safety_test"
+                    )
+                    if _safety_test_txt:
+                        _skw = st.session_state.get("_bucket_safety_kw", "확인 불가,알 수 없,정보 없,불확실")
+                        _skw_list = [k.strip() for k in _skw.split(",") if k.strip()]
+                        _triggered = [k for k in _skw_list if k in _safety_test_txt]
+                        if _triggered:
+                            st.markdown(f"""
+<div style="background:#fff3cd;border:2px solid #fb923c;border-radius:10px;
+  padding:12px 16px;margin-top:8px;">
+  <span style="font-size:1.3rem;">⚠️</span>
+  <b style="color:#c2410c;"> 안전망 발동!</b>
+  감지된 키워드: <code>{', '.join(_triggered)}</code><br>
+  <span style="font-size:0.80rem;color:#555;">이 응답에는 불확실한 정보가 포함되어 있을 수 있습니다. 반드시 원본 약관 또는 전문가에게 확인하세요.</span>
+</div>""", unsafe_allow_html=True)
+                        else:
+                            st.success("✅ 안전망 트리거 없음 — 응답 정상 범위")
+
+                with _bk_tab4:
+                    st.markdown("#### 📊 버킷 전체 현황")
+                    _bk_rag = _get_rag_store()
+                    _bk_docs = _bk_rag.get("docs", [])
+                    _bk_sb = _get_sb_client() if _rag_use_supabase() else None
+
+                    _bk_m1, _bk_m2, _bk_m3, _bk_m4 = st.columns(4)
+                    _bk_m1.metric("📚 메모리 청크", f"{len(_bk_docs)}개")
+                    _bk_sb_cnt = 0
+                    _bk_src_cnt = 0
+                    if _bk_sb:
+                        try:
+                            _bk_sb_cnt = (_bk_sb.table("rag_docs").select("id", count="exact").execute().count or 0)
+                            _bk_src_cnt = (_bk_sb.table("rag_sources").select("id", count="exact").execute().count or 0)
+                        except Exception:
+                            pass
+                    _bk_m2.metric("🗄️ Supabase 청크", f"{_bk_sb_cnt}개")
+                    _bk_m3.metric("📁 소스 문서", f"{_bk_src_cnt}건")
+                    _bk_m4.metric("🔗 Supabase", "✅ 연결됨" if _bk_sb else "❌ 미연결")
+
+                    st.divider()
+                    st.markdown("#### 🔄 버킷 강제 동기화")
+                    st.caption("Supabase ↔ 메모리 캐시 수동 동기화 (자동 동기화가 안 될 경우 사용)")
+                    if st.button("🔄 지금 동기화", key="btn_bucket_force_sync", type="primary"):
+                        with st.spinner("동기화 중..."):
+                            _rag_sync_from_db(force=True)
+                            st.session_state.rag_system = LightRAGSystem()
+                            st.session_state['_rag_sync_done'] = True
+                        st.success("✅ 동기화 완료!")
+                        st.rerun()
+
+                    st.divider()
+                    st.markdown("#### 🪣 버킷 전략 설명")
+                    st.markdown("""
+<div style="font-size:0.82rem;line-height:1.7;">
+<table style="width:100%;border-collapse:collapse;">
+<thead>
+<tr style="background:#1a3a5c;color:#fff;">
+  <th style="padding:8px 12px;text-align:left;">상황</th>
+  <th style="padding:8px 12px;text-align:left;">전략</th>
+  <th style="padding:8px 12px;text-align:left;">비용/속도</th>
+</tr>
+</thead>
+<tbody>
+<tr style="background:#f0f6ff;">
+  <td style="padding:7px 12px;">사용자 업로드 1~5쪽 문서</td>
+  <td style="padding:7px 12px;">Vision API 직접 처리</td>
+  <td style="padding:7px 12px;">💰 최저 / ⚡ 최속</td>
+</tr>
+<tr>
+  <td style="padding:7px 12px;">내부 규정서 50쪽+</td>
+  <td style="padding:7px 12px;">Context Caching / 벡터 RAG</td>
+  <td style="padding:7px 12px;">💰 중간 / ⚡ 빠름</td>
+</tr>
+<tr style="background:#f0f6ff;">
+  <td style="padding:7px 12px;">약관 전문 (100쪽+)</td>
+  <td style="padding:7px 12px;">청크 RAG + 메타데이터 필터</td>
+  <td style="padding:7px 12px;">💰 최저 / ⚡ 빠름</td>
+</tr>
+<tr>
+  <td style="padding:7px 12px;">불확실 AI 응답</td>
+  <td style="padding:7px 12px;">안전망 오렌지 경고 UI</td>
+  <td style="padding:7px 12px;">🛡️ 신뢰성 보장</td>
+</tr>
+</tbody>
+</table>
+</div>""", unsafe_allow_html=True)
+
+            # ── [B4] 📡 추적 대시보드 — ID 기반 클릭 순위 게이지바 ──────────
+            with inner_tabs[9]:
+                st.markdown("""
+<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 100%);
+  border-radius:12px;padding:14px 18px;margin-bottom:12px;">
+  <span style="color:#f0c040;font-size:1rem;font-weight:900;">📡 설계사 추적 대시보드</span>
+  <span style="color:#b3d4f5;font-size:0.78rem;margin-left:12px;">메뉴 클릭 순위 · 실시간 ID 추적</span>
+</div>""", unsafe_allow_html=True)
+
+                _track_log = st.session_state.get("_gk_track_log", {})
+                if not _track_log:
+                    st.info("아직 추적 데이터가 없습니다. 메뉴를 클릭하거나 검색 후 이동하면 여기에 순위가 표시됩니다.")
+                else:
+                    # 상위 20개 정렬
+                    _sorted_track = sorted(_track_log.items(), key=lambda x: x[1], reverse=True)[:20]
+                    _max_cnt = max(v for _, v in _sorted_track) if _sorted_track else 1
+
+                    st.markdown(f"**총 추적된 메뉴 ID: {len(_track_log)}개 / 총 클릭 수: {sum(_track_log.values())}회**")
+                    st.markdown("---")
+
+                    # 게이지바 스크롤박스 HTML 생성
+                    _rows_html = ""
+                    for _rank, (_cid, _cnt) in enumerate(_sorted_track, 1):
+                        _reg_entry = APP_REGISTRY.get(_cid, {})
+                        _title = _reg_entry.get("title", _cid)
+                        _level = _reg_entry.get("level", "")
+                        _pct = int(_cnt / _max_cnt * 100)
+                        _bar_color = {"대분류": "#2563eb", "중분류": "#16a34a", "소분류": "#d97706"}.get(_level, "#6b7280")
+                        _level_bg  = {"대분류": "#dbeafe", "중분류": "#dcfce7", "소분류": "#fef9c3"}.get(_level, "#f3f4f6")
+                        _level_fg  = {"대분류": "#1e40af", "중분류": "#166534", "소분류": "#713f12"}.get(_level, "#374151")
+                        _rows_html += f"""
+<div style="margin-bottom:9px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:0.72rem;font-weight:900;color:#6b7280;width:20px;">#{_rank}</span>
+      <span style="background:{_level_bg};color:{_level_fg};font-size:0.65rem;font-weight:800;
+        padding:1px 6px;border-radius:4px;">{_level}</span>
+      <span style="font-size:0.8rem;font-weight:700;color:#1a3a5c;">{_title}</span>
+      <span style="font-size:0.68rem;color:#9ca3af;">[{_cid}]</span>
+    </div>
+    <span style="font-size:0.78rem;font-weight:800;color:#1a3a5c;">{_cnt}회</span>
+  </div>
+  <div style="background:#e5e7eb;border-radius:6px;height:8px;overflow:hidden;">
+    <div style="width:{_pct}%;height:100%;background:{_bar_color};
+      border-radius:6px;transition:width 0.5s ease;"></div>
+  </div>
+</div>"""
+
+                    st.markdown(f"""
+<div style="max-height:420px;overflow-y:auto;padding:12px 14px;
+  background:#f8faff;border:1.5px solid #c7d8f0;border-radius:14px;
+  scrollbar-width:thin;scrollbar-color:#c7d8f0 #f8faff;">
+{_rows_html}
+</div>""", unsafe_allow_html=True)
+
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                # ── [C8] Entity ID 기반 사용자별 클릭 순위 ──────────────────
+                st.markdown("""
+<div style="background:linear-gradient(135deg,#0d2137 0%,#1e3a5c 100%);
+  border-radius:10px;padding:10px 16px;margin-bottom:10px;
+  border-left:4px solid #f0c040;">
+  <span style="color:#f0c040;font-size:0.88rem;font-weight:900;">🪪 Entity ID 기반 클릭 순위</span>
+  <span style="color:#94a3b8;font-size:0.72rem;margin-left:10px;">CUST_ / AGNT_ 사용자별 활동 집계</span>
+</div>""", unsafe_allow_html=True)
+
+                _ulog_all = st.session_state.get("_gk_user_log", {})
+                if not _ulog_all:
+                    st.info("Entity ID 추적 데이터가 없습니다. 로그인 후 메뉴를 탐색하면 여기에 표시됩니다.")
+                else:
+                    # Entity ID별 총 클릭수 + 가중치 합산
+                    _eid_summary = {}
+                    for _eid, _actions in _ulog_all.items():
+                        _total_clicks = len(_actions)
+                        _total_weight = sum(a.get("weight", 1) for a in _actions)
+                        _last_ts = max((a.get("ts", 0) for a in _actions), default=0)
+                        _utype = "AGNT" if _eid.startswith("AGNT_") else ("CUST" if _eid.startswith("CUST_") else "GUEST")
+                        _eid_summary[_eid] = {
+                            "clicks": _total_clicks,
+                            "weight_sum": _total_weight,
+                            "last_ts": _last_ts,
+                            "utype": _utype,
+                        }
+
+                    _sorted_eids = sorted(
+                        _eid_summary.items(),
+                        key=lambda x: (x[1]["weight_sum"], x[1]["clicks"]),
+                        reverse=True,
+                    )[:15]
+                    _max_ws = max(v["weight_sum"] for _, v in _sorted_eids) if _sorted_eids else 1
+
+                    _eid_rows = ""
+                    _type_colors = {
+                        "AGNT": ("#fef3c7", "#92400e", "#f59e0b"),
+                        "CUST": ("#dbeafe", "#1e40af", "#2563eb"),
+                        "GUEST": ("#f3f4f6", "#374151", "#6b7280"),
+                    }
+                    for _er, (_eid, _ev) in enumerate(_sorted_eids, 1):
+                        _tbg, _tfg, _bar = _type_colors.get(_ev["utype"], _type_colors["GUEST"])
+                        _pct2 = int(_ev["weight_sum"] / _max_ws * 100)
+                        _diff_h3 = (int(_eid_tm.time() * 1000) - _ev["last_ts"]) / 3_600_000
+                        _rec_str = (f"{int(_diff_h3*60)}분 전" if _diff_h3 < 1
+                                    else f"{int(_diff_h3)}시간 전" if _diff_h3 < 24
+                                    else f"{int(_diff_h3/24)}일 전")
+                        # 현재 세션 사용자 강조
+                        _cur_eid_now = st.session_state.get("_gk_entity_id", "")
+                        _is_me = _eid == _cur_eid_now
+                        _me_badge = ' <span style="background:#f0c040;color:#1a1a00;font-size:0.6rem;font-weight:900;padding:1px 5px;border-radius:3px;">ME</span>' if _is_me else ""
+                        _eid_rows += f"""
+<div style="margin-bottom:8px;{'border-left:3px solid #f0c040;padding-left:8px;' if _is_me else ''}">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+      <span style="font-size:0.7rem;font-weight:900;color:#6b7280;width:20px;">#{_er}</span>
+      <span style="background:{_tbg};color:{_tfg};font-size:0.62rem;font-weight:800;
+        padding:1px 5px;border-radius:4px;">{_ev["utype"]}</span>
+      <span style="font-size:0.78rem;font-weight:700;color:#e2e8f0;">{_eid}{_me_badge}</span>
+    </div>
+    <div style="text-align:right;">
+      <span style="font-size:0.72rem;font-weight:800;color:#f0c040;">{_ev["weight_sum"]}pt</span>
+      <span style="font-size:0.65rem;color:#64748b;margin-left:4px;">{_ev["clicks"]}클릭 · {_rec_str}</span>
+    </div>
+  </div>
+  <div style="background:#1e293b;border-radius:4px;height:6px;overflow:hidden;">
+    <div style="width:{_pct2}%;height:100%;background:{_bar};border-radius:4px;"></div>
+  </div>
+</div>"""
+
+                    st.markdown(f"""
+<div style="max-height:340px;overflow-y:auto;padding:12px 14px;
+  background:#0f172a;border:1.5px solid #1e3a5c;border-radius:12px;
+  scrollbar-width:thin;scrollbar-color:#1e3a5c #0f172a;">
+{_eid_rows}
+</div>""", unsafe_allow_html=True)
+
+                    # ── 현재 세션 사용자 상세 뷰 ──────────────────────────────
+                    _cur_eid_detail = st.session_state.get("_gk_entity_id", "")
+                    if _cur_eid_detail and _cur_eid_detail in _ulog_all:
+                        with st.expander(f"🔍 내 활동 상세 ({_cur_eid_detail})", expanded=False):
+                            _my_actions = sorted(
+                                _ulog_all[_cur_eid_detail],
+                                key=lambda a: a.get("ts", 0),
+                                reverse=True,
+                            )[:20]
+                            _detail_rows = ""
+                            for _ai, _act in enumerate(_my_actions, 1):
+                                _act_code  = _act.get("code", "")
+                                _act_title = APP_REGISTRY.get(_act_code, {}).get("title", _act_code)
+                                _act_ts    = _act.get("ts", 0)
+                                _act_w     = _act.get("weight", 1)
+                                _act_diff  = (int(_eid_tm.time() * 1000) - _act_ts) / 3_600_000
+                                _act_rec   = (f"{int(_act_diff*60)}분 전" if _act_diff < 1
+                                              else f"{int(_act_diff)}시간 전" if _act_diff < 24
+                                              else f"{int(_act_diff/24)}일 전")
+                                _detail_rows += f"""
+<div style="display:flex;justify-content:space-between;align-items:center;
+  padding:5px 0;border-bottom:1px solid #1e293b;font-size:0.75rem;">
+  <span style="color:#94a3b8;width:22px;">#{_ai}</span>
+  <span style="flex:1;color:#e2e8f0;font-weight:600;">{_act_title}</span>
+  <span style="color:#64748b;font-size:0.68rem;">[{_act_code}]</span>
+  <span style="color:#f59e0b;font-weight:700;margin-left:8px;">w{_act_w}</span>
+  <span style="color:#64748b;font-size:0.65rem;margin-left:6px;">{_act_rec}</span>
+</div>"""
+                            st.markdown(f"""
+<div style="max-height:260px;overflow-y:auto;background:#0f172a;
+  border:1px solid #1e293b;border-radius:10px;padding:10px 14px;">
+{_detail_rows if _detail_rows else '<span style="color:#64748b;font-size:0.75rem;">활동 내역 없음</span>'}
+</div>""", unsafe_allow_html=True)
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                _c_reset1, _c_reset2 = st.columns(2)
+                with _c_reset1:
+                    if st.button("🗑️ 메뉴 추적 로그 초기화", key="_track_reset_btn", use_container_width=True):
+                        st.session_state["_gk_track_log"] = {}
+                        st.rerun()
+                with _c_reset2:
+                    if st.button("🗑️ Entity 로그 초기화", key="_eid_log_reset_btn", use_container_width=True):
+                        st.session_state["_gk_user_log"] = {}
+                        st.session_state["_gk_nav_log"]  = []
+                        st.session_state["_gk_nav_cnt"]  = {}
+                        st.rerun()
+
         elif admin_key_input:
             st.error("관리자 인증키가 올바르지 않습니다.")
         else:
@@ -22365,21 +24235,6 @@ END; $$;""", language="sql")
             "desc": "업로드한 카탈로그 PDF/이미지 뷰어와 보험사별 분류 기능을 구현 중입니다.",
             "eta": "v1.4 예정",
         },
-        "customer_docs": {
-            "icon": "👤", "title": "고객자료 통합저장",
-            "desc": "의무기록·증권분석·청구서류를 고객별로 저장하는 개인 문서 RAG 기능은\n별도 백엔드 서버 연동이 필요하여 현재 준비 중입니다.",
-            "eta": "v2.0 예정 (Hybrid Backend 서버 연동 후)",
-        },
-        "digital_catalog": {
-            "icon": "📱", "title": "디지털 카탈로그 관리",
-            "desc": "보험사 카탈로그 업로드·AI 분류 및 Public/Private 저장 기능은\nHybrid RAG 백엔드 서버 연동이 필요하여 현재 준비 중입니다.",
-            "eta": "v2.0 예정 (Hybrid Backend 서버 연동 후)",
-        },
-        "life_event": {
-            "icon": "🎯", "title": "LIFE EVENT 상담",
-            "desc": "인생 주요 이벤트별(출생·결혼·취업·은퇴) 맞춤 보험 설계 기능을 구현 중입니다.",
-            "eta": "v1.4 예정",
-        },
     }
     if cur in _WIP_HANDLER:
         if not _auth_gate(cur): st.stop()
@@ -22416,22 +24271,6 @@ END; $$;""", language="sql")
     if cur == "policy_terms":
         if not _auth_gate("policy_terms"): st.stop()
         tab_home_btn("policy_terms")
-
-        # ── 준비중 안내 배너 ──────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:12px;
-  padding:14px 18px;margin-bottom:14px;border:2px solid #fb923c;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:1.8rem;">🚧</span>
-    <div>
-      <div style="color:#fff;font-size:1.0rem;font-weight:900;">준비중 기능입니다</div>
-      <div style="color:#fed7aa;font-size:0.80rem;margin-top:3px;">
-        보험약관 AI 검색(공시실 실시간 탐색)은 현재 안정화 작업 중입니다.<br>
-        빠른 시일 내 정식 오픈 예정이며, 이용에 불편을 드려 죄송합니다.
-      </div>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
 
         # ── 브랜드 헤더 ──────────────────────────────────────────────────
         st.markdown("""
@@ -22867,22 +24706,6 @@ END; $$;""", language="sql")
         if not _auth_gate("customer_docs"): st.stop()
         tab_home_btn("customer_docs")
 
-        # ── 준비중 안내 배너 ──────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:12px;
-  padding:14px 18px;margin-bottom:14px;border:2px solid #fb923c;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:1.8rem;">🚧</span>
-    <div>
-      <div style="color:#fff;font-size:1.0rem;font-weight:900;">준비중 기능입니다</div>
-      <div style="color:#fed7aa;font-size:0.80rem;margin-top:3px;">
-        고객자료 통합저장은 현재 안정화 작업 중입니다.<br>
-        빠른 시일 내 정식 오픈 예정이며, 이용에 불편을 드려 죄송합니다.
-      </div>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
-
         st.markdown("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
@@ -23295,22 +25118,6 @@ END; $$;""", language="sql")
     if cur == "digital_catalog":
         if not _auth_gate("digital_catalog"): st.stop()
         tab_home_btn("digital_catalog")
-
-        # ── 준비중 안내 배너 ──────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:12px;
-  padding:14px 18px;margin-bottom:14px;border:2px solid #fb923c;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:1.8rem;">🚧</span>
-    <div>
-      <div style="color:#fff;font-size:1.0rem;font-weight:900;">준비중 기능입니다</div>
-      <div style="color:#fed7aa;font-size:0.80rem;margin-top:3px;">
-        디지털 카탈로그 관리(Hybrid RAG 개인문서)는 현재 백엔드 연동 작업 중입니다.<br>
-        빠른 시일 내 정식 오픈 예정이며, 이용에 불편을 드려 죄송합니다.
-      </div>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
 
         # ── 브랜드 헤더 ──────────────────────────────────────────────────
         st.markdown("""
