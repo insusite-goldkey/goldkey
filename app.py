@@ -25769,4 +25769,13 @@ def _run_safe():
                 st.info("페이지를 새로고침(F5)하거나 관리자에게 문의하세요: 010-3074-2616")
                 break
 
-_run_safe()
+try:
+    _run_safe()
+except Exception as _top_err:
+    import traceback as _top_tb
+    _top_msg = _top_tb.format_exc()
+    try:
+        st.error(f"[FATAL] 앱 크래시: {type(_top_err).__name__}: {_top_err}")
+        st.code(_top_msg)
+    except Exception:
+        pass
