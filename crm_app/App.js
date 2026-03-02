@@ -97,8 +97,10 @@ const App = () => {
 
   return (
     <View style={styles.root}>
-      {!showSplash && <RoutingGuard />}
-      {showSplash  && <SplashScreen onFinish={handleSplashDone} />}
+      {showSplash
+        ? <SplashScreen onFinish={handleSplashDone} />
+        : <RoutingGuard />
+      }
     </View>
   );
 };

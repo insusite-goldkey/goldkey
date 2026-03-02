@@ -23,7 +23,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useCrmStore } from '../store/crmStore';
+import { useCrmStore } from '../store/crmStore'; // getState() 전용 — hook 미사용
 
 // ── 스플래시 이미지 경로 ─────────────────────────────────────────────────────
 // assets/splash_goldkey.png 또는 .jpg 를 프로젝트 루트 기준으로 배치하세요.
@@ -42,9 +42,8 @@ const SPLASH_IMAGE = (() => {
   }
 })();
 
-const FADE_START_MS  = 4300;  // fadeOut 시작 시각
-const FADE_DURATION  = 700;   // fadeOut 지속 시간
-const TOTAL_DURATION = FADE_START_MS + FADE_DURATION; // = 5000ms
+const FADE_START_MS = 4300; // fadeOut 시작 시각
+const FADE_DURATION = 700;  // fadeOut 지속 시간 (총 5000ms)
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -52,14 +51,14 @@ const { width: SW, height: SH } = Dimensions.get('window');
 const SplashScreen = ({ onFinish }) => {
   const opacity = useRef(new Animated.Value(1)).current;
 
-  // ── 백그라운드 프리페칭 ────────────────────────────────────────────────────
-  // 스플래시가 떠 있는 동안 Zustand 스토어 상태를 복구/초기화합니다.
-  // Firebase나 원격 API가 생기면 이 블록에서 await 호출하면 됩니다.
-  const recoverState = useCrmStore((s) => s.recoverState);
-
   useEffect(() => {
-    // ① 즉시 상태 복구 (동기)
-    recoverState();
+    // ① 즉시 상태 복구 — hook 대신 getState()로 안전하게 호출
+    try {
+      useCrmStore.getState().recoverState();
+    } catch (e) {
+      // 스토어 복구 실패 시 스플래시는 정상 진행
+      console.warn('[SplashScreen] recoverState 실패:', e);
+    }
 
     // ② 필요 시 비동기 prefetch 확장 예시:
     // (async () => {
@@ -168,9 +167,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   taglineWrap: {
-    position:   'absolute',
-    bottom:     80,
-    alignSelf:  'center',
+    marginTop: 24,
   },
   tagline: {
     fontSize:   13,
