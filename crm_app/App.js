@@ -24,7 +24,7 @@
  *            [일정 추가] → openScheduleModal → 메인 달력 즉시 반영.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useCustomerStore }    from './src/store/customerStore';
 import SplashScreen            from './src/screens/SplashScreen';
@@ -33,6 +33,7 @@ import CustomerProfileView     from './src/screens/CustomerProfileView';
 import MedicalScanResultView   from './src/screens/MedicalScanResultView';
 import ScheduleInputModal      from './src/components/ScheduleInputModal';
 import PremiumLoadingUI        from './src/components/PremiumLoadingUI';
+import TrashScreen             from './src/screens/TrashScreen';
 
 /**
  * RoutingGuard — 인증/권한 분기 문지기.
@@ -46,11 +47,19 @@ const RoutingGuard = () => {
   const activeProfileId = useCustomerStore((s) => s.activeProfileId);
   const activeScanId    = useCustomerStore((s) => s.activeScanId);
   const scanLoading     = useCustomerStore((s) => s.scanLoading);
-  // 분석 중인 고객의 아바타 URI (있으면 주입, 없으면 fallback)
   const loadingCustomer = useCustomerStore(
     (s) => (scanLoading.customerId ? s.customers[scanLoading.customerId] : null),
   );
   const avatarUri = loadingCustomer?.avatarUri ?? null;
+
+  // 3단계: 휴지통 오버레이 상태 (로컬 — persist 불필요)
+  const [trashOpen, setTrashOpen] = React.useState(false);
+
+  // Dashboard 등 하위 컴포넌트에서 openTrash() 로 휴지통 오픈 가능
+  useEffect(() => {
+    _openTrashScreen = () => setTrashOpen(true);
+    return () => { _openTrashScreen = null; };
+  }, []);
 
   return (
     <View style={styles.root}>
@@ -68,6 +77,13 @@ const RoutingGuard = () => {
       {activeScanId && (
         <View style={[styles.fullOverlay, styles.scanOverlay]}>
           <MedicalScanResultView />
+        </View>
+      )}
+
+      {/* 3단계: 휴지통 오버레이 */}
+      {trashOpen && (
+        <View style={[styles.fullOverlay, styles.trashOverlay]}>
+          <TrashScreen onClose={() => setTrashOpen(false)} />
         </View>
       )}
 
@@ -105,6 +121,9 @@ const App = () => {
   );
 };
 
+// openTrash 전역 접근을 위한 ref (Dashboard → TrashScreen 연결)
+export let _openTrashScreen = null;
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#ffffff' },
   fullOverlay: {
@@ -112,9 +131,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     zIndex: 100,
   },
-  scanOverlay: {
-    zIndex: 200,   // 프로필뷰(100) 위에 렌더
-  },
+  scanOverlay:  { zIndex: 200 },
+  trashOverlay: { zIndex: 150 },
 });
 
 export default App;

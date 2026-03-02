@@ -1,27 +1,25 @@
 /**
  * useCustomerStore — SSOT(Single Source of Truth) 고객 전역 상태
  *
- * ┌ 데이터 구조 ──────────────────────────────────────────────────┐
- * │  customers: {                                                  │
- * │    [customerId: string]: {                                     │
- * │      id, name, age, job, phone, gender,                       │
- * │      tags, memo, company, title, registered,                  │
- * │      createdAt, updatedAt                                      │
- * │    }                                                           │
- * │  }                                                             │
- * │  schedules: {                                                  │
- * │    [scheduleId: string]: {                                     │
- * │      id, customerId, title, category,                         │
- * │      date, startTime, endTime, memo, done                     │
- * │    }                                                           │
- * │  }                                                             │
+ * ┌ 3중 데이터 안전망 (3-Tier Data Safety Net) ───────────────────┐
+ * │  1️⃣  Zustand persist (AsyncStorage) — 기기 로컬 영구 저장      │
+ * │       앱 crash/강제종료 후 재시작해도 데이터 완전 복구          │
+ * │  2️⃣  Firebase Offline Persistence — 오프라인 큐 자동 sync      │
+ * │       지하/엘리베이터 등 무선 단절 시 로컬 큐 → 복구 시 sync   │
+ * │  3️⃣  Soft Delete — isDeleted:true + 30일 휴지통 복구           │
+ * │       deleteDoc() 완전 금지. 모든 삭제는 updateDoc만 허용.     │
  * └───────────────────────────────────────────────────────────────┘
  *
- * 모든 컴포넌트는 customerId / scheduleId 만 보유하고,
- * 실제 데이터는 이 Store에서 실시간 구독(lookup)합니다.
+ * ┌ 데이터 구조 ──────────────────────────────────────────────────┐
+ * │  customers / schedules / scanResults 모두 동일 패턴:           │
+ * │  { id, ...fields, isDeleted: bool, deletedAt: iso|null }      │
+ * │  UI는 항상 isDeleted:false 만 렌더링.                          │
+ * └───────────────────────────────────────────────────────────────┘
  */
 
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ── 유틸 ─────────────────────────────────────────────────────────────────────
 const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -82,8 +80,19 @@ const MOCK_SCHEDULES = {
   },
 };
 
+// ── AsyncStorage 어댑터 (zustand persist용) ─────────────────────────────────
+const asyncStorageAdapter = createJSONStorage(() => AsyncStorage);
+
+// ── persist 제외 상태 키 (UI 상태는 영구 저장 불필요) ──────────────────────
+const TRANSIENT_KEYS = [
+  'activeProfileId', 'activeScanId',
+  'scheduleModal', 'scanLoading',
+];
+
 // ── 스토어 ────────────────────────────────────────────────────────────────────
-export const useCustomerStore = create((set, get) => ({
+export const useCustomerStore = create(
+ persist(
+  (set, get) => ({
 
   // ── 고객 해시맵 (SSOT) ──────────────────────────────────────────────────
   customers: { ...MOCK_CUSTOMERS },
@@ -101,10 +110,13 @@ export const useCustomerStore = create((set, get) => ({
       id, name: '', age: 0, job: '', phone: '', gender: '',
       company: '', title: '', tags: [], memo: '',
       registered: false, createdAt: now(), updatedAt: now(),
+      // ── 3단계: Soft Delete 필드 ──
+      isDeleted: false, deletedAt: null, deletedBy: null,
       ...fields,
       id,
     };
     set((s) => ({ customers: { ...s.customers, [id]: customer } }));
+    // TODO: upsertDoc(COLLECTIONS.CUSTOMERS, id, customer);
     return id;
   },
 
@@ -120,16 +132,30 @@ export const useCustomerStore = create((set, get) => ({
         },
       };
     });
-    // TODO: Firebase upsert 연동 시 여기에 추가
-    // firebaseUpdateCustomer(id, fields);
+    // TODO: upsertDoc(COLLECTIONS.CUSTOMERS, id, { ...fields, updatedAt: now() });
   },
 
-  /** 고객 삭제 */
-  removeCustomer: (id) =>
+  /**
+   * ♻️ 고객 Soft Delete — Hard Delete 금지!
+   * isDeleted:true + deletedAt 기록 → 휴지통에서 30일 내 복구 가능
+   */
+  removeCustomer: (id, deletedBy = 'agent') =>
     set((s) => {
-      const next = { ...s.customers };
-      delete next[id];
-      return { customers: next };
+      const prev = s.customers[id];
+      if (!prev) return s;
+      const deleted = { ...prev, isDeleted: true, deletedAt: now(), deletedBy };
+      // TODO: softDeleteDoc(COLLECTIONS.CUSTOMERS, id, deletedBy);
+      return { customers: { ...s.customers, [id]: deleted } };
+    }),
+
+  /** 휴지통에서 고객 복구 */
+  restoreCustomer: (id) =>
+    set((s) => {
+      const prev = s.customers[id];
+      if (!prev) return s;
+      const restored = { ...prev, isDeleted: false, deletedAt: null, deletedBy: null };
+      // TODO: restoreDoc(COLLECTIONS.CUSTOMERS, id);
+      return { customers: { ...s.customers, [id]: restored } };
     }),
 
   // ── 일정 해시맵 (SSOT) ──────────────────────────────────────────────────
@@ -153,10 +179,13 @@ export const useCustomerStore = create((set, get) => ({
       date: new Date().toISOString().slice(0, 10),
       startTime: '09:00', endTime: '10:00',
       memo: '', done: false,
+      // ── 3단계: Soft Delete 필드 ──
+      isDeleted: false, deletedAt: null, deletedBy: null,
       ...fields,
       id,
     };
     set((s) => ({ schedules: { ...s.schedules, [id]: schedule } }));
+    // TODO: upsertDoc(COLLECTIONS.SCHEDULES, id, schedule);
     return id;
   },
 
@@ -168,12 +197,26 @@ export const useCustomerStore = create((set, get) => ({
       return { schedules: { ...s.schedules, [id]: { ...prev, ...fields, id } } };
     }),
 
-  /** 일정 삭제 */
-  removeSchedule: (id) =>
+  /**
+   * ♻️ 일정 Soft Delete
+   */
+  removeSchedule: (id, deletedBy = 'agent') =>
     set((s) => {
-      const next = { ...s.schedules };
-      delete next[id];
-      return { schedules: next };
+      const prev = s.schedules[id];
+      if (!prev) return s;
+      const deleted = { ...prev, isDeleted: true, deletedAt: now(), deletedBy };
+      // TODO: softDeleteDoc(COLLECTIONS.SCHEDULES, id, deletedBy);
+      return { schedules: { ...s.schedules, [id]: deleted } };
+    }),
+
+  /** 휴지통에서 일정 복구 */
+  restoreSchedule: (id) =>
+    set((s) => {
+      const prev = s.schedules[id];
+      if (!prev) return s;
+      const restored = { ...prev, isDeleted: false, deletedAt: null, deletedBy: null };
+      // TODO: restoreDoc(COLLECTIONS.SCHEDULES, id);
+      return { schedules: { ...s.schedules, [id]: restored } };
     }),
 
   /** 일정 완료 토글 */
@@ -242,24 +285,39 @@ export const useCustomerStore = create((set, get) => ({
       };
     }),
 
-  /** 스캔 삭제 — 2중 확인은 UI 레이어에서 처리, 여기서는 audit_log 기록 후 삭제 */
-  removeScanResult: (scanId, agentId) => {
+  /**
+   * ♻️ 스캔 결과 Soft Delete — 2중 확인은 UI 레이어에서 처리
+   */
+  removeScanResult: (scanId, agentId = 'agent') => {
     const record = get().scanResults[scanId];
     if (!record) return;
-    // audit_log stub
     const log = {
-      action: 'DELETE_SCAN', scanId, agentId,
+      action: 'SOFT_DELETE_SCAN', scanId, agentId,
       customerId: record.customerId, at: now(),
     };
     console.info('[audit_log]', JSON.stringify(log));
-    // TODO: Firestore audit_logs 컬렉션에 저장
-    // firebaseAddAuditLog(log);
-    set((s) => {
-      const next = { ...s.scanResults };
-      delete next[scanId];
-      return { scanResults: next };
-    });
+    // TODO: softDeleteDoc(COLLECTIONS.SCAN_RESULTS, scanId, agentId);
+    set((s) => ({
+      scanResults: {
+        ...s.scanResults,
+        [scanId]: { ...record, isDeleted: true, deletedAt: now(), deletedBy: agentId },
+      },
+    }));
   },
+
+  /** 휴지통에서 스캔 결과 복구 */
+  restoreScanResult: (scanId) =>
+    set((s) => {
+      const prev = s.scanResults[scanId];
+      if (!prev) return s;
+      // TODO: restoreDoc(COLLECTIONS.SCAN_RESULTS, scanId);
+      return {
+        scanResults: {
+          ...s.scanResults,
+          [scanId]: { ...prev, isDeleted: false, deletedAt: null, deletedBy: null },
+        },
+      };
+    }),
 
   /** 고객별 스캔 결과 배열 (최신순) */
   getScansByCustomer: (customerId) =>
@@ -301,22 +359,83 @@ export const useCustomerStore = create((set, get) => ({
   /** AI 분석 완료/오류 시 호출 → PremiumLoadingUI 숨김 */
   stopScanLoading: () =>
     set({ scanLoading: { active: false, customerId: null } }),
-}));
+  }),
+  {
+    name: 'goldkey-crm-store',          // AsyncStorage 키
+    storage: asyncStorageAdapter,
+    // UI 상태는 persist 제외 (기기 재시작 시 초기화)
+    partialize: (s) =>
+      Object.fromEntries(
+        Object.entries(s).filter(([k]) => !TRANSIENT_KEYS.includes(k)),
+      ),
+    version: 1,                          // 스키마 버전 (migrate 대비)
+    onRehydrateStorage: () => (state, error) => {
+      if (error) {
+        console.error('[persist] 복원 실패:', error);
+      } else {
+        console.info('[persist] AsyncStorage 복원 완료. 고객:', Object.keys(state?.customers ?? {}).length);
+      }
+    },
+  },
+));
 
-// ── Selector 헬퍼 ──────────────────────────────────────────────────────────
-export const selCustomer      = (id) => (s) => s.customers[id] ?? null;
-export const selCustomerList  = (s) => Object.values(s.customers);
+// ── 휴지통 유틸: 30일 이내 여부 ──────────────────────────────────────────────
+const TRASH_EXPIRE_MS = 30 * 24 * 60 * 60 * 1000; // 30일
+const isWithinTrashWindow = (deletedAt) => {
+  if (!deletedAt) return false;
+  return Date.now() - new Date(deletedAt).getTime() < TRASH_EXPIRE_MS;
+};
+
+// ── Active Selector (isDeleted:false 만 반환) ─────────────────────────────
+export const selCustomer      = (id) => (s) => {
+  const c = s.customers[id];
+  return c && !c.isDeleted ? c : null;
+};
+export const selCustomerList  = (s) =>
+  Object.values(s.customers).filter((c) => !c.isDeleted);
+
 export const selSchedules     = (customerId) => (s) =>
   Object.values(s.schedules)
-    .filter((sc) => sc.customerId === customerId)
+    .filter((sc) => sc.customerId === customerId && !sc.isDeleted)
     .sort((a, b) => (a.date > b.date ? 1 : -1));
+
 export const selDateSchedules = (date) => (s) =>
-  Object.values(s.schedules).filter((sc) => sc.date === date);
+  Object.values(s.schedules).filter((sc) => sc.date === date && !sc.isDeleted);
+
 export const selModal         = (s) => s.scheduleModal;
 export const selActiveProfile = (s) => s.activeProfileId;
 export const selActiveScan    = (s) => s.activeScanId;
-export const selScan          = (id) => (s) => s.scanResults[id] ?? null;
+
+export const selScan          = (id) => (s) => {
+  const r = s.scanResults[id];
+  return r && !r.isDeleted ? r : null;
+};
 export const selScansByCustomer = (customerId) => (s) =>
   Object.values(s.scanResults)
-    .filter((r) => r.customerId === customerId)
+    .filter((r) => r.customerId === customerId && !r.isDeleted)
     .sort((a, b) => (a.scannedAt < b.scannedAt ? 1 : -1));
+
+// ── Trash Selector (isDeleted:true AND 30일 이내) ─────────────────────────
+/** 휴지통: 삭제된 고객 (30일 이내) */
+export const selTrashCustomers = (s) =>
+  Object.values(s.customers)
+    .filter((c) => c.isDeleted && isWithinTrashWindow(c.deletedAt))
+    .sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
+
+/** 휴지통: 삭제된 일정 (30일 이내) */
+export const selTrashSchedules = (s) =>
+  Object.values(s.schedules)
+    .filter((sc) => sc.isDeleted && isWithinTrashWindow(sc.deletedAt))
+    .sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
+
+/** 휴지통: 삭제된 스캔 결과 (30일 이내) */
+export const selTrashScans = (s) =>
+  Object.values(s.scanResults)
+    .filter((r) => r.isDeleted && isWithinTrashWindow(r.deletedAt))
+    .sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
+
+/** 휴지통 전체 카운트 (뱃지용) */
+export const selTrashCount = (s) =>
+  selTrashCustomers(s).length +
+  selTrashSchedules(s).length +
+  selTrashScans(s).length;
