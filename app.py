@@ -885,11 +885,14 @@ def sanitize_prompt(text):
     return text
 
 def get_admin_key():
-    """관리자 키를 st.secrets에서 가져옴 — secrets 미설정 시 빈 문자열 반환 (하드코딩 금지)"""
+    """관리자 키를 st.secrets 또는 환경변수에서 가져옴 — secrets 미설정 시 빈 문자열 반환 (하드코딩 금지)"""
     try:
-        return st.secrets.get("ADMIN_KEY", "")
+        v = st.secrets.get("ADMIN_KEY", "")
+        if v:
+            return v
     except Exception:
-        return ""
+        pass
+    return os.environ.get("ADMIN_KEY", "")
 
 def _check_admin_key(input_key: str) -> bool:
     """입력 키가 ADMIN_KEY / ADMIN_CODE / MASTER_CODE 중 하나와 일치하면 True"""
@@ -904,15 +907,21 @@ def _check_admin_key(input_key: str) -> bool:
                 valid.add(v)
         except Exception:
             pass
-    # ★ 하드코딩 폴백 절대 금지 — secrets 미설정 시 valid가 비어 있으므로 자동 False 반환
+        v2 = os.environ.get(_secret_name, "")
+        if v2:
+            valid.add(v2)
+    # ★ 하드코딩 폴백 절대 금지 — secrets/env 미설정 시 valid가 비어 있으므로 자동 False 반환
     return k in valid
 
 def get_admin_code():
-    """관리자 코드를 st.secrets에서 가져옴 — secrets 미설정 시 빈 문자열 반환 (하드코딩 금지)"""
+    """관리자 코드를 st.secrets 또는 환경변수에서 가져옴 — secrets 미설정 시 빈 문자열 반환 (하드코딩 금지)"""
     try:
-        return st.secrets.get("ADMIN_CODE", "")
+        v = st.secrets.get("ADMIN_CODE", "")
+        if v:
+            return v
     except Exception:
-        return ""
+        pass
+    return os.environ.get("ADMIN_CODE", "")
 
 # --------------------------------------------------------------------------
 # [SECTION 1.8] Brute-force 로그인 방어 — _LoginGuard
@@ -9381,13 +9390,13 @@ padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:
                 _aid = (admin_id or "").strip()
                 _acd = (admin_code or "").strip()
                 try:
-                    _admin_code = st.secrets.get("ADMIN_CODE", "")
+                    _admin_code = st.secrets.get("ADMIN_CODE", "") or os.environ.get("ADMIN_CODE", "")
                 except Exception:
-                    _admin_code = ""
+                    _admin_code = os.environ.get("ADMIN_CODE", "")
                 try:
-                    _master_code = st.secrets.get("MASTER_CODE", "")
+                    _master_code = st.secrets.get("MASTER_CODE", "") or os.environ.get("MASTER_CODE", "")
                 except Exception:
-                    _master_code = ""
+                    _master_code = os.environ.get("MASTER_CODE", "")
                 if _aid.lower() in ("admin", "이세윤") and _acd == _admin_code:
                     st.session_state.user_id = "ADMIN_MASTER"
                     st.session_state.user_name = "이세윤"
