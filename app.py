@@ -6822,12 +6822,19 @@ def main():
         # ── 이미지 src 결정 (동기, 파일 I/O만) ──────────────────────────
         _HF_RAW = "https://huggingface.co/spaces/goldkey-rich/goldkey-ai/resolve/main/assets/"
         def _get_img_src(fn):
+            _stem = fn.rsplit(".", 1)[0]
+            _candidates = [
+                (_stem + ".webp", "image/webp"),
+                (_stem + ".jpg",  "image/jpeg"),
+                (fn,              "image/png"),
+            ]
             try:
-                _p = pathlib.Path(__file__).parent / "assets" / fn
-                if _p.exists():
-                    _raw = _p.read_bytes()
-                    if len(_raw) > 200 and _raw[:4] == b'\x89PNG':
-                        return "data:image/png;base64," + base64.b64encode(_raw).decode()
+                for _cf, _cm in _candidates:
+                    _p = pathlib.Path(__file__).parent / "assets" / _cf
+                    if _p.exists():
+                        _raw = _p.read_bytes()
+                        if len(_raw) > 100:
+                            return f"data:{_cm};base64," + base64.b64encode(_raw).decode()
             except Exception:
                 pass
             return _HF_RAW + fn
