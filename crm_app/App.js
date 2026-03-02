@@ -32,6 +32,7 @@ import Dashboard               from './src/screens/Dashboard';
 import CustomerProfileView     from './src/screens/CustomerProfileView';
 import MedicalScanResultView   from './src/screens/MedicalScanResultView';
 import ScheduleInputModal      from './src/components/ScheduleInputModal';
+import PremiumLoadingUI        from './src/components/PremiumLoadingUI';
 
 /**
  * RoutingGuard — 인증/권한 분기 문지기.
@@ -44,28 +45,44 @@ import ScheduleInputModal      from './src/components/ScheduleInputModal';
 const RoutingGuard = () => {
   const activeProfileId = useCustomerStore((s) => s.activeProfileId);
   const activeScanId    = useCustomerStore((s) => s.activeScanId);
+  const scanLoading     = useCustomerStore((s) => s.scanLoading);
+  // 분석 중인 고객의 아바타 URI (있으면 주입, 없으면 fallback)
+  const loadingCustomer = useCustomerStore(
+    (s) => (scanLoading.customerId ? s.customers[scanLoading.customerId] : null),
+  );
+  const avatarUri = loadingCustomer?.avatarUri ?? null;
 
   return (
     <View style={styles.root}>
-      {/* 제1장: 메인 대시보드 — 항상 마운트 유지 (unmount 없이 overlay로 가림) */}
+      {/* 제1장: 메인 대시보드 — 항상 마운트 유지 */}
       <Dashboard />
 
-      {/* 제1장: 고객 프로필 오버레이 — activeProfileId 있을 때만 표시 */}
+      {/* 제1장: 고객 프로필 오버레이 */}
       {activeProfileId && (
         <View style={styles.fullOverlay}>
           <CustomerProfileView />
         </View>
       )}
 
-      {/* 제3장: 스캔 결과 듀얼뷰 — activeScanId 있을 때만 표시 (z:200, 프로필 위) */}
+      {/* 제3장: 스캔 결과 듀얼뷰 (z:200) */}
       {activeScanId && (
         <View style={[styles.fullOverlay, styles.scanOverlay]}>
           <MedicalScanResultView />
         </View>
       )}
 
-      {/* 제1장·제3장: 일정 입력 모달 — 전역 단일 인스턴스, 최상단 */}
+      {/* 제1장 일정 입력 모달 */}
       <ScheduleInputModal />
+
+      {/*
+        제2장: PremiumLoadingUI — AI 분석 대기 전체화면 오버레이 (z:999, 최상단)
+        scanLoading.active 가 true 인 동안 다른 모든 버튼 조작 불가
+        Modal(transparent) 방식으로 구현되어 있어 별도 zIndex 불필요
+      */}
+      <PremiumLoadingUI
+        isVisible={scanLoading.active}
+        avatarUri={avatarUri}
+      />
     </View>
   );
 };

@@ -147,6 +147,9 @@ export async function analyzeMedicalDocument({
     rawText, status: 'pending',
   });
 
+  // ── PremiumLoadingUI 시작 (SSOT 전역 상태) ────────────────────────────
+  store.startScanLoading(customerId);
+
   try {
     // 1. 클라이언트 사전 마스킹
     const maskedText = preMaskPII(rawText);
@@ -157,6 +160,8 @@ export async function analyzeMedicalDocument({
       analysis = await callGemini(maskedText, geminiApiKey);
     } else {
       // API 키 없을 때 목업 fallback (개발/테스트용)
+      // 실제 AI 시간감을 주기 위해 2.5초 지연
+      await new Promise((r) => setTimeout(r, 2500));
       analysis = _mockAnalysis(maskedText);
     }
 
@@ -178,13 +183,17 @@ export async function analyzeMedicalDocument({
       customerId, agentId, docType, at: new Date().toISOString(),
     }));
 
+    // 7. PremiumLoadingUI 종료
+    store.stopScanLoading();
+
     return { scanId: resolvedScanId, analysis, docType };
 
   } catch (error) {
-    // 에러 시 status → 'error' patch
+    // 에러 시 status → 'error' patch + 로딩 종료
     store.upsertScanResult(customerId, agentId, {
       id: resolvedScanId, status: 'error',
     });
+    store.stopScanLoading();
     console.error('[analyzeMedicalDocument]', error);
     throw error;
   }

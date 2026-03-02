@@ -284,6 +284,23 @@ export const useCustomerStore = create((set, get) => ({
     set({ scheduleModal: { open: true, prefillCustomerId, editScheduleId } }),
   closeScheduleModal: () =>
     set({ scheduleModal: { open: false, prefillCustomerId: null, editScheduleId: null } }),
+
+  // ── AI 스캔 로딩 상태 (PremiumLoadingUI 제어) ────────────────────────────
+  /**
+   * scanLoading: {
+   *   active:     bool   — 로딩 오버레이 표시 여부
+   *   customerId: string — 분석 중인 고객 ID (avatarUri 조회용)
+   * }
+   */
+  scanLoading: { active: false, customerId: null },
+
+  /** AI 분석 시작 시 호출 → PremiumLoadingUI 표시 */
+  startScanLoading: (customerId = null) =>
+    set({ scanLoading: { active: true, customerId } }),
+
+  /** AI 분석 완료/오류 시 호출 → PremiumLoadingUI 숨김 */
+  stopScanLoading: () =>
+    set({ scanLoading: { active: false, customerId: null } }),
 }));
 
 // ── Selector 헬퍼 ──────────────────────────────────────────────────────────
