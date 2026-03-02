@@ -4449,7 +4449,18 @@ def _rag_db_init():
     except Exception:
         pass
 
-_rag_db_init()
+# [DEBUG] _rag_db_init() 호출 차단 — HF Space hanging 원인 파악 후 복구 예정
+# _rag_db_init()
+_rag_db_init_err = None
+try:
+    import signal as _sig
+    def _timeout_handler(signum, frame): raise TimeoutError("_rag_db_init timeout")
+    _old_handler = _sig.signal(_sig.SIGALRM, _timeout_handler) if hasattr(_sig, 'SIGALRM') else None
+    if hasattr(_sig, 'SIGALRM'): _sig.alarm(5)
+    _rag_db_init()
+    if hasattr(_sig, 'SIGALRM'): _sig.alarm(0); _sig.signal(_sig.SIGALRM, _old_handler)
+except Exception as _e:
+    _rag_db_init_err = f"{type(_e).__name__}: {_e}"
 # Supabase 테이블 자동 생성은 main() 진입 후 호출 (모듈 로드 시점 오류 방지)
 
 def _rag_db_get_all_chunks():
@@ -6454,6 +6465,7 @@ def main():
         try:
             import google.genai; _dbg.append("google-genai OK")
         except Exception as _e: _dbg.append(f"google-genai ERR: {_e}")
+        _dbg.append(f"rag_db_init={'ERR:'+_rag_db_init_err if _rag_db_init_err else 'OK'}")
         st.info("🔧 DEBUG: " + " | ".join(_dbg))
 
     # ── STEP 1-FOUC: 흰 화면(FOUC) 즉시 차단 ────────────────────────────
