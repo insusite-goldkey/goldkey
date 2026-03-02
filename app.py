@@ -11288,48 +11288,72 @@ window['startTTS_{tab_key}']=function(){{
   border:3px solid #f0c040;
   border-radius:18px;
   padding:22px 20px 20px 20px;
-  background:linear-gradient(160deg,#050d1c 0%,#0a1a38 60%,#0d2444 100%);
-  box-shadow:0 0 32px rgba(240,192,64,0.18),0 4px 24px rgba(0,0,0,0.55);
+  background:linear-gradient(160deg,#e8f4fd 0%,#d0e8f8 60%,#b8d8f0 100%);
+  box-shadow:0 0 32px rgba(240,192,64,0.22),0 4px 24px rgba(0,0,0,0.15);
   margin-bottom:18px;
 }
 .gk-intro-title{
-  font-size:1.35rem;font-weight:900;color:#f0c040;
+  font-size:1.35rem;font-weight:900;color:#1a3a5c;
   letter-spacing:0.04em;margin-bottom:4px;
 }
 .gk-intro-sub{
-  font-size:0.8rem;color:#94a3b8;margin-bottom:18px;
+  font-size:0.8rem;color:#4a6080;margin-bottom:18px;
 }
 .gk-dash-card{
-  background:rgba(255,255,255,0.05);
-  border:1.5px solid rgba(240,192,64,0.25);
+  background:rgba(255,255,255,0.75);
+  border:2px solid #d4a017;
   border-radius:14px;
   padding:14px 16px;
   margin-bottom:10px;
+  box-shadow:0 2px 12px rgba(212,160,23,0.25);
 }
 .gk-dash-card-title{
-  font-size:0.72rem;font-weight:900;color:#94a3b8;
+  font-size:0.72rem;font-weight:900;color:#475569;
   text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;
 }
 .gk-dash-badge{
   display:inline-block;padding:4px 12px;border-radius:20px;
   font-size:0.8rem;font-weight:900;margin:2px 3px;
-  background:rgba(240,192,64,0.15);color:#f0c040;
-  border:1px solid rgba(240,192,64,0.35);
+  background:rgba(212,160,23,0.15);color:#92650a;
+  border:1px solid rgba(212,160,23,0.5);
 }
 .gk-dash-badge-blue{
-  background:rgba(56,189,248,0.13);color:#38bdf8;
-  border:1px solid rgba(56,189,248,0.3);
+  background:rgba(30,100,180,0.12);color:#1e5ba4;
+  border:1px solid rgba(30,100,180,0.4);
 }
 .gk-dash-badge-green{
-  background:rgba(52,211,153,0.13);color:#34d399;
-  border:1px solid rgba(52,211,153,0.3);
+  background:rgba(22,163,74,0.12);color:#166534;
+  border:1px solid rgba(22,163,74,0.4);
 }
 .gk-dash-num{
-  font-size:2.2rem;font-weight:900;color:#f0c040;
+  font-size:2.2rem;font-weight:900;color:#92650a;
   line-height:1;margin-bottom:3px;
 }
-.gk-dash-num-blue{font-size:2.2rem;font-weight:900;color:#38bdf8;line-height:1;margin-bottom:3px;}
-.gk-dash-num-green{font-size:2.2rem;font-weight:900;color:#34d399;line-height:1;margin-bottom:3px;}
+.gk-dash-num-blue{font-size:2.2rem;font-weight:900;color:#1e5ba4;line-height:1;margin-bottom:3px;}
+.gk-dash-num-green{font-size:2.2rem;font-weight:900;color:#166534;line-height:1;margin-bottom:3px;}
+.gk-dash-card-blue{
+  background:rgba(255,255,255,0.75);
+  border:2px solid #1e80cc;
+  border-radius:14px;
+  padding:14px 16px;
+  margin-bottom:10px;
+  box-shadow:0 2px 12px rgba(30,128,204,0.20);
+}
+.gk-dash-card-green{
+  background:rgba(255,255,255,0.75);
+  border:2px solid #16a34a;
+  border-radius:14px;
+  padding:14px 16px;
+  margin-bottom:10px;
+  box-shadow:0 2px 12px rgba(22,163,74,0.20);
+}
+.gk-search-wrap{
+  background:rgba(255,255,255,0.75);
+  border:2px solid #4a90c4;
+  border-radius:14px;
+  padding:14px 16px;
+  margin-bottom:10px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -11338,10 +11362,23 @@ window['startTTS_{tab_key}']=function(){{
         _weekdays = ["월","화","수","목","금","토","일"]
         _wd = _weekdays[_dt_intro.date.today().weekday()]
 
+        _intro_avatar = get_goldkey_avatar()
+        _intro_av_html = (
+            f'<img src="{_intro_avatar}" style="width:58px;height:58px;border-radius:50%;'
+            'object-fit:cover;object-position:center top;border:3px solid #f0c040;'
+            'box-shadow:0 0 16px rgba(240,192,32,0.6);flex-shrink:0;margin-right:14px;">'
+        ) if _intro_avatar else (
+            '<span style="font-size:3rem;margin-right:14px;">&#128105;&#8205;&#128188;</span>'
+        )
         st.markdown(f"""
 <div class="gk-intro-wrap">
-  <div class="gk-intro-title">🏆 Goldkey AI Master — 설계사 대시보드</div>
-  <div class="gk-intro-sub">{_today_str} ({_wd}) &nbsp;·&nbsp; AI 보험컨설팅 통합 플랫폼</div>
+  <div style="display:flex;align-items:center;margin-bottom:14px;">
+    {_intro_av_html}
+    <div>
+      <div class="gk-intro-title">🏆 Goldkey AI Master — 설계사 대시보드</div>
+      <div class="gk-intro-sub" style="margin-bottom:0;">{_today_str} ({_wd}) &nbsp;·&nbsp; AI 보험컨설팅 통합 플랫폼</div>
+    </div>
+  </div>
 """, unsafe_allow_html=True)
 
         # ── 3개 위젯 컬럼 ──────────────────────────────────────────────
@@ -11367,10 +11404,10 @@ window['startTTS_{tab_key}']=function(){{
             ] if st.session_state.get("_gk_appointments") else []
             _appt_cnt = len(_appt_list)
             st.markdown(f"""
-<div class="gk-dash-card">
+<div class="gk-dash-card-blue">
   <div class="gk-dash-card-title">📅 오늘의 약속</div>
   <div class="gk-dash-num-blue">{_appt_cnt}</div>
-  <div style="font-size:0.76rem;color:#64748b;margin-bottom:8px;">오늘 예정된 미팅</div>
+  <div style="font-size:0.76rem;color:#bae6fd;margin-bottom:8px;">오늘 예정된 미팅</div>
   <span class="gk-dash-badge-blue">예정 {_appt_cnt}건</span>
 </div>""", unsafe_allow_html=True)
 
@@ -11380,17 +11417,17 @@ window['startTTS_{tab_key}']=function(){{
             _crm_reg = st.session_state.get("gk_client_registry", {})
             _total_clients = len(_crm_reg) if _crm_reg else 0
             st.markdown(f"""
-<div class="gk-dash-card">
+<div class="gk-dash-card-green">
   <div class="gk-dash-card-title">⏳ 상담 대기</div>
   <div class="gk-dash-num-green">{_wait_cnt}</div>
-  <div style="font-size:0.76rem;color:#64748b;margin-bottom:8px;">총 고객 {_total_clients}명 등록</div>
+  <div style="font-size:0.76rem;color:#a7f3d0;margin-bottom:8px;">총 고객 {_total_clients}명 등록</div>
   <span class="gk-dash-badge-green">대기 {_wait_cnt}명</span>
 </div>""", unsafe_allow_html=True)
 
         # ── 고객 검색 ───────────────────────────────────────────────────
         st.markdown("""
-<div style="border-top:1px solid rgba(240,192,64,0.2);margin:14px 0 10px 0;"></div>
-<div style="font-size:0.76rem;font-weight:900;color:#94a3b8;
+<div class="gk-search-wrap">
+<div style="font-size:0.76rem;font-weight:900;color:#e2e8f0;
   text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
   🔍 고객 빠른 검색
 </div>""", unsafe_allow_html=True)
@@ -11431,8 +11468,14 @@ window['startTTS_{tab_key}']=function(){{
                          type="primary", use_container_width=True):
                 _go_tab("home")
 
-        st.markdown("""<div style="text-align:center;font-size:0.7rem;color:#475569;margin-top:8px;">
-  버튼을 누르거나 좌측 사이드바 메뉴를 선택하면 해당 페이지로 이동합니다.
+        st.markdown("""
+<div style="background:rgba(255,255,255,0.13);border:1.5px solid rgba(240,192,64,0.55);
+  border-radius:10px;padding:10px 16px;margin-top:10px;text-align:center;">
+  <span style="font-size:0.85rem;color:#1e293b;font-weight:800;">
+    📌 아래 버튼을 누르거나 &nbsp;<span style="background:#f0c040;color:#1e293b;
+    padding:2px 10px;border-radius:6px;font-weight:900;">☰ 좌측 사이드바</span>&nbsp;
+    메뉴를 클릭하면 해당 페이지로 이동합니다.
+  </span>
 </div>""", unsafe_allow_html=True)
         st.stop()
 
