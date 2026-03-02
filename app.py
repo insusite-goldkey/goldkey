@@ -9457,6 +9457,59 @@ if(!CRED_ID) setTimeout(doBioAuth, 400);
             st.session_state.is_admin = user_name in _get_unlimited_users()
             st.success(f"✅ {mask_name(user_name)} {'👑 관리자' if st.session_state.is_admin else '마스터님'} · 로그인됨")
 
+            # ── [Lazy Loading] 로그인 직후 첫 rerun — 스켈레톤 메뉴만 표시 ──
+            _sb_lazy_done = st.session_state.get("_sb_menu_loaded", False)
+            _is_login_first = st.session_state.get("_login_just_done", False)
+            if _is_login_first and not _sb_lazy_done:
+                # 첫 rerun: SVG 아이콘 기반 스켈레톤 메뉴 렌더
+                st.markdown("""
+<style>
+@keyframes gk-sb-shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.gk-sb-skeleton{
+  height:36px;border-radius:8px;margin:4px 0;
+  background:linear-gradient(90deg,#1a2a40 25%,#243550 50%,#1a2a40 75%);
+  background-size:800px 36px;
+  animation:gk-sb-shimmer 1.4s infinite linear;
+  display:flex;align-items:center;padding:0 10px;gap:10px;
+}
+.gk-sb-sk-icon{width:22px;height:22px;flex-shrink:0;opacity:0.55;}
+.gk-sb-sk-bar{height:12px;border-radius:4px;flex:1;
+  background:rgba(255,255,255,0.08);}
+</style>
+<div style="margin:6px 0 2px 0;font-size:0.7rem;color:#475569;
+  text-transform:uppercase;letter-spacing:0.08em;">⏳ 메뉴 로딩 중...</div>""",
+                    unsafe_allow_html=True)
+                _sk_icons = [
+                    ('<svg viewBox="0 0 24 24" fill="none" stroke="#f0c040" stroke-width="2" width="22" height="22"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', "고객 관리"),
+                    ('<svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" width="22" height="22"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>', "보험증권 AI 분석"),
+                    ('<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" width="22" height="22"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>', "약관 검색"),
+                ]
+                for _sk_svg, _sk_lbl in _sk_icons:
+                    st.markdown(
+                        f'<div class="gk-sb-skeleton">'
+                        f'<span class="gk-sb-sk-icon">{_sk_svg}</span>'
+                        f'<span style="font-size:0.78rem;color:#64748b;">{_sk_lbl}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                # 메뉴 로드 완료 플래그 세팅 → 다음 rerun에서 실제 메뉴 렌더
+                st.session_state["_sb_menu_loaded"] = True
+                # 즉시 rerun 트리거 (500ms 뒤 JS로 자동 실행)
+                components.html("""<script>
+setTimeout(function(){
+  try{var d=window.parent.document;
+    var btn=d.querySelector('[data-testid="stStatusWidget"] button')
+      || d.querySelector('.stApp button[kind="minimal"]');
+  }catch(e){}
+  // Streamlit heartbeat를 통한 soft-rerun 유도
+  window.parent.postMessage({type:'streamlit:setComponentValue',value:1},'*');
+},600);
+</script>""", height=0)
+                # Python 측에서도 rerun 보장
+                import time as _t_lazy
+                _t_lazy.sleep(0.05)
+                st.rerun()
+
             # ── 기기 통합 자동 로그인 URL 북마크 안내 ─────────────────────
             _auto_tok = st.session_state.get("_auto_login_token", "")
             if _auto_tok:
