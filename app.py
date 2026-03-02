@@ -2718,6 +2718,22 @@ def _gk_track_v2(code: str) -> None:
         _ulog[_uid] = _ulog[_uid][-1000:]
     _st5.session_state["_gk_user_log"] = _ulog
 
+    # [E1] ☁️ Supabase 클라우드 영구 저장 — user_tracking_logs
+    # Firebase saveTrackingLogToCloud() 대응 (비동기 fire-and-forget)
+    try:
+        _sb_cl = _get_sb_client()
+        if _sb_cl is not None:
+            _sb_cl.table("user_tracking_logs").insert({
+                "user_id":    _user["entity_id"],
+                "menu_id":    f"MENU_{code}",
+                "menu_title": _entry.get("title", code),
+                "ai_weight":  _weight,
+                "payload_b64": _encrypted[:64],
+                "user_type":  _st5.session_state.get("_gk_user_type", "unknown"),
+            }).execute()
+    except Exception:
+        pass  # 네트워크 오류 시 in-memory 로그만 사용
+
 # 기존 _gk_route도 v2 추적으로 업그레이드 (원본 유지, 내부 호출만 교체)
 def _gk_route(code: str) -> None:
     """APP_REGISTRY 기반 은닉 라우팅 (v2 추적 통합)."""
@@ -8424,8 +8440,10 @@ watchRipple();
 
                 # 세션 초기값
                 if "_lp_terms" not in st.session_state:
-                    st.session_state["_lp_terms"] = {"t1": False, "t2": False, "t3": False}
-                # 약관 이미 동의 완료된 경우 → TERMS 스킵, A 직행
+                    st.session_state["_lp_terms"] = {"t1": False, "t2": False, "t3": False, "t4": False}
+                elif "t4" not in st.session_state["_lp_terms"]:
+                    st.session_state["_lp_terms"]["t4"] = False  # 기존 세션 t4 마이그레이션
+                # 약관 이미 동의 완료된 경우 → TERMS 스킵, A 직행 (필수 3개만 체크)
                 _terms_done = (st.session_state["_lp_terms"].get("t1")
                                and st.session_state["_lp_terms"].get("t2")
                                and st.session_state["_lp_terms"].get("t3"))
@@ -8502,37 +8520,87 @@ watchRipple();
                 # ─────────────────────────────────────────────────────────────
                 if _lp == "TERMS":
                     _tr = st.session_state["_lp_terms"]
-                    _all_agreed = _tr.get("t1") and _tr.get("t2") and _tr.get("t3")
-                    st.markdown("""
-<div style='background:linear-gradient(135deg,#1e1b4b,#312e81);border-radius:14px;
-  padding:20px 20px 16px 20px;margin-bottom:16px;text-align:center;'>
-  <div style='font-size:2rem;margin-bottom:8px;'>📋</div>
-  <div style='color:#e0e7ff;font-size:1.1rem;font-weight:800;'>서비스 이용 전 동의가 필요합니다</div>
+                    _req_agreed = _tr.get("t1") and _tr.get("t2") and _tr.get("t3")  # 필수 3개
+                    _all_agreed = _req_agreed and _tr.get("t4", False)               # 선택 포함 전체
+
+                    # ── 헤더 ──────────────────────────────────────────────────
+                    st.markdown("""<div style='background:linear-gradient(135deg,#1e1b4b,#312e81);border-radius:14px;
+  padding:20px 20px 16px 20px;margin-bottom:12px;text-align:center;'>
+  <div style='font-size:2rem;margin-bottom:8px;'>🛡️</div>
+  <div style='color:#e0e7ff;font-size:1.1rem;font-weight:800;'>안전한 서비스 이용을 위해<br>약관 동의가 필요합니다</div>
   <div style='color:#a5b4fc;font-size:0.82rem;margin-top:6px;line-height:1.6;'>
-    이용약관 · 개인정보 수집 · 민감정보(질병/보험) 처리에 일괄 동의합니다.
+    앱스토어 심사 기준에 따라 아래 3가지 필수 항목에 동의하셔야 합니다.
   </div>
 </div>""", unsafe_allow_html=True)
 
+                    # ── 전체 동의 버튼 ─────────────────────────────────────────
+                    _tc1, _tc2 = st.columns([1, 6])
+                    with _tc1:
+                        _all_cb = st.checkbox("", value=_all_agreed, key="_terms_all_cb",
+                                              label_visibility="collapsed")
+                    with _tc2:
+                        st.markdown("<div style='padding-top:4px;font-size:0.95rem;font-weight:800;color:#e2e8f0;'>네, 모두 동의합니다</div>", unsafe_allow_html=True)
+                    if _all_cb != _all_agreed:
+                        st.session_state["_lp_terms"] = {"t1": _all_cb, "t2": _all_cb, "t3": _all_cb, "t4": _all_cb}
+                        st.rerun()
+
+                    st.markdown("<hr style='border:none;border-top:1px solid #334155;margin:10px 0;'>", unsafe_allow_html=True)
+
+                    # ── 개별 약관 항목 ──────────────────────────────────────────
+                    _terms_items = [
+                        ("t1", "[필수]", "서비스 이용약관 동의",              False, "#e2e8f0"),
+                        ("t2", "[필수]", "개인정보 수집 및 이용 동의",         False, "#e2e8f0"),
+                        ("t3", "[필수]", "민감정보(의료·건강기록) 수집 및 AI 분석 동의", True,  "#7dd3fc"),
+                        ("t4", "[선택]", "맞춤형 보험·건강 정보 알림 수신 동의",False, "#94a3b8"),
+                    ]
+                    for _tk, _badge, _title, _highlight, _color in _terms_items:
+                        _ci1, _ci2 = st.columns([1, 8])
+                        with _ci1:
+                            _cv = st.checkbox("", value=_tr.get(_tk, False),
+                                              key=f"_terms_cb_{_tk}",
+                                              label_visibility="collapsed")
+                        with _ci2:
+                            _badge_color = "#ef4444" if "필수" in _badge else "#64748b"
+                            st.markdown(
+                                f"<div style='padding-top:3px;font-size:0.82rem;color:{_color};'>"
+                                f"<span style='background:{_badge_color};color:#fff;font-size:0.65rem;"
+                                f"padding:1px 6px;border-radius:4px;margin-right:6px;font-weight:700;'>{_badge}</span>"
+                                f"{_title}</div>",
+                                unsafe_allow_html=True,
+                            )
+                        if _cv != _tr.get(_tk, False):
+                            st.session_state["_lp_terms"][_tk] = _cv
+                            st.rerun()
+
+                    # ── 면책조항 ──────────────────────────────────────────────
                     st.markdown("""
-<div style='background:#1e293b;border-radius:10px;padding:12px 16px;margin-bottom:14px;
-  font-size:0.78rem;color:#94a3b8;line-height:1.8;'>
+<div style='background:#1e293b;border-radius:10px;padding:10px 14px;margin:10px 0;
+  font-size:0.72rem;color:#94a3b8;line-height:1.7;'>
   <b style='color:#f59e0b;'>⚠️ 면책 조항</b><br>
   본 앱의 AI 분석 결과는 <b style='color:#e2e8f0;'>보조 지표</b>일 뿐 법적 효력이 없습니다.<br>
   최종 보험 가입·해지 결정은 <b style='color:#e2e8f0;'>전문 자격을 갖춘 설계사</b>와 상담하시기 바랍니다.<br>
   수집 항목: 성명·연락처·질병 이력(AES-256 암호화 저장) / 탈퇴 시 즉시 삭제
 </div>""", unsafe_allow_html=True)
 
-                    if _all_agreed:
-                        st.success("✅ 동의 완료 — 아래 '다음 단계'를 눌러 로그인하세요")
-                    if st.button(
-                        "☑️ 전체 동의 후 로그인 진행" if not _all_agreed else "✅ 동의 완료 · 다음 단계 →",
-                        key="terms_all_in_one",
-                        use_container_width=True,
-                        type="primary",
-                    ):
-                        st.session_state["_lp_terms"] = {"t1": True, "t2": True, "t3": True}
-                        st.session_state["_lp"] = "A"
-                        st.rerun()
+                    # ── 시작 버튼 (필수 3개 미체크 시 비활성화) ───────────────
+                    if _req_agreed:
+                        if st.button(
+                            "✅ 동의하고 시작하기",
+                            key="terms_all_in_one",
+                            use_container_width=True,
+                            type="primary",
+                        ):
+                            # 마케팅 동의 여부를 session_state에 저장
+                            st.session_state["_terms_marketing"] = _tr.get("t4", False)
+                            st.session_state["_lp"] = "A"
+                            st.rerun()
+                    else:
+                        st.markdown("""
+<button disabled style='width:100%;background:#334155;color:#64748b;border:none;
+  border-radius:8px;padding:12px 0;font-size:0.95rem;font-weight:800;
+  cursor:not-allowed;margin-top:4px;'>
+  ⬆️ 필수 항목 3개를 모두 체크해주세요
+</button>""", unsafe_allow_html=True)
 
                 # ─────────────────────────────────────────────────────────────
                 # Phase A — 이름 + 연락처 확인 → OTP 발급
@@ -9190,20 +9258,21 @@ if(!CRED_ID) setTimeout(doBioAuth, 400);
             with tab_s:
                 # 약관 동의 완료 여부 확인 — 미동의 시 로그인 탭 약관 동의 먼저 안내
                 _su_terms = st.session_state.get("_lp_terms", {})
-                _su_agreed = _su_terms.get("t1") and _su_terms.get("t2") and _su_terms.get("t3")
+                _su_agreed = _su_terms.get("t1") and _su_terms.get("t2") and _su_terms.get("t3")  # 필수 3개
                 if not _su_agreed:
                     st.markdown("""
 <div style='background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;
   padding:16px 18px;text-align:center;margin-bottom:10px;'>
-  <div style='font-size:1.5rem;margin-bottom:6px;'>📋</div>
+  <div style='font-size:1.5rem;margin-bottom:6px;'>🛡️</div>
   <div style='font-weight:700;color:#991b1b;font-size:0.95rem;'>약관 동의가 필요합니다</div>
   <div style='font-size:0.78rem;color:#7f1d1d;margin-top:6px;line-height:1.6;'>
-    아래 버튼을 눌러 이용약관·개인정보·민감정보 3가지에 일괄 동의하세요.
+    [필수] 서비스 이용약관 · 개인정보 수집 · 민감정보(건강/의료) AI 분석<br>
+    3가지 필수 항목에 동의해야 가입할 수 있습니다.
   </div>
 </div>""", unsafe_allow_html=True)
-                    # [B2 수정] st.tabs는 프로그래매틱 전환 불가 → 회원가입 탭 안에서 직접 동의 처리
-                    if st.button("☑️ 이용약관·개인정보·민감정보 전체 동의", key="su_agree_inline", use_container_width=True, type="primary"):
-                        st.session_state["_lp_terms"] = {"t1": True, "t2": True, "t3": True}
+                    if st.button("☑️ 필수 약관 3가지 전체 동의", key="su_agree_inline", use_container_width=True, type="primary"):
+                        _cur_t4 = st.session_state.get("_lp_terms", {}).get("t4", False)
+                        st.session_state["_lp_terms"] = {"t1": True, "t2": True, "t3": True, "t4": _cur_t4}
                         st.rerun()
                 else:
                     with st.form("sb_signup_form"):
@@ -26043,6 +26112,182 @@ END; $$;""", language="sql")
                 _go_tab("home")
 
         st.divider()
+
+        # ══════════════════════════════════════════════════════════════
+        # [E2] 📸 AI OCR 스마트 문서 스캐너 — 카메라 촬영 / 이미지 업로드
+        # DocumentScanner 컴포넌트 (React→Streamlit 적응)
+        # ══════════════════════════════════════════════════════════════
+        with st.expander("📸 AI OCR 스마트 스캐너 — 카메라 촬영 또는 이미지 업로드", expanded=True):
+            st.markdown("""
+<div style='background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);border-radius:12px;
+  padding:14px 18px;margin-bottom:12px;'>
+  <div style='color:#fff;font-size:1rem;font-weight:800;'>📸 스마트 문서 스캐너</div>
+  <div style='color:#94a3b8;font-size:0.78rem;margin-top:4px;'>
+    보험증권·진단서·의무기록을 카메라로 찍어주시면 AI 마스터가 즉시 해독해 드립니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            # 세션 초기화
+            if "_ocr_cam_img" not in st.session_state:
+                st.session_state["_ocr_cam_img"] = None
+            if "_ocr_cam_result" not in st.session_state:
+                st.session_state["_ocr_cam_result"] = None
+            if "_ocr_cam_analyzing" not in st.session_state:
+                st.session_state["_ocr_cam_analyzing"] = False
+
+            _cam_img = st.session_state.get("_ocr_cam_img")
+            _cam_result = st.session_state.get("_ocr_cam_result")
+
+            if _cam_img is None:
+                # ── 1단계: 이미지 없음 → 카메라/업로드 유도 ─────────
+                st.markdown("""
+<div style='border:3px dashed #3b82f6;border-radius:20px;background:#0f172a;
+  padding:32px 20px;text-align:center;margin-bottom:12px;cursor:pointer;'>
+  <div style='font-size:3rem;margin-bottom:8px;'>📷</div>
+  <div style='color:#60a5fa;font-size:1rem;font-weight:700;'>여기를 눌러 문서 촬영하기</div>
+  <div style='color:#475569;font-size:0.75rem;margin-top:6px;'>
+    스마트폰 후면 카메라 또는 파일로 업로드 · JPG / PNG / HEIC
+  </div>
+</div>""", unsafe_allow_html=True)
+                _cam_upload = st.file_uploader(
+                    "📷 카메라 촬영 또는 이미지 파일 선택",
+                    type=["jpg", "jpeg", "png", "heic", "webp"],
+                    key="sh_cam_uploader",
+                    label_visibility="collapsed",
+                    help="모바일에서는 후면 카메라가 자동 실행됩니다",
+                )
+                # JS로 모바일 후면 카메라 capture 속성 주입
+                st.markdown("""
+<script>
+(function(){
+  var inp = document.querySelector('input[data-testid="stFileUploaderInput"]');
+  if(inp){ inp.setAttribute('capture','environment'); inp.setAttribute('accept','image/*'); }
+})();
+</script>""", unsafe_allow_html=True)
+                if _cam_upload:
+                    st.session_state["_ocr_cam_img"] = _cam_upload.getvalue()
+                    st.session_state["_ocr_cam_result"] = None
+                    st.rerun()
+
+            else:
+                import base64 as _b64_cam
+                _img_b64 = _b64_cam.b64encode(_cam_img).decode()
+
+                # ── 2단계: 이미지 미리보기 ────────────────────────────
+                _prev_col, _btn_col = st.columns([3, 2])
+                with _prev_col:
+                    st.markdown(
+                        f"<img src='data:image/jpeg;base64,{_img_b64}' "
+                        f"style='width:100%;border-radius:16px;box-shadow:0 4px 24px #0008;'/>",
+                        unsafe_allow_html=True,
+                    )
+                with _btn_col:
+                    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                    if st.button("🔍 AI 보장 분석 시작", key="sh_cam_analyze_btn",
+                                 use_container_width=True, type="primary"):
+                        st.session_state["_ocr_cam_analyzing"] = True
+                        st.session_state["_ocr_cam_result"] = None
+                    if st.button("🔄 다른 사진 선택", key="sh_cam_reset_btn",
+                                 use_container_width=True):
+                        st.session_state["_ocr_cam_img"] = None
+                        st.session_state["_ocr_cam_result"] = None
+                        st.session_state["_ocr_cam_analyzing"] = False
+                        st.rerun()
+
+                # ── 3단계: 스캔 애니메이션 + Gemini Vision 분석 ─────
+                if st.session_state.get("_ocr_cam_analyzing") and _cam_result is None:
+                    st.markdown("""
+<div style='background:#0f172a;border-radius:14px;padding:20px;text-align:center;
+  margin-top:12px;border:1px solid #22d3ee;'>
+  <div style='font-size:2rem;margin-bottom:8px;animation:spin 1s linear infinite;'>⚙️</div>
+  <div style='color:#22d3ee;font-weight:800;font-size:1rem;'>AI가 문서의 질병 코드를 해독 중입니다...</div>
+  <div style='color:#64748b;font-size:0.78rem;margin-top:6px;'>수천 장의 약관 데이터와 대조 중</div>
+  <div style='background:linear-gradient(90deg,#0ea5e9,#22d3ee,#0ea5e9);height:3px;
+    border-radius:2px;margin-top:14px;animation:scanbar 2s ease-in-out infinite;'></div>
+</div>
+<style>
+@keyframes scanbar{0%{transform:scaleX(0.1);opacity:0.5}50%{transform:scaleX(1);opacity:1}100%{transform:scaleX(0.1);opacity:0.5}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+</style>""", unsafe_allow_html=True)
+
+                    try:
+                        _cl_cam, _ = get_master_model()
+                        import google.generativeai as _genai_cam
+                        _img_part_cam = {"mime_type": "image/jpeg", "data": _cam_img}
+                        _cam_prompt = (
+                            "이 이미지는 보험증권, 진단서, 또는 의무기록 문서입니다.\n"
+                            "다음을 JSON 형식으로 추출하세요:\n"
+                            "1. document_type: 문서 종류 (보험증권/진단서/의무기록/청구서류/기타)\n"
+                            "2. disease_codes: 발견된 질병코드 목록 (예: C16.9, I63.9)\n"
+                            "3. insurance_items: 보험 가입 항목 또는 보장 내용 요약\n"
+                            "4. key_findings: 핵심 발견 사항 3줄 이내\n"
+                            "5. confidence: 판독 신뢰도 0~100\n"
+                            "JSON만 반환하고 설명 없이 출력하세요."
+                        )
+                        _cam_response = _cl_cam.models.generate_content(
+                            model="gemini-2.0-flash",
+                            contents=[_cam_prompt, _img_part_cam],
+                        )
+                        _cam_text = _cam_response.text.strip()
+                        # JSON 파싱 시도
+                        import json as _jcam, re as _recam
+                        _jm = _recam.search(r'\{.*\}', _cam_text, _recam.DOTALL)
+                        if _jm:
+                            _cam_parsed = _jcam.loads(_jm.group())
+                        else:
+                            _cam_parsed = {"key_findings": _cam_text, "confidence": 70}
+                        st.session_state["_ocr_cam_result"] = _cam_parsed
+                    except Exception as _e_cam:
+                        st.session_state["_ocr_cam_result"] = {
+                            "key_findings": f"분석 오류: {str(_e_cam)[:100]}",
+                            "confidence": 0,
+                        }
+                    st.session_state["_ocr_cam_analyzing"] = False
+                    st.rerun()
+
+                # ── 4단계: 분석 결과 표시 ────────────────────────────
+                if _cam_result is not None:
+                    _conf = _cam_result.get("confidence", 0)
+                    _conf_color = "#22c55e" if _conf >= 80 else "#f59e0b" if _conf >= 50 else "#ef4444"
+                    _doc_type = _cam_result.get("document_type", "문서")
+                    _disease_codes = _cam_result.get("disease_codes", [])
+                    _ins_items = _cam_result.get("insurance_items", "")
+                    _findings = _cam_result.get("key_findings", "")
+
+                    st.markdown(f"""
+<div style='background:#0f172a;border-radius:14px;padding:16px 18px;margin-top:12px;
+  border:1px solid {_conf_color};'>
+  <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'>
+    <div style='color:#fff;font-weight:800;font-size:1rem;'>📋 AI 분석 결과</div>
+    <div style='background:{_conf_color};color:#000;font-size:0.72rem;font-weight:800;
+      padding:2px 10px;border-radius:20px;'>신뢰도 {_conf}%</div>
+  </div>
+  <div style='color:#94a3b8;font-size:0.75rem;margin-bottom:4px;'>문서 유형</div>
+  <div style='color:#e2e8f0;font-weight:700;font-size:0.95rem;margin-bottom:10px;'>{_doc_type}</div>
+  {"<div style='color:#94a3b8;font-size:0.75rem;margin-bottom:4px;'>질병 코드</div><div style='margin-bottom:10px;'>" + " ".join([f"<span style='background:#1e3a5f;color:#60a5fa;padding:2px 8px;border-radius:6px;font-size:0.78rem;margin-right:4px;'>{c}</span>" for c in _disease_codes]) + "</div>" if _disease_codes else ""}
+  <div style='background:#1e293b;border-radius:8px;padding:10px 14px;margin-top:6px;'>
+    <div style='color:#7dd3fc;font-size:0.75rem;font-weight:700;margin-bottom:4px;'>🤖 AI 핵심 발견사항</div>
+    <div style='color:#cbd5e1;font-size:0.82rem;line-height:1.7;'>{str(_findings).replace(chr(10), "<br>")}</div>
+  </div>
+  {"<div style='color:#94a3b8;font-size:0.75rem;margin-top:10px;margin-bottom:4px;'>보장 분석</div><div style='color:#a3e635;font-size:0.82rem;'>" + str(_ins_items) + "</div>" if _ins_items else ""}
+</div>""", unsafe_allow_html=True)
+
+                    _rc1, _rc2 = st.columns(2)
+                    with _rc1:
+                        if st.button("📤 스캔 결과를 전체 탭에 반영", key="sh_cam_apply",
+                                     use_container_width=True, type="primary"):
+                            if _disease_codes:
+                                st.session_state["scan_disease_codes"] = _disease_codes
+                            if _doc_type:
+                                st.session_state["scan_doc_type"] = _doc_type
+                            st.success("✅ 전체 탭에 반영 완료!")
+                    with _rc2:
+                        if st.button("🔄 새 문서 스캔", key="sh_cam_new",
+                                     use_container_width=True):
+                            st.session_state["_ocr_cam_img"] = None
+                            st.session_state["_ocr_cam_result"] = None
+                            st.session_state["_ocr_cam_analyzing"] = False
+                            st.rerun()
 
         # ── SmartScanner (AI 의무기록 판독) ──────────────────────────
         with st.expander("🔬 SmartScanner — AI 의무기록 자동 판독", expanded=False):
