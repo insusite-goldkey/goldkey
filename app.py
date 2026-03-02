@@ -8569,6 +8569,15 @@ watchRipple();
   </div>
 </div>""", unsafe_allow_html=True)
 
+                    # ── 필수 항목 미체크 시 안내 — 맨 위(헤더 바로 아래) ────────
+                    if not _req_agreed:
+                        st.markdown("""
+<div style='background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px;
+  padding:10px 14px;margin:0 0 10px 0;font-size:0.82rem;
+  color:#1e293b;font-weight:700;text-align:center;'>
+  ⬇️ 아래 필수 항목 3개를 모두 체크해주세요
+</div>""", unsafe_allow_html=True)
+
                     # ── 전체 동의 버튼 ─────────────────────────────────────────
                     _tc1, _tc2 = st.columns([1, 6])
                     with _tc1:
@@ -8583,15 +8592,6 @@ watchRipple();
                     st.markdown("<hr style='border:none;border-top:1px solid #334155;margin:10px 0;'>", unsafe_allow_html=True)
 
                     # ── 개별 약관 항목 ──────────────────────────────────────────
-                    # ── 필수 항목 미체크 시 안내 (목록 위에 표시) ────────────
-                    if not _req_agreed:
-                        st.markdown("""
-<div style='background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px;
-  padding:10px 14px;margin:6px 0 10px 0;font-size:0.82rem;
-  color:#1e293b;font-weight:700;text-align:center;'>
-  ⬆️ 아래 필수 항목 3개를 모두 체크해주세요
-</div>""", unsafe_allow_html=True)
-
                     _terms_items = [
                         ("t1", "[필수]", "서비스 이용약관 동의",              False, "#1e293b"),
                         ("t2", "[필수]", "개인정보 수집 및 이용 동의",         False, "#1e293b"),
