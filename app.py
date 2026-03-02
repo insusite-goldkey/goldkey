@@ -6851,80 +6851,114 @@ def main():
             "✦ 전략 파트너 Goldkey AI가 준비되었습니다.",
         ])
 
-        # components.html: iframe 자체를 fixed full-screen으로 확장
-        # Python은 1회 호출 후 즉시 리턴 → JS 타이머가 독립 작동
+        # ── 스플래시: 부모 DOM에 overlay div를 직접 주입 ──────────────────
+        # Streamlit iframe은 same-origin이므로 window.parent.document 접근 가능.
+        # components.html height=1 → iframe 최소 생성 → JS가 부모에 overlay 삽입.
         _spl_html = f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap');
-*{{box-sizing:border-box;margin:0;padding:0;}}
-html,body{{width:100%;height:100%;overflow:hidden;background:#060d1a;}}
-#wrap{{position:fixed;inset:0;background:#060d1a;transition:opacity .8s;}}
-img{{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;}}
-img.on{{display:block;}}
-#bar{{position:absolute;bottom:0;left:0;right:0;padding:16px 20px 28px;
-  background:linear-gradient(0deg,rgba(4,9,18,.97) 55%,transparent);text-align:center;}}
-#msg{{font-family:'Noto Sans KR',sans-serif;font-size:clamp(.82rem,2.8vw,1.05rem);
-  font-weight:700;color:#f0c040;letter-spacing:.05em;
-  text-shadow:0 0 16px rgba(240,192,64,.9),0 2px 6px rgba(0,0,0,.7);
-  opacity:0;transition:opacity .3s;}}
-</style>
-</head>
-<body>
-<div id="wrap">
-  <img id="iV" src="{_src_v}" alt="v">
-  <img id="iH" src="{_src_h}" alt="h">
-  <div id="bar"><div id="msg"></div></div>
-</div>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;background:transparent;">
 <script>
 (function(){{
-  // iframe 자신을 fixed full-screen으로 확장
-  var ifr=window.frameElement;
-  if(ifr){{
-    ifr.style.cssText='position:fixed!important;top:0!important;left:0!important;'
-      +'width:100vw!important;height:100vh!important;z-index:2147483647!important;'
-      +'border:none!important;background:#060d1a!important;';
+  var SRC_V = {repr(_src_v)};
+  var SRC_H = {repr(_src_h)};
+  var MSGS  = [{_spl_msgs_js}];
+  var TOTAL = 5200;  // 표시 지속 ms (메시지 5개 × ~1s + 여유)
+
+  function inject(){{
+    try{{
+      var pd = window.parent.document;
+      if(pd.getElementById('gk-splash'))return;
+
+      // ── 스타일 ──
+      var style = pd.createElement('style');
+      style.id  = 'gk-splash-css';
+      style.textContent = [
+        '@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap");',
+        '#gk-splash{{position:fixed;inset:0;background:#060d1a;z-index:2147483647;',
+        '  transition:opacity .8s ease;overflow:hidden;}}',
+        '#gk-splash img{{position:absolute;inset:0;width:100%;height:100%;',
+        '  object-fit:cover;display:none;}}',
+        '#gk-splash img.on{{display:block;}}',
+        '#gk-splash-bar{{position:absolute;bottom:0;left:0;right:0;',
+        '  padding:18px 22px 32px;text-align:center;',
+        '  background:linear-gradient(0deg,rgba(4,9,18,.97) 55%,transparent);}}',
+        '#gk-splash-msg{{font-family:\'Noto Sans KR\',sans-serif;',
+        '  font-size:clamp(.82rem,2.8vw,1.05rem);font-weight:700;color:#f0c040;',
+        '  letter-spacing:.05em;',
+        '  text-shadow:0 0 16px rgba(240,192,64,.9),0 2px 6px rgba(0,0,0,.7);',
+        '  opacity:0;transition:opacity .3s;}}',
+        '#gk-splash-logo{{position:absolute;top:clamp(18px,5vw,40px);left:50%;',
+        '  transform:translateX(-50%);',
+        '  font-family:\'Noto Sans KR\',sans-serif;',
+        '  font-size:clamp(1.1rem,4vw,1.6rem);font-weight:900;',
+        '  color:#f0c040;letter-spacing:.08em;',
+        '  text-shadow:0 0 24px rgba(240,192,64,.7);white-space:nowrap;}}',
+      ].join('');
+      (pd.head||pd.documentElement).appendChild(style);
+
+      // ── overlay ──
+      var ov = pd.createElement('div');
+      ov.id  = 'gk-splash';
+      ov.innerHTML = [
+        '<img id="gk-spl-v" src="'+SRC_V+'" alt="">',
+        '<img id="gk-spl-h" src="'+SRC_H+'" alt="">',
+        '<div id="gk-splash-logo">🏆 GOLDKEY AI MASTER</div>',
+        '<div id="gk-splash-bar"><div id="gk-splash-msg"></div></div>',
+      ].join('');
+      (pd.body||pd.documentElement).appendChild(ov);
+
+      // ── 방향 감지 ──
+      var pw = window.parent.innerWidth  || 390;
+      var ph = window.parent.innerHeight || 812;
+      var imgEl = pd.getElementById(pw > ph ? 'gk-spl-h' : 'gk-spl-v');
+      if(imgEl) imgEl.classList.add('on');
+
+      // ── 메시지 순차 표시 ──
+      var msgEl = pd.getElementById('gk-splash-msg');
+      var step  = 0;
+      var INTERVAL = Math.floor((TOTAL - 800) / MSGS.length);
+      function tick(){{
+        if(!msgEl||step>=MSGS.length)return;
+        msgEl.style.opacity='0';
+        setTimeout(function(){{
+          msgEl.textContent=MSGS[step++];
+          msgEl.style.opacity='1';
+          if(step<MSGS.length)setTimeout(tick,INTERVAL);
+        }},150);
+      }}
+      setTimeout(tick, 200);
+
+      // ── 페이드아웃 후 제거 ──
+      setTimeout(function(){{
+        ov.style.opacity='0';
+        setTimeout(function(){{
+          try{{
+            if(ov.parentNode)ov.parentNode.removeChild(ov);
+            var s=pd.getElementById('gk-splash-css');
+            if(s&&s.parentNode)s.parentNode.removeChild(s);
+          }}catch(e){{}}
+        }},850);
+      }},TOTAL);
+
+    }}catch(e){{
+      // same-origin 접근 불가 환경 — fallback: iframe 자신을 확장
+      var ifr = window.frameElement;
+      if(ifr){{
+        ifr.style.cssText='position:fixed!important;top:0!important;left:0!important;'
+          +'width:100vw!important;height:100vh!important;z-index:2147483647!important;'
+          +'border:none!important;background:#060d1a!important;';
+      }}
+    }}
   }}
 
-  var msgs=[{_spl_msgs_js}];
-  var wrap=document.getElementById('wrap');
-  var msgEl=document.getElementById('msg');
-  var iV=document.getElementById('iV');
-  var iH=document.getElementById('iH');
-
-  // 가로/세로 감지
-  var pw=(window.parent||window).innerWidth||390;
-  var ph=(window.parent||window).innerHeight||812;
-  if(pw>ph){{iH.classList.add('on');}}else{{iV.classList.add('on');}}
-
-  // 메시지 순차 표시 (2초 간격)
-  var step=0;
-  function tick(){{
-    if(step>=msgs.length)return;
-    msgEl.style.opacity='0';
-    setTimeout(function(){{
-      msgEl.textContent=msgs[step++];
-      msgEl.style.opacity='1';
-      if(step<msgs.length)setTimeout(tick,2000);
-    }},150);
-  }}
-  tick();
-
-  // 10초 후 페이드아웃 → iframe 제거
-  setTimeout(function(){{
-    wrap.style.opacity='0';
-    setTimeout(function(){{
-      if(ifr&&ifr.parentNode)ifr.parentNode.removeChild(ifr);
-    }},850);
-  }},5000);
+  // DOM 준비 후 즉시 실행, 150ms 후 재시도
+  inject();
+  setTimeout(inject, 150);
 }})();
 </script>
-</body>
-</html>"""
+</body></html>"""
 
-        components.html(_spl_html, height=0, scrolling=False)
+        components.html(_spl_html, height=1, scrolling=False)
 
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
     # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
