@@ -170,30 +170,6 @@ def render_legal_report(*a, **kw):
 os.environ["PYTHONIOENCODING"] = "utf-8:replace"
 os.environ["PYTHONUTF8"] = "1"
 
-# ── Playwright Chromium 자동 설치 (HuggingFace Space / 서버 환경) ──────────
-# [OPT3] 최경량화: .pw_chromium_ok 플래그 파일이 있으면 즉시 패스 (0ms)
-# 없을 때만 백그라운드에서 설치 → 부팅 블로킹 완전 제거
-def _install_playwright_bg():
-    try:
-        _pw_flag = pathlib.Path.home() / ".pw_chromium_ok"
-        if _pw_flag.exists():
-            return  # 플래그 있으면 즉시 종료
-        import subprocess as _subprocess
-        _pw_result = _subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
-            capture_output=True, text=True, timeout=180
-        )
-        if _pw_result.returncode == 0:
-            _pw_flag.write_text("ok")
-    except Exception:
-        pass
-
-try:
-    import threading as _threading
-    _threading.Thread(target=_install_playwright_bg, daemon=True).start()
-except Exception:
-    pass
-
 # 환경변수 전체를 surrogate-safe하게 정제 (앱 시작 시 1회만 실행)
 try:
     for _ekey in list(os.environ.keys()):
@@ -909,7 +885,7 @@ def sanitize_prompt(text):
     return text
 
 def get_admin_key():
-    """관리자 키를 st.secrets 또는 환경변수에서 가져옴 — secrets 미설정 시 빈 문자열 반환 (하드코딩 금지)"""
+    """관리자 키를 st.secrets 또는 환경변수에서 가져옴"""
     try:
         v = st.secrets.get("ADMIN_KEY", "")
         if v: return v
@@ -926,18 +902,15 @@ def _check_admin_key(input_key: str) -> bool:
     for _secret_name in ("ADMIN_KEY", "ADMIN_CODE", "MASTER_CODE"):
         try:
             v = st.secrets.get(_secret_name, "")
-            if v:
-                valid.add(v)
+            if v: valid.add(v)
         except Exception:
             pass
         v2 = os.environ.get(_secret_name, "")
-        if v2:
-            valid.add(v2)
-    # ★ 하드코딩 폴백 절대 금지 — secrets/env 미설정 시 valid가 비어 있으므로 자동 False 반환
+        if v2: valid.add(v2)
     return k in valid
 
 def get_admin_code():
-    """관리자 코드를 st.secrets 또는 환경변수에서 가져옴 — secrets 미설정 시 빈 문자열 반환 (하드코딩 금지)"""
+    """관리자 코드를 st.secrets 또는 환경변수에서 가져옴"""
     try:
         v = st.secrets.get("ADMIN_CODE", "")
         if v: return v
@@ -2169,8 +2142,10 @@ def update_usage(user_name, model_used: str = ""):
         with open(_lock_path, "w") as _lf:
             try:
                 _fcntl.flock(_lf, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
-            except (BlockingIOError, AttributeError):
-                pass  # Windows 또는 잠금 실패 시 그냥 진행
+            except BlockingIOError:
+                return  # 잠금 실패 시 파일 쓰기 중단 — JSON 손상 방지
+            except AttributeError:
+                pass  # Windows: fcntl 없음, 단일 프로세스이므로 계속
             data = {}
             if os.path.exists(USAGE_DB):
                 try:
@@ -2328,6 +2303,7 @@ SECTOR_CODES: dict = {
     "4000": {"name": "기본보험 상담",   "tab_key": "t2",            "keywords": ["자동차보험", "운전자보험", "기본보험상담", "기본보험"]},
     "4100": {"name": "통합보험 설계",   "tab_key": "t3",            "keywords": ["통합보험설계", "통합보험", "통합설계", "생명보험설계", "종합설계"]},
     "4200": {"name": "자동차사고 상담", "tab_key": "t4",            "keywords": ["자동차사고", "교통사고", "과실비율", "합의금", "민식이법"]},
+    "4300": {"name": "자동차보험 상담", "tab_key": "car_ins",       "keywords": ["자동차보험상담", "자동차보험설계", "대인배상", "대물배상", "자기차량손해", "자차보험", "자손자상", "무보험차", "운전자범위", "연령한정", "차보험", "자동차보험가입", "차량보험"]},
     # ── 5000번대: 자산 / 세무 / 법인 ────────────────────────────────────
     "5000": {"name": "노후·상속 설계",  "tab_key": "t5",            "keywords": ["노후설계", "연금설계", "상속설계", "증여설계", "주택연금", "노후상담", "상속상담", "노후", "연금", "상속"]},
     "5100": {"name": "세무 상담",       "tab_key": "t6",            "keywords": ["세무상담", "세금상담", "절세방법", "소득세", "법인세", "건보료", "금융소득", "세무"]},
@@ -3627,20 +3603,21 @@ GOLD_AVATAR_PATH = os.path.join(
 
 @st.cache_resource(show_spinner=False)
 def get_goldkey_avatar() -> str:
-    """골드키 전용 아바타를 base64 문자열로 반환 (캐시 1회 로드).
-    SVG → PNG 순으로 탐색. 파일 없으면 빈 문자열 반환(Fallback).
+    """골드키 전용 아바타를 base64 data-URI 문자열로 반환 (캐시 1회 로드).
+    JPG → SVG → PNG 순으로 탐색. 파일 없으면 빈 문자열 반환(Fallback).
     """
+    _base = os.path.dirname(os.path.abspath(__file__))
     candidates = [
-        GOLD_AVATAR_PATH,
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "avatar_goldkey.png"),
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "avatar.png"),
+        (os.path.join(_base, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
+        (GOLD_AVATAR_PATH, "image/svg+xml"),
+        (os.path.join(_base, "assets", "avatar_goldkey.png"), "image/png"),
+        (os.path.join(_base, "avatar.png"), "image/png"),
     ]
-    for _p in candidates:
+    for _p, _mime in candidates:
         try:
             _path = pathlib.Path(_p)
             if _path.exists():
                 _raw = _path.read_bytes()
-                _mime = "image/svg+xml" if _p.endswith(".svg") else "image/png"
                 return f"data:{_mime};base64,{base64.b64encode(_raw).decode()}"
         except Exception:
             continue
@@ -4476,7 +4453,18 @@ def _rag_db_init():
     except Exception:
         pass
 
-_rag_db_init()
+# [DEBUG] _rag_db_init() 호출 차단 — HF Space hanging 원인 파악 후 복구 예정
+# _rag_db_init()
+_rag_db_init_err = None
+try:
+    import signal as _sig
+    def _timeout_handler(signum, frame): raise TimeoutError("_rag_db_init timeout")
+    _old_handler = _sig.signal(_sig.SIGALRM, _timeout_handler) if hasattr(_sig, 'SIGALRM') else None
+    if hasattr(_sig, 'SIGALRM'): _sig.alarm(5)
+    _rag_db_init()
+    if hasattr(_sig, 'SIGALRM'): _sig.alarm(0); _sig.signal(_sig.SIGALRM, _old_handler)
+except Exception as _e:
+    _rag_db_init_err = f"{type(_e).__name__}: {_e}"
 # Supabase 테이블 자동 생성은 main() 진입 후 호출 (모듈 로드 시점 오류 방지)
 
 def _rag_db_get_all_chunks():
@@ -6376,6 +6364,81 @@ def section_housing_pension():
 
 
 # --------------------------------------------------------------------------
+# @st.fragment — AI 결과 섹터 격리 렌더러
+# 설계 원칙:
+#   · 전체 페이지가 아닌 이 fragment 내부만 재실행 (Streamlit 1.33+)
+#   · run_ai_analysis 버튼, 추가답변 버튼, 출력 버튼 클릭 시 전체 rerun 차단
+#   · result_key: session_state 키 — 분석 결과 텍스트 저장 위치
+#   · on_click_run: 호출 시 run_ai_analysis 를 실행하는 callable (None=표시만)
+# --------------------------------------------------------------------------
+@st.fragment
+def _fragment_ai_result(result_key: str):
+    """AI 분석 결과 표시 전용 Fragment — 전체 rerun 없이 결과 섹터만 갱신."""
+    if not st.session_state.get(result_key):
+        return
+    result_text = st.session_state[result_key]
+
+    # ── 결론 우선형 한줄 요약 ──────────────────────────────────────────────
+    _summary_line = ""
+    for _ln in result_text.splitlines():
+        _ln_s = _ln.strip()
+        if not _ln_s:
+            continue
+        if any(tok in _ln_s for tok in ["★", "✅", "💡", "🔑", "핵심", "결론", "요약"]):
+            import re as _re
+            _summary_line = _re.sub(r"\*+", "", _ln_s).strip(" #>-·")
+            break
+    if not _summary_line:
+        import re as _re
+        for _ln in result_text.splitlines():
+            _ln_s = _re.sub(r"[#*_>`\-]", "", _ln).strip()
+            if len(_ln_s) > 20:
+                _summary_line = _ln_s[:80] + ("…" if len(_ln_s) > 80 else "")
+                break
+    if _summary_line:
+        st.markdown(
+            f'<div class="gk-ai-summary">'
+            f'<span class="gk-summary-label">AI 핵심 결론</span>'
+            f'{_summary_line}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown(result_text)
+
+    # ── 출력 · 전송 expander ──────────────────────────────────────────────
+    _c_name_out = st.session_state.get('current_c_name', '고객')
+    _disclaimer = (
+        "\n\n---\n"
+        "**[면책 고지]** 본 분석 결과는 AI 보조 도구에 의한 참고용 자료이며, "
+        "최종 판단 및 법적 책임은 사용자(상담원)에게 귀속됩니다. "
+        "보험금 지급 여부의 최종 결정은 보험사 심사 및 관련 법령에 따르며, "
+        "법률·세무·의료 분야의 최종 판단은 반드시 해당 전문가와 확인하십시오.\n\n"
+        "**문의:** insusite@gmail.com | 010-3074-2616 골드키지사"
+    )
+    _full_text = result_text + _disclaimer
+    with st.expander("📤 출력 · 전송", expanded=False):
+        st.text_area("출력 내용 (복사 후 카톡/문서 전송)", value=_full_text,
+            height=200, key=f"_frag_print_{result_key}")
+        _pc1, _pc2 = st.columns(2)
+        with _pc1:
+            import streamlit.components.v1 as _cv1
+            _cv1.html("""<button onclick="window.print()" style="
+  width:100%;padding:9px 0;border-radius:8px;
+  border:1.5px solid #2e6da4;background:#eef4fb;
+  color:#1a3a5c;font-size:0.88rem;font-weight:700;cursor:pointer;">
+  🖨️ 인쇄 / PDF 저장
+</button>""", height=44)
+        with _pc2:
+            st.download_button("📩 문서 다운로드 (.txt)",
+                data=_full_text.encode("utf-8"),
+                file_name=f"골드키AI_{_c_name_out}_상담결과.txt",
+                mime="text/plain",
+                key=f"_frag_dl_{result_key}",
+                use_container_width=True)
+
+
+# --------------------------------------------------------------------------
 def main():
     # ── STEP 1: set_page_config (항상 가장 먼저) ─────────────────────────
     st.set_page_config(
@@ -6384,6 +6447,48 @@ def main():
         layout="centered",
         initial_sidebar_state="collapsed"
     )
+    # ── [DEBUG] HF Space 런타임 에러 진단 배너 (확인 후 제거) ─────────────
+    import os as _os
+    if _os.environ.get("SPACE_ID"):
+        import sys as _sys
+        _dbg = []
+        _dbg.append(f"Python: {_sys.version}")
+        _dbg.append(f"SPACE_ID: {_os.environ.get('SPACE_ID','?')}")
+        try:
+            import pdfplumber; _dbg.append("pdfplumber OK")
+        except Exception as _e: _dbg.append(f"pdfplumber ERR: {_e}")
+        try:
+            import pymupdf; _dbg.append("pymupdf OK")
+        except Exception as _e: _dbg.append(f"pymupdf ERR: {_e}")
+        try:
+            import cryptography; _dbg.append("cryptography OK")
+        except Exception as _e: _dbg.append(f"cryptography ERR: {_e}")
+        try:
+            import supabase; _dbg.append("supabase OK")
+        except Exception as _e: _dbg.append(f"supabase ERR: {_e}")
+        try:
+            import google.genai; _dbg.append("google-genai OK")
+        except Exception as _e: _dbg.append(f"google-genai ERR: {_e}")
+        _dbg.append(f"rag_db_init={'ERR:'+_rag_db_init_err if _rag_db_init_err else 'OK'}")
+        st.info("🔧 DEBUG: " + " | ".join(_dbg))
+
+    # ── STEP 1-FOUC: 흰 화면(FOUC) 즉시 차단 ────────────────────────────
+    # set_page_config 직후 배경색을 강제 주입 → JS/CSS 로딩 전 흰 화면 방지
+    # Dynamic Theme JS가 이후 배경을 덮어씀 (2단계 전환)
+    st.markdown("""
+<style>
+/* FOUC(Flash of Unstyled Content) 방지 — 레이아웃 렌더 전 배경 선점 */
+html, body, [data-testid="stApp"], .stApp {
+    background-color: hsl(220, 18%, 97%) !important;
+    /* GPU 레이어 분리 — 탭 전환 시 repaint 방지 */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+}
+/* 탭 전환 리렌더 중 메인 블록 최소 높이 유지 (CLS 방지) */
+[data-testid="stMainBlocksContainer"] {
+    min-height: 100vh !important;
+}
+</style>""", unsafe_allow_html=True)
 
     # ── STEP 1-A: 프리미엄 스플래시 화면 (최초 방문 1회만, 10초) ──────────
     # [비동기 설계] Python → HTML 1회 렌더 후 즉시 리턴. JS가 타이머/전환/페이드아웃 전담.
@@ -6532,17 +6637,25 @@ img.on{{display:block;}}
         USAGE_DB  = "/tmp/usage_log.json"
         MEMBER_DB = "/tmp/members.json"
 
-    # ── STEP 4: DB 초기화 (1회) ───────────────────────────────────────────
+    # ── STEP 4: DB 초기화 (세션당 1회 — home_rendered 후 defer로 첫 프레임 빠르게) ─────
+    # 첫 프레임: 홈화면을 먼저 빠르게 그림. DB 초기화는 home_rendered 후 2잔 rerun 시실행.
     if 'db_ready' not in st.session_state:
-        try:
-            setup_database()
-            ensure_master_members()
-            st.session_state.db_ready = True
-        except Exception:
-            st.session_state.db_ready = True
+        if st.session_state.get('home_rendered'):
+            # 홈 첨 렌더 후 첫 rerun 시 실행 — Supabase I/O가 플레임 지연을 유발하지 않도록
+            try:
+                setup_database()
+                ensure_master_members()
+                st.session_state.db_ready = True
+            except Exception:
+                st.session_state.db_ready = True
+        else:
+            # 첫 프레임에서는 db_ready를 임시 True로 설정해 하위 블록 실행 허용
+            st.session_state['db_ready'] = 'pending'
 
-    # ── STEP 4-RAG: Supabase 테이블 초기화 (세션당 1회, DB ready 후 지연) ──
-    if st.session_state.get('db_ready') and not st.session_state.get('_rag_tables_ready'):
+    # ── STEP 4-RAG: Supabase 테이블 초기화 (세션당 1회, home_rendered 후 defer) ──
+    if (st.session_state.get('db_ready') == True
+            and not st.session_state.get('_rag_tables_ready')
+            and st.session_state.get('home_rendered')):
         try:
             _rag_supabase_ensure_tables()
             # GoldKeyServiceManager 지연 초기화
@@ -6649,9 +6762,9 @@ img.on{{display:block;}}
       warningDiv = pd.createElement('div');
       warningDiv.id = 'gk-session-warn';
       warningDiv.style.cssText = [
-        'position:fixed','bottom:20px','right:20px','z-index:99999',
-        'background:#fff3cd','border:2px solid #f59e0b','border-radius:12px',
-        'padding:16px 20px','max-width:320px','box-shadow:0 4px 16px rgba(0,0,0,0.18)',
+        'position:fixed','bottom:20px','right:20px','z-index:99999;',
+        'background:#fff3cd','border:2px solid #f59e0b','border-radius:12px;',
+        'padding:16px 20px','max-width:320px','box-shadow:0 4px 16px rgba(0,0,0,0.18);',
         'font-family:Malgun Gothic,sans-serif','font-size:0.85rem','color:#92400e'
       ].join(';');
       warningDiv.innerHTML =
@@ -6769,8 +6882,8 @@ img.on{{display:block;}}
             pass
         st.session_state['_self_diag_done'] = True
 
-    # ── STEP 6-b: 헬스체크 (로그인 첫 rerun 제외, 10분 간격 tick) ────────
-    if not _login_first_run:
+    # ── STEP 6-b: 헬스체크 (로그인 첫 rerun 제외, home_rendered 후 defer, 10분 간격 tick) ──
+    if not _login_first_run and st.session_state.get('home_rendered'):
         if not st.session_state.get('_hc_baseline_done'):
             try:
                 _hc_take_baseline()
@@ -7001,7 +7114,7 @@ section[data-testid="stSidebar"] {
         if (btn) { btn.click(); break; }
       }
     } catch(e) {}
-  }, 200);
+  }, 50);
 })();
 </script>""", height=0)
 
@@ -7396,7 +7509,7 @@ hr[data-testid="stDivider"] {
 }
 .gk-pop { animation: gk-pop 0.45s var(--gk-spring) both; }
 
-/* ── 스켈레톤 로더 ── */
+/* ── 스켈레톤 로더 (GPU 가속 적용) ── */
 .gk-skeleton {
     background: linear-gradient(90deg,
         rgba(226,232,240,0.8) 25%,
@@ -7407,10 +7520,74 @@ hr[data-testid="stDivider"] {
     border-radius: 8px;
     height: 20px;
     margin: 6px 0;
+    /* GPU 레이어 분리 — CPU 렌더링 부하 제거 */
+    will-change: background-position;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
 }
 @keyframes gk-shimmer {
     0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
+}
+
+/* ── 탭 전환 Skeleton Screen (섹터 이동 시 흰 화면 방지) ── */
+#gk-tab-skeleton {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: hsl(var(--gk-bg-h), var(--gk-bg-s), var(--gk-bg-l));
+    padding: 60px 24px 24px 24px;
+    pointer-events: none;
+    /* GPU 레이어 — 페이드 애니메이션 compositor 처리 */
+    will-change: opacity;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+}
+#gk-tab-skeleton.show { display: block; animation: gk-skel-in 0.18s ease both; }
+#gk-tab-skeleton.hide { animation: gk-skel-out 0.25s ease both; }
+@keyframes gk-skel-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gk-skel-out { from { opacity: 1; } to { opacity: 0; } }
+
+.gk-skel-bar {
+    background: linear-gradient(90deg,
+        rgba(226,232,240,0.9) 25%,
+        rgba(248,250,252,1.0) 50%,
+        rgba(226,232,240,0.9) 75%);
+    background-size: 200% 100%;
+    animation: gk-shimmer 1.2s infinite;
+    border-radius: 8px;
+    margin: 10px 0;
+    will-change: background-position;
+    transform: translateZ(0);
+}
+
+/* ── 탭 콘텐츠 등장 Fade-in (Crossfade 효과) ── */
+.gk-tab-content {
+    animation: gk-tab-fadein 0.3s var(--gk-ease) both;
+    will-change: opacity, transform;
+    transform: translateZ(0);
+}
+@keyframes gk-tab-fadein {
+    from { opacity: 0; transform: translateY(8px) translateZ(0); }
+    to   { opacity: 1; transform: translateY(0)   translateZ(0); }
+}
+
+/* ── GPU 가속 버튼/카드 (hover 프레임드랍 방지) ── */
+.stButton > button,
+[data-testid="stMetric"],
+.gk-glass,
+.dash-card-wrap {
+    will-change: transform;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* ── CLS 방지: 메인 콘텐츠 영역 최소 높이 예약 ── */
+.block-container > div:first-child {
+    min-height: 80vh;
 }
 
 /* ── Lottie 오버레이 (약관 돋보기) ── */
@@ -7793,6 +7970,116 @@ function watchRipple() {
   setTimeout(watchRipple, 2000);
 }
 watchRipple();
+
+/* ─── 7. Tab Skeleton Screen — 섹터 이동 시 흰 화면 방지 ───────────────
+   설계: 탭 전환 버튼 클릭 → Skeleton DOM 즉시 표시 (18ms)
+         Streamlit rerun 완료 후 새 콘텐츠 등장 → Skeleton 페이드아웃 (250ms)
+         GPU 가속: will-change:opacity, transform:translateZ(0)
+──────────────────────────────────────────────────────────────────────── */
+(function(){
+  var pd = window.parent.document;
+
+  /* Skeleton DOM 생성 (최초 1회) */
+  function ensureSkeleton() {
+    if (pd.getElementById('gk-tab-skeleton')) return;
+    var skel = pd.createElement('div');
+    skel.id = 'gk-tab-skeleton';
+    /* 헤더 1줄 + 본문 5줄 shimmer 바 */
+    skel.innerHTML = [
+      '<div class="gk-skel-bar" style="height:32px;width:55%;margin-bottom:18px;border-radius:10px;"></div>',
+      '<div class="gk-skel-bar" style="height:18px;width:90%;"></div>',
+      '<div class="gk-skel-bar" style="height:18px;width:80%;"></div>',
+      '<div class="gk-skel-bar" style="height:18px;width:85%;"></div>',
+      '<div class="gk-skel-bar" style="height:120px;width:100%;border-radius:12px;margin-top:12px;"></div>',
+      '<div class="gk-skel-bar" style="height:18px;width:70%;margin-top:12px;"></div>',
+    ].join('');
+    pd.body.appendChild(skel);
+  }
+
+  function showSkeleton() {
+    ensureSkeleton();
+    var s = pd.getElementById('gk-tab-skeleton');
+    s.className = 'show';
+  }
+
+  function hideSkeleton() {
+    var s = pd.getElementById('gk-tab-skeleton');
+    if (!s || s.className === '') return;
+    s.className = 'hide';
+    setTimeout(function(){
+      if (s.className === 'hide') s.className = '';
+    }, 300);
+  }
+
+  /* Streamlit rerun 완료 감지: stMainBlocksContainer DOM 변경 감시 */
+  function watchRerunComplete() {
+    try {
+      var target = pd.querySelector('[data-testid="stMainBlocksContainer"]')
+                || pd.querySelector('.block-container')
+                || pd.body;
+      var obs = new MutationObserver(function(muts) {
+        /* 새 콘텐츠가 추가됐으면 Skeleton 숨김 */
+        var added = false;
+        muts.forEach(function(m){ if (m.addedNodes.length) added = true; });
+        if (added) hideSkeleton();
+      });
+      obs.observe(target, { childList: true, subtree: true });
+    } catch(e){}
+  }
+  watchRerunComplete();
+
+  /* 탭 전환 버튼 감지 — 버튼 클릭 시 Skeleton 즉시 표시 */
+  function watchTabButtons() {
+    try {
+      pd.querySelectorAll('.stButton > button').forEach(function(btn){
+        if (btn._gk_skel) return;
+        btn._gk_skel = true;
+        btn.addEventListener('click', function(){
+          /* 홈 내 카드버튼 또는 섹터 이동 버튼만 (AI 분석 실행 버튼 제외) */
+          var txt = (btn.textContent || '').trim();
+          var isNav = /▶|🏠|홈으로|← 뒤로|섹터|분석 실행/.test(txt) === false
+                      || /▶/.test(txt)
+                      || /홈으로/.test(txt)
+                      || /← 뒤로/.test(txt);
+          /* AI 분석 실행 버튼은 Skeleton 표시 안 함 */
+          var isAnalyze = /정밀 분석|분석 실행|AI 분석|OTP|보안 인증|로그인/.test(txt);
+          if (isNav && !isAnalyze) {
+            showSkeleton();
+            /* 최대 3초 후 자동 해제 (rerun 무응답 방지) */
+            setTimeout(hideSkeleton, 3000);
+          }
+        });
+      });
+    } catch(e){}
+    setTimeout(watchTabButtons, 1500);
+  }
+  watchTabButtons();
+
+  /* 탭 콘텐츠 등장 시 Fade-in 클래스 자동 부여 */
+  function watchContentFade() {
+    try {
+      var main = pd.querySelector('[data-testid="stMainBlocksContainer"]')
+               || pd.querySelector('.block-container');
+      if (!main) return;
+      var mo = new MutationObserver(function(muts){
+        muts.forEach(function(m){
+          m.addedNodes.forEach(function(node){
+            if (node.nodeType === 1 && !node._gk_faded) {
+              node._gk_faded = true;
+              /* 직접 자식 섹션 블록에만 fade-in 적용 (너무 깊은 노드 제외) */
+              if (node.tagName === 'DIV' || node.tagName === 'SECTION') {
+                node.classList.add('gk-tab-content');
+              }
+            }
+          });
+        });
+      });
+      mo.observe(main, { childList: true });
+    } catch(e){}
+  }
+  setTimeout(watchContentFade, 500);
+
+})();
 
 })();
 </script>""", height=0)
@@ -8265,7 +8552,6 @@ watchRipple();
                                      use_container_width=True,
                                      type="primary" if not _bio_sel else "secondary"):
                             st.session_state["_lp_methods"]["bio"] = not _bio_sel
-                            st.rerun()
 
                     with _sc2:
                         _pat_border = "2px solid #7c3aed" if _pat_sel else "2px solid #e2e8f0"
@@ -8282,7 +8568,6 @@ watchRipple();
                                      use_container_width=True,
                                      type="primary" if not _pat_sel else "secondary"):
                             st.session_state["_lp_methods"]["pat"] = not _pat_sel
-                            st.rerun()
 
                     with _sc3:
                         _pin_border = "2px solid #0d9488" if _pin_sel else "2px solid #e2e8f0"
@@ -8299,7 +8584,6 @@ watchRipple();
                                      use_container_width=True,
                                      type="primary" if not _pin_sel else "secondary"):
                             st.session_state["_lp_methods"]["pin"] = not _pin_sel
-                            st.rerun()
 
                     st.markdown("<div style='margin-top:4px;'></div>", unsafe_allow_html=True)
 
@@ -9587,7 +9871,7 @@ function _relWL(){{
 function _hash(s){{
   var h=5381, i=s.length;
   // 공백 제거·소문자화 정규화 후 해싱 (Content Hashing)
-  s=s.replace(/\s/g,'').toLowerCase();
+  s=s.replace(/\\s/g,'').toLowerCase();
   while(i--){{ h=((h<<5)+h)^s.charCodeAt(i); h=h>>>0; }}
   return h.toString(36);
 }}
@@ -9652,16 +9936,16 @@ function _join(prev,next){{
 // ── Context-Aware 한국어 텍스트 정규화 (경량 LLM Post-Processing) ─────────
 // 보험/의료 전문 용어 오인식 패턴 규칙 기반 교정 — 서버 의존 없음, 즉시 적용
 var _nRules=[
-  [/실\s*손/g,'실손'],[/암\s*진\s*단/g,'암진단'],[/뇌\s*혈\s*관/g,'뇌혈관'],
-  [/심\s*근\s*경\s*색/g,'심근경색'],[/해\s*지\s*환\s*급\s*금/g,'해지환급금'],
-  [/납\s*입\s*면\s*제/g,'납입면제'],[/갱\s*신\s*형/g,'갱신형'],
-  [/비\s*갱\s*신\s*형/g,'비갱신형'],[/후\s*유\s*장\s*해/g,'후유장해'],
-  [/치\s*매\s*보\s*험/g,'치매보험'],[/알\s*츠\s*하\s*이\s*머/g,'알츠하이머'],
-  [/청\s*약\s*철\s*회/g,'청약철회'],[/보\s*험\s*금\s*청\s*구/g,'보험금청구'],
-  [/경\s*도\s*인\s*지\s*장\s*애/g,'경도인지장애'],[/장\s*기\s*요\s*양/g,'장기요양'],
-  [/일\s*백\s*만/g,'100만'],[/이\s*백\s*만/g,'200만'],[/삼\s*백\s*만/g,'300만'],
-  [/이\s*천\s*만/g,'2천만'],[/삼\s*천\s*만/g,'3천만'],[/오\s*천\s*만/g,'5천만'],
-  [/^(어+|음+|그+)[,\.\s]*/,'']
+  [/실\\s*손/g,'실손'],[/암\\s*진\\s*단/g,'암진단'],[/뇌\\s*혈\\s*관/g,'뇌혈관'],
+  [/심\\s*근\\s*경\\s*색/g,'심근경색'],[/해\\s*지\\s*환\\s*급\\s*금/g,'해지환급금'],
+  [/납\\s*입\\s*면\\s*제/g,'납입면제'],[/갱\\s*신\\s*형/g,'갱신형'],
+  [/비\\s*갱\\s*신\\s*형/g,'비갱신형'],[/후\\s*유\\s*장\\s*해/g,'후유장해'],
+  [/치\\s*매\\s*보\\s*험/g,'치매보험'],[/알\\s*츠\\s*하\\s*이\\s*머/g,'알츠하이머'],
+  [/청\\s*약\\s*철\\s*회/g,'청약철회'],[/보\\s*험\\s*금\\s*청\\s*구/g,'보험금청구'],
+  [/경\\s*도\\s*인\\s*지\\s*장\\s*애/g,'경도인지장애'],[/장\\s*기\\s*요\\s*양/g,'장기요양'],
+  [/일\\s*백\\s*만/g,'100만'],[/이\\s*백\\s*만/g,'200만'],[/삼\\s*백\\s*만/g,'300만'],
+  [/이\\s*천\\s*만/g,'2천만'],[/삼\\s*천\\s*만/g,'3천만'],[/오\\s*천\\s*만/g,'5천만'],
+  [/^(어+|음+|그+)[,\\.\\s]*/,'']
 ];
 function _normKo(t){{
   t=t.trim();
@@ -9670,7 +9954,7 @@ function _normKo(t){{
 }}
 
 // ── 노이즈 패턴 필터 (환경음·클릭음·짧은 감탄사 제거) ─────────────────────
-var _noiseRx=[/^[아어으음네예]+[\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\s]*$/,/^.{1,2}$/];
+var _noiseRx=[/^[아어으음네예]+[\\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\\s]*$/,/^.{1,2}$/];
 function _isNoise(t){{
   t=t.trim();
   for(var i=0;i<_noiseRx.length;i++) if(_noiseRx[i].test(t)) return true;
@@ -9929,6 +10213,48 @@ window['startTTS_{tab_key}']=function(){{
 - 보험가액 재산정: 보험사는 비례보상 시 보험금 축소를 위해 보험가액을 높게 책정 시도 → 감가상각률 정밀 계산으로 방어.
 - 재조달가액 특약 여부 반드시 확인 (시가 vs 재조달가액 기준 차이 큼).
 - 업종별 요율 차등: 금속가공(저위험) vs 플라스틱제조(고위험) — 보험료 및 인수 조건 상이.
+
+# 자동차보험 5대 섹터 사고 분석 알고리즘 (베테랑 손해사정사 프로토콜)
+
+## [핵심 원칙]
+고객이 자동차 사고 상황을 설명하면, 중구난방으로 대답하지 말고 반드시 아래의 [5대 섹터 사고 분석 프로세스] 순서대로 내부적으로 판단한 뒤 답변을 생성한다.
+답변의 톤앤매너: 내적 판단은 위 순서로 엄격하게 하되, 겉으로 출력하는 답변은 고객을 안심시키는 따뜻하고 정중한 일상어로 작성한다.
+
+## [Step 1: 면책 최우선 확인 — 섹터 4]
+가장 먼저 사고 당시 운전자가 '운전자 범위 한정(부부/가족 등)' 및 '연령 한정' 조건에 맞는지 파악하거나 고객에게 질문한다.
+이 조건에 위배되면 대인배상 I을 제외한 모든 보상(대인II·대물·자손/자상·자차)이 면책됨을 기준으로 삼는다.
+단기 운전자 확대 특약(명절 등) 적용 여부도 반드시 확인한다.
+
+## [Step 2: 타인 배상 분석 — 섹터 1]
+상대방의 피해(사람·차량·대물)가 있다면, 대인배상(I, II)과 대물배상으로 어떻게 처리되는지 한도를 확인하여 안내한다.
+- 대인배상 I(의무): 자배법 기준 한도 내(사망 최대 1.5억, 부상 14등급)
+- 대인배상 II(임의·무한 권장): 초과 손해 전액 + 형사처벌 면제 특례 조건 설명
+- 대물배상: 외제차 현실 반영, 최소 5억~10억 권장
+
+## [Step 3: 자체 손해 분석 — 섹터 2]
+고객 및 동승자의 부상(자손/자상)과 고객 차량 파손(자기차량손해·자기부담금 안내 포함) 보상을 안내한다.
+- 자손(자기신체사고): 약관 급수별 정액 지급 → 실손 치료비 초과분 미보상 경고
+- 자상(자동차상해) ★권장: 과실 무관 치료비 전액 + 위자료 + 휴업손해
+- 자차(자기차량손해): 자기부담금 20%~30% 공제 후 수리비 지급
+
+## [Step 4: 예외/무보험 분석 — 섹터 3]
+가해자가 뺑소니거나 무보험이라면 '무보험차상해' 특약 작동 여부를 판단한다.
+- 무보험차 상해: 내 보험 선지급 후 가해자에게 구상권 행사
+- 다른 자동차 운전 담보: 무보험차 특약 가입 시 자동 포함 → 지인·렌터카 운전 중 사고 커버
+
+## [Step 5: 긴급/부가 서비스 제안 — 섹터 5]
+마지막으로 사고 현장 수습을 위한 긴급출동(견인), 렌터카 특약, 12대 중과실 방어를 위한 법률비용지원(운전자보험 성격) 등을 제안한다.
+- 법률비용 지원 특약: 형사합의금(최대 2억) + 벌금(최대 2,000만원) + 변호사비
+- 렌터카 대여비용 특약, 긴급출동·견인 서비스
+- 마일리지·블랙박스·T맵 안전운전·ADAS·자녀할인 안내
+
+## [실전 예시]
+고객: "아들이 제 차 몰다가 외제차를 박았어요!"
+→ Step1: "부부 한정 특약인데 아드님 연령·범위 조건 맞나요?" (면책 우선 확인)
+→ Step2: "상대 외제차 수리비 → 대물배상 한도 10억 확인"
+→ Step3: "아드님 부상 → 자상 가입 시 치료비 전액+위자료 지급"
+→ Step4: "상대방 보험 미가입 여부 확인 → 무보험차 특약 작동 여부"
+→ Step5: "사고 현장 긴급출동 접수 도와드릴까요?"
 """.strip()
 
     # ── 이의처리 화법 RAG 데이터 (현장 즉시 활용) ────────────────────────────
@@ -10268,7 +10594,21 @@ window['startTTS_{tab_key}']=function(){{
                         "\n• 고객의 연령·소득·병력에 적합한 상품 유형을 우선 제시하세요. (금소법 제17조 적합성 원칙)"
                     )
 
-                sys_prefix = MASTER_SYSTEM_PROMPT + product_directive + _mode_directive + _ins_directive + "\n\n"
+                # ── 자동차보험 전담 알고리즘 추가 주입 ──────────────────
+                _car_ins_directive = ""
+                if product_key == "car_ins":
+                    _car_ins_directive = (
+                        "\n\n[자동차보험 전담 지시 — 5대 섹터 손해사정사 프로토콜 강제 적용]"
+                        "\n당신은 지금 자동차보험 상담 전문 모드로 동작 중입니다."
+                        "\n반드시 위의 [자동차보험 5대 섹터 사고 분석 알고리즘]을 따라 Step1→Step5 순서로 분석하세요."
+                        "\n• Step1(섹터4 면책) → Step2(섹터1 타인배상) → Step3(섹터2 자체손해) → Step4(섹터3 무보험) → Step5(섹터5 부가서비스) 순서 엄수"
+                        "\n• 면책 조건 확인 없이 보상 가능 여부를 먼저 언급하는 것은 절대 금지"
+                        "\n• 고객이 면책 조건 위반 사항을 언급하면 '대인배상 I 외 전면 면책 가능성'을 반드시 먼저 고지"
+                        "\n• 자손 vs 자상 차이는 반드시 명시 — 자상(자동차상해)을 권장 담보로 안내"
+                        "\n• 답변 마지막에 [즉시 조치 체크리스트]를 번호 순으로 제시"
+                        "\n• 겉으로 출력하는 톤은 따뜻하고 정중한 일상어로 — 고객을 안심시키는 방식으로 전달"
+                    )
+                sys_prefix = MASTER_SYSTEM_PROMPT + product_directive + _mode_directive + _ins_directive + _car_ins_directive + "\n\n"
 
                 # ── RAG 검색 (제품 필터 적용) ───────────────────────────────
                 rag_ctx = ""
@@ -10542,35 +10882,9 @@ window['startTTS_{tab_key}']=function(){{
 
     def show_result(result_key, guide_md=""):
         if st.session_state.get(result_key):
-            result_text = st.session_state[result_key]
-            # ── 결론 우선형 AI 한줄 요약 블록 (4060 가독성 최적화) ──────────
-            # 첫 번째 굵은 문장 또는 ★/✅/💡 포함 줄을 요약으로 추출
-            _summary_line = ""
-            for _ln in result_text.splitlines():
-                _ln_s = _ln.strip()
-                if not _ln_s:
-                    continue
-                # 핵심 결론 패턴: ★ / ✅ / 💡 / **..** 굵은 텍스트
-                if any(tok in _ln_s for tok in ["★", "✅", "💡", "🔑", "핵심", "결론", "요약"]):
-                    _summary_line = re.sub(r"\*+", "", _ln_s).strip(" #>-·")
-                    break
-            if not _summary_line:
-                # 패턴 없으면 첫 비빈 줄에서 80자 추출
-                for _ln in result_text.splitlines():
-                    _ln_s = re.sub(r"[#*_>`\-]", "", _ln).strip()
-                    if len(_ln_s) > 20:
-                        _summary_line = _ln_s[:80] + ("…" if len(_ln_s) > 80 else "")
-                        break
-            if _summary_line:
-                st.markdown(
-                    f'<div class="gk-ai-summary">'
-                    f'<span class="gk-summary-label">AI 핵심 결론</span>'
-                    f'{_summary_line}'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
-            st.markdown(result_text)
-            # ── 금지 키워드 감지 시 추가 답변 버튼 ─────────────────────────
+            # ── @st.fragment 위임 — 결과 표시/출력 버튼 클릭이 전체 rerun 유발 안 함 ──
+            _fragment_ai_result(result_key)
+            # ── 금지 키워드 감지 시 추가 답변 버튼 (fragment 외부 — rerun 필요) ──
             fb_key = f"_forbidden_{result_key}"
             fb_info = st.session_state.get(fb_key)
             if fb_info:
@@ -10589,41 +10903,8 @@ window['startTTS_{tab_key}']=function(){{
                     type="primary",
                     use_container_width=True,
                 ):
-                    # 라운드 증가 후 추가 분석 실행
                     st.session_state[fb_key]["round"] = next_round
                     _run_followup_analysis(result_key, pkey, hits, next_round)
-            # ── 출력(인쇄) 기능 ──────────────────────────────────────────
-            c_name_out = st.session_state.get('current_c_name', '고객')
-            disclaimer = (
-                "\n\n---\n"
-                "**[면책 고지]** 본 분석 결과는 AI 보조 도구에 의한 참고용 자료이며, "
-                "최종 판단 및 법적 책임은 사용자(상담원)에게 귀속됩니다. "
-                "보험금 지급 여부의 최종 결정은 보험사 심사 및 관련 법령에 따르며, "
-                "법률·세무·의료 분야의 최종 판단은 반드시 해당 전문가와 확인하십시오.\n\n"
-                "**문의:** insusite@gmail.com | 010-3074-2616 골드키지사"
-            )
-            full_text = result_text + disclaimer
-            with st.expander("📤 출력 · 전송", expanded=False):
-                st.markdown("**면책조항 포함 출력물 미리보기**")
-                st.text_area("출력 내용 (복사 후 카톡/문서 전송)", value=full_text,
-                    height=200, key=f"print_area_{result_key}")
-                pcol1, pcol2 = st.columns(2)
-                with pcol1:
-                    components.html(f"""
-<button onclick="window.print()" style="
-  width:100%;padding:9px 0;border-radius:8px;
-  border:1.5px solid #2e6da4;background:#eef4fb;
-  color:#1a3a5c;font-size:0.88rem;font-weight:700;cursor:pointer;">
-  🖨️ 인쇄 / PDF 저장
-</button>""", height=44)
-                with pcol2:
-                    kakao_text = f"[골드키AI마스터 상담결과]\n{c_name_out}님\n" + full_text[:200] + "...\n문의: 010-3074-2616"
-                    st.download_button("📩 문서 다운로드 (.txt)",
-                        data=full_text.encode("utf-8"),
-                        file_name=f"골드키AI_{c_name_out}_상담결과.txt",
-                        mime="text/plain",
-                        key=f"dl_{result_key}",
-                        use_container_width=True)
         elif guide_md:
             st.markdown(guide_md)
         else:
@@ -10642,12 +10923,10 @@ window['startTTS_{tab_key}']=function(){{
                 if st.button("📝 회원가입", key="home_open_signup",
                              use_container_width=True, type="primary"):
                     st.session_state["_open_sidebar"] = True
-                    st.rerun()
             with _b2:
                 if st.button("🔓 로그인", key="home_open_login",
                              use_container_width=True):
                     st.session_state["_open_sidebar"] = True
-                    st.rerun()
             st.markdown("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:12px 16px;margin-bottom:6px;text-align:center;">
@@ -10669,6 +10948,13 @@ window['startTTS_{tab_key}']=function(){{
 
         # ── 아바타 + Voice-to-Action 네비게이션 블록 (Glassmorphism / EV Dashboard) ──
         _uname_disp = mask_name(st.session_state.get("user_name","")) if "user_id" in st.session_state else "마스터"
+        _hero_avatar_uri = get_goldkey_avatar()
+        _hero_avatar_html = (
+            f'<img src="{_hero_avatar_uri}" '
+            'style="width:58px;height:58px;border-radius:50%;object-fit:cover;'
+            'border:2.5px solid rgba(251,191,36,0.7);'
+            'box-shadow:0 0 14px rgba(14,165,233,0.55);display:block;">'
+        ) if _hero_avatar_uri else '<span style="font-size:3.6rem;line-height:1;">🔑</span>'
         components.html(f"""
 <style>
 /* Glassmorphism 카드 */
@@ -10683,9 +10969,10 @@ window['startTTS_{tab_key}']=function(){{
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
 }}
 .gk-hero-avatar {{
-  font-size: 3.6rem; line-height: 1; flex-shrink: 0;
+  width: 62px; height: 62px; flex-shrink: 0;
   filter: drop-shadow(0 0 12px rgba(14,165,233,0.6));
   position: relative;
+  display: flex; align-items: center; justify-content: center;
 }}
 /* 음성파동 링 — EV 시동 on 느낌 */
 .gk-pulse-ring {{
@@ -10731,7 +11018,7 @@ window['startTTS_{tab_key}']=function(){{
 </style>
 <div class="gk-hero">
   <div class="gk-hero-avatar">
-    🤖
+    {_hero_avatar_html}
     <div class="gk-pulse-ring"></div>
     <div class="gk-pulse-ring"></div>
     <div class="gk-pulse-ring"></div>
@@ -10822,7 +11109,12 @@ function wxByGeo(){
     wxLoad(35.1595, 126.8526, "광주");
   }, {timeout:5000});
 }
-wxByGeo();
+if (window.sessionStorage.getItem("_wx_geo")) {
+  var _geo = JSON.parse(window.sessionStorage.getItem("_wx_geo"));
+  wxLoad(_geo.latitude, _geo.longitude, _geo.locName);
+} else {
+  wxByGeo();
+}
 </script>
 """, height=100)
 
@@ -11483,7 +11775,7 @@ section[data-testid="stMain"] {
 """, unsafe_allow_html=True)
 
         # 준비중 탭 목록 — 홈 카드에 🚧 배지 + 탭 진입 시 안내 배너
-        _WIP_TABS = {"policy_terms", "customer_docs", "digital_catalog"}
+        _WIP_TABS = set()  # 전체 오픈
 
         def _render_cards(cards, prefix):
             import math as _math
@@ -11557,6 +11849,7 @@ section[data-testid="stMain"] {
             ("t3",          "🏥", "질병·상해 통합보험",   "암·뇌·심장 3대질병 보장 · 간병·치매·생명보험 설계"),
             ("cancer",      "🎗️", "암·뇌·심장질환 상담", "NGS·표적항암·면역항암·CAR-T 뇌심장 보장 실무 분석"),
             ("t4",          "🚗", "자동차사고 상담",      "과실비율·합의금 분석 · 13대 중과실·민식이법 안내"),
+            ("car_ins",     "🚘", "자동차보험 상담",      "5대 섹터 정밀 분석 · 면책 필터링 · 담보 최적화 · 사고처리 가이드"),
             ("life_cycle",  "🔄", "LIFE CYCLE 백지설계", "인생 타임라인 시각화 · 생존·상해·결혼·퇴직·노후 설계도"),
         ], "home_grpB")
 
@@ -11843,7 +12136,6 @@ section[data-testid="stMain"] {
                 if st.button("🔓 로그인 열기", key=f"auth_gate_login_{tab_key}",
                              use_container_width=True):
                     st.session_state["_open_sidebar"] = True
-                    st.rerun()
             return False
         # 직전 탭 기록 (Deep Link 복귀용)
         st.session_state["gs_last_tab"] = tab_key
@@ -13853,10 +14145,10 @@ var _utterStart=0;
 var _lastQ=[];
 var _boostTerms={str(STT_BOOST_TERMS).replace("'",'"')};
 
-var _noiseRx=[/^[아어으음네예]+[\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\s]*$/,/^.{{1,2}}$/];
+var _noiseRx=[/^[아어으음네예]+[\\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\\s]*$/,/^.{{1,2}}$/];
 function _isNoise(t){{ t=t.trim(); for(var i=0;i<_noiseRx.length;i++) if(_noiseRx[i].test(t)) return true; return false; }}
 
-function _hash(s){{ var h=5381,i; s=s.replace(/\s/g,'').toLowerCase(); while((i=s.length--)){{ h=((h<<5)+h)^s.charCodeAt(i-1); h=h>>>0; }} return h.toString(36); }}
+function _hash(s){{ var h=5381,i; s=s.replace(/\\s/g,'').toLowerCase(); while((i=s.length--)){{ h=((h<<5)+h)^s.charCodeAt(i-1); h=h>>>0; }} return h.toString(36); }}
 function _lev(a,b){{
   var m=a.length,n=b.length,dp=[],i,j;
   for(i=0;i<=m;i++)dp[i]=[i];
@@ -13882,11 +14174,11 @@ function _isDup(text){{
 function _addQ(text){{ _lastQ.push({{text:text,ts:Date.now(),hash:_hash(text)}}); if(_lastQ.length>{STT_LEV_QUEUE}) _lastQ.shift(); }}
 
 var _nRules=[
-  [/실\s*손/g,'실손'],[/암\s*진\s*단/g,'암진단'],[/뇌\s*혈\s*관/g,'뇌혈관'],
-  [/심\s*근\s*경\s*색/g,'심근경색'],[/후\s*유\s*장\s*해/g,'후유장해'],
-  [/납\s*입\s*면\s*제/g,'납입면제'],[/갱\s*신\s*형/g,'갱신형'],[/비\s*갱\s*신\s*형/g,'비갱신형'],
-  [/치\s*매\s*보\s*험/g,'치매보험'],[/장\s*기\s*요\s*양/g,'장기요양'],
-  [/^(어+|음+|그+)[,\.\s]*/,'']
+  [/실\\s*손/g,'실손'],[/암\\s*진\\s*단/g,'암진단'],[/뇌\\s*혈\\s*관/g,'뇌혈관'],
+  [/심\\s*근\\s*경\\s*색/g,'심근경색'],[/후\\s*유\\s*장\\s*해/g,'후유장해'],
+  [/납\\s*입\\s*면\\s*제/g,'납입면제'],[/갱\\s*신\\s*형/g,'갱신형'],[/비\\s*갱\\s*신\\s*형/g,'비갱신형'],
+  [/치\\s*매\\s*보\\s*험/g,'치매보험'],[/장\\s*기\\s*요\\s*양/g,'장기요양'],
+  [/^(어+|음+|그+)[,\\.\\s]*/,'']
 ];
 function _normKo(t){{ t=t.trim(); for(var i=0;i<_nRules.length;i++) t=t.replace(_nRules[i][0],_nRules[i][1]); return t.trim(); }}
 
@@ -17285,6 +17577,207 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             st.subheader("🤖 AI 분석 리포트")
             show_result("res_t4")
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
+    # ── [car_ins] 자동차보험 상담 ─────────────────────────────────────────
+    if cur == "car_ins":
+        if not _auth_gate("car_ins"): st.stop()
+        tab_home_btn("car_ins")
+        st.subheader("🚘 자동차보험 상담 · 5대 섹터 정밀 분석")
+
+        # ── 섹터 체크박스 패널 ────────────────────────────────────────────
+        st.markdown("""<div style="background:linear-gradient(135deg,#0d1b2a,#1a3a5c);
+  border-radius:12px;padding:12px 18px 6px 18px;margin-bottom:12px;
+  border:1px solid rgba(14,165,233,0.3);">
+<span style="color:#7dd3fc;font-weight:900;font-size:0.92rem;">
+📌 AI 분석 필터 — 해당 항목을 먼저 체크하세요 (섹터 4 면책 필터링 우선)
+</span></div>""", unsafe_allow_html=True)
+
+        _ci_col1, _ci_col2 = st.columns([1, 1])
+
+        with _ci_col1:
+            # ── 섹터 4: 면책 필터링 (최우선) ─────────────────────────────
+            with st.expander("🔴 섹터 4 — 면책·계약 조건 (★ 1순위 체크)", expanded=True):
+                st.caption("이 항목이 어긋나면 섹터 1·2·3이 전부 면책 처리됩니다.")
+                _age_limit = st.checkbox("연령 한정 특약 위반 (예: 30세 이상 한정인데 28세 운전)", key="ci_age_limit")
+                _scope_limit = st.checkbox("운전자 범위 한정 특약 위반 (예: 부부 한정인데 자녀 운전)", key="ci_scope_limit")
+                _short_expand = st.checkbox("단기 운전자 확대 특약 적용 중 (명절·일시 확대)", key="ci_short_expand")
+                _drunk = st.checkbox("음주운전 (혈중알코올 0.03% 이상)", key="ci_drunk")
+                _nolic = st.checkbox("무면허 운전", key="ci_nolic")
+
+                _exemption_flags = []
+                if _age_limit:   _exemption_flags.append("연령 한정 위반")
+                if _scope_limit: _exemption_flags.append("운전자 범위 한정 위반")
+                if _drunk:       _exemption_flags.append("음주운전")
+                if _nolic:       _exemption_flags.append("무면허 운전")
+                if _short_expand: _exemption_flags.append("단기 운전자 확대 특약 적용")
+
+                if _exemption_flags and not _short_expand:
+                    st.error(f"⛔ 면책 위험! — {', '.join(_exemption_flags)}\n→ 대인배상 I만 지급, 나머지 전면 면책 가능성 있음")
+                elif _short_expand:
+                    st.success("✅ 단기 운전자 확대 특약 적용 시: 범위·연령 제한 일시 해제됨")
+
+            # ── 섹터 1: 타인 배상 ────────────────────────────────────────
+            with st.expander("🟠 섹터 1 — 타인 배상 (대인·대물)", expanded=False):
+                _tp_injury = st.checkbox("대인배상 I (의무) — 자배법 기준 한도 내 배상", key="ci_tp_injury1")
+                _tp_injury2 = st.checkbox("대인배상 II (임의·무한 권장) — 형사처벌 면제 특례", key="ci_tp_injury2")
+                _tp_property = st.checkbox("대물배상 — 외제차·도로시설물 파손 (최소 5억~10억 권장)", key="ci_tp_prop")
+                if _tp_injury2:
+                    st.info("💡 대인Ⅱ 무한 가입 시 → 피해자 합의 없어도 공소권 없음 특례 적용 가능")
+                if _tp_property:
+                    st.info("💡 대물 최소 5억 권장 — 외제차(람보르기니, 포르쉐 등) 수리비 현실 반영")
+
+            # ── 섹터 2: 자체 손해 ────────────────────────────────────────
+            with st.expander("🟡 섹터 2 — 피보험자 자체 손해 (자손/자상/자차)", expanded=False):
+                _self_injury_type = st.radio(
+                    "자신/동승자 부상 담보",
+                    ["미가입", "자기신체사고(자손) — 급수별 정액 지급", "자동차상해(자상) — 치료비 전액+위자료+휴업손해 (권장)"],
+                    key="ci_self_type",
+                )
+                _own_car = st.checkbox("자기차량손해(자차) 가입", key="ci_own_car")
+                _deductible = st.selectbox("자차 자기부담금 비율", ["선택 안 함", "20%", "30%"], key="ci_deduct") if _own_car else "선택 안 함"
+                if "자손" in _self_injury_type:
+                    st.warning("⚠️ 자손 → 약관 급수표 기준 **정액** 지급. 실손 치료비 초과분은 보상 불가.")
+                elif "자상" in _self_injury_type:
+                    st.success("✅ 자상 → 과실 비율 무관, 치료비 **전액** + 위자료 + 휴업손해 지급")
+
+            # ── 섹터 3: 사각지대 방어 ────────────────────────────────────
+            with st.expander("🟢 섹터 3 — 무보험·사각지대 방어", expanded=False):
+                _unins = st.checkbox("무보험자동차에 의한 상해 (상대방 뺑소니·무보험)", key="ci_unins")
+                _other_car = st.checkbox("다른 자동차 운전 담보 특약 (남의 차 운전 시)", key="ci_other_car")
+                if _unins:
+                    st.info("💡 무보험차 특약 가입 시 '다른 자동차 운전 담보'도 자동 포함됩니다.")
+                if _other_car:
+                    st.info("💡 렌터카·지인 차량 운전 사고 시 내 보험으로 처리 가능")
+
+        with _ci_col2:
+            # ── 섹터 5: 비용·할인 특약 ────────────────────────────────────
+            with st.expander("🔵 섹터 5 — 비용 보전·할인 특약", expanded=False):
+                st.caption("사고 처리비용 절감 및 서비스 특약")
+                _legal_cost = st.checkbox("법률비용 지원 특약 (형사합의금·벌금·변호사비)", key="ci_legal")
+                _rental = st.checkbox("렌터카 대여비용 특약", key="ci_rental")
+                _tow = st.checkbox("긴급출동·견인 서비스", key="ci_tow")
+                _mileage = st.checkbox("마일리지(주행거리) 환급 특약", key="ci_mileage")
+                _blackbox = st.checkbox("블랙박스 할인 특약", key="ci_blackbox")
+                _tmap = st.checkbox("T맵 안전운전 할인 특약", key="ci_tmap")
+                _adas = st.checkbox("첨단안전장치(ADAS) 할인 특약", key="ci_adas")
+                _child_disc = st.checkbox("자녀 할인 특약", key="ci_child")
+
+                if _legal_cost:
+                    st.warning("⚖️ 중과실 사고(음주·신호위반 등) 시 형사합의금 최대 2억, 벌금 최대 2,000만원 지원 확인 필수")
+
+            # ── AI 상담 입력 ──────────────────────────────────────────────
+            st.markdown("---")
+            c_name_ci, query_ci, hi_ci, do_ci, _pk_ci = ai_query_block(
+                "car_ins",
+                placeholder="예) 아들이 제 차를 몰다가 외제차를 박았어요. 부부 한정 특약인데 괜찮나요?",
+                product_key="car_ins",
+            )
+
+            # ── 사고 분석 실행 ───────────────────────────────────────────
+            if do_ci:
+                # 섹터별 컨텍스트 구성
+                _ci_ctx_parts = []
+                if _exemption_flags and not _short_expand:
+                    _ci_ctx_parts.append(f"[섹터4-면책위험] {', '.join(_exemption_flags)} → 대인I만 보상, 나머지 면책")
+                elif _short_expand:
+                    _ci_ctx_parts.append("[섹터4] 단기 운전자 확대 특약 적용 중 (면책 없음)")
+                else:
+                    _ci_ctx_parts.append("[섹터4] 면책 조건 해당 없음 — 정상 보상 구조")
+
+                if _tp_injury:   _ci_ctx_parts.append("[섹터1] 대인배상I(의무) 가입")
+                if _tp_injury2:  _ci_ctx_parts.append("[섹터1] 대인배상II(무한) 가입 → 형사처벌 면제 특례")
+                if _tp_property: _ci_ctx_parts.append("[섹터1] 대물배상 가입")
+                if "자손" in _self_injury_type: _ci_ctx_parts.append("[섹터2] 자기신체사고(자손·정액) 가입")
+                elif "자상" in _self_injury_type: _ci_ctx_parts.append("[섹터2] 자동차상해(자상·실손전액) 가입")
+                if _own_car: _ci_ctx_parts.append(f"[섹터2] 자기차량손해(자차) 가입 · 자기부담금 {_deductible}")
+                if _unins:   _ci_ctx_parts.append("[섹터3] 무보험자동차 상해 특약 가입")
+                if _other_car: _ci_ctx_parts.append("[섹터3] 다른 자동차 운전 담보 특약 가입")
+                if _legal_cost: _ci_ctx_parts.append("[섹터5] 법률비용 지원 특약 가입")
+                if _rental:  _ci_ctx_parts.append("[섹터5] 렌터카 대여비용 특약 가입")
+                if _tow:     _ci_ctx_parts.append("[섹터5] 긴급출동·견인 서비스 가입")
+
+                _ci_coverage_ctx = "\n".join(_ci_ctx_parts) if _ci_ctx_parts else "(가입 담보 미선택 — 일반 상담 모드)"
+
+                run_ai_analysis(c_name_ci, query_ci, hi_ci, "res_car_ins",
+                    product_key=_pk_ci,
+                    extra_prompt=(
+                        "[자동차보험 전문 상담 — 5대 섹터 정밀 분석]\n\n"
+                        f"## 고객 보험 가입 현황 및 체크 항목\n{_ci_coverage_ctx}\n\n"
+                        "## AI 분석 순서 (반드시 섹터 순서 준수)\n\n"
+                        "### ① 섹터 4 — 면책·계약 조건 필터링 (최우선)\n"
+                        "- 연령 한정·운전자 범위 한정 특약 위반 여부 → 면책 범위 명확히 판단\n"
+                        "- 위반 시: 대인배상 I만 지급, 대인II·대물·자손/자상·자차 전면 면책 구조 설명\n"
+                        "- 단기 운전자 확대 특약 적용 시: 면책 해제 효과 설명\n\n"
+                        "### ② 섹터 1 — 타인 배상 (대인·대물) 분석\n"
+                        "- 대인배상 I(자배법 기준) vs 대인배상 II(무한) 차이 및 형사처벌 면제 특례 조건\n"
+                        "- 대물배상 한도 적정성 — 외제차 수리비 현실 기준 (최소 5억~10억 권장)\n"
+                        "- 실제 사고 상황에서 지급되는 금액 추정\n\n"
+                        "### ③ 섹터 2 — 피보험자 자체 손해 분석\n"
+                        "- 자기신체사고(자손) vs 자동차상해(자상) 차이 명확 비교:\n"
+                        "  · 자손: 약관 급수별 정액 지급 / 자상: 치료비 전액+위자료+휴업손해\n"
+                        "- 자기차량손해(자차) 자기부담금 계산 (20%~30% 적용)\n"
+                        "- 단독사고 vs 차대차 사고 시 처리 방식 차이\n\n"
+                        "### ④ 섹터 3 — 사각지대·무보험 방어 분석\n"
+                        "- 무보험차 상해 특약: 뺑소니·책임보험만 가입·무보험 상대방 사고 시 구상권 전제 처리\n"
+                        "- 다른 자동차 운전 담보: 지인·렌터카 차량 운전 중 사고 처리 가능 여부\n\n"
+                        "### ⑤ 섹터 5 — 비용 보전·할인 특약 활용\n"
+                        "- 법률비용 지원 특약: 중과실 사고 시 형사합의금·벌금·변호사비 지원 한도\n"
+                        "- 긴급출동·렌터카 특약 활용 방법\n"
+                        "- 마일리지·블랙박스·T맵·ADAS·자녀할인 적용 가능 여부 안내\n\n"
+                        "### ⑥ 종합 결론 및 즉시 조치 사항\n"
+                        "- 현재 보험 구조의 보장 공백(Gap) 지적\n"
+                        "- 가장 시급한 보완 담보 1순위~3순위 제시\n"
+                        "- 사고 발생 시 즉시 해야 할 행동 체크리스트 (번호 순)\n"
+                        "⚠️ 본 분석은 상담 참고용이며 최종 보상 여부는 약관 및 보험사 심사 기준에 따릅니다."
+                    )
+                )
+
+        st.markdown("---")
+        st.subheader("🤖 AI 분석 리포트")
+        show_result("res_car_ins")
+
+        # ── 참고 인포박스 ─────────────────────────────────────────────────
+        with st.expander("📚 자동차보험 5대 섹터 요약 가이드", expanded=False):
+            components.html("""
+<div style="height:520px;overflow-y:auto;padding:14px 18px;
+  background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
+  font-size:0.84rem;line-height:1.5;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="font-size:0.92rem;color:#1a3a5c;">🚘 자동차보험 5대 섹터 핵심 요약</b><br><br>
+
+<b style="color:#dc2626;">🔴 섹터 4 — 면책·계약 조건 (1순위 필터)</b><br>
+• 연령 한정 위반(예: 30세↑ 한정 ← 28세 운전) → 대인I만 보상, 나머지 <b>전면 면책</b><br>
+• 운전자 범위 위반(예: 부부 한정 ← 자녀 운전) → 동일 면책 구조<br>
+• 단기 운전자 확대 특약: 명절 등 일정 기간 한정 해제 가능<br><br>
+
+<b style="color:#ea580c;">🟠 섹터 1 — 타인 배상 (남의 손해)</b><br>
+• <b>대인배상 I (의무)</b>: 자배법 한도 내 — 사망 최대 1.5억, 부상 14등급 기준<br>
+• <b>대인배상 II (임의·무한 권장)</b>: 초과 손해 전액 보상 + 형사처벌 면제 특례<br>
+• <b>대물배상</b>: 최소 5억~10억 권장 (외제차 증가 추세 반영)<br><br>
+
+<b style="color:#ca8a04;">🟡 섹터 2 — 내 손해 (자손/자상/자차)</b><br>
+• <b>자손(자기신체사고)</b>: 약관 급수별 <b>정액</b> 지급 → 중상 시 실손 치료비 초과분 미보상<br>
+• <b>자상(자동차상해) ★권장</b>: 과실 무관 치료비 <b>전액</b> + 위자료 + 휴업손해<br>
+• <b>자차(자기차량손해)</b>: 자기부담금 20%~30% 공제 후 수리비 지급<br><br>
+
+<b style="color:#16a34a;">🟢 섹터 3 — 사각지대 방어</b><br>
+• <b>무보험차 상해</b>: 뺑소니·책임보험만 가입·무보험 상대방 사고 → 내 보험 선지급 후 구상<br>
+• <b>다른 자동차 운전 담보</b>: 무보험차 특약 가입 시 자동 포함 → 지인·렌터카 운전 중 사고 처리<br><br>
+
+<b style="color:#2563eb;">🔵 섹터 5 — 비용·할인 특약</b><br>
+• <b>법률비용 지원</b>: 형사합의금(최대 2억) + 벌금(최대 2,000만원) + 변호사비 ← 중과실 사고 필수<br>
+• 렌터카 대여비 / 긴급출동·견인 서비스<br>
+• 마일리지 환급 / 블랙박스 / T맵 안전운전 / ADAS / 자녀할인<br><br>
+
+<b style="color:#7c3aed;">⚡ AI 사고 분석 순서 (실전 예시)</b><br>
+고객: "아들이 제 차 몰다가 외제차 박았어요!"<br>
+① <b>[섹터4]</b> "부부 한정인데 아드님 나이 연령 한정 맞나요?" → 면책 여부 우선 확인<br>
+② <b>[섹터1]</b> "상대 차 수리비 → 대물배상(한도 10억 확인)"<br>
+③ <b>[섹터2]</b> "아드님 부상 → 자상 가입 시 치료비 전액 + 합의금 지급"<br>
+④ <b>[섹터5]</b> "사고 현장 → 긴급출동(견인) 접수 바로 도와드릴까요?"
+</div>
+""", height=540)
+        st.stop()
 
     # ── [t5] 노후·상속설계 ────────────────────────────────────────────────
     if cur == "t5":
@@ -21963,39 +22456,8 @@ END; $$;""", language="sql")
             show_result("res_stock_eval")
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
-    # ── 미구현 탭 일괄 처리 — 빈 페이지 방지 ─────────────────────────────
-    _WIP_HANDLER = {
-        "scan_hub": {
-            "icon": "🔬", "title": "통합 스캔 허브",
-            "desc": "증권·의무기록·진단서 1회 업로드 → 전탭 자동활용 기능을 구현 중입니다.",
-            "eta": "v1.4 예정",
-        },
-        "leaflet": {
-            "icon": "🗂️", "title": "보험 리플렛 AI 분류",
-            "desc": "리플렛 PDF 업로드 후 AI 자동 분류 및 GCS 신규상품 저장 기능을 구현 중입니다.",
-            "eta": "v1.4 예정",
-        },
-        "consult_catalog": {
-            "icon": "📖", "title": "상담 카탈로그 열람",
-            "desc": "업로드한 카탈로그 PDF/이미지 뷰어와 보험사별 분류 기능을 구현 중입니다.",
-            "eta": "v1.4 예정",
-        },
-        "customer_docs": {
-            "icon": "👤", "title": "고객자료 통합저장",
-            "desc": "의무기록·증권분석·청구서류를 고객별로 저장하는 개인 문서 RAG 기능은\n별도 백엔드 서버 연동이 필요하여 현재 준비 중입니다.",
-            "eta": "v2.0 예정 (Hybrid Backend 서버 연동 후)",
-        },
-        "digital_catalog": {
-            "icon": "📱", "title": "디지털 카탈로그 관리",
-            "desc": "보험사 카탈로그 업로드·AI 분류 및 Public/Private 저장 기능은\nHybrid RAG 백엔드 서버 연동이 필요하여 현재 준비 중입니다.",
-            "eta": "v2.0 예정 (Hybrid Backend 서버 연동 후)",
-        },
-        "life_event": {
-            "icon": "🎯", "title": "LIFE EVENT 상담",
-            "desc": "인생 주요 이벤트별(출생·결혼·취업·은퇴) 맞춤 보험 설계 기능을 구현 중입니다.",
-            "eta": "v1.4 예정",
-        },
-    }
+    # ── 미구현 탭 일괄 처리 — 전체 오픈 (차단 해제)
+    _WIP_HANDLER = {}  # 전체 기능 오픈
     if cur in _WIP_HANDLER:
         if not _auth_gate(cur): st.stop()
         tab_home_btn(cur)
@@ -22031,22 +22493,6 @@ END; $$;""", language="sql")
     if cur == "policy_terms":
         if not _auth_gate("policy_terms"): st.stop()
         tab_home_btn("policy_terms")
-
-        # ── 준비중 안내 배너 ──────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:12px;
-  padding:14px 18px;margin-bottom:14px;border:2px solid #fb923c;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:1.8rem;">🚧</span>
-    <div>
-      <div style="color:#fff;font-size:1.0rem;font-weight:900;">준비중 기능입니다</div>
-      <div style="color:#fed7aa;font-size:0.80rem;margin-top:3px;">
-        보험약관 AI 검색(공시실 실시간 탐색)은 현재 안정화 작업 중입니다.<br>
-        빠른 시일 내 정식 오픈 예정이며, 이용에 불편을 드려 죄송합니다.
-      </div>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
 
         # ── 브랜드 헤더 ──────────────────────────────────────────────────
         st.markdown("""
@@ -22482,22 +22928,6 @@ END; $$;""", language="sql")
         if not _auth_gate("customer_docs"): st.stop()
         tab_home_btn("customer_docs")
 
-        # ── 준비중 안내 배너 ──────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:12px;
-  padding:14px 18px;margin-bottom:14px;border:2px solid #fb923c;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:1.8rem;">🚧</span>
-    <div>
-      <div style="color:#fff;font-size:1.0rem;font-weight:900;">준비중 기능입니다</div>
-      <div style="color:#fed7aa;font-size:0.80rem;margin-top:3px;">
-        고객자료 통합저장은 현재 안정화 작업 중입니다.<br>
-        빠른 시일 내 정식 오픈 예정이며, 이용에 불편을 드려 죄송합니다.
-      </div>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
-
         st.markdown("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
@@ -22910,22 +23340,6 @@ END; $$;""", language="sql")
     if cur == "digital_catalog":
         if not _auth_gate("digital_catalog"): st.stop()
         tab_home_btn("digital_catalog")
-
-        # ── 준비중 안내 배너 ──────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:12px;
-  padding:14px 18px;margin-bottom:14px;border:2px solid #fb923c;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:1.8rem;">🚧</span>
-    <div>
-      <div style="color:#fff;font-size:1.0rem;font-weight:900;">준비중 기능입니다</div>
-      <div style="color:#fed7aa;font-size:0.80rem;margin-top:3px;">
-        디지털 카탈로그 관리(Hybrid RAG 개인문서)는 현재 백엔드 연동 작업 중입니다.<br>
-        빠른 시일 내 정식 오픈 예정이며, 이용에 불편을 드려 죄송합니다.
-      </div>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
 
         # ── 브랜드 헤더 ──────────────────────────────────────────────────
         st.markdown("""
@@ -25371,4 +25785,13 @@ def _run_safe():
                 st.info("페이지를 새로고침(F5)하거나 관리자에게 문의하세요: 010-3074-2616")
                 break
 
-_run_safe()
+try:
+    _run_safe()
+except Exception as _top_err:
+    import traceback as _top_tb
+    _top_msg = _top_tb.format_exc()
+    try:
+        st.error(f"[FATAL] 앱 크래시: {type(_top_err).__name__}: {_top_err}")
+        st.code(_top_msg)
+    except Exception:
+        pass
