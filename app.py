@@ -2834,6 +2834,53 @@ def calculate_top_targets(n: int = 5, hours: int = 48) -> list:
     return _scores[:n]
 
 # ==========================================================================
+# [D2] AI 카카오톡 영업 멘트 자동 생성 — generateKakaoMessage()
+# 공식: 30년 베테랑 시스템 프롬프트 + 감시 금지 헌법 적용
+# --------------------------------------------------------------------------
+def _generate_kakao_draft(customer_id: str, interest_keyword: str) -> str:
+    """고객 entity_id + 관심 키워드 → Gemini로 카톡 초안 생성.
+
+    헌법 수칙:
+      1. "앱에서 검색하신 걸 봤다"는 감시성 멘트 절대 금지
+      2. 날씨·계절 등 가벼운 안부로 시작
+      3. 해당 질환 관련 건강/보험 트렌드 자연스럽게 언급
+      4. 3~4문장 이내, 이모티콘 1~2개
+    """
+    try:
+        _cl = get_client()
+        if _cl is None:
+            return "⚠️ GEMINI_API_KEY가 설정되지 않아 초안을 생성할 수 없습니다."
+        _cfg = _lazy_genai_types().GenerateContentConfig(
+            temperature=0.7,
+            top_p=0.9,
+            system_instruction=(
+                "너는 30년 경력의 베테랑 보험 설계사다. "
+                "따뜻하고 신뢰감 있는 문체로 고객에게 카카오톡 안부 메시지를 보낸다. "
+                "절대 고객이 감시받는다는 느낌을 주지 않는다. "
+                "보험 세일즈 냄새를 풍기지 않고, 진심 어린 안부처럼 보이게 한다."
+            ),
+        )
+        _prompt = (
+            f"목표: 고객({customer_id})에게 보낼 자연스러운 카카오톡 안부 메시지 초안 작성.\n"
+            f"고객의 최근 관심 분야: {interest_keyword}\n\n"
+            "[절대 준수 수칙]\n"
+            "1. '고객님이 앱에서 검색하신 것을 봤습니다'처럼 감시하는 느낌을 주는 멘트 절대 금지.\n"
+            "2. 날씨, 계절, 건강 등 가벼운 안부로 시작할 것.\n"
+            f"3. '{interest_keyword}'과 관련된 최근 건강 정보나 보험 트렌드를 자연스럽게 1문장 언급.\n"
+            "4. 부담 주지 않고 '언제든 편하게 연락 달라'는 뉘앙스로 마무리.\n"
+            "5. 전체 3~4문장 이내, 이모티콘 1~2개 포함.\n"
+            "6. 인사말('안녕하세요')로 시작하고 서명 없이 메시지 본문만 출력."
+        )
+        _resp = _cl.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=_prompt,
+            config=_cfg,
+        )
+        return (_resp.text or "").strip()
+    except Exception as _e:
+        return f"메시지 생성 중 오류가 발생했습니다. 직접 입력해 주세요.\n(오류: {_e})"
+
+# ==========================================================================
 
 def _voice_navigate(text: str):
     """음성/텍스트 입력에서 Intent 감지 → 이동할 current_tab 반환.
@@ -11113,6 +11160,32 @@ window['startTTS_{tab_key}']=function(){{
   </span>{_eid_badge}
 </div>""", unsafe_allow_html=True)
 
+            # ── [D1] RoutingGuard — 로그인 직후 userType 기반 자동 분기 배너 ───────
+            if st.session_state.pop("_login_just_done", False):
+                if _cur_utype == "agent":
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 100%);
+  border:2px solid #f0c040;border-radius:12px;padding:14px 18px;margin-bottom:8px;
+  animation:gk-fadein 0.5s ease;">
+  <div style="color:#f0c040;font-size:1.05rem;font-weight:900;margin-bottom:4px;">
+    🏢 설계사 대시보드로 이동합니다
+  </div>
+  <div style="color:#94a3b8;font-size:0.78rem;">
+    보험업 종사자 계정 감지 — AI 타겟 추천 · CRM 도구가 활성화됩니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+  border-radius:12px;padding:12px 18px;margin-bottom:8px;">
+  <div style="color:#fff;font-size:1.0rem;font-weight:900;">
+    🙋 고객 맞춤 화면으로 이동합니다
+  </div>
+  <div style="color:#a7f3d0;font-size:0.78rem;">
+    암·뇌·심장 보장공백 스캔 도구가 준비되었습니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+
             # ── [C7] 설계사 대시보드 미리보기 토글 (관리자 또는 테스트 모드) ──────
             _is_admin_now = st.session_state.get("is_admin", False)
             if _is_admin_now and _cur_utype != "agent":
@@ -11253,7 +11326,7 @@ window['startTTS_{tab_key}']=function(){{
                                 )
                                 st.rerun()
 
-                # ── [C5] AI 타겟 고객 추천 TOP 5 ──────────────────────────────────
+                # ── [C5/D3] AI 타겟 고객 추천 TOP 5 + 카톡 멘트 생성 ────────────────
                 st.markdown("""<div style="font-size:0.72rem;font-weight:800;color:#64748b;
                   letter-spacing:0.08em;text-transform:uppercase;margin:14px 0 6px 2px;">
                   🤖 AI 타겟 고객 추천 TOP 5</div>""", unsafe_allow_html=True)
@@ -11272,14 +11345,19 @@ window['startTTS_{tab_key}']=function(){{
                         _score_color = ("#ef4444" if _tgt["score"] >= 80
                                         else "#f59e0b" if _tgt["score"] >= 40
                                         else "#22c55e")
+                        # 관심 키워드: detail 1위 메뉴 제목 사용
+                        _interest_kw = _tgt["detail"][0]["title"] if _tgt["detail"] else _tgt["top_menu"]
+                        _eid_safe    = _tgt["entity_id"]
+
+                        # ── 카드 HTML ──────────────────────────────────────────
                         st.markdown(f"""
 <div style="background:#0f172a;border:1px solid #1e3a5f;border-radius:10px;
-  padding:10px 14px;margin-bottom:5px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  padding:10px 14px;margin-bottom:4px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
   <div style="font-size:1.1rem;font-weight:900;color:#fbbf24;min-width:22px;">#{_rank}</div>
   <div style="flex:1;min-width:0;">
     <div style="color:#e2e8f0;font-size:0.85rem;font-weight:800;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-      {_tgt["entity_id"]} <span style="color:#64748b;font-size:0.7rem;font-weight:400;">· {_tgt["user_type"]}</span>
+      {_eid_safe} <span style="color:#64748b;font-size:0.7rem;font-weight:400;">· {_tgt["user_type"]}</span>
     </div>
     <div style="color:#94a3b8;font-size:0.7rem;margin-top:2px;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
@@ -11294,6 +11372,70 @@ window['startTTS_{tab_key}']=function(){{
     <div style="color:#475569;font-size:0.65rem;">관심도 점수</div>
   </div>
 </div>""", unsafe_allow_html=True)
+
+                        # ── [D3] 카톡 보내기 버튼 + AI 초안 모달 ─────────────
+                        _kakao_btn_key  = f"_kakao_btn_{_rank}"
+                        _kakao_open_key = f"_kakao_open_{_rank}"
+                        _kakao_draft_key= f"_kakao_draft_{_rank}"
+
+                        _col_kakao, _col_close = st.columns([3, 1])
+                        with _col_kakao:
+                            if st.button(
+                                f"💬 {_eid_safe} 카톡 초안 생성",
+                                key=_kakao_btn_key,
+                                use_container_width=True,
+                            ):
+                                # 모달 토글 (재클릭 시 닫기)
+                                _is_open = st.session_state.get(_kakao_open_key, False)
+                                st.session_state[_kakao_open_key] = not _is_open
+                                if not _is_open:
+                                    # 아직 초안 없으면 생성
+                                    if not st.session_state.get(_kakao_draft_key, ""):
+                                        with st.spinner("🤖 AI가 카톡 멘트를 작성 중..."):
+                                            _draft = _generate_kakao_draft(_eid_safe, _interest_kw)
+                                            st.session_state[_kakao_draft_key] = _draft
+                                st.rerun()
+
+                        # ── AI 초안 편집 + 복사 모달 ──────────────────────────
+                        if st.session_state.get(_kakao_open_key, False):
+                            st.markdown(f"""
+<div style="background:#fefce8;border:2px solid #fde047;border-radius:12px;
+  padding:14px 16px;margin-bottom:8px;">
+  <div style="font-size:0.78rem;font-weight:800;color:#713f12;margin-bottom:8px;">
+    💬 AI 카톡 초안 — {_eid_safe} · 관심: {_interest_kw}
+  </div>
+</div>""", unsafe_allow_html=True)
+                            # 수정 가능 textarea
+                            _edited = st.text_area(
+                                "✏️ 초안 수정 후 복사",
+                                value=st.session_state.get(_kakao_draft_key, ""),
+                                key=f"_kakao_ta_{_rank}",
+                                height=130,
+                                label_visibility="collapsed",
+                            )
+                            # 수정 내용 실시간 저장
+                            st.session_state[_kakao_draft_key] = _edited
+
+                            _btn_copy, _btn_regen, _btn_x = st.columns([2, 2, 1])
+                            with _btn_copy:
+                                # 클립보드 복사 (JS)
+                                _copy_js = _edited.replace("'", "\\'").replace("\n", "\\n")
+                                st.markdown(f"""
+<button onclick="navigator.clipboard.writeText('{_copy_js}').then(()=>this.innerText='✅ 복사됨!').catch(()=>alert('복사 실패: 직접 선택 후 복사하세요'))"
+  style="width:100%;background:#fee500;color:#191919;border:none;
+    border-radius:8px;padding:9px 0;font-size:0.82rem;font-weight:800;cursor:pointer;">
+  📋 카톡 문구 복사
+</button>""", unsafe_allow_html=True)
+                            with _btn_regen:
+                                if st.button("🔄 재생성", key=f"_kakao_regen_{_rank}", use_container_width=True):
+                                    with st.spinner("🤖 재작성 중..."):
+                                        _new_draft = _generate_kakao_draft(_eid_safe, _interest_kw)
+                                        st.session_state[_kakao_draft_key] = _new_draft
+                                    st.rerun()
+                            with _btn_x:
+                                if st.button("✖", key=f"_kakao_close_{_rank}", use_container_width=True):
+                                    st.session_state[_kakao_open_key] = False
+                                    st.rerun()
                 else:
                     st.markdown("""
 <div style="background:#0f172a;border:1px dashed #334155;border-radius:10px;
