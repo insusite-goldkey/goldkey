@@ -3,15 +3,11 @@
  * React Native CLI 기준
  *
  * ┌ 라우팅 흐름 ─────────────────────────────────────────────────────────┐
- * │  앱 시작                                                              │
- * │    └─▶ <SplashScreen onFinish={handleSplashDone} />                  │
- * │          │  (5초 + 백그라운드 prefetch)                               │
- * │          └─▶ showSplash = false                                      │
- * │                └─▶ <RoutingGuard />                                  │
- * │                      ├─ <Dashboard />              (기본 화면)       │
- * │                      ├─ <CustomerProfileView />    (activeProfileId) │
- * │                      ├─ <MedicalScanResultView />  (activeScanId)    │
- * │                      └─ <ScheduleInputModal />     (전역 오버레이)   │
+ * │  앱 시작 → <RoutingGuard /> 즉시 렌더                                │
+ * │    ├─ <Dashboard />              (기본 화면)                         │
+ * │    ├─ <CustomerProfileView />    (activeProfileId)                   │
+ * │    ├─ <MedicalScanResultView />  (activeScanId)                      │
+ * │    └─ <ScheduleInputModal />     (전역 오버레이)                     │
  * └──────────────────────────────────────────────────────────────────────┘
  *
  * 전역 데이터 동기화 헌법 (SSOT Constitution):
@@ -24,10 +20,9 @@
  *            [일정 추가] → openScheduleModal → 메인 달력 즉시 반영.
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useCustomerStore }    from './src/store/customerStore';
-import SplashScreen            from './src/screens/SplashScreen';
 import Dashboard               from './src/screens/Dashboard';
 import CustomerProfileView     from './src/screens/CustomerProfileView';
 import MedicalScanResultView   from './src/screens/MedicalScanResultView';
@@ -104,22 +99,11 @@ const RoutingGuard = () => {
 };
 
 // ── App 루트 ──────────────────────────────────────────────────────────────────
-const App = () => {
-  const [showSplash, setShowSplash] = useState(true);
-
-  const handleSplashDone = useCallback(() => {
-    setShowSplash(false);
-  }, []);
-
-  return (
-    <View style={styles.root}>
-      {showSplash
-        ? <SplashScreen onFinish={handleSplashDone} />
-        : <RoutingGuard />
-      }
-    </View>
-  );
-};
+const App = () => (
+  <View style={styles.root}>
+    <RoutingGuard />
+  </View>
+);
 
 // openTrash 전역 접근을 위한 ref (Dashboard → TrashScreen 연결)
 export let _openTrashScreen = null;
