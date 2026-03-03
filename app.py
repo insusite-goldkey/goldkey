@@ -8129,15 +8129,18 @@ watchRipple();
         with st.expander("📜 이용약관 · 서비스 안내 (로그인 후 이용 가능)", expanded=False):
             st.caption("로그인 후 사이드바 하단에서 전체 약관을 확인하실 수 있습니다.")
 
-        st.sidebar.markdown("""
-<div style="background:#fff8e1;border-left:3px solid #f59e0b;border-radius:10px;
-  padding:11px 14px;margin:8px 0 6px 0;font-size:0.74rem;color:#555;line-height:1.65;">
-<b style="color:#b45309;">⚠️ 면책 안내 (Disclaimer)</b><br>
-이 앱은 전문적인 의료·법률·회계 등 진단·상담 앱이 아니며,
-사용자가 고객과 상담 과정에서 <b>보험 등의 내용 이해를 돕기 위한 업무 보조 도구</b>입니다.<br><br>
-모든 AI 분석 결과 및 상담 내용에는 <b>면책조항(Disclaimer)</b>이 포함되어 있습니다.
-최종 판단과 책임은 이용자 본인에게 있습니다.
-</div>""", unsafe_allow_html=True)
+        st.sidebar.warning(
+            "**⚠️ 면책 및 서비스 이용 안내 (Disclaimer)**\n\n"
+            "**1. 앱의 목적 및 한계**\n"
+            "본 앱은 원활한 고객 상담과 보험 내용 이해를 돕기 위한 업무 보조 도구입니다. "
+            "앱에서 제공하는 모든 AI 분석 결과 및 자료는 참고용 보조 지표일 뿐이며, "
+            "어떠한 법적 효력도 갖지 않습니다.\n\n"
+            "**2. 전문가 상담 필수 및 책임 소재**\n"
+            "본 앱은 의료·법률·세무·회계·부동산 등의 전문적인 진단이나 상담을 대체할 수 없습니다. "
+            "관련 사항은 반드시 분야별 전문가(의사·변호사·세무사 등)와 상담하시기 바랍니다. "
+            "아울러 최종적인 보험 가입 및 해지 결정은 전문 자격을 갖춘 설계사를 통해 진행하셔야 하며, "
+            "본 앱의 정보를 바탕으로 한 최종 판단과 책임은 이용자 본인에게 있습니다."
+        )
         if False:  # 약관 전문 — 로딩 지연 방지용 비활성화 블록
             st.markdown("""
 ## Goldkey AI Master Lab. Beta 이용약관
@@ -8487,15 +8490,12 @@ watchRipple();
                             st.session_state["_lp_terms"][_tk] = _cv
                             st.rerun()
 
-                    # ── 면책조항 ──────────────────────────────────────────────
-                    st.markdown("""
-<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin:10px 0;
-  font-size:0.72rem;color:#475569;line-height:1.7;'>
-  <b style='color:#b45309;'>⚠️ 면책 조항</b><br>
-  본 앱의 AI 분석 결과는 <b style='color:#1e293b;'>보조 지표</b>일 뿐 법적 효력이 없습니다.<br>
-  최종 보험 가입·해지 결정은 <b style='color:#1e293b;'>전문 자격을 갖춘 설계사</b>와 상담하시기 바랍니다.<br>
-  수집 항목: 성명·연락처·질병 이력(AES-256 암호화 저장) / 탈퇴 시 즉시 삭제
-</div>""", unsafe_allow_html=True)
+                    # ── 개인정보 안전 보장 (약관 동의 버튼 바로 위) ───────────
+                    st.info(
+                        "**🔒 개인정보 안전 보장**\n\n"
+                        "수집된 민감 정보(성명·연락처·질병 이력 등)는 최고 수준의 보안(AES-256)으로 "
+                        "안전하게 암호화되어 저장되며, 서비스 탈퇴 시 즉시 완전 삭제됩니다."
+                    )
 
                     # ── 시작 버튼 (필수 3개 체크 시만 활성화) ─────────────────
                     if _req_agreed:
@@ -9545,14 +9545,6 @@ setTimeout(function(){
                 _go_tab("policy_terms")
 
         st.divider()
-        st.markdown("""
-<div style="background:#fff8e1;border:1.5px solid #f59e0b;border-radius:10px;
-padding:10px 12px;font-size:0.74rem;color:#92400e;line-height:1.7;margin-bottom:8px;">
-⚠️ <b>면책 안내</b><br>
-이 앱의 자료는 AI가 제공한 것으로 <b>참고용으로만 사용</b>해야 하며,
-법률·세무·회계·의료·부동산 관련 사항은 반드시
-<b>해당 전문가(변호사·세무사·의사·공인중개사)와 상담</b>이 필요합니다.
-</div>""", unsafe_allow_html=True)
         st.caption("문의: insusite@gmail.com")
         st.caption("앱 관리자 이세윤: 010-3074-2616")
         display_security_sidebar()
