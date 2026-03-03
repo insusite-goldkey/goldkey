@@ -9105,41 +9105,223 @@ if(!CRED_ID) setTimeout(doBioAuth, 400);
   </div>
 </div>""", unsafe_allow_html=True)
 
-                        # ── 숫자패드 (3×4 그리드 Glassmorphism) ──────────────
-                        _num_rows = [["1","2","3"],["4","5","6"],["7","8","9"],["","0","⌫"]]
-                        for _nr in _num_rows:
-                            _nc = st.columns(3)
-                            for _ci, _digit in enumerate(_nr):
-                                with _nc[_ci]:
-                                    if not _digit:
-                                        st.empty()
-                                    elif st.button(
-                                        _digit,
-                                        key=f"cpin_{_digit}_{_ci}",
-                                        use_container_width=True,
-                                    ):
-                                        _buf = st.session_state.get("_pin_buf", "")
-                                        if _digit == "⌫":
-                                            _buf = _buf[:-1]
-                                        elif len(_buf) < 6:
-                                            _buf += _digit
-                                        st.session_state["_pin_buf"] = _buf
-                                        # 6자리 자동 확인
-                                        if len(_buf) == 6:
-                                            if _buf == _reg_pin:
-                                                st.session_state.pop("_pin_buf", None)
-                                                _do_final_login(_lp_name)
-                                            else:
-                                                st.session_state["_pin_buf"] = ""
-                                                st.session_state["_pin_error"] = True
-                                        st.rerun()
+                        # ── 숫자패드 — HTML/JS 키패드 (즉시 반응, 200ms throttle) ──
+                        # 6자리 완성 시에만 Streamlit hidden input으로 전달 → rerun 최소화
+                        _pin_error_flag = st.session_state.pop("_pin_error", False)
+                        import streamlit.components.v1 as _cpin_comp
+                        _cpin_val = _cpin_comp.html(f"""
+<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+*{{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}}
+body{{background:transparent;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}}
+#pin-wrap{{width:100%;max-width:320px;margin:0 auto;padding:4px 0;}}
 
-                        # 오류 메시지
-                        if st.session_state.pop("_pin_error", False):
+/* 도트 표시줄 */
+#dot-row{{
+  display:flex;justify-content:center;gap:14px;
+  margin-bottom:16px;
+}}
+.pin-dot{{
+  width:18px;height:18px;border-radius:50%;
+  border:2px solid #94a3b8;
+  background:transparent;
+  transition:all 0.15s ease;
+}}
+.pin-dot.filled{{
+  background:#0f4c75;
+  border-color:#0f4c75;
+  box-shadow:0 0 8px rgba(15,76,117,0.5);
+  transform:scale(1.1);
+}}
+.pin-dot.error{{
+  background:#ef4444;
+  border-color:#ef4444;
+  animation:shake 0.3s ease;
+}}
+@keyframes shake{{
+  0%,100%{{transform:translateX(0);}}
+  25%{{transform:translateX(-4px);}}
+  75%{{transform:translateX(4px);}}
+}}
+
+/* 키패드 그리드 */
+#keypad{{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+}}
+.kbtn{{
+  height:58px;
+  background:#ffffff;
+  border:1.5px solid #e2e8f0;
+  border-radius:12px;
+  font-size:1.4rem;
+  font-weight:700;
+  color:#1e293b;
+  cursor:pointer;
+  user-select:none;
+  box-shadow:0 2px 6px rgba(0,0,0,0.08);
+  transition:background 0.15s,transform 0.1s,box-shadow 0.1s;
+  display:flex;align-items:center;justify-content:center;
+  -webkit-user-select:none;
+}}
+.kbtn:active,.kbtn.pressed{{
+  background:#e8f0fe;
+  transform:scale(0.93);
+  box-shadow:0 1px 3px rgba(0,0,0,0.12);
+}}
+.kbtn.del{{
+  font-size:1.1rem;
+  color:#64748b;
+  background:#f8fafc;
+}}
+.kbtn.empty{{
+  background:transparent;
+  border:none;
+  box-shadow:none;
+  cursor:default;
+}}
+
+/* 오류 메시지 */
+#err-msg{{
+  display:none;
+  background:rgba(239,68,68,0.1);
+  border:1px solid rgba(239,68,68,0.4);
+  border-radius:10px;
+  padding:9px;
+  text-align:center;
+  color:#dc2626;
+  font-size:0.82rem;
+  font-weight:700;
+  margin-top:10px;
+}}
+#err-msg.show{{display:block;}}
+</style>
+</head>
+<body>
+<div id="pin-wrap">
+  <div id="dot-row">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+    <div class="pin-dot" id="d4"></div>
+    <div class="pin-dot" id="d5"></div>
+  </div>
+  <div id="keypad">
+    <button class="kbtn" data-v="1">1</button>
+    <button class="kbtn" data-v="2">2</button>
+    <button class="kbtn" data-v="3">3</button>
+    <button class="kbtn" data-v="4">4</button>
+    <button class="kbtn" data-v="5">5</button>
+    <button class="kbtn" data-v="6">6</button>
+    <button class="kbtn" data-v="7">7</button>
+    <button class="kbtn" data-v="8">8</button>
+    <button class="kbtn" data-v="9">9</button>
+    <button class="kbtn empty" data-v=""></button>
+    <button class="kbtn" data-v="0">0</button>
+    <button class="kbtn del" data-v="DEL">⌫</button>
+  </div>
+  <div id="err-msg">❌ PIN이 일치하지 않습니다. 다시 입력해 주세요.</div>
+</div>
+
+<script>
+(function(){{
+  var buf = "";
+  var lastTime = 0;          // throttle 기준 타임스탬프
+  var THROTTLE = 200;        // ms — 동일 연속 입력 방지
+  var FLASH_MS = 150;        // ms — 버튼 눌림 시각 효과 지속
+  var SHOW_MS  = 150;        // ms — 도트 숫자 노출 후 채움으로 전환
+  var errShown = {"true" if _pin_error_flag else "false"};
+
+  if(errShown){{
+    document.getElementById('err-msg').classList.add('show');
+  }}
+
+  function updateDots(){{
+    for(var i=0;i<6;i++){{
+      var d = document.getElementById('d'+i);
+      d.classList.remove('filled','error');
+      if(i < buf.length) d.classList.add('filled');
+    }}
+  }}
+
+  function flashDots(ok){{
+    var cls = ok ? 'filled' : 'error';
+    for(var i=0;i<6;i++){{
+      var d=document.getElementById('d'+i);
+      d.classList.remove('filled','error');
+      d.classList.add(cls);
+    }}
+  }}
+
+  function handleKey(v, btn){{
+    var now = Date.now();
+    // 200ms throttle (빈 버튼 제외)
+    if(v && (now - lastTime) < THROTTLE) return;
+    lastTime = now;
+
+    // 150ms 시각 반응
+    if(btn && v){{
+      btn.classList.add('pressed');
+      setTimeout(function(){{ btn.classList.remove('pressed'); }}, FLASH_MS);
+    }}
+
+    if(v === "DEL"){{
+      buf = buf.slice(0,-1);
+      updateDots();
+    }} else if(v && buf.length < 6){{
+      buf += v;
+      updateDots();
+      // 6자리 완성 → 부모 Streamlit에 postMessage
+      if(buf.length === 6){{
+        flashDots(true);
+        setTimeout(function(){{
+          // Streamlit setComponentValue로 값 전달
+          window.parent.postMessage({{
+            type: "streamlit:setComponentValue",
+            value: buf
+          }}, "*");
+        }}, 200);
+      }}
+    }}
+  }}
+
+  // 터치/클릭 이벤트 바인딩
+  document.querySelectorAll('.kbtn').forEach(function(btn){{
+    var v = btn.getAttribute('data-v');
+    // touchstart — 모바일 즉시 반응
+    btn.addEventListener('touchstart', function(e){{
+      e.preventDefault();
+      handleKey(v, btn);
+    }}, {{passive:false}});
+    // click — 데스크탑 fallback
+    btn.addEventListener('click', function(){{
+      handleKey(v, btn);
+    }});
+  }});
+}})();
+</script>
+</body></html>
+""", height=320)
+
+                        # JS 키패드에서 6자리 완성 값 수신 처리
+                        if _cpin_val and isinstance(_cpin_val, str) and len(_cpin_val) == 6:
+                            if _cpin_val == _reg_pin:
+                                st.session_state.pop("_pin_buf", None)
+                                _do_final_login(_lp_name)
+                            else:
+                                st.session_state["_pin_error"] = True
+                                st.rerun()
+
+                        # 오류 메시지 (rerun 후 표시)
+                        if _pin_error_flag:
                             st.markdown("""
-<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);
+<div style="background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.4);
   border-radius:10px;padding:10px;text-align:center;
-  color:#fca5a5;font-size:0.82rem;font-weight:700;margin-top:6px;">
+  color:#dc2626;font-size:0.82rem;font-weight:700;margin-top:4px;">
   ❌ PIN이 일치하지 않습니다. 다시 입력해 주세요.
 </div>""", unsafe_allow_html=True)
 
