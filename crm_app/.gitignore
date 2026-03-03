@@ -1,0 +1,45 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# React Native
+.expo/
+.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Android
+android/app/debug.keystore
+android/app/google-services.json
+android/local.properties
+android/.gradle/
+android/app/.cxx/
+android/app/build/
+
+# iOS
+ios/Pods/
+ios/build/
+ios/GoldKeyCRM/GoogleService-Info.plist
+*.xcworkspace/xcuserdata/
+
+# Build outputs
+build/
+dist/
+
+# Metro bundler
+.metro-health-check*
+
+# Misc
+.DS_Store
+.env
+.env.local
+.env.*.local
+*.log
+.idea/
+.vscode/

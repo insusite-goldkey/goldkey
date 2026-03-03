@@ -22,6 +22,7 @@
 
 import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
+import './src/utils/firebase';           // Firebase 초기화 (앱 시작 시 1회 실행)
 import { useCustomerStore }    from './src/store/customerStore';
 import Dashboard               from './src/screens/Dashboard';
 import CustomerProfileView     from './src/screens/CustomerProfileView';

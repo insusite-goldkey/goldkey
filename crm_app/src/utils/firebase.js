@@ -1,34 +1,64 @@
 /**
  * firebase.js — Firebase 초기화 + Firestore 오프라인 지속성
  *
- * ☁️ 2단계: Firestore Offline Persistence
- * ─────────────────────────────────────────────────────────────────
- * enableIndexedDbPersistence (Web SDK) ↔ React Native Firebase는
- * 기본적으로 오프라인 캐시가 활성화되어 있으며,
- * settings({ persistence: true }) 로 명시적 보장.
+ * ┌ 3중 데이터 안전망 2단계 ─────────────────────────────────────┐
+ * │  1) Firestore 오프라인 캐시 (100MB, 자동 sync)               │
+ * │  2) Soft Delete 아키텍처 (isDeleted + 30일 복구)             │
+ * │  3) AsyncStorage 로컬 Zustand persist (앱 재시작 유지)       │
+ * └────────────────────────────────────────────────────────────┘
  *
- * 동작:
- *  - 오프라인 상태에서 write → 로컬 큐에 저장
- *  - 네트워크 복구 즉시 → 백그라운드 자동 sync
- *  - 사용자에게 에러 없이 투명하게 처리
+ * google-services.json (Android) / GoogleService-Info.plist (iOS)
+ * 파일이 없으면 Firebase 기능은 비활성화되고 로컬 모드로만 동작.
+ * FIREBASE_SETUP_GUIDE.md 참고.
  *
  * 사용:
- *   import { db, COLLECTIONS } from '../utils/firebase';
- *   import { doc, setDoc } from '@react-native-firebase/firestore';
+ *   import { db, COLLECTIONS, isFirebaseReady } from '../utils/firebase';
  */
 
 import firestore from '@react-native-firebase/firestore';
+import app       from '@react-native-firebase/app';
 
-// ── Firestore 오프라인 지속성 설정 ─────────────────────────────────────────
-// React Native Firebase는 기본적으로 오프라인 캐시가 내장되어 있음.
-// settings()로 캐시 사이즈를 명시적으로 100MB로 확장.
-firestore().settings({
-  persistence:    true,          // 오프라인 데이터 영속화 (기본값 true)
-  cacheSizeBytes: 100 * 1024 * 1024, // 100MB (기본 40MB → 확장)
-});
+// ── Firebase 초기화 상태 ──────────────────────────────────────────────────
+// google-services.json / GoogleService-Info.plist 없으면 앱 초기화 자체가
+// 실패하므로 try-catch로 감싸 로컬 모드 폴백 보장.
+let _firestoreInstance = null;
+let _isFirebaseReady   = false;
 
-// ── Firestore 인스턴스 ──────────────────────────────────────────────────────
-export const db = firestore();
+const initFirebase = () => {
+  try {
+    // 앱이 초기화되었는지 확인 (google-services.json 필요)
+    if (!app().options?.projectId) {
+      console.warn('[firebase] google-services.json 미설정 → 로컬 모드로 동작');
+      return false;
+    }
+
+    // Firestore 오프라인 지속성 + 캐시 100MB 설정
+    firestore().settings({
+      persistence:    true,
+      cacheSizeBytes: 100 * 1024 * 1024, // 100MB
+    });
+
+    _firestoreInstance = firestore();
+    _isFirebaseReady   = true;
+    console.info('[firebase] ✅ Firestore 연결 완료 | 프로젝트:', app().options.projectId);
+    return true;
+  } catch (e) {
+    console.warn('[firebase] ⚠️ 초기화 실패 (로컬 모드):', e?.message ?? e?.code);
+    return false;
+  }
+};
+
+initFirebase();
+
+// ── 공개 인스턴스 + 상태 ─────────────────────────────────────────────────
+/** Firestore 인스턴스 (google-services.json 없으면 null) */
+export const db = _firestoreInstance;
+
+/** Firebase 연결 여부 — 조건부 렌더링에 활용 */
+export const isFirebaseReady = () => _isFirebaseReady;
+
+/** Firebase 연결 상태 재확인 (런타임 중 재시도용) */
+export const retryFirebaseInit = () => initFirebase();
 
 // ── 컬렉션 이름 상수 (오타 방지 SSOT) ──────────────────────────────────────
 export const COLLECTIONS = Object.freeze({
