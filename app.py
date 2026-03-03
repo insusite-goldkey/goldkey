@@ -4070,53 +4070,58 @@ def get_goldkey_avatar() -> str:
 
 def render_goldkey_sidebar():
     """Goldkey_AI_Masters 전용 카드형 프로필 박스를 사이드바 최상단에 렌더링."""
-    _avatar_data = get_goldkey_avatar()
-    if _avatar_data:
-        _img_html = (
-            f'<img src="{_avatar_data}" '
-            'style="width:90px;height:90px;border-radius:8px;object-fit:cover;'
-            'border:1px solid #E0E0E0;display:block;">'
-        )
-    else:
-        _img_html = (
-            '<div style="width:90px;height:90px;border-radius:8px;'
-            'background:#E8EAF6;display:flex;align-items:center;'
-            'justify-content:center;border:1px solid #E0E0E0;">'
-            '<svg viewBox="0 0 64 64" width="56" height="56" xmlns="http://www.w3.org/2000/svg">'
-            '<circle cx="32" cy="22" r="13" fill="#c5cae9"/>'
-            '<ellipse cx="32" cy="52" rx="20" ry="14" fill="#c5cae9"/>'
-            '<ellipse cx="32" cy="20" rx="13" ry="8" fill="#7986cb"/>'
-            '<path d="M19 22 Q32 8 45 22" fill="#7986cb"/>'
-            '</svg>'
-            '</div>'
-        )
-    st.sidebar.markdown(f"""
+    import io as _io_av
+
+    # ── 아바타 이미지 로드 (st.sidebar.image 사용 — CSP 우회) ──────────────
+    _base_av = os.path.dirname(os.path.abspath(__file__))
+    _av_candidates = [
+        os.path.join(_base_av, "assets", "goldkey_ai_avatar.jpg"),
+        os.path.join(_base_av, "assets", "goldkey_ai_avatar.png"),
+        os.path.join(_base_av, "assets", "avatar_goldkey.png"),
+    ]
+    _av_bytes = None
+    for _av_p in _av_candidates:
+        try:
+            _pth = pathlib.Path(_av_p)
+            if _pth.exists() and _pth.stat().st_size > 50:
+                _av_bytes = _pth.read_bytes()
+                break
+        except Exception:
+            continue
+
+    # 카드 상단 여백
+    st.sidebar.markdown("""
 <div style="
   background:#F8F9FA;
   border:1px solid #E0E0E0;
   border-radius:12px;
-  padding:16px 14px 12px 14px;
-  margin-bottom:14px;
+  padding:14px 14px 4px 14px;
+  margin-bottom:0;
   box-shadow:0 2px 8px rgba(0,0,0,0.08);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:0;
-">
-  <div style="margin-bottom:12px;">
-    {_img_html}
-  </div>
-  <div style="text-align:center;width:100%;">
-    <div style="font-size:18px;font-weight:700;color:#1A237E;
+  text-align:center;
+">""", unsafe_allow_html=True)
+
+    # 아바타 이미지 — st.sidebar.image 로 CSP 없이 직접 렌더
+    if _av_bytes:
+        st.sidebar.image(_io_av.BytesIO(_av_bytes), width=90)
+    else:
+        # fallback: HF CDN URL
+        _HF_CDN_AV = "https://huggingface.co/spaces/goldkey-rich/goldkey-ai/resolve/main/assets/goldkey_ai_avatar.jpg"
+        st.sidebar.image(_HF_CDN_AV, width=90)
+
+    # 텍스트 정보 카드
+    st.sidebar.markdown("""
+  <div style="text-align:center;width:100%;padding-bottom:12px;">
+    <div style="font-size:17px;font-weight:700;color:#1A237E;
       line-height:1.3;margin-bottom:4px;letter-spacing:0.01em;">
       Goldkey_AI_Masters2026
     </div>
-    <div style="font-size:14px;font-weight:500;color:#424242;
-      margin-bottom:5px;">
+    <div style="font-size:13px;font-weight:500;color:#424242;
+      margin-bottom:4px;">
       전문 보장 상담의 동반자
     </div>
-    <div style="font-size:13px;font-weight:400;color:#616161;
-      letter-spacing:0.03em;line-height:1.5;margin-bottom:10px;">
+    <div style="font-size:12px;font-weight:400;color:#616161;
+      letter-spacing:0.03em;line-height:1.5;margin-bottom:8px;">
       초개인화 인텔리전트 AI 기반 시스템
     </div>
     <div style="text-align:right;">
@@ -11366,7 +11371,7 @@ window['startTTS_{tab_key}']=function(){{
         _tablet_src_sp = f"data:image/jpeg;base64,{_tablet_b64_sp}" if _tablet_b64_sp else ""
 
         # ── 타이머 초기화 ─────────────────────────────────────────────
-        _SPLASH_SEC = 10
+        _SPLASH_SEC = 5
         if "_splash_start" not in st.session_state:
             st.session_state["_splash_start"] = _time_sp.time()
 
@@ -11374,101 +11379,117 @@ window['startTTS_{tab_key}']=function(){{
         _remain_sp  = max(0, _SPLASH_SEC - int(_elapsed_sp))
         _pct_sp     = max(0, 100 - int(_elapsed_sp / _SPLASH_SEC * 100))
 
-        # ── "바로 시작" 버튼 — Streamlit 버튼으로 스플래시 종료 ───────
-        _skip_col1, _skip_col2, _skip_col3 = st.columns([1, 2, 1])
-        with _skip_col2:
-            if st.button("▶ 바로 시작하기", key="splash_skip_btn",
-                         use_container_width=True, type="primary"):
-                st.session_state["_splash_done"] = True
-                st.session_state.pop("_splash_start", None)
-                _go_tab("home")
-                st.rerun()
-
-        # ── position:fixed 전체화면 오버레이 — Streamlit UI 전체 덮기 ─
-        # st.markdown으로 주입 시 부모 페이지 DOM에 직접 삽입되어
-        # Streamlit 헤더/사이드바/제목 모두 덮음
-        st.markdown(f"""
+        # ── 전체화면 스플래시 — components.html (iframe 내 <script> 정상 실행) ──
+        import streamlit.components.v1 as _sp_comp
+        _sp_result = _sp_comp.html(f"""
+<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <style>
-/* Streamlit 기본 요소 전부 숨김 */
-#gk-splash-overlay ~ * {{ visibility: hidden !important; }}
-header[data-testid="stHeader"] {{ visibility: hidden !important; }}
-section[data-testid="stSidebar"] {{ visibility: hidden !important; }}
-.stMainBlockContainer {{ visibility: hidden !important; }}
-/* 스플래시 오버레이 */
-#gk-splash-overlay {{
-  position: fixed !important;
-  top: 0 !important; left: 0 !important;
-  width: 100vw !important; height: 100vh !important;
-  z-index: 999999 !important;
-  background: #0a1628;
-  display: flex !important;
-  align-items: stretch !important;
-  overflow: hidden;
+*{{margin:0;padding:0;box-sizing:border-box;}}
+html,body{{width:100%;height:100%;overflow:hidden;background:#0a1628;}}
+/* 전체화면 오버레이 — iframe이 부모 페이지를 덮도록 부모 CSS 주입 */
+#sp-wrap{{
+  position:fixed;top:0;left:0;width:100vw;height:100vh;
+  background:#0a1628;overflow:hidden;
 }}
-#gk-sp-img-p {{
+#sp-img-p{{
   width:100%;height:100%;object-fit:cover;
   object-position:center top;display:block;
   position:absolute;top:0;left:0;
 }}
-#gk-sp-img-l {{
+#sp-img-l{{
   width:100%;height:100%;object-fit:cover;
   object-position:center;display:none;
   position:absolute;top:0;left:0;
 }}
 @media (orientation:landscape) and (min-width:600px){{
-  #gk-sp-img-p {{ display:none !important; }}
-  #gk-sp-img-l {{ display:block !important; }}
+  #sp-img-p{{display:none !important;}}
+  #sp-img-l{{display:block !important;}}
 }}
-#gk-sp-overlay {{
+#sp-overlay{{
   position:absolute;bottom:0;left:0;width:100%;
-  padding:18px 20px 36px 20px;
-  background:linear-gradient(to top,rgba(0,0,0,0.85) 0%,transparent 100%);
-  display:flex;flex-direction:column;align-items:center;gap:10px;
-  z-index:1000000;
+  padding:16px 20px 40px 20px;
+  background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,transparent 100%);
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+  z-index:10;
 }}
-#gk-sp-bar-bg {{
+#sp-bar-bg{{
   width:88%;max-width:400px;height:6px;
   background:rgba(255,255,255,0.22);border-radius:3px;overflow:hidden;
 }}
-#gk-sp-bar {{
-  height:100%;width:{_pct_sp}%;
+#sp-bar{{
+  height:100%;width:100%;
   background:linear-gradient(90deg,#f0c040,#fbbf24);
-  border-radius:3px;transition:width 1s linear;
+  border-radius:3px;
+  transition:width 1s linear;
 }}
-#gk-sp-txt {{
+#sp-txt{{
   font-size:0.9rem;font-weight:700;
-  color:rgba(255,255,255,0.88);letter-spacing:0.05em;
+  color:rgba(255,255,255,0.9);letter-spacing:0.05em;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  text-align:center;
 }}
+#sp-skip{{
+  margin-top:4px;
+  background:rgba(255,255,255,0.18);
+  color:#fff;
+  border:1.5px solid rgba(255,255,255,0.45);
+  border-radius:24px;
+  padding:8px 28px;
+  font-size:0.9rem;font-weight:700;
+  cursor:pointer;
+  letter-spacing:0.04em;
+  backdrop-filter:blur(4px);
+}}
+#sp-skip:active{{background:rgba(255,255,255,0.32);}}
 </style>
-<div id="gk-splash-overlay">
-  <img id="gk-sp-img-p" src="{_phone_src_sp}"  alt="" />
-  <img id="gk-sp-img-l" src="{_tablet_src_sp}" alt="" />
-  <div id="gk-sp-overlay">
-    <div id="gk-sp-bar-bg"><div id="gk-sp-bar"></div></div>
-    <div id="gk-sp-txt">잠시 후 자동으로 시작됩니다 &nbsp;·&nbsp; <span id="gk-sp-num">{_remain_sp}</span>초</div>
+</head>
+<body>
+<div id="sp-wrap">
+  <img id="sp-img-p" src="{_phone_src_sp}"  alt="" />
+  <img id="sp-img-l" src="{_tablet_src_sp}" alt="" />
+  <div id="sp-overlay">
+    <div id="sp-bar-bg"><div id="sp-bar"></div></div>
+    <div id="sp-txt">잠시 후 자동으로 시작됩니다 &nbsp;·&nbsp; <span id="sp-num">{_remain_sp}</span>초</div>
+    <button id="sp-skip" onclick="skipSplash()">▶ 바로 시작하기</button>
   </div>
 </div>
 <script>
 (function(){{
   var remain = {_remain_sp};
-  var bar = document.getElementById('gk-sp-bar');
-  var numEl = document.getElementById('gk-sp-num');
-  var total = {_SPLASH_SEC};
+  var total  = {_SPLASH_SEC};
+  var bar    = document.getElementById('sp-bar');
+  var numEl  = document.getElementById('sp-num');
+
+  // 초기 프로그레스바
+  bar.style.width = (remain / total * 100) + '%';
+
   function tick() {{
-    if(remain <= 0) return;
+    if (remain <= 0) {{
+      skipSplash();
+      return;
+    }}
     remain--;
-    if(numEl) numEl.textContent = remain;
-    if(bar) bar.style.width = Math.max(0, remain/total*100) + '%';
-    if(remain > 0) setTimeout(tick, 1000);
+    if (numEl) numEl.textContent = remain;
+    if (bar)   bar.style.width = Math.max(0, remain / total * 100) + '%';
+    if (remain > 0) setTimeout(tick, 1000);
+    else setTimeout(skipSplash, 400);
   }}
+
+  function skipSplash() {{
+    window.parent.postMessage({{type:'streamlit:setComponentValue', value:'skip'}}, '*');
+  }}
+
+  window.skipSplash = skipSplash;
   setTimeout(tick, 1000);
 }})();
 </script>
-""", unsafe_allow_html=True)
+</body></html>
+""", height=700)
 
-        # ── 10초 경과 시 자동으로 홈으로 이동 ────────────────────────
-        if _elapsed_sp >= _SPLASH_SEC:
+        # ── 스킵 신호 또는 시간 초과 시 홈으로 이동 ─────────────────────
+        if _sp_result == "skip" or _elapsed_sp >= _SPLASH_SEC:
             st.session_state["_splash_done"] = True
             st.session_state.pop("_splash_start", None)
             _go_tab("home")
@@ -25807,54 +25828,7 @@ END; $$;""", language="sql")
             show_result("res_stock_eval")
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
-    # ── 미구현 탭 일괄 처리 — 빈 페이지 방지 ─────────────────────────────
-    _WIP_HANDLER = {
-        "scan_hub": {
-            "icon": "🔬", "title": "통합 스캔 허브",
-            "desc": "증권·의무기록·진단서 1회 업로드 → 전탭 자동활용 기능을 구현 중입니다.",
-            "eta": "v1.4 예정",
-        },
-        "leaflet": {
-            "icon": "🗂️", "title": "보험 리플렛 AI 분류",
-            "desc": "리플렛 PDF 업로드 후 AI 자동 분류 및 GCS 신규상품 저장 기능을 구현 중입니다.",
-            "eta": "v1.4 예정",
-        },
-        "consult_catalog": {
-            "icon": "📖", "title": "상담 카탈로그 열람",
-            "desc": "업로드한 카탈로그 PDF/이미지 뷰어와 보험사별 분류 기능을 구현 중입니다.",
-            "eta": "v1.4 예정",
-        },
-    }
-    if cur in _WIP_HANDLER:
-        if not _auth_gate(cur): st.stop()
-        tab_home_btn(cur)
-        _wh = _WIP_HANDLER[cur]
-        st.markdown(f"""
-<div style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:14px;
-  padding:20px 24px;margin-bottom:20px;border:2px solid #fb923c;
-  box-shadow:0 4px 18px rgba(194,65,12,0.25);">
-  <div style="display:flex;align-items:center;gap:14px;">
-    <span style="font-size:2.8rem;">🚧</span>
-    <div>
-      <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.02em;">
-        {_wh['icon']} {_wh['title']} — 준비 중입니다
-      </div>
-      <div style="color:#fed7aa;font-size:0.82rem;margin-top:5px;line-height:1.6;">
-        {_wh['desc'].replace(chr(10), '<br>')}
-      </div>
-      <div style="margin-top:10px;">
-        <span style="background:rgba(255,255,255,0.15);color:#fef9c3;border-radius:20px;
-          padding:3px 12px;font-size:0.72rem;font-weight:700;letter-spacing:0.04em;">
-          ⏱️ {_wh['eta']}
-        </span>
-      </div>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
-        st.info("🏠 홈 화면으로 돌아가 다른 기능을 이용하거나, 사이드바에서 원하는 탭을 선택하세요.")
-        if st.button("🏠 홈으로 돌아가기", key=f"wip_home_{cur}", type="primary"):
-            _go_tab("home")
-        st.stop()
+    # ── 미구현 탭 일괄 처리 블록 — 전체 기능 오픈으로 제거됨 ────────────────
 
     # ── [policy_terms] AI 자동 약관 매칭 시스템 ─────────────────────────
     if cur == "policy_terms":
