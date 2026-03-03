@@ -1183,7 +1183,8 @@ def load_members(force: bool = False):
                     "contact":          r.get("contact", ""),
                     "join_date":        r.get("join_date", ""),
                     "subscription_end": r.get("subscription_end", ""),
-                    "is_active":        bool(r.get("is_active", True))
+                    "is_active":        bool(r.get("is_active", True)),
+                    "pin_hash":         r.get("pin_hash", "") or "",
                 } for r in rows}
                 _cache["data"] = result
                 _cache["ts"]   = _now
@@ -1214,14 +1215,17 @@ def save_members(members):
             sb = _get_sb_client()
             if sb:
                 for name, m in members.items():
-                    sb.table("gk_members").upsert({
+                    _row = {
                         "name":             name,
                         "user_id":          m.get("user_id", ""),
                         "contact":          m.get("contact", ""),
                         "join_date":        m.get("join_date", ""),
                         "subscription_end": m.get("subscription_end", ""),
-                        "is_active":        bool(m.get("is_active", True))
-                    }, on_conflict="name").execute()
+                        "is_active":        bool(m.get("is_active", True)),
+                    }
+                    if m.get("pin_hash", ""):
+                        _row["pin_hash"] = m["pin_hash"]
+                    sb.table("gk_members").upsert(_row, on_conflict="name").execute()
                 _get_member_cache().update({"data": None, "ts": 0.0})
                 _sb_ok = True
         except Exception as _e:
@@ -1245,6 +1249,55 @@ def save_members(members):
         _get_member_cache().update({"data": None, "ts": 0.0})
     except (IOError, OSError):
         pass
+
+def _pin_make_hash(pin: str) -> str:
+    """PIN 6자리 → SHA-256 해시 (앱 고유 salt 포함)"""
+    _salt = "GK_PIN_SALT_2026_SECURE"
+    return hashlib.sha256(f"{_salt}:{pin}".encode()).hexdigest()
+
+def _pin_verify(pin: str, stored_hash: str) -> bool:
+    """입력 PIN과 저장된 hash 비교 — 빈 값이면 무조건 False"""
+    if not pin or not stored_hash:
+        return False
+    return _pin_make_hash(pin) == stored_hash
+
+def save_member_pin(name: str, pin: str) -> bool:
+    """특정 회원의 PIN을 hash하여 DB에 즉시 저장 (upsert).
+    save_members 전체 호출 없이 PIN만 빠르게 업데이트.
+    반환: 성공 True / 실패 False
+    """
+    _hash = _pin_make_hash(pin)
+    if _SB_PKG_OK:
+        try:
+            sb = _get_sb_client()
+            if sb:
+                sb.table("gk_members").update({"pin_hash": _hash}).eq("name", name).execute()
+                _get_member_cache().update({"data": None, "ts": 0.0})
+                return True
+        except Exception:
+            pass
+    members = load_members(force=True)
+    if name in members:
+        members[name]["pin_hash"] = _hash
+        save_members(members)
+        return True
+    return False
+
+def load_member_pin_hash(name: str) -> str:
+    """DB에서 특정 회원의 pin_hash 직접 조회 (캐시 무시).
+    반환: hash 문자열 or ""
+    """
+    if _SB_PKG_OK:
+        try:
+            sb = _get_sb_client()
+            if sb:
+                res = sb.table("gk_members").select("pin_hash").eq("name", name).limit(1).execute()
+                if res.data:
+                    return res.data[0].get("pin_hash", "") or ""
+        except Exception:
+            pass
+    members = load_members(force=True)
+    return members.get(name, {}).get("pin_hash", "") or ""
 
 def mask_name(name: str) -> str:
     """이름 마스킹 — 첫 글자만 표시, 나머지 * 처리 (예: 이** / 홍*동)"""
@@ -6913,6 +6966,29 @@ def main():
         initial_sidebar_state="collapsed"
     )
 
+    # ── STEP 1-A: [헌법 10조] 스플래시 미완료 시 사이드바/본체 즉시 차단 ──
+    # st.markdown CSS는 Streamlit 메인 문서에 직접 적용됨 (iframe 아님).
+    # set_page_config 직후 렌더되므로 사이드바보다 먼저 적용됨.
+    # JS 방식(components.html)은 렌더 완료 후 실행 → 타이밍 문제로 폐기.
+    if not st.session_state.get("_splash_done"):
+        st.markdown("""
+<style id="gk-sp-hide-style">
+[data-testid="stSidebar"],
+section[data-testid="stSidebar"],
+[data-testid="stSidebarNav"],
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarContent"] {
+    display: none !important;
+}
+[data-testid="stAppViewContainer"],
+[data-testid="stMainBlockContainer"],
+.main {
+    visibility: hidden !important;
+    opacity: 0 !important;
+}
+</style>""", unsafe_allow_html=True)
+
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
     # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
     # 로그인 성공 시 _saved_user_* 에 백업 → rerun 후 user_id 없으면 복원
@@ -6978,6 +7054,18 @@ def main():
         except Exception:
             pass
         st.session_state['_rag_tables_ready'] = True
+
+    # ── [헌법 10조] is_loaded: SECTION 1~9 핵심 초기화 완료 여부 판단 ────
+    # DB ready + RAG 테이블 ready + 세션 ID 확보 = 앱 준비 완료
+    _is_loaded = bool(
+        st.session_state.get('db_ready')
+        and st.session_state.get('_rag_tables_ready')
+        and _sid
+    )
+    # app_ready: 최초 로드 시 False, is_loaded 확인되면 True로 전환
+    if _is_loaded and not st.session_state.get('app_ready'):
+        st.session_state['app_ready'] = True
+    _app_ready_flag = st.session_state.get('app_ready', False)
 
     # ── STEP 4-B: URL 토큰 자동 로그인 (기기 통합 — 핸드폰/태블릿 공용) ──
     # 로그인 성공 시 ?t=TOKEN URL이 발급되며, 북마크 또는 재방문 시 자동 로그인
@@ -7429,79 +7517,98 @@ section[data-testid="stSidebar"] {
 </script>""", height=0)
 
     # ── (5) 전역 로딩 오버레이 JS ────────────────────────────────────
-    # 로그인 중 / AI 분석 중: 돋보기 애니메이션 오버레이 표시
+    # 부모 문서에 직접 오버레이 DOM 주입 → 클릭 즉시(~0ms) 화면 덮음
     components.html("""
-<style>
-#gk-loading-overlay {
-  display:none;position:fixed;top:0;left:0;width:100%;height:100%;
-  background:rgba(13,27,42,0.82);z-index:99999;
-  flex-direction:column;align-items:center;justify-content:center;
-  font-family:'Noto Sans KR',sans-serif;
-}
-#gk-loading-overlay.show { display:flex; }
-.gk-loading-icon {
-  font-size:3.2rem;animation:gk-magnify 1.2s ease-in-out infinite;
-  margin-bottom:16px;
-}
-.gk-loading-msg {
-  color:#e0f2fe;font-size:1.05rem;font-weight:700;
-  text-align:center;line-height:1.8;
-  text-shadow:0 1px 4px rgba(0,0,0,0.5);
-}
-@keyframes gk-magnify {
-  0%,100%{transform:scale(1) rotate(-8deg);}
-  50%{transform:scale(1.25) rotate(8deg);}
-}
-</style>
-<div id="gk-loading-overlay">
-  <div class="gk-loading-icon">🔍</div>
-  <div class="gk-loading-msg" id="gk-loading-text">로그인 중입니다.잠시만 기다려주세요.</div>
-</div>
 <script>
 (function(){
-  var overlay = document.getElementById('gk-loading-overlay');
-  var loadingText = document.getElementById('gk-loading-text');
-  
-  // 문서에 노출 (iframe 내부)
-  var _overlay = overlay;
-  var _text = loadingText;
+  // ── 부모 문서에 오버레이 주입 (한 번만) ──────────────────────────
+  function injectOverlay(pd) {
+    if (pd.getElementById('gk-loading-overlay')) return;
+    var style = pd.createElement('style');
+    style.id = 'gk-overlay-style';
+    style.textContent = [
+      '#gk-loading-overlay{',
+        'display:none;position:fixed;top:0;left:0;width:100%;height:100%;',
+        'background:rgba(10,22,40,0.92);z-index:2147483647;',
+        'flex-direction:column;align-items:center;justify-content:center;',
+        'font-family:"Noto Sans KR",sans-serif;',
+        'transition:opacity 0.18s;',
+      '}',
+      '#gk-loading-overlay.gk-show{display:flex;}',
+      '.gk-ov-icon{font-size:3.4rem;animation:gk-mg 1.1s ease-in-out infinite;margin-bottom:18px;}',
+      '.gk-ov-msg{color:#e0f2fe;font-size:1.08rem;font-weight:700;',
+        'text-align:center;line-height:1.9;text-shadow:0 1px 4px rgba(0,0,0,0.6);}',
+      '@keyframes gk-mg{0%,100%{transform:scale(1) rotate(-8deg);}50%{transform:scale(1.28) rotate(8deg);}}'
+    ].join('');
+    pd.head.appendChild(style);
 
-  // 상위 문서에서 버튼 감시
+    var div = pd.createElement('div');
+    div.id = 'gk-loading-overlay';
+    div.innerHTML = '<div class="gk-ov-icon">🔍</div><div class="gk-ov-msg" id="gk-ov-text">로그인 중입니다. 잠시만 기다려주세요.</div>';
+    pd.body.appendChild(div);
+  }
+
+  function showOverlay(pd, msg, ms) {
+    injectOverlay(pd);
+    var el = pd.getElementById('gk-loading-overlay');
+    var tx = pd.getElementById('gk-ov-text');
+    if (tx) tx.textContent = msg;
+    if (el) el.classList.add('gk-show');
+    setTimeout(function(){ if(el) el.classList.remove('gk-show'); }, ms || 9000);
+  }
+
+  // ── 버튼 감시 (parent document) ──────────────────────────────────
   function watchButtons() {
     try {
       var pd = window.parent.document;
-      // 로그인 버튼
+      injectOverlay(pd);
       pd.querySelectorAll('button').forEach(function(btn){
-        var txt = btn.textContent || '';
-        if (txt.includes('로그인') && !btn._gk_watched) {
-          btn._gk_watched = true;
+        var txt = (btn.textContent || '').trim();
+        // 로그인 버튼
+        if (txt.includes('로그인') && !btn._gk_w) {
+          btn._gk_w = true;
           btn.addEventListener('click', function(){
-            _text.textContent = '🔍  로그인 중입니다. 잠시만 기다려주세요.';
-            _overlay.classList.add('show');
-            setTimeout(function(){ _overlay.classList.remove('show'); }, 8000);
-          });
+            showOverlay(pd, '🔍  로그인 중입니다. 잠시만 기다려주세요.', 9000);
+            // ── 클릭 즉시 사이드바/본체 차단 (rerun 전부터) ──
+            // gk-sp-hide-style이 없으면 즉시 주입
+            if (!pd.getElementById('gk-sp-hide-style')) {
+              var hs = pd.createElement('style');
+              hs.id = 'gk-sp-hide-style';
+              hs.textContent =
+                'body[data-gk-splash="1"] [data-testid="stSidebar"],' +
+                'body[data-gk-splash="1"] section[data-testid="stSidebar"],' +
+                'body[data-gk-splash="1"] [data-testid="stSidebarNav"],' +
+                'body[data-gk-splash="1"] [data-testid="collapsedControl"],' +
+                'body[data-gk-splash="1"] [data-testid="stSidebarCollapseButton"],' +
+                'body[data-gk-splash="1"] [data-testid="stSidebarContent"]' +
+                '{visibility:hidden!important;opacity:0!important;pointer-events:none!important;transition:none!important;}' +
+                'body[data-gk-splash="1"] [data-testid="stAppViewContainer"],' +
+                'body[data-gk-splash="1"] [data-testid="stMainBlockContainer"],' +
+                'body[data-gk-splash="1"] .main,' +
+                'body[data-gk-splash="1"] [data-testid="stApp"] > div' +
+                '{visibility:hidden!important;opacity:0!important;pointer-events:none!important;transition:none!important;}';
+              pd.head.insertBefore(hs, pd.head.firstChild);
+            }
+            pd.body.setAttribute('data-gk-splash', '1');
+          }, {passive:true});
         }
-        // AI 분석 버튼
-        if ((txt.includes('AI') || txt.includes('분석') || txt.includes('실행')) && !btn._gk_watched_ai) {
-          btn._gk_watched_ai = true;
+        // AI / 분석 버튼
+        if ((txt.includes('AI') || txt.includes('분석') || txt.includes('실행')) && !btn._gk_wa) {
+          btn._gk_wa = true;
           btn.addEventListener('click', function(){
-            _text.textContent = '🔍  AI 마스터가 답을 찾고 있습니다. 잠시만 기다려주세요.';
-            _overlay.classList.add('show');
-            setTimeout(function(){ _overlay.classList.remove('show'); }, 15000);
-          });
+            showOverlay(pd, '🔍  AI 마스터가 답을 찾고 있습니다. 잠시만 기다려주세요.', 16000);
+          }, {passive:true});
         }
         // 가입 버튼
-        if (txt.includes('가입') && !btn._gk_watched_su) {
-          btn._gk_watched_su = true;
+        if (txt.includes('가입') && !btn._gk_ws) {
+          btn._gk_ws = true;
           btn.addEventListener('click', function(){
-            _text.textContent = '🔍  회원가입 처리 중입니다. 잠시만 기다려주세요.';
-            _overlay.classList.add('show');
-            setTimeout(function(){ _overlay.classList.remove('show'); }, 8000);
-          });
+            showOverlay(pd, '🔍  회원가입 처리 중입니다. 잠시만 기다려주세요.', 9000);
+          }, {passive:true});
         }
       });
     } catch(e) {}
-    setTimeout(watchButtons, 1500);
+    setTimeout(watchButtons, 1200);
   }
   watchButtons();
 })();
@@ -8126,6 +8233,41 @@ summary[data-testid="stExpanderToggle"]:hover {
     --gk-bg-h: 0;
     --gk-bg-s: 0%;
     --gk-bg-l: 100%;
+}
+
+/* ══════════════════════════════════════════════════
+   헌법 제10조 — 지능형 스플래시 시스템
+   10-2: STEP 1-A에서 st.markdown으로 무조건 은닉 (id=gk-sp-hide-style)
+   10-4: dismissSplash()에서 해당 style 태그를 JS로 제거 → 페이드인
+══════════════════════════════════════════════════ */
+
+/* [10-4] 스플래시 해제 후: 부드러운 페이드인 동시 전환 */
+[data-testid="stSidebar"],
+section[data-testid="stSidebar"],
+[data-testid="stAppViewContainer"],
+[data-testid="stMainBlockContainer"],
+.main {
+    transition: opacity 0.55s ease, visibility 0.55s ease !important;
+}
+
+/* [10-4] 스플래시 전용 오버레이 — 부모 문서에 JS로 주입됨 */
+#gk-splash-overlay {
+    position: fixed !important;
+    top: 0 !important; left: 0 !important;
+    width: 100vw !important; height: 100vh !important;
+    z-index: 2147483646 !important;
+    background: #0a1628 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    overflow: hidden !important;
+    opacity: 1 !important;
+    transition: opacity 0.6s ease !important;
+}
+#gk-splash-overlay.gk-sp-fadeout {
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 </style>""", unsafe_allow_html=True)
 
@@ -9136,6 +9278,13 @@ watchRipple();
                         if _err:
                             st.error(_err)
                         else:
+                            # ── PIN 등록 시 DB에 hash 즉시 저장 ──────────────
+                            if _m.get("pin"):
+                                _pin_val = st.session_state.get("_lp_pin", "")
+                                if _pin_val:
+                                    save_member_pin(_lp_name, _pin_val)
+                                    # 세션에도 hash 보관 (Phase C 즉시 사용)
+                                    st.session_state["_lp_pin_hash"] = _pin_make_hash(_pin_val)
                             _def2 = "bio" if _m.get("bio") else ("pat" if _m.get("pat") else "pin")
                             st.session_state["_lp_mode"] = _def2
                             st.session_state["_sec_methods"] = dict(_m)
@@ -9342,7 +9491,12 @@ if(!CRED_ID) setTimeout(doBioAuth, 400);
                             pass
 
                     elif _mode_c == "pin":
-                        _reg_pin = st.session_state.get("_lp_pin", "")
+                        # ── PIN hash 복원: 세션 → DB 순서로 조회 ─────────────
+                        _reg_pin_hash = st.session_state.get("_lp_pin_hash", "")
+                        if not _reg_pin_hash:
+                            _reg_pin_hash = load_member_pin_hash(_lp_name)
+                            if _reg_pin_hash:
+                                st.session_state["_lp_pin_hash"] = _reg_pin_hash
                         _cur_pin_disp = st.session_state.get("_pin_buf", "")
                         _pin_len = len(_cur_pin_disp)
 
@@ -11623,7 +11777,11 @@ window['startTTS_{tab_key}']=function(){{
             pass  # 빈 상태 — 별도 안내 불필요
 
     # ══════════════════════════════════════════════════════════════════════
-    # [SPLASH] 앱 최초 진입 스플래시 화면 (10초 카운트다운)
+    # [SPLASH] 헌법 제10조 — 지능형 스플래시 시스템
+    # 10-1: 클릭→스플래시→배경로딩→사이드바+본체 동시 노출
+    # 10-2: 부모 DOM에 data-gk-splash="1" 주입 → CSS로 사이드바/본체 은닉
+    # 10-3: 고정시간 아닌 Streamlit stApp 렌더 완료 감지 후 종료
+    # 10-4: 페이드아웃 + 동시 페이드인 전환
     # ══════════════════════════════════════════════════════════════════════
     if cur == "intro" and not st.session_state.get("_splash_done", False):
         import base64 as _b64_sp, os as _os_sp, time as _time_sp
@@ -11641,16 +11799,12 @@ window['startTTS_{tab_key}']=function(){{
         _phone_src_sp  = f"data:image/jpeg;base64,{_phone_b64_sp}"  if _phone_b64_sp  else ""
         _tablet_src_sp = f"data:image/jpeg;base64,{_tablet_b64_sp}" if _tablet_b64_sp else ""
 
-        # ── 타이머 초기화 ─────────────────────────────────────────────
-        _SPLASH_SEC = 5
-        if "_splash_start" not in st.session_state:
-            st.session_state["_splash_start"] = _time_sp.time()
+        # ── [10-3] 최소 노출 시간 2초 보장 + Python app_ready 플래그 ────
+        _SPLASH_MIN_SEC = 2
+        # _app_ready_flag: SECTION 1~9 초기화 완료 여부 (main() 상단에서 계산)
+        _sp_ready = _app_ready_flag  # True면 JS에 즉시 해제 신호 전달
 
-        _elapsed_sp = _time_sp.time() - st.session_state["_splash_start"]
-        _remain_sp  = max(0, _SPLASH_SEC - int(_elapsed_sp))
-        _pct_sp     = max(0, 100 - int(_elapsed_sp / _SPLASH_SEC * 100))
-
-        # ── 전체화면 스플래시 — components.html (iframe 내 <script> 정상 실행) ──
+        # ── 전체화면 스플래시 — 부모 DOM에 직접 오버레이 주입 ─────────
         import streamlit.components.v1 as _sp_comp
         _sp_result = _sp_comp.html(f"""
 <!DOCTYPE html><html><head>
@@ -11658,115 +11812,247 @@ window['startTTS_{tab_key}']=function(){{
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box;}}
-html,body{{width:100%;height:100%;overflow:hidden;background:#0a1628;}}
-/* 전체화면 오버레이 — iframe이 부모 페이지를 덮도록 부모 CSS 주입 */
-#sp-wrap{{
-  position:fixed;top:0;left:0;width:100vw;height:100vh;
-  background:#0a1628;overflow:hidden;
-}}
-#sp-img-p{{
-  width:100%;height:100%;object-fit:cover;
-  object-position:center top;display:block;
-  position:absolute;top:0;left:0;
-}}
-#sp-img-l{{
-  width:100%;height:100%;object-fit:cover;
-  object-position:center;display:none;
-  position:absolute;top:0;left:0;
-}}
-@media (orientation:landscape) and (min-width:600px){{
-  #sp-img-p{{display:none !important;}}
-  #sp-img-l{{display:block !important;}}
-}}
-#sp-overlay{{
-  position:absolute;bottom:0;left:0;width:100%;
-  padding:16px 20px 40px 20px;
-  background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,transparent 100%);
-  display:flex;flex-direction:column;align-items:center;gap:12px;
-  z-index:10;
-}}
-#sp-bar-bg{{
-  width:88%;max-width:400px;height:6px;
-  background:rgba(255,255,255,0.22);border-radius:3px;overflow:hidden;
-}}
-#sp-bar{{
-  height:100%;width:100%;
-  background:linear-gradient(90deg,#f0c040,#fbbf24);
-  border-radius:3px;
-  transition:width 1s linear;
-}}
-#sp-txt{{
-  font-size:0.9rem;font-weight:700;
-  color:rgba(255,255,255,0.9);letter-spacing:0.05em;
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  text-align:center;
-}}
-#sp-skip{{
-  margin-top:4px;
-  background:rgba(255,255,255,0.18);
-  color:#fff;
-  border:1.5px solid rgba(255,255,255,0.45);
-  border-radius:24px;
-  padding:8px 28px;
-  font-size:0.9rem;font-weight:700;
-  cursor:pointer;
-  letter-spacing:0.04em;
-  backdrop-filter:blur(4px);
-}}
-#sp-skip:active{{background:rgba(255,255,255,0.32);}}
+html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
 </style>
 </head>
 <body>
-<div id="sp-wrap">
-  <img id="sp-img-p" src="{_phone_src_sp}"  alt="" />
-  <img id="sp-img-l" src="{_tablet_src_sp}" alt="" />
-  <div id="sp-overlay">
-    <div id="sp-bar-bg"><div id="sp-bar"></div></div>
-    <div id="sp-txt">잠시 후 자동으로 시작됩니다 &nbsp;·&nbsp; <span id="sp-num">{_remain_sp}</span>초</div>
-    <button id="sp-skip" onclick="skipSplash()">▶ 바로 시작하기</button>
-  </div>
-</div>
 <script>
 (function(){{
-  var remain = {_remain_sp};
-  var total  = {_SPLASH_SEC};
-  var bar    = document.getElementById('sp-bar');
-  var numEl  = document.getElementById('sp-num');
+  var pd = window.parent.document;
+  var MIN_MS = {_SPLASH_MIN_SEC * 1000};
+  var startTime = Date.now();
+  var dismissed = false;
 
-  // 초기 프로그레스바
-  bar.style.width = (remain / total * 100) + '%';
+  // ── [10-2] 부모 head에 은닉 CSS 즉시 주입 (iframe CSS는 부모에 미적용) ──
+  // Streamlit st.markdown CSS는 iframe 내부에만 존재 → 부모 body에 직접 주입 필수
+  (function() {{
+    if (pd.getElementById('gk-sp-hide-style')) return;
+    var hideStyle = pd.createElement('style');
+    hideStyle.id = 'gk-sp-hide-style';
+    hideStyle.textContent =
+      'body[data-gk-splash="1"] [data-testid="stSidebar"],' +
+      'body[data-gk-splash="1"] section[data-testid="stSidebar"],' +
+      'body[data-gk-splash="1"] [data-testid="stSidebarNav"],' +
+      'body[data-gk-splash="1"] [data-testid="collapsedControl"],' +
+      'body[data-gk-splash="1"] [data-testid="stSidebarCollapseButton"]' +
+      '{{visibility:hidden!important;opacity:0!important;pointer-events:none!important;transition:none!important;}}' +
+      'body[data-gk-splash="1"] [data-testid="stAppViewContainer"],' +
+      'body[data-gk-splash="1"] [data-testid="stMainBlockContainer"],' +
+      'body[data-gk-splash="1"] .main,' +
+      'body[data-gk-splash="1"] [data-testid="stApp"] > div' +
+      '{{visibility:hidden!important;opacity:0!important;pointer-events:none!important;transition:none!important;}}' +
+      '[data-testid="stSidebar"],' +
+      'section[data-testid="stSidebar"],' +
+      '[data-testid="stAppViewContainer"],' +
+      '[data-testid="stMainBlockContainer"],' +
+      '.main{{transition:opacity 0.55s ease,visibility 0.55s ease!important;}}';
+    pd.head.insertBefore(hideStyle, pd.head.firstChild);
+  }})();
+  // 속성 세팅은 CSS 주입 직후 — 순서 보장
+  pd.body.setAttribute('data-gk-splash', '1');
 
-  function tick() {{
-    if (remain <= 0) {{
-      skipSplash();
+  // ── 스플래시 오버레이 DOM 주입 (한 번만) ──────────────────────────
+  function injectSplash() {{
+    if (pd.getElementById('gk-splash-overlay')) return;
+
+    var phoneImg  = '{_phone_src_sp}';
+    var tabletImg = '{_tablet_src_sp}';
+
+    var style = pd.createElement('style');
+    style.id  = 'gk-sp-style';
+    style.textContent = [
+      '#gk-splash-overlay{{',
+        'position:fixed;top:0;left:0;width:100vw;height:100vh;',
+        'z-index:2147483646;background:#0a1628;',
+        'display:flex;flex-direction:column;',
+        'align-items:center;justify-content:flex-end;',
+        'overflow:hidden;opacity:1;transition:opacity 0.6s ease;',
+      '}}',
+      '#gk-sp-img-p{{position:absolute;top:0;left:0;width:100%;height:100%;',
+        'object-fit:cover;object-position:center top;display:block;}}',
+      '#gk-sp-img-l{{position:absolute;top:0;left:0;width:100%;height:100%;',
+        'object-fit:cover;object-position:center;display:none;}}',
+      '@media(orientation:landscape) and (min-width:600px){{',
+        '#gk-sp-img-p{{display:none!important;}}',
+        '#gk-sp-img-l{{display:block!important;}}}}',
+      '#gk-sp-bottom{{position:relative;z-index:2;width:100%;',
+        'padding:16px 20px 44px;',
+        'background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,transparent 100%);',
+        'display:flex;flex-direction:column;align-items:center;gap:12px;}}',
+      '#gk-sp-bar-bg{{width:88%;max-width:400px;height:6px;',
+        'background:rgba(255,255,255,0.22);border-radius:3px;overflow:hidden;}}',
+      '#gk-sp-bar{{height:100%;width:5%;',
+        'background:linear-gradient(90deg,#f0c040,#fbbf24);',
+        'border-radius:3px;transition:width 0.35s linear;}}',
+      '#gk-sp-txt{{font-size:0.88rem;font-weight:700;',
+        'color:rgba(255,255,255,0.9);letter-spacing:0.05em;',
+        'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;',
+        'text-align:center;}}',
+      '#gk-sp-skip{{background:rgba(255,255,255,0.18);color:#fff;',
+        'border:1.5px solid rgba(255,255,255,0.45);border-radius:24px;',
+        'padding:8px 28px;font-size:0.88rem;font-weight:700;',
+        'cursor:pointer;letter-spacing:0.04em;backdrop-filter:blur(4px);',
+        '-webkit-backdrop-filter:blur(4px);}}',
+      '#gk-sp-skip:active{{background:rgba(255,255,255,0.32);}}',
+    ].join('');
+    pd.head.appendChild(style);
+
+    var ov = pd.createElement('div');
+    ov.id  = 'gk-splash-overlay';
+    ov.innerHTML = [
+      phoneImg  ? '<img id="gk-sp-img-p" src="'+phoneImg+'"  alt="" />' : '',
+      tabletImg ? '<img id="gk-sp-img-l" src="'+tabletImg+'" alt="" />' : '',
+      '<div id="gk-sp-bottom">',
+        '<div id="gk-sp-bar-bg"><div id="gk-sp-bar"></div></div>',
+        '<div id="gk-sp-txt">앱을 준비하고 있습니다 &nbsp;·&nbsp; 잠시만 기다려주세요</div>',
+        '<button id="gk-sp-skip">▶ 바로 시작하기</button>',
+      '</div>',
+    ].join('');
+    pd.body.appendChild(ov);
+
+    pd.getElementById('gk-sp-skip').addEventListener('click', function(){{
+      dismissSplash(true);
+    }});
+  }}
+
+  // ── [10-4] 스플래시 해제: 페이드아웃 + 사이드바/본체 동시 페이드인 ──
+  function dismissSplash(force) {{
+    if (dismissed) return;
+    var elapsed = Date.now() - startTime;
+    if (!force && elapsed < MIN_MS) {{
+      setTimeout(function(){{ dismissSplash(false); }}, MIN_MS - elapsed);
       return;
     }}
-    remain--;
-    if (numEl) numEl.textContent = remain;
-    if (bar)   bar.style.width = Math.max(0, remain / total * 100) + '%';
-    if (remain > 0) setTimeout(tick, 1000);
-    else setTimeout(skipSplash, 400);
+    dismissed = true;
+
+    var ov  = pd.getElementById('gk-splash-overlay');
+    var bar = pd.getElementById('gk-sp-bar');
+
+    // 프로그레스바 100% 채우고 0.32초 후 페이드아웃
+    if (bar) {{
+      bar.style.transition = 'width 0.32s ease';
+      bar.style.width = '100%';
+    }}
+
+    setTimeout(function() {{
+      // [10-2] 사이드바/본체 은닉 해제 — st.markdown이 주입한 style 태그 제거
+      // id 방식(getElementById) + 내용 방식(querySelectorAll) 이중 검색
+      // Streamlit이 id를 strip해도 내용으로 확실히 찾아 제거
+      (function() {{
+        var docs = [pd];
+        try {{ docs.push(document); }} catch(e) {{}}
+        for (var di = 0; di < docs.length; di++) {{
+          var d = docs[di];
+          // 1) id로 검색
+          var el = d.getElementById('gk-sp-hide-style');
+          if (el && el.parentNode) {{ el.parentNode.removeChild(el); continue; }}
+          // 2) style 태그 내용으로 검색 (id가 없는 경우)
+          var styles = d.querySelectorAll('style');
+          for (var si = 0; si < styles.length; si++) {{
+            if (styles[si].textContent.indexOf('gk-sp-hide-style') !== -1 ||
+                styles[si].textContent.indexOf('stSidebarCollapseButton') !== -1 &&
+                styles[si].textContent.indexOf('display: none') !== -1) {{
+              styles[si].parentNode.removeChild(styles[si]);
+            }}
+          }}
+        }}
+      }})();
+      pd.body.removeAttribute('data-gk-splash');
+
+      // [10-4] 스플래시 오버레이 페이드아웃
+      if (ov) {{
+        ov.style.transition = 'opacity 0.6s ease';
+        ov.style.opacity = '0';
+        ov.style.pointerEvents = 'none';
+        setTimeout(function() {{
+          if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+          var st2 = pd.getElementById('gk-sp-style');
+          if (st2 && st2.parentNode) st2.parentNode.removeChild(st2);
+          var hs = pd.getElementById('gk-sp-hide-style');
+          if (hs && hs.parentNode) hs.parentNode.removeChild(hs);
+        }}, 680);
+      }}
+
+      // Python에 완료 신호
+      window.parent.postMessage({{type:'streamlit:setComponentValue', value:'done'}}, '*');
+    }}, 350);
   }}
 
-  function skipSplash() {{
-    window.parent.postMessage({{type:'streamlit:setComponentValue', value:'skip'}}, '*');
+  // ── [10-3] 프로그레스바 단계별 애니메이션 ────────────────────────
+  function animateBar() {{
+    var bar = pd.getElementById('gk-sp-bar');
+    if (!bar) return;
+    var pct = 5;
+    // 로딩 진행감: 빠르게 → 점점 느려짐 → app_ready 시 100%
+    var phases = [
+      {{target:35, stepMs:18}},
+      {{target:65, stepMs:35}},
+      {{target:82, stepMs:60}},
+      {{target:92, stepMs:120}},
+      {{target:96, stepMs:300}},
+    ];
+    var pi = 0;
+    function runPhase() {{
+      if (dismissed || pi >= phases.length) return;
+      var ph = phases[pi++];
+      function tick() {{
+        if (dismissed) return;
+        if (pct < ph.target) {{
+          pct++;
+          bar.style.width = pct + '%';
+          setTimeout(tick, ph.stepMs);
+        }} else {{
+          runPhase();
+        }}
+      }}
+      tick();
+    }}
+    runPhase();
   }}
 
-  window.skipSplash = skipSplash;
-  setTimeout(tick, 1000);
+  // ── [10-3] Python app_ready 신호 수신 ────────────────────────────
+  // Python이 _sp_ready=True를 렌더링하면 즉시 해제
+  var APP_READY_FROM_PYTHON = {'true' if _sp_ready else 'false'};
+
+  function checkPythonReady() {{
+    if (dismissed) return;
+    if (APP_READY_FROM_PYTHON) {{
+      dismissSplash(false);
+    }} else {{
+      // Python이 아직 준비 중 — 300ms마다 rerun 신호 후 재확인
+      // (Streamlit이 rerun될 때 새 app_ready 값이 전달됨)
+      setTimeout(checkPythonReady, 300);
+    }}
+  }}
+
+  // ── 최대 15초 안전망 ──────────────────────────────────────────────
+  setTimeout(function() {{
+    if (!dismissed) dismissSplash(true);
+  }}, 15000);
+
+  // ── 초기화 ───────────────────────────────────────────────────────
+  injectSplash();
+  animateBar();
+  checkPythonReady();
 }})();
 </script>
 </body></html>
-""", height=700)
+""", height=0)
 
-        # ── 스킵 신호 또는 시간 초과 시 홈으로 이동 ─────────────────────
-        if _sp_result == "skip" or _elapsed_sp >= _SPLASH_SEC:
+        # ── [10-1] JS 'done' 신호 수신 시 즉시 홈으로 전환 ───────────
+        if _sp_result == "done":
             st.session_state["_splash_done"] = True
+            st.session_state["app_ready"] = True
             st.session_state.pop("_splash_start", None)
             _go_tab("home")
             st.rerun()
+        elif _app_ready_flag:
+            # app_ready True인데 JS가 아직 done 신호 안 보낸 경우 — 짧게 대기
+            _time_sp.sleep(0.2)
+            st.rerun()
         else:
-            _time_sp.sleep(1)
+            # SECTION 초기화 대기 중 — 300ms 간격 재확인
+            _time_sp.sleep(0.3)
             st.rerun()
         st.stop()
 
