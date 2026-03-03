@@ -8132,7 +8132,17 @@ watchRipple();
         # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (기존 아바타 완전 대체) ──
         render_goldkey_sidebar()
 
-        with st.expander("📜 이용약관 · 서비스 안내 (로그인 후 이용 가능)", expanded=False):
+        with st.expander("", expanded=False):
+            st.markdown("""
+<div style="line-height:1.5;">
+  <div style="font-size:0.95rem;font-weight:800;color:#1a2d5a;letter-spacing:0.02em;">
+    📜 이용약관 · 서비스 안내
+  </div>
+  <div style="font-size:0.82rem;font-weight:700;color:#c0392b;margin-top:2px;">
+    (로그인 후 이용 가능)
+  </div>
+</div>
+""", unsafe_allow_html=True)
             st.caption("로그인 후 사이드바 하단에서 전체 약관을 확인하실 수 있습니다.")
 
         st.sidebar.warning(
