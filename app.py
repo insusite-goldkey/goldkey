@@ -7951,6 +7951,182 @@ summary[data-testid="stExpanderToggle"]:hover {
     transform: translateY(-2px) !important;
     box-shadow: 0 6px 20px rgba(14,165,233,0.12) !important;
 }
+
+/* ══════════════════════════════════════════════════
+   헌법 제6조~제10조 — Bright Corporate Design System
+   즉시 시행 · 전역 상속 · 모든 페이지 자동 적용
+══════════════════════════════════════════════════ */
+
+/* ── 헌법 제6조: Bright Corporate 스타일 ──
+   앱 전체 배경 #FFFFFF / 텍스트 #333333 */
+html, body,
+[data-testid="stApp"],
+[data-testid="stAppViewContainer"],
+[data-testid="stMainBlockContainer"],
+.main, .main > div,
+section.main {
+    background-color: #FFFFFF !important;
+    color: #333333 !important;
+}
+[data-testid="stApp"] {
+    background: #FFFFFF !important;
+}
+/* 라이트 그레이 서브 배경 영역 */
+[data-testid="stSidebar"] > div:first-child {
+    background-color: #F8F9FA !important;
+}
+/* 기본 텍스트 전체 #333333 */
+p, li, span, div, label, td, th,
+.stMarkdown, .stText, .element-container {
+    color: #333333 !important;
+}
+/* 화이트 배경 위 h 태그 */
+h1, h2, h3, h4, h5, h6 {
+    color: #1a1a2e !important;
+}
+
+/* ── 헌법 제7조: 프리미엄 그라데이션 박스 ──
+   모든 컨테이너: linear-gradient(135deg,#4facfe,#00f2fe)
+   border-radius:15px + box-shadow */
+.gk-box,
+.gk-premium-box {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
+    border-radius: 15px !important;
+    box-shadow: 0 4px 20px rgba(79,172,254,0.28) !important;
+    padding: 16px 20px !important;
+    color: #ffffff !important;
+    border: none !important;
+}
+.gk-box *, .gk-premium-box * {
+    color: #ffffff !important;
+}
+/* 앱 내 기존 div 그라데이션 박스 override —
+   다크 배경 gradient → 헌법 블루 그라데이션으로 통일 */
+[data-testid="stExpander"] {
+    background: #ffffff !important;
+    border: 1px solid #E0E0E0 !important;
+    border-radius: 15px !important;
+    box-shadow: 0 2px 10px rgba(79,172,254,0.10) !important;
+    margin-bottom: 8px !important;
+}
+[data-testid="stExpander"]:hover {
+    box-shadow: 0 4px 18px rgba(79,172,254,0.22) !important;
+    border-color: #4facfe !important;
+}
+/* Streamlit info/success/warning/error 박스 */
+[data-testid="stInfo"] {
+    background: linear-gradient(135deg, rgba(79,172,254,0.12) 0%, rgba(0,242,254,0.08) 100%) !important;
+    border-left: 4px solid #4facfe !important;
+    border-radius: 10px !important;
+    color: #1a3a5c !important;
+}
+[data-testid="stSuccess"] {
+    background: linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(6,95,70,0.06) 100%) !important;
+    border-left: 4px solid #10b981 !important;
+    border-radius: 10px !important;
+}
+/* Streamlit columns 내 컨테이너 박스 */
+[data-testid="column"] > div > div > div {
+    border-radius: 12px !important;
+}
+
+/* ── 헌법 제8조: 레드 얼럿(Red Alert) 시스템 ── */
+.gk-red, .gk-alert-text {
+    color: #FF4B4B !important;
+    font-weight: 700 !important;
+}
+.gk-alert-box, .gk-red-box {
+    background: #fff5f5 !important;
+    border: 2px solid #FF4B4B !important;
+    border-radius: 15px !important;
+    padding: 14px 18px !important;
+    color: #c0392b !important;
+    box-shadow: 0 2px 12px rgba(255,75,75,0.15) !important;
+}
+.gk-alert-box *, .gk-red-box * {
+    color: #c0392b !important;
+}
+/* [RED ALERT] 텍스트 자동 식별 강제 스타일 */
+[data-testid="stWarning"] {
+    border-left: 4px solid #FF4B4B !important;
+    border-radius: 10px !important;
+}
+[data-testid="stError"] {
+    background: #fff5f5 !important;
+    border: 1.5px solid #FF4B4B !important;
+    border-radius: 10px !important;
+    color: #c0392b !important;
+}
+
+/* ── 헌법 제9조: 공간 구획 및 경계 ──
+   모든 페이지 외곽 #E0E0E0 실선 + 섹션 간 구분선 */
+.block-container {
+    border: 1px solid #E0E0E0 !important;
+    border-radius: 16px !important;
+    padding: 1.5rem 1.8rem !important;
+    background: #FFFFFF !important;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06) !important;
+}
+/* 섹션 간 가로 구분선 */
+hr[data-testid="stDivider"],
+hr.gk-divider {
+    border: none !important;
+    border-top: 1.5px solid #E0E0E0 !important;
+    margin: 1.4rem 0 !important;
+    opacity: 1 !important;
+}
+/* 탭 경계선 */
+[data-testid="stTabs"] {
+    border-bottom: 2px solid #E0E0E0 !important;
+    margin-bottom: 12px !important;
+}
+/* 컬럼 간 시각 구분 */
+[data-testid="column"] {
+    border-right: 1px dashed rgba(224,224,224,0.5) !important;
+    padding-right: 10px !important;
+}
+[data-testid="column"]:last-child {
+    border-right: none !important;
+}
+
+/* ── 헌법 제10조: 전역 컴팩트 레이아웃 ──
+   모든 expander 내부: 14px, 행간 1.25, 자간 -0.02em */
+[data-testid="stExpanderDetails"],
+[data-testid="stExpanderDetails"] *,
+[data-testid="stExpanderDetails"] p,
+[data-testid="stExpanderDetails"] li,
+[data-testid="stExpanderDetails"] span,
+[data-testid="stExpanderDetails"] div {
+    font-size: 14px !important;
+    line-height: 1.25 !important;
+    letter-spacing: -0.02em !important;
+}
+/* expander 내 제목/강조는 조금 더 크게 허용 */
+[data-testid="stExpanderDetails"] h1 { font-size: 1.1rem !important; }
+[data-testid="stExpanderDetails"] h2 { font-size: 1.0rem !important; }
+[data-testid="stExpanderDetails"] h3 { font-size: 0.95rem !important; }
+/* expander 헤더 — 밝은 배경, 블루 액센트 */
+summary[data-testid="stExpanderToggle"] {
+    background: #F8F9FA !important;
+    border-radius: 10px !important;
+    color: #1a3a5c !important;
+    font-size: 0.95rem !important;
+    font-weight: 800 !important;
+    padding: 10px 14px !important;
+    border: 1px solid #E0E0E0 !important;
+}
+summary[data-testid="stExpanderToggle"]:hover {
+    background: linear-gradient(135deg, rgba(79,172,254,0.08) 0%, rgba(0,242,254,0.05) 100%) !important;
+    border-color: #4facfe !important;
+}
+
+/* ── 헌법 제6조 보조: Dynamic Theme JS override 방지 ──
+   JS가 배경을 hsl(...)로 바꾸는 것을 CSS 우선순위로 차단 */
+:root {
+    --gk-bg-h: 0;
+    --gk-bg-s: 0%;
+    --gk-bg-l: 100%;
+}
 </style>""", unsafe_allow_html=True)
 
     # ── Dynamic Theme + Lottie 돋보기 + Count-up + Haptic JS ────────────
@@ -7979,15 +8155,12 @@ function applyTheme(t) {
   try {
     var pd = window.parent.document;
     var root = pd.documentElement;
-    root.style.setProperty('--gk-bg-h',   t.h);
-    root.style.setProperty('--gk-bg-s',   t.s + '%');
-    root.style.setProperty('--gk-bg-l',   t.l + '%');
+    // 헌법 제6조: 배경은 #FFFFFF 고정 — CSS 우선순위 유지, accent만 변경
     root.style.setProperty('--gk-accent', t.accent);
-    // stApp 배경도 직접 적용 (iframe 외부)
+    // stApp 배경은 헌법 제6조에 따라 #FFFFFF 강제 유지
     var app = pd.querySelector('[data-testid="stApp"]');
     if (app) {
-      app.style.transition = 'background-color 2s ease';
-      app.style.backgroundColor = 'hsl(' + t.h + ',' + t.s + '%,' + t.l + '%)';
+      app.style.backgroundColor = '#FFFFFF';
     }
   } catch(e){}
 }
