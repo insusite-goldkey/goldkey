@@ -16148,7 +16148,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t1":
         if not _auth_gate("t1"): st.stop()
         tab_home_btn("t1")
-        st.subheader("💰 보험금 상담 · 민원 · 손해사정")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    💰 보험금 상담 · 민원 · 손해사정
+  </div>
+  <div style="color:#a7f3d0;font-size:0.82rem;margin-top:4px;">
+    청구 절차 · 지급 거절 대응 · 손해사정 의뢰
+  </div>
+</div>""", unsafe_allow_html=True)
         col1, col2 = st.columns([1, 1])
         with col1:
             c_name1, query1, hi1, do1, _pk1 = ai_query_block("t1", "보험금 청구 내용을 입력하세요.")
@@ -17073,7 +17082,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     # ── [disability] 장해보험금 산출 ─────────────────────────────────────
     if cur == "disability":
         tab_home_btn("disability")
-        st.subheader("🩺 장해보험금 산출")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    🩺 장해보험금 산출
+  </div>
+  <div style="color:#a7f3d0;font-size:0.82rem;margin-top:4px;">
+    AMA 방식 · 맥브라이드(McBride) 방식 · 후유장해 산정
+  </div>
+</div>""", unsafe_allow_html=True)
 
         # ── SmartScanner 연동 ──────────────────────────────────────────
         if _SMART_SCANNER_OK:
@@ -18542,7 +18560,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t2":
         if not _auth_gate("t2"): st.stop()
         tab_home_btn("t2")
-        st.subheader("🛡️ 기본보험 상담")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    🛡️ 기본보험 상담
+  </div>
+  <div style="color:#a7f3d0;font-size:0.82rem;margin-top:4px;">
+    자동차 · 화재 · 운전자 · 일상생활배상책임
+  </div>
+</div>""", unsafe_allow_html=True)
         ins_type = st.selectbox("보험 유형 선택",
             ["🚗 자동차보험","🚙 운전자보험","🔥 화재보험","🤝 (가족)일상생활배상책임담보"],
             key="t2_ins_type")
@@ -18755,7 +18782,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t3":
         if not _auth_gate("t3"): st.stop()
         tab_home_btn("t3")
-        st.subheader("🏥 질병·상해 통합보험 상담")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    🏥 질병·상해 통합보험 상담
+  </div>
+  <div style="color:#a7f3d0;font-size:0.82rem;margin-top:4px;">
+    실손 · 암 · 뇌 · 심장 · 종합 보장 설계
+  </div>
+</div>""", unsafe_allow_html=True)
         col1, col2 = st.columns([1, 1])
         with col1:
             c_name3, query3, hi3, do3, _pk3 = ai_query_block("t3",
@@ -19803,7 +19839,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t4":
         if not _auth_gate("t4"): st.stop()
         tab_home_btn("t4")
-        st.subheader("🚗 자동차사고 상담 · 과실비율 분석")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    🚗 자동차사고 상담 · 과실비율 분석
+  </div>
+  <div style="color:#a7f3d0;font-size:0.82rem;margin-top:4px;">
+    과실비율 · 합의금 산정 · 13대 중과실 · 민식이법
+  </div>
+</div>""", unsafe_allow_html=True)
         col1, col2 = st.columns([1, 1])
         with col1:
             c_name4, query4, hi4, do4, _pk4 = ai_query_block("t4", "예) 신호등 없는 교차로에서 직진 중 우측에서 좌회전 차량과 충돌.")
@@ -19948,7 +19993,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t5":
         if not _auth_gate("t5"): st.stop()
         tab_home_btn("t5")
-        st.subheader("🌅 노후설계 · 연금 3층 · 상속·증여")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    🌅 노후설계 · 연금 3층 · 상속·증여
+  </div>
+  <div style="color:#fde68a;font-size:0.82rem;margin-top:4px;">
+    노후준비 · 연금 설계 · 상속세 절감 · 주택연금
+  </div>
+</div>""", unsafe_allow_html=True)
         retire_sub = st.radio("상담 분야", ["노후/연금 설계","💰 노후준비자금 시뮬레이터","상속·증여 설계","주택연금"],
             horizontal=True, key="retire_sub")
         if retire_sub == "상속·증여 설계":
@@ -20332,7 +20386,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t6":
         if not _auth_gate("t6"): st.stop()
         tab_home_btn("t6")
-        st.subheader("📊 세무상담")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    📊 세무상담
+  </div>
+  <div style="color:#fde68a;font-size:0.82rem;margin-top:4px;">
+    소득세 · 법인세 · 금융소득 분리과세 · 건보료 절감
+  </div>
+</div>""", unsafe_allow_html=True)
         tax_sub = st.radio("상담 분야", ["상속·증여세","연금소득세","CEO설계"],
             horizontal=True, key="tax_sub")
         col1, col2 = st.columns([1, 1])
@@ -20393,7 +20456,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t7":
         if not _auth_gate("t7"): st.stop()
         tab_home_btn("t7")
-        st.subheader("🏢 법인상담 (CEO플랜 · 단체보험 · 기업보험)")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    🏢 법인상담 · CEO플랜 · 단체보험 · 기업보험
+  </div>
+  <div style="color:#fde68a;font-size:0.82rem;margin-top:4px;">
+    법인 절세 · 퇴직금 설계 · 단체상해 · 공장화재
+  </div>
+</div>""", unsafe_allow_html=True)
         corp_sub = st.radio("상담 분야",
             ["CEO플랜 (사망·퇴직)","단체상해보험","공장·기업 화재보험","법인 절세 전략","임원 퇴직금 설계"],
             horizontal=True, key="corp_sub")
@@ -20450,7 +20522,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t8":
         if not _auth_gate("t8"): st.stop()
         tab_home_btn("t8")
-        st.subheader("👔 CEO플랜 — 비상장주식 약식 평가 & 법인 재무분석")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    👔 CEO플랜 — 비상장주식 약식 평가 &amp; 법인 재무분석
+  </div>
+  <div style="color:#fde68a;font-size:0.82rem;margin-top:4px;">
+    상증법 · 법인세법 평가 · 가업승계 · 경영권 방어 전략
+  </div>
+</div>""", unsafe_allow_html=True)
         ceo_sub = st.radio("분석 방식 선택", ["📊 직접 입력 평가표","📁 재무제표 스캔 업로드"],
             horizontal=True, key="ceo_sub")
         col1, col2 = st.columns([1, 1])
@@ -20702,8 +20783,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "fire":
         if not _auth_gate("fire"): st.stop()
         tab_home_btn("fire")
-        st.subheader("🔥 화재보험 재조달가액 산출")
-        st.caption("한국부동산원(REB) 기준 건물 재조달가액 산출 · 비례보상 방지 전략")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    🔥 화재보험 재조달가액 산출
+  </div>
+  <div style="color:#fde68a;font-size:0.82rem;margin-top:4px;">
+    한국부동산원(REB) 기준 · 비례보상 방지 · 적정 가입금액 설계
+  </div>
+</div>""", unsafe_allow_html=True)
 
         # ── 상단: AI 분석 리포트 + 설계 가이드 스크롤창 ──────────────────
         st.subheader("🤖 AI 분석 리포트")
@@ -20889,7 +20978,16 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "liability":
         if not _auth_gate("liability"): st.stop()
         tab_home_btn("liability")
-        st.subheader("⚖️ 배상책임보험 상담")
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+    ⚖️ 배상책임보험 상담
+  </div>
+  <div style="color:#fde68a;font-size:0.82rem;margin-top:4px;">
+    시설·영업 배상 · 의무보험 · 전문인배상 · 중복보험 독립책임액
+  </div>
+</div>""", unsafe_allow_html=True)
         liab_page = st.radio("페이지 선택", ["📋 1페이지 — 기본 배상책임", "🏢 2페이지 — 시설·요양기관 배상책임"],
             horizontal=True, key="liab_page")
         col1, col2 = st.columns([1, 1])
