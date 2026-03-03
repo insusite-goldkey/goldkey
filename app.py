@@ -4069,63 +4069,59 @@ def get_goldkey_avatar() -> str:
 
 
 def render_goldkey_sidebar():
-    """Goldkey_AI_Masters 전용 브랜드 아바타 + 헤더를 사이드바 최상단에 렌더링.
-    기존 단순 아바타 출력 로직을 완전 대체.
-    """
+    """Goldkey_AI_Masters 전용 카드형 프로필 박스를 사이드바 최상단에 렌더링."""
     _avatar_data = get_goldkey_avatar()
     if _avatar_data:
-        _avatar_html = (
+        _img_html = (
             f'<img src="{_avatar_data}" '
-            'style="width:96px;height:96px;border-radius:50%;object-fit:cover;'
-            'border:3px solid #f0c040;margin-bottom:10px;'
-            'box-shadow:0 0 16px rgba(240,192,32,0.45),0 2px 8px rgba(0,0,0,0.35);">'
+            'style="width:90px;height:90px;border-radius:8px;object-fit:cover;'
+            'border:1px solid #E0E0E0;display:block;">'
         )
     else:
-        _avatar_html = (
-            '<div style="width:96px;height:96px;border-radius:50%;'
-            'background:linear-gradient(135deg,#1a3a5c,#0d2444);'
-            'display:flex;align-items:center;justify-content:center;'
-            'margin:0 auto 10px auto;font-size:2.6rem;'
-            'border:3px solid #f0c040;'
-            'box-shadow:0 0 16px rgba(240,192,32,0.45);">'
-            '<svg viewBox="0 0 64 64" width="72" height="72" xmlns="http://www.w3.org/2000/svg">'
-            '<circle cx="32" cy="22" r="13" fill="#f5cba7"/>'
-            '<ellipse cx="32" cy="52" rx="20" ry="14" fill="#f5cba7"/>'
-            '<ellipse cx="32" cy="20" rx="13" ry="8" fill="#4a2e0a"/>'
-            '<path d="M19 22 Q32 8 45 22" fill="#4a2e0a"/>'
+        _img_html = (
+            '<div style="width:90px;height:90px;border-radius:8px;'
+            'background:#E8EAF6;display:flex;align-items:center;'
+            'justify-content:center;border:1px solid #E0E0E0;">'
+            '<svg viewBox="0 0 64 64" width="56" height="56" xmlns="http://www.w3.org/2000/svg">'
+            '<circle cx="32" cy="22" r="13" fill="#c5cae9"/>'
+            '<ellipse cx="32" cy="52" rx="20" ry="14" fill="#c5cae9"/>'
+            '<ellipse cx="32" cy="20" rx="13" ry="8" fill="#7986cb"/>'
+            '<path d="M19 22 Q32 8 45 22" fill="#7986cb"/>'
             '</svg>'
             '</div>'
         )
     st.sidebar.markdown(f"""
-<div style="background:linear-gradient(160deg,#0a1628 0%,#1a3a5c 55%,#0d2444 100%);
-  border-radius:14px;padding:20px 16px 16px 16px;margin-bottom:14px;
-  border:1.5px solid rgba(240,192,32,0.35);
-  box-shadow:0 4px 20px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.05);
-  text-align:center;">
-  <div style="display:flex;justify-content:center;margin-bottom:2px;">
-    {_avatar_html}
+<div style="
+  background:#F8F9FA;
+  border:1px solid #E0E0E0;
+  border-radius:12px;
+  padding:16px 14px 12px 14px;
+  margin-bottom:14px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:0;
+">
+  <div style="margin-bottom:12px;">
+    {_img_html}
   </div>
-  <div style="font-size:1.15rem;font-weight:900;color:#f0c040;
-    letter-spacing:0.04em;line-height:1.3;
-    text-shadow:0 1px 6px rgba(240,192,32,0.5);">
-    Goldkey_AI_Masters<span style="color:#7dd3fc;font-size:0.9rem;">2026</span>
-  </div>
-  <div style="height:1.5px;background:linear-gradient(90deg,transparent,rgba(240,192,32,0.5),transparent);
-    margin:8px 0;"></div>
-  <div style="font-size:0.82rem;font-weight:700;color:#a8c8f0;
-    letter-spacing:0.02em;margin-bottom:4px;">
-    전문 보장 상담의 동반자
-  </div>
-  <div style="font-size:0.72rem;color:rgba(168,200,240,0.7);
-    font-style:italic;letter-spacing:0.01em;">
-    초개인화 인텔리전트 AI 기반 시스템
-  </div>
-  <div style="margin-top:10px;">
-    <span style="background:rgba(14,165,233,0.2);color:#7dd3fc;
-      border:1px solid rgba(14,165,233,0.5);border-radius:20px;
-      padding:3px 12px;font-size:0.78rem;font-weight:800;letter-spacing:0.06em;">
-      v1.3.0
-    </span>
+  <div style="text-align:center;width:100%;">
+    <div style="font-size:18px;font-weight:700;color:#1A237E;
+      line-height:1.3;margin-bottom:4px;letter-spacing:0.01em;">
+      Goldkey_AI_Masters2026
+    </div>
+    <div style="font-size:14px;font-weight:500;color:#424242;
+      margin-bottom:5px;">
+      전문 보장 상담의 동반자
+    </div>
+    <div style="font-size:13px;font-weight:400;color:#616161;
+      letter-spacing:0.03em;line-height:1.5;margin-bottom:10px;">
+      초개인화 인텔리전트 AI 기반 시스템
+    </div>
+    <div style="text-align:right;">
+      <span style="font-size:11px;color:#BDBDBD;font-weight:400;">v1.3.0</span>
+    </div>
   </div>
 </div>""", unsafe_allow_html=True)
 
