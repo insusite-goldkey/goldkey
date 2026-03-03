@@ -40,6 +40,7 @@ dist/
 .env
 .env.local
 .env.*.local
+!.env.example
 *.log
 .idea/
 .vscode/
