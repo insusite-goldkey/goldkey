@@ -7479,6 +7479,16 @@ section[data-testid="stSidebar"] {
 ══════════════════════════════════════════════════ */
 
 
+/* ── 하단 여백 — 모바일 소프트키(내비게이션 바) 가림 방지 ── */
+.main .block-container {
+    padding-bottom: 100px !important;
+}
+@media screen and (max-width: 768px) {
+    .main .block-container {
+        padding-bottom: 120px !important;
+    }
+}
+
 /* ── CSS 변수 — 다이내믹 테마 JS가 override ── */
 :root {
     --gk-bg-h:        220;
@@ -12133,12 +12143,92 @@ renderCalendar();
                 _done_cnt   = sum(1 for t in _todo_list if t["done"])
                 _todo_cnt   = len(_todo_list) - _done_cnt
 
-                st.markdown("""<div style="font-size:0.72rem;font-weight:800;color:#64748b;
-                  letter-spacing:0.08em;text-transform:uppercase;margin:10px 0 6px 2px;">
-                  📋 설계사 업무 대시보드</div>""", unsafe_allow_html=True)
+                # ── 통합 상태 현황판 (외곽 통합 박스 + st.columns 내부) ────────────
+                _todo_items_html = "".join(
+                    f'<div style="display:flex;align-items:center;gap:6px;padding:4px 0;'
+                    f'border-bottom:1px solid rgba(255,255,255,0.10);">'
+                    f'<span style="font-size:13px;">{"✅" if t["done"] else "⬜"}</span>'
+                    f'<span style="font-size:12px;color:{"#94a3b8" if t["done"] else "#e2e8f0"};'
+                    f'text-decoration:{"line-through" if t["done"] else "none"};'
+                    f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;">'
+                    f'{t["text"]}</span>'
+                    f'</div>'
+                    for t in _todo_list
+                )
+                _appt_items_html = "".join(
+                    f'<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.10);">'
+                    f'<span style="font-size:12px;color:#fde68a;font-weight:700;">{a["time"]}</span>'
+                    f'<span style="font-size:12px;color:#e2e8f0;margin-left:6px;">{a["name"]}</span>'
+                    f'<span style="font-size:11px;color:#94a3b8;margin-left:4px;">· {a["type"]}</span>'
+                    f'</div>'
+                    for a in _appt_list
+                )
+                _wait_items_html = "".join(
+                    f'<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.10);">'
+                    f'<span style="font-size:12px;color:#e2e8f0;font-weight:600;">{w["name"]}</span>'
+                    f'<span style="font-size:11px;color:#7dd3fc;margin-left:6px;">{w["status"]}</span>'
+                    f'</div>'
+                    for w in _wait_list
+                )
+
+                # ── 외곽 통합 카드 헤더 ──────────────────────────────────────
+                st.markdown("""
+<div style="background:linear-gradient(135deg,#0d1b2a 0%,#162d4a 100%);
+  border:2px solid #2563eb;border-radius:16px;
+  padding:16px 18px 6px 18px;margin-bottom:0;
+  box-shadow:0 6px 28px rgba(0,0,0,0.35),0 0 0 1px rgba(37,99,235,0.18);">
+  <div style="font-size:11px;font-weight:900;color:#93c5fd;letter-spacing:0.12em;
+    text-transform:uppercase;margin-bottom:14px;
+    display:flex;align-items:center;gap:6px;">
+    <span style="display:inline-block;width:6px;height:6px;border-radius:50%;
+      background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,0.8);"></span>
+    📊 오늘의 업무 현황판
+  </div>""", unsafe_allow_html=True)
+
+                # ── st.columns(3) 내부 박스 ──────────────────────────────────
+                _sb_c1, _sb_c2, _sb_c3 = st.columns(3, gap="small")
+
+                with _sb_c1:
+                    st.markdown(f"""
+<div style="background:rgba(251,191,36,0.08);border:1.5px solid rgba(251,191,36,0.35);
+  border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
+  <div style="font-size:11px;color:#fde68a;font-weight:800;letter-spacing:0.06em;
+    margin-bottom:10px;">📋 오늘 할 일</div>
+  <div style="font-size:52px;font-weight:900;color:#fbbf24;line-height:1;margin-bottom:10px;">
+    {_todo_cnt}<span style="font-size:15px;color:#94a3b8;font-weight:500;margin-left:3px;">건</span>
+  </div>
+  {_todo_items_html if _todo_items_html else '<div style="color:#475569;font-size:11px;">항목 없음</div>'}
+</div>""", unsafe_allow_html=True)
+
+                with _sb_c2:
+                    st.markdown(f"""
+<div style="background:rgba(125,211,252,0.08);border:1.5px solid rgba(125,211,252,0.35);
+  border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
+  <div style="font-size:11px;color:#bae6fd;font-weight:800;letter-spacing:0.06em;
+    margin-bottom:10px;">📅 오늘의 약속</div>
+  <div style="font-size:52px;font-weight:900;color:#7dd3fc;line-height:1;margin-bottom:10px;">
+    {len(_appt_list)}<span style="font-size:15px;color:#94a3b8;font-weight:500;margin-left:3px;">건</span>
+  </div>
+  {_appt_items_html if _appt_items_html else '<div style="color:#475569;font-size:11px;">약속 없음</div>'}
+</div>""", unsafe_allow_html=True)
+
+                with _sb_c3:
+                    st.markdown(f"""
+<div style="background:rgba(134,239,172,0.08);border:1.5px solid rgba(134,239,172,0.35);
+  border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
+  <div style="font-size:11px;color:#bbf7d0;font-weight:800;letter-spacing:0.06em;
+    margin-bottom:10px;">⏳ 상담 대기</div>
+  <div style="font-size:52px;font-weight:900;color:#86efac;line-height:1;margin-bottom:10px;">
+    {len(_wait_list)}<span style="font-size:15px;color:#94a3b8;font-weight:500;margin-left:3px;">건</span>
+  </div>
+  {_wait_items_html if _wait_items_html else '<div style="color:#475569;font-size:11px;">대기 없음</div>'}
+</div>""", unsafe_allow_html=True)
+
+                # ── 외곽 박스 닫기 ────────────────────────────────────────────
+                st.markdown("</div>", unsafe_allow_html=True)
 
                 # ── [C4b] To-Do 인터랙션 (체크 / 추가 / 삭제) ────────────────────
-                with st.expander("📌 할 일 관리", expanded=False):
+                with st.expander("📌 할 일 관리 (상세)", expanded=False):
                     _del_idx = None
                     for _ti, _task in enumerate(_todo_list):
                         _tc1, _tc2, _tc3 = st.columns([0.08, 0.80, 0.12])
@@ -12315,91 +12405,80 @@ renderCalendar();
                 st.markdown("<hr style='border:none;border-top:1px solid #1e3a5f;margin:10px 0;'>",
                             unsafe_allow_html=True)
 
-        # ── 아바타 + Voice-to-Action 네비게이션 블록 (Glassmorphism / EV Dashboard) ──
+        # ── 프리미엄 대시보드 헤더 (아바타 좌측 + 타이틀 우측) ────────────────
         _uname_disp = mask_name(st.session_state.get("user_name","")) if "user_id" in st.session_state else "마스터"
-        # 아바타 이미지 사전 계산 (base64)
         _hero_avatar_b64 = get_goldkey_avatar()
-        components.html(f"""
-<style>
-/* Glassmorphism 카드 */
-.gk-hero {{
-  background: linear-gradient(135deg,rgba(13,27,42,0.95) 0%,rgba(26,58,92,0.92) 55%,rgba(46,109,164,0.90) 100%);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(14,165,233,0.30);
-  border-radius: 18px;
-  padding: 20px 22px 16px 22px;
-  margin-bottom: 10px;
-  box-shadow: 0 8px 32px rgba(3,105,161,0.28), inset 0 1px 0 rgba(255,255,255,0.08);
-  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-}}
-.gk-hero-avatar {{
-  font-size: 3.6rem; line-height: 1; flex-shrink: 0;
-  filter: drop-shadow(0 0 12px rgba(14,165,233,0.6));
-  position: relative;
-}}
-/* 음성파동 링 — EV 시동 on 느낌 */
-.gk-pulse-ring {{
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%,-50%);
-  width: 68px; height: 68px;
-  border-radius: 50%;
-  border: 2px solid rgba(14,165,233,0.55);
-  animation: gk-pulse 2.2s ease-out infinite;
-  pointer-events: none;
-}}
-.gk-pulse-ring:nth-child(2) {{ animation-delay: 0.7s; }}
-.gk-pulse-ring:nth-child(3) {{ animation-delay: 1.4s; }}
-@keyframes gk-pulse {{
-  0%   {{ transform: translate(-50%,-50%) scale(0.85); opacity: 0.8; }}
-  100% {{ transform: translate(-50%,-50%) scale(2.2);  opacity: 0; }}
-}}
-.gk-hero-body {{ flex: 1; min-width: 0; }}
-.gk-hero-title {{
-  color: #fbbf24; font-size: 1.08rem; font-weight: 900;
-  margin-bottom: 4px; letter-spacing: 0.03em;
-  text-shadow: 0 0 12px rgba(251,191,36,0.4);
-}}
-.gk-hero-sub {{
-  color: #bae6fd; font-size: 0.82rem; line-height: 1.65;
-}}
-.gk-hero-sub b {{ color: #ffffff; }}
-.gk-hero-sub i {{ color: #7dd3fc; font-style: normal; }}
-/* 상태 인디케이터 (EV 배터리 바 스타일) */
-.gk-status-bar {{
-  margin-top: 10px; display: flex; align-items: center; gap: 8px;
-}}
-.gk-dot {{ width: 8px; height: 8px; border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 6px rgba(34,197,94,0.7);
-  animation: gk-blink 1.8s ease-in-out infinite;
-}}
-@keyframes gk-blink {{
-  0%,100% {{ opacity:1; }} 50% {{ opacity:0.35; }}
-}}
-.gk-status-text {{ color: #86efac; font-size: 0.73rem; font-weight: 700;
-  letter-spacing: 0.08em; }}
-</style>
-<div class="gk-hero">
-  <div class="gk-hero-avatar">
-    <img src="{_hero_avatar_b64}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;object-position:center top;border:3px solid #f0c040;box-shadow:0 0 18px rgba(240,192,32,0.6),0 2px 10px rgba(0,0,0,0.5);" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-    <div style="display:none;width:64px;height:64px;border-radius:50%;border:3px solid #f0c040;background:linear-gradient(160deg,#1a3a5c,#0d2444);align-items:center;justify-content:center;box-shadow:0 0 18px rgba(240,192,32,0.6);flex-shrink:0;"><svg viewBox="0 0 64 64" width="46" height="46" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="22" r="13" fill="#f5cba7"/><ellipse cx="32" cy="52" rx="20" ry="14" fill="#f5cba7"/><ellipse cx="32" cy="20" rx="13" ry="8" fill="#4a2e0a"/><path d="M19 22 Q32 8 45 22" fill="#4a2e0a"/><circle cx="27" cy="23" r="2" fill="#5d3a1a"/><circle cx="37" cy="23" r="2" fill="#5d3a1a"/><path d="M28 29 Q32 33 36 29" stroke="#c0392b" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg></div>
-    <div class="gk-pulse-ring"></div>
-    <div class="gk-pulse-ring"></div>
-    <div class="gk-pulse-ring"></div>
-  </div>
-  <div class="gk-hero-body">
-    <div class="gk-hero-title">안녕하세요, {_uname_disp}님 &nbsp;·&nbsp; 골드키 AI 어시스턴트</div>
-    <div class="gk-hero-sub">
-      🎙️ 아래 <b>음성 명령</b>으로 원하는 메뉴로 바로 이동합니다<br>
-      예: <i>"보험증권 분석"</i> &nbsp;·&nbsp; <i>"암 상담"</i> &nbsp;·&nbsp; <i>"세무 상담"</i> &nbsp;·&nbsp; <i>"노후설계"</i>
+        import datetime as _hdt
+        _today = _hdt.datetime.now()
+        _weekday_kr = ["월","화","수","목","금","토","일"][_today.weekday()]
+        _today_str = f"{_today.year}년 {_today.month:02d}월 {_today.day:02d}일 ({_weekday_kr})"
+        st.markdown(f"""
+<div style="
+  background:#ffffff;
+  border:1.5px solid #E0E0E0;
+  border-radius:16px;
+  padding:22px 28px 18px 24px;
+  margin-bottom:14px;
+  box-shadow:0 4px 20px rgba(26,35,126,0.10);
+  display:flex;
+  align-items:center;
+  gap:24px;
+  flex-wrap:nowrap;
+">
+  <!-- 아바타 -->
+  <div style="flex-shrink:0;">
+    <img src="{_hero_avatar_b64}"
+      style="width:100px;height:100px;border-radius:10px;object-fit:cover;
+             object-position:center top;border:2px solid #E0E0E0;
+             box-shadow:0 2px 10px rgba(0,0,0,0.10);"
+      onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    <div style="display:none;width:100px;height:100px;border-radius:10px;
+      background:#E8EAF6;border:2px solid #E0E0E0;
+      align-items:center;justify-content:center;">
+      <svg viewBox="0 0 64 64" width="62" height="62" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="32" cy="22" r="13" fill="#c5cae9"/>
+        <ellipse cx="32" cy="52" rx="20" ry="14" fill="#c5cae9"/>
+        <ellipse cx="32" cy="20" rx="13" ry="8" fill="#7986cb"/>
+        <path d="M19 22 Q32 8 45 22" fill="#7986cb"/>
+      </svg>
     </div>
-    <div class="gk-status-bar">
-      <div class="gk-dot"></div>
-      <span class="gk-status-text">AI ONLINE &nbsp;·&nbsp; GEMINI 2.0 FLASH &nbsp;·&nbsp; 30년 실무 지식 탑재</span>
+  </div>
+  <!-- 타이틀 영역 -->
+  <div style="flex:1;min-width:0;">
+    <div style="
+      font-size:clamp(32px,4vw,48px);
+      font-weight:900;
+      color:#1A237E;
+      line-height:1.15;
+      letter-spacing:-0.01em;
+      margin-bottom:8px;
+      font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+    ">Goldkey AI Master<br>
+      <span style="font-size:clamp(20px,2.5vw,30px);font-weight:700;color:#283593;">설계사 대시보드</span>
+    </div>
+    <div style="
+      font-size:clamp(15px,1.8vw,20px);
+      font-weight:500;
+      color:#37474F;
+      margin-bottom:8px;
+      letter-spacing:0.01em;
+    ">{_today_str} &nbsp;·&nbsp; AI 보험컨설팅 통합 플랫폼</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;
+        background:#22c55e;box-shadow:0 0 7px rgba(34,197,94,0.8);
+        animation:gk-blink2 1.8s ease-in-out infinite;"></span>
+      <span style="font-size:13px;font-weight:700;color:#388E3C;letter-spacing:0.06em;">
+        AI ONLINE &nbsp;·&nbsp; GEMINI 2.0 FLASH &nbsp;·&nbsp; {_uname_disp}님 접속 중
+      </span>
     </div>
   </div>
 </div>
-""", height=150)
+<style>
+@keyframes gk-blink2 {{
+  0%,100% {{ opacity:1; }} 50% {{ opacity:0.3; }}
+}}
+</style>
+""", unsafe_allow_html=True)
 
         # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
         components.html("""
@@ -13216,221 +13295,311 @@ export default function(component) {{
 
             st.divider()
 
-        st.markdown("### 🗂️ 4개 도메인 그룹 네비게이션 — 원하는 항목을 선택하거나 음성으로 이동하세요")
-
-        # ── 카드 CSS: 전체 박스 클릭 + 동일 높이 ──
+        # ── 스크롤 복원 CSS ────────────────────────────────────────────
         st.markdown("""
 <style>
-/* 메인 스크롤 컨테이너 복원 — 스크롤 후 위로 올라오지 않는 문제 수정 */
 section[data-testid="stMain"] > div,
 .main .block-container,
 [data-testid="stMainBlocksContainer"] {
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
+    overflow-y: auto !important; overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior-y: auto !important;
 }
-/* 전체 앱 스크롤 복원 — pull-to-refresh만 차단, 일반 위/아래 스크롤 허용 */
-html, body {
-    overscroll-behavior-y: contain !important;
-    overflow-y: auto !important;
+html, body { overscroll-behavior-y: contain !important; overflow-y: auto !important; }
+section[data-testid="stMain"] { overscroll-behavior-y: auto !important; overflow-y: auto !important; }
+/* 포트폴리오 카드 공통 */
+.gk-pf-card {
+    border-radius:16px; padding:24px 22px 18px 22px;
+    margin-bottom:6px; height:100%; box-sizing:border-box;
 }
-section[data-testid="stMain"] {
-    overscroll-behavior-y: auto !important;
-    overflow-y: auto !important;
+.gk-pf-title {
+    font-size:1.55rem; font-weight:900; line-height:1.2;
+    margin-bottom:8px; letter-spacing:0.01em;
 }
-.gk-section-label {
-    font-size:0.88rem; font-weight:900; letter-spacing:0.06em;
-    color:#fff; background:#2e6da4; border-radius:6px;
-    padding:5px 14px; margin:18px 0 10px 0; display:inline-block;
+.gk-pf-sub {
+    font-size:0.92rem; font-weight:500; line-height:1.6;
+    margin-bottom:12px; opacity:0.90;
 }
-/* 카드 래퍼: 상대위치 컨테이너 */
-.gk-card-wrap {
-    position:relative; height:120px; margin-bottom:8px;
-    cursor:pointer;
-}
-/* 실제 카드 내용: 가로 레이아웃 */
-.gk-card {
-    background:#f8fafc; border:1.5px solid #d0dce8; border-radius:12px;
-    padding:12px 14px; height:100%;
-    display:flex; flex-direction:row; align-items:center; gap:12px;
-    box-sizing:border-box; pointer-events:none;
-    transition:border-color 0.18s, background 0.18s, box-shadow 0.18s;
-}
-.gk-card-icon {
-    font-size:3.0rem; line-height:1;
-    flex-shrink:0; width:52px; text-align:center;
-}
-.gk-card-body {
-    display:flex; flex-direction:column; justify-content:center;
-    flex:1; min-width:0;
-}
-.gk-card-title {
-    font-weight:900; font-size:1.08rem; color:#1a3a5c;
-    margin-bottom:5px; line-height:1.2;
-    display:flex; align-items:center; justify-content:space-between;
-}
-.gk-card-desc {
-    font-size:0.80rem; color:#475569; line-height:1.55;
-}
-/* 카드 버튼 — 모바일 터치 완전 호환 visible 버튼 */
-.gk-card-wrap > div[data-testid="stButton"] > button {
-    width:100% !important;
-    background:transparent !important;
-    border:none !important;
-    padding:0 !important;
-    margin:0 !important;
-    cursor:pointer !important;
-    text-align:left !important;
-}
-.gk-card-wrap:hover .gk-card {
-    border-color:#2e6da4;
-    background:#eef4fb;
-    box-shadow:0 2px 10px rgba(46,109,164,0.15);
+.gk-pf-count {
+    display:inline-block; font-size:0.80rem; font-weight:800;
+    padding:4px 12px; border-radius:20px; margin-bottom:14px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-        # 준비중 탭 목록 — 홈 카드에 🚧 배지 + 탭 진입 시 안내 배너
-        _WIP_TABS = set()  # 모든 탭 정식 오픈
+        # ── 액션 버튼 CSS (볼륨감 그라디언트 + 그림자) ─────────────────────
+        st.markdown("""
+<style>
+/* 1번 버튼 — 딥블루 → 인디고 */
+div[data-testid="stColumns"] > div:nth-child(1) div[data-testid="stButton"] > button {
+    background: linear-gradient(135deg, #1a237e 0%, #3949ab 50%, #1e40af 100%) !important;
+    color: #ffffff !important;
+    font-size: 1.05rem !important;
+    font-weight: 900 !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 16px 0 !important;
+    box-shadow: 0 6px 20px rgba(26,35,126,0.45), 0 2px 6px rgba(0,0,0,0.25) !important;
+    letter-spacing: 0.02em !important;
+    transition: transform 0.15s, box-shadow 0.15s !important;
+}
+div[data-testid="stColumns"] > div:nth-child(1) div[data-testid="stButton"] > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 10px 28px rgba(26,35,126,0.55) !important;
+}
+/* 2번 버튼 — 다크그린 → 에메랄드 */
+div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > button {
+    background: linear-gradient(135deg, #064e3b 0%, #059669 50%, #0d9488 100%) !important;
+    color: #ffffff !important;
+    font-size: 1.05rem !important;
+    font-weight: 900 !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 16px 0 !important;
+    box-shadow: 0 6px 20px rgba(5,150,105,0.45), 0 2px 6px rgba(0,0,0,0.25) !important;
+    letter-spacing: 0.02em !important;
+    transition: transform 0.15s, box-shadow 0.15s !important;
+}
+div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 10px 28px rgba(5,150,105,0.55) !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
-        def _render_cards(cards, prefix):
-            import math as _math
-            for row in range(_math.ceil(len(cards) / 2)):
-                c1, c2 = st.columns(2, gap="small")
-                for ci, col in enumerate([c1, c2]):
-                    idx = row * 2 + ci
-                    if idx >= len(cards): break
-                    _entry = cards[idx]
-                    _k, _ic, _ti, _de = _entry[0], _entry[1], _entry[2], _entry[3]
-                    _wip = _k in _WIP_TABS
-                    _wip_badge = " 🚧" if _wip else ""
-                    with col:
-                        if st.button(
-                            f"{_ic} {_ti}{_wip_badge}\n{_de.replace(chr(10), ' · ')}",
-                            key=f"{prefix}_{_k}",
-                            use_container_width=True,
-                        ):
-                            _go_tab(_k)
+        # ── 액션 버튼 좌우 배치 ─────────────────────────────────────────
+        _ab1, _ab2 = st.columns(2, gap="medium")
+        with _ab1:
+            if st.button("🚀 AI 상담 시작하기", key="home_action_consult",
+                         use_container_width=True):
+                _go_tab("t0")
+        with _ab2:
+            if st.button("📅 일정 달력 보기", key="home_action_calendar",
+                         use_container_width=True):
+                _go_tab("calendar")
+
+        st.markdown("<div style='margin-bottom:20px;'></div>", unsafe_allow_html=True)
 
         # ══════════════════════════════════════════════════════════════
-        # 4개 도메인 그룹 카드 네비게이션
-        # A. Smart Analysis & Hub  (분석·허브)
-        # B. Expert Consulting     (전문 상담)
-        # C. Wealth & Corporate    (자산·세무·법인)
-        # D. Life & Care           (생애·케어)
+        # 5대 섹션 포트폴리오 카드 (3+2 그리드)
+        # A(Blue) · B(Green) · C(Gold) · D(Rose) · E(Gray)
         # ══════════════════════════════════════════════════════════════
 
-        # ── 도메인 A: Smart Analysis & Hub (디직털 딥블루/시안) ─────────────────
+        # ── 상단 3열: A / B / C ─────────────────────────────────────
+        _pf_c1, _pf_c2, _pf_c3 = st.columns(3, gap="medium")
+
+        with _pf_c1:
+            st.markdown("""
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#1e3a8a,#2563eb);
+  border:2px solid #3b82f6;box-shadow:0 8px 32px rgba(37,99,235,0.30);
+  position:relative;overflow:hidden;">
+  <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
+    border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+  <div style="font-size:0.7rem;font-weight:900;color:#93c5fd;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;">A SECTION</div>
+  <div class="gk-pf-title" style="color:#fff;">🔬 Smart Analysis<br>&amp; Hub</div>
+  <div class="gk-pf-sub" style="color:#bfdbfe;">
+    증권분석 · 약관검색 · 스캔허브<br>리플렛 · 고객자료 · 디지털카탈로그
+  </div>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 7개 핵심 서비스</span>
+</div>""", unsafe_allow_html=True)
+            with st.expander("📂 A섹션 · 상세 서비스 목록 보기"):
+                st.markdown("""
+##### 📎 보험증권 AI 분석
+- PDF/이미지 파싱 → 담보 자동파싱 · 보장공백 진단
+
+##### 📜 보험약관 AI 검색
+- 공시실 실시간 탐색 · 딥러닝 약관 검색 · 가입시점 정확매칭
+
+##### 🔬 통합 스캔 허브
+- 증권·의무기록·진단서 1회 업로드 → 전탭 자동활용
+
+##### 🗂️ 보험 리플렛 AI 분류
+- 리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 저장
+
+##### 📖 상담 카탈로그 열람
+- 내가 올린 카탈로그 · PDF/이미지 뷰어 · 보험사별 분류
+
+##### 📱 디지털 카탈로그 관리
+- 보험사 카탈로그 업로드·AI분류 · Public/Private 저장
+
+##### 👤 고객자료 통합저장
+- 의무기록·증권분석·청구서류 · 고객별 통합 RAG 저장
+""")
+
+        with _pf_c2:
+            st.markdown("""
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#064e3b,#059669);
+  border:2px solid #10b981;box-shadow:0 8px 32px rgba(5,150,105,0.30);
+  position:relative;overflow:hidden;">
+  <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
+    border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+  <div style="font-size:0.7rem;font-weight:900;color:#6ee7b7;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;">B SECTION</div>
+  <div class="gk-pf-title" style="color:#fff;">🛡️ Expert<br>Consulting</div>
+  <div class="gk-pf-sub" style="color:#a7f3d0;">
+    신규/보험금 상담 · 장해 · 자동차사고<br>암·뇌·심장 · LIFE CYCLE
+  </div>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 11개 핵심 서비스</span>
+</div>""", unsafe_allow_html=True)
+            with st.expander("📂 B섹션 · 상세 서비스 목록 보기"):
+                st.markdown("""
+##### 📋 신규보험 상담 / 보험설계사 전용
+- 기존 증권 분석 · 보장 공백 진단 · 신규 컨설팅
+
+##### 🚑 상해 통합 관리
+- 사고 유형 자동 분류 · 소득보전 역산 · Gap 시각화
+
+##### 💰 보험금 상담 · 청구절차
+- 청구 절차 · 지급 거절 대응 · 민원·손해사정 의뢰
+
+##### 🩺 장해보험금 산출 AMA·맥브라이드
+- AMA 방식 · 맥브라이드 방식 · 호프만계수 산정
+
+##### 🔬 상해(S·T·V·W·X·Y)와 M의 상관관계
+- 후유장해·손해사정 · S↔M 코드 전환 · 외인코드 결합
+
+##### 🚗 자동차보험 및 보상 실무
+- 자상vs자신 · 산재경합 · 과실시뮬레이션 통합
+
+##### 🛡️ 기본보험상담 (자동차·화재·운전자·일상생활배상책임)
+- 4대 기본보험 통합 설계
+
+##### 🏥 질병·상해 통합보험 상담
+- 암·뇌·심장 3대질병 · 간병·치매 설계
+
+##### 🎗️ 암·뇌·심장질환 상담
+- NGS·표적항암·면역항암·CAR-T 보장 실무
+
+##### 🚗 자동차사고 상담 과실비율
+- 과실비율·합의금 · 13대 중과실·민식이법
+
+##### 🔄 LIFE CYCLE 백지설계
+- 인생 타임라인 시각화 · 생존·상해·결혼·퇴직·노후
+""")
+
+        with _pf_c3:
+            st.markdown("""
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#78350f,#d97706);
+  border:2px solid #f59e0b;box-shadow:0 8px 32px rgba(217,119,6,0.30);
+  position:relative;overflow:hidden;">
+  <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
+    border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+  <div style="font-size:0.7rem;font-weight:900;color:#fde68a;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;">C SECTION</div>
+  <div class="gk-pf-title" style="color:#fff;">💼 Wealth &amp;<br>Corporate</div>
+  <div class="gk-pf-sub" style="color:#fde68a;">
+    노후·연금·상속 · 세무 · 법인<br>CEO · 비상장주식 · 화재·배상
+  </div>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 7개 핵심 서비스</span>
+</div>""", unsafe_allow_html=True)
+            with st.expander("📂 C섹션 · 상세 서비스 목록 보기"):
+                st.markdown("""
+##### 🌅 노후 연금·상속설계
+- 연금 3층 설계 · 주택연금 · 상속·증여 절세 전략
+
+##### 📊 세무상담 소득세·법인세·금융소득분석
+- 절세 전략 · 건보료 역산 · 금융소득 분리과세
+
+##### 👔 CEO플랜 — 비상장주식 약식 평가 & 법인 재무분석
+- 가업승계 · CEO 퇴직금 · 경영권 방어 전략
+
+##### 📈 비상장주식 평가 (상증법·법인세법)
+- 순자산·순손익 가중평균 · 경영권 할증 20%
+
+##### 🔥 화재보험 재조달가액 산출
+- REB 기준 건물 재조달가액 · 비례보상 방지
+
+##### ⚖️ 배상책임보험 상담
+- 중복보험 독립책임액 안분 · 민법·실화책임법
+
+##### 🏢 법인상담
+- 법인 보험 · 단체보험 설계 · 법인세 절감 · 복리후생
+""")
+
+        st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
+
+        # ── 하단 2열: D / E ─────────────────────────────────────────
+        _pf_d1, _pf_d2 = st.columns(2, gap="medium")
+
+        with _pf_d1:
+            st.markdown("""
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#881337,#e11d48);
+  border:2px solid #fb7185;box-shadow:0 8px 32px rgba(225,29,72,0.28);
+  position:relative;overflow:hidden;">
+  <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
+    border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+  <div style="font-size:0.7rem;font-weight:900;color:#fecdd3;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;">D SECTION</div>
+  <div class="gk-pf-title" style="color:#fff;">🌸 Life &amp; Care</div>
+  <div class="gk-pf-sub" style="color:#fecdd3;">
+    LIFE EVENT · 맞춤 보험 상담<br>부동산 투자 상담 · 간병비 컨설팅
+  </div>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 3개 핵심 서비스</span>
+</div>""", unsafe_allow_html=True)
+            with st.expander("📂 D섹션 · 상세 서비스 목록 보기"):
+                st.markdown("""
+##### 🎯 LIFE EVENT 상담
+- 인생 주요 이벤트별 보험 설계 · 출생·결혼·취업·은퇴 맞춤 컨설팅
+
+##### 🏘️ 부동산 투자 상담
+- 등기부등본·건축물대장 판독 · 투자수익 분석 · 보험 연계 설계
+- 취득세·종합부동산세·양도세 절세 전략
+
+##### 🏥 간병비 컨설팅
+- 치매·뇌졸중·요양병원 간병비 산출
+- 장기요양등급 · 간병보험 설계 · 간병인 비용 분석
+""")
+
+        with _pf_d2:
+            st.markdown("""
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#1f2937,#374151);
+  border:2px solid #6b7280;box-shadow:0 8px 32px rgba(55,65,81,0.35);
+  position:relative;overflow:hidden;">
+  <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
+    border-radius:50%;background:rgba(255,255,255,0.05);"></div>
+  <div style="font-size:0.7rem;font-weight:900;color:#9ca3af;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;">E SECTION</div>
+  <div class="gk-pf-title" style="color:#fff;">🔍 보상 정보<br>시뮬레이션 가이드</div>
+  <div class="gk-pf-sub" style="color:#d1d5db;">
+    교통사고·산재·일반상해 보상 정보<br>KCD-8 매핑 · 전문가 지원 센터
+  </div>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.12);color:#e5e7eb;">📦 통합 시뮬레이션 가이드</span>
+</div>""", unsafe_allow_html=True)
+            with st.expander("📂 E섹션 · 상세 서비스 목록 보기"):
+                st.markdown("""
+##### ⚖️ 보상 정보 시뮬레이션 가이드
+- 교통사고/산재 → 맥브라이드(McBride) 기준 장해 산정
+- 일반상해/질병 → AMA 장해지급률 기준
+- KCD-8 코드 자동 매핑
+
+##### 🚗 교통사고 보상 가이드
+- 대인·대물·자동차상해 보상 체계 · 과실상계 계산
+
+##### 🏭 산재 보상 가이드
+- 근로복지공단 신청 절차 · 휴업급여·장해급여 산정
+
+##### 🩹 일반상해 보상 가이드
+- 상해보험금 청구 · KCD-8 코드 연계 분석
+
+##### 👨‍⚕️ 전문가 지원 센터
+- 손해사정사 · 의료자문 · 법률자문 연계
+""")
+
+        # ── 하단 안내문구 ─────────────────────────────────────────────
         st.markdown("""
-<div style="background:linear-gradient(90deg,#dbeafe,#eff6ff);
-  border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
-  display:flex;align-items:center;gap:10px;
-  box-shadow:0 2px 8px rgba(3,105,161,0.15);
-  border-left:4px solid #2563eb;border:1px solid #bfdbfe;">
-  <span style="font-size:1.2rem;">🔬</span>
-  <div>
-    <div style="color:#1e3a8a;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">A &nbsp;🛡️ Smart Analysis &amp; Hub</div>
-    <div style="color:#1d4ed8;font-size:0.72rem;margin-top:2px;">증권분석 · 약관검색 · 스캔허브 · 리플렛 · 고객자료</div>
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+  border:none;border-radius:14px;
+  padding:18px 28px;margin:22px 0 10px 0;
+  box-shadow:0 4px 20px rgba(26,58,92,0.22);
+  text-align:center;">
+  <div style="font-size:1.1rem;font-weight:900;color:#fff;line-height:1.6;">
+    💡 상세 컨설팅 및 AI 분석은 좌측 사이드바의 <span style="color:#fbbf24;">28개 전문 섹션</span>에서 즉시 시작하실 수 있습니다.
+  </div>
+  <div style="font-size:0.82rem;color:#93c5fd;margin-top:6px;">
+    Smart Analysis · Expert Consulting · Wealth &amp; Corporate · Life &amp; Care · 보상 시뮬레이션
   </div>
 </div>""", unsafe_allow_html=True)
-        _render_cards([
-            ("policy_scan",       "📎", "보험증권 AI 분석",      "증권 PDF 업로드 · 담보 자동파싱 · 보장공백 진단"),
-            ("policy_terms",      "📜", "보험약관 AI 검색",      "공시실 실시간 탐색 · 가입시점 정확매칭 · 딥러닝 약관 검색"),
-            ("scan_hub",          "🔬", "통합 스캔 허브",        "증권·의무기록·진단서 1회 업로드 → 전탭 자동활용"),
-            ("leaflet",           "🗂️", "보험 리플렛 AI 분류",   "리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 저장"),
-            ("consult_catalog",   "📖", "상담 카탈로그 열람",    "내가 올린 카탈로그 · PDF/이미지 뷰어 · 보험사별 분류"),
-            ("digital_catalog",   "📱", "디지털 카탈로그 관리",  "보험사 카탈로그 업로드·AI분류 · Public/Private 저장"),
-            ("customer_docs",     "👤", "고객자료 통합저장",     "의무기록·증권분석·청구서류 · 고객별 통합 RAG 저장"),
-        ], "home_grpA")
-
-        # ── 도메인 B: Expert Consulting (에메랄드그린) ─────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(90deg,#d1fae5,#ecfdf5);
-  border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
-  display:flex;align-items:center;gap:10px;
-  box-shadow:0 2px 8px rgba(5,150,105,0.15);
-  border-left:4px solid #059669;border:1px solid #a7f3d0;">
-  <span style="font-size:1.2rem;">🌏</span>
-  <div>
-    <div style="color:#064e3b;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">B &nbsp;🛡️ Expert Consulting</div>
-    <div style="color:#065f46;font-size:0.72rem;margin-top:2px;">신규/보험금 상담 · 장해 · 자동차사고 · 암·뇌·심장 · LIFE CYCLE</div>
-  </div>
-</div>""", unsafe_allow_html=True)
-        _render_cards([
-            ("t0",          "📋", "신규보험 상담",        "기존 보험증권 분석 · 보장 공백 진단 · 신규 컨설팅"),
-            ("injury",      "🚑", "상해 통합 관리",       "사고 유형 자동 분류 · 소득보전 역산 · Gap 시각화\n치료→장해→소득→사망 생애 전 흐름 One-Stop"),
-            ("t1",          "💰", "보험금 상담",          "청구 절차 · 지급 거절 대응\n민원·손해사정·약관 해석"),
-            ("disability",  "🩺", "장해보험금 산출",      "AMA·맥브라이드·호프만계수 후유장해 보험금 산출"),
-            ("kcd_injury",  "🔬", "상해(S·T·V·W·X·Y)와 M의 상관관계", "후유장해·손해사정 · S↔M 코드 전환 논리 · 외인코드 결합 실무"),
-            ("auto_comp",   "🚗", "자동차보험 및 보상 실무",  "자상vs자신·산재경합·과실시뮬레이션 · 캠핑카·영구장해·사망 보상 통합"),
-            ("t2",          "🛡️", "기본보험 상담",        "자동차·화재·운전자 · 일상배상책임 점검"),
-            ("t3",          "🏥", "질병·상해 통합보험",   "암·뇌·심장 3대질병 보장 · 간병·치매·생명보험 설계"),
-            ("cancer",      "🎗️", "암·뇌·심장질환 상담", "NGS·표적항암·면역항암·CAR-T 뇌심장 보장 실무 분석"),
-            ("t4",          "🚗", "자동차사고 상담",      "과실비율·합의금 분석 · 13대 중과실·민식이법 안내"),
-            ("life_cycle",  "🔄", "LIFE CYCLE 백지설계", "인생 타임라인 시각화 · 생존·상해·결혼·퇴직·노후 설계도"),
-        ], "home_grpB")
-
-        # ── 도메인 C: Wealth & Corporate (골드/네이비) ──────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(90deg,#fef3c7,#fffbeb);
-  border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
-  display:flex;align-items:center;gap:10px;
-  box-shadow:0 2px 8px rgba(180,120,0,0.15);
-  border-left:4px solid #d97706;border:1px solid #fde68a;">
-  <span style="font-size:1.2rem;">🏆</span>
-  <div>
-    <div style="color:#78350f;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">C &nbsp;💼 Wealth &amp; Corporate</div>
-    <div style="color:#92400e;font-size:0.72rem;margin-top:2px;">노후·연금·상속 · 세무 · 법인 · CEO · 비상장주식 · 화재·배상</div>
-  </div>
-</div>""", unsafe_allow_html=True)
-        _render_cards([
-            ("t5",          "🌅", "노후·연금·상속설계",  "연금 3층 설계 · 주택연금 · 상속·증여 절세 전략"),
-            ("t6",          "📊", "세무상담",            "소득세·법인세·부가세 절세 · 건보료 역산 · 금융소득 분석"),
-            ("t7",          "🏢", "법인상담",            "법인 보험 · 단체보험 설계 · 법인세 절감 · 복리후생 플랜"),
-            ("t8",          "👔", "CEO플랜",             "비상장주식 평가(상증법) · 가업승계 · CEO 퇴직금 설계"),
-            ("stock_eval",  "📈", "비상장주식 평가",     "순자산·순손익 가중평균 · 경영권 할증 · 법인세법 시가"),
-            ("fire",        "🔥", "화재보험(재조달가액)", "REB 기준 건물 재조달가액 · 비례보상 방지 전략"),
-            ("liability",   "⚖️", "배상책임보험",        "중복보험 독립책임액 안분 · 민법·실화책임법 정리"),
-        ], "home_grpC")
-
-        # ── 도메인 D: Life & Care (오렌지/테라코타) ────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(90deg,#ffedd5,#fff7ed);
-  border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
-  display:flex;align-items:center;gap:10px;
-  box-shadow:0 2px 8px rgba(194,65,12,0.15);
-  border-left:4px solid #ea580c;border:1px solid #fed7aa;">
-  <span style="font-size:1.2rem;">🌱</span>
-  <div>
-    <div style="color:#7c2d12;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">D &nbsp;🌸 Life &amp; Care</div>
-    <div style="color:#9a3412;font-size:0.72rem;margin-top:2px;">LIFE EVENT · 부동산 투자 · 간병비 컨설팅</div>
-  </div>
-</div>""", unsafe_allow_html=True)
-        _render_cards([
-            ("life_event",  "🎯", "LIFE EVENT 상담",  "인생 주요 이벤트별 보험 설계 · 출생·결혼·취업·은퇴 맞춤 컨설팅"),
-            ("realty",      "🏘️", "부동산 투자 상담", "등기부등본·건축물대장 판독 · 투자수익 분석 · 보험 연계 설계"),
-            ("nursing",     "🏥", "간병비 컨설팅",   "치매·뇌졸중·요양병원 간병비 산출 · 장기요양등급 · 간병보험 설계"),
-        ], "home_grpD")
-
-
-        # ── 도메인 E: 보상 전문 상담 (레드/다크레드) ─────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(90deg,#fef2f2,#fff5f5);
-  border-radius:10px;padding:9px 18px;margin:18px 0 10px 0;
-  display:flex;align-items:center;gap:10px;
-  box-shadow:0 2px 8px rgba(185,28,28,0.12);
-  border-left:4px solid #dc2626;border:1px solid #fecaca;">
-  <span style="font-size:1.2rem;">⚖️</span>
-  <div>
-    <div style="color:#7f1d1d;font-size:0.95rem;font-weight:900;letter-spacing:0.04em;">E &nbsp;🔍 보상 정보 시뮬레이션 가이드</div>
-    <div style="color:#991b1b;font-size:0.72rem;margin-top:2px;">교통사고·산재·일반상해 보상 정보 · KCD-8 매핑 · 전문가 지원 센터</div>
-  </div>
-</div>""", unsafe_allow_html=True)
-        _render_cards([
-            ("compensation", "🔑", "보상 정보 시뮬레이션 가이드",
-             "교통사고/산재 → 맥브라이드 기준 · 일반상해 → AMA 기준\nKCD-8 코드 자동 매핑 · 전문가 지원 센터 바로걸기"),
-        ], "home_grpE")
 
         st.divider()
         if st.session_state.get('is_admin'):

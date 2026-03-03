@@ -1,4 +1,4 @@
-import ast, sys
+import ast, sys, traceback
 
 result_path = 'D:/CascadeProjects/_syntax_result.txt'
 src_path    = 'D:/CascadeProjects/app.py'
@@ -11,9 +11,8 @@ try:
 except SyntaxError as e:
     msg = f'SyntaxError line {e.lineno}: {e.msg}\n  >>> {repr(e.text)}\n'
 except Exception as e:
-    msg = f'Error: {e}\n'
+    msg = f'Error: {traceback.format_exc()}\n'
 
 with open(result_path, 'w', encoding='utf-8') as out:
     out.write(msg)
-
-print(msg, end='')
+sys.exit(0)
