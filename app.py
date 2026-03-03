@@ -9865,7 +9865,12 @@ setTimeout(function(){
         st.stop()
 
     # ── 메인 영역 — current_tab 라우팅 ───────────────────────────────────
-    st.markdown("""
+    _is_splashing = (
+        st.session_state.get("current_tab", "intro") == "intro"
+        and not st.session_state.get("_splash_done", False)
+    )
+    if not _is_splashing:
+        st.markdown("""
 <div style="font-size:clamp(2.4rem,8vw,4.2rem);font-weight:900;letter-spacing:-0.02em;
 line-height:1.05;color:#0f172a;padding:2px 0 12px 0;
 font-family:'Noto Sans KR',Malgun Gothic,sans-serif;">
@@ -11173,12 +11178,11 @@ window['startTTS_{tab_key}']=function(){{
         if "_splash_start" not in st.session_state:
             st.session_state["_splash_start"] = _time_sp.time()
 
-        _elapsed_sp  = _time_sp.time() - st.session_state["_splash_start"]
-        _remain_sp   = max(0, _SPLASH_SEC - int(_elapsed_sp))
-        _pct_sp      = max(0, 100 - int(_elapsed_sp / _SPLASH_SEC * 100))
+        _elapsed_sp = _time_sp.time() - st.session_state["_splash_start"]
+        _remain_sp  = max(0, _SPLASH_SEC - int(_elapsed_sp))
+        _pct_sp     = max(0, 100 - int(_elapsed_sp / _SPLASH_SEC * 100))
 
-        # ── "바로 시작" 버튼 (Streamlit native — iframe 제약 없음) ─────
-        # hidden placeholder: 버튼 클릭 시 즉시 스플래시 종료
+        # ── "바로 시작" 버튼 — Streamlit 버튼으로 스플래시 종료 ───────
         _skip_col1, _skip_col2, _skip_col3 = st.columns([1, 2, 1])
         with _skip_col2:
             if st.button("▶ 바로 시작하기", key="splash_skip_btn",
@@ -11188,80 +11192,88 @@ window['startTTS_{tab_key}']=function(){{
                 _go_tab("home")
                 st.rerun()
 
-        # ── 스플래시 HTML (전체화면, 버튼 위에 오버레이) ────────────
-        import streamlit.components.v1 as _splash_comp_v1
-        _splash_comp_v1.html(f"""
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+        # ── position:fixed 전체화면 오버레이 — Streamlit UI 전체 덮기 ─
+        # st.markdown으로 주입 시 부모 페이지 DOM에 직접 삽입되어
+        # Streamlit 헤더/사이드바/제목 모두 덮음
+        st.markdown(f"""
 <style>
-*{{margin:0;padding:0;box-sizing:border-box;}}
-html,body{{width:100%;height:100%;background:#0a1628;overflow:hidden;}}
-#splash{{
-  position:relative;width:100%;height:100vh;
-  display:flex;align-items:stretch;
-  background:#0a1628;
+/* Streamlit 기본 요소 전부 숨김 */
+#gk-splash-overlay ~ * {{ visibility: hidden !important; }}
+header[data-testid="stHeader"] {{ visibility: hidden !important; }}
+section[data-testid="stSidebar"] {{ visibility: hidden !important; }}
+.stMainBlockContainer {{ visibility: hidden !important; }}
+/* 스플래시 오버레이 */
+#gk-splash-overlay {{
+  position: fixed !important;
+  top: 0 !important; left: 0 !important;
+  width: 100vw !important; height: 100vh !important;
+  z-index: 999999 !important;
+  background: #0a1628;
+  display: flex !important;
+  align-items: stretch !important;
+  overflow: hidden;
 }}
-/* 세로형 — 모바일 기본 */
-#img-p{{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;}}
-/* 가로형 — 태블릿/가로 */
-#img-l{{width:100%;height:100%;object-fit:cover;object-position:center;display:none;}}
+#gk-sp-img-p {{
+  width:100%;height:100%;object-fit:cover;
+  object-position:center top;display:block;
+  position:absolute;top:0;left:0;
+}}
+#gk-sp-img-l {{
+  width:100%;height:100%;object-fit:cover;
+  object-position:center;display:none;
+  position:absolute;top:0;left:0;
+}}
 @media (orientation:landscape) and (min-width:600px){{
-  #img-p{{display:none;}}
-  #img-l{{display:block;}}
+  #gk-sp-img-p {{ display:none !important; }}
+  #gk-sp-img-l {{ display:block !important; }}
 }}
-/* 하단 그라디언트 오버레이 */
-#overlay{{
+#gk-sp-overlay {{
   position:absolute;bottom:0;left:0;width:100%;
-  padding:14px 16px 20px 16px;
-  background:linear-gradient(to top,rgba(0,0,0,0.80) 0%,transparent 100%);
-  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:18px 20px 36px 20px;
+  background:linear-gradient(to top,rgba(0,0,0,0.85) 0%,transparent 100%);
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  z-index:1000000;
 }}
-#bar-bg{{
-  width:88%;max-width:380px;height:5px;
+#gk-sp-bar-bg {{
+  width:88%;max-width:400px;height:6px;
   background:rgba(255,255,255,0.22);border-radius:3px;overflow:hidden;
 }}
-#bar{{
+#gk-sp-bar {{
   height:100%;width:{_pct_sp}%;
   background:linear-gradient(90deg,#f0c040,#fbbf24);
-  border-radius:3px;
-  transition:width 1s linear;
+  border-radius:3px;transition:width 1s linear;
 }}
-#ctxt{{
-  font-size:0.88rem;font-weight:700;color:rgba(255,255,255,0.88);
-  letter-spacing:0.05em;
+#gk-sp-txt {{
+  font-size:0.9rem;font-weight:700;
+  color:rgba(255,255,255,0.88);letter-spacing:0.05em;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 }}
 </style>
-</head>
-<body>
-<div id="splash">
-  <img id="img-p" src="{_phone_src_sp}"  alt="splash" />
-  <img id="img-l" src="{_tablet_src_sp}" alt="splash" />
-  <div id="overlay">
-    <div id="bar-bg"><div id="bar"></div></div>
-    <div id="ctxt">잠시 후 자동 시작됩니다 &nbsp;·&nbsp; <span id="num">{_remain_sp}</span>초</div>
+<div id="gk-splash-overlay">
+  <img id="gk-sp-img-p" src="{_phone_src_sp}"  alt="" />
+  <img id="gk-sp-img-l" src="{_tablet_src_sp}" alt="" />
+  <div id="gk-sp-overlay">
+    <div id="gk-sp-bar-bg"><div id="gk-sp-bar"></div></div>
+    <div id="gk-sp-txt">잠시 후 자동으로 시작됩니다 &nbsp;·&nbsp; <span id="gk-sp-num">{_remain_sp}</span>초</div>
   </div>
 </div>
 <script>
-var remain = {_remain_sp};
-var bar = document.getElementById('bar');
-var numEl = document.getElementById('num');
-var total = {_SPLASH_SEC};
-function tick() {{
-  if(remain <= 0) return;
-  remain--;
-  numEl.textContent = remain;
-  bar.style.width = Math.max(0,(remain/total*100)) + '%';
-  if(remain > 0) setTimeout(tick, 1000);
-}}
-setTimeout(tick, 1000);
+(function(){{
+  var remain = {_remain_sp};
+  var bar = document.getElementById('gk-sp-bar');
+  var numEl = document.getElementById('gk-sp-num');
+  var total = {_SPLASH_SEC};
+  function tick() {{
+    if(remain <= 0) return;
+    remain--;
+    if(numEl) numEl.textContent = remain;
+    if(bar) bar.style.width = Math.max(0, remain/total*100) + '%';
+    if(remain > 0) setTimeout(tick, 1000);
+  }}
+  setTimeout(tick, 1000);
+}})();
 </script>
-</body>
-</html>
-""", height=600, scrolling=False)
+""", unsafe_allow_html=True)
 
         # ── 10초 경과 시 자동으로 홈으로 이동 ────────────────────────
         if _elapsed_sp >= _SPLASH_SEC:
@@ -11270,7 +11282,6 @@ setTimeout(tick, 1000);
             _go_tab("home")
             st.rerun()
         else:
-            # 1초마다 rerun하여 카운트다운 갱신
             _time_sp.sleep(1)
             st.rerun()
         st.stop()
