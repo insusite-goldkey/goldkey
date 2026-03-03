@@ -6909,7 +6909,7 @@ html,body{{width:100%;height:100%;overflow:hidden;background:#060d1a;}}
 <script>
 (function(){{
   var MSGS  = [{_spl_msgs_js}];
-  var TOTAL = 5000;
+  var TOTAL = 3000;
   var ov    = document.getElementById('sp');
 
   // 방향 감지
@@ -6931,14 +6931,29 @@ html,body{{width:100%;height:100%;overflow:hidden;background:#060d1a;}}
   }}
   setTimeout(tick, 200);
 
-  // 페이드아웃 후 iframe 자체를 숨김
-  setTimeout(function(){{
-    ov.style.opacity = '0';
-    setTimeout(function(){{
-      // iframe 전체를 display:none (부모 Streamlit이 height=0이므로 자연스럽게 사라짐)
+  // 스플래시 완전 제거 함수 — 검은 박스 방지
+  function _removeSplash(){{
+    try{{
+      ov.style.opacity = '0';
+      ov.style.pointerEvents = 'none';
+      setTimeout(function(){{
+        document.body.style.display = 'none';
+        document.body.style.visibility = 'hidden';
+        // iframe 부모에서도 숨김 처리
+        try{{
+          var fr = window.frameElement;
+          if(fr){{fr.style.display='none';fr.style.height='0';fr.style.visibility='hidden';}}
+        }}catch(e){{}}
+      }}, 800);
+    }}catch(e){{
       document.body.style.display = 'none';
-    }}, 950);
-  }}, TOTAL);
+    }}
+  }}
+
+  // 정상 타이머
+  setTimeout(_removeSplash, TOTAL);
+  // 안전장치: 최대 6초 후 강제 제거 (네트워크 지연 대비)
+  setTimeout(_removeSplash, 6000);
 }})();
 </script>
 </body>
