@@ -6,8 +6,9 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useCustomerStore, selCustomerList } from '../store/customerStore';
+import { useCustomerStore, selCustomerList, selIsAgent } from '../store/customerStore';
 import AvatarImage from '../components/AvatarImage';
+import ExportPanel from '../components/ExportPanel';
 import {
   Alert,
   Animated,
@@ -37,7 +38,7 @@ import SilsonBadge from '../components/SilsonBadge';
 import { useDeviceLayout } from '../utils/deviceCheck';
 import { runWatchdog } from '../utils/SystemWatchdog';
 
-const TAB = { TODO: 'todo', CUSTOMER: 'customer', CUSTOMERS: 'customers' };
+const TAB = { TODO: 'todo', CUSTOMER: 'customer', CUSTOMERS: 'customers', EXPORT: 'export' };
 const CUSTOMER_TAB = { BASIC: 'basic', COVERAGE: 'coverage' };
 
 // ── Toast 컴포넌트 (다크 네이비, 100% 달성용) ─────────────────────────────────
@@ -134,7 +135,9 @@ const Dashboard = () => {
   const { isTablet, isLegacyDevice, contentPadding, sidebarWidth, mainWidth } = useDeviceLayout();
 
   // ── SSOT 고객 목록 + 프로필 이동 ────────────────────────────────────────
-  const customerList = useCustomerStore(selCustomerList);
+  const customerList    = useCustomerStore(selCustomerList);
+  const isAgent         = useCustomerStore(selIsAgent);
+  const userRole        = useCustomerStore((s) => s.userRole);
   const openProfile  = useCustomerStore((s) => s.openProfile);
   const openScheduleModal = useCustomerStore((s) => s.openScheduleModal);
 
@@ -221,6 +224,7 @@ const Dashboard = () => {
         </TouchableOpacity>
       ))}
       <View style={{ height: 30 }} />
+      <ExportPanel userRole={userRole} />
     </ScrollView>
   );
 
@@ -359,9 +363,15 @@ const Dashboard = () => {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <View style={styles.headerBrand}>
-            <AvatarImage mode="logo" size={36} />
-            <Text style={styles.headerTitle}>골드키 CRM</Text>
+          <View style={styles.headerRow}>
+            <View style={styles.headerBrand}>
+              <AvatarImage mode="logo" size={36} />
+              <Text style={styles.headerTitle}>골드키 CRM</Text>
+            </View>
+            {/* 설계사 전용: 백업 버튼 compact */}
+            {isAgent && (
+              <ExportPanel userRole={userRole} compact />
+            )}
           </View>
           <Text style={styles.headerSub}>AI 보험 영업 대시보드 · 태블릿 모드</Text>
         </View>
@@ -371,7 +381,7 @@ const Dashboard = () => {
             <View style={styles.tabRow}>
               {[
                 { key: TAB.TODO,      label: '📋 업무' },
-                { key: TAB.CUSTOMERS, label: '� 고객' },
+                { key: TAB.CUSTOMERS, label: '👥 고객' },
                 { key: TAB.CUSTOMER,  label: '📐 분석' },
               ].map(({ key, label }) => (
                 <TouchableOpacity key={key}
@@ -402,17 +412,24 @@ const Dashboard = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <View style={styles.headerBrand}>
-          <AvatarImage mode="logo" size={34} />
-          <Text style={styles.headerTitle}>골드키 CRM</Text>
+        <View style={styles.headerRow}>
+          <View style={styles.headerBrand}>
+            <AvatarImage mode="logo" size={34} />
+            <Text style={styles.headerTitle}>골드키 CRM</Text>
+          </View>
+          {/* 설계사 전용: 백업 버튼 compact */}
+          {isAgent && (
+            <ExportPanel userRole={userRole} compact />
+          )}
         </View>
         <Text style={styles.headerSub}>AI 보험 영업 대시보드</Text>
       </View>
       <View style={styles.tabRow}>
         {[
           { key: TAB.TODO,      label: '📋 업무' },
-          { key: TAB.CUSTOMERS, label: '� 고객' },
+          { key: TAB.CUSTOMERS, label: '👥 고객' },
           { key: TAB.CUSTOMER,  label: '📐 분석' },
+          ...(isAgent ? [{ key: TAB.EXPORT, label: '☁️ 백업' }] : []),
         ].map(({ key, label }) => (
           <TouchableOpacity key={key}
             onPress={() => { setActiveTab(key); Keyboard.dismiss(); }}
@@ -426,6 +443,11 @@ const Dashboard = () => {
         {activeTab === TAB.TODO      && renderTodoTab()}
         {activeTab === TAB.CUSTOMERS && renderCustomersTab()}
         {activeTab === TAB.CUSTOMER  && renderCustomerTab()}
+        {activeTab === TAB.EXPORT    && isAgent && (
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <ExportPanel userRole={userRole} />
+          </ScrollView>
+        )}
       </View>
       <SuccessToast visible={showToast} />
     </SafeAreaView>
@@ -456,7 +478,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e3a5f',
     paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14,
   },
-  headerBrand: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2 },
+  headerRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  headerBrand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerTitle: { fontSize: 20, fontWeight: '900', color: '#ffd700', letterSpacing: 0.5 },
   headerSub:   { fontSize: 12, color: '#93c5fd', marginTop: 2 },
 

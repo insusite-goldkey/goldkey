@@ -87,6 +87,7 @@ const asyncStorageAdapter = createJSONStorage(() => AsyncStorage);
 const TRANSIENT_KEYS = [
   'activeProfileId', 'activeScanId',
   'scheduleModal', 'scanLoading',
+  // userRole은 persist 포함 (로그인 유지)
 ];
 
 // ── 스토어 ────────────────────────────────────────────────────────────────────
@@ -359,6 +360,18 @@ export const useCustomerStore = create(
   /** AI 분석 완료/오류 시 호출 → PremiumLoadingUI 숨김 */
   stopScanLoading: () =>
     set({ scanLoading: { active: false, customerId: null } }),
+
+  // ── 사용자 권한 (AGENT / CLIENT) ────────────────────────────────
+  /**
+   * userRole: 'AGENT' | 'CLIENT'
+   * - 'AGENT': 설계사 — 모든 기능 접근 가능
+   * - 'CLIENT': 고객 — 내보내기/스토어 관리 기능 완전 숨김
+   *
+   * 기본값: 'AGENT' (현재 시늬 외부 Auth 없음)
+   * Firebase Auth 연동 시: 로그인 후 setUserRole() 호출
+   */
+  userRole: 'AGENT',
+  setUserRole: (role) => set({ userRole: role }),
   }),
   {
     name: 'goldkey-crm-store',          // AsyncStorage 키
@@ -439,3 +452,9 @@ export const selTrashCount = (s) =>
   selTrashCustomers(s).length +
   selTrashSchedules(s).length +
   selTrashScans(s).length;
+
+/** 사용자 권한 */
+export const selUserRole = (s) => s.userRole ?? 'AGENT';
+
+/** 설계사 여부 — ExportPanel 등 조건부 렌더링에 사용 */
+export const selIsAgent  = (s) => (s.userRole ?? 'AGENT') === 'AGENT';
