@@ -35,6 +35,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import AvatarImage from './AvatarImage';
 
 // ── 다이내믹 메시지 배열 ──────────────────────────────────────────────────────
 const LOADING_MESSAGES = [
@@ -213,10 +214,12 @@ const PremiumLoadingUI = ({ isVisible, avatarUri }) => {
                 resizeMode="cover"
               />
             ) : (
-              /* 이미지 없을 때 fallback */
-              <View style={styles.avatarFallback}>
-                <Text style={styles.avatarFallbackText}>🔑</Text>
-              </View>
+              /* 이미지 없을 때: 골드키 AI 아바타 */
+              <AvatarImage
+                mode="ai"
+                size={AVATAR_SIZE}
+                style={{ borderRadius: AVATAR_SIZE / 2 }}
+              />
             )}
           </Animated.View>
         </View>
@@ -295,7 +298,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#1e3a5f',
   },
-  avatarFallbackText: { fontSize: 56 },
 
   // 타이틀
   titleText: {

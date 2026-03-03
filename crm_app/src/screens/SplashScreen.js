@@ -24,6 +24,7 @@ import {
   View,
 } from 'react-native';
 import { useCrmStore } from '../store/crmStore'; // getState() 전용 — hook 미사용
+import AvatarImage from '../components/AvatarImage';
 
 // ── 스플래시 이미지 경로 ─────────────────────────────────────────────────────
 // assets/splash_goldkey.png 또는 .jpg 를 프로젝트 루트 기준으로 배치하세요.
@@ -102,9 +103,15 @@ const SplashScreen = ({ onFinish }) => {
         /* ── 이미지 없을 때: 순백 + 골드 로고 텍스트 fallback ── */
         <View style={styles.fallbackBg}>
           <View style={styles.logoWrap}>
-            <Text style={styles.logoKey}>🔑</Text>
+            <AvatarImage
+              mode="ai"
+              size={100}
+              borderColor="#f0c040"
+              borderWidth={3}
+              style={styles.splashAvatar}
+            />
             <Text style={styles.logoTitle}>GOLDKEY</Text>
-            <Text style={styles.logoSub}>AI 보험컨설팅 플랫폼</Text>
+            <Text style={styles.logoSubText}>AI 보험컨설팅 플랫폼</Text>
           </View>
           <View style={styles.taglineWrap}>
             <Text style={styles.tagline}>설계사의 성공을 설계합니다.</Text>
@@ -149,9 +156,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 60,
   },
-  logoKey: {
-    fontSize:   72,
-    marginBottom: 16,
+  splashAvatar: {
+    marginBottom: 20,
+    shadowColor:  '#f0c040',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius:  16,
+    elevation:     10,
   },
   logoTitle: {
     fontSize:    36,
@@ -160,6 +171,13 @@ const styles = StyleSheet.create({
     letterSpacing: 6,
   },
   logoSub: {
+    fontSize:   14,
+    fontWeight: '600',
+    color:      '#64748b',
+    marginTop:  8,
+    letterSpacing: 1,
+  },
+  logoSubText: {
     fontSize:   14,
     fontWeight: '600',
     color:      '#64748b',

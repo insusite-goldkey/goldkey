@@ -7,6 +7,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useCustomerStore, selCustomerList } from '../store/customerStore';
+import AvatarImage from '../components/AvatarImage';
 import {
   Alert,
   Animated,
@@ -183,9 +184,12 @@ const Dashboard = () => {
           onPress={() => openProfile(c.id)}
           activeOpacity={0.75}
         >
-          <View style={[styles.custAvatar, c.registered ? styles.custAvatarReg : styles.custAvatarUnreg]}>
-            <Text style={styles.custAvatarText}>{c.name?.charAt(0) || '?'}</Text>
-          </View>
+          <AvatarImage
+            mode="initial"
+            size={44}
+            initial={c.name?.charAt(0) || '?'}
+            registered={c.registered}
+          />
           <View style={{ flex: 1 }}>
             <Text style={styles.custName}>{c.name}</Text>
             <Text style={styles.custSub} numberOfLines={1}>
@@ -355,7 +359,10 @@ const Dashboard = () => {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>🔑 골드키 CRM</Text>
+          <View style={styles.headerBrand}>
+            <AvatarImage mode="logo" size={36} />
+            <Text style={styles.headerTitle}>골드키 CRM</Text>
+          </View>
           <Text style={styles.headerSub}>AI 보험 영업 대시보드 · 태블릿 모드</Text>
         </View>
         <View style={styles.tabletBody}>
@@ -395,7 +402,10 @@ const Dashboard = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🔑 골드키 CRM</Text>
+        <View style={styles.headerBrand}>
+          <AvatarImage mode="logo" size={34} />
+          <Text style={styles.headerTitle}>골드키 CRM</Text>
+        </View>
         <Text style={styles.headerSub}>AI 보험 영업 대시보드</Text>
       </View>
       <View style={styles.tabRow}>
@@ -446,6 +456,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e3a5f',
     paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14,
   },
+  headerBrand: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2 },
   headerTitle: { fontSize: 20, fontWeight: '900', color: '#ffd700', letterSpacing: 0.5 },
   headerSub:   { fontSize: 12, color: '#93c5fd', marginTop: 2 },
 

@@ -27,6 +27,7 @@ import {
   selSchedules,
   selScansByCustomer,
 } from '../store/customerStore';
+import AvatarImage from '../components/AvatarImage';
 
 const DOC_TYPE_LABEL = {
   diagnosis:           { label: '진단서',    color: '#3b82f6', bg: '#dbeafe' },
@@ -141,14 +142,14 @@ const CustomerProfileView = () => {
           <View style={styles.profileCard}>
             {/* 아바타 + 이름 */}
             <View style={styles.avatarRow}>
-              <View style={[
-                styles.avatar,
-                customer.registered ? styles.avatarReg : styles.avatarUnreg,
-              ]}>
-                <Text style={styles.avatarText}>
-                  {customer.name?.charAt(0) || '?'}
-                </Text>
-              </View>
+              <AvatarImage
+                mode="initial"
+                size={60}
+                initial={customer.name?.charAt(0) || '?'}
+                registered={customer.registered}
+                borderColor={customer.registered ? '#f0c040' : '#94a3b8'}
+                borderWidth={2}
+              />
               <View style={{ flex: 1 }}>
                 {editMode ? (
                   <TextInput
@@ -499,7 +500,6 @@ const styles = StyleSheet.create({
   },
   avatarReg:   { backgroundColor: '#1e3a5f' },
   avatarUnreg: { backgroundColor: '#64748b' },
-  avatarText:  { fontSize: 24, fontWeight: '900', color: '#ffffff' },
 
   profileName:  { fontSize: 22, fontWeight: '900', color: '#1e293b', marginBottom: 4 },
   regBadge:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
