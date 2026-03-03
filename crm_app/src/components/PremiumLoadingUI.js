@@ -184,9 +184,14 @@ const PremiumLoadingUI = ({ isVisible, avatarUri }) => {
     return () => breathe.stop();
   }, [isVisible]);
 
+  // isVisible=false 시 Modal 자체를 언마운트 —
+  // Android 태블릿에서 Modal(transparent+animationType="fade") 조합이
+  // visible=false 상태에서도 검은 오버레이를 렌더하는 버그를 방지.
+  if (!isVisible) return null;
+
   return (
     <Modal
-      visible={isVisible}
+      visible
       transparent
       animationType="fade"
       statusBarTranslucent={Platform.OS === 'android'}

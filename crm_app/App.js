@@ -51,6 +51,15 @@ const RoutingGuard = () => {
   // 3단계: 휴지통 오버레이 상태 (로컬 — persist 불필요)
   const [trashOpen, setTrashOpen] = React.useState(false);
 
+  const stopScanLoading = useCustomerStore((s) => s.stopScanLoading);
+
+  useEffect(() => {
+    // 앱 시작 시 scanLoading 강제 초기화 —
+    // AsyncStorage 복원 타이밍에 active:true가 잔류하면
+    // PremiumLoadingUI(검은 오버레이)가 즉시 나타나는 버그 방지.
+    stopScanLoading();
+  }, []);
+
   // Dashboard 등 하위 컴포넌트에서 openTrash() 로 휴지통 오픈 가능
   useEffect(() => {
     _openTrashScreen = () => setTrashOpen(true);
