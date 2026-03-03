@@ -8,7 +8,7 @@
  *   → 앱 전체(달력, 검색창, 대시보드) 즉시 동기화
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -28,6 +28,8 @@ import {
   selScansByCustomer,
 } from '../store/customerStore';
 import AvatarImage from '../components/AvatarImage';
+import usePaginatedList from '../hooks/usePaginatedList';
+import useDataCache, { CACHE_KEYS, invalidateCache } from '../hooks/useDataCache';
 
 const DOC_TYPE_LABEL = {
   diagnosis:           { label: '진단서',    color: '#3b82f6', bg: '#dbeafe' },
@@ -321,55 +323,12 @@ const CustomerProfileView = () => {
             )}
           </View>
 
-          {/* ── 스캔 이력 섹션 (제2·3장 연동) ── */}
-          <View style={styles.scheduleSection}>
-            <View style={styles.scheduleSectionHeader}>
-              <Text style={styles.scheduleSectionTitle}>🔬 의료문서 스캔 이력</Text>
-              <View style={styles.scanBadge}>
-                <Text style={styles.scanBadgeText}>{scans.length}건</Text>
-              </View>
-            </View>
-
-            {scans.length === 0 ? (
-              <View style={styles.emptyScheduleWrap}>
-                <Text style={styles.emptyScheduleText}>
-                  {'스캔 이력이 없습니다.\nAI 분석 후 결과가 여기에 자동 표시됩니다.'}
-                </Text>
-              </View>
-            ) : (
-              scans.map((scan) => {
-                const meta = DOC_TYPE_LABEL[scan.docType] || DOC_TYPE_LABEL.other;
-                const dateStr = new Date(scan.scannedAt).toLocaleDateString('ko-KR');
-                return (
-                  <TouchableOpacity
-                    key={scan.id}
-                    style={styles.scanRow}
-                    onPress={() => openScanView(scan.id)}
-                    activeOpacity={0.75}
-                  >
-                    <View style={[styles.scanDocBadge, { backgroundColor: meta.bg }]}>
-                      <Text style={[styles.scanDocBadgeText, { color: meta.color }]}>
-                        {meta.label}
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.scanTitle} numberOfLines={1}>
-                        {scan.analysis?.summary
-                          ? scan.analysis.summary.slice(0, 36) + '…'
-                          : '분석 대기 중'}
-                      </Text>
-                      <Text style={styles.scanMeta}>
-                        {dateStr}
-                        {scan.masked ? '  ·  🛡️ PII 마스킹' : ''}
-                        {scan.status === 'error' ? '  ·  ⚠️ 오류' : ''}
-                      </Text>
-                    </View>
-                    <Text style={styles.custChevron}>›</Text>
-                  </TouchableOpacity>
-                );
-              })
-            )}
-          </View>
+          {/* ── 스캔 이력 섹션 (페이징 적용: 20건씩) ── */}
+          <ScanHistorySection
+            scans={scans}
+            customerId={activeId}
+            openScanView={openScanView}
+          />
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -424,6 +383,94 @@ const InfoRow2 = ({
     </View>
   </View>
 );
+
+// ── ScanHistorySection — 스캔 이력 (20건씩 페이징 + 30분 캐시) ───────────────
+const ScanHistorySection = ({ scans, customerId, openScanView }) => {
+  const PAGE_SIZE = 20;
+
+  // 30분 TTL 캐시: 동일 고객 프로필 재진입 시 서버 요청 0
+  const { data: cachedScans } = useDataCache(
+    CACHE_KEYS.scans(customerId),
+    () => Promise.resolve(scans),  // Firebase 연동 시 Firestore 쿼리로 교체
+    { ttl: 30 * 60 * 1000, enabled: !!customerId },
+  );
+
+  // 캐시 데이터 우선, 없으면 props fallback
+  const sourceScans = cachedScans ?? scans;
+
+  const scanPager = usePaginatedList(sourceScans, {
+    pageSize: PAGE_SIZE,
+    sortFn:   (a, b) => (a.scannedAt > b.scannedAt ? -1 : 1),
+    key:      customerId,
+  });
+
+  return (
+    <View style={styles.scheduleSection}>
+      <View style={styles.scheduleSectionHeader}>
+        <Text style={styles.scheduleSectionTitle}>🔬 의료문서 스캔 이력</Text>
+        <View style={styles.scanBadge}>
+          <Text style={styles.scanBadgeText}>{scanPager.totalCount}건</Text>
+        </View>
+      </View>
+
+      {scanPager.totalCount === 0 ? (
+        <View style={styles.emptyScheduleWrap}>
+          <Text style={styles.emptyScheduleText}>
+            {'스캔 이력이 없습니다.\nAI 분석 후 결과가 여기에 자동 표시됩니다.'}
+          </Text>
+        </View>
+      ) : (
+        <>
+          {scanPager.items.map((scan) => {
+            const meta    = DOC_TYPE_LABEL[scan.docType] || DOC_TYPE_LABEL.other;
+            const dateStr = new Date(scan.scannedAt).toLocaleDateString('ko-KR');
+            return (
+              <TouchableOpacity
+                key={scan.id}
+                style={styles.scanRow}
+                onPress={() => openScanView(scan.id)}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.scanDocBadge, { backgroundColor: meta.bg }]}>
+                  <Text style={[styles.scanDocBadgeText, { color: meta.color }]}>
+                    {meta.label}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.scanTitle} numberOfLines={1}>
+                    {scan.analysis?.summary
+                      ? scan.analysis.summary.slice(0, 36) + '…'
+                      : '분석 대기 중'}
+                  </Text>
+                  <Text style={styles.scanMeta}>
+                    {dateStr}
+                    {scan.masked ? '  ·  🛡️ PII 마스킹' : ''}
+                    {scan.status === 'error' ? '  ·  ⚠️ 오류' : ''}
+                  </Text>
+                </View>
+                <Text style={styles.custChevron}>›</Text>
+              </TouchableOpacity>
+            );
+          })}
+
+          {scanPager.hasMore && (
+            <TouchableOpacity
+              style={styles.scanLoadMoreBtn}
+              onPress={scanPager.loadMore}
+              disabled={scanPager.isLoadingMore}
+            >
+              <Text style={styles.scanLoadMoreText}>
+                {scanPager.isLoadingMore
+                  ? '불러오는 중...'
+                  : `더 보기 (${scanPager.totalCount - scanPager.items.length}건 남음)`}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </>
+      )}
+    </View>
+  );
+};
 
 const ScheduleRow = ({ schedule, onToggle, onEdit, dimmed }) => {
   const meta = CAT_META[schedule.category] || CAT_META.consult;
@@ -609,6 +656,16 @@ const styles = StyleSheet.create({
   scanTitle:        { fontSize: 13, fontWeight: '700', color: '#1e293b' },
   scanMeta:         { fontSize: 11, color: '#94a3b8', marginTop: 2 },
   custChevron:      { fontSize: 20, color: '#94a3b8', fontWeight: '300' },
+  scanLoadMoreBtn: {
+    alignItems:       'center',
+    paddingVertical:  12,
+    marginTop:        4,
+    borderRadius:     10,
+    backgroundColor: '#f1f5f9',
+    borderWidth:      1,
+    borderColor:      '#e2e8f0',
+  },
+  scanLoadMoreText: { fontSize: 13, fontWeight: '700', color: '#2563eb' },
 });
 
 export default CustomerProfileView;

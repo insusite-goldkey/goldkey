@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useCustomerStore, selCustomerList, selIsAgent } from '../store/customerStore';
 import AvatarImage from '../components/AvatarImage';
 import ExportPanel from '../components/ExportPanel';
+import usePaginatedList from '../hooks/usePaginatedList';
 import {
   Alert,
   Animated,
@@ -170,62 +171,118 @@ const Dashboard = () => {
     prevProgress.current = progress;
   }, [progress]);
 
-  // ── 렌더: 고객 목록 탭 (SSOT 구독) ──────────────────────────────────────
-  const renderCustomersTab = () => (
-    <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-      <View style={styles.custListHeader}>
-        <Text style={styles.custListTitle}>👥 담당 고객 목록</Text>
-        <Text style={styles.custListSub}>{customerList.length}명 등록</Text>
-      </View>
-      {customerList.length === 0 && (
-        <Text style={styles.emptyText}>등록된 고객이 없습니다.</Text>
-      )}
-      {customerList.map((c) => (
-        <TouchableOpacity
-          key={c.id}
-          style={styles.custRow}
-          onPress={() => openProfile(c.id)}
-          activeOpacity={0.75}
-        >
-          <AvatarImage
-            mode="initial"
-            size={44}
-            initial={c.name?.charAt(0) || '?'}
-            registered={c.registered}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.custName}>{c.name}</Text>
-            <Text style={styles.custSub} numberOfLines={1}>
-              {[c.job, c.phone].filter(Boolean).join('  ·  ') || '정보 없음'}
-            </Text>
-            {(c.tags || []).length > 0 && (
-              <View style={styles.custTagRow}>
-                {c.tags.slice(0, 2).map((t, i) => (
-                  <View key={i} style={styles.custTag}>
-                    <Text style={styles.custTagText}>{t}</Text>
-                  </View>
-                ))}
-                {c.tags.length > 2 && (
-                  <Text style={styles.custTagMore}>+{c.tags.length - 2}</Text>
-                )}
+  // ── 고객 목록 페이징 (20개씩, usePaginatedList) ────────────────────────
+  const [custSearch, setCustSearch] = useState('');
+  const custPager = usePaginatedList(customerList, {
+    pageSize: 20,
+    filterFn: custSearch
+      ? (c) => c.name?.includes(custSearch) || c.phone?.includes(custSearch)
+      : null,
+    key: custSearch,
+  });
+
+  // ── 렌더: 고객 카드 (FlatList renderItem) ───────────────────────────────
+  const renderCustItem = useCallback(({ item: c }) => (
+    <TouchableOpacity
+      style={styles.custRow}
+      onPress={() => openProfile(c.id)}
+      activeOpacity={0.75}
+    >
+      <AvatarImage
+        mode="initial"
+        size={44}
+        initial={c.name?.charAt(0) || '?'}
+        registered={c.registered}
+      />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.custName}>{c.name}</Text>
+        <Text style={styles.custSub} numberOfLines={1}>
+          {[c.job, c.phone].filter(Boolean).join('  ·  ') || '정보 없음'}
+        </Text>
+        {(c.tags || []).length > 0 && (
+          <View style={styles.custTagRow}>
+            {c.tags.slice(0, 2).map((t, i) => (
+              <View key={i} style={styles.custTag}>
+                <Text style={styles.custTagText}>{t}</Text>
               </View>
+            ))}
+            {c.tags.length > 2 && (
+              <Text style={styles.custTagMore}>+{c.tags.length - 2}</Text>
             )}
           </View>
-          <View style={styles.custActions}>
-            <TouchableOpacity
-              style={styles.custSchedBtn}
-              onPress={() => openScheduleModal(c.id)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={styles.custSchedBtnText}>📅</Text>
-            </TouchableOpacity>
-            <Text style={styles.custChevron}>›</Text>
-          </View>
+        )}
+      </View>
+      <View style={styles.custActions}>
+        <TouchableOpacity
+          style={styles.custSchedBtn}
+          onPress={() => openScheduleModal(c.id)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.custSchedBtnText}>📅</Text>
         </TouchableOpacity>
-      ))}
-      <View style={{ height: 30 }} />
-      <ExportPanel userRole={userRole} />
-    </ScrollView>
+        <Text style={styles.custChevron}>›</Text>
+      </View>
+    </TouchableOpacity>
+  ), [openProfile, openScheduleModal]);
+
+  // ── 렌더: 고객 목록 탭 ──────────────────────────────────────────────────
+  const renderCustomersTab = () => (
+    <FlatList
+      data={custPager.items}
+      keyExtractor={(c) => c.id}
+      renderItem={renderCustItem}
+      onEndReached={custPager.loadMore}
+      onEndReachedThreshold={0.3}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 16 }}
+      ListHeaderComponent={
+        <>
+          <View style={styles.custListHeader}>
+            <Text style={styles.custListTitle}>� 담당 고객 목록</Text>
+            <Text style={styles.custListSub}>
+              {custPager.totalCount}명{custSearch ? ' (검색 중)' : ' 등록'}
+            </Text>
+          </View>
+          <View style={styles.custSearchRow}>
+            <TextInput
+              style={styles.custSearchInput}
+              value={custSearch}
+              onChangeText={(v) => { setCustSearch(v); custPager.reset(); }}
+              placeholder="이름 또는 연락처 검색..."
+              placeholderTextColor="#94a3b8"
+              clearButtonMode="while-editing"
+            />
+          </View>
+          {custPager.isInitializing && (
+            <Text style={styles.emptyText}>불러오는 중...</Text>
+          )}
+          {!custPager.isInitializing && custPager.totalCount === 0 && (
+            <Text style={styles.emptyText}>
+              {custSearch ? '검색 결과가 없습니다.' : '등록된 고객이 없습니다.'}
+            </Text>
+          )}
+        </>
+      }
+      ListFooterComponent={
+        <>
+          {custPager.hasMore && (
+            <TouchableOpacity
+              style={styles.loadMoreBtn}
+              onPress={custPager.loadMore}
+              disabled={custPager.isLoadingMore}
+            >
+              <Text style={styles.loadMoreText}>
+                {custPager.isLoadingMore
+                  ? '불러오는 중...'
+                  : `더 보기 (${custPager.totalCount - custPager.items.length}명 남음)`}
+              </Text>
+            </TouchableOpacity>
+          )}
+          <View style={{ height: 16 }} />
+          <ExportPanel userRole={userRole} />
+        </>
+      }
+    />
   );
 
   // ── 렌더: Task 탭 ────────────────────────────────────────────────────────
@@ -604,6 +661,19 @@ const styles = StyleSheet.create({
   custListHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 },
   custListTitle:  { fontSize: 15, fontWeight: '800', color: '#1e293b' },
   custListSub:    { fontSize: 12, color: '#94a3b8' },
+  custSearchRow:  { marginBottom: 10 },
+  custSearchInput: {
+    backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#e2e8f0',
+    borderRadius: 10, paddingHorizontal: 13, paddingVertical: 10,
+    fontSize: 14, color: '#1e293b',
+  },
+  loadMoreBtn: {
+    alignItems: 'center', paddingVertical: 13,
+    marginHorizontal: 4, marginBottom: 8,
+    borderRadius: 10, backgroundColor: '#f1f5f9',
+    borderWidth: 1, borderColor: '#e2e8f0',
+  },
+  loadMoreText: { fontSize: 13, fontWeight: '700', color: '#2563eb' },
   custRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#ffffff', borderRadius: 12,
