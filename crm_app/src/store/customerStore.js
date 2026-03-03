@@ -80,8 +80,23 @@ const MOCK_SCHEDULES = {
   },
 };
 
-// ── AsyncStorage 어댑터 (zustand persist용) ─────────────────────────────────
-const asyncStorageAdapter = createJSONStorage(() => AsyncStorage);
+// ── AsyncStorage 어댑터 (타임아웃 10초 내장) ───────────────────────────────
+// rehydration 실패/타임아웃 시 앱이 프리즈되지 않도록 방어.
+const withTimeout = (promise, ms = 10000) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('AsyncStorage timeout')), ms),
+    ),
+  ]);
+
+const safeAsyncStorage = {
+  getItem:    (key)        => withTimeout(AsyncStorage.getItem(key)).catch(() => null),
+  setItem:    (key, value) => withTimeout(AsyncStorage.setItem(key, value)).catch(() => {}),
+  removeItem: (key)        => withTimeout(AsyncStorage.removeItem(key)).catch(() => {}),
+};
+
+const asyncStorageAdapter = createJSONStorage(() => safeAsyncStorage);
 
 // ── persist 제외 상태 키 (UI 상태는 영구 저장 불필요) ──────────────────────
 const TRANSIENT_KEYS = [

@@ -15,32 +15,36 @@
  *   import { db, COLLECTIONS, isFirebaseReady } from '../utils/firebase';
  */
 
-import firestore from '@react-native-firebase/firestore';
-import app       from '@react-native-firebase/app';
+// ── Firebase 선언적 import (각각 try-catch로 감싸) ───────────────────────
+// google-services.json 없으면 네이티브 모듈 import 자체가 크래시하므로
+// 동적 require + 에러 억제로 처리.
+let _firestore = null;
+let _app       = null;
+try { _firestore = require('@react-native-firebase/firestore').default; } catch (_) {}
+try { _app       = require('@react-native-firebase/app').default;       } catch (_) {}
 
 // ── Firebase 초기화 상태 ──────────────────────────────────────────────────
-// google-services.json / GoogleService-Info.plist 없으면 앱 초기화 자체가
-// 실패하므로 try-catch로 감싸 로컬 모드 폴백 보장.
 let _firestoreInstance = null;
 let _isFirebaseReady   = false;
 
 const initFirebase = () => {
+  if (!_firestore || !_app) {
+    console.warn('[firebase] 네이티브 모듈 로드 실패 → 로컬 모드');
+    return false;
+  }
   try {
-    // 앱이 초기화되었는지 확인 (google-services.json 필요)
-    if (!app().options?.projectId) {
-      console.warn('[firebase] google-services.json 미설정 → 로컬 모드로 동작');
+    const appInstance = _app();
+    if (!appInstance?.options?.projectId) {
+      console.warn('[firebase] google-services.json 미설정 → 로컬 모드');
       return false;
     }
-
-    // Firestore 오프라인 지속성 + 캐시 100MB 설정
-    firestore().settings({
+    _firestore().settings({
       persistence:    true,
-      cacheSizeBytes: 100 * 1024 * 1024, // 100MB
+      cacheSizeBytes: 100 * 1024 * 1024,
     });
-
-    _firestoreInstance = firestore();
+    _firestoreInstance = _firestore();
     _isFirebaseReady   = true;
-    console.info('[firebase] ✅ Firestore 연결 완료 | 프로젝트:', app().options.projectId);
+    console.info('[firebase] ✅ Firestore 연결 완료 | 프로젝트:', appInstance.options.projectId);
     return true;
   } catch (e) {
     console.warn('[firebase] ⚠️ 초기화 실패 (로컬 모드):', e?.message ?? e?.code);
@@ -51,13 +55,8 @@ const initFirebase = () => {
 initFirebase();
 
 // ── 공개 인스턴스 + 상태 ─────────────────────────────────────────────────
-/** Firestore 인스턴스 (google-services.json 없으면 null) */
-export const db = _firestoreInstance;
-
-/** Firebase 연결 여부 — 조건부 렌더링에 활용 */
-export const isFirebaseReady = () => _isFirebaseReady;
-
-/** Firebase 연결 상태 재확인 (런타임 중 재시도용) */
+export const db               = _firestoreInstance;
+export const isFirebaseReady  = () => _isFirebaseReady;
 export const retryFirebaseInit = () => initFirebase();
 
 // ── 컬렉션 이름 상수 (오타 방지 SSOT) ──────────────────────────────────────

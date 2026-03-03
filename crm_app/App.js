@@ -22,7 +22,6 @@
 
 import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
-import './src/utils/firebase';           // Firebase 초기화 (앱 시작 시 1회 실행)
 import { useCustomerStore }    from './src/store/customerStore';
 import Dashboard               from './src/screens/Dashboard';
 import CustomerProfileView     from './src/screens/CustomerProfileView';
@@ -54,10 +53,19 @@ const RoutingGuard = () => {
   const stopScanLoading = useCustomerStore((s) => s.stopScanLoading);
 
   useEffect(() => {
-    // 앱 시작 시 scanLoading 강제 초기화 —
-    // AsyncStorage 복원 타이밍에 active:true가 잔류하면
-    // PremiumLoadingUI(검은 오버레이)가 즉시 나타나는 버그 방지.
+    // 앱 시작 시 scanLoading 강제 초기화
     stopScanLoading();
+
+    // Firebase lazy init — google-services.json 없어도 앱 크래시 없음.
+    // 동기 import 대신 마운트 후 비동기 실행으로 UI 블로킹 완전 방지.
+    const timer = setTimeout(() => {
+      try {
+        require('./src/utils/firebase');
+      } catch (e) {
+        console.warn('[App] Firebase lazy init 건너뜀 (google-services.json 미설정):', e?.message);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   // Dashboard 등 하위 컴포넌트에서 openTrash() 로 휴지통 오픈 가능
