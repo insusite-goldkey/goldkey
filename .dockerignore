@@ -35,3 +35,12 @@ secrets.toml
 .vscode
 .idea
 *.swp
+
+# React Native (Cloud Run 불필요)
+crm_app/node_modules
+crm_app/android/.gradle
+crm_app/android/app/build
+crm_app/android/build
+crm_app/ios/Pods
+crm_app/ios/build
+crm_app/GoldKeyCRM
