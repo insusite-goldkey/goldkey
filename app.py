@@ -254,6 +254,21 @@ _ART28_TIER_MISMATCH_ALERT: str = (            # 위계 혼용 시 표기 문구
     "법적 근거로 인용하는 것은 헌법 제28조 위반입니다. [/RED_ALERT]"
 )
 #
+# 제30조 [반응형 기기 최적화 (Device Adaptation)]
+#   § 1. 모든 UI(특히 스플래시 화면)는 '반응형 레이아웃'을 적용한다.
+#   § 2. 접속 기기의 가로 너비를 실시간 감지하여, 핸드폰(Portrait)과
+#         태블릿(Landscape) 모드에 맞는 최적의 이미지 비율을 자동 선택한다.
+#   § 3. 스플래시 로고와 애니메이션은 화면 중앙 정렬을 원칙으로 하며,
+#         화면 크기에 따라 로고 크기를 30%~50% 범위 내에서 유동적으로 조절한다.
+#   § 4. 기기 종류에 상관없이 텍스트 가독성을 확보하기 위해,
+#         최소 폰트 크기는 14px 이상을 유지한다.
+#
+# ── 제30조 구현 상수 ─────────────────────────────────────────────────────
+_ART30_TABLET_BREAK_DP: int  = 600    # 태블릿 판단 기준 (CSS px / dp)
+_ART30_LOGO_MIN_PCT: int     = 30     # 로고 최소 크기 (화면 단축변 대비 %)
+_ART30_LOGO_MAX_PCT: int     = 50     # 로고 최대 크기 (화면 단축변 대비 %)
+_ART30_MIN_FONT_PX: int      = 14     # 텍스트 최소 폰트 크기 (px)
+#
 # 제29조 [블록 식별 번호(Block ID) 운영]
 #   § 1. 모든 독립적 섹션과 내부 블록에는 우측 상단 또는 좌측 상단에
 #         작은 글씨로 식별 번호(예: #1-1)를 표기한다.
@@ -279,6 +294,625 @@ def _bid(bid: str) -> str:
         f'font-size:10px;color:rgba(180,180,180,0.7);font-weight:400;'
         f'font-family:monospace;letter-spacing:0.03em;'
         f'pointer-events:none;user-select:none;z-index:9;">#{bid}</span>'
+    )
+#
+# 제32조 [CFP 기반 라이프사이클 및 의학경제학적 보장 분석 표준]
+#   § 1. 건강보험료율(2024) 7.09%를 적용한 가처분 소득 역산을 최우선 지표로 삼는다.
+#        추정 월 소득 = 납입 건강보험료 ÷ 0.0709
+#        일일 필요 일당 = 추정 월 소득 ÷ 30
+#   § 2. 상해 10~15% 영구장해 시 2년(치료+재취업) 소득 공백 전제.
+#        최소 3억~5억 원 필수 방어선 권고.
+#   § 3. 중풍 18개월 / 치매 6개월 / 진행성 암 1억~3억 원 설계 기준.
+#   § 4. 3층 연금 구조: 국민연금(40~45%) + 퇴직연금(10%) + 개인연금(40~50%).
+#   § 5. 금감원 한도 초과 시 수술비 담보 복합 설계로 Gap 보전.
+#   § 6. 브리핑 시 '의학경제학적 휴업손해 보전' 용어 및 역산 논리 필수 명시.
+#
+# ── 제32조 구현 상수 ─────────────────────────────────────────────────────
+# [헌법 제34조] 0.0709 하드코딩 → _CURRENT_NHIS_RATE 동적 변수로 관리
+# 런타임에 _art34_load_rates()가 Supabase system_config에서 최신값으로 덮어씀
+_ART32_NHIS_RATE_2024: float = 0.0709        # 2024년 기준값 (폴백 상수, 변경 금지)
+_CURRENT_NHIS_RATE: float    = 0.0709        # 현재 적용 요율 (제34조 동적 변수)
+_ART32_DAILY_DIVISOR: int   = 30             # 월→일 환산 기준일수
+_ART32_DISABILITY_PERIOD_YR: int = 2         # 상해장해 소득 대체 기간 (년)
+_ART32_DISABILITY_MIN_AMT: int  = 300_000_000  # 최소 방어선 (3억 원)
+_ART32_DISABILITY_REC_AMT: int  = 500_000_000  # 권장 방어선 (5억 원)
+_ART32_STROKE_PERIOD_MO: int    = 18         # 중풍 관찰 기간 (개월)
+_ART32_DEMENTIA_PERIOD_MO: int  = 6          # 치매 장기요양 경과 기간 (개월)
+_ART32_CANCER_ADV_MIN: int      = 100_000_000  # 진행성/전이암 최소 진단비 (1억)
+_ART32_CANCER_ADV_REC: int      = 300_000_000  # 진행성/전이암 권장 진단비 (3억)
+_ART32_FSS_LIMIT_INJURY: int    = 70_000     # 금감원 상해 입원일당 한도 (7만 원/일)
+_ART32_FSS_LIMIT_DISEASE: int   = 100_000    # 금감원 질병 입원일당 한도 (10만 원/일)
+_ART32_PENSION_NPS_PCT: tuple   = (40, 45)   # 국민연금 소득 대체율 범위 (%)
+_ART32_PENSION_RETIRE_PCT: int  = 10         # 퇴직연금 소득 대체율 (%)
+_ART32_PENSION_INDIV_PCT: tuple = (40, 50)   # 개인연금 목표 대체율 범위 (%)
+_ART32_BRIEFING_TERM: str = "의학경제학적 휴업손해 보전"  # 브리핑 핵심 용어
+
+# ── [헌법 제34조] 자율 유지보수 엔진 — 법정 요율 동적 변수 ──────────────────
+_ART34_LTCI_RATE_2024: float = 0.009182      # 2024년 장기요양보험료율 (건강보험료 대비)
+_CURRENT_LTCI_RATE: float    = 0.009182      # 현재 적용 장기요양보험료율 (동적)
+_ART34_RATE_UPDATED_AT: str  = "2024-01-01"  # 최종 요율 갱신일 (Supabase 로드 후 덮어씀)
+_ART34_RATE_SOURCE: str      = "국민건강보험공단 고시 (초기값)"  # 출처
+_ART34_RATE_CHANGED: bool    = False         # 요율 변경 알림 플래그
+_ART34_ALERT_MSG: str        = ""            # 관리자 알림 메시지
+
+
+def _art34_load_rates() -> dict:
+    """Supabase system_config에서 최신 요율을 로드하여 전역 동적 변수에 반영.
+
+    Returns:
+        {"nhis_rate": float, "ltci_rate": float, "updated_at": str, "source": str}
+    """
+    global _CURRENT_NHIS_RATE, _CURRENT_LTCI_RATE
+    global _ART34_RATE_UPDATED_AT, _ART34_RATE_SOURCE
+    global _ART34_RATE_CHANGED, _ART34_ALERT_MSG
+    _result = {
+        "nhis_rate": _CURRENT_NHIS_RATE,
+        "ltci_rate": _CURRENT_LTCI_RATE,
+        "updated_at": _ART34_RATE_UPDATED_AT,
+        "source": _ART34_RATE_SOURCE,
+    }
+    try:
+        _sb = _get_sb_client() if callable(globals().get("_get_sb_client")) else None
+        if _sb is None:
+            return _result
+        _rows = _sb.table("system_config").select("*").in_(
+            "key", ["nhis_rate", "ltci_rate", "rate_updated_at", "rate_source"]
+        ).execute()
+        _data = {r["key"]: r["value"] for r in (_rows.data or [])}
+        _new_nhis = float(_data["nhis_rate"]) if "nhis_rate" in _data else None
+        _new_ltci = float(_data["ltci_rate"]) if "ltci_rate" in _data else None
+        _new_at   = _data.get("rate_updated_at", _ART34_RATE_UPDATED_AT)
+        _new_src  = _data.get("rate_source",     _ART34_RATE_SOURCE)
+        _changed = False
+        if _new_nhis and abs(_new_nhis - _CURRENT_NHIS_RATE) > 1e-7:
+            _CURRENT_NHIS_RATE = _new_nhis
+            _changed = True
+        if _new_ltci and abs(_new_ltci - _CURRENT_LTCI_RATE) > 1e-7:
+            _CURRENT_LTCI_RATE = _new_ltci
+            _changed = True
+        _ART34_RATE_UPDATED_AT = _new_at
+        _ART34_RATE_SOURCE     = _new_src
+        if _changed:
+            _ART34_RATE_CHANGED = True
+            _yr = _new_at[:7] if _new_at else "최신"
+            _ART34_ALERT_MSG = (
+                f"[헌법 제34조 알림] {_yr} 건강보험료율이 "
+                f"{round(_CURRENT_NHIS_RATE*100,4)}%로 자동 업데이트되었습니다. "
+                f"역산 엔진이 즉시 반영됩니다."
+            )
+        _result.update({
+            "nhis_rate": _CURRENT_NHIS_RATE,
+            "ltci_rate": _CURRENT_LTCI_RATE,
+            "updated_at": _ART34_RATE_UPDATED_AT,
+            "source": _ART34_RATE_SOURCE,
+        })
+    except Exception:
+        pass
+    return _result
+
+
+def _art34_update_rate(
+    nhis_rate: float,
+    ltci_rate: float | None = None,
+    source: str = "",
+) -> bool:
+    """관리자 수동 요율 저장 — Supabase system_config에 upsert 후 전역 변수 즉시 반영.
+
+    Args:
+        nhis_rate: 새 건강보험료율 (소수, 예: 0.0709)
+        ltci_rate: 새 장기요양보험료율 (소수, 예: 0.009182); None이면 기존값 유지
+        source: 출처 문자열
+
+    Returns:
+        True(성공) / False(실패)
+    """
+    global _CURRENT_NHIS_RATE, _CURRENT_LTCI_RATE
+    global _ART34_RATE_UPDATED_AT, _ART34_RATE_SOURCE, _ART34_RATE_CHANGED
+    try:
+        _sb = _get_sb_client() if callable(globals().get("_get_sb_client")) else None
+        _now_str = __import__("datetime").datetime.now().strftime("%Y-%m-%d")
+        _upserts = [
+            {"key": "nhis_rate",        "value": str(nhis_rate)},
+            {"key": "rate_updated_at",  "value": _now_str},
+            {"key": "rate_source",      "value": source or f"관리자 수동 등록 ({_now_str})"},
+        ]
+        if ltci_rate is not None:
+            _upserts.append({"key": "ltci_rate", "value": str(ltci_rate)})
+        if _sb is not None:
+            _sb.table("system_config").upsert(_upserts, on_conflict="key").execute()
+        _CURRENT_NHIS_RATE     = nhis_rate
+        if ltci_rate is not None:
+            _CURRENT_LTCI_RATE = ltci_rate
+        _ART34_RATE_UPDATED_AT = _now_str
+        _ART34_RATE_SOURCE     = source or f"관리자 수동 등록 ({_now_str})"
+        _ART34_RATE_CHANGED    = False
+        return True
+    except Exception:
+        return False
+
+
+def _art34_rate_banner_html() -> str:
+    """요율 변경 알림 배너 HTML 반환 (변경 없으면 빈 문자열)."""
+    if not _ART34_RATE_CHANGED or not _ART34_ALERT_MSG:
+        return ""
+    return (
+        f'<div style="background:linear-gradient(90deg,#1a3a1a,#0d2e0d);'
+        f'border-left:5px solid #22c55e;border-radius:8px;'
+        f'padding:12px 16px;margin:8px 0;color:#86efac;font-size:0.88rem;">'
+        f'⚠️ <b>[헌법 제34조]</b> {_ART34_ALERT_MSG}'
+        f'</div>'
+    )
+
+
+def _art34_report_footer() -> str:
+    """역산 보고서 하단 요율 기준일 자동 문구 반환."""
+    _rate_pct = round(_CURRENT_NHIS_RATE * 100, 4)
+    _at = _ART34_RATE_UPDATED_AT[:7] if _ART34_RATE_UPDATED_AT else "최신"
+    return (
+        f"본 분석은 {_at} 공시된 최신 요율"
+        f"(건강보험료율 {_rate_pct}%)을 기준으로 작성되었습니다."
+    )
+
+
+# ==========================================================================
+# [헌법 제35조] 치매 및 퇴행성 질환 전문 보장 — 상수 · 데이터 블록
+# ※ 자율 업데이트 대상: 매년 1월 관리자 탭에서 신약/제도 정보 수동 반영
+# ==========================================================================
+
+# ── 제35조 §1 — 신약 및 검사비 기준액 ───────────────────────────────────
+_ART35_LEQEMBI_ANNUAL_COST: int  = 26_000_000   # 레켐비(lecanemab) 연간 치료비 (원, 2024 미국 기준 약 2600만원)
+_ART35_DONANEMAB_ANNUAL_COST: int = 28_000_000  # 도나네맙(키선라) 연간 치료비 기준 (원, 2024 FDA 승인)
+_ART35_PET_CT_COST: int          = 2_000_000    # 아밀로이드 PET-CT 비급여 검사비 (원)
+_ART35_CSF_TEST_COST: int        = 500_000      # 뇌척수액(CSF) 검사비 기준 (원)
+
+# ── 제35조 §2 — 파킨슨병 산정특례 ──────────────────────────────────────
+_ART35_PARK_COPAY_RATE: float    = 0.10         # 파킨슨 산정특례 본인부담률 (10%)
+_ART35_PARK_COPAY_NORMAL: float  = 0.20         # 일반 본인부담률 (20%, 비교 기준)
+_ART35_PARK_EFFICIENCY_MULT: int = 3            # 산정특례로 달성 가능 가처분 소득 효율 배수 (300% 이상)
+
+# ── 제35조 §3 — CDR 단계별 권장 담보 매핑 ──────────────────────────────
+# CDR(Clinical Dementia Rating): 0=정상, 0.5=경도인지장애(MCI), 1=경도, 2=중등도, 3=중증
+_ART35_CDR_STAGES: dict = {
+    "CDR 0.5": {
+        "label": "경도인지장애 (MCI) — 골든타임",
+        "priority": "최우선",
+        "color": "#f59e0b",
+        "coverage": [
+            "치매 정밀 검사비 (아밀로이드 PET-CT·CSF 비급여)",
+            "경도이상 치매 진단비 (CDR 1 이상 지급 조건 확인)",
+            "알츠하이머병 특정치료비 (레켐비·도나네맙)",
+        ],
+        "note": "레켐비 임상효과 집중 구간 — 조기 확진 비용 선보전 필수",
+        "exam_cost": _ART35_PET_CT_COST + _ART35_CSF_TEST_COST,
+    },
+    "CDR 1": {
+        "label": "경도 치매 — 치료 적기",
+        "priority": "높음",
+        "color": "#ef4444",
+        "coverage": [
+            "경도이상 치매 진단비",
+            "알츠하이머병 특정치료비",
+            "간병인 사용 일당 (체증형, 월 150만원→300만원)",
+            "장기요양급여 지원금 (재가급여)",
+        ],
+        "note": "신약 투약 시작 구간 — 연간 치료비 2,600만원 이상 대비",
+        "exam_cost": 0,
+    },
+    "CDR 2": {
+        "label": "중등도 치매 — 돌봄 집중",
+        "priority": "중간",
+        "color": "#8b5cf6",
+        "coverage": [
+            "장기요양급여 지원금 (시설급여)",
+            "간병인 사용 일당 (체증형)",
+            "치매 간병 지원금",
+        ],
+        "note": "신약 효과 제한적 — 돌봄 비용 중심 설계로 전환",
+        "exam_cost": 0,
+    },
+    "CDR 3": {
+        "label": "중증 치매 — 요양 중심",
+        "priority": "일반",
+        "color": "#6b7280",
+        "coverage": [
+            "장기요양급여 지원금 (시설급여, 최고 등급)",
+            "간병인 사용 일당 (체증형)",
+            "노인 장기요양 추가 지원금",
+        ],
+        "note": "신약 적응 불가 — 장기요양보험 연계 중심 설계",
+        "exam_cost": 0,
+    },
+}
+
+# ── 제35조 §3 — 질환별 우선 담보 명칭 매핑 ─────────────────────────────
+_ART35_COVERAGE_MAP: dict = {
+    "alzheimer": {
+        "name": "알츠하이머 치매",
+        "icd": "G30",
+        "icon": "🧠",
+        "specialist_guide": (
+            "뇌졸중은 18개월을 기다려야 하지만, "
+            "파킨슨은 진단 즉시 산정특례가 가능합니다. "
+            "알츠하이머는 CDR 0.5~1 구간이 레켐비 치료 골든타임입니다. "
+            "따라서 현재 고객님께는 수술비보다 진단비와 치료비가 더 절실합니다."
+        ),
+        "priority_coverage": [
+            ("치료비", "알츠하이머병 특정치료비",    "연 2,600만원 이상"),
+            ("진단비", "경도이상 치매 진단비(CDR 1)", "3,000만원 이상"),
+            ("검사비", "치매 정밀 검사비(비급여)",    "200만원 이상"),
+            ("돌봄비", "간병인 사용 일당(체증형)",    "월 150→300만원"),
+            ("돌봄비", "장기요양급여 지원금(재가)",   "등급별 급여액 연동"),
+        ],
+        "surgery_note": "수술 담보 단독 설계는 비효율 — 치료비·진단비 조합 우선",
+    },
+    "parkinson": {
+        "name": "파킨슨병",
+        "icd": "G20",
+        "icon": "🫀",
+        "specialist_guide": (
+            "파킨슨병은 진단 즉시 중증 질환 산정특례 등록이 가능하여 "
+            "본인 부담금이 10%로 낮아집니다. "
+            "뇌졸중(18개월 대기)과 달리 즉시 효과가 발생하므로, "
+            "수술비보다 진단비가 가처분 소득 방어에 압도적으로 유리합니다."
+        ),
+        "priority_coverage": [
+            ("진단비", "특정 퇴행성 질환 진단비(파킨슨)",  "3,000만원 이상"),
+            ("진단비", "산정특례 대상 진단비",              "2,000만원 이상"),
+            ("돌봄비", "간병인 사용 일당(체증형)",          "월 150→300만원"),
+            ("돌봄비", "장기요양급여 지원금(재가/시설)",    "등급별 연동"),
+        ],
+        "surgery_note": "산정특례로 수술비 본인부담 10% — 수술비 담보 효율 낮음",
+    },
+    "lewy": {
+        "name": "루이소체 치매",
+        "icd": "G31.8",
+        "icon": "🧬",
+        "specialist_guide": (
+            "루이소체 치매는 파킨슨 증상과 치매가 동반되어 "
+            "알츠하이머 신약 효과가 제한적입니다. "
+            "간병 비용과 장기요양 설계에 집중하세요."
+        ),
+        "priority_coverage": [
+            ("진단비", "특정 퇴행성 질환 진단비",    "3,000만원 이상"),
+            ("돌봄비", "간병인 사용 일당(체증형)",    "월 200→400만원"),
+            ("돌봄비", "장기요양급여 지원금(시설)",   "등급별 연동"),
+        ],
+        "surgery_note": "수술 빈도 낮음 — 진단비·돌봄비 중심 설계",
+    },
+    "vascular": {
+        "name": "혈관성 치매",
+        "icd": "F01",
+        "icon": "🩸",
+        "specialist_guide": (
+            "혈관성 치매는 뇌졸중 후 발생하는 경우가 많습니다. "
+            "뇌혈관질환 광범위 담보와 치매 담보를 복합 설계하세요."
+        ),
+        "priority_coverage": [
+            ("진단비", "뇌혈관질환 진단비(광범위)",   "3,000만원 이상"),
+            ("진단비", "경도이상 치매 진단비",         "2,000만원 이상"),
+            ("돌봄비", "간병인 사용 일당(체증형)",     "월 150→300만원"),
+        ],
+        "surgery_note": "뇌혈관질환 담보와 중복 설계 가능",
+    },
+}
+
+# ── 제35조 §4 — 자율 업데이트 메타 ─────────────────────────────────────
+_ART35_LAST_SYNC: str = "2026-03-05"        # 마지막 자율 동기화 일시
+_ART35_DRUG_DB: list = [
+    {
+        "name": "레켐비 (Leqembi / lecanemab)",
+        "company": "에자이·바이오젠",
+        "approval": "FDA 2023-07-06 정식 승인",
+        "target": "CDR 0.5~1 (경도인지장애·경도 치매)",
+        "mechanism": "아밀로이드 베타 프로토피브릴 제거",
+        "annual_cost_krw": _ART35_LEQEMBI_ANNUAL_COST,
+        "evidence": "CLARITY-AD 시험 — 18개월 인지 저하 27% 감소 (NEJM 2023)",
+        "kfda_status": "2024년 국내 허가 심사 중",
+    },
+    {
+        "name": "도나네맙 (Donanemab / 키선라)",
+        "company": "일라이 릴리",
+        "approval": "FDA 2024-07-02 정식 승인",
+        "target": "CDR 0.5~1 (경도인지장애·경도 치매)",
+        "mechanism": "아밀로이드 플라크 제거",
+        "annual_cost_krw": _ART35_DONANEMAB_ANNUAL_COST,
+        "evidence": "TRAILBLAZER-ALZ2 — 18개월 인지 저하 35% 감소 (JAMA 2024)",
+        "kfda_status": "2025년 국내 허가 신청 예정",
+    },
+]
+
+# ── 제35조 §5 — 장기요양보험 등급별 월 급여액 (2024년 기준) ────────────
+_ART35_LTCI_BENEFIT: dict = {
+    "1등급": {"재가": 2_069_900,  "시설": 2_306_000, "label": "최중증 (일상생활 전 도움)"},
+    "2등급": {"재가": 1_869_600,  "시설": 2_128_200, "label": "중증 (일상생활 상당 도움)"},
+    "3등급": {"재가": 1_455_800,  "시설": 1_778_200, "label": "중등도"},
+    "4등급": {"재가": 1_341_800,  "시설": 1_659_600, "label": "경증"},
+    "5등급": {"재가": 1_151_600,  "시설": None,       "label": "치매 특별등급 (경도)"},
+    "인지지원등급": {"재가": 573_900, "시설": None,    "label": "경도인지장애 주간보호"},
+}
+
+
+def _art35_calc_report(nhis_premium: float, disease_key: str = "alzheimer",
+                       cdr_stage: str = "CDR 0.5") -> dict:
+    """제35조 §5 — 담보 효율 비교 리포트 생성.
+
+    Args:
+        nhis_premium:  납입 건강보험료 (원)
+        disease_key:   질환 키 (alzheimer/parkinson/lewy/vascular)
+        cdr_stage:     CDR 단계 문자열 (CDR 0.5 / CDR 1 / CDR 2 / CDR 3)
+
+    Returns:
+        {
+          "daily_value":        일일 경제적 가치 (원),
+          "monthly_income":     추정 월 소득 (원),
+          "surgery_only":       수술비 단독 시나리오 (1,000만원),
+          "optimal":            최적 조합 시나리오,
+          "efficiency_ratio":   최적/수술 효율 배수,
+          "coverage_list":      우선 담보 리스트,
+          "specialist_guide":   전문가 가이드 문구,
+          "cdr_info":           CDR 단계 정보,
+          "exam_cost":          검사비 (원),
+        }
+    """
+    _base  = _art32_calc(nhis_premium)
+    _dinfo = _ART35_COVERAGE_MAP.get(disease_key, _ART35_COVERAGE_MAP["alzheimer"])
+    _cdr   = _ART35_CDR_STAGES.get(cdr_stage, _ART35_CDR_STAGES["CDR 0.5"])
+
+    # 시나리오 A: 수술비 단독 (1,000만원)
+    _surgery_only = 10_000_000
+
+    # 시나리오 B: 최적 조합
+    # 알츠하이머: 레켐비 치료비 2,600만원 + 진단비 1,000만원 + 검사비 200만원
+    # 파킨슨: 진단비 3,000만원(산정특례 효과) + 간병 1,200만원
+    if disease_key == "alzheimer":
+        _optimal = _ART35_LEQEMBI_ANNUAL_COST + 10_000_000 + _ART35_PET_CT_COST
+        _optimal_label = f"레켐비 치료비 {_ART35_LEQEMBI_ANNUAL_COST//10000:,}만원 + 진단비 1,000만원 + 검사비 {_ART35_PET_CT_COST//10000:,}만원"
+    elif disease_key == "parkinson":
+        _diag = 30_000_000
+        _care = int(_base["monthly_income"] * 12)
+        _optimal = _diag + _care
+        _optimal_label = f"진단비 3,000만원(산정특례 즉시 적용) + 연간 간병 {_care//10000:,}만원"
+    else:
+        _optimal = 20_000_000 + int(_base["monthly_income"] * 6)
+        _optimal_label = f"진단비 2,000만원 + 6개월 간병 {int(_base['monthly_income']*6)//10000:,}만원"
+
+    _efficiency = round(_optimal / _surgery_only, 1)
+
+    return {
+        "daily_value":      _base["daily_value"],
+        "monthly_income":   _base["monthly_income"],
+        "surgery_only":     _surgery_only,
+        "surgery_label":    "수술비 담보 단독 (1,000만원)",
+        "optimal":          _optimal,
+        "optimal_label":    _optimal_label,
+        "efficiency_ratio": _efficiency,
+        "coverage_list":    _dinfo["priority_coverage"],
+        "specialist_guide": _dinfo["specialist_guide"],
+        "surgery_note":     _dinfo["surgery_note"],
+        "cdr_info":         _cdr,
+        "exam_cost":        _cdr["exam_cost"],
+        "disease_name":     _dinfo["name"],
+        "disease_icon":     _dinfo["icon"],
+        "icd":              _dinfo["icd"],
+    }
+
+
+# ── 제32조 역산 헬퍼 함수 ────────────────────────────────────────────────
+def _art32_calc(nhis_premium: float) -> dict:
+    """건강보험료 기반 의학경제학적 지표 역산 (헌법 제32조 §1~§5).
+
+    Args:
+        nhis_premium: 납입 건강보험료 (원, 장기요양보험료 포함된 경우도 동일 적용)
+
+    Returns:
+        {
+          'monthly_income':   추정 월 소득 (원),
+          'daily_value':      일일 경제적 가치 (원),
+          'disability_2yr':   2년 소득 대체 목표액 (원),
+          'gap_injury':       상해 일당 공백 (원, 양수면 한도 초과),
+          'gap_disease':      질병 일당 공백 (원, 양수면 한도 초과),
+          'stroke_need':      중풍 18개월 소득 대체 필요액 (원),
+          'dementia_need':    치매 6개월 간병 필요액 (원),
+        }
+    """
+    monthly = nhis_premium / _CURRENT_NHIS_RATE
+    daily   = monthly / _ART32_DAILY_DIVISOR
+    return {
+        "monthly_income":  round(monthly),
+        "daily_value":     round(daily),
+        "disability_2yr":  round(monthly * 12 * _ART32_DISABILITY_PERIOD_YR),
+        "gap_injury":      round(max(0, daily - _ART32_FSS_LIMIT_INJURY)),
+        "gap_disease":     round(max(0, daily - _ART32_FSS_LIMIT_DISEASE)),
+        "stroke_need":     round(monthly * _ART32_STROKE_PERIOD_MO),
+        "dementia_need":   round(monthly * _ART32_DEMENTIA_PERIOD_MO),
+    }
+
+def _art32_briefing(nhis_premium: float, fss_type: str = "disease") -> str:
+    """헌법 제32조 §6 브리핑 표준 문구 자동 생성.
+
+    Args:
+        nhis_premium: 납입 건강보험료 (원)
+        fss_type: 한도 적용 담보 유형 — 'injury'(상해) 또는 'disease'(질병)
+
+    Returns:
+        브리핑 문구 문자열
+    """
+    r        = _art32_calc(nhis_premium)
+    lim      = _ART32_FSS_LIMIT_INJURY if fss_type == "injury" else _ART32_FSS_LIMIT_DISEASE
+    gap      = round(max(0, r["daily_value"] - lim))
+    daily_만  = round(r["daily_value"] / 10_000)
+    lim_만   = lim // 10_000
+    gap_만   = round(gap / 10_000)
+    _footer  = _art34_report_footer()
+    if gap > 0:
+        return (
+            f"고객님의 건강보험료 기반 일일 경제적 가치는 {daily_만}만 원이나, "
+            f"규정상 일당은 {lim_만}만 원까지만 가입 가능하므로 "
+            f"부족분 {gap_만}만 원을 수술비 담보로 대체 보완하였습니다. "
+            f"({_ART32_BRIEFING_TERM}) [{_footer}]"
+        )
+    return (
+        f"고객님의 건강보험료 기반 일일 경제적 가치는 {daily_만}만 원이며, "
+        f"금감원 한도({lim_만}만 원) 이내로 입원일당 단독 설계가 가능합니다. "
+        f"({_ART32_BRIEFING_TERM}) [{_footer}]"
+    )
+
+# ══════════════════════════════════════════════════════════════════════════
+#
+# 제34조 [시스템 자율 유지보수 및 법정 요율 최신화 (Autonomous Maintenance)]
+#   § 1. 매년 1월 Supabase system_config 테이블에서 최신 요율 로드.
+#   § 2. 요율 변동 감지 시 _CURRENT_NHIS_RATE 자동 갱신 (Reload 불필요).
+#   § 3. 관리자 인앱 알림 배너 발행 + Constitution.md Update Log 연동.
+#   § 4. 고객 리포트 하단에 '최신 요율 기준' 문구 자동 삽입.
+#
+# ── 제34조 구현 상수 ─────────────────────────────────────────────────────
+_ART34_LTCI_RATE_2024: float  = 0.009182     # 장기요양보험료율 (2024년 기준, 건보료의 12.95%)
+_CURRENT_LTCI_RATE: float     = 0.009182     # 현재 적용 장기요양보험료율 (동적)
+_ART34_RATE_UPDATED_AT: str   = "2026-03-05" # 최종 요율 갱신 일시 (ISO 8601)
+_ART34_RATE_SOURCE: str       = "국민건강보험공단 공시 (2024년 기준)"  # 요율 출처
+_ART34_RATE_CHANGED: bool     = False        # 이번 세션에서 요율 변동 감지 여부
+_ART34_ALERT_MSG: str         = ""           # 관리자 알림 메시지 (비어있으면 알림 없음)
+
+
+def _art34_load_rates() -> dict:
+    """헌법 제34조: Supabase system_config에서 최신 건강보험료율을 로드하여
+    _CURRENT_NHIS_RATE / _CURRENT_LTCI_RATE 전역 변수를 동적 갱신한다.
+
+    Returns:
+        {'nhis': float, 'ltci': float, 'updated_at': str, 'source': str, 'changed': bool}
+    """
+    global _CURRENT_NHIS_RATE, _CURRENT_LTCI_RATE
+    global _ART34_RATE_UPDATED_AT, _ART34_RATE_SOURCE
+    global _ART34_RATE_CHANGED, _ART34_ALERT_MSG
+
+    _result = {
+        "nhis": _CURRENT_NHIS_RATE,
+        "ltci": _CURRENT_LTCI_RATE,
+        "updated_at": _ART34_RATE_UPDATED_AT,
+        "source": _ART34_RATE_SOURCE,
+        "changed": False,
+    }
+    try:
+        # Supabase system_config 테이블: key='nhis_rate', key='ltci_rate' 조회
+        _sb = _get_sb_client() if '_get_sb_client' in dir() else None
+        if _sb is None:
+            return _result
+        _rows = _sb.table("system_config").select("*").in_("key", [
+            "nhis_rate", "ltci_rate", "rate_updated_at", "rate_source"
+        ]).execute()
+        _data = {r["key"]: r["value"] for r in (_rows.data or [])}
+        if not _data:
+            return _result
+
+        _new_nhis = float(_data.get("nhis_rate", _CURRENT_NHIS_RATE))
+        _new_ltci = float(_data.get("ltci_rate", _CURRENT_LTCI_RATE))
+        _new_at   = _data.get("rate_updated_at", _ART34_RATE_UPDATED_AT)
+        _new_src  = _data.get("rate_source",     _ART34_RATE_SOURCE)
+
+        _changed = (
+            abs(_new_nhis - _CURRENT_NHIS_RATE) > 1e-6 or
+            abs(_new_ltci - _CURRENT_LTCI_RATE) > 1e-6
+        )
+        if _changed:
+            _old_nhis_pct = round(_CURRENT_NHIS_RATE * 100, 4)
+            _new_nhis_pct = round(_new_nhis * 100, 4)
+            _ART34_ALERT_MSG = (
+                f"[헌법 제34조 알림] {_new_at[:7] if _new_at else ''}년 건강보험료율이 "
+                f"{_old_nhis_pct}% → {_new_nhis_pct}%로 변경되어 "
+                f"역산 엔진을 자동 업데이트하였습니다. (출처: {_new_src})"
+            )
+            _ART34_RATE_CHANGED = True
+
+        _CURRENT_NHIS_RATE    = _new_nhis
+        _CURRENT_LTCI_RATE    = _new_ltci
+        _ART34_RATE_UPDATED_AT = _new_at
+        _ART34_RATE_SOURCE     = _new_src
+
+        _result.update({
+            "nhis": _new_nhis, "ltci": _new_ltci,
+            "updated_at": _new_at, "source": _new_src,
+            "changed": _changed,
+        })
+    except Exception:
+        pass  # 네트워크 오류 시 기존 폴백값 유지 (앱 중단 방지)
+    return _result
+
+
+def _art34_update_rate(nhis_rate: float, ltci_rate: float, source: str = "") -> bool:
+    """헌법 제34조: 관리자가 새 요율을 수동 입력하거나 크롤링 결과를 Supabase에 저장.
+
+    Args:
+        nhis_rate: 새 건강보험료율 (소수, 예: 0.0709)
+        ltci_rate: 새 장기요양보험료율 (소수, 예: 0.009182)
+        source: 출처 설명 문자열
+
+    Returns:
+        저장 성공 여부 (bool)
+    """
+    global _CURRENT_NHIS_RATE, _CURRENT_LTCI_RATE
+    global _ART34_RATE_UPDATED_AT, _ART34_RATE_SOURCE
+    global _ART34_RATE_CHANGED, _ART34_ALERT_MSG
+    try:
+        _sb = _get_sb_client() if '_get_sb_client' in dir() else None
+        _now_str = __import__('datetime').datetime.now().strftime("%Y-%m-%d")
+        _src = source or f"관리자 수동 등록 ({_now_str})"
+        _rows_to_upsert = [
+            {"key": "nhis_rate",        "value": str(nhis_rate)},
+            {"key": "ltci_rate",        "value": str(ltci_rate)},
+            {"key": "rate_updated_at",  "value": _now_str},
+            {"key": "rate_source",      "value": _src},
+        ]
+        if _sb:
+            _sb.table("system_config").upsert(_rows_to_upsert, on_conflict="key").execute()
+        _old_nhis_pct = round(_CURRENT_NHIS_RATE * 100, 4)
+        _new_nhis_pct = round(nhis_rate * 100, 4)
+        _changed = abs(nhis_rate - _CURRENT_NHIS_RATE) > 1e-6
+        _CURRENT_NHIS_RATE     = nhis_rate
+        _CURRENT_LTCI_RATE     = ltci_rate
+        _ART34_RATE_UPDATED_AT = _now_str
+        _ART34_RATE_SOURCE     = _src
+        if _changed:
+            _ART34_RATE_CHANGED = True
+            _ART34_ALERT_MSG = (
+                f"[헌법 제34조] {_now_str[:7]}년 건강보험료율이 "
+                f"{_old_nhis_pct}% → {_new_nhis_pct}%로 업데이트되었습니다. "
+                f"(출처: {_src})"
+            )
+        return True
+    except Exception:
+        return False
+
+
+def _art34_rate_banner_html() -> str:
+    """헌법 제34조 §3: 관리자 화면에 표시할 요율 변동 알림 배너 HTML 반환.
+    변동 없으면 빈 문자열 반환."""
+    if not _ART34_RATE_CHANGED or not _ART34_ALERT_MSG:
+        return ""
+    _rate_pct = round(_CURRENT_NHIS_RATE * 100, 4)
+    _ltci_pct = round(_CURRENT_LTCI_RATE * 100, 4)
+    return (
+        f'<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);'
+        f'border-left:5px solid #f0c040;border-radius:10px;'
+        f'padding:14px 18px;margin-bottom:12px;'
+        f'font-family:\'Noto Sans KR\',sans-serif;">'
+        f'<div style="color:#f0c040;font-size:0.95rem;font-weight:900;margin-bottom:4px;">'
+        f'🔔 [헌법 제34조] 법정 요율 자동 갱신 알림</div>'
+        f'<div style="color:#e2e8f0;font-size:0.85rem;line-height:1.7;">'
+        f'{_ART34_ALERT_MSG}<br>'
+        f'건강보험료율: <b style="color:#f0c040;">{_rate_pct}%</b> &nbsp;|&nbsp; '
+        f'장기요양보험료율: <b style="color:#f0c040;">{_ltci_pct}%</b><br>'
+        f'<span style="color:#94a3b8;font-size:0.78rem;">출처: {_ART34_RATE_SOURCE}</span>'
+        f'</div></div>'
+    )
+
+
+def _art34_report_footer() -> str:
+    """헌법 제34조 §3: 고객 리포트 하단 최신 요율 기준 문구 반환."""
+    _rate_pct = round(_CURRENT_NHIS_RATE * 100, 4)
+    _ym = _ART34_RATE_UPDATED_AT[:7].replace("-", "년 ") + "월" if _ART34_RATE_UPDATED_AT else ""
+    return (
+        f"본 분석은 {_ym} 공시된 최신 요율(건강보험료율 {_rate_pct}%)을 "
+        f"기준으로 작성되었습니다. (출처: {_ART34_RATE_SOURCE})"
     )
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -2603,6 +3237,7 @@ SECTOR_CODES: dict = {
     "6100": {"name": "배상책임보험",    "tab_key": "liability",     "keywords": ["배상책임", "배상상담", "중복보험", "실화책임", "독립책임", "배상보험", "배상", "책임보험"]},
     "6200": {"name": "간병비 컨설팅",   "tab_key": "nursing",       "keywords": ["간병비", "간병컨설팅", "장기요양", "요양병원", "간병보험", "간병상담", "요양상담", "치매보험", "치매", "간병", "요양"]},
     "6300": {"name": "부동산 투자",     "tab_key": "realty",        "keywords": ["부동산투자", "부동산상담", "등기부", "건축물대장", "투자수익률", "부동산", "부동산분석"]},
+    "6400": {"name": "의학경제학적 보장 컨설팅", "tab_key": "med_econ", "keywords": ["의학경제", "건강보험료역산", "역산컨설팅", "일당역산", "소득역산", "보험료역산", "의학경제컨설팅", "역산", "일일경제가치", "휴업손해", "건강보험역산"]},
     # ── 7000번대: 라이프 플랜 ────────────────────────────────────────────
     "7000": {"name": "LIFE CYCLE 설계", "tab_key": "life_cycle",    "keywords": ["라이프사이클", "생애설계", "타임라인", "백지설계", "인생설계", "생애계획", "인생계획", "라이프플랜"]},
     "7100": {"name": "LIFE EVENT 상담", "tab_key": "life_event",    "keywords": ["라이프이벤트", "인생이벤트", "결혼설계", "출산설계", "은퇴설계", "이벤트상담", "생애이벤트"]},
@@ -2718,6 +3353,10 @@ SUB_CODES: dict = {
     "6310": {"name": "등기부 분석",       "tab_key": "realty",         "keywords": ["등기부분석", "등기부확인", "등기부등본"]},
     "6320": {"name": "건축물대장 분석",   "tab_key": "realty",         "keywords": ["건축물대장분석", "건축물대장확인", "건축물대장"]},
     "6330": {"name": "투자수익률 계산",   "tab_key": "realty",         "keywords": ["투자수익률계산", "수익률계산", "투자수익률"]},
+    # ── 6400: 의학경제학적 보장 컨설팅 ────────────────────────────────────
+    "6410": {"name": "건강보험료 역산",   "tab_key": "med_econ",       "keywords": ["건강보험료역산", "보험료역산계산", "역산계산"]},
+    "6420": {"name": "일당 한도 분석",    "tab_key": "med_econ",       "keywords": ["일당한도분석", "일당한도확인", "금감원한도"]},
+    "6430": {"name": "수술비 보완 설계",  "tab_key": "med_econ",       "keywords": ["수술비보완", "수술비설계", "일당부족분보완"]},
     # ── 7000: LIFE CYCLE 설계 ─────────────────────────────────────────────
     "7010": {"name": "생애 타임라인",     "tab_key": "life_cycle",     "keywords": ["생애타임라인", "인생타임라인", "타임라인설계"]},
     "7020": {"name": "백지 설계",         "tab_key": "life_cycle",     "keywords": ["백지설계시작", "백지보험설계", "처음부터설계"]},
@@ -4545,10 +5184,58 @@ SYSTEM_PROMPT = """
 ## 최초 인사말 (대화 시작 시 반드시 사용)
 "안녕하세요, 고객님. 당신의 자산을 지키고 키우는 전략 파트너 골드키AI_MASTER입니다. 보험·재무·세무·법인 어떤 분야든 함께 최적의 전략을 설계해 드리겠습니다. 무엇을 도와드릴까요?"
 
-## 소득 역산 핵심 산식 (최우선 적용)
-- 건강보험료 기반: [건보료 납부액 / 0.0709] = 추정 월 소득
-- 국민연금 기반: [국민연금 납부액 / 0.09] = 추정 월 소득
+## [헌법 제32조] CFP 기반 라이프사이클 및 의학경제학적 보장 분석 표준 [최우선 적용]
+
+### §1 의학경제학적 가처분 소득 역산 원칙
+고객의 건강보험료가 언급되면 반드시 아래 공식으로 역산하여 모든 담보 설계의 기준으로 삼아라.
+- **추정 월 소득** = 납입 건강보험료 ÷ 0.0709 (2024년 전체 건강보험료율 7.09% 기준)
+- **일일 경제적 가치(필요 일당)** = 추정 월 소득 ÷ 30일
+- 예시: 건보료 25만 원 → 월 소득 약 352만 원 → 일일 가치 약 12만 원
+- 국민연금 기반: [국민연금 납부액 / 0.09] = 추정 월 소득 (건보료 없을 때 대체 사용)
 - 적정 보험료: 가처분 소득의 7~10% (위험직군 최대 20%)
+
+### §2 상해후유장해 소득 대체 로직 — 2년 원칙
+상해로 인한 10~15% 영구장해 발생 시 '시간의 상실'을 보전하는 것을 목적으로 한다.
+- 소득 대체 기간: 치료·적응기(1년) + 재취업·직장적응기(1년) = **총 2년** 소득 공백 전제
+- 적정 가입 금액: 역산 월 소득 × 24개월 계산 후, **최소 3억~5억 원 필수 방어선** 권고
+- 10% 장해 기준으로 2년치 소득을 온전히 보전하는 금액으로 설계하라.
+
+### §3 의학적 근거에 따른 질병·간병 설계
+- **중풍(뇌졸중)**: 국가 영구장해 판정·요양 지원까지 **최소 18개월** 관찰 기간 → 18개월치 이상 소득 대체 + 간병 비용 설계
+- **치매**: 확진 후 장기요양 신청 가능 경과 **6개월** → 최소 6~8개월치 간병 비용 설계
+- **진행성·전이암**: 조기암(5천만~1억)과 별도로 표적·면역항암제 비용 반영 → **최소 1억~3억 원** 권장
+
+### §4 CFP 기준 3층 연금 구조
+- 국민연금(소득 대체율 40~45%) + 퇴직연금(10%)의 한계 인정
+- **개인연금이 현 소득의 40~50%를 보전**하도록 설계하라.
+
+### §5 지능형 담보 매칭 — Gap Filling (자동 실행)
+계산된 일일 필요 일당이 금감원 합산 한도를 초과하면 즉시 아래 로직을 실행하라.
+- 금감원 한도: 상해 입원일당 7만 원/일, 질병 입원일당 10만 원/일
+- **차액 = 일일 필요 일당 − 금감원 한도** → 양수이면 반드시 보전 담보 제안
+- 보전 담보: 상해/질병 수술비, 1~5종 수술비, N대 질병 수술비 등 조합 → 입원 시 실제 수령액이 고객의 일일 경제적 가치에 수렴하도록 최적화
+
+### §6 전문가 브리핑 표준 — 의무 사용 문구
+분석 결과지에 반드시 아래 구조로 브리핑을 명시하라.
+- 핵심 용어: **'의학경제학적 휴업손해 보전'** (단순 금액 설명 대체 금지)
+- **한도 초과 시 필수 문구**: "고객님의 건강보험료 기반 일일 경제적 가치는 OO만 원이나, 규정상 일당은 OO만 원까지만 가입 가능하므로 부족분 OO만 원을 수술비 담보로 대체 보완하였습니다. (의학경제학적 휴업손해 보전)"
+- **한도 이내 시 문구**: "고객님의 건강보험료 기반 일일 경제적 가치는 OO만 원이며, 금감원 한도(OO만 원) 이내로 입원일당 단독 설계가 가능합니다. (의학경제학적 휴업손해 보전)"
+- 논리 연결: "왜 수술비 담보가 필요한가?"는 건강보험료 역산 결과와 연동 → 설계사 주관이 아닌 **데이터 기반 객관적 진단**임을 명시
+
+## [헌법 제34조] 시스템 자율 유지보수 및 법정 요율 최신화 [자동 적용]
+
+### §1 요율 동적 참조 의무
+- 역산 공식의 분모는 **고정값 0.0709가 아닌** 시스템 변수 `_CURRENT_NHIS_RATE`를 사용한다.
+- AI 답변 시 "2024년 기준 7.09%"가 아닌 **"현재 적용 요율"** 또는 **"최신 공시 요율"**로 표현하라.
+- 요율이 변경되었을 경우 역산 결과값과 함께 **"본 분석은 {연도}년 {월}월 공시 요율 기준"** 문구를 반드시 명시하라.
+
+### §2 요율 변경 시 자동 보정 원칙
+- 관리자가 새 요율을 등록하면 다음 상담부터 즉시 새 요율로 역산이 실행된다 (앱 재시작 불필요).
+- 고객에게 제시하는 모든 수치(월 소득·일당·Gap·장해보전액)는 항상 **최신 요율 기반**이어야 한다.
+
+### §3 리포트 하단 필수 문구
+모든 역산 기반 분석 결과 하단에 아래 문구를 자동 포함하라:
+> "본 분석은 [최종갱신일] 공시된 최신 요율(건강보험료율 [요율]%)을 기준으로 작성되었습니다."
 
 ## 근거 우선주의 [절대 원칙]
 - 반드시 **지식 버킷(관리자가 업로드한 PDF·판례·법조문·논문·전문회계·손해사정인·CFP 기준 자료)** 내 정보만 사용한다.
@@ -8478,6 +9165,114 @@ summary[data-testid="stExpanderToggle"]:hover {
 }
 
 /* ══════════════════════════════════════════════════
+   헌법 제30조 — 반응형 기기 최적화 (Device Adaptation)
+   §4: 기기 무관 텍스트 최소 폰트 14px 보장
+══════════════════════════════════════════════════ */
+
+/* [30-1] 앱 전역 텍스트 최소 폰트 14px (모바일 포함 모든 기기) */
+[data-testid="stApp"] p,
+[data-testid="stApp"] span,
+[data-testid="stApp"] div,
+[data-testid="stApp"] li,
+[data-testid="stApp"] label,
+[data-testid="stApp"] .stMarkdown p,
+[data-testid="stApp"] .stMarkdown span,
+[data-testid="stApp"] .stMarkdown li {
+    font-size: max(14px, 0.875rem);
+}
+/* [30-2] 사이드바 텍스트도 최소 14px */
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] div,
+[data-testid="stSidebar"] li,
+[data-testid="stSidebar"] label {
+    font-size: max(14px, 0.875rem);
+}
+/* [30-3] 반응형 레이아웃 — 모바일(600px 미만) 본문 여백 최적화 */
+@media (max-width: 600px) {
+    .block-container,
+    [data-testid="stMainBlockContainer"] {
+        padding-left: 0.6rem !important;
+        padding-right: 0.6rem !important;
+    }
+    /* 스플래시 텍스트는 JS에서 동적 처리하므로 CSS fallback만 */
+    #gk-sp-txt { font-size: max(14px, 3.8vw) !important; }
+}
+
+/* ══════════════════════════════════════════════════
+   헌법 제31조 — 레이아웃 전환 애니메이션 (Layout Transition)
+   §1: 화면 크기 변화 시 모든 블록 위치/크기에 ease-in-out 전환
+   §2: 0.3s~0.5s 범위 — 0.4s 기본값 (답답하지도, 티 없지도 않은 최적값)
+   §3: cubic-bezier ease-in-out — 천천히 시작→가속→천천히 멈춤
+══════════════════════════════════════════════════ */
+
+/* [31-1] 레이아웃 컨테이너 전환 애니메이션 — 크기/위치/패딩 변화 부드럽게 */
+[data-testid="stApp"],
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"],
+.block-container {
+    transition:
+        width  0.4s ease-in-out,
+        max-width 0.4s ease-in-out,
+        padding 0.4s ease-in-out,
+        margin  0.4s ease-in-out !important;
+}
+
+/* [31-2] 사이드바 열림/닫힘 슬라이드 전환 */
+[data-testid="stSidebar"],
+section[data-testid="stSidebar"] {
+    transition:
+        width       0.4s ease-in-out,
+        transform   0.4s ease-in-out,
+        opacity     0.4s ease-in-out,
+        visibility  0.4s ease-in-out !important;
+}
+
+/* [31-3] 카드·박스·버튼 — 크기 변화 부드럽게 */
+[data-testid="stButton"] > button,
+[data-testid="stDownloadButton"] > button,
+.stButton > button,
+div[data-testid="column"],
+[data-testid="stHorizontalBlock"] {
+    transition:
+        width   0.4s ease-in-out,
+        flex    0.4s ease-in-out,
+        padding 0.35s ease-in-out,
+        margin  0.35s ease-in-out !important;
+}
+
+/* [31-4] 이미지·미디어 크기 전환 */
+[data-testid="stImage"] img,
+[data-testid="stImage"] {
+    transition:
+        width   0.4s ease-in-out,
+        height  0.4s ease-in-out,
+        max-width 0.4s ease-in-out !important;
+}
+
+/* [31-5] expander·탭·메트릭 패널 — 펼침/접힘 부드럽게 */
+[data-testid="stExpander"],
+[data-testid="stMetric"],
+[data-testid="stTabs"],
+.stTabs [data-baseweb="tab-panel"] {
+    transition:
+        height  0.4s ease-in-out,
+        opacity 0.35s ease-in-out,
+        padding 0.35s ease-in-out !important;
+}
+
+/* [31-6] @media 전환 보조 — 반응형 중단점 통과 시 레이아웃 점프 방지 */
+@media (max-width: 600px) {
+    .block-container,
+    [data-testid="stMainBlockContainer"] {
+        transition:
+            padding-left  0.4s ease-in-out,
+            padding-right 0.4s ease-in-out !important;
+    }
+}
+
+/* ══════════════════════════════════════════════════
    헌법 제20조 — 상단 공간 최적화 (Top Space Optimization)
    콘텐츠가 화면 최상단에 즉시 노출되도록 모든 상단 여백 제거
 ══════════════════════════════════════════════════ */
@@ -12261,21 +13056,46 @@ window['startTTS_{tab_key}']=function(){{
     if cur == "intro" and not st.session_state.get("_splash_done", False):
         import base64 as _b64_sp, os as _os_sp, time as _time_sp
 
-        # ── 이미지 b64 로드 (세션 캐시 → 재실행 시 파일 I/O 생략) ────────
+        # ── [헌법 제31조] 이미지 b64 로드 ───────────────────────────────────
+        # splash_mobile.png  (세로형, < 768px)
+        # splash_tablet.png  (가로형, >= 768px)
+        # └ 우선 순위: splash_*.png → *.b64 파일 → 원본 jpeg (fallback)
         _assets_dir_sp = _os_sp.path.join(_os_sp.path.dirname(__file__), "assets")
-        def _load_b64_sp(fname):
+        def _load_b64_sp(fname, b64_fname=None, fallback_fname=None):
+            """fname 우선 로드, 없으면 b64_fname(순수 base64 텍스트), 없으면 fallback_fname 이진 로드."""
             _ck = f"_sp_b64_{fname}"
             if _ck in st.session_state:
                 return st.session_state[_ck]
-            _p = _os_sp.path.join(_assets_dir_sp, fname)
             _val = ""
+            # 1순위: fname 직접 읽기 (PNG/JPEG 이진)
+            _p = _os_sp.path.join(_assets_dir_sp, fname)
             if _os_sp.path.exists(_p):
                 with open(_p, "rb") as _f:
                     _val = _b64_sp.b64encode(_f.read()).decode()
+            # 2순위: *.b64 파일 (순수 base64 텍스트)
+            elif b64_fname:
+                _pb = _os_sp.path.join(_assets_dir_sp, b64_fname)
+                if _os_sp.path.exists(_pb):
+                    with open(_pb, "r") as _f:
+                        _val = _f.read().strip()
+            # 3순위: fallback 원본 파일 이진 읽기
+            elif fallback_fname:
+                _pf = _os_sp.path.join(_assets_dir_sp, fallback_fname)
+                if _os_sp.path.exists(_pf):
+                    with open(_pf, "rb") as _f:
+                        _val = _b64_sp.b64encode(_f.read()).decode()
             st.session_state[_ck] = _val
             return _val
-        _phone_b64_sp  = _load_b64_sp("Image_for_phone_splash_04c6295711.jpeg")
-        _tablet_b64_sp = _load_b64_sp("Tablet_splash_screen_7b65c0fcd7.jpeg")
+        _phone_b64_sp  = _load_b64_sp(
+            "splash_mobile.png",
+            b64_fname="phone_splash.b64",
+            fallback_fname="Image_for_phone_splash_04c6295711.jpeg"
+        )
+        _tablet_b64_sp = _load_b64_sp(
+            "splash_tablet.png",
+            b64_fname="tablet_splash.b64",
+            fallback_fname="Tablet_splash_screen_7b65c0fcd7.jpeg"
+        )
         _phone_src_sp  = f"data:image/jpeg;base64,{_phone_b64_sp}"  if _phone_b64_sp  else ""
         _tablet_src_sp = f"data:image/jpeg;base64,{_tablet_b64_sp}" if _tablet_b64_sp else ""
 
@@ -12341,73 +13161,199 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
     var style = pd.createElement('style');
     style.id  = 'gk-sp-style';
     style.textContent = [
+      // ── [제30조 §1] 반응형 오버레이 기본 구조
       '#gk-splash-overlay{{',
         'position:fixed;top:0;left:0;width:100vw;height:100vh;',
         'z-index:2147483646;background:#0a1628;',
         'display:flex;flex-direction:column;',
-        'align-items:center;justify-content:flex-end;',
+        'align-items:center;justify-content:center;',
         'overflow:hidden;opacity:1;transition:opacity 0.6s ease;',
       '}}',
-      '#gk-sp-img-p{{position:absolute;top:0;left:0;width:100%;height:100%;',
-        'object-fit:cover;object-position:center top;display:block;}}',
-      '#gk-sp-img-l{{position:absolute;top:0;left:0;width:100%;height:100%;',
-        'object-fit:cover;object-position:center;display:none;}}',
-      '#gk-sp-bottom{{position:relative;z-index:2;width:100%;',
-        'padding:16px 20px 44px;',
-        'background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,transparent 100%);',
-        'display:flex;flex-direction:column;align-items:center;gap:12px;}}',
-      '#gk-sp-bar-bg{{width:88%;max-width:400px;height:6px;',
-        'background:rgba(255,255,255,0.22);border-radius:3px;overflow:hidden;}}',
+      // ── [제30조 §3] 배경 레이어: background-size cover — landscape/portrait 모두 꽉 채움
+      '#gk-sp-bg{{',
+        'position:absolute;top:0;left:0;width:100%;height:100%;',
+        'background-size:cover!important;',
+        'background-position:center center!important;',
+        'background-repeat:no-repeat!important;',
+      '}}',
+      // ── [제30조 §2] 로고 레이어: object-fit contain — 잘리지 않고 중앙 배치
+      '#gk-sp-logo{{',
+        'position:relative;z-index:2;',
+        'display:block;',
+        'object-fit:contain!important;',
+        'object-position:center center!important;',
+        'max-width:90%;max-height:70vh;',
+        'border-radius:12px;',
+      '}}',
+      // ── [제30조 §3] 중앙 정렬 컨테이너 (로고+바+텍스트)
+      '#gk-sp-center{{',
+        'position:absolute;top:50%;left:50%;',
+        'transform:translate(-50%,-50%);',
+        'z-index:3;display:flex;flex-direction:column;',
+        'align-items:center;gap:16px;',
+        'width:90%;',
+        // ── [제31조] 컨테이너 크기 전환 ease-in-out 0.4s
+        'transition:width 0.4s ease-in-out,gap 0.4s ease-in-out;',
+      '}}',
+      // ── [제31조] 로고: 너비/높이 전환 0.4s ease-in-out
+      '#gk-sp-logo{{',
+        'position:relative;z-index:2;display:block;',
+        'object-fit:contain!important;object-position:center center!important;',
+        'max-width:90%;max-height:65vh;border-radius:12px;',
+        'transition:width 0.4s ease-in-out,height 0.4s ease-in-out;',
+      '}}',
+      '#gk-sp-bar-bg{{height:6px;',
+        'background:rgba(255,255,255,0.22);border-radius:3px;overflow:hidden;',
+        // ── [제31조] 바 너비 전환 0.4s ease-in-out
+        'transition:width 0.4s ease-in-out;}}',
       '#gk-sp-bar{{height:100%;width:5%;',
         'background:linear-gradient(90deg,#f0c040,#fbbf24);',
         'border-radius:3px;transition:width 0.35s linear;}}',
-      '#gk-sp-txt{{font-size:0.88rem;font-weight:700;',
+      // ── [제30조 §4 + 제31조] 최소 폰트 14px + 크기 전환 ease-in-out
+      '#gk-sp-txt{{font-size:max(14px,0.95rem);font-weight:700;',
         'color:rgba(255,255,255,0.9);letter-spacing:0.05em;',
         'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;',
-        'text-align:center;}}',
+        'text-align:center;line-height:1.4;',
+        'transition:font-size 0.4s ease-in-out;}}',
+      // ── [제31조] 오버레이 페이드인/아웃 전환 (opacity)
+      '#gk-splash-overlay{{transition:opacity 0.5s ease-in-out;}}',
+      // ── [제31조 §3] 배경 레이어: 이미지 교체 시 opacity 페이드 0.5s + background 전환
+      '#gk-sp-bg{{transition:opacity 0.5s ease-in-out,background-size 0.4s ease-in-out,background-position 0.4s ease-in-out;}}',
+      // ── [제31조 §3] 페이드 클래스: opacity 0 (교체 중)
+      '#gk-sp-bg.gk-fading{{opacity:0!important;}}',
+      '#gk-sp-bg.gk-fadein{{opacity:1!important;}}',
     ].join('');
     pd.head.appendChild(style);
 
-    // ── [B1] 안드로이드/iOS 화면 크기 동적 연동 ─────────────────────
-    // DPR(devicePixelRatio) 보정: screen.*은 물리 픽셀, inner*은 CSS px
-    // 안드로이드는 DPR이 2~4로 높아 screen.width가 과장됨
-    // CSS px 기준(innerWidth/innerHeight)을 최우선으로 사용
+    // ── [B1+제30조] 안드로이드/iOS 화면 크기 동적 연동 ──────────────
+    // DPR 보정: CSS px 기준(innerWidth) 최우선
     var vw = window.innerWidth  || (window.screen.width  / (window.devicePixelRatio || 1)) || 0;
     var vh = window.innerHeight || (window.screen.height / (window.devicePixelRatio || 1)) || 0;
-    // 가로/세로 전환 대응: 짧은 쪽을 기준으로 phone/tablet 판단
-    var shortDp = Math.min(vw, vh);
-    // 태블릿 기준: CSS px 기준 단축변 600dp 이상 (안드로이드 표준)
-    var isTablet = (shortDp >= 600);
-    // 오버레이도 vw×vh에 고정
     var sw = vw; var sh = vh;
+
+    // ── [제31조 §1/§2] 기기 분기: 768px 기준 (헌법 제31조) ─────────
+    // Mobile: vw < 768  →  splash_mobile (세로형)
+    // Tablet/Desktop: vw >= 768  →  splash_tablet (가로형)
+    function _getDeviceType(w) {{
+      return (w < 768) ? 'mobile' : 'tablet';
+    }}
+    var _deviceType = _getDeviceType(vw);
+    var isTablet = (_deviceType !== 'mobile');
+
+    // ── [제30조 §2] 로고 크기: Mobile=60%, Tablet/Desktop=40% (화면 너비 기준) ──
+    var _logoPct  = (_deviceType === 'mobile') ? 0.60 : 0.40;
+    var _logoWpx  = Math.round(vw * _logoPct);          // 로고 실제 px 너비
+    // 바 너비: 로고와 동일 너비로 정렬감 통일
+    var _barWpx   = Math.min(Math.max(_logoWpx, 200), 520);
+    // 폰트 크기: 화면 너비 비례, 최소 14px, 최대 20px
+    var _fontPx   = Math.round(Math.min(Math.max(vw * 0.035, 14), 20));
 
     var ov = pd.createElement('div');
     ov.id  = 'gk-splash-overlay';
     // [B1] Android WebView에서 100vw/100vh가 주소창 제외 크기로 계산되는 경우 대비
-    // JS로 계산한 sw×sh로 오버레이 크기를 명시적으로 덮어씌움
     ov.style.cssText = 'position:fixed;top:0;left:0;' +
       'width:' + sw + 'px;height:' + sh + 'px;' +
       'z-index:2147483646;background:#0a1628;' +
       'display:flex;flex-direction:column;' +
-      'align-items:center;justify-content:flex-end;' +
+      'align-items:center;justify-content:center;' +
       'overflow:hidden;opacity:1;transition:opacity 0.6s ease;';
-    // phone/tablet 이미지를 JS 감지 결과로 즉시 결정 (미디어쿼리 불필요)
-    var chosenImg = (isTablet && tabletImg) ? tabletImg : (phoneImg || tabletImg);
+
+    // ── [제31조 §1/§2] 기기 타입에 따라 이미지 선택 ──────────────────
+    // Mobile(<768px) → phoneImg(세로형), Tablet/Desktop(≥768px) → tabletImg(가로형)
+    function _pickImg(w) {{
+      var _isMob = (w < 768);
+      return _isMob ? (phoneImg || tabletImg) : (tabletImg || phoneImg);
+    }}
+    var chosenImg = _pickImg(vw);
+
     ov.innerHTML = [
-      chosenImg ? '<img id="gk-sp-img-p" src="'+chosenImg+'" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center top;" />' : '',
-      '<div id="gk-sp-bottom">',
-        '<div id="gk-sp-bar-bg"><div id="gk-sp-bar"></div></div>',
-        '<div id="gk-sp-txt">앱을 준비하고 있습니다 &nbsp;·&nbsp; 잠시만 기다려주세요</div>',
+      // ── [제30조 §3] 배경 레이어: background-size cover로 landscape/portrait 모두 꽉 채움
+      chosenImg
+        ? '<div id="gk-sp-bg" style="position:absolute;top:0;left:0;width:100%;height:100%;' +
+            'background-image:url(\'' + chosenImg + '\');' +
+            'background-size:cover;background-position:center center;' +
+            'background-repeat:no-repeat;"></div>'
+        : '<div id="gk-sp-bg" style="position:absolute;top:0;left:0;width:100%;height:100%;background:#0a1628;"></div>',
+      // ── 배경 위 그라데이션 오버레이 (이미지 위 텍스트 가독성)
+      '<div style="position:absolute;top:0;left:0;width:100%;height:100%;' +
+        'background:linear-gradient(to bottom,rgba(0,0,0,0.35) 0%,rgba(0,0,0,0.15) 40%,rgba(0,0,0,0.55) 100%);' +
+        'z-index:1;"></div>',
+      // ── [제30조 §2+§3] 중앙 컨테이너: 로고(contain) + 바 + 텍스트
+      '<div id="gk-sp-center" style="position:absolute;top:50%;left:50%;' +
+        'transform:translate(-50%,-50%);' +
+        'z-index:3;display:flex;flex-direction:column;' +
+        'align-items:center;gap:16px;width:90%;">',
+        // [제30조 §2] 로고 이미지: object-fit contain — 잘리지 않고 중앙 배치
+        // Mobile: vw 60% / Tablet+Desktop: vw 40%
+        chosenImg
+          ? '<img id="gk-sp-logo" src="' + chosenImg + '" alt="골드키" ' +
+              'style="display:block;width:' + _logoWpx + 'px;max-width:90%;max-height:65vh;' +
+              'object-fit:contain;object-position:center center;border-radius:12px;"/>'
+          : '',
+        // [제30조 §3] 프로그레스 바
+        '<div id="gk-sp-bar-bg" style="width:' + _barWpx + 'px;max-width:90%;height:6px;' +
+          'background:rgba(255,255,255,0.25);border-radius:3px;overflow:hidden;">' +
+          '<div id="gk-sp-bar" style="height:100%;width:5%;' +
+          'background:linear-gradient(90deg,#f0c040,#fbbf24);' +
+          'border-radius:3px;transition:width 0.35s linear;"></div></div>',
+        // [제30조 §4] 최소 14px 텍스트
+        '<div id="gk-sp-txt" style="font-size:' + _fontPx + 'px;font-weight:700;' +
+          'color:rgba(255,255,255,0.92);letter-spacing:0.05em;' +
+          'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;' +
+          'text-align:center;line-height:1.4;' +
+          'text-shadow:0 1px 4px rgba(0,0,0,0.6);">' +
+          '앱을 준비하고 있습니다 &nbsp;·&nbsp; 잠시만 기다려주세요</div>',
       '</div>',
     ].join('');
     pd.body.appendChild(ov);
-    // [B1] 화면 회전 대응: resize 시 오버레이 크기 재계산
+    // [제31조] 화면 회전/크기 변경 대응: resize 시 오버레이 + 이미지 교체 + fade 0.5s
+    var _prevIsMob = (_deviceType === 'mobile');  // 이전 모드 추적 (교체 트리거용)
     window.addEventListener('resize', function() {{
       var nvw = window.innerWidth  || sw;
       var nvh = window.innerHeight || sh;
+      // 오버레이 크기 갱신
       if (ov && ov.parentNode) {{
         ov.style.width  = nvw + 'px';
         ov.style.height = nvh + 'px';
+      }}
+      // [제31조 §1/§2] 768px 기준 재판정
+      var nDevType  = _getDeviceType(nvw);
+      var nIsMob    = (nDevType === 'mobile');
+      var nLogoPct  = nIsMob ? 0.60 : 0.40;
+      var nLogoWpx  = Math.round(nvw * nLogoPct);
+      var nBarW     = Math.min(Math.max(nLogoWpx, 200), 520);
+      var nFontPx   = Math.round(Math.min(Math.max(nvw * 0.035, 14), 20));
+      // [제30조 §2] 로고 너비 갱신
+      var nLogo = pd.getElementById('gk-sp-logo');
+      if (nLogo) nLogo.style.width = nLogoWpx + 'px';
+      // [제30조 §3] 바 너비 갱신
+      var nBar = pd.getElementById('gk-sp-bar-bg');
+      if (nBar) nBar.style.width = nBarW + 'px';
+      // [제30조 §4] 폰트 크기 갱신
+      var nTxt = pd.getElementById('gk-sp-txt');
+      if (nTxt) nTxt.style.fontSize = nFontPx + 'px';
+      // [제31조 §3] 768px 경계 통과 시에만 이미지 교체 + 0.5s 페이드
+      if (nIsMob !== _prevIsMob) {{
+        var nBg = pd.getElementById('gk-sp-bg');
+        if (nBg) {{
+          var nImg = _pickImg(nvw);
+          // 1단계: 페이드아웃 (opacity 0)
+          nBg.classList.add('gk-fading');
+          setTimeout(function() {{
+            // 2단계: 이미지 교체
+            if (nImg) {{
+              nBg.style.backgroundImage = 'url(\'' + nImg + '\')';
+            }}
+            // 3단계: 페이드인 (opacity 1)
+            nBg.classList.remove('gk-fading');
+            nBg.classList.add('gk-fadein');
+            setTimeout(function() {{ nBg.classList.remove('gk-fadein'); }}, 520);
+          }}, 520);
+          // 로고 src도 함께 교체
+          var nLogoEl = pd.getElementById('gk-sp-logo');
+          if (nLogoEl && nImg) nLogoEl.src = nImg;
+        }}
+        _prevIsMob = nIsMob;
       }}
     }});
 
@@ -15133,9 +16079,9 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
     text-transform:uppercase;margin-bottom:6px;">D SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🌸 Life &amp; Care</div>
   <div class="gk-pf-sub" style="color:#fecdd3;">
-    LIFE EVENT · 맞춤 보험 상담<br>부동산 투자 상담 · 간병비 컨설팅
+    LIFE EVENT · 맞춤 보험 상담<br>부동산 투자 · 간병비 · 의학경제학적 컨설팅
   </div>
-  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 3개 핵심 서비스</span>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 4개 핵심 서비스</span>
 </div>""", unsafe_allow_html=True)
             with st.expander("📂 D섹션 · 상세 서비스 목록 보기"):
                 st.markdown("""
@@ -15149,6 +16095,10 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 ##### 🏥 간병비 컨설팅
 - 치매·뇌졸중·요양병원 간병비 산출
 - 장기요양등급 · 간병보험 설계 · 간병인 비용 분석
+
+##### 🧬 의학경제학적 보장 컨설팅
+- 건강보험료 역산 → 추정 월 소득·일일 경제적 가치 산출
+- 금감원 입원일당 한도 비교 · 수술비 보완 설계 · 브리핑 문구 자동 생성
 """)
 
         with _pf_d2:
@@ -15496,6 +16446,7 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
         "liability":   [("fire", "🔥 화재보험"), ("t4", "🚗 자동차사고"), ("nursing", "🏥 간병")],
         "nursing":     [("cancer", "🎗️ 암 상담"), ("t3", "🛡️ 통합보험"), ("t5", "🏦 노후설계")],
         "realty":      [("t6", "💰 세무상담"), ("t5", "🏦 노후설계"), ("fire", "🔥 화재보험")],
+        "med_econ":    [("nursing", "🏥 간병 컨설팅"), ("t3", "🛡️ 통합보험"), ("t0", "📋 신규보험 상담")],
         "stock_eval":  [("t8", "👔 CEO플랜"), ("t6", "💰 세무상담"), ("t7", "🏭 법인상담")],
         "injury":        [("compensation", "⚖️ 보상 가이드"), ("disability", "🩺 장해 산출"), ("t4", "🚗 자동차사고")],
         "policy_scan":   [("t0", "📋 신규보험 상담"), ("t1", "💰 보험금 상담"), ("policy_terms", "📜 약관검색")],
@@ -22180,6 +23131,265 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 • 사망률: 발병 후 30일 내 약 15~20%
 </div>
 """, height=458)
+
+        # ════════════════════════════════════════════════════════════════
+        # [헌법 제35조] 치매 · 퇴행성 질환 전문 컨설팅 모듈
+        # ════════════════════════════════════════════════════════════════
+        st.markdown("---")
+        st.markdown(f"""
+<div style="background:linear-gradient(135deg,#0a0a1a 0%,#1a0a3a 50%,#2d1b69 100%);
+  border-left:5px solid #a78bfa;border-radius:12px;
+  padding:14px 18px;margin-bottom:12px;">
+  <div style="color:#c4b5fd;font-size:1.0rem;font-weight:900;margin-bottom:4px;">
+    🧬 치매 · 파킨슨 전문 컨설팅 <span style="font-size:0.68rem;background:#4c1d95;
+    color:#ddd6fe;padding:2px 8px;border-radius:12px;margin-left:6px;">헌법 제35조</span>
+  </div>
+  <div style="color:#8b7fc8;font-size:0.77rem;line-height:1.5;">
+    CDR 단계 기반 골든타임 설계 · 레켐비/도나네맙 치료비 · 파킨슨 산정특례 즉시 대응
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        _d35_c1, _d35_c2 = st.columns([1, 1])
+
+        with _d35_c1:
+            # ── 질환 및 CDR 입력 ──────────────────────────────────────
+            st.markdown("""<div style="background:#f5f0ff;border-left:4px solid #7c3aed;
+  border-radius:0 8px 8px 0;padding:7px 12px;margin-bottom:8px;font-weight:900;
+  font-size:0.9rem;color:#2d1b69;">🧬 질환 유형 · CDR 단계 입력</div>""",
+                        unsafe_allow_html=True)
+
+            _d35_disease = st.selectbox(
+                "퇴행성 질환 유형",
+                options=["alzheimer", "parkinson", "lewy", "vascular"],
+                format_func=lambda x: {
+                    "alzheimer": "🧠 알츠하이머 치매 (G30)",
+                    "parkinson": "🫀 파킨슨병 (G20) — 산정특례 즉시",
+                    "lewy":      "🧬 루이소체 치매 (G31.8)",
+                    "vascular":  "🩸 혈관성 치매 (F01)",
+                }[x],
+                key="d35_disease",
+            )
+
+            _d35_cdr = st.select_slider(
+                "CDR 단계 (현재 또는 예상)",
+                options=["CDR 0.5", "CDR 1", "CDR 2", "CDR 3"],
+                value=st.session_state.get("d35_cdr_val", "CDR 0.5"),
+                key="d35_cdr",
+                help="CDR 0.5=경도인지장애(골든타임) / CDR 1=경도치매 / CDR 2=중등도 / CDR 3=중증",
+            )
+            st.session_state["d35_cdr_val"] = _d35_cdr
+
+            # CDR 단계 배지
+            _cdr_info = _ART35_CDR_STAGES.get(_d35_cdr, _ART35_CDR_STAGES["CDR 0.5"])
+            st.markdown(f"""
+<div style="background:#1a0a3a;border:1.5px solid {_cdr_info['color']};
+  border-radius:8px;padding:8px 12px;margin:6px 0;">
+  <span style="color:{_cdr_info['color']};font-weight:900;font-size:0.85rem;">
+    {_d35_cdr} — {_cdr_info['label']}
+  </span><br>
+  <span style="color:#a78bfa;font-size:0.75rem;">{_cdr_info['note']}</span>
+</div>""", unsafe_allow_html=True)
+
+            _d35_premium = st.number_input(
+                "월 납입 건강보험료 (원, 제32조 역산 연동)",
+                min_value=0, max_value=2_000_000,
+                value=st.session_state.get("_me_premium_val", 150_000),
+                step=1_000, format="%d",
+                key="d35_premium",
+                help="입력 시 일일 경제적 가치와 담보 효율이 자동 계산됩니다",
+            )
+
+            _d35_run = st.button(
+                "🔬 제35조 담보 효율 분석 실행",
+                key="d35_run_btn",
+                type="primary",
+                use_container_width=True,
+            )
+
+        with _d35_c2:
+            st.markdown("""<div style="background:#f5f0ff;border-left:4px solid #7c3aed;
+  border-radius:0 8px 8px 0;padding:7px 12px;margin-bottom:8px;font-weight:900;
+  font-size:0.9rem;color:#2d1b69;">📊 담보 효율 분석 결과</div>""",
+                        unsafe_allow_html=True)
+
+            if _d35_run or st.session_state.get("_d35_result"):
+                if _d35_run:
+                    _d35_r = _art35_calc_report(_d35_premium, _d35_disease, _d35_cdr)
+                    st.session_state["_d35_result"] = _d35_r
+                else:
+                    _d35_r = st.session_state["_d35_result"]
+
+                # ── 전문가 가이드 문구 (제35조 §3) ───────────────────
+                st.markdown(f"""
+<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 100%);
+  border:2px solid #f0c040;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+  <div style="color:#fde68a;font-size:0.72rem;font-weight:900;margin-bottom:6px;">
+    👨‍⚕️ 전문의 가이드 — 헌법 제35조 §3
+  </div>
+  <div style="color:#e2e8f0;font-size:0.84rem;line-height:1.65;">
+    {_d35_r['specialist_guide']}
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                # ── 시나리오 비교 카드 (제35조 §5) ───────────────────
+                st.markdown(f"""
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+  <div style="background:#0f172a;border:1.5px solid #ef4444;border-radius:10px;
+    padding:12px;text-align:center;">
+    <div style="color:#fca5a5;font-size:0.68rem;font-weight:800;
+      letter-spacing:0.06em;margin-bottom:4px;">❌ 수술비 단독</div>
+    <div style="color:#e2e8f0;font-size:1.2rem;font-weight:900;">
+      {_d35_r['surgery_only']//10000:,}만원
+    </div>
+    <div style="color:#475569;font-size:0.68rem;margin-top:3px;">
+      {_d35_r['surgery_note'][:20]}…
+    </div>
+  </div>
+  <div style="background:#0f172a;border:1.5px solid #22c55e;border-radius:10px;
+    padding:12px;text-align:center;">
+    <div style="color:#86efac;font-size:0.68rem;font-weight:800;
+      letter-spacing:0.06em;margin-bottom:4px;">✅ 최적 조합</div>
+    <div style="color:#22c55e;font-size:1.2rem;font-weight:900;">
+      {_d35_r['optimal']//10000:,}만원
+    </div>
+    <div style="color:#475569;font-size:0.68rem;margin-top:3px;">
+      효율 {_d35_r['efficiency_ratio']}배
+    </div>
+  </div>
+</div>
+<div style="background:#0f172a;border:1px solid #a78bfa;border-radius:8px;
+  padding:10px 12px;margin-bottom:8px;">
+  <div style="color:#c4b5fd;font-size:0.72rem;font-weight:800;margin-bottom:4px;">
+    💡 최적 조합 상세
+  </div>
+  <div style="color:#e2e8f0;font-size:0.8rem;line-height:1.5;">
+    {_d35_r['optimal_label']}
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                # ── 우선 담보 리스트 ──────────────────────────────────
+                _cov_rows = "".join([
+                    f'<tr><td style="border:1px solid #334155;padding:4px 8px;'
+                    f'color:#a78bfa;font-weight:800;">{cat}</td>'
+                    f'<td style="border:1px solid #334155;padding:4px 8px;'
+                    f'color:#e2e8f0;font-weight:700;">{name}</td>'
+                    f'<td style="border:1px solid #334155;padding:4px 8px;'
+                    f'color:#22c55e;font-size:0.78rem;">{amt}</td></tr>'
+                    for cat, name, amt in _d35_r["coverage_list"]
+                ])
+                st.markdown(f"""
+<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;
+  padding:10px 12px;">
+  <div style="color:#c4b5fd;font-size:0.72rem;font-weight:800;margin-bottom:6px;">
+    🎯 {_d35_r['disease_icon']} {_d35_r['disease_name']} — 우선 담보 명칭 매핑 (제35조 §3)
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:0.78rem;">
+    <tr style="background:#1e1b4b;">
+      <th style="border:1px solid #334155;padding:4px 8px;color:#818cf8;">분류</th>
+      <th style="border:1px solid #334155;padding:4px 8px;color:#818cf8;">담보명</th>
+      <th style="border:1px solid #334155;padding:4px 8px;color:#818cf8;">권장금액</th>
+    </tr>
+    {_cov_rows}
+  </table>
+</div>""", unsafe_allow_html=True)
+
+                # 검사비 알림
+                if _d35_r["exam_cost"] > 0:
+                    st.info(
+                        f"🔬 **골든타임 확진 검사비 {_d35_r['exam_cost']//10000:,}만원** "
+                        f"(아밀로이드 PET-CT {_ART35_PET_CT_COST//10000:,}만원 + "
+                        f"CSF {_ART35_CSF_TEST_COST//10000:,}만원) — "
+                        f"치매 정밀 검사비 담보로 최우선 선보전 권고 (제35조 §1)"
+                    )
+            else:
+                st.caption("← 좌측에서 질환 유형과 CDR 단계를 선택한 후 분석을 실행하세요.")
+
+        # ── 신약 DB 및 장기요양 급여표 ───────────────────────────────────
+        with st.expander("💊 신약 DB (레켐비·도나네맙) & 장기요양 등급별 급여액 — 헌법 제35조 §4"):
+            _drug_c1, _drug_c2 = st.columns(2)
+            with _drug_c1:
+                st.markdown("##### 💊 FDA/KFDA 승인 치매 신약 현황")
+                for _drug in _ART35_DRUG_DB:
+                    st.markdown(f"""
+<div style="background:#0f172a;border:1px solid #4c1d95;border-radius:8px;
+  padding:10px 12px;margin-bottom:8px;">
+  <b style="color:#c4b5fd;">{_drug['name']}</b><br>
+  <span style="color:#6b7280;font-size:0.75rem;">
+    {_drug['company']} · {_drug['approval']}<br>
+    적응증: {_drug['target']}<br>
+    근거: {_drug['evidence']}<br>
+    연간 치료비: <b style="color:#f59e0b;">{_drug['annual_cost_krw']//10000:,}만원</b><br>
+    KFDA: {_drug['kfda_status']}
+  </span>
+</div>""", unsafe_allow_html=True)
+            with _drug_c2:
+                st.markdown("##### 🏥 장기요양보험 등급별 월 급여액 (2024년)")
+                def _ltci_facility(v):
+                    return "시설 불가" if v is None else f"{v//10000:,}만원"
+                _ltci_rows = "".join([
+                    f'<tr {"style=&quot;background:#1e1b4b;&quot;" if i % 2 == 0 else ""}>'
+                    f'<td style="border:1px solid #334155;padding:4px 8px;'
+                    f'color:#c4b5fd;font-weight:700;">{grade}</td>'
+                    f'<td style="border:1px solid #334155;padding:4px 8px;'
+                    f'color:#6b7280;font-size:0.75rem;">{info["label"]}</td>'
+                    f'<td style="border:1px solid #334155;padding:4px 8px;'
+                    f'color:#86efac;">{info["재가"]//10000:,}만원</td>'
+                    f'<td style="border:1px solid #334155;padding:4px 8px;'
+                    f'color:#93c5fd;">{_ltci_facility(info["시설"])}</td></tr>'
+                    for i, (grade, info) in enumerate(_ART35_LTCI_BENEFIT.items())
+                ])
+                st.markdown(f"""
+<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px;">
+  <table style="width:100%;border-collapse:collapse;font-size:0.78rem;">
+    <tr style="background:#1e1b4b;">
+      <th style="border:1px solid #334155;padding:4px 6px;color:#818cf8;">등급</th>
+      <th style="border:1px solid #334155;padding:4px 6px;color:#818cf8;">상태</th>
+      <th style="border:1px solid #334155;padding:4px 6px;color:#818cf8;">재가</th>
+      <th style="border:1px solid #334155;padding:4px 6px;color:#818cf8;">시설</th>
+    </tr>
+    {_ltci_rows}
+  </table>
+  <div style="color:#475569;font-size:0.70rem;margin-top:6px;">
+    ※ 제35조 §4: 매년 1월 급여액 변경 여부 자율 점검 (관리자 탭에서 업데이트)
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── AI 분석 연동 (brain 기존 AI 블록에 제35조 컨텍스트 추가) ────
+        if st.session_state.get("_d35_result"):
+            _d35_r2 = st.session_state["_d35_result"]
+            with st.expander("🤖 제35조 기반 AI 전문 설계 상담 요청"):
+                _d35_ai_c1, _d35_ai_c2 = st.columns([1, 1])
+                with _d35_ai_c1:
+                    _d35_cname, _d35_query, _d35_hi, _d35_do, _d35_pk = ai_query_block(
+                        "brain",
+                        f"예) {_d35_r2['disease_name']} {_d35_cdr} 단계 고객, "
+                        f"건보료 {_d35_premium//1000}천원 — 최적 담보 설계 요청",
+                        key_suffix="_d35",
+                    )
+                    if _d35_do:
+                        _d35_ctx = (
+                            f"\n[헌법 제35조 — 치매/퇴행성 질환 전문 컨설팅]\n"
+                            f"질환: {_d35_r2['disease_name']} (ICD: {_d35_r2['icd']}) | "
+                            f"CDR 단계: {_d35_cdr}\n"
+                            f"추정 월 소득: {_d35_r2['monthly_income']:,}원 | "
+                            f"일일 경제적 가치: {_d35_r2['daily_value']:,}원\n"
+                            f"수술비 단독: {_d35_r2['surgery_only']//10000:,}만원 vs "
+                            f"최적 조합: {_d35_r2['optimal']//10000:,}만원 "
+                            f"(효율 {_d35_r2['efficiency_ratio']}배)\n"
+                            f"전문가 가이드: {_d35_r2['specialist_guide']}\n"
+                            f"파킨슨 산정특례 본인부담: {int(_ART35_PARK_COPAY_RATE*100)}% "
+                            f"(일반 {int(_ART35_PARK_COPAY_NORMAL*100)}% 대비)\n"
+                        )
+                        run_ai_analysis(
+                            _d35_cname, _d35_query, _d35_hi,
+                            "res_brain_d35",
+                            extra_prompt=_d35_ctx,
+                            product_key=_d35_pk,
+                        )
+                with _d35_ai_c2:
+                    st.subheader("🤖 AI 분석 리포트")
+                    show_result("res_brain_d35")
+
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [heart] 심장질환 전용 상담 ───────────────────────────────────────
@@ -25117,6 +26327,192 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
 
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
+    # ── [med_econ] 의학경제학적 보장 컨설팅 ──────────────────────────────────
+    if cur == "med_econ":
+        if not _auth_gate("med_econ"): st.stop()
+        tab_home_btn("med_econ")
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('6400-1')}</div>""",
+                    unsafe_allow_html=True)
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#0d1b2a 0%,#1a3a5c 100%);
+  border-left:5px solid #0ea5e9;border-radius:12px;
+  padding:16px 20px;margin-bottom:12px;">
+  <div style="color:#7ec8f5;font-size:1.05rem;font-weight:900;margin-bottom:4px;">
+    🧬 의학경제학적 보장 컨설팅
+  </div>
+  <div style="color:#94a3b8;font-size:0.78rem;line-height:1.6;">
+    헌법 제32조 기반 — 건강보험료 역산으로 고객의 일일 경제적 가치를 산출하고,<br>
+    금감원 입원일당 한도와 비교하여 최적 보장 설계 브리핑 문구를 자동 생성합니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── 입력 섹션 ──────────────────────────────────────────────────────
+        st.markdown("#### 📥 건강보험료 입력")
+        _me_c1, _me_c2 = st.columns([2, 1])
+        with _me_c1:
+            _me_premium = st.number_input(
+                "월 납입 건강보험료 (원)",
+                min_value=0, max_value=2_000_000,
+                value=st.session_state.get("_me_premium_val", 150_000),
+                step=1_000,
+                format="%d",
+                key="me_premium_input",
+                help="직장가입자: 급여명세서의 건강보험료(장기요양 제외) 금액 입력",
+            )
+            st.session_state["_me_premium_val"] = _me_premium
+        with _me_c2:
+            _me_fss_type = st.radio(
+                "금감원 한도 기준",
+                options=["disease", "injury"],
+                format_func=lambda x: "🏥 질병 (10만원)" if x == "disease" else "🤕 상해 (7만원)",
+                key="me_fss_type",
+                help="질병 입원일당: 10만원 한도 / 상해 입원일당: 7만원 한도",
+            )
+
+        # ── 계산 버튼 ──────────────────────────────────────────────────────
+        _me_calc_clicked = st.button(
+            "🔢 역산 실행",
+            key="me_calc_btn",
+            type="primary",
+            use_container_width=True,
+        )
+
+        if _me_calc_clicked or st.session_state.get("_me_result"):
+            if _me_calc_clicked:
+                _me_r = _art32_calc(_me_premium)
+                st.session_state["_me_result"] = _me_r
+                st.session_state["_me_premium_cached"] = _me_premium
+                st.session_state["_me_fss_cached"] = _me_fss_type
+            else:
+                _me_r = st.session_state["_me_result"]
+                _me_premium = st.session_state.get("_me_premium_cached", _me_premium)
+                _me_fss_type = st.session_state.get("_me_fss_cached", _me_fss_type)
+
+            _me_lim = _ART32_FSS_LIMIT_INJURY if _me_fss_type == "injury" else _ART32_FSS_LIMIT_DISEASE
+            _me_gap = round(max(0, _me_r["daily_value"] - _me_lim))
+            _me_daily_만 = round(_me_r["daily_value"] / 10_000)
+            _me_lim_만   = _me_lim // 10_000
+            _me_gap_만   = round(_me_gap / 10_000)
+
+            st.markdown("---")
+            st.markdown("#### 📊 역산 결과")
+
+            # ── 핵심 지표 카드 3열 ────────────────────────────────────────
+            _me_col1, _me_col2, _me_col3 = st.columns(3)
+            with _me_col1:
+                st.markdown(f"""
+<div style="background:#0f172a;border:1.5px solid #0ea5e9;border-radius:12px;
+  padding:16px 14px;text-align:center;">
+  <div style="color:#7dd3fc;font-size:0.72rem;font-weight:800;
+    letter-spacing:0.06em;margin-bottom:6px;">추정 월 소득</div>
+  <div style="color:#e2e8f0;font-size:1.5rem;font-weight:900;line-height:1.1;">
+    {_me_r["monthly_income"]:,}원
+  </div>
+  <div style="color:#475569;font-size:0.68rem;margin-top:4px;">
+    건강보험료 ÷ {round(_CURRENT_NHIS_RATE*100,2)}%
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            with _me_col2:
+                _daily_color = "#22c55e" if _me_gap == 0 else "#f59e0b"
+                st.markdown(f"""
+<div style="background:#0f172a;border:1.5px solid {_daily_color};border-radius:12px;
+  padding:16px 14px;text-align:center;">
+  <div style="color:#fde68a;font-size:0.72rem;font-weight:800;
+    letter-spacing:0.06em;margin-bottom:6px;">일일 경제적 가치</div>
+  <div style="color:#e2e8f0;font-size:1.5rem;font-weight:900;line-height:1.1;">
+    {_me_daily_만}만원/일
+  </div>
+  <div style="color:#475569;font-size:0.68rem;margin-top:4px;">
+    금감원 한도: {_me_lim_만}만원
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            with _me_col3:
+                _gap_color = "#ef4444" if _me_gap > 0 else "#22c55e"
+                _gap_label = f"부족분 {_me_gap_만}만원" if _me_gap > 0 else "한도 이내"
+                _gap_icon  = "⚠️" if _me_gap > 0 else "✅"
+                st.markdown(f"""
+<div style="background:#0f172a;border:1.5px solid {_gap_color};border-radius:12px;
+  padding:16px 14px;text-align:center;">
+  <div style="color:#fca5a5;font-size:0.72rem;font-weight:800;
+    letter-spacing:0.06em;margin-bottom:6px;">보장 공백 진단</div>
+  <div style="color:{_gap_color};font-size:1.3rem;font-weight:900;line-height:1.1;">
+    {_gap_icon} {_gap_label}
+  </div>
+  <div style="color:#475569;font-size:0.68rem;margin-top:4px;">
+    {"수술비 담보 보완 필요" if _me_gap > 0 else "입원일당 단독 설계 가능"}
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            # ── 상세 지표 expander ────────────────────────────────────────
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            with st.expander("📋 상세 지표 (장해·뇌·심장 보장 기준액)", expanded=False):
+                _det_c1, _det_c2 = st.columns(2)
+                with _det_c1:
+                    st.metric("2년 소득 대체 목표액 (상해장해)",
+                              f"{_me_r['disability_2yr']:,}원",
+                              help="월 소득 × 12개월 × 2년")
+                    st.metric("뇌질환 집중 보장 기준",
+                              f"{_me_r['stroke_need']:,}원",
+                              help=f"월 소득 × {_ART32_STROKE_PERIOD_MO}개월")
+                with _det_c2:
+                    st.metric("치매 장기요양 기준액",
+                              f"{_me_r['dementia_need']:,}원",
+                              help=f"월 소득 × {_ART32_DEMENTIA_PERIOD_MO}개월")
+                    st.metric("상해 기준 일당 부족분",
+                              f"{_me_r['gap_injury']:,}원/일",
+                              help=f"일일 경제가치 - 상해한도({_ART32_FSS_LIMIT_INJURY//10000}만원)")
+                st.caption(_art34_report_footer())
+
+            # ── 브리핑 문구 생성 ──────────────────────────────────────────
+            st.markdown("---")
+            st.markdown("#### 💬 전문가 브리핑 문구 (헌법 제32조 표준)")
+            _me_briefing = _art32_briefing(_me_premium, fss_type=_me_fss_type)
+            st.markdown(f"""
+<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 100%);
+  border:2px solid #f0c040;border-radius:12px;padding:16px 18px;margin:8px 0;">
+  <div style="color:#fde68a;font-size:0.78rem;font-weight:900;
+    letter-spacing:0.05em;margin-bottom:8px;">
+    📜 AI 표준 브리핑 문구 — 복사하여 상담에 활용하세요
+  </div>
+  <div style="color:#e2e8f0;font-size:0.88rem;line-height:1.7;font-weight:500;">
+    {_me_briefing}
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            # 클립보드 복사 버튼
+            _me_copy_js = _me_briefing.replace("'", "\\'").replace("\n", "\\n")
+            _me_copy_col, _ = st.columns([2, 3])
+            with _me_copy_col:
+                st.markdown(f"""
+<button onclick="navigator.clipboard.writeText('{_me_copy_js}')
+  .then(()=>this.innerText='✅ 복사됨!')
+  .catch(()=>alert('복사 실패: 직접 선택 후 복사하세요'))"
+  style="width:100%;background:#f0c040;color:#0d1b2a;border:none;
+    border-radius:8px;padding:10px 0;font-size:0.85rem;
+    font-weight:900;cursor:pointer;letter-spacing:0.03em;">
+  📋 브리핑 문구 복사
+</button>""", unsafe_allow_html=True)
+
+            # ── 헌법 근거 고지 ────────────────────────────────────────────
+            st.markdown(f"""
+<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;
+  padding:10px 14px;margin-top:8px;">
+  <div style="color:#475569;font-size:0.72rem;line-height:1.6;">
+    ⚖️ <b style="color:#64748b;">[헌법 제32조 §6]</b>
+    본 역산 결과는 건강보험료 납입액 기반 추정치이며,
+    실제 소득과 다를 수 있습니다. 최종 설계는 반드시
+    공인 전문가의 검토를 거치시기 바랍니다.<br>
+    <span style="color:#334155;">
+      적용 요율: 건강보험료율 {round(_CURRENT_NHIS_RATE*100,4)}% |
+      {_ART34_RATE_SOURCE}
+    </span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
     # ── [t9] 관리자 ───────────────────────────────────────────────────────
     if cur == "t9":
         # 미인증 상태면 인증키 입력 화면만 표시 후 stop
@@ -25152,6 +26548,156 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
 
         if st.session_state.get("_admin_tab_auth"):
             st.success("✅ 관리자 시스템 활성화 — 아래 'RAG 지식베이스' 탭에서 파일을 업로드하세요.")
+
+            # ── [헌법 제34조] 요율 자동 갱신 알림 배너 ───────────────────────
+            _art34_load_rates()  # 세션 시작 시 Supabase에서 최신 요율 로드
+            _art34_banner = _art34_rate_banner_html()
+            if _art34_banner:
+                st.markdown(_art34_banner, unsafe_allow_html=True)
+
+            # ── [헌법 제34조] 법정 요율 수동 업데이트 UI ─────────────────────
+            with st.expander("⚙️ [헌법 제34조] 건강보험료율 업데이트 (관리자 전용)", expanded=_ART34_RATE_CHANGED):
+                st.caption(
+                    f"현재 적용 요율: 건강보험료율 **{round(_CURRENT_NHIS_RATE*100,4)}%** | "
+                    f"장기요양보험료율 **{round(_CURRENT_LTCI_RATE*100,4)}%** | "
+                    f"최종 갱신: {_ART34_RATE_UPDATED_AT} | 출처: {_ART34_RATE_SOURCE}"
+                )
+                _r34c1, _r34c2 = st.columns(2)
+                with _r34c1:
+                    _new_nhis_input = st.number_input(
+                        "건강보험료율 (%)",
+                        value=round(_CURRENT_NHIS_RATE * 100, 4),
+                        min_value=1.0, max_value=20.0, step=0.01,
+                        format="%.4f",
+                        key="art34_nhis_input",
+                        help="예: 7.09 → 0.0709으로 자동 변환 저장",
+                    )
+                with _r34c2:
+                    _new_ltci_input = st.number_input(
+                        "장기요양보험료율 (%)",
+                        value=round(_CURRENT_LTCI_RATE * 100, 4),
+                        min_value=0.1, max_value=5.0, step=0.001,
+                        format="%.4f",
+                        key="art34_ltci_input",
+                        help="건강보험료에 대한 비율 (예: 0.9182%)",
+                    )
+                _r34_source = st.text_input(
+                    "출처 (공시기관·날짜)",
+                    value="",
+                    placeholder="예: 보건복지부 고시 2025-XX호 (2025-01-01)",
+                    key="art34_source_input",
+                )
+                if st.button("💾 요율 저장 및 역산 엔진 즉시 반영", key="art34_save_btn", type="primary"):
+                    _ok = _art34_update_rate(
+                        nhis_rate=_new_nhis_input / 100.0,
+                        ltci_rate=_new_ltci_input / 100.0,
+                        source=_r34_source.strip() or f"관리자 수동 등록 ({dt.now().strftime('%Y-%m-%d')})",
+                    )
+                    if _ok:
+                        st.success(
+                            f"✅ 건강보험료율 {_new_nhis_input}% · 장기요양보험료율 {_new_ltci_input}% 저장 완료. "
+                            f"역산 엔진(_CURRENT_NHIS_RATE)에 즉시 반영되었습니다."
+                        )
+                        st.rerun()
+                    else:
+                        st.error("저장 실패 — Supabase 연결 또는 system_config 테이블을 확인하세요.")
+
+            # ── [헌법 제35조] 치매·퇴행성 질환 자율 업데이트 UI ─────────────
+            with st.expander("🧬 [헌법 제35조] 치매·파킨슨 신약/제도 자율 업데이트 (관리자 전용)", expanded=False):
+                st.caption(
+                    f"마지막 동기화: **{_ART35_LAST_SYNC}** | "
+                    f"레켐비 연간 치료비: **{_ART35_LEQEMBI_ANNUAL_COST//10000:,}만원** | "
+                    f"도나네맙 연간 치료비: **{_ART35_DONANEMAB_ANNUAL_COST//10000:,}만원** | "
+                    f"PET-CT 검사비: **{_ART35_PET_CT_COST//10000:,}만원**"
+                )
+                st.markdown("""
+<div style="background:#1a0a3a;border:1px solid #4c1d95;border-radius:8px;
+  padding:10px 14px;margin-bottom:10px;font-size:0.80rem;color:#c4b5fd;line-height:1.6;">
+  <b>📋 자율 업데이트 점검 항목 (매년 1월)</b><br>
+  • FDA/KFDA 신규 치매 치료제 승인 여부 (도나네맙·키선라 국내 허가 등)<br>
+  • 국민건강보험공단 장기요양보험 등급별 급여액 변경 여부<br>
+  • 산정특례 대상 질병 확대 여부 (파킨슨 외 루이소체 치매 등 추가 가능성)<br>
+  • 레켐비/도나네맙 국내 급여 여부 및 본인부담률 변경
+</div>""", unsafe_allow_html=True)
+
+                _r35c1, _r35c2 = st.columns(2)
+                with _r35c1:
+                    st.markdown("##### 💊 신약 치료비 기준액 업데이트")
+                    _new_leqembi = st.number_input(
+                        "레켐비 연간 치료비 (만원)",
+                        value=_ART35_LEQEMBI_ANNUAL_COST // 10_000,
+                        min_value=100, max_value=10_000, step=100,
+                        key="art35_leqembi_input",
+                        help="연간 투약 비용 기준액 (만원 단위 입력)",
+                    )
+                    _new_donanemab = st.number_input(
+                        "도나네맙(키선라) 연간 치료비 (만원)",
+                        value=_ART35_DONANEMAB_ANNUAL_COST // 10_000,
+                        min_value=100, max_value=10_000, step=100,
+                        key="art35_donanemab_input",
+                    )
+                    _new_pet_ct = st.number_input(
+                        "아밀로이드 PET-CT 검사비 (만원)",
+                        value=_ART35_PET_CT_COST // 10_000,
+                        min_value=50, max_value=1_000, step=10,
+                        key="art35_pet_ct_input",
+                    )
+
+                with _r35c2:
+                    st.markdown("##### 🏥 장기요양 급여액 업데이트 메모")
+                    _r35_ltci_memo = st.text_area(
+                        "등급별 급여액 변경 내용 (자유 입력)",
+                        placeholder=(
+                            "예) 2025년 1등급 재가: 2,150,000원으로 상향\n"
+                            "    5등급 시설 급여 신설 예정 등"
+                        ),
+                        height=100,
+                        key="art35_ltci_memo",
+                    )
+                    _r35_drug_note = st.text_input(
+                        "신규 신약/제도 변경 요약",
+                        placeholder="예) 도나네맙 국내 2025-06 KFDA 허가 — 급여 논의 중",
+                        key="art35_drug_note",
+                    )
+                    _r35_sync_date = st.date_input(
+                        "동기화 기준일",
+                        key="art35_sync_date",
+                    )
+
+                if st.button("💾 제35조 기준값 저장 (Supabase + 로컬 반영)", key="art35_save_btn", type="primary"):
+                    import app as _self_mod
+                    _self_mod._ART35_LEQEMBI_ANNUAL_COST   = _new_leqembi   * 10_000
+                    _self_mod._ART35_DONANEMAB_ANNUAL_COST = _new_donanemab * 10_000
+                    _self_mod._ART35_PET_CT_COST           = _new_pet_ct    * 10_000
+                    _self_mod._ART35_LAST_SYNC             = str(_r35_sync_date)
+                    _r35_upserts = [
+                        {"key": "art35_leqembi_cost",    "value": str(_self_mod._ART35_LEQEMBI_ANNUAL_COST)},
+                        {"key": "art35_donanemab_cost",  "value": str(_self_mod._ART35_DONANEMAB_ANNUAL_COST)},
+                        {"key": "art35_pet_ct_cost",     "value": str(_self_mod._ART35_PET_CT_COST)},
+                        {"key": "art35_last_sync",       "value": _self_mod._ART35_LAST_SYNC},
+                        {"key": "art35_drug_note",       "value": _r35_drug_note or ""},
+                        {"key": "art35_ltci_memo",       "value": _r35_ltci_memo or ""},
+                    ]
+                    try:
+                        _sb35 = _get_sb_client() if callable(globals().get("_get_sb_client")) else None
+                        if _sb35:
+                            _sb35.table("system_config").upsert(_r35_upserts, on_conflict="key").execute()
+                        st.success(
+                            f"✅ 제35조 기준값 저장 완료 — "
+                            f"레켐비 {_new_leqembi:,}만원 / 도나네맙 {_new_donanemab:,}만원 / "
+                            f"PET-CT {_new_pet_ct:,}만원 | 동기화일: {_ART35_LAST_SYNC}"
+                        )
+                        st.rerun()
+                    except Exception as _e35:
+                        st.warning(f"로컬 반영 완료 (Supabase 저장 실패: {_e35})")
+
+                # 현재 신약 DB 요약 표
+                st.markdown("##### 📋 현재 등록된 신약 DB")
+                for _dg in _ART35_DRUG_DB:
+                    st.markdown(
+                        f"- **{_dg['name']}** ({_dg['approval']}) — "
+                        f"연간 {_dg['annual_cost_krw']//10000:,}만원 | {_dg['kfda_status']}"
+                    )
 
             # ══════════════════════════════════════════════════════════════
             # 🏭 중앙집중 서비스 관리 대시보드 (GoldKeyServiceManager)
