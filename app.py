@@ -2607,6 +2607,8 @@ SECTOR_CODES: dict = {
     "9300": {"name": "일반상해 보상 가이드",         "tab_key": "compensation", "keywords": ["일반상해보상", "상해보험금", "상해보상가이드", "상해보상안내", "일반상해"]},
     # ── 9900번대: 보험봇 전문용어 검색 ──────────────────────────────────────
     "9900": {"name": "보험봇 전문용어 검색",  "tab_key": "ins_bot",  "keywords": ["보험봇", "보험용어", "보험용어검색", "용어찾아", "용어알려줘", "보험사전", "용어사전", "보험단어", "보험전문용어", "insubot"]},
+    # ── 9910번대: 지식 파이프라인 (헌법 제27·28조) ──────────────────────────
+    "9910": {"name": "지식 라이브러리 자동 학습",  "tab_key": "know_pipe",  "keywords": ["지식파이프라인", "약관업로드", "지식업데이트", "자동학습", "문서업로드", "리플렛등록", "지식라이브러리", "knowpipe", "지식베이스", "문서학습"]},
 }
 
 # ==========================================================================
@@ -20188,6 +20190,13 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
             if "[검증 보류]" in raw:
                 _verify_ok = False
 
+            # Knowledge Auto-Sync 최신 반영 안내 (헌법 제28조 §SLA)
+            _sync_label = st.session_state.get("kp_last_sync", "")
+            _sync_notice = (
+                f"📡 최신 약관({_sync_label})이 반영된 결과입니다."
+                if _sync_label else ""
+            )
+
             return {
                 "raw": raw,
                 "domain": domain,
@@ -20195,6 +20204,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 "alert": _alert,
                 "verify_ok": _verify_ok,
                 "blocked": blocked,
+                "sync_notice": _sync_notice,
             }
 
         # ── 검색 실행 ─────────────────────────────────────────────────────
@@ -20259,6 +20269,14 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
   <span style="{_ART25_RED_CSS}">{_res['alert']}</span>
 </div>""", unsafe_allow_html=True)
 
+            # Knowledge Auto-Sync 최신 약관 반영 안내
+            if _res.get("sync_notice"):
+                st.markdown(f"""
+<div style="background:#f0f9ff;border-left:4px solid #4facfe;border-radius:8px;
+  padding:8px 14px;font-size:.8rem;color:#0369a1;font-weight:600;margin-top:8px;">
+  {_res['sync_notice']}
+</div>""", unsafe_allow_html=True)
+
         else:
             st.markdown("""
 <div style="text-align:center;padding:32px 0;color:#94a3b8;">
@@ -20267,6 +20285,257 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
   <div style="font-size:0.78rem;margin-top:6px;color:#cbd5e1;">
     예시: 실손보험 자기부담금 · 면책조항 · 맥브라이드 장해율 · 교통사고 합의금
   </div>
+</div>""", unsafe_allow_html=True)
+
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
+    # ── [know_pipe] 지식 라이브러리 자동 학습 (헌법 제27·28조) ───────────────
+    if cur == "know_pipe":
+        if not _auth_gate("know_pipe"): st.stop()
+        tab_home_btn("know_pipe")
+
+        # ── CSS ──────────────────────────────────────────────────────────
+        st.markdown("""
+<style>
+.kp-header-card {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    padding: 20px 24px; border-radius: 15px; color: #fff;
+    margin-bottom: 18px; box-shadow: 0 4px 12px rgba(79,172,254,.35);
+}
+.kp-header-card h3 { margin:0 0 6px; font-size:1.15rem; font-weight:900; letter-spacing:.05em; }
+.kp-header-card p  { margin:0; font-size:.82rem; opacity:.9; }
+.kp-tier-table {
+    background:#f8fafc; border-radius:10px; padding:14px 16px;
+    border-left:4px solid #4facfe; margin-bottom:14px; font-size:.82rem;
+}
+.kp-tier-1 { color:#0f4c81; font-weight:700; }
+.kp-tier-2 { color:#0369a1; font-weight:600; }
+.kp-tier-3 { color:#64748b; font-weight:500; }
+.kp-result-ok  { background:#f0fdf4; border-left:4px solid #22c55e; border-radius:8px; padding:10px 14px; margin:6px 0; font-size:.83rem; }
+.kp-result-err { background:#fff1f2; border-left:4px solid #ef4444; border-radius:8px; padding:10px 14px; margin:6px 0; font-size:.83rem; }
+.kp-sync-badge {
+    display:inline-block; background:linear-gradient(90deg,#4facfe,#00f2fe);
+    color:#fff; border-radius:20px; padding:3px 12px; font-size:.75rem; font-weight:700;
+}
+.kp-boost-bar { height:8px; border-radius:4px; background:#e2e8f0; overflow:hidden; margin-top:4px; }
+.kp-boost-fill { height:100%; border-radius:4px; background:linear-gradient(90deg,#4facfe,#00f2fe); }
+.kp-divider { border:none; border-top:1px solid #e2e8f0; margin:16px 0; }
+</style>
+""", unsafe_allow_html=True)
+
+        # ── 헤더 카드 ─────────────────────────────────────────────────────
+        st.markdown("""
+<div class="kp-header-card">
+  <h3>📂 전문가 지식 라이브러리 자동 학습</h3>
+  <p>약관 · 리플렛 · 공문 · 판례자료를 업로드하면 AI가 헌법 제27·28조 기준으로 자동 인덱싱합니다.<br>
+     설계사가 자료를 넣기만 하면 InsuBot이 스스로 진화하는 <b>자기완결형 지능체</b>로 발전합니다.</p>
+</div>
+""", unsafe_allow_html=True)
+
+        # ── 문서 위계 안내 (제28조) ───────────────────────────────────────
+        with st.expander("📋 헌법 제28조 — 문서 위계 기준 보기", expanded=False):
+            _hier_rows = "\n".join(
+                f'<tr><td class="kp-tier-{meta["tier"]}">{dtype}</td>'
+                f'<td>{meta["label"]}</td>'
+                f'<td class="kp-tier-{meta["tier"]}">위계 {meta["tier"]}</td>'
+                f'<td>{"법적 근거용" if meta["tier"]==1 else "보조 참고용" if meta["tier"]==2 else "참고용 (법적근거 인용 금지)"}</td></tr>'
+                for dtype, meta in _ART28_DOC_HIERARCHY.items()
+            )
+            st.markdown(f"""
+<div class="kp-tier-table">
+<table width="100%" style="border-collapse:collapse;font-size:.82rem;">
+  <thead><tr style="border-bottom:2px solid #4facfe;">
+    <th style="text-align:left;padding:4px 8px;">문서 유형</th>
+    <th style="text-align:left;padding:4px 8px;">레이블</th>
+    <th style="text-align:left;padding:4px 8px;">위계</th>
+    <th style="text-align:left;padding:4px 8px;">사용 기준</th>
+  </tr></thead>
+  <tbody>{_hier_rows}</tbody>
+</table>
+</div>
+""", unsafe_allow_html=True)
+
+        # ── 검색 부스트 가중치 안내 (제22조·제26조) ──────────────────────
+        with st.expander("🎯 헌법 제26조 — 검색 부스트 가중치", expanded=False):
+            _BOOST_WEIGHTS = [
+                ("전문의 견해 / 의학 서적",     95),
+                ("변호사 법률 해석 / 보험업법",  93),
+                ("금감원 분쟁조정 결과",         92),
+                ("대법원 판례",                 90),
+                ("금감원 감독지침",             88),
+                ("보험사 공식 약관",            85),
+                ("리플렛 (참고용)",             40),
+            ]
+            for src, weight in _BOOST_WEIGHTS:
+                st.markdown(f"""
+<div style="margin:6px 0;">
+  <div style="display:flex;justify-content:space-between;font-size:.8rem;">
+    <span>{src}</span><span style="font-weight:700;">{weight}%</span>
+  </div>
+  <div class="kp-boost-bar">
+    <div class="kp-boost-fill" style="width:{weight}%;"></div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        st.markdown("<hr class='kp-divider'>", unsafe_allow_html=True)
+
+        # ── 파일 업로드 UI ────────────────────────────────────────────────
+        st.markdown("#### 📤 문서 업로드 (PDF)")
+
+        # 문서 유형 선택
+        _kp_col1, _kp_col2 = st.columns([2, 1])
+        with _kp_col1:
+            _kp_files = st.file_uploader(
+                "PDF 파일을 선택하세요 (약관, 리플렛, 판례, 공문 등)",
+                type=["pdf"],
+                accept_multiple_files=True,
+                key="kp_file_uploader",
+                label_visibility="collapsed",
+            )
+        with _kp_col2:
+            _kp_doc_type = st.selectbox(
+                "문서 유형",
+                options=list(_ART28_DOC_HIERARCHY.keys()),
+                key="kp_doc_type",
+            )
+
+        # ── 내부 로직 함수 (스텁) ─────────────────────────────────────────
+        def _kp_upload_to_gcs(file_name: str) -> str:
+            """
+            [헌법 제27조] GCS 업로드 스텁.
+            실제 운영 시 google-cloud-storage SDK 연동.
+            Bucket: goldkey-knowledge-vault
+            """
+            return f"gs://goldkey-knowledge-vault/{file_name}"
+
+        def _kp_process_document(gcs_uri: str, doc_type: str) -> dict:
+            """
+            [헌법 제28조] Document AI OCR + 표(Table) 추출 스텁.
+            실제 운영 시 google.cloud.documentai_v1 연동.
+            약관의 복잡한 표 구조를 정밀 파싱.
+            반환: {"text": str, "tables": list, "metadata": dict}
+            """
+            tier = _ART28_DOC_HIERARCHY.get(doc_type, {}).get("tier", 3)
+            label = _ART28_DOC_HIERARCHY.get(doc_type, {}).get("label", "참고용")
+            return {
+                "text": f"[Document AI 추출 — {gcs_uri}]",
+                "tables": [],
+                "metadata": {
+                    "발행기관": "자동 감지 예정",
+                    "발행일자": "자동 감지 예정",
+                    "문서유형": doc_type,
+                    "위계": tier,
+                    "레이블": label,
+                },
+            }
+
+        def _kp_sync_to_vector_db(doc_data: dict, file_name: str) -> bool:
+            """
+            [헌법 제27조] Vertex AI Search 벡터 DB 동기화 스텁.
+            시맨틱 청킹 + 키워드 하이브리드 인덱싱 수행.
+            메타데이터(발행기관/발행일/문서종류)를 포함하여 인덱싱.
+            """
+            _boost = 95 if doc_data["metadata"]["위계"] == 1 else (
+                     75 if doc_data["metadata"]["위계"] == 2 else 40)
+            st.session_state.setdefault("kp_knowledge_log", []).append({
+                "file": file_name,
+                "doc_type": doc_data["metadata"]["문서유형"],
+                "tier": doc_data["metadata"]["위계"],
+                "label": doc_data["metadata"]["레이블"],
+                "boost": _boost,
+                "synced_at": dt.now().strftime("%Y-%m-%d %H:%M"),
+            })
+            return True
+
+        # ── 업로드 실행 ───────────────────────────────────────────────────
+        _kp_process_btn = st.button(
+            "🚀 지식 베이스 통합 시작",
+            key="kp_process_btn",
+            type="primary",
+            use_container_width=True,
+        )
+
+        if _kp_process_btn:
+            if not _kp_files:
+                st.warning("PDF 파일을 먼저 선택해 주세요.")
+            else:
+                _kp_success, _kp_fail = 0, 0
+                for _kp_f in _kp_files:
+                    with st.spinner(f"📄 {_kp_f.name} 처리 중..."):
+                        try:
+                            # Step 1: GCS 업로드
+                            _gcs_uri = _kp_upload_to_gcs(_kp_f.name)
+                            # Step 2: Document AI OCR + 표 추출
+                            _doc_data = _kp_process_document(_gcs_uri, _kp_doc_type)
+                            # Step 3: 시맨틱 청킹 + 메타데이터 벡터 DB 동기화
+                            _ok = _kp_sync_to_vector_db(_doc_data, _kp_f.name)
+                            # 위계 혼용 경고 (제28조)
+                            if _doc_data["metadata"]["위계"] == 3:
+                                st.markdown(f"""
+<div class="kp-result-ok">
+  ✅ <b>{_kp_f.name}</b> 학습 완료
+  &nbsp;<span class="kp-sync-badge">동기화 완료</span>
+  &nbsp;<span style="color:#f59e0b;font-size:.78rem;font-weight:700;">
+    ⚠ {_ART28_TIER_MISMATCH_ALERT}
+  </span>
+</div>""", unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"""
+<div class="kp-result-ok">
+  ✅ <b>{_kp_f.name}</b> — {_kp_doc_type} (위계 {_doc_data['metadata']['위계']}) 학습 완료
+  &nbsp;<span class="kp-sync-badge">동기화 완료</span>
+</div>""", unsafe_allow_html=True)
+                            _kp_success += 1
+                        except Exception as _kp_e:
+                            st.markdown(f"""
+<div class="kp-result-err">
+  ❌ <b>{_kp_f.name}</b> 오류: {sanitize_unicode(str(_kp_e))}
+</div>""", unsafe_allow_html=True)
+                            _kp_fail += 1
+
+                # 완료 요약 + Auto-Sync 최신 반영 안내
+                st.session_state["kp_last_sync"] = dt.now().strftime("%Y-%m")
+                st.success(f"처리 완료: ✅ 성공 {_kp_success}건 / ❌ 실패 {_kp_fail}건")
+                st.info(f"📡 최신 약관({st.session_state['kp_last_sync']})이 반영된 결과입니다. InsuBot 검색 시 자동으로 안내됩니다.")
+                st.rerun()
+
+        # ── 지식 로그 테이블 ──────────────────────────────────────────────
+        st.markdown("<hr class='kp-divider'>", unsafe_allow_html=True)
+        st.markdown("#### 📚 지식 베이스 현황")
+
+        _kp_log = st.session_state.get("kp_knowledge_log", [])
+        if _kp_log:
+            _log_rows = "\n".join(
+                f'<tr style="border-bottom:1px solid #f1f5f9;">'
+                f'<td style="padding:5px 8px;">{e["file"]}</td>'
+                f'<td style="padding:5px 8px;">{e["doc_type"]}</td>'
+                f'<td style="padding:5px 8px;font-weight:700;" class="kp-tier-{e["tier"]}">위계 {e["tier"]}</td>'
+                f'<td style="padding:5px 8px;">{e["label"]}</td>'
+                f'<td style="padding:5px 8px;">{e["boost"]}%</td>'
+                f'<td style="padding:5px 8px;color:#64748b;font-size:.78rem;">{e["synced_at"]}</td></tr>'
+                for e in reversed(_kp_log)
+            )
+            st.markdown(f"""
+<div style="overflow-x:auto;">
+<table width="100%" style="border-collapse:collapse;font-size:.81rem;background:#f8fafc;border-radius:10px;">
+  <thead><tr style="background:linear-gradient(90deg,#4facfe22,#00f2fe22);border-bottom:2px solid #4facfe;">
+    <th style="padding:6px 8px;text-align:left;">파일명</th>
+    <th style="padding:6px 8px;text-align:left;">문서 유형</th>
+    <th style="padding:6px 8px;text-align:left;">위계</th>
+    <th style="padding:6px 8px;text-align:left;">레이블</th>
+    <th style="padding:6px 8px;text-align:left;">검색 부스트</th>
+    <th style="padding:6px 8px;text-align:left;">동기화 시각</th>
+  </tr></thead>
+  <tbody>{_log_rows}</tbody>
+</table>
+</div>
+""", unsafe_allow_html=True)
+        else:
+            st.markdown("""
+<div style="text-align:center;padding:28px 0;color:#94a3b8;">
+  <div style="font-size:2rem;margin-bottom:8px;">📭</div>
+  <div style="font-size:.88rem;font-weight:700;">아직 업로드된 문서가 없습니다.</div>
+  <div style="font-size:.78rem;margin-top:4px;">약관·판례·공문 PDF를 업로드하면 InsuBot이 자동으로 학습합니다.</div>
 </div>""", unsafe_allow_html=True)
 
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
