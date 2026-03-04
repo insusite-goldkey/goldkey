@@ -3,7 +3,6 @@ FROM python:3.10-slim
 # ── 시스템 패키지 + 한국어 locale ──────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
     locales \
-    locales-all \
     curl \
     && locale-gen ko_KR.UTF-8 \
     && update-locale LANG=ko_KR.UTF-8 \
@@ -42,9 +41,6 @@ USER user
 
 # HuggingFace Space 포트 노출
 EXPOSE 7860
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-7860}/_stcore/health || exit 1
 
 # HF Space: PORT=7860 고정
 CMD streamlit run app.py \
