@@ -20383,35 +20383,164 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 key="kp_doc_type",
             )
 
-        # ── 내부 로직 함수 (스텁) ─────────────────────────────────────────
-        def _kp_upload_to_gcs(file_name: str) -> str:
-            """
-            [헌법 제27조] GCS 업로드 스텁.
-            실제 운영 시 google-cloud-storage SDK 연동.
-            Bucket: goldkey-knowledge-vault
-            """
-            return f"gs://goldkey-knowledge-vault/{file_name}"
+        # ── 내부 로직 함수 (헌법 제27·28조 완전 구현) ────────────────────
 
-        def _kp_process_document(gcs_uri: str, doc_type: str) -> dict:
-            """
-            [헌법 제28조] Document AI OCR + 표(Table) 추출 스텁.
-            실제 운영 시 google.cloud.documentai_v1 연동.
-            약관의 복잡한 표 구조를 정밀 파싱.
-            반환: {"text": str, "tables": list, "metadata": dict}
-            """
-            tier = _ART28_DOC_HIERARCHY.get(doc_type, {}).get("tier", 3)
+        # GCS 버킷 / Document AI 설정 (Secrets 우선)
+        try:
+            _KP_GCS_BUCKET   = os.environ.get("GCS_KNOWLEDGE_BUCKET") or st.secrets.get("GCS_KNOWLEDGE_BUCKET", "goldkey-knowledge-vault")
+            _KP_DAI_PROJECT  = os.environ.get("GCP_PROJECT")          or st.secrets.get("GCP_PROJECT", "gen-lang-client-0777682955")
+            _KP_DAI_LOCATION = os.environ.get("DOCUMENT_AI_LOCATION") or st.secrets.get("DOCUMENT_AI_LOCATION", "us")
+            _KP_DAI_PROCESSOR= os.environ.get("DOCUMENT_AI_PROCESSOR_ID") or st.secrets.get("DOCUMENT_AI_PROCESSOR_ID", "")
+        except Exception:
+            _KP_GCS_BUCKET    = os.environ.get("GCS_KNOWLEDGE_BUCKET", "goldkey-knowledge-vault")
+            _KP_DAI_PROJECT   = os.environ.get("GCP_PROJECT", "gen-lang-client-0777682955")
+            _KP_DAI_LOCATION  = os.environ.get("DOCUMENT_AI_LOCATION", "us")
+            _KP_DAI_PROCESSOR = os.environ.get("DOCUMENT_AI_PROCESSOR_ID", "")
+
+        def _kp_upload_to_gcs(file_bytes: bytes, file_name: str) -> str:
+            """[헌법 제27조] PDF를 GCS goldkey-knowledge-vault 버킷에 업로드.
+            실패 시 local:// URI 반환 → pdfplumber 폴백 보장."""
+            try:
+                _gcs = _get_gcs_client()
+                if not _gcs:
+                    return f"local://{file_name}"
+                _blob = _gcs.bucket(_KP_GCS_BUCKET).blob(f"knowledge/{file_name}")
+                _blob.upload_from_string(file_bytes, content_type="application/pdf")
+                return f"gs://{_KP_GCS_BUCKET}/knowledge/{file_name}"
+            except Exception:
+                return f"local://{file_name}"
+
+        def _kp_extract_tables_pdfplumber(file_bytes: bytes) -> list:
+            """pdfplumber 폴백 표 추출."""
+            try:
+                import pdfplumber, io
+                _tbls = []
+                with pdfplumber.open(io.BytesIO(file_bytes)) as _pdf:
+                    for _pn, _pg in enumerate(_pdf.pages, 1):
+                        for _t in (_pg.extract_tables() or []):
+                            if _t and len(_t) > 1:
+                                _tbls.append({"page": _pn, "headers": [_t[0]], "rows": _t[1:]})
+                return _tbls
+            except Exception:
+                return []
+
+        def _kp_process_document(gcs_uri: str, doc_type: str, file_bytes: bytes = b"") -> dict:
+            """[헌법 제28조] Document AI Form Parser OCR + 표(Table) 추출.
+            - DOCUMENT_AI_PROCESSOR_ID 설정 시 Document AI 실제 호출
+            - 미설정 또는 오류 시 pdfplumber 자동 폴백
+            반환: {"text": str, "tables": list[dict], "metadata": dict}"""
+            tier  = _ART28_DOC_HIERARCHY.get(doc_type, {}).get("tier", 3)
             label = _ART28_DOC_HIERARCHY.get(doc_type, {}).get("label", "참고용")
-            return {
-                "text": f"[Document AI 추출 — {gcs_uri}]",
-                "tables": [],
-                "metadata": {
-                    "발행기관": "자동 감지 예정",
-                    "발행일자": "자동 감지 예정",
-                    "문서유형": doc_type,
-                    "위계": tier,
-                    "레이블": label,
-                },
+            _meta = {
+                "발행기관": "자동 감지",
+                "발행일자": "자동 감지",
+                "문서유형": doc_type,
+                "위계": tier,
+                "레이블": label,
+                "추출엔진": "Document AI",
             }
+
+            # ── 1차: Document AI Form Parser ──────────────────────────────
+            if _KP_DAI_PROCESSOR and not gcs_uri.startswith("local://"):
+                try:
+                    from google.cloud import documentai_v1 as documentai
+                    from google.oauth2 import service_account as _svc
+
+                    _gcs_cfg: dict = {}
+                    try:
+                        _gcs_cfg = dict(st.secrets.get("gcs", {}))
+                    except Exception:
+                        pass
+                    if not _gcs_cfg.get("private_key"):
+                        _pk = os.environ.get("GCS_PRIVATE_KEY", "")
+                        if _pk:
+                            _gcs_cfg = {
+                                "type": "service_account",
+                                "project_id":     os.environ.get("GCS_PROJECT_ID", _KP_DAI_PROJECT),
+                                "private_key_id": os.environ.get("GCS_PRIVATE_KEY_ID", ""),
+                                "private_key":    _pk.replace("\\n", "\n"),
+                                "client_email":   os.environ.get("GCS_CLIENT_EMAIL", ""),
+                                "client_id":      os.environ.get("GCS_CLIENT_ID", ""),
+                                "auth_uri":       "https://accounts.google.com/o/oauth2/auth",
+                                "token_uri":      "https://oauth2.googleapis.com/token",
+                            }
+
+                    _dai_opts = {"api_endpoint": f"{_KP_DAI_LOCATION}-documentai.googleapis.com"}
+                    if _gcs_cfg.get("private_key"):
+                        _creds = _svc.Credentials.from_service_account_info(
+                            _gcs_cfg,
+                            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                        )
+                        _dai_client = documentai.DocumentProcessorServiceClient(
+                            credentials=_creds, client_options=_dai_opts
+                        )
+                    else:
+                        _dai_client = documentai.DocumentProcessorServiceClient(
+                            client_options=_dai_opts
+                        )
+
+                    _proc_name = _dai_client.processor_path(
+                        _KP_DAI_PROJECT, _KP_DAI_LOCATION, _KP_DAI_PROCESSOR
+                    )
+
+                    # 20MB 미만: 인라인 전송 / 이상: GCS URI 사용
+                    if file_bytes and len(file_bytes) < 20 * 1024 * 1024:
+                        _req = documentai.ProcessRequest(
+                            name=_proc_name,
+                            raw_document=documentai.RawDocument(
+                                content=file_bytes, mime_type="application/pdf"
+                            ),
+                        )
+                    else:
+                        _req = documentai.ProcessRequest(
+                            name=_proc_name,
+                            gcs_document=documentai.GcsDocument(
+                                gcs_uri=gcs_uri, mime_type="application/pdf"
+                            ),
+                        )
+
+                    _result = _dai_client.process_document(request=_req)
+                    _doc    = _result.document
+                    _text   = _doc.text or ""
+
+                    # 표 구조 추출 ─────────────────────────────────────────
+                    _tables: list = []
+                    for _page in _doc.pages:
+                        for _tbl in _page.tables:
+                            def _cell_text(cell):
+                                try:
+                                    seg = cell.layout.text_anchor.text_segments[0]
+                                    return _text[seg.start_index: seg.end_index].strip()
+                                except Exception:
+                                    return ""
+                            _hdrs = [[_cell_text(c) for c in r.cells] for r in _tbl.header_rows]
+                            _rows = [[_cell_text(c) for c in r.cells] for r in _tbl.body_rows]
+                            if _hdrs or _rows:
+                                _tables.append({"page": _page.page_number, "headers": _hdrs, "rows": _rows})
+
+                    # 엔티티 기반 메타데이터 자동 감지 ─────────────────────
+                    _kv = {e.type_: e.mention_text for e in _doc.entities}
+                    _meta["발행기관"] = _kv.get("발행기관") or _kv.get("issuer", "자동 감지")
+                    _meta["발행일자"] = _kv.get("발행일자") or _kv.get("date", "자동 감지")
+                    _meta["pages"]   = len(_doc.pages)
+                    _meta["추출엔진"] = f"Document AI Form Parser ({len(_tables)}표 감지)"
+                    return {"text": _text, "tables": _tables, "metadata": _meta}
+
+                except Exception as _dai_err:
+                    _meta["추출엔진"] = f"Document AI 실패→pdfplumber 폴백 ({sanitize_unicode(str(_dai_err)[:80])})"
+
+            # ── 2차: pdfplumber 폴백 ───────────────────────────────────────
+            _fb_tables = _kp_extract_tables_pdfplumber(file_bytes) if file_bytes else []
+            _fb_text   = ""
+            try:
+                import pdfplumber, io
+                with pdfplumber.open(io.BytesIO(file_bytes)) as _pdf2:
+                    _fb_text = "\n".join((_pg.extract_text() or "") for _pg in _pdf2.pages)
+            except Exception:
+                pass
+            if not _meta.get("추출엔진") or _meta["추출엔진"] == "Document AI":
+                _meta["추출엔진"] = f"pdfplumber 폴백 ({len(_fb_tables)}표 감지)"
+            return {"text": _fb_text, "tables": _fb_tables, "metadata": _meta}
 
         def _kp_sync_to_vector_db(doc_data: dict, file_name: str) -> bool:
             """
@@ -20447,28 +20576,51 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 for _kp_f in _kp_files:
                     with st.spinner(f"📄 {_kp_f.name} 처리 중..."):
                         try:
-                            # Step 1: GCS 업로드
-                            _gcs_uri = _kp_upload_to_gcs(_kp_f.name)
-                            # Step 2: Document AI OCR + 표 추출
-                            _doc_data = _kp_process_document(_gcs_uri, _kp_doc_type)
+                            _fb = _kp_f.read()  # bytes 읽기 (한 번만)
+                            # Step 1: GCS 업로드 (file_bytes 전달)
+                            _gcs_uri = _kp_upload_to_gcs(_fb, _kp_f.name)
+                            # Step 2: Document AI OCR + 표 추출 (file_bytes 전달)
+                            _doc_data = _kp_process_document(_gcs_uri, _kp_doc_type, _fb)
                             # Step 3: 시맨틱 청킹 + 메타데이터 벡터 DB 동기화
-                            _ok = _kp_sync_to_vector_db(_doc_data, _kp_f.name)
-                            # 위계 혼용 경고 (제28조)
-                            if _doc_data["metadata"]["위계"] == 3:
-                                st.markdown(f"""
+                            _kp_sync_to_vector_db(_doc_data, _kp_f.name)
+
+                            # ── 결과 카드 ────────────────────────────────
+                            _eng   = _doc_data["metadata"].get("추출엔진", "")
+                            _tbls  = _doc_data.get("tables", [])
+                            _tier  = _doc_data["metadata"]["위계"]
+                            _warn  = f'&nbsp;<span style="color:#f59e0b;font-size:.78rem;font-weight:700;">⚠ {_ART28_TIER_MISMATCH_ALERT}</span>' if _tier == 3 else ""
+
+                            st.markdown(f"""
 <div class="kp-result-ok">
-  ✅ <b>{_kp_f.name}</b> 학습 완료
-  &nbsp;<span class="kp-sync-badge">동기화 완료</span>
-  &nbsp;<span style="color:#f59e0b;font-size:.78rem;font-weight:700;">
-    ⚠ {_ART28_TIER_MISMATCH_ALERT}
-  </span>
+  ✅ <b>{_kp_f.name}</b> — {_kp_doc_type} (위계 {_tier})
+  &nbsp;<span class="kp-sync-badge">동기화 완료</span>{_warn}<br>
+  <span style="font-size:.78rem;color:#64748b;">🔧 {sanitize_unicode(_eng)}&nbsp;|&nbsp;
+  GCS: <code style="font-size:.75rem;">{_gcs_uri}</code></span>
 </div>""", unsafe_allow_html=True)
+
+                            # ── 표 추출 결과 표시 (제28조 핵심) ─────────
+                            if _tbls:
+                                with st.expander(f"📊 추출된 표 {len(_tbls)}개 — {_kp_f.name}", expanded=False):
+                                    for _ti, _t in enumerate(_tbls, 1):
+                                        st.markdown(
+                                            f"**표 {_ti}** (페이지 {_t.get('page','?')})",
+                                            unsafe_allow_html=False,
+                                        )
+                                        _all_rows = (_t.get("headers") or []) + (_t.get("rows") or [])
+                                        if _all_rows:
+                                            try:
+                                                import pandas as _pd
+                                                if len(_all_rows) > 1:
+                                                    _df = _pd.DataFrame(_all_rows[1:], columns=_all_rows[0])
+                                                else:
+                                                    _df = _pd.DataFrame(_all_rows)
+                                                st.dataframe(_df, use_container_width=True)
+                                            except Exception:
+                                                for _row in _all_rows:
+                                                    st.write(" | ".join(str(c) for c in _row))
                             else:
-                                st.markdown(f"""
-<div class="kp-result-ok">
-  ✅ <b>{_kp_f.name}</b> — {_kp_doc_type} (위계 {_doc_data['metadata']['위계']}) 학습 완료
-  &nbsp;<span class="kp-sync-badge">동기화 완료</span>
-</div>""", unsafe_allow_html=True)
+                                st.caption("ℹ️ 표 데이터가 감지되지 않았습니다 (텍스트 전용 PDF).")
+
                             _kp_success += 1
                         except Exception as _kp_e:
                             st.markdown(f"""

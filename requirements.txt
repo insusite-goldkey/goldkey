@@ -6,6 +6,9 @@ ftfy>=6.1.1,<7.0.0
 # ── AI / DB (Lazy Load — 첫 사용 시 로드) ──────────────────────────────
 google-genai>=0.3.0,<2.0.0
 supabase>=2.3.0,<3.0.0
+google-cloud-documentai>=2.20.0,<3.0.0
+google-cloud-storage>=2.10.0,<3.0.0
+google-auth>=2.20.0,<3.0.0
 # ── 문서 처리 (Lazy Load) ───────────────────────────────────────────────
 Pillow>=10.0.0,<12.0.0
 pdfplumber>=0.9.0,<1.0.0
