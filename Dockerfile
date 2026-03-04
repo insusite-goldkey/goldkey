@@ -34,10 +34,6 @@ COPY --chown=user requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# ── Playwright + Chromium 빌드타임 설치 (런타임 크래시 완전 방지) ───────────
-RUN pip install --no-cache-dir playwright && \
-    playwright install --with-deps chromium
-
 # ── 앱 소스 복사 ────────────────────────────────────────────────────────────
 COPY --chown=user . .
 

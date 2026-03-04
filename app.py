@@ -338,29 +338,13 @@ def render_legal_report(*a, **kw):
 os.environ["PYTHONIOENCODING"] = "utf-8:replace"
 os.environ["PYTHONUTF8"] = "1"
 
-# ── Playwright Chromium 자동 설치 (HuggingFace Space / 서버 환경) ──────────
-# [OPT3] 최경량화: .pw_chromium_ok 플래그 파일이 있으면 즉시 패스 (0ms)
-# 없을 때만 백그라운드에서 설치 → 부팅 블로킹 완전 제거
+# ── Playwright Chromium 자동 설치 비활성화 ──────────────────────────────────
+# HF Space cpu-basic 환경에서 OOM/타임아웃 유발 → 완전 제거
+# 약관 추적 기능은 playwright 미설치 시 사용자 안내 메시지로 대체
 def _install_playwright_bg():
-    try:
-        _pw_flag = pathlib.Path.home() / ".pw_chromium_ok"
-        if _pw_flag.exists():
-            return  # 플래그 있으면 즉시 종료
-        import subprocess as _subprocess
-        _pw_result = _subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
-            capture_output=True, text=True, timeout=180
-        )
-        if _pw_result.returncode == 0:
-            _pw_flag.write_text("ok")
-    except Exception:
-        pass
+    pass  # disabled
 
-try:
-    import threading as _threading
-    _threading.Thread(target=_install_playwright_bg, daemon=True).start()
-except Exception:
-    pass
+# _threading.Thread 미실행 — HF Space 안정성 확보
 
 # 환경변수 전체를 surrogate-safe하게 정제 (앱 시작 시 1회만 실행)
 try:
