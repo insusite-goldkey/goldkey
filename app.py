@@ -7661,24 +7661,38 @@ section[data-testid="stSidebar"] {
         components.html("""
 <script>
 (function(){
-  setTimeout(function(){
+  function tryOpenSidebar() {
     try {
       var pd = window.parent.document;
+      // 사이드바 요소 visibility/display 강제 해제 (스플래시 CSS 충돌 방지)
+      var sb = pd.querySelector('[data-testid="stSidebar"]');
+      if (sb) {
+        sb.style.setProperty('visibility', 'visible', 'important');
+        sb.style.setProperty('display', 'block', 'important');
+        sb.style.setProperty('opacity', '1', 'important');
+      }
       var selectors = [
         '[data-testid="stSidebarCollapseButton"] button',
         'button[aria-label="Open sidebar"]',
-        'button[aria-label="\uc0ac\uc774\ub4dc\ubc14\ub97c \uc5f4거\ub098 \ub2eb\uc73c\uc138\uc694"]',
+        'button[aria-label="사이드바를 열거나 닫으세요"]',
         '[data-testid="collapsedControl"] button',
-        '[data-testid="stSidebarNav"] button'
+        'section[data-testid="stSidebar"] button'
       ];
       for (var i = 0; i < selectors.length; i++) {
         var btn = pd.querySelector(selectors[i]);
-        if (btn) { btn.click(); break; }
+        if (btn) { btn.click(); return true; }
       }
     } catch(e) {}
+    return false;
+  }
+  // 200ms 후 1차 시도, 실패 시 600ms 후 재시도
+  setTimeout(function(){
+    if (!tryOpenSidebar()) {
+      setTimeout(tryOpenSidebar, 400);
+    }
   }, 200);
 })();
-</script>""", height=0)
+</script>""", height=1)
 
     # ── (5) 전역 로딩 오버레이 JS ────────────────────────────────────
     # 부모 문서에 직접 오버레이 DOM 주입 → 클릭 즉시(~0ms) 화면 덮음
@@ -12176,12 +12190,6 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
         'color:rgba(255,255,255,0.9);letter-spacing:0.05em;',
         'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;',
         'text-align:center;}}',
-      '#gk-sp-skip{{background:rgba(255,255,255,0.18);color:#fff;',
-        'border:1.5px solid rgba(255,255,255,0.45);border-radius:24px;',
-        'padding:8px 28px;font-size:0.88rem;font-weight:700;',
-        'cursor:pointer;letter-spacing:0.04em;backdrop-filter:blur(4px);',
-        '-webkit-backdrop-filter:blur(4px);}}',
-      '#gk-sp-skip:active{{background:rgba(255,255,255,0.32);}}',
     ].join('');
     pd.head.appendChild(style);
 
@@ -12193,14 +12201,10 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
       '<div id="gk-sp-bottom">',
         '<div id="gk-sp-bar-bg"><div id="gk-sp-bar"></div></div>',
         '<div id="gk-sp-txt">앱을 준비하고 있습니다 &nbsp;·&nbsp; 잠시만 기다려주세요</div>',
-        '<button id="gk-sp-skip">▶ 바로 시작하기</button>',
       '</div>',
     ].join('');
     pd.body.appendChild(ov);
 
-    pd.getElementById('gk-sp-skip').addEventListener('click', function(){{
-      dismissSplash(true);
-    }});
   }}
 
   // ── [10-4] 스플래시 해제: 페이드아웃 + 사이드바/본체 동시 페이드인 ──
