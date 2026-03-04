@@ -253,6 +253,33 @@ _ART28_TIER_MISMATCH_ALERT: str = (            # 위계 혼용 시 표기 문구
     "⚠️ [RED_ALERT] 리플렛·마케팅 자료는 '참고용'으로만 사용 가능하며, "
     "법적 근거로 인용하는 것은 헌법 제28조 위반입니다. [/RED_ALERT]"
 )
+#
+# 제29조 [블록 식별 번호(Block ID) 운영]
+#   § 1. 모든 독립적 섹션과 내부 블록에는 우측 상단 또는 좌측 상단에
+#         작은 글씨로 식별 번호(예: #1-1)를 표기한다.
+#   § 2. 번호 체계: [페이지 번호]-[섹션 번호]-[상세 블록 번호] 순으로 부여.
+#         예: [1-2-3]은 1번 페이지, 위에서 2번째 섹션, 3번째 블록.
+#   § 3. 디자인: 연한 회색(#D3D3D3) 반투명, 폰트 10px~12px 이내.
+#   § 4. 토글: 관리자(is_admin=True) 모드에서만 노출.
+#             일반 사용자에게는 완전 비표시.
+#
+# ── 제29조 구현 헬퍼 ─────────────────────────────────────────────────────
+def _bid(bid: str) -> str:
+    """Block ID 표기 헬퍼 — 관리자 모드일 때만 식별번호 HTML 반환.
+    사용법: st.markdown(_bid('1-1-1') + '...기존 HTML...', unsafe_allow_html=True)
+    또는 블록 div의 position:relative 컨테이너 안에 삽입."""
+    try:
+        import streamlit as _st
+        if not _st.session_state.get("is_admin") or not _st.session_state.get("_bid_visible", True):
+            return ""
+    except Exception:
+        return ""
+    return (
+        f'<span style="position:absolute;top:4px;right:8px;'
+        f'font-size:10px;color:rgba(180,180,180,0.7);font-weight:400;'
+        f'font-family:monospace;letter-spacing:0.03em;'
+        f'pointer-events:none;user-select:none;z-index:9;">#{bid}</span>'
+    )
 # ══════════════════════════════════════════════════════════════════════════
 
 import streamlit as st
@@ -7132,7 +7159,9 @@ def main():
     # st.markdown CSS는 Streamlit 메인 문서에 직접 적용됨 (iframe 아님).
     # set_page_config 직후 렌더되므로 사이드바보다 먼저 적용됨.
     # JS 방식(components.html)은 렌더 완료 후 실행 → 타이밍 문제로 폐기.
-    if not st.session_state.get("_splash_done"):
+    # _open_sidebar 요청 시: 사이드바 열기 위해 차단 CSS 삽입 금지
+    _skip_splash_hide = bool(st.session_state.get("_open_sidebar"))
+    if not st.session_state.get("_splash_done") and not _skip_splash_hide:
         st.markdown("""
 <style id="gk-sp-hide-style">
 [data-testid="stSidebar"],
@@ -7658,19 +7687,37 @@ section[data-testid="stSidebar"] {
 
     # ── (1) _open_sidebar: 로그인 버튼 클릭 시 JS로 사이드바 열기 ──────────────
     if st.session_state.pop("_open_sidebar", False):
+        # _splash_done 강제 설정: 사이드바 차단 CSS가 재삽입되지 않도록
+        st.session_state["_splash_done"] = True
         components.html("""
 <script>
 (function(){
+  function removeSplashBlockCss(pd) {
+    // st.markdown이 삽입한 gk-sp-hide-style 제거
+    var el = pd.getElementById('gk-sp-hide-style');
+    if (el && el.parentNode) { el.parentNode.removeChild(el); }
+    // data-gk-splash 속성 제거
+    pd.body.removeAttribute('data-gk-splash');
+    // 사이드바 요소 inline style 강제 해제
+    var sb = pd.querySelector('[data-testid="stSidebar"]');
+    if (sb) {
+      sb.style.removeProperty('display');
+      sb.style.removeProperty('visibility');
+      sb.style.removeProperty('opacity');
+      sb.style.setProperty('visibility', 'visible', 'important');
+      sb.style.setProperty('display', 'block', 'important');
+      sb.style.setProperty('opacity', '1', 'important');
+    }
+    var cc = pd.querySelector('[data-testid="collapsedControl"]');
+    if (cc) {
+      cc.style.removeProperty('display');
+      cc.style.removeProperty('visibility');
+    }
+  }
   function tryOpenSidebar() {
     try {
       var pd = window.parent.document;
-      // 사이드바 요소 visibility/display 강제 해제 (스플래시 CSS 충돌 방지)
-      var sb = pd.querySelector('[data-testid="stSidebar"]');
-      if (sb) {
-        sb.style.setProperty('visibility', 'visible', 'important');
-        sb.style.setProperty('display', 'block', 'important');
-        sb.style.setProperty('opacity', '1', 'important');
-      }
+      removeSplashBlockCss(pd);
       var selectors = [
         '[data-testid="stSidebarCollapseButton"] button',
         'button[aria-label="Open sidebar"]',
@@ -7685,12 +7732,13 @@ section[data-testid="stSidebar"] {
     } catch(e) {}
     return false;
   }
-  // 200ms 후 1차 시도, 실패 시 600ms 후 재시도
+  // 즉시 + 200ms + 600ms 3중 시도
+  removeSplashBlockCss(window.parent.document);
   setTimeout(function(){
     if (!tryOpenSidebar()) {
       setTimeout(tryOpenSidebar, 400);
     }
-  }, 200);
+  }, 150);
 })();
 </script>""", height=1)
 
@@ -10650,6 +10698,20 @@ setTimeout(function(){
                     st.session_state["_show_suggestions"] = not st.session_state.get("_show_suggestions", False)
                 if st.button("📢 개선 지시 목록", key="btn_show_directives", use_container_width=True):
                     st.session_state["_show_directives"] = not st.session_state.get("_show_directives", False)
+                st.markdown("---")
+                # ── [제29조] 블록 식별번호(Block ID) 토글 ────────────────────
+                st.markdown("**🔢 블록 식별번호 (Block ID)**")
+                _bid_on = st.toggle(
+                    "식별번호 표시",
+                    value=st.session_state.get("_bid_visible", True),
+                    key="_bid_toggle_sb",
+                    help="제29조 — 관리자 전용 블록/위젯 식별번호 표시 On/Off",
+                )
+                st.session_state["_bid_visible"] = _bid_on
+                if _bid_on:
+                    st.caption("🟢 블록 번호 표시 중 (우측 상단 회색 소자)")
+                else:
+                    st.caption("⚫ 블록 번호 숨김")
 
     # ── 관리자 지시 목록 (메인 영역) ──────────────────────────────────────
     if st.session_state.get("is_admin") and st.session_state.get("_show_directives"):
@@ -13266,9 +13328,10 @@ renderCalendar();
                              use_container_width=True):
                     st.session_state["_open_sidebar"] = True
                     st.rerun()
-            st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+            st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:12px 16px;margin-bottom:6px;text-align:center;">
+  {_bid('1-1-1')}
   <span style="color:#fff;font-size:0.95rem;font-weight:800;">
     🔐 버튼을 클릭하면 가입/로그인 창이 열립니다
   </span>
@@ -13279,9 +13342,10 @@ renderCalendar();
             _cur_utype = st.session_state.get("_gk_user_type", "customer")
             _eid_badge = f'<span style="font-size:0.72rem;background:#0f172a;color:#7dd3fc;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;letter-spacing:0.04em;">{_cur_eid}</span>' if _cur_eid else ""
             st.markdown(f"""
-<div style="background:linear-gradient(135deg,#1a5c3a 0%,#27ae60 100%);
+<div style="position:relative;background:linear-gradient(135deg,#1a5c3a 0%,#27ae60 100%);
   border-radius:12px;padding:12px 18px;margin-bottom:6px;
   display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+  {_bid('1-1-2')}
   <span style="font-size:1.5rem;">✅</span>
   <span style="color:#fff;font-size:1.0rem;font-weight:900;">
     {_uname} 마스터님 · 로그인됨
@@ -13385,11 +13449,12 @@ renderCalendar();
                 )
 
                 # ── 외곽 통합 카드 헤더 ──────────────────────────────────────
-                st.markdown("""
-<div style="background:linear-gradient(135deg,#0d1b2a 0%,#162d4a 100%);
+                st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#0d1b2a 0%,#162d4a 100%);
   border:2px solid #2563eb;border-radius:16px;
   padding:16px 18px 6px 18px;margin-bottom:0;
   box-shadow:0 6px 28px rgba(0,0,0,0.35),0 0 0 1px rgba(37,99,235,0.18);">
+  {_bid('1-2-1')}
   <div style="font-size:11px;font-weight:900;color:#93c5fd;letter-spacing:0.12em;
     text-transform:uppercase;margin-bottom:14px;
     display:flex;align-items:center;gap:6px;">
@@ -13403,8 +13468,9 @@ renderCalendar();
 
                 with _sb_c1:
                     st.markdown(f"""
-<div style="background:rgba(251,191,36,0.08);border:1.5px solid rgba(251,191,36,0.35);
+<div style="position:relative;background:rgba(251,191,36,0.08);border:1.5px solid rgba(251,191,36,0.35);
   border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
+  {_bid('1-2-2')}
   <div style="font-size:11px;color:#fde68a;font-weight:800;letter-spacing:0.06em;
     margin-bottom:10px;">📋 오늘 할 일</div>
   <div style="font-size:52px;font-weight:900;color:#fbbf24;line-height:1;margin-bottom:10px;">
@@ -13415,8 +13481,9 @@ renderCalendar();
 
                 with _sb_c2:
                     st.markdown(f"""
-<div style="background:rgba(125,211,252,0.08);border:1.5px solid rgba(125,211,252,0.35);
+<div style="position:relative;background:rgba(125,211,252,0.08);border:1.5px solid rgba(125,211,252,0.35);
   border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
+  {_bid('1-2-3')}
   <div style="font-size:11px;color:#bae6fd;font-weight:800;letter-spacing:0.06em;
     margin-bottom:10px;">📅 오늘의 약속</div>
   <div style="font-size:52px;font-weight:900;color:#7dd3fc;line-height:1;margin-bottom:10px;">
@@ -13427,8 +13494,9 @@ renderCalendar();
 
                 with _sb_c3:
                     st.markdown(f"""
-<div style="background:rgba(134,239,172,0.08);border:1.5px solid rgba(134,239,172,0.35);
+<div style="position:relative;background:rgba(134,239,172,0.08);border:1.5px solid rgba(134,239,172,0.35);
   border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
+  {_bid('1-2-4')}
   <div style="font-size:11px;color:#bbf7d0;font-weight:800;letter-spacing:0.06em;
     margin-bottom:10px;">⏳ 상담 대기</div>
   <div style="font-size:52px;font-weight:900;color:#86efac;line-height:1;margin-bottom:10px;">
