@@ -1,4 +1,4 @@
-﻿# ==========================================================
+# ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -4123,64 +4123,70 @@ def get_goldkey_avatar() -> str:
 
 def render_goldkey_sidebar():
     """Goldkey_AI_Masters 전용 카드형 프로필 박스를 사이드바 최상단에 렌더링."""
-    import io as _io_av
 
-    # ── 아바타 이미지 로드 (st.sidebar.image 사용 — CSP 우회) ──────────────
+    # ── 아바타 이미지 — base64 인라인 img 태그 (CSP/st.image 문제 완전 우회) ──
     _base_av = os.path.dirname(os.path.abspath(__file__))
     _av_candidates = [
-        os.path.join(_base_av, "assets", "goldkey_ai_avatar.jpg"),
-        os.path.join(_base_av, "assets", "goldkey_ai_avatar.png"),
-        os.path.join(_base_av, "assets", "avatar_goldkey.png"),
+        (os.path.join(_base_av, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
+        (os.path.join(_base_av, "assets", "goldkey_ai_avatar.png"), "image/png"),
+        (os.path.join(_base_av, "assets", "avatar_goldkey.png"),    "image/png"),
+        (os.path.join(_base_av, "assets", "avatar_goldkey.svg"),    "image/svg+xml"),
     ]
-    _av_bytes = None
-    for _av_p in _av_candidates:
+    _av_src = "https://huggingface.co/spaces/goldkey-rich/goldkey-ai/resolve/main/assets/goldkey_ai_avatar.jpg"
+    for _av_p, _av_mime in _av_candidates:
         try:
             _pth = pathlib.Path(_av_p)
             if _pth.exists() and _pth.stat().st_size > 50:
-                _av_bytes = _pth.read_bytes()
+                _av_src = f"data:{_av_mime};base64,{base64.b64encode(_pth.read_bytes()).decode()}"
                 break
         except Exception:
             continue
 
-    # 카드 상단 여백
-    st.sidebar.markdown("""
+    # ── 카드 전체를 하나의 HTML 블록으로 렌더 (이미지+텍스트 분리 방식 폐기) ──
+    st.sidebar.markdown(f"""
 <div style="
-  background:#F8F9FA;
-  border:1px solid #E0E0E0;
-  border-radius:12px;
-  padding:14px 14px 4px 14px;
-  margin-bottom:0;
-  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+  background: linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
+  border-radius:15px;
+  padding:16px 14px 14px 14px;
+  margin-bottom:10px;
+  box-shadow:0 4px 20px rgba(79,172,254,0.28);
   text-align:center;
-">""", unsafe_allow_html=True)
-
-    # 아바타 이미지 — st.sidebar.image 로 CSP 없이 직접 렌더
-    if _av_bytes:
-        st.sidebar.image(_io_av.BytesIO(_av_bytes), width=90)
-    else:
-        # fallback: HF CDN URL
-        _HF_CDN_AV = "https://huggingface.co/spaces/goldkey-rich/goldkey-ai/resolve/main/assets/goldkey_ai_avatar.jpg"
-        st.sidebar.image(_HF_CDN_AV, width=90)
-
-    # 텍스트 정보 카드
-    st.sidebar.markdown("""
-  <div style="text-align:center;width:100%;padding-bottom:12px;">
-    <div style="font-size:17px;font-weight:700;color:#1A237E;
-      line-height:1.3;margin-bottom:4px;letter-spacing:0.01em;">
-      Goldkey_AI_Masters2026
-    </div>
-    <div style="font-size:13px;font-weight:500;color:#424242;
-      margin-bottom:4px;">
-      전문 보장 상담의 동반자
-    </div>
-    <div style="font-size:12px;font-weight:400;color:#616161;
-      letter-spacing:0.03em;line-height:1.5;margin-bottom:8px;">
-      초개인화 인텔리전트 AI 기반 시스템
-    </div>
-    <div style="text-align:right;">
-      <span style="font-size:11px;color:#BDBDBD;font-weight:400;">v1.3.0</span>
-    </div>
+  border:none;
+">
+  <img src="{_av_src}" width="88" height="88"
+    style="border-radius:50%;border:3px solid rgba(255,255,255,0.85);
+           box-shadow:0 2px 10px rgba(0,0,0,0.18);object-fit:cover;
+           display:block;margin:0 auto 10px auto;" />
+  <div style="font-size:16px;font-weight:800;color:#0a1628;
+    line-height:1.3;margin-bottom:3px;letter-spacing:0.01em;">
+    Goldkey_AI_Masters2026
   </div>
+  <div style="font-size:13px;font-weight:600;color:#0d2344;margin-bottom:3px;">
+    전문 보장 상담의 동반자
+  </div>
+  <div style="font-size:11px;font-weight:400;color:#1a3a5c;
+    letter-spacing:0.03em;line-height:1.5;margin-bottom:6px;">
+    초개인화 인텔리전트 AI 기반 시스템
+  </div>
+  <div style="text-align:right;">
+    <span style="font-size:10px;color:rgba(255,255,255,0.7);font-weight:400;">v1.3.0</span>
+  </div>
+</div>
+<div style="
+  background:linear-gradient(135deg,rgba(79,172,254,0.13) 0%,rgba(0,242,254,0.09) 100%);
+  border:1.5px solid #4facfe;
+  border-radius:12px;
+  padding:11px 14px;
+  margin-bottom:10px;
+  color:#333333;
+  font-size:0.85rem;
+  font-weight:600;
+  line-height:1.6;
+  text-align:center;
+">
+  👋 안녕하세요.<br>
+  약관 동의를 하시면 로그인 화면이 나타납니다.<br>
+  <span style="color:#0369a1;font-weight:700;">로그인하고 사용해주세요</span>
 </div>""", unsafe_allow_html=True)
 
 
@@ -7722,9 +7728,9 @@ html, body, [data-testid="stApp"] {
     transition: background-color 2s var(--gk-ease) !important;
 }
 
-/* ── 메인 컨테이너 여백 ── */
+/* ── 메인 컨테이너 여백 (개선7: 상단 여백 최소화) ── */
 .block-container {
-    padding-top: 1.2rem !important;
+    padding-top: 0.5rem !important;
     padding-bottom: 2rem !important;
     max-width: 820px !important;
 }
@@ -7996,13 +8002,35 @@ hr[data-testid="stDivider"] {
     backdrop-filter: blur(8px) !important;
 }
 
-/* ── 사이드바 Glassmorphism ── */
+/* ── 사이드바 (개선6: z-index 최상단 + 모바일 풀스크린 커버) ── */
 section[data-testid="stSidebar"] {
     font-size: 0.95rem !important;
-    background: rgba(240,247,255,0.85) !important;
+    background: rgba(255,255,255,0.97) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(203,213,225,0.50) !important;
+    position: fixed !important;
+    z-index: 999999 !important;
+    top: 0 !important;
+    left: 0 !important;
+    height: 100dvh !important;
+    height: 100vh !important;
+    overflow-y: auto !important;
+}
+@media screen and (max-width: 768px) {
+    section[data-testid="stSidebar"][aria-expanded="true"] {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100dvh !important;
+        height: 100vh !important;
+        height: -webkit-fill-available !important;
+        z-index: 999999 !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
 }
 section[data-testid="stSidebar"] .stButton > button {
     min-height: 44px !important;
@@ -8166,11 +8194,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ── 헌법 제9조: 공간 구획 및 경계 ──
-   모든 페이지 외곽 #E0E0E0 실선 + 섹션 간 구분선 */
+   모든 페이지 외곽 #E0E0E0 실선 + 섹션 간 구분선 (개선2) */
 .block-container {
-    border: 1px solid #E0E0E0 !important;
+    border: 1.5px solid #E0E0E0 !important;
     border-radius: 16px !important;
-    padding: 1.5rem 1.8rem !important;
+    padding: 0.8rem 1.8rem 1.5rem 1.8rem !important;
     background: #FFFFFF !important;
     box-shadow: 0 2px 16px rgba(0,0,0,0.06) !important;
 }
@@ -8225,6 +8253,66 @@ summary[data-testid="stExpanderToggle"] {
 summary[data-testid="stExpanderToggle"]:hover {
     background: linear-gradient(135deg, rgba(79,172,254,0.08) 0%, rgba(0,242,254,0.05) 100%) !important;
     border-color: #4facfe !important;
+}
+
+/* ══════════════════════════════════════════════════
+   헌법 제20조 — 상단 공간 최적화 (Top Space Optimization)
+   콘텐츠가 화면 최상단에 즉시 노출되도록 모든 상단 여백 제거
+══════════════════════════════════════════════════ */
+
+/* [20-1] Streamlit 기본 헤더 완전 숨김 */
+header[data-testid="stHeader"],
+[data-testid="stHeader"] {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+}
+
+/* [20-2] 툴바·장식·상태위젯·메뉴·푸터 모두 숨김 */
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
+[data-testid="stMainMenuPopover"],
+#MainMenu,
+footer,
+.stDeployButton {
+    display: none !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    visibility: hidden !important;
+}
+
+/* [20-3] 앱 루트 상단 여백 완전 제거 */
+[data-testid="stApp"],
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"] {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* [20-4] 메인 block-container 상단 패딩 최소화 */
+.block-container,
+[data-testid="stMainBlockContainer"] {
+    padding-top: 0.4rem !important;
+    margin-top: 0 !important;
+}
+
+/* [20-5] 사이드바 시작 높이를 메인과 일치 (top: 0) */
+section[data-testid="stSidebar"] > div:first-child {
+    padding-top: 0.4rem !important;
+    margin-top: 0 !important;
+}
+
+/* [20-6] Streamlit 탭 헤더 잔여 여백 제거 */
+[data-testid="stAppViewContainer"] > section > div:first-child {
+    padding-top: 0 !important;
 }
 
 /* ── 헌법 제6조 보조: Dynamic Theme JS override 방지 ──
@@ -8866,49 +8954,69 @@ watchRipple();
                     _req_agreed = _tr.get("t1") and _tr.get("t2") and _tr.get("t3")  # 필수 3개
                     _all_agreed = _req_agreed and _tr.get("t4", False)               # 선택 포함 전체
 
-                    # ── 헤더 ──────────────────────────────────────────────────
-                    st.markdown("""<div style='background:linear-gradient(135deg,#1e1b4b,#312e81);border-radius:14px;
-  padding:20px 20px 16px 20px;margin-bottom:12px;text-align:center;'>
+                    # ── 체크박스 테두리 강화 CSS (개선4) ─────────────────────────
+                    st.markdown("""
+<style>
+section[data-testid="stSidebar"] input[type="checkbox"] {
+    width:18px!important;height:18px!important;
+    accent-color:#0369a1;
+    outline:2px solid #111111!important;
+    outline-offset:1px!important;
+    border:2px solid #111111!important;
+    cursor:pointer!important;
+}
+section[data-testid="stSidebar"] .stCheckbox > label {
+    gap:8px!important;
+}
+</style>""", unsafe_allow_html=True)
+
+                    # ── 헤더 (헌법 블루 그라데이션 스타일) ──────────────────────
+                    st.markdown("""<div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:15px;
+  padding:20px 20px 16px 20px;margin-bottom:12px;text-align:center;
+  box-shadow:0 4px 20px rgba(79,172,254,0.28);'>
   <div style='font-size:2rem;margin-bottom:8px;'>🛡️</div>
-  <div style='color:#e0e7ff;font-size:1.1rem;font-weight:800;'>안전한 서비스 이용을 위해<br>약관 동의가 필요합니다</div>
-  <div style='color:#a5b4fc;font-size:0.82rem;margin-top:6px;line-height:1.6;'>
-    앱스토어 심사 기준에 따라 아래 3가지 필수 항목에 동의하셔야 합니다.
+  <div style='color:#0a1628;font-size:1.1rem;font-weight:800;'>안전한 서비스 이용을 위해<br>약관 동의가 필요합니다</div>
+  <div style='color:#1a3a5c;font-size:0.82rem;margin-top:6px;line-height:1.6;'>
+    아래 필수 항목에 동의하시면 로그인 화면이 나타납니다.
   </div>
 </div>""", unsafe_allow_html=True)
 
-                    # ── 필수 항목 미체크 시 안내 — 맨 위(헤더 바로 아래) ────────
+                    # ── 필수 항목 미체크 시 안내 ──────────────────────────────
                     if not _req_agreed:
                         st.markdown("""
-<div style='background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px;
+<div style='background:linear-gradient(135deg,rgba(79,172,254,0.15),rgba(0,242,254,0.10));
+  border:1.5px solid #4facfe;border-radius:10px;
   padding:10px 14px;margin:0 0 10px 0;font-size:0.82rem;
   color:#1e293b;font-weight:700;text-align:center;'>
   ⬇️ 아래 필수 항목 3개를 모두 체크해주세요
 </div>""", unsafe_allow_html=True)
 
-                    # ── 전체 동의 버튼 ─────────────────────────────────────────
+                    # ── 전체 동의 (개선4: 체크 시 하위 3개 동시 체크) ──────────
                     _tc1, _tc2 = st.columns([1, 6])
                     with _tc1:
                         _all_cb = st.checkbox("", value=_all_agreed, key="_terms_all_cb",
                                               label_visibility="collapsed")
                     with _tc2:
-                        st.markdown("<div style='padding-top:4px;font-size:0.95rem;font-weight:800;color:#1e293b;'>네, 모두 동의합니다</div>", unsafe_allow_html=True)
+                        st.markdown("<div style='padding-top:4px;font-size:0.95rem;font-weight:800;color:#0a1628;'>네, 모두 동의합니다</div>", unsafe_allow_html=True)
+                    # 모두동의 변경 시 → 나머지 4개 동시 세팅 후 rerun
                     if _all_cb != _all_agreed:
                         st.session_state["_lp_terms"] = {"t1": _all_cb, "t2": _all_cb, "t3": _all_cb, "t4": _all_cb}
                         st.rerun()
 
-                    st.markdown("<hr style='border:none;border-top:1px solid #334155;margin:10px 0;'>", unsafe_allow_html=True)
+                    st.markdown("<hr style='border:none;border-top:1px solid #4facfe;margin:10px 0;'>", unsafe_allow_html=True)
 
-                    # ── 개별 약관 항목 ──────────────────────────────────────────
+                    # ── 개별 약관 항목 (1-2/1-3 수정: rerun 한 번만) ─────────────
                     _terms_items = [
-                        ("t1", "[필수]", "서비스 이용약관 동의",              False, "#1e293b"),
-                        ("t2", "[필수]", "개인정보 수집 및 이용 동의",         False, "#1e293b"),
-                        ("t3", "[필수]", "민감정보(의료·건강기록) 수집 및 AI 분석 동의", True,  "#0369a1"),
-                        ("t4", "[선택]", "맞춤형 보험·건강 정보 알림 수신 동의",False, "#475569"),
+                        ("t1", "[필수]", "서비스 이용약관 동의",              "#1e293b"),
+                        ("t2", "[필수]", "개인정보 수집 및 이용 동의",         "#1e293b"),
+                        ("t3", "[필수]", "민감정보(의료·건강기록) 수집 및 AI 분석 동의", "#0369a1"),
+                        ("t4", "[선택]", "맞춤형 보험·건강 정보 알림 수신 동의","#475569"),
                     ]
-                    for _tk, _badge, _title, _highlight, _color in _terms_items:
+                    _terms_changed = False
+                    for _tk, _badge, _title, _color in _terms_items:
                         _ci1, _ci2 = st.columns([1, 8])
                         with _ci1:
-                            _cv = st.checkbox("", value=_tr.get(_tk, False),
+                            _cv = st.checkbox("", value=bool(_tr.get(_tk, False)),
                                               key=f"_terms_cb_{_tk}",
                                               label_visibility="collapsed")
                         with _ci2:
@@ -8920,16 +9028,20 @@ watchRipple();
                                 f"{_title}</div>",
                                 unsafe_allow_html=True,
                             )
-                        if _cv != _tr.get(_tk, False):
+                        if _cv != bool(_tr.get(_tk, False)):
                             st.session_state["_lp_terms"][_tk] = _cv
-                            st.rerun()
+                            _terms_changed = True
+                    if _terms_changed:
+                        st.rerun()
 
-                    # ── 개인정보 안전 보장 (약관 동의 버튼 바로 위) ───────────
-                    st.info(
-                        "**🔒 개인정보 안전 보장**\n\n"
-                        "수집된 민감 정보(성명·연락처·질병 이력 등)는 최고 수준의 보안(AES-256)으로 "
-                        "안전하게 암호화되어 저장되며, 서비스 탈퇴 시 즉시 완전 삭제됩니다."
-                    )
+                    # ── 개인정보 안전 보장 ────────────────────────────────────
+                    st.markdown("""
+<div style='background:linear-gradient(135deg,rgba(79,172,254,0.12),rgba(0,242,254,0.08));
+  border:1.5px solid #4facfe;border-radius:12px;
+  padding:11px 14px;margin:10px 0;font-size:0.8rem;color:#1a3a5c;'>
+  🔒 <strong>개인정보 안전 보장</strong><br>
+  수집된 정보는 AES-256으로 암호화되어 저장되며, 탈퇴 시 즉시 완전 삭제됩니다.
+</div>""", unsafe_allow_html=True)
 
                     # ── 시작 버튼 (필수 3개 체크 시만 활성화) ─────────────────
                     if _req_agreed:
@@ -9796,11 +9908,12 @@ body{{background:transparent;font-family:-apple-system,BlinkMacSystemFont,'Segoe
                 _su_agreed = _su_terms.get("t1") and _su_terms.get("t2") and _su_terms.get("t3")  # 필수 3개
                 if not _su_agreed:
                     st.markdown("""
-<div style='background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;
-  padding:16px 18px;text-align:center;margin-bottom:10px;'>
+<div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:15px;
+  padding:18px 18px 14px 18px;text-align:center;margin-bottom:10px;
+  box-shadow:0 4px 20px rgba(79,172,254,0.28);'>
   <div style='font-size:1.5rem;margin-bottom:6px;'>🛡️</div>
-  <div style='font-weight:700;color:#991b1b;font-size:0.95rem;'>약관 동의가 필요합니다</div>
-  <div style='font-size:0.78rem;color:#7f1d1d;margin-top:6px;line-height:1.6;'>
+  <div style='font-weight:800;color:#0a1628;font-size:0.95rem;'>약관 동의가 필요합니다</div>
+  <div style='font-size:0.78rem;color:#1a3a5c;margin-top:6px;line-height:1.6;'>
     [필수] 서비스 이용약관 · 개인정보 수집 · 민감정보(건강/의료) AI 분석<br>
     3가지 필수 항목에 동의해야 가입할 수 있습니다.
   </div>
@@ -9810,8 +9923,18 @@ body{{background:transparent;font-family:-apple-system,BlinkMacSystemFont,'Segoe
                         st.session_state["_lp_terms"] = {"t1": True, "t2": True, "t3": True, "t4": _cur_t4}
                         st.rerun()
                 else:
+                    st.markdown("""
+<div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:15px;
+  padding:16px 18px 12px 18px;margin-bottom:12px;text-align:center;
+  box-shadow:0 4px 20px rgba(79,172,254,0.28);'>
+  <div style='font-size:1.6rem;margin-bottom:6px;'>📝</div>
+  <div style='color:#0a1628;font-size:1rem;font-weight:800;'>회원가입</div>
+  <div style='color:#1a3a5c;font-size:0.78rem;margin-top:4px;line-height:1.5;'>
+    이름과 연락처(숫자만, - 제외)를 입력하세요
+  </div>
+</div>""", unsafe_allow_html=True)
                     with st.form("sb_signup_form"):
-                        st.markdown("<div style='font-size:0.82rem;color:#555;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
+                        st.markdown("<div style='font-size:0.82rem;color:#0369a1;font-weight:700;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
                         name = st.text_input("👤 이름", key="signup_name", label_visibility="collapsed")
                         contact = st.text_input("📱 연락처", type="password", key="signup_contact", label_visibility="collapsed")
                         if st.form_submit_button("✅ 가입하기", use_container_width=True):
