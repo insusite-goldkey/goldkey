@@ -1,4 +1,4 @@
-# ==========================================================
+﻿# ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -2496,6 +2496,8 @@ SECTOR_CODES: dict = {
     "9100": {"name": "교통사고 보상 가이드",         "tab_key": "compensation", "keywords": ["교통사고보상", "교통사고합의", "교통사고손해", "자동차사고보상", "교통사고가이드"]},
     "9200": {"name": "산재 보상 가이드",             "tab_key": "compensation", "keywords": ["산재보상", "산업재해보상", "근로복지공단", "산재신청", "산재", "산업재해"]},
     "9300": {"name": "일반상해 보상 가이드",         "tab_key": "compensation", "keywords": ["일반상해보상", "상해보험금", "상해보상가이드", "상해보상안내", "일반상해"]},
+    # ── 9900번대: 보험봇 전문용어 검색 ──────────────────────────────────────
+    "9900": {"name": "보험봇 전문용어 검색",  "tab_key": "ins_bot",  "keywords": ["보험봇", "보험용어", "보험용어검색", "용어찾아", "용어알려줘", "보험사전", "용어사전", "보험단어", "보험전문용어", "insubot"]},
 }
 
 # ==========================================================================
@@ -10353,6 +10355,13 @@ setTimeout(function(){
             if st.button("📜 약관 매칭 · 딥러닝 검색", key="sb_policy_terms",
                          use_container_width=True):
                 _go_tab("policy_terms")
+            st.markdown("""<div style="background:linear-gradient(135deg,#0f4c81,#1565c0);
+  border-radius:8px;padding:6px 10px;margin:8px 0 4px 0;
+  font-size:0.76rem;font-weight:900;color:#FFD700;letter-spacing:0.03em;">
+  🤖 보험봇 · InsuBot</div>""", unsafe_allow_html=True)
+            if st.button("🤖 보험봇 전문용어 검색", key="sb_ins_bot",
+                         use_container_width=True, type="primary"):
+                _go_tab("ins_bot")
 
         st.divider()
         st.caption("문의: insusite@gmail.com")
@@ -14675,6 +14684,45 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 - 손해사정사 · 의료자문 · 법률자문 연계
 """)
 
+        st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
+
+        # ── F섹션: 보험봇 (전체 너비) ────────────────────────────────────
+        st.markdown("""
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#0f4c81,#1565c0);
+  border:2px solid #FFD700;box-shadow:0 8px 32px rgba(15,76,129,0.40);
+  position:relative;overflow:hidden;">
+  <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
+    border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+  <div style="font-size:0.7rem;font-weight:900;color:#FFD700;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;">F SECTION · 헌법 제6편 준수</div>
+  <div class="gk-pf-title" style="color:#fff;">🤖 보험봇 · InsuBot</div>
+  <div class="gk-pf-sub" style="color:#b3d4f5;">
+    헌법 제22조 승인 출처 기반 AI 답변<br>
+    제23조 금지 출처 차단 · 제24조 2차 검증 · 제25조 Red Alert
+  </div>
+  <span class="gk-pf-count" style="background:rgba(255,215,0,0.18);color:#FFD700;">📋 보험 용어 · 판례 · 사례 검색</span>
+</div>""", unsafe_allow_html=True)
+        with st.expander("📂 F섹션 · 보험봇 상세 기능 보기"):
+            st.markdown("""
+##### 🔍 보험 전문용어 검색
+- 실손보험 · 면책조항 · 자기부담금 · 보험가액 등 용어 즉시 해설
+
+##### ⚖️ 판례 · 분쟁조정 사례 검색
+- 금감원 분쟁조정 결과 · 대법원 판결 기반 사례 답변
+
+##### 🩺 의학 용어 (전문의 기준)
+- 장해율(맥브라이드·AMA) · KCD 코드 · 후유장해 기준
+
+##### 🚗 자동차사고 법률 용어
+- 한문철 변호사 출처 병기 · 과실비율 · 합의금 산정 기준
+
+##### 🔴 Red Alert 법적 경고
+- 법적 금지사항·주의사항 붉은색(#FF4B4B) 강조 표기
+""")
+        if st.button("🤖 보험봇 검색 시작", key="home_go_ins_bot",
+                     use_container_width=True, type="primary"):
+            _go_tab("ins_bot")
+
         # ── 하단 안내문구 ─────────────────────────────────────────────
         st.markdown("""
 <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
@@ -14683,10 +14731,10 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
   box-shadow:0 4px 20px rgba(26,58,92,0.22);
   text-align:center;">
   <div style="font-size:1.1rem;font-weight:900;color:#fff;line-height:1.6;">
-    💡 상세 컨설팅 및 AI 분석은 좌측 사이드바의 <span style="color:#fbbf24;">28개 전문 섹션</span>에서 즉시 시작하실 수 있습니다.
+    💡 상세 컨설팅 및 AI 분석은 좌측 사이드바의 <span style="color:#fbbf24;">29개 전문 섹션</span>에서 즉시 시작하실 수 있습니다.
   </div>
   <div style="font-size:0.82rem;color:#93c5fd;margin-top:6px;">
-    Smart Analysis · Expert Consulting · Wealth &amp; Corporate · Life &amp; Care · 보상 시뮬레이션
+    Smart Analysis · Expert Consulting · Wealth &amp; Corporate · Life &amp; Care · 보상 시뮬레이션 · 🤖 보험봇
   </div>
 </div>""", unsafe_allow_html=True)
 
@@ -14946,6 +14994,7 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
         "policy_terms":  [("t1", "💰 보험금 상담"), ("cancer", "🎗️ 암 상담"), ("brain", "🧠 뇌질환 상담")],
         "compensation":  [("t4", "🚗 자동차사고"), ("disability", "🩺 장해 산출"), ("t1", "💰 보험금 상담")],
         "disability":    [("compensation", "⚖️ 보상 가이드"), ("t1", "💰 보험금 상담"), ("t4", "🚗 자동차사고")],
+        "ins_bot":       [("t1", "💰 보험금 상담"), ("compensation", "⚖️ 보상 가이드"), ("policy_terms", "📜 약관검색")],
     }
 
     def _deep_link_bar(current_tab: str):
@@ -19811,6 +19860,269 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     st.error(f"AI 분석 오류: {sanitize_unicode(str(_ac_e))}")
 
             show_result("res_auto_comp")
+
+        st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [ins_bot] 보험봇 — 전문용어 및 사례 검색 (헌법 제6편 제21~25조 준수)
+    # ══════════════════════════════════════════════════════════════════════
+    if cur == "ins_bot":
+        tab_home_btn("ins_bot")
+
+        # ── 헌법 제25조: 출처 헤더 CSS + Red Alert CSS ───────────────────
+        st.markdown("""
+<style>
+/* 보험봇 전용 스타일 */
+.ib-source-header {
+    background: linear-gradient(135deg,#0f4c81 0%,#1a6fa8 100%);
+    border-radius: 10px; padding: 10px 16px; margin-bottom: 10px;
+    font-size: 0.82rem; color: #e0f0ff; font-weight: 700;
+    border-left: 4px solid #FFD700;
+}
+.ib-result-card {
+    background: #ffffff; border: 1.5px solid #E0E0E0;
+    border-radius: 12px; padding: 14px 18px; margin-top: 10px;
+    box-shadow: 0 2px 8px rgba(15,76,129,0.08);
+}
+.ib-result-card h4 {
+    font-size: 1.0rem; color: #0f4c81; font-weight: 900;
+    margin: 0 0 6px 0; border-bottom: 1.5px solid #E0E0E0; padding-bottom: 6px;
+}
+.ib-section-title {
+    font-size: 0.78rem; color: #475569; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin: 10px 0 4px 0;
+}
+.ib-red-alert {
+    background: #fff0f0; border: 1.5px solid #FF4B4B;
+    border-radius: 8px; padding: 8px 14px; margin-top: 10px;
+    color: #FF4B4B; font-weight: 700; font-size: 0.82rem;
+}
+.ib-divider {
+    border: none; border-top: 1.5px solid #E0E0E0; margin: 14px 0;
+}
+.ib-verify-badge {
+    display: inline-block; background: #f0fdf4; border: 1px solid #22c55e;
+    border-radius: 20px; padding: 2px 10px; font-size: 0.72rem;
+    color: #15803d; font-weight: 700; margin-left: 8px;
+}
+.ib-blocked-badge {
+    display: inline-block; background: #fff0f0; border: 1px solid #FF4B4B;
+    border-radius: 20px; padding: 2px 10px; font-size: 0.72rem;
+    color: #FF4B4B; font-weight: 700;
+}
+</style>
+""", unsafe_allow_html=True)
+
+        # ── Search Zone: 프리미엄 블루 그라데이션 카드 ───────────────────
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#0f4c81 0%,#1565c0 60%,#1a6fa8 100%);
+  border-radius:16px; padding:20px 22px 16px 22px; margin-bottom:4px;
+  box-shadow:0 4px 18px rgba(15,76,129,0.18);">
+  <div style="color:#FFD700;font-size:1.15rem;font-weight:900;margin-bottom:4px;">
+    🤖 보험봇 · InsuBot
+  </div>
+  <div style="color:#b3d4f5;font-size:0.82rem;font-weight:600;margin-bottom:14px;">
+    헌법 제22조 승인 출처 기반 · 제23조 금지 출처 차단 · 제24조 2차 검증 적용
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+        # ── 검색창 ────────────────────────────────────────────────────────
+        _ib_query = st.text_input(
+            "",
+            placeholder="🔍 보험 용어·사례를 입력하세요  예) 실손보험 자기부담금 / 맥브라이드 장해율 / 면책조항",
+            key="ins_bot_query",
+            label_visibility="collapsed"
+        )
+        _ib_col1, _ib_col2, _ib_col3 = st.columns([3, 1, 1])
+        with _ib_col2:
+            _ib_search_btn = st.button("🔍 검색", key="ins_bot_search",
+                                       use_container_width=True, type="primary")
+        with _ib_col3:
+            _ib_clear_btn = st.button("🗑 초기화", key="ins_bot_clear",
+                                      use_container_width=True)
+        if _ib_clear_btn:
+            for _k in ["ins_bot_result", "ins_bot_sources", "ins_bot_alert",
+                       "ins_bot_verify_ok", "ins_bot_last_q"]:
+                st.session_state.pop(_k, None)
+            st.rerun()
+
+        # ── 제23조 금지 출처 필터 함수 ───────────────────────────────────
+        def _ib_check_blocked(text: str) -> list:
+            found = []
+            for src in _ART23_BLOCKED_SOURCES:
+                if src.lower() in text.lower():
+                    found.append(src)
+            return found
+
+        # ── 제22조 승인 출처 분류 함수 ───────────────────────────────────
+        def _ib_detect_domain(query: str) -> str:
+            q = query
+            if any(k in q for k in ["사고", "자동차", "교통", "한문철", "차"]):
+                return "자동차"
+            if any(k in q for k in ["분쟁", "판례", "조정", "금감원", "청구거절", "거절"]):
+                return "분쟁"
+            if any(k in q for k in ["수술", "진단", "장해", "후유", "KCD", "맥브라이드", "AMA", "의학", "질병", "암", "뇌", "심장"]):
+                return "의학"
+            return "법률"
+
+        # ── 헌법 제21~25조 준수 AI 답변 생성 ────────────────────────────
+        def _ib_generate(query: str) -> dict:
+            """
+            제21조: 승인 출처 + 2차 검증 통과 결과만 반환
+            제22조: 도메인별 승인 출처 사용
+            제23조: 금지 출처 키워드 차단
+            제24조: 2차 검증 — 금감원/판례 상충 여부 내부 점검
+            제25조: 출처 헤더 + Red Alert 포함
+            """
+            domain = _ib_detect_domain(query)
+            approved_src = _ART22_APPROVED_SOURCES.get(domain, _ART22_APPROVED_SOURCES["법률"])
+
+            # 제24조 2차 검증 프롬프트 포함
+            _system_prompt = f"""당신은 보험 전문 AI 'InsuBot'입니다.
+반드시 아래 [헌법 제6편] 규칙을 준수하여 답변하십시오.
+
+[헌법 제22조 — 승인 출처]
+이 질문의 도메인: {domain}
+사용 가능 출처: {approved_src}
+
+[헌법 제23조 — 절대 금지 출처]
+유튜브, 네이버 블로그, 카페, 지식인, 개인 SNS, 보험설계사 주관적 해설은 절대 인용 금지.
+
+[헌법 제24조 — 2차 검증]
+답변 생성 후 반드시 최신 금감원 분쟁조정 결과·대법원 판례와 상충되는지 내부 검토하라.
+논리적 모순이 있으면 해당 부분을 [검증 보류] 태그로 표시하라.
+
+[헌법 제25조 — 출처 헤더]
+답변 첫 줄은 반드시: "본 질문에 대한 답변 용어의 출처와 정보 구성은 다음과 같습니다."
+이후 인용 출처를 1~3줄로 요약.
+법적 금지사항·주의사항은 [RED_ALERT] 태그로 감싸라.
+
+[답변 구조]
+1. 출처 헤더 (제25조)
+2. 용어/사례 정의 (핵심 2~3문장)
+3. 실무 적용 포인트 (번호 목록 2~4개)
+4. 법적 주의사항 [RED_ALERT]...[/RED_ALERT]
+5. 2차 검증 결과: "✅ 금감원·판례 기준 이상 없음" 또는 "[검증 보류] 이유"
+
+한국어로 답변. 전문적이고 간결하게. 전체 500자 이내.
+"""
+            try:
+                _genai_mod = _lazy_genai()
+                _client = _genai_mod.Client(
+                    api_key=st.secrets.get("GEMINI_API_KEY", "")
+                )
+                _types_mod = _lazy_genai_types()
+                _resp = _client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=query,
+                    config=_types_mod.GenerateContentConfig(
+                        system_instruction=_system_prompt,
+                        max_output_tokens=600,
+                        temperature=0.2,
+                    )
+                )
+                raw = _resp.text or ""
+            except Exception as _e:
+                raw = f"[AI 오류] {str(_e)}"
+
+            # 제23조: 금지 출처 사후 필터
+            blocked = _ib_check_blocked(raw)
+
+            # RED_ALERT 파싱
+            _alert = ""
+            import re as _re_ib
+            _alert_match = _re_ib.search(r'\[RED_ALERT\](.*?)\[/RED_ALERT\]', raw, _re_ib.DOTALL)
+            if _alert_match:
+                _alert = _alert_match.group(1).strip()
+                raw = _re_ib.sub(r'\[RED_ALERT\].*?\[/RED_ALERT\]', '', raw, flags=_re_ib.DOTALL).strip()
+
+            # 2차 검증 결과 파싱
+            _verify_ok = "✅ 금감원·판례 기준 이상 없음" in raw
+            if "[검증 보류]" in raw:
+                _verify_ok = False
+
+            return {
+                "raw": raw,
+                "domain": domain,
+                "approved_src": approved_src,
+                "alert": _alert,
+                "verify_ok": _verify_ok,
+                "blocked": blocked,
+            }
+
+        # ── 검색 실행 ─────────────────────────────────────────────────────
+        if _ib_search_btn and _ib_query.strip():
+            with st.spinner("🔍 승인 출처 검색 중 · 2차 검증 중..."):
+                _result = _ib_generate(_ib_query.strip())
+            st.session_state["ins_bot_result"] = _result
+            st.session_state["ins_bot_last_q"] = _ib_query.strip()
+
+        elif _ib_search_btn and not _ib_query.strip():
+            st.warning("검색어를 입력해 주세요.")
+
+        # ── Result Zone ───────────────────────────────────────────────────
+        st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
+
+        _res = st.session_state.get("ins_bot_result")
+        _last_q = st.session_state.get("ins_bot_last_q", "")
+
+        if _res:
+            # 제23조 금지 출처 감지 경고
+            if _res.get("blocked"):
+                st.markdown(f"""
+<div class="ib-red-alert">
+  ⛔ 제23조 위반 감지: 금지 출처 키워드 포함 — {', '.join(_res['blocked'])}<br>
+  해당 내용은 출처 신뢰도 검증을 통과하지 못했습니다.
+</div>""", unsafe_allow_html=True)
+
+            # 제25조: 출처 헤더
+            st.markdown(f"""
+<div class="ib-source-header">
+  📋 {_ART25_HEADER}<br>
+  <span style="color:#FFD700;">· 도메인:</span> {_res['domain']} &nbsp;
+  <span style="color:#FFD700;">· 출처:</span> {_res['approved_src']}
+</div>""", unsafe_allow_html=True)
+
+            # 결과 카드 (Bright Corporate Style)
+            _verify_badge = (
+                '<span class="ib-verify-badge">✅ 2차 검증 통과</span>'
+                if _res.get("verify_ok")
+                else '<span class="ib-blocked-badge">⚠ 검증 보류</span>'
+            )
+            st.markdown(f"""
+<div class="ib-result-card">
+  <h4>🤖 InsuBot 답변 &nbsp; <span style="font-size:0.75rem;color:#64748b;font-weight:400;">"{_last_q}"</span>
+    {_verify_badge}
+  </h4>
+""", unsafe_allow_html=True)
+
+            # 본문 — expander로 컴팩트 레이아웃 (헌법 제9조)
+            _lines = [l for l in _res["raw"].split("\n") if l.strip()]
+            _preview = " ".join(_lines[:3])[:200]
+            with st.expander("📄 전체 답변 보기", expanded=True):
+                st.markdown(_res["raw"])
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # Red Alert (헌법 제25조, 제8조)
+            if _res.get("alert"):
+                st.markdown(f"""
+<div class="ib-red-alert">
+  ⚠️ 법적 주의사항 (Red Alert)<br>
+  <span style="{_ART25_RED_CSS}">{_res['alert']}</span>
+</div>""", unsafe_allow_html=True)
+
+        else:
+            st.markdown("""
+<div style="text-align:center;padding:32px 0;color:#94a3b8;">
+  <div style="font-size:2.5rem;margin-bottom:8px;">🤖</div>
+  <div style="font-size:0.9rem;font-weight:700;">보험 용어나 사례를 검색하면 헌법 제6편 기준으로 답변합니다.</div>
+  <div style="font-size:0.78rem;margin-top:6px;color:#cbd5e1;">
+    예시: 실손보험 자기부담금 · 면책조항 · 맥브라이드 장해율 · 교통사고 합의금
+  </div>
+</div>""", unsafe_allow_html=True)
 
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
