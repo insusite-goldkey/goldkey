@@ -7202,29 +7202,31 @@ section[data-testid="stSidebar"],
         except Exception:
             st.session_state.db_ready = True
 
-    # ── STEP 4-RAG: Supabase 테이블 초기화 (세션당 1회, DB ready 후 지연) ──
+    # ── STEP 4-RAG: Supabase 테이블 초기화 — 백그라운드 스레드로 분리 ──
+    # 스플래시 지연 원인: 이 블록이 스플래시 루프 내에서 블로킹 실행됨
+    # 해결: app_ready 조건에서 완전 분리 → 스플래시 해제 후 비동기 처리
     if st.session_state.get('db_ready') and not st.session_state.get('_rag_tables_ready'):
         try:
-            _rag_supabase_ensure_tables()
-            # GoldKeyServiceManager 지연 초기화
-            if _gsm is not None and not st.session_state.get("_gsm_initialized"):
+            import threading as _rag_th
+            def _rag_bg_init():
                 try:
-                    _gsm.initialize(_get_sb_client())
-                    st.session_state["_gsm_initialized"] = True
+                    _rag_supabase_ensure_tables()
+                    if _gsm is not None and not st.session_state.get("_gsm_initialized"):
+                        try:
+                            _gsm.initialize(_get_sb_client())
+                            st.session_state["_gsm_initialized"] = True
+                        except Exception:
+                            pass
                 except Exception:
                     pass
+            _rag_th.Thread(target=_rag_bg_init, daemon=True).start()
         except Exception:
             pass
-        st.session_state['_rag_tables_ready'] = True
+        st.session_state['_rag_tables_ready'] = True  # 즉시 완료 처리 (실제 작업은 백그라운드)
 
-    # ── [헌법 10조] is_loaded: SECTION 1~9 핵심 초기화 완료 여부 판단 ────
-    # DB ready + RAG 테이블 ready + 세션 ID 확보 = 앱 준비 완료
-    _is_loaded = bool(
-        st.session_state.get('db_ready')
-        and st.session_state.get('_rag_tables_ready')
-        and _sid
-    )
-    # app_ready: 최초 로드 시 False, is_loaded 확인되면 True로 전환
+    # ── [헌법 10조] app_ready: DB ready + sid = 스플래시 즉시 해제 조건 ──
+    # RAG 초기화는 분리됐으므로 db_ready + sid 확보만으로 충분
+    _is_loaded = bool(st.session_state.get('db_ready') and _sid)
     if _is_loaded and not st.session_state.get('app_ready'):
         st.session_state['app_ready'] = True
     _app_ready_flag = st.session_state.get('app_ready', False)
@@ -12333,12 +12335,26 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
             _go_tab("home")
             st.rerun()
         elif _app_ready_flag:
-            # app_ready True인데 JS가 아직 done 신호 안 보낸 경우 — 짧게 대기
-            _time_sp.sleep(0.2)
-            st.rerun()
+            # app_ready True 상태: 스플래시 시작 시각 기록 후 경과 시간 확인
+            # JS done 신호가 오길 기다리되, 3초 초과 시 강제 해제 (신호 누락 안전망)
+            _sp_start = st.session_state.get("_splash_start_ts")
+            if _sp_start is None:
+                st.session_state["_splash_start_ts"] = _time_sp.time()
+                _time_sp.sleep(0.15)
+                st.rerun()
+            elif _time_sp.time() - _sp_start > 3.0:
+                # JS done 신호 3초 초과 누락 → 강제 해제
+                st.session_state["_splash_done"] = True
+                st.session_state["app_ready"] = True
+                st.session_state.pop("_splash_start_ts", None)
+                _go_tab("home")
+                st.rerun()
+            else:
+                _time_sp.sleep(0.15)
+                st.rerun()
         else:
-            # SECTION 초기화 대기 중 — 300ms 간격 재확인
-            _time_sp.sleep(0.3)
+            # DB 초기화 대기 중 — 200ms 간격 재확인 (최대 15초 JS 안전망 있음)
+            _time_sp.sleep(0.2)
             st.rerun()
         st.stop()
 
