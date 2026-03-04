@@ -4327,7 +4327,7 @@ def render_goldkey_sidebar():
 
     # ── 카드 전체를 하나의 HTML 블록으로 렌더 (이미지+텍스트 분리 방식 폐기) ──
     st.sidebar.markdown(f"""
-<div style="
+<div style="position:relative;
   background: linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
   border-radius:15px;
   padding:16px 14px 14px 14px;
@@ -4336,6 +4336,7 @@ def render_goldkey_sidebar():
   text-align:center;
   border:none;
 ">
+  {_bid('0-1-1')}
   <img src="{_av_src}" width="88" height="88"
     style="border-radius:50%;border:3px solid rgba(255,255,255,0.85);
            box-shadow:0 2px 10px rgba(0,0,0,0.18);object-fit:cover;
@@ -4355,7 +4356,7 @@ def render_goldkey_sidebar():
     <span style="font-size:10px;color:rgba(255,255,255,0.7);font-weight:400;">v1.3.0</span>
   </div>
 </div>
-<div style="
+<div style="position:relative;
   background:linear-gradient(135deg,rgba(79,172,254,0.13) 0%,rgba(0,242,254,0.09) 100%);
   border:1.5px solid #4facfe;
   border-radius:12px;
@@ -4367,6 +4368,7 @@ def render_goldkey_sidebar():
   line-height:1.6;
   text-align:center;
 ">
+  {_bid('0-1-2')}
   👋 안녕하세요.<br>
   약관 동의를 하시면 로그인 화면이 나타납니다.<br>
   <span style="color:#0369a1;font-weight:700;">로그인하고 사용해주세요</span>
@@ -9174,19 +9176,47 @@ watchRipple();
                     _req_agreed = _tr.get("t1") and _tr.get("t2") and _tr.get("t3")  # 필수 3개
                     _all_agreed = _req_agreed and _tr.get("t4", False)               # 선택 포함 전체
 
-                    # ── 체크박스 테두리 강화 CSS (개선4) ─────────────────────────
+                    # ── 체크박스 동그라미 외곽 검정색 CSS (지시2) ──────────────
                     st.markdown("""
 <style>
+/* 네이티브 input 직접 스타일 */
 section[data-testid="stSidebar"] input[type="checkbox"] {
-    width:18px!important;height:18px!important;
+    width:22px!important;height:22px!important;
     accent-color:#0369a1;
-    outline:2px solid #111111!important;
-    outline-offset:1px!important;
-    border:2px solid #111111!important;
+    outline:2.5px solid #000000!important;
+    outline-offset:2px!important;
+    border:2.5px solid #000000!important;
+    border-radius:50%!important;
     cursor:pointer!important;
+    box-shadow:0 0 0 2px #000000!important;
+    appearance:none!important;
+    -webkit-appearance:none!important;
+    background:#ffffff;
+    position:relative;
+}
+section[data-testid="stSidebar"] input[type="checkbox"]:checked {
+    background:#0369a1!important;
+    border-color:#000000!important;
+}
+section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
+    content:'✓';
+    position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    color:#ffffff;font-size:14px;font-weight:900;
+}
+/* Streamlit 커스텀 체크박스 SVG div 선택자 */
+section[data-testid="stSidebar"] .stCheckbox span[data-baseweb="checkbox"] > div:first-child {
+    border-radius:50%!important;
+    border:2.5px solid #000000!important;
+    box-shadow:0 0 0 1.5px #000000!important;
+    width:22px!important;height:22px!important;
 }
 section[data-testid="stSidebar"] .stCheckbox > label {
     gap:8px!important;
+    align-items:center!important;
+}
+section[data-testid="stSidebar"] .stCheckbox label span[data-testid="stWidgetLabel"] {
+    font-size:0.85rem!important;
 }
 </style>""", unsafe_allow_html=True)
 
@@ -9280,11 +9310,28 @@ section[data-testid="stSidebar"] .stCheckbox > label {
                 # ─────────────────────────────────────────────────────────────
                 elif _lp == "A":
                     st.markdown("""
-<div style='background:linear-gradient(135deg,#0f4c81,#1a6fa8);border-radius:14px;
-  padding:18px 20px;margin-bottom:14px;text-align:center;'>
+<style>
+section[data-testid="stSidebar"] input[type="text"],
+section[data-testid="stSidebar"] input[type="password"] {
+    border:2px solid #000000!important;
+    border-radius:8px!important;
+    outline:none!important;
+    box-shadow:0 0 0 2px #000000!important;
+}
+section[data-testid="stSidebar"] input[type="text"]:focus,
+section[data-testid="stSidebar"] input[type="password"]:focus {
+    border:2.5px solid #0369a1!important;
+    box-shadow:0 0 0 2px #0369a1!important;
+}
+</style>
+<div style='background:linear-gradient(135deg,#1e90ff 0%,#00c6fb 100%);border-radius:15px;
+  padding:18px 20px;margin-bottom:14px;text-align:center;
+  box-shadow:0 4px 20px rgba(30,144,255,0.35);'>
   <div style='font-size:2rem;margin-bottom:6px;'>🛡️</div>
-  <div style='color:#fff;font-size:1.05rem;font-weight:700;'>골드키지사 보안 로그인</div>
-  <div style='color:#b3d4f0;font-size:0.78rem;margin-top:4px;'>가입 시 등록한 정보로 본인 확인 후 OTP를 발급합니다</div>
+  <div style='color:#ffffff;font-size:1.05rem;font-weight:800;
+    text-shadow:0 1px 4px rgba(0,0,0,0.3);'>골드키지사 보안 로그인</div>
+  <div style='color:#e0f4ff;font-size:0.78rem;margin-top:4px;
+    text-shadow:0 1px 2px rgba(0,0,0,0.2);'>가입 시 등록한 정보로 본인 확인 후 OTP를 발급합니다</div>
 </div>""", unsafe_allow_html=True)
                     with st.form("hlp_a_form"):
                         ln_a = st.text_input("👤 이름", key="hlp_name_a", placeholder="가입 시 등록한 이름",
@@ -9345,12 +9392,14 @@ section[data-testid="stSidebar"] .stCheckbox > label {
                     _otp_target = st.session_state.get("_lp_otp", "")
                     _lp_name    = st.session_state.get("_lp_name", "")
                     st.markdown(f"""
-<div style='background:linear-gradient(135deg,#064e3b,#059669);border-radius:14px;
-  padding:14px 18px;margin-bottom:12px;text-align:center;'>
-  <div style='color:#fff;font-size:0.95rem;font-weight:700;margin-bottom:4px;'>
+<div style='background:linear-gradient(135deg,#11998e 0%,#38ef7d 100%);border-radius:15px;
+  padding:14px 18px;margin-bottom:12px;text-align:center;
+  box-shadow:0 4px 20px rgba(17,153,142,0.35);'>
+  <div style='color:#ffffff;font-size:0.95rem;font-weight:800;margin-bottom:4px;
+    text-shadow:0 1px 4px rgba(0,0,0,0.3);'>
     ✅ 본인 확인 완료 — 추가 보안 인증
   </div>
-  <div style='color:#a7f3d0;font-size:0.8rem;'>
+  <div style='color:#e0fff4;font-size:0.8rem;text-shadow:0 1px 2px rgba(0,0,0,0.2);'>
     {_lp_name}님, 아래 OTP로 인증 후 간편 보안 방식을 설정하세요
   </div>
 </div>
@@ -9360,10 +9409,30 @@ section[data-testid="stSidebar"] .stCheckbox > label {
   <div style='font-size:2.2rem;font-weight:900;letter-spacing:8px;color:#1a3a5c;'>{_otp_target}</div>
 </div>""", unsafe_allow_html=True)
 
-                    _otp_input = st.text_input("6자리 인증번호 입력", key="hlp_otp_in",
-                                               placeholder="000000", max_chars=6,
-                                               label_visibility="collapsed")
-                    if st.button("✅ OTP 확인", key="hlp_otp_btn", use_container_width=True, type="primary"):
+                    # ── 인증번호 입력 + OTP 확인을 하나의 블록(좌우 분할)으로 통합 ──
+                    st.markdown("""
+<div style='border:2px solid #000000;border-radius:12px;overflow:hidden;margin-bottom:10px;'>
+  <div style='display:flex;align-items:stretch;min-height:52px;'>
+    <div style='flex:1;padding:8px 10px;border-right:2px solid #000000;
+      display:flex;align-items:center;background:#ffffff;'>
+      <span style='font-size:0.78rem;font-weight:700;color:#334155;white-space:nowrap;'>🔢 인증번호</span>
+    </div>
+    <div style='flex:1;padding:8px 10px;display:flex;align-items:center;
+      justify-content:center;background:#f8fafc;'>
+      <span style='font-size:0.78rem;font-weight:700;color:#334155;'>✅ OTP 확인</span>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                    _otp_col1, _otp_col2 = st.columns(2)
+                    with _otp_col1:
+                        _otp_input = st.text_input("6자리 인증번호", key="hlp_otp_in",
+                                                   placeholder="000000", max_chars=6,
+                                                   label_visibility="collapsed")
+                    with _otp_col2:
+                        _otp_confirm = st.button("✅ OTP 확인", key="hlp_otp_btn",
+                                                 use_container_width=True, type="primary")
+                    if _otp_confirm:
                         if (_otp_input or "").strip() == _otp_target:
                             # 이미 보안 방식을 이전에 등록한 경우 → Phase C (실전 로그인)
                             _prev_methods = st.session_state.get("_sec_methods", {})
@@ -9377,7 +9446,13 @@ section[data-testid="stSidebar"] .stCheckbox > label {
                             st.rerun()
                         else:
                             st.error("❌ 인증번호가 올바르지 않습니다. 다시 확인해 주세요.")
-                    if st.button("↩️ 처음으로", key="hlp_back_b", use_container_width=False):
+                    st.markdown("""
+<div style='background:linear-gradient(135deg,#e2e8f0 0%,#cbd5e1 100%);
+  border-radius:10px;padding:6px 14px;margin-top:6px;text-align:center;
+  border:1.5px solid #94a3b8;cursor:pointer;'>
+  <span style='font-size:0.82rem;font-weight:700;color:#1e293b;'>↩️ 처음으로</span>
+</div>""", unsafe_allow_html=True)
+                    if st.button("↩️ 처음으로", key="hlp_back_b", use_container_width=True):
                         st.session_state["_lp"] = "A"
                         st.rerun()
 
@@ -9389,10 +9464,11 @@ section[data-testid="stSidebar"] .stCheckbox > label {
                     _mth = st.session_state["_lp_methods"]
 
                     st.markdown("""
-<div style='background:linear-gradient(135deg,#1c1400,#78350f);border-radius:14px;
-  padding:16px 20px;margin-bottom:14px;text-align:center;'>
-  <div style='color:#fef08a;font-size:1.05rem;font-weight:800;'>🔐 간편 로그인 방식 설정</div>
-  <div style='color:#fde68a;font-size:0.82rem;margin-top:4px;'>원하는 방식을 선택하세요 (중복 선택 가능)</div>
+<div style='background:linear-gradient(135deg,#f7971e 0%,#ffd200 100%);border-radius:15px;
+  padding:16px 20px;margin-bottom:14px;text-align:center;
+  box-shadow:0 4px 20px rgba(247,151,30,0.28);'>
+  <div style='color:#1a0a00;font-size:1.05rem;font-weight:800;'>🔐 간편 로그인 방식 설정</div>
+  <div style='color:#3d1a00;font-size:0.82rem;margin-top:4px;'>원하는 방식을 선택하세요 (중복 선택 가능)</div>
 </div>""", unsafe_allow_html=True)
 
                     # ── 3가지 방식 통합 카드 박스 ─────────────────────────────
@@ -9414,14 +9490,19 @@ section[data-testid="stSidebar"] .stCheckbox > label {
 <div style='background:{_bio_bg};border:{_bio_border};border-radius:12px;
   padding:14px 10px;text-align:center;cursor:pointer;'>
   <div style='font-size:2rem;'>👆</div>
-  <div style='font-size:0.8rem;font-weight:800;color:#1e3a5f;margin-top:6px;'>지문 인식</div>
-  <div style='font-size:0.7rem;color:#64748b;margin-top:2px;'>생체 인증</div>
+  <div style='font-size:0.8rem;font-weight:800;color:#ffffff;margin-top:6px;text-shadow:0 1px 3px rgba(0,0,0,0.5);'>지문 인식</div>
+  <div style='font-size:0.7rem;color:#e2e8f0;margin-top:2px;'>생체 인증</div>
   <div style='margin-top:6px;font-size:1.1rem;'>{'✅' if _bio_sel else '⬜'}</div>
 </div>""", unsafe_allow_html=True)
-                        if st.button("선택" if not _bio_sel else "해제", key="hlp_bio_tog",
+                        if st.button("👆 지문인식 선택" if not _bio_sel else "👆 선택해제", key="hlp_bio_tog",
                                      use_container_width=True,
                                      type="primary" if not _bio_sel else "secondary"):
-                            st.session_state["_lp_methods"]["bio"] = not _bio_sel
+                            _new_bio = not _bio_sel
+                            st.session_state["_lp_methods"]["bio"] = _new_bio
+                            if _new_bio:
+                                st.session_state["_sec_methods"] = {"bio": True, "pat": False, "pin": False}
+                                st.session_state["_lp_mode"] = "bio"
+                                st.session_state["_lp"] = "C"
                             st.rerun()
 
                     with _sc2:
@@ -9431,11 +9512,11 @@ section[data-testid="stSidebar"] .stCheckbox > label {
 <div style='background:{_pat_bg};border:{_pat_border};border-radius:12px;
   padding:14px 10px;text-align:center;cursor:pointer;'>
   <div style='font-size:2rem;'>⬛</div>
-  <div style='font-size:0.8rem;font-weight:800;color:#1e3a5f;margin-top:6px;'>디자인 코드</div>
-  <div style='font-size:0.7rem;color:#64748b;margin-top:2px;'>3×3 패턴</div>
+  <div style='font-size:0.8rem;font-weight:800;color:#ffffff;margin-top:6px;text-shadow:0 1px 3px rgba(0,0,0,0.5);'>디자인 코드</div>
+  <div style='font-size:0.7rem;color:#e2e8f0;margin-top:2px;'>3×3 패턴</div>
   <div style='margin-top:6px;font-size:1.1rem;'>{'✅' if _pat_sel else '⬜'}</div>
 </div>""", unsafe_allow_html=True)
-                        if st.button("선택" if not _pat_sel else "해제", key="hlp_pat_tog",
+                        if st.button("⬛ 패턴 선택" if not _pat_sel else "⬛ 선택해제", key="hlp_pat_tog",
                                      use_container_width=True,
                                      type="primary" if not _pat_sel else "secondary"):
                             st.session_state["_lp_methods"]["pat"] = not _pat_sel
@@ -9448,11 +9529,11 @@ section[data-testid="stSidebar"] .stCheckbox > label {
 <div style='background:{_pin_bg};border:{_pin_border};border-radius:12px;
   padding:14px 10px;text-align:center;cursor:pointer;'>
   <div style='font-size:2rem;'>🔢</div>
-  <div style='font-size:0.8rem;font-weight:800;color:#1e3a5f;margin-top:6px;'>간편 비밀번호</div>
-  <div style='font-size:0.7rem;color:#64748b;margin-top:2px;'>6자리 PIN</div>
+  <div style='font-size:0.8rem;font-weight:800;color:#ffffff;margin-top:6px;text-shadow:0 1px 3px rgba(0,0,0,0.5);'>간편 비밀번호</div>
+  <div style='font-size:0.7rem;color:#e2e8f0;margin-top:2px;'>6자리 PIN</div>
   <div style='margin-top:6px;font-size:1.1rem;'>{'✅' if _pin_sel else '⬜'}</div>
 </div>""", unsafe_allow_html=True)
-                        if st.button("선택" if not _pin_sel else "해제", key="hlp_pin_tog",
+                        if st.button("🔢 PIN 선택" if not _pin_sel else "🔢 선택해제", key="hlp_pin_tog",
                                      use_container_width=True,
                                      type="primary" if not _pin_sel else "secondary"):
                             st.session_state["_lp_methods"]["pin"] = not _pin_sel
@@ -9581,6 +9662,13 @@ section[data-testid="stSidebar"] .stCheckbox > label {
                             pass
                         if st.session_state.get("_lp_pat"):
                             st.caption(f"✅ 저장된 패턴: {' → '.join(str(n+1) for n in st.session_state['_lp_pat'])}")
+                            # 조건3: 패턴 등록 완료 즉시 Phase C로 이동
+                            if st.button("✅ 패턴 등록 완료 — 로그인 시작", key="hlp_pat_done",
+                                         use_container_width=True, type="primary"):
+                                st.session_state["_sec_methods"] = {"bio": False, "pat": True, "pin": False}
+                                st.session_state["_lp_mode"] = "pat"
+                                st.session_state["_lp"] = "C"
+                                st.rerun()
 
                     # ── PIN 등록 UI (PIN 선택 시) ─────────────────────────────
                     if _pin_sel:
@@ -9590,40 +9678,33 @@ section[data-testid="stSidebar"] .stCheckbox > label {
                                                  label_visibility="collapsed")
                         if _pin_reg:
                             st.session_state["_lp_pin"] = _pin_reg
+                        # 조건3: PIN 6자리 완성 즉시 등록 완료 버튼 노출
+                        _pin_ready = _re2.fullmatch(r'[0-9]{6}', st.session_state.get("_lp_pin", "")) is not None
+                        if _pin_ready:
+                            if st.button("✅ PIN 등록 완료 — 로그인 시작", key="hlp_pin_done",
+                                         use_container_width=True, type="primary"):
+                                _pin_val = st.session_state.get("_lp_pin", "")
+                                save_member_pin(_lp_name, _pin_val)
+                                st.session_state["_lp_pin_hash"] = _pin_make_hash(_pin_val)
+                                st.session_state["_sec_methods"] = {"bio": False, "pat": False, "pin": True}
+                                st.session_state["_lp_mode"] = "pin"
+                                st.session_state["_lp"] = "C"
+                                st.rerun()
 
-                    st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
+                    st.markdown("<div style='margin-top:4px;'></div>", unsafe_allow_html=True)
 
-                    # ── 설정 완료 버튼 ────────────────────────────────────────
+                    # ── 선택 전 안내 ──────────────────────────────────────────
                     _any_sel = _bio_sel or _pat_sel or _pin_sel
                     if not _any_sel:
-                        st.markdown("<div style='background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:8px 12px;font-size:0.78rem;color:#991b1b;text-align:center;margin-bottom:8px;'>⛔ 1가지 이상 방식을 선택해 주세요</div>", unsafe_allow_html=True)
+                        st.markdown("<div style='background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:8px 12px;font-size:0.78rem;color:#991b1b;text-align:center;margin-bottom:8px;'>⛔ 위에서 로그인 방식을 선택해 주세요</div>", unsafe_allow_html=True)
 
-                    if st.button("✅ 설정 완료 — 로그인 시작", key="hlp_setup_done",
-                                 use_container_width=True, type="primary",
-                                 disabled=not _any_sel):
-                        _m = st.session_state["_lp_methods"]
-                        _err = None
-                        if _m.get("pat") and len(st.session_state.get("_lp_pat", [])) < 4:
-                            _err = "⚠️ 디자인 코드는 4개 이상 점을 선택해야 합니다."
-                        elif _m.get("pin") and not _re2.fullmatch(r'[0-9]{6}', st.session_state.get("_lp_pin", "")):
-                            _err = "⚠️ PIN은 숫자 6자리여야 합니다."
-                        if _err:
-                            st.error(_err)
-                        else:
-                            # ── PIN 등록 시 DB에 hash 즉시 저장 ──────────────
-                            if _m.get("pin"):
-                                _pin_val = st.session_state.get("_lp_pin", "")
-                                if _pin_val:
-                                    save_member_pin(_lp_name, _pin_val)
-                                    # 세션에도 hash 보관 (Phase C 즉시 사용)
-                                    st.session_state["_lp_pin_hash"] = _pin_make_hash(_pin_val)
-                            _def2 = "bio" if _m.get("bio") else ("pat" if _m.get("pat") else "pin")
-                            st.session_state["_lp_mode"] = _def2
-                            st.session_state["_sec_methods"] = dict(_m)
-                            st.session_state["_lp"]      = "C"
-                            st.rerun()
-
-                    if st.button("↩️ 처음으로", key="hlp_back_s"):
+                    st.markdown("""
+<div style='background:linear-gradient(135deg,#e2e8f0 0%,#cbd5e1 100%);
+  border-radius:10px;padding:6px 14px;margin-top:6px;text-align:center;
+  border:1.5px solid #94a3b8;'>
+  <span style='font-size:0.82rem;font-weight:700;color:#1e293b;'>↩️ 처음으로</span>
+</div>""", unsafe_allow_html=True)
+                    if st.button("↩️ 처음으로", key="hlp_back_s", use_container_width=True):
                         st.session_state["_lp"] = "A"
                         st.rerun()
 
@@ -9634,12 +9715,18 @@ section[data-testid="stSidebar"] .stCheckbox > label {
                     _lp_name  = st.session_state.get("_lp_name", "")
                     _mth_c    = st.session_state.get("_lp_methods", {"bio": True, "pat": False, "pin": False})
                     _mode_c   = st.session_state.get("_lp_mode", "bio")
+                    # B4_8/9: 등록된 방식 수 계산 — 1개면 단독 중앙 배치 모드
+                    _active_mth_c = [k for k, v in _mth_c.items() if v]
+                    _single_method = len(_active_mth_c) == 1
+
+                    _mth_label_map = {"bio": "👆 지문 / 얼굴 인식", "pat": "⬛ 디자인 코드", "pin": "🔢 간편 비밀번호"}
+                    _cur_mth_label = _mth_label_map.get(_mode_c, "")
 
                     st.markdown(f"""
 <div style='background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:14px;
   padding:14px 18px;margin-bottom:12px;text-align:center;'>
   <div style='color:#fff;font-size:0.95rem;font-weight:700;'>🔒 안전하게 로그인</div>
-  <div style='color:#94a3b8;font-size:0.78rem;margin-top:3px;'>{_lp_name}님 — 아래 방식으로 인증해 주세요</div>
+  <div style='color:#94a3b8;font-size:0.78rem;margin-top:3px;'>{_lp_name}님 — {_cur_mth_label}으로 인증해 주세요</div>
 </div>""", unsafe_allow_html=True)
 
                     # ── 현재 활성 인증 모드 UI ──────────────────────────────
@@ -10071,7 +10158,7 @@ body{{background:transparent;font-family:-apple-system,BlinkMacSystemFont,'Segoe
 
                         # JS 키패드에서 6자리 완성 값 수신 처리
                         if _cpin_val and isinstance(_cpin_val, str) and len(_cpin_val) == 6:
-                            if _cpin_val == _reg_pin:
+                            if _pin_verify(_cpin_val, _reg_pin_hash):
                                 st.session_state.pop("_pin_buf", None)
                                 _do_final_login(_lp_name)
                             else:
@@ -10096,7 +10183,7 @@ body{{background:transparent;font-family:-apple-system,BlinkMacSystemFont,'Segoe
                                                     label_visibility="collapsed")
                             if st.button("✅ 확인", key="cpin_confirm_text",
                                          use_container_width=True, type="primary"):
-                                if _pin_in.strip() == _reg_pin:
+                                if _pin_verify(_pin_in.strip(), _reg_pin_hash):
                                     st.session_state.pop("_pin_buf", None)
                                     _do_final_login(_lp_name)
                                 else:
@@ -10108,8 +10195,9 @@ body{{background:transparent;font-family:-apple-system,BlinkMacSystemFont,'Segoe
                         ("pat", "⬛ 패턴", "#7c3aed"),
                         ("pin", "🔢 PIN", "#0d9488"),
                     ]
+                    # B4_8/9: 1개 방식만 등록된 기존 회원 → fallback 버튼 숨김
                     _fb_available = [o for o in _fallback_opts if _mth_c.get(o[0]) and o[0] != _mode_c]
-                    if _fb_available:
+                    if _fb_available and not _single_method:
                         st.markdown("<div style='text-align:center;font-size:0.75rem;color:#94a3b8;margin-top:10px;margin-bottom:6px;'>다른 방식으로 로그인</div>", unsafe_allow_html=True)
                         _fb_cols = st.columns(len(_fb_available))
                         for _fi, (_fk, _fl, _fc) in enumerate(_fb_available):
@@ -10119,7 +10207,13 @@ body{{background:transparent;font-family:-apple-system,BlinkMacSystemFont,'Segoe
                                     st.session_state.pop("_lp_pat_inp", None)
                                     st.session_state.pop("_pin_buf", None)
                                     st.rerun()
-                    if st.button("↩️ 처음으로", key="hlp_back_c"):
+                    st.markdown("""
+<div style='background:linear-gradient(135deg,#e2e8f0 0%,#cbd5e1 100%);
+  border-radius:10px;padding:6px 14px;margin-top:8px;text-align:center;
+  border:1.5px solid #94a3b8;'>
+  <span style='font-size:0.82rem;font-weight:700;color:#1e293b;'>↩️ 처음으로</span>
+</div>""", unsafe_allow_html=True)
+                    if st.button("↩️ 처음으로", key="hlp_back_c", use_container_width=True):
                         st.session_state["_lp"] = "A"
                         st.rerun()
             with tab_s:
@@ -10290,19 +10384,22 @@ body{{background:transparent;font-family:-apple-system,BlinkMacSystemFont,'Segoe
 </script>
 """, height=0)
             st.divider()
-            st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
-  border-radius:14px;padding:16px 16px 14px 16px;margin-bottom:10px;">
+            st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#f7971e 0%,#ffd200 100%);
+  border-radius:15px;padding:16px 16px 14px 16px;margin-bottom:10px;
+  box-shadow:0 4px 20px rgba(247,151,30,0.35);">
+  {_bid('0-1-3')}
   <div style="font-size:1.15rem;font-weight:900;color:#ffffff;
-    letter-spacing:0.03em;margin-bottom:12px;text-align:center;">
+    letter-spacing:0.03em;margin-bottom:12px;text-align:center;
+    text-shadow:0 1px 4px rgba(0,0,0,0.3);">
     🎁 지금 가입하면 무료!
   </div>
-  <div style="background:rgba(255,255,255,0.12);border-radius:10px;
+  <div style="background:rgba(255,255,255,0.28);border-radius:10px;
     padding:12px 14px;margin-bottom:10px;">
-    <div style="font-size:1.05rem;font-weight:900;color:#ffd700;
-      margin-bottom:8px;">⏰ ~2026.08.31. 한정. (앱 고도화기간)</div>
-    <div style="font-size:1.0rem;font-weight:700;color:#ffffff;
-      line-height:2.0;">
+    <div style="font-size:1.0rem;font-weight:900;color:#ffffff;
+      margin-bottom:8px;text-shadow:0 1px 3px rgba(0,0,0,0.25);">⏰ ~2026.08.31. 한정. (앱 고도화기간)</div>
+    <div style="font-size:0.95rem;font-weight:700;color:#ffffff;
+      line-height:2.0;text-shadow:0 1px 3px rgba(0,0,0,0.2);">
       ✅ 모든 기능 전체 무료<br>
       ✅ AI 상담 매일 10회 (무료)<br>
       ✅ 보험·연금·CEO(법인). 상담지원
@@ -10313,6 +10410,8 @@ body{{background:transparent;font-family:-apple-system,BlinkMacSystemFont,'Segoe
         if 'user_id' in st.session_state:
             # 로그인 상태
             user_name = st.session_state.get('user_name', '')
+            st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-1-4')}</div>""",
+                        unsafe_allow_html=True)
             # ── is_admin 매 렌더마다 재검증 (세션 복구 후 권한 소실 방지) ──
             st.session_state.is_admin = user_name in _get_unlimited_users()
             st.success(f"✅ {mask_name(user_name)} {'👑 관리자' if st.session_state.is_admin else '마스터님'} · 로그인됨")
@@ -10371,6 +10470,8 @@ setTimeout(function(){
                 st.rerun()
 
             # ── 기기 통합 자동 로그인 URL 북마크 안내 ─────────────────────
+            st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-1-5')}</div>""",
+                        unsafe_allow_html=True)
             _auto_tok = st.session_state.get("_auto_login_token", "")
             if _auto_tok:
                 try:
@@ -10396,6 +10497,8 @@ setTimeout(function(){
                         st.code(_bookmark_url, language=None)
 
             # ── 사이드바 사용량 표시: TTL 60초 캐시로 DB 조회 최소화 ────────
+            st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-1-6')}</div>""",
+                        unsafe_allow_html=True)
             import time as _time
             _usage_cache_key = f"_sb_usage_cache_{user_name}"
             _usage_cache = st.session_state.get(_usage_cache_key)
@@ -10416,15 +10519,16 @@ setTimeout(function(){
             display_usage_dashboard(user_name)
 
             # ── 사용자 모드 & 선호 보험사 설정 ──────────────────────────
-            st.markdown("""<div style="background:linear-gradient(135deg,#1a3a5c,#2e6da4);
+            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,#1a3a5c,#2e6da4);
   border-radius:10px;padding:8px 12px;margin:6px 0 4px 0;
   font-size:0.8rem;font-weight:900;color:#fff;letter-spacing:0.03em;">
+  {_bid('0-2-1')}
   ⚙️ AI 상담 모드 설정</div>""", unsafe_allow_html=True)
 
             # ── 박스 1: 상담 모드 ──────────────────────────────────────────────
-            st.markdown("""<div style="background:#1a3a5c;border-radius:8px 8px 0 0;
+            st.markdown(f"""<div style="position:relative;background:#1a3a5c;border-radius:8px 8px 0 0;
   padding:6px 12px;font-size:0.78rem;font-weight:900;color:#fff;
-  letter-spacing:0.03em;">👤 상담 모드 선택</div>""", unsafe_allow_html=True)
+  letter-spacing:0.03em;">{_bid('0-2-2')}👤 상담 모드 선택</div>""", unsafe_allow_html=True)
             _mode_options = ["👔 보험종사자 (설계사·전문가)", "👤 비종사자 (고객·일반인)"]
             _cur_mode = st.session_state.get("user_consult_mode", _mode_options[0])
             if _cur_mode not in _mode_options:
@@ -10443,9 +10547,9 @@ setTimeout(function(){
             st.session_state["user_consult_mode"] = _sel_mode
 
             # ── 박스 2: 주력 판매 분야 ─────────────────────────────────────────
-            st.markdown("""<div style="background:#7d3c00;border-radius:8px 8px 0 0;
+            st.markdown(f"""<div style="position:relative;background:#7d3c00;border-radius:8px 8px 0 0;
   padding:6px 12px;font-size:0.78rem;font-weight:900;color:#fff;
-  letter-spacing:0.03em;">📋 주력 판매 분야</div>""", unsafe_allow_html=True)
+  letter-spacing:0.03em;">{_bid('0-2-3')}📋 주력 판매 분야</div>""", unsafe_allow_html=True)
             _ins_options = ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)", "선택 안 함 (중립 분석)"]
             _cur_ins = st.session_state.get("preferred_insurer", _ins_options[-1])
             if _cur_ins not in _ins_options:
@@ -10465,8 +10569,9 @@ setTimeout(function(){
 
             _mode_badge = "🟦 종사자" if "종사자" in st.session_state.get("user_consult_mode","") else "🟩 비종사자"
             _ins_badge  = st.session_state.get("preferred_insurer","선택 안 함")
-            st.markdown(f"""<div style="background:#f0f6ff;border:1px solid #2e6da4;
+            st.markdown(f"""<div style="position:relative;background:#f0f6ff;border:1px solid #2e6da4;
   border-radius:7px;padding:5px 10px;font-size:0.74rem;color:#1a3a5c;margin-bottom:4px;">
+  {_bid('0-2-4')}
   {_mode_badge} &nbsp;|&nbsp; 주력사: <b>{_ins_badge}</b>
 </div>""", unsafe_allow_html=True)
 
@@ -10504,9 +10609,10 @@ setTimeout(function(){
             if st.button("👥 고객 관리", key="sb_customer_mgmt",
                          use_container_width=True, type="primary"):
                 _go_tab("customer_mgmt")
-            st.markdown("""<div style="background:linear-gradient(135deg,#0d3b2e,#1a6b4a);
+            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,#0d3b2e,#1a6b4a);
   border-radius:8px;padding:6px 10px;margin:8px 0 4px 0;
   font-size:0.76rem;font-weight:900;color:#a8f0c8;letter-spacing:0.03em;">
+  {_bid('0-2-5')}
   📎 보험증권 분석 &amp; 약관 검색</div>""", unsafe_allow_html=True)
             if st.button("📎 보험증권 AI 분석", key="sb_policy_scan",
                          use_container_width=True, type="primary"):
@@ -10514,9 +10620,10 @@ setTimeout(function(){
             if st.button("📜 약관 매칭 · 딥러닝 검색", key="sb_policy_terms",
                          use_container_width=True):
                 _go_tab("policy_terms")
-            st.markdown("""<div style="background:linear-gradient(135deg,#0f4c81,#1565c0);
+            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,#0f4c81,#1565c0);
   border-radius:8px;padding:6px 10px;margin:8px 0 4px 0;
   font-size:0.76rem;font-weight:900;color:#FFD700;letter-spacing:0.03em;">
+  {_bid('0-2-6')}
   🤖 보험봇 · InsuBot</div>""", unsafe_allow_html=True)
             if st.button("🤖 보험봇 전문용어 검색", key="sb_ins_bot",
                          use_container_width=True, type="primary"):
@@ -10528,6 +10635,8 @@ setTimeout(function(){
         display_security_sidebar()
 
         # ── (2) 앱 내 에러 로그 확인 패널 ──────────────────────────────
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-2-7')}</div>""",
+                    unsafe_allow_html=True)
         with st.expander("🔍 앱 상태 · 오류 확인", expanded=False):
             _err_items = []
             # 회원 저장 경고
@@ -10591,6 +10700,8 @@ setTimeout(function(){
                 st.warning(f"🔔 미처리 지시 {_dir_pending_cnt}건")
         st.divider()
         # ── 관리자 콘솔 (최하단) ──────────────────────────────────────────
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-2-8')}</div>""",
+                    unsafe_allow_html=True)
         with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
             with st.form("admin_login_form", clear_on_submit=False):
                 admin_id = st.text_input("관리자 ID", key="admin_id_f",
@@ -12150,21 +12261,26 @@ window['startTTS_{tab_key}']=function(){{
     if cur == "intro" and not st.session_state.get("_splash_done", False):
         import base64 as _b64_sp, os as _os_sp, time as _time_sp
 
-        # ── 이미지 b64 로드 ────────────────────────────────────────────
+        # ── 이미지 b64 로드 (세션 캐시 → 재실행 시 파일 I/O 생략) ────────
         _assets_dir_sp = _os_sp.path.join(_os_sp.path.dirname(__file__), "assets")
         def _load_b64_sp(fname):
+            _ck = f"_sp_b64_{fname}"
+            if _ck in st.session_state:
+                return st.session_state[_ck]
             _p = _os_sp.path.join(_assets_dir_sp, fname)
+            _val = ""
             if _os_sp.path.exists(_p):
                 with open(_p, "rb") as _f:
-                    return _b64_sp.b64encode(_f.read()).decode()
-            return ""
+                    _val = _b64_sp.b64encode(_f.read()).decode()
+            st.session_state[_ck] = _val
+            return _val
         _phone_b64_sp  = _load_b64_sp("Image_for_phone_splash_04c6295711.jpeg")
         _tablet_b64_sp = _load_b64_sp("Tablet_splash_screen_7b65c0fcd7.jpeg")
         _phone_src_sp  = f"data:image/jpeg;base64,{_phone_b64_sp}"  if _phone_b64_sp  else ""
         _tablet_src_sp = f"data:image/jpeg;base64,{_tablet_b64_sp}" if _tablet_b64_sp else ""
 
-        # ── [10-3] 최소 노출 시간 2초 보장 + Python app_ready 플래그 ────
-        _SPLASH_MIN_SEC = 2
+        # ── [B2] 최소 노출 시간 단축 + Python app_ready 플래그 ────
+        _SPLASH_MIN_SEC = 0.3
         # _app_ready_flag: SECTION 1~9 초기화 완료 여부 (main() 상단에서 계산)
         _sp_ready = _app_ready_flag  # True면 JS에 즉시 해제 신호 전달
 
@@ -12236,9 +12352,6 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
         'object-fit:cover;object-position:center top;display:block;}}',
       '#gk-sp-img-l{{position:absolute;top:0;left:0;width:100%;height:100%;',
         'object-fit:cover;object-position:center;display:none;}}',
-      '@media(orientation:landscape) and (min-width:600px){{',
-        '#gk-sp-img-p{{display:none!important;}}',
-        '#gk-sp-img-l{{display:block!important;}}}}',
       '#gk-sp-bottom{{position:relative;z-index:2;width:100%;',
         'padding:16px 20px 44px;',
         'background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,transparent 100%);',
@@ -12255,17 +12368,48 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
     ].join('');
     pd.head.appendChild(style);
 
+    // ── [B1] 안드로이드/iOS 화면 크기 동적 연동 ─────────────────────
+    // DPR(devicePixelRatio) 보정: screen.*은 물리 픽셀, inner*은 CSS px
+    // 안드로이드는 DPR이 2~4로 높아 screen.width가 과장됨
+    // CSS px 기준(innerWidth/innerHeight)을 최우선으로 사용
+    var vw = window.innerWidth  || (window.screen.width  / (window.devicePixelRatio || 1)) || 0;
+    var vh = window.innerHeight || (window.screen.height / (window.devicePixelRatio || 1)) || 0;
+    // 가로/세로 전환 대응: 짧은 쪽을 기준으로 phone/tablet 판단
+    var shortDp = Math.min(vw, vh);
+    // 태블릿 기준: CSS px 기준 단축변 600dp 이상 (안드로이드 표준)
+    var isTablet = (shortDp >= 600);
+    // 오버레이도 vw×vh에 고정
+    var sw = vw; var sh = vh;
+
     var ov = pd.createElement('div');
     ov.id  = 'gk-splash-overlay';
+    // [B1] Android WebView에서 100vw/100vh가 주소창 제외 크기로 계산되는 경우 대비
+    // JS로 계산한 sw×sh로 오버레이 크기를 명시적으로 덮어씌움
+    ov.style.cssText = 'position:fixed;top:0;left:0;' +
+      'width:' + sw + 'px;height:' + sh + 'px;' +
+      'z-index:2147483646;background:#0a1628;' +
+      'display:flex;flex-direction:column;' +
+      'align-items:center;justify-content:flex-end;' +
+      'overflow:hidden;opacity:1;transition:opacity 0.6s ease;';
+    // phone/tablet 이미지를 JS 감지 결과로 즉시 결정 (미디어쿼리 불필요)
+    var chosenImg = (isTablet && tabletImg) ? tabletImg : (phoneImg || tabletImg);
     ov.innerHTML = [
-      phoneImg  ? '<img id="gk-sp-img-p" src="'+phoneImg+'"  alt="" />' : '',
-      tabletImg ? '<img id="gk-sp-img-l" src="'+tabletImg+'" alt="" />' : '',
+      chosenImg ? '<img id="gk-sp-img-p" src="'+chosenImg+'" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center top;" />' : '',
       '<div id="gk-sp-bottom">',
         '<div id="gk-sp-bar-bg"><div id="gk-sp-bar"></div></div>',
         '<div id="gk-sp-txt">앱을 준비하고 있습니다 &nbsp;·&nbsp; 잠시만 기다려주세요</div>',
       '</div>',
     ].join('');
     pd.body.appendChild(ov);
+    // [B1] 화면 회전 대응: resize 시 오버레이 크기 재계산
+    window.addEventListener('resize', function() {{
+      var nvw = window.innerWidth  || sw;
+      var nvh = window.innerHeight || sh;
+      if (ov && ov.parentNode) {{
+        ov.style.width  = nvw + 'px';
+        ov.style.height = nvh + 'px';
+      }}
+    }});
 
   }}
 
@@ -12329,6 +12473,141 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
 
       // Python에 완료 신호
       window.parent.postMessage({{type:'streamlit:setComponentValue', value:'done'}}, '*');
+
+      // ── [B3] 스플래시 해제 후 사이드바 강제 표시 + 자동 열기 ──────────
+      // 1단계: Python st.markdown이 주입한 display:none CSS를 인라인으로 강제 override
+      (function() {{
+        var _forceSbVisible = pd.createElement('style');
+        _forceSbVisible.id = 'gk-sb-force-show';
+        _forceSbVisible.textContent =
+          '[data-testid="stSidebar"],' +
+          'section[data-testid="stSidebar"],' +
+          '[data-testid="stSidebarNav"],' +
+          '[data-testid="collapsedControl"],' +
+          '[data-testid="stSidebarCollapseButton"],' +
+          '[data-testid="stSidebarContent"]' +
+          '{{display:block!important;visibility:visible!important;' +
+          'opacity:1!important;pointer-events:auto!important;}}' +
+          '[data-testid="stAppViewContainer"],' +
+          '[data-testid="stMainBlockContainer"],' +
+          '.main' +
+          '{{visibility:visible!important;opacity:1!important;}}';
+        pd.head.appendChild(_forceSbVisible);
+        // 1.5초 후 force-show style 제거 (Streamlit 자체 CSS에 위임)
+        setTimeout(function() {{
+          var _el = pd.getElementById('gk-sb-force-show');
+          if (_el && _el.parentNode) _el.parentNode.removeChild(_el);
+        }}, 1500);
+      }})();
+
+      // 2단계: [B3] 사이드바 열기 버튼 클릭 (모바일 강화)
+      // [B3-추가] 모바일에서 사이드바가 transform으로 화면 밖에 있는 경우 강제 복원
+      (function() {{
+        try {{
+          var _sbEl = pd.querySelector('[data-testid="stSidebar"]');
+          if (_sbEl) {{
+            _sbEl.style.setProperty('transform', 'none', 'important');
+            _sbEl.style.setProperty('translate', 'none', 'important');
+            _sbEl.style.setProperty('left', '0', 'important');
+            _sbEl.style.setProperty('visibility', 'visible', 'important');
+            _sbEl.style.setProperty('display', 'flex', 'important');
+          }}
+          var _colCtrl = pd.querySelector('[data-testid="collapsedControl"]');
+          if (_colCtrl) {{
+            _colCtrl.style.setProperty('display', 'flex', 'important');
+            _colCtrl.style.setProperty('visibility', 'visible', 'important');
+          }}
+        }} catch(e) {{}}
+      }})();
+      var _sbOpened = false;
+      var _sbSelectors = [
+        '[data-testid="stSidebarCollapseButton"] button',
+        '[data-testid="collapsedControl"] button',
+        '[data-testid="collapsedControl"]',
+        'button[aria-label="Open sidebar"]',
+        'button[aria-label="사이드바를 열거나 닫으세요"]',
+        'button[aria-label="열기"]',
+        'button[aria-label="Toggle sidebar"]',
+        'button[aria-label="open sidebar"]',
+        'button[aria-label="sidebar"]',
+        'button[aria-label="Close sidebar"]',
+        'button[aria-label="Collapse sidebar"]',
+        'button[aria-label="Show sidebar"]',
+        'section[data-testid="stSidebarNav"] ~ * button',
+        '[class*="sidebar"] button[kind]',
+        '[class*="Sidebar"] button',
+        '[class*="collapse"] button',
+        '[class*="Collapse"] button',
+        'header button',
+        'header [role="button"]',
+      ];
+      // [B3] 버튼에 클릭/터치 이벤트를 모두 발생 (모바일 대응)
+      function _fireClick(el) {{
+        try {{
+          // 1) 네이티브 click
+          el.click();
+          // 2) MouseEvent dispatch (일부 브라우저 필요)
+          el.dispatchEvent(new MouseEvent('click',{{bubbles:true,cancelable:true,view:window}}));
+          // 3) 터치 이벤트 (안드로이드 WebView 대응)
+          var t = new Touch({{identifier:1,target:el,clientX:el.getBoundingClientRect().left+5,clientY:el.getBoundingClientRect().top+5,radiusX:1,radiusY:1,rotationAngle:0,force:1}});
+          el.dispatchEvent(new TouchEvent('touchstart',{{bubbles:true,cancelable:true,touches:[t],targetTouches:[t],changedTouches:[t]}}));
+          el.dispatchEvent(new TouchEvent('touchend',{{bubbles:true,cancelable:true,touches:[],targetTouches:[],changedTouches:[t]}}));
+        }} catch(e) {{ try{{el.click();}}catch(e2){{}} }}
+      }}
+      function _trySidebarOpen() {{
+        if (_sbOpened) return true;
+        // [B3] offsetParent 체크 제거 — 숨겨진 버튼도 시도
+        for (var i = 0; i < _sbSelectors.length; i++) {{
+          try {{
+            var btn = pd.querySelector(_sbSelectors[i]);
+            if (btn) {{
+              _fireClick(btn);
+              _sbOpened = true;
+              return true;
+            }}
+          }} catch(e) {{}}
+        }}
+        // 모든 버튼을 순회하며 sidebar 관련 aria-label 탐색
+        try {{
+          var allBtns = pd.querySelectorAll('button,[role="button"]');
+          for (var bi = 0; bi < allBtns.length; bi++) {{
+            var lbl = (allBtns[bi].getAttribute('aria-label') || '').toLowerCase();
+            var cls = (allBtns[bi].className || '').toLowerCase();
+            if (lbl.indexOf('sidebar') >= 0 || lbl.indexOf('사이드') >= 0 ||
+                lbl.indexOf('열기') >= 0 || lbl.indexOf('open') >= 0 ||
+                lbl.indexOf('toggle') >= 0 || cls.indexOf('collapse') >= 0) {{
+              _fireClick(allBtns[bi]);
+              _sbOpened = true;
+              return true;
+            }}
+          }}
+        }} catch(e) {{}}
+        // [B3] stSidebar 자체가 collapsed 상태인지 확인 후 강제 전환
+        try {{
+          var sb = pd.querySelector('[data-testid="stSidebar"]');
+          if (sb && sb.getAttribute('aria-expanded') === 'false') {{
+            sb.setAttribute('aria-expanded', 'true');
+          }}
+        }} catch(e) {{}}
+        return false;
+      }}
+      // MutationObserver: DOM 변경 시마다 버튼 탐색 (타임아웃 8초로 연장)
+      var _sbObs = null;
+      try {{
+        _sbObs = new MutationObserver(function() {{
+          if (_trySidebarOpen() && _sbObs) {{ _sbObs.disconnect(); _sbObs = null; }}
+        }});
+        _sbObs.observe(pd.body, {{childList:true, subtree:true, attributes:true}});
+        setTimeout(function(){{ if(_sbObs){{_sbObs.disconnect();_sbObs=null;}} }}, 8000);
+      }} catch(e) {{}}
+      // 폴링 방식 병행: 0.2s 간격 × 25회 시도 (총 5초)
+      var _sbTries = 0;
+      function _sbPoll() {{
+        if (_sbOpened || _sbTries >= 25) return;
+        _sbTries++;
+        if (!_trySidebarOpen()) setTimeout(_sbPoll, 200);
+      }}
+      setTimeout(_sbPoll, 150);
     }}, 350);
   }}
 
@@ -12373,16 +12652,16 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
     if (APP_READY_FROM_PYTHON) {{
       dismissSplash(false);
     }} else {{
-      // Python이 아직 준비 중 — 300ms마다 rerun 신호 후 재확인
+      // Python이 아직 준비 중 — 150ms마다 재확인
       // (Streamlit이 rerun될 때 새 app_ready 값이 전달됨)
-      setTimeout(checkPythonReady, 300);
+      setTimeout(checkPythonReady, 150);
     }}
   }}
 
-  // ── 최대 15초 안전망 ──────────────────────────────────────────────
+  // ── [B2] 최대 0.8초 안전망 (DB 지연 무관하게 강제 해제)
   setTimeout(function() {{
     if (!dismissed) dismissSplash(true);
-  }}, 15000);
+  }}, 800);
 
   // ── 초기화 ───────────────────────────────────────────────────────
   injectSplash();
@@ -12401,26 +12680,35 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
             _go_tab("home")
             st.rerun()
         elif _app_ready_flag:
-            # app_ready True 상태: 스플래시 시작 시각 기록 후 경과 시간 확인
-            # JS done 신호가 오길 기다리되, 3초 초과 시 강제 해제 (신호 누락 안전망)
+            # [B2] app_ready True: JS done 신호 대기, 1.5초 초과 시 강제 해제
             _sp_start = st.session_state.get("_splash_start_ts")
             if _sp_start is None:
                 st.session_state["_splash_start_ts"] = _time_sp.time()
-                _time_sp.sleep(0.15)
+                _time_sp.sleep(0.08)
                 st.rerun()
-            elif _time_sp.time() - _sp_start > 3.0:
-                # JS done 신호 3초 초과 누락 → 강제 해제
+            elif _time_sp.time() - _sp_start > 1.5:
+                # JS done 신호 1.5초 초과 누락 → 강제 해제
                 st.session_state["_splash_done"] = True
                 st.session_state["app_ready"] = True
                 st.session_state.pop("_splash_start_ts", None)
                 _go_tab("home")
                 st.rerun()
             else:
-                _time_sp.sleep(0.15)
+                _time_sp.sleep(0.08)
                 st.rerun()
         else:
-            # DB 초기화 대기 중 — 200ms 간격 재확인 (최대 15초 JS 안전망 있음)
-            _time_sp.sleep(0.2)
+            # DB 초기화 대기 중 — 80ms 간격 재확인 (최대 2초)
+            _sp_db_start = st.session_state.get("_splash_db_wait_ts")
+            if _sp_db_start is None:
+                st.session_state["_splash_db_wait_ts"] = _time_sp.time()
+            elif _time_sp.time() - _sp_db_start > 1.0:
+                # DB 초기화 2초 초과 → 강제 해제 (앱은 백그라운드에서 계속 초기화)
+                st.session_state["_splash_done"] = True
+                st.session_state["app_ready"] = True
+                st.session_state.pop("_splash_db_wait_ts", None)
+                _go_tab("home")
+                st.rerun()
+            _time_sp.sleep(0.08)
             st.rerun()
         st.stop()
 
@@ -12517,7 +12805,8 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
             '<span style="font-size:3rem;margin-right:14px;">&#128105;&#8205;&#128188;</span>'
         )
         st.markdown(f"""
-<div class="gk-intro-wrap">
+<div class="gk-intro-wrap" style="position:relative;">
+  {_bid('2-1-1')}
   <div style="display:flex;align-items:center;margin-bottom:14px;">
     {_intro_av_html}
     <div>
@@ -12535,7 +12824,8 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
             _todo_cnt = len(st.session_state.get("_gk_todos", [])) or 0
             _todo_done = len([t for t in st.session_state.get("_gk_todos", []) if t.get("done")]) if _todo_cnt else 0
             st.markdown(f"""
-<div class="gk-dash-card">
+<div class="gk-dash-card" style="position:relative;">
+  {_bid('2-1-2')}
   <div class="gk-dash-card-title">📋 오늘 할 일</div>
   <div class="gk-dash-num">{_todo_cnt}</div>
   <div style="font-size:0.76rem;color:#64748b;margin-bottom:8px;">완료 {_todo_done} / 전체 {_todo_cnt}건</div>
@@ -12550,7 +12840,8 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
             ] if st.session_state.get("_gk_appointments") else []
             _appt_cnt = len(_appt_list)
             st.markdown(f"""
-<div class="gk-dash-card-blue">
+<div class="gk-dash-card-blue" style="position:relative;">
+  {_bid('2-1-3')}
   <div class="gk-dash-card-title">📅 오늘의 약속</div>
   <div class="gk-dash-num-blue">{_appt_cnt}</div>
   <div style="font-size:0.76rem;color:#bae6fd;margin-bottom:8px;">오늘 예정된 미팅</div>
@@ -12563,7 +12854,8 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
             _crm_reg = st.session_state.get("gk_client_registry", {})
             _total_clients = len(_crm_reg) if _crm_reg else 0
             st.markdown(f"""
-<div class="gk-dash-card-green">
+<div class="gk-dash-card-green" style="position:relative;">
+  {_bid('2-1-4')}
   <div class="gk-dash-card-title">⏳ 상담 대기</div>
   <div class="gk-dash-num-green">{_wait_cnt}</div>
   <div style="font-size:0.76rem;color:#a7f3d0;margin-bottom:8px;">총 고객 {_total_clients}명 등록</div>
@@ -12571,6 +12863,8 @@ html,body{{width:100%;height:100%;overflow:hidden;background:transparent;}}
 </div>""", unsafe_allow_html=True)
 
         # ── 고객 빠른 검색 (초고속 자동완성 검색바) ────────────────────
+        st.markdown(f"""<div style="position:relative;margin-bottom:2px;">{_bid('2-1-5')}</div>""",
+                    unsafe_allow_html=True)
         import json as _json_srch
         _crm_reg_srch = st.session_state.get("gk_client_registry", {})
         # 고객 데이터 배열로 변환 (name, company, memo, registered, analyses_count)
@@ -12819,7 +13113,8 @@ function selectCustomer(name) {{
 </html>""", height=160, scrolling=False)
 
         # ── Start 버튼 ─────────────────────────────────────────────────
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown(f"""<div style="position:relative;height:8px;">{_bid('2-1-6')}</div>""",
+                    unsafe_allow_html=True)
         _is_col1, _is_col2, _is_col3 = st.columns([1, 2, 1])
         with _is_col2:
             if st.button("🚀  AI 상담 시작하기  →", key="intro_start_btn",
@@ -12831,9 +13126,10 @@ function selectCustomer(name) {{
                          use_container_width=True):
                 _go_tab("calendar")
 
-        st.markdown("""
-<div style="background:rgba(255,255,255,0.13);border:1.5px solid rgba(240,192,64,0.55);
+        st.markdown(f"""
+<div style="position:relative;background:rgba(255,255,255,0.13);border:1.5px solid rgba(240,192,64,0.55);
   border-radius:10px;padding:10px 16px;margin-top:10px;text-align:center;">
+  {_bid('2-1-7')}
   <span style="font-size:0.85rem;color:#1e293b;font-weight:800;">
     📌 아래 버튼을 누르거나 &nbsp;<span style="background:#f0c040;color:#1e293b;
     padding:2px 10px;border-radius:6px;font-weight:900;">☰ 좌측 사이드바</span>&nbsp;
@@ -12844,6 +13140,8 @@ function selectCustomer(name) {{
 
     # ── [달력] AgentCalendarView + ScheduleInputModal ─────────────────────
     if cur == "calendar":
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('3-1-1')}</div>""",
+                    unsafe_allow_html=True)
         _cal_back, _ = st.columns([1, 5])
         with _cal_back:
             if st.button("← 인트로", key="cal_back_btn", use_container_width=True):
@@ -13549,8 +13847,9 @@ renderCalendar();
                                 st.rerun()
 
                 # ── [C5/D3] AI 타겟 고객 추천 TOP 5 + 카톡 멘트 생성 ────────────────
-                st.markdown("""<div style="font-size:0.72rem;font-weight:800;color:#64748b;
+                st.markdown(f"""<div style="position:relative;font-size:0.72rem;font-weight:800;color:#64748b;
                   letter-spacing:0.08em;text-transform:uppercase;margin:14px 0 6px 2px;">
+                  {_bid('1-2-6')}
                   🤖 AI 타겟 고객 추천 TOP 5</div>""", unsafe_allow_html=True)
 
                 _top5 = calculate_top_targets(n=5, hours=48)
@@ -13667,8 +13966,9 @@ renderCalendar();
 </div>""", unsafe_allow_html=True)
 
                 # ── CRM 섹터 바로가기 ──────────────────────────────────────────
-                st.markdown("""<div style="font-size:0.72rem;font-weight:800;color:#64748b;
+                st.markdown(f"""<div style="font-size:0.72rem;font-weight:800;color:#64748b;
                   letter-spacing:0.08em;text-transform:uppercase;margin:14px 0 6px 2px;">
+                  {_bid('1-2-5')}
                   🔗 CRM 빠른 이동</div>""", unsafe_allow_html=True)
                 _crm_c1, _crm_c2, _crm_c3, _crm_c4 = st.columns(4)
                 _crm_links = [
@@ -13694,7 +13994,7 @@ renderCalendar();
         _weekday_kr = ["월","화","수","목","금","토","일"][_today.weekday()]
         _today_str = f"{_today.year}년 {_today.month:02d}월 {_today.day:02d}일 ({_weekday_kr})"
         st.markdown(f"""
-<div style="
+<div style="position:relative;
   background:#ffffff;
   border:1.5px solid #E0E0E0;
   border-radius:16px;
@@ -13706,6 +14006,7 @@ renderCalendar();
   gap:24px;
   flex-wrap:nowrap;
 ">
+  {_bid('1-3-1')}
   <!-- 아바타 -->
   <div style="flex-shrink:0;">
     <img src="{_hero_avatar_b64}"
@@ -13762,9 +14063,12 @@ renderCalendar();
 """, unsafe_allow_html=True)
 
         # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('1-3-2')}</div>""",
+                    unsafe_allow_html=True)
         components.html("""
+<!-- #1-3-2 날씨 위젯 -->
 <div id="wx_wrap" style="
-  background:linear-gradient(135deg,#0f4c81 0%,#1a6fa8 60%,#2196f3 100%);
+  background:linear-gradient(135deg,#0f4c81 0%,#1a6fa8 100%);
   border-radius:14px;padding:14px 18px;margin-bottom:12px;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
   display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
@@ -13838,6 +14142,8 @@ wxByGeo();
 """, height=100)
 
         # ── [B3] 통합 검색 모달 (Global Search Bar — Slide-down + O(1) + 폭포수 애니메이션) ──
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('1-3-3')}</div>""",
+                    unsafe_allow_html=True)
         import json as _gsb_json
         _gsb_reg_js = _gsb_json.dumps(
             [{"id": v["id"], "level": v["level"], "title": v["title"],
@@ -13897,7 +14203,8 @@ wxByGeo();
 .gk-gsb-close{{float:right;background:none;border:none;color:#9ca3af;
   font-size:1.1rem;cursor:pointer;margin-top:-4px;}}
 </style>
-<div id="gk-gsb-wrap">
+<div id="gk-gsb-wrap" style="position:relative;">
+  <!-- #1-3-3 통합 검색바 -->
   <button id="gk-gsb-btn" onclick="gkGsbToggle()">
     🔍 통합 검색 &nbsp;|&nbsp; 메뉴·코드·용어 빠른 이동
     <span style="margin-left:auto;font-size:0.75rem;opacity:0.75;">▼ 클릭하여 검색</span>
@@ -13992,10 +14299,11 @@ wxByGeo();
 """, height=52)
 
         # Voice-to-Action STT 입력창 — form으로 감싸 버튼 클릭 시 값 커밋 보장
-        st.markdown("""
-<div style="border:2px solid #2e6da4;border-radius:12px;padding:10px 14px 6px 14px;
+        st.markdown(f"""
+<div style="position:relative;border:2px solid #2e6da4;border-radius:12px;padding:10px 14px 6px 14px;
   background:linear-gradient(135deg,#f0f6ff 0%,#e8f0fb 100%);
   margin-bottom:4px;box-shadow:0 2px 8px rgba(46,109,164,0.12);">
+  {_bid('1-3-4')}
   <div style="font-size:0.78rem;font-weight:800;color:#1a3a5c;margin-bottom:6px;
     letter-spacing:0.04em;">🧭 메뉴 이동 네비게이션</div>
   <div style="font-size:0.72rem;color:#4a6fa5;margin-bottom:4px;">
@@ -14290,8 +14598,9 @@ export default function(component) {{
 
         # ── 고객 정보 입력·관리 섹터 (도메인 네비 위 고정) ─────────────
         if 'user_id' in st.session_state:
-            st.markdown("""<div style="background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 100%);
+            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 100%);
   border-radius:14px;padding:14px 18px;margin-bottom:10px;">
+  {_bid('1-4-1')}
   <span style="color:#fff;font-size:1.05rem;font-weight:900;">🗂️ 고객 정보 입력 · 관리</span>
   <span style="color:#a8e6cf;font-size:0.75rem;margin-left:10px;">고객에 대한 정보 관리 — 상담의 주요 목적</span>
 </div>""", unsafe_allow_html=True)
@@ -14332,8 +14641,9 @@ export default function(component) {{
             if _search_label not in _cust_options_map:
                 _search_label = "✏️ 고객 입력 & 검색"
 
-            st.markdown("""<div style="background:#e8f5e9;border:1.5px solid #1a6b4a;border-radius:10px;
-  padding:10px 14px;margin-bottom:10px;">
+            st.markdown(f"""<div style="position:relative;background:rgba(13,59,46,0.08);border:1px solid #1a6b4a;
+  border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+  {_bid('1-4-2')}
   <span style="color:#0d3b2e;font-size:0.88rem;font-weight:900;">🔍 고객 검색 — 이름으로 검색 후 선택하면 해당 고객 정보가 자동 로드됩니다</span>
 </div>""", unsafe_allow_html=True)
 
@@ -14379,8 +14689,9 @@ export default function(component) {{
                 st.session_state["_home_selected_cust_label"] = "✏️ 고객 입력 & 검색"
 
             # ── 상담 대상자 기본 정보 ────────────────────────────────────
-            st.markdown("""<div style="background:rgba(13,59,46,0.08);border:1px solid #1a6b4a;
+            st.markdown(f"""<div style="position:relative;background:rgba(13,59,46,0.08);border:1px solid #1a6b4a;
   border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+  {_bid('1-4-3')}
   <span style="color:#0d3b2e;font-size:0.9rem;font-weight:900;">👤 상담 대상자 기본 정보 입력 후 각 탭에서 자동 활용됩니다</span>
 </div>""", unsafe_allow_html=True)
 
@@ -14447,8 +14758,9 @@ export default function(component) {{
             # ── 상담 노트 ────────────────────────────────────────────────
             with st.expander("📝 상담 노트  (사용방법: 고객 상담내용 전부 적으세요)", expanded=False):
                 with st.form(key="form_consult_note", clear_on_submit=True):
-                    st.markdown("""<div style="border:1.5px solid #1a6b4a;border-radius:8px;
+                    st.markdown(f"""<div style="position:relative;border:1.5px solid #1a6b4a;border-radius:8px;
   padding:10px 14px;margin-bottom:10px;background:#f0faf5;">
+  {_bid('1-4-4')}
   <span style="color:#0d3b2e;font-size:0.82rem;font-weight:700;">📅 상담일자 + 상담요약 + 상담내용 — 모두 동일날짜에 연동 저장</span>
 </div>""", unsafe_allow_html=True)
                     _nd_col1, _nd_col2 = st.columns([1, 2])
@@ -14509,8 +14821,9 @@ export default function(component) {{
             # ── 보험 가입 상담 창 ────────────────────────────────────────
             with st.expander("🛡️ 보험 가입 상담  (사용방법: 청약과정에서 발생한 특이사항은 '특이사항'란에 입력하세요)", expanded=False):
                 with st.form(key="form_ins_consult", clear_on_submit=True):
-                    st.markdown("""<div style="border:1.5px solid #1e40af;border-radius:8px;
+                    st.markdown(f"""<div style="position:relative;border:1.5px solid #1e40af;border-radius:8px;
   padding:10px 14px;margin-bottom:10px;background:#eff6ff;">
+  {_bid('1-4-5')}
   <span style="color:#1e3a8a;font-size:0.82rem;font-weight:700;">📅 가입일자 + 상담상품명 + 청약배경 + 특이사항 — 모두 동일날짜에 연동 저장</span>
 </div>""", unsafe_allow_html=True)
                     _id_col1, _id_col2 = st.columns([1, 2])
@@ -14649,6 +14962,8 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 """, unsafe_allow_html=True)
 
         # ── 액션 버튼 좌우 배치 ─────────────────────────────────────────
+        st.markdown(f"""<div style="position:relative;margin-bottom:6px;">{_bid('1-4-6')}</div>""",
+                    unsafe_allow_html=True)
         _ab1, _ab2 = st.columns(2, gap="medium")
         with _ab1:
             if st.button("🚀 AI 상담 시작하기", key="home_action_consult",
@@ -14670,10 +14985,11 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
         _pf_c1, _pf_c2, _pf_c3 = st.columns(3, gap="medium")
 
         with _pf_c1:
-            st.markdown("""
+            st.markdown(f"""
 <div class="gk-pf-card" style="background:linear-gradient(145deg,#1e3a8a,#2563eb);
   border:2px solid #3b82f6;box-shadow:0 8px 32px rgba(37,99,235,0.30);
   position:relative;overflow:hidden;">
+  {_bid('1-5-1')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
   <div style="font-size:0.7rem;font-weight:900;color:#93c5fd;letter-spacing:0.14em;
@@ -14709,10 +15025,11 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 """)
 
         with _pf_c2:
-            st.markdown("""
+            st.markdown(f"""
 <div class="gk-pf-card" style="background:linear-gradient(145deg,#064e3b,#059669);
   border:2px solid #10b981;box-shadow:0 8px 32px rgba(5,150,105,0.30);
   position:relative;overflow:hidden;">
+  {_bid('1-5-2')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
   <div style="font-size:0.7rem;font-weight:900;color:#6ee7b7;letter-spacing:0.14em;
@@ -14760,10 +15077,11 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 """)
 
         with _pf_c3:
-            st.markdown("""
+            st.markdown(f"""
 <div class="gk-pf-card" style="background:linear-gradient(145deg,#78350f,#d97706);
   border:2px solid #f59e0b;box-shadow:0 8px 32px rgba(217,119,6,0.30);
   position:relative;overflow:hidden;">
+  {_bid('1-5-3')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
   <div style="font-size:0.7rem;font-weight:900;color:#fde68a;letter-spacing:0.14em;
@@ -14804,10 +15122,11 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
         _pf_d1, _pf_d2 = st.columns(2, gap="medium")
 
         with _pf_d1:
-            st.markdown("""
+            st.markdown(f"""
 <div class="gk-pf-card" style="background:linear-gradient(145deg,#881337,#e11d48);
   border:2px solid #fb7185;box-shadow:0 8px 32px rgba(225,29,72,0.28);
   position:relative;overflow:hidden;">
+  {_bid('1-5-4')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
   <div style="font-size:0.7rem;font-weight:900;color:#fecdd3;letter-spacing:0.14em;
@@ -14833,10 +15152,11 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 """)
 
         with _pf_d2:
-            st.markdown("""
+            st.markdown(f"""
 <div class="gk-pf-card" style="background:linear-gradient(145deg,#1f2937,#374151);
   border:2px solid #6b7280;box-shadow:0 8px 32px rgba(55,65,81,0.35);
   position:relative;overflow:hidden;">
+  {_bid('1-5-5')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.05);"></div>
   <div style="font-size:0.7rem;font-weight:900;color:#9ca3af;letter-spacing:0.14em;
@@ -14870,10 +15190,11 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
         st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
 
         # ── F섹션: 보험봇 (전체 너비) ────────────────────────────────────
-        st.markdown("""
+        st.markdown(f"""
 <div class="gk-pf-card" style="background:linear-gradient(145deg,#0f4c81,#1565c0);
   border:2px solid #FFD700;box-shadow:0 8px 32px rgba(15,76,129,0.40);
   position:relative;overflow:hidden;">
+  {_bid('1-5-6')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
   <div style="font-size:0.7rem;font-weight:900;color:#FFD700;letter-spacing:0.14em;
@@ -14907,12 +15228,13 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
             _go_tab("ins_bot")
 
         # ── 하단 안내문구 ─────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border:none;border-radius:14px;
   padding:18px 28px;margin:22px 0 10px 0;
   box-shadow:0 4px 20px rgba(26,58,92,0.22);
   text-align:center;">
+  {_bid('1-5-7')}
   <div style="font-size:1.1rem;font-weight:900;color:#fff;line-height:1.6;">
     💡 상세 컨설팅 및 AI 분석은 좌측 사이드바의 <span style="color:#fbbf24;">29개 전문 섹션</span>에서 즉시 시작하실 수 있습니다.
   </div>
@@ -14923,9 +15245,10 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 
         st.divider()
         if st.session_state.get('is_admin'):
-            st.markdown("""
-<div style="background:#f0f4ff;border:2px solid #4f46e5;border-radius:10px;
+            st.markdown(f"""
+<div style="position:relative;background:#f0f4ff;border:2px solid #4f46e5;border-radius:10px;
   padding:10px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+  {_bid('1-6-1')}
   <span style="font-size:1.3rem;">⚙️</span>
   <div>
     <div style="color:#312e81;font-size:0.92rem;font-weight:900;">관리자 시스템</div>
@@ -14937,6 +15260,8 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 
         # ── 보험사 연락처 섹션 ──────────────────────────────────────────
         st.divider()
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('1-6-2')}</div>""",
+                    unsafe_allow_html=True)
         st.markdown("## 📞 보험사 연락처 & 청구 안내")
 
         LIFE_INS = [
@@ -15246,6 +15571,8 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
     if cur == "customer_mgmt":
         if not _auth_gate("customer_mgmt"): st.stop()
         tab_home_btn("customer_mgmt")
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('13-1-1')}</div>""",
+                    unsafe_allow_html=True)
         try:
             from customer_mgmt import render_customer_tab as _render_cm
             _cm_sb  = _get_sb_client()
@@ -15264,10 +15591,11 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
         if not _auth_gate("policy_scan"): st.stop()
         tab_home_btn("policy_scan")
 
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 50%,#27ae60 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 50%,#27ae60 100%);
   border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:14px;
   box-shadow:0 4px 18px rgba(39,174,96,0.22);">
+  {_bid('4-1-1')}
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-size:2.2rem;">📎</div>
     <div>
@@ -16555,9 +16883,10 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
         if not _auth_gate("t0"):
             st.stop()
         tab_home_btn("t0")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:12px;">
+  {_bid('5-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
     📋 신규 보험 상품 상담
   </div>
@@ -17638,9 +17967,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t1":
         if not _auth_gate("t1"): st.stop()
         tab_home_btn("t1")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('6-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     💰 보험금 상담 · 민원 · 손해사정
   </div>
@@ -17822,9 +18152,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         tab_home_btn("injury")
 
         # ── 헤더 ──────────────────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 60%,#1abc9c 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 60%,#1abc9c 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('7-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🚑 상해 통합 관리 — Life-Cycle Risk Management
   </div>
@@ -18572,9 +18903,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     # ── [disability] 장해보험금 산출 ─────────────────────────────────────
     if cur == "disability":
         tab_home_btn("disability")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('8-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🩺 장해보험금 산출
   </div>
@@ -19204,9 +19536,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         if not _auth_gate("kcd_injury"): st.stop()
         tab_home_btn("kcd_injury")
 
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a2e4a 0%,#1a4a3a 60%,#0e6655 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a2e4a 0%,#1a4a3a 60%,#0e6655 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:16px;">
+  {_bid('9-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🔬 상해(S·T·V·W·X·Y)와 M의 상관관계
   </div>
@@ -19557,9 +19890,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         if not _auth_gate("auto_comp"): st.stop()
         tab_home_btn("auto_comp")
 
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#0c2340 0%,#1a3a5c 50%,#1e4d70 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#0c2340 0%,#1a3a5c 50%,#1e4d70 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:16px;">
+  {_bid('10-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🚗 자동차보험 및 보상 실무 통합 정리
   </div>
@@ -20098,10 +20432,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 """, unsafe_allow_html=True)
 
         # ── Search Zone: 프리미엄 블루 그라데이션 카드 ───────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#0f4c81 0%,#1565c0 60%,#1a6fa8 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#0f4c81 0%,#1565c0 60%,#1a6fa8 100%);
   border-radius:16px; padding:20px 22px 16px 22px; margin-bottom:4px;
   box-shadow:0 4px 18px rgba(15,76,129,0.18);">
+  {_bid('11-1-1')}
   <div style="color:#FFD700;font-size:1.15rem;font-weight:900;margin-bottom:4px;">
     🤖 보험봇 · InsuBot
   </div>
@@ -20396,8 +20731,9 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 """, unsafe_allow_html=True)
 
         # ── 헤더 카드 ─────────────────────────────────────────────────────
-        st.markdown("""
-<div class="kp-header-card">
+        st.markdown(f"""
+<div class="kp-header-card" style="position:relative;">
+  {_bid('12-1-1')}
   <h3>📂 전문가 지식 라이브러리 자동 학습</h3>
   <p>약관 · 리플렛 · 공문 · 판례자료를 업로드하면 AI가 헌법 제27·28조 기준으로 자동 인덱싱합니다.<br>
      설계사가 자료를 넣기만 하면 InsuBot이 스스로 진화하는 <b>자기완결형 지능체</b>로 발전합니다.</p>
@@ -20762,15 +21098,137 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
   <div style="font-size:.78rem;margin-top:4px;">약관·판례·공문 PDF를 업로드하면 InsuBot이 자동으로 학습합니다.</div>
 </div>""", unsafe_allow_html=True)
 
+        # ── 지시1 A1: 전문가 통합 지식 인덱스 현황 리포트 (Knowledge Map) ──
+        st.markdown("<hr class='kp-divider'>", unsafe_allow_html=True)
+        with st.expander("🗺️ 전문가 통합 지식 인덱스 현황 리포트 (헌법 제26조)", expanded=False):
+            import datetime as _kp_dt_mod
+            _kp_now = _kp_dt_mod.datetime.now().strftime("%Y-%m-%d %H:%M")
+            _kp_log2 = st.session_state.get("kp_knowledge_log", [])
+
+            # ── 도메인별 집계 ──────────────────────────────────────────
+            _KP_DOMAINS = {
+                "법률·판례": ["판례", "법령", "공문"],
+                "행정·감독": ["감독지침", "업무지침", "공문"],
+                "의료·상해": ["의학서적", "약관"],
+                "손해사정": ["약관", "판례"],
+                "금융·보험": ["약관", "리플렛", "기타"],
+            }
+            _KP_CORE_EVIDENCE = {
+                "법률·판례":  "대법원 판례 / 보험업법 / 상법 제4편",
+                "행정·감독":  "금감원 분쟁조정 결과 / 감독지침",
+                "의료·상해":  "전문의 견해 / 표준진료지침",
+                "손해사정":  "약관 해석 원칙 / 손해사정 기준",
+                "금융·보험":  "보험사 공식 약관 / 상품설명서",
+            }
+            _KP_BOOST_MAP = {
+                "법률·판례": 90, "행정·감독": 88, "의료·상해": 93,
+                "손해사정": 85, "금융·보험": 85,
+            }
+
+            # ── 업로드 로그에서 도메인별 문서 수 집계 ─────────────────
+            _dom_counts = {d: 0 for d in _KP_DOMAINS}
+            for _entry in _kp_log2:
+                _dt_type = _entry.get("doc_type", "")
+                for _dom, _types in _KP_DOMAINS.items():
+                    if _dt_type in _types:
+                        _dom_counts[_dom] += 1
+
+            # ── 전체 집계 ─────────────────────────────────────────────
+            _total_docs  = len(_kp_log2)
+            _tier1_count = sum(1 for e in _kp_log2 if e.get("tier") == 1)
+            _tier2_count = sum(1 for e in _kp_log2 if e.get("tier") == 2)
+            _tier3_count = sum(1 for e in _kp_log2 if e.get("tier") == 3)
+            _last_sync   = st.session_state.get("kp_last_sync", "—")
+
+            # ── 헤더 카드 ──────────────────────────────────────────────
+            st.markdown(f"""
+<div style='background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border-radius:15px;
+  padding:18px 22px;margin-bottom:14px;box-shadow:0 4px 20px rgba(15,23,42,0.35);'>
+  <div style='color:#f8fafc;font-size:1.05rem;font-weight:900;letter-spacing:.04em;margin-bottom:6px;'>
+    📊 전문가 통합 지식 인덱스 현황 리포트
+  </div>
+  <div style='color:#94a3b8;font-size:0.78rem;'>
+    헌법 제26조 기준 | 총 {_total_docs}건 등록 | 위계1: {_tier1_count}건 · 위계2: {_tier2_count}건 · 위계3: {_tier3_count}건
+    &nbsp;&nbsp;|&nbsp;&nbsp;생성 시각: {_kp_now}
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            # ── 도메인별 현황 테이블 ────────────────────────────────────
+            _map_rows = ""
+            for _dom in _KP_DOMAINS:
+                _cnt  = _dom_counts[_dom]
+                _core = _KP_CORE_EVIDENCE[_dom]
+                _bst  = _KP_BOOST_MAP[_dom]
+                _bar_w = _bst
+                _cnt_badge = (
+                    f"<span style='background:#22c55e;color:#fff;border-radius:10px;padding:1px 8px;font-size:0.72rem;font-weight:700;'>{_cnt}건</span>"
+                    if _cnt > 0
+                    else "<span style='background:#e2e8f0;color:#94a3b8;border-radius:10px;padding:1px 8px;font-size:0.72rem;'>0건</span>"
+                )
+                _map_rows += f"""
+<tr style='border-bottom:1px solid #f1f5f9;'>
+  <td style='padding:8px 10px;font-weight:700;color:#0f172a;font-size:0.83rem;'>{_dom}</td>
+  <td style='padding:8px 10px;text-align:center;'>{_cnt_badge}</td>
+  <td style='padding:8px 10px;font-size:0.78rem;color:#334155;'>{_core}</td>
+  <td style='padding:8px 10px;'>
+    <div style='display:flex;align-items:center;gap:6px;'>
+      <div style='flex:1;height:8px;border-radius:4px;background:#e2e8f0;overflow:hidden;'>
+        <div style='width:{_bar_w}%;height:100%;border-radius:4px;
+          background:linear-gradient(90deg,#4facfe,#00f2fe);'></div>
+      </div>
+      <span style='font-size:0.75rem;font-weight:700;color:#0369a1;min-width:32px;'>{_bst}%</span>
+    </div>
+  </td>
+  <td style='padding:8px 10px;font-size:0.75rem;color:#64748b;text-align:center;'>{_last_sync}</td>
+</tr>"""
+
+            st.markdown(f"""
+<div style='overflow-x:auto;border-radius:12px;border:1.5px solid #e2e8f0;'>
+<table width="100%" style='border-collapse:collapse;font-size:.82rem;background:#fff;'>
+  <thead>
+    <tr style='background:linear-gradient(90deg,#0f172a,#1e3a5f);'>
+      <th style='padding:9px 10px;text-align:left;color:#f8fafc;font-weight:800;'>도메인</th>
+      <th style='padding:9px 10px;text-align:center;color:#f8fafc;font-weight:800;'>문서 수</th>
+      <th style='padding:9px 10px;text-align:left;color:#f8fafc;font-weight:800;'>핵심 근거</th>
+      <th style='padding:9px 10px;text-align:left;color:#f8fafc;font-weight:800;'>검색 부스트</th>
+      <th style='padding:9px 10px;text-align:center;color:#f8fafc;font-weight:800;'>최종 갱신</th>
+    </tr>
+  </thead>
+  <tbody>{_map_rows}</tbody>
+</table>
+</div>""", unsafe_allow_html=True)
+
+            # ── 위계별 요약 배지 ────────────────────────────────────────
+            st.markdown(f"""
+<div style='display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;'>
+  <div style='background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:8px 14px;flex:1;min-width:100px;text-align:center;'>
+    <div style='font-size:1.3rem;font-weight:900;color:#dc2626;'>{_tier1_count}</div>
+    <div style='font-size:0.72rem;color:#7f1d1d;font-weight:700;'>위계 1 — 법적 근거용</div>
+  </div>
+  <div style='background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;padding:8px 14px;flex:1;min-width:100px;text-align:center;'>
+    <div style='font-size:1.3rem;font-weight:900;color:#d97706;'>{_tier2_count}</div>
+    <div style='font-size:0.72rem;color:#78350f;font-weight:700;'>위계 2 — 보조 참고용</div>
+  </div>
+  <div style='background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:8px 14px;flex:1;min-width:100px;text-align:center;'>
+    <div style='font-size:1.3rem;font-weight:900;color:#16a34a;'>{_tier3_count}</div>
+    <div style='font-size:0.72rem;color:#14532d;font-weight:700;'>위계 3 — 참고용</div>
+  </div>
+  <div style='background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;padding:8px 14px;flex:1;min-width:100px;text-align:center;'>
+    <div style='font-size:1.3rem;font-weight:900;color:#1d4ed8;'>{_total_docs}</div>
+    <div style='font-size:0.72rem;color:#1e3a8a;font-weight:700;'>전체 인덱스</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t2] 기본보험 상담 ────────────────────────────────────────────────
     if cur == "t2":
         if not _auth_gate("t2"): st.stop()
         tab_home_btn("t2")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('24-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🛡️ 기본보험 상담
   </div>
@@ -20990,9 +21448,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t3":
         if not _auth_gate("t3"): st.stop()
         tab_home_btn("t3")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('14-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🏥 질병·상해 통합보험 상담
   </div>
@@ -21076,10 +21535,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 </style>""", unsafe_allow_html=True)
 
         # ── 페이지 타이틀 헤더 ──────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#6b1a1a 0%,#c0392b 55%,#e74c3c 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#6b1a1a 0%,#c0392b 55%,#e74c3c 100%);
   border-radius:14px;padding:16px 22px;margin-bottom:16px;
   box-shadow:0 6px 24px rgba(192,57,43,0.28);">
+  {_bid('15-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.04em;">
     🎗️ 암·뇌·심장 중증질환 통합 상담</div>
   <div style="color:#ffd5d5;font-size:0.8rem;margin-top:5px;">
@@ -21469,9 +21929,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "brain":
         if not _auth_gate("brain"): st.stop()
         tab_home_btn("brain")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 60%,#5b9bd5 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 60%,#5b9bd5 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:10px;">
+  {_bid('16-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
     🧠 뇌질환(중풍) 전문 상담
   </div>
@@ -21737,9 +22198,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                     show_result_inline=True,
                 )
 
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#7d1a1a 0%,#c0392b 50%,#e67e22 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#7d1a1a 0%,#c0392b 50%,#e67e22 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:10px;">
+  {_bid('17-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
     ❤️ 심장질환 전문 상담
   </div>
@@ -22047,9 +22509,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t4":
         if not _auth_gate("t4"): st.stop()
         tab_home_btn("t4")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('18-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🚗 자동차사고 상담 · 과실비율 분석
   </div>
@@ -22201,9 +22664,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t5":
         if not _auth_gate("t5"): st.stop()
         tab_home_btn("t5")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('19-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🌅 노후설계 · 연금 3층 · 상속·증여
   </div>
@@ -22594,9 +23058,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t6":
         if not _auth_gate("t6"): st.stop()
         tab_home_btn("t6")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('20-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     📊 세무상담
   </div>
@@ -22664,9 +23129,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t7":
         if not _auth_gate("t7"): st.stop()
         tab_home_btn("t7")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('21-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🏢 법인상담 · CEO플랜 · 단체보험 · 기업보험
   </div>
@@ -22730,9 +23196,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "t8":
         if not _auth_gate("t8"): st.stop()
         tab_home_btn("t8")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('22-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     👔 CEO플랜 — 비상장주식 약식 평가 &amp; 법인 재무분석
   </div>
@@ -24668,6 +25135,8 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
             st.stop()
     if cur == "t9" and (st.session_state.get("is_admin") or st.session_state.get("_admin_tab_auth")):
         tab_home_btn("t9")
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('23-1-1')}</div>""",
+                    unsafe_allow_html=True)
         st.subheader("⚙️ 관리자 전용 시스템")
         # RAG 바로가기 힌트 (사이드바 버튼으로 진입 시)
         if st.session_state.pop("_rag_admin_hint", False):
