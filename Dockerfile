@@ -3,6 +3,7 @@ FROM python:3.10-slim
 # ── 시스템 패키지 + 한국어 locale ──────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
     locales \
+    locales-all \
     curl \
     && locale-gen ko_KR.UTF-8 \
     && update-locale LANG=ko_KR.UTF-8 \
