@@ -15553,6 +15553,24 @@ renderCalendar();
 
         # ── 로그인 상태에 따른 상단 배너 ──────────────────────────────────
         if 'user_id' not in st.session_state:
+            st.markdown("""
+<style>
+div[data-testid="stButton"] button[kind="primary"]#home_open_signup,
+button[data-testid="baseButton-primary"][aria-label*="회원가입"],
+div[data-testid="column"]:nth-child(1) div[data-testid="stButton"] > button,
+div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button {
+  background: #ffffff !important;
+  background-image: none !important;
+  border: 2px solid #1565C0 !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+div[data-testid="column"]:nth-child(1) div[data-testid="stButton"] > button:hover,
+div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button:hover {
+  background: #E3F2FD !important;
+  color: #000000 !important;
+}
+</style>""", unsafe_allow_html=True)
             _b1, _b2, _b3 = st.columns([1, 1, 0.01])
             with _b1:
                 if st.button("📝 회원가입", key="home_open_signup",
@@ -16935,6 +16953,22 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
         # ── 액션 버튼 좌우 배치 ─────────────────────────────────────────
         st.markdown(f"""<div style="position:relative;margin-bottom:6px;">{_bid('1-4-6')}</div>""",
                     unsafe_allow_html=True)
+        st.markdown("""
+<style>
+button[kind="secondary"][data-testid$="home_action_consult"],
+button[kind="secondary"][data-testid$="home_action_calendar"],
+div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button {
+  background: #ffffff !important;
+  background-image: none !important;
+  border: 2px solid #1565C0 !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover {
+  background: #E3F2FD !important;
+  color: #000000 !important;
+}
+</style>""", unsafe_allow_html=True)
         _ab1, _ab2 = st.columns(2, gap="medium")
         with _ab1:
             if st.button("🚀 AI 상담 시작하기", key="home_action_consult",
