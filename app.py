@@ -891,84 +891,225 @@ def _s39_sidebar_shell_html() -> str:
     )
 
 
-def _s39_render_landing_page() -> None:
-    """가이딩 프로토콜 제39조 §1: 정적 랜딩 페이지 렌더링.
-
-    연산 부하 없는 순수 정적 HTML — 로고 + [안보 서비스 시작하기] 버튼.
-    '시작하기' 클릭 시 _lp_landing = True 세팅 후 st.rerun() → 로그인 화면 즉시 전환.
+def _s39_load_splash_b64(filename: str) -> str:
+    """assets/ 폴더의 .b64 파일을 읽어 data-URI 문자열로 반환.
+    실패 시 빈 문자열 반환 — 폴백으로 CSS gradient 배경 사용.
     """
-    # 전체 화면 여백 제거 CSS
-    st.markdown("""
+    _cache_key = f"_s39_splash_b64_{filename}"
+    _cached = st.session_state.get(_cache_key, "")
+    if _cached:
+        return _cached
+    try:
+        _base = os.path.dirname(os.path.abspath(__file__))
+        _path = os.path.join(_base, "assets", filename)
+        if os.path.exists(_path):
+            _raw = open(_path, "r", encoding="utf-8").read().strip()
+            if _raw:
+                _ext = filename.rsplit(".", 1)[0].rsplit("_", 1)[-1]
+                if "webp" in filename:
+                    _mime = "image/webp"
+                elif "tablet" in filename.lower() or "jpg" in filename.lower() or "jpeg" in filename.lower():
+                    _mime = "image/jpeg"
+                else:
+                    _mime = "image/png"
+                _result = f"data:{_mime};base64,{_raw}"
+                st.session_state[_cache_key] = _result
+                return _result
+    except Exception:
+        pass
+    return ""
+
+
+def _s39_render_landing_page() -> None:
+    """가이딩 프로토콜 제39조 개정: 기기 감지형 하이브리드 랜딩.
+
+    [1단계] 기기 해상도 감지 → mobile(세로): splash_goldkey.webp
+                               tablet(가로): Tablet_splash_screen_7b65c0fcd7.jpeg
+    [2단계] 버튼 클릭 즉시 사이드바 Shell + 대시보드 prefetch JS 실행
+    [3단계] 사이드바 렌더 완료와 동시에 랜딩 unmount → seamless 전환
+    """
+    # ── 스플래시 이미지 로드 (세션 캐시 적용) ──────────────────────────
+    _mobile_src = _s39_load_splash_b64("splash_goldkey.b64")
+    _tablet_src = _s39_load_splash_b64("tablet_splash.b64")
+
+    # ── 폴백: .b64 없으면 직접 파일 base64 인코딩 시도 ──────────────────
+    if not _mobile_src:
+        try:
+            _base = os.path.dirname(os.path.abspath(__file__))
+            _p = os.path.join(_base, "assets", "splash_goldkey.webp")
+            if os.path.exists(_p):
+                _raw = base64.b64encode(open(_p, "rb").read()).decode()
+                _mobile_src = f"data:image/webp;base64,{_raw}"
+                st.session_state["_s39_splash_b64_splash_goldkey.b64"] = _mobile_src
+        except Exception:
+            pass
+
+    if not _tablet_src:
+        try:
+            _base = os.path.dirname(os.path.abspath(__file__))
+            for _fn in ["Tablet_splash_screen_7b65c0fcd7.jpeg", "splash_tablet.png"]:
+                _p = os.path.join(_base, "assets", _fn)
+                if os.path.exists(_p):
+                    _mime = "image/jpeg" if _fn.endswith((".jpg", ".jpeg")) else "image/png"
+                    _raw = base64.b64encode(open(_p, "rb").read()).decode()
+                    _tablet_src = f"data:{_mime};base64,{_raw}"
+                    st.session_state["_s39_splash_b64_tablet_splash.b64"] = _tablet_src
+                    break
+        except Exception:
+            pass
+
+    # ── CSS 폴백 배경 (이미지 로드 실패 시) ────────────────────────────
+    _bg_fallback = "linear-gradient(160deg,#050d1a 0%,#0a1e35 55%,#0d2747 100%)"
+
+    # ── 랜딩 HTML 구성 ──────────────────────────────────────────────────
+    # 기기 감지: JS로 portrait(mobile) / landscape(tablet) 분기
+    # 이미지: background-size:cover; object-fit:cover; — 왜곡 없이 풀스크린
+    _mobile_bg  = f'url("{_mobile_src}")' if _mobile_src else _bg_fallback
+    _tablet_bg  = f'url("{_tablet_src}")' if _tablet_src else _bg_fallback
+
+    st.markdown(f"""
 <style>
-#gk-landing-wrap{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-height:82vh;padding:20px 16px;
-  background:linear-gradient(160deg,#050d1a 0%,#0a1e35 55%,#0d2747 100%);
-  border-radius:18px;margin:0;
-}
-.gk-landing-logo{
-  font-size:clamp(2.6rem,10vw,5rem);font-weight:900;letter-spacing:-0.02em;
-  color:#fff;line-height:1.05;text-align:center;margin-bottom:6px;
+/* ── [제39조] 랜딩 전체 여백 제거 ── */
+section[data-testid="stMain"] > div:first-child {{padding-top:0!important;}}
+#gk-landing-root {{
+  position:fixed;top:0;left:0;width:100vw;height:100vh;
+  z-index:9999;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-end;
+  padding-bottom:clamp(40px,8vh,90px);
+  background:{_mobile_bg} center/cover no-repeat,{_bg_fallback};
+  transition:opacity 0.15s ease;
+}}
+/* 태블릿/가로 모드 이미지 전환 */
+@media (min-aspect-ratio:3/4) and (min-width:600px) {{
+  #gk-landing-root {{
+    background:{_tablet_bg} center/cover no-repeat,{_bg_fallback};
+  }}
+}}
+/* 어두운 오버레이 — 텍스트 가독성 */
+#gk-landing-root::before {{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(to bottom,transparent 40%,rgba(3,9,20,0.82) 100%);
+  pointer-events:none;
+}}
+#gk-landing-inner {{
+  position:relative;z-index:1;
+  display:flex;flex-direction:column;align-items:center;
+  width:100%;max-width:480px;padding:0 24px;
+}}
+.gk-lp-title {{
+  font-size:clamp(1.8rem,7vw,3.2rem);font-weight:900;
+  color:#fff;text-align:center;letter-spacing:-0.01em;
+  line-height:1.1;margin-bottom:4px;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
-}
-.gk-landing-sub{
-  font-size:clamp(0.95rem,3vw,1.25rem);color:#94a3b8;font-weight:600;
-  text-align:center;margin-bottom:10px;letter-spacing:0.04em;
-}
-.gk-landing-badge{
+  text-shadow:0 2px 16px rgba(0,0,0,0.7);
+}}
+.gk-lp-sub {{
+  font-size:clamp(0.85rem,2.8vw,1.05rem);color:#cbd5e1;
+  text-align:center;margin-bottom:6px;font-weight:600;
+  letter-spacing:0.05em;text-shadow:0 1px 8px rgba(0,0,0,0.8);
+}}
+.gk-lp-badge {{
   display:inline-block;
-  background:linear-gradient(90deg,#1e3a5f,#0ea5e9);
-  color:#e0f2fe;font-size:0.82rem;font-weight:800;
-  padding:5px 16px;border-radius:20px;margin-bottom:32px;
-  border:1px solid rgba(14,165,233,0.35);letter-spacing:0.06em;
-}
-.gk-landing-divider{
-  width:clamp(60px,20vw,120px);height:3px;
+  background:rgba(14,165,233,0.22);border:1px solid rgba(14,165,233,0.5);
+  color:#bae6fd;font-size:0.78rem;font-weight:800;
+  padding:4px 14px;border-radius:20px;margin-bottom:28px;
+  letter-spacing:0.06em;backdrop-filter:blur(4px);
+}}
+.gk-lp-divider {{
+  width:clamp(50px,15vw,100px);height:2px;
   background:linear-gradient(90deg,#0ea5e9,#f0c040,#0ea5e9);
-  border-radius:4px;margin:0 auto 32px auto;opacity:0.7;
-}
-@keyframes gk-pulse-gold{
-  0%,100%{box-shadow:0 0 0 0 rgba(240,192,64,0.45);}
-  50%{box-shadow:0 0 0 14px rgba(240,192,64,0);}
-}
+  border-radius:4px;margin:0 auto 24px auto;opacity:0.8;
+}}
+/* 시작하기 버튼 */
+#gk-start-btn-wrap button {{
+  background:linear-gradient(90deg,#0ea5e9,#0284c7)!important;
+  color:#fff!important;font-size:clamp(1rem,4vw,1.25rem)!important;
+  font-weight:900!important;letter-spacing:0.04em!important;
+  border:none!important;border-radius:16px!important;
+  box-shadow:0 4px 24px rgba(14,165,233,0.55)!important;
+  padding:14px 32px!important;width:100%!important;
+  transition:transform 0.1s,box-shadow 0.1s!important;
+}}
+#gk-start-btn-wrap button:active {{
+  transform:scale(0.97)!important;
+  box-shadow:0 2px 10px rgba(14,165,233,0.35)!important;
+}}
+/* 전환 시 랜딩 fade-out */
+#gk-landing-root.gk-lp-exit {{
+  opacity:0;pointer-events:none;
+}}
 </style>
-<div id="gk-landing-wrap">
-  <div class="gk-landing-logo">🏆 Goldkey</div>
-  <div class="gk-landing-logo" style="font-size:clamp(1.6rem,6vw,3rem);color:#f0c040;">
-    AI Master
+<div id="gk-landing-root">
+  <div id="gk-landing-inner">
+    <div class="gk-lp-title">🏆 Goldkey AI</div>
+    <div class="gk-lp-sub">가문 안보 관제탑 — 보험 설계사 전용 플랫폼</div>
+    <div class="gk-lp-badge">🛡️ 가문 안보 서비스</div>
+    <div class="gk-lp-divider"></div>
   </div>
-  <div class="gk-landing-sub">가문 안보 관제탑 — 보험 설계사 전용 AI 플랫폼</div>
-  <div class="gk-landing-badge">🛡️ 가문 안보 서비스</div>
-  <div class="gk-landing-divider"></div>
+</div>
+<div id="gk-start-btn-wrap" style="position:fixed;bottom:clamp(32px,6vh,72px);
+  left:50%;transform:translateX(-50%);width:min(92vw,420px);z-index:10000;">
 </div>
 """, unsafe_allow_html=True)
-    # [제39조 §2] 백그라운드 예비 로딩 — 랜딩 화면 노출 즉시 실행
-    # LocalStorage prefetch 시도 + 로그인 리소스 워밍 신호 주입
+
+    # ── [제39조 §2] 예비 로딩 JS — 랜딩 노출 즉시 실행 ────────────────
     import streamlit.components.v1 as _s39_comp
     _s39_comp.html("""
 <script>
 (function(){
-  // [제39조 §2] Pre-fetching: 랜딩 노출 즉시 로그인 리소스 워밍
-  // 1) LocalStorage 세션 캐시 읽기 시도 (존재 시 로그인 모듈 조기 파악)
+  var _pd = window.parent ? window.parent.document : document;
+
+  // [2단계 - 백그라운드 준비] 랜딩 노출 즉시 리소스 워밍
+  // (1) LocalStorage 세션 캐시 읽기
   try {
     var _c = localStorage.getItem('gk_session_cache');
     if(_c) window._gk_session_prefetched = JSON.parse(_c);
   } catch(e){}
-  // 2) CSS/폰트 prefetch — 로그인 화면 즉시 렌더를 위한 워밍
-  var _pd = window.parent.document;
-  function _prefetchLink(href, as_type) {
-    var _l = _pd.createElement('link');
-    _l.rel = 'prefetch'; _l.href = href;
-    if(as_type) _l.setAttribute('as', as_type);
-    _pd.head.appendChild(_l);
+
+  // (2) 폰트 / CSS prefetch
+  function _pfLink(href, as_) {
+    if(_pd.querySelector('link[href="'+href+'"]')) return;
+    var l = _pd.createElement('link');
+    l.rel='prefetch'; l.href=href;
+    if(as_) l.setAttribute('as', as_);
+    _pd.head.appendChild(l);
   }
-  _prefetchLink('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap', 'style');
-  // 3) 랜딩 중 Streamlit 위젯 커넥션 유지 핑 (재연결 지연 방지)
+  _pfLink('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap','style');
+
+  // (3) Streamlit WebSocket keepalive 타임스탬프
   window._gk_landing_ts = Date.now();
+
+  // [3단계 - 교차 전환] 버튼 클릭 시 랜딩 fade-out 후 즉시 제거
+  // Streamlit 버튼이 렌더되면 랜딩 wrap 안으로 버튼을 이동
+  function _mountBtn() {
+    var _wrap = _pd.getElementById('gk-start-btn-wrap');
+    if(!_wrap) return;
+    var _stBtn = _pd.querySelector('[data-testid="stButton"] button[kind="primary"]');
+    if(_stBtn) {
+      _stBtn.id = 'gk-real-start-btn';
+      _wrap.appendChild(_stBtn.closest('[data-testid="stButton"]') || _stBtn);
+    }
+  }
+  // MutationObserver로 버튼 렌더 감지
+  var _obs = new MutationObserver(function(){ _mountBtn(); });
+  _obs.observe(_pd.body, {childList:true, subtree:true});
+  setTimeout(function(){ _mountBtn(); _obs.disconnect(); }, 800);
+
+  // 버튼 클릭 시 즉시 랜딩 오버레이 제거 (seamless transition)
+  _pd.addEventListener('click', function(e){
+    var _btn = e.target.closest('button[kind="primary"], #gk-real-start-btn');
+    if(_btn){
+      var _root = _pd.getElementById('gk-landing-root');
+      if(_root) {
+        _root.classList.add('gk-lp-exit');
+        setTimeout(function(){ _root.style.display='none'; }, 160);
+      }
+    }
+  }, true);
 })();
 </script>""", height=0)
 
-    # Streamlit 버튼 — 클릭 시 _lp_landing = True
+    # ── Streamlit 버튼 — 클릭 시 _lp_landing = True ──────────────────
     _lc1, _lc2, _lc3 = st.columns([1, 2, 1])
     with _lc2:
         if st.button(
@@ -978,8 +1119,7 @@ def _s39_render_landing_page() -> None:
             use_container_width=True,
         ):
             st.session_state["_lp_landing"] = True
-            # [제39조 §3] 즉각적 전환 — current_tab을 home으로 사전 세팅
-            # (로그인 완료 후 intro 리다이렉트 루프 없이 바로 home 진입)
+            # [제39조 §3] current_tab 사전 세팅 — intro 리다이렉트 루프 방지
             st.session_state["current_tab"] = "home"
             st.rerun()
 
