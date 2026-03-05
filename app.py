@@ -1192,7 +1192,7 @@ GP_ID_35 = "GP_ID_35"   # DISABILITY_CALC
 GP_ID_36 = "GP_ID_36"   # CANCER_BRAIN_HEART
 GP_ID_37 = "GP_ID_37"   # SMART_AUTH_FALLBACK
 GP_ID_38 = "GP_ID_38"   # ZERO_LATENCY_CACHE
-GP_ID_39 = "GP_ID_39"   # HYBRID_LOADING
+GP_ID_39 = "GP_ID_39"   # SEQUENTIAL_ZERO_DELAY
 GP_ID_40 = "GP_ID_40"   # SPEED_05_RULE
 GP_ID_41 = "GP_ID_41"   # INTERNAL_ID_OPT
 
@@ -1236,7 +1236,7 @@ GP_CONSTITUTION: dict = {
     GP_ID_36: {"article": 36, "keyword": "CANCER_BRAIN_HEART",    "active": True},
     GP_ID_37: {"article": 37, "keyword": "SMART_AUTH_FALLBACK",   "active": True},
     GP_ID_38: {"article": 38, "keyword": "ZERO_LATENCY_CACHE",    "active": True},
-    GP_ID_39: {"article": 39, "keyword": "HYBRID_LOADING",        "active": True},
+    GP_ID_39: {"article": 39, "keyword": "SEQUENTIAL_ZERO_DELAY", "active": True},
     GP_ID_40: {"article": 40, "keyword": "SPEED_05_RULE",         "active": True,
                "threshold_ms": 500},
     GP_ID_41: {"article": 41, "keyword": "INTERNAL_ID_OPT",       "active": True},
@@ -1282,7 +1282,7 @@ GP_UI_DICT: dict = {
     GP_ID_36: "제36조 암·뇌·심 전문 원칙",
     GP_ID_37: "제37조 스마트 인증 폴백",
     GP_ID_38: "제38조 제로 지연 캐시",
-    GP_ID_39: "제39조 하이브리드 로딩",
+    GP_ID_39: "제39조 무결성 순차 전환 프로토콜",
     GP_ID_40: "제40조 0.5초 무결성 원칙",
     GP_ID_41: "제41조 내부 식별자 최적화",
 }
