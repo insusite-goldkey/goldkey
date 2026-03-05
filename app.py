@@ -1319,10 +1319,7 @@ _ART44_CACHE_KEY      = "_art44_rules_cache"   # session_state 캐시 키
 _ART44_CACHE_TTL      = 300                    # 5분 TTL (초) — 제40조 0.5초 원칙 준수
 
 
-@st.cache_resource
-def _art44_rules_resource_cache():
-    """rules.json 로드 결과를 process 수준에서 캐시 (재시작까지 유지)"""
-    return {"data": None, "ts": 0.0, "source": ""}
+_art44_rules_resource_cache = {"data": None, "ts": 0.0, "source": ""}  # process-level cache (st import 이전 사용 가능)
 
 
 def _art44_ota_sync(force: bool = False) -> dict:
@@ -1335,7 +1332,7 @@ def _art44_ota_sync(force: bool = False) -> dict:
         dict: rules.json 전체 내용. 실패 시 빈 dict.
     """
     import time as _t44
-    _rc = _art44_rules_resource_cache()
+    _rc = _art44_rules_resource_cache
     _now = _t44.time()
 
     # ── 캐시 유효 시 즉시 반환 (TTL 5분) ─────────────────────────────────
@@ -1414,7 +1411,7 @@ def _art44_rules_info() -> dict:
         {"version": str, "last_updated": str, "source": str,
          "ota_items": list, "flags": dict, "connected": bool}
     """
-    _rc = _art44_rules_resource_cache()
+    _rc = _art44_rules_resource_cache
     _rules = _rc.get("data") or {}
     _ota   = _rules.get("ota_updatable", {})
     return {
