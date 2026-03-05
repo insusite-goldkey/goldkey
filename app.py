@@ -6815,7 +6815,7 @@ def render_goldkey_sidebar():
 ">
   {_bid('0-1-1')}
   {_av_img_html}
-  <div style="font-size:16px;font-weight:800;color:#0a1628;
+  <div style="font-size:32px;font-weight:800;color:#0a1628;
     line-height:1.3;margin-bottom:3px;letter-spacing:0.01em;">
     Goldkey_AI_Masters2026
   </div>
@@ -11798,7 +11798,7 @@ watchRipple();
         # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (기존 아바타 완전 대체) ──
         render_goldkey_sidebar()
 
-        with st.expander("", expanded=False):
+        with st.expander("이용약관 · 서비스 안내", expanded=False):
             st.markdown("""
 <div style="line-height:1.5;">
   <div style="font-size:0.95rem;font-weight:800;color:#1a2d5a;letter-spacing:0.02em;">
