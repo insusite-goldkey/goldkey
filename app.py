@@ -1020,20 +1020,6 @@ section[data-testid="stMain"] > div:first-child {{padding-top:0!important;}}
   background:linear-gradient(90deg,#0ea5e9,#f0c040,#0ea5e9);
   border-radius:4px;margin:0 auto 24px auto;opacity:0.8;
 }}
-/* 시작하기 버튼 */
-#gk-start-btn-wrap button {{
-  background:linear-gradient(90deg,#0ea5e9,#0284c7)!important;
-  color:#fff!important;font-size:clamp(1rem,4vw,1.25rem)!important;
-  font-weight:900!important;letter-spacing:0.04em!important;
-  border:none!important;border-radius:16px!important;
-  box-shadow:0 4px 24px rgba(14,165,233,0.55)!important;
-  padding:14px 32px!important;width:100%!important;
-  transition:transform 0.1s,box-shadow 0.1s!important;
-}}
-#gk-start-btn-wrap button:active {{
-  transform:scale(0.97)!important;
-  box-shadow:0 2px 10px rgba(14,165,233,0.35)!important;
-}}
 /* 전환 시 랜딩 fade-out */
 #gk-landing-root.gk-lp-exit {{
   opacity:0;pointer-events:none;
@@ -1047,68 +1033,70 @@ section[data-testid="stMain"] > div:first-child {{padding-top:0!important;}}
     <div class="gk-lp-divider"></div>
   </div>
 </div>
-<div id="gk-start-btn-wrap" style="position:fixed;bottom:clamp(32px,6vh,72px);
-  left:50%;transform:translateX(-50%);width:min(92vw,420px);z-index:10000;">
-</div>
 """, unsafe_allow_html=True)
 
-    # ── [제39조 §2] 예비 로딩 JS — parent document에 주입 ───────────────
-    # height=1(최소): height=0은 Streamlit에서 렌더 블로킹 발생
-    # parent.document 직접 script 주입으로 sandbox 우회
+    # ── [제39조 §2] 화면 클릭 + 5초 자동 타이머 진입 JS ──────────────
+    # height=1: height=0은 Streamlit 렌더 블로킹 발생
     import streamlit.components.v1 as _s39_comp
     _s39_comp.html("""
 <script>
 (function(){
-  // parent document에 script 주입 (iframe sandbox 우회)
+  function _gkEnter(){
+    // 이미 진입 중이면 중복 실행 방지
+    if(window._gk_entering) return;
+    window._gk_entering = true;
+    try {
+      var _pd = window.parent ? window.parent.document : document;
+      var _root = _pd.getElementById('gk-landing-root');
+      if(_root){
+        _root.style.transition = 'opacity 0.2s ease';
+        _root.style.opacity = '0';
+        setTimeout(function(){ _root.style.display='none'; }, 220);
+      }
+    } catch(e){}
+    // Streamlit hidden form submit으로 서버에 진입 신호 전달
+    try {
+      var _pd2 = window.parent ? window.parent.document : document;
+      var _btns = _pd2.querySelectorAll('[data-testid="stButton"] button');
+      for(var i=0;i<_btns.length;i++){
+        if(_btns[i].innerText.indexOf('_gk_lp_trigger') > -1 ||
+           _btns[i].getAttribute('data-gk-lp') === 'trigger'){
+          _btns[i].click();
+          break;
+        }
+      }
+    } catch(e2){}
+  }
+
+  // [A] 화면 전체 클릭/터치 시 즉시 진입
   try {
-    var _pd = window.parent.document;
-    if(!_pd.getElementById('gk-lp-prefetch-done')){
-      var _s = _pd.createElement('script');
-      _s.id = 'gk-lp-prefetch-done';
-      _s.textContent = (function(){
-        // (1) LocalStorage 세션 캐시 읽기
-        try {
-          var _c = localStorage.getItem('gk_session_cache');
-          if(_c) window._gk_session_prefetched = JSON.parse(_c);
-        } catch(e){}
-        // (2) 폰트 prefetch
-        var _l = document.createElement('link');
-        _l.rel='prefetch';
-        _l.href='https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap';
-        _l.setAttribute('as','style');
-        document.head.appendChild(_l);
-        // (3) 버튼 클릭 시 랜딩 오버레이 즉시 제거 (seamless transition)
-        document.addEventListener('click', function(e){
-          var _btn = e.target.closest('[data-testid="stButton"] button, button.st-emotion-cache-1vbkxwb');
-          if(_btn){
-            var _root = document.getElementById('gk-landing-root');
-            if(_root){
-              _root.style.transition='opacity 0.15s ease';
-              _root.style.opacity='0';
-              setTimeout(function(){ _root.style.display='none'; }, 160);
-            }
-          }
-        }, true);
-      }).toString() + '()';
-      _pd.head.appendChild(_s);
-    }
+    var _pd3 = window.parent ? window.parent.document : document;
+    _pd3.addEventListener('click', function(e){
+      // Streamlit UI 요소 클릭은 무시 (사이드바, 입력창 등)
+      var _t = e.target;
+      if(_t.closest('[data-testid="stSidebar"]') ||
+         _t.closest('[data-testid="stTextInput"]') ||
+         _t.closest('input') || _t.closest('button')) return;
+      _gkEnter();
+    }, {once:true});
+
+    // [B] 5초 자동 타이머
+    setTimeout(_gkEnter, 5000);
   } catch(e){}
 })();
 </script>""", height=1)
 
-    # ── Streamlit 버튼 — 클릭 시 _lp_landing = True ──────────────────
-    _lc1, _lc2, _lc3 = st.columns([1, 2, 1])
-    with _lc2:
-        if st.button(
-            "🚀 안보 서비스 시작하기",
-            key="_s39_start_btn",
-            type="primary",
-            use_container_width=True,
-        ):
+    # ── 숨겨진 트리거 버튼 — JS에서 클릭하여 서버 진입 신호 전달 ─────
+    with st.container():
+        st.markdown(
+            "<div style='position:fixed;left:-9999px;top:-9999px;'>",
+            unsafe_allow_html=True
+        )
+        if st.button("_gk_lp_trigger", key="_s39_lp_trigger", type="secondary"):
             st.session_state["_lp_landing"] = True
-            # [제39조 §3] current_tab 사전 세팅 — intro 리다이렉트 루프 방지
             st.session_state["current_tab"] = "home"
             st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _s39_prefetch_auth() -> None:
