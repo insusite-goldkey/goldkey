@@ -11795,17 +11795,6 @@ watchRipple();
 
     # ── 사이드바 ──────────────────────────────────────────────────────────
     with st.sidebar:
-        # ── [제39조 §2 / Fake-First §1] Static Shell: 무조건 최우선 렌더 ──
-        # 로그인 여부와 무관하게 텍스트 메뉴 뼈대를 즉시 노출 (0ms 목표).
-        # 로그인 완료 후에는 아래 JS가 #gk-shell-menu를 display:none으로 숨김.
-        st.markdown(_s39_sidebar_shell_html(), unsafe_allow_html=True)
-        if st.session_state.get("user_id"):
-            st.markdown(
-                '<script>try{var _sh=window.parent.document.getElementById("gk-shell-menu");'
-                'if(_sh)_sh.style.display="none";}catch(e){}</script>',
-                unsafe_allow_html=True,
-            )
-
         # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (기존 아바타 완전 대체) ──
         render_goldkey_sidebar()
 
