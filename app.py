@@ -914,6 +914,96 @@ def _s39_prefetch_auth() -> None:
     st.session_state["_s39_auth_ok"] = True
 
 
+# ── 제41조 헬퍼 함수 ─────────────────────────────────────────────────────
+# 가이딩 프로토콜 제41조: 내부 식별자 최적화 및 메타데이터 분리 원칙
+# [§1] 모든 조항 참조는 GP_ID_NN 상수 비교만 허용 — 한글 문자열 비교 금지
+# [§2] GP_CONSTITUTION: 내부 메타데이터 / GP_UI_DICT: UI 표시명 (분리)
+# [§3] gp_label(gp_id) 헬퍼로 렌더 직전에만 한글 변환
+
+# ── §1: GP_ID 상수 정의 ───────────────────────────────────────────────────
+GP_ID_21 = "GP_ID_21"   # EXPERT_ADVISORY
+GP_ID_22 = "GP_ID_22"   # APPROVED_SOURCES
+GP_ID_23 = "GP_ID_23"   # BLOCKED_SOURCES
+GP_ID_24 = "GP_ID_24"   # DOUBLE_VERIFICATION
+GP_ID_25 = "GP_ID_25"   # ANSWER_HEADER
+GP_ID_26 = "GP_ID_26"   # KNOWLEDGE_INDEXING
+GP_ID_27 = "GP_ID_27"   # OUTPUT_FORMAT
+GP_ID_28 = "GP_ID_28"   # DATA_INTEGRITY
+GP_ID_29 = "GP_ID_29"   # SESSION_SECURITY
+GP_ID_30 = "GP_ID_30"   # SYSTEM_STABILITY
+GP_ID_31 = "GP_ID_31"   # MOBILE_UX
+GP_ID_32 = "GP_ID_32"   # INCOME_REVERSE_CALC
+GP_ID_33 = "GP_ID_33"   # INSURANCE_GOLDEN_RATIO
+GP_ID_34 = "GP_ID_34"   # NHIS_RATE_AUTO_UPDATE
+GP_ID_35 = "GP_ID_35"   # DISABILITY_CALC
+GP_ID_36 = "GP_ID_36"   # CANCER_BRAIN_HEART
+GP_ID_37 = "GP_ID_37"   # SMART_AUTH_FALLBACK
+GP_ID_38 = "GP_ID_38"   # ZERO_LATENCY_CACHE
+GP_ID_39 = "GP_ID_39"   # HYBRID_LOADING
+GP_ID_40 = "GP_ID_40"   # SPEED_05_RULE
+GP_ID_41 = "GP_ID_41"   # INTERNAL_ID_OPT
+
+# ── §2: GP_CONSTITUTION — 내부 메타데이터 (Backend 전용) ─────────────────
+GP_CONSTITUTION: dict = {
+    GP_ID_21: {"article": 21, "keyword": "EXPERT_ADVISORY",      "active": True},
+    GP_ID_22: {"article": 22, "keyword": "APPROVED_SOURCES",     "active": True},
+    GP_ID_23: {"article": 23, "keyword": "BLOCKED_SOURCES",      "active": True},
+    GP_ID_24: {"article": 24, "keyword": "DOUBLE_VERIFICATION",  "active": True},
+    GP_ID_25: {"article": 25, "keyword": "ANSWER_HEADER",        "active": True},
+    GP_ID_26: {"article": 26, "keyword": "KNOWLEDGE_INDEXING",   "active": True},
+    GP_ID_27: {"article": 27, "keyword": "OUTPUT_FORMAT",        "active": True},
+    GP_ID_28: {"article": 28, "keyword": "DATA_INTEGRITY",       "active": True},
+    GP_ID_29: {"article": 29, "keyword": "SESSION_SECURITY",     "active": True},
+    GP_ID_30: {"article": 30, "keyword": "SYSTEM_STABILITY",     "active": True},
+    GP_ID_31: {"article": 31, "keyword": "MOBILE_UX",            "active": True},
+    GP_ID_32: {"article": 32, "keyword": "INCOME_REVERSE_CALC",  "active": True},
+    GP_ID_33: {"article": 33, "keyword": "INSURANCE_GOLDEN_RATIO","active": True},
+    GP_ID_34: {"article": 34, "keyword": "NHIS_RATE_AUTO_UPDATE","active": True},
+    GP_ID_35: {"article": 35, "keyword": "DISABILITY_CALC",      "active": True},
+    GP_ID_36: {"article": 36, "keyword": "CANCER_BRAIN_HEART",   "active": True},
+    GP_ID_37: {"article": 37, "keyword": "SMART_AUTH_FALLBACK",  "active": True},
+    GP_ID_38: {"article": 38, "keyword": "ZERO_LATENCY_CACHE",   "active": True},
+    GP_ID_39: {"article": 39, "keyword": "HYBRID_LOADING",       "active": True},
+    GP_ID_40: {"article": 40, "keyword": "SPEED_05_RULE",        "active": True,
+               "threshold_ms": 500},
+    GP_ID_41: {"article": 41, "keyword": "INTERNAL_ID_OPT",      "active": True},
+}
+
+# ── §3: GP_UI_DICT — 한글 표시명 (UI 렌더링 전용, 내부 로직에서 직접 참조 금지) ──
+GP_UI_DICT: dict = {
+    GP_ID_21: "제21조 전문가 자문 최우선 원칙",
+    GP_ID_22: "제22조 승인된 전문가·공신력 출처",
+    GP_ID_23: "제23조 절대 금지 출처",
+    GP_ID_24: "제24조 2차 검증 시스템",
+    GP_ID_25: "제25조 답변 구성 및 헤더 명시",
+    GP_ID_26: "제26조 전방위 지식 인덱싱",
+    GP_ID_27: "제27조 출력 포맷",
+    GP_ID_28: "제28조 데이터 무결성",
+    GP_ID_29: "제29조 세션 보안",
+    GP_ID_30: "제30조 시스템 안정성",
+    GP_ID_31: "제31조 모바일 UX",
+    GP_ID_32: "제32조 소득 역산 원칙",
+    GP_ID_33: "제33조 보험료 황금비율",
+    GP_ID_34: "제34조 건보료율 자동 갱신",
+    GP_ID_35: "제35조 장해 산정 원칙",
+    GP_ID_36: "제36조 암·뇌·심 전문 원칙",
+    GP_ID_37: "제37조 스마트 인증 폴백",
+    GP_ID_38: "제38조 제로 지연 캐시",
+    GP_ID_39: "제39조 하이브리드 로딩",
+    GP_ID_40: "제40조 0.5초 무결성 원칙",
+    GP_ID_41: "제41조 내부 식별자 최적화",
+}
+
+
+def gp_label(gp_id: str) -> str:
+    """가이딩 프로토콜 제41조 §3: GP_ID → 한글 표시명 반환 (UI 렌더링 직전 호출 전용).
+
+    내부 로직에서는 GP_ID_NN 상수를 직접 사용하고,
+    화면 출력 직전에만 이 함수로 한글 변환한다.
+    """
+    return GP_UI_DICT.get(gp_id, gp_id)
+
+
 # ── 제40조 헬퍼 함수 ─────────────────────────────────────────────────────
 # 가이딩 프로토콜 제40조: 0.5초 무결성 유지 및 자율 최적화 원칙
 
@@ -21994,7 +22084,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     🤖 보험봇 · InsuBot
   </div>
   <div style="color:#b3d4f5;font-size:0.82rem;font-weight:600;margin-bottom:14px;">
-    가이딩 프로토콜 제22조 승인 출처 기반 · 제23조 금지 출처 차단 · 제24조 2차 검증 적용
+    {gp_label(GP_ID_22)} 기반 · {gp_label(GP_ID_23)} 차단 · {gp_label(GP_ID_24)} 적용
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -22288,13 +22378,13 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 <div class="kp-header-card" style="position:relative;">
   {_bid('12-1-1')}
   <h3>📂 전문가 지식 라이브러리 자동 학습</h3>
-  <p>약관 · 리플렛 · 공문 · 판례자료를 업로드하면 AI가 가이딩 프로토콜 제27·28조 기준으로 자동 인덱싱합니다.<br>
+  <p>약관 · 리플렛 · 공문 · 판례자료를 업로드하면 AI가 {gp_label(GP_ID_27)} · {gp_label(GP_ID_28)} 기준으로 자동 인덱싱합니다.<br>
      설계사가 자료를 넣기만 하면 InsuBot이 스스로 진화하는 <b>자기완결형 지능체</b>로 발전합니다.</p>
 </div>
 """, unsafe_allow_html=True)
 
         # ── 문서 위계 안내 (제28조) ───────────────────────────────────────
-        with st.expander("📋 가이딩 프로토콜 제28조 — 문서 위계 기준 보기", expanded=False):
+        with st.expander(f"📋 {gp_label(GP_ID_28)} — 문서 위계 기준 보기", expanded=False):
             _hier_rows = "\n".join(
                 f'<tr><td class="kp-tier-{meta["tier"]}">{dtype}</td>'
                 f'<td>{meta["label"]}</td>'
