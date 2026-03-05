@@ -10372,15 +10372,23 @@ section[data-testid="stSidebar"] {
         components.html("""
 <script>
 (function(){
+  function isSidebarOpen(pd) {
+    try {
+      var sb = pd.querySelector('section[data-testid="stSidebar"]');
+      if (!sb) return false;
+      var rect = sb.getBoundingClientRect();
+      return rect.width > 50;
+    } catch(e) { return false; }
+  }
   function tryOpenSidebar() {
     try {
       var pd = window.parent.document;
+      if (isSidebarOpen(pd)) return true;
       var selectors = [
-        '[data-testid="stSidebarCollapseButton"] button',
         'button[aria-label="Open sidebar"]',
         'button[aria-label="사이드바를 열거나 닫으세요"]',
         '[data-testid="collapsedControl"] button',
-        'section[data-testid="stSidebar"] button'
+        '[data-testid="stSidebarCollapseButton"] button'
       ];
       for (var i = 0; i < selectors.length; i++) {
         var btn = pd.querySelector(selectors[i]);
