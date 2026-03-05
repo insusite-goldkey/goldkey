@@ -12189,6 +12189,39 @@ section[data-testid="stSidebar"] .stCheckbox label span[data-testid="stWidgetLab
 </div>""", unsafe_allow_html=True)
 
                     # ── 전체 동의 (개선4: 체크 시 하위 3개 동시 체크) ──────────
+                    st.markdown("""
+<style>
+section[data-testid="stSidebar"] input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  border: 2.5px solid #1565C0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  box-shadow: 0 2px 6px rgba(21,101,192,0.30), inset 0 0 0 1px rgba(21,101,192,0.15) !important;
+  cursor: pointer !important;
+  position: relative !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+section[data-testid="stSidebar"] input[type="checkbox"]:checked {
+  background: transparent !important;
+  border: 2.5px solid #0D47A1 !important;
+  box-shadow: 0 2px 8px rgba(13,71,161,0.45), inset 0 0 0 1px rgba(13,71,161,0.20) !important;
+}
+section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
+  content: "✔" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  color: #0D47A1 !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+}
+</style>""", unsafe_allow_html=True)
                     _tc1, _tc2 = st.columns([1, 6])
                     with _tc1:
                         _all_cb = st.checkbox("", value=_all_agreed, key="_terms_all_cb",
