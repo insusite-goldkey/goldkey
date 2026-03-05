@@ -914,6 +914,163 @@ def _s39_prefetch_auth() -> None:
     st.session_state["_s39_auth_ok"] = True
 
 
+# ── 제40조 헬퍼 함수 ─────────────────────────────────────────────────────
+# 가이딩 프로토콜 제40조: 0.5초 무결성 유지 및 자율 최적화 원칙
+
+_S40_THRESHOLD_MS: int = 500          # 성능 임계치 (ms)
+_S40_PERF_LOG_KEY: str = "_s40_perf_log"  # 성능 로그 세션 키
+
+
+def _s40_record_blocking(label: str, elapsed_ms: float) -> None:
+    """가이딩 프로토콜 제40조 §2: 차단 요소 발견 시 세션 로그에 기록.
+
+    elapsed_ms가 _S40_THRESHOLD_MS 초과인 항목만 누적.
+    야간 배치(_art38_night_worker) 실행 시 _s40_night_report()로 분석.
+    """
+    if elapsed_ms < _S40_THRESHOLD_MS:
+        return
+    import datetime as _dt40
+    _log = st.session_state.get(_S40_PERF_LOG_KEY, [])
+    _log.append({
+        "label":      label,
+        "elapsed_ms": round(elapsed_ms, 1),
+        "ts":         _dt40.datetime.now(
+                          tz=_dt40.timezone(_dt40.timedelta(hours=9))
+                      ).isoformat(),
+    })
+    # 최근 100건만 유지
+    st.session_state[_S40_PERF_LOG_KEY] = _log[-100:]
+
+
+def _s40_perf_watchdog_js(tab_key: str = "") -> str:
+    """가이딩 프로토콜 제40조 §3: 탭 전환 시 타이밍 측정 + 500ms 초과 경고 JS 반환.
+
+    반환된 문자열을 components.html()로 주입.
+    측정 결과는 console.warn('[GK-PERF]') + Streamlit 세션 POST 불가이므로
+    localStorage에 기록하여 다음 rerun 시 _s40_read_ls_perf_js()로 회수.
+    """
+    _thresh = _S40_THRESHOLD_MS
+    _key    = tab_key or "unknown"
+    return f"""
+<script>
+(function(){{
+  try {{
+    var _t0 = performance.now();
+    var _key = {repr(_key)};
+    var _thresh = {_thresh};
+    // DOM ready 후 측정
+    var _check = function() {{
+      var _el = window.parent.document.querySelector('[data-testid="stApp"]');
+      if (!_el) {{ return; }}
+      var _elapsed = performance.now() - _t0;
+      if (_elapsed > _thresh) {{
+        console.warn('[GK-PERF] 탭=' + _key + ' | ' + _elapsed.toFixed(0) + 'ms — 임계치(' + _thresh + 'ms) 초과');
+        try {{
+          var _prev = JSON.parse(localStorage.getItem('gk_perf_log') || '[]');
+          _prev.push({{tab: _key, ms: Math.round(_elapsed), ts: Date.now()}});
+          if (_prev.length > 50) _prev = _prev.slice(-50);
+          localStorage.setItem('gk_perf_log', JSON.stringify(_prev));
+        }} catch(e) {{}}
+      }}
+    }};
+    // 300ms 후 측정 (Streamlit 렌더 완료 대기)
+    setTimeout(_check, 300);
+  }} catch(e) {{}}
+}})();
+</script>"""
+
+
+def _s40_read_ls_perf_js() -> str:
+    """가이딩 프로토콜 제40조 §3: localStorage의 gk_perf_log를 읽어
+    Streamlit hidden input으로 전달 — 다음 rerun 시 _s40_perf_log 세션에 병합.
+    """
+    return """
+<script>
+(function(){
+  try {
+    var _log = JSON.parse(localStorage.getItem('gk_perf_log') || '[]');
+    if (!_log.length) return;
+    // hidden div에 데이터 심어 Streamlit query_param 우회 전달 불가이므로
+    // console.info로만 출력 (개발자 도구 확인용)
+    console.info('[GK-PERF-HISTORY]', JSON.stringify(_log));
+  } catch(e) {}
+})();
+</script>"""
+
+
+def _s40_night_report() -> dict:
+    """가이딩 프로토콜 제40조 §4: 야간 배치용 병목 분석 리포트 생성.
+
+    _s40_perf_log에서 상위 3개 병목 탭 추출 → _s40_slow_tabs 세션에 저장.
+    _art38_night_worker에서 호출.
+    Returns:
+        {"top3": [...], "total_violations": int}
+    """
+    _log = st.session_state.get(_S40_PERF_LOG_KEY, [])
+    if not _log:
+        return {"top3": [], "total_violations": 0}
+    # 탭별 평균 elapsed_ms 계산
+    _tab_stats: dict = {}
+    for _entry in _log:
+        _lbl = _entry.get("label", "unknown")
+        _ms  = _entry.get("elapsed_ms", 0)
+        if _lbl not in _tab_stats:
+            _tab_stats[_lbl] = {"total": 0, "count": 0}
+        _tab_stats[_lbl]["total"] += _ms
+        _tab_stats[_lbl]["count"] += 1
+    _ranked = sorted(
+        [{"tab": k, "avg_ms": round(v["total"] / v["count"], 1), "hits": v["count"]}
+         for k, v in _tab_stats.items()],
+        key=lambda x: x["avg_ms"], reverse=True
+    )
+    _top3 = _ranked[:3]
+    st.session_state["_s40_slow_tabs"] = _top3
+    return {"top3": _top3, "total_violations": len(_log)}
+
+
+def _s40_ls_cache_put_js(cache_key: str, value_json: str, ttl_hours: int = 24) -> str:
+    """가이딩 프로토콜 제40조 §2: 역산 수치/가이드라인 텍스트 → JS localStorage 이중 캐싱.
+
+    반환된 스크립트를 components.html()로 주입하면 브라우저 localStorage에 저장.
+    재구동 시 _s40_ls_cache_get_js()로 0ms 히트.
+    """
+    _ts_expire = f"Date.now() + {ttl_hours} * 3600 * 1000"
+    return f"""
+<script>
+(function(){{
+  try {{
+    var _payload = {{
+      v: {value_json},
+      exp: {_ts_expire}
+    }};
+    localStorage.setItem('gk_cache_{cache_key}', JSON.stringify(_payload));
+  }} catch(e) {{}}
+}})();
+</script>"""
+
+
+def _s40_ls_cache_get_js(cache_key: str, on_hit_js: str = "") -> str:
+    """가이딩 프로토콜 제40조 §2: localStorage 캐시 조회 — 만료 여부 확인 후 콜백 실행.
+
+    on_hit_js: 히트 시 실행할 JS 코드 (value 변수 사용 가능).
+    """
+    _default_cb = on_hit_js or "console.debug('[GK-LS-CACHE] hit:', key, value);"
+    return f"""
+<script>
+(function(){{
+  try {{
+    var key = 'gk_cache_{cache_key}';
+    var _raw = localStorage.getItem(key);
+    if (!_raw) return;
+    var _p = JSON.parse(_raw);
+    if (_p.exp && Date.now() > _p.exp) {{ localStorage.removeItem(key); return; }}
+    var value = _p.v;
+    {_default_cb}
+  }} catch(e) {{}}
+}})();
+</script>"""
+
+
 # ── 제38조 헬퍼 함수 ─────────────────────────────────────────────────────
 
 def _art38_extract_keywords(text: str) -> list[str]:
@@ -1056,7 +1213,10 @@ def _art38_cache_get(question: str) -> dict | None:
         _blob = _gcs.bucket(_bucket_name).blob(_key)
         if not _blob.exists():
             return None
+        import time as _t40ac
+        _t0_ac = _t40ac.monotonic()
         _data = json.loads(_blob.download_as_text(encoding="utf-8"))
+        _s40_record_blocking("_art38_cache_get/gcs", (_t40ac.monotonic() - _t0_ac) * 1000)
         # 로컬 세션 캐시에 전진 배치
         if "_art38_local_cache" not in st.session_state:
             st.session_state["_art38_local_cache"] = {}
@@ -1127,7 +1287,10 @@ def _art38_load_wisdom() -> list:
             )
             _blob = _gcs.bucket(_bucket_name).blob(_ART38_WISDOM_GCS_PATH)
             if _blob.exists():
+                import time as _t40lw
+                _t0_lw = _t40lw.monotonic()
                 _raw = json.loads(_blob.download_as_text(encoding="utf-8"))
+                _s40_record_blocking("_art38_load_wisdom/gcs", (_t40lw.monotonic() - _t0_lw) * 1000)
                 # shown=False인 새 항목만 필터
                 _new_items = [i for i in (_raw if isinstance(_raw, list) else [])
                               if not i.get("shown")]
@@ -1390,6 +1553,12 @@ def _art38_night_worker() -> dict:
                 pass
         import threading as _th4
         _th4.Thread(target=_update_wisdom_gcs, daemon=True).start()
+
+    # ── 4) [제40조 §4] 병목 분석 리포트 생성 ────────────────────────────────
+    try:
+        _s40_night_report()
+    except Exception:
+        pass
 
     return _result
 
@@ -2603,13 +2772,13 @@ def _get_member_cache():
     return {"data": None, "ts": 0.0}
 
 def load_members(force: bool = False):
-    """회원 목록 로드 — 30초 TTL 캐시 → Supabase → /tmp JSON 폴백
+    """회원 목록 로드 — [제40조 §2] 120초 TTL 캐시 → Supabase → /tmp JSON 폴백
     force=True: 캐시 무시하고 즉시 재로드 (가입/저장 직후 호출용)
     """
     _cache = _get_member_cache()
     _now = time.time()
-    # ── 캐시 유효 시 즉시 반환 (30초 TTL) ────────────────────────────────
-    if not force and _cache["data"] is not None and (_now - _cache["ts"]) < 30:
+    # ── 캐시 유효 시 즉시 반환 (120초 TTL — 제40조 §2 상향) ──────────────
+    if not force and _cache["data"] is not None and (_now - _cache["ts"]) < 120:
         return _cache["data"]
     # ── Supabase 우선 ────────────────────────────────────────────────────
     if _SB_PKG_OK:
@@ -3084,7 +3253,11 @@ def _gcs_cache_get(cache_key: str, question_hint: str = "") -> str | None:
             _ck = f"consulting_cache/{__import__('hashlib').md5(question_hint.strip().encode()).hexdigest()}.json"
             _cb = gcs.bucket(bucket_name).blob(_ck)
             if _cb.exists():
+                import time as _t40gc
+                _t0_gc = _t40gc.monotonic()
                 _raw = json.loads(_cb.download_as_text(encoding="utf-8"))
+                _s40_record_blocking("_gcs_cache_get/consulting",
+                                     (_t40gc.monotonic() - _t0_gc) * 1000)
                 if "_art38_local_cache" not in st.session_state:
                     st.session_state["_art38_local_cache"] = {}
                 st.session_state["_art38_local_cache"][_ck] = _raw
@@ -3093,7 +3266,12 @@ def _gcs_cache_get(cache_key: str, question_hint: str = "") -> str | None:
         bucket = gcs.bucket(bucket_name)
         blob = bucket.blob(cache_key)
         if blob.exists():
-            return blob.download_as_text(encoding="utf-8")
+            import time as _t40ga
+            _t0_ga = _t40ga.monotonic()
+            _result_text = blob.download_as_text(encoding="utf-8")
+            _s40_record_blocking("_gcs_cache_get/analysis",
+                                 (_t40ga.monotonic() - _t0_ga) * 1000)
+            return _result_text
     except Exception:
         pass
     return None
@@ -3666,17 +3844,28 @@ def _get_unlimited_users():
 def check_usage_count(user_name):
     """일일 사용량 조회 — Supabase usage_logs 우선, 로컬 JSON 폴백"""
     today = str(date.today())
+    # ── [제40조 §2] 당일 세션 캐시 히트 — Supabase 호출 제로 ──────────────
+    _cache_key = f"_ud_cnt_{user_name}"
+    _cache_date_key = f"_ud_date_{user_name}"
+    if (st.session_state.get(_cache_date_key) == today
+            and _cache_key in st.session_state):
+        return st.session_state[_cache_key]
     # ── Supabase usage_logs 테이블 우선 조회 (멀티프로세스 안전) ──────────
     try:
         _sb = _get_sb_client()
         if _sb:
+            import time as _t40cu
+            _t0_cu = _t40cu.monotonic()
             _res = _sb.table("usage_logs") \
                 .select("id", count="exact") \
                 .eq("user_name", user_name) \
                 .eq("usage_date", today) \
                 .execute()
+            _s40_record_blocking("check_usage_count/supabase",
+                                 (_t40cu.monotonic() - _t0_cu) * 1000)
             _cnt = _res.count if _res.count is not None else 0
-            st.session_state[f"_ud_cnt_{user_name}"] = _cnt
+            st.session_state[_cache_key] = _cnt
+            st.session_state[_cache_date_key] = today
             return _cnt
     except Exception:
         pass
@@ -3742,14 +3931,39 @@ def get_remaining_usage(user_name):
     return max(0, MAX_FREE_DAILY - check_usage_count(user_name))
 
 def display_usage_dashboard(user_name: str):
-    """사이드바 사용량 게이지 UI — TTL 60초 캐시로 DB 조회 최소화"""
-    import time as _t
+    """사이드바 사용량 게이지 UI — [제40조 §2] TTL 300초 캐시 + 캐시 미스 시 Skeleton 즉시 표시 + 백그라운드 갱신"""
+    import time as _t, threading as _th40
     _ck = f"_ud_cnt_{user_name}"; _tk = f"_ud_ts_{user_name}"
     _now = _t.time()
-    if st.session_state.get(_ck) is None or (_now - st.session_state.get(_tk, 0)) > 60:
-        _cnt = check_usage_count(user_name)
-        st.session_state[_ck] = _cnt; st.session_state[_tk] = _now
-    current_count = st.session_state[_ck]
+    _cache_miss = st.session_state.get(_ck) is None or (_now - st.session_state.get(_tk, 0)) > 300
+    if _cache_miss:
+        if st.session_state.get(_ck) is None:
+            # 캐시 완전 미존재: Skeleton 즉시 표시 후 백그라운드 로드
+            st.sidebar.markdown(
+                '<div style="margin:10px 0 25px 0;">' + _s39_sidebar_skeleton(3) + '</div>',
+                unsafe_allow_html=True
+            )
+            def _bg_load():
+                try:
+                    _cnt = check_usage_count(user_name)
+                    st.session_state[_ck] = _cnt
+                    st.session_state[_tk] = _t.time()
+                except Exception:
+                    st.session_state[_ck] = 0
+                    st.session_state[_tk] = _t.time()
+            _th40.Thread(target=_bg_load, daemon=True).start()
+            return  # Skeleton 표시 후 즉시 반환 — 블로킹 없음
+        else:
+            # TTL 만료: 기존 캐시값 유지하면서 백그라운드에서 갱신
+            def _bg_refresh():
+                try:
+                    _cnt = check_usage_count(user_name)
+                    st.session_state[_ck] = _cnt
+                    st.session_state[_tk] = _t.time()
+                except Exception:
+                    pass
+            _th40.Thread(target=_bg_refresh, daemon=True).start()
+    current_count = st.session_state.get(_ck, 0)
     is_unlimited  = _is_unlimited_user(user_name)
     daily_limit   = 999 if is_unlimited else MAX_FREE_DAILY
     remaining     = max(0, daily_limit - current_count)
@@ -8561,6 +8775,16 @@ def main():
         import threading as _s39_th
         _s39_th.Thread(target=_s39_prefetch_auth, daemon=True).start()
 
+    # ── STEP 1-D: [제40조 §3] Watchdog JS 주입 — 탭 전환 500ms 초과 경고 ──
+    import streamlit.components.v1 as _s40_comp
+    _s40_wtab = st.session_state.pop("_s40_watchdog_tab", None)
+    if _s40_wtab:
+        _wjs = _s40_perf_watchdog_js(str(_s40_wtab))
+        if _wjs:
+            _s40_comp.html(_wjs, height=0)
+    # 매 rerun: localStorage 누적 perf 로그 → console.info 출력 (개발자 도구 확인용)
+    _s40_comp.html(_s40_read_ls_perf_js(), height=0)
+
     # ── STEP 2: 세션 ID 생성 ─────────────────────────────────────────────
     _sid = st.session_state.get("user_id") or st.session_state.get("_anon_sid")
     if not _sid:
@@ -8578,8 +8802,11 @@ def main():
     # ── STEP 4: DB 초기화 (1회) ───────────────────────────────────────────
     if 'db_ready' not in st.session_state:
         try:
+            import time as _t40db
+            _t0_db = _t40db.monotonic()
             setup_database()
             ensure_master_members()
+            _s40_record_blocking("setup_database", (_t40db.monotonic() - _t0_db) * 1000)
             st.session_state.db_ready = True
         except Exception:
             st.session_state.db_ready = True
@@ -12606,6 +12833,8 @@ font-family:'Noto Sans KR',Malgun Gothic,sans-serif;">
             st.session_state._nav_history = _hist[-20:]
         st.session_state.current_tab = dest
         st.session_state["_scroll_top"] = True
+        # [제40조 §3] Watchdog JS — 탭 전환 타이밍 측정 (500ms 초과 시 console.warn)
+        st.session_state["_s40_watchdog_tab"] = dest
         st.rerun()
 
     # ── 공통 AI 쿼리 블록 ────────────────────────────────────────────────
