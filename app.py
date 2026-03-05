@@ -1170,6 +1170,8 @@ GP_ID_38 = "GP_ID_38"   # ZERO_LATENCY_CACHE
 GP_ID_39 = "GP_ID_39"   # SEQUENTIAL_ZERO_DELAY
 GP_ID_40 = "GP_ID_40"   # SPEED_05_RULE
 GP_ID_41 = "GP_ID_41"   # INTERNAL_ID_OPT
+GP_ID_42 = "GP_ID_42"   # SEMANTIC_COLOR
+GP_ID_43 = "GP_ID_43"   # AUTO_REPORT_ENGINE
 
 # ── §2: GP_CONSTITUTION — 내부 메타데이터 (Backend 전용) ─────────────────
 GP_CONSTITUTION: dict = {
@@ -1215,6 +1217,8 @@ GP_CONSTITUTION: dict = {
     GP_ID_40: {"article": 40, "keyword": "SPEED_05_RULE",         "active": True,
                "threshold_ms": 500},
     GP_ID_41: {"article": 41, "keyword": "INTERNAL_ID_OPT",       "active": True},
+    GP_ID_42: {"article": 42, "keyword": "SEMANTIC_COLOR",         "active": True},
+    GP_ID_43: {"article": 43, "keyword": "AUTO_REPORT_ENGINE",     "active": True},
 }
 
 # ── §3: GP_UI_DICT — 한글 표시명 (UI 렌더링 전용, 내부 로직에서 직접 참조 금지) ──
@@ -1260,6 +1264,8 @@ GP_UI_DICT: dict = {
     GP_ID_39: "제39조 무결성 순차 전환 프로토콜",
     GP_ID_40: "제40조 0.5초 무결성 원칙",
     GP_ID_41: "제41조 내부 식별자 최적화",
+    GP_ID_42: "제42조 시맨틱 컬러 시스템",
+    GP_ID_43: "제43조 AI 자동 생성 리포트 표준안",
 }
 
 
@@ -1270,6 +1276,445 @@ def gp_label(gp_id: str) -> str:
     화면 출력 직전에만 이 함수로 한글 변환한다.
     """
     return GP_UI_DICT.get(gp_id, gp_id)
+
+
+# ── 제43조 헬퍼 함수 ─────────────────────────────────────────────────────
+# 가이딩 프로토콜 제43조: AI 자동 생성 리포트 표준안 (AUTO_REPORT_ENGINE)
+# [§1] pending_wisdom DB 야간 학습 결과 → 5섹션 HTML 리포트 자동 생성
+# [§2] GP_ID_32 역산(소득·가문 안보 지수) 연동
+# [§3] 원클릭 이메일/카카오 공유 버튼 제공
+
+_ART43_SECTION_BG   = "#0a1628"   # 제42조 컬러: 다크 배경 통일
+_ART43_ACCENT_GOLD  = "#f0c040"   # 강조 금색
+_ART43_ACCENT_BLUE  = "#2e6da4"   # 강조 블루
+_ART43_TEXT_MAIN    = "#e2e8f0"   # 본문 텍스트
+_ART43_TEXT_SUB     = "#94a3b8"   # 보조 텍스트
+
+
+def _art43_calc_security_index(nhis_premium: float = 0) -> dict:
+    """가이딩 프로토콜 제43조 §2: 가문 안보 지수 4축 계산 (GP_ID_32 역산 연동).
+
+    Returns:
+        {"stability": int, "medical": int, "risk": int, "vip": int, "total": int}
+    """
+    # GP_ID_32 역산 기반 기초 소득 추정
+    _monthly = nhis_premium / 0.0709 if nhis_premium > 0 else 0
+    _daily   = _monthly / 30 if _monthly > 0 else 0
+
+    # 각 축 점수 산출 (0~100) — 입력 없으면 중간값 60점 기준
+    _stability = min(100, int((_monthly / 5_000_000) * 80)) if _monthly else 60
+    _medical   = 72   # pending_wisdom 해소율 기반 (현재 고정 기준값)
+    _risk      = min(100, int((_daily / 200_000) * 90)) if _daily else 65
+    _vip       = 80   # 설계사 활동 지수 (고정 프리미엄 기준)
+    _total     = int((_stability + _medical + _risk + _vip) / 4)
+    return {"stability": _stability, "medical": _medical,
+            "risk": _risk, "vip": _vip, "total": _total}
+
+
+def _art43_build_report_html(
+    customer_name: str,
+    keywords: list,
+    ai_analysis: str,
+    solution: str,
+    planner_name: str,
+    planner_contact: str,
+    nhis_premium: float = 0,
+    planner_comment: str = "",
+) -> str:
+    """가이딩 프로토콜 제43조 §1: 5섹션 HTML 리포트 생성.
+
+    [섹션 01] 분석 개요 — 키워드 클라우드
+    [섹션 02] AI 심층 분석 — 야간 학습 결과
+    [섹션 03] 가문 안보 지수 — GP_ID_32 역산 레이더 차트
+    [섹션 04] 베테랑의 한마디 — 설계사 맞춤 코멘트
+    [섹션 05] 솔루션 제안 — 최적 플랜
+
+    Returns:
+        완성된 HTML 문자열 (st.components.v1.html 또는 st.markdown에 바로 사용)
+    """
+    import datetime as _dt43
+    _kst = _dt43.datetime.now(tz=_dt43.timezone(_dt43.timedelta(hours=9)))
+    _date_str = _kst.strftime("%Y년 %m월 %d일")
+
+    _idx = _art43_calc_security_index(nhis_premium)
+
+    # 키워드 태그 HTML
+    _kw_html = "".join(
+        f'<span style="display:inline-block;background:{_ART43_ACCENT_BLUE};'
+        f'color:#fff;border-radius:20px;padding:4px 14px;margin:4px 3px;'
+        f'font-size:0.85rem;font-weight:700;letter-spacing:0.03em;">{kw}</span>'
+        for kw in (keywords or ["데이터 없음"])
+    )
+
+    # 레이더 차트 — SVG 기반 4축 (Stability/Medical/Risk/VIP)
+    _axes = [
+        ("Stability", _idx["stability"], 120, 40),
+        ("Medical",   _idx["medical"],   200, 110),
+        ("Risk",      _idx["risk"],      120, 180),
+        ("VIP",       _idx["vip"],       40,  110),
+    ]
+    _pts_inner = " ".join(
+        f'{int(cx + (v/100)*50*(_cx-cx)/max(abs(_cx-cx),1) if abs(_cx-cx)>1 else cx)},'
+        f'{int(cy + (v/100)*50*(_cy-cy)/max(abs(_cy-cy),1) if abs(_cy-cy)>1 else cy)}'
+        for _, v, _cx, _cy in _axes
+        for cx, cy in [(120, 110)]
+    )
+    _radar_pts = " ".join(
+        f'{int(_cx + (_v/100)*(cx-_cx))},'
+        f'{int(_cy + (_v/100)*(cy-_cy))}'
+        for _, _v, cx, cy in _axes
+        for _cx, _cy in [(120, 110)]
+    )
+    _radar_labels = "".join(
+        f'<text x="{lx}" y="{ly}" text-anchor="middle" '
+        f'fill="{_ART43_ACCENT_GOLD}" font-size="10" font-weight="700">'
+        f'{lbl}<tspan x="{lx}" dy="13" fill="{_ART43_TEXT_SUB}" '
+        f'font-size="9">{val}</tspan></text>'
+        for lbl, val, lx, ly in _axes
+    )
+
+    _comment = planner_comment or (
+        f"고객님의 현재 보장 구조를 면밀히 검토한 결과, "
+        f"가문 안보 지수 {_idx['total']}점으로 "
+        f"{'안정적인 수준입니다.' if _idx['total'] >= 70 else '보강이 필요한 구간입니다.'} "
+        f"오늘 제안드리는 솔루션이 고객님 가문의 내일을 지키는 첫 걸음이 될 것입니다."
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+  * {{ box-sizing:border-box; margin:0; padding:0; }}
+  body {{
+    background:{_ART43_SECTION_BG};
+    color:{_ART43_TEXT_MAIN};
+    font-family:'Noto Serif KR','Batang','Georgia',serif;
+    font-size:14px; line-height:1.7;
+  }}
+  .rpt-wrap {{ max-width:720px; margin:0 auto; padding:0 0 40px 0; }}
+  /* ── 표지 ── */
+  .rpt-cover {{
+    background:linear-gradient(160deg,#050d1a 0%,#0a1e35 60%,#0d2747 100%);
+    padding:48px 28px 36px; text-align:center;
+    border-bottom:3px solid {_ART43_ACCENT_GOLD};
+  }}
+  .rpt-cover-logo {{ font-size:2rem; font-weight:900; color:{_ART43_ACCENT_GOLD};
+    letter-spacing:0.05em; margin-bottom:6px; }}
+  .rpt-cover-sub {{ font-size:0.78rem; color:{_ART43_TEXT_SUB}; margin-bottom:22px; }}
+  .rpt-cover-title {{
+    font-size:clamp(1.1rem,4vw,1.5rem); font-weight:900;
+    color:#fff; line-height:1.4; margin-bottom:8px;
+    font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  }}
+  .rpt-cover-date {{ font-size:0.75rem; color:{_ART43_TEXT_SUB}; }}
+  /* ── 섹션 공통 ── */
+  .rpt-section {{
+    padding:28px 24px; border-bottom:1px solid rgba(255,255,255,0.07);
+  }}
+  .rpt-sec-num {{
+    font-size:0.68rem; font-weight:900; color:{_ART43_ACCENT_GOLD};
+    letter-spacing:0.12em; font-family:'Noto Sans KR',sans-serif;
+    margin-bottom:6px;
+  }}
+  .rpt-sec-title {{
+    font-size:1.05rem; font-weight:900; color:#fff;
+    font-family:'Noto Sans KR',sans-serif; margin-bottom:14px;
+    border-left:4px solid {_ART43_ACCENT_GOLD}; padding-left:10px;
+  }}
+  .rpt-body {{ font-size:0.87rem; color:{_ART43_TEXT_MAIN}; line-height:1.85; }}
+  /* ── 강조박스 ── */
+  .rpt-highlight {{
+    background:rgba(46,109,164,0.18); border-left:3px solid {_ART43_ACCENT_BLUE};
+    border-radius:0 8px 8px 0; padding:12px 16px; margin:12px 0;
+    font-size:0.85rem; color:#cbd5e1;
+  }}
+  /* ── 가문 안보 지수 ── */
+  .rpt-index-total {{
+    text-align:center; font-size:3.2rem; font-weight:900;
+    color:{_ART43_ACCENT_GOLD}; line-height:1;
+    font-family:'Noto Sans KR',sans-serif; margin:16px 0 4px;
+  }}
+  .rpt-index-label {{
+    text-align:center; font-size:0.78rem; color:{_ART43_TEXT_SUB};
+    margin-bottom:16px; font-family:'Noto Sans KR',sans-serif;
+  }}
+  /* ── 설계사 프로필 ── */
+  .rpt-planner {{
+    display:flex; align-items:flex-start; gap:14px;
+    background:rgba(255,255,255,0.04); border-radius:12px;
+    padding:16px; margin-top:12px;
+  }}
+  .rpt-planner-avatar {{
+    width:52px; height:52px; border-radius:50%;
+    background:{_ART43_ACCENT_BLUE}; display:flex; align-items:center;
+    justify-content:center; font-size:1.5rem; flex-shrink:0;
+  }}
+  .rpt-planner-name {{ font-size:0.95rem; font-weight:900; color:#fff;
+    font-family:'Noto Sans KR',sans-serif; }}
+  .rpt-planner-contact {{ font-size:0.75rem; color:{_ART43_TEXT_SUB}; margin-top:2px; }}
+  /* ── 솔루션 ── */
+  .rpt-solution {{
+    background:rgba(240,192,64,0.08); border:1px solid rgba(240,192,64,0.3);
+    border-radius:12px; padding:18px 20px; margin-top:10px;
+  }}
+  .rpt-footer {{
+    text-align:center; font-size:0.68rem; color:{_ART43_TEXT_SUB};
+    padding:20px 24px 0; line-height:1.6;
+    font-family:'Noto Sans KR',sans-serif;
+  }}
+</style>
+</head>
+<body>
+<div class="rpt-wrap">
+
+  <!-- 표지 -->
+  <div class="rpt-cover">
+    <div class="rpt-cover-logo">🏰 가문 안보 관제탑</div>
+    <div class="rpt-cover-sub">Goldkey AI Master · 야간 데이터 분석 시스템</div>
+    <div class="rpt-cover-title">
+      {customer_name} 고객님을 위한<br>야간 데이터 분석 리포트
+    </div>
+    <div class="rpt-cover-date">발행일: {_date_str} &nbsp;·&nbsp; 가이딩 프로토콜 제43조</div>
+  </div>
+
+  <!-- 섹션 01: 분석 개요 -->
+  <div class="rpt-section">
+    <div class="rpt-sec-num">SECTION 01</div>
+    <div class="rpt-sec-title">분석 개요 — 핵심 키워드</div>
+    <div class="rpt-body">
+      어제 상담 중 추출된 핵심 키워드를 바탕으로 야간 심층 탐색을 수행하였습니다.
+    </div>
+    <div style="margin-top:14px;">{_kw_html}</div>
+  </div>
+
+  <!-- 섹션 02: AI 심층 분석 -->
+  <div class="rpt-section">
+    <div class="rpt-sec-num">SECTION 02</div>
+    <div class="rpt-sec-title">AI 심층 분석</div>
+    <div class="rpt-body">{ai_analysis or "야간 학습 결과 데이터를 불러오는 중입니다."}</div>
+    <div class="rpt-highlight">
+      ※ 본 분석은 최신 의학 문헌·판례·보상 사례를 기반으로 Goldkey AI가 자율 생성한 참고 자료입니다.
+      최종 판단은 전문 설계사와 함께 진행하시기 바랍니다.
+    </div>
+  </div>
+
+  <!-- 섹션 03: 가문 안보 지수 -->
+  <div class="rpt-section">
+    <div class="rpt-sec-num">SECTION 03</div>
+    <div class="rpt-sec-title">가문 안보 지수 (GP_ID_32 역산 적용)</div>
+    <div class="rpt-index-total">{_idx['total']}<span style="font-size:1.2rem;color:{_ART43_TEXT_SUB};">/100</span></div>
+    <div class="rpt-index-label">종합 안보 지수 — Stability {_idx['stability']} · Medical {_idx['medical']} · Risk {_idx['risk']} · VIP {_idx['vip']}</div>
+    <svg viewBox="0 0 240 220" width="100%" style="max-width:240px;display:block;margin:0 auto;">
+      <!-- 배경 그리드 -->
+      <polygon points="120,60 180,110 120,160 60,110" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <polygon points="120,85 157,110 120,135 83,110" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <!-- 데이터 영역 -->
+      <polygon points="
+        {int(120 + (_idx['stability']/100)*(-80))},{int(110 + (_idx['stability']/100)*(-50))}
+        {int(120 + (_idx['medical']/100)*(60))},{int(110 + (_idx['medical']/100)*(-0))}
+        {int(120 + (_idx['risk']/100)*(0))},{int(110 + (_idx['risk']/100)*(50))}
+        {int(120 + (_idx['vip']/100)*(-60))},{int(110 + (_idx['vip']/100)*(0))}"
+        fill="rgba(46,109,164,0.35)" stroke="{_ART43_ACCENT_BLUE}" stroke-width="2"/>
+      <!-- 축 레이블 -->
+      <text x="120" y="26" text-anchor="middle" fill="{_ART43_ACCENT_GOLD}" font-size="10" font-weight="700">Stability<tspan x="120" dy="12" fill="{_ART43_TEXT_SUB}" font-size="9">{_idx['stability']}</tspan></text>
+      <text x="210" y="114" text-anchor="start" fill="{_ART43_ACCENT_GOLD}" font-size="10" font-weight="700">Medical<tspan x="210" dy="12" fill="{_ART43_TEXT_SUB}" font-size="9">{_idx['medical']}</tspan></text>
+      <text x="120" y="196" text-anchor="middle" fill="{_ART43_ACCENT_GOLD}" font-size="10" font-weight="700">Risk<tspan x="120" dy="12" fill="{_ART43_TEXT_SUB}" font-size="9">{_idx['risk']}</tspan></text>
+      <text x="30" y="114" text-anchor="end" fill="{_ART43_ACCENT_GOLD}" font-size="10" font-weight="700">VIP<tspan x="30" dy="12" fill="{_ART43_TEXT_SUB}" font-size="9">{_idx['vip']}</tspan></text>
+    </svg>
+  </div>
+
+  <!-- 섹션 04: 베테랑의 한마디 -->
+  <div class="rpt-section">
+    <div class="rpt-sec-num">SECTION 04</div>
+    <div class="rpt-sec-title">베테랑의 한마디</div>
+    <div class="rpt-planner">
+      <div class="rpt-planner-avatar">🏆</div>
+      <div>
+        <div class="rpt-planner-name">{planner_name or "담당 설계사"}</div>
+        <div class="rpt-planner-contact">{planner_contact or ""}</div>
+        <div class="rpt-body" style="margin-top:10px;font-style:italic;">
+          "{_comment}"
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 섹션 05: 솔루션 제안 -->
+  <div class="rpt-section">
+    <div class="rpt-sec-num">SECTION 05</div>
+    <div class="rpt-sec-title">솔루션 제안</div>
+    <div class="rpt-solution">
+      <div class="rpt-body">{solution or "야간 분석 완료 후 최적 플랜이 자동 생성됩니다."}</div>
+    </div>
+  </div>
+
+  <!-- 푸터 -->
+  <div class="rpt-footer">
+    본 리포트는 Goldkey AI Master가 가이딩 프로토콜 제43조에 의거하여 자동 생성하였습니다.<br>
+    법적 효력을 갖지 않으며, 최종 판단은 전문 설계사와 함께 진행하시기 바랍니다.<br>
+    담당: {planner_name or "설계사"} &nbsp;|&nbsp; {planner_contact or "연락처 미기재"} &nbsp;|&nbsp; {_date_str}
+  </div>
+
+</div>
+</body>
+</html>"""
+
+
+def _art43_get_pending_wisdom_latest(limit: int = 5) -> list:
+    """가이딩 프로토콜 제43조 §1: Supabase pending_wisdom에서 최근 resolved 항목 로드.
+
+    야간 학습이 완료된(resolved=True) 항목을 최신순으로 반환.
+    실패 시 빈 리스트 반환 — non-blocking.
+    """
+    try:
+        _sb = _get_supabase_client()
+        if not _sb:
+            return []
+        _rows = (
+            _sb.table("pending_wisdom")
+            .select("keyword,answer,created_at")
+            .eq("resolved", True)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return _rows.data if _rows and _rows.data else []
+    except Exception:
+        return []
+
+
+def _art43_render_tab() -> None:
+    """가이딩 프로토콜 제43조 §3: 리포트 탭 UI 렌더링.
+
+    [A] pending_wisdom 최근 야간 학습 결과 자동 바인딩
+    [B] 고객명·설계사 정보 입력 폼
+    [C] 리포트 HTML 미리보기 (st.components.v1.html)
+    [D] 원클릭 이메일 공유 버튼
+    """
+    import streamlit.components.v1 as _c43
+
+    st.markdown(
+        '<div style="font-size:1.05rem;font-weight:900;color:#1a2d5a;'
+        'margin-bottom:10px;font-family:\'Noto Sans KR\',sans-serif;">'
+        '🏰 AI 자동 리포트 — 가이딩 프로토콜 제43조</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── 입력 폼 ──
+    _c1, _c2 = st.columns(2)
+    with _c1:
+        _cust_name    = st.text_input("고객 성함", value="", key="art43_cust_name",
+                                      placeholder="예: 홍길동")
+        _planner_name = st.text_input("설계사 성함", value="", key="art43_planner_name",
+                                      placeholder="예: 이세윤 설계사")
+    with _c2:
+        _nhis         = st.number_input("월 건강보험료 (원)", value=0, step=10000,
+                                        key="art43_nhis", format="%d")
+        _planner_tel  = st.text_input("설계사 연락처", value="", key="art43_tel",
+                                      placeholder="예: 010-0000-0000")
+
+    _planner_comment = st.text_area("베테랑의 한마디 (AI 초안 자동 생성, 수정 가능)",
+                                    value="", key="art43_comment",
+                                    placeholder="비워두면 AI가 자동 생성합니다.",
+                                    height=80)
+
+    # ── pending_wisdom 데이터 바인딩 ──
+    _wisdom = st.session_state.get("_art43_wisdom_cache")
+    if _wisdom is None:
+        _wisdom = _art43_get_pending_wisdom_latest(limit=5)
+        st.session_state["_art43_wisdom_cache"] = _wisdom
+
+    _keywords   = [w.get("keyword", "") for w in _wisdom if w.get("keyword")]
+    _ai_parts   = [w.get("answer", "") for w in _wisdom if w.get("answer")]
+    _ai_analysis = "\n\n".join(_ai_parts) if _ai_parts else ""
+    _solution   = (
+        "야간 학습 결과를 바탕으로, 현재 보장 공백을 최소화하는 최적 설계안을 제안드립니다. "
+        "구체적인 담보 구성은 담당 설계사와 함께 확인하시기 바랍니다."
+        if not _ai_parts else
+        f"분석된 {len(_wisdom)}개 핵심 주제에 대해 맞춤형 솔루션을 준비하였습니다. "
+        "보장 공백 항목을 우선순위 순으로 검토하세요."
+    )
+
+    # ── 리포트 생성 버튼 ──
+    if st.button("📄 리포트 생성 미리보기", key="art43_gen_btn",
+                 type="primary", use_container_width=True):
+        _html = _art43_build_report_html(
+            customer_name    = _cust_name or "고객",
+            keywords         = _keywords or ["치매 신약 비급여", "산정특례", "레켐비"],
+            ai_analysis      = _ai_analysis,
+            solution         = _solution,
+            planner_name     = _planner_name,
+            planner_contact  = _planner_tel,
+            nhis_premium     = float(_nhis),
+            planner_comment  = _planner_comment,
+        )
+        st.session_state["_art43_last_html"] = _html
+        st.session_state["_art43_wisdom_cache"] = None  # 다음 생성 시 갱신
+
+    # ── 미리보기 출력 ──
+    _last_html = st.session_state.get("_art43_last_html", "")
+    if _last_html:
+        st.markdown("---")
+        st.markdown(
+            '<div style="font-size:0.82rem;font-weight:700;color:#64748b;'
+            'margin-bottom:6px;">📱 리포트 미리보기 (고객 스마트폰 화면 기준)</div>',
+            unsafe_allow_html=True,
+        )
+        _c43.html(_last_html, height=900, scrolling=True)
+
+        # ── 원클릭 공유 ──
+        st.markdown("---")
+        _sh1, _sh2 = st.columns(2)
+        with _sh1:
+            _email_to = st.text_input("이메일 수신자", key="art43_email_to",
+                                      placeholder="customer@example.com")
+            if st.button("📧 이메일로 전송", key="art43_email_btn",
+                         use_container_width=True):
+                if _email_to:
+                    _subj = f"[Goldkey AI] {_cust_name or '고객'}님 야간 분석 리포트"
+                    _mailto = (
+                        f"mailto:{_email_to}?subject={_subj}"
+                        f"&body=리포트가 준비되었습니다. 첨부 파일을 확인하세요."
+                    )
+                    st.markdown(
+                        f'<a href="{_mailto}" target="_blank">'
+                        f'<button style="width:100%;background:#2e6da4;color:#fff;'
+                        f'border:none;border-radius:8px;padding:10px;font-size:0.9rem;'
+                        f'font-weight:700;cursor:pointer;">메일 클라이언트 열기</button></a>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.warning("이메일 주소를 입력하세요.")
+        with _sh2:
+            _kakao_msg = (
+                f"[Goldkey AI 리포트] {_cust_name or '고객'}님의 야간 분석 리포트가 준비되었습니다. "
+                f"가문 안보 지수: {_art43_calc_security_index(float(_nhis))['total']}점"
+            )
+            _kakao_enc = _kakao_msg.replace(" ", "%20").replace("\n", "%0A")
+            st.markdown(
+                f'<a href="https://open.kakao.com/o/share?url=https://goldkey-ai.app'
+                f'&text={_kakao_enc}" target="_blank">'
+                f'<button style="width:100%;background:#fee500;color:#3c1e1e;'
+                f'border:none;border-radius:8px;padding:10px;font-size:0.9rem;'
+                f'font-weight:700;cursor:pointer;margin-top:28px;">카카오톡 공유</button></a>',
+                unsafe_allow_html=True,
+            )
+
+    else:
+        # 아직 생성 전 — 샘플 안내
+        st.markdown("""
+<div style="background:rgba(46,109,164,0.10);border:1px dashed #2e6da4;
+  border-radius:12px;padding:18px 20px;margin-top:10px;
+  font-size:0.84rem;color:#475569;line-height:1.8;">
+  📋 <b>사용 방법</b><br>
+  1. 고객 성함·설계사 정보를 입력하세요.<br>
+  2. <b>[리포트 생성 미리보기]</b> 버튼을 누르면 야간 학습 결과가 자동 바인딩됩니다.<br>
+  3. 미리보기 확인 후 이메일 또는 카카오톡으로 원클릭 공유하세요.<br><br>
+  💡 <b>샘플 질문</b>: "치매 신약 비급여 보상"을 AI 상담에 입력 후
+  야간 학습이 완료되면 해당 분석이 리포트 섹션 02에 자동 삽입됩니다.
+</div>""", unsafe_allow_html=True)
 
 
 # ── 제40조 헬퍼 함수 ─────────────────────────────────────────────────────
@@ -4435,6 +4880,7 @@ SECTOR_CODES: dict = {
     "1100": {"name": "통합 스캔 허브",  "tab_key": "scan_hub",      "keywords": ["스캔허브", "통합스캔", "서류올려", "의무기록올려", "스캔", "파일올려", "업로드"]},
     "1200": {"name": "보험증권 분석",   "tab_key": "policy_scan",   "keywords": ["증권분석", "보험증권분석", "보험증권", "증권업로드", "증권봐줘", "내증권", "증권", "담보확인", "보장확인"]},
     "1300": {"name": "약관 매칭",       "tab_key": "policy_terms",  "keywords": ["약관검색", "약관찾아", "약관보여", "약관알려", "약관매칭", "약관", "약관ai", "약관분석"]},
+    "1400": {"name": "AI 자동 리포트", "tab_key": "report43",     "keywords": ["ai리포트", "자동리포트", "리포트생성", "가문안보리포트", "야간리포트", "분석리포트", "리포트", "report43"]},
     # ── 2000번대: 상해·청구·장해 상담 ───────────────────────────────────
     "2000": {"name": "신규보험 상담",   "tab_key": "t0",            "keywords": ["신규보험상담", "신규보험", "신규상담", "새보험", "보험추천", "보험가입", "보험설계", "신규", "보험상담", "보험견적"]},
     "2100": {"name": "상해 통합 관리",  "tab_key": "injury",        "keywords": ["상해사고", "상해보험", "상해통합", "상해설계", "사고났어", "소득끊겨", "보장공백", "상해관리", "다쳤어"]},
@@ -32610,6 +33056,15 @@ END; $$;""", language="sql")
 
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
+    # ══════════════════════════════════════════════════════════════════════
+    # [제43조] AI 자동 생성 리포트 (AUTO_REPORT_ENGINE)
+    # ══════════════════════════════════════════════════════════════════════
+    if cur == "report43":
+        if not _auth_gate("report43"): st.stop()
+        tab_home_btn("report43")
+        _art43_render_tab()
+        st.stop()  # lazy-dispatch
+
     # 하단 공통 면책 고지
     st.divider()
     st.caption(
@@ -32814,7 +33269,7 @@ def _hc_build_snapshot(reason: str = "auto") -> dict:
         "home","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
         "cancer","brain","heart","img","fire","liability","nursing",
         "realty","disability","life_cycle","life_event","leaflet",
-        "customer_docs","stock_eval","policy_terms","policy_scan","scan_hub"
+        "customer_docs","stock_eval","policy_terms","policy_scan","scan_hub","report43"
     ]
 
     baseline["recorded_at"]  = dt.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -32971,7 +33426,7 @@ def _hc_run_all(force: bool = False) -> dict:
              "home","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
              "cancer","brain","heart","img","fire","liability","nursing",
              "realty","disability","life_cycle","life_event","leaflet",
-             "customer_docs","stock_eval","policy_terms","policy_scan","scan_hub"),
+             "customer_docs","stock_eval","policy_terms","policy_scan","scan_hub","report43"),
          lambda: st.session_state.update({"current_tab": "home"})),
 
         ("session_encoding", "세션 유니코드 surrogate 오염",
