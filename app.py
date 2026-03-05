@@ -895,7 +895,8 @@ def _s39_load_splash_b64(filename: str) -> str:
     """assets/ 폴더의 .b64 파일을 읽어 data-URI 문자열로 반환.
     실패 시 빈 문자열 반환 — 폴백으로 CSS gradient 배경 사용.
     """
-    _cache_key = f"_s39_splash_b64_{filename}"
+    # v2: WebP 재압축 후 캐시 키 변경으로 구버전 캐시 자동 무효화
+    _cache_key = f"_s39_splash_b64_v2_{filename}"
     _cached = st.session_state.get(_cache_key, "")
     if _cached:
         return _cached
@@ -905,10 +906,12 @@ def _s39_load_splash_b64(filename: str) -> str:
         if os.path.exists(_path):
             _raw = open(_path, "r", encoding="utf-8").read().strip()
             if _raw:
-                _ext = filename.rsplit(".", 1)[0].rsplit("_", 1)[-1]
-                if "webp" in filename:
+                # WebP 헤더(RIFF): base64 첫 글자가 'U' (UklGR...)
+                # JPEG 헤더(/9j/): base64 첫 글자가 '/'
+                # 현재 b64 파일은 WebP로 재압축됨 → 'U'로 시작
+                if _raw.startswith("UklGR") or "webp" in filename:
                     _mime = "image/webp"
-                elif "tablet" in filename.lower() or "jpg" in filename.lower() or "jpeg" in filename.lower():
+                elif _raw.startswith("/9j/") or "jpg" in filename.lower() or "jpeg" in filename.lower():
                     _mime = "image/jpeg"
                 else:
                     _mime = "image/png"
@@ -1195,6 +1198,7 @@ GP_ID_40 = "GP_ID_40"   # SPEED_05_RULE
 GP_ID_41 = "GP_ID_41"   # INTERNAL_ID_OPT
 GP_ID_42 = "GP_ID_42"   # SEMANTIC_COLOR
 GP_ID_43 = "GP_ID_43"   # AUTO_REPORT_ENGINE
+GP_ID_44 = "GP_ID_44"   # DUAL_TRACK_DEPLOYMENT
 
 # ── §2: GP_CONSTITUTION — 내부 메타데이터 (Backend 전용) ─────────────────
 GP_CONSTITUTION: dict = {
@@ -1242,6 +1246,9 @@ GP_CONSTITUTION: dict = {
     GP_ID_41: {"article": 41, "keyword": "INTERNAL_ID_OPT",       "active": True},
     GP_ID_42: {"article": 42, "keyword": "SEMANTIC_COLOR",         "active": True},
     GP_ID_43: {"article": 43, "keyword": "AUTO_REPORT_ENGINE",     "active": True},
+    GP_ID_44: {"article": 44, "keyword": "DUAL_TRACK_DEPLOYMENT",  "active": True,
+               "hf_remote": "hf", "hf_url": "https://huggingface.co/spaces/goldkey-rich/goldkey-ai",
+               "visibility": "private"},
 }
 
 # ── §3: GP_UI_DICT — 한글 표시명 (UI 렌더링 전용, 내부 로직에서 직접 참조 금지) ──
@@ -1289,6 +1296,7 @@ GP_UI_DICT: dict = {
     GP_ID_41: "제41조 내부 식별자 최적화",
     GP_ID_42: "제42조 시맨틱 컬러 시스템",
     GP_ID_43: "제43조 AI 자동 생성 리포트 표준안",
+    GP_ID_44: "제44조 중앙 집중형 두뇌 관리 및 이중 배포 원칙",
 }
 
 
@@ -9689,15 +9697,16 @@ def main():
         import threading as _s39_th
         _s39_th.Thread(target=_s39_prefetch_auth, daemon=True).start()
 
-    # ── STEP 1-D: [제40조 §3] Watchdog JS 주입 — 탭 전환 500ms 초과 경고 ──
+    # ── STEP 1-D: [제40조 §3] Watchdog JS 주입 — 랜딩 완료 후에만 실행 ──
     import streamlit.components.v1 as _s40_comp
-    _s40_wtab = st.session_state.pop("_s40_watchdog_tab", None)
-    if _s40_wtab:
-        _wjs = _s40_perf_watchdog_js(str(_s40_wtab))
-        if _wjs:
-            _s40_comp.html(_wjs, height=0)
-    # 매 rerun: localStorage 누적 perf 로그 → console.info 출력 (개발자 도구 확인용)
-    _s40_comp.html(_s40_read_ls_perf_js(), height=0)
+    if st.session_state.get('_landing_done', False):
+        _s40_wtab = st.session_state.pop("_s40_watchdog_tab", None)
+        if _s40_wtab:
+            _wjs = _s40_perf_watchdog_js(str(_s40_wtab))
+            if _wjs:
+                _s40_comp.html(_wjs, height=0)
+        # 매 rerun: localStorage 누적 perf 로그 → console.info 출력 (개발자 도구 확인용)
+        _s40_comp.html(_s40_read_ls_perf_js(), height=0)
 
     # ── STEP 2: 세션 ID 생성 ─────────────────────────────────────────────
     _sid = st.session_state.get("user_id") or st.session_state.get("_anon_sid")
@@ -9713,17 +9722,23 @@ def main():
         USAGE_DB  = "/tmp/usage_log.json"
         MEMBER_DB = "/tmp/members.json"
 
-    # ── STEP 4: DB 초기화 (1회) ───────────────────────────────────────────
+    # ── STEP 4: DB 초기화 (1회) — 백그라운드 스레드로 분리 (랜딩 블로킹 제거) ──
     if 'db_ready' not in st.session_state:
+        st.session_state.db_ready = True  # 즉시 True → 랜딩 렌더 차단 없음
         try:
+            import threading as _db_th
             import time as _t40db
-            _t0_db = _t40db.monotonic()
-            setup_database()
-            ensure_master_members()
-            _s40_record_blocking("setup_database", (_t40db.monotonic() - _t0_db) * 1000)
-            st.session_state.db_ready = True
+            def _db_bg_init():
+                try:
+                    _t0_db = _t40db.monotonic()
+                    setup_database()
+                    ensure_master_members()
+                    _s40_record_blocking("setup_database", (_t40db.monotonic() - _t0_db) * 1000)
+                except Exception:
+                    pass
+            _db_th.Thread(target=_db_bg_init, daemon=True).start()
         except Exception:
-            st.session_state.db_ready = True
+            pass
 
     # ── STEP 4-RAG: Supabase 테이블 초기화 — 백그라운드 스레드로 분리 ──
     # 스플래시 지연 원인: 이 블록이 스플래시 루프 내에서 블로킹 실행됨
@@ -9818,10 +9833,15 @@ def main():
             except Exception:
                 pass
 
-    # ── STEP 5: 세션 타이머 JS (세션당 1회만 주입) ─────────────────────
+    # ── STEP 5: 세션 타이머 JS (세션당 1회만 주입, 랜딩 완료 후에만 실행) ─────
+    # 랜딩페이지 표시 중에는 타이머 주입 스킵 → 초기 로딩 차단 없음
+    _landing_done_for_timer = st.session_state.get('_landing_done', False)
     if not st.session_state.get('_session_timer_injected'):
-        st.session_state['_session_timer_injected'] = True
-        _remaining = _get_session_remaining(_sid)
+        if _landing_done_for_timer:
+            st.session_state['_session_timer_injected'] = True
+            _remaining = _get_session_remaining(_sid)
+        else:
+            _remaining = 3600  # 랜딩 중에는 기본값 사용
     else:
         _remaining = st.session_state.get('_session_remaining_last', 3600)
     st.session_state['_session_remaining_last'] = max(0, _remaining - 1)
@@ -9909,10 +9929,10 @@ def main():
 </script>
 """, height=0)
 
-    # ── autocomplete 차단 — 삼성 인터넷 비밀번호 저장 팝업 방지 ─────────
+    # ── autocomplete 차단 — 삼성 인터넷 비밀번호 저장 팝업 방지 (랜딩 완료 후) ──
     # password 타입 input에 autocomplete="off" 강제 주입
     # MutationObserver: 동적으로 생성되는 필드(PIN·연락처)도 즉시 처리
-    components.html("""
+    if st.session_state.get('_landing_done', False): components.html("""
 <script>
 (function(){
   function blockAutocomplete(root) {
@@ -9964,17 +9984,18 @@ def main():
     # 로그인 성공 시 st.rerun()이 트리거됨 — 이 첫 rerun에서는
     # 자가진단·헬스체크·RAG sync를 건너뛰고 사이드바·홈탭만 빠르게 렌더
     _login_first_run = st.session_state.pop("_login_just_done", False)
+    _landing_active = not st.session_state.get('_landing_done', False)
 
-    # ── STEP 6-a: 자가 진단 (세션당 1회 — 로그인 첫 rerun 제외) ─────────
-    if not st.session_state.get('_self_diag_done') and not _login_first_run:
+    # ── STEP 6-a: 자가 진단 (세션당 1회 — 로그인 첫 rerun 제외, 랜딩 중 제외) ──
+    if not st.session_state.get('_self_diag_done') and not _login_first_run and not _landing_active:
         try:
             _run_self_diagnosis()
         except Exception:
             pass
         st.session_state['_self_diag_done'] = True
 
-    # ── STEP 6-b: 헬스체크 (로그인 첫 rerun 제외, 10분 간격 tick) ────────
-    if not _login_first_run:
+    # ── STEP 6-b: 헬스체크 (로그인 첫 rerun 제외, 랜딩 중 제외, 10분 간격 tick) ──
+    if not _login_first_run and not _landing_active:
         if not st.session_state.get('_hc_baseline_done'):
             try:
                 _hc_take_baseline()
@@ -9986,8 +10007,8 @@ def main():
         except Exception:
             pass
 
-    # ── 심야 자동 RAG 처리 (22:00~06:00) — 세션당 1회, 로그인 첫 rerun 제외
-    if not st.session_state.get("_night_process_done") and not _login_first_run:
+    # ── 심야 자동 RAG 처리 (22:00~06:00) — 세션당 1회, 로그인 첫 rerun·랜딩 중 제외
+    if not st.session_state.get("_night_process_done") and not _login_first_run and not _landing_active:
         _now_h = dt.now().hour  # 서버 시간 기준 (HF Spaces = UTC → KST +9)
         _kst_h = (_now_h + 9) % 24
         if _kst_h >= 22 or _kst_h < 6:
@@ -10010,10 +10031,10 @@ def main():
         st.session_state.stt_loaded = True
 
     # RAG: LightRAGSystem — Event-driven 2단계 Chunking
-    # · 1단계: 세션 최초 진입 시 LightRAGSystem 인스턴스만 생성 (경량)
+    # · 1단계: 세션 최초 진입 시 LightRAGSystem 인스턴스만 생성 (경량, 랜딩 완료 후)
     # · 2단계: 홈 화면 첫 렌더 완료(home_rendered) 후 → 백그라운드 DB sync 1회
     #   → 이후 rerun 에서는 docs 존재 시 sync 생략 (Pre-fetching 과부하 방지)
-    if 'rag_system' not in st.session_state:
+    if 'rag_system' not in st.session_state and not _landing_active:
         st.session_state.rag_system = LightRAGSystem()
 
     _rag_store = _get_rag_store()
@@ -10031,8 +10052,8 @@ def main():
         except Exception:
             st.session_state['_rag_sync_done'] = True   # 오류 시도 플래그 세팅해 무한 루프 방지
 
-    # ── 탭 전환 시 상단 스크롤 처리 ────────────────────────────────────
-    if st.session_state.pop("_scroll_top", False):
+    # ── 탭 전환 시 상단 스크롤 처리 (랜딩 완료 후) ─────────────────────
+    if not _landing_active and st.session_state.pop("_scroll_top", False):
         components.html("""
 <script>
 (function(){
@@ -10056,8 +10077,8 @@ def main():
 })();
 </script>""", height=0)
 
-    # 핀치줌 + 자동회전 허용 + 백버튼 홈 이동 (모바일 최적화) — 최초 1회만
-    if not st.session_state.get("_js_init_done"):
+    # 핀치줌 + 자동회전 허용 + 백버튼 홈 이동 (모바일 최적화) — 랜딩 완료 후 최초 1회
+    if not _landing_active and not st.session_state.get("_js_init_done"):
         st.session_state["_js_init_done"] = True
         components.html("""
 <script>
@@ -10124,8 +10145,8 @@ def main():
 </script>
 """, height=0)
 
-    # ── Pull-to-Refresh 및 새로고침 차단 (모바일/데스크탑) — 최초 1회만
-    if not st.session_state.get("_js_ptr_done"):
+    # ── Pull-to-Refresh 및 새로고침 차단 (모바일/데스크탑) — 랜딩 완료 후 최초 1회
+    if st.session_state.get('_landing_done', False) and not st.session_state.get("_js_ptr_done"):
         st.session_state["_js_ptr_done"] = True
         components.html("""
 <script>
