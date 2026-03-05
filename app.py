@@ -1052,62 +1052,49 @@ section[data-testid="stMain"] > div:first-child {{padding-top:0!important;}}
 </div>
 """, unsafe_allow_html=True)
 
-    # ── [제39조 §2] 예비 로딩 JS — 랜딩 노출 즉시 실행 ────────────────
+    # ── [제39조 §2] 예비 로딩 JS — parent document에 주입 ───────────────
+    # height=1(최소): height=0은 Streamlit에서 렌더 블로킹 발생
+    # parent.document 직접 script 주입으로 sandbox 우회
     import streamlit.components.v1 as _s39_comp
     _s39_comp.html("""
 <script>
 (function(){
-  var _pd = window.parent ? window.parent.document : document;
-
-  // [2단계 - 백그라운드 준비] 랜딩 노출 즉시 리소스 워밍
-  // (1) LocalStorage 세션 캐시 읽기
+  // parent document에 script 주입 (iframe sandbox 우회)
   try {
-    var _c = localStorage.getItem('gk_session_cache');
-    if(_c) window._gk_session_prefetched = JSON.parse(_c);
+    var _pd = window.parent.document;
+    if(!_pd.getElementById('gk-lp-prefetch-done')){
+      var _s = _pd.createElement('script');
+      _s.id = 'gk-lp-prefetch-done';
+      _s.textContent = (function(){
+        // (1) LocalStorage 세션 캐시 읽기
+        try {
+          var _c = localStorage.getItem('gk_session_cache');
+          if(_c) window._gk_session_prefetched = JSON.parse(_c);
+        } catch(e){}
+        // (2) 폰트 prefetch
+        var _l = document.createElement('link');
+        _l.rel='prefetch';
+        _l.href='https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap';
+        _l.setAttribute('as','style');
+        document.head.appendChild(_l);
+        // (3) 버튼 클릭 시 랜딩 오버레이 즉시 제거 (seamless transition)
+        document.addEventListener('click', function(e){
+          var _btn = e.target.closest('[data-testid="stButton"] button, button.st-emotion-cache-1vbkxwb');
+          if(_btn){
+            var _root = document.getElementById('gk-landing-root');
+            if(_root){
+              _root.style.transition='opacity 0.15s ease';
+              _root.style.opacity='0';
+              setTimeout(function(){ _root.style.display='none'; }, 160);
+            }
+          }
+        }, true);
+      }).toString() + '()';
+      _pd.head.appendChild(_s);
+    }
   } catch(e){}
-
-  // (2) 폰트 / CSS prefetch
-  function _pfLink(href, as_) {
-    if(_pd.querySelector('link[href="'+href+'"]')) return;
-    var l = _pd.createElement('link');
-    l.rel='prefetch'; l.href=href;
-    if(as_) l.setAttribute('as', as_);
-    _pd.head.appendChild(l);
-  }
-  _pfLink('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap','style');
-
-  // (3) Streamlit WebSocket keepalive 타임스탬프
-  window._gk_landing_ts = Date.now();
-
-  // [3단계 - 교차 전환] 버튼 클릭 시 랜딩 fade-out 후 즉시 제거
-  // Streamlit 버튼이 렌더되면 랜딩 wrap 안으로 버튼을 이동
-  function _mountBtn() {
-    var _wrap = _pd.getElementById('gk-start-btn-wrap');
-    if(!_wrap) return;
-    var _stBtn = _pd.querySelector('[data-testid="stButton"] button[kind="primary"]');
-    if(_stBtn) {
-      _stBtn.id = 'gk-real-start-btn';
-      _wrap.appendChild(_stBtn.closest('[data-testid="stButton"]') || _stBtn);
-    }
-  }
-  // MutationObserver로 버튼 렌더 감지
-  var _obs = new MutationObserver(function(){ _mountBtn(); });
-  _obs.observe(_pd.body, {childList:true, subtree:true});
-  setTimeout(function(){ _mountBtn(); _obs.disconnect(); }, 800);
-
-  // 버튼 클릭 시 즉시 랜딩 오버레이 제거 (seamless transition)
-  _pd.addEventListener('click', function(e){
-    var _btn = e.target.closest('button[kind="primary"], #gk-real-start-btn');
-    if(_btn){
-      var _root = _pd.getElementById('gk-landing-root');
-      if(_root) {
-        _root.classList.add('gk-lp-exit');
-        setTimeout(function(){ _root.style.display='none'; }, 160);
-      }
-    }
-  }, true);
 })();
-</script>""", height=0)
+</script>""", height=1)
 
     # ── Streamlit 버튼 — 클릭 시 _lp_landing = True ──────────────────
     _lc1, _lc2, _lc3 = st.columns([1, 2, 1])
