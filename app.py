@@ -891,6 +891,99 @@ def _s39_sidebar_shell_html() -> str:
     )
 
 
+def _s39_render_landing_page() -> None:
+    """가이딩 프로토콜 제39조 §1: 정적 랜딩 페이지 렌더링.
+
+    연산 부하 없는 순수 정적 HTML — 로고 + [안보 서비스 시작하기] 버튼.
+    '시작하기' 클릭 시 _lp_landing = True 세팅 후 st.rerun() → 로그인 화면 즉시 전환.
+    """
+    # 전체 화면 여백 제거 CSS
+    st.markdown("""
+<style>
+#gk-landing-wrap{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:82vh;padding:20px 16px;
+  background:linear-gradient(160deg,#050d1a 0%,#0a1e35 55%,#0d2747 100%);
+  border-radius:18px;margin:0;
+}
+.gk-landing-logo{
+  font-size:clamp(2.6rem,10vw,5rem);font-weight:900;letter-spacing:-0.02em;
+  color:#fff;line-height:1.05;text-align:center;margin-bottom:6px;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+}
+.gk-landing-sub{
+  font-size:clamp(0.95rem,3vw,1.25rem);color:#94a3b8;font-weight:600;
+  text-align:center;margin-bottom:10px;letter-spacing:0.04em;
+}
+.gk-landing-badge{
+  display:inline-block;
+  background:linear-gradient(90deg,#1e3a5f,#0ea5e9);
+  color:#e0f2fe;font-size:0.82rem;font-weight:800;
+  padding:5px 16px;border-radius:20px;margin-bottom:32px;
+  border:1px solid rgba(14,165,233,0.35);letter-spacing:0.06em;
+}
+.gk-landing-divider{
+  width:clamp(60px,20vw,120px);height:3px;
+  background:linear-gradient(90deg,#0ea5e9,#f0c040,#0ea5e9);
+  border-radius:4px;margin:0 auto 32px auto;opacity:0.7;
+}
+@keyframes gk-pulse-gold{
+  0%,100%{box-shadow:0 0 0 0 rgba(240,192,64,0.45);}
+  50%{box-shadow:0 0 0 14px rgba(240,192,64,0);}
+}
+</style>
+<div id="gk-landing-wrap">
+  <div class="gk-landing-logo">🏆 Goldkey</div>
+  <div class="gk-landing-logo" style="font-size:clamp(1.6rem,6vw,3rem);color:#f0c040;">
+    AI Master
+  </div>
+  <div class="gk-landing-sub">가문 안보 관제탑 — 보험 설계사 전용 AI 플랫폼</div>
+  <div class="gk-landing-badge">🛡️ 가문 안보 서비스</div>
+  <div class="gk-landing-divider"></div>
+</div>
+""", unsafe_allow_html=True)
+    # [제39조 §2] 백그라운드 예비 로딩 — 랜딩 화면 노출 즉시 실행
+    # LocalStorage prefetch 시도 + 로그인 리소스 워밍 신호 주입
+    import streamlit.components.v1 as _s39_comp
+    _s39_comp.html("""
+<script>
+(function(){
+  // [제39조 §2] Pre-fetching: 랜딩 노출 즉시 로그인 리소스 워밍
+  // 1) LocalStorage 세션 캐시 읽기 시도 (존재 시 로그인 모듈 조기 파악)
+  try {
+    var _c = localStorage.getItem('gk_session_cache');
+    if(_c) window._gk_session_prefetched = JSON.parse(_c);
+  } catch(e){}
+  // 2) CSS/폰트 prefetch — 로그인 화면 즉시 렌더를 위한 워밍
+  var _pd = window.parent.document;
+  function _prefetchLink(href, as_type) {
+    var _l = _pd.createElement('link');
+    _l.rel = 'prefetch'; _l.href = href;
+    if(as_type) _l.setAttribute('as', as_type);
+    _pd.head.appendChild(_l);
+  }
+  _prefetchLink('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap', 'style');
+  // 3) 랜딩 중 Streamlit 위젯 커넥션 유지 핑 (재연결 지연 방지)
+  window._gk_landing_ts = Date.now();
+})();
+</script>""", height=0)
+
+    # Streamlit 버튼 — 클릭 시 _lp_landing = True
+    _lc1, _lc2, _lc3 = st.columns([1, 2, 1])
+    with _lc2:
+        if st.button(
+            "🚀 안보 서비스 시작하기",
+            key="_s39_start_btn",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state["_lp_landing"] = True
+            # [제39조 §3] 즉각적 전환 — current_tab을 home으로 사전 세팅
+            # (로그인 완료 후 intro 리다이렉트 루프 없이 바로 home 진입)
+            st.session_state["current_tab"] = "home"
+            st.rerun()
+
+
 def _s39_prefetch_auth() -> None:
     """가이딩 프로토콜 제39조 §3: 백그라운드 스레드에서 세션 토큰 검증.
 
@@ -12278,6 +12371,18 @@ setTimeout(function(){
         st.stop()
 
     # ── 메인 영역 — current_tab 라우팅 ───────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════
+    # [가이딩 프로토콜 제39조 §1] 정적 랜딩 시스템
+    # 비로그인 + 랜딩 미완료 → 랜딩 페이지 풀스크린 렌더 후 stop
+    # '시작하기' 클릭 → _lp_landing = True → 즉시 로그인 화면 전환
+    # 로그인 완료 사용자는 랜딩 건너뜀 (세션당 1회만 노출)
+    # ══════════════════════════════════════════════════════════════════════
+    _is_logged_in = bool(st.session_state.get("user_id"))
+    _landing_done = st.session_state.get("_lp_landing", False)
+    if not _is_logged_in and not _landing_done:
+        _s39_render_landing_page()
+        st.stop()
+
     st.markdown("""
 <div style="font-size:clamp(2.4rem,8vw,4.2rem);font-weight:900;letter-spacing:-0.02em;
 line-height:1.05;color:#0f172a;padding:2px 0 12px 0;
@@ -12286,7 +12391,7 @@ font-family:'Noto Sans KR',Malgun Gothic,sans-serif;">
 </div>""", unsafe_allow_html=True)
 
     if 'current_tab' not in st.session_state:
-        st.session_state.current_tab = "intro"
+        st.session_state.current_tab = "home"
     if '_nav_history' not in st.session_state:
         st.session_state._nav_history = []
 
@@ -13584,7 +13689,8 @@ window['startTTS_{tab_key}']=function(){{
             pass  # 빈 상태 — 별도 안내 불필요
 
     # ══════════════════════════════════════════════════════════════════════
-    # [제39조 §1] intro 탭 진입 시 즉시 home으로 직행 (스플래시 없음)
+    # [제39조 §1] intro 탭: 랜딩 페이지 통과 후 home으로 직행
+    # (랜딩 미통과 시에는 위에서 이미 st.stop()으로 차단됨)
     # ══════════════════════════════════════════════════════════════════════
     if cur == "intro":
         st.session_state["app_ready"] = True
