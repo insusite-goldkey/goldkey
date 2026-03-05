@@ -860,6 +860,60 @@ def _s39_sidebar_skeleton(lines: int = 3) -> str:
     return f'<div style="padding:4px 0;">{_bars}</div>'
 
 
+def _s39_sidebar_shell_html() -> str:
+    """가이딩 프로토콜 제39조 §2: Shell-First 렌더링용 텍스트 메뉴 뼈대 HTML.
+
+    이미지·통계 없이 텍스트 메뉴 리스트만 즉시 반환 — 0ms 목표.
+    아바타/사용량 게이지는 비동기 hydration으로 후속 주입.
+    """
+    _menus = [
+        ("💬", "AI 보장 분석 상담"),
+        ("📅", "일정 달력"),
+        ("👥", "고객 관리"),
+        ("📄", "보험증권 AI 분석"),
+        ("📚", "약관 매칭"),
+        ("🤖", "보험봇"),
+        ("💰", "가처분 소득 분석"),
+        ("🧠", "치매 센터"),
+    ]
+    _rows = "".join(
+        f'<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;'
+        f'border-radius:8px;margin-bottom:2px;background:rgba(255,255,255,0.04);">'
+        f'<span style="font-size:1rem;">{_icon}</span>'
+        f'<span style="font-size:0.82rem;font-weight:600;color:#1a2d5a;">{_label}</span>'
+        f'</div>'
+        for _icon, _label in _menus
+    )
+    return (
+        '<div style="background:linear-gradient(135deg,#e8f4fd 0%,#f0f8ff 100%);'
+        'border:1px solid #c8dff5;border-radius:12px;padding:10px 8px;margin-bottom:8px;">'
+        f'{_rows}</div>'
+    )
+
+
+def _s39_prefetch_auth() -> None:
+    """가이딩 프로토콜 제39조 §3: 백그라운드 스레드에서 세션 토큰 검증.
+
+    앱 실행과 동시에 호출 — 인증 완료 시 세션 복원, 실패 시 플래그만 설정.
+    화면을 막지 않는다 (non-blocking). 인증 실패는 _s39_auth_failed 플래그로 전달.
+    """
+    _cache = _s39_load_session_cache()
+    if not _cache:
+        st.session_state["_s39_auth_failed"] = True
+        return
+    _uid = _cache.get("user_id", "")
+    _uname = _cache.get("user_name", "")
+    if not _uid or not _uname:
+        st.session_state["_s39_auth_failed"] = True
+        return
+    # 세션 캐시가 유효하면 user_id/user_name 즉시 복원
+    if "user_id" not in st.session_state:
+        st.session_state["user_id"]   = _uid
+        st.session_state["user_name"] = _uname
+        st.session_state["user_role"] = _cache.get("user_role", "")
+    st.session_state["_s39_auth_ok"] = True
+
+
 # ── 제38조 헬퍼 함수 ─────────────────────────────────────────────────────
 
 def _art38_extract_keywords(text: str) -> list[str]:
@@ -8460,6 +8514,23 @@ def main():
         initial_sidebar_state="auto"
     )
 
+    # ── STEP 1-A: [제39조 §4] Visual Continuity — 사이드바 첫 프레임 배경색 고정 ──
+    # 네이티브 스플래시 배경(#0a1628)과 사이드바 첫 프레임 배경을 동일하게 유지.
+    # 전환 시 이질감 없이 즉각 cut — 애니메이션/페이드 없음.
+    st.markdown("""<style>
+/* [제39조 §4] Visual Continuity: 사이드바 배경 = 네이티브 스플래시 배경 */
+[data-testid="stSidebar"] > div:first-child {
+    background-color: #0a1628 !important;
+}
+[data-testid="stSidebar"] {
+    background-color: #0a1628 !important;
+}
+/* 사이드바 내 텍스트 기본 색상 보정 (다크 배경) */
+[data-testid="stSidebar"] * {
+    color: inherit;
+}
+</style>""", unsafe_allow_html=True)
+
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
     # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
     # 로그인 성공 시 _saved_user_* 에 백업 → rerun 후 user_id 없으면 복원
@@ -8487,6 +8558,12 @@ def main():
         # [S1] 관리자 탭 인증 복원
         if st.session_state.get("_saved_admin_tab_auth"):
             st.session_state["_admin_tab_auth"] = True
+
+    # ── STEP 1-C: [제39조 §3] 세션 프리페칭 — 1회, 비동기, 화면 차단 없음 ──
+    if not st.session_state.get("_s39_prefetch_done"):
+        st.session_state["_s39_prefetch_done"] = True
+        import threading as _s39_th
+        _s39_th.Thread(target=_s39_prefetch_auth, daemon=True).start()
 
     # ── STEP 2: 세션 ID 생성 ─────────────────────────────────────────────
     _sid = st.session_state.get("user_id") or st.session_state.get("_anon_sid")
@@ -8559,12 +8636,18 @@ def main():
                 if _hmac.compare_digest(_expected, _qp_token[:32]):
                     # 토큰 유효 → 자동 로그인
                     _jd_tok = dt.strptime(_tok_m["join_date"], "%Y-%m-%d")
+                    _tok_adm = (_tok_name in _get_unlimited_users())
                     st.session_state.user_id   = _tok_m["user_id"]
                     st.session_state.user_name = _tok_name
                     st.session_state.join_date = _jd_tok
-                    st.session_state.is_admin  = (_tok_name in _get_unlimited_users())
+                    st.session_state.is_admin  = _tok_adm
                     st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)"
                     st.session_state["preferred_insurer"] = "선택 안 함 (중립 분석)"
+                    # [제39조 §3] URL 토큰 자동 로그인 → 세션 캐시 저장
+                    _s39_save_session_cache(
+                        user_id=_tok_m["user_id"], user_name=_tok_name,
+                        user_role="agent" if _tok_adm else "customer"
+                    )
                     st.query_params.clear()
                     _tok_found = True
                     break
@@ -10420,6 +10503,11 @@ watchRipple();
 
     # ── 사이드바 ──────────────────────────────────────────────────────────
     with st.sidebar:
+        # ── [제39조 §2] Shell-First: 로그인 전 텍스트 메뉴 뼈대 즉시 출력 ──
+        # 아바타/통계/GCS 로드보다 먼저 실행 — 사용자가 메뉴를 즉시 확인 가능
+        if not st.session_state.get("user_id"):
+            st.markdown(_s39_sidebar_shell_html(), unsafe_allow_html=True)
+
         # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (기존 아바타 완전 대체) ──
         render_goldkey_sidebar()
 
@@ -10713,6 +10801,11 @@ watchRipple();
                         st.session_state["preferred_insurer"] = "선택 안 함 (중립 분석)"
                     # 보안 방식 등록 이력 저장 (다음 로그인에서 Fallback UI 구성용)
                     st.session_state["_sec_methods"]        = dict(st.session_state["_lp_methods"])
+                    # [제39조 §3] 로그인 성공 → 세션 캐시 저장 (다음 구동 시 즉시 복원용)
+                    _s39_save_session_cache(
+                        user_id=m["user_id"], user_name=ln,
+                        user_role="agent" if _adm else "customer"
+                    )
                     # 로그인 단계 초기화
                     for _k in ["_lp","_lp_name","_lp_otp","_lp_methods",
                                "_lp_mode","_lp_pat","_lp_pin",
@@ -11850,6 +11943,11 @@ button[kind="secondary"][data-testid="baseButton-secondary"] {
                                     st.session_state["_auto_close_sidebar"] = True
                                     # [C1] 회원가입 시 CUST_ Entity ID 자동 발급
                                     _eid_set_login_user(name, "customer")
+                                    # [제39조 §3] 회원가입 성공 → 세션 캐시 저장
+                                    _s39_save_session_cache(
+                                        user_id=info["user_id"], user_name=name,
+                                        user_role="customer"
+                                    )
                                 st.success("가입 완료!")
                                 st.rerun()
             with tab_pw:
@@ -12303,6 +12401,8 @@ setTimeout(function(){
                     st.session_state.is_admin = True
                     st.session_state["_login_welcome"] = "이세윤"
                     st.session_state["_auto_close_sidebar"] = True
+                    # [제39조 §3] 관리자 로그인 → 세션 캐시 저장
+                    _s39_save_session_cache(user_id="ADMIN_MASTER", user_name="이세윤", user_role="admin")
                     st.rerun()
                 elif _acd == _master_code:
                     try:
@@ -12315,6 +12415,8 @@ setTimeout(function(){
                     st.session_state.is_admin = True
                     st.session_state["_login_welcome"] = _master_name
                     st.session_state["_auto_close_sidebar"] = True
+                    # [제39조 §3] 마스터 로그인 → 세션 캐시 저장
+                    _s39_save_session_cache(user_id="PERMANENT_MASTER", user_name=_master_name, user_role="admin")
                     st.rerun()
                 else:
                     st.error("ID 또는 코드가 올바르지 않습니다.")
