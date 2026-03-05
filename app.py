@@ -12007,6 +12007,21 @@ watchRipple();
 <div style="font-size:0.80rem;color:#555;margin-bottom:6px;">
   👈 <b>(회원가입 &amp; 로그인)</b> 버튼 클릭! 사이드 창 열림.
 </div>""", unsafe_allow_html=True)
+            st.markdown("""
+<style>
+section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="tab"] {
+  border: 1.5px solid #000000 !important;
+  border-radius: 6px !important;
+  margin: 0 2px !important;
+  font-weight: 700 !important;
+  color: #000000 !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+  border: 2px solid #1565C0 !important;
+  background: #E3F2FD !important;
+  color: #1565C0 !important;
+}
+</style>""", unsafe_allow_html=True)
             tab_l, tab_s, tab_pw, tab_nm = st.tabs(["로그인", "회원가입", "비번 변경", "이름 변경"])
             components.html("""<script>
 (function _rmTitle(){
