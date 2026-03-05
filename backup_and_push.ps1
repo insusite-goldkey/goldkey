@@ -29,9 +29,9 @@ if ($tracked) {
     Write-Host "avatar.png git 트래킹 제거 완료"
 }
 
-# 4. git add / commit
+# 4. git add / commit  [GP-44] 제44조: 커밋 메시지에 준수 문구 자동 포함
 git add -A
-$msg = "update: " + (Get-Date -Format "yyyy-MM-dd HH:mm") + " 자동 커밋"
+$msg = "[GP-44] 가이딩 프로토콜 제44조 준수 | update: " + (Get-Date -Format "yyyy-MM-dd HH:mm") + " 자동 커밋"
 git commit -m $msg
 
 # 5. GitHub push (--force-with-lease: 로컬 커밋이 remote보다 뒤처지면 push 중단 — 수동 작업 보호)

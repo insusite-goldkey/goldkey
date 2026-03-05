@@ -1309,6 +1309,125 @@ def gp_label(gp_id: str) -> str:
     return GP_UI_DICT.get(gp_id, gp_id)
 
 
+# ── 제44조 OTA 동기화 엔진 ────────────────────────────────────────────────
+# [GP-44] 중앙 집중형 두뇌 관리 및 지능형 이중 배포 원칙
+# HuggingFace rules.json → 앱 재빌드 없이 가이딩 프로토콜 실시간 반영
+
+_ART44_RULES_FILENAME = "rules.json"           # OTA 설정 파일명
+_ART44_HF_URL         = "https://huggingface.co/spaces/goldkey-rich/goldkey-ai"
+_ART44_CACHE_KEY      = "_art44_rules_cache"   # session_state 캐시 키
+_ART44_CACHE_TTL      = 300                    # 5분 TTL (초) — 제40조 0.5초 원칙 준수
+
+
+@st.cache_resource
+def _art44_rules_resource_cache():
+    """rules.json 로드 결과를 process 수준에서 캐시 (재시작까지 유지)"""
+    return {"data": None, "ts": 0.0, "source": ""}
+
+
+def _art44_ota_sync(force: bool = False) -> dict:
+    """[GP-44] HuggingFace rules.json OTA 동기화.
+
+    앱 구동 시 rules.json을 먼저 읽어 가이딩 프로토콜 설정을 동적 반영.
+    우선순위: 프로세스 캐시 → 로컬 파일 (네트워크 불필요, 제40조 0.5초 원칙 준수)
+
+    Returns:
+        dict: rules.json 전체 내용. 실패 시 빈 dict.
+    """
+    import time as _t44
+    _rc = _art44_rules_resource_cache()
+    _now = _t44.time()
+
+    # ── 캐시 유효 시 즉시 반환 (TTL 5분) ─────────────────────────────────
+    if not force and _rc["data"] is not None and (_now - _rc["ts"]) < _ART44_CACHE_TTL:
+        return _rc["data"]
+
+    # ── 로컬 rules.json 읽기 (HuggingFace 배포 시 소스와 함께 배포됨) ────
+    try:
+        import json as _json44
+        _base = os.path.dirname(os.path.abspath(__file__))
+        _path = os.path.join(_base, _ART44_RULES_FILENAME)
+        if os.path.exists(_path):
+            with open(_path, "r", encoding="utf-8") as _f44:
+                _rules = _json44.load(_f44)
+            _rc["data"]   = _rules
+            _rc["ts"]     = _now
+            _rc["source"] = "local"
+            _art44_apply_rules(_rules)
+            return _rules
+    except Exception:
+        pass
+
+    return {}
+
+
+def _art44_apply_rules(rules: dict) -> None:
+    """[GP-44] rules.json 설정값을 전역 동적 변수에 즉시 반영.
+
+    OTA로 업데이트 가능한 항목:
+    - ota_updatable.nhis_rate        → _CURRENT_NHIS_RATE
+    - ota_updatable.ltci_rate        → _CURRENT_LTCI_RATE
+    - ota_updatable.daily_quota      → _DAILY_QUOTA
+    - ota_updatable.session_ttl_*    → SESSION_TTL
+    - ota_updatable.perf_threshold_ms → _S40_THRESHOLD_MS
+    - ota_updatable.member_cache_ttl_seconds → 회원 캐시 TTL
+    - feature_flags.*                → 기능 플래그 동적 ON/OFF
+    """
+    global _CURRENT_NHIS_RATE, _CURRENT_LTCI_RATE, SESSION_TTL, _S40_THRESHOLD_MS
+    try:
+        _ota = rules.get("ota_updatable", {})
+        _flags = rules.get("feature_flags", {})
+
+        if "nhis_rate" in _ota and isinstance(_ota["nhis_rate"], (int, float)):
+            _CURRENT_NHIS_RATE = float(_ota["nhis_rate"])
+
+        if "ltci_rate" in _ota and isinstance(_ota["ltci_rate"], (int, float)):
+            _CURRENT_LTCI_RATE = float(_ota["ltci_rate"])
+
+        if "session_ttl_seconds" in _ota and isinstance(_ota["session_ttl_seconds"], int):
+            SESSION_TTL = int(_ota["session_ttl_seconds"])
+
+        if "perf_threshold_ms" in _ota and isinstance(_ota["perf_threshold_ms"], int):
+            _S40_THRESHOLD_MS = int(_ota["perf_threshold_ms"])
+
+        # feature_flags → session_state 반영 (UI 런타임 분기용)
+        if _flags:
+            st.session_state["_art44_feature_flags"] = _flags
+
+    except Exception:
+        pass
+
+
+def _art44_get_flag(flag_name: str, default: bool = True) -> bool:
+    """[GP-44] feature_flags에서 특정 기능 플래그 조회.
+
+    사용 예: if _art44_get_flag("ota_sync_enabled"): ...
+    """
+    _flags = st.session_state.get("_art44_feature_flags", {})
+    return bool(_flags.get(flag_name, default))
+
+
+def _art44_rules_info() -> dict:
+    """[GP-44] 현재 로드된 rules.json 메타데이터 반환 (관리자 대시보드용).
+
+    Returns:
+        {"version": str, "last_updated": str, "source": str,
+         "ota_items": list, "flags": dict, "connected": bool}
+    """
+    _rc = _art44_rules_resource_cache()
+    _rules = _rc.get("data") or {}
+    _ota   = _rules.get("ota_updatable", {})
+    return {
+        "version":      _rules.get("guiding_protocol_version", "—"),
+        "last_updated": _rules.get("last_updated", "—"),
+        "source":       _rc.get("source", "—"),
+        "connected":    bool(_rules),
+        "ota_items":    list(_ota.keys()),
+        "flags":        _rules.get("feature_flags", {}),
+        "hf_url":       _rules.get("deployment", {}).get("hf_space_url", _ART44_HF_URL),
+    }
+
+
 # ── 제43조 헬퍼 함수 ─────────────────────────────────────────────────────
 # 가이딩 프로토콜 제43조: AI 자동 생성 리포트 표준안 (AUTO_REPORT_ENGINE)
 # [§1] pending_wisdom DB 야간 학습 결과 → 5섹션 HTML 리포트 자동 생성
@@ -9690,6 +9809,11 @@ def main():
         # [S1] 관리자 탭 인증 복원
         if st.session_state.get("_saved_admin_tab_auth"):
             st.session_state["_admin_tab_auth"] = True
+
+    # ── STEP 1-B2: [GP-44] OTA 동기화 — rules.json 로드 (프로세스 캐시, 0.5초 이내) ──
+    if not st.session_state.get("_art44_ota_done"):
+        st.session_state["_art44_ota_done"] = True
+        _art44_ota_sync()   # 제40조 준수: @st.cache_resource로 process 수준 캐시 → 즉시 반환
 
     # ── STEP 1-C: [제39조 §3] 세션 프리페칭 — 1회, 비동기, 화면 차단 없음 ──
     if not st.session_state.get("_s39_prefetch_done"):

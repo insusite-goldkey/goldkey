@@ -19,6 +19,9 @@ build/
 #   admin_directives.json, usage_log.json 등 모든 런타임 데이터 보호
 #   (단, 소스코드에 포함된 JSON은 영향 없음)
 
+# [GP-44] OTA 설정 파일 — HuggingFace 배포 필수
+!rules.json
+
 # 암호화 키 파일 (절대 Git에 올리지 말 것)
 .goldkey
 *.goldkey
