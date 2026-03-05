@@ -920,7 +920,27 @@ def _s39_prefetch_auth() -> None:
 # [§2] GP_CONSTITUTION: 내부 메타데이터 / GP_UI_DICT: UI 표시명 (분리)
 # [§3] gp_label(gp_id) 헬퍼로 렌더 직전에만 한글 변환
 
-# ── §1: GP_ID 상수 정의 ───────────────────────────────────────────────────
+# ── §1: GP_ID 상수 정의 (GP_ID_01~GP_ID_41 전체) ──────────────────────────
+GP_ID_01 = "GP_ID_01"   # BRAND_IDENTITY
+GP_ID_02 = "GP_ID_02"   # COLOR_SYSTEM
+GP_ID_03 = "GP_ID_03"   # TYPOGRAPHY
+GP_ID_04 = "GP_ID_04"   # ICON_SYSTEM
+GP_ID_05 = "GP_ID_05"   # ANIMATION
+GP_ID_06 = "GP_ID_06"   # GRADIENT_BOX
+GP_ID_07 = "GP_ID_07"   # RED_ALERT
+GP_ID_08 = "GP_ID_08"   # SPACE_DIVISION
+GP_ID_09 = "GP_ID_09"   # COMPACT_LAYOUT
+GP_ID_10 = "GP_ID_10"   # SPLASH_SCREEN
+GP_ID_11 = "GP_ID_11"   # RESERVED_11
+GP_ID_12 = "GP_ID_12"   # RESERVED_12
+GP_ID_13 = "GP_ID_13"   # RESERVED_13
+GP_ID_14 = "GP_ID_14"   # RESERVED_14
+GP_ID_15 = "GP_ID_15"   # RESERVED_15
+GP_ID_16 = "GP_ID_16"   # RESERVED_16
+GP_ID_17 = "GP_ID_17"   # RESERVED_17
+GP_ID_18 = "GP_ID_18"   # RESERVED_18
+GP_ID_19 = "GP_ID_19"   # RESERVED_19
+GP_ID_20 = "GP_ID_20"   # TOP_SPACE_OPT
 GP_ID_21 = "GP_ID_21"   # EXPERT_ADVISORY
 GP_ID_22 = "GP_ID_22"   # APPROVED_SOURCES
 GP_ID_23 = "GP_ID_23"   # BLOCKED_SOURCES
@@ -945,32 +965,72 @@ GP_ID_41 = "GP_ID_41"   # INTERNAL_ID_OPT
 
 # ── §2: GP_CONSTITUTION — 내부 메타데이터 (Backend 전용) ─────────────────
 GP_CONSTITUTION: dict = {
-    GP_ID_21: {"article": 21, "keyword": "EXPERT_ADVISORY",      "active": True},
-    GP_ID_22: {"article": 22, "keyword": "APPROVED_SOURCES",     "active": True},
-    GP_ID_23: {"article": 23, "keyword": "BLOCKED_SOURCES",      "active": True},
-    GP_ID_24: {"article": 24, "keyword": "DOUBLE_VERIFICATION",  "active": True},
-    GP_ID_25: {"article": 25, "keyword": "ANSWER_HEADER",        "active": True},
-    GP_ID_26: {"article": 26, "keyword": "KNOWLEDGE_INDEXING",   "active": True},
-    GP_ID_27: {"article": 27, "keyword": "OUTPUT_FORMAT",        "active": True},
-    GP_ID_28: {"article": 28, "keyword": "DATA_INTEGRITY",       "active": True},
-    GP_ID_29: {"article": 29, "keyword": "SESSION_SECURITY",     "active": True},
-    GP_ID_30: {"article": 30, "keyword": "SYSTEM_STABILITY",     "active": True},
-    GP_ID_31: {"article": 31, "keyword": "MOBILE_UX",            "active": True},
-    GP_ID_32: {"article": 32, "keyword": "INCOME_REVERSE_CALC",  "active": True},
+    GP_ID_01: {"article":  1, "keyword": "BRAND_IDENTITY",        "active": True},
+    GP_ID_02: {"article":  2, "keyword": "COLOR_SYSTEM",          "active": True},
+    GP_ID_03: {"article":  3, "keyword": "TYPOGRAPHY",            "active": True},
+    GP_ID_04: {"article":  4, "keyword": "ICON_SYSTEM",           "active": True},
+    GP_ID_05: {"article":  5, "keyword": "ANIMATION",             "active": True},
+    GP_ID_06: {"article":  6, "keyword": "GRADIENT_BOX",          "active": True},
+    GP_ID_07: {"article":  7, "keyword": "RED_ALERT",             "active": True},
+    GP_ID_08: {"article":  8, "keyword": "SPACE_DIVISION",        "active": True},
+    GP_ID_09: {"article":  9, "keyword": "COMPACT_LAYOUT",        "active": True},
+    GP_ID_10: {"article": 10, "keyword": "SPLASH_SCREEN",         "active": True},
+    GP_ID_11: {"article": 11, "keyword": "RESERVED_11",           "active": False},
+    GP_ID_12: {"article": 12, "keyword": "RESERVED_12",           "active": False},
+    GP_ID_13: {"article": 13, "keyword": "RESERVED_13",           "active": False},
+    GP_ID_14: {"article": 14, "keyword": "RESERVED_14",           "active": False},
+    GP_ID_15: {"article": 15, "keyword": "RESERVED_15",           "active": False},
+    GP_ID_16: {"article": 16, "keyword": "RESERVED_16",           "active": False},
+    GP_ID_17: {"article": 17, "keyword": "RESERVED_17",           "active": False},
+    GP_ID_18: {"article": 18, "keyword": "RESERVED_18",           "active": False},
+    GP_ID_19: {"article": 19, "keyword": "RESERVED_19",           "active": False},
+    GP_ID_20: {"article": 20, "keyword": "TOP_SPACE_OPT",         "active": True},
+    GP_ID_21: {"article": 21, "keyword": "EXPERT_ADVISORY",       "active": True},
+    GP_ID_22: {"article": 22, "keyword": "APPROVED_SOURCES",      "active": True},
+    GP_ID_23: {"article": 23, "keyword": "BLOCKED_SOURCES",       "active": True},
+    GP_ID_24: {"article": 24, "keyword": "DOUBLE_VERIFICATION",   "active": True},
+    GP_ID_25: {"article": 25, "keyword": "ANSWER_HEADER",         "active": True},
+    GP_ID_26: {"article": 26, "keyword": "KNOWLEDGE_INDEXING",    "active": True},
+    GP_ID_27: {"article": 27, "keyword": "OUTPUT_FORMAT",         "active": True},
+    GP_ID_28: {"article": 28, "keyword": "DATA_INTEGRITY",        "active": True},
+    GP_ID_29: {"article": 29, "keyword": "SESSION_SECURITY",      "active": True},
+    GP_ID_30: {"article": 30, "keyword": "SYSTEM_STABILITY",      "active": True},
+    GP_ID_31: {"article": 31, "keyword": "MOBILE_UX",             "active": True},
+    GP_ID_32: {"article": 32, "keyword": "INCOME_REVERSE_CALC",   "active": True},
     GP_ID_33: {"article": 33, "keyword": "INSURANCE_GOLDEN_RATIO","active": True},
-    GP_ID_34: {"article": 34, "keyword": "NHIS_RATE_AUTO_UPDATE","active": True},
-    GP_ID_35: {"article": 35, "keyword": "DISABILITY_CALC",      "active": True},
-    GP_ID_36: {"article": 36, "keyword": "CANCER_BRAIN_HEART",   "active": True},
-    GP_ID_37: {"article": 37, "keyword": "SMART_AUTH_FALLBACK",  "active": True},
-    GP_ID_38: {"article": 38, "keyword": "ZERO_LATENCY_CACHE",   "active": True},
-    GP_ID_39: {"article": 39, "keyword": "HYBRID_LOADING",       "active": True},
-    GP_ID_40: {"article": 40, "keyword": "SPEED_05_RULE",        "active": True,
+    GP_ID_34: {"article": 34, "keyword": "NHIS_RATE_AUTO_UPDATE", "active": True},
+    GP_ID_35: {"article": 35, "keyword": "DISABILITY_CALC",       "active": True},
+    GP_ID_36: {"article": 36, "keyword": "CANCER_BRAIN_HEART",    "active": True},
+    GP_ID_37: {"article": 37, "keyword": "SMART_AUTH_FALLBACK",   "active": True},
+    GP_ID_38: {"article": 38, "keyword": "ZERO_LATENCY_CACHE",    "active": True},
+    GP_ID_39: {"article": 39, "keyword": "HYBRID_LOADING",        "active": True},
+    GP_ID_40: {"article": 40, "keyword": "SPEED_05_RULE",         "active": True,
                "threshold_ms": 500},
-    GP_ID_41: {"article": 41, "keyword": "INTERNAL_ID_OPT",      "active": True},
+    GP_ID_41: {"article": 41, "keyword": "INTERNAL_ID_OPT",       "active": True},
 }
 
 # ── §3: GP_UI_DICT — 한글 표시명 (UI 렌더링 전용, 내부 로직에서 직접 참조 금지) ──
 GP_UI_DICT: dict = {
+    GP_ID_01: "제1조 브랜드 아이덴티티",
+    GP_ID_02: "제2조 컬러 시스템",
+    GP_ID_03: "제3조 타이포그래피",
+    GP_ID_04: "제4조 아이콘 시스템",
+    GP_ID_05: "제5조 애니메이션",
+    GP_ID_06: "제6조 프리미엄 그라데이션 박스",
+    GP_ID_07: "제7조 레드 얼럿 시스템",
+    GP_ID_08: "제8조 공간 분할",
+    GP_ID_09: "제9조 컴팩트 레이아웃",
+    GP_ID_10: "제10조 스플래시 화면 시스템",
+    GP_ID_11: "제11조 (예약)",
+    GP_ID_12: "제12조 (예약)",
+    GP_ID_13: "제13조 (예약)",
+    GP_ID_14: "제14조 (예약)",
+    GP_ID_15: "제15조 (예약)",
+    GP_ID_16: "제16조 (예약)",
+    GP_ID_17: "제17조 (예약)",
+    GP_ID_18: "제18조 (예약)",
+    GP_ID_19: "제19조 (예약)",
+    GP_ID_20: "제20조 상단 공간 최적화",
     GP_ID_21: "제21조 전문가 자문 최우선 원칙",
     GP_ID_22: "제22조 승인된 전문가·공신력 출처",
     GP_ID_23: "제23조 절대 금지 출처",
@@ -8829,6 +8889,93 @@ def main():
     animation: none !important;
     background-color: #FFFFFF !important;
 }
+</style>""", unsafe_allow_html=True)
+
+    # ── STEP 1-A2: [제42조] 전역 디자인 토큰 + 고대비 가독성 CSS ────────
+    st.markdown("""<style>
+/* ================================================================
+   가이딩 프로토콜 제42조: 데이터 지향적 시각 정체성 & 고대비 가독성
+   §1 시맨틱 컬러 토큰 (CSS Custom Properties)
+   §2 텍스트 시인성 강화 (text-shadow, font-weight:800)
+   §3 Glassmorphism + GPU 가속 (backdrop-filter, will-change)
+================================================================ */
+
+/* §1 — 전역 디자인 토큰 */
+:root {
+    --gp-bg-income:  #1A237E;
+    --gp-txt-income: #FFFFFF;
+    --gp-bg-medical: #00695C;
+    --gp-txt-medical:#FFFFFF;
+    --gp-bg-risk:    #B71C1C;
+    --gp-txt-risk:   #FFFFFF;
+    --gp-bg-vip:     #4527A0;
+    --gp-txt-vip:    #FFD700;
+    --gp-shadow-txt: 0px 1px 2px rgba(0,0,0,0.30);
+    --gp-border-glass: 1px solid rgba(255,255,255,0.20);
+    --gp-blur: blur(12px);
+}
+
+/* §2 — 시맨틱 블록 클래스 */
+.gp-income {
+    background: var(--gp-bg-income) !important;
+    color: var(--gp-txt-income) !important;
+    text-shadow: var(--gp-shadow-txt);
+}
+.gp-medical {
+    background: var(--gp-bg-medical) !important;
+    color: var(--gp-txt-medical) !important;
+    text-shadow: var(--gp-shadow-txt);
+}
+.gp-risk {
+    background: var(--gp-bg-risk) !important;
+    color: var(--gp-txt-risk) !important;
+    text-shadow: var(--gp-shadow-txt);
+}
+.gp-vip {
+    background: var(--gp-bg-vip) !important;
+    color: var(--gp-txt-vip) !important;
+    text-shadow: var(--gp-shadow-txt);
+}
+
+/* §2 — 핵심 수치 강조 (금액·진단비·보험금) */
+.gp-value {
+    font-weight: 800 !important;
+    font-size: 1.2em !important;
+    text-shadow: var(--gp-shadow-txt);
+}
+
+/* §2 — 모든 시맨틱 블록 내부 텍스트 shadow 전파 */
+.gp-income *, .gp-medical *, .gp-risk *, .gp-vip * {
+    text-shadow: var(--gp-shadow-txt);
+}
+
+/* §3 — Glassmorphism 컨테이너 */
+.gp-glass {
+    backdrop-filter: var(--gp-blur) !important;
+    -webkit-backdrop-filter: var(--gp-blur) !important;
+    background: rgba(255,255,255,0.10) !important;
+    border: var(--gp-border-glass) !important;
+    border-radius: 14px !important;
+    will-change: transform;
+}
+
+/* §3 — GPU 가속 + 인터랙티브 피드백 (hover) */
+.gp-interactive {
+    will-change: transform;
+    transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+    cursor: pointer;
+}
+.gp-interactive:hover {
+    transform: scale(1.02) !important;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.55),
+                0 6px 24px rgba(0,0,0,0.22) !important;
+}
+
+/* §3 — 공통 카드 Border Glow (income/medical/risk/vip 공유) */
+.gp-income.gp-interactive:hover { box-shadow: 0 0 0 2px #7986CB, 0 8px 28px rgba(26,35,126,0.45) !important; }
+.gp-medical.gp-interactive:hover { box-shadow: 0 0 0 2px #80CBC4, 0 8px 28px rgba(0,105,92,0.45) !important; }
+.gp-risk.gp-interactive:hover    { box-shadow: 0 0 0 2px #EF9A9A, 0 8px 28px rgba(183,28,28,0.45) !important; }
+.gp-vip.gp-interactive:hover     { box-shadow: 0 0 0 2px #FFD700, 0 8px 28px rgba(69,39,160,0.45) !important; }
 </style>""", unsafe_allow_html=True)
 
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
@@ -20534,13 +20681,13 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "disability":
         tab_home_btn("disability")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+<div class="gp-risk gp-glass gp-interactive"
+  style="position:relative;border-radius:14px;padding:14px 20px;margin-bottom:14px;">
   {_bid('8-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+  <div style="font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🩺 장해보험금 산출
   </div>
-  <div style="color:#a7f3d0;font-size:0.82rem;margin-top:4px;">
+  <div style="font-size:0.82rem;margin-top:4px;opacity:0.9;">
     AMA 방식 · 맥브라이드(McBride) 방식 · 후유장해 산정
   </div>
 </div>""", unsafe_allow_html=True)
@@ -24567,13 +24714,13 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         if not _auth_gate("t5"): st.stop()
         tab_home_btn("t5")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+<div class="gp-vip gp-glass gp-interactive"
+  style="position:relative;border-radius:14px;padding:14px 20px;margin-bottom:14px;">
   {_bid('19-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+  <div style="font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🌅 노후설계 · 연금 3층 · 상속·증여
   </div>
-  <div style="color:#fde68a;font-size:0.82rem;margin-top:4px;">
+  <div style="font-size:0.82rem;margin-top:4px;opacity:0.9;">
     노후준비 · 연금 설계 · 상속세 절감 · 주택연금
   </div>
 </div>""", unsafe_allow_html=True)
@@ -27026,13 +27173,13 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
         st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('6400-1')}</div>""",
                     unsafe_allow_html=True)
         st.markdown("""
-<div style="background:linear-gradient(135deg,#0d1b2a 0%,#1a3a5c 100%);
-  border-left:5px solid #0ea5e9;border-radius:12px;
+<div class="gp-income gp-glass gp-interactive"
+  style="border-left:5px solid #90CAF9;border-radius:14px;
   padding:16px 20px;margin-bottom:12px;">
-  <div style="color:#7ec8f5;font-size:1.05rem;font-weight:900;margin-bottom:4px;">
+  <div style="font-size:1.05rem;font-weight:900;margin-bottom:4px;">
     🧬 의학경제학적 보장 컨설팅
   </div>
-  <div style="color:#94a3b8;font-size:0.78rem;line-height:1.6;">
+  <div style="font-size:0.78rem;line-height:1.6;opacity:0.9;">
     가이딩 프로토콜 제32조 기반 — 건강보험료 역산으로 고객의 일일 경제적 가치를 산출하고,<br>
     금감원 입원일당 한도와 비교하여 최적 보장 설계 브리핑 문구를 자동 생성합니다.
   </div>
