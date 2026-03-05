@@ -3743,6 +3743,8 @@ def load_members(force: bool = False):
                     "subscription_end": r.get("subscription_end", ""),
                     "is_active":        bool(r.get("is_active", True)),
                     "pin_hash":         r.get("pin_hash", "") or "",
+                    "status":           r.get("status", "active") or "active",
+                    "dormant_since":    r.get("dormant_since", "") or "",
                 } for r in rows}
                 _cache["data"] = result
                 _cache["ts"]   = _now
@@ -3780,6 +3782,8 @@ def save_members(members):
                         "join_date":        m.get("join_date", ""),
                         "subscription_end": m.get("subscription_end", ""),
                         "is_active":        bool(m.get("is_active", True)),
+                        "status":           m.get("status", "active") or "active",
+                        "dormant_since":    m.get("dormant_since", "") or "",
                     }
                     if m.get("pin_hash", ""):
                         _row["pin_hash"] = m["pin_hash"]
@@ -3887,29 +3891,49 @@ def ensure_master_members():
 def add_member(name, contact):
     """신규 회원 등록 - 연락처는 해시 암호화 저장
     동명이인 처리: 이름이 같아도 연락처가 다르면 별도 가입 허용.
-    이름+연락처 모두 동일하면 SAME_PERSON, 이름만 같으면 DUPLICATE_NAME 코드로 구분.
+    이름+연락처 모두 동일하면 SAME_PERSON (재가입 차단).
+    이름만 같고 연락처 다름 → 동명이인 또는 비번분실 재가입:
+      - 기존 계정이 active이면 dormant_pw_lost 처리 후 새 이름(번호 부여)으로 가입.
+      - 기존 계정이 이미 dormant이면 추가 dormant 없이 새 이름만 부여.
     """
     members = load_members()
+    _today = dt.now().strftime("%Y-%m-%d")
     if name in members:
-        # 이름+연락처 동시 비교 — 동명이인 허용 여부 판단
+        # 이름+연락처 동시 비교 — 완전 동일인 여부 판단
         if decrypt_data(members[name]["contact"], contact):
-            # 이름도 같고 연락처도 같음 → 완전 동일인 재가입 시도
+            # 이름도 같고 연락처도 같음 → 완전 동일인 재가입 → 차단
             raise ValueError(f"SAME_PERSON:{name}")
         else:
-            # 이름은 같지만 연락처 다름 → 동명이인 → 이름 뒤에 번호 자동 부여
+            # 이름은 같지만 연락처 다름 → 동명이인 또는 비번분실 재가입
+            # 기존 active 계정이 있으면 dormant_pw_lost 상태로 전환
+            if members[name].get("status", "active") == "active":
+                members[name]["status"]        = "dormant_pw_lost"
+                members[name]["dormant_since"] = _today
+                members[name]["is_active"]     = False
+            # 새 계정에 쓸 이름 결정: 이름(2), 이름(3) ... 순으로 부여
             _suffix = 2
             while f"{name}({_suffix})" in members:
+                _existing = members[f"{name}({_suffix})"]
+                # 이미 dormant_pw_lost 슬롯이면 건너뜀
+                if _existing.get("status", "active") != "active":
+                    _suffix += 1
+                    continue
+                # active 동명이인 존재 → 연락처 비교
+                if decrypt_data(_existing["contact"], contact):
+                    raise ValueError(f"SAME_PERSON:{name}({_suffix})")
                 _suffix += 1
             name = f"{name}({_suffix})"
     user_id = "GK_" + name + "_" + str(int(time.time()))
-    join_date = dt.now().strftime("%Y-%m-%d")
+    join_date = _today
     end_date = (dt.now() + timedelta(days=365)).strftime("%Y-%m-%d")
     members[name] = {
         "user_id": user_id,
         "contact": encrypt_contact(contact),  # 평문 저장 금지 → 해시 저장
         "join_date": join_date,
         "subscription_end": end_date,
-        "is_active": True
+        "is_active": True,
+        "status":   "active",
+        "dormant_since": "",
     }
     save_members(members)
     return members[name]
@@ -12476,21 +12500,64 @@ button[kind="secondary"][data-testid="baseButton-secondary"] {
                     st.rerun()
 
             with tab_s:
-                # 약관 동의 완료 여부 확인 — 미동의 시 로그인 탭 약관 동의 먼저 안내
+                # 약관 동의 완료 여부 확인
                 _su_terms = st.session_state.get("_lp_terms", {})
                 _su_agreed = _su_terms.get("t1") and _su_terms.get("t2") and _su_terms.get("t3")  # 필수 3개
                 if not _su_agreed:
                     _su_tr = st.session_state.get("_lp_terms", {"t1":False,"t2":False,"t3":False,"t4":False})
-                    _su_all = _su_tr.get("t1") and _su_tr.get("t2") and _su_tr.get("t3") and _su_tr.get("t4", False)
+                    _su_req = _su_tr.get("t1") and _su_tr.get("t2") and _su_tr.get("t3")
+                    _su_all = _su_req and _su_tr.get("t4", False)
+                    # ── CSS (로그인 탭과 동일) ─────────────────────────────────
+                    st.markdown("""
+<style>
+section[data-testid="stSidebar"] input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  border: 2.5px solid #1565C0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  box-shadow: 0 2px 6px rgba(21,101,192,0.30), inset 0 0 0 1px rgba(21,101,192,0.15) !important;
+  cursor: pointer !important;
+  position: relative !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+section[data-testid="stSidebar"] input[type="checkbox"]:checked {
+  background: transparent !important;
+  border: 2.5px solid #0D47A1 !important;
+  box-shadow: 0 2px 8px rgba(13,71,161,0.45), inset 0 0 0 1px rgba(13,71,161,0.20) !important;
+}
+section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
+  content: "✔" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  color: #0D47A1 !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+}
+</style>""", unsafe_allow_html=True)
                     st.markdown("""
 <div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:15px;
-  padding:18px 18px 14px 18px;text-align:center;margin-bottom:10px;
+  padding:20px 20px 16px 20px;margin-bottom:12px;text-align:center;
   box-shadow:0 4px 20px rgba(79,172,254,0.28);'>
-  <div style='font-size:1.5rem;margin-bottom:6px;'>🛡️</div>
-  <div style='font-weight:800;color:#0a1628;font-size:0.95rem;'>약관 동의가 필요합니다</div>
-  <div style='font-size:0.78rem;color:#1a3a5c;margin-top:6px;line-height:1.6;'>
-    아래 필수 항목 3개에 동의하시면 가입할 수 있습니다.
+  <div style='font-size:2rem;margin-bottom:8px;'>🛡️</div>
+  <div style='color:#0a1628;font-size:1.1rem;font-weight:800;'>안전한 서비스 이용을 위해<br>약관 동의가 필요합니다</div>
+  <div style='color:#1a3a5c;font-size:0.82rem;margin-top:6px;line-height:1.6;'>
+    아래 필수 항목에 동의하시면 가입 화면이 나타납니다.
   </div>
+</div>""", unsafe_allow_html=True)
+                    if not _su_req:
+                        st.markdown("""
+<div style='background:linear-gradient(135deg,rgba(79,172,254,0.15),rgba(0,242,254,0.10));
+  border:1.5px solid #4facfe;border-radius:10px;
+  padding:10px 14px;margin:0 0 10px 0;font-size:0.82rem;
+  color:#1e293b;font-weight:700;text-align:center;'>
+  ⬇️ 아래 필수 항목 3개를 모두 체크해주세요
 </div>""", unsafe_allow_html=True)
                     # 전체 동의 체크박스
                     _su_tc1, _su_tc2 = st.columns([1, 6])
@@ -12531,6 +12598,14 @@ button[kind="secondary"][data-testid="baseButton-secondary"] {
                             _su_changed = True
                     if _su_changed:
                         st.rerun()
+                    # ── 개인정보 안전 보장 (로그인 탭과 동일) ─────────────────
+                    st.markdown("""
+<div style='background:linear-gradient(135deg,rgba(79,172,254,0.12),rgba(0,242,254,0.08));
+  border:1.5px solid #4facfe;border-radius:12px;
+  padding:11px 14px;margin:10px 0;font-size:0.8rem;color:#1a3a5c;'>
+  🔒 <strong>개인정보 안전 보장</strong><br>
+  수집된 정보는 AES-256으로 암호화되어 저장되며, 탈퇴 시 즉시 완전 삭제됩니다.
+</div>""", unsafe_allow_html=True)
                 else:
                     st.markdown("""
 <div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:15px;
@@ -12595,8 +12670,8 @@ try {
                                         st.error(f"⚠️ {_sve_msg}")
             with tab_pw:
                 st.markdown("""
-<div style='border:2px solid #1565C0;border-radius:12px;padding:16px 18px 18px 18px;
-background:transparent;margin-bottom:4px;'>
+<div style='border:2px solid #1565C0;border-radius:12px;padding:12px 14px 4px 14px;
+background:transparent;margin-bottom:6px;'>
 <div style='font-size:0.82rem;color:#555;margin-bottom:8px;'>🔐 가입 시 등록한 이름과 기존 연락처로 본인 확인 후 새 비번을 설정합니다.</div>
 """, unsafe_allow_html=True)
                 with st.form("pw_change_form"):
@@ -12634,27 +12709,25 @@ background:transparent;margin-bottom:4px;'>
                                     save_members(_pw_members)
                                     st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
                 st.markdown("""
-<div style='background:#fff7ed;border:1.5px solid #f97316;border-radius:8px;
-  padding:8px 12px;font-size:0.76rem;color:#9a3412;margin-top:6px;margin-bottom:6px;line-height:1.8;'>
+<div style='border:2px solid #f97316;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#9a3412;margin-top:6px;margin-bottom:6px;line-height:1.8;background:#fff7ed;'>
 ⚠️ <b>비번(연락처)을 잊어버리신 경우</b><br>
 관리자는 고객의 정보를 알지 못하므로 비번을 알려드리지 못합니다.<br>
 기존 계정을 삭제하고 <b>신규로 회원가입</b>하신 후 이용해 주세요.<br>
 문의: <b>010-3074-2616</b>
 </div>
-<div style='background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;
-  padding:8px 12px;font-size:0.76rem;color:#0369a1;margin-top:0;line-height:1.7;'>
+<div style='border:1.5px solid #0369a1;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#0369a1;margin-top:0;margin-bottom:6px;line-height:1.7;background:#f0f9ff;'>
 🔒 <b>보안 안내</b><br>
 • 기존 연락처(비번) 확인 후에만 변경 가능합니다.<br>
 • 변경된 비번은 즉시 암호화(SHA-256 해시)되어 저장됩니다.<br>
 • 기존 비번은 변경 즉시 폐기되며 복구되지 않습니다.
-</div></div>""", unsafe_allow_html=True)
+</div>
+</div>""", unsafe_allow_html=True)
             with tab_nm:
                 st.markdown("""
-<div style='border:2px solid #1565C0;border-radius:12px;padding:16px 18px 18px 18px;
-background:transparent;margin-bottom:4px;'>
+<div style='border:2px solid #1565C0;border-radius:12px;padding:12px 14px 4px 14px;
+background:transparent;margin-bottom:6px;'>
 <div style='font-size:0.82rem;color:#555;margin-bottom:8px;'>✏️ 개명 등으로 이름 변경이 필요한 경우, 기존 이름과 연락처(비번)로 본인 확인 후 새 이름으로 변경합니다.</div>
-<div style='background:#fff7ed;border:1.5px solid #f97316;border-radius:8px;
-  padding:8px 12px;font-size:0.76rem;color:#9a3412;margin-bottom:8px;line-height:1.7;'>
+<div style='border:1.5px solid #f97316;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#9a3412;margin-bottom:8px;line-height:1.7;background:#fff7ed;'>
 ⚠️ <b>책임 고지</b><br>
 회원이 직접 입력한 정보의 오류로 인한 결과(로그인 오류, 데이터 접근 불가 등)의 책임은 본인에게 귀속됩니다.<br>
 <b>단, 시스템 오류·서버 장애로 인한 손해는 운영자가 책임집니다.</b><br>
