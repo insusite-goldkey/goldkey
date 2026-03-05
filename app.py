@@ -865,6 +865,7 @@ def _s39_sidebar_shell_html() -> str:
 
     이미지·통계 없이 텍스트 메뉴 리스트만 즉시 반환 — 0ms 목표.
     아바타/사용량 게이지는 비동기 hydration으로 후속 주입.
+    다크 배경(#0a1628) 기준 색상 — Visual Continuity §4 준수.
     """
     _menus = [
         ("💬", "AI 보장 분석 상담"),
@@ -878,15 +879,14 @@ def _s39_sidebar_shell_html() -> str:
     ]
     _rows = "".join(
         f'<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;'
-        f'border-radius:8px;margin-bottom:2px;background:rgba(255,255,255,0.04);">'
+        f'border-radius:8px;margin-bottom:2px;background:rgba(255,255,255,0.06);">'
         f'<span style="font-size:1rem;">{_icon}</span>'
-        f'<span style="font-size:0.82rem;font-weight:600;color:#1a2d5a;">{_label}</span>'
+        f'<span style="font-size:0.82rem;font-weight:600;color:#e2e8f0;">{_label}</span>'
         f'</div>'
         for _icon, _label in _menus
     )
     return (
-        '<div style="background:linear-gradient(135deg,#e8f4fd 0%,#f0f8ff 100%);'
-        'border:1px solid #c8dff5;border-radius:12px;padding:10px 8px;margin-bottom:8px;">'
+        '<div id="gk-shell-menu" style="border-radius:12px;padding:8px 6px;margin-bottom:6px;">'
         f'{_rows}</div>'
     )
 
@@ -8514,20 +8514,16 @@ def main():
         initial_sidebar_state="auto"
     )
 
-    # ── STEP 1-A: [제39조 §4] Visual Continuity — 사이드바 첫 프레임 배경색 고정 ──
-    # 네이티브 스플래시 배경(#0a1628)과 사이드바 첫 프레임 배경을 동일하게 유지.
-    # 전환 시 이질감 없이 즉각 cut — 애니메이션/페이드 없음.
+    # ── STEP 1-A: [제39조 §4] Visual Continuity — 사이드바 첫 프레임 즉각 표시 ──
+    # 웹앱 기준: 사이드바 배경 #FFFFFF 즉시 고정, transition 제거 → 로드 시 깜빡임 없음.
+    # (네이티브 앱 기준 #0a1628 다크 배경은 웹앱에서 라이트 UI를 파괴하므로 적용하지 않음.)
     st.markdown("""<style>
-/* [제39조 §4] Visual Continuity: 사이드바 배경 = 네이티브 스플래시 배경 */
+/* [제39조 §4] Visual Continuity: 첫 프레임 즉각 렌더 — transition 제거 */
+[data-testid="stSidebar"],
 [data-testid="stSidebar"] > div:first-child {
-    background-color: #0a1628 !important;
-}
-[data-testid="stSidebar"] {
-    background-color: #0a1628 !important;
-}
-/* 사이드바 내 텍스트 기본 색상 보정 (다크 배경) */
-[data-testid="stSidebar"] * {
-    color: inherit;
+    transition: none !important;
+    animation: none !important;
+    background-color: #FFFFFF !important;
 }
 </style>""", unsafe_allow_html=True)
 
@@ -9207,6 +9203,44 @@ section[data-testid="stSidebar"] {
     } catch(e) {}
   }
   setTimeout(run, 800);
+})();
+</script>""", height=0)
+
+    # ── [제39조 §3] 인증 실패 시 사이드바 자동 열기 — 로그인 화면 유도 ──
+    # _s39_prefetch_auth()가 백그라운드에서 캐시 검증 실패 시 _s39_auth_failed 플래그를 세팅.
+    # user_id 없이 auth_failed 플래그가 있으면 사이드바를 열어 로그인 폼으로 안내.
+    if (st.session_state.pop("_s39_auth_failed", False)
+            and "user_id" not in st.session_state):
+        components.html("""
+<script>
+(function(){
+  function tryOpen(pd) {
+    var selectors = [
+      '[data-testid="stSidebarCollapseButton"] button',
+      'button[aria-label="Open sidebar"]',
+      'button[aria-label="사이드바 열기"]',
+      'button[aria-label="expand sidebar"]',
+      'button[aria-label="Expand sidebar"]',
+      '[data-testid="collapsedControl"] button',
+      '[data-testid="collapsedControl"]'
+    ];
+    for (var i = 0; i < selectors.length; i++) {
+      var btn = pd.querySelector(selectors[i]);
+      if (btn) { btn.click(); return true; }
+    }
+    return false;
+  }
+  var attempts = 0;
+  function run() {
+    try {
+      var pd = window.parent.document;
+      var sidebar = pd.querySelector('[data-testid="stSidebar"]');
+      if (sidebar && sidebar.getAttribute('aria-expanded') === 'false') {
+        if (!tryOpen(pd) && attempts < 4) { attempts++; setTimeout(run, 400); }
+      }
+    } catch(e) {}
+  }
+  setTimeout(run, 600);
 })();
 </script>""", height=0)
 
@@ -10200,125 +10234,26 @@ function injectCheerBanner() {
 setTimeout(injectCheerBanner, 800);
 setTimeout(injectCheerBanner, 2000);
 
-/* ─── 3. Lottie 돋보기 오버레이 (순수 CSS 애니메이션) ─── */
-function buildLottieOverlay() {
+/* ─── 3. 약관 버튼 → 토스트 알림 (암전 오버레이 폐기, 제39조 §4) ─── */
+// [Fake-First §4] buildLottieOverlay 전체 암전 오버레이 삭제.
+// 약관/검색 버튼 클릭 시 하단 토스트 메시지로 대체 — 화면 즉각 전환 보장.
+function watchTermsBtnToast() {
   try {
     var pd = window.parent.document;
-    if (pd.getElementById('gk-lottie-overlay')) return;
-    var ov = pd.createElement('div');
-    ov.id = 'gk-lottie-overlay';
-    ov.style.cssText = [
-      'display:none',
-      'position:fixed',
-      'inset:0',
-      'z-index:99999',
-      'background:rgba(8,16,36,0.78)',
-      'backdrop-filter:blur(8px)',
-      '-webkit-backdrop-filter:blur(8px)',
-      'flex-direction:column',
-      'align-items:center',
-      'justify-content:center',
-    ].join(';');
-
-    // 돋보기 SVG 애니메이션 (Lottie 대체 — 순수 SVG+CSS, zero-bytes)
-    ov.innerHTML = [
-      '<div id="gk-mag-wrap" style="position:relative;width:110px;height:110px;">',
-        '<svg viewBox="0 0 100 100" width="110" height="110" style="overflow:visible;">',
-          '<defs>',
-            '<radialGradient id="gl1" cx="40%" cy="35%">',
-              '<stop offset="0%" stop-color="#7dd3fc" stop-opacity="0.6"/>',
-              '<stop offset="100%" stop-color="#0369a1" stop-opacity="0.1"/>',
-            '</radialGradient>',
-          '</defs>',
-          // 렌즈 테두리
-          '<circle cx="40" cy="40" r="28" fill="url(#gl1)" stroke="#0ea5e9" stroke-width="5"',
-            ' style="animation:gk-lens-pulse 1.6s ease-in-out infinite;transform-origin:40px 40px;"/>',
-          // 렌즈 내부 빛 반사
-          '<circle cx="32" cy="30" r="6" fill="rgba(255,255,255,0.25)"',
-            ' style="animation:gk-shimmer2 1.6s ease-in-out infinite;"/>',
-          // 스캔 라인
-          '<line x1="16" y1="40" x2="64" y2="40" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4 3"',
-            ' style="animation:gk-scan 0.8s linear infinite;transform-origin:40px 40px;"/>',
-          // 손잡이
-          '<line x1="61" y1="61" x2="82" y2="82" stroke="#0369a1" stroke-width="7"',
-            ' stroke-linecap="round" style="animation:gk-handle 1.6s ease-in-out infinite;transform-origin:61px 61px;"/>',
-        '</svg>',
-      '</div>',
-      '<div id="gk-lottie-label" style="',
-        'color:#e0f2fe;font-size:1.05rem;font-weight:900;',
-        'margin-top:20px;letter-spacing:0.06em;text-align:center;',
-        'font-family:Noto Sans KR,Malgun Gothic,sans-serif;',
-        'animation:gk-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.2s both;',
-      '">약관을 분석하고 있습니다...</div>',
-      '<div style="color:#7dd3fc;font-size:0.78rem;margin-top:8px;font-family:Noto Sans KR,sans-serif;">',
-        'AI가 핵심 조항을 추출 중입니다</div>',
-
-      // 애니메이션 keyframes
-      '<style>',
-        '@keyframes gk-lens-pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}',
-        '@keyframes gk-shimmer2{0%,100%{opacity:0.4;}50%{opacity:0.9;}}',
-        '@keyframes gk-scan{0%{transform:translateY(-14px);}100%{transform:translateY(14px);}}',
-        '@keyframes gk-handle{0%,100%{transform:rotate(0deg);}50%{transform:rotate(8deg);}}',
-        '@keyframes gk-pop{0%{opacity:0;transform:scale(0.8);}70%{transform:scale(1.05);}100%{opacity:1;transform:scale(1);}}',
-        '@keyframes gk-fadeup{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}',
-        '#gk-lottie-overlay.show{display:flex!important;}',
-      '</style>',
-    ].join('');
-
-    pd.body.appendChild(ov);
-
-    // ── 오버레이 표시/숨기기 헬퍼 ─────────────────────────────────────────
-    function showOverlay() {
-      var el = pd.getElementById('gk-lottie-overlay');
-      if (!el) return;
-      // 이전 타이머 취소 (중복 타이머 방지)
-      if (el._gk_timer) { clearTimeout(el._gk_timer); el._gk_timer = null; }
-      el.classList.add('show');
-      // 하드캡: 최대 10초 후 강제 해제 (st.rerun 타이머 유실 대비)
-      el._gk_timer = setTimeout(function(){
-        el.classList.remove('show');
-        el._gk_timer = null;
-      }, 10000);
-    }
-    function hideOverlay() {
-      var el = pd.getElementById('gk-lottie-overlay');
-      if (!el) return;
-      if (el._gk_timer) { clearTimeout(el._gk_timer); el._gk_timer = null; }
-      el.classList.remove('show');
-    }
-
-    // ── Streamlit rerun 감지 → 오버레이 강제 해제 ────────────────────────
-    // Streamlit은 rerun 시 #root 하위 DOM을 교체하므로 MutationObserver로 감지
-    try {
-      var _gk_root = pd.getElementById('root') || pd.body;
-      var _gk_obs = new MutationObserver(function(mutations) {
-        var changed = mutations.some(function(m){ return m.addedNodes.length > 0; });
-        if (changed) { hideOverlay(); }
-      });
-      _gk_obs.observe(_gk_root, { childList: true, subtree: false });
-    } catch(e){}
-
-    // 약관 검색 버튼 감지 → 오버레이 표시
-    function watchTermsBtn() {
-      try {
-        pd.querySelectorAll('button').forEach(function(btn){
-          var txt = (btn.textContent || '').trim();
-          if ((txt.includes('약관') || txt.includes('검색') || txt.includes('찾기') || txt.includes('추적'))
-              && !btn._gk_terms_watched) {
-            btn._gk_terms_watched = true;
-            btn.addEventListener('click', function(){ showOverlay(); });
-          }
-        });
-      } catch(e){}
-      setTimeout(watchTermsBtn, 2000);
-    }
-    watchTermsBtn();
-
-    // 오버레이 클릭 시 닫기
-    ov.addEventListener('click', function(){ hideOverlay(); });
+    pd.querySelectorAll('button').forEach(function(btn){
+      var txt = (btn.textContent || '').trim();
+      if ((txt.includes('약관') || txt.includes('검색') || txt.includes('찾기') || txt.includes('추적'))
+          && !btn._gk_terms_watched) {
+        btn._gk_terms_watched = true;
+        btn.addEventListener('click', function(){
+          showToast(pd, '🔍 AI가 약관을 분석 중입니다...', 6000);
+        }, {passive:true});
+      }
+    });
   } catch(e){}
+  setTimeout(watchTermsBtnToast, 2000);
 }
-setTimeout(buildLottieOverlay, 1000);
+setTimeout(watchTermsBtnToast, 1000);
 
 /* ─── 4. Count-up 숫자 효과 ─── */
 function countUp(el, target, duration, suffix) {
@@ -10503,10 +10438,16 @@ watchRipple();
 
     # ── 사이드바 ──────────────────────────────────────────────────────────
     with st.sidebar:
-        # ── [제39조 §2] Shell-First: 로그인 전 텍스트 메뉴 뼈대 즉시 출력 ──
-        # 아바타/통계/GCS 로드보다 먼저 실행 — 사용자가 메뉴를 즉시 확인 가능
-        if not st.session_state.get("user_id"):
-            st.markdown(_s39_sidebar_shell_html(), unsafe_allow_html=True)
+        # ── [제39조 §2 / Fake-First §1] Static Shell: 무조건 최우선 렌더 ──
+        # 로그인 여부와 무관하게 텍스트 메뉴 뼈대를 즉시 노출 (0ms 목표).
+        # 로그인 완료 후에는 아래 JS가 #gk-shell-menu를 display:none으로 숨김.
+        st.markdown(_s39_sidebar_shell_html(), unsafe_allow_html=True)
+        if st.session_state.get("user_id"):
+            st.markdown(
+                '<script>try{var _sh=window.parent.document.getElementById("gk-shell-menu");'
+                'if(_sh)_sh.style.display="none";}catch(e){}</script>',
+                unsafe_allow_html=True,
+            )
 
         # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (기존 아바타 완전 대체) ──
         render_goldkey_sidebar()
