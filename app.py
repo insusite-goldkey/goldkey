@@ -13382,14 +13382,6 @@ setTimeout(function(){
         _s39_render_landing_page()
         st.stop()
 
-    st.markdown("""
-<div style="font-size:clamp(36rem,120vw,63rem);font-weight:900;letter-spacing:-0.02em;
-line-height:1.05;color:#ffffff;padding:2px 0 12px 0;
-font-family:'Noto Sans KR',Malgun Gothic,sans-serif;
-text-shadow:0 2px 16px rgba(0,0,0,0.55);">
-  🏆 Goldkey AI Master
-</div>""", unsafe_allow_html=True)
-
     if 'current_tab' not in st.session_state:
         st.session_state.current_tab = "home"
     if '_nav_history' not in st.session_state:
@@ -16150,80 +16142,69 @@ div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button:hove
                 st.markdown("<hr style='border:none;border-top:1px solid #1e3a5f;margin:10px 0;'>",
                             unsafe_allow_html=True)
 
-        # ── 프리미엄 대시보드 헤더 (아바타 좌측 + 타이틀 우측) ────────────────
+        # ── [제47조] 임페리얼 골드 텍스처 헤더 (단일 권위 브랜딩) ─────────────
         _uname_disp = mask_name(st.session_state.get("user_name","")) if "user_id" in st.session_state else "마스터"
-        _hero_avatar_b64 = get_goldkey_avatar()
         import datetime as _hdt
         _today = _hdt.datetime.now()
         _weekday_kr = ["월","화","수","목","금","토","일"][_today.weekday()]
         _today_str = f"{_today.year}년 {_today.month:02d}월 {_today.day:02d}일 ({_weekday_kr})"
         st.markdown(f"""
-<div style="position:relative;
-  background:#ffffff;
-  border:1.5px solid #E0E0E0;
-  border-radius:16px;
-  padding:22px 28px 18px 24px;
-  margin-bottom:14px;
-  box-shadow:0 4px 20px rgba(26,35,126,0.10);
-  display:flex;
-  align-items:center;
-  gap:24px;
-  flex-wrap:nowrap;
+<div style="
+  position:relative;
+  background:#FDF5E6;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(0,77,64,0.04) 0px, rgba(0,77,64,0.04) 1px,
+      transparent 1px, transparent 8px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(0,77,64,0.03) 0px, rgba(0,77,64,0.03) 1px,
+      transparent 1px, transparent 8px
+    );
+  border:2px solid #004D40;
+  border-radius:10px;
+  padding:14px 20px 0 20px;
+  margin:0 0 0 0;
 ">
   {_bid('1-3-1')}
-  <!-- 아바타 -->
-  <div style="flex-shrink:0;">
-    <img src="{_hero_avatar_b64}"
-      style="width:100px;height:100px;border-radius:10px;object-fit:cover;
-             object-position:center top;border:2px solid #E0E0E0;
-             box-shadow:0 2px 10px rgba(0,0,0,0.10);"
-      onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-    <div style="display:none;width:100px;height:100px;border-radius:10px;
-      background:#E8EAF6;border:2px solid #E0E0E0;
-      align-items:center;justify-content:center;">
-      <svg viewBox="0 0 64 64" width="62" height="62" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="32" cy="22" r="13" fill="#c5cae9"/>
-        <ellipse cx="32" cy="52" rx="20" ry="14" fill="#c5cae9"/>
-        <ellipse cx="32" cy="20" rx="13" ry="8" fill="#7986cb"/>
-        <path d="M19 22 Q32 8 45 22" fill="#7986cb"/>
-      </svg>
-    </div>
+  <div style="
+    font-size:1.3rem;
+    font-weight:800;
+    color:#004D40;
+    font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+    letter-spacing:0.01em;
+    line-height:1.3;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  ">Goldkey_AI_Masters2026: 전문 보험 상담 동반</div>
+  <div style="
+    display:flex;align-items:center;justify-content:space-between;
+    margin-top:6px;
+    font-size:0.78rem;
+    color:#004D40;
+    opacity:0.75;
+    font-weight:600;
+    letter-spacing:0.03em;
+  ">
+    <span>{_today_str} &nbsp;·&nbsp; AI 보험컨설팅 통합 플랫폼</span>
+    <span style="display:flex;align-items:center;gap:5px;">
+      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;
+        background:#004D40;box-shadow:0 0 5px rgba(0,77,64,0.7);
+        animation:gk-hdr-blink 1.8s ease-in-out infinite;"></span>
+      {_uname_disp}님 접속 중
+    </span>
   </div>
-  <!-- 타이틀 영역 -->
-  <div style="flex:1;min-width:0;">
-    <div style="
-      font-size:clamp(32px,4vw,48px);
-      font-weight:900;
-      color:#1A237E;
-      line-height:1.15;
-      letter-spacing:-0.01em;
-      margin-bottom:8px;
-      font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
-    ">Goldkey AI Master<br>
-      <span style="font-size:clamp(20px,2.5vw,30px);font-weight:700;color:#283593;">설계사 대시보드</span>
-    </div>
-    <div style="
-      font-size:clamp(15px,1.8vw,20px);
-      font-weight:500;
-      color:#37474F;
-      margin-bottom:8px;
-      letter-spacing:0.01em;
-    ">{_today_str} &nbsp;·&nbsp; AI 보험컨설팅 통합 플랫폼</div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;
-        background:#22c55e;box-shadow:0 0 7px rgba(34,197,94,0.8);
-        animation:gk-blink2 1.8s ease-in-out infinite;"></span>
-      <span style="font-size:13px;font-weight:700;color:#388E3C;letter-spacing:0.06em;">
-        AI ONLINE &nbsp;·&nbsp; GEMINI 2.0 FLASH &nbsp;·&nbsp; {_uname_disp}님 접속 중
-      </span>
-    </div>
-  </div>
+  <div style="border-top:2px solid #004D40;margin:10px -20px 0 -20px;"></div>
 </div>
 <style>
-@keyframes gk-blink2 {{
-  0%,100% {{ opacity:1; }} 50% {{ opacity:0.3; }}
+@keyframes gk-hdr-blink {{
+  0%,100% {{ opacity:1; }} 50% {{ opacity:0.25; }}
 }}
 </style>
+<div style="margin-top:15px;"></div>
 """, unsafe_allow_html=True)
 
         # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
