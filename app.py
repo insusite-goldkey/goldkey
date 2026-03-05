@@ -3885,10 +3885,22 @@ def ensure_master_members():
         save_members(members)
 
 def add_member(name, contact):
-    """신규 회원 등록 - 연락처는 해시 암호화 저장"""
+    """신규 회원 등록 - 연락처는 해시 암호화 저장
+    동명이인 처리: 이름이 같아도 연락처가 다르면 별도 가입 허용.
+    이름+연락처 모두 동일하면 SAME_PERSON, 이름만 같으면 DUPLICATE_NAME 코드로 구분.
+    """
     members = load_members()
     if name in members:
-        raise ValueError(f"이미 가입된 회원입니다: {name}")
+        # 이름+연락처 동시 비교 — 동명이인 허용 여부 판단
+        if decrypt_data(members[name]["contact"], contact):
+            # 이름도 같고 연락처도 같음 → 완전 동일인 재가입 시도
+            raise ValueError(f"SAME_PERSON:{name}")
+        else:
+            # 이름은 같지만 연락처 다름 → 동명이인 → 이름 뒤에 번호 자동 부여
+            _suffix = 2
+            while f"{name}({_suffix})" in members:
+                _suffix += 1
+            name = f"{name}({_suffix})"
     user_id = "GK_" + name + "_" + str(int(time.time()))
     join_date = dt.now().strftime("%Y-%m-%d")
     end_date = (dt.now() + timedelta(days=365)).strftime("%Y-%m-%d")
@@ -12567,7 +12579,20 @@ button[kind="secondary"][data-testid="baseButton-secondary"] {
                                     st.success("가입 완료!")
                                     st.rerun()
                                 except ValueError as _su_ve:
-                                    st.error(f"⚠️ {_su_ve}")
+                                    _sve_msg = str(_su_ve)
+                                    if _sve_msg.startswith("SAME_PERSON:"):
+                                        st.error("⚠️ 이미 가입된 회원입니다. 로그인 탭에서 로그인해 주세요.")
+                                        from streamlit import components as _cmp
+                                        _cmp.v1.html("""
+<script>
+try {
+  var u = new SpeechSynthesisUtterance('회원가입되어 있습니다.');
+  u.lang = 'ko-KR'; u.rate = 0.95; u.pitch = 1.0;
+  window.speechSynthesis.speak(u);
+} catch(e) {}
+</script>""", height=0)
+                                    else:
+                                        st.error(f"⚠️ {_sve_msg}")
             with tab_pw:
                 st.markdown("""
 <div style='border:2px solid #1565C0;border-radius:12px;padding:16px 18px 18px 18px;
@@ -12609,8 +12634,15 @@ background:transparent;margin-bottom:4px;'>
                                     save_members(_pw_members)
                                     st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
                 st.markdown("""
+<div style='background:#fff7ed;border:1.5px solid #f97316;border-radius:8px;
+  padding:8px 12px;font-size:0.76rem;color:#9a3412;margin-top:6px;margin-bottom:6px;line-height:1.8;'>
+⚠️ <b>비번(연락처)을 잊어버리신 경우</b><br>
+관리자는 고객의 정보를 알지 못하므로 비번을 알려드리지 못합니다.<br>
+기존 계정을 삭제하고 <b>신규로 회원가입</b>하신 후 이용해 주세요.<br>
+문의: <b>010-3074-2616</b>
+</div>
 <div style='background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;
-  padding:8px 12px;font-size:0.76rem;color:#0369a1;margin-top:6px;line-height:1.7;'>
+  padding:8px 12px;font-size:0.76rem;color:#0369a1;margin-top:0;line-height:1.7;'>
 🔒 <b>보안 안내</b><br>
 • 기존 연락처(비번) 확인 후에만 변경 가능합니다.<br>
 • 변경된 비번은 즉시 암호화(SHA-256 해시)되어 저장됩니다.<br>
