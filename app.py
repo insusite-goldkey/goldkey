@@ -971,19 +971,42 @@ def _s39_render_landing_page() -> None:
 <style>
 /* ── [제39조] 랜딩 전체 여백 제거 ── */
 section[data-testid="stMain"] > div:first-child {{padding-top:0!important;}}
+/* 모바일 노치/홈바 safe-area 지원 */
+:root {{
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}}
 #gk-landing-root {{
-  position:fixed;top:0;left:0;width:100vw;height:100vh;
+  position:fixed;top:0;left:0;
+  width:100%;width:100vw;
+  height:100%;height:100vh;height:100dvh;
   z-index:9999;display:flex;flex-direction:column;
   align-items:center;justify-content:flex-end;
-  padding-bottom:clamp(40px,8vh,90px);
+  padding-top:var(--sat);
+  padding-bottom:max(clamp(40px,8vh,90px), calc(var(--sab) + 24px));
+  padding-left:var(--sal);
+  padding-right:var(--sar);
+  box-sizing:border-box;
   background:{_mobile_bg} center/cover no-repeat,{_bg_fallback};
   transition:opacity 0.15s ease;
+  overflow:hidden;
 }}
 /* 태블릿/가로 모드 이미지 전환 */
 @media (min-aspect-ratio:3/4) and (min-width:600px) {{
   #gk-landing-root {{
     background:{_tablet_bg} center/cover no-repeat,{_bg_fallback};
   }}
+}}
+/* Streamlit 기본 padding/margin 완전 제거 */
+.main .block-container {{
+  padding-top:0!important;
+  padding-bottom:0!important;
+  max-width:100%!important;
+}}
+header[data-testid="stHeader"] {{
+  display:none!important;
 }}
 /* 어두운 오버레이 — 텍스트 가독성 */
 #gk-landing-root::before {{
@@ -12945,9 +12968,10 @@ setTimeout(function(){
         st.stop()
 
     st.markdown("""
-<div style="font-size:clamp(2.4rem,8vw,4.2rem);font-weight:900;letter-spacing:-0.02em;
-line-height:1.05;color:#0f172a;padding:2px 0 12px 0;
-font-family:'Noto Sans KR',Malgun Gothic,sans-serif;">
+<div style="font-size:clamp(36rem,120vw,63rem);font-weight:900;letter-spacing:-0.02em;
+line-height:1.05;color:#ffffff;padding:2px 0 12px 0;
+font-family:'Noto Sans KR',Malgun Gothic,sans-serif;
+text-shadow:0 2px 16px rgba(0,0,0,0.55);">
   🏆 Goldkey AI Master
 </div>""", unsafe_allow_html=True)
 
@@ -15334,10 +15358,10 @@ renderCalendar();
                     st.session_state["_open_sidebar"] = True
                     st.rerun()
             st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
-  border-radius:12px;padding:12px 16px;margin-bottom:6px;text-align:center;">
+<div class="gk-teal-block" style="position:relative;text-align:center;">
   {_bid('1-1-1')}
-  <span style="color:#fff;font-size:0.95rem;font-weight:800;">
+  <span style="color:#ffffff;font-size:1.05rem;font-weight:900;
+    text-shadow:0 2px 6px rgba(0,0,0,0.55);">
     🔐 버튼을 클릭하면 가입/로그인 창이 열립니다
   </span>
 </div>""", unsafe_allow_html=True)
@@ -15347,12 +15371,12 @@ renderCalendar();
             _cur_utype = st.session_state.get("_gk_user_type", "customer")
             _eid_badge = f'<span style="font-size:0.72rem;background:#0f172a;color:#7dd3fc;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;letter-spacing:0.04em;">{_cur_eid}</span>' if _cur_eid else ""
             st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a5c3a 0%,#27ae60 100%);
-  border-radius:12px;padding:12px 18px;margin-bottom:6px;
+<div class="gk-teal-block" style="position:relative;
   display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
   {_bid('1-1-2')}
   <span style="font-size:1.5rem;">✅</span>
-  <span style="color:#fff;font-size:1.0rem;font-weight:900;">
+  <span style="color:#ffffff;font-size:1.1rem;font-weight:900;
+    text-shadow:0 2px 6px rgba(0,0,0,0.55);">
     {_uname} 마스터님 · 로그인됨
   </span>{_eid_badge}
 </div>""", unsafe_allow_html=True)
@@ -16608,22 +16632,53 @@ section[data-testid="stMain"] > div,
 }
 html, body { overscroll-behavior-y: contain !important; overflow-y: auto !important; }
 section[data-testid="stMain"] { overscroll-behavior-y: auto !important; overflow-y: auto !important; }
+/* ── [홈 스타일 리뉴얼] Teal Frosted Glass 블록 공통 ── */
+.gk-teal-block {
+    background: rgba(0,105,92,0.72) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1.5px solid rgba(0,150,136,0.55) !important;
+    border-radius: 12px !important;
+    padding: 12px 18px !important;
+    margin-bottom: 6px !important;
+    color: #ffffff !important;
+    transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+    box-shadow: 0 4px 18px rgba(0,77,64,0.30) !important;
+}
+.gk-teal-block:hover {
+    transform: scale(1.02) !important;
+    box-shadow: 0 0 0 3px rgba(0,230,180,0.55), 0 8px 28px rgba(0,77,64,0.40) !important;
+}
 /* 포트폴리오 카드 공통 */
 .gk-pf-card {
     border-radius:16px; padding:24px 22px 18px 22px;
     margin-bottom:6px; height:100%; box-sizing:border-box;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+}
+.gk-pf-card:hover {
+    transform: scale(1.02) !important;
+    box-shadow: 0 0 0 3px rgba(0,230,180,0.60), 0 10px 36px rgba(0,0,0,0.40) !important;
 }
 .gk-pf-title {
     font-size:1.55rem; font-weight:900; line-height:1.2;
     margin-bottom:8px; letter-spacing:0.01em;
+    color:#ffffff !important;
+    text-shadow:0 1px 6px rgba(0,0,0,0.50) !important;
 }
 .gk-pf-sub {
-    font-size:0.92rem; font-weight:500; line-height:1.6;
-    margin-bottom:12px; opacity:0.90;
+    font-size:0.92rem; font-weight:700; line-height:1.6;
+    margin-bottom:12px;
+    color:#ffffff !important;
+    text-shadow:0 1px 4px rgba(0,0,0,0.50) !important;
 }
 .gk-pf-count {
     display:inline-block; font-size:0.80rem; font-weight:800;
     padding:4px 12px; border-radius:20px; margin-bottom:14px;
+    color:#ffffff !important;
+    font-weight:700 !important;
+    font-size: calc(0.80rem * 1.2) !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -16631,39 +16686,43 @@ section[data-testid="stMain"] { overscroll-behavior-y: auto !important; overflow
         # ── 액션 버튼 CSS (볼륨감 그라디언트 + 그림자) ─────────────────────
         st.markdown("""
 <style>
-/* 1번 버튼 — 딥블루 → 인디고 */
+/* 1번 버튼 — Teal 딥 (AI상담 시작하기) */
 div[data-testid="stColumns"] > div:nth-child(1) div[data-testid="stButton"] > button {
-    background: linear-gradient(135deg, #1a237e 0%, #3949ab 50%, #1e40af 100%) !important;
+    background: linear-gradient(135deg, #004d40 0%, #00695c 50%, #00897b 100%) !important;
     color: #ffffff !important;
     font-size: 1.05rem !important;
     font-weight: 900 !important;
-    border: none !important;
+    border: 1.5px solid rgba(0,200,170,0.45) !important;
     border-radius: 12px !important;
     padding: 16px 0 !important;
-    box-shadow: 0 6px 20px rgba(26,35,126,0.45), 0 2px 6px rgba(0,0,0,0.25) !important;
+    box-shadow: 0 6px 20px rgba(0,77,64,0.50), 0 2px 6px rgba(0,0,0,0.25) !important;
     letter-spacing: 0.02em !important;
-    transition: transform 0.15s, box-shadow 0.15s !important;
+    transition: transform 0.18s, box-shadow 0.18s !important;
+    backdrop-filter: blur(10px) !important;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.40) !important;
 }
 div[data-testid="stColumns"] > div:nth-child(1) div[data-testid="stButton"] > button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 10px 28px rgba(26,35,126,0.55) !important;
+    transform: scale(1.02) !important;
+    box-shadow: 0 0 0 3px rgba(0,230,180,0.55), 0 10px 28px rgba(0,77,64,0.60) !important;
 }
-/* 2번 버튼 — 다크그린 → 에메랄드 */
+/* 2번 버튼 — Teal 라이트 (일정달력 보기) */
 div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > button {
-    background: linear-gradient(135deg, #064e3b 0%, #059669 50%, #0d9488 100%) !important;
+    background: linear-gradient(135deg, #00695c 0%, #00897b 50%, #26a69a 100%) !important;
     color: #ffffff !important;
     font-size: 1.05rem !important;
     font-weight: 900 !important;
-    border: none !important;
+    border: 1.5px solid rgba(0,200,170,0.45) !important;
     border-radius: 12px !important;
     padding: 16px 0 !important;
-    box-shadow: 0 6px 20px rgba(5,150,105,0.45), 0 2px 6px rgba(0,0,0,0.25) !important;
+    box-shadow: 0 6px 20px rgba(0,105,92,0.50), 0 2px 6px rgba(0,0,0,0.25) !important;
     letter-spacing: 0.02em !important;
-    transition: transform 0.15s, box-shadow 0.15s !important;
+    transition: transform 0.18s, box-shadow 0.18s !important;
+    backdrop-filter: blur(10px) !important;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.40) !important;
 }
 div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 10px 28px rgba(5,150,105,0.55) !important;
+    transform: scale(1.02) !important;
+    box-shadow: 0 0 0 3px rgba(0,230,180,0.55), 0 10px 28px rgba(0,105,92,0.60) !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -16693,16 +16752,16 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 
         with _pf_c1:
             st.markdown(f"""
-<div class="gk-pf-card" style="background:linear-gradient(145deg,#1e3a8a,#2563eb);
-  border:2px solid #3b82f6;box-shadow:0 8px 32px rgba(37,99,235,0.30);
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#004d40,#00695c);
+  border:2px solid rgba(0,200,170,0.55);box-shadow:0 8px 32px rgba(0,77,64,0.35);
   position:relative;overflow:hidden;">
   {_bid('1-5-1')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#93c5fd;letter-spacing:0.14em;
-    text-transform:uppercase;margin-bottom:6px;">A SECTION</div>
+  <div style="font-size:0.7rem;font-weight:900;color:#ffffff;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">A SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🔬 Smart Analysis<br>&amp; Hub</div>
-  <div class="gk-pf-sub" style="color:#bfdbfe;">
+  <div class="gk-pf-sub" style="color:#ffffff;">
     증권분석 · 약관검색 · 스캔허브<br>리플렛 · 고객자료 · 디지털카탈로그
   </div>
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 7개 핵심 서비스</span>
@@ -16733,16 +16792,16 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 
         with _pf_c2:
             st.markdown(f"""
-<div class="gk-pf-card" style="background:linear-gradient(145deg,#064e3b,#059669);
-  border:2px solid #10b981;box-shadow:0 8px 32px rgba(5,150,105,0.30);
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#00695c,#00897b);
+  border:2px solid rgba(0,200,170,0.55);box-shadow:0 8px 32px rgba(0,105,92,0.35);
   position:relative;overflow:hidden;">
   {_bid('1-5-2')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#6ee7b7;letter-spacing:0.14em;
-    text-transform:uppercase;margin-bottom:6px;">B SECTION</div>
+  <div style="font-size:0.7rem;font-weight:900;color:#ffffff;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">B SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🛡️ Expert<br>Consulting</div>
-  <div class="gk-pf-sub" style="color:#a7f3d0;">
+  <div class="gk-pf-sub" style="color:#ffffff;">
     신규/보험금 상담 · 장해 · 자동차사고<br>암·뇌·심장 · LIFE CYCLE
   </div>
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 11개 핵심 서비스</span>
@@ -16785,16 +16844,16 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 
         with _pf_c3:
             st.markdown(f"""
-<div class="gk-pf-card" style="background:linear-gradient(145deg,#78350f,#d97706);
-  border:2px solid #f59e0b;box-shadow:0 8px 32px rgba(217,119,6,0.30);
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#00695c,#26a69a);
+  border:2px solid rgba(0,200,170,0.55);box-shadow:0 8px 32px rgba(0,105,92,0.35);
   position:relative;overflow:hidden;">
   {_bid('1-5-3')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#fde68a;letter-spacing:0.14em;
-    text-transform:uppercase;margin-bottom:6px;">C SECTION</div>
+  <div style="font-size:0.7rem;font-weight:900;color:#ffffff;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">C SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">💼 Wealth &amp;<br>Corporate</div>
-  <div class="gk-pf-sub" style="color:#fde68a;">
+  <div class="gk-pf-sub" style="color:#ffffff;">
     노후·연금·상속 · 세무 · 법인<br>CEO · 비상장주식 · 화재·배상
   </div>
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 7개 핵심 서비스</span>
@@ -16830,16 +16889,16 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 
         with _pf_d1:
             st.markdown(f"""
-<div class="gk-pf-card" style="background:linear-gradient(145deg,#881337,#e11d48);
-  border:2px solid #fb7185;box-shadow:0 8px 32px rgba(225,29,72,0.28);
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#004d40,#00796b);
+  border:2px solid rgba(0,200,170,0.55);box-shadow:0 8px 32px rgba(0,77,64,0.35);
   position:relative;overflow:hidden;">
   {_bid('1-5-4')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#fecdd3;letter-spacing:0.14em;
-    text-transform:uppercase;margin-bottom:6px;">D SECTION</div>
+  <div style="font-size:0.7rem;font-weight:900;color:#ffffff;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">D SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🌸 Life &amp; Care</div>
-  <div class="gk-pf-sub" style="color:#fecdd3;">
+  <div class="gk-pf-sub" style="color:#ffffff;">
     LIFE EVENT · 맞춤 보험 상담<br>부동산 투자 · 간병비 · 의학경제학적 컨설팅
   </div>
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 4개 핵심 서비스</span>
@@ -16864,19 +16923,19 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 
         with _pf_d2:
             st.markdown(f"""
-<div class="gk-pf-card" style="background:linear-gradient(145deg,#1f2937,#374151);
-  border:2px solid #6b7280;box-shadow:0 8px 32px rgba(55,65,81,0.35);
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#00695c,#009688);
+  border:2px solid rgba(0,200,170,0.55);box-shadow:0 8px 32px rgba(0,105,92,0.35);
   position:relative;overflow:hidden;">
   {_bid('1-5-5')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.05);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#9ca3af;letter-spacing:0.14em;
-    text-transform:uppercase;margin-bottom:6px;">E SECTION</div>
+  <div style="font-size:0.7rem;font-weight:900;color:#ffffff;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">E SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🔍 보상 정보<br>시뮬레이션 가이드</div>
-  <div class="gk-pf-sub" style="color:#d1d5db;">
+  <div class="gk-pf-sub" style="color:#ffffff;">
     교통사고·산재·일반상해 보상 정보<br>KCD-8 매핑 · 전문가 지원 센터
   </div>
-  <span class="gk-pf-count" style="background:rgba(255,255,255,0.12);color:#e5e7eb;">📦 통합 시뮬레이션 가이드</span>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#ffffff;">📦 통합 시뮬레이션 가이드</span>
 </div>""", unsafe_allow_html=True)
             with st.expander("📂 E섹션 · 상세 서비스 목록 보기"):
                 st.markdown("""
@@ -16902,20 +16961,20 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 
         # ── F섹션: 보험봇 (전체 너비) ────────────────────────────────────
         st.markdown(f"""
-<div class="gk-pf-card" style="background:linear-gradient(145deg,#0f4c81,#1565c0);
-  border:2px solid #FFD700;box-shadow:0 8px 32px rgba(15,76,129,0.40);
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#004d40,#00695c);
+  border:2px solid rgba(0,230,180,0.60);box-shadow:0 8px 32px rgba(0,77,64,0.45);
   position:relative;overflow:hidden;">
   {_bid('1-5-6')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#FFD700;letter-spacing:0.14em;
-    text-transform:uppercase;margin-bottom:6px;">F SECTION · 가이딩 프로토콜 제6편 준수</div>
+  <div style="font-size:0.7rem;font-weight:900;color:#ffffff;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">F SECTION · 가이딩 프로토콜 제6편 준수</div>
   <div class="gk-pf-title" style="color:#fff;">🤖 보험봇 · InsuBot</div>
-  <div class="gk-pf-sub" style="color:#b3d4f5;">
+  <div class="gk-pf-sub" style="color:#ffffff;">
     가이딩 프로토콜 제22조 승인 출처 기반 AI 답변<br>
     제23조 금지 출처 차단 · 제24조 2차 검증 · 제25조 Red Alert
   </div>
-  <span class="gk-pf-count" style="background:rgba(255,215,0,0.18);color:#FFD700;">📋 보험 용어 · 판례 · 사례 검색</span>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#ffffff;">📋 보험 용어 · 판례 · 사례 검색</span>
 </div>""", unsafe_allow_html=True)
         with st.expander("📂 F섹션 · 보험봇 상세 기능 보기"):
             st.markdown("""
@@ -16940,16 +16999,14 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 
         # ── 하단 안내문구 ─────────────────────────────────────────────
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
-  border:none;border-radius:14px;
-  padding:18px 28px;margin:22px 0 10px 0;
-  box-shadow:0 4px 20px rgba(26,58,92,0.22);
-  text-align:center;">
+<div class="gk-teal-block" style="position:relative;padding:18px 28px;margin:22px 0 10px 0;text-align:center;">
   {_bid('1-5-7')}
-  <div style="font-size:1.1rem;font-weight:900;color:#fff;line-height:1.6;">
-    💡 상세 컨설팅 및 AI 분석은 좌측 사이드바의 <span style="color:#fbbf24;">29개 전문 섹션</span>에서 즉시 시작하실 수 있습니다.
+  <div style="font-size:1.1rem;font-weight:900;color:#ffffff;line-height:1.6;
+    text-shadow:0 1px 6px rgba(0,0,0,0.50);">
+    💡 상세 컨설팅 및 AI 분석은 좌측 사이드바의 <span style="color:#ffffff;font-weight:900;text-decoration:underline;">29개 전문 섹션</span>에서 즉시 시작하실 수 있습니다.
   </div>
-  <div style="font-size:0.82rem;color:#93c5fd;margin-top:6px;">
+  <div style="font-size:0.82rem;color:#ffffff;font-weight:700;margin-top:6px;
+    text-shadow:0 1px 4px rgba(0,0,0,0.50);">
     Smart Analysis · Expert Consulting · Wealth &amp; Corporate · Life &amp; Care · 보상 시뮬레이션 · 🤖 보험봇
   </div>
 </div>""", unsafe_allow_html=True)
