@@ -9780,6 +9780,46 @@ def main():
 .gp-medical.gp-interactive:hover { box-shadow: 0 0 0 2px #80CBC4, 0 8px 28px rgba(0,105,92,0.45) !important; }
 .gp-risk.gp-interactive:hover    { box-shadow: 0 0 0 2px #EF9A9A, 0 8px 28px rgba(183,28,28,0.45) !important; }
 .gp-vip.gp-interactive:hover     { box-shadow: 0 0 0 2px #FFD700, 0 8px 28px rgba(69,39,160,0.45) !important; }
+
+/* ================================================================
+   가이딩 프로토콜 제42조 보완: Sky-Trust Block (스카이 블루 신뢰 블록)
+   주요 데이터 블록 — 라이트 배경 + Deep Blue 테두리 + 흑자 가독성
+================================================================ */
+.gk-sky-trust {
+    background: #E3F2FD !important;
+    border: 2px solid #1565C0 !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+    color: #000000 !important;
+}
+.gk-sky-trust * {
+    color: #000000 !important;
+    text-shadow: none !important;
+}
+.gk-st-title {
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    color: #1565C0 !important;
+    letter-spacing: 0.04em !important;
+    margin-bottom: 6px !important;
+}
+.gk-st-amount {
+    font-size: 1.1em !important;
+    font-weight: 800 !important;
+    color: #000000 !important;
+    line-height: 1.2 !important;
+}
+.gk-sky-trust.gk-gap-danger {
+    border-color: #C62828 !important;
+    background: #FFEBEE !important;
+}
+.gk-sky-trust.gk-gap-danger .gk-st-title { color: #C62828 !important; }
+.gk-sky-trust.gk-gap-safe {
+    border-color: #2E7D32 !important;
+    background: #E8F5E9 !important;
+}
+.gk-sky-trust.gk-gap-safe .gk-st-title { color: #2E7D32 !important; }
 </style>""", unsafe_allow_html=True)
 
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
@@ -11424,6 +11464,40 @@ body.gk-senior #gk-senior-badge { display: block !important; }
 .gk-kpi.danger  { color: #dc2626 !important; }
 .gk-kpi.success { color: #15803d !important; }
 .gk-kpi.gold    { color: #b45309 !important; }
+
+/* §4-B: 가이딩 프로토콜 제42조 — Sky-Trust Block */
+.gk-sky-trust {
+    border: 2px solid #1565C0 !important;
+    background: #E3F2FD !important;
+    color: #000000 !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+}
+.gk-sky-trust.gk-gap-danger {
+    border-color: #C62828 !important;
+    background: #FFEBEE !important;
+}
+.gk-sky-trust.gk-gap-safe {
+    border-color: #2E7D32 !important;
+    background: #E8F5E9 !important;
+}
+.gk-st-title {
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.04em !important;
+    color: #1565C0 !important;
+    margin-bottom: 8px !important;
+}
+.gk-sky-trust.gk-gap-danger .gk-st-title { color: #B71C1C !important; }
+.gk-sky-trust.gk-gap-safe   .gk-st-title { color: #1B5E20 !important; }
+.gk-st-amount {
+    font-size: 1.1em !important;
+    font-weight: 800 !important;
+    color: #000000 !important;
+    line-height: 1.3 !important;
+    display: inline-block !important;
+}
 
 /* §5: 사망보험금·중증장해 레드 펄스 — 돋보기 모드 ON 시에만 */
 @keyframes gk-red-pulse {
@@ -14856,8 +14930,12 @@ function selectCustomer(name) {{
 
     # ── [달력] AgentCalendarView + ScheduleInputModal ─────────────────────
     if cur == "calendar":
-        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('3-1-1')}</div>""",
-                    unsafe_allow_html=True)
+        st.markdown(f"""
+<div class="gk-sky-trust gp-interactive" style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:10px;">
+  {_bid('3-1-1')}
+  <div class="gk-st-title">📅 상담 일정 관리</div>
+  <div style="font-size:0.8rem;margin-top:4px;">고객 방문 · 계약 일정 · 약속 관리</div>
+</div>""", unsafe_allow_html=True)
         _cal_back, _ = st.columns([1, 5])
         with _cal_back:
             if st.button("← 인트로", key="cal_back_btn", use_container_width=True):
@@ -15437,53 +15515,51 @@ renderCalendar();
         # ── [가이딩 프로토콜 제36조 §5] 베테랑 플래너 활용 매뉴얼 ──────────────────
         with st.expander("📖 베테랑 플래너 활용 매뉴얼 — 5단계 상담 시나리오 (가이딩 프로토콜 제36조 §5)", expanded=False):
             st.markdown("""
-<div style="background:#0f172a;border:1.5px solid #f0c040;border-radius:12px;
-  padding:16px 18px;font-family:'Noto Sans KR',sans-serif;font-size:0.82rem;line-height:1.7;">
+<div class="gk-sky-trust" style="font-family:'Noto Sans KR',sans-serif;font-size:0.82rem;line-height:1.7;">
 
-<div style="color:#fde68a;font-size:0.88rem;font-weight:900;margin-bottom:10px;
-  letter-spacing:0.04em;">🎯 GoldKey 가이딩 프로토콜 제36조 — 유니버설 시각 설계 5단계 상담 가이드</div>
+<div class="gk-st-title" style="font-size:0.88rem;margin-bottom:10px;letter-spacing:0.04em;">🎯 GoldKey 가이딩 프로토콜 제36조 — 유니버설 시각 설계 5단계 상담 가이드</div>
 
-<div style="background:#1e293b;border-left:4px solid #0ea5e9;border-radius:0 8px 8px 0;
+<div style="background:#BBDEFB;border-left:4px solid #1565C0;border-radius:0 8px 8px 0;
   padding:10px 14px;margin-bottom:10px;">
-  <b style="color:#7dd3fc;">STEP 1 · 건강보험료 역산 (제32조 × 제36조)</b><br>
-  <span style="color:#cbd5e1;">① 좌측 메뉴 <b>건보료 역산 탭</b>에서 월 보험료 입력 → 역산 실행<br>
-  ② <span style="color:#fbbf24;font-weight:700;">가처분소득</span>·<span style="color:#fbbf24;font-weight:700;">일일 경제가치</span> 카드가 1.5배 확대 표시됨<br>
+  <b style="color:#0D47A1;">STEP 1 · 건강보험료 역산 (제32조 × 제36조)</b><br>
+  <span style="color:#000;">① 좌측 메뉴 <b>건보료 역산 탭</b>에서 월 보험료 입력 → 역산 실행<br>
+  ② <span style="color:#E65100;font-weight:700;">가처분소득</span>·<span style="color:#E65100;font-weight:700;">일일 경제가치</span> 카드가 1.5배 확대 표시됨<br>
   ③ 고객과 함께 화면을 보며 "이 숫자가 고객님의 하루 가치입니다"로 시작</span>
 </div>
 
-<div style="background:#1e293b;border-left:4px solid #22c55e;border-radius:0 8px 8px 0;
+<div style="background:#BBDEFB;border-left:4px solid #2E7D32;border-radius:0 8px 8px 0;
   padding:10px 14px;margin-bottom:10px;">
-  <b style="color:#86efac;">STEP 2 · 돋보기 모드 ON (시니어 고객 필수)</b><br>
-  <span style="color:#cbd5e1;">① 우측 상단 <b>🔍 시니어</b> 버튼 클릭 → 전체 1.2배 확대 + 고대비<br>
+  <b style="color:#1B5E20;">STEP 2 · 돋보기 모드 ON (시니어 고객 필수)</b><br>
+  <span style="color:#000;">① 우측 상단 <b>🔍 시니어</b> 버튼 클릭 → 전체 1.2배 확대 + 고대비<br>
   ② 뇌·심장·치매 고위험 고객: <b>치매 생활비</b>(황금색) 카드 강조 지점 활용<br>
   ③ 모드 ON 상태에서 스크린샷을 고객 카카오톡으로 공유</span>
 </div>
 
-<div style="background:#1e293b;border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;
+<div style="background:#BBDEFB;border-left:4px solid #E65100;border-radius:0 8px 8px 0;
   padding:10px 14px;margin-bottom:10px;">
-  <b style="color:#fcd34d;">STEP 3 · 보험증권 파싱 → 레드 알림 확인</b><br>
-  <span style="color:#cbd5e1;">① 보험증권 분석 탭에서 증권 이미지 업로드<br>
-  ② AI 담보 인식 후 <span style="color:#ef4444;font-weight:700;">빨간 펄스 강조</span> 항목 = 사망보험금·80%이상 장해<br>
+  <b style="color:#BF360C;">STEP 3 · 보험증권 파싱 → 레드 알림 확인</b><br>
+  <span style="color:#000;">① 보험증권 분석 탭에서 증권 이미지 업로드<br>
+  ② AI 담보 인식 후 <span style="color:#C62828;font-weight:700;">빨간 펄스 강조</span> 항목 = 사망보험금·80%이상 장해<br>
   ③ 레드 항목이 "미가입" 또는 "부족"이면 → 긴급도 1순위로 설계안 제시</span>
 </div>
 
-<div style="background:#1e293b;border-left:4px solid #a78bfa;border-radius:0 8px 8px 0;
+<div style="background:#BBDEFB;border-left:4px solid #6A1B9A;border-radius:0 8px 8px 0;
   padding:10px 14px;margin-bottom:10px;">
-  <b style="color:#c4b5fd;">STEP 4 · 질환별 최적 담보 매핑 (제35조 × 제36조)</b><br>
-  <span style="color:#cbd5e1;">① 치매·뇌·심장 탭에서 CDR 단계 / 위험도 선택<br>
+  <b style="color:#4A148C;">STEP 4 · 질환별 최적 담보 매핑 (제35조 × 제36조)</b><br>
+  <span style="color:#000;">① 치매·뇌·심장 탭에서 CDR 단계 / 위험도 선택<br>
   ② <b>상세 지표 expander</b>의 뇌질환·치매 기준액 카드 함께 확인<br>
   ③ 우선 담보 테이블을 화면에 띄워 "이 순서대로 채우겠습니다"로 클로징</span>
 </div>
 
-<div style="background:#1e293b;border-left:4px solid #ef4444;border-radius:0 8px 8px 0;
+<div style="background:#BBDEFB;border-left:4px solid #C62828;border-radius:0 8px 8px 0;
   padding:10px 14px;margin-bottom:4px;">
-  <b style="color:#fca5a5;">STEP 5 · 브리핑 문구 복사 → 계약 마무리</b><br>
-  <span style="color:#cbd5e1;">① 역산 결과 하단 <b>전문가 브리핑 문구</b> 박스를 복사<br>
+  <b style="color:#B71C1C;">STEP 5 · 브리핑 문구 복사 → 계약 마무리</b><br>
+  <span style="color:#000;">① 역산 결과 하단 <b>전문가 브리핑 문구</b> 박스를 복사<br>
   ② 고객 설명 시 "가이딩 프로토콜 제32조 표준"·"금감원 기준" 문구로 신뢰 강화<br>
   ③ <b>금소법 제19조</b> 설명의무 이행 완료 후 서명 → 청약 진행</span>
 </div>
 
-<div style="color:#475569;font-size:0.70rem;margin-top:10px;border-top:1px solid #334155;padding-top:8px;">
+<div style="color:#37474F;font-size:0.70rem;margin-top:10px;border-top:1px solid #90CAF9;padding-top:8px;">
   📌 본 매뉴얼은 가이딩 프로토콜 제36조 §5 「자율 인터페이스 숙달 원칙」에 근거합니다.
   시니어·저시력 고객 상담 시 돋보기 모드를 반드시 활성화하세요.
 </div>
@@ -15748,25 +15824,24 @@ renderCalendar();
 
                         # ── 카드 HTML ──────────────────────────────────────────
                         st.markdown(f"""
-<div style="background:#0f172a;border:1px solid #1e3a5f;border-radius:10px;
-  padding:10px 14px;margin-bottom:4px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-  <div style="font-size:1.1rem;font-weight:900;color:#fbbf24;min-width:22px;">#{_rank}</div>
+<div class="gk-sky-trust" style="padding:10px 14px !important;margin-bottom:4px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <div style="font-size:1.1rem;font-weight:900;color:#E65100;min-width:22px;">#{_rank}</div>
   <div style="flex:1;min-width:0;">
-    <div style="color:#e2e8f0;font-size:0.85rem;font-weight:800;
+    <div style="color:#000;font-size:0.85rem;font-weight:800;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-      {_eid_safe} <span style="color:#64748b;font-size:0.7rem;font-weight:400;">· {_tgt["user_type"]}</span>
+      {_eid_safe} <span style="color:#37474F;font-size:0.7rem;font-weight:400;">· {_tgt["user_type"]}</span>
     </div>
-    <div style="color:#94a3b8;font-size:0.7rem;margin-top:2px;
+    <div style="color:#1565C0;font-size:0.7rem;margin-top:2px;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
       🔥 {_detail_str}
     </div>
-    <div style="color:#64748b;font-size:0.68rem;margin-top:1px;">
+    <div style="color:#37474F;font-size:0.68rem;margin-top:1px;">
       🕐 마지막 활동: {_recency_str}
     </div>
   </div>
   <div style="text-align:right;flex-shrink:0;">
     <div style="color:{_score_color};font-size:1.05rem;font-weight:900;">{_tgt["score"]}점</div>
-    <div style="color:#475569;font-size:0.65rem;">관심도 점수</div>
+    <div style="color:#37474F;font-size:0.65rem;">관심도 점수</div>
   </div>
 </div>""", unsafe_allow_html=True)
 
@@ -15835,10 +15910,9 @@ renderCalendar();
                                     st.rerun()
                 else:
                     st.markdown("""
-<div style="background:#0f172a;border:1px dashed #334155;border-radius:10px;
-  padding:16px;text-align:center;color:#475569;font-size:0.82rem;">
+<div class="gk-sky-trust" style="border-style:dashed !important;padding:16px !important;text-align:center;font-size:0.82rem;">
   📊 아직 추적 데이터가 없습니다.<br>
-  <span style="font-size:0.72rem;">고객이 메뉴를 클릭하면 자동으로 점수가 집계됩니다.</span>
+  <span style="font-size:0.72rem;color:#37474F;">고객이 메뉴를 클릭하면 자동으로 점수가 집계됩니다.</span>
 </div>""", unsafe_allow_html=True)
 
                 # ── CRM 섹터 바로가기 ──────────────────────────────────────────
@@ -17485,8 +17559,12 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
     if cur == "customer_mgmt":
         if not _auth_gate("customer_mgmt"): st.stop()
         tab_home_btn("customer_mgmt")
-        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('13-1-1')}</div>""",
-                    unsafe_allow_html=True)
+        st.markdown(f"""
+<div class="gk-sky-trust gp-interactive" style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('13-1-1')}
+  <div class="gk-st-title">👥 고객 관리</div>
+  <div style="font-size:0.8rem;margin-top:4px;">고객 정보 · 상담 이력 · 계약 현황 통합 관리</div>
+</div>""", unsafe_allow_html=True)
         try:
             from customer_mgmt import render_customer_tab as _render_cm
             _cm_sb  = _get_sb_client()
@@ -17506,29 +17584,26 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
         tab_home_btn("policy_scan")
 
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 50%,#27ae60 100%);
-  border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:14px;
-  box-shadow:0 4px 18px rgba(39,174,96,0.22);">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:18px 22px 14px 22px;margin-bottom:14px;">
   {_bid('4-1-1')}
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-size:2.2rem;">📎</div>
     <div>
-      <div style="color:#fff;font-size:1.22rem;font-weight:900;letter-spacing:0.04em;line-height:1.2;">
-        보험증권 분석 시스템
-      </div>
-      <div style="color:#a8f0c8;font-size:0.78rem;margin-top:3px;">
+      <div class="gk-st-title" style="font-size:1.1rem;">보험증권 분석 시스템</div>
+      <div style="font-size:0.78rem;margin-top:3px;">
         PDF·이미지 업로드 → AI 담보 자동 파싱 → 보장 공백 진단 → 신규 컨설팅 제안
       </div>
     </div>
   </div>
   <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-    <span style="background:rgba(255,255,255,0.15);color:#d0ffe8;border-radius:20px;
+    <span style="background:rgba(21,101,192,0.12);color:#1565C0;border-radius:20px;
       padding:3px 11px;font-size:0.72rem;font-weight:600;">📄 PDF 자동 파싱</span>
-    <span style="background:rgba(255,255,255,0.15);color:#d0ffe8;border-radius:20px;
+    <span style="background:rgba(21,101,192,0.12);color:#1565C0;border-radius:20px;
       padding:3px 11px;font-size:0.72rem;font-weight:600;">🔍 담보 구조 분석</span>
-    <span style="background:rgba(255,255,255,0.15);color:#d0ffe8;border-radius:20px;
+    <span style="background:rgba(21,101,192,0.12);color:#1565C0;border-radius:20px;
       padding:3px 11px;font-size:0.72rem;font-weight:600;">⚠️ 보장 공백 진단</span>
-    <span style="background:rgba(255,255,255,0.15);color:#d0ffe8;border-radius:20px;
+    <span style="background:rgba(21,101,192,0.12);color:#1565C0;border-radius:20px;
       padding:3px 11px;font-size:0.72rem;font-weight:600;">💡 신규 설계 제안</span>
   </div>
 </div>""", unsafe_allow_html=True)
@@ -18798,13 +18873,11 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
             st.stop()
         tab_home_btn("t0")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
-  border-radius:12px;padding:14px 18px;margin-bottom:12px;">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:14px 18px;margin-bottom:12px;">
   {_bid('5-1-1')}
-  <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
-    📋 신규 보험 상품 상담
-  </div>
-  <div style="color:#b3d4f5;font-size:0.78rem;margin-top:4px;">
+  <div class="gk-st-title">📋 신규 보험 상품 상담</div>
+  <div style="font-size:0.78rem;margin-top:4px;">
     🔒 보험설계사 전용 섹터 &nbsp;|&nbsp; 기존 증권 분석 → 보장 공백 진단 → 신규 컨설팅
   </div>
 </div>""", unsafe_allow_html=True)
@@ -19882,13 +19955,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         if not _auth_gate("t1"): st.stop()
         tab_home_btn("t1")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
   {_bid('6-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
-    💰 보험금 상담 · 민원 · 손해사정
-  </div>
-  <div style="color:#a7f3d0;font-size:0.82rem;margin-top:4px;">
+  <div class="gk-st-title">💰 보험금 상담 · 민원 · 손해사정</div>
+  <div style="font-size:0.82rem;margin-top:4px;">
     청구 절차 · 지급 거절 대응 · 손해사정 의뢰
   </div>
 </div>""", unsafe_allow_html=True)
@@ -20067,13 +20138,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
         # ── 헤더 ──────────────────────────────────────────────────────────
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 60%,#1abc9c 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
   {_bid('7-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
-    🚑 상해 통합 관리 — Life-Cycle Risk Management
-  </div>
-  <div style="color:#cce8ff;font-size:0.78rem;margin-top:4px;">
+  <div class="gk-st-title">🚑 상해 통합 관리 — Life-Cycle Risk Management</div>
+  <div style="font-size:0.78rem;margin-top:4px;">
     사고 유형 자동 분류 · 소득 보전 역산 · 보장 공백(Gap) 시각화 · 치료→장해→소득→사망 전 흐름 One-Stop
   </div>
 </div>""", unsafe_allow_html=True)
@@ -20818,13 +20887,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "disability":
         tab_home_btn("disability")
         st.markdown(f"""
-<div class="gp-risk gp-glass gp-interactive"
-  style="position:relative;border-radius:14px;padding:14px 20px;margin-bottom:14px;">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
   {_bid('8-1-1')}
-  <div style="font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
-    🩺 장해보험금 산출
-  </div>
-  <div style="font-size:0.82rem;margin-top:4px;opacity:0.9;">
+  <div class="gk-st-title">🩺 장해보험금 산출</div>
+  <div style="font-size:0.82rem;margin-top:4px;">
     AMA 방식 · 맥브라이드(McBride) 방식 · 후유장해 산정
   </div>
 </div>""", unsafe_allow_html=True)
@@ -21464,13 +21531,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         tab_home_btn("kcd_injury")
 
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a2e4a 0%,#1a4a3a 60%,#0e6655 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:16px;">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:16px;">
   {_bid('9-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
-    🔬 상해(S·T·V·W·X·Y)와 M의 상관관계
-  </div>
-  <div style="color:#a7f3d0;font-size:0.78rem;margin-top:4px;">
+  <div class="gk-st-title">🔬 상해(S·T·V·W·X·Y)와 M의 상관관계</div>
+  <div style="font-size:0.78rem;margin-top:4px;">
     후유장해 손해사정 · KCD 코드 전환 논리 · 외인코드 결합 실무 · 주체별 심사 기준
   </div>
 </div>""", unsafe_allow_html=True)
@@ -21818,13 +21883,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         tab_home_btn("auto_comp")
 
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#0c2340 0%,#1a3a5c 50%,#1e4d70 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:16px;">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:16px;">
   {_bid('10-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
-    🚗 자동차보험 및 보상 실무 통합 정리
-  </div>
-  <div style="color:#93c5fd;font-size:0.78rem;margin-top:4px;">
+  <div class="gk-st-title">🚗 자동차보험 및 보상 실무 통합 정리</div>
+  <div style="font-size:0.78rem;margin-top:4px;">
     담보 선택 가이드 · 산재 경합 시뮬레이션 · 캠핑카 요율 · 영구장해·사망 보상 체계
   </div>
 </div>""", unsafe_allow_html=True)
@@ -22360,14 +22423,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
         # ── Search Zone: 프리미엄 블루 그라데이션 카드 ───────────────────
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#0f4c81 0%,#1565c0 60%,#1a6fa8 100%);
-  border-radius:16px; padding:20px 22px 16px 22px; margin-bottom:4px;
-  box-shadow:0 4px 18px rgba(15,76,129,0.18);">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:20px 22px 16px 22px;margin-bottom:4px;">
   {_bid('11-1-1')}
-  <div style="color:#FFD700;font-size:1.15rem;font-weight:900;margin-bottom:4px;">
-    🤖 보험봇 · InsuBot
-  </div>
-  <div style="color:#b3d4f5;font-size:0.82rem;font-weight:600;margin-bottom:14px;">
+  <div class="gk-st-title" style="font-size:1.1rem;">🤖 보험봇 · InsuBot</div>
+  <div style="font-size:0.82rem;font-weight:600;margin-bottom:14px;">
     {gp_label(GP_ID_22)} 기반 · {gp_label(GP_ID_23)} 차단 · {gp_label(GP_ID_24)} 적용
   </div>
 </div>
@@ -22659,11 +22719,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
         # ── 헤더 카드 ─────────────────────────────────────────────────────
         st.markdown(f"""
-<div class="kp-header-card" style="position:relative;">
+<div class="gk-sky-trust gp-interactive" style="position:relative;border-radius:12px;padding:18px 22px 14px 22px;margin-bottom:14px;">
   {_bid('12-1-1')}
-  <h3>📂 전문가 지식 라이브러리 자동 학습</h3>
-  <p>약관 · 리플렛 · 공문 · 판례자료를 업로드하면 AI가 {gp_label(GP_ID_27)} · {gp_label(GP_ID_28)} 기준으로 자동 인덱싱합니다.<br>
-     설계사가 자료를 넣기만 하면 InsuBot이 스스로 진화하는 <b>자기완결형 지능체</b>로 발전합니다.</p>
+  <div class="gk-st-title" style="font-size:1.05rem;">📂 전문가 지식 라이브러리 자동 학습</div>
+  <div style="font-size:0.82rem;margin-top:6px;">약관 · 리플렛 · 공문 · 판례자료를 업로드하면 AI가 {gp_label(GP_ID_27)} · {gp_label(GP_ID_28)} 기준으로 자동 인덱싱합니다.<br>
+     설계사가 자료를 넣기만 하면 InsuBot이 스스로 진화하는 <b>자기완결형 지능체</b>로 발전합니다.</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -23153,13 +23213,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         if not _auth_gate("t2"): st.stop()
         tab_home_btn("t2")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
   {_bid('24-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
-    🛡️ 기본보험 상담
-  </div>
-  <div style="color:#a7f3d0;font-size:0.82rem;margin-top:4px;">
+  <div class="gk-st-title">🛡️ 기본보험 상담</div>
+  <div style="font-size:0.82rem;margin-top:4px;">
     자동차 · 화재 · 운전자 · 일상생활배상책임
   </div>
 </div>""", unsafe_allow_html=True)
@@ -23376,13 +23434,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         if not _auth_gate("t3"): st.stop()
         tab_home_btn("t3")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
   {_bid('14-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
-    🏥 질병·상해 통합보험 상담
-  </div>
-  <div style="color:#a7f3d0;font-size:0.82rem;margin-top:4px;">
+  <div class="gk-st-title">🏥 질병·상해 통합보험 상담</div>
+  <div style="font-size:0.82rem;margin-top:4px;">
     실손 · 암 · 뇌 · 심장 · 종합 보장 설계
   </div>
 </div>""", unsafe_allow_html=True)
@@ -23463,16 +23519,14 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 
         # ── 페이지 타이틀 헤더 ──────────────────────────────────────
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#6b1a1a 0%,#c0392b 55%,#e74c3c 100%);
-  border-radius:14px;padding:16px 22px;margin-bottom:16px;
-  box-shadow:0 6px 24px rgba(192,57,43,0.28);">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:16px 22px;margin-bottom:16px;">
   {_bid('15-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.04em;">
-    🎗️ 암·뇌·심장 중증질환 통합 상담</div>
-  <div style="color:#ffd5d5;font-size:0.8rem;margin-top:5px;">
+  <div class="gk-st-title">🎗️ 암·뇌·심장 중증질환 통합 상담</div>
+  <div style="font-size:0.8rem;margin-top:5px;">
     암 치료 · 뇌졸중(중풍) · 심근경색 — 치료비·간병비·보장 공백 AI 정밀 분석
-    <span style="background:rgba(255,255,255,0.18);border-radius:8px;
-    padding:2px 10px;margin-left:10px;font-size:0.74rem;font-weight:900;">
+    <span style="background:rgba(21,101,192,0.12);border-radius:8px;
+    padding:2px 10px;margin-left:10px;font-size:0.74rem;font-weight:900;color:#1565C0;">
     ✦ 아래 항목 선택 → 우측 리포트 실시간 반영</span></div>
 </div>""", unsafe_allow_html=True)
 
@@ -23857,13 +23911,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         if not _auth_gate("brain"): st.stop()
         tab_home_btn("brain")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 60%,#5b9bd5 100%);
-  border-radius:12px;padding:14px 18px;margin-bottom:10px;">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:14px 18px;margin-bottom:10px;">
   {_bid('16-1-1')}
-  <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
-    🧠 뇌질환(중풍) 전문 상담
-  </div>
-  <div style="color:#d0e8ff;font-size:0.78rem;margin-top:4px;">
+  <div class="gk-st-title">🧠 뇌질환(중풍) 전문 상담</div>
+  <div style="font-size:0.78rem;margin-top:4px;">
     뇌졸중 · 뇌경색 · 뇌출혈 — 치료비·간병비·한시장해·보장 공백 AI 정밀 분석
   </div>
 </div>""", unsafe_allow_html=True)
@@ -24210,60 +24262,50 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 # ── 시나리오 비교 카드 (제35조 §5) ───────────────────
                 st.markdown(f"""
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-  <div style="background:#0f172a;border:1.5px solid #ef4444;border-radius:10px;
-    padding:12px;text-align:center;">
-    <div style="color:#fca5a5;font-size:0.68rem;font-weight:800;
-      letter-spacing:0.06em;margin-bottom:4px;">❌ 수술비 단독</div>
-    <div style="color:#e2e8f0;font-size:1.2rem;font-weight:900;">
+  <div class="gk-sky-trust gk-gap-danger" style="padding:12px !important;text-align:center;">
+    <div class="gk-st-title">❌ 수술비 단독</div>
+    <div class="gk-st-amount">
       {_d35_r['surgery_only']//10000:,}만원
     </div>
-    <div style="color:#475569;font-size:0.68rem;margin-top:3px;">
+    <div style="font-size:0.68rem;margin-top:3px;color:#37474F;">
       {_d35_r['surgery_note'][:20]}…
     </div>
   </div>
-  <div style="background:#0f172a;border:1.5px solid #22c55e;border-radius:10px;
-    padding:12px;text-align:center;">
-    <div style="color:#86efac;font-size:0.68rem;font-weight:800;
-      letter-spacing:0.06em;margin-bottom:4px;">✅ 최적 조합</div>
-    <div style="color:#22c55e;font-size:1.2rem;font-weight:900;">
+  <div class="gk-sky-trust gk-gap-safe" style="padding:12px !important;text-align:center;">
+    <div class="gk-st-title">✅ 최적 조합</div>
+    <div class="gk-st-amount gk-kpi success">
       {_d35_r['optimal']//10000:,}만원
     </div>
-    <div style="color:#475569;font-size:0.68rem;margin-top:3px;">
+    <div style="font-size:0.68rem;margin-top:3px;color:#37474F;">
       효율 {_d35_r['efficiency_ratio']}배
     </div>
   </div>
 </div>
-<div style="background:#0f172a;border:1px solid #a78bfa;border-radius:8px;
-  padding:10px 12px;margin-bottom:8px;">
-  <div style="color:#c4b5fd;font-size:0.72rem;font-weight:800;margin-bottom:4px;">
-    💡 최적 조합 상세
-  </div>
-  <div style="color:#e2e8f0;font-size:0.8rem;line-height:1.5;">
+<div class="gk-sky-trust" style="padding:12px !important;margin-bottom:8px;">
+  <div class="gk-st-title">💡 최적 조합 상세</div>
+  <div style="font-size:0.82rem;line-height:1.5;color:#000;">
     {_d35_r['optimal_label']}
   </div>
 </div>""", unsafe_allow_html=True)
 
                 # ── 우선 담보 리스트 ──────────────────────────────────
                 _cov_rows = "".join([
-                    f'<tr><td style="border:1px solid #334155;padding:4px 8px;'
-                    f'color:#a78bfa;font-weight:800;">{cat}</td>'
-                    f'<td style="border:1px solid #334155;padding:4px 8px;'
-                    f'color:#e2e8f0;font-weight:700;">{name}</td>'
-                    f'<td style="border:1px solid #334155;padding:4px 8px;'
-                    f'color:#22c55e;font-size:0.78rem;">{amt}</td></tr>'
+                    f'<tr><td style="border:1px solid #90CAF9;padding:4px 8px;'
+                    f'color:#1565C0;font-weight:800;">{cat}</td>'
+                    f'<td style="border:1px solid #90CAF9;padding:4px 8px;'
+                    f'color:#000;font-weight:700;">{name}</td>'
+                    f'<td style="border:1px solid #90CAF9;padding:4px 8px;'
+                    f'color:#2E7D32;font-size:0.78rem;font-weight:700;">{amt}</td></tr>'
                     for cat, name, amt in _d35_r["coverage_list"]
                 ])
                 st.markdown(f"""
-<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;
-  padding:10px 12px;">
-  <div style="color:#c4b5fd;font-size:0.72rem;font-weight:800;margin-bottom:6px;">
-    🎯 {_d35_r['disease_icon']} {_d35_r['disease_name']} — 우선 담보 명칭 매핑 (제35조 §3)
-  </div>
+<div class="gk-sky-trust" style="padding:12px !important;">
+  <div class="gk-st-title">🎯 {_d35_r['disease_icon']} {_d35_r['disease_name']} — 우선 담보 명칭 매핑 (제35조 §3)</div>
   <table style="width:100%;border-collapse:collapse;font-size:0.78rem;">
-    <tr style="background:#1e1b4b;">
-      <th style="border:1px solid #334155;padding:4px 8px;color:#818cf8;">분류</th>
-      <th style="border:1px solid #334155;padding:4px 8px;color:#818cf8;">담보명</th>
-      <th style="border:1px solid #334155;padding:4px 8px;color:#818cf8;">권장금액</th>
+    <tr style="background:#BBDEFB;">
+      <th style="border:1px solid #90CAF9;padding:4px 8px;color:#1565C0;font-weight:700;">분류</th>
+      <th style="border:1px solid #90CAF9;padding:4px 8px;color:#1565C0;font-weight:700;">담보명</th>
+      <th style="border:1px solid #90CAF9;padding:4px 8px;color:#1565C0;font-weight:700;">권장금액</th>
     </tr>
     {_cov_rows}
   </table>
@@ -24303,29 +24345,29 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 def _ltci_facility(v):
                     return "시설 불가" if v is None else f"{v//10000:,}만원"
                 _ltci_rows = "".join([
-                    f'<tr {"style=&quot;background:#1e1b4b;&quot;" if i % 2 == 0 else ""}>'
-                    f'<td style="border:1px solid #334155;padding:4px 8px;'
-                    f'color:#c4b5fd;font-weight:700;">{grade}</td>'
-                    f'<td style="border:1px solid #334155;padding:4px 8px;'
-                    f'color:#6b7280;font-size:0.75rem;">{info["label"]}</td>'
-                    f'<td style="border:1px solid #334155;padding:4px 8px;'
-                    f'color:#86efac;">{info["재가"]//10000:,}만원</td>'
-                    f'<td style="border:1px solid #334155;padding:4px 8px;'
-                    f'color:#93c5fd;">{_ltci_facility(info["시설"])}</td></tr>'
+                    f'<tr style="background:{"#BBDEFB" if i % 2 == 0 else "#E3F2FD"};">'
+                    f'<td style="border:1px solid #90CAF9;padding:4px 8px;'
+                    f'color:#1565C0;font-weight:700;">{grade}</td>'
+                    f'<td style="border:1px solid #90CAF9;padding:4px 8px;'
+                    f'color:#37474F;font-size:0.75rem;">{info["label"]}</td>'
+                    f'<td style="border:1px solid #90CAF9;padding:4px 8px;'
+                    f'color:#2E7D32;font-weight:700;">{info["재가"]//10000:,}만원</td>'
+                    f'<td style="border:1px solid #90CAF9;padding:4px 8px;'
+                    f'color:#1565C0;">{_ltci_facility(info["시설"])}</td></tr>'
                     for i, (grade, info) in enumerate(_ART35_LTCI_BENEFIT.items())
                 ])
                 st.markdown(f"""
-<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px;">
+<div class="gk-sky-trust" style="padding:10px !important;">
   <table style="width:100%;border-collapse:collapse;font-size:0.78rem;">
-    <tr style="background:#1e1b4b;">
-      <th style="border:1px solid #334155;padding:4px 6px;color:#818cf8;">등급</th>
-      <th style="border:1px solid #334155;padding:4px 6px;color:#818cf8;">상태</th>
-      <th style="border:1px solid #334155;padding:4px 6px;color:#818cf8;">재가</th>
-      <th style="border:1px solid #334155;padding:4px 6px;color:#818cf8;">시설</th>
+    <tr style="background:#1565C0;">
+      <th style="border:1px solid #90CAF9;padding:4px 6px;color:#fff;font-weight:700;">등급</th>
+      <th style="border:1px solid #90CAF9;padding:4px 6px;color:#fff;font-weight:700;">상태</th>
+      <th style="border:1px solid #90CAF9;padding:4px 6px;color:#fff;font-weight:700;">재가</th>
+      <th style="border:1px solid #90CAF9;padding:4px 6px;color:#fff;font-weight:700;">시설</th>
     </tr>
     {_ltci_rows}
   </table>
-  <div style="color:#475569;font-size:0.70rem;margin-top:6px;">
+  <div style="color:#37474F;font-size:0.70rem;margin-top:6px;">
     ※ 제35조 §4: 매년 1월 급여액 변경 여부 자율 점검 (관리자 탭에서 업데이트)
   </div>
 </div>""", unsafe_allow_html=True)
@@ -24385,13 +24427,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
                 )
 
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#7d1a1a 0%,#c0392b 50%,#e67e22 100%);
-  border-radius:12px;padding:14px 18px;margin-bottom:10px;">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:14px 18px;margin-bottom:10px;">
   {_bid('17-1-1')}
-  <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
-    ❤️ 심장질환 전문 상담
-  </div>
-  <div style="color:#ffd5b0;font-size:0.78rem;margin-top:4px;">
+  <div class="gk-st-title">❤️ 심장질환 전문 상담</div>
+  <div style="font-size:0.78rem;margin-top:4px;">
     심근경색 · 협심증 · 심부전 — 치료비·재발 리스크·보장 공백 AI 정밀 분석
   </div>
 </div>""", unsafe_allow_html=True)
@@ -24642,8 +24682,12 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
     if cur == "img":
         if not _auth_gate("img"): st.stop()
         tab_home_btn("img")
-        st.subheader("📷 의무기록 및 증권 이미지 분석")
-        st.caption("보험 증권, 진단서, 의료 기록, 사고 현장 사진을 AI가 정밀 분석합니다.")
+        st.markdown(f"""
+<div class="gk-sky-trust gp-interactive" style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('18-1-1')}
+  <div class="gk-st-title">📷 의무기록 및 증권 이미지 분석</div>
+  <div style="font-size:0.8rem;margin-top:4px;">보험 증권, 진단서, 의료 기록, 사고 현장 사진을 AI가 정밀 분석합니다.</div>
+</div>""", unsafe_allow_html=True)
         col_a, col_b = st.columns([1, 1])
         with col_a:
             files = st.file_uploader("자료 업로드 (PDF/이미지)", accept_multiple_files=True,
@@ -24696,15 +24740,10 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         if not _auth_gate("t4"): st.stop()
         tab_home_btn("t4")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
-  {_bid('18-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
-    🚗 자동차사고 상담 · 과실비율 분석
-  </div>
-  <div style="color:#a7f3d0;font-size:0.82rem;margin-top:4px;">
-    과실비율 · 합의금 산정 · 13대 중과실 · 민식이법
-  </div>
+<div class="gk-sky-trust gp-interactive" style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('19-1-1')}
+  <div class="gk-st-title">🚗 자동차사고 상담 · 과실비율 분석</div>
+  <div style="font-size:0.82rem;margin-top:4px;">과실비율 · 합의금 산정 · 13대 중과실 · 민식이법</div>
 </div>""", unsafe_allow_html=True)
         col1, col2 = st.columns([1, 1])
         with col1:
@@ -24851,13 +24890,11 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
         if not _auth_gate("t5"): st.stop()
         tab_home_btn("t5")
         st.markdown(f"""
-<div class="gp-vip gp-glass gp-interactive"
-  style="position:relative;border-radius:14px;padding:14px 20px;margin-bottom:14px;">
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
   {_bid('19-1-1')}
-  <div style="font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
-    🌅 노후설계 · 연금 3층 · 상속·증여
-  </div>
-  <div style="font-size:0.82rem;margin-top:4px;opacity:0.9;">
+  <div class="gk-st-title">🌅 노후설계 · 연금 3층 · 상속·증여</div>
+  <div style="font-size:0.82rem;margin-top:4px;">
     노후준비 · 연금 설계 · 상속세 절감 · 주택연금
   </div>
 </div>""", unsafe_allow_html=True)
@@ -27310,13 +27347,11 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
         st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('6400-1')}</div>""",
                     unsafe_allow_html=True)
         st.markdown("""
-<div class="gp-income gp-glass gp-interactive"
-  style="border-left:5px solid #90CAF9;border-radius:14px;
+<div class="gk-sky-trust gp-interactive"
+  style="border-left:5px solid #1565C0;border-radius:12px;
   padding:16px 20px;margin-bottom:12px;">
-  <div style="font-size:1.05rem;font-weight:900;margin-bottom:4px;">
-    🧬 의학경제학적 보장 컨설팅
-  </div>
-  <div style="font-size:0.78rem;line-height:1.6;opacity:0.9;">
+  <div class="gk-st-title">🧬 의학경제학적 보장 컨설팅</div>
+  <div style="font-size:0.78rem;line-height:1.6;">
     가이딩 프로토콜 제32조 기반 — 건강보험료 역산으로 고객의 일일 경제적 가치를 산출하고,<br>
     금감원 입원일당 한도와 비교하여 최적 보장 설계 브리핑 문구를 자동 생성합니다.
   </div>
@@ -27377,14 +27412,10 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
             _me_col1, _me_col2, _me_col3 = st.columns(3)
             with _me_col1:
                 st.markdown(f"""
-<div style="background:#0f172a;border:1.5px solid #0ea5e9;border-radius:12px;
-  padding:16px 14px;text-align:center;">
-  <div style="color:#7dd3fc;font-size:0.72rem;font-weight:800;
-    letter-spacing:0.06em;margin-bottom:6px;">추정 월 소득 (가처분 소득)</div>
-  <div class="gk-kpi" style="color:#e2e8f0;line-height:1.1;">
-    {_me_r["monthly_income"]:,}원
-  </div>
-  <div style="color:#475569;font-size:0.68rem;margin-top:4px;">
+<div class="gk-sky-trust" style="text-align:center;">
+  <div class="gk-st-title">추정 월 소득 (가처분 소득)</div>
+  <div class="gk-st-amount gk-kpi">{_me_r["monthly_income"]:,}원</div>
+  <div style="font-size:0.68rem;margin-top:4px;color:#37474F;">
     건강보험료 ÷ {round(_CURRENT_NHIS_RATE*100,2)}%
   </div>
 </div>""", unsafe_allow_html=True)
@@ -27392,14 +27423,10 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
             with _me_col2:
                 _daily_color = "#22c55e" if _me_gap == 0 else "#f59e0b"
                 st.markdown(f"""
-<div style="background:#0f172a;border:1.5px solid {_daily_color};border-radius:12px;
-  padding:16px 14px;text-align:center;">
-  <div style="color:#fde68a;font-size:0.72rem;font-weight:800;
-    letter-spacing:0.06em;margin-bottom:6px;">일일 경제적 가치</div>
-  <div class="gk-kpi gold" style="line-height:1.1;">
-    {_me_daily_만}만원/일
-  </div>
-  <div style="color:#475569;font-size:0.68rem;margin-top:4px;">
+<div class="gk-sky-trust" style="text-align:center;">
+  <div class="gk-st-title">일일 경제적 가치</div>
+  <div class="gk-st-amount gk-kpi gold">{_me_daily_만}만원/일</div>
+  <div style="font-size:0.68rem;margin-top:4px;color:#37474F;">
     금감원 한도: {_me_lim_만}만원
   </div>
 </div>""", unsafe_allow_html=True)
@@ -27408,15 +27435,14 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                 _gap_color = "#ef4444" if _me_gap > 0 else "#22c55e"
                 _gap_label = f"부족분 {_me_gap_만}만원" if _me_gap > 0 else "한도 이내"
                 _gap_icon  = "⚠️" if _me_gap > 0 else "✅"
+                _gap_cls   = "gk-gap-danger" if _me_gap > 0 else "gk-gap-safe"
                 st.markdown(f"""
-<div style="background:#0f172a;border:1.5px solid {_gap_color};border-radius:12px;
-  padding:16px 14px;text-align:center;">
-  <div style="color:#fca5a5;font-size:0.72rem;font-weight:800;
-    letter-spacing:0.06em;margin-bottom:6px;">보장 공백 진단</div>
-  <div class="gk-kpi {'danger' if _me_gap > 0 else 'success'}" style="line-height:1.1;color:{_gap_color};">
+<div class="gk-sky-trust {_gap_cls}" style="text-align:center;">
+  <div class="gk-st-title">보장 공백 진단</div>
+  <div class="gk-st-amount gk-kpi {'danger' if _me_gap > 0 else 'success'}">
     {_gap_icon} {_gap_label}
   </div>
-  <div style="color:#475569;font-size:0.68rem;margin-top:4px;">
+  <div style="font-size:0.68rem;margin-top:4px;color:#37474F;">
     {"수술비 담보 보완 필요" if _me_gap > 0 else "입원일당 단독 설계 가능"}
   </div>
 </div>""", unsafe_allow_html=True)
@@ -27427,37 +27453,30 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                 _det_c1, _det_c2 = st.columns(2)
                 with _det_c1:
                     st.markdown(f"""
-<div style="background:#0f172a;border:1.5px solid #6366f1;border-radius:10px;
-  padding:12px 14px;text-align:center;margin-bottom:8px;">
-  <div style="color:#a5b4fc;font-size:0.70rem;font-weight:800;
-    letter-spacing:0.05em;margin-bottom:4px;">2년 소득 대체 목표액 (상해장해)</div>
-  <div class="gk-kpi" style="color:#e2e8f0;">{_me_r['disability_2yr']:,}원</div>
-  <div style="color:#475569;font-size:0.65rem;margin-top:3px;">월 소득 × 24개월</div>
+<div class="gk-sky-trust" style="text-align:center;margin-bottom:8px;padding:14px !important;">
+  <div class="gk-st-title">2년 소득 대체 목표액 (상해장해)</div>
+  <div class="gk-st-amount gk-kpi">{_me_r['disability_2yr']:,}원</div>
+  <div style="font-size:0.65rem;margin-top:3px;color:#37474F;">월 소득 × 24개월</div>
 </div>""", unsafe_allow_html=True)
                     st.markdown(f"""
-<div style="background:#0f172a;border:1.5px solid #0e7490;border-radius:10px;
-  padding:12px 14px;text-align:center;">
-  <div style="color:#67e8f9;font-size:0.70rem;font-weight:800;
-    letter-spacing:0.05em;margin-bottom:4px;">뇌질환 집중 보장 기준</div>
-  <div class="gk-kpi" style="color:#e2e8f0;">{_me_r['stroke_need']:,}원</div>
-  <div style="color:#475569;font-size:0.65rem;margin-top:3px;">월 소득 × {_ART32_STROKE_PERIOD_MO}개월</div>
+<div class="gk-sky-trust" style="text-align:center;padding:14px !important;">
+  <div class="gk-st-title">뇌질환 집중 보장 기준</div>
+  <div class="gk-st-amount gk-kpi">{_me_r['stroke_need']:,}원</div>
+  <div style="font-size:0.65rem;margin-top:3px;color:#37474F;">월 소득 × {_ART32_STROKE_PERIOD_MO}개월</div>
 </div>""", unsafe_allow_html=True)
                 with _det_c2:
                     st.markdown(f"""
-<div style="background:#0f172a;border:1.5px solid #d97706;border-radius:10px;
-  padding:12px 14px;text-align:center;margin-bottom:8px;">
-  <div style="color:#fcd34d;font-size:0.70rem;font-weight:800;
-    letter-spacing:0.05em;margin-bottom:4px;">치매 생활비 (장기요양 기준)</div>
-  <div class="gk-kpi gold" style="">{_me_r['dementia_need']:,}원</div>
-  <div style="color:#475569;font-size:0.65rem;margin-top:3px;">월 소득 × {_ART32_DEMENTIA_PERIOD_MO}개월</div>
+<div class="gk-sky-trust" style="text-align:center;margin-bottom:8px;padding:14px !important;">
+  <div class="gk-st-title">치매 생활비 (장기요양 기준)</div>
+  <div class="gk-st-amount gk-kpi gold">{_me_r['dementia_need']:,}원</div>
+  <div style="font-size:0.65rem;margin-top:3px;color:#37474F;">월 소득 × {_ART32_DEMENTIA_PERIOD_MO}개월</div>
 </div>""", unsafe_allow_html=True)
+                    _gap_inj_cls = "gk-gap-danger" if _me_r['gap_injury'] > 0 else "gk-gap-safe"
                     st.markdown(f"""
-<div style="background:#0f172a;border:1.5px solid #dc2626;border-radius:10px;
-  padding:12px 14px;text-align:center;">
-  <div style="color:#fca5a5;font-size:0.70rem;font-weight:800;
-    letter-spacing:0.05em;margin-bottom:4px;">상해 기준 일당 부족분</div>
-  <div class="gk-kpi {'danger' if _me_r['gap_injury'] > 0 else 'success'}" style="">{_me_r['gap_injury']:,}원/일</div>
-  <div style="color:#475569;font-size:0.65rem;margin-top:3px;">일일 가치 - 금감원 한도 {_ART32_FSS_LIMIT_INJURY//10000}만원</div>
+<div class="gk-sky-trust {_gap_inj_cls}" style="text-align:center;padding:14px !important;">
+  <div class="gk-st-title">상해 기준 일당 부족분</div>
+  <div class="gk-st-amount gk-kpi {'danger' if _me_r['gap_injury'] > 0 else 'success'}">{_me_r['gap_injury']:,}원/일</div>
+  <div style="font-size:0.65rem;margin-top:3px;color:#37474F;">일일 가치 - 금감원 한도 {_ART32_FSS_LIMIT_INJURY//10000}만원</div>
 </div>""", unsafe_allow_html=True)
                 st.caption(_art34_report_footer())
 
