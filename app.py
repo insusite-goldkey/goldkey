@@ -14710,6 +14710,40 @@ renderCalendar();
 
     # ── [홈] 카드 네비게이션 ──────────────────────────────────────────────
     if cur == "home":
+        # ── [제39조 §3] 대시보드 스켈레톤 선렌더 → GCS 데이터 도착 시 Hydration ──
+        # 첫 렌더(_home_skeleton_shown 미설정) 시 skeleton 플레이스홀더를 즉시 표시.
+        # GCS 데이터(_art38_wisdom_loaded + insight 배너 준비) 완료 시 JS로 skeleton 제거.
+        _home_first = not st.session_state.get('_home_skeleton_shown')
+        if _home_first:
+            st.session_state['_home_skeleton_shown'] = True
+            st.markdown("""
+<div id="gk-dash-skeleton" style="padding:8px 0 4px 0;">
+  <div class="gk-skeleton" style="height:22px;border-radius:8px;width:55%;margin-bottom:12px;"></div>
+  <div style="display:flex;gap:10px;margin-bottom:10px;">
+    <div class="gk-skeleton" style="height:80px;border-radius:12px;flex:1;"></div>
+    <div class="gk-skeleton" style="height:80px;border-radius:12px;flex:1;"></div>
+    <div class="gk-skeleton" style="height:80px;border-radius:12px;flex:1;"></div>
+  </div>
+  <div class="gk-skeleton" style="height:14px;border-radius:5px;width:80%;margin-bottom:8px;"></div>
+  <div class="gk-skeleton" style="height:14px;border-radius:5px;width:65%;margin-bottom:8px;"></div>
+  <div class="gk-skeleton" style="height:14px;border-radius:5px;width:72%;"></div>
+</div>""", unsafe_allow_html=True)
+            # 스켈레톤 → 실제 콘텐츠 Hydration: 200ms 후 skeleton 제거
+            import streamlit.components.v1 as _s39_sk_comp
+            _s39_sk_comp.html("""<script>
+(function(){
+  function _hydrate(){
+    try {
+      var _pd = window.parent ? window.parent.document : document;
+      var _sk = _pd.getElementById('gk-dash-skeleton');
+      if(_sk){ _sk.style.transition='opacity 0.15s'; _sk.style.opacity='0';
+               setTimeout(function(){ _sk.style.display='none'; }, 160); }
+    } catch(e){}
+  }
+  setTimeout(_hydrate, 200);
+})();
+</script>""", height=1)
+
         # 홈 화면 첫 렌더 완료 플래그 — 다음 rerun 시 RAG/STT 지연 로드 트리거
         if not st.session_state.get('home_rendered'):
             st.session_state.home_rendered = True
