@@ -10532,7 +10532,7 @@ section[data-testid="stSidebar"] {
         components.html("""
 <script>
 (function(){
-  // 로그인 직후 사이드바 자동 접기 — 800ms 대기 후 실행, 실패 시 300ms 간격 3회 재시도
+  // ── 사이드바 닫기 공통 함수 ──────────────────────────────────────
   function tryClose(pd) {
     var selectors = [
       '[data-testid="stSidebarCollapseButton"] button',
@@ -10551,27 +10551,58 @@ section[data-testid="stSidebar"] {
     }
     return false;
   }
+  function isSidebarOpen(pd) {
+    var sidebar = pd.querySelector('[data-testid="stSidebar"]');
+    if (!sidebar) return false;
+    var expanded = sidebar.getAttribute('aria-expanded');
+    if (expanded === 'false') return false;
+    // aria-expanded 없는 구버전: 너비로 판단
+    if (!expanded) return sidebar.offsetWidth > 80;
+    return true;
+  }
+
+  // ── 1. 로그인 직후 자동 닫기 (1200ms 대기, 최대 6회 재시도) ────
   var attempts = 0;
-  function run() {
+  function runClose() {
     try {
       var pd = window.parent.document;
-      var sidebar = pd.querySelector('[data-testid="stSidebar"]');
-      // 사이드바가 실제로 열려있을 때만 닫기 시도
-      if (sidebar && sidebar.getAttribute('aria-expanded') !== 'false') {
-        if (!tryClose(pd) && attempts < 4) {
+      if (isSidebarOpen(pd)) {
+        if (!tryClose(pd) && attempts < 6) {
           attempts++;
-          setTimeout(run, 400);
-        }
-      } else if (sidebar && !sidebar.getAttribute('aria-expanded')) {
-        // aria-expanded 없는 구버전 — 무조건 시도
-        if (!tryClose(pd) && attempts < 3) {
-          attempts++;
-          setTimeout(run, 400);
+          setTimeout(runClose, 350);
         }
       }
     } catch(e) {}
   }
-  setTimeout(run, 800);
+  setTimeout(runClose, 800);
+  setTimeout(runClose, 1400);
+
+  // ── 2. 본앱(메인 영역) 클릭 시 사이드바 자동 닫기 ──────────────
+  (function attachMainClickListener(){
+    try {
+      var pd = window.parent.document;
+      var mainArea = pd.querySelector('[data-testid="stMain"]')
+                  || pd.querySelector('.main')
+                  || pd.querySelector('[data-testid="stAppViewContainer"]');
+      if (!mainArea) {
+        setTimeout(attachMainClickListener, 800);
+        return;
+      }
+      if (mainArea._gk_sb_listener) return;
+      mainArea._gk_sb_listener = true;
+      mainArea.addEventListener('click', function(e){
+        try {
+          var sidebar = pd.querySelector('[data-testid="stSidebar"]');
+          if (!sidebar) return;
+          // 사이드바 내부 클릭이면 무시
+          if (sidebar.contains(e.target)) return;
+          if (isSidebarOpen(pd)) tryClose(pd);
+        } catch(ex) {}
+      }, { passive: true });
+    } catch(e) {
+      setTimeout(attachMainClickListener, 800);
+    }
+  })();
 })();
 </script>""", height=0)
 
@@ -10667,9 +10698,9 @@ html, body, [data-testid="stApp"] {
     transition: background-color 2s var(--gk-ease) !important;
 }
 
-/* ── 메인 컨테이너 여백 (개선7: 상단 여백 최소화) ── */
+/* ── 메인 컨테이너 여백 (제47조 최종안: 실선-첫블럭 15px) ── */
 .block-container {
-    padding-top: 0.5rem !important;
+    padding-top: 15px !important;
     padding-bottom: 2rem !important;
     max-width: 820px !important;
 }
@@ -11132,12 +11163,12 @@ h1, h2, h3, h4, h5, h6 {
     color: #c0392b !important;
 }
 
-/* ── 가이딩 프로토콜 제9조: 공간 구획 및 경계 ──
-   모든 페이지 외곽 #E0E0E0 실선 + 섹션 간 구분선 (개선2) */
+/* ── 가이딩 프로토콜 제9조 + 제47조: 공간 구획 및 경계 ──
+   모든 페이지 외곽 #E0E0E0 실선 + 실선-첫블럭 간격 15px (제47조 최종안) */
 .block-container {
     border: 1.5px solid #E0E0E0 !important;
     border-radius: 16px !important;
-    padding: 0.8rem 1.8rem 1.5rem 1.8rem !important;
+    padding: 15px 1.8rem 1.5rem 1.8rem !important;
     background: #FFFFFF !important;
     box-shadow: 0 2px 16px rgba(0,0,0,0.06) !important;
 }
@@ -11344,10 +11375,10 @@ footer,
     padding-top: 0 !important;
 }
 
-/* [20-4] 메인 block-container 상단 패딩 최소화 */
+/* [20-4] 메인 block-container 실선-첫블럭 간격 15px (제47조 최종안) */
 .block-container,
 [data-testid="stMainBlockContainer"] {
-    padding-top: 0.4rem !important;
+    padding-top: 15px !important;
     margin-top: 0 !important;
 }
 
@@ -11859,10 +11890,14 @@ watchRipple();
 
         st.sidebar.warning(
             "**⚠️ 면책 및 서비스 이용 안내 (Disclaimer)**\n\n"
-            "**1. 앱의 목적 및 한계**\n"
-            "본 앱은 원활한 고객 상담과 보험 내용 이해를 돕기 위한 업무 보조 도구입니다. "
+            "**1. 본 앱(Goldkey_AI_Master2026)의 목적 및 한계:**\n"
+            "(1) 본 앱은 원활한 고객 상담과 보험 내용 이해를 돕기 위한 업무 보조 도구입니다. "
             "앱에서 제공하는 모든 AI 분석 결과 및 자료는 참고용 보조 지표일 뿐이며, "
-            "어떠한 법적 효력도 갖지 않습니다.\n\n"
+            "어떠한 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.\n"
+            "(2) 보장 내용·약관 해석·보험금 청구는 반드시 해당 보험회사 보상담당자 또는 "
+            "손해사정인(독립사정인 포함) 등에게 확인하시기 바랍니다.\n"
+            "(3) AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며, "
+            "이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.\n\n"
             "**2. 전문가 상담 필수 및 책임 소재**\n"
             "본 앱은 의료·법률·세무·회계·부동산 등의 전문적인 진단이나 상담을 대체할 수 없습니다. "
             "관련 사항은 반드시 분야별 전문가(의사·변호사·세무사 등)와 상담하시기 바랍니다. "
@@ -12049,11 +12084,145 @@ watchRipple();
 
         # ── 회원가입 / 로그인 (헤더 바로 아래) ──────────────────────────
         if 'user_id' not in st.session_state:
+            # ── 약관동의 세션 초기화 ──────────────────────────────────────
+            if "_lp_terms" not in st.session_state:
+                st.session_state["_lp_terms"] = {"t1": False, "t2": False, "t3": False, "t4": False}
+            elif "t4" not in st.session_state["_lp_terms"]:
+                st.session_state["_lp_terms"]["t4"] = False
+            _terms_done_top = (st.session_state["_lp_terms"].get("t1")
+                               and st.session_state["_lp_terms"].get("t2")
+                               and st.session_state["_lp_terms"].get("t3"))
+
+            # ══════════════════════════════════════════════════════════════
+            # [약관동의 블록] — 탭보다 먼저 표시, 외곽선으로 묶음
+            # ══════════════════════════════════════════════════════════════
             st.markdown("""
-<div style="font-size:0.80rem;color:#555;margin-bottom:6px;">
-  👈 <b>(회원가입 &amp; 로그인)</b> 버튼 클릭! 사이드 창 열림.
+<style>
+section[data-testid="stSidebar"] input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  border: 2.5px solid #1565C0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  box-shadow: 0 2px 6px rgba(21,101,192,0.30), inset 0 0 0 1px rgba(21,101,192,0.15) !important;
+  cursor: pointer !important;
+  position: relative !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+section[data-testid="stSidebar"] input[type="checkbox"]:checked {
+  background: transparent !important;
+  border: 2.5px solid #0D47A1 !important;
+  box-shadow: 0 2px 8px rgba(13,71,161,0.45), inset 0 0 0 1px rgba(13,71,161,0.20) !important;
+}
+section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
+  content: "✔" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  color: #0D47A1 !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+}
+</style>""", unsafe_allow_html=True)
+
+            _tr_top = st.session_state["_lp_terms"]
+            _req_agreed_top = _tr_top.get("t1") and _tr_top.get("t2") and _tr_top.get("t3")
+            _all_agreed_top = _req_agreed_top and _tr_top.get("t4", False)
+
+            st.markdown("""
+<div style='border:2.5px solid #4facfe;border-radius:16px;
+  padding:16px 16px 12px 16px;margin-bottom:10px;
+  background:linear-gradient(135deg,rgba(79,172,254,0.07) 0%,rgba(0,242,254,0.04) 100%);
+  box-shadow:0 2px 12px rgba(79,172,254,0.15);'>""", unsafe_allow_html=True)
+
+            st.markdown("""
+<div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:12px;
+  padding:14px 16px 10px 16px;margin-bottom:10px;text-align:center;
+  box-shadow:0 3px 14px rgba(79,172,254,0.28);'>
+  <div style='font-size:1.6rem;margin-bottom:6px;'>🛡️</div>
+  <div style='color:#0a1628;font-size:1.0rem;font-weight:800;'>안전한 서비스 이용을 위해<br>약관 동의가 필요합니다</div>
 </div>""", unsafe_allow_html=True)
+
+            if not _req_agreed_top:
+                st.markdown("""
+<div style='background:linear-gradient(135deg,rgba(79,172,254,0.15),rgba(0,242,254,0.10));
+  border:1.5px solid #4facfe;border-radius:10px;
+  padding:10px 14px;margin:0 0 10px 0;font-size:0.82rem;
+  color:#1e293b;font-weight:700;text-align:center;'>
+  ⬇️ 아래 필수 항목 3개를 모두 체크해주세요.&nbsp;&nbsp; 동의이후에 로그인창이 열립니다.
+</div>""", unsafe_allow_html=True)
+
+            # ── 전체 동의 체크박스 ────────────────────────────────────────
+            _tc1_top, _tc2_top = st.columns([1, 6])
+            with _tc1_top:
+                _all_cb_top = st.checkbox("", value=bool(_all_agreed_top),
+                                          key="_terms_all_cb_top",
+                                          label_visibility="collapsed")
+            with _tc2_top:
+                st.markdown("<div style='padding-top:4px;font-size:0.95rem;font-weight:800;color:#0a1628;'>네, 모두 동의합니다</div>",
+                            unsafe_allow_html=True)
+            if _all_cb_top != bool(_all_agreed_top):
+                st.session_state["_lp_terms"] = {"t1": _all_cb_top, "t2": _all_cb_top,
+                                                  "t3": _all_cb_top, "t4": _all_cb_top}
+                st.rerun()
+
+            st.markdown("<hr style='border:none;border-top:1px solid #4facfe;margin:8px 0;'>",
+                        unsafe_allow_html=True)
+
+            # ── 개별 항목 2×2 병렬 배치 ──────────────────────────────────
+            # 필수 3개: t1·t2 (1행), t3·[선택t4] (2행)
+            _terms_row1 = [
+                ("t1", "[필수]", "서비스 이용약관 동의",       "#ef4444", "#1e293b"),
+                ("t2", "[필수]", "개인정보 수집 및 이용 동의", "#ef4444", "#1e293b"),
+            ]
+            _terms_row2 = [
+                ("t3", "[필수]", "민감정보(의료·건강기록)\nAI 분석 동의", "#ef4444", "#0369a1"),
+                ("t4", "[선택]", "맞춤형 보험·건강 정보\n알림 수신 동의",  "#64748b", "#475569"),
+            ]
+            _terms_changed_top = False
+            for _row in [_terms_row1, _terms_row2]:
+                _col_a, _col_b = st.columns(2, gap="small")
+                for (_ttk, _tbadge, _ttitle, _tbadge_color, _tcolor), _tcol in zip(_row, [_col_a, _col_b]):
+                    with _tcol:
+                        _tcb_col, _tlbl_col = st.columns([1, 5], gap="small")
+                        with _tcb_col:
+                            _tcv = st.checkbox("", value=bool(_tr_top.get(_ttk, False)),
+                                               key=f"_terms_top_cb_{_ttk}",
+                                               label_visibility="collapsed")
+                        with _tlbl_col:
+                            st.markdown(
+                                f"<div style='padding-top:2px;font-size:0.75rem;color:{_tcolor};line-height:1.4;'>"
+                                f"<span style='background:{_tbadge_color};color:#fff;font-size:0.60rem;"
+                                f"padding:1px 5px;border-radius:4px;font-weight:700;display:inline-block;margin-bottom:2px;'>{_tbadge}</span><br>"
+                                f"{_ttitle.replace(chr(10), '<br>')}</div>",
+                                unsafe_allow_html=True,
+                            )
+                        if _tcv != bool(_tr_top.get(_ttk, False)):
+                            st.session_state["_lp_terms"][_ttk] = _tcv
+                            _terms_changed_top = True
+            if _terms_changed_top:
+                st.rerun()
+
+            # ── 개인정보 안전 보장 ────────────────────────────────────────
             st.markdown("""
+<div style='background:linear-gradient(135deg,rgba(79,172,254,0.12),rgba(0,242,254,0.08));
+  border:1.5px solid #4facfe;border-radius:10px;
+  padding:9px 12px;margin:8px 0 4px 0;font-size:0.78rem;color:#1a3a5c;'>
+  🔒 <strong>개인정보 안전 보장</strong> — AES-256 암호화 저장, 탈퇴 시 즉시 삭제
+</div>""", unsafe_allow_html=True)
+
+            # ── 외곽선 닫기 ───────────────────────────────────────────────
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # ── 약관동의 완료 시에만 탭 표시 (st.stop 제거 → 백화현상 방지) ──
+            if _req_agreed_top:
+
+                st.markdown("""
 <style>
 section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="tab"] {
   border: 1.5px solid #000000 !important;
@@ -12068,8 +12237,8 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
   color: #1565C0 !important;
 }
 </style>""", unsafe_allow_html=True)
-            tab_l, tab_s, tab_pw, tab_nm = st.tabs(["로그인", "회원가입", "비번 변경", "이름 변경"])
-            components.html("""<script>
+                tab_l, tab_s, tab_pw, tab_nm = st.tabs(["로그인", "회원가입", "비번 변경", "이름 변경"])
+                components.html("""<script>
 (function _rmTitle(){
   function clean(){
     document.querySelectorAll('input[title]').forEach(function(el){
@@ -12081,542 +12250,255 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
   ob.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['title']});
 })();
 </script>""", height=0)
-            with tab_l:
-                # ══════════════════════════════════════════════════════════════
-                # [제37조 개정] 간소화 로그인 — 2단계 플로우
-                # Phase A: 이름+연락처 확인 → OTP 발급
-                # Phase B: 6자리 OTP 인증 → 즉시 메인 진입
-                # (생체/패턴/SETUP/Phase C 전면 폐지)
-                # ══════════════════════════════════════════════════════════════
-                import random as _rnd, re as _re2
+                with tab_l:
+                    # ══════════════════════════════════════════════════════════════
+                    # [제37조 개정] 간소화 로그인 — 2단계 플로우
+                    # Phase A: 이름+연락처 확인 → OTP 발급
+                    # Phase B: 6자리 OTP 인증 → 즉시 메인 진입
+                    # (생체/패턴/SETUP/Phase C 전면 폐지)
+                    # ══════════════════════════════════════════════════════════════
+                    import random as _rnd, re as _re2
 
-                # 세션 초기값
-                if "_lp_terms" not in st.session_state:
-                    st.session_state["_lp_terms"] = {"t1": False, "t2": False, "t3": False, "t4": False}
-                elif "t4" not in st.session_state["_lp_terms"]:
-                    st.session_state["_lp_terms"]["t4"] = False  # 기존 세션 t4 마이그레이션
-                # 약관 이미 동의 완료된 경우 → TERMS 스킵, A 직행 (필수 3개만 체크)
-                _terms_done = (st.session_state["_lp_terms"].get("t1")
-                               and st.session_state["_lp_terms"].get("t2")
-                               and st.session_state["_lp_terms"].get("t3"))
-                if "_lp" not in st.session_state:
-                    st.session_state["_lp"] = "A" if _terms_done else "TERMS"
-                elif st.session_state["_lp"] == "TERMS" and _terms_done:
-                    st.session_state["_lp"] = "A"
-                if "_lp_name" not in st.session_state:
-                    st.session_state["_lp_name"] = ""
-                if "_lp_otp" not in st.session_state:
-                    st.session_state["_lp_otp"] = ""
-                def _do_final_login(ln: str):
-                    """인증 성공 처리 — 기존 session_state 세팅 그대로 유지"""
-                    members = load_members()
-                    m = members[ln]
-                    _jd = dt.strptime(m["join_date"], "%Y-%m-%d")
-                    _adm = (ln in _get_unlimited_users())
-                    for _ck in ["dc_priv_cache","cc_file_cache","dc_ai_company",
-                                "dc_ai_doctype","dc_ai_tags","dc_ai_conf",
-                                "dc_ai_fileno","catalog_jwt"]:
-                        st.session_state.pop(_ck, None)
-                    st.session_state.user_id   = m["user_id"]
-                    st.session_state.user_name = ln
-                    st.session_state.join_date = _jd
-                    st.session_state.is_admin  = _adm
-                    st.session_state["_mic_notice"]         = True
-                    st.session_state["_login_welcome"]      = ln
-                    st.session_state["_auto_close_sidebar"] = True
-                    st.session_state["_login_just_done"]    = True
-                    # [C1] Entity ID 자동 발급 — AGNT_ (설계사) / CUST_ (일반고객)
-                    _is_pro_eid = st.session_state.get("_lp_is_pro", "비종사자")
-                    _eid_type   = "agent" if _is_pro_eid == "종사자" or _adm else "customer"
-                    _eid_set_login_user(ln, _eid_type)
-                    # Phase A에서 선택한 종사자 여부 반영
-                    _is_pro = st.session_state.get("_lp_is_pro", "비종사자")
-                    if _is_pro == "종사자":
-                        st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)"
-                        st.session_state["preferred_insurer"] = st.session_state.get(
-                            "_lp_insurer", "선택 안 함 (중립 분석)")
-                    else:
-                        st.session_state["user_consult_mode"] = "🙋 일반고객 (중립 분석)"
-                        st.session_state["preferred_insurer"] = "선택 안 함 (중립 분석)"
-                    # [제37조 §1] _sec_methods 저장 폐지 — Phase C/SETUP 제거로 불필요
-                    # [제39조 §3] 로그인 성공 → 세션 캐시 저장 (다음 구동 시 즉시 복원용)
-                    _s39_save_session_cache(
-                        user_id=m["user_id"], user_name=ln,
-                        user_role="agent" if _adm else "customer"
-                    )
-                    # 로그인 단계 초기화 — [제37조] Phase A/B 관련 키만 정리
-                    for _k in ["_lp","_lp_name","_lp_otp","_lp_methods",
-                               "_lp_is_pro","_lp_insurer"]:
-                        st.session_state.pop(_k, None)
-                    try:
-                        import hmac as _hmac2
-                        _ts = st.secrets.get("ENCRYPTION_KEY", "gk_token_secret_2026")
-                        if isinstance(_ts, bytes): _ts = _ts.decode()
-                        _tok = _hmac2.new(_ts.encode(), (ln + m["user_id"]).encode(), "sha256").hexdigest()[:32]
-                        st.session_state["_auto_login_token"] = _tok
-                    except Exception:
-                        pass
-                    _LoginGuard.record_success(ln)
-                    st.rerun()
+                    def _do_final_login(ln: str):
+                        """인증 성공 처리 — 기존 session_state 세팅 그대로 유지"""
+                        members = load_members()
+                        m = members[ln]
+                        _jd = dt.strptime(m["join_date"], "%Y-%m-%d")
+                        _adm = (ln in _get_unlimited_users())
+                        for _ck in ["dc_priv_cache","cc_file_cache","dc_ai_company",
+                                    "dc_ai_doctype","dc_ai_tags","dc_ai_conf",
+                                    "dc_ai_fileno","catalog_jwt"]:
+                            st.session_state.pop(_ck, None)
+                        st.session_state.user_id   = m["user_id"]
+                        st.session_state.user_name = ln
+                        st.session_state.join_date = _jd
+                        st.session_state.is_admin  = _adm
+                        st.session_state["_mic_notice"]         = True
+                        st.session_state["_login_welcome"]      = ln
+                        st.session_state["_auto_close_sidebar"] = True
+                        st.session_state["_login_just_done"]    = True
+                        # [C1] Entity ID 자동 발급 — AGNT_ (설계사) / CUST_ (일반고객)
+                        _is_pro_eid = st.session_state.get("_lp_is_pro", "비종사자")
+                        _eid_type   = "agent" if _is_pro_eid == "종사자" or _adm else "customer"
+                        _eid_set_login_user(ln, _eid_type)
+                        # Phase A에서 선택한 종사자 여부 반영
+                        _is_pro = st.session_state.get("_lp_is_pro", "비종사자")
+                        if _is_pro == "종사자":
+                            st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)"
+                            st.session_state["preferred_insurer"] = st.session_state.get(
+                                "_lp_insurer", "선택 안 함 (중립 분석)")
+                        else:
+                            st.session_state["user_consult_mode"] = "🙋 일반고객 (중립 분석)"
+                            st.session_state["preferred_insurer"] = "선택 안 함 (중립 분석)"
+                        # [제37조 §1] _sec_methods 저장 폐지 — Phase C/SETUP 제거로 불필요
+                        # [제39조 §3] 로그인 성공 → 세션 캐시 저장 (다음 구동 시 즉시 복원용)
+                        _s39_save_session_cache(
+                            user_id=m["user_id"], user_name=ln,
+                            user_role="agent" if _adm else "customer"
+                        )
+                        # 로그인 단계 초기화 — [제37조] Phase A/B 관련 키만 정리
+                        for _k in ["_lp","_lp_name","_lp_otp","_lp_methods",
+                                   "_lp_is_pro","_lp_insurer"]:
+                            st.session_state.pop(_k, None)
+                        try:
+                            import hmac as _hmac2
+                            _ts = st.secrets.get("ENCRYPTION_KEY", "gk_token_secret_2026")
+                            if isinstance(_ts, bytes): _ts = _ts.decode()
+                            _tok = _hmac2.new(_ts.encode(), (ln + m["user_id"]).encode(), "sha256").hexdigest()[:32]
+                            st.session_state["_auto_login_token"] = _tok
+                        except Exception:
+                            pass
+                        _LoginGuard.record_success(ln)
+                        st.rerun()
 
-                _lp = st.session_state.get("_lp", "TERMS")
+                    _lp = st.session_state.get("_lp", "A")
 
-                # ─────────────────────────────────────────────────────────────
-                # Phase TERMS — 이용약관 및 개인정보 동의 (최초 1회 필수)
-                # ─────────────────────────────────────────────────────────────
-                if _lp == "TERMS":
-                    _tr = st.session_state["_lp_terms"]
-                    _req_agreed = _tr.get("t1") and _tr.get("t2") and _tr.get("t3")  # 필수 3개
-                    _all_agreed = _req_agreed and _tr.get("t4", False)               # 선택 포함 전체
-
-                    # ── 체크박스 동그라미 외곽 검정색 CSS (지시2) ──────────────
-                    st.markdown("""
-<style>
-/* 네이티브 input 직접 스타일 */
-section[data-testid="stSidebar"] input[type="checkbox"] {
-    width:22px!important;height:22px!important;
-    accent-color:#0369a1;
-    outline:2.5px solid #000000!important;
-    outline-offset:2px!important;
-    border:2.5px solid #000000!important;
-    border-radius:50%!important;
-    cursor:pointer!important;
-    box-shadow:0 0 0 2px #000000!important;
-    appearance:none!important;
-    -webkit-appearance:none!important;
-    background:#ffffff;
-    position:relative;
-}
-section[data-testid="stSidebar"] input[type="checkbox"]:checked {
-    background:#0369a1!important;
-    border-color:#000000!important;
-}
-section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
-    content:'✓';
-    position:absolute;top:50%;left:50%;
-    transform:translate(-50%,-50%);
-    color:#ffffff;font-size:14px;font-weight:900;
-}
-/* Streamlit 커스텀 체크박스 SVG div 선택자 */
-section[data-testid="stSidebar"] .stCheckbox span[data-baseweb="checkbox"] > div:first-child {
-    border-radius:50%!important;
-    border:2.5px solid #000000!important;
-    box-shadow:0 0 0 1.5px #000000!important;
-    width:22px!important;height:22px!important;
-}
-section[data-testid="stSidebar"] .stCheckbox > label {
-    gap:8px!important;
-    align-items:center!important;
-}
-section[data-testid="stSidebar"] .stCheckbox label span[data-testid="stWidgetLabel"] {
-    font-size:0.85rem!important;
-}
-</style>""", unsafe_allow_html=True)
-
-                    # ── 헤더 (가이딩 프로토콜 블루 그라데이션 스타일) ──────────────────────
-                    st.markdown("""<div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:15px;
-  padding:20px 20px 16px 20px;margin-bottom:12px;text-align:center;
-  box-shadow:0 4px 20px rgba(79,172,254,0.28);'>
-  <div style='font-size:2rem;margin-bottom:8px;'>🛡️</div>
-  <div style='color:#0a1628;font-size:1.1rem;font-weight:800;'>안전한 서비스 이용을 위해<br>약관 동의가 필요합니다</div>
-  <div style='color:#1a3a5c;font-size:0.82rem;margin-top:6px;line-height:1.6;'>
-    아래 필수 항목에 동의하시면 로그인 화면이 나타납니다.
-  </div>
-</div>""", unsafe_allow_html=True)
-
-                    # ── 필수 항목 미체크 시 안내 ──────────────────────────────
-                    if not _req_agreed:
+                    # ─────────────────────────────────────────────────────────────
+                    # Phase A — 이름 + 연락처 확인 → OTP 발급
+                    # ─────────────────────────────────────────────────────────────
+                    if _lp == "A":
                         st.markdown("""
-<div style='background:linear-gradient(135deg,rgba(79,172,254,0.15),rgba(0,242,254,0.10));
-  border:1.5px solid #4facfe;border-radius:10px;
-  padding:10px 14px;margin:0 0 10px 0;font-size:0.82rem;
-  color:#1e293b;font-weight:700;text-align:center;'>
-  ⬇️ 아래 필수 항목 3개를 모두 체크해주세요
-</div>""", unsafe_allow_html=True)
+    <style>
+    section[data-testid="stSidebar"] input[type="text"],
+    section[data-testid="stSidebar"] input[type="password"] {
+        border:2px solid #000000!important;
+        border-bottom:3px solid #000000!important;
+        border-radius:8px!important;
+        outline:none!important;
+        box-shadow:0 2px 4px rgba(0,0,0,0.25)!important;
+        margin-bottom:4px!important;
+    }
+    section[data-testid="stSidebar"] input[type="text"]:focus,
+    section[data-testid="stSidebar"] input[type="password"]:focus {
+        border:2.5px solid #0369a1!important;
+        border-bottom:3px solid #0369a1!important;
+        box-shadow:0 2px 4px rgba(3,105,161,0.30)!important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stTextInput"] {
+        padding-bottom:6px!important;
+    }
+    </style>
+    <div style='background:linear-gradient(135deg,#0a1628 0%,#0d2748 100%);border-radius:12px;
+      padding:10px 16px;margin-bottom:10px;text-align:center;
+      border:1px solid rgba(240,192,64,0.35);
+      box-shadow:0 2px 12px rgba(10,22,40,0.5);'>
+      <div style='color:#f0c040;font-size:0.8rem;font-weight:800;letter-spacing:0.08em;
+        text-shadow:0 1px 4px rgba(0,0,0,0.5);'>🛡️ 가문 안보를 위한 트리플 보안 가동 중</div>
+    </div>
+    <div style='background:linear-gradient(135deg,#1e90ff 0%,#00c6fb 100%);border-radius:15px;
+      padding:18px 20px;margin-bottom:14px;text-align:center;
+      box-shadow:0 4px 20px rgba(30,144,255,0.35);'>
+      <div style='font-size:2rem;margin-bottom:6px;'>🛡️</div>
+      <div style='color:#ffffff;font-size:1.05rem;font-weight:800;
+        text-shadow:0 1px 4px rgba(0,0,0,0.3);'>골드키지사 보안 로그인</div>
+      <div style='color:#e0f4ff;font-size:0.78rem;margin-top:4px;
+        text-shadow:0 1px 2px rgba(0,0,0,0.2);'>가입 시 등록한 정보로 본인 확인 후 OTP를 발급합니다</div>
+    </div>""", unsafe_allow_html=True)
+                        with st.form("hlp_a_form"):
+                            ln_a = st.text_input("👤 이름", key="hlp_name_a", placeholder="가입 시 등록한 이름",
+                                                 label_visibility="collapsed")
+                            lc_a = st.text_input("📱 연락처", type="password", key="hlp_contact_a",
+                                                 placeholder="연락처 (숫자만, - 제외)",
+                                                 label_visibility="collapsed")
+                            login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"],
+                                                    horizontal=True, key="login_is_pro")
+                            if login_is_pro == "종사자":
+                                st.radio("📋 주력판매 분야 선택(상담반영)",
+                                         ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"],
+                                         horizontal=True, key="login_insurer")
+                            else:
+                                st.session_state["login_insurer"] = "선택 안 함 (중립 분석)"
+                                st.markdown("<div style='font-size:0.76rem;color:#555;'>🟩 중립 분석 모드</div>",
+                                            unsafe_allow_html=True)
+                            _btn_otp = st.form_submit_button("🔐 보안 인증 시작", use_container_width=True, type="primary")
 
-                    # ── 전체 동의 (개선4: 체크 시 하위 3개 동시 체크) ──────────
-                    st.markdown("""
-<style>
-section[data-testid="stSidebar"] input[type="checkbox"] {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  width: 20px !important;
-  height: 20px !important;
-  min-width: 20px !important;
-  border: 2.5px solid #1565C0 !important;
-  border-radius: 5px !important;
-  background: transparent !important;
-  box-shadow: 0 2px 6px rgba(21,101,192,0.30), inset 0 0 0 1px rgba(21,101,192,0.15) !important;
-  cursor: pointer !important;
-  position: relative !important;
-  display: inline-block !important;
-  vertical-align: middle !important;
-}
-section[data-testid="stSidebar"] input[type="checkbox"]:checked {
-  background: transparent !important;
-  border: 2.5px solid #0D47A1 !important;
-  box-shadow: 0 2px 8px rgba(13,71,161,0.45), inset 0 0 0 1px rgba(13,71,161,0.20) !important;
-}
-section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
-  content: "✔" !important;
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  color: #0D47A1 !important;
-  font-size: 13px !important;
-  font-weight: 900 !important;
-}
-</style>""", unsafe_allow_html=True)
-                    _tc1, _tc2 = st.columns([1, 6])
-                    with _tc1:
-                        _all_cb = st.checkbox("", value=_all_agreed, key="_terms_all_cb",
-                                              label_visibility="collapsed")
-                    with _tc2:
-                        st.markdown("<div style='padding-top:4px;font-size:0.95rem;font-weight:800;color:#0a1628;'>네, 모두 동의합니다</div>", unsafe_allow_html=True)
-                    # 모두동의 변경 시 → 나머지 4개 동시 세팅 후 rerun
-                    if _all_cb != _all_agreed:
-                        st.session_state["_lp_terms"] = {"t1": _all_cb, "t2": _all_cb, "t3": _all_cb, "t4": _all_cb}
-                        st.rerun()
+                        if _btn_otp:
+                            _ln_a = ln_a.strip() if ln_a else ""
+                            _lc_a = lc_a.strip() if lc_a else ""
+                            if not _ln_a or len(_ln_a) < 2:
+                                st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
+                            elif not _re2.fullmatch(r'[0-9]{10,11}', _lc_a):
+                                st.error("⚠️ 올바른 전화번호 형식이 아닙니다. (숫자만, - 제외 10~11자리)")
+                            else:
+                                _lk_a, _lk_sec_a = _LoginGuard.is_locked(_ln_a)
+                                if _lk_a:
+                                    _lm = _lk_sec_a // 60; _ls = _lk_sec_a % 60
+                                    st.error(f"🔒 **{_lm}분 {_ls}초** 잠금 중입니다. 운영자(010-3074-2616)에게 문의하세요.")
+                                else:
+                                    _mbs = load_members()
+                                    _ok_a = _ln_a in _mbs and decrypt_data(_mbs[_ln_a]["contact"], _lc_a)
+                                    if _ok_a:
+                                        _otp_val = str(_rnd.randint(100000, 999999))
+                                        st.session_state["_lp_name"]    = _ln_a
+                                        st.session_state["_lp_otp"]     = _otp_val
+                                        st.session_state["_lp_is_pro"]  = st.session_state.get("login_is_pro", "비종사자")
+                                        st.session_state["_lp_insurer"] = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)")
+                                        st.session_state["_lp"]         = "B"
+                                        st.rerun()
+                                    elif _ln_a not in _mbs:
+                                        st.error("미가입회원입니다. 회원가입 탭에서 가입 후 이용해주세요.")
+                                    else:
+                                        _LoginGuard.record_fail(_ln_a)
+                                        _rem_a = _LoginGuard.remaining_attempts(_ln_a)
+                                        _lk2_a, _ = _LoginGuard.is_locked(_ln_a)
+                                        if _lk2_a:
+                                            st.error(f"🔒 {_LoginGuard.MAX_FAIL}회 실패 — {_LoginGuard.LOCK_MINUTES}분 잠금.")
+                                        else:
+                                            st.error(f"연락처가 올바르지 않습니다. (남은 시도: **{_rem_a}회**)")
 
-                    st.markdown("<hr style='border:none;border-top:1px solid #4facfe;margin:10px 0;'>", unsafe_allow_html=True)
+                    # ─────────────────────────────────────────────────────────────
+                    # Phase B — OTP 인증 + 보안 방식 선택
+                    # ─────────────────────────────────────────────────────────────
+                    elif _lp == "B":
+                        _otp_target = st.session_state.get("_lp_otp", "")
+                        _lp_name    = st.session_state.get("_lp_name", "")
+                        st.markdown(f"""
+    <div style='background:linear-gradient(135deg,#11998e 0%,#38ef7d 100%);border-radius:15px;
+      padding:14px 18px;margin-bottom:12px;text-align:center;
+      box-shadow:0 4px 20px rgba(17,153,142,0.35);'>
+      <div style='color:#ffffff;font-size:0.95rem;font-weight:800;margin-bottom:4px;
+        text-shadow:0 1px 4px rgba(0,0,0,0.3);'>
+        ✅ 본인 확인 완료 — 추가 보안 인증
+      </div>
+      <div style='color:#e0fff4;font-size:0.8rem;text-shadow:0 1px 2px rgba(0,0,0,0.2);'>
+        {_lp_name}님, 아래 OTP로 인증 후 간편 보안 방식을 설정하세요
+      </div>
+    </div>
+    <div style='background:#fef9c3;border:2px solid #f59e0b;border-radius:12px;
+      padding:14px;margin-bottom:12px;text-align:center;'>
+      <div style='font-size:0.78rem;color:#92400e;margin-bottom:6px;'>📱 인증번호 (테스트용 화면 표시. 임시기능)</div>
+      <div style='font-size:2.2rem;font-weight:900;letter-spacing:8px;color:#1a3a5c;'>{_otp_target}</div>
+    </div>""", unsafe_allow_html=True)
 
-                    # ── 개별 약관 항목 (1-2/1-3 수정: rerun 한 번만) ─────────────
-                    _terms_items = [
-                        ("t1", "[필수]", "서비스 이용약관 동의",              "#1e293b"),
-                        ("t2", "[필수]", "개인정보 수집 및 이용 동의",         "#1e293b"),
-                        ("t3", "[필수]", "민감정보(의료·건강기록) 수집 및 AI 분석 동의", "#0369a1"),
-                        ("t4", "[선택]", "맞춤형 보험·건강 정보 알림 수신 동의","#475569"),
-                    ]
-                    _terms_changed = False
-                    for _tk, _badge, _title, _color in _terms_items:
-                        _ci1, _ci2 = st.columns([1, 8])
-                        with _ci1:
-                            _cv = st.checkbox("", value=bool(_tr.get(_tk, False)),
-                                              key=f"_terms_cb_{_tk}",
-                                              label_visibility="collapsed")
-                        with _ci2:
-                            _badge_color = "#ef4444" if "필수" in _badge else "#64748b"
-                            st.markdown(
-                                f"<div style='padding-top:3px;font-size:0.82rem;color:{_color};'>"
-                                f"<span style='background:{_badge_color};color:#fff;font-size:0.65rem;"
-                                f"padding:1px 6px;border-radius:4px;margin-right:6px;font-weight:700;'>{_badge}</span>"
-                                f"{_title}</div>",
-                                unsafe_allow_html=True,
-                            )
-                        if _cv != bool(_tr.get(_tk, False)):
-                            st.session_state["_lp_terms"][_tk] = _cv
-                            _terms_changed = True
-                    if _terms_changed:
-                        st.rerun()
-
-                    # ── 개인정보 안전 보장 ────────────────────────────────────
-                    st.markdown("""
-<div style='background:linear-gradient(135deg,rgba(79,172,254,0.12),rgba(0,242,254,0.08));
-  border:1.5px solid #4facfe;border-radius:12px;
-  padding:11px 14px;margin:10px 0;font-size:0.8rem;color:#1a3a5c;'>
-  🔒 <strong>개인정보 안전 보장</strong><br>
-  수집된 정보는 AES-256으로 암호화되어 저장되며, 탈퇴 시 즉시 완전 삭제됩니다.
-</div>""", unsafe_allow_html=True)
-
-                    # ── 시작 버튼 (필수 3개 체크 시만 활성화) ─────────────────
-                    if _req_agreed:
-                        if st.button(
-                            "✅ 동의하고 시작하기",
-                            key="terms_all_in_one",
-                            use_container_width=True,
-                            type="primary",
-                        ):
-                            st.session_state["_terms_marketing"] = _tr.get("t4", False)
+                        # ── 인증번호 입력 (풀폭, 가이딩 프로토콜 제37조 §3 대형화) ──
+                        st.markdown("""
+    <style>
+    /* [가이딩 프로토콜 제37조 §3] OTP 입력창 대형화 — 돋보기 모드 원칙 */
+    div[data-testid="stSidebar"] input[data-testid="stTextInput-RootElement"] { font-size: 2rem !important; }
+    section[data-testid="stSidebar"] div[data-baseweb="input"] input#hlp_otp_in,
+    section[data-testid="stSidebar"] input[aria-label="6자리 인증번호"] {
+      font-size: 2.4rem !important;
+      font-weight: 900 !important;
+      letter-spacing: 0.35em !important;
+      text-align: center !important;
+      color: #1a3a5c !important;
+      height: 64px !important;
+      border: 2.5px solid #0ea5e9 !important;
+      border-radius: 12px !important;
+      background: #f0f9ff !important;
+    }
+    </style>
+    <div style='background:#f0f9ff;border:2px solid #0ea5e9;border-radius:12px;
+      padding:10px 14px 18px 14px;margin-bottom:10px;text-align:center;
+      border-bottom:4px solid #0369a1;box-shadow:0 3px 0 #0369a1;'>
+      <div style='font-size:0.85rem;font-weight:800;color:#0369a1;margin-bottom:2px;'>🔢 6자리 인증번호 입력</div>
+      <div style='font-size:0.72rem;color:#64748b;'>[가이딩 프로토콜 제37조] 표준 인증 수단</div>
+    </div>""", unsafe_allow_html=True)
+                        _otp_input = st.text_input("6자리 인증번호", key="hlp_otp_in",
+                                                   placeholder="000000", max_chars=6,
+                                                   label_visibility="collapsed")
+                        _otp_confirm = st.button("✅ OTP 확인", key="hlp_otp_btn",
+                                                 use_container_width=True, type="primary")
+                        if _otp_confirm:
+                            if (_otp_input or "").strip() == _otp_target:
+                                # [제37조 §2] OTP 일치 즉시 메인 진입 — 추가 단계 없음
+                                _lp_name_b = st.session_state.get("_lp_name", "")
+                                _do_final_login(_lp_name_b)
+                            else:
+                                st.error("❌ 인증번호가 올바르지 않습니다. 다시 확인해 주세요.")
+                        st.markdown("""
+    <style>
+    /* Phase B 처음으로 버튼 — 가이딩 프로토콜 기준 네이비/스카이 */
+    button[kind="secondary"][data-testid="baseButton-secondary"] {
+      background: linear-gradient(135deg,rgba(14,165,233,0.18) 0%,rgba(56,189,248,0.18) 100%) !important;
+      color: #ffffff !important;
+      border: 1.5px solid #0ea5e9 !important;
+      font-weight: 800 !important;
+      border-radius: 8px !important;
+    }
+    </style>""", unsafe_allow_html=True)
+                        if st.button("↩️ 처음으로", key="hlp_back_b", use_container_width=True):
                             st.session_state["_lp"] = "A"
                             st.rerun()
 
-                # ─────────────────────────────────────────────────────────────
-                # Phase A — 이름 + 연락처 확인 → OTP 발급
-                # ─────────────────────────────────────────────────────────────
-                elif _lp == "A":
-                    st.markdown("""
-<style>
-section[data-testid="stSidebar"] input[type="text"],
-section[data-testid="stSidebar"] input[type="password"] {
-    border:2px solid #000000!important;
-    border-radius:8px!important;
-    outline:none!important;
-    box-shadow:0 0 0 2px #000000!important;
-}
-section[data-testid="stSidebar"] input[type="text"]:focus,
-section[data-testid="stSidebar"] input[type="password"]:focus {
-    border:2.5px solid #0369a1!important;
-    box-shadow:0 0 0 2px #0369a1!important;
-}
-</style>
-<div style='background:linear-gradient(135deg,#0a1628 0%,#0d2748 100%);border-radius:12px;
-  padding:10px 16px;margin-bottom:10px;text-align:center;
-  border:1px solid rgba(240,192,64,0.35);
-  box-shadow:0 2px 12px rgba(10,22,40,0.5);'>
-  <div style='color:#f0c040;font-size:0.8rem;font-weight:800;letter-spacing:0.08em;
-    text-shadow:0 1px 4px rgba(0,0,0,0.5);'>🛡️ 가문 안보를 위한 트리플 보안 가동 중</div>
-</div>
-<div style='background:linear-gradient(135deg,#1e90ff 0%,#00c6fb 100%);border-radius:15px;
-  padding:18px 20px;margin-bottom:14px;text-align:center;
-  box-shadow:0 4px 20px rgba(30,144,255,0.35);'>
-  <div style='font-size:2rem;margin-bottom:6px;'>🛡️</div>
-  <div style='color:#ffffff;font-size:1.05rem;font-weight:800;
-    text-shadow:0 1px 4px rgba(0,0,0,0.3);'>골드키지사 보안 로그인</div>
-  <div style='color:#e0f4ff;font-size:0.78rem;margin-top:4px;
-    text-shadow:0 1px 2px rgba(0,0,0,0.2);'>가입 시 등록한 정보로 본인 확인 후 OTP를 발급합니다</div>
-</div>""", unsafe_allow_html=True)
-                    with st.form("hlp_a_form"):
-                        ln_a = st.text_input("👤 이름", key="hlp_name_a", placeholder="가입 시 등록한 이름",
-                                             label_visibility="collapsed")
-                        lc_a = st.text_input("📱 연락처", type="password", key="hlp_contact_a",
-                                             placeholder="연락처 (숫자만, - 제외)",
-                                             label_visibility="collapsed")
-                        login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"],
-                                                horizontal=True, key="login_is_pro")
-                        if login_is_pro == "종사자":
-                            st.radio("📋 주력판매 분야 선택(상담반영)",
-                                     ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"],
-                                     horizontal=True, key="login_insurer")
-                        else:
-                            st.session_state["login_insurer"] = "선택 안 함 (중립 분석)"
-                            st.markdown("<div style='font-size:0.76rem;color:#555;'>🟩 중립 분석 모드</div>",
-                                        unsafe_allow_html=True)
-                        _btn_otp = st.form_submit_button("🔐 보안 인증 시작", use_container_width=True, type="primary")
-
-                    if _btn_otp:
-                        _ln_a = ln_a.strip() if ln_a else ""
-                        _lc_a = lc_a.strip() if lc_a else ""
-                        if not _ln_a or len(_ln_a) < 2:
-                            st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
-                        elif not _re2.fullmatch(r'[0-9]{10,11}', _lc_a):
-                            st.error("⚠️ 올바른 전화번호 형식이 아닙니다. (숫자만, - 제외 10~11자리)")
-                        else:
-                            _lk_a, _lk_sec_a = _LoginGuard.is_locked(_ln_a)
-                            if _lk_a:
-                                _lm = _lk_sec_a // 60; _ls = _lk_sec_a % 60
-                                st.error(f"🔒 **{_lm}분 {_ls}초** 잠금 중입니다. 운영자(010-3074-2616)에게 문의하세요.")
-                            else:
-                                _mbs = load_members()
-                                _ok_a = _ln_a in _mbs and decrypt_data(_mbs[_ln_a]["contact"], _lc_a)
-                                if _ok_a:
-                                    _otp_val = str(_rnd.randint(100000, 999999))
-                                    st.session_state["_lp_name"]    = _ln_a
-                                    st.session_state["_lp_otp"]     = _otp_val
-                                    st.session_state["_lp_is_pro"]  = st.session_state.get("login_is_pro", "비종사자")
-                                    st.session_state["_lp_insurer"] = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)")
-                                    st.session_state["_lp"]         = "B"
-                                    st.rerun()
-                                elif _ln_a not in _mbs:
-                                    st.error("미가입회원입니다. 회원가입 탭에서 가입 후 이용해주세요.")
-                                else:
-                                    _LoginGuard.record_fail(_ln_a)
-                                    _rem_a = _LoginGuard.remaining_attempts(_ln_a)
-                                    _lk2_a, _ = _LoginGuard.is_locked(_ln_a)
-                                    if _lk2_a:
-                                        st.error(f"🔒 {_LoginGuard.MAX_FAIL}회 실패 — {_LoginGuard.LOCK_MINUTES}분 잠금.")
-                                    else:
-                                        st.error(f"연락처가 올바르지 않습니다. (남은 시도: **{_rem_a}회**)")
-
-                # ─────────────────────────────────────────────────────────────
-                # Phase B — OTP 인증 + 보안 방식 선택
-                # ─────────────────────────────────────────────────────────────
-                elif _lp == "B":
-                    _otp_target = st.session_state.get("_lp_otp", "")
-                    _lp_name    = st.session_state.get("_lp_name", "")
-                    st.markdown(f"""
-<div style='background:linear-gradient(135deg,#11998e 0%,#38ef7d 100%);border-radius:15px;
-  padding:14px 18px;margin-bottom:12px;text-align:center;
-  box-shadow:0 4px 20px rgba(17,153,142,0.35);'>
-  <div style='color:#ffffff;font-size:0.95rem;font-weight:800;margin-bottom:4px;
-    text-shadow:0 1px 4px rgba(0,0,0,0.3);'>
-    ✅ 본인 확인 완료 — 추가 보안 인증
-  </div>
-  <div style='color:#e0fff4;font-size:0.8rem;text-shadow:0 1px 2px rgba(0,0,0,0.2);'>
-    {_lp_name}님, 아래 OTP로 인증 후 간편 보안 방식을 설정하세요
-  </div>
-</div>
-<div style='background:#fef9c3;border:2px solid #f59e0b;border-radius:12px;
-  padding:14px;margin-bottom:12px;text-align:center;'>
-  <div style='font-size:0.78rem;color:#92400e;margin-bottom:6px;'>📱 인증번호 (테스트용 화면 표시. 임시기능)</div>
-  <div style='font-size:2.2rem;font-weight:900;letter-spacing:8px;color:#1a3a5c;'>{_otp_target}</div>
-</div>""", unsafe_allow_html=True)
-
-                    # ── 인증번호 입력 (풀폭, 가이딩 프로토콜 제37조 §3 대형화) ──
-                    st.markdown("""
-<style>
-/* [가이딩 프로토콜 제37조 §3] OTP 입력창 대형화 — 돋보기 모드 원칙 */
-div[data-testid="stSidebar"] input[data-testid="stTextInput-RootElement"] { font-size: 2rem !important; }
-section[data-testid="stSidebar"] div[data-baseweb="input"] input#hlp_otp_in,
-section[data-testid="stSidebar"] input[aria-label="6자리 인증번호"] {
-  font-size: 2.4rem !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.35em !important;
-  text-align: center !important;
-  color: #1a3a5c !important;
-  height: 64px !important;
-  border: 2.5px solid #0ea5e9 !important;
-  border-radius: 12px !important;
-  background: #f0f9ff !important;
-}
-</style>
-<div style='background:#f0f9ff;border:2px solid #0ea5e9;border-radius:12px;
-  padding:10px 14px;margin-bottom:6px;text-align:center;'>
-  <div style='font-size:0.85rem;font-weight:800;color:#0369a1;margin-bottom:2px;'>🔢 6자리 인증번호 입력</div>
-  <div style='font-size:0.72rem;color:#64748b;'>[가이딩 프로토콜 제37조] 표준 인증 수단</div>
-</div>""", unsafe_allow_html=True)
-                    _otp_input = st.text_input("6자리 인증번호", key="hlp_otp_in",
-                                               placeholder="000000", max_chars=6,
-                                               label_visibility="collapsed")
-                    _otp_confirm = st.button("✅ OTP 확인", key="hlp_otp_btn",
-                                             use_container_width=True, type="primary")
-                    if _otp_confirm:
-                        if (_otp_input or "").strip() == _otp_target:
-                            # [제37조 §2] OTP 일치 즉시 메인 진입 — 추가 단계 없음
-                            _lp_name_b = st.session_state.get("_lp_name", "")
-                            _do_final_login(_lp_name_b)
-                        else:
-                            st.error("❌ 인증번호가 올바르지 않습니다. 다시 확인해 주세요.")
-                    st.markdown("""
-<style>
-/* Phase B 처음으로 버튼 — 가이딩 프로토콜 기준 네이비/스카이 */
-button[kind="secondary"][data-testid="baseButton-secondary"] {
-  background: linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%) !important;
-  color: #7dd3fc !important;
-  border: 1.5px solid #0ea5e9 !important;
-  font-weight: 800 !important;
-  border-radius: 8px !important;
-}
-</style>""", unsafe_allow_html=True)
-                    if st.button("↩️ 처음으로", key="hlp_back_b", use_container_width=True):
+                    # [제37조 개정] Phase SETUP / Phase C 전면 폐지
+                    # OTP 인증 성공 즉시 _do_final_login() → 메인 진입 (추가 단계 없음)
+                    elif _lp in ("SETUP", "C"):
+                        # 구 버전 세션에서 SETUP/C 상태로 남아있는 경우 → A로 초기화
                         st.session_state["_lp"] = "A"
                         st.rerun()
 
-                # [제37조 개정] Phase SETUP / Phase C 전면 폐지
-                # OTP 인증 성공 즉시 _do_final_login() → 메인 진입 (추가 단계 없음)
-                elif _lp in ("SETUP", "C"):
-                    # 구 버전 세션에서 SETUP/C 상태로 남아있는 경우 → A로 초기화
-                    st.session_state["_lp"] = "A"
-                    st.rerun()
-
-            with tab_s:
-                # 약관 동의 완료 여부 확인
-                _su_terms = st.session_state.get("_lp_terms", {})
-                _su_agreed = _su_terms.get("t1") and _su_terms.get("t2") and _su_terms.get("t3")  # 필수 3개
-                if not _su_agreed:
-                    _su_tr = st.session_state.get("_lp_terms", {"t1":False,"t2":False,"t3":False,"t4":False})
-                    _su_req = _su_tr.get("t1") and _su_tr.get("t2") and _su_tr.get("t3")
-                    _su_all = _su_req and _su_tr.get("t4", False)
-                    # ── CSS (로그인 탭과 동일) ─────────────────────────────────
+                with tab_s:
                     st.markdown("""
-<style>
-section[data-testid="stSidebar"] input[type="checkbox"] {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  width: 20px !important;
-  height: 20px !important;
-  min-width: 20px !important;
-  border: 2.5px solid #1565C0 !important;
-  border-radius: 5px !important;
-  background: transparent !important;
-  box-shadow: 0 2px 6px rgba(21,101,192,0.30), inset 0 0 0 1px rgba(21,101,192,0.15) !important;
-  cursor: pointer !important;
-  position: relative !important;
-  display: inline-block !important;
-  vertical-align: middle !important;
-}
-section[data-testid="stSidebar"] input[type="checkbox"]:checked {
-  background: transparent !important;
-  border: 2.5px solid #0D47A1 !important;
-  box-shadow: 0 2px 8px rgba(13,71,161,0.45), inset 0 0 0 1px rgba(13,71,161,0.20) !important;
-}
-section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
-  content: "✔" !important;
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  color: #0D47A1 !important;
-  font-size: 13px !important;
-  font-weight: 900 !important;
-}
-</style>""", unsafe_allow_html=True)
-                    st.markdown("""
-<div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:15px;
-  padding:20px 20px 16px 20px;margin-bottom:12px;text-align:center;
-  box-shadow:0 4px 20px rgba(79,172,254,0.28);'>
-  <div style='font-size:2rem;margin-bottom:8px;'>🛡️</div>
-  <div style='color:#0a1628;font-size:1.1rem;font-weight:800;'>안전한 서비스 이용을 위해<br>약관 동의가 필요합니다</div>
-  <div style='color:#1a3a5c;font-size:0.82rem;margin-top:6px;line-height:1.6;'>
-    아래 필수 항목에 동의하시면 가입 화면이 나타납니다.
-  </div>
-</div>""", unsafe_allow_html=True)
-                    if not _su_req:
-                        st.markdown("""
-<div style='background:linear-gradient(135deg,rgba(79,172,254,0.15),rgba(0,242,254,0.10));
-  border:1.5px solid #4facfe;border-radius:10px;
-  padding:10px 14px;margin:0 0 10px 0;font-size:0.82rem;
-  color:#1e293b;font-weight:700;text-align:center;'>
-  ⬇️ 아래 필수 항목 3개를 모두 체크해주세요
-</div>""", unsafe_allow_html=True)
-                    # 전체 동의 체크박스
-                    _su_tc1, _su_tc2 = st.columns([1, 6])
-                    with _su_tc1:
-                        _su_all_cb = st.checkbox("", value=bool(_su_all), key="_su_terms_all_cb", label_visibility="collapsed")
-                    with _su_tc2:
-                        st.markdown("<div style='padding-top:4px;font-size:0.95rem;font-weight:800;color:#0a1628;'>네, 모두 동의합니다</div>", unsafe_allow_html=True)
-                    if _su_all_cb != bool(_su_all):
-                        st.session_state["_lp_terms"] = {"t1": _su_all_cb, "t2": _su_all_cb, "t3": _su_all_cb, "t4": _su_all_cb}
-                        st.rerun()
-                    st.markdown("<hr style='border:none;border-top:1px solid #4facfe;margin:8px 0;'>", unsafe_allow_html=True)
-                    # 개별 항목
-                    _su_items = [
-                        ("t1", "[필수]", "서비스 이용약관 동의",              "#1e293b"),
-                        ("t2", "[필수]", "개인정보 수집 및 이용 동의",         "#1e293b"),
-                        ("t3", "[필수]", "민감정보(의료·건강기록) 수집 및 AI 분석 동의", "#0369a1"),
-                        ("t4", "[선택]", "맞춤형 보험·건강 정보 알림 수신 동의", "#475569"),
-                    ]
-                    _su_changed = False
-                    for _stk, _sbadge, _stitle, _scolor in _su_items:
-                        _sci1, _sci2 = st.columns([1, 8])
-                        with _sci1:
-                            _scv = st.checkbox("", value=bool(_su_tr.get(_stk, False)),
-                                               key=f"_su_terms_cb_{_stk}", label_visibility="collapsed")
-                        with _sci2:
-                            _sb_color = "#ef4444" if "필수" in _sbadge else "#64748b"
-                            st.markdown(
-                                f"<div style='padding-top:3px;font-size:0.82rem;color:{_scolor};'>"
-                                f"<span style='background:{_sb_color};color:#fff;font-size:0.65rem;"
-                                f"padding:1px 6px;border-radius:4px;margin-right:6px;font-weight:700;'>{_sbadge}</span>"
-                                f"{_stitle}</div>",
-                                unsafe_allow_html=True,
-                            )
-                        if _scv != bool(_su_tr.get(_stk, False)):
-                            if "_lp_terms" not in st.session_state:
-                                st.session_state["_lp_terms"] = {"t1":False,"t2":False,"t3":False,"t4":False}
-                            st.session_state["_lp_terms"][_stk] = _scv
-                            _su_changed = True
-                    if _su_changed:
-                        st.rerun()
-                    # ── 개인정보 안전 보장 (로그인 탭과 동일) ─────────────────
-                    st.markdown("""
-<div style='background:linear-gradient(135deg,rgba(79,172,254,0.12),rgba(0,242,254,0.08));
-  border:1.5px solid #4facfe;border-radius:12px;
-  padding:11px 14px;margin:10px 0;font-size:0.8rem;color:#1a3a5c;'>
-  🔒 <strong>개인정보 안전 보장</strong><br>
-  수집된 정보는 AES-256으로 암호화되어 저장되며, 탈퇴 시 즉시 완전 삭제됩니다.
-</div>""", unsafe_allow_html=True)
-                else:
-                    st.markdown("""
-<div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:15px;
-  padding:16px 18px 12px 18px;margin-bottom:12px;text-align:center;
-  box-shadow:0 4px 20px rgba(79,172,254,0.28);'>
-  <div style='font-size:1.6rem;margin-bottom:6px;'>📝</div>
-  <div style='color:#0a1628;font-size:1rem;font-weight:800;'>회원가입</div>
-  <div style='color:#1a3a5c;font-size:0.78rem;margin-top:4px;line-height:1.5;'>
-    이름과 연락처(숫자만, - 제외)를 입력하세요
-  </div>
-</div>""", unsafe_allow_html=True)
+    <div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:15px;
+      padding:16px 18px 12px 18px;margin-bottom:12px;text-align:center;
+      box-shadow:0 4px 20px rgba(79,172,254,0.28);'>
+      <div style='font-size:1.6rem;margin-bottom:6px;'>📝</div>
+      <div style='color:#0a1628;font-size:1rem;font-weight:800;'>회원가입</div>
+      <div style='color:#1a3a5c;font-size:0.78rem;margin-top:4px;line-height:1.5;'>
+        이름과 연락처(숫자만, - 제외)를 입력하세요
+      </div>
+    </div>""", unsafe_allow_html=True)
                     with st.form("sb_signup_form"):
                         st.markdown("<div style='font-size:0.82rem;color:#0369a1;font-weight:700;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
                         name = st.text_input("👤 이름", key="signup_name", label_visibility="collapsed")
@@ -12659,157 +12541,157 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
                                         st.error("⚠️ 이미 가입된 회원입니다. 로그인 탭에서 로그인해 주세요.")
                                         from streamlit import components as _cmp
                                         _cmp.v1.html("""
-<script>
-try {
-  var u = new SpeechSynthesisUtterance('회원가입되어 있습니다.');
-  u.lang = 'ko-KR'; u.rate = 0.95; u.pitch = 1.0;
-  window.speechSynthesis.speak(u);
-} catch(e) {}
-</script>""", height=0)
+    <script>
+    try {
+      var u = new SpeechSynthesisUtterance('회원가입되어 있습니다.');
+      u.lang = 'ko-KR'; u.rate = 0.95; u.pitch = 1.0;
+      window.speechSynthesis.speak(u);
+    } catch(e) {}
+    </script>""", height=0)
                                     else:
                                         st.error(f"⚠️ {_sve_msg}")
-            with tab_pw:
-                st.markdown("""
-<div style='border:2px solid #1565C0;border-radius:12px;padding:12px 14px 4px 14px;
-background:transparent;margin-bottom:6px;'>
-<div style='font-size:0.82rem;color:#555;margin-bottom:8px;'>🔐 가입 시 등록한 이름과 기존 연락처로 본인 확인 후 새 비번을 설정합니다.</div>
-""", unsafe_allow_html=True)
-                with st.form("pw_change_form"):
-                    pw_name    = st.text_input("👤 이름", key="pw_name", label_visibility="collapsed")
-                    pw_old     = st.text_input("📱 기존 연락처", type="password", key="pw_old", label_visibility="collapsed")
-                    pw_new1    = st.text_input("🔑 새 연락처", type="password", key="pw_new1", label_visibility="collapsed")
-                    pw_new2    = st.text_input("🔑 새 연락처 확인", type="password", key="pw_new2", label_visibility="collapsed")
-                    if st.form_submit_button("🔄 비번 변경", use_container_width=True):
-                        if not (pw_name and pw_old and pw_new1 and pw_new2):
-                            st.error("모든 항목을 입력해주세요.")
-                        elif pw_new1 != pw_new2:
-                            st.error("새 연락처(비번)가 일치하지 않습니다.")
-                        elif pw_new1 == pw_old:
-                            st.error("새 비번이 기존 비번과 동일합니다.")
-                        else:
-                            _pw_lk, _pw_lk_sec = _LoginGuard.is_locked(pw_name)
-                            if _pw_lk:
-                                _pm = _pw_lk_sec // 60; _ps = _pw_lk_sec % 60
-                                st.error(f"🔒 시도 횟수 초과로 **{_pm}분 {_ps}초** 잠금 중입니다. 운영자(010-3074-2616)에게 문의하세요.")
+                with tab_pw:
+                    st.markdown("""
+    <div style='border:2px solid #1565C0;border-radius:12px;padding:12px 14px 4px 14px;
+    background:transparent;margin-bottom:6px;'>
+    <div style='font-size:0.82rem;color:#555;margin-bottom:8px;'>🔐 가입 시 등록한 이름과 기존 연락처로 본인 확인 후 새 비번을 설정합니다.</div>
+    """, unsafe_allow_html=True)
+                    with st.form("pw_change_form"):
+                        pw_name    = st.text_input("👤 이름", key="pw_name", label_visibility="collapsed")
+                        pw_old     = st.text_input("📱 기존 연락처", type="password", key="pw_old", label_visibility="collapsed")
+                        pw_new1    = st.text_input("🔑 새 연락처", type="password", key="pw_new1", label_visibility="collapsed")
+                        pw_new2    = st.text_input("🔑 새 연락처 확인", type="password", key="pw_new2", label_visibility="collapsed")
+                        if st.form_submit_button("🔄 비번 변경", use_container_width=True):
+                            if not (pw_name and pw_old and pw_new1 and pw_new2):
+                                st.error("모든 항목을 입력해주세요.")
+                            elif pw_new1 != pw_new2:
+                                st.error("새 연락처(비번)가 일치하지 않습니다.")
+                            elif pw_new1 == pw_old:
+                                st.error("새 비번이 기존 비번과 동일합니다.")
                             else:
-                                _pw_members = load_members()
-                                if pw_name not in _pw_members:
-                                    st.error("미가입회원입니다.")
-                                elif not decrypt_data(_pw_members[pw_name]["contact"], pw_old):
-                                    _LoginGuard.record_fail(pw_name)
-                                    _pw_rem = _LoginGuard.remaining_attempts(pw_name)
-                                    _pw_lk2, _ = _LoginGuard.is_locked(pw_name)
-                                    if _pw_lk2:
-                                        st.error(f"🔒 {_LoginGuard.MAX_FAIL}회 실패로 **{_LoginGuard.LOCK_MINUTES}분 잠금**되었습니다.")
-                                    else:
-                                        st.error(f"기존 연락처(비번)가 올바르지 않습니다. (남은 시도: **{_pw_rem}회**)")
+                                _pw_lk, _pw_lk_sec = _LoginGuard.is_locked(pw_name)
+                                if _pw_lk:
+                                    _pm = _pw_lk_sec // 60; _ps = _pw_lk_sec % 60
+                                    st.error(f"🔒 시도 횟수 초과로 **{_pm}분 {_ps}초** 잠금 중입니다. 운영자(010-3074-2616)에게 문의하세요.")
                                 else:
-                                    _LoginGuard.record_success(pw_name)
-                                    _pw_members[pw_name]["contact"] = encrypt_contact(pw_new1)
-                                    save_members(_pw_members)
-                                    st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
-                st.markdown("""
-<div style='border:2px solid #f97316;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#9a3412;margin-top:6px;margin-bottom:6px;line-height:1.8;background:#fff7ed;'>
-⚠️ <b>비번(연락처)을 잊어버리신 경우</b><br>
-관리자는 고객의 정보를 알지 못하므로 비번을 알려드리지 못합니다.<br>
-기존 계정을 삭제하고 <b>신규로 회원가입</b>하신 후 이용해 주세요.<br>
-문의: <b>010-3074-2616</b>
-</div>
-<div style='border:1.5px solid #0369a1;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#0369a1;margin-top:0;margin-bottom:6px;line-height:1.7;background:#f0f9ff;'>
-🔒 <b>보안 안내</b><br>
-• 기존 연락처(비번) 확인 후에만 변경 가능합니다.<br>
-• 변경된 비번은 즉시 암호화(SHA-256 해시)되어 저장됩니다.<br>
-• 기존 비번은 변경 즉시 폐기되며 복구되지 않습니다.
-</div>
-</div>""", unsafe_allow_html=True)
-            with tab_nm:
-                st.markdown("""
-<div style='border:2px solid #1565C0;border-radius:12px;padding:12px 14px 4px 14px;
-background:transparent;margin-bottom:6px;'>
-<div style='font-size:0.82rem;color:#555;margin-bottom:8px;'>✏️ 개명 등으로 이름 변경이 필요한 경우, 기존 이름과 연락처(비번)로 본인 확인 후 새 이름으로 변경합니다.</div>
-<div style='border:1.5px solid #f97316;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#9a3412;margin-bottom:8px;line-height:1.7;background:#fff7ed;'>
-⚠️ <b>책임 고지</b><br>
-회원이 직접 입력한 정보의 오류로 인한 결과(로그인 오류, 데이터 접근 불가 등)의 책임은 본인에게 귀속됩니다.<br>
-<b>단, 시스템 오류·서버 장애로 인한 손해는 운영자가 책임집니다.</b><br>
-변경이 어려운 경우 운영자(010-3074-2616)에게 문의하세요.
-</div>
-""", unsafe_allow_html=True)
-                with st.form("name_change_form"):
-                    nm_old   = st.text_input("👤 현재 이름", key="nm_old", label_visibility="collapsed")
-                    nm_pw    = st.text_input("📱 연락처", type="password", key="nm_pw", label_visibility="collapsed")
-                    nm_new   = st.text_input("✏️ 새 이름", key="nm_new", label_visibility="collapsed")
-                    nm_new2  = st.text_input("✏️ 새 이름 확인", key="nm_new2", label_visibility="collapsed")
-                    if st.form_submit_button("🔄 이름 변경", use_container_width=True):
-                        if not (nm_old and nm_pw and nm_new and nm_new2):
-                            st.error("모든 항목을 입력해주세요.")
-                        elif nm_new != nm_new2:
-                            st.error("새 이름이 일치하지 않습니다.")
-                        elif nm_new == nm_old:
-                            st.error("새 이름이 기존 이름과 동일합니다.")
-                        else:
-                            _nm_members = load_members()
-                            if nm_old not in _nm_members:
-                                st.error("미가입회원입니다.")
-                            elif not decrypt_data(_nm_members[nm_old]["contact"], nm_pw):
-                                st.error("연락처(비번)가 올바르지 않습니다.")
-                            elif nm_new in _nm_members:
-                                st.error("이미 사용 중인 이름입니다.")
-                            else:
-                                _nm_members[nm_new] = _nm_members.pop(nm_old)
-                                save_members(_nm_members)
-                                st.success("✅ 이름이 변경되었습니다. 새 이름으로 로그인해주세요.")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            # ── 모바일 키보드 최적화: 연락처=숫자패드, 이름=소문자 ──────────
-            components.html("""
-<script>
-(function(){
-  function fixInputs(){
-    var doc = window.parent.document;
-    // 연락처(비밀번호) 입력창 → 숫자패드
-    var pws = doc.querySelectorAll('input[type="password"]');
-    pws.forEach(function(el){
-      el.setAttribute('inputmode','tel');
-      el.setAttribute('autocomplete','tel');
-    });
-    // 이름 입력창 → 소문자 우선, 자동대문자 OFF
-    var txts = doc.querySelectorAll('input[type="text"]');
-    txts.forEach(function(el){
-      el.setAttribute('autocapitalize','none');
-      el.setAttribute('autocorrect','off');
-      el.setAttribute('spellcheck','false');
-    });
-  }
-  // 즉시 + 0.5초 후 재시도 (Streamlit 렌더 지연 대응)
-  fixInputs();
-  setTimeout(fixInputs, 500);
-  setTimeout(fixInputs, 1200);
-})();
-</script>
-""", height=0)
-            st.divider()
-            st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#f7971e 0%,#ffd200 100%);
-  border-radius:15px;padding:16px 16px 14px 16px;margin-bottom:10px;
-  box-shadow:0 4px 20px rgba(247,151,30,0.35);">
-  {_bid('0-1-3')}
-  <div style="font-size:1.15rem;font-weight:900;color:#ffffff;
-    letter-spacing:0.03em;margin-bottom:12px;text-align:center;
-    text-shadow:0 1px 4px rgba(0,0,0,0.3);">
-    🎁 지금 가입하면 무료!
-  </div>
-  <div style="background:rgba(255,255,255,0.28);border-radius:10px;
-    padding:12px 14px;margin-bottom:10px;">
-    <div style="font-size:1.0rem;font-weight:900;color:#ffffff;
-      margin-bottom:8px;text-shadow:0 1px 3px rgba(0,0,0,0.25);">⏰ ~2026.08.31. 한정. (앱 고도화기간)</div>
-    <div style="font-size:0.95rem;font-weight:700;color:#ffffff;
-      line-height:2.0;text-shadow:0 1px 3px rgba(0,0,0,0.2);">
-      ✅ 모든 기능 전체 무료<br>
-      ✅ AI 상담 매일 10회 (무료)<br>
-      ✅ 보험·연금·CEO(법인). 상담지원
+                                    _pw_members = load_members()
+                                    if pw_name not in _pw_members:
+                                        st.error("미가입회원입니다.")
+                                    elif not decrypt_data(_pw_members[pw_name]["contact"], pw_old):
+                                        _LoginGuard.record_fail(pw_name)
+                                        _pw_rem = _LoginGuard.remaining_attempts(pw_name)
+                                        _pw_lk2, _ = _LoginGuard.is_locked(pw_name)
+                                        if _pw_lk2:
+                                            st.error(f"🔒 {_LoginGuard.MAX_FAIL}회 실패로 **{_LoginGuard.LOCK_MINUTES}분 잠금**되었습니다.")
+                                        else:
+                                            st.error(f"기존 연락처(비번)가 올바르지 않습니다. (남은 시도: **{_pw_rem}회**)")
+                                    else:
+                                        _LoginGuard.record_success(pw_name)
+                                        _pw_members[pw_name]["contact"] = encrypt_contact(pw_new1)
+                                        save_members(_pw_members)
+                                        st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
+                    st.markdown("""
+    <div style='border:2px solid #f97316;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#9a3412;margin-top:6px;margin-bottom:6px;line-height:1.8;background:#fff7ed;'>
+    ⚠️ <b>비번(연락처)을 잊어버리신 경우</b><br>
+    관리자는 고객의 정보를 알지 못하므로 비번을 알려드리지 못합니다.<br>
+    기존 계정을 삭제하고 <b>신규로 회원가입</b>하신 후 이용해 주세요.<br>
+    문의: <b>010-3074-2616</b>
     </div>
-  </div>
-</div>""", unsafe_allow_html=True)
+    <div style='border:1.5px solid #0369a1;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#0369a1;margin-top:0;margin-bottom:6px;line-height:1.7;background:#f0f9ff;'>
+    🔒 <b>보안 안내</b><br>
+    • 기존 연락처(비번) 확인 후에만 변경 가능합니다.<br>
+    • 변경된 비번은 즉시 암호화(SHA-256 해시)되어 저장됩니다.<br>
+    • 기존 비번은 변경 즉시 폐기되며 복구되지 않습니다.
+    </div>
+    </div>""", unsafe_allow_html=True)
+                with tab_nm:
+                    st.markdown("""
+    <div style='border:2px solid #1565C0;border-radius:12px;padding:12px 14px 4px 14px;
+    background:transparent;margin-bottom:6px;'>
+    <div style='font-size:0.82rem;color:#555;margin-bottom:8px;'>✏️ 개명 등으로 이름 변경이 필요한 경우, 기존 이름과 연락처(비번)로 본인 확인 후 새 이름으로 변경합니다.</div>
+    <div style='border:1.5px solid #f97316;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#9a3412;margin-bottom:8px;line-height:1.7;background:#fff7ed;'>
+    ⚠️ <b>책임 고지</b><br>
+    회원이 직접 입력한 정보의 오류로 인한 결과(로그인 오류, 데이터 접근 불가 등)의 책임은 본인에게 귀속됩니다.<br>
+    <b>단, 시스템 오류·서버 장애로 인한 손해는 운영자가 책임집니다.</b><br>
+    변경이 어려운 경우 운영자(010-3074-2616)에게 문의하세요.
+    </div>
+    """, unsafe_allow_html=True)
+                    with st.form("name_change_form"):
+                        nm_old   = st.text_input("👤 현재 이름", key="nm_old", label_visibility="collapsed")
+                        nm_pw    = st.text_input("📱 연락처", type="password", key="nm_pw", label_visibility="collapsed")
+                        nm_new   = st.text_input("✏️ 새 이름", key="nm_new", label_visibility="collapsed")
+                        nm_new2  = st.text_input("✏️ 새 이름 확인", key="nm_new2", label_visibility="collapsed")
+                        if st.form_submit_button("🔄 이름 변경", use_container_width=True):
+                            if not (nm_old and nm_pw and nm_new and nm_new2):
+                                st.error("모든 항목을 입력해주세요.")
+                            elif nm_new != nm_new2:
+                                st.error("새 이름이 일치하지 않습니다.")
+                            elif nm_new == nm_old:
+                                st.error("새 이름이 기존 이름과 동일합니다.")
+                            else:
+                                _nm_members = load_members()
+                                if nm_old not in _nm_members:
+                                    st.error("미가입회원입니다.")
+                                elif not decrypt_data(_nm_members[nm_old]["contact"], nm_pw):
+                                    st.error("연락처(비번)가 올바르지 않습니다.")
+                                elif nm_new in _nm_members:
+                                    st.error("이미 사용 중인 이름입니다.")
+                                else:
+                                    _nm_members[nm_new] = _nm_members.pop(nm_old)
+                                    save_members(_nm_members)
+                                    st.success("✅ 이름이 변경되었습니다. 새 이름으로 로그인해주세요.")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                    # ── 모바일 키보드 최적화: 연락처=숫자패드, 이름=소문자 ──────────
+                    components.html("""
+        <script>
+        (function(){
+          function fixInputs(){
+            var doc = window.parent.document;
+            // 연락처(비밀번호) 입력창 → 숫자패드
+            var pws = doc.querySelectorAll('input[type="password"]');
+            pws.forEach(function(el){
+              el.setAttribute('inputmode','tel');
+              el.setAttribute('autocomplete','tel');
+            });
+            // 이름 입력창 → 소문자 우선, 자동대문자 OFF
+            var txts = doc.querySelectorAll('input[type="text"]');
+            txts.forEach(function(el){
+              el.setAttribute('autocapitalize','none');
+              el.setAttribute('autocorrect','off');
+              el.setAttribute('spellcheck','false');
+            });
+          }
+          // 즉시 + 0.5초 후 재시도 (Streamlit 렌더 지연 대응)
+          fixInputs();
+          setTimeout(fixInputs, 500);
+          setTimeout(fixInputs, 1200);
+        })();
+        </script>
+        """, height=0)
+                    st.divider()
+                    st.markdown(f"""
+        <div style="position:relative;background:linear-gradient(135deg,#f7971e 0%,#ffd200 100%);
+          border-radius:15px;padding:16px 16px 14px 16px;margin-bottom:10px;
+          box-shadow:0 4px 20px rgba(247,151,30,0.35);">
+          {_bid('0-1-3')}
+          <div style="font-size:1.15rem;font-weight:900;color:#ffffff;
+            letter-spacing:0.03em;margin-bottom:12px;text-align:center;
+            text-shadow:0 1px 4px rgba(0,0,0,0.3);">
+            🎁 지금 가입하면 무료!
+          </div>
+          <div style="background:rgba(255,255,255,0.28);border-radius:10px;
+            padding:12px 14px;margin-bottom:10px;">
+            <div style="font-size:1.0rem;font-weight:900;color:#ffffff;
+              margin-bottom:8px;text-shadow:0 1px 3px rgba(0,0,0,0.25);">⏰ ~2026.08.31. 한정. (앱 고도화기간)</div>
+            <div style="font-size:0.95rem;font-weight:700;color:#ffffff;
+              line-height:2.0;text-shadow:0 1px 3px rgba(0,0,0,0.2);">
+              ✅ 모든 기능 전체 무료<br>
+              ✅ AI 상담 매일 10회 (무료)<br>
+              ✅ 보험·연금·CEO(법인). 상담지원
+            </div>
+          </div>
+        </div>""", unsafe_allow_html=True)
 
         if 'user_id' in st.session_state:
             # 로그인 상태
@@ -12923,15 +12805,16 @@ setTimeout(function(){
             display_usage_dashboard(user_name)
 
             # ── 사용자 모드 & 선호 보험사 설정 ──────────────────────────
-            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,#1a3a5c,#2e6da4);
-  border-radius:10px;padding:8px 12px;margin:6px 0 4px 0;
-  font-size:0.8rem;font-weight:900;color:#fff;letter-spacing:0.03em;">
+            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,rgba(26,58,92,0.30),rgba(46,109,164,0.30));
+  border-radius:10px;padding:8px 12px;margin:6px 0 4px 0;border:1.5px solid rgba(46,109,164,0.55);
+  font-size:0.8rem;font-weight:900;color:#1a3a5c;letter-spacing:0.03em;">
   {_bid('0-2-1')}
   ⚙️ AI 상담 모드 설정</div>""", unsafe_allow_html=True)
 
             # ── 박스 1: 상담 모드 ──────────────────────────────────────────────
-            st.markdown(f"""<div style="position:relative;background:#1a3a5c;border-radius:8px 8px 0 0;
-  padding:6px 12px;font-size:0.78rem;font-weight:900;color:#fff;
+            st.markdown(f"""<div style="position:relative;background:rgba(26,58,92,0.25);border-radius:8px 8px 0 0;
+  border:1.5px solid rgba(26,58,92,0.50);border-bottom:none;
+  padding:6px 12px;font-size:0.78rem;font-weight:900;color:#1a3a5c;
   letter-spacing:0.03em;">{_bid('0-2-2')}👤 상담 모드 선택</div>""", unsafe_allow_html=True)
             _mode_options = ["👔 보험종사자 (설계사·전문가)", "👤 비종사자 (고객·일반인)"]
             _cur_mode = st.session_state.get("user_consult_mode", _mode_options[0])
@@ -12951,8 +12834,9 @@ setTimeout(function(){
             st.session_state["user_consult_mode"] = _sel_mode
 
             # ── 박스 2: 주력 판매 분야 ─────────────────────────────────────────
-            st.markdown(f"""<div style="position:relative;background:#7d3c00;border-radius:8px 8px 0 0;
-  padding:6px 12px;font-size:0.78rem;font-weight:900;color:#fff;
+            st.markdown(f"""<div style="position:relative;background:rgba(125,60,0,0.20);border-radius:8px 8px 0 0;
+  border:1.5px solid rgba(125,60,0,0.45);border-bottom:none;
+  padding:6px 12px;font-size:0.78rem;font-weight:900;color:#7d3c00;
   letter-spacing:0.03em;">{_bid('0-2-3')}📋 주력 판매 분야</div>""", unsafe_allow_html=True)
             _ins_options = ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)", "선택 안 함 (중립 분석)"]
             _cur_ins = st.session_state.get("preferred_insurer", _ins_options[-1])
@@ -13001,37 +12885,60 @@ setTimeout(function(){
                     st.session_state.pop("suggest_submitted_sb", None)
                     st.rerun()
 
-            if st.button("상담 자료 파기", key="btn_purge", use_container_width=True):
-                st.session_state.rag_system = LightRAGSystem()
-                for k in ['analysis_result']:
-                    st.session_state.pop(k, None)
-                st.success("상담 자료가 파기되었습니다.")
-
-            if st.button("📅 일정 달력", key="sb_calendar",
-                         use_container_width=True, type="primary"):
-                _go_tab("calendar")
-            if st.button("👥 고객 관리", key="sb_customer_mgmt",
-                         use_container_width=True, type="primary"):
-                _go_tab("customer_mgmt")
-            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,#0d3b2e,#1a6b4a);
-  border-radius:8px;padding:6px 10px;margin:8px 0 4px 0;
-  font-size:0.76rem;font-weight:900;color:#a8f0c8;letter-spacing:0.03em;">
-  {_bid('0-2-5')}
-  📎 보험증권 분석 &amp; 약관 검색</div>""", unsafe_allow_html=True)
-            if st.button("📎 보험증권 AI 분석", key="sb_policy_scan",
-                         use_container_width=True, type="primary"):
-                _go_tab("policy_scan")
-            if st.button("📜 약관 매칭 · 딥러닝 검색", key="sb_policy_terms",
-                         use_container_width=True):
-                _go_tab("policy_terms")
-            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,#0f4c81,#1565c0);
-  border-radius:8px;padding:6px 10px;margin:8px 0 4px 0;
-  font-size:0.76rem;font-weight:900;color:#FFD700;letter-spacing:0.03em;">
-  {_bid('0-2-6')}
-  🤖 보험봇 · InsuBot</div>""", unsafe_allow_html=True)
-            if st.button("🤖 보험봇 전문용어 검색", key="sb_ins_bot",
-                         use_container_width=True, type="primary"):
-                _go_tab("ins_bot")
+            # ── 실행 버튼 박스 (짙은 청록색 외곽선, 2개씩 병렬 배치) ──────
+            # [주의] _go_tab은 main() 내부 로컬함수라 사이드바에서 직접 호출 불가 →
+            #        _sb_goto_tab 플래그 세팅 후 _go_tab 정의 직후에서 처리
+            st.markdown("""
+<style>
+section[data-testid="stSidebar"] .gk-exec-box button,
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {
+    font-size: 0.76rem !important;
+    padding: 4px 6px !important;
+    min-height: 34px !important;
+    line-height: 1.2 !important;
+}
+</style>
+<div style="border: 2.5px solid #004D40; border-radius: 12px 12px 0 0;
+  padding: 8px 8px 2px 8px; margin: 8px 0 0 0;
+  background: rgba(0,77,64,0.04);">
+  <div style="font-size:0.72rem;font-weight:900;color:#004D40;
+    letter-spacing:0.04em;margin-bottom:4px;text-align:center;">
+    ⚡ 빠른 실행
+  </div>
+</div>""", unsafe_allow_html=True)
+            with st.container():
+                # 행 1: 일정 달력 | 고객 관리
+                _ex_c1, _ex_c2 = st.columns(2)
+                with _ex_c1:
+                    if st.button("📅 일정달력", key="sb_calendar", use_container_width=True, type="primary"):
+                        st.session_state["_sb_goto_tab"] = "calendar"
+                        st.rerun()
+                with _ex_c2:
+                    if st.button("👥 고객관리", key="sb_customer_mgmt", use_container_width=True, type="primary"):
+                        st.session_state["_sb_goto_tab"] = "customer_mgmt"
+                        st.rerun()
+                # 행 2: 증권분석 | 약관검색
+                _ex_c3, _ex_c4 = st.columns(2)
+                with _ex_c3:
+                    if st.button("📎 증권분석", key="sb_policy_scan", use_container_width=True, type="primary"):
+                        st.session_state["_sb_goto_tab"] = "policy_scan"
+                        st.rerun()
+                with _ex_c4:
+                    if st.button("📜 약관검색", key="sb_policy_terms", use_container_width=True):
+                        st.session_state["_sb_goto_tab"] = "policy_terms"
+                        st.rerun()
+                # 행 3: 보험봇(전문용어검색)
+                _ex_c5, _ex_c6 = st.columns(2)
+                with _ex_c5:
+                    if st.button("🤖 보험봇\n(전문용어검색)", key="sb_ins_bot", use_container_width=True, type="primary"):
+                        st.session_state["_sb_goto_tab"] = "ins_bot"
+                        st.rerun()
+                with _ex_c6:
+                    pass  # 공백 유지
+            st.markdown("""<div style="border-bottom: 2.5px solid #004D40;
+  border-left: 2.5px solid #004D40; border-right: 2.5px solid #004D40;
+  border-radius: 0 0 12px 12px; height: 6px; margin-top: 0; margin-bottom: 6px;
+  background: rgba(0,77,64,0.04);"></div>""", unsafe_allow_html=True)
 
         st.divider()
         st.caption("문의: insusite@gmail.com")
@@ -13082,6 +12989,28 @@ setTimeout(function(){
 • <b>접속 오류</b>: Supabase 일시 지연 또는 HF Space 재시작 중 → 1~2분 대기<br>
 • <b>고객 안 보임</b>: 🔍 검색 버튼 클릭으로 목록 새로고침
 </div>""", unsafe_allow_html=True)
+        # ── 상담 자료 파기 버튼 (붉은 외곽선 박스) ─────────────────────
+        if st.session_state.get("user_id"):
+            st.markdown("""<div style="border:2px solid #dc2626;border-radius:10px;
+  padding:8px 10px 6px 10px;margin:8px 0 4px 0;
+  background:rgba(220,38,38,0.04);">
+  <div style="font-size:0.70rem;font-weight:900;color:#dc2626;
+    letter-spacing:0.04em;margin-bottom:6px;text-align:center;">
+    🗑️ 상담 자료 파기
+  </div>""", unsafe_allow_html=True)
+            if st.button("🗑️ 상담 자료 파기 실행", key="btn_purge_sb",
+                         use_container_width=True, type="secondary"):
+                if st.session_state.pop("_sb_purge_confirm", None):
+                    st.session_state.rag_system = LightRAGSystem()
+                    for _k in ["analysis_result"]:
+                        st.session_state.pop(_k, None)
+                    st.success("✅ 상담 자료가 파기되었습니다.")
+                    st.rerun()
+                else:
+                    st.session_state["_sb_purge_confirm"] = True
+                    st.warning("⚠️ 한 번 더 클릭하면 파기됩니다.")
+            st.markdown("</div>", unsafe_allow_html=True)
+
         # ── 관리자 지시 입력창 (로그인 후 바로 노출) ─────────────────────
         if st.session_state.get("is_admin") and st.session_state.get("user_id") not in ("ADMIN_MASTER",):
             st.divider()
@@ -13404,6 +13333,11 @@ setTimeout(function(){
         # [제40조 §3] Watchdog JS — 탭 전환 타이밍 측정 (500ms 초과 시 console.warn)
         st.session_state["_s40_watchdog_tab"] = dest
         st.rerun()
+
+    # ── 사이드바 빠른 실행버튼 플래그 처리 (_go_tab 정의 이후) ───────────
+    _sb_goto = st.session_state.pop("_sb_goto_tab", None)
+    if _sb_goto:
+        _go_tab(_sb_goto)
 
     # ── 공통 AI 쿼리 블록 ────────────────────────────────────────────────
     def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요.", product_key=""):
@@ -15700,513 +15634,6 @@ renderCalendar();
   🔍 시니어 맞춤 모드 활성 중 — 1.2배 확대 · 고대비 적용됨
 </div>""", unsafe_allow_html=True)
 
-        # ── [가이딩 프로토콜 제36조 §5] 베테랑 플래너 활용 매뉴얼 ──────────────────
-        with st.expander("📖 베테랑 플래너 활용 매뉴얼 — 5단계 상담 시나리오 (가이딩 프로토콜 제36조 §5)", expanded=False):
-            st.markdown("""
-<div class="gk-sky-trust" style="font-family:'Noto Sans KR',sans-serif;font-size:0.82rem;line-height:1.7;">
-
-<div class="gk-st-title" style="font-size:0.88rem;margin-bottom:10px;letter-spacing:0.04em;">🎯 GoldKey 가이딩 프로토콜 제36조 — 유니버설 시각 설계 5단계 상담 가이드</div>
-
-<div style="background:#BBDEFB;border-left:4px solid #1565C0;border-radius:0 8px 8px 0;
-  padding:10px 14px;margin-bottom:10px;">
-  <b style="color:#0D47A1;">STEP 1 · 건강보험료 역산 (제32조 × 제36조)</b><br>
-  <span style="color:#000;">① 좌측 메뉴 <b>건보료 역산 탭</b>에서 월 보험료 입력 → 역산 실행<br>
-  ② <span style="color:#E65100;font-weight:700;">가처분소득</span>·<span style="color:#E65100;font-weight:700;">일일 경제가치</span> 카드가 1.5배 확대 표시됨<br>
-  ③ 고객과 함께 화면을 보며 "이 숫자가 고객님의 하루 가치입니다"로 시작</span>
-</div>
-
-<div style="background:#BBDEFB;border-left:4px solid #2E7D32;border-radius:0 8px 8px 0;
-  padding:10px 14px;margin-bottom:10px;">
-  <b style="color:#1B5E20;">STEP 2 · 돋보기 모드 ON (시니어 고객 필수)</b><br>
-  <span style="color:#000;">① 우측 상단 <b>🔍 시니어</b> 버튼 클릭 → 전체 1.2배 확대 + 고대비<br>
-  ② 뇌·심장·치매 고위험 고객: <b>치매 생활비</b>(황금색) 카드 강조 지점 활용<br>
-  ③ 모드 ON 상태에서 스크린샷을 고객 카카오톡으로 공유</span>
-</div>
-
-<div style="background:#BBDEFB;border-left:4px solid #E65100;border-radius:0 8px 8px 0;
-  padding:10px 14px;margin-bottom:10px;">
-  <b style="color:#BF360C;">STEP 3 · 보험증권 파싱 → 레드 알림 확인</b><br>
-  <span style="color:#000;">① 보험증권 분석 탭에서 증권 이미지 업로드<br>
-  ② AI 담보 인식 후 <span style="color:#C62828;font-weight:700;">빨간 펄스 강조</span> 항목 = 사망보험금·80%이상 장해<br>
-  ③ 레드 항목이 "미가입" 또는 "부족"이면 → 긴급도 1순위로 설계안 제시</span>
-</div>
-
-<div style="background:#BBDEFB;border-left:4px solid #6A1B9A;border-radius:0 8px 8px 0;
-  padding:10px 14px;margin-bottom:10px;">
-  <b style="color:#4A148C;">STEP 4 · 질환별 최적 담보 매핑 (제35조 × 제36조)</b><br>
-  <span style="color:#000;">① 치매·뇌·심장 탭에서 CDR 단계 / 위험도 선택<br>
-  ② <b>상세 지표 expander</b>의 뇌질환·치매 기준액 카드 함께 확인<br>
-  ③ 우선 담보 테이블을 화면에 띄워 "이 순서대로 채우겠습니다"로 클로징</span>
-</div>
-
-<div style="background:#BBDEFB;border-left:4px solid #C62828;border-radius:0 8px 8px 0;
-  padding:10px 14px;margin-bottom:4px;">
-  <b style="color:#B71C1C;">STEP 5 · 브리핑 문구 복사 → 계약 마무리</b><br>
-  <span style="color:#000;">① 역산 결과 하단 <b>전문가 브리핑 문구</b> 박스를 복사<br>
-  ② 고객 설명 시 "가이딩 프로토콜 제32조 표준"·"금감원 기준" 문구로 신뢰 강화<br>
-  ③ <b>금소법 제19조</b> 설명의무 이행 완료 후 서명 → 청약 진행</span>
-</div>
-
-<div style="color:#37474F;font-size:0.70rem;margin-top:10px;border-top:1px solid #90CAF9;padding-top:8px;">
-  📌 본 매뉴얼은 가이딩 프로토콜 제36조 §5 「자율 인터페이스 숙달 원칙」에 근거합니다.
-  시니어·저시력 고객 상담 시 돋보기 모드를 반드시 활성화하세요.
-</div>
-</div>""", unsafe_allow_html=True)
-
-        # ── 로그인 상태에 따른 상단 배너 ──────────────────────────────────
-        if 'user_id' not in st.session_state:
-            st.markdown("""
-<style>
-div[data-testid="stButton"] button[kind="primary"]#home_open_signup,
-button[data-testid="baseButton-primary"][aria-label*="회원가입"],
-div[data-testid="column"]:nth-child(1) div[data-testid="stButton"] > button,
-div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button {
-  background: #ffffff !important;
-  background-image: none !important;
-  border: 2px solid #1565C0 !important;
-  color: #000000 !important;
-  font-weight: 700 !important;
-}
-div[data-testid="column"]:nth-child(1) div[data-testid="stButton"] > button:hover,
-div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button:hover {
-  background: #E3F2FD !important;
-  color: #000000 !important;
-}
-</style>""", unsafe_allow_html=True)
-            _b1, _b2, _b3 = st.columns([1, 1, 0.01])
-            with _b1:
-                if st.button("📝 회원가입", key="home_open_signup",
-                             use_container_width=True, type="primary"):
-                    st.session_state["_open_sidebar"] = True
-                    st.rerun()
-            with _b2:
-                if st.button("🔓 로그인", key="home_open_login",
-                             use_container_width=True):
-                    st.session_state["_open_sidebar"] = True
-                    st.rerun()
-            st.markdown(f"""
-<div class="gk-teal-block" style="position:relative;text-align:center;">
-  {_bid('1-1-1')}
-  <span style="color:#ffffff;font-size:1.05rem;font-weight:900;
-    text-shadow:0 2px 6px rgba(0,0,0,0.55);">
-    🔐 버튼을 클릭하면 가입/로그인 창이 열립니다
-  </span>
-</div>""", unsafe_allow_html=True)
-        else:
-            _uname = mask_name(st.session_state.get("user_name", ""))
-            _cur_eid  = st.session_state.get("_gk_entity_id", "")
-            _cur_utype = st.session_state.get("_gk_user_type", "customer")
-            _eid_badge = f'<span style="font-size:0.72rem;background:#0f172a;color:#7dd3fc;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;letter-spacing:0.04em;">{_cur_eid}</span>' if _cur_eid else ""
-            st.markdown(f"""
-<div class="gk-teal-block" style="position:relative;
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-  {_bid('1-1-2')}
-  <span style="font-size:1.5rem;">✅</span>
-  <span style="color:#ffffff;font-size:1.1rem;font-weight:900;
-    text-shadow:0 2px 6px rgba(0,0,0,0.55);">
-    {_uname} 마스터님 · 로그인됨
-  </span>{_eid_badge}
-</div>""", unsafe_allow_html=True)
-
-            # ── [D1] RoutingGuard — 로그인 직후 userType 기반 자동 분기 배너 ───────
-            if _login_first_run:
-                if _cur_utype == "agent":
-                    st.markdown("""
-<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 100%);
-  border:2px solid #f0c040;border-radius:12px;padding:14px 18px;margin-bottom:8px;
-  animation:gk-fadein 0.5s ease;">
-  <div style="color:#f0c040;font-size:1.05rem;font-weight:900;margin-bottom:4px;">
-    🏢 설계사 대시보드로 이동합니다
-  </div>
-  <div style="color:#94a3b8;font-size:0.78rem;">
-    보험업 종사자 계정 감지 — AI 타겟 추천 · CRM 도구가 활성화됩니다.
-  </div>
-</div>""", unsafe_allow_html=True)
-                else:
-                    st.markdown("""
-<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
-  border-radius:12px;padding:12px 18px;margin-bottom:8px;">
-  <div style="color:#fff;font-size:1.0rem;font-weight:900;">
-    🙋 고객 맞춤 화면으로 이동합니다
-  </div>
-  <div style="color:#a7f3d0;font-size:0.78rem;">
-    암·뇌·심장 보장공백 스캔 도구가 준비되었습니다.
-  </div>
-</div>""", unsafe_allow_html=True)
-
-            # ── [C7] 설계사 대시보드 미리보기 토글 (관리자 또는 테스트 모드) ──────
-            _is_admin_now = st.session_state.get("is_admin", False)
-            if _is_admin_now and _cur_utype != "agent":
-                _dbg_toggle = st.toggle(
-                    "🧪 설계사 대시보드 미리보기",
-                    value=st.session_state.get("_agent_dash_preview", False),
-                    key="_agent_dash_preview_toggle",
-                    help="관리자 전용 — 설계사(AGNT_) 대시보드를 현재 계정에서 미리봅니다",
-                )
-                st.session_state["_agent_dash_preview"] = _dbg_toggle
-            else:
-                st.session_state.setdefault("_agent_dash_preview", False)
-
-            # ── [C4] AgentHome 대시보드 — 설계사(AGNT_) 계정 전용 ─────────────────
-            if _cur_utype == "agent" or _is_admin_now or st.session_state.get("_agent_dash_preview", False):
-                import datetime as _adt, json as _ahj
-                _now_adt = _adt.datetime.now()
-
-                if "_agent_todo" not in st.session_state:
-                    st.session_state["_agent_todo"] = [
-                        {"done": False, "text": "김○○ 고객 암보험 설계서 발송"},
-                        {"done": False, "text": "이○○ 고객 청구서류 취합"},
-                        {"done": True,  "text": "월간 실적 보고서 제출"},
-                    ]
-                if "_agent_appt" not in st.session_state:
-                    st.session_state["_agent_appt"] = [
-                        {"time": "10:30", "name": "박○○", "type": "신규상담"},
-                        {"time": "14:00", "name": "최○○", "type": "갱신안내"},
-                    ]
-                if "_agent_wait" not in st.session_state:
-                    st.session_state["_agent_wait"] = [
-                        {"name": "정○○", "status": "서류검토중"},
-                        {"name": "강○○", "status": "심사대기"},
-                        {"name": "윤○○", "status": "출금확인"},
-                    ]
-
-                _todo_list  = st.session_state["_agent_todo"]
-                _appt_list  = st.session_state["_agent_appt"]
-                _wait_list  = st.session_state["_agent_wait"]
-                _done_cnt   = sum(1 for t in _todo_list if t["done"])
-                _todo_cnt   = len(_todo_list) - _done_cnt
-
-                # ── 통합 상태 현황판 (외곽 통합 박스 + st.columns 내부) ────────────
-                _todo_items_html = "".join(
-                    f'<div style="display:flex;align-items:center;gap:6px;padding:4px 0;'
-                    f'border-bottom:1px solid rgba(255,255,255,0.10);">'
-                    f'<span style="font-size:13px;">{"✅" if t["done"] else "⬜"}</span>'
-                    f'<span style="font-size:12px;color:{"#94a3b8" if t["done"] else "#e2e8f0"};'
-                    f'text-decoration:{"line-through" if t["done"] else "none"};'
-                    f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;">'
-                    f'{t["text"]}</span>'
-                    f'</div>'
-                    for t in _todo_list
-                )
-                _appt_items_html = "".join(
-                    f'<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.10);">'
-                    f'<span style="font-size:12px;color:#fde68a;font-weight:700;">{a["time"]}</span>'
-                    f'<span style="font-size:12px;color:#e2e8f0;margin-left:6px;">{a["name"]}</span>'
-                    f'<span style="font-size:11px;color:#94a3b8;margin-left:4px;">· {a["type"]}</span>'
-                    f'</div>'
-                    for a in _appt_list
-                )
-                _wait_items_html = "".join(
-                    f'<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.10);">'
-                    f'<span style="font-size:12px;color:#e2e8f0;font-weight:600;">{w["name"]}</span>'
-                    f'<span style="font-size:11px;color:#7dd3fc;margin-left:6px;">{w["status"]}</span>'
-                    f'</div>'
-                    for w in _wait_list
-                )
-
-                # ── 외곽 통합 카드 헤더 ──────────────────────────────────────
-                st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#0d1b2a 0%,#162d4a 100%);
-  border:2px solid #2563eb;border-radius:16px;
-  padding:16px 18px 6px 18px;margin-bottom:0;
-  box-shadow:0 6px 28px rgba(0,0,0,0.35),0 0 0 1px rgba(37,99,235,0.18);">
-  {_bid('1-2-1')}
-  <div style="font-size:11px;font-weight:900;color:#93c5fd;letter-spacing:0.12em;
-    text-transform:uppercase;margin-bottom:14px;
-    display:flex;align-items:center;gap:6px;">
-    <span style="display:inline-block;width:6px;height:6px;border-radius:50%;
-      background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,0.8);"></span>
-    📊 오늘의 업무 현황판
-  </div>""", unsafe_allow_html=True)
-
-                # ── st.columns(3) 내부 박스 ──────────────────────────────────
-                _sb_c1, _sb_c2, _sb_c3 = st.columns(3, gap="small")
-
-                with _sb_c1:
-                    st.markdown(f"""
-<div style="position:relative;background:rgba(251,191,36,0.08);border:1.5px solid rgba(251,191,36,0.35);
-  border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
-  {_bid('1-2-2')}
-  <div style="font-size:11px;color:#fde68a;font-weight:800;letter-spacing:0.06em;
-    margin-bottom:10px;">📋 오늘 할 일</div>
-  <div style="font-size:52px;font-weight:900;color:#fbbf24;line-height:1;margin-bottom:10px;">
-    {_todo_cnt}<span style="font-size:15px;color:#94a3b8;font-weight:500;margin-left:3px;">건</span>
-  </div>
-  {_todo_items_html if _todo_items_html else '<div style="color:#475569;font-size:11px;">항목 없음</div>'}
-</div>""", unsafe_allow_html=True)
-
-                with _sb_c2:
-                    st.markdown(f"""
-<div style="position:relative;background:rgba(125,211,252,0.08);border:1.5px solid rgba(125,211,252,0.35);
-  border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
-  {_bid('1-2-3')}
-  <div style="font-size:11px;color:#bae6fd;font-weight:800;letter-spacing:0.06em;
-    margin-bottom:10px;">📅 오늘의 약속</div>
-  <div style="font-size:52px;font-weight:900;color:#7dd3fc;line-height:1;margin-bottom:10px;">
-    {len(_appt_list)}<span style="font-size:15px;color:#94a3b8;font-weight:500;margin-left:3px;">건</span>
-  </div>
-  {_appt_items_html if _appt_items_html else '<div style="color:#475569;font-size:11px;">약속 없음</div>'}
-</div>""", unsafe_allow_html=True)
-
-                with _sb_c3:
-                    st.markdown(f"""
-<div style="position:relative;background:rgba(134,239,172,0.08);border:1.5px solid rgba(134,239,172,0.35);
-  border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
-  {_bid('1-2-4')}
-  <div style="font-size:11px;color:#bbf7d0;font-weight:800;letter-spacing:0.06em;
-    margin-bottom:10px;">⏳ 상담 대기</div>
-  <div style="font-size:52px;font-weight:900;color:#86efac;line-height:1;margin-bottom:10px;">
-    {len(_wait_list)}<span style="font-size:15px;color:#94a3b8;font-weight:500;margin-left:3px;">건</span>
-  </div>
-  {_wait_items_html if _wait_items_html else '<div style="color:#475569;font-size:11px;">대기 없음</div>'}
-</div>""", unsafe_allow_html=True)
-
-                # ── 외곽 박스 닫기 ────────────────────────────────────────────
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                # ── [C4b] To-Do 인터랙션 (체크 / 추가 / 삭제) ────────────────────
-                with st.expander("📌 할 일 관리 (상세)", expanded=False):
-                    _del_idx = None
-                    for _ti, _task in enumerate(_todo_list):
-                        _tc1, _tc2, _tc3 = st.columns([0.08, 0.80, 0.12])
-                        with _tc1:
-                            _checked = st.checkbox(
-                                "", value=_task["done"],
-                                key=f"todo_chk_{_ti}",
-                                label_visibility="collapsed",
-                            )
-                            if _checked != _task["done"]:
-                                st.session_state["_agent_todo"][_ti]["done"] = _checked
-                                st.rerun()
-                        with _tc2:
-                            _style = ("line-through;color:#94a3b8" if _task["done"]
-                                      else "none;color:#e2e8f0")
-                            st.markdown(
-                                f'<div style="font-size:0.82rem;text-decoration:{_style};'
-                                f'padding-top:4px;">{_task["text"]}</div>',
-                                unsafe_allow_html=True,
-                            )
-                        with _tc3:
-                            if st.button("🗑", key=f"todo_del_{_ti}",
-                                         help="삭제", use_container_width=True):
-                                _del_idx = _ti
-                    if _del_idx is not None:
-                        st.session_state["_agent_todo"].pop(_del_idx)
-                        st.rerun()
-                    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-                    with st.form("add_todo_form", clear_on_submit=True):
-                        _new_todo = st.text_input("새 할 일", placeholder="내용 입력 후 Enter",
-                                                  label_visibility="collapsed")
-                        if st.form_submit_button("➕ 추가", use_container_width=True):
-                            if _new_todo.strip():
-                                st.session_state["_agent_todo"].append(
-                                    {"done": False, "text": _new_todo.strip()}
-                                )
-                                st.rerun()
-
-                # ── [C5/D3] AI 타겟 고객 추천 TOP 5 + 카톡 멘트 생성 ────────────────
-                st.markdown(f"""<div style="position:relative;font-size:0.72rem;font-weight:800;color:#64748b;
-                  letter-spacing:0.08em;text-transform:uppercase;margin:14px 0 6px 2px;">
-                  {_bid('1-2-6')}
-                  🤖 AI 타겟 고객 추천 TOP 5</div>""", unsafe_allow_html=True)
-
-                _top5 = calculate_top_targets(n=5, hours=48)
-                if _top5:
-                    for _rank, _tgt in enumerate(_top5, 1):
-                        _diff_h2 = (_adt.datetime.now().timestamp()*1000 - _tgt["last_ts"]) / 3_600_000
-                        _recency_str = (f"{int(_diff_h2*60)}분 전" if _diff_h2 < 1
-                                        else f"{int(_diff_h2)}시간 전" if _diff_h2 < 24
-                                        else f"{int(_diff_h2/24)}일 전")
-                        _detail_str = " · ".join(
-                            f'{d["title"]}({d["count"]}회×w{d["weight"]}={d["sub_score"]}점)'
-                            for d in _tgt["detail"][:2]
-                        )
-                        _score_color = ("#ef4444" if _tgt["score"] >= 80
-                                        else "#f59e0b" if _tgt["score"] >= 40
-                                        else "#22c55e")
-                        # 관심 키워드: detail 1위 메뉴 제목 사용
-                        _interest_kw = _tgt["detail"][0]["title"] if _tgt["detail"] else _tgt["top_menu"]
-                        _eid_safe    = _tgt["entity_id"]
-
-                        # ── 카드 HTML ──────────────────────────────────────────
-                        st.markdown(f"""
-<div class="gk-sky-trust" style="padding:10px 14px !important;margin-bottom:4px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-  <div style="font-size:1.1rem;font-weight:900;color:#E65100;min-width:22px;">#{_rank}</div>
-  <div style="flex:1;min-width:0;">
-    <div style="color:#000;font-size:0.85rem;font-weight:800;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-      {_eid_safe} <span style="color:#37474F;font-size:0.7rem;font-weight:400;">· {_tgt["user_type"]}</span>
-    </div>
-    <div style="color:#1565C0;font-size:0.7rem;margin-top:2px;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-      🔥 {_detail_str}
-    </div>
-    <div style="color:#37474F;font-size:0.68rem;margin-top:1px;">
-      🕐 마지막 활동: {_recency_str}
-    </div>
-  </div>
-  <div style="text-align:right;flex-shrink:0;">
-    <div style="color:{_score_color};font-size:1.05rem;font-weight:900;">{_tgt["score"]}점</div>
-    <div style="color:#37474F;font-size:0.65rem;">관심도 점수</div>
-  </div>
-</div>""", unsafe_allow_html=True)
-
-                        # ── [D3] 카톡 보내기 버튼 + AI 초안 모달 ─────────────
-                        _kakao_btn_key  = f"_kakao_btn_{_rank}"
-                        _kakao_open_key = f"_kakao_open_{_rank}"
-                        _kakao_draft_key= f"_kakao_draft_{_rank}"
-
-                        _col_kakao, _col_close = st.columns([3, 1])
-                        with _col_kakao:
-                            if st.button(
-                                f"💬 {_eid_safe} 카톡 초안 생성",
-                                key=_kakao_btn_key,
-                                use_container_width=True,
-                            ):
-                                # 모달 토글 (재클릭 시 닫기)
-                                _is_open = st.session_state.get(_kakao_open_key, False)
-                                st.session_state[_kakao_open_key] = not _is_open
-                                if not _is_open:
-                                    # 아직 초안 없으면 생성
-                                    if not st.session_state.get(_kakao_draft_key, ""):
-                                        with st.spinner("🤖 AI가 카톡 멘트를 작성 중..."):
-                                            _draft = _generate_kakao_draft(_eid_safe, _interest_kw)
-                                            st.session_state[_kakao_draft_key] = _draft
-                                st.rerun()
-
-                        # ── AI 초안 편집 + 복사 모달 ──────────────────────────
-                        if st.session_state.get(_kakao_open_key, False):
-                            st.markdown(f"""
-<div style="background:#fefce8;border:2px solid #fde047;border-radius:12px;
-  padding:14px 16px;margin-bottom:8px;">
-  <div style="font-size:0.78rem;font-weight:800;color:#713f12;margin-bottom:8px;">
-    💬 AI 카톡 초안 — {_eid_safe} · 관심: {_interest_kw}
-  </div>
-</div>""", unsafe_allow_html=True)
-                            # 수정 가능 textarea
-                            _edited = st.text_area(
-                                "✏️ 초안 수정 후 복사",
-                                value=st.session_state.get(_kakao_draft_key, ""),
-                                key=f"_kakao_ta_{_rank}",
-                                height=130,
-                                label_visibility="collapsed",
-                            )
-                            # 수정 내용 실시간 저장
-                            st.session_state[_kakao_draft_key] = _edited
-
-                            _btn_copy, _btn_regen, _btn_x = st.columns([2, 2, 1])
-                            with _btn_copy:
-                                # 클립보드 복사 (JS)
-                                _copy_js = _edited.replace("'", "\\'").replace("\n", "\\n")
-                                st.markdown(f"""
-<button onclick="navigator.clipboard.writeText('{_copy_js}').then(()=>this.innerText='✅ 복사됨!').catch(()=>alert('복사 실패: 직접 선택 후 복사하세요'))"
-  style="width:100%;background:#fee500;color:#191919;border:none;
-    border-radius:8px;padding:9px 0;font-size:0.82rem;font-weight:800;cursor:pointer;">
-  📋 카톡 문구 복사
-</button>""", unsafe_allow_html=True)
-                            with _btn_regen:
-                                if st.button("🔄 재생성", key=f"_kakao_regen_{_rank}", use_container_width=True):
-                                    with st.spinner("🤖 재작성 중..."):
-                                        _new_draft = _generate_kakao_draft(_eid_safe, _interest_kw)
-                                        st.session_state[_kakao_draft_key] = _new_draft
-                                    st.rerun()
-                            with _btn_x:
-                                if st.button("✖", key=f"_kakao_close_{_rank}", use_container_width=True):
-                                    st.session_state[_kakao_open_key] = False
-                                    st.rerun()
-                else:
-                    st.markdown("""
-<div class="gk-sky-trust" style="border-style:dashed !important;padding:16px !important;text-align:center;font-size:0.82rem;">
-  📊 아직 추적 데이터가 없습니다.<br>
-  <span style="font-size:0.72rem;color:#37474F;">고객이 메뉴를 클릭하면 자동으로 점수가 집계됩니다.</span>
-</div>""", unsafe_allow_html=True)
-
-                # ── CRM 섹터 바로가기 ──────────────────────────────────────────
-                st.markdown(f"""<div style="font-size:0.72rem;font-weight:800;color:#64748b;
-                  letter-spacing:0.08em;text-transform:uppercase;margin:14px 0 6px 2px;">
-                  {_bid('1-2-5')}
-                  🔗 CRM 빠른 이동</div>""", unsafe_allow_html=True)
-                _crm_c1, _crm_c2, _crm_c3, _crm_c4 = st.columns(4)
-                _crm_links = [
-                    ("_crm_c1", "🩺 암진단\n설계", "cancer"),
-                    ("_crm_c2", "🧠 뇌·심장\n설계", "brain"),
-                    ("_crm_c3", "📄 고객\n문서함", "customer_docs"),
-                    ("_crm_c4", "🛡️ 보장공백\n분석", "t3"),
-                ]
-                for (_col_k, _label, _tab), _col in zip(_crm_links,
-                                                         [_crm_c1, _crm_c2, _crm_c3, _crm_c4]):
-                    with _col:
-                        if st.button(_label, key=f"crm_quick_{_tab}", use_container_width=True):
-                            _go_tab(_tab)
-
-                st.markdown("<hr style='border:none;border-top:1px solid #1e3a5f;margin:10px 0;'>",
-                            unsafe_allow_html=True)
-
-        # ── [제47조] 임페리얼 골드 텍스처 헤더 (단일 권위 브랜딩) ─────────────
-        _uname_disp = mask_name(st.session_state.get("user_name","")) if "user_id" in st.session_state else "마스터"
-        import datetime as _hdt
-        _today = _hdt.datetime.now()
-        _weekday_kr = ["월","화","수","목","금","토","일"][_today.weekday()]
-        _today_str = f"{_today.year}년 {_today.month:02d}월 {_today.day:02d}일 ({_weekday_kr})"
-        st.markdown(f"""
-<div style="
-  position:relative;
-  background:#FDF5E6;
-  background-image:
-    repeating-linear-gradient(
-      45deg,
-      rgba(0,77,64,0.04) 0px, rgba(0,77,64,0.04) 1px,
-      transparent 1px, transparent 8px
-    ),
-    repeating-linear-gradient(
-      -45deg,
-      rgba(0,77,64,0.03) 0px, rgba(0,77,64,0.03) 1px,
-      transparent 1px, transparent 8px
-    );
-  border:2px solid #004D40;
-  border-radius:10px;
-  padding:14px 20px 0 20px;
-  margin:0 0 0 0;
-">
-  {_bid('1-3-1')}
-  <div style="
-    font-size:1.3rem;
-    font-weight:800;
-    color:#004D40;
-    font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
-    letter-spacing:0.01em;
-    line-height:1.3;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  ">Goldkey_AI_Masters2026: 전문 보험 상담 동반</div>
-  <div style="
-    display:flex;align-items:center;justify-content:space-between;
-    margin-top:6px;
-    font-size:0.78rem;
-    color:#004D40;
-    opacity:0.75;
-    font-weight:600;
-    letter-spacing:0.03em;
-  ">
-    <span>{_today_str} &nbsp;·&nbsp; AI 보험컨설팅 통합 플랫폼</span>
-    <span style="display:flex;align-items:center;gap:5px;">
-      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;
-        background:#004D40;box-shadow:0 0 5px rgba(0,77,64,0.7);
-        animation:gk-hdr-blink 1.8s ease-in-out infinite;"></span>
-      {_uname_disp}님 접속 중
-    </span>
-  </div>
-  <div style="border-top:2px solid #004D40;margin:10px -20px 0 -20px;"></div>
-</div>
-<style>
-@keyframes gk-hdr-blink {{
-  0%,100% {{ opacity:1; }} 50% {{ opacity:0.25; }}
-}}
-</style>
-<div style="margin-top:15px;"></div>
-""", unsafe_allow_html=True)
-
         # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
         st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('1-3-2')}</div>""",
                     unsafe_allow_html=True)
@@ -16285,6 +15712,448 @@ function wxByGeo(){
 wxByGeo();
 </script>
 """, height=100)
+
+        # ── [제47조] 임페리얼 골드 텍스처 헤더 (단일 권위 브랜딩) — #1-3-2 다음, #1-1-2 앞 ──
+        _uname_disp = mask_name(st.session_state.get("user_name","")) if "user_id" in st.session_state else "마스터"
+        import datetime as _hdt
+        _today = _hdt.datetime.now()
+        _weekday_kr = ["월","화","수","목","금","토","일"][_today.weekday()]
+        _today_str = f"{_today.year}년 {_today.month:02d}월 {_today.day:02d}일 ({_weekday_kr})"
+        st.markdown(f"""
+<div style="
+  position:relative;
+  background:#FDF5E6;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(0,77,64,0.04) 0px, rgba(0,77,64,0.04) 1px,
+      transparent 1px, transparent 8px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(0,77,64,0.03) 0px, rgba(0,77,64,0.03) 1px,
+      transparent 1px, transparent 8px
+    );
+  border:2px solid #004D40;
+  border-radius:10px;
+  padding:14px 20px 0 20px;
+  margin:0 0 0 0;
+">
+  {_bid('1-3-1')}
+  <div style="
+    font-size:1.3rem;
+    font-weight:800;
+    color:#004D40;
+    font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+    letter-spacing:0.01em;
+    line-height:1.3;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  ">Goldkey_AI_Masters2026: 전문 보험 상담 동반</div>
+  <div style="
+    display:flex;align-items:center;justify-content:space-between;
+    margin-top:6px;
+    font-size:0.78rem;
+    color:#004D40;
+    opacity:0.75;
+    font-weight:600;
+    letter-spacing:0.03em;
+  ">
+    <span>{_today_str} &nbsp;·&nbsp; AI 보험컨설팅 통합 플랫폼</span>
+    <span style="display:flex;align-items:center;gap:5px;">
+      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;
+        background:#004D40;box-shadow:0 0 5px rgba(0,77,64,0.7);
+        animation:gk-hdr-blink 1.8s ease-in-out infinite;"></span>
+      {_uname_disp}님 접속 중
+    </span>
+  </div>
+  <div style="border-top:2px solid #004D40;margin:10px -20px 0 -20px;"></div>
+</div>
+<style>
+@keyframes gk-hdr-blink {{
+  0%,100% {{ opacity:1; }} 50% {{ opacity:0.25; }}
+}}
+</style>
+<div style="margin-top:15px;"></div>
+""", unsafe_allow_html=True)
+
+        # ── 로그인 상태에 따른 상단 배너 (#1-1-2) ──────────────────────────────────
+        if 'user_id' not in st.session_state:
+            st.markdown(f"""
+<style>
+div[data-testid="stButton"] button[kind="primary"]#home_open_signup,
+button[data-testid="baseButton-primary"][aria-label*="회원가입"],
+div[data-testid="column"]:nth-child(1) div[data-testid="stButton"] > button,
+div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button {{
+  background: #ffffff !important;
+  background-image: none !important;
+  border: 2px solid #1565C0 !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+}}
+div[data-testid="column"]:nth-child(1) div[data-testid="stButton"] > button:hover,
+div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button:hover {{
+  background: #E3F2FD !important;
+  color: #000000 !important;
+}}
+</style>
+<div class="gk-teal-block" style="position:relative;text-align:center;margin-bottom:8px;">
+  {_bid('1-1-1')}
+  <span style="color:#ffffff;font-size:1.05rem;font-weight:900;
+    text-shadow:0 2px 6px rgba(0,0,0,0.55);">
+    👇 아래 버튼(회원가입/로그인)을 클릭하면 입력창이 열립니다.
+  </span>
+</div>""", unsafe_allow_html=True)
+            _b1, _b2, _b3 = st.columns([1, 1, 0.01])
+            with _b1:
+                if st.button("📝 회원가입", key="home_open_signup",
+                             use_container_width=True, type="primary"):
+                    st.session_state["_open_sidebar"] = True
+                    st.rerun()
+            with _b2:
+                if st.button("🔓 로그인", key="home_open_login",
+                             use_container_width=True):
+                    st.session_state["_open_sidebar"] = True
+                    st.rerun()
+        else:
+            _uname = mask_name(st.session_state.get("user_name", ""))
+            _cur_eid  = st.session_state.get("_gk_entity_id", "")
+            _cur_utype = st.session_state.get("_gk_user_type", "customer")
+            _eid_badge = f'<span style="font-size:0.72rem;background:#0f172a;color:#7dd3fc;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;letter-spacing:0.04em;">{_cur_eid}</span>' if _cur_eid else ""
+            st.markdown(f"""
+<div class="gk-teal-block" style="position:relative;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+  {_bid('1-1-2')}
+  <span style="font-size:1.5rem;">✅</span>
+  <span style="color:#ffffff;font-size:1.1rem;font-weight:900;
+    text-shadow:0 2px 6px rgba(0,0,0,0.55);">
+    {_uname} 마스터님 · 로그인됨
+  </span>{_eid_badge}
+</div>""", unsafe_allow_html=True)
+
+            # ── [D1] RoutingGuard — 로그인 직후 userType 기반 자동 분기 배너 ───────
+            if _login_first_run:
+                if _cur_utype == "agent":
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 100%);
+  border:2px solid #f0c040;border-radius:12px;padding:14px 18px;margin-bottom:8px;
+  animation:gk-fadein 0.5s ease;">
+  <div style="color:#f0c040;font-size:1.05rem;font-weight:900;margin-bottom:4px;">
+    🏢 설계사 대시보드로 이동합니다
+  </div>
+  <div style="color:#94a3b8;font-size:0.78rem;">
+    보험업 종사자 계정 감지 — AI 타겟 추천 · CRM 도구가 활성화됩니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+  border-radius:12px;padding:12px 18px;margin-bottom:8px;">
+  <div style="color:#fff;font-size:1.0rem;font-weight:900;">
+    🙋 고객 맞춤 화면으로 이동합니다
+  </div>
+  <div style="color:#a7f3d0;font-size:0.78rem;">
+    암·뇌·심장 보장공백 스캔 도구가 준비되었습니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            _is_admin_now = st.session_state.get("is_admin", False)
+
+        # ── [C4] AgentHome 대시보드 (#1-1-2 다음 — 로그인 시만 표시) ───────
+        if 'user_id' in st.session_state:
+            _uname_pre = mask_name(st.session_state.get("user_name", ""))
+            _cur_eid_pre  = st.session_state.get("_gk_entity_id", "")
+            _cur_utype_pre = st.session_state.get("_gk_user_type", "customer")
+            _is_admin_pre = st.session_state.get("is_admin", False)
+            if _is_admin_pre and _cur_utype_pre != "agent":
+                _dbg_toggle = st.toggle(
+                    "🧪 설계사 대시보드 미리보기",
+                    value=st.session_state.get("_agent_dash_preview", False),
+                    key="_agent_dash_preview_toggle",
+                    help="관리자 전용 — 설계사(AGNT_) 대시보드를 현재 계정에서 미리봅니다",
+                )
+                st.session_state["_agent_dash_preview"] = _dbg_toggle
+            else:
+                st.session_state.setdefault("_agent_dash_preview", False)
+
+            if _cur_utype_pre == "agent" or _is_admin_pre or st.session_state.get("_agent_dash_preview", False):
+                import datetime as _adt, json as _ahj
+                _now_adt = _adt.datetime.now()
+
+                if "_agent_todo" not in st.session_state:
+                    st.session_state["_agent_todo"] = [
+                        {"done": False, "text": "김○○ 고객 암보험 설계서 발송"},
+                        {"done": False, "text": "이○○ 고객 청구서류 취합"},
+                        {"done": True,  "text": "월간 실적 보고서 제출"},
+                    ]
+                if "_agent_appt" not in st.session_state:
+                    st.session_state["_agent_appt"] = [
+                        {"time": "10:30", "name": "박○○", "type": "신규상담"},
+                        {"time": "14:00", "name": "최○○", "type": "갱신안내"},
+                    ]
+                if "_agent_wait" not in st.session_state:
+                    st.session_state["_agent_wait"] = [
+                        {"name": "정○○", "status": "서류검토중"},
+                        {"name": "강○○", "status": "심사대기"},
+                        {"name": "윤○○", "status": "출금확인"},
+                    ]
+
+                _todo_list  = st.session_state["_agent_todo"]
+                _appt_list  = st.session_state["_agent_appt"]
+                _wait_list  = st.session_state["_agent_wait"]
+                _done_cnt   = sum(1 for t in _todo_list if t["done"])
+                _todo_cnt   = len(_todo_list) - _done_cnt
+
+                _todo_items_html = "".join(
+                    f'<div style="display:flex;align-items:center;gap:6px;padding:4px 0;'
+                    f'border-bottom:1px solid rgba(255,255,255,0.10);">'
+                    f'<span style="font-size:13px;">{"✅" if t["done"] else "⬜"}</span>'
+                    f'<span style="font-size:12px;color:{"#94a3b8" if t["done"] else "#e2e8f0"};'
+                    f'text-decoration:{"line-through" if t["done"] else "none"};'
+                    f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;">'
+                    f'{t["text"]}</span>'
+                    f'</div>'
+                    for t in _todo_list
+                )
+                _appt_items_html = "".join(
+                    f'<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.10);">'
+                    f'<span style="font-size:12px;color:#fde68a;font-weight:700;">{a["time"]}</span>'
+                    f'<span style="font-size:12px;color:#e2e8f0;margin-left:6px;">{a["name"]}</span>'
+                    f'<span style="font-size:11px;color:#94a3b8;margin-left:4px;">· {a["type"]}</span>'
+                    f'</div>'
+                    for a in _appt_list
+                )
+                _wait_items_html = "".join(
+                    f'<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.10);">'
+                    f'<span style="font-size:12px;color:#e2e8f0;font-weight:600;">{w["name"]}</span>'
+                    f'<span style="font-size:11px;color:#7dd3fc;margin-left:6px;">{w["status"]}</span>'
+                    f'</div>'
+                    for w in _wait_list
+                )
+
+                st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,rgba(219,234,254,0.60) 0%,rgba(191,219,254,0.60) 100%);
+  border:2px solid #2563eb;border-radius:16px;
+  padding:16px 18px 6px 18px;margin-bottom:0;
+  box-shadow:0 4px 16px rgba(37,99,235,0.12),0 0 0 1px rgba(37,99,235,0.18);">
+  {_bid('1-2-1')}
+  <div style="font-size:11px;font-weight:900;color:#1d4ed8;letter-spacing:0.12em;
+    text-transform:uppercase;margin-bottom:14px;
+    display:flex;align-items:center;gap:6px;">
+    <span style="display:inline-block;width:6px;height:6px;border-radius:50%;
+      background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,0.8);"></span>
+    📊 오늘의 업무 현황판
+  </div>""", unsafe_allow_html=True)
+
+                _sb_c1, _sb_c2, _sb_c3 = st.columns(3, gap="small")
+
+                with _sb_c1:
+                    st.markdown(f"""
+<div style="position:relative;background:rgba(251,191,36,0.08);border:1.5px solid rgba(251,191,36,0.35);
+  border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
+  {_bid('1-2-2')}
+  <div style="font-size:11px;color:#fde68a;font-weight:800;letter-spacing:0.06em;
+    margin-bottom:10px;">📋 오늘 할 일</div>
+  <div style="font-size:52px;font-weight:900;color:#fbbf24;line-height:1;margin-bottom:10px;">
+    {_todo_cnt}<span style="font-size:15px;color:#94a3b8;font-weight:500;margin-left:3px;">건</span>
+  </div>
+  {_todo_items_html if _todo_items_html else '<div style="color:#475569;font-size:11px;">항목 없음</div>'}
+</div>""", unsafe_allow_html=True)
+
+                with _sb_c2:
+                    st.markdown(f"""
+<div style="position:relative;background:rgba(125,211,252,0.08);border:1.5px solid rgba(125,211,252,0.35);
+  border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
+  {_bid('1-2-3')}
+  <div style="font-size:11px;color:#bae6fd;font-weight:800;letter-spacing:0.06em;
+    margin-bottom:10px;">📅 오늘의 약속</div>
+  <div style="font-size:52px;font-weight:900;color:#7dd3fc;line-height:1;margin-bottom:10px;">
+    {len(_appt_list)}<span style="font-size:15px;color:#94a3b8;font-weight:500;margin-left:3px;">건</span>
+  </div>
+  {_appt_items_html if _appt_items_html else '<div style="color:#475569;font-size:11px;">약속 없음</div>'}
+</div>""", unsafe_allow_html=True)
+
+                with _sb_c3:
+                    st.markdown(f"""
+<div style="position:relative;background:rgba(134,239,172,0.08);border:1.5px solid rgba(134,239,172,0.35);
+  border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
+  {_bid('1-2-4')}
+  <div style="font-size:11px;color:#bbf7d0;font-weight:800;letter-spacing:0.06em;
+    margin-bottom:10px;">⏳ 상담 대기</div>
+  <div style="font-size:52px;font-weight:900;color:#86efac;line-height:1;margin-bottom:10px;">
+    {len(_wait_list)}<span style="font-size:15px;color:#94a3b8;font-weight:500;margin-left:3px;">건</span>
+  </div>
+  {_wait_items_html if _wait_items_html else '<div style="color:#475569;font-size:11px;">대기 없음</div>'}
+</div>""", unsafe_allow_html=True)
+
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                with st.expander("📌 할 일 관리 (상세)", expanded=False):
+                    _del_idx = None
+                    for _ti, _task in enumerate(_todo_list):
+                        _tc1, _tc2, _tc3 = st.columns([0.08, 0.80, 0.12])
+                        with _tc1:
+                            _checked = st.checkbox(
+                                "", value=_task["done"],
+                                key=f"todo_chk_{_ti}",
+                                label_visibility="collapsed",
+                            )
+                            if _checked != _task["done"]:
+                                st.session_state["_agent_todo"][_ti]["done"] = _checked
+                                st.rerun()
+                        with _tc2:
+                            _style = ("line-through;color:#94a3b8" if _task["done"]
+                                      else "none;color:#e2e8f0")
+                            st.markdown(
+                                f'<div style="font-size:0.82rem;text-decoration:{_style};'
+                                f'padding-top:4px;">{_task["text"]}</div>',
+                                unsafe_allow_html=True,
+                            )
+                        with _tc3:
+                            if st.button("🗑", key=f"todo_del_{_ti}",
+                                         help="삭제", use_container_width=True):
+                                _del_idx = _ti
+                    if _del_idx is not None:
+                        st.session_state["_agent_todo"].pop(_del_idx)
+                        st.rerun()
+                    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                    with st.form("add_todo_form", clear_on_submit=True):
+                        _new_todo = st.text_input("새 할 일", placeholder="내용 입력 후 Enter",
+                                                  label_visibility="collapsed")
+                        if st.form_submit_button("➕ 추가", use_container_width=True):
+                            if _new_todo.strip():
+                                st.session_state["_agent_todo"].append(
+                                    {"done": False, "text": _new_todo.strip()}
+                                )
+                                st.rerun()
+
+                st.markdown(f"""<div style="position:relative;font-size:0.72rem;font-weight:800;color:#64748b;
+                  letter-spacing:0.08em;text-transform:uppercase;margin:14px 0 6px 2px;">
+                  {_bid('1-2-6')}
+                  🤖 AI 타겟 고객 추천 TOP 5</div>""", unsafe_allow_html=True)
+
+                _top5 = calculate_top_targets(n=5, hours=48)
+                if _top5:
+                    for _rank, _tgt in enumerate(_top5, 1):
+                        _diff_h2 = (_adt.datetime.now().timestamp()*1000 - _tgt["last_ts"]) / 3_600_000
+                        _recency_str = (f"{int(_diff_h2*60)}분 전" if _diff_h2 < 1
+                                        else f"{int(_diff_h2)}시간 전" if _diff_h2 < 24
+                                        else f"{int(_diff_h2/24)}일 전")
+                        _detail_str = " · ".join(
+                            f'{d["title"]}({d["count"]}회×w{d["weight"]}={d["sub_score"]}점)'
+                            for d in _tgt["detail"][:2]
+                        )
+                        _score_color = ("#ef4444" if _tgt["score"] >= 80
+                                        else "#f59e0b" if _tgt["score"] >= 40
+                                        else "#22c55e")
+                        _interest_kw = _tgt["detail"][0]["title"] if _tgt["detail"] else _tgt["top_menu"]
+                        _eid_safe    = _tgt["entity_id"]
+
+                        st.markdown(f"""
+<div class="gk-sky-trust" style="padding:10px 14px !important;margin-bottom:4px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <div style="font-size:1.1rem;font-weight:900;color:#E65100;min-width:22px;">#{_rank}</div>
+  <div style="flex:1;min-width:0;">
+    <div style="color:#000;font-size:0.85rem;font-weight:800;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      {_eid_safe} <span style="color:#37474F;font-size:0.7rem;font-weight:400;">· {_tgt["user_type"]}</span>
+    </div>
+    <div style="color:#1565C0;font-size:0.7rem;margin-top:2px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      🔥 {_detail_str}
+    </div>
+    <div style="color:#37474F;font-size:0.68rem;margin-top:1px;">
+      🕐 마지막 활동: {_recency_str}
+    </div>
+  </div>
+  <div style="text-align:right;flex-shrink:0;">
+    <div style="color:{_score_color};font-size:1.05rem;font-weight:900;">{_tgt["score"]}점</div>
+    <div style="color:#37474F;font-size:0.65rem;">관심도 점수</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                        _kakao_btn_key  = f"_kakao_btn_{_rank}"
+                        _kakao_open_key = f"_kakao_open_{_rank}"
+                        _kakao_draft_key= f"_kakao_draft_{_rank}"
+
+                        _col_kakao, _col_close = st.columns([3, 1])
+                        with _col_kakao:
+                            if st.button(
+                                f"💬 {_eid_safe} 카톡 초안 생성",
+                                key=_kakao_btn_key,
+                                use_container_width=True,
+                            ):
+                                _is_open = st.session_state.get(_kakao_open_key, False)
+                                st.session_state[_kakao_open_key] = not _is_open
+                                if not _is_open:
+                                    if not st.session_state.get(_kakao_draft_key, ""):
+                                        with st.spinner("🤖 AI가 카톡 멘트를 작성 중..."):
+                                            _draft = _generate_kakao_draft(_eid_safe, _interest_kw)
+                                            st.session_state[_kakao_draft_key] = _draft
+                                st.rerun()
+
+                        if st.session_state.get(_kakao_open_key, False):
+                            st.markdown(f"""
+<div style="background:#fefce8;border:2px solid #fde047;border-radius:12px;
+  padding:14px 16px;margin-bottom:8px;">
+  <div style="font-size:0.78rem;font-weight:800;color:#713f12;margin-bottom:8px;">
+    💬 AI 카톡 초안 — {_eid_safe} · 관심: {_interest_kw}
+  </div>
+</div>""", unsafe_allow_html=True)
+                            _edited = st.text_area(
+                                "✏️ 초안 수정 후 복사",
+                                value=st.session_state.get(_kakao_draft_key, ""),
+                                key=f"_kakao_ta_{_rank}",
+                                height=130,
+                                label_visibility="collapsed",
+                            )
+                            st.session_state[_kakao_draft_key] = _edited
+
+                            _btn_copy, _btn_regen, _btn_x = st.columns([2, 2, 1])
+                            with _btn_copy:
+                                _copy_js = _edited.replace("'", "\\'").replace("\n", "\\n")
+                                st.markdown(f"""
+<button onclick="navigator.clipboard.writeText('{_copy_js}').then(()=>this.innerText='✅ 복사됨!').catch(()=>alert('복사 실패: 직접 선택 후 복사하세요'))"
+  style="width:100%;background:#fee500;color:#191919;border:none;
+    border-radius:8px;padding:9px 0;font-size:0.82rem;font-weight:800;cursor:pointer;">
+  📋 카톡 문구 복사
+</button>""", unsafe_allow_html=True)
+                            with _btn_regen:
+                                if st.button("🔄 재생성", key=f"_kakao_regen_{_rank}", use_container_width=True):
+                                    with st.spinner("🤖 재작성 중..."):
+                                        _new_draft = _generate_kakao_draft(_eid_safe, _interest_kw)
+                                        st.session_state[_kakao_draft_key] = _new_draft
+                                    st.rerun()
+                            with _btn_x:
+                                if st.button("✖", key=f"_kakao_close_{_rank}", use_container_width=True):
+                                    st.session_state[_kakao_open_key] = False
+                                    st.rerun()
+                else:
+                    st.markdown("""
+<div class="gk-sky-trust" style="border-style:dashed !important;padding:16px !important;text-align:center;font-size:0.82rem;">
+  📊 아직 추적 데이터가 없습니다.<br>
+  <span style="font-size:0.72rem;color:#37474F;">고객이 메뉴를 클릭하면 자동으로 점수가 집계됩니다.</span>
+</div>""", unsafe_allow_html=True)
+
+                st.markdown(f"""<div style="font-size:0.72rem;font-weight:800;color:#64748b;
+                  letter-spacing:0.08em;text-transform:uppercase;margin:14px 0 6px 2px;">
+                  {_bid('1-2-5')}
+                  🔗 CRM 빠른 이동</div>""", unsafe_allow_html=True)
+                _crm_c1, _crm_c2, _crm_c3, _crm_c4 = st.columns(4)
+                _crm_links = [
+                    ("_crm_c1", "🩺 암진단\n설계", "cancer"),
+                    ("_crm_c2", "🧠 뇌·심장\n설계", "brain"),
+                    ("_crm_c3", "📄 고객\n문서함", "customer_docs"),
+                    ("_crm_c4", "🛡️ 보장공백\n분석", "t3"),
+                ]
+                for (_col_k, _label, _tab), _col in zip(_crm_links,
+                                                         [_crm_c1, _crm_c2, _crm_c3, _crm_c4]):
+                    with _col:
+                        if st.button(_label, key=f"crm_quick_{_tab}", use_container_width=True):
+                            _go_tab(_tab)
+
+                st.markdown("<hr style='border:none;border-top:1px solid #1e3a5f;margin:10px 0;'>",
+                            unsafe_allow_html=True)
 
         # ── [B3] 통합 검색 모달 (Global Search Bar — Slide-down + O(1) + 폭포수 애니메이션) ──
         st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('1-3-3')}</div>""",
@@ -16741,13 +16610,66 @@ export default function(component) {{
                         _go_tab(_aitem["tab_key"])
 
 
+        # ── [가이딩 프로토콜 제36조 §5] 베테랑 플래너 활용 매뉴얼 ──────────────────
+        with st.expander("📖 베테랑 플래너 활용 매뉴얼 — 5단계 상담 시나리오 (가이딩 프로토콜 제36조 §5)", expanded=False):
+            st.markdown("""
+<div class="gk-sky-trust" style="font-family:'Noto Sans KR',sans-serif;font-size:0.82rem;line-height:1.7;">
+
+<div class="gk-st-title" style="font-size:0.88rem;margin-bottom:10px;letter-spacing:0.04em;">🎯 GoldKey 가이딩 프로토콜 제36조 — 유니버설 시각 설계 5단계 상담 가이드</div>
+
+<div style="background:#BBDEFB;border-left:4px solid #1565C0;border-radius:0 8px 8px 0;
+  padding:10px 14px;margin-bottom:10px;">
+  <b style="color:#0D47A1;">STEP 1 · 건강보험료 역산 (제32조 × 제36조)</b><br>
+  <span style="color:#000;">① 좌측 메뉴 <b>건보료 역산 탭</b>에서 월 보험료 입력 → 역산 실행<br>
+  ② <span style="color:#E65100;font-weight:700;">가처분소득</span>·<span style="color:#E65100;font-weight:700;">일일 경제가치</span> 카드가 1.5배 확대 표시됨<br>
+  ③ 고객과 함께 화면을 보며 "이 숫자가 고객님의 하루 가치입니다"로 시작</span>
+</div>
+
+<div style="background:#BBDEFB;border-left:4px solid #2E7D32;border-radius:0 8px 8px 0;
+  padding:10px 14px;margin-bottom:10px;">
+  <b style="color:#1B5E20;">STEP 2 · 돋보기 모드 ON (시니어 고객 필수)</b><br>
+  <span style="color:#000;">① 우측 상단 <b>🔍 시니어</b> 버튼 클릭 → 전체 1.2배 확대 + 고대비<br>
+  ② 뇌·심장·치매 고위험 고객: <b>치매 생활비</b>(황금색) 카드 강조 지점 활용<br>
+  ③ 모드 ON 상태에서 스크린샷을 고객 카카오톡으로 공유</span>
+</div>
+
+<div style="background:#BBDEFB;border-left:4px solid #E65100;border-radius:0 8px 8px 0;
+  padding:10px 14px;margin-bottom:10px;">
+  <b style="color:#BF360C;">STEP 3 · 보험증권 파싱 → 레드 알림 확인</b><br>
+  <span style="color:#000;">① 보험증권 분석 탭에서 증권 이미지 업로드<br>
+  ② AI 담보 인식 후 <span style="color:#C62828;font-weight:700;">빨간 펄스 강조</span> 항목 = 사망보험금·80%이상 장해<br>
+  ③ 레드 항목이 "미가입" 또는 "부족"이면 → 긴급도 1순위로 설계안 제시</span>
+</div>
+
+<div style="background:#BBDEFB;border-left:4px solid #6A1B9A;border-radius:0 8px 8px 0;
+  padding:10px 14px;margin-bottom:10px;">
+  <b style="color:#4A148C;">STEP 4 · 질환별 최적 담보 매핑 (제35조 × 제36조)</b><br>
+  <span style="color:#000;">① 치매·뇌·심장 탭에서 CDR 단계 / 위험도 선택<br>
+  ② <b>상세 지표 expander</b>의 뇌질환·치매 기준액 카드 함께 확인<br>
+  ③ 우선 담보 테이블을 화면에 띄워 "이 순서대로 채우겠습니다"로 클로징</span>
+</div>
+
+<div style="background:#BBDEFB;border-left:4px solid #C62828;border-radius:0 8px 8px 0;
+  padding:10px 14px;margin-bottom:4px;">
+  <b style="color:#B71C1C;">STEP 5 · 브리핑 문구 복사 → 계약 마무리</b><br>
+  <span style="color:#000;">① 역산 결과 하단 <b>전문가 브리핑 문구</b> 박스를 복사<br>
+  ② 고객 설명 시 "가이딩 프로토콜 제32조 표준"·"금감원 기준" 문구로 신뢰 강화<br>
+  ③ <b>금소법 제19조</b> 설명의무 이행 완료 후 서명 → 청약 진행</span>
+</div>
+
+<div style="color:#37474F;font-size:0.70rem;margin-top:10px;border-top:1px solid #90CAF9;padding-top:8px;">
+  📌 본 매뉴얼은 가이딩 프로토콜 제36조 §5 「자율 인터페이스 숙달 원칙」에 근거합니다.
+  시니어·저시력 고객 상담 시 돋보기 모드를 반드시 활성화하세요.
+</div>
+</div>""", unsafe_allow_html=True)
+
         # ── 고객 정보 입력·관리 섹터 (도메인 네비 위 고정) ─────────────
         if 'user_id' in st.session_state:
-            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 100%);
-  border-radius:14px;padding:14px 18px;margin-bottom:10px;">
+            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,rgba(13,59,46,0.20) 0%,rgba(26,107,74,0.20) 100%);
+  border:1.5px solid rgba(26,107,74,0.50);border-radius:14px;padding:14px 18px;margin-bottom:10px;">
   {_bid('1-4-1')}
-  <span style="color:#fff;font-size:1.05rem;font-weight:900;">🗂️ 고객 정보 입력 · 관리</span>
-  <span style="color:#a8e6cf;font-size:0.75rem;margin-left:10px;">고객에 대한 정보 관리 — 상담의 주요 목적</span>
+  <span style="color:#0d3b2e;font-size:1.05rem;font-weight:900;">🗂️ 고객 정보 입력 · 관리</span>
+  <span style="color:#1a6b4a;font-size:0.75rem;margin-left:10px;">고객에 대한 정보 관리 — 상담의 주요 목적</span>
 </div>""", unsafe_allow_html=True)
 
             # ── 고객 검색창 (Customer-Centric Contextual Filtering) ──────
@@ -16789,7 +16711,7 @@ export default function(component) {{
             st.markdown(f"""<div style="position:relative;background:rgba(13,59,46,0.08);border:1px solid #1a6b4a;
   border-radius:10px;padding:10px 14px;margin-bottom:10px;">
   {_bid('1-4-2')}
-  <span style="color:#0d3b2e;font-size:0.88rem;font-weight:900;">🔍 고객 검색 — 이름으로 검색 후 선택하면 해당 고객 정보가 자동 로드됩니다</span>
+  <span style="color:#ffffff;font-size:0.88rem;font-weight:900;">🔍 고객 검색 — 이름으로 검색 후 선택하면 해당 고객 정보가 자동 로드됩니다</span>
 </div>""", unsafe_allow_html=True)
 
             _srch_col1, _srch_col2 = st.columns([3, 1])
@@ -16837,7 +16759,7 @@ export default function(component) {{
             st.markdown(f"""<div style="position:relative;background:rgba(13,59,46,0.08);border:1px solid #1a6b4a;
   border-radius:10px;padding:10px 14px;margin-bottom:10px;">
   {_bid('1-4-3')}
-  <span style="color:#0d3b2e;font-size:0.9rem;font-weight:900;">👤 상담 대상자 기본 정보 입력 후 각 탭에서 자동 활용됩니다</span>
+  <span style="color:#ffffff;font-size:0.9rem;font-weight:900;">👤 상담 대상자 기본 정보 입력 후 각 탭에서 자동 활용됩니다</span>
 </div>""", unsafe_allow_html=True)
 
             _sc1, _sc2, _sc3 = st.columns(3)
@@ -16878,6 +16800,23 @@ export default function(component) {{
                     default=st.session_state.get("scan_client_items",[]),
                     key="home_si_items"
                 )
+            st.markdown("""<style>
+.gk-save-btn-marker + div[data-testid="stButton"] > button,
+.gk-save-btn-marker + div[data-testid="stButton"] > button:focus {
+  background: linear-gradient(135deg,#059669 0%,#10b981 100%) !important;
+  background-image: linear-gradient(135deg,#059669 0%,#10b981 100%) !important;
+  border: 2px solid #34d399 !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.30) !important;
+}
+.gk-save-btn-marker + div[data-testid="stButton"] > button:hover {
+  background: linear-gradient(135deg,#047857 0%,#059669 100%) !important;
+  background-image: linear-gradient(135deg,#047857 0%,#059669 100%) !important;
+  color: #ffffff !important;
+}
+</style>
+<div class="gk-save-btn-marker" style="display:none;"></div>""", unsafe_allow_html=True)
             if st.button("💾 상담자 정보 저장", key="btn_save_client_info", use_container_width=True):
                 st.session_state["scan_client_name"]  = _si_name
                 st.session_state["scan_client_dob"]   = _si_dob
@@ -17048,10 +16987,10 @@ html, body { overscroll-behavior-y: contain !important; overflow-y: auto !import
 section[data-testid="stMain"] { overscroll-behavior-y: auto !important; overflow-y: auto !important; }
 /* ── [홈 스타일 리뉴얼] Teal Frosted Glass 블록 공통 ── */
 .gk-teal-block {
-    background: rgba(0,105,92,0.72) !important;
+    background: rgba(0,105,92,0.35) !important;
     backdrop-filter: blur(14px) !important;
     -webkit-backdrop-filter: blur(14px) !important;
-    border: 1.5px solid rgba(0,150,136,0.55) !important;
+    border: 1.5px solid rgba(0,150,136,0.40) !important;
     border-radius: 12px !important;
     padding: 12px 18px !important;
     margin-bottom: 6px !important;
@@ -17141,7 +17080,21 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
 </style>
 """, unsafe_allow_html=True)
 
-        # ── 액션 버튼 좌우 배치 ─────────────────────────────────────────
+        # ── 사이드바 안내문구 (#1-5-7 — #1-4-6 앞으로 이동) ─────────────
+        st.markdown(f"""
+<div class="gk-teal-block" style="position:relative;padding:18px 28px;margin:0 0 15px 0;text-align:center;">
+  {_bid('1-5-7')}
+  <div style="font-size:1.1rem;font-weight:900;color:#ffffff;line-height:1.6;
+    text-shadow:0 1px 6px rgba(0,0,0,0.50);">
+    💡 상세 컨설팅 및 AI 분석은 좌측 사이드바의 <span style="color:#ffffff;font-weight:900;text-decoration:underline;">29개 전문 섹션</span>에서 즉시 시작하실 수 있습니다.
+  </div>
+  <div style="font-size:0.82rem;color:#ffffff;font-weight:700;margin-top:6px;
+    text-shadow:0 1px 4px rgba(0,0,0,0.50);">
+    Smart Analysis · Expert Consulting · Wealth &amp; Corporate · Life &amp; Care · 보상 시뮬레이션 · 🤖 보험봇
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── 액션 버튼 좌우 배치 (#1-4-6) ─────────────────────────────────
         st.markdown(f"""<div style="position:relative;margin-bottom:6px;">{_bid('1-4-6')}</div>""",
                     unsafe_allow_html=True)
         st.markdown("""
@@ -17170,7 +17123,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
                          use_container_width=True):
                 _go_tab("calendar")
 
-        st.markdown("<div style='margin-bottom:20px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
 
         # ══════════════════════════════════════════════════════════════
         # 5대 섹션 포트폴리오 카드 (3+2 그리드)
@@ -17188,7 +17141,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   {_bid('1-5-1')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#ffffff;letter-spacing:0.14em;
+  <div style="font-size:0.7rem;font-weight:900;color:#ff6b9d;letter-spacing:0.14em;
     text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">A SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🔬 Smart Analysis<br>&amp; Hub</div>
   <div class="gk-pf-sub" style="color:#ffffff;">
@@ -17228,7 +17181,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   {_bid('1-5-2')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#ffffff;letter-spacing:0.14em;
+  <div style="font-size:0.7rem;font-weight:900;color:#ff6b9d;letter-spacing:0.14em;
     text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">B SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🛡️ Expert<br>Consulting</div>
   <div class="gk-pf-sub" style="color:#ffffff;">
@@ -17280,7 +17233,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   {_bid('1-5-3')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#ffffff;letter-spacing:0.14em;
+  <div style="font-size:0.7rem;font-weight:900;color:#ff6b9d;letter-spacing:0.14em;
     text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">C SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">💼 Wealth &amp;<br>Corporate</div>
   <div class="gk-pf-sub" style="color:#ffffff;">
@@ -17325,7 +17278,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   {_bid('1-5-4')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#ffffff;letter-spacing:0.14em;
+  <div style="font-size:0.7rem;font-weight:900;color:#ff6b9d;letter-spacing:0.14em;
     text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">D SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🌸 Life &amp; Care</div>
   <div class="gk-pf-sub" style="color:#ffffff;">
@@ -17359,7 +17312,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   {_bid('1-5-5')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.05);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#ffffff;letter-spacing:0.14em;
+  <div style="font-size:0.7rem;font-weight:900;color:#ff6b9d;letter-spacing:0.14em;
     text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">E SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🔍 보상 정보<br>시뮬레이션 가이드</div>
   <div class="gk-pf-sub" style="color:#ffffff;">
@@ -17397,7 +17350,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   {_bid('1-5-6')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#ffffff;letter-spacing:0.14em;
+  <div style="font-size:0.7rem;font-weight:900;color:#ff6b9d;letter-spacing:0.14em;
     text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">F SECTION · 가이딩 프로토콜 제6편 준수</div>
   <div class="gk-pf-title" style="color:#fff;">🤖 보험봇 · InsuBot</div>
   <div class="gk-pf-sub" style="color:#ffffff;">
@@ -17423,36 +17376,37 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
 ##### 🔴 Red Alert 법적 경고
 - 법적 금지사항·주의사항 붉은색(#FF4B4B) 강조 표기
 """)
-        if st.button("🤖 보험봇 검색 시작", key="home_go_ins_bot",
-                     use_container_width=True, type="primary"):
-            _go_tab("ins_bot")
-
-        # ── 하단 안내문구 ─────────────────────────────────────────────
-        st.markdown(f"""
-<div class="gk-teal-block" style="position:relative;padding:18px 28px;margin:22px 0 10px 0;text-align:center;">
-  {_bid('1-5-7')}
-  <div style="font-size:1.1rem;font-weight:900;color:#ffffff;line-height:1.6;
-    text-shadow:0 1px 6px rgba(0,0,0,0.50);">
-    💡 상세 컨설팅 및 AI 분석은 좌측 사이드바의 <span style="color:#ffffff;font-weight:900;text-decoration:underline;">29개 전문 섹션</span>에서 즉시 시작하실 수 있습니다.
-  </div>
-  <div style="font-size:0.82rem;color:#ffffff;font-weight:700;margin-top:6px;
-    text-shadow:0 1px 4px rgba(0,0,0,0.50);">
-    Smart Analysis · Expert Consulting · Wealth &amp; Corporate · Life &amp; Care · 보상 시뮬레이션 · 🤖 보험봇
-  </div>
-</div>""", unsafe_allow_html=True)
+        # ── 하단 안내문구는 A.B.C 섹션 바로 위로 이동됨 (지시2) ────────
 
         st.divider()
         if st.session_state.get('is_admin'):
             st.markdown(f"""
-<div style="position:relative;background:#f0f4ff;border:2px solid #4f46e5;border-radius:10px;
+<div style="position:relative;background:linear-gradient(135deg,#4f46e5 0%,#6d28d9 100%);border:2px solid #818cf8;border-radius:10px;
   padding:10px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
   {_bid('1-6-1')}
   <span style="font-size:1.3rem;">⚙️</span>
   <div>
-    <div style="color:#312e81;font-size:0.92rem;font-weight:900;">관리자 시스템</div>
-    <div style="color:#4338ca;font-size:0.73rem;margin-top:1px;">아래 버튼을 눌러 관리자 대시보드로 이동합니다</div>
+    <div style="color:#ffffff;font-size:0.92rem;font-weight:900;">관리자 시스템</div>
+    <div style="color:#e0e7ff;font-size:0.73rem;margin-top:1px;">아래 버튼을 눌러 관리자 대시보드로 이동합니다</div>
   </div>
 </div>""", unsafe_allow_html=True)
+            st.markdown("""<style>
+.gk-admin-btn-marker + div[data-testid="stButton"] > button,
+.gk-admin-btn-marker + div[data-testid="stButton"] > button:focus {
+  background: linear-gradient(135deg,#7c3aed 0%,#a855f7 100%) !important;
+  background-image: linear-gradient(135deg,#7c3aed 0%,#a855f7 100%) !important;
+  border: 2px solid #c084fc !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.35) !important;
+}
+.gk-admin-btn-marker + div[data-testid="stButton"] > button:hover {
+  background: linear-gradient(135deg,#6d28d9 0%,#7c3aed 100%) !important;
+  background-image: linear-gradient(135deg,#6d28d9 0%,#7c3aed 100%) !important;
+  color: #ffffff !important;
+}
+</style>
+<div class="gk-admin-btn-marker" style="display:none;"></div>""", unsafe_allow_html=True)
             if st.button("⚙️ 관리자 시스템 이동", key="home_dash_t9", use_container_width=True):
                 _go_tab("t9")
 
@@ -17580,19 +17534,6 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
         if st.session_state.pop("suggest_submitted_home", False):
             st.success("✅ 제안이 반영되었습니다.")
 
-        # ── 면책 공고 (홈 하단 고정) ─────────────────────────────────────
-        st.markdown("""
-<div style="background:#ffffff;border:2px solid #dc2626;border-radius:10px;
-  padding:12px 18px;margin:18px 0 8px 0;box-shadow:0 2px 8px rgba(220,38,38,0.15);">
-  <div style="color:#1a1a1a;font-size:0.72rem;line-height:1.8;">
-    <span style="color:#dc2626;font-weight:900;font-size:0.78rem;">⚠️ 면책 고지 (Disclaimer)</span><br>
-    본 서비스(Goldkey AI Master Lab.)는 <b style="color:#dc2626;">참고용 정보 제공 목적</b>으로만 운영되며,
-    법적 효력을 갖는 <b style="color:#dc2626;">보험 계약·청구·설계 행위가 아닙</b>니다.<br>
-    <b style="color:#dc2626;">AI 분석 결과</b>는 <b style="color:#dc2626;">보조 참고 자료</b>이며, 정확한 <b style="color:#dc2626;">보장 내용·약관 해석·보험금 청구</b>는
-    반드시 <b style="color:#dc2626;">해당 보험회사 보상담당자 또는 손해사정인(독립사정인 포함) 등</b>에게 확인하시기 바랍니다.<br>
-    <b style="color:#dc2626;">오답(AI 할루시네이션) 발생 가능성</b>이 있으며, 이로 인한 손해에 대해 당사는 <b style="color:#dc2626;">법적 책임을 지지 않습니다</b>.
-  </div>
-</div>""", unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════
     # [아키텍처 — Global Store] 기둥 간 공용 메모리 초기화 & 접근 함수
@@ -24102,18 +24043,6 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 </div>
 """, height=318)
 
-        # ── 면책 조항 (cancer 하단 고정) ─────────────────────────────────
-        st.markdown("""
-<div style="background:#ffffff;border:2px solid #dc2626;border-radius:10px;
-  padding:12px 18px;margin:18px 0 8px 0;box-shadow:0 2px 8px rgba(220,38,38,0.15);">
-  <div style="color:#1a1a1a;font-size:0.72rem;line-height:1.8;">
-    <span style="color:#dc2626;font-weight:900;font-size:0.78rem;">⚠️ 면책 조항 (Disclaimer)</span><br>
-    본 앱의 <b style="color:#dc2626;">AI 분석 결과</b>는 <b style="color:#dc2626;">보조 참고 자료</b>일 뿐 법적 효력이 없습니다.
-    최종적인 <b style="color:#dc2626;">보장 내용·약관 해석·보험금 청구</b>는 반드시
-    <b style="color:#dc2626;">해당 보험회사 보상담당자 또는 손해사정인(독립사정인 포함) 등</b>에게 확인하시기 바랍니다.
-    앱 사용으로 인한 결과의 <b style="color:#dc2626;">법적 책임을 지지 않습니다</b>.
-  </div>
-</div>""", unsafe_allow_html=True)
 
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
