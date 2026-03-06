@@ -6906,6 +6906,46 @@ def render_goldkey_sidebar():
   <span style="color:#0369a1;font-weight:700;">로그인하고 사용해주세요</span>
 </div>""", unsafe_allow_html=True)
 
+    # ── [GP-50] 로그인 상태: 현재 상담 중인 고객명 + 기기 배지 ─────────────
+    _gp50_uid   = st.session_state.get("user_id", "")
+    _gp50_uname = st.session_state.get("user_name", "")
+    _gp50_cname = (
+        st.session_state.get("gs_c_name", "")
+        or st.session_state.get("current_c_name", "")
+        or st.session_state.get("scan_client_name", "")
+    )
+    _gp50_dev   = st.session_state.get("_device_uuid", "")[:8] if st.session_state.get("_device_uuid") else "——"
+    if _gp50_uid:
+        _gp50_cname_disp = _gp50_cname.strip() if _gp50_cname.strip() and _gp50_cname != "익명 고객" else ""
+        if _gp50_cname_disp:
+            _gp50_badge_html = f"""
+<div style="background:linear-gradient(135deg,#004D40 0%,#00695c 100%);
+  border-radius:10px;padding:8px 12px;margin-bottom:8px;
+  box-shadow:0 2px 8px rgba(0,77,64,0.25);">
+  <div style="font-size:0.68rem;color:rgba(255,255,255,0.7);font-weight:500;
+    letter-spacing:0.05em;margin-bottom:2px;">📋 현재 상담 중인 고객 [GP-50]</div>
+  <div style="font-size:0.92rem;font-weight:900;color:#fff;
+    letter-spacing:0.02em;">👤 {_gp50_cname_disp}</div>
+  <div style="display:flex;justify-content:space-between;margin-top:4px;">
+    <span style="font-size:0.65rem;color:rgba(255,255,255,0.6);">
+      설계사: {_gp50_uname or _gp50_uid}</span>
+    <span style="font-size:0.65rem;color:rgba(255,255,255,0.5);">
+      기기 #{_gp50_dev}</span>
+  </div>
+</div>"""
+        else:
+            _gp50_badge_html = f"""
+<div style="background:rgba(0,77,64,0.08);border:1px dashed #80cbc4;
+  border-radius:10px;padding:7px 12px;margin-bottom:8px;">
+  <div style="font-size:0.68rem;color:#004D40;font-weight:600;
+    letter-spacing:0.04em;">📋 상담 중인 고객 없음 [GP-50]</div>
+  <div style="font-size:0.72rem;color:#555;margin-top:2px;">
+    고객명 입력 시 여기에 표시됩니다</div>
+  <div style="font-size:0.62rem;color:#aaa;margin-top:3px;">
+    설계사: {_gp50_uname or _gp50_uid} &nbsp;|&nbsp; 기기 #{_gp50_dev}</div>
+</div>"""
+        st.sidebar.markdown(_gp50_badge_html, unsafe_allow_html=True)
+
 
 # --------------------------------------------------------------------------
 # [SECTION 4] 시스템 프롬프트
