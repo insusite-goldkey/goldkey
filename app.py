@@ -4645,7 +4645,8 @@ CREATE TABLE IF NOT EXISTS gk_home_notes (
     summary      TEXT DEFAULT '',
     content      TEXT DEFAULT '',
     device_uuid  TEXT DEFAULT '',
-    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_gk_home_notes_agent ON gk_home_notes(agent_uid);
 CREATE INDEX IF NOT EXISTS idx_gk_home_notes_device ON gk_home_notes(agent_uid, device_uuid);
@@ -4662,7 +4663,8 @@ CREATE TABLE IF NOT EXISTS gk_home_ins (
     background   TEXT DEFAULT '',
     special      TEXT DEFAULT '',
     device_uuid  TEXT DEFAULT '',
-    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_gk_home_ins_agent ON gk_home_ins(agent_uid);
 CREATE INDEX IF NOT EXISTS idx_gk_home_ins_device ON gk_home_ins(agent_uid, device_uuid);
@@ -4681,12 +4683,34 @@ def _ensure_home_tables(sb):
 
 def save_home_note(agent_uid: str, customer_id, customer_name: str,
                    note_date: str, summary: str, content: str,
-                   device_uuid: str = "") -> bool:
-    """[GP-50.1] 상담노트 1건 Supabase 영구 저장 — agent_uid+device_uuid+customer_id 3중 키."""
+                   device_uuid: str = "",
+                   expected_updated_at: str = "") -> bool:
+    """[GP-50.1] 상담노트 1건 Supabase 영구 저장 — agent_uid+device_uuid+customer_id 3중 키.
+
+    낙관적 락(Optimistic Locking):
+      expected_updated_at 가 주어지면, 저장 전 해당 행의 updated_at 을 조회하여
+      다른 기기가 이미 수정했으면 저장을 거부하고 False 반환.
+      신규 INSERT(고객-날짜 첫 기록) 에는 락 검사를 건너뜀.
+    """
+    from datetime import datetime as _dt_now
     sb = _get_sb_client() if _SB_PKG_OK else None
     if not sb:
         return False
+    _now_iso = _dt_now.utcnow().isoformat()
     try:
+        # ── 낙관적 락: expected_updated_at 이 있으면 기존 행 updated_at 비교 ──
+        if expected_updated_at and customer_id is not None:
+            _chk = (sb.table(_HOME_NOTES_TABLE)
+                    .select("updated_at")
+                    .eq("agent_uid", agent_uid)
+                    .eq("customer_id", customer_id)
+                    .eq("note_date", note_date)
+                    .eq("device_uuid", device_uuid or "")
+                    .order("updated_at", desc=True)
+                    .limit(1)
+                    .execute().data)
+            if _chk and _chk[0].get("updated_at", "") != expected_updated_at:
+                return False  # 다른 기기가 이미 덮어씀 — 충돌 감지
         sb.table(_HOME_NOTES_TABLE).insert({
             "agent_uid":     agent_uid,
             "customer_id":   customer_id,
@@ -4695,6 +4719,7 @@ def save_home_note(agent_uid: str, customer_id, customer_name: str,
             "summary":       summary or "",
             "content":       content or "",
             "device_uuid":   device_uuid or "",
+            "updated_at":    _now_iso,
         }).execute()
         return True
     except Exception:
@@ -4724,12 +4749,33 @@ def load_home_notes(agent_uid: str, customer_id=None) -> list:
 
 def save_home_ins(agent_uid: str, customer_id, customer_name: str,
                   ins_date: str, product: str, background: str, special: str,
-                  device_uuid: str = "") -> bool:
-    """[GP-50.1] 보험가입상담 1건 Supabase 영구 저장 — agent_uid+device_uuid+customer_id 3중 키."""
+                  device_uuid: str = "",
+                  expected_updated_at: str = "") -> bool:
+    """[GP-50.1] 보험가입상담 1건 Supabase 영구 저장 — agent_uid+device_uuid+customer_id 3중 키.
+
+    낙관적 락(Optimistic Locking):
+      expected_updated_at 가 주어지면, 저장 전 해당 행의 updated_at 을 조회하여
+      다른 기기가 이미 수정했으면 저장을 거부하고 False 반환.
+    """
+    from datetime import datetime as _dt_now
     sb = _get_sb_client() if _SB_PKG_OK else None
     if not sb:
         return False
+    _now_iso = _dt_now.utcnow().isoformat()
     try:
+        # ── 낙관적 락: expected_updated_at 이 있으면 기존 행 updated_at 비교 ──
+        if expected_updated_at and customer_id is not None:
+            _chk = (sb.table(_HOME_INS_TABLE)
+                    .select("updated_at")
+                    .eq("agent_uid", agent_uid)
+                    .eq("customer_id", customer_id)
+                    .eq("ins_date", ins_date)
+                    .eq("device_uuid", device_uuid or "")
+                    .order("updated_at", desc=True)
+                    .limit(1)
+                    .execute().data)
+            if _chk and _chk[0].get("updated_at", "") != expected_updated_at:
+                return False  # 다른 기기가 이미 덮어씀 — 충돌 감지
         sb.table(_HOME_INS_TABLE).insert({
             "agent_uid":     agent_uid,
             "customer_id":   customer_id,
@@ -4739,6 +4785,7 @@ def save_home_ins(agent_uid: str, customer_id, customer_name: str,
             "background":    background or "",
             "special":       special or "",
             "device_uuid":   device_uuid or "",
+            "updated_at":    _now_iso,
         }).execute()
         return True
     except Exception:
@@ -14794,9 +14841,25 @@ window['startTTS_{tab_key}']=function(){{
         ) if _intro_avatar else (
             '<span style="font-size:3rem;margin-right:14px;">&#128105;&#8205;&#128188;</span>'
         )
+        # [GP-50.1] Device #N ID Visualizer — 기기 UUID 앞 4자리 대문자 배지
+        _hdr_dev_uuid = st.session_state.get("_device_uuid", "")
+        _hdr_dev_tag  = _hdr_dev_uuid[:4].upper() if _hdr_dev_uuid else "????"
+        _hdr_dev_badge = (
+            f'<div style="position:absolute;top:10px;right:12px;'
+            f'background:linear-gradient(135deg,#1e3a5f 0%,#0c4a8a 100%);'
+            f'border:1.5px solid #3b82f6;border-radius:20px;'
+            f'padding:3px 10px;display:flex;align-items:center;gap:5px;'
+            f'box-shadow:0 2px 8px rgba(59,130,246,0.35);z-index:10;">'
+            f'<span style="font-size:0.6rem;color:#93c5fd;font-weight:700;'
+            f'letter-spacing:0.08em;">DEVICE</span>'
+            f'<span style="font-size:0.72rem;color:#fbbf24;font-weight:900;'
+            f'letter-spacing:0.06em;font-family:monospace;">#{_hdr_dev_tag}</span>'
+            f'</div>'
+        )
         st.markdown(f"""
 <div class="gk-intro-wrap" style="position:relative;">
   {_bid('2-1-1')}
+  {_hdr_dev_badge}
   <div style="display:flex;align-items:center;margin-bottom:14px;">
     {_intro_av_html}
     <div>
