@@ -17159,6 +17159,389 @@ renderCalendar();
   🔍 시니어 맞춤 모드 활성 중 — 1.2배 확대 · 고대비 적용됨
 </div>""", unsafe_allow_html=True)
 
+        # ══════════════════════════════════════════════════════════════
+        # [가이딩 프로토콜 제68조 + 제69조] 질병별 경제적 손실 추정 엔진
+        # + 대화형 질병 상담 위젯 (Disease Economic Loss Engine & Chat Widget)
+        # ══════════════════════════════════════════════════════════════
+
+        # ── GP-68 §1: Disease_Stat_DB — 10대 질병 통계 데이터베이스 ─────────
+        # 출처: 건강보험심사평가원(HIRA) 2023-2024 진료비 통계, 국립암센터 암 치료비 분석
+        #       보건복지부 2024 뇌·심혈관질환 의료비 보고서, 한국노인복지학회 치매 비용 연구
+        _GP68_DISEASE_DB = {
+            "위암": {
+                "emoji": "🫃", "category": "암",
+                "avg_cost_2yr": 3800,   # 만원 (수술+항암+방사선 2년)
+                "avg_cost_5yr": 6200,   # 만원 (재발방지·추적관찰 포함 5년)
+                "nursing_2yr": 720,     # 간병비 2년 평균
+                "hosp_days_avg": 42,    # 평균 입원일수(초기 집중치료)
+                "work_loss_months": 12, # 평균 휴직·소득 단절 기간(개월)
+                "source": "국립암센터 2023",
+            },
+            "대장암": {
+                "emoji": "🫁", "category": "암",
+                "avg_cost_2yr": 4100,
+                "avg_cost_5yr": 6800,
+                "nursing_2yr": 800,
+                "hosp_days_avg": 38,
+                "work_loss_months": 14,
+                "source": "HIRA 2024 암 진료비 통계",
+            },
+            "폐암": {
+                "emoji": "🫀", "category": "암",
+                "avg_cost_2yr": 5500,
+                "avg_cost_5yr": 9200,
+                "nursing_2yr": 1200,
+                "hosp_days_avg": 55,
+                "work_loss_months": 18,
+                "source": "국립암센터 2023",
+            },
+            "뇌졸중": {
+                "emoji": "🧠", "category": "뇌",
+                "avg_cost_2yr": 4200,
+                "avg_cost_5yr": 8800,
+                "nursing_2yr": 2400,    # 뇌졸중 간병비 높음
+                "hosp_days_avg": 28,
+                "work_loss_months": 24,
+                "source": "보건복지부 2024 뇌혈관질환 통계",
+            },
+            "급성심근경색": {
+                "emoji": "❤️", "category": "심",
+                "avg_cost_2yr": 3600,
+                "avg_cost_5yr": 5800,
+                "nursing_2yr": 900,
+                "hosp_days_avg": 14,
+                "work_loss_months": 10,
+                "source": "심사평가원 2024 심혈관 진료비",
+            },
+            "치매": {
+                "emoji": "🌀", "category": "뇌",
+                "avg_cost_2yr": 2800,
+                "avg_cost_5yr": 9600,   # 장기요양 포함
+                "nursing_2yr": 3600,    # 간병비 매우 높음
+                "hosp_days_avg": 0,     # 주로 외래·요양
+                "work_loss_months": 36,
+                "source": "한국노인복지학회 2023 치매 비용 연구",
+            },
+            "당뇨합병증": {
+                "emoji": "💉", "category": "만성",
+                "avg_cost_2yr": 1800,
+                "avg_cost_5yr": 4200,
+                "nursing_2yr": 600,
+                "hosp_days_avg": 18,
+                "work_loss_months": 8,
+                "source": "HIRA 2024 당뇨 진료비 통계",
+            },
+            "간암": {
+                "emoji": "🫂", "category": "암",
+                "avg_cost_2yr": 5200,
+                "avg_cost_5yr": 8500,
+                "nursing_2yr": 1400,
+                "hosp_days_avg": 50,
+                "work_loss_months": 16,
+                "source": "국립암센터 2023",
+            },
+            "유방암": {
+                "emoji": "🎗️", "category": "암",
+                "avg_cost_2yr": 3200,
+                "avg_cost_5yr": 5400,
+                "nursing_2yr": 650,
+                "hosp_days_avg": 25,
+                "work_loss_months": 10,
+                "source": "국립암센터 2023",
+            },
+            "뇌경색": {
+                "emoji": "🩺", "category": "뇌",
+                "avg_cost_2yr": 3800,
+                "avg_cost_5yr": 7200,
+                "nursing_2yr": 2000,
+                "hosp_days_avg": 24,
+                "work_loss_months": 20,
+                "source": "보건복지부 2024 뇌혈관질환 통계",
+            },
+        }
+
+        # ── GP-68 §2: 총 경제적 위협액 산출 함수 ─────────────────────────
+        def _gp68_calc_loss(disease_name: str, period_months: int, monthly_income_man: float) -> dict:
+            d = _GP68_DISEASE_DB.get(disease_name, {})
+            if not d:
+                return {}
+            period_yr = period_months / 12
+            # 치료비 (2년/5년 선형 보간)
+            if period_months <= 24:
+                treatment = d["avg_cost_2yr"] * (period_months / 24)
+            else:
+                t_extra = d["avg_cost_5yr"] - d["avg_cost_2yr"]
+                treatment = d["avg_cost_2yr"] + t_extra * ((period_months - 24) / 36)
+            treatment = int(treatment)
+            # 간병비 (2년 기준 선형)
+            nursing = int(d["nursing_2yr"] * min(period_months / 24, 2.5))
+            # 소득 손실 (월소득 × min(실제휴직개월, 선택기간))
+            actual_loss_months = min(d["work_loss_months"], period_months)
+            income_loss = int(monthly_income_man * actual_loss_months)
+            total = treatment + nursing + income_loss
+            return {
+                "treatment": treatment,
+                "nursing": nursing,
+                "income_loss": income_loss,
+                "total": total,
+                "source": d.get("source", ""),
+            }
+
+        # ── GP-69: Chat_Widget UI ────────────────────────────────────────
+        _gp68_sel  = st.session_state.get("_gp68_disease_sel", None)
+        _gp68_per  = st.session_state.get("_gp68_period_sel", 24)
+
+        # 월소득 역산값 연동 (제62조 Income_Calculator)
+        _gp68_income = 0.0
+        try:
+            _nhis_raw = st.session_state.get("nhis_premium", 0) or 0
+            _inc_raw  = st.session_state.get("monthly_income_man", 0) or 0
+            _ov_raw   = st.session_state.get("override_income_man", 0) or 0
+            if _ov_raw > 0:
+                _gp68_income = float(_ov_raw)
+            elif _nhis_raw > 0:
+                _nhis_rate = _GP64_MASTER_CONFIG.get("nhis_rate_pct", 7.09) / 100
+                _gp68_income = round(float(_nhis_raw) / _nhis_rate / 10000, 1)
+            elif _inc_raw > 0:
+                _gp68_income = float(_inc_raw)
+        except Exception:
+            _gp68_income = 0.0
+
+        st.markdown("""
+<style>
+/* ── GP-69 Chat Widget 스타일 ── */
+.gk-disease-widget {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+  border: 2px solid #D4AF37;
+  border-radius: 18px;
+  padding: 18px 20px 14px 20px;
+  margin-bottom: 16px;
+  position: relative;
+  box-shadow: 0 6px 28px rgba(212,175,55,0.18), 0 2px 8px rgba(0,0,0,0.25);
+}
+.gk-disease-title {
+  font-size: 1.0rem !important;
+  font-weight: 900 !important;
+  color: #D4AF37 !important;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.gk-disease-subtitle {
+  font-size: 0.78rem !important;
+  color: #94a3b8 !important;
+  margin-bottom: 12px;
+}
+.gk-disease-chip-row {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+}
+.gk-disease-chip {
+  background: rgba(255,255,255,0.08);
+  border: 1.5px solid rgba(212,175,55,0.35);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.78rem !important;
+  color: #e2e8f0 !important;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.gk-disease-chip.selected {
+  background: linear-gradient(135deg, #D4AF37, #f59e0b);
+  border-color: #D4AF37;
+  color: #1a1a2e !important;
+  font-weight: 800 !important;
+}
+.gk-chat-bubble {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(212,175,55,0.25);
+  border-radius: 0 14px 14px 14px;
+  padding: 12px 16px;
+  margin: 8px 0 10px 0;
+  font-size: 0.88rem !important;
+  color: #e2e8f0 !important;
+  line-height: 1.7;
+}
+.gk-chat-bubble .gk-highlight {
+  color: #fbbf24 !important;
+  font-weight: 900 !important;
+  font-size: 1.05rem !important;
+}
+.gk-chat-bubble .gk-danger {
+  color: #f87171 !important;
+  font-weight: 900 !important;
+}
+.gk-loss-breakdown {
+  background: rgba(0,0,0,0.25);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 8px 0;
+  font-size: 0.78rem !important;
+}
+.gk-loss-row {
+  display: flex; justify-content: space-between;
+  color: #cbd5e1 !important;
+  padding: 2px 0;
+}
+.gk-loss-row.total {
+  border-top: 1px solid rgba(212,175,55,0.4);
+  margin-top: 4px; padding-top: 6px;
+  color: #fbbf24 !important;
+  font-weight: 900 !important;
+  font-size: 0.88rem !important;
+}
+.gk-source-note {
+  font-size: 0.68rem !important;
+  color: #64748b !important;
+  margin-top: 6px;
+}
+</style>""", unsafe_allow_html=True)
+
+        st.markdown(f"""
+<div class="gk-disease-widget">
+  <div class="gk-disease-title">🔬 질병별 경제적 손실 추정기 <span style="font-size:0.65rem;font-weight:700;
+    background:#D4AF37;color:#1a1a2e;padding:1px 7px;border-radius:10px;margin-left:6px;">GP-68</span></div>
+  <div class="gk-disease-subtitle">어떤 질병이 가장 걱정되십니까? 질병을 선택하면 예상 경제적 손실을 즉시 산출합니다.</div>
+</div>""", unsafe_allow_html=True)
+
+        # ── 질병 태그 선택 (Chip 버튼) ────────────────────────────────────
+        _disease_names = list(_GP68_DISEASE_DB.keys())
+        _chip_cols = st.columns(5, gap="small")
+        for _di, _dn in enumerate(_disease_names):
+            _d_info = _GP68_DISEASE_DB[_dn]
+            _is_sel = (_gp68_sel == _dn)
+            _chip_style = (
+                "background:linear-gradient(135deg,#D4AF37,#f59e0b);"
+                "color:#1a1a2e;font-weight:900;border:2px solid #D4AF37;"
+                if _is_sel else
+                "background:rgba(255,255,255,0.07);color:#e2e8f0;"
+                "border:1.5px solid rgba(212,175,55,0.35);"
+            )
+            with _chip_cols[_di % 5]:
+                if st.button(
+                    f"{_d_info['emoji']} {_dn}",
+                    key=f"_gp68_chip_{_dn}",
+                    use_container_width=True,
+                    help=f"{_dn} — {_d_info['category']} | 출처: {_d_info['source']}",
+                ):
+                    if _gp68_sel == _dn:
+                        st.session_state["_gp68_disease_sel"] = None
+                    else:
+                        st.session_state["_gp68_disease_sel"] = _dn
+                    st.rerun()
+
+        # ── 기간 선택 + 소득 입력 ─────────────────────────────────────────
+        if _gp68_sel:
+            _gp68_col1, _gp68_col2 = st.columns([3, 2], gap="medium")
+            with _gp68_col1:
+                _per_opts = {"2년(24개월)": 24, "3년(36개월)": 36, "5년(60개월)": 60}
+                _per_label = st.radio(
+                    "📅 분석 기간",
+                    list(_per_opts.keys()),
+                    index=0 if _gp68_per == 24 else (1 if _gp68_per == 36 else 2),
+                    horizontal=True,
+                    key="_gp68_period_radio",
+                )
+                _gp68_per = _per_opts[_per_label]
+                st.session_state["_gp68_period_sel"] = _gp68_per
+
+            with _gp68_col2:
+                _income_hint = f"{_gp68_income:.0f}" if _gp68_income > 0 else "0"
+                _gp68_income_input = st.number_input(
+                    "💰 월소득(만원, 역산값 자동반영)",
+                    min_value=0.0, max_value=5000.0,
+                    value=float(_gp68_income) if _gp68_income > 0 else 0.0,
+                    step=10.0, format="%.0f",
+                    key="_gp68_income_input",
+                    help="건강보험료 역산값이 있으면 자동 입력됩니다. 직접 수정 가능합니다.",
+                )
+                _gp68_income = _gp68_income_input
+
+            # ── GP-68 §2: 총 위협액 산출 ──────────────────────────────────
+            _loss = _gp68_calc_loss(_gp68_sel, _gp68_per, _gp68_income)
+            _d_data = _GP68_DISEASE_DB[_gp68_sel]
+
+            _income_str = (
+                f"{_gp68_income:.0f}만원/월 (역산값)" if _gp68_income > 0
+                else "소득 미입력 (소득 손실 미반영)"
+            )
+            _total_eok   = _loss["total"] / 10000
+            _treat_eok   = _loss["treatment"] / 10000
+            _nursing_eok = _loss["nursing"] / 10000
+            _income_eok  = _loss["income_loss"] / 10000
+
+            _period_label_ko = {24: "2년", 36: "3년", 60: "5년"}.get(_gp68_per, f"{_gp68_per}개월")
+
+            # 총액 표기 (억/만원 혼합)
+            def _fmt_man(v_man: int) -> str:
+                if v_man >= 10000:
+                    e = v_man // 10000
+                    r = v_man % 10000
+                    return f"{e}억 {r:,}만원" if r else f"{e}억원"
+                return f"{v_man:,}만원"
+
+            st.markdown(f"""
+<div class="gk-chat-bubble">
+  <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:6px;">
+    🤖 AI 손실 분석 봇 &nbsp;·&nbsp; <span style="color:#D4AF37;">골드키지사</span>
+  </div>
+  선택하신 <span class="gk-highlight">[{_gp68_sel}]</span>은
+  평균 {_period_label_ko}간
+  <span class="gk-highlight">{_fmt_man(_loss["treatment"])}</span>의 치료비가 발생합니다.<br><br>
+  {'고객님의 현재 소득 <span class="gk-highlight">' + f"{_gp68_income:.0f}만원/월" + '</span>을 고려할 때, ' if _gp68_income > 0 else '소득 데이터를 입력하시면 더 정확한 산출이 가능합니다. '}
+  {_period_label_ko} 총 경제적 손실 예상액은<br>
+  <span class="gk-danger" style="font-size:1.25rem;">🚨 {_fmt_man(_loss["total"])}</span> 입니다.
+  <div class="gk-loss-breakdown">
+    <div class="gk-loss-row">
+      <span>💊 치료비 ({_period_label_ko})</span>
+      <span>{_fmt_man(_loss["treatment"])}</span>
+    </div>
+    <div class="gk-loss-row">
+      <span>🏠 간병비 ({_period_label_ko})</span>
+      <span>{_fmt_man(_loss["nursing"])}</span>
+    </div>
+    <div class="gk-loss-row">
+      <span>💸 소득 손실 ({_d_data["work_loss_months"]}개월 기준)</span>
+      <span>{"미반영 (소득 입력 필요)" if _gp68_income == 0 else _fmt_man(_loss["income_loss"])}</span>
+    </div>
+    <div class="gk-loss-row total">
+      <span>🔴 총 경제적 위협액</span>
+      <span>{_fmt_man(_loss["total"])}</span>
+    </div>
+  </div>
+  <div class="gk-source-note">📌 출처: {_d_data["source"]} | 개인차 있음, 참고용 통계치</div>
+</div>""", unsafe_allow_html=True)
+
+            # ── GP-69 §4: 보장 공백 확인 CTA 버튼 ───────────────────────
+            _gp68_cta_col1, _gp68_cta_col2 = st.columns(2, gap="small")
+            with _gp68_cta_col1:
+                if st.button(
+                    "🔍 나의 보장 공백 확인하기",
+                    key="_gp68_cta_gap",
+                    type="primary",
+                    use_container_width=True,
+                    help="현재 보험 증권을 분석하여 보장 공백을 즉시 확인합니다.",
+                ):
+                    _go_tab("policy_review")
+            with _gp68_cta_col2:
+                if st.button(
+                    "📊 상해·질병 보장 상담",
+                    key="_gp68_cta_consult",
+                    use_container_width=True,
+                    help="AI 보험 상담으로 이동합니다.",
+                ):
+                    _go_tab("injury")
+
+        elif _gp68_sel is None:
+            st.markdown("""
+<div style="background:rgba(212,175,55,0.07);border:1px dashed rgba(212,175,55,0.35);
+  border-radius:12px;padding:10px 16px;margin-bottom:10px;
+  font-size:0.82rem;color:#94a3b8;text-align:center;">
+  ⬆️ 위에서 걱정되는 질병을 선택하면 예상 경제적 손실을 즉시 산출해 드립니다.
+</div>""", unsafe_allow_html=True)
+
+        # ════════════════════════════════════════════════════════════════
+        # 날씨 위젯 (사용자 위치 기반, Open-Meteo API)
+        # ════════════════════════════════════════════════════════════════
         # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
         st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('1-3-2')}</div>""",
                     unsafe_allow_html=True)
