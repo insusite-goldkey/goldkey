@@ -4644,9 +4644,11 @@ CREATE TABLE IF NOT EXISTS gk_home_notes (
     note_date    TEXT NOT NULL,
     summary      TEXT DEFAULT '',
     content      TEXT DEFAULT '',
+    device_uuid  TEXT DEFAULT '',
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_gk_home_notes_agent ON gk_home_notes(agent_uid);
+CREATE INDEX IF NOT EXISTS idx_gk_home_notes_device ON gk_home_notes(agent_uid, device_uuid);
 """
 
 _HOME_INS_DDL = """
@@ -4659,9 +4661,11 @@ CREATE TABLE IF NOT EXISTS gk_home_ins (
     product      TEXT DEFAULT '',
     background   TEXT DEFAULT '',
     special      TEXT DEFAULT '',
+    device_uuid  TEXT DEFAULT '',
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_gk_home_ins_agent ON gk_home_ins(agent_uid);
+CREATE INDEX IF NOT EXISTS idx_gk_home_ins_device ON gk_home_ins(agent_uid, device_uuid);
 """
 
 def _ensure_home_tables(sb):
@@ -4676,8 +4680,9 @@ def _ensure_home_tables(sb):
 
 
 def save_home_note(agent_uid: str, customer_id, customer_name: str,
-                   note_date: str, summary: str, content: str) -> bool:
-    """상담노트 1건 Supabase 영구 저장. 실패 시 False 반환."""
+                   note_date: str, summary: str, content: str,
+                   device_uuid: str = "") -> bool:
+    """[GP-50.1] 상담노트 1건 Supabase 영구 저장 — agent_uid+device_uuid+customer_id 3중 키."""
     sb = _get_sb_client() if _SB_PKG_OK else None
     if not sb:
         return False
@@ -4689,6 +4694,7 @@ def save_home_note(agent_uid: str, customer_id, customer_name: str,
             "note_date":     note_date,
             "summary":       summary or "",
             "content":       content or "",
+            "device_uuid":   device_uuid or "",
         }).execute()
         return True
     except Exception:
@@ -4717,8 +4723,9 @@ def load_home_notes(agent_uid: str, customer_id=None) -> list:
 
 
 def save_home_ins(agent_uid: str, customer_id, customer_name: str,
-                  ins_date: str, product: str, background: str, special: str) -> bool:
-    """보험가입상담 1건 Supabase 영구 저장. 실패 시 False 반환."""
+                  ins_date: str, product: str, background: str, special: str,
+                  device_uuid: str = "") -> bool:
+    """[GP-50.1] 보험가입상담 1건 Supabase 영구 저장 — agent_uid+device_uuid+customer_id 3중 키."""
     sb = _get_sb_client() if _SB_PKG_OK else None
     if not sb:
         return False
@@ -4731,6 +4738,7 @@ def save_home_ins(agent_uid: str, customer_id, customer_name: str,
             "product":       product or "",
             "background":    background or "",
             "special":       special or "",
+            "device_uuid":   device_uuid or "",
         }).execute()
         return True
     except Exception:
@@ -17050,7 +17058,8 @@ export default function(component) {{
                         # ── Supabase 영구 저장 ─────────────────────────────────
                         _sb_saved = save_home_note(
                             st.session_state.get("user_id", ""),
-                            _cid, _cname, str(_note_date), _note_summary, _note_text
+                            _cid, _cname, str(_note_date), _note_summary, _note_text,
+                            device_uuid=st.session_state.get("_device_uuid", ""),
                         )
                         # ── session_state 보조 (Supabase 실패 시 임시 보유) ─────────
                         _notes = st.session_state.get("consult_notes", [])
@@ -17118,7 +17127,8 @@ export default function(component) {{
                         # ── Supabase 영구 저장 ─────────────────────────────────
                         _sb_saved2 = save_home_ins(
                             st.session_state.get("user_id", ""),
-                            _cid, _cname, str(_ins_date), _ins_product, _ins_bg, _ins_special
+                            _cid, _cname, str(_ins_date), _ins_product, _ins_bg, _ins_special,
+                            device_uuid=st.session_state.get("_device_uuid", ""),
                         )
                         # ── session_state 보조 (Supabase 실패 시 임시 보유) ─────────
                         _ins_list = st.session_state.get("insurance_consults", [])

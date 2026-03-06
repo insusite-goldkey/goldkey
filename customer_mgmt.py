@@ -96,6 +96,7 @@ def _local_db() -> sqlite3.Connection:
             consult_date TEXT   NOT NULL,
             memo_raw    TEXT    DEFAULT '',
             ner_result  TEXT    DEFAULT '{}',
+            device_uuid TEXT    DEFAULT '',
             created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
         );
     """)
@@ -189,16 +190,18 @@ def lc_delete_customer(customer_id: int) -> bool:
 
 def lc_save_consult(agent_uid: str, customer_id: int,
                     consult_date: str, memo_raw: str,
-                    ner_result: dict = None) -> int:
-    """상담 로그 저장 — customer_id(PK) 기준 연결"""
+                    ner_result: dict = None,
+                    device_uuid: str = "") -> int:
+    """[GP-50.1] 로컴 SQLite 상담 로그 저장 — agent_uid+device_uuid+customer_id 3중 키."""
     conn = _local_db()
     try:
         cur = conn.execute(
             """INSERT INTO lc_consult_logs
-               (agent_uid, customer_id, consult_date, memo_raw, ner_result)
-               VALUES (?, ?, ?, ?, ?)""",
+               (agent_uid, customer_id, consult_date, memo_raw, ner_result, device_uuid)
+               VALUES (?, ?, ?, ?, ?, ?)""",
             (agent_uid, customer_id, consult_date, memo_raw,
-             json.dumps(ner_result or {}, ensure_ascii=False)),
+             json.dumps(ner_result or {}, ensure_ascii=False),
+             device_uuid or ""),
         )
         conn.commit()
         return cur.lastrowid
@@ -380,7 +383,9 @@ def update_profile(customer_id: int, profile_patch: dict, sb) -> bool:
 
 def save_consultation(agent_uid: str, customer_id: int,
                       memo_raw: str, memo_masked: str,
-                      ner_result: dict, consult_date: str, sb) -> bool:
+                      ner_result: dict, consult_date: str, sb,
+                      device_uuid: str = "") -> bool:
+    """[GP-50.1] 상담 저장 — agent_uid + device_uuid + customer_id 3중 키 원자 INSERT."""
     if not sb:
         return False
     try:
@@ -391,6 +396,7 @@ def save_consultation(agent_uid: str, customer_id: int,
             "memo_masked": memo_masked,
             "ner_result": ner_result,
             "consult_date": consult_date,
+            "device_uuid": device_uuid or "",
         }).execute()
         return True
     except Exception:
@@ -770,11 +776,12 @@ def render_customer_tab(sb, gemini_client):
                                     unsafe_allow_html=True,
                                 )
 
-                        # 저장
+                        # 저장 [GP-50.1: agent_uid+device_uuid+customer_id 3중 키]
                         saved_ok = save_consultation(
                             agent_uid, sel_customer["id"],
                             memo_text, masked, ner,
                             str(memo_date), sb,
+                            device_uuid=st.session_state.get("_device_uuid", ""),
                         )
                         if saved_ok:
                             update_profile(sel_customer["id"], ner, sb)
