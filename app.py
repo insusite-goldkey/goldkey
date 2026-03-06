@@ -16643,14 +16643,16 @@ export default function(component) {{
 
         with st.container():
             st.markdown("""
-<div style="background:#FDF5E6;border:2px solid #004D40;border-radius:12px;
-  padding:12px 16px 10px 16px;margin-bottom:8px;">
-  <div style="font-size:0.78rem;font-weight:800;color:#004D40;
-    letter-spacing:0.04em;margin-bottom:8px;">📚 보험 용어 안내
-    <span style="font-size:0.68rem;font-weight:500;color:#555;margin-left:6px;">
-    (가이딩 프로토콜 제48조 — 용어 검색 엔진)</span>
-  </div>
-""", unsafe_allow_html=True)
+<div style="position:relative;
+  background:linear-gradient(135deg,rgba(79,172,254,0.13) 0%,rgba(0,242,254,0.08) 100%);
+  border:2px solid #004D40;border-radius:12px;
+  padding:12px 16px 6px 16px;margin-bottom:8px;
+  box-shadow:0 2px 10px rgba(0,77,64,0.10);">
+  <div style="font-size:0.76rem;font-weight:800;color:#004D40;
+    letter-spacing:0.04em;margin-bottom:2px;">📚 보험 용어 안내</div>
+  <div style="font-size:0.70rem;color:#0369a1;font-weight:500;margin-bottom:8px;">
+    전문가에게 묻기 전, 보험 용어 바로 확인 (가이딩 프로토콜 제48조)</div>
+</div>""", unsafe_allow_html=True)
 
             _g48_col1, _g48_col2 = st.columns([1, 0.3], gap="small")
             with _g48_col1:
@@ -16666,43 +16668,59 @@ export default function(component) {{
 
             # ── 검색 결과 출력 ──
             _g48_result_key = "_gp48_result"
+            _g48_searched_key = "_gp48_searched"
             if _g48_search and _g48_query.strip():
                 _q = _g48_query.strip()
                 _hits = {k: v for k, v in _GP48_GLOSSARY.items()
                          if _q.lower() in k.lower() or _q.lower() in v.lower()}
-                if _hits:
-                    st.session_state[_g48_result_key] = _hits
-                else:
-                    st.session_state[_g48_result_key] = None
+                st.session_state[_g48_result_key] = _hits if _hits else {}
+                st.session_state[_g48_searched_key] = _q
 
-            _g48_res = st.session_state.get(_g48_result_key)
-            if _g48_res is not None:
-                if _g48_res:
-                    _g48_html = "".join(
-                        f"<div style='margin-bottom:6px;'>"
-                        f"<b style='color:#004D40;font-size:0.80rem;'>{k}</b>"
-                        f"<span style='color:#666;font-size:0.72rem;'> — </span>"
-                        f"<span style='color:#1a1a1a;font-size:0.75rem;line-height:1.6;'>{v}</span>"
-                        f"</div>"
-                        for k, v in _g48_res.items()
-                    )
-                    st.markdown(
-                        f"<div style='background:rgba(0,77,64,0.05);border:1px solid #b2dfdb;"
-                        f"border-radius:8px;padding:10px 14px;max-height:180px;"
-                        f"overflow-y:auto;margin-top:4px;'>{_g48_html}</div>",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(
-                        "<div style='background:rgba(0,77,64,0.05);border:1px solid #b2dfdb;"
-                        "border-radius:8px;padding:8px 14px;margin-top:4px;"
-                        "font-size:0.76rem;color:#555;'>"
-                        f"⚠️ '<b>{_g48_query.strip()}</b>' 에 해당하는 용어를 찾지 못했습니다. "
-                        "다른 키워드(예: 진단비, 손해사정, KCD코드)로 검색해보세요.</div>",
-                        unsafe_allow_html=True,
-                    )
+            _g48_res      = st.session_state.get(_g48_result_key)
+            _g48_searched = st.session_state.get(_g48_searched_key, "")
 
-            st.markdown("</div>", unsafe_allow_html=True)
+            # 초기 상태 (아직 검색 전)
+            if _g48_res is None:
+                st.markdown(
+                    "<div style='background:rgba(0,77,64,0.04);border:1px solid #b2dfdb;"
+                    "border-radius:8px;padding:10px 14px;margin-top:4px;"
+                    "font-size:0.75rem;color:#555;text-align:center;'>"
+                    "🔎 검색 결과가 여기에 표시됩니다.</div>",
+                    unsafe_allow_html=True,
+                )
+            elif _g48_res:
+                # 매칭 결과 표시
+                _g48_html = "".join(
+                    f"<div style='margin-bottom:8px;padding-bottom:6px;"
+                    f"border-bottom:1px solid rgba(0,77,64,0.12);'>"
+                    f"<b style='color:#004D40;font-size:0.82rem;'>{k}</b>"
+                    f"<br><span style='color:#1a1a1a;font-size:0.75rem;line-height:1.6;'>{v}</span>"
+                    f"</div>"
+                    for k, v in _g48_res.items()
+                )
+                st.markdown(
+                    f"<div style='background:rgba(0,77,64,0.05);border:1.5px solid #80cbc4;"
+                    f"border-radius:8px;padding:10px 14px;max-height:200px;"
+                    f"overflow-y:auto;margin-top:4px;'>{_g48_html}</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                # 미매칭 — AI 분석 중 메시지 + 야간 자율학습 DB 기록 (제38조)
+                _g48_unknown_key = "_gp48_unknown_terms"
+                _unknown_list = st.session_state.get(_g48_unknown_key, [])
+                if _g48_searched and _g48_searched not in _unknown_list:
+                    _unknown_list.append(_g48_searched)
+                    st.session_state[_g48_unknown_key] = _unknown_list
+                st.markdown(
+                    f"<div style='background:linear-gradient(135deg,rgba(79,172,254,0.10),rgba(0,242,254,0.07));"
+                    f"border:1.5px solid #4facfe;border-radius:8px;padding:10px 14px;margin-top:4px;'>"
+                    f"<span style='font-size:0.76rem;color:#0369a1;font-weight:700;'>"
+                    f"🤖 AI 마스터가 '<b>{_g48_searched}</b>' 용어를 분석 중입니다.</span><br>"
+                    f"<span style='font-size:0.72rem;color:#555;'>"
+                    f"해당 용어는 야간 자율학습(제38조) DB에 기록되었습니다. "
+                    f"다른 키워드(예: 진단비, 손해사정, KCD코드)로도 검색해보세요.</span></div>",
+                    unsafe_allow_html=True,
+                )
 
         # ── [가이딩 프로토콜 제36조 §5] 베테랑 플래너 활용 매뉴얼 ──────────────────
         with st.expander("📖 베테랑 플래너 활용 매뉴얼 — 5단계 상담 시나리오 (가이딩 프로토콜 제36조 §5)", expanded=False):
