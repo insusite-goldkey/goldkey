@@ -3940,13 +3940,19 @@ def add_member(name, contact):
 
 # --------------------------------------------------------------------------
 # [SECTION 2-B] 동시접속 관리 + 회원수 임계치 알림
+# [가이딩 프로토콜 제49조] 멀티 디바이스 심리스 접속 — Device-specific session
 # --------------------------------------------------------------------------
-MAX_CONCURRENT = 35  # 현재 무료 HF Spaces 안정 한계
-SESSION_TTL = 7200   # [가이딩 프로토콜 제37조 §1] 상담 세션 유지 시간 (초, 2시간)
+MAX_CONCURRENT = 105  # [GP-49] 기기당 1슬롯 × 최대 3기기 × 35명 기준 상향
+SESSION_TTL = 7200    # [가이딩 프로토콜 제37조 §1] 상담 세션 유지 시간 (초, 2시간)
+# [GP-49] 로그인 사용자 1계정당 최대 허용 동시 기기 수
+MAX_DEVICES_PER_USER = 3
 
 @st.cache_resource
 def _get_session_store():
-    """서버 전역 접속 세션 추적 저장소 {session_id: timestamp}"""
+    """서버 전역 접속 세션 추적 저장소
+    [GP-49] 구조: {session_id: {"ts": timestamp, "user_id": str, "device_id": str}}
+    session_id = "<user_id>:<device_uuid>" (로그인) 또는 "anon_<uuid>" (익명)
+    """
     return {}
 
 @st.cache_resource
@@ -3954,44 +3960,58 @@ def _get_alert_store():
     """관리자 임계치 알림 발송 기록 {threshold: True}"""
     return {}
 
-def _session_checkin(session_id: str) -> bool:
+def _session_checkin(session_id: str, user_id: str = "") -> bool:
     """
-    세션 체크인. 반환값:
-      True  = 접속 허용 (기존 로그인 세션 or 여유 있음)
-      False = 접속 거부 (신규 미로그인 + 초과)
+    [GP-49] 세션 체크인 — Device-specific 멀티 세션 허용.
+    반환값:
+      True  = 접속 허용
+      False = 접속 거부 (익명 트래픽 MAX_CONCURRENT 초과 시만)
+    로그인 사용자: MAX_CONCURRENT 제한 완전 면제,
+                  동일 user_id 최대 MAX_DEVICES_PER_USER(3)기기까지 허용.
+    익명 사용자:   서버 전체 슬롯 여유 시만 허용.
     """
     store = _get_session_store()
     now = time.time()
-    # SESSION_TTL 이상 활동 없는 세션 자동 만료 (가이딩 프로토콜 제37조 §1: 2시간)
-    expired = [k for k, v in list(store.items()) if now - v > SESSION_TTL]
+    # SESSION_TTL 초과 세션 만료 처리
+    expired = [k for k, v in list(store.items()) if now - v["ts"] > SESSION_TTL]
     for k in expired:
         store.pop(k, None)
-    # 이미 등록된 세션이면 갱신 후 허용
+    # 이미 등록된 세션 — 갱신 후 허용
     if session_id in store:
-        store[session_id] = now
+        store[session_id]["ts"] = now
         return True
-    # 신규 세션 — 여유 있으면 허용
-    if len(store) < MAX_CONCURRENT:
-        store[session_id] = now
+    # [GP-49] 로그인 사용자 — MAX_CONCURRENT 면제, 기기 수만 확인
+    if user_id:
+        _user_devices = [k for k, v in store.items() if v.get("user_id") == user_id]
+        if len(_user_devices) >= MAX_DEVICES_PER_USER:
+            # 가장 오래된 기기 슬롯 해제 후 신규 허용 (LRU 방식)
+            _oldest = min(_user_devices, key=lambda k: store[k]["ts"])
+            store.pop(_oldest, None)
+        store[session_id] = {"ts": now, "user_id": user_id, "device_id": session_id}
         return True
-    return False  # 초과 → 거부
+    # 익명 사용자 — 서버 슬롯 여유 시만 허용
+    _anon_count = sum(1 for v in store.values() if not v.get("user_id"))
+    if _anon_count < MAX_CONCURRENT:
+        store[session_id] = {"ts": now, "user_id": "", "device_id": session_id}
+        return True
+    return False  # 익명 트래픽 초과 → 대기 안내
 
 def _session_checkout(session_id: str):
-    """로그아웃 시 세션 해제"""
+    """로그아웃 시 해당 기기 세션만 해제 (다른 기기 세션 유지)"""
     _get_session_store().pop(session_id, None)
 
 def _get_concurrent_count() -> int:
     store = _get_session_store()
     now = time.time()
-    return sum(1 for v in store.values() if now - v <= SESSION_TTL)
+    return sum(1 for v in store.values() if now - v["ts"] <= SESSION_TTL)
 
 def _get_session_remaining(session_id: str) -> int:
     """현재 세션의 남은 시간(초) 반환. 세션 없으면 0"""
     store = _get_session_store()
-    last = store.get(session_id)
-    if last is None:
+    entry = store.get(session_id)
+    if entry is None:
         return 0
-    remaining = SESSION_TTL - int(time.time() - last)
+    remaining = SESSION_TTL - int(time.time() - entry["ts"])
     return max(0, remaining)
 
 def _check_member_thresholds():
@@ -9907,12 +9927,21 @@ def main():
         # 매 rerun: localStorage 누적 perf 로그 → console.info 출력 (개발자 도구 확인용)
         _s40_comp.html(_s40_read_ls_perf_js(), height=0)
 
-    # ── STEP 2: 세션 ID 생성 ─────────────────────────────────────────────
-    _sid = st.session_state.get("user_id") or st.session_state.get("_anon_sid")
-    if not _sid:
-        import uuid
-        _sid = "anon_" + uuid.uuid4().hex[:12]
-        st.session_state["_anon_sid"] = _sid
+    # ── STEP 2: 세션 ID 생성 [GP-49 멀티 디바이스 심리스 접속] ──────────────
+    # device_uuid: 브라우저 탭/기기별 고유 ID (세션 내 1회 생성, 유지)
+    import uuid as _uuid_mod
+    if "_device_uuid" not in st.session_state:
+        st.session_state["_device_uuid"] = _uuid_mod.uuid4().hex[:16]
+    _device_uuid = st.session_state["_device_uuid"]
+    _uid_for_sid = st.session_state.get("user_id", "")
+    if _uid_for_sid:
+        # 로그인 사용자: "<user_id>:<device_uuid>" — 기기별 독립 슬롯
+        _sid = f"{_uid_for_sid}:{_device_uuid}"
+    else:
+        # 익명 사용자: 기존 anon_sid 재사용 or 신규 생성
+        if "_anon_sid" not in st.session_state:
+            st.session_state["_anon_sid"] = "anon_" + _uuid_mod.uuid4().hex[:12]
+        _sid = st.session_state["_anon_sid"]
 
     # ── STEP 3: 파일경로 복구 ────────────────────────────────────────────
     if st.session_state.get("_force_tmp"):
@@ -13293,8 +13322,9 @@ section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {
             "📜 자세한 내용은 이용약관 **제6조의2 (마이크 접근 권한 정책)** 를 참고하세요."
         )
 
-    # ── 동시접속 차단 (사이드바 렌더 완료 후) ──────────────────────────
-    if not _session_checkin(_sid) and "user_id" not in st.session_state:
+    # ── 동시접속 체크인 [GP-49: 로그인 유저 무조건 허용, 익명만 제한] ────
+    _uid_checkin = st.session_state.get("user_id", "")
+    if not _session_checkin(_sid, user_id=_uid_checkin):
         st.warning("⏳ 트래픽 증가로 잠시 후 접속해 주세요. (1~2분 후 새로고침)")
         st.stop()
 
