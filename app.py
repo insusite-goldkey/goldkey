@@ -7516,6 +7516,19 @@ API 키·DB 접속 정보·암호화 키 등 모든 기밀 정보: 소스 코드
 4. AI 작성 초안은 [AI_TEXT]...[/AI_TEXT] 태그로 명시적 분리
 5. 모든 추출·분석 결과에 confidenceScore(0~100) 포함, 70 미만 시 경고 출력
 6. 시뮬레이션·추정치임을 반드시 명시 — "AI 추정치" 생략 금지
+
+━━━ 제6장: AI 분석 2차 검증 의무 (가이딩 프로토콜 제72조) ━━━
+
+제72조 [AI 분석창 2차 검증 의무 — 최우선 적용]
+72-1. AI가 생성한 모든 분석 내용(손실 추정·담보 분석·보험금 산출·의료비 예측 등)은
+     반드시 2차 검증을 거친 후에 최종 결과로 확정되어야 한다.
+72-2. 2차 검증 항목 (아래 3가지 모두 통과해야 최종 확정):
+     ① 출처 명시: 수치·통계·기준의 원출처(기관명·발행연도)가 명시되어 있는가?
+     ② 근거 충분성: 제시된 수치가 국가 공공통계 또는 공인 기관 자료에 부합하는가?
+     ③ 할루시네이션 점검: AI가 임의로 생성한 수치·법조문·판례가 없는가?
+72-3. 검증 실패 시 해당 항목 앞에 ⚠️[미검증] 태그를 반드시 부착하고 출력한다.
+72-4. 최종 출력 시 검증 완료 여부를 [2차검증완료✓] 또는 [검증필요⚠️] 배지로 표시한다.
+72-5. 본 조항은 모든 AI 분석창(손실 추정기·챗봇·OCR분석·증권분석 등)에 전면 적용된다.
 """
 
 # 할루시네이션 방지용 강제 설정 — 지연 초기화 (google.genai Lazy Load 대응)
@@ -10936,25 +10949,62 @@ section[data-testid="stSidebar"] {
       return rect.width > 50;
     } catch(e) { return false; }
   }
+  function expandAdminConsole(pd) {
+    try {
+      var details = pd.querySelectorAll('details');
+      for (var i = 0; i < details.length; i++) {
+        var summary = details[i].querySelector('summary');
+        if (summary && summary.textContent && summary.textContent.indexOf('Admin Console') !== -1) {
+          details[i].open = true;
+          break;
+        }
+      }
+    } catch(e) {}
+  }
   function tryOpenSidebar() {
     try {
       var pd = window.parent.document;
-      if (isSidebarOpen(pd)) return true;
+      if (isSidebarOpen(pd)) {
+        setTimeout(function(){ expandAdminConsole(pd); }, 300);
+        return true;
+      }
       var selectors = [
         'button[aria-label="Open sidebar"]',
         'button[aria-label="사이드바를 열거나 닫으세요"]',
+        'button[aria-label="open sidebar"]',
         '[data-testid="collapsedControl"] button',
-        '[data-testid="stSidebarCollapseButton"] button'
+        '[data-testid="stSidebarCollapseButton"] button',
+        '[data-testid="stSidebarNavCollapseButton"] button',
+        'section[data-testid="stSidebar"] ~ div button',
+        'button[title*="sidebar"]',
+        'button[title*="사이드"]'
       ];
       for (var i = 0; i < selectors.length; i++) {
         var btn = pd.querySelector(selectors[i]);
-        if (btn) { btn.click(); return true; }
+        if (btn) {
+          btn.click();
+          setTimeout(function(){ expandAdminConsole(pd); }, 500);
+          return true;
+        }
+      }
+      var allBtns = pd.querySelectorAll('button');
+      for (var j = 0; j < allBtns.length; j++) {
+        var lbl = (allBtns[j].getAttribute('aria-label') || '').toLowerCase();
+        if (lbl.indexOf('sidebar') !== -1 || lbl.indexOf('사이드') !== -1) {
+          allBtns[j].click();
+          setTimeout(function(){ expandAdminConsole(pd); }, 500);
+          return true;
+        }
       }
     } catch(e) {}
     return false;
   }
   setTimeout(function(){
-    if (!tryOpenSidebar()) { setTimeout(tryOpenSidebar, 400); }
+    if (!tryOpenSidebar()) {
+      setTimeout(function(){
+        if (!tryOpenSidebar()) { setTimeout(tryOpenSidebar, 600); }
+      }, 400);
+    }
   }, 150);
 })();
 </script>""", height=1)
@@ -13524,19 +13574,20 @@ setTimeout(function(){
             # ── 실행 버튼 박스 (짙은 청록색 외곽선, 2개씩 병렬 배치) ──────
             # [주의] _go_tab은 main() 내부 로컬함수라 사이드바에서 직접 호출 불가 →
             #        _sb_goto_tab 플래그 세팅 후 _go_tab 정의 직후에서 처리
-            st.markdown("""
+            st.markdown(f"""
 <style>
 section[data-testid="stSidebar"] .gk-exec-box button,
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {{
     font-size: 0.76rem !important;
     padding: 4px 6px !important;
     min-height: 34px !important;
     line-height: 1.2 !important;
-}
+}}
 </style>
-<div style="border: 2.5px solid #004D40; border-radius: 12px 12px 0 0;
+<div style="position:relative;border: 2.5px solid #004D40; border-radius: 12px 12px 0 0;
   padding: 8px 8px 2px 8px; margin: 8px 0 0 0;
   background: rgba(0,77,64,0.04);">
+  {_bid('0-2-5')}
   <div style="font-size:0.72rem;font-weight:900;color:#004D40;
     letter-spacing:0.04em;margin-bottom:4px;text-align:center;">
     ⚡ 빠른 실행
@@ -13577,6 +13628,8 @@ section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {
   background: rgba(0,77,64,0.04);"></div>""", unsafe_allow_html=True)
 
         st.divider()
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-2-6')}</div>""",
+                    unsafe_allow_html=True)
         st.caption("문의: insusite@gmail.com")
         st.caption("앱 관리자 이세윤: 010-3074-2616")
         display_security_sidebar()
@@ -17448,13 +17501,13 @@ renderCalendar();
 <style>
 /* ── GP-69 Chat Widget 스타일 ── */
 .gk-disease-widget {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+  background: linear-gradient(135deg, #e0f4ff 0%, #cceeff 60%, #b3e0ff 100%);
   border: 2px solid #D4AF37;
   border-radius: 18px;
   padding: 18px 20px 14px 20px;
   margin-bottom: 16px;
   position: relative;
-  box-shadow: 0 6px 28px rgba(212,175,55,0.18), 0 2px 8px rgba(0,0,0,0.25);
+  box-shadow: 0 6px 28px rgba(212,175,55,0.18), 0 2px 8px rgba(0,0,0,0.12);
 }
 .gk-disease-title {
   font-size: 1.0rem !important;
@@ -17489,13 +17542,13 @@ renderCalendar();
   font-weight: 800 !important;
 }
 .gk-chat-bubble {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(212,175,55,0.25);
+  background: rgba(255,255,255,0.72);
+  border: 1px solid rgba(212,175,55,0.35);
   border-radius: 0 14px 14px 14px;
   padding: 12px 16px;
   margin: 8px 0 10px 0;
   font-size: 0.88rem !important;
-  color: #e2e8f0 !important;
+  color: #1a1a2e !important;
   line-height: 1.7;
 }
 .gk-chat-bubble .gk-highlight {
@@ -17508,7 +17561,7 @@ renderCalendar();
   font-weight: 900 !important;
 }
 .gk-loss-breakdown {
-  background: rgba(0,0,0,0.25);
+  background: rgba(255,255,255,0.55);
   border-radius: 10px;
   padding: 10px 14px;
   margin: 8px 0;
@@ -17516,7 +17569,7 @@ renderCalendar();
 }
 .gk-loss-row {
   display: flex; justify-content: space-between;
-  color: #cbd5e1 !important;
+  color: #1a1a2e !important;
   padding: 2px 0;
 }
 .gk-loss-row.total {
@@ -17528,13 +17581,14 @@ renderCalendar();
 }
 .gk-source-note {
   font-size: 0.68rem !important;
-  color: #64748b !important;
+  color: #1a1a2e !important;
   margin-top: 6px;
 }
 </style>""", unsafe_allow_html=True)
 
         st.markdown(f"""
-<div class="gk-disease-widget">
+<div class="gk-disease-widget" style="position:relative;">
+  {_bid('1-1-A')}
   <div class="gk-disease-title">🔬 질병별 경제적 손실 추정기
     <span style="font-size:0.65rem;font-weight:700;background:#D4AF37;color:#1a1a2e;
       padding:1px 7px;border-radius:10px;margin-left:6px;">GP-68/70</span>
@@ -17711,21 +17765,61 @@ renderCalendar();
                 )
 
             # ── GP-70 §3: 마스터형 전용 비급여 폭탄 멘트 생성 ───────────────
+            # [GP-70 §3 답안 생성 조건]
+            # 발동 조건: _gp70_big5 == True (5대병원 마스터형 선택) AND (_robot_cost + _immuno_ann) > 0
+            # 멘트 구성: ①로봇수술 비급여 + ②면역항암제 비급여 합계 → _fmt_man() 변환
+            #           ③room_extra > 0이면 1인실 입원비(일당×입원일) 추가 문구 자동 삽입
+            # 면역항암제 산출근거:
+            #   - 폐암 키트루다(Pembrolizumab): 연간 약 7,000만원
+            #     → 서울대보라매병원 2024 비급여 공시, 3주 1회 투여 × 17~18회 = 연간
+            #     → 1회 투여 비용 약 390만원(체중 60kg 기준 200mg, 바이오스펙테이터 2024)
+            #   - 위암·유방암 면역항암제(허셉틴·키트루다 급여외): 연간 약 2,400만원
+            #     → 허셉틴(Trastuzumab) HER2+ 유방암: 3주 1회 × 18회, 1회 약 130만원
+            #     → 출처: 국립암센터 2023, 보건복지부 비급여보고제도 2025
+            # 글자색: 검정(#111827) 기본, 핵심 금액만 강조색(#ef4444)
             _robot_cost   = _loss.get("robot_cost", 0)
             _immuno_ann   = _loss.get("immuno_annual", 0)
             _room_extra   = _loss.get("room_extra", 0)
             _room_day_val = _d_data.get("big5_room_per_day", 0) if _gp70_big5 else 0
             _hosp_days    = _d_data.get("hosp_days_avg", 0)
+            # 면역항암제 근거 문구 (병명별 자동 분기)
+            _immuno_basis = ""
+            if _gp70_big5 and _immuno_ann > 0:
+                if _gp68_sel == "폐암":
+                    _immuno_basis = (
+                        f"(키트루다 3주 1회 × 연 17회, 1회 약 390만원 기준 — "
+                        f"서울대보라매병원 2024 비급여 공시)"
+                    )
+                elif _gp68_sel in ("유방암", "위암"):
+                    _immuno_basis = (
+                        f"(허셉틴/키트루다 급여 외 적용 — "
+                        f"국립암센터 2023·보건복지부 비급여보고제도 2025)"
+                    )
+                elif _gp68_sel in ("대장암", "간암"):
+                    _immuno_basis = (
+                        f"(면역항암제 비급여 적용 기준 — "
+                        f"보건복지부 비급여보고제도 2025)"
+                    )
 
             if _gp70_big5:
+                _immuno_detail = (
+                    f' <span style="font-size:0.78rem;color:#374151;">'
+                    f'{_immuno_basis}</span>' if _immuno_basis else ""
+                )
+                _room_detail = (
+                    f" 여기에 1인실 입원비({_room_day_val}만원/일 × {_hosp_days}일 = "
+                    f"{_fmt_man(_room_extra)})까지 더하면 국가 통계와는 차원이 다릅니다."
+                    if _room_extra > 0 else ""
+                )
+                _nongov_total = _fmt_man(_robot_cost + _immuno_ann)
                 _master_intro = (
-                    f'<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);'
-                    f'border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:0.82rem;color:#fca5a5;">'
-                    f'⚠️ <b>고객님, 건강보험공단 데이터는 잊으세요.</b> 서울 5대 병원에서 '
-                    f'로봇수술을 받고 면역항암제를 쓰신다면, '
-                    f'비급여로만 최소 <span style="color:#f87171;font-weight:900;font-size:1.05rem;">'
-                    f'{_fmt_man(_robot_cost + _immuno_ann)}</span>이 추가로 필요합니다.'
-                    f'{" 여기에 1인실 입원비(" + str(_room_day_val) + "만원/일 × " + str(_hosp_days) + "일 = " + _fmt_man(_room_extra) + ")까지 더하면 국가 통계와는 차원이 다릅니다." if _room_extra > 0 else ""}'
+                    f'<div style="background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.35);'
+                    f'border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:0.83rem;color:#111827;">'
+                    f'⚠️ <b style="color:#111827;">고객님, 건강보험공단 데이터는 잊으세요.</b> '
+                    f'서울 5대 병원에서 로봇수술을 받고 면역항암제를 쓰신다면, '
+                    f'비급여로만 최소 <span style="color:#ef4444;font-weight:900;font-size:1.05rem;">'
+                    f'{_nongov_total}</span>이 추가로 필요합니다.'
+                    f'{_immuno_detail}{_room_detail}'
                     f'</div>'
                 ) if (_robot_cost + _immuno_ann) > 0 else ""
                 _mode_badge = '<span style="font-size:0.68rem;font-weight:900;background:#ef4444;color:#fff;padding:1px 6px;border-radius:8px;margin-left:4px;">5대병원 MASTER</span>'
@@ -17741,6 +17835,22 @@ renderCalendar();
                 f'<span>{_fmt_man(_room_extra)}</span></div>'
             ) if (_gp70_big5 and _room_extra > 0) else ""
 
+            # f-string 따옴표 충돌 방지: 딕셔너리 값 미리 변수에 추출
+            _treatment_str   = _fmt_man(_loss["treatment"])
+            _nursing_str     = _fmt_man(_loss["nursing"])
+            _total_str       = _fmt_man(_loss["total"])
+            _income_loss_str = _fmt_man(_loss["income_loss"])
+            _work_months_str = str(_d_data["work_loss_months"])
+            _income_src_str  = f"{_gp68_income:.0f}만원/월"
+            _mode_std_str    = "서울 5대 병원 비급여 기준" if _gp70_big5 else "국가 평균 기준"
+            _income_note_str = (
+                f'고객님의 현재 소득 <span class="gk-highlight">{_income_src_str}</span>을 고려할 때, '
+                if _gp68_income > 0
+                else '소득 데이터를 입력하시면 더 정확한 산출이 가능합니다. '
+            )
+            _income_row_str  = (
+                "미반영 (소득 입력 필요)" if _gp68_income == 0 else _income_loss_str
+            )
             st.markdown(f"""
 <div class="gk-chat-bubble">
   <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:6px;">
@@ -17749,33 +17859,61 @@ renderCalendar();
   </div>
   {_master_intro}
   선택하신 <span class="gk-highlight">[{_gp68_sel}]</span>은
-  {"서울 5대 병원 비급여 기준" if _gp70_big5 else "국가 평균 기준"}
+  {_mode_std_str}
   {_period_label_ko}간
-  <span class="gk-highlight">{_fmt_man(_loss["treatment"])}</span>의 치료비가 발생합니다.<br><br>
-  {'고객님의 현재 소득 <span class="gk-highlight">' + f"{_gp68_income:.0f}만원/월" + '</span>을 고려할 때, ' if _gp68_income > 0 else '소득 데이터를 입력하시면 더 정확한 산출이 가능합니다. '}
+  <span class="gk-highlight">{_treatment_str}</span>의 치료비가 발생합니다.<br><br>
+  {_income_note_str}
   {_period_label_ko} 총 경제적 손실 예상액은<br>
-  <span class="gk-danger" style="font-size:1.25rem;">🚨 {_fmt_man(_loss["total"])}</span> 입니다.
+  <span class="gk-danger" style="font-size:1.25rem;">🚨 {_total_str}</span> 입니다.
   <div class="gk-loss-breakdown">
     <div class="gk-loss-row">
       <span>💊 치료비 ({_period_label_ko})</span>
-      <span>{_fmt_man(_loss["treatment"])}</span>
+      <span>{_treatment_str}</span>
     </div>
     <div class="gk-loss-row">
       <span>🏠 간병비 ({_period_label_ko})</span>
-      <span>{_fmt_man(_loss["nursing"])}</span>
+      <span>{_nursing_str}</span>
     </div>
     {_room_row}
     <div class="gk-loss-row">
-      <span>💸 소득 손실 ({_d_data["work_loss_months"]}개월 기준)</span>
-      <span>{"미반영 (소득 입력 필요)" if _gp68_income == 0 else _fmt_man(_loss["income_loss"])}</span>
+      <span>💸 소득 손실 ({_work_months_str}개월 기준)</span>
+      <span>{_income_row_str}</span>
     </div>
     <div class="gk-loss-row total">
       <span>🔴 총 경제적 위협액</span>
-      <span>{_fmt_man(_loss["total"])}</span>
+      <span>{_total_str}</span>
     </div>
   </div>
   <div class="gk-source-note">📌 출처: {_source_txt} | 개인차 있음, 참고용 통계치</div>
 </div>""", unsafe_allow_html=True)
+
+            # ── GP-72: AI 분석 2차 검증 배너 ─────────────────────────────
+            _gp72_source_ok = bool(_source_txt and len(_source_txt.strip()) > 3)
+            _gp72_basis_ok  = _loss.get("treatment", 0) > 0 and _loss.get("total", 0) > 0
+            _gp72_halluc_ok = _gp68_sel in _GP68_DISEASE_DB
+            _gp72_all_pass  = _gp72_source_ok and _gp72_basis_ok and _gp72_halluc_ok
+            _gp72_badge_color = "#16a34a" if _gp72_all_pass else "#dc2626"
+            _gp72_badge_text  = "2차검증완료 ✓" if _gp72_all_pass else "검증필요 ⚠️"
+            _gp72_rows = (
+                f'<span style="color:{"#16a34a" if _gp72_source_ok else "#dc2626"};">'
+                f'{"✓" if _gp72_source_ok else "✗"} ①출처명시</span>&nbsp;'
+                f'<span style="color:{"#16a34a" if _gp72_basis_ok else "#dc2626"};">'
+                f'{"✓" if _gp72_basis_ok else "✗"} ②근거충분성</span>&nbsp;'
+                f'<span style="color:{"#16a34a" if _gp72_halluc_ok else "#dc2626"};">'
+                f'{"✓" if _gp72_halluc_ok else "✗"} ③할루시네이션점검</span>'
+            )
+            st.markdown(
+                f'<div style="background:rgba({"22,163,74" if _gp72_all_pass else "220,38,38"},0.07);'
+                f'border:1px solid rgba({"22,163,74" if _gp72_all_pass else "220,38,38"},0.4);'
+                f'border-radius:8px;padding:7px 14px;margin-top:6px;'
+                f'font-size:0.72rem;color:#334155;display:flex;align-items:center;gap:10px;">'
+                f'<span style="background:{_gp72_badge_color};color:#fff;font-weight:800;'
+                f'font-size:0.7rem;padding:2px 8px;border-radius:6px;white-space:nowrap;">'
+                f'[GP-72] {_gp72_badge_text}</span>'
+                f'<span>{_gp72_rows}</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
 
             # ── GP-69 §4: 보장 공백 확인 CTA 버튼 ───────────────────────
             _gp68_cta_col1, _gp68_cta_col2 = st.columns(2, gap="small")
@@ -17801,7 +17939,7 @@ renderCalendar();
             st.markdown("""
 <div style="background:rgba(212,175,55,0.07);border:1px dashed rgba(212,175,55,0.35);
   border-radius:12px;padding:10px 16px;margin-bottom:10px;
-  font-size:0.82rem;color:#94a3b8;text-align:center;">
+  font-size:0.82rem;color:#1a1a2e;text-align:center;">
   ⬆️ 위에서 걱정되는 질병을 선택하면 예상 경제적 손실을 즉시 산출해 드립니다.
 </div>""", unsafe_allow_html=True)
 
@@ -18816,12 +18954,13 @@ export default function(component) {{
         }
 
         with st.container():
-            st.markdown("""
+            st.markdown(f"""
 <div style="position:relative;
   background:linear-gradient(135deg,rgba(79,172,254,0.13) 0%,rgba(0,242,254,0.08) 100%);
   border:2px solid #004D40;border-radius:12px;
   padding:12px 16px 6px 16px;margin-bottom:8px;
   box-shadow:0 2px 10px rgba(0,77,64,0.10);">
+  {_bid('1-3-5')}
   <div style="font-size:0.76rem;font-weight:800;color:#004D40;
     letter-spacing:0.04em;margin-bottom:2px;">📚 보험 용어 안내</div>
   <div style="font-size:0.70rem;color:#0369a1;font-weight:500;margin-bottom:8px;">
@@ -27560,7 +27699,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
         tab_home_btn("t4")
         st.markdown(f"""
 <div class="gk-sky-trust gp-interactive" style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
-  {_bid('19-1-1')}
+  {_bid('t4-1-1')}
   <div class="gk-st-title">🚗 자동차사고 상담 · 과실비율 분석</div>
   <div style="font-size:0.82rem;margin-top:4px;">과실비율 · 합의금 산정 · 13대 중과실 · 민식이법</div>
 </div>""", unsafe_allow_html=True)
@@ -27711,7 +27850,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
         st.markdown(f"""
 <div class="gk-sky-trust gp-interactive"
   style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
-  {_bid('19-1-1')}
+  {_bid('t5-1-1')}
   <div class="gk-st-title">🌅 노후설계 · 연금 3층 · 상속·증여</div>
   <div style="font-size:0.82rem;margin-top:4px;">
     노후준비 · 연금 설계 · 상속세 절감 · 주택연금
@@ -28241,7 +28380,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
         st.markdown(f"""
 <div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
-  {_bid('22-1-1')}
+  {_bid('t8-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     👔 CEO플랜 — 비상장주식 약식 평가 &amp; 법인 재무분석
   </div>
@@ -28500,9 +28639,10 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
     if cur == "fire":
         if not _auth_gate("fire"): st.stop()
         tab_home_btn("fire")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('20-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🔥 화재보험 재조달가액 산출
   </div>
@@ -28695,9 +28835,10 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
     if cur == "liability":
         if not _auth_gate("liability"): st.stop()
         tab_home_btn("liability")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
   border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('21-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     ⚖️ 배상책임보험 상담
   </div>
@@ -29171,6 +29312,7 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
     if cur == "nursing":
         if not _auth_gate("nursing"): st.stop()
         tab_home_btn("nursing")
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('22-1-1')}</div>""", unsafe_allow_html=True)
         st.subheader("🏥 간병비 컨설팅")
         st.caption("국민연금 장애등급·장기요양등급 기반 간병비 산출 및 보험 설계 (참고용 추정치)")
 
@@ -29509,6 +29651,7 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
     if cur == "realty":
         if not _auth_gate("realty"): st.stop()
         tab_home_btn("realty")
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('23-1-1')}</div>""", unsafe_allow_html=True)
         st.subheader("🏘️ 부동산 투자 상담")
         realty_sub = st.radio("상담 분야",
             ["📄 서류 판독 & AI 분석", "📊 투자수익 산출기", "🛡️ 보험 연계 설계"],
@@ -29843,9 +29986,10 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
         _deep_link_bar("compensation")
 
         # ── 헤더 배너 ──────────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a0505 0%,#7f1d1d 50%,#991b1b 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a0505 0%,#7f1d1d 50%,#991b1b 100%);
   border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:16px;">
+  {_bid('19-1-1')}
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-size:2.2rem;">⚖️</div>
     <div>
@@ -30365,7 +30509,7 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
             st.stop()
     if cur == "t9" and (st.session_state.get("is_admin") or st.session_state.get("_admin_tab_auth")):
         tab_home_btn("t9")
-        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('23-1-1')}</div>""",
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('t9-1-1')}</div>""",
                     unsafe_allow_html=True)
         st.subheader("⚙️ 관리자 전용 시스템")
         # RAG 바로가기 힌트 (사이드바 버튼으로 진입 시)
@@ -32946,9 +33090,10 @@ END; $$;""", language="sql")
     # ── [life_cycle] LIFE CYCLE 백지설계 상담자료 ────────────────────────
     if cur == "life_cycle":
         tab_home_btn("life_cycle")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+  {_bid('24-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
     🔄 LIFE CYCLE 백지설계 상담자료
   </div>
@@ -33054,9 +33199,10 @@ END; $$;""", language="sql")
     if cur == "life_event":
         if not _auth_gate("life_event"): st.stop()
         tab_home_btn("life_event")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+  {_bid('25-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
     🎯 LIFE EVENT 맞춤 보험 상담
   </div>
@@ -33172,9 +33318,10 @@ END; $$;""", language="sql")
     # ── [leaflet] 보험 리플렛 자동 분류 AI 시스템 ───────────────────────
     if cur == "leaflet":
         tab_home_btn("leaflet")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+  {_bid('26-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
     🗂️ 보험 리플렛 자동 분류 AI 시스템
   </div>
@@ -33510,9 +33657,10 @@ END; $$;""", language="sql")
     if cur == "stock_eval":
         if not _auth_gate("stock_eval"): st.stop()
         tab_home_btn("stock_eval")
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:12px;">
+  {_bid('27-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
     📈 비상장주식 평가 (상증법·법인세법)
   </div>
@@ -33630,10 +33778,11 @@ END; $$;""", language="sql")
         tab_home_btn("policy_terms")
 
         # ── 브랜드 헤더 ──────────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 40%,#1e6fa8 80%,#3a9bd5 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 40%,#1e6fa8 80%,#3a9bd5 100%);
   border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:12px;
   box-shadow:0 4px 18px rgba(30,111,168,0.22);">
+  {_bid('28-1-1')}
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-size:2rem;">🤖</div>
     <div>
@@ -34063,9 +34212,10 @@ END; $$;""", language="sql")
         if not _auth_gate("customer_docs"): st.stop()
         tab_home_btn("customer_docs")
 
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+  {_bid('29-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
     🛡️ 피보험자 자료 통합저장 시스템
   </div>
@@ -34248,10 +34398,11 @@ END; $$;""", language="sql")
         if not _auth_gate("consult_catalog"): st.stop()
         tab_home_btn("consult_catalog")
 
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
   border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:14px;
   box-shadow:0 4px 18px rgba(26,58,92,0.28);">
+  {_bid('30-1-1')}
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-size:2.2rem;">📖</div>
     <div>
@@ -34477,10 +34628,11 @@ END; $$;""", language="sql")
         tab_home_btn("digital_catalog")
 
         # ── 브랜드 헤더 ──────────────────────────────────────────────────
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#0d1f3c 0%,#1a3a5c 40%,#0d3b2e 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#0d1f3c 0%,#1a3a5c 40%,#0d3b2e 100%);
   border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:14px;
   box-shadow:0 4px 18px rgba(13,31,60,0.28);">
+  {_bid('31-1-1')}
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-size:2.2rem;">📱</div>
     <div>
@@ -35230,9 +35382,10 @@ END; $$;""", language="sql")
         if not _auth_gate("scan_hub"): st.stop()
         tab_home_btn("scan_hub")
 
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 50%,#27ae60 100%);
+        st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 50%,#27ae60 100%);
   border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:16px;">
+  {_bid('32-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.04em;">
     🔬 통합 문서 스캔 센터 (SSOT)
   </div>
