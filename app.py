@@ -16610,6 +16610,100 @@ export default function(component) {{
                         _go_tab(_aitem["tab_key"])
 
 
+        # ── [가이딩 프로토콜 제48조] 보험 용어 검색 엔진 (최상단 고정) ──────────────
+        _GP48_GLOSSARY: dict = {
+            "진단비": "암·뇌혈관·심장질환 등 특정 질병 진단 시 약관에서 정한 금액을 지급하는 특약 보험금. 일반적으로 일시금으로 지급.",
+            "입원일당": "질병·상해로 입원 치료 시 1일당 정액으로 지급하는 보험금. 금감원 지급 한도: 상해 7만원, 질병 10만원.",
+            "수술비": "약관에서 정한 수술 분류(1~5종)에 따라 정액 지급하는 보험금. 종류에 따라 지급액이 다름.",
+            "후유장해": "사고·질병 치료 후 신체에 영구히 남은 기능 손실. McBride 또는 AMA 방식으로 장해율을 산정해 보험금 산출.",
+            "맥브라이드": "교통사고·산재 후유장해 평가 기준. 직업 계수·노동능력상실률을 곱해 보상액 산출. 미국 정형외과 의사 McBride 고안.",
+            "AMA방식": "American Medical Association 장해 평가 기준. 일반 상해·질병 후유장해에 적용. 약관 장해지급률 기준 정액 지급.",
+            "보장공백": "고객이 가입한 보험에서 특정 위험(질병·사고)에 대한 보장이 없거나 부족한 구간.",
+            "재조달가액": "화재 등 손해 발생 시 동등한 건물·물건을 새로 짓거나 구매하는 데 필요한 현재 시점 비용.",
+            "손해사정": "보험 사고 발생 시 보험금 지급을 위해 손해액을 조사·확인·평가하는 전문 업무. 독립 손해사정사(공인) 선임 가능.",
+            "KCD코드": "한국 표준 질병·사인 분류 코드(Korean Classification of Disease). ICD-10 기반. 보험금 청구 시 상병명 코드로 사용.",
+            "건강보험료역산": "납입 건강보험료 ÷ 0.0709(2024년 요율) = 추정 월 소득. 소득 기반 일당·장해 보상 필요액 산출에 활용(가이딩 프로토콜 제32조).",
+            "실손보험": "실제 지출한 의료비(진료비·약제비)를 약관에 정한 한도·자기부담금 내에서 보상하는 보험. 1~4세대 구분.",
+            "특약": "주계약에 부가하는 별도 보장 항목. 암·뇌혈관·수술비 등 추가 보장을 선택적으로 설계.",
+            "가입금액": "보험 계약 시 약정한 기본 보험금액. 사망·후유장해·진단비 등의 지급 기준액.",
+            "보험료황금비율": "소득 대비 적정 보험료 비율. 일반적으로 월소득의 7~10% 이내 권장(과부담 방지).",
+            "CAR-T치료": "키메라 항원 수용체 T세포 치료. 혈액암 등에 사용되는 첨단 면역세포 치료법. 치료비 수억원대.",
+            "NGS검사": "차세대 염기서열 분석(Next Generation Sequencing). 암 유전자 변이를 분석해 표적항암제 선택에 활용.",
+            "표적항암": "암세포 특정 단백질·유전자를 표적으로 공격하는 항암 치료법. 이매티닙, 트라스투주맙 등.",
+            "주택연금": "만 55세 이상 주택 소유자가 집을 담보로 평생 월 연금을 수령하는 한국주택금융공사 역모기지 상품.",
+            "퇴직금설계": "임원 퇴직금을 보험으로 적립하는 CEO플랜의 핵심. 손금 산입으로 법인세 절감 + 은퇴자금 마련 동시 달성.",
+            "과실상계": "교통사고 등 손해배상에서 피해자 본인 과실 비율만큼 배상액을 감액하는 법리. 과실비율은 법원·보험사 기준 적용.",
+            "보험사기": "고의 사고·허위 진단서·중복 청구 등 부당하게 보험금을 취득하는 행위. 형사처벌(사기죄) 대상.",
+            "고지의무": "보험 가입 시 피보험자의 건강상태·직업 등 중요 사항을 보험사에 사실대로 알려야 할 의무. 위반 시 계약 해지 가능.",
+            "부지급사유": "보험금 지급 제외 사유(면책조항). 자살·전쟁·음주운전 등 약관에서 지급하지 않는 사고 유형.",
+            "위자료": "교통사고·상해로 인한 정신적 고통에 대한 손해배상금. 법원 기준 사망 시 약 1억원 내외.",
+            "라이프니츠계수": "미래 손해배상금의 현가 계산 시 사용하는 할인 계수. 법정이율 5% 기준 적용(일실소득 산정).",
+            "호프만계수": "라이프니츠계수와 함께 쓰이는 현가 계수. 단리 방식. 사고 유형·법원 판례에 따라 선택 적용.",
+        }
+
+        with st.container():
+            st.markdown("""
+<div style="background:#FDF5E6;border:2px solid #004D40;border-radius:12px;
+  padding:12px 16px 10px 16px;margin-bottom:8px;">
+  <div style="font-size:0.78rem;font-weight:800;color:#004D40;
+    letter-spacing:0.04em;margin-bottom:8px;">📚 보험 용어 안내
+    <span style="font-size:0.68rem;font-weight:500;color:#555;margin-left:6px;">
+    (가이딩 프로토콜 제48조 — 용어 검색 엔진)</span>
+  </div>
+""", unsafe_allow_html=True)
+
+            _g48_col1, _g48_col2 = st.columns([1, 0.3], gap="small")
+            with _g48_col1:
+                _g48_query = st.text_input(
+                    "glossary_input",
+                    key="_gp48_query",
+                    placeholder="궁금한 용어를 입력하세요 (예: 진단비, 맥브라이드, KCD코드...)",
+                    label_visibility="collapsed",
+                )
+            with _g48_col2:
+                _g48_search = st.button("🔍 검색", key="_gp48_btn",
+                                        use_container_width=True, type="primary")
+
+            # ── 검색 결과 출력 ──
+            _g48_result_key = "_gp48_result"
+            if _g48_search and _g48_query.strip():
+                _q = _g48_query.strip()
+                _hits = {k: v for k, v in _GP48_GLOSSARY.items()
+                         if _q.lower() in k.lower() or _q.lower() in v.lower()}
+                if _hits:
+                    st.session_state[_g48_result_key] = _hits
+                else:
+                    st.session_state[_g48_result_key] = None
+
+            _g48_res = st.session_state.get(_g48_result_key)
+            if _g48_res is not None:
+                if _g48_res:
+                    _g48_html = "".join(
+                        f"<div style='margin-bottom:6px;'>"
+                        f"<b style='color:#004D40;font-size:0.80rem;'>{k}</b>"
+                        f"<span style='color:#666;font-size:0.72rem;'> — </span>"
+                        f"<span style='color:#1a1a1a;font-size:0.75rem;line-height:1.6;'>{v}</span>"
+                        f"</div>"
+                        for k, v in _g48_res.items()
+                    )
+                    st.markdown(
+                        f"<div style='background:rgba(0,77,64,0.05);border:1px solid #b2dfdb;"
+                        f"border-radius:8px;padding:10px 14px;max-height:180px;"
+                        f"overflow-y:auto;margin-top:4px;'>{_g48_html}</div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        "<div style='background:rgba(0,77,64,0.05);border:1px solid #b2dfdb;"
+                        "border-radius:8px;padding:8px 14px;margin-top:4px;"
+                        "font-size:0.76rem;color:#555;'>"
+                        f"⚠️ '<b>{_g48_query.strip()}</b>' 에 해당하는 용어를 찾지 못했습니다. "
+                        "다른 키워드(예: 진단비, 손해사정, KCD코드)로 검색해보세요.</div>",
+                        unsafe_allow_html=True,
+                    )
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
         # ── [가이딩 프로토콜 제36조 §5] 베테랑 플래너 활용 매뉴얼 ──────────────────
         with st.expander("📖 베테랑 플래너 활용 매뉴얼 — 5단계 상담 시나리오 (가이딩 프로토콜 제36조 §5)", expanded=False):
             st.markdown("""
