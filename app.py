@@ -17274,6 +17274,9 @@ renderCalendar();
                 "big5_immuno_annual": 2400, # 면역항암제 비급여(만원/년, 키트루다 기준 급여외)
                 "big5_room_per_day": 38,    # 1인실 일당(만원, 서울아산·삼성 평균)
                 "big5_source": "보건복지부 비급여보고제도 2025·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "1,000~1,500만원",   # 다빈치 로봇수술 범위
+                "big5_room_range": "38~55만원/일",       # 1인실 일당 범위
             },
             "대장암": {
                 "emoji": "🫁", "category": "암",
@@ -17290,6 +17293,9 @@ renderCalendar();
                 "big5_immuno_annual": 2800,
                 "big5_room_per_day": 38,
                 "big5_source": "보건복지부 비급여보고제도 2025·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "1,000~1,500만원",
+                "big5_room_range": "38~55만원/일",
             },
             "폐암": {
                 "emoji": "🫀", "category": "암",
@@ -17306,6 +17312,10 @@ renderCalendar();
                 "big5_immuno_annual": 7000, # 키트루다 비급여 연간 전액
                 "big5_room_per_day": 40,
                 "big5_source": "서울대보라매병원 2024 키트루다 비용·심평원 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "해당없음",
+                "big5_room_range": "40~55만원/일",
+                "big5_immuno_basis": "키트루다 200mg 3주 1회×17회, 1회 약 390만원 (서울대보라매병원 2024)",
             },
             "뇌졸중": {
                 "emoji": "🧠", "category": "뇌",
@@ -17322,6 +17332,9 @@ renderCalendar();
                 "big5_immuno_annual": 0,
                 "big5_room_per_day": 38,
                 "big5_source": "보건복지부 2024·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "해당없음",
+                "big5_room_range": "38~50만원/일",
             },
             "급성심근경색": {
                 "emoji": "❤️", "category": "심",
@@ -17338,6 +17351,9 @@ renderCalendar();
                 "big5_immuno_annual": 0,
                 "big5_room_per_day": 38,
                 "big5_source": "심평원 비급여공시 2024·HIRA 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "800~1,200만원",
+                "big5_room_range": "38~50만원/일",
             },
             "치매": {
                 "emoji": "🌀", "category": "뇌",
@@ -17354,6 +17370,9 @@ renderCalendar();
                 "big5_immuno_annual": 0,
                 "big5_room_per_day": 35,
                 "big5_source": "한국노인복지학회 2023·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "해당없음",
+                "big5_room_range": "35~45만원/일",
             },
             "당뇨합병증": {
                 "emoji": "💉", "category": "만성",
@@ -17370,6 +17389,9 @@ renderCalendar();
                 "big5_immuno_annual": 0,
                 "big5_room_per_day": 32,
                 "big5_source": "HIRA 2024·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "해당없음",
+                "big5_room_range": "32~42만원/일",
             },
             "간암": {
                 "emoji": "🫂", "category": "암",
@@ -17386,6 +17408,10 @@ renderCalendar();
                 "big5_immuno_annual": 4200,
                 "big5_room_per_day": 40,
                 "big5_source": "국립암센터 2023·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "1,200~1,800만원",
+                "big5_room_range": "40~55만원/일",
+                "big5_immuno_basis": "옵디보 비급여 2주 1회 약 340만원 (바이오스펙테이터 2024)",
             },
             "유방암": {
                 "emoji": "🎗️", "category": "암",
@@ -17402,6 +17428,10 @@ renderCalendar();
                 "big5_immuno_annual": 2400, # 허셉틴(HER2+) 비급여 기준
                 "big5_room_per_day": 35,
                 "big5_source": "국립암센터 2023·허셉틴 급여기준 2024",
+                "big5_source_link": "https://www.cancer.go.kr/lay1/program/S1T211C213/cancer/view.do",
+                "big5_robot_range": "800~1,200만원",
+                "big5_room_range": "35~45만원/일",
+                "big5_immuno_basis": "허셉틴(HER2+) 3주 1회×18회, 1회 약 130만원 = 연 2,400만원 (국립암센터 2023)",
             },
             "뇌경색": {
                 "emoji": "🩺", "category": "뇌",
@@ -17418,6 +17448,9 @@ renderCalendar();
                 "big5_immuno_annual": 0,
                 "big5_room_per_day": 38,
                 "big5_source": "보건복지부 2024·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "해당없음",
+                "big5_room_range": "38~50만원/일",
             },
         }
 
@@ -17584,6 +17617,59 @@ renderCalendar();
   color: #1a1a2e !important;
   margin-top: 6px;
 }
+/* ── GP-70.1 시각적 대비 테이블 스타일 ── */
+.gk-contrast-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem !important;
+  margin: 10px 0 6px 0;
+  background: rgba(255,255,255,0.6);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.gk-contrast-table th {
+  background: rgba(212,175,55,0.18);
+  color: #1a1a2e !important;
+  font-weight: 800 !important;
+  padding: 5px 8px;
+  text-align: center;
+  font-size: 0.72rem !important;
+}
+.gk-contrast-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(212,175,55,0.15);
+  color: #1a1a2e !important;
+  vertical-align: middle;
+}
+.gk-contrast-avg {
+  color: #475569 !important;
+  text-align: right;
+}
+.gk-contrast-big5 {
+  color: #ef4444 !important;
+  font-weight: 900 !important;
+  text-align: right;
+}
+.gk-evidence-badge {
+  display: inline-block;
+  font-size: 0.62rem !important;
+  font-weight: 700 !important;
+  padding: 1px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+}
+.gk-evidence-badge.trust {
+  background: rgba(3,105,161,0.12);
+  color: #0369a1 !important;
+  border: 1px solid rgba(3,105,161,0.3);
+}
+.gk-evidence-badge.est {
+  background: rgba(107,114,128,0.12);
+  color: #6B7280 !important;
+  border: 1px solid rgba(107,114,128,0.3);
+}
 </style>""", unsafe_allow_html=True)
 
         st.markdown(f"""
@@ -17733,24 +17819,86 @@ renderCalendar();
                     return f"{e}억 {r:,}만원" if r else f"{e}억원"
                 return f"{v_man:,}만원"
 
-            # ── GP-71 §3: 증권 분석 연동 필터 — 표적/면역 담보 부재 경고 ────────
+            # ── GP-71 §3 + GP-72 §1 + GP-73 §1: 증권 분석 연동 필터 ───────────
+            # GP-72: 담보를 시나리오별로 분리 산출 (합산 금지)
+            #   - 약물치료 시나리오: 표적항암약물·항암약물허가 키워드 담보만
+            #   - 방사선치료 시나리오: 항암방사선·방사선 키워드 담보만
+            #   - 둘 다 있으면 상호배타적으로 최대값 1개만 인정 (중복 합산 금지)
+            # GP-73: 암주요치료비는 5년 캡 적용 (10년 약관이어도 5년치만 자산 인정)
             _gp71_policies = st.session_state.get("_policy_coverages", []) or []
-            _gp71_keywords  = ["표적", "면역", "항암약물", "항암방사선"]
-            _gp71_matched   = [
-                p for p in _gp71_policies
-                if any(kw in str(p.get("name", "")) for kw in _gp71_keywords)
-            ]
-            _gp71_matched_amt = sum(
-                float(str(p.get("amount", 0)).replace(",", "").replace("만원", "") or 0)
-                for p in _gp71_matched
-            )
+
+            # GP-72: 시나리오별 키워드 분류
+            _KW_DRUG = ["표적항암약물", "항암약물허가", "항암약물", "표적항암"]
+            _KW_RAD  = ["항암방사선", "방사선약물", "방사선치료"]
+            _KW_IMMUNO = ["면역항암", "면역치료"]
+            _KW_MAJOR  = ["암주요치료비", "주요치료비", "암주요"]
+
+            def _parse_amt(p):
+                try:
+                    return float(str(p.get("amount", 0)).replace(",", "").replace("만원", "") or 0)
+                except Exception:
+                    return 0.0
+
+            # 시나리오별 담보 분리
+            _sc_drug   = [p for p in _gp71_policies if any(kw in str(p.get("name","")) for kw in _KW_DRUG)]
+            _sc_rad    = [p for p in _gp71_policies if any(kw in str(p.get("name","")) for kw in _KW_RAD)]
+            _sc_immuno = [p for p in _gp71_policies if any(kw in str(p.get("name","")) for kw in _KW_IMMUNO)]
+            _sc_major  = [p for p in _gp71_policies if any(kw in str(p.get("name","")) for kw in _KW_MAJOR)]
+
+            # GP-72: 상호배타적 — 약물 vs 방사선 중 최대값 1개만 유효 자산 인정
+            _amt_drug   = sum(_parse_amt(p) for p in _sc_drug)
+            _amt_rad    = sum(_parse_amt(p) for p in _sc_rad)
+            _amt_immuno = sum(_parse_amt(p) for p in _sc_immuno)
+            _amt_drug_excl = max(_amt_drug, _amt_rad)   # 중복 합산 금지, 최대값만
+            _scenario_drug_label  = "💊 약물치료 시 가용"
+            _scenario_rad_label   = "☢️ 방사선치료 시 가용"
+            _scenario_excl_note   = "※ 약물·방사선 중 실제 선택 치료 1가지만 수령 가능"
+
+            # GP-73: 암주요치료비 5년 캡 — 연간 지급액 × min(약관기간, 5)
+            _amt_major_raw = sum(_parse_amt(p) for p in _sc_major)
+            # 연간 단위 추정: 총액을 10년 기준 역산 후 5년 캡 적용
+            _amt_major_5yr = _amt_major_raw * 0.5   # 10년 기준일 때 5년 = 50%
+            _amt_major_bonus = _amt_major_raw - _amt_major_5yr  # 6~10년 '희망 보장 영역'
+
+            # GP-71 §3: 총 가용액 (시나리오 최대 + 면역 + 주요5년)
+            _gp71_matched_amt = _amt_drug_excl + _amt_immuno + _amt_major_5yr
+
             _is_cancer_sel = _GP68_DISEASE_DB.get(_gp68_sel, {}).get("category") == "암"
-            _gp71_not_covered = (not _gp71_matched or _gp71_matched_amt < 5000)
+            _gp71_not_covered = (_gp71_matched_amt < 5000)
+
+            # GP-72 §3: 시각적 분리 산출 배너 (암 선택 + 담보 존재 시)
+            if _is_cancer_sel and (_sc_drug or _sc_rad or _sc_immuno or _sc_major):
+                _drug_row  = f'<tr><td>{_scenario_drug_label}</td><td style="text-align:right;font-weight:900;color:#0369a1;">{_amt_drug:,.0f}만원</td></tr>' if _amt_drug > 0 else ""
+                _rad_row   = f'<tr><td>{_scenario_rad_label}</td><td style="text-align:right;font-weight:900;color:#0369a1;">{_amt_rad:,.0f}만원</td></tr>' if _amt_rad > 0 else ""
+                _immuno_row = f'<tr><td>🧬 면역항암 시 가용</td><td style="text-align:right;font-weight:900;color:#0369a1;">{_amt_immuno:,.0f}만원</td></tr>' if _amt_immuno > 0 else ""
+                _major_row  = (
+                    f'<tr><td>⭐ 암주요치료비 <span style="font-size:0.65rem;color:#D97706;">[5년 확정]</span></td>'
+                    f'<td style="text-align:right;font-weight:900;color:#16a34a;">{_amt_major_5yr:,.0f}만원</td></tr>'
+                    f'<tr><td>📦 암주요치료비 <span style="font-size:0.65rem;color:#94a3b8;">[6~10년 희망]</span></td>'
+                    f'<td style="text-align:right;color:#94a3b8;">{_amt_major_bonus:,.0f}만원</td></tr>'
+                ) if _amt_major_raw > 0 else ""
+                _excl_note_html = f'<tr><td colspan="2" style="font-size:0.65rem;color:#D97706;padding-top:4px;">{_scenario_excl_note}</td></tr>' if (_amt_drug > 0 and _amt_rad > 0) else ""
+                st.markdown(
+                    f'<div style="background:rgba(3,105,161,0.07);border:1px solid rgba(3,105,161,0.3);'
+                    f'border-radius:10px;padding:10px 14px;margin-bottom:10px;">'
+                    f'<div style="font-size:0.72rem;font-weight:900;color:#0369a1;margin-bottom:6px;">'
+                    f'[GP-72] 치료 방식별 가용 금액 (합산 착시 제거)</div>'
+                    f'<table style="width:100%;font-size:0.78rem;border-collapse:collapse;">'
+                    f'{_drug_row}{_rad_row}{_immuno_row}{_major_row}{_excl_note_html}'
+                    f'</table>'
+                    f'<div style="font-size:0.68rem;color:#374151;margin-top:6px;border-top:1px solid rgba(3,105,161,0.2);padding-top:4px;">'
+                    f'💬 고객님, 단순히 모든 담보를 더하면 많아 보이지만, 실제 약물 치료를 받으실 때 쓸 수 있는 돈은 '
+                    f'<b style="color:#0369a1;">{_amt_drug_excl:,.0f}만원</b>뿐입니다. 숫자의 착시에 속으시면 안 됩니다.<br>'
+                    f'주요치료비 10년 보장도 실제로는 <b>5년 집중 치료기({_amt_major_5yr:,.0f}만원)</b>를 기준으로 준비하는 것이 정교한 안보 전략입니다.'
+                    f'</div></div>',
+                    unsafe_allow_html=True
+                )
+
             if _is_cancer_sel and _gp71_not_covered:
                 _gp71_lack_msg = (
                     "표적·면역 관련 담보가 증권에서 확인되지 않습니다."
-                    if not _gp71_matched
-                    else f"표적·면역 담보 가입금액 {_gp71_matched_amt:,.0f}만원 — 첨단치료비의 80% 미달"
+                    if _gp71_matched_amt == 0
+                    else f"치료 방식별 가용금액 합계 {_gp71_matched_amt:,.0f}만원 — 첨단치료비의 80% 미달"
                 )
                 st.markdown(
                     '<div style="background:#D4AF37;border:2px solid #ef4444;'
@@ -17914,6 +18062,105 @@ renderCalendar();
                 f'</div>',
                 unsafe_allow_html=True
             )
+
+            # ── GP-70.1 §3: 마스터형 전용 시각적 대비 테이블 ──────────────
+            if _gp70_big5:
+                _d_avg_cost  = _d_data.get("avg_cost_2yr", 0)
+                _d_b5_cost   = _d_data.get("big5_cost_2yr", 0)
+                _d_robot_rng = _d_data.get("big5_robot_range", "해당없음")
+                _d_room_rng  = _d_data.get("big5_room_range", "")
+                _d_b5_src    = _d_data.get("big5_source", "심평원 비급여공시 2024")
+                _d_b5_link   = _d_data.get("big5_source_link", "https://www.hira.or.kr/ra/hosp/getHealthCareList.do")
+                _d_immuno_b  = _d_data.get("big5_immuno_basis", "")
+                _avg_nursing = _d_data.get("nursing_2yr", 0)
+                _b5_nursing  = _d_data.get("big5_nursing_2yr", 0)
+                _avg_room    = _d_data.get("hosp_days_avg", 0) * 20  # 국가평균 1인실 20만원/일
+                _b5_room     = _d_data.get("hosp_days_avg", 0) * _d_data.get("big5_room_per_day", 0)
+
+                _robot_row_avg  = "-"
+                _robot_row_big5 = "-"
+                _robot_row_src  = ""
+                if _d_robot_rng != "해당없음":
+                    _robot_row_avg  = "500~1,000만원"
+                    _robot_row_big5 = _d_robot_rng
+                    _robot_row_src  = f'<a href="{_d_b5_link}" target="_blank" class="gk-evidence-badge trust">[근거: 병원 수가표]</a>'
+
+                _immuno_row_avg  = "-"
+                _immuno_row_big5 = "-"
+                _immuno_row_src  = ""
+                if _immuno_ann > 0:
+                    _immuno_row_avg  = "급여 일부 (소액)"
+                    _immuno_row_big5 = _fmt_man(_immuno_ann) + "/년"
+                    _immuno_basis_note = f" <span style='font-size:0.6rem;color:#374151;'>({_d_immuno_b})</span>" if _d_immuno_b else ""
+                    _immuno_row_src  = f'<a href="{_d_b5_link}" target="_blank" class="gk-evidence-badge trust">[근거: {_d_b5_src[:14]}]</a>'
+                    _immuno_row_big5 += _immuno_basis_note
+
+                _room_row_avg_val = _fmt_man(_avg_room) if _avg_room > 0 else "-"
+                _room_row_big5_val = _fmt_man(_b5_room) if _b5_room > 0 else "-"
+                _room_src = f'<a href="https://www.hira.or.kr/ra/hosp/getHealthCareList.do" target="_blank" class="gk-evidence-badge trust">[근거: 심평원 공시]</a>' if _b5_room > 0 else ""
+
+                _nursing_avg_str = _fmt_man(_avg_nursing) if _avg_nursing > 0 else "-"
+                _nursing_b5_str  = _fmt_man(_b5_nursing)  if _b5_nursing  > 0 else "-"
+
+                _total_avg_fmt = _fmt_man(_d_avg_cost)
+                _total_b5_fmt  = _fmt_man(_d_b5_cost)
+
+                _robot_row_html = (
+                    f'<tr><td>🤖 로봇수술 비급여</td>'
+                    f'<td class="gk-contrast-avg">{_robot_row_avg}</td>'
+                    f'<td class="gk-contrast-big5">{_robot_row_big5}</td>'
+                    f'<td style="text-align:center;">{_robot_row_src}</td></tr>'
+                ) if _d_robot_rng != "해당없음" else ""
+
+                _immuno_row_html = (
+                    f'<tr><td>💊 면역항암제 (연간)</td>'
+                    f'<td class="gk-contrast-avg">{_immuno_row_avg}</td>'
+                    f'<td class="gk-contrast-big5">{_immuno_row_big5}</td>'
+                    f'<td style="text-align:center;">{_immuno_row_src}</td></tr>'
+                ) if _immuno_ann > 0 else ""
+
+                _contrast_table_html = f"""
+<div style="margin:8px 0 4px 0;">
+  <div style="font-size:0.72rem;font-weight:900;color:#D4AF37;margin-bottom:4px;">
+    📊 국가 평균 vs 서울 5대병원 비급여 실부담 비교
+  </div>
+  <table class="gk-contrast-table">
+    <thead>
+      <tr>
+        <th style="text-align:left;">항목</th>
+        <th>🏛️ 국가 평균</th>
+        <th>🏥 5대병원 마스터형</th>
+        <th>근거</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>🏥 2년 총 치료비</td>
+        <td class="gk-contrast-avg">{_total_avg_fmt}</td>
+        <td class="gk-contrast-big5">{_total_b5_fmt}</td>
+        <td style="text-align:center;"><a href="{_d_b5_link}" target="_blank" class="gk-evidence-badge trust">[근거: {_d_b5_src[:12]}]</a></td>
+      </tr>
+      {_robot_row_html}
+      {_immuno_row_html}
+      <tr>
+        <td>🏨 1인실 ({_hosp_days}일)</td>
+        <td class="gk-contrast-avg">{_room_row_avg_val}</td>
+        <td class="gk-contrast-big5">{_room_row_big5_val} <span style="font-size:0.6rem;color:#374151;">({_d_room_rng})</span></td>
+        <td style="text-align:center;">{_room_src}</td>
+      </tr>
+      <tr>
+        <td>🧑‍⚕️ 간병비 (2년)</td>
+        <td class="gk-contrast-avg">{_nursing_avg_str}</td>
+        <td class="gk-contrast-big5">{_nursing_b5_str}</td>
+        <td style="text-align:center;"><span class="gk-evidence-badge est">[추정]</span></td>
+      </tr>
+    </tbody>
+  </table>
+  <div style="font-size:0.62rem;color:#64748b;margin-top:3px;">
+    ※ 출처: {_d_b5_src} | 개인 상태·치료 경과에 따라 실제 비용 상이
+  </div>
+</div>"""
+                st.markdown(_contrast_table_html, unsafe_allow_html=True)
 
             # ── GP-69 §4: 보장 공백 확인 CTA 버튼 ───────────────────────
             _gp68_cta_col1, _gp68_cta_col2 = st.columns(2, gap="small")
