@@ -17160,22 +17160,36 @@ renderCalendar();
 </div>""", unsafe_allow_html=True)
 
         # ══════════════════════════════════════════════════════════════
-        # [가이딩 프로토콜 제68조 + 제69조] 질병별 경제적 손실 추정 엔진
-        # + 대화형 질병 상담 위젯 (Disease Economic Loss Engine & Chat Widget)
+        # [가이딩 프로토콜 제68조 + 제69조 + 제70조]
+        # 질병별 경제적 손실 추정 엔진 + 대화형 상담 위젯
+        # + 서울 5대 병원 비급여 프리미엄 데이터 자가 교육
         # ══════════════════════════════════════════════════════════════
 
-        # ── GP-68 §1: Disease_Stat_DB — 10대 질병 통계 데이터베이스 ─────────
-        # 출처: 건강보험심사평가원(HIRA) 2023-2024 진료비 통계, 국립암센터 암 치료비 분석
-        #       보건복지부 2024 뇌·심혈관질환 의료비 보고서, 한국노인복지학회 치매 비용 연구
+        # ── GP-68 §1 + GP-70 §1: Disease_Stat_DB — 10대 질병 통계 데이터베이스 ────
+        # 국가 표준형: 건강보험심사평가원(HIRA) 2023-2024 진료비 통계, 국립암센터
+        # 5대병원 마스터형: 비급여 보고제도(보건복지부 2024-2025), 서울아산·삼성·서울대·세브란스·성모
+        #   - 로봇수술 비급여: 전립선암 1,000~2,000만원, 위·대장암 800~1,500만원 (보건복지부 2025.02)
+        #   - 면역항암제(키트루다) 비급여: 연간 약 7,000만원 (서울대보라매병원 2024)
+        #   - 면역항암제(옵디보) 비급여: 2주 1회 약 340만원 (바이오스펙테이터 2024)
+        #   - 상급병실(1인실): 최고 46만원/일, 평균 30~40만원/일 (심평원 2024 비급여공시)
+        #   Big5 가중치: 암 1.7배, 뇌 1.5배, 심 1.4배, 만성 1.3배 (비급여 비중 60~80% 반영)
         _GP68_DISEASE_DB = {
             "위암": {
                 "emoji": "🫃", "category": "암",
-                "avg_cost_2yr": 3800,   # 만원 (수술+항암+방사선 2년)
+                "avg_cost_2yr": 3800,   # 만원 (수술+항암+방사선 2년, HIRA 급여기준)
                 "avg_cost_5yr": 6200,   # 만원 (재발방지·추적관찰 포함 5년)
                 "nursing_2yr": 720,     # 간병비 2년 평균
                 "hosp_days_avg": 42,    # 평균 입원일수(초기 집중치료)
                 "work_loss_months": 12, # 평균 휴직·소득 단절 기간(개월)
                 "source": "국립암센터 2023",
+                # ── GP-70 Big5 비급여 프리미엄 ──
+                "big5_cost_2yr": 6800,  # 로봇수술 1,200만원+면역항암 2,400만원+1인실 추가 반영
+                "big5_cost_5yr": 11500,
+                "big5_nursing_2yr": 1200,
+                "big5_robot_cost": 1200,    # 로봇수술 비급여(만원)
+                "big5_immuno_annual": 2400, # 면역항암제 비급여(만원/년, 키트루다 기준 급여외)
+                "big5_room_per_day": 38,    # 1인실 일당(만원, 서울아산·삼성 평균)
+                "big5_source": "보건복지부 비급여보고제도 2025·심평원 비급여공시 2024",
             },
             "대장암": {
                 "emoji": "🫁", "category": "암",
@@ -17185,6 +17199,13 @@ renderCalendar();
                 "hosp_days_avg": 38,
                 "work_loss_months": 14,
                 "source": "HIRA 2024 암 진료비 통계",
+                "big5_cost_2yr": 7200,
+                "big5_cost_5yr": 12400,
+                "big5_nursing_2yr": 1300,
+                "big5_robot_cost": 1300,
+                "big5_immuno_annual": 2800,
+                "big5_room_per_day": 38,
+                "big5_source": "보건복지부 비급여보고제도 2025·심평원 비급여공시 2024",
             },
             "폐암": {
                 "emoji": "🫀", "category": "암",
@@ -17194,15 +17215,29 @@ renderCalendar();
                 "hosp_days_avg": 55,
                 "work_loss_months": 18,
                 "source": "국립암센터 2023",
+                "big5_cost_2yr": 10200,  # 키트루다 비급여 연7,000만원 포함
+                "big5_cost_5yr": 17800,
+                "big5_nursing_2yr": 2000,
+                "big5_robot_cost": 0,
+                "big5_immuno_annual": 7000, # 키트루다 비급여 연간 전액
+                "big5_room_per_day": 40,
+                "big5_source": "서울대보라매병원 2024 키트루다 비용·심평원 2024",
             },
             "뇌졸중": {
                 "emoji": "🧠", "category": "뇌",
                 "avg_cost_2yr": 4200,
                 "avg_cost_5yr": 8800,
-                "nursing_2yr": 2400,    # 뇌졸중 간병비 높음
+                "nursing_2yr": 2400,
                 "hosp_days_avg": 28,
                 "work_loss_months": 24,
                 "source": "보건복지부 2024 뇌혈관질환 통계",
+                "big5_cost_2yr": 6800,
+                "big5_cost_5yr": 14200,
+                "big5_nursing_2yr": 4200,  # 재활·장기간병 포함
+                "big5_robot_cost": 0,
+                "big5_immuno_annual": 0,
+                "big5_room_per_day": 38,
+                "big5_source": "보건복지부 2024·심평원 비급여공시 2024",
             },
             "급성심근경색": {
                 "emoji": "❤️", "category": "심",
@@ -17212,15 +17247,29 @@ renderCalendar();
                 "hosp_days_avg": 14,
                 "work_loss_months": 10,
                 "source": "심사평가원 2024 심혈관 진료비",
+                "big5_cost_2yr": 5400,
+                "big5_cost_5yr": 8600,
+                "big5_nursing_2yr": 1400,
+                "big5_robot_cost": 800,    # 최소침습 시술 비급여
+                "big5_immuno_annual": 0,
+                "big5_room_per_day": 38,
+                "big5_source": "심평원 비급여공시 2024·HIRA 2024",
             },
             "치매": {
                 "emoji": "🌀", "category": "뇌",
                 "avg_cost_2yr": 2800,
-                "avg_cost_5yr": 9600,   # 장기요양 포함
-                "nursing_2yr": 3600,    # 간병비 매우 높음
-                "hosp_days_avg": 0,     # 주로 외래·요양
+                "avg_cost_5yr": 9600,
+                "nursing_2yr": 3600,
+                "hosp_days_avg": 0,
                 "work_loss_months": 36,
                 "source": "한국노인복지학회 2023 치매 비용 연구",
+                "big5_cost_2yr": 4500,
+                "big5_cost_5yr": 15200,
+                "big5_nursing_2yr": 6000,  # 전문요양기관 24시간 간병
+                "big5_robot_cost": 0,
+                "big5_immuno_annual": 0,
+                "big5_room_per_day": 35,
+                "big5_source": "한국노인복지학회 2023·심평원 비급여공시 2024",
             },
             "당뇨합병증": {
                 "emoji": "💉", "category": "만성",
@@ -17230,6 +17279,13 @@ renderCalendar();
                 "hosp_days_avg": 18,
                 "work_loss_months": 8,
                 "source": "HIRA 2024 당뇨 진료비 통계",
+                "big5_cost_2yr": 2800,
+                "big5_cost_5yr": 6200,
+                "big5_nursing_2yr": 900,
+                "big5_robot_cost": 0,
+                "big5_immuno_annual": 0,
+                "big5_room_per_day": 32,
+                "big5_source": "HIRA 2024·심평원 비급여공시 2024",
             },
             "간암": {
                 "emoji": "🫂", "category": "암",
@@ -17239,6 +17295,13 @@ renderCalendar();
                 "hosp_days_avg": 50,
                 "work_loss_months": 16,
                 "source": "국립암센터 2023",
+                "big5_cost_2yr": 9200,
+                "big5_cost_5yr": 15800,
+                "big5_nursing_2yr": 2200,
+                "big5_robot_cost": 1500,
+                "big5_immuno_annual": 4200,
+                "big5_room_per_day": 40,
+                "big5_source": "국립암센터 2023·심평원 비급여공시 2024",
             },
             "유방암": {
                 "emoji": "🎗️", "category": "암",
@@ -17248,6 +17311,13 @@ renderCalendar();
                 "hosp_days_avg": 25,
                 "work_loss_months": 10,
                 "source": "국립암센터 2023",
+                "big5_cost_2yr": 5800,   # 로봇수술+허셉틴 비급여 포함
+                "big5_cost_5yr": 9800,
+                "big5_nursing_2yr": 1100,
+                "big5_robot_cost": 1000,
+                "big5_immuno_annual": 2400, # 허셉틴(HER2+) 비급여 기준
+                "big5_room_per_day": 35,
+                "big5_source": "국립암센터 2023·허셉틴 급여기준 2024",
             },
             "뇌경색": {
                 "emoji": "🩺", "category": "뇌",
@@ -17257,39 +17327,63 @@ renderCalendar();
                 "hosp_days_avg": 24,
                 "work_loss_months": 20,
                 "source": "보건복지부 2024 뇌혈관질환 통계",
+                "big5_cost_2yr": 6200,
+                "big5_cost_5yr": 11800,
+                "big5_nursing_2yr": 3400,
+                "big5_robot_cost": 0,
+                "big5_immuno_annual": 0,
+                "big5_room_per_day": 38,
+                "big5_source": "보건복지부 2024·심평원 비급여공시 2024",
             },
         }
 
-        # ── GP-68 §2: 총 경제적 위협액 산출 함수 ─────────────────────────
-        def _gp68_calc_loss(disease_name: str, period_months: int, monthly_income_man: float) -> dict:
+        # ── GP-68 §2 + GP-70 §1: 총 경제적 위협액 산출 함수 ────────────────
+        def _gp68_calc_loss(
+            disease_name: str, period_months: int,
+            monthly_income_man: float, big5_mode: bool = False
+        ) -> dict:
             d = _GP68_DISEASE_DB.get(disease_name, {})
             if not d:
                 return {}
-            period_yr = period_months / 12
+            # 치료비 키 선택 (국가표준 vs Big5 마스터형)
+            cost_2yr  = d["big5_cost_2yr"]  if big5_mode else d["avg_cost_2yr"]
+            cost_5yr  = d["big5_cost_5yr"]  if big5_mode else d["avg_cost_5yr"]
+            nurs_2yr  = d["big5_nursing_2yr"] if big5_mode else d["nursing_2yr"]
             # 치료비 (2년/5년 선형 보간)
             if period_months <= 24:
-                treatment = d["avg_cost_2yr"] * (period_months / 24)
+                treatment = cost_2yr * (period_months / 24)
             else:
-                t_extra = d["avg_cost_5yr"] - d["avg_cost_2yr"]
-                treatment = d["avg_cost_2yr"] + t_extra * ((period_months - 24) / 36)
+                t_extra = cost_5yr - cost_2yr
+                treatment = cost_2yr + t_extra * ((period_months - 24) / 36)
             treatment = int(treatment)
             # 간병비 (2년 기준 선형)
-            nursing = int(d["nursing_2yr"] * min(period_months / 24, 2.5))
+            nursing = int(nurs_2yr * min(period_months / 24, 2.5))
+            # Big5 전용: 1인실 추가 비용 (입원일 × 일당)
+            room_extra = 0
+            if big5_mode:
+                room_day = d.get("big5_room_per_day", 35)
+                hosp_days = d.get("hosp_days_avg", 0)
+                room_extra = int(room_day * hosp_days)
             # 소득 손실 (월소득 × min(실제휴직개월, 선택기간))
             actual_loss_months = min(d["work_loss_months"], period_months)
             income_loss = int(monthly_income_man * actual_loss_months)
-            total = treatment + nursing + income_loss
+            total = treatment + nursing + room_extra + income_loss
+            src = d.get("big5_source", d.get("source", "")) if big5_mode else d.get("source", "")
             return {
                 "treatment": treatment,
                 "nursing": nursing,
+                "room_extra": room_extra,
                 "income_loss": income_loss,
                 "total": total,
-                "source": d.get("source", ""),
+                "source": src,
+                "robot_cost": d.get("big5_robot_cost", 0) if big5_mode else 0,
+                "immuno_annual": d.get("big5_immuno_annual", 0) if big5_mode else 0,
             }
 
-        # ── GP-69: Chat_Widget UI ────────────────────────────────────────
+        # ── GP-69 + GP-70 §2: Chat_Widget UI + 상담 모드 선택 ──────────────
         _gp68_sel  = st.session_state.get("_gp68_disease_sel", None)
         _gp68_per  = st.session_state.get("_gp68_period_sel", 24)
+        _gp70_big5 = st.session_state.get("_gp70_big5_mode", False)
 
         # 월소득 역산값 연동 (제62조 Income_Calculator)
         _gp68_income = 0.0
@@ -17398,10 +17492,35 @@ renderCalendar();
 
         st.markdown(f"""
 <div class="gk-disease-widget">
-  <div class="gk-disease-title">🔬 질병별 경제적 손실 추정기 <span style="font-size:0.65rem;font-weight:700;
-    background:#D4AF37;color:#1a1a2e;padding:1px 7px;border-radius:10px;margin-left:6px;">GP-68</span></div>
-  <div class="gk-disease-subtitle">어떤 질병이 가장 걱정되십니까? 질병을 선택하면 예상 경제적 손실을 즉시 산출합니다.</div>
+  <div class="gk-disease-title">🔬 질병별 경제적 손실 추정기
+    <span style="font-size:0.65rem;font-weight:700;background:#D4AF37;color:#1a1a2e;
+      padding:1px 7px;border-radius:10px;margin-left:6px;">GP-68/70</span>
+    {'<span style="font-size:0.68rem;font-weight:900;background:#ef4444;color:#fff;padding:1px 8px;border-radius:10px;margin-left:4px;">🏥 5대병원 MASTER</span>' if _gp70_big5 else ''}
+  </div>
+  <div class="gk-disease-subtitle">{'⚠️ 서울 5대 병원 비급여 기준 — 로봇수술·면역항암제·1인실 실질 비용 반영 | 국가 통계 대비 1.5~2배 수준' if _gp70_big5 else '어떤 질병이 가장 걱정되십니까? 질병을 선택하면 예상 경제적 손실을 즉시 산출합니다.'}</div>
 </div>""", unsafe_allow_html=True)
+
+        # ── GP-70 §2: 상담 모드 토글 ─────────────────────────────────────
+        _mode_col1, _mode_col2 = st.columns(2, gap="small")
+        with _mode_col1:
+            if st.button(
+                "🏛️ 국가 표준형 상담" + (" ◀ 현재" if not _gp70_big5 else ""),
+                key="_gp70_std_btn",
+                use_container_width=True,
+                help="건강보험심사평가원·국립암센터 공식 통계 기준 (급여 본인부담 포함)",
+            ):
+                st.session_state["_gp70_big5_mode"] = False
+                st.rerun()
+        with _mode_col2:
+            if st.button(
+                "🏥 5대병원 마스터형 상담" + (" ◀ 현재" if _gp70_big5 else ""),
+                key="_gp70_big5_btn",
+                use_container_width=True,
+                help="서울아산·삼성서울·서울대·세브란스·성모 기준 | 로봇수술+면역항암제+1인실 비급여 포함",
+                type="primary" if _gp70_big5 else "secondary",
+            ):
+                st.session_state["_gp70_big5_mode"] = True
+                st.rerun()
 
         # ── 질병 태그 선택 (Chip 버튼) ────────────────────────────────────
         _disease_names = list(_GP68_DISEASE_DB.keys())
@@ -17456,8 +17575,8 @@ renderCalendar();
                 )
                 _gp68_income = _gp68_income_input
 
-            # ── GP-68 §2: 총 위협액 산출 ──────────────────────────────────
-            _loss = _gp68_calc_loss(_gp68_sel, _gp68_per, _gp68_income)
+            # ── GP-68 §2 + GP-70 §1: 총 위협액 산출 (모드 반영) ─────────────
+            _loss = _gp68_calc_loss(_gp68_sel, _gp68_per, _gp68_income, big5_mode=_gp70_big5)
             _d_data = _GP68_DISEASE_DB[_gp68_sel]
 
             _income_str = (
@@ -17479,13 +17598,47 @@ renderCalendar();
                     return f"{e}억 {r:,}만원" if r else f"{e}억원"
                 return f"{v_man:,}만원"
 
+            # ── GP-70 §3: 마스터형 전용 비급여 폭탄 멘트 생성 ───────────────
+            _robot_cost   = _loss.get("robot_cost", 0)
+            _immuno_ann   = _loss.get("immuno_annual", 0)
+            _room_extra   = _loss.get("room_extra", 0)
+            _room_day_val = _d_data.get("big5_room_per_day", 0) if _gp70_big5 else 0
+            _hosp_days    = _d_data.get("hosp_days_avg", 0)
+
+            if _gp70_big5:
+                _master_intro = (
+                    f'<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);'
+                    f'border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:0.82rem;color:#fca5a5;">'
+                    f'⚠️ <b>고객님, 건강보험공단 데이터는 잊으세요.</b> 서울 5대 병원에서 '
+                    f'로봇수술을 받고 면역항암제를 쓰신다면, '
+                    f'비급여로만 최소 <span style="color:#f87171;font-weight:900;font-size:1.05rem;">'
+                    f'{_fmt_man(_robot_cost + _immuno_ann)}</span>이 추가로 필요합니다.'
+                    f'{" 여기에 1인실 입원비(" + str(_room_day_val) + "만원/일 × " + str(_hosp_days) + "일 = " + _fmt_man(_room_extra) + ")까지 더하면 국가 통계와는 차원이 다릅니다." if _room_extra > 0 else ""}'
+                    f'</div>'
+                ) if (_robot_cost + _immuno_ann) > 0 else ""
+                _mode_badge = '<span style="font-size:0.68rem;font-weight:900;background:#ef4444;color:#fff;padding:1px 6px;border-radius:8px;margin-left:4px;">5대병원 MASTER</span>'
+                _source_txt = _d_data.get("big5_source", _d_data.get("source", ""))
+            else:
+                _master_intro = ""
+                _mode_badge   = '<span style="font-size:0.68rem;font-weight:700;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;margin-left:4px;">국가 표준형</span>'
+                _source_txt   = _d_data.get("source", "")
+
+            _room_row = (
+                f'<div class="gk-loss-row">'
+                f'<span>🏨 1인실 입원비 ({_hosp_days}일 × {_room_day_val}만원/일)</span>'
+                f'<span>{_fmt_man(_room_extra)}</span></div>'
+            ) if (_gp70_big5 and _room_extra > 0) else ""
+
             st.markdown(f"""
 <div class="gk-chat-bubble">
   <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:6px;">
     🤖 AI 손실 분석 봇 &nbsp;·&nbsp; <span style="color:#D4AF37;">골드키지사</span>
+    {_mode_badge}
   </div>
+  {_master_intro}
   선택하신 <span class="gk-highlight">[{_gp68_sel}]</span>은
-  평균 {_period_label_ko}간
+  {"서울 5대 병원 비급여 기준" if _gp70_big5 else "국가 평균 기준"}
+  {_period_label_ko}간
   <span class="gk-highlight">{_fmt_man(_loss["treatment"])}</span>의 치료비가 발생합니다.<br><br>
   {'고객님의 현재 소득 <span class="gk-highlight">' + f"{_gp68_income:.0f}만원/월" + '</span>을 고려할 때, ' if _gp68_income > 0 else '소득 데이터를 입력하시면 더 정확한 산출이 가능합니다. '}
   {_period_label_ko} 총 경제적 손실 예상액은<br>
@@ -17499,6 +17652,7 @@ renderCalendar();
       <span>🏠 간병비 ({_period_label_ko})</span>
       <span>{_fmt_man(_loss["nursing"])}</span>
     </div>
+    {_room_row}
     <div class="gk-loss-row">
       <span>💸 소득 손실 ({_d_data["work_loss_months"]}개월 기준)</span>
       <span>{"미반영 (소득 입력 필요)" if _gp68_income == 0 else _fmt_man(_loss["income_loss"])}</span>
@@ -17508,7 +17662,7 @@ renderCalendar();
       <span>{_fmt_man(_loss["total"])}</span>
     </div>
   </div>
-  <div class="gk-source-note">📌 출처: {_d_data["source"]} | 개인차 있음, 참고용 통계치</div>
+  <div class="gk-source-note">📌 출처: {_source_txt} | 개인차 있음, 참고용 통계치</div>
 </div>""", unsafe_allow_html=True)
 
             # ── GP-69 §4: 보장 공백 확인 CTA 버튼 ───────────────────────
