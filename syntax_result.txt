@@ -1,0 +1,17 @@
+﻿py : <unknown>:14427: SyntaxWarning: invalid escape sequence '\s'
+위치 줄:1 문자:1
++ py syntax_check_gp70.py 2>&1 | Out-File -FilePath syntax_result.txt - ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (<unknown>:14427...e sequence '\s':String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+<unknown>:14427: SyntaxWarning: invalid escape sequence '\s'
+<unknown>:14427: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:22220: SyntaxWarning: invalid escape sequence '\.'
+<unknown>:22220: SyntaxWarning: invalid escape sequence '\s'
+<unknown>:22220: SyntaxWarning: invalid escape sequence '\s'
+Traceback (most recent call last):
+  File "D:\CascadeProjects\syntax_check_gp70.py", line 5, in <module>
+    open("syntax_result.txt", "w").write("SYNTAX_OK\n")
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 13] Permission denied: 'syntax_result.txt'

@@ -17165,6 +17165,37 @@ renderCalendar();
         # + 서울 5대 병원 비급여 프리미엄 데이터 자가 교육
         # ══════════════════════════════════════════════════════════════
 
+        # ── GP-71 §1: Advanced_Medical_Table — 초고가 첨단 치료비 상수 DB ──────
+        _GP71_ADVANCED_TABLE = {
+            "heavy_ion": {
+                "name": "중입자치료",
+                "emoji": "⚛️",
+                "cost": 5000,          # 만원 (1회 전액 비급여, 국립암센터·연세대 중입자센터 2024)
+                "unit": "1회",
+                "cycles": 1,           # 단일 1회 기준
+                "note": "전립선·폐·간·췌장암 적응증, 전액 비급여, 연세·삼성 2024 기준",
+                "source": "연세대 중입자치료센터 2024·삼성서울병원 2024",
+            },
+            "car_t": {
+                "name": "CAR-T 세포치료",
+                "emoji": "🧬",
+                "cost": 35000,         # 만원 (3.5억, 급여 외 케이스 + 부대비용 포함)
+                "unit": "1회 투여",
+                "cycles": 1,
+                "note": "킴리아·예스카르타 비급여 또는 급여초과, 혈액암·림프종",
+                "source": "한국혈액학회 2024·식약처 허가현황 2024",
+            },
+            "targeted_immuno": {
+                "name": "표적·면역항암제",
+                "emoji": "💉",
+                "cost": 8000,          # 만원 (연간 기대비용, 키트루다/옵디보/태그리소 평균)
+                "unit": "연간",
+                "cycles": 1,           # 연간 단위
+                "note": "키트루다 연7,000만·옵디보 2주 340만·태그리소 월120만 기준 평균",
+                "source": "바이오스펙테이터 2024·서울대보라매병원 2024",
+            },
+        }
+
         # ── GP-68 §1 + GP-70 §1: Disease_Stat_DB — 10대 질병 통계 데이터베이스 ────
         # 국가 표준형: 건강보험심사평가원(HIRA) 2023-2024 진료비 통계, 국립암센터
         # 5대병원 마스터형: 비급여 보고제도(보건복지부 2024-2025), 서울아산·삼성·서울대·세브란스·성모
@@ -17337,10 +17368,11 @@ renderCalendar();
             },
         }
 
-        # ── GP-68 §2 + GP-70 §1: 총 경제적 위협액 산출 함수 ────────────────
+        # ── GP-68 §2 + GP-70 §1 + GP-71 §1: 총 경제적 위협액 산출 함수 ────────
         def _gp68_calc_loss(
             disease_name: str, period_months: int,
-            monthly_income_man: float, big5_mode: bool = False
+            monthly_income_man: float, big5_mode: bool = False,
+            adv_mode: str = "standard",  # GP-71: "standard" | "heavy_ion" | "car_t" | "targeted_immuno"
         ) -> dict:
             d = _GP68_DISEASE_DB.get(disease_name, {})
             if not d:
@@ -17364,15 +17396,25 @@ renderCalendar();
                 room_day = d.get("big5_room_per_day", 35)
                 hosp_days = d.get("hosp_days_avg", 0)
                 room_extra = int(room_day * hosp_days)
+            # GP-71: 첨단치료비 추가
+            adv_cost = 0
+            if adv_mode != "standard" and adv_mode in _GP71_ADVANCED_TABLE:
+                _a = _GP71_ADVANCED_TABLE[adv_mode]
+                adv_cost = _a["cost"] * _a["cycles"]
+                if _a["unit"] == "연간":
+                    _yrs = max(1, round(period_months / 12))
+                    adv_cost = _a["cost"] * _yrs
             # 소득 손실 (월소득 × min(실제휴직개월, 선택기간))
             actual_loss_months = min(d["work_loss_months"], period_months)
             income_loss = int(monthly_income_man * actual_loss_months)
-            total = treatment + nursing + room_extra + income_loss
+            total = treatment + nursing + room_extra + adv_cost + income_loss
             src = d.get("big5_source", d.get("source", "")) if big5_mode else d.get("source", "")
             return {
                 "treatment": treatment,
                 "nursing": nursing,
                 "room_extra": room_extra,
+                "adv_cost": adv_cost,
+                "adv_mode": adv_mode,
                 "income_loss": income_loss,
                 "total": total,
                 "source": src,
@@ -17383,7 +17425,8 @@ renderCalendar();
         # ── GP-69 + GP-70 §2: Chat_Widget UI + 상담 모드 선택 ──────────────
         _gp68_sel  = st.session_state.get("_gp68_disease_sel", None)
         _gp68_per  = st.session_state.get("_gp68_period_sel", 24)
-        _gp70_big5 = st.session_state.get("_gp70_big5_mode", False)
+        _gp70_big5  = st.session_state.get("_gp70_big5_mode", False)
+        _gp71_adv   = st.session_state.get("_gp71_adv_mode", "standard")  # GP-71 §2
 
         # 월소득 역산값 연동 (제62조 Income_Calculator)
         _gp68_income = 0.0
@@ -17548,6 +17591,44 @@ renderCalendar();
                         st.session_state["_gp68_disease_sel"] = _dn
                     st.rerun()
 
+        # ── GP-71 §2: 암 카테고리 선택 시 치료 선택 분기 UI ─────────────────
+        _is_cancer = (
+            _gp68_sel is not None
+            and _GP68_DISEASE_DB.get(_gp68_sel, {}).get("category") == "암"
+        )
+        if _is_cancer:
+            st.markdown(
+                '<div style="background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.3);'
+                'border-radius:10px;padding:10px 14px;margin-bottom:10px;">'
+                '<span style="font-size:0.88rem;font-weight:900;color:#D4AF37;">🔬 고객님, 암에 걸리신다면 어떤 치료를 원하십니까?</span></div>',
+                unsafe_allow_html=True
+            )
+            _adv_labels = {
+                "standard":         "💊 가장 싼 치료 (국가 표준 급여)",
+                "targeted_immuno":  "💉 최신 표적·면역항암제 (비급여 연 ~8,000만)",
+                "heavy_ion":        "⚛️ 중입자치료 (비급여 1회 5,000만)",
+                "car_t":            "🧬 CAR-T 세포치료 (비급여 1회 3.5억)",
+            }
+            _adv_col1, _adv_col2, _adv_col3, _adv_col4 = st.columns(4, gap="small")
+            for _adv_key, _adv_label, _adv_col in zip(
+                list(_adv_labels.keys()),
+                list(_adv_labels.values()),
+                [_adv_col1, _adv_col2, _adv_col3, _adv_col4],
+            ):
+                with _adv_col:
+                    _is_sel = (_gp71_adv == _adv_key)
+                    if st.button(
+                        (_adv_label + " ◀") if _is_sel else _adv_label,
+                        key=f"_gp71_adv_btn_{_adv_key}",
+                        use_container_width=True,
+                        type="primary" if _is_sel else "secondary",
+                    ):
+                        st.session_state["_gp71_adv_mode"] = _adv_key
+                        _gp71_adv = _adv_key
+                        st.rerun()
+        else:
+            _gp71_adv = "standard"
+
         # ── 기간 선택 + 소득 입력 ─────────────────────────────────────────
         if _gp68_sel:
             _gp68_col1, _gp68_col2 = st.columns([3, 2], gap="medium")
@@ -17576,7 +17657,7 @@ renderCalendar();
                 _gp68_income = _gp68_income_input
 
             # ── GP-68 §2 + GP-70 §1: 총 위협액 산출 (모드 반영) ─────────────
-            _loss = _gp68_calc_loss(_gp68_sel, _gp68_per, _gp68_income, big5_mode=_gp70_big5)
+            _loss = _gp68_calc_loss(_gp68_sel, _gp68_per, _gp68_income, big5_mode=_gp70_big5, adv_mode=_gp71_adv)
             _d_data = _GP68_DISEASE_DB[_gp68_sel]
 
             _income_str = (
@@ -17597,6 +17678,37 @@ renderCalendar();
                     r = v_man % 10000
                     return f"{e}억 {r:,}만원" if r else f"{e}억원"
                 return f"{v_man:,}만원"
+
+            # ── GP-71 §3: 증권 분석 연동 필터 — 표적/면역 담보 부재 경고 ────────
+            _gp71_policies = st.session_state.get("_policy_coverages", []) or []
+            _gp71_keywords  = ["표적", "면역", "항암약물", "항암방사선"]
+            _gp71_matched   = [
+                p for p in _gp71_policies
+                if any(kw in str(p.get("name", "")) for kw in _gp71_keywords)
+            ]
+            _gp71_matched_amt = sum(
+                float(str(p.get("amount", 0)).replace(",", "").replace("만원", "") or 0)
+                for p in _gp71_matched
+            )
+            _is_cancer_sel = _GP68_DISEASE_DB.get(_gp68_sel, {}).get("category") == "암"
+            _gp71_not_covered = (not _gp71_matched or _gp71_matched_amt < 5000)
+            if _is_cancer_sel and _gp71_not_covered:
+                _gp71_lack_msg = (
+                    "표적·면역 관련 담보가 증권에서 확인되지 않습니다."
+                    if not _gp71_matched
+                    else f"표적·면역 담보 가입금액 {_gp71_matched_amt:,.0f}만원 — 첨단치료비의 80% 미달"
+                )
+                st.markdown(
+                    '<div style="background:#D4AF37;border:2px solid #ef4444;'
+                    'border-radius:10px;padding:10px 16px;margin-bottom:10px;'
+                    'text-align:center;">'
+                    '<span style="font-size:1.0rem;font-weight:900;color:#ef4444;">'
+                    '⚠️ 첨단 치료 접근 불가능 상태</span><br>'
+                    '<span style="font-size:0.82rem;color:#1e293b;font-weight:700;">'
+                    + _gp71_lack_msg
+                    + '<br>즉시 보장 공백 점검이 필요합니다.</span></div>',
+                    unsafe_allow_html=True
+                )
 
             # ── GP-70 §3: 마스터형 전용 비급여 폭탄 멘트 생성 ───────────────
             _robot_cost   = _loss.get("robot_cost", 0)
