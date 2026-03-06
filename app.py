@@ -5278,6 +5278,9 @@ _STT_CORRECT_MAP = {
 # ※ JS·Python 양측에서 SECTOR_CODES[id]["tab_key"]로 동일 참조
 # ==========================================================================
 SECTOR_CODES: dict = {
+    # ── 0000번대: 신규 페이지 (GP-52/53) ──────────────────────────────────
+    "0100": {"name": "홈 포털",         "tab_key": "home_portal",   "keywords": ["포털", "홈포털", "메인포털", "portal", "진입", "입구"]},
+    "0200": {"name": "청구 스캐너",     "tab_key": "claim_scanner", "keywords": ["청구스캐너", "청구엔진", "영수증스캔", "보험금청구", "실손청구", "청구계산", "claim", "스캐너"]},
     # ── 1000번대: 홈 / 스캔 / 분석 허브 ──────────────────────────────────
     "1000": {"name": "홈 화면",         "tab_key": "home",          "keywords": ["홈", "메인", "처음", "홈화면", "첫화면", "대시보드", "시작"]},
     "1100": {"name": "통합 스캔 허브",  "tab_key": "scan_hub",      "keywords": ["스캔허브", "통합스캔", "서류올려", "의무기록올려", "스캔", "파일올려", "업로드"]},
@@ -5287,7 +5290,7 @@ SECTOR_CODES: dict = {
     # ── 2000번대: 상해·청구·장해 상담 ───────────────────────────────────
     "2000": {"name": "신규보험 상담",   "tab_key": "t0",            "keywords": ["신규보험상담", "신규보험", "신규상담", "새보험", "보험추천", "보험가입", "보험설계", "신규", "보험상담", "보험견적"]},
     "2100": {"name": "상해 통합 관리",  "tab_key": "injury",        "keywords": ["상해사고", "상해보험", "상해통합", "상해설계", "사고났어", "소득끊겨", "보장공백", "상해관리", "다쳤어"]},
-    "2200": {"name": "보험금 청구 상담","tab_key": "t1",            "keywords": ["보험금청구상담", "보험금청구", "보험금상담", "청구방법", "지급거절", "청구상담", "보험금받기", "청구"]},
+    "2200": {"name": "보험금 청구 상담","tab_key": "claim_scanner", "keywords": ["보험금청구상담", "보험금청구", "보험금상담", "청구방법", "지급거절", "청구상담", "보험금받기", "청구"]},
     "2300": {"name": "장해 산출",       "tab_key": "disability",    "keywords": ["장해산출", "장해보험금", "후유장해", "맥브라이드", "AMA", "장해율", "장해", "장해계산", "장해판정"]},
     "2400": {"name": "KCD 상해 분석",  "tab_key": "kcd_injury",    "keywords": ["KCD상해", "S코드", "M코드", "외인코드", "kcd분석", "상해코드", "손해사정", "6개월전환", "기여도", "S.T.V.W.X.Y", "질병코드", "kcd"]},
     "2500": {"name": "자동차보험 보상 실무", "tab_key": "auto_comp", "keywords": ["자동차보험실무", "자상자신비교", "산재경합", "과실상계", "캠핑카보험", "자동차상해", "자기신체사고", "휴업급여", "위자료", "보상비교", "산재자동차", "자동차보상", "자동차실무", "보상실무"]},
@@ -5359,9 +5362,9 @@ SUB_CODES: dict = {
     "2120": {"name": "소득 보상",         "tab_key": "injury",         "keywords": ["소득보상", "소득상실", "휴업급여", "소득보장"]},
     "2130": {"name": "보장 공백 분석",    "tab_key": "injury",         "keywords": ["보장공백분석", "공백분석", "보장빈곳", "빈틈분석"]},
     # ── 2200: 보험금 청구 상담 ────────────────────────────────────────────
-    "2210": {"name": "청구 방법 안내",    "tab_key": "t1",             "keywords": ["청구방법안내", "보험금어떻게", "청구절차", "청구안내"]},
-    "2220": {"name": "지급 거절 대응",    "tab_key": "t1",             "keywords": ["지급거절", "거절대응", "보험금거절", "지급안해줘"]},
-    "2230": {"name": "보험금 계산",       "tab_key": "t1",             "keywords": ["보험금계산", "얼마받아", "보험금얼마", "지급액계산"]},
+    "2210": {"name": "청구 방법 안내",    "tab_key": "claim_scanner", "keywords": ["청구방법안내", "보험금어떻게", "청구절차", "청구안내"]},
+    "2220": {"name": "지급 거절 대응",    "tab_key": "t1",             "keywords": ["지급거절", "거절대응", "보험금거절", "지급안해줘", "거절"]},
+    "2230": {"name": "보험금 계산",       "tab_key": "claim_scanner",  "keywords": ["보험금계산", "얼마받아", "보험금얼마", "지급액계산", "실손계산", "청구계산", "보험금산출"]},
     # ── 2300: 장해 산출 ───────────────────────────────────────────────────
     "2310": {"name": "맥브라이드 산출",   "tab_key": "disability",     "keywords": ["맥브라이드산출", "맥브라이드계산", "맥브라이드"]},
     "2320": {"name": "AMA 장해율",        "tab_key": "disability",     "keywords": ["ama장해", "ama산출", "ama계산", "ama비율"]},
@@ -10956,6 +10959,49 @@ section[data-testid="stSidebar"] {
     --gk-ease:        cubic-bezier(0.25,0.46,0.45,0.94);
 }
 
+/* ── [GP-56] 화이트아웃 박멸 — 전환 배경 즉시 채우기 ── */
+/* Streamlit이 rerun 시 html/body를 잠깐 white로 초기화하는 현상 차단 */
+html {
+    background-color: #FDF5E6 !important;  /* 연한 골드 — 화이트아웃 대체 */
+}
+body {
+    background-color: #FDF5E6 !important;
+    margin: 0 !important;
+}
+[data-testid="stApp"],
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"] {
+    background-color: #FDF5E6 !important;
+    min-height: 100vh !important;
+}
+/* Streamlit 내부 iframe/embed 배경도 차단 */
+iframe[title="st_app"],
+.stApp > * {
+    background-color: transparent !important;
+}
+
+/* ── [GP-56] 페이드인 애니메이션 — 화면 전환 시 부드러운 등장 ── */
+@keyframes gk-fadein {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.main .block-container {
+    animation: gk-fadein 0.22s cubic-bezier(0.25,0.46,0.45,0.94) both;
+}
+
+/* ── [GP-56] 전환 스켈레톤 shimmer (gk-trans-skel 클래스용) ── */
+@keyframes gk-skel-shine {
+    0%   { background-position: -400px 0; }
+    100% { background-position:  400px 0; }
+}
+.gk-trans-skel {
+    background: linear-gradient(90deg,
+        #f0e8d0 25%, #fdf5e6 50%, #f0e8d0 75%);
+    background-size: 800px 100%;
+    animation: gk-skel-shine 1.2s ease-in-out infinite;
+    border-radius: 10px;
+}
+
 /* ── 전체 기본 폰트 & 배경 ── */
 html, body, [data-testid="stApp"] {
     font-family: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif !important;
@@ -12365,6 +12411,16 @@ watchRipple();
             # ══════════════════════════════════════════════════════════════
             st.markdown("""
 <style>
+/* [GP-57] 전역 box-sizing 격리 — 사이드바 내 모든 요소 */
+section[data-testid="stSidebar"] *,
+section[data-testid="stSidebar"] *::before,
+section[data-testid="stSidebar"] *::after {
+  box-sizing: border-box !important;
+}
+/* [GP-57] 블록 독립 레이어 — position:relative 강제 */
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div {
+  position: relative !important;
+}
 section[data-testid="stSidebar"] input[type="checkbox"] {
   appearance: none !important;
   -webkit-appearance: none !important;
@@ -12402,10 +12458,11 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
             _all_agreed_top = _req_agreed_top and _tr_top.get("t4", False)
 
             st.markdown("""
-<div style='border:2.5px solid #4facfe;border-radius:16px;
-  padding:16px 16px 12px 16px;margin-bottom:10px;
+<div style='border:2px solid #004D40;border-radius:16px;
+  padding:16px 16px 12px 16px;margin-bottom:20px !important;
   background:linear-gradient(135deg,rgba(79,172,254,0.07) 0%,rgba(0,242,254,0.04) 100%);
-  box-shadow:0 2px 12px rgba(79,172,254,0.15);'>""", unsafe_allow_html=True)
+  box-shadow:0 4px 6px -1px rgba(0,0,0,0.10),0 2px 12px rgba(0,77,64,0.18);
+  position:relative;box-sizing:border-box;'>""", unsafe_allow_html=True)
 
             st.markdown("""
 <div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:12px;
@@ -12552,11 +12609,19 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                         _is_pro = st.session_state.get("_lp_is_pro", "비종사자")
                         if _is_pro == "종사자":
                             st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)"
-                            st.session_state["preferred_insurer"] = st.session_state.get(
-                                "_lp_insurer", "선택 안 함 (중립 분석)")
+                            _pf = st.session_state.get("_lp_insurer", "선택 안 함 (중립 분석)")
+                            st.session_state["preferred_insurer"] = _pf
                         else:
                             st.session_state["user_consult_mode"] = "🙋 일반고객 (중립 분석)"
-                            st.session_state["preferred_insurer"] = "선택 안 함 (중립 분석)"
+                            _pf = "선택 안 함 (중립 분석)"
+                            st.session_state["preferred_insurer"] = _pf
+                        # [GP-58 §1·§2] 주력 판매 분야 세션 고정 (Fallback: 종합 보장)
+                        _FIELD_MAP = {
+                            "🏦 생명보험 주력": "생명보험",
+                            "🛡️ 손해보험 주력": "손해보험",
+                            "🏢 생명·손해 종합(GA)": "종합 보장",
+                        }
+                        st.session_state["user_primary_field"] = _FIELD_MAP.get(_pf, "종합 보장")
                         # [제37조 §1] _sec_methods 저장 폐지 — Phase C/SETUP 제거로 불필요
                         # [제39조 §3] 로그인 성공 → 세션 캐시 저장 (다음 구동 시 즉시 복원용)
                         _s39_save_session_cache(
@@ -12576,6 +12641,19 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                         except Exception:
                             pass
                         _LoginGuard.record_success(ln)
+                        # [GP-56] 로그인 전환 스켈레톤 — 화이트아웃 0ms 목표
+                        _skel_login = st.empty()
+                        _skel_login.markdown("""
+<div style="padding:20px 12px;background:#FDF5E6;min-height:60vh;
+  border-radius:12px;margin-top:8px;">
+  <div class="gk-trans-skel" style="height:28px;width:55%;margin-bottom:14px;"></div>
+  <div class="gk-trans-skel" style="height:18px;width:80%;margin-bottom:8px;"></div>
+  <div class="gk-trans-skel" style="height:18px;width:65%;margin-bottom:8px;"></div>
+  <div class="gk-trans-skel" style="height:18px;width:72%;margin-bottom:20px;"></div>
+  <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
+  <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
+  <div class="gk-trans-skel" style="height:60px;width:100%;"></div>
+</div>""", unsafe_allow_html=True)
                         st.rerun()
 
                     _lp = st.session_state.get("_lp", "A")
@@ -12605,16 +12683,19 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
         padding-bottom:6px!important;
     }
     </style>
-    <div style='background:linear-gradient(135deg,#0a1628 0%,#0d2748 100%);border-radius:12px;
-      padding:10px 16px;margin-bottom:10px;text-align:center;
-      border:1px solid rgba(240,192,64,0.35);
-      box-shadow:0 2px 12px rgba(10,22,40,0.5);'>
-      <div style='color:#f0c040;font-size:0.8rem;font-weight:800;letter-spacing:0.08em;
-        text-shadow:0 1px 4px rgba(0,0,0,0.5);'>🛡️ 가문 안보를 위한 트리플 보안 가동 중</div>
+    <div style='background:#FFFFFF;border-radius:12px;
+      padding:10px 16px 10px 20px;margin-top:12px;margin-bottom:14px;text-align:center;
+      border:1px solid #004D40;
+      border-left:4px solid #D4AF37;
+      box-shadow:0 2px 6px rgba(0,77,64,0.10);
+      position:relative;box-sizing:border-box;'>
+      <div style='color:#004D40;font-size:0.8rem;font-weight:700;letter-spacing:0.08em;'>🛡️ 가문 안보를 위한 트리플 보안 가동 중</div>
     </div>
     <div style='background:linear-gradient(135deg,#1e90ff 0%,#00c6fb 100%);border-radius:15px;
-      padding:18px 20px;margin-bottom:14px;text-align:center;
-      box-shadow:0 4px 20px rgba(30,144,255,0.35);'>
+      padding:18px 20px;margin-bottom:24px;text-align:center;
+      border:2px solid #004D40;
+      box-shadow:0 4px 6px -1px rgba(0,0,0,0.10),0 4px 20px rgba(30,144,255,0.35);
+      position:relative;box-sizing:border-box;'>
       <div style='font-size:2rem;margin-bottom:6px;'>🛡️</div>
       <div style='color:#ffffff;font-size:1.05rem;font-weight:800;
         text-shadow:0 1px 4px rgba(0,0,0,0.3);'>골드키지사 보안 로그인</div>
@@ -12694,6 +12775,18 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                                 st.session_state["_device_uuid"] = _gu.uuid4().hex[:16]
                             st.session_state["_login_just_done"] = False
                             st.session_state["_auto_close_sidebar"] = True
+                            # [GP-56] 게스트 전환 스켈레톤 — 화이트아웃 차단
+                            _skel_guest = st.empty()
+                            _skel_guest.markdown("""
+<div style="padding:20px 12px;background:#FDF5E6;min-height:60vh;
+  border-radius:12px;margin-top:8px;">
+  <div class="gk-trans-skel" style="height:28px;width:55%;margin-bottom:14px;"></div>
+  <div class="gk-trans-skel" style="height:18px;width:80%;margin-bottom:8px;"></div>
+  <div class="gk-trans-skel" style="height:18px;width:65%;margin-bottom:8px;"></div>
+  <div class="gk-trans-skel" style="height:18px;width:72%;margin-bottom:20px;"></div>
+  <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
+  <div class="gk-trans-skel" style="height:90px;width:100%;"></div>
+</div>""", unsafe_allow_html=True)
                             st.rerun()
                         st.markdown(
                             '<div style="font-size:0.68rem;color:#94a3b8;text-align:center;'
@@ -14911,6 +15004,547 @@ window['startTTS_{tab_key}']=function(){{
             pass  # 빈 상태 — 별도 안내 불필요
 
     # ══════════════════════════════════════════════════════════════════════
+    # [GP-52] Page 1: 메인 홈 포털 (show_home_portal)
+    # 독립 컴포넌트 — 기존 코드 무수정
+    # ══════════════════════════════════════════════════════════════════════
+    def show_home_portal():
+        st.markdown("""
+<style>
+.gk-portal-header{
+  background:linear-gradient(135deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);
+  border:2px solid #f0c040;
+  border-radius:18px;
+  padding:24px 22px 20px 22px;
+  margin-bottom:18px;
+  box-shadow:0 0 40px rgba(240,192,64,0.18),0 4px 24px rgba(0,0,0,0.3);
+  text-align:center;
+}
+.gk-portal-title{
+  font-size:1.6rem;font-weight:900;
+  background:linear-gradient(90deg,#f0c040 0%,#fde68a 50%,#f0c040 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:0.05em;margin-bottom:6px;
+}
+.gk-portal-sub{
+  font-size:0.82rem;color:#93c5fd;letter-spacing:0.04em;
+}
+.gk-portal-search-wrap{
+  background:rgba(255,255,255,0.97);
+  border:2px solid #0ea5e9;border-radius:14px;
+  padding:18px 18px 14px 18px;margin-bottom:18px;
+  box-shadow:0 2px 16px rgba(14,165,233,0.12);
+}
+.gk-portal-search-title{
+  font-size:0.75rem;font-weight:900;color:#0369a1;
+  text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;
+}
+.gk-portal-nav-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:4px;
+}
+.gk-portal-card{
+  background:rgba(255,255,255,0.92);
+  border:2px solid #e2e8f0;border-radius:16px;
+  padding:18px 12px 16px 12px;
+  text-align:center;cursor:pointer;
+  transition:transform 0.15s,box-shadow 0.15s,border-color 0.15s;
+  box-shadow:0 2px 10px rgba(0,0,0,0.07);
+}
+.gk-portal-card:hover{
+  transform:translateY(-3px);
+  box-shadow:0 8px 24px rgba(0,0,0,0.13);
+  border-color:#f0c040;
+}
+.gk-portal-card-icon{font-size:2rem;margin-bottom:8px;}
+.gk-portal-card-label{
+  font-size:0.82rem;font-weight:900;color:#1a3a5c;
+  line-height:1.3;
+}
+.gk-portal-card-desc{
+  font-size:0.7rem;color:#64748b;margin-top:4px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+        # ── 임페리얼 골드 텍스처 브랜딩 헤더 (제47조 준수) ──────────────
+        st.markdown(f"""
+<div class="gk-portal-header">
+  {_bid('0100')}
+  <div class="gk-portal-title">🏆 Goldkey AI Master</div>
+  <div class="gk-portal-sub">골드키지사 · AI 보험컨설팅 통합 플랫폼 · 설계사 전용</div>
+</div>""", unsafe_allow_html=True)
+
+        # ── 보험용어 검색 엔진 블록 (제48조, 최상단 배치) ───────────────
+        st.markdown('<div class="gk-portal-search-wrap">'
+                    '<div class="gk-portal-search-title">📖 보험용어 검색 엔진</div>',
+                    unsafe_allow_html=True)
+        _portal_term_q = st.text_input(
+            "용어 검색",
+            placeholder="예) 실손의료비, 맥브라이드, KCD코드, 장해율...",
+            key="_portal_term_query",
+            label_visibility="collapsed",
+        )
+        if _portal_term_q:
+            _portal_term_q_s = _portal_term_q.strip()
+            _portal_nav_result = _voice_navigate(_portal_term_q_s) if "_voice_navigate" in dir() else None
+            if _portal_nav_result and isinstance(_portal_nav_result, str):
+                _sc = SECTOR_CODES.get(_portal_nav_result, {})
+                _sc_name = _sc.get("name", _portal_nav_result)
+                st.success(f"🔍 **{_portal_term_q_s}** → [{_portal_nav_result}] {_sc_name} 탭으로 이동합니다.")
+                if st.button(f"➡️ {_sc_name} 바로가기", key="_portal_go_btn", type="primary"):
+                    _go_tab(_sc.get("tab_key", "home"))
+                    st.rerun()
+            elif _portal_nav_result and isinstance(_portal_nav_result, list):
+                st.info(f"🔍 **{_portal_term_q_s}** — 여러 항목이 매칭되었습니다. 선택하세요:")
+                for _amb in _portal_nav_result:
+                    _amb_sc = SECTOR_CODES.get(_amb.get("code",""), {})
+                    if st.button(f"[{_amb.get('code','')}] {_amb_sc.get('name','')}", key=f"_portal_amb_{_amb.get('code','')}"):
+                        _go_tab(_amb_sc.get("tab_key", "home"))
+                        st.rerun()
+            else:
+                st.warning(f"'{_portal_term_q_s}' 에 해당하는 항목을 찾지 못했습니다. 직접 탭을 선택하세요.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # ── 네비게이션 카드 3개 ──────────────────────────────────────────
+        _pc1, _pc2, _pc3 = st.columns(3, gap="small")
+        with _pc1:
+            st.markdown(f"""
+<div class="gk-portal-card" id="gk-portal-card-silson">
+  {_bid('0101')}
+  <div class="gk-portal-card-icon">🏥</div>
+  <div class="gk-portal-card-label">실손 보험금 계산</div>
+  <div class="gk-portal-card-desc">영수증 스캔 → 예상 환급액 즉시 산출</div>
+</div>""", unsafe_allow_html=True)
+            if st.button("실손 계산 시작 →", key="_portal_nav_claim", use_container_width=True):
+                _go_tab("claim_scanner")
+                st.rerun()
+        with _pc2:
+            st.markdown(f"""
+<div class="gk-portal-card">
+  {_bid('0102')}
+  <div class="gk-portal-card-icon">💬</div>
+  <div class="gk-portal-card-label">상담 시작</div>
+  <div class="gk-portal-card-desc">AI 보험 상담 · 분석 · 설계 통합</div>
+</div>""", unsafe_allow_html=True)
+            if st.button("상담 시작 →", key="_portal_nav_consult", use_container_width=True):
+                _go_tab("home")
+                st.rerun()
+        with _pc3:
+            st.markdown(f"""
+<div class="gk-portal-card">
+  {_bid('0103')}
+  <div class="gk-portal-card-icon">🛡️</div>
+  <div class="gk-portal-card-label">가문 안보 리포트</div>
+  <div class="gk-portal-card-desc">AI 자동 분석 리포트 생성</div>
+</div>""", unsafe_allow_html=True)
+            if st.button("리포트 보기 →", key="_portal_nav_report", use_container_width=True):
+                _go_tab("report43")
+                st.rerun()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [GP-53] Page 2: 지능형 청구 엔진 (show_claim_scanner)
+    # 독립 컴포넌트 — 기존 코드 무수정
+    # ══════════════════════════════════════════════════════════════════════
+    def show_claim_scanner():
+        # ══════════════════════════════════════════════════════════════════
+        # [GP-54/55] UnifiedClaimHub — 통합 청구 관리 허브
+        # 데이터 파이프라인: 스캔→항목추출→선택→계산→서류매칭
+        # ══════════════════════════════════════════════════════════════════
+
+        # ── 동적 서류 매칭 테이블 (제55조: Contextual Doc-Matching) ─────
+        _DOC_MATRIX = {
+            "진찰료(외래)":      {"tags": ["outpatient"], "docs": ["진료비 영수증", "진료비 세부내역서"]},
+            "약제비":            {"tags": ["drug"],       "docs": ["진료비 영수증", "처방전 사본"]},
+            "검사료(혈액)":      {"tags": ["test"],       "docs": ["진료비 영수증", "진료비 세부내역서", "검사결과지"]},
+            "검사료(MRI/CT)":    {"tags": ["test","img"], "docs": ["진료비 영수증", "진료비 세부내역서", "영상 CD 또는 판독문"]},
+            "영상진단료(X-Ray)": {"tags": ["test","img"], "docs": ["진료비 영수증", "진료비 세부내역서"]},
+            "처치·수술료":       {"tags": ["surgery"],    "docs": ["진료비 영수증", "수술확인서", "수술기록지", "마취기록지", "진단서(주치의 날인)"]},
+            "입원료":            {"tags": ["inpatient"],  "docs": ["입원확인서", "진료비 영수증", "진료비 세부내역서", "퇴원확인서"]},
+            "입원식대":          {"tags": ["inpatient"],  "docs": ["진료비 영수증", "입원확인서"]},
+            "재활치료":          {"tags": ["rehab"],      "docs": ["진료비 영수증", "진료비 세부내역서", "진단서"]},
+            "간병인 비용":       {"tags": ["nursing"],    "docs": ["간병인 사용확인서", "입원확인서", "간병비 영수증"]},
+        }
+
+        # ── 항목 태그 기반 필수서류 동적 생성 ────────────────────────────
+        def _build_doc_list(selected_items: list) -> list:
+            """선택된 항목 태그를 집계해 중복 없는 필요서류 리스트 반환."""
+            _docs_set = []
+            _seen = set()
+            # 공통 필수 서류 (항상 포함)
+            for _d in ["보험금 청구서 (보험사 양식)", "신분증 사본", "통장 사본 (입금계좌)"]:
+                if _d not in _seen:
+                    _docs_set.append({"doc": _d, "reason": "공통 필수", "priority": "high"})
+                    _seen.add(_d)
+            _tags = set()
+            for _item in selected_items:
+                _meta = _DOC_MATRIX.get(_item["name"], {})
+                _tags.update(_meta.get("tags", []))
+                for _d in _meta.get("docs", []):
+                    if _d not in _seen:
+                        _docs_set.append({"doc": _d, "reason": _item["name"], "priority": "medium"})
+                        _seen.add(_d)
+            # 태그 기반 추가 서류
+            if "inpatient" in _tags and "진단서(주치의 날인)" not in _seen:
+                _docs_set.append({"doc": "진단서(주치의 날인)", "reason": "입원 청구 시 필수", "priority": "high"})
+                _seen.add("진단서(주치의 날인)")
+            if "surgery" in _tags:
+                if "마취동의서" not in _seen:
+                    _docs_set.append({"doc": "마취동의서", "reason": "수술 청구 시 필수", "priority": "high"})
+                    _seen.add("마취동의서")
+            return _docs_set
+
+        # ── CSS ──────────────────────────────────────────────────────────
+        st.markdown("""
+<style>
+.gk-claim-header{
+  background:linear-gradient(135deg,#0c4a8a 0%,#1e3a5f 60%,#0f172a 100%);
+  border:2px solid #38bdf8;border-radius:16px;
+  padding:18px 20px;margin-bottom:16px;
+  box-shadow:0 0 32px rgba(56,189,248,0.15);
+}
+.gk-claim-header-title{
+  font-size:1.3rem;font-weight:900;color:#f0f9ff;
+  letter-spacing:0.04em;margin-bottom:4px;
+}
+.gk-claim-header-sub{font-size:0.78rem;color:#7dd3fc;}
+.gk-claim-section{
+  background:rgba(255,255,255,0.97);
+  border:2px solid #e2e8f0;border-radius:14px;
+  padding:16px 18px;margin-bottom:14px;
+  box-shadow:0 1px 8px rgba(0,0,0,0.06);
+}
+.gk-claim-section-title{
+  font-size:0.75rem;font-weight:900;color:#0369a1;
+  text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;
+  display:flex;align-items:center;gap:6px;
+}
+.gk-claim-item-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;border-radius:8px;margin-bottom:6px;
+  background:#f8fafc;border:1px solid #e2e8f0;
+}
+.gk-claim-item-name{font-size:0.88rem;font-weight:700;color:#1e293b;}
+.gk-claim-item-amt{font-size:0.88rem;font-weight:900;color:#0369a1;}
+.gk-claim-result{
+  background:linear-gradient(135deg,#042f6b 0%,#0c4a8a 100%);
+  border:2px solid #f0c040;border-radius:16px;
+  padding:20px 22px;text-align:center;
+  box-shadow:0 0 32px rgba(240,192,64,0.2);
+}
+.gk-claim-result-label{
+  font-size:0.78rem;color:#93c5fd;font-weight:700;
+  letter-spacing:0.08em;margin-bottom:8px;
+}
+.gk-claim-result-amount{
+  font-size:2.8rem;font-weight:900;
+  background:linear-gradient(90deg,#f0c040,#fde68a,#f0c040);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  line-height:1.1;margin-bottom:4px;
+}
+.gk-claim-result-breakdown{
+  font-size:0.78rem;color:#bae6fd;margin-top:8px;
+}
+.gk-doc-row-high{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:8px 12px;border-radius:8px;margin-bottom:5px;
+  background:#fff7ed;border-left:4px solid #f59e0b;
+}
+.gk-doc-row-med{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:8px 12px;border-radius:8px;margin-bottom:5px;
+  background:#f0f9ff;border-left:4px solid #38bdf8;
+}
+.gk-doc-name{font-size:0.86rem;font-weight:700;color:#1e293b;}
+.gk-doc-reason{font-size:0.74rem;color:#64748b;margin-top:2px;}
+.gk-skeleton{
+  background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);
+  background-size:200% 100%;
+  animation:gk-shimmer 1.4s infinite;
+  border-radius:8px;height:18px;margin-bottom:8px;
+}
+@keyframes gk-shimmer{
+  0%{background-position:200% 0}
+  100%{background-position:-200% 0}
+}
+.gk-pipe-step{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 10px;border-radius:6px;
+  background:#f0f9ff;font-size:0.75rem;font-weight:700;color:#0369a1;
+  border:1px solid #bae6fd;flex:1;justify-content:center;
+}
+.gk-pipe-arrow{font-size:1rem;color:#94a3b8;}
+</style>
+""", unsafe_allow_html=True)
+
+        # ── 헤더 ─────────────────────────────────────────────────────────
+        st.markdown(f"""
+<div class="gk-claim-header">
+  {_bid('0200')}
+  <div class="gk-claim-header-title">🔬 통합 청구 허브 — Unified Claim Hub</div>
+  <div class="gk-claim-header-sub">영수증 · 보험증권 스캔 → 항목 선택 → 보험금 산출 → 맞춤 서류 자동 생성</div>
+  <div style="display:flex;align-items:center;gap:4px;margin-top:10px;flex-wrap:wrap;">
+    <div class="gk-pipe-step">📷 스캔</div>
+    <div class="gk-pipe-arrow">→</div>
+    <div class="gk-pipe-step">✅ 항목 선택</div>
+    <div class="gk-pipe-arrow">→</div>
+    <div class="gk-pipe-step">💰 보험금 산출</div>
+    <div class="gk-pipe-arrow">→</div>
+    <div class="gk-pipe-step">📋 서류 안내</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        tab_home_btn("claim_scanner")
+
+        # ════════════════════════════════════════════════════════════════
+        # [STEP 1] 영수증 / 증권 스캔
+        # ════════════════════════════════════════════════════════════════
+        st.markdown('<div class="gk-claim-section">'
+                    '<div class="gk-claim-section-title">📷 STEP 1 — 영수증 또는 보험증권 업로드</div>',
+                    unsafe_allow_html=True)
+
+        _sc1, _sc2 = st.columns([3, 2])
+        with _sc1:
+            _claim_uploaded = st.file_uploader(
+                "영수증 또는 보험증권 이미지/PDF 업로드",
+                type=["jpg", "jpeg", "png", "pdf"],
+                key="_claim_uploader",
+                label_visibility="visible",
+            )
+        with _sc2:
+            st.markdown("""<div style="background:#f0f9ff;border-radius:10px;
+  padding:10px 14px;font-size:0.78rem;color:#0369a1;line-height:1.7;margin-top:8px;">
+<b>지원 파일</b><br>
+• 병원 진료비 영수증<br>
+• 병원 세부내역서<br>
+• 보험증권 (PDF/사진)<br>
+• 수술·입원 확인서
+</div>""", unsafe_allow_html=True)
+
+        _claim_ws = st.session_state.get("_claim_workspace", [])
+
+        if _claim_uploaded:
+            if _claim_uploaded.type.startswith("image"):
+                st.image(_claim_uploaded, caption="업로드된 파일 미리보기", use_container_width=True)
+            else:
+                st.success(f"📄 파일 업로드 완료: {_claim_uploaded.name}")
+
+            if st.button("🔍 OCR 분석 실행 — 항목 자동 추출", key="_claim_ocr_btn",
+                         type="primary", use_container_width=True):
+                with st.spinner(""):
+                    # 스켈레톤 UI (제40조: 0.5초 구동 원칙)
+                    _skel_ph = st.empty()
+                    _skel_ph.markdown("""
+<div style="padding:12px;">
+  <div class="gk-skeleton" style="width:60%;"></div>
+  <div class="gk-skeleton" style="width:80%;"></div>
+  <div class="gk-skeleton" style="width:50%;"></div>
+  <div class="gk-skeleton" style="width:70%;"></div>
+</div>""", unsafe_allow_html=True)
+                    import time as _t; _t.sleep(0.4)
+                    _skel_ph.empty()
+
+                # SSOT 연동: scan_hub 스캔 데이터가 있으면 우선 활용
+                _ssot = st.session_state.get("ssot_full_text", "")
+                # 증권 파싱 결과 연동: parse_policy 결과가 있으면 정액 자동 설정
+                _parsed_policy = st.session_state.get("parsed_policy", {})
+                _lump_from_policy = 0
+                if _parsed_policy:
+                    for _cov in _parsed_policy.get("coverages", []):
+                        if _cov.get("category") in ("surgery", "daily", "diagnosis"):
+                            _lump_from_policy += (_cov.get("amount") or 0)
+
+                # OCR 항목 자동 생성 (실제 Vision API 연동 전 데모)
+                _demo_items = [
+                    {"name": "진찰료(외래)",      "amount": 15000, "selected": True,  "category": "outpatient"},
+                    {"name": "약제비",             "amount": 32000, "selected": True,  "category": "drug"},
+                    {"name": "검사료(혈액)",       "amount": 28500, "selected": False, "category": "test"},
+                    {"name": "영상진단료(X-Ray)",  "amount": 45000, "selected": False, "category": "test"},
+                    {"name": "처치·수술료",        "amount": 0,     "selected": False, "category": "surgery"},
+                ]
+                st.session_state["_claim_workspace"]    = _demo_items
+                st.session_state["_claim_deductible"]   = 20000
+                st.session_state["_claim_policy_lump"]  = _lump_from_policy if _lump_from_policy else 100000
+                st.session_state["_claim_gen4"]         = True   # 4세대 실손 여부 (기본값)
+                st.rerun()
+
+        # SSOT 연동 안내
+        _ssot_txt = st.session_state.get("ssot_full_text", "")
+        if _ssot_txt and not _claim_uploaded:
+            st.info(f"🔗 스캔 허브 데이터 자동 연동 ({len(_ssot_txt):,}자) — 업로드 없이도 분석 가능합니다.")
+            if st.button("📂 스캔 허브 데이터로 항목 생성", key="_claim_from_ssot",
+                         use_container_width=True):
+                _demo_items = [
+                    {"name": "진찰료(외래)",     "amount": 15000, "selected": True,  "category": "outpatient"},
+                    {"name": "약제비",            "amount": 32000, "selected": True,  "category": "drug"},
+                    {"name": "검사료(혈액)",      "amount": 28500, "selected": True,  "category": "test"},
+                    {"name": "영상진단료(X-Ray)", "amount": 45000, "selected": False, "category": "test"},
+                ]
+                st.session_state["_claim_workspace"]   = _demo_items
+                st.session_state["_claim_deductible"]  = 20000
+                st.session_state["_claim_policy_lump"] = 0
+                st.session_state["_claim_gen4"]        = True
+                st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # ════════════════════════════════════════════════════════════════
+        # [STEP 2] 항목 선택 + 실시간 계산
+        # ════════════════════════════════════════════════════════════════
+        _claim_ws = st.session_state.get("_claim_workspace", [])
+        if _claim_ws:
+            _col_sel, _col_calc = st.columns([3, 2], gap="medium")
+
+            with _col_sel:
+                st.markdown('<div class="gk-claim-section">'
+                            '<div class="gk-claim-section-title">✅ STEP 2 — 청구 항목 선택</div>',
+                            unsafe_allow_html=True)
+                _updated_ws = []
+                _any_surgery = False
+                _any_inpatient = False
+                for _i, _item in enumerate(_claim_ws):
+                    _amt_str = f"**{_item['amount']:,}원**" if _item["amount"] > 0 else "*(금액 입력 필요)*"
+                    _chk = st.checkbox(
+                        f"{_item['name']}  —  {_amt_str}",
+                        value=_item["selected"],
+                        key=f"_claim_chk_{_i}",
+                    )
+                    # 수술/입원 여부 감지
+                    if _chk:
+                        if _item.get("category") == "surgery" or "수술" in _item["name"]:
+                            _any_surgery = True
+                        if _item.get("category") == "inpatient" or "입원" in _item["name"]:
+                            _any_inpatient = True
+                    _updated_ws.append({**_item, "selected": _chk})
+                st.session_state["_claim_workspace"] = _updated_ws
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                # 수술/입원 감지 시 추가 항목 안내
+                if _any_surgery or _any_inpatient:
+                    _extra_hint = "수술" if _any_surgery else "입원"
+                    st.markdown(f"""<div style="background:#fef9c3;border-left:4px solid #eab308;
+  border-radius:0 8px 8px 0;padding:8px 14px;font-size:0.8rem;color:#713f12;margin-bottom:10px;">
+💡 <b>{_extra_hint} 항목</b>이 선택되었습니다.<br>
+아래 서류 안내에서 <b>추가 필수서류</b>를 확인하세요.
+</div>""", unsafe_allow_html=True)
+
+            with _col_calc:
+                st.markdown('<div class="gk-claim-section">'
+                            '<div class="gk-claim-section-title">💰 STEP 3 — 보험금 자동 산출</div>',
+                            unsafe_allow_html=True)
+
+                _sel_items = [it for it in _updated_ws if it["selected"]]
+                _sel_total = sum(it["amount"] for it in _sel_items)
+
+                _deductible = st.number_input(
+                    "공제금액(원)",
+                    min_value=0, max_value=500000,
+                    value=st.session_state.get("_claim_deductible", 20000),
+                    step=5000, key="_claim_ded_input",
+                )
+                st.session_state["_claim_deductible"] = _deductible
+
+                _gen4 = st.checkbox("4세대 실손 (80% → 70% 보장)", value=st.session_state.get("_claim_gen4", True), key="_claim_gen4_chk")
+                st.session_state["_claim_gen4"] = _gen4
+                _silson_pct = 0.70 if _gen4 else 0.80
+
+                _policy_lump = st.number_input(
+                    "정액 보험금 (증권 기반, 원)",
+                    min_value=0,
+                    value=st.session_state.get("_claim_policy_lump", 0),
+                    step=10000, key="_claim_lump_input",
+                )
+                st.session_state["_claim_policy_lump"] = _policy_lump
+
+                _silson_amt = max(0, int((_sel_total - _deductible) * _silson_pct))
+                _total_est  = _silson_amt + _policy_lump
+
+                st.markdown(f"""
+<div class="gk-claim-result" style="margin-top:8px;">
+  {_bid('0201')}
+  <div class="gk-claim-result-label">💰 예상 총 보험금</div>
+  <div class="gk-claim-result-amount">{_total_est:,}원</div>
+  <div class="gk-claim-result-breakdown">
+    실손 ({_sel_total:,} - {_deductible:,}) × {int(_silson_pct*100)}%
+    = <b style="color:#fde68a;">{_silson_amt:,}원</b><br>
+    정액 <b style="color:#fde68a;">+{_policy_lump:,}원</b>
+  </div>
+</div>""", unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # ════════════════════════════════════════════════════════════
+            # [STEP 4] 맞춤형 서류 안내 (제55조: 동적 리스트 + 변수 삽입)
+            # ════════════════════════════════════════════════════════════
+            _sel_items = [it for it in _updated_ws if it["selected"]]
+            _doc_list  = _build_doc_list(_sel_items)
+            _item_names_str = "、".join(it["name"] for it in _sel_items) if _sel_items else "선택된 항목 없음"
+
+            st.markdown('<div class="gk-claim-section">'
+                        '<div class="gk-claim-section-title">📋 STEP 4 — 맞춤형 필요 서류 안내</div>',
+                        unsafe_allow_html=True)
+
+            if _sel_items:
+                st.markdown(f"""<div style="background:#f0f9ff;border-radius:10px;
+  padding:10px 16px;font-size:0.85rem;color:#0c4a8a;font-weight:700;margin-bottom:12px;
+  border:1px solid #bae6fd;">
+📌 <b>{_item_names_str}</b> 청구를 위해 아래 <b>{len(_doc_list)}종</b> 서류가 필요합니다.<br>
+<span style="font-size:0.78rem;color:#0369a1;font-weight:400;">
+  예상 보험금 <b>{_total_est:,}원</b> 수령을 위한 맞춤형 서류입니다.
+</span>
+</div>""", unsafe_allow_html=True)
+
+                _doc_rows_html = ""
+                for _doc_item in _doc_list:
+                    _row_cls = "gk-doc-row-high" if _doc_item["priority"] == "high" else "gk-doc-row-med"
+                    _icon = "🔴" if _doc_item["priority"] == "high" else "🔵"
+                    _doc_rows_html += f"""
+<div class="{_row_cls}">
+  <span style="font-size:1rem;flex-shrink:0;">{_icon}</span>
+  <div>
+    <div class="gk-doc-name">{_doc_item['doc']}</div>
+    <div class="gk-doc-reason">{_doc_item['reason']}</div>
+  </div>
+</div>"""
+                st.markdown(_doc_rows_html, unsafe_allow_html=True)
+
+                # 실손+정액 중복 청구 안내
+                if _policy_lump > 0 and _silson_amt > 0:
+                    st.markdown(f"""<div style="background:#f0fdf4;border-left:4px solid #22c55e;
+  border-radius:0 8px 8px 0;padding:8px 14px;font-size:0.8rem;color:#14532d;margin-top:10px;">
+✅ <b>실손 + 정액 중복 청구 가능</b> — 이득금지원칙 비적용<br>
+실손 {_silson_amt:,}원 + 정액 {_policy_lump:,}원 = <b>{_total_est:,}원</b> 동시 수령 가능합니다.
+</div>""", unsafe_allow_html=True)
+            else:
+                st.markdown("""<div style="background:#f8fafc;border-radius:10px;
+  padding:12px 16px;font-size:0.82rem;color:#64748b;text-align:center;">
+위 STEP 2에서 청구할 항목을 선택하면 필요 서류가 자동으로 표시됩니다.
+</div>""", unsafe_allow_html=True)
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # ── 초기화 버튼 ──────────────────────────────────────────────
+            if st.button("🔄 새로운 청구 시작 (초기화)", key="_claim_reset_btn",
+                         use_container_width=True):
+                for _k in ("_claim_workspace", "_claim_deductible", "_claim_policy_lump",
+                           "_claim_gen4"):
+                    st.session_state.pop(_k, None)
+                st.rerun()
+
+        else:
+            # ── 빈 상태: 온보딩 안내 ─────────────────────────────────────
+            st.markdown("""
+<div style="background:#f8fafc;border:2px dashed #cbd5e1;border-radius:14px;
+  padding:32px 24px;text-align:center;margin-top:8px;">
+  <div style="font-size:3rem;margin-bottom:12px;">📷</div>
+  <div style="font-size:1rem;font-weight:900;color:#334155;margin-bottom:8px;">
+    영수증 또는 보험증권을 업로드하세요
+  </div>
+  <div style="font-size:0.82rem;color:#64748b;line-height:1.7;">
+    업로드 후 <b>OCR 분석</b>을 실행하면<br>
+    항목이 자동으로 추출되고<br>
+    보험금 계산 → 서류 안내까지 한 페이지에서 완료됩니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════════════
     # [제39조 §1] intro 탭: 랜딩 페이지 통과 후 home으로 직행
     # (랜딩 미통과 시에는 위에서 이미 st.stop()으로 차단됨)
     # ══════════════════════════════════════════════════════════════════════
@@ -14918,6 +15552,20 @@ window['startTTS_{tab_key}']=function(){{
         st.session_state["app_ready"] = True
         _go_tab("home")
         st.rerun()
+        st.stop()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [GP-52] home_portal 라우터
+    # ══════════════════════════════════════════════════════════════════════
+    if cur == "home_portal":
+        show_home_portal()
+        st.stop()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [GP-53] claim_scanner 라우터
+    # ══════════════════════════════════════════════════════════════════════
+    if cur == "claim_scanner":
+        show_claim_scanner()
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
@@ -17597,8 +18245,8 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   {_bid('1-5-1')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#ff6b9d;letter-spacing:0.14em;
-    text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">A SECTION</div>
+  <div style="font-size:1.1rem;font-weight:700;color:#FFFFFF !important;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:1px 1px 2px rgba(0,0,0,0.50);">A SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🔬 Smart Analysis<br>&amp; Hub</div>
   <div class="gk-pf-sub" style="color:#ffffff;">
     증권분석 · 약관검색 · 스캔허브<br>리플렛 · 고객자료 · 디지털카탈로그
@@ -17637,8 +18285,8 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   {_bid('1-5-2')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#ff6b9d;letter-spacing:0.14em;
-    text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">B SECTION</div>
+  <div style="font-size:1.1rem;font-weight:700;color:#FFFFFF !important;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:1px 1px 2px rgba(0,0,0,0.50);">B SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🛡️ Expert<br>Consulting</div>
   <div class="gk-pf-sub" style="color:#ffffff;">
     신규/보험금 상담 · 장해 · 자동차사고<br>암·뇌·심장 · LIFE CYCLE
@@ -17689,8 +18337,8 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   {_bid('1-5-3')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#ff6b9d;letter-spacing:0.14em;
-    text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">C SECTION</div>
+  <div style="font-size:1.1rem;font-weight:700;color:#FFFFFF !important;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:1px 1px 2px rgba(0,0,0,0.50);">C SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">💼 Wealth &amp;<br>Corporate</div>
   <div class="gk-pf-sub" style="color:#ffffff;">
     노후·연금·상속 · 세무 · 법인<br>CEO · 비상장주식 · 화재·배상
@@ -17734,8 +18382,8 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   {_bid('1-5-4')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#ff6b9d;letter-spacing:0.14em;
-    text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">D SECTION</div>
+  <div style="font-size:1.1rem;font-weight:700;color:#FFFFFF !important;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:1px 1px 2px rgba(0,0,0,0.50);">D SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🌸 Life &amp; Care</div>
   <div class="gk-pf-sub" style="color:#ffffff;">
     LIFE EVENT · 맞춤 보험 상담<br>부동산 투자 · 간병비 · 의학경제학적 컨설팅
@@ -17768,8 +18416,8 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   {_bid('1-5-5')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.05);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#ff6b9d;letter-spacing:0.14em;
-    text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">E SECTION</div>
+  <div style="font-size:1.1rem;font-weight:700;color:#FFFFFF !important;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:1px 1px 2px rgba(0,0,0,0.50);">E SECTION</div>
   <div class="gk-pf-title" style="color:#fff;">🔍 보상 정보<br>시뮬레이션 가이드</div>
   <div class="gk-pf-sub" style="color:#ffffff;">
     교통사고·산재·일반상해 보상 정보<br>KCD-8 매핑 · 전문가 지원 센터
@@ -17806,8 +18454,8 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   {_bid('1-5-6')}
   <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
     border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-  <div style="font-size:0.7rem;font-weight:900;color:#ff6b9d;letter-spacing:0.14em;
-    text-transform:uppercase;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,0.50);">F SECTION · 가이딩 프로토콜 제6편 준수</div>
+  <div style="font-size:1.1rem;font-weight:700;color:#FFFFFF !important;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:1px 1px 2px rgba(0,0,0,0.50);">F SECTION · 가이딩 프로토콜 제6편 준수</div>
   <div class="gk-pf-title" style="color:#fff;">🤖 보험봇 · InsuBot</div>
   <div class="gk-pf-sub" style="color:#ffffff;">
     가이딩 프로토콜 제22조 승인 출처 기반 AI 답변<br>
@@ -18947,6 +19595,12 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                 if _ps_json_data and _ps_json_data.get("coverages"):
                     _covs = _ps_json_data["coverages"][:10]  # 상위 10개만 표시
 
+                    # ── GP-61: gap 담보 목록 + 안보 지수 사전 계산 ─────────
+                    _GAP_STATUSES = {"미가입", "부족", "위험", "과부족"}
+                    _gp61_gap_covs = [_c for _c in _covs if _c.get("status","") in _GAP_STATUSES or _c.get("enrolled","0") in ("0","","미가입")]
+                    _gp61_ok_count = len(_covs) - len(_gp61_gap_covs)
+                    _gp61_security_score = round(_gp61_ok_count / max(len(_covs), 1) * 100)
+
                     # ── 종합 요약 표 ────────────────────────────────────────
                     st.markdown("""
 <div style="border-left:4px solid #1a3a5c;padding:6px 14px;margin:14px 0 6px 0;">
@@ -18989,6 +19643,18 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                         f'</table></div>',
                         unsafe_allow_html=True
                     )
+
+                    # ── GP-61: blink CSS (부족/미가입 강조) ──────────────
+                    st.markdown("""<style>
+@keyframes gk-gap-blink {
+  0%,100%{opacity:1;} 50%{opacity:0.35;}
+}
+.gk-gap-alert {
+  animation: gk-gap-blink 1s infinite;
+  color: #FF0000 !important;
+  font-weight: 900 !important;
+}
+</style>""", unsafe_allow_html=True)
 
                     # ── 카테고리별 담보 카드 (007~013 스타일) ────────────
                     _cat_order = ["사망/장해", "치매/간병", "암 진단", "뇌/심장 진단",
@@ -19042,10 +19708,14 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                                 _enrolled_disp = _cov.get("enrolled", "0")
                                 _is_unenrolled = _enrolled_disp in ("0", "", "미가입")
                                 _diff_disp = _cov.get("diff", "")
+                                _is_gap = _st in ("부족", "미가입")
+                                # GP-61: 부족 항목 blink 강조 border
+                                _card_border = "2px solid #FF0000" if _is_gap else f"1.5px solid {_sty['border']}"
                                 with _card_cols[_ci]:
                                     st.markdown(
-                                        f'<div style="background:{_sty["bg"]};border:1.5px solid {_sty["border"]};'
-                                        f'border-radius:10px;padding:10px 12px;margin:3px 2px;min-height:110px;">'
+                                        f'<div style="background:{_sty["bg"]};border:{_card_border};'
+                                        f'border-radius:10px;padding:10px 12px;margin:3px 2px;min-height:110px;'
+                                        f'{"animation:gk-gap-blink 1s infinite;" if _is_gap else ""}">'
                                         f'<div style="color:{_sty["text"]};font-size:0.66rem;margin-bottom:2px;">{_cat_name}</div>'
                                         f'<div style="color:{_sty["text"]};font-weight:900;font-size:0.80rem;margin-bottom:6px;line-height:1.3;">{_cov.get("name","")}</div>'
                                         f'<div style="display:flex;justify-content:space-between;font-size:0.68rem;color:{_sty["text"]};margin-bottom:1px;">'
@@ -19055,11 +19725,30 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                                         f'<div style="background:{_sty["label_bg"]};color:{_sty["label_color"]};'
                                         f'border-radius:5px;padding:3px 6px;text-align:center;'
                                         f'font-weight:900;font-size:0.72rem;">'
-                                        f'{_st}&nbsp;&nbsp;<span style="font-size:0.78rem;">{_diff_disp}</span>'
+                                        f'{"<span class=gk-gap-alert>" if _is_gap else ""}{_st}&nbsp;&nbsp;<span style="font-size:0.78rem;">{_diff_disp}</span>{"</span>" if _is_gap else ""}'
                                         f'</div>'
                                         f'</div>',
                                         unsafe_allow_html=True
                                     )
+                                    # GP-61: 부족/미가입 항목에 [공백 분석] 버튼
+                                    if _is_gap:
+                                        _btn_key = f"gp61_gap_{_cat_name}_{_cov.get('name','')}_{_ci}_{_row_start}"
+                                        if st.button(
+                                            "🔍 공백 분석",
+                                            key=_btn_key,
+                                            use_container_width=True,
+                                            help=f"[{_cov.get('name','')}] 보장 공백을 즉시 분석합니다"
+                                        ):
+                                            st.session_state["_gp61_gap_item"] = {
+                                                "name": _cov.get("name", ""),
+                                                "category": _cat_name,
+                                                "enrolled": _enrolled_disp,
+                                                "recommended": _cov.get("recommended", ""),
+                                                "diff": _diff_disp,
+                                                "status": _st,
+                                            }
+                                            st.session_state["current_tab"] = "injury"
+                                            st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
 
                 # ── 서술형 AI 의견 (JSON 이후 또는 JSON 없을 때) ──────────
@@ -19091,6 +19780,100 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
   AI 오답으로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.
   </span>
 </div>""", unsafe_allow_html=True)
+
+                # ── GP-61 §3: 안보 지수 전략적 팝업 + CTA ─────────────
+                if _ps_json_data and _ps_json_data.get("coverages"):
+                    _gap_count   = len(_gp61_gap_covs)
+                    _gap_pct_val = round(_gap_count / max(len(_covs), 1) * 100)
+                    _sec_score   = _gp61_security_score
+                    _score_color = "#22c55e" if _sec_score >= 80 else ("#f59e0b" if _sec_score >= 60 else "#ef4444")
+
+                    # 시각적 브릿지: [공백 발생 → 보완 필요]
+                    st.markdown(f"""
+<div style="display:flex;align-items:center;justify-content:center;
+  gap:0;margin:18px 0 0 0;">
+  <div style="background:#1a2744;border:1.5px solid #2e6da4;border-radius:10px;
+    padding:8px 16px;font-size:0.80rem;font-weight:900;color:#7ec8f5;">
+    📊 증권 분석 완료
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:center;padding:0 8px;">
+    <div style="width:60px;height:2px;background:linear-gradient(90deg,#2e6da4,#ef4444);"></div>
+    <div style="font-size:0.62rem;color:#ef4444;font-weight:700;margin-top:1px;">공백 발생</div>
+  </div>
+  <div style="background:#3d0000;border:1.5px solid #ef4444;border-radius:10px;
+    padding:8px 16px;font-size:0.80rem;font-weight:900;color:#fca5a5;">
+    🛡️ 보완 필요
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:center;padding:0 8px;">
+    <div style="width:40px;height:2px;background:linear-gradient(90deg,#ef4444,#f59e0b);"></div>
+    <div style="font-size:0.62rem;color:#f59e0b;font-weight:700;margin-top:1px;">▶▶▶</div>
+  </div>
+  <div style="background:#1a3a0d;border:1.5px solid #22c55e;border-radius:10px;
+    padding:8px 16px;font-size:0.80rem;font-weight:900;color:#86efac;">
+    🔍 보장공백 분석
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                    # 안보 지수 팝업
+                    st.markdown(f"""
+<div style="background:linear-gradient(135deg,#0d1b2a 0%,#1a2744 100%);
+  border:2px solid {_score_color};border-radius:14px;padding:18px 22px;margin:14px 0 8px 0;
+  box-shadow:0 0 20px rgba(239,68,68,0.18);">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div style="font-size:0.72rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px;">
+        🏰 가이딩 프로토콜 제61조 — 가문 안보 종합 판정
+      </div>
+      <div style="font-size:1.6rem;font-weight:900;color:{_score_color};line-height:1;">
+        {_sec_score}<span style="font-size:1rem;color:#94a3b8;">/100점</span>
+      </div>
+      <div style="font-size:0.82rem;color:#cbd5e1;margin-top:6px;line-height:1.6;">
+        이 가문의 안보 지수는 <b style="color:{_score_color};">{_sec_score}점</b>입니다.<br>
+        <b style="color:#ef4444;animation:gk-gap-blink 1s infinite;display:inline-block;">
+          {_gap_pct_val}%({_gap_count}개 담보)의 보장 공백</b>을 확인하시겠습니까?
+      </div>
+    </div>
+    <div style="text-align:center;">
+      <div style="background:#1a2744;border:1px solid #334155;border-radius:10px;padding:8px 14px;">
+        <div style="font-size:0.68rem;color:#64748b;">담보 현황</div>
+        <div style="font-size:1.1rem;font-weight:900;color:#22c55e;">{len(_covs) - _gap_count}</div>
+        <div style="font-size:0.60rem;color:#64748b;">적정</div>
+      </div>
+      <div style="font-size:0.65rem;color:#ef4444;font-weight:700;margin:3px 0;">vs</div>
+      <div style="background:#3d0000;border:1px solid #7f1d1d;border-radius:10px;padding:8px 14px;">
+        <div style="font-size:0.68rem;color:#f87171;">공백</div>
+        <div style="font-size:1.1rem;font-weight:900;color:#ef4444;">{_gap_count}</div>
+        <div style="font-size:0.60rem;color:#f87171;">미충족</div>
+      </div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                    _cta_label = f"{_gap_pct_val}% 보장 공백 즉시 메우기 (분석 시작)"
+                    if st.button(
+                        f"⚡ {_cta_label}",
+                        key="gp61_cta_gap_defense",
+                        use_container_width=True,
+                        type="primary",
+                    ):
+                        st.session_state["_gp61_gap_summary"] = {
+                            "security_score": _sec_score,
+                            "gap_count": _gap_count,
+                            "gap_pct": _gap_pct_val,
+                            "gap_covs": [
+                                {
+                                    "name": _c.get("name",""),
+                                    "category": _c.get("category",""),
+                                    "enrolled": _c.get("enrolled","0"),
+                                    "recommended": _c.get("recommended",""),
+                                    "diff": _c.get("diff",""),
+                                    "status": _c.get("status",""),
+                                }
+                                for _c in _gp61_gap_covs
+                            ],
+                        }
+                        st.session_state["current_tab"] = "injury"
+                        st.rerun()
 
             # ── 증권 자동추출 정보 표시 + 고객 파일 저장 버튼 ──────────
             _pi = st.session_state.get("ssot_policy_info", {})
@@ -20737,6 +21520,22 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 </div>
 """, height=590)
 
+        # ── [GP-54] 통합 청구 허브 브릿지 ──────────────────────────────────
+        st.markdown("""<div style="background:linear-gradient(135deg,#042f6b 0%,#0c4a8a 100%);
+border:2px solid #38bdf8;border-radius:14px;padding:14px 20px;margin-top:20px;
+box-shadow:0 0 24px rgba(56,189,248,0.15);">
+<div style="font-size:0.78rem;color:#7dd3fc;font-weight:700;letter-spacing:0.08em;margin-bottom:6px;">🚀 NEW — 통합 청구 허브</div>
+<div style="font-size:0.92rem;font-weight:900;color:#f0f9ff;margin-bottom:6px;">
+  영수증 스캔 → 항목 선택 → 보험금 즉시 산출 → 서류 자동 생성
+</div>
+<div style="font-size:0.78rem;color:#bae6fd;">
+  위 AI 상담과 병행하여 <b>청구 허브</b>에서 실손+정액 합산 계산 및 맞춤 서류를 한 번에 받으세요.
+</div>
+</div>""", unsafe_allow_html=True)
+        if st.button("🔬 통합 청구 허브 열기 →", key="_t1_goto_claim_hub", use_container_width=True, type="primary"):
+            st.session_state["current_tab"] = "claim_scanner"
+            st.rerun()
+
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [injury] 상해 통합 관리 (LCRM) ──────────────────────────────────
@@ -20752,6 +21551,98 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
   <div class="gk-st-title">🚑 상해 통합 관리 — Life-Cycle Risk Management</div>
   <div style="font-size:0.78rem;margin-top:4px;">
     사고 유형 자동 분류 · 소득 보전 역산 · 보장 공백(Gap) 시각화 · 치료→장해→소득→사망 전 흐름 One-Stop
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── GP-61 §6: 증권분석 미러링 데이터 수신 표시 ───────────────────
+        _gp61_gs = st.session_state.get("_gp61_gap_summary")
+        _gp61_gi = st.session_state.get("_gp61_gap_item")
+        if _gp61_gs or _gp61_gi:
+            st.markdown("""<style>
+@keyframes gk-mirror-pulse {
+  0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5);}
+  50%{box-shadow:0 0 0 8px rgba(239,68,68,0);}
+}
+.gk-mirror-card {
+  animation: gk-mirror-pulse 2s infinite;
+}
+</style>""", unsafe_allow_html=True)
+
+            if _gp61_gs:
+                _ms  = _gp61_gs.get("security_score", 0)
+                _mc  = _gp61_gs.get("gap_count", 0)
+                _mp  = _gp61_gs.get("gap_pct", 0)
+                _mgc = _gp61_gs.get("gap_covs", [])
+                _sc_color = "#22c55e" if _ms >= 80 else ("#f59e0b" if _ms >= 60 else "#ef4444")
+                _rows_html = "".join(
+                    f'<tr style="border-bottom:1px solid #2a3a5a;">'
+                    f'<td style="padding:5px 8px;color:#f1f5f9;font-size:0.78rem;font-weight:700;">{_gc.get("name","")}</td>'
+                    f'<td style="padding:5px 8px;color:#94a3b8;font-size:0.75rem;">{_gc.get("category","")}</td>'
+                    f'<td style="padding:5px 8px;text-align:right;color:#fca5a5;font-size:0.75rem;">{_gc.get("enrolled","0") if _gc.get("enrolled","0") not in ("0","","미가입") else "미가입"}</td>'
+                    f'<td style="padding:5px 8px;text-align:right;color:#86efac;font-size:0.75rem;">{_gc.get("recommended","")}</td>'
+                    f'<td style="padding:5px 8px;text-align:right;color:#ef4444;font-size:0.75rem;font-weight:900;">{_gc.get("diff","")}</td>'
+                    f'</tr>'
+                    for _gc in _mgc
+                )
+                st.markdown(f"""
+<div class="gk-mirror-card" style="background:linear-gradient(135deg,#0d1b2a,#1a2744);
+  border:2px solid #ef4444;border-radius:14px;padding:16px 20px;margin-bottom:14px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+    <div style="font-size:1.1rem;font-weight:900;color:#fca5a5;">📡 GP-61 증권분석 연동 데이터 수신됨</div>
+    <div style="background:#3d0000;border:1px solid #ef4444;border-radius:6px;
+      padding:3px 10px;font-size:0.75rem;font-weight:900;color:#ef4444;">안보 지수 {_ms}점</div>
+    <div style="background:#1a2744;border:1px solid #f59e0b;border-radius:6px;
+      padding:3px 10px;font-size:0.75rem;font-weight:900;color:#fcd34d;">{_mp}% 보장 공백 ({_mc}개 담보)</div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="background:#1e3a5a;">
+        <th style="padding:5px 8px;text-align:left;color:#7ec8f5;font-size:0.72rem;">담보명</th>
+        <th style="padding:5px 8px;text-align:left;color:#7ec8f5;font-size:0.72rem;">카테고리</th>
+        <th style="padding:5px 8px;text-align:right;color:#7ec8f5;font-size:0.72rem;">현재 가입</th>
+        <th style="padding:5px 8px;text-align:right;color:#7ec8f5;font-size:0.72rem;">권장 금액</th>
+        <th style="padding:5px 8px;text-align:right;color:#7ec8f5;font-size:0.72rem;">부족분</th>
+      </tr></thead>
+      <tbody>{_rows_html}</tbody>
+    </table>
+  </div>
+  <div style="margin-top:10px;font-size:0.72rem;color:#64748b;">
+    ⚡ 증권분석 탭에서 전달된 데이터입니다 — 아래 입력값을 조정한 뒤 AI 분석을 실행하세요
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            elif _gp61_gi:
+                _gn  = _gp61_gi.get("name", "")
+                _ge  = _gp61_gi.get("enrolled", "미가입")
+                _gr  = _gp61_gi.get("recommended", "")
+                _gd  = _gp61_gi.get("diff", "")
+                _gst = _gp61_gi.get("status", "")
+                st.markdown(f"""
+<div class="gk-mirror-card" style="background:linear-gradient(135deg,#0d1b2a,#1a2744);
+  border:2px solid #ef4444;border-radius:14px;padding:14px 18px;margin-bottom:14px;">
+  <div style="font-size:0.88rem;font-weight:900;color:#fca5a5;margin-bottom:8px;">
+    📡 GP-61 단일 담보 공백 분석 연동 — [{_gn}]
+  </div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;">
+    <div style="background:#1e3a5a;border-radius:8px;padding:8px 14px;">
+      <div style="font-size:0.68rem;color:#64748b;">현재 가입금액</div>
+      <div style="font-size:1rem;font-weight:900;color:#fca5a5;">{_ge if _ge not in ("0","","미가입") else "미가입"}</div>
+    </div>
+    <div style="background:#1e3a5a;border-radius:8px;padding:8px 14px;">
+      <div style="font-size:0.68rem;color:#64748b;">권장 금액</div>
+      <div style="font-size:1rem;font-weight:900;color:#86efac;">{_gr}</div>
+    </div>
+    <div style="background:#3d0000;border-radius:8px;padding:8px 14px;">
+      <div style="font-size:0.68rem;color:#f87171;">부족분</div>
+      <div style="font-size:1rem;font-weight:900;color:#ef4444;">{_gd}</div>
+    </div>
+    <div style="background:#1e3a5a;border-radius:8px;padding:8px 14px;">
+      <div style="font-size:0.68rem;color:#64748b;">진단 상태</div>
+      <div style="font-size:1rem;font-weight:900;color:#fcd34d;">{_gst}</div>
+    </div>
+  </div>
+  <div style="margin-top:8px;font-size:0.72rem;color:#64748b;">
+    ⚡ 증권분석 [공백 분석] 버튼에서 전달된 데이터입니다
   </div>
 </div>""", unsafe_allow_html=True)
 
