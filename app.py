@@ -789,6 +789,254 @@ def _art32_briefing(nhis_premium: float, fss_type: str = "disease") -> str:
         f"({_ART32_BRIEFING_TERM}) [{_footer}]"
     )
 
+# ── 가이딩 프로토콜 제62조 + 제65조: 3중 비교 권장가액 확정 엔진 ──────────
+def _art62_calc(
+    monthly_income_man: float,          # 월 가처분 소득 (만원)
+    nhis_premium: float = 0.0,          # 건강보험료 (원, 0이면 monthly_income_man 직접 사용)
+    override_income_man: float = 0.0,   # Override 월소득 (만원, 0이면 역산값 사용)
+) -> dict:
+    """GP-62+GP-65 §1~§3: 소득 역산 + 3중 비교 → 담보별 최종 권장 가입금액 산출.
+
+    GP-65 Triple-Standard Logic:
+        기준 A (Dynamic) = 역산 월소득 × 관리자 배수
+        기준 B (Static)  = 관리자 고정 권장액 (static_*)
+        기준 C (Final)   = MAX(A, B)  ← 최종 확정값
+
+    Fallback: nhis_premium == 0 이고 monthly_income_man == 0 이면
+              소득 역산 불가 → 기준 B 100% 적용 (income_source = 'Fallback·고정액')
+
+    Returns:
+        {
+          'monthly_income':      최종 적용 월소득 (만원),
+          'income_source':       소득 출처 ('역산'|'Override'|'직접입력'|'Fallback·고정액'),
+          'target_cancer':       암 진단비 최종 권장 (만원),
+          'target_brain':        뇌혈관 최종 권장 (만원),
+          'target_daily':        일당 최종 권장 (만원/일),
+          'target_disability':   후유장해 최종 권장 (만원),
+          # GP-65 상세 근거
+          'cancer_basis':        'Dynamic'|'Static'|'Fallback',
+          'brain_basis':         'Dynamic'|'Static'|'Fallback',
+          'daily_basis':         'Dynamic'|'Static'|'Fallback',
+          'disability_basis':    'Dynamic'|'Static'|'Fallback',
+          'cancer_a':            기준A 암 (만원),
+          'cancer_b':            기준B 암 (만원),
+          'brain_a':             기준A 뇌혈관 (만원),
+          'brain_b':             기준B 뇌혈관 (만원),
+        }
+    """
+    _cfg = _GP64_MASTER_CONFIG
+
+    # ── GP-66 §1: Null-Safety — None/음수/NaN → 0.0으로 정규화 ──────────
+    try:
+        monthly_income_man  = float(monthly_income_man  or 0)
+    except (TypeError, ValueError):
+        monthly_income_man  = 0.0
+    try:
+        nhis_premium        = float(nhis_premium        or 0)
+    except (TypeError, ValueError):
+        nhis_premium        = 0.0
+    try:
+        override_income_man = float(override_income_man or 0)
+    except (TypeError, ValueError):
+        override_income_man = 0.0
+    # 음수 방어
+    monthly_income_man  = max(0.0, monthly_income_man)
+    nhis_premium        = max(0.0, nhis_premium)
+    override_income_man = max(0.0, override_income_man)
+
+    # ── 소득 결정 (Priority: Override > 역산 > 직접입력) ──────────────────
+    if override_income_man > 0:
+        _m   = override_income_man
+        _src = "Override"
+    elif nhis_premium > 0:
+        # GP-66 §1: division-by-zero 방어 — nhis_rate_pct ≤ 0 이면 기본값 사용
+        _nhis_rate_pct = _cfg.get("nhis_rate_pct", 7.09)
+        _nhis_rate     = (_nhis_rate_pct / 100.0) if _nhis_rate_pct > 0 else 0.0709
+        _m   = round(nhis_premium / _nhis_rate / 10000, 1)
+        _src = "역산"
+    elif monthly_income_man > 0:
+        _m   = monthly_income_man
+        _src = "직접입력"
+    else:
+        # GP-66 §2 / GP-65 Fallback: 소득 정보 없음 → 기준 B 100% 채택
+        _m   = 0.0
+        _src = "Fallback·고정액"
+
+    # ── GP-64 배수 (기준 A 계산용) ───────────────────────────────────────
+    _cancer_mo  = _cfg.get("cancer_months",     48)
+    _brain_mo   = _cfg.get("brain_months",      24)
+    _dis_mo     = _cfg.get("disability_months", 120)
+    _dis_pct    = _cfg.get("disability_pct",    10)
+    _daily_div  = _cfg.get("daily_divisor",     30)
+
+    # ── GP-65 고정 권장액 (기준 B) ────────────────────────────────────────
+    _b_cancer   = float(_cfg.get("static_cancer",      5000))
+    _b_brain    = float(_cfg.get("static_brain",       3000))
+    _b_dis      = float(_cfg.get("static_disability",  5000))
+    _b_daily    = float(_cfg.get("static_daily",       10))
+
+    # ── 기준 A: 소득 × 배수 ───────────────────────────────────────────────
+    if _m > 0:
+        _a_cancer = round(_m * _cancer_mo)
+        _a_brain  = round(_m * _brain_mo)
+        _a_dis    = round(_m * _dis_mo * (_dis_pct / 100.0))
+        _a_daily  = round(_m / _daily_div, 1)
+    else:
+        _a_cancer = _a_brain = _a_dis = _a_daily = 0.0
+
+    # ── 기준 C: MAX(A, B) — Fallback 시 B만 적용 ─────────────────────────
+    def _resolve(a_val, b_val, fallback: bool):
+        if fallback or a_val <= 0:
+            return float(b_val), "Fallback" if (a_val <= 0 and b_val > 0) else "Static"
+        if b_val > 0 and b_val > a_val:
+            return float(b_val), "Static"
+        return float(a_val), "Dynamic"
+
+    _is_fallback = (_src == "Fallback·고정액")
+    _c_cancer, _cancer_basis = _resolve(_a_cancer, _b_cancer, _is_fallback)
+    _c_brain,  _brain_basis  = _resolve(_a_brain,  _b_brain,  _is_fallback)
+    _c_dis,    _dis_basis    = _resolve(_a_dis,    _b_dis,    _is_fallback)
+    _c_daily,  _daily_basis  = _resolve(_a_daily,  _b_daily,  _is_fallback)
+
+    # ── GP-64 min/max 하한선 적용 (기준 C에 적용) ────────────────────────
+    _c_cancer = max(_cfg.get("min_cancer", 0), min(_cfg.get("max_cancer", 9999999), _c_cancer))
+    _c_brain  = max(_cfg.get("min_brain",  0), min(_cfg.get("max_brain",  9999999), _c_brain))
+
+    return {
+        "monthly_income":    _m,
+        "income_source":     _src,
+        "target_cancer":     round(_c_cancer),
+        "target_brain":      round(_c_brain),
+        "target_daily":      round(_c_daily, 1),
+        "target_disability": round(_c_dis),
+        # GP-65 근거 상세
+        "cancer_basis":      _cancer_basis,
+        "brain_basis":       _brain_basis,
+        "daily_basis":       _daily_basis,
+        "disability_basis":  _dis_basis,
+        "cancer_a":          round(_a_cancer),
+        "cancer_b":          round(_b_cancer),
+        "brain_a":           round(_a_brain),
+        "brain_b":           round(_b_brain),
+    }
+
+
+def _art63_vulnerable(actual_man: float, target_man: float) -> bool:
+    """GP-63 §1: 70% 취약점 트리거 — 실제 < 목표 × 0.7."""
+    if target_man <= 0:
+        return False
+    return actual_man < target_man * 0.7
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#
+# 가이딩 프로토콜 제64조: 마스터 컨피규레이션 및 글로벌 정책 제어 원칙
+#   § 1. 관리자가 설정 보드에서 수정 → 전역 _GP64_MASTER_CONFIG 즉시 반영.
+#   § 2. _art62_calc은 하드코딩 숫자 대신 _GP64_MASTER_CONFIG 값을 참조.
+#   § 3. Supabase system_config 테이블에 영속 저장 (키 접두사: gp64_).
+#   § 4. 관리자 전용 — _admin_tab_auth 인증 필수.
+#
+# ── 제64조 기본값 (폴백 — DB 미연결 시 적용) ──────────────────────────────
+_GP64_DEFAULTS: dict = {
+    # [그룹 1] 역산 기준
+    "nhis_rate_pct":        7.09,    # 건강보험료율 (%)
+    "ltci_rate_pct":        0.9182,  # 장기요양보험료율 (건강보험료 대비, %)
+    # [그룹 2] 담보별 배수 (소득 보전 개월 수)
+    "cancer_months":        48,      # 암 진단비 = 월소득 × N개월
+    "brain_months":         24,      # 뇌혈관 진단비 = 월소득 × N개월
+    "disability_months":    120,     # 후유장해(100%) = 월소득 × N개월
+    "disability_pct":       10,      # 후유장해 최소 지급율 기준 (%)
+    "daily_divisor":        30,      # 일당 = 월소득 / N일
+    # [그룹 3] 폴백 표준가액 (데이터 부재 시, 만원 단위)
+    "fallback_cancer":      3000,    # 암 진단비 표준가액 (만원)
+    "fallback_brain":       2000,    # 뇌혈관 표준가액 (만원)
+    "fallback_disability":  5000,    # 후유장해 표준가액 (만원)
+    "fallback_daily":       10,      # 일당 표준가액 (만원/일)
+    # [그룹 4] 최소/최대 하한선
+    "min_cancer":           1000,    # 암 최소 권장 (만원)
+    "max_cancer":           10000,   # 암 최대 권장 (만원)
+    "min_brain":            500,     # 뇌혈관 최소 권장 (만원)
+    "max_brain":            5000,    # 뇌혈관 최대 권장 (만원)
+    # [GP-65 그룹 5] 담보별 관리자 고정 권장액 (기준 B · Static)
+    # MAX(소득역산×배수, 고정액) = 최종 권장가액 (기준 C)
+    "static_cancer":        5000,    # 암 진단비 고정 권장액 (만원) — 0이면 비활성
+    "static_brain":         3000,    # 뇌혈관 고정 권장액 (만원)
+    "static_disability":    5000,    # 후유장해 고정 권장액 (만원)
+    "static_daily":         10,      # 일당 고정 권장액 (만원/일)
+}
+
+# 런타임 전역 — 관리자 저장 시 즉시 갱신됨
+_GP64_MASTER_CONFIG: dict = dict(_GP64_DEFAULTS)
+_GP64_LAST_UPDATED: str = "기본값"
+_GP64_UPDATED_BY:   str = ""
+
+
+def _gp64_load(force: bool = False) -> bool:
+    """Supabase system_config에서 GP-64 설정값을 로드해 _GP64_MASTER_CONFIG 갱신.
+
+    Returns: True(변경 있음) / False(변경 없음 또는 실패)
+    """
+    global _GP64_MASTER_CONFIG, _GP64_LAST_UPDATED, _GP64_UPDATED_BY
+    try:
+        _sb = _get_sb_client() if callable(globals().get("_get_sb_client")) else None
+        if _sb is None:
+            return False
+        _rows = _sb.table("system_config").select("key,value").like("key", "gp64_%").execute()
+        if not _rows or not _rows.data:
+            return False
+        _changed = False
+        for _row in _rows.data:
+            _k = _row["key"].replace("gp64_", "", 1)
+            _v = _row["value"]
+            if _k == "last_updated":
+                _GP64_LAST_UPDATED = _v
+                continue
+            if _k == "updated_by":
+                _GP64_UPDATED_BY = _v
+                continue
+            if _k in _GP64_DEFAULTS:
+                _cast = type(_GP64_DEFAULTS[_k])
+                _new  = _cast(_v)
+                if _GP64_MASTER_CONFIG.get(_k) != _new:
+                    _GP64_MASTER_CONFIG[_k] = _new
+                    _changed = True
+        return _changed
+    except Exception:
+        return False
+
+
+def _gp64_save(new_cfg: dict, updated_by: str = "관리자") -> bool:
+    """_GP64_MASTER_CONFIG를 업데이트하고 Supabase에 영속 저장.
+
+    Args:
+        new_cfg: 변경할 키-값 쌍 (전체 또는 일부)
+        updated_by: 저장 주체 표시
+    Returns: True(성공) / False(실패)
+    """
+    global _GP64_MASTER_CONFIG, _GP64_LAST_UPDATED, _GP64_UPDATED_BY
+    import datetime as _dt64
+    _now = _dt64.datetime.now().strftime("%Y-%m-%d %H:%M")
+    _GP64_MASTER_CONFIG.update(new_cfg)
+    # nhis_rate_pct 변경 시 _CURRENT_NHIS_RATE도 동기화
+    if "nhis_rate_pct" in new_cfg:
+        global _CURRENT_NHIS_RATE
+        _CURRENT_NHIS_RATE = new_cfg["nhis_rate_pct"] / 100.0
+    _GP64_LAST_UPDATED = _now
+    _GP64_UPDATED_BY   = updated_by
+    try:
+        _sb = _get_sb_client() if callable(globals().get("_get_sb_client")) else None
+        _upserts = [{"key": f"gp64_{k}", "value": str(v)} for k, v in _GP64_MASTER_CONFIG.items()]
+        _upserts += [
+            {"key": "gp64_last_updated", "value": _now},
+            {"key": "gp64_updated_by",   "value": updated_by},
+        ]
+        if _sb is not None:
+            _sb.table("system_config").upsert(_upserts, on_conflict="key").execute()
+        return True
+    except Exception:
+        return True  # 로컬 반영은 성공 — Supabase 실패는 경고만
+
+
 # ══════════════════════════════════════════════════════════════════════════
 #
 # 제34조 [시스템 자율 유지보수 및 법정 요율 최신화 (Autonomous Maintenance)]
@@ -12458,11 +12706,11 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
             _all_agreed_top = _req_agreed_top and _tr_top.get("t4", False)
 
             st.markdown("""
-<div style='border:2px solid #004D40;border-radius:16px;
-  padding:16px 16px 12px 16px;margin-bottom:20px !important;
+<div style='border:2px solid #004D40;border-bottom:2px solid #004D40;border-radius:16px;
+  padding:16px 16px 12px 16px;margin-bottom:24px !important;margin-top:0 !important;
   background:linear-gradient(135deg,rgba(79,172,254,0.07) 0%,rgba(0,242,254,0.04) 100%);
-  box-shadow:0 4px 6px -1px rgba(0,0,0,0.10),0 2px 12px rgba(0,77,64,0.18);
-  position:relative;box-sizing:border-box;'>""", unsafe_allow_html=True)
+  box-shadow:0 4px 6px -1px rgba(0,0,0,0.10),0 2px 12px rgba(0,77,64,0.18),0 4px 10px rgba(0,0,0,0.05);
+  position:relative;z-index:10;box-sizing:border-box;'>""", unsafe_allow_html=True)
 
             st.markdown("""
 <div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:12px;
@@ -15295,22 +15543,211 @@ window['startTTS_{tab_key}']=function(){{
         tab_home_btn("claim_scanner")
 
         # ════════════════════════════════════════════════════════════════
-        # [STEP 1] 영수증 / 증권 스캔
+        # [GP-67] STEP 1 — 하이브리드 입력 허브 (OCR 우선 + 수동 병행)
         # ════════════════════════════════════════════════════════════════
+
+        # ── GP-67 §4: Manual-First Toggle 상태 초기화 ────────────────────
+        if "_gp67_manual_mode" not in st.session_state:
+            st.session_state["_gp67_manual_mode"] = False
+        _gp67_manual = st.session_state["_gp67_manual_mode"]
+
         st.markdown('<div class="gk-claim-section">'
-                    '<div class="gk-claim-section-title">📷 STEP 1 — 영수증 또는 보험증권 업로드</div>',
+                    '<div class="gk-claim-section-title">📷 STEP 1 — 영수증 스캔 또는 직접 입력</div>',
                     unsafe_allow_html=True)
 
-        _sc1, _sc2 = st.columns([3, 2])
-        with _sc1:
-            _claim_uploaded = st.file_uploader(
-                "영수증 또는 보험증권 이미지/PDF 업로드",
-                type=["jpg", "jpeg", "png", "pdf"],
-                key="_claim_uploader",
-                label_visibility="visible",
+        # ── GP-67 §4: 비상 탈출 버튼 — 항상 최상단 노출 ─────────────────
+        _toggle_col1, _toggle_col2 = st.columns([1, 1])
+        with _toggle_col1:
+            if not _gp67_manual:
+                if st.button("✏️ 직접 입력으로 전환", key="_gp67_to_manual",
+                             use_container_width=True,
+                             help="OCR 없이 바로 데이터를 입력합니다"):
+                    st.session_state["_gp67_manual_mode"] = True
+                    st.rerun()
+            else:
+                if st.button("📷 OCR 스캔 모드로 전환", key="_gp67_to_ocr",
+                             use_container_width=True):
+                    st.session_state["_gp67_manual_mode"] = False
+                    st.rerun()
+        with _toggle_col2:
+            st.markdown(
+                '<div style="background:#fef3c7;border-radius:8px;padding:6px 12px;'
+                'font-size:0.75rem;color:#92400e;font-weight:700;text-align:center;margin-top:4px;">'
+                f'현재 모드: {"✏️ 수동 직접 입력" if _gp67_manual else "📷 OCR 자동 스캔"}'
+                '</div>',
+                unsafe_allow_html=True,
             )
-        with _sc2:
-            st.markdown("""<div style="background:#f0f9ff;border-radius:10px;
+
+        _claim_ws = st.session_state.get("_claim_workspace", [])
+        _claim_uploaded = None
+
+        # ════════════════════════════════════════════════════════════════
+        # [GP-67 §1·§2] 수동 입력 폼 (Manual_Input_Form)
+        # ════════════════════════════════════════════════════════════════
+        if _gp67_manual:
+            st.markdown("""
+<div style="background:#fffbeb;border:2px solid #f59e0b;border-radius:12px;
+  padding:14px 18px;margin:10px 0 8px 0;">
+  <div style="font-size:0.78rem;font-weight:900;color:#92400e;margin-bottom:10px;
+  letter-spacing:0.05em;">✏️ GP-67 수동 입력 폼 — 직접 타이핑으로 데이터 입력</div>
+</div>""", unsafe_allow_html=True)
+
+            _mf1, _mf2 = st.columns(2)
+            with _mf1:
+                _mf_date = st.date_input(
+                    "📅 진료 일자",
+                    value=st.session_state.get("_mf_date", None),
+                    key="_mf_date_input",
+                    help="실제 진료받은 날짜를 선택하세요",
+                )
+                _mf_hospital = st.text_input(
+                    "🏥 의료기관명",
+                    value=st.session_state.get("_mf_hospital", ""),
+                    key="_mf_hospital_input",
+                    placeholder="예: 서울대학교병원",
+                )
+                _mf_receipt_no = st.text_input(
+                    "🧾 영수증 번호",
+                    value=st.session_state.get("_mf_receipt_no", ""),
+                    key="_mf_receipt_input",
+                    placeholder="예: 2024-00123",
+                )
+            with _mf2:
+                _mf_benefit_type = st.selectbox(
+                    "💊 급여/비급여 구분",
+                    options=["급여", "비급여", "급여+비급여 혼합"],
+                    index=["급여", "비급여", "급여+비급여 혼합"].index(
+                        st.session_state.get("_mf_benefit_type", "급여+비급여 혼합")
+                    ),
+                    key="_mf_benefit_select",
+                )
+                _mf_category = st.selectbox(
+                    "🏷️ 청구 항목 분류",
+                    options=["진찰료(외래)", "약제비", "검사료(혈액)",
+                             "검사료(MRI/CT)", "영상진단료(X-Ray)",
+                             "처치·수술료", "입원료", "입원식대",
+                             "재활치료", "간병인 비용"],
+                    key="_mf_category_select",
+                )
+                _mf_amount_raw = st.text_input(
+                    "💰 최종 청구 금액 (원)",
+                    value=st.session_state.get("_mf_amount_raw", ""),
+                    key="_mf_amount_input",
+                    placeholder="예: 47500",
+                    help="숫자만 입력 (콤마 제외)",
+                )
+
+            # ── GP-67 §3: 데이터 무결성 체크 ────────────────────────────
+            import datetime as _dt
+            _mf_errors = []
+
+            # 금액 검증
+            _mf_amount_int = 0
+            if _mf_amount_raw.strip() == "":
+                _mf_errors.append("💰 청구 금액을 입력해 주세요.")
+            else:
+                _mf_amount_clean = _mf_amount_raw.replace(",", "").replace(" ", "")
+                if not _mf_amount_clean.isdigit():
+                    _mf_errors.append("💰 정확한 금액을 입력해 주세요 — 숫자만 허용됩니다.")
+                else:
+                    _mf_amount_int = int(_mf_amount_clean)
+
+            # 날짜 검증 (미래 날짜 차단)
+            try:
+                if _mf_date and _mf_date > _dt.date.today():
+                    _mf_errors.append("📅 미래 날짜는 입력할 수 없습니다. 실제 진료일을 확인하세요.")
+            except Exception:
+                pass
+
+            # 의료기관 공란 체크
+            if not _mf_hospital.strip():
+                _mf_errors.append("🏥 의료기관명을 입력해 주세요.")
+
+            # 오류 표시
+            if _mf_errors:
+                for _err in _mf_errors:
+                    st.markdown(
+                        f'<div style="background:#fef2f2;border-left:4px solid #ef4444;'
+                        f'border-radius:0 8px 8px 0;padding:7px 14px;'
+                        f'font-size:0.8rem;color:#b91c1c;font-weight:700;margin-bottom:4px;">'
+                        f'⚠️ {_err}</div>',
+                        unsafe_allow_html=True,
+                    )
+
+            # ── 추가 항목 누적 리스트 표시 ───────────────────────────────
+            _mf_pending = st.session_state.get("_mf_pending_items", [])
+            if _mf_pending:
+                _mf_pending_str = ", ".join(
+                    f"{it['name']} ({it['amount']:,}원)" for it in _mf_pending
+                )
+                st.markdown(
+                    f'<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;'
+                    f'padding:8px 14px;font-size:0.78rem;color:#166534;margin-bottom:6px;">'
+                    f'📋 입력 대기 항목 {len(_mf_pending)}건: {_mf_pending_str}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            _mb1, _mb2, _mb3 = st.columns([2, 2, 1])
+            with _mb1:
+                _mf_add_disabled = bool(_mf_errors) or _mf_amount_int <= 0
+                if st.button("➕ 항목 추가", key="_mf_add_btn",
+                             disabled=_mf_add_disabled,
+                             use_container_width=True):
+                    _cat_map = {
+                        "진찰료(외래)": "outpatient", "약제비": "drug",
+                        "검사료(혈액)": "test", "검사료(MRI/CT)": "test",
+                        "영상진단료(X-Ray)": "test", "처치·수술료": "surgery",
+                        "입원료": "inpatient", "입원식대": "inpatient",
+                        "재활치료": "rehab", "간병인 비용": "nursing",
+                    }
+                    _new_item = {
+                        "name":     _mf_category,
+                        "amount":   _mf_amount_int,
+                        "selected": True,
+                        "category": _cat_map.get(_mf_category, "outpatient"),
+                        "hospital": _mf_hospital.strip(),
+                        "receipt":  _mf_receipt_no.strip(),
+                        "date":     str(_mf_date),
+                        "benefit":  _mf_benefit_type,
+                        "source":   "manual",
+                    }
+                    _mf_pending.append(_new_item)
+                    st.session_state["_mf_pending_items"] = _mf_pending
+                    st.session_state["_mf_amount_raw"] = ""
+                    st.rerun()
+            with _mb2:
+                _mf_commit_disabled = len(_mf_pending) == 0
+                if st.button("✅ 입력 완료 → 청구 계산 시작", key="_mf_commit_btn",
+                             type="primary",
+                             disabled=_mf_commit_disabled,
+                             use_container_width=True):
+                    st.session_state["_claim_workspace"]   = _mf_pending
+                    st.session_state["_claim_deductible"]  = 20000
+                    st.session_state["_claim_policy_lump"] = 0
+                    st.session_state["_claim_gen4"]        = True
+                    st.session_state["_mf_pending_items"]  = []
+                    st.session_state["_gp67_input_source"] = "manual"
+                    st.rerun()
+            with _mb3:
+                if st.button("🗑️ 초기화", key="_mf_clear_btn",
+                             use_container_width=True):
+                    st.session_state["_mf_pending_items"] = []
+                    st.rerun()
+
+        # ════════════════════════════════════════════════════════════════
+        # [GP-67 §1·§2] OCR 스캔 모드 (기존 + Side-by-Side 추가)
+        # ════════════════════════════════════════════════════════════════
+        else:
+            _sc1, _sc2 = st.columns([3, 2])
+            with _sc1:
+                _claim_uploaded = st.file_uploader(
+                    "영수증 또는 보험증권 이미지/PDF 업로드",
+                    type=["jpg", "jpeg", "png", "pdf"],
+                    key="_claim_uploader",
+                    label_visibility="visible",
+                )
+            with _sc2:
+                st.markdown("""<div style="background:#f0f9ff;border-radius:10px;
   padding:10px 14px;font-size:0.78rem;color:#0369a1;line-height:1.7;margin-top:8px;">
 <b>지원 파일</b><br>
 • 병원 진료비 영수증<br>
@@ -15319,70 +15756,134 @@ window['startTTS_{tab_key}']=function(){{
 • 수술·입원 확인서
 </div>""", unsafe_allow_html=True)
 
-        _claim_ws = st.session_state.get("_claim_workspace", [])
+            if _claim_uploaded:
+                # ── GP-67 §2: Side-by-Side Review ───────────────────────
+                if _claim_uploaded.type.startswith("image"):
+                    st.markdown("""
+<div style="background:#f0f9ff;border:1px solid #38bdf8;border-radius:10px;
+  padding:8px 14px;font-size:0.78rem;font-weight:900;color:#0369a1;margin:8px 0 4px 0;">
+📐 GP-67 Side-by-Side Review — 스캔 이미지와 인식 데이터를 나란히 확인하세요
+</div>""", unsafe_allow_html=True)
+                    _side_img, _side_fields = st.columns([1, 1])
+                    with _side_img:
+                        st.markdown("**📷 스캔 이미지**", unsafe_allow_html=False)
+                        st.image(_claim_uploaded, caption="업로드된 영수증",
+                                 use_container_width=True)
+                    with _side_fields:
+                        st.markdown("**🔍 인식 데이터 필드 (클릭하여 수정)**")
+                        # OCR 완료 후 인식 필드 미리보기 (편집 가능)
+                        _ocr_preview = st.session_state.get("_gp67_ocr_preview", {})
+                        _prev_hospital = st.text_input(
+                            "🏥 의료기관명",
+                            value=_ocr_preview.get("hospital", ""),
+                            key="_ocr_prev_hospital",
+                            placeholder="OCR 인식 결과 (수정 가능)",
+                        )
+                        _prev_date = st.text_input(
+                            "📅 진료 일자",
+                            value=_ocr_preview.get("date", ""),
+                            key="_ocr_prev_date",
+                            placeholder="YYYY-MM-DD",
+                        )
+                        _prev_receipt = st.text_input(
+                            "🧾 영수증 번호",
+                            value=_ocr_preview.get("receipt", ""),
+                            key="_ocr_prev_receipt",
+                            placeholder="OCR 인식 결과",
+                        )
+                        _prev_total_raw = st.text_input(
+                            "💰 합계 금액 (원)",
+                            value=_ocr_preview.get("total", ""),
+                            key="_ocr_prev_total",
+                            placeholder="OCR 인식 결과 (수정 가능)",
+                        )
+                        # GP-67 §3: 합계 금액 검증
+                        if _prev_total_raw.strip():
+                            _prev_total_clean = _prev_total_raw.replace(",", "").replace(" ", "")
+                            if not _prev_total_clean.isdigit():
+                                st.markdown(
+                                    '<div style="background:#fef2f2;border-left:4px solid #ef4444;'
+                                    'border-radius:0 8px 8px 0;padding:6px 12px;'
+                                    'font-size:0.78rem;color:#b91c1c;font-weight:700;">'
+                                    '⚠️ 정확한 금액을 입력해 주세요 — 숫자만 허용됩니다.</div>',
+                                    unsafe_allow_html=True,
+                                )
+                        # OCR 수정 내용 저장
+                        st.session_state["_gp67_ocr_preview"] = {
+                            "hospital": _prev_hospital,
+                            "date":     _prev_date,
+                            "receipt":  _prev_receipt,
+                            "total":    _prev_total_raw,
+                        }
+                else:
+                    st.success(f"📄 파일 업로드 완료: {_claim_uploaded.name}")
 
-        if _claim_uploaded:
-            if _claim_uploaded.type.startswith("image"):
-                st.image(_claim_uploaded, caption="업로드된 파일 미리보기", use_container_width=True)
-            else:
-                st.success(f"📄 파일 업로드 완료: {_claim_uploaded.name}")
-
-            if st.button("🔍 OCR 분석 실행 — 항목 자동 추출", key="_claim_ocr_btn",
-                         type="primary", use_container_width=True):
-                with st.spinner(""):
-                    # 스켈레톤 UI (제40조: 0.5초 구동 원칙)
-                    _skel_ph = st.empty()
-                    _skel_ph.markdown("""
+                if st.button("🔍 OCR 분석 실행 — 항목 자동 추출", key="_claim_ocr_btn",
+                             type="primary", use_container_width=True):
+                    with st.spinner(""):
+                        _skel_ph = st.empty()
+                        _skel_ph.markdown("""
 <div style="padding:12px;">
   <div class="gk-skeleton" style="width:60%;"></div>
   <div class="gk-skeleton" style="width:80%;"></div>
   <div class="gk-skeleton" style="width:50%;"></div>
   <div class="gk-skeleton" style="width:70%;"></div>
 </div>""", unsafe_allow_html=True)
-                    import time as _t; _t.sleep(0.4)
-                    _skel_ph.empty()
+                        import time as _t; _t.sleep(0.4)
+                        _skel_ph.empty()
 
-                # SSOT 연동: scan_hub 스캔 데이터가 있으면 우선 활용
-                _ssot = st.session_state.get("ssot_full_text", "")
-                # 증권 파싱 결과 연동: parse_policy 결과가 있으면 정액 자동 설정
-                _parsed_policy = st.session_state.get("parsed_policy", {})
-                _lump_from_policy = 0
-                if _parsed_policy:
-                    for _cov in _parsed_policy.get("coverages", []):
-                        if _cov.get("category") in ("surgery", "daily", "diagnosis"):
-                            _lump_from_policy += (_cov.get("amount") or 0)
+                    _parsed_policy = st.session_state.get("parsed_policy", {})
+                    _lump_from_policy = 0
+                    if _parsed_policy:
+                        for _cov in _parsed_policy.get("coverages", []):
+                            if _cov.get("category") in ("surgery", "daily", "diagnosis"):
+                                _lump_from_policy += (_cov.get("amount") or 0)
 
-                # OCR 항목 자동 생성 (실제 Vision API 연동 전 데모)
-                _demo_items = [
-                    {"name": "진찰료(외래)",      "amount": 15000, "selected": True,  "category": "outpatient"},
-                    {"name": "약제비",             "amount": 32000, "selected": True,  "category": "drug"},
-                    {"name": "검사료(혈액)",       "amount": 28500, "selected": False, "category": "test"},
-                    {"name": "영상진단료(X-Ray)",  "amount": 45000, "selected": False, "category": "test"},
-                    {"name": "처치·수술료",        "amount": 0,     "selected": False, "category": "surgery"},
-                ]
-                st.session_state["_claim_workspace"]    = _demo_items
-                st.session_state["_claim_deductible"]   = 20000
-                st.session_state["_claim_policy_lump"]  = _lump_from_policy if _lump_from_policy else 100000
-                st.session_state["_claim_gen4"]         = True   # 4세대 실손 여부 (기본값)
-                st.rerun()
+                    # OCR Auto-fill: 데모 항목 + Side-by-Side 필드 프리필
+                    _demo_items = [
+                        {"name": "진찰료(외래)",     "amount": 15000, "selected": True,  "category": "outpatient", "source": "ocr"},
+                        {"name": "약제비",            "amount": 32000, "selected": True,  "category": "drug",       "source": "ocr"},
+                        {"name": "검사료(혈액)",      "amount": 28500, "selected": False, "category": "test",       "source": "ocr"},
+                        {"name": "영상진단료(X-Ray)", "amount": 45000, "selected": False, "category": "test",       "source": "ocr"},
+                        {"name": "처치·수술료",       "amount": 0,     "selected": False, "category": "surgery",    "source": "ocr"},
+                    ]
+                    # GP-67 §3: amount=0 인 항목은 OCR 깨짐 → 빈칸 처리 플래그
+                    for _di in _demo_items:
+                        if _di["amount"] == 0:
+                            _di["_ocr_broken"] = True
 
-        # SSOT 연동 안내
-        _ssot_txt = st.session_state.get("ssot_full_text", "")
-        if _ssot_txt and not _claim_uploaded:
-            st.info(f"🔗 스캔 허브 데이터 자동 연동 ({len(_ssot_txt):,}자) — 업로드 없이도 분석 가능합니다.")
-            if st.button("📂 스캔 허브 데이터로 항목 생성", key="_claim_from_ssot",
-                         use_container_width=True):
-                _demo_items = [
-                    {"name": "진찰료(외래)",     "amount": 15000, "selected": True,  "category": "outpatient"},
-                    {"name": "약제비",            "amount": 32000, "selected": True,  "category": "drug"},
-                    {"name": "검사료(혈액)",      "amount": 28500, "selected": True,  "category": "test"},
-                    {"name": "영상진단료(X-Ray)", "amount": 45000, "selected": False, "category": "test"},
-                ]
-                st.session_state["_claim_workspace"]   = _demo_items
-                st.session_state["_claim_deductible"]  = 20000
-                st.session_state["_claim_policy_lump"] = 0
-                st.session_state["_claim_gen4"]        = True
-                st.rerun()
+                    st.session_state["_claim_workspace"]   = _demo_items
+                    st.session_state["_claim_deductible"]  = 20000
+                    st.session_state["_claim_policy_lump"] = _lump_from_policy if _lump_from_policy else 100000
+                    st.session_state["_claim_gen4"]        = True
+                    st.session_state["_gp67_input_source"] = "ocr"
+                    # Side-by-Side 필드 자동 채움
+                    st.session_state["_gp67_ocr_preview"] = {
+                        "hospital": "자동인식 병원명",
+                        "date":     str(__import__("datetime").date.today()),
+                        "receipt":  "OCR-2024-001",
+                        "total":    "120500",
+                    }
+                    st.rerun()
+
+            # SSOT 연동 안내
+            _ssot_txt = st.session_state.get("ssot_full_text", "")
+            if _ssot_txt and not _claim_uploaded:
+                st.info(f"🔗 스캔 허브 데이터 자동 연동 ({len(_ssot_txt):,}자) — 업로드 없이도 분석 가능합니다.")
+                if st.button("📂 스캔 허브 데이터로 항목 생성", key="_claim_from_ssot",
+                             use_container_width=True):
+                    _demo_items = [
+                        {"name": "진찰료(외래)",     "amount": 15000, "selected": True,  "category": "outpatient", "source": "ssot"},
+                        {"name": "약제비",            "amount": 32000, "selected": True,  "category": "drug",       "source": "ssot"},
+                        {"name": "검사료(혈액)",      "amount": 28500, "selected": True,  "category": "test",       "source": "ssot"},
+                        {"name": "영상진단료(X-Ray)", "amount": 45000, "selected": False, "category": "test",       "source": "ssot"},
+                    ]
+                    st.session_state["_claim_workspace"]   = _demo_items
+                    st.session_state["_claim_deductible"]  = 20000
+                    st.session_state["_claim_policy_lump"] = 0
+                    st.session_state["_claim_gen4"]        = True
+                    st.session_state["_gp67_input_source"] = "ssot"
+                    st.rerun()
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -15397,13 +15898,47 @@ window['startTTS_{tab_key}']=function(){{
                 st.markdown('<div class="gk-claim-section">'
                             '<div class="gk-claim-section-title">✅ STEP 2 — 청구 항목 선택</div>',
                             unsafe_allow_html=True)
+                # ── GP-67 §5: 입력 소스 표시 ─────────────────────────────────
+                _gp67_src = st.session_state.get("_gp67_input_source", "ocr")
+                _src_badge = {
+                    "manual": '<span style="background:#fef3c7;color:#92400e;font-size:0.68rem;'
+                              'font-weight:900;border-radius:4px;padding:1px 6px;">'
+                              '✏️ 수동입력</span>',
+                    "ocr":    '<span style="background:#e0f2fe;color:#0369a1;font-size:0.68rem;'
+                              'font-weight:900;border-radius:4px;padding:1px 6px;">'
+                              '📷 OCR자동</span>',
+                    "ssot":   '<span style="background:#f0fdf4;color:#166534;font-size:0.68rem;'
+                              'font-weight:900;border-radius:4px;padding:1px 6px;">'
+                              '🔗 스캔허브</span>',
+                }.get(_gp67_src, "")
+                st.markdown(
+                    f'<div style="font-size:0.73rem;color:#64748b;margin-bottom:6px;">'
+                    f'데이터 출처: {_src_badge}&nbsp;&nbsp;'
+                    f'항목을 체크하여 청구할 항목을 선택하세요.</div>',
+                    unsafe_allow_html=True,
+                )
+
                 _updated_ws = []
                 _any_surgery = False
                 _any_inpatient = False
                 for _i, _item in enumerate(_claim_ws):
+                    _ocr_broken = _item.get("_ocr_broken", False)
+                    if _ocr_broken:
+                        # GP-67 §3: OCR 깨짐 항목 — 빨간 경고 + 비활성화
+                        st.markdown(
+                            f'<div style="background:#fef2f2;border-left:4px solid #ef4444;'
+                            f'border-radius:0 8px 8px 0;padding:6px 12px;'
+                            f'font-size:0.78rem;color:#b91c1c;font-weight:700;margin-bottom:4px;">'
+                            f'⚠️ [{_item["name"]}] OCR 미인식 — 직접 입력으로 전환 후 수동 입력해 주세요.</div>',
+                            unsafe_allow_html=True,
+                        )
+                        _updated_ws.append({**_item, "selected": False})
+                        continue
                     _amt_str = f"**{_item['amount']:,}원**" if _item["amount"] > 0 else "*(금액 입력 필요)*"
+                    _src_item = _item.get("source", "ocr")
+                    _src_tag = " [수동]" if _src_item == "manual" else ""
                     _chk = st.checkbox(
-                        f"{_item['name']}  —  {_amt_str}",
+                        f"{_item['name']}{_src_tag}  —  {_amt_str}",
                         value=_item["selected"],
                         key=f"_claim_chk_{_i}",
                     )
@@ -21769,12 +22304,69 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
                 social_security   = _inj_social * 10000,
             )
 
-            # AI 분석 버튼
-            _inj_hi = st.number_input("월 건강보험료 (원, 소득 역산용)",
-                value=0, step=1000, key="inj_hi")
-            if _inj_hi > 0:
-                _inj_est_inc = _inj_hi / 0.0709
-                st.success(f"역산 월소득: **{_inj_est_inc/10000:,.1f}만원** | 적정 보험료: **{_inj_est_inc*0.15/10000:,.1f}만원**")
+            # ── GP-62 §1: 소득 역산 패널 ─────────────────────────────────
+            st.markdown("""<div style="background:#0d1b2a;border:1px solid #2563eb;
+  border-radius:9px;padding:8px 14px;margin:10px 0 6px 0;">
+  <span style="font-size:0.82rem;font-weight:900;color:#7ec8f5;">
+  ⚙️ GP-62 소득 역산 엔진 — 건강보험료 입력 시 자동 산출</span></div>""",
+                unsafe_allow_html=True)
+            _g62c1, _g62c2 = st.columns(2)
+            with _g62c1:
+                _g62_nhis = st.number_input("건강보험료 (원/월)",
+                    min_value=0, value=int(st.session_state.get("g62_nhis", 0)),
+                    step=1000, key="g62_nhis",
+                    help="입력 시 7.09% 요율로 월소득 자동 역산")
+            with _g62c2:
+                _g62_override = st.number_input("소득 Override (만원, 0=자동)",
+                    min_value=0, value=int(st.session_state.get("g62_override", 0)),
+                    step=50, key="g62_override",
+                    help="직접 수정 시 역산값 대신 이 값이 최우선 적용")
+            _g62r = _art62_calc(
+                monthly_income_man  = _inj_income,
+                nhis_premium        = float(_g62_nhis),
+                override_income_man = float(_g62_override),
+            )
+            _g62_m   = _g62r["monthly_income"]
+            _g62_src = _g62r["income_source"]
+            _g62_is_fallback = (_g62_src == "Fallback·고정액")
+
+            # ── GP-66 §3: 소득 미입력 여부에 따라 배너 분기 ─────────────────
+            if _g62_is_fallback:
+                # 소득 데이터 부재 → 관리자 표준 권장 기준(기준 B) 100% 적용 안내
+                st.markdown(
+                    f'<div style="background:#2d1a00;border:2px solid #f59e0b;border-radius:7px;'
+                    f'padding:9px 14px;font-size:0.78rem;margin-bottom:6px;">'
+                    f'<div style="color:#fbbf24;font-weight:900;font-size:0.82rem;margin-bottom:4px;">'
+                    f'⚠️ 소득 데이터 미제공 → 마스터 권장 기준(기준 B) 적용</div>'
+                    f'<span style="color:#fed7aa;">전문가 권장 표준 안보 지수 기준으로 분석되었습니다.</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#fcd34d;font-weight:700;">암: {_g62r["target_cancer"]:,}만원</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#f87171;font-weight:700;">뇌혈관: {_g62r["target_brain"]:,}만원</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#7ec8f5;font-weight:700;">일당: {_g62r["target_daily"]:,.1f}만원</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#c4b5fd;font-weight:700;">후유장해: {_g62r["target_disability"]:,}만원</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                # 소득 데이터 정상 → 기준 C(Dynamic/Static) 적용 결과 표시
+                _basis_tag = {
+                    "Dynamic":  ("📊", "#22c55e", "소득역산"),
+                    "Static":   ("🔒", "#f59e0b", "관리자고정"),
+                    "Fallback": ("⚠️", "#f59e0b", "기준B"),
+                }.get(_g62r.get("cancer_basis", "Dynamic"), ("📊", "#22c55e", "소득역산"))
+                st.markdown(
+                    f'<div style="background:#0d1b2a;border:1px solid #22c55e;border-radius:7px;'
+                    f'padding:7px 14px;font-size:0.78rem;margin-bottom:6px;">'
+                    f'<span style="color:#86efac;font-weight:900;">적용 월소득: {_g62_m:,.1f}만원</span>'
+                    f'&nbsp;<span style="color:#64748b;">({_g62_src})</span>'
+                    f'&nbsp;<span style="color:{_basis_tag[1]};font-size:0.72rem;">{_basis_tag[0]}{_basis_tag[2]}</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#fcd34d;">암: {_g62r["target_cancer"]:,}만원</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#f87171;">뇌혈관: {_g62r["target_brain"]:,}만원</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#7ec8f5;">일당: {_g62r["target_daily"]:,.1f}만원</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#c4b5fd;">후유장해: {_g62r["target_disability"]:,}만원</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            st.session_state["_g62_result"] = _g62r
 
             _do_inj_ai = st.button("🔍 AI 통합 상해 분석", type="primary",
                                    key="btn_inj_ai", use_container_width=True)
@@ -21853,6 +22445,96 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
 
 </div>""", height=340)
 
+            # ── GP-66 §3: 담보별 권장 비교표 (Fallback 분기) ────────────────
+            _g62r_cached = st.session_state.get("_g62_result", _g62r)
+            _b_cancer_disp  = _g62r_cached.get("cancer_b",  _g62r_cached.get("target_cancer", 0))
+            _b_brain_disp   = _g62r_cached.get("brain_b",   _g62r_cached.get("target_brain",  0))
+            _a_cancer_disp  = _g62r_cached.get("cancer_a",  0)
+            _a_brain_disp   = _g62r_cached.get("brain_a",   0)
+            if _g62_is_fallback:
+                # 소득 없음 → 관리자 표준 권장선만 굵게, 소득 기반 권장선 숨김
+                components.html(f"""
+<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  background:#1a1000;border:2px solid #f59e0b;border-radius:9px;
+  padding:12px 16px;margin:10px 0;">
+  <div style="color:#fbbf24;font-weight:900;font-size:0.83rem;margin-bottom:8px;">
+    ⚠️ 소득 데이터 미제공 — 관리자 표준 권장선(기준 B) 단독 적용
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:0.76rem;">
+  <tr style="background:#2d1a00;color:#fcd34d;">
+    <th style="padding:4px 8px;border:1px solid #78350f;text-align:center;">담보</th>
+    <th style="padding:4px 8px;border:1px solid #78350f;text-align:center;">소득 기반 권장선</th>
+    <th style="padding:4px 8px;border:1px solid #f59e0b;text-align:center;background:#78350f;">
+      ★ 관리자 표준 권장선 (최종)</th>
+  </tr>
+  <tr style="color:#aaa;">
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;color:#666;">암 진단비</td>
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;
+      text-decoration:line-through;color:#555;">미산출</td>
+    <td style="padding:4px 8px;border:2px solid #f59e0b;text-align:center;
+      font-weight:900;color:#fbbf24;font-size:0.88rem;">{_b_cancer_disp:,}만원</td>
+  </tr>
+  <tr style="color:#aaa;">
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;color:#666;">뇌혈관 진단비</td>
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;
+      text-decoration:line-through;color:#555;">미산출</td>
+    <td style="padding:4px 8px;border:2px solid #f59e0b;text-align:center;
+      font-weight:900;color:#fbbf24;font-size:0.88rem;">{_b_brain_disp:,}만원</td>
+  </tr>
+  <tr style="color:#aaa;">
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;color:#666;">일당</td>
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;
+      text-decoration:line-through;color:#555;">미산출</td>
+    <td style="padding:4px 8px;border:2px solid #f59e0b;text-align:center;
+      font-weight:900;color:#fbbf24;font-size:0.88rem;">{_g62r_cached.get("target_daily",0):,.1f}만원</td>
+  </tr>
+  <tr style="color:#aaa;">
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;color:#666;">후유장해</td>
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;
+      text-decoration:line-through;color:#555;">미산출</td>
+    <td style="padding:4px 8px;border:2px solid #f59e0b;text-align:center;
+      font-weight:900;color:#fbbf24;font-size:0.88rem;">{_g62r_cached.get("target_disability",0):,}만원</td>
+  </tr>
+  </table>
+  <div style="color:#f97316;font-size:0.70rem;margin-top:6px;">
+    * GP-66: 건강보험료 미입력 시 관리자 고정 권장액(기준 B)이 최종 권장값으로 자동 채택됩니다.
+  </div>
+</div>""", height=210)
+            else:
+                # 소득 있음 → 기준 A vs 기준 B 비교표
+                components.html(f"""
+<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  background:#0d1b2a;border:1px solid #22c55e;border-radius:9px;
+  padding:10px 14px;margin:10px 0;">
+  <div style="color:#86efac;font-weight:900;font-size:0.82rem;margin-bottom:7px;">
+    📊 GP-65 기준 A vs B 비교 — 최종 = MAX(A, B)
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:0.75rem;">
+  <tr style="background:#1e293b;color:#94a3b8;">
+    <th style="padding:4px 8px;border:1px solid #334155;text-align:center;">담보</th>
+    <th style="padding:4px 8px;border:1px solid #334155;text-align:center;">소득 기반 (A)</th>
+    <th style="padding:4px 8px;border:1px solid #334155;text-align:center;">관리자 표준 (B)</th>
+    <th style="padding:4px 8px;border:1px solid #22c55e;text-align:center;background:#14532d;">최종 채택</th>
+  </tr>
+  <tr>
+    <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#e2e8f0;">암</td>
+    <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#7dd3fc;">{_a_cancer_disp:,}만원</td>
+    <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#fcd34d;">{_b_cancer_disp:,}만원</td>
+    <td style="padding:4px 8px;border:1px solid #22c55e;text-align:center;
+      font-weight:900;color:#4ade80;">{_g62r_cached.get("target_cancer",0):,}만원
+      <span style="font-size:0.68rem;color:#86efac;">({_g62r_cached.get("cancer_basis","?")})</span></td>
+  </tr>
+  <tr style="background:#0f172a;">
+    <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#e2e8f0;">뇌혈관</td>
+    <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#7dd3fc;">{_a_brain_disp:,}만원</td>
+    <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#fcd34d;">{_b_brain_disp:,}만원</td>
+    <td style="padding:4px 8px;border:1px solid #22c55e;text-align:center;
+      font-weight:900;color:#4ade80;">{_g62r_cached.get("target_brain",0):,}만원
+      <span style="font-size:0.68rem;color:#86efac;">({_g62r_cached.get("brain_basis","?")})</span></td>
+  </tr>
+  </table>
+</div>""", height=175)
+
             # ── 5단계 생애 흐름 ───────────────────────────────────────────
             st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
   border-radius:0 8px 8px 0;padding:6px 14px;margin:10px 0 6px 0;
@@ -21887,7 +22569,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
 <tr style="background:#f0f4ff;">
   <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#2e6da4;">4️⃣ 소득</td>
   <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">소득 보전</td>
-  <td style="padding:5px 8px;border:1px solid #ddd;">{_inj_work_loss+_inj_rehab}개월 × {_inj_income:,}만원 → H={_h_coeff} 할인 → <b>필요 {_req_man:,}만원</b></td>
+  <td style="padding:5px 8px;border:1px solid #ddd;">{'⚠️ 소득 데이터 미제공 → 마스터 권장 기준 적용' if _g62_is_fallback else f'{_inj_work_loss+_inj_rehab}개월 × {_inj_income:,}만원 → H={_h_coeff} 할인 → <b>필요 {_req_man:,}만원</b>'}</td>
 </tr>
 <tr style="background:#fdf0ff;">
   <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#8e44ad;">5️⃣ 종결</td>
@@ -21919,7 +22601,8 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
                 extra_prompt=(
                     "[상해 통합 관리 — LCRM 분석]\n"
                     f"{_type_prompt.get(_inj_type, '')}"
-                    f"월소득: {_inj_income}만원 / 휴업: {_inj_work_loss}개월 / 재활: {_inj_rehab}개월\n"
+                    f"월소득: {'미입력(관리자표준기준B적용)' if _g62_is_fallback else f'{_inj_income}만원'} / 휴업: {_inj_work_loss}개월 / 재활: {_inj_rehab}개월\n"
+                    f"{'[GP-66] 소득 데이터 미제공 → 마스터 권장 기준(기준 B) 100% 적용' + chr(10) if _g62_is_fallback else ''}"
                     f"장해율: {_inj_dis_rate}% / 호프만계수 H={_h_coeff} / 필요 가입금액: {_req_man:,}만원\n"
                     f"현재 준비: {_cur_man:,}만원 / 보장 공백: {_gap_man:,}만원 / 소득단절: {_dep_mon}개월 후 고갈\n"
                     f"사회보장 보전액: {_inj_social}만원{_over_txt}\n\n"
@@ -29205,6 +29888,257 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                         f"- **{_dg['name']}** ({_dg['approval']}) — "
                         f"연간 {_dg['annual_cost_krw']//10000:,}만원 | {_dg['kfda_status']}"
                     )
+
+            # ══════════════════════════════════════════════════════════════
+            # ⚙️ [가이딩 프로토콜 제64조] 마스터 설정 대시보드
+            # ══════════════════════════════════════════════════════════════
+            with st.expander("⚙️ [가이딩 프로토콜 제64조] 마스터 설정 대시보드 (전역 계산 엔진 변수)", expanded=False):
+                import app as _gp64_mod
+
+                _gp64_cur = _gp64_mod._GP64_MASTER_CONFIG.copy()
+
+                st.markdown("""
+<div style="background:linear-gradient(135deg,#0d1b2a,#1c2e10);border:1px solid #22c55e;
+  border-radius:10px;padding:10px 16px;margin-bottom:10px;font-size:0.80rem;color:#86efac;line-height:1.6;">
+  <b>📋 GP-64 §1</b> — 아래 값을 변경하면 <b>모든 고객의 권장 가입금액이 즉시 재산출</b>됩니다.<br>
+  저장 전 <b>현재값 ↔ 수정값 비교 표</b>를 반드시 확인하고 [적용] 버튼을 누르세요.
+</div>""", unsafe_allow_html=True)
+
+                # ── 입력 폼 ────────────────────────────────────────────────
+                _g64_fc1, _g64_fc2 = st.columns(2)
+
+                with _g64_fc1:
+                    st.markdown("##### 🏷️ Group 1 · 보험료율")
+                    _g64_nhis = st.number_input(
+                        "건강보험료율 (%)",
+                        value=float(_gp64_cur["nhis_rate_pct"]),
+                        min_value=1.0, max_value=20.0, step=0.01,
+                        format="%.4f",
+                        key="gp64_nhis_input",
+                        help="예: 7.09 → 역산 소득 = 건강보험료 / 요율",
+                    )
+                    _g64_ltci = st.number_input(
+                        "장기요양보험료율 (%)",
+                        value=float(_gp64_cur["ltci_rate_pct"]),
+                        min_value=0.1, max_value=5.0, step=0.001,
+                        format="%.4f",
+                        key="gp64_ltci_input",
+                    )
+
+                with _g64_fc2:
+                    st.markdown("##### 📐 Group 2 · 담보별 권장 배수")
+                    _g64_cancer_mo = st.number_input(
+                        "암 진단비 배수 (개월)",
+                        value=int(_gp64_cur["cancer_months"]),
+                        min_value=1, max_value=120, step=1,
+                        key="gp64_cancer_mo",
+                        help="권장 암 진단비 = 월소득 × N개월",
+                    )
+                    _g64_brain_mo = st.number_input(
+                        "뇌혈관 진단비 배수 (개월)",
+                        value=int(_gp64_cur["brain_months"]),
+                        min_value=1, max_value=120, step=1,
+                        key="gp64_brain_mo",
+                    )
+                    _g64_dis_mo = st.number_input(
+                        "후유장해 기준 개월수",
+                        value=int(_gp64_cur["disability_months"]),
+                        min_value=1, max_value=360, step=1,
+                        key="gp64_dis_mo",
+                    )
+                    _g64_dis_pct = st.number_input(
+                        "후유장해 소득 대체율 (%)",
+                        value=int(_gp64_cur["disability_pct"]),
+                        min_value=1, max_value=100, step=1,
+                        key="gp64_dis_pct",
+                    )
+                    _g64_daily_div = st.number_input(
+                        "월→일 환산 기준일수",
+                        value=int(_gp64_cur["daily_divisor"]),
+                        min_value=1, max_value=365, step=1,
+                        key="gp64_daily_div",
+                    )
+
+                st.markdown("##### 🛡️ Group 3 · 폴백 표준가액 (만원)")
+                _g64_lc1, _g64_lc2 = st.columns(2)
+                with _g64_lc1:
+                    _g64_fb_cancer = st.number_input(
+                        "암 진단비 폴백 (만원)",
+                        value=int(_gp64_cur.get("fallback_cancer", 3000)),
+                        min_value=0, step=100,
+                        key="gp64_fb_cancer",
+                        help="소득 정보 없을 때 사용되는 표준 가입금액",
+                    )
+                    _g64_fb_brain = st.number_input(
+                        "뇌혈관 진단비 폴백 (만원)",
+                        value=int(_gp64_cur.get("fallback_brain", 2000)),
+                        min_value=0, step=100,
+                        key="gp64_fb_brain",
+                    )
+                with _g64_lc2:
+                    _g64_fb_disability = st.number_input(
+                        "후유장해 폴백 (만원)",
+                        value=int(_gp64_cur.get("fallback_disability", 5000)),
+                        min_value=0, step=100,
+                        key="gp64_fb_disability",
+                    )
+                    _g64_fb_daily = st.number_input(
+                        "일당 폴백 (만원/일)",
+                        value=int(_gp64_cur.get("fallback_daily", 10)),
+                        min_value=0, step=1,
+                        key="gp64_fb_daily",
+                    )
+
+                st.markdown("##### 📊 Group 3-B · 클리핑 상한/하한 (만원)")
+                _g64_lc3, _g64_lc4 = st.columns(2)
+                with _g64_lc3:
+                    _g64_min_cancer = st.number_input(
+                        "암 진단비 최솟값 (만원)",
+                        value=int(_gp64_cur["min_cancer"]),
+                        min_value=0, step=100,
+                        key="gp64_min_cancer",
+                    )
+                    _g64_max_cancer = st.number_input(
+                        "암 진단비 최댓값 (만원)",
+                        value=int(_gp64_cur["max_cancer"]),
+                        min_value=100, step=100,
+                        key="gp64_max_cancer",
+                    )
+                with _g64_lc4:
+                    _g64_min_brain = st.number_input(
+                        "뇌혈관 진단비 최솟값 (만원)",
+                        value=int(_gp64_cur["min_brain"]),
+                        min_value=0, step=100,
+                        key="gp64_min_brain",
+                    )
+                    _g64_max_brain = st.number_input(
+                        "뇌혈관 진단비 최댓값 (만원)",
+                        value=int(_gp64_cur["max_brain"]),
+                        min_value=100, step=100,
+                        key="gp64_max_brain",
+                    )
+
+                st.markdown("##### 📌 Group 4 · GP-65 Static 고정 권장액 (기준 B, 만원)")
+                st.caption("0으로 설정하면 비활성. 최종 권장 = MAX(소득역산×배수, 고정액)")
+                _g64_sc1, _g64_sc2 = st.columns(2)
+                with _g64_sc1:
+                    _g64_st_cancer = st.number_input(
+                        "암 진단비 고정액 (만원)",
+                        value=int(_gp64_cur.get("static_cancer", 5000)),
+                        min_value=0, step=100,
+                        key="gp64_st_cancer",
+                        help="0이면 소득역산 배수만 사용",
+                    )
+                    _g64_st_brain = st.number_input(
+                        "뇌혈관 고정액 (만원)",
+                        value=int(_gp64_cur.get("static_brain", 3000)),
+                        min_value=0, step=100,
+                        key="gp64_st_brain",
+                    )
+                with _g64_sc2:
+                    _g64_st_disability = st.number_input(
+                        "후유장해 고정액 (만원)",
+                        value=int(_gp64_cur.get("static_disability", 5000)),
+                        min_value=0, step=100,
+                        key="gp64_st_disability",
+                    )
+                    _g64_st_daily = st.number_input(
+                        "일당 고정액 (만원/일)",
+                        value=int(_gp64_cur.get("static_daily", 10)),
+                        min_value=0, step=1,
+                        key="gp64_st_daily",
+                    )
+
+                # ── 현재값 vs 수정값 비교 표 ───────────────────────────────
+                st.markdown("---")
+                st.markdown("##### 🔍 현재값 ↔ 수정값 비교")
+                _g64_new = {
+                    "nhis_rate_pct":        _g64_nhis,
+                    "ltci_rate_pct":        _g64_ltci,
+                    "cancer_months":        _g64_cancer_mo,
+                    "brain_months":         _g64_brain_mo,
+                    "disability_months":    _g64_dis_mo,
+                    "disability_pct":       _g64_dis_pct,
+                    "daily_divisor":        _g64_daily_div,
+                    "fallback_cancer":      _g64_fb_cancer,
+                    "fallback_brain":       _g64_fb_brain,
+                    "fallback_disability":  _g64_fb_disability,
+                    "fallback_daily":       _g64_fb_daily,
+                    "min_cancer":           _g64_min_cancer,
+                    "max_cancer":           _g64_max_cancer,
+                    "min_brain":            _g64_min_brain,
+                    "max_brain":            _g64_max_brain,
+                    "static_cancer":        _g64_st_cancer,
+                    "static_brain":         _g64_st_brain,
+                    "static_disability":    _g64_st_disability,
+                    "static_daily":         _g64_st_daily,
+                }
+                _g64_labels = {
+                    "nhis_rate_pct":        "건강보험료율 (%)",
+                    "ltci_rate_pct":        "장기요양보험료율 (%)",
+                    "cancer_months":        "암 배수 (개월)",
+                    "brain_months":         "뇌혈관 배수 (개월)",
+                    "disability_months":    "후유장해 기준월",
+                    "disability_pct":       "후유장해 대체율 (%)",
+                    "daily_divisor":        "일 환산 기준일",
+                    "fallback_cancer":      "암 폴백 (만원)",
+                    "fallback_brain":       "뇌혈관 폴백 (만원)",
+                    "fallback_disability":  "후유장해 폴백 (만원)",
+                    "fallback_daily":       "일당 폴백 (만원/일)",
+                    "min_cancer":           "암 최솟값 (만원)",
+                    "max_cancer":           "암 최댓값 (만원)",
+                    "min_brain":            "뇌혈관 최솟값 (만원)",
+                    "max_brain":            "뇌혈관 최댓값 (만원)",
+                    "static_cancer":        "[GP-65] 암 고정액 (만원)",
+                    "static_brain":         "[GP-65] 뇌혈관 고정액 (만원)",
+                    "static_disability":    "[GP-65] 후유장해 고정액 (만원)",
+                    "static_daily":         "[GP-65] 일당 고정액 (만원/일)",
+                }
+                _g64_changed = {k: v for k, v in _g64_new.items() if v != _gp64_cur.get(k)}
+                _g64_rows = []
+                for _k, _label in _g64_labels.items():
+                    _cur_v = _gp64_cur.get(_k, "-")
+                    _new_v = _g64_new.get(_k, "-")
+                    _diff  = "🔴 변경" if _k in _g64_changed else "✅ 동일"
+                    _g64_rows.append({"항목": _label, "현재값": _cur_v, "수정값": _new_v, "변경여부": _diff})
+                import pandas as _pd64
+                _g64_df = _pd64.DataFrame(_g64_rows)
+                st.dataframe(_g64_df, use_container_width=True, hide_index=True)
+
+                # ── 확인 팝업(체크박스) + 저장 버튼 ──────────────────────
+                st.markdown("---")
+                if _g64_changed:
+                    st.warning(
+                        f"⚠️ **{len(_g64_changed)}개 항목**이 변경되었습니다. "
+                        "저장하면 **모든 고객의 권장 가입금액 계산에 즉시 반영**됩니다."
+                    )
+                    _g64_confirm = st.checkbox(
+                        "📌 변경 내용을 검토했으며, 전체 고객에게 즉시 적용함을 확인합니다.",
+                        key="gp64_confirm_chk",
+                    )
+                    if st.button(
+                        "💾 GP-64 마스터 설정 저장 및 즉시 반영",
+                        key="gp64_save_btn",
+                        type="primary",
+                        disabled=not _g64_confirm,
+                    ):
+                        _ok64 = _gp64_mod._gp64_save(_g64_new, updated_by="관리자(t9)")
+                        if _ok64:
+                            st.success(
+                                f"✅ GP-64 마스터 설정 저장 완료 (Supabase 포함) — "
+                                f"건강보험료율 {_g64_nhis}% | 암 배수 {_g64_cancer_mo}개월 | "
+                                f"뇌혈관 배수 {_g64_brain_mo}개월. "
+                                f"_art62_calc 엔진에 즉시 반영되었습니다."
+                            )
+                        else:
+                            st.success(
+                                f"✅ 로컬 반영 완료 (Supabase 저장 실패 — 현재 세션에만 적용) — "
+                                f"건강보험료율 {_g64_nhis}% | 암 {_g64_cancer_mo}개월."
+                            )
+                        st.rerun()
+                else:
+                    st.info("ℹ️ 변경된 항목이 없습니다.")
+                    st.button("💾 GP-64 마스터 설정 저장 및 즉시 반영", key="gp64_save_btn_no_change", disabled=True)
 
             # ══════════════════════════════════════════════════════════════
             # 🏭 중앙집중 서비스 관리 대시보드 (GoldKeyServiceManager)
