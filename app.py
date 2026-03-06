@@ -295,6 +295,38 @@ def _bid(bid: str) -> str:
         f'font-family:monospace;letter-spacing:0.03em;'
         f'pointer-events:none;user-select:none;z-index:9;">#{bid}</span>'
     )
+# ── [가이딩 프로토콜 제51.1조] 게스트 권한 제한 및 안보 격리 헬퍼 ─────────────
+def _is_guest() -> bool:
+    """현재 세션이 게스트(비회원 체험) 모드인지 반환."""
+    import streamlit as _st
+    return _st.session_state.get("_user_role") == "GUEST"
+
+def _guest_block_modal(feature_name: str = "") -> bool:
+    """게스트 모드에서 제한 기능 접근 시 전환 유도 모달을 표시하고 True를 반환.
+    로그인 사용자라면 False를 반환 (차단 없음).
+    사용법: if _guest_block_modal("고객 등록"): return  (또는 st.stop() 등)
+    """
+    import streamlit as _st
+    if not _is_guest():
+        return False
+    _feat = feature_name or "해당 기능"
+    _st.markdown(f"""
+<div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);
+  border:2px solid #f0c040;border-radius:14px;padding:18px 20px;
+  margin:8px 0;box-shadow:0 4px 20px rgba(240,192,64,0.22);">
+  <div style="font-size:1.1rem;font-weight:900;color:#f0c040;margin-bottom:8px;">
+    🔒 정회원 전용 기능
+  </div>
+  <div style="font-size:0.84rem;color:#e2e8f0;line-height:1.7;margin-bottom:10px;">
+    <b>'{_feat}'</b>은(는) <b>Goldkey AI Master 정회원</b> 전용입니다.<br>
+    지금 가입하여 고객 데이터를 안전하게 관리하세요.
+  </div>
+  <div style="font-size:0.76rem;color:#94a3b8;">
+    ← 사이드바 <b>회원가입</b> 탭에서 즉시 가입 가능합니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+    return True
+
 #
 # 제32조 [CFP 기반 라이프사이클 및 의학경제학적 보장 분석 표준]
 #   § 1. 건강보험료율(2024) 7.09%를 적용한 가처분 소득 역산을 최우선 지표로 삼는다.
@@ -4625,6 +4657,117 @@ def customer_doc_get_names() -> list:
         return sorted(result, key=lambda x: x["label"])
     except Exception:
         return []
+
+# --------------------------------------------------------------------------
+# [GP-51] 설계사 프로필 개인화 시스템 (White Labeling)
+# 테이블: gk_agent_profiles
+# 각 설계사가 자신의 이름·연락처·사진·소개를 등록 → 앱 헤더에 표시
+# --------------------------------------------------------------------------
+_AGENT_PROFILE_TABLE = "gk_agent_profiles"
+
+_AGENT_PROFILE_DDL = """
+CREATE TABLE IF NOT EXISTS gk_agent_profiles (
+    id           BIGSERIAL PRIMARY KEY,
+    agent_uid    TEXT NOT NULL UNIQUE,
+    display_name TEXT DEFAULT '',
+    phone        TEXT DEFAULT '',
+    email        TEXT DEFAULT '',
+    company      TEXT DEFAULT '',
+    intro        TEXT DEFAULT '',
+    photo_url    TEXT DEFAULT '',
+    ref_code     TEXT DEFAULT '',
+    ref_count    INTEGER DEFAULT 0,
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_gk_agent_profiles_uid ON gk_agent_profiles(agent_uid);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_gk_agent_profiles_ref ON gk_agent_profiles(ref_code);
+"""
+
+def _ensure_agent_profile_table(sb):
+    """gk_agent_profiles 테이블 자동 생성 시도"""
+    if not sb:
+        return
+    try:
+        sb.rpc("exec_sql", {"sql": _AGENT_PROFILE_DDL}).execute()
+    except Exception:
+        pass
+
+def save_agent_profile(agent_uid: str, display_name: str = "", phone: str = "",
+                       email: str = "", company: str = "", intro: str = "",
+                       photo_url: str = "") -> bool:
+    """[GP-51 §1] 설계사 프로필 저장/갱신 — upsert."""
+    sb = _get_sb_client() if _SB_PKG_OK else None
+    if not sb:
+        return False
+    try:
+        import hashlib as _hl
+        from datetime import datetime as _dtnow
+        _ref = _hl.md5(agent_uid.encode()).hexdigest()[:8].upper()
+        sb.table(_AGENT_PROFILE_TABLE).upsert({
+            "agent_uid":    agent_uid,
+            "display_name": display_name or "",
+            "phone":        phone or "",
+            "email":        email or "",
+            "company":      company or "",
+            "intro":        intro or "",
+            "photo_url":    photo_url or "",
+            "ref_code":     _ref,
+            "updated_at":   _dtnow.utcnow().isoformat(),
+        }, on_conflict="agent_uid").execute()
+        return True
+    except Exception:
+        return False
+
+def load_agent_profile(agent_uid: str) -> dict:
+    """[GP-51 §1] 설계사 프로필 로드 — 없으면 빈 dict. session_state 캐시 120초."""
+    if not agent_uid:
+        return {}
+    _ck = f"_gp51_profile_{agent_uid}"
+    _ts_k = f"_gp51_profile_ts_{agent_uid}"
+    import time as _t
+    _cached = st.session_state.get(_ck)
+    _ts = st.session_state.get(_ts_k, 0)
+    if _cached is not None and (_t.time() - _ts) < 120:
+        return _cached
+    sb = _get_sb_client() if _SB_PKG_OK else None
+    if not sb:
+        return {}
+    try:
+        rows = (sb.table(_AGENT_PROFILE_TABLE)
+                .select("*")
+                .eq("agent_uid", agent_uid)
+                .limit(1)
+                .execute().data)
+        _prof = rows[0] if rows else {}
+        st.session_state[_ck] = _prof
+        st.session_state[_ts_k] = _t.time()
+        return _prof
+    except Exception:
+        return {}
+
+def get_or_create_ref_code(agent_uid: str) -> str:
+    """[GP-51 §2] 설계사 고유 추천 링크 코드 반환 (없으면 자동 생성)."""
+    import hashlib as _hl
+    return _hl.md5(agent_uid.encode()).hexdigest()[:8].upper()
+
+def track_ref_visit(ref_code: str) -> None:
+    """[GP-51 §2] 추천 링크 방문 시 ref_count +1."""
+    sb = _get_sb_client() if _SB_PKG_OK else None
+    if not sb or not ref_code:
+        return
+    try:
+        rows = (sb.table(_AGENT_PROFILE_TABLE)
+                .select("id, ref_count")
+                .eq("ref_code", ref_code)
+                .limit(1)
+                .execute().data)
+        if rows:
+            sb.table(_AGENT_PROFILE_TABLE).update(
+                {"ref_count": (rows[0].get("ref_count") or 0) + 1}
+            ).eq("ref_code", ref_code).execute()
+    except Exception:
+        pass
 
 # --------------------------------------------------------------------------
 # 홈화면 상담노트 / 보험가입상담 — Supabase 영구 저장/로드
@@ -12531,6 +12674,34 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                                             st.error(f"연락처가 올바르지 않습니다. (남은 시도: **{_rem_a}회**)")
 
                     # ─────────────────────────────────────────────────────────────
+                    # [GP-51.1] Guest Access 진입 버튼 — Phase A 하단 고정
+                    # ─────────────────────────────────────────────────────────────
+                    if _lp == "A":
+                        st.markdown("""
+<div style="margin:10px 0 4px 0;display:flex;align-items:center;gap:8px;">
+  <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#334155,transparent);"></div>
+  <span style="font-size:0.7rem;color:#64748b;font-weight:600;white-space:nowrap;">또는</span>
+  <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#334155,transparent);"></div>
+</div>""", unsafe_allow_html=True)
+                        if st.button("👁️ 로그인 없이 체험하기", key="btn_guest_enter",
+                                     use_container_width=True):
+                            import uuid as _gu
+                            st.session_state["_user_role"]   = "GUEST"
+                            st.session_state["user_id"]      = ""
+                            st.session_state["user_name"]    = "체험 게스트"
+                            st.session_state["is_admin"]     = False
+                            if "_device_uuid" not in st.session_state:
+                                st.session_state["_device_uuid"] = _gu.uuid4().hex[:16]
+                            st.session_state["_login_just_done"] = False
+                            st.session_state["_auto_close_sidebar"] = True
+                            st.rerun()
+                        st.markdown(
+                            '<div style="font-size:0.68rem;color:#94a3b8;text-align:center;'
+                            'margin-top:2px;">체험 모드에서는 저장·등록 기능이 제한됩니다</div>',
+                            unsafe_allow_html=True
+                        )
+
+                    # ─────────────────────────────────────────────────────────────
                     # Phase B — OTP 인증 + 보안 방식 선택
                     # ─────────────────────────────────────────────────────────────
                     elif _lp == "B":
@@ -14833,6 +15004,38 @@ window['startTTS_{tab_key}']=function(){{
         _weekdays = ["월","화","수","목","금","토","일"]
         _wd = _weekdays[_dt_intro.date.today().weekday()]
 
+        # [GP-50.1] Device #N ID Visualizer
+        _hdr_dev_uuid = st.session_state.get("_device_uuid", "")
+        _hdr_dev_tag  = _hdr_dev_uuid[:4].upper() if _hdr_dev_uuid else "????"
+        # [GP-51.1] 게스트 모드 분기
+        _hdr_is_guest = _is_guest()
+        if _hdr_is_guest:
+            _hdr_dev_badge = (
+                f'<div style="position:absolute;top:10px;right:12px;'
+                f'background:linear-gradient(135deg,#78350f 0%,#92400e 100%);'
+                f'border:1.5px solid #f59e0b;border-radius:20px;'
+                f'padding:3px 10px;display:flex;align-items:center;gap:5px;'
+                f'box-shadow:0 2px 8px rgba(245,158,11,0.35);z-index:10;">'
+                f'<span style="font-size:0.6rem;color:#fde68a;font-weight:700;'
+                f'letter-spacing:0.08em;">GUEST</span>'
+                f'<span style="font-size:0.72rem;color:#fbbf24;font-weight:900;'
+                f'letter-spacing:0.06em;font-family:monospace;">#{_hdr_dev_tag}</span>'
+                f'</div>'
+            )
+        else:
+            _hdr_dev_badge = (
+                f'<div style="position:absolute;top:10px;right:12px;'
+                f'background:linear-gradient(135deg,#1e3a5f 0%,#0c4a8a 100%);'
+                f'border:1.5px solid #3b82f6;border-radius:20px;'
+                f'padding:3px 10px;display:flex;align-items:center;gap:5px;'
+                f'box-shadow:0 2px 8px rgba(59,130,246,0.35);z-index:10;">'
+                f'<span style="font-size:0.6rem;color:#93c5fd;font-weight:700;'
+                f'letter-spacing:0.08em;">DEVICE</span>'
+                f'<span style="font-size:0.72rem;color:#fbbf24;font-weight:900;'
+                f'letter-spacing:0.06em;font-family:monospace;">#{_hdr_dev_tag}</span>'
+                f'</div>'
+            )
+
         _intro_avatar = get_goldkey_avatar()
         _intro_av_html = (
             f'<img src="{_intro_avatar}" style="width:58px;height:58px;border-radius:50%;'
@@ -14841,25 +15044,23 @@ window['startTTS_{tab_key}']=function(){{
         ) if _intro_avatar else (
             '<span style="font-size:3rem;margin-right:14px;">&#128105;&#8205;&#128188;</span>'
         )
-        # [GP-50.1] Device #N ID Visualizer — 기기 UUID 앞 4자리 대문자 배지
-        _hdr_dev_uuid = st.session_state.get("_device_uuid", "")
-        _hdr_dev_tag  = _hdr_dev_uuid[:4].upper() if _hdr_dev_uuid else "????"
-        _hdr_dev_badge = (
-            f'<div style="position:absolute;top:10px;right:12px;'
-            f'background:linear-gradient(135deg,#1e3a5f 0%,#0c4a8a 100%);'
-            f'border:1.5px solid #3b82f6;border-radius:20px;'
-            f'padding:3px 10px;display:flex;align-items:center;gap:5px;'
-            f'box-shadow:0 2px 8px rgba(59,130,246,0.35);z-index:10;">'
-            f'<span style="font-size:0.6rem;color:#93c5fd;font-weight:700;'
-            f'letter-spacing:0.08em;">DEVICE</span>'
-            f'<span style="font-size:0.72rem;color:#fbbf24;font-weight:900;'
-            f'letter-spacing:0.06em;font-family:monospace;">#{_hdr_dev_tag}</span>'
-            f'</div>'
-        )
+        _guest_banner_html = (
+            '<div style="background:linear-gradient(135deg,#451a03 0%,#78350f 100%);'
+            'border:1.5px solid #f59e0b;border-radius:8px;'
+            'padding:6px 12px;margin-bottom:8px;'
+            'display:flex;align-items:center;gap:8px;">'
+            '<span style="font-size:0.85rem;">⚠️</span>'
+            '<span style="font-size:0.75rem;color:#fde68a;font-weight:700;">'
+            '체험 모드: 저장 기능이 제한됩니다</span>'
+            '<span style="font-size:0.68rem;color:#fcd34d;margin-left:auto;">'
+            '← 사이드바에서 가입 후 전체 기능 이용</span>'
+            '</div>'
+        ) if _hdr_is_guest else ""
         st.markdown(f"""
 <div class="gk-intro-wrap" style="position:relative;">
   {_bid('2-1-1')}
   {_hdr_dev_badge}
+  {_guest_banner_html}
   <div style="display:flex;align-items:center;margin-bottom:14px;">
     {_intro_av_html}
     <div>
@@ -14867,7 +15068,7 @@ window['startTTS_{tab_key}']=function(){{
       <div class="gk-intro-sub" style="margin-bottom:0;">{_today_str} ({_wd}) &nbsp;·&nbsp; AI 보험컨설팅 통합 플랫폼</div>
     </div>
   </div>
-""", unsafe_allow_html=True)
+</div>""", unsafe_allow_html=True)
 
         # ── 3개 위젯 컬럼 ──────────────────────────────────────────────
         _ic1, _ic2, _ic3 = st.columns(3, gap="small")
