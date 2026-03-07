@@ -4810,6 +4810,35 @@ textarea::placeholder {
     text-shadow: none !important;
 }
 
+/* §4-C — 태블릿/모바일 사이드바 열림 버튼 항상 표시 */
+/* Streamlit은 중간 너비(768px~1024px)에서 사이드바를 자동 닫음.
+   collapsedControl 버튼을 항상 visible하게 유지하여 사용자가 탭으로 열 수 있도록 함. */
+[data-testid="collapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 99999 !important;
+    position: fixed !important;
+    top: 0.5rem !important;
+    left: 0.5rem !important;
+}
+/* 태블릿 전용 — 사이드바 강제 표시 (transform 리셋) */
+@media (min-width: 768px) and (max-width: 1100px) {
+    section[data-testid="stSidebar"] {
+        transform: none !important;
+        visibility: visible !important;
+        display: block !important;
+        min-width: 260px !important;
+        max-width: 320px !important;
+        position: relative !important;
+    }
+    section[data-testid="stSidebar"][aria-expanded="false"] {
+        transform: none !important;
+        margin-left: 0 !important;
+    }
+}
+
 /* §4-B — 탭 헤더 */
 [data-baseweb="tab-list"] {
     background-color: var(--gp84-pastel-base) !important;
