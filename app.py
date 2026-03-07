@@ -1341,68 +1341,37 @@ header[data-testid="stHeader"] {{
 </div>
 """, unsafe_allow_html=True)
 
-    # ── [제39조 §2] 화면 클릭 + 5초 자동 타이머 진입 JS ──────────────
-    # height=1: height=0은 Streamlit 렌더 블로킹 발생
-    import streamlit.components.v1 as _s39_comp
-    _s39_comp.html("""
-<script>
-(function(){
-  function _gkEnter(){
-    // 이미 진입 중이면 중복 실행 방지
-    if(window._gk_entering) return;
-    window._gk_entering = true;
-    try {
-      var _pd = window.parent ? window.parent.document : document;
-      var _root = _pd.getElementById('gk-landing-root');
-      if(_root){
-        _root.style.transition = 'opacity 0.2s ease';
-        _root.style.opacity = '0';
-        setTimeout(function(){ _root.style.display='none'; }, 220);
-      }
-    } catch(e){}
-    // Streamlit hidden form submit으로 서버에 진입 신호 전달
-    try {
-      var _pd2 = window.parent ? window.parent.document : document;
-      var _btns = _pd2.querySelectorAll('[data-testid="stButton"] button');
-      for(var i=0;i<_btns.length;i++){
-        if(_btns[i].innerText.indexOf('_gk_lp_trigger') > -1 ||
-           _btns[i].getAttribute('data-gk-lp') === 'trigger'){
-          _btns[i].click();
-          break;
-        }
-      }
-    } catch(e2){}
-  }
+    # ── [제39조 §2] 진입 버튼 — 네이티브 Streamlit 버튼 (JS 의존 제거) ──
+    # HF Spaces iframe 환경에서 window.parent 접근 실패로 JS 트리거가 동작 안 함
+    # → st.button()으로 직접 서버 신호 전달
+    st.markdown("""
+<style>
+/* 랜딩 버튼: 풀스크린 중앙 하단 오버레이 */
+#gk-enter-btn-wrap {
+  position:fixed;bottom:clamp(40px,10vh,100px);left:50%;
+  transform:translateX(-50%);z-index:10000;
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+#gk-enter-btn-wrap button {
+  background:linear-gradient(135deg,#f0c040,#e8a000) !important;
+  color:#0f172a !important;font-weight:900 !important;
+  font-size:1.1rem !important;border:none !important;
+  border-radius:50px !important;padding:16px 48px !important;
+  box-shadow:0 4px 24px rgba(240,192,64,0.5) !important;
+  cursor:pointer !important;letter-spacing:0.05em !important;
+}
+#gk-enter-btn-wrap .gk-hint {
+  color:rgba(255,255,255,0.65);font-size:0.78rem;text-align:center;
+}
+</style>
+<div id="gk-enter-btn-wrap">
+  <div class="gk-hint">▼ 터치하여 시작</div>
+</div>""", unsafe_allow_html=True)
 
-  // [A] 화면 전체 클릭/터치 시 즉시 진입
-  try {
-    var _pd3 = window.parent ? window.parent.document : document;
-    _pd3.addEventListener('click', function(e){
-      // Streamlit UI 요소 클릭은 무시 (사이드바, 입력창 등)
-      var _t = e.target;
-      if(_t.closest('[data-testid="stSidebar"]') ||
-         _t.closest('[data-testid="stTextInput"]') ||
-         _t.closest('input') || _t.closest('button')) return;
-      _gkEnter();
-    }, {once:true});
-
-    // [B] 5초 자동 타이머
-    setTimeout(_gkEnter, 5000);
-  } catch(e){}
-})();
-</script>""", height=1)
-
-    # ── 숨겨진 트리거 버튼 — JS에서 클릭하여 서버 진입 신호 전달 ─────
-    with st.container():
-        st.markdown(
-            "<div style='position:fixed;left:-9999px;top:-9999px;'>",
-            unsafe_allow_html=True
-        )
-        if st.button("_gk_lp_trigger", key="_s39_lp_trigger", type="secondary"):
-            st.session_state["_lp_landing"] = True
-            st.session_state["current_tab"] = "home"
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+    if st.button("🚀 시작하기", key="_s39_lp_trigger", use_container_width=False):
+        st.session_state["_lp_landing"] = True
+        st.session_state["current_tab"] = "home"
+        st.rerun()
 
 
 def _s39_prefetch_auth() -> None:
@@ -13371,17 +13340,16 @@ def main():
 
     # ── STEP 5: 세션 타이머 JS (세션당 1회만 주입, 랜딩 완료 후에만 실행) ─────
     # 랜딩페이지 표시 중에는 타이머 주입 스킵 → 초기 로딩 차단 없음
+    # height=0 iframe도 Streamlit 렌더 완료까지 blocking 발생 → 반드시 조건 처리
     _landing_done_for_timer = st.session_state.get('_lp_landing', False)
-    if not st.session_state.get('_session_timer_injected'):
-        if _landing_done_for_timer:
+    if _landing_done_for_timer:
+        if not st.session_state.get('_session_timer_injected'):
             st.session_state['_session_timer_injected'] = True
             _remaining = _get_session_remaining(_sid)
         else:
-            _remaining = 3600  # 랜딩 중에는 기본값 사용
-    else:
-        _remaining = st.session_state.get('_session_remaining_last', 3600)
-    st.session_state['_session_remaining_last'] = max(0, _remaining - 1)
-    components.html(f"""
+            _remaining = st.session_state.get('_session_remaining_last', 3600)
+        st.session_state['_session_remaining_last'] = max(0, _remaining - 1)
+        components.html(f"""
 <script>
 (function(){{
   if(window._gkTimerRunning) return;
