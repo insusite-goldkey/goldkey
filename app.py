@@ -4479,17 +4479,12 @@ def _gp512_get_remaining(fp_id: str) -> int:
 # ══════════════════════════════════════════════════════════════════════════
 
 def _gp0_instant_bootstrap() -> None:
-    """[제0조] 전광석화식 기동 헌법 — Instant Swap Engine + UA Device Branching.
+    """[제0조] 스플래시 veil 비활성화 — 로딩 차단 이슈로 인해 제거됨."""
+    pass  # 스플래시 veil 제거: height=0 iframe 블로킹 및 veil 미해제 이슈
 
-    동작 원리:
-    1. 랜딩 레이어(z-index:9999)가 즉각 화면을 점유하며 브랜드 메시지 표시.
-    2. UA 분석으로 기기(Mobile/Tablet/Desktop)를 식별, 전용 레이아웃 적용.
-    3. Streamlit 본체가 DOM 마운트 완료되면 window.__AppReady = true 신호 발송.
-    4. 신호 수신 즉시 랜딩 레이어 display:none → 0ms 즉각 본체 노출 (화이트아웃 없음).
-    5. 3단계 병참: 로그인 대기 → 첫 페이지 전개 → 나머지 매복 로딩.
 
-    호출 위치: main() STEP 0 — set_page_config 직후 최선두.
-    """
+def _gp0_instant_bootstrap_DISABLED() -> None:
+    """[보관용] 원본 스플래시 코드 — 재활성화 필요 시 _gp0_instant_bootstrap 으로 복구."""
     import streamlit as _st0
     _st0.markdown("""
 <div id="gp0-landing-veil" style="
