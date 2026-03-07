@@ -13811,6 +13811,8 @@ def main():
 </script>""", height=0)
 
     # ── 로그인 환영 메시지 (rerun 후 표시) ──────────────────────────────
+    _welcome_name = st.session_state.get("_login_welcome", None)  # pop 전에 캡처
+    _just_logged_in_flag = bool(_welcome_name or st.session_state.get("_auto_close_sidebar"))
     _welcome_name = st.session_state.pop("_login_welcome", None)
     if _welcome_name:
         _is_adm = st.session_state.get("is_admin", False)
@@ -13990,13 +13992,9 @@ section[data-testid="stSidebar"] {
 </script>""", height=0)
 
     # ── 로그인 후 사이드바 자동 접힘 JS ────────────────────────────────────
-    # _login_welcome 또는 _auto_close_sidebar 플래그가 있으면 사이드바를 닫는다
-    _just_logged_in = bool(st.session_state.get("_login_welcome") or
-                           st.session_state.get("_auto_close_sidebar"))
-    if _just_logged_in:
-        # 두 플래그 모두 제거 (매 rerun 중복 실행 방지)
-        st.session_state.pop("_auto_close_sidebar", None)
-        st.session_state.pop("_login_welcome", None)
+    # _just_logged_in_flag: pop 전에 캡처한 값 사용 (위 블록에서 이미 pop됨)
+    if _just_logged_in_flag:
+        st.session_state.pop("_auto_close_sidebar", None)  # 나머지 플래그 정리
         components.html("""
 <script>
 (function(){
@@ -14042,8 +14040,9 @@ section[data-testid="stSidebar"] {
       }
     } catch(e) {}
   }
-  setTimeout(runClose, 800);
-  setTimeout(runClose, 1400);
+  setTimeout(runClose, 300);
+  setTimeout(runClose, 700);
+  setTimeout(runClose, 1200);
 
   // ── 2. 본앱(메인 영역) 클릭 시 사이드바 자동 닫기 ──────────────
   (function attachMainClickListener(){
