@@ -363,6 +363,20 @@ def render_scan_report(result: dict, auto_route: bool = False):
     fcnt  = result.get("file_count", 0)
     insured_name = result.get("insured_name", "")
 
+    # ── [GP101 Step 1-A] 페르소나 심리 타격 카드 ──────────────
+    try:
+        from app import get_gp101_persona, render_gp101_hook_card
+        import streamlit as _st_ss
+        _birth  = result.get("birth_year", 0)
+        _gender = result.get("gender", "")
+        _marital = result.get("marital", "")
+        _hflags  = result.get("health_flags") or []
+        _gap_kws_101 = [kw for kw in [dis, kcd, sec] if kw and kw != "-"]
+        _pk = get_gp101_persona(_birth, _gender, _marital, _hflags)
+        render_gp101_hook_card(_pk, insured_name, _gap_kws_101)
+    except Exception:
+        pass
+
     # ── [GP92 Step 1] 1인칭 후킹 + 총평 ──────────────────────
     try:
         from app import mask_name_gp92, generate_gp92_hook

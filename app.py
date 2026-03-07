@@ -4994,17 +4994,54 @@ p, span, li, td, th, label, div {
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# 가이딩 프로토콜 제82조: 전역 통합 내비게이션 바 — 홈 + 로그아웃 2단계 확인
+# 가이딩 프로토콜 제86조: 안보 작전 연속성 및 명시적 종결 통합 원칙
+# §1 명시적 종결(X버튼·삼선 로그아웃) → terminateSession() 단일 엔진
+# §2 홈/백그라운드/갤러리 이동 = 보급 활동 (세션 유지)
+# §3 파일 선전략 (업로드 선택 즉시 메모리 상주)
+# §4 Back 버튼 로그인 역행 차단
+# ══════════════════════════════════════════════════════════════════════════
+
+def _gp86_terminate_session() -> None:
+    """
+    [GP86 §1] 통합 종결 엔진 — terminateSession().
+
+    X 버튼 및 삼선 메뉴 로그아웃을 동일하게 처리.
+    확인 단계 없이 즉각 세션 토큰·캐시 전면 파기 후 초기 화면으로 리다이렉트.
+    홈 버튼/백그라운드 전환에서는 절대 호출하지 않는다.
+    """
+    import streamlit as _st
+    try:
+        _uid  = _st.session_state.get("user_id", "")
+        _dev  = _st.session_state.get("_device_uuid", "")
+        _sid  = (f"{_uid}:{_dev}" if _uid and _dev
+                 else _st.session_state.get("_anon_sid", ""))
+        _session_checkout(_sid)
+    except Exception:
+        pass
+    try:
+        _get_rag_store().update({"docs": [], "_db_loaded": False})
+    except Exception:
+        pass
+    for _k in ["_saved_user_id", "_saved_user_name", "_saved_is_admin",
+               "_saved_join_date", "_saved_admin_tab_auth", "_admin_tab_auth"]:
+        _st.session_state.pop(_k, None)
+    _st.session_state.clear()
+    _st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 가이딩 프로토콜 제82조: 전역 통합 내비게이션 바 — 홈 + 로그아웃
 # §1 모든 로그인 화면 최상단 Sticky 고정
-# §2 홈(파란 테두리) / 로그아웃(빨간 테두리) + 2단계 확인 프로토콜
+# §2 홈(파란 테두리) / 로그아웃(빨간 테두리) — GP86 terminateSession() 단일 엔진
 # ══════════════════════════════════════════════════════════════════════════
 
 def _gp82_render_nav_bar() -> None:
     """[제82조] 전역 안보 내비게이션 바 렌더링.
 
     - 좌측: 🏠 홈 버튼 (파란 테두리, 메인 이동 + 포커스 JS)
-    - 우측: 🚪 로그아웃 버튼 (빨간 테두리, 2단계 확인)
+    - 우측: 🚪 로그아웃 버튼 (빨간 테두리, GP86 즉각 파기)
     - Sticky 고정 (top:0, z-index:9999)
+    - Back 버튼 로그인 역행 차단 JS 포함
     호출 위치: main() 내 탭 렌더링 직전 최상단
     """
     import streamlit as _st
@@ -5063,15 +5100,18 @@ def _gp82_render_nav_bar() -> None:
 </style>
 """, unsafe_allow_html=True)
 
-    # ── 2단계 로그아웃 확인 상태 ────────────────────────────────────────
-    _confirm = _st.session_state.get("_gp82_logout_confirm", False)
-
-    # ── 확인 안내 메시지 (1차 클릭 후 표시) ────────────────────────────
-    if _confirm:
-        _st.markdown(
-            '<div class="gp82-nav-confirm">⚠️ 버튼을 한 번 더 클릭하십시오</div>',
-            unsafe_allow_html=True,
-        )
+    # ── [GP86 §4] Back 버튼 로그인 역행 차단 JS ────────────────────────
+    _c82.html("""
+<script>
+(function(){
+  if(window.__gp86BackGuard) return;
+  window.__gp86BackGuard = true;
+  history.pushState(null, '', location.href);
+  window.addEventListener('popstate', function(){
+    history.pushState(null, '', location.href);
+  });
+})();
+</script>""", height=0)
 
     # ── 내비게이션 바 레이아웃 ──────────────────────────────────────────
     _st.markdown('<div class="gp82-nav-bar">', unsafe_allow_html=True)
@@ -5082,7 +5122,6 @@ def _gp82_render_nav_bar() -> None:
         if _st.button("🏠 홈", key="gp82_btn_home", use_container_width=True):
             _st.session_state["current_tab"] = "home"
             _st.session_state["_scroll_top"] = True
-            _st.session_state.pop("_gp82_logout_confirm", None)
             # 홈 이동 후 첫 입력창 포커스 JS 주입
             _c82.html("""
 <script>
@@ -5102,32 +5141,9 @@ def _gp82_render_nav_bar() -> None:
 
     with _nav_col_logout:
         _st.markdown('<div class="gp82-logout-btn">', unsafe_allow_html=True)
-        _logout_label = "🚪 로그아웃하시겠습니까?" if _confirm else "🚪 로그아웃"
-        if _st.button(_logout_label, key="gp82_btn_logout", use_container_width=True):
-            if not _confirm:
-                # 1차 클릭: 확인 상태 전환
-                _st.session_state["_gp82_logout_confirm"] = True
-                _st.rerun()
-            else:
-                # 2차 클릭: 세션 전면 파기
-                try:
-                    _uid_co  = _st.session_state.get("user_id", "")
-                    _dev_co  = _st.session_state.get("_device_uuid", "")
-                    _sid_co  = (f"{_uid_co}:{_dev_co}" if _uid_co and _dev_co
-                                else _st.session_state.get("_anon_sid", ""))
-                    _session_checkout(_sid_co)
-                except Exception:
-                    pass
-                try:
-                    _get_rag_store().update({"docs": [], "_db_loaded": False})
-                except Exception:
-                    pass
-                _st.session_state["_logout_flag"] = True
-                for _k in ["_saved_user_id", "_saved_user_name", "_saved_is_admin",
-                           "_saved_join_date", "_saved_admin_tab_auth", "_admin_tab_auth"]:
-                    _st.session_state.pop(_k, None)
-                _st.session_state.clear()
-                _st.rerun()
+        if _st.button("🚪 로그아웃", key="gp82_btn_logout", use_container_width=True):
+            # [GP86 §1] 즉각 파기 — 확인 단계 없음
+            _gp86_terminate_session()
         _st.markdown('</div>', unsafe_allow_html=True)
 
     _st.markdown('</div>', unsafe_allow_html=True)
@@ -7544,6 +7560,210 @@ _GP92_DEFAULT_HOOK = (
 )
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# [GP101] 통합 심리 지능 & 초개인화 전략 대화술 엔진
+# ═══════════════════════════════════════════════════════════════════════════
+
+_GP101_PERSONA_HOOKS: dict[str, dict] = {
+    "single_2030": {
+        "label": "2030 미혼/독신",
+        "bg": "linear-gradient(135deg,#f0f9ff,#e0f2fe)",
+        "border": "#38bdf8",
+        "color": "#0c4a6e",
+        "hook_a": (
+            "아직 젊으니까 괜찮다고 생각했는데 — "
+            "지금 이 순간 내 통장에 남은 돈으로 6개월을 버틸 수 있나요?"
+        ),
+        "hook_b": (
+            "누구에게도 손 벌리지 않고 내 병원비를 내가 감당할 수 있는 "
+            "유일한 방법을 저는 아직 갖고 있지 않습니다."
+        ),
+    },
+    "breadwinner_3040": {
+        "label": "3040 가장/배우자",
+        "bg": "linear-gradient(135deg,#fdf6ff,#fff0f6)",
+        "border": "#c084fc",
+        "color": "#4c1d95",
+        "hook_a": (
+            "내가 오늘 쓰러지면 내 아이의 내일은 누가 결제하나요?"
+        ),
+        "hook_b": (
+            "매달 열심히 일하는 내가 갑자기 사라진다면, "
+            "가족에게 남는 건 사랑이 아니라 청구서입니다."
+        ),
+    },
+    "menopause_50": {
+        "label": "50대 갱년기/은퇴",
+        "bg": "linear-gradient(135deg,#fff7ed,#fef3c7)",
+        "border": "#fb923c",
+        "color": "#7c2d12",
+        "hook_a": (
+            "누군가의 부모, 누군가의 배우자로만 살아온 내가, "
+            "오롯이 '나 자신'을 지킬 준비는 되어 있습니까?"
+        ),
+        "hook_b": (
+            "지금껏 가족을 위해 모든 것을 쏟아부었는데, "
+            "정작 내가 아플 때 나를 돌봐줄 준비는 누가 해두었습니까?"
+        ),
+    },
+    "senior_60plus": {
+        "label": "60대 이상 노후",
+        "bg": "linear-gradient(135deg,#f0fdf4,#dcfce7)",
+        "border": "#4ade80",
+        "color": "#14532d",
+        "hook_a": (
+            "자녀에게 짐이 아닌 힘이 되는 부모 — "
+            "그 자리는 지금 이 선택을 하시는 분만이 누릴 수 있습니다."
+        ),
+        "hook_b": (
+            "마지막까지 품위 있게 내 삶을 마무리하고 싶다는 소망이 있으십니까? "
+            "그 소망은 지금 이 순간의 결정에서 시작됩니다."
+        ),
+    },
+    "critical_illness": {
+        "label": "중증 환자(암/중풍)",
+        "bg": "linear-gradient(135deg,#fff1f2,#ffe4e6)",
+        "border": "#f43f5e",
+        "color": "#881337",
+        "hook_a": (
+            "내가 이미 겪어낸 그 고통이, "
+            "정당한 보험금으로 돌아오지 못하고 있다는 사실을 알고 계십니까?"
+        ),
+        "hook_b": (
+            "지나온 통증의 기록은 단순한 병력이 아닙니다. "
+            "그것은 내가 되찾아야 할 법적 권리의 증거입니다."
+        ),
+    },
+    "disability_work": {
+        "label": "산재/장해 고객",
+        "bg": "linear-gradient(135deg,#fffbeb,#fef9c3)",
+        "border": "#eab308",
+        "color": "#713f12",
+        "hook_a": (
+            "같은 상황의 수백 명이 법적 권리를 되찾았습니다. "
+            "무너진 내 일상을 다시 세울 권리는 아직 유효합니다."
+        ),
+        "hook_b": (
+            "일터에서 다친 내 몸이 가족의 생계를 위협하는 지금, "
+            "내가 받아야 할 경제적 지지대를 놓쳐서는 안 됩니다."
+        ),
+    },
+    "family_history": {
+        "label": "가족력(치매/암) 보유",
+        "bg": "linear-gradient(135deg,#f5f3ff,#ede9fe)",
+        "border": "#8b5cf6",
+        "color": "#3b0764",
+        "hook_a": (
+            "부모님이 걸어온 길을 내가 반복해야 할 이유는 없습니다. "
+            "지금이 그 고리를 끊을 마지막 타이밍입니다."
+        ),
+        "hook_b": (
+            "가족력이 있다는 걸 알면서도 준비하지 않은 내가, "
+            "가장 후회할 날이 오기 전에 결정을 내려야 합니다."
+        ),
+    },
+}
+
+_GP101_DEFAULT_PERSONA = "breadwinner_3040"
+
+
+def get_gp101_persona(
+    birth_year: int = 0,
+    gender: str = "",
+    marital: str = "",
+    health_flags: list[str] | None = None,
+) -> str:
+    """
+    [GP101 §2] 고객 프로필 → 페르소나 키 반환.
+
+    Parameters
+    ----------
+    birth_year   : 출생연도 (0이면 미지정)
+    gender       : 'M' / 'F' / ''
+    marital      : '미혼' / '기혼' / '이혼' / ''
+    health_flags : ['cancer', 'stroke', 'dementia', 'disability',
+                    'family_history'] 중 해당 항목
+
+    Returns
+    -------
+    str — _GP101_PERSONA_HOOKS 의 키
+    """
+    flags = [f.lower() for f in (health_flags or [])]
+    age = (2026 - birth_year) if birth_year > 1900 else 0
+
+    if "disability" in flags:
+        return "disability_work"
+    if "family_history" in flags or "dementia" in flags:
+        return "family_history"
+    if "cancer" in flags or "stroke" in flags:
+        return "critical_illness"
+    if age >= 60:
+        return "senior_60plus"
+    if age >= 50:
+        return "menopause_50"
+    if age >= 30 and marital in ("기혼", ""):
+        return "breadwinner_3040"
+    if age >= 20:
+        return "single_2030"
+    return _GP101_DEFAULT_PERSONA
+
+
+def generate_gp101_hook(
+    persona_key: str,
+    gap_keywords: list[str] | None = None,
+    insured_name: str = "",
+    variant: str = "a",
+) -> str:
+    """
+    [GP101 §3] 페르소나별 1인칭 후킹 문구 생성.
+
+    variant='a' → hook_a (공백/위협 프레임)
+    variant='b' → hook_b (해결/희귀성 프레임)
+    """
+    persona = _GP101_PERSONA_HOOKS.get(
+        persona_key, _GP101_PERSONA_HOOKS[_GP101_DEFAULT_PERSONA]
+    )
+    masked = mask_name_gp92(insured_name) if insured_name else ""
+    prefix = f"[{masked}님] " if masked else ""
+    sentence = persona["hook_b"] if variant == "b" else persona["hook_a"]
+    return prefix + sentence
+
+
+def render_gp101_hook_card(
+    persona_key: str,
+    insured_name: str = "",
+    gap_keywords: list[str] | None = None,
+) -> None:
+    """
+    [GP101 §7] 심리 타격 카드 렌더링.
+    GP92 Step 1 상단에 삽입하여 페르소나별 맞춤 후킹 + 공감 문구를 표시한다.
+    """
+    import streamlit as _st_inner
+    persona = _GP101_PERSONA_HOOKS.get(
+        persona_key, _GP101_PERSONA_HOOKS[_GP101_DEFAULT_PERSONA]
+    )
+    masked = mask_name_gp92(insured_name) if insured_name else ""
+    name_tag = f"🧠 {masked}님의 심리 안보 진단" if masked else "🧠 심리 안보 진단"
+    hook_a = generate_gp101_hook(persona_key, gap_keywords, insured_name, "a")
+    hook_b = generate_gp101_hook(persona_key, gap_keywords, insured_name, "b")
+    bg = persona["bg"]
+    border = persona["border"]
+    color = persona["color"]
+    label = persona["label"]
+    _st_inner.markdown(f"""
+<div style="background:{bg};border-left:5px solid {border};
+  border-radius:0 14px 14px 0;padding:18px 22px;margin-bottom:16px;">
+  <div style="font-size:0.68rem;font-weight:900;color:{border};
+    letter-spacing:0.12em;margin-bottom:4px;">{name_tag}</div>
+  <div style="font-size:0.72rem;font-weight:700;color:{color};
+    opacity:0.75;margin-bottom:10px;">페르소나: {label}</div>
+  <div style="font-size:0.94rem;font-weight:800;color:{color};
+    line-height:1.9;margin-bottom:12px;">"{hook_a}"</div>
+  <div style="font-size:0.81rem;color:{color};line-height:1.75;
+    border-top:1px solid {border}33;padding-top:10px;opacity:0.9;">"{hook_b}"</div>
+</div>""", unsafe_allow_html=True)
+
+
 def generate_gp92_hook(
     gap_keywords: list[str],
     insured_name: str = "",
@@ -7593,6 +7813,14 @@ def render_gp92_report(
     insured = policy_info.get("insured_name") or policy_info.get("name") or ""
     masked  = mask_name_gp92(insured)
     gap_names = [g.get("name", "") for g in (gap_covs or [])]
+
+    # ── Step 1-GP101: 페르소나 심리 타격 카드 ─────────────────────────
+    _birth = policy_info.get("birth_year", 0)
+    _gender = policy_info.get("gender", "")
+    _marital = policy_info.get("marital", "")
+    _hflags = policy_info.get("health_flags") or []
+    _persona_key = get_gp101_persona(_birth, _gender, _marital, _hflags)
+    render_gp101_hook_card(_persona_key, insured, gap_names)
 
     # ── Step 1: 후킹 + 총평 ────────────────────────────────────────────
     hook_a = generate_gp92_hook(gap_names, insured, variant="a")
@@ -7645,9 +7873,9 @@ def render_gp92_report(
 <div style="overflow-x:auto;margin-bottom:12px;">
 <table style="width:100%;border-collapse:collapse;font-family:'Noto Sans KR',sans-serif;">
   <thead>
-    <tr style="background:#0284c7;color:#fff;">
-      <th style="padding:7px 10px;border:1px solid #0369a1;font-size:0.78rem;text-align:left;">담보명</th>
-      <th style="padding:7px 10px;border:1px solid #0369a1;font-size:0.78rem;text-align:right;">가입금액</th>
+    <tr style="background:#eff6ff;color:#0369a1;">
+      <th style="padding:7px 10px;border:1px solid #bfdbfe;font-size:0.78rem;text-align:left;">담보명</th>
+      <th style="padding:7px 10px;border:1px solid #bfdbfe;font-size:0.78rem;text-align:right;">가입금액</th>
     </tr>
   </thead>
   <tbody>{_cov_rows}</tbody>
@@ -11979,7 +12207,7 @@ def section_inheritance_will():
             components.html(f"""
 <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.83rem;line-height:1.7;">
 <table style="width:100%;border-collapse:collapse;">
-<thead><tr style="background:#3B82F6;color:#fff;">
+<thead><tr style="background:#eff6ff;color:#1d4ed8;">
   <th style="padding:8px 10px;text-align:left;">구분</th>
   <th style="padding:8px 10px;text-align:right;">현행(2024)</th>
   <th style="padding:8px 10px;text-align:right;">2026 예정안</th>
@@ -24762,7 +24990,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 <div style="position:relative;padding-left:18px;border-left:3px solid #2e6da4;">
 
   <div style="margin-bottom:14px;">
-    <span style="background:#2e6da4;color:#fff;border-radius:20px;padding:2px 10px;font-size:0.78rem;font-weight:700;">0~20세</span>
+    <span style="background:#dbeafe;color:#1e40af;border-radius:20px;padding:2px 10px;font-size:0.78rem;font-weight:700;">0~20세</span>
     <b style="color:#1a3a5c;"> 출생 · 성장기</b><br>
     🍼 태아보험 → 어린이보험 전환<br>
     📚 학교 상해·배상책임 담보<br>
@@ -24797,7 +25025,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
   </div>
 
   <div style="margin-bottom:14px;">
-    <span style="background:#8e44ad;color:#fff;border-radius:20px;padding:2px 10px;font-size:0.78rem;font-weight:700;">50~60세</span>
+    <span style="background:#f3e8ff;color:#6b21a8;border-radius:20px;padding:2px 10px;font-size:0.78rem;font-weight:700;">50~60세</span>
     <b style="color:#1a3a5c;"> 은퇴 준비기</b><br>
     🌅 자녀 독립 → 보장 재조정<br>
     💰 퇴직금 설계 · 연금 수령 시뮬레이션<br>
@@ -25062,7 +25290,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 </div>
 
 <!-- 2 -->
-<div style="background:#8e44ad;color:#fff;border-radius:6px;padding:4px 12px;
+<div style="background:#fdf4ff;color:#6b21a8;border:1px solid #d8b4fe;border-radius:6px;padding:4px 12px;
   font-size:0.85rem;font-weight:900;margin-bottom:8px;display:inline-block;">
   2. '의료자문 동의'는 신중하게 (금융감독원 권고)
 </div><br>
@@ -25072,7 +25300,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 보험약관상 분쟁 해결 절차에 따라 수익자와 보험사가 합의한 제3의 <b>상급종합병원</b>에서 재판정을 받을 수 있습니다.<br><br>
 
 <!-- 3 -->
-<div style="background:#1a5c3a;color:#fff;border-radius:6px;padding:4px 12px;
+<div style="background:#f0fdf4;color:#14532d;border:1px solid #86efac;border-radius:6px;padding:4px 12px;
   font-size:0.85rem;font-weight:900;margin-bottom:8px;display:inline-block;">
   3. 손해사정사 선임권 활용 (보험업법 제185조)
 </div><br>
@@ -25097,7 +25325,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 </div>
 
 <!-- 5 -->
-<div style="background:#7d3c00;color:#fff;border-radius:6px;padding:4px 12px;
+<div style="background:#fff8f0;color:#7d3c00;border:1px solid #f5d5a0;border-radius:6px;padding:4px 12px;
   font-size:0.85rem;font-weight:900;margin-bottom:8px;display:inline-block;">
   5. 보험사 '현장조사' 시 대응 (금감원 유의사항)
 </div><br>
@@ -25211,19 +25439,19 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
   border:2px solid #ef4444;border-radius:14px;padding:16px 20px;margin-bottom:14px;">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
     <div style="font-size:1.1rem;font-weight:900;color:#dc2626;">📡 GP-61 증권분석 연동 데이터 수신됨</div>
-    <div style="background:#3d0000;border:1px solid #ef4444;border-radius:6px;
-      padding:3px 10px;font-size:0.75rem;font-weight:900;color:#ef4444;">안보 지수 {_ms}점</div>
-    <div style="background:#1a2744;border:1px solid #f59e0b;border-radius:6px;
-      padding:3px 10px;font-size:0.75rem;font-weight:900;color:#fcd34d;">{_mp}% 보장 공백 ({_mc}개 담보)</div>
+    <div style="background:#fff1f2;border:1px solid #ef4444;border-radius:6px;
+      padding:3px 10px;font-size:0.75rem;font-weight:900;color:#dc2626;">안보 지수 {_ms}점</div>
+    <div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:6px;
+      padding:3px 10px;font-size:0.75rem;font-weight:900;color:#92400e;">{_mp}% 보장 공백 ({_mc}개 담보)</div>
   </div>
   <div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;">
-      <thead><tr style="background:#1e3a5a;">
-        <th style="padding:5px 8px;text-align:left;color:#7ec8f5;font-size:0.72rem;">담보명</th>
-        <th style="padding:5px 8px;text-align:left;color:#7ec8f5;font-size:0.72rem;">카테고리</th>
-        <th style="padding:5px 8px;text-align:right;color:#7ec8f5;font-size:0.72rem;">현재 가입</th>
-        <th style="padding:5px 8px;text-align:right;color:#7ec8f5;font-size:0.72rem;">권장 금액</th>
-        <th style="padding:5px 8px;text-align:right;color:#7ec8f5;font-size:0.72rem;">부족분</th>
+      <thead><tr style="background:#dbeafe;">
+        <th style="padding:5px 8px;text-align:left;color:#1e3a5f;font-size:0.72rem;">담보명</th>
+        <th style="padding:5px 8px;text-align:left;color:#1e3a5f;font-size:0.72rem;">카테고리</th>
+        <th style="padding:5px 8px;text-align:right;color:#1e3a5f;font-size:0.72rem;">현재 가입</th>
+        <th style="padding:5px 8px;text-align:right;color:#1e3a5f;font-size:0.72rem;">권장 금액</th>
+        <th style="padding:5px 8px;text-align:right;color:#1e3a5f;font-size:0.72rem;">부족분</th>
       </tr></thead>
       <tbody>{_rows_html}</tbody>
     </table>
@@ -25246,21 +25474,21 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
     📡 GP-61 단일 담보 공백 분석 연동 — [{_gn}]
   </div>
   <div style="display:flex;gap:12px;flex-wrap:wrap;">
-    <div style="background:#1e3a5a;border-radius:8px;padding:8px 14px;">
-      <div style="font-size:0.68rem;color:#64748b;">현재 가입금액</div>
-      <div style="font-size:1rem;font-weight:900;color:#fca5a5;">{_ge if _ge not in ("0","","미가입") else "미가입"}</div>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 14px;">
+      <div style="font-size:0.68rem;color:#475569;">현재 가입금액</div>
+      <div style="font-size:1rem;font-weight:900;color:#dc2626;">{_ge if _ge not in ("0","","미가입") else "미가입"}</div>
     </div>
-    <div style="background:#1e3a5a;border-radius:8px;padding:8px 14px;">
-      <div style="font-size:0.68rem;color:#64748b;">권장 금액</div>
-      <div style="font-size:1rem;font-weight:900;color:#86efac;">{_gr}</div>
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:8px 14px;">
+      <div style="font-size:0.68rem;color:#475569;">권장 금액</div>
+      <div style="font-size:1rem;font-weight:900;color:#15803d;">{_gr}</div>
     </div>
-    <div style="background:#3d0000;border-radius:8px;padding:8px 14px;">
-      <div style="font-size:0.68rem;color:#f87171;">부족분</div>
+    <div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:8px;padding:8px 14px;">
+      <div style="font-size:0.68rem;color:#dc2626;">부족분</div>
       <div style="font-size:1rem;font-weight:900;color:#ef4444;">{_gd}</div>
     </div>
-    <div style="background:#1e3a5a;border-radius:8px;padding:8px 14px;">
-      <div style="font-size:0.68rem;color:#64748b;">진단 상태</div>
-      <div style="font-size:1rem;font-weight:900;color:#fcd34d;">{_gst}</div>
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 14px;">
+      <div style="font-size:0.68rem;color:#475569;">진단 상태</div>
+      <div style="font-size:1rem;font-weight:900;color:#92400e;">{_gst}</div>
     </div>
   </div>
   <div style="margin-top:8px;font-size:0.72rem;color:#64748b;">
@@ -25421,11 +25649,11 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
             if _g62_is_fallback:
                 # 소득 데이터 부재 → 관리자 표준 권장 기준(기준 B) 100% 적용 안내
                 st.markdown(
-                    f'<div style="background:#2d1a00;border:2px solid #f59e0b;border-radius:7px;'
+                    f'<div style="background:#fffbeb;border:2px solid #f59e0b;border-radius:7px;'
                     f'padding:9px 14px;font-size:0.78rem;margin-bottom:6px;">'
-                    f'<div style="color:#fbbf24;font-weight:900;font-size:0.82rem;margin-bottom:4px;">'
+                    f'<div style="color:#92400e;font-weight:900;font-size:0.82rem;margin-bottom:4px;">'
                     f'⚠️ 소득 데이터 미제공 → 마스터 권장 기준(기준 B) 적용</div>'
-                    f'<span style="color:#fed7aa;">전문가 권장 표준 안보 지수 기준으로 분석되었습니다.</span>'
+                    f'<span style="color:#78350f;">전문가 권장 표준 안보 지수 기준으로 분석되었습니다.</span>'
                     f'&nbsp;|&nbsp;<span style="color:#fcd34d;font-weight:700;">암: {_g62r["target_cancer"]:,}만원</span>'
                     f'&nbsp;|&nbsp;<span style="color:#f87171;font-weight:700;">뇌혈관: {_g62r["target_brain"]:,}만원</span>'
                     f'&nbsp;|&nbsp;<span style="color:#7ec8f5;font-weight:700;">일당: {_g62r["target_daily"]:,.1f}만원</span>'
@@ -25542,16 +25770,16 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
                 # 소득 없음 → 관리자 표준 권장선만 굵게, 소득 기반 권장선 숨김
                 components.html(f"""
 <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
-  background:#1a1000;border:2px solid #f59e0b;border-radius:9px;
+  background:#fffbeb;border:2px solid #f59e0b;border-radius:9px;
   padding:12px 16px;margin:10px 0;">
-  <div style="color:#fbbf24;font-weight:900;font-size:0.83rem;margin-bottom:8px;">
+  <div style="color:#92400e;font-weight:900;font-size:0.83rem;margin-bottom:8px;">
     ⚠️ 소득 데이터 미제공 — 관리자 표준 권장선(기준 B) 단독 적용
   </div>
   <table style="width:100%;border-collapse:collapse;font-size:0.76rem;">
-  <tr style="background:#2d1a00;color:#fcd34d;">
-    <th style="padding:4px 8px;border:1px solid #78350f;text-align:center;">담보</th>
-    <th style="padding:4px 8px;border:1px solid #78350f;text-align:center;">소득 기반 권장선</th>
-    <th style="padding:4px 8px;border:1px solid #f59e0b;text-align:center;background:#78350f;">
+  <tr style="background:#fef3c7;color:#78350f;">
+    <th style="padding:4px 8px;border:1px solid #fde68a;text-align:center;">담보</th>
+    <th style="padding:4px 8px;border:1px solid #fde68a;text-align:center;">소득 기반 권장선</th>
+    <th style="padding:4px 8px;border:1px solid #f59e0b;text-align:center;background:#fef9c3;">
       ★ 관리자 표준 권장선 (최종)</th>
   </tr>
   <tr style="color:#aaa;">
@@ -25601,7 +25829,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
     <th style="padding:4px 8px;border:1px solid #334155;text-align:center;">담보</th>
     <th style="padding:4px 8px;border:1px solid #334155;text-align:center;">소득 기반 (A)</th>
     <th style="padding:4px 8px;border:1px solid #334155;text-align:center;">관리자 표준 (B)</th>
-    <th style="padding:4px 8px;border:1px solid #22c55e;text-align:center;background:#14532d;">최종 채택</th>
+    <th style="padding:4px 8px;border:1px solid #22c55e;text-align:center;background:#dcfce7;color:#14532d;">최종 채택</th>
   </tr>
   <tr>
     <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#e2e8f0;">암</td>
@@ -25733,7 +25961,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
   line-height:1.85;color:#1a1a2e;padding:4px 2px;">
 
 <!-- ═══════════════ PART 1 ═══════════════ -->
-<div style="background:#3B82F6;color:#fff;border-radius:8px 8px 0 0;
+<div style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px 8px 0 0;
   padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;">
   PART 1 &nbsp;|&nbsp; 상해사고 × KCD 코드 상관관계 &amp; S·T → M 전환 메커니즘
 </div>
@@ -25742,10 +25970,10 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 
   <b style="color:#1a3a5c;">1. 코드 체계 한눈에 보기</b><br>
   <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
-    <tr style="background:#2e6da4;color:#fff;">
-      <th style="padding:4px 8px;border:1px solid #1a4a7a;width:12%;">코드</th>
-      <th style="padding:4px 8px;border:1px solid #1a4a7a;width:28%;">분류명</th>
-      <th style="padding:4px 8px;border:1px solid #1a4a7a;">보험 실무 의미</th>
+    <tr style="background:#eff6ff;color:#1e40af;">
+      <th style="padding:4px 8px;border:1px solid #bfdbfe;width:12%;">코드</th>
+      <th style="padding:4px 8px;border:1px solid #bfdbfe;width:28%;">분류명</th>
+      <th style="padding:4px 8px;border:1px solid #bfdbfe;">보험 실무 의미</th>
     </tr>
     <tr style="background:#fff;">
       <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#e74c3c;">S</td>
@@ -25780,9 +26008,9 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 
   <b style="color:#1a3a5c;">2. S·T → M 전환 3대 원인</b><br>
   <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
-    <tr style="background:#2e6da4;color:#fff;">
-      <th style="padding:4px 8px;border:1px solid #1a4a7a;width:22%;">원인</th>
-      <th style="padding:4px 8px;border:1px solid #1a4a7a;">메커니즘</th>
+    <tr style="background:#eff6ff;color:#1e40af;">
+      <th style="padding:4px 8px;border:1px solid #bfdbfe;width:22%;">원인</th>
+      <th style="padding:4px 8px;border:1px solid #bfdbfe;">메커니즘</th>
     </tr>
     <tr style="background:#fff;">
       <td style="padding:4px 8px;border:1px solid #ddd;font-weight:700;">① 퇴행성 병변 개입</td>
@@ -25812,7 +26040,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 </div>
 
 <!-- ═══════════════ PART 2 ═══════════════ -->
-<div style="background:#7d3c00;color:#fff;border-radius:8px 8px 0 0;
+<div style="background:#fff8f0;color:#7d3c00;border:1px solid #f5d5a0;border-radius:8px 8px 0 0;
   padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;margin-top:4px;">
   PART 2 &nbsp;|&nbsp; 고빈도 분쟁 부위 — 허리 디스크(M51) · 어깨 회전근개(M75)
 </div>
@@ -25920,7 +26148,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
   line-height:1.85;color:#1a1a2e;padding:4px 2px;">
 
 <!-- ═══ PART 1: 생애주기별 사망보험 필요성 ═══ -->
-<div style="background:#3B82F6;color:#fff;border-radius:8px 8px 0 0;
+<div style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px 8px 0 0;
   padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;">
   PART 1 &nbsp;|&nbsp; CFP 관점 — 생애주기(Life Cycle)별 사망보험 필요성 &amp; 가입금액
 </div>
@@ -25931,16 +26159,17 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
   CFP 산출 공식: <b>① 자본운용법</b> (연 필요생활비 ÷ 투자수익률) · <b>② 인적가치법</b> (은퇴 시점까지 총소득 현재가치 PV)<br><br>
 
   <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-bottom:10px;">
-    <tr style="background:#2e6da4;color:#fff;">
-      <th style="padding:4px 7px;border:1px solid #1a4a7a;width:18%;">생애주기</th>
-      <th style="padding:4px 7px;border:1px solid #1a4a7a;width:20%;">주요 Event</th>
-      <th style="padding:4px 7px;border:1px solid #1a4a7a;">사망보험 필요성</th>
-      <th style="padding:4px 7px;border:1px solid #1a4a7a;width:24%;">권장 가입금액 범위</th>
+    <tr style="background:#eff6ff;color:#1e40af;">
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;width:18%;">생애주기</th>
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;width:20%;">주요 Event</th>
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;">사망보험 필요성</th>
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;width:24%;">권장 가입금액 범위</th>
     </tr>
-    <tr style="background:#fff;">
+    <tr style="background:#f9f9f9;">
       <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">미혼/사회초년생</td>
       <td style="padding:4px 7px;border:1px solid #ddd;">취업·독립</td>
       <td style="padding:4px 7px;border:1px solid #ddd;">장례비·학자금 채무 정리. 부양 책임 최소</td>
+{{ ... }
       <td style="padding:4px 7px;border:1px solid #ddd;color:#2e6da4;font-weight:700;">연소득 1~2배 (5천~1억)</td>
     </tr>
     <tr style="background:#f8f8f8;">
@@ -25965,11 +26194,11 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 
   <b style="color:#1a3a5c;">▶ 상속 관점 종신보험 설계 가이드 (2026년 기준 누진세율 적용)</b><br>
   <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-top:6px;">
-    <tr style="background:#2e6da4;color:#fff;">
-      <th style="padding:4px 7px;border:1px solid #1a4a7a;width:22%;">상속재산 규모</th>
-      <th style="padding:4px 7px;border:1px solid #1a4a7a;width:20%;">예상 상속세액</th>
-      <th style="padding:4px 7px;border:1px solid #1a4a7a;width:22%;">종신보험 설계 범위</th>
-      <th style="padding:4px 7px;border:1px solid #1a4a7a;">CFP 핵심 전략</th>
+    <tr style="background:#eff6ff;color:#1e40af;">
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;width:22%;">상속재산 규모</th>
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;width:20%;">예상 상속세액</th>
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;width:22%;">종신보험 설계 범위</th>
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;">CFP 핵심 전략</th>
     </tr>
     <tr style="background:#fff;">
       <td style="padding:4px 7px;border:1px solid #ddd;">10억 ~ 30억</td>
@@ -25998,7 +26227,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 </div>
 
 <!-- ═══ PART 2: 생애주기별 평균 가처분소득 × 사망보험금 산출 ═══ -->
-<div style="background:#7d3c00;color:#fff;border-radius:8px 8px 0 0;
+<div style="background:#fff8f0;color:#7d3c00;border:1px solid #f5d5a0;border-radius:8px 8px 0 0;
   padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;margin-top:4px;">
   PART 2 &nbsp;|&nbsp; 생애주기별 평균 가처분소득 &amp; 적정 사망보험금 산출 (통계청 2023 기준)
 </div>
@@ -26079,7 +26308,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 </div>
 
 <!-- ═══ PART 3: 후킹 대화법 + 가입 논리 ═══ -->
-<div style="background:#4a1259;color:#fff;border-radius:8px 8px 0 0;
+<div style="background:#fdf4ff;color:#4a1259;border:1px solid #d9b3e8;border-radius:8px 8px 0 0;
   padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;margin-top:4px;">
   PART 3 &nbsp;|&nbsp; 1:1 가입 논리 &amp; 후킹(Hooking) 대화법 — 클로징 실전 기법
 </div>
@@ -26111,9 +26340,9 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 
   <b style="color:#4a1259;font-size:0.83rem;">③ 관련 법조문 체크리스트</b>
   <table style="width:100%;border-collapse:collapse;font-size:0.75rem;margin-top:5px;">
-    <tr style="background:#8e44ad;color:#fff;">
-      <th style="padding:3px 7px;border:1px solid #6c2e87;width:30%;">법조문</th>
-      <th style="padding:3px 7px;border:1px solid #6c2e87;">실무 적용 포인트</th>
+    <tr style="background:#fdf4ff;color:#6b21a8;">
+      <th style="padding:3px 7px;border:1px solid #d8b4fe;width:30%;">법조문</th>
+      <th style="padding:3px 7px;border:1px solid #d8b4fe;">실무 적용 포인트</th>
     </tr>
     <tr style="background:#fff;">
       <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">상법 제732조</td>
@@ -26308,8 +26537,8 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
                         st.image(_f, caption=_f.name, width=180)
 
             # ── 파일 업로드 — 개인보험증권 ──────────────────────────────
-            st.markdown("""<div style="background:#7d3c00;border-radius:7px 7px 0 0;
-  padding:5px 12px;font-size:0.80rem;font-weight:900;color:#fff;margin-top:6px;">
+            st.markdown("""<div style="background:#fff8f0;border:1px solid #f5d5a0;border-radius:7px 7px 0 0;
+  padding:5px 12px;font-size:0.80rem;font-weight:900;color:#7d3c00;margin-top:6px;">
   📋 개인보험증권 파일 업로드 (담보 자동 인식)</div>""", unsafe_allow_html=True)
             st.markdown("""<div style="background:#fff8f0;border:1px solid #f5d5a0;border-top:none;
   border-radius:0 0 7px 7px;padding:5px 10px;font-size:0.76rem;color:#5a3000;margin-bottom:4px;">
@@ -26414,12 +26643,12 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
                     components.html(f"""
 <div style="overflow-x:auto;max-height:220px;overflow-y:auto;font-family:'Noto Sans KR',sans-serif;font-size:0.79rem;">
 <table style="width:100%;border-collapse:collapse;background:#fff;">
-<tr style="background:#2e6da4;color:#fff;">
-  <th style="padding:4px 6px;border:1px solid #1a4a7a;">구분</th>
-  <th style="padding:4px 6px;border:1px solid #1a4a7a;">담보명</th>
-  <th style="padding:4px 6px;border:1px solid #1a4a7a;">가입금액</th>
-  <th style="padding:4px 6px;border:1px solid #1a4a7a;">연금/월</th>
-  <th style="padding:4px 6px;border:1px solid #1a4a7a;">확신도</th>
+<tr style="background:#eff6ff;color:#1e40af;">
+  <th style="padding:4px 6px;border:1px solid #bfdbfe;">구분</th>
+  <th style="padding:4px 6px;border:1px solid #bfdbfe;">담보명</th>
+  <th style="padding:4px 6px;border:1px solid #bfdbfe;">가입금액</th>
+  <th style="padding:4px 6px;border:1px solid #bfdbfe;">연금/월</th>
+  <th style="padding:4px 6px;border:1px solid #bfdbfe;">확신도</th>
 </tr>
 {_tbl_rows}
 </table></div>""", height=240)
@@ -26637,18 +26866,18 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
             components.html(f"""
 <div style="font-family:'Noto Sans KR',sans-serif;font-size:0.80rem;">
 <table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
-<tr style="background:#2e6da4;color:#fff;">
-  <th style="padding:4px 6px;border:1px solid #1a4a7a;">담보</th>
-  <th style="padding:4px 6px;border:1px solid #1a4a7a;">교통가입</th>
-  <th style="padding:4px 6px;border:1px solid #1a4a7a;">교통지급</th>
-  <th style="padding:4px 6px;border:1px solid #1a4a7a;">일반가입</th>
-  <th style="padding:4px 6px;border:1px solid #1a4a7a;">일반지급</th>
+<tr style="background:#eff6ff;color:#1e40af;">
+  <th style="padding:4px 6px;border:1px solid #bfdbfe;">담보</th>
+  <th style="padding:4px 6px;border:1px solid #bfdbfe;">교통가입</th>
+  <th style="padding:4px 6px;border:1px solid #bfdbfe;">교통지급</th>
+  <th style="padding:4px 6px;border:1px solid #bfdbfe;">일반가입</th>
+  <th style="padding:4px 6px;border:1px solid #bfdbfe;">일반지급</th>
 </tr>
 {_calc_rows}{_ann_row}
-<tr style="background:#3B82F6;color:#fff;font-weight:900;">
-  <td style="padding:4px 6px;border:1px solid #0d2040;">합계</td>
-  <td colspan="2" style="padding:4px 6px;border:1px solid #0d2040;text-align:right;">교통: {_total_t//10000:,}만원</td>
-  <td colspan="2" style="padding:4px 6px;border:1px solid #0d2040;text-align:right;">일반: {_total_g//10000:,}만원</td>
+<tr style="background:#eff6ff;color:#1e40af;font-weight:900;">
+  <td style="padding:4px 6px;border:1px solid #bfdbfe;">합계</td>
+  <td colspan="2" style="padding:4px 6px;border:1px solid #bfdbfe;text-align:right;">교통: {_total_t//10000:,}만원</td>
+  <td colspan="2" style="padding:4px 6px;border:1px solid #bfdbfe;text-align:right;">일반: {_total_g//10000:,}만원</td>
 </tr>
 </table>
 <div style="background:#fff8f0;border:1px solid #f5a623;border-radius:5px;padding:5px 10px;font-size:0.77rem;color:#5a3000;">
@@ -28682,11 +28911,11 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
   (총한도 {_tot:,}만원)
 </div>
 <table style="width:100%;border-collapse:collapse;">
-<tr style="background:#2e6da4;color:#fff;">
-  <th style="padding:4px 8px;border:1px solid #1a4a7a;">보험사</th>
-  <th style="padding:4px 8px;border:1px solid #1a4a7a;">가입한도</th>
-  <th style="padding:4px 8px;border:1px solid #1a4a7a;">분담비율</th>
-  <th style="padding:4px 8px;border:1px solid #1a4a7a;">분담금액</th>
+<tr style="background:#eff6ff;color:#1e40af;">
+  <th style="padding:4px 8px;border:1px solid #bfdbfe;">보험사</th>
+  <th style="padding:4px 8px;border:1px solid #bfdbfe;">가입한도</th>
+  <th style="padding:4px 8px;border:1px solid #bfdbfe;">분담비율</th>
+  <th style="padding:4px 8px;border:1px solid #bfdbfe;">분담금액</th>
 </tr>
 {_rows_html}
 </table>
@@ -30871,7 +31100,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
   background:#fdf8ff;border:2px solid #8e44ad;border-radius:10px;
   font-size:0.81rem;line-height:1.78;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
-<div style="background:#8e44ad;color:#fff;border-radius:6px;padding:3px 11px;
+<div style="background:#fdf4ff;color:#6b21a8;border:1px solid #d8b4fe;border-radius:6px;padding:3px 11px;
   font-size:0.85rem;font-weight:900;margin-bottom:10px;display:inline-block;">
   💰 상속 흐름 및 예상 상속세 산출 예시
 </div><br>
@@ -37809,7 +38038,7 @@ END; $$;""", language="sql")
                     for _ym1, _files1 in _mg1.items():
                         _yr1, _mn1 = (_ym1[:4], _ym1[5:7]) if len(_ym1) >= 7 else (_ym1, "")
                         st.markdown(f"""
-<div style="background:#2e6da4;color:#fff;border-radius:6px;
+<div style="background:#dbeafe;color:#1e40af;border-radius:6px;
   padding:4px 10px;margin:6px 0 3px 0;font-size:0.8rem;font-weight:700;">
   📅 {_yr1}년 {_mn1}월 &nbsp;({len(_files1)}건)
 </div>""", unsafe_allow_html=True)
