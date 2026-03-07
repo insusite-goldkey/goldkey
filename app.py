@@ -1330,6 +1330,45 @@ header[data-testid="stHeader"] {{
 #gk-landing-root.gk-lp-exit {{
   opacity:0;pointer-events:none;
 }}
+/* 태블릿/모바일 오버플로우 방지 */
+html, body {{
+  overflow:hidden !important;
+  max-width:100vw !important;
+}}
+@media (max-width:900px) {{
+  #gk-landing-root {{
+    width:100vw !important;
+    max-width:100vw !important;
+    overflow:hidden !important;
+  }}
+  #gk-landing-inner {{
+    max-width:100% !important;
+    padding:0 16px !important;
+  }}
+  .gk-lp-title {{
+    font-size:clamp(1.4rem,5.5vw,2.2rem) !important;
+  }}
+}}
+/* 카운트다운 원형 타이머 */
+#gk-countdown-ring {{
+  position:relative;width:56px;height:56px;margin:0 auto 14px auto;
+}}
+#gk-countdown-ring svg {{
+  transform:rotate(-90deg);
+}}
+#gk-countdown-ring circle {{
+  fill:none;stroke-width:4;
+}}
+#gk-countdown-ring .bg {{ stroke:rgba(255,255,255,0.18); }}
+#gk-countdown-ring .fg {{ stroke:#f0c040;stroke-linecap:round;
+  stroke-dasharray:138;stroke-dashoffset:0;
+  transition:stroke-dashoffset 1s linear;
+}}
+#gk-countdown-num {{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  color:#fff;font-size:1.3rem;font-weight:900;
+  text-shadow:0 1px 4px rgba(0,0,0,0.6);
+}}
 </style>
 <div id="gk-landing-root">
   <div id="gk-landing-inner">
@@ -1337,9 +1376,26 @@ header[data-testid="stHeader"] {{
     <div class="gk-lp-sub">가문 안보 관제탑 — 보험 설계사 전용 플랫폼</div>
     <div class="gk-lp-badge">🛡️ 가문 안보 서비스</div>
     <div class="gk-lp-divider"></div>
+    <div id="gk-countdown-ring">
+      <svg width="56" height="56" viewBox="0 0 56 56">
+        <circle class="bg" cx="28" cy="28" r="22"/>
+        <circle class="fg" id="gk-ring-fg" cx="28" cy="28" r="22"/>
+      </svg>
+      <div id="gk-countdown-num">5</div>
+    </div>
   </div>
 </div>
 """, unsafe_allow_html=True)
+
+    # ── [제39조 §2-A] 5초 카운트다운 자동 진입 — query_params 트리거 ──
+    # JS가 5초 후 ?_lp_auto=1 을 붙여 페이지를 reload → 서버에서 감지 후 rerun
+    _auto_enter = st.query_params.get("_lp_auto", "") == "1"
+    if _auto_enter:
+        st.query_params.clear()
+        st.session_state["_lp_landing"] = True
+        st.session_state["current_tab"] = "home"
+        st.session_state["_open_sidebar"] = True
+        st.rerun()
 
     # ── [제39조 §2] 진입 버튼 — 네이티브 Streamlit 버튼 (JS 의존 제거) ──
     # HF Spaces iframe 환경에서 window.parent 접근 실패로 JS 트리거가 동작 안 함
@@ -1365,8 +1421,32 @@ header[data-testid="stHeader"] {{
 }
 </style>
 <div id="gk-enter-btn-wrap">
-  <div class="gk-hint">▼ 터치하여 시작</div>
-</div>""", unsafe_allow_html=True)
+  <div class="gk-hint">▼ 터치하여 시작 (5초 후 자동 진입)</div>
+</div>
+<script>
+(function(){
+  var total = 5;
+  var remain = total;
+  var circumference = 138;
+  var ring = document.getElementById('gk-ring-fg');
+  var num  = document.getElementById('gk-countdown-num');
+  function tick(){
+    remain--;
+    if(num) num.textContent = remain;
+    if(ring) ring.style.strokeDashoffset = String(circumference * (1 - remain/total));
+    if(remain <= 0){
+      // 현재 URL에 _lp_auto=1 파라미터 추가하여 Streamlit 서버에 신호
+      var url = new URL(window.location.href);
+      url.searchParams.set('_lp_auto','1');
+      window.location.href = url.toString();
+    } else {
+      setTimeout(tick, 1000);
+    }
+  }
+  setTimeout(tick, 1000);
+})();
+</script>
+""", unsafe_allow_html=True)
 
     if st.button("🚀 시작하기", key="_s39_lp_trigger", use_container_width=False):
         st.session_state["_lp_landing"] = True
@@ -15386,6 +15466,17 @@ watchRipple();
     <span style='color:#0369a1;font-weight:700;'>📱 핸드폰·태블릿 모두 지원</span>
   </div>
 </div>""", unsafe_allow_html=True)
+
+        st.markdown("""
+<style>
+section[data-testid="stSidebar"] details summary,
+section[data-testid="stSidebar"] details summary span,
+section[data-testid="stSidebar"] details summary p,
+section[data-testid="stSidebar"] .st-expander summary {
+  color: #000000 !important;
+  text-shadow: none !important;
+}
+</style>""", unsafe_allow_html=True)
 
         with st.expander("이용약관 · 서비스 안내", expanded=False):
             st.markdown("""
