@@ -4620,49 +4620,19 @@ body.gp0-tablet  #gp0-brand-ring{width:100px;height:100px;}
   var _t2 = setTimeout(_advance, 900);
   var _t3 = setTimeout(_advance, 1600);
 
-  /* ── §2 Instant Swap — AppReady 폴링 ───────────────── */
+  /* ── §2 Instant Swap — 단순 타임아웃 (폴링 완전 제거) ─── */
   function _swapNow(){
     var veil = document.getElementById('gp0-landing-veil');
     if(!veil) return;
-    /* 0ms 즉각 제거 — 페이드 없음 */
     veil.style.cssText = 'display:none !important;';
     clearTimeout(_t1); clearTimeout(_t2); clearTimeout(_t3);
   }
-
-  /* Streamlit DOM 마운트 감지: parent 문서 + 현재 문서 모두 탐색 */
-  var _pollCount = 0;
-  var _maxPoll   = 60; /* 최대 3초 대기 (50ms × 60) */
-  function _getDoc(){ try{ return window.parent.document; }catch(e){ return document; } }
-  function _checkReady(){
-    _pollCount++;
-    if(_pollCount > _maxPoll){ _swapNow(); return; } /* 3초 타임아웃 안전망 */
-
-    var pd = _getDoc();
-    /* window.__AppReady 신호 OR Streamlit 본체 DOM 마운트 확인 */
-    var appEl  = pd.querySelector('[data-testid="stApp"]') ||
-                 document.querySelector('[data-testid="stApp"]');
-    var mainEl = pd.querySelector('[data-testid="stMain"]') ||
-                 pd.querySelector('[data-testid="stMainBlockContainer"]') ||
-                 pd.querySelector('.main .block-container') ||
-                 pd.querySelector('.block-container') ||
-                 document.querySelector('[data-testid="stMain"]') ||
-                 document.querySelector('.block-container');
-    var ready    = window.__AppReady === true || (window.parent && window.parent.__AppReady === true);
-    var domOk    = !!(appEl && mainEl && mainEl.children.length > 0);
-    var fallback = _pollCount > 40; /* 2초 후 무조건 해제 — HF Spaces 느린 환경 */
-
-    if(ready || domOk || fallback){
-      if(bar)  bar.style.width  = '100%';
-      if(stxt) stxt.textContent = '✅ 준비 완료';
-      requestAnimationFrame(function(){
-        requestAnimationFrame(_swapNow);
-      });
-    } else {
-      setTimeout(_checkReady, 50);
-    }
-  }
-  /* 즉시 폴링 시작 — DOMContentLoaded 대기 없음 */
-  setTimeout(_checkReady, 100);
+  /* 2초 후 무조건 veil 제거 — DOM 폴링 없음, 환경 무관 확실 동작 */
+  setTimeout(function(){
+    if(bar)  bar.style.width  = '100%';
+    if(stxt) stxt.textContent = '✅ 준비 완료';
+    _swapNow();
+  }, 2000);
 })();
 </script>
 """, unsafe_allow_html=True)
@@ -13043,9 +13013,10 @@ def main():
     )
 
     # ── STEP 0: [제0조] 전광석화식 기동 헌법 — Instant Swap Bootstrap ────
-    # 랜딩 베일(z-index:9999) 즉각 표시 → UA 기기 분기 → AppReady 폴링 →
-    # 본체 DOM 마운트 완료 즉시 0ms 랜딩 제거 (화이트아웃 영구 박멸)
-    _gp0_instant_bootstrap()
+    # 최초 1회만 실행 (rerun 시 veil 재표시 방지)
+    if not st.session_state.get("_gp0_bootstrap_done"):
+        st.session_state["_gp0_bootstrap_done"] = True
+        _gp0_instant_bootstrap()
 
     # ── STEP 1-A: [제39조 §4] Visual Continuity — 사이드바 첫 프레임 즉각 표시 ──
     # 웹앱 기준: 사이드바 배경 #FFFFFF 즉시 고정, transition 제거 → 로드 시 깜빡임 없음.
