@@ -1371,6 +1371,7 @@ header[data-testid="stHeader"] {{
     if st.button("🚀 시작하기", key="_s39_lp_trigger", use_container_width=False):
         st.session_state["_lp_landing"] = True
         st.session_state["current_tab"] = "home"
+        st.session_state["_open_sidebar"] = True
         st.rerun()
 
 
@@ -12973,7 +12974,7 @@ def main():
         page_title="골드키지사 마스터 AI",
         page_icon="🏆",
         layout="centered",
-        initial_sidebar_state="auto"
+        initial_sidebar_state="expanded"
     )
 
     # ── STEP 0: [제0조] 전광석화식 기동 헌법 — Instant Swap Bootstrap ────
@@ -13747,8 +13748,9 @@ section[data-testid="stSidebar"] {
 }
 </style>""", unsafe_allow_html=True)
 
-    # ── (1) _open_sidebar: 로그인 버튼 클릭 시 JS로 사이드바 열기 ──────────────
-    if st.session_state.pop("_open_sidebar", False):
+    # ── (1) _open_sidebar: 랜딩/로그인 버튼 클릭 시 JS로 사이드바 열기 ──────────
+    # 실제 팝은 with st.sidebar 블록 안에서 수행 (DOM 생성 후 JS 주입)
+    if st.session_state.get("_open_sidebar", False):
         components.html("""
 <script>
 (function(){
@@ -15294,6 +15296,36 @@ watchRipple();
 
     # ── 사이드바 ──────────────────────────────────────────────────────────
     with st.sidebar:
+        # ── 랜딩/로그인 후 사이드바 강제 열기 (DOM 생성 직후 JS 주입) ────────
+        if st.session_state.pop("_open_sidebar", False):
+            st.components.v1.html("""
+<script>
+(function(){
+  function tryOpen(pd) {
+    try {
+      var sb = pd.querySelector('section[data-testid="stSidebar"]');
+      if (sb && sb.getBoundingClientRect().width > 50) return true;
+      var sels = [
+        'button[aria-label="Open sidebar"]',
+        'button[aria-label="사이드바를 열거나 닫으세요"]',
+        '[data-testid="collapsedControl"] button',
+        '[data-testid="stSidebarCollapseButton"] button'
+      ];
+      for (var i=0;i<sels.length;i++) {
+        var b = pd.querySelector(sels[i]);
+        if (b) { b.click(); return true; }
+      }
+    } catch(e){}
+    return false;
+  }
+  function run(n) {
+    var pd = window.parent.document;
+    if (!tryOpen(pd) && n > 0) setTimeout(function(){ run(n-1); }, 400);
+  }
+  setTimeout(function(){ run(5); }, 200);
+})();
+</script>""", height=0)
+
         # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (기존 아바타 완전 대체) ──
         render_goldkey_sidebar()
 
