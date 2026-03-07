@@ -13061,6 +13061,9 @@ def main():
         initial_sidebar_state="expanded"
     )
 
+    # ── [제49조] 직통 진입 — 랜딩 페이지 폐지, 항상 메인 화면 직통 ────────
+    st.session_state["_lp_landing"] = True
+
     # ── STEP 0: [제0조] 전광석화식 기동 헌법 — Instant Swap Bootstrap ────
     # 최초 1회만 실행 (rerun 시 veil 재표시 방지)
     if not st.session_state.get("_gp0_bootstrap_done"):
@@ -13251,7 +13254,7 @@ def main():
 
     # ── STEP 1-D: [제40조 §3] Watchdog JS 주입 — 랜딩 완료 후에만 실행 ──
     import streamlit.components.v1 as _s40_comp
-    if st.session_state.get('_lp_landing', False):
+    if True:
         _s40_wtab = st.session_state.pop("_s40_watchdog_tab", None)
         if _s40_wtab:
             _wjs = _s40_perf_watchdog_js(str(_s40_wtab))
@@ -13421,7 +13424,7 @@ def main():
     # ── STEP 5: 세션 타이머 JS (세션당 1회만 주입, 랜딩 완료 후에만 실행) ─────
     # 랜딩페이지 표시 중에는 타이머 주입 스킵 → 초기 로딩 차단 없음
     # height=0 iframe도 Streamlit 렌더 완료까지 blocking 발생 → 반드시 조건 처리
-    _landing_done_for_timer = st.session_state.get('_lp_landing', False)
+    _landing_done_for_timer = True
     if _landing_done_for_timer:
         if not st.session_state.get('_session_timer_injected'):
             st.session_state['_session_timer_injected'] = True
@@ -13516,7 +13519,7 @@ def main():
     # ── autocomplete 차단 — 삼성 인터넷 비밀번호 저장 팝업 방지 (랜딩 완료 후) ──
     # password 타입 input에 autocomplete="off" 강제 주입
     # MutationObserver: 동적으로 생성되는 필드(PIN·연락처)도 즉시 처리
-    if st.session_state.get('_lp_landing', False): components.html("""
+    if True: components.html("""
 <script>
 (function(){
   function blockAutocomplete(root) {
@@ -13568,7 +13571,7 @@ def main():
     # 로그인 성공 시 st.rerun()이 트리거됨 — 이 첫 rerun에서는
     # 자가진단·헬스체크·RAG sync를 건너뛰고 사이드바·홈탭만 빠르게 렌더
     _login_first_run = st.session_state.pop("_login_just_done", False)
-    _landing_active = not st.session_state.get('_lp_landing', False)
+    _landing_active = False
 
     # ── STEP 6-a: 자가 진단 — 백그라운드 스레드 (메인 루프 차단 완전 제거) ──
     # [수정] 기존 동기 실행 → daemon 스레드로 이전, 랜딩/로그인 첫 rerun 중 제외
@@ -13772,7 +13775,7 @@ def main():
 """, height=0)
 
     # ── Pull-to-Refresh 및 새로고침 차단 (모바일/데스크탑) — 랜딩 완료 후 최초 1회
-    if st.session_state.get('_lp_landing', False) and not st.session_state.get("_js_ptr_done"):
+    if not st.session_state.get("_js_ptr_done"):
         st.session_state["_js_ptr_done"] = True
         components.html("""
 <script>
@@ -17095,15 +17098,12 @@ section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {{
     # 로그인 완료 사용자는 랜딩 건너뜀 (세션당 1회만 노출)
     # ══════════════════════════════════════════════════════════════════════
     _is_logged_in = bool(st.session_state.get("user_id"))
-    _landing_done = st.session_state.get("_lp_landing", False)
-    if not _is_logged_in and not _landing_done:
-        _s39_render_landing_page()
-        st.stop()
+    # [제49조 개정] 랜딩 페이지 폐지 — 항상 메인 화면 직통 진입
+    _landing_done = True
+    st.session_state["_lp_landing"] = True
 
-    # ── [제39조 §5] 랜딩 후 비로그인 → 메인 영역에 로그인 안내 UI ──────────
-    # HuggingFace Spaces iframe 환경에서 JS 사이드바 열기가 불안정하므로
-    # 메인 영역에 직접 로그인 유도 버튼을 표시 (사이드바 안내 병행)
-    if not _is_logged_in and _landing_done:
+    # ── [제49조] 비로그인 → 메인 영역에 로그인 안내 UI (사이드바 즉시 활성) ──
+    if not _is_logged_in:
         st.markdown("""
 <style>
 .gk-login-guide {
