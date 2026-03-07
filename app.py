@@ -311,10 +311,10 @@ def _guest_block_modal(feature_name: str = "") -> bool:
         return False
     _feat = feature_name or "해당 기능"
     _st.markdown(f"""
-<div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);
+<div style="background:linear-gradient(135deg,#EEF2FF 0%,#E8F0FE 100%);
   border:2px solid #f0c040;border-radius:14px;padding:18px 20px;
   margin:8px 0;box-shadow:0 4px 20px rgba(240,192,64,0.22);">
-  <div style="font-size:1.1rem;font-weight:900;color:#f0c040;margin-bottom:8px;">
+  <div style="font-size:1.1rem;font-weight:900;color:#f0c040;margin-bottom:8px;text-shadow:0px 1px 3px rgba(0,0,0,0.45);">
     🔒 정회원 전용 기능
   </div>
   <div style="font-size:0.84rem;color:#e2e8f0;line-height:1.7;margin-bottom:10px;">
@@ -468,9 +468,9 @@ def _art34_rate_banner_html() -> str:
     if not _ART34_RATE_CHANGED or not _ART34_ALERT_MSG:
         return ""
     return (
-        f'<div style="background:linear-gradient(90deg,#1a3a1a,#0d2e0d);'
+        f'<div style="background:linear-gradient(90deg,#EDFFF5,#D1FAE5);'
         f'border-left:5px solid #22c55e;border-radius:8px;'
-        f'padding:12px 16px;margin:8px 0;color:#86efac;font-size:0.88rem;">'
+        f'padding:12px 16px;margin:8px 0;color:#065f46;font-size:0.88rem;">'  
         f'⚠️ <b>[가이딩 프로토콜 제34조]</b> {_ART34_ALERT_MSG}'
         f'</div>'
     )
@@ -1825,11 +1825,11 @@ def _art43_build_report_html(
   @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Noto+Serif+KR:wght@700;900&display=swap');
   .rpt-cover {{
     position:relative; overflow:hidden;
-    background-color:#0b0e17;
+    background-color:#dbeafe;
     background-image:
       repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(255,255,255,0.012) 3px,rgba(255,255,255,0.012) 4px),
       repeating-linear-gradient(90deg,transparent,transparent 3px,rgba(255,255,255,0.012) 3px,rgba(255,255,255,0.012) 4px),
-      linear-gradient(170deg,#0d1422 0%,#070c18 45%,#0a1020 100%);
+      linear-gradient(170deg,#dbeafe 0%,#bfdbfe 45%,#e0e7ff 100%);
     padding:64px 32px 52px; text-align:center;
     border-bottom:1px solid rgba(212,175,55,0.6);
     min-height:480px; display:flex; flex-direction:column;
@@ -2285,7 +2285,7 @@ def _art43_render_tab() -> None:
                     )
                     st.markdown(
                         f'<a href="{_mailto}" target="_blank">'
-                        f'<button style="width:100%;background:#2e6da4;color:#fff;'
+                        f'<button style="width:100%;background:#5B8FDB;color:#fff;'
                         f'border:none;border-radius:8px;padding:10px;font-size:0.9rem;'
                         f'font-weight:700;cursor:pointer;">메일 클라이언트 열기</button></a>',
                         unsafe_allow_html=True,
@@ -2764,7 +2764,7 @@ def _art38_insight_banner_html() -> str:
         for it in _items[:3]
     )
     return (
-        f'<div id="gk-art38-banner" style="background:linear-gradient(90deg,#0c2a1a,#0a1f2e);'
+        f'<div id="gk-art38-banner" style="background:linear-gradient(90deg,#EDFFF5,#E8F0FE);'
         f'border-left:5px solid #34d399;border-radius:10px;'
         f'padding:14px 18px;margin-bottom:14px;'
         f'font-family:\'Noto Sans KR\',sans-serif;'
@@ -3094,10 +3094,10 @@ def _art34_rate_banner_html() -> str:
     _rate_pct = round(_CURRENT_NHIS_RATE * 100, 4)
     _ltci_pct = round(_CURRENT_LTCI_RATE * 100, 4)
     return (
-        f'<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);'
+        f'<div style="background:linear-gradient(135deg,#EEF2FF 0%,#DBEAFE 100%);'
         f'border-left:5px solid #f0c040;border-radius:10px;'
         f'padding:14px 18px;margin-bottom:12px;'
-        f'font-family:\'Noto Sans KR\',sans-serif;">'
+        f'font-family:\'Noto Sans KR\',sans-serif;">'  
         f'<div style="color:#f0c040;font-size:0.95rem;font-weight:900;margin-bottom:4px;">'
         f'🔔 [가이딩 프로토콜 제34조] 법정 요율 자동 갱신 알림</div>'
         f'<div style="color:#e2e8f0;font-size:0.85rem;line-height:1.7;">'
@@ -4502,6 +4502,173 @@ def _gp512_get_remaining(fp_id: str) -> int:
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# 가이딩 프로토콜 제0조: 초연결 기동 및 전광석화식 자원 동기화 원칙 (즉각 전환형)
+# §1 0.1KB 인라인 랜딩 렌더링 — 브랜드 각인 (#FFD700 골드 + #FFFFFF 백색)
+# §2 Instant Swap — z-index 레이어 구조, AppReady 신호 수신 즉시 0ms 제거
+# §3 UA 기기 분기 — Mobile/Tablet/Desktop 자동 감지 + 전용 레이아웃 적용
+# §4 3단계 병참 로딩 — 매복 로딩 → 첫화면 즉각 전개 → 나머지 배경 보급
+# ══════════════════════════════════════════════════════════════════════════
+
+def _gp0_instant_bootstrap() -> None:
+    """[제0조] 전광석화식 기동 헌법 — Instant Swap Engine + UA Device Branching.
+
+    동작 원리:
+    1. 랜딩 레이어(z-index:9999)가 즉각 화면을 점유하며 브랜드 메시지 표시.
+    2. UA 분석으로 기기(Mobile/Tablet/Desktop)를 식별, 전용 레이아웃 적용.
+    3. Streamlit 본체가 DOM 마운트 완료되면 window.__AppReady = true 신호 발송.
+    4. 신호 수신 즉시 랜딩 레이어 display:none → 0ms 즉각 본체 노출 (화이트아웃 없음).
+    5. 3단계 병참: 로그인 대기 → 첫 페이지 전개 → 나머지 매복 로딩.
+
+    호출 위치: main() STEP 0 — set_page_config 직후 최선두.
+    """
+    import streamlit as _st0
+    _st0.markdown("""
+<div id="gp0-landing-veil" style="
+    position:fixed;top:0;left:0;width:100vw;height:100vh;
+    z-index:9999;
+    background:linear-gradient(135deg,#0a1628 0%,#1a2a4a 50%,#0d1f3c 100%);
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    font-family:'Noto Sans KR','Malgun Gothic',sans-serif;">
+  <div id="gp0-brand-ring" style="
+      width:90px;height:90px;border-radius:50%;
+      border:3px solid #FFD700;
+      box-shadow:0 0 28px rgba(255,215,0,0.5),0 0 60px rgba(255,215,0,0.15);
+      display:flex;align-items:center;justify-content:center;
+      margin-bottom:22px;
+      animation:gp0pulse 1.8s ease-in-out infinite;">
+    <span style="font-size:2.5rem;">🏆</span>
+  </div>
+  <div style="color:#FFD700;font-size:1.35rem;font-weight:900;
+      letter-spacing:0.04em;margin-bottom:8px;
+      text-shadow:0 0 20px rgba(255,215,0,0.6);">
+    Goldkey AI Masters 2026
+  </div>
+  <div style="color:#FFFFFF;font-size:0.88rem;font-weight:400;
+      opacity:0.85;margin-bottom:28px;letter-spacing:0.02em;">
+    이 구동 중입니다. 잠시만 기다려 주세요!
+  </div>
+  <div id="gp0-progress-track" style="
+      width:min(280px,70vw);height:3px;
+      background:rgba(255,255,255,0.12);border-radius:2px;overflow:hidden;">
+    <div id="gp0-progress-bar" style="
+        height:100%;width:0%;
+        background:linear-gradient(90deg,#FFD700,#FFF4A0,#FFD700);
+        border-radius:2px;
+        transition:width 0.25s ease;"></div>
+  </div>
+  <div id="gp0-status-txt" style="
+      color:rgba(255,255,255,0.5);font-size:0.72rem;
+      margin-top:10px;letter-spacing:0.05em;">
+    시스템 초기화 중...
+  </div>
+  <div id="gp0-device-badge" style="
+      position:absolute;bottom:18px;right:18px;
+      font-size:0.65rem;color:rgba(255,215,0,0.4);
+      font-weight:700;letter-spacing:0.08em;">
+  </div>
+</div>
+
+<style>
+@keyframes gp0pulse{
+  0%,100%{box-shadow:0 0 28px rgba(255,215,0,0.5),0 0 60px rgba(255,215,0,0.15);}
+  50%{box-shadow:0 0 40px rgba(255,215,0,0.8),0 0 80px rgba(255,215,0,0.30);}
+}
+/* 기기별 전용 레이아웃 — UA 분기 결과로 body에 클래스 부여 */
+body.gp0-mobile  #gp0-landing-veil{background:linear-gradient(180deg,#0a1628 0%,#0d1f3c 100%);}
+body.gp0-tablet  #gp0-landing-veil{background:linear-gradient(135deg,#0a1628 0%,#112244 60%,#0d1f3c 100%);}
+body.gp0-desktop #gp0-landing-veil{background:linear-gradient(135deg,#0a1628 0%,#1a2a4a 50%,#0d1f3c 100%);}
+body.gp0-mobile  #gp0-brand-ring{width:72px;height:72px;}
+body.gp0-tablet  #gp0-brand-ring{width:100px;height:100px;}
+</style>
+
+<script>
+(function(){
+  /* ── §3 UA 기기 분기 ─────────────────────────────────── */
+  var ua = navigator.userAgent;
+  var isMobile = /Mobi|Android|iPhone|iPod/i.test(ua);
+  var isTablet = /iPad|Tablet|tablet/i.test(ua) ||
+                 (/Mobi/i.test(ua) && Math.min(screen.width,screen.height) >= 600);
+  var deviceClass = isMobile && !isTablet ? 'gp0-mobile'
+                  : isTablet             ? 'gp0-tablet'
+                  :                        'gp0-desktop';
+  document.body.classList.add(deviceClass);
+  var badge = document.getElementById('gp0-device-badge');
+  if(badge) badge.textContent =
+      isMobile && !isTablet ? '📱 MOBILE MODE'
+    : isTablet              ? '📟 TABLET MODE'
+    :                         '🖥️ DESKTOP MODE';
+
+  /* ── §4 3단계 병참 보급 진행 표시 ───────────────────── */
+  var bar  = document.getElementById('gp0-progress-bar');
+  var stxt = document.getElementById('gp0-status-txt');
+  var _stages = [
+    {pct:20, msg:'[1단계] 인증 모듈 대기 중...'},
+    {pct:55, msg:'[2단계] 핵심 리소스 전개 중...'},
+    {pct:85, msg:'[3단계] 전체 섹션 보급 완료 중...'},
+    {pct:98, msg:'최종 점검 중...'}
+  ];
+  var _si = 0;
+  function _advance(){
+    if(_si >= _stages.length) return;
+    var s = _stages[_si++];
+    if(bar)  bar.style.width  = s.pct + '%';
+    if(stxt) stxt.textContent = s.msg;
+  }
+  _advance();
+  var _t1 = setTimeout(_advance, 400);
+  var _t2 = setTimeout(_advance, 900);
+  var _t3 = setTimeout(_advance, 1600);
+
+  /* ── §2 Instant Swap — AppReady 폴링 ───────────────── */
+  function _swapNow(){
+    var veil = document.getElementById('gp0-landing-veil');
+    if(!veil) return;
+    /* 0ms 즉각 제거 — 페이드 없음 */
+    veil.style.cssText = 'display:none !important;';
+    clearTimeout(_t1); clearTimeout(_t2); clearTimeout(_t3);
+  }
+
+  /* Streamlit DOM 마운트 감지: stApp 요소 + 실제 컨텐츠 로딩 확인 */
+  var _pollCount = 0;
+  var _maxPoll   = 600; /* 최대 30초 대기 */
+  function _checkReady(){
+    _pollCount++;
+    if(_pollCount > _maxPoll){ _swapNow(); return; } /* 타임아웃 안전망 */
+
+    /* window.__AppReady 신호 OR Streamlit 본체 DOM 마운트 확인 */
+    var appEl   = document.querySelector('[data-testid="stApp"]');
+    var sideEl  = document.querySelector('[data-testid="stSidebar"]');
+    var mainEl  = document.querySelector('[data-testid="stMain"]') ||
+                  document.querySelector('.main .block-container');
+    var ready   = window.__AppReady === true;
+    /* 본체 DOM이 존재하고 내부에 실제 컨텐츠(자식 노드)가 있을 때 */
+    var domOk   = !!(appEl && mainEl && mainEl.children.length > 0);
+
+    if(ready || domOk){
+      /* 진행 바 100% 채우고 즉시 제거 */
+      if(bar)  bar.style.width  = '100%';
+      if(stxt) stxt.textContent = '✅ 준비 완료 — 본체 전환';
+      /* 0ms — requestAnimationFrame으로 다음 프레임에 제거 (렌더 보장) */
+      requestAnimationFrame(function(){
+        requestAnimationFrame(_swapNow);
+      });
+    } else {
+      setTimeout(_checkReady, 50);
+    }
+  }
+  /* DOM 준비 후 즉각 폴링 시작 */
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', _checkReady);
+  } else {
+    _checkReady();
+  }
+})();
+</script>
+""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # 가이딩 프로토콜 제84조: 전역 시각 인터페이스 시인성 통합 및 색상 기강 확립
 # §1 배경색 파스텔화 — 어두운 계열(#000~#444) 즉시 폐기, 파스텔 톤 교체
 # §2 텍스트 백색 통일 — 황금색(#FFD700 계열) 예외 보존, 나머지 #FFFFFF 강제
@@ -4510,137 +4677,197 @@ def _gp512_get_remaining(fp_id: str) -> int:
 # ══════════════════════════════════════════════════════════════════════════
 
 def _gp84_inject_global_css() -> None:
-    """[제84조] 전역 UI 색상 기강 주입.
+    """[제84조] 전역 UI 색상 기강 주입 — TOTAL PURGE & RECONSTRUCTION.
 
-    - 모든 어두운 배경 → 파스텔 톤 교체 (!important 강제)
-    - 모든 텍스트 → #FFFFFF (황금색 #FFD700 계열 예외 보존)
+    - 모든 어두운 배경(#000~#555 계열) → 파스텔 톤 완전 교체 (!important 강제)
+    - 시맨틱 블록(.gp-income/.gp-medical/.gp-risk/.gp-vip) 파스텔화
+    - 모든 텍스트 → #FFFFFF (황금색 #FFD700/#D4AF37/#F9C74F 계열 예외 보존)
     - 파스텔 배경 위 흰 글씨: text-shadow로 시인성 확보
-    - .gk-sky-trust 등 특수 라이트 블록은 예외 처리 (검정 글씨 유지)
-    호출 위치: main() STEP 1-A 직후 최우선 주입
+    - 입력 필드: 반투명 흰 배경 + 다크 텍스트 (가독성 우선)
+    - .gk-sky-trust 등 특수 라이트 블록 검정 글씨 유지
+    호출 위치: main() STEP 1-A1 최우선 주입
     """
     import streamlit as _st84
     _st84.markdown("""<style>
 /* ================================================================
    가이딩 프로토콜 제84조: 전역 시각 인터페이스 색상 기강
-   §1 파스텔 배경 토큰
-   §2 텍스트 백색 통일 + 황금색 예외
-   §3 text-shadow 시인성
+   TOTAL UI COLOR PURGE & RECONSTRUCTION
+   §1 파스텔 배경 토큰 + 전역 배경 재건
+   §2 텍스트 백색 통일 + 황금색 절대 예외
+   §3 text-shadow 시인성 보강
    §4 Streamlit 내부 컴포넌트 오버라이드
+   §5 시맨틱 블록 파스텔 재정의
+   §6 입력/버튼/사이드바/탭/익스팬더
 ================================================================ */
 
-/* §1-A — 도메인별 파스텔 배경 토큰 */
+/* §1-A — 파스텔 배경 토큰 정의 */
 :root {
-    --gp84-pastel-base:     #F0F4FF;
-    --gp84-pastel-warm:     #FFF8F0;
-    --gp84-pastel-cool:     #F0FFF4;
-    --gp84-pastel-alert:    #FFF5F5;
-    --gp84-pastel-neutral:  #FDFCF0;
-    --gp84-pastel-vip:      #F5F0FF;
+    --gp84-pastel-base:     #EEF2FF;
+    --gp84-pastel-warm:     #FFF4ED;
+    --gp84-pastel-cool:     #EDFFF5;
+    --gp84-pastel-alert:    #FFF0F0;
+    --gp84-pastel-neutral:  #FDFCF2;
+    --gp84-pastel-vip:      #F3EEFF;
+    --gp84-pastel-income:   #E8F0FE;
+    --gp84-pastel-medical:  #E6F4EA;
+    --gp84-pastel-risk:     #FDECEA;
     --gp84-txt-main:        #FFFFFF;
-    --gp84-txt-shadow:      0px 1px 4px rgba(0,0,0,0.60),
-                            0px 0px 8px rgba(0,0,0,0.35);
+    --gp84-txt-shadow:      0px 1px 3px rgba(0,0,0,0.55),
+                            0px 0px 6px rgba(0,0,0,0.30);
     --gp84-gold-preserve:   #FFD700;
 }
 
-/* §1-B — 어두운 배경 블록 전역 파스텔화 (BLK_, INP_, gp- 클래스 포함) */
-/* 기준: 배경이 #000~#444 사이인 모든 요소를 파스텔로 교체 */
-.gp-income  { background: #1A237E !important; }   /* 딥블루 — 파스텔 아닌 시맨틱 색 유지 */
-.gp-medical { background: #00695C !important; }   /* 딥그린 유지 */
-.gp-risk    { background: #B71C1C !important; }   /* 딥레드 유지 */
-.gp-vip     { background: #4527A0 !important; }   /* 딥퍼플 유지 */
-
-/* §1-C — Streamlit 기본 다크 배경 오버라이드 */
-[data-testid="stApp"],
-[data-testid="stAppViewContainer"],
-section[data-testid="stMain"] > div,
-.main .block-container {
+/* §1-B — HTML/BODY 전역 배경 파스텔화 */
+html, body {
     background-color: var(--gp84-pastel-base) !important;
 }
 
-/* §1-D — 스트림릿 메트릭·익스팬더·탭·폼 컨테이너 파스텔화 */
+/* §1-C — Streamlit 앱 컨테이너 전체 파스텔화 */
+[data-testid="stApp"],
+[data-testid="stAppViewContainer"],
+.stApp,
+section[data-testid="stMain"],
+section[data-testid="stMain"] > div,
+section[data-testid="stMain"] > div > div,
+.main,
+.main .block-container,
+.block-container {
+    background-color: var(--gp84-pastel-base) !important;
+}
+
+/* §1-D — Streamlit 컴포넌트 컨테이너 파스텔화 */
 [data-testid="stMetric"],
 [data-testid="stExpander"],
 [data-testid="stForm"],
-[data-testid="stTabs"] [data-baseweb="tab-panel"] {
+[data-testid="stTabs"] [data-baseweb="tab-panel"],
+[data-testid="stVerticalBlock"],
+[data-testid="stHorizontalBlock"],
+[data-testid="stColumn"] > div {
     background-color: var(--gp84-pastel-base) !important;
     border-radius: 10px !important;
 }
 
-/* §1-E — 인라인 어두운 div 계열 파스텔 교체
-   (동적 생성 BLK_*, INP_* id 포함) */
+/* §1-E — 동적 BLK_/INP_ ID 블록 파스텔화 */
 div[id^="BLK_"],
 div[id^="INP_"],
 div[id^="blk_"],
-div[id^="inp_"] {
+div[id^="inp_"],
+div[id^="gp-"],
+div[id^="GP-"] {
     background-color: var(--gp84-pastel-base) !important;
     color: var(--gp84-txt-main) !important;
     text-shadow: var(--gp84-txt-shadow) !important;
 }
 
-/* §2-A — 전역 텍스트 백색 통일
-   파스텔 배경 위 흰 글씨는 text-shadow로 시인성 확보 */
-body,
-[data-testid="stApp"] *:not(.gk-sky-trust):not(.gk-sky-trust *):not(.gk-st-title):not(.gk-st-amount) {
+/* §5 — 시맨틱 도메인 블록 파스텔 재정의 (다크 배경 완전 폐기) */
+.gp-income,
+div.gp-income,
+[class*="gp-income"] {
+    background: var(--gp84-pastel-income) !important;
+    background-color: var(--gp84-pastel-income) !important;
+    border-left: 4px solid #3B82F6 !important;
+}
+.gp-medical,
+div.gp-medical,
+[class*="gp-medical"] {
+    background: var(--gp84-pastel-medical) !important;
+    background-color: var(--gp84-pastel-medical) !important;
+    border-left: 4px solid #16A34A !important;
+}
+.gp-risk,
+div.gp-risk,
+[class*="gp-risk"] {
+    background: var(--gp84-pastel-risk) !important;
+    background-color: var(--gp84-pastel-risk) !important;
+    border-left: 4px solid #DC2626 !important;
+}
+.gp-vip,
+div.gp-vip,
+[class*="gp-vip"] {
+    background: var(--gp84-pastel-vip) !important;
+    background-color: var(--gp84-pastel-vip) !important;
+    border-left: 4px solid #7C3AED !important;
+}
+
+/* §2-A — 전역 텍스트 백색 통일 (최우선 규칙) */
+body *,
+[data-testid="stApp"] *,
+.stApp *,
+.main *,
+.block-container * {
     color: var(--gp84-txt-main) !important;
     text-shadow: var(--gp84-txt-shadow) !important;
 }
 
-/* §2-B — 황금색 예외 보존 — 절대 변경 금지 */
-.gp-vip,
+/* §2-B — 황금색 계열 절대 예외 보존 */
 .gp-vip *,
+.gk-gold,
+.gk-gold *,
+.gp84-gold,
+.gp84-gold *,
+[class*="gold"],
 [style*="#FFD700"],
 [style*="ffd700"],
-[style*="gold"],
-.gk-gold,
-.gp84-gold {
+[style*="FFD700"],
+[style*="#D4AF37"],
+[style*="D4AF37"],
+[style*="#F9C74F"],
+[style*="F9C74F"],
+[style*="gold"] {
     color: var(--gp84-gold-preserve) !important;
-    text-shadow: 0px 1px 3px rgba(0,0,0,0.70) !important;
+    text-shadow: 0px 1px 4px rgba(0,0,0,0.75) !important;
 }
 
-/* §2-C — 입력 필드: 파스텔 배경 + 어두운 텍스트(가독성) */
+/* §2-C — 입력 필드: 반투명 흰 배경 + 다크 텍스트 (가독성 우선) */
+input,
 input[type="text"],
 input[type="password"],
 input[type="number"],
 input[type="email"],
+input[type="tel"],
 textarea,
 select,
 [data-testid="stTextInput"] input,
 [data-testid="stTextArea"] textarea,
-[data-testid="stNumberInput"] input {
-    background-color: #FFFFFFCC !important;
+[data-testid="stNumberInput"] input,
+[data-testid="stSelectbox"] [data-baseweb="select"] {
+    background-color: rgba(255,255,255,0.92) !important;
     color: #1A1A2E !important;
     text-shadow: none !important;
-    border: 1.5px solid rgba(0,85,255,0.25) !important;
+    border: 1.5px solid rgba(0,85,255,0.30) !important;
     border-radius: 8px !important;
 }
+/* 플레이스홀더 */
+input::placeholder,
+textarea::placeholder {
+    color: #888899 !important;
+    text-shadow: none !important;
+}
 
-/* §2-D — 버튼: 파스텔 배경 + 흰 글씨 + 그림자 */
-[data-testid="stButton"] > button:not([class*="gp82"]) {
+/* §2-D — 버튼: 블루 파스텔 + 흰 글씨 */
+[data-testid="stButton"] > button {
     background-color: #4A6FD4 !important;
     color: #FFFFFF !important;
-    text-shadow: var(--gp84-txt-shadow) !important;
+    text-shadow: 0px 1px 2px rgba(0,0,0,0.40) !important;
     border: none !important;
     border-radius: 8px !important;
 }
-[data-testid="stButton"] > button:not([class*="gp82"]):hover {
+[data-testid="stButton"] > button:hover {
     background-color: #3557B7 !important;
-    transform: scale(1.01) !important;
+    color: #FFFFFF !important;
 }
-
-/* §3 — text-shadow 시인성 보정
-   파스텔 배경(밝음) + 흰 글씨 → 미세 그림자로 대비 확보
-   gk-sky-trust 등 검정 글씨 블록은 text-shadow 없애야 함 */
-.gk-sky-trust,
-.gk-sky-trust * {
+/* gp82 내비게이션 버튼 예외 — 자체 스타일 유지 */
+.gp82-home-btn button,
+.gp82-logout-btn button {
+    background: #FFFFFF !important;
     color: #000000 !important;
     text-shadow: none !important;
-    background-color: inherit !important;
 }
-.gk-st-title  { color: #1565C0 !important; text-shadow: none !important; }
-.gk-st-amount { color: #000000 !important; text-shadow: none !important; }
 
 /* §4 — 사이드바 파스텔화 */
-[data-testid="stSidebar"] {
+[data-testid="stSidebar"],
+[data-testid="stSidebar"] > div,
+[data-testid="stSidebar"] > div > div {
     background-color: var(--gp84-pastel-vip) !important;
 }
 [data-testid="stSidebar"] * {
@@ -4649,6 +4876,9 @@ select,
 }
 
 /* §4-B — 탭 헤더 */
+[data-baseweb="tab-list"] {
+    background-color: var(--gp84-pastel-base) !important;
+}
 [data-baseweb="tab"] {
     background-color: var(--gp84-pastel-base) !important;
     color: var(--gp84-txt-main) !important;
@@ -4658,42 +4888,107 @@ select,
     background-color: #4A6FD4 !important;
     color: #FFFFFF !important;
     font-weight: 700 !important;
+    text-shadow: 0px 1px 2px rgba(0,0,0,0.40) !important;
 }
 
 /* §4-C — 익스팬더 헤더 */
-[data-testid="stExpander"] summary {
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] > details > summary {
     background-color: var(--gp84-pastel-cool) !important;
     color: var(--gp84-txt-main) !important;
     text-shadow: var(--gp84-txt-shadow) !important;
     border-radius: 8px !important;
 }
 
-/* §4-D — 메트릭 레이블/값 */
-[data-testid="stMetricLabel"],
-[data-testid="stMetricValue"],
-[data-testid="stMetricDelta"] {
+/* §4-D — 메트릭 레이블/값/델타 */
+[data-testid="stMetricLabel"] *,
+[data-testid="stMetricValue"] *,
+[data-testid="stMetricDelta"] * {
     color: var(--gp84-txt-main) !important;
     text-shadow: var(--gp84-txt-shadow) !important;
 }
 
-/* §4-E — 경고/정보 박스 파스텔화 */
-[data-testid="stAlert"] {
+/* §4-E — 경고/정보/성공/에러 박스 파스텔화 */
+[data-testid="stAlert"],
+[data-testid="stAlertSuccess"],
+[data-testid="stAlertInfo"],
+[data-testid="stAlertWarning"],
+[data-testid="stAlertError"],
+.stAlert {
     background-color: var(--gp84-pastel-alert) !important;
-    color: var(--gp84-txt-main) !important;
-    text-shadow: var(--gp84-txt-shadow) !important;
     border-radius: 10px !important;
 }
-
-/* §4-F — 내비게이션 바 버튼 예외 — gp82 스타일 보존 */
-.gp82-home-btn button {
-    color: #000000 !important;
-    text-shadow: none !important;
-    background: #FFFFFF !important;
+[data-testid="stAlert"] *,
+.stAlert * {
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
 }
-.gp82-logout-btn button {
+
+/* §3 — text-shadow 시인성 예외: .gk-sky-trust (검정 글씨 유지) */
+.gk-sky-trust,
+.gk-sky-trust * {
     color: #000000 !important;
     text-shadow: none !important;
-    background: #FFFFFF !important;
+    background-color: inherit !important;
+}
+.gk-st-title  { color: #1565C0 !important; text-shadow: none !important; }
+.gk-st-amount { color: #1A1A2E !important; text-shadow: none !important; }
+
+/* §6 — Selectbox/Dropdown 파스텔화 */
+[data-baseweb="popover"],
+[data-baseweb="menu"],
+[data-baseweb="list"],
+ul[data-baseweb="menu"] {
+    background-color: var(--gp84-pastel-base) !important;
+}
+[data-baseweb="menu"] [role="option"],
+[data-baseweb="list"] li {
+    background-color: var(--gp84-pastel-base) !important;
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
+}
+[data-baseweb="menu"] [role="option"]:hover {
+    background-color: #4A6FD4 !important;
+}
+
+/* §6-B — 데이터프레임/테이블 */
+[data-testid="stDataFrame"],
+[data-testid="stTable"],
+.stDataFrame table,
+.stTable table {
+    background-color: var(--gp84-pastel-base) !important;
+}
+.stDataFrame th,
+.stTable th {
+    background-color: #4A6FD4 !important;
+    color: #FFFFFF !important;
+    text-shadow: none !important;
+}
+.stDataFrame td,
+.stTable td {
+    background-color: var(--gp84-pastel-base) !important;
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
+}
+
+/* §6-C — 체크박스/라디오 레이블 */
+[data-testid="stCheckbox"] *,
+[data-testid="stRadio"] * {
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
+}
+
+/* §6-D — 슬라이더 */
+[data-testid="stSlider"] * {
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
+}
+
+/* §6-E — 헤더/마크다운 텍스트 */
+h1, h2, h3, h4, h5, h6,
+p, span, li, td, th, label, div {
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
 }
 </style>""", unsafe_allow_html=True)
 
@@ -4816,7 +5111,11 @@ def _gp82_render_nav_bar() -> None:
             else:
                 # 2차 클릭: 세션 전면 파기
                 try:
-                    _session_checkout(_st.session_state.get("user_id", ""))
+                    _uid_co  = _st.session_state.get("user_id", "")
+                    _dev_co  = _st.session_state.get("_device_uuid", "")
+                    _sid_co  = (f"{_uid_co}:{_dev_co}" if _uid_co and _dev_co
+                                else _st.session_state.get("_anon_sid", ""))
+                    _session_checkout(_sid_co)
                 except Exception:
                     pass
                 try:
@@ -7183,6 +7482,245 @@ def calculate_top_targets(n: int = 5, hours: int = 48) -> list:
     return _scores[:n]
 
 # ==========================================================================
+# [GP92] 피보험자 당사자 시점 후킹 엔진
+# 제92조: 1인칭 후킹 문장 생성 · 이름 마스킹 · 3단계 전략 리포트
+# ==========================================================================
+
+def mask_name_gp92(name: str) -> str:
+    """
+    [GP92 §2] 피보험자 성명 마스킹 — 마지막 글자를 * 처리.
+    예: '홍길동' → '홍길*'  /  '김현' → '김*'  /  '' → ''
+    리포트·PDF·카카오톡 전송 전 반드시 통과.
+    """
+    if not name or not name.strip():
+        return name
+    n = name.strip()
+    return n[:-1] + "*"
+
+
+# ── GP92 후킹 문장 생성 규칙 테이블 ──────────────────────────────────────
+_GP92_HOOK_RULES: list[dict] = [
+    # (담보 키워드 리스트, 1인칭 후킹 문장 A, 후킹 문장 B)
+    {
+        "keys": ["암", "암진단", "악성신생물", "암보험", "cancer"],
+        "hook_a": "매달 보험료를 꼬박꼬박 내왔는데, 정작 내가 암 진단을 받는 날 우리 가족을 지켜줄 진짜 방패가 없다는 사실이 저를 불안하게 합니다.",
+        "hook_b": "지금 이 순간 내 몸에 암세포가 자라고 있다면, 내가 아이들에게 남겨줄 수 있는 게 아무것도 없다는 걸 깨달았습니다.",
+    },
+    {
+        "keys": ["뇌", "뇌졸중", "뇌경색", "뇌출혈", "뇌혈관"],
+        "hook_a": "어느 날 갑자기 내가 쓰러진다면, 남겨진 내 아이들이 어떻게 살아갈지 생각만 해도 가슴이 막혀옵니다.",
+        "hook_b": "내가 뇌졸중으로 병원 침대에 누운 날, 우리 아이 학비는 누가 책임질지 — 그 걱정이 현실이 될 수 있다는 걸 이제 알았습니다.",
+    },
+    {
+        "keys": ["심장", "심근경색", "협심증", "심혈관", "AMI"],
+        "hook_a": "내가 심장마비로 쓰러지는 순간, 우리 가족의 생계를 이어줄 진짜 안전망이 내 보험에 있는지 확인하고 싶었습니다.",
+        "hook_b": "매일 야근을 하며 가족을 부양하는 내가 어느 날 심장이 멈춘다면, 내 가족은 내일 당장 무엇으로 살아갈까요.",
+    },
+    {
+        "keys": ["수술", "입원", "실손", "의료비"],
+        "hook_a": "내가 수술대에 오르는 날, 치료비 걱정 없이 회복에만 집중할 수 있는 환경이 나에게 갖춰져 있는지 이제서야 돌아보게 됩니다.",
+        "hook_b": "입원 통보를 받는 순간 내 머릿속에 떠오른 건 치료보다 '이 돈을 어디서 마련하지'라는 생각이었습니다.",
+    },
+    {
+        "keys": ["장해", "후유장해", "장해율", "disability"],
+        "hook_a": "사고로 내가 더 이상 일을 못 하게 된다면, 내 아이들의 미래를 위해 내가 할 수 있는 건 아무것도 없다는 걸 깨달았습니다.",
+        "hook_b": "몸이 불편해진 내가 가족에게 짐이 되는 상황 — 그 두려움이 현실이 되기 전에 지금 준비해야 한다고 생각했습니다.",
+    },
+    {
+        "keys": ["사망", "종신", "유족", "상속"],
+        "hook_a": "내가 없는 세상에서도 내 아이들이 꿈을 포기하지 않도록, 내가 지금 해줄 수 있는 가장 강한 사랑의 표현이 보험이라는 걸 이제야 알았습니다.",
+        "hook_b": "내 삶이 갑자기 끝난다면, 남겨진 내 가족이 한 달도 못 버티고 무너질 수 있다는 사실이 저를 잠 못 들게 합니다.",
+    },
+    {
+        "keys": ["간병", "치매", "장기요양"],
+        "hook_a": "내가 치매로 아무것도 기억하지 못하게 된다면, 내 가족 중 누군가는 자신의 삶을 포기하고 나를 돌봐야 할 수도 있다는 게 가장 두렵습니다.",
+        "hook_b": "나이가 들어 내 몸 하나 가누지 못하는 날, 내 아이에게 간병 부담을 지우고 싶지 않아서 오늘 이 자리에 나왔습니다.",
+    },
+]
+
+_GP92_DEFAULT_HOOK = (
+    "매달 보험료를 꼬박꼬박 내왔는데, 정작 내가 아플 때 우리 가족을 지켜줄 "
+    "진짜 방패가 없다는 사실이 저를 불안하게 합니다."
+)
+
+
+def generate_gp92_hook(
+    gap_keywords: list[str],
+    insured_name: str = "",
+    variant: str = "a",
+) -> str:
+    """
+    [GP92 §1] 보장 공백 키워드 → 피보험자 1인칭 후킹 문장 생성.
+
+    Parameters
+    ----------
+    gap_keywords : 보장 공백이 발생한 담보명·질환명 리스트
+    insured_name : 피보험자 원본 이름 (마스킹은 내부에서 처리)
+    variant      : 'a' 또는 'b' — 두 가지 버전 중 선택
+
+    Returns
+    -------
+    str — 마스킹된 이름이 앞에 붙은 1인칭 후킹 문장
+    """
+    masked = mask_name_gp92(insured_name) if insured_name else ""
+    prefix = f"[{masked}님의 이야기] " if masked else ""
+
+    joined = " ".join(gap_keywords).lower()
+    for rule in _GP92_HOOK_RULES:
+        if any(k.lower() in joined for k in rule["keys"]):
+            sentence = rule["hook_b"] if variant == "b" else rule["hook_a"]
+            return prefix + sentence
+
+    return prefix + _GP92_DEFAULT_HOOK
+
+
+def render_gp92_report(
+    coverages: list[dict],
+    policy_info: dict,
+    gap_covs: list[dict],
+    ai_analysis_text: str = "",
+    show_kakao_preview: bool = True,
+) -> None:
+    """
+    [GP92 §3] 3단계 전략 레이아웃 보고서.
+
+    Step 1: 마스킹 이름 + 1인칭 후킹 문구 + 부드러운 총평
+    Step 2: 핵심 담보 진단 차트 (보장현황)
+    Step 3: 중복 가입 의견
+    """
+    import streamlit as st
+
+    insured = policy_info.get("insured_name") or policy_info.get("name") or ""
+    masked  = mask_name_gp92(insured)
+    gap_names = [g.get("name", "") for g in (gap_covs or [])]
+
+    # ── Step 1: 후킹 + 총평 ────────────────────────────────────────────
+    hook_a = generate_gp92_hook(gap_names, insured, variant="a")
+    hook_b = generate_gp92_hook(gap_names, insured, variant="b")
+
+    st.markdown(f"""
+<div style="background:linear-gradient(135deg,#fdf6ff,#fff0f6);
+  border-left:5px solid #c084fc;border-radius:0 14px 14px 0;
+  padding:18px 22px;margin-bottom:16px;">
+  <div style="font-size:0.72rem;font-weight:900;color:#9333ea;
+    letter-spacing:0.1em;margin-bottom:6px;">
+    📋 {masked}님의 보험 안보 진단 리포트
+  </div>
+  <div style="font-size:0.95rem;font-weight:700;color:#1e1b4b;
+    line-height:1.85;margin-bottom:10px;">
+    "{hook_a}"
+  </div>
+  <div style="font-size:0.82rem;color:#4c1d95;line-height:1.75;
+    border-top:1px solid #e9d5ff;padding-top:10px;">
+    "{hook_b}"
+  </div>
+</div>""", unsafe_allow_html=True)
+
+    # ── Step 2: 핵심 담보 진단 ────────────────────────────────────────
+    if coverages:
+        st.markdown("""
+<div style="background:#f0f9ff;border-left:4px solid #0284c7;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin:12px 0 8px 0;
+  font-weight:900;font-size:0.88rem;color:#075985;">
+  🔍 Step 2 — 핵심 담보 진단
+</div>""", unsafe_allow_html=True)
+
+        _cov_rows = ""
+        for cov in coverages[:15]:
+            _nm  = cov.get("standard_name") or cov.get("name", "-")
+            _amt = cov.get("amount")
+            _amt_str = f"{int(_amt):,}원" if _amt else ("판독불가" if cov.get("unreadable") else "미가입")
+            _gap_flag = any(_nm in g.get("name","") for g in (gap_covs or []))
+            _row_bg   = "#fff1f2" if _gap_flag else "#f8fafc"
+            _flag_tag = '<span style="color:#ef4444;font-size:0.68rem;font-weight:900;">⚠️ 공백</span>' if _gap_flag else ""
+            _cov_rows += (
+                f'<tr style="background:{_row_bg};">'
+                f'<td style="padding:5px 10px;border:1px solid #e2e8f0;font-size:0.78rem;">{_nm} {_flag_tag}</td>'
+                f'<td style="padding:5px 10px;border:1px solid #e2e8f0;font-size:0.78rem;'
+                f'text-align:right;font-weight:700;">{_amt_str}</td>'
+                f'</tr>'
+            )
+
+        st.markdown(f"""
+<div style="overflow-x:auto;margin-bottom:12px;">
+<table style="width:100%;border-collapse:collapse;font-family:'Noto Sans KR',sans-serif;">
+  <thead>
+    <tr style="background:#0284c7;color:#fff;">
+      <th style="padding:7px 10px;border:1px solid #0369a1;font-size:0.78rem;text-align:left;">담보명</th>
+      <th style="padding:7px 10px;border:1px solid #0369a1;font-size:0.78rem;text-align:right;">가입금액</th>
+    </tr>
+  </thead>
+  <tbody>{_cov_rows}</tbody>
+</table>
+</div>""", unsafe_allow_html=True)
+
+    # ── Step 3: 중복 가입 의견 ────────────────────────────────────────
+    st.markdown("""
+<div style="background:#fffbeb;border-left:4px solid #f59e0b;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin:12px 0 8px 0;
+  font-weight:900;font-size:0.88rem;color:#92400e;">
+  🔄 Step 3 — 중복 가입 검토 의견
+</div>""", unsafe_allow_html=True)
+
+    _dup_names = []
+    _seen: dict = {}
+    for cov in (coverages or []):
+        std = cov.get("standard_name") or cov.get("name", "")
+        if std in _seen:
+            _dup_names.append(std)
+        _seen[std] = True
+
+    if _dup_names:
+        _dup_list = "".join(f"<li>{d}</li>" for d in set(_dup_names))
+        st.markdown(f"""
+<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;
+  padding:10px 16px;font-size:0.80rem;line-height:1.8;color:#713f12;">
+  <b>⚠️ 중복 의심 담보 발견:</b>
+  <ul style="margin:6px 0 0 14px;padding:0;">{_dup_list}</ul>
+  <div style="margin-top:6px;font-size:0.75rem;color:#a16207;">
+    동일 담보가 복수 계약에 가입되어 있을 경우, 실제 지급은 각 약관 기준으로 분리 산출됩니다.
+    불필요한 보험료 지출이 없는지 설계사와 재검토를 권장합니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+    else:
+        st.markdown("""
+<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;
+  padding:10px 16px;font-size:0.80rem;color:#166534;">
+  ✅ 현재 분석된 담보 내 중복 가입 의심 항목이 없습니다.
+</div>""", unsafe_allow_html=True)
+
+    # ── 카카오톡 미리보기 ────────────────────────────────────────────
+    if show_kakao_preview:
+        _kakao_hook = generate_gp92_hook(gap_names, insured, variant="a")
+        _kakao_preview = (
+            f"안녕하세요, {masked}님 😊\n\n"
+            f"「{_kakao_hook}」\n\n"
+            f"오늘 분석해드린 보장 내역을 정리해 드렸습니다. "
+            f"궁금하신 점은 언제든 편하게 연락 주세요 🙏"
+        )
+        with st.expander("📱 카카오톡 전송 미리보기 (GP92 후킹 문장 포함)", expanded=False):
+            st.text_area(
+                "카카오톡 전송 문구 (복사 후 전송)",
+                value=_kakao_preview,
+                height=160,
+                key="gp92_kakao_preview_text",
+            )
+            st.caption("* 이름 마스킹(마지막 글자 *)이 자동 적용됩니다.")
+
+    # ── AI 분석 텍스트 (있을 경우) ──────────────────────────────────
+    if ai_analysis_text:
+        with st.expander("🤖 AI 상세 분석 내용 전체 보기"):
+            st.markdown(ai_analysis_text)
+
+    st.markdown(
+        '<div style="font-size:0.66rem;color:#94a3b8;text-align:right;margin-top:4px;">'
+        '* 본 리포트는 참고용 보조 지표이며 법적 효력이 없습니다. [GP92-v1.0]'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+
+# ==========================================================================
 # [D2] AI 카카오톡 영업 멘트 자동 생성 — generateKakaoMessage()
 # 공식: 30년 베테랑 시스템 프롬프트 + 감시 금지 가이딩 프로토콜 적용
 # --------------------------------------------------------------------------
@@ -7808,14 +8346,23 @@ try:
         postprocess_coverages as _ocr_postprocess_covs,
         mask_personal_info as _ocr_mask_pii,
         get_engine_status as _ocr_engine_status,
+        # [GP91] 의무기록 전용 분석 파이프라인
+        translate_medical_abbreviations as _ocr_translate_abbr,
+        extract_medical_key_fields as _ocr_extract_fields,
+        analyze_medical_record as _ocr_analyze_medical,
+        gp91_audit_environment as _gp91_audit_env,
     )
     _OCR_ENGINE_AVAILABLE = True
 except ImportError:
     _OCR_ENGINE_AVAILABLE = False
-    def prepare_image_for_vision(b, m): return b, m  # type: ignore
-    def postprocess_ocr_text(t): return t             # type: ignore
-    def _ocr_postprocess_covs(c): return c            # type: ignore
-    def _ocr_mask_pii(t): return t                    # type: ignore
+    def prepare_image_for_vision(b, m): return b, m          # type: ignore
+    def postprocess_ocr_text(t): return t                    # type: ignore
+    def _ocr_postprocess_covs(c): return c                   # type: ignore
+    def _ocr_mask_pii(t): return t                           # type: ignore
+    def _ocr_translate_abbr(t): return t                     # type: ignore
+    def _ocr_extract_fields(t): return {}                    # type: ignore
+    def _ocr_analyze_medical(t, r=None): return {}           # type: ignore
+    def _gp91_audit_env(): return {"status": "UNKNOWN", "checks": [], "summary": "policy_ocr_engine 미설치"}  # type: ignore
 
 
 def parse_policy_with_vision(files: list) -> dict:
@@ -8002,6 +8549,239 @@ def parse_policy_with_vision(files: list) -> dict:
 
     return {"policy_info": merged_policy_info, "coverages": all_coverages, "errors": errors,
             "_raw_ai_response": _last_raw}
+
+
+# =============================================================================
+# [GP91] 의무기록 전용 분석 파이프라인
+# 제91조: 분석 심도 — KCD코드 추출, 의학 약어 번역, 보험금 지급규정 자동 대조
+# =============================================================================
+
+_MEDICAL_RECORD_PROMPT = """
+당신은 의무기록 분석 전문 AI입니다. 업로드된 의무기록·진단서를 분석하여 아래 JSON만 반환하십시오.
+
+반환 형식 (JSON만, 코드블록 없이):
+{
+  "patient_name": "피보험자명 (확인불가 시 null)",
+  "diagnosis_confirmed_date": "진단확정일 YYYY-MM-DD (없으면 null)",
+  "admission_date": "입원일 YYYY-MM-DD (없으면 null)",
+  "discharge_date": "퇴원일 YYYY-MM-DD (없으면 null)",
+  "stay_days": 입원일수 정수 (없으면 null),
+  "hospital_name": "병원명 (없으면 null)",
+  "doctor_name": "담당의사명 (없으면 null)",
+  "kcd_codes": ["KCD코드1", "KCD코드2"],
+  "diagnoses": ["진단명1", "진단명2"],
+  "surgeries": ["수술명1"],
+  "chief_complaint": "주소증(C.C) 내용",
+  "present_illness": "현병력(P.I) 내용",
+  "disability_rate": 장해율_퍼센트_숫자 또는 null,
+  "disability_type": "영구 또는 한시 또는 null",
+  "insurance_category": "중증질환 또는 일반질환 또는 상해 또는 분류불명",
+  "payout_applicable": true 또는 false,
+  "expert_review_needed": true 또는 false,
+  "expert_review_reason": "전문가 확인이 필요한 이유 (없으면 null)",
+  "parse_error": null
+}
+
+규칙:
+- KCD코드는 문서에 실제 기재된 것만 추출 (예: C18.9, I63.9, S72.0)
+- 의학 약어(C.C, P.I, Dx, AMI 등)는 표준 한국어로 번역하여 해석
+- payout_applicable: 진단확정일+KCD코드+입원일수 3요소가 모두 확인되면 true
+- expert_review_needed: KCD코드 미확인, 장해율 기재 없음, 수술명 불명확 시 true
+- parse_error: 판독 불가 시 사유 기재, 정상 파싱 시 null
+"""
+
+
+def parse_medical_record_with_vision(files: list) -> dict:
+    """
+    [GP91] 의무기록·진단서 파일(PDF/이미지) 분석 전용 파이프라인.
+    단계:
+      1) 이미지 파일 → OpenCV 전처리 (노이즈제거·투영보정·대비향상)
+      2) PDF → 텍스트 추출 또는 이미지 변환
+      3) Gemini Vision LLM → KCD코드·진단명·수술명·입원정보 추출 (JSON)
+      4) OCR 후처리 → 개인정보 마스킹, 날짜 정규화, 의학 약어 번역
+      5) KCD-8 레지스트리 대조 → 보험 카테고리·지급 가능성 판정
+      6) expert_flag 자동 판정 → 전문가 확인 필요 항목 에스컬레이션
+    반환: {
+        "records": [...],    # 파일별 분석 결과
+        "summary": {...},    # 전체 요약 (KCD코드 합산, 총 입원일수 등)
+        "expert_flags": [...],
+        "errors": [...]
+    }
+    """
+    client = get_client()
+    if client is None:
+        return {"records": [], "summary": {}, "expert_flags": [],
+                "errors": ["API 클라이언트 초기화 실패 — Gemini Vision 연결 불가"]}
+
+    records = []
+    expert_flags = []
+    errors = []
+    all_kcd_codes: list = []
+    total_stay_days = 0
+
+    for f in files:
+        try:
+            rec: dict = {"file_name": f.name, "raw_ai": "", "parsed": {}, "ocr_fields": {}}
+
+            if f.type == "application/pdf":
+                raw_text = extract_pdf_chunks(f, char_limit=6000)
+                _text_ok = raw_text and len(raw_text.strip().replace("...(중략)...", "")) > 100
+
+                if _text_ok:
+                    # ── 텍스트 PDF: OCR 후처리 → AI 분석 ──
+                    processed_text = _ocr_translate_abbr(postprocess_ocr_text(raw_text))
+                    full_prompt = _MEDICAL_RECORD_PROMPT + f"\n<extracted_data>\n{processed_text}\n</extracted_data>"
+                    resp = client.models.generate_content(
+                        model=GEMINI_MODEL,
+                        contents=[{"role": "user", "parts": [{"text": full_prompt}]}],
+                        config=_get_strict_config(),
+                    )
+                    # 정규식 기반 필드 추출 병행
+                    rec["ocr_fields"] = _ocr_extract_fields(raw_text)
+                else:
+                    # ── 스캔 PDF: pymupdf → 이미지 변환 → Gemini Vision ──
+                    _parts = [{"text": _MEDICAL_RECORD_PROMPT
+                               + "\n\n첨부 의무기록 이미지에서 보이는 내용만 분석하십시오."}]
+                    try:
+                        import fitz
+                        f.seek(0)
+                        _pdf_doc = fitz.open(stream=f.read(), filetype="pdf")
+                        _page_count = min(len(_pdf_doc), 10)
+                        for _pno in range(_page_count):
+                            _page = _pdf_doc[_pno]
+                            _mat  = fitz.Matrix(2.5, 2.5)  # 2.5x 확대 (핸드폰 촬영본 대응)
+                            _pix  = _page.get_pixmap(matrix=_mat, alpha=False)
+                            _img_bytes = _pix.tobytes("png")
+                            # OpenCV 전처리 (노이즈제거·투영보정)
+                            _img_bytes, _ = prepare_image_for_vision(_img_bytes, "image/png")
+                            _parts.append({
+                                "inline_data": {"mime_type": "image/png",
+                                                "data": base64.b64encode(_img_bytes).decode()}
+                            })
+                        _pdf_doc.close()
+                    except ImportError:
+                        f.seek(0)
+                        _pdf_b64 = base64.b64encode(f.read()).decode()
+                        _parts.append({"inline_data": {"mime_type": "application/pdf", "data": _pdf_b64}})
+
+                    resp = client.models.generate_content(
+                        model=GEMINI_MODEL,
+                        contents=[{"role": "user", "parts": _parts}],
+                        config=_get_strict_config(),
+                    )
+            else:
+                # ── 이미지 파일: OpenCV 전처리 → Gemini Vision ──
+                img_bytes = f.getvalue()
+                img_bytes, _proc_mime = prepare_image_for_vision(img_bytes, f.type)
+                img_b64 = base64.b64encode(img_bytes).decode()
+                _img_prompt = (_MEDICAL_RECORD_PROMPT
+                               + "\n\n첨부 의무기록 이미지에서 보이는 내용만 분석하십시오.")
+                resp = client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=[{
+                        "role": "user",
+                        "parts": [
+                            {"text": _img_prompt},
+                            {"inline_data": {"mime_type": _proc_mime, "data": img_b64}}
+                        ]
+                    }],
+                    config=_get_strict_config(),
+                )
+
+            raw = resp.text.strip() if resp.text else ""
+            raw = re.sub(r"^```(?:json)?", "", raw).strip()
+            raw = re.sub(r"```$", "", raw).strip()
+            raw = postprocess_ocr_text(raw)
+            rec["raw_ai"] = raw
+
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                parsed = {"parse_error": f"JSON 파싱 실패 — {raw[:200]}"}
+
+            rec["parsed"] = parsed
+
+            # ── KCD 레지스트리 대조 ──────────────────────────────────────
+            kcd_list = parsed.get("kcd_codes") or rec["ocr_fields"].get("kcd_codes", [])
+            kcd_matched = []
+            for code in kcd_list:
+                hit = kcd_lookup(code) if code else {"code": code, "category": "분류불명", "sub": ""}
+                kcd_matched.append({
+                    "kcd_code": code,
+                    "category": hit.get("category", "분류불명"),
+                    "sub":      hit.get("sub", ""),
+                })
+                all_kcd_codes.append(code)
+            rec["kcd_matched"] = kcd_matched
+
+            # ── 입원일수 누계 ──────────────────────────────────────────
+            stay = parsed.get("stay_days") or rec["ocr_fields"].get("stay_days")
+            if isinstance(stay, int):
+                total_stay_days += stay
+
+            # ── 전문가 확인 플래그 ─────────────────────────────────────
+            if parsed.get("expert_review_needed") or parsed.get("parse_error"):
+                reason = parsed.get("expert_review_reason") or parsed.get("parse_error") or "의학적 판단 근거 모호"
+                expert_flags.append({
+                    "file": f.name,
+                    "reason": reason,
+                    "escalation": "⚠️ 전문가 확인 필요 — 손해사정사 또는 의학 자문의 검토 권장",
+                })
+
+            records.append(rec)
+
+        except Exception as e:
+            errors.append(f"{f.name}: {sanitize_unicode(str(e))}")
+
+    summary = {
+        "total_files":    len(files),
+        "parsed_ok":      len([r for r in records if not r["parsed"].get("parse_error")]),
+        "all_kcd_codes":  list(dict.fromkeys(all_kcd_codes)),
+        "total_stay_days": total_stay_days,
+        "expert_flag_count": len(expert_flags),
+        "pipeline_version": "GP91-v1.0",
+    }
+
+    return {"records": records, "summary": summary,
+            "expert_flags": expert_flags, "errors": errors}
+
+
+def render_gp91_sw_audit_panel():
+    """
+    [GP91 제2항] SW 무결성 점검 UI 패널.
+    분석 엔진 기동 전 전체 컴포넌트 점검 결과를 파스텔 카드로 표시.
+    """
+    audit = _gp91_audit_env()
+    status = audit.get("status", "UNKNOWN")
+    checks = audit.get("checks", [])
+    summary = audit.get("summary", "")
+
+    status_color = {"OK": "#e8f5e9", "DEGRADED": "#fff8e1", "CRITICAL": "#fce4ec"}.get(status, "#f5f5f5")
+    status_icon  = {"OK": "✅", "DEGRADED": "⚠️", "CRITICAL": "🚨"}.get(status, "🔍")
+    border_color = {"OK": "#81c784", "DEGRADED": "#ffb300", "CRITICAL": "#e57373"}.get(status, "#bdbdbd")
+
+    st.markdown(f"""
+<div style="background:{status_color};border:2px solid {border_color};border-radius:12px;
+  padding:14px 18px;margin-bottom:14px;">
+  <div style="font-size:1rem;font-weight:900;color:#1a1a2e;margin-bottom:6px;">
+    {status_icon} GP91 SW 무결성 점검 — {status}
+  </div>
+  <div style="font-size:0.82rem;color:#37474f;">{summary}</div>
+</div>""", unsafe_allow_html=True)
+
+    cols = st.columns(2)
+    for i, chk in enumerate(checks):
+        with cols[i % 2]:
+            bg  = "#e8f5e9" if chk["ok"] else "#fce4ec"
+            ico = "✅" if chk["ok"] else "❌"
+            ver = chk.get("version") or "미확인"
+            st.markdown(f"""
+<div style="background:{bg};border-radius:8px;padding:8px 12px;margin-bottom:6px;
+  font-size:0.78rem;line-height:1.5;">
+  <b>{ico} {chk['name']}</b><br>
+  <span style="color:#546e7a;">버전: {ver}</span><br>
+  <span style="color:#37474f;">{chk['note']}</span>
+</div>""", unsafe_allow_html=True)
 
 
 # ── DisabilityLogic 계산 엔진 ───────────────────────────────────────────────
@@ -8502,9 +9282,9 @@ def render_goldkey_sidebar():
         _gp50_cname_disp = _gp50_cname.strip() if _gp50_cname.strip() and _gp50_cname != "익명 고객" else ""
         if _gp50_cname_disp:
             _gp50_badge_html = f"""
-<div style="background:linear-gradient(135deg,#004D40 0%,#00695c 100%);
+<div style="background:linear-gradient(135deg,#EDFFF5 0%,#D1FAE5 100%);
   border-radius:10px;padding:8px 12px;margin-bottom:8px;
-  box-shadow:0 2px 8px rgba(0,77,64,0.25);">
+  box-shadow:0 2px 8px rgba(0,77,64,0.15);">
   <div style="font-size:0.68rem;color:rgba(255,255,255,0.7);font-weight:500;
     letter-spacing:0.05em;margin-bottom:2px;">📋 현재 상담 중인 고객 [GP-50]</div>
   <div style="font-size:0.92rem;font-weight:900;color:#fff;
@@ -9112,7 +9892,7 @@ def finlife_top_annuity_rates(topFinGrpNo: str = "060000", top_n: int = 10) -> l
         return []
 
 _DISCLAIMER_HTML = """
-<div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);
+<div style="background:linear-gradient(135deg,#FFF0F0 0%,#FDECEA 100%);
   border:2px solid #e74c3c;border-radius:10px;padding:12px 16px;margin:14px 0 8px 0;">
   <div style="color:#e74c3c;font-weight:900;font-size:0.88rem;letter-spacing:0.05em;margin-bottom:6px;">
     ⚠️ 법적 책임 및 전문가 확인 안내
@@ -9179,7 +9959,7 @@ def render_expert_panel(context_text: str = "") -> None:
     highlights = _get_highlighted_orgs(context_text)
     st.markdown("---")
     st.markdown(
-        "<div style='background:#1a1a2e;border-radius:10px;padding:8px 14px;margin-bottom:10px;'>"
+        "<div style='background:#EEF2FF;border-radius:10px;padding:8px 14px;margin-bottom:10px;border-left:4px solid #3B82F6;'>"
         "<span style='color:#a8d8ea;font-weight:900;font-size:0.88rem;'>🌐 전문가 및 공공기관 통합 지원 센터</span>"
         "</div>",
         unsafe_allow_html=True,
@@ -9191,19 +9971,19 @@ def render_expert_panel(context_text: str = "") -> None:
         cols = st.columns(cols_per_row)
         for col, org in zip(cols, row_orgs):
             is_highlight = org["tel"] in highlights
-            border_color = "#e74c3c" if is_highlight else "#2c3e50"
-            bg_color     = "#2d1b1b" if is_highlight else "#1e2a3a"
+            border_color = "#e74c3c" if is_highlight else "#3B82F6"
+            bg_color     = "#FDECEA" if is_highlight else "#EEF2FF"
             badge        = " 🔴 추천" if is_highlight else ""
             with col:
                 st.markdown(
                     f"<div style='background:{bg_color};border:1.5px solid {border_color};"
                     f"border-radius:8px;padding:8px 12px;margin-bottom:8px;'>"
-                    f"<div style='font-size:1.1rem;font-weight:900;color:#ecf0f1;'>"
+                    f"<div style='font-size:1.1rem;font-weight:900;color:#1E3A5F;'>"
                     f"{org['icon']} {org['label']}{badge}</div>"
-                    f"<div style='color:#bdc3c7;font-size:0.75rem;'>{org['org']}</div>"
-                    f"<div style='color:#3498db;font-weight:700;font-size:0.85rem;'>"
+                    f"<div style='color:#374151;font-size:0.75rem;'>{org['org']}</div>"
+                    f"<div style='color:#2563EB;font-weight:700;font-size:0.85rem;'>"
                     f"📞 {org['tel']}</div>"
-                    f"<div style='color:#95a5a6;font-size:0.72rem;'>{org['desc']}</div>"
+                    f"<div style='color:#4B5563;font-size:0.72rem;'>{org['desc']}</div>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
@@ -10475,8 +11255,8 @@ def _section_factory_fire_ui():
             if _is_panel:
                 with st.expander("🚨 조립식 판넬조 화재 위험 주의사항 (클릭하여 확인)", expanded=True):
                     st.markdown("""
-<div style='background:#3a0000;border:2px solid #e74c3c;border-radius:8px;
-  padding:12px 16px;font-size:0.82rem;line-height:1.7;color:#fff;'>
+<div style='background:#FFF0F0;border:2px solid #e74c3c;border-radius:8px;
+  padding:12px 16px;font-size:0.82rem;line-height:1.7;color:#1a1a1a;'>
 <b style='color:#ff6b6b;font-size:0.92rem;'>🔥 조립식 판넬조 화재 위험 등급 주의사항</b><br><br>
 
 <b style='color:#ffd700;'>① 단열재 종류에 따른 인수 거절 위험</b><br>
@@ -10657,7 +11437,7 @@ def _section_factory_fire_ui():
         components.html("""
 <div style="padding:10px;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.83rem;">
 <table style="width:100%;border-collapse:collapse;">
-<tr style="background:#1a3a5c;color:white;">
+<tr style="background:#7EB8F7;color:white;">
   <th style="padding:8px;border:1px solid #ccc;">비교 항목</th>
   <th style="padding:8px;border:1px solid #ccc;">임차자배상책임 특약 ❌</th>
   <th style="padding:8px;border:1px solid #ccc;">임차인 일반 화재보험 ✅</th>
@@ -10816,7 +11596,7 @@ def _section_factory_fire_ui():
     # ── 화재보험 법률·손해사정 전문 참고자료 ────────────────────────────────
     with st.expander("📚 화재보험 법률·손해사정 전문 참고자료 (손해사정사·CFP 실무기준)", expanded=False):
         st.markdown("""
-<div style="background:linear-gradient(135deg,#1a1400,#2a1f00);border-radius:14px;
+<div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border-radius:14px;
 padding:18px 22px;margin-bottom:16px;border-left:5px solid #f59e0b;">
 <span style="color:#fbbf24;font-size:0.72rem;font-weight:900;letter-spacing:0.12em;
 text-transform:uppercase;">FIRE INSURANCE · LEGAL STRATEGY REFERENCE</span><br>
@@ -11199,7 +11979,7 @@ def section_inheritance_will():
             components.html(f"""
 <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.83rem;line-height:1.7;">
 <table style="width:100%;border-collapse:collapse;">
-<thead><tr style="background:#1a3a5c;color:#fff;">
+<thead><tr style="background:#3B82F6;color:#fff;">
   <th style="padding:8px 10px;text-align:left;">구분</th>
   <th style="padding:8px 10px;text-align:right;">현행(2024)</th>
   <th style="padding:8px 10px;text-align:right;">2026 예정안</th>
@@ -11372,6 +12152,11 @@ def main():
         layout="centered",
         initial_sidebar_state="auto"
     )
+
+    # ── STEP 0: [제0조] 전광석화식 기동 헌법 — Instant Swap Bootstrap ────
+    # 랜딩 베일(z-index:9999) 즉각 표시 → UA 기기 분기 → AppReady 폴링 →
+    # 본체 DOM 마운트 완료 즉시 0ms 랜딩 제거 (화이트아웃 영구 박멸)
+    _gp0_instant_bootstrap()
 
     # ── STEP 1-A: [제39조 §4] Visual Continuity — 사이드바 첫 프레임 즉각 표시 ──
     # 웹앱 기준: 사이드바 배경 #FFFFFF 즉시 고정, transition 제거 → 로드 시 깜빡임 없음.
@@ -11557,7 +12342,7 @@ def main():
 
     # ── STEP 1-D: [제40조 §3] Watchdog JS 주입 — 랜딩 완료 후에만 실행 ──
     import streamlit.components.v1 as _s40_comp
-    if st.session_state.get('_landing_done', False):
+    if st.session_state.get('_lp_landing', False):
         _s40_wtab = st.session_state.pop("_s40_watchdog_tab", None)
         if _s40_wtab:
             _wjs = _s40_perf_watchdog_js(str(_s40_wtab))
@@ -11726,7 +12511,7 @@ def main():
 
     # ── STEP 5: 세션 타이머 JS (세션당 1회만 주입, 랜딩 완료 후에만 실행) ─────
     # 랜딩페이지 표시 중에는 타이머 주입 스킵 → 초기 로딩 차단 없음
-    _landing_done_for_timer = st.session_state.get('_landing_done', False)
+    _landing_done_for_timer = st.session_state.get('_lp_landing', False)
     if not st.session_state.get('_session_timer_injected'):
         if _landing_done_for_timer:
             st.session_state['_session_timer_injected'] = True
@@ -11774,7 +12559,7 @@ def main():
         '<div id="gk-countdown" style="font-size:1.1rem;font-weight:700;color:#c0392b;margin-bottom:8px;"></div>' +
         '<div style="margin-bottom:10px;line-height:1.5;">비활동으로 곧 세션이 종료됩니다.<br>계속 이용하시려면 <b>연장</b>을 눌러주세요.</div>' +
         '<div style="display:flex;gap:8px;">' +
-        '<button id="gk-extend-btn" style="flex:1;background:#2e6da4;color:#fff;border:none;border-radius:6px;padding:8px;font-size:0.85rem;cursor:pointer;font-weight:700;">✅ 세션 연장</button>' +
+        '<button id="gk-extend-btn" style="flex:1;background:#5B8FDB;color:#fff;border:none;border-radius:6px;padding:8px;font-size:0.85rem;cursor:pointer;font-weight:700;">✅ 세션 연장</button>' +
         '<button id="gk-dismiss-btn" style="flex:1;background:#eee;color:#555;border:none;border-radius:6px;padding:8px;font-size:0.85rem;cursor:pointer;">닫기</button>' +
         '</div>';
       pd.body.appendChild(warningDiv);
@@ -11823,7 +12608,7 @@ def main():
     # ── autocomplete 차단 — 삼성 인터넷 비밀번호 저장 팝업 방지 (랜딩 완료 후) ──
     # password 타입 input에 autocomplete="off" 강제 주입
     # MutationObserver: 동적으로 생성되는 필드(PIN·연락처)도 즉시 처리
-    if st.session_state.get('_landing_done', False): components.html("""
+    if st.session_state.get('_lp_landing', False): components.html("""
 <script>
 (function(){
   function blockAutocomplete(root) {
@@ -11875,7 +12660,7 @@ def main():
     # 로그인 성공 시 st.rerun()이 트리거됨 — 이 첫 rerun에서는
     # 자가진단·헬스체크·RAG sync를 건너뛰고 사이드바·홈탭만 빠르게 렌더
     _login_first_run = st.session_state.pop("_login_just_done", False)
-    _landing_active = not st.session_state.get('_landing_done', False)
+    _landing_active = not st.session_state.get('_lp_landing', False)
 
     # ── STEP 6-a: 자가 진단 (세션당 1회 — 로그인 첫 rerun 제외, 랜딩 중 제외) ──
     if not st.session_state.get('_self_diag_done') and not _login_first_run and not _landing_active:
@@ -12048,7 +12833,7 @@ def main():
 """, height=0)
 
     # ── Pull-to-Refresh 및 새로고침 차단 (모바일/데스크탑) — 랜딩 완료 후 최초 1회
-    if st.session_state.get('_landing_done', False) and not st.session_state.get("_js_ptr_done"):
+    if st.session_state.get('_lp_landing', False) and not st.session_state.get("_js_ptr_done"):
         st.session_state["_js_ptr_done"] = True
         components.html("""
 <script>
@@ -13264,7 +14049,7 @@ body.gk-senior .stButton > button {
     background: #FFFFFF !important;
 }
 body.gk-senior .stButton > button[kind="primary"] {
-    background: #000000 !important;
+    background: #3B5BDB !important;
     color: #FFFFFF !important;
     border: none !important;
 }
@@ -13276,14 +14061,14 @@ body.gk-senior .stButton > button[kind="primary"] {
     top: 8px;
     right: 12px;
     z-index: 2147483640;
-    background: #000000;
+    background: #4F6EF5;
     color: #FFFFFF;
     font-size: 0.85rem;
     font-weight: 900;
     padding: 5px 12px;
     border-radius: 20px;
     letter-spacing: 0.04em;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+    box-shadow: 0 2px 10px rgba(79,110,245,0.35);
     animation: gk-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
 }
 body.gk-senior #gk-senior-badge { display: block !important; }
@@ -13296,13 +14081,13 @@ body.gk-senior #gk-senior-badge { display: block !important; }
     left: 50%;
     transform: translateX(-50%);
     z-index: 2147483641;
-    background: #000000;
+    background: #5B82F0;
     color: #FFFFFF;
     font-size: 1.05rem;
     font-weight: 900;
     padding: 12px 28px;
     border-radius: 14px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.40);
+    box-shadow: 0 4px 24px rgba(91,130,240,0.40);
     animation: gk-fadeup 0.4s ease both;
     white-space: nowrap;
     pointer-events: none;
@@ -13573,9 +14358,9 @@ watchRipple();
     t.style.cssText = [
       'display:block','position:fixed','top:18px','left:50%',
       'transform:translateX(-50%)','z-index:2147483641',
-      'background:#000000','color:#ffffff','font-size:1.05rem',
+      'background:#5B82F0','color:#ffffff','font-size:1.05rem',
       'font-weight:900','padding:12px 28px','border-radius:14px',
-      'box-shadow:0 4px 24px rgba(0,0,0,0.40)',
+      'box-shadow:0 4px 24px rgba(0,0,0,0.30)',
       'white-space:nowrap','pointer-events:none',
       'animation:gk-fadeup 0.4s ease both',
       'font-family:Noto Sans KR,Malgun Gothic,sans-serif',
@@ -13594,9 +14379,9 @@ watchRipple();
     t.style.cssText = [
       'display:block','position:fixed','top:18px','left:50%',
       'transform:translateX(-50%)','z-index:2147483641',
-      'background:#444','color:#ffffff','font-size:1.0rem',
+      'background:#90A8C0','color:#ffffff','font-size:1.0rem',
       'font-weight:700','padding:10px 24px','border-radius:14px',
-      'box-shadow:0 4px 20px rgba(0,0,0,0.30)',
+      'box-shadow:0 4px 20px rgba(0,0,0,0.20)',
       'white-space:nowrap','pointer-events:none',
       'font-family:Noto Sans KR,Malgun Gothic,sans-serif',
     ].join(';');
@@ -16577,7 +17362,7 @@ window['startTTS_{tab_key}']=function(){{
         st.markdown("""
 <style>
 .gk-portal-header{
-  background:linear-gradient(135deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);
+  background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 40%,#bfdbfe 100%);
   border:2px solid #f0c040;
   border-radius:18px;
   padding:24px 22px 20px 22px;
@@ -16762,7 +17547,7 @@ window['startTTS_{tab_key}']=function(){{
         st.markdown("""
 <style>
 .gk-claim-header{
-  background:linear-gradient(135deg,#0c4a8a 0%,#1e3a5f 60%,#0f172a 100%);
+  background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 60%,#bfdbfe 100%);
   border:2px solid #38bdf8;border-radius:16px;
   padding:18px 20px;margin-bottom:16px;
   box-shadow:0 0 32px rgba(56,189,248,0.15);
@@ -16791,7 +17576,7 @@ window['startTTS_{tab_key}']=function(){{
 .gk-claim-item-name{font-size:0.88rem;font-weight:700;color:#1e293b;}
 .gk-claim-item-amt{font-size:0.88rem;font-weight:900;color:#0369a1;}
 .gk-claim-result{
-  background:linear-gradient(135deg,#042f6b 0%,#0c4a8a 100%);
+  background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
   border:2px solid #f0c040;border-radius:16px;
   padding:20px 22px;text-align:center;
   box-shadow:0 0 32px rgba(240,192,64,0.2);
@@ -17526,7 +18311,7 @@ window['startTTS_{tab_key}']=function(){{
         else:
             _hdr_dev_badge = (
                 f'<div style="position:absolute;top:10px;right:12px;'
-                f'background:linear-gradient(135deg,#1e3a5f 0%,#0c4a8a 100%);'
+                f'background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);'
                 f'border:1.5px solid #3b82f6;border-radius:20px;'
                 f'padding:3px 10px;display:flex;align-items:center;gap:5px;'
                 f'box-shadow:0 2px 8px rgba(59,130,246,0.35);z-index:10;">'
@@ -17546,12 +18331,12 @@ window['startTTS_{tab_key}']=function(){{
             '<span style="font-size:3rem;margin-right:14px;">&#128105;&#8205;&#128188;</span>'
         )
         _guest_banner_html = (
-            '<div style="background:linear-gradient(135deg,#451a03 0%,#78350f 100%);'
+            '<div style="background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);'
             'border:1.5px solid #f59e0b;border-radius:8px;'
             'padding:6px 12px;margin-bottom:8px;'
             'display:flex;align-items:center;gap:8px;">'
             '<span style="font-size:0.85rem;">⚠️</span>'
-            '<span style="font-size:0.75rem;color:#fde68a;font-weight:700;">'
+            '<span style="font-size:0.75rem;color:#92400e;font-weight:700;">'
             '체험 모드: 저장 기능이 제한됩니다</span>'
             '<span style="font-size:0.68rem;color:#fcd34d;margin-left:auto;">'
             '← 사이드바에서 가입 후 전체 기능 이용</span>'
@@ -19240,7 +20025,7 @@ renderCalendar();
                 _source_txt = _d_data.get("big5_source", _d_data.get("source", ""))
             else:
                 _master_intro = ""
-                _mode_badge   = '<span style="font-size:0.68rem;font-weight:700;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;margin-left:4px;">국가 표준형</span>'
+                _mode_badge   = '<span style="font-size:0.68rem;font-weight:700;background:#7B92B2;color:#94a3b8;padding:1px 6px;border-radius:8px;margin-left:4px;">국가 표준형</span>'
                 _source_txt   = _d_data.get("source", "")
 
             _room_row = (
@@ -19645,7 +20430,7 @@ div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button:hove
             _uname = mask_name(st.session_state.get("user_name", ""))
             _cur_eid  = st.session_state.get("_gk_entity_id", "")
             _cur_utype = st.session_state.get("_gk_user_type", "customer")
-            _eid_badge = f'<span style="font-size:0.72rem;background:#0f172a;color:#7dd3fc;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;letter-spacing:0.04em;">{_cur_eid}</span>' if _cur_eid else ""
+            _eid_badge = f'<span style="font-size:0.72rem;background:#EEF2FF;color:#7dd3fc;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;letter-spacing:0.04em;">{_cur_eid}</span>' if _cur_eid else ""
             st.markdown(f"""
 <div class="gk-teal-block" style="position:relative;
   display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -19661,24 +20446,24 @@ div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button:hove
             if _login_first_run:
                 if _cur_utype == "agent":
                     st.markdown("""
-<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 100%);
+<div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
   border:2px solid #f0c040;border-radius:12px;padding:14px 18px;margin-bottom:8px;
   animation:gk-fadein 0.5s ease;">
-  <div style="color:#f0c040;font-size:1.05rem;font-weight:900;margin-bottom:4px;">
+  <div style="color:#1e3a5f;font-size:1.05rem;font-weight:900;margin-bottom:4px;">
     🏢 설계사 대시보드로 이동합니다
   </div>
-  <div style="color:#94a3b8;font-size:0.78rem;">
+  <div style="color:#334155;font-size:0.78rem;">
     보험업 종사자 계정 감지 — AI 타겟 추천 · CRM 도구가 활성화됩니다.
   </div>
 </div>""", unsafe_allow_html=True)
                 else:
                     st.markdown("""
-<div style="background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+<div style="background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%);
   border-radius:12px;padding:12px 18px;margin-bottom:8px;">
-  <div style="color:#fff;font-size:1.0rem;font-weight:900;">
+  <div style="color:#065f46;font-size:1.0rem;font-weight:900;">
     🙋 고객 맞춤 화면으로 이동합니다
   </div>
-  <div style="color:#a7f3d0;font-size:0.78rem;">
+  <div style="color:#047857;font-size:0.78rem;">
     암·뇌·심장 보장공백 스캔 도구가 준비되었습니다.
   </div>
 </div>""", unsafe_allow_html=True)
@@ -19996,10 +20781,10 @@ div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button:hove
 #gk-gsb-wrap{{position:relative;margin-bottom:6px;}}
 #gk-gsb-btn{{
   width:100%;padding:9px 16px;border-radius:10px;border:2px solid #2e6da4;
-  background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
-  color:#fff;font-size:0.85rem;font-weight:800;cursor:pointer;
+  background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);
+  color:#1e3a5f;font-size:0.85rem;font-weight:800;cursor:pointer;
   letter-spacing:0.04em;transition:all 0.2s;display:flex;align-items:center;gap:8px;}}
-#gk-gsb-btn:hover{{background:linear-gradient(135deg,#2e6da4 0%,#1a5276 100%);}}
+#gk-gsb-btn:hover{{background:linear-gradient(135deg,#93c5fd 0%,#60a5fa 100%);border-color:#60a5fa;}}
 #gk-gsb-modal{{
   position:absolute;top:calc(100% + 4px);left:0;right:0;
   background:#fff;border-radius:16px;
@@ -21430,8 +22215,8 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
 <div style="background:#f0f6ff;border:2px solid #2e6da4;border-radius:14px;
   padding:16px 18px 12px 18px;margin:18px 0 10px 0;
   box-shadow:0 2px 10px rgba(46,109,164,0.10);">
-  <div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
-    border-radius:10px;padding:10px 14px 8px 14px;margin-bottom:12px;color:#fff;">
+  <div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
+    border-radius:10px;padding:10px 14px 8px 14px;margin-bottom:12px;color:#1e3a5f;">
     <div style="font-size:0.92rem;font-weight:900;letter-spacing:0.03em;margin-bottom:2px;">
       💡 시스템 제안 · 개선 의견
     </div>
@@ -21526,10 +22311,10 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
         """로그인 상태 중앙 체크 — False 반환 시 해당 기둥 렌더 중단"""
         if "user_id" not in st.session_state:
             st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+<div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
   border-radius:14px;padding:28px 22px;margin:20px 0;text-align:center;">
   <div style="font-size:2.5rem;margin-bottom:10px;">🔒</div>
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;margin-bottom:8px;">
+  <div style="color:#1e3a5f;font-size:1.15rem;font-weight:900;margin-bottom:8px;">
     로그인 후 이용 가능합니다
   </div>
   <div style="color:#b3d4f5;font-size:0.85rem;">
@@ -22312,7 +23097,7 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
 
                 with _drv_col1:
                     # ── 박스1: 핵심 6개 담보 가입유무 ─────────────────────
-                    st.markdown("""<div style="background:#1a0a00;border:2px solid #e8a000;
+                    st.markdown("""<div style="background:#fef3c7;border:2px solid #e8a000;
   border-radius:10px;padding:10px 14px 6px 14px;margin-bottom:4px;">
 <span style="color:#ffd966;font-weight:900;font-size:0.85rem;">
   🔑 박스1 · 핵심 6개 담보 (충족 여부)</span>
@@ -22357,11 +23142,11 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
 
                 with _drv_col2:
                     # ── 박스2: 보완 5개 담보 가입유무 ─────────────────────
-                    st.markdown("""<div style="background:#001a2e;border:2px solid #0ea5e9;
+                    st.markdown("""<div style="background:#dbeafe;border:2px solid #0ea5e9;
   border-radius:10px;padding:10px 14px 6px 14px;margin-bottom:4px;">
-<span style="color:#7ec8f5;font-weight:900;font-size:0.85rem;">
+<span style="color:#1e40af;font-weight:900;font-size:0.85rem;">
   🛡️ 박스2 · 보완 5개 담보 (충족 여부)</span>
-<div style="color:#4a9fd4;font-size:0.70rem;margin-top:2px;">
+<div style="color:#1d4ed8;font-size:0.70rem;margin-top:2px;">
   핵심 6개 확보 후 순차 보완</div></div>""", unsafe_allow_html=True)
                     # 골절 관련: 골절진단·수술 / 5대골절
                     st.checkbox("① 골절진단·수술 / 5대골절·수술",
@@ -22523,15 +23308,15 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                         _icon = _cat_icons.get(_cat_name, "📋")
                         _sub = _cat_subtitles.get(_cat_name, "")
                         st.markdown(
-                            f'<div style="background:#1a2744;border-bottom:2px solid #f59e0b;'
+                            f'<div style="background:#e0e7ff;border-bottom:2px solid #f59e0b;'
                             f'padding:7px 14px;margin:18px 0 8px 0;border-radius:6px 6px 0 0;">'
-                            f'<span style="color:#fcd34d;font-weight:900;font-size:0.88rem;">'
+                            f'<span style="color:#92400e;font-weight:900;font-size:0.88rem;">'
                             f'{_icon} {_cat_name}</span>'
                             f'<span style="color:#94a3b8;font-size:0.72rem;margin-left:8px;">{_sub}</span>'
                             f'</div>',
                             unsafe_allow_html=True
                         )
-                        st.markdown('<div style="background:#0d1b2a;padding:8px;border-radius:0 0 10px 10px;margin-bottom:4px;">', unsafe_allow_html=True)
+                        st.markdown('<div style="background:#eff6ff;padding:8px;border-radius:0 0 10px 10px;margin-bottom:4px;">', unsafe_allow_html=True)
 
                         # 4개씩 행으로 배치
                         _cols_per_row = 4
@@ -22592,14 +23377,15 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                 _narrative = _re.sub(r'```json.*?```', '', _res_ps, flags=_re.DOTALL).strip()
                 if _narrative:
                     st.markdown("""
-<div style="background:#0d1b2a;border-left:4px solid #0ea5e9;border-radius:0 8px 8px 0;
+<div style="background:#eff6ff;border-left:4px solid #0ea5e9;border-radius:0 8px 8px 0;
   padding:6px 14px;margin:18px 0 6px 0;">
-  <span style="color:#7ec8f5;font-weight:900;font-size:0.88rem;">
+  <span style="color:#1d4ed8;font-weight:900;font-size:0.88rem;">
   🏥 보험 전문가의 한 마디</span>
 </div>""", unsafe_allow_html=True)
                     st.markdown(
-                        f'<div style="background:#0d1b2a;border:1.5px solid #1e3a5a;border-radius:10px;'
-                        f'padding:18px 22px;font-size:0.88rem;line-height:1.8;color:#d0e8f8;">'
+                        f'<div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;'
+                        f'padding:18px 22px;font-size:0.88rem;line-height:1.8;color:#1e3a5f;'
+                        f'">'
                         f'{_narrative.replace(chr(10), "<br>")}'
                         f'</div>',
                         unsafe_allow_html=True
@@ -22607,9 +23393,9 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
 
                 # ── 증권분석 전용 면책 공고 ────────────────────────────────
                 st.markdown("""
-<div style="background:#1a0d00;border:1px solid #7c3a00;border-radius:8px;
+<div style="background:#fef9c3;border:1px solid #7c3a00;border-radius:8px;
   padding:9px 14px;margin-top:8px;">
-  <span style="color:#f59e0b;font-weight:900;font-size:0.74rem;">⚠️ 면책 고지</span>
+  <span style="color:#92400e;font-weight:900;font-size:0.74rem;">⚠️ 면책 고지</span>
   <span style="color:#d4a76a;font-size:0.72rem;">
   &nbsp;본 AI 증권분석 결과는 <b>참고용</b>이며, 실제 보장 내용·보험금 청구 여부는
   반드시 <b>해당 보험회사 약관 및 공인 설계사</b>를 통해 확인하시기 바랍니다.
@@ -22628,31 +23414,31 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
                     st.markdown(f"""
 <div style="display:flex;align-items:center;justify-content:center;
   gap:0;margin:18px 0 0 0;">
-  <div style="background:#1a2744;border:1.5px solid #2e6da4;border-radius:10px;
-    padding:8px 16px;font-size:0.80rem;font-weight:900;color:#7ec8f5;">
+  <div style="background:#dbeafe;border:1.5px solid #2e6da4;border-radius:10px;
+    padding:8px 16px;font-size:0.80rem;font-weight:900;color:#1e40af;">
     📊 증권 분석 완료
   </div>
   <div style="display:flex;flex-direction:column;align-items:center;padding:0 8px;">
     <div style="width:60px;height:2px;background:linear-gradient(90deg,#2e6da4,#ef4444);"></div>
     <div style="font-size:0.62rem;color:#ef4444;font-weight:700;margin-top:1px;">공백 발생</div>
   </div>
-  <div style="background:#3d0000;border:1.5px solid #ef4444;border-radius:10px;
-    padding:8px 16px;font-size:0.80rem;font-weight:900;color:#fca5a5;">
+  <div style="background:#fee2e2;border:1.5px solid #ef4444;border-radius:10px;
+    padding:8px 16px;font-size:0.80rem;font-weight:900;color:#991b1b;">
     🛡️ 보완 필요
   </div>
   <div style="display:flex;flex-direction:column;align-items:center;padding:0 8px;">
     <div style="width:40px;height:2px;background:linear-gradient(90deg,#ef4444,#f59e0b);"></div>
     <div style="font-size:0.62rem;color:#f59e0b;font-weight:700;margin-top:1px;">▶▶▶</div>
   </div>
-  <div style="background:#1a3a0d;border:1.5px solid #22c55e;border-radius:10px;
-    padding:8px 16px;font-size:0.80rem;font-weight:900;color:#86efac;">
+  <div style="background:#dcfce7;border:1.5px solid #22c55e;border-radius:10px;
+    padding:8px 16px;font-size:0.80rem;font-weight:900;color:#166534;">
     🔍 보장공백 분석
   </div>
 </div>""", unsafe_allow_html=True)
 
                     # 안보 지수 팝업
                     st.markdown(f"""
-<div style="background:linear-gradient(135deg,#0d1b2a 0%,#1a2744 100%);
+<div style="background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);
   border:2px solid {_score_color};border-radius:14px;padding:18px 22px;margin:14px 0 8px 0;
   box-shadow:0 0 20px rgba(239,68,68,0.18);">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -22670,16 +23456,16 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
       </div>
     </div>
     <div style="text-align:center;">
-      <div style="background:#1a2744;border:1px solid #334155;border-radius:10px;padding:8px 14px;">
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:8px 14px;">
         <div style="font-size:0.68rem;color:#64748b;">담보 현황</div>
-        <div style="font-size:1.1rem;font-weight:900;color:#22c55e;">{len(_covs) - _gap_count}</div>
+        <div style="font-size:1.1rem;font-weight:900;color:#16a34a;">{len(_covs) - _gap_count}</div>
         <div style="font-size:0.60rem;color:#64748b;">적정</div>
       </div>
       <div style="font-size:0.65rem;color:#ef4444;font-weight:700;margin:3px 0;">vs</div>
-      <div style="background:#3d0000;border:1px solid #7f1d1d;border-radius:10px;padding:8px 14px;">
-        <div style="font-size:0.68rem;color:#f87171;">공백</div>
+      <div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:10px;padding:8px 14px;">
+        <div style="font-size:0.68rem;color:#dc2626;">공백</div>
         <div style="font-size:1.1rem;font-weight:900;color:#ef4444;">{_gap_count}</div>
-        <div style="font-size:0.60rem;color:#f87171;">미충족</div>
+        <div style="font-size:0.60rem;color:#dc2626;">미충족</div>
       </div>
     </div>
   </div>
@@ -22872,7 +23658,7 @@ div[data-testid="stButton"] button[kind="secondary"].back-btn {
         # ── [증권 없이 약관 직접 조회] ────────────────────────────────────
         st.divider()
         st.markdown("""
-<div style="background:linear-gradient(135deg,#0d2b4a 0%,#1a4a7a 100%);
+<div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);
   border-radius:12px;padding:14px 18px 10px 18px;margin-bottom:12px;
   box-shadow:0 3px 14px rgba(14,165,233,0.18);">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
@@ -24325,7 +25111,7 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 </div>
 
 <!-- 법조문 박스 -->
-<div style="background:#1a3a5c;color:#fff;border-radius:6px;padding:4px 12px;
+<div style="background:#3B82F6;color:#fff;border-radius:6px;padding:4px 12px;
   font-size:0.85rem;font-weight:900;margin-bottom:8px;display:inline-block;">
   🔍 관련 법조문 핵심 정리
 </div><br>
@@ -24357,9 +25143,9 @@ background:#f4f8fd;font-size:0.78rem;color:#1a3a5c;margin-bottom:4px;">
 """, height=590)
 
         # ── [GP-54] 통합 청구 허브 브릿지 ──────────────────────────────────
-        st.markdown("""<div style="background:linear-gradient(135deg,#042f6b 0%,#0c4a8a 100%);
+        st.markdown("""<div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
 border:2px solid #38bdf8;border-radius:14px;padding:14px 20px;margin-top:20px;
-box-shadow:0 0 24px rgba(56,189,248,0.15);">
+box-shadow:0 0 24px rgba(56,189,248,0.15));">
 <div style="font-size:0.78rem;color:#7dd3fc;font-weight:700;letter-spacing:0.08em;margin-bottom:6px;">🚀 NEW — 통합 청구 허브</div>
 <div style="font-size:0.92rem;font-weight:900;color:#f0f9ff;margin-bottom:6px;">
   영수증 스캔 → 항목 선택 → 보험금 즉시 산출 → 서류 자동 생성
@@ -24421,10 +25207,10 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
                     for _gc in _mgc
                 )
                 st.markdown(f"""
-<div class="gk-mirror-card" style="background:linear-gradient(135deg,#0d1b2a,#1a2744);
+<div class="gk-mirror-card" style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);
   border:2px solid #ef4444;border-radius:14px;padding:16px 20px;margin-bottom:14px;">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-    <div style="font-size:1.1rem;font-weight:900;color:#fca5a5;">📡 GP-61 증권분석 연동 데이터 수신됨</div>
+    <div style="font-size:1.1rem;font-weight:900;color:#dc2626;">📡 GP-61 증권분석 연동 데이터 수신됨</div>
     <div style="background:#3d0000;border:1px solid #ef4444;border-radius:6px;
       padding:3px 10px;font-size:0.75rem;font-weight:900;color:#ef4444;">안보 지수 {_ms}점</div>
     <div style="background:#1a2744;border:1px solid #f59e0b;border-radius:6px;
@@ -24454,9 +25240,9 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
                 _gd  = _gp61_gi.get("diff", "")
                 _gst = _gp61_gi.get("status", "")
                 st.markdown(f"""
-<div class="gk-mirror-card" style="background:linear-gradient(135deg,#0d1b2a,#1a2744);
+<div class="gk-mirror-card" style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);
   border:2px solid #ef4444;border-radius:14px;padding:14px 18px;margin-bottom:14px;">
-  <div style="font-size:0.88rem;font-weight:900;color:#fca5a5;margin-bottom:8px;">
+  <div style="font-size:0.88rem;font-weight:900;color:#dc2626;margin-bottom:8px;">
     📡 GP-61 단일 담보 공백 분석 연동 — [{_gn}]
   </div>
   <div style="display:flex;gap:12px;flex-wrap:wrap;">
@@ -24606,9 +25392,9 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
             )
 
             # ── GP-62 §1: 소득 역산 패널 ─────────────────────────────────
-            st.markdown("""<div style="background:#0d1b2a;border:1px solid #2563eb;
+            st.markdown("""<div style="background:#eff6ff;border:1px solid #2563eb;
   border-radius:9px;padding:8px 14px;margin:10px 0 6px 0;">
-  <span style="font-size:0.82rem;font-weight:900;color:#7ec8f5;">
+  <span style="font-size:0.82rem;font-weight:900;color:#1d4ed8;">
   ⚙️ GP-62 소득 역산 엔진 — 건강보험료 입력 시 자동 산출</span></div>""",
                 unsafe_allow_html=True)
             _g62c1, _g62c2 = st.columns(2)
@@ -24655,7 +25441,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
                     "Fallback": ("⚠️", "#f59e0b", "기준B"),
                 }.get(_g62r.get("cancer_basis", "Dynamic"), ("📊", "#22c55e", "소득역산"))
                 st.markdown(
-                    f'<div style="background:#0d1b2a;border:1px solid #22c55e;border-radius:7px;'
+                    f'<div style="background:#f0fdf4;border:1px solid #22c55e;border-radius:7px;'
                     f'padding:7px 14px;font-size:0.78rem;margin-bottom:6px;">'
                     f'<span style="color:#86efac;font-weight:900;">적용 월소득: {_g62_m:,.1f}만원</span>'
                     f'&nbsp;<span style="color:#64748b;">({_g62_src})</span>'
@@ -24805,13 +25591,13 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
                 # 소득 있음 → 기준 A vs 기준 B 비교표
                 components.html(f"""
 <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
-  background:#0d1b2a;border:1px solid #22c55e;border-radius:9px;
+  background:#f0fdf4;border:1px solid #22c55e;border-radius:9px;
   padding:10px 14px;margin:10px 0;">
   <div style="color:#86efac;font-weight:900;font-size:0.82rem;margin-bottom:7px;">
     📊 GP-65 기준 A vs B 비교 — 최종 = MAX(A, B)
   </div>
   <table style="width:100%;border-collapse:collapse;font-size:0.75rem;">
-  <tr style="background:#1e293b;color:#94a3b8;">
+  <tr style="background:#E8F0FE;color:#94a3b8;">
     <th style="padding:4px 8px;border:1px solid #334155;text-align:center;">담보</th>
     <th style="padding:4px 8px;border:1px solid #334155;text-align:center;">소득 기반 (A)</th>
     <th style="padding:4px 8px;border:1px solid #334155;text-align:center;">관리자 표준 (B)</th>
@@ -24825,7 +25611,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
       font-weight:900;color:#4ade80;">{_g62r_cached.get("target_cancer",0):,}만원
       <span style="font-size:0.68rem;color:#86efac;">({_g62r_cached.get("cancer_basis","?")})</span></td>
   </tr>
-  <tr style="background:#0f172a;">
+  <tr style="background:#EEF2FF;">
     <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#e2e8f0;">뇌혈관</td>
     <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#7dd3fc;">{_a_brain_disp:,}만원</td>
     <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#fcd34d;">{_b_brain_disp:,}만원</td>
@@ -24847,7 +25633,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
             components.html(f"""
 <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.77rem;line-height:1.7;">
 <table style="width:100%;border-collapse:collapse;">
-<tr style="background:#1a3a5c;color:#fff;">
+<tr style="background:#3B82F6;color:#fff;">
   <th style="padding:5px 8px;border:1px solid #2e6da4;text-align:center;width:18%;">단계</th>
   <th style="padding:5px 8px;border:1px solid #2e6da4;width:25%;">항목</th>
   <th style="padding:5px 8px;border:1px solid #2e6da4;">적용 로직 · 연동 담보</th>
@@ -24947,7 +25733,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
   line-height:1.85;color:#1a1a2e;padding:4px 2px;">
 
 <!-- ═══════════════ PART 1 ═══════════════ -->
-<div style="background:#1a3a5c;color:#fff;border-radius:8px 8px 0 0;
+<div style="background:#3B82F6;color:#fff;border-radius:8px 8px 0 0;
   padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;">
   PART 1 &nbsp;|&nbsp; 상해사고 × KCD 코드 상관관계 &amp; S·T → M 전환 메커니즘
 </div>
@@ -25114,7 +25900,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
   </div>
 
   <!-- 결론 요약 -->
-  <div style="background:#1a3a5c;color:#fff;border-radius:7px;
+  <div style="background:#3B82F6;color:#fff;border-radius:7px;
     padding:8px 12px;margin-top:10px;font-size:0.77rem;line-height:1.8;">
     <b>📌 실무 핵심 체크리스트</b><br>
     ① 사고 직후 초진 MRI·X-ray <b>보존</b> (급성 외상 소견이 S코드 수호 열쇠)<br>
@@ -25134,7 +25920,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
   line-height:1.85;color:#1a1a2e;padding:4px 2px;">
 
 <!-- ═══ PART 1: 생애주기별 사망보험 필요성 ═══ -->
-<div style="background:#1a3a5c;color:#fff;border-radius:8px 8px 0 0;
+<div style="background:#3B82F6;color:#fff;border-radius:8px 8px 0 0;
   padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;">
   PART 1 &nbsp;|&nbsp; CFP 관점 — 생애주기(Life Cycle)별 사망보험 필요성 &amp; 가입금액
 </div>
@@ -25352,7 +26138,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
   </table>
 
   <!-- 상속 구간 재정립 -->
-  <div style="background:#1a3a5c;color:#fff;border-radius:7px;
+  <div style="background:#3B82F6;color:#fff;border-radius:7px;
     padding:8px 12px;margin-top:10px;font-size:0.77rem;line-height:1.8;">
     <b>📌 상속 관점 종신보험 — 실무 핵심 원칙</b><br>
     • <b>10억~50억:</b> 부동산 비중 높음 → 상속세 급매 손실(30~40%) 방지 = 자산의 10~20% 보험금 설정<br>
@@ -25501,7 +26287,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
             elif _dis_ssot_txt:
                 st.info(f"🔬 스캔 허브 텍스트 {len(_dis_ssot_txt)}자 연동 — 의무기록 미업로드 시 AI 분석에 활용됩니다.")
             # ── 파일 업로드 — 의무기록 ─────────────────────────────
-            st.markdown("""<div style="background:#1a3a5c;border-radius:7px 7px 0 0;
+            st.markdown("""<div style="background:#3B82F6;border-radius:7px 7px 0 0;
   padding:5px 12px;font-size:0.80rem;font-weight:900;color:#fff;margin-top:8px;">
   📂 의무기록 파일 업로드 (AI 분석)</div>""", unsafe_allow_html=True)
             st.markdown("""<div style="background:#eef4fc;border:1px solid #b3c8e8;border-top:none;
@@ -25788,7 +26574,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
             st.subheader("📋 장해보험 참고사항")
 
             # ── DisabilityLogic 산출 결과 표 ─────────────────────────────
-            st.markdown("""<div style="background:#1a3a5c;color:#fff;
+            st.markdown("""<div style="background:#3B82F6;color:#fff;
   border-radius:8px 8px 0 0;padding:5px 12px;font-size:0.82rem;font-weight:900;
   margin-bottom:0;">⚡ 예상 보험금 자동 산출 (확정적 계산 엔진)</div>""", unsafe_allow_html=True)
 
@@ -25859,7 +26645,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
   <th style="padding:4px 6px;border:1px solid #1a4a7a;">일반지급</th>
 </tr>
 {_calc_rows}{_ann_row}
-<tr style="background:#1a3a5c;color:#fff;font-weight:900;">
+<tr style="background:#3B82F6;color:#fff;font-weight:900;">
   <td style="padding:4px 6px;border:1px solid #0d2040;">합계</td>
   <td colspan="2" style="padding:4px 6px;border:1px solid #0d2040;text-align:right;">교통: {_total_t//10000:,}만원</td>
   <td colspan="2" style="padding:4px 6px;border:1px solid #0d2040;text-align:right;">일반: {_total_g//10000:,}만원</td>
@@ -26056,7 +26842,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
 <div style="overflow-x:auto;">
 <table style="width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;">
 <thead>
-<tr style="background:#1a3a5c;color:#fff;">
+<tr style="background:#3B82F6;color:#fff;">
   <th style="padding:8px 10px;text-align:left;">코드 분류</th>
   <th style="padding:8px 10px;text-align:left;">정의 및 특징</th>
   <th style="padding:8px 10px;text-align:left;">주요 적용 상병 예시</th>
@@ -26392,7 +27178,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
 <div style="overflow-x:auto;">
 <table style="width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;">
 <thead>
-<tr style="background:#1e3a5f;color:#fff;">
+<tr style="background:#3B82F6;color:#fff;">
   <th style="padding:8px 10px;">분류 기준</th>
   <th style="padding:8px 10px;">세부 종목</th>
   <th style="padding:8px 10px;">요율 특이사항</th>
@@ -26430,7 +27216,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
 <div style="overflow-x:auto;">
 <table style="width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;">
 <thead>
-<tr style="background:#1e3a5f;color:#fff;">
+<tr style="background:#3B82F6;color:#fff;">
   <th style="padding:8px 10px;">담보명</th>
   <th style="padding:8px 10px;">보상 대상</th>
   <th style="padding:8px 10px;">과실상계</th>
@@ -26552,7 +27338,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
 <div style="overflow-x:auto;">
 <table style="width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;">
 <thead>
-<tr style="background:#064e3b;color:#fff;">
+<tr style="background:#d1fae5;color:#065f46;">
   <th style="padding:8px 10px;">비교 항목</th>
   <th style="padding:8px 10px;text-align:center;">🟢 자동차상해(자상)</th>
   <th style="padding:8px 10px;text-align:center;">🔴 자기신체사고(자신)</th>
@@ -26616,7 +27402,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
 <div style="overflow-x:auto;">
 <table style="width:100%;border-collapse:collapse;font-size:0.81rem;font-family:sans-serif;">
 <thead>
-<tr style="background:#4c1d95;color:#fff;">
+<tr style="background:#EDE9FE;color:#fff;">
   <th style="padding:8px 10px;">비교 항목</th>
   <th style="padding:8px 10px;text-align:center;">자동차보험 (대인/자상)</th>
   <th style="padding:8px 10px;text-align:center;">산재보험</th>
@@ -27644,8 +28430,8 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
 
             # ── 헤더 카드 ──────────────────────────────────────────────
             st.markdown(f"""
-<div style='background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border-radius:15px;
-  padding:18px 22px;margin-bottom:14px;box-shadow:0 4px 20px rgba(15,23,42,0.35);'>
+<div style='background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);border-radius:15px;
+  padding:18px 22px;margin-bottom:14px;box-shadow:0 4px 20px rgba(59,130,246,0.15);'>
   <div style='color:#f8fafc;font-size:1.05rem;font-weight:900;letter-spacing:.04em;margin-bottom:6px;'>
     📊 전문가 통합 지식 인덱스 현황 리포트
   </div>
@@ -27818,7 +28604,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
 
                 # ── 비례분담 계산기 ────────────────────────────────────────
                 st.divider()
-                st.markdown("""<div style="background:#1a3a5c;color:#fff;
+                st.markdown("""<div style="background:#3B82F6;color:#fff;
   border-radius:8px 8px 0 0;padding:5px 12px;font-size:0.82rem;font-weight:900;">
   ⚖️ 비용담보 비례분담 계산기 (중복보험 실손보상 원칙)</div>""", unsafe_allow_html=True)
                 st.markdown("""<div style="background:#eef4fc;border:1px solid #b3c8e8;
@@ -28026,7 +28812,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
         st.markdown("""<style>
 .gk-section-label{font-size:0.76rem;font-weight:900;letter-spacing:0.07em;
   text-transform:uppercase;color:#64748b;margin:12px 0 5px 0;padding-left:2px;}
-.gk-report-header{background:linear-gradient(135deg,#0c2340 0%,#0369a1 100%);
+.gk-report-header{background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
   border-radius:12px 12px 0 0;padding:14px 18px;}
 .gk-status-pill{display:inline-block;padding:3px 11px;border-radius:12px;
   font-size:0.74rem;font-weight:900;margin:2px 3px 2px 0;}
@@ -28668,14 +29454,14 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
         # ════════════════════════════════════════════════════════════════
         st.markdown("---")
         st.markdown(f"""
-<div style="background:linear-gradient(135deg,#0a0a1a 0%,#1a0a3a 50%,#2d1b69 100%);
+<div style="background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 50%,#ddd6fe 100%);
   border-left:5px solid #a78bfa;border-radius:12px;
   padding:14px 18px;margin-bottom:12px;">
-  <div style="color:#c4b5fd;font-size:1.0rem;font-weight:900;margin-bottom:4px;">
-    🧬 치매 · 파킨슨 전문 컨설팅 <span style="font-size:0.68rem;background:#4c1d95;
-    color:#ddd6fe;padding:2px 8px;border-radius:12px;margin-left:6px;">가이딩 프로토콜 제35조</span>
+  <div style="color:#5b21b6;font-size:1.0rem;font-weight:900;margin-bottom:4px;">
+    🧬 치매 · 파킨슨 전문 컨설팅 <span style="font-size:0.68rem;background:#EDE9FE;
+    color:#7c3aed;padding:2px 8px;border-radius:12px;margin-left:6px;">가이딩 프로토콜 제35조</span>
   </div>
-  <div style="color:#8b7fc8;font-size:0.77rem;line-height:1.5;">
+  <div style="color:#6d28d9;font-size:0.77rem;line-height:1.5;">
     CDR 단계 기반 골든타임 설계 · 레켐비/도나네맙 치료비 · 파킨슨 산정특례 즉시 대응
   </div>
 </div>""", unsafe_allow_html=True)
@@ -28752,12 +29538,12 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
 
                 # ── 전문가 가이드 문구 (제35조 §3) ───────────────────
                 st.markdown(f"""
-<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 100%);
+<div style="background:linear-gradient(135deg,#fef9e7 0%,#fef3c7 100%);
   border:2px solid #f0c040;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
-  <div style="color:#fde68a;font-size:0.72rem;font-weight:900;margin-bottom:6px;">
+  <div style="color:#92400e;font-size:0.72rem;font-weight:900;margin-bottom:6px;">
     👨‍⚕️ 전문의 가이드 — 가이딩 프로토콜 제35조 §3
   </div>
-  <div style="color:#e2e8f0;font-size:0.84rem;line-height:1.65;">
+  <div style="color:#78350f;font-size:0.84rem;line-height:1.65;">
     {_d35_r['specialist_guide']}
   </div>
 </div>""", unsafe_allow_html=True)
@@ -28832,7 +29618,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
                 st.markdown("##### 💊 FDA/KFDA 승인 치매 신약 현황")
                 for _drug in _ART35_DRUG_DB:
                     st.markdown(f"""
-<div style="background:#0f172a;border:1px solid #4c1d95;border-radius:8px;
+<div style="background:#EEF2FF;border:1px solid #4c1d95;border-radius:8px;
   padding:10px 12px;margin-bottom:8px;">
   <b style="color:#c4b5fd;">{_drug['name']}</b><br>
   <span style="color:#6b7280;font-size:0.75rem;">
@@ -29210,7 +29996,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
                 st.error("로그인이 필요합니다.")
             else:
                 user_name = st.session_state.get('user_name', '')
-                is_special = st.session_state.get('is_admin', False)
+                is_special = st.session_state.get('is_admin', False) or _is_unlimited_user(user_name)
                 if not is_special and check_usage_count(user_name) >= MAX_FREE_DAILY:
                     st.error(f"오늘 {MAX_FREE_DAILY}회 분석을 모두 사용하셨습니다.")
                 else:
@@ -29412,9 +30198,9 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
             # 노후준비자금 수치 시뮬레이션 계산기
             # ══════════════════════════════════════════════════════════════
             st.markdown("""
-<div style="background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
+<div style="background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);
   border-radius:14px;padding:16px 22px 12px;margin-bottom:16px;
-  box-shadow:0 4px 18px rgba(245,158,11,0.2);">
+  box-shadow:0 4px 18px rgba(245,158,11,0.15);border-left:4px solid #f59e0b;">
   <div style="color:#ffd700;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
     💰 노후준비자금 시뮬레이터
   </div>
@@ -29514,8 +30300,8 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
                     _rep_color = "#27ae60" if _replace_rate >= 60 else "#e67e22" if _replace_rate >= 40 else "#e74c3c"
 
                     st.markdown(f"""
-<div style="background:#0d1b2a;border-radius:12px;padding:16px 18px;margin-bottom:12px;
-  border:1px solid #1a3a5c;">
+<div style="background:#eff6ff;border-radius:12px;padding:16px 18px;margin-bottom:12px;
+  border:1px solid #93c5fd;">
   <div style="color:#7ec8f5;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;
     margin-bottom:10px;">📊 노후준비자금 시뮬레이션 결과</div>
   <table style="width:100%;border-collapse:collapse;font-size:0.85rem;color:#fff;">
@@ -29554,12 +30340,12 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
                     if _gap_monthly > 0:
                         _add_prem_est = _gap_total / (_ret_yrs * 12) if _ret_yrs > 0 else 0
                         st.markdown(f"""
-<div style="background:linear-gradient(135deg,#3b0d0d,#7f1d1d);
+<div style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);
   border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid #e74c3c;">
-  <div style="color:#fca5a5;font-size:0.8rem;font-weight:900;margin-bottom:6px;">
+  <div style="color:#9f1239;font-size:0.8rem;font-weight:900;margin-bottom:6px;">
     🚨 부족 자금 분석
   </div>
-  <div style="color:#fff;font-size:0.83rem;line-height:1.8;">
+  <div style="color:#1e293b;font-size:0.83rem;line-height:1.8;">
     • 총 부족 노후자금: <b style="color:#ffd700;">{_gap_total:,.0f}만원</b>
       ({_life_yrs}년 × 12개월 기준)<br>
     • 은퇴 시까지 추가 월 적립 필요액: <b style="color:#ffd700;">{_add_prem_est:,.0f}만원/월</b><br>
@@ -29678,12 +30464,12 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
                 st.markdown("##### 📋 국민연금 급여 종류 및 청구 안내")
                 components.html("""
 <div style="height:520px;overflow-y:auto;padding:14px 16px;
-  background:#0d1b2a;border:1px solid #1a3a5c;border-radius:10px;
+  background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;
   font-size:0.82rem;line-height:1.65;
-  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#e2e8f0;">
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1e3a5f;">
 
 <!-- ══ 연금 급여 종류 ══ -->
-<div style="background:#1a3a5c;border-radius:6px;padding:6px 12px;margin-bottom:10px;">
+<div style="background:#3B82F6;border-radius:6px;padding:6px 12px;margin-bottom:10px;">
   <span style="color:#7ec8f5;font-weight:900;font-size:0.85rem;">■ 연금 급여 종류 및 청구</span>
 </div>
 
@@ -29742,7 +30528,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
 • 연금저축·IRP 수령 시: 연금소득세 3.3~5.5% (70세 이상 3.3%, 70세 미만 5.5%)<br><br>
 
 <!-- ══ 권리구제 제도 ══ -->
-<div style="background:#1a3a5c;border-radius:6px;padding:6px 12px;margin:12px 0 10px;">
+<div style="background:#3B82F6;border-radius:6px;padding:6px 12px;margin:12px 0 10px;">
   <span style="color:#a8f0c8;font-weight:900;font-size:0.85rem;">■ 권리구제 제도 안내</span>
 </div>
 
@@ -29785,10 +30571,10 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
         if not _auth_gate("t6"): st.stop()
         tab_home_btn("t6")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+<div style="position:relative;background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;border-left:4px solid #f59e0b;">
   {_bid('20-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+  <div style="color:#92400e;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     📊 세무상담
   </div>
   <div style="color:#fde68a;font-size:0.82rem;margin-top:4px;">
@@ -29856,13 +30642,13 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
         if not _auth_gate("t7"): st.stop()
         tab_home_btn("t7")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+<div style="position:relative;background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;border-left:4px solid #f59e0b;">
   {_bid('21-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+  <div style="color:#92400e;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🏢 법인상담 · CEO플랜 · 단체보험 · 기업보험
   </div>
-  <div style="color:#fde68a;font-size:0.82rem;margin-top:4px;">
+  <div style="color:#78350f;font-size:0.82rem;margin-top:4px;">
     법인 절세 · 퇴직금 설계 · 단체상해 · 공장화재
   </div>
 </div>""", unsafe_allow_html=True)
@@ -29923,10 +30709,10 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
         if not _auth_gate("t8"): st.stop()
         tab_home_btn("t8")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+<div style="position:relative;background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;border-left:4px solid #f59e0b;">
   {_bid('t8-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+  <div style="color:#92400e;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     👔 CEO플랜 — 비상장주식 약식 평가 &amp; 법인 재무분석
   </div>
   <div style="color:#fde68a;font-size:0.82rem;margin-top:4px;">
@@ -29969,7 +30755,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
                         st.error("로그인이 필요합니다.")
                     else:
                         user_name = st.session_state.get('user_name', '')
-                        if not st.session_state.get('is_admin') and check_usage_count(user_name) >= MAX_FREE_DAILY:
+                        if not (st.session_state.get('is_admin') or _is_unlimited_user(user_name)) and check_usage_count(user_name) >= MAX_FREE_DAILY:
                             st.error(f"오늘 {MAX_FREE_DAILY}회 분석을 모두 사용하셨습니다.")
                         else:
                             with st.spinner("재무제표 분석 중..."):
@@ -30185,13 +30971,13 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
         if not _auth_gate("fire"): st.stop()
         tab_home_btn("fire")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+<div style="position:relative;background:linear-gradient(135deg,#fff7ed 0%,#ffedd5 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;border-left:4px solid #ea580c;">
   {_bid('20-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+  <div style="color:#7c2d12;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     🔥 화재보험 재조달가액 산출
   </div>
-  <div style="color:#fde68a;font-size:0.82rem;margin-top:4px;">
+  <div style="color:#9a3412;font-size:0.82rem;margin-top:4px;">
     한국부동산원(REB) 기준 · 비례보상 방지 · 적정 가입금액 설계
   </div>
 </div>""", unsafe_allow_html=True)
@@ -30381,13 +31167,13 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
         if not _auth_gate("liability"): st.stop()
         tab_home_btn("liability")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1c1400 0%,#78350f 100%);
-  border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+<div style="position:relative;background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);
+  border-radius:12px;padding:14px 20px;margin-bottom:14px;border-left:4px solid #f59e0b;">
   {_bid('21-1-1')}
-  <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
+  <div style="color:#92400e;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
     ⚖️ 배상책임보험 상담
   </div>
-  <div style="color:#fde68a;font-size:0.82rem;margin-top:4px;">
+  <div style="color:#78350f;font-size:0.82rem;margin-top:4px;">
     시설·영업 배상 · 의무보험 · 전문인배상 · 중복보험 독립책임액
   </div>
 </div>""", unsafe_allow_html=True)
@@ -30608,9 +31394,9 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
         # ── 배상책임 법률·손해사정 전문 참고자료 ────────────────────────────
         with st.expander("📚 배상책임보험 법률·손해사정 전문 참고자료 (손해사정사·CFP 실무기준)", expanded=False):
             st.markdown("""
-<div style="background:linear-gradient(135deg,#0d1f0d,#0a2a1a);border-radius:14px;
+<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:14px;
 padding:18px 22px;margin-bottom:16px;border-left:5px solid #10b981;">
-<span style="color:#6ee7b7;font-size:0.72rem;font-weight:900;letter-spacing:0.12em;
+<span style="color:#065f46;font-size:0.72rem;font-weight:900;letter-spacing:0.12em;
 text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span><br>
 <span style="color:#a7f3d0;font-size:1.05rem;font-weight:900;">
 배상책임보험 법률·손해사정 완전 가이드</span><br>
@@ -31218,7 +32004,7 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                         st.error("로그인이 필요합니다.")
                     else:
                         user_name = st.session_state.get('user_name', '')
-                        if not st.session_state.get('is_admin') and check_usage_count(user_name) >= MAX_FREE_DAILY:
+                        if not (st.session_state.get('is_admin') or _is_unlimited_user(user_name)) and check_usage_count(user_name) >= MAX_FREE_DAILY:
                             st.error(f"오늘 {MAX_FREE_DAILY}회 분석을 모두 사용하셨습니다.")
                         else:
                             with st.spinner("부동산 서류 분석 중..."):
@@ -31532,8 +32318,8 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
 
         # ── 헤더 배너 ──────────────────────────────────────────────────
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a0505 0%,#7f1d1d 50%,#991b1b 100%);
-  border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:16px;">
+<div style="position:relative;background:linear-gradient(135deg,#fff1f2 0%,#ffe4e6 50%,#fecdd3 100%);
+  border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:16px;border-left:4px solid #e11d48;">
   {_bid('19-1-1')}
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-size:2.2rem;">⚖️</div>
@@ -31642,7 +32428,7 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
 <div style="font-family:'Noto Sans KR',sans-serif;font-size:0.82rem;">
 <table style="width:100%;border-collapse:collapse;
   background:#eef4fb;border:1px solid #b8d0ea;border-radius:8px;overflow:hidden;">
-<thead><tr style="background:#1a3a5c;color:#fff;">
+<thead><tr style="background:#3B82F6;color:#fff;">
   <th style="padding:6px 10px;text-align:left;">KCD-8 코드</th>
   <th style="padding:6px 10px;text-align:left;">상병명</th>
   <th style="padding:6px 10px;text-align:left;">분류</th>
@@ -31758,7 +32544,7 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
 .badge-pub   { background:#2563eb; color:#fff; }
 .badge-prof  { background:#059669; color:#fff; }
 .exp-tel { display:inline-block; padding:5px 14px;
-  background:#1a3a5c; color:#f0c040; border-radius:20px;
+  background:#3B82F6; color:#f0c040; border-radius:20px;
   font-weight:700; font-size:0.82rem; text-decoration:none;
   letter-spacing:0.04em; transition:background 0.15s; }
 .exp-tel:hover { background:#dc2626; color:#fff; }
@@ -31993,13 +32779,13 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
             st.markdown("#### 💬 전문가 브리핑 문구 (가이딩 프로토콜 제32조 표준)")
             _me_briefing = _art32_briefing(_me_premium, fss_type=_me_fss_type)
             st.markdown(f"""
-<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 100%);
+<div style="background:linear-gradient(135deg,#fef9e7 0%,#fef3c7 100%);
   border:2px solid #f0c040;border-radius:12px;padding:16px 18px;margin:8px 0;">
-  <div style="color:#fde68a;font-size:0.78rem;font-weight:900;
+  <div style="color:#92400e;font-size:0.78rem;font-weight:900;
     letter-spacing:0.05em;margin-bottom:8px;">
     📜 AI 표준 브리핑 문구 — 복사하여 상담에 활용하세요
   </div>
-  <div style="color:#e2e8f0;font-size:0.88rem;line-height:1.7;font-weight:500;">
+  <div style="color:#78350f;font-size:0.88rem;line-height:1.7;font-weight:500;">
     {_me_briefing}
   </div>
 </div>""", unsafe_allow_html=True)
@@ -32020,7 +32806,7 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
 
             # ── 가이딩 프로토콜 근거 고지 ────────────────────────────────────────────
             st.markdown(f"""
-<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;
+<div style="background:#EEF2FF;border:1px solid #334155;border-radius:8px;
   padding:10px 14px;margin-top:8px;">
   <div style="color:#475569;font-size:0.72rem;line-height:1.6;">
     ⚖️ <b style="color:#64748b;">[가이딩 프로토콜 제32조 §6]</b>
@@ -32236,8 +33022,8 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                 _gp64_cur = _gp64_mod._GP64_MASTER_CONFIG.copy()
 
                 st.markdown("""
-<div style="background:linear-gradient(135deg,#0d1b2a,#1c2e10);border:1px solid #22c55e;
-  border-radius:10px;padding:10px 16px;margin-bottom:10px;font-size:0.80rem;color:#86efac;line-height:1.6;">
+<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #22c55e;
+  border-radius:10px;padding:10px 16px;margin-bottom:10px;font-size:0.80rem;color:#166534;line-height:1.6;">
   <b>📋 GP-64 §1</b> — 아래 값을 변경하면 <b>모든 고객의 권장 가입금액이 즉시 재산출</b>됩니다.<br>
   저장 전 <b>현재값 ↔ 수정값 비교 표</b>를 반드시 확인하고 [적용] 버튼을 누르세요.
 </div>""", unsafe_allow_html=True)
@@ -32482,10 +33268,10 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
             # 🏭 중앙집중 서비스 관리 대시보드 (GoldKeyServiceManager)
             # ══════════════════════════════════════════════════════════════
             st.markdown("""
-<div style="background:linear-gradient(135deg,#0d1b2a,#1a2e4a);
+<div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);
   border-radius:12px;padding:14px 18px;margin:10px 0 6px;
   border-left:5px solid #0ea5e9;">
-  <span style="color:#7ec8f5;font-weight:900;font-size:1rem;">🏭 중앙집중 서비스 관리 센터 (Control Tower)</span>
+  <span style="color:#0369a1;font-weight:900;font-size:1rem;">🏭 중앙집중 서비스 관리 센터 (Control Tower)</span>
   <span style="color:#4a7fa8;font-size:0.72rem;margin-left:10px;">
     스캔·STT·크롤링·RAG 4개 서비스를 1곳에서 통합 관리
   </span>
@@ -32643,10 +33429,10 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                 # ══════════════════════════════════════════════════════════════
                 with _adm_t5:
                     st.markdown("""
-<div style="background:linear-gradient(135deg,#0d1b2a,#1a2e4a);
+<div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);
   border-radius:12px;padding:14px 18px;margin:4px 0 12px;
   border-left:5px solid #D4AF37;">
-  <span style="color:#D4AF37;font-weight:900;font-size:1rem;">🔬 시스템 자가 진단 센터 — 가이딩 프로토콜 제76/77조</span><br>
+  <span style="color:#92400e;font-weight:900;font-size:1rem;">🔬 시스템 자가 진단 센터 — 가이딩 프로토콜 제76/77조</span><br>
   <span style="color:#94a3b8;font-size:0.76rem;">더미 데이터를 주입하여 핵심 계산 엔진의 정상 작동 여부를 전수 검증합니다.</span>
 </div>""", unsafe_allow_html=True)
 
@@ -32868,10 +33654,10 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                             _s_bg    = "rgba(34,197,94,0.08)" if _s == "pass" else (
                                        "rgba(245,158,11,0.10)" if _s == "warn" else "rgba(239,68,68,0.10)")
                             _type_badge = (
-                                '<span style="font-size:0.65rem;background:#334155;color:#94a3b8;'
+                                '<span style="font-size:0.65rem;background:#7B92B2;color:#94a3b8;'
                                 'padding:1px 5px;border-radius:6px;margin-left:5px;">Type-B</span>'
                                 if _r.get("type") == "B" else
-                                '<span style="font-size:0.65rem;background:#1e3a5f;color:#7ec8f5;'
+                                '<span style="font-size:0.65rem;background:#3B82F6;color:#7ec8f5;'
                                 'padding:1px 5px;border-radius:6px;margin-left:5px;">Type-A</span>'
                             )
                             _action_html = (
@@ -32926,10 +33712,10 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                     # ══════════════════════════════════════════════════════════
                     st.markdown("<hr style='margin:20px 0 14px;border-color:#1e3a5f;'>", unsafe_allow_html=True)
                     st.markdown("""
-<div style="background:linear-gradient(135deg,#0d1b2a,#1a3050);
+<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);
   border-radius:10px;padding:12px 16px;margin-bottom:10px;
   border-left:4px solid #3b82f6;">
-  <span style="color:#7ec8f5;font-weight:800;font-size:0.9rem;">🔑 제75조 §5 — 고객 기기 일치 여부 판정 도구</span><br>
+  <span style="color:#1d4ed8;font-weight:800;font-size:0.9rem;">🔑 제75조 §5 — 고객 기기 일치 여부 판정 도구</span><br>
   <span style="color:#64748b;font-size:0.74rem;">회원 이름을 입력하면 등록된 기기 지문 이력을 조회하고 신뢰 수준을 판정합니다.</span>
 </div>""", unsafe_allow_html=True)
 
@@ -33112,7 +33898,7 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
             # ── 탭[0]: 원격 수정지시 전용 패널 ─────────────────────────────
             with inner_tabs[0]:
                 st.markdown("""
-<div style="background:linear-gradient(135deg,#1a3a5c,#2e6da4);border-radius:10px;
+<div style="background:linear-gradient(135deg,#bfdbfe,#93c5fd);border-radius:10px;
   padding:14px 18px;margin-bottom:14px;">
   <span style="color:#fff;font-size:1rem;font-weight:900;">📢 원격 수정지시 채널</span><br>
   <span style="color:#b3d4f5;font-size:0.78rem;">앱 수정 요청을 등록하면 개발자가 확인 후 반영합니다.</span>
@@ -33312,7 +34098,7 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                     _stat_processed = _stat_total_src
 
                 # 현황 통계 표
-                st.markdown("""<div style="background:linear-gradient(135deg,#1a3a5c,#2e6da4);
+                st.markdown("""<div style="background:linear-gradient(135deg,#bfdbfe,#93c5fd);
   border-radius:10px;padding:10px 16px;margin-bottom:10px;">
   <span style="color:#fff;font-size:0.95rem;font-weight:900;">📊 RAG 지식베이스 현황</span>
 </div>""", unsafe_allow_html=True)
@@ -34203,10 +34989,10 @@ END; $$;""", language="sql")
             with inner_tabs[6]:
                 # ── 📔 개발일지 (Goldkey_Ai_masters2026 / insuAi) ────────
                 st.markdown(f"""
-<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+<div style="background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:12px;">
-  <div style="color:#fff;font-size:1.05rem;font-weight:900;letter-spacing:0.04em;">
-    📔 개발일지 — <span style="color:#ffd700;">Goldkey_Ai_masters2026</span>
+  <div style="color:#1e3a5f;font-size:1.05rem;font-weight:900;letter-spacing:0.04em;">
+    📔 개발일지 — <span style="color:#b45309;">Goldkey_Ai_masters2026</span>
     &nbsp;<span style="background:#fff3;border-radius:6px;padding:2px 8px;
     font-size:0.75rem;color:#b3d4f5;">약칭: insuAi</span>
   </div>
@@ -34397,9 +35183,9 @@ END; $$;""", language="sql")
                 # 🪣 버킷 AI 설정 — RAG/캐싱 최적화 + 데이터 인제스션 파이프라인
                 # ════════════════════════════════════════════════════════════
                 st.markdown("""
-<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 40%,#0d3b2e 100%);
+<div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 40%,#d1fae5 100%);
   border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:14px;
-  box-shadow:0 4px 18px rgba(13,31,60,0.28);">
+  box-shadow:0 4px 18px rgba(96,165,250,0.18);">
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-size:2.2rem;">🪣</div>
     <div>
@@ -34770,7 +35556,7 @@ END; $$;""", language="sql")
 <div style="font-size:0.82rem;line-height:1.7;">
 <table style="width:100%;border-collapse:collapse;">
 <thead>
-<tr style="background:#1a3a5c;color:#fff;">
+<tr style="background:#3B82F6;color:#fff;">
   <th style="padding:8px 12px;text-align:left;">상황</th>
   <th style="padding:8px 12px;text-align:left;">전략</th>
   <th style="padding:8px 12px;text-align:left;">비용/속도</th>
@@ -34804,7 +35590,7 @@ END; $$;""", language="sql")
             # ── [B4] 📡 추적 대시보드 — ID 기반 클릭 순위 게이지바 ──────────
             with inner_tabs[9]:
                 st.markdown("""
-<div style="background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 100%);
+<div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:12px;">
   <span style="color:#f0c040;font-size:1rem;font-weight:900;">📡 설계사 추적 대시보드</span>
   <span style="color:#b3d4f5;font-size:0.78rem;margin-left:12px;">메뉴 클릭 순위 · 실시간 ID 추적</span>
@@ -34860,7 +35646,7 @@ END; $$;""", language="sql")
 
                 # ── [C8] Entity ID 기반 사용자별 클릭 순위 ──────────────────
                 st.markdown("""
-<div style="background:linear-gradient(135deg,#0d2137 0%,#1e3a5c 100%);
+<div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
   border-radius:10px;padding:10px 16px;margin-bottom:10px;
   border-left:4px solid #f0c040;">
   <span style="color:#f0c040;font-size:0.88rem;font-weight:900;">🪪 Entity ID 기반 클릭 순위</span>
@@ -34923,14 +35709,14 @@ END; $$;""", language="sql")
       <span style="font-size:0.65rem;color:#64748b;margin-left:4px;">{_ev["clicks"]}클릭 · {_rec_str}</span>
     </div>
   </div>
-  <div style="background:#1e293b;border-radius:4px;height:6px;overflow:hidden;">
+  <div style="background:#E8F0FE;border-radius:4px;height:6px;overflow:hidden;">
     <div style="width:{_pct2}%;height:100%;background:{_bar};border-radius:4px;"></div>
   </div>
 </div>"""
 
                     st.markdown(f"""
 <div style="max-height:340px;overflow-y:auto;padding:12px 14px;
-  background:#0f172a;border:1.5px solid #1e3a5c;border-radius:12px;
+  background:#EEF2FF;border:1.5px solid #1e3a5c;border-radius:12px;
   scrollbar-width:thin;scrollbar-color:#1e3a5c #0f172a;">
 {_eid_rows}
 </div>""", unsafe_allow_html=True)
@@ -34964,7 +35750,7 @@ END; $$;""", language="sql")
   <span style="color:#64748b;font-size:0.65rem;margin-left:6px;">{_act_rec}</span>
 </div>"""
                             st.markdown(f"""
-<div style="max-height:260px;overflow-y:auto;background:#0f172a;
+<div style="max-height:260px;overflow-y:auto;background:#EEF2FF;
   border:1px solid #1e293b;border-radius:10px;padding:10px 14px;">
 {_detail_rows if _detail_rows else '<span style="color:#64748b;font-size:0.75rem;">활동 내역 없음</span>'}
 </div>""", unsafe_allow_html=True)
@@ -34992,7 +35778,7 @@ END; $$;""", language="sql")
     if cur == "life_cycle":
         tab_home_btn("life_cycle")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+<div style="position:relative;background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
   {_bid('24-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
@@ -35065,7 +35851,7 @@ END; $$;""", language="sql")
   </div>
 
   <div class="lc-section">🛡️ 생존 보장 (사망·질병·상해)</div>
-  <div class="lc-cov-row"><div class="lc-cov-name">사망<br>보장</div><div class="lc-cov-track"><div class="lc-cov-bar" style="left:22%;width:55%;background:#1a3a5c;">종신보험 / 정기보험</div></div></div>
+  <div class="lc-cov-row"><div class="lc-cov-name">사망<br>보장</div><div class="lc-cov-track"><div class="lc-cov-bar" style="left:22%;width:55%;background:#3B82F6;">종신보험 / 정기보험</div></div></div>
   <div class="lc-cov-row"><div class="lc-cov-name">암·3대<br>질병</div><div class="lc-cov-track"><div class="lc-cov-bar" style="left:0%;width:78%;background:#c0392b;">암·뇌·심장 진단비 / 치료비</div></div></div>
   <div class="lc-cov-row"><div class="lc-cov-name">실손<br>보험</div><div class="lc-cov-track"><div class="lc-cov-bar" style="left:0%;width:88%;background:#2e6da4;">실손의료보험 (1~4세대)</div></div></div>
 
@@ -35101,7 +35887,7 @@ END; $$;""", language="sql")
         if not _auth_gate("life_event"): st.stop()
         tab_home_btn("life_event")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+<div style="position:relative;background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
   {_bid('25-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
@@ -35220,7 +36006,7 @@ END; $$;""", language="sql")
     if cur == "leaflet":
         tab_home_btn("leaflet")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+<div style="position:relative;background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
   {_bid('26-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
@@ -35559,7 +36345,7 @@ END; $$;""", language="sql")
         if not _auth_gate("stock_eval"): st.stop()
         tab_home_btn("stock_eval")
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+<div style="position:relative;background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:12px;">
   {_bid('27-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
@@ -35680,9 +36466,9 @@ END; $$;""", language="sql")
 
         # ── 브랜드 헤더 ──────────────────────────────────────────────────
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#0d2137 0%,#1a3a5c 40%,#1e6fa8 80%,#3a9bd5 100%);
+<div style="position:relative;background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 40%,#93c5fd 80%,#60a5fa 100%);
   border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:12px;
-  box-shadow:0 4px 18px rgba(30,111,168,0.22);">
+  box-shadow:0 4px 18px rgba(96,165,250,0.18);">
   {_bid('28-1-1')}
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-size:2rem;">🤖</div>
@@ -35838,7 +36624,7 @@ END; $$;""", language="sql")
                 f"<div style='border:1px solid #b3d4f5;border-radius:8px;overflow:hidden;margin-bottom:8px;'>"
                 f"<div style='max-height:190px;overflow-y:auto;'>"
                 f"<table style='width:100%;border-collapse:collapse;'>"
-                f"<thead><tr style='background:#1a3a5c;color:#fff;font-size:0.75rem;'>"
+                f"<thead><tr style='background:#3B82F6;color:#fff;font-size:0.75rem;'>"
                 f"<th style='padding:5px 8px;text-align:left;'>보험사</th>"
                 f"<th style='padding:5px 8px;text-align:left;'>공시실</th></tr></thead>"
                 f"<tbody>{_disc_rows}</tbody></table></div></div>",
@@ -36114,7 +36900,7 @@ END; $$;""", language="sql")
         tab_home_btn("customer_docs")
 
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+<div style="position:relative;background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);
   border-radius:12px;padding:14px 18px;margin-bottom:14px;">
   {_bid('29-1-1')}
   <div style="color:#fff;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;">
@@ -36300,9 +37086,9 @@ END; $$;""", language="sql")
         tab_home_btn("consult_catalog")
 
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#1a3a5c 0%,#2e6da4 100%);
+<div style="position:relative;background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);
   border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:14px;
-  box-shadow:0 4px 18px rgba(26,58,92,0.28);">
+  box-shadow:0 4px 18px rgba(96,165,250,0.18);">
   {_bid('30-1-1')}
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-size:2.2rem;">📖</div>
@@ -36530,9 +37316,9 @@ END; $$;""", language="sql")
 
         # ── 브랜드 헤더 ──────────────────────────────────────────────────
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#0d1f3c 0%,#1a3a5c 40%,#0d3b2e 100%);
+<div style="position:relative;background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 40%,#d1fae5 100%);
   border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:14px;
-  box-shadow:0 4px 18px rgba(13,31,60,0.28);">
+  box-shadow:0 4px 18px rgba(96,165,250,0.18);">
   {_bid('31-1-1')}
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-size:2.2rem;">📱</div>
@@ -36706,7 +37492,7 @@ END; $$;""", language="sql")
             import streamlit.components.v1 as _cmp_dc
             _dc_tts = "카탈로그 업로드 화면입니다. 파일 전송하세요 버튼을 눌러 PDF나 이미지를 선택하거나, 카메라 촬영 체크박스로 직접 촬영할 수 있습니다. 여러 장을 동시에 선택할 수 있습니다."
             _cmp_dc.html(f"""<button onclick="(function(){{var u=new SpeechSynthesisUtterance('{_dc_tts}');u.lang='ko-KR';u.rate=0.92;speechSynthesis.speak(u);}})();"
-  style="background:linear-gradient(135deg,#1a3a5c,#2e6da4);color:#fff;border:none;
+  style="background:linear-gradient(135deg,#bfdbfe,#93c5fd);color:#1e3a5f;border:none;
   border-radius:20px;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;
   box-shadow:0 2px 8px rgba(30,111,168,0.3);margin-bottom:8px;">
   🔊 음성 안내 듣기
@@ -37011,7 +37797,7 @@ END; $$;""", language="sql")
             # ─ 라이브러리 박스 1: 보험사 카탈로그 ────────────────────
             with _lbc1:
                 st.markdown("""
-<div style="background:#1a3a5c;color:#fff;border-radius:10px 10px 0 0;
+<div style="background:#3B82F6;color:#fff;border-radius:10px 10px 0 0;
   padding:8px 14px;font-size:0.88rem;font-weight:900;">
   🏢 보험사 카탈로그 &nbsp;<span style="font-size:0.72rem;font-weight:400;
   color:#a8d4f5;">(관리자는 전체 대원 파일 표시)</span>
@@ -37284,8 +38070,8 @@ END; $$;""", language="sql")
         tab_home_btn("scan_hub")
 
         st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 50%,#27ae60 100%);
-  border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:16px;">
+<div style="position:relative;background:linear-gradient(135deg,#f0fdf4 0%,#dcfce7 50%,#bbf7d0 100%);
+  border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:16px;border-left:4px solid #16a34a;">
   {_bid('32-1-1')}
   <div style="color:#fff;font-size:1.15rem;font-weight:900;letter-spacing:0.04em;">
     🔬 통합 문서 스캔 센터 (SSOT)
@@ -37319,10 +38105,10 @@ END; $$;""", language="sql")
         # ══════════════════════════════════════════════════════════════
         with st.expander("📸 AI OCR 스마트 스캐너 — 카메라 촬영 또는 이미지 업로드", expanded=True):
             st.markdown("""
-<div style='background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);border-radius:12px;
-  padding:14px 18px;margin-bottom:12px;'>
-  <div style='color:#fff;font-size:1rem;font-weight:800;'>📸 스마트 문서 스캐너</div>
-  <div style='color:#94a3b8;font-size:0.78rem;margin-top:4px;'>
+<div style='background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-radius:12px;
+  padding:14px 18px;margin-bottom:12px;border-left:4px solid #0284c7;'>
+  <div style='color:#0c4a6e;font-size:1rem;font-weight:800;'>📸 스마트 문서 스캐너</div>
+  <div style='color:#075985;font-size:0.78rem;margin-top:4px;'>
     보험증권·진단서·의무기록을 카메라로 찍어주시면 AI 마스터가 즉시 해독해 드립니다.
   </div>
 </div>""", unsafe_allow_html=True)
@@ -37341,7 +38127,7 @@ END; $$;""", language="sql")
             if _cam_img is None:
                 # ── 1단계: 이미지 없음 → 카메라/업로드 유도 ─────────
                 st.markdown("""
-<div style='border:3px dashed #3b82f6;border-radius:20px;background:#0f172a;
+<div style='border:3px dashed #3b82f6;border-radius:20px;background:#EEF2FF;
   padding:32px 20px;text-align:center;margin-bottom:12px;cursor:pointer;'>
   <div style='font-size:3rem;margin-bottom:8px;'>📷</div>
   <div style='color:#60a5fa;font-size:1rem;font-weight:700;'>여기를 눌러 문서 촬영하기</div>
@@ -37397,7 +38183,7 @@ END; $$;""", language="sql")
                 # ── 3단계: 스캔 애니메이션 + Gemini Vision 분석 ─────
                 if st.session_state.get("_ocr_cam_analyzing") and _cam_result is None:
                     st.markdown("""
-<div style='background:#0f172a;border-radius:14px;padding:20px;text-align:center;
+<div style='background:#EEF2FF;border-radius:14px;padding:20px;text-align:center;
   margin-top:12px;border:1px solid #22d3ee;'>
   <div style='font-size:2rem;margin-bottom:8px;animation:spin 1s linear infinite;'>⚙️</div>
   <div style='color:#22d3ee;font-weight:800;font-size:1rem;'>AI가 문서의 질병 코드를 해독 중입니다...</div>
@@ -37455,7 +38241,7 @@ END; $$;""", language="sql")
                     _findings = _cam_result.get("key_findings", "")
 
                     st.markdown(f"""
-<div style='background:#0f172a;border-radius:14px;padding:16px 18px;margin-top:12px;
+<div style='background:#EEF2FF;border-radius:14px;padding:16px 18px;margin-top:12px;
   border:1px solid {_conf_color};'>
   <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'>
     <div style='color:#fff;font-weight:800;font-size:1rem;'>📋 AI 분석 결과</div>
@@ -37464,8 +38250,8 @@ END; $$;""", language="sql")
   </div>
   <div style='color:#94a3b8;font-size:0.75rem;margin-bottom:4px;'>문서 유형</div>
   <div style='color:#e2e8f0;font-weight:700;font-size:0.95rem;margin-bottom:10px;'>{_doc_type}</div>
-  {"<div style='color:#94a3b8;font-size:0.75rem;margin-bottom:4px;'>질병 코드</div><div style='margin-bottom:10px;'>" + " ".join([f"<span style='background:#1e3a5f;color:#60a5fa;padding:2px 8px;border-radius:6px;font-size:0.78rem;margin-right:4px;'>{c}</span>" for c in _disease_codes]) + "</div>" if _disease_codes else ""}
-  <div style='background:#1e293b;border-radius:8px;padding:10px 14px;margin-top:6px;'>
+  {"<div style='color:#94a3b8;font-size:0.75rem;margin-bottom:4px;'>질병 코드</div><div style='margin-bottom:10px;'>" + " ".join([f"<span style='background:#3B82F6;color:#60a5fa;padding:2px 8px;border-radius:6px;font-size:0.78rem;margin-right:4px;'>{c}</span>" for c in _disease_codes]) + "</div>" if _disease_codes else ""}
+  <div style='background:#E8F0FE;border-radius:8px;padding:10px 14px;margin-top:6px;'>
     <div style='color:#7dd3fc;font-size:0.75rem;font-weight:700;margin-bottom:4px;'>🤖 AI 핵심 발견사항</div>
     <div style='color:#cbd5e1;font-size:0.82rem;line-height:1.7;'>{str(_findings).replace(chr(10), "<br>")}</div>
   </div>
@@ -37512,13 +38298,13 @@ END; $$;""", language="sql")
             else:
                 st.warning("SmartScanner 모듈 로드 실패 — modules/smart_scanner.py 확인")
 
-        st.markdown("""<div style="background:#1e3a5f;border-radius:8px;padding:6px 14px;margin:8px 0 4px;"><span style="color:#b3d4f5;font-size:0.85rem;">📤 기존 통합 스캔</span></div>""", unsafe_allow_html=True)
+        st.markdown("""<div style="background:#3B82F6;border-radius:8px;padding:6px 14px;margin:8px 0 4px;"><span style="color:#b3d4f5;font-size:0.85rem;">📤 기존 통합 스캔</span></div>""", unsafe_allow_html=True)
 
         # ── 업로드 영역 (대형 2열) ────────────────────────────────────
         _sh_col_up, _sh_col_list = st.columns([3, 2], gap="large")
 
         with _sh_col_up:
-            st.markdown("""<div style="background:#1a3a5c;border-radius:10px;
+            st.markdown("""<div style="background:#3B82F6;border-radius:10px;
   padding:10px 16px;margin-bottom:10px;">
   <span style="color:#fff;font-weight:900;font-size:1rem;">📤 문서 업로드</span>
   <span style="color:#b3d4f5;font-size:0.75rem;margin-left:8px;">PDF · JPG · PNG · JPEG 모두 지원</span>
@@ -37582,7 +38368,7 @@ END; $$;""", language="sql")
 
             if _sh_doc_type == "🏥 의무기록·진단서":
                 with st.expander("🏥 의무기록 전용 옵션", expanded=True):
-                    st.markdown("""<div style="background:#1a1a2e;border-radius:8px;
+                    st.markdown("""<div style="background:#EEF2FF;border-radius:8px;
   padding:8px 14px;margin-bottom:10px;font-size:0.8rem;color:#a8d8ea;">
   📋 의무기록 특화 Medical OCR — KCD코드·약어·검사수치 자동 구조화
 </div>""", unsafe_allow_html=True)
@@ -37856,7 +38642,7 @@ END; $$;""", language="sql")
 
         # ── 오른쪽: 스캔 결과 목록 ───────────────────────────────────
         with _sh_col_list:
-            st.markdown("""<div style="background:#1a3a5c;border-radius:10px;
+            st.markdown("""<div style="background:#3B82F6;border-radius:10px;
   padding:10px 16px;margin-bottom:10px;">
   <span style="color:#fff;font-weight:900;font-size:1rem;">📋 스캔 결과 목록</span>
 </div>""", unsafe_allow_html=True)
@@ -37869,42 +38655,42 @@ END; $$;""", language="sql")
             if _pi_card:
                 _pi_exp  = str(_pi_card.get("expiry_age","")) + "세" if _pi_card.get("expiry_age") else (_pi_card.get("expiry_date") or "미확인")
                 st.markdown(f"""
-<div style="background:linear-gradient(135deg,#0d3b2e,#1a6b4a);
+<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);
   border-radius:10px;padding:12px 16px;margin-bottom:10px;
   border-left:4px solid #27ae60;">
-  <div style="color:#a8f0c8;font-size:0.72rem;font-weight:700;
+  <div style="color:#14532d;font-size:0.72rem;font-weight:700;
     letter-spacing:0.08em;margin-bottom:6px;">📋 피보험자 정보 (증권 자동 추출)</div>
-  <table style="width:100%;border-collapse:collapse;font-size:0.82rem;color:#fff;">
+  <table style="width:100%;border-collapse:collapse;font-size:0.82rem;color:#1e293b;">
     <tr>
-      <td style="color:#a8f0c8;width:38%;padding:2px 0;">👤 피보험자</td>
+      <td style="color:#166534;width:38%;padding:2px 0;">👤 피보험자</td>
       <td style="font-weight:700;">{_pi_card.get("insured_name") or "—"}</td>
     </tr>
     <tr>
-      <td style="color:#a8f0c8;padding:2px 0;">🎂 생년월일</td>
+      <td style="color:#166534;padding:2px 0;">🎂 생년월일</td>
       <td>{_pi_card.get("insured_dob") or "—"}</td>
     </tr>
     <tr>
-      <td style="color:#a8f0c8;padding:2px 0;">🏢 보험회사</td>
+      <td style="color:#166534;padding:2px 0;">🏢 보험회사</td>
       <td>{_pi_card.get("company") or "—"}</td>
     </tr>
     <tr>
-      <td style="color:#a8f0c8;padding:2px 0;">📄 상품명</td>
+      <td style="color:#166534;padding:2px 0;">📄 상품명</td>
       <td style="font-size:0.78rem;">{(_pi_card.get("product_name") or "—")[:35]}</td>
     </tr>
     <tr>
-      <td style="color:#a8f0c8;padding:2px 0;">📅 가입일</td>
+      <td style="color:#166534;padding:2px 0;">📅 가입일</td>
       <td>{_pi_card.get("join_date") or "—"}</td>
     </tr>
     <tr>
-      <td style="color:#a8f0c8;padding:2px 0;">⏳ 만기</td>
+      <td style="color:#166534;padding:2px 0;">⏳ 만기</td>
       <td>{_pi_exp}</td>
     </tr>
     <tr>
-      <td style="color:#a8f0c8;padding:2px 0;">💳 납입기간</td>
+      <td style="color:#166534;padding:2px 0;">💳 납입기간</td>
       <td>{_pi_card.get("payment_period") or "—"}</td>
     </tr>
     <tr>
-      <td style="color:#a8f0c8;padding:2px 0;">💰 월보험료</td>
+      <td style="color:#166534;padding:2px 0;">💰 월보험료</td>
       <td>{f"{_pi_card['monthly_premium']:,}원" if _pi_card.get("monthly_premium") else "—"}</td>
     </tr>
   </table>
@@ -38868,10 +39654,10 @@ def _render_healthcheck_dashboard():
     import time as _time
 
     st.markdown("""
-<div style="background:linear-gradient(135deg,#0d3b2e,#1a6b4a);border-radius:10px;
-  padding:14px 18px;margin-bottom:14px;">
-  <span style="color:#fff;font-size:1rem;font-weight:900;">🩺 시스템 헬스체크</span><br>
-  <span style="color:#a8e6cf;font-size:0.78rem;">
+<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:10px;
+  padding:14px 18px;margin-bottom:14px;border-left:4px solid #16a34a;">
+  <span style="color:#14532d;font-size:1rem;font-weight:900;">🩺 시스템 헬스체크</span><br>
+  <span style="color:#166534;font-size:0.78rem;">
     전체 섹터 자동 점검 · 10분 간격 자동실행 · 이상 감지 시 즉시 자동수리
   </span>
 </div>""", unsafe_allow_html=True)

@@ -390,3 +390,402 @@ def get_engine_status() -> dict:
         "dict_entries": len(INSURANCE_DOMAIN_DICT),
         "std_names":    len(STANDARD_COVERAGE_NAMES),
     }
+
+
+# =============================================================================
+# 7. [GP91] 의학 약어 번역 사전 — 진단서·의무기록 필기체 약어 표준화
+# =============================================================================
+
+MEDICAL_ABBREVIATION_DICT: dict[str, str] = {
+    # ── 주訴·현병력 ───────────────────────────────────────────────────────────
+    "C.C":    "Chief Complaint (주소증)",
+    "CC":     "Chief Complaint (주소증)",
+    "C/C":    "Chief Complaint (주소증)",
+    "P.I":    "Present Illness (현병력)",
+    "PI":     "Present Illness (현병력)",
+    "P/I":    "Present Illness (현병력)",
+    "P.H":    "Past History (과거력)",
+    "PH":     "Past History (과거력)",
+    "F.H":    "Family History (가족력)",
+    "FH":     "Family History (가족력)",
+    "S.H":    "Social History (사회력)",
+    "SH":     "Social History (사회력)",
+    # ── 진단·처치 ─────────────────────────────────────────────────────────────
+    "Imp":    "Impression (임상적 추정 진단)",
+    "Dx":     "Diagnosis (진단)",
+    "DDx":    "Differential Diagnosis (감별 진단)",
+    "Tx":     "Treatment (치료)",
+    "Rx":     "Prescription (처방)",
+    "Hx":     "History (병력)",
+    "Op":     "Operation (수술)",
+    "Sx":     "Symptoms (증상)",
+    "Bx":     "Biopsy (조직검사)",
+    "Fx":     "Fracture (골절)",
+    "SOB":    "Shortness of Breath (호흡곤란)",
+    "LOC":    "Loss of Consciousness (의식소실)",
+    "GCS":    "Glasgow Coma Scale (의식수준 점수)",
+    # ── 활력징후 ─────────────────────────────────────────────────────────────
+    "V/S":    "Vital Signs (활력징후)",
+    "VS":     "Vital Signs (활력징후)",
+    "BP":     "Blood Pressure (혈압)",
+    "HR":     "Heart Rate (맥박수)",
+    "BT":     "Body Temperature (체온)",
+    "RR":     "Respiratory Rate (호흡수)",
+    "SpO2":   "Oxygen Saturation (산소포화도)",
+    # ── 검사·영상 ─────────────────────────────────────────────────────────────
+    "EKG":    "Electrocardiogram (심전도)",
+    "ECG":    "Electrocardiogram (심전도)",
+    "EEG":    "Electroencephalogram (뇌파)",
+    "EMG":    "Electromyography (근전도)",
+    "MRI":    "Magnetic Resonance Imaging (자기공명영상)",
+    "CT":     "Computed Tomography (전산화단층촬영)",
+    "PET":    "Positron Emission Tomography (양전자방출단층촬영)",
+    "U/S":    "Ultrasound (초음파)",
+    "US":     "Ultrasound (초음파)",
+    "CXR":    "Chest X-Ray (흉부X선)",
+    "CBC":    "Complete Blood Count (전혈구검사)",
+    "LFT":    "Liver Function Test (간기능검사)",
+    "RFT":    "Renal Function Test (신기능검사)",
+    "ABG":    "Arterial Blood Gas Analysis (동맥혈가스분석)",
+    # ── 심장·혈관 ─────────────────────────────────────────────────────────────
+    "AMI":    "Acute Myocardial Infarction (급성심근경색)",
+    "MI":     "Myocardial Infarction (심근경색)",
+    "CHF":    "Congestive Heart Failure (울혈성심부전)",
+    "CAD":    "Coronary Artery Disease (관상동맥질환)",
+    "PCI":    "Percutaneous Coronary Intervention (경피적관상동맥중재술)",
+    "CABG":   "Coronary Artery Bypass Graft (관상동맥우회술)",
+    "AF":     "Atrial Fibrillation (심방세동)",
+    "DVT":    "Deep Vein Thrombosis (심부정맥혈전증)",
+    "PE":     "Pulmonary Embolism (폐색전증)",
+    # ── 뇌·신경 ──────────────────────────────────────────────────────────────
+    "CVA":    "Cerebrovascular Accident (뇌졸중)",
+    "TIA":    "Transient Ischemic Attack (일과성뇌허혈발작)",
+    "ICH":    "Intracerebral Hemorrhage (뇌내출혈)",
+    "SAH":    "Subarachnoid Hemorrhage (지주막하출혈)",
+    "TBI":    "Traumatic Brain Injury (외상성뇌손상)",
+    "ICP":    "Intracranial Pressure (두개내압)",
+    # ── 암·종양 ──────────────────────────────────────────────────────────────
+    "Ca":     "Cancer (암)",
+    "CA":     "Cancer (암)",
+    "Mets":   "Metastasis (전이)",
+    "TNM":    "Tumor Node Metastasis 병기 분류",
+    "chemo":  "Chemotherapy (항암화학요법)",
+    "RT":     "Radiation Therapy (방사선치료)",
+    # ── 정형외과·장해 ────────────────────────────────────────────────────────
+    "ROM":    "Range of Motion (관절가동범위)",
+    "ORIF":   "Open Reduction Internal Fixation (관혈적정복내고정술)",
+    "THA":    "Total Hip Arthroplasty (인공고관절전치환술)",
+    "TKA":    "Total Knee Arthroplasty (인공슬관절전치환술)",
+    "HIVD":   "Herniated Intervertebral Disc (추간판탈출증)",
+    "HNP":    "Herniated Nucleus Pulposus (수핵탈출증)",
+    "CTS":    "Carpal Tunnel Syndrome (수근관증후군)",
+    "AVN":    "Avascular Necrosis (무혈성괴사)",
+    # ── 입원·처치 ─────────────────────────────────────────────────────────────
+    "ICU":    "Intensive Care Unit (중환자실)",
+    "ER":     "Emergency Room (응급실)",
+    "OPD":    "Outpatient Department (외래)",
+    "Ward":   "입원병동",
+    "D/C":    "Discharge (퇴원)",
+    "DC":     "Discharge (퇴원)",
+    "NPO":    "Nil Per Os — 금식",
+    "IV":     "Intravenous (정맥내)",
+    "IM":     "Intramuscular (근육내)",
+    "SC":     "Subcutaneous (피하)",
+    "prn":    "Pro Re Nata — 필요시",
+    "qd":     "Quaque Die — 1일 1회",
+    "bid":    "Bis In Die — 1일 2회",
+    "tid":    "Ter In Die — 1일 3회",
+    "qid":    "Quater In Die — 1일 4회",
+    # ── 결과·판정 ─────────────────────────────────────────────────────────────
+    "N/A":    "Not Applicable (해당없음)",
+    "NOS":    "Not Otherwise Specified (달리 명시되지 않음)",
+    "NEC":    "Not Elsewhere Classified (달리 분류되지 않음)",
+    "WNL":    "Within Normal Limits (정상 범위)",
+    "STAT":   "즉시 처치",
+    "f/u":    "Follow-Up (추적관찰)",
+    "F/U":    "Follow-Up (추적관찰)",
+    "s/p":    "Status Post (수술/처치 후 상태)",
+    "S/P":    "Status Post (수술/처치 후 상태)",
+    "r/o":    "Rule Out (감별 중)",
+    "R/O":    "Rule Out (감별 중)",
+}
+
+
+def translate_medical_abbreviations(text: str) -> str:
+    """
+    의무기록·진단서 텍스트 내 의학 약어를 표준 한국어 용어로 병기.
+    원본 약어는 괄호 안에 보존: "C.C → C.C [Chief Complaint (주소증)]"
+    """
+    if not text:
+        return text
+    for abbr, full in MEDICAL_ABBREVIATION_DICT.items():
+        pattern = re.compile(
+            r'(?<![A-Za-z0-9])' + re.escape(abbr) + r'(?![A-Za-z0-9])'
+        )
+        replacement = f"{abbr} [{full}]"
+        text = pattern.sub(replacement, text)
+    return text
+
+
+def extract_medical_key_fields(text: str) -> dict:
+    """
+    의무기록·진단서 텍스트에서 보험청구 핵심 필드를 정규식으로 추출.
+    반환:
+      diagnosis_date  : 진단 확정일 (YYYY-MM-DD)
+      admission_date  : 입원일
+      discharge_date  : 퇴원일
+      stay_days       : 입원일수 (정수, 미추출 시 None)
+      kcd_codes       : KCD 코드 목록 ['C18', 'I63.9', ...]
+      doctor_name     : 의사 성명
+      hospital_name   : 병원명
+    """
+    result: dict = {
+        "diagnosis_date":  None,
+        "admission_date":  None,
+        "discharge_date":  None,
+        "stay_days":       None,
+        "kcd_codes":       [],
+        "doctor_name":     None,
+        "hospital_name":   None,
+    }
+
+    # KCD 코드: 알파벳 1~2자 + 숫자 2자리 + 선택적 소수점·숫자
+    kcd_pattern = re.compile(r'\b([A-Z]\d{2}(?:\.\d{1,2})?)\b')
+    result["kcd_codes"] = list(dict.fromkeys(kcd_pattern.findall(text)))
+
+    # 날짜: YYYY-MM-DD / YYYY.MM.DD / YYYY년MM월DD일
+    date_pat = re.compile(
+        r'(\d{4})[-./년](\d{1,2})[-./월](\d{1,2})[일]?'
+    )
+    dates_found = date_pat.findall(text)
+    iso_dates = [
+        f"{y}-{int(m):02d}-{int(d):02d}" for y, m, d in dates_found
+    ]
+
+    # 진단일 키워드 매칭
+    for kw in ["진단일", "진단확정일", "확진일", "진단 확정"]:
+        idx = text.find(kw)
+        if idx != -1:
+            snippet = text[idx:idx+30]
+            m = date_pat.search(snippet)
+            if m:
+                result["diagnosis_date"] = (
+                    f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+                )
+            break
+
+    # 입원일
+    for kw in ["입원일", "입원 일자", "입원날짜", "입원: "]:
+        idx = text.find(kw)
+        if idx != -1:
+            snippet = text[idx:idx+30]
+            m = date_pat.search(snippet)
+            if m:
+                result["admission_date"] = (
+                    f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+                )
+            break
+
+    # 퇴원일
+    for kw in ["퇴원일", "퇴원 일자", "퇴원날짜", "퇴원: "]:
+        idx = text.find(kw)
+        if idx != -1:
+            snippet = text[idx:idx+30]
+            m = date_pat.search(snippet)
+            if m:
+                result["discharge_date"] = (
+                    f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+                )
+            break
+
+    # 입원일수 직접 표기: "X일", "X days"
+    stay_m = re.search(r'입원(?:일수|기간)[^\d]{0,5}(\d+)\s*일', text)
+    if stay_m:
+        result["stay_days"] = int(stay_m.group(1))
+    elif result["admission_date"] and result["discharge_date"]:
+        try:
+            from datetime import date as _date
+            _adm = _date.fromisoformat(result["admission_date"])
+            _dis = _date.fromisoformat(result["discharge_date"])
+            result["stay_days"] = max(0, (_dis - _adm).days)
+        except Exception:
+            pass
+
+    # 의사명: "담당의사 홍길동" / "주치의: 홍길동"
+    doc_m = re.search(r'(?:담당의사|주치의|작성의사)[^\w가-힣]{0,3}([가-힣]{2,4})', text)
+    if doc_m:
+        result["doctor_name"] = doc_m.group(1)
+
+    # 병원명
+    hosp_m = re.search(r'([가-힣]{2,10}(?:병원|의원|클리닉|센터|요양원))', text)
+    if hosp_m:
+        result["hospital_name"] = hosp_m.group(1)
+
+    return result
+
+
+# =============================================================================
+# 8. [GP91] SW 환경 종합 감사 — 분석 엔진 기동 전 무결성 점검
+# =============================================================================
+
+def gp91_audit_environment() -> dict:
+    """
+    GP91 제2항: 분석 엔진 기동 전 SW 무결성 전수 점검.
+    반환:
+      status  : 'OK' | 'DEGRADED' | 'CRITICAL'
+      checks  : 각 컴포넌트별 {name, ok, version, note}
+      summary : 한 줄 요약 문자열
+    """
+    checks = []
+
+    # 1. OpenCV
+    try:
+        import cv2
+        checks.append({"name": "OpenCV (이미지 전처리)", "ok": True,
+                        "version": cv2.__version__, "note": "이진화·잡음제거·투영변환 정상"})
+    except ImportError:
+        checks.append({"name": "OpenCV (이미지 전처리)", "ok": False,
+                        "version": None, "note": "미설치 — 이미지 전처리 비활성화"})
+
+    # 2. Pillow
+    try:
+        import PIL
+        checks.append({"name": "Pillow (PIL)", "ok": True,
+                        "version": PIL.__version__, "note": "이미지 포맷 변환 정상"})
+    except ImportError:
+        checks.append({"name": "Pillow (PIL)", "ok": False,
+                        "version": None, "note": "미설치 — 이미지 로딩 불가"})
+
+    # 3. RapidFuzz
+    try:
+        import rapidfuzz
+        checks.append({"name": "RapidFuzz (퍼지매칭)", "ok": True,
+                        "version": rapidfuzz.__version__, "note": "담보명 교정 정상"})
+    except ImportError:
+        checks.append({"name": "RapidFuzz (퍼지매칭)", "ok": False,
+                        "version": None, "note": "미설치 — 퍼지매칭 비활성화"})
+
+    # 4. pdfplumber
+    try:
+        import pdfplumber
+        checks.append({"name": "pdfplumber (PDF 텍스트)", "ok": True,
+                        "version": getattr(pdfplumber, "__version__", "설치됨"),
+                        "note": "PDF 텍스트 추출 정상"})
+    except ImportError:
+        checks.append({"name": "pdfplumber (PDF 텍스트)", "ok": False,
+                        "version": None, "note": "미설치 — PDF 분석 불가"})
+
+    # 5. pymupdf (fitz)
+    try:
+        import fitz
+        checks.append({"name": "PyMuPDF (스캔PDF→이미지)", "ok": True,
+                        "version": fitz.version[0], "note": "스캔본 PDF 이미지 변환 정상"})
+    except ImportError:
+        checks.append({"name": "PyMuPDF (스캔PDF→이미지)", "ok": False,
+                        "version": None, "note": "미설치 — 스캔 PDF 처리 불가"})
+
+    # 6. google-genai (Vision LLM)
+    try:
+        import google.genai as _genai
+        checks.append({"name": "Google Gemini Vision LLM", "ok": True,
+                        "version": getattr(_genai, "__version__", "설치됨"),
+                        "note": "의학 맥락 추론·KCD 추출 정상"})
+    except ImportError:
+        checks.append({"name": "Google Gemini Vision LLM", "ok": False,
+                        "version": None, "note": "미설치 — AI 분석 불가 (CRITICAL)"})
+
+    # 7. supabase (영구 DB)
+    try:
+        import supabase as _sb
+        checks.append({"name": "Supabase (PostgreSQL 영구DB)", "ok": True,
+                        "version": getattr(_sb, "__version__", "설치됨"),
+                        "note": "회원·의무기록 영구 저장 정상 (GP100 연동)"})
+    except ImportError:
+        checks.append({"name": "Supabase (PostgreSQL 영구DB)", "ok": False,
+                        "version": None, "note": "미설치 — 데이터 영구 저장 불가 (GP100 위반)"})
+
+    # 8. cryptography (AES-256)
+    try:
+        import cryptography
+        checks.append({"name": "cryptography (AES-256 암호화)", "ok": True,
+                        "version": cryptography.__version__,
+                        "note": "의무기록 전송·저장 암호화 정상"})
+    except ImportError:
+        checks.append({"name": "cryptography (AES-256 암호화)", "ok": False,
+                        "version": None, "note": "미설치 — 보안 전송 불가"})
+
+    # 9. 의학 약어 사전
+    checks.append({"name": "의학 약어 사전 (GP91 내장)", "ok": True,
+                    "version": f"{len(MEDICAL_ABBREVIATION_DICT)}개 항목",
+                    "note": "C.C/P.I/KCD 등 표준 번역 정상"})
+
+    # 10. KCD-8 레지스트리 (app.py 연동 여부는 런타임에서 확인)
+    checks.append({"name": "보험 도메인 사전 (OCR 교정)", "ok": True,
+                    "version": f"{len(INSURANCE_DOMAIN_DICT)}개 항목",
+                    "note": "담보명 OCR 오타 자동 교정 정상"})
+
+    failed = [c for c in checks if not c["ok"]]
+    if not failed:
+        status = "OK"
+        summary = f"✅ 전체 {len(checks)}개 SW 컴포넌트 정상 — 의무기록 분석 파이프라인 100% 가동 준비"
+    elif len(failed) <= 2:
+        status = "DEGRADED"
+        names = ", ".join(c["name"] for c in failed)
+        summary = f"⚠️ DEGRADED — {names} 미설치. 핵심 기능 저하 가능"
+    else:
+        status = "CRITICAL"
+        names = ", ".join(c["name"] for c in failed)
+        summary = f"🚨 CRITICAL — {names} 등 {len(failed)}개 컴포넌트 장애. 즉각 설치 필요"
+
+    return {"status": status, "checks": checks, "summary": summary}
+
+
+def analyze_medical_record(text: str, kcd_registry: Optional[dict] = None) -> dict:
+    """
+    [GP91] 의무기록·진단서 텍스트 종합 분석 파이프라인.
+    단계:
+      1) 개인정보 마스킹
+      2) 날짜·금액 정규화
+      3) 의학 약어 번역 병기
+      4) 핵심 필드 추출 (KCD코드, 진단일, 입원일수, 의사명, 병원명)
+      5) KCD 레지스트리 대조 → 보험 카테고리 분류
+    반환 dict:
+      masked_text, translated_text, fields, kcd_mapped, expert_flag
+    """
+    masked   = mask_personal_info(text)
+    normed   = normalize_date(normalize_amount(masked))
+    translated = translate_medical_abbreviations(normed)
+    fields   = extract_medical_key_fields(normed)
+
+    kcd_mapped = []
+    if kcd_registry and fields.get("kcd_codes"):
+        for code in fields["kcd_codes"]:
+            for disease_name, info in kcd_registry.items():
+                if info.get("code", "").startswith(code[:3]):
+                    kcd_mapped.append({
+                        "kcd_code":  code,
+                        "disease":   disease_name,
+                        "category":  info.get("category", ""),
+                        "sub":       info.get("sub", ""),
+                    })
+                    break
+            else:
+                kcd_mapped.append({
+                    "kcd_code": code,
+                    "disease":  "질병명 확인 필요",
+                    "category": "분류 불명확",
+                    "sub":      "",
+                })
+
+    expert_flag = (
+        not fields["kcd_codes"]
+        or any(m["category"] == "분류 불명확" for m in kcd_mapped)
+    )
+
+    return {
+        "masked_text":   masked,
+        "translated_text": translated,
+        "fields":        fields,
+        "kcd_mapped":    kcd_mapped,
+        "expert_flag":   expert_flag,
+    }

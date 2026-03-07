@@ -182,12 +182,13 @@ def render_smart_scanner(
 
     # ── 그룹 박스 헤더 ─────────────────────────────────────────
     st.markdown("""
-<div id="gk-print-hide" style="background:linear-gradient(135deg,#0d3b2e 0%,#1a6b4a 100%);
-  border-radius:12px;padding:12px 18px 10px 18px;margin-bottom:10px;">
-  <div style="color:#fff;font-size:1rem;font-weight:900;letter-spacing:0.04em;">
+<div id="gk-print-hide" style="background:linear-gradient(135deg,#e8f5e9 0%,#b2dfdb 100%);
+  border-radius:12px;padding:12px 18px 10px 18px;margin-bottom:10px;
+  border:1.5px solid #80cbc4;">
+  <div style="color:#1a3a2e;font-size:1rem;font-weight:900;letter-spacing:0.04em;">
     🔬 SmartScanner — AI 의무기록 판독
   </div>
-  <div style="color:#a8e6cf;font-size:0.74rem;margin-top:3px;">
+  <div style="color:#37474f;font-size:0.74rem;margin-top:3px;">
     진단서·의무기록을 업로드하면 KCD 코드 자동 추출 → 예상 보장금액 산출 → 해당 섹터 자동 이동
   </div>
 </div>""", unsafe_allow_html=True)
@@ -235,20 +236,103 @@ def render_smart_scanner(
             key=f"{uploader_key}_autoroute",
         )
 
-    # ── 스캔 실행 로직 ─────────────────────────────────────────
+    # ── 스캔 실행 로직 (GP91 실제 파이프라인) ───────────────────
     if _do_scan and _files:
-        with st.spinner("🔬 의무기록을 판독 중입니다... (AI NER 분석)"):
-            time.sleep(2)   # Mock: 실제 Gemini Vision 연동 시 대체
+        # 파스텔 3단계 로딩 UI
+        _loading_ph = st.empty()
+        _loading_ph.markdown("""
+<div style="background:linear-gradient(135deg,#f3e5f5,#e8f5e9);
+  border:1.5px solid #ce93d8;border-radius:12px;padding:16px 20px;">
+  <div style="font-weight:900;color:#4a148c;font-size:0.95rem;">⏳ 1단계 · 이미지 전처리 중...</div>
+  <div style="color:#6a1b9a;font-size:0.78rem;margin-top:4px;">OpenCV 노이즈 제거 · CLAHE 대비 향상 · 투영 보정</div>
+  <div style="background:#e1bee7;border-radius:6px;height:8px;margin-top:8px;">
+    <div style="background:#9c27b0;width:33%;height:8px;border-radius:6px;"></div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        try:
+            import sys, os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from app import parse_medical_record_with_vision
+            _use_real = True
+        except Exception:
+            _use_real = False
+
+        _loading_ph.markdown("""
+<div style="background:linear-gradient(135deg,#e8f5e9,#e3f2fd);
+  border:1.5px solid #81c784;border-radius:12px;padding:16px 20px;">
+  <div style="font-weight:900;color:#1b5e20;font-size:0.95rem;">⏳ 2단계 · AI 의무기록 판독 중...</div>
+  <div style="color:#2e7d32;font-size:0.78rem;margin-top:4px;">Gemini Vision LLM · KCD-8 코드 추출 · 의학 약어 번역</div>
+  <div style="background:#c8e6c9;border-radius:6px;height:8px;margin-top:8px;">
+    <div style="background:#4caf50;width:66%;height:8px;border-radius:6px;"></div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        if _use_real:
+            _raw_result = parse_medical_record_with_vision(_files)
+            _records    = _raw_result.get("records", [])
+            _summary    = _raw_result.get("summary", {})
+            _expert_flags = _raw_result.get("expert_flags", [])
+            _errs       = _raw_result.get("errors", [])
+
+            # 첫 번째 레코드에서 KCD 및 섹터 추출
+            _first_parsed = _records[0]["parsed"] if _records else {}
+            _kcd_list  = _first_parsed.get("kcd_codes") or []
+            _kcd_code  = _kcd_list[0] if _kcd_list else "확인필요"
+            _kcd_hit   = KCD_MAP.get(_kcd_code, {})
+            _disease   = (_first_parsed.get("diagnoses") or ["진단명 확인 필요"])[0]
+            _surgery   = (_first_parsed.get("surgeries") or ["-"])[0]
+            _note      = _first_parsed.get("chief_complaint") or _first_parsed.get("present_illness") or "-"
+            _sector    = _kcd_hit.get("sector", "disability")
+            _payout    = _kcd_hit.get("payout", 0)
+
+            _result = {
+                "kcd_code":     _kcd_code,
+                "disease":      _disease,
+                "surgery":      _surgery,
+                "doctor_note":  _note,
+                "sector":       _sector,
+                "payout":       _payout,
+                "file_count":   len(_files),
+                "doc_type":     _dtype,
+                "_full_records":  _records,
+                "_summary":       _summary,
+                "_expert_flags":  _expert_flags,
+                "_errors":        _errs,
+                "_pipeline":      "GP91-real",
+            }
+        else:
+            # GP91 파이프라인 import 실패 시 — Mock 폴백
             _result = _run_mock_ner(_files, _dtype)
+            _result["_pipeline"] = "mock-fallback"
+
+        _loading_ph.markdown("""
+<div style="background:linear-gradient(135deg,#e3f2fd,#fff8e1);
+  border:1.5px solid #64b5f6;border-radius:12px;padding:16px 20px;">
+  <div style="font-weight:900;color:#0d47a1;font-size:0.95rem;">✅ 3단계 · 보험 청구 대조 완료</div>
+  <div style="color:#1565c0;font-size:0.78rem;margin-top:4px;">KCD 레지스트리 대조 · 지급 가능성 판정 · 전문가 플래그 검토</div>
+  <div style="background:#bbdefb;border-radius:6px;height:8px;margin-top:8px;">
+    <div style="background:#2196f3;width:100%;height:8px;border-radius:6px;"></div>
+  </div>
+</div>""", unsafe_allow_html=True)
+        time.sleep(0.5)
+        _loading_ph.empty()
 
         # SSOT 세션에 저장
         st.session_state[session_key] = _result
         st.session_state["smart_scan_ready"] = True
         st.session_state["smart_scan_sector"] = _result["sector"]
 
+        _pip = _result.get("_pipeline", "")
+        _pip_label = "(GP91 실제 분석)" if _pip == "GP91-real" else "(Mock 폴백)"
         st.success(
-            f"✅ 판독 완료 — **{_result['disease']}** (KCD: `{_result['kcd_code']}`)"
+            f"✅ 판독 완료 {_pip_label} — **{_result['disease']}** (KCD: `{_result['kcd_code']}`)"
         )
+
+        # 전문가 확인 에스컬레이션 표시
+        for _ef in _result.get("_expert_flags", []):
+            st.warning(f"⚠️ [{_ef.get('file','')}] {_ef.get('reason','')} — {_ef.get('escalation','')}")
+
         st.rerun()
 
     # ── 인라인 리포트 출력 ─────────────────────────────────────
@@ -264,6 +348,7 @@ def render_smart_scanner(
 def render_scan_report(result: dict, auto_route: bool = False):
     """
     분석 결과를 A4 리포트 형식으로 렌더링.
+    [GP92] Step 1 후킹 → Step 2 KCD 리포트 → Step 3 카카오톡 미리보기 순.
     우측 상단 [출력하기] 버튼 포함 (@media print 적용).
     """
     if not result:
@@ -276,6 +361,29 @@ def render_scan_report(result: dict, auto_route: bool = False):
     pay   = result.get("payout", 0)
     sec   = result.get("sector", "home")
     fcnt  = result.get("file_count", 0)
+    insured_name = result.get("insured_name", "")
+
+    # ── [GP92 Step 1] 1인칭 후킹 + 총평 ──────────────────────
+    try:
+        from app import mask_name_gp92, generate_gp92_hook
+        _masked = mask_name_gp92(insured_name) if insured_name else ""
+        _gap_kws = [kw for kw in [dis, kcd, sec] if kw and kw != "-"]
+        _hook_a = generate_gp92_hook(_gap_kws, insured_name, variant="a")
+        _hook_b = generate_gp92_hook(_gap_kws, insured_name, variant="b")
+        _name_tag = f"📋 {_masked}님의 보험 안보 진단 리포트" if _masked else "📋 보험 안보 진단 리포트"
+        st.markdown(f"""
+<div style="background:linear-gradient(135deg,#fdf6ff,#fff0f6);
+  border-left:5px solid #c084fc;border-radius:0 14px 14px 0;
+  padding:16px 20px;margin-bottom:14px;">
+  <div style="font-size:0.72rem;font-weight:900;color:#9333ea;
+    letter-spacing:0.1em;margin-bottom:6px;">{_name_tag}</div>
+  <div style="font-size:0.92rem;font-weight:700;color:#1e1b4b;
+    line-height:1.85;margin-bottom:10px;">"{_hook_a}"</div>
+  <div style="font-size:0.80rem;color:#4c1d95;line-height:1.75;
+    border-top:1px solid #e9d5ff;padding-top:10px;">"{_hook_b}"</div>
+</div>""", unsafe_allow_html=True)
+    except Exception:
+        pass
 
     # ── 출력 버튼 (우측 상단) ──────────────────────────────────
     _hdr_l, _hdr_r = st.columns([4, 1])
@@ -283,7 +391,7 @@ def render_scan_report(result: dict, auto_route: bool = False):
         st.markdown("""
 <div style="font-size:1rem;font-weight:900;color:#1a3a5c;
   border-left:4px solid #2e6da4;padding-left:10px;margin:8px 0;">
-  📄 AI 보장 분석 리포트
+  📄 Step 2 — AI 보장 분석 리포트
 </div>""", unsafe_allow_html=True)
     with _hdr_r:
         components.html("""
@@ -336,22 +444,52 @@ def render_scan_report(result: dict, auto_route: bool = False):
     </div>
   </div>
 
-  <div class="gk-payout-box" style="background:#1e293b;color:#fff;border-radius:12px;
-    padding:16px 20px;display:flex;align-items:center;justify-content:space-between;">
+  <div class="gk-payout-box" style="background:#f0fdf4;color:#166534;border:2px solid #86efac;
+    border-radius:12px;padding:16px 20px;
+    display:flex;align-items:center;justify-content:space-between;">
     <div style="font-size:0.9rem;font-weight:900;">
       💰 예상 지급 보험금 총액
     </div>
-    <div style="font-size:1.5rem;font-weight:900;color:#4ade80;">
+    <div style="font-size:1.5rem;font-weight:900;color:#15803d;">
       {pay:,}원
     </div>
   </div>
 
   <div style="margin-top:10px;font-size:0.68rem;color:#94a3b8;text-align:right;">
-    * 본 리포트는 참고용 보조 지표이며 법적 효력이 없습니다.
+    * 본 리포트는 참고용 보조 지표이며 법적 효력이 없습니다. [GP92-v1.0]
   </div>
 </div>
 </div>
 """, unsafe_allow_html=True)
+
+    # ── [GP92 Step 3] 카카오톡 미리보기 ──────────────────────
+    try:
+        from app import mask_name_gp92, generate_gp92_hook
+        _m2 = mask_name_gp92(insured_name) if insured_name else ""
+        _kw2 = [kw for kw in [dis, kcd, sec] if kw and kw != "-"]
+        _kk_hook = generate_gp92_hook(_kw2, insured_name, variant="a")
+        _kk_name = f"{_m2}님" if _m2 else "고객님"
+        _kk_text = (
+            f"안녕하세요, {_kk_name} 😊\n\n"
+            f"「{_kk_hook}」\n\n"
+            f"오늘 분석해드린 보장 내역을 정리해 드렸습니다. "
+            f"궁금하신 점은 언제든 편하게 연락 주세요 🙏"
+        )
+        st.markdown("""
+<div style="background:#fffbeb;border-left:4px solid #f59e0b;
+  border-radius:0 8px 8px 0;padding:7px 14px;margin:14px 0 6px 0;
+  font-weight:900;font-size:0.88rem;color:#92400e;">
+  📱 Step 3 — 카카오톡 전송 미리보기 (GP92 후킹 문장 포함)
+</div>""", unsafe_allow_html=True)
+        st.text_area(
+            "카카오톡 전송 문구 (복사 후 전송)",
+            value=_kk_text,
+            height=150,
+            key="gp92_scan_kakao_preview",
+        )
+        st.caption("* 이름 마스킹(마지막 글자 *) 자동 적용 — GP92 §2")
+    except Exception:
+        pass
 
     # ── 섹터 라우팅 버튼 ───────────────────────────────────────
     _sector_label = {
