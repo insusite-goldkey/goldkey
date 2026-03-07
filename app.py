@@ -15724,18 +15724,16 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
             _req_agreed_top = (_tr_top.get("t1") and _tr_top.get("t2")
                                and _tr_top.get("t3") and _tr_top.get("t4"))
 
-            # ── 안내 문구 (제52조 §2) ─────────────────────────────────────
-            st.markdown("""
-<div style='color:#004D40;font-size:1rem;font-weight:700;
-  margin-bottom:8px;margin-top:4px;text-align:center;'>
-  필수 동의하셔야 'AI마스터접속' 가능.
-</div>""", unsafe_allow_html=True)
-
-            # ── 통합 박스 열기 (제52조 §1) ───────────────────────────────
+            # ── 통합 박스 열기 + 안내 문구 내부 포함 (제52조 §1·§2 통합) ──
             st.markdown("""
 <div style='border:2px solid #004D40;border-radius:12px;
   background:rgba(253,245,230,0.5);padding:15px;
-  margin-bottom:20px;box-sizing:border-box;'>""", unsafe_allow_html=True)
+  margin-bottom:20px;box-sizing:border-box;'>
+  <div style='color:#004D40;font-size:0.92rem;font-weight:700;
+    margin-bottom:10px;text-align:center;border-bottom:1px solid rgba(0,77,64,0.20);
+    padding-bottom:8px;'>
+    ✅ 필수 동의하셔야 AI 마스터 접속 가능
+  </div>""", unsafe_allow_html=True)
 
             # ── 4개 항목 세로 배치 + 구분선 ──────────────────────────────
             _terms_list = [
@@ -17102,6 +17100,7 @@ section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {{
 <style>
 .gk-login-guide {
   max-width: 460px; margin: 60px auto 0 auto;
+  margin-left: max(320px, 22vw);
   background: linear-gradient(135deg,#E1F5FE 0%,#EFF8FF 100%);
   border: 1.5px solid #81D4FA; border-radius: 20px;
   padding: 36px 28px 28px 28px; text-align: center;
@@ -17131,12 +17130,14 @@ section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {{
   <div class="gk-lg-arrow">👈</div>
 </div>""", unsafe_allow_html=True)
 
+        st.markdown("<div style='padding-left:max(320px,22vw);'>", unsafe_allow_html=True)
         col_a, col_b, col_c = st.columns([1, 2, 1])
         with col_b:
             if st.button("☰ 사이드바 열기 / 로그인", key="_main_open_sidebar_btn",
                          use_container_width=True, type="primary"):
                 st.session_state["_open_sidebar"] = True
                 st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
         st.stop()
 
     if 'current_tab' not in st.session_state:
