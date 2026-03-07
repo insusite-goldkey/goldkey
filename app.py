@@ -4809,6 +4809,23 @@ textarea::placeholder {
     color: #000000 !important;
     text-shadow: none !important;
 }
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] div,
+[data-testid="stSidebar"] li,
+[data-testid="stSidebar"] a,
+[data-testid="stSidebar"] button,
+[data-testid="stSidebar"] input,
+[data-testid="stSidebar"] .stMarkdown,
+[data-testid="stSidebar"] .stTextInput label,
+[data-testid="stSidebar"] .stRadio label,
+[data-testid="stSidebar"] .stCheckbox label,
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"],
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] * {
+    color: #000000 !important;
+    text-shadow: none !important;
+}
 
 /* §4-C — 태블릿/모바일 사이드바 열림 버튼 항상 표시 */
 /* Streamlit은 중간 너비(768px~1024px)에서 사이드바를 자동 닫음.
@@ -15358,6 +15375,18 @@ watchRipple();
         # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (기존 아바타 완전 대체) ──
         render_goldkey_sidebar()
 
+        st.markdown("""
+<div style='background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);
+  border:1.5px solid #0ea5e9;border-left:4px solid #D4AF37;border-radius:12px;
+  padding:12px 14px;margin:8px 0 6px 0;box-shadow:0 2px 8px rgba(14,165,233,0.15);'>
+  <div style='font-size:0.82rem;font-weight:800;color:#0a1628;margin-bottom:4px;'>🏆 골드키지사 AI 마스터</div>
+  <div style='font-size:0.74rem;color:#1e3a5f;line-height:1.5;'>
+    아래 <b>약관 동의</b> 후 <b>로그인</b>하시면<br>
+    모든 AI 상담 기능을 이용하실 수 있습니다.<br>
+    <span style='color:#0369a1;font-weight:700;'>📱 핸드폰·태블릿 모두 지원</span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
         with st.expander("이용약관 · 서비스 안내", expanded=False):
             st.markdown("""
 <div style="line-height:1.5;">
@@ -15663,6 +15692,8 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
             if _all_cb_top != bool(_all_agreed_top):
                 st.session_state["_lp_terms"] = {"t1": _all_cb_top, "t2": _all_cb_top,
                                                   "t3": _all_cb_top, "t4": _all_cb_top}
+                if _all_cb_top:
+                    st.session_state["_terms_agreed_notify"] = True
                 st.rerun()
 
             st.markdown("<hr style='border:none;border-top:1px solid #4facfe;margin:8px 0;'>",
@@ -15715,6 +15746,8 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
 
             # ── 약관동의 완료 시에만 탭 표시 (st.stop 제거 → 백화현상 방지) ──
             if _req_agreed_top:
+                if st.session_state.pop("_terms_agreed_notify", False):
+                    st.success("✅ 동의 완료! 아래 로그인 탭에서 로그인하세요.", icon="🔓")
 
                 st.markdown("""
 <style>
@@ -15877,23 +15910,23 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
       <div style='color:#e0f4ff;font-size:0.78rem;margin-top:4px;
         text-shadow:0 1px 2px rgba(0,0,0,0.2);'>가입 시 등록한 정보로 본인 확인 후 OTP를 발급합니다</div>
     </div>""", unsafe_allow_html=True)
-                        with st.form("hlp_a_form"):
-                            ln_a = st.text_input("👤 이름", key="hlp_name_a", placeholder="가입 시 등록한 이름",
-                                                 label_visibility="collapsed")
-                            lc_a = st.text_input("📱 연락처", type="password", key="hlp_contact_a",
-                                                 placeholder="연락처 (숫자만, - 제외)",
-                                                 label_visibility="collapsed")
-                            login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"],
-                                                    horizontal=True, key="login_is_pro")
-                            if login_is_pro == "종사자":
-                                st.radio("📋 주력판매 분야 선택(상담반영)",
-                                         ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"],
-                                         horizontal=True, key="login_insurer")
-                            else:
-                                st.session_state["login_insurer"] = "선택 안 함 (중립 분석)"
-                                st.markdown("<div style='font-size:0.76rem;color:#555;'>🟩 중립 분석 모드</div>",
-                                            unsafe_allow_html=True)
-                            _btn_otp = st.form_submit_button("🔐 보안 인증 시작", use_container_width=True, type="primary")
+                        ln_a = st.text_input("👤 이름", key="hlp_name_a", placeholder="가입 시 등록한 이름",
+                                             label_visibility="collapsed")
+                        lc_a = st.text_input("📱 연락처", type="password", key="hlp_contact_a",
+                                             placeholder="연락처 (숫자만, - 제외)",
+                                             label_visibility="collapsed")
+                        login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"],
+                                                horizontal=True, key="login_is_pro")
+                        if login_is_pro == "종사자":
+                            st.radio("📋 주력판매 분야 선택(상담반영)",
+                                     ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"],
+                                     horizontal=True, key="login_insurer")
+                        else:
+                            st.session_state["login_insurer"] = "선택 안 함 (중립 분석)"
+                            st.markdown("<div style='font-size:0.76rem;color:#555;'>🟩 중립 분석 모드</div>",
+                                        unsafe_allow_html=True)
+                        _btn_otp = st.button("🔐 보안 인증 시작", key="hlp_otp_start_btn",
+                                             use_container_width=True, type="primary")
 
                         if _btn_otp:
                             _ln_a = ln_a.strip() if ln_a else ""
