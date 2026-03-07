@@ -17130,14 +17130,12 @@ section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {{
   <div class="gk-lg-arrow">👈</div>
 </div>""", unsafe_allow_html=True)
 
-        st.markdown("<div style='padding-left:max(320px,22vw);'>", unsafe_allow_html=True)
-        col_a, col_b, col_c = st.columns([1, 2, 1])
+        col_a, col_b, col_c = st.columns([3, 3, 1])
         with col_b:
             if st.button("☰ 사이드바 열기 / 로그인", key="_main_open_sidebar_btn",
                          use_container_width=True, type="primary"):
                 st.session_state["_open_sidebar"] = True
                 st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
         st.stop()
 
     if 'current_tab' not in st.session_state:
