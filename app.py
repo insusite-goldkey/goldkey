@@ -10098,6 +10098,9 @@ def get_goldkey_avatar() -> str:
 
 def render_goldkey_sidebar():
     """Goldkey_AI_Masters 전용 카드형 프로필 박스를 사이드바 최상단에 렌더링."""
+    # [제53조 개정] 인증 완료 후 사이드바 아바타 미렌더 — 즉시 반환
+    if st.session_state.get('authenticated', False) or bool(st.session_state.get('user_id')):
+        return
 
     # ── [제39조 §2/§3] 아바타 이미지 — 세션 캐시 우선 (매 렌더마다 파일 재읽기 방지) ──
     _AV_CACHE_KEY = "_s39_av_src"
@@ -13054,11 +13057,12 @@ def section_housing_pension():
 def main():
     # ── STEP 1: set_page_config (항상 가장 먼저) ─────────────────────────
     # [제53조] 로그인 완료 후 사이드바 초기 상태 collapsed 고정
-    _sb_init_state = "collapsed" if st.session_state.get("user_id") else "expanded"
+    _sb_init_state = "collapsed" if (st.session_state.get("user_id") or st.session_state.get("authenticated")) else "expanded"
+    _layout_mode = "wide" if (st.session_state.get("user_id") or st.session_state.get("authenticated")) else "centered"
     st.set_page_config(
         page_title="골드키지사 마스터 AI",
         page_icon="🏆",
-        layout="centered",
+        layout=_layout_mode,
         initial_sidebar_state=_sb_init_state
     )
 
@@ -13074,7 +13078,46 @@ def main():
     # ── STEP 1-A: [제39조 §4] Visual Continuity — 사이드바 첫 프레임 즉각 표시 ──
     # 웹앱 기준: 사이드바 배경 #FFFFFF 즉시 고정, transition 제거 → 로드 시 깜빡임 없음.
     # (네이티브 앱 기준 #0a1628 다크 배경은 웹앱에서 라이트 UI를 파괴하므로 적용하지 않음.)
-    st.markdown("""<style>
+    _is_auth_css = st.session_state.get('authenticated', False) or bool(st.session_state.get('user_id'))
+    if _is_auth_css:
+        # [제53조 개정] 로그인 후 사이드바 + 토글버튼 완전 숨김 CSS
+        st.markdown("""<style>
+/* [제53조] 로그인 후 사이드바 패널 + 토글 버튼 + 열기 버튼 완전 숨김 */
+[data-testid="stSidebar"],
+[data-testid="stSidebarNav"],
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapsedControl"],
+section[data-testid="stSidebar"],
+div[data-testid="stSidebarCollapsedControl"],
+.stSidebar,
+nav[data-testid="stSidebarNav"] {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    max-width: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    left: -9999px !important;
+}
+/* 사이드바 없을 때 메인 영역 전체 너비 확장 */
+.main .block-container,
+section.main > div.block-container {
+    max-width: 100% !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+    margin-left: 0 !important;
+}
+/* wide 레이아웃에서 stApp 왼쪽 여백 제거 */
+.stApp > header,
+.stApp [data-testid="stHeader"] {
+    left: 0 !important;
+}
+</style>""", unsafe_allow_html=True)
+    else:
+        st.markdown("""<style>
 /* [제39조 §4] Visual Continuity: 첫 프레임 즉각 렌더 — transition 제거 */
 [data-testid="stSidebar"],
 [data-testid="stSidebar"] > div:first-child {
@@ -13812,8 +13855,6 @@ def main():
 </script>""", height=0)
 
     # ── 로그인 환영 메시지 (rerun 후 표시) ──────────────────────────────
-    _welcome_name = st.session_state.get("_login_welcome", None)  # pop 전에 캡처
-    _just_logged_in_flag = bool(_welcome_name or st.session_state.get("_auto_close_sidebar"))
     _welcome_name = st.session_state.pop("_login_welcome", None)
     if _welcome_name:
         _is_adm = st.session_state.get("is_admin", False)
@@ -13992,8 +14033,71 @@ section[data-testid="stSidebar"] {
 })();
 </script>""", height=0)
 
-    # ── 로그인 후 사이드바 자동 접힘: with st.sidebar 블록 내부에서 처리 ─────
-    # (components.html 방식 제거 → sidebar 내 st.markdown 스크립트로 교체)
+    # ── 로그인 후 사이드바 자동 접힘 ─────────────────────────────────────────
+    # [제53조 개정] _auto_close_sidebar 플래그 소비 → JS로 강제 닫기
+    if st.session_state.pop("_auto_close_sidebar", False):
+        import streamlit.components.v1 as _comp_close
+        _comp_close.html("""<script>
+(function(){
+  function tryClose(pd) {
+    var sels = [
+      '[data-testid="stSidebarCollapseButton"] button',
+      '[data-testid="stSidebarCollapseButton"]',
+      'button[aria-label="Close sidebar"]',
+      'button[aria-label="close sidebar"]',
+      'button[aria-label="Collapse sidebar"]',
+      'button[aria-label="collapse sidebar"]',
+      'button[aria-label="사이드바 닫기"]',
+      'button[aria-label="사이드바를 열거나 닫으세요"]',
+      '[data-testid="collapsedControl"] button',
+      '[data-testid="collapsedControl"]',
+      'section[data-testid="stSidebar"] > div button:first-child'
+    ];
+    for (var i = 0; i < sels.length; i++) {
+      var btn = pd.querySelector(sels[i]);
+      if (btn) { btn.click(); return true; }
+    }
+    var allBtns = pd.querySelectorAll('button');
+    for (var j = 0; j < allBtns.length; j++) {
+      var lbl = (allBtns[j].getAttribute('aria-label') || '').toLowerCase();
+      if (lbl.indexOf('close') !== -1 || lbl.indexOf('collapse') !== -1 || lbl.indexOf('닫기') !== -1) {
+        allBtns[j].click(); return true;
+      }
+    }
+    return false;
+  }
+  function isSidebarOpen(pd) {
+    try {
+      var sb = pd.querySelector('[data-testid="stSidebar"]');
+      if (!sb) return false;
+      var exp = sb.getAttribute('aria-expanded');
+      if (exp === 'false') return false;
+      if (!exp) return sb.offsetWidth > 80;
+      return true;
+    } catch(e) { return false; }
+  }
+  var _attempts = 0;
+  var _maxAttempts = 20;
+  function runClose() {
+    try {
+      var pd = window.parent ? window.parent.document : document;
+      if (isSidebarOpen(pd)) {
+        var closed = tryClose(pd);
+        if (closed) return;
+        if (_attempts < _maxAttempts) { _attempts++; setTimeout(runClose, 300); }
+      }
+      // 이미 닫혀있으면 재시도 없이 즉시 종료
+    } catch(e) {
+      if (_attempts < _maxAttempts) { _attempts++; setTimeout(runClose, 300); }
+    }
+  }
+  setTimeout(runClose, 200);
+  setTimeout(runClose, 600);
+  setTimeout(runClose, 1200);
+  setTimeout(runClose, 2000);
+  setTimeout(runClose, 3500);
+})();
+</script>""", height=0)
 
     # ── [제39조 §3] 인증 실패 시 사이드바 자동 열기 — 로그인 화면 유도 ──
     # _s39_prefetch_auth()가 백그라운드에서 캐시 검증 실패 시 _s39_auth_failed 플래그를 세팅.
@@ -15303,128 +15407,16 @@ watchRipple();
 </script>""", height=0)
 
     # ── 사이드바 ──────────────────────────────────────────────────────────
-    with st.sidebar:
-        # ── 랜딩/로그인 후 사이드바 강제 열기 (DOM 생성 직후 JS 주입) ────────
-        if st.session_state.pop("_open_sidebar", False):
-            st.components.v1.html("""
-<script>
-(function(){
-  function tryOpen(pd) {
-    try {
-      var sb = pd.querySelector('section[data-testid="stSidebar"]');
-      if (sb && sb.getBoundingClientRect().width > 50) return true;
-      var sels = [
-        'button[aria-label="Open sidebar"]',
-        'button[aria-label="사이드바를 열거나 닫으세요"]',
-        'button[aria-label="open sidebar"]',
-        '[data-testid="collapsedControl"] button',
-        '[data-testid="stSidebarCollapseButton"] button',
-        '[data-testid="stSidebarNavCollapseButton"] button',
-        '[data-testid="collapsedControl"]',
-        'button[kind="header"]',
-        '.st-emotion-cache-czk5ss button',
-        '.st-emotion-cache-1egp75f button'
-      ];
-      for (var i=0;i<sels.length;i++) {
-        var b = pd.querySelector(sels[i]);
-        if (b) { b.click(); return true; }
-      }
-      var allBtns = pd.querySelectorAll('button');
-      for (var j=0;j<allBtns.length;j++) {
-        var lbl = (allBtns[j].getAttribute('aria-label')||'').toLowerCase();
-        if (lbl.indexOf('sidebar')!==-1 || lbl.indexOf('사이드')!==-1) {
-          allBtns[j].click(); return true;
-        }
-      }
-    } catch(e){}
-    return false;
-  }
-  function run(n) {
-    var pd = window.parent.document;
-    if (!tryOpen(pd) && n > 0) setTimeout(function(){ run(n-1); }, 300);
-  }
-  setTimeout(function(){ run(10); }, 100);
-  setTimeout(function(){ run(10); }, 800);
-  setTimeout(function(){ run(5);  }, 2000);
-})();
-</script>""", height=0)
-
-        # ── [제53조] 로그인/게스트 전환 직후 사이드바 강제 접힘 (1회성) ──
-        _login_just_done = st.session_state.pop("_login_just_done", False)
-        if _just_logged_in_flag or _login_just_done:
-            st.session_state.pop("_auto_close_sidebar", None)
-            components.html("""
-<script>
-(function(){
-  function tryClose(pd) {
-    var sels = [
-      '[data-testid="stSidebarCollapseButton"] button',
-      '[data-testid="stSidebarCollapseButton"]',
-      'button[aria-label="Close sidebar"]',
-      'button[aria-label="close sidebar"]',
-      'button[aria-label="Collapse sidebar"]',
-      'button[aria-label="collapse sidebar"]',
-      'button[aria-label="사이드바 닫기"]',
-      'button[aria-label="사이드바를 열거나 닫으세요"]',
-      '[data-testid="collapsedControl"] button',
-      '[data-testid="collapsedControl"]',
-      'section[data-testid="stSidebar"] > div button:first-child'
-    ];
-    for (var i = 0; i < sels.length; i++) {
-      var btn = pd.querySelector(sels[i]);
-      if (btn) { btn.click(); return true; }
-    }
-    var allBtns = pd.querySelectorAll('button');
-    for (var j = 0; j < allBtns.length; j++) {
-      var lbl = (allBtns[j].getAttribute('aria-label') || '').toLowerCase();
-      if (lbl.indexOf('close') !== -1 || lbl.indexOf('collapse') !== -1 || lbl.indexOf('닫기') !== -1) {
-        allBtns[j].click(); return true;
-      }
-    }
-    return false;
-  }
-  function isSidebarOpen(pd) {
-    try {
-      var sb = pd.querySelector('[data-testid="stSidebar"]');
-      if (!sb) return false;
-      var exp = sb.getAttribute('aria-expanded');
-      if (exp === 'false') return false;
-      if (!exp) return sb.offsetWidth > 80;
-      return true;
-    } catch(e) { return false; }
-  }
-  var _attempts = 0;
-  var _maxAttempts = 20;
-  function runClose() {
-    try {
-      var pd = window.parent ? window.parent.document : document;
-      if (isSidebarOpen(pd)) {
-        var closed = tryClose(pd);
-        if (!closed && _attempts < _maxAttempts) {
-          _attempts++;
-          setTimeout(runClose, 400);
-        }
-      } else if (_attempts < _maxAttempts) {
-        _attempts++;
-        setTimeout(runClose, 400);
-      }
-    } catch(e) {
-      if (_attempts < _maxAttempts) { _attempts++; setTimeout(runClose, 400); }
-    }
-  }
-  setTimeout(runClose, 300);
-  setTimeout(runClose, 800);
-  setTimeout(runClose, 1500);
-  setTimeout(runClose, 2500);
-  setTimeout(runClose, 4000);
-  setTimeout(runClose, 6000);
-})();
-</script>""", height=0)
-
+    # [제53조 개정] 인증 완료 후 사이드바 완전 미렌더 — 조건부 렌더링
+    _is_authenticated = st.session_state.get('authenticated', False) or bool(st.session_state.get('user_id'))
+    if not _is_authenticated:
+      with st.sidebar:
         # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (기존 아바타 완전 대체) ──
         render_goldkey_sidebar()
 
-        st.markdown("""
+        # ── [제53조 개정] 비로그인 전용 콘텐츠 — 로그인 후 완전 미렌더 ──────
+        if 'user_id' not in st.session_state:
+            st.markdown("""
 <div style='background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);
   border:1.5px solid #0ea5e9;border-left:4px solid #D4AF37;border-radius:12px;
   padding:12px 14px;margin:8px 0 6px 0;box-shadow:0 2px 8px rgba(14,165,233,0.15);'>
@@ -15436,7 +15428,7 @@ watchRipple();
   </div>
 </div>""", unsafe_allow_html=True)
 
-        st.markdown("""
+            st.markdown("""
 <style>
 section[data-testid="stSidebar"] details summary,
 section[data-testid="stSidebar"] details summary span,
@@ -15447,8 +15439,8 @@ section[data-testid="stSidebar"] .st-expander summary {
 }
 </style>""", unsafe_allow_html=True)
 
-        with st.expander("이용약관 · 서비스 안내", expanded=False):
-            st.markdown("""
+            with st.expander("이용약관 · 서비스 안내", expanded=False):
+                st.markdown("""
 <div style="line-height:1.5;">
   <div style="font-size:0.95rem;font-weight:800;color:#1a2d5a;letter-spacing:0.02em;">
     📜 이용약관 · 서비스 안내
@@ -15458,26 +15450,26 @@ section[data-testid="stSidebar"] .st-expander summary {
   </div>
 </div>
 """, unsafe_allow_html=True)
-            st.caption("로그인 후 사이드바 하단에서 전체 약관을 확인하실 수 있습니다.")
+                st.caption("로그인 후 사이드바 하단에서 전체 약관을 확인하실 수 있습니다.")
 
-        st.sidebar.warning(
-            "**⚠️ 면책 및 서비스 이용 안내 (Disclaimer)**\n\n"
-            "**1. 본 앱(Goldkey_AI_Master2026)의 목적 및 한계:**\n"
-            "(1) 본 앱은 원활한 고객 상담과 보험 내용 이해를 돕기 위한 업무 보조 도구입니다. "
-            "앱에서 제공하는 모든 AI 분석 결과 및 자료는 참고용 보조 지표일 뿐이며, "
-            "어떠한 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.\n"
-            "(2) 보장 내용·약관 해석·보험금 청구는 반드시 해당 보험회사 보상담당자 또는 "
-            "손해사정인(독립사정인 포함) 등에게 확인하시기 바랍니다.\n"
-            "(3) AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며, "
-            "이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.\n\n"
-            "**2. 전문가 상담 필수 및 책임 소재**\n"
-            "본 앱은 의료·법률·세무·회계·부동산 등의 전문적인 진단이나 상담을 대체할 수 없습니다. "
-            "관련 사항은 반드시 분야별 전문가(의사·변호사·세무사 등)와 상담하시기 바랍니다. "
-            "아울러 최종적인 보험 가입 및 해지 결정은 전문 자격을 갖춘 설계사를 통해 진행하셔야 하며, "
-            "본 앱의 정보를 바탕으로 한 최종 판단과 책임은 이용자 본인에게 있습니다."
-        )
-        if False:  # 약관 전문 — 로딩 지연 방지용 비활성화 블록
-            st.markdown("""
+            st.sidebar.warning(
+                "**⚠️ 면책 및 서비스 이용 안내 (Disclaimer)**\n\n"
+                "**1. 본 앱(Goldkey_AI_Master2026)의 목적 및 한계:**\n"
+                "(1) 본 앱은 원활한 고객 상담과 보험 내용 이해를 돕기 위한 업무 보조 도구입니다. "
+                "앱에서 제공하는 모든 AI 분석 결과 및 자료는 참고용 보조 지표일 뿐이며, "
+                "어떠한 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.\n"
+                "(2) 보장 내용·약관 해석·보험금 청구는 반드시 해당 보험회사 보상담당자 또는 "
+                "손해사정인(독립사정인 포함) 등에게 확인하시기 바랍니다.\n"
+                "(3) AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며, "
+                "이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.\n\n"
+                "**2. 전문가 상담 필수 및 책임 소재**\n"
+                "본 앱은 의료·법률·세무·회계·부동산 등의 전문적인 진단이나 상담을 대체할 수 없습니다. "
+                "관련 사항은 반드시 분야별 전문가(의사·변호사·세무사 등)와 상담하시기 바랍니다. "
+                "아울러 최종적인 보험 가입 및 해지 결정은 전문 자격을 갖춘 설계사를 통해 진행하셔야 하며, "
+                "본 앱의 정보를 바탕으로 한 최종 판단과 책임은 이용자 본인에게 있습니다."
+            )
+            if False:  # 약관 전문 — 로딩 지연 방지용 비활성화 블록
+                st.markdown("""
 ## Goldkey AI Master Lab. Beta 이용약관
 
 **제1조 (서비스 기본 정보)**
@@ -15831,6 +15823,7 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                         st.session_state["_login_welcome"]      = ln
                         st.session_state["_auto_close_sidebar"] = True
                         st.session_state["_login_just_done"]    = True
+                        st.session_state["authenticated"]       = True
                         # [C1] Entity ID 자동 발급 — AGNT_ (설계사) / CUST_ (일반고객)
                         _is_pro_eid = st.session_state.get("_lp_is_pro", "비종사자")
                         _eid_type   = "agent" if _is_pro_eid == "종사자" or _adm else "customer"
@@ -15871,43 +15864,6 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                         except Exception:
                             pass
                         _LoginGuard.record_success(ln)
-                        # [제53조] OTP 인증 성공 직후 사이드바 즉시 강제 접힘
-                        components.html("""
-<script>
-(function(){
-  function tryClose(pd) {
-    var sels = [
-      '[data-testid="stSidebarCollapseButton"] button',
-      '[data-testid="stSidebarCollapseButton"]',
-      'button[aria-label="Close sidebar"]',
-      'button[aria-label="close sidebar"]',
-      'button[aria-label="Collapse sidebar"]',
-      'button[aria-label="collapse sidebar"]',
-      'button[aria-label="사이드바 닫기"]',
-      'button[aria-label="사이드바를 열거나 닫으세요"]',
-      '[data-testid="collapsedControl"] button',
-      '[data-testid="collapsedControl"]',
-      'section[data-testid="stSidebar"] > div button:first-child'
-    ];
-    for (var i = 0; i < sels.length; i++) {
-      var b = pd.querySelector(sels[i]);
-      if (b) { b.click(); return true; }
-    }
-    return false;
-  }
-  var _att = 0;
-  function run() {
-    try {
-      var pd = window.parent ? window.parent.document : document;
-      var sb = pd.querySelector('[data-testid="stSidebar"]');
-      var open = sb ? (sb.getAttribute('aria-expanded') !== 'false' && sb.offsetWidth > 80) : false;
-      if (open) { tryClose(pd); }
-      if (_att < 12) { _att++; setTimeout(run, 300); }
-    } catch(e) { if (_att < 12) { _att++; setTimeout(run, 300); } }
-  }
-  run();
-})();
-</script>""", height=0)
                         # [제75조 §4] 로그인 성공 시 기기 지문 수집 JS 주입
                         # JS가 LocalStorage에서 fp_id를 읽어 hidden input으로 서버에 전달
                         # 실제 저장은 _gp75_fp_pending 세션 플래그로 다음 rerun에서 처리
@@ -16137,6 +16093,7 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
                                 st.session_state["_device_uuid"] = _gu.uuid4().hex[:16]
                             st.session_state["_login_just_done"] = False
                             st.session_state["_auto_close_sidebar"] = True
+                            st.session_state["authenticated"]       = True
                             # [GP-56] 게스트 전환 스켈레톤 — 화이트아웃 차단
                             _skel_guest = st.empty()
                             _skel_guest.markdown("""
@@ -16698,15 +16655,34 @@ setTimeout(function(){
 • <b>접속 오류</b>: Supabase 일시 지연 또는 HF Space 재시작 중 → 1~2분 대기<br>
 • <b>고객 안 보임</b>: 🔍 검색 버튼 클릭으로 목록 새로고침
 </div>""", unsafe_allow_html=True)
-        # ── 상담 자료 파기 버튼 (붉은 외곽선 박스) ─────────────────────
+        # ── 상담 자료 파기 버튼 [제56조 개정: 파스텔 붉은 경고 박스] ────
         if st.session_state.get("user_id"):
-            st.markdown("""<div style="border:2px solid #dc2626;border-radius:10px;
+            st.markdown("""
+<style>
+div[data-testid="stButton"]:has(button[kind="secondary"][data-testid="baseButton-secondary"]) button[key="btn_purge_sb"],
+div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
+.gk-purge-btn-wrap div[data-testid="stButton"] button {
+    background-color: #FFEBEE !important;
+    border: 2px solid #E53935 !important;
+    color: #000000 !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    transition: background-color 0.2s ease !important;
+}
+.gk-purge-btn-wrap div[data-testid="stButton"] button:hover {
+    background-color: #FFCDD2 !important;
+    border-color: #C62828 !important;
+}
+</style>
+<div style="border:2px solid #E53935;border-radius:10px;
   padding:8px 10px 6px 10px;margin:8px 0 4px 0;
-  background:rgba(220,38,38,0.04);">
-  <div style="font-size:0.70rem;font-weight:900;color:#dc2626;
+  background:#FFEBEE;">
+  <div style="font-size:0.70rem;font-weight:900;color:#C62828;
     letter-spacing:0.04em;margin-bottom:6px;text-align:center;">
     🗑️ 상담 자료 파기
-  </div>""", unsafe_allow_html=True)
+  </div>
+</div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-purge-btn-wrap">', unsafe_allow_html=True)
             if st.button("🗑️ 상담 자료 파기 실행", key="btn_purge_sb",
                          use_container_width=True, type="secondary"):
                 if st.session_state.pop("_sb_purge_confirm", None):
@@ -16718,7 +16694,7 @@ setTimeout(function(){
                 else:
                     st.session_state["_sb_purge_confirm"] = True
                     st.warning("⚠️ 한 번 더 클릭하면 파기됩니다.")
-            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
         # ── 관리자 지시 입력창 (로그인 후 바로 노출) ─────────────────────
         if st.session_state.get("is_admin") and st.session_state.get("user_id") not in ("ADMIN_MASTER",):
@@ -16770,6 +16746,7 @@ setTimeout(function(){
                     st.session_state.is_admin = True
                     st.session_state["_login_welcome"] = "이세윤"
                     st.session_state["_auto_close_sidebar"] = True
+                    st.session_state["authenticated"]       = True
                     # [제39조 §3] 관리자 로그인 → 세션 캐시 저장
                     _s39_save_session_cache(user_id="ADMIN_MASTER", user_name="이세윤", user_role="admin")
                     st.rerun()
@@ -16784,6 +16761,7 @@ setTimeout(function(){
                     st.session_state.is_admin = True
                     st.session_state["_login_welcome"] = _master_name
                     st.session_state["_auto_close_sidebar"] = True
+                    st.session_state["authenticated"]       = True
                     # [제39조 §3] 마스터 로그인 → 세션 캐시 저장
                     _s39_save_session_cache(user_id="PERMANENT_MASTER", user_name=_master_name, user_role="admin")
                     st.rerun()
