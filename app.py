@@ -1821,21 +1821,146 @@ def _art43_build_report_html(
     font-size:14px; line-height:1.7;
   }}
   .rpt-wrap {{ max-width:720px; margin:0 auto; padding:0 0 40px 0; }}
-  /* ── 표지 ── */
+  /* ── 표지 — 제0.2조 프리미엄 브랜드 인장 ── */
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Noto+Serif+KR:wght@700;900&display=swap');
   .rpt-cover {{
-    background:linear-gradient(160deg,#050d1a 0%,#0a1e35 60%,#0d2747 100%);
-    padding:48px 28px 36px; text-align:center;
-    border-bottom:3px solid {_ART43_ACCENT_GOLD};
+    position:relative; overflow:hidden;
+    background-color:#0b0e17;
+    background-image:
+      repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(255,255,255,0.012) 3px,rgba(255,255,255,0.012) 4px),
+      repeating-linear-gradient(90deg,transparent,transparent 3px,rgba(255,255,255,0.012) 3px,rgba(255,255,255,0.012) 4px),
+      linear-gradient(170deg,#0d1422 0%,#070c18 45%,#0a1020 100%);
+    padding:64px 32px 52px; text-align:center;
+    border-bottom:1px solid rgba(212,175,55,0.6);
+    min-height:480px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
   }}
-  .rpt-cover-logo {{ font-size:2rem; font-weight:900; color:{_ART43_ACCENT_GOLD};
-    letter-spacing:0.05em; margin-bottom:6px; }}
-  .rpt-cover-sub {{ font-size:0.78rem; color:{_ART43_TEXT_SUB}; margin-bottom:22px; }}
+  /* 리넨 질감 오버레이 */
+  .rpt-cover::before {{
+    content:''; position:absolute; inset:0; pointer-events:none; z-index:0;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='4' height='4' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E");
+    opacity:0.55;
+  }}
+  /* 열쇠 워터마크 SVG */
+  .rpt-cover-wm {{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    opacity:0.045; pointer-events:none; z-index:0;
+    width:320px; height:320px;
+  }}
+  /* 상단 골드 가로선 */
+  .rpt-cover-line-top {{
+    position:relative; z-index:1;
+    width:220px; height:1px; margin:0 auto 28px;
+    background:linear-gradient(90deg,transparent 0%,rgba(212,175,55,0.9) 30%,#f5d060 50%,rgba(212,175,55,0.9) 70%,transparent 100%);
+    box-shadow:0 0 8px rgba(212,175,55,0.4);
+  }}
+  /* 금박 스탬핑 메인 식별자 */
+  .rpt-cover-stamp {{
+    position:relative; z-index:1;
+    font-family:'Cormorant Garamond','Noto Serif KR','Georgia',serif;
+    font-size:clamp(1.4rem,5vw,2.1rem); font-weight:700;
+    letter-spacing:0.18em; text-transform:uppercase;
+    line-height:1.15; margin-bottom:6px;
+    /* 골드 포일 그라디언트 */
+    background: linear-gradient(
+      135deg,
+      #b8960c 0%,
+      #e8c84a 15%,
+      #f7e577 28%,
+      #d4af37 40%,
+      #c9981a 50%,
+      #e8c84a 62%,
+      #f9f0a0 72%,
+      #d4af37 83%,
+      #a07b10 100%
+    );
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    background-clip:text;
+    /* 엠보싱 — 왼쪽 상단 광원 */
+    filter:
+      drop-shadow(1px 1px 0px rgba(0,0,0,0.85))
+      drop-shadow(-1px -1px 0px rgba(255,245,180,0.35))
+      drop-shadow(2px 3px 6px rgba(0,0,0,0.7))
+      drop-shadow(-1px -2px 3px rgba(255,240,140,0.2));
+    text-shadow: none;
+  }}
+  /* 메인 식별자 하이라이트 레이어 (왼상단 광원) */
+  .rpt-cover-stamp::after {{
+    content: attr(data-text);
+    position:absolute; inset:0;
+    background: linear-gradient(
+      115deg,
+      rgba(255,255,220,0.55) 0%,
+      rgba(255,240,140,0.18) 30%,
+      transparent 55%
+    );
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    background-clip:text;
+    pointer-events:none;
+  }}
+  /* Goldkey_Ai_masters2026 텍스트 래퍼 */
+  .rpt-cover-stamp-wrap {{
+    position:relative; display:inline-block;
+    padding:10px 24px 10px;
+    margin-bottom:18px;
+  }}
+  /* 엠보싱 외곽선 효과 */
+  .rpt-cover-stamp-wrap::before {{
+    content:'';
+    position:absolute; inset:0;
+    border:1px solid rgba(212,175,55,0.25);
+    border-radius:2px;
+    box-shadow:
+      inset 1px 1px 2px rgba(255,245,180,0.12),
+      inset -1px -1px 2px rgba(0,0,0,0.5),
+      0 0 20px rgba(212,175,55,0.08);
+    pointer-events:none;
+  }}
+  /* 서브텍스트 골드 라인 */
+  .rpt-cover-subline {{
+    position:relative; z-index:1;
+    font-family:'Cormorant Garamond','Georgia',serif;
+    font-size:clamp(0.62rem,2vw,0.78rem);
+    font-weight:600; letter-spacing:0.22em; text-transform:uppercase;
+    color:rgba(212,175,55,0.75);
+    margin-bottom:28px;
+  }}
+  /* 하단 골드 이중선 */
+  .rpt-cover-divider {{
+    position:relative; z-index:1;
+    width:160px; margin:0 auto 26px;
+    display:flex; flex-direction:column; gap:3px;
+  }}
+  .rpt-cover-divider span:nth-child(1) {{
+    height:2px;
+    background:linear-gradient(90deg,transparent,#d4af37 30%,#f7e577 50%,#d4af37 70%,transparent);
+    box-shadow:0 0 6px rgba(212,175,55,0.5);
+  }}
+  .rpt-cover-divider span:nth-child(2) {{
+    height:1px;
+    background:linear-gradient(90deg,transparent,rgba(212,175,55,0.5) 40%,rgba(247,229,119,0.7) 50%,rgba(212,175,55,0.5) 60%,transparent);
+  }}
+  .rpt-cover-logo {{
+    position:relative; z-index:1;
+    font-size:0.78rem; font-weight:700; letter-spacing:0.1em;
+    color:rgba(180,150,60,0.7);
+    font-family:'Noto Sans KR',sans-serif;
+    margin-bottom:6px; text-transform:uppercase;
+  }}
   .rpt-cover-title {{
-    font-size:clamp(1.1rem,4vw,1.5rem); font-weight:900;
-    color:#fff; line-height:1.4; margin-bottom:8px;
-    font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+    position:relative; z-index:1;
+    font-size:clamp(0.9rem,3vw,1.15rem); font-weight:700;
+    color:rgba(220,225,235,0.9); line-height:1.55; margin-bottom:10px;
+    font-family:'Noto Serif KR','Noto Sans KR','Malgun Gothic',sans-serif;
+    text-shadow:0 1px 4px rgba(0,0,0,0.7);
   }}
-  .rpt-cover-date {{ font-size:0.75rem; color:{_ART43_TEXT_SUB}; }}
+  .rpt-cover-date {{
+    position:relative; z-index:1;
+    font-size:0.68rem; color:rgba(148,163,184,0.7);
+    letter-spacing:0.06em; font-family:'Noto Sans KR',sans-serif;
+  }}
+  .rpt-cover-sub {{ display:none; }}
   /* ── 섹션 공통 ── */
   .rpt-section {{
     padding:28px 24px; border-bottom:1px solid rgba(255,255,255,0.07);
@@ -1896,14 +2021,67 @@ def _art43_build_report_html(
 <body>
 <div class="rpt-wrap">
 
-  <!-- 표지 -->
+  <!-- 표지 — 가이딩 프로토콜 제0.2조 프리미엄 브랜드 인장 -->
   <div class="rpt-cover">
-    <div class="rpt-cover-logo">🏰 가문 안보 관제탑</div>
-    <div class="rpt-cover-sub">Goldkey AI Master · 야간 데이터 분석 시스템</div>
+
+    <!-- 열쇠 워터마크 SVG -->
+    <svg class="rpt-cover-wm" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <!-- 열쇠 몸체 —— 지능의 열쇠 골드 라인 아트 -->
+      <g fill="none" stroke="#d4af37" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+        <!-- 열쇠 고리 (원형) -->
+        <circle cx="72" cy="78" r="34"/>
+        <circle cx="72" cy="78" r="22"/>
+        <!-- 열쇠 손잡이 내부 장식 -->
+        <circle cx="72" cy="78" r="10" stroke-width="2"/>
+        <line x1="72" y1="56" x2="72" y2="44" stroke-width="2"/>
+        <line x1="72" y1="100" x2="72" y2="112" stroke-width="2"/>
+        <line x1="50" y1="78" x2="38" y2="78" stroke-width="2"/>
+        <line x1="94" y1="78" x2="106" y2="78" stroke-width="2"/>
+        <!-- 열쇠 날 (shaft) -->
+        <line x1="106" y1="78" x2="162" y2="78"/>
+        <!-- 열쇠 날 톱니 -->
+        <polyline points="130,78 130,92 140,92 140,78"/>
+        <polyline points="148,78 148,88 158,88 158,78"/>
+        <!-- 상단 장식 다이아 -->
+        <polygon points="72,44 78,38 72,32 66,38" stroke-width="2"/>
+        <!-- 빛 반사선 -->
+        <line x1="54" y1="60" x2="48" y2="54" stroke-width="1.5" stroke="#f7e577"/>
+        <line x1="58" y1="55" x2="54" y2="48" stroke-width="1" stroke="#f7e577"/>
+      </g>
+      <!-- 방사형 장식선 -->
+      <g stroke="rgba(212,175,55,0.4)" stroke-width="0.8" fill="none">
+        <line x1="100" y1="10" x2="100" y2="190"/>
+        <line x1="10" y1="100" x2="190" y2="100"/>
+        <line x1="29" y1="29" x2="171" y2="171"/>
+        <line x1="171" y1="29" x2="29" y2="171"/>
+        <circle cx="100" cy="100" r="90" stroke-width="0.6"/>
+        <circle cx="100" cy="100" r="70" stroke-width="0.4"/>
+      </g>
+    </svg>
+
+    <!-- 상단 장식선 -->
+    <div class="rpt-cover-line-top"></div>
+
+    <!-- 소형 라벨 -->
+    <div class="rpt-cover-logo">Family Financial Security · Master System</div>
+
+    <!-- 금박 메인 식별자 -->
+    <div class="rpt-cover-stamp-wrap">
+      <div class="rpt-cover-stamp" data-text="Goldkey_Ai_masters2026">Goldkey_Ai_masters2026</div>
+    </div>
+
+    <!-- 서브텍스트 골드 라인 -->
+    <div class="rpt-cover-subline">Family Financial Security Master System</div>
+
+    <!-- 이중 구분선 -->
+    <div class="rpt-cover-divider"><span></span><span></span></div>
+
+    <!-- 고객 리포트 타이틀 -->
     <div class="rpt-cover-title">
       {customer_name} 고객님을 위한<br>야간 데이터 분석 리포트
     </div>
     <div class="rpt-cover-date">발행일: {_date_str} &nbsp;·&nbsp; 가이딩 프로토콜 제43조</div>
+
   </div>
 
   <!-- 섹션 01: 분석 개요 -->
@@ -4091,6 +4269,962 @@ def save_members(members):
         _get_member_cache().update({"data": None, "ts": 0.0})
     except (IOError, OSError):
         pass
+
+# ══════════════════════════════════════════════════════════════════════════
+# 가이딩 프로토콜 제75조: 기기 지문 기반 본인 신뢰도 점수 운영 원칙
+# §4 로그인 기기 이력 저장 / §5 관리자 복구 지원 도구
+# ══════════════════════════════════════════════════════════════════════════
+_GP75_MAX_DEVICES = 5   # 기기당 최대 보관 이력 수
+
+def _gp75_save_device(user_name: str, fp_id: str, ua_hint: str = "") -> bool:
+    """로그인 성공 시 기기 지문을 gk_device_history 테이블에 저장 (upsert).
+    Returns True on success, False on failure.
+    """
+    if not user_name or not fp_id:
+        return False
+    if not _SB_PKG_OK:
+        return False
+    try:
+        import datetime as _dt75
+        sb = _get_sb_client()
+        if not sb:
+            return False
+        _now_str = _dt75.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        sb.table("gk_device_history").upsert(
+            {
+                "user_name":   user_name,
+                "fp_id":       fp_id,
+                "last_seen":   _now_str,
+                "ua_hint":     ua_hint[:120] if ua_hint else "",
+            },
+            on_conflict="user_name,fp_id"
+        ).execute()
+        # 최대 _GP75_MAX_DEVICES 초과 시 가장 오래된 항목 삭제
+        try:
+            _rows = (
+                sb.table("gk_device_history")
+                .select("fp_id,last_seen")
+                .eq("user_name", user_name)
+                .order("last_seen", desc=False)
+                .execute()
+                .data or []
+            )
+            if len(_rows) > _GP75_MAX_DEVICES:
+                _oldest_fp = _rows[0]["fp_id"]
+                sb.table("gk_device_history").delete().eq(
+                    "user_name", user_name
+                ).eq("fp_id", _oldest_fp).execute()
+        except Exception:
+            pass
+        return True
+    except Exception:
+        return False
+
+
+def _gp75_check_device(user_name: str, fp_id: str) -> dict:
+    """기기 지문과 Known_Devices 대조 — 신뢰도 판정 결과 반환.
+
+    Returns:
+        {
+          "match":       bool,          # 기기 이력 일치 여부
+          "trust_score": int,           # 0 또는 50 (일치 시 +50점)
+          "last_seen":   str,           # 마지막 접속 시각 (일치 시)
+          "ua_hint":     str,           # 기기 힌트 (일치 시)
+          "known_count": int,           # 등록된 기기 수
+          "known_list":  list[dict],    # 전체 기기 이력 (관리자용)
+        }
+    """
+    _default = {"match": False, "trust_score": 0, "last_seen": "",
+                "ua_hint": "", "known_count": 0, "known_list": []}
+    if not user_name or not fp_id or not _SB_PKG_OK:
+        return _default
+    try:
+        sb = _get_sb_client()
+        if not sb:
+            return _default
+        _rows = (
+            sb.table("gk_device_history")
+            .select("fp_id,last_seen,ua_hint")
+            .eq("user_name", user_name)
+            .order("last_seen", desc=True)
+            .execute()
+            .data or []
+        )
+        _known_list = _rows
+        _known_fps  = {r["fp_id"] for r in _rows}
+        _matched    = next((r for r in _rows if r["fp_id"] == fp_id), None)
+        if _matched:
+            return {
+                "match":       True,
+                "trust_score": 50,
+                "last_seen":   _matched.get("last_seen", ""),
+                "ua_hint":     _matched.get("ua_hint", ""),
+                "known_count": len(_rows),
+                "known_list":  _known_list,
+            }
+        return {
+            "match":       False,
+            "trust_score": 0,
+            "last_seen":   "",
+            "ua_hint":     "",
+            "known_count": len(_rows),
+            "known_list":  _known_list,
+        }
+    except Exception:
+        return _default
+
+
+def _gp75_get_all_devices(user_name: str) -> list:
+    """특정 회원의 전체 기기 이력 반환 (관리자 패널용)."""
+    if not user_name or not _SB_PKG_OK:
+        return []
+    try:
+        sb = _get_sb_client()
+        if not sb:
+            return []
+        return (
+            sb.table("gk_device_history")
+            .select("fp_id,last_seen,ua_hint")
+            .eq("user_name", user_name)
+            .order("last_seen", desc=True)
+            .execute()
+            .data or []
+        )
+    except Exception:
+        return []
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 가이딩 프로토콜 제51.2조 (개정): 비회원 기기 지문 기반 접근 제한
+# §1 1일 1회 / 총 10회 초과 시 진입 차단
+# §2 서버사이드 검증 (gk_guest_visits 테이블)
+# ══════════════════════════════════════════════════════════════════════════
+_GP512_MAX_TOTAL  = 10   # 비회원 총 허용 체험 횟수
+_GP512_MAX_DAILY  = 1    # 비회원 1일 최대 허용 횟수
+
+
+def _gp512_check_and_record(fp_id: str) -> dict:
+    """비회원 기기 지문 접근 제한 검사 및 기록.
+
+    Returns:
+        {
+          "allowed":      bool,   # True = 진입 허용
+          "reason":       str,    # 차단 사유 (allowed=False 시)
+          "total_visits": int,    # 현재까지 총 방문 횟수
+          "today_visits": int,    # 오늘 방문 횟수
+          "remaining":    int,    # 남은 총 체험 횟수
+        }
+    """
+    _ok_result = lambda tv, dv: {
+        "allowed": True, "reason": "",
+        "total_visits": tv, "today_visits": dv,
+        "remaining": max(0, _GP512_MAX_TOTAL - tv),
+    }
+    _deny = lambda reason, tv=0, dv=0: {
+        "allowed": False, "reason": reason,
+        "total_visits": tv, "today_visits": dv,
+        "remaining": max(0, _GP512_MAX_TOTAL - tv),
+    }
+
+    if not fp_id:
+        return _ok_result(0, 0)  # FP 없으면 차단 불가 → 허용
+    if not _SB_PKG_OK:
+        return _ok_result(0, 0)  # Supabase 미연결 → 차단 불가 → 허용
+
+    try:
+        import datetime as _dt512
+        sb = _get_sb_client()
+        if not sb:
+            return _ok_result(0, 0)
+
+        _today_str = _dt512.date.today().isoformat()
+
+        # 기존 이력 조회
+        _rows = (
+            sb.table("gk_guest_visits")
+            .select("visit_date,visit_count")
+            .eq("fp_id", fp_id)
+            .execute()
+            .data or []
+        )
+
+        _total_visits = sum(r.get("visit_count", 0) for r in _rows)
+        _today_row    = next((r for r in _rows if r.get("visit_date") == _today_str), None)
+        _today_visits = _today_row.get("visit_count", 0) if _today_row else 0
+
+        # ── 차단 판정 ──
+        if _total_visits >= _GP512_MAX_TOTAL:
+            return _deny(
+                f"총 체험 횟수 {_GP512_MAX_TOTAL}회를 모두 사용하셨습니다. 회원가입 후 이용하세요.",
+                tv=_total_visits, dv=_today_visits,
+            )
+        if _today_visits >= _GP512_MAX_DAILY:
+            return _deny(
+                "오늘의 체험 횟수(1회)를 이미 사용하셨습니다. 내일 다시 방문해 주세요.",
+                tv=_total_visits, dv=_today_visits,
+            )
+
+        # ── 허용 + 기록 업데이트 ──
+        if _today_row:
+            sb.table("gk_guest_visits").update(
+                {"visit_count": _today_visits + 1}
+            ).eq("fp_id", fp_id).eq("visit_date", _today_str).execute()
+        else:
+            sb.table("gk_guest_visits").insert(
+                {"fp_id": fp_id, "visit_date": _today_str, "visit_count": 1}
+            ).execute()
+
+        return _ok_result(_total_visits + 1, _today_visits + 1)
+
+    except Exception:
+        return _ok_result(0, 0)  # DB 오류 → 차단 불가 → 허용
+
+
+def _gp512_get_remaining(fp_id: str) -> int:
+    """비회원 잔여 체험 횟수 반환 (UI 배너용)."""
+    if not fp_id or not _SB_PKG_OK:
+        return _GP512_MAX_TOTAL
+    try:
+        sb = _get_sb_client()
+        if not sb:
+            return _GP512_MAX_TOTAL
+        _rows = (
+            sb.table("gk_guest_visits")
+            .select("visit_count")
+            .eq("fp_id", fp_id)
+            .execute()
+            .data or []
+        )
+        _used = sum(r.get("visit_count", 0) for r in _rows)
+        return max(0, _GP512_MAX_TOTAL - _used)
+    except Exception:
+        return _GP512_MAX_TOTAL
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 가이딩 프로토콜 제84조: 전역 시각 인터페이스 시인성 통합 및 색상 기강 확립
+# §1 배경색 파스텔화 — 어두운 계열(#000~#444) 즉시 폐기, 파스텔 톤 교체
+# §2 텍스트 백색 통일 — 황금색(#FFD700 계열) 예외 보존, 나머지 #FFFFFF 강제
+# §3 text-shadow 시인성 보정 — 파스텔 배경 위 흰 글씨 묻힘 방지
+# §4 예외 없는 집행 — !important 최우선, 동적 ID 블록 포함 전역 적용
+# ══════════════════════════════════════════════════════════════════════════
+
+def _gp84_inject_global_css() -> None:
+    """[제84조] 전역 UI 색상 기강 주입.
+
+    - 모든 어두운 배경 → 파스텔 톤 교체 (!important 강제)
+    - 모든 텍스트 → #FFFFFF (황금색 #FFD700 계열 예외 보존)
+    - 파스텔 배경 위 흰 글씨: text-shadow로 시인성 확보
+    - .gk-sky-trust 등 특수 라이트 블록은 예외 처리 (검정 글씨 유지)
+    호출 위치: main() STEP 1-A 직후 최우선 주입
+    """
+    import streamlit as _st84
+    _st84.markdown("""<style>
+/* ================================================================
+   가이딩 프로토콜 제84조: 전역 시각 인터페이스 색상 기강
+   §1 파스텔 배경 토큰
+   §2 텍스트 백색 통일 + 황금색 예외
+   §3 text-shadow 시인성
+   §4 Streamlit 내부 컴포넌트 오버라이드
+================================================================ */
+
+/* §1-A — 도메인별 파스텔 배경 토큰 */
+:root {
+    --gp84-pastel-base:     #F0F4FF;
+    --gp84-pastel-warm:     #FFF8F0;
+    --gp84-pastel-cool:     #F0FFF4;
+    --gp84-pastel-alert:    #FFF5F5;
+    --gp84-pastel-neutral:  #FDFCF0;
+    --gp84-pastel-vip:      #F5F0FF;
+    --gp84-txt-main:        #FFFFFF;
+    --gp84-txt-shadow:      0px 1px 4px rgba(0,0,0,0.60),
+                            0px 0px 8px rgba(0,0,0,0.35);
+    --gp84-gold-preserve:   #FFD700;
+}
+
+/* §1-B — 어두운 배경 블록 전역 파스텔화 (BLK_, INP_, gp- 클래스 포함) */
+/* 기준: 배경이 #000~#444 사이인 모든 요소를 파스텔로 교체 */
+.gp-income  { background: #1A237E !important; }   /* 딥블루 — 파스텔 아닌 시맨틱 색 유지 */
+.gp-medical { background: #00695C !important; }   /* 딥그린 유지 */
+.gp-risk    { background: #B71C1C !important; }   /* 딥레드 유지 */
+.gp-vip     { background: #4527A0 !important; }   /* 딥퍼플 유지 */
+
+/* §1-C — Streamlit 기본 다크 배경 오버라이드 */
+[data-testid="stApp"],
+[data-testid="stAppViewContainer"],
+section[data-testid="stMain"] > div,
+.main .block-container {
+    background-color: var(--gp84-pastel-base) !important;
+}
+
+/* §1-D — 스트림릿 메트릭·익스팬더·탭·폼 컨테이너 파스텔화 */
+[data-testid="stMetric"],
+[data-testid="stExpander"],
+[data-testid="stForm"],
+[data-testid="stTabs"] [data-baseweb="tab-panel"] {
+    background-color: var(--gp84-pastel-base) !important;
+    border-radius: 10px !important;
+}
+
+/* §1-E — 인라인 어두운 div 계열 파스텔 교체
+   (동적 생성 BLK_*, INP_* id 포함) */
+div[id^="BLK_"],
+div[id^="INP_"],
+div[id^="blk_"],
+div[id^="inp_"] {
+    background-color: var(--gp84-pastel-base) !important;
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
+}
+
+/* §2-A — 전역 텍스트 백색 통일
+   파스텔 배경 위 흰 글씨는 text-shadow로 시인성 확보 */
+body,
+[data-testid="stApp"] *:not(.gk-sky-trust):not(.gk-sky-trust *):not(.gk-st-title):not(.gk-st-amount) {
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
+}
+
+/* §2-B — 황금색 예외 보존 — 절대 변경 금지 */
+.gp-vip,
+.gp-vip *,
+[style*="#FFD700"],
+[style*="ffd700"],
+[style*="gold"],
+.gk-gold,
+.gp84-gold {
+    color: var(--gp84-gold-preserve) !important;
+    text-shadow: 0px 1px 3px rgba(0,0,0,0.70) !important;
+}
+
+/* §2-C — 입력 필드: 파스텔 배경 + 어두운 텍스트(가독성) */
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="email"],
+textarea,
+select,
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stNumberInput"] input {
+    background-color: #FFFFFFCC !important;
+    color: #1A1A2E !important;
+    text-shadow: none !important;
+    border: 1.5px solid rgba(0,85,255,0.25) !important;
+    border-radius: 8px !important;
+}
+
+/* §2-D — 버튼: 파스텔 배경 + 흰 글씨 + 그림자 */
+[data-testid="stButton"] > button:not([class*="gp82"]) {
+    background-color: #4A6FD4 !important;
+    color: #FFFFFF !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
+    border: none !important;
+    border-radius: 8px !important;
+}
+[data-testid="stButton"] > button:not([class*="gp82"]):hover {
+    background-color: #3557B7 !important;
+    transform: scale(1.01) !important;
+}
+
+/* §3 — text-shadow 시인성 보정
+   파스텔 배경(밝음) + 흰 글씨 → 미세 그림자로 대비 확보
+   gk-sky-trust 등 검정 글씨 블록은 text-shadow 없애야 함 */
+.gk-sky-trust,
+.gk-sky-trust * {
+    color: #000000 !important;
+    text-shadow: none !important;
+    background-color: inherit !important;
+}
+.gk-st-title  { color: #1565C0 !important; text-shadow: none !important; }
+.gk-st-amount { color: #000000 !important; text-shadow: none !important; }
+
+/* §4 — 사이드바 파스텔화 */
+[data-testid="stSidebar"] {
+    background-color: var(--gp84-pastel-vip) !important;
+}
+[data-testid="stSidebar"] * {
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
+}
+
+/* §4-B — 탭 헤더 */
+[data-baseweb="tab"] {
+    background-color: var(--gp84-pastel-base) !important;
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
+}
+[data-baseweb="tab"][aria-selected="true"] {
+    background-color: #4A6FD4 !important;
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+}
+
+/* §4-C — 익스팬더 헤더 */
+[data-testid="stExpander"] summary {
+    background-color: var(--gp84-pastel-cool) !important;
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
+    border-radius: 8px !important;
+}
+
+/* §4-D — 메트릭 레이블/값 */
+[data-testid="stMetricLabel"],
+[data-testid="stMetricValue"],
+[data-testid="stMetricDelta"] {
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
+}
+
+/* §4-E — 경고/정보 박스 파스텔화 */
+[data-testid="stAlert"] {
+    background-color: var(--gp84-pastel-alert) !important;
+    color: var(--gp84-txt-main) !important;
+    text-shadow: var(--gp84-txt-shadow) !important;
+    border-radius: 10px !important;
+}
+
+/* §4-F — 내비게이션 바 버튼 예외 — gp82 스타일 보존 */
+.gp82-home-btn button {
+    color: #000000 !important;
+    text-shadow: none !important;
+    background: #FFFFFF !important;
+}
+.gp82-logout-btn button {
+    color: #000000 !important;
+    text-shadow: none !important;
+    background: #FFFFFF !important;
+}
+</style>""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 가이딩 프로토콜 제82조: 전역 통합 내비게이션 바 — 홈 + 로그아웃 2단계 확인
+# §1 모든 로그인 화면 최상단 Sticky 고정
+# §2 홈(파란 테두리) / 로그아웃(빨간 테두리) + 2단계 확인 프로토콜
+# ══════════════════════════════════════════════════════════════════════════
+
+def _gp82_render_nav_bar() -> None:
+    """[제82조] 전역 안보 내비게이션 바 렌더링.
+
+    - 좌측: 🏠 홈 버튼 (파란 테두리, 메인 이동 + 포커스 JS)
+    - 우측: 🚪 로그아웃 버튼 (빨간 테두리, 2단계 확인)
+    - Sticky 고정 (top:0, z-index:9999)
+    호출 위치: main() 내 탭 렌더링 직전 최상단
+    """
+    import streamlit as _st
+    import streamlit.components.v1 as _c82
+
+    # ── CSS: 내비게이션 바 Sticky 고정 + 버튼 스타일 재정의 ─────────────
+    _st.markdown("""
+<style>
+/* [제82조] 안보 내비게이션 바 */
+.gp82-nav-bar {
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #ffffff;
+    border-bottom: 1.5px solid rgba(0,0,0,0.10);
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.gp82-nav-bar .gp82-home-btn button {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #0055FF !important;
+    border-radius: 8px !important;
+    padding: 8px 20px !important;
+    font-weight: 700 !important;
+    font-size: 0.88rem !important;
+    min-height: 44px !important;
+    cursor: pointer !important;
+}
+.gp82-nav-bar .gp82-logout-btn button {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #DD0000 !important;
+    border-radius: 8px !important;
+    padding: 8px 20px !important;
+    font-weight: 700 !important;
+    font-size: 0.88rem !important;
+    min-height: 44px !important;
+    cursor: pointer !important;
+}
+.gp82-nav-confirm {
+    text-align: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #DD0000;
+    background: #fff5f5;
+    border: 1px solid rgba(221,0,0,0.25);
+    border-radius: 6px;
+    padding: 4px 12px;
+    margin-bottom: 4px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+    # ── 2단계 로그아웃 확인 상태 ────────────────────────────────────────
+    _confirm = _st.session_state.get("_gp82_logout_confirm", False)
+
+    # ── 확인 안내 메시지 (1차 클릭 후 표시) ────────────────────────────
+    if _confirm:
+        _st.markdown(
+            '<div class="gp82-nav-confirm">⚠️ 버튼을 한 번 더 클릭하십시오</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── 내비게이션 바 레이아웃 ──────────────────────────────────────────
+    _st.markdown('<div class="gp82-nav-bar">', unsafe_allow_html=True)
+    _nav_col_home, _nav_col_mid, _nav_col_logout = _st.columns([2, 6, 2])
+
+    with _nav_col_home:
+        _st.markdown('<div class="gp82-home-btn">', unsafe_allow_html=True)
+        if _st.button("🏠 홈", key="gp82_btn_home", use_container_width=True):
+            _st.session_state["current_tab"] = "home"
+            _st.session_state["_scroll_top"] = True
+            _st.session_state.pop("_gp82_logout_confirm", None)
+            # 홈 이동 후 첫 입력창 포커스 JS 주입
+            _c82.html("""
+<script>
+(function(){
+  function _gp82Focus() {
+    var t = document.getElementById('main-focus-target');
+    if (t) { t.focus(); return; }
+    var inp = document.querySelector('textarea,input[type="text"]');
+    if (inp) inp.focus();
+  }
+  setTimeout(_gp82Focus, 400);
+  setTimeout(_gp82Focus, 900);
+})();
+</script>""", height=0)
+            _st.rerun()
+        _st.markdown('</div>', unsafe_allow_html=True)
+
+    with _nav_col_logout:
+        _st.markdown('<div class="gp82-logout-btn">', unsafe_allow_html=True)
+        _logout_label = "🚪 로그아웃하시겠습니까?" if _confirm else "🚪 로그아웃"
+        if _st.button(_logout_label, key="gp82_btn_logout", use_container_width=True):
+            if not _confirm:
+                # 1차 클릭: 확인 상태 전환
+                _st.session_state["_gp82_logout_confirm"] = True
+                _st.rerun()
+            else:
+                # 2차 클릭: 세션 전면 파기
+                try:
+                    _session_checkout(_st.session_state.get("user_id", ""))
+                except Exception:
+                    pass
+                try:
+                    _get_rag_store().update({"docs": [], "_db_loaded": False})
+                except Exception:
+                    pass
+                _st.session_state["_logout_flag"] = True
+                for _k in ["_saved_user_id", "_saved_user_name", "_saved_is_admin",
+                           "_saved_join_date", "_saved_admin_tab_auth", "_admin_tab_auth"]:
+                    _st.session_state.pop(_k, None)
+                _st.session_state.clear()
+                _st.rerun()
+        _st.markdown('</div>', unsafe_allow_html=True)
+
+    _st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 가이딩 프로토콜 제81조 (최종 통합 개정): 용어 병기 및 실무 소통 강화 원칙
+# §1 용어 병기 표준 형식 (공식 용어 + 고객 친화적 해설 괄호 병기)
+# §2 5단계 답변 구조 (병기 및 리스크 강조형)
+# §3 이원화 관점 / §4 사망·연금 필수 경고 / §5 손실 시뮬레이션
+# §6 전역 연동 / 제81.3조 법률-계약 매핑 엔진
+# ══════════════════════════════════════════════════════════════════════════
+
+# ── 제81조 §1 용어 병기 표준 딕셔너리 ──────────────────────────────────
+# 형식: { 공식 용어: "공식 용어 (고객 친화적 해설)" }
+_GP81_TERM_PAIRS: dict = {
+    "실효":         "실효 (보험료를 내지 않아 보험 효력이 멈춘 상태)",
+    "실효일":       "실효일 (마지막 보험료 납부일로부터 효력이 멈춘 날짜)",
+    "부활":         "부활 (실효된 보험을 다시 살리는 것)",
+    "부활청약":     "부활청약 (실효 보험을 살리기 위한 재가입 신청)",
+    "제척기간":     "제척기간 (보험사가 계약을 강제 해지할 수 있는 법적 기간)",
+    "제척기간 가동": "제척기간 가동 (보험사가 계약을 강제로 해지할 수 있는 3년의 기간이 다시 시작됨)",
+    "면책기간":     "면책기간 (보험금을 지급하지 않는 보장 제외 기간)",
+    "고지의무":     "고지의무 (계약 전 건강 상태 등을 보험사에 사실대로 알릴 의무)",
+    "통지의무":     "통지의무 (계약 후 위험이 커진 사실을 보험사에 알릴 의무)",
+    "소멸시효":     "소멸시효 (일정 기간 청구하지 않으면 법적 권리가 사라지는 제도)",
+    "기한이익상실": "기한이익상실 (보험료 미납 등으로 계약이 즉시 실효되는 사유)",
+    "보험금청구권": "보험금청구권 (보험사에 보험금을 요구할 수 있는 법적 권리, 3년 소멸시효)",
+    "해지환급금":   "해지환급금 (계약을 중도 해지할 때 돌려받는 금액)",
+    "보험료납입면제": "보험료납입면제 (일정 사유 발생 시 보험료를 내지 않아도 보장이 유지되는 혜택)",
+}
+
+
+def _gp81_annotate(text: str) -> str:
+    """제81조 §1 — 텍스트 내 공식 용어를 '공식 용어 (해설)' 형식으로 자동 병기.
+    이미 괄호 병기된 경우 중복 치환하지 않음.
+    """
+    for _official, _paired in _GP81_TERM_PAIRS.items():
+        # 이미 병기 형식( 괄호 포함)이면 스킵
+        if _paired in text:
+            continue
+        text = text.replace(_official, _paired)
+    return text
+
+# ── §4 사망·연금 도메인 키워드 ─────────────────────────────────────────
+_GP81_DEATH_KEYWORDS  = {"사망", "사망보험", "사망보험금", "유족", "수익자", "부검", "검시"}
+_GP81_PENSION_KEYWORDS = {"연금", "연금저축", "연금보험", "연금수령", "연금개시", "연금전환",
+                           "퇴직연금", "IRP", "노령연금", "국민연금"}
+_GP81_DISABILITY_KEYWORDS = {"장해", "장해율", "후유장해", "장해등급", "맥브라이드", "AMA"}
+
+# ── 제81.3조 §1 법률 용어 매핑 딕셔너리 ───────────────────────────────
+_GP81_LEGAL_TERMS: dict = {
+    "고지의무": {
+        "risk": "🔴 최고",
+        "contract_alert": (
+            "이 의무를 소홀히 할 경우, 보험사는 계약 체결 **3년 이내**에 언제든 계약을 "
+            "'강제 해지'할 권한을 갖습니다. (상법 제651조)"
+        ),
+        "payment_alert": "위반 사실과 보험사고 간 **인과관계가 인정되면 보험금은 전액 부지급**될 수 있습니다.",
+        "legal_ref": "상법 제651조, 보험업 감독규정 제7-47조",
+    },
+    "통지의무": {
+        "risk": "🔴 최고",
+        "contract_alert": (
+            "계약 후 위험이 증가한 사실을 보험사에 지체 없이 알려야 합니다. "
+            "위반 시 보험사는 계약을 해지하거나 보험금을 감액할 수 있습니다. (상법 제652조)"
+        ),
+        "payment_alert": "통지의무 위반 시, 사고와 인과관계가 있다면 **보험금은 단 1원도 지급되지 않을** 수 있습니다.",
+        "legal_ref": "상법 제652조, 제653조",
+    },
+    "제척기간": {
+        "risk": "🟠 높음",
+        "contract_alert": "법정 기간(보험금청구권 3년) 이내에 청구하지 않으면 **권리 자체가 소멸**합니다.",
+        "payment_alert": "소멸시효 완성 시 법적으로 보험금 청구 불가 — 아무리 정당한 사고라도 지급 불가.",
+        "legal_ref": "상법 제662조 (보험금청구권 소멸시효 3년)",
+    },
+    "보험금청구권": {
+        "risk": "🟠 높음",
+        "contract_alert": (
+            "청구권은 **보험사고 발생일로부터 3년** 이내에 행사해야 합니다. "
+            "기한이익상실 사유(보험료 2회 이상 미납 등) 발생 시 즉시 실효될 수 있습니다."
+        ),
+        "payment_alert": "기한이익상실 또는 소멸시효 완성 시 청구권 소멸 — 유가족이 모르면 수억 원 손실 가능.",
+        "legal_ref": "상법 제662조, 민법 제166조",
+    },
+    "소멸시효": {
+        "risk": "🔴 최고",
+        "contract_alert": "보험금청구권은 **3년의 소멸시효**가 적용되며, 이 기간 경과 시 법적으로 청구권이 소멸됩니다.",
+        "payment_alert": "시효 완성 후 소송 제기 시 보험사가 '시효 완성' 항변 가능 → 법원도 인용.",
+        "legal_ref": "상법 제662조",
+    },
+    "기한이익상실": {
+        "risk": "🟠 높음",
+        "contract_alert": "보험료를 **2회 이상 미납** 시 보험사는 즉시 계약을 실효 처리할 수 있습니다.",
+        "payment_alert": "실효 후 사고 발생 시 보험금 전액 부지급 — 자동이체 설정 여부를 반드시 점검하세요.",
+        "legal_ref": "보험업 감독규정, 각사 보통약관 제26조",
+    },
+    "실효": {
+        "risk": "🔴 최고",
+        "contract_alert": "보험료 미납·고지의무 위반 등으로 계약이 실효(보험 효력 중단) 되면 **보험 보호가 즉시 소멸**됩니다.",
+        "payment_alert": "실효 (보험 효력 중단) 기간 중 발생한 사고는 보험금 청구 불가.",
+        "legal_ref": "상법 제650조, 각사 보통약관",
+    },
+    "부활": {
+        "risk": "🟠 높음",
+        "contract_alert": (
+            "부활(실효된 보험을 다시 살리는 것) 신청은 실효일 (마지막 보험료 납부일)로부터 "
+            "**3년 이내**에만 가능합니다. "
+            "부활 시 고지의무(건강 상태 등을 사실대로 알릴 의무)가 다시 발생하며, "
+            "**제척기간 가동(보험사가 강제 해지할 수 있는 3년이 다시 시작됨)**됩니다."
+        ),
+        "payment_alert": (
+            "⚠️ 부활 후 **면책기간(보험금을 안 주는 기간)**이 재가동됩니다. "
+            "암진단비 면책기간(90일) 이내 암 진단 시 **보험금 0원**입니다."
+        ),
+        "legal_ref": "상법 제650조 제2항, 각사 보통약관 부활 조항",
+    },
+    "면책기간": {
+        "risk": "🔴 최고",
+        "contract_alert": (
+            "면책기간(보험금을 지급하지 않는 보장 제외 기간)은 계약 체결일 또는 부활일로부터 기산됩니다. "
+            "통상 암진단비 90일, 특정 질환은 180일이 적용됩니다."
+        ),
+        "payment_alert": "면책기간(보험금 제외 기간) 내 발생한 보험사고는 보험금 **전액 미지급**입니다.",
+        "legal_ref": "각사 보통약관 제5조(보장개시일), 금융감독원 표준약관",
+    },
+}
+
+# ── 도메인 자동 감지 키워드 맵 ──────────────────────────────────────────
+_GP81_DOMAIN_KEYWORDS: dict = {
+    "medical":   {"암", "뇌", "심장", "뇌혈관", "심뇌", "수술", "입원", "진단", "치료",
+                  "재활", "후유증", "KCD", "진단코드", "MRI", "CT", "항암", "방사선"},
+    "legal":     set(_GP81_LEGAL_TERMS.keys()) | {"보험계약", "계약해지", "면책", "약관",
+                  "청구", "분쟁", "소송", "판례", "상법", "소멸시효"},
+    "admin":     {"보험료", "건강보험료", "납입", "변경", "갱신", "취소", "해지",
+                  "민원", "심사", "승인", "거절"},
+    "pension":   _GP81_PENSION_KEYWORDS,
+    "disability": _GP81_DISABILITY_KEYWORDS,
+    "death":     _GP81_DEATH_KEYWORDS,
+}
+
+
+def _gp81_detect_domain(term: str) -> str:
+    """용어에서 도메인을 자동 감지. 우선순위: death > pension > disability > legal > medical > admin > general"""
+    _t = term.strip()
+    for _kw in _GP81_DEATH_KEYWORDS:
+        if _kw in _t:
+            return "death"
+    for _kw in _GP81_PENSION_KEYWORDS:
+        if _kw in _t:
+            return "pension"
+    for _kw in _GP81_DISABILITY_KEYWORDS:
+        if _kw in _t:
+            return "disability"
+    for _dom, _kws in _GP81_DOMAIN_KEYWORDS.items():
+        for _kw in _kws:
+            if _kw in _t:
+                return _dom
+    return "general"
+
+
+def _gp81_contract_impact(term: str) -> str:
+    """제81.3조 §1 — 법률 용어의 계약 안보 영향 섹션 마크다운 반환.
+    매핑 딕셔너리에 없는 용어는 범용 경고 반환.
+    """
+    _info = _GP81_LEGAL_TERMS.get(term.strip())
+    if _info:
+        return (
+            f"\n\n#### 📋 보험계약 안보 영향 ({_info['risk']})\n\n"
+            f"- **계약 상태**: {_info['contract_alert']}\n"
+            f"- **지급 여부**: {_info['payment_alert']}\n"
+            f"- **법적 근거**: {_info['legal_ref']}\n"
+        )
+    # 범용 경고 (법률 도메인이지만 딕셔너리 미등록 용어)
+    return (
+        "\n\n#### 📋 보험계약 안보 영향\n\n"
+        "- 이 용어와 관련된 의무를 소홀히 할 경우 보험금 지급 거절 또는 계약 해지로 이어질 수 있습니다.\n"
+        "- 반드시 담당 설계사 또는 보험사에 정확한 영향 범위를 확인하세요.\n"
+    )
+
+
+def _gp81_build_answer(
+    term: str,
+    domain: str = "",
+    customer_income: int = 0,
+) -> dict:
+    """제81조 (최종 통합 개정) — 용어 병기 및 리스크 강조형 5단계 표준 구조 답변 생성.
+
+    Args:
+        term:             조회 용어
+        domain:           도메인 (자동 감지 가능 — 빈 문자열 시 자동 감지)
+        customer_income:  고객 월소득 (원) — 장해 시뮬레이션용, 0이면 생략
+
+    Returns:
+        {
+          "term":     str,
+          "domain":   str,
+          "sections": {
+              "s1_definition": str,   # [단계1] 병기 정의 및 비교
+              "s2_example":    str,   # [단계2] 실전 사용 예시
+              "s3_regulation": str,   # [단계3] 상황별 실질 리스크 (불이익 명시)
+              "s4_impact":     str,   # [단계4] 계약 안보 및 실무 영향 (공식 용어 안내)
+              "s5_source":     str,   # [단계5] 출처
+          },
+          "revival_warning": str,     # 부활 관련 치명적 불이익 경고 (해당 시)
+          "special_alert":   str,     # 사망/연금 필수 경고 (해당 시)
+          "loss_simulation": str,     # 경제적 손실 시뮬레이션 (장해 시)
+          "full_md":  str,            # 전체 마크다운 (렌더링용)
+        }
+    """
+    _term   = term.strip()
+    _domain = domain.strip() if domain.strip() else _gp81_detect_domain(_term)
+
+    # ── [단계1] 병기 정의 및 비교 ─────────────────────────────────────────
+    # 제81조 §1: 공식 용어를 앞세우고 괄호 안에 고객 친화적 해설 병기
+    _paired_term = _GP81_TERM_PAIRS.get(_term, _term)
+    _s1 = (
+        f"**{_paired_term}** — 보험 분야에서 사용되는 핵심 용어입니다.\n\n"
+        f"> 해당 용어는 상황(의료·법률·행정·연금)에 따라 적용 범위와 효력이 달라질 수 있습니다."
+    )
+    _same_scope_flag = (_domain == "general")
+    if _same_scope_flag:
+        _s1 = f"해당 용어는 다른 상황에서의 사용 범위도 동일하다.\n\n" + _s1
+
+    # ── [단계2] 실전 사용 예시 ────────────────────────────────────────────
+    _s2_map = {
+        "death":     f"**[사용 예시]** \u2018{_paired_term}\u2019 은(는) 피보험자가 사망 사고 발생 시 보험금 지급 여부 및 절차를 결정하는 기준으로 사용됩니다.",
+        "pension":   f"**[사용 예시]** \u2018{_paired_term}\u2019 은(는) 노후 소득 보장 상품 설계 및 세제 혜택 검토 시 사용됩니다.",
+        "disability":f"**[사용 예시]** \u2018{_paired_term}\u2019 은(는) 신체 장해 발생 후 보험금 청구 및 등급 판정 시 사용됩니다.",
+        "legal":     f"**[사용 예시]** \u2018{_paired_term}\u2019 은(는) 보험계약 유지·분쟁·청구 단계에서 법적 권리와 의무를 규정하는 데 사용됩니다.",
+        "medical":   f"**[사용 예시]** \u2018{_paired_term}\u2019 은(는) 치료·수술·입원 급여 청구 시 진단 확정 근거로 사용됩니다.",
+        "admin":     f"**[사용 예시]** \u2018{_paired_term}\u2019 은(는) 보험 계약의 변경·갱신·취소 등 행정 처리 시 사용됩니다.",
+    }
+    _s2 = _s2_map.get(_domain, f"**[사용 예시]** \u2018{_paired_term}\u2019 은(는) 보험 상담 및 계약 관련 문서에서 사용됩니다.")
+
+    # ── [단계3] 상황별 실질 리스크 — 불이익 명시 ────────────────────────
+    # 제81조 §2 [단계3]: 법령 근거 + 구체적 피해 금액·기간 명시
+    _s3_map = {
+        "death":     "**[법률 근거]** 상법 제739조(생명보험), 보험업법 제127조. 사망 원인 분류는 통계청 사망원인 통계 기준 적용.",
+        "pension":   "**[법률 근거]** 소득세법 제20조의3(연금저축), 제46조(연금보험). 세액공제율 16.5%(총급여 5,500만 원 이하) 또는 13.2%.",
+        "disability":"**[의학 기준]** AMA 장해 평가 기준 (개인보험 표준) 및 맥브라이드식 노동능력상실률 평가표. KCD 코드 연계 진단 확정 필요.",
+        "legal":     "**[법률 근거]** 상법 제638조~제739조(보험계약법), 금융감독원 분쟁조정 기준, 대법원 판례.",
+        "medical":   "**[의학 기준]** KCD 코드(한국표준질병사인분류) 기준 진단 확정. 금융감독원 표준약관 제5조 진단 확정 기준 적용.",
+        "admin":     "**[행정 기준]** 보험업법, 금융감독원 감독규정, 각사 보통약관 제25~30조.",
+    }
+    _s3_base = _s3_map.get(_domain, "**[법률/의학 근거]** 해당 도메인의 관련 법령 및 약관 기준 적용.")
+    # 부활 관련 용어일 때 구체적 불이익 명시
+    _is_revival_term = _term in ("부활", "부활청약", "실효", "실효일", "면책기간", "제척기간")
+    if _is_revival_term:
+        _s3_revival_risk = (
+            "\n\n> ⚠️ **[치명적 불이익 주의]**\n"
+            "> - 암진단비 **면책기간(보장 안 해주는 90일)**이 부활 시점부터 다시 시작됩니다. "
+            "89일째 암 진단 시 보험금은 **0원**입니다.\n"
+            "> - **제척기간(보험사가 조사를 통해 계약을 깰 수 있는 기간) 3년**이 부활일로부터 새롭게 시작됩니다. "
+            "과거 유지 기간과 무관하게 다시 심판대에 오르는 것입니다."
+        )
+        _s3 = _s3_base + _s3_revival_risk
+    else:
+        _s3 = _s3_base
+
+    # ── [단계4] 계약 안보 및 실무 영향 — 공식 용어 활용 안내 ─────────────
+    # 제81조 §2 [단계4]: 보험사 직원과 대화 시 사용할 공식 용어 명시
+    if _term in _GP81_LEGAL_TERMS:
+        _s4 = _gp81_contract_impact(_term)
+    elif _domain in ("death", "pension", "disability"):
+        _s4 = (
+            "\n\n#### 📋 계약 안보 및 실무 영향\n\n"
+            f"- {_domain.upper()} 도메인 용어로, 계약 유지 및 보험금 수령에 직접 영향을 미칩니다.\n"
+            "- 관련 조항 위반 또는 서류 미비 시 보험금 지급이 지연되거나 거절될 수 있습니다.\n"
+            f"- 💬 **보험사 직원 실무 용어**: 담당자에게 '{_term}'이라는 정확한 공식 용어를 사용하면 빠른 소통이 가능합니다.\n"
+        )
+    else:
+        _s4 = (
+            "\n\n#### 📋 계약 안보 및 실무 영향\n\n"
+            "- 보험계약 전반에 영향을 줄 수 있으므로 담당 설계사와 반드시 확인하세요.\n"
+            f"- 💬 **보험사 직원 실무 용어**: 담당자에게 '{_term}'이라는 정확한 공식 용어를 사용하면 빠른 소통이 가능합니다.\n"
+        )
+
+    # ── Section 5: 출처 ───────────────────────────────────────────────────
+    _s5_map = {
+        "death":     "국가법령정보센터(law.go.kr) · 금융감독원 표준약관 · 통계청 사망원인 통계",
+        "pension":   "국세청 연금저축 안내(nts.go.kr) · 금융감독원 연금보험 비교공시 · 소득세법 제20조의3",
+        "disability":"금융감독원 장해분류표 · AMA Guides (6th Ed.) · 맥브라이드 노동능력상실 평가표",
+        "legal":     "국가법령정보센터 상법 제638조~ · 금융감독원 분쟁조정 사례집 · 대법원 판례검색(law.go.kr)",
+        "medical":   "질병관리청 KCD 코드 검색(kdca.go.kr) · 금융감독원 표준약관 제5조 · 건강보험심사평가원",
+        "admin":     "금융감독원(fss.or.kr) · 각사 보통약관 · 보험업법 시행령",
+    }
+    _s5 = _s5_map.get(_domain, "국가법령정보센터(law.go.kr) · 금융감독원(fss.or.kr) · 질병관리청(kdca.go.kr)")
+
+    # ── 부활 관련 치명적 불이익 경고 (신설 — 제81조 §2 [단계3] 전용) ────
+    _revival_warning = ""
+    _revival_keywords = {"부활", "부활청약", "계약부활", "실효", "실효일", "면책기간", "제척기간"}
+    if _term in _revival_keywords or any(_k in _term for _k in _revival_keywords):
+        _revival_warning = (
+            "\n\n---\n"
+            "#### ⚠️ 치명적 불이익 경고\n\n"
+            "| 항목 | 불이익 내용 |\n"
+            "|------|------------|\n"
+            "| 암진단비 **면책기간(90일)** | 부활 시점부터 다시 시작 → 89일째 암 진단 시 보험금 **0원** |\n"
+            "| **제척기간(강제 해지 가능 기간) 3년** | 부활일로부터 새롭게 시작 → 과거 유지 기간 무효화 |\n"
+            "| 고지의무 재발생 | 현재 건강 상태 재고지 필요 → 위반 시 계약 해지 |\n"
+            "| 보험료 연체금 | 미납 기간의 보험료 + 이자 전액 납부 필요 |\n\n"
+            "> 🔴 **부활은 새 보험 가입과 동일한 수준의 심사가 재개되는 것입니다.**\n"
+            "> 건강 상태가 나빠진 경우 부활 자체가 거절될 수 있으며, 승인되더라도 "
+            "면책기간(90일)·제척기간(3년)이 초기화됩니다."
+        )
+
+    # ── 사망·연금 필수 경고 (§4 Death/Pension Alert) ─────────────────────
+    _special_alert = ""
+    if _domain == "death":
+        _special_alert = (
+            "\n\n---\n"
+            "#### ⚠️ 안보 경고: 사망보험 선택 시 주의사항\n\n"
+            "**손해보험**의 사망 담보는 보험금 지급 전 **부검(검시) 절차**가 요구될 수 있으며, "
+            "이는 유가족에게 심각한 정신적·시간적 고통을 초래합니다.\n\n"
+            "> 🛡️ **안보적 관점에서 사망 보장은 생명보험이 정답입니다.**\n"
+            "> 생명보험은 의학적 사망 선고(의사의 사망진단서)만으로 즉시 지급 절차가 개시되어 "
+            "유가족의 부담을 최소화합니다."
+        )
+    elif _domain == "pension":
+        _special_alert = (
+            "\n\n---\n"
+            "#### 🔴 긴급 경고: 연금저축 해지 시 독소 조항\n\n"
+            "| 구분 | 연금저축 (세액공제형) | 연금보험 (비과세형) |\n"
+            "|------|---------------------|------------------|\n"
+            "| 세액공제 | ✅ 연 최대 66만원~99만원 | ❌ 없음 |\n"
+            "| **중도해지 시** | **🔴 기납입 공제분 전액 환수 + 기타소득세 16.5%** | 해지환급금 수령 (불이익 상대적 낮음) |\n"
+            "| 10년 이상 유지 | 연금소득세 3.3~5.5% | 이자소득 **비과세** |\n"
+            "| 노후 안정성 | 중간 (해지 리스크 존재) | 높음 |\n\n"
+            "> 🔴 **연금저축은 절대 중도해지하면 안 됩니다.** 납입 기간 중 해지 시 "
+            "지금까지 받은 세액공제 혜택 **전액이 환수**되고 기타소득세 16.5%가 추가 부과됩니다."
+        )
+
+    # ── 경제적 손실 시뮬레이션 (§5) — 장해 도메인 ──────────────────────
+    _loss_sim = ""
+    if _domain == "disability" and customer_income > 0:
+        _monthly = customer_income
+        _daily   = _monthly // 30
+        _sim_rates = [0.50, 0.30, 0.15]
+        _sim_lines = []
+        for _r in _sim_rates:
+            _il = int(_monthly * _r * 24)   # 일실수익 (2년)
+            _wl = int(_monthly * 1.0 * 6)   # 휴업손해 (6개월)
+            _total = _il + _wl
+            _sim_lines.append(
+                f"- 장해율 {int(_r*100)}%: 일실수익 {_il:,}원(2년) + 휴업손해 {_wl:,}원(6개월) = **총 {_total:,}원**"
+            )
+        _loss_sim = (
+            "\n\n#### 💸 경제적 손실 시뮬레이션\n\n"
+            f"*(월소득 {_monthly:,}원 / 일소득 {_daily:,}원 기준)*\n\n"
+            + "\n".join(_sim_lines) + "\n\n"
+            "> 일실수익 = 월소득 × 장해율 × 24개월(2년 기준)\n"
+            "> 휴업손해 = 월소득 × 100% × 재활 6개월\n"
+            "> ⚠️ 소득 보장 보험 미가입 시 가족 전체 생계 위협"
+        )
+
+    # ── 이원화 관점 추가 (§3 Dual Perspective) ───────────────────────────
+    _dual = (
+        "\n\n#### 🔍 이원화 관점\n\n"
+        "| 관점 | 설명 |\n"
+        "|------|------|\n"
+        "| 보험/제도 관점 | 법적 근거에 따른 적용 기준, 국가 3중 안보 체계(건강보험·생명보험·손해보험) 내 역할 |\n"
+        "| 피보험자 혜택 | 실질 수령액, 절세 효과, 경제적 안정성, 심리적 안도감 |\n"
+    )
+
+    # ── 전체 마크다운 조합 ────────────────────────────────────────────────
+    _full_md = (
+        f"## 📖 {_paired_term}\n\n"
+        f"### [단계1] 정의 및 병기 비교\n\n{_s1}\n\n"
+        f"### [단계2] 실전 사용 예시\n\n{_s2}\n\n"
+        f"### [단계3] 상황별 실질 리스크\n\n{_s3}\n"
+        f"### [단계4] 계약 안보 및 실무 영향{_s4}\n"
+        f"{_dual}\n"
+        f"### [단계5] 출처\n\n{_s5}\n"
+        f"{_revival_warning}"
+        f"{_special_alert}"
+        f"{_loss_sim}"
+    )
+
+    return {
+        "term":          _term,
+        "paired_term":   _paired_term,
+        "domain":        _domain,
+        "sections": {
+            "s1_definition": _s1,
+            "s2_example":    _s2,
+            "s3_regulation": _s3,
+            "s4_impact":     _s4,
+            "s5_source":     _s5,
+        },
+        "revival_warning":  _revival_warning,
+        "special_alert":    _special_alert,
+        "loss_simulation":  _loss_sim,
+        "full_md":          _full_md,
+    }
+
 
 def _pin_make_hash(pin: str) -> str:
     """PIN 6자리 → SHA-256 해시 (앱 고유 salt 포함)"""
@@ -10252,6 +11386,9 @@ def main():
 }
 </style>""", unsafe_allow_html=True)
 
+    # ── STEP 1-A1: [제84조] 전역 UI 색상 기강 — 파스텔 배경 + 백색 텍스트 + 황금색 보존 ──
+    _gp84_inject_global_css()
+
     # ── STEP 1-A2: [제42조] 전역 디자인 토큰 + 고대비 가독성 CSS ────────
     st.markdown("""<style>
 /* ================================================================
@@ -10563,6 +11700,30 @@ def main():
             except Exception:
                 pass
 
+    # ── STEP 4-D: [제75조 §4] 기기 지문 수신 처리 ──────────────────────────
+    # JS가 ?gk_fp=FINGERPRINT&gk_ua=UA_HINT 로 전달한 값을 저장
+    _qp_fp = st.query_params.get("gk_fp", "")
+    if _qp_fp:
+        try:
+            _qp_ua   = st.query_params.get("gk_ua", "")
+            _fp_user = st.session_state.get("_gp75_login_name", "") or st.session_state.get("user_name", "")
+            if _fp_user and _fp_user != "체험 게스트":
+                _gp75_save_device(_fp_user, _qp_fp, _qp_ua)
+            st.session_state["_gp75_current_fp"] = _qp_fp
+            st.session_state.pop("_gp75_fp_pending", None)
+            st.session_state.pop("_gp75_login_name", None)
+            try:
+                _cur_qp = dict(st.query_params)
+                _cur_qp.pop("gk_fp", None)
+                _cur_qp.pop("gk_ua", None)
+                st.query_params.clear()
+                for _k, _v in _cur_qp.items():
+                    st.query_params[_k] = _v
+            except Exception:
+                pass
+        except Exception:
+            pass
+
     # ── STEP 5: 세션 타이머 JS (세션당 1회만 주입, 랜딩 완료 후에만 실행) ─────
     # 랜딩페이지 표시 중에는 타이머 주입 스킵 → 초기 로딩 차단 없음
     _landing_done_for_timer = st.session_state.get('_landing_done', False)
@@ -10829,48 +11990,59 @@ def main():
     try{ screen.orientation.unlock(); }catch(e){}
   }
 
-  // ── 백버튼 처리 — 비활성화 (TODO: Streamlit 라우팅 충돌 해소 후 재활성화) ──
-  /* DISABLED_BACKBTN
-  if(!window._backBtnInit){
-    window._backBtnInit = true;
-    history.pushState({page:'app'}, '', window.location.href);
-    window.addEventListener('popstate', function(e){
-      try {
-        var pdoc = window.parent.document;
+  // ── 백버튼 / 쓸어내림 차단 (로그인 상태 유지 — 앱 이탈 방지) ──
+  (function(){
+    try {
+      var pdoc = window.parent;
+      if(!pdoc._gkBackBtnInit){
+        pdoc._gkBackBtnInit = true;
+        // 히스토리 스택에 현재 페이지 2개 push → 뒤로가기 1회 눌러도 이탈 안됨
+        pdoc.history.pushState({gk:'locked'}, '', pdoc.location.href);
+        pdoc.history.pushState({gk:'locked'}, '', pdoc.location.href);
+        pdoc.addEventListener('popstate', function(e){
+          // popstate 발생 시 즉시 같은 URL로 다시 push → 히스토리 고정
+          pdoc.history.pushState({gk:'locked'}, '', pdoc.location.href);
+        });
+      }
+    } catch(ex){}
+  })();
+})();
+</script>
+""", height=0)
 
-        // 1) 사이드바가 열려 있으면 → 닫기 버튼 클릭
-        var sidebar = pdoc.querySelector('[data-testid="stSidebar"]');
-        var isOpen  = sidebar && sidebar.offsetWidth > 50;
-        if(isOpen){
-          var closeSelectors = [
-            '[data-testid="stSidebarCollapseButton"] button',
-            '[data-testid="collapsedControl"]',
-            'button[aria-label="Close sidebar"]',
-            'button[aria-label="사이드바 닫기"]',
-            '[data-testid="stSidebar"] button[kind="header"]'
-          ];
-          for(var s=0; s<closeSelectors.length; s++){
-            var cb = pdoc.querySelector(closeSelectors[s]);
-            if(cb){ cb.click(); break; }
-          }
-          history.pushState({page:'app'}, '', window.location.href);
-          return;
-        }
-
-        // 2) 사이드바 닫힌 상태 → 홈으로 버튼 클릭
-        var btns = pdoc.querySelectorAll('button');
-        for(var i=0; i<btns.length; i++){
-          if(btns[i].innerText && btns[i].innerText.includes('홈으로')){
-            btns[i].click();
-            history.pushState({page:'app'}, '', window.location.href);
-            return;
-          }
-        }
-      } catch(ex){}
-      history.pushState({page:'app'}, '', window.location.href);
-    });
-  }
-  END_DISABLED_BACKBTN */
+    # ── [제75조 §4] 기기 지문 수집 JS 주입 — 로그인 성공 직후 1회 ──────────
+    # _gp75_fp_pending 플래그가 True일 때만 실행: UserAgent + 화면/언어 해시를 URL에 주입
+    if st.session_state.get("_gp75_fp_pending") and not st.session_state.get("_gp75_fp_js_done"):
+        st.session_state["_gp75_fp_js_done"] = True
+        components.html("""
+<script>
+(function(){
+  try {
+    var nav = window.parent.navigator || navigator;
+    var scr = window.parent.screen || screen;
+    var raw = [
+      nav.userAgent || '',
+      nav.language  || '',
+      String(scr.width  || 0),
+      String(scr.height || 0),
+      String(scr.colorDepth || 0),
+      Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+    ].join('|');
+    // 간단한 32자 해시 (FNV-1a 변형)
+    var h = 2166136261;
+    for(var i=0;i<raw.length;i++){
+      h ^= raw.charCodeAt(i);
+      h  = (h * 16777619) >>> 0;
+    }
+    var fp  = h.toString(16).padStart(8,'0');
+    // userAgent 앞 80자를 힌트로 포함
+    var ua  = (nav.userAgent || '').substring(0, 80);
+    // 현재 URL에 gk_fp/gk_ua 파라미터 추가 후 재이동 (Streamlit이 새 rerun으로 읽음)
+    var url = new URL(window.parent.location.href);
+    url.searchParams.set('gk_fp', fp);
+    url.searchParams.set('gk_ua', encodeURIComponent(ua));
+    window.parent.location.replace(url.toString());
+  } catch(e){}
 })();
 </script>
 """, height=0)
@@ -12939,6 +14111,11 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                         except Exception:
                             pass
                         _LoginGuard.record_success(ln)
+                        # [제75조 §4] 로그인 성공 시 기기 지문 수집 JS 주입
+                        # JS가 LocalStorage에서 fp_id를 읽어 hidden input으로 서버에 전달
+                        # 실제 저장은 _gp75_fp_pending 세션 플래그로 다음 rerun에서 처리
+                        st.session_state["_gp75_login_name"] = ln
+                        st.session_state["_gp75_fp_pending"] = True
                         # [GP-56] 로그인 전환 스켈레톤 — 화이트아웃 0ms 목표
                         _skel_login = st.empty()
                         _skel_login.markdown("""
@@ -13053,9 +14230,61 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                                             st.error(f"연락처가 올바르지 않습니다. (남은 시도: **{_rem_a}회**)")
 
                     # ─────────────────────────────────────────────────────────────
-                    # [GP-51.1] Guest Access 진입 버튼 — Phase A 하단 고정
+                    # [GP-51.2 개정] Guest Access 진입 버튼 — 기기 지문 차단 통합
+                    # §1 JS LocalStorage: 1일 1회 / 총 10회 초과 시 클라이언트 차단
+                    # §2 서버사이드: _gp75_current_fp 기반 gk_guest_visits 검증
                     # ─────────────────────────────────────────────────────────────
                     if _lp == "A":
+                        # ── JS LocalStorage 기반 클라이언트 차단 주입 ──────────────
+                        st.markdown("""
+<script>
+(function(){
+  var MAX_TOTAL = 10, MAX_DAILY = 1;
+  var KEY_TOTAL = 'gk_gv_total', KEY_DATE = 'gk_gv_date', KEY_TODAY = 'gk_gv_today';
+  function _gkGuestCheck() {
+    var total = parseInt(localStorage.getItem(KEY_TOTAL) || '0', 10);
+    var lastDate = localStorage.getItem(KEY_DATE) || '';
+    var todayCount = parseInt(localStorage.getItem(KEY_TODAY) || '0', 10);
+    var today = new Date().toISOString().slice(0, 10);
+    if (lastDate !== today) { todayCount = 0; }
+    var btn = document.querySelector('[data-testid="baseButton-secondary"][kind="secondary"]');
+    var guestBtn = null;
+    document.querySelectorAll('button').forEach(function(b){
+      if (b.innerText && b.innerText.indexOf('로그인 없이 체험하기') !== -1) guestBtn = b;
+    });
+    if (!guestBtn) return;
+    if (total >= MAX_TOTAL) {
+      guestBtn.disabled = true;
+      guestBtn.style.opacity = '0.45';
+      guestBtn.title = '총 체험 횟수(' + MAX_TOTAL + '회)를 모두 사용하셨습니다.';
+      return;
+    }
+    if (todayCount >= MAX_DAILY) {
+      guestBtn.disabled = true;
+      guestBtn.style.opacity = '0.45';
+      guestBtn.title = '오늘의 체험 횟수(1회)를 이미 사용하셨습니다.';
+      return;
+    }
+    guestBtn.disabled = false;
+    guestBtn.style.opacity = '';
+  }
+  function _gkGuestRecord() {
+    var total = parseInt(localStorage.getItem(KEY_TOTAL) || '0', 10);
+    var lastDate = localStorage.getItem(KEY_DATE) || '';
+    var todayCount = parseInt(localStorage.getItem(KEY_TODAY) || '0', 10);
+    var today = new Date().toISOString().slice(0, 10);
+    if (lastDate !== today) { todayCount = 0; }
+    total = total + 1; todayCount = todayCount + 1;
+    localStorage.setItem(KEY_TOTAL, String(total));
+    localStorage.setItem(KEY_TODAY, String(todayCount));
+    localStorage.setItem(KEY_DATE, today);
+  }
+  window._gkGuestCheck = _gkGuestCheck;
+  window._gkGuestRecord = _gkGuestRecord;
+  setTimeout(_gkGuestCheck, 400);
+  setTimeout(_gkGuestCheck, 1200);
+})();
+</script>""", unsafe_allow_html=True)
                         st.markdown("""
 <div style="margin:10px 0 4px 0;display:flex;align-items:center;gap:8px;">
   <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#334155,transparent);"></div>
@@ -13065,6 +14294,28 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                         if st.button("👁️ 로그인 없이 체험하기", key="btn_guest_enter",
                                      use_container_width=True):
                             import uuid as _gu
+                            # ── [제51.2조 §2] 서버사이드 기기 지문 검증 ──────────
+                            _g_fp = st.session_state.get("_gp75_current_fp", "")
+                            if _g_fp:
+                                _g_gate = _gp512_check_and_record(_g_fp)
+                                if not _g_gate["allowed"]:
+                                    st.error(
+                                        f"⛔ **체험 제한 안내**\n\n{_g_gate['reason']}\n\n"
+                                        f"— 총 방문: {_g_gate['total_visits']}회 / "
+                                        f"남은 횟수: {_g_gate['remaining']}회"
+                                    )
+                                    st.stop()
+                                # 남은 횟수를 세션에 저장 (배너용)
+                                st.session_state["_gp512_remaining"] = _g_gate["remaining"]
+                            else:
+                                # FP 미수집 시 세션 내 소프트 카운터로 폴백
+                                _g_soft = st.session_state.get("_gp512_soft_count", 0)
+                                if _g_soft >= _GP512_MAX_TOTAL:
+                                    st.error("⛔ 체험 횟수를 모두 사용하셨습니다. 회원가입 후 이용해 주세요.")
+                                    st.stop()
+                                st.session_state["_gp512_soft_count"] = _g_soft + 1
+                                st.session_state["_gp512_remaining"] = max(0, _GP512_MAX_TOTAL - _g_soft - 1)
+                            # ── 진입 허용 처리 ─────────────────────────────────────
                             st.session_state["_user_role"]   = "GUEST"
                             st.session_state["user_id"]      = ""
                             st.session_state["user_name"]    = "체험 게스트"
@@ -13275,7 +14526,30 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                                         _LoginGuard.record_success(pw_name)
                                         _pw_members[pw_name]["contact"] = encrypt_contact(pw_new1)
                                         save_members(_pw_members)
-                                        st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
+                                        # ── 제75조 §3 기기 대조 Case A/B ─────────────────
+                                        _pw_fp_now = st.session_state.get("_gp75_current_fp", "")
+                                        _pw_uid    = _pw_members.get(pw_name, {}).get("user_id", "")
+                                        _pw_known  = _gp75_get_all_devices(_pw_uid) if _pw_uid else []
+                                        _pw_known_fps = [d.get("fp_id", "") for d in _pw_known]
+                                        if _pw_fp_now and _pw_fp_now in _pw_known_fps:
+                                            # Case A: 기존 등록 기기 — 간소 절차
+                                            st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
+                                            st.info(
+                                                "🟢 **[제75조 Case A] 신뢰 기기 확인됨**\n\n"
+                                                "현재 기기가 기존에 로그인했던 기기와 일치합니다. "
+                                                "비번 변경이 정상 처리되었습니다.",
+                                                icon=None,
+                                            )
+                                        else:
+                                            # Case B: 미등록 기기 — 강화 절차
+                                            st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
+                                            st.warning(
+                                                "🔴 **[제75조 Case B] 미등록 기기 감지**\n\n"
+                                                "현재 기기가 기존 로그인 기기 목록에 없습니다. "
+                                                "본인이 직접 변경한 것이 맞다면 새 연락처로 로그인 후 기기가 자동 등록됩니다.\n\n"
+                                                "**본인이 아닌 경우 즉시 운영자(010-3074-2616)에게 문의하세요.**",
+                                                icon=None,
+                                            )
                     st.markdown("""
     <div style='border:2px solid #f97316;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#9a3412;margin-top:6px;margin-bottom:6px;line-height:1.8;background:#fff7ed;'>
     ⚠️ <b>비번(연락처)을 잊어버리신 경우</b><br>
@@ -13551,20 +14825,8 @@ setTimeout(function(){
 
             _lo_col1, _lo_col2 = st.columns(2)
             with _lo_col1:
-                if st.button("🔓 로그아웃", key="btn_logout", use_container_width=True):
-                    _session_checkout(st.session_state.get("user_id", ""))
-                    # RAG 캐시 _db_loaded 리셋 — 재로그인 시 Supabase에서 강제 재로드
-                    try:
-                        _get_rag_store().update({"docs": [], "_db_loaded": False})
-                    except Exception:
-                        pass
-                    # 명시적 로그아웃 플래그 설정 → 세션 보호 로직이 복원하지 않도록
-                    st.session_state["_logout_flag"] = True
-                    for _k in ["_saved_user_id", "_saved_user_name", "_saved_is_admin",
-                                "_saved_join_date", "_saved_admin_tab_auth", "_admin_tab_auth"]:
-                        st.session_state.pop(_k, None)
-                    st.session_state.clear()
-                    st.rerun()
+                # [제82조] 구형 로그아웃 버튼 소거 — 전역 nav bar(_gp82_render_nav_bar)로 대체됨
+                pass
             with _lo_col2:
                 if st.button("🗑️ 초기화", key="btn_suggest_clear_sb", use_container_width=True):
                     st.session_state["suggest_input_sb"] = ""
@@ -14028,6 +15290,9 @@ section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {{
     _sb_goto = st.session_state.pop("_sb_goto_tab", None)
     if _sb_goto:
         _go_tab(_sb_goto)
+
+    # ── [제82조] 전역 안보 내비게이션 바 — 탭 렌더링 직전 최상단 ─────────
+    _gp82_render_nav_bar()
 
     # ── 공통 AI 쿼리 블록 ────────────────────────────────────────────────
     def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요.", product_key=""):
@@ -17454,6 +18719,13 @@ renderCalendar();
             },
         }
 
+        # ── GP-72 §1: 담보 금액 파싱 헬퍼 (블록 스코프 외부 정의) ─────────────
+        def _parse_amt_cov(p):
+            try:
+                return float(str(p.get("amount", 0)).replace(",", "").replace("만원", "") or 0)
+            except Exception:
+                return 0.0
+
         # ── GP-68 §2 + GP-70 §1 + GP-71 §1: 총 경제적 위협액 산출 함수 ────────
         def _gp68_calc_loss(
             disease_name: str, period_months: int,
@@ -17833,12 +19105,6 @@ renderCalendar();
             _KW_IMMUNO = ["면역항암", "면역치료"]
             _KW_MAJOR  = ["암주요치료비", "주요치료비", "암주요"]
 
-            def _parse_amt(p):
-                try:
-                    return float(str(p.get("amount", 0)).replace(",", "").replace("만원", "") or 0)
-                except Exception:
-                    return 0.0
-
             # 시나리오별 담보 분리
             _sc_drug   = [p for p in _gp71_policies if any(kw in str(p.get("name","")) for kw in _KW_DRUG)]
             _sc_rad    = [p for p in _gp71_policies if any(kw in str(p.get("name","")) for kw in _KW_RAD)]
@@ -17846,16 +19112,16 @@ renderCalendar();
             _sc_major  = [p for p in _gp71_policies if any(kw in str(p.get("name","")) for kw in _KW_MAJOR)]
 
             # GP-72: 상호배타적 — 약물 vs 방사선 중 최대값 1개만 유효 자산 인정
-            _amt_drug   = sum(_parse_amt(p) for p in _sc_drug)
-            _amt_rad    = sum(_parse_amt(p) for p in _sc_rad)
-            _amt_immuno = sum(_parse_amt(p) for p in _sc_immuno)
+            _amt_drug   = sum(_parse_amt_cov(p) for p in _sc_drug)
+            _amt_rad    = sum(_parse_amt_cov(p) for p in _sc_rad)
+            _amt_immuno = sum(_parse_amt_cov(p) for p in _sc_immuno)
             _amt_drug_excl = max(_amt_drug, _amt_rad)   # 중복 합산 금지, 최대값만
             _scenario_drug_label  = "💊 약물치료 시 가용"
             _scenario_rad_label   = "☢️ 방사선치료 시 가용"
             _scenario_excl_note   = "※ 약물·방사선 중 실제 선택 치료 1가지만 수령 가능"
 
             # GP-73: 암주요치료비 5년 캡 — 연간 지급액 × min(약관기간, 5)
-            _amt_major_raw = sum(_parse_amt(p) for p in _sc_major)
+            _amt_major_raw = sum(_parse_amt_cov(p) for p in _sc_major)
             # 연간 단위 추정: 총액을 10년 기준 역산 후 5년 캡 적용
             _amt_major_5yr = _amt_major_raw * 0.5   # 10년 기준일 때 5년 = 50%
             _amt_major_bonus = _amt_major_raw - _amt_major_5yr  # 6~10년 '희망 보장 영역'
@@ -25888,6 +27154,38 @@ box-shadow:0 0 24px rgba(56,189,248,0.15);">
   {_res['sync_notice']}
 </div>""", unsafe_allow_html=True)
 
+            # ── 제81조 GP_81_Logic: 5단계 구조 답변 ──────────────────────────
+            if _last_q.strip():
+                st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='font-size:0.78rem;font-weight:700;color:#6b7280;"
+                    "letter-spacing:0.06em;margin-bottom:6px;'>"
+                    "📐 제81조 통합 안보 지식 엔진 · 5단계 구조 분석</div>",
+                    unsafe_allow_html=True,
+                )
+                _gp81_income = st.session_state.get("gp81_income_input", 0)
+                _gp81_result = _gp81_build_answer(
+                    term=_last_q.strip(),
+                    domain="",
+                    customer_income=_gp81_income,
+                )
+                _gp81_md = _gp81_result.get("full_md", "")
+                with st.expander("📘 5단계 구조 답변 전체 보기", expanded=False):
+                    st.markdown(_gp81_md)
+                # 소득 입력 위젯 (장해 시뮬레이션용)
+                with st.expander("💼 장해 경제적 손실 시뮬레이션 (소득 입력)", expanded=False):
+                    _income_val = st.number_input(
+                        "고객 월소득 (원)",
+                        min_value=0,
+                        max_value=100_000_000,
+                        value=_gp81_income,
+                        step=100_000,
+                        key="gp81_income_input",
+                        format="%d",
+                    )
+                    if st.button("🔄 소득 기준 재계산", key="gp81_recalc", use_container_width=True):
+                        st.rerun()
+
         else:
             st.markdown("""
 <div style="text-align:center;padding:32px 0;color:#94a3b8;">
@@ -31200,8 +32498,8 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                     st.code(_gsm_err_msg, language="python")
             else:
                 _svc_status = _gsm_admin.get_status(st.session_state)
-                _adm_t1, _adm_t2, _adm_t3, _adm_t4 = st.tabs([
-                    "📡 스캔 상태", "🎤 STT 설정", "🔍 크롤링 관리", "📚 RAG 인덱스"
+                _adm_t1, _adm_t2, _adm_t3, _adm_t4, _adm_t5 = st.tabs([
+                    "📡 스캔 상태", "🎤 STT 설정", "🔍 크롤링 관리", "📚 RAG 인덱스", "🔬 자가 진단 (제76조)"
                 ])
 
                 # ── 탭1: 스캔 SSOT 상태 ──────────────────────────────────
@@ -31339,6 +32637,362 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
                                         st.text(h.get("text","")[:400])
                             else:
                                 st.info("검색 결과 없음")
+
+                # ══════════════════════════════════════════════════════════════
+                # 탭5: 제76조 시스템 자가 진단 (Functional Integrity Audit)
+                # ══════════════════════════════════════════════════════════════
+                with _adm_t5:
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#0d1b2a,#1a2e4a);
+  border-radius:12px;padding:14px 18px;margin:4px 0 12px;
+  border-left:5px solid #D4AF37;">
+  <span style="color:#D4AF37;font-weight:900;font-size:1rem;">🔬 시스템 자가 진단 센터 — 가이딩 프로토콜 제76/77조</span><br>
+  <span style="color:#94a3b8;font-size:0.76rem;">더미 데이터를 주입하여 핵심 계산 엔진의 정상 작동 여부를 전수 검증합니다.</span>
+</div>""", unsafe_allow_html=True)
+
+                    if st.button("🚀 전체 자가 진단 실행", key="adm_art76_run",
+                                 type="primary", use_container_width=True):
+                        import time as _t76
+                        _audit_results = []
+                        _type_b_list   = []
+
+                        # ── 진단 1: 보험금 역산 엔진 (제32조) ─────────────────
+                        try:
+                            _nhis_test = 250000  # 25만원
+                            _nhis_rate = _GP64_MASTER_CONFIG.get("nhis_rate_pct", 7.09) / 100
+                            _inc_est   = round(_nhis_test / _nhis_rate / 10000, 1)
+                            _daily_val = round(_inc_est / 30, 1)
+                            _brain_rec = round(_inc_est * _ART32_STROKE_PERIOD_MO, 0)
+                            _cancer_rec = _ART32_CANCER_ADV_REC / 10000
+                            assert _inc_est > 0 and _brain_rec > 0
+                            _audit_results.append({
+                                "name": "보험금 역산 엔진 (제32조)",
+                                "status": "pass",
+                                "detail": (
+                                    f"건보료 25만원 → 추정월소득 {_inc_est:,.1f}만원 "
+                                    f"| 뇌혈관 권장 {_brain_rec:,.0f}만원 "
+                                    f"| 암 권장 {_cancer_rec:,.0f}만원"
+                                ),
+                                "type": "A",
+                            })
+                        except Exception as _e76:
+                            _audit_results.append({
+                                "name": "보험금 역산 엔진 (제32조)",
+                                "status": "fail",
+                                "detail": f"오류: {_e76}",
+                                "action": "_GP64_MASTER_CONFIG nhis_rate_pct 값 확인 필요",
+                                "type": "A",
+                            })
+
+                        # ── 진단 2: GP-68 경제적 손실 추정기 (전체 질병 × 전체 기간) ──
+                        try:
+                            _gp68_pass = 0
+                            _gp68_fail = []
+                            _gp68_diseases_test = list(_GP68_DISEASE_DB.keys())
+                            _gp68_periods_test  = [24, 36, 60]
+                            _gp68_modes_test    = [False, True]
+                            _gp68_total = len(_gp68_diseases_test) * len(_gp68_periods_test) * len(_gp68_modes_test)
+                            for _dn in _gp68_diseases_test:
+                                for _pm in _gp68_periods_test:
+                                    for _bm in _gp68_modes_test:
+                                        _r = _gp68_calc_loss(_dn, _pm, 300.0, big5_mode=_bm)
+                                        if _r and _r.get("total", 0) > 0:
+                                            _gp68_pass += 1
+                                        else:
+                                            _gp68_fail.append(f"{_dn}/{_pm}개월/{'big5' if _bm else 'std'}")
+                            if not _gp68_fail:
+                                _audit_results.append({
+                                    "name": "GP-68 경제적 손실 추정기",
+                                    "status": "pass",
+                                    "detail": (
+                                        f"전체 {_gp68_total}개 조합 ({len(_gp68_diseases_test)}질병 × "
+                                        f"{len(_gp68_periods_test)}기간 × 2모드) 전부 산출 성공"
+                                    ),
+                                    "type": "A",
+                                })
+                            else:
+                                _audit_results.append({
+                                    "name": "GP-68 경제적 손실 추정기",
+                                    "status": "warn",
+                                    "detail": (
+                                        f"{_gp68_pass}/{_gp68_total} 성공 | "
+                                        f"실패: {', '.join(_gp68_fail[:5])}"
+                                    ),
+                                    "action": "실패 조합의 _GP68_DISEASE_DB 데이터 키 누락 확인",
+                                    "type": "A",
+                                })
+                        except Exception as _e76:
+                            _audit_results.append({
+                                "name": "GP-68 경제적 손실 추정기",
+                                "status": "fail",
+                                "detail": f"오류: {_e76}",
+                                "action": "_gp68_calc_loss 함수 또는 _GP68_DISEASE_DB 구조 확인",
+                                "type": "A",
+                            })
+
+                        # ── 진단 3: 화재보험 가액 산출기 ─────────────────────
+                        try:
+                            _gp64_unit = _GP64_MASTER_CONFIG.get("fire_rc_unit_price", 0)
+                            if _gp64_unit > 0:
+                                _area_test  = 1000.0  # 연면적 1,000㎡
+                                _bldg_val   = int(_area_test * _gp64_unit)
+                                _dep_years  = _GP64_MASTER_CONFIG.get("fire_depreciation_yrs", 30)
+                                _dep_rate   = _GP64_MASTER_CONFIG.get("fire_depreciation_rate", 0.9)
+                                _dep_val    = int(_bldg_val * _dep_rate)
+                                assert _bldg_val > 0 and _dep_val > 0
+                                _audit_results.append({
+                                    "name": "화재보험 가액 산출기 (GP-64)",
+                                    "status": "pass",
+                                    "detail": (
+                                        f"연면적 1,000㎡ / RC조 → 건물가액 {_bldg_val:,}만원 "
+                                        f"| 감가 후 {_dep_val:,}만원"
+                                    ),
+                                    "type": "A",
+                                })
+                            else:
+                                _audit_results.append({
+                                    "name": "화재보험 가액 산출기 (GP-64)",
+                                    "status": "warn",
+                                    "detail": "fire_rc_unit_price = 0 — 기준 단가 미설정",
+                                    "action": "관리자 설정 > GP-64 마스터 설정에서 RC조 단가(fire_rc_unit_price) 입력 필요",
+                                    "type": "B",
+                                })
+                                _type_b_list.append("화재보험 RC조 단가표 (fire_rc_unit_price)")
+                        except Exception as _e76:
+                            _audit_results.append({
+                                "name": "화재보험 가액 산출기 (GP-64)",
+                                "status": "fail",
+                                "detail": f"오류: {_e76}",
+                                "action": "_GP64_MASTER_CONFIG fire_rc_unit_price 키 확인",
+                                "type": "A",
+                            })
+
+                        # ── 진단 4: RAG 시스템 응답성 ─────────────────────────
+                        try:
+                            _rag_stt = _svc_status.get("rag", {})
+                            _rag_cnt = _rag_stt.get("indexed_count", 0)
+                            if _rag_cnt > 0:
+                                _rag_hits = _gsm_admin.rag.search(
+                                    "표적항암제 담보", st.session_state, k=1
+                                )
+                                if _rag_hits:
+                                    _audit_results.append({
+                                        "name": "RAG 지식 베이스 응답성",
+                                        "status": "pass",
+                                        "detail": (
+                                            f"인덱싱 {_rag_cnt}개 상품 | "
+                                            f"'표적항암제 담보' 검색 → {len(_rag_hits)}건 응답"
+                                        ),
+                                        "type": "A",
+                                    })
+                                else:
+                                    _audit_results.append({
+                                        "name": "RAG 지식 베이스 응답성",
+                                        "status": "warn",
+                                        "detail": f"인덱싱 {_rag_cnt}개이나 검색 응답 없음",
+                                        "action": "RAG 인덱스 재구축 또는 embedding 모델 확인 필요",
+                                        "type": "B",
+                                    })
+                                    _type_b_list.append("RAG 임베딩 모델 / Supabase pgvector 연결")
+                            else:
+                                _audit_results.append({
+                                    "name": "RAG 지식 베이스 응답성",
+                                    "status": "warn",
+                                    "detail": "인덱싱된 약관 없음 — 검색 불가",
+                                    "action": "약관 스캔 후 RAG 인덱스 탭에서 인덱싱을 먼저 수행하세요",
+                                    "type": "B",
+                                })
+                                _type_b_list.append("약관 RAG 인덱스 (약관 스캔 및 인덱싱 필요)")
+                        except Exception as _e76:
+                            _audit_results.append({
+                                "name": "RAG 지식 베이스 응답성",
+                                "status": "fail",
+                                "detail": f"오류: {_e76}",
+                                "action": "ServiceManager.rag 초기화 상태 및 Supabase 연결 확인",
+                                "type": "B",
+                            })
+                            _type_b_list.append("Supabase RAG 연결")
+
+                        # ── 진단 5: 외부 API 테스트 불가 항목 ─────────────────
+                        _untestable = [
+                            ("OCR 보험증권 스캔", "하드웨어(카메라) + 외부 Vision API 필요"),
+                            ("STT 음성 인식", "마이크 하드웨어 + 브라우저 Web Speech API 필요"),
+                            ("약관 JIT 크롤링", "외부 웹사이트 실시간 접근 + 인터넷 연결 필요"),
+                            ("AI 봇 OpenAI 응답", "OpenAI API 키 인증 + 외부 네트워크 필요"),
+                        ]
+
+                        # ── 준비도 점수 산출 ───────────────────────────────────
+                        _n_pass = sum(1 for r in _audit_results if r["status"] == "pass")
+                        _n_warn = sum(1 for r in _audit_results if r["status"] == "warn")
+                        _n_fail = sum(1 for r in _audit_results if r["status"] == "fail")
+                        _n_total = len(_audit_results)
+                        _readiness_pct = round((_n_pass + _n_warn * 0.5) / max(_n_total, 1) * 100)
+
+                        st.session_state["_art76_audit_result"] = {
+                            "results": _audit_results,
+                            "readiness": _readiness_pct,
+                            "type_b": _type_b_list,
+                            "untestable": _untestable,
+                        }
+                        st.rerun()
+
+                    # ── 진단 결과 표시 ─────────────────────────────────────────
+                    _prev_audit = st.session_state.get("_art76_audit_result")
+                    if _prev_audit:
+                        _res       = _prev_audit["results"]
+                        _rdy       = _prev_audit["readiness"]
+                        _tb_list   = _prev_audit["type_b"]
+                        _untestable = _prev_audit["untestable"]
+
+                        # 준비도 게이지
+                        _rdy_color = "#22c55e" if _rdy >= 90 else ("#f59e0b" if _rdy >= 70 else "#ef4444")
+                        _rdy_icon  = "✅" if _rdy >= 90 else ("⚠️" if _rdy >= 70 else "🚨")
+                        st.markdown(f"""
+<div style="background:rgba(255,255,255,0.05);border:2px solid {_rdy_color};
+  border-radius:12px;padding:14px 20px;margin:8px 0 14px;text-align:center;">
+  <div style="font-size:2.2rem;font-weight:900;color:{_rdy_color};">{_rdy_icon} {_rdy}%</div>
+  <div style="color:#94a3b8;font-size:0.82rem;margin-top:2px;">시스템 준비도 (Readiness Score)</div>
+  <div style="color:#64748b;font-size:0.72rem;">
+    ✅ 정상 {sum(1 for r in _res if r["status"]=="pass")}건 &nbsp;|&nbsp;
+    ⚠️ 경고 {sum(1 for r in _res if r["status"]=="warn")}건 &nbsp;|&nbsp;
+    ❌ 실패 {sum(1 for r in _res if r["status"]=="fail")}건
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                        # 항목별 결과
+                        st.markdown("#### 📋 기능별 진단 결과")
+                        for _r in _res:
+                            _s = _r["status"]
+                            _s_icon  = "✅" if _s == "pass" else ("⚠️" if _s == "warn" else "❌")
+                            _s_color = "#22c55e" if _s == "pass" else ("#f59e0b" if _s == "warn" else "#ef4444")
+                            _s_bg    = "rgba(34,197,94,0.08)" if _s == "pass" else (
+                                       "rgba(245,158,11,0.10)" if _s == "warn" else "rgba(239,68,68,0.10)")
+                            _type_badge = (
+                                '<span style="font-size:0.65rem;background:#334155;color:#94a3b8;'
+                                'padding:1px 5px;border-radius:6px;margin-left:5px;">Type-B</span>'
+                                if _r.get("type") == "B" else
+                                '<span style="font-size:0.65rem;background:#1e3a5f;color:#7ec8f5;'
+                                'padding:1px 5px;border-radius:6px;margin-left:5px;">Type-A</span>'
+                            )
+                            _action_html = (
+                                f'<div style="color:#f59e0b;font-size:0.72rem;margin-top:3px;">'
+                                f'👉 <b>[관리자 조치]</b> {_r["action"]}</div>'
+                            ) if _r.get("action") else ""
+                            st.markdown(f"""
+<div style="background:{_s_bg};border:1px solid {_s_color}33;
+  border-radius:8px;padding:8px 12px;margin-bottom:6px;">
+  <div style="font-weight:700;color:#e2e8f0;font-size:0.85rem;">
+    {_s_icon} {_r['name']} {_type_badge}
+  </div>
+  <div style="color:#94a3b8;font-size:0.78rem;margin-top:2px;">{_r['detail']}</div>
+  {_action_html}
+</div>""", unsafe_allow_html=True)
+
+                        # Type-B 관리자 조치 리스트
+                        if _tb_list:
+                            st.markdown("#### 🔧 Type-B: 관리자 조치 필요 항목")
+                            for _tb in _tb_list:
+                                st.warning(f"📌 {_tb}")
+
+                        # 테스트 불가 항목
+                        with st.expander("🚫 테스트 불가 항목 (Type-B 외부 의존)", expanded=False):
+                            for _un_name, _un_reason in _untestable:
+                                st.caption(f"**{_un_name}** — {_un_reason}")
+
+                        # 자가 치유 보고서 (제77조)
+                        st.markdown("#### 🩹 제77조 자가 치유 보고서")
+                        _type_a_passed = [r for r in _res if r["status"] == "pass" and r.get("type") == "A"]
+                        _type_a_warn   = [r for r in _res if r["status"] in ("warn", "fail") and r.get("type") == "A"]
+                        if _type_a_warn:
+                            st.error(
+                                f"⚠️ Type-A 수정 가능 결함 {len(_type_a_warn)}건 발견. "
+                                "위 관리자 조치 항목을 확인 후 코드를 수정하세요."
+                            )
+                        else:
+                            st.success(
+                                f"✅ Type-A (자가 수정 가능) 결함 없음 — "
+                                f"{len(_type_a_passed)}개 계산 엔진 모두 정상 작동 중"
+                            )
+                        if _tb_list:
+                            st.info(
+                                f"📋 Type-B (외부 데이터/설정 필요) 항목 {len(_tb_list)}건: "
+                                + " / ".join(_tb_list)
+                            )
+                    else:
+                        st.info("위 버튼을 눌러 자가 진단을 실행하세요.")
+
+                    # ══════════════════════════════════════════════════════════
+                    # 제75조 §5 관리자용 기기 일치 여부 판정 도구
+                    # ══════════════════════════════════════════════════════════
+                    st.markdown("<hr style='margin:20px 0 14px;border-color:#1e3a5f;'>", unsafe_allow_html=True)
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#0d1b2a,#1a3050);
+  border-radius:10px;padding:12px 16px;margin-bottom:10px;
+  border-left:4px solid #3b82f6;">
+  <span style="color:#7ec8f5;font-weight:800;font-size:0.9rem;">🔑 제75조 §5 — 고객 기기 일치 여부 판정 도구</span><br>
+  <span style="color:#64748b;font-size:0.74rem;">회원 이름을 입력하면 등록된 기기 지문 이력을 조회하고 신뢰 수준을 판정합니다.</span>
+</div>""", unsafe_allow_html=True)
+
+                    _adm75_col1, _adm75_col2 = st.columns([2, 1])
+                    with _adm75_col1:
+                        _adm75_name = st.text_input(
+                            "회원 이름 (로그인 name 기준)",
+                            key="adm75_target_name",
+                            placeholder="예: 홍길동",
+                            label_visibility="collapsed",
+                        )
+                    with _adm75_col2:
+                        _adm75_run = st.button("🔍 기기 이력 조회", key="adm75_run_btn",
+                                               use_container_width=True)
+
+                    if _adm75_run and _adm75_name:
+                        _adm75_devices = _gp75_get_all_devices(_adm75_name)
+                        if not _adm75_devices:
+                            st.warning(f"⚠️ **{_adm75_name}** 회원의 기기 이력이 없습니다. (미로그인 또는 DB 미기록)")
+                        else:
+                            # 현재 세션의 기기 지문
+                            _adm75_cur_fp = st.session_state.get("_gp75_current_fp", "")
+                            _adm75_known_fps = [d.get("fp_id", "") for d in _adm75_devices]
+
+                            # 판정
+                            if _adm75_cur_fp and _adm75_cur_fp in _adm75_known_fps:
+                                _adm75_verdict = "🟢 일치 (Case A — 신뢰 기기)"
+                                _adm75_color   = "#22c55e"
+                                _adm75_bg      = "rgba(34,197,94,0.08)"
+                            elif _adm75_cur_fp:
+                                _adm75_verdict = "🔴 불일치 (Case B — 미등록 기기)"
+                                _adm75_color   = "#ef4444"
+                                _adm75_bg      = "rgba(239,68,68,0.10)"
+                            else:
+                                _adm75_verdict = "⬜ 현재 세션 기기 지문 없음 (비교 불가)"
+                                _adm75_color   = "#94a3b8"
+                                _adm75_bg      = "rgba(148,163,184,0.08)"
+
+                            st.markdown(f"""
+<div style="background:{_adm75_bg};border:1.5px solid {_adm75_color}44;
+  border-radius:10px;padding:12px 16px;margin:6px 0 10px;">
+  <div style="font-size:0.88rem;font-weight:800;color:{_adm75_color};">{_adm75_verdict}</div>
+  <div style="color:#94a3b8;font-size:0.76rem;margin-top:4px;">
+    현재 세션 FP: <code>{_adm75_cur_fp or "(없음)"}</code>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                            # 등록 기기 이력 표시
+                            st.markdown(f"##### 📱 {_adm75_name} 님의 등록 기기 이력 ({len(_adm75_devices)}건)")
+                            for _idx, _dv in enumerate(_adm75_devices, 1):
+                                _dv_fp   = _dv.get("fp_id", "")
+                                _dv_ua   = _dv.get("ua_hint", "")
+                                _dv_ts   = _dv.get("last_seen", "")
+                                _dv_match = "🟢 현재 세션 일치" if _dv_fp == _adm75_cur_fp else ""
+                                st.markdown(f"""
+<div style="background:rgba(255,255,255,0.03);border:1px solid #1e3a5f;
+  border-radius:7px;padding:7px 12px;margin-bottom:4px;font-size:0.78rem;color:#cbd5e1;">
+  <b>#{_idx}</b> &nbsp; FP: <code>{_dv_fp}</code>
+  &nbsp; {_dv_match}<br>
+  <span style="color:#64748b;">UA: {_dv_ua or "(없음)"} &nbsp;|&nbsp; 최근 로그인: {_dv_ts}</span>
+</div>""", unsafe_allow_html=True)
+                    elif _adm75_run and not _adm75_name:
+                        st.error("회원 이름을 입력하세요.")
 
             st.divider()
             # ══════════════════════════════════════════════════════════════
