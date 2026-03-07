@@ -15350,7 +15350,8 @@ watchRipple();
 </script>""", height=0)
 
         # ── [제53조] 로그인/게스트 전환 직후 사이드바 강제 접힘 (1회성) ──
-        if _just_logged_in_flag:
+        _login_just_done = st.session_state.pop("_login_just_done", False)
+        if _just_logged_in_flag or _login_just_done:
             st.session_state.pop("_auto_close_sidebar", None)
             components.html("""
 <script>
@@ -15393,28 +15394,30 @@ watchRipple();
     } catch(e) { return false; }
   }
   var _attempts = 0;
+  var _maxAttempts = 20;
   function runClose() {
     try {
       var pd = window.parent ? window.parent.document : document;
       if (isSidebarOpen(pd)) {
-        if (!tryClose(pd) && _attempts < 15) {
+        var closed = tryClose(pd);
+        if (!closed && _attempts < _maxAttempts) {
           _attempts++;
-          setTimeout(runClose, 300);
+          setTimeout(runClose, 400);
         }
-      } else if (_attempts < 15) {
+      } else if (_attempts < _maxAttempts) {
         _attempts++;
-        setTimeout(runClose, 300);
+        setTimeout(runClose, 400);
       }
     } catch(e) {
-      if (_attempts < 15) { _attempts++; setTimeout(runClose, 300); }
+      if (_attempts < _maxAttempts) { _attempts++; setTimeout(runClose, 400); }
     }
   }
-  setTimeout(runClose, 100);
-  setTimeout(runClose, 400);
+  setTimeout(runClose, 300);
   setTimeout(runClose, 800);
-  setTimeout(runClose, 1400);
-  setTimeout(runClose, 2200);
-  setTimeout(runClose, 3500);
+  setTimeout(runClose, 1500);
+  setTimeout(runClose, 2500);
+  setTimeout(runClose, 4000);
+  setTimeout(runClose, 6000);
 })();
 </script>""", height=0)
 
@@ -17083,11 +17086,6 @@ setTimeout(function(){
         # [제40조 §3] Watchdog JS — 탭 전환 타이밍 측정 (500ms 초과 시 console.warn)
         st.session_state["_s40_watchdog_tab"] = dest
         st.rerun()
-
-    # ── 사이드바 빠른 실행버튼 플래그 처리 (_go_tab 정의 이후) ───────────
-    _sb_goto = st.session_state.pop("_sb_goto_tab", None)
-    if _sb_goto:
-        _go_tab(_sb_goto)
 
     # ── [제82조] 전역 안보 내비게이션 바 — 탭 렌더링 직전 최상단 ─────────
     _gp82_render_nav_bar()
