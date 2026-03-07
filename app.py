@@ -16934,6 +16934,51 @@ section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {{
         _s39_render_landing_page()
         st.stop()
 
+    # ── [제39조 §5] 랜딩 후 비로그인 → 메인 영역에 로그인 안내 UI ──────────
+    # HuggingFace Spaces iframe 환경에서 JS 사이드바 열기가 불안정하므로
+    # 메인 영역에 직접 로그인 유도 버튼을 표시 (사이드바 안내 병행)
+    if not _is_logged_in and _landing_done:
+        st.markdown("""
+<style>
+.gk-login-guide {
+  max-width: 460px; margin: 60px auto 0 auto;
+  background: linear-gradient(135deg,#0a1e35 0%,#0d2747 100%);
+  border: 1.5px solid #0ea5e9; border-radius: 20px;
+  padding: 36px 28px 28px 28px; text-align: center;
+  box-shadow: 0 8px 32px rgba(14,165,233,0.25);
+}
+.gk-login-guide .gk-lg-title {
+  font-size: 1.5rem; font-weight: 900; color: #f0c040;
+  margin-bottom: 10px; letter-spacing: -0.01em;
+}
+.gk-login-guide .gk-lg-sub {
+  font-size: 0.95rem; color: #cbd5e1; margin-bottom: 24px; line-height: 1.6;
+}
+.gk-login-guide .gk-lg-arrow {
+  font-size: 2rem; color: #0ea5e9; margin-bottom: 8px;
+  animation: gk-bounce 1.2s infinite;
+}
+@keyframes gk-bounce {
+  0%,100%{transform:translateX(-6px)} 50%{transform:translateX(6px)}
+}
+</style>
+<div class="gk-login-guide">
+  <div class="gk-lg-title">🏆 Goldkey AI</div>
+  <div class="gk-lg-sub">
+    <b>로그인/회원가입</b>은 왼쪽 사이드바에서 진행합니다.<br>
+    아래 버튼을 누르거나 화면 왼쪽 상단 <b>☰ 메뉴</b>를 터치하세요.
+  </div>
+  <div class="gk-lg-arrow">👈</div>
+</div>""", unsafe_allow_html=True)
+
+        col_a, col_b, col_c = st.columns([1, 2, 1])
+        with col_b:
+            if st.button("☰ 사이드바 열기 / 로그인", key="_main_open_sidebar_btn",
+                         use_container_width=True, type="primary"):
+                st.session_state["_open_sidebar"] = True
+                st.rerun()
+        st.stop()
+
     if 'current_tab' not in st.session_state:
         st.session_state.current_tab = "home"
     if '_nav_history' not in st.session_state:
