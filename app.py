@@ -15996,8 +15996,8 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                                              use_container_width=True, type="primary")
 
                         if _btn_otp:
-                            _ln_a = ln_a.strip() if ln_a else ""
-                            _lc_a = lc_a.strip() if lc_a else ""
+                            _ln_a = (st.session_state.get("hlp_name_a") or ln_a or "").strip()
+                            _lc_a = (st.session_state.get("hlp_contact_a") or lc_a or "").strip()
                             if not _ln_a or len(_ln_a) < 2:
                                 st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
                             elif not _re2.fullmatch(r'[0-9]{10,11}', _lc_a):
