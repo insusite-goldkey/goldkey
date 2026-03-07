@@ -16705,16 +16705,6 @@ section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {{
                     if st.button("⚙️ 시스템\n환경설정", key="sb_admin_settings", use_container_width=True):
                         st.session_state["_sb_goto_tab"] = "t9"
                         st.rerun()
-                # ── Row 6: 나머지 메뉴 ───────────────────────────────────
-                _ex_r6c1, _ex_r6c2 = st.columns(2)
-                with _ex_r6c1:
-                    if st.button("📅 일정달력", key="sb_calendar", use_container_width=True):
-                        st.session_state["_sb_goto_tab"] = "calendar"
-                        st.rerun()
-                with _ex_r6c2:
-                    if st.button("📜 약관검색", key="sb_policy_terms", use_container_width=True):
-                        st.session_state["_sb_goto_tab"] = "policy_terms"
-                        st.rerun()
             st.markdown("""<div style="border-bottom:2.5px solid #004D40;
   border-left:2.5px solid #004D40;border-right:2.5px solid #004D40;
   border-radius:0 0 12px 12px;height:6px;margin-top:0;margin-bottom:6px;
