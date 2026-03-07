@@ -1349,26 +1349,6 @@ html, body {{
     font-size:clamp(1.4rem,5.5vw,2.2rem) !important;
   }}
 }}
-/* 카운트다운 원형 타이머 */
-#gk-countdown-ring {{
-  position:relative;width:56px;height:56px;margin:0 auto 14px auto;
-}}
-#gk-countdown-ring svg {{
-  transform:rotate(-90deg);
-}}
-#gk-countdown-ring circle {{
-  fill:none;stroke-width:4;
-}}
-#gk-countdown-ring .bg {{ stroke:rgba(255,255,255,0.18); }}
-#gk-countdown-ring .fg {{ stroke:#f0c040;stroke-linecap:round;
-  stroke-dasharray:138;stroke-dashoffset:0;
-  transition:stroke-dashoffset 1s linear;
-}}
-#gk-countdown-num {{
-  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  color:#fff;font-size:1.3rem;font-weight:900;
-  text-shadow:0 1px 4px rgba(0,0,0,0.6);
-}}
 </style>
 <div id="gk-landing-root">
   <div id="gk-landing-inner">
@@ -1376,19 +1356,12 @@ html, body {{
     <div class="gk-lp-sub">가문 안보 관제탑 — 보험 설계사 전용 플랫폼</div>
     <div class="gk-lp-badge">🛡️ 가문 안보 서비스</div>
     <div class="gk-lp-divider"></div>
-    <div id="gk-countdown-ring">
-      <svg width="56" height="56" viewBox="0 0 56 56">
-        <circle class="bg" cx="28" cy="28" r="22"/>
-        <circle class="fg" id="gk-ring-fg" cx="28" cy="28" r="22"/>
-      </svg>
-      <div id="gk-countdown-num">5</div>
-    </div>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-    # ── [제39조 §2-A] 5초 카운트다운 자동 진입 — query_params 트리거 ──
-    # JS가 5초 후 ?_lp_auto=1 을 붙여 페이지를 reload → 서버에서 감지 후 rerun
+    # ── [제49조] 2.5초 자동 전환 — query_params 트리거 ──
+    # JS가 2.5초 후 ?_lp_auto=1 을 붙여 페이지를 replace → 서버에서 감지 후 rerun
     _auto_enter = st.query_params.get("_lp_auto", "") == "1"
     if _auto_enter:
         st.query_params.clear()
@@ -1416,34 +1389,15 @@ html, body {{
   box-shadow:0 4px 24px rgba(240,192,64,0.5) !important;
   cursor:pointer !important;letter-spacing:0.05em !important;
 }
-#gk-enter-btn-wrap .gk-hint {
-  color:rgba(255,255,255,0.65);font-size:0.78rem;text-align:center;
-}
 </style>
-<div id="gk-enter-btn-wrap">
-  <div class="gk-hint">▼ 터치하여 시작 (5초 후 자동 진입)</div>
-</div>
+<div id="gk-enter-btn-wrap"></div>
 <script>
 (function(){
-  var total = 5;
-  var remain = total;
-  var circumference = 138;
-  var ring = document.getElementById('gk-ring-fg');
-  var num  = document.getElementById('gk-countdown-num');
-  function tick(){
-    remain--;
-    if(num) num.textContent = remain;
-    if(ring) ring.style.strokeDashoffset = String(circumference * (1 - remain/total));
-    if(remain <= 0){
-      // 현재 URL에 _lp_auto=1 파라미터 추가하여 Streamlit 서버에 신호
-      var url = new URL(window.location.href);
-      url.searchParams.set('_lp_auto','1');
-      window.location.href = url.toString();
-    } else {
-      setTimeout(tick, 1000);
-    }
-  }
-  setTimeout(tick, 1000);
+  setTimeout(function(){
+    var url = new URL(window.location.href);
+    url.searchParams.set('_lp_auto','1');
+    window.location.replace(url.toString());
+  }, 2500);
 })();
 </script>
 """, unsafe_allow_html=True)
@@ -4726,9 +4680,8 @@ def _gp84_inject_global_css() -> None:
     --gp84-pastel-income:   #E8F0FE;
     --gp84-pastel-medical:  #E6F4EA;
     --gp84-pastel-risk:     #FDECEA;
-    --gp84-txt-main:        #FFFFFF;
-    --gp84-txt-shadow:      0px 1px 3px rgba(0,0,0,0.55),
-                            0px 0px 6px rgba(0,0,0,0.30);
+    --gp84-txt-main:        #1A1A2E;
+    --gp84-txt-shadow:      none;
     --gp84-gold-preserve:   #FFD700;
 }
 
@@ -4920,19 +4873,24 @@ textarea::placeholder {
     top: 0.5rem !important;
     left: 0.5rem !important;
 }
-/* 태블릿 전용 — 사이드바 강제 표시 (transform 리셋) */
-@media (min-width: 768px) and (max-width: 1100px) {
+/* §4-C-2 — 태블릿/모바일 사이드바 강제 표시 (transform 리셋) */
+@media (max-width: 1100px) {
     section[data-testid="stSidebar"] {
         transform: none !important;
         visibility: visible !important;
         display: block !important;
-        min-width: 260px !important;
+        min-width: 240px !important;
         max-width: 320px !important;
-        position: relative !important;
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        height: 100% !important;
+        z-index: 9998 !important;
     }
     section[data-testid="stSidebar"][aria-expanded="false"] {
         transform: none !important;
         margin-left: 0 !important;
+        left: 0 !important;
     }
 }
 
@@ -13874,9 +13832,9 @@ section[data-testid="stSidebar"] {
 }
 </style>""", unsafe_allow_html=True)
 
-    # ── (1) _open_sidebar: 랜딩/로그인 버튼 클릭 시 JS로 사이드바 열기 ──────────
-    # 실제 팝은 with st.sidebar 블록 안에서 수행 (DOM 생성 후 JS 주입)
-    if st.session_state.get("_open_sidebar", False):
+    # ── (1) _open_sidebar: 사이드바 JS는 with st.sidebar 내부에서만 실행 ──────────
+    # (DOM 생성 전 바깥에서 실행하면 타이밍 실패 → 아래 with st.sidebar 블록에서 pop() + JS 처리)
+    if False and st.session_state.get("_open_sidebar", False):
         components.html("""
 <script>
 (function(){
@@ -15434,21 +15392,36 @@ watchRipple();
       var sels = [
         'button[aria-label="Open sidebar"]',
         'button[aria-label="사이드바를 열거나 닫으세요"]',
+        'button[aria-label="open sidebar"]',
         '[data-testid="collapsedControl"] button',
-        '[data-testid="stSidebarCollapseButton"] button'
+        '[data-testid="stSidebarCollapseButton"] button',
+        '[data-testid="stSidebarNavCollapseButton"] button',
+        '[data-testid="collapsedControl"]',
+        'button[kind="header"]',
+        '.st-emotion-cache-czk5ss button',
+        '.st-emotion-cache-1egp75f button'
       ];
       for (var i=0;i<sels.length;i++) {
         var b = pd.querySelector(sels[i]);
         if (b) { b.click(); return true; }
+      }
+      var allBtns = pd.querySelectorAll('button');
+      for (var j=0;j<allBtns.length;j++) {
+        var lbl = (allBtns[j].getAttribute('aria-label')||'').toLowerCase();
+        if (lbl.indexOf('sidebar')!==-1 || lbl.indexOf('사이드')!==-1) {
+          allBtns[j].click(); return true;
+        }
       }
     } catch(e){}
     return false;
   }
   function run(n) {
     var pd = window.parent.document;
-    if (!tryOpen(pd) && n > 0) setTimeout(function(){ run(n-1); }, 400);
+    if (!tryOpen(pd) && n > 0) setTimeout(function(){ run(n-1); }, 300);
   }
-  setTimeout(function(){ run(5); }, 200);
+  setTimeout(function(){ run(10); }, 100);
+  setTimeout(function(){ run(10); }, 800);
+  setTimeout(function(){ run(5);  }, 2000);
 })();
 </script>""", height=0)
 
