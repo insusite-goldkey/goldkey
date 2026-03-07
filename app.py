@@ -1149,7 +1149,6 @@ def _s39_sidebar_shell_html() -> str:
     """
     _menus = [
         ("💬", "AI 보장 분석 상담"),
-        ("📅", "일정 달력"),
         ("👥", "고객 관리"),
         ("📄", "보험증권 AI 분석"),
         ("📚", "약관 매칭"),
@@ -13054,11 +13053,13 @@ def section_housing_pension():
 # --------------------------------------------------------------------------
 def main():
     # ── STEP 1: set_page_config (항상 가장 먼저) ─────────────────────────
+    # [제53조] 로그인 완료 후 사이드바 초기 상태 collapsed 고정
+    _sb_init_state = "collapsed" if st.session_state.get("user_id") else "expanded"
     st.set_page_config(
         page_title="골드키지사 마스터 AI",
         page_icon="🏆",
         layout="centered",
-        initial_sidebar_state="expanded"
+        initial_sidebar_state=_sb_init_state
     )
 
     # ── [제49조] 직통 진입 — 랜딩 페이지 폐지, 항상 메인 화면 직통 ────────
@@ -13991,87 +13992,8 @@ section[data-testid="stSidebar"] {
 })();
 </script>""", height=0)
 
-    # ── 로그인 후 사이드바 자동 접힘 JS ────────────────────────────────────
-    # _just_logged_in_flag: pop 전에 캡처한 값 사용 (위 블록에서 이미 pop됨)
-    if _just_logged_in_flag:
-        st.session_state.pop("_auto_close_sidebar", None)  # 나머지 플래그 정리
-        components.html("""
-<script>
-(function(){
-  // ── 사이드바 닫기 공통 함수 ──────────────────────────────────────
-  function tryClose(pd) {
-    var selectors = [
-      '[data-testid="stSidebarCollapseButton"] button',
-      '[data-testid="stSidebarCollapseButton"]',
-      'button[aria-label="Close sidebar"]',
-      'button[aria-label="사이드바 닫기"]',
-      'button[aria-label="collapse sidebar"]',
-      'button[aria-label="Collapse sidebar"]',
-      '[data-testid="stSidebar"] button[kind="header"]',
-      '[data-testid="collapsedControl"]',
-      'section[data-testid="stSidebar"] button'
-    ];
-    for (var i = 0; i < selectors.length; i++) {
-      var btn = pd.querySelector(selectors[i]);
-      if (btn) { btn.click(); return true; }
-    }
-    return false;
-  }
-  function isSidebarOpen(pd) {
-    var sidebar = pd.querySelector('[data-testid="stSidebar"]');
-    if (!sidebar) return false;
-    var expanded = sidebar.getAttribute('aria-expanded');
-    if (expanded === 'false') return false;
-    // aria-expanded 없는 구버전: 너비로 판단
-    if (!expanded) return sidebar.offsetWidth > 80;
-    return true;
-  }
-
-  // ── 1. 로그인 직후 자동 닫기 (1200ms 대기, 최대 6회 재시도) ────
-  var attempts = 0;
-  function runClose() {
-    try {
-      var pd = window.parent.document;
-      if (isSidebarOpen(pd)) {
-        if (!tryClose(pd) && attempts < 6) {
-          attempts++;
-          setTimeout(runClose, 350);
-        }
-      }
-    } catch(e) {}
-  }
-  setTimeout(runClose, 300);
-  setTimeout(runClose, 700);
-  setTimeout(runClose, 1200);
-
-  // ── 2. 본앱(메인 영역) 클릭 시 사이드바 자동 닫기 ──────────────
-  (function attachMainClickListener(){
-    try {
-      var pd = window.parent.document;
-      var mainArea = pd.querySelector('[data-testid="stMain"]')
-                  || pd.querySelector('.main')
-                  || pd.querySelector('[data-testid="stAppViewContainer"]');
-      if (!mainArea) {
-        setTimeout(attachMainClickListener, 800);
-        return;
-      }
-      if (mainArea._gk_sb_listener) return;
-      mainArea._gk_sb_listener = true;
-      mainArea.addEventListener('click', function(e){
-        try {
-          var sidebar = pd.querySelector('[data-testid="stSidebar"]');
-          if (!sidebar) return;
-          // 사이드바 내부 클릭이면 무시
-          if (sidebar.contains(e.target)) return;
-          if (isSidebarOpen(pd)) tryClose(pd);
-        } catch(ex) {}
-      }, { passive: true });
-    } catch(e) {
-      setTimeout(attachMainClickListener, 800);
-    }
-  })();
-})();
-</script>""", height=0)
+    # ── 로그인 후 사이드바 자동 접힘: with st.sidebar 블록 내부에서 처리 ─────
+    # (components.html 방식 제거 → sidebar 내 st.markdown 스크립트로 교체)
 
     # ── [제39조 §3] 인증 실패 시 사이드바 자동 열기 — 로그인 화면 유도 ──
     # _s39_prefetch_auth()가 백그라운드에서 캐시 검증 실패 시 _s39_auth_failed 플래그를 세팅.
@@ -15427,6 +15349,75 @@ watchRipple();
 })();
 </script>""", height=0)
 
+        # ── [제53조] 로그인/게스트 전환 직후 사이드바 강제 접힘 (1회성) ──
+        if _just_logged_in_flag:
+            st.session_state.pop("_auto_close_sidebar", None)
+            components.html("""
+<script>
+(function(){
+  function tryClose(pd) {
+    var sels = [
+      '[data-testid="stSidebarCollapseButton"] button',
+      '[data-testid="stSidebarCollapseButton"]',
+      'button[aria-label="Close sidebar"]',
+      'button[aria-label="close sidebar"]',
+      'button[aria-label="Collapse sidebar"]',
+      'button[aria-label="collapse sidebar"]',
+      'button[aria-label="사이드바 닫기"]',
+      'button[aria-label="사이드바를 열거나 닫으세요"]',
+      '[data-testid="collapsedControl"] button',
+      '[data-testid="collapsedControl"]',
+      'section[data-testid="stSidebar"] > div button:first-child'
+    ];
+    for (var i = 0; i < sels.length; i++) {
+      var btn = pd.querySelector(sels[i]);
+      if (btn) { btn.click(); return true; }
+    }
+    var allBtns = pd.querySelectorAll('button');
+    for (var j = 0; j < allBtns.length; j++) {
+      var lbl = (allBtns[j].getAttribute('aria-label') || '').toLowerCase();
+      if (lbl.indexOf('close') !== -1 || lbl.indexOf('collapse') !== -1 || lbl.indexOf('닫기') !== -1) {
+        allBtns[j].click(); return true;
+      }
+    }
+    return false;
+  }
+  function isSidebarOpen(pd) {
+    try {
+      var sb = pd.querySelector('[data-testid="stSidebar"]');
+      if (!sb) return false;
+      var exp = sb.getAttribute('aria-expanded');
+      if (exp === 'false') return false;
+      if (!exp) return sb.offsetWidth > 80;
+      return true;
+    } catch(e) { return false; }
+  }
+  var _attempts = 0;
+  function runClose() {
+    try {
+      var pd = window.parent ? window.parent.document : document;
+      if (isSidebarOpen(pd)) {
+        if (!tryClose(pd) && _attempts < 15) {
+          _attempts++;
+          setTimeout(runClose, 300);
+        }
+      } else if (_attempts < 15) {
+        _attempts++;
+        setTimeout(runClose, 300);
+      }
+    } catch(e) {
+      if (_attempts < 15) { _attempts++; setTimeout(runClose, 300); }
+    }
+  }
+  setTimeout(runClose, 100);
+  setTimeout(runClose, 400);
+  setTimeout(runClose, 800);
+  setTimeout(runClose, 1400);
+  setTimeout(runClose, 2200);
+  setTimeout(runClose, 3500);
+})();
+</script>""", height=0)
+
         # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (기존 아바타 완전 대체) ──
         render_goldkey_sidebar()
 
@@ -15877,6 +15868,43 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                         except Exception:
                             pass
                         _LoginGuard.record_success(ln)
+                        # [제53조] OTP 인증 성공 직후 사이드바 즉시 강제 접힘
+                        components.html("""
+<script>
+(function(){
+  function tryClose(pd) {
+    var sels = [
+      '[data-testid="stSidebarCollapseButton"] button',
+      '[data-testid="stSidebarCollapseButton"]',
+      'button[aria-label="Close sidebar"]',
+      'button[aria-label="close sidebar"]',
+      'button[aria-label="Collapse sidebar"]',
+      'button[aria-label="collapse sidebar"]',
+      'button[aria-label="사이드바 닫기"]',
+      'button[aria-label="사이드바를 열거나 닫으세요"]',
+      '[data-testid="collapsedControl"] button',
+      '[data-testid="collapsedControl"]',
+      'section[data-testid="stSidebar"] > div button:first-child'
+    ];
+    for (var i = 0; i < sels.length; i++) {
+      var b = pd.querySelector(sels[i]);
+      if (b) { b.click(); return true; }
+    }
+    return false;
+  }
+  var _att = 0;
+  function run() {
+    try {
+      var pd = window.parent ? window.parent.document : document;
+      var sb = pd.querySelector('[data-testid="stSidebar"]');
+      var open = sb ? (sb.getAttribute('aria-expanded') !== 'false' && sb.offsetWidth > 80) : false;
+      if (open) { tryClose(pd); }
+      if (_att < 12) { _att++; setTimeout(run, 300); }
+    } catch(e) { if (_att < 12) { _att++; setTimeout(run, 300); } }
+  }
+  run();
+})();
+</script>""", height=0)
                         # [제75조 §4] 로그인 성공 시 기기 지문 수집 JS 주입
                         # JS가 LocalStorage에서 fp_id를 읽어 hidden input으로 서버에 전달
                         # 실제 저장은 _gp75_fp_pending 세션 플래그로 다음 rerun에서 처리
@@ -16615,100 +16643,6 @@ setTimeout(function(){
                     st.session_state.pop("suggest_submitted_sb", None)
                     st.rerun()
 
-            # ── [가이딩 프로토콜 제50조] 실전 활용도 우선 그리드 배치 ────────
-            # Row1: 보험용어사전 | AI 마스터 제안
-            # Row2: 고객정보 검색 | 종합자산분석
-            # Row3: 보장 상세진단 | 보장공백
-            # Row4: 가처분소득관리 | 시장트렌드 분석
-            # Row5: 재무목표설계 | 시스템 환경설정
-            # Row6~: 나머지 메뉴
-            st.markdown(f"""
-<style>
-/* [제50조] 그리드 버튼 스타일 */
-section[data-testid="stSidebar"] .gk-exec-box button,
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {{
-    font-size: 0.78rem !important;
-    font-weight: 700 !important;
-    padding: 6px 4px !important;
-    min-height: 38px !important;
-    line-height: 1.25 !important;
-    color: #004D40 !important;
-    gap: 12px !important;
-}}
-</style>
-<div style="position:relative;border:2.5px solid #004D40;border-radius:12px 12px 0 0;
-  padding:8px 8px 2px 8px;margin:8px 0 0 0;
-  background:linear-gradient(135deg,#FDF5E6 0%,#FFF8EE 100%);">
-  {_bid('0-2-5')}
-  <div style="font-size:0.72rem;font-weight:900;color:#004D40;
-    letter-spacing:0.04em;margin-bottom:4px;text-align:center;">
-    ⚡ 빠른 실행 — 실전 우선순위 그리드
-  </div>
-</div>""", unsafe_allow_html=True)
-            with st.container():
-                # ── Row 1: 보험용어사전 | AI 마스터 제안 ────────────────
-                _ex_r1c1, _ex_r1c2 = st.columns(2)
-                with _ex_r1c1:
-                    if st.button("📖 보험\n용어사전", key="sb_ins_bot", use_container_width=True, type="primary"):
-                        st.session_state["_sb_goto_tab"] = "ins_bot"
-                        st.rerun()
-                with _ex_r1c2:
-                    _terms_all_ok = ('user_id' in st.session_state or (
-                        st.session_state.get("_lp_terms", {}).get("t1") and
-                        st.session_state.get("_lp_terms", {}).get("t2") and
-                        st.session_state.get("_lp_terms", {}).get("t3") and
-                        st.session_state.get("_lp_terms", {}).get("t4")
-                    ))
-                    if st.button("🤖 AI 마스터\n접속", key="sb_ai_suggest", use_container_width=True, type="primary"):
-                        if _terms_all_ok:
-                            st.session_state["_sb_goto_tab"] = "t0"
-                            st.rerun()
-                        else:
-                            st.warning("필수 약관에 동의해 주세요.", icon="🔒")
-                # ── Row 2: 고객정보 검색 | 종합자산분석 ─────────────────
-                _ex_r2c1, _ex_r2c2 = st.columns(2)
-                with _ex_r2c1:
-                    if st.button("👤 고객정보\n검색", key="sb_customer_mgmt", use_container_width=True, type="primary"):
-                        st.session_state["_sb_goto_tab"] = "customer_mgmt"
-                        st.rerun()
-                with _ex_r2c2:
-                    if st.button("💎 종합자산\n분석", key="sb_asset_analysis", use_container_width=True, type="primary"):
-                        st.session_state["_sb_goto_tab"] = "t5"
-                        st.rerun()
-                # ── Row 3: 보장 상세진단 | 보장공백 ─────────────────────
-                _ex_r3c1, _ex_r3c2 = st.columns(2)
-                with _ex_r3c1:
-                    if st.button("🔍 보장\n상세진단", key="sb_policy_scan", use_container_width=True, type="primary"):
-                        st.session_state["_sb_goto_tab"] = "policy_scan"
-                        st.rerun()
-                with _ex_r3c2:
-                    if st.button("🛡️ 보장\n공백", key="sb_gap_analysis", use_container_width=True, type="primary"):
-                        st.session_state["_sb_goto_tab"] = "t3"
-                        st.rerun()
-                # ── Row 4: 가처분소득관리 | 시장트렌드 분석 ─────────────
-                _ex_r4c1, _ex_r4c2 = st.columns(2)
-                with _ex_r4c1:
-                    if st.button("💰 가처분\n소득관리", key="sb_income_mgmt", use_container_width=True, type="primary"):
-                        st.session_state["_sb_goto_tab"] = "med_econ"
-                        st.rerun()
-                with _ex_r4c2:
-                    if st.button("📈 시장트렌드\n분석", key="sb_market_trend", use_container_width=True, type="primary"):
-                        st.session_state["_sb_goto_tab"] = "t6"
-                        st.rerun()
-                # ── Row 5: 재무목표설계 | 시스템 환경설정 ────────────────
-                _ex_r5c1, _ex_r5c2 = st.columns(2)
-                with _ex_r5c1:
-                    if st.button("🎯 재무목표\n설계", key="sb_life_cycle", use_container_width=True, type="primary"):
-                        st.session_state["_sb_goto_tab"] = "life_cycle"
-                        st.rerun()
-                with _ex_r5c2:
-                    if st.button("⚙️ 시스템\n환경설정", key="sb_admin_settings", use_container_width=True):
-                        st.session_state["_sb_goto_tab"] = "t9"
-                        st.rerun()
-            st.markdown("""<div style="border-bottom:2.5px solid #004D40;
-  border-left:2.5px solid #004D40;border-right:2.5px solid #004D40;
-  border-radius:0 0 12px 12px;height:6px;margin-top:0;margin-bottom:6px;
-  background:linear-gradient(135deg,#FDF5E6 0%,#FFF8EE 100%);"></div>""", unsafe_allow_html=True)
 
         st.divider()
         st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-2-6')}</div>""",
@@ -20153,11 +20087,6 @@ function selectCustomer(name) {{
             if st.button("🚀  AI 상담 시작하기  →", key="intro_start_btn",
                          type="primary", use_container_width=True):
                 _go_tab("home")
-        _ic_a, _ic_b, _ic_c = st.columns([1, 2, 1])
-        with _ic_b:
-            if st.button("📅  일정 달력 보기", key="intro_calendar_btn",
-                         use_container_width=True):
-                _go_tab("calendar")
 
         st.markdown(f"""
 <div style="position:relative;background:rgba(255,255,255,0.13);border:1.5px solid rgba(240,192,64,0.55);
@@ -23276,7 +23205,7 @@ div[data-testid="stColumns"] > div:nth-child(1) div[data-testid="stButton"] > bu
     transform: scale(1.02) !important;
     box-shadow: 0 0 0 3px rgba(0,230,180,0.55), 0 10px 28px rgba(0,77,64,0.60) !important;
 }
-/* 2번 버튼 — Teal 라이트 (일정달력 보기) */
+/* 2번 버튼 — Teal 라이트 */
 div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > button {
     background: linear-gradient(135deg, #00695c 0%, #00897b 50%, #26a69a 100%) !important;
     color: #ffffff !important;
@@ -23318,7 +23247,6 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
         st.markdown("""
 <style>
 button[kind="secondary"][data-testid$="home_action_consult"],
-button[kind="secondary"][data-testid$="home_action_calendar"],
 div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button {
   background: #ffffff !important;
   background-image: none !important;
@@ -23337,9 +23265,9 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
                          use_container_width=True):
                 _go_tab("t0")
         with _ab2:
-            if st.button("📅 일정 달력 보기", key="home_action_calendar",
+            if st.button("👥 고객 관리", key="home_action_customer",
                          use_container_width=True):
-                _go_tab("calendar")
+                _go_tab("customer_mgmt")
 
         st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
 
