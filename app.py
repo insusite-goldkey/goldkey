@@ -16630,61 +16630,101 @@ setTimeout(function(){
                     st.session_state.pop("suggest_submitted_sb", None)
                     st.rerun()
 
-            # ── 실행 버튼 박스 (짙은 청록색 외곽선, 2개씩 병렬 배치) ──────
-            # [주의] _go_tab은 main() 내부 로컬함수라 사이드바에서 직접 호출 불가 →
-            #        _sb_goto_tab 플래그 세팅 후 _go_tab 정의 직후에서 처리
+            # ── [가이딩 프로토콜 제50조] 실전 활용도 우선 그리드 배치 ────────
+            # Row1: 보험용어사전 | AI 마스터 제안
+            # Row2: 고객정보 검색 | 종합자산분석
+            # Row3: 보장 상세진단 | 보장공백
+            # Row4: 가처분소득관리 | 시장트렌드 분석
+            # Row5: 재무목표설계 | 시스템 환경설정
+            # Row6~: 나머지 메뉴
             st.markdown(f"""
 <style>
+/* [제50조] 그리드 버튼 스타일 */
 section[data-testid="stSidebar"] .gk-exec-box button,
 section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {{
-    font-size: 0.76rem !important;
-    padding: 4px 6px !important;
-    min-height: 34px !important;
-    line-height: 1.2 !important;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    padding: 6px 4px !important;
+    min-height: 38px !important;
+    line-height: 1.25 !important;
+    color: #004D40 !important;
+    gap: 12px !important;
 }}
 </style>
-<div style="position:relative;border: 2.5px solid #004D40; border-radius: 12px 12px 0 0;
-  padding: 8px 8px 2px 8px; margin: 8px 0 0 0;
-  background: rgba(0,77,64,0.04);">
+<div style="position:relative;border:2.5px solid #004D40;border-radius:12px 12px 0 0;
+  padding:8px 8px 2px 8px;margin:8px 0 0 0;
+  background:linear-gradient(135deg,#FDF5E6 0%,#FFF8EE 100%);">
   {_bid('0-2-5')}
   <div style="font-size:0.72rem;font-weight:900;color:#004D40;
     letter-spacing:0.04em;margin-bottom:4px;text-align:center;">
-    ⚡ 빠른 실행
+    ⚡ 빠른 실행 — 실전 우선순위 그리드
   </div>
 </div>""", unsafe_allow_html=True)
             with st.container():
-                # 행 1: 일정 달력 | 고객 관리
-                _ex_c1, _ex_c2 = st.columns(2)
-                with _ex_c1:
-                    if st.button("📅 일정달력", key="sb_calendar", use_container_width=True, type="primary"):
-                        st.session_state["_sb_goto_tab"] = "calendar"
+                # ── Row 1: 보험용어사전 | AI 마스터 제안 ────────────────
+                _ex_r1c1, _ex_r1c2 = st.columns(2)
+                with _ex_r1c1:
+                    if st.button("📖 보험\n용어사전", key="sb_ins_bot", use_container_width=True, type="primary"):
+                        st.session_state["_sb_goto_tab"] = "ins_bot"
                         st.rerun()
-                with _ex_c2:
-                    if st.button("👥 고객관리", key="sb_customer_mgmt", use_container_width=True, type="primary"):
+                with _ex_r1c2:
+                    if st.button("🤖 AI 마스터\n제안", key="sb_ai_suggest", use_container_width=True, type="primary"):
+                        st.session_state["_sb_goto_tab"] = "t0"
+                        st.rerun()
+                # ── Row 2: 고객정보 검색 | 종합자산분석 ─────────────────
+                _ex_r2c1, _ex_r2c2 = st.columns(2)
+                with _ex_r2c1:
+                    if st.button("👤 고객정보\n검색", key="sb_customer_mgmt", use_container_width=True, type="primary"):
                         st.session_state["_sb_goto_tab"] = "customer_mgmt"
                         st.rerun()
-                # 행 2: 증권분석 | 약관검색
-                _ex_c3, _ex_c4 = st.columns(2)
-                with _ex_c3:
-                    if st.button("📎 증권분석", key="sb_policy_scan", use_container_width=True, type="primary"):
+                with _ex_r2c2:
+                    if st.button("💎 종합자산\n분석", key="sb_asset_analysis", use_container_width=True, type="primary"):
+                        st.session_state["_sb_goto_tab"] = "t5"
+                        st.rerun()
+                # ── Row 3: 보장 상세진단 | 보장공백 ─────────────────────
+                _ex_r3c1, _ex_r3c2 = st.columns(2)
+                with _ex_r3c1:
+                    if st.button("🔍 보장\n상세진단", key="sb_policy_scan", use_container_width=True, type="primary"):
                         st.session_state["_sb_goto_tab"] = "policy_scan"
                         st.rerun()
-                with _ex_c4:
+                with _ex_r3c2:
+                    if st.button("🛡️ 보장\n공백", key="sb_gap_analysis", use_container_width=True, type="primary"):
+                        st.session_state["_sb_goto_tab"] = "t3"
+                        st.rerun()
+                # ── Row 4: 가처분소득관리 | 시장트렌드 분석 ─────────────
+                _ex_r4c1, _ex_r4c2 = st.columns(2)
+                with _ex_r4c1:
+                    if st.button("💰 가처분\n소득관리", key="sb_income_mgmt", use_container_width=True, type="primary"):
+                        st.session_state["_sb_goto_tab"] = "med_econ"
+                        st.rerun()
+                with _ex_r4c2:
+                    if st.button("📈 시장트렌드\n분석", key="sb_market_trend", use_container_width=True, type="primary"):
+                        st.session_state["_sb_goto_tab"] = "t6"
+                        st.rerun()
+                # ── Row 5: 재무목표설계 | 시스템 환경설정 ────────────────
+                _ex_r5c1, _ex_r5c2 = st.columns(2)
+                with _ex_r5c1:
+                    if st.button("🎯 재무목표\n설계", key="sb_life_cycle", use_container_width=True, type="primary"):
+                        st.session_state["_sb_goto_tab"] = "life_cycle"
+                        st.rerun()
+                with _ex_r5c2:
+                    if st.button("⚙️ 시스템\n환경설정", key="sb_admin_settings", use_container_width=True):
+                        st.session_state["_sb_goto_tab"] = "t9"
+                        st.rerun()
+                # ── Row 6: 나머지 메뉴 ───────────────────────────────────
+                _ex_r6c1, _ex_r6c2 = st.columns(2)
+                with _ex_r6c1:
+                    if st.button("📅 일정달력", key="sb_calendar", use_container_width=True):
+                        st.session_state["_sb_goto_tab"] = "calendar"
+                        st.rerun()
+                with _ex_r6c2:
                     if st.button("📜 약관검색", key="sb_policy_terms", use_container_width=True):
                         st.session_state["_sb_goto_tab"] = "policy_terms"
                         st.rerun()
-                # 행 3: 보험봇(전문용어검색)
-                _ex_c5, _ex_c6 = st.columns(2)
-                with _ex_c5:
-                    if st.button("🤖 보험봇\n(전문용어검색)", key="sb_ins_bot", use_container_width=True, type="primary"):
-                        st.session_state["_sb_goto_tab"] = "ins_bot"
-                        st.rerun()
-                with _ex_c6:
-                    pass  # 공백 유지
-            st.markdown("""<div style="border-bottom: 2.5px solid #004D40;
-  border-left: 2.5px solid #004D40; border-right: 2.5px solid #004D40;
-  border-radius: 0 0 12px 12px; height: 6px; margin-top: 0; margin-bottom: 6px;
-  background: rgba(0,77,64,0.04);"></div>""", unsafe_allow_html=True)
+            st.markdown("""<div style="border-bottom:2.5px solid #004D40;
+  border-left:2.5px solid #004D40;border-right:2.5px solid #004D40;
+  border-radius:0 0 12px 12px;height:6px;margin-top:0;margin-bottom:6px;
+  background:linear-gradient(135deg,#FDF5E6 0%,#FFF8EE 100%);"></div>""", unsafe_allow_html=True)
 
         st.divider()
         st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-2-6')}</div>""",
