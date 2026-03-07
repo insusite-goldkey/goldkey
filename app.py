@@ -15961,8 +15961,24 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                             st.session_state["login_insurer"] = "선택 안 함 (중립 분석)"
                             st.markdown("<div style='font-size:0.76rem;color:#555;'>🟩 중립 분석 모드</div>",
                                         unsafe_allow_html=True)
-                        _btn_otp = st.button("🔐 보안 인증 시작", key="hlp_otp_start_btn",
-                                             use_container_width=True, type="primary")
+                        st.markdown("""
+<style>
+button[kind="primary"][data-testid="baseButton-primary"]#hlp_otp_start_btn,
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
+  background: #FDF5E6 !important;
+  color: #004D40 !important;
+  font-weight: 900 !important;
+  border: 2px solid #004D40 !important;
+  font-size: 1.05rem !important;
+  letter-spacing: 0.04em !important;
+  box-shadow: 0 2px 8px rgba(0,77,64,0.18) !important;
+}
+</style>""", unsafe_allow_html=True)
+                        _all_checked = (_tr_top.get("t1") and _tr_top.get("t2")
+                                        and _tr_top.get("t3") and _tr_top.get("t4"))
+                        _btn_otp = st.button("🔐 AI 마스터 접속", key="hlp_otp_start_btn",
+                                             use_container_width=True, type="primary",
+                                             disabled=not bool(_all_checked))
 
                         if _btn_otp:
                             _ln_a = (st.session_state.get("hlp_name_a") or ln_a or "").strip()
