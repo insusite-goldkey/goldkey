@@ -23244,24 +23244,26 @@ div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > bu
                     unsafe_allow_html=True)
         st.markdown("""
 <style>
+/* [제55조 §1] 빠른실행 버튼 — 하늘색 파스텔톤 */
 button[kind="secondary"][data-testid$="home_action_consult"],
+button[kind="secondary"][data-testid$="home_action_customer"],
 div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button {
-  background: #ffffff !important;
+  background: #E3F2FD !important;
   background-image: none !important;
   border: 2px solid #1565C0 !important;
-  color: #000000 !important;
+  color: #0D47A1 !important;
   font-weight: 700 !important;
 }
 div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover {
-  background: #E3F2FD !important;
-  color: #000000 !important;
+  background: #B3E5FC !important;
+  color: #0D47A1 !important;
 }
 </style>""", unsafe_allow_html=True)
         _ab1, _ab2 = st.columns(2, gap="medium")
         with _ab1:
             if st.button("🚀 AI 상담 시작하기", key="home_action_consult",
                          use_container_width=True):
-                _go_tab("t0")
+                _go_tab("home")
         with _ab2:
             if st.button("👥 고객 관리", key="home_action_customer",
                          use_container_width=True):
