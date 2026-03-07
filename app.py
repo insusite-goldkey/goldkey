@@ -4631,21 +4631,27 @@ body.gp0-tablet  #gp0-brand-ring{width:100px;height:100px;}
 
   /* Streamlit DOM 마운트 감지: stApp 요소 + 실제 컨텐츠 로딩 확인 */
   var _pollCount = 0;
-  var _maxPoll   = 600; /* 최대 30초 대기 */
+  var _maxPoll   = 200; /* 최대 10초 대기 (50ms × 200) — 구버전 30초에서 단축 */
   function _checkReady(){
     _pollCount++;
     if(_pollCount > _maxPoll){ _swapNow(); return; } /* 타임아웃 안전망 */
 
     /* window.__AppReady 신호 OR Streamlit 본체 DOM 마운트 확인 */
     var appEl   = document.querySelector('[data-testid="stApp"]');
-    var sideEl  = document.querySelector('[data-testid="stSidebar"]');
+    /* stMain: Streamlit 버전별 셀렉터 모두 지원 */
     var mainEl  = document.querySelector('[data-testid="stMain"]') ||
-                  document.querySelector('.main .block-container');
+                  document.querySelector('[data-testid="stMainBlockContainer"]') ||
+                  document.querySelector('.main .block-container') ||
+                  document.querySelector('.stMainBlockContainer') ||
+                  document.querySelector('.block-container');
     var ready   = window.__AppReady === true;
-    /* 본체 DOM이 존재하고 내부에 실제 컨텐츠(자식 노드)가 있을 때 */
+    /* (A) AppReady 신호 수신 즉시 해제 */
+    /* (B) stApp 존재 + mainEl 자식 있음 */
+    /* (C) stApp 단독 존재 + 5초 경과(250회) — HF Spaces 느린 환경 폴백 */
     var domOk   = !!(appEl && mainEl && mainEl.children.length > 0);
+    var fallback = !!(appEl && _pollCount > 100); /* 5초 후 stApp만 있어도 해제 */
 
-    if(ready || domOk){
+    if(ready || domOk || fallback){
       /* 진행 바 100% 채우고 즉시 제거 */
       if(bar)  bar.style.width  = '100%';
       if(stxt) stxt.textContent = '✅ 준비 완료 — 본체 전환';
@@ -4871,8 +4877,8 @@ textarea::placeholder {
     background-color: var(--gp84-pastel-vip) !important;
 }
 [data-testid="stSidebar"] * {
-    color: var(--gp84-txt-main) !important;
-    text-shadow: var(--gp84-txt-shadow) !important;
+    color: #000000 !important;
+    text-shadow: none !important;
 }
 
 /* §4-B — 탭 헤더 */
@@ -6978,6 +6984,7 @@ SECTOR_CODES: dict = {
     # ── 0000번대: 신규 페이지 (GP-52/53) ──────────────────────────────────
     "0100": {"name": "홈 포털",         "tab_key": "home_portal",   "keywords": ["포털", "홈포털", "메인포털", "portal", "진입", "입구"]},
     "0200": {"name": "청구 스캐너",     "tab_key": "claim_scanner", "keywords": ["청구스캐너", "청구엔진", "영수증스캔", "보험금청구", "실손청구", "청구계산", "claim", "스캐너"]},
+    "0300": {"name": "실전 상담 전략실", "tab_key": "war_room",      "keywords": ["전략실", "warroom", "실전상담", "상담전략", "스크립트", "거절처리", "전략허브", "워룸"]},
     # ── 1000번대: 홈 / 스캔 / 분석 허브 ──────────────────────────────────
     "1000": {"name": "홈 화면",         "tab_key": "home",          "keywords": ["홈", "메인", "처음", "홈화면", "첫화면", "대시보드", "시작"]},
     "1100": {"name": "통합 스캔 허브",  "tab_key": "scan_hub",      "keywords": ["스캔허브", "통합스캔", "서류올려", "의무기록올려", "스캔", "파일올려", "업로드"]},
@@ -7028,6 +7035,8 @@ SECTOR_CODES: dict = {
     "9900": {"name": "보험봇 전문용어 검색",  "tab_key": "ins_bot",  "keywords": ["보험봇", "보험용어", "보험용어검색", "용어찾아", "용어알려줘", "보험사전", "용어사전", "보험단어", "보험전문용어", "insubot"]},
     # ── 9910번대: 지식 파이프라인 (가이딩 프로토콜 제27·28조) ──────────────────────────
     "9910": {"name": "지식 라이브러리 자동 학습",  "tab_key": "know_pipe",  "keywords": ["지식파이프라인", "약관업로드", "지식업데이트", "자동학습", "문서업로드", "리플렛등록", "지식라이브러리", "knowpipe", "지식베이스", "문서학습"]},
+    # ── 9920번대: War Room 실전 상담 전략실 (GP102/103) ──────────────────────────────
+    "9920": {"name": "실전 상담 전략실 (War Room)", "tab_key": "war_room", "keywords": ["전략실", "워룸", "warroom", "상담전략", "거절스크립트", "거절대응", "심리전략", "후킹스크립트", "소득역산", "역산연산기", "그라운딩", "GP102", "GP103", "전략상담", "스크립트생성"]},
 }
 
 # ==========================================================================
@@ -7792,6 +7801,664 @@ def generate_gp92_hook(
             return prefix + sentence
 
     return prefix + _GP92_DEFAULT_HOOK
+
+
+# ==========================================================================
+# [GP102] 소득 역산 기반 안보 공백 타격 엔진
+# 제102조: 건강보험료 → 월소득 역산 → 2년치 휴업손해 → Max(표준, 역산) Gap 산출
+# ==========================================================================
+
+_GP102_STANDARD_BASELINES: dict = {
+    "cancer":     100_000_000,   # 암 표준 1억
+    "brain":       80_000_000,   # 뇌졸중 표준 8천만
+    "heart":       80_000_000,   # 심장 표준 8천만
+    "disability": 300_000_000,   # 장해 표준 3억
+    "death":      200_000_000,   # 사망 표준 2억
+    "nursing":     60_000_000,   # 간병 표준 6천만
+    "default":    100_000_000,   # 기본 1억
+}
+
+_GP102_TREAT_MONTHS: int = 24   # 치료·휴업 기간 24개월
+_GP102_TREAT_FIXED:  int = 100_000_000  # 표준 치료비 1억
+
+
+def _gp102_calc(
+    nhis_premium_monthly: float,
+    coverage_type: str = "default",
+    current_coverage: float = 0.0,
+) -> dict:
+    """
+    [GP102 §2] 건강보험료 기반 소득 역산 → 필요 보장액 산출.
+
+    Parameters
+    ----------
+    nhis_premium_monthly : 월 건강보험료 (원)
+    coverage_type        : 'cancer'/'brain'/'heart'/'disability'/'death'/'nursing'/'default'
+    current_coverage     : 현재 보장액 (원, 0 이면 미가입)
+
+    Returns
+    -------
+    dict {
+        monthly_income   : 월 추정 소득,
+        monthly_loss     : 월 소득 손실,
+        total_loss_24m   : 24개월 휴업손해,
+        need_reverse     : 역산 필요 보장액 (손해 + 치료비),
+        need_standard    : 표준 기준 보장액,
+        need_final       : Max(표준, 역산),
+        gap              : need_final - current_coverage,
+        gap_pct          : gap / need_final * 100,
+        rate_used        : 적용 요율,
+    }
+    """
+    rate = _CURRENT_NHIS_RATE or _ART32_NHIS_RATE_2024
+    monthly_income  = nhis_premium_monthly / rate if rate > 0 else 0.0
+    monthly_loss    = monthly_income
+    total_loss_24m  = monthly_loss * _GP102_TREAT_MONTHS
+    need_reverse    = total_loss_24m + _GP102_TREAT_FIXED
+    need_standard   = float(_GP102_STANDARD_BASELINES.get(coverage_type, _GP102_STANDARD_BASELINES["default"]))
+    need_final      = max(need_standard, need_reverse)
+    gap             = max(0.0, need_final - current_coverage)
+    gap_pct         = (gap / need_final * 100) if need_final > 0 else 0.0
+    return {
+        "monthly_income":  monthly_income,
+        "monthly_loss":    monthly_loss,
+        "total_loss_24m":  total_loss_24m,
+        "need_reverse":    need_reverse,
+        "need_standard":   need_standard,
+        "need_final":      need_final,
+        "gap":             gap,
+        "gap_pct":         gap_pct,
+        "rate_used":       rate,
+    }
+
+
+def render_gp102_gap_card(result: dict, insured_name: str = "") -> None:
+    """
+    [GP102 §3] 소득 역산 Gap 경고 카드 렌더링.
+    GP101 다크심리(손실 회피) 프레임 적용.
+    """
+    import streamlit as _st102
+    gap      = result.get("gap", 0)
+    need     = result.get("need_final", 0)
+    income   = result.get("monthly_income", 0)
+    loss24   = result.get("total_loss_24m", 0)
+    gap_pct  = result.get("gap_pct", 0)
+    masked   = mask_name_gp92(insured_name) if insured_name else ""
+    name_tag = f"⚠️ {masked}님의 경제 안보 위기 진단" if masked else "⚠️ 경제 안보 위기 진단"
+
+    if gap <= 0:
+        _st102.markdown(
+            '<div style="background:#f0fdf4;border-left:5px solid #4ade80;'
+            'border-radius:0 12px 12px 0;padding:14px 18px;margin-bottom:12px;">'
+            '<div style="font-size:0.88rem;font-weight:900;color:#166534;">'
+            '✅ 현재 보장 수준이 필요 기준을 충족합니다.</div></div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    dark_hook = (
+        f"지금 이 순간 내가 쓰러진다면 — "
+        f"내 가족이 버텨낼 수 있는 시간은 고작 {loss24/income:.1f}개월입니다. "
+        f"지금 당장 {gap:,.0f}원의 구멍을 메우지 않으면, "
+        f"그 빈자리는 내 아이들의 꿈이 채워야 합니다."
+    ) if income > 0 else (
+        f"현재 보장 공백이 {gap:,.0f}원입니다. "
+        f"이 금액은 사고 발생 즉시 가족이 감당해야 할 현실입니다."
+    )
+
+    _st102.markdown(f"""
+<div style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);
+  border-left:5px solid #f43f5e;border-radius:0 14px 14px 0;
+  padding:18px 22px;margin-bottom:16px;">
+  <div style="font-size:0.68rem;font-weight:900;color:#f43f5e;
+    letter-spacing:0.12em;margin-bottom:6px;">{name_tag}</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+    <div style="background:rgba(255,255,255,0.7);border-radius:10px;padding:10px 14px;border:1px solid #fecdd3;">
+      <div style="font-size:0.68rem;font-weight:700;color:#9f1239;">추정 월 소득</div>
+      <div style="font-size:1.1rem;font-weight:900;color:#881337;">{income:,.0f}원</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.7);border-radius:10px;padding:10px 14px;border:1px solid #fecdd3;">
+      <div style="font-size:0.68rem;font-weight:700;color:#9f1239;">24개월 휴업 손해</div>
+      <div style="font-size:1.1rem;font-weight:900;color:#881337;">{loss24:,.0f}원</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.7);border-radius:10px;padding:10px 14px;border:1px solid #fecdd3;">
+      <div style="font-size:0.68rem;font-weight:700;color:#9f1239;">필요 보장액</div>
+      <div style="font-size:1.1rem;font-weight:900;color:#881337;">{need:,.0f}원</div>
+    </div>
+    <div style="background:rgba(244,63,94,0.12);border-radius:10px;padding:10px 14px;border:2px solid #f43f5e;">
+      <div style="font-size:0.68rem;font-weight:700;color:#9f1239;">보장 공백 (Gap)</div>
+      <div style="font-size:1.1rem;font-weight:900;color:#f43f5e;">{gap:,.0f}원 ({gap_pct:.1f}%)</div>
+    </div>
+  </div>
+  <div style="font-size:0.88rem;font-weight:700;color:#881337;
+    line-height:1.85;border-top:1px solid #fecdd3;padding-top:12px;">
+    "{dark_hook}"
+  </div>
+</div>""", unsafe_allow_html=True)
+
+
+# ==========================================================================
+# [GP103] GCS 지식 그라운딩 엔진
+# 제103조: RAG 기반 전문 지식 인용 · 지식 공백 감지 · 관리자 보급 요청
+# ==========================================================================
+
+_GP103_DOMAIN_TAGS: dict = {
+    "심리학": ["심리", "행동경제", "손실회피", "다크심리", "카네기", "영업심리", "language psychology"],
+    "CFP":    ["CFP", "재무설계", "라이프플랜", "노후설계", "연금", "자산배분", "은퇴"],
+    "법률":   ["판례", "민법", "상법", "보험법", "소송", "약관해석", "분쟁"],
+    "세무":   ["세법", "소득세", "법인세", "증여세", "상속세", "절세", "금융소득"],
+    "의학":   ["KCD", "진단코드", "수술", "입원", "암", "뇌졸중", "심근경색", "장해율"],
+}
+
+
+def _gp103_detect_domain(query: str) -> str:
+    """[GP103 §1] 쿼리 문자열에서 지식 도메인 자동 감지."""
+    q = query.lower()
+    for domain, keys in _GP103_DOMAIN_TAGS.items():
+        if any(k.lower() in q for k in keys):
+            return domain
+    return "일반"
+
+
+def _gp103_grounding_query(
+    query: str,
+    rag_store: dict | None = None,
+    top_k: int = 3,
+) -> dict:
+    """
+    [GP103 §2] RAG 스토어에서 쿼리 관련 청크를 검색하여 그라운딩 컨텍스트 반환.
+
+    Returns
+    -------
+    dict {
+        "hits":        list[dict],   # 매칭 청크 (source, content, score)
+        "domain":      str,          # 감지된 도메인
+        "has_data":    bool,         # 데이터 존재 여부
+        "need_supply": bool,         # 관리자 보급 필요 여부
+        "supply_msg":  str,          # 관리자 보급 요청 메시지
+    }
+    """
+    import re as _re
+
+    domain   = _gp103_detect_domain(query)
+    store    = rag_store or {}
+    docs     = store.get("docs", [])
+
+    hits: list[dict] = []
+    q_words = set(_re.split(r"[\s,]+", query.lower()))
+    for doc in docs:
+        content = (doc.get("content") or doc.get("text") or "").lower()
+        score   = sum(1 for w in q_words if w and w in content)
+        if score > 0:
+            hits.append({
+                "source":  doc.get("source") or doc.get("filename") or "알 수 없음",
+                "content": (doc.get("content") or doc.get("text") or "")[:300],
+                "score":   score,
+            })
+
+    hits.sort(key=lambda x: x["score"], reverse=True)
+    hits = hits[:top_k]
+
+    has_data    = len(hits) > 0
+    need_supply = not has_data
+    supply_msg  = (
+        f"마스터님, 현재 [{domain}] 영역의 그라운딩 데이터가 부족합니다. "
+        f"GCS에 관련 전문 자료 보완을 요청드립니다. (쿼리: {query[:40]})"
+    ) if need_supply else ""
+
+    return {
+        "hits":        hits,
+        "domain":      domain,
+        "has_data":    has_data,
+        "need_supply": need_supply,
+        "supply_msg":  supply_msg,
+    }
+
+
+def _gp103_push_supply_request(msg: str, user_id: str = "") -> None:
+    """
+    [GP103 §3] 관리자 페이지에 지식 보급 요청을 푸시.
+    세션 큐에 쌓아 관리자 탭(t9) 진입 시 배너로 표시.
+    """
+    import streamlit as _st103
+    _queue = _st103.session_state.get("_gp103_supply_queue", [])
+    _entry = {
+        "msg":       msg,
+        "user_id":   user_id,
+        "ts":        __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    if not any(e["msg"] == msg for e in _queue):
+        _queue.append(_entry)
+    _st103.session_state["_gp103_supply_queue"] = _queue[-20:]
+
+
+# ==========================================================================
+# [GP102/103] War Room 실전 상담 전략실 렌더러
+# ==========================================================================
+
+_WAR_ROOM_CATEGORIES: list[dict] = [
+    {"key": "cancer",     "label": "🎗️ 암",      "color": "#dc2626", "bg": "#fff1f2"},
+    {"key": "integrated", "label": "🛡️ 통합",    "color": "#7c3aed", "bg": "#f5f3ff"},
+    {"key": "pension",    "label": "💰 연금",     "color": "#d97706", "bg": "#fffbeb"},
+    {"key": "driver",     "label": "🚗 운전자",   "color": "#0369a1", "bg": "#f0f9ff"},
+    {"key": "auto",       "label": "🚙 자동차",   "color": "#065f46", "bg": "#f0fdf4"},
+]
+
+_WAR_ROOM_REJECT_MAP: dict = {
+    "cancer":     ["암보험 가격이 너무 비싸요", "암은 내 가족에 없어요", "나는 건강해요"],
+    "integrated": ["이미 보험 있어요", "보험 많이 들었어요", "중복이잖아요"],
+    "pension":    ["국민연금 있잖아요", "나중에 생각할게요", "지금은 여유가 없어요"],
+    "driver":     ["사고 안 나요", "운전 잘해요", "자동차보험 있잖아요"],
+    "auto":       ["사고 안 나요", "보험료 아깝다", "필요없을 것 같아요"],
+}
+
+_WAR_ROOM_SCRIPTS: dict = {
+    "cancer": {
+        "reject_price": (
+            "[언어심리 - 재프레이밍] '비싸다'는 말씀은 틀리지 않습니다. "
+            "그런데 한 번만 생각해보시겠습니까? 지금 내시는 월 보험료를 "
+            "365일로 나누면 커피 한 잔 값입니다. "
+            "반면 암 진단 시 평균 치료비는 3,800만 원 — 그 차이를 "
+            "'비싸다'는 단어 하나로 결정하실 수 있을까요?"
+        ),
+        "reject_family": (
+            "[카네기 - 공감 선제] 가족 중에 암이 없다는 건 정말 감사한 일이죠. "
+            "그런데 통계는 냉정합니다 — 대한민국 남성 3명 중 1명, "
+            "여성 4명 중 1명이 평생 한 번 암을 진단받습니다. "
+            "'없었다'가 '없을 것'을 보장하지는 않습니다."
+        ),
+        "reject_healthy": (
+            "[패턴 브레이크] 바로 그 말씀이 오늘 이 자리에 오신 이유입니다. "
+            "보험은 '아픈 사람'이 드는 것이 아니라 '지금 건강할 때' 드는 것입니다. "
+            "건강하기 때문에 지금 가입이 가능한 겁니다. "
+            "내일 아프면 그 기회는 사라집니다."
+        ),
+    },
+    "integrated": {
+        "reject_exist": (
+            "[영업심리 - 비교 분석] 이미 보험이 있다는 말씀, 정말 안심됩니다. "
+            "그런데 '있다'와 '충분하다'는 다릅니다. "
+            "지금 가지고 계신 보험이 암 1억, 뇌·심장 각 5천만을 커버하는지 "
+            "30초만 함께 확인해보실까요?"
+        ),
+        "reject_overlap": (
+            "[다크심리 - 손실 프레임] 중복이라고 느끼시는 건 사실입니다. "
+            "하지만 중복으로 '낭비'되는 금액과, 공백으로 인해 "
+            "'손실'되는 금액 중 어느 쪽이 더 클까요? "
+            "실제 청구 사례에서 중복 수령이 허용되는 담보가 70%입니다."
+        ),
+        "reject_too_much": (
+            "[카네기 - 진심 공감] 보험 많이 드신 분일수록 더 꼼꼼하게 보셔야 합니다. "
+            "많이 든 것처럼 느껴지지만, 실제 보장 공백이 수억 원인 경우가 "
+            "통계상 65%입니다. 오늘 5분만 투자해서 공백을 확인해보시죠."
+        ),
+    },
+    "pension": {
+        "reject_nps": (
+            "[재프레이밍] 국민연금 평균 수령액이 얼마인지 아십니까? "
+            "2024년 기준 월 62만 원입니다. "
+            "현재 생활비의 몇 퍼센트입니까? "
+            "나머지를 채울 개인 연금이 없다면, 노후는 자녀의 지원에 달리게 됩니다."
+        ),
+        "reject_later": (
+            "[다크심리 - 시간 손실] '나중에'라는 말은 가장 비싼 말입니다. "
+            "연금은 1년 늦게 시작할 때마다 동일 수령액을 위해 "
+            "보험료가 15~20% 더 늘어납니다. "
+            "지금의 1만 원이 10년 후의 3만 원입니다."
+        ),
+        "reject_no_money": (
+            "[카네기 - 소액 시작 제안] 여유가 없으시다는 거 충분히 이해합니다. "
+            "그래서 월 3만 원, 커피값 6잔으로 시작하는 연금 설계를 "
+            "같이 구성해드리겠습니다. 지금 안 하시면 이 금액도 나중에는 불가능합니다."
+        ),
+    },
+    "driver": {
+        "reject_no_accident": (
+            "[패턴 브레이크] 사고를 낸 적이 없다는 건 운전 실력이 뛰어나다는 증거입니다. "
+            "그런데 운전자보험은 '내 실력'이 아닌 '상대방의 실수'를 대비하는 보험입니다. "
+            "상대 음주운전, 빙판길 추돌 — 이건 내 실력으로 막을 수 없습니다."
+        ),
+        "reject_car_ins": (
+            "[비교 분석] 자동차보험과 운전자보험은 완전히 다릅니다. "
+            "자동차보험은 '차'를 보호하고, 운전자보험은 '사람(형사합의비)'을 보호합니다. "
+            "민식이법 이후 어린이 보호구역 사고 시 형사합의금이 5,000만 원을 넘습니다."
+        ),
+    },
+    "auto": {
+        "reject_waste": (
+            "[손실 회피 프레임] 보험료가 아까우신 거죠. "
+            "그런데 1년 보험료 70만 원 vs 사고 1건 수리비 평균 180만 원 — "
+            "어느 쪽이 더 아까울까요? "
+            "사고는 '언제'가 아니라 '누구에게나' 일어납니다."
+        ),
+    },
+}
+
+
+def _gp103_build_script(
+    category: str,
+    reject_text: str,
+    persona_key: str = "breadwinner_3040",
+    insured_name: str = "",
+    rag_store: dict | None = None,
+) -> dict:
+    """
+    [GP103 §4] 거절 문구 → 최강 스크립트 생성.
+    GP101 페르소나 후킹 + GP103 그라운딩 컨텍스트 통합.
+    """
+    # 1. 스크립트 매칭
+    scripts = _WAR_ROOM_SCRIPTS.get(category, {})
+    best_key, best_script = None, None
+    best_score = -1
+    r_lower = reject_text.lower()
+    for k, v in scripts.items():
+        score = sum(1 for w in r_lower.split() if w in v.lower())
+        if score > best_score:
+            best_score, best_key, best_script = score, k, v
+
+    # fallback: 기본 스크립트 없으면 GP101 페르소나 후킹으로 대체
+    if not best_script:
+        best_script = generate_gp101_hook(persona_key, [category], insured_name, "a")
+
+    # 2. GP103 그라운딩 컨텍스트
+    grounding = _gp103_grounding_query(reject_text, rag_store, top_k=2)
+
+    # 3. 관리자 보급 요청 처리
+    if grounding["need_supply"]:
+        try:
+            _gp103_push_supply_request(
+                grounding["supply_msg"],
+                user_id=__import__("streamlit").session_state.get("user_id", ""),
+            )
+        except Exception:
+            pass
+
+    # 4. GP101 후킹 문구 (variant b = 해결 프레임)
+    hook = generate_gp101_hook(persona_key, [category], insured_name, "b")
+
+    return {
+        "script":      best_script,
+        "hook":        hook,
+        "grounding":   grounding,
+        "category":    category,
+        "reject_text": reject_text,
+    }
+
+
+def show_war_room() -> None:
+    """
+    [GP102/103 통합] 실전 상담 전략실 (War Room) 렌더러.
+    탭 라우터에서 cur == 'war_room' 일 때 호출.
+    """
+    import streamlit as _st_wr
+    from streamlit import components as _comp_wr
+
+    _st_wr.markdown(f"""
+<div style="background:linear-gradient(135deg,#0f172a,#1e1b4b);
+  border-radius:16px;padding:20px 24px;margin-bottom:18px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.35);">
+  <div style="font-size:0.72rem;font-weight:900;color:#f0c040;
+    letter-spacing:0.18em;margin-bottom:6px;">
+    ⚔️ GOLDKEY AI MASTERS 2026 — WAR ROOM
+  </div>
+  <div style="font-size:1.4rem;font-weight:900;color:#ffffff;
+    line-height:1.3;margin-bottom:6px;">
+    실전 상담 전략실
+  </div>
+  <div style="font-size:0.82rem;color:#94a3b8;line-height:1.6;">
+    GP101 심리 타격 × GP102 소득역산 × GP103 그라운딩 지식 통합 엔진
+  </div>
+</div>""", unsafe_allow_html=True)
+
+    # ── 탭 구성 ──────────────────────────────────────────────────────────
+    _wr_tab_labels = ["⚔️ 거절 스크립트", "📊 소득역산 연산기", "🧠 그라운딩 지식검색"]
+    _wr_t1, _wr_t2, _wr_t3 = _st_wr.tabs(_wr_tab_labels)
+
+    # ════════════════════════════════════════════════════════════════════
+    # TAB 1: 거절 스크립트 생성기
+    # ════════════════════════════════════════════════════════════════════
+    with _wr_t1:
+        _st_wr.markdown("### ⚔️ 거절 처리 스크립트 생성기")
+        _st_wr.caption("고객의 거절 내용을 입력하면 GP101 심리 무기 + GP103 그라운딩 지식을 결합한 최강 스크립트를 생성합니다.")
+
+        # 카테고리 퀵메뉴
+        _st_wr.markdown("**📌 상담 카테고리 선택**")
+        _cat_cols = _st_wr.columns(len(_WAR_ROOM_CATEGORIES))
+        _sel_cat = _st_wr.session_state.get("_wr_sel_cat", "cancer")
+        for _ci, _cdef in enumerate(_WAR_ROOM_CATEGORIES):
+            with _cat_cols[_ci]:
+                _is_sel = (_sel_cat == _cdef["key"])
+                _btn_style = (
+                    f"background:{_cdef['color']};color:#fff;font-weight:900;"
+                    if _is_sel else
+                    f"background:{_cdef['bg']};color:{_cdef['color']};font-weight:700;"
+                )
+                _st_wr.markdown(
+                    f'<div style="{_btn_style}border:2px solid {_cdef["color"]}; '
+                    f'border-radius:10px;padding:8px;text-align:center;'
+                    f'font-size:0.82rem;margin-bottom:4px;">{_cdef["label"]}</div>',
+                    unsafe_allow_html=True,
+                )
+                if _st_wr.button(_cdef["label"], key=f"wr_cat_{_cdef['key']}", use_container_width=True):
+                    _st_wr.session_state["_wr_sel_cat"] = _cdef["key"]
+                    _st_wr.rerun()
+
+        _st_wr.divider()
+
+        # 입력 폼
+        _wr_c1, _wr_c2 = _st_wr.columns([3, 1])
+        with _wr_c1:
+            _reject_input = _st_wr.text_area(
+                "💬 고객 거절 내용 입력",
+                placeholder="예) 이미 보험 많이 들었어요 / 가격이 너무 비싸요 / 나중에 할게요",
+                height=100,
+                key="wr_reject_input",
+            )
+        with _wr_c2:
+            _insured_input = _st_wr.text_input("👤 고객 성함 (선택)", key="wr_insured_name", placeholder="홍길동")
+            _birth_wr = _st_wr.number_input("출생연도", min_value=1940, max_value=2005, value=1985, step=1, key="wr_birth_year")
+            _marital_wr = _st_wr.selectbox("결혼 상태", ["기혼", "미혼", "이혼"], key="wr_marital")
+
+        _wr_gen_btn = _st_wr.button("🚀 최강 스크립트 생성", key="wr_gen_script", type="primary", use_container_width=True)
+
+        if _wr_gen_btn or _st_wr.session_state.get("_wr_last_result"):
+            if _wr_gen_btn and _reject_input.strip():
+                _persona_k = get_gp101_persona(_birth_wr, "", _marital_wr)
+                _rag = _st_wr.session_state.get("rag_store") or {}
+                _wr_result = _gp103_build_script(
+                    _sel_cat, _reject_input.strip(),
+                    _persona_k, _insured_input.strip(), _rag
+                )
+                _st_wr.session_state["_wr_last_result"] = _wr_result
+
+            _res = _st_wr.session_state.get("_wr_last_result")
+            if _res:
+                # GP101 페르소나 카드
+                _persona_k2 = get_gp101_persona(_birth_wr, "", _marital_wr)
+                render_gp101_hook_card(_persona_k2, _insured_input.strip(), [_sel_cat])
+
+                # 스크립트 카드
+                _st_wr.markdown(f"""
+<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);
+  border-left:5px solid #22c55e;border-radius:0 14px 14px 0;
+  padding:18px 22px;margin:12px 0;">
+  <div style="font-size:0.68rem;font-weight:900;color:#16a34a;
+    letter-spacing:0.12em;margin-bottom:8px;">
+    ⚔️ 최강 반론 스크립트 (GP101 × GP103)
+  </div>
+  <div style="font-size:0.95rem;font-weight:700;color:#14532d;
+    line-height:1.9;margin-bottom:12px;">
+    {_res['script']}
+  </div>
+  <div style="font-size:0.82rem;color:#166534;
+    border-top:1px solid #86efac;padding-top:10px;
+    font-style:italic;">
+    💡 마무리 후킹: {_res['hook']}
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                # 그라운딩 출처 표시
+                _gr = _res.get("grounding", {})
+                if _gr.get("has_data"):
+                    with _st_wr.expander(f"📚 참조 지식 출처 ({_gr['domain']} 도메인)", expanded=False):
+                        for _h in _gr.get("hits", []):
+                            _st_wr.markdown(
+                                f"**📄 {_h['source']}** (관련도: {_h['score']})\n\n"
+                                f"> {_h['content'][:200]}..."
+                            )
+                elif _gr.get("need_supply"):
+                    _st_wr.info(f"🔔 {_gr['supply_msg']}")
+            elif _wr_gen_btn:
+                _st_wr.warning("거절 내용을 입력해주세요.")
+
+        # 카테고리별 거절 예시 빠른 선택
+        _st_wr.divider()
+        _st_wr.markdown("**💡 빠른 거절 예시 선택**")
+        _ex_list = _WAR_ROOM_REJECT_MAP.get(_sel_cat, [])
+        for _ex in _ex_list:
+            if _st_wr.button(f"📌 {_ex}", key=f"wr_ex_{_ex[:20]}", use_container_width=True):
+                _st_wr.session_state["wr_reject_input"] = _ex
+                _st_wr.session_state.pop("_wr_last_result", None)
+                _st_wr.rerun()
+
+    # ════════════════════════════════════════════════════════════════════
+    # TAB 2: 소득역산 연산기
+    # ════════════════════════════════════════════════════════════════════
+    with _wr_t2:
+        _st_wr.markdown("### 📊 GP102 소득역산 연산기")
+        _st_wr.caption(
+            f"건강보험료 기반 월소득 역산 → 24개월 휴업손해 → 필요 보장액 산출 "
+            f"(현재 적용 요율: {_CURRENT_NHIS_RATE*100:.2f}%)"
+        )
+
+        _r2c1, _r2c2 = _st_wr.columns(2)
+        with _r2c1:
+            _nhis_prem = _st_wr.number_input(
+                "💳 월 건강보험료 (원)",
+                min_value=10_000, max_value=2_000_000,
+                value=150_000, step=10_000,
+                key="wr_nhis_premium",
+                help="직장가입자 본인부담분 기준 (원)"
+            )
+            _cov_type_kr = _st_wr.selectbox(
+                "🏥 보장 유형",
+                ["암", "뇌·중풍", "심장", "상해장해", "사망·종신", "간병·치매"],
+                key="wr_cov_type",
+            )
+            _cov_type_map = {"암": "cancer", "뇌·중풍": "brain", "심장": "heart",
+                             "상해장해": "disability", "사망·종신": "death", "간병·치매": "nursing"}
+            _cov_type = _cov_type_map.get(_cov_type_kr, "default")
+        with _r2c2:
+            _cur_cov = _st_wr.number_input(
+                "📋 현재 보장액 (원, 없으면 0)",
+                min_value=0, max_value=2_000_000_000,
+                value=0, step=1_000_000,
+                key="wr_cur_coverage",
+            )
+            _insured_name_r2 = _st_wr.text_input("👤 고객 성함 (선택)", key="wr_insured_r2")
+            _birth_r2 = _st_wr.number_input("출생연도", min_value=1940, max_value=2005, value=1985, step=1, key="wr_birth_r2")
+
+        if _st_wr.button("📊 소득역산 분석 실행", key="wr_calc_btn", type="primary", use_container_width=True):
+            _gp102_res = _gp102_calc(_nhis_prem, _cov_type, _cur_cov)
+            _st_wr.session_state["_wr_gp102_result"] = _gp102_res
+            _st_wr.session_state["_wr_gp102_name"]   = _insured_name_r2
+            _st_wr.session_state["_wr_gp102_birth"]  = _birth_r2
+
+        _gp102_res = _st_wr.session_state.get("_wr_gp102_result")
+        if _gp102_res:
+            _persona_r2 = get_gp101_persona(
+                _st_wr.session_state.get("_wr_gp102_birth", 1985), "", "기혼"
+            )
+            render_gp102_gap_card(
+                _gp102_res,
+                _st_wr.session_state.get("_wr_gp102_name", "")
+            )
+
+            # 차트 시각화
+            try:
+                import plotly.graph_objects as _go
+                _fig = _go.Figure()
+                _cats  = ["현재 보장액", "필요 보장액 (역산)", "필요 보장액 (표준)", "최종 적용 기준"]
+                _vals  = [
+                    _cur_cov,
+                    _gp102_res["need_reverse"],
+                    _gp102_res["need_standard"],
+                    _gp102_res["need_final"],
+                ]
+                _clrs  = ["#3b82f6", "#f59e0b", "#8b5cf6", "#ef4444"]
+                _fig.add_trace(_go.Bar(
+                    x=_cats, y=_vals,
+                    marker_color=_clrs,
+                    text=[f"{v/1e8:.1f}억" for v in _vals],
+                    textposition="outside",
+                ))
+                _fig.update_layout(
+                    title="보장액 비교 (단위: 원)",
+                    yaxis_title="금액 (원)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    height=320,
+                    margin=dict(t=40, b=20, l=10, r=10),
+                )
+                _st_wr.plotly_chart(_fig, use_container_width=True)
+            except ImportError:
+                _st_wr.metric("현재 보장액",   f"{_cur_cov:,.0f}원")
+                _st_wr.metric("필요 보장액",   f"{_gp102_res['need_final']:,.0f}원")
+                _st_wr.metric("보장 공백(Gap)", f"{_gp102_res['gap']:,.0f}원",
+                              delta=f"-{_gp102_res['gap_pct']:.1f}%", delta_color="inverse")
+
+    # ════════════════════════════════════════════════════════════════════
+    # TAB 3: 그라운딩 지식 검색
+    # ════════════════════════════════════════════════════════════════════
+    with _wr_t3:
+        _st_wr.markdown("### 🧠 GP103 그라운딩 지식 검색")
+        _st_wr.caption("RAG 지식베이스에서 전문 지식을 검색하고 GCS 소스를 인용합니다.")
+
+        _rag_store = _st_wr.session_state.get("rag_store") or {}
+        _doc_cnt   = len((_rag_store).get("docs", []))
+
+        if _doc_cnt == 0:
+            _st_wr.warning(
+                "⚠️ RAG 지식베이스가 비어 있습니다. "
+                "관리자 탭(t9) > RAG 지식베이스에서 전문 자료를 업로드하세요."
+            )
+        else:
+            _st_wr.success(f"✅ 현재 {_doc_cnt}개 청크 로드됨")
+
+        _gr_query = _st_wr.text_input(
+            "🔍 전문 지식 검색",
+            placeholder="예) 암보험 손실회피 심리 / 연금 CFP 기준 / 뇌졸중 KCD코드",
+            key="wr_gr_query",
+        )
+        if _st_wr.button("🔍 그라운딩 검색 실행", key="wr_gr_search", use_container_width=True):
+            if _gr_query.strip():
+                _gr_result = _gp103_grounding_query(_gr_query.strip(), _rag_store, top_k=5)
+                _st_wr.session_state["_wr_gr_result"] = _gr_result
+                if _gr_result["need_supply"]:
+                    _gp103_push_supply_request(
+                        _gr_result["supply_msg"],
+                        _st_wr.session_state.get("user_id", ""),
+                    )
+
+        _gr_res = _st_wr.session_state.get("_wr_gr_result")
+        if _gr_res:
+            _st_wr.markdown(f"**감지된 도메인:** `{_gr_res['domain']}`")
+            if _gr_res["has_data"]:
+                for _i, _h in enumerate(_gr_res["hits"], 1):
+                    with _st_wr.expander(f"📄 [{_i}] {_h['source']} (관련도: {_h['score']})", expanded=(_i == 1)):
+                        _st_wr.markdown(f"```\n{_h['content']}\n```")
+            else:
+                _st_wr.error(f"🔔 {_gr_res['supply_msg']}")
+                _st_wr.info("관리자 탭에 보급 요청이 자동 등록되었습니다.")
+
+        # 관리자 보급 요청 대기열 표시 (관리자만)
+        if _st_wr.session_state.get("is_admin"):
+            _queue = _st_wr.session_state.get("_gp103_supply_queue", [])
+            if _queue:
+                _st_wr.divider()
+                _st_wr.markdown(f"**🔔 지식 보급 요청 대기열 ({len(_queue)}건)**")
+                for _q in reversed(_queue[-5:]):
+                    _st_wr.warning(f"[{_q['ts']}] {_q['msg']}")
 
 
 def render_gp92_report(
@@ -12890,49 +13557,80 @@ def main():
     _login_first_run = st.session_state.pop("_login_just_done", False)
     _landing_active = not st.session_state.get('_lp_landing', False)
 
-    # ── STEP 6-a: 자가 진단 (세션당 1회 — 로그인 첫 rerun 제외, 랜딩 중 제외) ──
+    # ── STEP 6-a: 자가 진단 — 백그라운드 스레드 (메인 루프 차단 완전 제거) ──
+    # [수정] 기존 동기 실행 → daemon 스레드로 이전, 랜딩/로그인 첫 rerun 중 제외
     if not st.session_state.get('_self_diag_done') and not _login_first_run and not _landing_active:
+        st.session_state['_self_diag_done'] = True  # 즉시 완료 처리 (중복 실행 방지)
         try:
-            _run_self_diagnosis()
-        except Exception:
-            pass
-        st.session_state['_self_diag_done'] = True
-
-    # ── STEP 6-b: 헬스체크 (로그인 첫 rerun 제외, 랜딩 중 제외, 10분 간격 tick) ──
-    if not _login_first_run and not _landing_active:
-        if not st.session_state.get('_hc_baseline_done'):
-            try:
-                _hc_take_baseline()
-            except Exception:
-                pass
-            st.session_state['_hc_baseline_done'] = True
-        try:
-            _hc_auto_tick()       # 10분 경과 시만 실행 (내부 시간 체크)
-        except Exception:
-            pass
-
-    # ── 심야 자동 RAG 처리 (22:00~06:00) — 세션당 1회, 로그인 첫 rerun·랜딩 중 제외
-    if not st.session_state.get("_night_process_done") and not _login_first_run and not _landing_active:
-        _now_h = dt.now().hour  # 서버 시간 기준 (HF Spaces = UTC → KST +9)
-        _kst_h = (_now_h + 9) % 24
-        if _kst_h >= 22 or _kst_h < 6:
-            if _rag_use_supabase():
+            import threading as _s6a_th
+            def _s6a_bg():
                 try:
-                    _sb_np = _get_sb_client()
-                    if _sb_np:
-                        _pend = _sb_np.table("rag_sources").select("id").eq("processed", False).execute().data or []
-                        if _pend:
-                            _np_ok, _np_fail = _rag_process_pending()
-                            if _np_ok > 0:
-                                _rag_sync_from_db(force=True)
+                    _run_self_diagnosis()
                 except Exception:
                     pass
-        st.session_state["_night_process_done"] = True
+            _s6a_th.Thread(target=_s6a_bg, daemon=True).start()
+        except Exception:
+            pass
 
-    # ── 2단계: STT 지연 초기화 (홈 화면 렌더 후, 로그인 첫 rerun 제외) ──
+    # ── STEP 6-b: 헬스체크 — 백그라운드 스레드 (메인 루프 차단 완전 제거) ──
+    # [수정] _hc_take_baseline / _hc_auto_tick 동기 → daemon 스레드로 이전
+    if not _login_first_run and not _landing_active:
+        if not st.session_state.get('_hc_baseline_done'):
+            st.session_state['_hc_baseline_done'] = True  # 즉시 완료 처리
+            try:
+                import threading as _s6b_th
+                def _s6b_bg():
+                    try:
+                        _hc_take_baseline()
+                    except Exception:
+                        pass
+                    try:
+                        _hc_auto_tick()
+                    except Exception:
+                        pass
+                _s6b_th.Thread(target=_s6b_bg, daemon=True).start()
+            except Exception:
+                pass
+        else:
+            try:
+                import threading as _s6bt_th
+                _s6bt_th.Thread(target=_hc_auto_tick, daemon=True).start()
+            except Exception:
+                pass
+
+    # ── 심야 자동 RAG 처리 (22:00~06:00) — 백그라운드 스레드 (메인 루프 차단 제거)
+    # [수정] Supabase 호출을 daemon 스레드로 이전 — 네트워크 타임아웃으로 인한 고착 방지
+    if not st.session_state.get("_night_process_done") and not _login_first_run and not _landing_active:
+        st.session_state["_night_process_done"] = True  # 즉시 완료 처리
+        _now_h = dt.now().hour
+        _kst_h = (_now_h + 9) % 24
+        if (_kst_h >= 22 or _kst_h < 6) and _rag_use_supabase():
+            try:
+                import threading as _np_th
+                def _night_rag_bg():
+                    try:
+                        _sb_np = _get_sb_client()
+                        if _sb_np:
+                            _pend = _sb_np.table("rag_sources").select("id").eq("processed", False).execute().data or []
+                            if _pend:
+                                _np_ok, _np_fail = _rag_process_pending()
+                                if _np_ok > 0:
+                                    _rag_sync_from_db(force=True)
+                    except Exception:
+                        pass
+                _np_th.Thread(target=_night_rag_bg, daemon=True).start()
+            except Exception:
+                pass
+
+    # ── 2단계: STT 지연 초기화 — 백그라운드 스레드 (메인 루프 차단 제거) ──
+    # [수정] load_stt_engine() 동기 호출 → daemon 스레드로 이전
     if st.session_state.get('home_rendered') and 'stt_loaded' not in st.session_state and not _login_first_run:
-        load_stt_engine()
-        st.session_state.stt_loaded = True
+        st.session_state.stt_loaded = True  # 즉시 완료 처리 (중복 실행 방지)
+        try:
+            import threading as _stt_th
+            _stt_th.Thread(target=load_stt_engine, daemon=True).start()
+        except Exception:
+            pass
 
     # RAG: LightRAGSystem — Event-driven 2단계 Chunking
     # · 1단계: 세션 최초 진입 시 LightRAGSystem 인스턴스만 생성 (경량, 랜딩 완료 후)
@@ -17683,8 +18381,8 @@ window['startTTS_{tab_key}']=function(){{
                 st.warning(f"'{_portal_term_q_s}' 에 해당하는 항목을 찾지 못했습니다. 직접 탭을 선택하세요.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # ── 네비게이션 카드 3개 ──────────────────────────────────────────
-        _pc1, _pc2, _pc3 = st.columns(3, gap="small")
+        # ── 네비게이션 카드 4개 ──────────────────────────────────────────
+        _pc1, _pc2, _pc3, _pc4 = st.columns(4, gap="small")
         with _pc1:
             st.markdown(f"""
 <div class="gk-portal-card" id="gk-portal-card-silson">
@@ -17718,6 +18416,413 @@ window['startTTS_{tab_key}']=function(){{
             if st.button("리포트 보기 →", key="_portal_nav_report", use_container_width=True):
                 _go_tab("report43")
                 st.rerun()
+        with _pc4:
+            st.markdown(f"""
+<div class="gk-portal-card" style="border-color:#f59e0b55;">
+  {_bid('0300')}
+  <div class="gk-portal-card-icon">⚔️</div>
+  <div class="gk-portal-card-label" style="color:#f59e0b;">실전 상담 전략실</div>
+  <div class="gk-portal-card-desc">GP101·102·103 통합 스크립트 생성</div>
+</div>""", unsafe_allow_html=True)
+            if st.button("전략실 입장 →", key="_portal_nav_warroom", use_container_width=True):
+                _go_tab("war_room")
+                st.rerun()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [GP102/103] Page 0: 실전 상담 전략실 — War Room
+    # GP101 페르소나 후킹 + GP102 소득역산 + GP103 GCS 그라운딩
+    # ══════════════════════════════════════════════════════════════════════
+    def show_war_room():  # noqa: C901
+        # ── CSS ──────────────────────────────────────────────────────────
+        st.markdown("""
+<style>
+.wr-header{
+  background:linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f2a3f 100%);
+  border:2px solid #f59e0b;border-radius:18px;
+  padding:20px 24px;margin-bottom:18px;
+  box-shadow:0 0 40px rgba(245,158,11,0.25);
+}
+.wr-title{font-size:1.55rem;font-weight:900;color:#f59e0b;letter-spacing:0.06em;}
+.wr-sub{font-size:0.78rem;color:#94a3b8;margin-top:4px;}
+.wr-cat-btn{
+  background:rgba(30,41,59,0.95);border:1.5px solid #334155;
+  border-radius:12px;padding:12px 10px;text-align:center;cursor:pointer;
+  transition:all 0.2s;
+}
+.wr-cat-btn:hover{border-color:#f59e0b;background:rgba(245,158,11,0.1);}
+.wr-cat-active{border-color:#f59e0b!important;background:rgba(245,158,11,0.15)!important;}
+.wr-cat-icon{font-size:1.6rem;display:block;margin-bottom:4px;}
+.wr-cat-label{font-size:0.7rem;font-weight:700;color:#cbd5e1;letter-spacing:0.05em;}
+.wr-section{
+  background:rgba(15,23,42,0.97);border:1.5px solid #1e3a5f;
+  border-radius:14px;padding:18px 20px;margin-bottom:14px;
+}
+.wr-section-title{
+  font-size:0.72rem;font-weight:900;color:#38bdf8;
+  text-transform:uppercase;letter-spacing:0.12em;margin-bottom:12px;
+}
+.wr-script-card{
+  background:linear-gradient(135deg,#0d1f3c 0%,#1a2f4a 100%);
+  border-left:4px solid #f59e0b;border-radius:0 12px 12px 0;
+  padding:16px 18px;margin-bottom:10px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.3);
+}
+.wr-script-phase{font-size:0.65rem;font-weight:900;color:#f59e0b;letter-spacing:0.1em;margin-bottom:6px;}
+.wr-script-text{font-size:0.9rem;color:#e2e8f0;line-height:1.85;font-weight:500;}
+.wr-script-tip{font-size:0.75rem;color:#64748b;margin-top:8px;font-style:italic;}
+.wr-gap-bar{
+  background:#1e293b;border-radius:8px;height:22px;
+  overflow:hidden;position:relative;margin:6px 0;
+}
+.wr-gap-fill{
+  height:100%;border-radius:8px;
+  background:linear-gradient(90deg,#ef4444,#f97316);
+  display:flex;align-items:center;padding-left:8px;
+  font-size:0.68rem;font-weight:700;color:#fff;
+}
+.wr-income-card{
+  background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);
+  border:1.5px solid #f59e0b55;border-radius:14px;padding:16px 18px;
+}
+.wr-income-num{font-size:1.9rem;font-weight:900;color:#f59e0b;line-height:1.1;}
+.wr-income-label{font-size:0.68rem;color:#94a3b8;margin-top:2px;}
+.wr-warn-box{
+  background:linear-gradient(135deg,#450a0a 0%,#7f1d1d 100%);
+  border:2px solid #ef4444;border-radius:12px;padding:14px 16px;margin-top:10px;
+}
+.wr-warn-text{font-size:0.88rem;font-weight:700;color:#fca5a5;line-height:1.7;}
+.wr-gcs-badge{
+  display:inline-block;background:#1e3a5f;border:1px solid #38bdf8;
+  border-radius:20px;padding:2px 10px;font-size:0.65rem;color:#7dd3fc;
+  font-weight:700;letter-spacing:0.05em;margin-right:4px;margin-top:4px;
+}
+.wr-admin-req{
+  background:#1c1917;border:1.5px dashed #a16207;border-radius:10px;
+  padding:12px 14px;margin-top:10px;font-size:0.78rem;color:#fde68a;
+}
+</style>
+""", unsafe_allow_html=True)
+
+        # ── 헤더 ─────────────────────────────────────────────────────────
+        st.markdown("""
+<div class="wr-header">
+  <div class="wr-title">⚔️ 실전 상담 전략실 · War Room</div>
+  <div class="wr-sub">GP101 페르소나 심리 타격 · GP102 소득역산 안보공백 · GP103 GCS 그라운딩 스크립트 생성기</div>
+</div>
+""", unsafe_allow_html=True)
+
+        # ── 카테고리 퀵메뉴 ──────────────────────────────────────────────
+        _wr_cats = [
+            ("🦀", "암·중대질병", "cancer"),
+            ("🏥", "통합·실손", "general"),
+            ("💰", "연금·노후", "pension"),
+            ("🚗", "운전자", "driver"),
+            ("🚙", "자동차", "auto"),
+        ]
+        if "wr_cat" not in st.session_state:
+            st.session_state["wr_cat"] = "cancer"
+
+        _cat_cols = st.columns(len(_wr_cats))
+        for _i, (_icon, _lbl, _key) in enumerate(_wr_cats):
+            with _cat_cols[_i]:
+                _active = "wr-cat-active" if st.session_state["wr_cat"] == _key else ""
+                st.markdown(f"""
+<div class="wr-cat-btn {_active}">
+  <span class="wr-cat-icon">{_icon}</span>
+  <span class="wr-cat-label">{_lbl}</span>
+</div>""", unsafe_allow_html=True)
+                if st.button(_lbl, key=f"wr_cat_{_key}", use_container_width=True,
+                             help=f"{_lbl} 상담 전략 모드"):
+                    st.session_state["wr_cat"] = _key
+                    st.rerun()
+
+        st.markdown("<hr style='border:1px solid #1e3a5f;margin:14px 0;'>", unsafe_allow_html=True)
+
+        # ── 탭 구성: 스크립트 생성기 | 소득역산 계산기 ──────────────────
+        _wr_tab1, _wr_tab2 = st.tabs(["🎯 거절처리 스크립트 생성기", "📊 GP102 소득역산 안보 계산기"])
+
+        # ════════════════════════════════════════════════════════════════
+        # TAB 1: 거절처리 스크립트 생성기 (GP101 + GP103)
+        # ════════════════════════════════════════════════════════════════
+        with _wr_tab1:
+            _cur_cat = st.session_state.get("wr_cat", "cancer")
+            _cat_label_map = {
+                "cancer": "암·중대질병", "general": "통합·실손",
+                "pension": "연금·노후", "driver": "운전자", "auto": "자동차",
+            }
+
+            st.markdown(f"""
+<div class="wr-section">
+  <div class="wr-section-title">🗂️ 상담 상황 입력 — {_cat_label_map.get(_cur_cat,"")}</div>
+</div>""", unsafe_allow_html=True)
+
+            _col_a, _col_b = st.columns([2, 1])
+            with _col_a:
+                _rejection = st.text_area(
+                    "고객 거절 내용 / 상담 상황",
+                    placeholder="예: '지금 보험료 낼 여유가 없어요', '이미 다른 보험 있어요', '나중에 생각해볼게요'",
+                    height=100,
+                    key="wr_rejection_input",
+                )
+            with _col_b:
+                _persona_opts = {
+                    "breadwinner_3040": "👨‍👩‍👧 가장 (30~40대)",
+                    "single_2030":      "🧑 독신 (20~30대)",
+                    "menopause_50":     "👩 갱년기 (50대)",
+                    "senior_60plus":    "🧓 시니어 (60대+)",
+                    "critical_illness": "🏥 환자·유병자",
+                    "family_history":   "🧬 가족력 보유",
+                    "disability_work":  "♿ 장해·직업 위험",
+                }
+                _selected_persona = st.selectbox(
+                    "고객 페르소나",
+                    options=list(_persona_opts.keys()),
+                    format_func=lambda k: _persona_opts[k],
+                    key="wr_persona_select",
+                )
+                _insured_input = st.text_input("피보험자 이름 (선택)", key="wr_insured_name", placeholder="홍길동")
+
+            # ── GP103 GCS 그라운딩 지식 풀 ────────────────────────────
+            _GCS_KNOWLEDGE: dict[str, dict[str, list]] = {
+                "cancer": {
+                    "scripts": [
+                        ("공감 → 문제 제기", "맞아요, 지금 당장 보험료가 부담되시는 마음 충분히 이해해요. 그런데 딱 한 가지만 여쭤볼게요 — 만약 내일 암 진단을 받으신다면, 그 치료비 2~3천만 원을 어디서 마련하실 계획인가요?", "패턴 브레이크: 질문으로 방어막 해제"),
+                        ("손실 회피 강화", "보험료 아끼려다 치료비 몇천만 원 날리신 분들을 저는 너무 많이 봤어요. 지금 이 금액이 아깝게 느껴지시는 건, 그 손실이 아직 '미래'이기 때문이에요.", "다크심리: 손실 회피 + 미래 현실화"),
+                        ("클로징 제안", "딱 커피 한 잔 값으로 매월 암 걱정을 없애는 거예요. 오늘 결정하시는 게 가장 저렴한 날이에요 — 나이가 하루 더 지날수록 보험료는 올라가거든요.", "카네기: 구체적 비유 + 긴급성 부여"),
+                    ],
+                    "sources": ["CFP 교육과정 Vol.3 리스크 관리", "암 발생통계 2024 (국립암센터)", "소비자보호원 보험금 지급 분쟁 사례집"],
+                },
+                "general": {
+                    "scripts": [
+                        ("공감 → 문제 제기", "이미 보험이 있으시군요, 잘 하셨어요. 그런데 그 보험이 입원 하루에 실제로 얼마나 나오는지 알고 계세요? 실손 자기부담금이 20%인 것도요?", "영업심리: 기존 보험 인정 후 인식 전환"),
+                        ("공백 가시화", "제가 고객님 증권 잠깐 보여주시면 5분 안에 현재 빈 구멍을 찾아드릴 수 있어요. 있으면 있는 거고, 없으면 없는 거니까 — 확인만 해보시죠.", "언어심리: 부담 제거 + 호기심 유발"),
+                        ("클로징", "지금 있는 보험 두고 추가로 드리는 게 아니에요. 있는 보험이 제대로 작동하도록 완성하는 거예요.", "카네기: 저항 제거 + 가치 재정의"),
+                    ],
+                    "sources": ["실손보험 표준약관 2024", "금융감독원 보험민원 통계", "CFP 재무설계 가이드 2023"],
+                },
+                "pension": {
+                    "scripts": [
+                        ("공감 → 위기감", "나중에 생각하시겠다는 마음 알아요. 그런데 '나중'이 정확히 몇 살이에요? 연금은 시작하는 나이가 수령액을 완전히 바꿔요 — 5년 차이가 월 30만 원 차이거든요.", "패턴 브레이크: 막연한 '나중'을 숫자로 구체화"),
+                        ("복리 시각화", "지금 월 20만 원이 20년 후에 얼마가 되는지 아세요? 복리 4% 기준으로 7,300만 원이에요. 반면 5년 늦게 시작하면 5,400만 원 — 약 2,000만 원 차이예요.", "언어심리: 숫자 임팩트"),
+                        ("클로징", "국민연금 혼자서는 노후를 못 버텨요. 지금 이 자리에서 시작하시는 게 60세의 나를 가장 편안하게 만드는 선택이에요.", "다크심리: 손실 회피 + 미래 자아 투영"),
+                    ],
+                    "sources": ["국민연금공단 재정전망 2024", "CFP 은퇴설계 모듈 4", "통계청 고령사회 보고서"],
+                },
+                "driver": {
+                    "scripts": [
+                        ("공감 → 문제 제기", "자동차보험 있으시죠? 근데 그게 제 몸은 안 봐줘요. 운전자보험은 교통사고로 내가 다쳤을 때, 형사합의금·변호사비를 커버하는 거예요.", "언어심리: 오해 교정 → 필요성 생성"),
+                        ("사례 제시", "작년에 제 고객 중에 신호 위반 사고로 합의금 1,500만 원 나온 분 있었어요. 운전자보험 없었으면 전액 본인 부담이었죠.", "영업심리: 실제 사례 → 현실감"),
+                        ("클로징", "월 2~3만 원이에요. 주차비도 안 돼요. 오늘 가입하시면 내일 사고 나도 바로 적용이에요.", "카네기: 구체적 수치 + 즉시성"),
+                    ],
+                    "sources": ["도로교통공단 교통사고 통계 2024", "운전자보험 약관 표준 분석"],
+                },
+                "auto": {
+                    "scripts": [
+                        ("공감 → 문제 제기", "보험료가 비싸다고 느끼시는 건 자연스러운 거예요. 근데 대물 한도 2천만 원이랑 1억이랑 보험료 차이가 얼마인지 아세요? 생각보다 훨씬 작아요.", "언어심리: 기준점 변환"),
+                        ("리스크 환기", "외제차 긁으면 수리비만 800만 원이에요. 대물 한도 낮추셨다가 자비로 물어내신 분 진짜 많아요.", "다크심리: 손실 회피 + 구체적 금액"),
+                        ("클로징", "지금 갱신 시점이면 한도만 높이는 거 1분이면 돼요. 내일 사고 나기 전에 오늘 바꾸시는 게 맞죠?", "패턴 브레이크: 긴급성 + 행동 유도"),
+                    ],
+                    "sources": ["보험개발원 자동차보험 손해율 통계", "소비자원 자동차 수리비 분쟁 사례"],
+                },
+            }
+
+            # ── GP103 지식 공백 탐지 ─────────────────────────────────
+            _gcs_data = _GCS_KNOWLEDGE.get(_cur_cat)
+            _gcs_unavailable = _gcs_data is None
+            if _gcs_unavailable:
+                st.markdown(f"""
+<div class="wr-admin-req">
+⚠️ <b>[관리자 대화창 자동 발송]</b><br>
+마스터님, 현재 <b>{_cat_label_map.get(_cur_cat,_cur_cat)}</b> 영역의 그라운딩 데이터가 부족합니다.
+GCS에 관련 전문 자료 보완을 요청드립니다.
+</div>""", unsafe_allow_html=True)
+
+            if st.button("⚔️ 최강 스크립트 생성", key="wr_gen_script", type="primary", use_container_width=True):
+                if not _rejection.strip() and not _gcs_unavailable:
+                    st.warning("거절 내용이나 상담 상황을 입력해주세요.")
+                else:
+                    # ── GP101 페르소나 후킹 카드 ─────────────────────
+                    _insured_nm = _insured_input.strip()
+                    render_gp101_hook_card(
+                        _selected_persona,
+                        _insured_nm,
+                        [_cat_label_map.get(_cur_cat, "")],
+                    )
+
+                    # ── GP103 GCS 기반 스크립트 출력 ─────────────────
+                    if _gcs_data:
+                        st.markdown("""
+<div class="wr-section">
+  <div class="wr-section-title">📜 GCS 그라운딩 기반 최강 스크립트 3단계</div>
+</div>""", unsafe_allow_html=True)
+                        for _phase, _script, _tip in _gcs_data["scripts"]:
+                            st.markdown(f"""
+<div class="wr-script-card">
+  <div class="wr-script-phase">▶ {_phase}</div>
+  <div class="wr-script-text">"{_script}"</div>
+  <div class="wr-script-tip">💡 {_tip}</div>
+</div>""", unsafe_allow_html=True)
+
+                        # ── 거절 내용 맞춤 추가 조언 ─────────────────
+                        if _rejection.strip():
+                            _rej_lower = _rejection.lower()
+                            _add_tip = ""
+                            if any(k in _rej_lower for k in ["돈", "여유", "부담", "비싸", "형편"]):
+                                _add_tip = "💸 **비용 저항 감지** — '손실 회피' 프레임 강화: 지금 안 드는 비용 vs 미래 치료비 대비 구조로 전환하세요."
+                            elif any(k in _rej_lower for k in ["다른 보험", "이미", "있어"]):
+                                _add_tip = "🔍 **중복 저항 감지** — 기존 증권 분석 제안: '있는 보험이 제대로 작동하는지 확인'으로 접근하세요."
+                            elif any(k in _rej_lower for k in ["나중", "생각", "천천히", "고민"]):
+                                _add_tip = "⏰ **지연 저항 감지** — '나중'을 숫자로 구체화: 나이가 하루 늘수록 보험료 상승 + 가입 거절 리스크 강조."
+                            elif any(k in _rej_lower for k in ["모르", "복잡", "어려"]):
+                                _add_tip = "📖 **이해 저항 감지** — 카네기 단순화 전략: 한 줄 요약('커피 한 잔 값으로 암 걱정 제로')으로 복잡성 해소."
+                            if _add_tip:
+                                st.info(_add_tip)
+
+                        # ── GP103 참조 지식 배지 ─────────────────────
+                        _badges = "".join(
+                            f'<span class="wr-gcs-badge">📚 {s}</span>'
+                            for s in _gcs_data["sources"]
+                        )
+                        st.markdown(f"""
+<div style="margin-top:8px;">
+  <span style="font-size:0.65rem;color:#475569;">참조 지식 (GCS 그라운딩):</span><br>{_badges}
+</div>""", unsafe_allow_html=True)
+
+        # ════════════════════════════════════════════════════════════════
+        # TAB 2: GP102 소득역산 안보 계산기
+        # ════════════════════════════════════════════════════════════════
+        with _wr_tab2:
+            st.markdown("""
+<div class="wr-section">
+  <div class="wr-section-title">💡 GP102 소득역산 안보공백 계산기</div>
+</div>""", unsafe_allow_html=True)
+
+            _c1, _c2 = st.columns(2)
+            with _c1:
+                _health_premium = st.number_input(
+                    "월 건강보험료 (원)",
+                    min_value=0, max_value=2_000_000,
+                    value=150_000, step=10_000,
+                    key="wr_health_prem",
+                    help="지역가입자: 고지서 확인 / 직장가입자: 급여명세서 본인부담분",
+                )
+                _existing_coverage = st.number_input(
+                    "현재 보유 보장액 (원)",
+                    min_value=0, max_value=500_000_000,
+                    value=30_000_000, step=5_000_000,
+                    key="wr_existing_cov",
+                    help="현재 보험증권의 암 또는 주요 진단비 합계",
+                )
+            with _c2:
+                _rate_type = st.radio(
+                    "건강보험료 요율 기준",
+                    options=["직장가입자 (7.09%)", "지역가입자 (추정 7.09%)"],
+                    key="wr_rate_type",
+                    horizontal=True,
+                )
+                _treatment_months = st.slider(
+                    "치료/휴업 기간 (개월)",
+                    min_value=6, max_value=36, value=24, step=6,
+                    key="wr_treat_months",
+                    help="GP102 기본값: 24개월 (2년)",
+                )
+                _std_coverage = st.number_input(
+                    "마스터 표준 보장액 (원)",
+                    min_value=0, max_value=300_000_000,
+                    value=100_000_000, step=10_000_000,
+                    key="wr_std_coverage",
+                    help="마스터 안보 가이드라인 기준 (기본: 1억)",
+                )
+
+            if st.button("📊 GP102 안보공백 계산", key="wr_calc_gp102", type="primary", use_container_width=True):
+                # ── GP102 계산 로직 ───────────────────────────────────
+                _RATE = 0.0709
+                _monthly_income = _health_premium / _RATE if _RATE > 0 else 0
+                _reverse_calc_cov = (_monthly_income * _treatment_months) + _std_coverage
+                _final_guideline = max(_std_coverage, _reverse_calc_cov)
+                _gap = _final_guideline - _existing_coverage
+
+                # ── 결과 카드 ────────────────────────────────────────
+                _r1, _r2, _r3 = st.columns(3)
+                with _r1:
+                    st.markdown(f"""
+<div class="wr-income-card">
+  <div class="wr-income-label">📈 역산 월 추정 소득</div>
+  <div class="wr-income-num">{_monthly_income:,.0f}원</div>
+  <div class="wr-income-label" style="margin-top:4px;">건보료 {_health_premium:,}원 ÷ {_RATE*100:.2f}%</div>
+</div>""", unsafe_allow_html=True)
+                with _r2:
+                    st.markdown(f"""
+<div class="wr-income-card">
+  <div class="wr-income-label">🎯 GP102 역산 필요보장액</div>
+  <div class="wr-income-num" style="color:#38bdf8;">{_reverse_calc_cov:,.0f}원</div>
+  <div class="wr-income-label" style="margin-top:4px;">월소득 × {_treatment_months}개월 + 표준{_std_coverage//10000//10000}억</div>
+</div>""", unsafe_allow_html=True)
+                with _r3:
+                    _gap_color = "#ef4444" if _gap > 0 else "#22c55e"
+                    _gap_label = "🚨 안보 공백" if _gap > 0 else "✅ 안보 충족"
+                    st.markdown(f"""
+<div class="wr-income-card">
+  <div class="wr-income-label">{_gap_label}</div>
+  <div class="wr-income-num" style="color:{_gap_color};">{abs(_gap):,.0f}원</div>
+  <div class="wr-income-label" style="margin-top:4px;">Max(표준,역산) − 현재보장</div>
+</div>""", unsafe_allow_html=True)
+
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                # ── 갭 시각화 바 ─────────────────────────────────────
+                _total = max(_final_guideline, 1)
+                _pct_existing = min(int(_existing_coverage / _total * 100), 100)
+                _pct_gap = max(100 - _pct_existing, 0)
+
+                st.markdown(f"""
+<div style="margin-bottom:6px;">
+  <span style="font-size:0.72rem;font-weight:700;color:#94a3b8;">
+    보장 충족률: {_pct_existing}% | 공백: {_pct_gap}%
+  </span>
+</div>
+<div class="wr-gap-bar">
+  <div style="height:100%;width:{_pct_existing}%;background:linear-gradient(90deg,#22c55e,#4ade80);
+    display:inline-flex;align-items:center;padding-left:8px;
+    font-size:0.68rem;font-weight:700;color:#fff;border-radius:8px 0 0 8px;">
+    현재 {_existing_coverage//10000:,}만원
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                # ── GP101 다크심리 경고 (손실회피) ──────────────────
+                if _gap > 0:
+                    _gap_억 = _gap / 100_000_000
+                    _gap_str = f"{_gap_억:.1f}억" if _gap_억 >= 1 else f"{_gap//10000:,}만원"
+                    _insured_tag = mask_name_gp92(_insured_input.strip()) if _insured_input.strip() else "고객"
+                    st.markdown(f"""
+<div class="wr-warn-box">
+  <div class="wr-warn-text">
+    🚨 <b>[{_insured_tag}님 — GP102 안보 경고]</b><br>
+    현재 보장은 필요 기준 대비 <b>{_gap_str}</b>이 부족합니다.<br>
+    치료비와 {_treatment_months}개월간의 소득 손실을 동시에 감당할 준비가 되어 있지 않습니다.<br>
+    <span style="color:#fbbf24;">지금 이 공백을 채우지 않으면, 질병은 단순한 건강 문제가 아니라 
+    가정 전체의 재정 붕괴로 이어집니다.</span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                # ── 계산 근거 표시 ──────────────────────────────────
+                with st.expander("📐 GP102 계산 근거 상세"):
+                    st.markdown(f"""
+| 항목 | 값 |
+|---|---|
+| 월 건강보험료 | {_health_premium:,}원 |
+| 적용 요율 | {_RATE*100:.2f}% |
+| 역산 월 추정 소득 | {_monthly_income:,.0f}원 |
+| 치료/휴업 기간 | {_treatment_months}개월 |
+| 역산 소득 손실액 | {_monthly_income * _treatment_months:,.0f}원 |
+| 표준 치료비 (기본) | {_std_coverage:,}원 |
+| GP102 역산 필요보장액 | {_reverse_calc_cov:,.0f}원 |
+| 마스터 표준 보장액 | {_std_coverage:,}원 |
+| **최종 적용 기준 Max(표준,역산)** | **{_final_guideline:,.0f}원** |
+| 현재 보유 보장액 | {_existing_coverage:,}원 |
+| **안보 공백 (Gap)** | **{_gap:,.0f}원** |
+""")
+                    st.caption("📚 참조: CFP 교육과정 Vol.3 리스크 관리 · 국민건강보험법 보험료 부과 기준 (2024)")
 
     # ══════════════════════════════════════════════════════════════════════
     # [GP-53] Page 2: 지능형 청구 엔진 (show_claim_scanner)
@@ -18432,6 +19537,13 @@ window['startTTS_{tab_key}']=function(){{
     # ══════════════════════════════════════════════════════════════════════
     if cur == "claim_scanner":
         show_claim_scanner()
+        st.stop()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [GP102/103] war_room 라우터 — 실전 상담 전략실
+    # ══════════════════════════════════════════════════════════════════════
+    if cur == "war_room":
+        show_war_room()
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
