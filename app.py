@@ -15670,10 +15670,11 @@ section[data-testid="stSidebar"] .st-expander summary {
                 st.session_state["_lp_terms"]["t4"] = False
             _terms_done_top = (st.session_state["_lp_terms"].get("t1")
                                and st.session_state["_lp_terms"].get("t2")
-                               and st.session_state["_lp_terms"].get("t3"))
+                               and st.session_state["_lp_terms"].get("t3")
+                               and st.session_state["_lp_terms"].get("t4"))
 
             # ══════════════════════════════════════════════════════════════
-            # [약관동의 블록] — 탭보다 먼저 표시, 외곽선으로 묶음
+            # [제52조] 약관동의 통합 박스 — 4개 항목 세로 배치, 모두 동의 폐지
             # ══════════════════════════════════════════════════════════════
             st.markdown("""
 <style>
@@ -15693,19 +15694,19 @@ section[data-testid="stSidebar"] input[type="checkbox"] {
   width: 20px !important;
   height: 20px !important;
   min-width: 20px !important;
-  border: 2.5px solid #1565C0 !important;
+  border: 2.5px solid #004D40 !important;
   border-radius: 5px !important;
   background: transparent !important;
-  box-shadow: 0 2px 6px rgba(21,101,192,0.30), inset 0 0 0 1px rgba(21,101,192,0.15) !important;
+  box-shadow: 0 2px 6px rgba(0,77,64,0.25), inset 0 0 0 1px rgba(0,77,64,0.12) !important;
   cursor: pointer !important;
   position: relative !important;
   display: inline-block !important;
   vertical-align: middle !important;
 }
 section[data-testid="stSidebar"] input[type="checkbox"]:checked {
-  background: transparent !important;
-  border: 2.5px solid #0D47A1 !important;
-  box-shadow: 0 2px 8px rgba(13,71,161,0.45), inset 0 0 0 1px rgba(13,71,161,0.20) !important;
+  background: rgba(0,77,64,0.10) !important;
+  border: 2.5px solid #004D40 !important;
+  box-shadow: 0 2px 8px rgba(0,77,64,0.40), inset 0 0 0 1px rgba(0,77,64,0.18) !important;
 }
 section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
   content: "✔" !important;
@@ -15713,105 +15714,73 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
   top: 50% !important;
   left: 50% !important;
   transform: translate(-50%, -50%) !important;
-  color: #0D47A1 !important;
+  color: #004D40 !important;
   font-size: 13px !important;
   font-weight: 900 !important;
 }
 </style>""", unsafe_allow_html=True)
 
             _tr_top = st.session_state["_lp_terms"]
-            _req_agreed_top = _tr_top.get("t1") and _tr_top.get("t2") and _tr_top.get("t3")
-            _all_agreed_top = _req_agreed_top and _tr_top.get("t4", False)
+            _req_agreed_top = (_tr_top.get("t1") and _tr_top.get("t2")
+                               and _tr_top.get("t3") and _tr_top.get("t4"))
 
+            # ── 안내 문구 (제52조 §2) ─────────────────────────────────────
             st.markdown("""
-<div style='border:2px solid #004D40;border-bottom:2px solid #004D40;border-radius:16px;
-  padding:16px 16px 12px 16px;margin-bottom:24px !important;margin-top:0 !important;
-  background:linear-gradient(135deg,rgba(79,172,254,0.07) 0%,rgba(0,242,254,0.04) 100%);
-  box-shadow:0 4px 6px -1px rgba(0,0,0,0.10),0 2px 12px rgba(0,77,64,0.18),0 4px 10px rgba(0,0,0,0.05);
-  position:relative;z-index:10;box-sizing:border-box;'>""", unsafe_allow_html=True)
-
-            st.markdown("""
-<div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:12px;
-  padding:14px 16px 10px 16px;margin-bottom:10px;text-align:center;
-  box-shadow:0 3px 14px rgba(79,172,254,0.28);'>
-  <div style='font-size:1.6rem;margin-bottom:6px;'>🛡️</div>
-  <div style='color:#0a1628;font-size:1.0rem;font-weight:800;'>안전한 서비스 이용을 위해<br>약관 동의가 필요합니다</div>
+<div style='color:#004D40;font-size:1rem;font-weight:700;
+  margin-bottom:8px;margin-top:4px;text-align:center;'>
+  필수 동의하셔야 'AI마스터접속' 가능.
 </div>""", unsafe_allow_html=True)
 
-            if not _req_agreed_top:
-                st.markdown("""
-<div style='background:linear-gradient(135deg,rgba(79,172,254,0.15),rgba(0,242,254,0.10));
-  border:1.5px solid #4facfe;border-radius:10px;
-  padding:10px 14px;margin:0 0 10px 0;font-size:0.82rem;
-  color:#1e293b;font-weight:700;text-align:center;'>
-  ⬇️ 아래 필수 항목 3개를 모두 체크해주세요.&nbsp;&nbsp; 동의이후에 로그인창이 열립니다.
-</div>""", unsafe_allow_html=True)
+            # ── 통합 박스 열기 (제52조 §1) ───────────────────────────────
+            st.markdown("""
+<div style='border:2px solid #004D40;border-radius:12px;
+  background:rgba(253,245,230,0.5);padding:15px;
+  margin-bottom:20px;box-sizing:border-box;'>""", unsafe_allow_html=True)
 
-            # ── 전체 동의 체크박스 ────────────────────────────────────────
-            _tc1_top, _tc2_top = st.columns([1, 6])
-            with _tc1_top:
-                _all_cb_top = st.checkbox("", value=bool(_all_agreed_top),
-                                          key="_terms_all_cb_top",
-                                          label_visibility="collapsed")
-            with _tc2_top:
-                st.markdown("<div style='padding-top:4px;font-size:0.95rem;font-weight:800;color:#0a1628;'>네, 모두 동의합니다</div>",
-                            unsafe_allow_html=True)
-            if _all_cb_top != bool(_all_agreed_top):
-                st.session_state["_lp_terms"] = {"t1": _all_cb_top, "t2": _all_cb_top,
-                                                  "t3": _all_cb_top, "t4": _all_cb_top}
-                if _all_cb_top:
-                    st.session_state["_terms_agreed_notify"] = True
-                st.rerun()
-
-            st.markdown("<hr style='border:none;border-top:1px solid #4facfe;margin:8px 0;'>",
-                        unsafe_allow_html=True)
-
-            # ── 개별 항목 2×2 병렬 배치 ──────────────────────────────────
-            # 필수 3개: t1·t2 (1행), t3·[선택t4] (2행)
-            _terms_row1 = [
-                ("t1", "[필수]", "서비스 이용약관 동의",       "#ef4444", "#1e293b"),
-                ("t2", "[필수]", "개인정보 수집 및 이용 동의", "#ef4444", "#1e293b"),
-            ]
-            _terms_row2 = [
-                ("t3", "[필수]", "민감정보(의료·건강기록)\nAI 분석 동의", "#ef4444", "#0369a1"),
-                ("t4", "[선택]", "맞춤형 보험·건강 정보\n알림 수신 동의",  "#64748b", "#475569"),
+            # ── 4개 항목 세로 배치 + 구분선 ──────────────────────────────
+            _terms_list = [
+                ("t1", "[필수]", "서비스 이용약관 동의",              "#ef4444", "#1e293b"),
+                ("t2", "[필수]", "개인정보 수집 및 이용 동의",        "#ef4444", "#1e293b"),
+                ("t3", "[필수]", "민감정보(의료·건강기록) AI 분석 동의", "#ef4444", "#0369a1"),
+                ("t4", "[필수]", "맞춤형 보험·건강 정보 알림 수신 동의", "#ef4444", "#475569"),
             ]
             _terms_changed_top = False
-            for _row in [_terms_row1, _terms_row2]:
-                _col_a, _col_b = st.columns(2, gap="small")
-                for (_ttk, _tbadge, _ttitle, _tbadge_color, _tcolor), _tcol in zip(_row, [_col_a, _col_b]):
-                    with _tcol:
-                        _tcb_col, _tlbl_col = st.columns([1, 5], gap="small")
-                        with _tcb_col:
-                            _tcv = st.checkbox("", value=bool(_tr_top.get(_ttk, False)),
-                                               key=f"_terms_top_cb_{_ttk}",
-                                               label_visibility="collapsed")
-                        with _tlbl_col:
-                            st.markdown(
-                                f"<div style='padding-top:2px;font-size:0.75rem;color:{_tcolor};line-height:1.4;'>"
-                                f"<span style='background:{_tbadge_color};color:#fff;font-size:0.60rem;"
-                                f"padding:1px 5px;border-radius:4px;font-weight:700;display:inline-block;margin-bottom:2px;'>{_tbadge}</span><br>"
-                                f"{_ttitle.replace(chr(10), '<br>')}</div>",
-                                unsafe_allow_html=True,
-                            )
-                        if _tcv != bool(_tr_top.get(_ttk, False)):
-                            st.session_state["_lp_terms"][_ttk] = _tcv
-                            _terms_changed_top = True
+            for _i, (_ttk, _tbadge, _ttitle, _tbadge_color, _tcolor) in enumerate(_terms_list):
+                _tcb_col, _tlbl_col = st.columns([1, 7], gap="small")
+                with _tcb_col:
+                    _tcv = st.checkbox("", value=bool(_tr_top.get(_ttk, False)),
+                                       key=f"_terms_top_cb_{_ttk}",
+                                       label_visibility="collapsed")
+                with _tlbl_col:
+                    _chk_icon = "✅" if _tr_top.get(_ttk, False) else "☐"
+                    st.markdown(
+                        f"<div style='padding-top:3px;font-size:0.78rem;color:{_tcolor};line-height:1.4;'>"
+                        f"<span style='background:{_tbadge_color};color:#fff;font-size:0.60rem;"
+                        f"padding:1px 6px;border-radius:4px;font-weight:700;"
+                        f"display:inline-block;margin-bottom:2px;'>{_tbadge}</span> "
+                        f"{_ttitle}</div>",
+                        unsafe_allow_html=True,
+                    )
+                if _tcv != bool(_tr_top.get(_ttk, False)):
+                    st.session_state["_lp_terms"][_ttk] = _tcv
+                    _terms_changed_top = True
+                if _i < len(_terms_list) - 1:
+                    st.markdown("<hr style='border:none;border-top:1px solid rgba(0,77,64,0.18);margin:4px 0 4px 0;'>",
+                                unsafe_allow_html=True)
             if _terms_changed_top:
                 st.rerun()
 
             # ── 개인정보 안전 보장 ────────────────────────────────────────
             st.markdown("""
-<div style='background:linear-gradient(135deg,rgba(79,172,254,0.12),rgba(0,242,254,0.08));
-  border:1.5px solid #4facfe;border-radius:10px;
-  padding:9px 12px;margin:8px 0 4px 0;font-size:0.78rem;color:#1a3a5c;'>
+<hr style='border:none;border-top:1px solid rgba(0,77,64,0.25);margin:10px 0 8px 0;'>
+<div style='font-size:0.74rem;color:#004D40;text-align:center;'>
   🔒 <strong>개인정보 안전 보장</strong> — AES-256 암호화 저장, 탈퇴 시 즉시 삭제
 </div>""", unsafe_allow_html=True)
 
-            # ── 외곽선 닫기 ───────────────────────────────────────────────
+            # ── 통합 박스 닫기 ────────────────────────────────────────────
             st.markdown("</div>", unsafe_allow_html=True)
 
-            # ── 약관동의 완료 시에만 탭 표시 (st.stop 제거 → 백화현상 방지) ──
+            # ── 약관동의 완료 시에만 탭 표시 ─────────────────────────────
             if _req_agreed_top:
                 if st.session_state.pop("_terms_agreed_notify", False):
                     st.success("✅ 동의 완료! 아래 로그인 탭에서 로그인하세요.", icon="🔓")
@@ -16671,9 +16640,18 @@ section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {{
                         st.session_state["_sb_goto_tab"] = "ins_bot"
                         st.rerun()
                 with _ex_r1c2:
-                    if st.button("🤖 AI 마스터\n제안", key="sb_ai_suggest", use_container_width=True, type="primary"):
-                        st.session_state["_sb_goto_tab"] = "t0"
-                        st.rerun()
+                    _terms_all_ok = ('user_id' in st.session_state or (
+                        st.session_state.get("_lp_terms", {}).get("t1") and
+                        st.session_state.get("_lp_terms", {}).get("t2") and
+                        st.session_state.get("_lp_terms", {}).get("t3") and
+                        st.session_state.get("_lp_terms", {}).get("t4")
+                    ))
+                    if st.button("🤖 AI 마스터\n접속", key="sb_ai_suggest", use_container_width=True, type="primary"):
+                        if _terms_all_ok:
+                            st.session_state["_sb_goto_tab"] = "t0"
+                            st.rerun()
+                        else:
+                            st.warning("필수 약관에 동의해 주세요.", icon="🔒")
                 # ── Row 2: 고객정보 검색 | 종합자산분석 ─────────────────
                 _ex_r2c1, _ex_r2c2 = st.columns(2)
                 with _ex_r2c1:
@@ -17108,20 +17086,20 @@ section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {{
 <style>
 .gk-login-guide {
   max-width: 460px; margin: 60px auto 0 auto;
-  background: linear-gradient(135deg,#0a1e35 0%,#0d2747 100%);
-  border: 1.5px solid #0ea5e9; border-radius: 20px;
+  background: linear-gradient(135deg,#E1F5FE 0%,#EFF8FF 100%);
+  border: 1.5px solid #81D4FA; border-radius: 20px;
   padding: 36px 28px 28px 28px; text-align: center;
-  box-shadow: 0 8px 32px rgba(14,165,233,0.25);
+  box-shadow: 0 8px 32px rgba(14,165,233,0.12);
 }
 .gk-login-guide .gk-lg-title {
-  font-size: 1.5rem; font-weight: 900; color: #f0c040;
+  font-size: 1.5rem; font-weight: 900; color: #B8860B;
   margin-bottom: 10px; letter-spacing: -0.01em;
 }
 .gk-login-guide .gk-lg-sub {
-  font-size: 0.95rem; color: #cbd5e1; margin-bottom: 24px; line-height: 1.6;
+  font-size: 0.95rem; color: #1e3a5f; margin-bottom: 24px; line-height: 1.6;
 }
 .gk-login-guide .gk-lg-arrow {
-  font-size: 2rem; color: #0ea5e9; margin-bottom: 8px;
+  font-size: 6rem; color: #f0c040; margin-bottom: 8px;
   animation: gk-bounce 1.2s infinite;
 }
 @keyframes gk-bounce {
