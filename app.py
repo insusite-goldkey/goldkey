@@ -10050,23 +10050,30 @@ def _gp90_live_search(query: str) -> list:
 # [GP91] 1인칭 생애주기 리스크 엔진 — 주민번호 입력 시 즉시 리포트 자동 표시
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── GP91 §1: 생애주기 구간 정의 ───────────────────────────────────────────────
+# ── GP91 §1: 생애주기 구간 정의 (통계·1인칭 독백 강화판) ──────────────────────
 _GP91_LIFECYCLE = [
     {
-        "label":   "사회초년생",
+        "label":   "자산형성기",
         "range":   (20, 34),
         "icon":    "🌱",
         "color":   "#0ea5e9",
-        "desc":    "자산 형성과 질병 대비의 황금기",
+        "desc":    "자산 형성과 질병 대비의 황금기 — 지금 가입하지 않으면 평생 후회합니다",
+        "stat":    "20~34세 암 진단율 매년 3만 건 돌파 · 평균 치료비 3,800만원",
+        "monologue": (
+            "내 나이 이 시절에는 '나는 안 걸리겠지'라고 생각했습니다. "
+            "그런데 통계는 냉정했습니다. 지금 이 순간 전국에서 "
+            "30대 암 환자가 매일 80명씩 새로 생겨납니다. "
+            "내가 그 한 명이 된다면, 나를 지켜줄 우산이 없습니다."
+        ),
         "risks": [
-            "내가 지금 당장 큰 병에 걸린다면, 나를 뒷받침할 경제적 버팀목이 없습니다.",
-            "사회 진입 단계인 지금, 나의 소득 상실은 곧 내 부모님께 짐이 될 수 있습니다.",
-            "지금 건강할 때 가입하지 않으면, 나중에 내가 원하는 보장을 받을 기회 자체가 사라집니다.",
+            "내가 오늘 중증 질환 진단을 받는다면, 치료비 평균 3,800만원을 내 통장에서 꺼내야 합니다. 지금 나의 통장 잔고가 그것을 감당합니까?",
+            "소득이 끊기는 순간, 나의 월세·생활비·부모님 용돈까지 — 내 주변 모든 사람의 일상이 함께 흔들립니다.",
+            "지금 이 나이에 건강 이력이 생기면, 앞으로 내가 원하는 보장에 '부담보' 또는 '거절' 통보를 받을 수 있습니다. 지금이 유일한 기회입니다.",
         ],
         "actions": [
-            "내 월 소득의 5~8%로 암·뇌·심장 3대 질병 보장을 확보합니다.",
-            "실손의료보험을 통해 나의 치료비 부담 구조를 점검합니다.",
-            "CI(치명적 질병) 진단비가 내 연간 소득의 2배 이상인지 확인합니다.",
+            "내 월 소득의 5~8% 범위에서 암·뇌·심장 3대 진단비를 각 3,000만원 이상 확보합니다.",
+            "실손의료보험 가입 여부를 즉시 확인하고, 미가입 상태라면 오늘 바로 설계합니다.",
+            "소득보상보험(취업불능급여)으로 나의 월 소득이 끊겨도 최소 3~6개월 생활이 가능한 안전망을 만듭니다.",
         ],
     },
     {
@@ -10074,16 +10081,23 @@ _GP91_LIFECYCLE = [
         "range":   (35, 49),
         "icon":    "🏠",
         "color":   "#f59e0b",
-        "desc":    "가장의 책임과 교육비 확보가 최우선",
+        "desc":    "가장의 책임이 최고조에 달하는 시기 — 내가 쓰러지면 내 가족이 길거리에 나앉습니다",
+        "stat":    "40대 남성 사망률 전체 연령 중 최고 · 자녀 대학 비용 평균 1억2천만원",
+        "monologue": (
+            "내 나이 마흔다섯, 이제는 내가 무너지면 내 가족이 길거리에 나앉을 수 있다는 "
+            "공포가 현실로 다가왔음을 내가 인지합니다. "
+            "내 아이가 대학 입학 통지서를 받아 드는 날, "
+            "그 비용을 내가 책임지지 못한다면 — 그것이 가장으로서 나의 가장 큰 실패입니다."
+        ),
         "risks": [
-            "내가 지금 일을 못하게 된다면, 내 자녀의 교육 계획 전체가 흔들립니다.",
-            "나의 사망 보장이 지금 당장 내 가족 10년 생활비를 충당할 수 있는지 점검해야 합니다.",
-            "자녀 교육비 마련을 보험 없이 저축만으로 준비하는 것은 리스크가 너무 큽니다.",
+            "내가 부재할 때 내 아이의 대학 등록금과 유학 자금이 단절될 위험이 현재 최고조에 달했음을 내가 확인했습니다. 4년 대학 비용 평균 1억2천만원, 나의 준비 현황은 얼마입니까?",
+            "나의 사망 보장이 지금 당장 내 가족의 10년 생활비(최소 3억원)를 충당할 수 있는지 — 오늘 바로 확인하지 않으면 내 가족은 아무것도 모른 채 위험에 놓입니다.",
+            "40대 남성은 급성심근경색·뇌졸중 발병률이 급격히 상승합니다. 내가 갑자기 쓰러진 그날부터 내 가족의 수입이 0원이 될 수 있습니다.",
         ],
         "actions": [
-            "내 사망 보장이 가족 생활비 10년분(최소 3억) 이상인지 확인합니다.",
-            "내 소득 보상 보험(취업불능급여)이 월 급여의 70% 이상 커버하는지 점검합니다.",
-            "자녀 1인당 대학등록금 4년분(약 4,000만~8,000만원) 마련 플랜을 수립합니다.",
+            "내 사망 보장 총액이 가족 생활비 10년분(최소 3억원) + 자녀 교육비를 합산하여 충분한지 지금 바로 계산합니다.",
+            "취업불능급여·소득보상보험으로 내가 일하지 못해도 월 생활비의 70% 이상이 지급되는 구조를 만듭니다.",
+            "자녀 1인당 대학 4년 비용(약 4,000만~1억2,000만원) 마련을 위한 교육보험 또는 저축성 플랜을 즉시 수립합니다.",
         ],
     },
     {
@@ -10091,16 +10105,23 @@ _GP91_LIFECYCLE = [
         "range":   (50, 64),
         "icon":    "🌅",
         "color":   "#8b5cf6",
-        "desc":    "노후 독자생존과 상속 준비의 골든타임",
+        "desc":    "노후 독립과 상속 준비의 마지막 골든타임",
+        "stat":    "한국인 평균 수명 84세 · 은퇴 후 평균 의료비 1억5천만원 · 상속세 납부 대상 매년 증가",
+        "monologue": (
+            "내가 은퇴 후 30년을 더 산다면, 지금 준비된 연금이 그 세월을 버텨낼 수 있습니까? "
+            "통계상 나는 84세까지 삽니다. 60세에 은퇴한다면 24년치 생활비, "
+            "그리고 암·뇌·심장 치료비 평균 1억5천만원이 더 필요합니다. "
+            "내가 쌓아온 자산이 치료비로 모두 사라진 뒤 남은 것이 없다면 — 그것이 내 유산의 전부가 됩니다."
+        ),
         "risks": [
-            "내가 은퇴 후 30년 이상 살아간다면, 지금 준비한 연금만으로 충분하지 않을 수 있습니다.",
-            "나에게 갑작스러운 큰 병이 생기면, 내가 평생 쌓아온 자산이 의료비로 소진될 수 있습니다.",
-            "상속세 재원을 지금 준비하지 않으면, 내 자녀가 내 유산을 온전히 물려받지 못합니다.",
+            "내가 은퇴 후 30년을 더 산다면, 지금 나의 국민연금·퇴직연금·개인연금 월 합계가 300만원을 넘는지 오늘 바로 확인해야 합니다.",
+            "나에게 갑작스러운 중증 질환이 생기면 내가 평생 쌓아온 자산이 의료비로 소진됩니다. 은퇴 후 평균 의료비는 1억5천만원입니다.",
+            "지금 상속세 재원을 준비하지 않으면, 내 자녀는 내가 남긴 부동산을 팔아 세금을 내야 할 수도 있습니다.",
         ],
         "actions": [
-            "내 국민연금·퇴직연금·개인연금의 월 수령액 합계가 최소 300만원이 되는지 확인합니다.",
-            "내 노후 의료비 리스크 커버를 위해 간병보험·실손보험 유지 여부를 점검합니다.",
-            "내 자산 규모에 맞는 상속세 재원(종신보험)이 설계되어 있는지 확인합니다.",
+            "내 3층 연금(국민+퇴직+개인)의 월 예상 수령액 합계를 지금 계산하고, 부족분을 즉시 보완합니다.",
+            "간병보험과 실손보험이 65세 이후에도 유지되는지 확인하고, 노후 의료비 안전망을 점검합니다.",
+            "종신보험으로 상속세 납부 재원을 미리 적립하여, 내 자녀가 내 유산을 온전히 이어받을 수 있도록 설계합니다.",
         ],
     },
     {
@@ -10108,16 +10129,23 @@ _GP91_LIFECYCLE = [
         "range":   (65, 120),
         "icon":    "👑",
         "color":   "#D4AF37",
-        "desc":    "상속세 재원 확보와 가업 승계의 완성",
+        "desc":    "상속세 재원 확보와 가업 승계의 완성 — 내 유산이 세금으로 사라지지 않도록",
+        "stat":    "10억 자산 상속세 최대 50% · 간병 장기화 시 월 평균 비용 300만원",
+        "monologue": (
+            "내가 지금 보유한 자산의 절반이 세금으로 사라질 수 있다는 사실을 알고 계십니까? "
+            "10억원 자산에 부과되는 상속세는 최대 50%. "
+            "내가 평생 일군 재산을 내 자녀에게 온전히 물려주고 싶다면, "
+            "지금 이 자리에서 납세 재원을 준비해야 합니다."
+        ),
         "risks": [
-            "내가 지금 보유한 자산에 부과될 상속세를 현금으로 납부할 재원이 준비되어 있지 않습니다.",
-            "내가 원하는 대로 재산이 전달되려면, 법적·세무적 준비가 선행되어야 합니다.",
-            "간병 상태가 장기화될 경우, 내 배우자와 자녀에게 심각한 경제적·정서적 부담이 됩니다.",
+            "내가 지금 보유한 자산에 부과될 상속세를 현금으로 납부할 재원이 준비되어 있지 않다면, 내 자녀는 부동산을 급매각해야 합니다. 10억 자산 기준 상속세 최대 2억4천만원.",
+            "내가 원하는 대로 재산이 전달되려면 법적·세무적 준비가 선행되어야 합니다. 유언장, 법인 설계, 명의 분산 — 지금 시작하지 않으면 늦습니다.",
+            "간병 상태가 장기화되면 내 배우자와 자녀에게 월 300만원 이상의 경제적·정서적 부담이 됩니다. 간병보험이 이 부담을 대신합니다.",
         ],
         "actions": [
-            "내 상속 예상 세액을 계산하고, 종신보험으로 납세 재원을 즉시 확보합니다.",
-            "가업 승계 플랜이 있다면, 법인 명의 보험 활용 여부를 검토합니다.",
-            "내 배우자와 자녀가 간병 부담 없이 노후를 보낼 수 있도록 간병보험을 점검합니다.",
+            "내 상속 예상 세액을 지금 즉시 계산하고, 종신보험으로 납세 재원(최소 예상 세액의 110%)을 확보합니다.",
+            "가업 또는 부동산 자산이 있다면 법인 명의 보험 활용 및 분산 증여 전략을 오늘 검토합니다.",
+            "간병보험을 통해 내 배우자와 자녀가 간병 부담 없이 일상을 유지할 수 있는 안전망을 즉시 구축합니다.",
         ],
     },
 ]
@@ -10158,7 +10186,7 @@ def _gp91_trigger(age: int, name: str = "") -> None:
 
 
 def _gp91_report_panel() -> None:
-    """GP91 §2 — 1인칭 생애주기 리스크 리포트 팝업 UI (황금빛 모달 디자인)"""
+    """GP91 §2 — 1인칭 생애주기 리스크 리포트 팝업 UI (황금빛 Gold-leaf 모달)"""
     _KEY = _gp91_build_report_key()
     if not st.session_state.get(_KEY):
         return
@@ -10169,122 +10197,214 @@ def _gp91_report_panel() -> None:
     if not _lc:
         return
 
-    _name_label = f"{_name}님, " if _name else ""
-    _color      = _lc["color"]
-    _icon       = _lc["icon"]
-    _label      = _lc["label"]
-    _desc       = _lc["desc"]
+    _name_label  = f"{_name}님, " if _name else ""
+    _color       = _lc["color"]
+    _icon        = _lc["icon"]
+    _label       = _lc["label"]
+    _desc        = _lc["desc"]
+    _stat        = _lc.get("stat", "")
+    _monologue   = _lc.get("monologue", "")
 
-    # ── 리스크 항목 HTML ──────────────────────────────────────────────────────
+    # ── 리스크 항목 HTML (번호 배지 포함) ────────────────────────────────────
+    _risk_nums = ["①", "②", "③"]
     _risks_html = "".join(
-        f'<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">'
-        f'<span style="font-size:1.1rem;min-width:24px;">⚠️</span>'
-        f'<span style="font-size:0.92rem;font-weight:600;color:#1a1a1a;line-height:1.65;">{r}</span>'
+        f'<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;'
+        f'background:rgba(255,255,255,0.7);border-radius:10px;padding:12px 14px;'
+        f'border-left:4px solid {_color};">'
+        f'<span style="font-size:1.15rem;font-weight:900;color:{_color};min-width:26px;line-height:1.4;">'
+        f'{_risk_nums[i] if i < 3 else "•"}</span>'
+        f'<span style="font-size:0.93rem;font-weight:700;color:#1a1a1a;line-height:1.7;">{r}</span>'
         f'</div>'
-        for r in _lc["risks"]
+        for i, r in enumerate(_lc["risks"])
     )
 
     # ── 액션 항목 HTML ────────────────────────────────────────────────────────
     _actions_html = "".join(
-        f'<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">'
-        f'<span style="font-size:1rem;min-width:24px;">✅</span>'
-        f'<span style="font-size:0.88rem;font-weight:600;color:#166534;line-height:1.6;">{a}</span>'
+        f'<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">'
+        f'<span style="font-size:1.05rem;min-width:26px;color:#16a34a;">✅</span>'
+        f'<span style="font-size:0.89rem;font-weight:700;color:#166534;line-height:1.65;">{a}</span>'
         f'</div>'
         for a in _lc["actions"]
     )
 
-    # ── 모달 HTML ─────────────────────────────────────────────────────────────
+    # ── 통계 뱃지 HTML ────────────────────────────────────────────────────────
+    _stat_html = (
+        f'<div style="display:inline-block;background:rgba(255,255,255,0.85);'
+        f'border:1px solid {_color}80;border-radius:20px;padding:4px 14px;'
+        f'font-size:0.72rem;font-weight:800;color:{_color};letter-spacing:0.04em;'
+        f'margin-bottom:14px;">📊 {_stat}</div>'
+        if _stat else ""
+    )
+
+    # ── 1인칭 독백 HTML ───────────────────────────────────────────────────────
+    _monologue_html = (
+        f'<div style="background:linear-gradient(135deg,rgba(255,255,255,0.9),rgba(255,248,220,0.9));'
+        f'border-left:5px solid {_color};border-radius:0 12px 12px 0;'
+        f'padding:14px 18px;margin:14px 0 18px 0;'
+        f'font-size:0.93rem;font-weight:700;color:#2c1a00;line-height:1.8;'
+        f'font-style:italic;">'
+        f'&ldquo;{_monologue}&rdquo;</div>'
+        if _monologue else ""
+    )
+
+    # ── Gold-leaf 모달 HTML ───────────────────────────────────────────────────
     _report_html = f"""
 <style>
 @keyframes gp91FadeIn {{
-  from {{ opacity:0; transform:translateY(-18px) scale(0.97); }}
+  from {{ opacity:0; transform:translateY(-22px) scale(0.96); }}
   to   {{ opacity:1; transform:translateY(0)     scale(1);    }}
 }}
-.gp91-modal-wrap {{
-  animation: gp91FadeIn 0.45s cubic-bezier(.22,.68,0,1.2) both;
-  background: linear-gradient(160deg,#fffdf0 0%,#fefce8 60%,#fff8e1 100%);
-  border: 3px solid {_color};
-  border-radius: 18px;
-  box-shadow: 0 8px 40px rgba(212,175,55,0.28), 0 2px 8px rgba(0,0,0,0.10);
-  padding: 28px 28px 22px 28px;
-  position: relative;
-  margin-bottom: 8px;
+@keyframes gp91Shimmer {{
+  0%   {{ background-position: -200% center; }}
+  100% {{ background-position:  200% center; }}
 }}
-.gp91-badge {{
-  display:inline-block;
-  background:{_color};
+.gp91-wrap {{
+  animation: gp91FadeIn 0.5s cubic-bezier(.22,.68,0,1.2) both;
+  background: linear-gradient(160deg,#fffdf5 0%,#fefce8 55%,#fff8e1 100%);
+  border: 0;
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 3px {_color},
+    0 0 0 6px {_color}40,
+    0 12px 48px rgba(212,175,55,0.32),
+    0 2px 12px rgba(0,0,0,0.12);
+  padding: 30px 28px 24px 28px;
+  position: relative;
+  margin-bottom: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}}
+.gp91-crown {{
+  position:absolute;top:-18px;left:50%;transform:translateX(-50%);
+  background: linear-gradient(90deg,#b8860b,{_color},{_color},#b8860b);
+  background-size: 200% auto;
+  animation: gp91Shimmer 2.5s linear infinite;
   color:#fff;
-  font-size:0.72rem;
-  font-weight:800;
-  letter-spacing:0.12em;
-  padding:3px 12px;
+  font-size:0.7rem;
+  font-weight:900;
+  letter-spacing:0.14em;
+  padding:4px 20px;
+  border-radius:20px;
+  white-space:nowrap;
+  box-shadow:0 2px 8px rgba(212,175,55,0.4);
+}}
+.gp91-lifecycle-badge {{
+  display:inline-flex;align-items:center;gap:6px;
+  background:{_color}18;
+  border:1.5px solid {_color};
+  color:{_color};
+  font-size:0.78rem;
+  font-weight:900;
+  letter-spacing:0.1em;
+  padding:4px 14px;
   border-radius:20px;
   margin-bottom:10px;
 }}
 .gp91-title {{
-  font-size:1.18rem;
+  font-size:1.22rem;
   font-weight:900;
   color:#1a1a1a;
   margin-bottom:4px;
-  line-height:1.4;
+  line-height:1.45;
 }}
-.gp91-sub {{
-  font-size:0.82rem;
-  color:#6b7280;
+.gp91-desc {{
+  font-size:0.8rem;
+  color:#78716c;
   font-weight:600;
-  margin-bottom:18px;
+  margin-bottom:6px;
+  line-height:1.5;
 }}
-.gp91-section-title {{
-  font-size:0.78rem;
-  font-weight:800;
+.gp91-divider {{
+  height:1px;
+  background:linear-gradient(90deg,transparent,{_color}60,transparent);
+  margin:16px 0;
+}}
+.gp91-section-label {{
+  font-size:0.72rem;
+  font-weight:900;
   color:{_color};
-  letter-spacing:0.08em;
+  letter-spacing:0.12em;
   text-transform:uppercase;
-  margin: 16px 0 8px 0;
-  padding-bottom:4px;
-  border-bottom:1.5px solid {_color}40;
+  margin: 0 0 10px 0;
 }}
-.gp91-action-box {{
-  background:#f0fdf4;
+.gp91-action-wrap {{
+  background:linear-gradient(135deg,#f0fdf4,#dcfce7);
   border:1.5px solid #86efac;
-  border-radius:10px;
-  padding:14px 16px;
-  margin-top:4px;
+  border-radius:12px;
+  padding:16px 18px;
+  margin-top:6px;
 }}
 .gp91-footer {{
-  font-size:0.72rem;
-  color:#9ca3af;
+  font-size:0.7rem;
+  color:#a8a29e;
   text-align:right;
-  margin-top:14px;
+  margin-top:16px;
   font-style:italic;
+  padding-top:10px;
+  border-top:1px solid {_color}30;
 }}
 </style>
-<div class="gp91-modal-wrap">
-  <div class="gp91-badge">📜 GP91 마스터 리포트 — 실시간 생성</div>
-  <div class="gp91-title">{_name_label}내 나이 <span style="color:{_color};">만 {_age}세</span>, 지금 나는 <span style="color:{_color};">{_icon} {_label}</span>의 한복판에 서 있습니다.</div>
-  <div class="gp91-sub">{_desc} — 지금이 골든타임입니다.</div>
+<div class="gp91-wrap">
+  <div class="gp91-crown">📜 GP91 · 1인칭 생애주기 리스크 마스터 리포트 · 실시간 자동생성</div>
 
-  <div class="gp91-section-title">⚠️ 내가 오늘 직면한 3가지 핵심 위험</div>
+  <div style="margin-top:12px;">
+    <div class="gp91-lifecycle-badge">{_icon} {_label}</div>
+  </div>
+
+  <div class="gp91-title">
+    {_name_label}내 나이 <span style="color:{_color};border-bottom:2px solid {_color};">만 {_age}세</span> —
+    나는 지금 <span style="color:{_color};">{_icon} {_label}</span>의 한복판에 서 있습니다.
+  </div>
+  <div class="gp91-desc">{_desc}</div>
+
+  {_stat_html}
+
+  {_monologue_html}
+
+  <div class="gp91-divider"></div>
+
+  <div class="gp91-section-label">⚠️ 내가 오늘 직면한 3가지 핵심 위험</div>
   {_risks_html}
 
-  <div class="gp91-section-title">✅ 이 위험을 방어하기 위해 오늘 내가 확인해야 할 항목</div>
-  <div class="gp91-action-box">
+  <div class="gp91-divider"></div>
+
+  <div class="gp91-section-label">🔑 이 위험을 방어하기 위해 오늘 내가 확인해야 할 항목</div>
+  <div class="gp91-action-wrap">
     {_actions_html}
   </div>
 
   <div class="gp91-footer">
-    "입력은 짧게, 통찰은 깊게 — 데이터가 들어오는 순간 상담의 클라이맥스가 시작됩니다." · GoldKey AI GP91
+    &ldquo;입력은 짧게, 통찰은 깊게 — 데이터가 들어오는 순간 상담의 클라이맥스가 시작됩니다.&rdquo; · GoldKey AI GP91
   </div>
 </div>
 """
     import streamlit.components.v1 as _cv1
-    _cv1.html(_report_html, height=560, scrolling=False)
+    _cv1.html(_report_html, height=680, scrolling=True)
 
     # ── 액션 버튼 영역 ─────────────────────────────────────────────────────────
-    _bc1, _bc2, _bc3 = st.columns([2, 2, 1])
-    with _bc1:
+    _ba, _bb, _bc, _bd = st.columns([3, 3, 3, 1])
+    with _ba:
         if st.button(
-            "📋 이 리포트를 상담 기록에 저장",
+            "🔑 황금빛 열쇠 확인하기 — 해결 플랜 설정",
+            key="_gp91_golden_key_btn",
+            use_container_width=True,
+            type="primary",
+        ):
+            _risk_summary = st.session_state.get("_gp91_risk_summary", "")
+            st.session_state[_GP90_KEYS["analysis"]] = _risk_summary
+            st.session_state[_GP89_PIPE["active_script"]] = (
+                f"{_icon} {_label} 리스크 진단: " + _lc["risks"][0]
+            )
+            _gp89_save_history(
+                customer=_name,
+                plan=f"{_icon} {_label} 생애주기 리포트",
+                script=_risk_summary[:60],
+                ocr_summary="",
+                message=_risk_summary,
+            )
+            st.success("✅ 황금빛 열쇠 활성화! 리스크 데이터가 증서·명품 문구·상담이력에 동시 반영되었습니다.")
+    with _bb:
+        if st.button(
+            "📋 상담 기록에 저장",
             key="_gp91_save_btn",
             use_container_width=True,
         ):
@@ -10297,7 +10417,7 @@ def _gp91_report_panel() -> None:
                 message=_risk_summary,
             )
             st.success("✅ 생애주기 리스크 리포트가 상담 이력에 저장되었습니다.")
-    with _bc2:
+    with _bc:
         if st.button(
             "📜 증서 기초데이터로 설정",
             key="_gp91_cert_btn",
@@ -10309,8 +10429,8 @@ def _gp91_report_panel() -> None:
                 f"{_icon} {_label} 리스크 진단: " + _lc["risks"][0]
             )
             st.success("✅ 리포트 데이터가 증서·명품 문구에 설정되었습니다.")
-    with _bc3:
-        if st.button("✖ 닫기", key="_gp91_close_btn", use_container_width=True):
+    with _bd:
+        if st.button("✖", key="_gp91_close_btn", use_container_width=True, help="닫기"):
             st.session_state[_KEY] = False
             st.rerun()
 
@@ -20504,6 +20624,8 @@ window['startTTS_{tab_key}']=function(){{
                         use_container_width=True)
             # ── [GP90] 전역 데이터 실시간 동기화 패널 ───────────────────────
             _gp90_panel()
+            # ── [GP91] 1인칭 생애주기 리스크 리포트 — 주민번호 입력 즉시 자동 팝업
+            _gp91_report_panel()
             # ── [GP88] 통합 상담 허브 ─────────────────────────────────────────
             _gp88_hub()
             # ── [GP86] 황금빛 약속 증서 발급 ─────────────────────────────────
