@@ -13082,7 +13082,12 @@ def main():
     if _is_auth_css:
         # [제53조 개정] 로그인 후 사이드바 + 토글버튼 완전 숨김 CSS
         st.markdown("""<style>
-/* [제53조] 로그인 후 사이드바 패널 + 토글 버튼 + 열기 버튼 완전 숨김 */
+/* ═══════════════════════════════════════════════════════════════
+   [제53조 §2] 로그인 후 사이드바 완전 소멸 — 전 디바이스 공통
+   잔상 방지: transition/animation 즉시 제거 후 display:none
+═══════════════════════════════════════════════════════════════ */
+
+/* 0순위: transition/animation 즉시 OFF — 번쩍임 방지 */
 [data-testid="stSidebar"],
 [data-testid="stSidebarNav"],
 [data-testid="collapsedControl"],
@@ -13092,28 +13097,129 @@ section[data-testid="stSidebar"],
 div[data-testid="stSidebarCollapsedControl"],
 .stSidebar,
 nav[data-testid="stSidebarNav"] {
+    transition: none !important;
+    animation: none !important;
     display: none !important;
     visibility: hidden !important;
     width: 0 !important;
     max-width: 0 !important;
     min-width: 0 !important;
+    height: 0 !important;
     overflow: hidden !important;
     pointer-events: none !important;
-    position: absolute !important;
+    position: fixed !important;
     left: -9999px !important;
+    top: -9999px !important;
+    opacity: 0 !important;
 }
-/* 사이드바 없을 때 메인 영역 전체 너비 확장 */
+
+/* 메인 영역 전체 너비 확장 (데스크탑) */
+[data-testid="stMain"],
+.main,
+section[data-testid="stMain"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    left: 0 !important;
+}
 .main .block-container,
-section.main > div.block-container {
+section.main > div.block-container,
+[data-testid="stMain"] .block-container {
     max-width: 100% !important;
     padding-left: 2rem !important;
     padding-right: 2rem !important;
     margin-left: 0 !important;
+    margin-right: 0 !important;
 }
-/* wide 레이아웃에서 stApp 왼쪽 여백 제거 */
+
+/* wide 레이아웃 헤더 왼쪽 정렬 */
 .stApp > header,
 .stApp [data-testid="stHeader"] {
     left: 0 !important;
+    width: 100% !important;
+}
+
+/* ── 모바일 / 세로 모드 전용 (≤768px) ─────────────────────── */
+@media screen and (max-width: 768px) {
+    /* 사이드바 및 토글 버튼 완전 차단 */
+    [data-testid="stSidebar"],
+    [data-testid="stSidebarNav"],
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapsedControl"],
+    section[data-testid="stSidebar"],
+    div[data-testid="stSidebarCollapsedControl"],
+    .stSidebar,
+    nav[data-testid="stSidebarNav"] {
+        display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        max-width: 0 !important;
+        min-width: 0 !important;
+        height: 0 !important;
+        position: fixed !important;
+        left: -9999px !important;
+        top: -9999px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        z-index: -9999 !important;
+    }
+    /* 메인 콘텐츠 전체 너비 꽉 채움 */
+    [data-testid="stMain"],
+    .main,
+    section[data-testid="stMain"] {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        margin-left: 0 !important;
+        padding-left: 0 !important;
+        left: 0 !important;
+    }
+    .main .block-container,
+    section.main > div.block-container,
+    [data-testid="stMain"] .block-container {
+        max-width: 100% !important;
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+}
+
+/* ── 태블릿 세로 모드 (769px ~ 1024px) ───────────────────── */
+@media screen and (min-width: 769px) and (max-width: 1024px) {
+    [data-testid="stSidebar"],
+    [data-testid="stSidebarNav"],
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapsedControl"],
+    section[data-testid="stSidebar"],
+    div[data-testid="stSidebarCollapsedControl"],
+    .stSidebar {
+        display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        position: fixed !important;
+        left: -9999px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        z-index: -9999 !important;
+    }
+    [data-testid="stMain"],
+    .main,
+    section[data-testid="stMain"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-left: 0 !important;
+        padding-left: 0 !important;
+    }
+    .main .block-container,
+    [data-testid="stMain"] .block-container {
+        max-width: 100% !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+        margin-left: 0 !important;
+    }
 }
 </style>""", unsafe_allow_html=True)
     else:
