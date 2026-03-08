@@ -9060,6 +9060,253 @@ def output_manager(masked_name, result_text):
     st.markdown(result_text)
     st.info("[주의] 본 분석 결과의 최종 책임은 사용자(상담원)에게 귀속됩니다.")
 
+
+# ── [가이딩 프로토콜 제86조] 황금빛 약속 증서 생성 엔진 ─────────────────────
+def _gp86_golden_card(result_text: str = "", name_hint: str = "") -> None:
+    """GP86 황금빛 약속 증서 — 상담 결과 출력 영역 하단에서 호출"""
+    import datetime, re as _re
+
+    CARD_KEY = "_gp86_card_open"
+    if CARD_KEY not in st.session_state:
+        st.session_state[CARD_KEY] = False
+
+    if st.button("🏆 황금빛 약속 증서 발급", key="_gp86_trigger_btn",
+                 use_container_width=True, type="primary"):
+        st.session_state[CARD_KEY] = True
+
+    if not st.session_state[CARD_KEY]:
+        return
+
+    st.markdown("---")
+    st.markdown("### 🏆 황금빛 약속 증서 발급")
+
+    # ── 자동 추출: 상담 결과에서 금액/플랜명 힌트 ─────────────────────────
+    _amount_hint = ""
+    _plan_hint = ""
+    if result_text:
+        _m = _re.search(r"(\d[\d,\.]+\s*억|[1-9]\d*,?\d{3}만\s*원|\d+억)", result_text)
+        if _m:
+            _amount_hint = _m.group(0).strip()
+        _p = _re.search(r"(종신보험|정기보험|법인플랜|CEO플랜|퇴직금플랜|감자플랜|상속플랜|종합플랜|[가-힣]+플랜)", result_text)
+        if _p:
+            _plan_hint = _p.group(0).strip()
+
+    # ── 입력 폼 ────────────────────────────────────────────────────────────
+    with st.form("_gp86_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            card_name  = st.text_input("계약자 이름 (1인칭 처리)", value=name_hint or st.session_state.get("current_c_name",""))
+            card_plan  = st.text_input("플랜명", value=_plan_hint or "")
+        with col2:
+            card_value = st.text_input("실질 이득 수치 (예: 상속세 재원 10억 확보)", value=_amount_hint or "")
+            card_date  = st.text_input("날짜", value=datetime.date.today().strftime("%Y년 %m월 %d일"))
+        submitted = st.form_submit_button("✨ 증서 생성", use_container_width=True, type="primary")
+
+    if not submitted:
+        return
+
+    # ── GP86 §4: '당신/고객/귀하' 자동 치환 검수 ──────────────────────────
+    _forbidden = ["당신", "고객", "귀하"]
+    _warned = [w for w in _forbidden if w in (card_name + card_plan + card_value)]
+    if _warned:
+        for w in _warned:
+            card_name  = card_name.replace(w, "나")
+            card_plan  = card_plan.replace(w, "나")
+            card_value = card_value.replace(w, "나")
+        st.warning(f"⚠️ GP86 §4 검수: '{', '.join(_warned)}' 표현이 감지되어 '나'로 자동 치환했습니다.")
+
+    _display_name = card_name if card_name else "나"
+    _display_value = card_value if card_value else "소중한 재원을 확보"
+    _display_plan  = card_plan  if card_plan  else "황금빛 플랜"
+
+    # ── 증서 HTML 생성 ─────────────────────────────────────────────────────
+    _html = f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700;900&display=swap');
+  body {{ margin:0; padding:24px; background:#f5f0e8; font-family:'Noto Serif KR',serif; }}
+  .cert-wrap {{
+    background: #FFFDF0;
+    border: 8px solid transparent;
+    border-image: linear-gradient(135deg, #D4AF37 0%, #F9F295 40%, #D4AF37 70%, #B8860B 100%) 1;
+    border-radius: 0;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 48px 52px 40px 52px;
+    box-shadow: 0 8px 48px rgba(180,140,20,0.22), inset 0 0 60px rgba(249,242,149,0.08);
+    position: relative;
+  }}
+  .cert-top-ornament {{
+    text-align: center;
+    font-size: 1.5rem;
+    color: #B8860B;
+    letter-spacing: 0.5em;
+    margin-bottom: 6px;
+  }}
+  .cert-title {{
+    text-align: center;
+    font-size: 2.1rem;
+    font-weight: 900;
+    background: linear-gradient(90deg, #B8860B 0%, #D4AF37 40%, #F9F295 60%, #D4AF37 80%, #B8860B 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.12em;
+    margin-bottom: 4px;
+  }}
+  .cert-subtitle {{
+    text-align: center;
+    font-size: 0.82rem;
+    color: #8B6914;
+    letter-spacing: 0.25em;
+    margin-bottom: 28px;
+  }}
+  .cert-divider {{
+    border: none;
+    border-top: 1.5px solid;
+    border-image: linear-gradient(to right, transparent, #D4AF37, transparent) 1;
+    margin: 16px 0;
+  }}
+  .cert-main-text {{
+    text-align: center;
+    font-size: 1.08rem;
+    color: #2c1a00;
+    line-height: 1.9;
+    margin: 24px 0 20px 0;
+    font-weight: 700;
+  }}
+  .cert-value-box {{
+    background: linear-gradient(135deg, #D4AF37 0%, #F9F295 50%, #D4AF37 100%);
+    border-radius: 12px;
+    padding: 18px 24px;
+    text-align: center;
+    margin: 20px 0;
+    box-shadow: 0 2px 16px rgba(180,140,20,0.18);
+  }}
+  .cert-value-label {{
+    font-size: 0.72rem;
+    color: #5a3e00;
+    letter-spacing: 0.2em;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }}
+  .cert-value-text {{
+    font-size: 1.45rem;
+    font-weight: 900;
+    color: #2c1a00;
+    letter-spacing: 0.05em;
+  }}
+  .cert-plan-label {{
+    text-align: center;
+    font-size: 0.78rem;
+    color: #8B6914;
+    letter-spacing: 0.18em;
+    margin-top: 8px;
+  }}
+  .cert-sub-text {{
+    text-align: center;
+    font-size: 0.88rem;
+    color: #5a3e00;
+    line-height: 1.75;
+    margin: 16px 0 12px 0;
+    font-style: italic;
+  }}
+  .cert-aemin {{
+    text-align: center;
+    font-size: 0.82rem;
+    color: #8B6914;
+    border-top: 1px solid #D4AF37;
+    border-bottom: 1px solid #D4AF37;
+    padding: 10px 0;
+    margin: 18px 0;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+  }}
+  .cert-footer {{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 28px;
+  }}
+  .cert-date {{
+    font-size: 0.78rem;
+    color: #8B6914;
+    letter-spacing: 0.08em;
+  }}
+  .cert-stamp {{
+    width: 92px;
+    height: 92px;
+    border: 3.5px solid #D4AF37;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(249,242,149,0.18);
+    box-shadow: 0 0 0 1.5px #B8860B, inset 0 0 16px rgba(212,175,55,0.12);
+  }}
+  .cert-stamp-icon {{ font-size: 1.6rem; line-height:1; }}
+  .cert-stamp-text {{ font-size: 0.52rem; font-weight:900; color:#B8860B; letter-spacing:0.08em; text-align:center; margin-top:3px; }}
+</style>
+</head>
+<body>
+<div class="cert-wrap">
+  <div class="cert-top-ornament">✦ &nbsp; ✦ &nbsp; ✦</div>
+  <div class="cert-title">황금빛 약속 증서</div>
+  <div class="cert-subtitle">GOLDEN PROMISE CERTIFICATE · GoldKey AI Master</div>
+  <hr class="cert-divider">
+  <div class="cert-main-text">
+    오늘 나는 내 가족의 내일을 지키기 위해<br>
+    위대한 약속을 시작합니다.
+  </div>
+  <div class="cert-value-box">
+    <div class="cert-value-label">우리가 함께 확보한 실질 이득</div>
+    <div class="cert-value-text">✦ &nbsp; {_display_value} &nbsp; ✦</div>
+    <div class="cert-plan-label">[ {_display_plan} ]</div>
+  </div>
+  <div class="cert-sub-text">
+    "이것은 단순한 서류가 아니라,<br>
+    내 사람들을 향한 나의 가장 깊은 사랑의 실천입니다."
+  </div>
+  <div class="cert-aemin">
+    내 사랑하는 사람들을 지키겠다는 나의 진심을 이 증서에 담습니다
+  </div>
+  <div class="cert-sub-text" style="font-style:normal;font-weight:700;font-size:0.82rem;">
+    우리가 함께 만든 내 가족을 위한 약속입니다.
+  </div>
+  <hr class="cert-divider">
+  <div class="cert-footer">
+    <div>
+      <div class="cert-date">{card_date}</div>
+      <div style="font-size:0.78rem;color:#2c1a00;font-weight:700;margin-top:4px;">{_display_name}</div>
+    </div>
+    <div class="cert-stamp">
+      <div class="cert-stamp-icon">🔑</div>
+      <div class="cert-stamp-text">GoldKey<br>AI Master</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>"""
+
+    # ── 증서 미리보기 ──────────────────────────────────────────────────────
+    st.markdown("**🏆 황금빛 약속 증서 미리보기**")
+    components.html(_html, height=700, scrolling=True)
+
+    # ── 다운로드 (HTML 파일) ────────────────────────────────────────────────
+    _fname = f"황금빛약속증서_{_display_name}_{card_date.replace(' ','').replace('년','').replace('월','').replace('일','')}.html"
+    st.download_button(
+        label="⬇️ 증서 저장 (HTML)",
+        data=_html.encode("utf-8"),
+        file_name=_fname,
+        mime="text/html",
+        use_container_width=True,
+    )
+    st.info("💡 저장된 HTML 파일을 Chrome에서 열고 '인쇄 → PDF 저장'으로 고화질 이미지를 얻을 수 있습니다.")
+
+
 # 사용 모델 상수 (변경 시 이 한 줄만 수정)
 GEMINI_MODEL = "gemini-2.0-flash"
 
@@ -18660,6 +18907,8 @@ window['startTTS_{tab_key}']=function(){{
                         mime="text/plain",
                         key=f"dl_{result_key}",
                         use_container_width=True)
+            # ── [GP86] 황금빛 약속 증서 발급 ─────────────────────────────────
+            _gp86_golden_card(result_text=result_text, name_hint=c_name_out)
         elif guide_md:
             st.markdown(guide_md)
         else:
