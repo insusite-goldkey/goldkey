@@ -9348,6 +9348,1491 @@ def _gp88_hub() -> dict:
     }
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP94] 손해보험 암 상품 실전 화법 엔진
+# 제94조: 치료 여정 기반 1인칭 세일즈 로직 + 5대 손보사 특약 실익 데이터베이스
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── GP94 §1: 5대 손보사 핵심 암 특약 실익 데이터베이스 ──────────────────────
+_GP94_RIDERS = [
+    {
+        "id": "targeted",
+        "icon": "🎯",
+        "name": "표적항암치료비",
+        "label": "표적항암",
+        "cost_range": "1회 100~500만 원 (비급여)",
+        "real_gap": "건강보험 미적용 · 약값 전액 자부담",
+        "hook": (
+            "수천만 원 하는 비급여 항암제 앞에서 주춤거리지 않고, "
+            "'최고의 약으로 써주세요'라고 당당하게 말할 수 있는 "
+            "내 비자금을 내가 만들었습니다."
+        ),
+        "data": "면역항암 포함 시 연간 치료비 3,000만 원↑ 현실화 (건보공단 통계 2023)",
+        "companies": ["삼성", "현대", "DB", "KB", "메리츠"],
+        "tip": "회당 지급형 vs 연간 한도형 — 장기 치료 고객에게는 회당 지급형이 유리",
+    },
+    {
+        "id": "immune",
+        "icon": "💉",
+        "name": "면역항암치료비",
+        "label": "면역항암",
+        "cost_range": "1회 200~800만 원 (비급여)",
+        "real_gap": "PD-1/PD-L1 계열 면역관문억제제 전액 비급여",
+        "hook": (
+            "내 몸의 면역체계가 암세포를 직접 공격하게 하는 최신 치료법이지만, "
+            "그 비용은 보험 없이는 평범한 가정을 하루에 무너뜨릴 수 있습니다. "
+            "나는 그 선택지를 내 손 안에 넣었습니다."
+        ),
+        "data": "키트루다·옵디보 등 1회 투약 200~300만 원, 월 2회 기준 연 4,800~7,200만 원",
+        "companies": ["삼성", "현대", "DB", "KB", "메리츠"],
+        "tip": "표적항암과 중복 가입 가능 여부 회사별 상이 — 계약 전 확인 필수",
+    },
+    {
+        "id": "robot",
+        "icon": "🤖",
+        "name": "다빈치 로봇수술비",
+        "label": "로봇수술",
+        "cost_range": "700~1,500만 원 (비급여)",
+        "real_gap": "개복 대비 후유증·회복 기간 단축이나 전액 비급여",
+        "hook": (
+            "수술 후 6주를 침대에 누워있는 대신 2주 만에 일상으로 돌아올 수 있다면, "
+            "그 선택의 자유를 내가 이미 확보해둔 것입니다. "
+            "내 몸이 가장 좋은 방법으로 치료받을 권리, 내가 샀습니다."
+        ),
+        "data": "전립선·자궁·대장암 로봇수술 비율 지속 증가 — 2022년 기준 연 8만 건 돌파",
+        "companies": ["삼성", "현대", "DB", "KB", "메리츠"],
+        "tip": "1회 지급형이 대부분 — 재수술 보장 여부 확인 후 설계",
+    },
+    {
+        "id": "outpatient",
+        "icon": "🏥",
+        "name": "암 직접치료 통원비",
+        "label": "통원비",
+        "cost_range": "1회 3~10만 원 × 연 100회",
+        "real_gap": "항암·방사선 통원 치료 반복 — 누적 수백만 원",
+        "hook": (
+            "진단비 5,000만 원을 받아도, 매주 병원을 오가며 빠져나가는 "
+            "통원비·교통비·간식비까지 더하면 모래성처럼 사라질 수 있습니다. "
+            "나는 그 구멍을 촘촘하게 막아두었습니다."
+        ),
+        "data": "유방암 항호르몬요법 환자 평균 통원 횟수 연 52회 (보건복지부 2023)",
+        "companies": ["삼성", "현대", "DB", "KB", "메리츠"],
+        "tip": "1회당 한도 × 횟수 설계 — 실손과 중복 수령 여부 확인",
+    },
+    {
+        "id": "nursing",
+        "icon": "🤝",
+        "name": "간병인·재가서비스비",
+        "label": "간병비",
+        "cost_range": "일 8~12만 원 (전문 간병인)",
+        "real_gap": "요양병원 간병인 건보 미적용 — 가족 소진 유발",
+        "hook": (
+            "아픈 나보다 나를 돌보는 가족이 더 빨리 지치지 않도록, "
+            "전문 간병인이 나를 돕게 하는 배려를 내가 미리 준비했습니다. "
+            "내가 쓰러졌을 때 내 가족이 쓰러지지 않게 하는 것, 그것이 진짜 사랑입니다."
+        ),
+        "data": "암 입원 평균 기간 28일 (국립암센터 2023) × 일당 10만 원 = 280만 원",
+        "companies": ["삼성", "현대", "DB", "KB", "메리츠"],
+        "tip": "입원형 + 재가형 분리 설계 시 장기 요양 대응력 극대화",
+    },
+    {
+        "id": "radiation",
+        "icon": "⚡",
+        "name": "세기조절방사선치료비 (IMRT)",
+        "label": "방사선(IMRT)",
+        "cost_range": "200~600만 원 (비급여 선택 시)",
+        "real_gap": "일반 방사선 대비 부작용 최소화 — 일부 비급여 선택 옵션",
+        "hook": (
+            "치료하면서 일상을 잃지 않을 수 있다면 — 부작용 없이 직장에 다니면서 "
+            "치료받는 선택지, 나는 그 권리를 보험으로 미리 사두었습니다."
+        ),
+        "data": "두경부암·전립선암 IMRT 선택률 70%↑ — 비급여 선택 시 200~600만 원 추가",
+        "companies": ["삼성", "현대", "DB"],
+        "tip": "손보사마다 IMRT 인정 기준 상이 — 청구 시 의무기록 첨부 필수",
+    },
+    {
+        "id": "recon",
+        "icon": "🌸",
+        "name": "유방·두경부 재건성형수술비",
+        "label": "재건수술",
+        "cost_range": "500~1,000만 원 (비급여)",
+        "real_gap": "전절제 후 재건 희망자 비율 급증 — 건보 부분 적용 후 본인부담 400만 원↑",
+        "hook": (
+            "수술 후에도 나로서 살아갈 수 있는 권리 — "
+            "재건수술로 외모와 자존감을 되찾는 그 비용을 "
+            "내가 이미 확보해두었습니다."
+        ),
+        "data": "유방전절제 후 재건 선택률 42% (2023) — 평균 비용 600만 원",
+        "companies": ["삼성", "현대", "DB", "KB", "메리츠"],
+        "tip": "재건수술과 일반 수술비 중복 여부 반드시 확인 후 설계",
+    },
+]
+
+# ── GP94 §2: 1인칭 3단계 시나리오 (불안 → 동조 → 확신) ────────────────────
+_GP94_SCENARIO = {
+    "anxiety": {
+        "label": "🔥 1단계: 불안 환기",
+        "color": "#fef2f2",
+        "border": "#ef4444",
+        "script": (
+            "진단비 5,000만 원이면 충분할 줄 알았습니다. "
+            "하지만 1회 치료에 수백만 원씩 드는 신의료기술 앞에서는 "
+            "그 돈이 모래성처럼 사라질 수 있다는 공포를 내가 느꼈습니다.\n\n"
+            "암보다 무서운 건, 치료비 때문에 가족의 눈치를 보는 내 마음입니다. "
+            "'이 치료 받아도 될까? 가족에게 너무 큰 짐이 되는 건 아닐까?' — "
+            "그 망설임이 치료 골든타임을 놓치게 합니다."
+        ),
+    },
+    "empathy": {
+        "label": "💛 2단계: 동조 · 애민",
+        "color": "#fffbeb",
+        "border": "#f59e0b",
+        "script": (
+            "나와 내 가족이 병원비 때문에 가장 좋은 약을 포기하며 "
+            "서로 미안해하는 비참한 상황, 나는 그것만은 절대로 허용하지 않기로 했습니다.\n\n"
+            "나도 직접 암 환자분들을 곁에서 지켜봤습니다. "
+            "진단비보다 무서운 게 매달 들어가는 비급여 치료비였습니다. "
+            "그래서 나는 내 보험을 이렇게 '치료 단계별로' 쪼개서 준비했습니다."
+        ),
+    },
+    "conviction": {
+        "label": "✅ 3단계: 확신 · 결단",
+        "color": "#f0fdf4",
+        "border": "#22c55e",
+        "script": (
+            "그래서 나는 진단비는 기본으로 하고, "
+            "실제 치료 단계마다 돈이 쏟아져 나오는 '손보사 특유의 촘촘한 그물망'을 선택했습니다. "
+            "이제 나는 오직 치료에만 집중할 권리를 가졌습니다.\n\n"
+            "내가 암 진단을 받고 의사 앞에서 '가장 좋은 치료법으로 해주세요'라고 "
+            "당당하게 말할 수 있는 경제적 자유를 내가 확보했습니다. "
+            "단순한 보험 가입이 아니라, 암이라는 파도를 넘을 때 "
+            "가장 튼튼한 구명보트를 내가 직접 고른 것입니다."
+        ),
+    },
+}
+
+# ── GP94 §3: 생명 vs 손보 암보험 핵심 비교 ─────────────────────────────────
+_GP94_COMPARISON = [
+    ("구분", "생명보험 암보험", "손해보험 암보험"),
+    ("핵심 강점", "사망 후 가족에게 남기는 상속·목돈", "살아서 치료받는 동안 삶의 질 보호"),
+    ("주력 담보", "사망보험금 · 암 진단비(고액)", "치료 단계별 세분화 특약 (표적·면역·통원·간병)"),
+    ("철학 한 줄", "내가 없어도 가족이 살 수 있도록", "내가 살아서 최고의 치료를 받을 수 있도록"),
+    ("약점", "치료 중 현금 흐름 지원 미흡", "사망보험금 규모 상대적으로 소규모"),
+    ("세일즈 키워드", "상속 · 유산 · 가족 생계", "생존 · 치료비 · 삶의 질 · 비급여"),
+    ("베테랑 한 줄", "생명보험은 '상속'입니다", "손해보험은 '생존'입니다"),
+]
+
+# ── GP94 §4: 치료비 현실 데이터 (근거 기반 후킹) ───────────────────────────
+_GP94_COST_DATA = [
+    ("암 종류", "평균 치료비 (1년)", "주요 비급여 항목"),
+    ("폐암 (4기)", "약 4,200만 원", "면역항암제 · 표적치료제 전액 비급여"),
+    ("유방암", "약 1,800만 원", "재건수술 · 호르몬요법 자부담"),
+    ("대장암", "약 2,100만 원", "로봇수술 · 표적항암 비급여"),
+    ("전립선암", "약 1,500만 원", "로봇수술 · 방사선(IMRT) 비급여"),
+    ("갑상선암", "약 600만 원", "재수술 · 통원 치료 누적"),
+]
+
+
+def _gp94_panel() -> None:
+    """GP94 손해보험 암 상품 실전 화법 엔진 — 통합 UI 패널
+    GP88 허브 탭 또는 독립 expander로 호출 가능
+    """
+    import streamlit.components.v1 as _cv1
+
+    st.markdown("""
+<style>
+.gp94-header {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border-radius: 16px; padding: 20px 24px; margin-bottom: 16px;
+  border: 1.5px solid #D4AF3760;
+}
+.gp94-header-title {
+  font-size: 1.25rem; font-weight: 900; color: #D4AF37;
+  letter-spacing: 0.06em; margin-bottom: 4px;
+}
+.gp94-header-sub {
+  font-size: 0.82rem; color: #94a3b8; letter-spacing: 0.04em;
+}
+.gp94-rider-card {
+  background: #FFFDF0;
+  border: 1.5px solid #D4AF3780;
+  border-left: 5px solid #D4AF37;
+  border-radius: 12px; padding: 14px 18px; margin: 8px 0;
+}
+.gp94-rider-name { font-size: 1.0rem; font-weight: 900; color: #2c1a00; }
+.gp94-rider-cost { font-size: 0.78rem; color: #b45309; font-weight: 700; margin: 3px 0; }
+.gp94-rider-hook {
+  font-size: 0.88rem; color: #1e3a5f; line-height: 1.65;
+  border-left: 3px solid #3b82f6; padding-left: 10px; margin: 8px 0;
+  font-style: italic;
+}
+.gp94-rider-data { font-size: 0.75rem; color: #6b7280; margin-top: 6px; }
+.gp94-scenario-card {
+  border-radius: 12px; padding: 16px 20px; margin: 10px 0;
+  border-left: 5px solid;
+}
+.gp94-scenario-label { font-size: 0.92rem; font-weight: 900; margin-bottom: 8px; }
+.gp94-scenario-text { font-size: 0.88rem; line-height: 1.75; white-space: pre-line; }
+.gp94-compare-table {
+  width: 100%; border-collapse: collapse; font-size: 0.85rem;
+  margin: 12px 0;
+}
+.gp94-compare-table th {
+  background: linear-gradient(90deg, #1a3a6b, #0f3460);
+  color: #D4AF37; padding: 10px 14px; text-align: center;
+  font-weight: 800; letter-spacing: 0.04em;
+}
+.gp94-compare-table td {
+  padding: 9px 14px; border-bottom: 1px solid #e5e7eb;
+  vertical-align: top; line-height: 1.5;
+}
+.gp94-compare-table tr:nth-child(odd) td { background: #f9f9f9; }
+.gp94-compare-table tr:nth-child(even) td { background: #fff; }
+.gp94-compare-table td:first-child { font-weight: 700; color: #374151; }
+.gp94-cost-table {
+  width: 100%; border-collapse: collapse; font-size: 0.83rem; margin: 12px 0;
+}
+.gp94-cost-table th {
+  background: #dc2626; color: #fff; padding: 9px 12px; text-align: center; font-weight: 800;
+}
+.gp94-cost-table td { padding: 8px 12px; border-bottom: 1px solid #fecaca; }
+.gp94-cost-table tr:nth-child(odd) td { background: #fff5f5; }
+.gp94-tip-box {
+  background: #eff6ff; border: 1.5px solid #93c5fd;
+  border-radius: 8px; padding: 8px 14px; margin-top: 6px;
+  font-size: 0.78rem; color: #1e40af;
+}
+</style>
+""", unsafe_allow_html=True)
+
+    # ── 헤더 ───────────────────────────────────────────────────────────────
+    st.markdown("""
+<div class="gp94-header">
+  <div class="gp94-header-title">🦀 GP94 손해보험 암 상품 실전 화법 엔진</div>
+  <div class="gp94-header-sub">
+    치료 여정 기반 1인칭 세일즈 로직 · 5대 특약 실익 데이터 · 불안→동조→확신 시나리오
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    _t1, _t2, _t3, _t4 = st.tabs([
+        "🎯 특약별 1인칭 후킹",
+        "📜 3단계 시나리오",
+        "⚖️ 생명 vs 손보 비교",
+        "💸 치료비 현실 데이터",
+    ])
+
+    # ── 탭1: 특약별 1인칭 후킹 멘트 ────────────────────────────────────────
+    with _t1:
+        st.markdown("#### 🎯 특약별 실익 · 1인칭 후킹 멘트")
+        st.caption("각 특약의 실질적 치료비 구멍과 고객 마음에 박히는 1인칭 문구를 제공합니다.")
+
+        for _r in _GP94_RIDERS:
+            with st.expander(
+                f"{_r['icon']} **{_r['name']}** — {_r['cost_range']}",
+                expanded=False,
+            ):
+                st.markdown(
+                    f'<div class="gp94-rider-card">'
+                    f'<div class="gp94-rider-name">{_r["icon"]} {_r["name"]}</div>'
+                    f'<div class="gp94-rider-cost">💸 실제 비용: {_r["cost_range"]} | '
+                    f'⚠️ 보장 공백: {_r["real_gap"]}</div>'
+                    f'<div class="gp94-rider-hook">❝ {_r["hook"]} ❞</div>'
+                    f'<div class="gp94-rider-data">📊 {_r["data"]}</div>'
+                    f'</div>'
+                    f'<div class="gp94-tip-box">💡 설계 팁: {_r["tip"]}</div>',
+                    unsafe_allow_html=True,
+                )
+                _ccols = st.columns(2)
+                with _ccols[0]:
+                    if st.button(
+                        "📋 후킹 멘트 복사",
+                        key=f"_gp94_copy_{_r['id']}",
+                        use_container_width=True,
+                    ):
+                        st.session_state[f"_gp94_hook_{_r['id']}"] = _r["hook"]
+                        st.success("✅ 세션에 저장! 아래 '선택된 멘트' 확인")
+                with _ccols[1]:
+                    if st.button(
+                        "📲 카카오 메시지에 추가",
+                        key=f"_gp94_kakao_{_r['id']}",
+                        use_container_width=True,
+                    ):
+                        _prev = st.session_state.get("_gp88_selected_script", "")
+                        st.session_state["_gp88_selected_script"] = (
+                            (_prev + "\n\n" if _prev else "") +
+                            f"[{_r['name']}] {_r['hook']}"
+                        )
+                        st.success(f"✅ '{_r['name']}' 멘트가 GP88 카카오 메시지에 추가되었습니다.")
+
+        # ── 선택된 멘트 모아보기 ────────────────────────────────────────────
+        _selected_hooks = {
+            k.replace("_gp94_hook_", ""): v
+            for k, v in st.session_state.items()
+            if k.startswith("_gp94_hook_") and v
+        }
+        if _selected_hooks:
+            st.markdown("---")
+            st.markdown("#### 📌 선택된 후킹 멘트")
+            for _rid, _htxt in _selected_hooks.items():
+                _rname = next(
+                    (r["name"] for r in _GP94_RIDERS if r["id"] == _rid), _rid
+                )
+                st.markdown(
+                    f'<div style="background:#FFFDF0;border-left:4px solid #D4AF37;'
+                    f'padding:10px 14px;border-radius:0 10px 10px 0;'
+                    f'font-size:0.87rem;color:#2c1a00;margin:6px 0;">'
+                    f'<b>{_rname}</b><br>{_htxt}</div>',
+                    unsafe_allow_html=True,
+                )
+
+    # ── 탭2: 3단계 시나리오 스크립트 ────────────────────────────────────────
+    with _t2:
+        st.markdown("#### 📜 불안 → 동조 · 애민 → 확신 3단계 1인칭 시나리오")
+        st.caption("상담 도입부터 클로징까지 — 심리적 흐름을 따라 고객의 마음을 여는 완성형 스크립트")
+
+        # 심리적 후킹 오프닝
+        st.markdown(
+            '<div style="background:linear-gradient(135deg,#1a1a2e,#16213e);'
+            'border-radius:14px;padding:20px 24px;margin:12px 0;'
+            'border:1.5px solid #D4AF3760;">'
+            '<div style="color:#D4AF37;font-size:0.78rem;font-weight:800;'
+            'letter-spacing:0.1em;margin-bottom:10px;">🎬 오프닝 — 심리적 후킹 선언</div>'
+            '<div style="color:#f1f5f9;font-size:0.97rem;line-height:1.85;'
+            'font-style:italic;">'
+            '❝ 암보다 무서운 건, 치료비 때문에 가족의 눈치를 보는 내 마음입니다. ❞'
+            '</div>'
+            '<div style="color:#94a3b8;font-size:0.75rem;margin-top:10px;">'
+            '— GP94 §2 · GP80 1인칭 화법 준수'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+        for _stage_key, _stage in _GP94_SCENARIO.items():
+            st.markdown(
+                f'<div class="gp94-scenario-card" style="background:{_stage["color"]};'
+                f'border-left-color:{_stage["border"]};">'
+                f'<div class="gp94-scenario-label">{_stage["label"]}</div>'
+                f'<div class="gp94-scenario-text">{_stage["script"]}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                f"📋 {_stage['label']} 문구 카카오에 추가",
+                key=f"_gp94_scenario_{_stage_key}",
+                use_container_width=True,
+            ):
+                _prev = st.session_state.get("_gp88_selected_script", "")
+                st.session_state["_gp88_selected_script"] = (
+                    (_prev + "\n\n" if _prev else "") + _stage["script"]
+                )
+                st.success(f"✅ {_stage['label']} 문구가 GP88 카카오 메시지에 추가되었습니다.")
+
+        # ── 완성형 시나리오 다운로드 ─────────────────────────────────────────
+        _full_script = (
+            "=== GP94 손해보험 암 상품 실전 1인칭 시나리오 ===\n\n"
+            + "[오프닝]\n암보다 무서운 건, 치료비 때문에 가족의 눈치를 보는 내 마음입니다.\n\n"
+            + "\n\n".join(
+                f"[{s['label']}]\n{s['script']}"
+                for s in _GP94_SCENARIO.values()
+            )
+            + "\n\n=== 특약별 후킹 멘트 ===\n\n"
+            + "\n\n".join(
+                f"[{r['name']}]\n{r['hook']}"
+                for r in _GP94_RIDERS
+            )
+        )
+        st.download_button(
+            label="⬇️ 완성형 시나리오 전체 다운로드 (.txt)",
+            data=_full_script.encode("utf-8"),
+            file_name="GP94_손보암상품_실전시나리오.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+
+    # ── 탭3: 생명 vs 손보 비교 ──────────────────────────────────────────────
+    with _t3:
+        st.markdown("#### ⚖️ 생명보험 vs 손해보험 암보험 핵심 비교")
+        st.markdown(
+            '<div style="background:#fffbeb;border:1.5px solid #f59e0b;'
+            'border-radius:10px;padding:12px 18px;margin:8px 0;'
+            'font-size:0.92rem;font-weight:800;color:#92400e;">'
+            '💡 베테랑의 시선: '
+            '"생명보험은 \'상속\'이고, 손해보험은 \'생존\'입니다."'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        _rows_html = ""
+        for _i, _row in enumerate(_GP94_COMPARISON):
+            if _i == 0:
+                _rows_html += (
+                    "<tr>"
+                    + "".join(f"<th>{c}</th>" for c in _row)
+                    + "</tr>"
+                )
+            else:
+                _rows_html += (
+                    "<tr>"
+                    + "".join(f"<td>{c}</td>" for c in _row)
+                    + "</tr>"
+                )
+        st.markdown(
+            f'<table class="gp94-compare-table">{_rows_html}</table>',
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("---")
+        st.markdown("##### 📣 심리적 동일체 접근법 (베테랑 추천)")
+        st.markdown(
+            '<div class="gp94-scenario-card" style="background:#f0f9ff;border-left-color:#0ea5e9;">'
+            '<div class="gp94-scenario-text">'
+            '❌ 하지 마세요: "대표님, 암 진단비 얼마 있으세요?"\n\n'
+            '✅ 이렇게 하세요:\n'
+            '"제가 암 환자분들을 곁에서 지켜보니, 진단비보다 무서운 게 매달 들어가는 '
+            '비급여 치료비더군요. 그래서 저는 제 보험을 이렇게 쪼개서 준비했습니다. '
+            '나만의 이야기로 고객의 경계를 허무는 것 — 이것이 손보 암 세일즈의 핵심입니다."'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── 탭4: 치료비 현실 데이터 ─────────────────────────────────────────────
+    with _t4:
+        st.markdown("#### 💸 암 종류별 실제 치료비 현실 데이터")
+        st.caption("고객에게 '구멍'을 눈으로 보여주는 근거 기반 후킹 도구")
+
+        _cost_rows_html = ""
+        for _i, _crow in enumerate(_GP94_COST_DATA):
+            if _i == 0:
+                _cost_rows_html += (
+                    "<tr>"
+                    + "".join(f"<th>{c}</th>" for c in _crow)
+                    + "</tr>"
+                )
+            else:
+                _cost_rows_html += (
+                    "<tr>"
+                    + "".join(f"<td>{c}</td>" for c in _crow)
+                    + "</tr>"
+                )
+        st.markdown(
+            f'<table class="gp94-cost-table">{_cost_rows_html}</table>',
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("---")
+
+        # ── AI 치료비 구멍 분석 (현재 고객 컨텍스트 기반) ────────────────────
+        st.markdown("##### 🤖 현재 고객 치료비 구멍 AI 자동 진단")
+        _cur_name  = st.session_state.get("_gp89_customer_name", "") or st.session_state.get("current_c_name", "")
+        _ocr_data  = st.session_state.get("_gp88_ocr_result", {})
+        _cur_plan  = st.session_state.get("_gp89_customer_plan", "")
+
+        if not _cur_name and not _ocr_data:
+            st.info(
+                "💡 GP90 패널에서 고객 이름을 입력하거나, GP88 §2 OCR로 기존 계약서를 스캔하면 "
+                "맞춤형 치료비 구멍 분석이 활성화됩니다."
+            )
+        else:
+            _diag_name = _cur_name or "현재 고객"
+            _existing_riders = []
+            if _ocr_data:
+                _raw_text = str(_ocr_data)
+                for _r in _GP94_RIDERS:
+                    if _r["label"] in _raw_text or _r["name"] in _raw_text:
+                        _existing_riders.append(_r["name"])
+
+            _missing = [r for r in _GP94_RIDERS if r["name"] not in _existing_riders]
+
+            st.markdown(
+                f'<div style="background:#f0fdf4;border:1.5px solid #22c55e;'
+                f'border-radius:10px;padding:14px 18px;font-size:0.88rem;color:#14532d;">'
+                f'<b>👤 {_diag_name}</b> 님의 현재 분석 기준: '
+                f'기존 특약 {len(_existing_riders)}종 확인 · '
+                f'<span style="color:#dc2626;font-weight:900;">'
+                f'보장 공백 {len(_missing)}종 감지</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            if _existing_riders:
+                st.success(f"✅ 보유 확인: {', '.join(_existing_riders)}")
+
+            if _missing:
+                st.warning(
+                    f"⚠️ 치료비 구멍 감지 ({len(_missing)}종): "
+                    + ", ".join(r["name"] for r in _missing)
+                )
+                for _mr in _missing:
+                    st.markdown(
+                        f'<div class="gp94-rider-card" style="margin:4px 0;">'
+                        f'<b>{_mr["icon"]} {_mr["name"]}</b> — '
+                        f'<span style="color:#dc2626;">{_mr["cost_range"]}</span><br>'
+                        f'<span style="font-size:0.8rem;color:#6b7280;">'
+                        f'1인칭 멘트: {_mr["hook"][:60]}…</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+        # ── GP94 §4: 황금빛 증서 연동 — 실질 치료비 총액 강조 힌트 ──────────
+        st.markdown("---")
+        st.markdown("##### 🏆 GP94 → 황금빛 증서 연동")
+        st.caption(
+            "하단 '황금빛 약속 증서 발급' 에서 플랜명에 '손보암 그물망 플랜' 등을 입력하면 "
+            "GP93 음성 메시지와 함께 '내가 확보한 실질 치료비 총액'을 강조 증서로 발급됩니다."
+        )
+        _calc_riders = st.multiselect(
+            "실질 치료비 구성 특약 선택",
+            options=[r["name"] for r in _GP94_RIDERS],
+            default=[],
+            key="_gp94_cert_riders",
+        )
+        _total_hint = ""
+        if _calc_riders:
+            _selected_cost_ranges = [
+                r["cost_range"] for r in _GP94_RIDERS if r["name"] in _calc_riders
+            ]
+            _total_hint = (
+                "【 선택 특약 】 "
+                + " + ".join(_calc_riders)
+                + "\n【 예상 치료비 방어 】 "
+                + " · ".join(_selected_cost_ranges)
+            )
+            st.markdown(
+                f'<div style="background:#FFFDF0;border:1.5px solid #D4AF37;'
+                f'border-radius:10px;padding:12px 16px;font-size:0.88rem;color:#2c1a00;">'
+                f'<b>🏆 증서 강조 문구 미리보기</b><br><br>'
+                f'{_total_hint.replace(chr(10), "<br>")}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            if st.button("📋 이 문구를 증서 값으로 설정", key="_gp94_set_cert_value",
+                         use_container_width=True, type="primary"):
+                st.session_state["_gp94_cert_value_hint"] = _total_hint
+                st.success("✅ 하단 황금빛 증서 발급 시 이 값이 자동으로 사용됩니다.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP95] 첨단 암 치료 및 급여/비급여 통합 보장 로직
+# 제95조: CAR-T·중입자·양성자·표적항암(차세대) 완전 방어형 1인칭 로직
+# ══════════════════════════════════════════════════════════════════════════════
+
+_GP95_ADVANCED_RIDERS = [
+    {
+        "id": "cart",
+        "icon": "🧬",
+        "name": "CAR-T 세포치료비",
+        "label": "CAR-T",
+        "cost_range": "1회 3억~5억 원 (비급여)",
+        "coverage_type": "비급여 전액",
+        "real_gap": "혈액암·백혈병 최신 치료 — 건보 적용 제외 품목 다수",
+        "hook": (
+            "내가 암에 걸렸을 때, 신약이 비급여라며 포기하는 일이 없도록 "
+            "내가 직접 준비한 '무제한 치료권'입니다. "
+            "CAR-T 한 번 치료에 5억이 드는 시대, 나는 이미 그 문을 열어두었습니다."
+        ),
+        "data": "2023년 기준 킴리아·예스카타 등 CAR-T 치료 1회 3~5억 원 (비급여 전액 자부담)",
+        "tip": "암주요치료비 PLUS 특약 또는 CAR-T 전용 특약 존재 여부 반드시 확인",
+        "companies": ["삼성", "현대", "DB", "KB", "메리츠"],
+        "hybrid": True,
+    },
+    {
+        "id": "hadron",
+        "icon": "⚛️",
+        "name": "중입자치료비",
+        "label": "중입자",
+        "cost_range": "4,000~6,000만 원 (비급여)",
+        "coverage_type": "비급여 전액",
+        "real_gap": "국내 도입 확대 중 — 건보 미적용, 전액 자부담",
+        "hook": (
+            "내가 방금 확인한 2026년 최신 리플렛에 따르면, "
+            "이제 중입자 치료비 5,000만 원은 기본으로 챙겨야 "
+            "내 자산이 방어된다는 것을 내가 깨달았습니다. "
+            "나는 그 선택을 오늘 했습니다."
+        ),
+        "data": "연세암병원·삼성서울 중입자치료센터 1코스 4,500~6,000만 원 (2025년 기준)",
+        "tip": "중입자·양성자 통합 특약 vs 개별 특약 — 가성비 비교 후 설계",
+        "companies": ["삼성", "현대", "DB", "KB", "메리츠"],
+        "hybrid": False,
+    },
+    {
+        "id": "proton",
+        "icon": "🔬",
+        "name": "양성자치료비",
+        "label": "양성자",
+        "cost_range": "2,000~4,000만 원 (급여/비급여 혼재)",
+        "coverage_type": "급여+비급여 하이브리드",
+        "real_gap": "소아암·두경부암 1차 선택 — 급여 적용 후에도 본인부담 수백만 원",
+        "hook": (
+            "급여가 됩니다 했지만, 막상 청구해보니 본인부담만 수백만 원이었습니다. "
+            "나는 급여든 비급여든 가리지 않고 "
+            "'치료하는 동안 내 통장을 지켜주는 방패'를 내 손에 쥐었습니다."
+        ),
+        "data": "국립암센터 양성자치료 소아암 급여 적용 후 본인부담 20% + 비급여 병행 시 추가 발생",
+        "tip": "급여 본인부담금 보전 + 비급여 양성자 별도 — 하이브리드 설계 핵심",
+        "companies": ["삼성", "현대", "DB", "KB", "메리츠"],
+        "hybrid": True,
+    },
+    {
+        "id": "nextgen_target",
+        "icon": "🎯",
+        "name": "차세대 표적항암치료비 (급여/비급여 통합)",
+        "label": "차세대표적",
+        "cost_range": "급여 후 자부담 + 비급여 월 200~500만 원",
+        "coverage_type": "급여+비급여 통합 방어",
+        "real_gap": "급여 전환 약제도 본인부담 5~20% + 비급여 신약 동시 사용 빈번",
+        "hook": (
+            "건강보험이 된다고 해서 공짜가 아닙니다. "
+            "급여가 됐어도 본인부담이 남고, 더 좋은 신약은 여전히 비급여입니다. "
+            "나는 급여·비급여를 가리지 않는 '완전 방어형 표적항암' 방패를 "
+            "내 치료 여정 처음부터 끝까지 장착했습니다."
+        ),
+        "data": "표적항암 급여 전환율 증가세 — 그러나 병용 비급여 약제 비중 60%↑ (심평원 2024)",
+        "tip": "급여항암+비급여항암 동시 설계 — 회사별 '암주요치료비 PLUS' 특약 비교 필수",
+        "companies": ["삼성", "현대", "DB", "KB", "메리츠"],
+        "hybrid": True,
+    },
+    {
+        "id": "major_cancer_plus",
+        "icon": "🛡️",
+        "name": "암주요치료비 PLUS",
+        "label": "주요치료PLUS",
+        "cost_range": "진단 후 실제 치료비 연 500~3,000만 원 지급",
+        "coverage_type": "급여+비급여 통합",
+        "real_gap": "표적·면역·CAR-T·중입자 포괄 지급 — 실손과 중복 수령 가능",
+        "hook": (
+            "단 하나의 특약으로 표적항암, 면역항암, CAR-T, 중입자까지 — "
+            "내가 어떤 치료를 선택하든 돈이 따라오는 구조를 "
+            "나는 이 특약 하나로 완성했습니다."
+        ),
+        "data": "암주요치료비 PLUS — 급여/비급여 구분 없이 실제 치료비 지급, 연간 한도 설정",
+        "tip": "연간 한도 vs 회당 지급 방식 비교 — 장기 치료형 암에는 연간 한도가 유리",
+        "companies": ["삼성", "현대", "DB", "KB", "메리츠"],
+        "hybrid": True,
+    },
+]
+
+# ── GP95 §2: 급여/비급여 통합 방어 시나리오 ──────────────────────────────────
+_GP95_HYBRID_SCENARIO = {
+    "awareness": {
+        "label": "🔴 1단계: 급여의 함정 인식",
+        "color": "#fff1f2",
+        "border": "#f43f5e",
+        "script": (
+            "건강보험이 되면 괜찮을 거라 생각했습니다. "
+            "하지만 급여가 된 약제도 본인부담금이 5~20% 남고, "
+            "더 효과 좋은 신약은 여전히 100% 비급여입니다. "
+            "나는 '건강보험이 다 해결해준다'는 착각이 가장 비싼 착각임을 깨달았습니다."
+        ),
+    },
+    "reality": {
+        "label": "🟡 2단계: 치료 현실 직면",
+        "color": "#fffbeb",
+        "border": "#f59e0b",
+        "script": (
+            "중입자 치료 한 코스에 5,000만 원, CAR-T 세포치료 한 번에 5억. "
+            "이건 먼 나라 이야기가 아니라 2026년 지금 국내 병원에서 "
+            "매일 일어나는 현실입니다. "
+            "진단비 5,000만 원으로 이 치료들을 감당하려 하면, "
+            "단 한 번의 치료에 전부 소진됩니다."
+        ),
+    },
+    "solution": {
+        "label": "🟢 3단계: 완전 방어형 설계 확신",
+        "color": "#f0fdf4",
+        "border": "#22c55e",
+        "script": (
+            "그래서 나는 급여·비급여를 가리지 않는 '완전 방어형 암 설계'를 선택했습니다. "
+            "표적항암, 면역항암, CAR-T, 중입자, 양성자 — "
+            "어떤 치료가 필요하든, 어떤 약이 급여든 비급여든, "
+            "내 치료 선택권은 절대로 빼앗기지 않습니다. "
+            "나는 오늘 이 무제한 치료권을 내 손에 쥐었습니다."
+        ),
+    },
+}
+
+# ── GP95 §3: 급여/비급여 통합 비교 데이터 ───────────────────────────────────
+_GP95_COVERAGE_COMPARISON = [
+    ("치료법", "건강보험 적용", "본인부담", "비급여 시 자부담", "방어 전략"),
+    ("표적항암 (급여전환)", "부분 급여", "5~20%", "월 200~500만 원", "급여+비급여 통합 특약"),
+    ("면역항암 (PD-1계열)", "제한적 급여", "20%+", "월 400~800만 원", "면역항암 전용 특약"),
+    ("CAR-T 세포치료", "비급여", "100%", "1회 3~5억 원", "CAR-T 전용/주요치료PLUS"),
+    ("중입자치료", "비급여", "100%", "1코스 4,500~6,000만 원", "중입자 전용 특약"),
+    ("양성자치료", "일부 급여", "20%+", "비급여 병행 수백만 원", "하이브리드 양성자 특약"),
+    ("다빈치 로봇수술", "비급여", "100%", "700~1,500만 원", "로봇수술 전용 특약"),
+]
+
+
+def _gp95_panel() -> None:
+    """GP95 첨단 암 치료 및 급여/비급여 통합 보장 로직 UI 패널"""
+    st.markdown("""
+<style>
+.gp95-header {
+  background: linear-gradient(135deg, #0d1b2a 0%, #1b2838 50%, #162032 100%);
+  border-radius: 16px; padding: 20px 24px; margin-bottom: 16px;
+  border: 1.5px solid #60a5fa60;
+}
+.gp95-header-title {
+  font-size: 1.25rem; font-weight: 900; color: #60a5fa;
+  letter-spacing: 0.06em; margin-bottom: 4px;
+}
+.gp95-header-sub { font-size: 0.82rem; color: #94a3b8; letter-spacing: 0.04em; }
+.gp95-rider-card {
+  background: #f0f9ff; border: 1.5px solid #93c5fd80;
+  border-left: 5px solid #3b82f6; border-radius: 12px;
+  padding: 14px 18px; margin: 8px 0;
+}
+.gp95-rider-name { font-size: 1.0rem; font-weight: 900; color: #1e3a5f; }
+.gp95-rider-cost { font-size: 0.78rem; color: #dc2626; font-weight: 700; margin: 3px 0; }
+.gp95-hybrid-badge {
+  display:inline-block; background:#7c3aed; color:#fff;
+  font-size:0.68rem; font-weight:800; border-radius:6px;
+  padding:2px 8px; margin-left:8px; letter-spacing:0.05em;
+}
+.gp95-rider-hook {
+  font-size: 0.88rem; color: #1e3a5f; line-height: 1.65;
+  border-left: 3px solid #7c3aed; padding-left: 10px;
+  margin: 8px 0; font-style: italic;
+}
+.gp95-rider-data { font-size: 0.75rem; color: #6b7280; margin-top: 6px; }
+.gp95-tip-box {
+  background: #faf5ff; border: 1.5px solid #c4b5fd;
+  border-radius: 8px; padding: 8px 14px; margin-top: 6px;
+  font-size: 0.78rem; color: #6d28d9;
+}
+.gp95-scenario-card {
+  border-radius: 12px; padding: 16px 20px; margin: 10px 0; border-left: 5px solid;
+}
+.gp95-coverage-table {
+  width: 100%; border-collapse: collapse; font-size: 0.80rem; margin: 12px 0;
+}
+.gp95-coverage-table th {
+  background: linear-gradient(90deg, #1e1b4b, #312e81);
+  color: #a5b4fc; padding: 9px 10px; text-align: center;
+  font-weight: 800; letter-spacing: 0.03em;
+}
+.gp95-coverage-table td {
+  padding: 8px 10px; border-bottom: 1px solid #e0e7ff; vertical-align: top;
+}
+.gp95-coverage-table tr:nth-child(odd) td { background: #f5f3ff; }
+.gp95-coverage-table tr:nth-child(even) td { background: #fff; }
+.gp95-coverage-table td:nth-child(3) { color: #dc2626; font-weight: 700; }
+.gp95-coverage-table td:nth-child(4) { color: #b45309; font-weight: 700; }
+.gp95-coverage-table td:last-child { color: #059669; font-weight: 700; }
+</style>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="gp95-header">
+  <div class="gp95-header-title">🧬 GP95 첨단 암 치료 — 급여/비급여 완전 방어 로직</div>
+  <div class="gp95-header-sub">
+    CAR-T · 중입자 · 양성자 · 차세대 표적항암 · 암주요치료비PLUS — 어떤 치료도 포기하지 않는 무제한 치료권
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    _t1, _t2, _t3 = st.tabs([
+        "🧬 첨단 특약 실익",
+        "📜 완전 방어 시나리오",
+        "⚖️ 급여/비급여 비교표",
+    ])
+
+    # ── 탭1: 첨단 특약별 실익 및 후킹 ───────────────────────────────────────
+    with _t1:
+        st.markdown("#### 🧬 첨단 암 특약별 실익 · 1인칭 후킹 멘트")
+        st.caption("급여/비급여를 가리지 않는 완전 방어형 설계의 근거 데이터")
+
+        for _r in _GP95_ADVANCED_RIDERS:
+            _hybrid_tag = '<span class="gp95-hybrid-badge">급여+비급여 통합</span>' if _r.get("hybrid") else ""
+            with st.expander(
+                f"{_r['icon']} **{_r['name']}** — {_r['cost_range']}",
+                expanded=False,
+            ):
+                st.markdown(
+                    f'<div class="gp95-rider-card">'
+                    f'<div class="gp95-rider-name">{_r["icon"]} {_r["name"]}{_hybrid_tag}</div>'
+                    f'<div class="gp95-rider-cost">💸 비용: {_r["cost_range"]} | '
+                    f'보장유형: <b>{_r["coverage_type"]}</b></div>'
+                    f'<div class="gp95-rider-cost">⚠️ 보장 공백: {_r["real_gap"]}</div>'
+                    f'<div class="gp95-rider-hook">❝ {_r["hook"]} ❞</div>'
+                    f'<div class="gp95-rider-data">📊 {_r["data"]}</div>'
+                    f'</div>'
+                    f'<div class="gp95-tip-box">💡 설계 팁: {_r["tip"]}</div>',
+                    unsafe_allow_html=True,
+                )
+                _c1, _c2 = st.columns(2)
+                with _c1:
+                    if st.button("📋 후킹 멘트 저장", key=f"_gp95_copy_{_r['id']}",
+                                 use_container_width=True):
+                        st.session_state[f"_gp95_hook_{_r['id']}"] = _r["hook"]
+                        st.success("✅ 저장 완료")
+                with _c2:
+                    if st.button("📲 GP88 카카오에 추가", key=f"_gp95_kakao_{_r['id']}",
+                                 use_container_width=True):
+                        _prev = st.session_state.get("_gp88_selected_script", "")
+                        st.session_state["_gp88_selected_script"] = (
+                            (_prev + "\n\n" if _prev else "") +
+                            f"[{_r['name']}] {_r['hook']}"
+                        )
+                        st.success("✅ GP88 카카오 메시지에 추가")
+
+    # ── 탭2: 완전 방어형 3단계 시나리오 ─────────────────────────────────────
+    with _t2:
+        st.markdown("#### 📜 급여/비급여 완전 방어형 1인칭 시나리오")
+        st.markdown(
+            '<div style="background:linear-gradient(135deg,#0d1b2a,#1b2838);'
+            'border-radius:14px;padding:18px 22px;margin:10px 0;'
+            'border:1.5px solid #60a5fa60;">'
+            '<div style="color:#60a5fa;font-size:0.78rem;font-weight:800;'
+            'letter-spacing:0.1em;margin-bottom:8px;">🎬 오프닝 — 무제한 치료권 선언</div>'
+            '<div style="color:#f1f5f9;font-size:0.97rem;line-height:1.85;font-style:italic;">'
+            '❝ 내가 암에 걸렸을 때, 신약이 비급여라며 포기하는 일이 없도록<br>'
+            '내가 직접 준비한 \'무제한 치료권\'입니다. ❞'
+            '</div>'
+            '<div style="color:#64748b;font-size:0.75rem;margin-top:8px;">'
+            '— GP95 §2 · GP80 1인칭 화법 준수'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        for _sk, _sv in _GP95_HYBRID_SCENARIO.items():
+            st.markdown(
+                f'<div class="gp95-scenario-card" style="background:{_sv["color"]};'
+                f'border-left-color:{_sv["border"]};">'
+                f'<div style="font-size:0.92rem;font-weight:900;margin-bottom:8px;">{_sv["label"]}</div>'
+                f'<div style="font-size:0.88rem;line-height:1.75;white-space:pre-line;">{_sv["script"]}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            if st.button(f"📋 {_sv['label']} 카카오에 추가", key=f"_gp95_scenario_{_sk}",
+                         use_container_width=True):
+                _prev = st.session_state.get("_gp88_selected_script", "")
+                st.session_state["_gp88_selected_script"] = (
+                    (_prev + "\n\n" if _prev else "") + _sv["script"]
+                )
+                st.success("✅ GP88 카카오 메시지에 추가")
+
+        _full95 = (
+            "=== GP95 첨단 암 완전 방어형 1인칭 시나리오 ===\n\n"
+            "[오프닝]\n내가 암에 걸렸을 때, 신약이 비급여라며 포기하는 일이 없도록 "
+            "내가 직접 준비한 '무제한 치료권'입니다.\n\n"
+            + "\n\n".join(
+                f"[{s['label']}]\n{s['script']}"
+                for s in _GP95_HYBRID_SCENARIO.values()
+            )
+            + "\n\n=== 첨단 특약 후킹 멘트 ===\n\n"
+            + "\n\n".join(
+                f"[{r['name']}]\n{r['hook']}"
+                for r in _GP95_ADVANCED_RIDERS
+            )
+        )
+        st.download_button(
+            label="⬇️ GP95 완전 방어 시나리오 전체 다운로드 (.txt)",
+            data=_full95.encode("utf-8"),
+            file_name="GP95_첨단암_완전방어_시나리오.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+
+    # ── 탭3: 급여/비급여 통합 비교표 ─────────────────────────────────────────
+    with _t3:
+        st.markdown("#### ⚖️ 치료법별 급여/비급여 현실 비교표")
+        st.caption("고객에게 '치료비 현실'을 눈으로 보여주는 근거 기반 도구")
+        _cov_html = ""
+        for _i, _row in enumerate(_GP95_COVERAGE_COMPARISON):
+            if _i == 0:
+                _cov_html += "<tr>" + "".join(f"<th>{c}</th>" for c in _row) + "</tr>"
+            else:
+                _cov_html += "<tr>" + "".join(f"<td>{c}</td>" for c in _row) + "</tr>"
+        st.markdown(
+            f'<table class="gp95-coverage-table">{_cov_html}</table>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div style="background:#fdf4ff;border:1.5px solid #e879f9;'
+            'border-radius:10px;padding:12px 18px;margin:12px 0;'
+            'font-size:0.88rem;color:#701a75;font-weight:700;">'
+            '💡 핵심 원칙: 급여가 되더라도 본인부담은 남고, 더 좋은 신약은 여전히 비급여입니다. '
+            '급여·비급여를 모두 커버하는 하이브리드 설계가 완전 방어의 유일한 답입니다.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP96] 리플렛 RAG 및 GCS 자동 분류 체계
+# 제96조: PDF/이미지 업로드 → OCR 태깅 → GCS 정밀 분류 → RAG 검색 연동
+# ══════════════════════════════════════════════════════════════════════════════
+
+_GP96_GCS_BUCKET     = "insu-archive-2026"
+_GP96_LEAFLET_PREFIX = "leaflets"
+
+_GP96_COMPANY_KEYWORDS = {
+    "삼성": ["삼성화재", "삼성생명", "samsung"],
+    "현대": ["현대해상", "현대생명", "hyundai"],
+    "DB": ["DB손해보험", "동부화재", "db"],
+    "KB": ["KB손해보험", "KB생명", "kb손보"],
+    "메리츠": ["메리츠화재", "메리츠생명", "meritz"],
+    "한화": ["한화생명", "한화손해보험", "hanwha"],
+    "교보": ["교보생명", "교보", "kyobo"],
+    "흥국": ["흥국화재", "흥국생명"],
+    "NH농협": ["농협생명", "nh"],
+}
+
+_GP96_PRODUCT_KEYWORDS = {
+    "암보험": ["암보험", "암진단", "암치료", "항암", "종양"],
+    "종신보험": ["종신", "사망", "종신보험"],
+    "정기보험": ["정기보험", "정기"],
+    "실손보험": ["실손", "실비", "의료비"],
+    "건강보험": ["건강보험", "진단비", "입원비"],
+    "치매보험": ["치매", "인지장애"],
+    "운전자보험": ["운전자", "교통사고"],
+}
+
+_GP96_RIDER_KEYWORDS = [
+    "표적항암", "면역항암", "CAR-T", "중입자", "양성자", "로봇수술",
+    "IMRT", "방사선", "통원비", "간병비", "재가", "진단비",
+    "암주요치료비", "재건수술", "호르몬", "항호르몬",
+]
+
+
+def _gp96_extract_meta(text: str) -> dict:
+    """OCR 텍스트에서 회사명·상품군·핵심담보·연도 자동 추출 — GP96 §1"""
+    import re as _re
+
+    _company = "미분류"
+    for _co, _kws in _GP96_COMPANY_KEYWORDS.items():
+        if any(_k.lower() in text.lower() for _k in _kws):
+            _company = _co
+            break
+
+    _product = "기타"
+    for _pt, _kws in _GP96_PRODUCT_KEYWORDS.items():
+        if any(_k in text for _k in _kws):
+            _product = _pt
+            break
+
+    _riders = [_rk for _rk in _GP96_RIDER_KEYWORDS if _rk in text]
+
+    _year_m = _re.search(r"(20\d{2})[\s년\-\.](0?[1-9]|1[0-2])월?", text)
+    _year_str = _year_m.group(0).replace(" ", "").replace("년", "-") if _year_m else "2026"
+
+    return {
+        "company": _company,
+        "product_type": _product,
+        "riders": _riders,
+        "date_str": _year_str,
+    }
+
+
+def _gp96_upload_leaflet(
+    file_bytes: bytes,
+    file_name: str,
+    meta: dict,
+) -> str:
+    """GCS에 리플렛 저장 — company/year-month/product_type/ 구조 — GP96 §2"""
+    import uuid as _uuid
+
+    _client = _get_gcs_client()
+    if not _client:
+        return ""
+
+    try:
+        _bucket = _client.bucket(_GP96_GCS_BUCKET)
+        _co     = meta.get("company", "미분류").replace(" ", "_")
+        _pt     = meta.get("product_type", "기타").replace(" ", "_")
+        _dt     = meta.get("date_str", "2026")[:7].replace("/", "-")
+        _uid    = str(_uuid.uuid4())[:8]
+        _ext    = file_name.rsplit(".", 1)[-1] if "." in file_name else "pdf"
+        _path   = f"{_GP96_LEAFLET_PREFIX}/{_co}/{_dt}/{_pt}/{_uid}.{_ext}"
+
+        _blob = _bucket.blob(_path)
+        _blob.upload_from_string(file_bytes)
+        _blob.make_public()
+        return f"https://storage.googleapis.com/{_GP96_GCS_BUCKET}/{_path}"
+    except Exception:
+        return ""
+
+
+def _gp96_save_index(meta: dict, gcs_url: str, ocr_text: str) -> None:
+    """리플렛 인덱스를 session_state에 누적 저장 — GP96 §3 RAG 기초"""
+    import datetime as _dt2
+
+    _idx_key = "_gp96_leaflet_index"
+    if _idx_key not in st.session_state:
+        st.session_state[_idx_key] = []
+
+    st.session_state[_idx_key].append({
+        "company":      meta.get("company", ""),
+        "product_type": meta.get("product_type", ""),
+        "riders":       meta.get("riders", []),
+        "date_str":     meta.get("date_str", ""),
+        "gcs_url":      gcs_url,
+        "ocr_text":     ocr_text[:2000],
+        "loaded_at":    _dt2.datetime.now().strftime("%Y-%m-%d %H:%M"),
+    })
+
+
+def _gp96_rag_search(query: str, top_k: int = 3) -> list:
+    """쿼리와 관련된 리플렛 인덱스 검색 — GP96 §3 RAG 엔진"""
+    _index = st.session_state.get("_gp96_leaflet_index", [])
+    if not _index:
+        return []
+
+    _query_lower = query.lower()
+    _scored = []
+    for _doc in _index:
+        _score = 0
+        _text  = (_doc.get("ocr_text", "") + " " + " ".join(_doc.get("riders", []))).lower()
+        for _word in _query_lower.split():
+            if _word in _text:
+                _score += 1
+        if any(_kw.lower() in _query_lower for _kw in _doc.get("riders", [])):
+            _score += 3
+        if _doc.get("company", "").lower() in _query_lower:
+            _score += 2
+        if _score > 0:
+            _scored.append((_score, _doc))
+
+    _scored.sort(key=lambda x: (x[0], x[1].get("date_str", "")), reverse=True)
+    return [d for _, d in _scored[:top_k]]
+
+
+def _gp96_panel() -> None:
+    """GP96 리플렛 자산화 허브 UI 패널"""
+    import io as _io
+
+    st.markdown("""
+<style>
+.gp96-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  border-radius: 16px; padding: 20px 24px; margin-bottom: 16px;
+  border: 1.5px solid #34d39960;
+}
+.gp96-header-title { font-size: 1.25rem; font-weight: 900; color: #34d399; letter-spacing: 0.06em; }
+.gp96-header-sub   { font-size: 0.82rem; color: #94a3b8; letter-spacing: 0.04em; margin-top: 4px; }
+.gp96-meta-card {
+  background: #f0fdf4; border: 1.5px solid #6ee7b7;
+  border-radius: 10px; padding: 12px 16px; margin: 8px 0; font-size: 0.85rem;
+}
+.gp96-rag-result {
+  background: #fffbeb; border: 1.5px solid #fcd34d;
+  border-left: 5px solid #f59e0b; border-radius: 10px;
+  padding: 12px 16px; margin: 8px 0;
+}
+.gp96-rag-title { font-size: 0.92rem; font-weight: 900; color: #92400e; margin-bottom: 6px; }
+.gp96-rag-text  { font-size: 0.82rem; color: #1c1917; line-height: 1.6; }
+.gp96-index-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.83rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="gp96-header">
+  <div class="gp96-header-title">📚 GP96 리플렛 자산화 허브 — RAG 검색 엔진</div>
+  <div class="gp96-header-sub">
+    리플렛 PDF/이미지 업로드 → OCR 자동 태깅 → GCS 정밀 분류 → 실시간 RAG 검색 연동
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    _t1, _t2, _t3 = st.tabs([
+        "📤 리플렛 업로드·분류",
+        "🔍 RAG 담보 검색",
+        "🗂️ 자산 인덱스 현황",
+    ])
+
+    # ── 탭1: 리플렛 업로드 & OCR 태깅 & GCS 저장 ────────────────────────────
+    with _t1:
+        st.markdown("#### 📤 리플렛 업로드 & 자동 분류")
+        st.caption("개인정보가 없는 리플렛 PDF/이미지를 업로드하세요. OCR로 [회사·출시일·상품군·핵심담보]를 자동 추출합니다.")
+
+        _uploaded = st.file_uploader(
+            "리플렛 파일 업로드 (PDF / JPG / PNG)",
+            type=["pdf", "jpg", "jpeg", "png"],
+            key="_gp96_uploader",
+        )
+        if _uploaded:
+            _raw = _uploaded.read()
+            _fname = _uploaded.name
+            _ext   = _fname.rsplit(".", 1)[-1].lower() if "." in _fname else ""
+
+            # OCR 텍스트 추출 (기존 OCR 함수 재활용)
+            _ocr_text = ""
+            try:
+                if _ext == "pdf":
+                    _ocr_text = _gp88_ocr_pdf(_raw) if "_gp88_ocr_pdf" in dir() else str(_raw[:500])
+                else:
+                    from PIL import Image as _PIL_Image
+                    _img = _PIL_Image.open(_io.BytesIO(_raw))
+                    _ocr_text = _ocr_image_with_google(_img) if "_ocr_image_with_google" in dir() else ""
+            except Exception:
+                _ocr_text = ""
+
+            # 수동 텍스트 보완 입력
+            _manual_text = st.text_area(
+                "OCR 보완 입력 (회사명·출시일·핵심담보 직접 입력 가능)",
+                value=_ocr_text[:500] if _ocr_text else "",
+                height=120,
+                key="_gp96_manual_text",
+                placeholder="예: 삼성화재 2026년 3월 암보험 표적항암 CAR-T 중입자치료비",
+            )
+            _combined_text = (_manual_text or _ocr_text or "").strip()
+
+            if _combined_text:
+                _meta = _gp96_extract_meta(_combined_text)
+                st.markdown(
+                    f'<div class="gp96-meta-card">'
+                    f'<b>🏢 보험사:</b> {_meta["company"]} &nbsp;|&nbsp; '
+                    f'<b>📦 상품군:</b> {_meta["product_type"]} &nbsp;|&nbsp; '
+                    f'<b>📅 발행:</b> {_meta["date_str"]}<br>'
+                    f'<b>🎯 핵심담보:</b> {", ".join(_meta["riders"]) if _meta["riders"] else "감지 안됨"}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+                _c1, _c2 = st.columns(2)
+                with _c1:
+                    if st.button("☁️ GCS에 저장 & 인덱스 등록", key="_gp96_save_btn",
+                                 use_container_width=True, type="primary"):
+                        _url = _gp96_upload_leaflet(_raw, _fname, _meta)
+                        _gp96_save_index(_meta, _url or "(로컬 저장)", _combined_text)
+                        _idx = st.session_state.get("_gp96_leaflet_index", [])
+                        # ── GP97 자동 차이 분석 트리거 ──────────────────────
+                        if len(_idx) >= 2:
+                            _diff97 = _gp97_analyze_diff(_meta, _idx[:-1])
+                            _gp97_register_trend(_diff97)
+                            if _diff97.get("added"):
+                                st.info(
+                                    f"🤖 GP97 자동 학습: "
+                                    f"신규 담보 {', '.join(_diff97['added'])} 감지 → 트렌드 등록!"
+                                )
+                        st.success(
+                            f"✅ 인덱스 등록 완료! "
+                            f"총 {len(_idx)}건 누적. "
+                            + (f"GCS URL: {_url[:60]}…" if _url else "GCS 미연결 — 세션 인덱스만 저장")
+                        )
+                with _c2:
+                    if st.button("📋 인덱스만 등록 (GCS 저장 없이)", key="_gp96_index_only_btn",
+                                 use_container_width=True):
+                        _gp96_save_index(_meta, "", _combined_text)
+                        _idx2 = st.session_state.get("_gp96_leaflet_index", [])
+                        if len(_idx2) >= 2:
+                            _diff97b = _gp97_analyze_diff(_meta, _idx2[:-1])
+                            _gp97_register_trend(_diff97b)
+                            if _diff97b.get("added"):
+                                st.info(
+                                    f"🤖 GP97 자동 학습: "
+                                    f"신규 담보 {', '.join(_diff97b['added'])} 감지 → 트렌드 등록!"
+                                )
+                        st.success("✅ 세션 인덱스에만 등록 완료")
+            else:
+                st.info("💡 파일을 업로드하거나 텍스트를 직접 입력하면 자동 태깅이 시작됩니다.")
+
+    # ── 탭2: RAG 담보 검색 ────────────────────────────────────────────────────
+    with _t2:
+        st.markdown("#### 🔍 리플렛 RAG 담보 검색")
+        st.caption("\"요즘 중입자 치료 얼마 들어?\" 같은 자연어 질문으로 저장된 리플렛을 검색합니다.")
+
+        _query = st.text_input(
+            "검색 질문 입력",
+            placeholder="예: 중입자 치료비 얼마야? / CAR-T 어느 회사가 좋아? / 표적항암 최신 리플렛",
+            key="_gp96_rag_query",
+        )
+        if st.button("🔍 RAG 검색", key="_gp96_search_btn", type="primary",
+                     use_container_width=True):
+            if not _query.strip():
+                st.warning("질문을 입력해주세요.")
+            else:
+                _results = _gp96_rag_search(_query)
+                if not _results:
+                    st.info(
+                        "💡 저장된 리플렛이 없거나 관련 자료를 찾지 못했습니다. "
+                        "'📤 리플렛 업로드·분류' 탭에서 먼저 리플렛을 등록해주세요."
+                    )
+                else:
+                    st.markdown(f"**🎯 '{_query}' 검색 결과 — {len(_results)}건**")
+                    for _i, _doc in enumerate(_results, 1):
+                        _riders_str = ", ".join(_doc.get("riders", [])) or "담보 미감지"
+                        _snippet = _doc.get("ocr_text", "")[:200].replace("\n", " ")
+                        _url_disp = _doc.get("gcs_url", "")
+                        st.markdown(
+                            f'<div class="gp96-rag-result">'
+                            f'<div class="gp96-rag-title">'
+                            f'#{_i} {_doc["company"]} | {_doc["product_type"]} | {_doc["date_str"]}'
+                            f'</div>'
+                            f'<div class="gp96-rag-text">'
+                            f'<b>핵심담보:</b> {_riders_str}<br>'
+                            f'<b>발췌:</b> {_snippet}…<br>'
+                            + (f'<b>GCS:</b> <a href="{_url_disp}" target="_blank">{_url_disp[:60]}…</a>' if _url_disp else '')
+                            + f'<br><span style="color:#6b7280;font-size:0.75rem;">등록일시: {_doc.get("loaded_at","")}</span>'
+                            f'</div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                        # ── 1인칭 화법 자동 생성 ─────────────────────────────
+                        _auto_hook = (
+                            f"내가 방금 확인한 {_doc.get('date_str','')} {_doc['company']} 리플렛에 따르면, "
+                            f"{_doc['product_type']} 상품에서 "
+                            f"'{_riders_str}' 담보가 확인됩니다. "
+                            f"이 자료를 바탕으로, 내 암 보장에 이런 구멍이 생겼음을 내가 발견했습니다."
+                        )
+                        with st.expander("💬 1인칭 화법 자동 생성"):
+                            st.text_area("GP80 1인칭 화법", value=_auto_hook, height=100,
+                                         key=f"_gp96_hook_{_i}")
+                            if st.button("📲 GP88 카카오에 추가", key=f"_gp96_hook_add_{_i}",
+                                         use_container_width=True):
+                                _prev = st.session_state.get("_gp88_selected_script", "")
+                                st.session_state["_gp88_selected_script"] = (
+                                    (_prev + "\n\n" if _prev else "") + _auto_hook
+                                )
+                                st.success("✅ GP88 카카오 메시지에 추가")
+
+    # ── 탭3: 자산 인덱스 현황 ─────────────────────────────────────────────────
+    with _t3:
+        st.markdown("#### 🗂️ 리플렛 자산 인덱스 현황")
+        _index = st.session_state.get("_gp96_leaflet_index", [])
+        if not _index:
+            st.info("💡 아직 등록된 리플렛이 없습니다. '📤 리플렛 업로드·분류' 탭에서 시작하세요.")
+        else:
+            st.markdown(f"**총 {len(_index)}건 누적**")
+            for _i, _doc in enumerate(_index[::-1], 1):
+                st.markdown(
+                    f'<div class="gp96-index-row">'
+                    f'<span><b>#{_i}</b> {_doc["company"]} | {_doc["product_type"]} | {_doc["date_str"]}</span>'
+                    f'<span style="color:#6b7280;font-size:0.75rem;">'
+                    f'{", ".join(_doc["riders"][:3]) if _doc["riders"] else "담보미감지"} | {_doc["loaded_at"]}'
+                    f'</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+            if st.button("🗑️ 인덱스 초기화", key="_gp96_clear_idx"):
+                st.session_state["_gp96_leaflet_index"] = []
+                st.success("✅ 인덱스 초기화 완료")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP97] 미래 상품 자율 학습 지침
+# 제97조: 신규 리플렛 로딩 시 담보 차이 자동 분석 · 트렌드 등록 · 상담 문구 자동 갱신
+# ══════════════════════════════════════════════════════════════════════════════
+
+_GP97_TREND_KEY = "_gp97_trends"
+
+
+def _gp97_analyze_diff(new_doc: dict, existing_docs: list) -> dict:
+    """신규 리플렛과 기존 리플렛의 담보 차이 분석 — GP97 §1 학습 루프"""
+    _new_riders  = set(new_doc.get("riders", []))
+    _all_existing = set()
+    _same_company = [
+        d for d in existing_docs
+        if d.get("company") == new_doc.get("company")
+        and d.get("product_type") == new_doc.get("product_type")
+    ]
+    for _d in _same_company[:-1]:
+        _all_existing.update(_d.get("riders", []))
+
+    _added   = list(_new_riders - _all_existing)
+    _removed = list(_all_existing - _new_riders)
+    _kept    = list(_new_riders & _all_existing)
+
+    return {
+        "company":      new_doc.get("company", ""),
+        "product_type": new_doc.get("product_type", ""),
+        "date_str":     new_doc.get("date_str", ""),
+        "added":        _added,
+        "removed":      _removed,
+        "kept":         _kept,
+        "is_upgrade":   len(_added) > 0,
+    }
+
+
+def _gp97_register_trend(diff: dict) -> None:
+    """담보 차이를 신규 트렌드로 등록 — GP97 §2"""
+    import datetime as _dt3
+
+    if _GP97_TREND_KEY not in st.session_state:
+        st.session_state[_GP97_TREND_KEY] = []
+
+    if not diff.get("added"):
+        return
+
+    _trend = {
+        "company":   diff["company"],
+        "product":   diff["product_type"],
+        "date":      diff["date_str"],
+        "new_riders": diff["added"],
+        "summary": (
+            f"내가 방금 확인한 {diff['date_str']} {diff['company']} 최신 리플렛에 따르면, "
+            f"'{', '.join(diff['added'])}' 담보가 새로 추가되었음을 내가 발견했습니다. "
+            f"이 트렌드를 상담 문구에 즉시 반영합니다."
+        ),
+        "registered_at": _dt3.datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    st.session_state[_GP97_TREND_KEY].insert(0, _trend)
+
+
+def _gp97_get_latest_script_update(company: str = "", product_type: str = "") -> str:
+    """최신 트렌드 기반 상담 문구 자동 갱신 반환 — GP97 §3"""
+    _trends = st.session_state.get(_GP97_TREND_KEY, [])
+    if not _trends:
+        return ""
+
+    _filtered = [
+        t for t in _trends
+        if (not company or t.get("company") == company) and
+           (not product_type or t.get("product") == product_type)
+    ]
+    _target = _filtered[0] if _filtered else _trends[0]
+    return _target.get("summary", "")
+
+
+def _gp97_panel() -> None:
+    """GP97 자율 학습 지침 UI 패널"""
+    st.markdown("""
+<style>
+.gp97-header {
+  background: linear-gradient(135deg, #1a0533 0%, #2d1254 50%, #1a0533 100%);
+  border-radius: 16px; padding: 20px 24px; margin-bottom: 16px;
+  border: 1.5px solid #a855f760;
+}
+.gp97-header-title { font-size: 1.25rem; font-weight: 900; color: #d8b4fe; letter-spacing: 0.06em; }
+.gp97-header-sub   { font-size: 0.82rem; color: #94a3b8; letter-spacing: 0.04em; margin-top: 4px; }
+.gp97-trend-card {
+  background: linear-gradient(135deg, #faf5ff, #f5f3ff);
+  border: 1.5px solid #c4b5fd; border-left: 5px solid #7c3aed;
+  border-radius: 12px; padding: 14px 18px; margin: 8px 0;
+}
+.gp97-trend-title  { font-size: 0.92rem; font-weight: 900; color: #5b21b6; margin-bottom: 6px; }
+.gp97-trend-text   { font-size: 0.85rem; color: #1c1917; line-height: 1.65; }
+.gp97-trend-new    { color: #059669; font-weight: 800; }
+.gp97-trend-date   { font-size: 0.72rem; color: #6b7280; margin-top: 4px; }
+</style>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="gp97-header">
+  <div class="gp97-header-title">🤖 GP97 자율 학습 — 신상품 트렌드 자동 등록 엔진</div>
+  <div class="gp97-header-sub">
+    새 리플렛이 로딩될 때마다 담보 차이를 자동 분석 · 트렌드 등록 · 상담 문구 즉시 갱신
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    _t1, _t2 = st.tabs(["📈 트렌드 등록 현황", "🔄 문구 자동 갱신"])
+
+    # ── 탭1: 트렌드 현황 ──────────────────────────────────────────────────────
+    with _t1:
+        st.markdown("#### 📈 자동 등록된 신규 담보 트렌드")
+        st.caption("새 리플렛을 GP96 탭에서 저장하면 기존 리플렛과 담보 차이를 자동 분석해 트렌드로 등록합니다.")
+
+        _trends = st.session_state.get(_GP97_TREND_KEY, [])
+        if not _trends:
+            st.info(
+                "💡 아직 등록된 트렌드가 없습니다. "
+                "GP96 탭에서 리플렛 2건 이상 등록 시 자동으로 차이 분석이 수행됩니다."
+            )
+        else:
+            for _i, _tr in enumerate(_trends, 1):
+                _new_str = ", ".join(_tr.get("new_riders", []))
+                st.markdown(
+                    f'<div class="gp97-trend-card">'
+                    f'<div class="gp97-trend-title">'
+                    f'🆕 #{_i} {_tr["company"]} | {_tr["product"]} | {_tr["date"]}'
+                    f'</div>'
+                    f'<div class="gp97-trend-text">'
+                    f'<span class="gp97-trend-new">신규 추가 담보: {_new_str}</span><br>'
+                    f'{_tr["summary"]}'
+                    f'</div>'
+                    f'<div class="gp97-trend-date">등록: {_tr["registered_at"]}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+        # ── 수동 트렌드 등록 ─────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("##### ✍️ 수동 트렌드 등록")
+        _m_co  = st.text_input("보험사", placeholder="예: 삼성화재", key="_gp97_m_co")
+        _m_pt  = st.text_input("상품군", placeholder="예: 암보험", key="_gp97_m_pt")
+        _m_dt  = st.text_input("발행일", placeholder="예: 2026-03", key="_gp97_m_dt")
+        _m_new = st.text_input(
+            "신규 담보 (쉼표 구분)",
+            placeholder="예: CAR-T, 중입자치료비, 차세대표적항암",
+            key="_gp97_m_new",
+        )
+        if st.button("📝 수동 트렌드 등록", key="_gp97_manual_add", use_container_width=True):
+            if _m_co and _m_new:
+                _manual_diff = {
+                    "company": _m_co, "product_type": _m_pt or "암보험",
+                    "date_str": _m_dt or "2026", "added": [r.strip() for r in _m_new.split(",")],
+                    "removed": [], "kept": [],
+                }
+                _gp97_register_trend(_manual_diff)
+                st.success("✅ 트렌드 수동 등록 완료!")
+                st.rerun()
+            else:
+                st.warning("보험사와 신규 담보를 입력해주세요.")
+
+    # ── 탭2: 문구 자동 갱신 ───────────────────────────────────────────────────
+    with _t2:
+        st.markdown("#### 🔄 최신 트렌드 기반 상담 문구 자동 갱신")
+        st.caption("등록된 트렌드 중 가장 최신 자료를 기반으로 1인칭 상담 문구를 즉시 생성합니다.")
+
+        _co_filter = st.text_input("회사 필터 (선택)", placeholder="예: 삼성", key="_gp97_co_filter")
+        _pt_filter = st.text_input("상품 필터 (선택)", placeholder="예: 암보험", key="_gp97_pt_filter")
+
+        if st.button("🔄 최신 문구 생성", key="_gp97_gen_btn", type="primary",
+                     use_container_width=True):
+            _updated_script = _gp97_get_latest_script_update(_co_filter, _pt_filter)
+            if _updated_script:
+                st.session_state["_gp97_latest_script"] = _updated_script
+            else:
+                st.info("💡 조건에 맞는 트렌드가 없습니다. 필터를 비우거나 트렌드를 먼저 등록하세요.")
+
+        _latest_script = st.session_state.get("_gp97_latest_script", "")
+        if _latest_script:
+            st.markdown(
+                '<div class="gp97-trend-card">'
+                '<div class="gp97-trend-title">💬 자동 갱신된 1인칭 상담 문구</div>'
+                f'<div class="gp97-trend-text">{_latest_script}</div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+            _c1, _c2 = st.columns(2)
+            with _c1:
+                if st.button("📲 GP88 카카오에 추가", key="_gp97_kakao_add",
+                             use_container_width=True):
+                    _prev = st.session_state.get("_gp88_selected_script", "")
+                    st.session_state["_gp88_selected_script"] = (
+                        (_prev + "\n\n" if _prev else "") + _latest_script
+                    )
+                    st.success("✅ GP88 카카오 메시지에 추가")
+            with _c2:
+                st.download_button(
+                    "⬇️ 문구 저장 (.txt)",
+                    data=_latest_script.encode("utf-8"),
+                    file_name="GP97_자동갱신_상담문구.txt",
+                    mime="text/plain",
+                    use_container_width=True,
+                )
+
+        # ── GP96 연동: 신규 리플렛 저장 시 자동 분석 트리거 안내 ────────────
+        st.markdown("---")
+        st.markdown(
+            '<div style="background:#f5f3ff;border:1.5px solid #c4b5fd;'
+            'border-radius:10px;padding:12px 16px;font-size:0.85rem;color:#5b21b6;">'
+            '<b>🔗 GP96 자동 연동:</b> GP96 탭에서 새 리플렛을 저장하면 기존 리플렛과 담보 차이를 '
+            '자동 분석하여 이 탭의 트렌드 목록에 즉시 반영됩니다. '
+            '리플렛이 쌓일수록 나의 무기는 날카로워집니다.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+
 # ── [가이딩 프로토콜 제86조] 황금빛 약속 증서 생성 엔진 ─────────────────────
 def _gp86_golden_card(result_text: str = "", name_hint: str = "") -> None:
     """GP86 황금빛 약속 증서 — 상담 결과 출력 영역 하단에서 호출"""
@@ -9593,10 +11078,77 @@ def _gp86_golden_card(result_text: str = "", name_hint: str = "") -> None:
     )
     st.info("💡 저장된 HTML 파일을 Chrome에서 열고 '인쇄 → PDF 저장'으로 고화질 이미지를 얻을 수 있습니다.")
 
+    # ── [GP94 §4] 손보 암 플랜 감지 — 실질 치료비 총액 강조 표시 ────────────
+    _pnc_keywords = ["암", "항암", "표적", "면역", "로봇", "방사선", "간병", "통원", "손보", "손해보험", "화재"]
+    _is_pnc_cancer = any(_kw in (_display_plan + _display_value + result_text) for _kw in _pnc_keywords)
+    if _is_pnc_cancer:
+        _total_coverage_items = [
+            r for r in _GP94_RIDERS
+            if any(_kw in (_display_plan + _display_value + result_text) for _kw in [r["label"], r["name"]])
+        ]
+        st.markdown("---")
+        st.markdown("""
+<style>
+.gp94-cert-box {
+  background: linear-gradient(135deg, #1a1200 0%, #3d2800 50%, #1a1200 100%);
+  border: 2px solid #D4AF37;
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin: 12px 0;
+}
+.gp94-cert-title {
+  font-size: 1.1rem; font-weight: 900; color: #F9F295;
+  letter-spacing: 0.06em; margin-bottom: 10px;
+  border-bottom: 1px solid #D4AF3760; padding-bottom: 8px;
+}
+.gp94-cert-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid #ffffff15;
+  font-size: 0.88rem;
+}
+.gp94-cert-label { color: #c8a84b; font-weight: 700; }
+.gp94-cert-value { color: #ffffff; font-weight: 600; }
+.gp94-cert-total {
+  font-size: 1.05rem; font-weight: 900; color: #F9F295;
+  text-align: center; margin-top: 14px; padding-top: 10px;
+  border-top: 2px solid #D4AF37;
+  letter-spacing: 0.04em;
+}
+.gp94-cert-quote {
+  font-size: 0.85rem; color: #94a3b8; text-align: center;
+  margin-top: 8px; font-style: italic; line-height: 1.6;
+}
+</style>
+""", unsafe_allow_html=True)
+        _rows_html = ""
+        for _r in _GP94_RIDERS:
+            _rows_html += (
+                f'<div class="gp94-cert-row">'
+                f'<span class="gp94-cert-label">{_r["icon"]} {_r["name"]}</span>'
+                f'<span class="gp94-cert-value">{_r["cost_range"]}</span>'
+                f'</div>'
+            )
+        st.markdown(f"""
+<div class="gp94-cert-box">
+  <div class="gp94-cert-title">🦀 내가 확보한 실질적 치료비 방어망 (GP94)</div>
+  {_rows_html}
+  <div class="gp94-cert-total">
+    💰 실질 치료비 방어 총액: {_display_value if _display_value else "촘촘한 손보 특약 그물망 완비"}
+  </div>
+  <div class="gp94-cert-quote">
+    "이제 나는 의사 앞에서 '가장 좋은 치료법으로 해주세요'라고 당당하게 말할 수 있는<br/>
+    경제적 자유를 확보했습니다. 나는 오직 치료에만 집중할 권리를 가졌습니다."
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
     # ── [GP93] 마스터 육성 녹음 — 증서 발급 후 즉시 애착 메시지 녹음 ─────────
     st.markdown("---")
     st.markdown("### 🎙️ 마스터의 진심 목소리 녹음 (GP93)")
-    st.caption("지금 이 순간의 진심을 30초 안에 담아, 증서와 함께 고객의 마음에 영원히 새겨주세요.")
+    if _is_pnc_cancer:
+        st.caption("💬 권장 멘트: \"이제 돈 걱정 말고 오직 완치에만 전념하십시오. 치료비는 내가 준비한 이 그물망이 전부 감당합니다.\"")
+    else:
+        st.caption("지금 이 순간의 진심을 30초 안에 담아, 증서와 함께 고객의 마음에 영원히 새겨주세요.")
     _gp93_voice_recorder(
         customer_name=_display_name,
         plan=_display_plan,
@@ -11197,11 +12749,12 @@ def _gp88_hub() -> None:
 </style>
 """, unsafe_allow_html=True)
 
-        _tab1, _tab2, _tab3, _tab4 = st.tabs([
+        _tab1, _tab2, _tab3, _tab4, _tab5 = st.tabs([
             "📝 §3 명품 문구 선택",
             "🔍 §1 상담 검색",
             "📄 §2 계약서 OCR",
             "📲 §4 카카오 통합 발송",
+            "🦀 §5 손보 암 화법 (GP94)",
         ])
 
         # ── §3: 1인칭 10대 명품 문구 ─────────────────────────────────────────
@@ -11219,6 +12772,10 @@ def _gp88_hub() -> None:
         # ── §4: 카카오 통합 발송 블록 ─────────────────────────────────────────
         with _tab4:
             _gp88_kakao_send()
+
+        # ── §5: GP94 손보 암 상품 실전 화법 엔진 ──────────────────────────────
+        with _tab5:
+            _gp94_panel()
 
 
 # ── GP88 §3: 1인칭 10대 명품 문구 선택 UI ────────────────────────────────────
