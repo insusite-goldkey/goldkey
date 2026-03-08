@@ -9744,13 +9744,471 @@ function shareKakao() {{
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# [GP89] 전역적 유기체 아키텍처 — 파이프라인 · 화법 · 이력 · 시각 흐름
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── GP89 §1: 전역 파이프라인 상태 키 정의 ─────────────────────────────────────
+_GP89_PIPE = {
+    "customer_name":   "_gp89_customer_name",    # 현재 활성 고객명
+    "customer_plan":   "_gp89_customer_plan",    # 활성 플랜명
+    "ocr_result":      "_gp88_ocr_result",        # OCR 담보 결과 (GP88과 공유)
+    "active_script":   "_gp88_active_script",     # 선택된 명품 문구 (GP88과 공유)
+    "cert_date":       "_gp89_cert_date",         # 최근 증서 발급일
+    "last_send_msg":   "_gp89_last_send_msg",     # 마지막 발송 메시지
+    "history":         "consultation_history",    # 상담 이력 (GP88과 공유)
+}
+
+
+def _gp89_set_customer(name: str, plan: str = "") -> None:
+    """GP89 §1 — 전역 고객 컨텍스트 설정: 이름/플랜을 세션에 저장하여 모든 블록에 동기화"""
+    st.session_state[_GP89_PIPE["customer_name"]] = name.strip()
+    if plan:
+        st.session_state[_GP89_PIPE["customer_plan"]] = plan.strip()
+
+
+def _gp89_get_pipeline_status() -> dict:
+    """GP89 §1 — 현재 파이프라인 단계별 완료 상태 반환"""
+    _ss = st.session_state
+    return {
+        "scan":   bool(_ss.get(_GP89_PIPE["ocr_result"])),
+        "search": bool(_ss.get(_GP89_PIPE["customer_name"])),
+        "script": bool(_ss.get(_GP89_PIPE["active_script"])),
+        "send":   bool(_ss.get(_GP89_PIPE["last_send_msg"])),
+    }
+
+
+# ── GP89 §2: 1인칭 화법 전역 필터 ─────────────────────────────────────────────
+_GP89_TONE_MAP = {
+    "고객님": "나",
+    "고객의": "나의",
+    "고객이": "내가",
+    "고객을": "나를",
+    "고객은": "나는",
+    "고객": "나",
+    "귀하의": "나의",
+    "귀하께서": "내가",
+    "귀하는": "나는",
+    "귀하": "나",
+    "당신의": "나의",
+    "당신이": "내가",
+    "당신은": "나는",
+    "당신을": "나를",
+    "당신": "나",
+    "피보험자께서": "내가",
+    "피보험자의": "나의",
+    "계약자님": "나",
+}
+
+
+def _gp89_tone_filter(text: str) -> str:
+    """GP89 §2 — 모든 텍스트에서 2·3인칭 표현을 1인칭으로 자동 변환"""
+    for _k, _v in _GP89_TONE_MAP.items():
+        text = text.replace(_k, _v)
+    return text
+
+
+# ── GP89 §4: 시각적 흐름 배너 ─────────────────────────────────────────────────
+def _gp89_flow_banner() -> None:
+    """GP89 §4 — 4단계 파이프라인 진행 상태를 시각적으로 표시"""
+    _status = _gp89_get_pipeline_status()
+    _cname  = st.session_state.get(_GP89_PIPE["customer_name"], "")
+
+    _steps = [
+        ("📄", "계약서 스캔",  "scan"),
+        ("🔍", "고객 검색",   "search"),
+        ("📝", "화법 선택",   "script"),
+        ("📲", "카톡 발송",   "send"),
+    ]
+
+    _step_parts = []
+    for _icon, _label, _key in _steps:
+        _done = _status[_key]
+        _bg   = "linear-gradient(135deg,#D4AF37,#F9F295)" if _done else "#f0f0f0"
+        _col  = "#1a1a1a" if _done else "#999"
+        _check = "✅" if _done else "○"
+        _step_parts.append(
+            f'<div style="flex:1;text-align:center;padding:10px 4px;">'
+            f'<div style="font-size:1.5rem;">{_icon}</div>'
+            f'<div style="font-size:0.75rem;font-weight:800;color:{_col};margin:4px 0;">{_label}</div>'
+            f'<div style="display:inline-block;padding:3px 10px;border-radius:20px;'
+            f'background:{_bg};font-size:0.7rem;font-weight:700;color:{_col};">{_check}</div>'
+            f'</div>'
+        )
+
+    _arrow = '<div style="align-self:center;color:#D4AF37;font-size:1.2rem;font-weight:900;">▶</div>'
+    _inner = _arrow.join(_step_parts)
+
+    _cname_badge = ""
+    if _cname:
+        _cname_badge = (
+            f'<div style="text-align:center;margin-top:8px;font-size:0.8rem;'
+            f'color:#1a3a6b;font-weight:700;">'
+            f'👤 현재 활성 고객: <span style="color:#b8860b;">{_cname}</span>'
+            f'</div>'
+        )
+
+    _html = (
+        '<div style="background:#fff9e6;border:1.5px solid #D4AF37;border-radius:14px;'
+        'padding:12px 16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(212,175,55,0.15);">'
+        '<div style="font-size:0.72rem;font-weight:800;color:#b8860b;letter-spacing:0.12em;'
+        'margin-bottom:8px;text-align:center;">'
+        '⚡ GP89 세일즈 파이프라인 — 나의 상담 흐름'
+        '</div>'
+        f'<div style="display:flex;align-items:stretch;gap:4px;">{_inner}</div>'
+        f'{_cname_badge}'
+        '</div>'
+    )
+
+    import streamlit.components.v1 as _c
+    _c.html(_html, height=130 if _cname else 110)
+
+
+# ── GP89 §3: 상담 이력 자동 저장 헬퍼 ────────────────────────────────────────
+def _gp89_save_history(
+    customer: str,
+    plan: str,
+    script: str,
+    ocr_summary: str,
+    message: str,
+) -> None:
+    """GP89 §3 — 카톡 발송 시 consultation_history에 자동 기록"""
+    import datetime as _dt
+
+    _HIST_KEY = _GP89_PIPE["history"]
+    if _HIST_KEY not in st.session_state:
+        st.session_state[_HIST_KEY] = []
+
+    _record = {
+        "일자":       _dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "고객명":      customer or "(미설정)",
+        "플랜명":      plan or "(미설정)",
+        "사용된 문구":  (script[:60] + "…") if len(script) > 60 else script,
+        "OCR 담보":   ocr_summary or "(스캔 없음)",
+        "발송 메시지": (message[:80] + "…") if len(message) > 80 else message,
+    }
+
+    _hist: list = st.session_state[_HIST_KEY]
+    _hist.insert(0, _record)
+    st.session_state[_HIST_KEY] = _hist[:200]  # 최대 200건 보존
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP90] 전역 데이터 실시간 동기화 아키텍처
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── GP90 §1: 5대 핵심 데이터 전역 세션 키 ────────────────────────────────────
+_GP90_KEYS = {
+    "name":       "_gp90_name",         # 성명
+    "rrn_masked": "_gp90_rrn_masked",   # 주민번호 마스킹본 (뒷자리 * 처리)
+    "rrn_age":    "_gp90_rrn_age",      # 주민번호 → 만 나이
+    "rrn_gender": "_gp90_rrn_gender",   # 주민번호 → 성별
+    "phone":      "_gp90_phone",        # 연락처
+    "contract":   "_gp90_contract",     # 계약사항 (자유 텍스트)
+    "analysis":   "_gp90_analysis",     # 증권분석 (자유 텍스트)
+    "persona_msg":"_gp90_persona_msg",  # 개인화 1인칭 문구 (자동생성)
+    "sync_tick":  "_gp90_sync_tick",    # 동기화 카운터 (변경 감지용)
+}
+
+
+def _gp90_parse_rrn(rrn_raw: str) -> dict:
+    """GP90 §1 — 주민번호에서 만나이·성별 계산, 뒷7자리 마스킹 반환"""
+    import re as _re
+    import datetime as _dt
+
+    _clean = _re.sub(r"[^0-9]", "", rrn_raw)
+    if len(_clean) < 7:
+        return {"masked": rrn_raw, "age": None, "gender": None}
+
+    _front = _clean[:6]
+    _seventh = _clean[6] if len(_clean) >= 7 else ""
+    _masked = _front + "-" + (_seventh + "••••••" if _seventh else "•••••••")
+
+    _age = None
+    _gender = None
+    try:
+        _yy, _mm, _dd = int(_front[:2]), int(_front[2:4]), int(_front[4:6])
+        _g = int(_seventh) if _seventh else 0
+        if _g in (1, 2, 5, 6):
+            _born_year = 1900 + _yy
+        elif _g in (3, 4, 7, 8):
+            _born_year = 2000 + _yy
+        else:
+            _born_year = 1900 + _yy
+        _today = _dt.date.today()
+        _bday  = _dt.date(_born_year, _mm, _dd)
+        _age   = _today.year - _bday.year - ((_today.month, _today.day) < (_bday.month, _bday.day))
+        _gender = "남성" if _g % 2 == 1 else "여성"
+    except Exception:
+        pass
+
+    return {"masked": _masked, "age": _age, "gender": _gender}
+
+
+def _gp90_sync(
+    name: str = "",
+    rrn_raw: str = "",
+    phone: str = "",
+    contract: str = "",
+    analysis: str = "",
+) -> None:
+    """GP90 §2 — 5대 핵심 데이터를 세션에 즉시 동기화 (OSMU 원소스)"""
+    _ss = st.session_state
+
+    if name:
+        _ss[_GP90_KEYS["name"]] = name.strip()
+        _gp89_set_customer(name.strip())
+
+    if rrn_raw:
+        _parsed = _gp90_parse_rrn(rrn_raw)
+        _ss[_GP90_KEYS["rrn_masked"]] = _parsed["masked"]
+        _ss[_GP90_KEYS["rrn_age"]]    = _parsed["age"]
+        _ss[_GP90_KEYS["rrn_gender"]] = _parsed["gender"]
+
+    if phone:
+        _ss[_GP90_KEYS["phone"]] = phone.strip()
+
+    if contract:
+        _ss[_GP90_KEYS["contract"]] = contract.strip()
+
+    if analysis:
+        _ss[_GP90_KEYS["analysis"]] = analysis.strip()
+
+    _ss[_GP90_KEYS["sync_tick"]] = _ss.get(_GP90_KEYS["sync_tick"], 0) + 1
+    _gp90_rebuild_persona()
+
+
+def _gp90_rebuild_persona() -> None:
+    """GP90 §4 — 계약사항+증권분석 데이터를 GP80 1인칭 화법으로 개인화 문구 자동 생성"""
+    import re as _re
+    _ss = st.session_state
+
+    _name     = _ss.get(_GP90_KEYS["name"], "")
+    _age      = _ss.get(_GP90_KEYS["rrn_age"])
+    _gender   = _ss.get(_GP90_KEYS["rrn_gender"], "")
+    _contract = _ss.get(_GP90_KEYS["contract"], "")
+    _analysis = _ss.get(_GP90_KEYS["analysis"], "")
+
+    if not (_contract or _analysis):
+        _ss[_GP90_KEYS["persona_msg"]] = ""
+        return
+
+    _parts = []
+
+    _name_label = f"{_name}님" if _name else "나"
+    _age_label  = f"만 {_age}세 {_gender}" if _age else ""
+
+    if _age_label:
+        _parts.append(f"나는 현재 {_age_label}으로,")
+
+    _SHORTAGE_PAT = _re.compile(r"(\d[\d,\.]*\s*억|\d+,\d{3}만?\s*원)")
+    _PLAN_PAT     = _re.compile(r"([가-힣A-Za-z]+보험|[가-힣A-Za-z]+플랜|[가-힣A-Za-z]+연금|[가-힣A-Za-z]+저축)")
+
+    _found_amounts = _SHORTAGE_PAT.findall(_contract + " " + _analysis)
+    _found_plans   = _PLAN_PAT.findall(_contract + " " + _analysis)
+
+    _analysis_filtered = _gp89_tone_filter(_analysis) if _analysis else ""
+    _contract_filtered = _gp89_tone_filter(_contract) if _contract else ""
+
+    if _found_plans:
+        _plan_str = ", ".join(dict.fromkeys(_found_plans)[:3])
+        _parts.append(f"내가 보유한 {_plan_str}의 담보 현황을 점검했습니다.")
+
+    if _found_amounts and _analysis_filtered:
+        _amt = _found_amounts[0]
+        _parts.append(
+            f"분석 결과, 내 현재 보장에서 {_amt} 규모의 공백이 확인되었습니다."
+        )
+    elif _analysis_filtered:
+        _preview = _analysis_filtered[:80].rstrip()
+        _parts.append(f"내가 직접 확인한 분석 내용: {_preview}{'…' if len(_analysis_filtered) > 80 else ''}")
+
+    if _contract_filtered and not _found_plans:
+        _preview2 = _contract_filtered[:60].rstrip()
+        _parts.append(f"현재 내 계약 사항: {_preview2}{'…' if len(_contract_filtered) > 60 else ''}")
+
+    _parts.append("이 사실을 바탕으로 나는 지금 바로 최적의 해법을 선택할 준비가 되어 있습니다.")
+
+    _ss[_GP90_KEYS["persona_msg"]] = " ".join(_parts)
+
+
+def _gp90_live_search(query: str) -> list:
+    """GP90 §3 — 입력값으로 consultation_history 실시간 검색 (Auto-fill 재료 반환)"""
+    if not query or len(query) < 2:
+        return []
+    _hist: list = st.session_state.get("consultation_history", [])
+    _q = query.lower()
+    _hits = []
+    for _item in _hist:
+        if _q in str(_item).lower():
+            _hits.append(_item)
+        if len(_hits) >= 5:
+            break
+    return _hits
+
+
+def _gp90_panel() -> None:
+    """GP90 전역 데이터 입력 패널 — 5대 핵심 데이터 입력 시 전역 즉시 동기화"""
+    _ss = st.session_state
+
+    _cur_name     = _ss.get(_GP90_KEYS["name"], "")
+    _cur_rrn_m    = _ss.get(_GP90_KEYS["rrn_masked"], "")
+    _cur_age      = _ss.get(_GP90_KEYS["rrn_age"])
+    _cur_gender   = _ss.get(_GP90_KEYS["rrn_gender"], "")
+    _cur_phone    = _ss.get(_GP90_KEYS["phone"], "")
+    _cur_contract = _ss.get(_GP90_KEYS["contract"], "")
+    _cur_analysis = _ss.get(_GP90_KEYS["analysis"], "")
+    _persona      = _ss.get(_GP90_KEYS["persona_msg"], "")
+
+    with st.expander(
+        "⚡ [GP90] 전역 고객 데이터 — 한 번 입력, 앱 전체 즉시 반영",
+        expanded=bool(_cur_name),
+    ):
+        st.markdown(
+            '<div style="font-size:0.72rem;font-weight:800;color:#b8860b;'
+            'letter-spacing:0.1em;margin-bottom:10px;">'
+            '🔄 GP90 실시간 동기화 원칙 — 데이터는 흐르는 물처럼 앱 구석구석을 즉시 적십니다.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+        _c1, _c2 = st.columns([1, 1])
+
+        with _c1:
+            _inp_name = st.text_input(
+                "👤 성명",
+                value=_cur_name,
+                placeholder="예: 홍길동",
+                key="_gp90_inp_name",
+            )
+            _inp_rrn = st.text_input(
+                "🔒 주민번호 (자동 마스킹·연령·성별 계산)",
+                value="",
+                placeholder="예: 800101-1••••••  (입력 후 동기화)",
+                type="password",
+                key="_gp90_inp_rrn",
+                help="뒷자리는 자동 마스킹 처리됩니다. 저장 시 암호화 표시만 보존됩니다.",
+            )
+            _inp_phone = st.text_input(
+                "📞 연락처",
+                value=_cur_phone,
+                placeholder="예: 010-1234-5678",
+                key="_gp90_inp_phone",
+            )
+
+        with _c2:
+            _inp_contract = st.text_area(
+                "📋 계약사항",
+                value=_cur_contract,
+                placeholder="예: 종신보험 2억, 암보험 3천만원, 실손보험 가입 중",
+                height=100,
+                key="_gp90_inp_contract",
+            )
+            _inp_analysis = st.text_area(
+                "📊 증권분석",
+                value=_cur_analysis,
+                placeholder="예: 상속세 재원 5억 부족, 교육비 2억 미확보, 노후연금 월 60만원 부족",
+                height=100,
+                key="_gp90_inp_analysis",
+            )
+
+        # ── 동기화 버튼 ──────────────────────────────────────────────────────
+        if st.button(
+            "🔄 전역 동기화 실행 — 앱 전체에 즉시 반영",
+            key="_gp90_sync_btn",
+            type="primary",
+            use_container_width=True,
+        ):
+            _gp90_sync(
+                name=_inp_name,
+                rrn_raw=_inp_rrn,
+                phone=_inp_phone,
+                contract=_inp_contract,
+                analysis=_inp_analysis,
+            )
+            st.rerun()
+
+        # ── 현재 동기화 상태 표시 ─────────────────────────────────────────────
+        if _cur_name or _cur_age or _cur_phone:
+            _badge_parts = []
+            if _cur_name:
+                _badge_parts.append(f"👤 {_cur_name}")
+            if _cur_age and _cur_gender:
+                _badge_parts.append(f"🎂 만 {_cur_age}세 {_cur_gender}")
+            elif _cur_rrn_m:
+                _badge_parts.append(f"🔒 {_cur_rrn_m}")
+            if _cur_phone:
+                _badge_parts.append(f"📞 {_cur_phone}")
+
+            st.markdown(
+                '<div style="background:#f0fdf4;border:1.5px solid #16a34a;border-radius:8px;'
+                'padding:8px 12px;margin-top:8px;font-size:0.82rem;font-weight:700;color:#15803d;">'
+                '✅ 현재 동기화됨: ' + " &nbsp;|&nbsp; ".join(_badge_parts) +
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ── §3: 실시간 계약 검색 (입력값 기반 Auto-fill 제안) ────────────────
+        _live_q = _inp_name or _inp_contract[:20] if _inp_contract else ""
+        if _live_q and len(_live_q) >= 2:
+            _live_hits = _gp90_live_search(_live_q)
+            if _live_hits:
+                st.markdown(
+                    f'<div style="font-size:0.75rem;color:#6b7280;margin-top:6px;">'
+                    f'🔍 관련 과거 상담 {len(_live_hits)}건 발견 — 아래에서 불러오기</div>',
+                    unsafe_allow_html=True,
+                )
+                for _hi, _hit in enumerate(_live_hits):
+                    _preview = str(_hit)[:60]
+                    with st.expander(f"↩️ {_preview}…", expanded=False):
+                        if isinstance(_hit, dict):
+                            for _hk, _hv in _hit.items():
+                                st.markdown(f"**{_hk}**: {_gp89_tone_filter(str(_hv))}")
+                            if st.button(
+                                "이 상담 데이터로 자동 채우기",
+                                key=f"_gp90_autofill_{_hi}",
+                            ):
+                                _gp90_sync(
+                                    name=_hit.get("고객명", ""),
+                                    contract=_hit.get("계약사항", ""),
+                                    analysis=_hit.get("증권분석", ""),
+                                )
+                                st.rerun()
+
+        # ── §4: 개인화 1인칭 문구 표시 ────────────────────────────────────────
+        if _persona:
+            st.markdown("---")
+            st.markdown(
+                '<div style="background:linear-gradient(135deg,#fffbea,#fef3c7);'
+                'border:2px solid #D4AF37;border-radius:12px;padding:14px 16px;margin-top:8px;">'
+                '<div style="font-size:0.72rem;font-weight:800;color:#b8860b;margin-bottom:8px;">'
+                '✨ GP90 §4 — 개인화 1인칭 화법 문구 (자동생성)'
+                '</div>'
+                f'<div style="font-size:0.9rem;font-weight:700;color:#1a1a1a;line-height:1.7;">'
+                f'{_persona}'
+                f'</div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                "📋 이 문구를 명품 문구로 설정",
+                key="_gp90_use_persona_btn",
+            ):
+                st.session_state["_gp88_active_script"] = _persona
+                st.session_state[_GP89_PIPE["active_script"]] = _persona
+                st.success("✅ 개인화 문구가 전역 명품 문구로 설정되었습니다.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # [GP88] 통합 상담 허브 — 마스터 문구 · 검색 · OCR · 카카오톡 발송
 # ══════════════════════════════════════════════════════════════════════════════
 def _gp88_hub() -> None:
-    """GP88 통합 상담 자산 관리 허브 — 4개 섹션 구성"""
+    """GP88 통합 상담 자산 관리 허브 — GP89·GP90 전역 파이프라인 연동"""
     import os as _os
 
-    with st.expander("🏛️ GP88 통합 상담 허브 — 문구 선택 · 검색 · OCR · 카카오 발송", expanded=False):
+    # ── GP89 §4: 파이프라인 흐름 배너 (허브 진입 전 전역 표시)
+    _gp89_flow_banner()
+
+    with st.expander("🏛️ [GP88·GP89] 세일즈 생명체 통합 허브 — 문구 선택 · 검색 · OCR · 카카오 발송", expanded=False):
         st.markdown("""
 <style>
 .gp88-tab-header{font-size:1.05rem;font-weight:800;color:#1a3a6b;margin-bottom:6px;}
@@ -9899,12 +10357,28 @@ def _gp88_search() -> None:
 
     st.success(f"🔎 '{_q}' 검색 결과: {len(_results)}건")
     for _idx, _item in enumerate(_results[:20], 1):
-        with st.expander(f"#{_idx} — {str(_item)[:80]}…", expanded=False):
+        _preview = str(_item)[:80]
+        with st.expander(f"#{_idx} — {_preview}…", expanded=False):
             if isinstance(_item, dict):
                 for _k, _v in _item.items():
-                    st.markdown(f"**{_k}**: {_v}")
+                    _v_str = _gp89_tone_filter(str(_v))
+                    st.markdown(f"**{_k}**: {_v_str}")
+                # GP89 §1: 검색 결과에서 고객명 활성화 버튼
+                _cname_in_item = _item.get("고객명", "")
+                if _cname_in_item and _cname_in_item != "(미설정)":
+                    if st.button(
+                        f"👤 '{_cname_in_item}' 고객으로 활성화",
+                        key=f"_gp89_activate_btn_{_idx}",
+                        type="primary",
+                    ):
+                        _gp89_set_customer(
+                            _cname_in_item,
+                            _item.get("플랜명", ""),
+                        )
+                        st.success(f"✅ '{_cname_in_item}' 고객이 전역 파이프라인에 활성화되었습니다.")
+                        st.rerun()
             else:
-                st.text(str(_item))
+                st.text(_gp89_tone_filter(str(_item)))
 
 
 # ── GP88 §2: 계약서 OCR 스캔 ──────────────────────────────────────────────────
@@ -9914,6 +10388,16 @@ def _gp88_ocr_scan() -> None:
 
     st.markdown('<p class="gp88-tab-header">📄 계약서 OCR 스캔 — 핵심 담보 자동 추출</p>', unsafe_allow_html=True)
     st.caption("PDF 또는 이미지(JPG·PNG) 파일을 업로드하면 핵심 담보 항목을 추출합니다.")
+
+    # ── GP89 §1: 고객 컨텍스트 입력 (스캔 전 미리 설정) ─────────────────────
+    _ocr_cname = st.text_input(
+        "👤 고객명 (스캔 결과와 함께 전역 파이프라인에 저장)",
+        value=st.session_state.get(_GP89_PIPE["customer_name"], ""),
+        placeholder="예: 홍길동",
+        key="_gp88_ocr_cname_input",
+    )
+    if _ocr_cname:
+        _gp89_set_customer(_ocr_cname)
 
     _uploaded = st.file_uploader(
         "계약서 파일 업로드 (PDF / JPG / PNG)",
@@ -9967,13 +10451,24 @@ def _gp88_ocr_scan() -> None:
             _found[_kw] = _lines[:3]
 
     if _found:
+        # ── GP89 §2: 1인칭 화법 필터 적용 후 표시 ────────────────────────────
+        _found_filtered = {}
         for _kw, _lines in _found.items():
+            _found_filtered[_kw] = [_gp89_tone_filter(_l) for _l in _lines]
+
+        for _kw, _lines in _found_filtered.items():
             with st.expander(f"🔸 {_kw}", expanded=False):
                 for _l in _lines:
                     st.markdown(f"- {_l}")
-        # 세션에 저장 — §4 발송 시 활용
-        st.session_state["_gp88_ocr_result"] = _found
-        st.success("✅ OCR 추출 완료. §4 '카카오 통합 발송' 탭에서 전송할 수 있습니다.")
+
+        # ── GP89 §1: 전역 파이프라인에 저장 (tone 필터 적용본) ─────────────
+        st.session_state["_gp88_ocr_result"] = _found_filtered
+        # 고객명이 설정된 경우 OCR 결과와 함께 파이프라인에 기록
+        _current_cname = st.session_state.get(_GP89_PIPE["customer_name"], "")
+        if _current_cname:
+            st.success(f"✅ OCR 추출 완료 — 👤 [{_current_cname}] 전역 파이프라인에 동기화되었습니다.")
+        else:
+            st.success("✅ OCR 추출 완료. §4 '카카오 통합 발송' 탭에서 전송할 수 있습니다.")
     else:
         st.info("지정 키워드 담보 항목을 찾지 못했습니다. 전체 텍스트를 확인하세요.")
 
@@ -10017,6 +10512,18 @@ def _gp88_kakao_send() -> None:
 
     st.markdown("---")
 
+    # ── GP89 §3: 고객 컨텍스트 수집 (이력 저장용) ─────────────────────────
+    _cust_name = (
+        st.session_state.get(_GP90_KEYS["name"])
+        or st.session_state.get(_GP89_PIPE["customer_name"], "")
+    )
+    _cust_plan = st.session_state.get(_GP89_PIPE["customer_plan"], "")
+    _ocr_summary_short = ""
+    if _ocr_result:
+        _ocr_summary_short = ", ".join(
+            f"{_k}: {_v[0][:30]}" for _k, _v in list(_ocr_result.items())[:3]
+        )
+
     if not _kakao_js_key:
         st.text_area(
             "📋 카카오톡에 복사하여 전송 (KAKAO_JS_KEY 미설정 — 텍스트 전송 모드)",
@@ -10025,6 +10532,20 @@ def _gp88_kakao_send() -> None:
             key="_gp88_kakao_copy_area",
         )
         st.caption("🔧 `KAKAO_JS_KEY` 환경변수를 등록하면 원클릭 공유 버튼이 활성화됩니다.")
+        # ── GP89 §3: 텍스트 복사 폴백에서도 이력 자동 저장 ─────────────────
+        if st.button(
+            "📋 복사 완료 — 상담 이력에 저장",
+            key="_gp88_copy_save_btn",
+            use_container_width=True,
+        ):
+            _gp89_save_history(
+                customer=_cust_name,
+                plan=_cust_plan,
+                script=_script_body,
+                ocr_summary=_ocr_summary_short,
+                message=_combined_msg,
+            )
+            st.success("✅ GP89 §3 — 상담 이력이 자동 저장되었습니다.")
         return
 
     # Kakao SDK 원클릭 공유 버튼
@@ -10090,6 +10611,22 @@ function gp88Share(){{
 """
     import streamlit.components.v1 as _c
     _c.html(_send_html, height=120)
+
+    # ── GP89 §3: 카카오 SDK 발송 후 이력 자동 저장 버튼 ────────────────────
+    if st.button(
+        "✅ 발송 완료 — 상담 이력 자동 저장",
+        key="_gp88_sdk_save_btn",
+        use_container_width=True,
+    ):
+        _gp89_save_history(
+            customer=_cust_name,
+            plan=_cust_plan,
+            script=_script_body,
+            ocr_summary=_ocr_summary_short,
+            message=_combined_msg,
+        )
+        st.success("✅ GP89 §3 — 상담 이력이 자동 저장되었습니다.")
+        st.session_state[_GP89_PIPE["last_send_msg"]] = _combined_msg
 
 
 # 사용 모델 상수 (변경 시 이 한 줄만 수정)
@@ -19692,6 +20229,8 @@ window['startTTS_{tab_key}']=function(){{
                         mime="text/plain",
                         key=f"dl_{result_key}",
                         use_container_width=True)
+            # ── [GP90] 전역 데이터 실시간 동기화 패널 ───────────────────────
+            _gp90_panel()
             # ── [GP88] 통합 상담 허브 ─────────────────────────────────────────
             _gp88_hub()
             # ── [GP86] 황금빛 약속 증서 발급 ─────────────────────────────────
