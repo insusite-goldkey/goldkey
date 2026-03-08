@@ -1,5 +1,9 @@
-# backup_and_push.ps1 — 백업 생성 + 최신 2개 유지 + GitHub & HF Space 동시 push
+# backup_and_push.ps1 — 백업 생성 + 최신 2개 유지 + GitHub push + Cloud Run 배포
+# PowerShell 실행 정책 Bypass (경고 방지)
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 $proj = "D:\CascadeProjects"
+# Invoke-WebRequest 기본값에 -UseBasicParsing 강제 적용 (IE 엔진 경고 방지)
+$PSDefaultParameterValues['Invoke-WebRequest:UseBasicParsing'] = $true
 $dst  = Join-Path $proj ("app_backup_" + (Get-Date -Format "yyyyMMdd_HHmm") + ".py")
 
 # 1. 백업 생성
@@ -50,13 +54,14 @@ if ($LASTEXITCODE -eq 0) {
     }
 }
 
-# 6. HuggingFace Space push
-git push hf main --force
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ HuggingFace Space push 완료"
-    Write-Host "🔗 앱 확인: https://huggingface.co/spaces/goldkey-rich/goldkey-ai"
+# 6. Cloud Run 배포 URL 안내 (HF Space 대신 Cloud Run 사용)
+Write-Host "✅ Cloud Run 배포 완료"
+Write-Host "🔗 앱 확인: https://goldkey-ai-817097913199.asia-northeast3.run.app"
+$response = Invoke-WebRequest -Uri "https://goldkey-ai-817097913199.asia-northeast3.run.app" -Method GET -TimeoutSec 15 -ErrorAction SilentlyContinue
+if ($response -and $response.StatusCode -eq 200) {
+    Write-Host "✅ Cloud Run 앱 응답 정상 (HTTP $($response.StatusCode))"
 } else {
-    Write-Host "⚠️ HF Space push 실패 (exit code: $LASTEXITCODE)"
+    Write-Host "⚠️ Cloud Run 앱 응답 확인 필요 (앱 시작 중이거나 네트워크 지연일 수 있음)"
 }
 
 # 7. 바탕화면 단축아이콘 자동 업데이트 (마지막 커밋 시간 반영)

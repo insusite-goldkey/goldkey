@@ -1,3 +1,7 @@
+[logger]
+level = "info"
+messageFormat = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+
 [server]
 headless = true
 address = "0.0.0.0"

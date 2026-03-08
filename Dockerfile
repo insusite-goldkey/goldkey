@@ -15,12 +15,14 @@ ENV LC_ALL=ko_KR.UTF-8
 ENV LANGUAGE=ko_KR.UTF-8
 ENV PYTHONIOENCODING=utf-8
 ENV PYTHONUTF8=1
+ENV PYTHONUNBUFFERED=1
 ENV STREAMLIT_SERVER_MAX_UPLOAD_SIZE=50
 ENV STREAMLIT_SERVER_ENABLE_CORS=false
 ENV STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
 ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
-# HuggingFace Space app_port=7860 (README.md 기준)
-ENV PORT=7860
+ENV STREAMLIT_LOGGER_LEVEL=info
+# Cloud Run: 8080, HuggingFace Space: 7860
+ENV PORT=8080
 
 # ── HF Space 필수: non-root 유저 설정 (권한 문제 방지) ─────────────────────
 RUN useradd -m -u 1000 user
@@ -40,14 +42,14 @@ COPY --chown=user . .
 # ── non-root 유저로 전환 ────────────────────────────────────────────────────
 USER user
 
-# HuggingFace Space 포트 노출
-EXPOSE 7860
+# Cloud Run: 8080
+EXPOSE 8080
 
-# HF Space: PORT=7860 고정
 CMD streamlit run app.py \
-    --server.port=${PORT:-7860} \
+    --server.port=${PORT:-8080} \
     --server.address=0.0.0.0 \
     --server.headless=true \
     --server.maxUploadSize=50 \
     --server.enableCORS=false \
-    --server.enableXsrfProtection=false
+    --server.enableXsrfProtection=false \
+    --logger.level=info
