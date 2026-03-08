@@ -1431,6 +1431,154 @@ def _s39_prefetch_auth() -> None:
     st.session_state["_s39_auth_ok"] = True
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# 가이딩 프로토콜 제140조: 유니버설 세션 컨티뉴이티 (Universal Continuity)
+# §1 브라우저 localStorage를 인증의 최종 보루로 활용
+# §2 새로고침(F5) / 브라우저 재시작 / 네트워크 단절 후에도 세션 자동 복원
+# §3 명시적 로그아웃 버튼 클릭 전까지 쿠키/토큰 만료 없음
+# §4 현재 탭(current_tab) 위치 보존 → 재접속 시 자동 복귀 (Deep Linking)
+# §5 user_name 미설정 시 "마스터(익명)" 전역 방어
+# ══════════════════════════════════════════════════════════════════════════
+
+_GP140_LS_KEY   = "gk_auth_v2"          # localStorage 인증 토큰 키
+_GP140_TAB_KEY  = "gk_last_tab"         # localStorage 탭 위치 키
+_GP140_ANON_NAME = "마스터(익명)"        # user_name 미설정 시 기본값
+
+
+def _gp140_save_token_js(user_id: str, user_name: str,
+                          user_role: str = "", token: str = "") -> str:
+    """[GP140 §1] 로그인 성공 시 localStorage에 인증 토큰 저장하는 JS 코드 반환.
+
+    만료 시간: 없음 (명시적 로그아웃 전까지 영속).
+    """
+    import json as _json
+    _payload = _json.dumps({
+        "uid":   user_id,
+        "uname": user_name,
+        "role":  user_role,
+        "tok":   token,
+        "ts":    0,
+    }, ensure_ascii=False)
+    _escaped = _payload.replace("'", "\\'").replace("`", "\\`")
+    return f"""
+<script>
+(function() {{
+  try {{
+    var payload = {_json.dumps(_payload, ensure_ascii=False)};
+    localStorage.setItem('{_GP140_LS_KEY}', payload);
+  }} catch(e) {{}}
+}})();
+</script>"""
+
+
+def _gp140_clear_token_js() -> str:
+    """[GP140 §3] 명시적 로그아웃 시 localStorage 토큰 삭제 JS 코드 반환."""
+    return f"""
+<script>
+(function() {{
+  try {{
+    localStorage.removeItem('{_GP140_LS_KEY}');
+    localStorage.removeItem('{_GP140_TAB_KEY}');
+  }} catch(e) {{}}
+}})();
+</script>"""
+
+
+def _gp140_save_tab_js(tab_key: str) -> str:
+    """[GP140 §4] 현재 탭 위치를 localStorage에 저장하는 JS 코드 반환."""
+    return f"""
+<script>
+(function() {{
+  try {{
+    localStorage.setItem('{_GP140_TAB_KEY}', '{tab_key}');
+  }} catch(e) {{}}
+}})();
+</script>"""
+
+
+def _gp140_restore_from_ls() -> bool:
+    """[GP140 §2] localStorage 토큰 읽기 → session_state 복원 시도.
+
+    Streamlit components.v1.html로 JS → query_params 브릿지를 사용.
+    토큰이 query_params에 전달된 경우 복원 후 True 반환.
+    아직 전달 안 된 경우 JS 읽기 코드 주입 후 False 반환 (다음 rerun에 복원).
+    """
+    import streamlit.components.v1 as _c140
+    import json as _json
+
+    # ── 이미 로그인된 경우 즉시 반환 ──
+    if st.session_state.get("user_id"):
+        return True
+
+    # ── 명시적 로그아웃 플래그가 있으면 복원 시도 안 함 ──
+    if st.session_state.get("_logout_flag"):
+        return False
+
+    # ── query_params에서 GP140 브릿지 데이터 확인 ──
+    _qp = st.query_params
+    _raw = _qp.get("_gp140", "")
+    if _raw:
+        try:
+            _data = _json.loads(_raw)
+            _uid   = _data.get("uid", "")
+            _uname = _data.get("uname", "")
+            _role  = _data.get("role", "")
+            if _uid and _uname:
+                st.session_state["user_id"]   = _uid
+                st.session_state["user_name"] = _uname
+                st.session_state["user_role"] = _role
+                st.session_state["authenticated"] = True
+                st.session_state["_gp140_restored"] = True
+                # 탭 복원
+                _tab_raw = _qp.get("_gp140t", "")
+                if _tab_raw and not st.session_state.get("current_tab"):
+                    st.session_state["current_tab"] = _tab_raw
+                # query_params 정리
+                try:
+                    _qp.clear()
+                except Exception:
+                    pass
+                return True
+        except Exception:
+            pass
+
+    # ── localStorage → query_params 브릿지 JS 주입 (1회) ──
+    if not st.session_state.get("_gp140_ls_injected"):
+        st.session_state["_gp140_ls_injected"] = True
+        _c140.html(f"""
+<script>
+(function() {{
+  try {{
+    var raw = localStorage.getItem('{_GP140_LS_KEY}');
+    if (!raw) return;
+    var data = JSON.parse(raw);
+    if (!data.uid || !data.uname) return;
+    var tab = '';
+    try {{ tab = localStorage.getItem('{_GP140_TAB_KEY}') || ''; }} catch(e) {{}}
+    var encoded = encodeURIComponent(raw);
+    var url = window.location.pathname + '?_gp140=' + encoded
+            + (tab ? '&_gp140t=' + encodeURIComponent(tab) : '');
+    window.location.replace(url);
+  }} catch(e) {{}}
+}})();
+</script>""", height=0)
+
+    return False
+
+
+def _gp140_safe_user_name(fallback: str = _GP140_ANON_NAME) -> str:
+    """[GP140 §5] session_state의 user_name을 안전하게 반환.
+
+    비어있거나 없으면 fallback('마스터(익명)') 반환.
+    AttributeError / KeyError 전역 차단.
+    """
+    try:
+        _n = st.session_state.get("user_name", "")
+        return _n.strip() if _n and _n.strip() else fallback
+    except (AttributeError, KeyError):
+        return fallback
+
+
 # ── 제41조 헬퍼 함수 ─────────────────────────────────────────────────────
 # 가이딩 프로토콜 제41조: 내부 식별자 최적화 및 메타데이터 분리 원칙
 # [§1] 모든 조항 참조는 GP_ID_NN 상수 비교만 허용 — 한글 문자열 비교 금지
@@ -5043,6 +5191,12 @@ def _gp86_terminate_session() -> None:
     for _k in ["_saved_user_id", "_saved_user_name", "_saved_is_admin",
                "_saved_join_date", "_saved_admin_tab_auth", "_admin_tab_auth"]:
         _st.session_state.pop(_k, None)
+    # [제140조 §3] 명시적 로그아웃 → localStorage 인증 토큰·탭 위치 전면 삭제
+    try:
+        _st.markdown(_gp140_clear_token_js(), unsafe_allow_html=True)
+    except Exception:
+        pass
+    _st.session_state["_logout_flag"] = True
     _st.session_state.clear()
     _st.rerun()
 
@@ -19213,6 +19367,15 @@ section.main > div.block-container,
 .gk-sky-trust.gk-gap-safe .gk-st-title { color: #2E7D32 !important; }
 </style>""", unsafe_allow_html=True)
 
+    # ── STEP 1-B0: [제140조] localStorage → session_state 자동 복원 ────────
+    # F5 새로고침 / 브라우저 재시작 후에도 로그인 유지 (Universal Continuity)
+    # 로그아웃 플래그 없을 때만 복원 시도 — 명시적 로그아웃은 절대 복원하지 않음
+    if not st.session_state.get("user_id") and not st.session_state.get("_logout_flag"):
+        try:
+            _gp140_restore_from_ls()
+        except Exception:
+            pass
+
     # ── STEP 1-B: 로그인 세션 보호 ───────────────────────────────────────
     # 어떤 예외/에러가 발생해도 user_id가 날아가지 않도록
     # 로그인 성공 시 _saved_user_* 에 백업 → rerun 후 user_id 없으면 복원
@@ -21741,12 +21904,22 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
 
                 st.markdown("""
 <style>
+/* [GP160] 탭 2x2 그리드 배치 */
+section[data-testid="stSidebar"] div[data-testid="stTabs"] [role="tablist"] {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 4px !important;
+}
 section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="tab"] {
   border: 1.5px solid #000000 !important;
-  border-radius: 6px !important;
-  margin: 0 2px !important;
+  border-radius: 8px !important;
+  margin: 0 !important;
   font-weight: 700 !important;
   color: #000000 !important;
+  font-size: 0.82rem !important;
+  padding: 6px 4px !important;
+  text-align: center !important;
+  justify-content: center !important;
 }
 section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
   border: 2px solid #1565C0 !important;
@@ -21754,7 +21927,7 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
   color: #1565C0 !important;
 }
 </style>""", unsafe_allow_html=True)
-                tab_l, tab_s, tab_pw, tab_nm = st.tabs(["로그인", "회원가입", "비번 변경", "이름 변경"])
+                tab_l, tab_s, tab_pw, tab_nm = st.tabs(["🔑 로그인", "📝 회원가입", "🔒 비번변경", "✏️ 이름변경"])
                 components.html("""<script>
 (function _rmTitle(){
   function clean(){
@@ -21835,6 +22008,16 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                         except Exception:
                             pass
                         _LoginGuard.record_success(ln)
+                        # [제140조 §1] 로그인 성공 → localStorage에 인증 토큰 저장 (Universal Continuity)
+                        try:
+                            _gp140_tok = st.session_state.get("_auto_login_token", "")
+                            _gp140_role = "agent" if _adm else "customer"
+                            st.markdown(_gp140_save_token_js(
+                                user_id=m["user_id"], user_name=ln,
+                                user_role=_gp140_role, token=_gp140_tok
+                            ), unsafe_allow_html=True)
+                        except Exception:
+                            pass
                         # [제75조 §4] 로그인 성공 시 기기 지문 수집 JS 주입
                         # JS가 LocalStorage에서 fp_id를 읽어 hidden input으로 서버에 전달
                         # 실제 저장은 _gp75_fp_pending 세션 플래그로 다음 rerun에서 처리
@@ -22090,29 +22273,42 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
                     elif _lp == "B":
                         _otp_target = st.session_state.get("_lp_otp", "")
                         _lp_name    = st.session_state.get("_lp_name", "")
+
+                        # ① 로그인 버튼 박스 (본인확인 완료 안내)
                         st.markdown(f"""
     <div style='background:linear-gradient(135deg,#11998e 0%,#38ef7d 100%);border-radius:15px;
-      padding:14px 18px;margin-bottom:12px;text-align:center;
+      padding:14px 18px;margin-bottom:10px;text-align:center;
       box-shadow:0 4px 20px rgba(17,153,142,0.35);'>
       <div style='color:#ffffff;font-size:0.95rem;font-weight:800;margin-bottom:4px;
         text-shadow:0 1px 4px rgba(0,0,0,0.3);'>
-        ✅ 본인 확인 완료 — 추가 보안 인증
+        ✅ 본인 확인 완료
       </div>
       <div style='color:#e0fff4;font-size:0.8rem;text-shadow:0 1px 2px rgba(0,0,0,0.2);'>
-        {_lp_name}님, 아래 OTP로 인증 후 간편 보안 방식을 설정하세요
+        {_lp_name}님, 아래 OTP 번호로 최종 인증을 완료하세요
       </div>
-    </div>
+    </div>""", unsafe_allow_html=True)
+
+                        # ② 본인확인 안내 — OTP 번호 표시 박스
+                        st.markdown(f"""
     <div style='background:#fef9c3;border:2px solid #f59e0b;border-radius:12px;
-      padding:14px;margin-bottom:12px;text-align:center;'>
-      <div style='font-size:0.78rem;color:#92400e;margin-bottom:6px;'>📱 인증번호 (테스트용 화면 표시. 임시기능)</div>
+      padding:14px;margin-bottom:10px;text-align:center;'>
+      <div style='font-size:0.78rem;color:#92400e;margin-bottom:6px;font-weight:700;
+        '>📱 인증번호 (테스트용 화면 표시. 임시기능)</div>
       <div style='font-size:2.2rem;font-weight:900;letter-spacing:8px;color:#1a3a5c;'>{_otp_target}</div>
     </div>""", unsafe_allow_html=True)
 
-                        # ── 인증번호 입력 (풀폭, 가이딩 프로토콜 제37조 §3 대형화) ──
+                        # ③ 6자리 인증번호 입력 안내 텍스트 (강조)
                         st.markdown("""
+    <div style='background:#f0f9ff;border-top:3px solid #0369a1;border-bottom:3px solid #0369a1;
+      border-left:1.5px solid #bae6fd;border-right:1.5px solid #bae6fd;
+      border-radius:10px;padding:9px 14px;margin-bottom:6px;text-align:center;'>
+      <div style='font-size:0.92rem;font-weight:900;color:#1e3a5f;letter-spacing:0.03em;'>
+        🔢 위 박스의 <span style='color:#E53935;'>6자리 인증번호</span>를 아래에 입력하세요
+      </div>
+      <div style='font-size:0.70rem;color:#475569;margin-top:3px;'>[가이딩 프로토콜 제37조] 표준 인증 수단 &nbsp;·&nbsp; <span style='color:#b45309;font-weight:800;'>⚠️ 임시운영</span></div>
+    </div>
     <style>
-    /* [가이딩 프로토콜 제37조 §3] OTP 입력창 대형화 — 돋보기 모드 원칙 */
-    div[data-testid="stSidebar"] input[data-testid="stTextInput-RootElement"] { font-size: 2rem !important; }
+    /* [GP160 §3] OTP 입력창 상하 테두리 강화 + 대형화 */
     section[data-testid="stSidebar"] div[data-baseweb="input"] input#hlp_otp_in,
     section[data-testid="stSidebar"] input[aria-label="6자리 인증번호"] {
       font-size: 2.4rem !important;
@@ -22121,37 +22317,37 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
       text-align: center !important;
       color: #1a3a5c !important;
       height: 68px !important;
-      border: 2px solid #001F3F !important;
+      border-top: 3px solid #0369a1 !important;
+      border-bottom: 4px solid #0369a1 !important;
+      border-left: 1.5px solid #93c5fd !important;
+      border-right: 1.5px solid #93c5fd !important;
       border-radius: 12px !important;
       background: #f0f9ff !important;
-      box-shadow: 0 0 0 1px #001F3F !important;
       transition: border-color 0.15s, box-shadow 0.15s !important;
     }
     section[data-testid="stSidebar"] div[data-baseweb="input"] input#hlp_otp_in:focus,
     section[data-testid="stSidebar"] input[aria-label="6자리 인증번호"]:focus {
-      border: 2px solid #D4AF37 !important;
-      box-shadow: 0 0 0 3px rgba(212,175,55,0.35), 0 0 0 1px #001F3F !important;
+      border-top: 3px solid #D4AF37 !important;
+      border-bottom: 4px solid #D4AF37 !important;
+      border-left: 1.5px solid #fde68a !important;
+      border-right: 1.5px solid #fde68a !important;
+      box-shadow: 0 0 0 3px rgba(212,175,55,0.30) !important;
       background: #fffde7 !important;
       outline: none !important;
     }
-    /* 입력창 감싸는 baseweb wrapper 외곽선 제거 */
+    /* baseweb wrapper 외곽선 제거 */
     section[data-testid="stSidebar"] div[data-baseweb="input"] {
       border: none !important;
       box-shadow: none !important;
       background: transparent !important;
     }
-    </style>
-    <div style='background:#f0f9ff;border:2px solid #001F3F;border-radius:12px;
-      padding:10px 14px 6px 14px;margin-bottom:8px;text-align:center;
-      border-bottom:4px solid #001F3F;box-shadow:0 3px 0 #001F3F;'>
-      <div style='font-size:0.85rem;font-weight:800;color:#001F3F;margin-bottom:2px;'>🔢 6자리 인증번호 입력</div>
-      <div style='font-size:0.72rem;color:#334155;margin-bottom:2px;'>[가이딩 프로토콜 제37조] 표준 인증 수단</div>
-      <div style='font-size:0.72rem;font-weight:800;color:#b45309;background:#fef3c7;border-radius:6px;padding:2px 8px;display:inline-block;margin-top:2px;'>⚠️ (임시운영)</div>
-    </div>""", unsafe_allow_html=True)
+    </style>""", unsafe_allow_html=True)
+
+                        # ④ OTP 입력창
                         _otp_input = st.text_input("6자리 인증번호", key="hlp_otp_in",
                                                    placeholder="000000", max_chars=6,
                                                    label_visibility="collapsed")
-                        _otp_confirm = st.button("✅ OTP 확인", key="hlp_otp_btn",
+                        _otp_confirm = st.button("✅ 위쪽 박스 OTP번호 입력 후 클릭", key="hlp_otp_btn",
                                                  use_container_width=True, type="primary")
                         if _otp_confirm:
                             if (_otp_input or "").strip() == _otp_target:
@@ -23013,59 +23209,39 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
 .gk-login-guide {
   max-width: 460px; margin: 60px auto 0 auto;
   margin-left: max(320px, 22vw);
-  background: #E3F2FD;
-  border: 2px solid #E53935; border-radius: 20px;
-  padding: 36px 28px 28px 28px; text-align: center;
-  box-shadow: 0 8px 32px rgba(229,57,53,0.12);
+  background: #FFFDE7;
+  border: 2.5px solid #E53935; border-radius: 20px;
+  padding: 36px 28px 32px 28px; text-align: center;
+  box-shadow: 0 8px 32px rgba(229,57,53,0.14);
 }
 .gk-login-guide .gk-lg-title {
   font-size: 1.6rem; font-weight: 900; color: #000000;
-  margin-bottom: 10px; letter-spacing: -0.01em;
+  margin-bottom: 14px; letter-spacing: -0.01em;
 }
 .gk-login-guide .gk-lg-sub {
-  font-size: 1.0rem; font-weight: 700; color: #000000; margin-bottom: 24px; line-height: 1.6;
+  font-size: 1.05rem; font-weight: 700; color: #212121;
+  margin-bottom: 0; line-height: 1.85;
+}
+.gk-login-guide .gk-lg-kw {
+  color: #FF0000; font-weight: 900;
 }
 .gk-login-guide .gk-lg-arrow {
-  font-size: 6rem; color: #E53935; margin-bottom: 8px;
+  font-size: 5rem; color: #E53935; margin-top: 16px; margin-bottom: 0;
   animation: gk-bounce 1.2s infinite;
+  display: block;
 }
 @keyframes gk-bounce {
-  0%,100%{transform:translateX(-6px)} 50%{transform:translateX(6px)}
+  0%,100%{transform:translateX(-8px)} 50%{transform:translateX(4px)}
 }
 </style>
 <div class="gk-login-guide">
-  <div class="gk-lg-title">🏆 Goldkey AI</div>
+  <div class="gk-lg-title">🏆 Goldkey AI 마스터</div>
   <div class="gk-lg-sub">
-    <b>로그인/회원가입</b>은 왼쪽 사이드바에서 진행합니다.<br>
-    아래 버튼을 누르거나 화면 왼쪽 상단 <b>☰ 메뉴</b>를 터치하세요.
+    👉 화면 <span class="gk-lg-kw">왼쪽상단 삼선메뉴(☰)</span>를 터치하세요.<br>
+    <span class="gk-lg-kw">로그인/회원가입</span>을 바로 진행할 수 있습니다.
   </div>
-  <div class="gk-lg-arrow">👈</div>
+  <span class="gk-lg-arrow">👈</span>
 </div>""", unsafe_allow_html=True)
-
-        col_a, col_b, col_c = st.columns([3, 3, 1])
-        with col_b:
-            st.markdown("""
-<style>
-div[data-testid="stButton"] > button[kind="primary"]#_main_open_sidebar_btn,
-section:not([data-testid="stSidebar"]) div[data-testid="stButton"] > button[kind="primary"] {
-  background: #E3F2FD !important;
-  color: #000000 !important;
-  font-weight: 900 !important;
-  font-size: 1.05rem !important;
-  border: 2px solid #E53935 !important;
-  border-radius: 10px !important;
-  box-shadow: 0 2px 8px rgba(229,57,53,0.18) !important;
-  transition: background 0.15s, box-shadow 0.15s !important;
-}
-section:not([data-testid="stSidebar"]) div[data-testid="stButton"] > button[kind="primary"]:hover {
-  background: #BBDEFB !important;
-  box-shadow: 0 4px 14px rgba(229,57,53,0.28) !important;
-}
-</style>""", unsafe_allow_html=True)
-            if st.button("☰ 사이드바 열기 / 로그인", key="_main_open_sidebar_btn",
-                         use_container_width=True, type="primary"):
-                st.session_state["_open_sidebar"] = True
-                st.rerun()
         st.stop()
 
     if 'current_tab' not in st.session_state:
@@ -23292,7 +23468,7 @@ function _relWL(){{
 function _hash(s){{
   var h=5381, i=s.length;
   // 공백 제거·소문자화 정규화 후 해싱 (Content Hashing)
-  s=s.replace(/\s/g,'').toLowerCase();
+  s=s.replace(/\\s/g,'').toLowerCase();
   while(i--){{ h=((h<<5)+h)^s.charCodeAt(i); h=h>>>0; }}
   return h.toString(36);
 }}
@@ -23357,16 +23533,16 @@ function _join(prev,next){{
 // ── Context-Aware 한국어 텍스트 정규화 (경량 LLM Post-Processing) ─────────
 // 보험/의료 전문 용어 오인식 패턴 규칙 기반 교정 — 서버 의존 없음, 즉시 적용
 var _nRules=[
-  [/실\s*손/g,'실손'],[/암\s*진\s*단/g,'암진단'],[/뇌\s*혈\s*관/g,'뇌혈관'],
-  [/심\s*근\s*경\s*색/g,'심근경색'],[/해\s*지\s*환\s*급\s*금/g,'해지환급금'],
-  [/납\s*입\s*면\s*제/g,'납입면제'],[/갱\s*신\s*형/g,'갱신형'],
-  [/비\s*갱\s*신\s*형/g,'비갱신형'],[/후\s*유\s*장\s*해/g,'후유장해'],
-  [/치\s*매\s*보\s*험/g,'치매보험'],[/알\s*츠\s*하\s*이\s*머/g,'알츠하이머'],
-  [/청\s*약\s*철\s*회/g,'청약철회'],[/보\s*험\s*금\s*청\s*구/g,'보험금청구'],
-  [/경\s*도\s*인\s*지\s*장\s*애/g,'경도인지장애'],[/장\s*기\s*요\s*양/g,'장기요양'],
-  [/일\s*백\s*만/g,'100만'],[/이\s*백\s*만/g,'200만'],[/삼\s*백\s*만/g,'300만'],
-  [/이\s*천\s*만/g,'2천만'],[/삼\s*천\s*만/g,'3천만'],[/오\s*천\s*만/g,'5천만'],
-  [/^(어+|음+|그+)[,\.\s]*/,'']
+  [/실\\s*손/g,'실손'],[/암\\s*진\\s*단/g,'암진단'],[/뇌\\s*혈\\s*관/g,'뇌혈관'],
+  [/심\\s*근\\s*경\\s*색/g,'심근경색'],[/해\\s*지\\s*환\\s*급\\s*금/g,'해지환급금'],
+  [/납\\s*입\\s*면\\s*제/g,'납입면제'],[/갱\\s*신\\s*형/g,'갱신형'],
+  [/비\\s*갱\\s*신\\s*형/g,'비갱신형'],[/후\\s*유\\s*장\\s*해/g,'후유장해'],
+  [/치\\s*매\\s*보\\s*험/g,'치매보험'],[/알\\s*츠\\s*하\\s*이\\s*머/g,'알츠하이머'],
+  [/청\\s*약\\s*철\\s*회/g,'청약철회'],[/보\\s*험\\s*금\\s*청\\s*구/g,'보험금청구'],
+  [/경\\s*도\\s*인\\s*지\\s*장\\s*애/g,'경도인지장애'],[/장\\s*기\\s*요\\s*양/g,'장기요양'],
+  [/일\\s*백\\s*만/g,'100만'],[/이\\s*백\\s*만/g,'200만'],[/삼\\s*백\\s*만/g,'300만'],
+  [/이\\s*천\\s*만/g,'2천만'],[/삼\\s*천\\s*만/g,'3천만'],[/오\\s*천\\s*만/g,'5천만'],
+  [/^(어+|음+|그+)[,\\.\\s]*/,'']
 ];
 function _normKo(t){{
   t=t.trim();
@@ -23375,7 +23551,7 @@ function _normKo(t){{
 }}
 
 // ── 노이즈 패턴 필터 (환경음·클릭음·짧은 감탄사 제거) ─────────────────────
-var _noiseRx=[/^[아어으음네예]+[\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\s]*$/,/^.{1,2}$/];
+var _noiseRx=[/^[아어으음네예]+[\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\\s]*$/,/^.{1,2}$/];
 function _isNoise(t){{
   t=t.trim();
   for(var i=0;i<_noiseRx.length;i++) if(_noiseRx[i].test(t)) return true;
@@ -29049,17 +29225,32 @@ export default function(component) {{
             st.markdown("""<style>
 .gk-save-btn-marker + div[data-testid="stButton"] > button,
 .gk-save-btn-marker + div[data-testid="stButton"] > button:focus {
-  background: linear-gradient(135deg,#059669 0%,#10b981 100%) !important;
-  background-image: linear-gradient(135deg,#059669 0%,#10b981 100%) !important;
-  border: 2px solid #34d399 !important;
-  color: #ffffff !important;
+  background: #BAE6FD !important;
+  background-image: none !important;
+  border: 2px solid #0284C7 !important;
+  color: #000000 !important;
   font-weight: 800 !important;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.30) !important;
+  text-shadow: none !important;
 }
 .gk-save-btn-marker + div[data-testid="stButton"] > button:hover {
-  background: linear-gradient(135deg,#047857 0%,#059669 100%) !important;
-  background-image: linear-gradient(135deg,#047857 0%,#059669 100%) !important;
-  color: #ffffff !important;
+  background: #7DD3FC !important;
+  background-image: none !important;
+  border: 2px solid #0369A1 !important;
+  color: #000000 !important;
+}
+/* ── AI마스터 분석 스피너 블럭 스타일 ── */
+div[data-testid="stSpinner"] > div {
+  background: #E0F2FE !important;
+  border: 1.5px solid #0284C7 !important;
+  border-radius: 8px !important;
+  padding: 10px 16px !important;
+  color: #212121 !important;
+  font-weight: 700 !important;
+}
+div[data-testid="stSpinner"] > div p,
+div[data-testid="stSpinner"] > div span {
+  color: #212121 !important;
+  font-weight: 700 !important;
 }
 </style>
 <div class="gk-save-btn-marker" style="display:none;"></div>""", unsafe_allow_html=True)
@@ -29400,27 +29591,58 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
 </div>""", unsafe_allow_html=True)
             with st.expander("📂 A섹션 · 상세 서비스 목록 보기"):
                 st.markdown("""
-##### 📎 보험증권 AI 분석
-- PDF/이미지 파싱 → 담보 자동파싱 · 보장공백 진단
-
-##### 📜 보험약관 AI 검색
-- 공시실 실시간 탐색 · 딥러닝 약관 검색 · 가입시점 정확매칭
-
-##### 🔬 통합 스캔 허브
-- 증권·의무기록·진단서 1회 업로드 → 전탭 자동활용
-
-##### 🗂️ 보험 리플렛 AI 분류
-- 리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 저장
-
-##### 📖 상담 카탈로그 열람
-- 내가 올린 카탈로그 · PDF/이미지 뷰어 · 보험사별 분류
-
-##### 📱 디지털 카탈로그 관리
-- 보험사 카탈로그 업로드·AI분류 · Public/Private 저장
-
-##### 👤 고객자료 통합저장
-- 의무기록·증권분석·청구서류 · 고객별 통합 RAG 저장
-""")
+<style>
+.gk-ag-item{background:#0d2137;border:1px solid #1e4a6e;border-radius:8px;
+  padding:10px 12px;margin-bottom:8px;}
+.gk-ag-title{font-size:0.88rem;font-weight:700;color:#7dd3fc;margin-bottom:4px;}
+.gk-ag-desc{font-size:0.76rem;color:#94a3b8;margin-bottom:8px;line-height:1.45;}
+</style>""", unsafe_allow_html=True)
+                # ── 증권분석
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">📎 보험증권 AI 분석</div><div class="gk-ag-desc">PDF/이미지 파싱 → 담보 자동파싱 · 보장공백 진단</div></div>', unsafe_allow_html=True)
+                _ag_a1, _ag_a2 = st.columns(2)
+                with _ag_a1:
+                    if st.button("📊 분석실행", key="ag_a_policy_analyze", use_container_width=True):
+                        _go_tab("policy_review")
+                with _ag_a2:
+                    if st.button("🔍 조회", key="ag_a_policy_view", use_container_width=True):
+                        _go_tab("policy_scan")
+                # ── 약관분석
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">📜 보험약관 AI 검색</div><div class="gk-ag-desc">공시실 실시간 탐색 · 딥러닝 약관 검색 · 가입시점 정확매칭</div></div>', unsafe_allow_html=True)
+                _ag_b1, _ag_b2 = st.columns(2)
+                with _ag_b1:
+                    if st.button("📊 분석실행", key="ag_a_terms_analyze", use_container_width=True):
+                        _go_tab("policy_review")
+                with _ag_b2:
+                    if st.button("🔍 조회", key="ag_a_terms_view", use_container_width=True):
+                        _go_tab("policy_scan")
+                # ── 스캔데이터
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">🔬 통합 스캔 허브</div><div class="gk-ag-desc">증권·의무기록·진단서 1회 업로드 → 전탭 자동활용</div></div>', unsafe_allow_html=True)
+                _ag_c1, _ag_c2 = st.columns(2)
+                with _ag_c1:
+                    if st.button("📊 분석실행", key="ag_a_scan_analyze", use_container_width=True):
+                        st.session_state["_scan_hub_hint"] = True
+                        _go_tab("claim_scanner")
+                with _ag_c2:
+                    if st.button("🔍 조회", key="ag_a_scan_view", use_container_width=True):
+                        _go_tab("claim_scanner")
+                # ── 리플렛
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">🗂️ 보험 리플렛 AI 분류</div><div class="gk-ag-desc">리플렛 PDF 업로드 → AI 자동 분류 · GCS 신규상품 저장</div></div>', unsafe_allow_html=True)
+                _ag_d1, _ag_d2 = st.columns(2)
+                with _ag_d1:
+                    if st.button("📊 분석실행", key="ag_a_leaflet_analyze", use_container_width=True):
+                        _go_tab("know_pipe")
+                with _ag_d2:
+                    if st.button("🔍 조회", key="ag_a_leaflet_view", use_container_width=True):
+                        _go_tab("know_pipe")
+                # ── 고객자료
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">👤 고객자료 통합저장</div><div class="gk-ag-desc">의무기록·증권분석·청구서류 · 고객별 통합 RAG 저장</div></div>', unsafe_allow_html=True)
+                _ag_e1, _ag_e2 = st.columns(2)
+                with _ag_e1:
+                    if st.button("📊 분석실행", key="ag_a_cust_analyze", use_container_width=True):
+                        _go_tab("customer_mgmt")
+                with _ag_e2:
+                    if st.button("🔍 조회", key="ag_a_cust_view", use_container_width=True):
+                        _go_tab("customer_mgmt")
 
         with _pf_c2:
             st.markdown(f"""
@@ -29439,40 +29661,42 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 11개 핵심 서비스</span>
 </div>""", unsafe_allow_html=True)
             with st.expander("📂 B섹션 · 상세 서비스 목록 보기"):
-                st.markdown("""
-##### 📋 신규보험 상담 / 보험설계사 전용
-- 기존 증권 분석 · 보장 공백 진단 · 신규 컨설팅
-
-##### 🚑 상해 통합 관리
-- 사고 유형 자동 분류 · 소득보전 역산 · Gap 시각화
-
-##### 💰 보험금 상담 · 청구절차
-- 청구 절차 · 지급 거절 대응 · 민원·손해사정 의뢰
-
-##### 🩺 장해보험금 산출 AMA·맥브라이드
-- AMA 방식 · 맥브라이드 방식 · 호프만계수 산정
-
-##### 🔬 상해(S·T·V·W·X·Y)와 M의 상관관계
-- 후유장해·손해사정 · S↔M 코드 전환 · 외인코드 결합
-
-##### 🚗 자동차보험 및 보상 실무
-- 자상vs자신 · 산재경합 · 과실시뮬레이션 통합
-
-##### 🛡️ 기본보험상담 (자동차·화재·운전자·일상생활배상책임)
-- 4대 기본보험 통합 설계
-
-##### 🏥 질병·상해 통합보험 상담
-- 암·뇌·심장 3대질병 · 간병·치매 설계
-
-##### 🎗️ 암·뇌·심장질환 상담
-- NGS·표적항암·면역항암·CAR-T 보장 실무
-
-##### 🚗 자동차사고 상담 과실비율
-- 과실비율·합의금 · 13대 중과실·민식이법
-
-##### 🔄 LIFE CYCLE 백지설계
-- 인생 타임라인 시각화 · 생존·상해·결혼·퇴직·노후
-""")
+                # ── 신규상담
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">📋 신규보험 상담 / 보험설계사 전용</div><div class="gk-ag-desc">기존 증권 분석 · 보장 공백 진단 · 신규 컨설팅</div></div>', unsafe_allow_html=True)
+                _bg_a1, _bg_a2 = st.columns(2)
+                with _bg_a1:
+                    if st.button("🤝 상담시작", key="ag_b_newcons_start", use_container_width=True):
+                        _go_tab("home")
+                with _bg_a2:
+                    if st.button("📐 설계", key="ag_b_newcons_plan", use_container_width=True):
+                        _go_tab("policy_review")
+                # ── 법인컨설팅
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">🏢 법인컨설팅</div><div class="gk-ag-desc">법인 보험 · 단체보험 설계 · 법인세 절감 · 복리후생</div></div>', unsafe_allow_html=True)
+                _bg_b1, _bg_b2 = st.columns(2)
+                with _bg_b1:
+                    if st.button("🤝 상담시작", key="ag_b_corp_start", use_container_width=True):
+                        _go_tab("home")
+                with _bg_b2:
+                    if st.button("📐 설계", key="ag_b_corp_plan", use_container_width=True):
+                        _go_tab("t1")
+                # ── 세무/재산
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">📊 세무상담 · 재산분석</div><div class="gk-ag-desc">절세 전략 · 건보료 역산 · 금융소득 분리과세</div></div>', unsafe_allow_html=True)
+                _bg_c1, _bg_c2 = st.columns(2)
+                with _bg_c1:
+                    if st.button("🤝 상담시작", key="ag_b_tax_start", use_container_width=True):
+                        _go_tab("home")
+                with _bg_c2:
+                    if st.button("📐 설계", key="ag_b_tax_plan", use_container_width=True):
+                        _go_tab("t2")
+                # ── 생애설계
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">🔄 LIFE CYCLE 생애설계</div><div class="gk-ag-desc">인생 타임라인 시각화 · 생존·상해·결혼·퇴직·노후</div></div>', unsafe_allow_html=True)
+                _bg_d1, _bg_d2 = st.columns(2)
+                with _bg_d1:
+                    if st.button("🤝 상담시작", key="ag_b_life_start", use_container_width=True):
+                        _go_tab("home")
+                with _bg_d2:
+                    if st.button("📐 설계", key="ag_b_life_plan", use_container_width=True):
+                        _go_tab("injury")
 
         with _pf_c3:
             st.markdown(f"""
@@ -29491,28 +29715,42 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 7개 핵심 서비스</span>
 </div>""", unsafe_allow_html=True)
             with st.expander("📂 C섹션 · 상세 서비스 목록 보기"):
-                st.markdown("""
-##### 🌅 노후 연금·상속설계
-- 연금 3층 설계 · 주택연금 · 상속·증여 절세 전략
-
-##### 📊 세무상담 소득세·법인세·금융소득분석
-- 절세 전략 · 건보료 역산 · 금융소득 분리과세
-
-##### 👔 CEO플랜 — 비상장주식 약식 평가 & 법인 재무분석
-- 가업승계 · CEO 퇴직금 · 경영권 방어 전략
-
-##### 📈 비상장주식 평가 (상증법·법인세법)
-- 순자산·순손익 가중평균 · 경영권 할증 20%
-
-##### 🔥 화재보험 재조달가액 산출
-- REB 기준 건물 재조달가액 · 비례보상 방지
-
-##### ⚖️ 배상책임보험 상담
-- 중복보험 독립책임액 안분 · 민법·실화책임법
-
-##### 🏢 법인상담
-- 법인 보험 · 단체보험 설계 · 법인세 절감 · 복리후생
-""")
+                # ── 노후/연금
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">🌅 노후 연금·상속설계</div><div class="gk-ag-desc">연금 3층 설계 · 주택연금 · 상속·증여 절세 전략</div></div>', unsafe_allow_html=True)
+                _cg_a1, _cg_a2 = st.columns(2)
+                with _cg_a1:
+                    if st.button("📈 시뮬레이션", key="ag_c_pension_sim", use_container_width=True):
+                        _go_tab("t2")
+                with _cg_a2:
+                    if st.button("📋 리포트", key="ag_c_pension_rpt", use_container_width=True):
+                        _go_tab("report43")
+                # ── 상속/증여
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">⚖️ 상속·증여 절세 전략</div><div class="gk-ag-desc">상속세·증여세 절세 · 가업승계 · 부의 이전 플랜</div></div>', unsafe_allow_html=True)
+                _cg_b1, _cg_b2 = st.columns(2)
+                with _cg_b1:
+                    if st.button("📈 시뮬레이션", key="ag_c_inherit_sim", use_container_width=True):
+                        _go_tab("t2")
+                with _cg_b2:
+                    if st.button("📋 리포트", key="ag_c_inherit_rpt", use_container_width=True):
+                        _go_tab("report43")
+                # ── CEO플랜
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">👔 CEO플랜 · 비상장주식 평가</div><div class="gk-ag-desc">가업승계 · CEO 퇴직금 · 경영권 방어 · 순자산 가중평균</div></div>', unsafe_allow_html=True)
+                _cg_c1, _cg_c2 = st.columns(2)
+                with _cg_c1:
+                    if st.button("📈 시뮬레이션", key="ag_c_ceo_sim", use_container_width=True):
+                        _go_tab("t1")
+                with _cg_c2:
+                    if st.button("📋 리포트", key="ag_c_ceo_rpt", use_container_width=True):
+                        _go_tab("report43")
+                # ── 비상장주식
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">📈 비상장주식 평가 (상증법·법인세법)</div><div class="gk-ag-desc">순자산·순손익 가중평균 · 경영권 할증 20%</div></div>', unsafe_allow_html=True)
+                _cg_d1, _cg_d2 = st.columns(2)
+                with _cg_d1:
+                    if st.button("📈 시뮬레이션", key="ag_c_stock_sim", use_container_width=True):
+                        _go_tab("t1")
+                with _cg_d2:
+                    if st.button("📋 리포트", key="ag_c_stock_rpt", use_container_width=True):
+                        _go_tab("report43")
 
         st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
 
@@ -29536,22 +29774,44 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 4개 핵심 서비스</span>
 </div>""", unsafe_allow_html=True)
             with st.expander("📂 D섹션 · 상세 서비스 목록 보기"):
-                st.markdown("""
-##### 🎯 LIFE EVENT 상담
-- 인생 주요 이벤트별 보험 설계 · 출생·결혼·취업·은퇴 맞춤 컨설팅
-
-##### 🏘️ 부동산 투자 상담
-- 등기부등본·건축물대장 판독 · 투자수익 분석 · 보험 연계 설계
-- 취득세·종합부동산세·양도세 절세 전략
-
-##### 🏥 간병비 컨설팅
-- 치매·뇌졸중·요양병원 간병비 산출
-- 장기요양등급 · 간병보험 설계 · 간병인 비용 분석
-
-##### 🧬 의학경제학적 보장 컨설팅
-- 건강보험료 역산 → 추정 월 소득·일일 경제적 가치 산출
-- 금감원 입원일당 한도 비교 · 수술비 보완 설계 · 브리핑 문구 자동 생성
-""")
+                # ── 교통사고
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">🚗 교통사고 보상</div><div class="gk-ag-desc">과실비율·합의금 · 13대 중과실·민식이법 · 대인/대물 보상 체계</div></div>', unsafe_allow_html=True)
+                _dg_a1, _dg_a2 = st.columns(2)
+                with _dg_a1:
+                    if st.button("📂 청구지원", key="ag_d_traffic_claim", use_container_width=True):
+                        _go_tab("auto_comp")
+                with _dg_a2:
+                    if st.button("⚖️ 판례검색", key="ag_d_traffic_case", use_container_width=True):
+                        _go_tab("life_defense")
+                # ── 산재/법률
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">🏭 산재·법률 상담</div><div class="gk-ag-desc">근로복지공단 신청 · 휴업급여·장해급여 산정 · 법률자문 연계</div></div>', unsafe_allow_html=True)
+                _dg_b1, _dg_b2 = st.columns(2)
+                with _dg_b1:
+                    if st.button("📂 청구지원", key="ag_d_labor_claim", use_container_width=True):
+                        _go_tab("disability")
+                with _dg_b2:
+                    if st.button("⚖️ 판례검색", key="ag_d_labor_case", use_container_width=True):
+                        _go_tab("life_defense")
+                # ── 의료기기지식 (KCD 기반)
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">🧬 의학경제학적 보장 컨설팅</div><div class="gk-ag-desc">건강보험료 역산 → 추정 월 소득·일일 경제적 가치 산출 · 수술비 보완 설계</div></div>', unsafe_allow_html=True)
+                _dg_c1, _dg_c2 = st.columns(2)
+                with _dg_c1:
+                    if st.button("📂 청구지원", key="ag_d_medeco_claim", use_container_width=True):
+                        _go_tab("injury")
+                with _dg_c2:
+                    if st.button("⚖️ 판례검색", key="ag_d_medeco_case", use_container_width=True):
+                        _go_tab("life_defense")
+                # ── KCD분석
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">🔬 KCD 코드 분석</div><div class="gk-ag-desc">KCD-10 질병코드 기반 보험금 청구 지원 · 거절전술 방어 · 판례 매칭</div></div>', unsafe_allow_html=True)
+                _dg_d1, _dg_d2 = st.columns(2)
+                with _dg_d1:
+                    if st.button("📂 청구지원", key="ag_d_kcd_claim", use_container_width=True):
+                        st.session_state["_gp100_kcd_hint"] = True
+                        _go_tab("life_defense")
+                with _dg_d2:
+                    if st.button("⚖️ 판례검색", key="ag_d_kcd_case", use_container_width=True):
+                        st.session_state["_gp110_kcd_hint"] = True
+                        _go_tab("life_defense")
 
         with _pf_d2:
             st.markdown(f"""
@@ -29570,24 +29830,42 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#ffffff;">📦 통합 시뮬레이션 가이드</span>
 </div>""", unsafe_allow_html=True)
             with st.expander("📂 E섹션 · 상세 서비스 목록 보기"):
-                st.markdown("""
-##### ⚖️ 보상 정보 시뮬레이션 가이드
-- 교통사고/산재 → 맥브라이드(McBride) 기준 장해 산정
-- 일반상해/질병 → AMA 장해지급률 기준
-- KCD-8 코드 자동 매핑
-
-##### 🚗 교통사고 보상 가이드
-- 대인·대물·자동차상해 보상 체계 · 과실상계 계산
-
-##### 🏭 산재 보상 가이드
-- 근로복지공단 신청 절차 · 휴업급여·장해급여 산정
-
-##### 🩹 일반상해 보상 가이드
-- 상해보험금 청구 · KCD-8 코드 연계 분석
-
-##### 👨‍⚕️ 전문가 지원 센터
-- 손해사정사 · 의료자문 · 법률자문 연계
-""")
+                # ── 보상 시뮬레이션
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">⚖️ 보상 정보 시뮬레이션 가이드</div><div class="gk-ag-desc">교통사고/산재 → 맥브라이드(McBride) 기준 장해 산정 · AMA 장해지급률 · KCD-8 매핑</div></div>', unsafe_allow_html=True)
+                _eg_a1, _eg_a2 = st.columns(2)
+                with _eg_a1:
+                    if st.button("📈 시뮬레이션", key="ag_e_comp_sim", use_container_width=True):
+                        _go_tab("kcd_injury")
+                with _eg_a2:
+                    if st.button("📋 리포트", key="ag_e_comp_rpt", use_container_width=True):
+                        _go_tab("report43")
+                # ── 교통사고 보상
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">🚗 교통사고 보상 가이드</div><div class="gk-ag-desc">대인·대물·자동차상해 보상 체계 · 과실상계 계산</div></div>', unsafe_allow_html=True)
+                _eg_b1, _eg_b2 = st.columns(2)
+                with _eg_b1:
+                    if st.button("📈 시뮬레이션", key="ag_e_traffic_sim", use_container_width=True):
+                        _go_tab("auto_comp")
+                with _eg_b2:
+                    if st.button("📋 리포트", key="ag_e_traffic_rpt", use_container_width=True):
+                        _go_tab("report43")
+                # ── 산재 보상
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">🏭 산재 보상 가이드</div><div class="gk-ag-desc">근로복지공단 신청 절차 · 휴업급여·장해급여 산정</div></div>', unsafe_allow_html=True)
+                _eg_c1, _eg_c2 = st.columns(2)
+                with _eg_c1:
+                    if st.button("📈 시뮬레이션", key="ag_e_labor_sim", use_container_width=True):
+                        _go_tab("disability")
+                with _eg_c2:
+                    if st.button("📋 리포트", key="ag_e_labor_rpt", use_container_width=True):
+                        _go_tab("report43")
+                # ── 전문가 지원
+                st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">👨‍⚕️ 전문가 지원 센터</div><div class="gk-ag-desc">손해사정사 · 의료자문 · 법률자문 연계</div></div>', unsafe_allow_html=True)
+                _eg_d1, _eg_d2 = st.columns(2)
+                with _eg_d1:
+                    if st.button("📈 시뮬레이션", key="ag_e_expert_sim", use_container_width=True):
+                        _go_tab("kcd_injury")
+                with _eg_d2:
+                    if st.button("📋 리포트", key="ag_e_expert_rpt", use_container_width=True):
+                        _go_tab("life_defense")
 
         st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
 
@@ -29609,22 +29887,24 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#ffffff;">📋 보험 용어 · 판례 · 사례 검색</span>
 </div>""", unsafe_allow_html=True)
         with st.expander("📂 F섹션 · 보험봇 상세 기능 보기"):
-            st.markdown("""
-##### 🔍 보험 전문용어 검색
-- 실손보험 · 면책조항 · 자기부담금 · 보험가액 등 용어 즉시 해설
-
-##### ⚖️ 판례 · 분쟁조정 사례 검색
-- 금감원 분쟁조정 결과 · 대법원 판결 기반 사례 답변
-
-##### 🩺 의학 용어 (전문의 기준)
-- 장해율(맥브라이드·AMA) · KCD 코드 · 후유장해 기준
-
-##### 🚗 자동차사고 법률 용어
-- 한문철 변호사 출처 병기 · 과실비율 · 합의금 산정 기준
-
-##### 🔴 Red Alert 법적 경고
-- 법적 금지사항·주의사항 붉은색(#FF4B4B) 강조 표기
-""")
+            # ── Leaflet 보관소
+            st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">📁 Leaflet 보관소</div><div class="gk-ag-desc">보험사별 리플렛 PDF 저장 · AI 자동 분류 · GCS 신규상품 저장</div></div>', unsafe_allow_html=True)
+            _fg_a1, _fg_a2 = st.columns(2)
+            with _fg_a1:
+                if st.button("📁 자료실", key="ag_f_leaflet_repo", use_container_width=True):
+                    _go_tab("know_pipe")
+            with _fg_a2:
+                if st.button("🔍 조회", key="ag_f_leaflet_view", use_container_width=True):
+                    _go_tab("know_pipe")
+            # ── 신상품학습
+            st.markdown('<div class="gk-ag-item"><div class="gk-ag-title">🤖 신상품 학습 · 보험봇</div><div class="gk-ag-desc">가이딩 프로토콜 제22조 승인 출처 기반 AI 답변 · 판례·분쟁조정 사례 검색</div></div>', unsafe_allow_html=True)
+            _fg_b1, _fg_b2 = st.columns(2)
+            with _fg_b1:
+                if st.button("🚀 학습시작", key="ag_f_learn_start", use_container_width=True):
+                    _go_tab("ins_bot")
+            with _fg_b2:
+                if st.button("🔍 조회", key="ag_f_learn_view", use_container_width=True):
+                    _go_tab("ins_bot")
         # ── 하단 안내문구는 A.B.C 섹션 바로 위로 이동됨 (지시2) ────────
 
         st.divider()
@@ -32007,10 +32287,10 @@ var _utterStart=0;
 var _lastQ=[];
 var _boostTerms={str(STT_BOOST_TERMS).replace("'",'"')};
 
-var _noiseRx=[/^[아어으음네예]+[\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\s]*$/,/^.{{1,2}}$/];
+var _noiseRx=[/^[아어으음네예]+[\\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\\\\s]*$/,/^.{{1,2}}$/];
 function _isNoise(t){{ t=t.trim(); for(var i=0;i<_noiseRx.length;i++) if(_noiseRx[i].test(t)) return true; return false; }}
 
-function _hash(s){{ var h=5381,i; s=s.replace(/\s/g,'').toLowerCase(); while((i=s.length--)){{ h=((h<<5)+h)^s.charCodeAt(i-1); h=h>>>0; }} return h.toString(36); }}
+function _hash(s){{ var h=5381,i; s=s.replace(/\\\\s/g,'').toLowerCase(); while((i=s.length--)){{ h=((h<<5)+h)^s.charCodeAt(i-1); h=h>>>0; }} return h.toString(36); }}
 function _lev(a,b){{
   var m=a.length,n=b.length,dp=[],i,j;
   for(i=0;i<=m;i++)dp[i]=[i];
@@ -36432,6 +36712,466 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
                     else:
                         if _opt in st.session_state["ca_dis_sel"]: st.session_state["ca_dis_sel"].remove(_opt)
             _ca_dis_sel = st.session_state["ca_dis_sel"]
+
+            # ══════════════════════════════════════════════════════════
+            # [가이딩 프로토콜 제150~152조] 3대 질병 정밀 진단 팝업 엔진
+            # ══════════════════════════════════════════════════════════
+            st.markdown("""
+<div style="background:linear-gradient(135deg,#1e3a5f 0%,#7b1c1c 50%,#7c4a00 100%);
+  border-radius:10px;padding:9px 16px;margin:10px 0 6px 0;">
+  <span style="color:#fff;font-size:0.88rem;font-weight:900;letter-spacing:0.05em;">
+  🏛️ 제150~152조 · 3대 질병 정밀 설계 방향 선택
+  </span>
+  <span style="color:#fde68a;font-size:0.75rem;margin-left:8px;">
+  ▼ 아래 항목 선택 시 팝업 자동 호출</span>
+</div>""", unsafe_allow_html=True)
+
+            _popup_c1, _popup_c2, _popup_c3 = st.columns(3)
+            with _popup_c1:
+                _show_cancer_popup = st.checkbox(
+                    "🎗️ 암 정밀 설계", value=False, key="popup_cancer_chk")
+            with _popup_c2:
+                _show_brain_popup = st.checkbox(
+                    "🧠 뇌질환 설계", value=False, key="popup_brain_chk")
+            with _popup_c3:
+                _show_heart_popup = st.checkbox(
+                    "❤️ 심장질환 설계", value=False, key="popup_heart_chk")
+
+            # ── 암 정밀 설계 팝업 ─────────────────────────────────────
+            if _show_cancer_popup:
+                with st.expander("🎗️ 암 정밀 설계 방향 — TNM 병기별 보장 로드맵", expanded=True):
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#fff8f8,#fdf2f8);
+  border:2px solid #c0392b;border-radius:12px;padding:14px 18px;margin-bottom:10px;">
+<b style="font-size:1rem;color:#7b1c1c;">🔬 TNM 병기 분류 기준 (AJCC 기준)</b><br>
+<span style="font-size:0.78rem;color:#555;">
+T(종양 크기) · N(림프절 전이) · M(원격 전이) 조합으로 결정됩니다.
+</span>
+</div>""", unsafe_allow_html=True)
+
+                    _tnm_col1, _tnm_col2 = st.columns(2)
+                    with _tnm_col1:
+                        st.markdown("""
+<div style="background:#fff;border:1.5px solid #f5c6c6;border-radius:8px;padding:10px 14px;font-size:0.8rem;line-height:1.9;">
+<b style="color:#c0392b;">TNM 구성요소</b><br>
+• <b>T0</b>: 원발 종양 없음<br>
+• <b>T1~T2</b>: 국소 종양 (조기)<br>
+• <b>T3~T4</b>: 주변 조직 침범 (진행)<br>
+• <b>N0</b>: 림프절 전이 없음<br>
+• <b>N1~N3</b>: 림프절 전이 있음<br>
+• <b>M0</b>: 원격 전이 없음<br>
+• <b>M1</b>: 원격 전이 있음 (4기)
+</div>""", unsafe_allow_html=True)
+                    with _tnm_col2:
+                        st.markdown("""
+<div style="background:#fff;border:1.5px solid #f5c6c6;border-radius:8px;padding:10px 14px;font-size:0.8rem;line-height:1.9;">
+<b style="color:#c0392b;">병기 요약</b><br>
+• <b>0기</b>: 제자리암 (in situ) → 유사암<br>
+• <b>1기·2a기</b>: 조기암 → 5년 생존율 80~90%<br>
+• <b>2b·3기</b>: 진행암 → 다학제 협진 필수<br>
+• <b>4기</b>: 원격 전이 → 고액 치료 집중<br>
+<span style="color:#888;font-size:0.75rem;">※ 병기를 알면 필요 보장금액이 보입니다</span>
+</div>""", unsafe_allow_html=True)
+
+                    st.markdown("""<hr style="border:none;border-top:1.5px dashed #f5c6c6;margin:10px 0;">""",
+                        unsafe_allow_html=True)
+
+                    # A) 유사암/소액암
+                    with st.expander("🅐 유사암·소액암 — 갑상선암(C73)·제자리암(D00~D09)", expanded=False):
+                        st.markdown("""
+<div style="font-size:0.83rem;line-height:2.0;padding:6px 4px;">
+<b style="color:#e74c3c;">손보 vs 생보 분류 차이</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.79rem;margin:6px 0;">
+<tr style="background:#fce4e4;">
+  <th style="padding:5px 8px;border:1px solid #f5c6c6;text-align:left;">구분</th>
+  <th style="padding:5px 8px;border:1px solid #f5c6c6;">손해보험</th>
+  <th style="padding:5px 8px;border:1px solid #f5c6c6;">생명보험</th>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">갑상선암(C73)</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;">소액암 (10~20%)</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;">소액암 (10~20%)</td>
+</tr>
+<tr style="background:#fff8f8;">
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">제자리암(D00~D09)</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;">유사암 (10%)</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;">유사암 (10~20%)</td>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">경계성 종양(D37~D48)</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;">유사암</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;">해당없음</td>
+</tr>
+</table>
+⚠️ <b>설계 포인트</b>: 갑상선·제자리암은 지급률 10~20% → 별도 소액암 특약 또는<br>
+가입금액 상향으로 실질 보장 확보 필요<br>
+<span style="color:#888;font-size:0.73rem;">📌 KCD: C73(갑상선암) · D00~D09(제자리암) · D37~D48(경계성종양)</span>
+</div>""", unsafe_allow_html=True)
+
+                    # B) 조기암
+                    with st.expander("🅑 조기암 (2a기 이하) — NGS 선행항암·최소 5,000만~1억 원 설계", expanded=False):
+                        st.markdown("""
+<div style="font-size:0.83rem;line-height:2.0;padding:6px 4px;">
+<b style="color:#1565c0;">NGS 선행항암요법 필요성</b><br>
+• 수술 전 종양 축소 목적 시행 → <b>비급여 NGS 검사 100~300만원</b><br>
+• 변이 확인(EGFR·ALK·BRCA·HER2) → 표적항암약 선택 근거<br>
+• 급여 대상: 고형암 4기·혈액암 한정 → 조기암은 <b>전액 비급여</b><br><br>
+<b style="color:#1565c0;">🎯 설계 기준</b><br>
+<div style="background:#e8f4fd;border-left:4px solid #1565c0;border-radius:0 8px 8px 0;
+  padding:8px 12px;margin:6px 0;">
+📌 <b>최소 5,000만원 ~ 1억원</b> 암진단비 설계 원칙<br>
+→ 이유: 선행항암 + 수술 + 보조항암 총 비용<br>
+→ 비급여 항목: 약 2,000~5,000만원 자비 부담 구간
+</div>
+<span style="color:#888;font-size:0.73rem;">📌 KCD: C00~C75(고형암 원발) · C81~C96(혈액암)</span>
+</div>""", unsafe_allow_html=True)
+
+                    # C) 진행암
+                    with st.expander("🅒 진행암 (2b기 이상) — 다학제 협진·2~3차 치료 라인 설계", expanded=False):
+                        st.markdown("""
+<div style="font-size:0.83rem;line-height:2.0;padding:6px 4px;">
+<b style="color:#6a0dad;">다학제 협진 체계</b><br>
+• 종양내과 + 외과 + 방사선종양과 + 영상의학과 + 병리과 협진<br>
+• 3차 치료 라인: 1차(표준항암) → 2차(표적항암) → 3차(면역항암/ADC)<br><br>
+<b style="color:#6a0dad;">💊 치료 라인별 비용 설계</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.79rem;margin:6px 0;">
+<tr style="background:#f3e5f5;">
+  <th style="padding:5px 8px;border:1px solid #ce93d8;">치료 라인</th>
+  <th style="padding:5px 8px;border:1px solid #ce93d8;">치료법</th>
+  <th style="padding:5px 8px;border:1px solid #ce93d8;">예상 비용</th>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #ce93d8;">1차</td>
+  <td style="padding:4px 8px;border:1px solid #ce93d8;">표준 세포독성 항암</td>
+  <td style="padding:4px 8px;border:1px solid #ce93d8;">500~2,000만원</td>
+</tr>
+<tr style="background:#faf5ff;">
+  <td style="padding:4px 8px;border:1px solid #ce93d8;">2차</td>
+  <td style="padding:4px 8px;border:1px solid #ce93d8;">표적항암·ADC</td>
+  <td style="padding:4px 8px;border:1px solid #ce93d8;">1억~2억 5천만원</td>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #ce93d8;">3차</td>
+  <td style="padding:4px 8px;border:1px solid #ce93d8;">면역항암·CAR-T</td>
+  <td style="padding:4px 8px;border:1px solid #ce93d8;">1억 5천~4억원</td>
+</tr>
+</table>
+<span style="color:#888;font-size:0.73rem;">📌 KCD: C00~C97(악성신생물 전체)</span>
+</div>""", unsafe_allow_html=True)
+
+                    # 첨단 항암 비용 고정 섹션
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  border-radius:10px;padding:12px 16px;margin:8px 0;">
+<b style="color:#fde68a;font-size:0.9rem;">⚗️ 첨단 항암 비용 분석 (2년 집중 치료 기준)</b>
+</div>""", unsafe_allow_html=True)
+                    st.markdown(r"""
+$$\text{ADC(엔허투 등)}: \; 7{,}000{,}000 \times 35회 \approx 245{,}000{,}000\text{원}$$
+$$\text{면역항암(키트루다 등)}: \; 5{,}500{,}000 \times 35회 \approx 192{,}500{,}000\text{원}$$
+$$\text{경구표적제(타그리소 등)}: \; 6{,}500{,}000 \times 24개월 \approx 156{,}000{,}000\text{원}$$
+""")
+                    st.markdown("""
+<div style="background:#fff3cd;border:1.5px solid #ffc107;border-radius:8px;
+  padding:10px 14px;font-size:0.82rem;line-height:1.8;margin-top:4px;">
+💬 <b>"엔허투 2년 치료비가 2억 4천만원인데,<br>
+지금 준비하신 진단비 5천만원으로 4개월이나 버티시겠습니까?"</b><br>
+<span style="color:#856404;">→ 진단비 최소 2억원 설계 시 2년 치료비 커버 가능</span>
+</div>""", unsafe_allow_html=True)
+
+                    # D) 고액암
+                    with st.expander("🅓 고액암 (QNSFB) — 10대 고액암 범주", expanded=False):
+                        st.markdown("""
+<div style="font-size:0.83rem;line-height:2.0;padding:6px 4px;">
+<b style="color:#7b1c1c;">10대 고액암 분류 (KCD 기준)</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.79rem;margin:6px 0;">
+<tr style="background:#fce4e4;">
+  <th style="padding:5px 8px;border:1px solid #f5c6c6;">암 종류</th>
+  <th style="padding:5px 8px;border:1px solid #f5c6c6;">KCD 코드</th>
+  <th style="padding:5px 8px;border:1px solid #f5c6c6;">특징</th>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">뼈·연골 악성종양</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;"><b>C40~C41</b></td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">수술+항암 병행 필수</td>
+</tr>
+<tr style="background:#fff8f8;">
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">뇌·중추신경 악성</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;"><b>C70~C72</b></td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">방사선·수술 고비용</td>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">림프·조혈 악성</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;"><b>C81~C96</b></td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">CAR-T 치료 대상</td>
+</tr>
+<tr style="background:#fff8f8;">
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">췌장암</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;"><b>C25</b></td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">5년 생존율 10~15%</td>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">식도암</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;"><b>C15</b></td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">수술 난이도 최상위</td>
+</tr>
+<tr style="background:#fff8f8;">
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">담낭·담도암</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;"><b>C23~C24</b></td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">진단 시 이미 진행기</td>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">폐암 (소세포)</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;"><b>C34</b></td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">전이 빠름, 면역항암</td>
+</tr>
+<tr style="background:#fff8f8;">
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">난소암</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;"><b>C56</b></td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">PARP억제제 장기 복용</td>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">복막·후복막</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;"><b>C48</b></td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">HIPEC 치료 고비용</td>
+</tr>
+<tr style="background:#fff8f8;">
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">다발성 골수종</td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;text-align:center;"><b>C90</b></td>
+  <td style="padding:4px 8px;border:1px solid #f5c6c6;">조혈모세포이식 필요</td>
+</tr>
+</table>
+<div style="background:#fce4e4;border-radius:6px;padding:7px 12px;margin-top:6px;font-size:0.8rem;">
+🎯 <b>고액암 설계 기준</b>: 진단비 최소 <b>5,000만원</b> + 표적항암약물허가치료비 무한지급 특약 필수
+</div>
+<span style="color:#888;font-size:0.73rem;">📌 KCD: C40~C41 · C70~C72 · C81~C96 · C15 · C25 · C23~C24 · C34 · C56 · C48 · C90</span>
+</div>""", unsafe_allow_html=True)
+
+            # ── 뇌질환 정밀 설계 팝업 ──────────────────────────────────
+            if _show_brain_popup:
+                with st.expander("🧠 뇌질환 정밀 설계 방향 — 18개월 공백 방어·수술비 3중 중첩", expanded=True):
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#e8f4fd,#dbeafe);
+  border:2px solid #2e6da4;border-radius:12px;padding:14px 18px;margin-bottom:10px;">
+<b style="font-size:1rem;color:#1a3a5c;">🧠 뇌혈관질환 KCD 보장 범위 비교</b><br>
+<span style="font-size:0.78rem;color:#555;">
+넓은 담보 vs 좁은 담보 — 범위 차이가 곧 보험금 차이입니다
+</span>
+</div>""", unsafe_allow_html=True)
+
+                    # 범위 시각화
+                    st.markdown("""
+<div style="display:flex;gap:8px;margin-bottom:10px;">
+<div style="flex:1;background:#e8f4fd;border:2px solid #2e6da4;border-radius:10px;padding:10px 14px;font-size:0.8rem;line-height:1.9;">
+<b style="color:#2e6da4;">🔵 뇌졸중 (광범위)</b><br>
+<b>I60</b> 거미막하출혈<br>
+<b>I61</b> 뇌내출혈<br>
+<b>I62</b> 기타 비외상성 두개내출혈<br>
+<b>I63</b> 뇌경색증<br>
+<b>I64</b> 출혈·경색 미상 뇌졸중<br>
+<b>I65~I66</b> 뇌혈관 폐색·협착<br>
+<span style="background:#2e6da4;color:#fff;border-radius:4px;padding:1px 7px;
+  font-size:0.73rem;">6개 코드 모두 포함</span>
+</div>
+<div style="flex:1;background:#fff0f0;border:2px solid #c0392b;border-radius:10px;padding:10px 14px;font-size:0.8rem;line-height:1.9;">
+<b style="color:#c0392b;">🔴 뇌출혈 (협소 담보)</b><br>
+<b>I60</b> 거미막하출혈 ✓<br>
+<b>I61</b> 뇌내출혈 ✓<br>
+<b>I62</b> 기타 두개내출혈 ✓<br>
+<span style="color:#ccc;">I63 뇌경색 ✗</span><br>
+<span style="color:#ccc;">I64~I66 ✗</span><br>
+<span style="background:#c0392b;color:#fff;border-radius:4px;padding:1px 7px;
+  font-size:0.73rem;">3개 코드만 포함</span>
+</div>
+</div>""", unsafe_allow_html=True)
+
+                    st.markdown("""
+<div style="background:#fff3cd;border:1.5px solid #e67e22;border-radius:8px;
+  padding:10px 14px;font-size:0.82rem;margin-bottom:8px;">
+⚠️ <b>뇌경색(I63)은 뇌졸중 전체의 약 80%를 차지</b>하지만<br>
+'뇌출혈 한정' 담보 가입 시 전혀 지급받지 못합니다.
+</div>""", unsafe_allow_html=True)
+
+                    st.markdown("""<hr style="border:none;border-top:1.5px dashed #b3c8e8;margin:10px 0;">""",
+                        unsafe_allow_html=True)
+
+                    # 18개월 공백 방어
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#1a237e,#283593);
+  border-radius:10px;padding:10px 16px;margin:6px 0;">
+<b style="color:#fde68a;font-size:0.88rem;">⏰ 18개월 공백 방어 — 영구장해 판정 대기 기간</b>
+</div>""", unsafe_allow_html=True)
+                    st.markdown(r"""
+$$\text{권고 가입금액} = \text{간병비} + (\text{가처분소득} \times 24\text{개월})$$
+$$\text{예시}: \; 500\text{만} \times 24 + 300\text{만} \times 24 = 1\text{억 } 9{,}200\text{만원}$$
+""")
+                    st.markdown("""
+<div style="background:#e8eaf6;border-left:4px solid #3949ab;border-radius:0 8px 8px 0;
+  padding:10px 14px;font-size:0.82rem;line-height:1.9;margin:6px 0;">
+<b style="color:#1a237e;">🩹 18개월(540일)의 실제 현실</b><br>
+• <b>0~3개월</b>: 급성기 병원비 월 300~500만원 (중환자실 포함)<br>
+• <b>3~18개월</b>: 재활병원 본인부담 100% + 간병인 월 400만원<br>
+• <b>영구장해 판정 전</b>: 국가 장애인 등록 불가 → <b>지원 전무(全無)</b><br>
+• <b>결론</b>: 진단비 3천만원 → <b>5~6개월이면 소멸</b>
+</div>""", unsafe_allow_html=True)
+                    st.markdown("""
+<div style="background:#fffde7;border:1.5px solid #f9a825;border-radius:8px;
+  padding:10px 14px;font-size:0.82rem;margin-top:6px;">
+💬 <b>"후유장해 대기 기간 540일 동안<br>
+월 500~800만원씩 총 1억 5천만원이 나갑니다.<br>
+지금 뇌혈관 진단비 얼마 가지고 계세요?"</b>
+</div>""", unsafe_allow_html=True)
+
+                    st.markdown("""<hr style="border:none;border-top:1.5px dashed #b3c8e8;margin:10px 0;">""",
+                        unsafe_allow_html=True)
+
+                    # 수술비 3중 중첩 권고
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#e8f5e9,#f1f8e9);
+  border:2px solid #2e7d32;border-radius:10px;padding:10px 14px;margin:6px 0;font-size:0.82rem;line-height:1.9;">
+<b style="color:#1b5e20;">🏥 뇌혈관 수술비 3종 세트 — 중첩 가입 원칙</b><br>
+<table style="width:100%;border-collapse:collapse;font-size:0.79rem;margin:6px 0;">
+<tr style="background:#c8e6c9;">
+  <th style="padding:5px 8px;border:1px solid #a5d6a7;">단계</th>
+  <th style="padding:5px 8px;border:1px solid #a5d6a7;">담보명</th>
+  <th style="padding:5px 8px;border:1px solid #a5d6a7;">적용 수술</th>
+  <th style="padding:5px 8px;border:1px solid #a5d6a7;">권장액</th>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #a5d6a7;text-align:center;"><b>1</b></td>
+  <td style="padding:4px 8px;border:1px solid #a5d6a7;">질병수술비</td>
+  <td style="padding:4px 8px;border:1px solid #a5d6a7;">모든 수술 포괄</td>
+  <td style="padding:4px 8px;border:1px solid #a5d6a7;">50~100만원/회</td>
+</tr>
+<tr style="background:#f1f8e9;">
+  <td style="padding:4px 8px;border:1px solid #a5d6a7;text-align:center;"><b>2</b></td>
+  <td style="padding:4px 8px;border:1px solid #a5d6a7;">1~5종 수술비</td>
+  <td style="padding:4px 8px;border:1px solid #a5d6a7;">뇌·혈관 코일링/클리핑 시술</td>
+  <td style="padding:4px 8px;border:1px solid #a5d6a7;">100~300만원/회</td>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #a5d6a7;text-align:center;"><b>3</b></td>
+  <td style="padding:4px 8px;border:1px solid #a5d6a7;">120대 수술비</td>
+  <td style="padding:4px 8px;border:1px solid #a5d6a7;">고난도 뇌수술</td>
+  <td style="padding:4px 8px;border:1px solid #a5d6a7;">500~1,000만원/회</td>
+</tr>
+</table>
+🔑 <b>스텐트·코일 색전술</b>: 뇌동맥류 파열 전 예방적 시술 → 3중 중첩 시 최대 1,400만원<br>
+<span style="color:#888;font-size:0.73rem;">📌 KCD: I60(거미막하출혈) · I61(뇌내출혈) · I63(뇌경색) · I65~I66(뇌혈관 폐색)</span>
+</div>""", unsafe_allow_html=True)
+
+            # ── 심장질환 정밀 설계 팝업 ────────────────────────────────
+            if _show_heart_popup:
+                with st.expander("❤️ 심장질환 정밀 설계 방향 — 담보 범위·권고 가입금액·수술비 연동", expanded=True):
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#fff8f0,#fef3e2);
+  border:2px solid #e67e22;border-radius:12px;padding:14px 18px;margin-bottom:10px;">
+<b style="font-size:1rem;color:#7c4a00;">❤️ 심장질환 KCD 보장 범위 비교</b><br>
+<span style="font-size:0.78rem;color:#555;">
+허혈성(넓음) vs 급성심근경색(좁음) — 담보 범위 선택이 핵심입니다
+</span>
+</div>""", unsafe_allow_html=True)
+
+                    # 범위 시각화
+                    st.markdown("""
+<div style="display:flex;gap:8px;margin-bottom:10px;">
+<div style="flex:1;background:#fff8f0;border:2px solid #e67e22;border-radius:10px;padding:10px 14px;font-size:0.8rem;line-height:1.9;">
+<b style="color:#e67e22;">🟠 허혈성심장질환 (광범위)</b><br>
+<b>I20</b> 협심증<br>
+<b>I21</b> 급성심근경색증 ✓<br>
+<b>I22</b> 재발성심근경색증 ✓<br>
+<b>I23</b> 급성심근경색 합병증 ✓<br>
+<b>I24</b> 기타 급성 허혈성<br>
+<b>I25</b> 만성 허혈성심장질환<br>
+<span style="background:#e67e22;color:#fff;border-radius:4px;padding:1px 7px;
+  font-size:0.73rem;">6개 코드 모두 포함</span>
+</div>
+<div style="flex:1;background:#fff0f0;border:2px solid #c0392b;border-radius:10px;padding:10px 14px;font-size:0.8rem;line-height:1.9;">
+<b style="color:#c0392b;">🔴 급성심근경색 (협소)</b><br>
+<b>I21</b> 급성심근경색증 ✓<br>
+<b>I22</b> 재발성심근경색증 ✓<br>
+<b>I23</b> 합병증 ✓<br>
+<span style="color:#ccc;">I20 협심증 ✗</span><br>
+<span style="color:#ccc;">I24~I25 ✗</span><br>
+<span style="background:#c0392b;color:#fff;border-radius:4px;padding:1px 7px;
+  font-size:0.73rem;">3개 코드만 포함</span>
+</div>
+</div>""", unsafe_allow_html=True)
+
+                    # 부정맥 섹션
+                    st.markdown("""
+<div style="background:#fce4e4;border:1.5px solid #e53935;border-radius:8px;
+  padding:8px 14px;font-size:0.8rem;margin-bottom:8px;line-height:1.8;">
+<b style="color:#b71c1c;">⚡ 부정맥 (I47~I49) — 별도 설계 필요</b><br>
+• <b>I47</b>: 발작성빈맥 / <b>I48</b>: 심방세동·조동 / <b>I49</b>: 기타 심부정맥<br>
+• 심방세동 → 뇌졸중 위험 5배 ↑ → <b>뇌·심장 동시 설계 원칙</b><br>
+• 약물치료 지속 + 전극도자절제술(고주파) 비용 발생
+</div>""", unsafe_allow_html=True)
+
+                    st.markdown("""<hr style="border:none;border-top:1.5px dashed #f5d5a0;margin:10px 0;">""",
+                        unsafe_allow_html=True)
+
+                    # 권고 가입금액
+                    st.markdown("""
+<div style="background:linear-gradient(135deg,#7c2d12,#9a3412);
+  border-radius:10px;padding:10px 16px;margin:6px 0;">
+<b style="color:#fed7aa;font-size:0.88rem;">💰 권고 가입금액 기준 (제151조 §2)</b>
+</div>""", unsafe_allow_html=True)
+
+                    _hrt_c1, _hrt_c2 = st.columns(2)
+                    with _hrt_c1:
+                        st.markdown("""
+<div style="background:#fff8f0;border:1.5px solid #fb923c;border-radius:8px;
+  padding:10px 14px;font-size:0.82rem;line-height:2.0;">
+<b style="color:#9a3412;">🏥 허혈성심장질환</b><br>
+권고 가입금액: <b style="color:#c0392b;">1,000만원 이상</b><br>
+이유: 협심증 스텐트<br>
+시술 비용 커버<br><br>
+⚠️ 단독으로는 부족<br>
+→ 반드시 수술비 연동
+</div>""", unsafe_allow_html=True)
+                    with _hrt_c2:
+                        st.markdown("""
+<div style="background:#fff8f0;border:1.5px solid #ef4444;border-radius:8px;
+  padding:10px 14px;font-size:0.82rem;line-height:2.0;">
+<b style="color:#7f1d1d;">💔 급성심근경색</b><br>
+권고 가입금액: <b style="color:#c0392b;">3,000~5,000만원</b><br>
+이유: CABG 수술비<br>
++ 재활 + 장기약물<br><br>
+⚠️ 재발 20~30%<br>
+→ 재발 담보 추가 필수
+</div>""", unsafe_allow_html=True)
+
+                    st.markdown("""
+<div style="background:#fef3e2;border:2px solid #f59e0b;border-radius:10px;
+  padding:10px 14px;font-size:0.82rem;line-height:1.9;margin-top:8px;">
+<b style="color:#7c4a00;">🔗 2대(5대)기관 수술비 담보 연동 원칙</b><br>
+• 심장 수술 시 <b>2대기관(흉부·심장)</b> 수술비 별도 지급 → 중첩 설계 필수<br>
+• 스텐트(PCI): 300~500만원 / CABG: 1,000~2,000만원<br>
+• 5대기관 확장 시: 뇌+심장+간+폐+췌장 수술 모두 커버<br>
+<table style="width:100%;border-collapse:collapse;font-size:0.79rem;margin:6px 0;">
+<tr style="background:#fde68a;">
+  <th style="padding:5px 8px;border:1px solid #fbbf24;">담보 조합</th>
+  <th style="padding:5px 8px;border:1px solid #fbbf24;">PCI 시</th>
+  <th style="padding:5px 8px;border:1px solid #fbbf24;">CABG 시</th>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #fbbf24;">진단비만</td>
+  <td style="padding:4px 8px;border:1px solid #fbbf24;text-align:center;">3,000만</td>
+  <td style="padding:4px 8px;border:1px solid #fbbf24;text-align:center;">3,000만</td>
+</tr>
+<tr style="background:#fffde7;">
+  <td style="padding:4px 8px;border:1px solid #fbbf24;">+ 2대기관 수술비</td>
+  <td style="padding:4px 8px;border:1px solid #fbbf24;text-align:center;">3,000+500만</td>
+  <td style="padding:4px 8px;border:1px solid #fbbf24;text-align:center;">3,000+1,500만</td>
+</tr>
+<tr>
+  <td style="padding:4px 8px;border:1px solid #fbbf24;">+ 질병수술+120대</td>
+  <td style="padding:4px 8px;border:1px solid #fbbf24;text-align:center;"><b>+150~200만</b></td>
+  <td style="padding:4px 8px;border:1px solid #fbbf24;text-align:center;"><b>+650~1,100만</b></td>
+</tr>
+</table>
+<span style="color:#888;font-size:0.73rem;">📌 KCD: I20~I25(허혈성) · I21~I23(급성심근경색) · I47~I49(부정맥)</span>
+</div>""", unsafe_allow_html=True)
 
             st.markdown("---")
 
