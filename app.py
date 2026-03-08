@@ -9306,6 +9306,155 @@ def _gp86_golden_card(result_text: str = "", name_hint: str = "") -> None:
     )
     st.info("💡 저장된 HTML 파일을 Chrome에서 열고 '인쇄 → PDF 저장'으로 고화질 이미지를 얻을 수 있습니다.")
 
+    # ── [GP87] 카카오톡 공유 기능 ─────────────────────────────────────────────
+    _gp87_kakao_share(
+        name=_display_name,
+        plan=_display_plan,
+        value=_display_value,
+        date=card_date,
+    )
+
+
+def _gp87_kakao_share(name: str, plan: str, value: str, date: str) -> None:
+    """GP87 황금빛 약속 증서 카카오톡 공유 — JavaScript Kakao.Share SDK 사용"""
+    import os as _os
+
+    _kakao_js_key = _os.environ.get("KAKAO_JS_KEY", "")
+
+    # GP87 §4: 1인칭 화법 자동 검수
+    _forbidden_map = {"당신": "나", "고객": "나", "귀하": "나"}
+    for _k, _v in _forbidden_map.items():
+        name  = name.replace(_k, _v)
+        plan  = plan.replace(_k, _v)
+        value = value.replace(_k, _v)
+
+    # 카카오 피드 메시지 구성 (GP87 §2)
+    _title_text = "📜 [GoldKey AI] 우리가 함께 만든 황금빛 약속"
+    _desc_text  = (
+        f"내 가족과 내 자산을 지키기 위해 오늘 내가 내린 위대한 결정을 이 증서에 담았습니다.\n"
+        f"【 {plan} 】 {value}"
+    )
+    _aemin_text = "이 증서는 마스터와 나 사이의 소중한 약속이며, 언제든 꺼내 보실 수 있는 내 가족의 수호권입니다."
+    _app_url    = "https://goldkey-ai-817097913199.asia-northeast3.run.app"
+
+    st.markdown("---")
+    st.markdown("### 📲 카카오톡으로 증서 공유하기 (GP87)")
+
+    if not _kakao_js_key:
+        # 카카오 앱 키 미설정 시 — 복사 텍스트 방식 대체 제공
+        _share_text = (
+            f"📜 {_title_text}\n\n"
+            f"{_desc_text}\n\n"
+            f"우리가 함께 만든 소중한 약속이 도착했습니다 🏆\n\n"
+            f"✦ {date}  |  {name}\n\n"
+            f"{_aemin_text}\n\n"
+            f"🔑 GoldKey AI Master\n{_app_url}"
+        )
+        st.text_area(
+            "📋 카카오톡에 복사하여 전송 (KAKAO_JS_KEY 미설정 — 텍스트 전송 모드)",
+            value=_share_text,
+            height=200,
+            key="_gp87_copy_area",
+        )
+        st.caption("🔧 카카오 JavaScript 앱 키를 환경변수 `KAKAO_JS_KEY`에 등록하면 원클릭 공유 버튼이 활성화됩니다.")
+        return
+
+    # ── 카카오 SDK 원클릭 공유 버튼 ─────────────────────────────────────────
+    import json as _json
+    _safe_title = _json.dumps(_title_text)
+    _safe_desc  = _json.dumps(_desc_text)
+    _safe_aemin = _json.dumps(_aemin_text)
+    _safe_url   = _json.dumps(_app_url)
+    _safe_key   = _json.dumps(_kakao_js_key)
+
+    _kakao_html = f"""
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
+        integrity="sha384-TiCUE00h649CAMonG018J2ujOgDKW/kVWlChEuu4jK2vxfAAD0eZxzCKakxg55G4"
+        crossorigin="anonymous"></script>
+<style>
+  #gp87-kakao-btn {{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 0;
+    background: #FEE500;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #191919;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    box-shadow: 0 4px 16px rgba(254,229,0,0.45);
+    transition: transform 0.12s, box-shadow 0.12s;
+  }}
+  #gp87-kakao-btn:hover {{ transform: translateY(-2px); box-shadow: 0 6px 22px rgba(254,229,0,0.55); }}
+  #gp87-kakao-btn:active {{ transform: translateY(0); }}
+  .gp87-kakao-icon {{ width:26px; height:26px; }}
+  #gp87-status {{ text-align:center; font-size:0.82rem; color:#666; margin-top:8px; min-height:20px; }}
+</style>
+<button id="gp87-kakao-btn" onclick="shareKakao()">
+  <svg class="gp87-kakao-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="12" cy="11" rx="10" ry="8.5" fill="#191919"/>
+    <path d="M6.5 14.5 L8.2 10.2 L9.5 13.2 L11 10 L12.5 13.2 L13.8 10.2 L15.5 14.5" stroke="#FEE500" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>
+  카카오톡으로 약속 공유하기
+</button>
+<div id="gp87-status"></div>
+
+<script>
+(function() {{
+  try {{
+    if (!window.Kakao.isInitialized()) {{
+      window.Kakao.init({_safe_key});
+    }}
+  }} catch(e) {{
+    document.getElementById('gp87-status').innerText = '⚠️ Kakao SDK 초기화 실패: ' + e.message;
+  }}
+}})();
+
+function shareKakao() {{
+  var statusEl = document.getElementById('gp87-status');
+  try {{
+    window.Kakao.Share.sendDefault({{
+      objectType: 'feed',
+      content: {{
+        title: {_safe_title},
+        description: {_safe_desc},
+        imageUrl: 'https://goldkey-ai-817097913199.asia-northeast3.run.app/static/goldkey_cert_preview.png',
+        link: {{
+          mobileWebUrl: {_safe_url},
+          webUrl: {_safe_url},
+        }},
+      }},
+      buttons: [
+        {{
+          title: '📜 약속 확인하기',
+          link: {{
+            mobileWebUrl: {_safe_url},
+            webUrl: {_safe_url},
+          }},
+        }},
+      ],
+      installTalk: true,
+    }});
+    statusEl.innerText = '✅ 카카오톡 공유 창이 열렸습니다.';
+  }} catch(e) {{
+    statusEl.innerText = '⚠️ 공유 실패: ' + e.message;
+  }}
+}}
+</script>
+
+<p style="text-align:center;font-size:0.75rem;color:#999;margin-top:12px;">
+  우리가 함께 만든 소중한 약속이 도착했습니다 🏆<br>
+  {_aemin_text}
+</p>
+"""
+    import streamlit.components.v1 as _c
+    _c.html(_kakao_html, height=160)
+
 
 # 사용 모델 상수 (변경 시 이 한 줄만 수정)
 GEMINI_MODEL = "gemini-2.0-flash"
