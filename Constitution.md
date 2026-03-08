@@ -1203,6 +1203,8 @@ _amt_major_bonus = _amt_major_raw * 0.5   # 희망 보장 영역 (6~10년)
 | 2026-03-07 | — | — | 제0조 신설(즉각 전환형 초연결 기동 헌법·0ms Instant Swap·UA 기기 분기·3단계 병참 로딩·AppReady 신호·화이트아웃 영구 박멸) + _gp0_instant_bootstrap() 구현 + main() STEP 0 최선두 주입 |
 | 2026-03-08 | — | — | 제44조 개정(클라우드 트랙 신설·Google Cloud Run 프로덕션 서버 등록) — Cloud Run URL: `https://goldkey-ai-817097913199.asia-northeast3.run.app` / 이미지: `asia-northeast3-docker.pkg.dev/gen-lang-client-0777682955/goldkey/goldkey-ai` / 포트 8080 |
 | 2026-03-08 | — | — | 제59조 신설(통합 인증 게이트웨이 디자인 일원화 원칙) — 중앙 로그인 박스 #E3F2FD + 붉은 외곽선 #E53935, OTP확인 버튼 #E3F2FD, 처음으로 버튼 #FFF9C4 통합 적용 |
+| 2026-03-09 | — | — | 제85조 신설(통합 1인칭 심리 판매 엔진) — 전역 1인칭 화법 고정·3단계 심리 로직(Pain→Empathy→Solution)·3초 후킹 엔진·법인CEO 플랜 화법·원칙 데이터 소싱·자가 감사 체크리스트 6개 항목 + app.py SYSTEM_PROMPT에 GP85 블록 주입 완료 |
+| 2026-03-09 | — | — | 제82조 개정(애민정신 & 심리적 동일체 화법 전수 원칙) — MASTER_SYSTEM_PROMPT에 3단계 애민정신 화법 전수(불안동조·다독임·확신확보) + "숫자로 설득하고 눈물로 계약" 핵심 명제 추가 |
 
 ---
 
