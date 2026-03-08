@@ -9061,6 +9061,293 @@ def output_manager(masked_name, result_text):
     st.info("[주의] 본 분석 결과의 최종 책임은 사용자(상담원)에게 귀속됩니다.")
 
 
+# ── [가이딩 프로토콜 제88조] 통합 상담 자산 관리 허브 ──────────────────────
+def _gp88_hub() -> dict:
+    """GP88 통합 대시보드 허브 — §1 검색·§2 OCR·§3 10대 명품 문구·§4 카카오 허브
+    반환값: {'selected_script': str, 'ocr_result': dict, 'prefill': dict}
+    """
+    import datetime as _dt, re as _re, json as _json
+
+    _HUB_KEY    = "_gp88_hub_open"
+    _SCRIPT_KEY = "_gp88_selected_script"
+    _OCR_KEY    = "_gp88_ocr_result"
+    _HIST_KEY   = "_gp88_consult_history"
+
+    # ── 세션 초기화 ──────────────────────────────────────────────────────────
+    for _k, _dv in [(_HUB_KEY, False), (_SCRIPT_KEY, ""), (_OCR_KEY, {}), (_HIST_KEY, [])]:
+        if _k not in st.session_state:
+            st.session_state[_k] = _dv
+
+    # ── 상담 이력 자동 적재 (이번 세션 result_* 키 수집) ────────────────────
+    _hist: list = st.session_state[_HIST_KEY]
+    for _sk, _sv in st.session_state.items():
+        if (isinstance(_sk, str) and _sk.startswith("result_")
+                and isinstance(_sv, str) and len(_sv) > 30):
+            _already = any(h.get("key") == _sk for h in _hist)
+            if not _already:
+                _m_name = _re.search(r"([가-힣]{2,5})님", _sv)
+                _m_amt  = _re.search(r"(\d[\d,\.]+\s*억|[1-9]\d*,?\d{3}만\s*원|\d+억)", _sv)
+                _hist.append({
+                    "key":   _sk,
+                    "name":  _m_name.group(1) if _m_name else st.session_state.get("current_c_name", ""),
+                    "amount": _m_amt.group(0) if _m_amt else "",
+                    "ts":    _dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "text":  _sv,
+                })
+    st.session_state[_HIST_KEY] = _hist
+
+    # 허브 토글 버튼
+    if st.button("🏛️ GP88 통합 상담 허브 열기/닫기",
+                 key="_gp88_toggle_btn", use_container_width=True):
+        st.session_state[_HUB_KEY] = not st.session_state[_HUB_KEY]
+
+    if not st.session_state[_HUB_KEY]:
+        return {"selected_script": st.session_state.get(_SCRIPT_KEY, ""),
+                "ocr_result": st.session_state.get(_OCR_KEY, {}),
+                "prefill": {}}
+
+    st.markdown("---")
+    st.markdown("## 🏛️ GP88 통합 상담 자산 관리 허브")
+
+    _tab_search, _tab_ocr, _tab_scripts, _tab_kakao = st.tabs([
+        "🔍 §1 상담 검색",
+        "📄 §2 계약서 스캔",
+        "✍️ §3 10대 명품 문구",
+        "📲 §4 카카오 허브",
+    ])
+
+    _prefill: dict = {}
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # §1 상담 이력 검색
+    # ══════════════════════════════════════════════════════════════════════════
+    with _tab_search:
+        st.markdown("#### 🔍 키워드로 과거 상담 즉시 호출")
+        _q = st.text_input("이름 · 날짜 · 키워드 입력", placeholder="예: 홍길동 / 상속 / 2026-03",
+                           key="_gp88_search_q")
+        if _hist:
+            _filtered = [h for h in _hist
+                         if not _q or _q in h.get("name","") or _q in h.get("ts","")
+                         or _q in h.get("text","") or _q in h.get("amount","")]
+            if _filtered:
+                for _h in reversed(_filtered[-20:]):
+                    with st.expander(
+                        f"🕐 {_h['ts']} | {_h['name'] or '(미상)'} | {_h['amount'] or '금액 미확인'}",
+                        expanded=False
+                    ):
+                        st.markdown(_h["text"][:600] + ("…" if len(_h["text"]) > 600 else ""))
+                        if st.button("이 상담으로 증서 발급", key=f"_gp88_load_{_h['key']}"):
+                            _prefill["result_text"] = _h["text"]
+                            _prefill["name"]        = _h["name"]
+                            _prefill["value"]       = _h["amount"]
+                            st.success(f"✅ '{_h['name']}' 상담 내용을 증서 폼에 불러왔습니다.")
+            else:
+                st.info("🔎 검색 결과가 없습니다.")
+        else:
+            st.info("📭 이번 세션에 저장된 상담 이력이 없습니다. 상담 분석을 먼저 실행하세요.")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # §2 계약서 OCR 스캔
+    # ══════════════════════════════════════════════════════════════════════════
+    with _tab_ocr:
+        st.markdown("#### 📄 계약서/증권 스캔 → 핵심 담보 자동 추출")
+        st.caption("PDF 또는 이미지(JPG·PNG)를 업로드하면 Gemini Vision AI가 핵심 담보를 읽어냅니다.")
+        _ocr_file = st.file_uploader(
+            "계약서 파일 업로드 (PDF · JPG · PNG)",
+            type=["pdf", "jpg", "jpeg", "png"],
+            key="_gp88_ocr_upload",
+        )
+        if _ocr_file and st.button("🔍 AI 핵심 담보 추출 시작", key="_gp88_ocr_run",
+                                   type="primary", use_container_width=True):
+            with st.spinner("Gemini Vision AI가 계약서를 분석 중입니다…"):
+                try:
+                    import io as _io
+                    _raw = _ocr_file.read()
+                    _ext = _ocr_file.name.rsplit(".", 1)[-1].lower()
+
+                    # PDF → 첫 페이지 이미지 변환 (fitz 사용 가능 시)
+                    _img_bytes = None
+                    _mime_type = "image/jpeg"
+                    if _ext == "pdf":
+                        try:
+                            import fitz as _fitz  # PyMuPDF
+                            _doc = _fitz.open(stream=_raw, filetype="pdf")
+                            _page = _doc[0]
+                            _pix = _page.get_pixmap(dpi=150)
+                            _img_bytes = _pix.tobytes("jpeg")
+                            _mime_type = "image/jpeg"
+                        except ImportError:
+                            st.warning("⚠️ PyMuPDF 미설치 — PDF 직접 전송으로 대체합니다.")
+                            _img_bytes = _raw
+                            _mime_type = "application/pdf"
+                    else:
+                        _img_bytes = _raw
+                        _mime_type = f"image/{_ext.replace('jpg','jpeg')}"
+
+                    # Gemini Vision API 호출
+                    _client = get_client()
+                    if _client is None:
+                        st.error("GEMINI_API_KEY가 설정되지 않았습니다.")
+                    else:
+                        _vision_prompt = (
+                            "이 보험 계약서/증권 이미지에서 다음 항목을 추출하여 JSON으로 반환하세요:\n"
+                            '{"계약자":"","피보험자":"","보험사":"","상품명":"","납입기간":"","보험기간":"",'
+                            '"월보험료":"","사망보험금":"","암진단비":"","뇌진단비":"","심장진단비":"",'
+                            '"실손보험료":"","기타담보":[]}\n'
+                            "없는 항목은 빈 문자열로, 기타담보는 이름과 금액 쌍의 리스트로 표현하세요."
+                        )
+                        _types = _lazy_genai_types()
+                        _resp = _client.models.generate_content(
+                            model=GEMINI_MODEL,
+                            contents=[
+                                _types.Part.from_bytes(data=_img_bytes, mime_type=_mime_type),
+                                _vision_prompt,
+                            ],
+                        )
+                        _raw_txt = _resp.text.strip()
+                        # JSON 블록 추출
+                        _jm = _re.search(r"\{[\s\S]+\}", _raw_txt)
+                        if _jm:
+                            try:
+                                _ocr_data = _json.loads(_jm.group(0))
+                                st.session_state[_OCR_KEY] = _ocr_data
+                                st.success("✅ 핵심 담보 추출 완료!")
+                            except Exception:
+                                st.session_state[_OCR_KEY] = {"raw": _raw_txt}
+                                st.warning("⚠️ JSON 파싱 실패 — 원문으로 저장합니다.")
+                        else:
+                            st.session_state[_OCR_KEY] = {"raw": _raw_txt}
+                except Exception as _e:
+                    st.error(f"❌ OCR 오류: {_e}")
+
+        _ocr_result = st.session_state.get(_OCR_KEY, {})
+        if _ocr_result:
+            st.markdown("**📋 추출된 계약 정보**")
+            if "raw" in _ocr_result:
+                st.text_area("원문", value=_ocr_result["raw"], height=200, key="_gp88_ocr_raw")
+            else:
+                _display_fields = [
+                    ("계약자", "계약자"), ("피보험자", "피보험자"), ("보험사", "보험사"),
+                    ("상품명", "상품명"), ("납입기간", "납입기간"), ("보험기간", "보험기간"),
+                    ("월보험료", "월보험료"), ("사망보험금", "사망보험금"),
+                    ("암진단비", "암진단비"), ("뇌진단비", "뇌진단비"), ("심장진단비", "심장진단비"),
+                ]
+                _cols = st.columns(2)
+                for _i, (_lbl, _fk) in enumerate(_display_fields):
+                    _v = _ocr_result.get(_fk, "")
+                    if _v:
+                        _cols[_i % 2].metric(_lbl, _v)
+                _extras = _ocr_result.get("기타담보", [])
+                if _extras:
+                    st.markdown("**기타 담보:**")
+                    for _ex in _extras:
+                        st.markdown(f"- {_ex}")
+                # 증서 폼 자동 채우기 연결
+                _pname  = _ocr_result.get("계약자") or _ocr_result.get("피보험자", "")
+                _pprice = _ocr_result.get("사망보험금") or _ocr_result.get("월보험료", "")
+                _pplan  = _ocr_result.get("상품명", "")
+                if st.button("이 계약 정보로 증서 발급 준비", key="_gp88_ocr_to_cert",
+                             use_container_width=True):
+                    _prefill["name"]  = _pname
+                    _prefill["value"] = _pprice
+                    _prefill["plan"]  = _pplan
+                    st.success(f"✅ '{_pplan}' 계약 정보를 증서 폼에 불러왔습니다.")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # §3 10대 명품 문구
+    # ══════════════════════════════════════════════════════════════════════════
+    with _tab_scripts:
+        st.markdown("#### ✍️ 1인칭 마스터 문구 — 클릭 한 번으로 선택")
+        st.caption("선택한 문구는 황금빛 약속 증서 카카오 공유 메시지에 자동 결합됩니다.")
+
+        _MASTER_SCRIPTS = [
+            ("👨‍👩‍👧‍👦 가족 생계",
+             "내가 없어도 내 아이들이 지금처럼 웃으며 공부할 수 있는 튼튼한 울타리를 내가 직접 세웠습니다."),
+            ("🏛️ 상속세 재원",
+             "내 평생의 결실이 세금으로 흩어지지 않고 자녀에게 온전히 전달되도록 내가 현금 물길을 열었습니다."),
+            ("🏢 CEO 감자플랜",
+             "내가 헌신한 이 회사가 가족의 현금 창구가 되어 나를 지켜줄 수 있도록 내가 길을 닦았습니다."),
+            ("🌅 노후 독자 생존",
+             "누구에게도 짐이 되지 않고, 나 스스로 품위 있는 노후를 보낼 수 있는 마르지 않는 샘물을 내가 팠습니다."),
+            ("💰 이자소득 비과세",
+             "국가에 낼 세금까지 내 자산으로 확정 짓는, 나만의 세무 방어벽을 내가 구축했습니다."),
+            ("🛡️ 납입면제 특약",
+             "아픈 순간에도 내 자산은 멈추지 않고 스스로 불어나는 마법 같은 안전장치를 내가 걸었습니다."),
+            ("📚 교육비 보장",
+             "내 아이의 꿈이 어떤 폭풍우에도 꺾이지 않도록 내가 가장 단단한 뿌리를 심어두었습니다."),
+            ("🎖️ 경영인 퇴직금",
+             "무사히 완주한 나에게 주는 최고의 보너스를 법인의 이름으로 내가 직접 설계했습니다."),
+            ("📈 변액/자산 증식",
+             "시대의 흐름에 내 자산을 태워, 가치를 지키고 키워나가는 지혜로운 항해를 내가 시작했습니다."),
+            ("🌱 기초 자금 마련",
+             "먼 미래의 큰 기회를 놓치지 않도록, 오늘부터 작은 씨앗을 심어 내 숲을 가꾸기 시작했습니다."),
+        ]
+
+        _cur_script = st.session_state.get(_SCRIPT_KEY, "")
+        if _cur_script:
+            st.success(f"✅ 선택된 문구: **{_cur_script[:60]}…**")
+
+        for _idx, (_label, _script) in enumerate(_MASTER_SCRIPTS):
+            _col_a, _col_b = st.columns([1, 4])
+            with _col_a:
+                if st.button(_label, key=f"_gp88_script_{_idx}", use_container_width=True):
+                    st.session_state[_SCRIPT_KEY] = _script
+                    st.rerun()
+            with _col_b:
+                st.markdown(
+                    f'<div style="background:#FFFDF0;border-left:3px solid #D4AF37;'
+                    f'padding:8px 14px;border-radius:0 8px 8px 0;font-size:0.88rem;'
+                    f'color:#2c1a00;line-height:1.6;">{_script}</div>',
+                    unsafe_allow_html=True,
+                )
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # §4 카카오톡 통합 발송 블록
+    # ══════════════════════════════════════════════════════════════════════════
+    with _tab_kakao:
+        st.markdown("#### 📲 황금빛 증서 + 명품 문구 → 카카오톡 즉시 전송")
+        _sel_script = st.session_state.get(_SCRIPT_KEY, "")
+        _ocr_data   = st.session_state.get(_OCR_KEY, {})
+        _send_name  = st.text_input("전송 대상 이름",
+                                    value=_ocr_data.get("계약자","") or st.session_state.get("current_c_name",""),
+                                    key="_gp88_send_name")
+        _send_plan  = st.text_input("플랜명",
+                                    value=_ocr_data.get("상품명",""),
+                                    key="_gp88_send_plan")
+        _send_value = st.text_input("실질 이득 수치",
+                                    value=_ocr_data.get("사망보험금",""),
+                                    key="_gp88_send_value")
+        if _sel_script:
+            st.markdown(
+                f'<div style="background:#f0f9ff;border:1.5px solid #0ea5e9;border-radius:10px;'
+                f'padding:10px 16px;font-size:0.88rem;color:#0c4a6e;margin:8px 0;">'
+                f'📌 <b>선택된 명품 문구:</b><br>{_sel_script}</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("💡 §3 탭에서 명품 문구를 먼저 선택하세요.")
+
+        if st.button("📲 카카오톡으로 증서 + 문구 전송", key="_gp88_kakao_send_btn",
+                     type="primary", use_container_width=True):
+            _combined_value = _send_value or "소중한 재원 확보"
+            _combined_plan  = _send_plan  or "황금빛 플랜"
+            _combined_name  = _send_name  or "나"
+            # GP87 공유 함수 호출
+            _gp87_kakao_share(
+                name=_combined_name,
+                plan=_combined_plan + (f" | {_sel_script[:30]}…" if _sel_script else ""),
+                value=_combined_value,
+                date=_dt.date.today().strftime("%Y년 %m월 %d일"),
+            )
+
+    st.markdown("---")
+    return {
+        "selected_script": st.session_state.get(_SCRIPT_KEY, ""),
+        "ocr_result":      st.session_state.get(_OCR_KEY, {}),
+        "prefill":         _prefill,
+    }
+
+
 # ── [가이딩 프로토콜 제86조] 황금빛 약속 증서 생성 엔진 ─────────────────────
 def _gp86_golden_card(result_text: str = "", name_hint: str = "") -> None:
     """GP86 황금빛 약속 증서 — 상담 결과 출력 영역 하단에서 호출"""
@@ -9454,6 +9741,355 @@ function shareKakao() {{
 """
     import streamlit.components.v1 as _c
     _c.html(_kakao_html, height=160)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP88] 통합 상담 허브 — 마스터 문구 · 검색 · OCR · 카카오톡 발송
+# ══════════════════════════════════════════════════════════════════════════════
+def _gp88_hub() -> None:
+    """GP88 통합 상담 자산 관리 허브 — 4개 섹션 구성"""
+    import os as _os
+
+    with st.expander("🏛️ GP88 통합 상담 허브 — 문구 선택 · 검색 · OCR · 카카오 발송", expanded=False):
+        st.markdown("""
+<style>
+.gp88-tab-header{font-size:1.05rem;font-weight:800;color:#1a3a6b;margin-bottom:6px;}
+.gp88-script-btn{width:100%;text-align:left;padding:10px 14px;margin:4px 0;
+  background:#fffbea;border:1.5px solid #D4AF37;border-radius:10px;cursor:pointer;
+  font-size:0.93rem;font-weight:700;color:#2c1a00;transition:background 0.15s;}
+.gp88-script-btn:hover{background:#fef3c7;}
+.gp88-selected{background:linear-gradient(90deg,#D4AF37 0%,#F9F295 100%)!important;
+  color:#1a1a1a!important;border-color:#b8860b!important;}
+</style>
+""", unsafe_allow_html=True)
+
+        _tab1, _tab2, _tab3, _tab4 = st.tabs([
+            "📝 §3 명품 문구 선택",
+            "🔍 §1 상담 검색",
+            "📄 §2 계약서 OCR",
+            "📲 §4 카카오 통합 발송",
+        ])
+
+        # ── §3: 1인칭 10대 명품 문구 ─────────────────────────────────────────
+        with _tab1:
+            _gp88_master_scripts()
+
+        # ── §1: 상담 파이프라인 검색 ─────────────────────────────────────────
+        with _tab2:
+            _gp88_search()
+
+        # ── §2: 계약서 OCR 스캔 ───────────────────────────────────────────────
+        with _tab3:
+            _gp88_ocr_scan()
+
+        # ── §4: 카카오 통합 발송 블록 ─────────────────────────────────────────
+        with _tab4:
+            _gp88_kakao_send()
+
+
+# ── GP88 §3: 1인칭 10대 명품 문구 선택 UI ────────────────────────────────────
+_GP88_SCRIPTS = [
+    ("①", "니즈 환기 — 상실 공포",
+     "나는 오늘 이 자리에서 솔직하게 묻겠습니다. 지금 이 순간 내 가족을 지킬 준비가 되어 있습니까?\n"
+     "많은 분들이 '나중에'를 외치다가, 정작 그 '나중'이 왔을 때 아무것도 남아 있지 않았습니다.\n"
+     "오늘 우리가 나누는 이 대화가 바로 그 '나중'을 막는 첫 번째 방패입니다."),
+    ("②", "공감 — 동지 선언",
+     "나도 같은 걱정을 합니다. 내 수입이 멈추는 순간 내 가족의 일상이 흔들리는 것을.\n"
+     "그래서 나는 내 가족을 위해 이 일을 합니다. 나와 함께라면 우리는 같은 편입니다.\n"
+     "내가 설계한 플랜은 내 가족에게도 똑같이 적용하는 플랜입니다."),
+    ("③", "확신 — 숫자로 말하는 보장",
+     "숫자는 거짓말을 하지 않습니다. 진단비 3,000만 원, 수술비 1,500만 원, 입원 일당 5만 원.\n"
+     "이 숫자들이 실제로 나의 일상을 지켜낸 사례들을 나는 직접 목격했습니다.\n"
+     "오늘 내가 제안하는 설계는 이 숫자들이 실제로 작동하도록 구성된 플랜입니다."),
+    ("④", "긴급성 — 지금이 마지막 기회",
+     "보험은 건강할 때만 가입할 수 있습니다. 지금 이 순간이 가장 저렴한 보험료의 마지막 기회입니다.\n"
+     "내일 아침 검진에서 이상 소견이 나오면, 오늘 이 자리는 다시 돌아오지 않습니다.\n"
+     "나는 지금 결정을 내리는 분들에게만 이 특별 설계를 제공합니다."),
+    ("⑤", "가족 가치 — 수호자 프레임",
+     "내가 버는 돈은 결국 내 가족을 위한 것입니다. 그런데 내가 갑자기 쓰러진다면?\n"
+     "내 가족이 가장 두려워하는 것은 돈이 없는 것이 아니라, 내가 없는 것입니다.\n"
+     "내가 살아있는 동안 내 가족을 지키는 것이 바로 이 플랜의 핵심입니다."),
+    ("⑥", "CEO 특화 — 법인 자산 보호",
+     "나는 법인 대표로서 회사의 자산과 내 개인 자산을 명확히 분리해야 합니다.\n"
+     "대표이사가 쓰러지는 순간 회사도 멈춥니다. 나의 역할이 곧 회사의 엔진입니다.\n"
+     "법인 명의 보험으로 나의 리스크를 회사의 비용으로 처리하는 것, 이것이 진짜 절세입니다."),
+    ("⑦", "절세 — 숨겨진 황금",
+     "나는 매년 합법적으로 돌려받을 수 있는 세금을 놓치고 있지는 않은지 점검합니다.\n"
+     "연금저축 400만 원, IRP 300만 원, 세액공제 최대 115만 5천 원 — 이 숫자들이 내 통장으로 돌아옵니다.\n"
+     "지금 내가 설계하는 플랜은 보장과 절세를 동시에 잡는 투-트랙 전략입니다."),
+    ("⑧", "노후 — 장수 리스크 대비",
+     "평균 수명 90세 시대. 나는 65세에 은퇴하면 25년을 더 살아야 합니다.\n"
+     "국민연금만으로는 내 현재 생활 수준의 40%도 채우기 어렵습니다.\n"
+     "지금 내가 준비하는 연금 플랜이 그 60%의 공백을 채울 유일한 해법입니다."),
+    ("⑨", "클로징 — 결단 촉구",
+     "오늘 이 자리에서 나는 두 가지 중 하나를 선택합니다.\n"
+     "준비된 내일로 나아가거나, 아무것도 하지 않아 그 결과를 감당하거나.\n"
+     "나는 지금 서명 한 번으로 내 가족의 10년을 바꿀 수 있다고 확신합니다."),
+    ("⑩", "사후 관리 — 영원한 파트너",
+     "계약이 끝난 뒤에도 나는 항상 여기 있습니다. 담당 마스터가 바뀌지 않습니다.\n"
+     "보험금 청구, 리모델링, 세금 이슈 — 내가 직접 함께 해결합니다.\n"
+     "나는 나의 고객이 아니라 나의 동지와 평생 함께합니다."),
+]
+
+
+def _gp88_master_scripts() -> None:
+    """GP88 §3 — 1인칭 10대 명품 문구 클릭 선택 UI"""
+    st.markdown('<p class="gp88-tab-header">📝 1인칭 10대 명품 문구 — 클릭하여 선택·복사</p>', unsafe_allow_html=True)
+
+    _SEL_KEY = "_gp88_selected_script_idx"
+    if _SEL_KEY not in st.session_state:
+        st.session_state[_SEL_KEY] = None
+
+    _cols = st.columns(2)
+    for _i, (_num, _title, _body) in enumerate(_GP88_SCRIPTS):
+        with _cols[_i % 2]:
+            _is_sel = st.session_state[_SEL_KEY] == _i
+            _btn_label = f"{_num} {_title}"
+            if st.button(
+                _btn_label,
+                key=f"_gp88_script_btn_{_i}",
+                use_container_width=True,
+                type="primary" if _is_sel else "secondary",
+            ):
+                st.session_state[_SEL_KEY] = _i
+                st.rerun()
+
+    _sel = st.session_state[_SEL_KEY]
+    if _sel is not None:
+        _num, _title, _body = _GP88_SCRIPTS[_sel]
+        st.markdown(f"**선택된 문구: {_num} {_title}**")
+        st.text_area(
+            "📋 복사하여 사용 (카카오·문자·메모)",
+            value=_body,
+            height=180,
+            key="_gp88_script_body_area",
+        )
+        # 세션에 저장 — §4 카카오 발송에서 사용
+        st.session_state["_gp88_active_script"] = _body
+        st.caption("✅ §4 '카카오 통합 발송' 탭에서 이 문구를 증서와 함께 전송할 수 있습니다.")
+
+
+# ── GP88 §1: 상담 파이프라인 검색 ─────────────────────────────────────────────
+def _gp88_search() -> None:
+    """GP88 §1 — 키워드로 과거 상담 즉시 호출"""
+    st.markdown('<p class="gp88-tab-header">🔍 과거 상담 키워드 검색</p>', unsafe_allow_html=True)
+
+    _HIST_KEY = "consultation_history"  # 앱 전역 세션 키 (기존 저장 구조 재활용)
+    _history: list = st.session_state.get(_HIST_KEY, [])
+
+    _q = st.text_input(
+        "검색어 입력 (이름·키워드·날짜·플랜명)",
+        placeholder="예: 홍길동, 암보험, 종신, 2024",
+        key="_gp88_search_query",
+    )
+
+    if not _q:
+        st.caption(f"총 {len(_history)}건의 상담 이력이 저장되어 있습니다.")
+        return
+
+    _q_lower = _q.lower()
+    _results = [
+        _item for _item in _history
+        if _q_lower in str(_item).lower()
+    ]
+
+    if not _results:
+        st.warning(f"'{_q}' 관련 상담 이력을 찾을 수 없습니다.")
+        return
+
+    st.success(f"🔎 '{_q}' 검색 결과: {len(_results)}건")
+    for _idx, _item in enumerate(_results[:20], 1):
+        with st.expander(f"#{_idx} — {str(_item)[:80]}…", expanded=False):
+            if isinstance(_item, dict):
+                for _k, _v in _item.items():
+                    st.markdown(f"**{_k}**: {_v}")
+            else:
+                st.text(str(_item))
+
+
+# ── GP88 §2: 계약서 OCR 스캔 ──────────────────────────────────────────────────
+def _gp88_ocr_scan() -> None:
+    """GP88 §2 — PDF/이미지 업로드 후 핵심 담보 자동 추출 (pytesseract 또는 기본 텍스트 추출)"""
+    import io as _io
+
+    st.markdown('<p class="gp88-tab-header">📄 계약서 OCR 스캔 — 핵심 담보 자동 추출</p>', unsafe_allow_html=True)
+    st.caption("PDF 또는 이미지(JPG·PNG) 파일을 업로드하면 핵심 담보 항목을 추출합니다.")
+
+    _uploaded = st.file_uploader(
+        "계약서 파일 업로드 (PDF / JPG / PNG)",
+        type=["pdf", "jpg", "jpeg", "png"],
+        key="_gp88_ocr_uploader",
+    )
+    if _uploaded is None:
+        return
+
+    _fname = _uploaded.name.lower()
+    _raw_text = ""
+
+    try:
+        if _fname.endswith(".pdf"):
+            try:
+                import fitz as _fitz  # PyMuPDF
+                _doc = _fitz.open(stream=_uploaded.read(), filetype="pdf")
+                for _pg in _doc:
+                    _raw_text += _pg.get_text()
+            except ImportError:
+                st.warning("PyMuPDF(fitz) 미설치 — PDF 텍스트 레이어만 추출합니다.")
+                _raw_text = _uploaded.read().decode("utf-8", errors="ignore")
+        else:
+            try:
+                from PIL import Image as _PILImage
+                import pytesseract as _tess
+                _img = _PILImage.open(_io.BytesIO(_uploaded.read()))
+                _raw_text = _tess.image_to_string(_img, lang="kor+eng")
+            except ImportError:
+                st.warning("Tesseract/PIL 미설치 — 텍스트 레이어 시도 중.")
+                _raw_text = _uploaded.read().decode("utf-8", errors="ignore")
+    except Exception as _e:
+        st.error(f"파일 읽기 오류: {_e}")
+        return
+
+    if not _raw_text.strip():
+        st.warning("텍스트를 추출하지 못했습니다. 이미지 품질을 확인하거나 PDF 텍스트 레이어 여부를 확인하세요.")
+        return
+
+    # 핵심 담보 키워드 추출
+    _KEYWORDS = [
+        "사망", "암", "뇌졸중", "뇌경색", "급성심근경색", "입원", "수술", "진단비",
+        "일당", "후유장해", "배상책임", "실손", "연금", "해지환급",
+        "보험료", "보험기간", "납입기간", "피보험자", "수익자",
+    ]
+    st.markdown("**🔑 추출된 핵심 담보 항목:**")
+    _found = {}
+    for _kw in _KEYWORDS:
+        _lines = [_l.strip() for _l in _raw_text.splitlines() if _kw in _l and _l.strip()]
+        if _lines:
+            _found[_kw] = _lines[:3]
+
+    if _found:
+        for _kw, _lines in _found.items():
+            with st.expander(f"🔸 {_kw}", expanded=False):
+                for _l in _lines:
+                    st.markdown(f"- {_l}")
+        # 세션에 저장 — §4 발송 시 활용
+        st.session_state["_gp88_ocr_result"] = _found
+        st.success("✅ OCR 추출 완료. §4 '카카오 통합 발송' 탭에서 전송할 수 있습니다.")
+    else:
+        st.info("지정 키워드 담보 항목을 찾지 못했습니다. 전체 텍스트를 확인하세요.")
+
+    with st.expander("📃 원문 전체 텍스트 보기", expanded=False):
+        st.text(_raw_text[:3000] + ("…(이하 생략)" if len(_raw_text) > 3000 else ""))
+
+
+# ── GP88 §4: 카카오 통합 발송 블록 ────────────────────────────────────────────
+def _gp88_kakao_send() -> None:
+    """GP88 §4 — 선택된 명품 문구 + OCR 담보 + 황금빛 증서 URL을 카카오톡으로 통합 전송"""
+    import os as _os
+    import json as _json
+
+    st.markdown('<p class="gp88-tab-header">📲 카카오 통합 발송 블록 — 문구 + 증서 결합 전송</p>', unsafe_allow_html=True)
+
+    _kakao_js_key = _os.environ.get("KAKAO_JS_KEY", "")
+    _script_body  = st.session_state.get("_gp88_active_script", "")
+    _ocr_result   = st.session_state.get("_gp88_ocr_result", {})
+    _app_url      = "https://goldkey-ai-817097913199.asia-northeast3.run.app"
+
+    # 발송 메시지 조합
+    _ocr_summary = ""
+    if _ocr_result:
+        _ocr_lines = []
+        for _kw, _lines in list(_ocr_result.items())[:5]:
+            _ocr_lines.append(f"• {_kw}: {_lines[0][:40]}")
+        _ocr_summary = "\n【계약서 핵심 담보】\n" + "\n".join(_ocr_lines)
+
+    _combined_msg = (
+        "📜 [GoldKey AI] 우리가 함께 만든 황금빛 약속\n\n"
+        + (_script_body if _script_body else "(§3 탭에서 명품 문구를 먼저 선택하세요)")
+        + _ocr_summary
+        + f"\n\n🔑 GoldKey AI Master\n{_app_url}"
+    )
+
+    st.markdown("**📋 발송 예정 메시지 미리보기:**")
+    st.text_area("", value=_combined_msg, height=220, key="_gp88_send_preview")
+
+    if not _script_body:
+        st.info("💡 §3 '명품 문구 선택' 탭에서 문구를 선택하면 발송 버튼이 활성화됩니다.")
+
+    st.markdown("---")
+
+    if not _kakao_js_key:
+        st.text_area(
+            "📋 카카오톡에 복사하여 전송 (KAKAO_JS_KEY 미설정 — 텍스트 전송 모드)",
+            value=_combined_msg,
+            height=160,
+            key="_gp88_kakao_copy_area",
+        )
+        st.caption("🔧 `KAKAO_JS_KEY` 환경변수를 등록하면 원클릭 공유 버튼이 활성화됩니다.")
+        return
+
+    # Kakao SDK 원클릭 공유 버튼
+    _safe_title = _json.dumps("📜 [GoldKey AI] 우리가 함께 만든 황금빛 약속")
+    _safe_desc  = _json.dumps(
+        (_script_body[:80] + "…") if _script_body else "내 가족을 위한 황금빛 약속 증서입니다."
+    )
+    _safe_url   = _json.dumps(_app_url)
+    _safe_key   = _json.dumps(_kakao_js_key)
+
+    _send_html = f"""
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
+        integrity="sha384-TiCUE00h649CAMonG018J2ujOgDKW/kVWlChEuu4jK2vxfAAD0eZxzCKakxg55G4"
+        crossorigin="anonymous"></script>
+<style>
+#gp88-send-btn{{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:14px 0;background:#FEE500;border:none;border-radius:12px;
+  font-size:1.05rem;font-weight:800;color:#191919;cursor:pointer;
+  letter-spacing:0.04em;box-shadow:0 4px 16px rgba(254,229,0,0.45);
+  transition:transform 0.12s,box-shadow 0.12s;
+}}
+#gp88-send-btn:hover{{transform:translateY(-2px);box-shadow:0 6px 22px rgba(254,229,0,0.55);}}
+#gp88-send-status{{text-align:center;font-size:0.82rem;color:#666;margin-top:8px;min-height:20px;}}
+</style>
+<button id="gp88-send-btn" onclick="gp88Share()">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <ellipse cx="12" cy="11" rx="10" ry="8.5" fill="#191919"/>
+    <path d="M6.5 14.5 L8.2 10.2 L9.5 13.2 L11 10 L12.5 13.2 L13.8 10.2 L15.5 14.5"
+          stroke="#FEE500" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>
+  카카오톡으로 문구 + 증서 통합 발송
+</button>
+<div id="gp88-send-status"></div>
+<script>
+(function(){{
+  try{{
+    if(!window.Kakao.isInitialized())window.Kakao.init({_safe_key});
+  }}catch(e){{
+    document.getElementById('gp88-send-status').innerText='⚠️ SDK 초기화 실패: '+e.message;
+  }}
+}})();
+function gp88Share(){{
+  var el=document.getElementById('gp88-send-status');
+  try{{
+    window.Kakao.Share.sendDefault({{
+      objectType:'feed',
+      content:{{
+        title:{_safe_title},
+        description:{_safe_desc},
+        imageUrl:'https://goldkey-ai-817097913199.asia-northeast3.run.app/static/goldkey_cert_preview.png',
+        link:{{mobileWebUrl:{_safe_url},webUrl:{_safe_url}}},
+      }},
+      buttons:[{{title:'📜 약속 확인하기',link:{{mobileWebUrl:{_safe_url},webUrl:{_safe_url}}}}}],
+      installTalk:true,
+    }});
+    el.innerText='✅ 카카오톡 공유 창이 열렸습니다.';
+  }}catch(e){{
+    el.innerText='⚠️ 공유 실패: '+e.message;
+  }}
+}}
+</script>
+"""
+    import streamlit.components.v1 as _c
+    _c.html(_send_html, height=120)
 
 
 # 사용 모델 상수 (변경 시 이 한 줄만 수정)
@@ -19056,6 +19692,8 @@ window['startTTS_{tab_key}']=function(){{
                         mime="text/plain",
                         key=f"dl_{result_key}",
                         use_container_width=True)
+            # ── [GP88] 통합 상담 허브 ─────────────────────────────────────────
+            _gp88_hub()
             # ── [GP86] 황금빛 약속 증서 발급 ─────────────────────────────────
             _gp86_golden_card(result_text=result_text, name_hint=c_name_out)
         elif guide_md:
