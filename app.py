@@ -10500,15 +10500,18 @@ def _gp96_panel() -> None:
                                  use_container_width=True, type="primary"):
                         _url = _gp96_upload_leaflet(_raw, _fname, _meta)
                         _gp96_save_index(_meta, _url or "(로컬 저장)", _combined_text)
+                        # ── 증서·리스크 리포트 자동 연동 ────────────────────
+                        _gp96_sync_to_certificate(_meta)
                         _idx = st.session_state.get("_gp96_leaflet_index", [])
-                        # ── GP97 자동 차이 분석 트리거 ──────────────────────
+                        # ── GP97 자동 차이 분석 + 전역 화법 트리거 ──────────
                         if len(_idx) >= 2:
                             _diff97 = _gp97_analyze_diff(_meta, _idx[:-1])
                             _gp97_register_trend(_diff97)
                             if _diff97.get("added"):
+                                _gp97_push_global_script(_diff97 | {"new_riders": _diff97["added"], "date": _meta.get("date_str", "")})
                                 st.info(
                                     f"🤖 GP97 자동 학습: "
-                                    f"신규 담보 {', '.join(_diff97['added'])} 감지 → 트렌드 등록!"
+                                    f"신규 담보 {', '.join(_diff97['added'])} 감지 → 트렌드 등록 + 전역 화법 즉시 반영!"
                                 )
                         st.success(
                             f"✅ 인덱스 등록 완료! "
@@ -10519,14 +10522,16 @@ def _gp96_panel() -> None:
                     if st.button("📋 인덱스만 등록 (GCS 저장 없이)", key="_gp96_index_only_btn",
                                  use_container_width=True):
                         _gp96_save_index(_meta, "", _combined_text)
+                        _gp96_sync_to_certificate(_meta)
                         _idx2 = st.session_state.get("_gp96_leaflet_index", [])
                         if len(_idx2) >= 2:
                             _diff97b = _gp97_analyze_diff(_meta, _idx2[:-1])
                             _gp97_register_trend(_diff97b)
                             if _diff97b.get("added"):
+                                _gp97_push_global_script(_diff97b | {"new_riders": _diff97b["added"], "date": _meta.get("date_str", "")})
                                 st.info(
                                     f"🤖 GP97 자동 학습: "
-                                    f"신규 담보 {', '.join(_diff97b['added'])} 감지 → 트렌드 등록!"
+                                    f"신규 담보 {', '.join(_diff97b['added'])} 감지 → 트렌드 등록 + 전역 화법 즉시 반영!"
                                 )
                         st.success("✅ 세션 인덱스에만 등록 완료")
             else:
@@ -10831,6 +10836,197 @@ def _gp97_panel() -> None:
             '</div>',
             unsafe_allow_html=True,
         )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP96 확장] 1인칭 RAG 완성형 답변 생성 엔진
+# "내가 확인한 최신 자료에 따르면..." 형식의 근거 있는 1인칭 답변
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _gp96_rag_answer(query: str) -> str:
+    """GP96 RAG 검색 결과를 바탕으로 완성형 1인칭 답변을 생성한다.
+    반환 형태: "내가 확인한 최신 자료에 따르면, ..." 완전한 1인칭 문장
+    """
+    _results = _gp96_rag_search(query, top_k=3)
+    if not _results:
+        return (
+            "내가 아직 이 담보에 대한 최신 리플렛을 보유하고 있지 않습니다. "
+            "GP96 리플렛 허브에 해당 보험사 자료를 먼저 등록하면 "
+            "즉시 근거 있는 1인칭 답변이 가능합니다."
+        )
+
+    _top = _results[0]
+    _riders_str = ", ".join(_top.get("riders", [])) or "다양한 담보"
+    _snippet = _top.get("ocr_text", "")[:300].replace("\n", " ").strip()
+    _co  = _top.get("company", "")
+    _pt  = _top.get("product_type", "")
+    _dt  = _top.get("date_str", "")
+
+    _lines = [
+        f"내가 직접 확인한 {_dt} {_co} 최신 리플렛에 따르면,",
+        f"'{_pt}' 상품에서 {_riders_str} 담보가 확인됩니다.",
+    ]
+
+    if len(_results) >= 2:
+        _other = [
+            r["company"] for r in _results[1:]
+            if r.get("company") and r.get("company") != _co
+        ]
+        if _other:
+            _other_co = _other[0]
+            _other_riders = ", ".join(_results[1].get("riders", [])) or "기본 담보"
+            _lines.append(
+                f"반면 내가 비교한 {_other_co} 자료에서는 {_other_riders}로 구성되어 있어, "
+                f"{_co}가 {_riders_str} 면에서 더 유리함을 내가 확인했습니다."
+            )
+
+    if _snippet:
+        _lines.append(f"실제 문서 발췌: '{_snippet[:100]}…'")
+
+    _lines.append(
+        "이 자료를 바탕으로 나는 당당하게 말할 수 있습니다 — "
+        "내 재산이 암 치료비로 증발하는 것을 지켜만 보지 않겠다고 "
+        "내가 결심한 이유가 바로 이 데이터에 있습니다."
+    )
+
+    return "\n".join(_lines)
+
+
+def _gp96_sync_to_certificate(meta: dict) -> None:
+    """스캔된 리플렛 기초 데이터를 황금빛 증서·리스크 리포트 세션 키에 자동 반영 — GP96 §전역 연동"""
+    _co   = meta.get("company", "")
+    _pt   = meta.get("product_type", "")
+    _dt   = meta.get("date_str", "")
+    _rids = meta.get("riders", [])
+
+    if _co and _rids:
+        _cert_hint = (
+            f"[{_dt} {_co} {_pt}] "
+            f"확인 담보: {', '.join(_rids[:4])}"
+            + ("…" if len(_rids) > 4 else "")
+        )
+        _prev = st.session_state.get("_gp94_cert_value_hint", "")
+        if _cert_hint not in _prev:
+            st.session_state["_gp94_cert_value_hint"] = (
+                (_prev + " / " if _prev else "") + _cert_hint
+            )
+
+        _plan_hint = st.session_state.get("_gp86_plan_hint", "")
+        if not _plan_hint:
+            st.session_state["_gp86_plan_hint"] = f"{_co} {_pt} 완전방어 플랜"
+
+        _riders_text = ", ".join(_rids)
+        _prev_rep = st.session_state.get("_gp88_ocr_result", {})
+        if not _prev_rep:
+            st.session_state["_gp88_ocr_result"] = {
+                "source": "GP96 리플렛 스캔",
+                "company": _co,
+                "product": _pt,
+                "riders": _riders_text,
+                "date": _dt,
+            }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP97 확장] 전역 화법 자동 반영 엔진
+# 새 리플렛 등록 → 트렌드 감지 → 전역 상담 멘트 세션 키 즉시 업데이트
+# ══════════════════════════════════════════════════════════════════════════════
+
+_GP97_GLOBAL_SCRIPT_KEY = "_gp97_global_scripts"
+
+
+def _gp97_push_global_script(trend: dict) -> None:
+    """트렌드를 전역 상담 멘트 풀에 즉시 반영 — GP97 §전역 화법 반영"""
+    if _GP97_GLOBAL_SCRIPT_KEY not in st.session_state:
+        st.session_state[_GP97_GLOBAL_SCRIPT_KEY] = []
+
+    _new_riders = ", ".join(trend.get("new_riders", []))
+    _co  = trend.get("company", "")
+    _dt  = trend.get("date", "")
+
+    _script = (
+        f"내가 방금 확인한 {_dt} {_co} 최신 리플렛에서 "
+        f"'{_new_riders}' 담보가 새롭게 등장했습니다. "
+        f"나는 이 최신 트렌드를 가장 먼저 고객에게 전달할 수 있는 전문가입니다. "
+        f"데이터가 쌓일수록 나의 상담 지능은 높아집니다."
+    )
+
+    _existing = [s["script"] for s in st.session_state[_GP97_GLOBAL_SCRIPT_KEY]]
+    if _script not in _existing:
+        import datetime as _dt_mod
+        st.session_state[_GP97_GLOBAL_SCRIPT_KEY].insert(0, {
+            "script": _script,
+            "company": _co,
+            "riders": trend.get("new_riders", []),
+            "registered_at": _dt_mod.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        })
+
+        _prev88 = st.session_state.get("_gp88_selected_script", "")
+        if _script not in _prev88:
+            st.session_state["_gp88_auto_trend_script"] = _script
+
+
+def _gp97_get_global_scripts(limit: int = 5) -> list:
+    """전역 상담 멘트 풀에서 최신 n개 반환 — 전역 화법 연동용"""
+    return st.session_state.get(_GP97_GLOBAL_SCRIPT_KEY, [])[:limit]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP95 확장] 회사별 담보 1인칭 비교 로직
+# "A사는 이게 되는데 B사는 안 되네요" — 리플렛 인덱스 기반 자동 비교
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _gp95_compare_companies(rider_keyword: str) -> str:
+    """GP95 §확장: 리플렛 인덱스에서 특정 담보 키워드를 보유/미보유 회사를 비교해
+    1인칭 화법 비교 문구를 자동 생성한다."""
+    _index = st.session_state.get("_gp96_leaflet_index", [])
+    if not _index:
+        _adv = next(
+            (r for r in _GP95_ADVANCED_RIDERS if rider_keyword in r.get("label", "") or rider_keyword in r.get("name", "")),
+            None,
+        )
+        if _adv:
+            return _adv["hook"]
+        return (
+            f"내가 확인한 최신 자료에서 '{rider_keyword}' 담보는 "
+            f"아직 리플렛 허브에 등록되지 않았습니다. "
+            f"GP96에서 리플렛을 먼저 등록하면 실시간 비교가 가능합니다."
+        )
+
+    _have: list[str] = []
+    _not_have: list[str] = []
+    _seen: set[str] = set()
+    for _doc in _index:
+        _co = _doc.get("company", "")
+        if _co in _seen:
+            continue
+        _seen.add(_co)
+        _riders = [r.lower() for r in _doc.get("riders", [])]
+        if any(rider_keyword.lower() in r for r in _riders):
+            _have.append(_co)
+        else:
+            _not_have.append(_co)
+
+    if not _have and not _not_have:
+        return f"내가 보유한 리플렛 중 '{rider_keyword}' 관련 정보를 찾지 못했습니다."
+
+    _parts = []
+    if _have:
+        _parts.append(
+            f"내가 직접 확인한 리플렛에서 "
+            f"{', '.join(_have)}는 '{rider_keyword}'를 지원합니다."
+        )
+    if _not_have:
+        _parts.append(
+            f"반면 {', '.join(_not_have)}는 해당 담보가 확인되지 않았습니다."
+        )
+    if _have and _not_have:
+        _parts.append(
+            f"같은 보험료를 내고 '{rider_keyword}'가 되는 회사와 안 되는 회사가 있다는 것 — "
+            f"나는 이 차이를 내가 직접 확인하고 더 유리한 선택을 했습니다."
+        )
+
+    return " ".join(_parts)
 
 
 # ── [가이딩 프로토콜 제86조] 황금빛 약속 증서 생성 엔진 ─────────────────────
