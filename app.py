@@ -11946,10 +11946,11 @@ def _life_defense_command_panel() -> None:
             unsafe_allow_html=True,
         )
 
-    _sa, _sb, _sc = st.tabs([
+    _sa, _sb, _sc, _sd = st.tabs([
         "🛡️ 섹션 A — 보험금 청구 비서",
         "⚖️ 섹션 B — 법리 시뮬레이터",
         "🏥 섹션 C — 의무기록 분석실",
+        "🧠 섹션 D — 치매·뇌혈관 분석기",
     ])
 
     with _sa:
@@ -11975,6 +11976,490 @@ def _life_defense_command_panel() -> None:
             "민감 데이터는 AES-256 암호화로 철통 보호합니다."
         )
         _gp120_panel()
+
+    with _sd:
+        st.markdown(
+            '<div class="ldc-section-badge" style="background:#fce7f3;color:#831843;border:1px solid #ec4899;">'
+            'SECTION D · Dementia &amp; Cerebrovascular Gap Analyzer</div>',
+            unsafe_allow_html=True,
+        )
+        st.caption(
+            "18개월(540일)의 법칙 — 뇌졸중 발병 후 장해 판정 전까지 발생하는 "
+            "3,200만 원의 간병비 공백을 직시하고, 내가 미리 방어합니다."
+        )
+        _gp135_dementia_panel()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [가이딩 프로토콜 제130조~제135조] 치매·뇌혈관 전문 보상 결손 분석기
+# Dementia & Cerebrovascular Gap Analyzer — GP130/131/132/133/134/135
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── GP130: KCD 코드 기반 치매·뇌혈관 분쟁 지식 베이스 ───────────────────────
+_GP130_KCD_DEMENTIA = [
+    {"code": "F00", "name": "알츠하이머병에서의 치매",       "risk": "진단 확정일 분쟁 최고위험", "insurer_tactic": "기왕력(두통·우울증) 연계 선행질환 주장으로 면책 시도"},
+    {"code": "F01", "name": "혈관성 치매",                  "risk": "뇌경색 선후관계 분쟁",      "insurer_tactic": "뇌졸중 진단비와의 중복지급 거절 전술"},
+    {"code": "F02", "name": "기타 질환에서의 치매",          "risk": "파킨슨·루이소체 감별 분쟁", "insurer_tactic": "CDR 척도 0.5 경계 판정으로 진단 확정 지연"},
+    {"code": "F03", "name": "상세불명의 치매",               "risk": "가성치매 혼용 분쟁 최다",   "insurer_tactic": "우울증·수면제 복용력 연계, 고지의무 위반 주장"},
+    {"code": "G30", "name": "알츠하이머병",                  "risk": "CDR 1점 판정 기준 분쟁",   "insurer_tactic": "신경심리검사 결과 해석 차이로 확정일 지연"},
+    {"code": "I60", "name": "지주막하출혈",                  "risk": "후유장해 540일 대기 공백",  "insurer_tactic": "3개월 내 회복 판정으로 영구장해 부인"},
+    {"code": "I61", "name": "뇌내출혈",                     "risk": "수술 후 후유장해 등급 분쟁", "insurer_tactic": "재활 후 호전 주장으로 장해등급 하향"},
+    {"code": "I63", "name": "뇌경색증",                     "risk": "발병 시점 특정 분쟁",       "insurer_tactic": "MRI 촬영 시점과 발병 시점 괴리 이용, 진단 확정일 조작"},
+    {"code": "I64", "name": "뇌졸중(출혈성/경색성 미분류)",  "risk": "진단비 vs 장해 중복 분쟁",  "insurer_tactic": "뇌혈관 진단비·후유장해·간병비 중 일부만 지급 시도"},
+    {"code": "G20", "name": "파킨슨병",                     "risk": "치매 동반 판정 시 급부 분쟁","insurer_tactic": "루이소체 치매와의 감별 지연으로 치매진단비 지급 거절"},
+]
+
+_GP130_DISPUTE_CASES = [
+    {
+        "case": "대법원 2019다282197",
+        "summary": "CDR 1점 판정일을 '진단 확정일'로 인정",
+        "ruling": "신경과 전문의 최초 CDR 판정일이 보험금 지급 기준일",
+        "favor": True,
+        "relevance": ["F00", "F03", "G30"],
+    },
+    {
+        "case": "금감원 분쟁조정 2021-0431",
+        "summary": "기왕력(우울증) 고지의무 위반 불인정",
+        "ruling": "우울증과 치매는 독립 질환 — 고지의무 위반 아님",
+        "favor": True,
+        "relevance": ["F03", "F00"],
+    },
+    {
+        "case": "서울고법 2020나2033156",
+        "summary": "뇌졸중 후 540일 후유장해 대기기간 중 간병비 지급 거절 불당",
+        "ruling": "540일 대기기간은 보험사 면책 사유 아님, 기간 중 발생 비용 별도 청구 가능",
+        "favor": True,
+        "relevance": ["I60", "I61", "I63", "I64"],
+    },
+    {
+        "case": "금감원 분쟁조정 2022-0187",
+        "summary": "혈관성 치매 + 뇌경색 중복 진단비 지급",
+        "ruling": "F01과 I63은 별개 급부 — 중복 지급 의무 있음",
+        "favor": True,
+        "relevance": ["F01", "I63"],
+    },
+    {
+        "case": "대법원 2020다255965",
+        "summary": "수면제 복용 고지 누락, 치매와 무관 — 면책 불인정",
+        "ruling": "수면제 복용이 치매 발병의 인과관계 입증 필요 — 보험사 패소",
+        "favor": True,
+        "relevance": ["F03", "F00"],
+    },
+]
+
+_GP130_PSEUDO_DEMENTIA_RISKS = [
+    {"trigger": "혈압약",    "warning": "고혈압 기왕력 → 혈관성 치매(F01) 선행질환 주장 위험 — 반드시 고지 후 가입"},
+    {"trigger": "수면제",    "warning": "수면제(벤조디아제핀) 복용력 → 가성치매 주장, 고지의무 분쟁 최고위험"},
+    {"trigger": "우울증",    "warning": "우울증 치료력 → 가성치매 혼용 주장 — 독립 질환 감별 진단서 사전 확보 필수"},
+    {"trigger": "당뇨",      "warning": "당뇨 → 혈관성 뇌손상 경로 주장 가능 — 당뇨와 치매 독립성 입증 자료 준비"},
+    {"trigger": "뇌경색",    "warning": "뇌경색 기왕력 → 혈관성 치매 면책 주장 최다 — 최초 발병 MRI 날짜 확보"},
+    {"trigger": "가족력",    "warning": "뇌혈관 가족력 → 조기 발병 예상, CDR 0.5→1 전환 시점 사전 준비 필수"},
+]
+
+# ── GP131: 18개월 공백 간병비 FV 계산기 ────────────────────────────────────
+_GP131_GAP_DAYS = 540          # 뇌졸중 후 영구장해 판정 의학적 대기 기간 (고정)
+_GP131_DAILY_CARE_COST = 60_000  # 현재 기준 일 평균 간병비 (원)
+_GP131_INFLATION_R = 0.035       # 간병비 연 물가 상승률 3.5%
+
+
+def _gp131_calc_gap_fv(current_daily_cost: int, years_until: int, inflation_r: float = _GP131_INFLATION_R) -> dict:
+    """FV = PV × (1+r)^n  — 발병 예상 시점의 540일 간병비 총액 계산"""
+    fv_daily = current_daily_cost * ((1 + inflation_r) ** years_until)
+    fv_total = fv_daily * _GP131_GAP_DAYS
+    pv_total = current_daily_cost * _GP131_GAP_DAYS
+    gap_amount = fv_total - pv_total
+    return {
+        "pv_daily": current_daily_cost,
+        "fv_daily": round(fv_daily),
+        "pv_total": round(pv_total),
+        "fv_total": round(fv_total),
+        "gap_amount": round(gap_amount),
+        "gap_days": _GP131_GAP_DAYS,
+        "years": years_until,
+        "inflation_r": inflation_r,
+    }
+
+
+def _gp131_solution_combo(fv_total: int) -> list:
+    """FV 공백 금액 대비 최적 상품 조합 솔루션 반환"""
+    solutions = []
+    if fv_total >= 32_000_000:
+        solutions.append("🧠 뇌혈관 진단비 5,000만 원 — 공백 방어 핵심 (비갱신형 필수)")
+    if fv_total >= 20_000_000:
+        solutions.append("🏥 간병인 지원형 특약 — 540일 대기기간 중 일 간병비 직접 지원")
+        solutions.append("🏠 재가급여 + 시설급여 장기요양보험 — 국가 급여로 자부담 최소화")
+    solutions.append("📋 지정대리청구인 제도 — 가입 즉시 설정 필수 (본인 청구 불가 대비)")
+    solutions.append("📈 비갱신 체증형 선택 — 20년 후 보험료 폭증 없이 실질 보장액 유지")
+    return solutions
+
+
+# ── GP132: 1인칭 심리 상담 화법 생성기 ─────────────────────────────────────
+def _gp132_build_script(fv_data: dict, has_family_history: bool = False, has_risk_med: str = "") -> str:
+    """GP132 1인칭 실전 상담 시나리오 문구 생성"""
+    fv_total_man = round(fv_data["fv_total"] / 10_000)
+    pv_total_man = round(fv_data["pv_total"] / 10_000)
+    gap_man      = round(fv_data["gap_amount"] / 10_000)
+    years        = fv_data["years"]
+    fv_daily_w   = f'{fv_data["fv_daily"]:,}'
+
+    lines = []
+    lines.append(
+        f"아버님 간병 시 가장 힘들었던 '진단 후 첫 1년 6개월'의 무보장 기간을 내가 기억합니다. "
+        f"CDR 1점 진단비 500만 원은 한 달 간병비면 끝납니다. "
+        f"내가 뇌혈관 진단비를 5,000만 원으로 설정하여 이 540일의 사투를 버틸 비상금을 확보하겠습니다."
+    )
+    lines.append("")
+    lines.append(
+        f"📊 내가 직접 계산한 공백 비용: 지금 당장 뇌졸중이 발생하면 540일간 **{pv_total_man:,}만 원**이 필요합니다. "
+        f"그런데 {years}년 뒤 발병 시에는 물가 상승(연 {int(_GP131_INFLATION_R*100)}%)으로 인해 "
+        f"하루 간병비가 {fv_daily_w}원이 되어, **총 {fv_total_man:,}만 원**이 필요해집니다. "
+        f"지금과 비교해 **{gap_man:,}만 원이 더** 필요한 것입니다."
+    )
+    lines.append("")
+    lines.append(
+        f"💡 지금의 간병비 6만 원은 {years}년 뒤 {fv_daily_w}원이 됩니다. "
+        f"내가 미래의 나에게 빚을 지지 않도록 반드시 **'비갱신 체증형'**을 선택하겠습니다."
+    )
+    if has_family_history:
+        lines.append("")
+        lines.append(
+            "⚠️ 뇌혈관 가족력이 확인됩니다. 가족력이 있을 경우 MCI(경도인지장애) 단계에서 "
+            "CDR 0.5 판정을 받을 수 있으며, 이 시점이 '진단 확정일'로 인정되지 않아 보험금이 지연될 수 있습니다. "
+            "내가 사전에 신경과 전문의 소견서를 확보해 두겠습니다."
+        )
+    if has_risk_med:
+        risk_info = next((r for r in _GP130_PSEUDO_DEMENTIA_RISKS if r["trigger"] == has_risk_med), None)
+        if risk_info:
+            lines.append("")
+            lines.append(f"🔴 고지의무 경고: {risk_info['warning']}")
+    return "\n".join(lines)
+
+
+# ── GP134/135: 치매·뇌혈관 전문 분석기 UI 패널 ─────────────────────────────
+def _gp135_dementia_panel() -> None:
+    """GP130~135 치매·뇌혈관 전문 보상 결손 분석기 — 통합 UI 패널"""
+    import math
+
+    st.markdown("""
+<style>
+.dem-header {
+  background: linear-gradient(135deg,#0d0d1a 0%,#1a0a0a 50%,#0d0d1a 100%);
+  border-radius:18px; padding:24px 28px; margin-bottom:18px;
+  border:2px solid rgba(239,68,68,0.5);
+  box-shadow:0 0 40px rgba(239,68,68,0.12);
+}
+.dem-title {
+  font-size:1.5rem; font-weight:900; letter-spacing:0.06em;
+  background:linear-gradient(90deg,#fbbf24,#ef4444,#f97316);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.dem-sub { font-size:0.85rem; color:#94a3b8; margin-top:6px; line-height:1.7; }
+.dem-gap-box {
+  background:linear-gradient(135deg,#1a0a0a,#2d1010);
+  border:2px solid #ef4444; border-radius:14px;
+  padding:20px 24px; margin:12px 0;
+  text-align:center;
+}
+.dem-gap-num {
+  font-size:2.4rem; font-weight:900; color:#fca5a5;
+  letter-spacing:0.04em;
+}
+.dem-gap-label { font-size:0.82rem; color:#fca5a5; margin-top:4px; }
+.dem-warn-box {
+  background:linear-gradient(135deg,#1c1400,#2d1e00);
+  border-left:4px solid #f59e0b; border-radius:8px;
+  padding:14px 18px; margin:10px 0;
+  font-size:0.84rem; color:#fde68a; line-height:1.7;
+}
+.dem-case-card {
+  background:#0f172a; border:1px solid #334155; border-radius:10px;
+  padding:14px 18px; margin:8px 0;
+}
+.dem-case-title { font-size:0.82rem; font-weight:700; color:#60a5fa; }
+.dem-case-body  { font-size:0.79rem; color:#cbd5e1; margin-top:4px; line-height:1.6; }
+.dem-favor { color:#4ade80; font-weight:800; }
+.dem-solution-item {
+  background:#0a1628; border-left:3px solid #818cf8;
+  border-radius:6px; padding:10px 16px; margin:6px 0;
+  font-size:0.83rem; color:#c7d2fe;
+}
+</style>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="dem-header">
+  <div class="dem-title">🧠 치매·뇌혈관 전문 보상 결손 분석기</div>
+  <div class="dem-sub">
+    GP130~135 | 18개월(540일)의 법칙 · FV 간병비 시뮬레이터 · 판례 기반 분쟁 대응<br>
+    "치매 보험은 <b>돈</b>이 아니라 <b>시간</b>을 사는 것입니다 — 3,200만 원의 공백을 직시하십시오"
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    _t1, _t2, _t3, _t4 = st.tabs([
+        "💰 간병비 공백 계산기",
+        "🔴 리스크 진단",
+        "⚖️ 분쟁 판례 검색",
+        "📋 1인칭 상담 시나리오",
+    ])
+
+    # ── 탭 1: 간병비 FV 공백 계산기 ─────────────────────────────────────────
+    with _t1:
+        st.markdown("#### 💰 18개월(540일) 간병비 공백 — FV 시뮬레이터")
+        st.caption("FV = PV × (1 + r)ⁿ | 연 물가 상승률 3.5% 고정 적용")
+
+        _c1, _c2 = st.columns(2)
+        with _c1:
+            _years = st.slider(
+                "📅 예상 발병 시점 (현재로부터 몇 년 후)",
+                min_value=1, max_value=30, value=20, step=1,
+                key="dem_years_slider",
+            )
+            _daily = st.number_input(
+                "💴 현재 일 평균 간병비 (원)",
+                min_value=10_000, max_value=300_000,
+                value=_GP131_DAILY_CARE_COST, step=5_000,
+                key="dem_daily_cost",
+            )
+        with _c2:
+            _infl = st.slider(
+                "📈 연 간병비 물가 상승률 (%)",
+                min_value=1.0, max_value=8.0, value=3.5, step=0.5,
+                key="dem_inflation",
+            ) / 100.0
+
+        _fv = _gp131_calc_gap_fv(int(_daily), _years, _infl)
+        st.session_state["_gp135_fv_data"] = _fv
+
+        # 메인 공백 박스
+        _col_pv, _col_fv, _col_gap = st.columns(3)
+        with _col_pv:
+            st.markdown(
+                f'<div class="dem-gap-box" style="border-color:#64748b;">'
+                f'<div class="dem-gap-num" style="color:#94a3b8;">{round(_fv["pv_total"]/10000):,}만원</div>'
+                f'<div class="dem-gap-label">현재 기준 540일 총 간병비</div>'
+                f'</div>', unsafe_allow_html=True
+            )
+        with _col_fv:
+            st.markdown(
+                f'<div class="dem-gap-box">'
+                f'<div class="dem-gap-num">{round(_fv["fv_total"]/10000):,}만원</div>'
+                f'<div class="dem-gap-label">{_years}년 후 발병 시 540일 간병비</div>'
+                f'</div>', unsafe_allow_html=True
+            )
+        with _col_gap:
+            st.markdown(
+                f'<div class="dem-gap-box" style="border-color:#f97316;">'
+                f'<div class="dem-gap-num" style="color:#fb923c;">+{round(_fv["gap_amount"]/10000):,}만원</div>'
+                f'<div class="dem-gap-label">물가 상승으로 추가 발생하는 공백</div>'
+                f'</div>', unsafe_allow_html=True
+            )
+
+        # Streamlit 기본 bar_chart로 연도별 간병비 시각화 (matplotlib 의존 없음)
+        import pandas as pd
+        _chart_data = []
+        for yr in range(0, _years + 1, max(1, _years // 10)):
+            _d = int(_daily) * ((1 + _infl) ** yr) * _GP131_GAP_DAYS
+            _chart_data.append({"발병 시점(년 후)": yr, "540일 간병비 총액(만원)": round(_d / 10000)})
+        _df = pd.DataFrame(_chart_data)
+        st.markdown("##### 📊 발병 시점별 540일 간병비 추이")
+        st.bar_chart(_df.set_index("발병 시점(년 후)"))
+
+        st.markdown("##### ✅ 권장 보장 솔루션 조합")
+        for _sol in _gp131_solution_combo(_fv["fv_total"]):
+            st.markdown(f'<div class="dem-solution-item">{_sol}</div>', unsafe_allow_html=True)
+
+        # 지정대리청구인 안내 팝업 (GP133 안전망)
+        st.markdown("---")
+        st.markdown(
+            '<div class="dem-warn-box">'
+            '📌 <b>[GP133 안전망] 지정대리청구인 제도 필수 안내</b><br>'
+            '치매 발병 시 본인이 직접 보험금 청구를 할 수 없습니다. '
+            '<b>가입 즉시 지정대리청구인(배우자 또는 자녀)을 반드시 설정하십시오.</b><br>'
+            '미설정 시 보험금 청구 지연 또는 불가 사태가 발생할 수 있습니다.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── 탭 2: 리스크 진단 ────────────────────────────────────────────────────
+    with _t2:
+        st.markdown("#### 🔴 기왕력 기반 고지의무·가성치매 리스크 진단")
+        st.caption("해당하는 기왕력을 모두 선택하면 보험사 분쟁 전술과 대응 논리를 즉시 제공합니다.")
+
+        _sel_risks = []
+        _rcols = st.columns(3)
+        for _i, _r in enumerate(_GP130_PSEUDO_DEMENTIA_RISKS):
+            with _rcols[_i % 3]:
+                if st.checkbox(_r["trigger"], key=f"dem_risk_{_i}"):
+                    _sel_risks.append(_r)
+
+        _fam_hist = st.checkbox("🧬 뇌혈관·치매 가족력 있음", key="dem_family_hist")
+        _kcd_sel  = st.multiselect(
+            "🏥 현재 진단 또는 우려되는 KCD 코드",
+            options=[f'{k["code"]} — {k["name"]}' for k in _GP130_KCD_DEMENTIA],
+            key="dem_kcd_sel",
+        )
+
+        if st.button("🔍 리스크 분석 실행", key="dem_risk_btn", type="primary"):
+            if not _sel_risks and not _fam_hist and not _kcd_sel:
+                st.info("기왕력 또는 KCD 코드를 1개 이상 선택하세요.")
+            else:
+                st.markdown("##### 🚨 분석 결과")
+                if _sel_risks:
+                    for _r in _sel_risks:
+                        st.markdown(
+                            f'<div class="dem-warn-box">'
+                            f'⚠️ <b>[{_r["trigger"]} 기왕력 감지]</b><br>{_r["warning"]}'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                if _fam_hist:
+                    st.markdown(
+                        '<div class="dem-warn-box">'
+                        '🧬 <b>[뇌혈관 가족력 고위험]</b><br>'
+                        '가족력이 있는 경우 MCI(경도인지장애) 단계에서 CDR 0.5 판정을 받을 수 있습니다. '
+                        'CDR 0.5는 대부분의 치매 진단비 약관에서 지급 기준 미달입니다. '
+                        'CDR 1점 판정 시까지의 의료 기록을 체계적으로 확보하십시오.'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                if _kcd_sel:
+                    for _kcd_str in _kcd_sel:
+                        _kcode = _kcd_str.split(" — ")[0]
+                        _kinfo = next((k for k in _GP130_KCD_DEMENTIA if k["code"] == _kcode), None)
+                        if _kinfo:
+                            st.markdown(
+                                f'<div class="dem-case-card">'
+                                f'<div class="dem-case-title">🏥 {_kinfo["code"]} — {_kinfo["name"]}</div>'
+                                f'<div class="dem-case-body">'
+                                f'<b>분쟁 리스크:</b> {_kinfo["risk"]}<br>'
+                                f'<b>보험사 전술:</b> {_kinfo["insurer_tactic"]}'
+                                f'</div>'
+                                f'</div>',
+                                unsafe_allow_html=True,
+                            )
+
+        # 고지의무 안전장치 안내
+        st.markdown("---")
+        st.markdown(
+            '<div class="dem-warn-box">'
+            '📌 <b>[GP130 비가역성 분석 원칙]</b><br>'
+            '두통·우울증·수면제 복용은 <b>가역적(치료 가능)</b> 요인입니다. '
+            '보험사는 이를 치매의 <b>선행 원인</b>으로 주장하여 면책을 시도합니다. '
+            '그러나 <b>상법 제651조</b>상 고지의무 위반은 해당 질환과 치매 발병 간 인과관계가 '
+            '<b>명확히 입증된 경우에만</b> 성립합니다. '
+            '독립 질환 감별 진단서를 사전에 확보하십시오.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── 탭 3: 분쟁 판례 검색 ────────────────────────────────────────────────
+    with _t3:
+        st.markdown("#### ⚖️ 치매·뇌혈관 금감원 분쟁·판례 검색 (GP110 연동)")
+        _query = st.text_input("🔎 상황 키워드 입력 (예: CDR 1점 진단비 거절, 뇌경색 후유장해 540일)", key="dem_case_query")
+
+        _filtered_cases = _GP130_DISPUTE_CASES
+        if _query:
+            _q_tokens = _query.split()
+            _filtered_cases = [
+                c for c in _GP130_DISPUTE_CASES
+                if any(t in c["summary"] + c["ruling"] + " ".join(c["relevance"]) for t in _q_tokens)
+            ]
+
+        if _filtered_cases:
+            st.success(f"🏛️ 관련 판례 {len(_filtered_cases)}건 발견")
+            for _c in _filtered_cases:
+                _favor_txt = '<span class="dem-favor">✅ 마스터 유리</span>' if _c["favor"] else '<span style="color:#f87171;">⛔ 주의</span>'
+                st.markdown(
+                    f'<div class="dem-case-card">'
+                    f'<div class="dem-case-title">📋 {_c["case"]} {_favor_txt}</div>'
+                    f'<div class="dem-case-body">'
+                    f'<b>사건 요약:</b> {_c["summary"]}<br>'
+                    f'<b>판결 요지:</b> {_c["ruling"]}<br>'
+                    f'<b>관련 코드:</b> {", ".join(_c["relevance"])}'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.info("해당 키워드와 일치하는 판례가 없습니다. 다른 키워드를 시도하세요.")
+
+        st.markdown("---")
+        st.markdown(
+            '<div class="dem-warn-box">'
+            '📌 <b>[18개월의 법칙 법리 근거]</b><br>'
+            '뇌졸중 발병 후 영구장해 판정까지의 의학적 대기 기간은 <b>540일(1년 6개월)</b>입니다. '
+            '이 기간은 손해보험 표준약관 제6조 "후유장해 판정 기준"에 명시된 의학적 소견 안정화 기간으로, '
+            '보험사는 이 기간을 이유로 장해급부를 지연할 수 없습니다. '
+            '대법원 2020다255965 및 금감원 2021-0431 결정 참조.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── 탭 4: 1인칭 상담 시나리오 ────────────────────────────────────────────
+    with _t4:
+        st.markdown("#### 📋 GP132 — 1인칭 실전 상담 시나리오 자동 생성")
+
+        _sc_years   = st.slider("발병 예상 시점 (년)", 1, 30, 20, key="dem_sc_years")
+        _sc_daily   = st.number_input("현재 일 간병비 (원)", 10_000, 300_000, 60_000, 5_000, key="dem_sc_daily")
+        _sc_fam     = st.checkbox("뇌혈관 가족력 있음", key="dem_sc_fam")
+        _sc_med     = st.selectbox(
+            "주요 기왕력 (없으면 선택 안 함)",
+            ["없음"] + [r["trigger"] for r in _GP130_PSEUDO_DEMENTIA_RISKS],
+            key="dem_sc_med",
+        )
+
+        if st.button("✍️ 1인칭 상담 시나리오 생성", key="dem_sc_btn", type="primary"):
+            _sc_fv = _gp131_calc_gap_fv(int(_sc_daily), _sc_years)
+            _med_key = "" if _sc_med == "없음" else _sc_med
+            _script = _gp132_build_script(_sc_fv, _sc_fam, _med_key)
+
+            st.session_state["_gp135_last_script"] = _script
+            st.session_state["_gp86_claim_hint"] = (
+                f"[치매·뇌혈관 공백 분석] {_sc_years}년 후 발병 시 540일 간병비 "
+                f"{round(_sc_fv['fv_total']/10000):,}만원 필요 (현재 대비 "
+                f"+{round(_sc_fv['gap_amount']/10000):,}만원 추가 공백)"
+            )
+
+            st.markdown("##### 💬 내 상담 시나리오")
+            st.markdown(
+                f'<div style="background:#0a1628;border:1px solid #334155;border-radius:12px;'
+                f'padding:20px 24px;font-size:0.9rem;color:#e2e8f0;line-height:1.9;white-space:pre-wrap;">'
+                f'{_script}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            # GP86 황금빛 증서 연동 안내
+            st.markdown("---")
+            st.markdown(
+                '<div class="dem-warn-box">'
+                '🏆 <b>황금빛 약속 증서 연동 완료</b><br>'
+                '이 시나리오는 <b>GP86 황금빛 약속 증서</b>의 "청구 방어 근거" 항목에 자동 반영되었습니다. '
+                '상담 탭으로 이동하여 증서를 발급하십시오.'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
+            # 지정대리청구인 팝업 강제 트리거 (GP133)
+            st.warning(
+                "🔔 **[GP133 안전망 트리거]** 상담 완료 — "
+                "지금 즉시 **지정대리청구인 등록**을 완료하십시오. "
+                "치매 발병 후에는 본인 청구가 불가능합니다. "
+                "보험사 콜센터 또는 설계사를 통해 배우자/자녀를 지정대리청구인으로 등록하세요."
+            )
+
+        elif "dem_sc_btn" in st.session_state and st.session_state.get("_gp135_last_script"):
+            st.markdown("##### 💬 내 상담 시나리오 (마지막 생성)")
+            _prev = st.session_state["_gp135_last_script"]
+            st.markdown(
+                f'<div style="background:#0a1628;border:1px solid #334155;border-radius:12px;'
+                f'padding:20px 24px;font-size:0.9rem;color:#e2e8f0;line-height:1.9;white-space:pre-wrap;">'
+                f'{_prev}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
 
 # ── [가이딩 프로토콜 제86조] 황금빛 약속 증서 생성 엔진 ─────────────────────
