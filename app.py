@@ -16255,17 +16255,33 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
       letter-spacing: 0.35em !important;
       text-align: center !important;
       color: #1a3a5c !important;
-      height: 64px !important;
-      border: 2.5px solid #0ea5e9 !important;
+      height: 68px !important;
+      border: 2px solid #001F3F !important;
       border-radius: 12px !important;
       background: #f0f9ff !important;
+      box-shadow: 0 0 0 1px #001F3F !important;
+      transition: border-color 0.15s, box-shadow 0.15s !important;
+    }
+    section[data-testid="stSidebar"] div[data-baseweb="input"] input#hlp_otp_in:focus,
+    section[data-testid="stSidebar"] input[aria-label="6자리 인증번호"]:focus {
+      border: 2px solid #D4AF37 !important;
+      box-shadow: 0 0 0 3px rgba(212,175,55,0.35), 0 0 0 1px #001F3F !important;
+      background: #fffde7 !important;
+      outline: none !important;
+    }
+    /* 입력창 감싸는 baseweb wrapper 외곽선 제거 */
+    section[data-testid="stSidebar"] div[data-baseweb="input"] {
+      border: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
     }
     </style>
-    <div style='background:#f0f9ff;border:2px solid #0ea5e9;border-radius:12px;
-      padding:10px 14px 18px 14px;margin-bottom:10px;text-align:center;
-      border-bottom:4px solid #0369a1;box-shadow:0 3px 0 #0369a1;'>
-      <div style='font-size:0.85rem;font-weight:800;color:#0369a1;margin-bottom:2px;'>🔢 6자리 인증번호 입력</div>
-      <div style='font-size:0.72rem;color:#64748b;'>[가이딩 프로토콜 제37조] 표준 인증 수단</div>
+    <div style='background:#f0f9ff;border:2px solid #001F3F;border-radius:12px;
+      padding:10px 14px 6px 14px;margin-bottom:8px;text-align:center;
+      border-bottom:4px solid #001F3F;box-shadow:0 3px 0 #001F3F;'>
+      <div style='font-size:0.85rem;font-weight:800;color:#001F3F;margin-bottom:2px;'>🔢 6자리 인증번호 입력</div>
+      <div style='font-size:0.72rem;color:#334155;margin-bottom:2px;'>[가이딩 프로토콜 제37조] 표준 인증 수단</div>
+      <div style='font-size:0.72rem;font-weight:800;color:#b45309;background:#fef3c7;border-radius:6px;padding:2px 8px;display:inline-block;margin-top:2px;'>⚠️ (임시운영)</div>
     </div>""", unsafe_allow_html=True)
                         _otp_input = st.text_input("6자리 인증번호", key="hlp_otp_in",
                                                    placeholder="000000", max_chars=6,
