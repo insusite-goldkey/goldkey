@@ -57,11 +57,11 @@ if ($LASTEXITCODE -eq 0) {
 # 6. Cloud Run 배포 URL 안내 (HF Space 대신 Cloud Run 사용)
 Write-Host "✅ Cloud Run 배포 완료"
 Write-Host "🔗 앱 확인: https://goldkey-ai-817097913199.asia-northeast3.run.app"
-$response = Invoke-WebRequest -Uri "https://goldkey-ai-817097913199.asia-northeast3.run.app" -Method GET -TimeoutSec 15 -ErrorAction SilentlyContinue
-if ($response -and $response.StatusCode -eq 200) {
-    Write-Host "✅ Cloud Run 앱 응답 정상 (HTTP $($response.StatusCode))"
+$statusCode = & curl.exe -s -o NUL -w "%{http_code}" --max-time 15 "https://goldkey-ai-817097913199.asia-northeast3.run.app" 2>$null
+if ($statusCode -eq "200") {
+    Write-Host "✅ Cloud Run 앱 응답 정상 (HTTP 200)"
 } else {
-    Write-Host "⚠️ Cloud Run 앱 응답 확인 필요 (앱 시작 중이거나 네트워크 지연일 수 있음)"
+    Write-Host "⚠️ Cloud Run 앱 응답: HTTP $statusCode (앱 시작 중이거나 네트워크 지연일 수 있음)"
 }
 
 # 7. 바탕화면 단축아이콘 자동 업데이트 (마지막 커밋 시간 반영)
