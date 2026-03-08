@@ -1979,3 +1979,80 @@ _amt_major_bonus = _amt_major_raw * 0.5   # 희망 보장 영역 (6~10년)
 - `_gp91_report_panel()` 내에서 생애주기 레이블(`_label`)이 결정된 이후 즉시 조회한다.
 - `_GP92_MASTER_VOICE`는 GP91 섹션 헤더 직전에 선언되어 전역 상수로 관리된다.
 - `render_gp92_report()` (GP92 §3 보장 분석 리포트) 와 **별개의 독립 기능**이다 — 혼동 금지.
+
+---
+
+## 제93조 마스터의 육성 진심 연동 엔진 (Master's Voice Analog Engine — GP93)
+> **신설: 2026-03-09**
+> 본 조항은 GoldKey AI 마스터가 자신의 목소리로 고객에게 약속을 전달하는 '육성 진심 엔진'의 표준을 정의한다.
+> "디지털 증서에 마스터의 목소리를 새겨라. 글자는 지워지지만, 목소리는 마음에 영원히 남는다."
+
+---
+
+### §1 마스터 전용 음성 레코더 (Master Voice Recorder)
+
+- **위치**: `_gp86_golden_card()` 증서 발급 완료 직후, 카카오톡 공유 버튼 상단에 배치.
+- **최대 녹음 시간**: 30초 (자동 종료).
+- **구현 방식**: 브라우저 `MediaRecorder API` (WebM/Opus 코덱) 기반 인라인 컴포넌트.
+- **파형 애니메이션**: 녹음 중 황금빛 8-bar 파형(`gp93-wave`) 실시간 표시.
+- **타이머**: `00:00` 형식 카운트업, 30초 도달 시 자동 녹음 종료.
+- **GCS 업로드**: 녹음 완료 후 `☁️ GCS에 업로드` 버튼 → `_gp93_upload_voice()` 호출.
+- **파일명 규칙**: `master_voice/{customer_name}_{YYYYMMDD}_{uuid4}.webm`
+- **폴백**: 브라우저 미지원 환경을 위해 `📁 파일 직접 업로드` 확장 패널 제공.
+- **구현 함수**: `_gp93_voice_recorder(customer_name, plan, date_str)`
+- **세션 키**: `_gp93_voice_url` (공개 GCS URL), `_gp93_voice_bytes` (원시 바이트)
+
+### §2 카카오톡 공유 확장 — 육성 청취 버튼 (KakaoTalk Voice Button)
+
+- GP87 `_gp87_kakao_share()` 함수는 세션 키 `_gp93_voice_url` 존재 여부를 조회한다.
+- URL이 존재하면 카카오 피드 메시지의 `buttons` 배열에 다음 버튼을 **자동 추가**:
+  ```
+  title: '🎧 마스터의 진심 목소리 듣기'
+  link.webUrl / link.mobileWebUrl: <GCS 공개 URL>
+  ```
+- URL이 없으면 버튼 미추가 (기존 `📜 약속 확인하기` 버튼만 출력).
+- `KAKAO_JS_KEY` 미설정 시 텍스트 복사 모드에서도 `_voice_url`이 자동 포함된다.
+- **구현 위치**: `_gp87_kakao_share()` 내 `_voice_btn_js` 조건 분기
+
+### §3 황금빛 오디오 플레이어 페이지 (Golden Audio Player)
+
+- 음성 URL이 세션에 저장되면 `_gp93_voice_recorder()` 내 `🎧 황금빛 오디오 플레이어 미리보기` 확장 패널에 렌더링된다.
+- **배경**: `linear-gradient(135deg, #1a1200, #2d1f00, #1a1200)` — 딥 다크 골드 그라디언트.
+- **헤더 배지**: "🎙️ Master's Voice" + 황금빛 shimmer 애니메이션.
+- **프로필 원형 아이콘**: `🔑` 인장, 황금 그라디언트 테두리 + shimmer.
+- **약속 카드**: 1인칭 메시지 + 고객명 + 플랜명 + 날짜 표시.
+- **오디오 플레이어**: `<audio controls>` + `accent-color: #D4AF37` 황금 스킨.
+- **파형 애니메이션**: 재생 중 15-bar 황금 파형 (`gp93-player-wave`) CSS 애니메이션.
+  - 재생(play) 이벤트 → `.active` 클래스 추가 → 파형 시작.
+  - 일시정지/종료(pause/ended) → `.active` 제거 → 파형 정지.
+- **하단 링크**: `🔑 GoldKey AI 전용 상담 시스템 열기` (앱 메인 URL).
+- **구현 함수**: `_gp93_build_player_page(audio_url, customer_name, plan, date_str) -> str` (완전한 HTML 문자열 반환)
+
+### §4 1인칭 화법 준수 원칙 (First-Person Tone Compliance — GP80 연동)
+
+- 녹음 가이드 문구는 반드시 `나`를 주어로 시작한다.
+  - ✅ 예시: `"나는 오늘 우리가 함께 만든 이 약속을 끝까지 지키겠습니다."`
+  - ❌ 금지: `"당신을 위해"`, `"고객님께"`, `"귀하의"`
+- `_gp87_kakao_share()` 1인칭 자동 치환 (`_forbidden_map`)은 음성 버튼 텍스트에도 동일 적용.
+- 플레이어 HTML 내 모든 문구는 GP80/GP85 1인칭 화법 표준을 준수한다.
+
+### §5 시스템 통합 흐름
+
+```
+[_gp86_golden_card() — 증서 발급 완료]
+       ↓
+[_gp93_voice_recorder() 호출]
+       ↓ (녹음 → GCS 업로드)
+[session_state["_gp93_voice_url"] = 공개 URL]
+       ↓
+[_gp87_kakao_share() 호출 — _voice_btn_js 자동 삽입]
+       ↓
+[카카오톡 피드 메시지: '약속 확인하기' + '🎧 마스터의 진심 목소리 듣기' 버튼]
+       ↓
+[고객 클릭 → _gp93_build_player_page() 생성 HTML — 황금빛 플레이어 재생]
+```
+
+- `_GP93_VOICE_BUCKET = "insu-archive-2026"` (기존 GCS 버킷 재사용)
+- `_GP93_VOICE_PREFIX = "master_voice"` (경로 prefix)
+- 앱 기본 URL: `https://goldkey-ai-817097913199.asia-northeast3.run.app`
+- GCS 클라이언트: 기존 `_get_gcs_client()` 헬퍼 재사용 (secrets.toml 또는 환경변수 GCS_* 우선순위)

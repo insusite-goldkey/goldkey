@@ -9593,6 +9593,16 @@ def _gp86_golden_card(result_text: str = "", name_hint: str = "") -> None:
     )
     st.info("💡 저장된 HTML 파일을 Chrome에서 열고 '인쇄 → PDF 저장'으로 고화질 이미지를 얻을 수 있습니다.")
 
+    # ── [GP93] 마스터 육성 녹음 — 증서 발급 후 즉시 애착 메시지 녹음 ─────────
+    st.markdown("---")
+    st.markdown("### 🎙️ 마스터의 진심 목소리 녹음 (GP93)")
+    st.caption("지금 이 순간의 진심을 30초 안에 담아, 증서와 함께 고객의 마음에 영원히 새겨주세요.")
+    _gp93_voice_recorder(
+        customer_name=_display_name,
+        plan=_display_plan,
+        date_str=card_date,
+    )
+
     # ── [GP87] 카카오톡 공유 기능 ─────────────────────────────────────────────
     _gp87_kakao_share(
         name=_display_name,
@@ -9602,11 +9612,440 @@ def _gp86_golden_card(result_text: str = "", name_hint: str = "") -> None:
     )
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP93] 마스터의 육성 진심 연동 엔진
+# 제93조: 음성 녹음 → GCS 저장 → 황금빛 오디오 플레이어 → 카카오톡 청취 버튼
+# ══════════════════════════════════════════════════════════════════════════════
+
+_GP93_VOICE_BUCKET = "insu-archive-2026"   # GCS 음성 전용 버킷 (기존 버킷 재사용)
+_GP93_VOICE_PREFIX = "master_voice"         # GCS 경로 prefix
+
+# ── GP93 §2: GCS 음성 업로드 & 공개 URL 생성 ─────────────────────────────────
+def _gp93_upload_voice(audio_bytes: bytes, customer_name: str, date_str: str) -> str:
+    """
+    녹음된 WebM/Opus 바이트를 GCS에 업로드하고 공개 HTTPS URL을 반환한다.
+    실패 시 빈 문자열 반환.
+    """
+    import datetime as _dt
+    _safe_name = (customer_name or "master").replace(" ", "_").replace("/", "_")[:20]
+    _safe_date = (date_str or _dt.date.today().strftime("%Y%m%d")).replace(" ", "").replace("년", "").replace("월", "").replace("일", "")
+    _blob_name = f"{_GP93_VOICE_PREFIX}/{_safe_date}_{_safe_name}.webm"
+    try:
+        _gcs = _get_gcs_client()
+        if not _gcs:
+            return ""
+        _bucket_name = (
+            os.environ.get("GCS_CACHE_BUCKET")
+            or _GP93_VOICE_BUCKET
+        )
+        _blob = _gcs.bucket(_bucket_name).blob(_blob_name)
+        _blob.upload_from_string(audio_bytes, content_type="audio/webm;codecs=opus")
+        _blob.make_public()
+        return _blob.public_url
+    except Exception as _e:
+        return ""
+
+
+# ── GP93 §3: 황금빛 오디오 플레이어 HTML 페이지 생성 ─────────────────────────
+def _gp93_build_player_page(
+    audio_url: str,
+    customer_name: str,
+    plan: str,
+    date_str: str,
+    app_url: str = "https://goldkey-ai-817097913199.asia-northeast3.run.app",
+) -> str:
+    """황금빛 오디오 플레이어 단독 HTML 문자열 생성 (GCS 업로드용 또는 미리보기용)"""
+    _safe_name = customer_name or "소중한 고객"
+    _safe_plan = plan or "황금빛 플랜"
+    _safe_date = date_str or ""
+    return f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>마스터의 진심 목소리 — GoldKey AI</title>
+<style>
+  * {{ box-sizing:border-box; margin:0; padding:0; }}
+  body {{
+    min-height:100vh;
+    background: linear-gradient(160deg,#1a0e00 0%,#3d2100 40%,#1a0e00 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    padding:24px;
+  }}
+  .card {{
+    background:linear-gradient(160deg,#fffdf5 0%,#fef9e7 60%,#fff8e1 100%);
+    border-radius:28px;
+    box-shadow:0 0 0 3px #D4AF37, 0 0 0 7px #D4AF3740,
+               0 24px 64px rgba(212,175,55,0.35), 0 4px 16px rgba(0,0,0,0.2);
+    padding:40px 32px 32px 32px;
+    max-width:480px; width:100%;
+    text-align:center;
+    position:relative;
+  }}
+  .crown-badge {{
+    position:absolute; top:-18px; left:50%; transform:translateX(-50%);
+    background:linear-gradient(90deg,#b8860b,#D4AF37,#D4AF37,#b8860b);
+    background-size:200% auto;
+    animation:shimmer 2.5s linear infinite;
+    color:#fff; font-size:0.68rem; font-weight:900; letter-spacing:0.14em;
+    padding:4px 22px; border-radius:20px; white-space:nowrap;
+    box-shadow:0 2px 10px rgba(212,175,55,0.45);
+  }}
+  @keyframes shimmer {{ 0%{{background-position:-200% center}} 100%{{background-position:200% center}} }}
+  .profile-ring {{
+    width:90px; height:90px; border-radius:50%;
+    margin:10px auto 18px auto;
+    background:linear-gradient(135deg,#D4AF37,#b8860b);
+    display:flex; align-items:center; justify-content:center;
+    font-size:2.6rem;
+    box-shadow:0 0 0 4px #D4AF3740, 0 6px 20px rgba(212,175,55,0.4);
+  }}
+  .master-title {{
+    font-size:1.2rem; font-weight:900; color:#2c1a00;
+    letter-spacing:0.02em; margin-bottom:4px;
+  }}
+  .plan-text {{
+    font-size:0.85rem; font-weight:700; color:#7c5c00;
+    margin-bottom:4px;
+  }}
+  .date-text {{
+    font-size:0.78rem; color:#a08040; margin-bottom:24px;
+  }}
+  .promise-text {{
+    font-size:1.0rem; font-weight:700; color:#2c1a00;
+    line-height:1.7; font-style:italic;
+    border-left:4px solid #D4AF37;
+    padding:10px 14px; margin-bottom:24px;
+    background:rgba(212,175,55,0.08);
+    border-radius:0 10px 10px 0;
+    text-align:left;
+  }}
+  .waveform-wrap {{
+    display:flex; align-items:center; justify-content:center;
+    gap:4px; height:48px; margin-bottom:20px;
+  }}
+  .bar {{
+    width:5px; border-radius:3px;
+    background:linear-gradient(180deg,#D4AF37,#b8860b);
+    animation:wave 1.1s ease-in-out infinite;
+    transform-origin:bottom;
+  }}
+  .bar:nth-child(1)  {{ height:18px; animation-delay:0.0s; }}
+  .bar:nth-child(2)  {{ height:32px; animation-delay:0.1s; }}
+  .bar:nth-child(3)  {{ height:44px; animation-delay:0.2s; }}
+  .bar:nth-child(4)  {{ height:28px; animation-delay:0.3s; }}
+  .bar:nth-child(5)  {{ height:40px; animation-delay:0.4s; }}
+  .bar:nth-child(6)  {{ height:22px; animation-delay:0.5s; }}
+  .bar:nth-child(7)  {{ height:36px; animation-delay:0.6s; }}
+  .bar:nth-child(8)  {{ height:16px; animation-delay:0.7s; }}
+  .bar:nth-child(9)  {{ height:42px; animation-delay:0.8s; }}
+  .bar:nth-child(10) {{ height:26px; animation-delay:0.9s; }}
+  .bar:nth-child(11) {{ height:38px; animation-delay:1.0s; }}
+  .bar:nth-child(12) {{ height:20px; animation-delay:0.15s; }}
+  @keyframes wave {{
+    0%,100% {{ transform:scaleY(0.35); opacity:0.6; }}
+    50%      {{ transform:scaleY(1.0);  opacity:1.0; }}
+  }}
+  .waveform-wrap.paused .bar {{ animation-play-state:paused; }}
+  audio {{
+    width:100%; border-radius:10px; margin-bottom:18px;
+    accent-color:#D4AF37;
+  }}
+  .footer-seal {{
+    margin-top:18px; padding-top:14px;
+    border-top:1px dashed #D4AF3770;
+    font-size:0.72rem; color:#b8860b;
+    font-weight:800; letter-spacing:0.1em;
+  }}
+  .app-link {{
+    display:inline-block; margin-top:12px;
+    font-size:0.75rem; color:#D4AF37;
+    text-decoration:none; font-weight:700;
+  }}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="crown-badge">🎧 마스터의 진심 목소리 · GoldKey AI GP93</div>
+  <div class="profile-ring">🏅</div>
+  <div class="master-title">오늘의 약속을 목소리로 확정합니다</div>
+  <div class="plan-text">📜 {_safe_plan}</div>
+  <div class="date-text">🗓 {_safe_date}</div>
+  <div class="promise-text">
+    &ldquo;나는 내 가족과 내 미래를 위해 오늘 이 결정을 내렸습니다.<br>
+    이 목소리가 그 약속의 증거입니다.&rdquo;
+  </div>
+  <div class="waveform-wrap" id="waveform">
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+  </div>
+  <audio id="gp93-audio" controls src="{audio_url}"
+         onplay="document.getElementById('waveform').classList.remove('paused')"
+         onpause="document.getElementById('waveform').classList.add('paused')"
+         onended="document.getElementById('waveform').classList.add('paused')">
+    브라우저가 오디오를 지원하지 않습니다.
+  </audio>
+  <div class="footer-seal">
+    🏅 GoldKey Master 의 약속 · 목소리는 지워지지 않는 서명입니다
+  </div>
+  <a class="app-link" href="{app_url}" target="_blank">🔑 GoldKey AI 전용 상담 시스템 열기</a>
+</div>
+</body>
+</html>"""
+
+
+# ── GP93 §1: 마스터 전용 음성 레코더 UI ──────────────────────────────────────
+def _gp93_voice_recorder(customer_name: str = "", plan: str = "", date_str: str = "") -> None:
+    """
+    GP93 §1 — 브라우저 MediaRecorder API 기반 30초 음성 녹음 UI.
+    녹음 완료 후 GCS 업로드 → 공개 URL 세션 저장 → 황금빛 플레이어 미리보기.
+    """
+    import streamlit.components.v1 as _cv1
+    import base64 as _b64
+    import datetime as _dt
+
+    _KEY_URL   = "_gp93_voice_url"
+    _KEY_BYTES = "_gp93_voice_bytes"
+
+    _cname    = customer_name or st.session_state.get("_gp90_name", "나")
+    _cplan    = plan          or st.session_state.get("_gp89_customer_plan", "황금빛 플랜")
+    _cdate    = date_str      or _dt.date.today().strftime("%Y년 %m월 %d일")
+
+    st.markdown("---")
+    st.markdown("### 🎙️ 마스터의 육성 진심 메시지 녹음 (GP93)")
+    st.caption("내 목소리로 고객에게 약속을 전달합니다 — 최대 30초 녹음 후 카카오톡에 청취 버튼이 추가됩니다.")
+
+    # ── 녹음 가이드 문구 (1인칭 GP80 준수) ───────────────────────────────────
+    _guide = (
+        "💡 **녹음 가이드 (1인칭 GP80 준수)**\n\n"
+        "> 「나는 오늘 우리가 함께 만든 이 약속을 끝까지 지키겠습니다. "
+        "내가 직접 목소리로 이 약속을 남깁니다.」"
+    )
+    st.markdown(_guide)
+
+    # ── MediaRecorder 기반 녹음 컴포넌트 ─────────────────────────────────────
+    _rec_html = """
+<style>
+  #gp93-rec-wrap {
+    background:linear-gradient(135deg,#fffdf5,#fef9e7);
+    border:1.5px solid #D4AF3780;
+    border-radius:16px;
+    padding:20px 22px;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  .gp93-btn {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:11px 22px; border-radius:12px; border:none;
+    font-size:0.95rem; font-weight:800; cursor:pointer;
+    letter-spacing:0.03em; transition:transform 0.12s,box-shadow 0.12s;
+  }
+  .gp93-btn:hover { transform:translateY(-2px); }
+  #gp93-start-btn {
+    background:linear-gradient(135deg,#D4AF37,#b8860b);
+    color:#fff;
+    box-shadow:0 4px 14px rgba(212,175,55,0.45);
+  }
+  #gp93-stop-btn {
+    background:#ef4444; color:#fff;
+    box-shadow:0 4px 14px rgba(239,68,68,0.35);
+    display:none;
+  }
+  #gp93-timer {
+    font-size:1.4rem; font-weight:900; color:#D4AF37;
+    text-align:center; margin:12px 0 4px 0; letter-spacing:0.06em;
+    display:none;
+  }
+  #gp93-status {
+    font-size:0.82rem; color:#7c5c00; margin-top:8px; text-align:center;
+    min-height:18px;
+  }
+  #gp93-result { margin-top:16px; display:none; }
+  #gp93-result audio { width:100%; border-radius:10px; accent-color:#D4AF37; }
+  #gp93-send-btn {
+    width:100%; margin-top:10px;
+    background:linear-gradient(135deg,#D4AF37,#b8860b);
+    color:#fff;
+    box-shadow:0 4px 14px rgba(212,175,55,0.45);
+  }
+  #gp93-upload-status {
+    font-size:0.82rem; text-align:center; margin-top:8px; min-height:18px;
+  }
+  .gp93-wave {
+    display:none; align-items:center; justify-content:center;
+    gap:3px; height:36px; margin:10px 0;
+  }
+  .gp93-wave.active { display:flex; }
+  .gp93-bar {
+    width:4px; border-radius:2px;
+    background:linear-gradient(180deg,#D4AF37,#b8860b);
+    animation:gp93w 0.9s ease-in-out infinite;
+  }
+  .gp93-bar:nth-child(1){height:14px;animation-delay:0.0s}
+  .gp93-bar:nth-child(2){height:26px;animation-delay:0.1s}
+  .gp93-bar:nth-child(3){height:34px;animation-delay:0.2s}
+  .gp93-bar:nth-child(4){height:20px;animation-delay:0.3s}
+  .gp93-bar:nth-child(5){height:30px;animation-delay:0.4s}
+  .gp93-bar:nth-child(6){height:16px;animation-delay:0.5s}
+  .gp93-bar:nth-child(7){height:28px;animation-delay:0.6s}
+  .gp93-bar:nth-child(8){height:12px;animation-delay:0.7s}
+  @keyframes gp93w {
+    0%,100%{transform:scaleY(0.3);opacity:0.5}
+    50%{transform:scaleY(1);opacity:1}
+  }
+</style>
+<div id="gp93-rec-wrap">
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+    <button class="gp93-btn" id="gp93-start-btn" onclick="gp93Start()">
+      🎙️ 녹음 시작
+    </button>
+    <button class="gp93-btn" id="gp93-stop-btn" onclick="gp93Stop()">
+      ⏹ 녹음 완료
+    </button>
+  </div>
+  <div id="gp93-timer">00:00</div>
+  <div class="gp93-wave" id="gp93-wave">
+    <div class="gp93-bar"></div><div class="gp93-bar"></div>
+    <div class="gp93-bar"></div><div class="gp93-bar"></div>
+    <div class="gp93-bar"></div><div class="gp93-bar"></div>
+    <div class="gp93-bar"></div><div class="gp93-bar"></div>
+  </div>
+  <div id="gp93-status">녹음 버튼을 눌러 나의 목소리 약속을 시작합니다.</div>
+  <div id="gp93-result">
+    <audio id="gp93-playback" controls></audio>
+    <button class="gp93-btn gp93-send-btn" id="gp93-send-btn" onclick="gp93Send()">
+      ☁️ GCS에 업로드하고 카카오톡 버튼 활성화
+    </button>
+    <div id="gp93-upload-status"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var mediaRec = null, audioChunks = [], timerInt = null, elapsed = 0;
+  var MAX_SEC = 30;
+  var audioBlob = null;
+
+  window.gp93Start = function() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      document.getElementById('gp93-status').innerText = '⚠️ 브라우저가 마이크를 지원하지 않습니다.';
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(function(stream) {
+        audioChunks = [];
+        mediaRec = new MediaRecorder(stream);
+        mediaRec.ondataavailable = function(e) { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRec.onstop = function() {
+          audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
+          var url = URL.createObjectURL(audioBlob);
+          var aud = document.getElementById('gp93-playback');
+          aud.src = url;
+          document.getElementById('gp93-result').style.display = 'block';
+          document.getElementById('gp93-status').innerText = '✅ 녹음 완료! 재생 후 업로드 버튼을 누르세요.';
+          document.getElementById('gp93-wave').classList.remove('active');
+          stream.getTracks().forEach(function(t){ t.stop(); });
+        };
+        mediaRec.start(200);
+        elapsed = 0;
+        document.getElementById('gp93-timer').style.display = 'block';
+        document.getElementById('gp93-wave').classList.add('active');
+        document.getElementById('gp93-start-btn').style.display = 'none';
+        document.getElementById('gp93-stop-btn').style.display = 'inline-flex';
+        document.getElementById('gp93-status').innerText = '🔴 녹음 중... 최대 30초';
+        timerInt = setInterval(function() {
+          elapsed++;
+          var m = String(Math.floor(elapsed/60)).padStart(2,'0');
+          var s = String(elapsed%60).padStart(2,'0');
+          document.getElementById('gp93-timer').innerText = m + ':' + s;
+          if (elapsed >= MAX_SEC) { window.gp93Stop(); }
+        }, 1000);
+      })
+      .catch(function(e) {
+        document.getElementById('gp93-status').innerText = '⚠️ 마이크 접근 거부: ' + e.message;
+      });
+  };
+
+  window.gp93Stop = function() {
+    if (mediaRec && mediaRec.state !== 'inactive') mediaRec.stop();
+    if (timerInt) clearInterval(timerInt);
+    document.getElementById('gp93-start-btn').style.display = 'inline-flex';
+    document.getElementById('gp93-stop-btn').style.display = 'none';
+    document.getElementById('gp93-timer').style.display = 'none';
+  };
+
+  window.gp93Send = function() {
+    if (!audioBlob) return;
+    var st = document.getElementById('gp93-upload-status');
+    st.innerText = '⏳ 업로드 중...';
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var b64 = ev.target.result.split(',')[1];
+      // Streamlit postMessage 채널로 전달
+      window.parent.postMessage({ type: 'gp93_audio', data: b64 }, '*');
+      st.innerText = '✅ 전송 완료! 잠시 후 업로드 상태를 확인하세요.';
+    };
+    reader.readAsDataURL(audioBlob);
+  };
+})();
+</script>
+"""
+    _cv1.html(_rec_html, height=340, scrolling=False)
+
+    # ── 업로드된 음성 URL 표시 ────────────────────────────────────────────────
+    _existing_url = st.session_state.get(_KEY_URL, "")
+    if _existing_url:
+        st.success(f"✅ 음성 업로드 완료 — 카카오톡 '청취하기' 버튼이 활성화됩니다.")
+        st.caption(f"🔗 GCS 음성 링크: `{_existing_url}`")
+        with st.expander("🎧 황금빛 오디오 플레이어 미리보기", expanded=False):
+            _player_html = _gp93_build_player_page(
+                audio_url=_existing_url,
+                customer_name=_cname,
+                plan=_cplan,
+                date_str=_cdate,
+            )
+            _cv1.html(_player_html, height=520, scrolling=True)
+
+    # ── 수동 업로드 폴백 (브라우저 postMessage 미지원 환경용) ─────────────────
+    with st.expander("📁 파일 직접 업로드 (폴백)", expanded=False):
+        _uf = st.file_uploader(
+            "녹음된 음성 파일 업로드 (WebM / MP3 / M4A / WAV)",
+            type=["webm", "mp3", "m4a", "wav", "ogg"],
+            key="_gp93_file_uploader",
+        )
+        if _uf is not None:
+            _audio_bytes = _uf.read()
+            if st.button("☁️ GCS 업로드 실행", key="_gp93_upload_btn", type="primary"):
+                with st.spinner("GCS에 업로드 중..."):
+                    _url = _gp93_upload_voice(_audio_bytes, _cname, _cdate)
+                if _url:
+                    st.session_state[_KEY_URL]   = _url
+                    st.session_state[_KEY_BYTES] = _audio_bytes
+                    st.success(f"✅ 업로드 성공! 카카오톡 버튼이 활성화됩니다.")
+                    st.caption(f"🔗 {_url}")
+                    st.rerun()
+                else:
+                    st.warning("⚠️ GCS 업로드 실패 — GCS 설정을 확인하거나 URL을 수동 입력하세요.")
+                    _manual_url = st.text_input(
+                        "수동 공개 URL 입력", key="_gp93_manual_url",
+                        placeholder="https://storage.googleapis.com/..."
+                    )
+                    if _manual_url:
+                        st.session_state[_KEY_URL] = _manual_url
+                        st.rerun()
+
+
 def _gp87_kakao_share(name: str, plan: str, value: str, date: str) -> None:
-    """GP87 황금빛 약속 증서 카카오톡 공유 — JavaScript Kakao.Share SDK 사용"""
+    """GP87 황금빛 약속 증서 카카오톡 공유 — JavaScript Kakao.Share SDK 사용
+    GP93 §2: 음성 메시지 URL이 세션에 있으면 '청취하기' 버튼 자동 추가
+    """
     import os as _os
 
     _kakao_js_key = _os.environ.get("KAKAO_JS_KEY", "")
+    # GP93 §2: 세션에 저장된 음성 URL 조회
+    _voice_url = st.session_state.get("_gp93_voice_url", "")
 
     # GP87 §4: 1인칭 화법 자동 검수
     _forbidden_map = {"당신": "나", "고객": "나", "귀하": "나"}
@@ -9629,12 +10068,16 @@ def _gp87_kakao_share(name: str, plan: str, value: str, date: str) -> None:
 
     if not _kakao_js_key:
         # 카카오 앱 키 미설정 시 — 복사 텍스트 방식 대체 제공
+        _voice_line = (
+            f"\n\n🎧 마스터의 진심 목소리 듣기: {_voice_url}"
+        ) if _voice_url else ""
         _share_text = (
             f"📜 {_title_text}\n\n"
             f"{_desc_text}\n\n"
             f"우리가 함께 만든 소중한 약속이 도착했습니다 🏆\n\n"
             f"✦ {date}  |  {name}\n\n"
-            f"{_aemin_text}\n\n"
+            f"{_aemin_text}"
+            f"{_voice_line}\n\n"
             f"🔑 GoldKey AI Master\n{_app_url}"
         )
         st.text_area(
@@ -9643,16 +10086,30 @@ def _gp87_kakao_share(name: str, plan: str, value: str, date: str) -> None:
             height=200,
             key="_gp87_copy_area",
         )
+        if _voice_url:
+            st.info("🎧 음성 메시지 링크가 복사 텍스트에 자동 포함되었습니다.")
         st.caption("🔧 카카오 JavaScript 앱 키를 환경변수 `KAKAO_JS_KEY`에 등록하면 원클릭 공유 버튼이 활성화됩니다.")
         return
 
     # ── 카카오 SDK 원클릭 공유 버튼 ─────────────────────────────────────────
     import json as _json
-    _safe_title = _json.dumps(_title_text)
-    _safe_desc  = _json.dumps(_desc_text)
-    _safe_aemin = _json.dumps(_aemin_text)
-    _safe_url   = _json.dumps(_app_url)
-    _safe_key   = _json.dumps(_kakao_js_key)
+    _safe_title  = _json.dumps(_title_text)
+    _safe_desc   = _json.dumps(_desc_text)
+    _safe_aemin  = _json.dumps(_aemin_text)
+    _safe_url    = _json.dumps(_app_url)
+    _safe_key    = _json.dumps(_kakao_js_key)
+    # GP93 §2: 음성 버튼용 변수
+    _safe_voice  = _json.dumps(_voice_url) if _voice_url else ""
+    _voice_btn_js = (
+        f""",
+        {{
+          title: '🎧 마스터의 진심 목소리 듣기',
+          link: {{
+            mobileWebUrl: {_safe_voice},
+            webUrl: {_safe_voice},
+          }},
+        }}"""
+    ) if _voice_url else ""
 
     _kakao_html = f"""
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
@@ -9723,7 +10180,7 @@ function shareKakao() {{
             mobileWebUrl: {_safe_url},
             webUrl: {_safe_url},
           }},
-        }},
+        }}{_voice_btn_js}
       ],
       installTalk: true,
     }});
@@ -9740,7 +10197,10 @@ function shareKakao() {{
 </p>
 """
     import streamlit.components.v1 as _c
-    _c.html(_kakao_html, height=160)
+    _html_height = 200 if _voice_url else 160
+    _c.html(_kakao_html, height=_html_height)
+    if _voice_url:
+        st.caption("🎧 카카오톡 공유 메시지에 '마스터의 진심 목소리 듣기' 버튼이 자동 추가되었습니다. (GP93)")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
