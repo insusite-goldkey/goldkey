@@ -10050,6 +10050,41 @@ def _gp90_live_search(query: str) -> list:
 # [GP91] 1인칭 생애주기 리스크 엔진 — 주민번호 입력 시 즉시 리포트 자동 표시
 # ══════════════════════════════════════════════════════════════════════════════
 
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP92] 마스터의 애민정신 육성 코너 — 생애주기별 1인칭 마스터 한마디
+# ══════════════════════════════════════════════════════════════════════════════
+_GP92_MASTER_VOICE = {
+    "자산형성기": {
+        "voice": (
+            "내 꿈의 씨앗이 행여 비바람에 쓸려갈까 노심초사하는 그 마음을 내가 압니다. "
+            "오늘 내가 세운 이 방어벽은 내 미래에 대한 가장 강력한 투자입니다."
+        ),
+        "close": "내가 당신과 함께 이 짐을 나누어 지겠습니다.",
+    },
+    "자녀교육기": {
+        "voice": (
+            "내가 지쳐 쓰러져도 내 아이들의 꿈은 멈추지 않아야 하기에, "
+            "나는 오늘 내 어깨 위에 가장 든든한 보험이라는 날개를 달아주려 합니다."
+        ),
+        "close": "내가 당신과 함께 이 짐을 나누어 지겠습니다.",
+    },
+    "은퇴준비기": {
+        "voice": (
+            "누구에게도 손 내밀지 않고 당당하게 걷고 싶은 내 노후의 자존심, "
+            "내가 오늘 준비한 이 샘물이 내 은퇴 후의 갈증을 영원히 해결해 줄 것입니다."
+        ),
+        "close": "내가 당신과 함께 이 짐을 나누어 지겠습니다.",
+    },
+    "자산전수기": {
+        "voice": (
+            "내 평생의 땀방울이 국가의 것이 아닌, 내 사랑하는 가족의 온전한 기쁨이 되도록 "
+            "내가 오늘 상속의 물길을 바로잡겠습니다."
+        ),
+        "close": "내가 당신과 함께 이 짐을 나누어 지겠습니다.",
+    },
+}
+
+
 # ── GP91 §1: 생애주기 구간 정의 (통계·1인칭 독백 강화판) ──────────────────────
 _GP91_LIFECYCLE = [
     {
@@ -10247,6 +10282,89 @@ def _gp91_report_panel() -> None:
         if _monologue else ""
     )
 
+    # ── GP92: 마스터의 한마디 카드 HTML ─────────────────────────────────────────
+    _gp92_mv  = _GP92_MASTER_VOICE.get(_label, {})
+    _gp92_voice = _gp92_mv.get("voice", "")
+    _gp92_close = _gp92_mv.get("close", "내가 당신과 함께 이 짐을 나누어 지겠습니다.")
+    _gp92_html = f"""
+<div style="
+  margin-top:22px;
+  border-top:2px solid #D4AF3740;
+  padding-top:20px;
+">
+  <div style="
+    background:linear-gradient(135deg,#FFFDD0 0%,#FFF8E1 50%,#F0F8FF 100%);
+    border:1.5px solid #D4AF3760;
+    border-radius:16px;
+    padding:20px 22px 16px 22px;
+    box-shadow:0 2px 12px rgba(212,175,55,0.18);
+    position:relative;
+  ">
+    <!-- 제목 배지 -->
+    <div style="
+      display:flex;align-items:center;gap:8px;
+      margin-bottom:14px;
+    ">
+      <span style="
+        background:linear-gradient(90deg,#b8860b,#D4AF37,#b8860b);
+        background-size:200% auto;
+        animation:gp91Shimmer 2.5s linear infinite;
+        color:#fff;
+        font-size:0.68rem;
+        font-weight:900;
+        letter-spacing:0.12em;
+        padding:3px 14px;
+        border-radius:20px;
+        white-space:nowrap;
+      ">📜 마스터의 한마디</span>
+      <span style="
+        font-size:0.76rem;font-weight:700;color:#7c5c00;letter-spacing:0.02em;
+      ">애민정신으로 제안하는 오늘의 대책</span>
+    </div>
+
+    <!-- 마스터 육성 메시지 -->
+    <div style="
+      font-size:0.97rem;
+      font-weight:600;
+      color:#2c1a00;
+      line-height:1.85;
+      font-style:italic;
+      padding:4px 0 10px 8px;
+      border-left:4px solid #D4AF37;
+    ">
+      &ldquo;{_gp92_voice}&rdquo;
+    </div>
+
+    <!-- 맺음 문구 -->
+    <div style="
+      margin-top:12px;
+      font-size:0.88rem;
+      font-weight:700;
+      color:#7c5c00;
+      text-align:right;
+      letter-spacing:0.01em;
+    ">
+      — {_gp92_close}
+    </div>
+
+    <!-- 황금빛 인장 -->
+    <div style="
+      margin-top:14px;
+      padding-top:10px;
+      border-top:1px dashed #D4AF3780;
+      display:flex;align-items:center;justify-content:flex-end;gap:8px;
+    ">
+      <span style="font-size:1.1rem;">🏅</span>
+      <span style="
+        font-size:0.7rem;font-weight:800;
+        color:#b8860b;letter-spacing:0.1em;
+        text-transform:uppercase;
+      ">GoldKey Master 의 약속</span>
+    </div>
+  </div>
+</div>
+""" if _gp92_voice else ""
+
     # ── Gold-leaf 모달 HTML ───────────────────────────────────────────────────
     _report_html = f"""
 <style>
@@ -10375,10 +10493,14 @@ def _gp91_report_panel() -> None:
   <div class="gp91-footer">
     &ldquo;입력은 짧게, 통찰은 깊게 — 데이터가 들어오는 순간 상담의 클라이맥스가 시작됩니다.&rdquo; · GoldKey AI GP91
   </div>
+
+  <!-- ══ GP92: 마스터의 한마디 ══ -->
+  {_gp92_html}
+
 </div>
 """
     import streamlit.components.v1 as _cv1
-    _cv1.html(_report_html, height=680, scrolling=True)
+    _cv1.html(_report_html, height=820, scrolling=True)
 
     # ── 액션 버튼 영역 ─────────────────────────────────────────────────────────
     _ba, _bb, _bc, _bd = st.columns([3, 3, 3, 1])
@@ -10432,6 +10554,7 @@ def _gp91_report_panel() -> None:
     with _bd:
         if st.button("✖", key="_gp91_close_btn", use_container_width=True, help="닫기"):
             st.session_state[_KEY] = False
+            st.toast("이 약속을 내 마음속에 저장했습니다 🔑", icon="💛")
             st.rerun()
 
 
