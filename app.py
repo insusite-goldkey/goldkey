@@ -10046,6 +10046,275 @@ def _gp90_live_search(query: str) -> list:
     return _hits
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP91] 1인칭 생애주기 리스크 엔진 — 주민번호 입력 시 즉시 리포트 자동 표시
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── GP91 §1: 생애주기 구간 정의 ───────────────────────────────────────────────
+_GP91_LIFECYCLE = [
+    {
+        "label":   "사회초년생",
+        "range":   (20, 34),
+        "icon":    "🌱",
+        "color":   "#0ea5e9",
+        "desc":    "자산 형성과 질병 대비의 황금기",
+        "risks": [
+            "내가 지금 당장 큰 병에 걸린다면, 나를 뒷받침할 경제적 버팀목이 없습니다.",
+            "사회 진입 단계인 지금, 나의 소득 상실은 곧 내 부모님께 짐이 될 수 있습니다.",
+            "지금 건강할 때 가입하지 않으면, 나중에 내가 원하는 보장을 받을 기회 자체가 사라집니다.",
+        ],
+        "actions": [
+            "내 월 소득의 5~8%로 암·뇌·심장 3대 질병 보장을 확보합니다.",
+            "실손의료보험을 통해 나의 치료비 부담 구조를 점검합니다.",
+            "CI(치명적 질병) 진단비가 내 연간 소득의 2배 이상인지 확인합니다.",
+        ],
+    },
+    {
+        "label":   "자녀교육기",
+        "range":   (35, 49),
+        "icon":    "🏠",
+        "color":   "#f59e0b",
+        "desc":    "가장의 책임과 교육비 확보가 최우선",
+        "risks": [
+            "내가 지금 일을 못하게 된다면, 내 자녀의 교육 계획 전체가 흔들립니다.",
+            "나의 사망 보장이 지금 당장 내 가족 10년 생활비를 충당할 수 있는지 점검해야 합니다.",
+            "자녀 교육비 마련을 보험 없이 저축만으로 준비하는 것은 리스크가 너무 큽니다.",
+        ],
+        "actions": [
+            "내 사망 보장이 가족 생활비 10년분(최소 3억) 이상인지 확인합니다.",
+            "내 소득 보상 보험(취업불능급여)이 월 급여의 70% 이상 커버하는지 점검합니다.",
+            "자녀 1인당 대학등록금 4년분(약 4,000만~8,000만원) 마련 플랜을 수립합니다.",
+        ],
+    },
+    {
+        "label":   "은퇴준비기",
+        "range":   (50, 64),
+        "icon":    "🌅",
+        "color":   "#8b5cf6",
+        "desc":    "노후 독자생존과 상속 준비의 골든타임",
+        "risks": [
+            "내가 은퇴 후 30년 이상 살아간다면, 지금 준비한 연금만으로 충분하지 않을 수 있습니다.",
+            "나에게 갑작스러운 큰 병이 생기면, 내가 평생 쌓아온 자산이 의료비로 소진될 수 있습니다.",
+            "상속세 재원을 지금 준비하지 않으면, 내 자녀가 내 유산을 온전히 물려받지 못합니다.",
+        ],
+        "actions": [
+            "내 국민연금·퇴직연금·개인연금의 월 수령액 합계가 최소 300만원이 되는지 확인합니다.",
+            "내 노후 의료비 리스크 커버를 위해 간병보험·실손보험 유지 여부를 점검합니다.",
+            "내 자산 규모에 맞는 상속세 재원(종신보험)이 설계되어 있는지 확인합니다.",
+        ],
+    },
+    {
+        "label":   "자산전수기",
+        "range":   (65, 120),
+        "icon":    "👑",
+        "color":   "#D4AF37",
+        "desc":    "상속세 재원 확보와 가업 승계의 완성",
+        "risks": [
+            "내가 지금 보유한 자산에 부과될 상속세를 현금으로 납부할 재원이 준비되어 있지 않습니다.",
+            "내가 원하는 대로 재산이 전달되려면, 법적·세무적 준비가 선행되어야 합니다.",
+            "간병 상태가 장기화될 경우, 내 배우자와 자녀에게 심각한 경제적·정서적 부담이 됩니다.",
+        ],
+        "actions": [
+            "내 상속 예상 세액을 계산하고, 종신보험으로 납세 재원을 즉시 확보합니다.",
+            "가업 승계 플랜이 있다면, 법인 명의 보험 활용 여부를 검토합니다.",
+            "내 배우자와 자녀가 간병 부담 없이 노후를 보낼 수 있도록 간병보험을 점검합니다.",
+        ],
+    },
+]
+
+
+def _gp91_get_lifecycle(age: int) -> dict | None:
+    """GP91 §1 — 만나이로 생애주기 구간 반환. 해당 없으면 None."""
+    for _lc in _GP91_LIFECYCLE:
+        if _lc["range"][0] <= age <= _lc["range"][1]:
+            return _lc
+    return None
+
+
+def _gp91_build_report_key() -> str:
+    """GP91 리포트 표시 여부 세션 키"""
+    return "_gp91_report_visible"
+
+
+def _gp91_trigger(age: int, name: str = "") -> None:
+    """GP91 §4 — 만나이 확정 시 리포트 표시 플래그를 세션에 설정 (자동 트리거)"""
+    _lc = _gp91_get_lifecycle(age)
+    if _lc is None:
+        return
+    st.session_state["_gp91_age"]     = age
+    st.session_state["_gp91_name"]    = name
+    st.session_state["_gp91_lc"]      = _lc
+    st.session_state[_gp91_build_report_key()] = True
+    # GP91 §3: 리스크 리포트를 상담 기록 기초데이터로도 저장
+    _risk_text = "\n".join(f"• {r}" for r in _lc["risks"])
+    _action_text = "\n".join(f"• {a}" for a in _lc["actions"])
+    st.session_state["_gp91_risk_summary"] = (
+        f"[{_lc['icon']} {_lc['label']} 리스크 진단]\n{_risk_text}\n\n"
+        f"[오늘 확인해야 할 항목]\n{_action_text}"
+    )
+    # GP89 파이프라인 analysis 키에도 즉시 반영
+    if not st.session_state.get(_GP90_KEYS["analysis"]):
+        st.session_state[_GP90_KEYS["analysis"]] = st.session_state["_gp91_risk_summary"]
+
+
+def _gp91_report_panel() -> None:
+    """GP91 §2 — 1인칭 생애주기 리스크 리포트 팝업 UI (황금빛 모달 디자인)"""
+    _KEY = _gp91_build_report_key()
+    if not st.session_state.get(_KEY):
+        return
+
+    _age  = st.session_state.get("_gp91_age", 0)
+    _name = st.session_state.get("_gp91_name", "")
+    _lc   = st.session_state.get("_gp91_lc")
+    if not _lc:
+        return
+
+    _name_label = f"{_name}님, " if _name else ""
+    _color      = _lc["color"]
+    _icon       = _lc["icon"]
+    _label      = _lc["label"]
+    _desc       = _lc["desc"]
+
+    # ── 리스크 항목 HTML ──────────────────────────────────────────────────────
+    _risks_html = "".join(
+        f'<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">'
+        f'<span style="font-size:1.1rem;min-width:24px;">⚠️</span>'
+        f'<span style="font-size:0.92rem;font-weight:600;color:#1a1a1a;line-height:1.65;">{r}</span>'
+        f'</div>'
+        for r in _lc["risks"]
+    )
+
+    # ── 액션 항목 HTML ────────────────────────────────────────────────────────
+    _actions_html = "".join(
+        f'<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">'
+        f'<span style="font-size:1rem;min-width:24px;">✅</span>'
+        f'<span style="font-size:0.88rem;font-weight:600;color:#166534;line-height:1.6;">{a}</span>'
+        f'</div>'
+        for a in _lc["actions"]
+    )
+
+    # ── 모달 HTML ─────────────────────────────────────────────────────────────
+    _report_html = f"""
+<style>
+@keyframes gp91FadeIn {{
+  from {{ opacity:0; transform:translateY(-18px) scale(0.97); }}
+  to   {{ opacity:1; transform:translateY(0)     scale(1);    }}
+}}
+.gp91-modal-wrap {{
+  animation: gp91FadeIn 0.45s cubic-bezier(.22,.68,0,1.2) both;
+  background: linear-gradient(160deg,#fffdf0 0%,#fefce8 60%,#fff8e1 100%);
+  border: 3px solid {_color};
+  border-radius: 18px;
+  box-shadow: 0 8px 40px rgba(212,175,55,0.28), 0 2px 8px rgba(0,0,0,0.10);
+  padding: 28px 28px 22px 28px;
+  position: relative;
+  margin-bottom: 8px;
+}}
+.gp91-badge {{
+  display:inline-block;
+  background:{_color};
+  color:#fff;
+  font-size:0.72rem;
+  font-weight:800;
+  letter-spacing:0.12em;
+  padding:3px 12px;
+  border-radius:20px;
+  margin-bottom:10px;
+}}
+.gp91-title {{
+  font-size:1.18rem;
+  font-weight:900;
+  color:#1a1a1a;
+  margin-bottom:4px;
+  line-height:1.4;
+}}
+.gp91-sub {{
+  font-size:0.82rem;
+  color:#6b7280;
+  font-weight:600;
+  margin-bottom:18px;
+}}
+.gp91-section-title {{
+  font-size:0.78rem;
+  font-weight:800;
+  color:{_color};
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  margin: 16px 0 8px 0;
+  padding-bottom:4px;
+  border-bottom:1.5px solid {_color}40;
+}}
+.gp91-action-box {{
+  background:#f0fdf4;
+  border:1.5px solid #86efac;
+  border-radius:10px;
+  padding:14px 16px;
+  margin-top:4px;
+}}
+.gp91-footer {{
+  font-size:0.72rem;
+  color:#9ca3af;
+  text-align:right;
+  margin-top:14px;
+  font-style:italic;
+}}
+</style>
+<div class="gp91-modal-wrap">
+  <div class="gp91-badge">📜 GP91 마스터 리포트 — 실시간 생성</div>
+  <div class="gp91-title">{_name_label}내 나이 <span style="color:{_color};">만 {_age}세</span>, 지금 나는 <span style="color:{_color};">{_icon} {_label}</span>의 한복판에 서 있습니다.</div>
+  <div class="gp91-sub">{_desc} — 지금이 골든타임입니다.</div>
+
+  <div class="gp91-section-title">⚠️ 내가 오늘 직면한 3가지 핵심 위험</div>
+  {_risks_html}
+
+  <div class="gp91-section-title">✅ 이 위험을 방어하기 위해 오늘 내가 확인해야 할 항목</div>
+  <div class="gp91-action-box">
+    {_actions_html}
+  </div>
+
+  <div class="gp91-footer">
+    "입력은 짧게, 통찰은 깊게 — 데이터가 들어오는 순간 상담의 클라이맥스가 시작됩니다." · GoldKey AI GP91
+  </div>
+</div>
+"""
+    import streamlit.components.v1 as _cv1
+    _cv1.html(_report_html, height=560, scrolling=False)
+
+    # ── 액션 버튼 영역 ─────────────────────────────────────────────────────────
+    _bc1, _bc2, _bc3 = st.columns([2, 2, 1])
+    with _bc1:
+        if st.button(
+            "📋 이 리포트를 상담 기록에 저장",
+            key="_gp91_save_btn",
+            use_container_width=True,
+        ):
+            _risk_summary = st.session_state.get("_gp91_risk_summary", "")
+            _gp89_save_history(
+                customer=_name,
+                plan=f"{_icon} {_label} 생애주기 리포트",
+                script=_risk_summary[:60],
+                ocr_summary="",
+                message=_risk_summary,
+            )
+            st.success("✅ 생애주기 리스크 리포트가 상담 이력에 저장되었습니다.")
+    with _bc2:
+        if st.button(
+            "📜 증서 기초데이터로 설정",
+            key="_gp91_cert_btn",
+            use_container_width=True,
+        ):
+            _risk_summary = st.session_state.get("_gp91_risk_summary", "")
+            st.session_state[_GP90_KEYS["analysis"]] = _risk_summary
+            st.session_state[_GP89_PIPE["active_script"]] = (
+                f"{_icon} {_label} 리스크 진단: " + _lc["risks"][0]
+            )
+            st.success("✅ 리포트 데이터가 증서·명품 문구에 설정되었습니다.")
+    with _bc3:
+        if st.button("✖ 닫기", key="_gp91_close_btn", use_container_width=True):
+            st.session_state[_KEY] = False
+            st.rerun()
+
+
 def _gp90_panel() -> None:
     """GP90 전역 데이터 입력 패널 — 5대 핵심 데이터 입력 시 전역 즉시 동기화"""
     _ss = st.session_state
@@ -10125,6 +10394,10 @@ def _gp90_panel() -> None:
                 contract=_inp_contract,
                 analysis=_inp_analysis,
             )
+            # GP91 §4 자동 트리거 — 주민번호로 만나이 계산된 경우 즉시 리포트 활성화
+            _synced_age = st.session_state.get(_GP90_KEYS["rrn_age"])
+            if _synced_age and isinstance(_synced_age, int):
+                _gp91_trigger(age=_synced_age, name=_inp_name)
             st.rerun()
 
         # ── 현재 동기화 상태 표시 ─────────────────────────────────────────────
