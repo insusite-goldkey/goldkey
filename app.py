@@ -5156,7 +5156,209 @@ p, span, li, td, th, label, div {
     color: var(--gp84-txt-main) !important;
     text-shadow: var(--gp84-txt-shadow) !important;
 }
-</style>""", unsafe_allow_html=True)
+
+/* §7 — 전역 보험 용어 툴팁 (GP84 §7) */
+.ins-term-tooltip {
+    position: relative;
+    display: inline;
+    border-bottom: 1px dashed #F5A623;
+    cursor: help;
+    color: inherit !important;
+    text-shadow: inherit !important;
+}
+.ins-term-tooltip .ins-tooltip-box {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    z-index: 99999;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 240px;
+    max-width: 340px;
+    background: #1E2A3A;
+    color: #F0F4FF !important;
+    text-shadow: none !important;
+    border: 1px solid #F5A623;
+    border-radius: 8px;
+    padding: 10px 13px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+    transition: opacity 0.18s ease, visibility 0.18s ease;
+    white-space: normal;
+    word-break: keep-all;
+}
+.ins-term-tooltip .ins-tooltip-box::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #F5A623;
+}
+.ins-term-tooltip:hover .ins-tooltip-box {
+    visibility: visible;
+    opacity: 1;
+}
+.ins-tooltip-term {
+    font-weight: 700;
+    color: #F5A623 !important;
+    font-size: 0.82rem;
+    display: block;
+    margin-bottom: 4px;
+}
+.ins-tooltip-def {
+    color: #E8EEFF !important;
+    font-size: 0.76rem;
+}
+.ins-tooltip-kcd {
+    margin-top: 5px;
+    color: #A8D8FF !important;
+    font-size: 0.72rem;
+}
+</style>
+<script>
+(function() {
+  // ── GP84 §7 전역 보험 용어 툴팁 스캐너 ──────────────────────────────────
+  // 등록 용어 목록 (insurance_dict.py INSURANCE_DICT 키 + 표시 용어 + 정의 요약 + KCD)
+  var INS_TERMS = [
+    {key:"표적항암", label:"표적항암치료 (Targeted Therapy)", def:"암세포 표면의 특정 단백질만을 선택적으로 공격하는 항암 치료법.", kcd:"C00–C97"},
+    {key:"NGS검사", label:"NGS 유전자 검사 (Next-Generation Sequencing)", def:"암세포의 유전자 변이를 한 번에 수백 가지 검사하는 정밀의학 핵심 도구.", kcd:"Z13.88"},
+    {key:"CAR-T", label:"CAR-T 세포치료", def:"환자 T세포를 유전자 조작 후 재투여하는 면역세포치료. 비급여 7,000만~1억 5,000만원.", kcd:"C81–C96"},
+    {key:"간병일당", label:"간병인사용일당 / 간병지원서비스", def:"입원 중 전담 간병인 비용을 보전하는 담보. 일당 시세 약 15만원(2024).", kcd:"Z74.0"},
+    {key:"실손보험", label:"실손의료보험 (실손보험)", def:"실제 발생한 의료비를 일정 비율로 보상하는 보험. 1~4세대로 구분.", kcd:"Z00–Z99"},
+    {key:"뇌혈관질환", label:"뇌혈관질환 (Cerebrovascular Disease)", def:"뇌로 가는 혈관의 이상으로 발생하는 질환군. I60–I69 전체 포함 여부 확인 필수.", kcd:"I60–I69"},
+    {key:"급성심근경색", label:"급성심근경색 (Acute Myocardial Infarction)", def:"관상동맥 폐색으로 심근이 괴사하는 응급질환. 허혈성심장질환 담보 필수.", kcd:"I21"},
+    {key:"맥브라이드장해율", label:"맥브라이드(McBride) 장해율 평가표", def:"직업별 신체 부위 장해율 평가 기준. 국내 손해사정 사실상 표준.", kcd:"S·T·M계열"},
+    {key:"3N5고지", label:"3.N.5 유병자 고지 의무 원칙", def:"간편보험 고지 기준: 3개월·N년·5년 이내 병력 고지. 누락 시 계약 해지 가능.", kcd:""},
+    {key:"자기부담금", label:"자기부담금 (Deductible / Co-payment)", def:"보험금 청구 시 피보험자가 스스로 부담하는 금액 또는 비율.", kcd:""},
+    {key:"면책조항", label:"면책조항 (Exclusion Clause)", def:"보험사가 보험금 지급 의무를 지지 않는 사유를 정한 약관 조항.", kcd:""},
+    {key:"후유장해", label:"후유장해 (Permanent Disability)", def:"치료 후에도 신체적·정신적 기능이 영구적으로 손상된 상태. 장해율(%)로 측정.", kcd:"S00–T98"},
+    {key:"치매", label:"치매 (Dementia)", def:"인지기능이 지속적으로 저하되는 신경퇴행성 질환군. CDR 척도 1~3.", kcd:"F00, G30"},
+    {key:"가처분소득", label:"가처분소득 (Disposable Income)", def:"세금·고정지출 제외 실제 사용 가능 순 소득. 적정 보험료 산출 기준.", kcd:""},
+    {key:"독립책임액안분", label:"독립책임액 안분방식 (중복보험 분담)", def:"복수 보험계약 적용 시 각사 독립책임액 비율로 실손해액 분담하는 방식.", kcd:""},
+    {key:"재조달가액", label:"재조달가액 (Replacement Cost Value)", def:"손해를 입은 재산과 동등한 것을 새로 취득하는 데 필요한 금액. 감가 없이 신품 기준.", kcd:""},
+    {key:"주택연금", label:"주택연금 (역모기지론)", def:"만 55세 이상이 보유 주택 담보로 사망 시까지 매월 연금을 수령하는 제도.", kcd:""},
+    {key:"갱신형비갱신형", label:"갱신형 vs 비갱신형", def:"갱신형: 나이 따라 보험료 인상. 비갱신형: 보험기간 동안 보험료 고정.", kcd:""},
+    {key:"보험료역산", label:"건강보험료 역산법 (제32조)", def:"건강보험료로부터 추정 월소득·가처분소득·일일 경제 가치를 역산하는 방법.", kcd:""},
+    {key:"사전급여", label:"사전급여 (Prior Authorization)", def:"특정 의료 행위 전 보험사의 사전 승인을 받는 절차. 미승인 시 지급 거절 가능.", kcd:""},
+    {key:"AMA장해", label:"AMA 장해 가이드 (American Medical Association Guides)", def:"미국의사협회 신체 장해 평가 기준. 맥브라이드와 병존 적용 시 유리한 기준 선택.", kcd:"S·T·G·M계열"},
+    {key:"6개월전환", label:"상해→질병 6개월 전환 원칙", def:"사고 후 6개월 초과 치료 지속 시 상해→질병으로 전환 청구하는 실무 원칙.", kcd:"S·T → M·G계열"},
+    {key:"부활청약", label:"보험 부활(효력 회복) 청약", def:"보험료 미납으로 실효된 계약을 실효 후 2년 이내 다시 살리는 절차.", kcd:""},
+    {key:"계약전환", label:"계약 전환 (Converting Policy)", def:"기존 보험 계약을 해지하지 않고 동일 보험사 내 다른 상품으로 전환하는 제도.", kcd:""},
+    {key:"연금전환특약", label:"연금 전환 특약 (Annuity Conversion Rider)", def:"종신·저축보험의 환급금을 재원으로 연금보험으로 전환하는 특약.", kcd:""},
+    {key:"로봇수술", label:"로봇수술 (Robotic Surgery)", def:"다빈치 등 수술 로봇 시스템을 이용한 최소침습 수술. 비급여 400~800만원.", kcd:"C00–C97"},
+    {key:"일상배상책임", label:"일상생활 배상책임보험", def:"일상생활 중 타인에게 신체적·재산적 피해를 입혔을 때 법률상 손해배상 책임을 보상.", kcd:""},
+    {key:"보험금청구소멸시효", label:"보험금 청구권 소멸시효 (3년)", def:"보험금 청구권은 사고 발생일로부터 3년 내 행사하지 않으면 소멸(상법 제662조).", kcd:""}
+  ];
+
+  // 검색용 매핑: 키 → 데이터
+  var TERM_MAP = {};
+  INS_TERMS.forEach(function(t) { TERM_MAP[t.key] = t; });
+
+  // 키 목록을 길이 내림차순 정렬 (긴 용어 우선 매칭)
+  var SORTED_KEYS = INS_TERMS.map(function(t){return t.key;}).sort(function(a,b){return b.length - a.length;});
+
+  // 툴팁 HTML 생성
+  function makeTooltip(t) {
+    var kcdHtml = t.kcd ? '<span class="ins-tooltip-kcd">KCD: ' + t.kcd + '</span>' : '';
+    return '<span class="ins-term-tooltip">' + t.key +
+      '<span class="ins-tooltip-box">' +
+        '<span class="ins-tooltip-term">' + t.label + '</span>' +
+        '<span class="ins-tooltip-def">' + t.def + '</span>' +
+        kcdHtml +
+      '</span>' +
+    '</span>';
+  }
+
+  // 텍스트 노드에서 용어 치환
+  function processTextNode(node) {
+    var text = node.nodeValue;
+    if (!text || text.trim().length < 2) return;
+    var replaced = text;
+    var changed = false;
+    SORTED_KEYS.forEach(function(key) {
+      if (replaced.indexOf(key) !== -1) {
+        replaced = replaced.split(key).join('\x00TOOLTIP:' + key + '\x00');
+        changed = true;
+      }
+    });
+    if (!changed) return;
+
+    var parts = replaced.split(/\x00/);
+    if (parts.length <= 1) return;
+    var frag = document.createDocumentFragment();
+    parts.forEach(function(part) {
+      if (part.startsWith('TOOLTIP:')) {
+        var key = part.slice(8);
+        var t = TERM_MAP[key];
+        if (t) {
+          var span = document.createElement('span');
+          span.innerHTML = makeTooltip(t);
+          frag.appendChild(span.firstChild);
+          return;
+        }
+      }
+      if (part) frag.appendChild(document.createTextNode(part));
+    });
+    node.parentNode.replaceChild(frag, node);
+  }
+
+  // DOM 트리 순회 (스크립트·스타일·입력 요소 제외, 이미 처리된 노드 제외)
+  function walkDOM(root) {
+    var walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: function(node) {
+          var p = node.parentNode;
+          if (!p) return NodeFilter.FILTER_REJECT;
+          var tag = p.tagName ? p.tagName.toUpperCase() : '';
+          if (['SCRIPT','STYLE','TEXTAREA','INPUT','CODE','PRE'].indexOf(tag) !== -1)
+            return NodeFilter.FILTER_REJECT;
+          if (p.classList && p.classList.contains('ins-term-tooltip'))
+            return NodeFilter.FILTER_REJECT;
+          if (p.classList && p.classList.contains('ins-tooltip-box'))
+            return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+    var nodes = [];
+    var n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach(processTextNode);
+  }
+
+  // MutationObserver로 Streamlit 동적 렌더링 감지 후 처리
+  function runTooltipScan() {
+    var target = document.querySelector('[data-testid="stAppViewContainer"]') || document.body;
+    walkDOM(target);
+  }
+
+  var _scanTimer = null;
+  var observer = new MutationObserver(function() {
+    clearTimeout(_scanTimer);
+    _scanTimer = setTimeout(runTooltipScan, 600);
+  });
+
+  function init() {
+    var target = document.querySelector('[data-testid="stAppViewContainer"]') || document.body;
+    observer.observe(target, {childList: true, subtree: true});
+    runTooltipScan();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    setTimeout(init, 800);
+  }
+})();
+</script>
+""", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -21525,6 +21727,196 @@ watchRipple();
 })();
 </script>""", height=0)
 
+    # ── [제166조] 전역 보험 용어 툴팁 엔진 (가이딩 프로토콜 제166조) ─────────
+    # 등록된 용어가 DOM 텍스트에 나타날 때 hover 시 요약 팝업 표시
+    try:
+        from modules.insurance_dict import INSURANCE_DICT as _TT_DICT
+        _tt_terms = {
+            k: {
+                "term": v["term"],
+                "cat":  v.get("category", ""),
+                "def":  v.get("definition", "")[:120],
+            }
+            for k, v in _TT_DICT.items()
+        }
+        import json as _tt_json
+        _tt_data_js = _tt_json.dumps(_tt_terms, ensure_ascii=False)
+    except Exception:
+        _tt_data_js = "{}"
+
+    components.html(f"""
+<style>
+/* ── [제166조] 보험 용어 툴팁 전역 스타일 ── */
+.gk-ins-tooltip {{
+    position: absolute;
+    z-index: 2147483600;
+    background: #fff;
+    border: 1.5px solid #c7d2fe;
+    border-left: 4px solid #6366f1;
+    border-radius: 10px;
+    padding: 10px 14px;
+    min-width: 220px;
+    max-width: 320px;
+    box-shadow: 0 6px 24px rgba(99,102,241,0.18);
+    font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}}
+.gk-ins-tooltip.visible {{ opacity: 1; }}
+.gk-ins-tooltip .tt-term {{
+    font-size: 0.85rem; font-weight: 900; color: #0f4c81;
+    border-bottom: 1px solid #e0e7ff; padding-bottom: 4px; margin-bottom: 6px;
+}}
+.gk-ins-tooltip .tt-cat {{
+    display: inline-block; background: #6366f1; color: #fff;
+    border-radius: 10px; padding: 1px 7px; font-size: 0.68rem;
+    font-weight: 700; margin-left: 5px; vertical-align: middle;
+}}
+.gk-ins-tooltip .tt-def {{
+    font-size: 0.76rem; color: #374151; line-height: 1.55;
+}}
+.gk-ins-term {{
+    border-bottom: 1.5px dashed #6366f1;
+    cursor: help;
+    color: inherit;
+}}
+</style>
+<script>
+(function(){{
+  var TERMS = {_tt_data_js};
+
+  /* ── 툴팁 DOM 생성 ── */
+  var pd = window.parent ? window.parent.document : document;
+  var tooltip = pd.createElement('div');
+  tooltip.className = 'gk-ins-tooltip';
+  tooltip.innerHTML = '<div class="tt-term"></div><div class="tt-def"></div>';
+  pd.body.appendChild(tooltip);
+
+  function showTip(el, key) {{
+    var d = TERMS[key];
+    if (!d) return;
+    tooltip.querySelector('.tt-term').innerHTML =
+      d.term + (d.cat ? '<span class="tt-cat">' + d.cat + '</span>' : '');
+    tooltip.querySelector('.tt-def').textContent = d.def + (d.def.length >= 120 ? '...' : '');
+    var r = el.getBoundingClientRect();
+    var scrollY = (pd.documentElement.scrollTop || pd.body.scrollTop);
+    var scrollX = (pd.documentElement.scrollLeft || pd.body.scrollLeft);
+    tooltip.style.top  = (r.bottom + scrollY + 6) + 'px';
+    tooltip.style.left = Math.max(8, Math.min(r.left + scrollX, window.innerWidth - 340)) + 'px';
+    tooltip.classList.add('visible');
+  }}
+
+  function hideTip() {{
+    tooltip.classList.remove('visible');
+  }}
+
+  /* ── 텍스트 노드 탐색 + 용어 마킹 ── */
+  var termKeys = Object.keys(TERMS).sort(function(a,b){{ return b.length - a.length; }});
+
+  function escapeRegex(s) {{
+    return s.replace(/[.*+?^${{}}()|[\\]\\\\]/g, '\\\\$&');
+  }}
+
+  function markTermsInNode(textNode) {{
+    var text = textNode.nodeValue;
+    if (!text || text.trim().length < 2) return;
+    for (var i = 0; i < termKeys.length; i++) {{
+      var key = termKeys[i];
+      if (text.indexOf(key) === -1) continue;
+      var re = new RegExp('(?<![\\uAC00-\\uD7A3\\w])(' + escapeRegex(key) + ')(?![\\uAC00-\\uD7A3\\w])', 'g');
+      if (!re.test(text)) continue;
+      re.lastIndex = 0;
+      var frag = pd.createDocumentFragment();
+      var last = 0;
+      var m;
+      while ((m = re.exec(text)) !== null) {{
+        if (m.index > last) {{
+          frag.appendChild(pd.createTextNode(text.slice(last, m.index)));
+        }}
+        var span = pd.createElement('span');
+        span.className = 'gk-ins-term';
+        span.textContent = m[1];
+        span.setAttribute('data-tt-key', key);
+        (function(s, k) {{
+          s.addEventListener('mouseenter', function(){{ showTip(s, k); }});
+          s.addEventListener('mouseleave', hideTip);
+        }})(span, key);
+        frag.appendChild(span);
+        last = m.index + m[1].length;
+      }}
+      if (last < text.length) {{
+        frag.appendChild(pd.createTextNode(text.slice(last)));
+      }}
+      textNode.parentNode.replaceChild(frag, textNode);
+      return;
+    }}
+  }}
+
+  var _SKIP_TAGS = new Set(['SCRIPT','STYLE','INPUT','TEXTAREA','CODE','PRE','A','BUTTON']);
+
+  function walkAndMark(root) {{
+    var walker = pd.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+      {{
+        acceptNode: function(node) {{
+          var p = node.parentNode;
+          if (!p) return NodeFilter.FILTER_REJECT;
+          if (_SKIP_TAGS.has(p.tagName)) return NodeFilter.FILTER_REJECT;
+          if (p.classList && (p.classList.contains('gk-ins-term') || p.classList.contains('gk-ins-tooltip')))
+            return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }}
+      }},
+      false
+    );
+    var nodes = [];
+    var n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach(markTermsInNode);
+  }}
+
+  /* ── MutationObserver: 동적 렌더 대응 ── */
+  var _scanPending = false;
+  var _scanTarget = null;
+
+  function scheduleScan(target) {{
+    _scanTarget = target || pd.body;
+    if (_scanPending) return;
+    _scanPending = true;
+    setTimeout(function() {{
+      _scanPending = false;
+      try {{ walkAndMark(_scanTarget); }} catch(e) {{}}
+    }}, 600);
+  }}
+
+  var observer = new MutationObserver(function(mutations) {{
+    for (var i = 0; i < mutations.length; i++) {{
+      var added = mutations[i].addedNodes;
+      for (var j = 0; j < added.length; j++) {{
+        var node = added[j];
+        if (node.nodeType === 1 && !_SKIP_TAGS.has(node.tagName)) {{
+          scheduleScan(node);
+          break;
+        }}
+      }}
+    }}
+  }});
+
+  function startObserver() {{
+    try {{
+      observer.observe(pd.body, {{ childList: true, subtree: true }});
+      scheduleScan(pd.body);
+    }} catch(e) {{}}
+  }}
+
+  setTimeout(startObserver, 1500);
+  setTimeout(function(){{ try {{ walkAndMark(pd.body); }} catch(e){{}} }}, 3000);
+}})();
+</script>
+""", height=0)
+
     # ── 사이드바 ──────────────────────────────────────────────────────────
     # [제53조 개정] 인증 완료 후 사이드바 완전 미렌더 — 조건부 렌더링
     _is_authenticated = st.session_state.get('authenticated', False) or bool(st.session_state.get('user_id'))
@@ -35450,6 +35842,26 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
     if cur == "ins_bot":
         tab_home_btn("ins_bot")
 
+        # ── [제166조] 지능형 보험 용어 사전 import ────────────────────────────
+        try:
+            from modules.insurance_dict import (
+                INSURANCE_DICT, DICT_CATEGORIES, dict_search, dict_by_category, dict_pending_terms
+            )
+            _dict_available = True
+        except Exception:
+            _dict_available = False
+
+        # ── [GP-96] 자율 학습 엔진 import ────────────────────────────────────
+        try:
+            from modules.gp96_auto_learn import (
+                GP96_CURRICULUM, detect_curriculum, check_t3_trigger,
+                run_pipeline_sync, queue_pending_term, map_to_section,
+                extract_candidates_from_leaflet, extract_candidates_from_medical,
+            )
+            _gp96_available = True
+        except Exception:
+            _gp96_available = False
+
         # ── 가이딩 프로토콜 제25조: 출처 헤더 CSS + Red Alert CSS ───────────────────
         st.markdown("""
 <style>
@@ -35526,6 +35938,121 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
                        "ins_bot_verify_ok", "ins_bot_last_q"]:
                 st.session_state.pop(_k, None)
             st.rerun()
+
+        # ── [제166조] 사전 카드 렌더링 함수 ─────────────────────────────────
+        def _render_dict_card(key: str, entry: dict, expanded: bool = True) -> None:
+            """지능형 보험 용어 사전 카드 (정의·KCD·판례·1인칭화법)"""
+            _cat_color = {
+                "암": "#ef4444", "간병": "#8b5cf6", "실손": "#0ea5e9",
+                "뇌": "#6366f1", "심장": "#f43f5e", "장해": "#f97316",
+                "약관": "#64748b", "재무설계": "#059669", "설계전략": "#0f4c81",
+                "화재": "#dc2626", "노후설계": "#0369a1", "고지의무": "#b45309",
+            }.get(entry.get("category", ""), "#475569")
+            _cat = entry.get("category", "")
+            _kcd_list = entry.get("kcd", [])
+            _prec_list = entry.get("precedent", [])
+            _voice = entry.get("voice", "")
+            _tags = entry.get("tags", [])
+
+            _kcd_html = "".join(
+                f'<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;'
+                f'padding:1px 7px;font-size:0.72rem;color:#1e40af;font-weight:700;'
+                f'margin:2px 3px 2px 0;display:inline-block;">{k}</span>'
+                for k in _kcd_list
+            ) if _kcd_list else '<span style="color:#94a3b8;font-size:0.75rem;">해당 없음</span>'
+
+            _prec_html = "".join(
+                f'<li style="margin:4px 0;font-size:0.78rem;color:#374151;">'
+                f'<span style="color:#dc2626;font-weight:700;">⚖</span> {p}</li>'
+                for p in _prec_list
+            ) if _prec_list else '<li style="color:#94a3b8;font-size:0.75rem;">등록된 판례 없음</li>'
+
+            _tags_html = "".join(
+                f'<span style="background:#f1f5f9;border-radius:20px;padding:1px 8px;'
+                f'font-size:0.7rem;color:#64748b;margin:2px 2px 0 0;display:inline-block;">#{t}</span>'
+                for t in _tags
+            )
+
+            st.markdown(f"""
+<div class="ib-dict-card">
+  <div class="ib-dict-card-header">
+    <span class="ib-dict-term">{entry['term']}</span>
+    <span style="background:{_cat_color};color:#fff;border-radius:20px;padding:2px 10px;
+      font-size:0.7rem;font-weight:700;margin-left:8px;">{_cat}</span>
+    <span style="float:right;font-size:0.68rem;color:#94a3b8;font-weight:600;">
+      📚 지능형 보험 용어 사전 · 제166조
+    </span>
+  </div>
+  <div class="ib-dict-definition">{entry['definition']}</div>
+  <div class="ib-dict-section-label">🏥 KCD 코드</div>
+  <div style="margin-bottom:8px;">{_kcd_html}</div>
+  <div class="ib-dict-section-label">⚖️ 연관 판례 · 분쟁조정</div>
+  <ul style="margin:4px 0 8px 16px;padding:0;">{_prec_html}</ul>
+  <div class="ib-dict-section-label">💬 1인칭 권장 화법</div>
+  <div class="ib-dict-voice">
+    <span style="color:#0f4c81;font-weight:700;font-size:0.78rem;">내가 이 담보를 제안하는 이유는...</span><br>
+    <span style="font-size:0.82rem;color:#1e293b;line-height:1.6;">{_voice}</span>
+  </div>
+  <div style="margin-top:8px;">{_tags_html}</div>
+</div>
+""", unsafe_allow_html=True)
+
+        # ── [제166조] Dictionary Hub 추가 CSS ──────────────────────────────
+        st.markdown("""
+<style>
+.ib-dict-card {
+    background: linear-gradient(135deg,#f8faff 0%,#fff 100%);
+    border: 1.5px solid #c7d2fe;
+    border-radius: 14px; padding: 16px 20px; margin: 8px 0 12px 0;
+    box-shadow: 0 3px 12px rgba(99,102,241,0.10);
+    border-left: 5px solid #6366f1;
+}
+.ib-dict-card-header {
+    display: flex; align-items: center; flex-wrap: wrap;
+    margin-bottom: 10px; border-bottom: 1.5px solid #e0e7ff; padding-bottom: 8px;
+}
+.ib-dict-term {
+    font-size: 1.05rem; font-weight: 900; color: #0f4c81;
+}
+.ib-dict-definition {
+    font-size: 0.84rem; color: #1e293b; line-height: 1.65;
+    background: #f1f5f9; border-radius: 8px; padding: 10px 14px;
+    margin-bottom: 10px; border-left: 3px solid #6366f1;
+}
+.ib-dict-section-label {
+    font-size: 0.72rem; font-weight: 800; color: #6366f1;
+    text-transform: uppercase; letter-spacing: 0.07em; margin: 8px 0 4px 0;
+}
+.ib-dict-voice {
+    background: linear-gradient(135deg,#eff6ff 0%,#f0fdf4 100%);
+    border-radius: 10px; padding: 10px 14px; border-left: 4px solid #22c55e;
+    margin-top: 4px;
+}
+.ib-dict-hub-banner {
+    background: linear-gradient(135deg,#6366f1 0%,#0f4c81 100%);
+    border-radius: 12px; padding: 14px 20px; color: #fff;
+    margin: 10px 0 14px 0; display: flex; align-items: center; gap: 12px;
+}
+.ib-dict-hub-banner .title {
+    font-size: 1.0rem; font-weight: 900; letter-spacing: 0.04em;
+}
+.ib-dict-hub-banner .sub {
+    font-size: 0.76rem; opacity: 0.85; margin-top: 2px;
+}
+.ib-cat-chip {
+    display: inline-block; background: #f1f5f9; border: 1.5px solid #c7d2fe;
+    border-radius: 20px; padding: 4px 14px; font-size: 0.78rem;
+    color: #0f4c81; font-weight: 700; margin: 3px 4px 3px 0; cursor: pointer;
+}
+.ib-pending-card {
+    background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 10px;
+    padding: 10px 14px; margin: 6px 0; font-size: 0.82rem;
+}
+.ib-pending-card .term-key {
+    font-weight: 800; color: #c2410c; font-size: 0.9rem;
+}
+</style>
+""", unsafe_allow_html=True)
 
         # ── 제23조 금지 출처 필터 함수 ───────────────────────────────────
         def _ib_check_blocked(text: str) -> list:
@@ -35677,7 +36204,31 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 
         # ── 검색 실행 ─────────────────────────────────────────────────────
         if _ib_search_btn and _ib_query.strip():
-            with st.spinner("🔍 승인 출처 검색 중 · 2차 검증 중..."):
+            with st.spinner("🔍 사전 검색 + 승인 출처 AI 검증 중..."):
+                # [제166조] 사전 검색 먼저 수행
+                _dict_hits = dict_search(_ib_query.strip()) if _dict_available else []
+                st.session_state["ins_bot_dict_hits"] = _dict_hits
+                # [GP-96] T3 트리거: 미정의 용어 자동 감지 → 승인 큐 등록
+                if _gp96_available and _dict_available:
+                    _t3_candidates = check_t3_trigger(
+                        _ib_query.strip(),
+                        list(INSURANCE_DICT.keys()),
+                    )
+                    for _cand in _t3_candidates:
+                        _pending_entry = run_pipeline_sync(
+                            raw_term=_cand["raw"],
+                            curriculum_codes=_cand["curriculum"],
+                            trigger="T3",
+                            ai_call_fn=None,
+                        )
+                        queue_pending_term(_pending_entry, st.session_state)
+                    if _t3_candidates:
+                        st.session_state["ins_bot_t3_detected"] = [
+                            c["raw"] for c in _t3_candidates
+                        ]
+                    else:
+                        st.session_state.pop("ins_bot_t3_detected", None)
+                # AI 응답 생성
                 _result = _ib_generate(_ib_query.strip())
             st.session_state["ins_bot_result"] = _result
             st.session_state["ins_bot_last_q"] = _ib_query.strip()
@@ -35690,8 +36241,39 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 
         _res = st.session_state.get("ins_bot_result")
         _last_q = st.session_state.get("ins_bot_last_q", "")
+        _dict_hits = st.session_state.get("ins_bot_dict_hits", [])
 
         if _res:
+            # ── [제166조] 1순위: 지능형 사전 카드 ──────────────────────────
+            if _dict_available and _dict_hits:
+                st.markdown(f"""
+<div class="ib-dict-hub-banner">
+  <span style="font-size:1.6rem;">📖</span>
+  <div>
+    <div class="title">지능형 보험 용어 사전 · 제166조</div>
+    <div class="sub">"{_last_q}" 검색 결과 — 사전 등록 용어 {len(_dict_hits)}건 발견</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+                for _hit in _dict_hits[:3]:
+                    _render_dict_card(_hit["key"], _hit["entry"])
+
+            # ── [GP-96] T3 미정의 용어 감지 알림 ─────────────────────────
+            _t3_detected = st.session_state.get("ins_bot_t3_detected", [])
+            if _t3_detected and _gp96_available:
+                st.markdown(f"""
+<div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;
+  padding:10px 16px;margin:6px 0 10px 0;font-size:0.82rem;">
+  <span style="font-weight:800;color:#c2410c;">🧠 GP-96 자율학습 감지</span>
+  <span style="color:#92400e;"> — 미정의 용어 <b>{len(_t3_detected)}건</b>이 승인 큐에 등록되었습니다:</span>
+  <div style="margin-top:4px;">
+  {' '.join(f'<span style="background:#fef3c7;border:1px solid #fcd34d;border-radius:12px;padding:1px 8px;font-size:0.75rem;color:#92400e;font-weight:700;margin:2px 3px 0 0;display:inline-block;">{w}</span>' for w in _t3_detected)}
+  </div>
+  <div style="font-size:0.72rem;color:#b45309;margin-top:4px;">↓ 하단 승인 큐에서 확인 후 사전에 등록하세요.</div>
+</div>""", unsafe_allow_html=True)
+
+            # ── 2순위: AI 응답 (출처 헤더 + 결과 카드) ────────────────────
+            st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
+
             # 제23조 금지 출처 감지 경고
             if _res.get("blocked"):
                 st.markdown(f"""
@@ -35778,7 +36360,88 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
                         st.rerun()
 
         else:
-            st.markdown("""
+            # ── 초기 화면: 사전 허브 배너 + 카테고리 브라우저 ───────────────
+            if _dict_available:
+                st.markdown(f"""
+<div class="ib-dict-hub-banner">
+  <span style="font-size:2rem;">📖</span>
+  <div>
+    <div class="title">지능형 보험 용어 사전 · 제166조</div>
+    <div class="sub">총 {len(INSURANCE_DICT)}개 용어 등록 · 카테고리별 열람 또는 검색어 입력</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                # ── [제166조] 카테고리 브라우저 ─────────────────────────────
+                st.markdown(
+                    "<div style='font-size:0.78rem;font-weight:800;color:#6366f1;"
+                    "letter-spacing:0.06em;margin:6px 0 8px 0;'>📂 카테고리별 열람</div>",
+                    unsafe_allow_html=True,
+                )
+                _cat_cols = st.columns(len(DICT_CATEGORIES) if len(DICT_CATEGORIES) <= 6 else 6)
+                for _ci, _cat in enumerate(DICT_CATEGORIES):
+                    with _cat_cols[_ci % 6]:
+                        if st.button(
+                            _cat,
+                            key=f"ib_cat_{_cat}",
+                            use_container_width=True,
+                        ):
+                            st.session_state["ins_bot_browse_cat"] = _cat
+
+                # 선택된 카테고리 카드 목록
+                _browse_cat = st.session_state.get("ins_bot_browse_cat", "")
+                if _browse_cat:
+                    _cat_entries = dict_by_category(_browse_cat)
+                    st.markdown(
+                        f"<div style='font-size:0.82rem;font-weight:700;color:#0f4c81;"
+                        f"margin:12px 0 6px 0;'>📂 [{_browse_cat}] 카테고리 — {len(_cat_entries)}건</div>",
+                        unsafe_allow_html=True,
+                    )
+                    for _ce in _cat_entries:
+                        _render_dict_card(_ce["key"], _ce["entry"], expanded=False)
+
+                st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
+
+            # ── [제166조] 신규 용어 승인 큐 (마스터 전용) ──────────────────
+            if _dict_available:
+                _pending = dict_pending_terms()
+                if _pending:
+                    with st.expander(
+                        f"🔔 신규 용어 승인 대기 — {len(_pending)}건 (마스터 확인 필요)",
+                        expanded=True,
+                    ):
+                        for _pi, _pterm in enumerate(_pending):
+                            _pkey = _pterm.get("key", f"pending_{_pi}")
+                            _pentry = _pterm.get("entry", {})
+                            st.markdown(f"""
+<div class="ib-pending-card">
+  <span class="term-key">🆕 {_pentry.get('term', _pkey)}</span>
+  &nbsp;<span style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;
+    padding:1px 8px;font-size:0.7rem;color:#c2410c;font-weight:700;">승인 대기</span>
+  <div style="font-size:0.78rem;color:#374151;margin-top:6px;">{_pentry.get('definition','')[:120]}...</div>
+</div>""", unsafe_allow_html=True)
+                            _pa_col1, _pa_col2 = st.columns([1, 1])
+                            with _pa_col1:
+                                if st.button("✅ 승인 등록", key=f"ib_approve_{_pi}",
+                                             use_container_width=True, type="primary"):
+                                    _queue = st.session_state.get("dict_pending_queue", [])
+                                    if _pi < len(_queue):
+                                        _approved = _queue.pop(_pi)
+                                        from modules.insurance_dict import INSURANCE_DICT as _ID
+                                        _ID[_approved["key"]] = _approved["entry"]
+                                        st.session_state["dict_pending_queue"] = _queue
+                                        st.success(f"✅ '{_approved['key']}' 용어가 사전에 등록되었습니다.")
+                                        st.rerun()
+                            with _pa_col2:
+                                if st.button("🗑 거절", key=f"ib_reject_{_pi}",
+                                             use_container_width=True):
+                                    _queue = st.session_state.get("dict_pending_queue", [])
+                                    if _pi < len(_queue):
+                                        _queue.pop(_pi)
+                                        st.session_state["dict_pending_queue"] = _queue
+                                        st.rerun()
+
+            if not _dict_available:
+                st.markdown("""
 <div style="text-align:center;padding:32px 0;color:#94a3b8;">
   <div style="font-size:2.5rem;margin-bottom:8px;">🤖</div>
   <div style="font-size:0.9rem;font-weight:700;">보험 용어나 사례를 검색하면 가이딩 프로토콜 제6편 기준으로 답변합니다.</div>
@@ -35786,6 +36449,57 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
     예시: 실손보험 자기부담금 · 면책조항 · 맥브라이드 장해율 · 교통사고 합의금
   </div>
 </div>""", unsafe_allow_html=True)
+            else:
+                st.markdown("""
+<div style="text-align:center;padding:20px 0 8px 0;color:#94a3b8;">
+  <div style="font-size:0.82rem;font-weight:600;">위 카테고리를 선택하거나, 검색창에 용어를 입력하세요.</div>
+  <div style="font-size:0.75rem;margin-top:4px;color:#cbd5e1;">
+    예시: 실손보험 · 면책조항 · 맥브라이드 · CAR-T · 간병일당
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── [제166조] 신규 용어 등록 폼 (하단 고정) ─────────────────────────
+        if _dict_available:
+            st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
+            with st.expander("➕ 신규 용어 등록 요청 (마스터 승인 후 사전 반영)", expanded=False):
+                _nterm_col1, _nterm_col2 = st.columns([2, 1])
+                with _nterm_col1:
+                    _new_term_key = st.text_input("용어 키 (영문/한글, 공백 없이)",
+                                                  key="ib_new_term_key",
+                                                  placeholder="예: 중증치매특약")
+                    _new_term_name = st.text_input("용어 전체명",
+                                                   key="ib_new_term_name",
+                                                   placeholder="예: 중증치매 진단특약 (CDR3 기준)")
+                    _new_term_def = st.text_area("정의 (2~4문장)",
+                                                  key="ib_new_term_def",
+                                                  height=80,
+                                                  placeholder="용어 정의를 입력하세요...")
+                with _nterm_col2:
+                    _new_term_cat = st.selectbox("카테고리",
+                                                  options=DICT_CATEGORIES,
+                                                  key="ib_new_term_cat")
+                    _new_term_voice = st.text_area("1인칭 권장 화법",
+                                                    key="ib_new_term_voice",
+                                                    height=80,
+                                                    placeholder="내가 이 담보를 제안하는 이유는...")
+                if st.button("📨 승인 요청 전송", key="ib_submit_new_term",
+                             use_container_width=True, type="primary"):
+                    if _new_term_key.strip() and _new_term_def.strip():
+                        _new_entry = {
+                            "term": _new_term_name.strip() or _new_term_key.strip(),
+                            "category": _new_term_cat,
+                            "definition": _new_term_def.strip(),
+                            "kcd": [],
+                            "precedent": [],
+                            "voice": _new_term_voice.strip(),
+                            "tags": [],
+                        }
+                        _queue = st.session_state.get("dict_pending_queue", [])
+                        _queue.append({"key": _new_term_key.strip(), "entry": _new_entry})
+                        st.session_state["dict_pending_queue"] = _queue
+                        st.success(f"✅ '{_new_term_key.strip()}' 승인 요청이 전송되었습니다. 마스터 승인 후 사전에 등록됩니다.")
+                    else:
+                        st.warning("용어 키와 정의를 입력해 주세요.")
 
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
