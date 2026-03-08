@@ -16297,13 +16297,34 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
                                 st.error("❌ 인증번호가 올바르지 않습니다. 다시 확인해 주세요.")
                         st.markdown("""
     <style>
-    /* Phase B 처음으로 버튼 — 가이딩 프로토콜 기준 네이비/스카이 */
-    button[kind="secondary"][data-testid="baseButton-secondary"] {
-      background: linear-gradient(135deg,rgba(14,165,233,0.18) 0%,rgba(56,189,248,0.18) 100%) !important;
-      color: #ffffff !important;
-      border: 1.5px solid #0ea5e9 !important;
+    /* [제59조] OTP 확인 버튼 — 파스텔 블루 + 붉은 외곽선 */
+    section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
+      background: #E3F2FD !important;
+      color: #000000 !important;
+      font-weight: 900 !important;
+      font-size: 1.0rem !important;
+      border: 2px solid #E53935 !important;
+      border-radius: 10px !important;
+      box-shadow: 0 2px 8px rgba(229,57,53,0.15) !important;
+      transition: background 0.15s, box-shadow 0.15s !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"]:hover {
+      background: #BBDEFB !important;
+      box-shadow: 0 4px 12px rgba(229,57,53,0.28) !important;
+    }
+    /* [제59조] 처음으로 버튼 — 파스텔 옐로 + 붉은 외곽선 */
+    section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="secondary"] {
+      background: #FFF9C4 !important;
+      color: #000000 !important;
       font-weight: 800 !important;
-      border-radius: 8px !important;
+      border: 2px solid #E53935 !important;
+      border-radius: 10px !important;
+      box-shadow: 0 2px 8px rgba(229,57,53,0.12) !important;
+      transition: background 0.15s, box-shadow 0.15s !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="secondary"]:hover {
+      background: #FFF176 !important;
+      box-shadow: 0 4px 12px rgba(229,57,53,0.25) !important;
     }
     </style>""", unsafe_allow_html=True)
                         if st.button("↩️ 처음으로", key="hlp_back_b", use_container_width=True):
@@ -17127,20 +17148,20 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
 .gk-login-guide {
   max-width: 460px; margin: 60px auto 0 auto;
   margin-left: max(320px, 22vw);
-  background: linear-gradient(135deg,#E1F5FE 0%,#EFF8FF 100%);
-  border: 1.5px solid #81D4FA; border-radius: 20px;
+  background: #E3F2FD;
+  border: 2px solid #E53935; border-radius: 20px;
   padding: 36px 28px 28px 28px; text-align: center;
-  box-shadow: 0 8px 32px rgba(14,165,233,0.12);
+  box-shadow: 0 8px 32px rgba(229,57,53,0.12);
 }
 .gk-login-guide .gk-lg-title {
-  font-size: 1.5rem; font-weight: 900; color: #B8860B;
+  font-size: 1.6rem; font-weight: 900; color: #000000;
   margin-bottom: 10px; letter-spacing: -0.01em;
 }
 .gk-login-guide .gk-lg-sub {
-  font-size: 0.95rem; color: #1e3a5f; margin-bottom: 24px; line-height: 1.6;
+  font-size: 1.0rem; font-weight: 700; color: #000000; margin-bottom: 24px; line-height: 1.6;
 }
 .gk-login-guide .gk-lg-arrow {
-  font-size: 6rem; color: #f0c040; margin-bottom: 8px;
+  font-size: 6rem; color: #E53935; margin-bottom: 8px;
   animation: gk-bounce 1.2s infinite;
 }
 @keyframes gk-bounce {
@@ -17158,6 +17179,24 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
 
         col_a, col_b, col_c = st.columns([3, 3, 1])
         with col_b:
+            st.markdown("""
+<style>
+div[data-testid="stButton"] > button[kind="primary"]#_main_open_sidebar_btn,
+section:not([data-testid="stSidebar"]) div[data-testid="stButton"] > button[kind="primary"] {
+  background: #E3F2FD !important;
+  color: #000000 !important;
+  font-weight: 900 !important;
+  font-size: 1.05rem !important;
+  border: 2px solid #E53935 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 8px rgba(229,57,53,0.18) !important;
+  transition: background 0.15s, box-shadow 0.15s !important;
+}
+section:not([data-testid="stSidebar"]) div[data-testid="stButton"] > button[kind="primary"]:hover {
+  background: #BBDEFB !important;
+  box-shadow: 0 4px 14px rgba(229,57,53,0.28) !important;
+}
+</style>""", unsafe_allow_html=True)
             if st.button("☰ 사이드바 열기 / 로그인", key="_main_open_sidebar_btn",
                          use_container_width=True, type="primary"):
                 st.session_state["_open_sidebar"] = True
