@@ -19978,7 +19978,9 @@ section.main > div.block-container,
    주요 액션 버튼 전역 클래스
 ================================================================ */
 .gk-hc-btn > div[data-testid="stButton"] > button,
-.gk-hc-btn button {
+.gk-hc-btn button,
+.gk-rb-btn > div[data-testid="stButton"] > button,
+.gk-rb-btn button {
     background: #BAE6FD !important;
     border: 2.5px solid #DC2626 !important;
     color: #000000 !important;
@@ -19990,14 +19992,18 @@ section.main > div.block-container,
     transition: background 0.18s, border-color 0.18s !important;
 }
 .gk-hc-btn > div[data-testid="stButton"] > button:hover,
-.gk-hc-btn button:hover {
+.gk-hc-btn button:hover,
+.gk-rb-btn > div[data-testid="stButton"] > button:hover,
+.gk-rb-btn button:hover {
     background: #7dd3fc !important;
     border-color: #991b1b !important;
     color: #000000 !important;
     box-shadow: 0 4px 10px rgba(220,38,38,0.25) !important;
 }
 .gk-hc-btn > div[data-testid="stButton"] > button:active,
-.gk-hc-btn button:active {
+.gk-hc-btn button:active,
+.gk-rb-btn > div[data-testid="stButton"] > button:active,
+.gk-rb-btn button:active {
     background: #38bdf8 !important;
     border-color: #7f1d1d !important;
 }
@@ -21088,6 +21094,32 @@ h3 { font-size: 1.15rem !important; font-weight: 800 !important; }
     box-shadow: 0 4px 14px rgba(14,165,233,0.20) !important;
 }
 
+/* ── [RED BORDER PROTOCOL] 액션 그리드 버튼 전역 클래스 ── */
+/* .gk-rb-btn 래퍼 안의 모든 stButton 버튼에 적용 */
+.gk-rb-btn > div[data-testid="stButton"] > button,
+.gk-rb-btn div[data-testid="stButton"] > button {
+    background: #E3F2FD !important;
+    border: 2.5px solid #FF0000 !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+    border-radius: 10px !important;
+    text-shadow: none !important;
+    box-shadow: 0 2px 8px rgba(255,0,0,0.12) !important;
+    transition: background 0.18s ease, border-color 0.18s ease !important;
+}
+.gk-rb-btn > div[data-testid="stButton"] > button:hover,
+.gk-rb-btn div[data-testid="stButton"] > button:hover {
+    background: #BBDEFB !important;
+    border-color: #CC0000 !important;
+    color: #000000 !important;
+    box-shadow: 0 4px 14px rgba(255,0,0,0.22) !important;
+}
+.gk-rb-btn > div[data-testid="stButton"] > button:active,
+.gk-rb-btn div[data-testid="stButton"] > button:active {
+    background: #90CAF9 !important;
+    border-color: #990000 !important;
+}
+
 /* ── 입력 필드 — Glassmorphism ── */
 .stTextInput > div > div > input,
 .stTextArea > div > div > textarea,
@@ -21131,23 +21163,25 @@ hr[data-testid="stDivider"] {
     letter-spacing: 0.05em !important;
 }
 
-/* ── 도메인 카드 ── */
+/* ── 도메인 카드 — [RED BORDER PROTOCOL] ── */
 .gk-card-wrap {
     height: 130px !important;
-    background: var(--gk-glass-bg) !important;
+    background: #E3F2FD !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
-    border: 1.5px solid var(--gk-glass-border) !important;
+    border: 2.5px solid #FF0000 !important;
     border-radius: 14px !important;
     transition: transform 0.3s var(--gk-spring),
-                box-shadow 0.3s var(--gk-ease) !important;
+                box-shadow 0.3s var(--gk-ease),
+                background 0.18s ease !important;
 }
 .gk-card-wrap:hover {
     transform: translateY(-4px) scale(1.02) !important;
-    box-shadow: 0 12px 32px rgba(14,165,233,0.18) !important;
+    background: #BBDEFB !important;
+    box-shadow: 0 8px 24px rgba(255,0,0,0.18) !important;
 }
 .gk-card-icon  { font-size: 2.8rem !important; }
-.gk-card-title { font-size: 1.12rem !important; font-weight: 900 !important; color: #0f172a !important; }
+.gk-card-title { font-size: 1.12rem !important; font-weight: 900 !important; color: #000000 !important; }
 .gk-card-desc  { font-size: 0.82rem !important; color: #334155 !important; line-height: 1.6 !important; }
 
 /* ── AI 한줄 요약 박스 (결론 우선형) ── */
@@ -25885,9 +25919,11 @@ window['startTTS_{tab_key}']=function(){{
   <div class="gk-portal-card-label">실손 보험금 계산</div>
   <div class="gk-portal-card-desc">영수증 스캔 → 예상 환급액 즉시 산출</div>
 </div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("실손 계산 시작 →", key="_portal_nav_claim", use_container_width=True):
                 _go_tab("claim_scanner")
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
         with _pc2:
             st.markdown(f"""
 <div class="gk-portal-card">
@@ -25896,9 +25932,11 @@ window['startTTS_{tab_key}']=function(){{
   <div class="gk-portal-card-label">상담 시작</div>
   <div class="gk-portal-card-desc">AI 보험 상담 · 분석 · 설계 통합</div>
 </div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("상담 시작 →", key="_portal_nav_consult", use_container_width=True):
                 _go_tab("home")
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
         with _pc3:
             st.markdown(f"""
 <div class="gk-portal-card">
@@ -25907,9 +25945,11 @@ window['startTTS_{tab_key}']=function(){{
   <div class="gk-portal-card-label">가문 안보 리포트</div>
   <div class="gk-portal-card-desc">AI 자동 분석 리포트 생성</div>
 </div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("리포트 보기 →", key="_portal_nav_report", use_container_width=True):
                 _go_tab("report43")
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
         with _pc4:
             st.markdown(f"""
 <div class="gk-portal-card" style="border-color:#f59e0b55;">
@@ -25918,9 +25958,11 @@ window['startTTS_{tab_key}']=function(){{
   <div class="gk-portal-card-label" style="color:#f59e0b;">실전 상담 전략실</div>
   <div class="gk-portal-card-desc">GP101·102·103 통합 스크립트 생성</div>
 </div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("전략실 입장 →", key="_portal_nav_warroom", use_container_width=True):
                 _go_tab("war_room")
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
         with _pc5:
             st.markdown(f"""
 <div class="gk-portal-card" style="border-color:#10b98155;background:linear-gradient(135deg,#0f2a1a,#0d3b2e);">
@@ -25929,9 +25971,11 @@ window['startTTS_{tab_key}']=function(){{
   <div class="gk-portal-card-label" style="color:#10b981;">인생 방어 사령부</div>
   <div class="gk-portal-card-desc">GP100·110·120 보상·법률·의료 통합</div>
 </div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("사령부 입장 →", key="_portal_nav_life_defense", use_container_width=True):
                 _go_tab("life_defense")
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════
     # [GP102/103] Page 0: 실전 상담 전략실 — War Room
@@ -28139,13 +28183,13 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
         # ── [스캔 퍼스트 아키텍처] 5:5 통합 레이아웃 ──────────────────────────
         st.markdown("""
 <style>
-/* 스캔 퍼스트 — 좌측 컨트롤러 외곽선 */
+/* 스캔 퍼스트 — 좌측 컨트롤러 외곽선 [RED BORDER PROTOCOL] */
 .gk-scan-controller {
-  border: 2px solid #B3E5FC;
+  border: 2.5px solid #FF0000;
   border-radius: 14px;
   padding: 18px 16px 14px 16px;
   background: #FFFFFF;
-  box-shadow: 0 2px 12px rgba(2,132,199,0.09);
+  box-shadow: 0 2px 12px rgba(255,0,0,0.12);
 }
 /* 우측 출력 스크롤 박스 */
 .gk-scan-output {
@@ -28157,17 +28201,24 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
   height: 420px;
   overflow-y: auto;
 }
-/* 액션 버튼 — 강렬한 딥블루 */
+/* 액션 버튼 — [RED BORDER PROTOCOL] 스캔 시작 버튼 */
 div[data-testid="stButton"] > button[kind="primary"]#btn_home_scan_start,
 div[data-testid="stButton"] > button[data-testid="btn_home_scan_start"] {
-  background: linear-gradient(135deg,#0ea5e9,#0369a1) !important;
-  color: #ffffff !important;
+  background: #E3F2FD !important;
+  color: #000000 !important;
   font-size: 1.05rem !important;
   font-weight: 900 !important;
-  border: none !important;
+  border: 2.5px solid #FF0000 !important;
   border-radius: 10px !important;
   padding: 12px 0 !important;
-  box-shadow: 0 4px 16px rgba(3,105,161,0.35) !important;
+  box-shadow: 0 4px 16px rgba(255,0,0,0.18) !important;
+  transition: background 0.18s ease !important;
+}
+div[data-testid="stButton"] > button[kind="primary"]#btn_home_scan_start:hover,
+div[data-testid="stButton"] > button[data-testid="btn_home_scan_start"]:hover {
+  background: #BBDEFB !important;
+  border-color: #CC0000 !important;
+  box-shadow: 0 6px 20px rgba(255,0,0,0.28) !important;
 }
 </style>""", unsafe_allow_html=True)
 
@@ -31135,8 +31186,10 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   </div>
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 7개 핵심 서비스</span>
 </div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("🔬 A섹션 진입 — Smart Analysis & Hub", key="ag_a_enter", use_container_width=True):
                 _go_tab("policy_scan")
+            st.markdown('</div>', unsafe_allow_html=True)
 
         with _pf_c2:
             st.markdown(f"""
@@ -31154,8 +31207,10 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   </div>
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 11개 핵심 서비스</span>
 </div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("🛡️ B섹션 진입 — Expert Consulting", key="ag_b_enter", use_container_width=True):
                 _go_tab("t0")
+            st.markdown('</div>', unsafe_allow_html=True)
 
         with _pf_c3:
             st.markdown(f"""
@@ -31173,8 +31228,10 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   </div>
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 7개 핵심 서비스</span>
 </div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("💼 C섹션 진입 — Wealth & Corporate", key="ag_c_enter", use_container_width=True):
                 _go_tab("t5")
+            st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
 
@@ -31197,8 +31254,10 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   </div>
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 4개 핵심 서비스</span>
 </div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("🌸 D섹션 진입 — Life & Care", key="ag_d_enter", use_container_width=True):
                 _go_tab("life_event")
+            st.markdown('</div>', unsafe_allow_html=True)
 
         with _pf_d2:
             st.markdown(f"""
@@ -31216,8 +31275,10 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   </div>
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#ffffff;">📦 통합 시뮬레이션 가이드</span>
 </div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("🔍 E섹션 진입 — 보상 시뮬레이션 가이드", key="ag_e_enter", use_container_width=True):
                 _go_tab("kcd_injury")
+            st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
 
@@ -31238,8 +31299,10 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   </div>
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#ffffff;">📋 보험 용어 · 판례 · 사례 검색</span>
 </div>""", unsafe_allow_html=True)
+        st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
         if st.button("🤖 F섹션 진입 — 보험봇 · InsuBot", key="ag_f_enter", use_container_width=True):
             _go_tab("ins_bot")
+        st.markdown('</div>', unsafe_allow_html=True)
         # ── 하단 안내문구는 A.B.C 섹션 바로 위로 이동됨 (지시2) ────────
 
         st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹8 닫기]
