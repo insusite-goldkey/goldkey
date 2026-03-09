@@ -24386,12 +24386,15 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
 
     # ── 로그인 후 최초 1회 마이크 권한 안내 ────────────────────────────
     if st.session_state.pop("_mic_notice", False):
-        st.info(
-            "🎙️ **음성 입력 권한 안내**\n\n"
-            "음성 입력 버튼을 처음 누르면 브라우저가 **마이크 허용 여부**를 묻습니다.  \n"
-            "**'허용'** 을 클릭하시면 이후 같은 브라우저에서는 다시 묻지 않습니다.  \n"
-            "마이크를 거부해도 텍스트 입력으로 모든 기능을 이용하실 수 있습니다.  \n\n"
-            "📜 자세한 내용은 이용약관 **제6조의2 (마이크 접근 권한 정책)** 를 참고하세요."
+        st.markdown(
+            '<p style="font-size:0.83rem;font-weight:700;color:#000000;'
+            'line-height:1.7;margin:6px 0 10px 0;word-break:keep-all;">'
+            '🎙️ 음성 입력 권한 안내: 음성 입력 버튼을 처음 누르면 브라우저가 마이크 허용 여부를 묻습니다. '
+            "\'허용\' 을 클릭하시면 이후 같은 브라우저에서는 다시 묻지 않습니다. "
+            '마이크를 거부해도 텍스트 입력으로 모든 기능을 이용하실 수 있습니다. '
+            '📜 자세한 내용은 이용약관 제6조의2 (마이크 접근 권한 정책) 를 참고하세요.'
+            '</p>',
+            unsafe_allow_html=True
         )
 
     # ── 동시접속 체크인 [GP-49: 로그인 유저 무조건 허용, 익명만 제한] ────
@@ -31484,48 +31487,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
 
     # ── [홈 복귀 버튼] 각 탭 공통 ────────────────────────────────────────
     def tab_home_btn(tab_key):
-        # ── 이전 버튼 (홈에서는 숨김) ──────────────────────────────────
-        _hist = st.session_state.get("_nav_history", [])
-        if tab_key != "home" and _hist:
-            st.markdown("""
-<style>
-div[data-testid="stButton"] button[kind="secondary"].back-btn {
-    min-height: 44px !important;
-    min-width: 44px !important;
-    font-size: 1rem !important;
-    font-weight: 700 !important;
-}
-</style>""", unsafe_allow_html=True)
-            _prev_label = _hist[-1] if _hist else "홈"
-            _back_col, _ = st.columns([1, 5])
-            with _back_col:
-                if st.button(
-                    "‹ 이전",
-                    key=f"btn_back_{tab_key}",
-                    use_container_width=True,
-                    help=f"이전 화면({_prev_label})으로 돌아가기",
-                ):
-                    _dest = st.session_state._nav_history.pop()
-                    st.session_state.current_tab = _dest
-                    st.session_state["_scroll_top"] = True
-                    st.rerun()
-        # ── 홈 버튼 + Deep Link 바 ──────────────────────────────────────
-        _col_home, _col_links = st.columns([1, 3])
-        with _col_home:
-            if st.button("🏠 홈으로", key=f"btn_home_{tab_key}", type="primary", use_container_width=True):
-                st.session_state._nav_history = []
-                st.session_state.current_tab = "home"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-        # Deep Link 버튼 바 (홈 버튼 오른쪽)
-        with _col_links:
-            links = _TAB_LINKS.get(tab_key, [])
-            if links:
-                _dl_sub = st.columns(len(links))
-                for i, (tab_id, label) in enumerate(links):
-                    with _dl_sub[i]:
-                        if st.button(label, key=f"dl_{tab_key}_{tab_id}", use_container_width=True):
-                            _go_tab(tab_id)
+        pass
 
     # ── [customer_mgmt] 고객 관리 탭 (Phase 1) ───────────────────────────
     if cur == "customer_mgmt":
