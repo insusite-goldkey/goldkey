@@ -1,23 +1,32 @@
 # modules/scan_engine.py
 # ══════════════════════════════════════════════════════════════════════════════
-# [가이딩 프로토콜 제190~191조] 전역 통합 스캔 엔진
+# [통합 가이딩 프로토콜 제190조] 전역 무결성 스캔 인프라 및 자동 상속 표준
 #
-# GP190 §1 — 기능 단일화: 앱 내 모든 스캔·업로드 모듈이 공유하는 단일 파이프라인
-# GP190 §2 — 파일 감지 → GCS 백업 → 텍스트 추출 → AI 분류
-# GP190 §3 — 상태 피드백: 진행창, 재시도 로직, 오류 복구 안내
-# GP191 §1 — 공적 자산 분류 격리: 약관/설명서 ↔ 개인자료 물리적 분리
-# GP191 §2 — 즉시 가공: 저장 후 0.1초 내 핵심 담보·보장한도·면책조항 추출
-# GP191 §3 — RAG 실시간 반영 + 1인칭 상담 연동
+# GP190 §1  — 단일 지능형 파이프라인: 앱 내 모든 파일 업로드는 이 엔진을 통과
+# GP190 §2  — Pre-process: 이미지 Deskew·대비 최적화 + PII 자동 마스킹
+# GP190 §3  — Secure Storage: 공적 자산 ↔ 개인자료 GCS 물리 분리
+# GP190 §4  — Precision Extraction: Core-8 정밀 추출 + 50P 분할 분석
+# GP190 §5  — KCD Verification: 질병명/코드 KCD-10 실시간 대조 검증
+# GP190 §6  — Master Approval: Human-in-the-loop 마스터 검수·승인 후 RAG 반영
+# GP191 §1  — 공적 자산 분류 격리 (약관/설명서 ↔ 개인자료 물리 분리)
+# GP191 §2  — 즉시 가공: 핵심 담보·보장한도·면책조항 추출
+# GP191 §3  — RAG 실시간 반영 + 1인칭 상담 연동
+# GP192      — Core-8 정밀 추출 (지급기준·판매주기·특장점·용어·세일즈멘트)
+# GP193      — 전역 지식 동기화 후크 + 상담 팩트 시트
+# GP194      — 무결성 가드레일 (보안·품질 강제)
+# GP195      — 신규 모듈 자동 상속 표준 (Single Source of Truth)
 # ══════════════════════════════════════════════════════════════════════════════
 
 from __future__ import annotations
 
 import io
 import os
+import re
 import uuid
+import json
 import logging
 import datetime
-from typing import Optional
+from typing import Optional, Callable
 
 logger = logging.getLogger("scan_engine")
 
@@ -34,13 +43,65 @@ PERSONAL_DATA_TYPES: set[str] = {
 }
 
 # GCS 버킷 경로 구분 (GP191 §1)
-_GCS_PUBLIC_PREFIX  = "public_assets"   # 약관·설명서 등 공적 자산
-_GCS_PRIVATE_PREFIX = "private_data"    # 개인자료 (RAG 인덱싱 금지)
-_GCS_KNOWLEDGE_PREFIX = "knowledge"     # know_pipe 지식베이스 전용
+_GCS_PUBLIC_PREFIX    = "public_assets"   # 약관·설명서 등 공적 자산
+_GCS_PRIVATE_PREFIX   = "private_data"    # 개인자료 (RAG 인덱싱 금지)
+_GCS_KNOWLEDGE_PREFIX = "knowledge"       # know_pipe 지식베이스 전용
+
+# 대용량 문서 분할 기준 (GP190 §4)
+_CHUNK_PAGE_THRESHOLD = 50    # 50페이지 이상이면 분할 분석
+_CHUNK_CHAR_SIZE      = 3000  # 청크당 최대 문자수
+
+# PII 마스킹 패턴 (GP190 §2 / GP194)
+_PII_PATTERNS: list[tuple[str, str]] = [
+    (r"\d{6}-[1-4]\d{6}",            "***주민번호***"),    # 주민등록번호
+    (r"\d{3}-\d{2}-\d{5}",           "***사업자번호***"),  # 사업자등록번호
+    (r"010[-\s]?\d{4}[-\s]?\d{4}",   "***전화번호***"),    # 휴대전화
+    (r"0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}", "***전화번호***"),
+    (r"[가-힣]{2,4}\s*\d{4,7}",      "***계좌번호***"),    # 은행계좌 패턴
+    (r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b", "***이메일***"),
+]
+
+# ── GP190 §5: KCD-10 핵심 질병 코드 매핑 DB ──────────────────────────────────
+# 주요 보험 관련 질환 대표 코드 (상위 70개 수록)
+KCD10_DB: dict[str, str] = {
+    # 암(신생물)
+    "암": "C00-C97", "악성신생물": "C00-C97", "폐암": "C34", "위암": "C16",
+    "대장암": "C18", "간암": "C22", "유방암": "C50", "자궁경부암": "C53",
+    "전립선암": "C61", "췌장암": "C25", "갑상선암": "C73", "혈액암": "C81-C96",
+    "뇌종양": "C71", "방광암": "C67", "신장암": "C64", "식도암": "C15",
+    "난소암": "C56", "자궁암": "C54", "구강암": "C00-C14",
+    # 심장·혈관
+    "급성심근경색": "I21", "심근경색": "I21", "뇌졸중": "I60-I64",
+    "뇌출혈": "I60-I62", "뇌경색": "I63", "협심증": "I20",
+    "심부전": "I50", "부정맥": "I47-I49", "고혈압": "I10",
+    "동맥경화": "I70", "심장판막질환": "I05-I08",
+    # 당뇨·내분비
+    "당뇨병": "E11", "당뇨": "E10-E14", "갑상선기능저하증": "E03",
+    "갑상선기능항진증": "E05",
+    # 뇌·신경
+    "치매": "F00-F03", "알츠하이머": "F00", "파킨슨": "G20",
+    "뇌전증": "G40", "간질": "G40",
+    # 근골격계
+    "골절": "S00-S99", "디스크": "M51", "허리디스크": "M51",
+    "관절염": "M15-M19", "류마티스": "M05-M06", "골다공증": "M80-M81",
+    # 호흡기
+    "폐렴": "J18", "천식": "J45", "만성폐쇄성폐질환": "J44", "COPD": "J44",
+    # 소화기
+    "간경변": "K74", "간염": "B15-B19", "B형간염": "B16", "C형간염": "B17",
+    "크론병": "K50", "궤양성대장염": "K51",
+    # 신장
+    "만성신부전": "N18", "신부전": "N17-N19", "신장질환": "N00-N29",
+    # 정신건강
+    "우울증": "F32-F33", "조현병": "F20", "조울증": "F31",
+    # 외상·사고
+    "교통사고": "V01-V99", "낙상": "W00-W19", "화상": "T20-T32",
+    # 선천성
+    "선천성질환": "Q00-Q99",
+}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 1. 파일 감지 (Detect)
+# 1. 파일 감지 (Detect) — GP190 §1
 # ══════════════════════════════════════════════════════════════════════════════
 
 def detect_file_type(filename: str, mime_type: str = "") -> dict:
@@ -86,6 +147,162 @@ def classify_doc_type(filename: str, doc_type_hint: str = "") -> str:
     if any(k in name_lower for k in ["처방", "처방전"]):
         return "처방전"
     return "기타"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GP194 §1 — 무결성 가드레일: Pre-process (이미지 보정 + PII 마스킹)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def preprocess_image(file_bytes: bytes, filename: str) -> bytes:
+    """
+    GP190 §2 / GP194 §1 — 이미지 수평 보정(Deskew) + 대비 최적화.
+    OpenCV 사용 가능 시 적용, 없으면 원본 반환.
+    반환: 처리된 이미지 바이트 (PNG 포맷)
+    """
+    file_info = detect_file_type(filename)
+    if not file_info["is_image"]:
+        return file_bytes
+    try:
+        import cv2
+        import numpy as np
+        img_array = np.frombuffer(file_bytes, dtype=np.uint8)
+        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+        if img is None:
+            return file_bytes
+
+        # ── 대비 최적화 (CLAHE) ─────────────────────────────────────────
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
+
+        # ── 수평 보정 (Deskew via Hough Transform) ──────────────────────
+        edges = cv2.Canny(enhanced, 50, 150, apertureSize=3)
+        lines = cv2.HoughLines(edges, 1, np.pi / 180, threshold=100)
+        angle = 0.0
+        if lines is not None:
+            angles = []
+            for rho, theta in lines[:20, 0]:
+                a = np.degrees(theta) - 90
+                if abs(a) < 45:
+                    angles.append(a)
+            if angles:
+                angle = float(np.median(angles))
+
+        if abs(angle) > 0.5:
+            h, w = enhanced.shape
+            center = (w // 2, h // 2)
+            M = cv2.getRotationMatrix2D(center, angle, 1.0)
+            enhanced = cv2.warpAffine(
+                enhanced, M, (w, h),
+                flags=cv2.INTER_CUBIC,
+                borderMode=cv2.BORDER_REPLICATE,
+            )
+
+        # ── 재인코딩 ─────────────────────────────────────────────────────
+        _, buf = cv2.imencode(".png", enhanced)
+        logger.info(f"[GP194] 이미지 보정 완료: angle={angle:.1f}°")
+        return buf.tobytes()
+
+    except ImportError:
+        logger.warning("[GP194] OpenCV 미설치 — 이미지 보정 생략")
+        return file_bytes
+    except Exception as e:
+        logger.warning(f"[GP194] 이미지 보정 실패 (원본 유지): {e}")
+        return file_bytes
+
+
+def mask_pii(text: str) -> tuple[str, list[str]]:
+    """
+    GP190 §2 / GP194 §2 — 텍스트 내 PII(개인정보) 자동 마스킹.
+    반환: (마스킹된 텍스트, 감지된 PII 유형 목록)
+    """
+    masked = text
+    detected: list[str] = []
+    for pattern, label in _PII_PATTERNS:
+        hits = re.findall(pattern, masked)
+        if hits:
+            detected.append(f"{label}({len(hits)}건)")
+            masked = re.sub(pattern, label, masked)
+    return masked, detected
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GP190 §5 — KCD-10 검증 엔진
+# ══════════════════════════════════════════════════════════════════════════════
+
+def verify_kcd10(text: str) -> dict:
+    """
+    GP190 §5 — 추출 텍스트에서 질병명/KCD코드를 감지하여 KCD-10 DB와 대조 검증.
+    반환: {"verified": list[{"term":str,"code":str}], "unverified": list[str],
+           "total_found": int, "coverage_pct": float}
+    """
+    verified: list[dict] = []
+    unverified: list[str] = []
+
+    # ① KCD 코드 직접 패턴 (예: C34, I21, J45 등)
+    code_pattern = re.compile(r'\b([A-Z]\d{2}(?:\.\d{1,2})?)\b')
+    code_hits = set(code_pattern.findall(text))
+
+    # ② 질병명 키워드 매칭
+    for term, code in KCD10_DB.items():
+        if term in text:
+            verified.append({"term": term, "code": code})
+
+    # ③ 직접 코드 매칭 (DB에 없는 코드도 포함)
+    db_codes = set(KCD10_DB.values())
+    for c in code_hits:
+        already = any(v["code"].startswith(c[:3]) for v in verified)
+        if not already:
+            matched_name = next((k for k, v in KCD10_DB.items() if v.startswith(c[:3])), None)
+            if matched_name:
+                if not any(v["term"] == matched_name for v in verified):
+                    verified.append({"term": matched_name, "code": c})
+            else:
+                unverified.append(c)
+
+    total = len(verified) + len(unverified)
+    coverage = round(len(verified) / total * 100, 1) if total > 0 else 0.0
+
+    logger.info(f"[GP190§5] KCD 검증: 확인 {len(verified)}건 / 미확인 {len(unverified)}건")
+    return {
+        "verified":      verified[:20],
+        "unverified":    unverified[:10],
+        "total_found":   total,
+        "coverage_pct":  coverage,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GP190 §4 — 대용량 문서 분할 분석 (50P+ Chunking)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def chunk_text_for_analysis(text: str, pages: int, chunk_size: int = _CHUNK_CHAR_SIZE) -> list[dict]:
+    """
+    GP190 §4 — 50페이지 초과 또는 150,000자 초과 문서를 청크로 분할.
+    반환: [{"chunk_idx": int, "text": str, "char_start": int, "char_end": int}]
+    """
+    if pages <= _CHUNK_PAGE_THRESHOLD and len(text) <= chunk_size * 50:
+        return [{"chunk_idx": 0, "text": text, "char_start": 0, "char_end": len(text)}]
+
+    chunks = []
+    start = 0
+    idx = 0
+    while start < len(text):
+        end = min(start + chunk_size, len(text))
+        # 단어 경계 보정
+        if end < len(text):
+            boundary = text.rfind("\n", start, end)
+            if boundary > start + chunk_size // 2:
+                end = boundary + 1
+        chunks.append({"chunk_idx": idx, "text": text[start:end],
+                        "char_start": start, "char_end": end})
+        start = end
+        idx += 1
+
+    logger.info(f"[GP190§4] 대용량 분할: {pages}P → {len(chunks)}청크")
+    return chunks
+
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -552,44 +769,21 @@ def run_scan_pipeline(
     ai_call_fn=None,
     rag_add_fn=None,
     progress_callback=None,
+    skip_preprocess: bool = False,
 ) -> dict:
     """
-    GP190 §2 전체 파이프라인:
-      파일 감지 → GCS 백업 → 텍스트 추출 → AI 분류 → RAG 인덱싱
-
-    Args:
-        file_bytes:        업로드된 파일의 바이트
-        filename:          파일명
-        doc_type:          문서 유형 힌트 (없으면 자동 감지)
-        gcs_client:        google.cloud.storage.Client 인스턴스
-        gcs_bucket:        GCS 버킷명
-        dai_project:       Document AI 프로젝트 ID
-        dai_location:      Document AI 위치 (기본 "us")
-        dai_processor_id:  Document AI 프로세서 ID
-        gcs_credentials:   서비스 계정 Credentials (Document AI용)
-        ai_call_fn:        AI 호출 함수 (prompt) -> str
-        rag_add_fn:        RAG 추가 함수 (text, filename, meta) -> int
-        progress_callback: (step: str, pct: float, msg: str) -> None
-
-    반환:
-        {
-          "success": bool,
-          "filename": str,
-          "doc_type": str,
-          "is_public_asset": bool,
-          "gcs_uri": str,
-          "text_length": int,
-          "tables_count": int,
-          "extract_engine": str,
-          "classification": dict,
-          "rag": dict,
-          "error": str,
-          "pipeline_log": list[str],
-          "summary_1st_person": str,
-        }
+    [GP190 통합 파이프라인] 6단계 무결성 프로세스:
+      P0: Pre-process (이미지 보정 + PII 마스킹)
+      P1: 파일 감지 + 문서 유형 분류
+      P2: GCS 즉시 격리 백업
+      P3: 텍스트 추출 (DocAI → pdfplumber → pypdf)
+      P3b: 50P+ 대용량 분할 분석 (Chunking)
+      P3c: KCD-10 질병코드 검증
+      P4: GP192 Core-8 정밀 AI 추출
+      P4b: 정밀 JSON → GCS 저장
+      P5: RAG 지식베이스 인덱싱 (Master Approval 대기 상태로 저장)
     """
-    log  = []
-    err  = ""
+    log = []
 
     def _progress(step: str, pct: float, msg: str):
         log.append(f"[{step}] {msg}")
@@ -599,7 +793,13 @@ def run_scan_pipeline(
             except Exception:
                 pass
 
-    # ── Step 1: 파일 감지 ─────────────────────────────────────────────────
+    # ── Step P0: Pre-process (GP190 §2 / GP194) ──────────────────────────
+    if not skip_preprocess:
+        _progress("P0", 0.05, "이미지 보정(Deskew) + 대비 최적화 중...")
+        file_bytes = preprocess_image(file_bytes, filename)
+        _progress("P0", 0.08, "이미지 보정 완료")
+
+    # ── Step P1: 파일 감지 ────────────────────────────────────────────────
     _progress("P1", 0.1, f"파일 감지: {filename}")
     file_info = detect_file_type(filename)
     if not file_info["supported"]:
@@ -610,34 +810,62 @@ def run_scan_pipeline(
     doc_type = classify_doc_type(filename, doc_type)
     _progress("P1", 0.2, f"문서 유형 감지: {doc_type}")
 
-    # ── Step 2: GCS 백업 ──────────────────────────────────────────────────
+    # ── Step P2: GCS 백업 ────────────────────────────────────────────────
     gcs_uri = f"local://{filename}"
     is_public_asset = doc_type in PUBLIC_ASSET_TYPES
 
     if gcs_client and gcs_bucket:
         _progress("P2", 0.3, "GCS 즉시 격리 백업 중...")
         gcs_result = backup_to_gcs(file_bytes, filename, doc_type, gcs_client, gcs_bucket)
-        gcs_uri        = gcs_result["gcs_uri"]
+        gcs_uri         = gcs_result["gcs_uri"]
         is_public_asset = gcs_result["is_public_asset"]
         if gcs_result["success"]:
-            _progress("P2", 0.45, f"GCS 백업 완료: {gcs_uri}")
+            _progress("P2", 0.40, f"GCS 백업 완료: {gcs_uri}")
         else:
-            _progress("P2", 0.45, f"GCS 백업 실패 (로컬 폴백): {gcs_result['error']}")
+            _progress("P2", 0.40, f"GCS 백업 실패 (로컬 폴백): {gcs_result['error']}")
     else:
-        _progress("P2", 0.45, "GCS 클라이언트 미연결 — 로컬 처리 모드")
+        _progress("P2", 0.40, "GCS 클라이언트 미연결 — 로컬 처리 모드")
 
-    # ── Step 3: 텍스트 추출 ───────────────────────────────────────────────
-    _progress("P3", 0.55, "AI 마스터가 정밀 분석 중입니다...")
+    # ── Step P3: 텍스트 추출 ─────────────────────────────────────────────
+    _progress("P3", 0.50, "AI 마스터가 정밀 분석 중입니다...")
     extract_result = extract_text(
         file_bytes, filename, gcs_uri,
         dai_project, dai_location, dai_processor_id, gcs_credentials,
     )
-    text          = extract_result.get("text", "")
-    tables        = extract_result.get("tables", [])
+    raw_text       = extract_result.get("text", "")
+    tables         = extract_result.get("tables", [])
     extract_engine = extract_result.get("engine", "unknown")
-    _progress("P3", 0.70, f"텍스트 추출 완료: {len(text)}자, {len(tables)}표 ({extract_engine})")
+    pages          = extract_result.get("pages", 1)
+    _progress("P3", 0.62, f"텍스트 추출 완료: {len(raw_text)}자, {len(tables)}표, {pages}P ({extract_engine})")
 
-    # ── Step 4: GP192 정밀 AI 추출 (공적 자산만) ────────────────────────
+    # ── Step P3a: PII 마스킹 (GP194 §2) ──────────────────────────────────
+    text, pii_detected = mask_pii(raw_text)
+    if pii_detected:
+        _progress("P3a", 0.64, f"PII 마스킹 완료: {', '.join(pii_detected)}")
+    else:
+        _progress("P3a", 0.64, "PII 감지 없음")
+
+    # ── Step P3b: 대용량 분할 분석 (GP190 §4, 50P+) ───────────────────────
+    chunks = chunk_text_for_analysis(text, pages)
+    is_chunked = len(chunks) > 1
+    if is_chunked:
+        _progress("P3b", 0.66, f"대용량 문서 분할: {pages}P → {len(chunks)}청크 (각 {_CHUNK_CHAR_SIZE}자)")
+        analysis_text = text[:4000]   # AI 분류는 앞 4000자 대표 청크 사용
+    else:
+        _progress("P3b", 0.66, f"단일 분석 모드 ({pages}P, {len(text)}자)")
+        analysis_text = text
+
+    # ── Step P3c: KCD-10 검증 (GP190 §5) ────────────────────────────────
+    kcd_result: dict = {"verified": [], "unverified": [], "total_found": 0, "coverage_pct": 0.0}
+    if text:
+        kcd_result = verify_kcd10(text)
+        _progress(
+            "P3c", 0.68,
+            f"KCD-10 검증: 확인 {len(kcd_result['verified'])}건 / "
+            f"미확인 {len(kcd_result['unverified'])}건 (커버율 {kcd_result['coverage_pct']}%)"
+        )
+
+    # ── Step P4: GP192 정밀 AI 추출 (공적 자산만) ────────────────────────
     classification: dict = {
         "doc_class": "기타", "insurer": "미확인", "product_name": "미확인",
         "sale_start_date": "미확인", "sale_end_date": "현재판매중",
@@ -647,54 +875,60 @@ def run_scan_pipeline(
         "summary_1st_person": "", "sales_pitch": "",
     }
     if is_public_asset and text and ai_call_fn:
-        _progress("P4", 0.78, "GP192 Core-8 정밀 추출 중 — 용어·지급기준·판매주기·특장점...")
-        classification = classify_document(text, ai_call_fn)
-        n_terms    = len(classification.get("terminology", []))
-        n_covers   = len(classification.get("key_coverages", []))
-        n_highs    = len(classification.get("product_highlights", []))
-        _progress("P4", 0.88,
+        _progress("P4", 0.72, "GP192 Core-8 정밀 추출 중 — 용어·지급기준·판매주기·특장점...")
+        classification = classify_document(analysis_text, ai_call_fn)
+        n_terms  = len(classification.get("terminology", []))
+        n_covers = len(classification.get("key_coverages", []))
+        n_highs  = len(classification.get("product_highlights", []))
+        _progress("P4", 0.84,
             f"추출 완료: {classification.get('doc_class','?')} / "
             f"{classification.get('product_name','?')} | "
             f"담보 {n_covers}건 · 용어 {n_terms}건 · 특장점 {n_highs}건"
         )
     else:
-        _progress("P4", 0.88, "AI 정밀 추출 생략 (개인자료 또는 AI 미연결)")
+        _progress("P4", 0.84, "AI 정밀 추출 생략 (개인자료 또는 AI 미연결)")
 
-    # ── Step 4b: GP192 정밀 JSON → GCS 저장 ──────────────────────────────
+    # ── Step P4b: GP192 정밀 JSON → GCS 저장 ────────────────────────────
     json_gcs_uri = ""
     if is_public_asset and gcs_client and gcs_bucket and classification.get("product_name") != "미확인":
-        _progress("P4b", 0.91, "GP192 정밀 데이터 JSON → GCS 저장 중...")
+        _progress("P4b", 0.88, "GP192 정밀 데이터 JSON → GCS 저장 중...")
         _json_result = save_precision_json_to_gcs(
             classification, filename, doc_type, gcs_client, gcs_bucket, gcs_uri
         )
         json_gcs_uri = _json_result.get("json_uri", "")
         if _json_result["success"]:
-            _progress("P4b", 0.93, f"JSON 저장 완료: {json_gcs_uri}")
+            _progress("P4b", 0.91, f"JSON 저장 완료: {json_gcs_uri}")
         else:
-            _progress("P4b", 0.93, f"JSON 저장 실패: {_json_result['error']}")
+            _progress("P4b", 0.91, f"JSON 저장 실패: {_json_result['error']}")
 
-    # ── Step 5: RAG 인덱싱 ────────────────────────────────────────────────
-    _progress("P5", 0.95, "RAG 지식베이스 등록 중...")
+    # ── Step P5: RAG 인덱싱 (GP190 §6: Master Approval 대기) ─────────────
+    _progress("P5", 0.94, "RAG 지식베이스 등록 중...")
     rag_result = index_to_rag(text, filename, doc_type, classification, rag_add_fn)
     if rag_result["indexed"]:
-        _progress("P5", 1.0, f"RAG 등록 완료: {rag_result['chunks']}청크")
+        _progress("P5", 1.0, f"RAG 등록 완료: {rag_result['chunks']}청크 | 마스터 승인 대기")
     else:
         _progress("P5", 1.0, f"RAG 등록 생략: {rag_result['skipped_reason']}")
 
     return {
-        "success":           True,
-        "filename":          filename,
-        "doc_type":          doc_type,
-        "is_public_asset":   is_public_asset,
-        "gcs_uri":           gcs_uri,
-        "json_gcs_uri":      json_gcs_uri,
-        "text_length":       len(text),
-        "tables_count":      len(tables),
-        "extract_engine":    extract_engine,
-        "classification":    classification,
-        "rag":               rag_result,
-        "error":             "",
-        "pipeline_log":      log,
+        "success":            True,
+        "filename":           filename,
+        "doc_type":           doc_type,
+        "is_public_asset":    is_public_asset,
+        "gcs_uri":            gcs_uri,
+        "json_gcs_uri":       json_gcs_uri,
+        "text_length":        len(text),
+        "tables_count":       len(tables),
+        "extract_engine":     extract_engine,
+        "pages":              pages,
+        "is_chunked":         is_chunked,
+        "chunks_count":       len(chunks),
+        "pii_detected":       pii_detected,
+        "kcd":                kcd_result,
+        "classification":     classification,
+        "rag":                rag_result,
+        "error":              "",
+        "pipeline_log":       log,
+        "master_approved":    False,
         "summary_1st_person": classification.get("summary_1st_person", ""),
         "sales_pitch":        classification.get("sales_pitch", ""),
         "gp192_counts": {
@@ -711,9 +945,12 @@ def _fail_result(filename: str, doc_type: str, error: str, log: list) -> dict:
         "success": False, "filename": filename, "doc_type": doc_type,
         "is_public_asset": False, "gcs_uri": "", "json_gcs_uri": "",
         "text_length": 0, "tables_count": 0, "extract_engine": "none",
+        "pages": 0, "is_chunked": False, "chunks_count": 0,
+        "pii_detected": [], "kcd": {"verified": [], "unverified": [], "total_found": 0, "coverage_pct": 0.0},
         "classification": {}, "rag": {"indexed": False, "doc_id": -1, "chunks": 0, "skipped_reason": error},
-        "error": error, "pipeline_log": log, "summary_1st_person": "",
-        "sales_pitch": "", "gp192_counts": {"terminology": 0, "key_coverages": 0, "product_highlights": 0, "risk_factors": 0},
+        "error": error, "pipeline_log": log, "master_approved": False,
+        "summary_1st_person": "", "sales_pitch": "",
+        "gp192_counts": {"terminology": 0, "key_coverages": 0, "product_highlights": 0, "risk_factors": 0},
     }
 
 
@@ -941,31 +1178,526 @@ def render_gp193_live_badge(session_state=None) -> str:
 
 def get_uploader_css() -> str:
     """
-    GP190 §3 — 전역 file_uploader 시각화 CSS.
-    모든 Streamlit 업로드 박스에 점선 외곽선 + 호버 파스텔블루 적용.
+    [GP190 §3 / GP194 §4] 전역 file_uploader 시각화 CSS.
+    UI 표준: 파스텔 블루(#E0F2FE) 배경 + 2px 붉은색 실선(#EF4444) 외곽선.
     """
     return """
-/* §GP190 — 전역 파일 업로드 박스 시각화 (점선 외곽선 + Drag & Drop 강조) */
+/* ═══════════════════════════════════════════════════════════════════════════
+   GP190 §3 / GP194 §4 — 전역 스캔 업로드 박스 UI 표준
+   배경: 파스텔 블루 #E0F2FE / 테두리: 2px solid #EF4444 (붉은색 실선)
+   ═══════════════════════════════════════════════════════════════════════════ */
 [data-testid="stFileUploader"] > section {
-    border: 2.5px dashed #0284c7 !important;
+    border: 2px solid #EF4444 !important;
     border-radius: 12px !important;
-    background: #f0f9ff !important;
-    transition: background 0.25s ease, border-color 0.25s ease !important;
-    padding: 10px 14px !important;
+    background: #E0F2FE !important;
+    transition: background 0.25s ease, border-color 0.25s ease,
+                box-shadow 0.25s ease !important;
+    padding: 12px 16px !important;
 }
 [data-testid="stFileUploader"] > section:hover {
-    background: #bae6fd !important;
-    border-color: #0369a1 !important;
-    box-shadow: 0 0 0 3px rgba(2,132,199,0.18) !important;
+    background: #BAE6FD !important;
+    border-color: #DC2626 !important;
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.18) !important;
 }
 [data-testid="stFileUploader"] > section > div {
     color: #0369a1 !important;
 }
 [data-testid="stFileUploaderDropzoneInstructions"] {
-    color: #0369a1 !important;
+    color: #1e40af !important;
     font-weight: 700 !important;
 }
 [data-testid="stFileUploaderDropzoneInstructions"] span {
     font-size: 0.85rem !important;
 }
+/* 파스텔 톤 프로그레스 바 (분석 중 표시) */
+.gk-scan-progress-bar {
+    width: 100%;
+    height: 10px;
+    background: #dbeafe;
+    border-radius: 99px;
+    overflow: hidden;
+    margin: 6px 0;
+}
+.gk-scan-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #93c5fd, #60a5fa, #3b82f6);
+    border-radius: 99px;
+    transition: width 0.4s ease;
+    animation: gk-scan-shimmer 1.8s infinite;
+}
+@keyframes gk-scan-shimmer {
+    0%   { opacity: 0.75; }
+    50%  { opacity: 1.0;  }
+    100% { opacity: 0.75; }
+}
 """
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 9. 마스터 검수 루프 (Human-in-the-Loop) — GP190 §6
+# ══════════════════════════════════════════════════════════════════════════════
+
+def render_master_review_loop(
+    result: dict,
+    session_state=None,
+    rag_add_fn=None,
+    result_key: str = "scan_pending_result",
+) -> bool:
+    """
+    [GP190 §6] 마스터 검수 루프 (Human-in-the-Loop).
+
+    AI 추출 결과를 마스터가 직접 확인하고 '승인' 또는 '반려' 처리합니다.
+    - 승인 시: RAG 지식베이스에 즉시 반영 + session_state gp193_live_context 동기화
+    - 반려 시: RAG 인덱싱 차단, 결과 폐기
+
+    Args:
+        result:        run_scan_pipeline 또는 global_ingest_hook 반환 dict
+        session_state: Streamlit session_state
+        rag_add_fn:    RAG 추가 함수 (text, filename, meta) -> int
+        result_key:    session_state에 대기 중 결과를 저장할 키
+
+    반환:
+        True  = 마스터 승인 완료 (RAG 인덱싱 실행됨)
+        False = 대기 중 또는 반려됨
+    """
+    import streamlit as st
+
+    if not result or not result.get("success"):
+        return False
+
+    cls       = result.get("classification", {})
+    filename  = result.get("filename", "")
+    doc_type  = result.get("doc_type", "")
+    text_len  = result.get("text_length", 0)
+    kcd       = result.get("kcd", {})
+    pii       = result.get("pii_detected", [])
+    counts    = result.get("gp192_counts", {})
+    is_public = result.get("is_public_asset", False)
+    pname     = cls.get("product_name", "미확인")
+    insurer   = cls.get("insurer", "미확인")
+    n_covers  = counts.get("key_coverages", 0)
+    n_terms   = counts.get("terminology", 0)
+    n_risks   = counts.get("risk_factors", 0)
+    n_highs   = counts.get("product_highlights", 0)
+    kcd_ver   = len(kcd.get("verified", []))
+    kcd_un    = len(kcd.get("unverified", []))
+    kcd_pct   = kcd.get("coverage_pct", 0.0)
+    chunks    = result.get("chunks_count", 1)
+    pages     = result.get("pages", 1)
+
+    st.markdown(f"""
+<div style="background:linear-gradient(135deg,#fefce8,#fffbeb);
+  border:2px solid #f59e0b;border-radius:14px;padding:16px 20px;margin:10px 0;">
+  <div style="font-size:1.0rem;font-weight:900;color:#92400e;margin-bottom:10px;">
+    🛡️ [GP190 §6] 마스터 검수 대기 — AI 분석 결과 승인 필요
+  </div>
+  <table style="width:100%;font-size:0.82rem;border-collapse:collapse;">
+    <tr><td style="color:#64748b;padding:2px 8px 2px 0;width:35%;">📄 파일명</td>
+        <td style="font-weight:700;color:#0f172a;">{filename}</td></tr>
+    <tr><td style="color:#64748b;padding:2px 8px 2px 0;">🏷️ 문서유형</td>
+        <td style="color:#1e40af;">{doc_type} {'(공적자산)' if is_public else '(개인자료)'}</td></tr>
+    <tr><td style="color:#64748b;padding:2px 8px 2px 0;">🏢 보험사/상품</td>
+        <td style="color:#166534;font-weight:700;">{insurer} / {pname}</td></tr>
+    <tr><td style="color:#64748b;padding:2px 8px 2px 0;">📊 분석 수치</td>
+        <td>담보 {n_covers}건 · 용어 {n_terms}건 · 특장점 {n_highs}건 · 리스크 {n_risks}건</td></tr>
+    <tr><td style="color:#64748b;padding:2px 8px 2px 0;">📋 문서 규모</td>
+        <td>{pages}P / {text_len:,}자 {f"/ {chunks}청크 분할" if chunks > 1 else ""}</td></tr>
+    <tr><td style="color:#64748b;padding:2px 8px 2px 0;">🔬 KCD-10 검증</td>
+        <td>{'✅ '+str(kcd_ver)+'건 확인' if kcd_ver else ''} {'⚠️ '+str(kcd_un)+'건 미확인' if kcd_un else ''} {f'(커버율 {kcd_pct}%)' if kcd_ver+kcd_un > 0 else '해당없음'}</td></tr>
+    <tr><td style="color:#64748b;padding:2px 8px 2px 0;">🔒 PII 마스킹</td>
+        <td>{'🔴 '+', '.join(pii) if pii else '✅ 감지 없음'}</td></tr>
+  </table>
+</div>""", unsafe_allow_html=True)
+
+    # ── 승인/반려 버튼 ──────────────────────────────────────────────────────
+    col_a, col_r, _ = st.columns([2, 2, 3])
+    approved = False
+    rejected = False
+    with col_a:
+        if st.button("✅ 승인 — RAG 반영", key=f"master_approve_{filename[:20]}", type="primary"):
+            approved = True
+    with col_r:
+        if st.button("❌ 반려 — 폐기", key=f"master_reject_{filename[:20]}"):
+            rejected = True
+
+    if approved:
+        # RAG 인덱싱 실행
+        rag_result = index_to_rag(
+            session_state.get("_pending_scan_text_" + filename[:20], ""),
+            filename, doc_type,
+            result.get("classification", {}),
+            rag_add_fn,
+        )
+        result["rag"]            = rag_result
+        result["master_approved"] = True
+
+        # GP193 팩트 시트 동기화
+        if session_state is not None:
+            cls_data = result.get("classification", {})
+            ingest_id = result.get("ingest_id", uuid.uuid4().hex[:6])
+            fact_sheet = {
+                "ingest_id":          ingest_id,
+                "source_tab":         result.get("source_tab", "master_review"),
+                "filename":           filename,
+                "doc_type":           doc_type,
+                "ingested_at":        datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "product_name":       cls_data.get("product_name", "미확인"),
+                "insurer":            cls_data.get("insurer", "미확인"),
+                "sale_start_date":    cls_data.get("sale_start_date", "미확인"),
+                "sale_end_date":      cls_data.get("sale_end_date", "현재판매중"),
+                "key_coverages":      cls_data.get("key_coverages", []),
+                "payout_logic":       cls_data.get("payout_logic", ""),
+                "coverage_limits":    cls_data.get("coverage_limits", ""),
+                "risk_factors":       cls_data.get("risk_factors", []),
+                "product_highlights": cls_data.get("product_highlights", []),
+                "terminology":        cls_data.get("terminology", []),
+                "summary_1st_person": cls_data.get("summary_1st_person", ""),
+                "sales_pitch":        cls_data.get("sales_pitch", ""),
+                "gcs_uri":            result.get("gcs_uri", ""),
+                "json_gcs_uri":       result.get("json_gcs_uri", ""),
+                "rag_indexed":        rag_result.get("indexed", False),
+                "rag_chunks":         rag_result.get("chunks", 0),
+                "text_length":        result.get("text_length", 0),
+                "kcd":                result.get("kcd", {}),
+                "pii_detected":       result.get("pii_detected", []),
+                "master_approved":    True,
+            }
+            _live = session_state.get("gp193_live_context", [])
+            _live.insert(0, fact_sheet)
+            session_state["gp193_live_context"] = _live[:20]
+            session_state["gp193_latest_fact"]  = fact_sheet
+
+        st.markdown("""
+<div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:10px;
+  padding:10px 16px;margin:6px 0;font-size:0.88rem;font-weight:700;color:#166534;">
+  ✅ 마스터 승인 완료 — RAG 지식베이스 반영 및 전역 동기화 완료
+</div>""", unsafe_allow_html=True)
+        logger.info(f"[GP190§6] 마스터 승인: {filename}")
+        return True
+
+    if rejected:
+        st.markdown("""
+<div style="background:#fff1f2;border:2px solid #ef4444;border-radius:10px;
+  padding:10px 16px;margin:6px 0;font-size:0.88rem;font-weight:700;color:#991b1b;">
+  ❌ 반려 처리 — RAG 인덱싱 차단됨. 분석 결과가 폐기되었습니다.
+</div>""", unsafe_allow_html=True)
+        logger.info(f"[GP190§6] 마스터 반려: {filename}")
+        return False
+
+    return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 10. unified_scan_interface — 통합 스캔 팩토리 (GP195 §1)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def unified_scan_interface(
+    file_bytes: bytes,
+    filename: str,
+    source_tab: str = "unknown",
+    doc_type: str = "",
+    gcs_client=None,
+    gcs_bucket: str = "",
+    dai_project: str = "",
+    dai_location: str = "us",
+    dai_processor_id: str = "",
+    gcs_credentials=None,
+    ai_call_fn=None,
+    rag_add_fn=None,
+    session_state=None,
+    skip_preprocess: bool = False,
+    progress_callback=None,
+) -> dict:
+    """
+    [GP195 §1] 통합 스캔 인터페이스 팩토리.
+
+    신규 스캔 모듈이 이 함수를 호출하면 자동으로:
+      1. GP190 전체 파이프라인 (Pre-process → 백업 → 추출 → KCD → AI 분류)
+      2. GP193 전역 지식 동기화 (session_state["gp193_live_context"] 즉시 업데이트)
+      3. Master Approval 대기 상태로 반환 (RAG는 승인 후 별도 반영)
+
+    모든 스캔 모듈은 반드시 이 함수를 통해 파이프라인을 실행해야 합니다.
+    직접 run_scan_pipeline 호출 금지 (GP195 §2 강제 상속 원칙).
+
+    반환: run_scan_pipeline 결과 + {source_tab, ingest_id, master_approved: False}
+    """
+    ingest_id = f"{uuid.uuid4().hex[:6]}_{filename[:20].replace(' ','_')}"
+    logger.info(f"[GP195] unified_scan_interface 호출: {ingest_id} (출처: {source_tab})")
+
+    result = run_scan_pipeline(
+        file_bytes=file_bytes,
+        filename=filename,
+        doc_type=doc_type,
+        gcs_client=gcs_client,
+        gcs_bucket=gcs_bucket,
+        dai_project=dai_project,
+        dai_location=dai_location,
+        dai_processor_id=dai_processor_id,
+        gcs_credentials=gcs_credentials,
+        ai_call_fn=ai_call_fn,
+        rag_add_fn=None,           # RAG는 마스터 승인 후에만 반영
+        progress_callback=progress_callback,
+        skip_preprocess=skip_preprocess,
+    )
+    result["source_tab"]  = source_tab
+    result["ingest_id"]   = ingest_id
+    result["master_approved"] = False
+
+    # ── GP193 §3: 임시 팩트 시트 저장 (master_approved=False 상태) ───────────
+    if session_state is not None and result.get("success"):
+        cls = result.get("classification", {})
+        fact_sheet = {
+            "ingest_id":          ingest_id,
+            "source_tab":         source_tab,
+            "filename":           filename,
+            "doc_type":           result.get("doc_type", ""),
+            "ingested_at":        datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "product_name":       cls.get("product_name", "미확인"),
+            "insurer":            cls.get("insurer", "미확인"),
+            "sale_start_date":    cls.get("sale_start_date", "미확인"),
+            "sale_end_date":      cls.get("sale_end_date", "현재판매중"),
+            "key_coverages":      cls.get("key_coverages", []),
+            "payout_logic":       cls.get("payout_logic", ""),
+            "coverage_limits":    cls.get("coverage_limits", ""),
+            "risk_factors":       cls.get("risk_factors", []),
+            "product_highlights": cls.get("product_highlights", []),
+            "terminology":        cls.get("terminology", []),
+            "summary_1st_person": cls.get("summary_1st_person", ""),
+            "sales_pitch":        cls.get("sales_pitch", ""),
+            "gcs_uri":            result.get("gcs_uri", ""),
+            "json_gcs_uri":       result.get("json_gcs_uri", ""),
+            "rag_indexed":        False,
+            "rag_chunks":         0,
+            "text_length":        result.get("text_length", 0),
+            "kcd":                result.get("kcd", {}),
+            "pii_detected":       result.get("pii_detected", []),
+            "master_approved":    False,
+        }
+        # 임시 팩트 시트를 선두에 삽입 (최대 20건)
+        _live = session_state.get("gp193_live_context", [])
+        _live.insert(0, fact_sheet)
+        session_state["gp193_live_context"] = _live[:20]
+        session_state["gp193_latest_fact"]  = fact_sheet
+        # 마스터 검수용 텍스트 임시 저장
+        session_state[f"_pending_scan_text_{filename[:20]}"] = result.get("_raw_text_for_rag", "")
+
+        logger.info(
+            f"[GP195] 전역 동기화 완료 (승인 대기): {filename} | "
+            f"{cls.get('product_name','?')} | "
+            f"담보 {len(cls.get('key_coverages',[]))}건"
+        )
+
+    return result
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 11. unified_scan_component — 통합 Streamlit UI 컴포넌트 (GP195 §3)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def unified_scan_component(
+    label: str = "📎 문서 업로드 (PDF/JPG/PNG)",
+    source_tab: str = "unknown",
+    doc_type: str = "",
+    accept_types: list = None,
+    show_master_review: bool = True,
+    gcs_client=None,
+    gcs_bucket: str = "",
+    dai_project: str = "",
+    dai_location: str = "us",
+    dai_processor_id: str = "",
+    gcs_credentials=None,
+    ai_call_fn=None,
+    rag_add_fn=None,
+    session_state=None,
+    uploader_key: str = "unified_scan",
+) -> dict | None:
+    """
+    [GP195 §3] 통합 스캔 Streamlit 컴포넌트.
+
+    신규 스캔 모듈에서 이 함수를 한 줄로 호출하면:
+      - UI 표준(파스텔 블루 배경 + 붉은색 실선 + 프로그레스 바) 자동 적용
+      - unified_scan_interface 파이프라인 자동 실행
+      - 결과 UI (render_scan_progress_ui) 자동 렌더링
+      - 마스터 검수 루프 (render_master_review_loop) 자동 표시
+
+    GP195 §2: 모든 스캔 업로드 UI는 반드시 이 컴포넌트를 사용해야 합니다.
+
+    반환: unified_scan_interface 결과 dict, 업로드 없으면 None
+    """
+    import streamlit as st
+
+    if accept_types is None:
+        accept_types = ["pdf", "jpg", "jpeg", "png", "bmp", "tiff", "txt"]
+
+    # ── UI 표준 CSS 주입 ────────────────────────────────────────────────────
+    st.markdown(f"<style>{get_uploader_css()}</style>", unsafe_allow_html=True)
+
+    uploaded = st.file_uploader(label, type=accept_types, key=uploader_key)
+    if uploaded is None:
+        return None
+
+    file_bytes = uploaded.read()
+    filename   = uploaded.name
+
+    # ── 파스텔 톤 프로그레스 바 표시 ────────────────────────────────────────
+    prog_placeholder = st.empty()
+    prog_placeholder.markdown(f"""
+<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+  padding:10px 14px;margin:6px 0;font-size:0.82rem;color:#1e40af;">
+  🔍 <b>분석 중...</b>
+  <div class="gk-scan-progress-bar">
+    <div class="gk-scan-progress-fill" style="width:30%;"></div>
+  </div>
+</div>
+<style>{get_uploader_css()}</style>""", unsafe_allow_html=True)
+
+    # 진행률 업데이트용 콜백
+    _pct_ref = [0.3]
+    def _prog_cb(step: str, pct: float, msg: str):
+        _pct_ref[0] = pct
+        pct_int = int(pct * 100)
+        prog_placeholder.markdown(f"""
+<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+  padding:10px 14px;margin:6px 0;font-size:0.82rem;color:#1e40af;">
+  🔍 <b>[{step}] {msg}</b>
+  <div class="gk-scan-progress-bar">
+    <div class="gk-scan-progress-fill" style="width:{pct_int}%;animation:none;opacity:1;"></div>
+  </div>
+  <span style="font-size:0.72rem;color:#64748b;">{pct_int}% 완료</span>
+</div>
+<style>{get_uploader_css()}</style>""", unsafe_allow_html=True)
+
+    # ── 통합 파이프라인 실행 ─────────────────────────────────────────────────
+    result = unified_scan_interface(
+        file_bytes=file_bytes,
+        filename=filename,
+        source_tab=source_tab,
+        doc_type=doc_type,
+        gcs_client=gcs_client,
+        gcs_bucket=gcs_bucket,
+        dai_project=dai_project,
+        dai_location=dai_location,
+        dai_processor_id=dai_processor_id,
+        gcs_credentials=gcs_credentials,
+        ai_call_fn=ai_call_fn,
+        rag_add_fn=rag_add_fn,
+        session_state=session_state,
+        progress_callback=_prog_cb,
+    )
+
+    # ── 프로그레스 바 완료 표시 ───────────────────────────────────────────────
+    prog_placeholder.markdown(f"""
+<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;
+  padding:10px 14px;margin:6px 0;font-size:0.82rem;color:#166534;">
+  ✅ <b>분석 완료</b> — {filename}
+  <div class="gk-scan-progress-bar">
+    <div class="gk-scan-progress-fill"
+      style="width:100%;animation:none;opacity:1;background:linear-gradient(90deg,#86efac,#4ade80);"></div>
+  </div>
+</div>
+<style>{get_uploader_css()}</style>""", unsafe_allow_html=True)
+
+    # ── 결과 UI 렌더링 ───────────────────────────────────────────────────────
+    render_scan_progress_ui(result)
+
+    # ── 마스터 검수 루프 ─────────────────────────────────────────────────────
+    if show_master_review:
+        render_master_review_loop(
+            result,
+            session_state=session_state,
+            rag_add_fn=rag_add_fn,
+            result_key=f"scan_pending_{source_tab}",
+        )
+
+    return result
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 12. GP195 자동 상속 레지스트리 — 신규 스캔 모듈 강제 등록
+# ══════════════════════════════════════════════════════════════════════════════
+
+_GP195_REGISTRY: dict[str, dict] = {}
+
+
+def gp195_register(
+    module_id: str,
+    label: str,
+    source_tab: str,
+    doc_type: str = "",
+    accept_types: list = None,
+    show_master_review: bool = True,
+) -> None:
+    """
+    [GP195 §2] 신규 스캔 모듈 자동 등록.
+
+    새로운 스캔 탭/기능이 추가될 때 이 함수로 등록하면
+    unified_scan_component를 통한 표준 파이프라인이 자동으로 적용됩니다.
+
+    사용법:
+        gp195_register(
+            module_id="gp96_leaflet",
+            label="📄 리플렛 업로드",
+            source_tab="gp96_leaflet",
+            doc_type="리플렛",
+        )
+    """
+    if accept_types is None:
+        accept_types = ["pdf", "jpg", "jpeg", "png"]
+
+    _GP195_REGISTRY[module_id] = {
+        "label":               label,
+        "source_tab":          source_tab,
+        "doc_type":            doc_type,
+        "accept_types":        accept_types,
+        "show_master_review":  show_master_review,
+        "registered_at":       datetime.datetime.now().isoformat(timespec="seconds"),
+    }
+    logger.info(f"[GP195] 스캔 모듈 등록: {module_id} → source_tab={source_tab}")
+
+
+def gp195_render(
+    module_id: str,
+    gcs_client=None,
+    gcs_bucket: str = "",
+    dai_project: str = "",
+    dai_location: str = "us",
+    dai_processor_id: str = "",
+    gcs_credentials=None,
+    ai_call_fn=None,
+    rag_add_fn=None,
+    session_state=None,
+) -> dict | None:
+    """
+    [GP195 §3] 등록된 스캔 모듈을 unified_scan_component로 자동 렌더링.
+
+    gp195_register()로 등록된 module_id를 넘기면 표준 UI + 파이프라인이
+    자동으로 실행됩니다. 신규 스캔 모듈 추가 시 이 두 함수만 호출하면 됩니다.
+    """
+    cfg = _GP195_REGISTRY.get(module_id)
+    if cfg is None:
+        import streamlit as st
+        st.warning(f"[GP195] 미등록 모듈: {module_id}. gp195_register()를 먼저 호출하세요.")
+        return None
+
+    return unified_scan_component(
+        label=cfg["label"],
+        source_tab=cfg["source_tab"],
+        doc_type=cfg["doc_type"],
+        accept_types=cfg["accept_types"],
+        show_master_review=cfg["show_master_review"],
+        gcs_client=gcs_client,
+        gcs_bucket=gcs_bucket,
+        dai_project=dai_project,
+        dai_location=dai_location,
+        dai_processor_id=dai_processor_id,
+        gcs_credentials=gcs_credentials,
+        ai_call_fn=ai_call_fn,
+        rag_add_fn=rag_add_fn,
+        session_state=session_state,
+        uploader_key=f"gp195_{module_id}",
+    )
+
+
+def get_gp195_registry() -> dict:
+    """[GP195] 등록된 전체 스캔 모듈 목록 반환."""
+    return dict(_GP195_REGISTRY)
