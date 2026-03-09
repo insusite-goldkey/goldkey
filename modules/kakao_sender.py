@@ -42,6 +42,16 @@ def _normalize_phone(phone: str) -> str:
     return re.sub(r"[^0-9]", "", str(phone or ""))
 
 
+# ── Stub 모드 자동 감지 ──────────────────────────────────────────────────
+def _is_stub_mode() -> bool:
+    """
+    KAKAO_API_KEY 미설정 시 True 반환 → kakao_stub 모듈로 자동 위임.
+    API 키(밸브)를 등록하면 즉시 실발송 모드로 전환됨.
+    """
+    _key = _get_cfg("KAKAO_API_KEY")
+    return not bool(_key)
+
+
 # ==========================================================================
 # [CORE 1] 카카오 알림톡 발송
 # ==========================================================================
@@ -235,6 +245,16 @@ def send_report(
     - planner_info: [GP200조] {"company", "branch", "name", "contact"} — 발송 브랜딩 푸터
     반환: {"success": bool, "method": str, "msg": str, "code": str}
     """
+    # [GP240조] API 키 미설정 시 Stub 모드로 자동 위임
+    if _is_stub_mode():
+        try:
+            from modules.kakao_stub import send_report as _stub_send
+            return _stub_send(phone, message, title=title,
+                              force_sms=force_sms, planner_info=planner_info)
+        except Exception as _se:
+            return {"success": False, "method": "stub_error",
+                    "msg": f"Stub 모듈 오류: {_se}", "code": "STUB_ERR"}
+
     # [GP200조] 메시지에 소속 브랜딩 푸터 자동 삽입
     _footer = _build_msg_footer(planner_info)
     _full_msg = message + _footer if _footer else message
@@ -280,6 +300,21 @@ def render_send_ui(
         title:        알림톡 제목 (템플릿 변수)
         compact:      True면 expander 안에 숨김 (기본 False — 직접 표시)
     """
+    # [GP240조] API 키 미설정 시 Stub UI로 자동 위임
+    if _is_stub_mode():
+        try:
+            from modules.kakao_stub import render_send_ui as _stub_ui
+            _stub_ui(report_text, session_key=session_key,
+                     default_phone=default_phone, title=title,
+                     compact=compact, planner_info=planner_info)
+        except Exception as _se:
+            try:
+                import streamlit as _st
+                _st.caption(f"⚠️ Stub UI 오류: {_se}")
+            except Exception:
+                pass
+        return
+
     try:
         import streamlit as st
     except ImportError:
