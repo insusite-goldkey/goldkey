@@ -1108,7 +1108,7 @@ class ExpertPDFGenerator:
         y -= 14
         _set_font(self._FONT_SIZE_TINY)
         c.drawString(self._MARGIN_LEFT, y,
-                     f"케이지에이에셋 골드키지사  |  생성일시: {dt.now().strftime('%Y-%m-%d %H:%M')}  "
+                     f"케이지에이에셋 goldkey_Ai_masters2026  |  생성일시: {dt.now().strftime('%Y-%m-%d %H:%M')}  "
                      f"|  본 문서는 AI 보조 분석 도구로 생성되었습니다.")
         c.setFillColorRGB(0, 0, 0)
 

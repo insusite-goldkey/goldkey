@@ -49,7 +49,7 @@ def render_login_page():
     """로그인 페이지 렌더링"""
     st.markdown("""
     <div style="text-align: center; padding: 50px 20px;">
-        <h1>골드키지사 마스터 AI</h1>
+        <h1>goldkey_Ai_masters2026 마스터 AI</h1>
         <p>보안 강화 & 초경량 통합본</p>
     </div>
     """, unsafe_allow_html=True)

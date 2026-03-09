@@ -15,7 +15,7 @@
 #   KAKAO_CHANNEL_ID     — 카카오톡 채널 ID (_Oxxxx 형식, 알림톡용)
 #   KAKAO_TEMPLATE_ID    — 알림톡 템플릿 코드 (사전 카카오 심사 필요)
 #   GP200_MASTER_NAME    — 마스터 성함 (예: 이세윤)
-#   GP200_MASTER_ORG     — 마스터 소속 (예: 골드키지사)
+#   GP200_MASTER_ORG     — 마스터 소속 (예: goldkey_Ai_masters2026)
 #   GP200_MASTER_PHONE   — 마스터 연락처 (예: 010-3074-2616)
 #   GP200_MASTER_LICENSE — 설계사 자격번호 (옵션)
 # ==========================================================================
@@ -63,7 +63,7 @@ def get_gp200_profile() -> dict:
         _ss_name = _ss_tel = _cfg_name = _cfg_org = _cfg_tel = _user = ""
 
     name  = _cfg_name or _ss_name  or _cfg("GP200_MASTER_NAME")  or _user or "마스터"
-    org   = _cfg_org  or _cfg("GP200_MASTER_ORG")  or "골드키지사"
+    org   = _cfg_org  or _cfg("GP200_MASTER_ORG")  or "goldkey_Ai_masters2026"
     phone = _cfg_tel  or _ss_tel   or _cfg("GP200_MASTER_PHONE") or ""
     lic   = _cfg("GP200_MASTER_LICENSE")
 
@@ -596,7 +596,7 @@ def render_config_panel() -> None:
                            placeholder="예: 이세윤")
         _o = st.text_input("소속", key="gp200_master_org",
                            value=st.session_state.get("gp200_master_org", ""),
-                           placeholder="예: 골드키지사")
+                           placeholder="예: goldkey_Ai_masters2026")
     with _c2:
         _ph = st.text_input("연락처", key="gp200_master_phone",
                             value=st.session_state.get("gp200_master_phone", ""),

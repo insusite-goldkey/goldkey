@@ -15,7 +15,7 @@
 # ※ 열람 권한 없는 자의 접근은 형사처벌 대상입니다.
 #    (부정경쟁방지법 제18조, 형법 제316조)
 # ==========================================================
-# 골드키지사 마스터 AI - 탭 구조 통합본 (전체 수정판)
+# goldkey_Ai_masters2026 마스터 AI - 탭 구조 통합본 (전체 수정판)
 # 수정: 구조적/논리적/보안/모바일 문제 전체 반영
 # ----------------------------------------------------------
 # [파일 경로 메모]
@@ -17318,7 +17318,7 @@ _DISCLAIMER_HTML = """
   <div style="color:#ecf0f1;font-size:0.78rem;line-height:1.7;">
     본 서비스는 <b>정보 제공용 시뮬레이션</b>이며 법적 효력이 없습니다.<br>
     모든 보상 안내·지원 결과는 AI 추정치이며, <b>최종 판단은 반드시 해당 전문가와 상담</b>하십시오.<br>
-    <span style="color:#f39c12;">골드키지사(insuAi)는 특정 전문가를 알선·중개하지 않으며,
+    <span style="color:#f39c12;">goldkey_Ai_masters2026(insuAi)는 특정 전문가를 알선·중개하지 않으며,
     공익적인 목적으로 각 협회의 공식 명부를 안내합니다.</span>
   </div>
 </div>
@@ -17406,7 +17406,7 @@ def render_expert_panel(context_text: str = "") -> None:
                     unsafe_allow_html=True,
                 )
     st.caption(
-        "골드키지사(insuAi)는 특정 전문가를 알선·중개하지 않으며, 공익적인 목적으로 각 협회의 공식 명부를 안내합니다. "
+        "goldkey_Ai_masters2026(insuAi)는 특정 전문가를 알선·중개하지 않으며, 공익적인 목적으로 각 협회의 공식 명부를 안내합니다. "
         "본 기능은 각 기관의 공식 대표번호를 안내할 뿐이며, 통화 내용에 대해 앱은 어떠한 법적 책임도 지지 않습니다."
     )
 
@@ -19568,7 +19568,7 @@ def main():
     _sb_init_state = "collapsed" if (st.session_state.get("user_id") or st.session_state.get("authenticated")) else "expanded"
     _layout_mode = "wide" if (st.session_state.get("user_id") or st.session_state.get("authenticated")) else "centered"
     st.set_page_config(
-        page_title="골드키지사 마스터 AI",
+        page_title="goldkey_Ai_masters2026 마스터 AI",
         page_icon="🏆",
         layout=_layout_mode,
         initial_sidebar_state=_sb_init_state
@@ -20846,16 +20846,16 @@ section[data-testid="stSidebar"] {
 /* ── [GP-56] 화이트아웃 박멸 — 전환 배경 즉시 채우기 ── */
 /* Streamlit이 rerun 시 html/body를 잠깐 white로 초기화하는 현상 차단 */
 html {
-    background-color: #FDF5E6 !important;  /* 연한 골드 — 화이트아웃 대체 */
+    background-color: #F8F9FA !important;  /* 밝은 라이트그레이 — 화이트아웃 대체 */
 }
 body {
-    background-color: #FDF5E6 !important;
+    background-color: #F8F9FA !important;
     margin: 0 !important;
 }
 [data-testid="stApp"],
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"] {
-    background-color: #FDF5E6 !important;
+    background-color: #F8F9FA !important;
     min-height: 100vh !important;
 }
 /* Streamlit 내부 iframe/embed 배경도 차단 */
@@ -20880,7 +20880,7 @@ iframe[title="st_app"],
 }
 .gk-trans-skel {
     background: linear-gradient(90deg,
-        #f0e8d0 25%, #fdf5e6 50%, #f0e8d0 75%);
+        #BBDEFB 25%, #E3F2FD 50%, #BBDEFB 75%);
     background-size: 800px 100%;
     animation: gk-skel-shine 1.2s ease-in-out infinite;
     border-radius: 10px;
@@ -22272,7 +22272,7 @@ watchRipple();
 <div style='background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);
   border:1.5px solid #0ea5e9;border-left:4px solid #D4AF37;border-radius:12px;
   padding:12px 14px;margin:8px 0 6px 0;box-shadow:0 2px 8px rgba(14,165,233,0.15);'>
-  <div style='font-size:0.82rem;font-weight:800;color:#0a1628;margin-bottom:4px;'>🏆 골드키지사 AI 마스터</div>
+  <div style='font-size:0.82rem;font-weight:800;color:#0a1628;margin-bottom:4px;'>🏆 goldkey_Ai_masters2026 AI 마스터</div>
   <div style='font-size:0.74rem;color:#1e3a5f;line-height:1.5;'>
     아래 <b>약관 동의</b> 후 <b>로그인</b>하시면<br>
     모든 AI 상담 기능을 이용하실 수 있습니다.<br>
@@ -22668,7 +22668,7 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
   </div>
   <div style='font-size:0.68rem;color:#374151;margin-top:6px;text-align:right;
     font-style:italic;'>
-    📋 골드키지사 가이딩 프로토콜 제130조 §1~§3 준수
+    📋 goldkey_Ai_masters2026 가이딩 프로토콜 제130조 §1~§3 준수
   </div>
 </div>""", unsafe_allow_html=True)
 
@@ -22804,8 +22804,8 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                         # [GP-56] 로그인 전환 스켈레톤 — 화이트아웃 0ms 목표
                         _skel_login = st.empty()
                         _skel_login.markdown("""
-<div style="padding:20px 12px;background:#FDF5E6;min-height:60vh;
-  border-radius:12px;margin-top:8px;">
+<div style="padding:20px 12px;background:#E3F2FD;min-height:60vh;
+  border-radius:12px;margin-top:8px;border:1px solid #90CAF9;">
   <div class="gk-trans-skel" style="height:28px;width:55%;margin-bottom:14px;"></div>
   <div class="gk-trans-skel" style="height:18px;width:80%;margin-bottom:8px;"></div>
   <div class="gk-trans-skel" style="height:18px;width:65%;margin-bottom:8px;"></div>
@@ -22857,7 +22857,7 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
       box-shadow:0 2px 12px rgba(33,150,243,0.12);
       position:relative;box-sizing:border-box;'>
       <div style='font-size:2rem;margin-bottom:6px;'>🛡️</div>
-      <div style='color:#000000;font-size:1.05rem;font-weight:800;'>골드키지사 보안 로그인</div>
+      <div style='color:#000000;font-size:1.05rem;font-weight:800;'>goldkey_Ai_masters2026 보안 로그인</div>
       <div style='color:#000000;font-size:0.78rem;margin-top:4px;opacity:0.72;'>가입 시 등록한 정보로 본인 확인 후 OTP를 발급합니다</div>
     </div>""", unsafe_allow_html=True)
                         ln_a = st.text_input("👤 이름", key="hlp_name_a", placeholder="가입 시 등록한 이름",
@@ -22879,8 +22879,8 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
 <style>
 button[kind="primary"][data-testid="baseButton-primary"]#hlp_otp_start_btn,
 section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
-  background: #FDF5E6 !important;
-  color: #004D40 !important;
+  background: #E3F2FD !important;
+  color: #1A237E !important;
   font-weight: 900 !important;
   border: 2px solid #004D40 !important;
   font-size: 1.05rem !important;
@@ -23027,8 +23027,8 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
                             # [GP-56] 게스트 전환 스켈레톤 — 화이트아웃 차단
                             _skel_guest = st.empty()
                             _skel_guest.markdown("""
-<div style="padding:20px 12px;background:#FDF5E6;min-height:60vh;
-  border-radius:12px;margin-top:8px;">
+<div style="padding:20px 12px;background:#E3F2FD;min-height:60vh;
+  border-radius:12px;margin-top:8px;border:1px solid #90CAF9;">
   <div class="gk-trans-skel" style="height:28px;width:55%;margin-bottom:14px;"></div>
   <div class="gk-trans-skel" style="height:18px;width:80%;margin-bottom:8px;"></div>
   <div class="gk-trans-skel" style="height:18px;width:65%;margin-bottom:8px;"></div>
@@ -23574,15 +23574,6 @@ setTimeout(function(){
   {_mode_badge} &nbsp;|&nbsp; 주력사: <b>{_ins_badge}</b>
 </div>""", unsafe_allow_html=True)
 
-            _lo_col1, _lo_col2 = st.columns(2)
-            with _lo_col1:
-                # [제82조] 구형 로그아웃 버튼 소거 — 전역 nav bar(_gp82_render_nav_bar)로 대체됨
-                pass
-            with _lo_col2:
-                if st.button("🗑️ 초기화", key="btn_suggest_clear_sb", use_container_width=True):
-                    st.session_state["suggest_input_sb"] = ""
-                    st.session_state.pop("suggest_submitted_sb", None)
-                    st.rerun()
 
             # ── [GP200 §1] 전문 브랜딩 정보 입력 UI ─────────────────────────
             st.markdown(f"""<div style="position:relative;margin:10px 0 0 0;">
@@ -23766,26 +23757,6 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
                     st.warning("⚠️ 한 번 더 클릭하면 파기됩니다.")
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # ── 관리자 지시 입력창 (로그인 후 바로 노출) ─────────────────────
-        if st.session_state.get("is_admin") and st.session_state.get("user_id") not in ("ADMIN_MASTER",):
-            st.divider()
-            st.markdown("**📢 시스템 개선 지시**")
-            with st.form("directive_form_sidebar"):
-                _dir_sb = st.text_area(
-                    "지시 내용 입력",
-                    placeholder="예) 홈 화면 배너 색상을 변경해주세요.",
-                    height=90, key="directive_sb_input"
-                )
-                if st.form_submit_button("📤 지시 전송", use_container_width=True):
-                    if _dir_sb.strip():
-                        add_directive(_dir_sb.strip())
-                        st.success("✅ 지시가 등록되었습니다.")
-                        st.rerun()
-                    else:
-                        st.error("내용을 입력해주세요.")
-            _dir_pending_cnt = sum(1 for d in load_directives() if d.get("status") == "대기")
-            if _dir_pending_cnt:
-                st.warning(f"🔔 미처리 지시 {_dir_pending_cnt}건")
         st.divider()
         # ── 관리자 콘솔 (최하단) ──────────────────────────────────────────
         st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-2-8')}</div>""",
@@ -23839,27 +23810,6 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
                     st.error("ID 또는 코드가 올바르지 않습니다.")
             # 관리자 로그인 상태일 때
             if st.session_state.get("is_admin"):
-                st.divider()
-                # ── 시스템 개선 지시 입력 ──
-                st.markdown("**📢 시스템 개선 지시 입력**")
-                with st.form("directive_form"):
-                    _dir_content = st.text_area(
-                        "지시 내용",
-                        placeholder="예) 홈 화면 날씨 위젯 색상을 파란색으로 변경해주세요.",
-                        height=100, key="directive_input"
-                    )
-                    if st.form_submit_button("📤 지시 전송", use_container_width=True):
-                        if _dir_content.strip():
-                            add_directive(_dir_content.strip())
-                            st.success("✅ 지시가 등록되었습니다.")
-                            st.rerun()
-                        else:
-                            st.error("지시 내용을 입력해주세요.")
-                st.divider()
-                _dir_all = load_directives()
-                _dir_pending = [d for d in _dir_all if d.get("status") == "대기"]
-                if _dir_pending:
-                    st.warning(f"🔔 미체크 지시 {len(_dir_pending)}건")
                 # ── RAG 지식베이스 바로가기 ──────────────────────────
                 st.markdown("---")
                 st.markdown("**📚 AI 지식베이스 (RAG)**")
@@ -25685,7 +25635,7 @@ window['startTTS_{tab_key}']=function(){{
                 "최종 판단 및 법적 책임은 사용자(상담원)에게 귀속됩니다. "
                 "보험금 지급 여부의 최종 결정은 보험사 심사 및 관련 법령에 따르며, "
                 "법률·세무·의료 분야의 최종 판단은 반드시 해당 전문가와 확인하십시오.\n\n"
-                "**문의:** insusite@gmail.com | 010-3074-2616 골드키지사"
+                "**문의:** insusite@gmail.com | 010-3074-2616 goldkey_Ai_masters2026"
             )
             full_text = result_text + disclaimer
             with st.expander("📤 출력 · 전송", expanded=False):
@@ -25797,7 +25747,7 @@ window['startTTS_{tab_key}']=function(){{
 <div class="gk-portal-header">
   {_bid('0100')}
   <div class="gk-portal-title">🏆 Goldkey AI Master</div>
-  <div class="gk-portal-sub">골드키지사 · AI 보험컨설팅 통합 플랫폼 · 설계사 전용</div>
+  <div class="gk-portal-sub">goldkey_Ai_masters2026 · AI 보험컨설팅 통합 플랫폼 · 설계사 전용</div>
 </div>""", unsafe_allow_html=True)
 
         # ── 보험용어 검색 엔진 블록 (제48조, 최상단 배치) ───────────────
@@ -28920,6 +28870,10 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
                 st.session_state["_gp68_period_sel"] = _gp68_per
 
                 # ── 소득 입력 (기본값 350만원 자동 표시) ────────────────────
+                # [GP-250 버그픽스] session_state에 0이 저장된 경우 number_input이 value 파라미터를 무시
+                # → 위젯 렌더 전 session_state를 강제 초기화하여 항상 350 이상 보장
+                if st.session_state.get("_gp68_income_input", 0) == 0:
+                    st.session_state["_gp68_income_input"] = float(_gp68_income)
                 _income_display = float(_gp68_income)  # 이미 기본값 350 적용됨
                 _gp68_income_input = st.number_input(
                     "💰 월소득(만원)" + (" ※기본값" if _gp68_income_is_default else " ✓역산값"),
@@ -28929,8 +28883,9 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
                     key="_gp68_income_input",
                     help="건강보험료 역산값이 있으면 자동 반영됩니다. 미입력 시 350만원 기본 적용.",
                 )
-                _gp68_income = _gp68_income_input if _gp68_income_input > 0 else _GP250_DEFAULT_INCOME
-                _gp68_income_is_default = (_gp68_income_input == 0.0)
+                # [GP-250] 0 입력 시에도 기본값 350 강제 적용 (절대 0이 되어선 안 됨)
+                _gp68_income = float(_gp68_income_input) if float(_gp68_income_input) > 0 else _GP250_DEFAULT_INCOME
+                _gp68_income_is_default = (float(_gp68_income_input) == 0.0)
 
                 # ── 국가 표준 통계 기반 평균 치료비 블록 ────────────────────
                 _d_stat = _GP68_DISEASE_DB.get(_gp68_sel, {})
@@ -29230,7 +29185,7 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
                 st.markdown(f"""
 <div class="gk-chat-bubble" style="margin-top:8px;">
   <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:6px;">
-    🤖 AI 손실 분석 봇 &nbsp;·&nbsp; <span style="color:#D4AF37;">골드키지사</span>
+    🤖 AI 손실 분석 봇 &nbsp;·&nbsp; <span style="color:#D4AF37;">goldkey_Ai_masters2026</span>
     {_mode_badge}
   </div>
   선택하신 <span class="gk-highlight">[{_gp68_sel}]</span> — {_mode_std_str} {_period_label_ko}간
@@ -31349,59 +31304,6 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
 
         st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹9 닫기]
 
-        # ── [GP220 그룹10] 시스템 제안 · 개선 의견 ────────────────────────
-        st.markdown('<div class="gk-g220 gk-g220-record"><span class="gk-g220-label">⑩ 시스템 제안 · 개선 의견</span>', unsafe_allow_html=True)
-
-        # ── 💡 시스템 제안 · 개선 의견 + 면책 고지 그룹 ────────────────
-        st.markdown("""
-<div style="background:#f0f6ff;border:2px solid #2e6da4;border-radius:14px;
-  padding:16px 18px 12px 18px;margin:18px 0 10px 0;
-  box-shadow:0 2px 10px rgba(46,109,164,0.10);">
-  <div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
-    border-radius:10px;padding:10px 14px 8px 14px;margin-bottom:12px;color:#1e3a5f;">
-    <div style="font-size:0.92rem;font-weight:900;letter-spacing:0.03em;margin-bottom:2px;">
-      💡 시스템 제안 · 개선 의견
-    </div>
-    <div style="font-size:0.74rem;opacity:0.88;">
-      내용 · 시스템 구성 · 개선 제안을 텍스트로 입력해주세요
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
-        _home_suggest_new = st.text_area(
-            "개선 의견 입력",
-            height=100,
-            key="suggest_input_home",
-            placeholder="제안사항을 위 박스에 입력하세요.",
-            label_visibility="collapsed"
-        )
-        if st.button("📨 제안 제출", key="btn_suggest_submit_home", use_container_width=True, type="primary"):
-            _sug_h = st.session_state.get("suggest_input_home", "").strip()
-            if _sug_h:
-                _sug_path_h = os.path.join(_DATA_DIR, "suggestions.json")
-                try:
-                    _sug_list_h = []
-                    if os.path.exists(_sug_path_h):
-                        with open(_sug_path_h, "r", encoding="utf-8") as _f:
-                            _sug_list_h = json.load(_f)
-                    _sug_list_h.append({
-                        "time": dt.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "user": st.session_state.get("user_name", "비회원"),
-                        "content": sanitize_unicode(_sug_h)
-                    })
-                    with open(_sug_path_h, "w", encoding="utf-8") as _f:
-                        json.dump(_sug_list_h, _f, ensure_ascii=False)
-                    st.session_state["suggest_input_home"] = ""
-                    st.session_state["suggest_submitted_home"] = True
-                    st.rerun()
-                except Exception:
-                    st.session_state["suggest_submitted_home"] = True
-                    st.rerun()
-            else:
-                st.warning("제안 내용을 입력해주세요.")
-        if st.session_state.pop("suggest_submitted_home", False):
-            st.success("✅ 제안이 반영되었습니다.")
-
-        st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹10 닫기]
 
 
     # ══════════════════════════════════════════════════════════════════════
@@ -46459,7 +46361,7 @@ END; $$;""", language="sql")
 
 <div class="lc-wrap">
   <div class="lc-title">🔄 LIFE CYCLE 백지설계 상담자료</div>
-  <div class="lc-subtitle">케이지에이에셋 골드키지사 &nbsp;|&nbsp; 고객명: _________________________ &nbsp;|&nbsp; 상담일: _____________</div>
+  <div class="lc-subtitle">케이지에이에셋 goldkey_Ai_masters2026 &nbsp;|&nbsp; 고객명: _________________________ &nbsp;|&nbsp; 상담일: _____________</div>
 
   <div class="lc-age-wrap">
     <div class="lc-age-label">나이</div>
@@ -46515,7 +46417,7 @@ END; $$;""", language="sql")
   <div class="lc-memo-row"><div class="lc-memo-lbl">보장공백</div><div class="lc-memo-line"></div></div>
   <div class="lc-memo-row"><div class="lc-memo-lbl">설계방향</div><div class="lc-memo-line"></div></div>
 
-  <div class="lc-footer">⚠️ 본 자료는 보험 설계 참고용이며, 최종 판단은 설계사에게 있습니다. &nbsp;|&nbsp; 케이지에이에셋 골드키지사 &nbsp;010-3074-2616</div>
+  <div class="lc-footer">⚠️ 본 자료는 보험 설계 참고용이며, 최종 판단은 설계사에게 있습니다. &nbsp;|&nbsp; 케이지에이에셋 goldkey_Ai_masters2026 &nbsp;010-3074-2616</div>
 </div>
 """, unsafe_allow_html=True)
         st.stop()  # lazy-dispatch: tab rendered, skip remaining

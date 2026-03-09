@@ -8,7 +8,7 @@ app_port: 7860
 pinned: false
 ---
 
-# 골드키지사 AI 마스터 보험봇 (RAG 시스템 + AI 이미지 상담 탑재)
+# goldkey_Ai_masters2026 AI 마스터 보험봇 (RAG 시스템 + AI 이미지 상담 탑재)
 
 ## 설치 및 실행 방법
 
