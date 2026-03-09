@@ -29043,6 +29043,47 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
                 ):
                     _go_tab("injury")
 
+            # ── [GP241조] 카카오톡 나에게 보내기 — GP250 위협액 리포트 ─────────
+            st.markdown("""
+<div style="background:linear-gradient(135deg,#FFFDE7,#FFF9C4);
+  border:2px solid #FEE500;border-radius:14px;
+  padding:14px 18px 10px 18px;margin-top:12px;
+  box-shadow:0 4px 16px rgba(254,229,0,0.25);">
+  <div style="font-size:0.9rem;font-weight:900;color:#3C1E1E;margin-bottom:4px;">
+    📲 카카오톡으로 이 리포트 받기
+    <span style="font-size:0.7rem;background:#3C1E1E;color:#FEE500;
+    border-radius:6px;padding:1px 7px;margin-left:6px;font-weight:800;">
+    마스터 전용</span>
+  </div>
+  <div style="font-size:0.75rem;color:#7C6000;margin-bottom:8px;">
+    위 분석 결과를 내 카카오톡 '나와의 채팅'으로 즉시 전송 → 고객에게 전달하기
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            try:
+                from modules.kakao_memo import build_gp250_report, render_memo_ui as _gp250_memo_ui
+                _gp250_pi = _get_planner_info()
+                _gp250_period_ko = {24: "2년", 36: "3년", 60: "5년"}.get(_gp68_per, f"{_gp68_per}개월")
+                _gp250_report_text = build_gp250_report(
+                    _gp68_sel,
+                    _loss,
+                    period_label=_gp250_period_ko,
+                    big5_mode=_gp70_big5,
+                    income_man=_gp68_income,
+                    client_name=st.session_state.get("gs_c_name", ""),
+                    planner_info=_gp250_pi,
+                )
+                st.session_state["_gp250_kakao_report"] = _gp250_report_text
+                _gp250_memo_ui(
+                    _gp250_report_text,
+                    title=f"[GP250] {_gp68_sel} 경제적 위협 분석",
+                    session_key="_gp250_memo",
+                    planner_info=_gp250_pi,
+                    compact=False,
+                )
+            except Exception as _gp250_ex:
+                st.caption(f"⚠️ 카카오 전송 모듈 오류: {_gp250_ex}")
+
         elif _gp68_sel is None:
             st.markdown("""
 <div style="background:rgba(212,175,55,0.07);border:1px dashed rgba(212,175,55,0.35);

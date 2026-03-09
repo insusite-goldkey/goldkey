@@ -235,6 +235,81 @@ def _build_summary(
 
 
 # ==========================================================================
+# [GP250] 질병 경제적 위협액 → 카카오톡 메시지 변환
+# ==========================================================================
+def build_gp250_report(
+    disease_name: str,
+    loss: dict,
+    *,
+    period_label: str = "2년",
+    big5_mode: bool = False,
+    income_man: float = 0.0,
+    client_name: str = "",
+    planner_info: Optional[dict] = None,
+) -> str:
+    """
+    GP250 위젯의 _gp68_calc_loss() 결과 dict를 받아
+    카카오톡 '나에게 보내기'용 리포트 텍스트를 생성합니다.
+
+    loss dict 키: treatment, nursing, room_extra, adv_cost, income_loss, total, source
+    """
+    def _fmt(v_man: int) -> str:
+        if v_man >= 10000:
+            e = v_man // 10000
+            r = v_man % 10000
+            return f"{e}억 {r:,}만원" if r else f"{e}억원"
+        return f"{v_man:,}만원"
+
+    _mode = "서울 5대병원 마스터형" if big5_mode else "국가 표준형"
+    _cname = f"{client_name}님 " if client_name else ""
+    _inc_line = (
+        f"• 소득 손실 ({income_man:.0f}만원/월 기준): {_fmt(loss.get('income_loss', 0))}\n"
+        if income_man > 0 else
+        "• 소득 손실: 미반영 (소득 미입력)\n"
+    )
+    _room_line = (
+        f"• 1인실 입원비: {_fmt(loss.get('room_extra', 0))}\n"
+        if loss.get("room_extra", 0) > 0 else ""
+    )
+    _adv_line = (
+        f"• 첨단치료비 추가: {_fmt(loss.get('adv_cost', 0))}\n"
+        if loss.get("adv_cost", 0) > 0 else ""
+    )
+    _source = loss.get("source", "건강보험심사평가원 통계")
+
+    _body = (
+        f"[골드키AI] {_cname}질병 경제적 위협 분석 ({_mode})\n"
+        f"{'=' * 26}\n"
+        f"📋 질병명: {disease_name}\n"
+        f"📅 분석 기간: {period_label}\n\n"
+        f"💸 예상 손실 내역\n"
+        f"• 치료비: {_fmt(loss.get('treatment', 0))}\n"
+        f"• 간병비: {_fmt(loss.get('nursing', 0))}\n"
+        f"{_room_line}"
+        f"{_adv_line}"
+        f"{_inc_line}"
+        f"{'─' * 26}\n"
+        f"🚨 총 경제적 위협액: {_fmt(loss.get('total', 0))}\n\n"
+        f"📌 출처: {_source}\n"
+        f"※ 개인차 있음. 참고용 통계치입니다.\n"
+    )
+
+    # GP200 브랜딩 푸터
+    if planner_info:
+        _co = (planner_info.get("company") or "").strip()
+        _nm = (planner_info.get("name") or "").strip()
+        _ct = (planner_info.get("contact") or "").strip()
+        _parts = list(filter(None, [_co, _nm]))
+        if _parts:
+            _body += f"\n[발송: {' '.join(_parts)} 설계사"
+            if _ct:
+                _body += f" | {_ct}"
+            _body += "]\n확인 후 고객님께 전달해 주세요."
+
+    return _body
+
+
+# ==========================================================================
 # [SESSION] access_token session_state 관리 헬퍼
 # ==========================================================================
 _TOKEN_KEY = "_kakao_memo_access_token"
