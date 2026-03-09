@@ -61,6 +61,12 @@ jobs:
           ENVVARS="$ENVVARS,ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}"
           ENVVARS="$ENVVARS,GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}"
           ENVVARS="$ENVVARS,FINLIFE_API_KEY=${{ secrets.FINLIFE_API_KEY }}"
+          ENVVARS="$ENVVARS,KAKAO_API_KEY=${{ secrets.KAKAO_API_KEY }}"
+          ENVVARS="$ENVVARS,KAKAO_SENDER_KEY=${{ secrets.KAKAO_SENDER_KEY }}"
+          ENVVARS="$ENVVARS,KAKAO_TEMPLATE_ID=${{ secrets.KAKAO_TEMPLATE_ID || 'goldkey_report_v1' }}"
+          ENVVARS="$ENVVARS,SMS_API_KEY=${{ secrets.SMS_API_KEY }}"
+          ENVVARS="$ENVVARS,SMS_API_SECRET=${{ secrets.SMS_API_SECRET }}"
+          ENVVARS="$ENVVARS,SMS_SENDER_NUM=${{ secrets.SMS_SENDER_NUM }}"
           gcloud run deploy ${{ env.SERVICE }} \
             --image "$IMAGE" \
             --region ${{ env.REGION }} \
