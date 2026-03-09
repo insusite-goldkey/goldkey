@@ -439,18 +439,78 @@ def render_memo_ui(
         # ── 로그인 상태 분기 ──────────────────────────────────────────
         if not is_logged_in():
             _auth_url = get_auth_url()
-            st.markdown(f"""
+
+            # ── [GP241조 §보안] 데이터 보안 및 권한 활용 안내 게이트 ──────────
+            st.markdown("""
+<div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);
+  border:1.5px solid #3B82F6;border-left:5px solid #1D4ED8;
+  border-radius:12px;padding:16px 18px 12px 18px;margin-bottom:12px;
+  box-shadow:0 3px 12px rgba(59,130,246,0.18);">
+  <div style="font-size:0.95rem;font-weight:900;color:#1E3A8A;margin-bottom:10px;
+    display:flex;align-items:center;gap:8px;">
+    🔒 데이터 보안 및 권한 활용 안내
+    <span style="font-size:0.68rem;background:#1D4ED8;color:#fff;
+      border-radius:4px;padding:1px 7px;font-weight:700;">금융권 수준</span>
+  </div>
+  <div style="font-size:0.80rem;color:#1E3A8A;line-height:1.85;">
+    <div style="margin-bottom:5px;">
+      <span style="font-weight:800;color:#1D4ED8;">① 권한 목적</span><br>
+      <span style="color:#1e40af;">AI 분석 리포트를 마스터님의 카카오톡으로
+      안전하게 전송하기 위한 목적으로만 사용됩니다.</span>
+    </div>
+    <div style="margin-bottom:5px;">
+      <span style="font-weight:800;color:#1D4ED8;">② 보안 범위</span><br>
+      <span style="color:#1e40af;">대화 내용 열람 및 친구 목록 수집은
+      <b>기술적으로 불가능</b>합니다.
+      (요청 권한: <code style="background:#DBEAFE;padding:1px 4px;border-radius:3px;">talk_message</code> 발송 전용)</span>
+    </div>
+    <div>
+      <span style="font-weight:800;color:#1D4ED8;">③ 데이터 보존</span><br>
+      <span style="color:#1e40af;">전송 데이터는 TLS 암호화 처리 후
+      발송 즉시 파기됩니다. 서버에 저장되지 않습니다.</span>
+    </div>
+  </div>
+  <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(59,130,246,0.25);
+    font-size:0.72rem;color:#3B82F6;">
+    🔗 권한 철회: 카카오톡 설정 → 자산 → 서비스 관리에서 언제든지 철회 가능
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            # ── 동의 체크박스 (체크 전 로그인 버튼 비활성화) ─────────────────
+            _consent_key = f"{session_key}_security_consent"
+            _consented = st.checkbox(
+                "보안 가이드를 확인하였으며, 리포트 전송 권한 승인에 동의합니다",
+                key=_consent_key,
+                value=st.session_state.get(_consent_key, False),
+            )
+
+            if _consented:
+                st.markdown(f"""
 <div style="text-align:center;margin:12px 0;">
   <a href="{_auth_url}" target="_self"
      style="display:inline-block;background:#FEE500;color:#3C1E1E;
      font-size:0.95rem;font-weight:900;padding:12px 28px;
      border-radius:10px;text-decoration:none;
-     box-shadow:0 3px 10px rgba(0,0,0,0.15);">
-    🔑 카카오 로그인 (나에게 보내기 권한)
+     box-shadow:0 4px 14px rgba(0,0,0,0.18);
+     transition:box-shadow 0.2s;">
+    🔑 카카오 로그인 (나에게 보내기 권한 승인)
   </a>
 </div>
 <div style="text-align:center;font-size:0.73rem;color:#6B7280;margin-top:4px;">
   최초 1회만 로그인하면 이후 자동으로 발송됩니다.
+</div>""", unsafe_allow_html=True)
+            else:
+                st.markdown("""
+<div style="text-align:center;margin:12px 0;">
+  <div style="display:inline-block;background:#D1D5DB;color:#9CA3AF;
+    font-size:0.95rem;font-weight:900;padding:12px 28px;
+    border-radius:10px;cursor:not-allowed;
+    box-shadow:0 2px 6px rgba(0,0,0,0.08);">
+    🔑 카카오 로그인 (위 안내 동의 후 활성화)
+  </div>
+</div>
+<div style="text-align:center;font-size:0.73rem;color:#9CA3AF;margin-top:4px;">
+  위 체크박스에 동의하시면 로그인 버튼이 활성화됩니다.
 </div>""", unsafe_allow_html=True)
 
         else:

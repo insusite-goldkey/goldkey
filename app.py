@@ -16405,6 +16405,53 @@ def display_security_sidebar():
         - 세션 종료 시 메모리 자동 초기화
     </div>""", unsafe_allow_html=True)
 
+    # ── [GP241조 §보안] 카카오 보안/권한 안내 서브메뉴 ─────────────────────
+    with st.sidebar.expander("🔒 카카오 보안/권한 안내", expanded=False):
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);
+  border:1.5px solid #3B82F6;border-left:5px solid #1D4ED8;
+  border-radius:12px;padding:14px 16px;
+  box-shadow:0 3px 10px rgba(59,130,246,0.15);">
+  <div style="font-size:0.88rem;font-weight:900;color:#1E3A8A;margin-bottom:8px;">
+    🛡️ 골드키 마스터 AI 리포트 전송 시스템
+  </div>
+  <div style="font-size:0.78rem;color:#1E3A8A;line-height:1.9;">
+    <div style="margin-bottom:6px;padding:6px 8px;
+      background:rgba(255,255,255,0.6);border-radius:8px;">
+      <b style="color:#1D4ED8;">서비스 명칭</b><br>
+      골드키 마스터 AI 리포트 전송 시스템
+    </div>
+    <div style="margin-bottom:6px;padding:6px 8px;
+      background:rgba(255,255,255,0.6);border-radius:8px;">
+      <b style="color:#1D4ED8;">① 보안 확약</b><br>
+      본 시스템은 마스터의 <b>대화 내용을 열람하거나
+      친구 목록을 수집하지 않습니다.</b><br>
+      요청 권한은 <code style="background:#DBEAFE;padding:1px 3px;
+      border-radius:3px;font-size:0.72rem;">talk_message</code>
+      (메시지 발송) 단 1개입니다.
+    </div>
+    <div style="margin-bottom:6px;padding:6px 8px;
+      background:rgba(255,255,255,0.6);border-radius:8px;">
+      <b style="color:#1D4ED8;">② 데이터 처리</b><br>
+      전송 데이터는 <b>TLS 암호화</b>되어 전송되며,
+      발송 즉시 <b>휘발성으로 관리</b>됩니다.
+      서버에 리포트 내용이 저장되지 않습니다.
+    </div>
+    <div style="padding:6px 8px;
+      background:rgba(255,255,255,0.6);border-radius:8px;">
+      <b style="color:#1D4ED8;">③ 권한 철회 방법</b><br>
+      카카오톡 앱 → <b>설정 → 자산 → 서비스 관리</b><br>
+      에서 언제든지 권한을 철회하실 수 있습니다.
+    </div>
+  </div>
+  <div style="margin-top:10px;padding-top:8px;
+    border-top:1px solid rgba(59,130,246,0.3);
+    font-size:0.70rem;color:#3B82F6;text-align:center;">
+    🔐 금융권 수준 보안 정책 준수 &nbsp;|&nbsp;
+    권한 범위: <code style="background:#DBEAFE;padding:1px 3px;border-radius:3px;">talk_message</code> only
+  </div>
+</div>""", unsafe_allow_html=True)
+
 
 # --------------------------------------------------------------------------
 # [SECTION 8 브랜드] Goldkey_AI_Masters 전용 아바타 시스템
@@ -22259,6 +22306,51 @@ section[data-testid="stSidebar"] .st-expander summary {
 </div>
 """, unsafe_allow_html=True)
                 st.caption("로그인 후 사이드바 하단에서 전체 약관을 확인하실 수 있습니다.")
+
+            # ── [GP241조 §보안] 🔒 카카오 보안/권한 안내 서브메뉴 ───────────────
+            with st.expander("🔒 카카오 보안/권한 안내", expanded=False):
+                st.markdown("""
+<div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);
+  border:1.5px solid #3B82F6;border-left:5px solid #1D4ED8;
+  border-radius:12px;padding:16px 18px 14px 18px;
+  box-shadow:0 3px 12px rgba(59,130,246,0.18);">
+  <div style="font-size:0.92rem;font-weight:900;color:#1E3A8A;margin-bottom:12px;
+    display:flex;align-items:center;gap:8px;">
+    🔒 골드키 마스터 AI 리포트 전송 시스템
+    <span style="font-size:0.65rem;background:#1D4ED8;color:#fff;
+      border-radius:4px;padding:1px 7px;font-weight:700;margin-left:4px;">금융권 수준 보안</span>
+  </div>
+  <div style="font-size:0.78rem;color:#1E3A8A;line-height:1.9;">
+    <div style="margin-bottom:7px;padding:6px 10px;background:rgba(255,255,255,0.6);
+      border-radius:8px;border-left:3px solid #3B82F6;">
+      <span style="font-weight:800;color:#1D4ED8;">🎯 서비스명</span><br>
+      <span style="color:#1e40af;">골드키 마스터 AI 리포트 전송 시스템</span>
+    </div>
+    <div style="margin-bottom:7px;padding:6px 10px;background:rgba(255,255,255,0.6);
+      border-radius:8px;border-left:3px solid #3B82F6;">
+      <span style="font-weight:800;color:#1D4ED8;">🔐 보안 약속</span><br>
+      <span style="color:#1e40af;">대화 내용 열람 <b>불가</b> · 친구 목록 수집 <b>불가</b><br>
+      요청 권한: <code style="background:#DBEAFE;padding:1px 4px;border-radius:3px;
+      font-size:0.72rem;">talk_message</code> 발송 전용</span>
+    </div>
+    <div style="margin-bottom:7px;padding:6px 10px;background:rgba(255,255,255,0.6);
+      border-radius:8px;border-left:3px solid #3B82F6;">
+      <span style="font-weight:800;color:#1D4ED8;">🛡️ 데이터 처리</span><br>
+      <span style="color:#1e40af;">전송 데이터 TLS 암호화 처리 후 발송 즉시 파기<br>
+      서버 저장 없음 · 제3자 제공 없음</span>
+    </div>
+    <div style="padding:6px 10px;background:rgba(255,255,255,0.6);
+      border-radius:8px;border-left:3px solid #3B82F6;">
+      <span style="font-weight:800;color:#1D4ED8;">↩️ 권한 철회</span><br>
+      <span style="color:#1e40af;">카카오톡 앱 → 설정 → 자산 → 서비스 관리에서 언제든지 철회 가능</span>
+    </div>
+  </div>
+  <div style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(59,130,246,0.25);
+    font-size:0.68rem;color:#3B82F6;text-align:center;">
+    🔗 카카오 개발자 센터 OAuth2.0 표준 인증 준수 · 권한 범위:
+    <code style="background:#DBEAFE;padding:1px 3px;border-radius:3px;">talk_message</code> only
+  </div>
+</div>""", unsafe_allow_html=True)
 
             st.sidebar.warning(
                 "**⚠️ 면책 및 서비스 이용 안내 (Disclaimer)**\n\n"
