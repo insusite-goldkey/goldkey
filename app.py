@@ -8739,9 +8739,10 @@ def show_war_room() -> None:
     from streamlit import components as _comp_wr
 
     _st_wr.markdown(f"""
-<div style="background:linear-gradient(135deg,#0f172a,#1e1b4b);
+<div style="position:relative;background:linear-gradient(135deg,#0f172a,#1e1b4b);
   border-radius:16px;padding:20px 24px;margin-bottom:18px;
   box-shadow:0 8px 32px rgba(0,0,0,0.35);">
+  {_bid('GK-WAR-01')}
   <div style="font-size:0.72rem;font-weight:900;color:#f0c040;
     letter-spacing:0.18em;margin-bottom:6px;">
     ⚔️ GOLDKEY AI MASTERS 2026 — WAR ROOM
@@ -12583,8 +12584,9 @@ def _life_defense_command_panel() -> None:
 </style>
 """, unsafe_allow_html=True)
 
-    st.markdown("""
-<div class="ldc-header">
+    st.markdown(f"""
+<div class="ldc-header" style="position:relative;">
+  {_bid('GK-LDC-01')}
   <div class="ldc-title">🏛️ 나의 인생 방어 사령부</div>
   <div class="ldc-sub">
     Life Defense Command — 보상 · 법률 · 의료 데이터를 통합 지원하는 전천후 방패<br>
@@ -22698,25 +22700,28 @@ section[data-testid="stSidebar"] *::after {
 section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div {
   position: relative !important;
 }
+/* 체크 전: 노란 배경 + 레드 보더 */
 section[data-testid="stSidebar"] input[type="checkbox"] {
   appearance: none !important;
   -webkit-appearance: none !important;
   width: 20px !important;
   height: 20px !important;
   min-width: 20px !important;
-  border: 2.5px solid #004D40 !important;
+  border: 2.5px solid #FF0000 !important;
   border-radius: 5px !important;
-  background: transparent !important;
-  box-shadow: 0 2px 6px rgba(0,77,64,0.25), inset 0 0 0 1px rgba(0,77,64,0.12) !important;
+  background: #FFF9C4 !important;
+  box-shadow: 0 2px 6px rgba(255,0,0,0.18) !important;
   cursor: pointer !important;
   position: relative !important;
   display: inline-block !important;
   vertical-align: middle !important;
+  transition: background 0.2s, border-color 0.2s !important;
 }
+/* 체크 후: 그린 배경 + 그린 보더 */
 section[data-testid="stSidebar"] input[type="checkbox"]:checked {
-  background: rgba(0,77,64,0.10) !important;
-  border: 2.5px solid #004D40 !important;
-  box-shadow: 0 2px 8px rgba(0,77,64,0.40), inset 0 0 0 1px rgba(0,77,64,0.18) !important;
+  background: #C8E6C9 !important;
+  border: 2.5px solid #2E7D32 !important;
+  box-shadow: 0 2px 8px rgba(46,125,50,0.30) !important;
 }
 section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
   content: "✔" !important;
@@ -22724,7 +22729,7 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
   top: 50% !important;
   left: 50% !important;
   transform: translate(-50%, -50%) !important;
-  color: #004D40 !important;
+  color: #1B5E20 !important;
   font-size: 13px !important;
   font-weight: 900 !important;
 }
@@ -22736,13 +22741,14 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
 
             # ── 통합 박스 열기 + 안내 문구 내부 포함 (제52조 §1·§2 통합) ──
             st.markdown("""
-<div style='border:2px solid #004D40;border-radius:12px;
-  background:rgba(253,245,230,0.5);padding:15px;
-  margin-bottom:20px;box-sizing:border-box;'>
-  <div style='color:#004D40;font-size:0.92rem;font-weight:700;
-    margin-bottom:10px;text-align:center;border-bottom:1px solid rgba(0,77,64,0.20);
-    padding-bottom:8px;'>
-    ✅ 필수 동의하셔야 AI 마스터 접속 가능
+<div style='border:2px solid #FF0000;border-radius:12px;
+  background:#F0F8FF;padding:15px;
+  margin-bottom:20px;box-sizing:border-box;
+  box-shadow:0 2px 10px rgba(255,0,0,0.10);'>
+  <div style='color:#C62828;font-size:0.92rem;font-weight:800;
+    margin-bottom:10px;text-align:center;border-bottom:1.5px solid rgba(255,0,0,0.25);
+    padding-bottom:8px;letter-spacing:0.02em;'>
+    🔐 필수 동의하셔야 AI 마스터 접속 가능
   </div>""", unsafe_allow_html=True)
 
             # ── 4개 항목 세로 배치 + 구분선 ──────────────────────────────
@@ -22760,11 +22766,15 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
                                        key=f"_terms_top_cb_{_ttk}",
                                        label_visibility="collapsed")
                 with _tlbl_col:
-                    _chk_icon = "✅" if _tr_top.get(_ttk, False) else "☐"
+                    _is_checked = _tr_top.get(_ttk, False)
+                    _row_bg  = "#C8E6C9" if _is_checked else "#FFF9C4"
+                    _row_bdr = "#2E7D32" if _is_checked else "#FF0000"
                     st.markdown(
-                        f"<div style='padding-top:3px;font-size:0.78rem;color:{_tcolor};line-height:1.4;'>"
+                        f"<div style='padding:4px 8px;border-radius:6px;"
+                        f"background:{_row_bg};border:1px solid {_row_bdr};"
+                        f"font-size:0.78rem;color:#000000;font-weight:700;line-height:1.4;'>"
                         f"<span style='background:{_tbadge_color};color:#fff;font-size:0.60rem;"
-                        f"padding:1px 6px;border-radius:4px;font-weight:700;"
+                        f"padding:1px 6px;border-radius:4px;font-weight:800;"
                         f"display:inline-block;margin-bottom:2px;'>{_tbadge}</span> "
                         f"{_ttitle}</div>",
                         unsafe_allow_html=True,
@@ -22773,7 +22783,7 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
                     st.session_state["_lp_terms"][_ttk] = _tcv
                     _terms_changed_top = True
                 if _i < len(_terms_list) - 1:
-                    st.markdown("<hr style='border:none;border-top:1px solid rgba(0,77,64,0.18);margin:4px 0 4px 0;'>",
+                    st.markdown("<hr style='border:none;border-top:1px solid rgba(200,200,200,0.7);margin:5px 0 5px 0;'>",
                                 unsafe_allow_html=True)
             if _terms_changed_top:
                 st.rerun()
@@ -28064,6 +28074,7 @@ renderCalendar();
 
     # ── [홈] 카드 네비게이션 ──────────────────────────────────────────────
     if cur == "home":
+        st.markdown(f'<div style="position:relative;height:0;">{_bid("GK-HOME-01")}</div>', unsafe_allow_html=True)
         # ── [GP220] 전역 그룹 컨테이너 CSS ─────────────────────────────────
         st.markdown("""
 <style>
