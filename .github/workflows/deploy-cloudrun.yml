@@ -61,6 +61,8 @@ jobs:
           ENVVARS="$ENVVARS,ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}"
           ENVVARS="$ENVVARS,GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}"
           ENVVARS="$ENVVARS,FINLIFE_API_KEY=${{ secrets.FINLIFE_API_KEY }}"
+          ENVVARS="$ENVVARS,KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}"
+          ENVVARS="$ENVVARS,KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI || 'https://goldkey-ai-817097913199.asia-northeast3.run.app/' }}"
           ENVVARS="$ENVVARS,KAKAO_API_KEY=${{ secrets.KAKAO_API_KEY }}"
           ENVVARS="$ENVVARS,KAKAO_SENDER_KEY=${{ secrets.KAKAO_SENDER_KEY }}"
           ENVVARS="$ENVVARS,KAKAO_TEMPLATE_ID=${{ secrets.KAKAO_TEMPLATE_ID || 'goldkey_report_v1' }}"

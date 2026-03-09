@@ -31102,10 +31102,10 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
         )
 
         st.markdown("---")
-        _su_c1, _su_c2 = st.columns(2)
+        _su_c1, _su_c2, _su_c3 = st.columns(3)
 
         with _su_c1:
-            # 카카오/SMS 발송 UI
+            # [GP240조] 카카오/SMS 발송 UI (알림톡 — 채널 키 필요)
             try:
                 from modules.kakao_sender import render_send_ui as _kk_ui
                 _kk_ui(
@@ -31120,6 +31120,20 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
                 st.caption(f"⚠️ 카카오 발송 모듈 오류: {_kk_ex}")
 
         with _su_c2:
+            # [GP241조] 나에게 보내기 UI (REST API KEY만으로 즉시 사용 가능)
+            try:
+                from modules.kakao_memo import render_memo_ui as _memo_ui
+                _memo_ui(
+                    _report_text,
+                    title=title,
+                    session_key=f"_memo_{tab_key or result_key}",
+                    planner_info=_pi,
+                    compact=compact,
+                )
+            except Exception as _memo_ex:
+                st.caption(f"⚠️ 나에게 보내기 모듈 오류: {_memo_ex}")
+
+        with _su_c3:
             # PDF 다운로드 버튼
             try:
                 from modules.pdf_generator import render_pdf_download as _pdf_dl
