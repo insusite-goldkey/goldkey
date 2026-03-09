@@ -16461,15 +16461,15 @@ GOLD_AVATAR_PATH = os.path.join(
 )
 
 def get_goldkey_avatar() -> str:
-    """골드키 전용 아바타를 base64 data-URI 또는 CDN URL로 반환.
-    로컬 assets/ 탐색 후 실패 시 HF CDN URL 반환 (빈 문자열 없음).
+    """골드키 전용 아바타를 base64 data-URI로 반환.
+    로컬 assets/ 탐색 후 실패 시 내장 상수 반환 (LFS 우회).
     [제39조 §2] 세션 캐시 적용 — 매 rerun마다 파일 재탐색 방지.
     """
+    _EMBEDDED = "data:image/jpeg;base64,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2ihaBZSYJxaPOueSpebSkE7rcvxWLZlORAmnaKJzcPT/AGgWwMB3iKKNgEwae9EQQzZm6igOgC+oUpCKyBjCMbW8/wA3L37Xj0CtaXaIq7qvpUP2b3uCByzUsAs4j0TvWY1Md0/yjZCW9UlBBrac+C6mx0qeTZV2PyH5eMBaU7BXhbxP1v8ANenVX00uLZE+VTLR5jXwUQiYvEt+lIinBfCkiTLY6tAAMFq/kbh/KcCqsauAqZrWi1/m1P7VnTFJDcsdaMsBVxOOXsqJv5tSZnza85HhIzdPSK4qH0/JEUSO/Sn0/AG0uw54rCOc9akK/wDtUmW3l8FAIIDx8rtWa3UXrU5jfBLB2LfkiWr8811waHjzVgBqI/kcxQSJdJ2KItjauRWv5VmMcUDBbPzKPdVycUMM7V/rLkej+Q2BQak4moPQ5/dERhtl91/QfdW8I0ub+dCxn4X3X9B91/Qfdf0H3X9B90RkYeORtboRQ9LHP7r+3+6sTDxCLB8fv//aAAwDAQACAAMAAAAQ888882z88888888887khy28888888rRo8nA88888886Ue7GR88888885mAwn+88888888JEhCH88888888UDdDF888888888hsd888888889HXVfq0888888Uu7UYzZ888888a+Q3vvG888888w4ZCKiY8888888888888888//EACERAQACAgICAgMAAAAAAAAAAAEAESEwEDEgQUBRYXGB/9oACAEDAQE/EPEFijW7mBWCH1DSzuJWNFjUtwQP3E7S57NM4VuDZTErDDoOmHQJSyRt0IlkSh04KMZqD1FK8xDbptUxpamfoZgqG4NQYHiUVZlH8tKy42O5eYYLjarB0PH8dBsplgAAcHm8VM65PNG5UrNypURgPwf/xAAfEQEAAgIDAAMBAAAAAAAAAAABABEhMBAxQSBAYVH/2gAIAQIBAT8Q+K1LNdEW++CvcM6FolOWfklhjheaOs8oBUusIPsedAsmSzFSES1KqRC2aTULF6gOCDSqWRUeoT1ns6nFOZbdZaaQQhsSs1EJrLUFgR/iJ8+3FR+pQg4IqleO2kTs71RCUnWvJZLIJEPX0f/EACgQAQEAAgIBBAIBBQEBAAAAAAERACExQVFhcYGRMKFAECCxwdHh8P/aAAgBAQABPxD8c/Hcv5AVZSjeqYYoG9M4+8F8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"
     _CACHE_KEY = "_s39_hero_av_src"
     _cached = st.session_state.get(_CACHE_KEY, "")
-    if _cached:
+    if _cached and _cached.startswith("data:"):
         return _cached
-    _HF_CDN = "https://huggingface.co/spaces/goldkey-rich/goldkey-ai/resolve/main/assets/goldkey_ai_avatar.jpg"
     _base = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         (os.path.join(_base, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
@@ -16477,49 +16477,45 @@ def get_goldkey_avatar() -> str:
         (os.path.join(_base, "assets", "goldkey_ai_avatar.svg"), "image/svg+xml"),
         (os.path.join(_base, "assets", "avatar_goldkey.svg"),    "image/svg+xml"),
         (os.path.join(_base, "assets", "avatar_goldkey.png"),    "image/png"),
-        (GOLD_AVATAR_PATH, "image/svg+xml" if GOLD_AVATAR_PATH.endswith(".svg") else "image/png"),
+        (GOLD_AVATAR_PATH, "image/svg+xml" if GOLD_AVATAR_PATH.endswith(".svg") else "image/jpeg"),
     ]
+    _IMAGE_MAGIC = {
+        b"\xff\xd8\xff": "image/jpeg",
+        b"\x89PNG": "image/png",
+        b"<svg": "image/svg+xml",
+        b"<?xml": "image/svg+xml",
+        b"GIF8": "image/gif",
+        b"RIFF": "image/webp",
+    }
     for _p, _mime in candidates:
         try:
             _path = pathlib.Path(_p)
-            if _path.exists():
-                _raw = _path.read_bytes()
-                if len(_raw) > 50:
-                    _result = f"data:{_mime};base64,{base64.b64encode(_raw).decode()}"
-                    st.session_state[_CACHE_KEY] = _result
-                    return _result
+            if not _path.exists():
+                continue
+            _raw = _path.read_bytes()
+            if len(_raw) < 100:
+                continue
+            _head = _raw[:8].lower()
+            if _raw[:8].startswith(b"version ") or _head.startswith(b"oid sha2"):
+                continue
+            for _magic, _detected_mime in _IMAGE_MAGIC.items():
+                if _raw[:len(_magic)].lower() == _magic.lower():
+                    _mime = _detected_mime
+                    break
+            _result = f"data:{_mime};base64,{base64.b64encode(_raw).decode()}"
+            st.session_state[_CACHE_KEY] = _result
+            return _result
         except Exception:
             continue
-    st.session_state[_CACHE_KEY] = _HF_CDN
-    return _HF_CDN
+    st.session_state[_CACHE_KEY] = _EMBEDDED
+    return _EMBEDDED
 
 
 def render_goldkey_sidebar():
     """Goldkey_AI_Masters 전용 카드형 프로필 박스를 사이드바 최상단에 렌더링."""
-    # [제53조 개정] 인증 완료 후 사이드바 아바타 미렌더 — 즉시 반환
-    if st.session_state.get('authenticated', False) or bool(st.session_state.get('user_id')):
-        return
 
-    # ── [제39조 §2/§3] 아바타 이미지 — 세션 캐시 우선 (매 렌더마다 파일 재읽기 방지) ──
-    _AV_CACHE_KEY = "_s39_av_src"
-    _av_src = st.session_state.get(_AV_CACHE_KEY, "")
-    if not _av_src:
-        _base_av = os.path.dirname(os.path.abspath(__file__))
-        _av_candidates = [
-            (os.path.join(_base_av, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
-            (os.path.join(_base_av, "assets", "goldkey_ai_avatar.png"), "image/png"),
-            (os.path.join(_base_av, "assets", "avatar_goldkey.png"),    "image/png"),
-            (os.path.join(_base_av, "assets", "avatar_goldkey.svg"),    "image/svg+xml"),
-        ]
-        for _av_p, _av_mime in _av_candidates:
-            try:
-                _pth = pathlib.Path(_av_p)
-                if _pth.exists() and _pth.stat().st_size > 50:
-                    _av_src = f"data:{_av_mime};base64,{base64.b64encode(_pth.read_bytes()).decode()}"
-                    st.session_state[_AV_CACHE_KEY] = _av_src  # 캐시 저장
-                    break
-            except Exception:
-                continue
+    # ── [제39조 §2/§3] 아바타 이미지 — get_goldkey_avatar() 공통 함수로 통일 ──
+    _av_src = get_goldkey_avatar()
 
     # ── [제39조 §2] 카드 전체를 하나의 HTML 블록으로 렌더 ──────────────────
     # 이미지 있음: loading="lazy" 지연 로드 / 없음: shimmer 스켈레톤 원형 플레이스홀더
@@ -22264,11 +22260,12 @@ watchRipple();
     # ── 사이드바 ──────────────────────────────────────────────────────────
     # [제53조 개정] 인증 완료 후 사이드바 완전 미렌더 — 조건부 렌더링
     _is_authenticated = st.session_state.get('authenticated', False) or bool(st.session_state.get('user_id'))
-    if not _is_authenticated:
-      with st.sidebar:
-        # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (기존 아바타 완전 대체) ──
+    with st.sidebar:
+        # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (항상 렌더) ──
         render_goldkey_sidebar()
 
+    if not _is_authenticated:
+      with st.sidebar:
         # ── [제53조 개정] 비로그인 전용 콘텐츠 — 로그인 후 완전 미렌더 ──────
         if 'user_id' not in st.session_state:
             st.markdown("""
@@ -23930,6 +23927,51 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
         # 입력 시 모든 분석 리포트 하단에 담당자 브랜딩 푸터 자동 삽입
         # ══════════════════════════════════════════════════════════════
         with st.sidebar:
+            # ── [제39조 §2] 로그인 후 사이드바 최상단 아바타 카드 ─────────────
+            _post_av_key = "_s39_post_av_src"
+            _post_av_src = st.session_state.get(_post_av_key, "")
+            if not _post_av_src:
+                _post_base = os.path.dirname(os.path.abspath(__file__))
+                for _post_p, _post_mime in [
+                    (os.path.join(_post_base, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
+                    (os.path.join(_post_base, "assets", "goldkey_ai_avatar.png"), "image/png"),
+                    (os.path.join(_post_base, "assets", "avatar_goldkey.png"),    "image/png"),
+                    (os.path.join(_post_base, "assets", "avatar_goldkey.svg"),    "image/svg+xml"),
+                ]:
+                    try:
+                        _pp = pathlib.Path(_post_p)
+                        if _pp.exists() and _pp.stat().st_size > 50:
+                            _post_av_src = f"data:{_post_mime};base64,{base64.b64encode(_pp.read_bytes()).decode()}"
+                            st.session_state[_post_av_key] = _post_av_src
+                            break
+                    except Exception:
+                        continue
+
+            _post_av_img = (
+                f'<img src="{_post_av_src}" width="80" height="80" loading="lazy"'
+                ' style="border-radius:50%;border:3px solid rgba(255,255,255,0.85);'
+                'box-shadow:0 2px 10px rgba(0,0,0,0.18);object-fit:cover;'
+                'display:block;margin:0 auto 8px auto;" />'
+                if _post_av_src else
+                '<div style="width:80px;height:80px;border-radius:50%;'
+                'background:rgba(255,255,255,0.2);margin:0 auto 8px auto;"></div>'
+            )
+            _post_uname = st.session_state.get("user_name", "") or st.session_state.get("user_id", "마스터")
+            st.sidebar.markdown(f"""
+<div style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
+  border-radius:15px;padding:16px 14px 12px 14px;margin-bottom:10px;
+  box-shadow:0 4px 20px rgba(79,172,254,0.28);text-align:center;">
+  {_post_av_img}
+  <div style="font-size:1.0rem;font-weight:800;color:#0a1628;
+    line-height:1.3;margin-bottom:2px;">Goldkey_AI_Masters2026</div>
+  <div style="font-size:0.78rem;font-weight:600;color:#0d2344;margin-bottom:2px;">
+    👤 {_post_uname} 마스터</div>
+  <div style="font-size:0.70rem;color:#1a3a5c;">전문 보장 상담의 동반자</div>
+  <div style="text-align:right;margin-top:4px;">
+    <span style="font-size:0.60rem;color:rgba(10,22,40,0.5);">v1.3.0</span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
             st.markdown("""
 <div style='background:linear-gradient(135deg,#0a1628 0%,#1a3a5c 100%);
   border-radius:12px;padding:12px 14px 10px 14px;margin:8px 0 6px 0;
