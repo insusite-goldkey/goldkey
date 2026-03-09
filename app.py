@@ -37012,25 +37012,37 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 </div>
 """, unsafe_allow_html=True)
 
-        # ── 검색창 ────────────────────────────────────────────────────────
-        _ib_query = st.text_input(
-            "",
-            placeholder="🔍 보험 용어·사례를 입력하세요  예) 실손보험 자기부담금 / 맥브라이드 장해율 / 면책조항",
-            key="ins_bot_query",
-            label_visibility="collapsed"
-        )
-        _ib_col1, _ib_col2, _ib_col3 = st.columns([3, 1, 1])
-        with _ib_col2:
-            _ib_search_btn = st.button("🔍 검색", key="ins_bot_search",
-                                       use_container_width=True, type="primary")
-        with _ib_col3:
-            _ib_clear_btn = st.button("🗑 초기화", key="ins_bot_clear",
-                                      use_container_width=True)
-        if _ib_clear_btn:
-            for _k in ["ins_bot_result", "ins_bot_sources", "ins_bot_alert",
-                       "ins_bot_verify_ok", "ins_bot_last_q"]:
-                st.session_state.pop(_k, None)
-            st.rerun()
+        # ── [제48조] 5:5 분할 레이아웃 — 좌: 검색 컨트롤러 / 우: AI 결과 피드 ──
+        _ib_left, _ib_right = st.columns([5, 5])
+
+        with _ib_left:
+            st.markdown("""
+<div style='margin-bottom:6px;'>
+  <div style='font-size:1.05rem;font-weight:900;color:#0f4c81;margin-bottom:2px;'>📚 보험 용어 안내</div>
+  <div style='font-size:0.74rem;color:#64748b;line-height:1.5;'>전문가에게 묻기 전, 보험 용어 바로 확인<br>
+    <span style='color:#6366f1;font-weight:700;'>[가이딩 프로토콜 제48조]</span></div>
+</div>""", unsafe_allow_html=True)
+            # ── 검색창
+            _ib_query = st.text_input(
+                "",
+                placeholder="궁금한 용어를 입력하세요",
+                key="ins_bot_query",
+                label_visibility="collapsed"
+            )
+            # ── 액션 버튼 그리드
+            _ib_btn_col1, _ib_btn_col2 = st.columns([1, 1])
+            with _ib_btn_col1:
+                _ib_search_btn = st.button("🔍 검색", key="ins_bot_search",
+                                           use_container_width=True, type="primary")
+            with _ib_btn_col2:
+                _ib_clear_btn = st.button("🗑 초기화", key="ins_bot_clear",
+                                          use_container_width=True)
+            if _ib_clear_btn:
+                for _k in ["ins_bot_result", "ins_bot_sources", "ins_bot_alert",
+                           "ins_bot_verify_ok", "ins_bot_last_q", "ins_bot_dict_hits",
+                           "ins_bot_t3_detected", "ins_bot_browse_cat"]:
+                    st.session_state.pop(_k, None)
+                st.rerun()
 
         # ── [제166조] 사전 카드 렌더링 함수 ─────────────────────────────────
         def _render_dict_card(key: str, entry: dict, expanded: bool = True) -> None:
@@ -37295,7 +37307,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
                 "sync_notice": _sync_notice,
             }
 
-        # ── 검색 실행 ─────────────────────────────────────────────────────
+        # ── 검색 실행 (좌측 컨텍스트에서 실행, 결과는 session_state 저장) ────
         if _ib_search_btn and _ib_query.strip():
             with st.spinner("🔍 사전 검색 + 승인 출처 AI 검증 중..."):
                 # [제166조] 사전 검색 먼저 수행
@@ -37327,228 +37339,226 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
             st.session_state["ins_bot_last_q"] = _ib_query.strip()
 
         elif _ib_search_btn and not _ib_query.strip():
-            st.warning("검색어를 입력해 주세요.")
+            with _ib_left:
+                st.warning("검색어를 입력해 주세요.")
 
-        # ── Result Zone ───────────────────────────────────────────────────
-        st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
+        # ── [제48조] 우측 컬럼 — AI 검색 결과 피드 ──────────────────────────
+        with _ib_right:
+            st.markdown("""
+<div style='margin-bottom:6px;'>
+  <div style='font-size:1.05rem;font-weight:900;color:#0f4c81;margin-bottom:2px;'>🤖 AI 검색 결과</div>
+</div>""", unsafe_allow_html=True)
 
-        _res = st.session_state.get("ins_bot_result")
-        _last_q = st.session_state.get("ins_bot_last_q", "")
-        _dict_hits = st.session_state.get("ins_bot_dict_hits", [])
+            _res = st.session_state.get("ins_bot_result")
+            _last_q = st.session_state.get("ins_bot_last_q", "")
+            _dict_hits = st.session_state.get("ins_bot_dict_hits", [])
 
-        if _res:
-            # ── [제166조] 1순위: 지능형 사전 카드 ──────────────────────────
-            if _dict_available and _dict_hits:
-                st.markdown(f"""
+            # ── 결과 스크롤 컨테이너 시작
+            st.markdown("""
+<div style='max-height:560px;overflow-y:auto;padding:12px 14px;
+  background:#f8faff;border:1.5px solid #c7d2fe;border-radius:12px;
+  box-shadow:0 2px 8px rgba(99,102,241,0.08);'>""", unsafe_allow_html=True)
+
+            if _res:
+                # ── [제166조] 1순위: 지능형 사전 카드 ──────────────────────
+                if _dict_available and _dict_hits:
+                    st.markdown(f"""
 <div class="ib-dict-hub-banner">
-  <span style="font-size:1.6rem;">📖</span>
+  <span style="font-size:1.4rem;">📖</span>
   <div>
     <div class="title">지능형 보험 용어 사전 · 제166조</div>
-    <div class="sub">"{_last_q}" 검색 결과 — 사전 등록 용어 {len(_dict_hits)}건 발견</div>
+    <div class="sub">"{_last_q}" — 사전 등록 {len(_dict_hits)}건</div>
   </div>
 </div>""", unsafe_allow_html=True)
-                for _hit in _dict_hits[:3]:
-                    _render_dict_card(_hit["key"], _hit["entry"])
+                    for _hit in _dict_hits[:3]:
+                        _render_dict_card(_hit["key"], _hit["entry"])
 
-            # ── [GP-96] T3 미정의 용어 감지 알림 ─────────────────────────
-            _t3_detected = st.session_state.get("ins_bot_t3_detected", [])
-            if _t3_detected and _gp96_available:
-                st.markdown(f"""
+                # ── [GP-96] T3 미정의 용어 감지 알림 ───────────────────────
+                _t3_detected = st.session_state.get("ins_bot_t3_detected", [])
+                if _t3_detected and _gp96_available:
+                    st.markdown(f"""
 <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;
   padding:10px 16px;margin:6px 0 10px 0;font-size:0.82rem;">
   <span style="font-weight:800;color:#c2410c;">🧠 GP-96 자율학습 감지</span>
-  <span style="color:#92400e;"> — 미정의 용어 <b>{len(_t3_detected)}건</b>이 승인 큐에 등록되었습니다:</span>
+  <span style="color:#92400e;"> — 미정의 용어 <b>{len(_t3_detected)}건</b> 승인 큐 등록</span>
   <div style="margin-top:4px;">
   {' '.join(f'<span style="background:#fef3c7;border:1px solid #fcd34d;border-radius:12px;padding:1px 8px;font-size:0.75rem;color:#92400e;font-weight:700;margin:2px 3px 0 0;display:inline-block;">{w}</span>' for w in _t3_detected)}
   </div>
-  <div style="font-size:0.72rem;color:#b45309;margin-top:4px;">↓ 하단 승인 큐에서 확인 후 사전에 등록하세요.</div>
 </div>""", unsafe_allow_html=True)
 
-            # ── 2순위: AI 응답 (출처 헤더 + 결과 카드) ────────────────────
-            st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
+                # ── 2순위: AI 응답 (출처 헤더 + 결과 카드) ─────────────────
+                st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
 
-            # 제23조 금지 출처 감지 경고
-            if _res.get("blocked"):
-                st.markdown(f"""
+                if _res.get("blocked"):
+                    st.markdown(f"""
 <div class="ib-red-alert">
   ⛔ 제23조 위반 감지: 금지 출처 키워드 포함 — {', '.join(_res['blocked'])}<br>
   해당 내용은 출처 신뢰도 검증을 통과하지 못했습니다.
 </div>""", unsafe_allow_html=True)
 
-            # 제25조: 출처 헤더
-            st.markdown(f"""
+                st.markdown(f"""
 <div class="ib-source-header">
   📋 {_ART25_HEADER}<br>
   <span style="color:#FFD700;">· 도메인:</span> {_res['domain']} &nbsp;
   <span style="color:#FFD700;">· 출처:</span> {_res['approved_src']}
 </div>""", unsafe_allow_html=True)
 
-            # 결과 카드 (Bright Corporate Style)
-            _verify_badge = (
-                '<span class="ib-verify-badge">✅ 2차 검증 통과</span>'
-                if _res.get("verify_ok")
-                else '<span class="ib-blocked-badge">⚠ 검증 보류</span>'
-            )
-            st.markdown(f"""
+                _verify_badge = (
+                    '<span class="ib-verify-badge">✅ 2차 검증 통과</span>'
+                    if _res.get("verify_ok")
+                    else '<span class="ib-blocked-badge">⚠ 검증 보류</span>'
+                )
+                st.markdown(f"""
 <div class="ib-result-card">
-  <h4>🤖 InsuBot 답변 &nbsp; <span style="font-size:0.75rem;color:#64748b;font-weight:400;">"{_last_q}"</span>
+  <h4>🤖 InsuBot 답변 &nbsp;
+    <span style="font-size:0.75rem;color:#64748b;font-weight:400;">"{_last_q}"</span>
     {_verify_badge}
   </h4>
 """, unsafe_allow_html=True)
+                with st.expander("📄 전체 답변 보기", expanded=True):
+                    st.markdown(_res["raw"])
+                st.markdown("</div>", unsafe_allow_html=True)
 
-            # 본문 — expander로 컴팩트 레이아웃 (가이딩 프로토콜 제9조)
-            _lines = [l for l in _res["raw"].split("\n") if l.strip()]
-            _preview = " ".join(_lines[:3])[:200]
-            with st.expander("📄 전체 답변 보기", expanded=True):
-                st.markdown(_res["raw"])
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            # Red Alert (가이딩 프로토콜 제25조, 제8조)
-            if _res.get("alert"):
-                st.markdown(f"""
+                if _res.get("alert"):
+                    st.markdown(f"""
 <div class="ib-red-alert">
   ⚠️ 법적 주의사항 (Red Alert)<br>
   <span style="{_ART25_RED_CSS}">{_res['alert']}</span>
 </div>""", unsafe_allow_html=True)
 
-            # Knowledge Auto-Sync 최신 약관 반영 안내
-            if _res.get("sync_notice"):
-                st.markdown(f"""
+                if _res.get("sync_notice"):
+                    st.markdown(f"""
 <div style="background:#f0f9ff;border-left:4px solid #4facfe;border-radius:8px;
   padding:8px 14px;font-size:.8rem;color:#0369a1;font-weight:600;margin-top:8px;">
   {_res['sync_notice']}
 </div>""", unsafe_allow_html=True)
 
-            # ── 제81조 GP_81_Logic: 5단계 구조 답변 ──────────────────────────
-            if _last_q.strip():
-                st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
-                st.markdown(
-                    "<div style='font-size:0.78rem;font-weight:700;color:#6b7280;"
-                    "letter-spacing:0.06em;margin-bottom:6px;'>"
-                    "📐 제81조 통합 안보 지식 엔진 · 5단계 구조 분석</div>",
-                    unsafe_allow_html=True,
-                )
-                _gp81_income = st.session_state.get("gp81_income_input", 0)
-                _gp81_result = _gp81_build_answer(
-                    term=_last_q.strip(),
-                    domain="",
-                    customer_income=_gp81_income,
-                )
-                _gp81_md = _gp81_result.get("full_md", "")
-                with st.expander("📘 5단계 구조 답변 전체 보기", expanded=False):
-                    st.markdown(_gp81_md)
-                # 소득 입력 위젯 (장해 시뮬레이션용)
-                with st.expander("💼 장해 경제적 손실 시뮬레이션 (소득 입력)", expanded=False):
-                    _income_val = st.number_input(
-                        "고객 월소득 (원)",
-                        min_value=0,
-                        max_value=100_000_000,
-                        value=_gp81_income,
-                        step=100_000,
-                        key="gp81_income_input",
-                        format="%d",
+                # ── 제81조 GP_81_Logic: 5단계 구조 답변 ──────────────────
+                if _last_q.strip():
+                    st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
+                    st.markdown(
+                        "<div style='font-size:0.75rem;font-weight:700;color:#6b7280;"
+                        "letter-spacing:0.06em;margin-bottom:6px;'>"
+                        "📐 제81조 통합 안보 지식 엔진 · 5단계 구조 분석</div>",
+                        unsafe_allow_html=True,
                     )
-                    if st.button("🔄 소득 기준 재계산", key="gp81_recalc", use_container_width=True):
-                        st.rerun()
+                    _gp81_income = st.session_state.get("gp81_income_input", 0)
+                    _gp81_result = _gp81_build_answer(
+                        term=_last_q.strip(),
+                        domain="",
+                        customer_income=_gp81_income,
+                    )
+                    _gp81_md = _gp81_result.get("full_md", "")
+                    with st.expander("📘 5단계 구조 답변 전체 보기", expanded=False):
+                        st.markdown(_gp81_md)
+                    with st.expander("💼 장해 경제적 손실 시뮬레이션 (소득 입력)", expanded=False):
+                        _income_val = st.number_input(
+                            "고객 월소득 (원)",
+                            min_value=0,
+                            max_value=100_000_000,
+                            value=_gp81_income,
+                            step=100_000,
+                            key="gp81_income_input",
+                            format="%d",
+                        )
+                        if st.button("🔄 소득 기준 재계산", key="gp81_recalc", use_container_width=True):
+                            st.rerun()
 
-        else:
-            # ── 초기 화면: 사전 허브 배너 + 카테고리 브라우저 ───────────────
-            if _dict_available:
-                st.markdown(f"""
-<div class="ib-dict-hub-banner">
-  <span style="font-size:2rem;">📖</span>
-  <div>
-    <div class="title">지능형 보험 용어 사전 · 제166조</div>
-    <div class="sub">총 {len(INSURANCE_DICT)}개 용어 등록 · 카테고리별 열람 또는 검색어 입력</div>
+            else:
+                # ── 검색 전 초기 안내 메시지 ─────────────────────────────
+                st.markdown("""
+<div style='text-align:center;padding:40px 12px;color:#94a3b8;'>
+  <div style='font-size:2.2rem;margin-bottom:10px;'>🤖</div>
+  <div style='font-size:0.88rem;font-weight:700;color:#475569;'>AI 마스터의 해석이 이곳에 나타납니다.</div>
+  <div style='font-size:0.76rem;margin-top:8px;color:#94a3b8;line-height:1.6;'>
+    궁금한 용어를 검색하시면<br>가이딩 프로토콜 제6편 기준으로 답변합니다.
+  </div>
+  <div style='margin-top:12px;font-size:0.73rem;color:#cbd5e1;'>
+    예시: 실손보험 · 면책조항 · 맥브라이드 · CAR-T · 간병일당
   </div>
 </div>""", unsafe_allow_html=True)
 
-                # ── [제166조] 카테고리 브라우저 ─────────────────────────────
+            # ── 결과 스크롤 컨테이너 닫기
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── [제166조] 카테고리 브라우저 + 승인 큐 (하단 전체 폭) ─────────────
+        if _dict_available:
+            st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
+            st.markdown(f"""
+<div class="ib-dict-hub-banner">
+  <span style="font-size:1.6rem;">📖</span>
+  <div>
+    <div class="title">지능형 보험 용어 사전 · 제166조</div>
+    <div class="sub">총 {len(INSURANCE_DICT)}개 용어 등록 · 카테고리별 열람</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='font-size:0.78rem;font-weight:800;color:#6366f1;"
+                "letter-spacing:0.06em;margin:6px 0 8px 0;'>📂 카테고리별 열람</div>",
+                unsafe_allow_html=True,
+            )
+            _cat_cols = st.columns(len(DICT_CATEGORIES) if len(DICT_CATEGORIES) <= 6 else 6)
+            for _ci, _cat in enumerate(DICT_CATEGORIES):
+                with _cat_cols[_ci % 6]:
+                    if st.button(
+                        _cat,
+                        key=f"ib_cat_{_cat}",
+                        use_container_width=True,
+                    ):
+                        st.session_state["ins_bot_browse_cat"] = _cat
+            _browse_cat = st.session_state.get("ins_bot_browse_cat", "")
+            if _browse_cat:
+                _cat_entries = dict_by_category(_browse_cat)
                 st.markdown(
-                    "<div style='font-size:0.78rem;font-weight:800;color:#6366f1;"
-                    "letter-spacing:0.06em;margin:6px 0 8px 0;'>📂 카테고리별 열람</div>",
+                    f"<div style='font-size:0.82rem;font-weight:700;color:#0f4c81;"
+                    f"margin:12px 0 6px 0;'>📂 [{_browse_cat}] 카테고리 — {len(_cat_entries)}건</div>",
                     unsafe_allow_html=True,
                 )
-                _cat_cols = st.columns(len(DICT_CATEGORIES) if len(DICT_CATEGORIES) <= 6 else 6)
-                for _ci, _cat in enumerate(DICT_CATEGORIES):
-                    with _cat_cols[_ci % 6]:
-                        if st.button(
-                            _cat,
-                            key=f"ib_cat_{_cat}",
-                            use_container_width=True,
-                        ):
-                            st.session_state["ins_bot_browse_cat"] = _cat
+                for _ce in _cat_entries:
+                    _render_dict_card(_ce["key"], _ce["entry"], expanded=False)
 
-                # 선택된 카테고리 카드 목록
-                _browse_cat = st.session_state.get("ins_bot_browse_cat", "")
-                if _browse_cat:
-                    _cat_entries = dict_by_category(_browse_cat)
-                    st.markdown(
-                        f"<div style='font-size:0.82rem;font-weight:700;color:#0f4c81;"
-                        f"margin:12px 0 6px 0;'>📂 [{_browse_cat}] 카테고리 — {len(_cat_entries)}건</div>",
-                        unsafe_allow_html=True,
-                    )
-                    for _ce in _cat_entries:
-                        _render_dict_card(_ce["key"], _ce["entry"], expanded=False)
-
-                st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
-
-            # ── [제166조] 신규 용어 승인 큐 (마스터 전용) ──────────────────
-            if _dict_available:
-                _pending = dict_pending_terms()
-                if _pending:
-                    with st.expander(
-                        f"🔔 신규 용어 승인 대기 — {len(_pending)}건 (마스터 확인 필요)",
-                        expanded=True,
-                    ):
-                        for _pi, _pterm in enumerate(_pending):
-                            _pkey = _pterm.get("key", f"pending_{_pi}")
-                            _pentry = _pterm.get("entry", {})
-                            st.markdown(f"""
+            st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
+            _pending = dict_pending_terms()
+            if _pending:
+                with st.expander(
+                    f"🔔 신규 용어 승인 대기 — {len(_pending)}건 (마스터 확인 필요)",
+                    expanded=True,
+                ):
+                    for _pi, _pterm in enumerate(_pending):
+                        _pkey = _pterm.get("key", f"pending_{_pi}")
+                        _pentry = _pterm.get("entry", {})
+                        st.markdown(f"""
 <div class="ib-pending-card">
   <span class="term-key">🆕 {_pentry.get('term', _pkey)}</span>
   &nbsp;<span style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;
     padding:1px 8px;font-size:0.7rem;color:#c2410c;font-weight:700;">승인 대기</span>
   <div style="font-size:0.78rem;color:#374151;margin-top:6px;">{_pentry.get('definition','')[:120]}...</div>
 </div>""", unsafe_allow_html=True)
-                            _pa_col1, _pa_col2 = st.columns([1, 1])
-                            with _pa_col1:
-                                if st.button("✅ 승인 등록", key=f"ib_approve_{_pi}",
-                                             use_container_width=True, type="primary"):
-                                    _queue = st.session_state.get("dict_pending_queue", [])
-                                    if _pi < len(_queue):
-                                        _approved = _queue.pop(_pi)
-                                        from modules.insurance_dict import INSURANCE_DICT as _ID
-                                        _ID[_approved["key"]] = _approved["entry"]
-                                        st.session_state["dict_pending_queue"] = _queue
-                                        st.success(f"✅ '{_approved['key']}' 용어가 사전에 등록되었습니다.")
-                                        st.rerun()
-                            with _pa_col2:
-                                if st.button("🗑 거절", key=f"ib_reject_{_pi}",
-                                             use_container_width=True):
-                                    _queue = st.session_state.get("dict_pending_queue", [])
-                                    if _pi < len(_queue):
-                                        _queue.pop(_pi)
-                                        st.session_state["dict_pending_queue"] = _queue
-                                        st.rerun()
+                        _pa_col1, _pa_col2 = st.columns([1, 1])
+                        with _pa_col1:
+                            if st.button("✅ 승인 등록", key=f"ib_approve_{_pi}",
+                                         use_container_width=True, type="primary"):
+                                _queue = st.session_state.get("dict_pending_queue", [])
+                                if _pi < len(_queue):
+                                    _approved = _queue.pop(_pi)
+                                    from modules.insurance_dict import INSURANCE_DICT as _ID
+                                    _ID[_approved["key"]] = _approved["entry"]
+                                    st.session_state["dict_pending_queue"] = _queue
+                                    st.success(f"✅ '{_approved['key']}' 용어가 사전에 등록되었습니다.")
+                                    st.rerun()
+                        with _pa_col2:
+                            if st.button("🗑 거절", key=f"ib_reject_{_pi}",
+                                         use_container_width=True):
+                                _queue = st.session_state.get("dict_pending_queue", [])
+                                if _pi < len(_queue):
+                                    _queue.pop(_pi)
+                                    st.session_state["dict_pending_queue"] = _queue
+                                    st.rerun()
 
-            if not _dict_available:
-                st.markdown("""
-<div style="text-align:center;padding:32px 0;color:#94a3b8;">
-  <div style="font-size:2.5rem;margin-bottom:8px;">🤖</div>
-  <div style="font-size:0.9rem;font-weight:700;">보험 용어나 사례를 검색하면 가이딩 프로토콜 제6편 기준으로 답변합니다.</div>
-  <div style="font-size:0.78rem;margin-top:6px;color:#cbd5e1;">
-    예시: 실손보험 자기부담금 · 면책조항 · 맥브라이드 장해율 · 교통사고 합의금
-  </div>
-</div>""", unsafe_allow_html=True)
-            else:
-                st.markdown("""
-<div style="text-align:center;padding:20px 0 8px 0;color:#94a3b8;">
-  <div style="font-size:0.82rem;font-weight:600;">위 카테고리를 선택하거나, 검색창에 용어를 입력하세요.</div>
-  <div style="font-size:0.75rem;margin-top:4px;color:#cbd5e1;">
-    예시: 실손보험 · 면책조항 · 맥브라이드 · CAR-T · 간병일당
-  </div>
+        if not _dict_available:
+            st.markdown("""
+<div style="text-align:center;padding:20px 0;color:#94a3b8;font-size:0.82rem;">
+  insurance_dict 모듈 로드 실패 — 기본 AI 검색만 사용 가능합니다.
 </div>""", unsafe_allow_html=True)
 
         # ── [제166조] 신규 용어 등록 폼 (하단 고정) ─────────────────────────
