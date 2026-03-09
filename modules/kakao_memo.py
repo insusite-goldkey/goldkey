@@ -262,11 +262,10 @@ def build_gp250_report(
 
     _mode = "서울 5대병원 마스터형" if big5_mode else "국가 표준형"
     _cname = f"{client_name}님 " if client_name else ""
-    _inc_line = (
-        f"• 소득 손실 ({income_man:.0f}만원/월 기준): {_fmt(loss.get('income_loss', 0))}\n"
-        if income_man > 0 else
-        "• 소득 손실: 미반영 (소득 미입력)\n"
-    )
+    _effective_income = income_man if income_man > 0 else 350.0
+    _income_label = f"{_effective_income:.0f}만원/월" + (" (기본값)" if income_man <= 0 else "")
+    _income_loss_val = loss.get('income_loss', 0) or int(_effective_income * loss.get('work_loss_months', 0))
+    _inc_line = f"• 소득 손실 ({_income_label} 기준): {_fmt(_income_loss_val)}\n"
     _room_line = (
         f"• 1인실 입원비: {_fmt(loss.get('room_extra', 0))}\n"
         if loss.get("room_extra", 0) > 0 else ""
@@ -277,19 +276,20 @@ def build_gp250_report(
     )
     _source = loss.get("source", "건강보험심사평가원 통계")
 
+    _total_val = loss.get('total', 0)
     _body = (
-        f"[골드키AI] {_cname}질병 경제적 위협 분석 ({_mode})\n"
-        f"{'=' * 26}\n"
+        f"[골드키AI] {_cname}질병 발병 시 휴업&소득상실 금액 산출(예시) — {_mode}\n"
+        f"{'=' * 30}\n"
         f"📋 질병명: {disease_name}\n"
         f"📅 분석 기간: {period_label}\n\n"
         f"💸 예상 손실 내역\n"
         f"• 치료비: {_fmt(loss.get('treatment', 0))}\n"
-        f"• 간병비: {_fmt(loss.get('nursing', 0))}\n"
+        f"• 간병비 (15만원/일 기준): {_fmt(loss.get('nursing', 0))}\n"
         f"{_room_line}"
         f"{_adv_line}"
         f"{_inc_line}"
-        f"{'─' * 26}\n"
-        f"🚨 총 경제적 위협액: {_fmt(loss.get('total', 0))}\n\n"
+        f"{'─' * 30}\n"
+        f"� 총 경제적 위협액: {_fmt(_total_val)}\n\n"
         f"📌 출처: {_source}\n"
         f"※ 개인차 있음. 참고용 통계치입니다.\n"
     )

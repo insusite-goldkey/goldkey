@@ -22851,16 +22851,14 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
       position:relative;box-sizing:border-box;'>
       <div style='color:#004D40;font-size:0.8rem;font-weight:700;letter-spacing:0.08em;'>🛡️ 가문 안보를 위한 트리플 보안 가동 중</div>
     </div>
-    <div style='background:linear-gradient(135deg,#1e90ff 0%,#00c6fb 100%);border-radius:15px;
+    <div style='background:#E3F2FD;border-radius:15px;
       padding:18px 20px;margin-bottom:24px;text-align:center;
-      border:2px solid #004D40;
-      box-shadow:0 4px 6px -1px rgba(0,0,0,0.10),0 4px 20px rgba(30,144,255,0.35);
+      border:1.5px solid #90CAF9;
+      box-shadow:0 2px 12px rgba(33,150,243,0.12);
       position:relative;box-sizing:border-box;'>
       <div style='font-size:2rem;margin-bottom:6px;'>🛡️</div>
-      <div style='color:#ffffff;font-size:1.05rem;font-weight:800;
-        text-shadow:0 1px 4px rgba(0,0,0,0.3);'>골드키지사 보안 로그인</div>
-      <div style='color:#e0f4ff;font-size:0.78rem;margin-top:4px;
-        text-shadow:0 1px 2px rgba(0,0,0,0.2);'>가입 시 등록한 정보로 본인 확인 후 OTP를 발급합니다</div>
+      <div style='color:#000000;font-size:1.05rem;font-weight:800;'>골드키지사 보안 로그인</div>
+      <div style='color:#000000;font-size:0.78rem;margin-top:4px;opacity:0.72;'>가입 시 등록한 정보로 본인 확인 후 OTP를 발급합니다</div>
     </div>""", unsafe_allow_html=True)
                         ln_a = st.text_input("👤 이름", key="hlp_name_a", placeholder="가입 시 등록한 이름",
                                              label_visibility="collapsed")
@@ -22988,9 +22986,9 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
 </script>""", unsafe_allow_html=True)
                         st.markdown("""
 <div style="margin:10px 0 4px 0;display:flex;align-items:center;gap:8px;">
-  <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#334155,transparent);"></div>
-  <span style="font-size:0.7rem;color:#64748b;font-weight:600;white-space:nowrap;">또는</span>
-  <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#334155,transparent);"></div>
+  <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#90CAF9,transparent);"></div>
+  <span style="font-size:0.7rem;color:#000000;font-weight:600;white-space:nowrap;">또는</span>
+  <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#90CAF9,transparent);"></div>
 </div>""", unsafe_allow_html=True)
                         if st.button("👁️ 로그인 없이 체험하기", key="btn_guest_enter",
                                      use_container_width=True):
@@ -23054,14 +23052,14 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
 
                         # ① 로그인 버튼 박스 (본인확인 완료 안내)
                         st.markdown(f"""
-    <div style='background:linear-gradient(135deg,#11998e 0%,#38ef7d 100%);border-radius:15px;
+    <div style='background:#E8F5E9;border-radius:15px;
       padding:14px 18px;margin-bottom:10px;text-align:center;
-      box-shadow:0 4px 20px rgba(17,153,142,0.35);'>
-      <div style='color:#ffffff;font-size:0.95rem;font-weight:800;margin-bottom:4px;
-        text-shadow:0 1px 4px rgba(0,0,0,0.3);'>
+      border:1.5px solid #A5D6A7;
+      box-shadow:0 2px 10px rgba(76,175,80,0.12);'>
+      <div style='color:#000000;font-size:0.95rem;font-weight:800;margin-bottom:4px;'>
         ✅ 본인 확인 완료
       </div>
-      <div style='color:#e0fff4;font-size:0.8rem;text-shadow:0 1px 2px rgba(0,0,0,0.2);'>
+      <div style='color:#000000;font-size:0.8rem;opacity:0.72;'>
         {_lp_name}님, 아래 OTP 번호로 최종 인증을 완료하세요
       </div>
     </div>""", unsafe_allow_html=True)
@@ -28539,6 +28537,7 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
         _gp71_adv   = st.session_state.get("_gp71_adv_mode", "standard")  # GP-71 §2
 
         # 월소득 역산값 연동 (제62조 Income_Calculator)
+        _GP250_DEFAULT_INCOME = 350.0  # [GP-250] 소득 미입력 시 기본값(만원/월)
         _gp68_income = 0.0
         try:
             _nhis_raw = st.session_state.get("nhis_premium", 0) or 0
@@ -28553,6 +28552,10 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
                 _gp68_income = float(_inc_raw)
         except Exception:
             _gp68_income = 0.0
+        # [GP-250] 소득 미입력 시 기본값 350만원 자동 적용
+        _gp68_income_is_default = (_gp68_income == 0.0)
+        if _gp68_income_is_default:
+            _gp68_income = _GP250_DEFAULT_INCOME
 
         st.markdown("""
 <style>
@@ -28630,11 +28633,11 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
   padding: 2px 0;
 }
 .gk-loss-row.total {
-  border-top: 1px solid rgba(212,175,55,0.4);
+  border-top: 1px solid rgba(239,68,68,0.4);
   margin-top: 4px; padding-top: 6px;
-  color: #fbbf24 !important;
+  color: #dc2626 !important;
   font-weight: 900 !important;
-  font-size: 0.88rem !important;
+  font-size: 0.95rem !important;
 }
 .gk-source-note {
   font-size: 0.68rem !important;
@@ -28699,12 +28702,12 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
         st.markdown(f"""
 <div class="gk-disease-widget" style="position:relative;">
   {_bid('1-1-A')}
-  <div class="gk-disease-title">🔬 질병별 경제적 손실 추정기
+  <div class="gk-disease-title">💸 질병 발병 시 휴업&amp;소득상실 금액 산출(예시)
     <span style="font-size:0.65rem;font-weight:700;background:#D4AF37;color:#1a1a2e;
-      padding:1px 7px;border-radius:10px;margin-left:6px;">GP-68/70</span>
+      padding:1px 7px;border-radius:10px;margin-left:6px;">GP-68/70/250</span>
     {'<span style="font-size:0.68rem;font-weight:900;background:#ef4444;color:#fff;padding:1px 8px;border-radius:10px;margin-left:4px;">🏥 5대병원 MASTER</span>' if _gp70_big5 else ''}
   </div>
-  <div class="gk-disease-subtitle">{'⚠️ 서울 5대 병원 비급여 기준 — 로봇수술·면역항암제·1인실 실질 비용 반영 | 국가 통계 대비 1.5~2배 수준' if _gp70_big5 else '어떤 질병이 가장 걱정되십니까? 질병을 선택하면 예상 경제적 손실을 즉시 산출합니다.'}</div>
+  <div class="gk-disease-subtitle">{'⚠️ 서울 5대 병원 비급여 기준 — 로봇수술·면역항암제·1인실 실질 비용 반영 | 국가 통계 대비 1.5~2배 수준' if _gp70_big5 else '질병 선택 시 치료비·간병비·소득상실액이 즉시 산출됩니다. (소득 미입력 시 월 350만원 기본 적용)'}</div>
 </div>""", unsafe_allow_html=True)
 
         # ── GP-70 §2: 상담 모드 토글 ─────────────────────────────────────
@@ -28729,31 +28732,137 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
                 st.session_state["_gp70_big5_mode"] = True
                 st.rerun()
 
-        # ── 질병 태그 선택 (Chip 버튼) ────────────────────────────────────
-        _disease_names = list(_GP68_DISEASE_DB.keys())
-        _chip_cols = st.columns(5, gap="small")
-        for _di, _dn in enumerate(_disease_names):
-            _d_info = _GP68_DISEASE_DB[_dn]
-            _is_sel = (_gp68_sel == _dn)
-            _chip_style = (
-                "background:linear-gradient(135deg,#D4AF37,#f59e0b);"
-                "color:#1a1a2e;font-weight:900;border:2px solid #D4AF37;"
-                if _is_sel else
-                "background:rgba(255,255,255,0.07);color:#e2e8f0;"
-                "border:1.5px solid rgba(212,175,55,0.35);"
+        # ── [GP-250] 4개 핵심 카테고리 2x2 그리드 ──────────────────────────
+        # 카테고리 정의: 병명 매핑
+        _GP250_CATEGORIES = {
+            "암진단": {
+                "emoji": "🎗️",
+                "diseases": ["위암", "대장암", "폐암", "간암", "유방암"],
+                "color": "#e74c8b",
+                "bg": "linear-gradient(135deg,#f9a8d4 0%,#ec4899 100%)",
+                "desc": "위·대장·폐·간·유방 통합",
+            },
+            "뇌졸중(중풍)": {
+                "emoji": "🧠",
+                "diseases": ["뇌졸중", "뇌경색"],
+                "color": "#7c3aed",
+                "bg": "linear-gradient(135deg,#c4b5fd 0%,#7c3aed 100%)",
+                "desc": "뇌경색 포함",
+            },
+            "치매": {
+                "emoji": "🌀",
+                "diseases": ["치매"],
+                "color": "#0891b2",
+                "bg": "linear-gradient(135deg,#a5f3fc 0%,#0891b2 100%)",
+                "desc": "장기요양·인지저하 포함",
+            },
+            "말기질환": {
+                "emoji": "💛",
+                "diseases": ["급성심근경색", "당뇨합병증", "간암"],
+                "color": "#d97706",
+                "bg": "linear-gradient(135deg,#fde68a 0%,#f59e0b 100%)",
+                "desc": "신장·심장·간질환 통합",
+            },
+        }
+        # 선택된 질병이 속한 카테고리 파악
+        def _get_cat_for_disease(dname):
+            for cname, cinfo in _GP250_CATEGORIES.items():
+                if dname in cinfo["diseases"]:
+                    return cname
+            return None
+        _gp250_sel_cat = _get_cat_for_disease(_gp68_sel) if _gp68_sel else None
+
+        # 2x2 그리드 렌더링
+        # 2x2 버튼 파스텔 그라디언트 CSS: Streamlit stButton div 직접 타겟팅
+        _cat_btn_css_parts = []
+        for _cname_css, _cinfo_css in _GP250_CATEGORIES.items():
+            _key_css = f"_gp250_cat_{_cname_css}"
+            _is_sel_css = (_gp250_sel_cat == _cname_css)
+            _bg_css = _cinfo_css["bg"]
+            _border_css = "3px solid #1a1a2e" if _is_sel_css else f"2px solid {_cinfo_css['color']}"
+            _shadow_css = "0 0 0 3px #D4AF37, 0 4px 20px rgba(0,0,0,0.28)" if _is_sel_css else "0 4px 14px rgba(0,0,0,0.18)"
+            _cat_btn_css_parts.append(
+                f'div[data-testid="stButton"][key="{_key_css}"] > button, '
+                f'div[data-testid="column"] div[data-testid="stButton"]:has(button[kind][aria-label*="{_cname_css}"]) > button '
+                f'{{ background: {_bg_css} !important; color: #fff !important; '
+                f'font-weight: 900 !important; border: {_border_css} !important; '
+                f'box-shadow: {_shadow_css} !important; '
+                f'text-shadow: 0 1px 4px rgba(0,0,0,0.4) !important; '
+                f'border-radius: 14px !important; }}'
             )
-            with _chip_cols[_di % 5]:
+        st.markdown(
+            "<style>\n"
+            + "\n".join(_cat_btn_css_parts)
+            + "\n.gk-cat-btn-wrap { margin-bottom: 14px; }\n"
+            + """.gk-cat-btn {
+  border-radius: 14px !important; padding: 12px 8px !important;
+  font-weight: 900 !important; font-size: 0.92rem !important;
+  border: 2.5px solid transparent !important; transition: all 0.18s !important;
+  cursor: pointer !important; text-align: center !important;
+  line-height: 1.3 !important; color: #fff !important;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.35) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18) !important; width: 100% !important;
+}
+.gk-cat-btn.active {
+  border: 2.5px solid #1a1a2e !important;
+  box-shadow: 0 0 0 3px #D4AF37, 0 4px 20px rgba(0,0,0,0.25) !important;
+  transform: scale(1.04) !important;
+}"""
+            + "\n</style>",
+            unsafe_allow_html=True
+        )
+
+        _cat_row1 = st.columns(2, gap="small")
+        _cat_row2 = st.columns(2, gap="small")
+        _cat_grid = [_cat_row1[0], _cat_row1[1], _cat_row2[0], _cat_row2[1]]
+        for _ci, (_cname, _cinfo) in enumerate(_GP250_CATEGORIES.items()):
+            _is_cat_sel = (_gp250_sel_cat == _cname)
+            _active_cls = " active" if _is_cat_sel else ""
+            with _cat_grid[_ci]:
+                # 버튼 렌더: Streamlit 버튼 + 커스텀 HTML 스타일
+                _cat_btn_label = f"{_cinfo['emoji']} {_cname}\n{_cinfo['desc']}"
                 if st.button(
-                    f"{_d_info['emoji']} {_dn}",
-                    key=f"_gp68_chip_{_dn}",
+                    f"{_cinfo['emoji']} {_cname}",
+                    key=f"_gp250_cat_{_cname}",
                     use_container_width=True,
-                    help=f"{_dn} — {_d_info['category']} | 출처: {_d_info['source']}",
+                    help=f"{_cname}: {_cinfo['desc']} — {', '.join(_cinfo['diseases'])}",
+                    type="primary" if _is_cat_sel else "secondary",
                 ):
-                    if _gp68_sel == _dn:
+                    # 카테고리 선택 시 해당 카테고리의 대표 질병(첫 번째) 선택
+                    _rep_disease = _cinfo["diseases"][0]
+                    if _gp250_sel_cat == _cname:
                         st.session_state["_gp68_disease_sel"] = None
                     else:
-                        st.session_state["_gp68_disease_sel"] = _dn
+                        st.session_state["_gp68_disease_sel"] = _rep_disease
                     st.rerun()
+                st.markdown(
+                    f'<div style="font-size:0.68rem;color:#64748b;text-align:center;margin-top:-6px;margin-bottom:4px;">'
+                    f'{_cinfo["desc"]}</div>',
+                    unsafe_allow_html=True
+                )
+
+        # 카테고리 선택 시 세부 질병 선택 chips (선택된 카테고리의 하위 질병)
+        if _gp250_sel_cat:
+            _sub_diseases = _GP250_CATEGORIES[_gp250_sel_cat]["diseases"]
+            if len(_sub_diseases) > 1:
+                st.markdown(
+                    f'<div style="font-size:0.72rem;font-weight:700;color:#D4AF37;margin:4px 0 6px 2px;">'
+                    f'📌 세부 질병 선택 ({_gp250_sel_cat})</div>',
+                    unsafe_allow_html=True
+                )
+                _sub_cols = st.columns(len(_sub_diseases), gap="small")
+                for _si, _sdn in enumerate(_sub_diseases):
+                    _d_info = _GP68_DISEASE_DB.get(_sdn, {})
+                    _is_sub_sel = (_gp68_sel == _sdn)
+                    with _sub_cols[_si]:
+                        if st.button(
+                            f"{_d_info.get('emoji','🔬')} {_sdn}",
+                            key=f"_gp68_sub_{_sdn}",
+                            use_container_width=True,
+                            type="primary" if _is_sub_sel else "secondary",
+                        ):
+                            st.session_state["_gp68_disease_sel"] = _sdn
+                            st.rerun()
 
         # ── GP-71 §2: 암 카테고리 선택 시 치료 선택 분기 UI ─────────────────
         _is_cancer = (
@@ -28793,10 +28902,12 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
         else:
             _gp71_adv = "standard"
 
-        # ── 기간 선택 + 소득 입력 ─────────────────────────────────────────
+        # ── [GP-250] 하이브리드 레이아웃: 좌(국가통계+질병선택) / 우(마스터제안+손실산출) ──
         if _gp68_sel:
-            _gp68_col1, _gp68_col2 = st.columns([3, 2], gap="medium")
-            with _gp68_col1:
+            _hyb_left, _hyb_right = st.columns([5, 5], gap="medium")
+
+            with _hyb_left:
+                # ── 기간 선택 ──────────────────────────────────────────────
                 _per_opts = {"2년(24개월)": 24, "3년(36개월)": 36, "5년(60개월)": 60}
                 _per_label = st.radio(
                     "📅 분석 기간",
@@ -28808,25 +28919,65 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
                 _gp68_per = _per_opts[_per_label]
                 st.session_state["_gp68_period_sel"] = _gp68_per
 
-            with _gp68_col2:
-                _income_hint = f"{_gp68_income:.0f}" if _gp68_income > 0 else "0"
+                # ── 소득 입력 (기본값 350만원 자동 표시) ────────────────────
+                _income_display = float(_gp68_income)  # 이미 기본값 350 적용됨
                 _gp68_income_input = st.number_input(
-                    "💰 월소득(만원, 역산값 자동반영)",
+                    "💰 월소득(만원)" + (" ※기본값" if _gp68_income_is_default else " ✓역산값"),
                     min_value=0.0, max_value=5000.0,
-                    value=float(_gp68_income) if _gp68_income > 0 else 0.0,
+                    value=_income_display,
                     step=10.0, format="%.0f",
                     key="_gp68_income_input",
-                    help="건강보험료 역산값이 있으면 자동 입력됩니다. 직접 수정 가능합니다.",
+                    help="건강보험료 역산값이 있으면 자동 반영됩니다. 미입력 시 350만원 기본 적용.",
                 )
-                _gp68_income = _gp68_income_input
+                _gp68_income = _gp68_income_input if _gp68_income_input > 0 else _GP250_DEFAULT_INCOME
+                _gp68_income_is_default = (_gp68_income_input == 0.0)
+
+                # ── 국가 표준 통계 기반 평균 치료비 블록 ────────────────────
+                _d_stat = _GP68_DISEASE_DB.get(_gp68_sel, {})
+                _stat_treat = _d_stat.get("avg_cost_2yr", 0)
+                _stat_nurs  = _d_stat.get("nursing_2yr", 0)
+                _stat_days  = _d_stat.get("hosp_days_avg", 0)
+                _stat_months= _d_stat.get("work_loss_months", 0)
+                st.markdown(f"""
+<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #16a34a;
+  border-radius:12px;padding:12px 14px;margin-top:8px;">
+  <div style="font-size:0.78rem;font-weight:900;color:#15803d;margin-bottom:6px;">
+    📊 국가 표준 통계 ({_d_stat.get('source','HIRA')})
+  </div>
+  <table style="width:100%;font-size:0.76rem;border-collapse:collapse;">
+    <tr><td style="color:#374151;">🏥 2년 평균 치료비</td>
+        <td style="text-align:right;font-weight:900;color:#15803d;">{_stat_treat:,}만원</td></tr>
+    <tr><td style="color:#374151;">🧑‍⚕️ 간병비 (2년)</td>
+        <td style="text-align:right;font-weight:900;color:#15803d;">{_stat_nurs:,}만원</td></tr>
+    <tr><td style="color:#374151;">🏨 평균 입원일</td>
+        <td style="text-align:right;font-weight:700;color:#374151;">{_stat_days}일</td></tr>
+    <tr><td style="color:#374151;">📅 평균 휴직기간</td>
+        <td style="text-align:right;font-weight:700;color:#374151;">{_stat_months}개월</td></tr>
+  </table>
+</div>""", unsafe_allow_html=True)
+
+            with _hyb_right:
+                pass  # 우측은 아래 _loss 산출 후 채움
 
             # ── GP-68 §2 + GP-70 §1: 총 위협액 산출 (모드 반영) ─────────────
             _loss = _gp68_calc_loss(_gp68_sel, _gp68_per, _gp68_income, big5_mode=_gp70_big5, adv_mode=_gp71_adv)
             _d_data = _GP68_DISEASE_DB[_gp68_sel]
 
+            # [GP-250] 간병비 재산출: 시장 단가 15만원/일 × 입원일수 (국가통계 간병비와 비교 후 최대값 사용)
+            _GP250_NURSING_RATE = 15  # 만원/일 (현재 시장 단가)
+            _hosp_days_for_nursing = _d_data.get("hosp_days_avg", 0)
+            _nursing_market = _GP250_NURSING_RATE * _hosp_days_for_nursing
+            # 치료기간 기준 장기 간병비: 15만원/일 × 30일 × 치료개월 (입원 외 재택간병 포함)
+            _nursing_period_est = int(_GP250_NURSING_RATE * 30 * min(_gp68_per / 12, 2) * 0.3)  # 30% 간병 가정
+            _nursing_market_total = max(_nursing_market, _nursing_period_est, _loss["nursing"])
+            # 총위협액에 시장 간병비 반영 (기존 nursing 대체)
+            _loss_nursing_diff = _nursing_market_total - _loss["nursing"]
+            _loss_total_adj = int(_loss["total"] + _loss_nursing_diff)
+
+            # [GP-250] 소득 표기 — 기본값 여부 명시
             _income_str = (
-                f"{_gp68_income:.0f}만원/월 (역산값)" if _gp68_income > 0
-                else "소득 미입력 (소득 손실 미반영)"
+                f"{_gp68_income:.0f}만원/월 (기본값 적용)" if _gp68_income_is_default
+                else f"{_gp68_income:.0f}만원/월 (역산값)"
             )
             _total_eok   = _loss["total"] / 10000
             _treat_eok   = _loss["treatment"] / 10000
@@ -29014,43 +29165,78 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
                 if _gp68_income > 0
                 else '소득 데이터를 입력하시면 더 정확한 산출이 가능합니다. '
             )
-            _income_row_str  = (
-                "미반영 (소득 입력 필요)" if _gp68_income == 0 else _income_loss_str
-            )
-            st.markdown(f"""
-<div class="gk-chat-bubble">
-  <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:6px;">
-    🤖 AI 손실 분석 봇 &nbsp;·&nbsp; <span style="color:#D4AF37;">골드키지사</span>
+            # [GP-250] 소득손실 항상 계산값 표시 (기본값 350만원 적용 시에도 숫자로 출력)
+            _income_row_str  = _income_loss_str  # 항상 숫자로 표시
+            # [GP-250] 조정된 총위협액 및 간병비 표기
+            _nursing_market_str = _fmt_man(_nursing_market_total)
+            _total_adj_str      = _fmt_man(_loss_total_adj)
+            _default_badge = ('<span style="font-size:0.62rem;background:#f59e0b;color:#fff;'
+                              'padding:1px 5px;border-radius:6px;margin-left:4px;">기본값</span>'
+                              if _gp68_income_is_default else '')
+
+            # 우측 컬럼에 마스터형 제안 + 손실산출 렌더링
+            with _hyb_right:
+                st.markdown(f"""
+<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #ea580c;
+  border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+  <div style="font-size:0.78rem;font-weight:900;color:#c2410c;margin-bottom:6px;">
+    🏥 5대 상급종합병원 마스터형 제안
+  </div>
+  <div style="font-size:0.74rem;color:#374151;line-height:1.7;">
+    • 고가 ADC 약제(항체-약물 접합체) 비급여 연간 최대 <b style="color:#c2410c;">7,000만원</b> 이상<br>
+    • 전담 간병인 현재 시장단가 <b style="color:#c2410c;">15만원/일</b> 기준 적용<br>
+    • 로봇수술 비급여 <b style="color:#c2410c;">800~1,500만원</b> 추가 발생<br>
+    • 1인실 입원비 <b style="color:#c2410c;">38~55만원/일</b> (서울아산·삼성 기준)
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                # 간병비 및 소득손실 산출 블록
+                st.markdown(f"""
+<div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid #ef4444;
+  border-radius:14px;padding:14px 16px;">
+  <div style="font-size:0.82rem;font-weight:900;color:#991b1b;margin-bottom:8px;">
+    💸 질병 발병 시 휴업&amp;소득상실 금액 산출(예시)
     {_mode_badge}
   </div>
   {_master_intro}
-  선택하신 <span class="gk-highlight">[{_gp68_sel}]</span>은
-  {_mode_std_str}
-  {_period_label_ko}간
-  <span class="gk-highlight">{_treatment_str}</span>의 치료비가 발생합니다.<br><br>
-  {_income_note_str}
-  {_period_label_ko} 총 경제적 손실 예상액은<br>
-  <span class="gk-danger" style="font-size:1.25rem;">🚨 {_total_str}</span> 입니다.
-  <div class="gk-loss-breakdown">
+  <div style="font-size:0.74rem;color:#374151;margin-bottom:8px;">
+    {_income_note_str}
+    <b>월소득 {_gp68_income:.0f}만원</b>{_default_badge} 기준
+  </div>
+  <div class="gk-loss-breakdown" style="background:rgba(255,255,255,0.75);">
     <div class="gk-loss-row">
       <span>💊 치료비 ({_period_label_ko})</span>
-      <span>{_treatment_str}</span>
+      <span style="font-weight:700;">{_treatment_str}</span>
     </div>
     <div class="gk-loss-row">
-      <span>🏠 간병비 ({_period_label_ko})</span>
-      <span>{_nursing_str}</span>
+      <span>🏠 간병비 (15만원/일 × {_hosp_days_for_nursing}일 기준)</span>
+      <span style="font-weight:700;">{_nursing_market_str}</span>
     </div>
     {_room_row}
     <div class="gk-loss-row">
       <span>💸 소득 손실 ({_work_months_str}개월 기준)</span>
-      <span>{_income_row_str}</span>
+      <span style="font-weight:700;color:#1d4ed8;">{_income_row_str}</span>
     </div>
-    <div class="gk-loss-row total">
+    <div class="gk-loss-row total" style="color:#dc2626 !important;font-size:1.0rem;">
       <span>🔴 총 경제적 위협액</span>
-      <span>{_total_str}</span>
+      <span style="color:#dc2626 !important;font-weight:900;font-size:1.05rem;">{_total_adj_str}</span>
     </div>
   </div>
-  <div class="gk-source-note">📌 출처: {_source_txt} | 개인차 있음, 참고용 통계치</div>
+  <div class="gk-source-note" style="color:#6b7280;">📌 {_source_txt} | 간병비: 현재 시장 단가 15만원/일 | 참고용</div>
+</div>""", unsafe_allow_html=True)
+
+            # 기존 chat-bubble은 좌측 컬럼 아래에 표시 (국가통계 기반 요약)
+            with _hyb_left:
+                st.markdown(f"""
+<div class="gk-chat-bubble" style="margin-top:8px;">
+  <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:6px;">
+    🤖 AI 손실 분석 봇 &nbsp;·&nbsp; <span style="color:#D4AF37;">골드키지사</span>
+    {_mode_badge}
+  </div>
+  선택하신 <span class="gk-highlight">[{_gp68_sel}]</span> — {_mode_std_str} {_period_label_ko}간
+  치료비 <span class="gk-highlight">{_treatment_str}</span> 예상.<br>
+  <span class="gk-danger" style="font-size:1.1rem;">🚨 총 위협액 {_total_adj_str}</span>
+  <div class="gk-source-note">📌 {_source_txt}</div>
 </div>""", unsafe_allow_html=True)
 
             # ── GP-72: AI 분석 2차 검증 배너 ─────────────────────────────
@@ -29233,7 +29419,7 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
                 st.session_state["_gp250_kakao_report"] = _gp250_report_text
                 _gp250_memo_ui(
                     _gp250_report_text,
-                    title=f"[GP250] {_gp68_sel} 경제적 위협 분석",
+                    title=f"[GP250] {_gp68_sel} 질병 발병 시 휴업&소득상실 금액 산출(예시)",
                     session_key="_gp250_memo",
                     planner_info=_gp250_pi,
                     compact=False,
