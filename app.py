@@ -5662,40 +5662,6 @@ def _gp82_render_nav_bar() -> None:
 })();
 </script>""", height=0)
 
-    # ── 내비게이션 바 레이아웃 ──────────────────────────────────────────
-    _st.markdown('<div class="gp82-nav-bar">', unsafe_allow_html=True)
-    _nav_col_home, _nav_col_mid, _nav_col_logout = _st.columns([2, 6, 2])
-
-    with _nav_col_home:
-        _st.markdown('<div class="gp82-home-btn">', unsafe_allow_html=True)
-        if _st.button("🏠 홈", key="gp82_btn_home", use_container_width=True):
-            _st.session_state["current_tab"] = "home"
-            _st.session_state["_scroll_top"] = True
-            # 홈 이동 후 첫 입력창 포커스 JS 주입
-            _c82.html("""
-<script>
-(function(){
-  function _gp82Focus() {
-    var t = document.getElementById('main-focus-target');
-    if (t) { t.focus(); return; }
-    var inp = document.querySelector('textarea,input[type="text"]');
-    if (inp) inp.focus();
-  }
-  setTimeout(_gp82Focus, 400);
-  setTimeout(_gp82Focus, 900);
-})();
-</script>""", height=0)
-            _st.rerun()
-        _st.markdown('</div>', unsafe_allow_html=True)
-
-    with _nav_col_logout:
-        _st.markdown('<div class="gp82-logout-btn">', unsafe_allow_html=True)
-        if _st.button("🚪 로그아웃", key="gp82_btn_logout", use_container_width=True):
-            # [GP86 §1] 즉각 파기 — 확인 단계 없음
-            _gp86_terminate_session()
-        _st.markdown('</div>', unsafe_allow_html=True)
-
-    _st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════
