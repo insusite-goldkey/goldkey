@@ -29592,98 +29592,66 @@ wxByGeo();
 </script>
 """, height=100)
 
-        # ── [제47조] 임페리얼 골드 텍스처 헤더 (단일 권위 브랜딩) — #1-3-2 다음, #1-1-2 앞 ──
-        _uname_disp = mask_name(st.session_state.get("user_name","")) if "user_id" in st.session_state else "마스터"
+        # ── [GK-M01-INTEGRATED] 통합 헤더 — 브랜딩 + 로그인 상태 통합 (#1-3-1 + #1-1-2 통합, #1-1-2 폐기) ──
         import datetime as _hdt
         _today = _hdt.datetime.now()
         _weekday_kr = ["월","화","수","목","금","토","일"][_today.weekday()]
         _today_str = f"{_today.year}년 {_today.month:02d}월 {_today.day:02d}일 ({_weekday_kr})"
-        st.markdown(f"""
-<div style="
-  position:relative;
-  background:#FDF5E6;
-  background-image:
-    repeating-linear-gradient(
-      45deg,
-      rgba(0,77,64,0.04) 0px, rgba(0,77,64,0.04) 1px,
-      transparent 1px, transparent 8px
-    ),
-    repeating-linear-gradient(
-      -45deg,
-      rgba(0,77,64,0.03) 0px, rgba(0,77,64,0.03) 1px,
-      transparent 1px, transparent 8px
-    );
-  border:2px solid #004D40;
-  border-radius:10px;
-  padding:14px 20px 0 20px;
-  margin:0 0 0 0;
-">
-  {_bid('1-3-1')}
-  <div style="
-    font-size:1.3rem;
-    font-weight:800;
-    color:#004D40;
-    font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
-    letter-spacing:0.01em;
-    line-height:1.3;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  ">Goldkey_AI_Masters2026: 전문 보험 상담 동반</div>
-  <div style="
-    display:flex;align-items:center;justify-content:space-between;
-    margin-top:6px;
-    font-size:0.78rem;
-    color:#004D40;
-    opacity:0.75;
-    font-weight:600;
-    letter-spacing:0.03em;
-  ">
-    <span>{_today_str} &nbsp;·&nbsp; AI 보험컨설팅 통합 플랫폼</span>
-    <span style="display:flex;align-items:center;gap:5px;">
-      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;
-        background:#004D40;box-shadow:0 0 5px rgba(0,77,64,0.7);
-        animation:gk-hdr-blink 1.8s ease-in-out infinite;"></span>
-      {_uname_disp}님 접속 중
+        _is_loggedin = 'user_id' in st.session_state
+        if _is_loggedin:
+            _uname_disp = mask_name(st.session_state.get("user_name",""))
+            _cur_eid  = st.session_state.get("_gk_entity_id", "")
+            _cur_utype = st.session_state.get("_gk_user_type", "customer")
+            _eid_badge = f'<span style="font-size:0.70rem;background:#BBDEFB;color:#0D47A1;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;letter-spacing:0.04em;">{_cur_eid}</span>' if _cur_eid else ""
+            _status_html = f"""
+  <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 12px;
+    background:#FFFFFF;border-radius:8px;border:1.5px solid #FF0000;">
+    <span style="font-size:1.3rem;">✅</span>
+    <span style="font-size:1.0rem;font-weight:900;color:#000000;">{_uname_disp} 마스터님 · 로그인됨</span>{_eid_badge}
+  </div>"""
+        else:
+            _uname_disp = "마스터"
+            _cur_utype = "guest"
+            _status_html = """
+  <div style="margin-top:10px;padding:8px 12px;background:#FFFFFF;
+    border-radius:8px;border:1.5px solid #FF0000;text-align:center;">
+    <span style="font-size:0.9rem;font-weight:800;color:#000000;">
+      👇 사이드바에서 회원가입 또는 로그인하세요
     </span>
-  </div>
-  <div style="border-top:2px solid #004D40;margin:10px -20px 0 -20px;"></div>
-</div>
+  </div>"""
+        st.markdown(f"""
 <style>
 @keyframes gk-hdr-blink {{
   0%,100% {{ opacity:1; }} 50% {{ opacity:0.25; }}
 }}
 </style>
-<div style="margin-top:15px;"></div>
+<div style="position:relative;background:#E3F2FD;
+  border:2.5px solid #FF0000;border-radius:12px;
+  padding:16px 20px 14px 20px;margin:0 0 14px 0;
+  box-shadow:0 2px 12px rgba(255,0,0,0.10);">
+  {_bid('GK-M01-INTEGRATED')}
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+    <div style="font-size:1.1rem;font-weight:900;color:#000000;
+      letter-spacing:0.01em;line-height:1.3;">
+      🏆 Goldkey_AI_Masters2026
+      <span style="font-size:0.75rem;font-weight:700;color:#1565C0;
+        margin-left:8px;">AI 보험컨설팅 통합 플랫폼</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;color:#000000;">
+      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;
+        background:#FF0000;box-shadow:0 0 5px rgba(255,0,0,0.7);
+        animation:gk-hdr-blink 1.8s ease-in-out infinite;"></span>
+      {_uname_disp}님 접속 중
+    </div>
+  </div>
+  <div style="font-size:0.75rem;font-weight:600;color:#000000;margin-top:4px;opacity:0.7;">
+    {_today_str}
+  </div>
+  <div style="border-top:1.5px solid rgba(255,0,0,0.25);margin:10px 0 0 0;"></div>
+  {_status_html}
+</div>
 """, unsafe_allow_html=True)
-
-        # ── 로그인 상태에 따른 상단 배너 (#1-1-2) ──────────────────────────────────
-        if 'user_id' not in st.session_state:
-            st.markdown(f"""
-<style>
-div[data-testid="stButton"] button[kind="primary"]#home_open_signup,
-button[data-testid="baseButton-primary"][aria-label*="회원가입"],
-div[data-testid="column"]:nth-child(1) div[data-testid="stButton"] > button,
-div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button {{
-  background: #ffffff !important;
-  background-image: none !important;
-  border: 2px solid #1565C0 !important;
-  color: #000000 !important;
-  font-weight: 700 !important;
-}}
-div[data-testid="column"]:nth-child(1) div[data-testid="stButton"] > button:hover,
-div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button:hover {{
-  background: #E3F2FD !important;
-  color: #000000 !important;
-}}
-</style>
-<div class="gk-teal-block" style="position:relative;text-align:center;margin-bottom:8px;">
-  {_bid('1-1-1')}
-  <span style="color:#ffffff;font-size:1.05rem;font-weight:900;
-    text-shadow:0 2px 6px rgba(0,0,0,0.55);">
-    👇 아래 버튼(회원가입/로그인)을 클릭하면 입력창이 열립니다.
-  </span>
-</div>""", unsafe_allow_html=True)
+        if not _is_loggedin:
             _b1, _b2, _b3 = st.columns([1, 1, 0.01])
             with _b1:
                 if st.button("📝 회원가입", key="home_open_signup",
@@ -29695,26 +29663,11 @@ div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button:hove
                              use_container_width=True):
                     st.session_state["_open_sidebar"] = True
                     st.rerun()
-        else:
-            _uname = mask_name(st.session_state.get("user_name", ""))
-            _cur_eid  = st.session_state.get("_gk_entity_id", "")
-            _cur_utype = st.session_state.get("_gk_user_type", "customer")
-            _eid_badge = f'<span style="font-size:0.72rem;background:#EEF2FF;color:#7dd3fc;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;letter-spacing:0.04em;">{_cur_eid}</span>' if _cur_eid else ""
-            st.markdown(f"""
-<div class="gk-teal-block" style="position:relative;
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-  {_bid('1-1-2')}
-  <span style="font-size:1.5rem;">✅</span>
-  <span style="color:#ffffff;font-size:1.1rem;font-weight:900;
-    text-shadow:0 2px 6px rgba(0,0,0,0.55);">
-    {_uname} 마스터님 · 로그인됨
-  </span>{_eid_badge}
-</div>""", unsafe_allow_html=True)
 
-            # ── [D1] RoutingGuard — 로그인 직후 userType 기반 자동 분기 배너 ───────
-            if _login_first_run:
-                if _cur_utype == "agent":
-                    st.markdown("""
+        # ── [D1] RoutingGuard — 로그인 직후 userType 기반 자동 분기 배너 ───────
+        if _is_loggedin and _login_first_run:
+            if _cur_utype == "agent":
+                st.markdown("""
 <div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
   border:2px solid #f0c040;border-radius:12px;padding:14px 18px;margin-bottom:8px;
   animation:gk-fadein 0.5s ease;">
@@ -29725,8 +29678,8 @@ div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button:hove
     보험업 종사자 계정 감지 — AI 타겟 추천 · CRM 도구가 활성화됩니다.
   </div>
 </div>""", unsafe_allow_html=True)
-                else:
-                    st.markdown("""
+            else:
+                st.markdown("""
 <div style="background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%);
   border-radius:12px;padding:12px 18px;margin-bottom:8px;">
   <div style="color:#065f46;font-size:1.0rem;font-weight:900;">
@@ -29737,7 +29690,7 @@ div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] > button:hove
   </div>
 </div>""", unsafe_allow_html=True)
 
-            _is_admin_now = st.session_state.get("is_admin", False)
+        _is_admin_now = st.session_state.get("is_admin", False)
 
         # ── [C4] AgentHome 대시보드 (#1-1-2 다음 — 로그인 시만 표시) ───────
         if 'user_id' in st.session_state:
