@@ -29976,25 +29976,7 @@ wxByGeo();
   <span style="font-size:0.72rem;color:#37474F;">고객이 메뉴를 클릭하면 자동으로 점수가 집계됩니다.</span>
 </div>""", unsafe_allow_html=True)
 
-                st.markdown(f"""<div style="font-size:0.72rem;font-weight:800;color:#64748b;
-                  letter-spacing:0.08em;text-transform:uppercase;margin:14px 0 6px 2px;">
-                  {_bid('1-2-5')}
-                  🔗 CRM 빠른 이동</div>""", unsafe_allow_html=True)
-                _crm_c1, _crm_c2, _crm_c3, _crm_c4 = st.columns(4)
-                _crm_links = [
-                    ("_crm_c1", "🩺 암진단\n설계", "cancer"),
-                    ("_crm_c2", "🧠 뇌·심장\n설계", "brain"),
-                    ("_crm_c3", "📄 고객\n문서함", "customer_docs"),
-                    ("_crm_c4", "🛡️ 보장공백\n분석", "t3"),
-                ]
-                for (_col_k, _label, _tab), _col in zip(_crm_links,
-                                                         [_crm_c1, _crm_c2, _crm_c3, _crm_c4]):
-                    with _col:
-                        if st.button(_label, key=f"crm_quick_{_tab}", use_container_width=True):
-                            _go_tab(_tab)
 
-                st.markdown("<hr style='border:none;border-top:1px solid #1e3a5f;margin:10px 0;'>",
-                            unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹4 닫기]
 
