@@ -29782,41 +29782,50 @@ wxByGeo();
 
                 with _sb_c1:
                     st.markdown(f"""
-<div style="position:relative;background:rgba(251,191,36,0.08);border:1.5px solid rgba(251,191,36,0.35);
-  border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
+<style>
+.gk-dash-box {{ box-sizing:border-box; }}
+.gk-dash-box::-webkit-scrollbar {{ width:4px; }}
+.gk-dash-box::-webkit-scrollbar-thumb {{ background:rgba(255,0,0,0.35);border-radius:4px; }}
+.gk-dash-box::-webkit-scrollbar-track {{ background:transparent; }}
+</style>
+<div class="gk-dash-box" style="position:relative;background:#E3F2FD;border:2px solid #FF0000;
+  border-radius:12px;padding:12px 12px 10px 12px;
+  height:140px;max-height:140px;overflow-y:auto;">
   {_bid('1-2-2')}
-  <div style="font-size:11px;color:#fde68a;font-weight:800;letter-spacing:0.06em;
-    margin-bottom:10px;">📋 오늘 할 일</div>
-  <div style="font-size:52px;font-weight:900;color:#fbbf24;line-height:1;margin-bottom:10px;">
-    {_todo_cnt}<span style="font-size:15px;color:#94a3b8;font-weight:500;margin-left:3px;">건</span>
+  <div style="font-size:11px;color:#000000;font-weight:900;letter-spacing:0.06em;
+    margin-bottom:6px;">📋 오늘 할 일</div>
+  <div style="font-size:36px;font-weight:900;color:#000000;line-height:1;margin-bottom:6px;">
+    {_todo_cnt}<span style="font-size:13px;color:#000000;font-weight:700;margin-left:3px;">건</span>
   </div>
-  {_todo_items_html if _todo_items_html else '<div style="color:#475569;font-size:11px;">항목 없음</div>'}
+  {_todo_items_html if _todo_items_html else '<div style="color:#000000;font-size:11px;font-weight:700;">항목 없음</div>'}
 </div>""", unsafe_allow_html=True)
 
                 with _sb_c2:
                     st.markdown(f"""
-<div style="position:relative;background:rgba(125,211,252,0.08);border:1.5px solid rgba(125,211,252,0.35);
-  border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
+<div class="gk-dash-box" style="position:relative;background:#E3F2FD;border:2px solid #FF0000;
+  border-radius:12px;padding:12px 12px 10px 12px;
+  height:140px;max-height:140px;overflow-y:auto;">
   {_bid('1-2-3')}
-  <div style="font-size:11px;color:#bae6fd;font-weight:800;letter-spacing:0.06em;
-    margin-bottom:10px;">📅 오늘의 약속</div>
-  <div style="font-size:52px;font-weight:900;color:#7dd3fc;line-height:1;margin-bottom:10px;">
-    {len(_appt_list)}<span style="font-size:15px;color:#94a3b8;font-weight:500;margin-left:3px;">건</span>
+  <div style="font-size:11px;color:#000000;font-weight:900;letter-spacing:0.06em;
+    margin-bottom:6px;">📅 오늘의 약속</div>
+  <div style="font-size:36px;font-weight:900;color:#000000;line-height:1;margin-bottom:6px;">
+    {len(_appt_list)}<span style="font-size:13px;color:#000000;font-weight:700;margin-left:3px;">건</span>
   </div>
-  {_appt_items_html if _appt_items_html else '<div style="color:#475569;font-size:11px;">약속 없음</div>'}
+  {_appt_items_html if _appt_items_html else '<div style="color:#000000;font-size:11px;font-weight:700;">약속 없음</div>'}
 </div>""", unsafe_allow_html=True)
 
                 with _sb_c3:
                     st.markdown(f"""
-<div style="position:relative;background:rgba(134,239,172,0.08);border:1.5px solid rgba(134,239,172,0.35);
-  border-radius:12px;padding:16px 14px 12px 14px;min-height:130px;">
+<div class="gk-dash-box" style="position:relative;background:#E3F2FD;border:2px solid #FF0000;
+  border-radius:12px;padding:12px 12px 10px 12px;
+  height:140px;max-height:140px;overflow-y:auto;">
   {_bid('1-2-4')}
-  <div style="font-size:11px;color:#bbf7d0;font-weight:800;letter-spacing:0.06em;
-    margin-bottom:10px;">⏳ 상담 대기</div>
-  <div style="font-size:52px;font-weight:900;color:#86efac;line-height:1;margin-bottom:10px;">
-    {len(_wait_list)}<span style="font-size:15px;color:#94a3b8;font-weight:500;margin-left:3px;">건</span>
+  <div style="font-size:11px;color:#000000;font-weight:900;letter-spacing:0.06em;
+    margin-bottom:6px;">⏳ 상담 대기</div>
+  <div style="font-size:36px;font-weight:900;color:#000000;line-height:1;margin-bottom:6px;">
+    {len(_wait_list)}<span style="font-size:13px;color:#000000;font-weight:700;margin-left:3px;">건</span>
   </div>
-  {_wait_items_html if _wait_items_html else '<div style="color:#475569;font-size:11px;">대기 없음</div>'}
+  {_wait_items_html if _wait_items_html else '<div style="color:#000000;font-size:11px;font-weight:700;">대기 없음</div>'}
 </div>""", unsafe_allow_html=True)
 
                 st.markdown("</div>", unsafe_allow_html=True)
