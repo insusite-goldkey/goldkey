@@ -23079,7 +23079,7 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
       border-left:1.5px solid #bae6fd;border-right:1.5px solid #bae6fd;
       border-radius:10px;padding:9px 14px;margin-bottom:6px;text-align:center;'>
       <div style='font-size:0.92rem;font-weight:900;color:#1e3a5f;letter-spacing:0.03em;'>
-        🔢 아래 박스의 <span style='color:#E53935;'>6자리 인증번호</span>를 아래 입력창에 입력하세요 <span style='color:#b45309;font-size:0.78rem;'>(임시운영)</span>
+        🔢 위쪽 박스 <span style='color:#E53935;'>6자리 인증번호</span>를 아래 입력창에 입력하세요 <span style='color:#b45309;font-size:0.78rem;'>(임시운영)</span>
       </div>
       <div style='font-size:0.70rem;color:#475569;margin-top:3px;'>[가이딩 프로토콜 제37조] 표준 인증 수단 &nbsp;·&nbsp; <span style='color:#b45309;font-weight:800;'>⚠️ 임시운영</span></div>
     </div>
