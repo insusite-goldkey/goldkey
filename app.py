@@ -37367,7 +37367,8 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 
         # ── GP181: 5:5 레이아웃 + GP190 파일업로더 + GP191 심야배치 ──────────
         from modules.scan_engine import (
-            run_scan_pipeline, render_scan_progress_ui,
+            unified_scan_interface as _kp_scan_iface,
+            render_scan_progress_ui, render_master_review_loop,
             classify_doc_type, PUBLIC_ASSET_TYPES,
         )
 
@@ -37540,9 +37541,10 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
                                 unsafe_allow_html=True,
                             )
 
-                        _pipe_result = run_scan_pipeline(
+                        _pipe_result = _kp_scan_iface(
                             file_bytes=_fb,
                             filename=_kp_f.name,
+                            source_tab="kp_knowledge_pipeline",
                             doc_type=_kp_doc_type,
                             gcs_client=_get_gcs_client() if _gcs_client_ok else None,
                             gcs_bucket=_KP_GCS_BUCKET,
@@ -37550,11 +37552,17 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
                             dai_location=_KP_DAI_LOCATION,
                             dai_processor_id=_KP_DAI_PROCESSOR,
                             ai_call_fn=st.session_state.get("_ai_call_fn"),
-                            rag_add_fn=_rag_db_add_document if '_rag_db_add_document' in dir() else None,
+                            rag_add_fn=None,
+                            session_state=st.session_state,
                             progress_callback=_kp_progress_cb,
                         )
                         _prog_ph.empty()
                         render_scan_progress_ui(_pipe_result)
+                        render_master_review_loop(
+                            _pipe_result,
+                            session_state=st.session_state,
+                            rag_add_fn=_rag_db_add_document if '_rag_db_add_document' in dir() else None,
+                        )
 
                         # 지식 로그 기록
                         _tier  = _ART28_DOC_HIERARCHY.get(_kp_doc_type, {}).get("tier", 3)

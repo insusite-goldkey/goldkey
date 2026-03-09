@@ -795,6 +795,14 @@ def run_scan_pipeline(
 
     # ── Step P0: Pre-process (GP190 §2 / GP194) ──────────────────────────
     if not skip_preprocess:
+        _p0_file_info = detect_file_type(filename)
+        if _p0_file_info.get("ext", "").lower() == "pdf":
+            _progress(
+                "P0", 0.04,
+                "⚠️ [결함4] PDF 파일은 Deskew(수평 보정) 자동 적용 불가 — "
+                "스캔본 PDF의 경우 이미지 추출 후 보정이 필요합니다. "
+                "텍스트 추출 정확도가 저하될 수 있습니다."
+            )
         _progress("P0", 0.05, "이미지 보정(Deskew) + 대비 최적화 중...")
         file_bytes = preprocess_image(file_bytes, filename)
         _progress("P0", 0.08, "이미지 보정 완료")
@@ -929,6 +937,7 @@ def run_scan_pipeline(
         "error":              "",
         "pipeline_log":       log,
         "master_approved":    False,
+        "_raw_text_for_rag":  text,          # 마스터 승인 후 RAG 등록에 사용 (결함1 수정)
         "summary_1st_person": classification.get("summary_1st_person", ""),
         "sales_pitch":        classification.get("sales_pitch", ""),
         "gp192_counts": {
@@ -1321,9 +1330,12 @@ def render_master_review_loop(
             rejected = True
 
     if approved:
-        # RAG 인덱싱 실행
+        # RAG 인덱싱 실행 — result에서 직접 텍스트 추출 (결함1 수정)
+        _rag_text = result.get("_raw_text_for_rag", "") or (
+            session_state.get("_pending_scan_text_" + filename[:20], "") if session_state else ""
+        )
         rag_result = index_to_rag(
-            session_state.get("_pending_scan_text_" + filename[:20], ""),
+            _rag_text,
             filename, doc_type,
             result.get("classification", {}),
             rag_add_fn,

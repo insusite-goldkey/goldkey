@@ -20,6 +20,33 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # ─────────────────────────────────────────────────────────────
+# [결함5] scan_engine KCD10_DB 통합 참조 (단방향 의존 — SSOT)
+# KCD_MAP은 UI 전용 rich 구조(payout·sector)를 유지하되,
+# 코드 조회 fallback은 scan_engine.KCD10_DB를 사용합니다.
+# ─────────────────────────────────────────────────────────────
+try:
+    from modules.scan_engine import KCD10_DB as _SCAN_ENGINE_KCD10_DB
+except Exception:
+    _SCAN_ENGINE_KCD10_DB: dict = {}
+
+
+def lookup_kcd_info(code: str) -> dict:
+    """
+    KCD 코드로 질환 정보 조회.
+    1순위: KCD_MAP (UI rich 데이터 — payout/sector 포함)
+    2순위: scan_engine.KCD10_DB (SSOT 통합 조회)
+    """
+    hit = KCD_MAP.get(code)
+    if hit:
+        return hit
+    # scan_engine KCD10_DB fallback: 코드 접두사 매칭
+    for term, db_code in _SCAN_ENGINE_KCD10_DB.items():
+        if db_code.startswith(code[:3]) or code.startswith(db_code[:3]):
+            return {"disease": term, "sector": "disability", "payout": 0, "label": "KCD10_DB"}
+    return {}
+
+
+# ─────────────────────────────────────────────────────────────
 # KCD 코드 → 질환 정보 매핑 테이블
 # ─────────────────────────────────────────────────────────────
 KCD_MAP: dict = {
@@ -279,7 +306,7 @@ def render_smart_scanner(
             _first_parsed = _records[0]["parsed"] if _records else {}
             _kcd_list  = _first_parsed.get("kcd_codes") or []
             _kcd_code  = _kcd_list[0] if _kcd_list else "확인필요"
-            _kcd_hit   = KCD_MAP.get(_kcd_code, {})
+            _kcd_hit   = lookup_kcd_info(_kcd_code)
             _disease   = (_first_parsed.get("diagnoses") or ["진단명 확인 필요"])[0]
             _surgery   = (_first_parsed.get("surgeries") or ["-"])[0]
             _note      = _first_parsed.get("chief_complaint") or _first_parsed.get("present_illness") or "-"
@@ -324,7 +351,23 @@ def render_smart_scanner(
         st.session_state["smart_scan_sector"] = _result["sector"]
 
         _pip = _result.get("_pipeline", "")
-        _pip_label = "(GP91 실제 분석)" if _pip == "GP91-real" else "(Mock 폴백)"
+        _is_mock = (_pip != "GP91-real")
+        _pip_label = "(GP91 실제 분석)" if not _is_mock else "(Mock 폴백)"
+        st.session_state["_smart_scanner_is_mock"] = _is_mock
+
+        if _is_mock:
+            st.markdown("""
+<div style="background:#fef9c3;border:2px solid #f59e0b;border-radius:10px;
+  padding:10px 16px;margin:6px 0;">
+  <span style="font-size:0.82rem;font-weight:900;color:#92400e;">
+    ⚠️ [MOCK 시연 모드] 실제 AI 분석 엔진(Gemini Vision)이 연결되지 않았습니다.
+  </span><br>
+  <span style="font-size:0.75rem;color:#78350f;">
+    아래 결과는 시뮬레이션 데이터이며 실제 환자 정보와 무관합니다.
+    실사용 전 반드시 Gemini Vision 연동을 완료하십시오.
+  </span>
+</div>""", unsafe_allow_html=True)
+
         st.success(
             f"✅ 판독 완료 {_pip_label} — **{_result['disease']}** (KCD: `{_result['kcd_code']}`)"
         )
@@ -353,6 +396,17 @@ def render_scan_report(result: dict, auto_route: bool = False):
     """
     if not result:
         return
+
+    # ── [결함3] Mock NER 결과 시 경고 배너 ────────────────────────
+    _is_mock_report = (result.get("_pipeline", "") != "GP91-real")
+    if _is_mock_report:
+        st.markdown("""
+<div style="background:#fef3c7;border:2px dashed #d97706;border-radius:10px;
+  padding:8px 16px;margin-bottom:12px;">
+  <span style="font-size:0.80rem;font-weight:900;color:#92400e;">
+    🚧 [MOCK DATA] 이 리포트는 시연용 가상 데이터입니다 — 실제 분석 결과가 아닙니다
+  </span>
+</div>""", unsafe_allow_html=True)
 
     kcd   = result.get("kcd_code", "-")
     dis   = result.get("disease",  "-")
