@@ -51,6 +51,11 @@ _GCS_KNOWLEDGE_PREFIX = "knowledge"       # know_pipe 지식베이스 전용
 _CHUNK_PAGE_THRESHOLD = 50    # 50페이지 이상이면 분할 분석
 _CHUNK_CHAR_SIZE      = 3000  # 청크당 최대 문자수
 
+# ── [GP196 §1] 파일 용량 제한 ────────────────────────────────────────────────
+_MAX_FILE_BYTES  = 10 * 1024 * 1024   # 10 MB 업로드 상한
+_IMG_MAX_PX      = 2048               # 리사이징 후 최대 장변 픽셀
+_IMG_QUALITY     = 82                 # JPEG 압축 품질 (0-100)
+
 # PII 마스킹 패턴 (GP190 §2 / GP194)
 _PII_PATTERNS: list[tuple[str, str]] = [
     (r"\d{6}-[1-4]\d{6}",            "***주민번호***"),    # 주민등록번호
@@ -103,6 +108,78 @@ KCD10_DB: dict[str, str] = {
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. 파일 감지 (Detect) — GP190 §1
 # ══════════════════════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 0. [GP196] 파일 안전화 유틸리티 (용량 제한 · 리사이징 · 배치 Generator)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def check_file_size(file_bytes: bytes, filename: str = "") -> tuple[bool, str]:
+    """
+    [GP196 §1] 파일 용량 검사.
+    반환: (ok: bool, message: str)
+    """
+    size_mb = len(file_bytes) / (1024 * 1024)
+    if len(file_bytes) > _MAX_FILE_BYTES:
+        return False, (
+            f"⚠️ 용량이 너무 큽니다 ({size_mb:.1f} MB). "
+            f"10 MB 이하로 최적화 후 다시 올려주세요."
+        )
+    return True, f"{size_mb:.2f} MB"
+
+
+def resize_image_bytes(img_bytes: bytes, filename: str = "") -> bytes:
+    """
+    [GP196 §2] 업로드 이미지를 OCR 전 최대 {_IMG_MAX_PX}px로 리사이징.
+    PDF는 변환 없이 원본 반환. Pillow 미설치 시 원본 반환.
+    """
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext == "pdf":
+        return img_bytes
+    try:
+        from PIL import Image as _PILImage
+        import io as _io
+        img = _PILImage.open(_io.BytesIO(img_bytes))
+        w, h = img.size
+        max_side = max(w, h)
+        if max_side <= _IMG_MAX_PX:
+            return img_bytes  # 이미 작은 이미지는 그대로
+        scale = _IMG_MAX_PX / max_side
+        new_w, new_h = int(w * scale), int(h * scale)
+        img = img.resize((new_w, new_h), _PILImage.LANCZOS)
+        buf = _io.BytesIO()
+        save_fmt = "JPEG" if ext in ("jpg", "jpeg") else "PNG"
+        if save_fmt == "JPEG":
+            img = img.convert("RGB")
+            img.save(buf, format="JPEG", quality=_IMG_QUALITY)
+        else:
+            img.save(buf, format="PNG", optimize=True)
+        return buf.getvalue()
+    except Exception:
+        return img_bytes  # Pillow 미설치 또는 오류 시 원본 반환
+
+
+def iter_pdf_pages(file_bytes: bytes, batch_size: int = 5):
+    """
+    [GP196 §3] PDF를 batch_size 페이지 단위로 나눠 yield하는 Generator.
+    각 항목: (page_indices: list[int], page_image_bytes: bytes)
+    PyMuPDF(fitz) 미설치 시 [(None, file_bytes)] 단일 반환.
+    """
+    try:
+        import fitz as _fitz
+        doc = _fitz.open(stream=file_bytes, filetype="pdf")
+        total = len(doc)
+        for start in range(0, total, batch_size):
+            end = min(start + batch_size, total)
+            indices = list(range(start, end))
+            # 배치 페이지들을 하나의 이미지 시트로 결합
+            page_imgs = []
+            for i in indices:
+                pix = doc[i].get_pixmap(dpi=120)
+                page_imgs.append(pix.tobytes("jpeg"))
+            yield indices, page_imgs
+    except Exception:
+        yield [None], [file_bytes]
+
 
 def detect_file_type(filename: str, mime_type: str = "") -> dict:
     """
@@ -1551,68 +1628,116 @@ def unified_scan_component(
     file_bytes = uploaded.read()
     filename   = uploaded.name
 
-    # ── 파스텔 톤 프로그레스 바 표시 ────────────────────────────────────────
-    prog_placeholder = st.empty()
-    prog_placeholder.markdown(f"""
-<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
-  padding:10px 14px;margin:6px 0;font-size:0.82rem;color:#1e40af;">
-  🔍 <b>분석 중...</b>
-  <div class="gk-scan-progress-bar">
-    <div class="gk-scan-progress-fill" style="width:30%;"></div>
-  </div>
-</div>
-<style>{get_uploader_css()}</style>""", unsafe_allow_html=True)
+    # ── [GP196 §1] 파일 용량 검사 ──────────────────────────────────────────
+    _size_ok, _size_msg = check_file_size(file_bytes, filename)
+    if not _size_ok:
+        st.warning(_size_msg)
+        return None
 
-    # 진행률 업데이트용 콜백
-    _pct_ref = [0.3]
-    def _prog_cb(step: str, pct: float, msg: str):
-        _pct_ref[0] = pct
+    # ── [GP196 §2] 이미지 리사이징 (OCR 전 메모리 부하 절감) ──────────────
+    file_bytes = resize_image_bytes(file_bytes, filename)
+
+    # ── 프로그레스 바 초기화 ────────────────────────────────────────────────
+    prog_placeholder = st.empty()
+    status_placeholder = st.empty()
+
+    def _render_progress(step: str, pct: float, msg: str, done: bool = False, error: bool = False):
         pct_int = int(pct * 100)
+        if error:
+            bg, border, color = "#fff1f2", "#fca5a5", "#991b1b"
+            icon = "❌"
+        elif done:
+            bg, border, color = "#f0fdf4", "#86efac", "#166534"
+            icon = "✅"
+        else:
+            bg, border, color = "#eff6ff", "#bfdbfe", "#1e40af"
+            icon = "🔍"
         prog_placeholder.markdown(f"""
-<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
-  padding:10px 14px;margin:6px 0;font-size:0.82rem;color:#1e40af;">
-  🔍 <b>[{step}] {msg}</b>
+<div style="background:{bg};border:1px solid {border};border-radius:10px;
+  padding:10px 14px;margin:6px 0;font-size:0.82rem;color:{color};">
+  {icon} <b>[{step}] {msg}</b>
   <div class="gk-scan-progress-bar">
-    <div class="gk-scan-progress-fill" style="width:{pct_int}%;animation:none;opacity:1;"></div>
+    <div class="gk-scan-progress-fill"
+      style="width:{pct_int}%;animation:{'gk-scan-pulse 1.2s ease-in-out infinite' if not done and not error else 'none'};
+      opacity:1;{'background:linear-gradient(90deg,#86efac,#4ade80);' if done else ''}"></div>
   </div>
   <span style="font-size:0.72rem;color:#64748b;">{pct_int}% 완료</span>
 </div>
 <style>{get_uploader_css()}</style>""", unsafe_allow_html=True)
 
-    # ── 통합 파이프라인 실행 ─────────────────────────────────────────────────
-    result = unified_scan_interface(
-        file_bytes=file_bytes,
-        filename=filename,
-        source_tab=source_tab,
-        doc_type=doc_type,
-        gcs_client=gcs_client,
-        gcs_bucket=gcs_bucket,
-        dai_project=dai_project,
-        dai_location=dai_location,
-        dai_processor_id=dai_processor_id,
-        gcs_credentials=gcs_credentials,
-        ai_call_fn=ai_call_fn,
-        rag_add_fn=rag_add_fn,
-        session_state=session_state,
-        progress_callback=_prog_cb,
-    )
+    _render_progress("P0", 0.05, f"파일 확인 중... ({_size_msg})")
 
-    # ── 프로그레스 바 완료 표시 ───────────────────────────────────────────────
-    prog_placeholder.markdown(f"""
-<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;
-  padding:10px 14px;margin:6px 0;font-size:0.82rem;color:#166534;">
-  ✅ <b>분석 완료</b> — {filename}
-  <div class="gk-scan-progress-bar">
-    <div class="gk-scan-progress-fill"
-      style="width:100%;animation:none;opacity:1;background:linear-gradient(90deg,#86efac,#4ade80);"></div>
+    def _prog_cb(step: str, pct: float, msg: str):
+        _render_progress(step, pct, msg)
+
+    # ── [GP196 §4] 파이프라인 실행 — 페이지 오류 시 선택지 제시 ───────────
+    result = None
+    _error_occurred = False
+    _error_msg = ""
+
+    try:
+        result = unified_scan_interface(
+            file_bytes=file_bytes,
+            filename=filename,
+            source_tab=source_tab,
+            doc_type=doc_type,
+            gcs_client=gcs_client,
+            gcs_bucket=gcs_bucket,
+            dai_project=dai_project,
+            dai_location=dai_location,
+            dai_processor_id=dai_processor_id,
+            gcs_credentials=gcs_credentials,
+            ai_call_fn=ai_call_fn,
+            rag_add_fn=rag_add_fn,
+            session_state=session_state,
+            progress_callback=_prog_cb,
+        )
+    except MemoryError:
+        _error_occurred = True
+        _error_msg = "메모리 부족 — 파일을 더 작게 분할하거나 페이지 수를 줄여주세요."
+    except Exception as _exc:
+        _error_occurred = True
+        _error_msg = str(_exc)[:200]
+
+    if _error_occurred:
+        _render_progress("ERROR", 1.0, f"오류 발생: {_error_msg}", error=True)
+        # ── [GP196 §4] 오류 선택지 제시
+        status_placeholder.markdown(f"""
+<div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;
+  padding:14px 18px;margin:8px 0;font-size:0.85rem;">
+  <div style="font-weight:900;color:#c2410c;margin-bottom:8px;">
+    ⚠️ 현재 페이지를 읽는 중 오류가 발생했습니다.
   </div>
-</div>
-<style>{get_uploader_css()}</style>""", unsafe_allow_html=True)
+  <div style="color:#92400e;font-size:0.82rem;margin-bottom:6px;">
+    오류 내용: {_error_msg}
+  </div>
+  <div style="color:#78350f;font-size:0.78rem;">
+    아래 버튼으로 계속 진행하거나, 파일을 교체하세요.
+  </div>
+</div>""", unsafe_allow_html=True)
+        _err_col1, _err_col2 = st.columns([1, 1])
+        with _err_col1:
+            if st.button("⏩ 오류 무시하고 계속", key=f"{uploader_key}_err_continue",
+                         use_container_width=True, type="primary"):
+                st.session_state[f"{uploader_key}_err_skip"] = True
+                st.rerun()
+        with _err_col2:
+            if st.button("🔄 다른 파일로 교체", key=f"{uploader_key}_err_replace",
+                         use_container_width=True):
+                st.session_state.pop(uploader_key, None)
+                st.rerun()
+        return None
 
-    # ── 결과 UI 렌더링 ───────────────────────────────────────────────────────
+    if result is None:
+        return None
+
+    # ── 프로그레스 바 완료 표시 ─────────────────────────────────────────────
+    _render_progress("완료", 1.0, f"분석 완료 — {filename}", done=True)
+
+    # ── 결과 UI 렌더링 ──────────────────────────────────────────────────────
     render_scan_progress_ui(result)
 
-    # ── 마스터 검수 루프 ─────────────────────────────────────────────────────
+    # ── 마스터 검수 루프 ────────────────────────────────────────────────────
     if show_master_review:
         render_master_review_loop(
             result,

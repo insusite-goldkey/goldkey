@@ -9698,87 +9698,162 @@ def _gp88_hub() -> dict:
             type=["pdf", "jpg", "jpeg", "png"],
             key="_gp88_ocr_upload",
         )
-        # ── [GP193 §2] 전역 인제스트 후크 — 업로드 즉시 GCS+RAG 동시 저장 ─
+
+        # ── [GP196 §1] 파일 용량 사전 검사 ────────────────────────────────
+        if _ocr_file:
+            _ocr_raw_bytes = _ocr_file.read()
+            _ocr_file.seek(0)
+            _ocr_size_mb = len(_ocr_raw_bytes) / (1024 * 1024)
+            if len(_ocr_raw_bytes) > 10 * 1024 * 1024:
+                st.warning(
+                    f"⚠️ 용량이 너무 큽니다 ({_ocr_size_mb:.1f} MB). "
+                    "10 MB 이하로 최적화 후 다시 올려주세요."
+                )
+                _ocr_file = None
+            else:
+                st.caption(f"📦 파일 크기: {_ocr_size_mb:.2f} MB — 정상 범위")
+
+        # ── [GP193 §2] 전역 인제스트 후크 ─────────────────────────────────
         if _ocr_file and st.session_state.get("_gp193_done_gp88_ocr_upload") != _ocr_file.name:
             try:
                 from modules.scan_engine import global_ingest_hook as _gih
                 _gih_p = _gp193_get_hook_params()
                 with st.spinner("🌐 지능형 자산화 진행 중..."):
                     _gih_r = _gih(
-                        file_bytes=_ocr_file.read(),
+                        file_bytes=_ocr_raw_bytes,
                         filename=_ocr_file.name,
                         source_tab="gp88_ocr_scan",
                         doc_type="보험약관",
                         **_gih_p,
                     )
-                    _ocr_file.seek(0)
                 if _gih_r.get("success"):
                     st.success("✅ 전역 지식 베이스 업데이트 완료")
                 st.session_state["_gp193_done_gp88_ocr_upload"] = _ocr_file.name
             except Exception:
                 pass
+
         if _ocr_file and st.button("🔍 AI 핵심 담보 추출 시작", key="_gp88_ocr_run",
                                    type="primary", use_container_width=True):
-            with st.spinner("Gemini Vision AI가 계약서를 분석 중입니다…"):
-                try:
-                    import io as _io
-                    _raw = _ocr_file.read()
-                    _ext = _ocr_file.name.rsplit(".", 1)[-1].lower()
+            import io as _io
+            _ext = _ocr_file.name.rsplit(".", 1)[-1].lower()
 
-                    # PDF → 첫 페이지 이미지 변환 (fitz 사용 가능 시)
-                    _img_bytes = None
-                    _mime_type = "image/jpeg"
-                    if _ext == "pdf":
-                        try:
-                            import fitz as _fitz  # PyMuPDF
-                            _doc = _fitz.open(stream=_raw, filetype="pdf")
-                            _page = _doc[0]
-                            _pix = _page.get_pixmap(dpi=150)
-                            _img_bytes = _pix.tobytes("jpeg")
-                            _mime_type = "image/jpeg"
-                        except ImportError:
-                            st.warning("⚠️ PyMuPDF 미설치 — PDF 직접 전송으로 대체합니다.")
-                            _img_bytes = _raw
-                            _mime_type = "application/pdf"
-                    else:
-                        _img_bytes = _raw
-                        _mime_type = f"image/{_ext.replace('jpg','jpeg')}"
+            # ── [GP196 §2] 이미지 리사이징 ────────────────────────────────
+            try:
+                from modules.scan_engine import resize_image_bytes as _resize_img
+                _ocr_raw_bytes = _resize_img(_ocr_raw_bytes, _ocr_file.name)
+            except Exception:
+                pass
 
-                    # Gemini Vision API 호출
-                    _client = get_client()
-                    if _client is None:
-                        st.error("GEMINI_API_KEY가 설정되지 않았습니다.")
-                    else:
-                        _vision_prompt = (
-                            "이 보험 계약서/증권 이미지에서 다음 항목을 추출하여 JSON으로 반환하세요:\n"
-                            '{"계약자":"","피보험자":"","보험사":"","상품명":"","납입기간":"","보험기간":"",'
-                            '"월보험료":"","사망보험금":"","암진단비":"","뇌진단비":"","심장진단비":"",'
-                            '"실손보험료":"","기타담보":[]}\n'
-                            "없는 항목은 빈 문자열로, 기타담보는 이름과 금액 쌍의 리스트로 표현하세요."
+            # ── [GP196 §3+§4] 프로그레스 바 + 배치 처리 ──────────────────
+            _ocr_prog = st.progress(0, text="🔍 분석 준비 중...")
+            _ocr_status = st.empty()
+            _client = get_client()
+
+            if _client is None:
+                st.error("GEMINI_API_KEY가 설정되지 않았습니다.")
+            else:
+                _vision_prompt = (
+                    "이 보험 계약서/증권 이미지에서 다음 항목을 추출하여 JSON으로 반환하세요:\n"
+                    '{"계약자":"","피보험자":"","보험사":"","상품명":"","납입기간":"","보험기간":"",'
+                    '"월보험료":"","사망보험금":"","암진단비":"","뇌진단비":"","심장진단비":"",'
+                    '"실손보험료":"","기타담보":[]}\n'
+                    "없는 항목은 빈 문자열로, 기타담보는 이름과 금액 쌍의 리스트로 표현하세요."
+                )
+                _types = _lazy_genai_types()
+                _merged_data = {}
+                _page_error_count = 0
+
+                if _ext == "pdf":
+                    # ── PDF 배치 처리 (Generator, 5페이지씩) ──────────────
+                    try:
+                        from modules.scan_engine import iter_pdf_pages as _iter_pages
+                        _batches = list(_iter_pages(_ocr_raw_bytes, batch_size=5))
+                    except Exception:
+                        _batches = [([ None], [_ocr_raw_bytes])]
+
+                    _total_batches = max(len(_batches), 1)
+                    for _bi, (_page_idxs, _page_imgs) in enumerate(_batches):
+                        _pct = int((_bi / _total_batches) * 90) + 5
+                        _page_label = (
+                            f"p.{_page_idxs[0]+1}~{_page_idxs[-1]+1}"
+                            if _page_idxs[0] is not None else "전체"
                         )
-                        _types = _lazy_genai_types()
+                        _ocr_prog.progress(_pct, text=f"📄 {_page_label} 분석 중... ({_bi+1}/{_total_batches})")
+                        _ocr_status.markdown(
+                            f"<span style='font-size:0.78rem;color:#64748b;'>"
+                            f"배치 {_bi+1}/{_total_batches} 처리 중...</span>",
+                            unsafe_allow_html=True
+                        )
+                        try:
+                            _batch_img = _page_imgs[0]  # 배치 대표 이미지
+                            _resp = _client.models.generate_content(
+                                model=GEMINI_MODEL,
+                                contents=[
+                                    _types.Part.from_bytes(data=_batch_img, mime_type="image/jpeg"),
+                                    _vision_prompt,
+                                ],
+                            )
+                            _raw_txt = _resp.text.strip()
+                            _jm = _re.search(r"\{[\s\S]+\}", _raw_txt)
+                            if _jm:
+                                try:
+                                    _batch_data = _json.loads(_jm.group(0))
+                                    for _k, _v in _batch_data.items():
+                                        if _v and not _merged_data.get(_k):
+                                            _merged_data[_k] = _v
+                                except Exception:
+                                    pass
+                        except MemoryError:
+                            _page_error_count += 1
+                            _ocr_status.warning(
+                                f"⚠️ {_page_label} 처리 중 메모리 부족 — 해당 배치를 건너뜁니다. "
+                                "다음 페이지부터 계속합니다."
+                            )
+                        except Exception as _batch_err:
+                            _page_error_count += 1
+                            _ocr_status.warning(
+                                f"⚠️ {_page_label} 처리 중 오류 발생 — 건너뜁니다. "
+                                f"({str(_batch_err)[:80]})"
+                            )
+                else:
+                    # ── 이미지 단일 처리 ──────────────────────────────────
+                    _ocr_prog.progress(30, text="🖼️ 이미지 분석 중...")
+                    try:
+                        _mime_type = f"image/{_ext.replace('jpg', 'jpeg')}"
                         _resp = _client.models.generate_content(
                             model=GEMINI_MODEL,
                             contents=[
-                                _types.Part.from_bytes(data=_img_bytes, mime_type=_mime_type),
+                                _types.Part.from_bytes(data=_ocr_raw_bytes, mime_type=_mime_type),
                                 _vision_prompt,
                             ],
                         )
                         _raw_txt = _resp.text.strip()
-                        # JSON 블록 추출
                         _jm = _re.search(r"\{[\s\S]+\}", _raw_txt)
                         if _jm:
                             try:
-                                _ocr_data = _json.loads(_jm.group(0))
-                                st.session_state[_OCR_KEY] = _ocr_data
-                                st.success("✅ 핵심 담보 추출 완료!")
+                                _merged_data = _json.loads(_jm.group(0))
                             except Exception:
-                                st.session_state[_OCR_KEY] = {"raw": _raw_txt}
-                                st.warning("⚠️ JSON 파싱 실패 — 원문으로 저장합니다.")
+                                _merged_data = {"raw": _raw_txt}
                         else:
-                            st.session_state[_OCR_KEY] = {"raw": _raw_txt}
-                except Exception as _e:
-                    st.error(f"❌ OCR 오류: {_e}")
+                            _merged_data = {"raw": _raw_txt}
+                    except MemoryError:
+                        _ocr_status.error(
+                            "❌ 메모리 부족 — 이미지를 더 작게 줄이거나 해상도를 낮춰주세요."
+                        )
+                        _merged_data = {}
+                    except Exception as _e:
+                        _ocr_status.error(f"❌ OCR 오류: {str(_e)[:120]}")
+                        _merged_data = {}
+
+                _ocr_prog.progress(100, text="✅ 분석 완료!")
+                if _merged_data:
+                    st.session_state[_OCR_KEY] = _merged_data
+                    _success_msg = "✅ 핵심 담보 추출 완료!"
+                    if _page_error_count:
+                        _success_msg += f" (오류로 건너뜀: {_page_error_count}배치)"
+                    st.success(_success_msg)
+                else:
+                    st.warning("⚠️ 추출된 데이터가 없습니다. 파일을 확인해 주세요.")
 
         _ocr_result = st.session_state.get(_OCR_KEY, {})
         if _ocr_result:
@@ -10195,35 +10270,24 @@ def _gp94_panel() -> None:
                 st.markdown(
                     f'<div class="gp94-rider-card">'
                     f'<div class="gp94-rider-name">{_r["icon"]} {_r["name"]}</div>'
-                    f'<div class="gp94-rider-cost">💸 실제 비용: {_r["cost_range"]} | '
-                    f'⚠️ 보장 공백: {_r["real_gap"]}</div>'
-                    f'<div class="gp94-rider-hook">❝ {_r["hook"]} ❞</div>'
+                    f'<div class="gp94-rider-cost">💰 {_r["cost_range"]}</div>'
+                    f'<div style="font-size:0.78rem;color:#b45309;margin:2px 0;">'
+                    f'📍 {_r["real_gap"]}</div>'
+                    f'<div class="gp94-rider-hook">{_r["hook"]}</div>'
                     f'<div class="gp94-rider-data">📊 {_r["data"]}</div>'
-                    f'</div>'
-                    f'<div class="gp94-tip-box">💡 설계 팁: {_r["tip"]}</div>',
+                    f'<div class="gp94-tip-box">💡 실무 TIP: {_r["tip"]}</div>'
+                    f'<div style="margin-top:8px;font-size:0.75rem;color:#6b7280;">'
+                    f'취급사: {" · ".join(_r["companies"])}</div>'
+                    f'</div>',
                     unsafe_allow_html=True,
                 )
-                _ccols = st.columns(2)
-                with _ccols[0]:
-                    if st.button(
-                        "📋 후킹 멘트 복사",
-                        key=f"_gp94_copy_{_r['id']}",
-                        use_container_width=True,
-                    ):
-                        st.session_state[f"_gp94_hook_{_r['id']}"] = _r["hook"]
-                        st.success("✅ 세션에 저장! 아래 '선택된 멘트' 확인")
-                with _ccols[1]:
-                    if st.button(
-                        "📲 카카오 메시지에 추가",
-                        key=f"_gp94_kakao_{_r['id']}",
-                        use_container_width=True,
-                    ):
-                        _prev = st.session_state.get("_gp88_selected_script", "")
-                        st.session_state["_gp88_selected_script"] = (
-                            (_prev + "\n\n" if _prev else "") +
-                            f"[{_r['name']}] {_r['hook']}"
-                        )
-                        st.success(f"✅ '{_r['name']}' 멘트가 GP88 카카오 메시지에 추가되었습니다.")
+                if st.button(
+                    f"📋 {_r['label']} 후킹 멘트 선택",
+                    key=f"_gp94_hook_{_r['id']}",
+                    use_container_width=True,
+                ):
+                    st.session_state[f"_gp94_hook_{_r['id']}"] = _r["hook"]
+                    st.success(f"✅ {_r['name']} 후킹 멘트가 선택되었습니다.")
 
         # ── 선택된 멘트 모아보기 ────────────────────────────────────────────
         _selected_hooks = {
@@ -19907,6 +19971,36 @@ section.main > div.block-container,
     background: #E8F5E9 !important;
 }
 .gk-sky-trust.gk-gap-safe .gk-st-title { color: #2E7D32 !important; }
+
+/* ================================================================
+   가이딩 프로토콜 §HC: High-Contrast Master Button
+   .gk-hc-btn — 파스텔 하늘 배경 + 붉은 외곽선 + 굵은 검정 글자
+   주요 액션 버튼 전역 클래스
+================================================================ */
+.gk-hc-btn > div[data-testid="stButton"] > button,
+.gk-hc-btn button {
+    background: #BAE6FD !important;
+    border: 2.5px solid #DC2626 !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+    font-size: 0.88rem !important;
+    border-radius: 8px !important;
+    text-shadow: none !important;
+    box-shadow: 0 2px 6px rgba(220,38,38,0.15) !important;
+    transition: background 0.18s, border-color 0.18s !important;
+}
+.gk-hc-btn > div[data-testid="stButton"] > button:hover,
+.gk-hc-btn button:hover {
+    background: #7dd3fc !important;
+    border-color: #991b1b !important;
+    color: #000000 !important;
+    box-shadow: 0 4px 10px rgba(220,38,38,0.25) !important;
+}
+.gk-hc-btn > div[data-testid="stButton"] > button:active,
+.gk-hc-btn button:active {
+    background: #38bdf8 !important;
+    border-color: #7f1d1d !important;
+}
 </style>""", unsafe_allow_html=True)
 
     # ── STEP 1-B0: [제140조] localStorage → session_state 자동 복원 ────────
@@ -28025,49 +28119,7 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
   </div>
 </div>""", unsafe_allow_html=True)
 
-        # ── [GP220 그룹1] 상단 헤더 ──────────────────────────────────────
-        st.markdown("""
-<div class="gk-g220 gk-g220-header">
-  <span class="gk-g220-label">① 상단 헤더</span>
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-    <div style="font-size:1.0rem;font-weight:900;color:#ffffff;text-shadow:0 1px 3px rgba(0,0,0,0.30);">🏛️ GoldKey AI Masters 2026 · 전문 보험 상담 사령부</div>
-    <div style="font-size:0.75rem;color:#ffffff;font-weight:700;opacity:0.90;">보험 분석 · 고객 관리 · 청구 지원 · AI 컨설팅</div>
-  </div>
-</div>""", unsafe_allow_html=True)
-
-        # ── [제39조 §3] 대시보드 스켈레톤 선렌더 → GCS 데이터 도착 시 Hydration ──
-        # 첫 렌더(_home_skeleton_shown 미설정) 시 skeleton 플레이스홀더를 즉시 표시.
-        # GCS 데이터(_art38_wisdom_loaded + insight 배너 준비) 완료 시 JS로 skeleton 제거.
-        _home_first = not st.session_state.get('_home_skeleton_shown')
-        if _home_first:
-            st.session_state['_home_skeleton_shown'] = True
-            st.markdown("""
-<div id="gk-dash-skeleton" style="padding:8px 0 4px 0;">
-  <div class="gk-skeleton" style="height:22px;border-radius:8px;width:55%;margin-bottom:12px;"></div>
-  <div style="display:flex;gap:10px;margin-bottom:10px;">
-    <div class="gk-skeleton" style="height:80px;border-radius:12px;flex:1;"></div>
-    <div class="gk-skeleton" style="height:80px;border-radius:12px;flex:1;"></div>
-    <div class="gk-skeleton" style="height:80px;border-radius:12px;flex:1;"></div>
-  </div>
-  <div class="gk-skeleton" style="height:14px;border-radius:5px;width:80%;margin-bottom:8px;"></div>
-  <div class="gk-skeleton" style="height:14px;border-radius:5px;width:65%;margin-bottom:8px;"></div>
-  <div class="gk-skeleton" style="height:14px;border-radius:5px;width:72%;"></div>
-</div>""", unsafe_allow_html=True)
-            # 스켈레톤 → 실제 콘텐츠 Hydration: 200ms 후 skeleton 제거
-            import streamlit.components.v1 as _s39_sk_comp
-            _s39_sk_comp.html("""<script>
-(function(){
-  function _hydrate(){
-    try {
-      var _pd = window.parent ? window.parent.document : document;
-      var _sk = _pd.getElementById('gk-dash-skeleton');
-      if(_sk){ _sk.style.transition='opacity 0.15s'; _sk.style.opacity='0';
-               setTimeout(function(){ _sk.style.display='none'; }, 160); }
-    } catch(e){}
-  }
-  setTimeout(_hydrate, 200);
-})();
-</script>""", height=1)
+        # ── [제39조 §3] 홈 첫 렌더 플래그
 
         # 홈 화면 첫 렌더 완료 플래그 — 다음 rerun 시 RAG/STT 지연 로드 트리거
         if not st.session_state.get('home_rendered'):
@@ -28084,104 +28136,105 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
                 _th_nw.Thread(target=_art38_night_worker, daemon=True).start()
                 st.session_state['_art38_night_ran_today'] = True
 
-        # ── [GP220 그룹2] 인사이트 · 시니어 모드 ────────────────────────────
-        st.markdown('<div class="gk-g220 gk-g220-weather"><span class="gk-g220-label">② 모닝 인사이트 · 시니어 모드</span>', unsafe_allow_html=True)
-
-        # ── [가이딩 프로토콜 제38조 §4 + 제39조 §3] Morning Insight 배너 ────────
-        # [제39조 §3] GCS 네트워크 호출을 백그라운드 스레드로 분리 — 첫 렌더 블로킹 제거
-        if not st.session_state.get('_art38_wisdom_loaded'):
-            import threading as _th_ws
-            _th_ws.Thread(target=_art38_load_wisdom, daemon=True).start()
-            st.session_state['_art38_wisdom_loaded'] = True
-        _insight_banner = _art38_insight_banner_html()
-        if _insight_banner:
-            st.markdown(_insight_banner, unsafe_allow_html=True)
-            if st.button("✕ 인사이트 확인 완료", key="btn_art38_banner_close",
-                         help="배너를 닫고 읽음으로 표시합니다."):
-                _art38_mark_wisdom_shown()
-                st.session_state['_art38_wisdom_loaded'] = False
-                st.rerun()
-
-        # ── [가이딩 프로토콜 제36조 + 제38조 §2] 돋보기(시니어) 모드 토글 ──────────────
-        # [제38조 §2] st.rerun() 제거 → JS CSS 변수 즉시 토글 (Python 재실행 없음)
-        _senior_on = st.session_state.get("gk_senior_mode", False)
-        _s_col1, _s_col2 = st.columns([6, 1])
-        with _s_col2:
-            _senior_btn_label = "🔍 ON" if _senior_on else "🔍 시니어"
-            if st.button(_senior_btn_label, key="btn_senior_mode_toggle",
-                         use_container_width=True,
-                         help="돋보기(시니어) 모드: 전체 1.2배 확대 + 고대비"):
-                st.session_state["gk_senior_mode"] = not _senior_on
-                # [제38조 §2] rerun 없이 JS로 CSS 변수만 즉시 변경
-        # 항상 JS 주입 — localStorage 상태 복원 + 버튼 바인딩 (rerun 불필요)
-        components.html(f"""<script>
-(function(){{
-  try {{
-    var pd = window.parent.document;
-    var isOn = {'true' if st.session_state.get('gk_senior_mode', False) else 'false'};
-    if (isOn) {{
-      pd.body.classList.add('gk-senior');
-      pd.documentElement.style.setProperty('--ui-scale','1.2');
-      if (!pd.getElementById('gk-senior-badge')) {{
-        var b = pd.createElement('div');
-        b.id = 'gk-senior-badge';
-        b.innerHTML = '🔍 시니어 모드 ON';
-        b.style.cssText = 'display:block;position:fixed;top:8px;right:12px;z-index:2147483640;background:#000;color:#fff;font-size:0.85rem;font-weight:900;padding:5px 12px;border-radius:20px;box-shadow:0 2px 10px rgba(0,0,0,0.35);font-family:Noto Sans KR,sans-serif;pointer-events:none;';
-        pd.body.appendChild(b);
-      }}
-    }} else {{
-      pd.body.classList.remove('gk-senior');
-      pd.documentElement.style.setProperty('--ui-scale','1.0');
-      var b = pd.getElementById('gk-senior-badge');
-      if (b) b.remove();
-    }}
-    try {{ localStorage.setItem('gk_senior_mode', isOn ? '1' : '0'); }} catch(e){{}}
-  }} catch(e){{}}
-}})();
-</script>""", height=0)
-        if _senior_on:
-            st.markdown("""
-<div style="background:#000;color:#fff;font-size:0.88rem;font-weight:900;
-  padding:6px 16px;border-radius:8px;margin-bottom:6px;text-align:center;
-  letter-spacing:0.04em;">
-  🔍 시니어 맞춤 모드 활성 중 — 1.2배 확대 · 고대비 적용됨
-</div>""", unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹2 닫기]
-
-        # ── [GP220 그룹3] 인생 방어 사령부 · 질병 경제손실 추정기 ─────────────
-        st.markdown('<div class="gk-g220 gk-g220-defense"><span class="gk-g220-label">③ 인생 방어 사령부 · 질병 경제손실 추정기</span>', unsafe_allow_html=True)
-
-        # ══════════════════════════════════════════════════════════════
-        # [GP100/110/120] 나의 인생 방어 사령부 — 홈 퀵 진입 배너
-        # ══════════════════════════════════════════════════════════════
+        # ── [스캔 퍼스트 아키텍처] 5:5 통합 레이아웃 ──────────────────────────
         st.markdown("""
-<div style="background:linear-gradient(135deg,#a7f3d0 0%,#6ee7b7 60%,#bbf7d0 100%);
-  border:2px solid #34d399;border-radius:16px;padding:14px 20px;margin-bottom:14px;
-  box-shadow:0 0 28px rgba(52,211,153,0.18);display:flex;align-items:center;gap:16px;">
-  <div style="font-size:2rem;">🏛️</div>
-  <div style="flex:1;">
-    <div style="font-size:1.0rem;font-weight:900;color:#ffffff;letter-spacing:0.04em;text-shadow:0 1px 3px rgba(0,0,0,0.18);">
-      나의 인생 방어 사령부 <span style="font-size:0.72rem;color:#ffffff;font-weight:600;
-      background:rgba(255,255,255,0.28);border:1px solid rgba(255,255,255,0.5);border-radius:20px;
-      padding:2px 8px;margin-left:6px;">NEW · GP100·110·120</span>
-    </div>
-    <div style="font-size:0.78rem;color:#ffffff;margin-top:3px;opacity:0.90;">
-      보험금 청구 비서 · 법리 시뮬레이터 · 의무기록 분석실 — 내 권리를 끝까지 지킨다
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
-        if st.button("🏛️ 인생 방어 사령부 입장 →", key="home_quick_life_defense",
-                     use_container_width=True,
-                     help="GP100 보상지능 · GP110 법률RAG · GP120 보안금고 통합 허브"):
-            _go_tab("life_defense")
-            st.rerun()
+<style>
+/* 스캔 퍼스트 — 좌측 컨트롤러 외곽선 */
+.gk-scan-controller {
+  border: 2px solid #B3E5FC;
+  border-radius: 14px;
+  padding: 18px 16px 14px 16px;
+  background: #FFFFFF;
+  box-shadow: 0 2px 12px rgba(2,132,199,0.09);
+}
+/* 우측 출력 스크롤 박스 */
+.gk-scan-output {
+  border: 2px solid #B3E5FC;
+  border-radius: 14px;
+  padding: 16px;
+  background: #FFFFFF;
+  box-shadow: 0 2px 12px rgba(2,132,199,0.09);
+  height: 420px;
+  overflow-y: auto;
+}
+/* 액션 버튼 — 강렬한 딥블루 */
+div[data-testid="stButton"] > button[kind="primary"]#btn_home_scan_start,
+div[data-testid="stButton"] > button[data-testid="btn_home_scan_start"] {
+  background: linear-gradient(135deg,#0ea5e9,#0369a1) !important;
+  color: #ffffff !important;
+  font-size: 1.05rem !important;
+  font-weight: 900 !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 12px 0 !important;
+  box-shadow: 0 4px 16px rgba(3,105,161,0.35) !important;
+}
+</style>""", unsafe_allow_html=True)
 
-        # ══════════════════════════════════════════════════════════════
-        # [가이딩 프로토콜 제68조 + 제69조 + 제70조]
-        # 질병별 경제적 손실 추정 엔진 + 대화형 상담 위젯
-        # + 서울 5대 병원 비급여 프리미엄 데이터 자가 교육
-        # ══════════════════════════════════════════════════════════════
+        _scan_left, _scan_right = st.columns([5, 5], gap="medium")
+
+        with _scan_left:
+            st.markdown('<div class="gk-scan-controller">', unsafe_allow_html=True)
+            st.markdown("""
+<div style="font-size:1.05rem;font-weight:900;color:#0369a1;margin-bottom:6px;letter-spacing:0.02em;">
+  📂 스마트 스캔 컨트롤러
+</div>
+<div style="font-size:0.82rem;color:#334155;margin-bottom:14px;line-height:1.6;">
+  보험금 청구 서류, 의무기록, 약관을 드래그하거나<br>카메라로 촬영하여 로딩하세요.<br>
+  <span style="color:#0ea5e9;font-weight:700;">📱 모바일: 카메라 앱과 즉시 연동됩니다.</span>
+</div>""", unsafe_allow_html=True)
+            _home_scan_file = st.file_uploader(
+                "파일 업로드 (PDF · JPG · PNG · WEBP)",
+                type=["pdf", "jpg", "jpeg", "png", "webp"],
+                key="home_scan_uploader",
+                label_visibility="collapsed",
+                help="최대 10MB · PDF/이미지 지원 · 드래그 앤 드롭 가능",
+                accept_multiple_files=False,
+            )
+            if _home_scan_file:
+                _fsize_mb = len(_home_scan_file.getvalue()) / (1024 * 1024)
+                if _fsize_mb > 10:
+                    st.warning(f"⚠️ 파일 크기({_fsize_mb:.1f}MB)가 10MB를 초과합니다. 더 작은 파일을 업로드해 주세요.")
+                else:
+                    st.success(f"✅ {_home_scan_file.name}  ({_fsize_mb:.1f}MB) — 분석 준비 완료")
+                    st.session_state["home_scan_file"] = _home_scan_file
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+            if st.button("⚡ 자료 추출 및 분석 시작", key="btn_home_scan_start",
+                         use_container_width=True, type="primary"):
+                _f = st.session_state.get("home_scan_file")
+                if not _f:
+                    st.warning("먼저 파일을 업로드해 주세요.")
+                else:
+                    st.session_state["home_scan_trigger"] = True
+                    st.session_state["home_scan_result"] = None
+                    _go_tab("ocr_scan")
+                    st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with _scan_right:
+            st.markdown("""
+<div style="font-size:1.05rem;font-weight:900;color:#0369a1;margin-bottom:10px;">
+  🤖 AI 분석 스캔파일 요약
+</div>""", unsafe_allow_html=True)
+            _scan_result = st.session_state.get("home_scan_result")
+            _scan_result_html = ""
+            if _scan_result:
+                _scan_result_html = f"<div style='color:#000000;font-size:0.88rem;line-height:1.8;white-space:pre-wrap;'>{_scan_result}</div>"
+            else:
+                _scan_result_html = """
+<div style="color:#94a3b8;font-size:0.85rem;text-align:center;padding-top:60px;line-height:2.0;">
+  📄 파일을 업로드하고<br><strong style='color:#0369a1;'>⚡ 자료 추출 및 분석 시작</strong>을 누르면<br>
+  여기에 분석 결과가 표시됩니다.<br><br>
+  <span style="font-size:0.78rem;color:#b0bec5;">
+    · 보험금 청구 적정성<br>
+    · 법리적 쟁점 시뮬레이션<br>
+    · 의무기록 핵심 키워드 요약
+  </span>
+</div>"""
+            st.markdown(f'<div class="gk-scan-output">{_scan_result_html}</div>',
+                        unsafe_allow_html=True)
+
+        st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 
         # ── GP-71 §1: Advanced_Medical_Table — 초고가 첨단 치료비 상수 DB ──────
         _GP71_ADVANCED_TABLE = {
@@ -31191,118 +31244,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
 
         st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹8 닫기]
 
-        # ── [GP220 그룹9] 보험사 연락처 ──────────────────────────────────
-        st.markdown('<div class="gk-g220 gk-g220-contact"><span class="gk-g220-label">⑨ 보험사 연락처 · 청구 안내</span>', unsafe_allow_html=True)
-
-        st.divider()
-        if st.session_state.get('is_admin'):
-            st.markdown(f"""
-<div style="position:relative;background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);border:2px solid #60a5fa;border-radius:10px;
-  padding:10px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;
-  box-shadow:0 2px 10px rgba(59,130,246,0.18);">
-  {_bid('1-6-1')}
-  <span style="font-size:1.3rem;">⚙️</span>
-  <div>
-    <div style="color:#ffffff;font-size:0.92rem;font-weight:900;text-shadow:0 1px 3px rgba(0,0,0,0.18);">관리자 시스템</div>
-    <div style="color:#ffffff;font-size:0.73rem;margin-top:1px;opacity:0.88;">아래 버튼을 눌러 관리자 대시보드로 이동합니다</div>
-  </div>
-</div>""", unsafe_allow_html=True)
-            st.markdown("""<style>
-.gk-admin-btn-marker + div[data-testid="stButton"] > button,
-.gk-admin-btn-marker + div[data-testid="stButton"] > button:focus {
-  background: linear-gradient(135deg,#93c5fd 0%,#60a5fa 100%) !important;
-  background-image: linear-gradient(135deg,#93c5fd 0%,#60a5fa 100%) !important;
-  border: 2px solid #3b82f6 !important;
-  color: #ffffff !important;
-  font-weight: 800 !important;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.25) !important;
-}
-.gk-admin-btn-marker + div[data-testid="stButton"] > button:hover {
-  background: linear-gradient(135deg,#60a5fa 0%,#3b82f6 100%) !important;
-  background-image: linear-gradient(135deg,#60a5fa 0%,#3b82f6 100%) !important;
-  color: #ffffff !important;
-}
-</style>
-<div class="gk-admin-btn-marker" style="display:none;"></div>""", unsafe_allow_html=True)
-            if st.button("⚙️ 관리자 시스템 이동", key="home_dash_t9", use_container_width=True):
-                _go_tab("t9")
-
-        # ── 보험사 연락처 섹션 ──────────────────────────────────────────
-        st.divider()
-        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('1-6-2')}</div>""",
-                    unsafe_allow_html=True)
-        st.markdown("## 📞 보험사 연락처 & 청구 안내")
-
-        LIFE_INS = [
-            {"name":"삼성생명","color":"#0066CC","call":"1588-3114","emergency":"해당없음","hq":"서울 서초구 서초대로74길 11","gwangju":"광주 서구 상무대로 904 / 062-360-7700","claim":"① 앱(삼성생명) → 보험금 청구\n② 지점 방문 또는 우편 접수\n③ 팩스 접수 후 원본 우편 발송","fax":"02-1588-3114"},
-            {"name":"한화생명","color":"#E8001C","call":"1588-6363","emergency":"해당없음","hq":"서울 영등포구 63로 50","gwangju":"광주 서구 상무중앙로 110 / 062-380-7000","claim":"① 앱(한화생명) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-789-8282"},
-            {"name":"교보생명","color":"#003087","call":"1588-1001","emergency":"해당없음","hq":"서울 종로구 종로 1","gwangju":"광주 서구 상무대로 904 / 062-380-1001","claim":"① 앱(교보생명) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-721-3535"},
-            {"name":"신한라이프","color":"#0046FF","call":"1588-5580","emergency":"해당없음","hq":"서울 중구 세종대로 9","gwangju":"광주 서구 상무중앙로 110 / 062-380-5580","claim":"① 앱(신한라이프) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-3455-4500"},
-            {"name":"NH농협생명","color":"#00843D","call":"1544-4000","emergency":"해당없음","hq":"서울 중구 새문안로 16","gwangju":"광주 북구 우치로 226 / 062-520-4000","claim":"① 앱(NH농협생명) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-2080-6000"},
-            {"name":"흥국생명","color":"#8B0000","call":"1588-2288","emergency":"해당없음","hq":"서울 종로구 새문안로 68","gwangju":"광주 서구 상무대로 904 / 062-380-2288","claim":"① 앱(흥국생명) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-2002-7000"},
-            {"name":"동양생명","color":"#FF6600","call":"1577-1004","emergency":"해당없음","hq":"서울 종로구 종로 26","gwangju":"광주 서구 상무중앙로 110 / 062-380-1004","claim":"① 앱(동양생명) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-3455-5000"},
-            {"name":"ABL생명","color":"#004B87","call":"1588-6600","emergency":"해당없음","hq":"서울 영등포구 국제금융로 10","gwangju":"광주 서구 상무대로 904 / 062-380-6600","claim":"① 앱(ABL생명) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-3455-6000"},
-            {"name":"미래에셋생명","color":"#E8001C","call":"1588-0220","emergency":"해당없음","hq":"서울 중구 을지로5길 26 (미래에셋센터원빌딩)","gwangju":"광주 서구 상무중앙로 110 / 062-380-0220","claim":"① 앱(미래에셋생명) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-3774-7000"},
-            {"name":"푸본현대생명","color":"#009B77","call":"1588-1005","emergency":"해당없음","hq":"서울 영등포구 국제금융로 10","gwangju":"광주 서구 상무대로 904 / 062-380-1005","claim":"① 앱(푸본현대생명) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-3455-7000"},
-            {"name":"KDB생명","color":"#005BAC","call":"1588-4040","emergency":"해당없음","hq":"서울 영등포구 국제금융로 10","gwangju":"광주 서구 상무대로 904 / 062-380-4040","claim":"① KDB생명 홈페이지 → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-3455-8000"},
-            {"name":"처브라이프","color":"#C8102E","call":"1566-0770","emergency":"해당없음","hq":"서울 종로구 종로 33 (그랑서울)","gwangju":"콜센터 문의 (1566-0770)","claim":"① 처브라이프 홈페이지 → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-2076-9000"},
-            {"name":"AIA생명","color":"#E8001C","call":"1588-9898","emergency":"해당없음","hq":"서울 중구 을지로5길 26 (미래에셋센터원빌딩)","gwangju":"광주 서구 상무중앙로 110 / 062-380-9898","claim":"① 앱(AIA생명) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-3774-8000"},
-            {"name":"메트라이프생명","color":"#00A3E0","call":"1588-9600","emergency":"해당없음","hq":"서울 종로구 종로 33 (그랑서울 메트라이프타워)","gwangju":"광주 서구 상무대로 904 / 062-380-9600","claim":"① 앱(메트라이프) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-2076-8000"},
-        ]
-        NON_LIFE_INS = [
-            {"name":"삼성화재","color":"#0066CC","call":"1588-5114","emergency":"1588-5114 (24시간)","hq":"서울 서초구 서초대로74길 11","gwangju":"광주 서구 상무대로 904 / 062-360-5114","claim":"① 앱(삼성화재) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-1588-5114"},
-            {"name":"현대해상","color":"#005BAC","call":"1588-5656","emergency":"1588-5656 (24시간)","hq":"서울 종로구 세종대로 163","gwangju":"광주 서구 상무중앙로 110 / 062-380-5656","claim":"① 앱(현대해상) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-2002-8000"},
-            {"name":"KB손해보험","color":"#FFB81C","call":"1588-0114","emergency":"1588-0114 (24시간)","hq":"서울 강남구 테헤란로 222","gwangju":"광주 서구 상무대로 904 / 062-360-0114","claim":"① 앱(KB손보) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-2002-5000"},
-            {"name":"DB손해보험","color":"#E8001C","call":"1588-0100","emergency":"1588-0100 (24시간)","hq":"서울 강남구 테헤란로 432","gwangju":"광주 서구 상무대로 904 / 062-360-0100","claim":"① 앱(DB손보) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-3011-8000"},
-            {"name":"메리츠화재","color":"#FF6600","call":"1566-7711","emergency":"1566-7711 (24시간)","hq":"서울 강남구 테헤란로 138","gwangju":"광주 서구 상무대로 904 / 062-360-7711","claim":"① 앱(메리츠화재) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-3786-8000"},
-            {"name":"한화손해보험","color":"#E8001C","call":"1566-8000","emergency":"1566-8000 (24시간)","hq":"서울 영등포구 63로 50","gwangju":"광주 서구 상무대로 904 / 062-360-8000","claim":"① 앱(한화손보) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-789-8100"},
-            {"name":"롯데손해보험","color":"#E8001C","call":"1588-3344","emergency":"1588-3344 (24시간)","hq":"서울 중구 을지로 30","gwangju":"광주 서구 상무대로 904 / 062-360-3344","claim":"① 앱(롯데손보) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-2218-8000"},
-            {"name":"흥국화재","color":"#8B0000","call":"1688-1688","emergency":"1688-1688 (24시간)","hq":"서울 종로구 새문안로 68","gwangju":"광주 서구 상무대로 904 / 062-360-1688","claim":"① 앱(흥국화재) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-2002-7100"},
-            {"name":"NH농협손해보험","color":"#00843D","call":"1644-9000","emergency":"1644-9000 (24시간)","hq":"서울 중구 새문안로 16","gwangju":"광주 서구 상무대로 904 / 062-360-9000","claim":"① 앱(NH농협손보) → 보험금 청구\n② 지점 방문 / 우편 접수\n③ 팩스 접수","fax":"02-2080-7000"},
-        ]
-
-        def _tel_link(text, color):
-            def _rep(m):
-                raw = m.group(0)
-                digits = re.sub(r"[^0-9]", "", raw)
-                return (f'<a href="tel:{digits}" style="color:{color};font-weight:700;'
-                        f'text-decoration:none;border-bottom:1.5px solid {color}88;">{raw}</a>')
-            return re.sub(
-                r'\b1[0-9]{3}-[0-9]{4}\b|\b0[2-9][0-9]?-[0-9]{3,4}-[0-9]{4}\b',
-                _rep, text)
-
-        def _ins_card(ins):
-            c = ins['color']
-            claim_html = ins['claim'].replace('\n','<br>')
-            gj = ins.get('gwangju','콜센터 문의')
-            call_l  = _tel_link(ins['call'], c)
-            emerg_l = _tel_link(ins['emergency'], c)
-            gj_l    = _tel_link(gj, c)
-            return (f"<div style='border:1.5px solid {c}33;border-left:5px solid {c};"
-                    f"border-radius:8px;padding:12px 14px;margin-bottom:8px;background:#fff;'>"
-                    f"<div style='font-size:0.95rem;font-weight:800;color:{c};margin-bottom:6px;'>🏢 {ins['name']}</div>"
-                    f"<table style='width:100%;font-size:0.78rem;color:#333;border-collapse:collapse;'>"
-                    f"<tr><td style='padding:2px 6px 2px 0;font-weight:600;color:#555;width:82px;'>📞 콜센터</td><td>{call_l}</td></tr>"
-                    f"<tr><td style='padding:2px 6px 2px 0;font-weight:600;color:#555;'>🚨 긴급출동</td><td>{emerg_l}</td></tr>"
-                    f"<tr><td style='padding:2px 6px 2px 0;font-weight:600;color:#555;vertical-align:top;'>🏛️ 본사</td><td>{ins['hq']}</td></tr>"
-                    f"<tr><td style='padding:2px 6px 2px 0;font-weight:600;color:#555;vertical-align:top;'>🌸 광주</td><td>{gj_l}</td></tr>"
-                    f"<tr><td style='padding:2px 6px 2px 0;font-weight:600;color:#555;vertical-align:top;'>📋 청구</td><td>{claim_html}</td></tr>"
-                    f"<tr><td style='padding:2px 6px 2px 0;font-weight:600;color:#555;'>📠 팩스</td><td>{ins['fax']}</td></tr>"
-                    f"</table></div>")
-
-        ins_tab_life, ins_tab_nonlife = st.tabs(["🏦 생명보험사", "🚗 손해보험사"])
-        with ins_tab_life:
-            cols_l = st.columns(2)
-            for i, ins in enumerate(LIFE_INS):
-                with cols_l[i % 2]:
-                    st.markdown(_ins_card(ins), unsafe_allow_html=True)
-        with ins_tab_nonlife:
-            cols_n = st.columns(2)
-            for i, ins in enumerate(NON_LIFE_INS):
-                with cols_n[i % 2]:
-                    st.markdown(_ins_card(ins), unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹9 닫기]
+        # ── [GP220 그룹9 삭제됨 — 보험사 연락처·청구 안내 블럭 제거] ──────────
 
 
 
@@ -37032,10 +36974,10 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
             # ── 액션 버튼 그리드
             _ib_btn_col1, _ib_btn_col2 = st.columns([1, 1])
             with _ib_btn_col1:
-                _ib_search_btn = st.button("🔍 검색", key="ins_bot_search",
+                _ib_search_btn = st.button("🔍 용어 검색", key="ins_bot_search",
                                            use_container_width=True, type="primary")
             with _ib_btn_col2:
-                _ib_clear_btn = st.button("🗑 초기화", key="ins_bot_clear",
+                _ib_clear_btn = st.button("✕ 초기화", key="ins_bot_clear",
                                           use_container_width=True)
             if _ib_clear_btn:
                 for _k in ["ins_bot_result", "ins_bot_sources", "ins_bot_alert",
@@ -37481,7 +37423,37 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
             # ── 결과 스크롤 컨테이너 닫기
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── [제166조] 카테고리 브라우저 + 승인 큐 (하단 전체 폭) ─────────────
+            # ── 분석 요약 박스 (스크롤 컨테이너 아래, 90~95% 폭, 파스텔 하늘색) ──
+            if _res:
+                _last_q_disp = st.session_state.get("ins_bot_last_q", "")
+                _domain_disp = _res.get("domain", "-")
+                _src_disp    = _res.get("approved_src", "-")
+                _verify_ok   = _res.get("verify_ok", False)
+                _alert_disp  = _res.get("alert", "")
+                _verify_txt  = "✅ 2차 검증 통과" if _verify_ok else "⚠ 검증 보류"
+                _verify_clr  = "#0369a1" if _verify_ok else "#b45309"
+                _alert_row   = (
+                    f'<div style="margin-top:6px;font-size:0.78rem;color:#c2410c;">'
+                    f'⚠️ {_alert_disp}</div>' if _alert_disp else ""
+                )
+                st.markdown(
+                    f'<div style="width:93%;margin:10px auto 0 auto;'
+                    f'background:#e0f2fe;border:1.5px solid #7dd3fc;'
+                    f'border-radius:12px;padding:12px 18px;'
+                    f'box-shadow:0 2px 6px rgba(14,165,233,0.10);">'
+                    f'<div style="font-size:0.78rem;font-weight:900;color:#0369a1;'
+                    f'letter-spacing:0.06em;margin-bottom:6px;">📊 분석 요약</div>'
+                    f'<div style="font-size:0.8rem;color:#1e3a5f;line-height:1.7;">'
+                    f'<b>검색어:</b> {_last_q_disp} &nbsp;·&nbsp; '
+                    f'<b>도메인:</b> {_domain_disp} &nbsp;·&nbsp; '
+                    f'<b>출처:</b> {_src_disp}<br>'
+                    f'<span style="color:{_verify_clr};font-weight:700;">{_verify_txt}</span>'
+                    f'{_alert_row}'
+                    f'</div></div>',
+                    unsafe_allow_html=True,
+                )
+
+        # ── [제166조] 카테고리 브라우저 + 승인 큐 (하단 전체 폭) ─────────────────
         if _dict_available:
             st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
             st.markdown(f"""
@@ -37492,31 +37464,6 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
     <div class="sub">총 {len(INSURANCE_DICT)}개 용어 등록 · 카테고리별 열람</div>
   </div>
 </div>""", unsafe_allow_html=True)
-            st.markdown(
-                "<div style='font-size:0.78rem;font-weight:800;color:#6366f1;"
-                "letter-spacing:0.06em;margin:6px 0 8px 0;'>📂 카테고리별 열람</div>",
-                unsafe_allow_html=True,
-            )
-            _cat_cols = st.columns(len(DICT_CATEGORIES) if len(DICT_CATEGORIES) <= 6 else 6)
-            for _ci, _cat in enumerate(DICT_CATEGORIES):
-                with _cat_cols[_ci % 6]:
-                    if st.button(
-                        _cat,
-                        key=f"ib_cat_{_cat}",
-                        use_container_width=True,
-                    ):
-                        st.session_state["ins_bot_browse_cat"] = _cat
-            _browse_cat = st.session_state.get("ins_bot_browse_cat", "")
-            if _browse_cat:
-                _cat_entries = dict_by_category(_browse_cat)
-                st.markdown(
-                    f"<div style='font-size:0.82rem;font-weight:700;color:#0f4c81;"
-                    f"margin:12px 0 6px 0;'>📂 [{_browse_cat}] 카테고리 — {len(_cat_entries)}건</div>",
-                    unsafe_allow_html=True,
-                )
-                for _ce in _cat_entries:
-                    _render_dict_card(_ce["key"], _ce["entry"], expanded=False)
-
             st.markdown("<hr class='ib-divider'>", unsafe_allow_html=True)
             _pending = dict_pending_terms()
             if _pending:
