@@ -2590,18 +2590,19 @@ def _art43_render_tab() -> None:
                 else:
                     st.warning("이메일 주소를 입력하세요.")
         with _sh2:
-            _kakao_msg = (
-                f"[Goldkey AI 리포트] {_cust_name or '고객'}님의 야간 분석 리포트가 준비되었습니다. "
-                f"가문 안보 지수: {_art43_calc_security_index(float(_nhis))['total']}점"
+            # ── [GP240조] 카카오 알림톡 + PDF 발송 ────────────────────────
+            _art43_report_text = (
+                f"[야간 AI 리포트] {_cust_name or '고객'}님\n"
+                f"가문 안보 지수: {_art43_calc_security_index(float(_nhis))['total']}점\n\n"
+                + (_ai_analysis[:300] if _ai_analysis else "야간 학습 분석 결과를 확인하세요.")
             )
-            _kakao_enc = _kakao_msg.replace(" ", "%20").replace("\n", "%0A")
-            st.markdown(
-                f'<a href="https://open.kakao.com/o/share?url=https://goldkey-ai.app'
-                f'&text={_kakao_enc}" target="_blank">'
-                f'<button style="width:100%;background:#fee500;color:#3c1e1e;'
-                f'border:none;border-radius:8px;padding:10px;font-size:0.9rem;'
-                f'font-weight:700;cursor:pointer;margin-top:28px;">카카오톡 공유</button></a>',
-                unsafe_allow_html=True,
+            st.session_state["_art43_report_text"] = _art43_report_text
+            _render_report_send_ui(
+                "_art43_report_text",
+                tab_key="art43",
+                title="AI 야간 분석 리포트",
+                client_name=_cust_name or "고객",
+                compact=False,
             )
 
     else:
@@ -23946,6 +23947,101 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
                     unsafe_allow_html=True,
                 )
 
+            # ── [GP200 §4] 내 보고서 미리보기 ────────────────────────────
+            st.markdown("---")
+            st.markdown(
+                "<div style='font-size:0.9rem;font-weight:900;color:#1a2d5a;"
+                "margin-bottom:8px;'>📄 내 보고서 미리보기</div>",
+                unsafe_allow_html=True,
+            )
+            st.caption("내 정보가 실제 보고서·카카오 메시지에 어떻게 찍히는지 확인하세요.")
+            if st.button("🔍 보고서 미리보기 생성", key="_gp200_report_preview_btn",
+                         use_container_width=True):
+                st.session_state["_gp200_show_preview"] = True
+
+            if st.session_state.get("_gp200_show_preview"):
+                _prev_pi = {
+                    "company": st.session_state.get("gp200_company", ""),
+                    "branch":  st.session_state.get("gp200_branch",  ""),
+                    "name":    st.session_state.get("gp200_name", "")
+                               or st.session_state.get("user_name", "마스터"),
+                    "contact": st.session_state.get("gp200_contact", ""),
+                }
+                _prev_co   = _prev_pi["company"] or "소속 회사"
+                _prev_br   = _prev_pi["branch"]  or ""
+                _prev_nm   = _prev_pi["name"]    or "마스터"
+                _prev_ct   = _prev_pi["contact"] or ""
+                _prev_affil = " ".join(filter(None, [_prev_co, _prev_br]))
+
+                # ── PDF 리포트 푸터 미리보기 ─────────────────────────────
+                _prev_pdf_footer = f"담당: {_prev_affil} | {_prev_nm} 마스터" + (
+                    f" | 연락처: {_prev_ct}" if _prev_ct else "")
+                _prev_report_body = (
+                    "본 리포트는 **{affil}** 소속 **{nm} 마스터**가 "
+                    "Goldkey AI 시스템을 통해 정밀 분석한 결과입니다.\n\n"
+                    "─────────────────────────────────────────\n"
+                    "**[AI 분석 결과 예시]**\n\n"
+                    "고객님의 현재 보장 현황을 분석한 결과, 암·뇌·심장 3대 중증질환 보장이\n"
+                    "충분히 구성되어 있으나, 간병 및 치매 관련 장기 케어 보장이 부족합니다.\n\n"
+                    "▶ 권장 보완 담보: 장기요양 특약, 치매간병비 특약\n"
+                    "▶ 예상 추가 보험료: 월 2~4만원 수준\n\n"
+                    "─────────────────────────────────────────\n"
+                    "*[면책 고지] 본 분석 결과는 AI 보조 도구에 의한 참고용 자료입니다.*"
+                ).format(affil=_prev_affil, nm=_prev_nm)
+
+                with st.expander("📋 PDF 리포트 미리보기", expanded=True):
+                    st.markdown(f"""
+<div style="background:#fff;border:1.5px solid #d0d7de;border-radius:12px;
+  padding:20px 22px;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  font-size:0.85rem;line-height:1.9;color:#1a1a2e;">
+  <div style="font-size:1.1rem;font-weight:900;color:#1a2d5a;
+    border-bottom:2px solid #2e6da4;padding-bottom:8px;margin-bottom:14px;">
+    🏅 골드키 AI 분석 리포트
+  </div>
+  <div style="white-space:pre-wrap;">{_prev_report_body.replace(chr(10), '<br>')}</div>
+  <div style="margin-top:16px;padding:10px 14px;
+    background:#f0f4ff;border-radius:8px;border-left:4px solid #2e6da4;
+    font-size:0.78rem;font-weight:700;color:#1a3a5c;">
+    {_prev_pdf_footer}
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                # ── 카카오 메시지 미리보기 ──────────────────────────────
+                _prev_kakao_footer = "[발송: " + " | ".join(filter(None, [
+                    _prev_affil,
+                    f"{_prev_nm} 설계사",
+                    _prev_ct,
+                ])) + "]"
+                _prev_kakao_body = (
+                    f"[{_prev_co}] {_prev_nm} 설계사입니다.\n"
+                    f"고객님을 위해 정밀 분석한 'AI 인생 방어 리포트'가 도착했습니다.\n\n"
+                    f"■ 골드키 AI 분석 리포트\n\n"
+                    f"고객님의 보장 분석 결과 핵심 내용을 정리해 전달드립니다.\n"
+                    f"암·뇌·심장 3대 보장 현황 및 보완 안내입니다.\n\n"
+                    f"─────────────────\n"
+                    f"담당: {_prev_nm} ({_prev_co})"
+                    + (f"\n연락처: {_prev_ct}" if _prev_ct else "")
+                    + f"\n\n{_prev_kakao_footer}"
+                )
+                with st.expander("💬 카카오 메시지 미리보기", expanded=True):
+                    st.markdown(f"""
+<div style="background:#FEE500;border-radius:14px;padding:16px 18px;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  font-size:0.83rem;line-height:1.8;color:#3C1E1E;
+  white-space:pre-wrap;max-width:360px;margin:0 auto;
+  box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+  <div style="font-size:0.95rem;font-weight:900;margin-bottom:8px;">
+    💬 카카오톡 알림톡 미리보기
+  </div>
+  {_prev_kakao_body.replace(chr(10), '<br>')}
+</div>""", unsafe_allow_html=True)
+
+                if st.button("✖ 미리보기 닫기", key="_gp200_preview_close",
+                             use_container_width=False):
+                    st.session_state.pop("_gp200_show_preview", None)
+                    st.rerun()
+            # ── [GP200 §4] 끝 ─────────────────────────────────────────────
+
     # ── 관리자 지시 목록 (메인 영역) ──────────────────────────────────────
     if st.session_state.get("is_admin") and st.session_state.get("_show_directives"):
         st.markdown("---")
@@ -25481,6 +25577,14 @@ window['startTTS_{tab_key}']=function(){{
                         mime="text/plain",
                         key=f"dl_{result_key}",
                         use_container_width=True)
+            # ── [GP240조] 카카오/SMS 발송 + PDF 다운로드 공통 UI ───────────
+            _render_report_send_ui(
+                result_key,
+                tab_key=result_key,
+                title=f"골드키 AI 분석 리포트",
+                client_name=c_name_out,
+                compact=True,
+            )
             # ── [GP90] 전역 데이터 실시간 동기화 패널 ───────────────────────
             _gp90_panel()
             # ── [GP91] 1인칭 생애주기 리스크 리포트 — 주민번호 입력 즉시 자동 팝업
@@ -28295,7 +28399,7 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
 
         st.markdown("""
 <style>
-/* ── GP-69 Chat Widget 스타일 ── */
+/* ── GP-250 Loss Analysis Widget 스타일 ── */
 .gk-disease-widget {
   background: linear-gradient(135deg, #e0f4ff 0%, #cceeff 60%, #b3e0ff 100%);
   border: 2px solid #D4AF37;
@@ -28929,7 +29033,7 @@ section[data-testid="stMain"] .gk-g220 div[data-baseweb="textarea"] textarea {
                     use_container_width=True,
                     help="현재 보험 증권을 분석하여 보장 공백을 즉시 확인합니다.",
                 ):
-                    _go_tab("policy_review")
+                    _go_tab("policy_scan")  # → 보험증권 분석 탭으로 이동 (policy_review 라우팅 블록 없음)
             with _gp68_cta_col2:
                 if st.button(
                     "📊 상해·질병 보장 상담",
@@ -30640,7 +30744,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 7개 핵심 서비스</span>
 </div>""", unsafe_allow_html=True)
             if st.button("🔬 A섹션 진입 — Smart Analysis & Hub", key="ag_a_enter", use_container_width=True):
-                _go_tab("policy_review")
+                _go_tab("policy_scan")
 
         with _pf_c2:
             st.markdown(f"""
@@ -30659,7 +30763,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 11개 핵심 서비스</span>
 </div>""", unsafe_allow_html=True)
             if st.button("🛡️ B섹션 진입 — Expert Consulting", key="ag_b_enter", use_container_width=True):
-                _go_tab("home")
+                _go_tab("t0")
 
         with _pf_c3:
             st.markdown(f"""
@@ -30678,7 +30782,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 7개 핵심 서비스</span>
 </div>""", unsafe_allow_html=True)
             if st.button("💼 C섹션 진입 — Wealth & Corporate", key="ag_c_enter", use_container_width=True):
-                _go_tab("t2")
+                _go_tab("t5")
 
         st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
 
@@ -30702,7 +30806,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
   <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 4개 핵심 서비스</span>
 </div>""", unsafe_allow_html=True)
             if st.button("🌸 D섹션 진입 — Life & Care", key="ag_d_enter", use_container_width=True):
-                _go_tab("auto_comp")
+                _go_tab("life_event")
 
         with _pf_d2:
             st.markdown(f"""
@@ -30929,6 +31033,7 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
         "gs_last_result":  "",      # 직전 AI 분석 결과 요약 (기둥 간 참조)
         "gs_consult_mode": "",      # 종사자/비종사자 모드 (사이드바 연동)
         "gs_pref_ins":     "",      # 선호 보험사 (사이드바 연동)
+        "gs_c_phone":      "",      # 현재 상담 고객 전화번호 (카카오 발송 기본값)
     }
 
     def _gs_init():
@@ -30958,6 +31063,80 @@ div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover 
 
     # GS 초기화 실행 (매 렌더 사이클마다)
     _gs_init()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [GP200조] 플래너 브랜딩 정보 추출 헬퍼
+    # ══════════════════════════════════════════════════════════════════════
+    def _get_planner_info() -> dict:
+        """[GP200조] session_state의 gp200_* 값을 dict로 반환."""
+        return {
+            "company": st.session_state.get("gp200_company", ""),
+            "branch":  st.session_state.get("gp200_branch",  ""),
+            "name":    st.session_state.get("gp200_name",    "")
+                       or st.session_state.get("user_name",  ""),
+            "contact": st.session_state.get("gp200_contact", ""),
+        }
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [GP240조] 보고서 발송 공통 UI 헬퍼 (카카오/SMS + PDF 다운로드)
+    # ══════════════════════════════════════════════════════════════════════
+    def _render_report_send_ui(
+        result_key: str,
+        *,
+        tab_key: str = "",
+        title: str = "골드키 AI 분석 리포트",
+        client_name: str = "",
+        compact: bool = True,
+    ) -> None:
+        """
+        AI 분석 결과(session_state[result_key])를 카카오/SMS로 발송하고
+        PDF 다운로드 버튼을 렌더링하는 공통 UI 헬퍼.
+        [GP200조] 브랜딩 정보(gp200_*)를 자동으로 메시지·PDF에 삽입.
+        """
+        _report_text = st.session_state.get(result_key, "")
+        _pi = _get_planner_info()
+        _sk = f"_send_{tab_key or result_key}"
+        _default_phone = (
+            st.session_state.get("gs_c_phone", "")
+            or st.session_state.get("gp200_contact", "")
+        )
+
+        st.markdown("---")
+        _su_c1, _su_c2 = st.columns(2)
+
+        with _su_c1:
+            # 카카오/SMS 발송 UI
+            try:
+                from modules.kakao_sender import render_send_ui as _kk_ui
+                _kk_ui(
+                    _report_text,
+                    session_key=_sk,
+                    default_phone=_default_phone,
+                    title=title,
+                    compact=compact,
+                    planner_info=_pi,
+                )
+            except Exception as _kk_ex:
+                st.caption(f"⚠️ 카카오 발송 모듈 오류: {_kk_ex}")
+
+        with _su_c2:
+            # PDF 다운로드 버튼
+            try:
+                from modules.pdf_generator import render_pdf_download as _pdf_dl
+                _pdf_dl(
+                    _report_text,
+                    title=title,
+                    client_name=client_name or st.session_state.get("gs_c_name", ""),
+                    key=f"pdf_{tab_key or result_key}",
+                    planner_info=_pi,
+                )
+            except Exception as _pdf_ex:
+                st.caption(f"⚠️ PDF 생성 모듈 오류: {_pdf_ex}")
+
+        # [GP200조] 브랜딩 푸터 미리보기
+        _footer_html = gp200_brand_footer(st.session_state)
+        if _footer_html:
+            st.markdown(_footer_html, unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════
     # [아키텍처 — 중앙 인증 게이트] 회랑(라우터)에서 로그인 상태 중앙 체크

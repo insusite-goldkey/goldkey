@@ -113,8 +113,42 @@
 
 ---
 
+## H. 카카오/SMS 발송 · PDF 다운로드 · GP200 브랜딩 (v1.4.0)
+
+| # | 기능 | 파일 | 상태 | 비고 |
+|---|------|------|------|------|
+| H-1 | 카카오 알림톡 발송 (비즈메시지 API) | `modules/kakao_sender.py` | 🔧 | API 키 미설정 시 오류 안내, SMS 자동 폴백 |
+| H-2 | SMS 폴백 발송 (솔라API HMAC-SHA256) | `modules/kakao_sender.py` | 🔧 | SMS_API_KEY / SMS_API_SECRET / SMS_SENDER_NUM 필요 |
+| H-3 | 실제 PDF 생성 (reportlab A4) | `modules/pdf_generator.py` | 🔧 | 한글폰트(NanumGothic/맑은고딕) 자동 감지, 없으면 Helvetica |
+| H-4 | PDF 다운로드 버튼 (모든 보고서 탭) | `app.py` → `_render_report_send_ui` | 🔧 | show_result() 경유, 탭별 key 자동 분리 |
+| H-5 | 카카오/SMS 발송 UI (모든 보고서 탭) | `app.py` → `_render_report_send_ui` | 🔧 | t0·t1·t2·t3·cancer·brain·heart·disability·report43 등 전체 |
+| H-6 | GP200 브랜딩 푸터 — PDF | `modules/pdf_generator.py` | 🔧 | 담당: {소속회사} {지점} {성명} 마스터 \| {연락처} |
+| H-7 | GP200 브랜딩 푸터 — 카카오/SMS | `modules/kakao_sender.py` | 🔧 | [발송: {소속회사} {성명} 설계사] 메시지 하단 자동 삽입 |
+| H-8 | GP200 사용자 정보 입력 (설정 페이지) | `app.py` (사이드바 설정) | 🔧 | 회사명 지능형 자동완성(GA/원수사 DB), 지점·성명·연락처 |
+| H-9 | 내 보고서 미리보기 (설정 페이지) | `app.py` §23950 | 🔧 | PDF 리포트 + 카카오 메시지 형태 동시 미리보기 |
+
+---
+
+## I. 관리자 필수 설정 (Secrets / 환경변수)
+
+| 키 이름 | 용도 | 미설정 시 동작 |
+|---------|------|---------------|
+| `KAKAO_API_KEY` | 카카오 알림톡 App Key | 카카오 발송 불가 → SMS 폴백 시도 |
+| `KAKAO_SENDER_KEY` | 카카오 플러스친구 채널 Key | 카카오 발송 불가 |
+| `KAKAO_TEMPLATE_ID` | 알림톡 템플릿 코드 | 기본값 `goldkey_report_v1` 사용 |
+| `SMS_API_KEY` | 솔라API(Solapi) API Key | SMS 발송 불가 |
+| `SMS_API_SECRET` | 솔라API API Secret | SMS 발송 불가 |
+| `SMS_SENDER_NUM` | 사전 등록된 발신번호 | SMS 발송 불가 |
+
+> **설정 방법**: HuggingFace Spaces → Settings → Repository secrets 에 위 키를 추가하거나,
+> 로컬 개발 시 `.streamlit/secrets.toml` 에 `[default]` 섹션으로 추가.
+> API 키 없이도 앱은 정상 실행됨 (발송 버튼 클릭 시 안내 메시지 표시).
+
+---
+
 ## 점검 이력
 
 | 날짜 | 점검자 | 주요 내용 |
 |------|--------|-----------|
 | 2026-02-28 | Cascade AI | 초기 점검표 작성, v1.3.0 기준 |
+| 2026-03-09 | Cascade AI | v1.4.0 — kakao_sender·pdf_generator 신규, GP200 브랜딩 파이프라인, 전체 보고서 탭 발송 UI 통합 완료 |
