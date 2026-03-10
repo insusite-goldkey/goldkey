@@ -2681,3 +2681,59 @@ def _gp97_analyze_diff(new_meta: dict, existing_index: list) -> dict:
 4. 수정 완료 후 `python -m py_compile app.py` 구문 검사 → SYNTAX OK 확인 후 배포
 
 *이상 제130.2조는 골드키 총통합헌법 UI-STABILITY 추록(2026.03)에 공식 수록된다.*
+
+---
+
+## [SECTION: CLOUD RUN DEPLOY PROTOCOL] — 제130.3조
+
+> **목표:** `app.py` 코드 변경 시 Docker 이미지 빌드 → Cloud Run 재배포까지 **자동 1회 명령**으로 완결한다.  
+> `backup_and_push.ps1` 실행 한 번으로 백업 → GitHub push → 이미지 빌드 → Cloud Run 배포가 순서대로 실행된다.
+
+### §1 [배포 파이프라인 — 절대 순서]
+
+| 단계 | 명령/스크립트 | 설명 |
+|------|--------------|------|
+| 1 | `app_backup_*.py` 생성 | 최신 2개만 유지 |
+| 2 | `git add -A && git commit` | GP-44 커밋 메시지 자동 포함 |
+| 3 | `git push origin main` | GitHub 원격 저장소 동기화 |
+| 4 | `gcloud builds submit` | Artifact Registry에 Docker 이미지 빌드·푸시 |
+| 5 | `gcloud run deploy goldkey-ai` | Cloud Run 새 리비전으로 트래픽 100% 전환 |
+| 6 | HTTP 200 확인 | 배포 후 10초 대기 후 응답 검증 |
+
+### §2 [이미지 태그 규칙]
+
+```
+asia-northeast3-docker.pkg.dev/gen-lang-client-0777682955/goldkey/goldkey-ai:vYYYYMMDD-HHmm
+```
+- 태그는 실행 시각 기준으로 자동 생성 (`"v" + (Get-Date -Format "yyyyMMdd-HHmm")`)
+- 이미지는 Artifact Registry에 누적 보관 (수동 정리 시 Console에서 제거)
+
+### §3 [Cloud Run 배포 고정 파라미터]
+
+| 파라미터 | 값 |
+|---------|---|
+| `--region` | `asia-northeast3` |
+| `--memory` | `2Gi` |
+| `--cpu` | `2` |
+| `--min-instances` | `1` |
+| `--max-instances` | `5` |
+| `--port` | `8080` |
+| `--project` | `gen-lang-client-0777682955` |
+| `--service-account` | `817097913199-compute@developer.gserviceaccount.com` |
+| `--timeout` | `300` |
+
+### §4 [실행 방법]
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "D:\CascadeProjects\backup_and_push.ps1"
+```
+- **GitHub push만으로는 Cloud Run이 재배포되지 않는다.** 반드시 위 스크립트를 실행해야 한다.
+- 빌드 실패 시 스크립트가 `exit 1`로 중단되며 배포 단계로 넘어가지 않는다.
+
+### §5 [AI·개발자 의무]
+
+1. `app.py` 수정 완료 후 구문 검사(`SYNTAX OK`) 통과 시 즉시 `backup_and_push.ps1` 실행
+2. 빌드 또는 배포 실패 시 `AUDIT_LOG.md` `[배포 오류]` 섹션에 실패 원인·조치 기록
+3. GitHub push만 하고 Cloud Run 배포를 생략하는 것은 **가이딩 프로토콜 위반**이다
+
+*이상 제130.3조는 골드키 총통합헌법 DEPLOY-PROTOCOL 추록(2026.03)에 공식 수록된다.*

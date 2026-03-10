@@ -54,10 +54,43 @@ if ($LASTEXITCODE -eq 0) {
     }
 }
 
-# 6. Cloud Run 배포 URL 안내 (HF Space 대신 Cloud Run 사용)
-Write-Host "✅ Cloud Run 배포 완료"
-Write-Host "🔗 앱 확인: https://goldkey-ai-817097913199.asia-northeast3.run.app"
-$statusCode = & curl.exe -s -o NUL -w "%{http_code}" --max-time 15 "https://goldkey-ai-817097913199.asia-northeast3.run.app" 2>$null
+# 6. Cloud Run 이미지 빌드 + 배포 (코드 변경 시 항상 실행)
+$tag = "v" + (Get-Date -Format "yyyyMMdd-HHmm")
+$image = "asia-northeast3-docker.pkg.dev/gen-lang-client-0777682955/goldkey/goldkey-ai:$tag"
+Write-Host "🔨 Cloud Run 이미지 빌드 시작: $image"
+gcloud builds submit --tag $image --project gen-lang-client-0777682955 --region asia-northeast3 .
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ 이미지 빌드 실패 (exit code: $LASTEXITCODE) — 배포 중단"
+    exit 1
+}
+Write-Host "✅ 이미지 빌드 완료: $image"
+
+Write-Host "🚀 Cloud Run 배포 시작..."
+gcloud run deploy goldkey-ai `
+    --image $image `
+    --region asia-northeast3 `
+    --platform managed `
+    --allow-unauthenticated `
+    --memory 2Gi `
+    --cpu 2 `
+    --min-instances 1 `
+    --max-instances 5 `
+    --port 8080 `
+    --project gen-lang-client-0777682955 `
+    --service-account "817097913199-compute@developer.gserviceaccount.com" `
+    --timeout 300 `
+    --quiet
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✅ Cloud Run 배포 완료"
+    Write-Host "🔗 앱 확인: https://goldkey-ai-817097913199.asia-northeast3.run.app"
+} else {
+    Write-Host "❌ Cloud Run 배포 실패 (exit code: $LASTEXITCODE) — 수동 확인 필요"
+    exit 1
+}
+
+# 배포 후 HTTP 응답 확인
+Start-Sleep -Seconds 10
+$statusCode = & curl.exe -s -o NUL -w "%{http_code}" --max-time 30 "https://goldkey-ai-817097913199.asia-northeast3.run.app" 2>$null
 if ($statusCode -eq "200") {
     Write-Host "✅ Cloud Run 앱 응답 정상 (HTTP 200)"
 } else {
