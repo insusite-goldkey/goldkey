@@ -28308,8 +28308,8 @@ renderCalendar();
   border-bottom: 1.5px solid #e5e7eb;
 }
 .gk-scan-controller {
-  border: none; border-radius: 8px;
-  padding: 16px 14px; background: transparent;
+  border: 2px dashed #000000 !important; border-radius: 8px;
+  padding: 16px 14px; background: rgba(248,250,252,0.6);
 }
 .gk-pf-card {
   border-radius: 14px; padding: 20px 18px 16px 18px;
@@ -28337,6 +28337,38 @@ renderCalendar();
   color: #000000 !important; font-weight: 800 !important;
 }
 @media (max-width: 768px) { .gk-pf-card { margin-bottom: 12px; } }
+/* ── [INPUT VISIBILITY] 전역 입력 요소 점선 테두리 ── */
+div[data-testid="stTextInput"] input,
+div[data-testid="stNumberInput"] input {
+  border: 1px dashed #000000 !important;
+  border-radius: 6px !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+  background: #ffffff !important;
+}
+div[data-testid="stTextInput"] input:focus,
+div[data-testid="stNumberInput"] input:focus {
+  border: 1.5px solid #000000 !important;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.08) !important;
+  outline: none !important;
+}
+div[data-testid="stTextArea"] textarea {
+  border: 1px dashed #000000 !important;
+  border-radius: 6px !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+  background: #ffffff !important;
+}
+div[data-testid="stTextArea"] textarea:focus {
+  border: 1.5px solid #000000 !important;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.08) !important;
+  outline: none !important;
+}
+div[data-testid="stFileUploadDropzone"] {
+  border: 2px dashed #000000 !important;
+  border-radius: 8px !important;
+  background: rgba(248,250,252,0.6) !important;
+}
 </style>""", unsafe_allow_html=True)
 
         # ═══════════════════════════════════════════════════════════════
