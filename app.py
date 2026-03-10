@@ -28289,7 +28289,7 @@ renderCalendar();
   margin-bottom: 24px;
   background: transparent;
   box-shadow: none;
-  border-top: 1.5px solid #e5e7eb;
+  border-top: 4px solid #CC0000;
 }
 .gk-sec-title {
   font-size: 0.92rem; font-weight: 900; color: #000000;
@@ -28373,11 +28373,14 @@ div[data-testid="stFileUploadDropzone"] {
   border-radius: 8px !important;
   background: rgba(248,250,252,0.6) !important;
 }
+div[data-testid="stSelectbox"] > div > div {
+  border: 1px dashed #000000 !important;
+  border-radius: 6px !important;
+  font-weight: 700 !important;
+  color: #000000 !important;
+}
 </style>""", unsafe_allow_html=True)
 
-        # ═══════════════════════════════════════════════════════════════
-        # [TOP] 히어로 배너
-        # ═══════════════════════════════════════════════════════════════
         st.markdown(f'<div style="position:relative;height:0;">{_bid("GK-HOME-01")}</div>', unsafe_allow_html=True)
         if not st.session_state.get("_gp45_splash_shown"):
             st.session_state["_gp45_splash_shown"] = True
@@ -28551,6 +28554,43 @@ div[data-testid="stFileUploadDropzone"] {
                     except Exception:
                         pass
                 st.success(f"✅ {_si_name} 저장 완료 — 모든 탭에 자동 연동됩니다.")
+
+            # ── [SEC-01-MEMBER-INFO] FC 회원 정보 입력 ────────────────────
+            st.markdown("<hr style='margin:12px 0;border-color:#ffcccc;'>", unsafe_allow_html=True)
+            st.markdown(
+                "<div id='sec-01-member-info' style='border:2px solid #1565C0;border-radius:10px;"
+                "padding:14px 16px 10px 16px;margin-bottom:10px;background:#F8FBFF;'>"
+                "<div style='color:#0000FF;font-weight:900;font-size:0.88rem;margin-bottom:10px;'>"
+                "🏢 회원정보를 입력하시면 각종 보고서에 FC님의 이름과 소속을 적어드립니다.</div>",
+                unsafe_allow_html=True
+            )
+            _mi_c1, _mi_c2 = st.columns([1, 1])
+            with _mi_c1:
+                _mi_company = st.text_input(
+                    "소속 보험사/대리점명",
+                    value=st.session_state.get("fc_company", ""),
+                    placeholder="예) 삼성생명, goldkey_Ai_masters2026",
+                    key="home_mi_company"
+                )
+                _mi_branch = st.text_input(
+                    "지점 이름",
+                    value=st.session_state.get("fc_branch", ""),
+                    placeholder="예) 강남지점",
+                    key="home_mi_branch"
+                )
+            with _mi_c2:
+                _mi_contact = st.text_input(
+                    "FC 연락처",
+                    value=st.session_state.get("fc_contact", ""),
+                    placeholder="예) 010-1234-5678",
+                    key="home_mi_contact"
+                )
+            if st.button("💾 회원정보 저장 (보고서 자동 반영)", key="btn_save_member_info", use_container_width=True):
+                st.session_state["fc_company"] = _mi_company
+                st.session_state["fc_branch"]  = _mi_branch
+                st.session_state["fc_contact"] = _mi_contact
+                st.success("✅ 회원정보 저장 완료 — 카카오톡 보고서 발송 시 자동 매핑됩니다.")
+            st.markdown("</div>", unsafe_allow_html=True)
 
             # ── 그룹 B: 오늘 할 일 · 오늘의 약속 · 상담 대기 ───────────
             st.markdown("<hr style='margin:12px 0;border-color:#ffcccc;'>", unsafe_allow_html=True)
@@ -28739,13 +28779,13 @@ div[data-testid="stFileUploadDropzone"] {
         st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
                     "margin:10px 0 4px 0;'>1 / 7단계 — 고객 마스터 데이터</div>",
                     unsafe_allow_html=True)
-        _nav01_l, _nav01_r = st.columns([2, 8])
+        _nav01_l, _nav01_r = st.columns([1, 1])
         with _nav01_l:
             if st.button("🏠 홈", key="nav01_home", use_container_width=True):
                 _go_tab("home")
         with _nav01_r:
             st.markdown('<div style="background:#E3F2FD !important;border-radius:8px;">', unsafe_allow_html=True)
-            if st.button("✅ 정보 저장 완료! 'AI 보장 분석' 시작하기 →",
+            if st.button("✅ 정보저장완료",
                          key="nav01_next", use_container_width=True):
                 st.session_state["current_tab"] = "t0"
                 st.session_state["_scroll_top"] = True
@@ -28759,27 +28799,39 @@ div[data-testid="stFileUploadDropzone"] {
         # ═══════════════════════════════════════════════════════════════
         st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-02")}<span class="gk-sec-title">② 가처분 소득 기반 3단계 솔루션</span></div>', unsafe_allow_html=True)
 
-        st.markdown("**암진단 · 뇌·심장 · 고객문서함 · 보장공백** 바로가기 및 종목별 최소/표준/적정 매트릭스")
-        _s2_c1, _s2_c2, _s2_c3, _s2_c4 = st.columns(4, gap="small")
-        with _s2_c1:
+        st.markdown("**종목별 바로가기** — 6대 솔루션 영역 및 최소/표준/적정 매트릭스")
+        _s2_r1c1, _s2_r1c2 = st.columns(2, gap="small")
+        _s2_r2c1, _s2_r2c2 = st.columns(2, gap="small")
+        _s2_r3c1, _s2_r3c2 = st.columns(2, gap="small")
+        with _s2_r1c1:
             st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("🔴 암 진단", key="sec02_cancer", use_container_width=True):
+            if st.button("🔴 암", key="sec02_cancer", use_container_width=True):
                 _go_tab("t1")
             st.markdown('</div>', unsafe_allow_html=True)
-        with _s2_c2:
+        with _s2_r1c2:
             st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("🧠 뇌·심장", key="sec02_brain", use_container_width=True):
                 _go_tab("t2")
             st.markdown('</div>', unsafe_allow_html=True)
-        with _s2_c3:
+        with _s2_r2c1:
             st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("📁 고객 문서함", key="sec02_docs", use_container_width=True):
-                _go_tab("customer_mgmt")
+            if st.button("🧓 치매", key="sec02_dementia", use_container_width=True):
+                _go_tab("dementia")
             st.markdown('</div>', unsafe_allow_html=True)
-        with _s2_c4:
+        with _s2_r2c2:
             st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("🕳️ 보장 공백", key="sec02_gap", use_container_width=True):
-                _go_tab("policy_scan")
+            if st.button("🦽 상해후유장해", key="sec02_disability", use_container_width=True):
+                _go_tab("disability")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with _s2_r3c1:
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("🏥 간병시설계", key="sec02_nursing", use_container_width=True):
+                _go_tab("dementia")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with _s2_r3c2:
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("💰 노후연금설계", key="sec02_pension", use_container_width=True):
+                _go_tab("t3")
             st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
