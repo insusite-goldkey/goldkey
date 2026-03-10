@@ -1,4 +1,4 @@
-# ==========================================================
+﻿# ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -23314,11 +23314,12 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
 
                         # ② 본인확인 안내 — OTP 번호 표시 박스
                         st.markdown(f"""
-    <div style='background:#fef9c3;border:2px solid #f59e0b;border-radius:12px;
-      padding:14px;margin-bottom:10px;text-align:center;'>
-      <div style='font-size:0.78rem;color:#92400e;margin-bottom:6px;font-weight:700;
-        '>📱 인증번호 (테스트용 화면 표시. 임시기능)</div>
-      <div style='font-size:19.8rem;font-weight:900;letter-spacing:8px;color:#1a3a5c;line-height:1.1;'>{_otp_target}</div>
+    <div style='background:#FFF9C4;border:2px dashed #000000;border-radius:12px;
+      padding:18px 10px 18px 10px;margin-bottom:10px;text-align:center;'>
+      <div style='font-size:0.72rem;color:#7c4d00;margin-bottom:10px;font-weight:700;
+        letter-spacing:0.04em;'>📱 인증번호 (테스트용 화면 표시. 임시기능)</div>
+      <div style='font-size:3.8rem;font-weight:900;letter-spacing:0.28em;color:#000000;
+        line-height:1.2;word-break:break-all;'>{_otp_target}</div>
     </div>""", unsafe_allow_html=True)
 
                         # ③ 6자리 인증번호 입력 안내 텍스트 (강조)
