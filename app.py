@@ -5585,82 +5585,8 @@ def _gp86_terminate_session() -> None:
 # ══════════════════════════════════════════════════════════════════════════
 
 def _gp82_render_nav_bar() -> None:
-    """[제82조] 전역 안보 내비게이션 바 렌더링.
-
-    - 좌측: 🏠 홈 버튼 (파란 테두리, 메인 이동 + 포커스 JS)
-    - 우측: 🚪 로그아웃 버튼 (빨간 테두리, GP86 즉각 파기)
-    - Sticky 고정 (top:0, z-index:9999)
-    - Back 버튼 로그인 역행 차단 JS 포함
-    호출 위치: main() 내 탭 렌더링 직전 최상단
-    """
-    import streamlit as _st
-    import streamlit.components.v1 as _c82
-
-    # ── CSS: 내비게이션 바 Sticky 고정 + 버튼 스타일 재정의 ─────────────
-    _st.markdown("""
-<style>
-/* [제82조] 안보 내비게이션 바 */
-.gp82-nav-bar {
-    position: sticky;
-    top: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #ffffff;
-    border-bottom: 1.5px solid rgba(0,0,0,0.10);
-    padding: 6px 10px;
-    margin-bottom: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-}
-.gp82-nav-bar .gp82-home-btn button {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border: 2px solid #0055FF !important;
-    border-radius: 8px !important;
-    padding: 8px 20px !important;
-    font-weight: 700 !important;
-    font-size: 0.88rem !important;
-    min-height: 44px !important;
-    cursor: pointer !important;
-}
-.gp82-nav-bar .gp82-logout-btn button {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border: 2px solid #DD0000 !important;
-    border-radius: 8px !important;
-    padding: 8px 20px !important;
-    font-weight: 700 !important;
-    font-size: 0.88rem !important;
-    min-height: 44px !important;
-    cursor: pointer !important;
-}
-.gp82-nav-confirm {
-    text-align: center;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #DD0000;
-    background: #fff5f5;
-    border: 1px solid rgba(221,0,0,0.25);
-    border-radius: 6px;
-    padding: 4px 12px;
-    margin-bottom: 4px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-    # ── [GP86 §4] Back 버튼 로그인 역행 차단 JS ────────────────────────
-    _c82.html("""
-<script>
-(function(){
-  if(window.__gp86BackGuard) return;
-  window.__gp86BackGuard = true;
-  history.pushState(null, '', location.href);
-  window.addEventListener('popstate', function(){
-    history.pushState(null, '', location.href);
-  });
-})();
-</script>""", height=0)
+    """[제82조] 전역 안보 내비게이션 바 렌더링 — 버튼/CSS/JS 전체 제거됨."""
+    pass
 
 
 
