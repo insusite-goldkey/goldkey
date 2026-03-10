@@ -29222,7 +29222,27 @@ renderCalendar();
     # ══════════════════════════════════════════════════════════════════════
     def _auth_gate(tab_key: str) -> bool:
         """로그인 상태 중앙 체크 — False 반환 시 해당 기둥 렌더 중단"""
-        if "user_id" not in st.session_state:
+        # ── [GP-51.2 §3] 게스트 전용 차단 탭 목록 ──────────────────────────
+        # 고객 개인정보·등록·동의·자료·일정 관련 탭은 정회원만 접근 가능
+        _GUEST_BLOCKED_TABS = {
+            "customer_mgmt",    # 고객 관리
+            "customer_docs",    # 고객자료 (의무기록·서류 저장)
+            "leaflet",          # 리플렛 분류 (신상품 등록)
+            "consult_catalog",  # 상담 카탈로그
+            "digital_catalog",  # 디지털 카탈로그
+            "know_pipe",        # 지식 라이브러리 자동 학습
+            "report43",         # AI 자동 리포트
+            "scan_hub",         # 통합 스캔 허브 (파일 업로드)
+            "life_defense",     # 나의 인생 방어 사령부
+            "war_room",         # 실전 상담 전략실
+        }
+
+        _is_unauthed = "user_id" not in st.session_state
+        _is_guest_role = st.session_state.get("_user_role") == "GUEST"
+        _is_guest_uid  = st.session_state.get("user_id", None) == ""
+
+        # 비로그인 → 전체 차단
+        if _is_unauthed:
             st.markdown("""
 <div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
   border-radius:14px;padding:28px 22px;margin:20px 0;text-align:center;">
@@ -29247,6 +29267,39 @@ renderCalendar();
                     st.session_state["_open_sidebar"] = True
                     st.rerun()
             return False
+
+        # 게스트 → 고객정보 관련 탭 차단
+        if (_is_guest_role or _is_guest_uid) and tab_key in _GUEST_BLOCKED_TABS:
+            st.markdown(f"""
+<div style="background:linear-gradient(135deg,#FFF9C4 0%,#FFF176 100%);
+  border:2px solid #F9A825;border-radius:14px;padding:24px 22px;
+  margin:20px 0;text-align:center;">
+  <div style="font-size:2.2rem;margin-bottom:8px;">🔒</div>
+  <div style="color:#000000;font-size:1.1rem;font-weight:900;margin-bottom:8px;">
+    정회원 전용 기능입니다
+  </div>
+  <div style="color:#5D4037;font-size:0.85rem;line-height:1.7;margin-bottom:10px;">
+    <b>고객 정보·등록·자료 관련 기능</b>은 임시/비회원에게 제공되지 않습니다.<br>
+    사이드바 <b>회원가입</b> 탭에서 가입 후 이용하세요.
+  </div>
+  <div style="font-size:0.75rem;color:#795548;">
+    ← 사이드바 · <b>📝 회원가입</b> 탭 즉시 이용 가능
+  </div>
+</div>""", unsafe_allow_html=True)
+            _gb_c1, _gb_c2 = st.columns(2)
+            with _gb_c1:
+                if st.button("🏠 홈으로 돌아가기", key=f"guest_block_home_{tab_key}",
+                             use_container_width=True, type="primary"):
+                    st.session_state.current_tab = "home"
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+            with _gb_c2:
+                if st.button("📝 회원가입 하기", key=f"guest_block_signup_{tab_key}",
+                             use_container_width=True):
+                    st.session_state["_open_sidebar"] = True
+                    st.rerun()
+            return False
+
         # 직전 탭 기록 (Deep Link 복귀용)
         st.session_state["gs_last_tab"] = tab_key
         return True
