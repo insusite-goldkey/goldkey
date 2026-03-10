@@ -29267,11 +29267,11 @@ div[data-testid="stFileUploadDropzone"] {
         _col_nl, _col_lf = st.columns([5, 5])
         with _col_nl:
             st.markdown(
-                _make_grid_html(_nonlife_contacts, "#E3F2FD", "🏠 1. 손해보험사 콜센터"),
+                _make_grid_html(_nonlife_contacts, "#E3F2FD", "🏠 1. 손해보험사 (긴급출동/사고접수)"),
                 unsafe_allow_html=True)
         with _col_lf:
             st.markdown(
-                _make_grid_html(_life_contacts, "#FFEBEE", "💖 2. 생명보험사 콜센터"),
+                _make_grid_html(_life_contacts, "#FFEBEE", "💖 2. 생명보험사 (상담/접수)"),
                 unsafe_allow_html=True)
 
         # ── [NAV-06] 내비게이션 바 ─────────────────────────────────────────
