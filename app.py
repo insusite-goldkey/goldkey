@@ -28245,6 +28245,22 @@ renderCalendar();
 
     # ── [홈] 카드 네비게이션 ──────────────────────────────────────────────
     if cur == "home":
+        # ── [NAV] _home_scroll_to_sec* 앵커 스크롤 처리 ──────────────────
+        _sec_anchor_map = {
+            "_home_scroll_to_sec01": "gk-sec-01-anchor",
+            "_home_scroll_to_sec06": "gk-sec-06-anchor",
+            "_home_scroll_to_sec07": "gk-sec-07-anchor",
+        }
+        for _sec_key, _sec_anchor in _sec_anchor_map.items():
+            if st.session_state.pop(_sec_key, False):
+                st.markdown(
+                    f'<div id="{_sec_anchor}" style="position:relative;height:0;"></div>'
+                    f'<script>try{{var el=window.parent.document.getElementById("{_sec_anchor}");'
+                    f'if(el){{el.scrollIntoView({{behavior:"smooth",block:"start"}});}}'
+                    f'}}catch(e){{}}</script>',
+                    unsafe_allow_html=True)
+                break
+
         # ── 심야 배치 워커 트리거 (02~04 KST, 세션당 1회) ────────────────
         if not st.session_state.get('home_rendered'):
             st.session_state.home_rendered = True
@@ -28351,6 +28367,7 @@ renderCalendar();
         # ═══════════════════════════════════════════════════════════════
         # [GK-SEC-01] 고객 마스터 데이터 및 통합 상담
         # ═══════════════════════════════════════════════════════════════
+        st.markdown('<div id="gk-sec-01-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-01")}<span class="gk-sec-title">① 고객 마스터 데이터 &amp; 통합 상담</span></div>', unsafe_allow_html=True)
 
         if 'user_id' in st.session_state:
@@ -29156,6 +29173,7 @@ renderCalendar();
         # ═══════════════════════════════════════════════════════════════
         # [GK-SEC-06] 보험사 컨택 센터
         # ═══════════════════════════════════════════════════════════════
+        st.markdown('<div id="gk-sec-06-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-06")}<span class="gk-sec-title">⑥ 보험사 컨택 센터</span></div>', unsafe_allow_html=True)
 
         _ins_contacts = [
@@ -29207,6 +29225,7 @@ renderCalendar();
         # ═══════════════════════════════════════════════════════════════
         # [GK-SEC-07] 관리자 게이트
         # ═══════════════════════════════════════════════════════════════
+        st.markdown('<div id="gk-sec-07-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-07")}<span class="gk-sec-title">⑦ 관리자 게이트</span></div>', unsafe_allow_html=True)
 
         _adm_c1, _adm_c2 = st.columns([1, 1])
