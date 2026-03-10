@@ -22990,7 +22990,7 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
   color: #1565C0 !important;
 }
 </style>""", unsafe_allow_html=True)
-                tab_l, tab_s, tab_pw, tab_nm = st.tabs(["🔑 로그인", "📝 회원가입", "🔒 비번변경", "✏️ 이름변경"])
+                tab_l, tab_s, tab_pw, tab_nm = st.tabs(["🔑 임시/비회원 빠른 접속", "📝 회원가입", "🔒 비번변경", "✏️ 이름변경"])
                 components.html("""<script>
 (function _rmTitle(){
   function clean(){
@@ -23175,7 +23175,21 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
 </style>""", unsafe_allow_html=True)
                         _all_checked = (_tr_top.get("t1") and _tr_top.get("t2")
                                         and _tr_top.get("t3") and _tr_top.get("t4"))
-                        _btn_otp = st.button("🔐 AI 마스터 접속", key="hlp_otp_start_btn",
+                        if not _all_checked:
+                            st.markdown(
+                                "<div style='font-size:0.82rem;font-weight:900;color:#000000;"
+                                "background:#FFF9C4;border:1.5px solid #F9A825;"
+                                "border-radius:8px;padding:10px 12px;margin-bottom:8px;"
+                                "text-align:center;'>⚠️ 사이드바에서 필수 동의 후 접속 가능합니다</div>",
+                                unsafe_allow_html=True
+                            )
+                        st.markdown(
+                            '<div style="font-size:0.78rem;font-weight:700;color:#0000FF;'
+                            'text-align:center;margin-bottom:6px;padding:4px 0;">'
+                            '체험 모드에서는 저장·등록이 제한됩니다</div>',
+                            unsafe_allow_html=True
+                        )
+                        _btn_otp = st.button("🔐 AI 마스터 로그인", key="hlp_otp_start_btn",
                                              use_container_width=True, type="primary",
                                              disabled=not bool(_all_checked))
 
@@ -23214,119 +23228,64 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
                                             st.error(f"연락처가 올바르지 않습니다. (남은 시도: **{_rem_a}회**)")
 
                     # ─────────────────────────────────────────────────────────────
-                    # [GP-51.2 개정] Guest Access 진입 버튼 — 기기 지문 차단 통합
-                    # §1 JS LocalStorage: 1일 1회 / 총 10회 초과 시 클라이언트 차단
-                    # §2 서버사이드: _gp75_current_fp 기반 gk_guest_visits 검증
+                    # [GP-51.2] 임시/비회원 빠른 접속 섹션 (Phase A 하단 — 항상 표시)
+                    # 1일 1회 / 총 10회 제한 | LocalStorage + 서버사이드 기기 지문
                     # ─────────────────────────────────────────────────────────────
                     if _lp == "A":
-                        # ── JS LocalStorage 기반 클라이언트 차단 주입 ──────────────
-                        st.markdown("""
-<script>
-(function(){
-  var MAX_TOTAL = 10, MAX_DAILY = 1;
-  var KEY_TOTAL = 'gk_gv_total', KEY_DATE = 'gk_gv_date', KEY_TODAY = 'gk_gv_today';
-  function _gkGuestCheck() {
-    var total = parseInt(localStorage.getItem(KEY_TOTAL) || '0', 10);
-    var lastDate = localStorage.getItem(KEY_DATE) || '';
-    var todayCount = parseInt(localStorage.getItem(KEY_TODAY) || '0', 10);
-    var today = new Date().toISOString().slice(0, 10);
-    if (lastDate !== today) { todayCount = 0; }
-    var btn = document.querySelector('[data-testid="baseButton-secondary"][kind="secondary"]');
-    var guestBtn = null;
-    document.querySelectorAll('button').forEach(function(b){
-      if (b.innerText && b.innerText.indexOf('로그인 없이 체험하기') !== -1) guestBtn = b;
-    });
-    if (!guestBtn) return;
-    if (total >= MAX_TOTAL) {
-      guestBtn.disabled = true;
-      guestBtn.style.opacity = '0.45';
-      guestBtn.title = '총 체험 횟수(' + MAX_TOTAL + '회)를 모두 사용하셨습니다.';
-      return;
-    }
-    if (todayCount >= MAX_DAILY) {
-      guestBtn.disabled = true;
-      guestBtn.style.opacity = '0.45';
-      guestBtn.title = '오늘의 체험 횟수(1회)를 이미 사용하셨습니다.';
-      return;
-    }
-    guestBtn.disabled = false;
-    guestBtn.style.opacity = '';
-  }
-  function _gkGuestRecord() {
-    var total = parseInt(localStorage.getItem(KEY_TOTAL) || '0', 10);
-    var lastDate = localStorage.getItem(KEY_DATE) || '';
-    var todayCount = parseInt(localStorage.getItem(KEY_TODAY) || '0', 10);
-    var today = new Date().toISOString().slice(0, 10);
-    if (lastDate !== today) { todayCount = 0; }
-    total = total + 1; todayCount = todayCount + 1;
-    localStorage.setItem(KEY_TOTAL, String(total));
-    localStorage.setItem(KEY_TODAY, String(todayCount));
-    localStorage.setItem(KEY_DATE, today);
-  }
-  window._gkGuestCheck = _gkGuestCheck;
-  window._gkGuestRecord = _gkGuestRecord;
-  setTimeout(_gkGuestCheck, 400);
-  setTimeout(_gkGuestCheck, 1200);
-})();
-</script>""", unsafe_allow_html=True)
-                        st.markdown("""
-<div style="margin:10px 0 4px 0;display:flex;align-items:center;gap:8px;">
-  <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#90CAF9,transparent);"></div>
-  <span style="font-size:0.7rem;color:#000000;font-weight:600;white-space:nowrap;">또는</span>
-  <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#90CAF9,transparent);"></div>
-</div>""", unsafe_allow_html=True)
-                        if st.button("👁️ 로그인 없이 체험하기", key="btn_guest_enter",
+                        st.markdown(
+                            "<hr style='border:none;border-top:1.5px solid #000000;"
+                            "margin:14px 0 10px 0;'>",
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            "<div style='font-size:0.85rem;font-weight:900;color:#000000;"
+                            "text-align:center;margin-bottom:6px;'>"
+                            "👁️ 임시/비회원 빠른 접속</div>"
+                            "<div style='font-size:0.72rem;color:#555555;text-align:center;"
+                            "margin-bottom:8px;'>1일 1회 / 누적 최대 10회 이용 가능</div>",
+                            unsafe_allow_html=True
+                        )
+                        if st.button("👁️ 임시/비회원으로 접속하기", key="btn_guest_enter",
                                      use_container_width=True):
                             import uuid as _gu
-                            # ── [제51.2조 §2] 서버사이드 기기 지문 검증 ──────────
                             _g_fp = st.session_state.get("_gp75_current_fp", "")
                             if _g_fp:
                                 _g_gate = _gp512_check_and_record(_g_fp)
                                 if not _g_gate["allowed"]:
                                     st.error(
-                                        f"⛔ **체험 제한 안내**\n\n{_g_gate['reason']}\n\n"
+                                        f"⛔ **접속 제한 안내**\n\n{_g_gate['reason']}\n\n"
                                         f"— 총 방문: {_g_gate['total_visits']}회 / "
                                         f"남은 횟수: {_g_gate['remaining']}회"
                                     )
                                     st.stop()
-                                # 남은 횟수를 세션에 저장 (배너용)
                                 st.session_state["_gp512_remaining"] = _g_gate["remaining"]
                             else:
-                                # FP 미수집 시 세션 내 소프트 카운터로 폴백
                                 _g_soft = st.session_state.get("_gp512_soft_count", 0)
                                 if _g_soft >= _GP512_MAX_TOTAL:
-                                    st.error("⛔ 체험 횟수를 모두 사용하셨습니다. 회원가입 후 이용해 주세요.")
+                                    st.error("⛔ 접속 횟수를 모두 사용하셨습니다. 회원가입 후 이용해 주세요.")
                                     st.stop()
                                 st.session_state["_gp512_soft_count"] = _g_soft + 1
                                 st.session_state["_gp512_remaining"] = max(0, _GP512_MAX_TOTAL - _g_soft - 1)
-                            # ── 진입 허용 처리 ─────────────────────────────────────
-                            st.session_state["_user_role"]   = "GUEST"
-                            st.session_state["user_id"]      = ""
-                            st.session_state["user_name"]    = "체험 게스트"
-                            st.session_state["is_admin"]     = False
+                            st.session_state["_user_role"]          = "GUEST"
+                            st.session_state["user_id"]             = ""
+                            st.session_state["user_name"]           = "체험 게스트"
+                            st.session_state["is_admin"]            = False
                             if "_device_uuid" not in st.session_state:
                                 st.session_state["_device_uuid"] = _gu.uuid4().hex[:16]
-                            st.session_state["_login_just_done"] = False
+                            st.session_state["_login_just_done"]    = False
                             st.session_state["_auto_close_sidebar"] = True
                             st.session_state["authenticated"]       = True
-                            # [GP-56] 게스트 전환 스켈레톤 — 화이트아웃 차단
                             _skel_guest = st.empty()
                             _skel_guest.markdown("""
 <div style="padding:20px 12px;background:#E3F2FD;min-height:60vh;
   border-radius:12px;margin-top:8px;border:1px solid #90CAF9;">
   <div class="gk-trans-skel" style="height:28px;width:55%;margin-bottom:14px;"></div>
   <div class="gk-trans-skel" style="height:18px;width:80%;margin-bottom:8px;"></div>
-  <div class="gk-trans-skel" style="height:18px;width:65%;margin-bottom:8px;"></div>
-  <div class="gk-trans-skel" style="height:18px;width:72%;margin-bottom:20px;"></div>
+  <div class="gk-trans-skel" style="height:18px;width:65%;margin-bottom:20px;"></div>
   <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
   <div class="gk-trans-skel" style="height:90px;width:100%;"></div>
 </div>""", unsafe_allow_html=True)
                             st.rerun()
-                        st.markdown(
-                            '<div style="font-size:0.68rem;color:#94a3b8;text-align:center;'
-                            'margin-top:2px;">체험 모드에서는 저장·등록 기능이 제한됩니다</div>',
-                            unsafe_allow_html=True
-                        )
 
                     # ─────────────────────────────────────────────────────────────
                     # Phase B — OTP 인증 + 보안 방식 선택
