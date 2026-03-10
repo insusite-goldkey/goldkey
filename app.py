@@ -20364,29 +20364,15 @@ section.main > div.block-container,
             st.session_state['_rag_sync_done'] = True   # 오류 시도 플래그 세팅해 무한 루프 방지
 
     # ── 탭 전환 시 상단 스크롤 처리 (랜딩 완료 후) ─────────────────────
+    # [GP-56 v2] components.html() iframe 제거 → CSS anchor로 교체
+    # 이유: height=0 iframe도 DOM 추가 → 불필요한 rerun 유발 가능
     if not _landing_active and st.session_state.pop("_scroll_top", False):
-        components.html("""
-<script>
-(function(){
-  function _doScroll(){
-    var doc = window.parent.document;
-    var targets = [
-      doc.querySelector('[data-testid="stMainBlocksContainer"]'),
-      doc.querySelector('[data-testid="stAppViewContainer"]'),
-      doc.querySelector('.main'),
-      doc.querySelector('.block-container'),
-      doc.documentElement,
-      doc.body
-    ];
-    targets.forEach(function(el){ if(el) el.scrollTop = 0; });
-    window.parent.scrollTo(0,0);
-    window.scrollTo(0,0);
-  }
-  _doScroll();
-  setTimeout(_doScroll, 120);
-  setTimeout(_doScroll, 400);
-})();
-</script>""", height=0)
+        st.markdown(
+            '<div id="gk-scroll-top-anchor" style="position:absolute;top:0;"></div>'
+            '<script>try{window.parent.document.getElementById("gk-scroll-top-anchor")'
+            '&&window.parent.scrollTo({top:0,behavior:"instant"});}catch(e){}</script>',
+            unsafe_allow_html=True,
+        )
 
     # 핀치줌 + 자동회전 허용 + 백버튼 홈 이동 (모바일 최적화) — 랜딩 완료 후 최초 1회
     if not _landing_active and not st.session_state.get("_js_init_done"):
@@ -20831,34 +20817,41 @@ section[data-testid="stSidebar"] {
     --gk-ease:        cubic-bezier(0.25,0.46,0.45,0.94);
 }
 
-/* ── [GP-56] 화이트아웃 박멸 — 전환 배경 즉시 채우기 ── */
-/* Streamlit이 rerun 시 html/body를 잠깐 white로 초기화하는 현상 차단 */
+/* ── [GP-56 v2] 화이트아웃 완전 박멸 — 브라우저 기본값 선점 ── */
+/* 원인: Streamlit rerun 시 CSS 적용 전 브라우저 기본 흰색 노출 0~30ms */
+/* 대책: color-scheme 고정 + 배경 즉시 채우기 + transition 완전 제거 */
 html {
-    background-color: #F8F9FA !important;  /* 밝은 라이트그레이 — 화이트아웃 대체 */
+    background-color: #F8F9FA !important;
+    color-scheme: light !important;  /* 다크모드 OS 설정으로 인한 순간 흰색 방지 */
 }
 body {
     background-color: #F8F9FA !important;
     margin: 0 !important;
+    transition: none !important;  /* 전환 중 배경 깜빡임 차단 */
 }
 [data-testid="stApp"],
 [data-testid="stAppViewContainer"],
-[data-testid="stMain"] {
+[data-testid="stMain"],
+[data-testid="stAppViewBlockContainer"],
+.stApp {
     background-color: #F8F9FA !important;
     min-height: 100vh !important;
+    transition: none !important;  /* rerun 배경 전환 차단 */
 }
-/* Streamlit 내부 iframe/embed 배경도 차단 */
-iframe[title="st_app"],
-.stApp > * {
+/* Streamlit 내부 스크롤 컨테이너 배경 고정 */
+[data-testid="stMainBlocksContainer"],
+[data-testid="stVerticalBlock"] {
     background-color: transparent !important;
 }
 
-/* ── [GP-56] 페이드인 애니메이션 — 화면 전환 시 부드러운 등장 ── */
+/* ── [GP-56 v2] 페이드인 애니메이션 — 백화현상 방지 버전 ── */
+/* opacity:0 시작 제거 → 완전 투명 구간 없애 백화 원천 차단 */
 @keyframes gk-fadein {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from { opacity: 0.12; transform: translateY(4px); }
+    to   { opacity: 1;    transform: translateY(0); }
 }
 .main .block-container {
-    animation: gk-fadein 0.22s cubic-bezier(0.25,0.46,0.45,0.94) both;
+    animation: gk-fadein 0.18s cubic-bezier(0.25,0.46,0.45,0.94) both;
 }
 
 /* ── [GP-56] 전환 스켈레톤 shimmer (gk-trans-skel 클래스용) ── */
@@ -20880,7 +20873,7 @@ html, body, [data-testid="stApp"] {
     font-size: 16px !important;
     -webkit-font-smoothing: antialiased;
     background-color: hsl(var(--gk-bg-h), var(--gk-bg-s), var(--gk-bg-l)) !important;
-    transition: background-color 2s var(--gk-ease) !important;
+    /* transition: background-color 2s — 백화현상 원인이므로 제거 */
 }
 
 /* ── 메인 컨테이너 여백 (제47조 최종안: 실선-첫블럭 15px) ── */
