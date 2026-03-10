@@ -28676,6 +28676,21 @@ renderCalendar();
         else:
             st.markdown("**로그인 후 고객 정보 관리 기능이 활성화됩니다.**")
 
+        # ── [NAV-01] 내비게이션 바 ─────────────────────────────────────────
+        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+                    "margin:10px 0 4px 0;'>1 / 7단계 — 고객 마스터 데이터</div>",
+                    unsafe_allow_html=True)
+        _nav01_l, _nav01_r = st.columns([2, 8])
+        with _nav01_l:
+            if st.button("🏠 홈", key="nav01_home", use_container_width=True):
+                _go_tab("home")
+        with _nav01_r:
+            if st.button("✅ 정보 저장 완료! 'AI 보장 분석' 시작하기 →",
+                         key="nav01_next", use_container_width=True):
+                st.session_state["current_tab"] = "t0"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+
         st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-01 닫기
 
         # ═══════════════════════════════════════════════════════════════
@@ -28738,6 +28753,22 @@ renderCalendar();
             )
         _tbl_html += '</tbody></table></div>'
         st.markdown(_tbl_html, unsafe_allow_html=True)
+
+        # ── [NAV-02] 내비게이션 바 ─────────────────────────────────────────
+        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+                    "margin:10px 0 4px 0;'>2 / 7단계 — 가처분 소득 솔루션</div>",
+                    unsafe_allow_html=True)
+        _nav02_l, _nav02_r = st.columns([2, 8])
+        with _nav02_l:
+            if st.button("🏠 홈", key="nav02_home", use_container_width=True):
+                _go_tab("home")
+        with _nav02_r:
+            if st.button("🔍 분석 완료! '보험금 상담/검색' 이동하기 →",
+                         key="nav02_next", use_container_width=True):
+                st.session_state["current_tab"] = "t1"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+
         st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-02 닫기
 
         # ═══════════════════════════════════════════════════════════════
@@ -29080,6 +29111,18 @@ renderCalendar();
                 st.session_state["show_block_ids"] = True
             else:
                 st.session_state["show_block_ids"] = False
+
+        # ── [NAV-07] 내비게이션 바 ─────────────────────────────────────────
+        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;margin:10px 0 4px 0;'>7 / 7단계 — 관리자 게이트 (마지막 단계)</div>", unsafe_allow_html=True)
+        _nav07_l, _nav07_r = st.columns([2, 8])
+        with _nav07_l:
+            if st.button("🏠 홈", key="nav07_home", use_container_width=True):
+                _go_tab("home")
+        with _nav07_r:
+            if st.button("🔄 처음으로 — '고객 마스터 데이터' 재입력하기 →", key="nav07_next", use_container_width=True):
+                st.session_state["_scroll_top"] = True
+                st.session_state["_home_scroll_to_sec01"] = True
+                st.rerun()
 
         st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-07 닫기
 
