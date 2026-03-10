@@ -5316,7 +5316,7 @@ p, span, li, td, th, label, div {
 .gk-admin-btn-marker + div[data-testid="stButton"] > button {
     background: #BAE6FD !important;
     background-image: none !important;
-    border: 2px solid #FF0000 !important;
+    border: 1.5px solid #94a3b8 !important;
     color: #000000 !important;
     font-weight: 700 !important;
     text-shadow: none !important;
@@ -5333,9 +5333,9 @@ p, span, li, td, th, label, div {
 .gp180-admin-btn button:focus,
 .gp180-admin-btn > div > button:focus {
     background: #BAE6FD !important;
-    border-color: #FF0000 !important;
+    border-color: #94a3b8 !important;
     color: #000000 !important;
-    box-shadow: 0 0 0 3px rgba(255,0,0,0.25) !important;
+    box-shadow: none !important;
 }
 
 /* §7 — 전역 보험 용어 툴팁 (GP84 §7) */
@@ -20980,7 +20980,7 @@ h3 { font-size: 1.15rem !important; font-weight: 800 !important; }
 .gk-rb-btn > div[data-testid="stButton"] > button,
 .gk-rb-btn div[data-testid="stButton"] > button {
     background: #E3F2FD !important;
-    border: 2.5px solid #FF0000 !important;
+    border: 1.5px solid #94a3b8 !important;
     color: #000000 !important;
     font-weight: 800 !important;
     border-radius: 10px !important;
@@ -21008,10 +21008,11 @@ h3 { font-size: 1.15rem !important; font-weight: 800 !important; }
    텍스트: #000000 Bold
    ══════════════════════════════════════════════════════════════ */
 .gk-scan-wrap {
-    background: #E3F2FD !important;
-    border: 2px solid #FF0000 !important;
-    border-radius: 10px !important;
-    padding: 14px 16px 10px 16px !important;
+    background: #F8FAFC !important;
+    border: none !important;
+    border-top: 1.5px solid #e5e7eb !important;
+    border-radius: 0 !important;
+    padding: 14px 0 10px 0 !important;
     margin-bottom: 10px !important;
     box-shadow: 0 2px 10px rgba(255,0,0,0.10) !important;
 }
@@ -21028,7 +21029,7 @@ h3 { font-size: 1.15rem !important; font-weight: 800 !important; }
 /* 업로더 드래그존 내부 — 흰 배경 유지 */
 .gk-scan-wrap [data-testid="stFileUploadDropzone"] {
     background: #FFFFFF !important;
-    border: 2px solid #FF0000 !important;
+    border: 1.5px solid #cbd5e1 !important;
     border-radius: 8px !important;
 }
 .gk-scan-wrap [data-testid="stFileUploadDropzone"] *,
@@ -28277,34 +28278,37 @@ renderCalendar();
         st.markdown("""
 <style>
 .gk-sec {
-  border: 2px solid #FF0000;
-  border-radius: 14px;
-  padding: 18px 18px 14px 18px;
-  margin-bottom: 18px;
-  background: #ffffff;
-  box-shadow: 0 2px 12px rgba(255,0,0,0.08);
+  border: none;
+  border-radius: 0;
+  padding: 18px 0 14px 0;
+  margin-bottom: 24px;
+  background: transparent;
+  box-shadow: none;
+  border-top: 1.5px solid #e5e7eb;
 }
 .gk-sec-title {
-  font-size: 0.78rem; font-weight: 900; color: #ffffff;
-  background: #CC0000; border-radius: 20px;
-  padding: 3px 14px; display: inline-block;
-  margin-bottom: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+  font-size: 0.92rem; font-weight: 900; color: #000000;
+  background: transparent; border-radius: 0;
+  padding: 0; display: inline-block;
+  margin-bottom: 12px; letter-spacing: 0.04em; text-transform: none;
 }
 .gk-ai-output-box {
-  border: 2px solid #FF0000; border-radius: 12px;
-  padding: 16px 18px; background: #E3F2FD;
+  border: none; border-radius: 8px;
+  padding: 16px 18px; background: #F8FAFC;
   min-height: 260px; max-height: 420px;
   overflow-y: auto; box-sizing: border-box;
+  border-bottom: 1.5px solid #e5e7eb;
 }
 .gk-scan-output {
-  border: 2px solid #FF0000; border-radius: 12px;
-  padding: 16px 18px; background: #E3F2FD;
+  border: none; border-radius: 8px;
+  padding: 16px 18px; background: #F8FAFC;
   min-height: 260px; max-height: 420px;
   overflow-y: auto; box-sizing: border-box;
+  border-bottom: 1.5px solid #e5e7eb;
 }
 .gk-scan-controller {
-  border: 2px solid #FF0000; border-radius: 12px;
-  padding: 16px 14px; background: #ffffff;
+  border: none; border-radius: 8px;
+  padding: 16px 14px; background: transparent;
 }
 .gk-pf-card {
   border-radius: 14px; padding: 20px 18px 16px 18px;
@@ -28318,15 +28322,15 @@ renderCalendar();
   background: rgba(255,255,255,0.18); border-radius: 16px; padding: 3px 10px; display: inline-block; }
 .gk-rb-btn > div > button {
   background: #E3F2FD !important; color: #000000 !important;
-  font-weight: 800 !important; border: 2px solid #FF0000 !important;
+  font-weight: 800 !important; border: 1.5px solid #94a3b8 !important;
   border-radius: 10px !important;
 }
 .gk-rb-btn > div > button:hover {
-  background: #BBDEFB !important; border-color: #CC0000 !important;
+  background: #BBDEFB !important; border-color: #64748b !important;
 }
 .gk-dash-box { box-sizing: border-box; overflow-y: auto; }
 .gk-dash-box::-webkit-scrollbar { width: 4px; }
-.gk-dash-box::-webkit-scrollbar-thumb { background: rgba(255,0,0,0.35); border-radius: 4px; }
+.gk-dash-box::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.35); border-radius: 4px; }
 .gk-save-btn-marker + div[data-testid="stButton"] > button {
   background: #BAE6FD !important; border: 2px solid #0284C7 !important;
   color: #000000 !important; font-weight: 800 !important;
@@ -28558,21 +28562,21 @@ renderCalendar();
             _gb1, _gb2, _gb3 = st.columns(3, gap="small")
             with _gb1:
                 st.markdown(
-                    f'<div class="gk-dash-box" style="border:2px solid #FF0000;border-radius:10px;'
-                    f'padding:10px 12px;min-height:120px;max-height:180px;">'
-                    f'<div style="font-size:0.75rem;font-weight:900;color:#000000 !important;background:#E3F2FD !important;padding:4px 6px;border-radius:5px;margin-bottom:6px;">📋 오늘 할 일</div>'
+                    f'<div class="gk-dash-box" style="border:none;border-top:1.5px solid #e5e7eb;border-radius:0;'
+                    f'padding:10px 0;min-height:120px;max-height:180px;">'
+                    f'<div style="font-size:0.75rem;font-weight:900;color:#000000;padding:0 0 4px 0;margin-bottom:6px;">📋 오늘 할 일</div>'
                     f'{_todo_html}</div>', unsafe_allow_html=True)
             with _gb2:
                 st.markdown(
-                    f'<div class="gk-dash-box" style="border:2px solid #FF0000;border-radius:10px;'
-                    f'padding:10px 12px;min-height:120px;max-height:180px;">'
-                    f'<div style="font-size:0.75rem;font-weight:900;color:#000000 !important;background:#E3F2FD !important;padding:4px 6px;border-radius:5px;margin-bottom:6px;">🕐 오늘의 약속</div>'
+                    f'<div class="gk-dash-box" style="border:none;border-top:1.5px solid #e5e7eb;border-radius:0;'
+                    f'padding:10px 0;min-height:120px;max-height:180px;">'
+                    f'<div style="font-size:0.75rem;font-weight:900;color:#000000;padding:0 0 4px 0;margin-bottom:6px;">🕐 오늘의 약속</div>'
                     f'{_appt_html}</div>', unsafe_allow_html=True)
             with _gb3:
                 st.markdown(
-                    f'<div class="gk-dash-box" style="border:2px solid #FF0000;border-radius:10px;'
-                    f'padding:10px 12px;min-height:120px;max-height:180px;">'
-                    f'<div style="font-size:0.75rem;font-weight:900;color:#000000 !important;background:#E3F2FD !important;padding:4px 6px;border-radius:5px;margin-bottom:6px;">⏳ 상담 대기</div>'
+                    f'<div class="gk-dash-box" style="border:none;border-top:1.5px solid #e5e7eb;border-radius:0;'
+                    f'padding:10px 0;min-height:120px;max-height:180px;">'
+                    f'<div style="font-size:0.75rem;font-weight:900;color:#000000;padding:0 0 4px 0;margin-bottom:6px;">⏳ 상담 대기</div>'
                     f'{_wait_html}</div>', unsafe_allow_html=True)
 
             # ── 그룹 C: 상담노트(좌) / 보험가입상담(우) ─────────────────
@@ -34972,7 +34976,7 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 /* GP 표준: 홈 복귀 버튼 */
 div[data-testid="stButton"] > button[data-testid="ins_bot_home_btn"] {
     background: #E3F2FD !important;
-    border: 2.5px solid #FF0000 !important;
+    border: 1.5px solid #94a3b8 !important;
     color: #000000 !important;
     font-weight: 700 !important;
     border-radius: 10px !important;
@@ -34989,7 +34993,7 @@ div[data-testid="stButton"] > button[data-testid="ins_bot_home_btn"]:hover {
 /* GP 표준: 액션 그리드 버튼 (검색·초기화) */
 div[data-testid="stButton"] > button[data-testid="ins_bot_search"] {
     background: #FFF9C4 !important;
-    border: 2.5px solid #FF0000 !important;
+    border: 1.5px solid #94a3b8 !important;
     color: #000000 !important;
     font-weight: 700 !important;
     border-radius: 10px !important;
