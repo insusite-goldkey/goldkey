@@ -22394,21 +22394,26 @@ section[data-testid="stSidebar"] .st-expander summary {
   </div>
 </div>""", unsafe_allow_html=True)
 
-            st.sidebar.warning(
-                "**⚠️ 면책 및 서비스 이용 안내 (Disclaimer)**\n\n"
-                "**1. 본 앱(Goldkey_AI_Master2026)의 목적 및 한계:**\n"
+            st.sidebar.markdown(
+                "<div style='background:#FFF8E1;border:1.5px solid #F9A825;border-radius:8px;"
+                "padding:8px 11px;margin:6px 0;font-size:0.72rem;line-height:1.55;color:#4A3700;'>"
+                "<div style='font-weight:900;font-size:0.75rem;color:#E65100;margin-bottom:4px;'>"
+                "⚠️ 면책 및 서비스 이용 안내 (Disclaimer)</div>"
+                "<b>1. 본 앱(Goldkey_AI_Master2026)의 목적 및 한계:</b><br>"
                 "(1) 본 앱은 원활한 고객 상담과 보험 내용 이해를 돕기 위한 업무 보조 도구입니다. "
                 "앱에서 제공하는 모든 AI 분석 결과 및 자료는 참고용 보조 지표일 뿐이며, "
-                "어떠한 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.\n"
+                "어떠한 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.<br>"
                 "(2) 보장 내용·약관 해석·보험금 청구는 반드시 해당 보험회사 보상담당자 또는 "
-                "손해사정인(독립사정인 포함) 등에게 확인하시기 바랍니다.\n"
+                "손해사정인(독립사정인 포함) 등에게 확인하시기 바랍니다.<br>"
                 "(3) AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며, "
-                "이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.\n\n"
-                "**2. 전문가 상담 필수 및 책임 소재**\n"
+                "이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.<br><br>"
+                "<b>2. 전문가 상담 필수 및 책임 소재</b><br>"
                 "본 앱은 의료·법률·세무·회계·부동산 등의 전문적인 진단이나 상담을 대체할 수 없습니다. "
                 "관련 사항은 반드시 분야별 전문가(의사·변호사·세무사 등)와 상담하시기 바랍니다. "
                 "아울러 최종적인 보험 가입 및 해지 결정은 전문 자격을 갖춘 설계사를 통해 진행하셔야 하며, "
                 "본 앱의 정보를 바탕으로 한 최종 판단과 책임은 이용자 본인에게 있습니다."
+                "</div>",
+                unsafe_allow_html=True,
             )
             if False:  # 약관 전문 — 로딩 지연 방지용 비활성화 블록
                 st.markdown("""
