@@ -2568,3 +2568,45 @@ def _gp97_analyze_diff(new_meta: dict, existing_index: list) -> dict:
 ---
 
 *이상 제100조·제110조·제120조는 골드키 총통합헌법 제6.3판(2026.03.08)에 공식 수록되며, 이를 위반하는 구현은 즉시 롤백한다.*
+
+---
+
+## [SECTION: PERFORMANCE & STABILITY PROTOCOL] — 제130.1조
+
+> **목표:** Cold Start(첫 구동) 4초 이내 / Warm Start(기능 전환) 1.2초 이내  
+> 이 섹션의 모든 규칙은 마스터의 실전 상담 리듬을 방해하지 않도록 **상시 준수**해야 한다.
+
+### §1 Caching First (캐싱 우선)
+- GCS 클라이언트 연결은 `@st.cache_resource`로 **프로세스당 1회만** 인증·생성한다. (`_get_gcs_client_cached()`)
+- 대용량 데이터·AI 모델 호출 결과는 `@st.cache_data(ttl=3600)`으로 메모리에 상주시킨다.
+- 회원 목록(`load_members`)은 세션 캐시 → 프로세스 캐시(TTL 300초) → Supabase → /tmp 순서로 조회한다.
+- `save_members()` 호출 직후에는 반드시 `st.session_state.pop("_members_cache", None)`으로 세션 캐시를 무효화한다.
+
+### §2 Lazy Loading (지연 로딩)
+- `pandas`, `PIL`, `cryptography.fernet`, `google.genai`, `ftfy` 등 **무거운 라이브러리는 전역 임포트 절대 금지**.
+- 반드시 `_lazy_pd()`, `_lazy_pil_image()`, `_lazy_fernet()`, `_lazy_genai()`, `_lazy_ftfy()` 래퍼를 통해 **기능 호출 시점**에만 로드한다.
+- 신규 무거운 패키지 추가 시 동일한 `_lazy_*()` 래퍼 패턴을 적용한다.
+
+### §3 Session State Usage (세션 활용 — 검증 후 로딩)
+- 동일 세션 내에서 GCS·Supabase 데이터를 **반복 호출하지 않는다**.
+- 한 번 가져온 데이터는 `st.session_state`에 저장하고, `if key in st.session_state:` 검증을 먼저 수행한다.
+- CSS 전역 주입(`_gp84_inject_global_css`), JS 성능 로그 주입(`_s40_read_ls_perf_js`), localStorage 복원(`_gp140_restore_from_ls`) 등 **세션 1회성 작업**은 `_injected` 플래그로 중복 실행을 방지한다.
+
+### §4 GCS Singleton (GCS 클라이언트 싱글톤)
+- `_get_gcs_client()` 는 내부적으로 `@st.cache_resource` 데코레이터를 적용한 `_get_gcs_client_cached()`에 위임한다.
+- **매 rerun마다 OAuth 인증을 반복하는 것은 엄격히 금지**한다. (PERF §1)
+- GCS 캐시 읽기(`_gcs_cache_get`) 및 쓰기(`_gcs_cache_put`)도 동일한 싱글톤 클라이언트를 재사용한다.
+
+### §5 Visual Stability (시각적 안정성)
+- 결과 출력창은 `st.empty()` 또는 `st.container()`로 **자리를 선점**하여 답변 출력 시 화면이 튀는 현상을 방지한다.
+- 데이터 로딩 중에는 `st.spinner()`로 전문성을 강조하는 미니멀 스피너를 노출한다.
+- 페이지 전체 리렌더링(`st.rerun()`)은 반드시 필요한 경우에만 호출한다.
+
+### §6 Turbo Goal (속도 목표)
+| 구분 | 목표 |
+|------|------|
+| Cold Start (첫 구동, 라이브러리 포함) | **4초 이내** |
+| Warm Start (기능 클릭·페이지 전환) | **1.2초 이내** |
+| GCS 캐시 히트 응답 | **0.3초 이내** |
+
+*이상 제130.1조는 골드키 총통합헌법 PERFORMANCE 추록(2026.05)에 공식 수록되며, 신규 기능 구현 시 반드시 이 기준을 만족하는지 검토 후 배포한다.*

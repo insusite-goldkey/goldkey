@@ -4478,13 +4478,16 @@ def _get_member_cache():
     return {"data": None, "ts": 0.0}
 
 def load_members(force: bool = False):
-    """회원 목록 로드 — [제40조 §2] 120초 TTL 캐시 → Supabase → /tmp JSON 폴백
+    """회원 목록 로드 — [PERF §3] 세션 캐시 → 프로세스 캐시(300초 TTL) → Supabase → /tmp JSON 폴백
     force=True: 캐시 무시하고 즉시 재로드 (가입/저장 직후 호출용)
     """
+    # ── [PERF §3] 세션 내 즉시 반환 (네트워크 0회) ───────────────────────
+    if not force and "_members_cache" in st.session_state:
+        return st.session_state["_members_cache"]
     _cache = _get_member_cache()
     _now = time.time()
-    # ── 캐시 유효 시 즉시 반환 (120초 TTL — 제40조 §2 상향) ──────────────
-    if not force and _cache["data"] is not None and (_now - _cache["ts"]) < 120:
+    # ── 프로세스 캐시 유효 시 즉시 반환 (300초 TTL) ────────────────────────
+    if not force and _cache["data"] is not None and (_now - _cache["ts"]) < 300:
         return _cache["data"]
     # ── Supabase 우선 ────────────────────────────────────────────────────
     if _SB_PKG_OK:
@@ -4504,6 +4507,7 @@ def load_members(force: bool = False):
                 } for r in rows}
                 _cache["data"] = result
                 _cache["ts"]   = _now
+                st.session_state["_members_cache"] = result
                 return result
         except Exception:
             pass
@@ -4545,6 +4549,7 @@ def save_members(members):
                         _row["pin_hash"] = m["pin_hash"]
                     sb.table("gk_members").upsert(_row, on_conflict="name").execute()
                 _get_member_cache().update({"data": None, "ts": 0.0})
+                st.session_state.pop("_members_cache", None)
                 _sb_ok = True
         except Exception as _e:
             _sb_err = str(_e)
@@ -4565,6 +4570,7 @@ def save_members(members):
             json.dump(members, f, ensure_ascii=False)
         shutil.move(tmp_path, MEMBER_DB)
         _get_member_cache().update({"data": None, "ts": 0.0})
+        st.session_state.pop("_members_cache", None)
     except (IOError, OSError):
         pass
 
@@ -6348,8 +6354,10 @@ def _lazy_sb_create_client():
 
 _SB_PKG_OK = True  # 실제 가용 여부는 _lazy_sb_create_client() 호출 시 결정
 
-def _get_gcs_client():
-    """GCS 클라이언트 반환 (폴백용)
+@st.cache_resource
+def _get_gcs_client_cached():
+    """GCS 클라이언트 싱글톤 — @st.cache_resource로 프로세스당 1회만 인증 수행.
+    [PERF §1] 매 rerun마다 OAuth 인증을 반복하던 병목 제거.
     우선순위 1: secrets.toml [gcs] 섹션
     우선순위 2: HF Secrets 환경변수 GCS_*
     """
@@ -6382,6 +6390,10 @@ def _get_gcs_client():
         return storage.Client(credentials=creds, project=gcs_cfg.get("project_id"))
     except Exception:
         return None
+
+def _get_gcs_client():
+    """GCS 클라이언트 반환 — 캐싱된 싱글톤 위임 래퍼."""
+    return _get_gcs_client_cached()
 
 # ── GCS 분석 캐시 헬퍼 (Cache-First 비용 절감) ─────────────────────────────
 _GCS_CACHE_BUCKET = None  # 앱 시작 시 환경변수/secrets에서 설정
