@@ -21835,6 +21835,250 @@ body.gk-senior .red-alert-focus {
 * { transition: font-size 0.2s cubic-bezier(0.4, 0, 0.2, 1),
                color      0.2s cubic-bezier(0.4, 0, 0.2, 1),
                padding    0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* ══════════════════════════════════════════════════
+   [GHOST PROTOCOL] — Minimalist UI Override
+   장식을 버리고 본질을 남겨라.
+   예외: .gk-rb-btn(액션 그리드), .gk-ai-output-box(AI 답변창),
+         .gk-scan-wrap(업로드), .gk-sky-trust(보장분석카드)
+══════════════════════════════════════════════════ */
+
+/* ① 메인 block-container 외곽선·배경 제거 */
+.block-container {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+/* ② .gk-sec 박스 → 순수 여백 구분 */
+.gk-sec {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 0 8px 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* ③ .gk-sec-title 배지 → 굵은 검정 텍스트로 */
+.gk-sec-title {
+    background: none !important;
+    color: #000000 !important;
+    font-size: 1.0rem !important;
+    font-weight: 900 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    letter-spacing: 0.05em !important;
+    display: block !important;
+    margin-bottom: 10px !important;
+    border-bottom: 2px solid #000000 !important;
+    padding-bottom: 4px !important;
+}
+
+/* ④ .gk-scan-wrap — 업로드 영역: 외곽선 유지하되 색상 중립 */
+.gk-scan-wrap {
+    background: transparent !important;
+    border: 1.5px solid #CCCCCC !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+}
+.gk-scan-wrap [data-testid="stFileUploadDropzone"] {
+    border: 1.5px dashed #AAAAAA !important;
+    background: #FAFAFA !important;
+}
+
+/* ⑤ .gk-ai-output-box, .gk-scan-output — AI 답변창: 하단선만 유지 */
+.gk-ai-output-box {
+    border: none !important;
+    border-bottom: 2px solid #E0E0E0 !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+.gk-scan-output {
+    border: none !important;
+    border-bottom: 2px solid #E0E0E0 !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+/* ⑥ .gk-scan-controller */
+.gk-scan-controller {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* ⑦ .gk-card-wrap (도메인 카드) — 액션 그리드는 유지 */
+.gk-card-wrap {
+    border: 2px solid #DDDDDD !important;
+    background: #FAFAFA !important;
+    box-shadow: none !important;
+}
+.gk-card-wrap:hover {
+    border-color: #0369a1 !important;
+    background: #F0F9FF !important;
+    box-shadow: 0 4px 12px rgba(3,105,161,0.10) !important;
+}
+
+/* ⑧ .gk-cheer-banner — 응원문구: 배경·테두리 제거 */
+.gk-cheer-banner {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid #E0E0E0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    color: #1e3a5f !important;
+}
+
+/* ⑨ .gk-alert-box — 레드 얼럿은 좌측선만 유지 */
+.gk-alert-box, .gk-red-box {
+    background: transparent !important;
+    border: none !important;
+    border-left: 4px solid #FF4B4B !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+/* ⑩ stExpander — 테두리 중립 */
+[data-testid="stExpander"] {
+    border: 1px solid #E8E8E8 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+[data-testid="stExpander"]:hover {
+    border-color: #AAAAAA !important;
+    box-shadow: none !important;
+}
+summary[data-testid="stExpanderToggle"] {
+    background: transparent !important;
+    border: none !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+}
+summary[data-testid="stExpanderToggle"]:hover {
+    background: #F5F5F5 !important;
+}
+
+/* ⑪ Metric 카드 — 테두리·배경 제거 */
+[data-testid="stMetric"] {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid #E0E0E0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+[data-testid="stMetric"]:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* ⑫ 컬럼 구분 점선 제거 */
+[data-testid="column"] {
+    border-right: none !important;
+}
+
+/* ⑬ 탭 하단선 중립 */
+[data-testid="stTabs"] {
+    border-bottom: 1.5px solid #E0E0E0 !important;
+}
+
+/* ⑭ 반응형: 모바일에서도 좌우 정렬 유지 */
+@media (max-width: 768px) {
+    .gk-sec, .gk-ai-output-box, .gk-scan-output {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+    .block-container {
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+    }
+}
+
+/* ══════════════════════════════════════════════════
+   [GHOST PROTOCOL §2] — 액션 버튼 & 상태바 시인성 긴급 교정
+   Secondary/Default 버튼: 파스텔 블루/그린 + 굵은 검정
+   스피너/로딩바: 파스텔 옐로우 + 굵은 검정
+══════════════════════════════════════════════════ */
+
+/* ⓐ Secondary 버튼 — 검정 배경 제거, 파스텔 블루로 교정 */
+.stButton > button[kind="secondary"] {
+    background: #E3F2FD !important;
+    backdrop-filter: none !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+    border: 1.5px solid #1565C0 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+.stButton > button[kind="secondary"]:hover {
+    background: #BBDEFB !important;
+    border-color: #0D47A1 !important;
+    color: #000000 !important;
+    box-shadow: 0 4px 12px rgba(21,101,192,0.18) !important;
+}
+.stButton > button[kind="secondary"]:active {
+    background: #90CAF9 !important;
+}
+
+/* ⓑ Default(일반) 버튼 — 반투명 배경 제거, 파스텔 그린으로 교정 */
+.stButton > button:not([kind]) {
+    background: #E8F5E9 !important;
+    backdrop-filter: none !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+    border: 1.5px solid #2E7D32 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+.stButton > button:not([kind]):hover {
+    background: #C8E6C9 !important;
+    border-color: #1B5E20 !important;
+    color: #000000 !important;
+    box-shadow: 0 4px 12px rgba(46,125,50,0.18) !important;
+}
+.stButton > button:not([kind]):active {
+    background: #A5D6A7 !important;
+}
+
+/* ⓒ st.spinner / 상태 위젯 — 파스텔 옐로우 배경 + 굵은 검정 */
+[data-testid="stSpinner"],
+div[data-testid="stSpinner"] > div,
+[data-testid="stStatusWidget"],
+div[data-testid="stStatusWidget"] > div {
+    background: #FFF9C4 !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+    border-radius: 10px !important;
+    border: 1.5px solid #F9A825 !important;
+    padding: 10px 16px !important;
+    box-shadow: none !important;
+}
+[data-testid="stSpinner"] p,
+[data-testid="stSpinner"] span,
+[data-testid="stStatusWidget"] p,
+[data-testid="stStatusWidget"] span {
+    color: #000000 !important;
+    font-weight: 800 !important;
+    text-shadow: none !important;
+}
+/* 스피너 SVG 아이콘 색상 교정 */
+[data-testid="stSpinner"] svg,
+[data-testid="stStatusWidget"] svg {
+    stroke: #F9A825 !important;
+    fill: none !important;
+}
+
+/* ⓓ st.info / st.success / st.warning / st.error 박스 글자 가독성 */
+[data-testid="stNotification"] {
+    color: #000000 !important;
+    font-weight: 700 !important;
+}
+[data-testid="stNotification"] p,
+[data-testid="stNotification"] span {
+    color: #000000 !important;
+}
 </style>""", unsafe_allow_html=True)
 
     # ── Dynamic Theme + Lottie 돋보기 + Count-up + Haptic JS ────────────
@@ -22657,13 +22901,10 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
 
             # ── 통합 박스 열기 + 안내 문구 내부 포함 (제52조 §1·§2 통합) ──
             st.markdown("""
-<div style='border:2px solid #FF0000;border-radius:12px;
-  background:#F0F8FF;padding:15px;
-  margin-bottom:20px;box-sizing:border-box;
-  box-shadow:0 2px 10px rgba(255,0,0,0.10);'>
-  <div style='color:#C62828;font-size:0.92rem;font-weight:800;
-    margin-bottom:10px;text-align:center;border-bottom:1.5px solid rgba(255,0,0,0.25);
-    padding-bottom:8px;letter-spacing:0.02em;'>
+<div style='padding:12px 4px 10px 4px;margin-bottom:16px;box-sizing:border-box;
+  border-bottom:2px solid #000000;'>
+  <div style='color:#000000;font-size:0.95rem;font-weight:900;
+    margin-bottom:10px;letter-spacing:0.02em;'>
     🔐 필수 동의하셔야 AI 마스터 접속 가능
   </div>""", unsafe_allow_html=True)
 
@@ -22683,15 +22924,12 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
                                        label_visibility="collapsed")
                 with _tlbl_col:
                     _is_checked = _tr_top.get(_ttk, False)
-                    _row_bg  = "#C8E6C9" if _is_checked else "#FFF9C4"
-                    _row_bdr = "#2E7D32" if _is_checked else "#FF0000"
+                    _row_bg  = "transparent"
                     st.markdown(
-                        f"<div style='padding:4px 8px;border-radius:6px;"
-                        f"background:{_row_bg};border:1px solid {_row_bdr};"
-                        f"font-size:0.78rem;color:#000000;font-weight:700;line-height:1.4;'>"
-                        f"<span style='background:{_tbadge_color};color:#fff;font-size:0.60rem;"
-                        f"padding:1px 6px;border-radius:4px;font-weight:800;"
-                        f"display:inline-block;margin-bottom:2px;'>{_tbadge}</span> "
+                        f"<div style='padding:3px 6px;"
+                        f"font-size:0.82rem;color:#000000;font-weight:700;line-height:1.5;'>"
+                        f"<span style='color:#e53e3e;font-size:0.70rem;"
+                        f"font-weight:800;margin-right:4px;'>{_tbadge}</span>"
                         f"{_ttitle}</div>",
                         unsafe_allow_html=True,
                     )
