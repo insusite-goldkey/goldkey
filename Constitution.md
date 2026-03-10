@@ -2610,3 +2610,74 @@ def _gp97_analyze_diff(new_meta: dict, existing_index: list) -> dict:
 | GCS 캐시 히트 응답 | **0.3초 이내** |
 
 *이상 제130.1조는 골드키 총통합헌법 PERFORMANCE 추록(2026.05)에 공식 수록되며, 신규 기능 구현 시 반드시 이 기준을 만족하는지 검토 후 배포한다.*
+
+---
+
+## [SECTION: WHITE-FLASH BUG PROTOCOL] — 제130.2조
+
+> **정의:** 백화현상(White Flash)이란 탭·섹터 전환 또는 `st.rerun()` 호출 직후 화면이 순간적으로 흰색(또는 빈 화면)으로 번쩍이는 UI 결함이다.  
+> 이 조항은 원인 분류·수정 기준·자가점검 체크리스트를 규정하여 재발을 방지한다.
+
+### §1 확인된 원인 목록 (2026-03-10 분석 완료)
+
+| # | 원인 코드 | 설명 | 발생 조건 |
+|---|-----------|------|-----------|
+| W-01 | `FADEIN_OPACITY_ZERO` | `gk-fadein` 애니메이션이 `opacity:0`에서 시작 → 0.22초간 완전 투명 구간 발생 | `.main .block-container` 렌더 직후 |
+| W-02 | `BG_TRANSITION_2S` | `transition: background-color 2s` 설정 → 배경색 변경 구간 동안 흰색 노출 | `html, body, [data-testid="stApp"]` CSS |
+| W-03 | `BROWSER_DEFAULT_WHITE` | Streamlit rerun 시 CSS 적용 전 0~30ms 동안 브라우저 기본 흰색 노출 | Cold Start 및 매 `st.rerun()` |
+| W-04 | `MISSING_COLOR_SCHEME` | `color-scheme` 미설정 → 다크모드 OS 환경에서 순간 흰색 기본값 사용 | OS 다크모드 + 라이트 앱 혼용 시 |
+| W-05 | `SCROLL_IFRAME_DOM` | `_scroll_top` 처리 시 `components.html()` height=0 iframe 추가 → 불필요한 DOM 변화 | 탭 전환 직후 스크롤 리셋 시 |
+| W-06 | `SELECTOR_COVERAGE_GAP` | `[data-testid="stApp"]` 외 `stAppViewBlockContainer`, `.stApp` 등 셀렉터 누락 → 일부 컨테이너 흰색 노출 | Streamlit 버전 업데이트 후 셀렉터 변경 시 |
+
+### §2 수정 적용 내역 (2026-03-10 커밋 `052dc9e`)
+
+| 원인 코드 | 수정 방법 | 적용 위치 (`app.py`) |
+|-----------|----------|---------------------|
+| W-01 | `opacity: 0` → `opacity: 0.12` / 지속시간 `0.22s` → `0.18s` | `@keyframes gk-fadein` |
+| W-02 | `transition: background-color 2s` 주석 처리·제거 | `html, body, [data-testid="stApp"]` CSS |
+| W-03 | `html`, `body`, `stApp` 계열 전체에 `background-color: #F8F9FA !important` 선점 | GP-56 v2 화이트아웃 박멸 블록 |
+| W-04 | `html { color-scheme: light !important; }` 추가 | GP-56 v2 블록 |
+| W-05 | `components.html()` → `st.markdown()` 인라인 스크립트로 교체 | `_scroll_top` 처리 구간 |
+| W-06 | `[data-testid="stAppViewBlockContainer"]`, `.stApp` 셀렉터 추가 | GP-56 v2 블록 |
+
+### §3 자가점검 체크리스트 (신규 CSS 수정 또는 Streamlit 버전 업데이트 시 필수 실행)
+
+배포 전 아래 항목을 반드시 확인한다. 하나라도 실패 시 배포 금지.
+
+```
+[ ] 1. gk-fadein @keyframes에서 from { opacity: ... } 값이 0이 아닌지 확인
+       → 0이면 W-01 재발. 최솟값 0.10 이상 유지.
+
+[ ] 2. html, body, [data-testid="stApp"] CSS에 transition 속성이 없는지 확인
+       → background-color transition이 있으면 W-02 재발.
+
+[ ] 3. html 셀렉터에 color-scheme: light !important 존재 확인
+       → 없으면 W-04 재발 (다크모드 OS 사용자에서 발생).
+
+[ ] 4. 아래 셀렉터 전부에 background-color: #F8F9FA !important 적용됐는지 확인
+       - html
+       - body
+       - [data-testid="stApp"]
+       - [data-testid="stAppViewContainer"]
+       - [data-testid="stMain"]
+       - [data-testid="stAppViewBlockContainer"]
+       - .stApp
+       → 하나라도 누락 시 W-03 / W-06 재발.
+
+[ ] 5. _scroll_top 처리 코드가 components.html() 방식이 아닌지 확인
+       → components.html() 사용 시 W-05 재발 위험.
+
+[ ] 6. Streamlit 버전 업데이트 후 신규 data-testid 셀렉터 등장 여부 확인
+       → 브라우저 개발자 도구 Elements 탭에서 stApp 하위 DOM 구조 확인.
+```
+
+### §4 재발 신고 절차
+
+백화현상이 재발했을 경우 다음 순서로 처리한다.
+
+1. **AUDIT_LOG.md** `[UI 렌더링 버그]` 섹션에 발생 일시·증상·원인 코드(W-01~W-06) 기록
+2. 위 §3 체크리스트 전체 재실행 → 미통과 항목 확인
+3. 신규 원인이면 §1 표에 `W-07+` 추가 후 §2 수정 내역 기록
+4. 수정 완료 후 `python -m py_compile app.py` 구문 검사 → SYNTAX OK 확인 후 배포
+
+*이상 제130.2조는 골드키 총통합헌법 UI-STABILITY 추록(2026.03)에 공식 수록된다.*

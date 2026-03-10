@@ -135,3 +135,49 @@
   ```sql
   ALTER TABLE user_files ADD COLUMN IF NOT EXISTS client_name TEXT;
   ```
+
+---
+
+## [UI 렌더링 버그] 전용 기록
+
+> **용도:** 화면 깜빡임·백화현상·레이아웃 틀어짐 등 UI/UX 렌더링 결함을 기록한다.  
+> 재발 발견 시 Constitution.md 제130.2조 §4 절차에 따라 아래 표에 즉시 기록할 것.  
+> 원인 코드는 제130.2조 §1 표(W-01 ~ W-06)를 참조한다.
+
+### 렌더링 버그 기록 테이블
+
+| # | 발생 일시 | 증상 | 원인 코드 | 수정 방법 | 수정 커밋 | 상태 |
+|---|-----------|------|-----------|----------|-----------|------|
+| 1 | 2026-03-10 19:15 | 탭·섹터 전환 시 화면이 순간적으로 흰색으로 번쩍임 (백화현상) | W-01, W-02, W-03, W-04, W-05, W-06 | `gk-fadein` opacity 0→0.12, `transition` 제거, `color-scheme:light` 추가, 셀렉터 확대, scroll iframe→markdown 교체 | `052dc9e` | ✅ 수정 완료 |
+
+### 자가점검 명령
+
+> **"UI점검"** 또는 **"백화점검"** 명령이 내려지면 Constitution.md 제130.2조 §3 체크리스트 6개 항목을 전부 실행하고 결과를 이 테이블에 기록한다.
+
+---
+
+## 작업 일지 (최신순)
+
+### 2026-03-10 (화) — 성능 최적화 · 백화현상 수정
+
+**작업 시간:** 오후 7:00 ~ 오후 7:25 (UTC+09:00)
+
+#### ✅ 성능 최적화 (커밋 `e47eab1`)
+
+| 항목 | 내용 |
+|------|------|
+| GCS 클라이언트 싱글톤 | `@st.cache_resource` 적용 — 프로세스당 1회 인증 |
+| `load_members()` 세션 캐시 | `st.session_state["_members_cache"]` 즉시 반환, TTL 120→300초 |
+| `save_members()` 캐시 무효화 | 저장 후 `session_state.pop("_members_cache")` |
+| Constitution.md | 제130.1조 PERFORMANCE & STABILITY PROTOCOL 추가 |
+
+#### ✅ 백화현상 수정 (커밋 `052dc9e`)
+
+| 원인 코드 | 수정 내용 |
+|-----------|----------|
+| W-01 | `gk-fadein` opacity `0` → `0.12`, 지속시간 `0.22s` → `0.18s` |
+| W-02 | `transition: background-color 2s` 제거 |
+| W-03 | `html/body/stApp` 계열 전체 배경 `#F8F9FA` 선점 |
+| W-04 | `html { color-scheme: light !important }` 추가 |
+| W-05 | `_scroll_top` `components.html()` → `st.markdown()` 인라인 교체 |
+| W-06 | `stAppViewBlockContainer`, `.stApp` 셀렉터 추가 |
