@@ -1,4 +1,4 @@
-﻿# ==========================================================
+# ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -28685,11 +28685,13 @@ renderCalendar();
             if st.button("🏠 홈", key="nav01_home", use_container_width=True):
                 _go_tab("home")
         with _nav01_r:
+            st.markdown('<div style="background:#E3F2FD !important;border-radius:8px;">', unsafe_allow_html=True)
             if st.button("✅ 정보 저장 완료! 'AI 보장 분석' 시작하기 →",
                          key="nav01_next", use_container_width=True):
                 st.session_state["current_tab"] = "t0"
                 st.session_state["_scroll_top"] = True
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-01 닫기
 
@@ -28763,11 +28765,13 @@ renderCalendar();
             if st.button("🏠 홈", key="nav02_home", use_container_width=True):
                 _go_tab("home")
         with _nav02_r:
+            st.markdown('<div style="background:#E3F2FD !important;border-radius:8px;">', unsafe_allow_html=True)
             if st.button("🔍 분석 완료! '보험금 상담/검색' 이동하기 →",
                          key="nav02_next", use_container_width=True):
                 st.session_state["current_tab"] = "t1"
                 st.session_state["_scroll_top"] = True
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-02 닫기
 
@@ -28865,6 +28869,25 @@ renderCalendar();
                         '📖 좌측에 질문을 입력하면<br>여기에 3단계 구조 답변이 표시됩니다.'
                         '</div></div>',
                         unsafe_allow_html=True)
+
+        # ── [NAV-03] 내비게이션 바 ─────────────────────────────────────────
+        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+                    "margin:10px 0 4px 0;'>3 / 7단계 — 보험금 상담 &amp; 용어 센터</div>",
+                    unsafe_allow_html=True)
+        _nav03_l, _nav03_r = st.columns([2, 8])
+        with _nav03_l:
+            if st.button("🏠 홈", key="nav03_home", use_container_width=True):
+                _go_tab("home")
+        with _nav03_r:
+            st.markdown(
+                '<div style="background:#E3F2FD !important;border-radius:8px;">',
+                unsafe_allow_html=True)
+            if st.button("📂 상담 자료 '스마트 스캔' 하러 가기 →",
+                         key="nav03_next", use_container_width=True):
+                st.session_state["current_tab"] = "scan_hub"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-03 닫기
 
@@ -28966,6 +28989,25 @@ renderCalendar();
                         '</span></div></div>',
                         unsafe_allow_html=True)
 
+        # ── [NAV-04] 내비게이션 바 ─────────────────────────────────────────
+        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+                    "margin:10px 0 4px 0;'>4 / 7단계 — 스마트 스캔 분석 허브</div>",
+                    unsafe_allow_html=True)
+        _nav04_l, _nav04_r = st.columns([2, 8])
+        with _nav04_l:
+            if st.button("🏠 홈", key="nav04_home", use_container_width=True):
+                _go_tab("home")
+        with _nav04_r:
+            st.markdown(
+                '<div style="background:#E3F2FD !important;border-radius:8px;">',
+                unsafe_allow_html=True)
+            if st.button("🤖 스캔 완료! '포트폴리오 카드' 확인하기 →",
+                         key="nav04_next", use_container_width=True):
+                st.session_state["current_tab"] = "policy_scan"
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
         st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-04 닫기
 
         # ═══════════════════════════════════════════════════════════════
@@ -29058,6 +29100,25 @@ renderCalendar();
             _go_tab("ins_bot")
         st.markdown('</div>', unsafe_allow_html=True)
 
+        # ── [NAV-05] 내비게이션 바 ─────────────────────────────────────────
+        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+                    "margin:10px 0 4px 0;'>5 / 7단계 — 네비게이션 게이트웨이</div>",
+                    unsafe_allow_html=True)
+        _nav05_l, _nav05_r = st.columns([2, 8])
+        with _nav05_l:
+            if st.button("🏠 홈", key="nav05_home", use_container_width=True):
+                _go_tab("home")
+        with _nav05_r:
+            st.markdown(
+                '<div style="background:#E3F2FD !important;border-radius:8px;">',
+                unsafe_allow_html=True)
+            if st.button("🏆 마스터의 제언! '보험사 컨택 센터' 연결 →",
+                         key="nav05_next", use_container_width=True):
+                st.session_state["_home_scroll_to_sec06"] = True
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
         st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-05 닫기
 
         # ═══════════════════════════════════════════════════════════════
@@ -29090,6 +29151,25 @@ renderCalendar();
             )
         _contact_html += '</div>'
         st.markdown(_contact_html, unsafe_allow_html=True)
+        # ── [NAV-06] 내비게이션 바 ─────────────────────────────────────────
+        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+                    "margin:10px 0 4px 0;'>6 / 7단계 — 보험사 컨택 센터</div>",
+                    unsafe_allow_html=True)
+        _nav06_l, _nav06_r = st.columns([2, 8])
+        with _nav06_l:
+            if st.button("🏠 홈", key="nav06_home", use_container_width=True):
+                _go_tab("home")
+        with _nav06_r:
+            st.markdown(
+                '<div style="background:#E3F2FD !important;border-radius:8px;">',
+                unsafe_allow_html=True)
+            if st.button("🔐 관리자 게이트 '시스템 설정' 이동 →",
+                         key="nav06_next", use_container_width=True):
+                st.session_state["_home_scroll_to_sec07"] = True
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
         st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-06 닫기
 
         # ═══════════════════════════════════════════════════════════════
@@ -29119,10 +29199,12 @@ renderCalendar();
             if st.button("🏠 홈", key="nav07_home", use_container_width=True):
                 _go_tab("home")
         with _nav07_r:
+            st.markdown('<div style="background:#E3F2FD !important;border-radius:8px;">', unsafe_allow_html=True)
             if st.button("🔄 처음으로 — '고객 마스터 데이터' 재입력하기 →", key="nav07_next", use_container_width=True):
                 st.session_state["_scroll_top"] = True
                 st.session_state["_home_scroll_to_sec01"] = True
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-07 닫기
 
