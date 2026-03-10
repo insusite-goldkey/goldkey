@@ -28543,19 +28543,19 @@ renderCalendar();
                 st.markdown(
                     f'<div class="gk-dash-box" style="border:2px solid #FF0000;border-radius:10px;'
                     f'padding:10px 12px;min-height:120px;max-height:180px;">'
-                    f'<div style="font-size:0.75rem;font-weight:900;color:#CC0000;margin-bottom:6px;">📋 오늘 할 일</div>'
+                    f'<div style="font-size:0.75rem;font-weight:900;color:#000000 !important;background:#E3F2FD !important;padding:4px 6px;border-radius:5px;margin-bottom:6px;">📋 오늘 할 일</div>'
                     f'{_todo_html}</div>', unsafe_allow_html=True)
             with _gb2:
                 st.markdown(
                     f'<div class="gk-dash-box" style="border:2px solid #FF0000;border-radius:10px;'
                     f'padding:10px 12px;min-height:120px;max-height:180px;">'
-                    f'<div style="font-size:0.75rem;font-weight:900;color:#CC0000;margin-bottom:6px;">🕐 오늘의 약속</div>'
+                    f'<div style="font-size:0.75rem;font-weight:900;color:#000000 !important;background:#E3F2FD !important;padding:4px 6px;border-radius:5px;margin-bottom:6px;">🕐 오늘의 약속</div>'
                     f'{_appt_html}</div>', unsafe_allow_html=True)
             with _gb3:
                 st.markdown(
                     f'<div class="gk-dash-box" style="border:2px solid #FF0000;border-radius:10px;'
                     f'padding:10px 12px;min-height:120px;max-height:180px;">'
-                    f'<div style="font-size:0.75rem;font-weight:900;color:#CC0000;margin-bottom:6px;">⏳ 상담 대기</div>'
+                    f'<div style="font-size:0.75rem;font-weight:900;color:#000000 !important;background:#E3F2FD !important;padding:4px 6px;border-radius:5px;margin-bottom:6px;">⏳ 상담 대기</div>'
                     f'{_wait_html}</div>', unsafe_allow_html=True)
 
             # ── 그룹 C: 상담노트(좌) / 보험가입상담(우) ─────────────────
