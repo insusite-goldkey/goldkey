@@ -22394,32 +22394,28 @@ section[data-testid="stSidebar"] .st-expander summary {
   </div>
 </div>""", unsafe_allow_html=True)
 
-            st.sidebar.markdown(
-                "<div style='background:#FFF8E1;border:1.5px solid #F9A825;border-radius:8px;"
-                "padding:8px 11px;margin:6px 0;font-size:0.72rem;line-height:1.55;color:#4A3700;'>"
-                "<div style='font-weight:900;font-size:0.75rem;color:#E65100;margin-bottom:4px;'>"
-                "⚠️ 면책 및 서비스 이용 안내 (Disclaimer)</div>"
-                "<b>1. 본 앱(Goldkey_AI_Master2026)의 목적 및 한계:</b><br>"
-                "(1) 본 앱은 원활한 고객 상담과 보험 내용 이해를 돕기 위한 업무 보조 도구입니다. "
-                "앱에서 제공하는 모든 AI 분석 결과 및 자료는 참고용 보조 지표일 뿐이며, "
-                "어떠한 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.<br>"
-                "(2) 보장 내용·약관 해석·보험금 청구는 반드시 해당 보험회사 보상담당자 또는 "
-                "손해사정인(독립사정인 포함) 등에게 확인하시기 바랍니다.<br>"
-                "(3) AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며, "
-                "이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.<br><br>"
-                "<b>2. 전문가 상담 필수 및 책임 소재</b><br>"
-                "본 앱은 의료·법률·세무·회계·부동산 등의 전문적인 진단이나 상담을 대체할 수 없습니다. "
-                "관련 사항은 반드시 분야별 전문가(의사·변호사·세무사 등)와 상담하시기 바랍니다. "
-                "아울러 최종적인 보험 가입 및 해지 결정은 전문 자격을 갖춘 설계사를 통해 진행하셔야 하며, "
-                "본 앱의 정보를 바탕으로 한 최종 판단과 책임은 이용자 본인에게 있습니다."
-                "</div>",
-                unsafe_allow_html=True,
-            )
+            with st.expander("⚠️ 면책 및 서비스 이용 안내 (Disclaimer)", expanded=False):
+                st.markdown("""
+<div style='font-size:0.72rem;line-height:1.6;color:#4A3700;'>
+  <b>1. 본 앱(Goldkey_AI_Master2026)의 목적 및 한계:</b><br>
+  (1) 본 앱은 원활한 고객 상담과 보험 내용 이해를 돕기 위한 업무 보조 도구입니다.
+  앱에서 제공하는 모든 AI 분석 결과 및 자료는 참고용 보조 지표일 뿐이며,
+  어떠한 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.<br>
+  (2) 보장 내용·약관 해석·보험금 청구는 반드시 해당 보험회사 보상담당자 또는
+  손해사정인(독립사정인 포함) 등에게 확인하시기 바랍니다.<br>
+  (3) AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며,
+  이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.<br><br>
+  <b>2. 전문가 상담 필수 및 책임 소재</b><br>
+  본 앱은 의료·법률·세무·회계·부동산 등의 전문적인 진단이나 상담을 대체할 수 없습니다.
+  관련 사항은 반드시 분야별 전문가(의사·변호사·세무사 등)와 상담하시기 바랍니다.
+  아울러 최종적인 보험 가입 및 해지 결정은 전문 자격을 갖춘 설계사를 통해 진행하셔야 하며,
+  본 앱의 정보를 바탕으로 한 최종 판단과 책임은 이용자 본인에게 있습니다.
+</div>
+""", unsafe_allow_html=True)
+
             if False:  # 약관 전문 — 로딩 지연 방지용 비활성화 블록
                 st.markdown("""
 ## Goldkey AI Master Lab. Beta 이용약관
-
-**제1조 (서비스 기본 정보)**
 - **서비스명:** Goldkey AI Master Lab. Beta
 - **운영자:** 이세윤
 - **앱 문의:** 010-3074-2616 / insusite@gmail.com
@@ -22709,23 +22705,16 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
                 st.rerun()
 
             # ── [가이딩 프로토콜 제130조] 데이터 보호 특칙 고지 ──────────────
-            st.markdown("""
-<hr style='border:none;border-top:1px solid rgba(0,77,64,0.25);margin:10px 0 8px 0;'>
-<div style='background:linear-gradient(135deg,#e8f5e9 0%,#f0f9ff 100%);
-  border:1.5px solid #004D40;border-radius:10px;padding:10px 12px;margin-top:2px;'>
-  <div style='font-size:0.78rem;font-weight:800;color:#004D40;margin-bottom:6px;
-    letter-spacing:0.04em;'>
-    🔒 제130조 데이터 보호 특칙 (의료 데이터 보안 고지)
-  </div>
-  <div style='font-size:0.71rem;color:#1e3a5f;line-height:1.65;'>
-    회사는 이용자가 업로드하는 <strong>의무기록 및 진단서의 민감정보</strong>를 보호하기 위해,
-    수집 단계에서 <strong>성명 및 주민등록번호 뒷자리를 자동 비식별화(Masking)</strong> 처리합니다.<br>
-    모든 의료 데이터는 국제 표준인 <strong>AES-256 방식으로 암호화</strong>되어 외부와 격리된
-    <strong>보안 스토리지(GCS Security Bucket)</strong>에 저장되며, 엄격한 접근 권한 통제를 통해
-    <strong>마스터 본인 외에는 누구도 열람할 수 없음</strong>을 보장합니다.
-  </div>
-  <div style='font-size:0.68rem;color:#374151;margin-top:6px;text-align:right;
-    font-style:italic;'>
+            st.markdown("<hr style='border:none;border-top:1px solid rgba(0,77,64,0.25);margin:10px 0 4px 0;'>", unsafe_allow_html=True)
+            with st.expander("🔒 제130조 데이터 보호 특칙 (의료 데이터 보안 고지)", expanded=False):
+                st.markdown("""
+<div style='font-size:0.71rem;color:#1e3a5f;line-height:1.65;'>
+  회사는 이용자가 업로드하는 <strong>의무기록 및 진단서의 민감정보</strong>를 보호하기 위해,
+  수집 단계에서 <strong>성명 및 주민등록번호 뒷자리를 자동 비식별화(Masking)</strong> 처리합니다.<br>
+  모든 의료 데이터는 국제 표준인 <strong>AES-256 방식으로 암호화</strong>되어 외부와 격리된
+  <strong>보안 스토리지(GCS Security Bucket)</strong>에 저장되며, 엄격한 접근 권한 통제를 통해
+  <strong>마스터 본인 외에는 누구도 열람할 수 없음</strong>을 보장합니다.
+  <div style='font-size:0.68rem;color:#374151;margin-top:6px;text-align:right;font-style:italic;'>
     📋 goldkey_Ai_masters2026 가이딩 프로토콜 제130조 §1~§3 준수
   </div>
 </div>""", unsafe_allow_html=True)
