@@ -28133,13 +28133,9 @@ div[data-testid="stButton"] > button[data-testid="btn_home_scan_start"]:hover {
         with _scan_left:
             st.markdown('<div class="gk-scan-controller">', unsafe_allow_html=True)
             st.markdown("""
-<div style="font-size:1.05rem;font-weight:900;color:#0369a1;margin-bottom:6px;letter-spacing:0.02em;">
-  📂 스마트 스캔 컨트롤러
-</div>
-<div style="font-size:0.82rem;color:#334155;margin-bottom:14px;line-height:1.6;">
-  보험금 청구 서류, 의무기록, 약관을 드래그하거나<br>카메라로 촬영하여 로딩하세요.<br>
-  <span style="color:#0ea5e9;font-weight:700;">📱 모바일: 카메라 앱과 즉시 연동됩니다.</span>
-</div>""", unsafe_allow_html=True)
+<p style="font-size:0.92rem;font-weight:700;color:#000000;margin:0 0 12px 0;line-height:1.7;word-break:keep-all;">
+  📂 <strong>스마트 스캔 컨트롤러</strong>: 보험금 청구 서류, 의무기록, 약관을 드래그하거나, 카메라로 촬영하여 로딩하세요. 📱 <strong>모바일</strong>: 카메라 앱과 즉시 연동됩니다.
+</p>""", unsafe_allow_html=True)
             _home_scan_file = st.file_uploader(
                 "파일 업로드 (PDF · JPG · PNG · WEBP)",
                 type=["pdf", "jpg", "jpeg", "png", "webp"],
