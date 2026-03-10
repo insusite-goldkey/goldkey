@@ -19700,49 +19700,24 @@ section.main > div.block-container,
 }
 </style>""", unsafe_allow_html=True)
 
-    # ── STEP 1-A1: [제84조] 전역 UI 색상 기강 — 파스텔 배경 + 백색 텍스트 + 황금색 보존 ──
-    _gp84_inject_global_css()
+    # ── STEP 1-A1: [제84조] 전역 UI 색상 기강 — 세션당 1회만 주입 (성능 최적화) ──
+    if not st.session_state.get("_gp84_css_injected"):
+        _gp84_inject_global_css()
+        st.session_state["_gp84_css_injected"] = True
 
-    # ── STEP 1-A1b: [GP190 §3] 전역 파일업로더 시각화 CSS 주입 ──────────
-    try:
-        from modules.scan_engine import get_uploader_css as _get_uploader_css
-        st.markdown(f"<style>{_get_uploader_css()}</style>", unsafe_allow_html=True)
-    except Exception:
-        pass
+    # ── STEP 1-A1b: [GP190 §3] 전역 파일업로더 시각화 CSS 주입 — 세션당 1회 ──
+    if not st.session_state.get("_uploader_css_injected"):
+        try:
+            from modules.scan_engine import get_uploader_css as _get_uploader_css
+            st.markdown(f"<style>{_get_uploader_css()}</style>", unsafe_allow_html=True)
+            st.session_state["_uploader_css_injected"] = True
+        except Exception:
+            pass
 
-    # ── STEP 1-A1c: [GP193 §1] 전역 인제스트 후크 파라미터 헬퍼 ─────────
-    def _gp193_get_hook_params() -> dict:
-        """GP193 전역 후크 호출 시 공통 GCS/RAG 파라미터를 반환."""
-        _bucket = (
-            os.environ.get("GCS_KNOWLEDGE_BUCKET")
-            or (st.secrets.get("GCS_KNOWLEDGE_BUCKET", "") if hasattr(st, "secrets") else "")
-            or os.environ.get("GCS_CACHE_BUCKET", "")
-            or "goldkey-knowledge-vault"
-        )
-        _proj = (
-            os.environ.get("GCS_PROJECT_ID")
-            or (st.secrets.get("GCS_PROJECT_ID", "") if hasattr(st, "secrets") else "")
-            or (st.secrets.get("gcs", {}).get("project_id", "") if hasattr(st, "secrets") else "")
-        )
-        _dai_loc  = os.environ.get("DAI_LOCATION", "us")
-        _dai_proc = (
-            os.environ.get("DAI_PROCESSOR_ID")
-            or (st.secrets.get("DAI_PROCESSOR_ID", "") if hasattr(st, "secrets") else "")
-        )
-        _gcs = _get_gcs_client()
-        return {
-            "gcs_client":       _gcs,
-            "gcs_bucket":       _bucket,
-            "dai_project":      _proj,
-            "dai_location":     _dai_loc,
-            "dai_processor_id": _dai_proc,
-            "ai_call_fn":       st.session_state.get("_ai_call_fn"),
-            "rag_add_fn":       _rag_db_add_document,
-            "session_state":    st.session_state,
-        }
-
-    # ── STEP 1-A2: [제42조] 전역 디자인 토큰 + 고대비 가독성 CSS ────────
-    st.markdown("""<style>
+    # ── STEP 1-A2: [제42조] 전역 디자인 토큰 + 고대비 가독성 CSS — 세션당 1회 ──
+    if not st.session_state.get("_gp42_css_injected"):
+        st.session_state["_gp42_css_injected"] = True
+        st.markdown("""<style>
 /* ================================================================
    가이딩 프로토콜 제42조: 데이터 지향적 시각 정체성 & 고대비 가독성
    §1 시맨틱 컬러 토큰 (CSS Custom Properties)
@@ -19960,8 +19935,11 @@ section.main > div.block-container,
             _wjs = _s40_perf_watchdog_js(str(_s40_wtab))
             if _wjs:
                 _s40_comp.html(_wjs, height=0)
-        # 매 rerun: localStorage 누적 perf 로그 → console.info 출력 (개발자 도구 확인용)
-        _s40_comp.html(_s40_read_ls_perf_js(), height=0)
+        # perf 로그 — 30초 TTL로 제한 (매 rerun iframe 생성 방지, 성능 최적화)
+        _now_perf = time.monotonic()
+        if _now_perf - st.session_state.get("_s40_perf_last_ts", 0) > 30:
+            st.session_state["_s40_perf_last_ts"] = _now_perf
+            _s40_comp.html(_s40_read_ls_perf_js(), height=0)
 
     # ── STEP 2: 세션 ID 생성 [GP-49 멀티 디바이스 심리스 접속] ──────────────
     # device_uuid: 브라우저 탭/기기별 고유 ID (세션 내 1회 생성, 유지)
@@ -20043,7 +20021,10 @@ section.main > div.block-container,
             _tok_secret = st.secrets.get("ENCRYPTION_KEY", "gk_token_secret_2026")
             if isinstance(_tok_secret, bytes):
                 _tok_secret = _tok_secret.decode()
-            _tok_members = load_members()
+            _tok_members = (
+                st.session_state.get("_members_cache")
+                or load_members()
+            )
             _tok_found = False
             for _tok_name, _tok_m in _tok_members.items():
                 _expected = _hmac.new(
