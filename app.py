@@ -9586,11 +9586,13 @@ def _gp88_hub() -> dict:
         except Exception:
             pass
         st.caption("PDF 또는 이미지(JPG·PNG)를 업로드하면 Gemini Vision AI가 핵심 담보를 읽어냅니다.")
+        st.markdown('<div class="gk-scan-wrap">', unsafe_allow_html=True)
         _ocr_file = st.file_uploader(
             "계약서 파일 업로드 (PDF · JPG · PNG)",
             type=["pdf", "jpg", "jpeg", "png"],
             key="_gp88_ocr_upload",
         )
+        st.markdown('</div>', unsafe_allow_html=True)
 
         # ── [GP196 §1] 파일 용량 사전 검사 ────────────────────────────────
         if _ocr_file:
@@ -10967,11 +10969,13 @@ def _gp96_panel() -> None:
         st.markdown("#### 📤 리플렛 업로드 & 자동 분류")
         st.caption("개인정보가 없는 리플렛 PDF/이미지를 업로드하세요. OCR로 [회사·출시일·상품군·핵심담보]를 자동 추출합니다.")
 
+        st.markdown('<div class="gk-scan-wrap">', unsafe_allow_html=True)
         _uploaded = st.file_uploader(
             "리플렛 파일 업로드 (PDF / JPG / PNG)",
             type=["pdf", "jpg", "jpeg", "png"],
             key="_gp96_uploader",
         )
+        st.markdown('</div>', unsafe_allow_html=True)
         # ── [GP193 §2] 전역 인제스트 후크 — 업로드 즉시 GCS+RAG 동시 저장 ─
         if _uploaded and st.session_state.get("_gp193_done__gp96_uploader") != _uploaded.name:
             try:
@@ -19420,10 +19424,7 @@ def section_inheritance_will():
                         except Exception as e:
                             st.error(f"분석 오류: {sanitize_unicode(str(e))}")
 
-            if st.session_state.get("res_inh_ai"):
-                st.markdown("---")
-                st.markdown("#### 🤖 AI 고액자산가 맞춤 전략")
-                st.markdown(st.session_state["res_inh_ai"])
+            show_result("res_inh_ai")
 
     # ── TAB 2: PCI 자금출처 방어 로직 ────────────────────────────────────
     with inh_tabs[1]:
@@ -21012,6 +21013,42 @@ h3 { font-size: 1.15rem !important; font-weight: 800 !important; }
 .gk-rb-btn div[data-testid="stButton"] > button:active {
     background: #90CAF9 !important;
     border-color: #990000 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   [UNIVERSAL SCAN MODULE — Red Border Protocol]
+   .gk-scan-wrap: 앱 전역 스캔/업로드 컨테이너 표준 외곽선
+   배경: 파스텔 블루 #E3F2FD | 외곽선: #FF0000 2px solid | 반경: 10px
+   텍스트: #000000 Bold
+   ══════════════════════════════════════════════════════════════ */
+.gk-scan-wrap {
+    background: #E3F2FD !important;
+    border: 2px solid #FF0000 !important;
+    border-radius: 10px !important;
+    padding: 14px 16px 10px 16px !important;
+    margin-bottom: 10px !important;
+    box-shadow: 0 2px 10px rgba(255,0,0,0.10) !important;
+}
+.gk-scan-wrap * {
+    color: #000000 !important;
+    text-shadow: none !important;
+}
+.gk-scan-wrap label,
+.gk-scan-wrap p,
+.gk-scan-wrap span {
+    font-weight: 700 !important;
+    color: #000000 !important;
+}
+/* 업로더 드래그존 내부 — 흰 배경 유지 */
+.gk-scan-wrap [data-testid="stFileUploadDropzone"] {
+    background: #FFFFFF !important;
+    border: 2px solid #FF0000 !important;
+    border-radius: 8px !important;
+}
+.gk-scan-wrap [data-testid="stFileUploadDropzone"] *,
+.gk-scan-wrap [data-testid="stFileUploaderDropzoneInstructions"] * {
+    color: #000000 !important;
+    font-weight: 700 !important;
 }
 
 /* ── 입력 필드 — Glassmorphism ── */
@@ -25597,50 +25634,77 @@ window['startTTS_{tab_key}']=function(){{
                 st.error(f"추가 답변 오류: {safe_err}")
 
     def show_result(result_key, guide_md=""):
+        # ── [response_handler] 전역 출력 프로토콜 모듈 로드 ─────────────
+        try:
+            from modules.response_handler import (
+                enforce_3stage_format as _rh_3stage,
+                extract_summary_line as _rh_summary,
+                check_safety_keywords as _rh_safety_kw,
+                render_safety_warning as _rh_safety_warn,
+                render_ai_summary_badge as _rh_summary_badge,
+            )
+            _rh_available = True
+        except Exception:
+            _rh_available = False
+
         if st.session_state.get(result_key):
             result_text = st.session_state[result_key]
-            # ── 결론 우선형 AI 한줄 요약 블록 (4060 가독성 최적화) ──────────
-            # 첫 번째 굵은 문장 또는 ★/✅/💡 포함 줄을 요약으로 추출
-            _summary_line = ""
-            for _ln in result_text.splitlines():
-                _ln_s = _ln.strip()
-                if not _ln_s:
-                    continue
-                # 핵심 결론 패턴: ★ / ✅ / 💡 / **..** 굵은 텍스트
-                if any(tok in _ln_s for tok in ["★", "✅", "💡", "🔑", "핵심", "결론", "요약"]):
-                    _summary_line = re.sub(r"\*+", "", _ln_s).strip(" #>-·")
-                    break
-            if not _summary_line:
-                # 패턴 없으면 첫 비빈 줄에서 80자 추출
+
+            # ── [RH-1] 3단계 형식 강제 적용 ─────────────────────────────
+            if _rh_available:
+                result_text = _rh_3stage(result_text)
+                st.session_state[result_key] = result_text
+
+            # ── [RH-2] 결론 우선형 AI 한줄 요약 배지 ─────────────────────
+            if _rh_available:
+                _summary_line = _rh_summary(result_text)
+                _rh_summary_badge(_summary_line)
+            else:
+                # 폴백: 인라인 로직
+                import re as _re_sr
+                _summary_line = ""
                 for _ln in result_text.splitlines():
-                    _ln_s = re.sub(r"[#*_>`\-]", "", _ln).strip()
-                    if len(_ln_s) > 20:
-                        _summary_line = _ln_s[:80] + ("…" if len(_ln_s) > 80 else "")
+                    _ln_s = _ln.strip()
+                    if not _ln_s:
+                        continue
+                    if any(tok in _ln_s for tok in ["★", "✅", "💡", "🔑", "핵심", "결론", "요약"]):
+                        _summary_line = _re_sr.sub(r"\*+", "", _ln_s).strip(" #>-·")
                         break
-            if _summary_line:
-                st.markdown(
-                    f'<div class="gk-ai-summary">'
-                    f'<span class="gk-summary-label">AI 핵심 결론</span>'
-                    f'{_summary_line}'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
-            # ── 안전망: '확인 불가' 키워드 감지 오렌지 경고 ─────────────────
-            _safety_kw_str = st.session_state.get("_bucket_safety_kw", "확인 불가,알 수 없,정보 없,불확실")
-            _safety_kw_list = [k.strip() for k in _safety_kw_str.split(",") if k.strip()]
-            _safety_hits = [k for k in _safety_kw_list if k in (result_text or "")]
-            if _safety_hits:
-                st.markdown(
-                    f'<div style="background:#fff3cd;border:2px solid #fb923c;border-radius:10px;'
-                    f'padding:10px 16px;margin-bottom:8px;">'
-                    f'<span style="font-size:1.2rem;">⚠️</span>'
-                    f' <b style="color:#c2410c;">불확실 정보 감지</b>'
-                    f' — <code>{", ".join(_safety_hits)}</code><br>'
-                    f'<span style="font-size:0.78rem;color:#555;">'
-                    f'이 답변에는 불확실한 내용이 포함될 수 있습니다. '
-                    f'반드시 원본 약관 또는 전문가에게 확인하세요.</span></div>',
-                    unsafe_allow_html=True
-                )
+                if not _summary_line:
+                    for _ln in result_text.splitlines():
+                        _ln_s = _re_sr.sub(r"[#*_>`\-]", "", _ln).strip()
+                        if len(_ln_s) > 20:
+                            _summary_line = _ln_s[:80] + ("…" if len(_ln_s) > 80 else "")
+                            break
+                if _summary_line:
+                    st.markdown(
+                        f'<div class="gk-ai-summary">'
+                        f'<span class="gk-summary-label">AI 핵심 결론</span>'
+                        f'{_summary_line}'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+
+            # ── [RH-3] 안전망: 불확실 키워드 감지 오렌지 경고 ──────────
+            if _rh_available:
+                _safety_hits = _rh_safety_kw(result_text)
+                _rh_safety_warn(_safety_hits)
+            else:
+                _safety_kw_str = st.session_state.get("_bucket_safety_kw", "확인 불가,알 수 없,정보 없,불확실")
+                _safety_kw_list = [k.strip() for k in _safety_kw_str.split(",") if k.strip()]
+                _safety_hits = [k for k in _safety_kw_list if k in (result_text or "")]
+                if _safety_hits:
+                    st.markdown(
+                        f'<div style="background:#fff3cd;border:2px solid #fb923c;border-radius:10px;'
+                        f'padding:10px 16px;margin-bottom:8px;">'
+                        f'<span style="font-size:1.2rem;">⚠️</span>'
+                        f' <b style="color:#c2410c;">불확실 정보 감지</b>'
+                        f' — <code>{", ".join(_safety_hits)}</code><br>'
+                        f'<span style="font-size:0.78rem;color:#555;">'
+                        f'이 답변에는 불확실한 내용이 포함될 수 있습니다. '
+                        f'반드시 원본 약관 또는 전문가에게 확인하세요.</span></div>',
+                        unsafe_allow_html=True
+                    )
             st.markdown(result_text)
             # ── 금지 키워드 감지 시 추가 답변 버튼 ─────────────────────────
             fb_key = f"_forbidden_{result_key}"
@@ -34457,7 +34521,21 @@ div[data-testid="stButton"] > button[data-testid="ins_bot_clear"]:hover {
   </h4>
 """, unsafe_allow_html=True)
                 with st.expander("📄 전체 답변 보기", expanded=True):
-                    st.markdown(_res["raw"])
+                    # ── [response_handler] 3단계 형식 강제 + 안전망 경고 ──
+                    try:
+                        from modules.response_handler import (
+                            enforce_3stage_format as _ib_rh_3stage,
+                            extract_summary_line as _ib_rh_summary,
+                            render_ai_summary_badge as _ib_rh_badge,
+                            check_safety_keywords as _ib_rh_kw,
+                            render_safety_warning as _ib_rh_warn,
+                        )
+                        _ib_raw_fmt = _ib_rh_3stage(_res["raw"])
+                        _ib_rh_badge(_ib_rh_summary(_ib_raw_fmt))
+                        _ib_rh_warn(_ib_rh_kw(_ib_raw_fmt))
+                        st.markdown(_ib_raw_fmt)
+                    except Exception:
+                        st.markdown(_res["raw"])
                 st.markdown("</div>", unsafe_allow_html=True)
 
                 if _res.get("alert"):
