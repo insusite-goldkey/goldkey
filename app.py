@@ -28249,6 +28249,7 @@ renderCalendar();
         # ── [NAV] _home_scroll_to_sec* 앵커 스크롤 처리 ──────────────────
         _sec_anchor_map = {
             "_home_scroll_to_sec01": "gk-sec-01-anchor",
+            "_home_scroll_to_sec05": "gk-sec-05-anchor",
             "_home_scroll_to_sec06": "gk-sec-06-anchor",
             "_home_scroll_to_sec07": "gk-sec-07-anchor",
         }
@@ -28356,7 +28357,8 @@ renderCalendar();
             except Exception:
                 _SPLASH_SRC = ""
             if _SPLASH_SRC:
-                st.markdown(f"""
+                st.markdown(
+                    f"""
 <div style="width:100%;margin:0 0 16px 0;border-radius:16px;overflow:hidden;
   box-shadow:0 4px 20px rgba(0,0,0,0.18);position:relative;">
   <img src="{_SPLASH_SRC}" loading="lazy"
@@ -29034,8 +29036,8 @@ renderCalendar();
         # ═══════════════════════════════════════════════════════════════
         # [GK-SEC-05] 네비게이션 게이트웨이
         # ═══════════════════════════════════════════════════════════════
+        st.markdown('<div id="gk-sec-05-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-05")}<span class="gk-sec-title">⑤ 네비게이션 게이트웨이</span></div>', unsafe_allow_html=True)
-        st.markdown("상세 컨설팅 및 AI 분석은 아래 섹션 카드에서 즉시 시작하세요.")
 
         # ── A~C 섹션: 3열 ──────────────────────────────────────────────────
         _pf_c1, _pf_c2, _pf_c3 = st.columns(3, gap="medium")
@@ -29535,7 +29537,41 @@ renderCalendar();
 
     # ── [홈 복귀 버튼] 각 탭 공통 ────────────────────────────────────────
     def tab_home_btn(tab_key):
-        pass
+        # GK-SEC-05 네비게이션 게이트웨이 하위 서비스 탭 목록
+        _SEC05_TABS = {
+            # A섹션
+            "policy_scan", "policy_terms", "scan_hub", "leaflet",
+            "customer_docs", "digital_catalog", "report43",
+            # B섹션
+            "t0", "t1", "disability", "injury", "t4", "kcd_injury",
+            "cancer", "brain", "heart", "t2", "t3", "auto_comp",
+            "life_cycle", "life_event",
+            # C섹션
+            "t5", "t6", "t7", "t8", "stock_eval", "fire", "liability",
+            # D섹션
+            "nursing", "realty", "med_econ",
+            # E섹션
+            "compensation",
+            # F섹션
+            "ins_bot",
+        }
+        if tab_key in _SEC05_TABS:
+            st.markdown(
+                '<div style="background:#FFF9C4;border:1px solid #d1d5db;'
+                'border-radius:8px;padding:2px 6px;margin-bottom:10px;display:inline-block;">'
+                '</div>',
+                unsafe_allow_html=True)
+            if st.button("⬅️ 네비게이션 게이트웨이(A-F)로 돌아가기",
+                         key=f"btn_back_sec05_{tab_key}",
+                         use_container_width=False):
+                st.session_state["current_tab"] = "home"
+                st.session_state["_home_scroll_to_sec05"] = True
+                st.session_state["_scroll_top"] = True
+                st.rerun()
+        else:
+            if st.button("🏠 홈으로", key=f"tab_home_{tab_key}",
+                         use_container_width=False):
+                _go_tab("home")
 
     # ── [customer_mgmt] 고객 관리 탭 (Phase 1) ───────────────────────────
     if cur == "customer_mgmt":
