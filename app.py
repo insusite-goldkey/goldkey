@@ -23117,7 +23117,7 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
       padding:14px;margin-bottom:10px;text-align:center;'>
       <div style='font-size:0.78rem;color:#92400e;margin-bottom:6px;font-weight:700;
         '>📱 인증번호 (테스트용 화면 표시. 임시기능)</div>
-      <div style='font-size:6.6rem;font-weight:900;letter-spacing:8px;color:#1a3a5c;line-height:1.1;'>{_otp_target}</div>
+      <div style='font-size:19.8rem;font-weight:900;letter-spacing:8px;color:#1a3a5c;line-height:1.1;'>{_otp_target}</div>
     </div>""", unsafe_allow_html=True)
 
                         # ③ 6자리 인증번호 입력 안내 텍스트 (강조)
