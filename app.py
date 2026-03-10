@@ -1,4 +1,4 @@
-﻿# ==========================================================
+# ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -22924,10 +22924,12 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
                                        key=f"_terms_top_cb_{_ttk}",
                                        label_visibility="collapsed")
                 with _tlbl_col:
-                    _is_checked = _tr_top.get(_ttk, False)
-                    _row_bg  = "transparent"
+                    _is_checked = _tcv
+                    _row_bg = "#E3F2FD" if _is_checked else "transparent"
                     st.markdown(
-                        f"<div style='padding:3px 6px;"
+                        f"<div style='padding:3px 6px;border-radius:6px;"
+                        f"background:{_row_bg};"
+                        f"transition:background 0.2s ease;"
                         f"font-size:0.82rem;color:#000000;font-weight:700;line-height:1.5;'>"
                         f"<span style='color:#e53e3e;font-size:0.70rem;"
                         f"font-weight:800;margin-right:4px;'>{_tbadge}</span>"
@@ -22965,6 +22967,7 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
             if _req_agreed_top:
                 if st.session_state.pop("_terms_agreed_notify", False):
                     st.success("✅ 동의 완료! 아래 로그인 탭에서 로그인하세요.", icon="🔓")
+
 
                 st.markdown("""
 <style>
