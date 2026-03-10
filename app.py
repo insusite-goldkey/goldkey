@@ -29239,38 +29239,39 @@ div[data-testid="stFileUploadDropzone"] {
             ("DB생명",     "1588-3131", "https://www.idblife.com"),
         ]
 
-        def _make_contact_html(contacts, bg, border_color):
-            html = '<div style="display:flex;flex-direction:column;gap:8px;">'
-            for _cn, _cp, _cu in contacts:
+        def _make_grid_html(contacts, bg, title):
+            rows = ""
+            for i, (_cn, _cp, _cu) in enumerate(contacts, 1):
                 _num_raw = _cp.replace("-", "")
-                html += (
-                    f'<a href="tel:{_num_raw}" style="text-decoration:none;">'
+                rows += (
+                    f'<a href="tel:{_num_raw}" style="text-decoration:none;display:block;">'
                     f'<div style="border:1px dashed #000000;border-radius:8px;'
-                    f'padding:10px 14px;background:{bg};cursor:pointer;">'
-                    f'<div style="font-weight:900;color:#000000;font-size:0.88rem;">{_cn}</div>'
-                    f'<div style="font-weight:700;color:#000000;font-size:0.84rem;margin-top:2px;">'
-                    f'📞 {_cp}</div>'
+                    f'padding:9px 10px;background:{bg};cursor:pointer;height:100%;'
+                    f'box-sizing:border-box;">'
+                    f'<div style="font-size:0.72rem;font-weight:700;color:#555555;'
+                    f'margin-bottom:2px;">{i}.</div>'
+                    f'<div style="font-weight:900;color:#000000;font-size:0.86rem;'
+                    f'line-height:1.3;">{_cn}</div>'
+                    f'<div style="font-weight:700;color:#000000;font-size:0.82rem;'
+                    f'margin-top:3px;">📞 {_cp}</div>'
                     f'</div></a>'
                 )
-            html += '</div>'
-            return html
+            grid = (
+                f'<div style="font-weight:900;color:#000000;font-size:0.92rem;'
+                f'margin-bottom:10px;">{title}</div>'
+                f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+                f'{rows}</div>'
+            )
+            return grid
 
         _col_nl, _col_lf = st.columns([5, 5])
         with _col_nl:
             st.markdown(
-                '<div style="font-weight:900;color:#000000;font-size:0.92rem;'
-                'margin-bottom:10px;">🏠 손해보험사</div>',
-                unsafe_allow_html=True)
-            st.markdown(
-                _make_contact_html(_nonlife_contacts, "#E3F2FD", "#1565C0"),
+                _make_grid_html(_nonlife_contacts, "#E3F2FD", "🏠 1. 손해보험사 콜센터"),
                 unsafe_allow_html=True)
         with _col_lf:
             st.markdown(
-                '<div style="font-weight:900;color:#000000;font-size:0.92rem;'
-                'margin-bottom:10px;">💖 생명보험사</div>',
-                unsafe_allow_html=True)
-            st.markdown(
-                _make_contact_html(_life_contacts, "#FFEBEE", "#C62828"),
+                _make_grid_html(_life_contacts, "#FFEBEE", "💖 2. 생명보험사 콜센터"),
                 unsafe_allow_html=True)
 
         # ── [NAV-06] 내비게이션 바 ─────────────────────────────────────────
