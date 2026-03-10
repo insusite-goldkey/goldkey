@@ -25650,11 +25650,6 @@ window['startTTS_{tab_key}']=function(){{
         if st.session_state.get(result_key):
             result_text = st.session_state[result_key]
 
-            # ── [RH-1] 3단계 형식 강제 적용 ─────────────────────────────
-            if _rh_available:
-                result_text = _rh_3stage(result_text)
-                st.session_state[result_key] = result_text
-
             # ── [RH-2] 결론 우선형 AI 한줄 요약 배지 ─────────────────────
             if _rh_available:
                 _summary_line = _rh_summary(result_text)
