@@ -28347,6 +28347,2974 @@ div[data-testid="stButton"] > button[data-testid="btn_home_scan_start"]:hover {
 
         st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 
+        # ── GP-71 §1: Advanced_Medical_Table — 초고가 첨단 치료비 상수 DB ──────
+        _GP71_ADVANCED_TABLE = {
+            "heavy_ion": {
+                "name": "중입자치료",
+                "emoji": "⚛️",
+                "cost": 5000,          # 만원 (1회 전액 비급여, 국립암센터·연세대 중입자센터 2024)
+                "unit": "1회",
+                "cycles": 1,           # 단일 1회 기준
+                "note": "전립선·폐·간·췌장암 적응증, 전액 비급여, 연세·삼성 2024 기준",
+                "source": "연세대 중입자치료센터 2024·삼성서울병원 2024",
+            },
+            "car_t": {
+                "name": "CAR-T 세포치료",
+                "emoji": "🧬",
+                "cost": 35000,         # 만원 (3.5억, 급여 외 케이스 + 부대비용 포함)
+                "unit": "1회 투여",
+                "cycles": 1,
+                "note": "킴리아·예스카르타 비급여 또는 급여초과, 혈액암·림프종",
+                "source": "한국혈액학회 2024·식약처 허가현황 2024",
+            },
+            "targeted_immuno": {
+                "name": "표적·면역항암제",
+                "emoji": "💉",
+                "cost": 8000,          # 만원 (연간 기대비용, 키트루다/옵디보/태그리소 평균)
+                "unit": "연간",
+                "cycles": 1,           # 연간 단위
+                "note": "키트루다 연7,000만·옵디보 2주 340만·태그리소 월120만 기준 평균",
+                "source": "바이오스펙테이터 2024·서울대보라매병원 2024",
+            },
+        }
+
+        # ── GP-68 §1 + GP-70 §1: Disease_Stat_DB — 10대 질병 통계 데이터베이스 ────
+        # 국가 표준형: 건강보험심사평가원(HIRA) 2023-2024 진료비 통계, 국립암센터
+        # 5대병원 마스터형: 비급여 보고제도(보건복지부 2024-2025), 서울아산·삼성·서울대·세브란스·성모
+        #   - 로봇수술 비급여: 전립선암 1,000~2,000만원, 위·대장암 800~1,500만원 (보건복지부 2025.02)
+        #   - 면역항암제(키트루다) 비급여: 연간 약 7,000만원 (서울대보라매병원 2024)
+        #   - 면역항암제(옵디보) 비급여: 2주 1회 약 340만원 (바이오스펙테이터 2024)
+        #   - 상급병실(1인실): 최고 46만원/일, 평균 30~40만원/일 (심평원 2024 비급여공시)
+        #   Big5 가중치: 암 1.7배, 뇌 1.5배, 심 1.4배, 만성 1.3배 (비급여 비중 60~80% 반영)
+        _GP68_DISEASE_DB = {
+            "위암": {
+                "emoji": "🫃", "category": "암",
+                "avg_cost_2yr": 3800,   # 만원 (수술+항암+방사선 2년, HIRA 급여기준)
+                "avg_cost_5yr": 6200,   # 만원 (재발방지·추적관찰 포함 5년)
+                "nursing_2yr": 720,     # 간병비 2년 평균
+                "hosp_days_avg": 42,    # 평균 입원일수(초기 집중치료)
+                "work_loss_months": 12, # 평균 휴직·소득 단절 기간(개월)
+                "source": "국립암센터 2023",
+                # ── GP-70 Big5 비급여 프리미엄 ──
+                "big5_cost_2yr": 6800,  # 로봇수술 1,200만원+면역항암 2,400만원+1인실 추가 반영
+                "big5_cost_5yr": 11500,
+                "big5_nursing_2yr": 1200,
+                "big5_robot_cost": 1200,    # 로봇수술 비급여(만원)
+                "big5_immuno_annual": 2400, # 면역항암제 비급여(만원/년, 키트루다 기준 급여외)
+                "big5_room_per_day": 38,    # 1인실 일당(만원, 서울아산·삼성 평균)
+                "big5_source": "보건복지부 비급여보고제도 2025·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "1,000~1,500만원",   # 다빈치 로봇수술 범위
+                "big5_room_range": "38~55만원/일",       # 1인실 일당 범위
+            },
+            "대장암": {
+                "emoji": "🫁", "category": "암",
+                "avg_cost_2yr": 4100,
+                "avg_cost_5yr": 6800,
+                "nursing_2yr": 800,
+                "hosp_days_avg": 38,
+                "work_loss_months": 14,
+                "source": "HIRA 2024 암 진료비 통계",
+                "big5_cost_2yr": 7200,
+                "big5_cost_5yr": 12400,
+                "big5_nursing_2yr": 1300,
+                "big5_robot_cost": 1300,
+                "big5_immuno_annual": 2800,
+                "big5_room_per_day": 38,
+                "big5_source": "보건복지부 비급여보고제도 2025·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "1,000~1,500만원",
+                "big5_room_range": "38~55만원/일",
+            },
+            "폐암": {
+                "emoji": "🫀", "category": "암",
+                "avg_cost_2yr": 5500,
+                "avg_cost_5yr": 9200,
+                "nursing_2yr": 1200,
+                "hosp_days_avg": 55,
+                "work_loss_months": 18,
+                "source": "국립암센터 2023",
+                "big5_cost_2yr": 10200,  # 키트루다 비급여 연7,000만원 포함
+                "big5_cost_5yr": 17800,
+                "big5_nursing_2yr": 2000,
+                "big5_robot_cost": 0,
+                "big5_immuno_annual": 7000, # 키트루다 비급여 연간 전액
+                "big5_room_per_day": 40,
+                "big5_source": "서울대보라매병원 2024 키트루다 비용·심평원 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "해당없음",
+                "big5_room_range": "40~55만원/일",
+                "big5_immuno_basis": "키트루다 200mg 3주 1회×17회, 1회 약 390만원 (서울대보라매병원 2024)",
+            },
+            "뇌졸중": {
+                "emoji": "🧠", "category": "뇌",
+                "avg_cost_2yr": 4200,
+                "avg_cost_5yr": 8800,
+                "nursing_2yr": 2400,
+                "hosp_days_avg": 28,
+                "work_loss_months": 24,
+                "source": "보건복지부 2024 뇌혈관질환 통계",
+                "big5_cost_2yr": 6800,
+                "big5_cost_5yr": 14200,
+                "big5_nursing_2yr": 4200,  # 재활·장기간병 포함
+                "big5_robot_cost": 0,
+                "big5_immuno_annual": 0,
+                "big5_room_per_day": 38,
+                "big5_source": "보건복지부 2024·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "해당없음",
+                "big5_room_range": "38~50만원/일",
+            },
+            "급성심근경색": {
+                "emoji": "❤️", "category": "심",
+                "avg_cost_2yr": 3600,
+                "avg_cost_5yr": 5800,
+                "nursing_2yr": 900,
+                "hosp_days_avg": 14,
+                "work_loss_months": 10,
+                "source": "심사평가원 2024 심혈관 진료비",
+                "big5_cost_2yr": 5400,
+                "big5_cost_5yr": 8600,
+                "big5_nursing_2yr": 1400,
+                "big5_robot_cost": 800,    # 최소침습 시술 비급여
+                "big5_immuno_annual": 0,
+                "big5_room_per_day": 38,
+                "big5_source": "심평원 비급여공시 2024·HIRA 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "800~1,200만원",
+                "big5_room_range": "38~50만원/일",
+            },
+            "치매": {
+                "emoji": "🌀", "category": "뇌",
+                "avg_cost_2yr": 2800,
+                "avg_cost_5yr": 9600,
+                "nursing_2yr": 3600,
+                "hosp_days_avg": 0,
+                "work_loss_months": 36,
+                "source": "한국노인복지학회 2023 치매 비용 연구",
+                "big5_cost_2yr": 4500,
+                "big5_cost_5yr": 15200,
+                "big5_nursing_2yr": 6000,  # 전문요양기관 24시간 간병
+                "big5_robot_cost": 0,
+                "big5_immuno_annual": 0,
+                "big5_room_per_day": 35,
+                "big5_source": "한국노인복지학회 2023·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "해당없음",
+                "big5_room_range": "35~45만원/일",
+            },
+            "당뇨합병증": {
+                "emoji": "💉", "category": "만성",
+                "avg_cost_2yr": 1800,
+                "avg_cost_5yr": 4200,
+                "nursing_2yr": 600,
+                "hosp_days_avg": 18,
+                "work_loss_months": 8,
+                "source": "HIRA 2024 당뇨 진료비 통계",
+                "big5_cost_2yr": 2800,
+                "big5_cost_5yr": 6200,
+                "big5_nursing_2yr": 900,
+                "big5_robot_cost": 0,
+                "big5_immuno_annual": 0,
+                "big5_room_per_day": 32,
+                "big5_source": "HIRA 2024·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "해당없음",
+                "big5_room_range": "32~42만원/일",
+            },
+            "간암": {
+                "emoji": "🫂", "category": "암",
+                "avg_cost_2yr": 5200,
+                "avg_cost_5yr": 8500,
+                "nursing_2yr": 1400,
+                "hosp_days_avg": 50,
+                "work_loss_months": 16,
+                "source": "국립암센터 2023",
+                "big5_cost_2yr": 9200,
+                "big5_cost_5yr": 15800,
+                "big5_nursing_2yr": 2200,
+                "big5_robot_cost": 1500,
+                "big5_immuno_annual": 4200,
+                "big5_room_per_day": 40,
+                "big5_source": "국립암센터 2023·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "1,200~1,800만원",
+                "big5_room_range": "40~55만원/일",
+                "big5_immuno_basis": "옵디보 비급여 2주 1회 약 340만원 (바이오스펙테이터 2024)",
+            },
+            "유방암": {
+                "emoji": "🎗️", "category": "암",
+                "avg_cost_2yr": 3200,
+                "avg_cost_5yr": 5400,
+                "nursing_2yr": 650,
+                "hosp_days_avg": 25,
+                "work_loss_months": 10,
+                "source": "국립암센터 2023",
+                "big5_cost_2yr": 5800,   # 로봇수술+허셉틴 비급여 포함
+                "big5_cost_5yr": 9800,
+                "big5_nursing_2yr": 1100,
+                "big5_robot_cost": 1000,
+                "big5_immuno_annual": 2400, # 허셉틴(HER2+) 비급여 기준
+                "big5_room_per_day": 35,
+                "big5_source": "국립암센터 2023·허셉틴 급여기준 2024",
+                "big5_source_link": "https://www.cancer.go.kr/lay1/program/S1T211C213/cancer/view.do",
+                "big5_robot_range": "800~1,200만원",
+                "big5_room_range": "35~45만원/일",
+                "big5_immuno_basis": "허셉틴(HER2+) 3주 1회×18회, 1회 약 130만원 = 연 2,400만원 (국립암센터 2023)",
+            },
+            "뇌경색": {
+                "emoji": "🩺", "category": "뇌",
+                "avg_cost_2yr": 3800,
+                "avg_cost_5yr": 7200,
+                "nursing_2yr": 2000,
+                "hosp_days_avg": 24,
+                "work_loss_months": 20,
+                "source": "보건복지부 2024 뇌혈관질환 통계",
+                "big5_cost_2yr": 6200,
+                "big5_cost_5yr": 11800,
+                "big5_nursing_2yr": 3400,
+                "big5_robot_cost": 0,
+                "big5_immuno_annual": 0,
+                "big5_room_per_day": 38,
+                "big5_source": "보건복지부 2024·심평원 비급여공시 2024",
+                "big5_source_link": "https://www.hira.or.kr/ra/hosp/getHealthCareList.do",
+                "big5_robot_range": "해당없음",
+                "big5_room_range": "38~50만원/일",
+            },
+        }
+
+        # ── GP-72 §1: 담보 금액 파싱 헬퍼 (블록 스코프 외부 정의) ─────────────
+        def _parse_amt_cov(p):
+            try:
+                return float(str(p.get("amount", 0)).replace(",", "").replace("만원", "") or 0)
+            except Exception:
+                return 0.0
+
+        # ── GP-68 §2 + GP-70 §1 + GP-71 §1: 총 경제적 위협액 산출 함수 ────────
+        def _gp68_calc_loss(
+            disease_name: str, period_months: int,
+            monthly_income_man: float, big5_mode: bool = False,
+            adv_mode: str = "standard",  # GP-71: "standard" | "heavy_ion" | "car_t" | "targeted_immuno"
+        ) -> dict:
+            d = _GP68_DISEASE_DB.get(disease_name, {})
+            if not d:
+                return {}
+            # 치료비 키 선택 (국가표준 vs Big5 마스터형)
+            cost_2yr  = d["big5_cost_2yr"]  if big5_mode else d["avg_cost_2yr"]
+            cost_5yr  = d["big5_cost_5yr"]  if big5_mode else d["avg_cost_5yr"]
+            nurs_2yr  = d["big5_nursing_2yr"] if big5_mode else d["nursing_2yr"]
+            # 치료비 (2년/5년 선형 보간)
+            if period_months <= 24:
+                treatment = cost_2yr * (period_months / 24)
+            else:
+                t_extra = cost_5yr - cost_2yr
+                treatment = cost_2yr + t_extra * ((period_months - 24) / 36)
+            treatment = int(treatment)
+            # 간병비 (2년 기준 선형)
+            nursing = int(nurs_2yr * min(period_months / 24, 2.5))
+            # Big5 전용: 1인실 추가 비용 (입원일 × 일당)
+            room_extra = 0
+            if big5_mode:
+                room_day = d.get("big5_room_per_day", 35)
+                hosp_days = d.get("hosp_days_avg", 0)
+                room_extra = int(room_day * hosp_days)
+            # GP-71: 첨단치료비 추가
+            adv_cost = 0
+            if adv_mode != "standard" and adv_mode in _GP71_ADVANCED_TABLE:
+                _a = _GP71_ADVANCED_TABLE[adv_mode]
+                adv_cost = _a["cost"] * _a["cycles"]
+                if _a["unit"] == "연간":
+                    _yrs = max(1, round(period_months / 12))
+                    adv_cost = _a["cost"] * _yrs
+            # 소득 손실 (월소득 × min(실제휴직개월, 선택기간))
+            actual_loss_months = min(d["work_loss_months"], period_months)
+            income_loss = int(monthly_income_man * actual_loss_months)
+            total = treatment + nursing + room_extra + adv_cost + income_loss
+            src = d.get("big5_source", d.get("source", "")) if big5_mode else d.get("source", "")
+            return {
+                "treatment": treatment,
+                "nursing": nursing,
+                "room_extra": room_extra,
+                "adv_cost": adv_cost,
+                "adv_mode": adv_mode,
+                "income_loss": income_loss,
+                "total": total,
+                "source": src,
+                "robot_cost": d.get("big5_robot_cost", 0) if big5_mode else 0,
+                "immuno_annual": d.get("big5_immuno_annual", 0) if big5_mode else 0,
+            }
+
+        # ── GP-69 + GP-70 §2: Chat_Widget UI + 상담 모드 선택 ──────────────
+        _gp68_sel  = st.session_state.get("_gp68_disease_sel", None)
+        _gp68_per  = st.session_state.get("_gp68_period_sel", 24)
+        _gp70_big5  = st.session_state.get("_gp70_big5_mode", False)
+        _gp71_adv   = st.session_state.get("_gp71_adv_mode", "standard")  # GP-71 §2
+
+        # 월소득 역산값 연동 (제62조 Income_Calculator)
+        _GP250_DEFAULT_INCOME = 350.0  # [GP-250] 소득 미입력 시 기본값(만원/월)
+        _gp68_income = 0.0
+        try:
+            _nhis_raw = st.session_state.get("nhis_premium", 0) or 0
+            _inc_raw  = st.session_state.get("monthly_income_man", 0) or 0
+            _ov_raw   = st.session_state.get("override_income_man", 0) or 0
+            if _ov_raw > 0:
+                _gp68_income = float(_ov_raw)
+            elif _nhis_raw > 0:
+                _nhis_rate = _GP64_MASTER_CONFIG.get("nhis_rate_pct", 7.09) / 100
+                _gp68_income = round(float(_nhis_raw) / _nhis_rate / 10000, 1)
+            elif _inc_raw > 0:
+                _gp68_income = float(_inc_raw)
+        except Exception:
+            _gp68_income = 0.0
+        # [GP-250] 소득 미입력 시 기본값 350만원 자동 적용
+        _gp68_income_is_default = (_gp68_income == 0.0)
+        if _gp68_income_is_default:
+            _gp68_income = _GP250_DEFAULT_INCOME
+
+        st.markdown("""
+<style>
+/* ── GP-250 Loss Analysis Widget 스타일 ── */
+.gk-disease-widget {
+  background: linear-gradient(135deg, #e0f4ff 0%, #cceeff 60%, #b3e0ff 100%);
+  border: 2px solid #D4AF37;
+  border-radius: 18px;
+  padding: 18px 20px 14px 20px;
+  margin-bottom: 16px;
+  position: relative;
+  box-shadow: 0 6px 28px rgba(212,175,55,0.18), 0 2px 8px rgba(0,0,0,0.12);
+}
+.gk-disease-title {
+  font-size: 1.0rem !important;
+  font-weight: 900 !important;
+  color: #D4AF37 !important;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.gk-disease-subtitle {
+  font-size: 0.78rem !important;
+  color: #94a3b8 !important;
+  margin-bottom: 12px;
+}
+.gk-disease-chip-row {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+}
+.gk-disease-chip {
+  background: rgba(255,255,255,0.08);
+  border: 1.5px solid rgba(212,175,55,0.35);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.78rem !important;
+  color: #e2e8f0 !important;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.gk-disease-chip.selected {
+  background: linear-gradient(135deg, #D4AF37, #f59e0b);
+  border-color: #D4AF37;
+  color: #1a1a2e !important;
+  font-weight: 800 !important;
+}
+.gk-chat-bubble {
+  background: rgba(255,255,255,0.72);
+  border: 1px solid rgba(212,175,55,0.35);
+  border-radius: 0 14px 14px 14px;
+  padding: 12px 16px;
+  margin: 8px 0 10px 0;
+  font-size: 0.88rem !important;
+  color: #1a1a2e !important;
+  line-height: 1.7;
+}
+.gk-chat-bubble .gk-highlight {
+  color: #fbbf24 !important;
+  font-weight: 900 !important;
+  font-size: 1.05rem !important;
+}
+.gk-chat-bubble .gk-danger {
+  color: #f87171 !important;
+  font-weight: 900 !important;
+}
+.gk-loss-breakdown {
+  background: rgba(255,255,255,0.55);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 8px 0;
+  font-size: 0.78rem !important;
+}
+.gk-loss-row {
+  display: flex; justify-content: space-between;
+  color: #1a1a2e !important;
+  padding: 2px 0;
+}
+.gk-loss-row.total {
+  border-top: 1px solid rgba(239,68,68,0.4);
+  margin-top: 4px; padding-top: 6px;
+  color: #dc2626 !important;
+  font-weight: 900 !important;
+  font-size: 0.95rem !important;
+}
+.gk-source-note {
+  font-size: 0.68rem !important;
+  color: #1a1a2e !important;
+  margin-top: 6px;
+}
+/* ── GP-70.1 시각적 대비 테이블 스타일 ── */
+.gk-contrast-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem !important;
+  margin: 10px 0 6px 0;
+  background: rgba(255,255,255,0.6);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.gk-contrast-table th {
+  background: rgba(212,175,55,0.18);
+  color: #1a1a2e !important;
+  font-weight: 800 !important;
+  padding: 5px 8px;
+  text-align: center;
+  font-size: 0.72rem !important;
+}
+.gk-contrast-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(212,175,55,0.15);
+  color: #1a1a2e !important;
+  vertical-align: middle;
+}
+.gk-contrast-avg {
+  color: #475569 !important;
+  text-align: right;
+}
+.gk-contrast-big5 {
+  color: #ef4444 !important;
+  font-weight: 900 !important;
+  text-align: right;
+}
+.gk-evidence-badge {
+  display: inline-block;
+  font-size: 0.62rem !important;
+  font-weight: 700 !important;
+  padding: 1px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+}
+.gk-evidence-badge.trust {
+  background: rgba(3,105,161,0.12);
+  color: #0369a1 !important;
+  border: 1px solid rgba(3,105,161,0.3);
+}
+.gk-evidence-badge.est {
+  background: rgba(107,114,128,0.12);
+  color: #6B7280 !important;
+  border: 1px solid rgba(107,114,128,0.3);
+}
+</style>""", unsafe_allow_html=True)
+
+        st.markdown(f"""
+<div class="gk-disease-widget" style="position:relative;">
+  {_bid('1-1-A')}
+  <div class="gk-disease-title">💸 질병 발병 시 휴업&amp;소득상실 금액 산출(예시)
+    <span style="font-size:0.65rem;font-weight:700;background:#D4AF37;color:#1a1a2e;
+      padding:1px 7px;border-radius:10px;margin-left:6px;">GP-68/70/250</span>
+    {'<span style="font-size:0.68rem;font-weight:900;background:#ef4444;color:#fff;padding:1px 8px;border-radius:10px;margin-left:4px;">🏥 5대병원 MASTER</span>' if _gp70_big5 else ''}
+  </div>
+  <div class="gk-disease-subtitle">{'⚠️ 서울 5대 병원 비급여 기준 — 로봇수술·면역항암제·1인실 실질 비용 반영 | 국가 통계 대비 1.5~2배 수준' if _gp70_big5 else '질병 선택 시 치료비·간병비·소득상실액이 즉시 산출됩니다. (소득 미입력 시 월 350만원 기본 적용)'}</div>
+</div>""", unsafe_allow_html=True)
+
+        # ── GP-70 §2: 상담 모드 토글 ─────────────────────────────────────
+        _mode_col1, _mode_col2 = st.columns(2, gap="small")
+        with _mode_col1:
+            if st.button(
+                "🏛️ 국가 표준형 상담" + (" ◀ 현재" if not _gp70_big5 else ""),
+                key="_gp70_std_btn",
+                use_container_width=True,
+                help="건강보험심사평가원·국립암센터 공식 통계 기준 (급여 본인부담 포함)",
+            ):
+                st.session_state["_gp70_big5_mode"] = False
+                st.rerun()
+        with _mode_col2:
+            if st.button(
+                "🏥 5대병원 마스터형 상담" + (" ◀ 현재" if _gp70_big5 else ""),
+                key="_gp70_big5_btn",
+                use_container_width=True,
+                help="서울아산·삼성서울·서울대·세브란스·성모 기준 | 로봇수술+면역항암제+1인실 비급여 포함",
+                type="primary" if _gp70_big5 else "secondary",
+            ):
+                st.session_state["_gp70_big5_mode"] = True
+                st.rerun()
+
+        # ── [GP-250] 4개 핵심 카테고리 2x2 그리드 ──────────────────────────
+        # 카테고리 정의: 병명 매핑
+        _GP250_CATEGORIES = {
+            "암진단": {
+                "emoji": "🎗️",
+                "diseases": ["위암", "대장암", "폐암", "간암", "유방암"],
+                "color": "#e74c8b",
+                "bg": "linear-gradient(135deg,#f9a8d4 0%,#ec4899 100%)",
+                "desc": "위·대장·폐·간·유방 통합",
+            },
+            "뇌졸중(중풍)": {
+                "emoji": "🧠",
+                "diseases": ["뇌졸중", "뇌경색"],
+                "color": "#7c3aed",
+                "bg": "linear-gradient(135deg,#c4b5fd 0%,#7c3aed 100%)",
+                "desc": "뇌경색 포함",
+            },
+            "치매": {
+                "emoji": "🌀",
+                "diseases": ["치매"],
+                "color": "#0891b2",
+                "bg": "linear-gradient(135deg,#a5f3fc 0%,#0891b2 100%)",
+                "desc": "장기요양·인지저하 포함",
+            },
+            "말기질환": {
+                "emoji": "💛",
+                "diseases": ["급성심근경색", "당뇨합병증", "간암"],
+                "color": "#d97706",
+                "bg": "linear-gradient(135deg,#fde68a 0%,#f59e0b 100%)",
+                "desc": "신장·심장·간질환 통합",
+            },
+        }
+        # 선택된 질병이 속한 카테고리 파악
+        def _get_cat_for_disease(dname):
+            for cname, cinfo in _GP250_CATEGORIES.items():
+                if dname in cinfo["diseases"]:
+                    return cname
+            return None
+        _gp250_sel_cat = _get_cat_for_disease(_gp68_sel) if _gp68_sel else None
+
+        # 2x2 그리드 렌더링
+        # 2x2 버튼 파스텔 그라디언트 CSS: Streamlit stButton div 직접 타겟팅
+        _cat_btn_css_parts = []
+        for _cname_css, _cinfo_css in _GP250_CATEGORIES.items():
+            _key_css = f"_gp250_cat_{_cname_css}"
+            _is_sel_css = (_gp250_sel_cat == _cname_css)
+            _bg_css = _cinfo_css["bg"]
+            _border_css = "3px solid #1a1a2e" if _is_sel_css else f"2px solid {_cinfo_css['color']}"
+            _shadow_css = "0 0 0 3px #D4AF37, 0 4px 20px rgba(0,0,0,0.28)" if _is_sel_css else "0 4px 14px rgba(0,0,0,0.18)"
+            _cat_btn_css_parts.append(
+                f'div[data-testid="stButton"][key="{_key_css}"] > button, '
+                f'div[data-testid="column"] div[data-testid="stButton"]:has(button[kind][aria-label*="{_cname_css}"]) > button '
+                f'{{ background: {_bg_css} !important; color: #fff !important; '
+                f'font-weight: 900 !important; border: {_border_css} !important; '
+                f'box-shadow: {_shadow_css} !important; '
+                f'text-shadow: 0 1px 4px rgba(0,0,0,0.4) !important; '
+                f'border-radius: 14px !important; }}'
+            )
+        st.markdown(
+            "<style>\n"
+            + "\n".join(_cat_btn_css_parts)
+            + "\n.gk-cat-btn-wrap { margin-bottom: 14px; }\n"
+            + """.gk-cat-btn {
+  border-radius: 14px !important; padding: 12px 8px !important;
+  font-weight: 900 !important; font-size: 0.92rem !important;
+  border: 2.5px solid transparent !important; transition: all 0.18s !important;
+  cursor: pointer !important; text-align: center !important;
+  line-height: 1.3 !important; color: #fff !important;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.35) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18) !important; width: 100% !important;
+}
+.gk-cat-btn.active {
+  border: 2.5px solid #1a1a2e !important;
+  box-shadow: 0 0 0 3px #D4AF37, 0 4px 20px rgba(0,0,0,0.25) !important;
+  transform: scale(1.04) !important;
+}"""
+            + "\n</style>",
+            unsafe_allow_html=True
+        )
+
+        _cat_row1 = st.columns(2, gap="small")
+        _cat_row2 = st.columns(2, gap="small")
+        _cat_grid = [_cat_row1[0], _cat_row1[1], _cat_row2[0], _cat_row2[1]]
+        for _ci, (_cname, _cinfo) in enumerate(_GP250_CATEGORIES.items()):
+            _is_cat_sel = (_gp250_sel_cat == _cname)
+            _active_cls = " active" if _is_cat_sel else ""
+            with _cat_grid[_ci]:
+                # 버튼 렌더: Streamlit 버튼 + 커스텀 HTML 스타일
+                _cat_btn_label = f"{_cinfo['emoji']} {_cname}\n{_cinfo['desc']}"
+                if st.button(
+                    f"{_cinfo['emoji']} {_cname}",
+                    key=f"_gp250_cat_{_cname}",
+                    use_container_width=True,
+                    help=f"{_cname}: {_cinfo['desc']} — {', '.join(_cinfo['diseases'])}",
+                    type="primary" if _is_cat_sel else "secondary",
+                ):
+                    # 카테고리 선택 시 해당 카테고리의 대표 질병(첫 번째) 선택
+                    _rep_disease = _cinfo["diseases"][0]
+                    if _gp250_sel_cat == _cname:
+                        st.session_state["_gp68_disease_sel"] = None
+                    else:
+                        st.session_state["_gp68_disease_sel"] = _rep_disease
+                    st.rerun()
+                st.markdown(
+                    f'<div style="font-size:0.68rem;color:#64748b;text-align:center;margin-top:-6px;margin-bottom:4px;">'
+                    f'{_cinfo["desc"]}</div>',
+                    unsafe_allow_html=True
+                )
+
+        # 카테고리 선택 시 세부 질병 선택 chips (선택된 카테고리의 하위 질병)
+        if _gp250_sel_cat:
+            _sub_diseases = _GP250_CATEGORIES[_gp250_sel_cat]["diseases"]
+            if len(_sub_diseases) > 1:
+                st.markdown(
+                    f'<div style="font-size:0.72rem;font-weight:700;color:#D4AF37;margin:4px 0 6px 2px;">'
+                    f'📌 세부 질병 선택 ({_gp250_sel_cat})</div>',
+                    unsafe_allow_html=True
+                )
+                _sub_cols = st.columns(len(_sub_diseases), gap="small")
+                for _si, _sdn in enumerate(_sub_diseases):
+                    _d_info = _GP68_DISEASE_DB.get(_sdn, {})
+                    _is_sub_sel = (_gp68_sel == _sdn)
+                    with _sub_cols[_si]:
+                        if st.button(
+                            f"{_d_info.get('emoji','🔬')} {_sdn}",
+                            key=f"_gp68_sub_{_sdn}",
+                            use_container_width=True,
+                            type="primary" if _is_sub_sel else "secondary",
+                        ):
+                            st.session_state["_gp68_disease_sel"] = _sdn
+                            st.rerun()
+
+        # ── GP-71 §2: 암 카테고리 선택 시 치료 선택 분기 UI ─────────────────
+        _is_cancer = (
+            _gp68_sel is not None
+            and _GP68_DISEASE_DB.get(_gp68_sel, {}).get("category") == "암"
+        )
+        if _is_cancer:
+            st.markdown(
+                '<div style="background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.3);'
+                'border-radius:10px;padding:10px 14px;margin-bottom:10px;">'
+                '<span style="font-size:0.88rem;font-weight:900;color:#D4AF37;">🔬 고객님, 암에 걸리신다면 어떤 치료를 원하십니까?</span></div>',
+                unsafe_allow_html=True
+            )
+            _adv_labels = {
+                "standard":         "💊 가장 싼 치료 (국가 표준 급여)",
+                "targeted_immuno":  "💉 최신 표적·면역항암제 (비급여 연 ~8,000만)",
+                "heavy_ion":        "⚛️ 중입자치료 (비급여 1회 5,000만)",
+                "car_t":            "🧬 CAR-T 세포치료 (비급여 1회 3.5억)",
+            }
+            _adv_col1, _adv_col2, _adv_col3, _adv_col4 = st.columns(4, gap="small")
+            for _adv_key, _adv_label, _adv_col in zip(
+                list(_adv_labels.keys()),
+                list(_adv_labels.values()),
+                [_adv_col1, _adv_col2, _adv_col3, _adv_col4],
+            ):
+                with _adv_col:
+                    _is_sel = (_gp71_adv == _adv_key)
+                    if st.button(
+                        (_adv_label + " ◀") if _is_sel else _adv_label,
+                        key=f"_gp71_adv_btn_{_adv_key}",
+                        use_container_width=True,
+                        type="primary" if _is_sel else "secondary",
+                    ):
+                        st.session_state["_gp71_adv_mode"] = _adv_key
+                        _gp71_adv = _adv_key
+                        st.rerun()
+        else:
+            _gp71_adv = "standard"
+
+        # ── [GP-250] 하이브리드 레이아웃: 좌(국가통계+질병선택) / 우(마스터제안+손실산출) ──
+        if _gp68_sel:
+            _hyb_left, _hyb_right = st.columns([5, 5], gap="medium")
+
+            with _hyb_left:
+                # ── 기간 선택 ──────────────────────────────────────────────
+                _per_opts = {"2년(24개월)": 24, "3년(36개월)": 36, "5년(60개월)": 60}
+                _per_label = st.radio(
+                    "📅 분석 기간",
+                    list(_per_opts.keys()),
+                    index=0 if _gp68_per == 24 else (1 if _gp68_per == 36 else 2),
+                    horizontal=True,
+                    key="_gp68_period_radio",
+                )
+                _gp68_per = _per_opts[_per_label]
+                st.session_state["_gp68_period_sel"] = _gp68_per
+
+                # ── 소득 입력 (기본값 350만원 자동 표시) ────────────────────
+                # [GP-250 버그픽스] session_state에 0이 저장된 경우 number_input이 value 파라미터를 무시
+                # → 위젯 렌더 전 session_state를 강제 초기화하여 항상 350 이상 보장
+                if st.session_state.get("_gp68_income_input", 0) == 0:
+                    st.session_state["_gp68_income_input"] = float(_gp68_income)
+                _income_display = float(_gp68_income)  # 이미 기본값 350 적용됨
+                _gp68_income_input = st.number_input(
+                    "💰 월소득(만원)" + (" ※기본값" if _gp68_income_is_default else " ✓역산값"),
+                    min_value=0.0, max_value=5000.0,
+                    value=_income_display,
+                    step=10.0, format="%.0f",
+                    key="_gp68_income_input",
+                    help="건강보험료 역산값이 있으면 자동 반영됩니다. 미입력 시 350만원 기본 적용.",
+                )
+                # [GP-250] 0 입력 시에도 기본값 350 강제 적용 (절대 0이 되어선 안 됨)
+                _gp68_income = float(_gp68_income_input) if float(_gp68_income_input) > 0 else _GP250_DEFAULT_INCOME
+                _gp68_income_is_default = (float(_gp68_income_input) == 0.0)
+
+                # ── 국가 표준 통계 기반 평균 치료비 블록 ────────────────────
+                _d_stat = _GP68_DISEASE_DB.get(_gp68_sel, {})
+                _stat_treat = _d_stat.get("avg_cost_2yr", 0)
+                _stat_nurs  = _d_stat.get("nursing_2yr", 0)
+                _stat_days  = _d_stat.get("hosp_days_avg", 0)
+                _stat_months= _d_stat.get("work_loss_months", 0)
+                st.markdown(f"""
+<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #16a34a;
+  border-radius:12px;padding:12px 14px;margin-top:8px;">
+  <div style="font-size:0.78rem;font-weight:900;color:#15803d;margin-bottom:6px;">
+    📊 국가 표준 통계 ({_d_stat.get('source','HIRA')})
+  </div>
+  <table style="width:100%;font-size:0.76rem;border-collapse:collapse;">
+    <tr><td style="color:#374151;">🏥 2년 평균 치료비</td>
+        <td style="text-align:right;font-weight:900;color:#15803d;">{_stat_treat:,}만원</td></tr>
+    <tr><td style="color:#374151;">🧑‍⚕️ 간병비 (2년)</td>
+        <td style="text-align:right;font-weight:900;color:#15803d;">{_stat_nurs:,}만원</td></tr>
+    <tr><td style="color:#374151;">🏨 평균 입원일</td>
+        <td style="text-align:right;font-weight:700;color:#374151;">{_stat_days}일</td></tr>
+    <tr><td style="color:#374151;">📅 평균 휴직기간</td>
+        <td style="text-align:right;font-weight:700;color:#374151;">{_stat_months}개월</td></tr>
+  </table>
+</div>""", unsafe_allow_html=True)
+
+            with _hyb_right:
+                pass  # 우측은 아래 _loss 산출 후 채움
+
+            # ── GP-68 §2 + GP-70 §1: 총 위협액 산출 (모드 반영) ─────────────
+            _loss = _gp68_calc_loss(_gp68_sel, _gp68_per, _gp68_income, big5_mode=_gp70_big5, adv_mode=_gp71_adv)
+            _d_data = _GP68_DISEASE_DB[_gp68_sel]
+
+            # [GP-250] 간병비 재산출: 시장 단가 15만원/일 × 입원일수 (국가통계 간병비와 비교 후 최대값 사용)
+            _GP250_NURSING_RATE = 15  # 만원/일 (현재 시장 단가)
+            _hosp_days_for_nursing = _d_data.get("hosp_days_avg", 0)
+            _nursing_market = _GP250_NURSING_RATE * _hosp_days_for_nursing
+            # 치료기간 기준 장기 간병비: 15만원/일 × 30일 × 치료개월 (입원 외 재택간병 포함)
+            _nursing_period_est = int(_GP250_NURSING_RATE * 30 * min(_gp68_per / 12, 2) * 0.3)  # 30% 간병 가정
+            _nursing_market_total = max(_nursing_market, _nursing_period_est, _loss["nursing"])
+            # 총위협액에 시장 간병비 반영 (기존 nursing 대체)
+            _loss_nursing_diff = _nursing_market_total - _loss["nursing"]
+            _loss_total_adj = int(_loss["total"] + _loss_nursing_diff)
+
+            # [GP-250] 소득 표기 — 기본값 여부 명시
+            _income_str = (
+                f"{_gp68_income:.0f}만원/월 (기본값 적용)" if _gp68_income_is_default
+                else f"{_gp68_income:.0f}만원/월 (역산값)"
+            )
+            _total_eok   = _loss["total"] / 10000
+            _treat_eok   = _loss["treatment"] / 10000
+            _nursing_eok = _loss["nursing"] / 10000
+            _income_eok  = _loss["income_loss"] / 10000
+
+            _period_label_ko = {24: "2년", 36: "3년", 60: "5년"}.get(_gp68_per, f"{_gp68_per}개월")
+
+            # 총액 표기 (억/만원 혼합)
+            def _fmt_man(v_man: int) -> str:
+                if v_man >= 10000:
+                    e = v_man // 10000
+                    r = v_man % 10000
+                    return f"{e}억 {r:,}만원" if r else f"{e}억원"
+                return f"{v_man:,}만원"
+
+            # ── GP-71 §3 + GP-72 §1 + GP-73 §1: 증권 분석 연동 필터 ───────────
+            # GP-72: 담보를 시나리오별로 분리 산출 (합산 금지)
+            #   - 약물치료 시나리오: 표적항암약물·항암약물허가 키워드 담보만
+            #   - 방사선치료 시나리오: 항암방사선·방사선 키워드 담보만
+            #   - 둘 다 있으면 상호배타적으로 최대값 1개만 인정 (중복 합산 금지)
+            # GP-73: 암주요치료비는 5년 캡 적용 (10년 약관이어도 5년치만 자산 인정)
+            _gp71_policies = st.session_state.get("_policy_coverages", []) or []
+
+            # GP-72: 시나리오별 키워드 분류
+            _KW_DRUG = ["표적항암약물", "항암약물허가", "항암약물", "표적항암"]
+            _KW_RAD  = ["항암방사선", "방사선약물", "방사선치료"]
+            _KW_IMMUNO = ["면역항암", "면역치료"]
+            _KW_MAJOR  = ["암주요치료비", "주요치료비", "암주요"]
+
+            # 시나리오별 담보 분리
+            _sc_drug   = [p for p in _gp71_policies if any(kw in str(p.get("name","")) for kw in _KW_DRUG)]
+            _sc_rad    = [p for p in _gp71_policies if any(kw in str(p.get("name","")) for kw in _KW_RAD)]
+            _sc_immuno = [p for p in _gp71_policies if any(kw in str(p.get("name","")) for kw in _KW_IMMUNO)]
+            _sc_major  = [p for p in _gp71_policies if any(kw in str(p.get("name","")) for kw in _KW_MAJOR)]
+
+            # GP-72: 상호배타적 — 약물 vs 방사선 중 최대값 1개만 유효 자산 인정
+            _amt_drug   = sum(_parse_amt_cov(p) for p in _sc_drug)
+            _amt_rad    = sum(_parse_amt_cov(p) for p in _sc_rad)
+            _amt_immuno = sum(_parse_amt_cov(p) for p in _sc_immuno)
+            _amt_drug_excl = max(_amt_drug, _amt_rad)   # 중복 합산 금지, 최대값만
+            _scenario_drug_label  = "💊 약물치료 시 가용"
+            _scenario_rad_label   = "☢️ 방사선치료 시 가용"
+            _scenario_excl_note   = "※ 약물·방사선 중 실제 선택 치료 1가지만 수령 가능"
+
+            # GP-73: 암주요치료비 5년 캡 — 연간 지급액 × min(약관기간, 5)
+            _amt_major_raw = sum(_parse_amt_cov(p) for p in _sc_major)
+            # 연간 단위 추정: 총액을 10년 기준 역산 후 5년 캡 적용
+            _amt_major_5yr = _amt_major_raw * 0.5   # 10년 기준일 때 5년 = 50%
+            _amt_major_bonus = _amt_major_raw - _amt_major_5yr  # 6~10년 '희망 보장 영역'
+
+            # GP-71 §3: 총 가용액 (시나리오 최대 + 면역 + 주요5년)
+            _gp71_matched_amt = _amt_drug_excl + _amt_immuno + _amt_major_5yr
+
+            _is_cancer_sel = _GP68_DISEASE_DB.get(_gp68_sel, {}).get("category") == "암"
+            _gp71_not_covered = (_gp71_matched_amt < 5000)
+
+            # GP-72 §3: 시각적 분리 산출 배너 (암 선택 + 담보 존재 시)
+            if _is_cancer_sel and (_sc_drug or _sc_rad or _sc_immuno or _sc_major):
+                _drug_row  = f'<tr><td>{_scenario_drug_label}</td><td style="text-align:right;font-weight:900;color:#0369a1;">{_amt_drug:,.0f}만원</td></tr>' if _amt_drug > 0 else ""
+                _rad_row   = f'<tr><td>{_scenario_rad_label}</td><td style="text-align:right;font-weight:900;color:#0369a1;">{_amt_rad:,.0f}만원</td></tr>' if _amt_rad > 0 else ""
+                _immuno_row = f'<tr><td>🧬 면역항암 시 가용</td><td style="text-align:right;font-weight:900;color:#0369a1;">{_amt_immuno:,.0f}만원</td></tr>' if _amt_immuno > 0 else ""
+                _major_row  = (
+                    f'<tr><td>⭐ 암주요치료비 <span style="font-size:0.65rem;color:#D97706;">[5년 확정]</span></td>'
+                    f'<td style="text-align:right;font-weight:900;color:#16a34a;">{_amt_major_5yr:,.0f}만원</td></tr>'
+                    f'<tr><td>📦 암주요치료비 <span style="font-size:0.65rem;color:#94a3b8;">[6~10년 희망]</span></td>'
+                    f'<td style="text-align:right;color:#94a3b8;">{_amt_major_bonus:,.0f}만원</td></tr>'
+                ) if _amt_major_raw > 0 else ""
+                _excl_note_html = f'<tr><td colspan="2" style="font-size:0.65rem;color:#D97706;padding-top:4px;">{_scenario_excl_note}</td></tr>' if (_amt_drug > 0 and _amt_rad > 0) else ""
+                st.markdown(
+                    f'<div style="background:rgba(3,105,161,0.07);border:1px solid rgba(3,105,161,0.3);'
+                    f'border-radius:10px;padding:10px 14px;margin-bottom:10px;">'
+                    f'<div style="font-size:0.72rem;font-weight:900;color:#0369a1;margin-bottom:6px;">'
+                    f'[GP-72] 치료 방식별 가용 금액 (합산 착시 제거)</div>'
+                    f'<table style="width:100%;font-size:0.78rem;border-collapse:collapse;">'
+                    f'{_drug_row}{_rad_row}{_immuno_row}{_major_row}{_excl_note_html}'
+                    f'</table>'
+                    f'<div style="font-size:0.68rem;color:#374151;margin-top:6px;border-top:1px solid rgba(3,105,161,0.2);padding-top:4px;">'
+                    f'💬 고객님, 단순히 모든 담보를 더하면 많아 보이지만, 실제 약물 치료를 받으실 때 쓸 수 있는 돈은 '
+                    f'<b style="color:#0369a1;">{_amt_drug_excl:,.0f}만원</b>뿐입니다. 숫자의 착시에 속으시면 안 됩니다.<br>'
+                    f'주요치료비 10년 보장도 실제로는 <b>5년 집중 치료기({_amt_major_5yr:,.0f}만원)</b>를 기준으로 준비하는 것이 정교한 안보 전략입니다.'
+                    f'</div></div>',
+                    unsafe_allow_html=True
+                )
+
+            if _is_cancer_sel and _gp71_not_covered:
+                _gp71_lack_msg = (
+                    "표적·면역 관련 담보가 증권에서 확인되지 않습니다."
+                    if _gp71_matched_amt == 0
+                    else f"치료 방식별 가용금액 합계 {_gp71_matched_amt:,.0f}만원 — 첨단치료비의 80% 미달"
+                )
+                st.markdown(
+                    '<div style="background:#D4AF37;border:2px solid #ef4444;'
+                    'border-radius:10px;padding:10px 16px;margin-bottom:10px;'
+                    'text-align:center;">'
+                    '<span style="font-size:1.0rem;font-weight:900;color:#ef4444;">'
+                    '⚠️ 첨단 치료 접근 불가능 상태</span><br>'
+                    '<span style="font-size:0.82rem;color:#1e293b;font-weight:700;">'
+                    + _gp71_lack_msg
+                    + '<br>즉시 보장 공백 점검이 필요합니다.</span></div>',
+                    unsafe_allow_html=True
+                )
+
+            # ── GP-70 §3: 마스터형 전용 비급여 폭탄 멘트 생성 ───────────────
+            # [GP-70 §3 답안 생성 조건]
+            # 발동 조건: _gp70_big5 == True (5대병원 마스터형 선택) AND (_robot_cost + _immuno_ann) > 0
+            # 멘트 구성: ①로봇수술 비급여 + ②면역항암제 비급여 합계 → _fmt_man() 변환
+            #           ③room_extra > 0이면 1인실 입원비(일당×입원일) 추가 문구 자동 삽입
+            # 면역항암제 산출근거:
+            #   - 폐암 키트루다(Pembrolizumab): 연간 약 7,000만원
+            #     → 서울대보라매병원 2024 비급여 공시, 3주 1회 투여 × 17~18회 = 연간
+            #     → 1회 투여 비용 약 390만원(체중 60kg 기준 200mg, 바이오스펙테이터 2024)
+            #   - 위암·유방암 면역항암제(허셉틴·키트루다 급여외): 연간 약 2,400만원
+            #     → 허셉틴(Trastuzumab) HER2+ 유방암: 3주 1회 × 18회, 1회 약 130만원
+            #     → 출처: 국립암센터 2023, 보건복지부 비급여보고제도 2025
+            # 글자색: 검정(#111827) 기본, 핵심 금액만 강조색(#ef4444)
+            _robot_cost   = _loss.get("robot_cost", 0)
+            _immuno_ann   = _loss.get("immuno_annual", 0)
+            _room_extra   = _loss.get("room_extra", 0)
+            _room_day_val = _d_data.get("big5_room_per_day", 0) if _gp70_big5 else 0
+            _hosp_days    = _d_data.get("hosp_days_avg", 0)
+            # 면역항암제 근거 문구 (병명별 자동 분기)
+            _immuno_basis = ""
+            if _gp70_big5 and _immuno_ann > 0:
+                if _gp68_sel == "폐암":
+                    _immuno_basis = (
+                        f"(키트루다 3주 1회 × 연 17회, 1회 약 390만원 기준 — "
+                        f"서울대보라매병원 2024 비급여 공시)"
+                    )
+                elif _gp68_sel in ("유방암", "위암"):
+                    _immuno_basis = (
+                        f"(허셉틴/키트루다 급여 외 적용 — "
+                        f"국립암센터 2023·보건복지부 비급여보고제도 2025)"
+                    )
+                elif _gp68_sel in ("대장암", "간암"):
+                    _immuno_basis = (
+                        f"(면역항암제 비급여 적용 기준 — "
+                        f"보건복지부 비급여보고제도 2025)"
+                    )
+
+            if _gp70_big5:
+                _immuno_detail = (
+                    f' <span style="font-size:0.78rem;color:#374151;">'
+                    f'{_immuno_basis}</span>' if _immuno_basis else ""
+                )
+                _room_detail = (
+                    f" 여기에 1인실 입원비({_room_day_val}만원/일 × {_hosp_days}일 = "
+                    f"{_fmt_man(_room_extra)})까지 더하면 국가 통계와는 차원이 다릅니다."
+                    if _room_extra > 0 else ""
+                )
+                _nongov_total = _fmt_man(_robot_cost + _immuno_ann)
+                _master_intro = (
+                    f'<div style="background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.35);'
+                    f'border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:0.83rem;color:#111827;">'
+                    f'⚠️ <b style="color:#111827;">고객님, 건강보험공단 데이터는 잊으세요.</b> '
+                    f'서울 5대 병원에서 로봇수술을 받고 면역항암제를 쓰신다면, '
+                    f'비급여로만 최소 <span style="color:#ef4444;font-weight:900;font-size:1.05rem;">'
+                    f'{_nongov_total}</span>이 추가로 필요합니다.'
+                    f'{_immuno_detail}{_room_detail}'
+                    f'</div>'
+                ) if (_robot_cost + _immuno_ann) > 0 else ""
+                _mode_badge = '<span style="font-size:0.68rem;font-weight:900;background:#ef4444;color:#fff;padding:1px 6px;border-radius:8px;margin-left:4px;">5대병원 MASTER</span>'
+                _source_txt = _d_data.get("big5_source", _d_data.get("source", ""))
+            else:
+                _master_intro = ""
+                _mode_badge   = '<span style="font-size:0.68rem;font-weight:700;background:#7B92B2;color:#94a3b8;padding:1px 6px;border-radius:8px;margin-left:4px;">국가 표준형</span>'
+                _source_txt   = _d_data.get("source", "")
+
+            _room_row = (
+                f'<div class="gk-loss-row">'
+                f'<span>🏨 1인실 입원비 ({_hosp_days}일 × {_room_day_val}만원/일)</span>'
+                f'<span>{_fmt_man(_room_extra)}</span></div>'
+            ) if (_gp70_big5 and _room_extra > 0) else ""
+
+            # f-string 따옴표 충돌 방지: 딕셔너리 값 미리 변수에 추출
+            _treatment_str   = _fmt_man(_loss["treatment"])
+            _nursing_str     = _fmt_man(_loss["nursing"])
+            _total_str       = _fmt_man(_loss["total"])
+            _income_loss_str = _fmt_man(_loss["income_loss"])
+            _work_months_str = str(_d_data["work_loss_months"])
+            _income_src_str  = f"{_gp68_income:.0f}만원/월"
+            _mode_std_str    = "서울 5대 병원 비급여 기준" if _gp70_big5 else "국가 평균 기준"
+            _income_note_str = (
+                f'고객님의 현재 소득 <span class="gk-highlight">{_income_src_str}</span>을 고려할 때, '
+                if _gp68_income > 0
+                else '소득 데이터를 입력하시면 더 정확한 산출이 가능합니다. '
+            )
+            # [GP-250] 소득손실 항상 계산값 표시 (기본값 350만원 적용 시에도 숫자로 출력)
+            _income_row_str  = _income_loss_str  # 항상 숫자로 표시
+            # [GP-250] 조정된 총위협액 및 간병비 표기
+            _nursing_market_str = _fmt_man(_nursing_market_total)
+            _total_adj_str      = _fmt_man(_loss_total_adj)
+            _default_badge = ('<span style="font-size:0.62rem;background:#f59e0b;color:#fff;'
+                              'padding:1px 5px;border-radius:6px;margin-left:4px;">기본값</span>'
+                              if _gp68_income_is_default else '')
+
+            # 우측 컬럼에 마스터형 제안 + 손실산출 렌더링
+            with _hyb_right:
+                st.markdown(f"""
+<div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #ea580c;
+  border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+  <div style="font-size:0.78rem;font-weight:900;color:#c2410c;margin-bottom:6px;">
+    🏥 5대 상급종합병원 마스터형 제안
+  </div>
+  <div style="font-size:0.74rem;color:#374151;line-height:1.7;">
+    • 고가 ADC 약제(항체-약물 접합체) 비급여 연간 최대 <b style="color:#c2410c;">7,000만원</b> 이상<br>
+    • 전담 간병인 현재 시장단가 <b style="color:#c2410c;">15만원/일</b> 기준 적용<br>
+    • 로봇수술 비급여 <b style="color:#c2410c;">800~1,500만원</b> 추가 발생<br>
+    • 1인실 입원비 <b style="color:#c2410c;">38~55만원/일</b> (서울아산·삼성 기준)
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                # 간병비 및 소득손실 산출 블록
+                st.markdown(f"""
+<div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid #ef4444;
+  border-radius:14px;padding:14px 16px;">
+  <div style="font-size:0.82rem;font-weight:900;color:#991b1b;margin-bottom:8px;">
+    💸 질병 발병 시 휴업&amp;소득상실 금액 산출(예시)
+    {_mode_badge}
+  </div>
+  {_master_intro}
+  <div style="font-size:0.74rem;color:#374151;margin-bottom:8px;">
+    {_income_note_str}
+    <b>월소득 {_gp68_income:.0f}만원</b>{_default_badge} 기준
+  </div>
+  <div class="gk-loss-breakdown" style="background:rgba(255,255,255,0.75);">
+    <div class="gk-loss-row">
+      <span>💊 치료비 ({_period_label_ko})</span>
+      <span style="font-weight:700;">{_treatment_str}</span>
+    </div>
+    <div class="gk-loss-row">
+      <span>🏠 간병비 (15만원/일 × {_hosp_days_for_nursing}일 기준)</span>
+      <span style="font-weight:700;">{_nursing_market_str}</span>
+    </div>
+    {_room_row}
+    <div class="gk-loss-row">
+      <span>💸 소득 손실 ({_work_months_str}개월 기준)</span>
+      <span style="font-weight:700;color:#1d4ed8;">{_income_row_str}</span>
+    </div>
+    <div class="gk-loss-row total" style="color:#dc2626 !important;font-size:1.0rem;">
+      <span>🔴 총 경제적 위협액</span>
+      <span style="color:#dc2626 !important;font-weight:900;font-size:1.05rem;">{_total_adj_str}</span>
+    </div>
+  </div>
+  <div class="gk-source-note" style="color:#6b7280;">📌 {_source_txt} | 간병비: 현재 시장 단가 15만원/일 | 참고용</div>
+</div>""", unsafe_allow_html=True)
+
+            # 기존 chat-bubble은 좌측 컬럼 아래에 표시 (국가통계 기반 요약)
+            with _hyb_left:
+                st.markdown(f"""
+<div class="gk-chat-bubble" style="margin-top:8px;">
+  <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:6px;">
+    🤖 AI 손실 분석 봇 &nbsp;·&nbsp; <span style="color:#D4AF37;">goldkey_Ai_masters2026</span>
+    {_mode_badge}
+  </div>
+  선택하신 <span class="gk-highlight">[{_gp68_sel}]</span> — {_mode_std_str} {_period_label_ko}간
+  치료비 <span class="gk-highlight">{_treatment_str}</span> 예상.<br>
+  <span class="gk-danger" style="font-size:1.1rem;">🚨 총 위협액 {_total_adj_str}</span>
+  <div class="gk-source-note">📌 {_source_txt}</div>
+</div>""", unsafe_allow_html=True)
+
+            # ── GP-72: AI 분석 2차 검증 배너 ─────────────────────────────
+            _gp72_source_ok = bool(_source_txt and len(_source_txt.strip()) > 3)
+            _gp72_basis_ok  = _loss.get("treatment", 0) > 0 and _loss.get("total", 0) > 0
+            _gp72_halluc_ok = _gp68_sel in _GP68_DISEASE_DB
+            _gp72_all_pass  = _gp72_source_ok and _gp72_basis_ok and _gp72_halluc_ok
+            _gp72_badge_color = "#16a34a" if _gp72_all_pass else "#dc2626"
+            _gp72_badge_text  = "2차검증완료 ✓" if _gp72_all_pass else "검증필요 ⚠️"
+            _gp72_rows = (
+                f'<span style="color:{"#16a34a" if _gp72_source_ok else "#dc2626"};">'
+                f'{"✓" if _gp72_source_ok else "✗"} ①출처명시</span>&nbsp;'
+                f'<span style="color:{"#16a34a" if _gp72_basis_ok else "#dc2626"};">'
+                f'{"✓" if _gp72_basis_ok else "✗"} ②근거충분성</span>&nbsp;'
+                f'<span style="color:{"#16a34a" if _gp72_halluc_ok else "#dc2626"};">'
+                f'{"✓" if _gp72_halluc_ok else "✗"} ③할루시네이션점검</span>'
+            )
+            st.markdown(
+                f'<div style="background:rgba({"22,163,74" if _gp72_all_pass else "220,38,38"},0.07);'
+                f'border:1px solid rgba({"22,163,74" if _gp72_all_pass else "220,38,38"},0.4);'
+                f'border-radius:8px;padding:7px 14px;margin-top:6px;'
+                f'font-size:0.72rem;color:#334155;display:flex;align-items:center;gap:10px;">'
+                f'<span style="background:{_gp72_badge_color};color:#fff;font-weight:800;'
+                f'font-size:0.7rem;padding:2px 8px;border-radius:6px;white-space:nowrap;">'
+                f'[GP-72] {_gp72_badge_text}</span>'
+                f'<span>{_gp72_rows}</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+            # ── GP-70.1 §3: 마스터형 전용 시각적 대비 테이블 ──────────────
+            if _gp70_big5:
+                _d_avg_cost  = _d_data.get("avg_cost_2yr", 0)
+                _d_b5_cost   = _d_data.get("big5_cost_2yr", 0)
+                _d_robot_rng = _d_data.get("big5_robot_range", "해당없음")
+                _d_room_rng  = _d_data.get("big5_room_range", "")
+                _d_b5_src    = _d_data.get("big5_source", "심평원 비급여공시 2024")
+                _d_b5_link   = _d_data.get("big5_source_link", "https://www.hira.or.kr/ra/hosp/getHealthCareList.do")
+                _d_immuno_b  = _d_data.get("big5_immuno_basis", "")
+                _avg_nursing = _d_data.get("nursing_2yr", 0)
+                _b5_nursing  = _d_data.get("big5_nursing_2yr", 0)
+                _avg_room    = _d_data.get("hosp_days_avg", 0) * 20  # 국가평균 1인실 20만원/일
+                _b5_room     = _d_data.get("hosp_days_avg", 0) * _d_data.get("big5_room_per_day", 0)
+
+                _robot_row_avg  = "-"
+                _robot_row_big5 = "-"
+                _robot_row_src  = ""
+                if _d_robot_rng != "해당없음":
+                    _robot_row_avg  = "500~1,000만원"
+                    _robot_row_big5 = _d_robot_rng
+                    _robot_row_src  = f'<a href="{_d_b5_link}" target="_blank" class="gk-evidence-badge trust">[근거: 병원 수가표]</a>'
+
+                _immuno_row_avg  = "-"
+                _immuno_row_big5 = "-"
+                _immuno_row_src  = ""
+                if _immuno_ann > 0:
+                    _immuno_row_avg  = "급여 일부 (소액)"
+                    _immuno_row_big5 = _fmt_man(_immuno_ann) + "/년"
+                    _immuno_basis_note = f" <span style='font-size:0.6rem;color:#374151;'>({_d_immuno_b})</span>" if _d_immuno_b else ""
+                    _immuno_row_src  = f'<a href="{_d_b5_link}" target="_blank" class="gk-evidence-badge trust">[근거: {_d_b5_src[:14]}]</a>'
+                    _immuno_row_big5 += _immuno_basis_note
+
+                _room_row_avg_val = _fmt_man(_avg_room) if _avg_room > 0 else "-"
+                _room_row_big5_val = _fmt_man(_b5_room) if _b5_room > 0 else "-"
+                _room_src = f'<a href="https://www.hira.or.kr/ra/hosp/getHealthCareList.do" target="_blank" class="gk-evidence-badge trust">[근거: 심평원 공시]</a>' if _b5_room > 0 else ""
+
+                _nursing_avg_str = _fmt_man(_avg_nursing) if _avg_nursing > 0 else "-"
+                _nursing_b5_str  = _fmt_man(_b5_nursing)  if _b5_nursing  > 0 else "-"
+
+                _total_avg_fmt = _fmt_man(_d_avg_cost)
+                _total_b5_fmt  = _fmt_man(_d_b5_cost)
+
+                _robot_row_html = (
+                    f'<tr><td>🤖 로봇수술 비급여</td>'
+                    f'<td class="gk-contrast-avg">{_robot_row_avg}</td>'
+                    f'<td class="gk-contrast-big5">{_robot_row_big5}</td>'
+                    f'<td style="text-align:center;">{_robot_row_src}</td></tr>'
+                ) if _d_robot_rng != "해당없음" else ""
+
+                _immuno_row_html = (
+                    f'<tr><td>💊 면역항암제 (연간)</td>'
+                    f'<td class="gk-contrast-avg">{_immuno_row_avg}</td>'
+                    f'<td class="gk-contrast-big5">{_immuno_row_big5}</td>'
+                    f'<td style="text-align:center;">{_immuno_row_src}</td></tr>'
+                ) if _immuno_ann > 0 else ""
+
+                _contrast_table_html = f"""
+<div style="margin:8px 0 4px 0;">
+  <div style="font-size:0.72rem;font-weight:900;color:#D4AF37;margin-bottom:4px;">
+    📊 국가 평균 vs 서울 5대병원 비급여 실부담 비교
+  </div>
+  <table class="gk-contrast-table">
+    <thead>
+      <tr>
+        <th style="text-align:left;">항목</th>
+        <th>🏛️ 국가 평균</th>
+        <th>🏥 5대병원 마스터형</th>
+        <th>근거</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>🏥 2년 총 치료비</td>
+        <td class="gk-contrast-avg">{_total_avg_fmt}</td>
+        <td class="gk-contrast-big5">{_total_b5_fmt}</td>
+        <td style="text-align:center;"><a href="{_d_b5_link}" target="_blank" class="gk-evidence-badge trust">[근거: {_d_b5_src[:12]}]</a></td>
+      </tr>
+      {_robot_row_html}
+      {_immuno_row_html}
+      <tr>
+        <td>🏨 1인실 ({_hosp_days}일)</td>
+        <td class="gk-contrast-avg">{_room_row_avg_val}</td>
+        <td class="gk-contrast-big5">{_room_row_big5_val} <span style="font-size:0.6rem;color:#374151;">({_d_room_rng})</span></td>
+        <td style="text-align:center;">{_room_src}</td>
+      </tr>
+      <tr>
+        <td>🧑‍⚕️ 간병비 (2년)</td>
+        <td class="gk-contrast-avg">{_nursing_avg_str}</td>
+        <td class="gk-contrast-big5">{_nursing_b5_str}</td>
+        <td style="text-align:center;"><span class="gk-evidence-badge est">[추정]</span></td>
+      </tr>
+    </tbody>
+  </table>
+  <div style="font-size:0.62rem;color:#64748b;margin-top:3px;">
+    ※ 출처: {_d_b5_src} | 개인 상태·치료 경과에 따라 실제 비용 상이
+  </div>
+</div>"""
+                st.markdown(_contrast_table_html, unsafe_allow_html=True)
+
+            # ── GP-69 §4: 보장 공백 확인 CTA 버튼 ───────────────────────
+            _gp68_cta_col1, _gp68_cta_col2 = st.columns(2, gap="small")
+            with _gp68_cta_col1:
+                if st.button(
+                    "🔍 나의 보장 공백 확인하기",
+                    key="_gp68_cta_gap",
+                    type="primary",
+                    use_container_width=True,
+                    help="현재 보험 증권을 분석하여 보장 공백을 즉시 확인합니다.",
+                ):
+                    _go_tab("policy_scan")  # → 보험증권 분석 탭으로 이동 (policy_review 라우팅 블록 없음)
+            with _gp68_cta_col2:
+                if st.button(
+                    "📊 상해·질병 보장 상담",
+                    key="_gp68_cta_consult",
+                    use_container_width=True,
+                    help="AI 보험 상담으로 이동합니다.",
+                ):
+                    _go_tab("injury")
+
+            # ── [GP241조] 카카오톡 나에게 보내기 — GP250 위협액 리포트 ─────────
+            st.markdown("""
+<div style="background:linear-gradient(135deg,#FFFDE7,#FFF9C4);
+  border:2px solid #FEE500;border-radius:14px;
+  padding:14px 18px 10px 18px;margin-top:12px;
+  box-shadow:0 4px 16px rgba(254,229,0,0.25);">
+  <div style="font-size:0.9rem;font-weight:900;color:#3C1E1E;margin-bottom:4px;">
+    📲 카카오톡으로 이 리포트 받기
+    <span style="font-size:0.7rem;background:#3C1E1E;color:#FEE500;
+    border-radius:6px;padding:1px 7px;margin-left:6px;font-weight:800;">
+    마스터 전용</span>
+  </div>
+  <div style="font-size:0.75rem;color:#7C6000;margin-bottom:8px;">
+    위 분석 결과를 내 카카오톡 '나와의 채팅'으로 즉시 전송 → 고객에게 전달하기
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            try:
+                from modules.kakao_memo import build_gp250_report, render_memo_ui as _gp250_memo_ui
+                _gp250_pi = _get_planner_info()
+                _gp250_period_ko = {24: "2년", 36: "3년", 60: "5년"}.get(_gp68_per, f"{_gp68_per}개월")
+                _gp250_report_text = build_gp250_report(
+                    _gp68_sel,
+                    _loss,
+                    period_label=_gp250_period_ko,
+                    big5_mode=_gp70_big5,
+                    income_man=_gp68_income,
+                    client_name=st.session_state.get("gs_c_name", ""),
+                    planner_info=_gp250_pi,
+                )
+                st.session_state["_gp250_kakao_report"] = _gp250_report_text
+                _gp250_memo_ui(
+                    _gp250_report_text,
+                    title=f"[GP250] {_gp68_sel} 질병 발병 시 휴업&소득상실 금액 산출(예시)",
+                    session_key="_gp250_memo",
+                    planner_info=_gp250_pi,
+                    compact=False,
+                )
+            except Exception as _gp250_ex:
+                st.caption(f"⚠️ 카카오 전송 모듈 오류: {_gp250_ex}")
+
+        elif _gp68_sel is None:
+            st.markdown("""
+<div style="background:rgba(212,175,55,0.07);border:1px dashed rgba(212,175,55,0.35);
+  border-radius:12px;padding:10px 16px;margin-bottom:10px;
+  font-size:0.82rem;color:#1a1a2e;text-align:center;">
+  ⬆️ 위에서 걱정되는 질병을 선택하면 예상 경제적 손실을 즉시 산출해 드립니다.
+</div>""", unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹3 닫기]
+
+        # ── [GP220 그룹4] 날씨 위젯 · 헤더 · 로그인 배너 ────────────────────
+        st.markdown('<div class="gk-g220 gk-g220-weather"><span class="gk-g220-label">④ 날씨 · 브랜딩 헤더 · 로그인</span>', unsafe_allow_html=True)
+
+        # ════════════════════════════════════════════════════════════════
+        # 날씨 위젯 (사용자 위치 기반, Open-Meteo API)
+        # ════════════════════════════════════════════════════════════════
+        # ── 날씨 위젯 (사용자 위치 기반, Open-Meteo API) ──────────────────
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('1-3-2')}</div>""",
+                    unsafe_allow_html=True)
+        components.html("""
+<!-- #1-3-2 날씨 위젯 -->
+<div id="wx_wrap" style="
+  background:linear-gradient(135deg,#0f4c81 0%,#1a6fa8 100%);
+  border-radius:14px;padding:14px 18px;margin-bottom:12px;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div id="wx_icon" style="font-size:2.6rem;line-height:1;">⏳</div>
+    <div>
+      <div id="wx_temp" style="color:#fff;font-size:1.6rem;font-weight:900;line-height:1.1;">--°C</div>
+      <div id="wx_desc" style="color:#cce8ff;font-size:0.82rem;margin-top:2px;">위치 확인 중...</div>
+    </div>
+  </div>
+  <div style="text-align:right;">
+    <div id="wx_loc"  style="color:#fff;font-size:0.78rem;font-weight:700;">📍 --</div>
+    <div id="wx_extra" style="color:#cce8ff;font-size:0.75rem;margin-top:3px;">습도 --% | 풍속 -- m/s</div>
+    <div id="wx_time"  style="color:#a0c8f0;font-size:0.70rem;margin-top:2px;"></div>
+  </div>
+</div>
+<script>
+var WX_CODE = {
+  0:"☀️ 맑음", 1:"🌤️ 대체로 맑음", 2:"⛅ 구름 조금", 3:"☁️ 흐림",
+  45:"🌫️ 안개", 48:"🌫️ 짗은 안개",
+  51:"🌦️ 이슬비", 53:"🌦️ 이슬비", 55:"🌧️ 이슬비(강)",
+  61:"🌧️ 비", 63:"🌧️ 비(보통)", 65:"🌧️ 비(강)",
+  71:"🌨️ 눈", 73:"🌨️ 눈(보통)", 75:"❄️ 눈(강)",
+  80:"🌦️ 소나기", 81:"🌧️ 소나기(보통)", 82:"⛈️ 소나기(강)",
+  95:"⛈️ 뇌우", 96:"⛈️ 뇌우+우박", 99:"⛈️ 뇌우+우박(강)"
+};
+function wxLoad(lat, lon, locName){
+  var url = "https://api.open-meteo.com/v1/forecast"
+    + "?latitude=" + lat + "&longitude=" + lon
+    + "&current=temperature_2m,relative_humidity_2m,weathercode,windspeed_10m"
+    + "&timezone=Asia%2FSeoul&forecast_days=1";
+  fetch(url).then(function(r){ return r.json(); }).then(function(d){
+    var c = d.current;
+    var code = c.weathercode;
+    var desc = WX_CODE[code] || "🌡️ 날씨 정보";
+    var icon = desc.split(" ")[0];
+    var label = desc.split(" ").slice(1).join(" ");
+    var now = new Date();
+    var hhmm = now.getHours() + "시 " + String(now.getMinutes()).padStart(2,"0") + "분 기준";
+    document.getElementById("wx_icon").textContent  = icon;
+    document.getElementById("wx_temp").textContent  = Math.round(c.temperature_2m) + "°C";
+    document.getElementById("wx_desc").textContent  = label;
+    document.getElementById("wx_loc").textContent   = "📍 " + (locName || "현재 위치");
+    document.getElementById("wx_extra").textContent =
+      "습도 " + c.relative_humidity_2m + "% | 풍속 " + c.windspeed_10m + " m/s";
+    document.getElementById("wx_time").textContent  = hhmm + " 업데이트";
+  }).catch(function(){
+    document.getElementById("wx_desc").textContent = "날씨 정보를 불러올 수 없습니다.";
+  });
+}
+function wxByGeo(){
+  if(!navigator.geolocation){
+    wxLoad(35.1595, 126.8526, "광주"); return;
+  }
+  navigator.geolocation.getCurrentPosition(function(pos){
+    var lat = pos.coords.latitude;
+    var lon = pos.coords.longitude;
+    fetch("https://nominatim.openstreetmap.org/reverse?lat="+lat+"&lon="+lon+"&format=json&accept-language=ko")
+      .then(function(r){ return r.json(); })
+      .then(function(geo){
+        var addr = geo.address || {};
+        var loc = addr.city || addr.county || addr.state || "현재 위치";
+        wxLoad(lat, lon, loc);
+      }).catch(function(){ wxLoad(lat, lon, "현재 위치"); });
+  }, function(){
+    wxLoad(35.1595, 126.8526, "광주");
+  }, {timeout:5000});
+}
+wxByGeo();
+</script>
+""", height=100)
+
+        # ── [GK-M01-INTEGRATED] 통합 헤더 — 브랜딩 + 로그인 상태 통합 (#1-3-1 + #1-1-2 통합, #1-1-2 폐기) ──
+        import datetime as _hdt
+        _today = _hdt.datetime.now()
+        _weekday_kr = ["월","화","수","목","금","토","일"][_today.weekday()]
+        _today_str = f"{_today.year}년 {_today.month:02d}월 {_today.day:02d}일 ({_weekday_kr})"
+        _is_loggedin = 'user_id' in st.session_state
+        if _is_loggedin:
+            _uname_disp = mask_name(st.session_state.get("user_name",""))
+            _cur_eid  = st.session_state.get("_gk_entity_id", "")
+            _cur_utype = st.session_state.get("_gk_user_type", "customer")
+            _eid_badge = f'<span style="font-size:0.70rem;background:#BBDEFB;color:#0D47A1;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:700;letter-spacing:0.04em;">{_cur_eid}</span>' if _cur_eid else ""
+            _status_html = f"""
+  <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 12px;
+    background:#FFFFFF;border-radius:8px;border:1.5px solid #FF0000;">
+    <span style="font-size:1.3rem;">✅</span>
+    <span style="font-size:1.0rem;font-weight:900;color:#000000;">{_uname_disp} 마스터님 · 로그인됨</span>{_eid_badge}
+  </div>"""
+        else:
+            _uname_disp = "마스터"
+            _cur_utype = "guest"
+            _status_html = """
+  <div style="margin-top:10px;padding:8px 12px;background:#FFFFFF;
+    border-radius:8px;border:1.5px solid #FF0000;text-align:center;">
+    <span style="font-size:0.9rem;font-weight:800;color:#000000;">
+      👇 사이드바에서 회원가입 또는 로그인하세요
+    </span>
+  </div>"""
+        st.markdown(f"""
+<style>
+@keyframes gk-hdr-blink {{
+  0%,100% {{ opacity:1; }} 50% {{ opacity:0.25; }}
+}}
+</style>
+<div style="position:relative;background:#E3F2FD;
+  border:2.5px solid #FF0000;border-radius:12px;
+  padding:16px 20px 14px 20px;margin:0 0 14px 0;
+  box-shadow:0 2px 12px rgba(255,0,0,0.10);">
+  {_bid('GK-M01-INTEGRATED')}
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+    <div style="font-size:1.1rem;font-weight:900;color:#000000;
+      letter-spacing:0.01em;line-height:1.3;">
+      🏆 Goldkey_AI_Masters2026
+      <span style="font-size:0.75rem;font-weight:700;color:#1565C0;
+        margin-left:8px;">AI 보험컨설팅 통합 플랫폼</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;color:#000000;">
+      <span style="display:inline-block;width:7px;height:7px;border-radius:50%;
+        background:#FF0000;box-shadow:0 0 5px rgba(255,0,0,0.7);
+        animation:gk-hdr-blink 1.8s ease-in-out infinite;"></span>
+      {_uname_disp}님 접속 중
+    </div>
+  </div>
+  <div style="font-size:0.75rem;font-weight:600;color:#000000;margin-top:4px;opacity:0.7;">
+    {_today_str}
+  </div>
+  <div style="border-top:1.5px solid rgba(255,0,0,0.25);margin:10px 0 0 0;"></div>
+  {_status_html}
+</div>
+""", unsafe_allow_html=True)
+        if not _is_loggedin:
+            _b1, _b2, _b3 = st.columns([1, 1, 0.01])
+            with _b1:
+                if st.button("📝 회원가입", key="home_open_signup",
+                             use_container_width=True, type="primary"):
+                    st.session_state["_open_sidebar"] = True
+                    st.rerun()
+            with _b2:
+                if st.button("🔓 로그인", key="home_open_login",
+                             use_container_width=True):
+                    st.session_state["_open_sidebar"] = True
+                    st.rerun()
+
+        # ── [D1] RoutingGuard — 로그인 직후 userType 기반 자동 분기 배너 ───────
+        if _is_loggedin and _login_first_run:
+            if _cur_utype == "agent":
+                st.markdown("""
+<div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
+  border:2px solid #f0c040;border-radius:12px;padding:14px 18px;margin-bottom:8px;
+  animation:gk-fadein 0.5s ease;">
+  <div style="color:#1e3a5f;font-size:1.05rem;font-weight:900;margin-bottom:4px;">
+    🏢 설계사 대시보드로 이동합니다
+  </div>
+  <div style="color:#334155;font-size:0.78rem;">
+    보험업 종사자 계정 감지 — AI 타겟 추천 · CRM 도구가 활성화됩니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+            else:
+                st.markdown("""
+<div style="background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%);
+  border-radius:12px;padding:12px 18px;margin-bottom:8px;">
+  <div style="color:#065f46;font-size:1.0rem;font-weight:900;">
+    🙋 고객 맞춤 화면으로 이동합니다
+  </div>
+  <div style="color:#047857;font-size:0.78rem;">
+    암·뇌·심장 보장공백 스캔 도구가 준비되었습니다.
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        _is_admin_now = st.session_state.get("is_admin", False)
+
+        # ── [C4] AgentHome 대시보드 (#1-1-2 다음 — 로그인 시만 표시) ───────
+        if 'user_id' in st.session_state:
+            _uname_pre = mask_name(st.session_state.get("user_name", ""))
+            _cur_eid_pre  = st.session_state.get("_gk_entity_id", "")
+            _cur_utype_pre = st.session_state.get("_gk_user_type", "customer")
+            _is_admin_pre = st.session_state.get("is_admin", False)
+            if _is_admin_pre and _cur_utype_pre != "agent":
+                _dbg_toggle = st.toggle(
+                    "🧪 설계사 대시보드 미리보기",
+                    value=st.session_state.get("_agent_dash_preview", False),
+                    key="_agent_dash_preview_toggle",
+                    help="관리자 전용 — 설계사(AGNT_) 대시보드를 현재 계정에서 미리봅니다",
+                )
+                st.session_state["_agent_dash_preview"] = _dbg_toggle
+            else:
+                st.session_state.setdefault("_agent_dash_preview", False)
+
+            if _cur_utype_pre == "agent" or _is_admin_pre or st.session_state.get("_agent_dash_preview", False):
+                import datetime as _adt, json as _ahj
+                _now_adt = _adt.datetime.now()
+
+                if "_agent_todo" not in st.session_state:
+                    st.session_state["_agent_todo"] = [
+                        {"done": False, "text": "김○○ 고객 암보험 설계서 발송"},
+                        {"done": False, "text": "이○○ 고객 청구서류 취합"},
+                        {"done": True,  "text": "월간 실적 보고서 제출"},
+                    ]
+                if "_agent_appt" not in st.session_state:
+                    st.session_state["_agent_appt"] = [
+                        {"time": "10:30", "name": "박○○", "type": "신규상담"},
+                        {"time": "14:00", "name": "최○○", "type": "갱신안내"},
+                    ]
+                if "_agent_wait" not in st.session_state:
+                    st.session_state["_agent_wait"] = [
+                        {"name": "정○○", "status": "서류검토중"},
+                        {"name": "강○○", "status": "심사대기"},
+                        {"name": "윤○○", "status": "출금확인"},
+                    ]
+
+                _todo_list  = st.session_state["_agent_todo"]
+                _appt_list  = st.session_state["_agent_appt"]
+                _wait_list  = st.session_state["_agent_wait"]
+                _done_cnt   = sum(1 for t in _todo_list if t["done"])
+                _todo_cnt   = len(_todo_list) - _done_cnt
+
+                _todo_items_html = "".join(
+                    f'<div style="display:flex;align-items:center;gap:6px;padding:4px 0;'
+                    f'border-bottom:1px solid rgba(255,255,255,0.10);">'
+                    f'<span style="font-size:13px;">{"✅" if t["done"] else "⬜"}</span>'
+                    f'<span style="font-size:12px;color:{"#94a3b8" if t["done"] else "#e2e8f0"};'
+                    f'text-decoration:{"line-through" if t["done"] else "none"};'
+                    f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;">'
+                    f'{t["text"]}</span>'
+                    f'</div>'
+                    for t in _todo_list
+                )
+                _appt_items_html = "".join(
+                    f'<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.10);">'
+                    f'<span style="font-size:12px;color:#fde68a;font-weight:700;">{a["time"]}</span>'
+                    f'<span style="font-size:12px;color:#e2e8f0;margin-left:6px;">{a["name"]}</span>'
+                    f'<span style="font-size:11px;color:#94a3b8;margin-left:4px;">· {a["type"]}</span>'
+                    f'</div>'
+                    for a in _appt_list
+                )
+                _wait_items_html = "".join(
+                    f'<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.10);">'
+                    f'<span style="font-size:12px;color:#e2e8f0;font-weight:600;">{w["name"]}</span>'
+                    f'<span style="font-size:11px;color:#7dd3fc;margin-left:6px;">{w["status"]}</span>'
+                    f'</div>'
+                    for w in _wait_list
+                )
+
+                st.markdown(f"""
+<div style="position:relative;background:linear-gradient(135deg,rgba(219,234,254,0.60) 0%,rgba(191,219,254,0.60) 100%);
+  border:2px solid #2563eb;border-radius:16px;
+  padding:16px 18px 6px 18px;margin-bottom:0;
+  box-shadow:0 4px 16px rgba(37,99,235,0.12),0 0 0 1px rgba(37,99,235,0.18);">
+  {_bid('1-2-1')}
+  <div style="font-size:11px;font-weight:900;color:#1d4ed8;letter-spacing:0.12em;
+    text-transform:uppercase;margin-bottom:14px;
+    display:flex;align-items:center;gap:6px;">
+    <span style="display:inline-block;width:6px;height:6px;border-radius:50%;
+      background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,0.8);"></span>
+    📊 오늘의 업무 현황판
+  </div>""", unsafe_allow_html=True)
+
+                _sb_c1, _sb_c2, _sb_c3 = st.columns(3, gap="small")
+
+                with _sb_c1:
+                    st.markdown(f"""
+<style>
+.gk-dash-box {{ box-sizing:border-box; }}
+.gk-dash-box::-webkit-scrollbar {{ width:4px; }}
+.gk-dash-box::-webkit-scrollbar-thumb {{ background:rgba(255,0,0,0.35);border-radius:4px; }}
+.gk-dash-box::-webkit-scrollbar-track {{ background:transparent; }}
+</style>
+<div class="gk-dash-box" style="position:relative;background:#E3F2FD;border:2px solid #FF0000;
+  border-radius:12px;padding:12px 12px 10px 12px;
+  height:140px;max-height:140px;overflow-y:auto;">
+  {_bid('1-2-2')}
+  <div style="font-size:11px;color:#000000;font-weight:900;letter-spacing:0.06em;
+    margin-bottom:6px;">📋 오늘 할 일</div>
+  <div style="font-size:36px;font-weight:900;color:#000000;line-height:1;margin-bottom:6px;">
+    {_todo_cnt}<span style="font-size:13px;color:#000000;font-weight:700;margin-left:3px;">건</span>
+  </div>
+  {_todo_items_html if _todo_items_html else '<div style="color:#000000;font-size:11px;font-weight:700;">항목 없음</div>'}
+</div>""", unsafe_allow_html=True)
+
+                with _sb_c2:
+                    st.markdown(f"""
+<div class="gk-dash-box" style="position:relative;background:#E3F2FD;border:2px solid #FF0000;
+  border-radius:12px;padding:12px 12px 10px 12px;
+  height:140px;max-height:140px;overflow-y:auto;">
+  {_bid('1-2-3')}
+  <div style="font-size:11px;color:#000000;font-weight:900;letter-spacing:0.06em;
+    margin-bottom:6px;">📅 오늘의 약속</div>
+  <div style="font-size:36px;font-weight:900;color:#000000;line-height:1;margin-bottom:6px;">
+    {len(_appt_list)}<span style="font-size:13px;color:#000000;font-weight:700;margin-left:3px;">건</span>
+  </div>
+  {_appt_items_html if _appt_items_html else '<div style="color:#000000;font-size:11px;font-weight:700;">약속 없음</div>'}
+</div>""", unsafe_allow_html=True)
+
+                with _sb_c3:
+                    st.markdown(f"""
+<div class="gk-dash-box" style="position:relative;background:#E3F2FD;border:2px solid #FF0000;
+  border-radius:12px;padding:12px 12px 10px 12px;
+  height:140px;max-height:140px;overflow-y:auto;">
+  {_bid('1-2-4')}
+  <div style="font-size:11px;color:#000000;font-weight:900;letter-spacing:0.06em;
+    margin-bottom:6px;">⏳ 상담 대기</div>
+  <div style="font-size:36px;font-weight:900;color:#000000;line-height:1;margin-bottom:6px;">
+    {len(_wait_list)}<span style="font-size:13px;color:#000000;font-weight:700;margin-left:3px;">건</span>
+  </div>
+  {_wait_items_html if _wait_items_html else '<div style="color:#000000;font-size:11px;font-weight:700;">대기 없음</div>'}
+</div>""", unsafe_allow_html=True)
+
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                with st.expander("📌 할 일 관리 (상세)", expanded=False):
+                    _del_idx = None
+                    for _ti, _task in enumerate(_todo_list):
+                        _tc1, _tc2, _tc3 = st.columns([0.08, 0.80, 0.12])
+                        with _tc1:
+                            _checked = st.checkbox(
+                                "", value=_task["done"],
+                                key=f"todo_chk_{_ti}",
+                                label_visibility="collapsed",
+                            )
+                            if _checked != _task["done"]:
+                                st.session_state["_agent_todo"][_ti]["done"] = _checked
+                                st.rerun()
+                        with _tc2:
+                            _style = ("line-through;color:#94a3b8" if _task["done"]
+                                      else "none;color:#e2e8f0")
+                            st.markdown(
+                                f'<div style="font-size:0.82rem;text-decoration:{_style};'
+                                f'padding-top:4px;">{_task["text"]}</div>',
+                                unsafe_allow_html=True,
+                            )
+                        with _tc3:
+                            if st.button("🗑", key=f"todo_del_{_ti}",
+                                         help="삭제", use_container_width=True):
+                                _del_idx = _ti
+                    if _del_idx is not None:
+                        st.session_state["_agent_todo"].pop(_del_idx)
+                        st.rerun()
+                    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                    with st.form("add_todo_form", clear_on_submit=True):
+                        _new_todo = st.text_input("새 할 일", placeholder="내용 입력 후 Enter",
+                                                  label_visibility="collapsed")
+                        if st.form_submit_button("➕ 추가", use_container_width=True):
+                            if _new_todo.strip():
+                                st.session_state["_agent_todo"].append(
+                                    {"done": False, "text": _new_todo.strip()}
+                                )
+                                st.rerun()
+
+                st.markdown(f"""<div style="position:relative;font-size:0.72rem;font-weight:800;color:#64748b;
+                  letter-spacing:0.08em;text-transform:uppercase;margin:14px 0 6px 2px;">
+                  {_bid('1-2-6')}
+                  🤖 AI 타겟 고객 추천 TOP 5</div>""", unsafe_allow_html=True)
+
+                _top5 = calculate_top_targets(n=5, hours=48)
+                if _top5:
+                    for _rank, _tgt in enumerate(_top5, 1):
+                        _diff_h2 = (_adt.datetime.now().timestamp()*1000 - _tgt["last_ts"]) / 3_600_000
+                        _recency_str = (f"{int(_diff_h2*60)}분 전" if _diff_h2 < 1
+                                        else f"{int(_diff_h2)}시간 전" if _diff_h2 < 24
+                                        else f"{int(_diff_h2/24)}일 전")
+                        _detail_str = " · ".join(
+                            f'{d["title"]}({d["count"]}회×w{d["weight"]}={d["sub_score"]}점)'
+                            for d in _tgt["detail"][:2]
+                        )
+                        _score_color = ("#ef4444" if _tgt["score"] >= 80
+                                        else "#f59e0b" if _tgt["score"] >= 40
+                                        else "#22c55e")
+                        _interest_kw = _tgt["detail"][0]["title"] if _tgt["detail"] else _tgt["top_menu"]
+                        _eid_safe    = _tgt["entity_id"]
+
+                        st.markdown(f"""
+<div class="gk-sky-trust" style="padding:10px 14px !important;margin-bottom:4px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <div style="font-size:1.1rem;font-weight:900;color:#E65100;min-width:22px;">#{_rank}</div>
+  <div style="flex:1;min-width:0;">
+    <div style="color:#000;font-size:0.85rem;font-weight:800;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      {_eid_safe} <span style="color:#37474F;font-size:0.7rem;font-weight:400;">· {_tgt["user_type"]}</span>
+    </div>
+    <div style="color:#1565C0;font-size:0.7rem;margin-top:2px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      🔥 {_detail_str}
+    </div>
+    <div style="color:#37474F;font-size:0.68rem;margin-top:1px;">
+      🕐 마지막 활동: {_recency_str}
+    </div>
+  </div>
+  <div style="text-align:right;flex-shrink:0;">
+    <div style="color:{_score_color};font-size:1.05rem;font-weight:900;">{_tgt["score"]}점</div>
+    <div style="color:#37474F;font-size:0.65rem;">관심도 점수</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                        _kakao_btn_key  = f"_kakao_btn_{_rank}"
+                        _kakao_open_key = f"_kakao_open_{_rank}"
+                        _kakao_draft_key= f"_kakao_draft_{_rank}"
+
+                        _col_kakao, _col_close = st.columns([3, 1])
+                        with _col_kakao:
+                            if st.button(
+                                f"💬 {_eid_safe} 카톡 초안 생성",
+                                key=_kakao_btn_key,
+                                use_container_width=True,
+                            ):
+                                _is_open = st.session_state.get(_kakao_open_key, False)
+                                st.session_state[_kakao_open_key] = not _is_open
+                                if not _is_open:
+                                    if not st.session_state.get(_kakao_draft_key, ""):
+                                        with st.spinner("🤖 AI가 카톡 멘트를 작성 중..."):
+                                            _draft = _generate_kakao_draft(_eid_safe, _interest_kw)
+                                            st.session_state[_kakao_draft_key] = _draft
+                                st.rerun()
+
+                        if st.session_state.get(_kakao_open_key, False):
+                            st.markdown(f"""
+<div style="background:#fefce8;border:2px solid #fde047;border-radius:12px;
+  padding:14px 16px;margin-bottom:8px;">
+  <div style="font-size:0.78rem;font-weight:800;color:#713f12;margin-bottom:8px;">
+    💬 AI 카톡 초안 — {_eid_safe} · 관심: {_interest_kw}
+  </div>
+</div>""", unsafe_allow_html=True)
+                            _edited = st.text_area(
+                                "✏️ 초안 수정 후 복사",
+                                value=st.session_state.get(_kakao_draft_key, ""),
+                                key=f"_kakao_ta_{_rank}",
+                                height=130,
+                                label_visibility="collapsed",
+                            )
+                            st.session_state[_kakao_draft_key] = _edited
+
+                            _btn_copy, _btn_regen, _btn_x = st.columns([2, 2, 1])
+                            with _btn_copy:
+                                _copy_js = _edited.replace("'", "\\'").replace("\n", "\\n")
+                                st.markdown(f"""
+<button onclick="navigator.clipboard.writeText('{_copy_js}').then(()=>this.innerText='✅ 복사됨!').catch(()=>alert('복사 실패: 직접 선택 후 복사하세요'))"
+  style="width:100%;background:#fee500;color:#191919;border:none;
+    border-radius:8px;padding:9px 0;font-size:0.82rem;font-weight:800;cursor:pointer;">
+  📋 카톡 문구 복사
+</button>""", unsafe_allow_html=True)
+                            with _btn_regen:
+                                if st.button("🔄 재생성", key=f"_kakao_regen_{_rank}", use_container_width=True):
+                                    with st.spinner("🤖 재작성 중..."):
+                                        _new_draft = _generate_kakao_draft(_eid_safe, _interest_kw)
+                                        st.session_state[_kakao_draft_key] = _new_draft
+                                    st.rerun()
+                            with _btn_x:
+                                if st.button("✖", key=f"_kakao_close_{_rank}", use_container_width=True):
+                                    st.session_state[_kakao_open_key] = False
+                                    st.rerun()
+                else:
+                    st.markdown("""
+<div class="gk-sky-trust" style="border-style:dashed !important;padding:16px !important;text-align:center;font-size:0.82rem;">
+  📊 아직 추적 데이터가 없습니다.<br>
+  <span style="font-size:0.72rem;color:#37474F;">고객이 메뉴를 클릭하면 자동으로 점수가 집계됩니다.</span>
+</div>""", unsafe_allow_html=True)
+
+
+
+        st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹4 닫기]
+
+        # ── [GP220 그룹5] 통합 검색 · 음성 네비게이션 ────────────────────────
+        st.markdown('<div class="gk-g220 gk-g220-nav"><span class="gk-g220-label">⑤ 통합 검색 · 메뉴 네비게이션</span>', unsafe_allow_html=True)
+
+        # ── [B3] 통합 검색 모달 (Global Search Bar — Slide-down + O(1) + 폭포수 애니메이션) ──
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('1-3-3')}</div>""",
+                    unsafe_allow_html=True)
+        import json as _gsb_json
+        _gsb_reg_js = _gsb_json.dumps(
+            [{"id": v["id"], "level": v["level"], "title": v["title"],
+              "tab_key": v["tab_key"], "keywords": v["keywords"]}
+             for v in APP_REGISTRY.values()],
+            ensure_ascii=False
+        )
+        components.html(f"""
+<style>
+/* ── Global Search Bar ── */
+#gk-gsb-wrap{{position:relative;margin-bottom:6px;}}
+#gk-gsb-btn{{
+  width:100%;padding:9px 16px;border-radius:10px;border:2px solid #2e6da4;
+  background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);
+  color:#1e3a5f;font-size:0.85rem;font-weight:800;cursor:pointer;
+  letter-spacing:0.04em;transition:all 0.2s;display:flex;align-items:center;gap:8px;}}
+#gk-gsb-btn:hover{{background:linear-gradient(135deg,#93c5fd 0%,#60a5fa 100%);border-color:#60a5fa;}}
+#gk-gsb-modal{{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;
+  background:#fff;border-radius:16px;
+  box-shadow:0 8px 32px rgba(30,60,120,0.18);
+  z-index:9999;padding:14px 14px 10px 14px;
+  transform:translateY(-18px);opacity:0;
+  transition:transform 0.28s cubic-bezier(.4,0,.2,1),opacity 0.22s;
+  pointer-events:none;}}
+#gk-gsb-modal.open{{transform:translateY(0);opacity:1;pointer-events:auto;}}
+#gk-gsb-input{{
+  width:100%;box-sizing:border-box;padding:10px 14px 10px 38px;
+  border-radius:10px;border:1.8px solid #c7d8f0;background:#f5f8ff;
+  font-size:0.88rem;font-weight:600;outline:none;
+  transition:border-color 0.18s;}}
+#gk-gsb-input:focus{{border-color:#2e6da4;background:#fff;}}
+#gk-gsb-icon{{position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  font-size:1rem;pointer-events:none;}}
+.gk-gsb-list{{max-height:300px;overflow-y:auto;margin-top:8px;
+  scrollbar-width:thin;scrollbar-color:#c7d8f0 #f5f8ff;}}
+.gk-gsb-list::-webkit-scrollbar{{width:5px;}}
+.gk-gsb-list::-webkit-scrollbar-thumb{{background:#c7d8f0;border-radius:4px;}}
+.gk-gsb-item{{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 12px;margin-bottom:5px;border-radius:10px;
+  border:1.5px solid #e8f0fb;background:#fff;cursor:pointer;
+  opacity:0;transform:translateX(-14px);
+  transition:background 0.16s,border-color 0.16s,opacity 0.22s,transform 0.22s;}}
+.gk-gsb-item.visible{{opacity:1;transform:translateX(0);}}
+.gk-gsb-item:hover{{background:#eef6ff;border-color:#2e6da4;}}
+.gk-gsb-badge{{
+  font-size:0.68rem;font-weight:800;padding:2px 7px;border-radius:5px;
+  margin-right:7px;}}
+.gk-gsb-badge.대분류{{background:#dbeafe;color:#1e40af;}}
+.gk-gsb-badge.중분류{{background:#dcfce7;color:#166534;}}
+.gk-gsb-badge.소분류{{background:#fef9c3;color:#713f12;}}
+.gk-gsb-title{{font-size:0.82rem;font-weight:700;color:#1a3a5c;}}
+.gk-gsb-arrow{{font-size:0.9rem;color:#9ca3af;transition:color 0.15s;}}
+.gk-gsb-item:hover .gk-gsb-arrow{{color:#2e6da4;}}
+.gk-gsb-empty{{text-align:center;color:#9ca3af;font-size:0.8rem;padding:18px 0;}}
+.gk-gsb-close{{float:right;background:none;border:none;color:#9ca3af;
+  font-size:1.1rem;cursor:pointer;margin-top:-4px;}}
+</style>
+<div id="gk-gsb-wrap" style="position:relative;">
+  <!-- #1-3-3 통합 검색바 -->
+  <button id="gk-gsb-btn" onclick="gkGsbToggle()">
+    🔍 통합 검색 &nbsp;|&nbsp; 메뉴·코드·용어 빠른 이동
+    <span style="margin-left:auto;font-size:0.75rem;opacity:0.75;">▼ 클릭하여 검색</span>
+  </button>
+  <div id="gk-gsb-modal">
+    <button class="gk-gsb-close" onclick="gkGsbClose()">✕</button>
+    <div style="position:relative;">
+      <span id="gk-gsb-icon">🔍</span>
+      <input id="gk-gsb-input" type="text" placeholder="메뉴명·용어·코드 입력 (예: 암, 3000, 맥브라이드)" autocomplete="off" oninput="gkGsbSearch(this.value)" />
+    </div>
+    <div class="gk-gsb-list" id="gk-gsb-list"></div>
+  </div>
+</div>
+<script>
+(function(){{
+  var REG = {_gsb_reg_js};
+  var modal = document.getElementById('gk-gsb-modal');
+  var list  = document.getElementById('gk-gsb-list');
+  var input = document.getElementById('gk-gsb-input');
+  var open  = false;
+  var _closeTimer = null;
+
+  window.gkGsbToggle = function(){{
+    open = !open;
+    modal.classList.toggle('open', open);
+    if(open){{ setTimeout(function(){{input.focus();}},80); gkGsbSearch(''); }}
+  }};
+  window.gkGsbClose = function(){{
+    open=false; modal.classList.remove('open');
+  }};
+
+  // O(1) 검색: 사전 색인된 REG 배열에서 필터링
+  window.gkGsbSearch = function(q){{
+    var t = (q||'').toLowerCase().replace(/\\s+/g,'');
+    var results = REG.filter(function(m){{
+      if(!t) return true;
+      if(m.id.includes(t)) return true;
+      if(m.title.toLowerCase().replace(/\\s+/g,'').includes(t)) return true;
+      return m.keywords.some(function(k){{
+        return k.toLowerCase().replace(/\\s+/g,'').includes(t);
+      }});
+    }});
+    // 대분류→중분류→소분류 정렬 (폭포수 순서)
+    var ORDER = {{'대분류':0,'중분류':1,'소분류':2}};
+    results.sort(function(a,b){{
+      return (ORDER[a.level]||3)-(ORDER[b.level]||3) || a.id.localeCompare(b.id);
+    }});
+    list.innerHTML = '';
+    if(!results.length){{
+      list.innerHTML = '<div class="gk-gsb-empty">검색 결과 없음</div>';
+      return;
+    }}
+    // 폭포수 순차 렌더링: delay(i * 60ms)
+    results.slice(0,40).forEach(function(m,i){{
+      var div = document.createElement('div');
+      div.className = 'gk-gsb-item';
+      div.innerHTML =
+        '<div style="display:flex;align-items:center;">'
+        + '<span class="gk-gsb-badge '+m.level+'">'+m.level+'</span>'
+        + '<span class="gk-gsb-title">'+m.title+'</span>'
+        + '</div>'
+        + '<span class="gk-gsb-arrow">&#8250;</span>';
+      div.onclick = (function(menu){{
+        return function(){{
+          // 네비게이션: 부모 프레임으로 tab_key 메시지 전송
+          var payload = btoa(JSON.stringify({{id:menu.id,ts:Date.now()}}));
+          try{{window.parent.postMessage({{type:'gk_nav',tab_key:menu.tab_key,payload:payload}},'*');}}catch(e){{}}
+          // 검색창 입력란에 코드 채워서 form submit 트리거
+          var navInp = window.parent.document.querySelector('input[data-testid="stTextInput"]');
+          if(navInp){{
+            var nativeInputValueSetter=Object.getOwnPropertyDescriptor(window.parent.HTMLInputElement.prototype,'value').set;
+            nativeInputValueSetter.call(navInp,menu.id);
+            navInp.dispatchEvent(new Event('input',{{bubbles:true}}));
+          }}
+          gkGsbClose();
+        }};
+      }})(m);
+      // 폭포수 delay
+      setTimeout(function(){{ div.classList.add('visible'); }}, i*55+20);
+      list.appendChild(div);
+    }});
+  }};
+
+  // 외부 클릭 시 닫기
+  document.addEventListener('click', function(e){{
+    if(open && !document.getElementById('gk-gsb-wrap').contains(e.target)){{
+      gkGsbClose();
+    }}
+  }});
+}})();
+</script>
+""", height=52)
+
+        # Voice-to-Action STT 입력창 — form으로 감싸 버튼 클릭 시 값 커밋 보장
+        st.markdown(f"""
+<div style="position:relative;border:2px solid #2e6da4;border-radius:12px;padding:10px 14px 6px 14px;
+  background:linear-gradient(135deg,#f0f6ff 0%,#e8f0fb 100%);
+  margin-bottom:4px;box-shadow:0 2px 8px rgba(46,109,164,0.12);">
+  {_bid('1-3-4')}
+  <div style="font-size:0.78rem;font-weight:800;color:#1a3a5c;margin-bottom:6px;
+    letter-spacing:0.04em;">🧭 메뉴 이동 네비게이션</div>
+  <div style="font-size:0.72rem;color:#4a6fa5;margin-bottom:4px;">
+    섹터 코드(예: <b>3000</b>, <b>1220</b>) 또는 용어(예: <b>보장공백</b>, <b>맥브라이드</b>)를 입력하면 해당 메뉴로 즉시 이동합니다
+  </div>
+</div>""", unsafe_allow_html=True)
+        with st.form(key="_nav_form", clear_on_submit=False):
+            _nav_col1, _nav_col2 = st.columns([3, 1], gap="small")
+            with _nav_col1:
+                _nav_input = st.text_input(
+                    "nav_input_label",
+                    key="voice_nav_input",
+                    placeholder="코드(예: 3000·1220) 또는 용어(예: 보장공백·맥브라이드) 입력 후 → 바로 이동",
+                    label_visibility="collapsed",
+                )
+            with _nav_col2:
+                _nav_go = st.form_submit_button("🚀 바로 이동",
+                                               use_container_width=True, type="primary")
+
+        # Voice-to-Action STT 버튼 — SECTOR_CODES 기반 하이브리드 엔진
+        # JS→Python: components.html 방식 (v1 호환)
+        import json as _json
+        # SECTOR_CODES를 JS로 직렬화 — {id: {name, tab_key, keywords}} 형태
+        _sector_js = _json.dumps(SECTOR_CODES, ensure_ascii=False)
+
+        _vnav_css = """
+.vnav-row{display:flex;gap:8px;margin-top:2px;margin-bottom:4px;}
+.vnav-stt{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #2e6da4;
+  background:#eef4fb;color:#1a3a5c;font-size:0.85rem;font-weight:700;cursor:pointer;
+  transition:background 0.2s,color 0.2s;}
+.vnav-stt:hover{background:#2e6da4;color:#fff;}
+.vnav-stt.active{background:#e74c3c;color:#fff;border-color:#e74c3c;}
+.vnav-result{font-size:0.82rem;color:#1a3a5c;background:#dbeafe;border-radius:8px;
+  padding:7px 12px;margin-top:5px;min-height:28px;font-weight:700;display:none;
+  border:1.5px solid #2563eb;}
+.vnav-result.matched{background:#dcfce7;border-color:#16a34a;color:#14532d;}
+.vnav-result.id-matched{background:#f0fdf4;border-color:#16a34a;color:#14532d;border-width:2px;}
+.vnav-result.ambig{background:#fef9c3;border-color:#ca8a04;color:#713f12;}
+.vnav-result.unmatched{background:#fee2e2;border-color:#dc2626;color:#7f1d1d;}
+.vnav-guide{font-size:0.78rem;margin-top:4px;text-align:center;font-weight:700;display:none;
+  padding:6px 10px;border-radius:6px;}
+.vnav-hint{font-size:0.72rem;color:#6b7280;margin-top:3px;text-align:center;}
+.vnav-wave-wrap{display:none;justify-content:center;align-items:flex-end;
+  gap:3px;height:28px;margin-top:4px;}
+.vnav-wave-wrap.on{display:flex;}
+.vnav-bar{width:4px;border-radius:3px;background:linear-gradient(to top,#0ea5e9,#6366f1);
+  animation:vnav-wave 1.0s ease-in-out infinite;}
+.vnav-bar:nth-child(1){height:8px;animation-delay:0.0s;}
+.vnav-bar:nth-child(2){height:16px;animation-delay:0.1s;}
+.vnav-bar:nth-child(3){height:24px;animation-delay:0.2s;}
+.vnav-bar:nth-child(4){height:16px;animation-delay:0.3s;}
+.vnav-bar:nth-child(5){height:10px;animation-delay:0.4s;}
+.vnav-bar:nth-child(6){height:20px;animation-delay:0.15s;}
+.vnav-bar:nth-child(7){height:12px;animation-delay:0.25s;}
+@keyframes vnav-wave{0%,100%{transform:scaleY(0.4);opacity:0.6;}50%{transform:scaleY(1.0);opacity:1.0;}}
+.vnav-toast{position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-80px);
+  background:linear-gradient(135deg,#0f4c81,#1a6fa8);color:#fff;
+  padding:12px 24px;border-radius:12px;font-size:0.9rem;font-weight:700;
+  box-shadow:0 4px 20px rgba(0,0,0,0.35);z-index:99999;
+  transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);}
+.vnav-toast.show{transform:translateX(-50%) translateY(0);}
+"""
+        _vnav_js = f"""
+export default function(component) {{
+  const {{ setTriggerValue, parentElement }} = component;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  // SECTOR_CODES — Python SECTOR_CODES와 동기화 (수동 편집 금지)
+  const SECTORS = {_sector_js};
+  const STT_LANG = '{STT_LANG}';
+
+  // DOM 주입
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `
+<div class="vnav-row"><button class="vnav-stt" id="vs_btn">🎙️ 음성으로 메뉴 이동</button></div>
+<div class="vnav-wave-wrap" id="vs_wave">
+  <div class="vnav-bar"></div><div class="vnav-bar"></div><div class="vnav-bar"></div>
+  <div class="vnav-bar"></div><div class="vnav-bar"></div><div class="vnav-bar"></div>
+  <div class="vnav-bar"></div>
+</div>
+<div class="vnav-result" id="vs_rbox"></div>
+<div class="vnav-guide"  id="vs_gbox"></div>
+<div class="vnav-hint"   id="vs_hint">섹터명 또는 ID(예: 3000)를 말하면 자동 이동합니다 · Chrome/Edge 권장</div>
+  `;
+  parentElement.appendChild(wrap);
+
+  const btn  = wrap.querySelector('#vs_btn');
+  const rbox = wrap.querySelector('#vs_rbox');
+  const gbox = wrap.querySelector('#vs_gbox');
+  const hint = wrap.querySelector('#vs_hint');
+  const wave = wrap.querySelector('#vs_wave');
+
+  // 토스트 메시지 표시 (1초간)
+  function showToast(msg) {{
+    let t = document.querySelector('.vnav-toast');
+    if (!t) {{ t = document.createElement('div'); t.className = 'vnav-toast'; document.body.appendChild(t); }}
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1800);
+  }}
+
+  // ── 핵심 매칭 엔진 ──
+  // 0순위: 4자리 섹터 ID (예: "3000번", "코드 3100", "3100 실행")
+  // 1차: 원문 키워드 매칭
+  // 2차: 공백 제거 후 매칭
+  function resolve(text) {{
+    // 0순위 — ID 코드 추출
+    const idMatch = text.match(/\\b(\\d{{4}})\\b/);
+    if (idMatch && SECTORS[idMatch[1]]) {{
+      return {{ tab_key: SECTORS[idMatch[1]].tab_key, name: SECTORS[idMatch[1]].name, id: idMatch[1], by_id: true }};
+    }}
+    const t = text.toLowerCase().trim();
+    const tn = t.replace(/[\\s.,。]/g, '');
+    // 1차·2차 — 키워드 매칭
+    for (const [id, sec] of Object.entries(SECTORS)) {{
+      if (sec.tab_key === 'home') continue;
+      const kws = sec.keywords;
+      if (kws.some(k => t.includes(k.toLowerCase()))) {{
+        return {{ tab_key: sec.tab_key, name: sec.name, id: id, by_id: false }};
+      }}
+    }}
+    for (const [id, sec] of Object.entries(SECTORS)) {{
+      if (sec.tab_key === 'home') continue;
+      const kws = sec.keywords;
+      if (kws.some(k => tn.includes(k.toLowerCase().replace(/\\s/g,'')))) {{
+        return {{ tab_key: sec.tab_key, name: sec.name, id: id, by_id: false }};
+      }}
+    }}
+    return null;
+  }}
+
+  // 중복 매칭 감지 (1차)
+  function resolveAll(text) {{
+    const t = text.toLowerCase().trim();
+    const tn = t.replace(/[\\s.,。]/g, '');
+    const matched = [];
+    for (const [id, sec] of Object.entries(SECTORS)) {{
+      if (sec.tab_key === 'home') continue;
+      if (sec.keywords.some(k => t.includes(k.toLowerCase())) ||
+          sec.keywords.some(k => tn.includes(k.toLowerCase().replace(/\\s/g,'')))) {{
+        matched.push({{ tab_key: sec.tab_key, name: sec.name, id: id }});
+      }}
+    }}
+    return matched;
+  }}
+
+  let active = false, rec = null;
+
+  btn.onclick = function() {{
+    if (!SR) {{ alert('Chrome 또는 Edge 브라우저를 사용해주세요.'); return; }}
+    if (active) {{
+      active = false;
+      if (rec) try {{ rec.stop(); }} catch(e) {{}}
+      btn.textContent = '🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+      wave.classList.remove('on'); return;
+    }}
+    const r = new SR();
+    r.lang = STT_LANG; r.interimResults = true; r.continuous = false; r.maxAlternatives = 5;
+    r.onstart = () => {{
+      wave.classList.add('on'); hint.style.display = 'none';
+      rbox.style.display = 'none'; gbox.style.display = 'none';
+    }};
+    r.onresult = (e) => {{
+      let best = '', bc = 0, interim = '';
+      for (let i = 0; i < e.results.length; i++) {{
+        if (e.results[i].isFinal) {{
+          for (let j = 0; j < e.results[i].length; j++) {{
+            if (e.results[i][j].confidence >= bc) {{ bc = e.results[i][j].confidence; best = e.results[i][j].transcript; }}
+          }}
+        }} else {{ interim += e.results[i][0].transcript; }}
+      }}
+      if (interim) btn.textContent = '🎤 ' + interim.slice(0, 24) + (interim.length > 24 ? '...' : '');
+      if (best) {{
+        wave.classList.remove('on');
+        rbox.style.display = 'block'; gbox.style.display = 'block';
+
+        // 0순위: ID 코드 직접 매칭
+        const idMatch = best.match(/\\b(\\d{{4}})\\b/);
+        if (idMatch && SECTORS[idMatch[1]]) {{
+          const sec = SECTORS[idMatch[1]];
+          rbox.className = 'vnav-result id-matched';
+          rbox.textContent = '🔢 ID: ' + idMatch[1] + ' → ' + sec.name + ' 섹터로 이동합니다';
+          gbox.className = 'vnav-guide'; gbox.style.background = '#f0fdf4'; gbox.style.color = '#14532d';
+          gbox.innerHTML = '🚀 <b>[' + idMatch[1] + '] ' + sec.name + '</b> 섹터로 이동 중...';
+          btn.textContent = '🚀 이동 중...';
+          showToast('ID: ' + idMatch[1] + ' ' + sec.name + ' 섹터로 이동합니다');
+          setTriggerValue('nav', sec.tab_key);
+          return;
+        }}
+
+        // 1차·2차: 키워드 매칭
+        const all = resolveAll(best);
+        if (all.length === 1) {{
+          const sec = all[0];
+          rbox.className = 'vnav-result matched';
+          rbox.textContent = '✅ "' + best + '" → ' + sec.name + ' 섹션으로 이동합니다...';
+          gbox.className = 'vnav-guide'; gbox.style.background = '#dcfce7'; gbox.style.color = '#14532d';
+          gbox.innerHTML = '🚀 <b>' + sec.name + '</b> 섹션으로 이동 중...';
+          btn.textContent = '🚀 이동 중...';
+          setTriggerValue('nav', sec.tab_key);
+        }} else if (all.length > 1) {{
+          const names = all.map(s => '[' + s.id + '] ' + s.name).join(' / ');
+          rbox.className = 'vnav-result ambig';
+          rbox.textContent = '⚠️ "' + best + '" — 여러 섹터가 감지되었습니다: ' + names;
+          gbox.className = 'vnav-guide'; gbox.style.background = '#fef9c3'; gbox.style.color = '#713f12';
+          gbox.innerHTML = '🔄 섹터 ID(4자리)를 직접 말씀해 주세요.<br>예) <b>"3000번"</b> → 암 질환 상담 / <b>"3100번"</b> → 뇌 질환 상담';
+          btn.textContent = '⚠️ 중복 감지 — ID 번호로 다시 말씀해주세요';
+        }} else {{
+          rbox.className = 'vnav-result unmatched';
+          rbox.textContent = '❓ "' + best + '" — 섹터를 찾지 못했습니다';
+          gbox.className = 'vnav-guide'; gbox.style.background = '#fee2e2'; gbox.style.color = '#7f1d1d';
+          gbox.innerHTML = '💡 섹터명을 말씀해 주세요<br>예) <b>"암 상담"</b> / <b>"3000번"</b> / <b>"보험금 청구"</b> / <b>"간병비"</b>';
+          btn.textContent = '❓ 인식됨 — 섹터명을 말씀해 주세요';
+        }}
+      }}
+    }};
+    r.onerror = (e) => {{
+      active = false; wave.classList.remove('on');
+      btn.textContent = '🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+      if (e.error !== 'no-speech' && e.error !== 'aborted') {{
+        rbox.style.display = 'block'; rbox.className = 'vnav-result unmatched';
+        rbox.textContent = '⚠️ 오류: ' + e.error + ' — 다시 시도해주세요';
+      }}
+    }};
+    r.onend = () => {{
+      active = false; wave.classList.remove('on');
+      if (btn.textContent.includes('듣는 중')) {{
+        btn.textContent = '🎙️ 음성으로 메뉴 이동'; btn.classList.remove('active');
+      }}
+    }};
+    rec = r; active = true;
+    btn.textContent = '⏹️ 듣는 중... (말하세요)'; btn.classList.add('active');
+    try {{ r.start(); }} catch(ex) {{ active = false; wave.classList.remove('on'); }}
+  }};
+}}
+"""
+        # STT 컴포넌트 등록 — 앱 전체에서 이름 충돌 없도록 고유명 사용
+        components.html(f"""<style>{_vnav_css}</style><script>{_vnav_js}</script>""", height=72)
+        _vnav_result = None
+
+        # JS→Python setTriggerValue 수신 — 섹터 tab_key로 즉시 이동
+        if _vnav_result and _vnav_result.nav:
+            _stt_dest = str(_vnav_result.nav).strip()
+            if _stt_dest:
+                _go_tab(_stt_dest)
+
+        # 수동 직접입력 → 바로이동 버튼 처리 (form submit 시 값 확정 후 읽기)
+        if _nav_go:
+            _nav_input_val = st.session_state.get("voice_nav_input", "").strip()
+            if _nav_input_val:
+                _dest = _voice_navigate(_nav_input_val)
+                if isinstance(_dest, str):
+                    # 단일 매칭 — 즉시 이동 + 은닉 추적
+                    _hit_code = next((c for c,e in _ALL_CODES.items() if e["tab_key"]==_dest), None)
+                    if _hit_code:
+                        _gk_route(_hit_code)
+                    st.session_state["voice_nav_input"] = ""
+                    st.session_state.pop("_nav_ambig", None)
+                    _go_tab(_dest)
+                elif isinstance(_dest, list):
+                    # 중복 매칭 — 선택지 저장 후 버튼 노출
+                    st.session_state["_nav_ambig"] = _dest
+                else:
+                    import re as _re2
+                    st.session_state.pop("_nav_ambig", None)
+                    _num_try = _re2.search(r'\d+', _nav_input_val)
+                    if _num_try:
+                        st.warning(f"⚠️ '{_num_try.group()}' — 등록되지 않은 번호입니다. 1000~8390 사이 코드를 입력해주세요.")
+                    else:
+                        st.warning(f"⚠️ '{_nav_input_val}' — 섹터를 찾지 못했습니다. 섹터명(예: 암 상담) 또는 코드(예: 3000, 1220)를 입력해주세요.")
+
+        # 중복 매칭 선택 버튼 UI
+        if st.session_state.get("_nav_ambig"):
+            _ambig_list = st.session_state["_nav_ambig"]
+            st.markdown("""<div style="background:#fef9c3;border:1.5px solid #ca8a04;border-radius:10px;
+  padding:8px 12px;margin-bottom:6px;font-size:0.8rem;font-weight:700;color:#713f12;">
+  ⚠️ 여러 섹터가 감지되었습니다. 이동할 섹터를 선택해주세요:</div>""",
+                unsafe_allow_html=True)
+            _ambig_cols = st.columns(min(len(_ambig_list), 3))
+            for _ai, _aitem in enumerate(_ambig_list):
+                with _ambig_cols[_ai % 3]:
+                    if st.button(
+                        f"[{_aitem['code']}] {_aitem['name']}",
+                        key=f"_ambig_btn_{_aitem['code']}",
+                        use_container_width=True,
+                        type="primary"
+                    ):
+                        _gk_route(_aitem["code"])  # 은닉 추적
+                        st.session_state.pop("_nav_ambig", None)
+                        st.session_state["voice_nav_input"] = ""
+                        _go_tab(_aitem["tab_key"])
+
+
+        st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹5 닫기]
+
+        # ── [GP220 그룹6] 보험 용어 검색 · 베테랑 매뉴얼 ──────────────────────
+        st.markdown('<div class="gk-g220 gk-g220-term"><span class="gk-g220-label">⑥ 보험 용어 검색 · 베테랑 플래너 매뉴얼</span>', unsafe_allow_html=True)
+
+        # ── [가이딩 프로토콜 제48조] 보험 용어 검색 엔진 (최상단 고정) ──────────────
+        _GP48_GLOSSARY: dict = {
+            "진단비": "암·뇌혈관·심장질환 등 특정 질병 진단 시 약관에서 정한 금액을 지급하는 특약 보험금. 일반적으로 일시금으로 지급.",
+            "입원일당": "질병·상해로 입원 치료 시 1일당 정액으로 지급하는 보험금. 금감원 지급 한도: 상해 7만원, 질병 10만원.",
+            "수술비": "약관에서 정한 수술 분류(1~5종)에 따라 정액 지급하는 보험금. 종류에 따라 지급액이 다름.",
+            "후유장해": "사고·질병 치료 후 신체에 영구히 남은 기능 손실. McBride 또는 AMA 방식으로 장해율을 산정해 보험금 산출.",
+            "맥브라이드": "교통사고·산재 후유장해 평가 기준. 직업 계수·노동능력상실률을 곱해 보상액 산출. 미국 정형외과 의사 McBride 고안.",
+            "AMA방식": "American Medical Association 장해 평가 기준. 일반 상해·질병 후유장해에 적용. 약관 장해지급률 기준 정액 지급.",
+            "보장공백": "고객이 가입한 보험에서 특정 위험(질병·사고)에 대한 보장이 없거나 부족한 구간.",
+            "재조달가액": "화재 등 손해 발생 시 동등한 건물·물건을 새로 짓거나 구매하는 데 필요한 현재 시점 비용.",
+            "손해사정": "보험 사고 발생 시 보험금 지급을 위해 손해액을 조사·확인·평가하는 전문 업무. 독립 손해사정사(공인) 선임 가능.",
+            "KCD코드": "한국 표준 질병·사인 분류 코드(Korean Classification of Disease). ICD-10 기반. 보험금 청구 시 상병명 코드로 사용.",
+            "건강보험료역산": "납입 건강보험료 ÷ 0.0709(2024년 요율) = 추정 월 소득. 소득 기반 일당·장해 보상 필요액 산출에 활용(가이딩 프로토콜 제32조).",
+            "실손보험": "실제 지출한 의료비(진료비·약제비)를 약관에 정한 한도·자기부담금 내에서 보상하는 보험. 1~4세대 구분.",
+            "특약": "주계약에 부가하는 별도 보장 항목. 암·뇌혈관·수술비 등 추가 보장을 선택적으로 설계.",
+            "가입금액": "보험 계약 시 약정한 기본 보험금액. 사망·후유장해·진단비 등의 지급 기준액.",
+            "보험료황금비율": "소득 대비 적정 보험료 비율. 일반적으로 월소득의 7~10% 이내 권장(과부담 방지).",
+            "CAR-T치료": "키메라 항원 수용체 T세포 치료. 혈액암 등에 사용되는 첨단 면역세포 치료법. 치료비 수억원대.",
+            "NGS검사": "차세대 염기서열 분석(Next Generation Sequencing). 암 유전자 변이를 분석해 표적항암제 선택에 활용.",
+            "표적항암": "암세포 특정 단백질·유전자를 표적으로 공격하는 항암 치료법. 이매티닙, 트라스투주맙 등.",
+            "주택연금": "만 55세 이상 주택 소유자가 집을 담보로 평생 월 연금을 수령하는 한국주택금융공사 역모기지 상품.",
+            "퇴직금설계": "임원 퇴직금을 보험으로 적립하는 CEO플랜의 핵심. 손금 산입으로 법인세 절감 + 은퇴자금 마련 동시 달성.",
+            "과실상계": "교통사고 등 손해배상에서 피해자 본인 과실 비율만큼 배상액을 감액하는 법리. 과실비율은 법원·보험사 기준 적용.",
+            "보험사기": "고의 사고·허위 진단서·중복 청구 등 부당하게 보험금을 취득하는 행위. 형사처벌(사기죄) 대상.",
+            "고지의무": "보험 가입 시 피보험자의 건강상태·직업 등 중요 사항을 보험사에 사실대로 알려야 할 의무. 위반 시 계약 해지 가능.",
+            "부지급사유": "보험금 지급 제외 사유(면책조항). 자살·전쟁·음주운전 등 약관에서 지급하지 않는 사고 유형.",
+            "위자료": "교통사고·상해로 인한 정신적 고통에 대한 손해배상금. 법원 기준 사망 시 약 1억원 내외.",
+            "라이프니츠계수": "미래 손해배상금의 현가 계산 시 사용하는 할인 계수. 법정이율 5% 기준 적용(일실소득 산정).",
+            "호프만계수": "라이프니츠계수와 함께 쓰이는 현가 계수. 단리 방식. 사고 유형·법원 판례에 따라 선택 적용.",
+        }
+
+        with st.container():
+            st.markdown(f"""
+<div style="position:relative;
+  background:linear-gradient(135deg,rgba(79,172,254,0.13) 0%,rgba(0,242,254,0.08) 100%);
+  border:2px solid #004D40;border-radius:12px;
+  padding:12px 16px 6px 16px;margin-bottom:8px;
+  box-shadow:0 2px 10px rgba(0,77,64,0.10);">
+  {_bid('1-3-5')}
+  <div style="font-size:0.76rem;font-weight:800;color:#004D40;
+    letter-spacing:0.04em;margin-bottom:2px;">📚 보험 용어 안내</div>
+  <div style="font-size:0.70rem;color:#0369a1;font-weight:500;margin-bottom:8px;">
+    전문가에게 묻기 전, 보험 용어 바로 확인 (가이딩 프로토콜 제48조)</div>
+</div>""", unsafe_allow_html=True)
+
+            _g48_col1, _g48_col2 = st.columns([1, 0.3], gap="small")
+            with _g48_col1:
+                _g48_query = st.text_input(
+                    "glossary_input",
+                    key="_gp48_query",
+                    placeholder="궁금한 용어를 입력하세요 (예: 진단비, 맥브라이드, KCD코드...)",
+                    label_visibility="collapsed",
+                )
+            with _g48_col2:
+                _g48_search = st.button("🔍 검색", key="_gp48_btn",
+                                        use_container_width=True, type="primary")
+
+            # ── 검색 결과 출력 ──
+            _g48_result_key = "_gp48_result"
+            _g48_searched_key = "_gp48_searched"
+            if _g48_search and _g48_query.strip():
+                _q = _g48_query.strip()
+                _hits = {k: v for k, v in _GP48_GLOSSARY.items()
+                         if _q.lower() in k.lower() or _q.lower() in v.lower()}
+                st.session_state[_g48_result_key] = _hits if _hits else {}
+                st.session_state[_g48_searched_key] = _q
+
+            _g48_res      = st.session_state.get(_g48_result_key)
+            _g48_searched = st.session_state.get(_g48_searched_key, "")
+
+            # 초기 상태 (아직 검색 전)
+            if _g48_res is None:
+                st.markdown(
+                    "<div style='background:rgba(0,77,64,0.04);border:1px solid #b2dfdb;"
+                    "border-radius:8px;padding:10px 14px;margin-top:4px;"
+                    "font-size:0.75rem;color:#555;text-align:center;'>"
+                    "🔎 검색 결과가 여기에 표시됩니다.</div>",
+                    unsafe_allow_html=True,
+                )
+            elif _g48_res:
+                # 매칭 결과 표시
+                _g48_html = "".join(
+                    f"<div style='margin-bottom:8px;padding-bottom:6px;"
+                    f"border-bottom:1px solid rgba(0,77,64,0.12);'>"
+                    f"<b style='color:#004D40;font-size:0.82rem;'>{k}</b>"
+                    f"<br><span style='color:#1a1a1a;font-size:0.75rem;line-height:1.6;'>{v}</span>"
+                    f"</div>"
+                    for k, v in _g48_res.items()
+                )
+                st.markdown(
+                    f"<div style='background:rgba(0,77,64,0.05);border:1.5px solid #80cbc4;"
+                    f"border-radius:8px;padding:10px 14px;max-height:200px;"
+                    f"overflow-y:auto;margin-top:4px;'>{_g48_html}</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                # 미매칭 — AI 분석 중 메시지 + 야간 자율학습 DB 기록 (제38조)
+                _g48_unknown_key = "_gp48_unknown_terms"
+                _unknown_list = st.session_state.get(_g48_unknown_key, [])
+                if _g48_searched and _g48_searched not in _unknown_list:
+                    _unknown_list.append(_g48_searched)
+                    st.session_state[_g48_unknown_key] = _unknown_list
+                st.markdown(
+                    f"<div style='background:linear-gradient(135deg,rgba(79,172,254,0.10),rgba(0,242,254,0.07));"
+                    f"border:1.5px solid #4facfe;border-radius:8px;padding:10px 14px;margin-top:4px;'>"
+                    f"<span style='font-size:0.76rem;color:#0369a1;font-weight:700;'>"
+                    f"🤖 AI 마스터가 '<b>{_g48_searched}</b>' 용어를 분석 중입니다.</span><br>"
+                    f"<span style='font-size:0.72rem;color:#555;'>"
+                    f"해당 용어는 야간 자율학습(제38조) DB에 기록되었습니다. "
+                    f"다른 키워드(예: 진단비, 손해사정, KCD코드)로도 검색해보세요.</span></div>",
+                    unsafe_allow_html=True,
+                )
+
+        # ── [가이딩 프로토콜 제36조 §5] 베테랑 플래너 활용 매뉴얼 ──────────────────
+        with st.expander("📖 베테랑 플래너 활용 매뉴얼 — 5단계 상담 시나리오 (가이딩 프로토콜 제36조 §5)", expanded=False):
+            st.markdown("""
+<div class="gk-sky-trust" style="font-family:'Noto Sans KR',sans-serif;font-size:0.82rem;line-height:1.7;">
+
+<div class="gk-st-title" style="font-size:0.88rem;margin-bottom:10px;letter-spacing:0.04em;">🎯 GoldKey 가이딩 프로토콜 제36조 — 유니버설 시각 설계 5단계 상담 가이드</div>
+
+<div style="background:#BBDEFB;border-left:4px solid #1565C0;border-radius:0 8px 8px 0;
+  padding:10px 14px;margin-bottom:10px;">
+  <b style="color:#0D47A1;">STEP 1 · 건강보험료 역산 (제32조 × 제36조)</b><br>
+  <span style="color:#000;">① 좌측 메뉴 <b>건보료 역산 탭</b>에서 월 보험료 입력 → 역산 실행<br>
+  ② <span style="color:#E65100;font-weight:700;">가처분소득</span>·<span style="color:#E65100;font-weight:700;">일일 경제가치</span> 카드가 1.5배 확대 표시됨<br>
+  ③ 고객과 함께 화면을 보며 "이 숫자가 고객님의 하루 가치입니다"로 시작</span>
+</div>
+
+<div style="background:#BBDEFB;border-left:4px solid #2E7D32;border-radius:0 8px 8px 0;
+  padding:10px 14px;margin-bottom:10px;">
+  <b style="color:#1B5E20;">STEP 2 · 돋보기 모드 ON (시니어 고객 필수)</b><br>
+  <span style="color:#000;">① 우측 상단 <b>🔍 시니어</b> 버튼 클릭 → 전체 1.2배 확대 + 고대비<br>
+  ② 뇌·심장·치매 고위험 고객: <b>치매 생활비</b>(황금색) 카드 강조 지점 활용<br>
+  ③ 모드 ON 상태에서 스크린샷을 고객 카카오톡으로 공유</span>
+</div>
+
+<div style="background:#BBDEFB;border-left:4px solid #E65100;border-radius:0 8px 8px 0;
+  padding:10px 14px;margin-bottom:10px;">
+  <b style="color:#BF360C;">STEP 3 · 보험증권 파싱 → 레드 알림 확인</b><br>
+  <span style="color:#000;">① 보험증권 분석 탭에서 증권 이미지 업로드<br>
+  ② AI 담보 인식 후 <span style="color:#C62828;font-weight:700;">빨간 펄스 강조</span> 항목 = 사망보험금·80%이상 장해<br>
+  ③ 레드 항목이 "미가입" 또는 "부족"이면 → 긴급도 1순위로 설계안 제시</span>
+</div>
+
+<div style="background:#BBDEFB;border-left:4px solid #6A1B9A;border-radius:0 8px 8px 0;
+  padding:10px 14px;margin-bottom:10px;">
+  <b style="color:#4A148C;">STEP 4 · 질환별 최적 담보 매핑 (제35조 × 제36조)</b><br>
+  <span style="color:#000;">① 치매·뇌·심장 탭에서 CDR 단계 / 위험도 선택<br>
+  ② <b>상세 지표 expander</b>의 뇌질환·치매 기준액 카드 함께 확인<br>
+  ③ 우선 담보 테이블을 화면에 띄워 "이 순서대로 채우겠습니다"로 클로징</span>
+</div>
+
+<div style="background:#BBDEFB;border-left:4px solid #C62828;border-radius:0 8px 8px 0;
+  padding:10px 14px;margin-bottom:4px;">
+  <b style="color:#B71C1C;">STEP 5 · 브리핑 문구 복사 → 계약 마무리</b><br>
+  <span style="color:#000;">① 역산 결과 하단 <b>전문가 브리핑 문구</b> 박스를 복사<br>
+  ② 고객 설명 시 "가이딩 프로토콜 제32조 표준"·"금감원 기준" 문구로 신뢰 강화<br>
+  ③ <b>금소법 제19조</b> 설명의무 이행 완료 후 서명 → 청약 진행</span>
+</div>
+
+<div style="color:#37474F;font-size:0.70rem;margin-top:10px;border-top:1px solid #90CAF9;padding-top:8px;">
+  📌 본 매뉴얼은 가이딩 프로토콜 제36조 §5 「자율 인터페이스 숙달 원칙」에 근거합니다.
+  시니어·저시력 고객 상담 시 돋보기 모드를 반드시 활성화하세요.
+</div>
+</div>""", unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹6 닫기]
+
+        # ── [GP220 그룹7] 고객 정보 입력 · 관리 ────────────────────────────
+        st.markdown('<div class="gk-g220 gk-g220-customer"><span class="gk-g220-label">⑦ 고객 정보 입력 · 관리</span>', unsafe_allow_html=True)
+
+        # ── 고객 정보 입력·관리 섹터 (도메인 네비 위 고정) ─────────────
+        if 'user_id' in st.session_state:
+            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%);
+  border:1.5px solid #6ee7b7;border-radius:14px;padding:14px 18px;margin-bottom:10px;
+  box-shadow:0 2px 10px rgba(16,185,129,0.15);">
+  {_bid('1-4-1')}
+  <span style="color:#ffffff;font-size:1.05rem;font-weight:900;text-shadow:0 1px 3px rgba(0,0,0,0.18);">🗂️ 고객 정보 입력 · 관리</span>
+  <span style="color:#ffffff;font-size:0.75rem;margin-left:10px;opacity:0.88;">고객에 대한 정보 관리 — 상담의 주요 목적</span>
+</div>""", unsafe_allow_html=True)
+
+            # ── 고객 검색창 (Customer-Centric Contextual Filtering) ──────
+            # (3) 고객 목록 로드: _get_sb_client() 직접 호출 (supabase_client 세션키 의존 제거)
+            # (4) 60초 TTL 캐시 — 매 rerun마다 Supabase 호출 방지
+            _uid_for_cust = st.session_state.get("user_id", "")
+            _cust_cache_key  = f"_cust_rows_{_uid_for_cust}"
+            _cust_cache_ts   = f"_cust_rows_ts_{_uid_for_cust}"
+            _cust_cache_valid = (
+                _cust_cache_key in st.session_state
+                and (time.time() - st.session_state.get(_cust_cache_ts, 0)) < 60
+            )
+            if _cust_cache_valid:
+                _cust_rows = st.session_state[_cust_cache_key]
+            else:
+                try:
+                    from customer_mgmt import load_customers as _load_cust
+                    _sb_cust = _get_sb_client() if _SB_PKG_OK else None
+                    _cust_rows = _load_cust(_uid_for_cust, _sb_cust) if (_sb_cust and _uid_for_cust) else []
+                    st.session_state[_cust_cache_key] = _cust_rows
+                    st.session_state[_cust_cache_ts]  = time.time()
+                except Exception:
+                    _cust_rows = st.session_state.get(_cust_cache_key, [])
+
+            # 검색용 표시 목록: "이름 (생년월일)" 형식 — 생년월일은 profile.dob 또는 scan 값
+            def _cust_label(row):
+                _n = row.get("name", "")
+                _dob = (row.get("profile") or {}).get("dob", "")
+                return f"{_n}  ({_dob})" if _dob else _n
+
+            _cust_options_map = {"✏️ 고객 입력 & 검색": None}
+            for _cr in _cust_rows:
+                _cust_options_map[_cust_label(_cr)] = _cr
+
+            _search_label = st.session_state.get("_home_selected_cust_label", "✏️ 고객 입력 & 검색")
+            if _search_label not in _cust_options_map:
+                _search_label = "✏️ 고객 입력 & 검색"
+
+            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,#fce7f3 0%,#fbcfe8 100%);border:1px solid #f9a8d4;
+  border-radius:10px;padding:10px 14px;margin-bottom:10px;
+  box-shadow:0 2px 8px rgba(236,72,153,0.10);">
+  {_bid('1-4-2')}
+  <span style="color:#ffffff;font-size:0.88rem;font-weight:900;text-shadow:0 1px 3px rgba(0,0,0,0.18);">🔍 고객 검색 — 이름으로 검색 후 선택하면 해당 고객 정보가 자동 로드됩니다</span>
+</div>""", unsafe_allow_html=True)
+
+            _srch_col1, _srch_col2 = st.columns([3, 1])
+            with _srch_col1:
+                _selected_label = st.selectbox(
+                    "고객 선택 (이름 검색)",
+                    options=list(_cust_options_map.keys()),
+                    index=list(_cust_options_map.keys()).index(_search_label),
+                    key="home_cust_selectbox",
+                    help="등록된 고객 이름으로 검색·선택하면 아래 정보가 자동 채워집니다"
+                )
+            with _srch_col2:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                if st.button("🔍 검색", key="btn_cust_search", use_container_width=True, type="primary"):
+                    st.session_state.pop("_home_selected_cust_label", None)
+                    # 고객 목록 캐시 무효화 (검색 버튼 클릭 시 최신 목록 로드)
+                    _uid_inv = st.session_state.get("user_id", "")
+                    st.session_state.pop(f"_cust_rows_{_uid_inv}", None)
+                    st.session_state.pop(f"_cust_rows_ts_{_uid_inv}", None)
+                    st.rerun()
+
+            # 선택된 고객 → scan_client_* 자동 로드
+            _selected_row = _cust_options_map.get(_selected_label)
+            if _selected_row and _selected_label != "✏️ 고객 입력 & 검색":
+                st.session_state["_home_selected_cust_label"] = _selected_label
+                st.session_state["selected_customer_id"]   = _selected_row.get("id")
+                _prof = _selected_row.get("profile") or {}
+                # 기존 session_state와 비교해서 다를 때만 덮어쓰기 (불필요한 rerun 방지)
+                _auto_map = {
+                    "scan_client_name":  _selected_row.get("name", ""),
+                    "scan_client_dob":   _prof.get("dob", ""),
+                    "scan_client_job":   _prof.get("job", ""),
+                    "scan_client_sick":  _prof.get("sick", "해당없음"),
+                    "scan_client_items": _prof.get("items", []),
+                }
+                for _k, _v in _auto_map.items():
+                    if st.session_state.get(_k) != _v:
+                        st.session_state[_k] = _v
+                st.success(f"✅ [{_selected_row.get('name','')}] 고객 선택됨 — 아래 정보가 자동 로드되었습니다")
+            else:
+                st.session_state["selected_customer_id"] = None
+                st.session_state["_home_selected_cust_label"] = "✏️ 고객 입력 & 검색"
+
+            # ── 상담 대상자 기본 정보 ────────────────────────────────────
+            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,#fce7f3 0%,#fbcfe8 100%);border:1px solid #f9a8d4;
+  border-radius:10px;padding:10px 14px;margin-bottom:10px;
+  box-shadow:0 2px 8px rgba(236,72,153,0.10);">
+  {_bid('1-4-3')}
+  <span style="color:#ffffff;font-size:0.9rem;font-weight:900;text-shadow:0 1px 3px rgba(0,0,0,0.18);">👤 상담 대상자 기본 정보 입력 후 각 탭에서 자동 활용됩니다</span>
+</div>""", unsafe_allow_html=True)
+
+            _sc_left, _sc_right = st.columns([5, 5], gap="medium")
+            _SICK_OPTIONS = [
+                "해당없음",
+                "심사필요(3개월이내 치료 있음)",
+                "유병자(입원·수술이력 있음)",
+                "유병자(당뇨·고혈압·심장 등 약 투약중)",
+                "유병자(암·중풍 발병 있음)",
+            ]
+            _SICK_GUIDE = {
+                "해당없음":                           "✅ 일반·건강체 보험가입 설계 가능 대상자",
+                "심사필요(3개월이내 치료 있음)":        "⚠️ 최종 통원일(투약 마지막일) 경과 후 신규보험 상담 진행\n단, 유병자 운전자보험은 1개월 경과 후 심사 요청 가능",
+                "유병자(입원·수술이력 있음)":          "📋 유병자보험 3.0.5 ~ 3.5.5 — 병력에 따라 구분 가입 상담",
+                "유병자(당뇨·고혈압·심장 등 약 투약중)": "📋 유병자보험 3.0.5 ~ 3.5.5 — 병력에 따라 구분 가입 상담",
+                "유병자(암·중풍 발병 있음)":           "⚠️ 최종 통원일 이후 5년 경과 후 암 상담 진행\n향후 유병자 신규 상품에서 가입 가능 여부 확인",
+            }
+            _cur_sick = st.session_state.get("scan_client_sick", "해당없음")
+            if _cur_sick not in _SICK_OPTIONS:
+                _cur_sick = "해당없음"
+            with _sc_left:
+                _si_name = st.text_input("상담자 성명", value=st.session_state.get("scan_client_name",""),
+                                         placeholder="예) 홍길동", key="home_si_name")
+                _si_dob  = st.text_input("생년월일 (YYYYMMDD)", value=st.session_state.get("scan_client_dob",""),
+                                         placeholder="예) 19800101", max_chars=8, key="home_si_dob")
+                _si_job  = st.text_input("직업", value=st.session_state.get("scan_client_job",""),
+                                         placeholder="예) 회사원", key="home_si_job")
+                _si_sick = st.selectbox("유병자 여부", _SICK_OPTIONS,
+                                        index=_SICK_OPTIONS.index(_cur_sick),
+                                        key="home_si_sick")
+            with _sc_right:
+                _si_items = st.multiselect(
+                    "상담 항목 (복수 선택)",
+                    ["신규보험상담","보험증권 분석","보험금 청구","장해 산출","암·뇌·심장","리플렛 분류","약관 검색","부동산 투자","간병비","노후설계","법인상담"],
+                    default=st.session_state.get("scan_client_items",[]),
+                    key="home_si_items"
+                )
+                _sick_guide_text = _SICK_GUIDE.get(_si_sick, "")
+                if _sick_guide_text:
+                    _sick_bg = "#fff7ed" if "⚠️" in _sick_guide_text else "#f0fdf4"
+                    _sick_border = "#f97316" if "⚠️" in _sick_guide_text else "#22c55e"
+                    _sick_color  = "#9a3412" if "⚠️" in _sick_guide_text else "#14532d"
+                    st.markdown(f"""<div style="background:{_sick_bg};border:1.5px solid {_sick_border};
+  border-radius:8px;padding:10px 14px;margin-top:6px;font-size:0.82rem;
+  font-weight:700;color:{_sick_color};line-height:1.6;white-space:pre-line;">{_sick_guide_text}</div>""",
+                        unsafe_allow_html=True)
+                _saved_name = st.session_state.get("scan_client_name", "")
+                _saved_dob  = st.session_state.get("scan_client_dob", "")
+                _saved_job  = st.session_state.get("scan_client_job", "")
+                if _saved_name or _saved_dob:
+                    st.markdown(f"""<div style="background:#f0f9ff;border:1.5px solid #0284c7;
+  border-radius:8px;padding:10px 14px;margin-top:8px;font-size:0.82rem;line-height:1.7;">
+  <span style="font-weight:900;color:#0c4a6e;">📌 현재 저장된 고객 정보</span><br>
+  <span style="color:#1e3a5f;font-weight:700;">이름:</span> <span style="color:#0369a1;">{_saved_name or "—"}</span> &nbsp;
+  <span style="color:#1e3a5f;font-weight:700;">생년월일:</span> <span style="color:#0369a1;">{_saved_dob or "—"}</span><br>
+  <span style="color:#1e3a5f;font-weight:700;">직업:</span> <span style="color:#0369a1;">{_saved_job or "—"}</span>
+</div>""", unsafe_allow_html=True)
+            st.markdown("""<style>
+.gk-save-btn-marker + div[data-testid="stButton"] > button,
+.gk-save-btn-marker + div[data-testid="stButton"] > button:focus {
+  background: #BAE6FD !important;
+  background-image: none !important;
+  border: 2px solid #0284C7 !important;
+  color: #000000 !important;
+  font-weight: 800 !important;
+  text-shadow: none !important;
+}
+.gk-save-btn-marker + div[data-testid="stButton"] > button:hover {
+  background: #7DD3FC !important;
+  background-image: none !important;
+  border: 2px solid #0369A1 !important;
+  color: #000000 !important;
+}
+/* ── AI마스터 분석 스피너 블럭 스타일 ── */
+div[data-testid="stSpinner"] > div {
+  background: #E0F2FE !important;
+  border: 1.5px solid #0284C7 !important;
+  border-radius: 8px !important;
+  padding: 10px 16px !important;
+  color: #212121 !important;
+  font-weight: 700 !important;
+}
+div[data-testid="stSpinner"] > div p,
+div[data-testid="stSpinner"] > div span {
+  color: #212121 !important;
+  font-weight: 700 !important;
+}
+</style>
+<div class="gk-save-btn-marker" style="display:none;"></div>""", unsafe_allow_html=True)
+            if st.button("💾 상담자 정보 저장", key="btn_save_client_info", use_container_width=True):
+                st.session_state["scan_client_name"]  = _si_name
+                st.session_state["scan_client_dob"]   = _si_dob
+                st.session_state["scan_client_job"]   = _si_job
+                st.session_state["scan_client_sick"]  = _si_sick
+                st.session_state["scan_client_items"] = _si_items
+                # ── gk_customers profile에 영구 저장 (Supabase) ────────────────
+                _cid_save = st.session_state.get("selected_customer_id")
+                if _cid_save:
+                    try:
+                        from customer_mgmt import update_profile as _upd_prof
+                        _sb_s = st.session_state.get("supabase_client") or st.session_state.get("sb")
+                        _upd_prof(_cid_save, {
+                            "dob": _si_dob, "job": _si_job,
+                            "sick": _si_sick, "items": _si_items,
+                        }, _sb_s)
+                    except Exception:
+                        pass
+                st.success(f"✅ {_si_name} 상담자 정보 저장 완료 — 모든 탭에 자동 적용됩니다.")
+
+            st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
+
+            # ── 상담 노트 ────────────────────────────────────────────────
+            with st.expander("📝 상담 노트  (사용방법: 고객 상담내용 전부 적으세요)", expanded=False):
+                with st.form(key="form_consult_note", clear_on_submit=True):
+                    st.markdown(f"""<div style="position:relative;border:1.5px solid #1a6b4a;border-radius:8px;
+  padding:10px 14px;margin-bottom:10px;background:#f0faf5;">
+  {_bid('1-4-4')}
+  <span style="color:#0d3b2e;font-size:0.82rem;font-weight:700;">📅 상담일자 + 상담요약 + 상담내용 — 모두 동일날짜에 연동 저장</span>
+</div>""", unsafe_allow_html=True)
+                    _nd_col1, _nd_col2 = st.columns([1, 2])
+                    with _nd_col1:
+                        _note_date = st.date_input("상담 일자", key="form_note_date")
+                    with _nd_col2:
+                        _note_summary = st.text_input(
+                            "상담 요약 (주된 목적)",
+                            placeholder="예) 자동차상담, 암보험상담, 병문안 방문 등",
+                            key="form_note_summary"
+                        )
+                    _note_text = st.text_area(
+                        "상담 내용 (상세)",
+                        placeholder="고객과 관련된 모든 상담 내용을 입력하세요...",
+                        height=160, key="form_note_text"
+                    )
+                    _note_submitted = st.form_submit_button("💾 상담노트 저장", use_container_width=True)
+                    if _note_submitted:
+                        _cid = st.session_state.get("selected_customer_id")
+                        _cname = st.session_state.get("scan_client_name", "")
+                        # ── Supabase 영구 저장 ─────────────────────────────────
+                        _sb_saved = save_home_note(
+                            st.session_state.get("user_id", ""),
+                            _cid, _cname, str(_note_date), _note_summary, _note_text,
+                            device_uuid=st.session_state.get("_device_uuid", ""),
+                        )
+                        # ── session_state 보조 (Supabase 실패 시 임시 보유) ─────────
+                        _notes = st.session_state.get("consult_notes", [])
+                        _notes.insert(0, {
+                            "date": str(_note_date), "summary": _note_summary,
+                            "content": _note_text, "customer_id": _cid,
+                            "customer_name": _cname,
+                        })
+                        st.session_state["consult_notes"] = _notes
+                        if _sb_saved:
+                            st.success(f"✅ [{_note_date}]{' — ' + _cname if _cname else ''} {_note_summary or ''} 상담노트 저장됨 (영구저장✔️)")
+                        else:
+                            st.warning(f"⚠️ [{_note_date}] 임시저장됨 — Supabase 연결 확인 필요")
+                # ── 저장목록: Supabase 우선, 폴백 session_state ──────────────
+                _cur_cid = st.session_state.get("selected_customer_id")
+                _uid_now = st.session_state.get("user_id", "")
+                _notes_saved = load_home_notes(_uid_now, _cur_cid) if _uid_now else []
+                if not _notes_saved:  # Supabase 비어있으면 session_state 폴백
+                    _notes_all = st.session_state.get("consult_notes", [])
+                    _notes_saved = [_n for _n in _notes_all if _n.get("customer_id") == _cur_cid] if _cur_cid else _notes_all
+                if _notes_saved:
+                    _cname_disp = st.session_state.get("scan_client_name", "")
+                    st.markdown(f"**📋 저장된 상담 노트{' — ' + _cname_disp if _cname_disp else ''} (최근순)**")
+                    for _n in _notes_saved:
+                        _n_summary = _n.get('summary', '')
+                        st.markdown(
+                            f"""<div style="border:1px solid #cbd5e1;border-radius:6px;
+  padding:8px 12px;margin-bottom:6px;background:#f8fafc;">
+  <span style="color:#1e3a5f;font-size:0.85rem;font-weight:700;">{_n['date']}</span>"""
+                            f"""{'&nbsp;&nbsp;|&nbsp;&nbsp;<span style="color:#1a6b4a;font-size:0.85rem;font-weight:700;">' + _n_summary + '</span>' if _n_summary else ''}"""
+                            f"""<br><span style="color:#475569;font-size:0.8rem;">{_n.get('content','')[:120]}{'...' if len(_n.get('content',''))>120 else ''}</span>
+</div>""", unsafe_allow_html=True)
+
+            # ── 보험 가입 상담 창 ────────────────────────────────────────
+            with st.expander("🛡️ 보험 가입 상담  (사용방법: 청약과정에서 발생한 특이사항은 '특이사항'란에 입력하세요)", expanded=False):
+                with st.form(key="form_ins_consult", clear_on_submit=True):
+                    st.markdown(f"""<div style="position:relative;border:1.5px solid #1e40af;border-radius:8px;
+  padding:10px 14px;margin-bottom:10px;background:#eff6ff;">
+  {_bid('1-4-5')}
+  <span style="color:#1e3a8a;font-size:0.82rem;font-weight:700;">📅 가입일자 + 상담상품명 + 청약배경 + 특이사항 — 모두 동일날짜에 연동 저장</span>
+</div>""", unsafe_allow_html=True)
+                    _id_col1, _id_col2 = st.columns([1, 2])
+                    with _id_col1:
+                        _ins_date = st.date_input("가입 일자", key="form_ins_date")
+                    with _id_col2:
+                        _ins_product = st.text_input(
+                            "상담 상품명 (요약)",
+                            placeholder="예) ○○생명 통합보험, 신규 암보험 청약 등",
+                            key="form_ins_product"
+                        )
+                    _ins_bg = st.text_area(
+                        "청약 배경",
+                        placeholder="신규 가입 당시 청약 배경을 입력하세요\n예시) 고지항목 병력 등을 적고, 고지 명확히 했음 등 표기",
+                        height=110, key="form_ins_bg"
+                    )
+                    _ins_special = st.text_area(
+                        "특이사항",
+                        placeholder="청약 관련 특이사항 입력\n예시) 사용한 판촉물 내용, 심사 결과 특이사항 등",
+                        height=110, key="form_ins_special"
+                    )
+                    _ins_submitted = st.form_submit_button("💾 보험가입 상담 저장", use_container_width=True)
+                    if _ins_submitted:
+                        _cid = st.session_state.get("selected_customer_id")
+                        _cname = st.session_state.get("scan_client_name", "")
+                        # ── Supabase 영구 저장 ─────────────────────────────────
+                        _sb_saved2 = save_home_ins(
+                            st.session_state.get("user_id", ""),
+                            _cid, _cname, str(_ins_date), _ins_product, _ins_bg, _ins_special,
+                            device_uuid=st.session_state.get("_device_uuid", ""),
+                        )
+                        # ── session_state 보조 (Supabase 실패 시 임시 보유) ─────────
+                        _ins_list = st.session_state.get("insurance_consults", [])
+                        _ins_list.insert(0, {
+                            "date": str(_ins_date), "product": _ins_product,
+                            "background": _ins_bg, "special": _ins_special,
+                            "customer_id": _cid, "customer_name": _cname,
+                        })
+                        st.session_state["insurance_consults"] = _ins_list
+                        if _sb_saved2:
+                            st.success(f"✅ [{_ins_date}]{' — ' + _cname if _cname else ''} {_ins_product or ''} 보험가입 상담 저장됨 (영구저장✔️)")
+                        else:
+                            st.warning(f"⚠️ [{_ins_date}] 임시저장됨 — Supabase 연결 확인 필요")
+                # ── 저장목록: Supabase 우선, 폴백 session_state ──────────────
+                _cur_cid2 = st.session_state.get("selected_customer_id")
+                _uid_now2 = st.session_state.get("user_id", "")
+                _ins_saved = load_home_ins(_uid_now2, _cur_cid2) if _uid_now2 else []
+                if not _ins_saved:  # Supabase 비어있으면 session_state 폴백
+                    _ins_all = st.session_state.get("insurance_consults", [])
+                    _ins_saved = [_i for _i in _ins_all if _i.get("customer_id") == _cur_cid2] if _cur_cid2 else _ins_all
+                if _ins_saved:
+                    _cname_ins = st.session_state.get("scan_client_name", "")
+                    st.markdown(f"**📋 저장된 보험가입 상담{' — ' + _cname_ins if _cname_ins else ''} (최근순)**")
+                    for _ins in _ins_saved:
+                        _ins_prod = _ins.get('product', '')
+                        st.markdown(
+                            f"""<div style="border:1px solid #bfdbfe;border-radius:6px;
+  padding:8px 12px;margin-bottom:6px;background:#f0f7ff;">
+  <span style="color:#1e3a8a;font-size:0.85rem;font-weight:700;">{_ins['date']}</span>"""
+                            f"""{'&nbsp;&nbsp;|&nbsp;&nbsp;<span style="color:#1e40af;font-size:0.85rem;font-weight:700;">' + _ins_prod + '</span>' if _ins_prod else ''}"""
+                            f"""<br><span style="color:#475569;font-size:0.78rem;">청약배경: {_ins.get('background','')[:80]}{'...' if len(_ins.get('background',''))>80 else ''}</span>
+  <br><span style="color:#7c3aed;font-size:0.78rem;">특이사항: {_ins.get('special','')[:80]}{'...' if len(_ins.get('special',''))>80 else ''}</span>
+</div>""", unsafe_allow_html=True)
+
+            st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹7 닫기] (login block end)
+
+        # ── 스크롤 복원 CSS ────────────────────────────────────────────
+        st.markdown("""
+<style>
+section[data-testid="stMain"] > div,
+.main .block-container,
+[data-testid="stMainBlocksContainer"] {
+    overflow-y: auto !important; overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: auto !important;
+}
+html, body { overscroll-behavior-y: contain !important; overflow-y: auto !important; }
+section[data-testid="stMain"] { overscroll-behavior-y: auto !important; overflow-y: auto !important; }
+/* ── [홈 스타일 리뉴얼] Teal Frosted Glass 블록 공통 ── */
+.gk-teal-block {
+    background: rgba(0,105,92,0.35) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1.5px solid rgba(0,150,136,0.40) !important;
+    border-radius: 12px !important;
+    padding: 12px 18px !important;
+    margin-bottom: 6px !important;
+    color: #ffffff !important;
+    transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+    box-shadow: 0 4px 18px rgba(0,77,64,0.30) !important;
+}
+.gk-teal-block:hover {
+    transform: scale(1.02) !important;
+    box-shadow: 0 0 0 3px rgba(0,230,180,0.55), 0 8px 28px rgba(0,77,64,0.40) !important;
+}
+/* 포트폴리오 카드 공통 */
+.gk-pf-card {
+    border-radius:16px; padding:24px 22px 18px 22px;
+    margin-bottom:6px; height:100%; box-sizing:border-box;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+}
+.gk-pf-card:hover {
+    transform: scale(1.02) !important;
+    box-shadow: 0 0 0 3px rgba(0,230,180,0.60), 0 10px 36px rgba(0,0,0,0.40) !important;
+}
+.gk-pf-title {
+    font-size:1.55rem; font-weight:900; line-height:1.2;
+    margin-bottom:8px; letter-spacing:0.01em;
+    color:#ffffff !important;
+    text-shadow:0 1px 6px rgba(0,0,0,0.50) !important;
+}
+.gk-pf-sub {
+    font-size:0.92rem; font-weight:700; line-height:1.6;
+    margin-bottom:12px;
+    color:#ffffff !important;
+    text-shadow:0 1px 4px rgba(0,0,0,0.50) !important;
+}
+.gk-pf-count {
+    display:inline-block; font-size:0.80rem; font-weight:800;
+    padding:4px 12px; border-radius:20px; margin-bottom:14px;
+    color:#ffffff !important;
+    font-weight:700 !important;
+    font-size: calc(0.80rem * 1.2) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+        # ── 액션 버튼 CSS (볼륨감 그라디언트 + 그림자) ─────────────────────
+        st.markdown("""
+<style>
+/* 1번 버튼 — Teal 딥 (AI상담 시작하기) */
+div[data-testid="stColumns"] > div:nth-child(1) div[data-testid="stButton"] > button {
+    background: linear-gradient(135deg, #004d40 0%, #00695c 50%, #00897b 100%) !important;
+    color: #ffffff !important;
+    font-size: 1.05rem !important;
+    font-weight: 900 !important;
+    border: 1.5px solid rgba(0,200,170,0.45) !important;
+    border-radius: 12px !important;
+    padding: 16px 0 !important;
+    box-shadow: 0 6px 20px rgba(0,77,64,0.50), 0 2px 6px rgba(0,0,0,0.25) !important;
+    letter-spacing: 0.02em !important;
+    transition: transform 0.18s, box-shadow 0.18s !important;
+    backdrop-filter: blur(10px) !important;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.40) !important;
+}
+div[data-testid="stColumns"] > div:nth-child(1) div[data-testid="stButton"] > button:hover {
+    transform: scale(1.02) !important;
+    box-shadow: 0 0 0 3px rgba(0,230,180,0.55), 0 10px 28px rgba(0,77,64,0.60) !important;
+}
+/* 2번 버튼 — Teal 라이트 */
+div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > button {
+    background: linear-gradient(135deg, #00695c 0%, #00897b 50%, #26a69a 100%) !important;
+    color: #ffffff !important;
+    font-size: 1.05rem !important;
+    font-weight: 900 !important;
+    border: 1.5px solid rgba(0,200,170,0.45) !important;
+    border-radius: 12px !important;
+    padding: 16px 0 !important;
+    box-shadow: 0 6px 20px rgba(0,105,92,0.50), 0 2px 6px rgba(0,0,0,0.25) !important;
+    letter-spacing: 0.02em !important;
+    transition: transform 0.18s, box-shadow 0.18s !important;
+    backdrop-filter: blur(10px) !important;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.40) !important;
+}
+div[data-testid="stColumns"] > div:nth-child(2) div[data-testid="stButton"] > button:hover {
+    transform: scale(1.02) !important;
+    box-shadow: 0 0 0 3px rgba(0,230,180,0.55), 0 10px 28px rgba(0,105,92,0.60) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+        # ── [GP220 그룹8] 섹션 게이트웨이 · 포트폴리오 카드 ──────────────
+        st.markdown('<div class="gk-g220 gk-g220-gateway"><span class="gk-g220-label">⑧ 섹션 게이트웨이 · 포트폴리오 카드 (A–F)</span>', unsafe_allow_html=True)
+
+        # ── 사이드바 안내문구 (#1-5-7 — #1-4-6 앞으로 이동) ─────────────
+        st.markdown(f"""
+<div class="gk-teal-block" style="position:relative;padding:18px 28px;margin:0 0 15px 0;text-align:center;">
+  {_bid('1-5-7')}
+  <div style="font-size:1.1rem;font-weight:900;color:#ffffff;line-height:1.6;
+    text-shadow:0 1px 6px rgba(0,0,0,0.50);">
+    💡 상세 컨설팅 및 AI 분석은 좌측 사이드바의 <span style="color:#ffffff;font-weight:900;text-decoration:underline;">29개 전문 섹션</span>에서 즉시 시작하실 수 있습니다.
+  </div>
+  <div style="font-size:0.82rem;color:#ffffff;font-weight:700;margin-top:6px;
+    text-shadow:0 1px 4px rgba(0,0,0,0.50);">
+    Smart Analysis · Expert Consulting · Wealth &amp; Corporate · Life &amp; Care · 보상 시뮬레이션 · 🤖 보험봇
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── 액션 버튼 좌우 배치 (#1-4-6) ─────────────────────────────────
+        st.markdown(f"""<div style="position:relative;margin-bottom:6px;">{_bid('1-4-6')}</div>""",
+                    unsafe_allow_html=True)
+        st.markdown("""
+<style>
+/* [제55조 §1] 빠른실행 버튼 — 하늘색 파스텔톤 */
+button[kind="secondary"][data-testid$="home_action_consult"],
+button[kind="secondary"][data-testid$="home_action_customer"],
+div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button {
+  background: #E3F2FD !important;
+  background-image: none !important;
+  border: 2px solid #1565C0 !important;
+  color: #0D47A1 !important;
+  font-weight: 700 !important;
+}
+div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover {
+  background: #B3E5FC !important;
+  color: #0D47A1 !important;
+}
+</style>""", unsafe_allow_html=True)
+        _ab1, _ab2 = st.columns(2, gap="medium")
+        with _ab1:
+            if st.button("🚀 AI 상담 시작하기", key="home_action_consult",
+                         use_container_width=True):
+                _go_tab("home")
+        with _ab2:
+            if st.button("👥 고객 관리", key="home_action_customer",
+                         use_container_width=True):
+                _go_tab("customer_mgmt")
+
+        st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
+
+        # ══════════════════════════════════════════════════════════════
+        # 5대 섹션 포트폴리오 카드 (3+2 그리드)
+        # A(Blue) · B(Green) · C(Gold) · D(Rose) · E(Gray)
+        # ══════════════════════════════════════════════════════════════
+
+        # ── 상단 3열: A / B / C ─────────────────────────────────────
+        _pf_c1, _pf_c2, _pf_c3 = st.columns(3, gap="medium")
+
+        with _pf_c1:
+            st.markdown(f"""
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#004d40,#00695c);
+  border:2px solid rgba(0,200,170,0.55);box-shadow:0 8px 32px rgba(0,77,64,0.35);
+  position:relative;overflow:hidden;">
+  {_bid('1-5-1')}
+  <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
+    border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+  <div style="font-size:1.1rem;font-weight:700;color:#FFFFFF !important;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:1px 1px 2px rgba(0,0,0,0.50);">A SECTION</div>
+  <div class="gk-pf-title" style="color:#fff;">🔬 Smart Analysis<br>&amp; Hub</div>
+  <div class="gk-pf-sub" style="color:#ffffff;">
+    증권분석 · 약관검색 · 스캔허브<br>리플렛 · 고객자료 · 디지털카탈로그
+  </div>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 7개 핵심 서비스</span>
+</div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("🔬 A섹션 진입 — Smart Analysis & Hub", key="ag_a_enter", use_container_width=True):
+                _go_tab("policy_scan")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with _pf_c2:
+            st.markdown(f"""
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#00695c,#00897b);
+  border:2px solid rgba(0,200,170,0.55);box-shadow:0 8px 32px rgba(0,105,92,0.35);
+  position:relative;overflow:hidden;">
+  {_bid('1-5-2')}
+  <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
+    border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+  <div style="font-size:1.1rem;font-weight:700;color:#FFFFFF !important;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:1px 1px 2px rgba(0,0,0,0.50);">B SECTION</div>
+  <div class="gk-pf-title" style="color:#fff;">🛡️ Expert<br>Consulting</div>
+  <div class="gk-pf-sub" style="color:#ffffff;">
+    신규/보험금 상담 · 장해 · 자동차사고<br>암·뇌·심장 · LIFE CYCLE
+  </div>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 11개 핵심 서비스</span>
+</div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("🛡️ B섹션 진입 — Expert Consulting", key="ag_b_enter", use_container_width=True):
+                _go_tab("t0")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with _pf_c3:
+            st.markdown(f"""
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#00695c,#26a69a);
+  border:2px solid rgba(0,200,170,0.55);box-shadow:0 8px 32px rgba(0,105,92,0.35);
+  position:relative;overflow:hidden;">
+  {_bid('1-5-3')}
+  <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
+    border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+  <div style="font-size:1.1rem;font-weight:700;color:#FFFFFF !important;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:1px 1px 2px rgba(0,0,0,0.50);">C SECTION</div>
+  <div class="gk-pf-title" style="color:#fff;">💼 Wealth &amp;<br>Corporate</div>
+  <div class="gk-pf-sub" style="color:#ffffff;">
+    노후·연금·상속 · 세무 · 법인<br>CEO · 비상장주식 · 화재·배상
+  </div>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 7개 핵심 서비스</span>
+</div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("💼 C섹션 진입 — Wealth & Corporate", key="ag_c_enter", use_container_width=True):
+                _go_tab("t5")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
+
+        # ── 하단 2열: D / E ─────────────────────────────────────────
+        _pf_d1, _pf_d2 = st.columns(2, gap="medium")
+
+        with _pf_d1:
+            st.markdown(f"""
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#004d40,#00796b);
+  border:2px solid rgba(0,200,170,0.55);box-shadow:0 8px 32px rgba(0,77,64,0.35);
+  position:relative;overflow:hidden;">
+  {_bid('1-5-4')}
+  <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
+    border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+  <div style="font-size:1.1rem;font-weight:700;color:#FFFFFF !important;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:1px 1px 2px rgba(0,0,0,0.50);">D SECTION</div>
+  <div class="gk-pf-title" style="color:#fff;">🌸 Life &amp; Care</div>
+  <div class="gk-pf-sub" style="color:#ffffff;">
+    LIFE EVENT · 맞춤 보험 상담<br>부동산 투자 · 간병비 · 의학경제학적 컨설팅
+  </div>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#fff;">📦 4개 핵심 서비스</span>
+</div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("🌸 D섹션 진입 — Life & Care", key="ag_d_enter", use_container_width=True):
+                _go_tab("life_event")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with _pf_d2:
+            st.markdown(f"""
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#00695c,#009688);
+  border:2px solid rgba(0,200,170,0.55);box-shadow:0 8px 32px rgba(0,105,92,0.35);
+  position:relative;overflow:hidden;">
+  {_bid('1-5-5')}
+  <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
+    border-radius:50%;background:rgba(255,255,255,0.05);"></div>
+  <div style="font-size:1.1rem;font-weight:700;color:#FFFFFF !important;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:1px 1px 2px rgba(0,0,0,0.50);">E SECTION</div>
+  <div class="gk-pf-title" style="color:#fff;">🔍 보상 정보<br>시뮬레이션 가이드</div>
+  <div class="gk-pf-sub" style="color:#ffffff;">
+    교통사고·산재·일반상해 보상 정보<br>KCD-8 매핑 · 전문가 지원 센터
+  </div>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#ffffff;">📦 통합 시뮬레이션 가이드</span>
+</div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("🔍 E섹션 진입 — 보상 시뮬레이션 가이드", key="ag_e_enter", use_container_width=True):
+                _go_tab("kcd_injury")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown("<div style='margin-bottom:12px;'></div>", unsafe_allow_html=True)
+
+        # ── F섹션: 보험봇 (전체 너비) ────────────────────────────────────
+        st.markdown(f"""
+<div class="gk-pf-card" style="background:linear-gradient(145deg,#004d40,#00695c);
+  border:2px solid rgba(0,230,180,0.60);box-shadow:0 8px 32px rgba(0,77,64,0.45);
+  position:relative;overflow:hidden;">
+  {_bid('1-5-6')}
+  <div style="position:absolute;right:-18px;top:-18px;width:80px;height:80px;
+    border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+  <div style="font-size:1.1rem;font-weight:700;color:#FFFFFF !important;letter-spacing:0.14em;
+    text-transform:uppercase;margin-bottom:6px;text-shadow:1px 1px 2px rgba(0,0,0,0.50);">F SECTION · 가이딩 프로토콜 제6편 준수</div>
+  <div class="gk-pf-title" style="color:#fff;">🤖 보험봇 · InsuBot</div>
+  <div class="gk-pf-sub" style="color:#ffffff;">
+    가이딩 프로토콜 제22조 승인 출처 기반 AI 답변<br>
+    제23조 금지 출처 차단 · 제24조 2차 검증 · 제25조 Red Alert
+  </div>
+  <span class="gk-pf-count" style="background:rgba(255,255,255,0.18);color:#ffffff;">📋 보험 용어 · 판례 · 사례 검색</span>
+</div>""", unsafe_allow_html=True)
+        st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+        if st.button("🤖 F섹션 진입 — 보험봇 · InsuBot", key="ag_f_enter", use_container_width=True):
+            _go_tab("ins_bot")
+        st.markdown('</div>', unsafe_allow_html=True)
+        # ── 하단 안내문구는 A.B.C 섹션 바로 위로 이동됨 (지시2) ────────
+
+        st.markdown('</div>', unsafe_allow_html=True)  # ── [GP220 그룹8 닫기]
+
+        # ── [GP220 그룹9 삭제됨 — 보험사 연락처·청구 안내 블럭 제거] ──────────
+
+
+
 
 
 
