@@ -29214,31 +29214,65 @@ div[data-testid="stFileUploadDropzone"] {
         st.markdown('<div id="gk-sec-06-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-06")}<span class="gk-sec-title">⑥ 보험사 컨택 센터</span></div>', unsafe_allow_html=True)
 
-        _ins_contacts = [
-            ("삼성생명",   "1588-3114", "https://www.samsunglife.com"),
-            ("한화생명",   "1588-6363", "https://www.hanwhalife.com"),
-            ("교보생명",   "1588-1001", "https://www.kyobo.co.kr"),
-            ("NH농협생명", "1588-2100", "https://www.nhlife.co.kr"),
-            ("신한라이프", "1588-5580", "https://www.shinhanlife.co.kr"),
+        _nonlife_contacts = [
             ("삼성화재",   "1588-5114", "https://www.samsungfire.com"),
             ("현대해상",   "1588-5656", "https://www.hi.co.kr"),
             ("DB손해보험", "1588-0100", "https://www.idbins.com"),
             ("KB손해보험", "1588-0114", "https://www.kbinsure.co.kr"),
             ("메리츠화재", "1566-7711", "https://www.meritzfire.com"),
+            ("한화손해보험","1566-8000", "https://www.hwgeneralins.com"),
+            ("롯데손해보험","1588-3344", "https://www.lottege.com"),
+            ("MG손해보험", "1588-5959", "https://www.mggeneralins.com"),
+            ("흥국화재",   "1688-1688", "https://www.heungkukfire.co.kr"),
+            ("농협손해보험","1644-9000", "https://www.nonghyupins.com"),
         ]
-        _contact_html = (
-            '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:4px 0;">'
-        )
-        for _cn, _cp, _cu in _ins_contacts:
-            _contact_html += (
-                f'<div style="border:1.5px solid #fca5a5;border-radius:8px;padding:8px 12px;'
-                f'background:#fff5f5;min-width:140px;flex:1;">'
-                f'<div style="font-weight:900;color:#000000;font-size:0.85rem;">{_cn}</div>'
-                f'<div style="color:#CC0000;font-weight:700;font-size:0.82rem;">{_cp}</div>'
-                f'</div>'
-            )
-        _contact_html += '</div>'
-        st.markdown(_contact_html, unsafe_allow_html=True)
+        _life_contacts = [
+            ("삼성생명",   "1588-3114", "https://www.samsunglife.com"),
+            ("한화생명",   "1588-6363", "https://www.hanwhalife.com"),
+            ("교보생명",   "1588-1001", "https://www.kyobo.co.kr"),
+            ("NH농협생명", "1588-2100", "https://www.nhlife.co.kr"),
+            ("신한라이프", "1588-5580", "https://www.shinhanlife.co.kr"),
+            ("미래에셋생명","1588-0220", "https://www.miraeassetlife.co.kr"),
+            ("흥국생명",   "1588-2288", "https://www.heungkuklife.co.kr"),
+            ("동양생명",   "1577-1004", "https://www.myangel.co.kr"),
+            ("ABL생명",    "1588-6500", "https://www.abllife.co.kr"),
+            ("DB생명",     "1588-3131", "https://www.idblife.com"),
+        ]
+
+        def _make_contact_html(contacts, bg, border_color):
+            html = '<div style="display:flex;flex-direction:column;gap:8px;">'
+            for _cn, _cp, _cu in contacts:
+                _num_raw = _cp.replace("-", "")
+                html += (
+                    f'<a href="tel:{_num_raw}" style="text-decoration:none;">'
+                    f'<div style="border:1px dashed #000000;border-radius:8px;'
+                    f'padding:10px 14px;background:{bg};cursor:pointer;">'
+                    f'<div style="font-weight:900;color:#000000;font-size:0.88rem;">{_cn}</div>'
+                    f'<div style="font-weight:700;color:#000000;font-size:0.84rem;margin-top:2px;">'
+                    f'📞 {_cp}</div>'
+                    f'</div></a>'
+                )
+            html += '</div>'
+            return html
+
+        _col_nl, _col_lf = st.columns([5, 5])
+        with _col_nl:
+            st.markdown(
+                '<div style="font-weight:900;color:#000000;font-size:0.92rem;'
+                'margin-bottom:10px;">🏠 손해보험사</div>',
+                unsafe_allow_html=True)
+            st.markdown(
+                _make_contact_html(_nonlife_contacts, "#E3F2FD", "#1565C0"),
+                unsafe_allow_html=True)
+        with _col_lf:
+            st.markdown(
+                '<div style="font-weight:900;color:#000000;font-size:0.92rem;'
+                'margin-bottom:10px;">💖 생명보험사</div>',
+                unsafe_allow_html=True)
+            st.markdown(
+                _make_contact_html(_life_contacts, "#FFEBEE", "#C62828"),
+                unsafe_allow_html=True)
+
         # ── [NAV-06] 내비게이션 바 ─────────────────────────────────────────
         st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
                     "margin:10px 0 4px 0;'>6 / 7단계 — 보험사 컨택 센터</div>",
