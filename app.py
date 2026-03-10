@@ -23818,6 +23818,8 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
                     st.session_state["_login_welcome"] = "이세윤"
                     st.session_state["_auto_close_sidebar"] = True
                     st.session_state["authenticated"]       = True
+                    st.session_state["_admin_scroll_trigger"] = True
+                    st.session_state["current_tab"]         = "t9"
                     # [제39조 §3] 관리자 로그인 → 세션 캐시 저장
                     _s39_save_session_cache(user_id="ADMIN_MASTER", user_name="이세윤", user_role="admin")
                     st.rerun()
@@ -23833,6 +23835,8 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
                     st.session_state["_login_welcome"] = _master_name
                     st.session_state["_auto_close_sidebar"] = True
                     st.session_state["authenticated"]       = True
+                    st.session_state["_admin_scroll_trigger"] = True
+                    st.session_state["current_tab"]         = "t9"
                     # [제39조 §3] 마스터 로그인 → 세션 캐시 저장
                     _s39_save_session_cache(user_id="PERMANENT_MASTER", user_name=_master_name, user_role="admin")
                     st.rerun()
@@ -26626,6 +26630,18 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
                     st.session_state["_claim_gen4"]        = True
                     st.session_state["_mf_pending_items"]  = []
                     st.session_state["_gp67_input_source"] = "manual"
+                    # [지시 3] 수동 입력 완료 → 메인 AI 분석 피드 라우팅
+                    _mf_items_str = "\n".join(
+                        f"- {it['name']}: {it['amount']:,}원  [{it.get('hospital','')}  {it.get('date','')}]"
+                        for it in _mf_pending
+                    )
+                    st.session_state["home_scan_result"] = (
+                        f"✏️ 청구 스캐너 수동 입력 완료\n"
+                        f"입력 항목 {len(_mf_pending)}건\n\n"
+                        f"[입력 내역]\n{_mf_items_str}\n\n"
+                        f"→ STEP 2에서 청구할 항목을 확인하세요."
+                    )
+                    st.session_state["home_scan_scroll_trigger"] = True
                     st.rerun()
             with _mb3:
                 if st.button("🗑️ 초기화", key="_mf_clear_btn",
@@ -26782,6 +26798,21 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
                         "receipt":  "OCR-2024-001",
                         "total":    "120500",
                     }
+                    # [지시 3] 청구스캐너 OCR 분석 결과 → 메인 AI 분석 피드 라우팅
+                    _ocr_items_str = "\n".join(
+                        f"- {it['name']}: {it['amount']:,}원" if not it.get('_ocr_broken')
+                        else f"- {it['name']}: OCR 미인식 (직접 입력 필요)"
+                        for it in _demo_items
+                    )
+                    _ocr_hospital = st.session_state.get("_gp67_ocr_preview", {}).get("hospital", "자동인식")
+                    _ocr_date     = st.session_state.get("_gp67_ocr_preview", {}).get("date", "")
+                    st.session_state["home_scan_result"] = (
+                        f"🔬 청구 스캐너 OCR 분석 완료\n"
+                        f"한 의료기관: {_ocr_hospital}  |  진료일: {_ocr_date}\n\n"
+                        f"[항목 자동 추출 결과]\n{_ocr_items_str}\n\n"
+                        f"→ STEP 2에서 청구할 항목을 체크하세요."
+                    )
+                    st.session_state["home_scan_scroll_trigger"] = True
                     st.rerun()
 
             # SSOT 연동 안내
@@ -40405,9 +40436,65 @@ text-transform:uppercase;">LIABILITY INSURANCE · LEGAL STRATEGY REFERENCE</span
             st.stop()
     if cur == "t9" and (st.session_state.get("is_admin") or st.session_state.get("_admin_tab_auth")):
         tab_home_btn("t9")
-        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('t9-1-1')}</div>""",
-                    unsafe_allow_html=True)
-        st.subheader("⚙️ 관리자 전용 시스템")
+
+        # ── [GP-ADMIN] id 앵커 + GP 표준 관리자 헤더 ─────────────────────────
+        st.markdown(f"""
+<style>
+.gk-admin-header {{
+    background: #F5F5F5;
+    border: 2.5px solid #FF0000;
+    border-radius: 12px;
+    padding: 14px 20px 12px 20px;
+    margin-bottom: 14px;
+    position: relative;
+}}
+.gk-admin-header .gk-adm-title {{
+    font-size: 1.15rem;
+    font-weight: 900;
+    color: #000000;
+    margin-bottom: 4px;
+}}
+.gk-admin-header .gk-adm-sub {{
+    font-size: 0.80rem;
+    font-weight: 700;
+    color: #374151;
+    line-height: 1.6;
+}}
+.gk-admin-header .gk-adm-id {{
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #FF0000;
+    font-family: monospace;
+    margin-top: 6px;
+}}
+</style>
+<div id="admin_top"></div>
+<div class="gk-admin-header">
+  {_bid('t9-1-1')}
+  <div class="gk-adm-title">⚙️ GK-ADMIN 관리자 전용 시스템 통제판</div>
+  <div class="gk-adm-sub">
+    관리자 인증키 확인 후 전체 시스템 제어 기능이 활성화됩니다.<br>
+    <span style='color:#0369a1;'>RAG 지식베이스 · 요율 업데이트 · 블록 ID 토글 · 약관 관리</span>
+  </div>
+  <div class="gk-adm-id">GK-ADMIN · SECTOR: t9 · MODE: {'FULL ACCESS' if st.session_state.get('is_admin') else 'KEY AUTH'}</div>
+</div>""", unsafe_allow_html=True)
+
+        # ── [GP-ADMIN] 로그인 직후 auto-scroll + 첫 입력창 focus ──────────────
+        if st.session_state.pop("_admin_scroll_trigger", False):
+            import streamlit.components.v1 as _adm_c
+            _adm_c.html("""
+<script>
+(function(){
+  var anchor = document.getElementById('admin_top');
+  if(anchor){ anchor.scrollIntoView({behavior:'smooth', block:'start'}); }
+  else { window.scrollTo({top: 0, behavior: 'smooth'}); }
+  setTimeout(function(){
+    var inputs = document.querySelectorAll('input[type="password"]');
+    if(inputs.length > 0){ inputs[0].focus(); }
+  }, 400);
+})();
+</script>""", height=0)
+
         # RAG 바로가기 힌트 (사이드바 버튼으로 진입 시)
         if st.session_state.pop("_rag_admin_hint", False):
             st.info("👇 관리자 인증키 입력 후 **'RAG 지식베이스'** 탭을 클릭하세요.")
