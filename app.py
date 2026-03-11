@@ -8801,6 +8801,13 @@ SECTOR_CODES: dict = {
     # ── 0000번대: 신규 페이지 (GP-52/53) ──────────────────────────────────
     "0100": {"name": "홈 포털",         "tab_key": "home_portal",   "keywords": ["포털", "홈포털", "메인포털", "portal", "진입", "입구"]},
     "0200": {"name": "청구 스캐너",     "tab_key": "claim_scanner", "keywords": ["청구스캐너", "청구엔진", "영수증스캔", "보험금청구", "실손청구", "청구계산", "claim", "스캐너"]},
+    # ── GK-SEC-09: VVIP CEO 통합 경영 전략 센터 ──────────────────────────────
+    # ── 2700: 전략적 위험 분석 사령부 (STRATEGIC RISK CENTER) ──────────────────
+    "2700": {"name": "전략적 위험 분석 사령부", "tab_key": "gk_risk", "keywords": [
+        "위험분석", "위험등급", "리스크센터", "gk-risk", "전략위험",
+        "고위험질환", "kcd위험", "위험사령부", "리스크배지", "위험배지",
+        "고위험", "위험도", "위험도분석", "전략리스크",
+    ]},
     "0300": {"name": "실전 상담 전략실", "tab_key": "war_room",      "keywords": ["전략실", "warroom", "실전상담", "상담전략", "스크립트", "거절처리", "전략허브", "워룸"]},
     # ── 1000번대: 홈 / 스캔 / 분석 허브 ──────────────────────────────────
     "1000": {"name": "홈 화면",         "tab_key": "home",          "keywords": ["홈", "메인", "처음", "홈화면", "첫화면", "대시보드", "시작"]},
@@ -8867,13 +8874,6 @@ SECTOR_CODES: dict = {
         "내보험다보여", "보험진단시스템", "gk-sec-10", "마이데이터보험", "보험소환",
         "정밀진단", "보험전체조회", "내보험찾기", "보험진단허브", "보장과부족",
         "보험내역조회", "coocon", "codef", "신용정보원", "본인인증보험",
-    ]},
-    # ── GK-SEC-09: VVIP CEO 통합 경영 전략 센터 ──────────────────────────────
-    # ── 2700: 전략적 위험 분석 사령부 (STRATEGIC RISK CENTER) ──────────────────
-    "2700": {"name": "전략적 위험 분석 사령부", "tab_key": "gk_risk", "keywords": [
-        "위험분석", "위험등급", "리스크센터", "gk-risk", "전략위험",
-        "고위험질환", "kcd위험", "위험사령부", "리스크배지", "위험배지",
-        "고위험", "위험도", "위험도분석", "전략리스크",
     ]},
         "9900": {"name": "VVIP CEO 통합 경영 전략 센터", "tab_key": "gk_sec09", "keywords": ["vvip", "ceo전략센터", "gk-sec-09", "법인컨설팅", "비상장주식평가", "상증세시뮬레이터", "감자플랜", "중간배당", "임직원종신보험", "법인화재보험120%", "가지급금", "미처분이익잉여금", "단체보험갭커버", "사업주배상책임", "경영승계", "재무제표스캐너", "법인세율", "상속세율", "국세청예규", "순손익가치", "순자산가치"]},
 
@@ -10836,14 +10836,17 @@ def _risk_badge_html(grade: str, large: bool = True) -> str:
         "UNKNOWN": {"bg": "#6b7280", "color": "#fff",    "border": "#4b5563", "label": "❓ 미입력",            "shadow": "none"},
     }
     c = _cfg.get(grade, _cfg["UNKNOWN"])
-    fs = "1.35rem" if large else "0.82rem"
-    pad = "10px 22px" if large else "4px 12px"
+    fs  = "1.55rem" if large else "0.88rem"
+    fw  = "900"     if large else "800"
+    pad = "12px 28px" if large else "5px 14px"
     return (
         f"<div style='background:{c['bg']};color:{c['color']};"
-        f"border:2px solid {c['border']};border-radius:8px;"
-        f"padding:{pad};font-size:{fs};font-weight:bold;"
+        f"border:2px solid {c['border']};border-radius:12px;"
+        f"padding:{pad};font-size:{fs};font-weight:{fw};"
         f"box-shadow:{c['shadow']};display:inline-block;"
-        f"letter-spacing:0.03em;word-break:keep-all;'>"
+        f"letter-spacing:0.05em;word-break:keep-all;'"
+        f"text-shadow:0 1px 3px rgba(0,0,0,0.25);'>"
+        # V5U
         f"{c['label']}</div>"
     )
 
@@ -10903,17 +10906,35 @@ def _render_gk_risk():
 
     tab_home_btn("gk_risk")
 
+    # ── V5U: 헤더 + 종합 위험배지 top-right 고정 (flex layout) ────────────
+    _hdr_kcd  = st.session_state.get('scan_client_kcd_code', '') or st.session_state.get('risk_kcd_code', '')
+    _hdr_job  = st.session_state.get('gs_job_grade', 0)
+    _hdr_sick = st.session_state.get('home_si_sick', '해당 없음')
+    _hdr_kgrade  = _risk_assess_kcd(_hdr_kcd)
+    _hdr_jgrade  = 'RED' if _hdr_job >= 4 else ('YELLOW' if _hdr_job >= 2 else 'GREEN')
+    _hdr_sgrade  = 'RED' if _hdr_sick and _hdr_sick not in ('해당 없음','없음','') else 'GREEN'
+    _hdr_overall = max([_hdr_kgrade, _hdr_jgrade, _hdr_sgrade],
+                       key=lambda g: {'RED':3,'YELLOW':2,'GREEN':1,'UNKNOWN':0}.get(g,0))
+    _hdr_badge = _risk_badge_html(_hdr_overall, large=True)
     st.markdown(
-        "<div style='background:linear-gradient(135deg,#7f1d1d 0%,#991b1b 60%,#dc2626 100%);"
-        "border-radius:14px;padding:20px 28px;margin-bottom:10px;border:1px solid #ef4444;'>"
-        "<div style='font-size:1.35rem;font-weight:900;color:#fef2f2;letter-spacing:0.04em;'>"
-        "🚨 전략적 위험 분석 사령부 — STRATEGIC RISK CENTER</div>"
-        "<div style='font-size:0.85rem;color:#fca5a5;margin-top:6px;line-height:1.6;'>"
-        "KCD 질병코드 · 직업 위험등급 · 건강보험료 역산 통합 위험도 산출 &nbsp;·&nbsp; "
-        "<span style='background:#fef2f2;color:#7f1d1d;border-radius:6px;"
-        "padding:1px 8px;font-weight:800;font-size:0.78rem;'>⚡ 사령관 최우선 확인</span>"
-        "</div>"
-        "</div>", unsafe_allow_html=True
+        f"<div style='background:linear-gradient(135deg,#7f1d1d 0%,#991b1b 60%,#dc2626 100%);"
+        f"border-radius:14px;padding:20px 28px;margin-bottom:10px;border:1px solid #ef4444;"
+        f"display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;'>"
+        f"<div style='flex:1;min-width:200px;'>"
+        f"<div style='font-size:1.45rem;font-weight:900;color:#fef2f2;letter-spacing:0.04em;'>"
+        f"🚨 전략적 위험 분석 사령부 — STRATEGIC RISK CENTER</div>"
+        f"<div style='font-size:0.85rem;color:#fca5a5;margin-top:4px;line-height:1.6;'>"
+        f"KCD 질병코드 · 직업 위험등급 · 건강보험료 역산 통합 위험도 산출 &nbsp;·&nbsp;"
+        f"<span style='background:#fef2f2;color:#7f1d1d;border-radius:6px;"
+        f"padding:1px 8px;font-weight:800;font-size:0.78rem;'>⚡ 사령관 최우선 확인</span>"
+        f"</div></div>"
+        f"<div style='flex-shrink:0;text-align:center;'>"
+        f"<div style='font-size:0.68rem;color:#fca5a5;font-weight:700;margin-bottom:6px;'>"
+        f"종합 위험등급</div>"
+        f"{_hdr_badge}"
+        f"</div>"
+        f"</div>",
+        unsafe_allow_html=True,
     )
 
     # ── 입력 소스 수집 ────────────────────────────────────────────────────────
@@ -25351,6 +25372,24 @@ footer, footer * {
             "    letter-spacing: 0.03em !important;"
             "    word-break: keep-all !important;"
             "    border: 2px solid #15803d !important;"
+            "}"
+            "/* [V5U] RISK SECTOR HEADER TOP-RIGHT BADGE */"
+            ".risk-sector-hdr {"
+            "    display: flex !important;"
+            "    align-items: center !important;"
+            "    justify-content: space-between !important;"
+            "    flex-wrap: wrap !important;"
+            "    gap: 12px !important;"
+            "    background: linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%) !important;"
+            "    border-radius: 14px !important;"
+            "    padding: 18px 24px !important;"
+            "    margin-bottom: 12px !important;"
+            "    border: 1px solid #ef4444 !important;"
+            "}"
+            ".risk-sector-hdr-badge { flex-shrink: 0 !important; text-align: center !important; }"
+            "@media (max-width: 600px) {"
+            "    .risk-sector-hdr { flex-direction: column !important; }"
+            "    .risk-sector-hdr-badge { width: 100% !important; }"
             "}"
             "/* [GP-V3] SYNERGY PANEL */"
             ".syn-panel {"
