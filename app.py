@@ -1,4 +1,4 @@
-﻿# ==========================================================
+# ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -4814,8 +4814,84 @@ def _gp512_get_remaining(fp_id: str) -> int:
 # ══════════════════════════════════════════════════════════════════════════
 
 def _gp0_instant_bootstrap() -> None:
-    """[제0조] 스플래시 veil 비활성화 — 로딩 차단 이슈로 인해 제거됨."""
-    pass  # 스플래시 veil 제거: height=0 iframe 블로킹 및 veil 미해제 이슈
+    """[제0조] 파스텔블루 한국어 스플래시 — 최초 1회 표시 후 2초 자동 해제."""
+    import streamlit as _st0
+    _st0.markdown("""
+<div id="gp0-veil" style="
+    position:fixed;top:0;left:0;width:100vw;height:100vh;
+    z-index:9999;
+    background:linear-gradient(160deg,#E3F2FD 0%,#BBDEFB 55%,#E3F2FD 100%);
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    font-family:'Noto Sans KR','Malgun Gothic',sans-serif;">
+  <div style="
+      width:88px;height:88px;border-radius:50%;
+      border:3px solid #1565C0;
+      background:#ffffff;
+      box-shadow:0 4px 24px rgba(21,101,192,0.20);
+      display:flex;align-items:center;justify-content:center;
+      margin-bottom:20px;
+      animation:gp0glow 1.8s ease-in-out infinite;">
+    <span style="font-size:2.6rem;">🏆</span>
+  </div>
+  <div style="color:#1565C0;font-size:1.28rem;font-weight:900;
+      letter-spacing:0.03em;margin-bottom:8px;">
+    Goldkey AI Masters 2026
+  </div>
+  <div style="color:#000000;font-size:1.05rem;font-weight:700;
+      margin-bottom:26px;letter-spacing:0.01em;">
+    구동중입니다. 잠시 기다려주세요!
+  </div>
+  <div style="width:min(300px,72vw);height:4px;
+      background:rgba(21,101,192,0.15);border-radius:3px;overflow:hidden;">
+    <div id="gp0-bar" style="
+        height:100%;width:0%;
+        background:linear-gradient(90deg,#1565C0,#42A5F5,#1565C0);
+        border-radius:3px;
+        transition:width 0.35s ease;"></div>
+  </div>
+  <div id="gp0-stxt" style="
+      color:#1565C0;font-size:0.74rem;font-weight:700;
+      margin-top:10px;letter-spacing:0.04em;opacity:0.75;">
+    시스템 초기화 중...
+  </div>
+</div>
+<style>
+@keyframes gp0glow{
+  0%,100%{box-shadow:0 4px 24px rgba(21,101,192,0.20);}
+  50%{box-shadow:0 4px 36px rgba(21,101,192,0.42);}
+}
+</style>
+<script>
+(function(){
+  var bar  = document.getElementById('gp0-bar');
+  var stxt = document.getElementById('gp0-stxt');
+  var msgs = [
+    {pct:30,  msg:'[1단계] 인증 모듈 초기화...'},
+    {pct:65,  msg:'[2단계] 핵심 리소스 전개 중...'},
+    {pct:90,  msg:'[3단계] 섹션 보급 완료 중...'},
+    {pct:100, msg:'✅ 준비 완료!'}
+  ];
+  var i = 0;
+  function step(){
+    if(i >= msgs.length) return;
+    var s = msgs[i++];
+    if(bar)  bar.style.width = s.pct + '%';
+    if(stxt) stxt.textContent = s.msg;
+  }
+  step();
+  setTimeout(step, 450);
+  setTimeout(step, 950);
+  setTimeout(function(){
+    step();
+    setTimeout(function(){
+      var v = document.getElementById('gp0-veil');
+      if(v) v.style.cssText = 'display:none !important;';
+    }, 300);
+  }, 1700);
+})();
+</script>
+""", unsafe_allow_html=True)
 
 
 def _gp0_instant_bootstrap_DISABLED() -> None:
@@ -19545,6 +19621,32 @@ def main():
         initial_sidebar_state=_sb_init_state
     )
 
+    # ── [로딩 UI 한국어화] Streamlit 기본 영어 메시지 즉시 숨김 ─────────────
+    st.markdown("""<style>
+/* ① 우측 상단 Running... 상태 위젯 숨김 */
+[data-testid="stStatusWidget"],
+div[data-testid="stStatusWidget"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+}
+/* ② 상단 툴바 장식 요소 숨김 */
+[data-testid="stDecoration"],
+.stDecoration,
+[data-testid="stToolbarActionButton"] {
+    display: none !important;
+}
+/* ③ Made with Streamlit 푸터 숨김 */
+footer, footer * {
+    display: none !important;
+    visibility: hidden !important;
+}
+/* ④ 햄버거 메뉴 숨김 */
+#MainMenu, [data-testid="stMainMenuButton"] {
+    display: none !important;
+}
+</style>""", unsafe_allow_html=True)
+
     # ── [제49조] 직통 진입 — 랜딩 페이지 폐지, 항상 메인 화면 직통 ────────
     st.session_state["_lp_landing"] = True
 
@@ -21888,26 +21990,22 @@ body.gk-senior .red-alert-focus {
     background: #FAFAFA !important;
 }
 
-/* ⑤ .gk-ai-output-box, .gk-scan-output — AI 답변창: 하단선만 유지 */
+/* ⑤ .gk-ai-output-box — AI 답변창: 검은 외곽선 + 파스텔 배경 (Ghost Protocol 예외 유지) */
 .gk-ai-output-box {
-    border: none !important;
-    border-bottom: 2px solid #E0E0E0 !important;
-    background: transparent !important;
-    border-radius: 0 !important;
+    border: 2px solid #000000 !important;
+    background: #F8FAFC !important;
+    border-radius: 8px !important;
     box-shadow: none !important;
-}
-.gk-scan-output {
-    border: none !important;
-    border-bottom: 2px solid #E0E0E0 !important;
-    background: transparent !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
+    padding: 16px 18px !important;
+    min-height: 120px !important;
 }
 
-/* ⑥ .gk-scan-controller */
+/* ⑥ .gk-scan-controller — 파스텔 블루 배경 + 파란 외곽선 */
 .gk-scan-controller {
-    border: none !important;
-    background: transparent !important;
+    border: 2px solid #1565C0 !important;
+    background: #F0F9FF !important;
+    border-radius: 8px !important;
+    padding: 16px 14px !important;
     box-shadow: none !important;
 }
 
@@ -28298,22 +28396,20 @@ renderCalendar();
   margin-bottom: 12px; letter-spacing: 0.04em; text-transform: none;
 }
 .gk-ai-output-box {
-  border: none; border-radius: 8px;
+  border: 2px solid #000000 !important; border-radius: 8px;
   padding: 16px 18px; background: #F8FAFC;
   min-height: 260px; max-height: 420px;
   overflow-y: auto; box-sizing: border-box;
-  border-bottom: 1.5px solid #e5e7eb;
 }
 .gk-scan-output {
-  border: none; border-radius: 8px;
-  padding: 16px 18px; background: #F8FAFC;
+  border: 2px solid #000000 !important; border-radius: 8px;
+  padding: 16px 18px; background: #EFF8FF;
   min-height: 260px; max-height: 420px;
   overflow-y: auto; box-sizing: border-box;
-  border-bottom: 1.5px solid #e5e7eb;
 }
 .gk-scan-controller {
-  border: 2px dashed #000000 !important; border-radius: 8px;
-  padding: 16px 14px; background: rgba(248,250,252,0.6);
+  border: 2px solid #1565C0 !important; border-radius: 8px;
+  padding: 16px 14px; background: #F0F9FF;
 }
 .gk-pf-card {
   border-radius: 14px; padding: 20px 18px 16px 18px;
@@ -28844,34 +28940,135 @@ div[data-testid="stSelectbox"] > div > div {
             ("입원일당",      "1만원/일",   "3만원/일",   "5만원/일"),
             ("실손보험",      "4세대",      "3세대",      "1·2세대 유지"),
         ]
+        # ── 가처분 산출 엔진으로 '적정' 컬럼 동적 반영 ───────────────────
+        _disp_result = st.session_state.get("sec02_disposable_result")
+        _opt_overrides = {}
+        if _disp_result:
+            _mo = _disp_result.get("monthly_income", 0)
+            _da = _disp_result.get("daily_value", 0)
+            _mo_man = round(_mo / 10000)
+            _da_man = round(_da / 10000, 1)
+            _opt_overrides = {
+                "암 진단비":     f"{min(max(round(_mo_man * 3 / 1000) * 1000, 3000), 10000):,}만원",
+                "뇌혈관 진단비": f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
+                "심장 진단비":   f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
+                "치매 진단비":   f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
+                "입원일당":      f"{min(_da_man, 10):.0f}만원/일",
+            }
+
         _tbl_html = (
             '<div style="overflow-x:auto;">'
-            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem;">'
+            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem;border:2px solid #000000;">'
             '<thead><tr>'
-            '<th style="background:#CC0000;color:#fff;font-weight:900;padding:7px 10px;text-align:left;">종목</th>'
-            '<th style="background:#dc2626;color:#fff;font-weight:900;padding:7px 10px;text-align:center;">최소</th>'
-            '<th style="background:#b91c1c;color:#fff;font-weight:900;padding:7px 10px;text-align:center;">표준</th>'
-            '<th style="background:#991b1b;color:#fff;font-weight:900;padding:7px 10px;text-align:center;">적정</th>'
+            '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:left;border:1px solid #000000;">종목</th>'
+            '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">최소</th>'
+            '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">표준</th>'
+            '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">적정 ★</th>'
             '</tr></thead><tbody>'
         )
         for _i2, (_name2, _mn, _stv, _opt) in enumerate(_s2_items):
-            _bg2 = "#fff5f5" if _i2 % 2 == 0 else "#ffffff"
+            _bg2 = "#fafeff" if _i2 % 2 == 0 else "#ffffff"
+            _opt_disp = _opt_overrides.get(_name2, _opt)
+            _opt_color = "#0055AA" if _name2 in _opt_overrides else "#CC0000"
             _tbl_html += (
                 f'<tr style="background:{_bg2};">'
-                f'<td style="padding:6px 10px;font-weight:900;color:#000000;border-bottom:1px solid #fecaca;">{_name2}</td>'
-                f'<td style="padding:6px 10px;text-align:center;font-weight:700;color:#374151;border-bottom:1px solid #fecaca;">{_mn}</td>'
-                f'<td style="padding:6px 10px;text-align:center;font-weight:700;color:#000000;border-bottom:1px solid #fecaca;">{_stv}</td>'
-                f'<td style="padding:6px 10px;text-align:center;font-weight:900;color:#CC0000;border-bottom:1px solid #fecaca;">{_opt}</td>'
+                f'<td style="padding:6px 10px;font-weight:900;color:#000000;border:1px solid #000000;">{_name2}</td>'
+                f'<td style="padding:6px 10px;text-align:center;font-weight:700;color:#374151;border:1px solid #000000;">{_mn}</td>'
+                f'<td style="padding:6px 10px;text-align:center;font-weight:700;color:#000000;border:1px solid #000000;">{_stv}</td>'
+                f'<td style="padding:6px 10px;text-align:center;font-weight:900;color:{_opt_color};border:1px solid #000000;">{_opt_disp}</td>'
                 f'</tr>'
             )
         _tbl_html += '</tbody></table></div>'
+        if _disp_result:
+            _tbl_html += '<div style="font-size:0.75rem;color:#0055AA;margin-top:4px;">★ 적정 금액은 건보료 역산 기준으로 자동 산출되었습니다.</div>'
         st.markdown(_tbl_html, unsafe_allow_html=True)
+
+        # ── [SEC-02-DISPOSABLE] 가처분 산출 엔진 ────────────────────────
+        st.markdown("<hr style='margin:14px 0 10px 0;border:2px solid #1565C0;'>", unsafe_allow_html=True)
+        st.markdown(
+            "<div id='sec-02-disposable' style='border:2px solid #1565C0;border-radius:10px;"
+            "padding:14px 16px 12px 16px;margin-bottom:10px;background:#F0F9FF;'>"
+            "<div style='color:#0000CD;font-weight:900;font-size:0.9rem;margin-bottom:10px;'>"
+            "💰 가처분 산출 및 금액 (SEC-02-DISPOSABLE) — 건강보험료 역산 엔진</div>",
+            unsafe_allow_html=True
+        )
+        _disp_col1, _disp_col2 = st.columns([1, 1], gap="medium")
+        with _disp_col1:
+            st.markdown(
+                "<div style='background:#fff;border:1px solid #BBDEFB;border-radius:8px;padding:12px 14px;'>"
+                "<div style='font-weight:900;font-size:0.85rem;color:#000000;margin-bottom:8px;'>📥 월납입 건강보험료 역산 입력</div>",
+                unsafe_allow_html=True
+            )
+            _nhis_input = st.number_input(
+                "월납입 건강보험료 (원)",
+                min_value=0,
+                max_value=2_000_000,
+                value=int(st.session_state.get("sec02_nhis_premium", 0)),
+                step=1000,
+                format="%d",
+                key="disp_nhis_input",
+                help="직장가입자는 본인부담분만 입력. 지역가입자는 장기요양 포함 전액 입력."
+            )
+            st.markdown(
+                "<div style='font-size:0.75rem;color:#64748b;margin-top:4px;'>"
+                "예) 15만원 입력 시 → 월소득 약 211만원 산출</div></div>",
+                unsafe_allow_html=True
+            )
+            if st.button("⚡ 가처분 소득 산출", key="btn_disp_calc", use_container_width=True, type="primary"):
+                if _nhis_input and _nhis_input > 0:
+                    _calc = _art32_calc(float(_nhis_input))
+                    st.session_state["sec02_nhis_premium"] = _nhis_input
+                    st.session_state["sec02_disposable_result"] = _calc
+                    st.session_state["scan_nhis_premium"] = float(_nhis_input)
+                    st.rerun()
+                else:
+                    st.warning("건강보험료를 입력해 주세요.")
+        with _disp_col2:
+            st.markdown(
+                "<div style='background:#fff;border:1px solid #BBDEFB;border-radius:8px;padding:12px 14px;min-height:140px;'>"
+                "<div style='font-weight:900;font-size:0.85rem;color:#000000;margin-bottom:10px;'>📊 산출 결과 대시보드</div>",
+                unsafe_allow_html=True
+            )
+            if _disp_result:
+                _mo_disp  = round(_disp_result["monthly_income"] / 10000, 1)
+                _da_disp  = round(_disp_result["daily_value"] / 10000, 2)
+                _dis2y    = round(_disp_result["disability_2yr"] / 10000)
+                _stk_disp = round(_disp_result["stroke_need"] / 10000)
+                st.markdown(
+                    f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px;'>"
+                    f"<div style='background:#E3F2FD;border-radius:8px;padding:10px;text-align:center;'>"
+                    f"<div style='font-size:0.72rem;color:#1565C0;font-weight:700;'>산출 월 소득</div>"
+                    f"<div style='font-size:1.3rem;font-weight:900;color:#000000;'>{_mo_disp}<span style='font-size:0.75rem;'>만원</span></div>"
+                    f"</div>"
+                    f"<div style='background:#E3F2FD;border-radius:8px;padding:10px;text-align:center;'>"
+                    f"<div style='font-size:0.72rem;color:#1565C0;font-weight:700;'>산출 일당</div>"
+                    f"<div style='font-size:1.3rem;font-weight:900;color:#000000;'>{_da_disp}<span style='font-size:0.75rem;'>만원</span></div>"
+                    f"</div>"
+                    f"<div style='background:#FFF3E0;border-radius:8px;padding:8px;text-align:center;'>"
+                    f"<div style='font-size:0.68rem;color:#E65100;font-weight:700;'>2년 소득대체 목표</div>"
+                    f"<div style='font-size:1.0rem;font-weight:900;color:#000000;'>{_dis2y:,}<span style='font-size:0.68rem;'>만원</span></div>"
+                    f"</div>"
+                    f"<div style='background:#FFF3E0;border-radius:8px;padding:8px;text-align:center;'>"
+                    f"<div style='font-size:0.68rem;color:#E65100;font-weight:700;'>중풍 18개월 필요액</div>"
+                    f"<div style='font-size:1.0rem;font-weight:900;color:#000000;'>{_stk_disp:,}<span style='font-size:0.68rem;'>만원</span></div>"
+                    f"</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    "<div style='color:#94a3b8;font-size:0.85rem;padding:20px 0;text-align:center;'>"
+                    "좌측에 건강보험료를 입력하고<br>⚡ 산출 버튼을 누르세요.</div>",
+                    unsafe_allow_html=True
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)  # SEC-02-DISPOSABLE 닫기
 
         # ── [NAV-02] 내비게이션 바 ─────────────────────────────────────────
         st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
                     "margin:10px 0 4px 0;'>2 / 7단계 — 가처분 소득 솔루션</div>",
                     unsafe_allow_html=True)
-        _nav02_l, _nav02_r = st.columns([2, 8])
+        _nav02_l, _nav02_r = st.columns([1, 1])
         with _nav02_l:
             if st.button("🏠 홈", key="nav02_home", use_container_width=True):
                 _go_tab("home")
@@ -29007,6 +29204,26 @@ div[data-testid="stSelectbox"] > div > div {
         # ═══════════════════════════════════════════════════════════════
         st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-04")}<span class="gk-sec-title">④ 스마트 스캔 분석 허브</span></div>', unsafe_allow_html=True)
         st.markdown("스마트 스캔 — 보험금 청구 서류, 의무기록, 약관을 업로드하면 AI가 즉시 분석합니다.")
+
+        # ── 상담 고객 선택 (SEC-04) ──────────────────────────────────────
+        _s4_reg = st.session_state.get("gk_client_registry", {})
+        _s4_names = [n for n in _s4_reg.keys() if n not in ("", "익명 고객")]
+        _s4_cur = st.session_state.get("gs_c_name", "") or st.session_state.get("current_c_name", "")
+        _s4_idx = _s4_names.index(_s4_cur) if _s4_cur in _s4_names else 0
+        if _s4_names:
+            _s4_sel = st.selectbox(
+                "👤 상담 고객 선택",
+                options=_s4_names,
+                index=_s4_idx,
+                key="sec04_client_sel",
+                help="GK-SEC-01에서 등록된 고객 목록입니다."
+            )
+            if _s4_sel != _s4_cur:
+                st.session_state["gs_c_name"] = _s4_sel
+                st.session_state["current_c_name"] = _s4_sel
+                st.rerun()
+        else:
+            st.info("💡 GK-SEC-01에서 고객 정보를 먼저 입력하세요.")
 
         _scan_left, _scan_right = st.columns([5, 5], gap="medium")
         with _scan_left:
@@ -31214,6 +31431,24 @@ div[data-testid="stSelectbox"] > div > div {
         # 이름 초기값: gs_c_name이 있고 아직 t0_cname이 세션에 없으면 채워줌
         if "t0_cname" not in st.session_state and _gs_name:
             st.session_state["t0_cname"] = _gs_name
+
+        # ── 상담 고객 선택 Selectbox (t0) ──────────────────────────────────
+        _t0_reg_names = [n for n in _reg.keys() if n not in ("", "익명 고객")]
+        if _t0_reg_names:
+            _t0_sel_cur = st.session_state.get("gs_c_name", "")
+            _t0_sel_idx = _t0_reg_names.index(_t0_sel_cur) if _t0_sel_cur in _t0_reg_names else 0
+            _t0_sel = st.selectbox(
+                "👤 상담 고객 선택 (등록 고객)",
+                options=_t0_reg_names,
+                index=_t0_sel_idx,
+                key="t0_client_sel",
+                help="GK-SEC-01에서 등록된 고객 목록. 선택 시 아래 입력란에 자동 반영됩니다"
+            )
+            if _t0_sel != _t0_sel_cur:
+                st.session_state["gs_c_name"] = _t0_sel
+                st.session_state["current_c_name"] = _t0_sel
+                st.session_state["t0_cname"] = _t0_sel
+                st.rerun()
 
         # 이름 수정 모드 (3-1 조건)
         _name_col, _edit_col = st.columns([5, 1])
