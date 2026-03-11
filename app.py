@@ -979,15 +979,17 @@ def render_job_navigator(session_prefix: str = "job_nav", compact: bool = False)
         _gc = _JOB_GRADE_COLORS[_cur_grade]
         _gl = _JOB_GRADE_LABELS[_cur_grade]
         _gi = _JOB_GRADE_ICONS[_cur_grade]
+        _grade_bg = {1: "#f0fdf4", 2: "#fffbeb", 3: "#fff1f2"}.get(_cur_grade, "#f8fafc")
         _grade_cols = st.columns([3, 2])
         with _grade_cols[0]:
             st.markdown(
-                f"<div style='background:{_gc}22;border:1.5px solid {_gc};"
-                f"border-radius:10px;padding:8px 12px;margin-top:6px;'>"
-                f"<span style='font-size:0.85rem;font-weight:700;color:{_gc};'>"
-                f"{_gi} 상해급수: {_gl}</span><br>"
-                f"<span style='font-size:0.72rem;color:#374151;'>"
-                f"직업코드: {st.session_state.get(f'{session_prefix}_code','')}</span>"
+                f"<div style='background:{_grade_bg};border:2px solid {_gc};"
+                f"border-radius:14px;padding:16px 18px;margin-top:6px;text-align:center;'>"
+                f"<div style='font-size:2.6rem;line-height:1;'>{_gi}</div>"
+                f"<div style='font-size:1.15rem;font-weight:900;color:{_gc};margin-top:6px;'>"
+                f"{_gl}</div>"
+                f"<div style='font-size:0.74rem;color:#6b7280;margin-top:4px;'>"
+                f"직업코드: {st.session_state.get(f'{session_prefix}_code','')}</div>"
                 f"</div>",
                 unsafe_allow_html=True
             )
@@ -995,10 +997,10 @@ def render_job_navigator(session_prefix: str = "job_nav", compact: bool = False)
             if _cur_flags:
                 st.markdown(
                     "<div style='background:#fff7ed;border:1px dashed #f59e0b;"
-                    "border-radius:8px;padding:6px 10px;margin-top:6px;'>"
-                    "<div style='font-size:0.72rem;font-weight:800;color:#92400e;margin-bottom:3px;'>"
+                    "border-radius:10px;padding:10px 14px;margin-top:6px;'>"
+                    "<div style='font-size:0.78rem;font-weight:800;color:#92400e;margin-bottom:6px;'>"
                     "⚠️ 고지/통지의무 체크리스트</div>"
-                    + "".join(f"<div style='font-size:0.71rem;color:#7c3aed;'>▸ {f}</div>" for f in _cur_flags)
+                    + "".join(f"<div style='font-size:0.76rem;color:#7c3aed;padding:2px 0;'>▸ {f}</div>" for f in _cur_flags)
                     + "</div>",
                     unsafe_allow_html=True
                 )
@@ -8156,6 +8158,8 @@ SECTOR_CODES: dict = {
     "2300": {"name": "장해 산출",       "tab_key": "disability",    "keywords": ["장해산출", "장해보험금", "후유장해", "맥브라이드", "AMA", "장해율", "장해", "장해계산", "장해판정"]},
     "2400": {"name": "KCD 상해 분석",  "tab_key": "kcd_injury",    "keywords": ["KCD상해", "S코드", "M코드", "외인코드", "kcd분석", "상해코드", "손해사정", "6개월전환", "기여도", "S.T.V.W.X.Y", "질병코드", "kcd"]},
     "2500": {"name": "자동차보험 보상 실무", "tab_key": "auto_comp", "keywords": ["자동차보험실무", "자상자신비교", "산재경합", "과실상계", "캠핑카보험", "자동차상해", "자기신체사고", "휴업급여", "위자료", "보상비교", "산재자동차", "자동차보상", "자동차실무", "보상실무"]},
+    # ── GK-JOB: 계층형 직업 진단 엔진 ────────────────────────────────────────
+    "2600": {"name": "직업 진단 엔진", "tab_key": "gk_job", "keywords": ["직업진단", "직업분류", "상해급수", "직업코드", "고지의무직업", "직업탐색기", "보험직업분류", "gk-job", "직업위험등급", "직업검색", "대분류중분류소분류", "직업급수판정", "직업조회", "직업등록", "상해급수판정"]},
     # ── 3000번대: 질환 상담 (암·뇌·심장) ───────────────────────────────
     "3000": {"name": "암 질환 상담",    "tab_key": "cancer",        "keywords": ["암상담", "암질환", "표적항암", "면역항암", "NGS", "CAR-T", "항암치료", "암진단", "암보험", "암", "항암", "암보장"]},
     "3100": {"name": "뇌 질환 상담",    "tab_key": "brain",         "keywords": ["뇌상담", "뇌졸중", "뇌경색", "뇌출혈", "중풍", "뇌질환", "뇌혈관", "뇌", "뇌보장"]},
@@ -9387,6 +9391,30 @@ def _gp103_build_script(
 # [RAG-SECTOR] 섹터별 지능형 RAG 자가호출 엔진
 # 업로드된 PDF(과실비율·약관·장해판정 등)를 섹터별로 인덱싱·검색
 # ══════════════════════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GK-JOB] 계층형 직업 진단 엔진 렌더러
+# ══════════════════════════════════════════════════════════════════════════════
+def _render_gk_job():
+    """GK-JOB 계층형 직업 진단 엔진 — 보험개발원 표준 직업분류 기반"""
+    import streamlit as st
+
+    st.markdown(
+        "<div style='background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);"
+        "border-radius:14px;padding:16px 20px;margin-bottom:14px;'>"
+        "<div style='font-size:1.2rem;font-weight:900;color:#fff;letter-spacing:0.04em;'>"
+        "🔬 직업 진단 엔진</div>"
+        "<div style='font-size:0.78rem;color:#bfdbfe;margin-top:4px;'>"
+        "보험개발원 표준 직업분류 · 상해급수 자동 판정 · 고지의무 체크리스트</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    _result = render_job_navigator(session_prefix="gk_job_nav")
+
+    if _result:
+        st.session_state["gk_job_result"] = _result
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # [GK-SEC-08] 화재·특종보험 전술 상담 센터 렌더러
@@ -31032,6 +31060,13 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
     # ══════════════════════════════════════════════════════════════════════
     if cur == "war_room":
         show_war_room()
+        st.stop()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [GK-JOB] 계층형 직업 진단 엔진 라우터
+    # ══════════════════════════════════════════════════════════════════════
+    if cur == "gk_job":
+        _render_gk_job()
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
