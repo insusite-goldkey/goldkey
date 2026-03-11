@@ -32139,6 +32139,42 @@ div[data-testid="stSelectbox"] > div > div {
         }
 
     # ══════════════════════════════════════════════════════════════════════
+    # [NameError 방지] cur를 module-level global로 노출
+    # main() 밖 라우터 블록(if cur == ...)들이 참조할 수 있도록 설정
+    # ══════════════════════════════════════════════════════════════════════
+    import builtins as _builtins
+    _builtins._goldkey_cur = cur
+    _builtins._goldkey_go_tab = _go_tab
+    _builtins._goldkey_get_planner_info = _get_planner_info
+
+# ── module-level cur 호환 래퍼 ─────────────────────────────────────────────
+# main() 외부의 라우터 블록들이 cur 변수를 직접 참조하므로,
+# builtins에 저장된 값을 module-level 변수로 공급
+import builtins as _builtins_mod
+try:
+    cur = _builtins_mod._goldkey_cur
+except AttributeError:
+    cur = st.session_state.get("current_tab", "home")
+
+try:
+    _go_tab = _builtins_mod._goldkey_go_tab
+except AttributeError:
+    def _go_tab(dest: str):
+        st.session_state.current_tab = dest
+        st.rerun()
+
+try:
+    _get_planner_info = _builtins_mod._goldkey_get_planner_info
+except AttributeError:
+    def _get_planner_info() -> dict:
+        return {
+            "company": st.session_state.get("gp200_company", ""),
+            "branch":  st.session_state.get("gp200_branch",  ""),
+            "name":    st.session_state.get("gp200_name",    "")
+                       or st.session_state.get("user_name",  ""),
+            "contact": st.session_state.get("gp200_contact", ""),
+        }
+
 def _rag_annotate_report(report_text: str) -> str:
     """AI 보고서 텍스트에 약관 근거(몇 조, 몇 페이지) 주석을 자동 삽입.
 
