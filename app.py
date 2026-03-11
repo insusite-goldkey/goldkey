@@ -891,10 +891,9 @@ def render_corp_autocomplete(
     return _selected
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
 # [GP-JOB] 계층형 보험 직업분류 DB (보험개발원 표준, 대-중-소분류 + 상해급수)
-# 상해급수: 1급(녹색,저위험) / 2급(황색,중위험) / 3급(적색,고위험)
-# ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
 _JOB_TREE_DB: dict = {
     "사무/관리직": {
         "경영·행정·사무": {
@@ -32737,6 +32736,45 @@ div[data-testid="stSelectbox"] > div > div {
                     f'padding:8px 12px;font-size:0.82rem;font-weight:700;color:{_sick_color};'
                     f'white-space:pre-line;margin-bottom:8px;">{_sick_guide_text}</div>',
                     unsafe_allow_html=True)
+
+            # ── [HIRA-KCD] 질병 코드 자동완성 입력 블록 ──────────────────
+            st.markdown("<hr style='margin:8px 0;border-color:#e2e8f0;'>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='border:1px dashed #000000;border-radius:10px;"
+                "background:#F8FBFF;padding:10px 14px 6px 14px;margin-bottom:10px;'>"
+                "<div style='color:#1565C0;font-weight:900;font-size:0.86rem;margin-bottom:6px;'>"
+                "🔬 질병 진단코드(KCD) 검색 — 심평원 연동 · 보장 매핑 자동 표시</div>",
+                unsafe_allow_html=True,
+            )
+            _kcd_col1, _kcd_col2 = st.columns([3, 2])
+            with _kcd_col1:
+                _si_kcd_name = render_kcd_autocomplete(
+                    label="질병 검색 (한글명 또는 KCD 코드)",
+                    session_key="scan_client_kcd_name",
+                    placeholder="예) 유방암, 뇌경색, C50, I63…",
+                    autofill_kcd_key="scan_client_kcd_code",
+                    show_coverage=True,
+                )
+            with _kcd_col2:
+                _si_kcd_code = st.text_input(
+                    "KCD 코드 (자동 입력 또는 직접 입력)",
+                    value=st.session_state.get("scan_client_kcd_code", ""),
+                    placeholder="예) C50, I63, F00…",
+                    key="scan_kcd_code_manual",
+                )
+                if _si_kcd_code != st.session_state.get("scan_client_kcd_code", ""):
+                    st.session_state["scan_client_kcd_code"] = _si_kcd_code
+                _si_kcd_date = st.text_input(
+                    "진단 확정일 (YYYYMMDD)",
+                    value=st.session_state.get("scan_client_kcd_date", ""),
+                    placeholder="예) 20240315",
+                    max_chars=8,
+                    key="scan_kcd_date_input",
+                )
+                if _si_kcd_date != st.session_state.get("scan_client_kcd_date", ""):
+                    st.session_state["scan_client_kcd_date"] = _si_kcd_date
+            st.markdown("</div>", unsafe_allow_html=True)
+            # ── [HIRA-KCD] 끝 ─────────────────────────────────────────────
 
             _si_items = st.multiselect(
                 "상담 항목 (복수 선택)",
