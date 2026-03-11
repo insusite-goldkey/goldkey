@@ -32723,6 +32723,30 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
     # 독립 컴포넌트 — 기존 코드 무수정
     # ══════════════════════════════════════════════════════════════════════
     def show_home_portal():
+        # ── [V7-BANNER] 전략 마스터 배너 — splash1_goldkey ──────────────────
+        try:
+            _banner_src = _s39_load_splash_b64("splash1_goldkey.b64")
+            if not _banner_src:
+                import base64 as _b64m, os as _osm
+                _bp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "splash1_goldkey.webp")
+                if _osm.path.exists(_bp):
+                    _banner_src = "data:image/webp;base64," + _b64m.b64encode(open(_bp, "rb").read()).decode()
+        except Exception:
+            _banner_src = ""
+        if _banner_src:
+            st.markdown(
+                f"<div style='"
+                f"width:100%;margin:0 0 0 0;padding:0;"
+                f"border-bottom:1px dashed #000;'>"
+                f"<img src='{_banner_src}' "
+                f"style='width:100%;height:auto;max-height:360px;"
+                f"object-fit:cover;object-position:center top;"
+                f"display:block;border-radius:0;"
+                f"' loading='eager' alt='GOLDKEY AI MASTER 배너'/>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
         st.markdown("""
 <style>
 .gk-portal-header{
