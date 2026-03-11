@@ -10993,67 +10993,52 @@ def _rare_gap_analysis(drug: dict) -> dict:
         "warning": drug.get("alert") == "rare_critical",
     }
 
-# ── 약제 → KCD 역추적 매핑 ──────────────────────────────────────────────────
-def _pharma_to_kcd(drug: dict) -> list:
-    """약제 dict에서 KCD 목록 반환 + 보장 매핑"""
-    return drug.get("kcd", [])
+# ── 항암 정밀 엔진 §1 — C코드 KCD → 항암제 조회 ────────────────────────────
+
+_ONC_API_KEY = "19cdcabb4c57"
 
 
-def _pharma_local_search(query: str, limit: int = 8) -> list:
-    """로컬 약제 DB 검색 — 일반 + 희귀의약품 통합"""
-    _ql = query.strip().lower()
-    if not _ql:
+def _chemo_search_by_kcd(kcd_code: str, limit: int = 6) -> list:
+    """C코드 감지 시 연관 항암제 목록 반환.
+    1순위: 국가건강정보포털 API (키: 19cdcabb4c57)
+    2순위: _KCD_TO_CHEMO_MAP → _ONCOLOGY_CHEMO_DB 매칭
+    """
+    import urllib.request as _req
+    import urllib.parse as _up
+    import json as _json
+
+    if not kcd_code or not kcd_code.upper().startswith("C"):
         return []
-    _results = []
-    # 희귀의약품 DB 우선 검색 (상위 노출)
-    for _d in _RARE_DRUG_DB:
-        if (
-            _ql in _d["name"].lower()
-            or _ql in _d.get("brand", "").lower()
-            or _ql in _d.get("ingredient", "").lower()
-            or any(_ql in kw.lower() for kw in _d.get("keywords", []))
-        ):
-            _results.append({**_d, "_source": "local_rare"})
-        if len(_results) >= limit:
-            break
-    # 일반 약제 DB 보충
-    for _d in _PHARMA_LOCAL_DB:
-        if len(_results) >= limit:
-            break
-        if (
-            _ql in _d["name"].lower()
-            or _ql in _d.get("brand", "").lower()
-            or _ql in _d.get("ingredient", "").lower()
-            or any(_ql in kw.lower() for kw in _d.get("keywords", []))
-        ):
-            _results.append({**_d, "_source": "local"})
-    return _results[:limit]
+    _kcd = kcd_code.upper().strip()
 
-
-def _pharma_search(query: str, limit: int = 8) -> list:
-    """[엔진 G §1] 심평원 약가 API → 로컬 폴백"""
-    import urllib.request as _req, urllib.parse as _up, json as _json
-    _key = _hira_get_key()
-    _q   = query.strip()
-    if not _q:
-        return []
-
-    # 심평원 약가 API 시도
     _api_endpoints = [
-        ("https://apis.data.go.kr/B551182/msInfrm/getDrugsInfo",
-         {"serviceKey": _key, "numOfRows": str(limit), "pageNo": "1",
-          "searchText": _q, "_type": "json"}),
-        ("https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList",
-         {"serviceKey": _key, "numOfRows": str(limit), "pageNo": "1",
-          "itemName": _q, "type": "json"}),
+        (
+            "https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList",
+            {
+                "serviceKey": _ONC_API_KEY,
+                "numOfRows": str(limit),
+                "pageNo": "1",
+                "efcyQesitm": "\ud56d\uc554",
+                "type": "json",
+            },
+        ),
+        (
+            "https://apis.data.go.kr/B551182/msInfrm/getDrugsInfo",
+            {
+                "serviceKey": _ONC_API_KEY,
+                "numOfRows": str(limit),
+                "pageNo": "1",
+                "searchText": "\ud56d\uc554",
+                "_type": "json",
+            },
+        ),
     ]
     for _base, _params in _api_endpoints:
         try:
-            _url  = _base + "?" + _up.urlencode(_params)
+            _url = _base + "?" + _up.urlencode(_params)
             _resp = _req.urlopen(_url, timeout=5)
-            _raw  = _json.loads(_resp.read().decode("utf-8"))
-            _body = (_raw.get("response", {}).get("body", {})
-                     or _raw.get("body", {}))
+            _raw = _json.loads(_resp.read().decode("utf-8"))
+            _body = _raw.get("response", {}).get("body", {}) or _raw.get("body", {})
             _items = _body.get("items", {})
             if isinstance(_items, dict):
                 _items = _items.get("item", [])
@@ -11062,28 +11047,249 @@ def _pharma_search(query: str, limit: int = 8) -> list:
             if _items:
                 _out = []
                 for _it in _items[:limit]:
-                    _nm = (_it.get("DRUG_NM") or _it.get("itemName")
-                           or _it.get("drugNm") or "")
-                    _ing = (_it.get("INGR_KOR_NM") or _it.get("efcyQesitm")
-                            or _it.get("mainIngr") or "")
-                    _cat = (_it.get("CLSF_NM") or _it.get("bizrno") or "")
-                    _edi = "급여" if "급여" in str(_it) else "확인필요"
+                    _nm = _it.get("itemName") or _it.get("DRUG_NM") or ""
+                    _ing = _it.get("efcyQesitm") or _it.get("INGR_KOR_NM") or ""
                     if _nm:
                         _out.append({
-                            "code": _it.get("DRUG_CD", ""),
-                            "name": _nm, "brand": "",
-                            "ingredient": _ing, "category": _cat,
-                            "edi": _edi, "signal": "", "kcd": [],
-                            "alert": None, "_source": "hira_api",
-                            "keywords": [],
+                            "name": _nm, "brand": _nm,
+                            "ingredient": _ing[:80] if _ing else "\u2014",
+                            "category": "\ud56d\uc554\uc81c", "edi": "\ud655\uc778\ud544\uc694",
+                            "route": "\u2014", "targeted": False, "high_cost": False,
+                            "annual_cost_krw": 0, "kcd": [_kcd],
+                            "side_effects": _it.get("atpnQesitm", "\u2014")[:80],
+                            "signal": _it.get("efcyQesitm", "\u2014")[:60],
+                            "alert": "chemo", "_source": "health_portal_api",
                         })
                 if _out:
                     return _out
         except Exception:
             continue
 
-    return _pharma_local_search(_q, limit)
+    _target_names = _KCD_TO_CHEMO_MAP.get(_kcd, _KCD_TO_CHEMO_MAP.get(_kcd[:3], []))
+    _out = []
+    _seen: set = set()
+    for _d in _ONCOLOGY_CHEMO_DB:
+        _nm = _d["name"]
+        if _nm in _seen:
+            continue
+        if _kcd in _d.get("kcd", []) or _nm in _target_names:
+            _out.append({**_d, "_source": "local_onc"})
+            _seen.add(_nm)
+        if len(_out) >= limit:
+            break
+    return _out[:limit]
 
+
+# ── 항암 정밀 엔진 §2 — 표적항암제 담보 긴급 점검 알림 ─────────────────────
+
+def _oncology_alert_panel(drug: dict) -> str:
+    """표적항암제/고액비급여 감지 시 [표적항암치료비 담보 긴급 점검] HTML 반환"""
+    _is_targeted = drug.get("targeted", False)
+    _is_high_cost = drug.get("high_cost", False)
+    _annual = drug.get("annual_cost_krw", 0)
+    _drug_name = drug.get("name", "")
+    _drug_brand = drug.get("brand", "")
+    _signal = drug.get("signal", "")
+    if not (_is_targeted or _is_high_cost):
+        return ""
+    _type_badges = ""
+    if _is_targeted:
+        _type_badges += (
+            "<span style='background:#7c3aed;color:#fff;border-radius:5px;"
+            "padding:2px 8px;font-size:0.70rem;font-weight:900;margin-right:4px;'>"
+            "\U0001f3af \ud45c\uc801\ud56d\uc554\uc81c</span>"
+        )
+    if _is_high_cost:
+        _type_badges += (
+            "<span style='background:#dc2626;color:#fff;border-radius:5px;"
+            "padding:2px 8px;font-size:0.70rem;font-weight:900;margin-right:4px;'>"
+            "\U0001f4b8 \uace0\uc561 \ube44\uae09\uc5ec</span>"
+        )
+    _annual_str = (
+        f"\uc5f0\uac04 \uc57d <b style='color:#D4AF37;'>{_annual // 10000:,}\ub9cc\uc6d0</b>"
+        if _annual else ""
+    )
+    _brand_part = (
+        f" ({_drug_brand})" if _drug_brand and _drug_brand != _drug_name else ""
+    )
+    return (
+        "<div style='background:linear-gradient(135deg,#1a0a2e,#2d1b69);"
+        "border:2px dashed #7c3aed;border-radius:12px;"
+        "padding:14px 18px;margin:8px 0;word-break:keep-all;"
+        "box-shadow:0 4px 20px rgba(124,58,237,0.30);'>"
+        "<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;"
+        "margin-bottom:10px;'>"
+        "<span style='font-size:1.1rem;'>\u26a1</span>"
+        "<span style='font-size:0.86rem;font-weight:900;color:#c4b5fd;"
+        "letter-spacing:0.04em;'>\ud45c\uc801\ud56d\uc554\uce58\ub8cc\ube44 \ub2f4\ubcf4 \uae34\uae09 \uc810\uac80</span>"
+        + _type_badges
+        + "</div>"
+        "<div style='background:rgba(255,255,255,0.07);border-radius:8px;"
+        "padding:8px 12px;margin-bottom:10px;font-size:0.78rem;"
+        "color:#e2e8f0;line-height:1.8;'>"
+        f"<b style='color:#D4AF37;'>\uc57d\uc81c\uba85:</b> {_drug_name}{_brand_part}<br>"
+        f"<b style='color:#D4AF37;'>\uc801\uc751\uc99d:</b> {_signal or chr(8212)}<br>"
+        + (f"<b style='color:#D4AF37;'>\uce58\ub8cc\ube44\uc6a9:</b> {_annual_str}<br>"
+           if _annual_str else "")
+        + "</div>"
+        "<div style='font-size:0.76rem;color:#ddd6fe;line-height:1.8;'>"
+        "<div style='font-weight:900;color:#a78bfa;margin-bottom:6px;'>"
+        "\U0001f4cb \uc989\uc2dc \uc810\uac80 \ub2f4\ubcf4 \ud56d\ubaa9</div>"
+        "<div>\u26d4 <b>\ud45c\uc801\ud56d\uc554\uce58\ub8cc\ube44 \ud2b9\uc57d</b>"
+        " \u2014 \uac00\uc785 \uc5ec\ubd80 \ubc0f \ud55c\ub3c4 \ud655\uc778 (\ucd5c\uc18c 3,000\ub9cc\uc6d0 \uad8c\uc7a5)</div>"
+        "<div>\u26d4 <b>\ud56d\uc554\ubc29\uc0ac\uc120\xb7\uc57d\ubb3c\uce58\ub8cc\ube44 \ud2b9\uc57d</b>"
+        " \u2014 \uae09\uc5ec/\ube44\uae09\uc5ec \uad6c\ubd84 \ubcf4\uc7a5 \ubc94\uc704</div>"
+        "<div>\u26d4 <b>\ube44\uae09\uc5ec \ud56d\uc554\uce58\ub8cc\ube44 \ud2b9\uc57d</b>"
+        " \u2014 \uc2e0\uc57d\xb7\ud45c\uc801\uce58\ub8cc \ube44\uae09\uc5ec \ubcf8\uc778\ubd80\ub2f4 \ubcf4\uc7a5</div>"
+        "<div>\u26d4 <b>\uc554\uc9c4\ub2e8\ube44</b>"
+        " \u2014 \ud2b9\uc815\uc554 vs \uc77c\ubc18\uc554 \uc9c0\uae09 \uc870\uac74 \uc7ac\ud655\uc778</div>"
+        "<div>\u26d4 <b>\uc2e4\uc190\ubcf4\ud5d8</b>"
+        " \u2014 \ube44\uae09\uc5ec 30% \ubcf8\uc778\ubd80\ub2f4 \ud56d\ubaa9 \ud55c\ub3c4 \uc18c\uc9c4 \uc5ec\ubd80</div>"
+        "</div>"
+        "<div style='margin-top:10px;padding-top:8px;"
+        "border-top:1px solid rgba(124,58,237,0.4);"
+        "font-size:0.70rem;color:#a78bfa;'>"
+        "\u2696\ufe0f <b>\ubcf4\ud5d8\uc5c5\ubc95 \uc81c95\uc870\uc7582</b>"
+        " \u2014 \ud45c\uc801\ud56d\uc554\uce58\ub8cc\ube44 \ud2b9\uc57d \ubbf8\uc548\ub0b4\ub294 \uc124\uba85\uc758\ubb34 \uc704\ubc18<br>"
+        "\u2696\ufe0f <b>\uae08\uc735\uc18c\ube44\uc790\ubcf4\ud638\ubc95 \uc81c19\uc870</b>"
+        " \u2014 \ube44\uae09\uc5ec \uace0\uc561 \ud56d\uc554\uce58\ub8cc \uad00\ub828 \uc124\uba85 \uc758\ubb34"
+        "</div>"
+        "</div>"
+    )
+
+
+# ── 항암 정밀 엔진 §3 — 항암제 카드 UI ──────────────────────────────────────
+
+def render_oncology_chemo_panel(kcd_code: str, session_key: str = "onco") -> None:
+    """C코드 감지 시 항암제 카드 렌더링 (점선 박스 / Gold 강조 / line-height:1.8)"""
+    import streamlit as _st
+
+    if not kcd_code or not kcd_code.upper().startswith("C"):
+        return
+
+    _kcd = kcd_code.upper().strip()
+    _cache_key = f"{session_key}_chemo_{_kcd}"
+
+    if _cache_key not in _st.session_state:
+        with _st.spinner(f"\U0001f9ec {_kcd} \ud56d\uc554\uc81c \uc815\ubcf4 \uc870\ud68c \uc911\u2026"):
+            _st.session_state[_cache_key] = _chemo_search_by_kcd(_kcd, limit=6)
+
+    _drugs = _st.session_state.get(_cache_key, [])
+    if not _drugs:
+        return
+
+    _src_tag = (
+        "\U0001f310 \uad6d\uac00\uac74\uac15\uc815\ubcf4\ud3ec\ud138 API"
+        if any(d.get("_source") == "health_portal_api" for d in _drugs)
+        else "\U0001f4cb \ub0b4\uc7a5 \ud56d\uc554 DB"
+    )
+    _st.markdown(
+        f"<div style='border:1px dashed #000;border-radius:12px;"
+        f"background:linear-gradient(135deg,#0f172a,#1e1b4b);"
+        f"padding:14px 18px;margin-bottom:10px;'>"
+        f"<div style='display:flex;align-items:center;gap:10px;flex-wrap:wrap;"
+        f"margin-bottom:10px;'>"
+        f"<span style='font-size:1.2rem;'>\U0001f9ec</span>"
+        f"<span style='font-size:0.92rem;font-weight:900;color:#D4AF37;"
+        f"letter-spacing:0.04em;'>\ud56d\uc554 \uc815\ubc00 \uc815\ubcf4 \uc5d4\uc9c4 \u2014 [{_kcd}] \uc5f0\uad00 \ud56d\uc554\uc81c</span>"
+        f"<span style='background:#1e40af;color:#bfdbfe;border-radius:5px;"
+        f"padding:1px 8px;font-size:0.68rem;font-weight:700;'>{_src_tag}</span>"
+        f"<span style='background:#374151;color:#e5e7eb;border-radius:5px;"
+        f"padding:1px 8px;font-size:0.68rem;'>{len(_drugs)}\uac74</span>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    _has_targeted = any(d.get("targeted") for d in _drugs)
+    _has_high_cost = any(d.get("high_cost") for d in _drugs)
+    if _has_targeted or _has_high_cost:
+        _st.session_state["risk_badge_override"] = "FLASH_RED"
+        _st.session_state["risk_badge_reason"] = (
+            f"\ud45c\uc801\ud56d\uc554\uc81c/\uace0\uc561\ube44\uae09\uc5ec \uac10\uc9c0 \u2014 {_kcd}"
+        )
+
+    for _d in _drugs:
+        _edi = _d.get("edi", "")
+        _edi_color = (
+            "#1d4ed8" if _edi == "\uae09\uc5ec"
+            else ("#dc2626" if _edi == "\ube44\uae09\uc5ec" else "#6b7280")
+        )
+        _edi_bg = (
+            "#dbeafe" if _edi == "\uae09\uc5ec"
+            else ("#fee2e2" if _edi == "\ube44\uae09\uc5ec" else "#f1f5f9")
+        )
+        _edi_label = (
+            "\U0001f535 \uae09\uc5ec" if _edi == "\uae09\uc5ec"
+            else ("\U0001f534 \ube44\uae09\uc5ec" if _edi == "\ube44\uae09\uc5ec"
+                  else f"\u26aa {_edi}")
+        )
+        _targeted_badge = (
+            "<span style='background:#7c3aed;color:#fff;border-radius:5px;"
+            "padding:1px 7px;font-size:0.68rem;font-weight:900;'>"
+            "\U0001f3af \ud45c\uc801</span> "
+            if _d.get("targeted") else ""
+        )
+        _high_cost_badge = (
+            "<span style='background:#dc2626;color:#fff;border-radius:5px;"
+            "padding:1px 7px;font-size:0.68rem;font-weight:900;'>"
+            "\U0001f4b8 \uace0\uc561\ube44\uae09\uc5ec</span> "
+            if _d.get("high_cost") else ""
+        )
+        _annual = _d.get("annual_cost_krw", 0)
+        _annual_tag = (
+            f"<span style='background:#fef2f2;color:#b91c1c;"
+            f"border:1px solid #fca5a5;border-radius:5px;"
+            f"padding:1px 7px;font-size:0.68rem;font-weight:900;'>"
+            f"\uc5f0\uac04 \uc57d {_annual // 10000:,}\ub9cc\uc6d0</span>"
+            if _annual else ""
+        )
+        _st.markdown(
+            f"<div style='border:1px dashed #000;border-radius:10px;"
+            f"background:#fff;padding:12px 16px;margin-bottom:8px;"
+            f"word-break:keep-all;'>"
+            f"<div style='display:flex;align-items:center;gap:8px;"
+            f"flex-wrap:wrap;margin-bottom:6px;'>"
+            f"<span style='font-size:1.1rem;'>\U0001f48a</span>"
+            f"<span style='font-size:0.90rem;font-weight:900;color:#1e293b;'>"
+            f"{_d['name']}</span>"
+            + (f"<span style='font-size:0.74rem;color:#64748b;'>"
+               f"({_d.get('brand', '')})</span>"
+               if _d.get("brand") and _d["brand"] != _d["name"] else "")
+            + f"<span style='background:{_edi_bg};color:{_edi_color};"
+            f"border:1px solid {_edi_color};border-radius:6px;"
+            f"padding:1px 8px;font-size:0.72rem;font-weight:900;'>{_edi_label}</span>"
+            + _targeted_badge + _high_cost_badge
+            + "</div>"
+            f"<div style='display:grid;grid-template-columns:70px 1fr;"
+            f"gap:3px 10px;font-size:0.75rem;margin-bottom:6px;line-height:1.8;'>"
+            f"<span style='color:#6b7280;font-weight:700;'>\uc8fc\uc131\ubd84</span>"
+            f"<span style='color:#1e293b;word-break:break-all;'>"
+            f"{_d.get('ingredient', chr(8212))}</span>"
+            f"<span style='color:#6b7280;font-weight:700;'>\ud6a8\ub2a5\uad70</span>"
+            f"<span style='color:#1e293b;'>{_d.get('category', chr(8212))}</span>"
+            + (f"<span style='color:#6b7280;font-weight:700;'>\uc801\uc751\uc99d</span>"
+               f"<span style='color:#374151;word-break:keep-all;'>"
+               f"<b style='color:#D4AF37;'>{_d.get('signal', chr(8212))}</b></span>"
+               if _d.get("signal") else "")
+            + (f"<span style='color:#6b7280;font-weight:700;'>\ubd80\uc791\uc6a9</span>"
+               f"<span style='color:#374151;word-break:keep-all;'>"
+               f"{_d.get('side_effects', chr(8212))}</span>"
+               if _d.get("side_effects") and _d.get("side_effects") != chr(8212) else "")
+            + "</div>"
+            + (f"<div style='margin-bottom:4px;'>{_annual_tag}</div>"
+               if _annual_tag else "")
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+
+        _alert_html = _oncology_alert_panel(_d)
+        if _alert_html:
+            _st.markdown(_alert_html, unsafe_allow_html=True)
+
+    _st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ── 항암 정밀 엔진 §4 — render_pharma_panel ────────────────────────────────
 
 def render_pharma_panel(session_key: str = "pharma") -> None:
     """[엔진 G §2] 약제 정보 + 질병 역추적 UI"""
@@ -11093,30 +11299,31 @@ def render_pharma_panel(session_key: str = "pharma") -> None:
         "<div style='border:1px dashed #000;border-radius:12px;"
         "background:#f0fdf4;padding:14px 18px;margin-bottom:10px;'>"
         "<div style='font-size:0.90rem;font-weight:900;color:#065f46;margin-bottom:8px;'>"
-        "💊 약제 역진단 엔진 — [엔진 G] 심평원 약가 연동</div>"
+        "\U0001f48a \uc57d\uc81c \uc5ed\uc9c4\ub2e8 \uc5d4\uc9c4 \u2014 [\uc5d4\uc9c4 G] \uc2ec\ud3c9\uc6d0 \uc57d\uac00 \uc5f0\ub3d9</div>"
         "<div style='font-size:0.74rem;color:#374151;margin-bottom:10px;"
         "word-break:keep-all;'>"
-        "약 이름 또는 성분명을 입력하면 KCD 질병코드를 역추적하고, "
-        "항암제·희귀난치성 약제 감지 시 관련 보험 특약을 자동으로 안내합니다.</div>",
+        "\uc57d \uc774\ub984 \ub610\ub294 \uc131\ubd84\uba85\uc744 \uc785\ub825\ud558\uba74 KCD \uc9c8\ubcd1\ucf54\ub4dc\ub97c \uc5ed\ucd94\uc801\ud558\uace0, "
+        "\ud56d\uc554\uc81c\xb7\ud76c\uadc0\ub09c\uce58\uc131 \uc57d\uc81c \uac10\uc9c0 \uc2dc \uad00\ub828 \ubcf4\ud5d8 \ud2b9\uc57d\uc744 \uc790\ub3d9\uc73c\ub85c \uc548\ub0b4\ud569\ub2c8\ub2e4.</div>",
         unsafe_allow_html=True,
     )
 
     _col_in, _col_btn = _st.columns([4, 1], gap="small")
     with _col_in:
         _drug_q = _st.text_input(
-            "약 이름 / 성분명 / 제품명",
+            "\uc57d \uc774\ub984 / \uc131\ubd84\uba85 / \uc81c\ud488\uba85",
             value=_st.session_state.get(f"{session_key}_q", ""),
-            placeholder="예) 메트포르민, 글루코파지, 허셉틴, 아스피린…",
+            placeholder="\uc608) \uba54\ud2b8\ud3ec\ub974\ubbfc, \uae00\ub8e8\ucf54\ud30c\uc9c0, \ud5c8\uc149\ud2f4, \uc544\uc2a4\ud53c\ub9b0\u2026",
             key=f"{session_key}_input",
         )
     with _col_btn:
         _st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
-        _do_search = _st.button("🔍 검색", key=f"{session_key}_btn",
-                                use_container_width=True)
+        _do_search = _st.button(
+            "\U0001f50d \uac80\uc0c9", key=f"{session_key}_btn", use_container_width=True
+        )
 
     if _do_search and _drug_q.strip():
         _st.session_state[f"{session_key}_q"] = _drug_q.strip()
-        with _st.spinner("약제 정보 조회 중…"):
+        with _st.spinner("\uc57d\uc81c \uc815\ubcf4 \uc870\ud68c \uc911\u2026"):
             _results = _pharma_search(_drug_q.strip(), 6)
         _st.session_state[f"{session_key}_results"] = _results
 
@@ -11126,126 +11333,142 @@ def render_pharma_panel(session_key: str = "pharma") -> None:
         _st.markdown("</div>", unsafe_allow_html=True)
         return
 
-    _src_tag = ("🌐 심평원 API" if any(r.get("_source") == "hira_api" for r in _results)
-                else "📋 내장 DB")
+    _src_tag = (
+        "\U0001f310 \uc2ec\ud3c9\uc6d0 API"
+        if any(r.get("_source") == "hira_api" for r in _results)
+        else "\U0001f4cb \ub0b4\uc7a5 DB"
+    )
     _st.markdown(
         f"<div style='font-size:0.68rem;color:#64748b;margin-bottom:8px;'>"
-        f"{_src_tag} — {len(_results)}건 검색됨</div>",
+        f"{_src_tag} \u2014 {len(_results)}\uac74 \uac80\uc0c9\ub428</div>",
         unsafe_allow_html=True,
     )
 
     for _d in _results:
-        _edi      = _d.get("edi", "")
-        _edi_color = "#1d4ed8" if _edi == "급여" else ("#dc2626" if _edi == "비급여" else "#6b7280")
-        _edi_bg    = "#dbeafe" if _edi == "급여" else ("#fee2e2" if _edi == "비급여" else "#f1f5f9")
-        _edi_label = ("🔵 급여" if _edi == "급여" else ("🔴 비급여" if _edi == "비급여" else f"⚪ {_edi}"))
-
-        _kcd_list  = _d.get("kcd", [])
-        _kcd_tags  = "".join(
+        _edi = _d.get("edi", "")
+        _edi_color = (
+            "#1d4ed8" if _edi == "\uae09\uc5ec"
+            else ("#dc2626" if _edi == "\ube44\uae09\uc5ec" else "#6b7280")
+        )
+        _edi_bg = (
+            "#dbeafe" if _edi == "\uae09\uc5ec"
+            else ("#fee2e2" if _edi == "\ube44\uae09\uc5ec" else "#f1f5f9")
+        )
+        _edi_label = (
+            "\U0001f535 \uae09\uc5ec" if _edi == "\uae09\uc5ec"
+            else ("\U0001f534 \ube44\uae09\uc5ec" if _edi == "\ube44\uae09\uc5ec"
+                  else f"\u26aa {_edi}")
+        )
+        _kcd_list = _d.get("kcd", [])
+        _kcd_tags = "".join(
             f"<span style='background:#f1f5f9;color:#1e293b;border:1px solid #e2e8f0;"
             f"border-radius:5px;padding:1px 7px;font-size:0.70rem;font-weight:700;'>"
             f"{kc}</span> "
             for kc in _kcd_list[:4]
         )
         _alert = _d.get("alert")
-
         _is_rare = _is_rare_critical(_d)
         _rare_border = (
-            "border:2px solid #d97706;background:linear-gradient(135deg,#fffbeb,#fff7ed);"
+            "border:2px solid #d97706;"
+            "background:linear-gradient(135deg,#fffbeb,#fff7ed);"
             if _is_rare else "border:1px dashed #000;background:#fff;"
         )
         _rare_emblem = (
             "<span style='background:linear-gradient(135deg,#f59e0b,#d97706);"
             "color:#fff;border-radius:6px;padding:2px 8px;font-size:0.70rem;"
             "font-weight:900;margin-left:4px;letter-spacing:0.04em;'>"
-            "⚜️ 국가지정 희귀의약품</span>"
+            "\u269c\ufe0f \uad6d\uac00\uc9c0\uc815 \ud76c\uadc0\uc758\uc57d\ud488</span>"
             if _is_rare else ""
         )
         _annual = _d.get("annual_cost_krw", 0)
         _annual_tag = (
             f"<span style='background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;"
             f"border-radius:5px;padding:1px 7px;font-size:0.68rem;font-weight:900;'>"
-            f"연간 치료비 약 {_annual//10000:,}만원</span>"
+            f"\uc5f0\uac04 \uce58\ub8cc\ube44 \uc57d {_annual // 10000:,}\ub9cc\uc6d0</span>"
             if _annual else ""
         )
         _st.markdown(
             f"<div style='{_rare_border}border-radius:10px;"
-            f"padding:12px 16px;margin-bottom:8px;word-break:keep-all;'>"
-            # 희귀약 경고 배너
-            + (f"<div style='background:#d97706;color:#fff;border-radius:6px 6px 0 0;"
-               f"padding:5px 12px;font-size:0.74rem;font-weight:900;"
-               f"margin:-12px -16px 10px -16px;letter-spacing:0.04em;'>"
-               f"🚨 국가 지정 희귀의약품 — 최고위험 경보 발동</div>"
-               if _is_rare else "")
-            # 헤더줄
+            f"padding:12px 16px;margin-bottom:8px;"
+            f"word-break:keep-all;line-height:1.8;'>"
+            + (
+                f"<div style='background:#d97706;color:#fff;border-radius:6px 6px 0 0;"
+                f"padding:5px 12px;font-size:0.74rem;font-weight:900;"
+                f"margin:-12px -16px 10px -16px;letter-spacing:0.04em;'>"
+                f"\U0001f6a8 \uad6d\uac00 \uc9c0\uc815 \ud76c\uadc0\uc758\uc57d\ud488 \u2014 \ucd5c\uace0\uc704\ud5d8 \uacbd\ubcf4 \ubc1c\ub3d9</div>"
+                if _is_rare else ""
+            )
             + f"<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;"
             f"margin-bottom:6px;'>"
-            f"<span style='font-size:1.3rem;'>💊</span>"
+            f"<span style='font-size:1.3rem;'>\U0001f48a</span>"
             f"<span style='font-size:0.90rem;font-weight:900;"
             f"color:{'#92400e' if _is_rare else '#065f46'};'>"
             f"{_d['name']}</span>"
-            + (f"<span style='font-size:0.74rem;color:#64748b;'>({_d.get('brand','')})</span>"
-               if _d.get('brand') else "")
+            + (f"<span style='font-size:0.74rem;color:#64748b;'>"
+               f"({_d.get('brand', '')})</span>"
+               if _d.get("brand") else "")
             + f"<span style='background:{_edi_bg};color:{_edi_color};"
             f"border:1px solid {_edi_color};border-radius:6px;"
             f"padding:1px 8px;font-size:0.72rem;font-weight:900;'>{_edi_label}</span>"
             + _rare_emblem
-            + f"</div>"
-            # 성분 / 분류 (성분명은 break-all)
+            + "</div>"
             f"<div style='display:grid;grid-template-columns:70px 1fr;"
             f"gap:3px 10px;font-size:0.75rem;margin-bottom:6px;'>"
-            f"<span style='color:#6b7280;font-weight:700;'>주성분</span>"
-            f"<span style='color:#1e293b;word-break:break-all;'>{_d.get('ingredient','—')}</span>"
-            f"<span style='color:#6b7280;font-weight:700;'>효능군</span>"
-            f"<span style='color:#1e293b;'>{_d.get('category','—')}</span>"
-            + (f"<span style='color:#6b7280;font-weight:700;'>적응질환</span>"
+            f"<span style='color:#6b7280;font-weight:700;'>\uc8fc\uc131\ubd84</span>"
+            f"<span style='color:#1e293b;word-break:break-all;'>"
+            f"{_d.get('ingredient', chr(8212))}</span>"
+            f"<span style='color:#6b7280;font-weight:700;'>\ud6a8\ub2a5\uad70</span>"
+            f"<span style='color:#1e293b;'>{_d.get('category', chr(8212))}</span>"
+            + (f"<span style='color:#6b7280;font-weight:700;'>\uc801\uc751\uc9c8\ud658</span>"
                f"<span style='color:#374151;word-break:keep-all;'>"
-               f"{_d.get('rare_disease') or _d.get('signal','—')}</span>"
-               if _d.get('rare_disease') or _d.get('signal') else "")
-            + f"</div>"
-            # 연간 치료비 태그
-            + (f"<div style='margin-bottom:6px;'>{_annual_tag}</div>" if _annual_tag else "")
-            # KCD 역추적 태그
+               f"<b style='color:#D4AF37;'>"
+               f"{_d.get('rare_disease') or _d.get('signal', chr(8212))}</b></span>"
+               if _d.get("rare_disease") or _d.get("signal") else "")
+            + "</div>"
+            + (f"<div style='margin-bottom:6px;'>{_annual_tag}</div>"
+               if _annual_tag else "")
             + (f"<div style='margin-bottom:5px;'>"
                f"<span style='font-size:0.70rem;font-weight:700;color:#374151;'>"
-               f"🔬 KCD 역추적: </span>{_kcd_tags}</div>"
+               f"\U0001f52c KCD \uc5ed\ucd94\uc801: </span>{_kcd_tags}</div>"
                if _kcd_tags else "")
-            + f"</div>",
+            + "</div>",
             unsafe_allow_html=True,
         )
 
-        # 희귀약 보장 공백 분석
         if _is_rare:
             _gap_info = _rare_gap_analysis(_d)
             if _gap_info["gaps"]:
                 _gap_html = "".join(
                     f"<div style='display:flex;align-items:flex-start;gap:6px;"
                     f"margin-bottom:4px;font-size:0.74rem;'>"
-                    f"<span style='color:#b91c1c;font-weight:900;flex-shrink:0;'>⛔</span>"
+                    f"<span style='color:#b91c1c;font-weight:900;flex-shrink:0;'>\u26d4</span>"
                     f"<span style='color:#1e293b;word-break:keep-all;'>{g}</span></div>"
                     for g in _gap_info["gaps"]
                 )
                 _warning_msg = _PHARMA_ALERT_INFO.get("rare_critical", {}).get(
-                    "gap_warning", "국가 지정 희귀약물 사용 시 보장 자산 부족")
+                    "gap_warning", "\uad6d\uac00 \uc9c0\uc815 \ud76c\uadc0\uc57d\ubb3c \uc0ac\uc6a9 \uc2dc \ubcf4\uc7a5 \uc790\uc0b0 \ubd80\uc871"
+                )
                 _st.markdown(
                     f"<div style='background:#fff1f2;border:2px dashed #b91c1c;"
                     f"border-radius:10px;padding:12px 16px;margin-bottom:10px;"
                     f"word-break:keep-all;'>"
                     f"<div style='font-size:0.84rem;font-weight:900;color:#b91c1c;"
                     f"margin-bottom:8px;letter-spacing:0.03em;'>"
-                    f"🚨 보장 자산 긴급 점검 — {_warning_msg}</div>"
+                    f"\U0001f6a8 \ubcf4\uc7a5 \uc790\uc0b0 \uae34\uae09 \uc810\uac80 \u2014 {_warning_msg}</div>"
                     f"{_gap_html}"
                     f"<div class='risk-law-ref' style='margin-top:8px;'>"
-                    f"⚖️ <b>희귀질환관리법 제17조</b> — 국가 희귀의약품 지원 범위 확인<br>"
-                    f"⚖️ <b>보험업법 제95조의2</b> — 특약 미가입 공백은 설명의무 대상</div>"
+                    f"\u2696\ufe0f <b>\ud76c\uadc0\uc9c8\ud658\uad00\ub9ac\ubc95 \uc81c17\uc870</b>"
+                    f" \u2014 \uad6d\uac00 \ud76c\uadc0\uc758\uc57d\ud488 \uc9c0\uc6d0 \ubc94\uc704 \ud655\uc778<br>"
+                    f"\u2696\ufe0f <b>\ubcf4\ud5d8\uc5c5\ubc95 \uc81c95\uc870\uc758 2</b>"
+                    f" \u2014 \ud2b9\uc57d \ubbf8\uac00\uc785 \uacf5\ubc31\uc740 \uc124\uba85\uc758\ubb34 \ub300\uc0c1</div>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
-            # FLASHING RED 배지 — session_state에 badge_override 설정
             _st.session_state["risk_badge_override"] = "FLASH_RED"
-            _st.session_state["risk_badge_reason"]   = _d.get("rare_disease", _d["name"])
+            _st.session_state["risk_badge_reason"] = _d.get(
+                "rare_disease", _d["name"]
+            )
 
-        # 항암제/희귀난치성 알림 박스
         if _alert and _alert in _PHARMA_ALERT_INFO:
             _ai = _PHARMA_ALERT_INFO[_alert]
             _desc_html = _ai["desc"].replace("\n", "<br>")
@@ -11258,25 +11481,29 @@ def render_pharma_panel(session_key: str = "pharma") -> None:
                 f"<div style='font-size:0.76rem;color:#374151;line-height:1.85;'>"
                 f"{_desc_html}</div>"
                 f"<div class='risk-law-ref' style='margin-top:8px;'>"
-                f"⚖️ <b>{_ai['law']}</b></div>"
+                f"\u2696\ufe0f <b>{_ai['law']}</b></div>"
                 f"<div style='margin-top:8px;background:#fff;border:1px dashed #000;"
                 f"border-radius:6px;padding:6px 10px;font-size:0.72rem;font-weight:700;"
                 f"color:#1d4ed8;'>"
-                f"📄 {_ai['policy_hint']}</div>"
+                f"\U0001f4c4 {_ai['policy_hint']}</div>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
 
-        # KCD 세션 자동 저장 (첫 번째 KCD를 GK-RISK에 연동)
         if _kcd_list and not _st.session_state.get(f"{session_key}_kcd_set"):
             _st.session_state["risk_kcd_code"] = _kcd_list[0]
             _st.session_state[f"{session_key}_kcd_set"] = True
             _st.markdown(
                 f"<div style='font-size:0.70rem;color:#16a34a;font-weight:700;"
                 f"margin-bottom:4px;'>"
-                f"✅ KCD [{_kcd_list[0]}] → 위험 분석 섹터에 자동 연동됨</div>",
+                f"\u2705 KCD [{_kcd_list[0]}] \u2192 \uc704\ud5d8 \ubd84\uc11d \uc139\ud130\uc5d0 \uc790\ub3d9 \uc5f0\ub3d9\ub428</div>",
                 unsafe_allow_html=True,
             )
+            _c_code = _kcd_list[0]
+            if _c_code.upper().startswith("C"):
+                render_oncology_chemo_panel(
+                    _c_code, session_key=f"{session_key}_onco"
+                )
 
     _st.markdown("</div>", unsafe_allow_html=True)
 
@@ -22918,6 +23145,150 @@ def render_goldkey_sidebar():
     설계사: {_gp50_uname or _gp50_uid} &nbsp;|&nbsp; 기기 #{_gp50_dev}</div>
 </div>"""
         st.sidebar.markdown(_gp50_badge_html, unsafe_allow_html=True)
+
+    # ── [법적 고지 §1] 내보험다보여 전용 안내문 ──────────────────────────────
+    st.sidebar.markdown("""
+<div style="border:1px dashed #000;border-radius:10px;background:#f9fafb;
+  padding:10px 13px;margin-bottom:8px;word-break:keep-all;line-height:1.5;">
+  <div style="font-size:11px;color:#374151;font-weight:700;margin-bottom:5px;
+    letter-spacing:0.02em;">
+    🏦 내 보험 다보여 서비스 안내
+  </div>
+  <div style="font-size:11px;color:#6b7280;line-height:1.5;">
+    본 서비스는 <b style="color:#1d4ed8;">한국신용정보원</b>의 데이터를 활용하며,
+    고객님의 인증 없이는 어떠한 정보도 수집하지 않습니다.<br>
+    <span style="font-size:10px;color:#9ca3af;">
+    ⚖️ 신용정보법 제32조 · 개인정보보호법 제15조 준수
+    </span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+    # ── [법적 고지 §2] 필수 동의 4개 항목 + [보기] 버튼 ─────────────────────
+    _LEGAL_TERMS = [
+        {
+            "key": "sb_consent1",
+            "badge": "[필수]",
+            "title": "개인정보 수집 및 이용 동의",
+            "law": "개인정보보호법 제15조",
+            "content": """<b>수집 목적:</b> 보험 가입 현황 조회, 보장 분석, 맞춤 설계 제안<br>
+<b>수집 항목:</b> 성명, 생년월일(해시), 연락처, 보험 가입 내역<br>
+<b>보유 기간:</b> 상담 종료 즉시 원본 파기 / 통계용 해시값 1년 보존<br>
+<b>보안 처리:</b> AES-256 암호화 저장, 원본 비저장 원칙<br>
+<b>근거 법령:</b> 개인정보보호법 제15조 (수집·이용), 제17조 (제3자 제공)""",
+        },
+        {
+            "key": "sb_consent2",
+            "badge": "[필수]",
+            "title": "고유식별정보 처리 동의",
+            "law": "개인정보보호법 제24조",
+            "content": """<b>처리 항목:</b> 주민등록번호 앞 6자리(생년월일), CI(연계정보)<br>
+<b>처리 목적:</b> 본인 인증, 보험계약 확인, 중복 조회 방지<br>
+<b>보안 처리:</b> SHA-256 해싱 처리 후 원본 즉시 폐기, 복호화 불가<br>
+<b>근거 법령:</b> 개인정보보호법 제24조 (고유식별정보의 처리 제한)""",
+        },
+        {
+            "key": "sb_consent3",
+            "badge": "[필수]",
+            "title": "민감정보(질병·상해) 처리 동의",
+            "law": "개인정보보호법 제23조",
+            "content": """<b>처리 항목:</b> 질병명, KCD 코드, 진단 이력, 수술·입원 내역<br>
+<b>처리 목적:</b> 위험 분석, 보장 공백 진단, 보험 설계 참고<br>
+<b>보안 처리:</b> 의료 데이터 비식별화 처리, 분석 세션 종료 즉시 메모리 초기화<br>
+<b>근거 법령:</b> 개인정보보호법 제23조 (민감정보의 처리 제한), 가이딩 프로토콜 제130조""",
+        },
+        {
+            "key": "sb_consent4",
+            "badge": "[필수]",
+            "title": "제3자(한국신용정보원 등) 제공 동의",
+            "law": "신용정보법 제32조",
+            "content": """<b>제공 기관:</b> 한국신용정보원(내보험다보여), COOCON, CODEF<br>
+<b>제공 목적:</b> 보험 가입 내역 조회, 금융 데이터 연동<br>
+<b>제공 항목:</b> 성명, CI, 생년월일(해시) — 민감정보 원본 미전송<br>
+<b>보유 기간:</b> 조회 완료 후 즉시 삭제<br>
+<b>근거 법령:</b> 신용정보법 제32조 (개인신용정보 제공·활용에 대한 동의)""",
+        },
+    ]
+
+    st.sidebar.markdown("""
+<div style="border:1px dashed #000;border-radius:10px;background:#f9fafb;
+  padding:10px 13px;margin-bottom:8px;word-break:keep-all;">
+  <div style="font-size:12px;color:#111827;font-weight:900;margin-bottom:8px;
+    letter-spacing:0.02em;">
+    🔐 법적 고지 및 동의 안내
+  </div>""", unsafe_allow_html=True)
+
+    _sb_any_changed = False
+    for _ci, _ct in enumerate(_LEGAL_TERMS):
+        _cb_col, _lbl_col, _btn_col = st.sidebar.columns([1, 6, 2], gap="small")
+        _cur_val = st.session_state.get(_ct["key"], False)
+
+        with _cb_col:
+            _new_val = st.checkbox(
+                "", value=bool(_cur_val),
+                key=f"_sb_cb_{_ct['key']}",
+                label_visibility="collapsed",
+            )
+        with _lbl_col:
+            _row_bg = "#dbeafe" if _new_val else "transparent"
+            st.markdown(
+                f"<div style='padding:2px 4px;border-radius:5px;background:{_row_bg};"
+                f"font-size:11px;color:#111827;font-weight:700;line-height:1.5;"
+                f"word-break:keep-all;'>"
+                f"<span style='color:#ef4444;font-size:10px;font-weight:900;"
+                f"margin-right:3px;'>{_ct['badge']}</span>"
+                f"{_ct['title']}</div>",
+                unsafe_allow_html=True,
+            )
+        with _btn_col:
+            if st.button("보기", key=f"_sb_view_{_ct['key']}", use_container_width=True):
+                st.session_state[f"_sb_modal_{_ct['key']}"] = True
+
+        if _new_val != bool(_cur_val):
+            st.session_state[_ct["key"]] = _new_val
+            _sb_any_changed = True
+
+        if _ci < len(_LEGAL_TERMS) - 1:
+            st.sidebar.markdown(
+                "<hr style='border:none;border-top:1px solid #e5e7eb;margin:4px 0;'>",
+                unsafe_allow_html=True,
+            )
+
+        # ── 모달 팝업 ──────────────────────────────────────────────────────
+        if st.session_state.get(f"_sb_modal_{_ct['key']}"):
+            with st.sidebar.expander(
+                f"📄 {_ct['title']} — 상세 약관",
+                expanded=True,
+            ):
+                st.markdown(
+                    f"<div style='font-size:11px;color:#374151;line-height:1.5;"
+                    f"word-break:keep-all;padding:6px 2px;'>"
+                    f"<div style='font-size:10px;color:#6b7280;margin-bottom:6px;'>"
+                    f"⚖️ 근거 법령: <b>{_ct['law']}</b></div>"
+                    f"{_ct['content']}"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+                if st.button("닫기", key=f"_sb_close_{_ct['key']}", use_container_width=True):
+                    st.session_state[f"_sb_modal_{_ct['key']}"] = False
+                    st.rerun()
+
+    _sb_all_agreed = all(
+        st.session_state.get(_ct["key"], False) for _ct in _LEGAL_TERMS
+    )
+    st.sidebar.markdown(
+        f"<div style='font-size:11px;margin-top:8px;padding:6px 8px;"
+        f"border-radius:6px;text-align:center;font-weight:700;"
+        f"background:{'#dcfce7' if _sb_all_agreed else '#fef3c7'};"
+        f"color:{'#15803d' if _sb_all_agreed else '#92400e'};'>"
+        f"{'✅ 전체 동의 완료 — 로그인 가능' if _sb_all_agreed else '⚠️ 4개 항목 모두 동의 필요'}"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.sidebar.markdown("</div>", unsafe_allow_html=True)
+
+    if _sb_any_changed:
+        st.rerun()
 
 
 # --------------------------------------------------------------------------
