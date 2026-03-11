@@ -9548,69 +9548,202 @@ def _render_gk_sec10():
         return
 
     # ════════════════════════════════════════════════════════════════════
-    # PHASE 2 — 본인인증 팝업 (통신사 + 생년월일)
+    # PHASE 2 — 외부 인증 게이트웨이 (카카오/PASS/NICE/간편 선택)
     # ════════════════════════════════════════════════════════════════════
     if _phase == "auth":
+        try:
+            from modules.auth_gateway import (
+                get_available_methods, authenticate,
+                AUTH_METHOD_META, is_token_valid,
+            )
+            _gw_ok = True
+        except Exception:
+            _gw_ok = False
+
         _s10_name = st.session_state.get("sec10_name", "고객")
-        st.markdown(f"### 🔐 2단계 — 본인 인증 ({_s10_name}님)")
-        st.markdown("<div class='sec10-consent-box'>", unsafe_allow_html=True)
+
+        st.markdown(f"### 🔐 2단계 — 본인 인증 게이트웨이 ({_s10_name}님)")
         st.markdown(
-            "<div style='background:#fff7ed;border:1px dashed #f59e0b;"
-            "border-radius:8px;padding:10px 14px;margin-bottom:12px;"
-            "font-size:0.82rem;color:#92400e;'>"
-            "🔒 인증 정보는 마이데이터 조회 후 <b>AES-256 암호화 + 해싱</b> 처리되며, "
-            "세션 종료 시 즉시 파기됩니다."
+            "<div style='background:#fef3c7;border:1px dashed #d97706;"
+            "border-radius:8px;padding:10px 16px;margin-bottom:14px;"
+            "font-size:0.82rem;color:#78350f;line-height:1.7;'>"
+            "🛡️ <b>보안 원칙:</b> 입력하신 이름·생년월일·전화번호는 "
+            "인증 API 호출 즉시 <b>SHA-256 해시</b>로 변환되며, "
+            "원본 정보는 사령부 서버에 <b>일체 저장되지 않습니다.</b><br>"
+            "인증 성공 시 <b>토큰(32자 랜덤 hex)</b>만 세션에 보관되며 "
+            "창 종료 시 자동 파기됩니다."
             "</div>", unsafe_allow_html=True
         )
-        _auth_c1, _auth_c2 = st.columns([3, 2])
-        with _auth_c1:
-            _CARRIERS_AUTH = ["─ 통신사 선택 ─", "SKT", "KT", "LG U+", "SKT 알뜰폰", "KT 알뜰폰", "LG 알뜰폰", "헬로모바일", "KT M모바일", "SK세븐모바일", "기타 알뜰폰"]
+
+        st.markdown("""<style>
+.authgate-card{border:2px solid #e2e8f0;border-radius:12px;padding:12px 14px;
+    margin-bottom:8px;background:#fff;display:flex;align-items:center;gap:12px;}
+.authgate-card.ag-selected{border-color:#4f46e5;background:#f5f3ff;box-shadow:0 0 0 3px #c7d2fe;}
+.authgate-label{font-size:0.9rem;font-weight:800;color:#1e293b;}
+.authgate-desc{font-size:0.75rem;color:#64748b;margin-top:2px;}
+.ag-live{font-size:0.66rem;font-weight:700;background:#dcfce7;color:#15803d;
+    border-radius:10px;padding:1px 7px;margin-left:5px;}
+.ag-demo{font-size:0.66rem;font-weight:700;background:#fef9c3;color:#92400e;
+    border-radius:10px;padding:1px 7px;margin-left:5px;}
+.authgate-sec{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;
+    padding:10px 14px;margin-top:10px;font-size:0.78rem;color:#166534;line-height:1.7;}
+</style>""", unsafe_allow_html=True)
+
+        if _gw_ok:
+            _avail_methods = get_available_methods()
+        else:
+            _avail_methods = ["simulate"]
+
+        _sel_method = st.session_state.get("sec10_auth_method", _avail_methods[0])
+
+        st.markdown("#### 🔑 인증 수단 선택")
+        _mcols = st.columns(len(_avail_methods))
+        for _mi, _m in enumerate(_avail_methods):
+            if _gw_ok:
+                _meta = AUTH_METHOD_META.get(_m, AUTH_METHOD_META["simulate"])
+            else:
+                _meta = {"label": "간편 인증 (데모)", "desc": "개발·데모 전용",
+                         "icon_svg": "", "secret_key": ""}
+            import os as _os
+            _is_live = bool(_meta.get("secret_key") and _os.environ.get(_meta["secret_key"], ""))
+            _badge   = "<span class='ag-live'>● LIVE</span>" if _is_live else "<span class='ag-demo'>○ DEMO</span>"
+            _sel_cls = "ag-selected" if _sel_method == _m else ""
+            with _mcols[_mi]:
+                st.markdown(
+                    f"<div class='authgate-card {_sel_cls}'>"
+                    f"{_meta.get('icon_svg','')}"
+                    f"<div><div class='authgate-label'>{_meta['label']}{_badge}</div>"
+                    f"<div class='authgate-desc'>{_meta['desc']}</div></div>"
+                    f"</div>", unsafe_allow_html=True
+                )
+                if st.button(
+                    "✔ 선택됨" if _sel_method == _m else "선택",
+                    key=f"sec10_method_{_m}", use_container_width=True,
+                    type="primary" if _sel_method == _m else "secondary"
+                ):
+                    st.session_state["sec10_auth_method"] = _m
+                    st.rerun()
+
+        st.markdown("---")
+        st.markdown("#### 📝 인증 정보 입력")
+        st.markdown(
+            "<div style='font-size:0.76rem;color:#94a3b8;margin-bottom:8px;'>"
+            "⚠️ 아래 정보는 인증 API 전송 직후 해시 처리되며 저장되지 않습니다."
+            "</div>", unsafe_allow_html=True
+        )
+
+        _fc1, _fc2 = st.columns([3, 2])
+        with _fc1:
+            _CARRIERS_AUTH = [
+                "─ 통신사 선택 ─", "SKT", "KT", "LG U+",
+                "SKT 알뜰폰", "KT 알뜰폰", "LG 알뜰폰",
+                "헬로모바일", "KT M모바일", "SK세븐모바일", "기타 알뜰폰",
+            ]
             _s10_carrier = st.selectbox(
-                "📶 통신사 (알뜰폰 포함)", _CARRIERS_AUTH, key="sec10_auth_carrier"
+                "📶 통신사 (알뜰폰 포함)", _CARRIERS_AUTH,
+                key="sec10_auth_carrier"
             )
-        with _auth_c2:
+        with _fc2:
             _s10_dob = st.text_input(
-                "🎂 생년월일", placeholder="YYYYMMDD",
+                "🎂 생년월일 (YYYYMMDD)", placeholder="19901231",
                 key="sec10_auth_dob", max_chars=8
             )
+
+        _s10_phone_auth = st.text_input(
+            "📱 휴대폰 번호 (숫자만)",
+            value=re.sub(r'\D', '', st.session_state.get("sec10_phone", "")),
+            placeholder="01012345678",
+            key="sec10_auth_phone_input", max_chars=11
+        )
         st.markdown(
-            "<div style='margin-top:10px;background:#f0fdf4;border:1px solid #86efac;"
-            "border-radius:8px;padding:10px 14px;font-size:0.8rem;color:#166534;'>"
-            "<b>🔗 연동 채널:</b> 쿠콘(COOCON) / 코드에프(CODEF) → "
-            "한국신용정보원 마이데이터 수집<br>"
+            "<div class='authgate-sec'>"
+            "<b>🔗 인증 후 연동 경로:</b><br>"
+            "① 인증 성공 토큰 발급 → ② COOCON / CODEF 마이데이터 수집 요청<br>"
+            "③ 한국신용정보원 '내보험다보여' 데이터 수신 → ④ 보장 과부족 분석<br>"
             "<b>조회 항목:</b> 보험사별 가입 현황, 보험료, 보장 담보, 증권번호"
             "</div>", unsafe_allow_html=True
         )
-        st.markdown("</div>", unsafe_allow_html=True)
-        _auth_cols = st.columns([1, 1, 1])
-        with _auth_cols[0]:
+
+        _dob_clean_v   = re.sub(r'\D', '', _s10_dob)
+        _phone_clean_v = re.sub(r'\D', '', _s10_phone_auth)
+        _auth_ready    = (
+            _s10_carrier != "─ 통신사 선택 ─"
+            and len(_dob_clean_v) == 8
+            and len(_phone_clean_v) >= 10
+        )
+
+        _btn_c1, _btn_c2 = st.columns([1, 2])
+        with _btn_c1:
             if st.button("← 이전 단계", key="sec10_auth_back", use_container_width=True):
                 st.session_state["sec10_phase"] = "consent"
                 st.rerun()
-        with _auth_cols[2]:
-            _dob_clean = re.sub(r'\D', '', _s10_dob)
-            _auth_ready = (_s10_carrier != "─ 통신사 선택 ─" and len(_dob_clean) == 8)
+        with _btn_c2:
+            if _gw_ok:
+                _meta_sel = AUTH_METHOD_META.get(_sel_method, AUTH_METHOD_META["simulate"])
+            else:
+                _meta_sel = {"label": "간편 인증"}
+            _btn_label = f"🔐 {_meta_sel['label']}으로 인증 시작"
             if _auth_ready:
                 if st.button(
-                    "🚀 인증 및 데이터 소환", type="primary",
+                    _btn_label, type="primary",
                     use_container_width=True, key="sec10_auth_btn"
                 ):
-                    _sim_data = _sec10_simulate_fetch(st.session_state.get("sec10_name", ""))
-                    st.session_state["sec10_fetched"] = _sim_data
-                    st.session_state["sec10_phase"]   = "diagnosis"
-                    st.session_state["sec10_dob_hash"] = hashlib.sha256(
-                        _s10_dob.encode()).hexdigest()[:16]
-                    st.rerun()
+                    with st.spinner("🔐 인증 게이트웨이 처리 중..."):
+                        if _gw_ok:
+                            _tok = authenticate(
+                                name    = _s10_name,
+                                phone   = _s10_phone_auth,
+                                dob     = _s10_dob,
+                                carrier = _s10_carrier,
+                                method  = _sel_method,
+                            )
+                        else:
+                            import time as _time
+                            _tok = {
+                                "token":        hashlib.sha256(
+                                    (_s10_name + _s10_phone_auth).encode()).hexdigest()[:32],
+                                "ci_hash":      hashlib.sha256(
+                                    (_s10_dob + _s10_name).encode()).hexdigest()[:24],
+                                "name_initial": _s10_name[0] + "*" * max(len(_s10_name) - 2, 0) + (_s10_name[-1] if len(_s10_name) > 1 else ""),
+                                "phone_masked": _s10_phone_auth[:3] + "-****-" + _s10_phone_auth[-4:],
+                                "method":       "simulate",
+                                "issued_at":    _time.time(),
+                                "expires_at":   _time.time() + 1800,
+                                "error":        None,
+                            }
+                    if _tok.get("error") and not _tok.get("token"):
+                        st.error(f"인증 오류: {_tok['error']}")
+                    else:
+                        st.session_state["sec10_auth_token"] = {
+                            "token":        _tok["token"],
+                            "ci_hash":      _tok["ci_hash"],
+                            "name_initial": _tok["name_initial"],
+                            "phone_masked": _tok["phone_masked"],
+                            "method":       _tok["method"],
+                            "issued_at":    _tok["issued_at"],
+                            "expires_at":   _tok["expires_at"],
+                        }
+                        st.session_state["sec10_dob_hash"] = hashlib.sha256(
+                            _s10_dob.encode()).hexdigest()[:16]
+                        if _tok.get("error"):
+                            st.warning(f"⚠️ {_tok['error']} — 시뮬레이션으로 진행합니다.")
+                        _sim_data = _sec10_simulate_fetch(_s10_name)
+                        st.session_state["sec10_fetched"] = _sim_data
+                        st.session_state["sec10_phase"]   = "diagnosis"
+                        st.rerun()
             else:
                 st.button(
-                    "🚀 인증 및 데이터 소환 (정보 입력 후 활성화)",
+                    "🔐 인증 시작 (정보 입력 후 활성화)",
                     disabled=True, use_container_width=True, key="sec10_auth_dis"
                 )
+                _miss = []
+                if _s10_carrier == "─ 통신사 선택 ─": _miss.append("통신사")
+                if len(_dob_clean_v) != 8:             _miss.append("생년월일 8자리")
+                if len(_phone_clean_v) < 10:           _miss.append("휴대폰 번호")
+                if _miss:
+                    st.caption(f"⚠️ 미입력: {' · '.join(_miss)}")
         return
 
-    # ════════════════════════════════════════════════════════════════════
-    # PHASE 3 — 진단 허브 (Diagnosis Hub)
-    # ════════════════════════════════════════════════════════════════════
     if _phase == "diagnosis":
         _s10_name = st.session_state.get("sec10_name", "고객")
         _fetched  = st.session_state.get("sec10_fetched", {})
@@ -9661,56 +9794,176 @@ def _render_gk_sec10():
         else:
             st.info("📭 소환된 보험 내역이 없습니다.")
 
-        # ── 굵은 1px 검정 점선 구분선 ────────────────────────────────
+        # ── 굵은 2px 검정 점선 구분선 ────────────────────────────────
         st.markdown("<hr class='sec10-dashed-divider'>", unsafe_allow_html=True)
 
-        # ── 하단: 보장 과부족 차트 (Full Width, 반응형) ──────────────
-        st.markdown("#### 📊 보장 항목별 과부족 분석")
-        st.markdown(
-            "<div style='font-size:0.8rem;color:#64748b;margin-bottom:12px;'>"
-            "🟢 충분 &nbsp;|&nbsp; 🟡 부족 &nbsp;|&nbsp; 🔴 미가입"
-            "</div>", unsafe_allow_html=True
-        )
-        if _coverage:
-            st.markdown("<div class='sec10-chart-wrap'>", unsafe_allow_html=True)
-            for _item in _coverage:
-                _rec      = _item.get("recommended_amt", 0)
-                _enrolled = _item.get("enrolled_amt", 0)
-                _ratio    = min(int((_enrolled / _rec * 100) if _rec > 0 else 0), 100)
-                _status   = _item.get("status", "미가입")
-                _color    = {"충분": "#22c55e", "부족": "#f59e0b", "미가입": "#ef4444"}.get(_status, "#94a3b8")
-                _icon     = {"충분": "🟢", "부족": "🟡", "미가입": "🔴"}.get(_status, "⚪")
-                _rc1, _rc2, _rc3, _rc4 = st.columns([2, 4, 1, 1])
-                with _rc1:
-                    st.markdown(
-                        f"<div style='font-size:0.8rem;font-weight:700;color:#374151;"
-                        f"padding-top:6px;'>{_icon} {_item.get('category','')}</div>",
-                        unsafe_allow_html=True
+        # ── 하단: 탭 구성 (보장 과부족 분석 + FSS 비교공시) ─────────
+        _d_tab1, _d_tab2 = st.tabs(["📊 보장 항목별 과부족 분석", "🏦 금감원 공시 상품 비교"])
+
+        with _d_tab1:
+            st.markdown(
+                "<div style='font-size:0.8rem;color:#64748b;margin-bottom:12px;'>"
+                "🟢 충분 &nbsp;|&nbsp; 🟡 부족 &nbsp;|&nbsp; 🔴 미가입"
+                "</div>", unsafe_allow_html=True
+            )
+            if _coverage:
+                st.markdown("<div class='sec10-chart-wrap'>", unsafe_allow_html=True)
+                for _item in _coverage:
+                    _rec      = _item.get("recommended_amt", 0)
+                    _enrolled = _item.get("enrolled_amt", 0)
+                    _ratio    = min(int((_enrolled / _rec * 100) if _rec > 0 else 0), 100)
+                    _status   = _item.get("status", "미가입")
+                    _color    = {"충분": "#22c55e", "부족": "#f59e0b", "미가입": "#ef4444"}.get(_status, "#94a3b8")
+                    _icon     = {"충분": "🟢", "부족": "🟡", "미가입": "🔴"}.get(_status, "⚪")
+                    _rc1, _rc2, _rc3, _rc4 = st.columns([2, 4, 1, 1])
+                    with _rc1:
+                        st.markdown(
+                            f"<div style='font-size:0.8rem;font-weight:700;color:#374151;"
+                            f"padding-top:6px;'>{_icon} {_item.get('category','')}</div>",
+                            unsafe_allow_html=True
+                        )
+                    with _rc2:
+                        st.markdown(
+                            f"<div style='font-size:0.78rem;color:#6b7280;padding-top:2px;'>"
+                            f"{_item.get('name','')}</div>",
+                            unsafe_allow_html=True
+                        )
+                        st.progress(_ratio / 100)
+                    with _rc3:
+                        _e_str = f"{_enrolled//10000:,}만" if _enrolled >= 10000 else (f"{_enrolled:,}" if _enrolled else "0")
+                        st.markdown(
+                            f"<div style='font-size:0.78rem;color:#4f46e5;font-weight:700;"
+                            f"padding-top:6px;text-align:right;'>{_e_str}</div>",
+                            unsafe_allow_html=True
+                        )
+                    with _rc4:
+                        _r_str = f"{_rec//10000:,}만" if _rec >= 10000 else (f"{_rec:,}" if _rec else "─")
+                        st.markdown(
+                            f"<div style='font-size:0.72rem;color:#9ca3af;padding-top:6px;"
+                            f"text-align:right;'>/{_r_str}</div>",
+                            unsafe_allow_html=True
+                        )
+                st.markdown("</div>", unsafe_allow_html=True)
+        with _d_tab2:
+            st.markdown(
+                "<div style='font-size:0.8rem;color:#1e40af;font-weight:700;margin-bottom:10px;'>"
+                "🏦 금감원 통합 비교공시 (FINLIFE) — 고객 보험 vs 시장 최신 연금저축 상품"
+                "</div>", unsafe_allow_html=True
+            )
+            try:
+                from modules.mydata_connector import fss_compare_annuity
+                _fss_result = fss_compare_annuity(_ins_list)
+                _fss_err    = _fss_result.get("error")
+                _mkt_best   = _fss_result.get("market_best", [])
+                _comparison = _fss_result.get("comparison", [])
+                _cust_prods = _fss_result.get("customer_products", [])
+
+                if _fss_err and "FINLIFE_API_KEY 미설정" in _fss_err:
+                    st.warning(
+                        "⚠️ **FINLIFE_API_KEY가 설정되지 않았습니다.**\n\n"
+                        "Cloud Run 환경변수 또는 `secrets.toml`에 `FINLIFE_API_KEY` 등록 시 "
+                        "금감원 실시간 공시 데이터와 연결됩니다."
                     )
-                with _rc2:
                     st.markdown(
-                        f"<div style='font-size:0.78rem;color:#6b7280;padding-top:2px;'>"
-                        f"{_item.get('name','')}</div>",
-                        unsafe_allow_html=True
+                        "<div style='background:#eff6ff;border:1px dashed #3b82f6;"
+                        "border-radius:8px;padding:12px 16px;font-size:0.82rem;color:#1e3a5f;'>"
+                        "<b>📋 연동 방법</b><br>"
+                        "1. <a href='https://finlife.fss.or.kr' target='_blank'>finlife.fss.or.kr</a> "
+                        "→ API 인증키 발급<br>"
+                        "2. Cloud Run 환경변수: <code>FINLIFE_API_KEY=발급키</code><br>"
+                        "3. 조회 가능 상품: 연금저축보험 (생명·손해보험사), 연금저축펀드 (은행·증권)<br>"
+                        "4. 캐시: 1시간 단위 자동 갱신 (<code>@st.cache_data(ttl=3600)</code>)"
+                        "</div>", unsafe_allow_html=True
                     )
-                    st.progress(_ratio / 100)
-                with _rc3:
-                    _e_str = f"{_enrolled//10000:,}만" if _enrolled >= 10000 else (f"{_enrolled:,}" if _enrolled else "0")
-                    st.markdown(
-                        f"<div style='font-size:0.78rem;color:#4f46e5;font-weight:700;"
-                        f"padding-top:6px;text-align:right;'>{_e_str}</div>",
-                        unsafe_allow_html=True
-                    )
-                with _rc4:
-                    _r_str = f"{_rec//10000:,}만" if _rec >= 10000 else (f"{_rec:,}" if _rec else "─")
-                    st.markdown(
-                        f"<div style='font-size:0.72rem;color:#9ca3af;padding-top:6px;"
-                        f"text-align:right;'>/{_r_str}</div>",
-                        unsafe_allow_html=True
-                    )
-            st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.info("📊 분석 데이터를 불러오는 중입니다.")
+                elif _fss_err:
+                    st.error(f"API 오류: {_fss_err}")
+                else:
+                    # ── 시장 최고 공시 상품 Top 5 ────────────────────────
+                    st.markdown("##### 📈 시장 최고 연금저축 공시이율 Top 5")
+                    if _mkt_best:
+                        _mkt_cols = st.columns([3, 3, 1, 2])
+                        with _mkt_cols[0]: st.markdown("**보험사**")
+                        with _mkt_cols[1]: st.markdown("**상품명**")
+                        with _mkt_cols[2]: st.markdown("**공시이율**")
+                        with _mkt_cols[3]: st.markdown("**가입경로**")
+                        for _idx, _mp in enumerate(_mkt_best):
+                            _rank_bg = ["#fef9c3","#f0fdf4","#f0f9ff","#fafafa","#fafafa"][_idx % 5]
+                            _mc1, _mc2, _mc3, _mc4 = st.columns([3, 3, 1, 2])
+                            with _mc1:
+                                st.markdown(
+                                    f"<div style='background:{_rank_bg};padding:4px 8px;"
+                                    f"border-radius:4px;font-size:0.82rem;font-weight:700;'>"
+                                    f"{'🥇' if _idx==0 else '🥈' if _idx==1 else '🥉' if _idx==2 else f'{_idx+1}위'}"
+                                    f" {_mp.get('company','')}</div>",
+                                    unsafe_allow_html=True
+                                )
+                            with _mc2:
+                                st.markdown(
+                                    f"<div style='font-size:0.80rem;color:#374151;padding-top:4px;'>"
+                                    f"{_mp.get('product_name','')}</div>",
+                                    unsafe_allow_html=True
+                                )
+                            with _mc3:
+                                _rate = _mp.get('rate', 0)
+                                _rate_color = "#16a34a" if _rate >= 4.0 else ("#d97706" if _rate >= 3.0 else "#dc2626")
+                                st.markdown(
+                                    f"<div style='font-size:0.85rem;font-weight:900;"
+                                    f"color:{_rate_color};padding-top:4px;'>{_rate:.2f}%</div>",
+                                    unsafe_allow_html=True
+                                )
+                            with _mc4:
+                                st.markdown(
+                                    f"<div style='font-size:0.75rem;color:#6b7280;padding-top:4px;'>"
+                                    f"{_mp.get('join_way','')[:20]}</div>",
+                                    unsafe_allow_html=True
+                                )
+                    else:
+                        st.info("공시 상품 데이터가 없습니다.")
+
+                    # ── 고객 보험 vs 시장 비교 분석 ─────────────────────
+                    if _comparison:
+                        st.markdown("---")
+                        st.markdown("##### 🔍 고객 가입 보험 vs 시장 최적 상품 비교")
+                        for _cmp in _comparison:
+                            _action_color = "#dc2626" if _cmp.get("action") == "시장 비교 권장" else "#16a34a"
+                            st.markdown(
+                                f"<div style='border:1px solid #e2e8f0;border-radius:8px;"
+                                f"padding:10px 14px;margin-bottom:8px;background:#f8fafc;'>"
+                                f"<div style='display:flex;justify-content:space-between;"
+                                f"flex-wrap:wrap;gap:6px;'>"
+                                f"<div><span style='font-size:0.78rem;color:#6b7280;'>현재 가입</span><br>"
+                                f"<b style='font-size:0.88rem;'>{_cmp.get('customer_company','')} "
+                                f"{_cmp.get('customer_product','')}</b> "
+                                f"<span style='font-size:0.78rem;color:#4f46e5;'>"
+                                f"{_cmp.get('customer_premium','')}</span></div>"
+                                f"<div style='text-align:right;'>"
+                                f"<span style='font-size:0.78rem;color:#6b7280;'>시장 최고 상품</span><br>"
+                                f"<b style='font-size:0.88rem;'>{_cmp.get('market_best_company','')} "
+                                f"{_cmp.get('market_best_product','')}</b> "
+                                f"<span style='font-size:0.82rem;font-weight:900;color:#16a34a;'>"
+                                f"공시이율 {_cmp.get('market_best_rate','')}</span></div>"
+                                f"</div>"
+                                f"<div style='margin-top:6px;font-size:0.78rem;"
+                                f"font-weight:700;color:{_action_color};'>"
+                                f"▶ 설계사 권고: {_cmp.get('action','')}</div>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                    elif not _cust_prods:
+                        st.info(
+                            "📭 소환된 보험 중 연금저축·종신 상품이 없거나 모두 실효/만기 상태입니다.\n\n"
+                            "보장성 보험 vs 금감원 공시 비교는 '보장 과부족 분석' 탭을 참고하세요."
+                        )
+            except Exception as _e_fss:
+                st.error(f"FSS 비교 모듈 오류: {_e_fss}")
+
+            st.markdown(
+                "<div style='font-size:0.72rem;color:#94a3b8;margin-top:14px;'>"
+                "※ 금감원 통합 비교공시 데이터는 1시간 캐시 적용 | "
+                "출처: <a href='https://finlife.fss.or.kr' target='_blank' "
+                "style='color:#3b82f6;'>finlife.fss.or.kr</a>"
+                "</div>", unsafe_allow_html=True
+            )
 
         # ── 면책 문구 ─────────────────────────────────────────────────
         st.markdown(
@@ -9735,8 +9988,19 @@ def _render_gk_sec10():
                 st.rerun()
 
 
-def _sec10_simulate_fetch(client_name: str) -> dict:
-    """마이데이터 소환 시뮬레이션 (실제: COOCON/CODEF API 교체)"""
+def _sec10_fetch_mydata(client_name: str) -> dict:
+    """마이데이터 소환 — mydata_connector 통합 (COOCON→CODEF→시뮬레이션 폴백)"""
+    try:
+        from modules.mydata_connector import fetch_mydata_insurance
+        _res = fetch_mydata_insurance(client_name, use_simulate=True)
+        return {
+            "insurance_list":    _res.get("insurance_list", []),
+            "coverage_analysis": _res.get("coverage_analysis", []),
+            "source":            _res.get("source", "simulate"),
+        }
+    except Exception:
+        pass
+    # 직접 폴백 (모듈 로드 실패 시)
     import random
     _companies = ["삼성생명", "한화생명", "교보생명", "DB손해보험", "현대해상", "KB손해보험", "메리츠화재"]
     _products  = [
@@ -9757,18 +10021,18 @@ def _sec10_simulate_fetch(client_name: str) -> dict:
             "status": random.choice(["유지", "유지", "유지", "실효", "만기"]),
         })
     _coverage_items = [
-        {"category": "암 진단",  "name": "일반암진단비",       "recommended_amt": 50000000, "enrolled_amt": random.choice([0, 20000000, 30000000, 50000000])},
-        {"category": "뇌혈관",   "name": "뇌졸중진단비",       "recommended_amt": 50000000, "enrolled_amt": random.choice([0, 10000000, 20000000, 50000000])},
-        {"category": "심장",     "name": "급성심근경색진단비", "recommended_amt": 30000000, "enrolled_amt": random.choice([0, 10000000, 30000000])},
-        {"category": "수술비",   "name": "1~5종 수술비",       "recommended_amt": 5000000,  "enrolled_amt": random.choice([0, 1000000, 3000000, 5000000])},
-        {"category": "입원일당", "name": "질병 입원일당",      "recommended_amt": 100000,   "enrolled_amt": random.choice([0, 30000, 50000, 100000])},
-        {"category": "실손",     "name": "실손의료비",         "recommended_amt": 1,        "enrolled_amt": random.choice([0, 1])},
-        {"category": "사망",     "name": "일반사망보험금",     "recommended_amt": 300000000,"enrolled_amt": random.choice([0, 100000000, 200000000])},
+        {"category": "암 진단",  "name": "일반암진단비",       "recommended_amt": 50000000,  "enrolled_amt": random.choice([0, 20000000, 30000000, 50000000])},
+        {"category": "뇌혈관",   "name": "뇌졸중진단비",       "recommended_amt": 50000000,  "enrolled_amt": random.choice([0, 10000000, 20000000, 50000000])},
+        {"category": "심장",     "name": "급성심근경색진단비", "recommended_amt": 30000000,  "enrolled_amt": random.choice([0, 10000000, 30000000])},
+        {"category": "수술비",   "name": "1~5종 수술비",       "recommended_amt": 5000000,   "enrolled_amt": random.choice([0, 1000000, 3000000, 5000000])},
+        {"category": "입원일당", "name": "질병 입원일당",      "recommended_amt": 100000,    "enrolled_amt": random.choice([0, 30000, 50000, 100000])},
+        {"category": "실손",     "name": "실손의료비",         "recommended_amt": 1,         "enrolled_amt": random.choice([0, 1])},
+        {"category": "사망",     "name": "일반사망보험금",     "recommended_amt": 300000000, "enrolled_amt": random.choice([0, 100000000, 200000000])},
     ]
     for _ci in _coverage_items:
         _r, _e = _ci["recommended_amt"], _ci["enrolled_amt"]
         _ci["status"] = "충분" if _e >= _r else ("부족" if _e > 0 else "미가입")
-    return {"insurance_list": _ins_list, "coverage_analysis": _coverage_items}
+    return {"insurance_list": _ins_list, "coverage_analysis": _coverage_items, "source": "simulate"}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
