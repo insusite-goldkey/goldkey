@@ -9636,9 +9636,10 @@ def _render_gk_sec10():
         return
 
     # ════════════════════════════════════════════════════════════════════
-    # PHASE 2 — 외부 인증 게이트웨이 (카카오/PASS/NICE/간편 선택)
+    # PHASE 2 — 본인인증 게이트웨이 (간소화 입력 + 조건부 팝업)
     # ════════════════════════════════════════════════════════════════════
     if _phase == "auth":
+        import os as _os
         try:
             from modules.auth_gateway import (
                 get_available_methods, authenticate,
@@ -9648,18 +9649,37 @@ def _render_gk_sec10():
         except Exception:
             _gw_ok = False
 
-        _s10_name = st.session_state.get("sec10_name", "고객")
+        _s10_name  = st.session_state.get("sec10_name", "고객")
+        _s10_phone = st.session_state.get("sec10_phone", "")
 
-        st.markdown(f"### 🔐 2단계 — 본인 인증 게이트웨이 ({_s10_name}님)")
+        st.markdown(f"### 🔐 2단계 — 보험 소환 본인인증 ({_s10_name}님)")
+
+        # ── 1:1 대화체 안내 배너 ───────────────────────────────────────────
+        st.markdown(
+            "<div style='background:linear-gradient(90deg,#fefce8,#f0fdf4);"
+            "border:1px dashed #000;border-radius:12px;"
+            "padding:14px 20px;margin-bottom:18px;'>"
+            "<div style='font-size:0.95rem;font-weight:800;color:#1e1b4b;margin-bottom:4px;'>"
+            "💬 고객님께 드리는 말씀</div>"
+            "<div style='font-size:0.9rem;color:#374151;line-height:1.9;'>"
+            "고객님의 소중한 보험 정보를 안전하게 모셔오기 위해 "
+            "<b>통신사 확인이 한 번 필요합니다.</b><br>"
+            "아래에서 인증 수단을 선택하신 후, 잠깐만 기다려 주세요. "
+            "<span style='font-size:0.8rem;color:#6366f1;font-weight:700;'>"
+            "— 한 번의 확인으로 모든 보험이 눈앞에 펼쳐집니다."
+            "</span>"
+            "</div>"
+            "</div>", unsafe_allow_html=True
+        )
+
+        # ── 보안 원칙 안내 ─────────────────────────────────────────────────
         st.markdown(
             "<div style='background:#fef3c7;border:1px dashed #d97706;"
-            "border-radius:8px;padding:10px 16px;margin-bottom:14px;"
-            "font-size:0.82rem;color:#78350f;line-height:1.7;'>"
-            "🛡️ <b>보안 원칙:</b> 입력하신 이름·생년월일·전화번호는 "
-            "인증 API 호출 즉시 <b>SHA-256 해시</b>로 변환되며, "
-            "원본 정보는 사령부 서버에 <b>일체 저장되지 않습니다.</b><br>"
-            "인증 성공 시 <b>토큰(32자 랜덤 hex)</b>만 세션에 보관되며 "
-            "창 종료 시 자동 파기됩니다."
+            "border-radius:8px;padding:10px 16px;margin-bottom:16px;"
+            "font-size:0.8rem;color:#78350f;line-height:1.7;'>"
+            "🛡️ <b>보안 원칙:</b> 입력 정보는 인증 API 호출 즉시 "
+            "<b>SHA-256 해시</b>로 변환되며 원본은 서버에 <b>일체 저장되지 않습니다.</b> "
+            "인증 성공 시 <b>32자 토큰</b>만 세션에 보관되며 창 종료 시 자동 파기됩니다."
             "</div>", unsafe_allow_html=True
         )
 
@@ -9684,6 +9704,7 @@ def _render_gk_sec10():
 
         _sel_method = st.session_state.get("sec10_auth_method", _avail_methods[0])
 
+        # ── 인증 수단 선택 카드 ────────────────────────────────────────────
         st.markdown("#### 🔑 인증 수단 선택")
         _mcols = st.columns(len(_avail_methods))
         for _mi, _m in enumerate(_avail_methods):
@@ -9692,7 +9713,6 @@ def _render_gk_sec10():
             else:
                 _meta = {"label": "간편 인증 (데모)", "desc": "개발·데모 전용",
                          "icon_svg": "", "secret_key": ""}
-            import os as _os
             _is_live = bool(_meta.get("secret_key") and _os.environ.get(_meta["secret_key"], ""))
             _badge   = "<span class='ag-live'>● LIVE</span>" if _is_live else "<span class='ag-demo'>○ DEMO</span>"
             _sel_cls = "ag-selected" if _sel_method == _m else ""
@@ -9713,123 +9733,164 @@ def _render_gk_sec10():
                     st.rerun()
 
         st.markdown("---")
-        st.markdown("#### 📝 인증 정보 입력")
-        st.markdown(
-            "<div style='font-size:0.76rem;color:#94a3b8;margin-bottom:8px;'>"
-            "⚠️ 아래 정보는 인증 API 전송 직후 해시 처리되며 저장되지 않습니다."
-            "</div>", unsafe_allow_html=True
-        )
 
-        _fc1, _fc2 = st.columns([3, 2])
-        with _fc1:
-            _CARRIERS_AUTH = [
-                "─ 통신사 선택 ─", "SKT", "KT", "LG U+",
-                "SKT 알뜰폰", "KT 알뜰폰", "LG 알뜰폰",
-                "헬로모바일", "KT M모바일", "SK세븐모바일", "기타 알뜰폰",
-            ]
-            _s10_carrier = st.selectbox(
-                "📶 통신사 (알뜰폰 포함)", _CARRIERS_AUTH,
-                key="sec10_auth_carrier"
+        # ── [조건부 팝업] '기존 보험 불러오기' 버튼 클릭 시 상세 입력 노출 ──
+        _show_detail = st.session_state.get("sec10_show_auth_detail", False)
+
+        if not _show_detail:
+            # 초기 상태: 이름·연락처만 확인 후 팝업 트리거 버튼 노출
+            st.markdown(
+                "<div style='background:rgba(255,255,255,0.9);border:1px solid #e5e7eb;"
+                "border-radius:10px;padding:14px 18px;margin-bottom:14px;'>"
+                "<div style='font-size:0.82rem;color:#6b7280;'>"
+                "📋 <b>확인된 정보</b> — 동의 단계에서 등록하신 내용입니다."
+                "</div>"
+                f"<div style='font-size:0.95rem;font-weight:700;color:#1e293b;margin-top:6px;'>"
+                f"👤 {_s10_name} &nbsp;|&nbsp; 📱 {_s10_phone}"
+                f"</div>"
+                "</div>", unsafe_allow_html=True
             )
-        with _fc2:
-            _s10_dob = st.text_input(
-                "🎂 생년월일 (YYYYMMDD)", placeholder="19901231",
-                key="sec10_auth_dob", max_chars=8
-            )
-
-        _s10_phone_auth = st.text_input(
-            "📱 휴대폰 번호 (숫자만)",
-            value=re.sub(r'\D', '', st.session_state.get("sec10_phone", "")),
-            placeholder="01012345678",
-            key="sec10_auth_phone_input", max_chars=11
-        )
-        st.markdown(
-            "<div class='authgate-sec'>"
-            "<b>🔗 인증 후 연동 경로:</b><br>"
-            "① 인증 성공 토큰 발급 → ② COOCON / CODEF 마이데이터 수집 요청<br>"
-            "③ 한국신용정보원 '내보험다보여' 데이터 수신 → ④ 보장 과부족 분석<br>"
-            "<b>조회 항목:</b> 보험사별 가입 현황, 보험료, 보장 담보, 증권번호"
-            "</div>", unsafe_allow_html=True
-        )
-
-        _dob_clean_v   = re.sub(r'\D', '', _s10_dob)
-        _phone_clean_v = re.sub(r'\D', '', _s10_phone_auth)
-        _auth_ready    = (
-            _s10_carrier != "─ 통신사 선택 ─"
-            and len(_dob_clean_v) == 8
-            and len(_phone_clean_v) >= 10
-        )
-
-        _btn_c1, _btn_c2 = st.columns([1, 2])
-        with _btn_c1:
-            if st.button("← 이전 단계", key="sec10_auth_back", use_container_width=True):
-                st.session_state["sec10_phase"] = "consent"
-                st.rerun()
-        with _btn_c2:
-            if _gw_ok:
-                _meta_sel = AUTH_METHOD_META.get(_sel_method, AUTH_METHOD_META["simulate"])
-            else:
-                _meta_sel = {"label": "간편 인증"}
-            _btn_label = f"🔐 {_meta_sel['label']}으로 인증 시작"
-            if _auth_ready:
+            _ab1, _ab2 = st.columns([1, 2])
+            with _ab1:
+                if st.button("← 이전 단계", key="sec10_auth_back", use_container_width=True):
+                    st.session_state["sec10_phase"] = "consent"
+                    st.rerun()
+            with _ab2:
                 if st.button(
-                    _btn_label, type="primary",
-                    use_container_width=True, key="sec10_auth_btn"
+                    "🔍 기존 보험 불러오기 — 통신사 확인 시작",
+                    type="primary", use_container_width=True, key="sec10_open_detail"
                 ):
-                    with st.spinner("🔐 인증 게이트웨이 처리 중..."):
-                        if _gw_ok:
-                            _tok = authenticate(
-                                name    = _s10_name,
-                                phone   = _s10_phone_auth,
-                                dob     = _s10_dob,
-                                carrier = _s10_carrier,
-                                method  = _sel_method,
-                            )
-                        else:
-                            import time as _time
-                            _tok = {
-                                "token":        hashlib.sha256(
-                                    (_s10_name + _s10_phone_auth).encode()).hexdigest()[:32],
-                                "ci_hash":      hashlib.sha256(
-                                    (_s10_dob + _s10_name).encode()).hexdigest()[:24],
-                                "name_initial": _s10_name[0] + "*" * max(len(_s10_name) - 2, 0) + (_s10_name[-1] if len(_s10_name) > 1 else ""),
-                                "phone_masked": _s10_phone_auth[:3] + "-****-" + _s10_phone_auth[-4:],
-                                "method":       "simulate",
-                                "issued_at":    _time.time(),
-                                "expires_at":   _time.time() + 1800,
-                                "error":        None,
-                            }
-                    if _tok.get("error") and not _tok.get("token"):
-                        st.error(f"인증 오류: {_tok['error']}")
-                    else:
-                        st.session_state["sec10_auth_token"] = {
-                            "token":        _tok["token"],
-                            "ci_hash":      _tok["ci_hash"],
-                            "name_initial": _tok["name_initial"],
-                            "phone_masked": _tok["phone_masked"],
-                            "method":       _tok["method"],
-                            "issued_at":    _tok["issued_at"],
-                            "expires_at":   _tok["expires_at"],
-                        }
-                        st.session_state["sec10_dob_hash"] = hashlib.sha256(
-                            _s10_dob.encode()).hexdigest()[:16]
-                        if _tok.get("error"):
-                            st.warning(f"⚠️ {_tok['error']} — 시뮬레이션으로 진행합니다.")
-                        _sim_data = _sec10_simulate_fetch(_s10_name)
-                        st.session_state["sec10_fetched"] = _sim_data
-                        st.session_state["sec10_phase"]   = "diagnosis"
-                        st.rerun()
-            else:
-                st.button(
-                    "🔐 인증 시작 (정보 입력 후 활성화)",
-                    disabled=True, use_container_width=True, key="sec10_auth_dis"
+                    st.session_state["sec10_show_auth_detail"] = True
+                    st.rerun()
+        else:
+            # 상세 입력 팝업 (통신사 + 생년월일 + 휴대폰 번호)
+            st.markdown(
+                "<div style='background:#f5f3ff;border:2px dashed #6366f1;"
+                "border-radius:12px;padding:18px 22px;margin-bottom:14px;'>"
+                "<div style='font-size:0.9rem;font-weight:800;color:#4338ca;margin-bottom:8px;'>"
+                "📡 본인인증 정보 입력</div>"
+                "<div style='font-size:0.76rem;color:#6b7280;'>"
+                "⚠️ 아래 정보는 인증 API 전송 직후 해시 처리되며 저장되지 않습니다."
+                "</div>"
+                "</div>", unsafe_allow_html=True
+            )
+
+            _CARRIERS_AUTH = [
+                "─ 통신사 선택 ─",
+                "SKT", "KT", "LG U+",
+                "알뜰폰(MVNO) — SKT망", "알뜰폰(MVNO) — KT망", "알뜰폰(MVNO) — LG망",
+                "헬로모바일", "KT M모바일", "SK세븐모바일",
+                "U+알뜰모바일", "토스모바일", "스노우맨", "기타 알뜰폰(MVNO)",
+            ]
+
+            _dc1, _dc2 = st.columns([3, 2])
+            with _dc1:
+                _s10_carrier = st.selectbox(
+                    "📶 통신사 선택 (알뜰폰·MVNO 포함) *",
+                    _CARRIERS_AUTH,
+                    key="sec10_auth_carrier"
                 )
-                _miss = []
-                if _s10_carrier == "─ 통신사 선택 ─": _miss.append("통신사")
-                if len(_dob_clean_v) != 8:             _miss.append("생년월일 8자리")
-                if len(_phone_clean_v) < 10:           _miss.append("휴대폰 번호")
-                if _miss:
-                    st.caption(f"⚠️ 미입력: {' · '.join(_miss)}")
+            with _dc2:
+                _s10_dob = st.text_input(
+                    "🎂 생년월일 (YYYYMMDD) *", placeholder="19901231",
+                    key="sec10_auth_dob", max_chars=8
+                )
+
+            _s10_phone_auth = st.text_input(
+                "📱 휴대폰 번호 (숫자만) *",
+                value=re.sub(r'\D', '', _s10_phone),
+                placeholder="01012345678",
+                key="sec10_auth_phone_input", max_chars=11
+            )
+
+            st.markdown(
+                "<div class='authgate-sec'>"
+                "<b>🔗 인증 후 연동 경로:</b><br>"
+                "① 인증 토큰 발급 → ② COOCON / CODEF 마이데이터 수집 요청<br>"
+                "③ 한국신용정보원 '내보험다보여' 데이터 수신 → ④ 보장 과부족 분석<br>"
+                "<b>조회 항목:</b> 보험사별 가입 현황, 보험료, 보장 담보, 증권번호"
+                "</div>", unsafe_allow_html=True
+            )
+
+            _dob_clean_v   = re.sub(r'\D', '', _s10_dob)
+            _phone_clean_v = re.sub(r'\D', '', _s10_phone_auth)
+            _auth_ready    = (
+                _s10_carrier != "─ 통신사 선택 ─"
+                and len(_dob_clean_v) == 8
+                and len(_phone_clean_v) >= 10
+            )
+
+            _pb1, _pb2 = st.columns([1, 2])
+            with _pb1:
+                if st.button("← 닫기", key="sec10_close_detail", use_container_width=True):
+                    st.session_state["sec10_show_auth_detail"] = False
+                    st.rerun()
+            with _pb2:
+                if _gw_ok:
+                    _meta_sel = AUTH_METHOD_META.get(_sel_method, AUTH_METHOD_META["simulate"])
+                else:
+                    _meta_sel = {"label": "간편 인증"}
+                _btn_label = f"🔐 {_meta_sel['label']}으로 인증 시작"
+                if _auth_ready:
+                    if st.button(
+                        _btn_label, type="primary",
+                        use_container_width=True, key="sec10_auth_btn"
+                    ):
+                        with st.spinner("🔐 인증 게이트웨이 처리 중..."):
+                            if _gw_ok:
+                                _tok = authenticate(
+                                    name    = _s10_name,
+                                    phone   = _s10_phone_auth,
+                                    dob     = _s10_dob,
+                                    carrier = _s10_carrier,
+                                    method  = _sel_method,
+                                )
+                            else:
+                                import time as _time
+                                _tok = {
+                                    "token":        hashlib.sha256(
+                                        (_s10_name + _s10_phone_auth).encode()).hexdigest()[:32],
+                                    "ci_hash":      hashlib.sha256(
+                                        (_s10_dob + _s10_name).encode()).hexdigest()[:24],
+                                    "name_initial": _s10_name[0] + "*" * max(len(_s10_name) - 2, 0) + (_s10_name[-1] if len(_s10_name) > 1 else ""),
+                                    "phone_masked": _s10_phone_auth[:3] + "-****-" + _s10_phone_auth[-4:],
+                                    "method":       "simulate",
+                                    "issued_at":    _time.time(),
+                                    "expires_at":   _time.time() + 1800,
+                                    "error":        None,
+                                }
+                        if _tok.get("error") and not _tok.get("token"):
+                            st.error(f"인증 오류: {_tok['error']}")
+                        else:
+                            st.session_state["sec10_auth_token"] = {
+                                "token":        _tok["token"],
+                                "ci_hash":      _tok["ci_hash"],
+                                "name_initial": _tok["name_initial"],
+                                "phone_masked": _tok["phone_masked"],
+                                "method":       _tok["method"],
+                                "issued_at":    _tok["issued_at"],
+                                "expires_at":   _tok["expires_at"],
+                            }
+                            st.session_state["sec10_dob_hash"] = hashlib.sha256(
+                                _s10_dob.encode()).hexdigest()[:16]
+                            st.session_state["sec10_show_auth_detail"] = False
+                            if _tok.get("error"):
+                                st.warning(f"⚠️ {_tok['error']} — 시뮬레이션으로 진행합니다.")
+                            _sim_data = _sec10_simulate_fetch(_s10_name)
+                            st.session_state["sec10_fetched"] = _sim_data
+                            st.session_state["sec10_phase"]   = "diagnosis"
+                            st.rerun()
+                else:
+                    st.button(
+                        "🔐 인증 시작 (정보 입력 후 활성화)",
+                        disabled=True, use_container_width=True, key="sec10_auth_dis"
+                    )
+                    _miss = []
+                    if _s10_carrier == "─ 통신사 선택 ─": _miss.append("통신사")
+                    if len(_dob_clean_v) != 8:             _miss.append("생년월일 8자리")
+                    if len(_phone_clean_v) < 10:           _miss.append("휴대폰 번호")
+                    if _miss:
+                        st.caption(f"⚠️ 미입력: {' · '.join(_miss)}")
         return
 
     if _phase == "diagnosis":
