@@ -11093,8 +11093,9 @@ def _render_gk_risk():
     _syn_kcd_nm = (st.session_state.get("risk_kcd", "")
                    or st.session_state.get("scan_client_kcd_name", ""))
 
-    _stab1, _stab2, _stab3, _stab4, _stab5 = st.tabs([
-        "🏥 실손보험 분석", "💀 생명보험 갭", "🏆 최적 상품 추천", "⚖️ 법령 검색", "🔬 KCD 상세",
+    _stab1, _stab2, _stab3, _stab4, _stab5, _stab6 = st.tabs([
+        "🏥 실손보험 분석", "💀 생명보험 갭", "🏆 최적 상품 추천",
+        "⚖️ 법령 검색", "🔬 KCD 상세", "🏢 사업자 조회",
     ])
 
     with _stab1:
@@ -11170,6 +11171,9 @@ def _render_gk_risk():
                 )
         else:
             st.info("좌측 'KCD 질병 검색'에서 질병코드를 선택하면 상세 분석이 표시됩니다.")
+
+    with _stab6:
+        render_biz_status_panel(session_key="risk_biz")
 
 
 
