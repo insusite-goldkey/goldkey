@@ -29727,14 +29727,47 @@ watchRipple();
         # ── [제53조 개정] 비로그인 전용 콘텐츠 — 로그인 후 완전 미렌더 ──────
         if 'user_id' not in st.session_state:
             st.markdown("""
-<div style='background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);
-  border:1.5px solid #0ea5e9;border-left:4px solid #D4AF37;border-radius:12px;
-  padding:12px 14px;margin:8px 0 6px 0;box-shadow:0 2px 8px rgba(14,165,233,0.15);'>
-  <div style='font-size:0.82rem;font-weight:800;color:#0a1628;margin-bottom:4px;'>🏆 goldkey_Ai_masters2026 AI 마스터</div>
-  <div style='font-size:0.74rem;color:#1e3a5f;line-height:1.5;'>
-    아래 <b>약관 동의</b> 후 <b>로그인</b>하시면<br>
-    모든 AI 상담 기능을 이용하실 수 있습니다.<br>
-    <span style='color:#0369a1;font-weight:700;'>📱 핸드폰·태블릿 모두 지원</span>
+<div style='background:linear-gradient(135deg,#0a1628 0%,#1e3a5f 60%,#1d4ed8 100%);
+  border:1.5px solid #D4AF37;border-left:4px solid #D4AF37;border-radius:14px;
+  padding:14px 15px 12px 15px;margin:8px 0 8px 0;
+  box-shadow:0 4px 18px rgba(212,175,55,0.22);'>
+  <div style='font-size:0.80rem;font-weight:900;color:#D4AF37;
+    letter-spacing:0.06em;margin-bottom:10px;
+    border-bottom:1px solid rgba(212,175,55,0.35);padding-bottom:7px;'>
+    🔐 사령부 보안 접속 절차
+  </div>
+  <div style='font-size:0.78rem;color:#e2e8f0;line-height:1.0;'>
+
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;'>
+      <span style='font-size:1.0rem;flex-shrink:0;'>1️⃣</span>
+      <span><b style='color:#fde68a;'>필수동의:</b> 왼쪽 사이드바<br>
+      &nbsp;&nbsp;필수항목 <b style='color:#fff;'>(4개)</b> 체크</span>
+    </div>
+
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;'>
+      <span style='font-size:1.0rem;flex-shrink:0;'>2️⃣</span>
+      <span><b style='color:#fde68a;'>정보입력:</b> 보안로그인 아래<br>
+      &nbsp;&nbsp;<b style='color:#fff;'>[이름]</b>, <b style='color:#fff;'>[연락처]</b> 입력</span>
+    </div>
+
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;'>
+      <span style='font-size:1.0rem;flex-shrink:0;'>3️⃣</span>
+      <span><b style='color:#fde68a;'>로그인 실행:</b><br>
+      &nbsp;&nbsp;<b style='color:#fff;'>'AI 마스터 로그인'</b> 버튼 클릭</span>
+    </div>
+
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;'>
+      <span style='font-size:1.0rem;flex-shrink:0;'>4️⃣</span>
+      <span><b style='color:#fde68a;'>번호확인:</b> 화면에 표시된<br>
+      &nbsp;&nbsp;<b style='color:#fff;'>인증번호 6자리</b> 확인</span>
+    </div>
+
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:2px;'>
+      <span style='font-size:1.0rem;flex-shrink:0;'>5️⃣</span>
+      <span><b style='color:#fde68a;'>최종인증:</b> OTP 박스에<br>
+      &nbsp;&nbsp;번호 입력 후 <b style='color:#fff;'>[클릭]</b></span>
+    </div>
+
   </div>
 </div>""", unsafe_allow_html=True)
 
