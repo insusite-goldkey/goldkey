@@ -1,4 +1,4 @@
-# ==========================================================
+﻿# ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -12087,6 +12087,15 @@ def _render_gk_sec10():
 
     _phase = st.session_state.get("sec10_phase", "consent")
 
+    # [CB-FIX §1] 체크박스 key 충돌 방지 — session_state 초기값 사전 설정
+    for _cb_key, _cb_def in [
+        ("sec10_consent1", False),
+        ("sec10_consent2", False),
+        ("sec10_consent3", False),
+    ]:
+        if _cb_key not in st.session_state:
+            st.session_state[_cb_key] = _cb_def
+
     # ════════════════════════════════════════════════════════════════════
     # PHASE 1 — 정보동의 + 간소화 입력 (GK-SEC-01 Consent Flow)
     # ════════════════════════════════════════════════════════════════════
@@ -12150,20 +12159,19 @@ def _render_gk_sec10():
             "</div>", unsafe_allow_html=True
         )
 
+        # [CB-FIX §2] value= 제거 — key= 단독 사용으로 상태 충돌 해소
+        # Streamlit: key= 지정 시 session_state[key]가 단일 진실 소스
         _consent1 = st.checkbox(
             "✅ [필수] 개인정보 수집·이용에 동의합니다 (개인정보보호법 제15조)",
-            value=st.session_state.get("sec10_consent1", False),
-            key="sec10_consent1_cb"
+            key="sec10_consent1"
         )
         _consent2 = st.checkbox(
             "✅ [필수] 마이데이터 조회 및 제3자 제공에 동의합니다 (신용정보법 제32조)",
-            value=st.session_state.get("sec10_consent2", False),
-            key="sec10_consent2_cb"
+            key="sec10_consent2"
         )
         _consent3 = st.checkbox(
             "☑️ [선택] 보험 설계 안내 및 상품 비교 목적으로 활용에 동의합니다",
-            value=st.session_state.get("sec10_consent3", False),
-            key="sec10_consent3_cb"
+            key="sec10_consent3"
         )
 
         st.markdown(
@@ -12207,7 +12215,9 @@ def _render_gk_sec10():
         st.markdown("</div>", unsafe_allow_html=True)
 
         _all_ok = (_s10_name.strip() and _s10_phone.strip()
-                   and _consent1 and _consent2 and _sign_valid)
+                   and st.session_state.get("sec10_consent1", False)
+                   and st.session_state.get("sec10_consent2", False)
+                   and _sign_valid)
         if _all_ok:
             if st.button(
                 "🔑 보험 자동 소환 시작 — 인증 단계로 이동",
@@ -12215,9 +12225,9 @@ def _render_gk_sec10():
             ):
                 st.session_state["sec10_name"]     = _s10_name.strip()
                 st.session_state["sec10_phone"]    = _s10_phone.strip()
-                st.session_state["sec10_consent1"] = True
+                st.session_state["sec10_consent1"] = True   # 버튼 통과 = 필수 동의 완료
                 st.session_state["sec10_consent2"] = True
-                st.session_state["sec10_consent3"] = _consent3
+                st.session_state["sec10_consent3"] = bool(st.session_state.get("sec10_consent3", False))
                 st.session_state["sec10_sign"]     = _s10_sign.strip()
                 st.session_state["sec10_phase"]    = "auth"
                 st.session_state["gs_c_name"]      = _s10_name.strip()
