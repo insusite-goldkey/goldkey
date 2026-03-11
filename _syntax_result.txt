@@ -1,1 +1,2 @@
-SYNTAX OK
+SYNTAX_OK: app.py
+SYNTAX_OK: modules/smart_scanner.py
