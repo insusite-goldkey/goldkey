@@ -675,6 +675,223 @@ def gp200_search_companies(query: str, limit: int = 8) -> list:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# [CORP-AC] 법인 상호 자동완성 엔진
+# 공개 법인 정보(상호·사업자번호·기업규모·업종·주소)만 노출
+# 보안: 개인 상담 정보·비밀 태그 데이터는 절대 포함하지 않음
+# ══════════════════════════════════════════════════════════════════════════════
+
+_CORP_DB: list[dict] = [
+    # 생명보험
+    {"name": "삼성생명보험(주)",       "biz_no": "104-81-09090", "size": "대기업",   "sector": "생명보험",      "addr": "서울 서초구 서초대로74길 11"},
+    {"name": "한화생명보험(주)",        "biz_no": "104-81-10707", "size": "대기업",   "sector": "생명보험",      "addr": "서울 영등포구 63로 50"},
+    {"name": "교보생명보험(주)",        "biz_no": "104-81-33512", "size": "대기업",   "sector": "생명보험",      "addr": "서울 종로구 종로1"},
+    {"name": "신한라이프생명보험(주)",  "biz_no": "104-81-22789", "size": "대기업",   "sector": "생명보험",      "addr": "서울 중구 세종대로 9길 20"},
+    {"name": "NH농협생명보험(주)",      "biz_no": "104-81-74668", "size": "대기업",   "sector": "생명보험",      "addr": "서울 중구 새문안로 16"},
+    {"name": "미래에셋생명보험(주)",    "biz_no": "104-81-38690", "size": "대기업",   "sector": "생명보험",      "addr": "서울 중구 을지로5길 26"},
+    {"name": "흥국생명보험(주)",        "biz_no": "104-81-05854", "size": "중견기업", "sector": "생명보험",      "addr": "서울 종로구 새문안로 68"},
+    {"name": "동양생명보험(주)",        "biz_no": "104-81-14894", "size": "중견기업", "sector": "생명보험",      "addr": "서울 종로구 종로 33"},
+    {"name": "ABL생명보험(주)",         "biz_no": "104-81-12210", "size": "중견기업", "sector": "생명보험",      "addr": "서울 종로구 종로 1"},
+    {"name": "DB생명보험(주)",          "biz_no": "104-81-28756", "size": "중견기업", "sector": "생명보험",      "addr": "서울 강남구 테헤란로 432"},
+    # 손해보험
+    {"name": "삼성화재해상보험(주)",    "biz_no": "202-81-00187", "size": "대기업",   "sector": "손해보험",      "addr": "서울 서초구 서초대로74길 14"},
+    {"name": "현대해상화재보험(주)",    "biz_no": "202-81-00865", "size": "대기업",   "sector": "손해보험",      "addr": "서울 종로구 홍지문2길 20"},
+    {"name": "DB손해보험(주)",          "biz_no": "202-81-00286", "size": "대기업",   "sector": "손해보험",      "addr": "서울 강남구 테헤란로 432"},
+    {"name": "KB손해보험(주)",          "biz_no": "202-81-28153", "size": "대기업",   "sector": "손해보험",      "addr": "서울 강남구 테헤란로 150"},
+    {"name": "메리츠화재해상보험(주)",  "biz_no": "202-81-02343", "size": "대기업",   "sector": "손해보험",      "addr": "서울 강남구 테헤란로 161"},
+    {"name": "한화손해보험(주)",        "biz_no": "202-81-13070", "size": "대기업",   "sector": "손해보험",      "addr": "서울 영등포구 63로 50"},
+    {"name": "NH농협손해보험(주)",      "biz_no": "202-81-35981", "size": "대기업",   "sector": "손해보험",      "addr": "서울 중구 새문안로 16"},
+    {"name": "롯데손해보험(주)",        "biz_no": "202-81-00764", "size": "대기업",   "sector": "손해보험",      "addr": "서울 중구 을지로 35"},
+    {"name": "흥국화재해상보험(주)",    "biz_no": "202-81-00296", "size": "중견기업", "sector": "손해보험",      "addr": "서울 종로구 새문안로 68"},
+    {"name": "MG손해보험(주)",          "biz_no": "202-81-60694", "size": "중견기업", "sector": "손해보험",      "addr": "서울 종로구 새문안로3길 30"},
+    # 금융지주·은행
+    {"name": "KB금융지주(주)",          "biz_no": "101-81-55461", "size": "대기업",   "sector": "금융지주",      "addr": "서울 영등포구 국제금융로8길 26"},
+    {"name": "신한금융지주(주)",        "biz_no": "100-81-74155", "size": "대기업",   "sector": "금융지주",      "addr": "서울 중구 세종대로 9길 20"},
+    {"name": "하나금융지주(주)",        "biz_no": "101-81-47522", "size": "대기업",   "sector": "금융지주",      "addr": "서울 중구 을지로 66"},
+    {"name": "우리금융지주(주)",        "biz_no": "100-81-10703", "size": "대기업",   "sector": "금융지주",      "addr": "서울 중구 소공로 51"},
+    # 대기업 — 제조·건설
+    {"name": "삼성전자(주)",            "biz_no": "124-81-00998", "size": "대기업",   "sector": "전자·반도체",   "addr": "경기 수원시 영통구 삼성로 129"},
+    {"name": "현대자동차(주)",          "biz_no": "119-81-14365", "size": "대기업",   "sector": "자동차 제조",   "addr": "서울 서초구 헌릉로 12"},
+    {"name": "기아(주)",                "biz_no": "119-81-02936", "size": "대기업",   "sector": "자동차 제조",   "addr": "서울 서초구 헌릉로 12"},
+    {"name": "LG전자(주)",              "biz_no": "107-86-14075", "size": "대기업",   "sector": "전자·가전",     "addr": "서울 영등포구 여의대방로 128"},
+    {"name": "SK하이닉스(주)",          "biz_no": "129-81-00140", "size": "대기업",   "sector": "전자·반도체",   "addr": "경기 이천시 부발읍 경충대로 2091"},
+    {"name": "POSCO홀딩스(주)",         "biz_no": "109-85-48480", "size": "대기업",   "sector": "철강",          "addr": "서울 강남구 테헤란로 440"},
+    {"name": "삼성물산(주)",            "biz_no": "140-81-10796", "size": "대기업",   "sector": "건설·물산",     "addr": "서울 서초구 서초대로74길 11"},
+    {"name": "현대건설(주)",            "biz_no": "120-81-01589", "size": "대기업",   "sector": "건설",          "addr": "서울 종로구 율곡로 75"},
+    {"name": "GS건설(주)",              "biz_no": "214-81-05635", "size": "대기업",   "sector": "건설",          "addr": "서울 종로구 종로 33"},
+    {"name": "대우건설(주)",            "biz_no": "116-81-00276", "size": "대기업",   "sector": "건설",          "addr": "서울 중구 을지로5길 26"},
+    {"name": "롯데케미칼(주)",          "biz_no": "209-81-00359", "size": "대기업",   "sector": "화학·플라스틱", "addr": "서울 중구 을지로 30"},
+    {"name": "한화솔루션(주)",          "biz_no": "201-81-01834", "size": "대기업",   "sector": "화학·에너지",   "addr": "서울 중구 청계천로 86"},
+    # GA·법인보험대리점
+    {"name": "프라임에셋(주)",          "biz_no": "214-86-16843", "size": "중견기업", "sector": "GA 보험대리점", "addr": "서울 강남구 테헤란로 123"},
+    {"name": "리치앤코(주)",            "biz_no": "220-81-42765", "size": "중견기업", "sector": "GA 보험대리점", "addr": "서울 강남구 역삼로 180"},
+    {"name": "피플라이프(주)",          "biz_no": "134-81-47680", "size": "중견기업", "sector": "GA 보험대리점", "addr": "서울 영등포구 영중로 14"},
+    {"name": "인카금융서비스(주)",      "biz_no": "220-81-52049", "size": "중견기업", "sector": "GA 보험대리점", "addr": "서울 영등포구 국제금융로 10"},
+    {"name": "글로벌금융판매(주)",      "biz_no": "220-86-04812", "size": "중견기업", "sector": "GA 보험대리점", "addr": "서울 강남구 테헤란로 133"},
+    {"name": "한국보험금융(주)",        "biz_no": "220-81-79312", "size": "중소기업", "sector": "GA 보험대리점", "addr": "서울 서초구 강남대로 479"},
+    {"name": "goldkey_Ai_masters2026",  "biz_no": "",             "size": "중소기업", "sector": "GA 보험대리점", "addr": ""},
+]
+
+_CORP_DB_IDX: list[tuple] = [
+    (
+        row,
+        row["name"].lower().replace(" ", "").replace("(주)", "").replace("주식회사", ""),
+        row.get("sector", "").lower(),
+        row.get("addr", "").lower(),
+    )
+    for row in _CORP_DB
+]
+
+
+def _corp_search(query: str, limit: int = 8) -> list[dict]:
+    """[CORP-AC §1] 공개 법인 DB 검색 — 개인 상담 정보 완전 배제."""
+    q = query.strip().lower().replace(" ", "").replace("(주)", "").replace("주식회사", "")
+    if not q:
+        return []
+    hits: list[tuple[int, dict]] = []
+    for row, name_idx, sector_idx, addr_idx in _CORP_DB_IDX:
+        if name_idx.startswith(q):
+            score = 100
+        elif q in name_idx:
+            score = 60
+        elif q in sector_idx:
+            score = 20
+        elif q in addr_idx:
+            score = 10
+        else:
+            continue
+        hits.append((score, row))
+    hits.sort(key=lambda x: (-x[0], x[1]["name"]))
+    return [r for _, r in hits[:limit]]
+
+
+def _corp_search_rag(query: str, rag_store: "dict | None", limit: int = 4) -> list[dict]:
+    """[CORP-AC §2] RAG 저장소 법인 검색 — 공개 필드만 반환."""
+    if not rag_store or not query:
+        return []
+    q = query.strip().lower()
+    results: list[dict] = []
+    src = rag_store.values() if isinstance(rag_store, dict) else []
+    for doc in src:
+        if not isinstance(doc, dict):
+            continue
+        if str(doc.get("type", "")).lower() not in ("corp", "company", "법인"):
+            continue
+        name = str(doc.get("name") or doc.get("title") or "")
+        if not name or q not in name.lower():
+            continue
+        results.append({
+            "name":    name,
+            "biz_no":  doc.get("biz_no", ""),
+            "size":    doc.get("size", ""),
+            "sector":  doc.get("sector", ""),
+            "addr":    doc.get("addr", ""),
+            "_source": "rag",
+        })
+        if len(results) >= limit:
+            break
+    return results
+
+
+def render_corp_autocomplete(
+    label: str,
+    session_key: str,
+    placeholder: str = "예) 삼성생명, 현대건설, 프라임에셋…",
+    autofill_keys: "dict | None" = None,
+    rag_store: "dict | None" = None,
+    show_detail: bool = True,
+) -> str:
+    """
+    [CORP-AC §3] 법인 상호 타입어헤드 자동완성 UI 컴포넌트.
+    autofill_keys: {"biz_no": ss_key, "size": ss_key, "sector": ss_key, "addr": ss_key}
+    반환: 현재 선택된 상호명
+    """
+    import streamlit as _st
+
+    _cur = _st.session_state.get(session_key, "")
+    _typed = _st.text_input(label, value=_cur, placeholder=placeholder,
+                             key=f"{session_key}_input")
+
+    _is_typing = (_typed.strip() != "" and _typed != _cur)
+    if _is_typing:
+        _hits = _corp_search(_typed, limit=8)
+        _rag  = _corp_search_rag(_typed, rag_store, limit=3)
+        _rag_names = {r["name"] for r in _rag}
+        _merged = _rag + [h for h in _hits if h["name"] not in _rag_names]
+
+        if _merged:
+            _st.markdown(
+                "<div style='border:1px dashed #000000;border-radius:8px;"
+                "background:#ffffff;padding:4px 0;margin-top:-4px;"
+                "box-shadow:0 4px 12px rgba(0,0,0,0.10);'>"
+                "<div style='font-size:0.68rem;color:#64748b;"
+                "padding:4px 12px 2px 12px;font-weight:700;'>"
+                "🔍 법인 선택 (클릭 → 자동 채우기)</div>",
+                unsafe_allow_html=True,
+            )
+            _sz_colors = {"대기업": "#dc2626", "중견기업": "#d97706", "중소기업": "#16a34a"}
+            for _h in _merged:
+                _src_tag = " 🗂️" if _h.get("_source") == "rag" else ""
+                _sc = _sz_colors.get(_h.get("size", ""), "#64748b")
+                _btn_lbl = (
+                    f"**{_h['name']}**{_src_tag}"
+                    f"  ·  {_h.get('sector','')}"
+                    f"  [{_h.get('size','')}]"
+                )
+                if _st.button(_btn_lbl,
+                               key=f"corp_ac_{session_key}_{_h['name']}",
+                               use_container_width=True):
+                    _st.session_state[session_key] = _h["name"]
+                    for _f, _sk in (autofill_keys or {}).items():
+                        if _sk and _h.get(_f) is not None:
+                            _st.session_state[_sk] = _h[_f]
+                    _st.rerun()
+            _st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            _st.markdown(
+                "<div style='font-size:0.72rem;color:#94a3b8;padding:2px 4px;'>"
+                "검색 결과 없음 — 직접 입력 후 저장하세요.</div>",
+                unsafe_allow_html=True,
+            )
+    else:
+        if _typed.strip():
+            _st.session_state[session_key] = _typed
+
+    _selected = _st.session_state.get(session_key, "")
+    if show_detail and _selected and not _is_typing:
+        _d = next((r for r in _CORP_DB if r["name"] == _selected), None)
+        _sz_bg = {"대기업": "#fef2f2", "중견기업": "#fffbeb", "중소기업": "#f0fdf4"}
+        _sz_cl = {"대기업": "#dc2626", "중견기업": "#d97706", "중소기업": "#16a34a"}
+        if _d:
+            _bg = _sz_bg.get(_d.get("size", ""), "#f8fafc")
+            _cl = _sz_cl.get(_d.get("size", ""), "#64748b")
+            _st.markdown(
+                f"<div style='background:{_bg};border:1px dashed #000000;"
+                f"border-radius:8px;padding:8px 14px;margin-top:4px;"
+                f"font-size:0.78rem;'>"
+                f"<span style='font-weight:900;color:#000000;font-size:0.88rem;'>"
+                f"🏢 {_d['name']}</span>&nbsp;"
+                f"<span style='background:{_cl};color:#fff;border-radius:10px;"
+                f"padding:1px 8px;font-size:0.68rem;font-weight:900;'>"
+                f"{_d.get('size','')}</span><br>"
+                f"<span style='color:#374151;'>📋 업종: <b>{_d.get('sector','')}</b></span>"
+                f"&nbsp;·&nbsp;"
+                f"<span style='color:#374151;'>🔢 사업자번호: "
+                f"<b>{_d.get('biz_no','—')}</b></span><br>"
+                f"<span style='color:#374151;'>📍 {_d.get('addr','')}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        elif _selected:
+            _st.markdown(
+                f"<div style='font-size:0.75rem;color:#64748b;padding:4px 8px;"
+                f"border:1px dashed #cbd5e1;border-radius:6px;margin-top:4px;'>"
+                f"🏢 <b>{_selected}</b> — 직접 입력 (공개 DB 미등록)</div>",
+                unsafe_allow_html=True,
+            )
+    return _selected
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # [GP-JOB] 계층형 보험 직업분류 DB (보험개발원 표준, 대-중-소분류 + 상해급수)
 # 상해급수: 1급(녹색,저위험) / 2급(황색,중위험) / 3급(적색,고위험)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -10319,6 +10536,60 @@ input, textarea, .stTextInput input, .stTextArea textarea,
     # ══════════════════════════════════════════════════════════════════════════
     with _p1:
         st.markdown('<div class="gks09-wrap">', unsafe_allow_html=True)
+
+        # ── [CORP-AC] 법인 상호 자동완성 입력 ──────────────────────────────
+        st.markdown(
+            "<div style='border:1px dashed #000000;border-radius:10px;"
+            "background:#F8FBFF;padding:12px 16px 10px 16px;margin-bottom:14px;'>"
+            "<div style='color:#1565C0;font-weight:900;font-size:0.88rem;"
+            "margin-bottom:8px;'>🏢 상담 법인 정보 입력 — 상호 입력 시 자동 완성</div>",
+            unsafe_allow_html=True,
+        )
+        _p1_corp_c1, _p1_corp_c2 = st.columns([3, 2])
+        with _p1_corp_c1:
+            _p1_corp_name = render_corp_autocomplete(
+                label="법인 상호",
+                session_key="sec09_corp_name",
+                placeholder="예) 삼성전자, 현대건설, 프라임에셋…",
+                autofill_keys={
+                    "biz_no": "sec09_biz_no",
+                    "size":   "sec09_corp_size",
+                    "sector": "sec09_corp_sector",
+                    "addr":   "sec09_corp_addr",
+                },
+                show_detail=True,
+            )
+        with _p1_corp_c2:
+            _p1_biz_no = st.text_input(
+                "사업자번호",
+                value=st.session_state.get("sec09_biz_no", ""),
+                placeholder="자동 채우기 또는 직접 입력",
+                key="sec09_biz_no_input",
+            )
+            if _p1_biz_no != st.session_state.get("sec09_biz_no", ""):
+                st.session_state["sec09_biz_no"] = _p1_biz_no
+            _p1_corp_size_opts = ["대기업", "중견기업", "중소기업", "기타"]
+            _p1_size_val = st.session_state.get("sec09_corp_size", "중소기업")
+            if _p1_size_val not in _p1_corp_size_opts:
+                _p1_size_val = "중소기업"
+            _p1_corp_size = st.selectbox(
+                "기업 규모",
+                _p1_corp_size_opts,
+                index=_p1_corp_size_opts.index(_p1_size_val),
+                key="sec09_corp_size_sel",
+            )
+            st.session_state["sec09_corp_size"] = _p1_corp_size
+        _p1_addr = st.text_input(
+            "본점 소재지",
+            value=st.session_state.get("sec09_corp_addr", ""),
+            placeholder="자동 채우기 또는 직접 입력",
+            key="sec09_corp_addr_input",
+        )
+        if _p1_addr != st.session_state.get("sec09_corp_addr", ""):
+            st.session_state["sec09_corp_addr"] = _p1_addr
+        st.markdown("</div>", unsafe_allow_html=True)
+        # ── [CORP-AC] 끝 ──────────────────────────────────────────────────
+
         st.markdown("#### ⚖️ 법인세·소득세·상증세율 실시간 동기화")
         st.caption("매년 1월 10일 기준 자동 업데이트 | 금융감독원·국세청 예규 상시 병기")
 
@@ -32364,11 +32635,16 @@ div[data-testid="stSelectbox"] > div > div {
             )
             _mi_c1, _mi_c2 = st.columns([1, 1])
             with _mi_c1:
-                _mi_company = st.text_input(
-                    "소속 보험사/대리점명",
-                    value=st.session_state.get("fc_company", ""),
-                    placeholder="예) 삼성생명, goldkey_Ai_masters2026",
-                    key="home_mi_company"
+                _mi_company = render_corp_autocomplete(
+                    label="🏢 소속 보험사/대리점명",
+                    session_key="fc_company",
+                    placeholder="예) 삼성생명, 프라임에셋, goldkey_Ai_masters2026…",
+                    autofill_keys={
+                        "sector": "fc_company_sector",
+                        "size":   "fc_company_size",
+                        "addr":   "fc_company_addr",
+                    },
+                    show_detail=True,
                 )
                 _mi_branch = st.text_input(
                     "지점 이름",
