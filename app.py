@@ -9396,16 +9396,34 @@ def _gp103_build_script(
 # [GK-SEC-09] VVIP CEO 통합 경영 전략 센터 렌더러
 # ══════════════════════════════════════════════════════════════════════════════
 def _render_gk_sec10():
-    """GK-SEC-10 디지털 보험 진단 시스템 — 내보험다보여 (Consent Flow + Diagnosis Hub)"""
+    """GK-SEC-10 내 보험 자동 소환 센터 — 마이데이터 기반 정밀 진단 허브"""
     import streamlit as st
     import hashlib, datetime
 
     st.markdown("""
 <style>
+.sec10-wrap {
+    background: linear-gradient(135deg, #fefce8 0%, #f0fdf4 50%, #eff6ff 100%);
+    border: 1px dashed #000;
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 18px;
+    box-sizing: border-box;
+}
 .sec10-consent-box {
     border:1px dashed #000; border-radius:12px;
-    padding:20px 24px; background:#fff; box-sizing:border-box;
-    margin-bottom:16px;
+    padding:20px 24px; background:rgba(255,255,255,0.85);
+    box-sizing:border-box; margin-bottom:16px;
+}
+.sec10-law-box {
+    background:#fffbeb; border:1px solid #fde68a;
+    border-radius:10px; padding:14px 18px; margin:10px 0;
+    font-size:0.78rem; color:#78350f; line-height:1.8;
+}
+.sec10-law-box b { color:#92400e; }
+.sec10-sign-box {
+    border:2px dashed #6366f1; border-radius:10px;
+    padding:14px 18px; background:#f5f3ff; margin-top:10px;
 }
 .sec10-dashed-divider {
     border:none; border-top:2px dashed #000;
@@ -9416,10 +9434,16 @@ def _render_gk_sec10():
     padding:8px 12px; border-bottom:1px solid #e5e7eb; font-size:0.88rem;
 }
 .sec10-chart-wrap {
-    background:#fff; border:1px dashed #000; border-radius:12px;
+    background:rgba(255,255,255,0.9); border:1px dashed #000; border-radius:12px;
     padding:16px 20px; margin-top:4px; box-sizing:border-box;
 }
+.sec10-gcs-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background:#dcfce7; color:#166534; border-radius:20px;
+    padding:3px 12px; font-size:0.72rem; font-weight:700;
+}
 @media (max-width: 900px) {
+    .sec10-wrap { padding:14px 12px; }
     .sec10-ins-row { font-size:0.82rem; padding:6px 8px; }
     .sec10-chart-wrap { padding:10px 8px; }
 }
@@ -9429,21 +9453,32 @@ def _render_gk_sec10():
     tab_home_btn("gk_sec10")
 
     st.markdown(
-        "<div style='background:linear-gradient(90deg,#0a1628,#1a3a5c);"
-        "border-radius:12px;padding:18px 24px;margin-bottom:18px;'>"
-        "<div style='font-size:1.3rem;font-weight:900;color:#D4AF37;letter-spacing:0.04em;'>"
-        "📡 GK-SEC-10 — 디지털 보험 진단 시스템</div>"
-        "<div style='font-size:0.88rem;color:#c0d8f0;margin-top:4px;'>"
-        "내보험다보여 · 마이데이터 기반 정밀 진단 허브</div>"
+        "<div style='background:linear-gradient(135deg,#1e1b4b 0%,#312e81 60%,#4338ca 100%);"
+        "border-radius:14px;padding:20px 28px;margin-bottom:6px;border:1px solid #4f46e5;'>"
+        "<div style='font-size:1.35rem;font-weight:900;color:#fde68a;letter-spacing:0.04em;'>"
+        "🔑 GK-SEC-10 — 내 보험 자동 소환 센터</div>"
+        "<div style='font-size:0.85rem;color:#c7d2fe;margin-top:6px;line-height:1.6;'>"
+        "마이데이터 기반 정밀 진단 허브 &nbsp;·&nbsp; COOCON / CODEF 중계 &nbsp;·&nbsp; "
+        "<span style='background:#fde68a;color:#1e1b4b;border-radius:6px;"
+        "padding:1px 8px;font-weight:800;font-size:0.78rem;'>🔒 민감정보 비저장</span>"
+        "</div>"
         "</div>", unsafe_allow_html=True
     )
 
     st.markdown(
-        "<div style='background:#f0f9ff;border-left:4px solid #0ea5e9;"
-        "border-radius:8px;padding:12px 16px;margin-bottom:16px;"
-        "font-size:0.9rem;color:#0c4a6e;line-height:1.7;'>"
-        "💬 <b>고객님, 이 섹션은 태블릿에서 더 크고 선명하게 보실 수 있습니다.</b><br>"
-        "흩어져 있던 소중한 보험들을 모두 찾아왔으니, 현재 상태를 시원하게 보여드릴게요."
+        "<div style='background:linear-gradient(90deg,#fefce8,#f0fdf4);"
+        "border:1px dashed #000;border-radius:12px;"
+        "padding:16px 22px;margin-bottom:18px;'>"
+        "<div style='font-size:1.0rem;font-weight:800;color:#1e1b4b;margin-bottom:6px;'>"
+        "💬 고객님께 드리는 말씀</div>"
+        "<div style='font-size:0.93rem;color:#374151;line-height:1.9;'>"
+        "고객님, 숨어 있는 소중한 보험 자산을 찾아오기 위해 "
+        "<b>딱 한 번의 인증</b>이 필요합니다.<br>"
+        "제가 안전하게 모셔오겠습니다.&nbsp;"
+        "<span style='font-size:0.82rem;color:#6366f1;font-weight:700;'>"
+        "— 열쇠를 돌리는 것은 고객이지만, 보물을 지키는 것은 마스터입니다."
+        "</span>"
+        "</div>"
         "</div>", unsafe_allow_html=True
     )
 
@@ -9453,8 +9488,8 @@ def _render_gk_sec10():
     # PHASE 1 — 정보동의 + 간소화 입력 (GK-SEC-01 Consent Flow)
     # ════════════════════════════════════════════════════════════════════
     if _phase == "consent":
-        st.markdown("### 📋 1단계 — 고객 등록 및 정보동의")
-        st.markdown("<div class='sec10-consent-box'>", unsafe_allow_html=True)
+        st.markdown("### 📋 1단계 — 고객 등록 및 디지털 정보동의")
+        st.markdown("<div class='sec10-wrap'>", unsafe_allow_html=True)
 
         _c1, _c2 = st.columns(2)
         with _c1:
@@ -9472,47 +9507,99 @@ def _render_gk_sec10():
             )
 
         st.markdown(
-            "<div style='background:#f9fafb;border:1px solid #d1d5db;"
-            "border-radius:8px;padding:12px 16px;margin:12px 0;'>"
-            "<div style='font-size:0.88rem;font-weight:800;color:#111;margin-bottom:8px;'>"
-            "📜 개인정보 수집 및 이용 동의</div>"
-            "<div style='font-size:0.78rem;color:#4b5563;line-height:1.7;'>"
-            "수집 항목: 성명, 연락처, 보험 가입 내역 (공공 마이데이터 기반)<br>"
-            "수집 목적: 보험 보장 현황 분석 및 설계 참고<br>"
-            "보유 기간: 상담 종료 후 즉시 해싱 처리 (AES-256 저장)"
-            "</div></div>", unsafe_allow_html=True
+            "<div class='sec10-law-box'>"
+            "<b>📌 법적 근거</b><br>"
+            "본 동의서는 <b>「개인정보 보호법」 제15조·제17조·제22조</b> 및 "
+            "<b>「신용정보의 이용 및 보호에 관한 법률」 제32조·제33조</b>에 따라 "
+            "적법하게 수집·이용됩니다. 동의를 거부하실 수 있으며, "
+            "거부 시 보험 조회 서비스 이용이 제한됩니다."
+            "</div>", unsafe_allow_html=True
+        )
+
+        st.markdown(
+            "<div style='background:rgba(255,255,255,0.92);border:1px solid #d1d5db;"
+            "border-radius:10px;padding:14px 18px;margin:10px 0;'>"
+            "<div style='font-size:0.9rem;font-weight:800;color:#111;margin-bottom:10px;'>"
+            "📜 개인정보 수집·이용 및 마이데이터 제공 동의서</div>"
+            "<table style='width:100%;font-size:0.76rem;color:#374151;"
+            "border-collapse:collapse;line-height:1.7;'>"
+            "<tr style='background:#f1f5f9;'>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;width:22%;'>수집·이용 목적</td>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>보험 가입 현황 조회, 보장 분석, 설계 참고자료 생성</td>"
+            "</tr>"
+            "<tr>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;'>수집 항목</td>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>성명, 연락처, 생년월일(해시), CI(연계정보), 보험 가입 내역</td>"
+            "</tr>"
+            "<tr style='background:#f1f5f9;'>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;'>제공 기관</td>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>한국신용정보원(내보험다보여), COOCON, CODEF</td>"
+            "</tr>"
+            "<tr>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;'>보유·이용 기간</td>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>상담 종료 즉시 원본 파기 / 통계용 해시값: 1년</td>"
+            "</tr>"
+            "<tr style='background:#f1f5f9;'>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;'>보안 처리</td>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>SHA-256 해싱 + AES-256-GCM 암호화 저장 (민감정보 원본 비저장)</td>"
+            "</tr>"
+            "</table>"
+            "</div>", unsafe_allow_html=True
         )
 
         _consent1 = st.checkbox(
-            "✅ [필수] 개인정보 수집 및 이용에 동의합니다",
+            "✅ [필수] 개인정보 수집·이용에 동의합니다 (개인정보보호법 제15조)",
             value=st.session_state.get("sec10_consent1", False),
             key="sec10_consent1_cb"
         )
         _consent2 = st.checkbox(
-            "✅ [필수] 마이데이터 조회 및 활용에 동의합니다",
+            "✅ [필수] 마이데이터 조회 및 제3자 제공에 동의합니다 (신용정보법 제32조)",
             value=st.session_state.get("sec10_consent2", False),
             key="sec10_consent2_cb"
         )
-
-        st.markdown(
-            "<a href='#' style='font-size:0.78rem;color:#2563eb;text-decoration:underline;'>"
-            "📄 개인정보 처리방침 전문보기</a>",
-            unsafe_allow_html=True
+        _consent3 = st.checkbox(
+            "☑️ [선택] 보험 설계 안내 및 상품 비교 목적으로 활용에 동의합니다",
+            value=st.session_state.get("sec10_consent3", False),
+            key="sec10_consent3_cb"
         )
 
-        st.markdown("**✍️ 디지털 서명** (성함 입력으로 서명 갈음)")
+        st.markdown(
+            "<div style='margin-top:6px;'>"
+            "<a href='https://www.privacy.go.kr' target='_blank' "
+            "style='font-size:0.76rem;color:#2563eb;text-decoration:underline;margin-right:14px;'>"
+            "📄 개인정보포털 (privacy.go.kr)</a>"
+            "<a href='https://www.credit.or.kr' target='_blank' "
+            "style='font-size:0.76rem;color:#2563eb;text-decoration:underline;'>"
+            "📄 한국신용정보원 마이데이터 안내</a>"
+            "</div>", unsafe_allow_html=True
+        )
+
+        st.markdown(
+            "<div class='sec10-sign-box'>"
+            "<div style='font-size:0.88rem;font-weight:800;color:#4338ca;margin-bottom:4px;'>"
+            "✍️ 디지털 서명 — 성함 입력으로 전자서명에 갈음합니다</div>"
+            "<div style='font-size:0.74rem;color:#6b7280;margin-bottom:8px;'>"
+            "전자서명법 제3조에 따라 본 입력은 서면 서명과 동일한 법적 효력을 가집니다."
+            "</div>"
+            "</div>", unsafe_allow_html=True
+        )
         _s10_sign = st.text_input(
-            "서명란", placeholder="홍길동 (본인 성명 입력)",
+            "서명란", placeholder="홍길동 (위 성함과 동일하게 입력)",
             value=st.session_state.get("sec10_sign", ""),
             key="sec10_sign_input", max_chars=30,
             label_visibility="collapsed"
         )
         _sign_valid = (_s10_sign.strip() == _s10_name.strip() and len(_s10_sign.strip()) >= 2)
         if _s10_sign and not _sign_valid:
-            st.caption("⚠️ 서명은 위에 입력한 고객 성함과 일치해야 합니다.")
+            st.caption("⚠️ 서명은 위에 입력한 고객 성함과 정확히 일치해야 합니다.")
         elif _sign_valid:
-            _sign_ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-            st.caption(f"✅ 서명 확인: **{_s10_sign}** | {_sign_ts}")
+            _sign_ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            st.markdown(
+                f"<div style='background:#dcfce7;border-radius:8px;padding:8px 14px;"
+                f"font-size:0.8rem;color:#166534;font-weight:700;margin-top:6px;'>"
+                f"✅ 전자서명 확인: {_s10_sign} &nbsp;|&nbsp; 서명 시각: {_sign_ts}"
+                f"</div>", unsafe_allow_html=True
+            )
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -9520,13 +9607,14 @@ def _render_gk_sec10():
                    and _consent1 and _consent2 and _sign_valid)
         if _all_ok:
             if st.button(
-                "🔬 내보험다보여: 정밀 진단 시작",
+                "🔑 보험 자동 소환 시작 — 인증 단계로 이동",
                 type="primary", use_container_width=True, key="sec10_start_btn"
             ):
                 st.session_state["sec10_name"]     = _s10_name.strip()
                 st.session_state["sec10_phone"]    = _s10_phone.strip()
                 st.session_state["sec10_consent1"] = True
                 st.session_state["sec10_consent2"] = True
+                st.session_state["sec10_consent3"] = _consent3
                 st.session_state["sec10_sign"]     = _s10_sign.strip()
                 st.session_state["sec10_phase"]    = "auth"
                 st.session_state["gs_c_name"]      = _s10_name.strip()
@@ -9534,7 +9622,7 @@ def _render_gk_sec10():
                 st.rerun()
         else:
             st.button(
-                "🔬 내보험다보여: 정밀 진단 시작 (동의 완료 후 활성화)",
+                "🔑 보험 자동 소환 시작 (필수 동의 완료 후 활성화)",
                 disabled=True, use_container_width=True, key="sec10_start_dis"
             )
             _missing = []
@@ -9542,7 +9630,7 @@ def _render_gk_sec10():
             if not _s10_phone.strip(): _missing.append("연락처")
             if not _consent1: _missing.append("개인정보 동의")
             if not _consent2: _missing.append("마이데이터 동의")
-            if not _sign_valid: _missing.append("디지털 서명")
+            if not _sign_valid: _missing.append("전자서명")
             if _missing:
                 st.caption(f"⚠️ 미완료 항목: {' · '.join(_missing)}")
         return
