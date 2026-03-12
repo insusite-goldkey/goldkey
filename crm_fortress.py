@@ -45,35 +45,75 @@ def upsert_person(
     birth_date: str = "",
     gender: str = "",
     contact: str = "",
+    address: str = "",
+    job: str = "",
     is_real_client: bool = False,
     agent_id: str = "",
     memo: str = "",
     person_id: str | None = None,
+    # ── Core 관리 상태 ──────────────────────────────────────────
+    status: str = "",
+    is_favorite: bool | None = None,
+    # ── 1차 라인: 연간 계약 관리 ────────────────────────────────
+    auto_renewal_month: int | None = None,
+    fire_renewal_month: int | None = None,
+    last_auto_carrier: str = "",
+    # ── 2차 라인: 핵심 케어 & 라이프사이클 ──────────────────────
+    management_tier: int | None = None,
+    wedding_anniversary: str = "",
+    driving_status: str = "",
+    risk_note: str = "",
+    # ── 3차 라인: 인맥 & 생활 활동 ──────────────────────────────
+    lead_source: str = "",
+    referrer_id: str = "",
+    referrer_relation: str = "",
+    community_tags: list | None = None,
+    prospecting_stage: str = "",
 ) -> dict:
     """
-    인물 등록 또는 갱신.
-    person_id 있으면 UPDATE, 없으면 name+agent_id+birth_date 기준으로 기존 검색 후 없으면 INSERT.
-    반환: 저장된 행 dict (id 포함)
+    인물 등록 또는 갱신 (3단계 계층 구조 전체 지원).
+    person_id 있으면 UPDATE, 없으면 name+agent_id+birth_date 기준 검색 후 INSERT.
+    반환: 저장된 행 dict
     """
     row = _clean({
-        "name":           name.strip(),
-        "birth_date":     birth_date or None,
-        "gender":         gender or None,
-        "contact":        contact or None,
-        "is_real_client": is_real_client,
-        "agent_id":       agent_id or None,
-        "memo":           memo or None,
-        "updated_at":     _now_iso(),
+        "name":               name.strip(),
+        "birth_date":         birth_date or None,
+        "gender":             gender or None,
+        "contact":            contact or None,
+        "address":            address or None,
+        "job":                job or None,
+        "is_real_client":     is_real_client,
+        "agent_id":           agent_id or None,
+        "memo":               memo or None,
+        "updated_at":         _now_iso(),
+        # Core 상태
+        "status":             status or None,
+        "is_favorite":        is_favorite,
+        # 1차 라인
+        "auto_renewal_month": auto_renewal_month,
+        "fire_renewal_month": fire_renewal_month,
+        "last_auto_carrier":  last_auto_carrier or None,
+        # 2차 라인
+        "management_tier":    management_tier,
+        "wedding_anniversary":wedding_anniversary or None,
+        "driving_status":     driving_status or None,
+        "risk_note":          risk_note or None,
+        # 3차 라인
+        "lead_source":        lead_source or None,
+        "referrer_id":        referrer_id or None,
+        "referrer_relation":  referrer_relation or None,
+        "community_tags":     community_tags if community_tags else None,
+        "prospecting_stage":  prospecting_stage or None,
     })
 
     if person_id:
         res = (sb.table(T_PEOPLE)
                .update(row)
-               .eq("id", person_id)
+               .eq("person_id", person_id)
                .eq("is_deleted", False)
                .execute())
         data = res.data
-        return data[0] if data else {"id": person_id}
+        return data[0] if data else {"person_id": person_id}
 
     # 중복 검색: name + agent_id + birth_date
     q = sb.table(T_PEOPLE).select("*").eq("is_deleted", False).eq("name", name.strip())
@@ -84,10 +124,9 @@ def upsert_person(
     existing = q.execute().data or []
     if existing:
         ex = existing[0]
-        sb.table(T_PEOPLE).update(row).eq("id", ex["id"]).execute()
+        sb.table(T_PEOPLE).update(row).eq("person_id", ex["person_id"]).execute()
         return {**ex, **row}
 
-    row["id"] = str(uuid.uuid4())
     row["created_at"] = _now_iso()
     row["is_deleted"] = False
     res = sb.table(T_PEOPLE).insert(row).execute()
@@ -98,7 +137,7 @@ def soft_delete_person(sb, person_id: str) -> bool:
     """인물 Soft Delete"""
     res = (sb.table(T_PEOPLE)
            .update({"is_deleted": True, "updated_at": _now_iso()})
-           .eq("id", person_id)
+           .eq("person_id", person_id)
            .execute())
     return bool(res.data)
 
@@ -106,18 +145,42 @@ def soft_delete_person(sb, person_id: str) -> bool:
 def get_person(sb, person_id: str) -> dict | None:
     res = (sb.table(T_PEOPLE)
            .select("*")
-           .eq("id", person_id)
+           .eq("person_id", person_id)
            .eq("is_deleted", False)
            .execute())
     return res.data[0] if res.data else None
 
 
-def search_people(sb, agent_id: str, query: str = "") -> list[dict]:
-    """agent_id 기준 고객 검색 (이름 부분 일치)"""
+def search_people(
+    sb,
+    agent_id: str,
+    query: str = "",
+    management_tier: int | None = None,
+    renewal_month: int | None = None,
+    prospecting_stage: str = "",
+    is_favorite: bool | None = None,
+) -> list[dict]:
+    """agent_id 기준 고객 검색 — 3단계 계층 필터 지원.
+
+    Args:
+        query: 이름 부분 일치
+        management_tier: 1=VVIP, 2=일반, 3=잠재
+        renewal_month: 자동차 또는 화재 보험 갱신월 (OR 조건)
+        prospecting_stage: lead/contact/proposal/contracted
+        is_favorite: True=중요 고객만
+    """
     q = sb.table(T_PEOPLE).select("*").eq("agent_id", agent_id).eq("is_deleted", False)
     if query:
         q = q.ilike("name", f"%{query}%")
-    return q.order("name").execute().data or []
+    if management_tier is not None:
+        q = q.eq("management_tier", management_tier)
+    if renewal_month is not None:
+        q = q.or_(f"auto_renewal_month.eq.{renewal_month},fire_renewal_month.eq.{renewal_month}")
+    if prospecting_stage:
+        q = q.eq("prospecting_stage", prospecting_stage)
+    if is_favorite is not None:
+        q = q.eq("is_favorite", is_favorite)
+    return q.order("management_tier").order("name").execute().data or []
 
 
 # ────────────────────────────────────────────────────────────────────────────
