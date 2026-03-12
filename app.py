@@ -1,4 +1,4 @@
-# ==========================================================
+﻿# ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -31813,7 +31813,7 @@ watchRipple();
   <div style='font-size:0.80rem;font-weight:900;color:#D4AF37;
     letter-spacing:0.06em;margin-bottom:10px;
     border-bottom:1px solid rgba(212,175,55,0.35);padding-bottom:7px;'>
-    🔐 사령부 보안 접속 절차
+    🔐 로그인절차 안내
   </div>
   <div style='font-size:0.78rem;color:#e2e8f0;line-height:1.0;'>
 
