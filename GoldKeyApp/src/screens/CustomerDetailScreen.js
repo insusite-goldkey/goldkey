@@ -15,6 +15,7 @@ import StrategicCareTab       from '../components/StrategicCareTab';
 import SocialNetworkTab       from '../components/SocialNetworkTab';
 import ConsultHistoryPanel    from '../components/ConsultHistoryPanel';
 import PolicyListView         from '../components/PolicyListView';
+import PolicyScanModal        from '../components/PolicyScanModal';
 import PersonFormModal        from '../components/PersonFormModal';
 import ScheduleModal          from '../components/ScheduleModal';
 import { useCustomerStore }   from '../store/customerStore';
@@ -33,6 +34,7 @@ export default function CustomerDetailScreen({ onBack }) {
   const [showEditForm,   setShowEditForm]   = useState(false);
   const [showSchedule,   setShowSchedule]   = useState(false);
   const [schedulePerson, setSchedulePerson] = useState(null);
+  const [showScan,       setShowScan]       = useState(false);
 
   const person     = useCustomerStore((s) => s.getActivePerson());
   const allPeople  = useCustomerStore((s) => s.people);
@@ -72,7 +74,12 @@ export default function CustomerDetailScreen({ onBack }) {
           />
         );
       case 'policies':
-        return <PolicyListView personId={person?.person_id} onAddPolicy={() => {}} />;
+        return (
+          <PolicyListView
+            personId={person?.person_id}
+            onAddPolicy={() => setShowScan(true)}
+          />
+        );
       default:
         return null;
     }
@@ -91,6 +98,12 @@ export default function CustomerDetailScreen({ onBack }) {
           visible={showSchedule}
           person={schedulePerson}
           onClose={() => setShowSchedule(false)}
+        />
+        <PolicyScanModal
+          visible={showScan}
+          person={person}
+          onClose={() => setShowScan(false)}
+          onSaved={() => { setShowScan(false); setActiveTab('policies'); }}
         />
         {/* 헤더 */}
         <View style={styles.header}>
@@ -158,6 +171,12 @@ export default function CustomerDetailScreen({ onBack }) {
         visible={showSchedule}
         person={schedulePerson}
         onClose={() => setShowSchedule(false)}
+      />
+      <PolicyScanModal
+        visible={showScan}
+        person={person}
+        onClose={() => setShowScan(false)}
+        onSaved={() => { setShowScan(false); setActiveTab('policies'); }}
       />
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
