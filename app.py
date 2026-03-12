@@ -37464,6 +37464,17 @@ div[data-testid="stTextInput"][data-key="home_si_job"] input {
                     unsafe_allow_html=True)
 
             # ── [HIRA-KCD] 질병 코드 자동완성 입력 블록 ──────────────────
+            st.markdown("""<style>
+div[data-testid="stTextInput"][data-key="scan_kcd_code_manual"] input,
+div[data-testid="stTextInput"][data-key="scan_kcd_date_input"] input {
+    border: 1.5px dashed #000000 !important;
+    border-radius: 6px !important;
+}
+div[data-testid="stMultiSelect"][data-key="home_si_items"] > div {
+    border: 1.5px dashed #000000 !important;
+    border-radius: 6px !important;
+}
+</style>""", unsafe_allow_html=True)
             st.markdown("<hr style='margin:8px 0;border-color:#e2e8f0;'>", unsafe_allow_html=True)
             st.markdown(
                 "<div style='border:1px dashed #000000;border-radius:10px;"
