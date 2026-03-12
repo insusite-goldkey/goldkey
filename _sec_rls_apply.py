@@ -1,3 +1,4 @@
+import os
 """
 Supabase RLS 강제 적용 스크립트
 - pending_wisdom, user_files 테이블에 RLS Enable
@@ -8,7 +9,7 @@ import urllib.request, json, sys, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 SUPABASE_URL = 'https://idfzizqidhnpzbqioqqo.supabase.co'
-SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkZnppenFpZGhucHpicWlvcXFvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTgyOTg0MiwiZXhwIjoyMDg3NDA1ODQyfQ.-oeAIGqA4k1crI4zeOwrHXlBVEdltXKAyCiW4BNtRxA'
+SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 
 def run_sql(sql_statement):
     """Supabase SQL 실행 — service_role 권한 필요"""

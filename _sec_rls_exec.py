@@ -1,3 +1,4 @@
+import os
 """
 Supabase Management API를 통한 RLS SQL 직접 실행
 POST https://api.supabase.com/v1/projects/{ref}/database/query
@@ -8,7 +9,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 
 SUPABASE_URL = 'https://idfzizqidhnpzbqioqqo.supabase.co'
 PROJECT_REF  = 'idfzizqidhnpzbqioqqo'
-SERVICE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkZnppenFpZGhucHpicWlvcXFvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTgyOTg0MiwiZXhwIjoyMDg3NDA1ODQyfQ.-oeAIGqA4k1crI4zeOwrHXlBVEdltXKAyCiW4BNtRxA'
+SERVICE_KEY  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 
 def run_sql(sql, label=""):
     """Supabase Management API /v1/projects/{ref}/database/query 로 SQL 실행"""

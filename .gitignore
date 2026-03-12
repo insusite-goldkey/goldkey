@@ -73,3 +73,13 @@ avatar.png
 !assets/*.jpg
 !assets/*.jpeg
 !assets/*.webp
+
+*.env
+.github/Supabase*
+_sec_*.py
+_sec_rls_*.py
+backups/_sec*
+*.lnk
+*.pyc
+.venv/
+venv/

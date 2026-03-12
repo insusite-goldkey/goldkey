@@ -1,8 +1,9 @@
+import os
 import urllib.request, json, sys, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 SUPABASE_URL = 'https://idfzizqidhnpzbqioqqo.supabase.co'
-SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkZnppenFpZGhucHpicWlvcXFvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTgyOTg0MiwiZXhwIjoyMDg3NDA1ODQyfQ.-oeAIGqA4k1crI4zeOwrHXlBVEdltXKAyCiW4BNtRxA'
+SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 
 def sql_query(sql):
     body = json.dumps(sql).encode()
