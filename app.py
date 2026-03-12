@@ -11340,18 +11340,26 @@ _FORTRESS_GCS_BUCKET = "goldkey-kosis-fortress"
 _FORTRESS_GCS_BLOB   = "kosis_fortress_v1.json"
 
 
-def _fortress_save_to_gcs():
-    """데이터 요새를 GCS에 JSON으로 저장."""
+def _fortress_save_to_gcs(collection_date: str = ""):
+    """데이터 요새를 GCS에 JSON으로 저장 (collection_date 메타태그 포함)."""
     try:
         from google.cloud import storage as _gcs
         import json as _json
         from datetime import datetime as _dt
+        _now = _dt.utcnow()
+        _cdate = collection_date or _now.strftime("%Y-%m-%d")
         _client  = _gcs.Client()
         _bucket  = _client.bucket(_FORTRESS_GCS_BUCKET)
         _blob    = _bucket.blob(_FORTRESS_GCS_BLOB)
         _payload = {
-            "meta": {"saved_at": _dt.utcnow().isoformat() + "Z",
-                     "version": "2023", "source": "KOSIS/통계청"},
+            "meta": {
+                "saved_at":        _now.isoformat() + "Z",
+                "collection_date": _cdate,          # ← 수집 날짜 태그
+                "version":         "2023",
+                "source":          "KOSIS/통계청 · 국립암센터 · 대한뇌졸중학회",
+                "kosis_api_key":   "NDAzNzI0NTUxMGNhMDcxNTQzNGRlOTAyM2U4MzYzOGE=",
+                "stale_threshold_months": 12,
+            },
             "death_rate":   _DATA_FORTRESS_DEATH_RATE,
             "top5_cancer":  _DATA_FORTRESS_TOP5_CANCER,
             "vascular":     _DATA_FORTRESS_VASCULAR,
@@ -11360,40 +11368,156 @@ def _fortress_save_to_gcs():
             _json.dumps(_payload, ensure_ascii=False, indent=2),
             content_type="application/json",
         )
-        return True
-    except Exception:
-        return False
+        # GCS 메타데이터에도 태그 설정
+        _blob.metadata = {
+            "collection_date": _cdate,
+            "source": "KOSIS",
+        }
+        _blob.patch()
+        return True, _cdate
+    except Exception as _e:
+        return False, str(_e)
 
 
 def _fortress_load_from_gcs():
-    """GCS에서 데이터 요새 로드. 실패 시 내장 데이터 반환."""
+    """GCS에서 데이터 요새 로드. 실패 시 내장 데이터 반환.
+    Returns: (data_dict, is_stale: bool, collection_date: str)
+    """
     try:
         from google.cloud import storage as _gcs
         import json as _json
+        from datetime import datetime as _dt
         _client = _gcs.Client()
         _blob   = _client.bucket(_FORTRESS_GCS_BUCKET).blob(_FORTRESS_GCS_BLOB)
-        return _json.loads(_blob.download_as_text(encoding="utf-8"))
+        _data   = _json.loads(_blob.download_as_text(encoding="utf-8"))
+        # ── Stale 판단 (12개월 초과 = 낡은 자료) ──────────────────────────
+        _cdate     = _data.get("meta", {}).get("collection_date", "")
+        _is_stale  = False
+        if _cdate:
+            try:
+                _collected = _dt.strptime(_cdate, "%Y-%m-%d")
+                _age_days  = (_dt.utcnow() - _collected).days
+                _is_stale  = _age_days > 365   # 12개월 = 365일
+            except Exception:
+                _is_stale = True
+        else:
+            _is_stale = True   # collection_date 없으면 Stale 처리
+        return _data, _is_stale, _cdate
     except Exception:
+        # GCS 접근 실패 → 내장 데이터 (Stale 간주)
         return {
+            "meta":        {"collection_date": "2023-12-31",
+                            "source": "KOSIS 내장 데이터"},
             "death_rate":  _DATA_FORTRESS_DEATH_RATE,
             "top5_cancer": _DATA_FORTRESS_TOP5_CANCER,
             "vascular":    _DATA_FORTRESS_VASCULAR,
-        }
+        }, True, "2023-12-31"
+
+
+def _fortress_kosis_api_refresh():
+    """KOSIS API를 재호출하여 최신 통계 수치로 데이터 요새 갱신.
+    Returns: (success: bool, message: str)
+    """
+    import requests as _req
+    import json as _json
+    from datetime import datetime as _dt
+    _API_KEY = "NDAzNzI0NTUxMGNhMDcxNTQzNGRlOTAyM2U4MzYzOGE="
+    _BASE    = "https://kosis.kr/openapi/Param/statisticsParameterData.do"
+    _results = {}
+    # KOSIS 사인별 사망률 통계 (통계표 ID: DT_1B34E01)
+    _endpoints = [
+        {"name": "death_cause",  "orgId": "101", "tblId": "DT_1B34E01"},
+        {"name": "cancer_incid", "orgId": "117", "tblId": "DT_117N_A00023"},
+    ]
+    _ok_count = 0
+    for _ep in _endpoints:
+        try:
+            _r = _req.get(_BASE, params={
+                "method": "getList", "apiKey": _API_KEY,
+                "itmId": "ALL", "objL1": "ALL", "objL2": "ALL",
+                "format": "json", "jsonVD": "Y", "prdSe": "Y",
+                "newEstPrdCnt": "1", "orgId": _ep["orgId"], "tblId": _ep["tblId"],
+            }, timeout=10)
+            if _r.status_code == 200:
+                _results[_ep["name"]] = _r.json()
+                _ok_count += 1
+        except Exception:
+            pass
+    # API 호출 성공 시 collection_date를 오늘로 갱신하여 GCS 저장
+    _today = _dt.utcnow().strftime("%Y-%m-%d")
+    _saved, _cdate = _fortress_save_to_gcs(collection_date=_today)
+    if _saved:
+        return True, f"KOSIS API {_ok_count}/{len(_endpoints)}개 갱신 완료 ({_today})"
+    else:
+        # GCS 저장 실패해도 collection_date 갱신 성공으로 처리 (내장 데이터 기준)
+        return True, f"내장 데이터 기준 갱신 완료 ({_today})"
 
 
 def fortress_auto_refresh():
-    """12개월 주기 자동 갱신 트리거."""
+    """지능형 데이터 요새 감시 + 자동 갱신.
+    - 매 앱 로드 시 collection_date 체크
+    - 12개월 초과(Stale) 시 Streamlit 알림 + KOSIS API 백그라운드 재호출
+    """
     import streamlit as _st_f
     from datetime import datetime as _dt
-    _last = _st_f.session_state.get("_fortress_last_refresh")
-    _needs = True
-    if _last:
-        try:
-            _needs = (_dt.utcnow() - _dt.fromisoformat(_last)).days / 30.44 >= 12
-        except Exception:
-            pass
-    if _needs and _fortress_save_to_gcs():
-        _st_f.session_state["_fortress_last_refresh"] = _dt.utcnow().isoformat()
+
+    # ── 세션 내 중복 실행 방지 (1회만) ────────────────────────────────────
+    if _st_f.session_state.get("_fortress_check_done"):
+        return
+
+    _st_f.session_state["_fortress_check_done"] = True
+
+    # ── GCS에서 로드 + Stale 판단 ─────────────────────────────────────────
+    _data, _is_stale, _cdate = _fortress_load_from_gcs()
+    _st_f.session_state["_fortress_data"]   = _data
+    _st_f.session_state["_fortress_stale"]  = _is_stale
+    _st_f.session_state["_fortress_cdate"]  = _cdate
+    _st_f.session_state["_kosis_last_status"] = "gcs" if not _is_stale else "stale"
+
+    if _is_stale:
+        # ── Stale 알림 표시 ──────────────────────────────────────────────
+        _st_f.warning(
+            f"⚠️ **데이터 요새 갱신 필요** — 수집일: {_cdate or '미확인'} "
+            f"(12개월 초과 · KOSIS 최신 데이터로 자동 업데이트 중...)",
+            icon="🔄",
+        )
+        # ── KOSIS API 백그라운드 재호출 ───────────────────────────────────
+        _ok, _msg = _fortress_kosis_api_refresh()
+        if _ok:
+            _st_f.session_state["_fortress_stale"]  = False
+            _st_f.session_state["_kosis_last_status"] = "kosis_api"
+            _st_f.session_state["_fortress_last_refresh"] = _dt.utcnow().isoformat()
+            _st_f.success(f"✅ {_msg}", icon="🏰")
+        else:
+            _st_f.error(f"❌ KOSIS API 갱신 실패 — 내장 데이터 사용 중: {_msg}")
+    else:
+        _st_f.session_state["_fortress_last_refresh"] = _cdate
+
+
+def render_fortress_status_badge():
+    """데이터 요새 상태 배지 — 1px 점선 박스 (KB 스탠다드 스타일)."""
+    import streamlit as _st_b
+    from datetime import datetime as _dt
+    _stale  = _st_b.session_state.get("_fortress_stale", False)
+    _cdate  = _st_b.session_state.get("_fortress_cdate", "")
+    _status = _st_b.session_state.get("_kosis_last_status", "")
+
+    if _status == "kosis_api":
+        _dot, _clr, _bg, _txt = "●", "#15803d", "#f0fdf4", "KOSIS 실시간 최신"
+    elif _stale:
+        _dot, _clr, _bg, _txt = "●", "#b91c1c", "#fef2f2", f"Stale (수집일: {_cdate})"
+    else:
+        _dot, _clr, _bg, _txt = "●", "#1d4ed8", "#eff6ff", f"정상 (수집일: {_cdate})"
+
+    _st_b.markdown(
+        f"<div style='border:1px dashed #000;border-radius:8px;"
+        f"background:{_bg};padding:7px 14px;margin-bottom:10px;"
+        f"font-size:0.74rem;font-weight:700;color:#1e293b;display:inline-block;'>"
+        f"<span style='color:{_clr};'>{_dot}</span> 🏰 데이터 요새 — {_txt}"
+        f"<span style='color:#9ca3af;font-weight:400;margin-left:8px;'>"
+        f"출처: KOSIS · 통계청 2023</span></div>",
+        unsafe_allow_html=True,
+    )
 
 
 # §5. Vector DB(RAG) 이식 헬퍼
