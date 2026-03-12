@@ -9,8 +9,9 @@ import {
 } from 'react-native';
 import { useCustomerStore } from '../store/customerStore';
 import { MANAGEMENT_TIER, PROSPECTING_STAGE } from '../config';
+import PersonFormModal from '../components/PersonFormModal';
 
-function PersonCard({ person, onPress }) {
+function PersonCard({ person, onPress, onLongPress }) {
   const tier  = MANAGEMENT_TIER[person.management_tier] || MANAGEMENT_TIER[3];
   const month = new Date().getMonth() + 1;
   const needsRenewal =
@@ -20,6 +21,7 @@ function PersonCard({ person, onPress }) {
     <TouchableOpacity
       style={[styles.card, needsRenewal && styles.cardRenewal]}
       onPress={() => onPress(person.person_id)}
+      onLongPress={() => onLongPress && onLongPress(person)}
       activeOpacity={0.75}
     >
       <View style={styles.cardLeft}>
@@ -50,14 +52,21 @@ function PersonCard({ person, onPress }) {
 }
 
 export default function CustomerListScreen() {
-  const [query,  setQuery]  = useState('');
-  const [filter, setFilter] = useState({});
+  const [query,    setQuery]    = useState('');
+  const [filter,   setFilter]   = useState({});
+  const [showForm, setShowForm] = useState(false);
+  const [editPerson, setEditPerson] = useState(null);
 
   const people       = useCustomerStore((s) => s.people);
   const isLoading    = useCustomerStore((s) => s.isLoading);
   const loadPeople   = useCustomerStore((s) => s.loadPeople);
   const openProfile  = useCustomerStore((s) => s.openProfile);
   const renewalList  = useCustomerStore((s) => s.getRenewalThisMonth());
+
+  const handleOpenForm = (person = null) => {
+    setEditPerson(person);
+    setShowForm(true);
+  };
 
   useEffect(() => { loadPeople(); }, []);
 
@@ -73,7 +82,7 @@ export default function CustomerListScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} key="customer-list">
       {/* 헤더 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>👥 고객 관리</Text>
@@ -121,11 +130,20 @@ export default function CustomerListScreen() {
       </View>
 
       {/* 목록 */}
+      <PersonFormModal
+        visible={showForm}
+        person={editPerson}
+        onClose={() => { setShowForm(false); setEditPerson(null); loadPeople(filter); }}
+      />
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.person_id}
         renderItem={({ item }) => (
-          <PersonCard person={item} onPress={openProfile} />
+          <PersonCard
+            person={item}
+            onPress={openProfile}
+            onLongPress={() => handleOpenForm(item)}
+          />
         )}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
@@ -135,6 +153,11 @@ export default function CustomerListScreen() {
           </Text>
         }
       />
+
+      {/* FAB — 고객 등록 */}
+      <TouchableOpacity style={styles.fab} onPress={() => handleOpenForm(null)}>
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -188,4 +211,11 @@ const styles = StyleSheet.create({
   tierText:      { fontSize: 11, fontWeight: '700' },
   tagChip:       { fontSize: 10, color: '#0369a1', backgroundColor: '#f0f9ff', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   emptyText:     { textAlign: 'center', color: '#9ca3af', marginTop: 40, fontSize: 14 },
+  fab: {
+    position: 'absolute', right: 20, bottom: 24,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#1e3a5f', alignItems: 'center', justifyContent: 'center',
+    elevation: 6,
+  },
+  fabText:       { color: '#fff', fontSize: 26, fontWeight: '300', lineHeight: 30 },
 });

@@ -14,6 +14,9 @@ import AnnualCycleTab         from '../components/AnnualCycleTab';
 import StrategicCareTab       from '../components/StrategicCareTab';
 import SocialNetworkTab       from '../components/SocialNetworkTab';
 import ConsultHistoryPanel    from '../components/ConsultHistoryPanel';
+import PolicyListView         from '../components/PolicyListView';
+import PersonFormModal        from '../components/PersonFormModal';
+import ScheduleModal          from '../components/ScheduleModal';
 import { useCustomerStore }   from '../store/customerStore';
 import { fetchScanResults }   from '../services/supabaseService';
 
@@ -21,11 +24,15 @@ const TABS = [
   { key: 'annual',    label: '📅 1차 갱신' },
   { key: 'strategic', label: '💎 2차 케어' },
   { key: 'social',    label: '🏟️ 3차 활동' },
+  { key: 'policies',  label: '📋 계약' },
 ];
 
 export default function CustomerDetailScreen({ onBack }) {
-  const [activeTab,   setActiveTab]   = useState('annual');
-  const [scanResults, setScanResults] = useState([]);
+  const [activeTab,      setActiveTab]      = useState('annual');
+  const [scanResults,    setScanResults]    = useState([]);
+  const [showEditForm,   setShowEditForm]   = useState(false);
+  const [showSchedule,   setShowSchedule]   = useState(false);
+  const [schedulePerson, setSchedulePerson] = useState(null);
 
   const person     = useCustomerStore((s) => s.getActivePerson());
   const allPeople  = useCustomerStore((s) => s.people);
@@ -45,6 +52,11 @@ export default function CustomerDetailScreen({ onBack }) {
     onBack && onBack();
   };
 
+  const openScheduleModal = (p) => {
+    setSchedulePerson(p);
+    setShowSchedule(true);
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'annual':
@@ -59,6 +71,8 @@ export default function CustomerDetailScreen({ onBack }) {
             onOpenPerson={(pid) => useCustomerStore.getState().openProfile(pid)}
           />
         );
+      case 'policies':
+        return <PolicyListView personId={person?.person_id} onAddPolicy={() => {}} />;
       default:
         return null;
     }
@@ -68,12 +82,25 @@ export default function CustomerDetailScreen({ onBack }) {
     // ── 태블릿: 3-데크 가로 레이아웃 ─────────────────────────────────────
     return (
       <SafeAreaView style={styles.root}>
+        <PersonFormModal
+          visible={showEditForm}
+          person={person}
+          onClose={() => setShowEditForm(false)}
+        />
+        <ScheduleModal
+          visible={showSchedule}
+          person={schedulePerson}
+          onClose={() => setShowSchedule(false)}
+        />
         {/* 헤더 */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
             <Text style={styles.backText}>← 목록</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{person.name} 고객 상세</Text>
+          <TouchableOpacity onPress={() => setShowEditForm(true)} style={styles.editHeaderBtn}>
+            <Text style={styles.editHeaderText}>수정</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.deckRow}>
@@ -82,7 +109,7 @@ export default function CustomerDetailScreen({ onBack }) {
             <CustomerCoreSidebar
               person={person}
               onStartConsult={() => setActiveTab('strategic')}
-              onScanPolicy={() => {}}
+              onScanPolicy={() => setActiveTab('policies')}
             />
           </View>
 
@@ -111,7 +138,7 @@ export default function CustomerDetailScreen({ onBack }) {
             <ConsultHistoryPanel
               person={person}
               schedules={schedules}
-              onAddSchedule={() => {}}
+              onAddSchedule={openScheduleModal}
             />
           </View>
         </View>
@@ -122,11 +149,24 @@ export default function CustomerDetailScreen({ onBack }) {
   // ── 핸드폰: 세로 1컬럼 ─────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.root}>
+      <PersonFormModal
+        visible={showEditForm}
+        person={person}
+        onClose={() => setShowEditForm(false)}
+      />
+      <ScheduleModal
+        visible={showSchedule}
+        person={schedulePerson}
+        onClose={() => setShowSchedule(false)}
+      />
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
           <Text style={styles.backText}>← 목록</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{person.name}</Text>
+        <TouchableOpacity onPress={() => setShowEditForm(true)} style={styles.editHeaderBtn}>
+          <Text style={styles.editHeaderText}>수정</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollPhone} showsVerticalScrollIndicator={false}>
@@ -164,7 +204,7 @@ export default function CustomerDetailScreen({ onBack }) {
           <ConsultHistoryPanel
             person={person}
             schedules={schedules}
-            onAddSchedule={() => {}}
+            onAddSchedule={openScheduleModal}
           />
         </View>
       </ScrollView>
@@ -179,9 +219,11 @@ const styles = StyleSheet.create({
     padding: 12, borderBottomWidth: 1, borderBottomColor: '#e5e7eb',
     backgroundColor: '#fff',
   },
-  backBtn:     { marginRight: 12 },
-  backText:    { fontSize: 14, color: '#2563eb', fontWeight: '600' },
-  headerTitle: { fontSize: 16, fontWeight: '900', color: '#1e3a5f' },
+  backBtn:       { marginRight: 12 },
+  backText:      { fontSize: 14, color: '#2563eb', fontWeight: '600' },
+  headerTitle:   { fontSize: 16, fontWeight: '900', color: '#1e3a5f', flex: 1 },
+  editHeaderBtn: { paddingHorizontal: 12, paddingVertical: 4, backgroundColor: '#f3f4f6', borderRadius: 6 },
+  editHeaderText:{ fontSize: 13, color: '#374151', fontWeight: '600' },
 
   // 태블릿 3-데크
   deckRow:   { flex: 1, flexDirection: 'row' },
