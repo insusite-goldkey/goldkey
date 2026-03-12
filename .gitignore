@@ -59,6 +59,12 @@ app_backup_*.py
 !crm_app/**/*.json
 !crm_app/**/*.js
 
+# GoldKeyApp — React Native 프로젝트 파일 예외 허용
+!GoldKeyApp/**/*.json
+!GoldKeyApp/**/*.js
+!GoldKeyApp/**/*.ts
+!GoldKeyApp/**/*.tsx
+
 # 이미지 바이너리 (HF Space LFS 처리 — .gitattributes 참조)
 avatar.png
 *.png
