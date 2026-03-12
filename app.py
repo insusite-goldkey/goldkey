@@ -31850,8 +31850,7 @@ watchRipple();
 
     <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;'>
       <span style='font-size:1.0rem;flex-shrink:0;'>2️⃣</span>
-      <span><b style='color:#fde68a;'>정보입력:</b> 보안로그인 아래<br>
-      &nbsp;&nbsp;<b style='color:#fff;'>[이름]</b>, <b style='color:#fff;'>[연락처]</b> 입력</span>
+      <span><b style='color:#fde68a;'>정보입력:</b> <b style='color:#fff;'>이름 및 연락처</b> 입력</span>
     </div>
 
     <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;'>
@@ -37464,17 +37463,6 @@ div[data-testid="stTextInput"][data-key="home_si_job"] input {
                     unsafe_allow_html=True)
 
             # ── [HIRA-KCD] 질병 코드 자동완성 입력 블록 ──────────────────
-            st.markdown("""<style>
-div[data-testid="stTextInput"][data-key="scan_kcd_code_manual"] input,
-div[data-testid="stTextInput"][data-key="scan_kcd_date_input"] input {
-    border: 1.5px dashed #000000 !important;
-    border-radius: 6px !important;
-}
-div[data-testid="stMultiSelect"][data-key="home_si_items"] > div {
-    border: 1.5px dashed #000000 !important;
-    border-radius: 6px !important;
-}
-</style>""", unsafe_allow_html=True)
             st.markdown("<hr style='margin:8px 0;border-color:#e2e8f0;'>", unsafe_allow_html=True)
             st.markdown(
                 "<div style='border:1px dashed #000000;border-radius:10px;"
@@ -37787,6 +37775,94 @@ div[data-testid="stMultiSelect"][data-key="home_si_items"] > div {
         # [GK-SEC-02] 가처분 소득 기반 3단계 솔루션
         # ═══════════════════════════════════════════════════════════════
         st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-02")}<span class="gk-sec-title">② 가처분 소득 기반 3단계 솔루션</span></div>', unsafe_allow_html=True)
+
+        st.markdown("**종목별 바로가기** — 6대 솔루션 영역 및 최소/표준/적정 매트릭스")
+        _s2_r1c1, _s2_r1c2 = st.columns(2, gap="small")
+        _s2_r2c1, _s2_r2c2 = st.columns(2, gap="small")
+        _s2_r3c1, _s2_r3c2 = st.columns(2, gap="small")
+        with _s2_r1c1:
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("🔴 암", key="sec02_cancer", use_container_width=True):
+                _go_tab("t1")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with _s2_r1c2:
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("🧠 뇌·심장", key="sec02_brain", use_container_width=True):
+                _go_tab("t2")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with _s2_r2c1:
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("🧓 치매", key="sec02_dementia", use_container_width=True):
+                _go_tab("dementia")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with _s2_r2c2:
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("🦽 상해후유장해", key="sec02_disability", use_container_width=True):
+                _go_tab("disability")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with _s2_r3c1:
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("🏥 간병시설계", key="sec02_nursing", use_container_width=True):
+                _go_tab("dementia")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with _s2_r3c2:
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("💰 노후연금설계", key="sec02_pension", use_container_width=True):
+                _go_tab("t3")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+        _s2_items = [
+            ("암 진단비",     "1,000만원",  "3,000만원",  "5,000만원+"),
+            ("뇌혈관 진단비", "500만원",    "2,000만원",  "3,000만원+"),
+            ("심장 진단비",   "500만원",    "2,000만원",  "3,000만원+"),
+            ("치매 진단비",   "500만원",    "2,000만원",  "3,000만원+"),
+            ("운전자보험",    "가입 확인",  "상해사망 1억", "형사합의금 3천"),
+            ("입원일당",      "1만원/일",   "3만원/일",   "5만원/일"),
+            ("실손보험",      "4세대",      "3세대",      "1·2세대 유지"),
+        ]
+        # ── 가처분 산출 엔진으로 '적정' 컬럼 동적 반영 ───────────────────
+        _disp_result = st.session_state.get("sec02_disposable_result")
+        _opt_overrides = {}
+        if _disp_result:
+            _mo = _disp_result.get("monthly_income", 0)
+            _da = _disp_result.get("daily_value", 0)
+            _mo_man = round(_mo / 10000)
+            _da_man = round(_da / 10000, 1)
+            _opt_overrides = {
+                "암 진단비":     f"{min(max(round(_mo_man * 3 / 1000) * 1000, 3000), 10000):,}만원",
+                "뇌혈관 진단비": f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
+                "심장 진단비":   f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
+                "치매 진단비":   f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
+                "입원일당":      f"{min(_da_man, 10):.0f}만원/일",
+            }
+
+        _tbl_html = (
+            '<div style="overflow-x:auto;">'
+            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem;border:2px solid #000000;">'
+            '<thead><tr>'
+            '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:left;border:1px solid #000000;">종목</th>'
+            '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">최소</th>'
+            '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">표준</th>'
+            '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">적정 ★</th>'
+            '</tr></thead><tbody>'
+        )
+        for _i2, (_name2, _mn, _stv, _opt) in enumerate(_s2_items):
+            _bg2 = "#fafeff" if _i2 % 2 == 0 else "#ffffff"
+            _opt_disp = _opt_overrides.get(_name2, _opt)
+            _opt_color = "#0055AA" if _name2 in _opt_overrides else "#CC0000"
+            _tbl_html += (
+                f'<tr style="background:{_bg2};">'
+                f'<td style="padding:6px 10px;font-weight:900;color:#000000;border:1px solid #000000;">{_name2}</td>'
+                f'<td style="padding:6px 10px;text-align:center;font-weight:700;color:#374151;border:1px solid #000000;">{_mn}</td>'
+                f'<td style="padding:6px 10px;text-align:center;font-weight:700;color:#000000;border:1px solid #000000;">{_stv}</td>'
+                f'<td style="padding:6px 10px;text-align:center;font-weight:900;color:{_opt_color};border:1px solid #000000;">{_opt_disp}</td>'
+                f'</tr>'
+            )
+        _tbl_html += '</tbody></table></div>'
+        if _disp_result:
+            _tbl_html += '<div style="font-size:0.75rem;color:#0055AA;margin-top:4px;">★ 적정 금액은 건보료 역산 기준으로 자동 산출되었습니다.</div>'
+        st.markdown(_tbl_html, unsafe_allow_html=True)
 
         # ── [SEC-02-DISPOSABLE] 가처분 산출 엔진 ────────────────────────
         st.markdown("<hr style='margin:14px 0 10px 0;border:2px solid #1565C0;'>", unsafe_allow_html=True)
