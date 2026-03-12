@@ -182,36 +182,106 @@ softDelete(table, id)          // is_deleted: true 처리
 | 2-5 | CRM AI 리포트 섹션 → AI 앱 결과 pull |
 | 2-6 | CRM 내보험다보여 섹션 → AI 앱 분석 결과 pull |
 
-### Phase 3 — 번들 설치 (단일 설치로 2개 앱)
-> Play Store 정책상 하나의 APK에서 다른 APK를 자동 설치하는 것은 제한됨.
-> 현실적 대안:
+### Phase 3 — 원클릭 생태계 구성 (단일 설치로 2개 앱)
+
+#### 3-1. 단기 전략 — 인앱 설치 유도 팝업
+
+Goldkey AI 모바일 앱 첫 실행 또는 설정 메뉴에서 팝업 표시:
 
 ```
-방법 A (권장): Play Store 앱 패밀리
-  - Goldkey AI, 골드키 CRM 동일 개발자 계정에 등록
-  - 설치 페이지에서 "함께 사용하면 좋은 앱"으로 교차 안내
-  - 사용자가 1탭으로 두 앱 동시 설치 가능
+┌─────────────────────────────────────────┐
+│  📱 현장 관리를 더 스마트하게!           │
+│                                         │
+│  Goldkey AI Masters CRM을 설치하면      │
+│  핸드폰에서 고객 상담·일정·증권분석을   │
+│  언제 어디서나 관리할 수 있습니다.      │
+│                                         │
+│  [지금 설치하기]    [나중에]            │
+└─────────────────────────────────────────┘
+```
 
-방법 B: 인앱 설치 안내
-  - Goldkey AI 첫 실행 시 "골드키 CRM도 설치하시겠습니까?" 팝업
-  - Play Store 해당 앱 페이지로 딥링크 이동
+구현:
+```javascript
+// Goldkey AI 앱 내 — 첫 실행 시 또는 설정 메뉴
+import { Linking } from 'react-native';
+
+const CRM_PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.goldkeycrm';
+
+const openCrmInstall = () => Linking.openURL(CRM_PLAY_STORE_URL);
+```
+
+반대로 CRM 앱에서도 동일하게 Goldkey AI 설치 유도:
+```javascript
+const AI_PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.goldkeyai';
+```
+
+---
+
+#### 3-2. 중기 전략 — Play Store 앱 패밀리
+
+- 두 앱을 동일 개발자 계정에 등록
+- Play Store 각 앱 페이지 → "이 개발자의 다른 앱" 섹션 자동 노출
+- 앱 설명란에 상호 교차 안내 문구 삽입
+
+---
+
+#### 3-3. 장기 전략 — Android App Bundle (AAB)
+
+> Play Store의 **Android App Bundle** 기술을 활용한 궁극적 단일 패키지 배포
+
+```
+현재: 두 개의 독립 APK
+       com.goldkeyai   → Goldkey AI Masters 2026
+       com.goldkeycrm  → Goldkey AI Masters CRM
+
+목표: 단일 AAB 패키지
+       com.goldkeyai (메인 패키지)
+         ├── base module       → 공통 코드 (Supabase, 인증, 공통 UI)
+         ├── ai_module         → Goldkey AI 전체 기능
+         └── crm_module        → CRM 기능 (Dynamic Feature Module)
+```
+
+**Dynamic Feature Module 방식:**
+```
+사용자가 Goldkey AI 설치
+  → 기본 설치: base + ai_module (태블릿 최적화)
+  → 앱 내 팝업: "CRM 모듈 다운로드 (12MB)"
+  → 1탭으로 crm_module 다운로드 → 즉시 활성화
+  → 핸드폰 아이콘에 "Goldkey AI Masters CRM" 별도 추가
+```
+
+**구현 요건:**
+- React Native → Android Native Bridge 필요 (Play Feature Delivery API)
+- 각 모듈 독립 빌드 설정 (`build.gradle` 분리)
+- 모듈 간 공통 코드는 `base` 모듈로 통합
+
+**단계별 접근:**
+```
+Step A (현재): 두 독립 앱 + 인앱 설치 유도 팝업
+Step B (6개월): Play Store 앱 패밀리 교차 안내
+Step C (1년+): AAB Dynamic Feature Module 통합
 ```
 
 ---
 
 ## 7. Play Store 심사 준비
 
-| 항목 | Goldkey AI | 골드키 CRM |
+| 항목 | Goldkey AI | Goldkey AI Masters CRM |
 |---|---|---|
 | **패키지명** | `com.goldkeyai` (신규) | `com.goldkeycrm` (기존) |
 | **심사 시점** | Phase 1 완성 후 | Phase 2 완성 후 |
-| **필수 준비물** | 개인정보처리방침, 아이콘, 스크린샷 5장 | 동일 |
-| **심사 트랙** | 내부 테스트 → 프로덕션 | 내부 테스트 → 프로덕션 |
+| **필수 준비물** | 개인정보처리방침 URL, 아이콘 512px, 스크린샷 5장 | 동일 |
+| **심사 트랙** | 내부 테스트(20명) → 공개 프로덕션 | 동일 |
+| **개발자 계정** | 동일 계정 필수 (앱 패밀리 구성) | 동일 계정 |
+| **AAB 제출** | `.aab` 형식 (APK 아님) | 동일 |
 
 ---
 
 ## 8. 향후 추가 기능
 
 - **SMS OTP 인증** — NCP(네이버 클라우드) 연동 (회원 증가 후)
-- **푸시 알림** — 일정 D-1 알림 (Firebase FCM)
+- **푸시 알림** — 일정 D-1 알림 (Firebase FCM), CRM ↔ AI 양방향
 - **실시간 동기화** — Supabase Realtime 구독 (폴링 → 웹소켓 업그레이드)
+- **AAB Dynamic Feature** — CRM 모듈을 AI 앱에 통합 (궁극적 단일 패키지)
