@@ -52,46 +52,56 @@
 | **자 앱 (핸드폰)** | "오늘의 할 일" — 갱신 대상자(1차) + 기념일 고객(2차) 우선 정렬 |
 | **그림자 이동** | 3차(개척) → 2차(핵심) 승격 / 단계별 관리 등급 변경 |
 
-#### SQL (이미 적용된 컬럼 포함 전체)
+#### SQL (2026-03-13 최종 적용 완료)
 ```sql
--- ── Core: 기본 식별 + 실시간 연결 (기존 컬럼) ──────────────────────────────
--- person_id, name, contact, birth_date, gender, address, job, memo
--- status, last_consulted_at, is_favorite  ← 2026-03-13 적용 완료
+-- ── Core 기본 컬럼 (2026-03-13 1차 적용) ───────────────────────────────────
+-- gender, address, job, memo, status, last_consulted_at, is_favorite ✅
 
 -- ── 1차 라인: 연간 계약 관리 ────────────────────────────────────────────────
 ALTER TABLE public.gk_people
 ADD COLUMN IF NOT EXISTS auto_renewal_month  INTEGER CHECK (auto_renewal_month BETWEEN 1 AND 12),
 ADD COLUMN IF NOT EXISTS fire_renewal_month  INTEGER CHECK (fire_renewal_month BETWEEN 1 AND 12),
-ADD COLUMN IF NOT EXISTS renewal_memo        TEXT;
+ADD COLUMN IF NOT EXISTS last_auto_carrier   TEXT;            -- 기존 자동차 보험사
 
--- ── 2차 라인: 핵심 관리 & 라이프사이클 ────────────────────────────────────
+-- ── 2차 라인: 핵심 케어 & 라이프사이클 ────────────────────────────────────
 ALTER TABLE public.gk_people
-ADD COLUMN IF NOT EXISTS management_tier     INTEGER DEFAULT 3,  -- 1=VIP, 2=핵심, 3=일반
-ADD COLUMN IF NOT EXISTS key_customer_note   TEXT,
-ADD COLUMN IF NOT EXISTS lifecycle_events    JSONB DEFAULT '[]'; -- [{type, date, memo}]
+ADD COLUMN IF NOT EXISTS management_tier     INTEGER DEFAULT 3,  -- 1=VVIP, 2=일반, 3=잠재
+ADD COLUMN IF NOT EXISTS wedding_anniversary DATE,               -- 결혼기념일
+ADD COLUMN IF NOT EXISTS driving_status      TEXT,               -- 운전 형태
+ADD COLUMN IF NOT EXISTS risk_note           TEXT;               -- 고위험 취미/건강 특이사항
 
--- ── 3차 라인: 생활 활동 & 개척 ────────────────────────────────────────────
+-- ── 3차 라인: 인맥 & 생활 활동 ────────────────────────────────────────────
 ALTER TABLE public.gk_people
-ADD COLUMN IF NOT EXISTS community_tags      TEXT[],             -- ['조기축구회','동창회']
-ADD COLUMN IF NOT EXISTS prospecting_stage   TEXT,               -- lead/contact/follow-up/contracted
-ADD COLUMN IF NOT EXISTS referral_from       TEXT,               -- 소개자 person_id
-ADD COLUMN IF NOT EXISTS activity_group      TEXT;
+ADD COLUMN IF NOT EXISTS lead_source         TEXT,               -- 유입 경로
+ADD COLUMN IF NOT EXISTS referrer_id         TEXT,               -- 소개자 person_id (FK)
+ADD COLUMN IF NOT EXISTS referrer_relation   TEXT,               -- 소개자와의 관계
+ADD COLUMN IF NOT EXISTS community_tags      TEXT[],             -- 소속 모임 배열
+ADD COLUMN IF NOT EXISTS prospecting_stage   TEXT DEFAULT 'lead'; -- lead/contact/proposal/contracted
 
--- ── 검색 최적화 인덱스 ─────────────────────────────────────────────────────
-CREATE INDEX IF NOT EXISTS idx_auto_renewal    ON public.gk_people(auto_renewal_month);
-CREATE INDEX IF NOT EXISTS idx_management_tier ON public.gk_people(management_tier);
-CREATE INDEX IF NOT EXISTS idx_prospecting     ON public.gk_people(prospecting_stage);
+-- ── 자기 참조 외래키 (소개 계보도 기초) ──────────────────────────────────
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_referrer') THEN
+        ALTER TABLE public.gk_people
+        ADD CONSTRAINT fk_referrer
+        FOREIGN KEY (referrer_id) REFERENCES public.gk_people(person_id) ON DELETE SET NULL;
+    END IF;
+END $$;
+
+-- ── 인덱스 ─────────────────────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_renewal_search ON public.gk_people(auto_renewal_month, fire_renewal_month);
+CREATE INDEX IF NOT EXISTS idx_tier_search    ON public.gk_people(management_tier);
 ```
 
-#### 컬럼 전체 요약
+#### 컬럼 전체 요약 (2026-03-13 확정)
 | 계층 | 컬럼 | 용도 |
 |---|---|---|
 | Core | `person_id`, `name`, `contact`, `birth_date` | 기본 식별 |
 | Core | `gender`, `address`, `job`, `memo` | 기본 정보 |
 | Core | `status`, `last_consulted_at`, `is_favorite` | 관리 상태 |
-| 1차 | `auto_renewal_month`, `fire_renewal_month`, `renewal_memo` | 연간 갱신 |
-| 2차 | `management_tier`, `key_customer_note`, `lifecycle_events` | VIP/라이프사이클 |
-| 3차 | `community_tags`, `prospecting_stage`, `referral_from`, `activity_group` | 개척/커뮤니티 |
+| 1차 | `auto_renewal_month`, `fire_renewal_month`, `last_auto_carrier` | 연간 갱신 |
+| 2차 | `management_tier`, `wedding_anniversary`, `driving_status`, `risk_note` | VIP/라이프사이클 |
+| 3차 | `lead_source`, `referrer_id`, `referrer_relation`, `community_tags`, `prospecting_stage` | 인맥/개척 |
 
 ### 2-2. gk_schedules (일정) — 신규 생성
 ```sql
