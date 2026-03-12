@@ -10,8 +10,9 @@ crm_fortress_ui.py — 마법의 마스터 키 (The Master Gate)
 from __future__ import annotations
 import streamlit as st
 import uuid
-import random
-from datetime import datetime, timedelta
+import base64
+import hashlib
+from datetime import datetime
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -138,8 +139,10 @@ _KB7_KEYWORDS = {
 # ────────────────────────────────────────────────────────────────────────────
 # 인증 상수
 # ────────────────────────────────────────────────────────────────────────────
-_OTP_EXPIRE_SECONDS = 180   # 3분
+_OTP_WINDOW         = 1     # ±30초 윈도우 (pyotp valid_window=1 → 총 3개 토큰 허용)
 _OTP_MAX_ATTEMPTS   = 5     # 최대 시도 횟수
+_TOTP_INTERVAL      = 30    # TOTP 갱신 주기(초) — RFC 6238 표준
+_GCP_PROJECT_ID     = "goldkey-ai-2026"  # GCP 프로젝트 ID 고정
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -197,41 +200,74 @@ def _stepper_html(step: int) -> str:
 # ────────────────────────────────────────────────────────────────────────────
 # OTP 인증 게이트 — person_id 기반 기기 무관 세션 인증
 # ────────────────────────────────────────────────────────────────────────────
-def _otp_remaining() -> int:
-    """남은 OTP 유효 시간(초). 만료 시 0 반환"""
-    issued = st.session_state.get("_crm_otp_issued_at")
-    if not issued:
-        return 0
-    elapsed = (datetime.now() - issued).total_seconds()
-    remaining = int(_OTP_EXPIRE_SECONDS - elapsed)
-    return max(0, remaining)
+def _derive_totp_secret(person_id: str) -> str:
+    """
+    person_id 기반으로 결정론적 TOTP Secret(Base32) 생성.
+    Supabase gk_people.totp_secret 컬럼이 있으면 그 값을 우선 사용.
+    없을 경우 서버-사이드 HMAC 파생값을 fallback으로 사용 (등록 전 임시 허용).
+    실제 운영에서는 반드시 DB의 per-person secret을 사용할 것.
+    """
+    _app_salt = "GK-AI-2026-TOTP-SALT"
+    raw = hashlib.sha256(f"{_app_salt}:{person_id}".encode()).digest()
+    return base64.b32encode(raw[:20]).decode()
+
+
+def _totp_now_remaining() -> int:
+    """현재 TOTP 윈도우 내 남은 초 반환 (0~30)"""
+    import time
+    return _TOTP_INTERVAL - int(time.time()) % _TOTP_INTERVAL
 
 
 def _otp_clear():
     """OTP 관련 세션 상태 초기화"""
-    for k in ("_crm_otp_code", "_crm_otp_issued_at",
-              "_crm_otp_person", "_crm_otp_attempts"):
+    for k in ("_crm_otp_person", "_crm_otp_attempts", "_crm_otp_secret"):
         st.session_state.pop(k, None)
+
+
+def _totp_verify(secret: str, token: str) -> bool:
+    """
+    pyotp TOTP RFC 6238 검증.
+    valid_window=1 → ±30초(총 3개 토큰) 허용.
+    pyotp 미설치 시 ImportError → 호출부에서 처리.
+    """
+    import pyotp
+    totp = pyotp.TOTP(secret)
+    return totp.verify(token.strip(), valid_window=_OTP_WINDOW)
+
+
+def _totp_current(secret: str) -> str:
+    """현재 TOTP 6자리 반환 (등록 화면 / 개발 모드용)"""
+    import pyotp
+    return pyotp.TOTP(secret).now()
+
+
+def _totp_provisioning_uri(secret: str, person_name: str) -> str:
+    """Google Authenticator / Authy 등록용 URI"""
+    import pyotp
+    return pyotp.TOTP(secret).provisioning_uri(
+        name=person_name,
+        issuer_name="Goldkey AI Masters 2026",
+    )
 
 
 def render_crm_person_auth(sb, agent_id: str) -> bool:
     """
-    person_id 기반 CRM 인증 게이트.
+    person_id 기반 TOTP(RFC 6238) CRM 인증 게이트.
     인증 완료 시 True 반환 + st.session_state['_crm_auth_person_id'] 설정.
-    미완료 시 False 반환 (UI 렌더링 후 caller가 st.stop() 해야 함).
+    미완료 시 False 반환.
     """
     st.markdown(_CSS_AUTH, unsafe_allow_html=True)
 
     # ── 이미 인증된 세션 ──────────────────────────────────────
     if st.session_state.get("_crm_auth_person_id"):
-        _pid  = st.session_state["_crm_auth_person_id"]
+        _pid   = st.session_state["_crm_auth_person_id"]
         _pname = st.session_state.get("_crm_auth_person_name", "")
         _c1, _c2 = st.columns([8, 2])
         with _c1:
             st.markdown(
                 f'<div class="auth-person-card">'
                 f'✅ <b>{_pname}</b> 님으로 인증된 세션입니다.'
-                f'<span style="font-size:0.72rem;color:#6b7280;margin-left:8px;">'  
+                f'<span style="font-size:0.72rem;color:#6b7280;margin-left:8px;">'
                 f'ID: {_pid[:8]}…</span></div>',
                 unsafe_allow_html=True,
             )
@@ -243,24 +279,42 @@ def render_crm_person_auth(sb, agent_id: str) -> bool:
                 st.rerun()
         return True
 
+    # ── pyotp 설치 확인 ──────────────────────────────────────
+    try:
+        import pyotp  # noqa: F401
+        _pyotp_ok = True
+    except ImportError:
+        _pyotp_ok = False
+
+    if not _pyotp_ok:
+        st.error(
+            "⚠️ TOTP 라이브러리(pyotp)가 설치되지 않았습니다.\n"
+            "`pip install pyotp` 후 재시작해 주세요."
+        )
+        return False
+
     # ── 인증 UI ──────────────────────────────────────────────
     st.markdown(
         '<div class="auth-gate">'
-        '<div class="auth-gate-title">🔐 고객 본인 확인</div>'
+        '<div class="auth-gate-title">🔐 고객 본인 확인 — TOTP (RFC 6238)</div>'
         '<div class="auth-gate-sub">'
-        '어떤 기기에서 접속하더라도 동일한 고객 데이터를 불러옵니다.<br>'
-        '등록된 <b>이름</b>과 <b>연락처 끝 4자리</b>를 입력하세요.</div>',
+        '어떤 기기에서 접속해도 동일한 데이터를 불러옵니다.<br>'
+        '등록된 <b>이름</b>과 <b>연락처 끝 4자리</b> 입력 → '
+        'Google Authenticator의 <b>6자리 코드</b>를 입력하세요.</div>',
         unsafe_allow_html=True,
     )
 
-    _auth_stage = st.session_state.get("_crm_auth_stage", "input")  # input | otp
+    _auth_stage = st.session_state.get("_crm_auth_stage", "input")  # input | totp
 
+    # ════════════════════════════════════════════════════════
+    # STAGE 1: 이름 + 연락처 조회
+    # ════════════════════════════════════════════════════════
     if _auth_stage == "input":
-        _a_name    = st.text_input("👤 이름",    placeholder="예) 홍길동",  key="crm_auth_name")
+        _a_name    = st.text_input("👤 이름", placeholder="예) 홍길동", key="crm_auth_name")
         _a_contact = st.text_input("📱 연락처 끝 4자리", placeholder="예) 1234",
                                    max_chars=4, key="crm_auth_contact")
 
-        if st.button("🔍 조회 및 OTP 발송", key="crm_auth_lookup", use_container_width=True):
+        if st.button("🔍 조회", key="crm_auth_lookup", use_container_width=True):
             if not _a_name or not _a_contact:
                 st.warning("이름과 연락처 끝 4자리를 모두 입력해 주세요.")
             elif not _sb_ok(sb):
@@ -280,63 +334,95 @@ def render_crm_person_auth(sb, agent_id: str) -> bool:
                     )
                 else:
                     _person = _matched[0]
-                    _otp    = str(random.randint(100000, 999999))
-                    st.session_state["_crm_otp_code"]      = _otp
-                    st.session_state["_crm_otp_issued_at"] = datetime.now()
-                    st.session_state["_crm_otp_person"]    = _person
-                    st.session_state["_crm_otp_attempts"]  = 0
-                    st.session_state["_crm_auth_stage"]    = "otp"
+                    # DB에 totp_secret 있으면 사용, 없으면 person_id 파생값 사용
+                    _secret = (_person.get("totp_secret") or
+                               _derive_totp_secret(_person["id"]))
+                    st.session_state["_crm_otp_secret"]   = _secret
+                    st.session_state["_crm_otp_person"]   = _person
+                    st.session_state["_crm_otp_attempts"] = 0
+                    st.session_state["_crm_auth_stage"]   = "totp"
                     st.rerun()
 
-    else:  # otp 입력 단계
-        _remaining = _otp_remaining()
-        if _remaining <= 0:
-            st.error("⏰ 인증 시간이 만료되었습니다. 다시 조회해 주세요.")
-            _otp_clear()
-            st.session_state["_crm_auth_stage"] = "input"
-            st.markdown('</div>', unsafe_allow_html=True)
-            if st.button("↩ 다시 시도", key="crm_auth_retry"):
-                st.rerun()
-            return False
+    # ════════════════════════════════════════════════════════
+    # STAGE 2: TOTP 코드 입력 및 검증
+    # ════════════════════════════════════════════════════════
+    else:
+        _person  = st.session_state.get("_crm_otp_person", {})
+        _secret  = st.session_state.get("_crm_otp_secret", "")
+        _contact = _person.get("contact", "")
+        _tail    = _contact[-4:] if _contact else "****"
+        _pname   = _person.get("name", "")
+        _remaining = _totp_now_remaining()
 
-        _person   = st.session_state["_crm_otp_person"]
-        _otp_real = st.session_state["_crm_otp_code"]
-        _contact  = _person.get("contact", "")
-        _tail     = _contact[-4:] if _contact else "****"
+        # TOTP 등록 여부 안내
+        _has_db_secret = bool(_person.get("totp_secret"))
+        if not _has_db_secret:
+            # 최초 등록 안내: QR 코드 URI 표시
+            _uri = _totp_provisioning_uri(_secret, _pname)
+            with st.expander("📱 최초 설정 — Google Authenticator 등록", expanded=True):
+                st.markdown(
+                    f"""<div style='background:#fff;border:1px dashed #1d4ed8;
+                    border-radius:8px;padding:10px 14px;font-size:0.8rem;'>
+                    <b>1.</b> Google Authenticator / Authy 앱 실행<br>
+                    <b>2.</b> <code>+</code> → <b>키 직접 입력</b><br>
+                    <b>3.</b> 계정 이름: <code>{_pname}</code><br>
+                    <b>4.</b> 키: <code style='font-size:0.7rem;word-break:break-all;'>
+                    {_secret}</code><br>
+                    <b>5.</b> 유형: <b>시간 기반(TOTP)</b> 선택 → 추가<br><br>
+                    <span style='font-size:0.72rem;color:#dc2626;'>
+                    ⚠️ Secret 키를 화면 캡처하거나 타인에게 공유하지 마세요.</span>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+                # QR 코드 (qrcode 라이브러리 있을 때만 표시)
+                try:
+                    import qrcode, io
+                    _qr = qrcode.make(_uri)
+                    _buf = io.BytesIO()
+                    _qr.save(_buf, format="PNG")
+                    st.image(_buf.getvalue(), caption="QR 스캔으로 등록", width=200)
+                except ImportError:
+                    st.code(_uri, language=None)
 
         st.markdown(
-            f'<div class="auth-otp-box">📲 {_otp_real}</div>'
-            f'<div style="font-size:0.73rem;color:#6b7280;text-align:center;margin-bottom:4px;">'
-            f'위 6자리 번호가 <b>***-****-{_tail}</b>로 발송되었습니다. (시뮬레이션)</div>'
-            f'<div class="auth-timer">⏱ 남은 시간: {_remaining}초</div>',
+            f'<div class="auth-timer" style="text-align:left;margin-bottom:6px;">'
+            f'⏱ 현재 코드 갱신까지 <b>{_remaining}초</b> — '
+            f'인증기에서 보이는 6자리를 입력하세요.</div>',
             unsafe_allow_html=True,
         )
 
-        _attempts = st.session_state.get("_crm_otp_attempts", 0)
+        _attempts  = st.session_state.get("_crm_otp_attempts", 0)
         _otp_input = st.text_input(
-            "🔢 인증번호 6자리 입력", max_chars=6,
-            placeholder="6자리 숫자", key="crm_otp_input",
+            "🔢 TOTP 6자리 입력", max_chars=6,
+            placeholder="인증 앱의 6자리 숫자", key="crm_otp_input",
         )
 
         _col_verify, _col_cancel = st.columns([3, 1])
         with _col_verify:
             if st.button("✅ 인증 확인", key="crm_otp_verify", use_container_width=True):
                 if _attempts >= _OTP_MAX_ATTEMPTS:
-                    st.error(f"⛔ 시도 횟수({_OTP_MAX_ATTEMPTS}회)를 초과했습니다. 다시 조회해 주세요.")
+                    st.error(f"⛔ 시도 횟수({_OTP_MAX_ATTEMPTS}회) 초과. 다시 조회해 주세요.")
                     _otp_clear()
                     st.session_state["_crm_auth_stage"] = "input"
-                    st.rerun()
-                elif _otp_input.strip() == _otp_real:
-                    st.session_state["_crm_auth_person_id"]   = _person["id"]
-                    st.session_state["_crm_auth_person_name"] = _person.get("name", "")
-                    _otp_clear()
-                    st.session_state["_crm_auth_stage"] = "input"
-                    st.success(f"✅ {_person.get('name','')} 님 인증 완료!")
                     st.rerun()
                 else:
-                    st.session_state["_crm_otp_attempts"] = _attempts + 1
-                    left = _OTP_MAX_ATTEMPTS - _attempts - 1
-                    st.error(f"❌ 인증번호가 일치하지 않습니다. (남은 시도: {left}회)")
+                    try:
+                        _ok = _totp_verify(_secret, _otp_input)
+                    except Exception as _ve:
+                        st.error(f"검증 오류: {_ve}")
+                        _ok = False
+
+                    if _ok:
+                        st.session_state["_crm_auth_person_id"]   = _person["id"]
+                        st.session_state["_crm_auth_person_name"] = _pname
+                        _otp_clear()
+                        st.session_state["_crm_auth_stage"] = "input"
+                        st.success(f"✅ {_pname} 님 TOTP 인증 완료!")
+                        st.rerun()
+                    else:
+                        st.session_state["_crm_otp_attempts"] = _attempts + 1
+                        left = _OTP_MAX_ATTEMPTS - _attempts - 1
+                        st.error(f"❌ 코드가 일치하지 않습니다. (남은 시도: {left}회)")
         with _col_cancel:
             if st.button("취소", key="crm_otp_cancel", use_container_width=True):
                 _otp_clear()

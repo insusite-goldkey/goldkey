@@ -1,3 +1,11 @@
+# ── Goldkey AI Masters 2026 ────────────────────────────────
+# GCP Project ID: goldkey-ai-2026
+# App Display Name: Goldkey AI Masters 2026
+# ──────────────────────────────────────────────────────────
+
+[global]
+developmentMode = false
+
 [logger]
 level = "info"
 messageFormat = "%(asctime)s %(levelname)s %(name)s: %(message)s"
