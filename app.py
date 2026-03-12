@@ -5889,9 +5889,13 @@ def _gp0_instant_bootstrap() -> None:
     """[제0조] 파스텔블루 한국어 스플래시 — 최초 1회 표시 후 2초 자동 해제."""
     import streamlit as _st0
     _st0.markdown("""
+<style>
+#gp0-veil ~ * { visibility: hidden !important; }
+section[data-testid="stSidebar"] { display:none !important; }
+</style>
 <div id="gp0-veil" style="
     position:fixed;top:0;left:0;width:100vw;height:100vh;
-    z-index:9999;
+    z-index:2147483647;
     background:linear-gradient(160deg,#E3F2FD 0%,#BBDEFB 55%,#E3F2FD 100%);
     display:flex;flex-direction:column;
     align-items:center;justify-content:center;
@@ -5952,15 +5956,17 @@ def _gp0_instant_bootstrap() -> None:
     if(stxt) stxt.textContent = s.msg;
   }
   step();
-  setTimeout(step, 450);
-  setTimeout(step, 950);
+  setTimeout(step, 250);
+  setTimeout(step, 550);
   setTimeout(function(){
     step();
     setTimeout(function(){
       var v = document.getElementById('gp0-veil');
       if(v) v.style.cssText = 'display:none !important;';
-    }, 300);
-  }, 1700);
+      var sb = document.querySelector('section[data-testid="stSidebar"]');
+      if(sb) sb.style.cssText = '';
+    }, 150);
+  }, 1000);
 })();
 </script>
 """, unsafe_allow_html=True)
@@ -31831,46 +31837,35 @@ watchRipple();
         # ── [제53조 개정] 비로그인 전용 콘텐츠 — 로그인 후 완전 미렌더 ──────
         if 'user_id' not in st.session_state:
             st.markdown("""
-<div style='background:linear-gradient(135deg,#0a1628 0%,#1e3a5f 60%,#1d4ed8 100%);
-  border:1.5px solid #D4AF37;border-left:4px solid #D4AF37;border-radius:14px;
-  padding:14px 15px 12px 15px;margin:8px 0 8px 0;
-  box-shadow:0 4px 18px rgba(212,175,55,0.22);'>
-  <div style='font-size:0.80rem;font-weight:900;color:#D4AF37;
-    letter-spacing:0.06em;margin-bottom:10px;
-    border-bottom:1px solid rgba(212,175,55,0.35);padding-bottom:7px;'>
+<div style='background:#FEFCE8;border:1.5px solid #FCD34D;border-left:4px solid #F59E0B;
+  border-radius:14px;padding:14px 15px 12px 15px;margin:8px 0 8px 0;
+  box-shadow:0 2px 10px rgba(245,158,11,0.12);'>
+  <div style='font-size:0.80rem;font-weight:900;color:#92400E;
+    letter-spacing:0.04em;margin-bottom:10px;
+    border-bottom:1px solid rgba(245,158,11,0.30);padding-bottom:7px;'>
     🔐 로그인절차 안내
   </div>
-  <div style='font-size:0.78rem;color:#e2e8f0;line-height:1.0;'>
-
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;'>
+  <div style='font-size:0.78rem;color:#1C1917;line-height:1.55;'>
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
       <span style='font-size:1.0rem;flex-shrink:0;'>1️⃣</span>
-      <span><b style='color:#fde68a;'>필수동의:</b> 왼쪽 사이드바<br>
-      &nbsp;&nbsp;필수항목 <b style='color:#fff;'>(4개)</b> 체크</span>
+      <span><b style='color:#B45309;'>필수동의:</b> 왼쪽 사이드바<br>&nbsp;&nbsp;필수항목 <b style='color:#000;'>(4개)</b> 체크</span>
     </div>
-
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;'>
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
       <span style='font-size:1.0rem;flex-shrink:0;'>2️⃣</span>
-      <span><b style='color:#fde68a;'>정보입력:</b> <b style='color:#fff;'>이름 및 연락처</b> 입력</span>
+      <span><b style='color:#B45309;'>정보입력:</b> <b style='color:#000;'>이름 및 연락처</b> 입력</span>
     </div>
-
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;'>
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
       <span style='font-size:1.0rem;flex-shrink:0;'>3️⃣</span>
-      <span><b style='color:#fde68a;'>로그인 실행:</b><br>
-      &nbsp;&nbsp;<b style='color:#fff;'>'AI 마스터 로그인'</b> 버튼 클릭</span>
+      <span><b style='color:#B45309;'>로그인 실행:</b><br>&nbsp;&nbsp;<b style='color:#000;'>AI 마스터 로그인</b> 버튼 클릭</span>
     </div>
-
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;'>
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
       <span style='font-size:1.0rem;flex-shrink:0;'>4️⃣</span>
-      <span><b style='color:#fde68a;'>번호확인:</b> 화면에 표시된<br>
-      &nbsp;&nbsp;<b style='color:#fff;'>인증번호 6자리</b> 확인</span>
+      <span><b style='color:#B45309;'>번호확인:</b> 화면에 표시된<br>&nbsp;&nbsp;<b style='color:#000;'>인증번호 6자리</b> 확인</span>
     </div>
-
     <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:2px;'>
       <span style='font-size:1.0rem;flex-shrink:0;'>5️⃣</span>
-      <span><b style='color:#fde68a;'>최종인증:</b> OTP 박스에<br>
-      &nbsp;&nbsp;번호 입력 후 <b style='color:#fff;'>[클릭]</b></span>
+      <span><b style='color:#B45309;'>최종인증:</b> OTP 박스에<br>&nbsp;&nbsp;번호 입력 후 <b style='color:#000;'>[클릭]</b></span>
     </div>
-
   </div>
 </div>""", unsafe_allow_html=True)
 

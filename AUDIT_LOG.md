@@ -48,20 +48,20 @@
 | # | 발생 시각 | 섹션 | 증상 | 원인 | 수정 커밋 |
 |---|-----------|------|------|------|-----------|
 | 1 | 22:46 | 통합스캔허브(scan_hub) | 관리자 로그인 후 "로그인하라"는 화면 표시 | `auto_recover` / `_run_safe` 예외 처리 시 `st.session_state.clear()`로 `user_id` 포함 전체 삭제 | `76b59e0` |
-| 2 | 22:46 | 전체 섹션 | 관리자(이세윤·박보정) 권한 없음으로 표시 | 세션 복구 후 `is_admin`이 재검증되지 않아 소실 | `(현재 수정 중)` |
+| 2 | 22:46 | 전체 섹션 | 관리자(이세윤·박보정) 권한 없음으로 표시 | 세션 복구 후 `is_admin`이 재검증되지 않아 소실 | ✅ 완료 — `line 32973` 매 렌더 `_get_unlimited_users()` 재검증 + `auto_recover` 보존키 포함 |
 | 3 | 이전 세션 | 상담 카탈로그 | 관리자 업로드 파일 목록에 미표시 | `user_files` 조회 시 본인 UID로만 필터링 | `932ecfd` |
 | 4 | 이전 세션 | 업로드 라이브러리 | 업로드 후 즉시 목록 미반영 | `st.rerun()` 및 캐시 초기화 누락 | `4571383` |
 | 5 | 이전 세션 | 라이브러리 박스2 | `기타` 문서가 고객서류로 잘못 분류 | 분류 로직에서 `기타` 처리 누락 | `5ce351d` |
-| 6 | 23:28 | t9 AI지식베이스(REG박스) | 즉시 등록 후 AI 상담에 반영 안 됨 (자료 휘발처럼 보임) | `_rag_quick_register`는 Storage+메타만 저장 (chunk=0), 심야처리 전까지 `rag_docs`에 청크 없음 | `(현재 수정)` |
-| 7 | 23:28 | t9 AI지식베이스(REG박스) | 즉시 등록 후 메모리 캐시 미갱신 | `st.rerun()` 전 `_rag_sync_from_db(force=True)` 및 `LightRAGSystem()` 재초기화 누락 | `(현재 수정)` |
-| 8 | 23:28 | t9 AI지식베이스(REG박스) | 심야 처리 완료 후에도 검색 엔진이 빈 상태 유지 | `_rag_process_pending()` 후 `rag_system` 세션 재초기화 누락 | `(현재 수정)` |
+| 6 | 23:28 | t9 AI지식베이스(REG박스) | 즉시 등록 후 AI 상담에 반영 안 됨 (자료 휘발처럼 보임) | `_rag_quick_register`는 Storage+메타만 저장 (chunk=0), 심야처리 전까지 `rag_docs`에 청크 없음 | ✅ 완료 — `btn_rag_sync`가 `_rag_db_add_document` 직접 호출로 교체 (line 52583~52653) |
+| 7 | 23:28 | t9 AI지식베이스(REG박스) | 즉시 등록 후 메모리 캐시 미갱신 | `st.rerun()` 전 `_rag_sync_from_db(force=True)` 및 `LightRAGSystem()` 재초기화 누락 | ✅ 완료 — `line 52649~52650` `_rag_sync_from_db(force=True)` + `LightRAGSystem()` 적용됨 |
+| 8 | 23:28 | t9 AI지식베이스(REG박스) | 심야 처리 완료 후에도 검색 엔진이 빈 상태 유지 | `_rag_process_pending()` 후 `rag_system` 세션 재초기화 누락 | ✅ 완료 — `line 52682~52685` `_rag_sync_from_db(force=True)` + `LightRAGSystem()` + `st.rerun()` 적용됨 |
 
 ---
 
 ## 보안 감사 포인트 (개발 보안 전문가 관점)
 
 - `auto_recover` 세션 전체 초기화 → **로그인 키 보존으로 수정** (`76b59e0`)
-- `is_admin` 세션 값 단일 의존 → **매 렌더 재검증으로 강화** (현재 수정)
+- `is_admin` 세션 값 단일 의존 → **매 렌더 재검증으로 강화** ✅ 완료 (line 32973)
 - `client_name` DB 저장 시 입력 검증 필요 (XSS 방어)
 - `user_files` Supabase RLS 정책 — 관리자 파일 공유 시 다른 사용자 접근 허용 범위 재확인 필요
 
