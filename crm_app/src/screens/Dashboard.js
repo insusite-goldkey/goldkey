@@ -38,6 +38,7 @@ import TaskCard from '../components/TaskCard';
 import SilsonBadge from '../components/SilsonBadge';
 import { useDeviceLayout } from '../utils/deviceCheck';
 import { runWatchdog } from '../utils/SystemWatchdog';
+import TermsScreen from './TermsScreen';
 
 const TAB = { TODO: 'todo', CUSTOMER: 'customer', CUSTOMERS: 'customers', EXPORT: 'export' };
 const CUSTOMER_TAB = { BASIC: 'basic', COVERAGE: 'coverage' };
@@ -131,6 +132,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab]             = useState(TAB.TODO);
   const [activeCustomerTab, setActiveCustTab] = useState(CUSTOMER_TAB.BASIC);
   const [showToast, setShowToast]             = useState(false);
+  const [termsOpen, setTermsOpen]             = useState(false);
   const prevProgress                          = useRef(0);
 
   const { isTablet, isLegacyDevice, contentPadding, sidebarWidth, mainWidth } = useDeviceLayout();
@@ -280,6 +282,12 @@ const Dashboard = () => {
           )}
           <View style={{ height: 16 }} />
           <ExportPanel userRole={userRole} />
+          <TouchableOpacity
+            onPress={() => setTermsOpen(true)}
+            style={styles.termsLink}
+          >
+            <Text style={styles.termsLinkText}>이용약관 및 개인정보처리방침</Text>
+          </TouchableOpacity>
         </>
       }
     />
@@ -507,6 +515,11 @@ const Dashboard = () => {
         )}
       </View>
       <SuccessToast visible={showToast} />
+      {termsOpen && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 300 }}>
+          <TermsScreen onClose={() => setTermsOpen(false)} />
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -714,6 +727,26 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, elevation: 8,
   },
   toastText: { color: '#ffd700', fontWeight: '800', fontSize: 15 },
+  termsLink: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginTop: 4,
+  },
+  termsLinkText: {
+    fontSize: 12,
+    color: '#6b7280',
+    textDecorationLine: 'underline',
+  },
 });
+
+// TermsScreen 오버레이 래퍼 — Dashboard 외부에서 Modal처럼 렌더
+Dashboard.TermsOverlay = ({ termsOpen, setTermsOpen }) => {
+  if (!termsOpen) return null;
+  return (
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 300 }}>
+      <TermsScreen onClose={() => setTermsOpen(false)} />
+    </View>
+  );
+};
 
 export default Dashboard;
