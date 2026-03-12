@@ -1,4 +1,4 @@
-# ==========================================================
+﻿# ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -12393,7 +12393,6 @@ def render_special_ops_sector():
             "✅ 동의 항목 선택</div>",
             unsafe_allow_html=True,
         )
-        _sops_any_changed = False
         for _sops_ci, _sops_ct in enumerate(_SOPS_LEGAL_TERMS):
             _sops_cur = st.session_state.get(_sops_ct["key"], False)
             _scb_c, _slbl_c = _st.columns([1, 7], gap="small")
@@ -12415,7 +12414,6 @@ def render_special_ops_sector():
                 )
             if _sops_new != bool(_sops_cur):
                 st.session_state[_sops_ct["key"]] = _sops_new
-                _sops_any_changed = True
             if _sops_ci < len(_SOPS_LEGAL_TERMS) - 1:
                 _st.markdown(
                     "<hr style='border:none;border-top:1px dashed #e5e7eb;margin:4px 0;'>",
@@ -12433,8 +12431,6 @@ def render_special_ops_sector():
             unsafe_allow_html=True,
         )
         _st.markdown("</div>", unsafe_allow_html=True)
-        if _sops_any_changed:
-            st.rerun()
 
     with _col_right:
         _st.markdown(
