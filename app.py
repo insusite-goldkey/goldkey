@@ -1,4 +1,4 @@
-﻿# ==========================================================
+# ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -12302,6 +12302,178 @@ def render_special_ops_sector():
             _fc_html += "<div class='sops-fc-arr'>→</div>"
     _fc_html += "</div>"
     _st.markdown(_fc_html, unsafe_allow_html=True)
+
+    # ════════════════════════════════════════════════════════════════════════
+    # [정보 동의] 내보험다보여 안내 + 법적 필수동의 5:5 스플릿
+    # ════════════════════════════════════════════════════════════════════════
+    _SOPS_LEGAL_TERMS = [
+        {
+            "key": "sb_consent1",
+            "badge": "[필수]",
+            "title": "개인정보 수집 및 이용 동의",
+            "law": "개인정보보호법 제15조",
+            "content": (
+                "<b>수집 목적:</b> 보험 가입 현황 조회, 보장 분석, 맞춤 설계 제안<br>"
+                "<b>수집 항목:</b> 성명, 생년월일(해시), 연락처, 보험 가입 내역<br>"
+                "<b>보유 기간:</b> 상담 종료 즉시 원본 파기 / 통계용 해시값 1년 보존<br>"
+                "<b>보안 처리:</b> AES-256 암호화 저장, 원본 비저장 원칙<br>"
+                "<b>근거 법령:</b> 개인정보보호법 제15조 (수집·이용), 제17조 (제3자 제공)"
+            ),
+        },
+        {
+            "key": "sb_consent2",
+            "badge": "[필수]",
+            "title": "고유식별정보 처리 동의",
+            "law": "개인정보보호법 제24조",
+            "content": (
+                "<b>처리 항목:</b> 주민등록번호 앞 6자리(생년월일), CI(연계정보)<br>"
+                "<b>처리 목적:</b> 본인 인증, 보험계약 확인, 중복 조회 방지<br>"
+                "<b>보안 처리:</b> SHA-256 해싱 처리 후 원본 즉시 폐기, 복호화 불가<br>"
+                "<b>근거 법령:</b> 개인정보보호법 제24조 (고유식별정보의 처리 제한)"
+            ),
+        },
+        {
+            "key": "sb_consent3",
+            "badge": "[필수]",
+            "title": "민감정보(질병·상해) 처리 동의",
+            "law": "개인정보보호법 제23조",
+            "content": (
+                "<b>처리 항목:</b> 질병명, KCD 코드, 진단 이력, 수술·입원 내역<br>"
+                "<b>처리 목적:</b> 위험 분석, 보장 공백 진단, 보험 설계 참고<br>"
+                "<b>보안 처리:</b> 의료 데이터 비식별화 처리, 분석 세션 종료 즉시 메모리 초기화<br>"
+                "<b>근거 법령:</b> 개인정보보호법 제23조 (민감정보의 처리 제한)"
+            ),
+        },
+        {
+            "key": "sb_consent4",
+            "badge": "[필수]",
+            "title": "제3자(한국신용정보원 등) 제공 동의",
+            "law": "신용정보법 제32조",
+            "content": (
+                "<b>제공 기관:</b> 한국신용정보원(내보험다보여), COOCON, CODEF<br>"
+                "<b>제공 목적:</b> 보험 가입 내역 조회, 금융 데이터 연동<br>"
+                "<b>제공 항목:</b> 성명, CI, 생년월일(해시) — 민감정보 원본 미전송<br>"
+                "<b>보유 기간:</b> 조회 완료 후 즉시 삭제<br>"
+                "<b>근거 법령:</b> 신용정보법 제32조"
+            ),
+        },
+    ]
+
+    # ── 내보험다보여 서비스 안내 배너 ────────────────────────────────────────
+    _st.markdown(
+        "<div style='border:1px dashed #000;border-radius:12px;background:#eff6ff;"
+        "padding:12px 16px;margin-bottom:10px;word-break:keep-all;'>"
+        "<div style='font-size:0.88rem;font-weight:900;color:#1e3a8a;margin-bottom:6px;'>"
+        "🏦 내 보험 다보여 서비스 안내</div>"
+        "<div style='font-size:0.78rem;color:#374151;line-height:1.7;'>"
+        "본 서비스는 <b style='color:#1d4ed8;'>한국신용정보원</b>의 마이데이터를 활용하며,"
+        " 고객님의 <b>명시적 동의</b> 없이는 어떠한 정보도 수집하지 않습니다.<br>"
+        "<span style='font-size:0.70rem;color:#6b7280;'>"
+        "⚖️ 신용정보법 제32조 · 개인정보보호법 제15조 · 금융감독원 내보험다보여 연동</span>"
+        "</div></div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── 5:5 스플릿 동의 섹션 ─────────────────────────────────────────────────
+    _st.markdown(
+        "<div style='font-size:0.82rem;font-weight:900;color:#1e293b;margin-bottom:6px;'>"
+        "🔐 법적 필수 동의 (4개 항목) — 상담 진행 전 동의 필요</div>",
+        unsafe_allow_html=True,
+    )
+    _col_left, _col_right = _st.columns([1, 1], gap="medium")
+
+    with _col_left:
+        _st.markdown(
+            "<div style='border:1px dashed #000;border-radius:10px;background:#fff;"
+            "padding:12px 14px;'>",
+            unsafe_allow_html=True,
+        )
+        _st.markdown(
+            "<div style='font-size:0.78rem;font-weight:900;color:#1e293b;margin-bottom:8px;'>"
+            "✅ 동의 항목 선택</div>",
+            unsafe_allow_html=True,
+        )
+        _sops_any_changed = False
+        for _sops_ci, _sops_ct in enumerate(_SOPS_LEGAL_TERMS):
+            _sops_cur = st.session_state.get(_sops_ct["key"], False)
+            _scb_c, _slbl_c = _st.columns([1, 7], gap="small")
+            with _scb_c:
+                _sops_new = _st.checkbox(
+                    "", value=bool(_sops_cur),
+                    key=f"_sops_cb_{_sops_ct['key']}",
+                    label_visibility="collapsed",
+                )
+            with _slbl_c:
+                _sbg = "#dbeafe" if _sops_new else "#f9fafb"
+                _st.markdown(
+                    f"<div style='padding:3px 6px;border-radius:5px;background:{_sbg};"
+                    f"font-size:0.72rem;color:#111827;font-weight:700;line-height:1.5;'>"
+                    f"<span style='color:#ef4444;font-size:0.65rem;font-weight:900;"
+                    f"margin-right:3px;'>{_sops_ct['badge']}</span>"
+                    f"{_sops_ct['title']}</div>",
+                    unsafe_allow_html=True,
+                )
+            if _sops_new != bool(_sops_cur):
+                st.session_state[_sops_ct["key"]] = _sops_new
+                _sops_any_changed = True
+            if _sops_ci < len(_SOPS_LEGAL_TERMS) - 1:
+                _st.markdown(
+                    "<hr style='border:none;border-top:1px dashed #e5e7eb;margin:4px 0;'>",
+                    unsafe_allow_html=True,
+                )
+        _sops_all_ok = all(st.session_state.get(t["key"], False) for t in _SOPS_LEGAL_TERMS)
+        _st.markdown(
+            f"<div style='margin-top:10px;padding:6px 8px;border-radius:6px;"
+            f"text-align:center;font-size:0.72rem;font-weight:900;"
+            f"background:{'#dcfce7' if _sops_all_ok else '#fef3c7'};"
+            f"color:{'#15803d' if _sops_all_ok else '#92400e'};"
+            f"border:1px dashed #000;'>"
+            f"{'✅ 전체 동의 완료' if _sops_all_ok else '⚠️ 4개 항목 모두 동의 필요'}"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        _st.markdown("</div>", unsafe_allow_html=True)
+        if _sops_any_changed:
+            st.rerun()
+
+    with _col_right:
+        _st.markdown(
+            "<div style='border:1px dashed #000;border-radius:10px;background:#f9fafb;"
+            "padding:12px 14px;'>",
+            unsafe_allow_html=True,
+        )
+        _st.markdown(
+            "<div style='font-size:0.78rem;font-weight:900;color:#1e293b;margin-bottom:8px;'>"
+            "📋 동의 내용 상세</div>",
+            unsafe_allow_html=True,
+        )
+        _detail_sel = _st.radio(
+            "항목 선택",
+            options=list(range(len(_SOPS_LEGAL_TERMS))),
+            format_func=lambda i: (
+                "✅ " if st.session_state.get(_SOPS_LEGAL_TERMS[i]["key"]) else "○ "
+            ) + _SOPS_LEGAL_TERMS[i]["title"][:12],
+            key="_sops_detail_radio",
+            label_visibility="collapsed",
+        )
+        _sops_dt = _SOPS_LEGAL_TERMS[_detail_sel]
+        _st.markdown(
+            f"<div style='font-size:0.72rem;color:#374151;line-height:1.8;margin-top:8px;"
+            f"word-break:keep-all;border-top:1px dashed #e5e7eb;padding-top:8px;'>"
+            f"<div style='font-size:0.68rem;color:#6b7280;margin-bottom:5px;'>"
+            f"⚖️ 근거 법령: <b>{_sops_dt['law']}</b></div>"
+            f"{_sops_dt['content']}</div>",
+            unsafe_allow_html=True,
+        )
+        _st.markdown(
+            "<div style='font-size:0.65rem;color:#9ca3af;margin-top:8px;"
+            "padding-top:5px;border-top:1px dashed #e5e7eb;'>"
+            "출처: 금융감독원 내보험다보여 · 한국신용정보원 · 개인정보보호위원회</div>",
+            unsafe_allow_html=True,
+        )
+        _st.markdown("</div>", unsafe_allow_html=True)
+
+    _st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 
     # ════════════════════════════════════════════════════════════════════════
     # Step 1 — 고객 정보 동기화
@@ -24854,150 +25026,7 @@ def render_goldkey_sidebar():
 </div>"""
         st.sidebar.markdown(_gp50_badge_html, unsafe_allow_html=True)
 
-    # ── [법적 고지 §1] 내보험다보여 전용 안내문 ──────────────────────────────
-    st.sidebar.markdown("""
-<div style="border:1px dashed #000;border-radius:10px;background:#f9fafb;
-  padding:10px 13px;margin-bottom:8px;word-break:keep-all;line-height:1.5;">
-  <div style="font-size:11px;color:#374151;font-weight:700;margin-bottom:5px;
-    letter-spacing:0.02em;">
-    🏦 내 보험 다보여 서비스 안내
-  </div>
-  <div style="font-size:11px;color:#6b7280;line-height:1.5;">
-    본 서비스는 <b style="color:#1d4ed8;">한국신용정보원</b>의 데이터를 활용하며,
-    고객님의 인증 없이는 어떠한 정보도 수집하지 않습니다.<br>
-    <span style="font-size:10px;color:#9ca3af;">
-    ⚖️ 신용정보법 제32조 · 개인정보보호법 제15조 준수
-    </span>
-  </div>
-</div>""", unsafe_allow_html=True)
-
-    # ── [법적 고지 §2] 필수 동의 4개 항목 + [보기] 버튼 ─────────────────────
-    _LEGAL_TERMS = [
-        {
-            "key": "sb_consent1",
-            "badge": "[필수]",
-            "title": "개인정보 수집 및 이용 동의",
-            "law": "개인정보보호법 제15조",
-            "content": """<b>수집 목적:</b> 보험 가입 현황 조회, 보장 분석, 맞춤 설계 제안<br>
-<b>수집 항목:</b> 성명, 생년월일(해시), 연락처, 보험 가입 내역<br>
-<b>보유 기간:</b> 상담 종료 즉시 원본 파기 / 통계용 해시값 1년 보존<br>
-<b>보안 처리:</b> AES-256 암호화 저장, 원본 비저장 원칙<br>
-<b>근거 법령:</b> 개인정보보호법 제15조 (수집·이용), 제17조 (제3자 제공)""",
-        },
-        {
-            "key": "sb_consent2",
-            "badge": "[필수]",
-            "title": "고유식별정보 처리 동의",
-            "law": "개인정보보호법 제24조",
-            "content": """<b>처리 항목:</b> 주민등록번호 앞 6자리(생년월일), CI(연계정보)<br>
-<b>처리 목적:</b> 본인 인증, 보험계약 확인, 중복 조회 방지<br>
-<b>보안 처리:</b> SHA-256 해싱 처리 후 원본 즉시 폐기, 복호화 불가<br>
-<b>근거 법령:</b> 개인정보보호법 제24조 (고유식별정보의 처리 제한)""",
-        },
-        {
-            "key": "sb_consent3",
-            "badge": "[필수]",
-            "title": "민감정보(질병·상해) 처리 동의",
-            "law": "개인정보보호법 제23조",
-            "content": """<b>처리 항목:</b> 질병명, KCD 코드, 진단 이력, 수술·입원 내역<br>
-<b>처리 목적:</b> 위험 분석, 보장 공백 진단, 보험 설계 참고<br>
-<b>보안 처리:</b> 의료 데이터 비식별화 처리, 분석 세션 종료 즉시 메모리 초기화<br>
-<b>근거 법령:</b> 개인정보보호법 제23조 (민감정보의 처리 제한), 가이딩 프로토콜 제130조""",
-        },
-        {
-            "key": "sb_consent4",
-            "badge": "[필수]",
-            "title": "제3자(한국신용정보원 등) 제공 동의",
-            "law": "신용정보법 제32조",
-            "content": """<b>제공 기관:</b> 한국신용정보원(내보험다보여), COOCON, CODEF<br>
-<b>제공 목적:</b> 보험 가입 내역 조회, 금융 데이터 연동<br>
-<b>제공 항목:</b> 성명, CI, 생년월일(해시) — 민감정보 원본 미전송<br>
-<b>보유 기간:</b> 조회 완료 후 즉시 삭제<br>
-<b>근거 법령:</b> 신용정보법 제32조 (개인신용정보 제공·활용에 대한 동의)""",
-        },
-    ]
-
-    st.sidebar.markdown("""
-<div style="border:1px dashed #000;border-radius:10px;background:#f9fafb;
-  padding:10px 13px;margin-bottom:8px;word-break:keep-all;">
-  <div style="font-size:12px;color:#111827;font-weight:900;margin-bottom:8px;
-    letter-spacing:0.02em;">
-    🔐 법적 고지 및 동의 안내
-  </div>""", unsafe_allow_html=True)
-
-    _sb_any_changed = False
-    for _ci, _ct in enumerate(_LEGAL_TERMS):
-        _cb_col, _lbl_col, _btn_col = st.sidebar.columns([1, 6, 2], gap="small")
-        _cur_val = st.session_state.get(_ct["key"], False)
-
-        with _cb_col:
-            _new_val = st.checkbox(
-                "", value=bool(_cur_val),
-                key=f"_sb_cb_{_ct['key']}",
-                label_visibility="collapsed",
-            )
-        with _lbl_col:
-            _row_bg = "#dbeafe" if _new_val else "transparent"
-            st.markdown(
-                f"<div style='padding:2px 4px;border-radius:5px;background:{_row_bg};"
-                f"font-size:11px;color:#111827;font-weight:700;line-height:1.5;"
-                f"word-break:keep-all;'>"
-                f"<span style='color:#ef4444;font-size:10px;font-weight:900;"
-                f"margin-right:3px;'>{_ct['badge']}</span>"
-                f"{_ct['title']}</div>",
-                unsafe_allow_html=True,
-            )
-        with _btn_col:
-            if st.button("보기", key=f"_sb_view_{_ct['key']}", use_container_width=True):
-                st.session_state[f"_sb_modal_{_ct['key']}"] = True
-
-        if _new_val != bool(_cur_val):
-            st.session_state[_ct["key"]] = _new_val
-            _sb_any_changed = True
-
-        if _ci < len(_LEGAL_TERMS) - 1:
-            st.sidebar.markdown(
-                "<hr style='border:none;border-top:1px solid #e5e7eb;margin:4px 0;'>",
-                unsafe_allow_html=True,
-            )
-
-        # ── 모달 팝업 ──────────────────────────────────────────────────────
-        if st.session_state.get(f"_sb_modal_{_ct['key']}"):
-            with st.sidebar.expander(
-                f"📄 {_ct['title']} — 상세 약관",
-                expanded=True,
-            ):
-                st.markdown(
-                    f"<div style='font-size:11px;color:#374151;line-height:1.5;"
-                    f"word-break:keep-all;padding:6px 2px;'>"
-                    f"<div style='font-size:10px;color:#6b7280;margin-bottom:6px;'>"
-                    f"⚖️ 근거 법령: <b>{_ct['law']}</b></div>"
-                    f"{_ct['content']}"
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
-                if st.button("닫기", key=f"_sb_close_{_ct['key']}", use_container_width=True):
-                    st.session_state[f"_sb_modal_{_ct['key']}"] = False
-                    st.rerun()
-
-    _sb_all_agreed = all(
-        st.session_state.get(_ct["key"], False) for _ct in _LEGAL_TERMS
-    )
-    st.sidebar.markdown(
-        f"<div style='font-size:11px;margin-top:8px;padding:6px 8px;"
-        f"border-radius:6px;text-align:center;font-weight:700;"
-        f"background:{'#dcfce7' if _sb_all_agreed else '#fef3c7'};"
-        f"color:{'#15803d' if _sb_all_agreed else '#92400e'};'>"
-        f"{'✅ 전체 동의 완료 — 로그인 가능' if _sb_all_agreed else '⚠️ 4개 항목 모두 동의 필요'}"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-
-    st.sidebar.markdown("</div>", unsafe_allow_html=True)
-
-    if _sb_any_changed:
-        st.rerun()
-
+    
 
 # --------------------------------------------------------------------------
 # [SECTION 4] 시스템 프롬프트
