@@ -38601,6 +38601,41 @@ div[data-testid="stSelectbox"] > div > div {
 
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
+        # ── [G 섹션] CRM 마스터 키 — 통합 고객 관리 요새 ─────────────────
+        st.markdown(f"""<div style="background:#f0fdf4;border:2px solid #16a34a;
+  border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
+  {_bid('1-5-7')}
+  <div style="font-size:0.78rem;font-weight:900;color:#15803d;letter-spacing:0.08em;
+    text-transform:uppercase;margin-bottom:6px;">
+    🗝️ G-SECTION: CRM 마스터 키 — The Master Gate</div>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:0.75rem;font-weight:900;color:#065f46;margin-bottom:4px;">
+        📥 통합 입력 폼 (3단계 스테퍼)</div>
+      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 0 16px;padding:0;line-height:1.8;">
+        <li>인적 자원 등록 (중복 방지 자동검색)</li>
+        <li>관계망 형성 (가족·소개자 즉시 연결)</li>
+        <li>증권·역할 할당 (다중 피보험자 지원)</li>
+      </ol>
+    </div>
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:0.75rem;font-weight:900;color:#065f46;margin-bottom:4px;">
+        📊 전략적 전황판 (Dashboard)</div>
+      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 0 16px;padding:0;line-height:1.8;">
+        <li>Key Metrics (가족 합산 보험료·증권 수)</li>
+        <li>가족 관계도 (클릭 전환)</li>
+        <li>보장 공백 Bar차트 (KB 7대 분류)</li>
+        <li>계약자·피보험자 증권 탭 분리</li>
+      </ol>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+        if st.button("🗝️ G섹션 입장 → CRM 마스터 키",
+                     key="ag_crm_enter", use_container_width=True):
+            _go_tab("crm_gate")
+
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
         # ── [특별파트] 고객상담 특별파트 카드 ────────────────────────────
         st.markdown(f"""<div style="background:#1e293b;border:2px solid #f59e0b;
   border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
@@ -39119,6 +39154,19 @@ if cur == "customer_mgmt":
     except Exception as _cm_ex:
         st.error(f"고객관리 탭 오류: {_cm_ex}")
         st.info("데이터베이스 연결을 확인하거나 잠시 후 다시 시도하세요.")
+    st.stop()
+
+# ── [crm_gate] CRM 마스터 키 — 통합 입력 폼 + 전략 대시보드 ────────
+if cur == "crm_gate":
+    if not _auth_gate("crm_gate"): st.stop()
+    tab_home_btn("crm_gate")
+    try:
+        from crm_fortress_ui import render_crm_gate_full as _rcgf
+        _sb_cg = _get_sb_client() if _SB_PKG_OK else None
+        _uid_cg = st.session_state.get("user_id", "")
+        _rcgf(_sb_cg, _uid_cg)
+    except Exception as _cg_ex:
+        st.error(f"CRM Gate 오류: {_cg_ex}")
     st.stop()
 
 # ── [policy_scan] 보험증권 분석 — 독립 전용 탭 ──────────────────────

@@ -471,7 +471,87 @@ def parse_crawled_policy(
 
 
 # ────────────────────────────────────────────────────────────────────────────
-# 8. 요약 리포트 (Streamlit 표시용)
+# 8. 가족 네트워크 조회
+# ────────────────────────────────────────────────────────────────────────────
+def get_family_network(sb, person_id: str, agent_id: str = "") -> dict:
+    """
+    기준 인물로부터 연결된 가족/소개자 네트워크 전체 반환.
+    반환: {
+        "center": {person dict},
+        "members": [{"person": ..., "relation_type": ..., "direction": "from"|"to"}, ...],
+        "all_ids": [person_id, ...],
+    }
+    """
+    center = get_person(sb, person_id)
+    if not center:
+        return {"center": None, "members": [], "all_ids": []}
+
+    rels = get_relationships(sb, person_id)
+    members = []
+    all_ids = [person_id]
+
+    for rel in rels:
+        is_from = rel["from_person_id"] == person_id
+        other_id = rel["to_person_id"] if is_from else rel["from_person_id"]
+        other = get_person(sb, other_id)
+        if other and other_id not in all_ids:
+            members.append({
+                "person":        other,
+                "relation_type": rel["relation_type"],
+                "direction":     "from" if is_from else "to",
+            })
+            all_ids.append(other_id)
+
+    return {"center": center, "members": members, "all_ids": all_ids}
+
+
+def get_family_policies_summary(sb, person_ids: list[str], agent_id: str = "") -> dict:
+    """
+    여러 인물의 증권을 합산하여 패밀리 단위 요약 반환.
+    반환: {
+        "total_premium": float,
+        "policy_count": int,
+        "policies_by_role": {"계약자": [...], "피보험자": [...], "수익자": [...]},
+        "members_summary": [{"person_id": ..., "name": ..., "policies": {...}}, ...]
+    }
+    """
+    total_premium = 0.0
+    all_policies_seen: set[str] = set()
+    combined: dict[str, list] = {"계약자": [], "피보험자": [], "수익자": []}
+    members_summary = []
+
+    for pid in person_ids:
+        person = get_person(sb, pid)
+        if not person:
+            continue
+        pol_map = get_person_policies(sb, pid)
+        member_total = 0.0
+        for role, pols in pol_map.items():
+            for pol in pols:
+                if pol["id"] not in all_policies_seen:
+                    all_policies_seen.add(pol["id"])
+                    combined[role].append(pol)
+                    prem = pol.get("premium") or 0
+                    total_premium += float(prem)
+                    member_total += float(prem)
+        members_summary.append({
+            "person_id":     pid,
+            "name":          person.get("name", ""),
+            "birth_date":    person.get("birth_date", ""),
+            "policy_count":  sum(len(v) for v in pol_map.values()),
+            "total_premium": member_total,
+        })
+
+    return {
+        "total_premium":   total_premium,
+        "policy_count":    len(all_policies_seen),
+        "policies_by_role": combined,
+        "members_summary": members_summary,
+    }
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 9. 요약 리포트 (Streamlit 표시용)
 # ────────────────────────────────────────────────────────────────────────────
 def get_person_summary(sb, person_id: str) -> dict:
     """
