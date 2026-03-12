@@ -37335,84 +37335,109 @@ div[data-testid="stSelectbox"] > div > div {
         st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-01")}<span class="gk-sec-title">① 고객 마스터 데이터 &amp; 통합 상담</span></div>', unsafe_allow_html=True)
 
         if 'user_id' in st.session_state:
-            # ── 그룹 A: 기본 정보 ─────────────────────────────────────
-            st.markdown("**👤 그룹 A — 고객 기본 정보**")
             _uid_for_cust = st.session_state.get("user_id", "")
-            _cust_cache_key  = f"_cust_rows_{_uid_for_cust}"
-            _cust_cache_ts   = f"_cust_rows_ts_{_uid_for_cust}"
+
+            # ── CRM Fortress: gk_people 기반 고객 검색 로드 ────────────
+            _cust_cache_key = f"_fortress_people_{_uid_for_cust}"
+            _cust_cache_ts  = f"_fortress_people_ts_{_uid_for_cust}"
             _cust_cache_valid = (
                 _cust_cache_key in st.session_state
                 and (time.time() - st.session_state.get(_cust_cache_ts, 0)) < 60
             )
             if _cust_cache_valid:
-                _cust_rows = st.session_state[_cust_cache_key]
+                _people_rows = st.session_state[_cust_cache_key]
             else:
                 try:
-                    from customer_mgmt import load_customers as _load_cust
-                    _sb_cust = _get_sb_client() if _SB_PKG_OK else None
-                    _cust_rows = _load_cust(_uid_for_cust, _sb_cust) if (_sb_cust and _uid_for_cust) else []
-                    st.session_state[_cust_cache_key] = _cust_rows
+                    from crm_fortress import search_people as _fp_search
+                    _sb_fp = _get_sb_client() if _SB_PKG_OK else None
+                    _people_rows = _fp_search(_sb_fp, _uid_for_cust) if (_sb_fp and _uid_for_cust) else []
+                    st.session_state[_cust_cache_key] = _people_rows
                     st.session_state[_cust_cache_ts]  = time.time()
                 except Exception:
-                    _cust_rows = st.session_state.get(_cust_cache_key, [])
+                    _people_rows = st.session_state.get(_cust_cache_key, [])
 
-            def _cust_label(row):
-                _n = row.get("name", "")
-                _dob = (row.get("profile") or {}).get("dob", "")
-                return f"{_n}  ({_dob})" if _dob else _n
+            # ── 검색/선택 헤더 ─────────────────────────────────────────
+            st.markdown(
+                "<div style='border:1px dashed #000000;border-radius:10px;"
+                "background:#f0fdf4;padding:10px 14px 8px 14px;margin-bottom:8px;'>"
+                "<div style='color:#065f46;font-weight:900;font-size:0.9rem;margin-bottom:4px;'>"
+                "🔍 등록 고객 검색 (피보험자 태그 기반)</div>"
+                "<div style='color:#374151;font-size:0.78rem;'>"
+                "이름 선택 시 해당 인물 정보가 자동 로드되며, 모든 자료가 해당 피보험자에 태깅됩니다.</div>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
 
-            _cust_options_map = {"✏️ 고객 입력 & 검색": None}
-            for _cr in _cust_rows:
-                _cust_options_map[_cust_label(_cr)] = _cr
-            _search_label = st.session_state.get("_home_selected_cust_label", "✏️ 고객 입력 & 검색")
-            if _search_label not in _cust_options_map:
-                _search_label = "✏️ 고객 입력 & 검색"
+            def _fp_label(p):
+                _n = p.get("name", "")
+                _b = p.get("birth_date", "")
+                return f"{_n}  ({_b})" if _b else _n
 
-            _srch_col1, _srch_col2, _srch_col3 = st.columns([3, 1, 1])
-            with _srch_col1:
-                _selected_label = st.selectbox(
-                    "고객 선택 (이름 검색)",
-                    options=list(_cust_options_map.keys()),
-                    index=list(_cust_options_map.keys()).index(_search_label),
-                    key="home_cust_selectbox",
-                    help="등록된 고객 이름으로 검색·선택하면 아래 정보가 자동 채워집니다"
+            _fp_options_map = {"✏️ 신규 고객 입력": None}
+            for _pr in _people_rows:
+                _fp_options_map[_fp_label(_pr)] = _pr
+            _fp_search_label = st.session_state.get("_fp_selected_label", "✏️ 신규 고객 입력")
+            if _fp_search_label not in _fp_options_map:
+                _fp_search_label = "✏️ 신규 고객 입력"
+
+            _fp_c1, _fp_c2, _fp_c3 = st.columns([3, 1, 1])
+            with _fp_c1:
+                _fp_selected_label = st.selectbox(
+                    "고객 선택",
+                    options=list(_fp_options_map.keys()),
+                    index=list(_fp_options_map.keys()).index(_fp_search_label),
+                    key="fp_cust_selectbox",
+                    help="등록된 피보험자 이름으로 검색·선택",
+                    label_visibility="collapsed",
                 )
-            with _srch_col2:
-                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-                if st.button("검색 적용", key="btn_cust_apply", use_container_width=True,
-                             help="선택한 고객 정보를 아래 입력란에 적용합니다"):
+            with _fp_c2:
+                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                if st.button("✅ 적용", key="btn_fp_apply", use_container_width=True):
                     st.rerun()
-            with _srch_col3:
-                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-                if st.button("목록 갱신", key="btn_cust_search", use_container_width=True,
-                             help="고객 목록을 DB에서 다시 불러옵니다"):
-                    st.session_state.pop("_home_selected_cust_label", None)
-                    _uid_inv = st.session_state.get("user_id", "")
-                    st.session_state.pop(f"_cust_rows_{_uid_inv}", None)
-                    st.session_state.pop(f"_cust_rows_ts_{_uid_inv}", None)
+            with _fp_c3:
+                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                if st.button("🔄 갱신", key="btn_fp_refresh", use_container_width=True):
+                    st.session_state.pop("_fp_selected_label", None)
+                    st.session_state.pop(_cust_cache_key, None)
+                    st.session_state.pop(_cust_cache_ts, None)
                     st.rerun()
 
-            _selected_row = _cust_options_map.get(_selected_label)
-            if _selected_row and _selected_label != "✏️ 고객 입력 & 검색":
-                st.session_state["_home_selected_cust_label"] = _selected_label
-                st.session_state["selected_customer_id"] = _selected_row.get("id")
-                _prof = _selected_row.get("profile") or {}
-                _auto_map = {
-                    "scan_client_name":  _selected_row.get("name", ""),
-                    "scan_client_dob":   _prof.get("dob", ""),
-                    "scan_client_job":   _prof.get("job", ""),
-                    "scan_client_sick":  _prof.get("sick", "해당없음"),
-                    "scan_client_items": _prof.get("items", []),
+            _fp_selected = _fp_options_map.get(_fp_selected_label)
+            if _fp_selected and _fp_selected_label != "✏️ 신규 고객 입력":
+                st.session_state["_fp_selected_label"]    = _fp_selected_label
+                st.session_state["selected_customer_id"]  = _fp_selected.get("id")
+                st.session_state["_fp_person_id"]         = _fp_selected.get("id")
+                _fp_auto = {
+                    "scan_client_name":   _fp_selected.get("name", ""),
+                    "scan_client_dob":    _fp_selected.get("birth_date", ""),
+                    "scan_client_gender": _fp_selected.get("gender", ""),
+                    "scan_client_contact":_fp_selected.get("contact", ""),
+                    "scan_client_job":    _fp_selected.get("job", ""),
+                    "scan_client_sick":   _fp_selected.get("sick", "해당없음"),
+                    "scan_client_items":  _fp_selected.get("items", []),
                 }
-                for _k, _v in _auto_map.items():
+                for _k, _v in _fp_auto.items():
                     if st.session_state.get(_k) != _v:
                         st.session_state[_k] = _v
-                st.success(f"✅ [{_selected_row.get('name','')}] 자동 로드 완료")
+                st.success(
+                    f"✅ **[{_fp_selected.get('name','')}]** 로드 완료 "
+                    f"— 이하 모든 자료가 이 피보험자에 태깅됩니다."
+                )
             else:
                 st.session_state["selected_customer_id"] = None
-                st.session_state["_home_selected_cust_label"] = "✏️ 고객 입력 & 검색"
+                st.session_state["_fp_person_id"]        = None
+                st.session_state["_fp_selected_label"]   = "✏️ 신규 고객 입력"
 
-            st.markdown("<hr style='margin:10px 0;border-color:#ffcccc;'>", unsafe_allow_html=True)
+            # ── [GP-CRM] 그룹 A-1 : 피보험자 기본 정보 ───────────────────
+            st.markdown(
+                "<div style='border:1px dashed #000000;border-radius:10px;"
+                "background:#fffbeb;padding:12px 14px 8px 14px;margin:8px 0;'>"
+                "<div style='color:#92400e;font-weight:900;font-size:0.88rem;margin-bottom:8px;'>"
+                "👤 그룹 A-1 — 피보험자 기본 정보 <span style='font-size:0.75rem;"
+                "background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;"
+                "padding:1px 6px;margin-left:6px;'>TAG: 피보험자</span></div>",
+                unsafe_allow_html=True,
+            )
 
             _SICK_OPTIONS = [
                 "해당없음",
@@ -37432,25 +37457,40 @@ div[data-testid="stSelectbox"] > div > div {
             if _cur_sick not in _SICK_OPTIONS:
                 _cur_sick = "해당없음"
 
-            st.markdown("""<style>
-div[data-testid="stTextInput"][data-key="home_si_name"] input,
-div[data-testid="stTextInput"][data-key="home_si_dob"] input,
-div[data-testid="stTextInput"][data-key="home_si_job"] input {
-    border: 1.5px dashed #000000 !important;
-    border-radius: 6px !important;
-}
-</style>""", unsafe_allow_html=True)
-            _ga1, _ga2 = st.columns([1, 1])
+            _ga1, _ga2, _ga3 = st.columns([2, 2, 1])
             with _ga1:
-                _si_name = st.text_input("성명", value=st.session_state.get("scan_client_name", ""),
-                                         placeholder="예) 홍길동", key="home_si_name")
-                _si_dob  = st.text_input("생년월일 (YYYYMMDD)", value=st.session_state.get("scan_client_dob", ""),
-                                         placeholder="예) 19800101", max_chars=8, key="home_si_dob")
+                _si_name = st.text_input(
+                    "👤 성명 (피보험자)",
+                    value=st.session_state.get("scan_client_name", ""),
+                    placeholder="예) 홍길동", key="home_si_name",
+                    help="모든 보험·상담 자료가 이 이름에 태깅됩니다",
+                )
+                _si_dob = st.text_input(
+                    "📅 생년월일 (YYYYMMDD)",
+                    value=st.session_state.get("scan_client_dob", ""),
+                    placeholder="예) 19800101", max_chars=8, key="home_si_dob",
+                )
             with _ga2:
-                _si_job  = st.text_input("직업", value=st.session_state.get("scan_client_job", ""),
-                                         placeholder="예) 회사원", key="home_si_job")
-                _si_sick = st.selectbox("유병자 여부", _SICK_OPTIONS,
-                                        index=_SICK_OPTIONS.index(_cur_sick), key="home_si_sick")
+                _si_gender = st.selectbox(
+                    "⚧ 성별",
+                    ["", "남", "여", "기타"],
+                    index=["", "남", "여", "기타"].index(
+                        st.session_state.get("scan_client_gender", "") or ""
+                    ),
+                    key="home_si_gender",
+                )
+                _si_job = st.text_input(
+                    "💼 직업",
+                    value=st.session_state.get("scan_client_job", ""),
+                    placeholder="예) 회사원", key="home_si_job",
+                )
+            with _ga3:
+                _si_sick = st.selectbox(
+                    "🩺 유병자 여부",
+                    _SICK_OPTIONS,
+                    index=_SICK_OPTIONS.index(_cur_sick),
+                    key="home_si_sick",
+                )
             _sick_guide_text = _SICK_GUIDE.get(_si_sick, "")
             if _sick_guide_text:
                 _sick_color = "#9a3412" if "⚠️" in _sick_guide_text else "#14532d"
@@ -37459,10 +37499,113 @@ div[data-testid="stTextInput"][data-key="home_si_job"] input {
                 st.markdown(
                     f'<div style="background:{_sick_bg};border:1.5px solid {_sick_bdr};border-radius:8px;'
                     f'padding:8px 12px;font-size:0.82rem;font-weight:700;color:{_sick_color};'
-                    f'white-space:pre-line;margin-bottom:8px;">{_sick_guide_text}</div>',
+                    f'white-space:pre-line;margin-bottom:6px;">{_sick_guide_text}</div>',
                     unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-            # ── [HIRA-KCD] 질병 코드 자동완성 입력 블록 ──────────────────
+            # ── [GP-CRM] 그룹 A-2 : 계약자 / 수익자 구분 ─────────────────
+            with st.expander("👥 그룹 A-2 — 계약자 · 수익자 구분 (피보험자와 다를 경우 입력)", expanded=False):
+                st.markdown(
+                    "<div style='font-size:0.78rem;color:#1e40af;background:#eff6ff;"
+                    "border:1px dashed #93c5fd;border-radius:6px;padding:6px 10px;margin-bottom:8px;'>"
+                    "💡 계약자·수익자가 피보험자와 동일하면 비워두세요. "
+                    "다른 인물인 경우 입력하면 별도 <b>gk_people</b> 레코드로 분리 저장됩니다.</div>",
+                    unsafe_allow_html=True,
+                )
+                _r2c1, _r2c2 = st.columns(2)
+                with _r2c1:
+                    st.markdown(
+                        "<span style='font-size:0.8rem;font-weight:900;color:#1d4ed8;"
+                        "background:#dbeafe;border:1px solid #93c5fd;border-radius:4px;"
+                        "padding:2px 8px;'>TAG: 계약자</span>",
+                        unsafe_allow_html=True,
+                    )
+                    _si_contractor_name = st.text_input(
+                        "계약자 성명",
+                        value=st.session_state.get("crm_contractor_name", ""),
+                        placeholder="피보험자와 동일하면 비워두세요",
+                        key="home_contractor_name",
+                    )
+                    _si_contractor_dob = st.text_input(
+                        "계약자 생년월일",
+                        value=st.session_state.get("crm_contractor_dob", ""),
+                        placeholder="예) 19750515",
+                        max_chars=8,
+                        key="home_contractor_dob",
+                    )
+                with _r2c2:
+                    st.markdown(
+                        "<span style='font-size:0.8rem;font-weight:900;color:#6d28d9;"
+                        "background:#ede9fe;border:1px solid #c4b5fd;border-radius:4px;"
+                        "padding:2px 8px;'>TAG: 수익자</span>",
+                        unsafe_allow_html=True,
+                    )
+                    _si_beneficiary_name = st.text_input(
+                        "수익자 성명",
+                        value=st.session_state.get("crm_beneficiary_name", ""),
+                        placeholder="미입력 시 피보험자와 동일 처리",
+                        key="home_beneficiary_name",
+                    )
+                    _si_beneficiary_dob = st.text_input(
+                        "수익자 생년월일",
+                        value=st.session_state.get("crm_beneficiary_dob", ""),
+                        placeholder="예) 19551020",
+                        max_chars=8,
+                        key="home_beneficiary_dob",
+                    )
+
+            # ── [GP-CRM] 그룹 A-3 : 보험 증권 태깅 ───────────────────────
+            with st.expander("🛡️ 그룹 A-3 — 보험 증권 태깅 (이 고객에 연결할 증권)", expanded=False):
+                st.markdown(
+                    "<div style='font-size:0.78rem;color:#065f46;background:#ecfdf5;"
+                    "border:1px dashed #6ee7b7;border-radius:6px;padding:6px 10px;margin-bottom:8px;'>"
+                    "💡 저장 시 위 피보험자 정보와 이 증권이 <b>gk_policy_roles</b>로 자동 연결됩니다. "
+                    "여러 증권을 저장할 경우 저장 후 재입력하세요.</div>",
+                    unsafe_allow_html=True,
+                )
+                _r3c1, _r3c2 = st.columns(2)
+                with _r3c1:
+                    _si_policy_company = st.text_input(
+                        "보험사",
+                        value=st.session_state.get("crm_policy_company", ""),
+                        placeholder="예) 삼성생명, DB손해보험",
+                        key="home_policy_company",
+                    )
+                    _si_policy_product = st.text_input(
+                        "상품명",
+                        value=st.session_state.get("crm_policy_product", ""),
+                        placeholder="예) 통합건강보험 플러스",
+                        key="home_policy_product",
+                    )
+                    _si_policy_number = st.text_input(
+                        "증권번호",
+                        value=st.session_state.get("crm_policy_number", ""),
+                        placeholder="예) 2023-0001234",
+                        key="home_policy_number",
+                    )
+                with _r3c2:
+                    _si_policy_roles_sel = st.multiselect(
+                        "역할 태그 (복수 선택 가능)",
+                        ["계약자", "피보험자", "수익자"],
+                        default=st.session_state.get("crm_policy_roles_sel", ["피보험자"]),
+                        key="home_policy_roles_sel",
+                        help="이 증권에서 위 인물이 담당하는 역할",
+                    )
+                    _si_policy_contract_date = st.text_input(
+                        "계약일 (YYYYMMDD)",
+                        value=st.session_state.get("crm_policy_contract_date", ""),
+                        placeholder="예) 20230101",
+                        max_chars=8,
+                        key="home_policy_contract_date",
+                    )
+                    _si_policy_premium = st.text_input(
+                        "월보험료 (원)",
+                        value=st.session_state.get("crm_policy_premium", ""),
+                        placeholder="예) 150000",
+                        key="home_policy_premium",
+                    )
+
+            # ── [HIRA-KCD] 질병 코드 자동완성 ────────────────────────────
             st.markdown("<hr style='margin:8px 0;border-color:#e2e8f0;'>", unsafe_allow_html=True)
             st.markdown(
                 "<div style='border:1px dashed #000000;border-radius:10px;"
@@ -37502,18 +37645,120 @@ div[data-testid="stTextInput"][data-key="home_si_job"] input {
             # ── [HIRA-KCD] 끝 ─────────────────────────────────────────────
 
             _si_items = st.multiselect(
-                "상담 항목 (복수 선택)",
+                "📋 상담 항목 (복수 선택)",
                 ["신규보험상담", "보험증권 분석", "보험금 청구", "장해 산출", "암·뇌·심장",
                  "리플렛 분류", "약관 검색", "부동산 투자", "간병비", "노후설계", "법인상담"],
                 default=st.session_state.get("scan_client_items", []), key="home_si_items"
             )
+
+            # ── [GP-CRM] 저장 버튼 — Fortress 태깅 저장 ──────────────────
             st.markdown('<div class="gk-save-btn-marker" style="display:none;"></div>', unsafe_allow_html=True)
-            if st.button("💾 고객 정보 저장 (전체 탭 자동 연동)", key="btn_save_client_info", use_container_width=True):
-                st.session_state["scan_client_name"]  = _si_name
-                st.session_state["scan_client_dob"]   = _si_dob
-                st.session_state["scan_client_job"]   = _si_job
-                st.session_state["scan_client_sick"]  = _si_sick
-                st.session_state["scan_client_items"] = _si_items
+            if st.button("💾 고객 정보 저장 (피보험자 태깅 + 전체 탭 연동)", key="btn_save_client_info", use_container_width=True):
+                # ① 세션 상태 동기화
+                st.session_state["scan_client_name"]        = _si_name
+                st.session_state["scan_client_dob"]         = _si_dob
+                st.session_state["scan_client_gender"]      = _si_gender
+                st.session_state["scan_client_job"]         = _si_job
+                st.session_state["scan_client_sick"]        = _si_sick
+                st.session_state["scan_client_items"]       = _si_items
+                st.session_state["crm_contractor_name"]     = _si_contractor_name
+                st.session_state["crm_contractor_dob"]      = _si_contractor_dob
+                st.session_state["crm_beneficiary_name"]    = _si_beneficiary_name
+                st.session_state["crm_beneficiary_dob"]     = _si_beneficiary_dob
+                st.session_state["crm_policy_company"]      = _si_policy_company
+                st.session_state["crm_policy_product"]      = _si_policy_product
+                st.session_state["crm_policy_number"]       = _si_policy_number
+                st.session_state["crm_policy_roles_sel"]    = _si_policy_roles_sel
+                st.session_state["crm_policy_contract_date"]= _si_policy_contract_date
+                st.session_state["crm_policy_premium"]      = _si_policy_premium
+
+                # ② CRM Fortress DB 저장
+                _fort_sb_ok  = False
+                _fort_msg    = ""
+                _fort_pid    = None   # person_id
+                _fort_pol_id = None   # policy_id
+                if _si_name and _si_name.strip() and _uid_for_cust:
+                    try:
+                        from crm_fortress import (
+                            upsert_person     as _fp_upsert,
+                            upsert_policy     as _fp_pol,
+                            link_policy_role  as _fp_link,
+                        )
+                        _sb_f = _get_sb_client() if _SB_PKG_OK else None
+                        if _sb_f:
+                            # A-1: 피보험자 등록/갱신
+                            _existing_pid = st.session_state.get("_fp_person_id")
+                            _insured_row = _fp_upsert(
+                                _sb_f,
+                                name           = _si_name.strip(),
+                                birth_date     = _si_dob,
+                                gender         = _si_gender or "",
+                                is_real_client = True,
+                                agent_id       = _uid_for_cust,
+                                memo           = f"직업:{_si_job} / 유병:{_si_sick}",
+                                person_id      = _existing_pid,
+                            )
+                            _fort_pid = _insured_row.get("id", _existing_pid)
+                            st.session_state["_fp_person_id"] = _fort_pid
+
+                            # A-2: 계약자 별도 인물 등록 (피보험자와 다를 경우)
+                            _contractor_pid = _fort_pid
+                            if _si_contractor_name and _si_contractor_name.strip():
+                                _contr_row = _fp_upsert(
+                                    _sb_f,
+                                    name       = _si_contractor_name.strip(),
+                                    birth_date = _si_contractor_dob,
+                                    agent_id   = _uid_for_cust,
+                                )
+                                _contractor_pid = _contr_row.get("id", _fort_pid)
+
+                            # A-2: 수익자 별도 인물 등록
+                            _beneficiary_pid = None
+                            if _si_beneficiary_name and _si_beneficiary_name.strip():
+                                _bene_row = _fp_upsert(
+                                    _sb_f,
+                                    name       = _si_beneficiary_name.strip(),
+                                    birth_date = _si_beneficiary_dob,
+                                    agent_id   = _uid_for_cust,
+                                )
+                                _beneficiary_pid = _bene_row.get("id")
+
+                            # A-3: 증권 등록 + 역할 태깅
+                            if _si_policy_company and _si_policy_product:
+                                _prem_val = None
+                                try:
+                                    _prem_val = float(_si_policy_premium.replace(",", "")) if _si_policy_premium else None
+                                except Exception:
+                                    pass
+                                _pol_row = _fp_pol(
+                                    _sb_f,
+                                    insurance_company = _si_policy_company,
+                                    product_name      = _si_policy_product,
+                                    policy_number     = _si_policy_number,
+                                    contract_date     = _si_policy_contract_date,
+                                    premium           = _prem_val,
+                                    agent_id          = _uid_for_cust,
+                                    source            = "manual",
+                                )
+                                _fort_pol_id = _pol_row.get("id")
+                                if _fort_pol_id:
+                                    _roles_to_link = _si_policy_roles_sel or ["피보험자"]
+                                    for _rl in _roles_to_link:
+                                        if _rl == "계약자":
+                                            _fp_link(_sb_f, _fort_pol_id, _contractor_pid, "계약자", _uid_for_cust)
+                                        elif _rl == "피보험자":
+                                            _fp_link(_sb_f, _fort_pol_id, _fort_pid, "피보험자", _uid_for_cust)
+                                        elif _rl == "수익자" and _beneficiary_pid:
+                                            _fp_link(_sb_f, _fort_pol_id, _beneficiary_pid, "수익자", _uid_for_cust)
+
+                            _fort_sb_ok = True
+                            # 캐시 무효화
+                            st.session_state.pop(_cust_cache_key, None)
+                            st.session_state.pop(_cust_cache_ts, None)
+                    except Exception as _fe:
+                        _fort_msg = str(_fe)
+
+                # ③ 기존 customer_mgmt 병행 저장 (호환성 유지)
                 _cid_save = st.session_state.get("selected_customer_id")
                 if _cid_save:
                     try:
@@ -37525,20 +37770,20 @@ div[data-testid="stTextInput"][data-key="home_si_job"] input {
                         }, _sb_s)
                     except Exception:
                         pass
-                # CRM Supabase 영구저장
-                _crm_sb_ok = False
-                if _si_name and _si_name.strip():
-                    _agent_uid_save = st.session_state.get("user_id", "")
-                    if _agent_uid_save:
-                        try:
-                            _reg_now = st.session_state.get("crm_registry", {})
-                            _crm_sb_ok = bool(crm_save_to_db(_reg_now, _agent_uid_save)[0])
-                        except Exception:
-                            _crm_sb_ok = False
-                if _crm_sb_ok:
-                    st.success(f"✅ {_si_name} 고객 정보가 저장되었습니다. ☁️ **영구저장 완료** — DB에 안전하게 보관됩니다.")
+
+                # ④ 결과 메시지
+                if _fort_sb_ok:
+                    _tag_info = f"피보험자 ID: `{str(_fort_pid)[:8]}…`" if _fort_pid else ""
+                    _pol_info = f" | 증권 태깅 완료" if _fort_pol_id else ""
+                    st.success(
+                        f"✅ **{_si_name}** 고객 정보가 저장되었습니다.\n\n"
+                        f"☁️ **영구저장 완료** — 피보험자 고유 태그로 DB에 분리 보관됩니다. "
+                        f"{_tag_info}{_pol_info}"
+                    )
                 else:
                     st.success(f"✅ {_si_name} 고객 정보가 저장되었습니다. (세션 저장 — 모든 탭에 자동 연동됩니다.)")
+                    if _fort_msg:
+                        st.caption(f"DB 저장 오류: {_fort_msg[:80]}")
 
             # ── [SEC-01-MEMBER-INFO] FC 회원 정보 입력 ────────────────────
             st.markdown("<hr style='margin:12px 0;border-color:#ffcccc;'>", unsafe_allow_html=True)
