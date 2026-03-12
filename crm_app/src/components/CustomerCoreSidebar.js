@@ -7,6 +7,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Linking,
 } from 'react-native';
 import { MANAGEMENT_TIER, CUSTOMER_STATUS } from '../config';
+import { isTablet } from '../utils/deviceCheck';
 
 export default function CustomerCoreSidebar({ person, onStartConsult, onScanPolicy }) {
   if (!person) return null;
@@ -17,6 +18,38 @@ export default function CustomerCoreSidebar({ person, onStartConsult, onScanPoli
   const callPhone = () => {
     if (person.contact) Linking.openURL(`tel:${person.contact.replace(/-/g, '')}`);
   };
+
+  if (!isTablet) {
+    // ── 핸드폰: 가로 compact 카드 ──────────────────────────────────────────
+    return (
+      <View style={styles.phoneCard}>
+        <View style={styles.phoneCardLeft}>
+          <View style={styles.phoneNameRow}>
+            {person.is_favorite && <Text style={styles.phoneStar}>★ </Text>}
+            <Text style={styles.phoneName}>{person.name}</Text>
+            <View style={[styles.phoneTierBadge, { backgroundColor: tier.bg }]}>
+              <Text style={[styles.phoneTierText, { color: tier.color }]}>{tier.label}</Text>
+            </View>
+          </View>
+          <Text style={styles.phoneContact} numberOfLines={1}>
+            📞 {person.contact || '연락처 미등록'}
+            {person.job ? `  ·  ${person.job}` : ''}
+          </Text>
+          {person.memo ? (
+            <Text style={styles.phoneMemo} numberOfLines={1}>💬 {person.memo}</Text>
+          ) : null}
+        </View>
+        <View style={styles.phoneCardRight}>
+          <TouchableOpacity style={styles.phoneActionBtn} onPress={onStartConsult}>
+            <Text style={styles.phoneActionText}>상담</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.phoneActionBtn, styles.phoneActionBtnGreen]} onPress={onScanPolicy}>
+            <Text style={[styles.phoneActionText, { color: '#16a34a' }]}>스캔</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -137,4 +170,27 @@ const styles = StyleSheet.create({
   primaryBtnText:  { color: '#fff', fontWeight: '800', fontSize: 14 },
   secondaryBtn:    { backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#16a34a' },
   secondaryBtnText: { color: '#16a34a', fontWeight: '700', fontSize: 14 },
+
+  // ── 핸드폰 compact 스타일 ─────────────────────────────────────────────
+  phoneCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb',
+    paddingHorizontal: 14, paddingVertical: 10,
+  },
+  phoneCardLeft:   { flex: 1 },
+  phoneCardRight:  { flexDirection: 'row', gap: 6, marginLeft: 8 },
+  phoneNameRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  phoneStar:       { fontSize: 12, color: '#f59e0b' },
+  phoneName:       { fontSize: 15, fontWeight: '900', color: '#111' },
+  phoneTierBadge:  { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 },
+  phoneTierText:   { fontSize: 10, fontWeight: '700' },
+  phoneContact:    { fontSize: 12, color: '#6b7280', marginBottom: 1 },
+  phoneMemo:       { fontSize: 11, color: '#9ca3af' },
+  phoneActionBtn: {
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 8, borderWidth: 1, borderColor: '#1e3a5f',
+    backgroundColor: '#eff6ff',
+  },
+  phoneActionBtnGreen: { borderColor: '#16a34a', backgroundColor: '#f0fdf4' },
+  phoneActionText: { fontSize: 12, fontWeight: '700', color: '#1e3a5f' },
 });

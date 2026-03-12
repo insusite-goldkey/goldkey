@@ -8,6 +8,7 @@ import {
   FlatList, ActivityIndicator,
 } from 'react-native';
 import { fetchPolicies } from '../services/supabaseService';
+import { isTablet } from '../utils/deviceCheck';
 
 const STATUS_MAP = {
   active:     { label: '유효', color: '#16a34a', bg: '#dcfce7' },
@@ -102,38 +103,38 @@ export default function PolicyListView({ personId, onAddPolicy }) {
 }
 
 const styles = StyleSheet.create({
-  root:          { flex: 1, padding: 12 },
+  root:          { flex: 1, padding: isTablet ? 12 : 8 },
   headerRow: {
     flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 10,
+    alignItems: 'center', marginBottom: isTablet ? 10 : 6,
   },
-  sectionTitle:  { fontSize: 14, fontWeight: '900', color: '#1e3a5f' },
+  sectionTitle:  { fontSize: isTablet ? 14 : 13, fontWeight: '900', color: '#1e3a5f' },
   addBtn: {
     backgroundColor: '#1e3a5f', borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 5,
+    paddingHorizontal: isTablet ? 12 : 10, paddingVertical: isTablet ? 5 : 4,
   },
-  addBtnText:    { color: '#fff', fontWeight: '700', fontSize: 12 },
+  addBtnText:    { color: '#fff', fontWeight: '700', fontSize: isTablet ? 12 : 11 },
   card: {
     borderWidth: 1, borderColor: '#000', borderStyle: 'dashed',
-    borderRadius: 10, padding: 12, backgroundColor: '#fff', marginBottom: 8,
+    borderRadius: 10, padding: isTablet ? 12 : 9, backgroundColor: '#fff', marginBottom: isTablet ? 8 : 6,
   },
   cardUrgent:    { borderColor: '#dc2626', backgroundColor: '#fff9f9' },
   cardTop:       { flexDirection: 'row', justifyContent: 'space-between' },
   cardLeft:      { flex: 1, marginRight: 8 },
   cardRight:     { alignItems: 'flex-end' },
-  company:       { fontSize: 11, color: '#6b7280', marginBottom: 2 },
-  productName:   { fontSize: 14, fontWeight: '900', color: '#111' },
+  company:       { fontSize: isTablet ? 11 : 10, color: '#6b7280', marginBottom: 2 },
+  productName:   { fontSize: isTablet ? 14 : 13, fontWeight: '900', color: '#111' },
   policyNum:     { fontSize: 10, color: '#9ca3af', marginTop: 2 },
-  statusBadge:   { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginBottom: 4 },
-  statusText:    { fontSize: 11, fontWeight: '700' },
-  premium:       { fontSize: 11, color: '#374151', fontWeight: '600' },
+  statusBadge:   { paddingHorizontal: isTablet ? 8 : 6, paddingVertical: 2, borderRadius: 8, marginBottom: 4 },
+  statusText:    { fontSize: isTablet ? 11 : 10, fontWeight: '700' },
+  premium:       { fontSize: isTablet ? 11 : 10, color: '#374151', fontWeight: '600' },
   cardBottom: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginTop: 8, paddingTop: 8,
     borderTopWidth: 1, borderTopColor: '#f3f4f6',
   },
-  expiryLabel:    { fontSize: 11, color: '#9ca3af' },
-  expiryDate:     { fontSize: 13, fontWeight: '700', color: '#374151' },
+  expiryLabel:    { fontSize: isTablet ? 11 : 10, color: '#9ca3af' },
+  expiryDate:     { fontSize: isTablet ? 13 : 12, fontWeight: '700', color: '#374151' },
   expiryDateUrgent: { color: '#dc2626' },
   dday: {
     fontSize: 12, fontWeight: '900', color: '#1d4ed8',

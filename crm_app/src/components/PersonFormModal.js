@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { MANAGEMENT_TIER, PROSPECTING_STAGE } from '../config';
 import { upsertPerson } from '../services/supabaseService';
+import { isTablet } from '../utils/deviceCheck';
 
 const MONTHS = ['1','2','3','4','5','6','7','8','9','10','11','12'];
 
@@ -307,25 +308,27 @@ const styles = StyleSheet.create({
   saveText:    { color: '#fff', fontWeight: '800', fontSize: 14 },
   scroll:      { flex: 1 },
   sectionTitle: {
-    fontSize: 13, fontWeight: '900', color: '#1e3a5f',
-    backgroundColor: '#eff6ff', paddingHorizontal: 16, paddingVertical: 8,
-    marginTop: 8,
+    fontSize: isTablet ? 13 : 12, fontWeight: '900', color: '#1e3a5f',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: isTablet ? 16 : 12, paddingVertical: isTablet ? 8 : 6,
+    marginTop: isTablet ? 8 : 4,
   },
   fieldRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 10,
+    paddingHorizontal: isTablet ? 16 : 12, paddingVertical: isTablet ? 10 : 7,
     backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
   },
-  fieldLabel: { fontSize: 13, color: '#374151', width: 100, fontWeight: '600' },
+  fieldLabel: { fontSize: isTablet ? 13 : 12, color: '#374151', width: isTablet ? 100 : 82, fontWeight: '600' },
   fieldInput: { flex: 1 },
   input: {
     borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 6,
-    paddingHorizontal: 10, paddingVertical: 6, fontSize: 13, color: '#111',
+    paddingHorizontal: isTablet ? 10 : 8, paddingVertical: isTablet ? 6 : 5,
+    fontSize: isTablet ? 13 : 12, color: '#111',
   },
-  inputMulti: { minHeight: 60, textAlignVertical: 'top' },
-  selectRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  inputMulti: { minHeight: isTablet ? 60 : 48, textAlignVertical: 'top' },
+  selectRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: isTablet ? 6 : 5 },
   selectBtn: {
-    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16,
+    paddingHorizontal: isTablet ? 12 : 9, paddingVertical: isTablet ? 5 : 4, borderRadius: 16,
     borderWidth: 1, borderColor: '#d1d5db', backgroundColor: '#fff',
   },
   selectBtnActive: { backgroundColor: '#1e3a5f', borderColor: '#1e3a5f' },

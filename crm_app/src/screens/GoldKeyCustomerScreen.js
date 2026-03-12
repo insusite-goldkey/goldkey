@@ -444,52 +444,54 @@ const styles = StyleSheet.create({
   root:          { flex: 1, backgroundColor: '#f9fafb' },
   header: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 10,
+    paddingHorizontal: isTablet ? 16 : 12, paddingVertical: isTablet ? 10 : 8,
     backgroundColor: '#fff',
     borderBottomWidth: 1, borderBottomColor: '#e5e7eb',
   },
   backBtn:       { marginRight: 10 },
-  backText:      { fontSize: 14, color: '#2563eb', fontWeight: '600' },
-  headerTitle:   { flex: 1, fontSize: 16, fontWeight: '900', color: '#1e3a5f' },
-  headerCount:   { fontSize: 13, color: '#6b7280', fontWeight: '600' },
+  backText:      { fontSize: isTablet ? 14 : 13, color: '#2563eb', fontWeight: '600' },
+  headerTitle:   { flex: 1, fontSize: isTablet ? 16 : 15, fontWeight: '900', color: '#1e3a5f' },
+  headerCount:   { fontSize: isTablet ? 13 : 12, color: '#6b7280', fontWeight: '600' },
   addBtn: {
     backgroundColor: '#1e3a5f', borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 5,
+    paddingHorizontal: isTablet ? 12 : 10, paddingVertical: isTablet ? 5 : 4,
   },
-  addBtnText:    { color: '#fff', fontWeight: '700', fontSize: 12 },
+  addBtnText:    { color: '#fff', fontWeight: '700', fontSize: isTablet ? 12 : 11 },
 
   // 검색 + 필터
   searchInput: {
-    margin: 12, borderWidth: 1, borderColor: '#e5e7eb',
-    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
-    fontSize: 14, backgroundColor: '#fff', color: '#111',
+    margin: isTablet ? 12 : 8,
+    borderWidth: 1, borderColor: '#e5e7eb',
+    borderRadius: 10, paddingHorizontal: isTablet ? 14 : 12, paddingVertical: isTablet ? 8 : 6,
+    fontSize: isTablet ? 14 : 13, backgroundColor: '#fff', color: '#111',
   },
-  filterRow:     { flexDirection: 'row', paddingHorizontal: 12, gap: 8, marginBottom: 4 },
+  filterRow:     { flexDirection: 'row', paddingHorizontal: isTablet ? 12 : 8, gap: isTablet ? 8 : 6, marginBottom: 4 },
   filterBtn: {
-    paddingHorizontal: 12, paddingVertical: 5,
+    paddingHorizontal: isTablet ? 12 : 10, paddingVertical: isTablet ? 5 : 4,
     borderRadius: 16, borderWidth: 1, borderColor: '#d1d5db', backgroundColor: '#fff',
   },
   filterBtnActive: { backgroundColor: '#1e3a5f', borderColor: '#1e3a5f' },
-  filterText:    { fontSize: 12, color: '#374151' },
+  filterText:    { fontSize: isTablet ? 12 : 11, color: '#374151' },
   filterTextActive:{ color: '#fff', fontWeight: '700' },
 
   // 카드
   card: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#fff', marginHorizontal: 12, marginVertical: 3,
-    padding: 12, borderRadius: 10,
+    backgroundColor: '#fff',
+    marginHorizontal: isTablet ? 12 : 8, marginVertical: isTablet ? 3 : 2,
+    padding: isTablet ? 12 : 10, borderRadius: 10,
     borderWidth: 1, borderColor: '#e5e7eb',
   },
   cardActive:    { borderColor: '#1e3a5f', backgroundColor: '#eff6ff' },
   cardRenewal:   { borderColor: '#f59e0b', backgroundColor: '#fffbeb' },
   cardLeft:      { flexDirection: 'row', alignItems: 'flex-start', flex: 1 },
-  star:          { fontSize: 14, color: '#f59e0b', marginTop: 2 },
-  cardName:      { fontSize: 15, fontWeight: '900', color: '#111' },
-  cardSub:       { fontSize: 12, color: '#6b7280', marginTop: 2 },
-  renewalAlert:  { fontSize: 11, color: '#d97706', fontWeight: '700', marginTop: 2 },
-  tierBadge:     { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginLeft: 8 },
-  tierText:      { fontSize: 11, fontWeight: '700' },
-  emptyText:     { textAlign: 'center', color: '#9ca3af', marginTop: 40, fontSize: 14 },
+  star:          { fontSize: isTablet ? 14 : 12, color: '#f59e0b', marginTop: 2 },
+  cardName:      { fontSize: isTablet ? 15 : 14, fontWeight: '900', color: '#111' },
+  cardSub:       { fontSize: isTablet ? 12 : 11, color: '#6b7280', marginTop: 2 },
+  renewalAlert:  { fontSize: isTablet ? 11 : 10, color: '#d97706', fontWeight: '700', marginTop: 2 },
+  tierBadge:     { paddingHorizontal: isTablet ? 8 : 6, paddingVertical: 2, borderRadius: 8, marginLeft: 8 },
+  tierText:      { fontSize: isTablet ? 11 : 10, fontWeight: '700' },
+  emptyText:     { textAlign: 'center', color: '#9ca3af', marginTop: 40, fontSize: isTablet ? 14 : 13 },
 
   // 태블릿 레이아웃
   tabletRow:     { flex: 1, flexDirection: 'row' },
@@ -520,16 +522,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#e5e7eb',
   },
   tabItem: {
-    flex: 1, paddingVertical: 10, alignItems: 'center',
+    flex: 1, paddingVertical: isTablet ? 10 : 7, alignItems: 'center',
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   tabItemActive: { borderBottomColor: '#1e3a5f' },
-  tabText:       { fontSize: 11, color: '#9ca3af', fontWeight: '600' },
+  tabText:       { fontSize: isTablet ? 11 : 10, color: '#9ca3af', fontWeight: '600' },
   tabTextActive: { color: '#1e3a5f', fontWeight: '900' },
   tabContent:    { flex: 1 },
 
   // 핸드폰 히스토리
-  phoneHistoryWrap: { maxHeight: 260, borderTopWidth: 1, borderTopColor: '#e5e7eb' },
+  phoneHistoryWrap: { maxHeight: isTablet ? 300 : 220, borderTopWidth: 1, borderTopColor: '#e5e7eb' },
 
   // FAB
   fab: {
