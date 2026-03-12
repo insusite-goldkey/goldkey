@@ -131,10 +131,11 @@
 
 ## 미결 항목
 
-- Supabase `user_files` 테이블 `client_name` 컬럼 마이그레이션 SQL 실행 필요
+- ~~Supabase `user_files` 테이블 `client_name` 컬럼 마이그레이션 SQL 실행 필요~~ **✅ 완료 (2026-03-12)**
   ```sql
   ALTER TABLE user_files ADD COLUMN IF NOT EXISTS client_name TEXT;
   ```
+  → Supabase SQL Editor에서 직접 실행 완료. `client_name TEXT` 컬럼 추가됨.
 
 ---
 

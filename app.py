@@ -33396,8 +33396,6 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
                         f'🔗 Supabase SQL Editor 열기</button></a>',
                         unsafe_allow_html=True
                     )
-                    st.code("ALTER TABLE user_files ADD COLUMN IF NOT EXISTS client_name TEXT;", language="sql")
-                    st.caption("↑ 위 SQL을 복사하여 SQL Editor에서 실행하세요.")
                 else:
                     st.markdown(
                         '<a href="https://supabase.com/dashboard" target="_blank">'
@@ -33406,7 +33404,7 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
                         '🔗 Supabase 대시보드 열기</button></a>',
                         unsafe_allow_html=True
                     )
-                    st.code("ALTER TABLE user_files ADD COLUMN IF NOT EXISTS client_name TEXT;", language="sql")
+                st.success("✅ user_files.client_name 컬럼 마이그레이션 완료 (2026-03-12)")
                 st.markdown("---")
                 if st.button("📋 제안 목록 보기", key="btn_show_suggestions", use_container_width=True):
                     st.session_state["_show_suggestions"] = not st.session_state.get("_show_suggestions", False)
