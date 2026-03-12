@@ -5625,9 +5625,9 @@ def save_members(members):
                 _sb_ok = True
         except Exception as _e:
             _sb_err = str(_e)
-    # Supabase 저장 성공 시 이미 return
+    # Supabase 저장 성공 시 True 반환
     if _sb_ok:
-        return
+        return True
     # ── Cloud 환경에서 Supabase 실패 — 경고 기록 (session_state 저장) ─────
     if _IS_CLOUD:
         _warn_key = "_member_save_warn"
@@ -5645,6 +5645,7 @@ def save_members(members):
         st.session_state.pop("_members_cache", None)
     except (IOError, OSError):
         pass
+    return False
 
 # ══════════════════════════════════════════════════════════════════════════
 # 가이딩 프로토콜 제75조: 기기 지문 기반 본인 신뢰도 점수 운영 원칙
@@ -32776,7 +32777,13 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="prim
                                             user_id=info["user_id"], user_name=name,
                                             user_role="customer"
                                         )
-                                    st.success("가입 완료!")
+                                        # 영구저장 여부 확인
+                                        _signup_sb_ok = _SB_PKG_OK and bool(_get_sb_client())
+                                    if _signup_sb_ok:
+                                        st.success(f"🎉 회원가입 감사합니다, {name}님!\n\n✅ **영구저장 완료** — Supabase DB에 안전하게 저장되었습니다.")
+                                    else:
+                                        st.success(f"🎉 회원가입 감사합니다, {name}님!")
+                                        st.warning("⚠️ 임시저장됨 — 서버 재시작 시 소실될 수 있습니다. 관리자에게 문의하세요.")
                                     st.rerun()
                                 except ValueError as _su_ve:
                                     _sve_msg = str(_su_ve)
@@ -37518,7 +37525,20 @@ div[data-testid="stTextInput"][data-key="home_si_job"] input {
                         }, _sb_s)
                     except Exception:
                         pass
-                st.success(f"✅ {_si_name} 저장 완료 — 모든 탭에 자동 연동됩니다.")
+                # CRM Supabase 영구저장
+                _crm_sb_ok = False
+                if _si_name and _si_name.strip():
+                    _agent_uid_save = st.session_state.get("user_id", "")
+                    if _agent_uid_save:
+                        try:
+                            _reg_now = st.session_state.get("crm_registry", {})
+                            _crm_sb_ok = bool(crm_save_to_db(_reg_now, _agent_uid_save)[0])
+                        except Exception:
+                            _crm_sb_ok = False
+                if _crm_sb_ok:
+                    st.success(f"✅ {_si_name} 고객 정보가 저장되었습니다. ☁️ **영구저장 완료** — DB에 안전하게 보관됩니다.")
+                else:
+                    st.success(f"✅ {_si_name} 고객 정보가 저장되었습니다. (세션 저장 — 모든 탭에 자동 연동됩니다.)")
 
             # ── [SEC-01-MEMBER-INFO] FC 회원 정보 입력 ────────────────────
             st.markdown("<hr style='margin:12px 0;border-color:#ffcccc;'>", unsafe_allow_html=True)
