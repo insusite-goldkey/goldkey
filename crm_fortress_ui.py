@@ -10,12 +10,46 @@ crm_fortress_ui.py — 마법의 마스터 키 (The Master Gate)
 from __future__ import annotations
 import streamlit as st
 import uuid
-from datetime import datetime
+import random
+from datetime import datetime, timedelta
 
 
 # ────────────────────────────────────────────────────────────────────────────
 # 공통 CSS
 # ────────────────────────────────────────────────────────────────────────────
+_CSS_AUTH = """
+<style>
+.auth-gate {
+  border:2px solid #1d4ed8; border-radius:14px;
+  padding:22px 20px 18px 20px; background:#eff6ff;
+  max-width:460px; margin:30px auto;
+}
+.auth-gate-title {
+  font-size:1.05rem; font-weight:900; color:#1d4ed8;
+  margin-bottom:6px;
+}
+.auth-gate-sub {
+  font-size:0.78rem; color:#64748b; margin-bottom:18px;
+  line-height:1.6;
+}
+.auth-otp-box {
+  border:2px dashed #1d4ed8; border-radius:10px;
+  background:#ffffff; padding:14px 16px; margin:12px 0;
+  font-size:1.35rem; font-weight:900; color:#1d4ed8;
+  text-align:center; letter-spacing:0.25em;
+}
+.auth-timer {
+  font-size:0.78rem; font-weight:700; color:#dc2626;
+  text-align:right; margin-top:4px;
+}
+.auth-person-card {
+  border:1px dashed #16a34a; border-radius:8px;
+  background:#f0fdf4; padding:10px 14px; margin-bottom:10px;
+  font-size:0.85rem; font-weight:700;
+}
+</style>
+"""
+
 _CSS = """
 <style>
 .mgk-step-bar {
@@ -102,6 +136,13 @@ _KB7_KEYWORDS = {
 
 
 # ────────────────────────────────────────────────────────────────────────────
+# 인증 상수
+# ────────────────────────────────────────────────────────────────────────────
+_OTP_EXPIRE_SECONDS = 180   # 3분
+_OTP_MAX_ATTEMPTS   = 5     # 최대 시도 횟수
+
+
+# ────────────────────────────────────────────────────────────────────────────
 # 내부 헬퍼
 # ────────────────────────────────────────────────────────────────────────────
 def _sb_ok(sb) -> bool:
@@ -151,6 +192,159 @@ def _stepper_html(step: int) -> str:
         else:
             parts.append(f'<div class="mgk-step {cls}">{lbl}</div>')
     return f'<div class="mgk-step-bar">{"".join(parts)}</div>'
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# OTP 인증 게이트 — person_id 기반 기기 무관 세션 인증
+# ────────────────────────────────────────────────────────────────────────────
+def _otp_remaining() -> int:
+    """남은 OTP 유효 시간(초). 만료 시 0 반환"""
+    issued = st.session_state.get("_crm_otp_issued_at")
+    if not issued:
+        return 0
+    elapsed = (datetime.now() - issued).total_seconds()
+    remaining = int(_OTP_EXPIRE_SECONDS - elapsed)
+    return max(0, remaining)
+
+
+def _otp_clear():
+    """OTP 관련 세션 상태 초기화"""
+    for k in ("_crm_otp_code", "_crm_otp_issued_at",
+              "_crm_otp_person", "_crm_otp_attempts"):
+        st.session_state.pop(k, None)
+
+
+def render_crm_person_auth(sb, agent_id: str) -> bool:
+    """
+    person_id 기반 CRM 인증 게이트.
+    인증 완료 시 True 반환 + st.session_state['_crm_auth_person_id'] 설정.
+    미완료 시 False 반환 (UI 렌더링 후 caller가 st.stop() 해야 함).
+    """
+    st.markdown(_CSS_AUTH, unsafe_allow_html=True)
+
+    # ── 이미 인증된 세션 ──────────────────────────────────────
+    if st.session_state.get("_crm_auth_person_id"):
+        _pid  = st.session_state["_crm_auth_person_id"]
+        _pname = st.session_state.get("_crm_auth_person_name", "")
+        _c1, _c2 = st.columns([8, 2])
+        with _c1:
+            st.markdown(
+                f'<div class="auth-person-card">'
+                f'✅ <b>{_pname}</b> 님으로 인증된 세션입니다.'
+                f'<span style="font-size:0.72rem;color:#6b7280;margin-left:8px;">'  
+                f'ID: {_pid[:8]}…</span></div>',
+                unsafe_allow_html=True,
+            )
+        with _c2:
+            if st.button("🔓 로그아웃", key="crm_auth_logout", use_container_width=True):
+                st.session_state.pop("_crm_auth_person_id", None)
+                st.session_state.pop("_crm_auth_person_name", None)
+                _otp_clear()
+                st.rerun()
+        return True
+
+    # ── 인증 UI ──────────────────────────────────────────────
+    st.markdown(
+        '<div class="auth-gate">'
+        '<div class="auth-gate-title">🔐 고객 본인 확인</div>'
+        '<div class="auth-gate-sub">'
+        '어떤 기기에서 접속하더라도 동일한 고객 데이터를 불러옵니다.<br>'
+        '등록된 <b>이름</b>과 <b>연락처 끝 4자리</b>를 입력하세요.</div>',
+        unsafe_allow_html=True,
+    )
+
+    _auth_stage = st.session_state.get("_crm_auth_stage", "input")  # input | otp
+
+    if _auth_stage == "input":
+        _a_name    = st.text_input("👤 이름",    placeholder="예) 홍길동",  key="crm_auth_name")
+        _a_contact = st.text_input("📱 연락처 끝 4자리", placeholder="예) 1234",
+                                   max_chars=4, key="crm_auth_contact")
+
+        if st.button("🔍 조회 및 OTP 발송", key="crm_auth_lookup", use_container_width=True):
+            if not _a_name or not _a_contact:
+                st.warning("이름과 연락처 끝 4자리를 모두 입력해 주세요.")
+            elif not _sb_ok(sb):
+                st.error("DB 연결이 필요합니다. 관리자에게 문의하세요.")
+            else:
+                try:
+                    from crm_fortress import find_person_by_name_contact
+                    _matched = find_person_by_name_contact(sb, _a_name, _a_contact, agent_id)
+                except Exception as _e:
+                    st.error(f"조회 오류: {_e}")
+                    _matched = []
+
+                if not _matched:
+                    st.error(
+                        "⚠️ 일치하는 정보를 찾을 수 없습니다.\n\n"
+                        "이름 또는 연락처를 다시 확인해 주세요."
+                    )
+                else:
+                    _person = _matched[0]
+                    _otp    = str(random.randint(100000, 999999))
+                    st.session_state["_crm_otp_code"]      = _otp
+                    st.session_state["_crm_otp_issued_at"] = datetime.now()
+                    st.session_state["_crm_otp_person"]    = _person
+                    st.session_state["_crm_otp_attempts"]  = 0
+                    st.session_state["_crm_auth_stage"]    = "otp"
+                    st.rerun()
+
+    else:  # otp 입력 단계
+        _remaining = _otp_remaining()
+        if _remaining <= 0:
+            st.error("⏰ 인증 시간이 만료되었습니다. 다시 조회해 주세요.")
+            _otp_clear()
+            st.session_state["_crm_auth_stage"] = "input"
+            st.markdown('</div>', unsafe_allow_html=True)
+            if st.button("↩ 다시 시도", key="crm_auth_retry"):
+                st.rerun()
+            return False
+
+        _person   = st.session_state["_crm_otp_person"]
+        _otp_real = st.session_state["_crm_otp_code"]
+        _contact  = _person.get("contact", "")
+        _tail     = _contact[-4:] if _contact else "****"
+
+        st.markdown(
+            f'<div class="auth-otp-box">📲 {_otp_real}</div>'
+            f'<div style="font-size:0.73rem;color:#6b7280;text-align:center;margin-bottom:4px;">'
+            f'위 6자리 번호가 <b>***-****-{_tail}</b>로 발송되었습니다. (시뮬레이션)</div>'
+            f'<div class="auth-timer">⏱ 남은 시간: {_remaining}초</div>',
+            unsafe_allow_html=True,
+        )
+
+        _attempts = st.session_state.get("_crm_otp_attempts", 0)
+        _otp_input = st.text_input(
+            "🔢 인증번호 6자리 입력", max_chars=6,
+            placeholder="6자리 숫자", key="crm_otp_input",
+        )
+
+        _col_verify, _col_cancel = st.columns([3, 1])
+        with _col_verify:
+            if st.button("✅ 인증 확인", key="crm_otp_verify", use_container_width=True):
+                if _attempts >= _OTP_MAX_ATTEMPTS:
+                    st.error(f"⛔ 시도 횟수({_OTP_MAX_ATTEMPTS}회)를 초과했습니다. 다시 조회해 주세요.")
+                    _otp_clear()
+                    st.session_state["_crm_auth_stage"] = "input"
+                    st.rerun()
+                elif _otp_input.strip() == _otp_real:
+                    st.session_state["_crm_auth_person_id"]   = _person["id"]
+                    st.session_state["_crm_auth_person_name"] = _person.get("name", "")
+                    _otp_clear()
+                    st.session_state["_crm_auth_stage"] = "input"
+                    st.success(f"✅ {_person.get('name','')} 님 인증 완료!")
+                    st.rerun()
+                else:
+                    st.session_state["_crm_otp_attempts"] = _attempts + 1
+                    left = _OTP_MAX_ATTEMPTS - _attempts - 1
+                    st.error(f"❌ 인증번호가 일치하지 않습니다. (남은 시도: {left}회)")
+        with _col_cancel:
+            if st.button("취소", key="crm_otp_cancel", use_container_width=True):
+                _otp_clear()
+                st.session_state["_crm_auth_stage"] = "input"
+                st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
+    return False
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -940,6 +1134,32 @@ def _kb7_score_fn(policies: list[dict]) -> dict[str, float]:
 # ────────────────────────────────────────────────────────────────────────────
 def render_crm_gate_full(sb, agent_id: str) -> None:
     """app.py에서 cur == 'crm_gate' 일 때 호출"""
+    st.markdown(
+        "<div style='border:2px solid #1d4ed8;border-radius:12px;"
+        "padding:10px 16px 8px 16px;background:#eff6ff;margin-bottom:14px;'>"
+        "<div style='font-size:1.0rem;font-weight:900;color:#1d4ed8;'>"
+        "🏰 CRM 요새 — 고객 세션 게이트</div>"
+        "<div style='font-size:0.78rem;color:#64748b;'>"
+        "person_id 기준으로 세션을 유지합니다. 기기가 달라도 동일 데이터를 불러옵니다.</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── 인증 게이트 ───────────────────────────────────────────
+    _authed = render_crm_person_auth(sb, agent_id)
+    if not _authed:
+        st.info(
+            "🔐 위에서 본인 인증을 완료하면 Master Gate와 Strategic Dashboard가 열립니다.\n\n"
+            "**없는 고객이라면?** — 먼저 담당 설계사에게 고객 등록을 요청하세요."
+        )
+        return
+
+    # ── 인증 완료: person_id를 Dashboard 기본값으로 설정 ─────
+    _auth_pid = st.session_state.get("_crm_auth_person_id", "")
+    if _auth_pid and not st.session_state.get("_fp_person_id"):
+        st.session_state["_fp_person_id"] = _auth_pid
+
+    # ── 탭 렌더링 ─────────────────────────────────────────────
     _tab_gate, _tab_dash = st.tabs(["🗝️ Master Gate (입력)", "📊 Strategic Dashboard (분석)"])
     with _tab_gate:
         render_master_gate(sb, agent_id)

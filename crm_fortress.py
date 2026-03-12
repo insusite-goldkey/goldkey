@@ -551,7 +551,39 @@ def get_family_policies_summary(sb, person_ids: list[str], agent_id: str = "") -
 
 
 # ────────────────────────────────────────────────────────────────────────────
-# 9. 요약 리포트 (Streamlit 표시용)
+# 9. 이름 + 연락처 기반 인물 검색 (기기 무관 세션 인증용)
+# ────────────────────────────────────────────────────────────────────────────
+def find_person_by_name_contact(
+    sb,
+    name: str,
+    contact_tail: str,
+    agent_id: str = "",
+) -> list[dict]:
+    """
+    이름 + 연락처 끝 4자리로 gk_people 검색.
+    반환: 일치하는 person dict 리스트 (보통 0~1개)
+    contact_tail: 전화번호 끝 4자리 (또는 전체)
+    """
+    q = sb.table(T_PEOPLE).select("*").eq("is_deleted", False)
+    if agent_id:
+        q = q.eq("agent_id", agent_id)
+    q = q.ilike("name", f"%{name.strip()}%")
+    rows = q.execute().data or []
+
+    tail = contact_tail.strip().replace("-", "")[-4:]
+    if not tail:
+        return rows
+
+    matched = []
+    for r in rows:
+        c = (r.get("contact") or "").replace("-", "")
+        if c.endswith(tail):
+            matched.append(r)
+    return matched
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 10. 요약 리포트 (Streamlit 표시용)
 # ────────────────────────────────────────────────────────────────────────────
 def get_person_summary(sb, person_id: str) -> dict:
     """
