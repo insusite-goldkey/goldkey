@@ -11743,6 +11743,353 @@ def render_consulting_report(
 # [고객상담 특별파트] 5단계 워크플로우 렌더러
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# [KB 스탠다드] KB손해보험 7대 보장 분류 엔진 × KOSIS 교차 분석
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# KB 7대 분류 정의
+_KB7_SCHEMA = [
+    {
+        "id": "death",
+        "label": "① 질병/상해 사망",
+        "icon": "💀",
+        "keywords": ["사망보험금", "종신보험", "정기보험", "사망특약", "재해사망", "상해사망",
+                     "질병사망", "CI보험", "GI보험"],
+        "kosis_key": "cancer",      # 데이터 요새 연계 키
+        "rec_min": 100_000_000,     # 권장 최소 1억
+        "rec_std": 300_000_000,     # 권장 표준 3억
+        "unit": "원",
+        "desc": "가족 생계 유지·상속 재원 확보",
+    },
+    {
+        "id": "major3",
+        "label": "② 3대 진단비",
+        "icon": "🎗️",
+        "keywords": ["암진단비", "암진단", "뇌졸중진단비", "뇌출혈진단비", "뇌경색진단비",
+                     "급성심근경색진단비", "심장질환진단비", "허혈성심장질환진단비",
+                     "표적항암치료비", "면역항암치료비", "항암방사선약물치료비",
+                     "3대질병진단비", "뇌심혈관진단비"],
+        "kosis_key": "vascular",
+        "rec_min": 30_000_000,
+        "rec_std": 100_000_000,
+        "unit": "원",
+        "desc": "암·뇌졸중·급성심근경색 진단 직후 현금 수령",
+    },
+    {
+        "id": "surgery",
+        "label": "③ 수술/입원비",
+        "icon": "🏥",
+        "keywords": ["수술비", "입원비", "중환자실입원비", "수술특약", "입원일당", "수술급여금",
+                     "중환자실일당", "응급수술비", "개복수술비", "복강경수술비"],
+        "kosis_key": "cardiac",
+        "rec_min": 1_000_000,
+        "rec_std": 3_000_000,
+        "unit": "원/회",
+        "desc": "수술·입원 시 실질 비용 보전",
+    },
+    {
+        "id": "indemnity",
+        "label": "④ 실손의료비",
+        "icon": "🧾",
+        "keywords": ["실손의료비", "실손보험", "실비보험", "의료비보장", "입원의료비",
+                     "통원의료비", "처방조제비", "비급여실손", "4세대실손", "3세대실손"],
+        "kosis_key": "pneumonia",
+        "rec_min": 1,
+        "rec_std": 1,
+        "unit": "건 (필수)",
+        "desc": "병원비 80~90% 실비 환급 (필수 보험)",
+    },
+    {
+        "id": "auto",
+        "label": "⑤ 운전자/배상책임",
+        "icon": "🚗",
+        "keywords": ["운전자보험", "교통사고처리지원금", "변호사선임비용", "면허정지위로금",
+                     "배상책임", "일상배상책임", "자동차보험", "운전중상해"],
+        "kosis_key": "injury",
+        "rec_min": 20_000_000,
+        "rec_std": 30_000_000,
+        "unit": "원",
+        "desc": "형사합의금·변호사비·배상 비용 대비",
+    },
+    {
+        "id": "lcare",
+        "label": "⑥ 치아/치매/간병",
+        "icon": "🦷",
+        "keywords": ["치아보험", "치아치료비", "임플란트", "치매진단비", "중증치매간병비",
+                     "경증치매진단비", "간병비", "간병인사용비용", "장기요양보험",
+                     "노인성치매", "알츠하이머"],
+        "kosis_key": "dementia",
+        "rec_min": 3_000_000,
+        "rec_std": 10_000_000,
+        "unit": "원",
+        "desc": "노후 치아·인지기능·간병 리스크 대비",
+    },
+    {
+        "id": "pension",
+        "label": "⑦ 연금/저축",
+        "icon": "💰",
+        "keywords": ["연금보험", "연금저축", "변액연금", "종신연금", "즉시연금",
+                     "저축보험", "목돈마련", "노후연금", "퇴직연금", "IRP"],
+        "kosis_key": "longevity",
+        "rec_min": 300_000,
+        "rec_std": 1_000_000,
+        "unit": "원/월",
+        "desc": "노후 생활비 확보 (장수 리스크 대비)",
+    },
+]
+
+# KOSIS 연령별 사고 발생 확률 가중치 (보장 부족 지수 산출용)
+_KB_KOSIS_WEIGHT = {
+    "30대": {"cancer": 0.12, "vascular": 0.08, "cardiac": 0.07, "pneumonia": 0.05,
+             "injury": 0.15, "dementia": 0.02, "longevity": 0.10},
+    "40대": {"cancer": 0.22, "vascular": 0.18, "cardiac": 0.16, "pneumonia": 0.08,
+             "injury": 0.13, "dementia": 0.04, "longevity": 0.12},
+    "50대": {"cancer": 0.35, "vascular": 0.32, "cardiac": 0.28, "pneumonia": 0.12,
+             "injury": 0.10, "dementia": 0.09, "longevity": 0.15},
+    "60대": {"cancer": 0.45, "vascular": 0.48, "cardiac": 0.44, "pneumonia": 0.18,
+             "injury": 0.07, "dementia": 0.18, "longevity": 0.20},
+    "70대 이상": {"cancer": 0.50, "vascular": 0.55, "cardiac": 0.50, "pneumonia": 0.25,
+                  "injury": 0.05, "dementia": 0.30, "longevity": 0.22},
+}
+
+
+def _kb_map_coverages(insured_coverages):
+    """보유 담보 목록을 KB 7대 분류로 매핑.
+    Returns: dict[kb_id] -> list[matched_coverage]
+    """
+    _result = {cat["id"]: [] for cat in _KB7_SCHEMA}
+    for _cov in insured_coverages:
+        _cov_n = _cov.strip()
+        for _cat in _KB7_SCHEMA:
+            if any(kw in _cov_n for kw in _cat["keywords"]):
+                _result[_cat["id"]].append(_cov_n)
+                break
+    return _result
+
+
+def _kb_standard_analysis(insured_coverages, age_group="40대", gender="전체"):
+    """KB 7대 스탠다드 × KOSIS 데이터 요새 교차 분석.
+
+    Returns list of dicts per KB category:
+        coverage_map, has_coverage, kosis_weight, shortage_index,
+        badge (위험/부족/적정), score (0-100)
+    """
+    _cov_map  = _kb_map_coverages(insured_coverages)
+    _weights  = _KB_KOSIS_WEIGHT.get(age_group, _KB_KOSIS_WEIGHT["40대"])
+    _result   = []
+    _total_score = 0
+
+    # 연령대별 혈관 위험 배수 (데이터 요새 활용)
+    _age_idx_map = {"30대": 0, "40대": 1, "50대": 2, "60대": 3, "70대 이상": 3}
+    _a_idx   = _age_idx_map.get(age_group, 1)
+    _gk      = gender if gender in ("남", "여") else "평균"
+    _s_rate  = _DATA_FORTRESS_VASCULAR["stroke"][_gk][_a_idx]
+    _c_rate  = _DATA_FORTRESS_VASCULAR["cardiac"][_gk][_a_idx]
+    _s_base  = _DATA_FORTRESS_VASCULAR["stroke"][_gk][1]   # 40대 기준
+    _c_base  = _DATA_FORTRESS_VASCULAR["cardiac"][_gk][1]
+    _vasc_mult = round((_s_rate / _s_base + _c_rate / _c_base) / 2, 2) if _s_base else 1.0
+
+    for _cat in _KB7_SCHEMA:
+        _matched    = _cov_map[_cat["id"]]
+        _has_cov    = bool(_matched)
+        _kw         = _weights.get(_cat["kosis_key"], 0.1)
+
+        # 보장 부족 지수 = (1 - 보장유무) × KOSIS 위험가중치 × 혈관위험배수(혈관카테고리)
+        _vasc_factor = _vasc_mult if _cat["id"] in ("major3", "surgery") else 1.0
+        _shortage    = round((1 - int(_has_cov)) * _kw * _vasc_factor * 100, 1)
+
+        # 카테고리 점수 (100점 만점)
+        _cat_score = 100 if _has_cov else max(0, int(100 - _shortage * 2.5))
+        _total_score += _cat_score
+
+        # 배지 결정
+        if _has_cov:
+            _badge = "적정"
+            _badge_color = "#15803d"
+            _badge_bg    = "#f0fdf4"
+        elif _shortage >= 15:
+            _badge = "위험"
+            _badge_color = "#b91c1c"
+            _badge_bg    = "#fef2f2"
+        else:
+            _badge = "부족"
+            _badge_color = "#92400e"
+            _badge_bg    = "#fffbeb"
+
+        # KOSIS 연계 진단문
+        _diag = ""
+        if _cat["id"] == "major3" and not _has_cov:
+            _diag = (f"{age_group} {_gk}성 뇌졸중 {_s_rate:.1f}/10만명 · "
+                     f"심혈관 {_c_rate:.1f}/10만명 — 진단비 미보유 고위험")
+        elif _cat["id"] == "death" and not _has_cov:
+            _d_rate = next(
+                (c["rate_avg"] for c in _DATA_FORTRESS_DEATH_RATE["causes"] if c["rank"] == 1), 149.1
+            )
+            _diag = f"암 사망률 {_d_rate}/10만명 기준 — 3억 이상 권장"
+        elif _cat["id"] == "lcare" and not _has_cov:
+            _diag = f"{age_group} 치매 위험 가중치 {int(_kw*100)}% — 즉시 검토 필요"
+        elif _cat["id"] == "indemnity" and not _has_cov:
+            _diag = "실손의료비 미가입 — 전 연령 필수 보험"
+
+        _result.append({
+            "id": _cat["id"],
+            "label": _cat["label"],
+            "icon": _cat["icon"],
+            "desc": _cat["desc"],
+            "matched": _matched,
+            "has_coverage": _has_cov,
+            "shortage_index": _shortage,
+            "badge": _badge,
+            "badge_color": _badge_color,
+            "badge_bg": _badge_bg,
+            "score": _cat_score,
+            "kosis_weight": _kw,
+            "vasc_mult": _vasc_factor,
+            "diag": _diag,
+            "rec_min": _cat["rec_min"],
+            "rec_std": _cat["rec_std"],
+            "unit": _cat["unit"],
+        })
+
+    _overall_score = round(_total_score / len(_KB7_SCHEMA))
+    return _result, _overall_score
+
+
+def render_kb_score_donut(score, size=140):
+    """보장 종합 점수 CSS 도넛 차트 (원형). score 0-100."""
+    _deg = int(score / 100 * 360)
+    _color = (
+        "#b91c1c" if score < 40
+        else "#92400e" if score < 65
+        else "#1d4ed8" if score < 80
+        else "#15803d"
+    )
+    _grade = "F" if score < 40 else "D" if score < 55 else "C" if score < 65 else "B" if score < 80 else "A"
+    _grade_txt = {"A": "최우수", "B": "양호", "C": "보통", "D": "부족", "F": "위험"}[_grade]
+
+    # CSS conic-gradient 기반 도넛
+    _html = f"""
+<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:14px;">
+  <div style="position:relative;width:{size}px;height:{size}px;flex-shrink:0;">
+    <div style="width:{size}px;height:{size}px;border-radius:50%;
+      background:conic-gradient({_color} 0deg {_deg}deg, #e5e7eb {_deg}deg 360deg);
+      display:flex;align-items:center;justify-content:center;">
+      <div style="width:{int(size*0.62)}px;height:{int(size*0.62)}px;border-radius:50%;
+        background:#fff;display:flex;flex-direction:column;align-items:center;
+        justify-content:center;border:1px dashed #000;">
+        <div style="font-size:{int(size*0.21)}px;font-weight:900;color:{_color};
+          line-height:1;">{score}</div>
+        <div style="font-size:{int(size*0.10)}px;color:#6b7280;font-weight:700;">/ 100점</div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:0.96rem;font-weight:900;color:#1e293b;margin-bottom:4px;">
+      KB 보장 종합 점수</div>
+    <div style="display:inline-block;background:{_color};color:#fff;
+      border-radius:8px;padding:3px 14px;font-size:0.85rem;font-weight:900;
+      margin-bottom:6px;">등급 {_grade} — {_grade_txt}</div>
+    <div style="font-size:0.75rem;color:#475569;line-height:1.7;">
+      • KB손해보험 7대 스탠다드 기준<br>
+      • KOSIS 연령별 발병 가중치 반영<br>
+      • 출처: 국가통계포털(KOSIS) · 통계청 2023
+    </div>
+  </div>
+</div>"""
+    return _html
+
+
+def render_kb_standard_dashboard(insured_coverages, age_group="40대", gender="전체",
+                                  client_name="고객"):
+    """KB 7대 스탠다드 분류 대시보드 렌더링."""
+    import streamlit as _st
+    _analysis, _overall = _kb_standard_analysis(insured_coverages, age_group, gender)
+    _danger  = [a for a in _analysis if a["badge"] == "위험"]
+    _lack    = [a for a in _analysis if a["badge"] == "부족"]
+    _ok      = [a for a in _analysis if a["badge"] == "적정"]
+
+    _st.markdown(
+        f"<div style='border:1px dashed #000;border-radius:12px;background:#fafafa;"
+        f"padding:16px 20px;margin-bottom:12px;word-break:keep-all;'>"
+        f"<div style='font-size:0.96rem;font-weight:900;color:#1e293b;margin-bottom:12px;'>"
+        f"🏆 KB 스탠다드 보장 진단 — {client_name}님 ({age_group} {gender})</div>"
+        + render_kb_score_donut(_overall),
+        unsafe_allow_html=True,
+    )
+
+    # 요약 배지 행
+    _st.markdown(
+        f"<div style='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;'>"
+        f"<span style='background:#fef2f2;border:1px solid #fecaca;border-radius:8px;"
+        f"padding:4px 12px;font-size:0.78rem;font-weight:900;color:#b91c1c;'>"
+        f"🚨 위험 {len(_danger)}개</span>"
+        f"<span style='background:#fffbeb;border:1px solid #fde68a;border-radius:8px;"
+        f"padding:4px 12px;font-size:0.78rem;font-weight:900;color:#92400e;'>"
+        f"⚠️ 부족 {len(_lack)}개</span>"
+        f"<span style='background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;"
+        f"padding:4px 12px;font-size:0.78rem;font-weight:900;color:#15803d;'>"
+        f"✅ 적정 {len(_ok)}개</span></div>",
+        unsafe_allow_html=True,
+    )
+
+    # 7대 분류 카드
+    for _a in _analysis:
+        _mh = (
+            "".join(
+                f"<span style='background:#dbeafe;color:#1e40af;border-radius:10px;"
+                f"padding:1px 8px;font-size:0.68rem;margin:1px;display:inline-block;'>{m}</span>"
+                for m in _a["matched"]
+            ) if _a["matched"]
+            else f"<span style='color:#9ca3af;font-size:0.70rem;'>보유 담보 없음</span>"
+        )
+        _si_bar = max(4, int(_a["shortage_index"] * 4))
+        _si_bar = min(_si_bar, 100)
+        _si_color = "#b91c1c" if _a["shortage_index"] >= 15 else "#92400e" if _a["shortage_index"] >= 5 else "#15803d"
+        _st.markdown(
+            f"<div style='background:{_a['badge_bg']};border:1px dashed #000;"
+            f"border-radius:10px;padding:10px 14px;margin-bottom:7px;'>"
+
+            # 헤더
+            f"<div style='display:flex;justify-content:space-between;align-items:center;"
+            f"flex-wrap:wrap;gap:4px;margin-bottom:5px;'>"
+            f"<span style='font-size:0.85rem;font-weight:900;color:#1e293b;'>"
+            f"{_a['icon']} {_a['label']}</span>"
+            f"<span style='background:{_a['badge_color']};color:#fff;border-radius:6px;"
+            f"padding:2px 10px;font-size:0.72rem;font-weight:900;'>{_a['badge']}</span></div>"
+
+            # 담보 목록
+            f"<div style='margin-bottom:5px;font-size:0.75rem;'>{_mh}</div>"
+
+            # 부족 지수 바
+            f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:4px;'>"
+            f"<span style='font-size:0.68rem;color:#6b7280;font-weight:700;width:64px;flex-shrink:0;'>부족지수</span>"
+            f"<div style='flex:1;background:#e5e7eb;border-radius:3px;height:8px;'>"
+            f"<div style='width:{_si_bar}%;background:{_si_color};border-radius:3px;height:8px;'></div></div>"
+            f"<span style='font-size:0.68rem;font-weight:900;color:{_si_color};'>{_a['shortage_index']:.1f}</span></div>"
+
+            # 진단문
+            + (f"<div style='font-size:0.72rem;color:#b91c1c;font-weight:700;margin-bottom:3px;'>"
+               f"⚡ {_a['diag']}</div>" if _a["diag"] else "")
+
+            # 권장 기준
+            + (f"<div style='font-size:0.70rem;color:#475569;'>"
+               f"권장: 최소 {_a['rec_min']:,}{_a['unit']} / 표준 {_a['rec_std']:,}{_a['unit']}"
+               f"  ·  KOSIS 위험가중치 {int(_a['kosis_weight']*100)}%</div>"
+               if not _a["has_coverage"] else "")
+            + f"</div>",
+            unsafe_allow_html=True,
+        )
+
+    _st.markdown(
+        "<div style='font-size:0.65rem;color:#9ca3af;text-align:right;"
+        "border-top:1px dashed #e5e7eb;padding-top:6px;margin-top:4px;'>"
+        "📌 KB손해보험 7대 보장 스탠다드 · 출처: 국가통계포털(KOSIS) · "
+        "통계청 사망원인통계 2023 · 한국신용정보원</div></div>",
+        unsafe_allow_html=True,
+    )
+    return _analysis, _overall
+
+
 def render_special_ops_sector():
     """[고객상담 특별파트] 5단계 전략 워크플로우 — 내보험다보여 × 데이터 요새 교차분석."""
     import streamlit as _st
@@ -12028,10 +12375,10 @@ def render_special_ops_sector():
                 st.rerun()
 
     # ════════════════════════════════════════════════════════════════════════
-    # Step 4 — 데이터 요새 교차분석 (RAG 내장 기준 데이터)
+    # Step 4 — KB 7대 스탠다드 × 데이터 요새 교차분석
     # ════════════════════════════════════════════════════════════════════════
     with _st.expander(
-        ("✅" if _step > 4 else "▶️" if _step == 4 else "⏸️") + " Step 4 — 데이터 요새 교차분석 🔬",
+        ("✅" if _step > 4 else "▶️" if _step == 4 else "⏸️") + " Step 4 — KB 스탠다드 × 데이터 요새 교차분석 🔬",
         expanded=(_step == 4),
     ):
         if _step < 4:
@@ -12045,160 +12392,83 @@ def render_special_ops_sector():
                 for c in st.session_state.get("_sops_covs_raw", "").replace("\n", ",").split(",")
                 if c.strip()
             ]
+            _gk4     = _gender4 if _gender4 in ("남", "여") else "평균"
 
-            # ── 데이터 요새 소환 (RAG 내장 기준 데이터) ────────────────────
+            # ── 데이터 요새 소환 배너 ──────────────────────────────────────
             _st.markdown(
                 "<div class='sops-wrap' style='background:#1e293b;color:#f1f5f9;"
-                "border-color:#f59e0b;'>"
-                "<div style='font-size:0.80rem;font-weight:900;color:#f59e0b;"
-                "margin-bottom:4px;'>🏰 데이터 요새 교차분석 가동</div>"
-                "<div style='font-size:0.72rem;line-height:1.7;'>"
-                "📡 출처: 국가통계포털(KOSIS) · 통계청 사망원인통계 2023 · "
-                "국립암센터 암등록통계 2022 · 대한뇌졸중학회 역학 2023<br>"
-                "⚡ 외부 API 호출 없이 GCS/Vector DB 내장 통계 즉시 소환</div></div>",
+                "border-color:#f59e0b;margin-bottom:12px;'>"
+                "<div style='font-size:0.80rem;font-weight:900;color:#f59e0b;margin-bottom:3px;'>"
+                "🏰 KB 스탠다드 × 데이터 요새 교차분석 가동</div>"
+                "<div style='font-size:0.70rem;line-height:1.7;color:#cbd5e1;'>"
+                "📡 KB손해보험 7대 보장 분류 · KOSIS 연령별 발병 가중치 결합<br>"
+                "⚡ GCS/Vector DB 내장 통계 즉시 소환 · 외부 API 호출 없음<br>"
+                "출처: 국가통계포털(KOSIS) · 통계청 2023 · 한국신용정보원</div></div>",
                 unsafe_allow_html=True,
             )
 
-            # ── 연령대별 혈관질환 정밀 진단 ──────────────────────────────────
-            _age_idx_map  = {"30대": 0, "40대": 1, "50대": 2, "60대": 3, "70대 이상": 3}
-            _a_idx        = _age_idx_map.get(_age4, 1)
-            _gk           = _gender4 if _gender4 in ("남", "여") else "평균"
-            _stroke_rate  = _DATA_FORTRESS_VASCULAR["stroke"][_gk][_a_idx]
-            _cardiac_rate = _DATA_FORTRESS_VASCULAR["cardiac"][_gk][_a_idx]
+            # ── KB 7대 스탠다드 대시보드 ───────────────────────────────────
+            _kb_result, _kb_score = render_kb_standard_dashboard(
+                insured_coverages=_covs4,
+                age_group=_age4,
+                gender=_gender4,
+                client_name=_nm4,
+            )
 
-            # 전 연령대 데이터 (비교용)
-            _ages_list    = _DATA_FORTRESS_VASCULAR["ages"]
-            _all_stroke   = _DATA_FORTRESS_VASCULAR["stroke"][_gk]
-            _all_cardiac  = _DATA_FORTRESS_VASCULAR["cardiac"][_gk]
-            _nat_avg_s    = sum(_all_stroke) / len(_all_stroke)
-            _nat_avg_c    = sum(_all_cardiac) / len(_all_cardiac)
-            _s_vs_avg     = int((_stroke_rate / _nat_avg_s - 1) * 100) if _nat_avg_s else 0
-            _c_vs_avg     = int((_cardiac_rate / _nat_avg_c - 1) * 100) if _nat_avg_c else 0
-            _s_sign       = "+" if _s_vs_avg >= 0 else ""
-            _c_sign       = "+" if _c_vs_avg >= 0 else ""
-
-            # 10대 사인 공백 분석
-            _gaps         = _life_stat_gap_analysis(_covs4, _gender4)
-            _total_gap    = sum(1 for g in _gaps if g["gap"])
-            _high_risk_g  = [g for g in _gaps if g["gap"] and g["rate"] >= 30]
-
-            # 5대 암 공백 분석
-            _cgaps        = _cancer_survival_gap(_covs4)
-            _cancer_gaps  = [c for c in _cgaps if c["gap"]]
-
-            # ── 정밀 진단 결과 박스 ──────────────────────────────────────────
+            # ── 혈관질환 계단식 차트 ──────────────────────────────────────
             _st.markdown(
-                f"<div class='sops-diag-box "
-                + ("sops-diag-high" if _total_gap >= 5 else "sops-diag-med" if _total_gap >= 2 else "sops-diag-ok")
-                + f"'>"
-                f"<div style='font-size:0.88rem;font-weight:900;color:#1e293b;margin-bottom:8px;'>"
-                f"📋 {_nm4}님 ({_age4} {_gender4}) — 보장 정밀 진단 결과</div>"
-                f"<div style='font-size:0.80rem;line-height:2.0;'>"
-
-                # 뇌졸중 진단문
-                f"🧠 <b>뇌졸중:</b> {_age4} {_gk}성 기준 "
-                f"<b style='color:#1d4ed8;'>{_stroke_rate:.1f}/10만명</b> — "
-                f"전 연령 평균 대비 <b style='color:{'#b91c1c' if _s_vs_avg > 0 else '#15803d'};'>"
-                f"{_s_sign}{_s_vs_avg}%</b>"
-                + (f" ⚡ {_DATA_FORTRESS_VASCULAR['risk_note'].get(_ages_list[_a_idx-1]+'→'+_age4,'')}"
-                   if _a_idx > 0 and _DATA_FORTRESS_VASCULAR['risk_note'].get(
-                       (_ages_list[_a_idx-1]+'→'+_age4) if _a_idx > 0 else '', '') else "")
-                + "<br>"
-
-                # 심혈관 진단문
-                f"❤️ <b>심혈관:</b> {_age4} {_gk}성 기준 "
-                f"<b style='color:#dc2626;'>{_cardiac_rate:.1f}/10만명</b> — "
-                f"전 연령 평균 대비 <b style='color:{'#b91c1c' if _c_vs_avg > 0 else '#15803d'};'>"
-                f"{_c_sign}{_c_vs_avg}%</b><br>"
-
-                # 보장 공백 진단문
-                f"🔴 <b>보장 공백:</b> 10대 사인 기준 <b style='color:#b91c1c;'>{_total_gap}개</b> 미비 "
-                f"| 고위험군(사망률 30↑) <b style='color:#b91c1c;'>{len(_high_risk_g)}개</b><br>"
-                f"🎗️ <b>암 담보 공백:</b> 5대 암 기준 <b style='color:#b91c1c;'>{len(_cancer_gaps)}개</b> 미비"
-                f"</div>"
-                f"<div class='sops-source'>📌 출처: 국가통계포털(KOSIS) · 한국신용정보원 · "
-                f"통계청 사망원인통계 2023 · 국립암센터 2022</div></div>",
+                "<div style='font-size:0.82rem;font-weight:900;color:#1e293b;"
+                "margin:12px 0 6px;'>📈 연령대별 혈관질환 발병률 추이 (KOSIS 데이터 요새)</div>",
                 unsafe_allow_html=True,
             )
+            render_vascular_chart(gender=_gk4)
 
-            # ── 고위험 공백 상세 진단 ─────────────────────────────────────────
-            if _high_risk_g:
-                _st.markdown(
-                    "<div style='font-size:0.82rem;font-weight:900;color:#b91c1c;"
-                    "margin:10px 0 6px;'>🚨 즉시 보완 필요 — 고위험 보장 공백</div>",
-                    unsafe_allow_html=True,
-                )
-                for _g in _high_risk_g[:5]:
-                    _need_amt = ""
-                    if "암" in _g["cause"]:
-                        _need_amt = " → 권장 암진단비 3억원"
-                    elif "뇌" in _g["cause"] or "혈관" in _g["cause"]:
-                        _need_amt = f" → 뇌졸중 {_age4} 발병률 {_stroke_rate:.1f}/10만명 기준 권장 3,000만원↑"
-                    elif "심장" in _g["cause"]:
-                        _need_amt = f" → 심혈관 {_age4} 발병률 {_cardiac_rate:.1f}/10만명 기준 권장 3,000만원↑"
-                    _mh = "".join(
-                        f"<span style='background:#fecaca;color:#b91c1c;border-radius:4px;"
-                        f"padding:1px 7px;font-size:0.68rem;margin-right:3px;'>{m}</span>"
-                        for m in _g["missing"]
-                    )
-                    _st.markdown(
-                        f"<div class='sops-diag-box sops-diag-high' style='padding:9px 13px;margin-bottom:5px;'>"
-                        f"<div style='font-size:0.80rem;font-weight:900;'>"
-                        f"{_g['icon']} {_g['rank']}위 {_g['cause']} "
-                        f"<span style='font-size:0.70rem;color:#6b7280;font-weight:400;'>"
-                        f"사망률 {_g['rate']:.1f}/10만명</span></div>"
-                        f"<div style='margin-top:4px;font-size:0.75rem;'>"
-                        f"미비 담보: {_mh}{_need_amt}</div>"
-                        f"<div class='sops-source'>출처: 통계청 사망원인통계 2023 · KOSIS</div></div>",
-                        unsafe_allow_html=True,
-                    )
+            # ── KOSIS 10대 사인 × 5대 암 (보조 참고) ────────────────────
+            with _st.expander("📊 KOSIS 10대 사인 × 5대 암 상세 데이터 (참고)", expanded=False):
+                render_life_stat_dashboard(gender=_gender4, insured_coverages=_covs4)
 
-            # ── 혈관질환 계단식 차트 ─────────────────────────────────────────
-            _st.markdown(
-                "<div style='font-size:0.82rem;font-weight:900;color:#1e293b;margin:10px 0 6px;'>"
-                "📈 연령대별 혈관질환 발병률 추이 (데이터 요새 기준)</div>",
-                unsafe_allow_html=True,
-            )
-            render_vascular_chart(gender=_gk)
-
-            # ── 10대 사인 × 5대 암 전체 대시보드 ────────────────────────────
-            render_life_stat_dashboard(gender=_gender4, insured_coverages=_covs4)
-
-            # ── 마스터 코멘트 입력 ──────────────────────────────────────────
-            _st.markdown(
-                "<div style='font-size:0.82rem;font-weight:900;color:#1e293b;margin:10px 0 4px;'>"
-                "✍️ 마스터의 한마디 (선택)</div>",
-                unsafe_allow_html=True,
-            )
+            # ── 마스터 코멘트 ───────────────────────────────────────────
             _mc4 = _st.text_input(
-                "마스터의 한마디",
+                "✍️ 마스터의 한마디 (선택)",
                 value=st.session_state.get("_sops_master_comment", ""),
                 key="sops_master_comment",
-                label_visibility="collapsed",
-                placeholder="예: 40대는 보험 설계의 황금기입니다. 지금이 마지막 기회입니다.",
+                placeholder="예: 40대는 보험 설계의 황금기. KB 7대 분류 기준 ②③ 즉시 보완 필요.",
             )
             _gs4 = _st.text_area(
-                "추가 분석 메모 (선택)",
+                "📝 추가 분석 메모 (선택)",
                 value=st.session_state.get("_sops_gap_summary", ""),
                 key="sops_gap_summary", height=70,
                 placeholder="기타 특이 사항, 기존 계약 정보, 추가 메모 등",
             )
 
-            if _st.button("✅ 분석 확정 → Step 5 발송", key="sops_s4_ok",
+            if _st.button("✅ KB 분석 확정 → Step 5 리포트 발송", key="sops_s4_ok",
                           use_container_width=True, type="primary"):
-                # 자동 진단문 생성
-                _auto_gap = f"{_nm4}님 ({_age4} {_gk}성)\n"
-                _auto_gap += f"• 뇌졸중 발병률 {_stroke_rate:.1f}/10만명 (전 연령 평균 대비 {_s_sign}{_s_vs_avg}%)\n"
-                _auto_gap += f"• 심혈관 발병률 {_cardiac_rate:.1f}/10만명 (전 연령 평균 대비 {_c_sign}{_c_vs_avg}%)\n"
-                _auto_gap += f"• 보장 공백 {_total_gap}개 / 고위험 {len(_high_risk_g)}개\n"
-                for _g in _high_risk_g[:3]:
-                    _auto_gap += f"  - {_g['cause']}: {', '.join(_g['missing'])}\n"
+                # KB 기반 자동 진단문 생성
+                _a_idx4   = {"30대": 0, "40대": 1, "50대": 2, "60대": 3, "70대 이상": 3}.get(_age4, 1)
+                _sr4      = _DATA_FORTRESS_VASCULAR["stroke"][_gk4][_a_idx4]
+                _cr4      = _DATA_FORTRESS_VASCULAR["cardiac"][_gk4][_a_idx4]
+                _danger4  = [a for a in _kb_result if a["badge"] == "위험"]
+                _lack4    = [a for a in _kb_result if a["badge"] == "부족"]
+                _auto_gap = (
+                    f"[KB 스탠다드 종합 점수: {_kb_score}점]\n"
+                    f"{_nm4}님 ({_age4} {_gk4}성)\n"
+                    f"• KB 7대 분류 위험 {len(_danger4)}개 / 부족 {len(_lack4)}개\n"
+                )
+                for _a in _danger4[:3]:
+                    _auto_gap += f"  🚨 {_a['label']}: {_a['diag'] or '담보 미보유'}\n"
+                for _a in _lack4[:2]:
+                    _auto_gap += f"  ⚠️ {_a['label']}: 보강 필요\n"
+                _auto_gap += (
+                    f"• {_age4} 뇌졸중 {_sr4:.1f}/10만명 · 심혈관 {_cr4:.1f}/10만명\n"
+                    f"• 출처: KB손해보험 7대 스탠다드 · KOSIS · 통계청 2023"
+                )
                 if _gs4:
                     _auto_gap += f"\n[추가 메모] {_gs4}"
                 st.session_state.update({
                     "_sops_master_comment": _mc4,
                     "_sops_gap_summary":    _auto_gap,
                     "_sops_covs_final":     _covs4,
+                    "_sops_kb_score":       _kb_score,
                     "_sops_step":           5,
                 })
                 st.rerun()
