@@ -1,7 +1,8 @@
 /**
- * supabaseService.js — Goldkey AI Masters 2026
+ * supabaseService.js — Goldkey AI Masters CRM (그림자 앱)
  * gk_people / gk_schedules / gk_scan_results / gk_policies CRUD
  * GP-IMMORTAL §2: agent_id 격리 강제 적용
+ * ※ GoldKeyApp/src/services/supabaseService.js 와 동일 인터페이스 유지 (그림자 이식 규칙)
  */
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config';
@@ -81,6 +82,7 @@ export async function fetchSchedules(agentId, personId = null) {
 export async function upsertSchedule(schedule) {
   const sb = getSupabase();
   const row = { ...schedule, updated_at: new Date().toISOString() };
+  if (!row.id) row.id = `SCH_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   const { data, error } = await sb
     .from('gk_schedules')
     .upsert(row, { onConflict: 'id' })
@@ -164,8 +166,8 @@ export async function updatePolicyStatus(policyId, status) {
 }
 
 /**
- * 고객의 전체 보험 계약 + 고객 정보 JOIN 조회
- * management_tier → name 순 정렬 (idx_people_tier_name 인덱스 활용)
+ * 고객 + 보험 계약 JOIN 조회 (관리 등급 → 이름 순)
+ * idx_people_tier_name 인덱스 활용
  */
 export async function fetchPeopleWithPolicies(agentId) {
   const sb = getSupabase();
