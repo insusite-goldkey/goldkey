@@ -37369,7 +37369,7 @@ div[data-testid="stSelectbox"] > div > div {
             if _search_label not in _cust_options_map:
                 _search_label = "✏️ 고객 입력 & 검색"
 
-            _srch_col1, _srch_col2 = st.columns([3, 1])
+            _srch_col1, _srch_col2, _srch_col3 = st.columns([3, 1, 1])
             with _srch_col1:
                 _selected_label = st.selectbox(
                     "고객 선택 (이름 검색)",
@@ -37380,7 +37380,13 @@ div[data-testid="stSelectbox"] > div > div {
                 )
             with _srch_col2:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-                if st.button("🔍 새로고침", key="btn_cust_search", use_container_width=True):
+                if st.button("검색 적용", key="btn_cust_apply", use_container_width=True,
+                             help="선택한 고객 정보를 아래 입력란에 적용합니다"):
+                    st.rerun()
+            with _srch_col3:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                if st.button("목록 갱신", key="btn_cust_search", use_container_width=True,
+                             help="고객 목록을 DB에서 다시 불러옵니다"):
                     st.session_state.pop("_home_selected_cust_label", None)
                     _uid_inv = st.session_state.get("user_id", "")
                     st.session_state.pop(f"_cust_rows_{_uid_inv}", None)
@@ -37427,6 +37433,14 @@ div[data-testid="stSelectbox"] > div > div {
             if _cur_sick not in _SICK_OPTIONS:
                 _cur_sick = "해당없음"
 
+            st.markdown("""<style>
+div[data-testid="stTextInput"][data-key="home_si_name"] input,
+div[data-testid="stTextInput"][data-key="home_si_dob"] input,
+div[data-testid="stTextInput"][data-key="home_si_job"] input {
+    border: 1.5px dashed #000000 !important;
+    border-radius: 6px !important;
+}
+</style>""", unsafe_allow_html=True)
             _ga1, _ga2 = st.columns([1, 1])
             with _ga1:
                 _si_name = st.text_input("성명", value=st.session_state.get("scan_client_name", ""),
