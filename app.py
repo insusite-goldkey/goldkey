@@ -11744,9 +11744,11 @@ def render_consulting_report(
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 def render_special_ops_sector():
-    """고객상담 특별파트 — 5단계 상담 워크플로우."""
+    """[고객상담 특별파트] 5단계 전략 워크플로우 — 내보험다보여 × 데이터 요새 교차분석."""
     import streamlit as _st
+    import re as _re
 
+    # ── CSS ──────────────────────────────────────────────────────────────────
     _st.markdown("""<style>
 .sops-wrap{border:1px dashed #000;border-radius:12px;background:#fafafa;
   padding:14px 18px;margin-bottom:10px;word-break:keep-all;}
@@ -11758,67 +11760,98 @@ def render_special_ops_sector():
 .sops-wait{background:#9ca3af;color:#fff;}
 .sops-kosis{font-size:0.68rem;font-weight:700;background:#f1f5f9;
   border:1px solid #e2e8f0;border-radius:6px;padding:2px 10px;color:#475569;}
+.sops-fc-row{display:flex;align-items:stretch;gap:0;margin-bottom:14px;flex-wrap:wrap;}
+.sops-fc-step{flex:1;min-width:120px;border:1px dashed #000;border-radius:8px;
+  background:#fff;padding:8px 10px;margin:2px;text-align:center;position:relative;}
+.sops-fc-step.done{background:#f0fdf4;border-color:#15803d;}
+.sops-fc-step.active{background:#eff6ff;border-color:#1d4ed8;}
+.sops-fc-arr{display:flex;align-items:center;font-size:1.2rem;color:#94a3b8;padding:0 2px;}
+.sops-diag-box{border:1px dashed #000;border-radius:10px;padding:12px 16px;
+  margin-bottom:8px;background:#fff8f0;word-break:keep-all;}
+.sops-diag-high{background:#fef2f2;border-color:#b91c1c;}
+.sops-diag-med{background:#fffbeb;border-color:#92400e;}
+.sops-diag-ok{background:#f0fdf4;border-color:#15803d;}
+.sops-source{font-size:0.65rem;color:#9ca3af;text-align:right;
+  border-top:1px dashed #e5e7eb;padding-top:5px;margin-top:6px;}
 @keyframes sops-check{0%{transform:scale(0)}60%{transform:scale(1.3)}100%{transform:scale(1)}}
-.sops-done{animation:sops-check 0.35s ease;}
+.sops-done-ani{animation:sops-check 0.35s ease;}
 </style>""", unsafe_allow_html=True)
 
     _uid = st.session_state.get("user_id", "")
     _mp  = _get_member_profile(_uid)
-    _ks  = st.session_state.get("_kosis_last_status", "")
-    _kdot = (
-        "<span style='color:#15803d;'>●</span> KOSIS 실시간" if _ks == "kosis_api"
-        else "<span style='color:#b45309;'>●</span> KOSIS 내장 통계" if _ks == "kosis_static"
-        else "<span style='color:#9ca3af;'>○</span> KOSIS 대기"
-    )
+    _step = st.session_state.get("_sops_step", 1)
 
+    # ── 최상단 컨트롤바 ───────────────────────────────────────────────────────
     _nc1, _nc2, _nc3 = _st.columns([1, 5, 2])
     with _nc1:
         if _st.button("🏠 홈", key="sops_home", use_container_width=True):
             st.session_state["current_tab"] = "home"
             st.rerun()
     with _nc2:
+        _ks = st.session_state.get("_kosis_last_status", "")
+        _kdot = (
+            "<span style='color:#15803d;'>●</span> KOSIS 실시간" if _ks == "kosis_api"
+            else "<span style='color:#b45309;'>●</span> KOSIS 요새 데이터"
+        )
         _st.markdown(
             f"<div style='padding:5px 0;'><span class='sops-hdr'>🎯 고객상담 특별파트</span>"
             f" <span class='sops-kosis'>{_kdot}</span>"
-            + (f" <span class='sops-kosis'>👤 {_mp['name']} | {_mp['company']}</span>" if _mp.get("has_profile") else "")
+            + (f" <span class='sops-kosis'>👤 {_mp['name']} | {_mp['company']}</span>"
+               if _mp.get("has_profile") else "")
             + "</div>",
             unsafe_allow_html=True,
         )
     with _nc3:
-        if _st.button("👤 프로필 설정", key="sops_profile_btn", use_container_width=True):
+        if _st.button("👤 전문가 프로필", key="sops_profile_btn", use_container_width=True):
             st.session_state["_sops_show_profile"] = not st.session_state.get("_sops_show_profile", False)
             st.rerun()
 
     if st.session_state.get("_sops_show_profile", False):
         render_member_profile_settings()
 
-    _step = st.session_state.get("_sops_step", 1)
+    # ── 플로우차트 진행 표시 ─────────────────────────────────────────────────
+    _fc_labels = [
+        ("1", "고객정보\n동기화"),
+        ("2", "동의SMS\n발송"),
+        ("3", "가입현황\n수집"),
+        ("4", "데이터요새\n교차분석"),
+        ("5", "카카오톡\n리포트"),
+    ]
+    _fc_html = "<div class='sops-fc-row'>"
+    for _i, (_n, _lbl) in enumerate(_fc_labels):
+        _cls = "done" if int(_n) < _step else ("active" if int(_n) == _step else "")
+        _ico = "✅" if int(_n) < _step else ("▶" if int(_n) == _step else "⏸")
+        _fc_html += (
+            f"<div class='sops-fc-step {_cls}'>"
+            f"<div style='font-size:0.70rem;font-weight:900;color:#1e293b;'>{_ico} Step{_n}</div>"
+            f"<div style='font-size:0.68rem;color:#475569;white-space:pre-line;margin-top:2px;'>{_lbl}</div>"
+            f"</div>"
+        )
+        if _i < len(_fc_labels) - 1:
+            _fc_html += "<div class='sops-fc-arr'>→</div>"
+    _fc_html += "</div>"
+    _st.markdown(_fc_html, unsafe_allow_html=True)
 
-    def _sb(n, label):
-        cls = "sops-badge " + ("sops-done" if n < _step else "sops-active" if n == _step else "sops-wait")
-        return f"<span class='{cls}'>{'✓' if n < _step else n}</span>{label}"
-
-    _labels = ["고객정보", "동의발송", "현황수집", "분석리포트", "카카오발송"]
-    _st.markdown(
-        "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"
-        "align-items:center;font-size:0.80rem;font-weight:700;color:#374151;'>"
-        + " → ".join(_sb(i + 1, _labels[i]) for i in range(5))
-        + "</div>",
-        unsafe_allow_html=True,
-    )
-
-    # ── Step 1: 고객 정보 확인 ────────────────────────────────────────────
+    # ════════════════════════════════════════════════════════════════════════
+    # Step 1 — 고객 정보 동기화
+    # ════════════════════════════════════════════════════════════════════════
     with _st.expander(
-        ("✅" if _step > 1 else "▶️") + " Step 1 — 고객 정보 확인",
+        ("✅" if _step > 1 else "▶️") + " Step 1 — 고객 정보 동기화 (메인 파트 미러링)",
         expanded=(_step == 1),
     ):
+        _st.markdown(
+            "<div class='sops-wrap' style='background:#eff6ff;'>"
+            "💡 메인 파트에서 입력된 고객 정보를 자동으로 불러옵니다. "
+            "수정이 필요한 경우 직접 편집하세요.</div>",
+            unsafe_allow_html=True,
+        )
         _r1, _r2 = _st.columns(2)
         _c_name   = _r1.text_input("고객 성함",
             value=st.session_state.get("gs_c_name") or st.session_state.get("current_c_name", ""),
             key="sops_c_name")
-        _c_birth  = _r2.text_input("주민번호 앞 6자리",
+        _c_birth  = _r2.text_input("주민번호 앞 6자리 + 성별코드",
             value=st.session_state.get("_sops_c_birth", ""),
-            key="sops_c_birth", placeholder="예: 800101")
+            key="sops_c_birth", placeholder="예: 8001011 (앞6자리+성별코드1자리)")
         _r3, _r4  = _st.columns(2)
         _c_phone  = _r3.text_input("연락처",
             value=st.session_state.get("_sops_c_phone", ""),
@@ -11829,9 +11862,22 @@ def render_special_ops_sector():
         _r5, _r6  = _st.columns(2)
         _c_age    = _r5.selectbox("연령대",
             ["30대", "40대", "50대", "60대", "70대 이상"],
-            key="sops_c_age", index=1)
+            key="sops_c_age",
+            index=max(0, ["30대", "40대", "50대", "60대", "70대 이상"].index(
+                st.session_state.get("_sops_c_age", "40대")
+            ) if st.session_state.get("_sops_c_age", "40대") in
+                ["30대", "40대", "50대", "60대", "70대 이상"] else 1),
+        )
         _c_gender = _r6.selectbox("성별", ["전체", "남", "여"], key="sops_c_gender")
-        if _st.button("✅ 확인 완료 → Step 2", key="sops_s1_ok", use_container_width=True):
+        # 주민번호에서 성별 자동 감지
+        if _c_birth and len(_c_birth) >= 7:
+            _gc = _c_birth[6]
+            if _gc in ("1", "3"):
+                _st.info("👤 주민번호 기준 성별: 남성")
+            elif _gc in ("2", "4"):
+                _st.info("👤 주민번호 기준 성별: 여성")
+        if _st.button("✅ 정보 확인 완료 → Step 2", key="sops_s1_ok", use_container_width=True,
+                      type="primary"):
             st.session_state.update({
                 "gs_c_name": _c_name, "current_c_name": _c_name,
                 "_sops_c_birth": _c_birth, "_sops_c_phone": _c_phone,
@@ -11840,49 +11886,82 @@ def render_special_ops_sector():
             })
             st.rerun()
 
-    # ── Step 2: 내보험다보여 동의 발송 ──────────────────────────────────
+    # ════════════════════════════════════════════════════════════════════════
+    # Step 2 — 내보험다보여 동의 SMS 발송 (한국신용정보원 연동)
+    # ════════════════════════════════════════════════════════════════════════
     with _st.expander(
-        ("✅" if _step > 2 else "▶️" if _step == 2 else "⏸️") + " Step 2 — 내보험다보여 동의 발송",
+        ("✅" if _step > 2 else "▶️" if _step == 2 else "⏸️") + " Step 2 — 동의 SMS 발송 (한국신용정보원)",
         expanded=(_step == 2),
     ):
         if _step < 2:
             _st.info("Step 1을 먼저 완료하세요.")
         else:
-            _nm = st.session_state.get("gs_c_name", "")
-            _ph = st.session_state.get("_sops_c_phone", "")
-            _tc = st.session_state.get("_sops_c_telecom", "SKT")
-            _msg = (
-                f"[내보험다보여 동의 요청]\n{_nm}님, 보험 가입 현황 조회를 위한 "
-                f"개인정보 수집·이용에 동의해주세요.\n"
-                f"▶ 금융감독원 내보험다보여 (https://www.fss.or.kr)\n"
-                "처리 목적: 보험 현황 조회 및 보장 분석"
+            _nm  = st.session_state.get("gs_c_name", "")
+            _ph  = st.session_state.get("_sops_c_phone", "")
+            _tc  = st.session_state.get("_sops_c_telecom", "SKT")
+            _bth = st.session_state.get("_sops_c_birth", "")
+
+            # 인증 방식 선택
+            _auth_mode = _st.radio(
+                "동의 처리 방식",
+                ["📱 SMS 자동발송 (권장)", "🔗 URL 복사 후 안내", "✍️ 현장 서면 동의"],
+                key="sops_auth_mode", horizontal=True,
             )
+
+            _msg = (
+                f"[내보험다보여 개인정보 제공 동의 요청]\n"
+                f"{_nm}님, 보험 가입 현황 조회를 위해\n"
+                f"아래 개인정보 수집·이용·제공에 동의해주세요.\n\n"
+                f"▶ 금융감독원 내보험다보여\n"
+                f"   https://www.fss.or.kr/fss/main/contents.do?menuNo=200023\n\n"
+                f"▶ 한국신용정보원 마이데이터\n"
+                f"   https://www.kcb.or.kr\n\n"
+                f"처리 기관: 금융감독원 · 한국신용정보원\n"
+                f"처리 목적: 보험 가입 현황 조회 및 보장 분석\n"
+                f"보유 기간: 동의 철회 시까지\n\n"
+                f"문의: {_mp.get('phone', '상담사에게 문의') if _mp.get('has_profile') else '상담사에게 문의'}"
+            )
+
             _st.markdown(
-                f"<div class='sops-wrap'><b>📲 수신자:</b> {_nm} ({_ph}) · {_tc}</div>",
+                f"<div class='sops-wrap'>"
+                f"<div style='font-size:0.82rem;font-weight:900;color:#1e293b;margin-bottom:6px;'>"
+                f"📲 발송 대상 정보</div>"
+                f"<div style='font-size:0.78rem;line-height:1.8;'>"
+                f"<b>수신자:</b> {_nm or '미입력'} | "
+                f"<b>번호:</b> {_ph or '미입력'} | "
+                f"<b>통신사:</b> {_tc} | "
+                f"<b>생년월일:</b> {_bth[:6] if _bth else '미입력'}"
+                f"</div></div>",
                 unsafe_allow_html=True,
             )
-            _st.text_area("발송 문자 미리보기", value=_msg, height=100,
-                          key="sops_consent_prev", disabled=True)
-            _b2a, _b2b = _st.columns(2)
+            _st.text_area("발송 문자 내용", value=_msg, height=160,
+                          key="sops_consent_msg", disabled=True)
+
+            _b2a, _b2b, _b2c = _st.columns(3)
             with _b2a:
-                if _st.button("📨 동의 문자 발송", key="sops_send_consent",
-                              use_container_width=True):
+                if _st.button("📨 SMS 발송", key="sops_send_consent", use_container_width=True):
                     try:
                         from modules.kakao_service import send_kakao_message as _skm2
                         _skm2(phone=_ph, message=_msg, title="내보험다보여 동의 요청")
-                        _st.success("✅ 발송 완료!")
+                        _st.success("✅ SMS 발송 완료!")
+                        st.session_state["_sops_consent_sent"] = True
                     except Exception as _e2:
-                        _st.warning(f"발송 모듈 오류 — 수동 발송 필요: {_e2}")
-                    st.session_state["_sops_consent_sent"] = True
+                        _st.warning(f"자동발송 실패 — 수동 안내 진행: {_e2}")
+                        st.session_state["_sops_consent_sent"] = True
             with _b2b:
-                if _st.button("✅ 동의 확인 → Step 3", key="sops_s2_ok",
-                              use_container_width=True):
+                if _st.button("📋 URL 복사", key="sops_url_copy", use_container_width=True):
+                    _st.code("https://www.fss.or.kr/fss/main/contents.do?menuNo=200023")
+            with _b2c:
+                if _st.button("✅ 동의 완료 확인 → Step 3", key="sops_s2_ok",
+                              use_container_width=True, type="primary"):
                     st.session_state["_sops_step"] = 3
                     st.rerun()
 
-    # ── Step 3: 가입 현황 수집 ────────────────────────────────────────────
+    # ════════════════════════════════════════════════════════════════════════
+    # Step 3 — 보험 가입 현황 수집 및 파싱
+    # ════════════════════════════════════════════════════════════════════════
     with _st.expander(
-        ("✅" if _step > 3 else "▶️" if _step == 3 else "⏸️") + " Step 3 — 가입 현황 수집",
+        ("✅" if _step > 3 else "▶️" if _step == 3 else "⏸️") + " Step 3 — 가입 현황 수집 & 정형화",
         expanded=(_step == 3),
     ):
         if _step < 3:
@@ -11890,31 +11969,69 @@ def render_special_ops_sector():
         else:
             _nm3 = st.session_state.get("gs_c_name", "")
             _st.markdown(
-                f"<div class='sops-wrap'><b>🔍 {_nm3}님 보험 가입 현황 수집</b><br>"
-                "내보험다보여 API 연동 또는 수동 입력</div>",
+                f"<div class='sops-wrap' style='background:#eff6ff;'>"
+                f"<b>🔍 {_nm3}님</b> 보험 가입 현황 수집<br>"
+                f"<span style='font-size:0.72rem;color:#475569;'>"
+                f"내보험다보여 API 연동 · 수동 입력 · 파싱 중 택일</span></div>",
                 unsafe_allow_html=True,
             )
-            _covs_raw = _st.text_area(
-                "보유 담보 목록 (쉼표 또는 줄바꿈 구분)",
-                value=st.session_state.get("_sops_covs_raw", ""),
-                height=110, key="sops_covs_input",
-                placeholder="예: 암진단비, 뇌졸중진단비, 급성심근경색진단비",
+
+            _input_mode = _st.radio(
+                "입력 방식",
+                ["✏️ 직접 입력", "📋 보장 목록 붙여넣기", "🤖 자동 수집 (내보험다보여 API)"],
+                key="sops_input_mode", horizontal=True,
             )
-            if _st.checkbox("📊 KOSIS 실시간 암 발병률 조회", value=True, key="sops_show_kosis"):
-                _covs_p = [c.strip() for c in _covs_raw.replace("\n", ",").split(",") if c.strip()]
-                render_kosis_dashboard(
-                    st.session_state.get("_sops_c_age", "40대"),
-                    st.session_state.get("_sops_c_gender", "전체"),
-                    _covs_p,
+
+            _covs_raw = ""
+            if "자동 수집" in _input_mode:
+                _st.info("⚡ 내보험다보여 API 연동 — 동의 완료 후 자동 수집이 진행됩니다. "
+                         "현재 버전에서는 수집된 데이터를 아래 텍스트 영역에 붙여넣기 방식으로 입력하세요.")
+                _covs_raw = _st.text_area(
+                    "수집된 보장 목록 (API 응답 붙여넣기 또는 직접 입력)",
+                    value=st.session_state.get("_sops_covs_raw", ""),
+                    height=120, key="sops_covs_auto",
+                    placeholder="예: 암진단비 3000만원, 뇌졸중진단비 2000만원, 급성심근경색진단비 2000만원",
                 )
-            if _st.button("✅ 수집 완료 → Step 4", key="sops_s3_ok", use_container_width=True):
+            else:
+                _st.markdown(
+                    "<div style='font-size:0.75rem;color:#475569;margin-bottom:6px;'>"
+                    "📌 담보 유형 예시: 암진단비, 표적항암치료비, 뇌졸중진단비, 뇌경색진단비, "
+                    "급성심근경색진단비, 치매진단비, 사망보험금, 수술비, 입원비, 간병비"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+                _covs_raw = _st.text_area(
+                    "보유 담보 목록 (쉼표 또는 줄바꿈 구분)",
+                    value=st.session_state.get("_sops_covs_raw", ""),
+                    height=130, key="sops_covs_input",
+                    placeholder="예: 암진단비, 뇌졸중진단비, 급성심근경색진단비, 수술비, 입원비",
+                )
+
+            # 담보 파싱 미리보기
+            _covs_p = [c.strip() for c in _covs_raw.replace("\n", ",").split(",") if c.strip()]
+            if _covs_p:
+                _pills = "".join(
+                    f"<span style='background:#dbeafe;color:#1e40af;border-radius:12px;"
+                    f"padding:2px 10px;font-size:0.70rem;font-weight:700;margin:2px;display:inline-block;'>{c}</span>"
+                    for c in _covs_p
+                )
+                _st.markdown(
+                    f"<div class='sops-wrap'><b style='font-size:0.78rem;'>✅ 파싱된 담보 "
+                    f"{len(_covs_p)}개:</b><br>{_pills}</div>",
+                    unsafe_allow_html=True,
+                )
+
+            if _st.button("✅ 수집 완료 → Step 4 분석", key="sops_s3_ok",
+                          use_container_width=True, type="primary"):
                 st.session_state["_sops_covs_raw"] = _covs_raw
                 st.session_state["_sops_step"]     = 4
                 st.rerun()
 
-    # ── Step 4: 통계 × 가입내역 대조 분석 리포트 ──────────────────────────
+    # ════════════════════════════════════════════════════════════════════════
+    # Step 4 — 데이터 요새 교차분석 (RAG 내장 기준 데이터)
+    # ════════════════════════════════════════════════════════════════════════
     with _st.expander(
-        ("✅" if _step > 4 else "▶️" if _step == 4 else "⏸️") + " Step 4 — 분석 리포트 생성",
+        ("✅" if _step > 4 else "▶️" if _step == 4 else "⏸️") + " Step 4 — 데이터 요새 교차분석 🔬",
         expanded=(_step == 4),
     ):
         if _step < 4:
@@ -11922,32 +12039,175 @@ def render_special_ops_sector():
         else:
             _age4    = st.session_state.get("_sops_c_age", "40대")
             _gender4 = st.session_state.get("_sops_c_gender", "전체")
+            _nm4     = st.session_state.get("gs_c_name", "고객")
             _covs4   = [
                 c.strip()
                 for c in st.session_state.get("_sops_covs_raw", "").replace("\n", ",").split(",")
                 if c.strip()
             ]
+
+            # ── 데이터 요새 소환 (RAG 내장 기준 데이터) ────────────────────
+            _st.markdown(
+                "<div class='sops-wrap' style='background:#1e293b;color:#f1f5f9;"
+                "border-color:#f59e0b;'>"
+                "<div style='font-size:0.80rem;font-weight:900;color:#f59e0b;"
+                "margin-bottom:4px;'>🏰 데이터 요새 교차분석 가동</div>"
+                "<div style='font-size:0.72rem;line-height:1.7;'>"
+                "📡 출처: 국가통계포털(KOSIS) · 통계청 사망원인통계 2023 · "
+                "국립암센터 암등록통계 2022 · 대한뇌졸중학회 역학 2023<br>"
+                "⚡ 외부 API 호출 없이 GCS/Vector DB 내장 통계 즉시 소환</div></div>",
+                unsafe_allow_html=True,
+            )
+
+            # ── 연령대별 혈관질환 정밀 진단 ──────────────────────────────────
+            _age_idx_map  = {"30대": 0, "40대": 1, "50대": 2, "60대": 3, "70대 이상": 3}
+            _a_idx        = _age_idx_map.get(_age4, 1)
+            _gk           = _gender4 if _gender4 in ("남", "여") else "평균"
+            _stroke_rate  = _DATA_FORTRESS_VASCULAR["stroke"][_gk][_a_idx]
+            _cardiac_rate = _DATA_FORTRESS_VASCULAR["cardiac"][_gk][_a_idx]
+
+            # 전 연령대 데이터 (비교용)
+            _ages_list    = _DATA_FORTRESS_VASCULAR["ages"]
+            _all_stroke   = _DATA_FORTRESS_VASCULAR["stroke"][_gk]
+            _all_cardiac  = _DATA_FORTRESS_VASCULAR["cardiac"][_gk]
+            _nat_avg_s    = sum(_all_stroke) / len(_all_stroke)
+            _nat_avg_c    = sum(_all_cardiac) / len(_all_cardiac)
+            _s_vs_avg     = int((_stroke_rate / _nat_avg_s - 1) * 100) if _nat_avg_s else 0
+            _c_vs_avg     = int((_cardiac_rate / _nat_avg_c - 1) * 100) if _nat_avg_c else 0
+            _s_sign       = "+" if _s_vs_avg >= 0 else ""
+            _c_sign       = "+" if _c_vs_avg >= 0 else ""
+
+            # 10대 사인 공백 분석
+            _gaps         = _life_stat_gap_analysis(_covs4, _gender4)
+            _total_gap    = sum(1 for g in _gaps if g["gap"])
+            _high_risk_g  = [g for g in _gaps if g["gap"] and g["rate"] >= 30]
+
+            # 5대 암 공백 분석
+            _cgaps        = _cancer_survival_gap(_covs4)
+            _cancer_gaps  = [c for c in _cgaps if c["gap"]]
+
+            # ── 정밀 진단 결과 박스 ──────────────────────────────────────────
+            _st.markdown(
+                f"<div class='sops-diag-box "
+                + ("sops-diag-high" if _total_gap >= 5 else "sops-diag-med" if _total_gap >= 2 else "sops-diag-ok")
+                + f"'>"
+                f"<div style='font-size:0.88rem;font-weight:900;color:#1e293b;margin-bottom:8px;'>"
+                f"📋 {_nm4}님 ({_age4} {_gender4}) — 보장 정밀 진단 결과</div>"
+                f"<div style='font-size:0.80rem;line-height:2.0;'>"
+
+                # 뇌졸중 진단문
+                f"🧠 <b>뇌졸중:</b> {_age4} {_gk}성 기준 "
+                f"<b style='color:#1d4ed8;'>{_stroke_rate:.1f}/10만명</b> — "
+                f"전 연령 평균 대비 <b style='color:{'#b91c1c' if _s_vs_avg > 0 else '#15803d'};'>"
+                f"{_s_sign}{_s_vs_avg}%</b>"
+                + (f" ⚡ {_DATA_FORTRESS_VASCULAR['risk_note'].get(_ages_list[_a_idx-1]+'→'+_age4,'')}"
+                   if _a_idx > 0 and _DATA_FORTRESS_VASCULAR['risk_note'].get(
+                       (_ages_list[_a_idx-1]+'→'+_age4) if _a_idx > 0 else '', '') else "")
+                + "<br>"
+
+                # 심혈관 진단문
+                f"❤️ <b>심혈관:</b> {_age4} {_gk}성 기준 "
+                f"<b style='color:#dc2626;'>{_cardiac_rate:.1f}/10만명</b> — "
+                f"전 연령 평균 대비 <b style='color:{'#b91c1c' if _c_vs_avg > 0 else '#15803d'};'>"
+                f"{_c_sign}{_c_vs_avg}%</b><br>"
+
+                # 보장 공백 진단문
+                f"🔴 <b>보장 공백:</b> 10대 사인 기준 <b style='color:#b91c1c;'>{_total_gap}개</b> 미비 "
+                f"| 고위험군(사망률 30↑) <b style='color:#b91c1c;'>{len(_high_risk_g)}개</b><br>"
+                f"🎗️ <b>암 담보 공백:</b> 5대 암 기준 <b style='color:#b91c1c;'>{len(_cancer_gaps)}개</b> 미비"
+                f"</div>"
+                f"<div class='sops-source'>📌 출처: 국가통계포털(KOSIS) · 한국신용정보원 · "
+                f"통계청 사망원인통계 2023 · 국립암센터 2022</div></div>",
+                unsafe_allow_html=True,
+            )
+
+            # ── 고위험 공백 상세 진단 ─────────────────────────────────────────
+            if _high_risk_g:
+                _st.markdown(
+                    "<div style='font-size:0.82rem;font-weight:900;color:#b91c1c;"
+                    "margin:10px 0 6px;'>🚨 즉시 보완 필요 — 고위험 보장 공백</div>",
+                    unsafe_allow_html=True,
+                )
+                for _g in _high_risk_g[:5]:
+                    _need_amt = ""
+                    if "암" in _g["cause"]:
+                        _need_amt = " → 권장 암진단비 3억원"
+                    elif "뇌" in _g["cause"] or "혈관" in _g["cause"]:
+                        _need_amt = f" → 뇌졸중 {_age4} 발병률 {_stroke_rate:.1f}/10만명 기준 권장 3,000만원↑"
+                    elif "심장" in _g["cause"]:
+                        _need_amt = f" → 심혈관 {_age4} 발병률 {_cardiac_rate:.1f}/10만명 기준 권장 3,000만원↑"
+                    _mh = "".join(
+                        f"<span style='background:#fecaca;color:#b91c1c;border-radius:4px;"
+                        f"padding:1px 7px;font-size:0.68rem;margin-right:3px;'>{m}</span>"
+                        for m in _g["missing"]
+                    )
+                    _st.markdown(
+                        f"<div class='sops-diag-box sops-diag-high' style='padding:9px 13px;margin-bottom:5px;'>"
+                        f"<div style='font-size:0.80rem;font-weight:900;'>"
+                        f"{_g['icon']} {_g['rank']}위 {_g['cause']} "
+                        f"<span style='font-size:0.70rem;color:#6b7280;font-weight:400;'>"
+                        f"사망률 {_g['rate']:.1f}/10만명</span></div>"
+                        f"<div style='margin-top:4px;font-size:0.75rem;'>"
+                        f"미비 담보: {_mh}{_need_amt}</div>"
+                        f"<div class='sops-source'>출처: 통계청 사망원인통계 2023 · KOSIS</div></div>",
+                        unsafe_allow_html=True,
+                    )
+
+            # ── 혈관질환 계단식 차트 ─────────────────────────────────────────
+            _st.markdown(
+                "<div style='font-size:0.82rem;font-weight:900;color:#1e293b;margin:10px 0 6px;'>"
+                "📈 연령대별 혈관질환 발병률 추이 (데이터 요새 기준)</div>",
+                unsafe_allow_html=True,
+            )
+            render_vascular_chart(gender=_gk)
+
+            # ── 10대 사인 × 5대 암 전체 대시보드 ────────────────────────────
             render_life_stat_dashboard(gender=_gender4, insured_coverages=_covs4)
-            render_vascular_chart(gender=_gender4 if _gender4 in ("남", "여") else "평균")
-            _mc4 = _st.text_input("마스터의 한마디 (선택)",
+
+            # ── 마스터 코멘트 입력 ──────────────────────────────────────────
+            _st.markdown(
+                "<div style='font-size:0.82rem;font-weight:900;color:#1e293b;margin:10px 0 4px;'>"
+                "✍️ 마스터의 한마디 (선택)</div>",
+                unsafe_allow_html=True,
+            )
+            _mc4 = _st.text_input(
+                "마스터의 한마디",
                 value=st.session_state.get("_sops_master_comment", ""),
                 key="sops_master_comment",
-                placeholder="예: 50대는 보험료보다 보장공백이 더 무서운 나이입니다.")
-            _gs4 = _st.text_area("추가 분석 메모 (선택)",
+                label_visibility="collapsed",
+                placeholder="예: 40대는 보험 설계의 황금기입니다. 지금이 마지막 기회입니다.",
+            )
+            _gs4 = _st.text_area(
+                "추가 분석 메모 (선택)",
                 value=st.session_state.get("_sops_gap_summary", ""),
-                key="sops_gap_summary", height=70)
-            if _st.button("✅ 리포트 확정 → Step 5", key="sops_s4_ok", use_container_width=True):
+                key="sops_gap_summary", height=70,
+                placeholder="기타 특이 사항, 기존 계약 정보, 추가 메모 등",
+            )
+
+            if _st.button("✅ 분석 확정 → Step 5 발송", key="sops_s4_ok",
+                          use_container_width=True, type="primary"):
+                # 자동 진단문 생성
+                _auto_gap = f"{_nm4}님 ({_age4} {_gk}성)\n"
+                _auto_gap += f"• 뇌졸중 발병률 {_stroke_rate:.1f}/10만명 (전 연령 평균 대비 {_s_sign}{_s_vs_avg}%)\n"
+                _auto_gap += f"• 심혈관 발병률 {_cardiac_rate:.1f}/10만명 (전 연령 평균 대비 {_c_sign}{_c_vs_avg}%)\n"
+                _auto_gap += f"• 보장 공백 {_total_gap}개 / 고위험 {len(_high_risk_g)}개\n"
+                for _g in _high_risk_g[:3]:
+                    _auto_gap += f"  - {_g['cause']}: {', '.join(_g['missing'])}\n"
+                if _gs4:
+                    _auto_gap += f"\n[추가 메모] {_gs4}"
                 st.session_state.update({
                     "_sops_master_comment": _mc4,
-                    "_sops_gap_summary":    _gs4,
+                    "_sops_gap_summary":    _auto_gap,
                     "_sops_covs_final":     _covs4,
                     "_sops_step":           5,
                 })
                 st.rerun()
 
-    # ── Step 5: 최종 리포트 카카오톡 발송 ────────────────────────────────
+    # ════════════════════════════════════════════════════════════════════════
+    # Step 5 — 카카오톡 알림톡 리포트 발송
+    # ════════════════════════════════════════════════════════════════════════
     with _st.expander(
-        ("✅" if _step > 5 else "▶️" if _step == 5 else "⏸️") + " Step 5 — 카카오톡 발송",
+        ("✅" if _step > 5 else "▶️" if _step == 5 else "⏸️") + " Step 5 — 카카오톡 알림톡 리포트 발송",
         expanded=(_step == 5),
     ):
         if _step < 5:
@@ -11961,16 +12221,21 @@ def render_special_ops_sector():
             _mc5   = st.session_state.get("_sops_master_comment", "")
             _gs5   = st.session_state.get("_sops_gap_summary", "")
 
-            _st.markdown("**📱 최종 리포트 미리보기**")
+            _st.markdown(
+                "<div class='sops-wrap' style='background:#eff6ff;'>"
+                "<b>📱 최종 리포트 미리보기</b> — 아래 내용이 카카오 알림톡으로 발송됩니다.</div>",
+                unsafe_allow_html=True,
+            )
             _rpt = render_consulting_report(
                 client_name=_nm5, client_age=_age5, gender=_gnd5,
                 insured_coverages=_covs5, gap_summary=_gs5, master_comment=_mc5,
                 agent_uid=st.session_state.get("user_id", ""), send_kakao=False,
             )
-            _kp5 = _st.text_input("카카오톡 발송 번호", value=_ph5, key="sops_kakao_ph")
+            _kp5 = _st.text_input("📱 카카오톡 발송 번호", value=_ph5, key="sops_kakao_ph",
+                                  placeholder="010-0000-0000")
             _s5a, _s5b = _st.columns(2)
             with _s5a:
-                if _st.button("📤 카카오톡 발송", key="sops_kakao_send",
+                if _st.button("📤 카카오톡 알림톡 발송", key="sops_kakao_send",
                               use_container_width=True, type="primary"):
                     render_consulting_report(
                         client_name=_nm5, client_age=_age5, gender=_gnd5,
@@ -11984,14 +12249,16 @@ def render_special_ops_sector():
                                "_sops_c_telecom", "_sops_c_age", "_sops_c_gender",
                                "_sops_covs_raw", "_sops_covs_final",
                                "_sops_master_comment", "_sops_gap_summary",
-                               "_sops_consent_sent"]:
+                               "_sops_consent_sent", "_sops_show_profile"]:
                         st.session_state.pop(_k, None)
                     st.rerun()
 
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# [GP-51 확장] 설정/프로필 — member_profile 입력 UI
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            _st.markdown(
+                "<div class='sops-source' style='margin-top:12px;'>"
+                "📌 출처: 국가통계포털(KOSIS) · 한국신용정보원 · 금융감독원 내보험다보여 · "
+                "통계청 사망원인통계 2023 · 국립암센터 2022 · 대한뇌졸중학회 2023</div>",
+                unsafe_allow_html=True,
+            )
 
 def render_member_profile_settings():
     """[GP-51 확장] 소속 회사·이름·직속 연락처 입력 모듈 (모두 선택 사항)."""
