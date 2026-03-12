@@ -1,7 +1,17 @@
-import { Platform, useWindowDimensions } from 'react-native';
+import { Platform, Dimensions, useWindowDimensions } from 'react-native';
 
 const TABLET_MIN_WIDTH = 600;
 const LEGACY_API_THRESHOLD = 28;
+
+// ── 정적 isTablet / LAYOUT (컴포넌트 레벨에서 직접 사용) ─────────────────────
+const _w = Dimensions.get('window').width;
+export const isTablet = _w >= TABLET_MIN_WIDTH;
+export const LAYOUT = {
+  sidebarWidth: isTablet ? Math.floor(_w * 0.28) : 0,
+  mainWidth:    isTablet ? Math.floor(_w * 0.44) : _w,
+  subWidth:     isTablet ? Math.floor(_w * 0.28) : _w,
+  padding:      isTablet ? 16 : 12,
+};
 
 export function getDeviceInfo() {
   const isAndroid = Platform.OS === 'android';

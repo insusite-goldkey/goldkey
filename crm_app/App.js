@@ -29,6 +29,7 @@ import MedicalScanResultView             from './src/screens/MedicalScanResultVi
 import ScheduleInputModal                from './src/components/ScheduleInputModal';
 import PremiumLoadingUI                  from './src/components/PremiumLoadingUI';
 import TrashScreen                       from './src/screens/TrashScreen';
+import GoldKeyCustomerScreen            from './src/screens/GoldKeyCustomerScreen';
 
 // ── 메인 라우팅 가드 ─────────────────────────────────────────────────────────
 /**
@@ -46,7 +47,8 @@ const RoutingGuard = () => {
   );
   const avatarUri = loadingCustomer?.avatarUri ?? null;
 
-  const [trashOpen, setTrashOpen] = React.useState(false);
+  const [trashOpen,      setTrashOpen]      = React.useState(false);
+  const [gkCustomerOpen, setGkCustomerOpen] = React.useState(false);
 
   const stopScanLoading = useCustomerStore((s) => s.stopScanLoading);
 
@@ -64,8 +66,9 @@ const RoutingGuard = () => {
   }, []);
 
   useEffect(() => {
-    _openTrashScreen = () => setTrashOpen(true);
-    return () => { _openTrashScreen = null; };
+    _openTrashScreen      = () => setTrashOpen(true);
+    _openGkCustomerScreen = () => setGkCustomerOpen(true);
+    return () => { _openTrashScreen = null; _openGkCustomerScreen = null; };
   }, []);
 
   return (
@@ -94,6 +97,13 @@ const RoutingGuard = () => {
         </View>
       )}
 
+      {/* 3단계 고객 관리 오버레이 (Phase 2 이식 컴포넌트) */}
+      {gkCustomerOpen && (
+        <View style={[styles.fullOverlay, styles.gkOverlay]}>
+          <GoldKeyCustomerScreen onBack={() => setGkCustomerOpen(false)} />
+        </View>
+      )}
+
       {/* 일정 입력 모달 */}
       <ScheduleInputModal />
 
@@ -116,8 +126,9 @@ const App = () => (
   </View>
 );
 
-// openTrash 전역 접근 (Dashboard → TrashScreen 연결)
-export let _openTrashScreen = null;
+// 전역 접근 핸들러
+export let _openTrashScreen      = null;
+export let _openGkCustomerScreen = null;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#ffffff' },
@@ -128,6 +139,7 @@ const styles = StyleSheet.create({
   },
   scanOverlay:  { zIndex: 200 },
   trashOverlay: { zIndex: 150 },
+  gkOverlay:    { zIndex: 120 },
 });
 
 export default App;

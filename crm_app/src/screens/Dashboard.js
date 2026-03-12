@@ -39,8 +39,9 @@ import SilsonBadge from '../components/SilsonBadge';
 import { useDeviceLayout } from '../utils/deviceCheck';
 import { runWatchdog } from '../utils/SystemWatchdog';
 import TermsScreen from './TermsScreen';
+import { _openGkCustomerScreen } from '../../App';
 
-const TAB = { TODO: 'todo', CUSTOMER: 'customer', CUSTOMERS: 'customers', EXPORT: 'export' };
+const TAB = { TODO: 'todo', CUSTOMER: 'customer', CUSTOMERS: 'customers', EXPORT: 'export', GK: 'gk' };
 const CUSTOMER_TAB = { BASIC: 'basic', COVERAGE: 'coverage' };
 
 // ── Toast 컴포넌트 (다크 네이비, 100% 달성용) ─────────────────────────────────
@@ -448,9 +449,13 @@ const Dashboard = () => {
                 { key: TAB.TODO,      label: '📋 업무' },
                 { key: TAB.CUSTOMERS, label: '👥 고객' },
                 { key: TAB.CUSTOMER,  label: '📐 분석' },
+                { key: TAB.GK,        label: '🗂️ 3단계' },
               ].map(({ key, label }) => (
                 <TouchableOpacity key={key}
-                  onPress={() => { setActiveTab(key); Keyboard.dismiss(); }}
+                  onPress={() => {
+                    if (key === TAB.GK) { _openGkCustomerScreen && _openGkCustomerScreen(); return; }
+                    setActiveTab(key); Keyboard.dismiss();
+                  }}
                   style={[styles.tab, activeTab === key && styles.tabActive]}
                 >
                   <Text style={[styles.tabText, activeTab === key && styles.tabTextActive]}>{label}</Text>
@@ -494,10 +499,14 @@ const Dashboard = () => {
           { key: TAB.TODO,      label: '📋 업무' },
           { key: TAB.CUSTOMERS, label: '👥 고객' },
           { key: TAB.CUSTOMER,  label: '📐 분석' },
+          { key: TAB.GK,        label: '🗂️ 3단계' },
           ...(isAgent ? [{ key: TAB.EXPORT, label: '☁️ 백업' }] : []),
         ].map(({ key, label }) => (
           <TouchableOpacity key={key}
-            onPress={() => { setActiveTab(key); Keyboard.dismiss(); }}
+            onPress={() => {
+              if (key === TAB.GK) { _openGkCustomerScreen && _openGkCustomerScreen(); return; }
+              setActiveTab(key); Keyboard.dismiss();
+            }}
             style={[styles.tab, activeTab === key && styles.tabActive]}
           >
             <Text style={[styles.tabText, activeTab === key && styles.tabTextActive]}>{label}</Text>
