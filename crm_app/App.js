@@ -1,16 +1,16 @@
 /**
- * 골드키 CRM 앱 진입점 (App.js)
+ * 골드키 CRM 앱 진입점 (App.js) — Goldkey AI Masters 2026
  * React Native CLI 기준
  *
  * ┌ 라우팅 흐름 ─────────────────────────────────────────────────────────┐
- * │  앱 시작 → <RoutingGuard /> 즉시 렌더                                │
- * │    ├─ <Dashboard />              (기본 화면)                         │
- * │    ├─ <CustomerProfileView />    (activeProfileId)                   │
- * │    ├─ <MedicalScanResultView />  (activeScanId)                      │
- * │    └─ <ScheduleInputModal />     (전역 오버레이)                     │
+ * │  앱 시작 → <RoutingGuard />                                          │
+ * │         ├─ <Dashboard />              (기본 화면)                    │
+ * │         ├─ <CustomerProfileView />    (activeProfileId)              │
+ * │         ├─ <MedicalScanResultView />  (activeScanId)                 │
+ * │         └─ <ScheduleInputModal />     (전역 오버레이)                │
  * └──────────────────────────────────────────────────────────────────────┘
  *
- * 전역 데이터 동기화 헌법 (SSOT Constitution):
+ * 전역 데이터 동기화 가이딩 프로토콜 (SSOT):
  *   제1장 — 모든 화면은 useCustomerStore 단 하나만 구독.
  *            수정 시 해당 id 하나만 patch → 앱 전역 0.1초 즉시 동기화.
  *   제2장 — analyzeMedicalDocument() 단일 AI 파이프라인.
@@ -21,22 +21,21 @@
  */
 
 import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { useCustomerStore }    from './src/store/customerStore';
-import Dashboard               from './src/screens/Dashboard';
-import CustomerProfileView     from './src/screens/CustomerProfileView';
-import MedicalScanResultView   from './src/screens/MedicalScanResultView';
-import ScheduleInputModal      from './src/components/ScheduleInputModal';
-import PremiumLoadingUI        from './src/components/PremiumLoadingUI';
-import TrashScreen             from './src/screens/TrashScreen';
+import { StyleSheet, View }              from 'react-native';
+import { useCustomerStore }              from './src/store/customerStore';
+import Dashboard                         from './src/screens/Dashboard';
+import CustomerProfileView               from './src/screens/CustomerProfileView';
+import MedicalScanResultView             from './src/screens/MedicalScanResultView';
+import ScheduleInputModal                from './src/components/ScheduleInputModal';
+import PremiumLoadingUI                  from './src/components/PremiumLoadingUI';
+import TrashScreen                       from './src/screens/TrashScreen';
 
+// ── 메인 라우팅 가드 ─────────────────────────────────────────────────────────
 /**
- * RoutingGuard — 인증/권한 분기 문지기.
+ * RoutingGuard — 인증 통과 후 CRM 메인 화면 분기.
  *
  * activeProfileId 가 있으면 CustomerProfileView 를 전면에 렌더.
  * 없으면 Dashboard 유지. ScheduleInputModal 은 항상 전역 오버레이.
- *
- * 추후 Firebase Auth 결과에 따라 LoginScreen / AdminDashboard 분기 가능.
  */
 const RoutingGuard = () => {
   const activeProfileId = useCustomerStore((s) => s.activeProfileId);
@@ -47,28 +46,23 @@ const RoutingGuard = () => {
   );
   const avatarUri = loadingCustomer?.avatarUri ?? null;
 
-  // 3단계: 휴지통 오버레이 상태 (로컬 — persist 불필요)
   const [trashOpen, setTrashOpen] = React.useState(false);
 
   const stopScanLoading = useCustomerStore((s) => s.stopScanLoading);
 
   useEffect(() => {
-    // 앱 시작 시 scanLoading 강제 초기화
     stopScanLoading();
 
-    // Firebase lazy init — google-services.json 없어도 앱 크래시 없음.
-    // 동기 import 대신 마운트 후 비동기 실행으로 UI 블로킹 완전 방지.
     const timer = setTimeout(() => {
       try {
         require('./src/utils/firebase');
       } catch (e) {
-        console.warn('[App] Firebase lazy init 건너뜀 (google-services.json 미설정):', e?.message);
+        console.warn('[App] Firebase lazy init 건너뜀:', e?.message);
       }
     }, 0);
     return () => clearTimeout(timer);
   }, []);
 
-  // Dashboard 등 하위 컴포넌트에서 openTrash() 로 휴지통 오픈 가능
   useEffect(() => {
     _openTrashScreen = () => setTrashOpen(true);
     return () => { _openTrashScreen = null; };
@@ -93,20 +87,19 @@ const RoutingGuard = () => {
         </View>
       )}
 
-      {/* 3단계: 휴지통 오버레이 */}
+      {/* 휴지통 오버레이 */}
       {trashOpen && (
         <View style={[styles.fullOverlay, styles.trashOverlay]}>
           <TrashScreen onClose={() => setTrashOpen(false)} />
         </View>
       )}
 
-      {/* 제1장 일정 입력 모달 */}
+      {/* 일정 입력 모달 */}
       <ScheduleInputModal />
 
       {/*
-        제2장: PremiumLoadingUI — AI 분석 대기 전체화면 오버레이 (z:999, 최상단)
+        제2장: PremiumLoadingUI — AI 분석 대기 전체화면 오버레이 (z:999)
         scanLoading.active 가 true 인 동안 다른 모든 버튼 조작 불가
-        Modal(transparent) 방식으로 구현되어 있어 별도 zIndex 불필요
       */}
       <PremiumLoadingUI
         isVisible={scanLoading.active}
@@ -123,7 +116,7 @@ const App = () => (
   </View>
 );
 
-// openTrash 전역 접근을 위한 ref (Dashboard → TrashScreen 연결)
+// openTrash 전역 접근 (Dashboard → TrashScreen 연결)
 export let _openTrashScreen = null;
 
 const styles = StyleSheet.create({
