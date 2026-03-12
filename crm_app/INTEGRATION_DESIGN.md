@@ -35,20 +35,63 @@
 
 ## 2. Supabase 공통 테이블 설계
 
-### 2-1. gk_people (인물 마스터) — 기존 테이블 확장
-```sql
-ALTER TABLE gk_people ADD COLUMN IF NOT EXISTS birth_date   DATE;
-ALTER TABLE gk_people ADD COLUMN IF NOT EXISTS gender       TEXT;  -- 남성/여성
-ALTER TABLE gk_people ADD COLUMN IF NOT EXISTS job          TEXT;
-ALTER TABLE gk_people ADD COLUMN IF NOT EXISTS company      TEXT;
-ALTER TABLE gk_people ADD COLUMN IF NOT EXISTS title        TEXT;
-ALTER TABLE gk_people ADD COLUMN IF NOT EXISTS memo         TEXT;
-ALTER TABLE gk_people ADD COLUMN IF NOT EXISTS tags         JSONB DEFAULT '[]';
-ALTER TABLE gk_people ADD COLUMN IF NOT EXISTS is_client    BOOLEAN DEFAULT true;
-ALTER TABLE gk_people ADD COLUMN IF NOT EXISTS agent_id     TEXT;
-ALTER TABLE gk_people ADD COLUMN IF NOT EXISTS is_deleted   BOOLEAN DEFAULT false;
-ALTER TABLE gk_people ADD COLUMN IF NOT EXISTS updated_at   TIMESTAMPTZ DEFAULT now();
+### 2-1. gk_people (인물 마스터) — 3단계 계층 구조
+
+#### 계층 개념
 ```
+🔑 [Core]  주라인        — 누구이며, 지금 당장 연락 가능한가?
+📅 [1차]   연간 계약     — 매년 꼬박꼬박 챙겨야 할 수익원
+💎 [2차]   핵심 관계     — 깊은 관계와 업셀링(Up-selling)의 기회
+🏟️ [3차]   생활 활동     — 영업의 씨앗과 커뮤니티
+```
+
+#### 앱별 활용 방식
+| 앱 | 활용 |
+|---|---|
+| **모 앱 (태블릿)** | 고객 상세 화면에서 [1차:계약] [2차:관계] [3차:활동] 탭 분리 표시 |
+| **자 앱 (핸드폰)** | "오늘의 할 일" — 갱신 대상자(1차) + 기념일 고객(2차) 우선 정렬 |
+| **그림자 이동** | 3차(개척) → 2차(핵심) 승격 / 단계별 관리 등급 변경 |
+
+#### SQL (이미 적용된 컬럼 포함 전체)
+```sql
+-- ── Core: 기본 식별 + 실시간 연결 (기존 컬럼) ──────────────────────────────
+-- person_id, name, contact, birth_date, gender, address, job, memo
+-- status, last_consulted_at, is_favorite  ← 2026-03-13 적용 완료
+
+-- ── 1차 라인: 연간 계약 관리 ────────────────────────────────────────────────
+ALTER TABLE public.gk_people
+ADD COLUMN IF NOT EXISTS auto_renewal_month  INTEGER CHECK (auto_renewal_month BETWEEN 1 AND 12),
+ADD COLUMN IF NOT EXISTS fire_renewal_month  INTEGER CHECK (fire_renewal_month BETWEEN 1 AND 12),
+ADD COLUMN IF NOT EXISTS renewal_memo        TEXT;
+
+-- ── 2차 라인: 핵심 관리 & 라이프사이클 ────────────────────────────────────
+ALTER TABLE public.gk_people
+ADD COLUMN IF NOT EXISTS management_tier     INTEGER DEFAULT 3,  -- 1=VIP, 2=핵심, 3=일반
+ADD COLUMN IF NOT EXISTS key_customer_note   TEXT,
+ADD COLUMN IF NOT EXISTS lifecycle_events    JSONB DEFAULT '[]'; -- [{type, date, memo}]
+
+-- ── 3차 라인: 생활 활동 & 개척 ────────────────────────────────────────────
+ALTER TABLE public.gk_people
+ADD COLUMN IF NOT EXISTS community_tags      TEXT[],             -- ['조기축구회','동창회']
+ADD COLUMN IF NOT EXISTS prospecting_stage   TEXT,               -- lead/contact/follow-up/contracted
+ADD COLUMN IF NOT EXISTS referral_from       TEXT,               -- 소개자 person_id
+ADD COLUMN IF NOT EXISTS activity_group      TEXT;
+
+-- ── 검색 최적화 인덱스 ─────────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_auto_renewal    ON public.gk_people(auto_renewal_month);
+CREATE INDEX IF NOT EXISTS idx_management_tier ON public.gk_people(management_tier);
+CREATE INDEX IF NOT EXISTS idx_prospecting     ON public.gk_people(prospecting_stage);
+```
+
+#### 컬럼 전체 요약
+| 계층 | 컬럼 | 용도 |
+|---|---|---|
+| Core | `person_id`, `name`, `contact`, `birth_date` | 기본 식별 |
+| Core | `gender`, `address`, `job`, `memo` | 기본 정보 |
+| Core | `status`, `last_consulted_at`, `is_favorite` | 관리 상태 |
+| 1차 | `auto_renewal_month`, `fire_renewal_month`, `renewal_memo` | 연간 갱신 |
+| 2차 | `management_tier`, `key_customer_note`, `lifecycle_events` | VIP/라이프사이클 |
+| 3차 | `community_tags`, `prospecting_stage`, `referral_from`, `activity_group` | 개척/커뮤니티 |
 
 ### 2-2. gk_schedules (일정) — 신규 생성
 ```sql
