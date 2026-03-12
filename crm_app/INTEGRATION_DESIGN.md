@@ -160,31 +160,39 @@ softDelete(table, id)          // is_deleted: true 처리
 
 ## 6. 구현 단계 (확정 순서)
 
-### Phase 1 — Goldkey AI 모바일 앱 완성 (현재 진행 중)
-> CRM은 현재 골격만 유지. AI 앱이 완성되면 Phase 2 시작.
+### Phase 1 — Goldkey AI Masters 2026 모바일 앱 완성 ← **현재 단계**
+> CRM은 현재 골격(틀)만 유지. 모 앱이 100% 완성되면 Phase 2 시작.
 
 | 단계 | 작업 |
 |---|---|
-| 1-1 | Goldkey AI React Native 앱 전체 기능 구현 |
-| 1-2 | Supabase `gk_people` 컬럼 확장 (ALTER TABLE) |
-| 1-3 | Supabase `gk_schedules`, `gk_scan_results` 테이블 생성 |
-| 1-4 | AI 앱 ↔ Supabase 연동 완성 |
+| 1-1 | Goldkey AI Masters 2026 React Native 앱 전체 UI/UX 구현 |
+| 1-2 | Supabase `gk_people` 컬럼 확장 + `gk_schedules`, `gk_scan_results` 생성 |
+| 1-3 | 모 앱 ↔ Supabase 연동 100% 완성 (고객·일정·증권·AI리포트) |
+| 1-4 | 인앱 CRM 설치 유도 팝업 포함 (`Linking.openURL` → Play Store) |
 
-### Phase 2 — 골드키 CRM 그림자 섹션 연동
-> AI 앱 완성 후 시작. CRM에 아래 섹션을 Supabase pull 방식으로 추가.
+### Phase 2 — 모 앱 컴포넌트 CRM에 이식
+> 모 앱 완성 후 시작. 컴포넌트 폴더째 복사 이식.
 
 | 단계 | 작업 |
 |---|---|
-| 2-1 | `supabaseService.js` 생성 (CRM용 fetch/upsert) |
-| 2-2 | CRM 고객 목록 → `gk_people` pull |
-| 2-3 | CRM 일정 → `gk_schedules` 양방향 동기화 |
-| 2-4 | CRM 증권분석 섹션 → `gk_scan_results` pull |
-| 2-5 | CRM AI 리포트 섹션 → AI 앱 결과 pull |
-| 2-6 | CRM 내보험다보여 섹션 → AI 앱 분석 결과 pull |
+| 2-1 | `CustomerSection/` 폴더 CRM에 복사 이식 |
+| 2-2 | `InsuranceView/` (증권분석·내보험다보여) 폴더 CRM에 복사 이식 |
+| 2-3 | `ScheduleSection/` (일정 관리) 폴더 CRM에 복사 이식 |
+| 2-4 | `AiReportSection/` (AI 상담 리포트) 폴더 CRM에 복사 이식 |
+| 2-5 | Supabase 연동 서비스(`supabaseService.js`) 공유 또는 복사 |
 
-### Phase 3 — 원클릭 생태계 구성 (단일 설치로 2개 앱)
+### Phase 3 — CRM 핸드폰 레이아웃 최적화 후 배포
+> 기능은 동일, 스타일(CSS/StyleSheet)만 핸드폰 화면에 맞게 조정.
 
-#### 3-1. 단기 전략 — 인앱 설치 유도 팝업
+| 단계 | 작업 |
+|---|---|
+| 3-1 | 각 이식 섹션 핸드폰 레이아웃 조정 (여백·폰트·터치 영역) |
+| 3-2 | 태블릿 전용 2컬럼 레이아웃 → 핸드폰 1컬럼 전환 |
+| 3-3 | Play Store AAB 빌드 + 내부 테스트 → 프로덕션 배포 |
+
+### Phase 4 — 원클릭 생태계 구성 (단일 설치로 2개 앱)
+
+#### 4-1. 단기 전략 — 인앱 설치 유도 팝업
 
 Goldkey AI 모바일 앱 첫 실행 또는 설정 메뉴에서 팝업 표시:
 
@@ -219,7 +227,7 @@ const AI_PLAY_STORE_URL =
 
 ---
 
-#### 3-2. 중기 전략 — Play Store 앱 패밀리
+#### 4-2. 중기 전략 — Play Store 앱 패밀리
 
 - 두 앱을 동일 개발자 계정에 등록
 - Play Store 각 앱 페이지 → "이 개발자의 다른 앱" 섹션 자동 노출
@@ -227,7 +235,7 @@ const AI_PLAY_STORE_URL =
 
 ---
 
-#### 3-3. 장기 전략 — Android App Bundle (AAB)
+#### 4-3. 장기 전략 — Android App Bundle (AAB)
 
 > Play Store의 **Android App Bundle** 기술을 활용한 궁극적 단일 패키지 배포
 
