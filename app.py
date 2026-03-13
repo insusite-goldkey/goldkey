@@ -1,4 +1,4 @@
-# ==========================================================
+﻿# ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -30406,11 +30406,24 @@ section[data-testid="stSidebar"] {
     height: 100dvh !important;
     height: 100vh !important;
     overflow-y: auto !important;
+    transition: transform 0.25s ease, visibility 0.25s ease !important;
+}
+/* 닫힌 상태 — 화면 왼쪽 밖으로 숨김 */
+section[data-testid="stSidebar"][aria-expanded="false"] {
+    transform: translateX(-110%) !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+/* 열린 상태 — 정상 표시 */
+section[data-testid="stSidebar"][aria-expanded="true"] {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
 }
 @media screen and (max-width: 768px) {
     section[data-testid="stSidebar"][aria-expanded="true"] {
-        width: 100vw !important;
-        max-width: 100vw !important;
+        width: 85vw !important;
+        max-width: 360px !important;
         height: 100dvh !important;
         height: 100vh !important;
         height: -webkit-fill-available !important;
@@ -30420,6 +30433,11 @@ section[data-testid="stSidebar"] {
         left: 0 !important;
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch !important;
+    }
+    section[data-testid="stSidebar"][aria-expanded="false"] {
+        transform: translateX(-110%) !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
     }
 }
 section[data-testid="stSidebar"] .stButton > button {
