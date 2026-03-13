@@ -6339,24 +6339,11 @@ textarea::placeholder {
     pointer-events: auto !important;
     z-index: 99999 !important;
 }
-/* §4-C-2 — 모바일 사이드바 열림/닫힘 정상화 */
+/* §4-C-2 — 모바일 사이드바 너비 보장 */
 @media (max-width: 1100px) {
     section[data-testid="stSidebar"] {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        height: 100% !important;
-        z-index: 9998 !important;
         min-width: 260px !important;
         max-width: 320px !important;
-        transition: transform 0.25s ease !important;
-        visibility: visible !important;
-    }
-    section[data-testid="stSidebar"][aria-expanded="true"] {
-        transform: translateX(0) !important;
-    }
-    section[data-testid="stSidebar"][aria-expanded="false"] {
-        transform: translateX(-110%) !important;
     }
 }
 /* §4-C-3 — 모바일 레이아웃 잘림 방지 */
@@ -28537,7 +28524,7 @@ def main():
     # ── STEP 1: set_page_config (항상 가장 먼저) ─────────────────────────
     # [제53조 복원] 로그인 후에도 사이드바 expanded 표시
     _is_logged_in = st.session_state.get("user_id") or st.session_state.get("authenticated")
-    _sb_init_state = "expanded" if _is_logged_in else "collapsed"
+    _sb_init_state = "expanded"
     _layout_mode = "wide" if (st.session_state.get("user_id") or st.session_state.get("authenticated")) else "centered"
     st.set_page_config(
         page_title="goldkey_Ai_masters2026 마스터 AI",
@@ -30392,52 +30379,18 @@ hr[data-testid="stDivider"] {
     backdrop-filter: blur(8px) !important;
 }
 
-/* ── 사이드바 (개선6: z-index 최상단 + 모바일 풀스크린 커버) ── */
+/* ── 사이드바 스타일 (레이아웃 제어는 Streamlit 기본에 위임) ── */
 section[data-testid="stSidebar"] {
     font-size: 0.95rem !important;
     background: rgba(255,255,255,0.97) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-right: 1px solid rgba(203,213,225,0.50) !important;
-    position: fixed !important;
-    z-index: 999999 !important;
-    top: 0 !important;
-    left: 0 !important;
-    height: 100dvh !important;
-    height: 100vh !important;
     overflow-y: auto !important;
-    transition: transform 0.25s ease, visibility 0.25s ease !important;
-}
-/* 닫힌 상태 — 화면 왼쪽 밖으로 숨김 */
-section[data-testid="stSidebar"][aria-expanded="false"] {
-    transform: translateX(-110%) !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
-/* 열린 상태 — 정상 표시 */
-section[data-testid="stSidebar"][aria-expanded="true"] {
-    transform: translateX(0) !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
 }
 @media screen and (max-width: 768px) {
-    section[data-testid="stSidebar"][aria-expanded="true"] {
-        width: 85vw !important;
-        max-width: 360px !important;
-        height: 100dvh !important;
-        height: 100vh !important;
-        height: -webkit-fill-available !important;
-        z-index: 999999 !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch !important;
-    }
-    section[data-testid="stSidebar"][aria-expanded="false"] {
-        transform: translateX(-110%) !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
+    section[data-testid="stSidebar"] {
+        max-width: 85vw !important;
     }
 }
 section[data-testid="stSidebar"] .stButton > button {
@@ -31744,8 +31697,8 @@ watchRipple();
     with st.sidebar:
         # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (항상 렌더) ──
         render_goldkey_sidebar()
-        # ── [제53조 §열기] _open_sidebar 플래그 소비 → JS로 사이드바 강제 열기 ──
-        if st.session_state.pop("_open_sidebar", False):
+        # ── [제53조 §열기] 비로그인 시 항상 / 로그인 시 플래그 소비 → JS로 사이드바 강제 열기 ──
+        if not _is_authenticated:
             import streamlit.components.v1 as _comp_open
             _comp_open.html("""<script>
 (function(){
@@ -31784,15 +31737,13 @@ watchRipple();
   function tryOpen() {
     if (isClosed()) { clickToggle(); }
   }
-  setTimeout(tryOpen, 200);
-  setTimeout(tryOpen, 600);
-  setTimeout(tryOpen, 1200);
+  setTimeout(tryOpen, 150);
+  setTimeout(tryOpen, 500);
+  setTimeout(tryOpen, 1000);
+  setTimeout(tryOpen, 2000);
 })();
 </script>""", height=0)
 
-    if not _is_authenticated:
-      with st.sidebar:
-        # ── [제53조 개정] 비로그인 전용 콘텐츠 — 로그인 후 완전 미렌더 ──────
         if 'user_id' not in st.session_state:
             st.markdown("""
 <div style='background:#FEFCE8;border:1.5px solid #FCD34D;border-left:4px solid #F59E0B;
@@ -33389,44 +33340,43 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
                 else:
                     st.caption("⚫ 블록 번호 숨김")
 
-    else:
-        # ══════════════════════════════════════════════════════════════
-        # [GP200 §1] 인증 완료 후 사이드바 — 전문 브랜딩 정보 입력 UI
-        # 선택 입력: 회사명 / 지점 / 성명 / 연락처
-        # 입력 시 모든 분석 리포트 하단에 담당자 브랜딩 푸터 자동 삽입
-        # ══════════════════════════════════════════════════════════════
-        with st.sidebar:
-            # ── [제39조 §2] 로그인 후 사이드바 최상단 아바타 카드 ─────────────
-            _post_av_key = "_s39_post_av_src"
-            _post_av_src = st.session_state.get(_post_av_key, "")
-            if not _post_av_src:
-                _post_base = os.path.dirname(os.path.abspath(__file__))
-                for _post_p, _post_mime in [
-                    (os.path.join(_post_base, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
-                    (os.path.join(_post_base, "assets", "goldkey_ai_avatar.png"), "image/png"),
-                    (os.path.join(_post_base, "assets", "avatar_goldkey.png"),    "image/png"),
-                    (os.path.join(_post_base, "assets", "avatar_goldkey.svg"),    "image/svg+xml"),
-                ]:
-                    try:
-                        _pp = pathlib.Path(_post_p)
-                        if _pp.exists() and _pp.stat().st_size > 50:
-                            _post_av_src = f"data:{_post_mime};base64,{base64.b64encode(_pp.read_bytes()).decode()}"
-                            st.session_state[_post_av_key] = _post_av_src
-                            break
-                    except Exception:
-                        continue
-
-            _post_av_img = (
-                f'<img src="{_post_av_src}" width="80" height="80" loading="lazy"'
-                ' style="border-radius:50%;border:3px solid rgba(255,255,255,0.85);'
-                'box-shadow:0 2px 10px rgba(0,0,0,0.18);object-fit:cover;'
-                'display:block;margin:0 auto 8px auto;" />'
-                if _post_av_src else
-                '<div style="width:80px;height:80px;border-radius:50%;'
-                'background:rgba(255,255,255,0.2);margin:0 auto 8px auto;"></div>'
-            )
-            _post_uname = st.session_state.get("user_name", "") or st.session_state.get("user_id", "마스터")
-            st.sidebar.markdown(f"""
+        if _is_authenticated:
+            # ══════════════════════════════════════════════════════════════
+            # [GP200 §1] 인증 완료 후 사이드바 — 전문 브랜딩 정보 입력 UI
+            # 선택 입력: 회사명 / 지점 / 성명 / 연락처
+            # 입력 시 모든 분석 리포트 하단에 담당자 브랜딩 푸터 자동 삽입
+            # ══════════════════════════════════════════════════════════════
+            with st.sidebar:
+                # ── [제39조 §2] 로그인 후 사이드바 최상단 아바타 카드 ─────────────
+                _post_av_key = "_s39_post_av_src"
+                _post_av_src = st.session_state.get(_post_av_key, "")
+                if not _post_av_src:
+                    _post_base = os.path.dirname(os.path.abspath(__file__))
+                    for _post_p, _post_mime in [
+                        (os.path.join(_post_base, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
+                        (os.path.join(_post_base, "assets", "goldkey_ai_avatar.png"), "image/png"),
+                        (os.path.join(_post_base, "assets", "avatar_goldkey.png"),    "image/png"),
+                        (os.path.join(_post_base, "assets", "avatar_goldkey.svg"),    "image/svg+xml"),
+                    ]:
+                        try:
+                            _pp = pathlib.Path(_post_p)
+                            if _pp.exists() and _pp.stat().st_size > 50:
+                                _post_av_src = f"data:{_post_mime};base64,{base64.b64encode(_pp.read_bytes()).decode()}"
+                                st.session_state[_post_av_key] = _post_av_src
+                                break
+                        except Exception:
+                            continue
+                _post_av_img = (
+                    f'<img src="{_post_av_src}" width="80" height="80" loading="lazy"'
+                    ' style="border-radius:50%;border:3px solid rgba(255,255,255,0.85);'
+                    'box-shadow:0 2px 10px rgba(0,0,0,0.18);object-fit:cover;'
+                    'display:block;margin:0 auto 8px auto;" />'
+                    if _post_av_src else
+                    '<div style="width:80px;height:80px;border-radius:50%;'
+                    'background:rgba(255,255,255,0.2);margin:0 auto 8px auto;"></div>'
+                )
+                _post_uname = st.session_state.get("user_name", "") or st.session_state.get("user_id", "마스터")
+                st.markdown(f"""
 <div style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
   border-radius:12px;padding:10px 10px 8px 10px;margin-bottom:6px;
   box-shadow:0 2px 10px rgba(79,172,254,0.20);text-align:center;
@@ -33442,7 +33392,7 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
   </div>
 </div>""", unsafe_allow_html=True)
 
-            st.markdown("""
+                st.markdown("""
 <div style='background:linear-gradient(135deg,#0a1628 0%,#1a3a5c 100%);
   border-radius:10px;padding:8px 10px 6px 10px;margin:4px 0 4px 0;
   border:1px solid #D4AF37;box-shadow:0 1px 5px rgba(10,22,40,0.15);
@@ -33458,144 +33408,144 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
   </div>
 </div>""", unsafe_allow_html=True)
 
-            # ── 회사명 입력 + 실시간 자동완성 ────────────────────────
-            _g200_co_input = st.text_input(
-                "🏢 회사명 (GA / 보험사)",
-                value=st.session_state.get("gp200_company", ""),
-                placeholder="예: 골드키지사, 삼성생명, 피플라이프...",
-                key="_gp200_co_raw",
-                max_chars=60,
-            )
-            # 실시간 자동완성 제안 표시
-            if _g200_co_input and _g200_co_input != st.session_state.get("gp200_company", ""):
-                _g200_suggestions = gp200_search_companies(_g200_co_input, limit=5)
-                if _g200_suggestions:
+                # ── 회사명 입력 + 실시간 자동완성 ────────────────────────
+                _g200_co_input = st.text_input(
+                    "🏢 회사명 (GA / 보험사)",
+                    value=st.session_state.get("gp200_company", ""),
+                    placeholder="예: 골드키지사, 삼성생명, 피플라이프...",
+                    key="_gp200_co_raw",
+                    max_chars=60,
+                )
+                # 실시간 자동완성 제안 표시
+                if _g200_co_input and _g200_co_input != st.session_state.get("gp200_company", ""):
+                    _g200_suggestions = gp200_search_companies(_g200_co_input, limit=5)
+                    if _g200_suggestions:
+                        st.markdown(
+                            "<div style='font-size:0.72rem;color:#374151;margin:-4px 0 2px 0;"
+                            "font-weight:700;'>💡 자동완성 후보:</div>",
+                            unsafe_allow_html=True,
+                        )
+                        for _g200_ko, _g200_en in _g200_suggestions:
+                            if st.button(
+                                f"{_g200_ko}  ({_g200_en})",
+                                key=f"_gp200_ac_{_g200_ko}",
+                                use_container_width=True,
+                            ):
+                                st.session_state["gp200_company"] = _g200_ko
+                                st.rerun()
+                # 입력값 저장
+                if _g200_co_input != st.session_state.get("gp200_company", ""):
+                    st.session_state["gp200_company"] = _g200_co_input
+
+                # ── 지점 / 팀명 ───────────────────────────────────────────
+                _g200_br_input = st.text_input(
+                    "🏬 지점 / 팀명",
+                    value=st.session_state.get("gp200_branch", ""),
+                    placeholder="예: 강남지점, 디지털팀...",
+                    key="_gp200_br_raw",
+                    max_chars=40,
+                )
+                if _g200_br_input != st.session_state.get("gp200_branch", ""):
+                    st.session_state["gp200_branch"] = _g200_br_input
+
+                # ── 성명 ──────────────────────────────────────────────────
+                _g200_nm_input = st.text_input(
+                    "👤 성명",
+                    value=st.session_state.get("gp200_name", ""),
+                    placeholder="예: 홍길동",
+                    key="_gp200_nm_raw",
+                    max_chars=30,
+                )
+                if _g200_nm_input != st.session_state.get("gp200_name", ""):
+                    st.session_state["gp200_name"] = _g200_nm_input
+
+                # ── 연락처 ────────────────────────────────────────────────
+                _g200_ct_input = st.text_input(
+                    "📞 연락처",
+                    value=st.session_state.get("gp200_contact", ""),
+                    placeholder="예: 010-1234-5678",
+                    key="_gp200_ct_raw",
+                    max_chars=20,
+                )
+                if _g200_ct_input != st.session_state.get("gp200_contact", ""):
+                    st.session_state["gp200_contact"] = _g200_ct_input
+
+                # ── 현재 브랜딩 미리보기 + 초기화 버튼 ──────────────────
+                _g200_has_data = any([
+                    st.session_state.get("gp200_company", "").strip(),
+                    st.session_state.get("gp200_name", "").strip(),
+                    st.session_state.get("gp200_contact", "").strip(),
+                ])
+                if _g200_has_data:
+                    _g200_preview_html = gp200_brand_footer(st.session_state)
+                    if _g200_preview_html:
+                        st.markdown(
+                            "<div style='font-size:0.72rem;color:#374151;margin-top:6px;"
+                            "font-weight:700;'>📋 리포트 푸터 미리보기:</div>",
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown(_g200_preview_html, unsafe_allow_html=True)
+                    if st.button(
+                        "🗑️ 브랜딩 정보 초기화",
+                        key="_gp200_clear_btn",
+                        use_container_width=True,
+                        help="입력한 소속·연락처 정보를 즉시 삭제합니다",
+                    ):
+                        for _k200 in ["gp200_company", "gp200_branch", "gp200_name", "gp200_contact"]:
+                            st.session_state.pop(_k200, None)
+                        st.rerun()
+                else:
                     st.markdown(
-                        "<div style='font-size:0.72rem;color:#374151;margin:-4px 0 2px 0;"
-                        "font-weight:700;'>💡 자동완성 후보:</div>",
+                        "<div style='font-size:0.71rem;color:#6b7280;text-align:center;"
+                        "padding:6px 0 2px 0;font-style:italic;'>"
+                        "입력 시 리포트에 담당자 정보가 자동 표시됩니다</div>",
                         unsafe_allow_html=True,
                     )
-                    for _g200_ko, _g200_en in _g200_suggestions:
-                        if st.button(
-                            f"{_g200_ko}  ({_g200_en})",
-                            key=f"_gp200_ac_{_g200_ko}",
-                            use_container_width=True,
-                        ):
-                            st.session_state["gp200_company"] = _g200_ko
-                            st.rerun()
-            # 입력값 저장
-            if _g200_co_input != st.session_state.get("gp200_company", ""):
-                st.session_state["gp200_company"] = _g200_co_input
 
-            # ── 지점 / 팀명 ───────────────────────────────────────────
-            _g200_br_input = st.text_input(
-                "🏬 지점 / 팀명",
-                value=st.session_state.get("gp200_branch", ""),
-                placeholder="예: 강남지점, 디지털팀...",
-                key="_gp200_br_raw",
-                max_chars=40,
-            )
-            if _g200_br_input != st.session_state.get("gp200_branch", ""):
-                st.session_state["gp200_branch"] = _g200_br_input
-
-            # ── 성명 ──────────────────────────────────────────────────
-            _g200_nm_input = st.text_input(
-                "👤 성명",
-                value=st.session_state.get("gp200_name", ""),
-                placeholder="예: 홍길동",
-                key="_gp200_nm_raw",
-                max_chars=30,
-            )
-            if _g200_nm_input != st.session_state.get("gp200_name", ""):
-                st.session_state["gp200_name"] = _g200_nm_input
-
-            # ── 연락처 ────────────────────────────────────────────────
-            _g200_ct_input = st.text_input(
-                "📞 연락처",
-                value=st.session_state.get("gp200_contact", ""),
-                placeholder="예: 010-1234-5678",
-                key="_gp200_ct_raw",
-                max_chars=20,
-            )
-            if _g200_ct_input != st.session_state.get("gp200_contact", ""):
-                st.session_state["gp200_contact"] = _g200_ct_input
-
-            # ── 현재 브랜딩 미리보기 + 초기화 버튼 ──────────────────
-            _g200_has_data = any([
-                st.session_state.get("gp200_company", "").strip(),
-                st.session_state.get("gp200_name", "").strip(),
-                st.session_state.get("gp200_contact", "").strip(),
-            ])
-            if _g200_has_data:
-                _g200_preview_html = gp200_brand_footer(st.session_state)
-                if _g200_preview_html:
-                    st.markdown(
-                        "<div style='font-size:0.72rem;color:#374151;margin-top:6px;"
-                        "font-weight:700;'>📋 리포트 푸터 미리보기:</div>",
-                        unsafe_allow_html=True,
-                    )
-                    st.markdown(_g200_preview_html, unsafe_allow_html=True)
-                if st.button(
-                    "🗑️ 브랜딩 정보 초기화",
-                    key="_gp200_clear_btn",
-                    use_container_width=True,
-                    help="입력한 소속·연락처 정보를 즉시 삭제합니다",
-                ):
-                    for _k200 in ["gp200_company", "gp200_branch", "gp200_name", "gp200_contact"]:
-                        st.session_state.pop(_k200, None)
-                    st.rerun()
-            else:
+                # ── [GP200 §4] 내 보고서 미리보기 ────────────────────────────
+                st.markdown("---")
                 st.markdown(
-                    "<div style='font-size:0.71rem;color:#6b7280;text-align:center;"
-                    "padding:6px 0 2px 0;font-style:italic;'>"
-                    "입력 시 리포트에 담당자 정보가 자동 표시됩니다</div>",
+                    "<div style='font-size:0.9rem;font-weight:900;color:#1a2d5a;"
+                    "margin-bottom:8px;'>📄 내 보고서 미리보기</div>",
                     unsafe_allow_html=True,
                 )
+                st.caption("내 정보가 실제 보고서·카카오 메시지에 어떻게 찍히는지 확인하세요.")
+                if st.button("🔍 보고서 미리보기 생성", key="_gp200_report_preview_btn",
+                             use_container_width=True):
+                    st.session_state["_gp200_show_preview"] = True
 
-            # ── [GP200 §4] 내 보고서 미리보기 ────────────────────────────
-            st.markdown("---")
-            st.markdown(
-                "<div style='font-size:0.9rem;font-weight:900;color:#1a2d5a;"
-                "margin-bottom:8px;'>📄 내 보고서 미리보기</div>",
-                unsafe_allow_html=True,
-            )
-            st.caption("내 정보가 실제 보고서·카카오 메시지에 어떻게 찍히는지 확인하세요.")
-            if st.button("🔍 보고서 미리보기 생성", key="_gp200_report_preview_btn",
-                         use_container_width=True):
-                st.session_state["_gp200_show_preview"] = True
+                if st.session_state.get("_gp200_show_preview"):
+                    _prev_pi = {
+                        "company": st.session_state.get("gp200_company", ""),
+                        "branch":  st.session_state.get("gp200_branch",  ""),
+                        "name":    st.session_state.get("gp200_name", "")
+                                   or st.session_state.get("user_name", "마스터"),
+                        "contact": st.session_state.get("gp200_contact", ""),
+                    }
+                    _prev_co   = _prev_pi["company"] or "소속 회사"
+                    _prev_br   = _prev_pi["branch"]  or ""
+                    _prev_nm   = _prev_pi["name"]    or "마스터"
+                    _prev_ct   = _prev_pi["contact"] or ""
+                    _prev_affil = " ".join(filter(None, [_prev_co, _prev_br]))
 
-            if st.session_state.get("_gp200_show_preview"):
-                _prev_pi = {
-                    "company": st.session_state.get("gp200_company", ""),
-                    "branch":  st.session_state.get("gp200_branch",  ""),
-                    "name":    st.session_state.get("gp200_name", "")
-                               or st.session_state.get("user_name", "마스터"),
-                    "contact": st.session_state.get("gp200_contact", ""),
-                }
-                _prev_co   = _prev_pi["company"] or "소속 회사"
-                _prev_br   = _prev_pi["branch"]  or ""
-                _prev_nm   = _prev_pi["name"]    or "마스터"
-                _prev_ct   = _prev_pi["contact"] or ""
-                _prev_affil = " ".join(filter(None, [_prev_co, _prev_br]))
+                    # ── PDF 리포트 푸터 미리보기 ─────────────────────────────
+                    _prev_pdf_footer = f"담당: {_prev_affil} | {_prev_nm} 마스터" + (
+                        f" | 연락처: {_prev_ct}" if _prev_ct else "")
+                    _prev_report_body = (
+                        "본 리포트는 **{affil}** 소속 **{nm} 마스터**가 "
+                        "Goldkey AI 시스템을 통해 정밀 분석한 결과입니다.\n\n"
+                        "─────────────────────────────────────────\n"
+                        "**[AI 분석 결과 예시]**\n\n"
+                        "고객님의 현재 보장 현황을 분석한 결과, 암·뇌·심장 3대 중증질환 보장이\n"
+                        "충분히 구성되어 있으나, 간병 및 치매 관련 장기 케어 보장이 부족합니다.\n\n"
+                        "▶ 권장 보완 담보: 장기요양 특약, 치매간병비 특약\n"
+                        "▶ 예상 추가 보험료: 월 2~4만원 수준\n\n"
+                        "─────────────────────────────────────────\n"
+                        "*[면책 고지] 본 분석 결과는 AI 보조 도구에 의한 참고용 자료입니다.*"
+                    ).format(affil=_prev_affil, nm=_prev_nm)
 
-                # ── PDF 리포트 푸터 미리보기 ─────────────────────────────
-                _prev_pdf_footer = f"담당: {_prev_affil} | {_prev_nm} 마스터" + (
-                    f" | 연락처: {_prev_ct}" if _prev_ct else "")
-                _prev_report_body = (
-                    "본 리포트는 **{affil}** 소속 **{nm} 마스터**가 "
-                    "Goldkey AI 시스템을 통해 정밀 분석한 결과입니다.\n\n"
-                    "─────────────────────────────────────────\n"
-                    "**[AI 분석 결과 예시]**\n\n"
-                    "고객님의 현재 보장 현황을 분석한 결과, 암·뇌·심장 3대 중증질환 보장이\n"
-                    "충분히 구성되어 있으나, 간병 및 치매 관련 장기 케어 보장이 부족합니다.\n\n"
-                    "▶ 권장 보완 담보: 장기요양 특약, 치매간병비 특약\n"
-                    "▶ 예상 추가 보험료: 월 2~4만원 수준\n\n"
-                    "─────────────────────────────────────────\n"
-                    "*[면책 고지] 본 분석 결과는 AI 보조 도구에 의한 참고용 자료입니다.*"
-                ).format(affil=_prev_affil, nm=_prev_nm)
-
-                with st.expander("📋 PDF 리포트 미리보기", expanded=True):
-                    st.markdown(f"""
+                    with st.expander("📋 PDF 리포트 미리보기", expanded=True):
+                        st.markdown(f"""
 <div style="background:#fff;border:1.5px solid #d0d7de;border-radius:12px;
   padding:20px 22px;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
   font-size:0.85rem;line-height:1.9;color:#1a1a2e;">
@@ -33611,25 +33561,25 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
   </div>
 </div>""", unsafe_allow_html=True)
 
-                # ── 카카오 메시지 미리보기 ──────────────────────────────
-                _prev_kakao_footer = "[발송: " + " | ".join(filter(None, [
-                    _prev_affil,
-                    f"{_prev_nm} 설계사",
-                    _prev_ct,
-                ])) + "]"
-                _prev_kakao_body = (
-                    f"[{_prev_co}] {_prev_nm} 설계사입니다.\n"
-                    f"고객님을 위해 정밀 분석한 'AI 인생 방어 리포트'가 도착했습니다.\n\n"
-                    f"■ 골드키 AI 분석 리포트\n\n"
-                    f"고객님의 보장 분석 결과 핵심 내용을 정리해 전달드립니다.\n"
-                    f"암·뇌·심장 3대 보장 현황 및 보완 안내입니다.\n\n"
-                    f"─────────────────\n"
-                    f"담당: {_prev_nm} ({_prev_co})"
-                    + (f"\n연락처: {_prev_ct}" if _prev_ct else "")
-                    + f"\n\n{_prev_kakao_footer}"
-                )
-                with st.expander("💬 카카오 메시지 미리보기", expanded=True):
-                    st.markdown(f"""
+                    # ── 카카오 메시지 미리보기 ──────────────────────────────
+                    _prev_kakao_footer = "[발송: " + " | ".join(filter(None, [
+                        _prev_affil,
+                        f"{_prev_nm} 설계사",
+                        _prev_ct,
+                    ])) + "]"
+                    _prev_kakao_body = (
+                        f"[{_prev_co}] {_prev_nm} 설계사입니다.\n"
+                        f"고객님을 위해 정밀 분석한 'AI 인생 방어 리포트'가 도착했습니다.\n\n"
+                        f"■ 골드키 AI 분석 리포트\n\n"
+                        f"고객님의 보장 분석 결과 핵심 내용을 정리해 전달드립니다.\n"
+                        f"암·뇌·심장 3대 보장 현황 및 보완 안내입니다.\n\n"
+                        f"─────────────────\n"
+                        f"담당: {_prev_nm} ({_prev_co})"
+                        + (f"\n연락처: {_prev_ct}" if _prev_ct else "")
+                        + f"\n\n{_prev_kakao_footer}"
+                    )
+                    with st.expander("💬 카카오 메시지 미리보기", expanded=True):
+                        st.markdown(f"""
 <div style="background:#FEE500;border-radius:14px;padding:16px 18px;
   font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
   font-size:0.83rem;line-height:1.8;color:#3C1E1E;
@@ -33641,11 +33591,11 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
   {_prev_kakao_body.replace(chr(10), '<br>')}
 </div>""", unsafe_allow_html=True)
 
-                if st.button("✖ 미리보기 닫기", key="_gp200_preview_close",
-                             use_container_width=False):
-                    st.session_state.pop("_gp200_show_preview", None)
-                    st.rerun()
-            # ── [GP200 §4] 끝 ─────────────────────────────────────────────
+                    if st.button("✖ 미리보기 닫기", key="_gp200_preview_close",
+                                 use_container_width=False):
+                        st.session_state.pop("_gp200_show_preview", None)
+                        st.rerun()
+                # ── [GP200 §4] 끝 ─────────────────────────────────────────────
 
     # ── 관리자 지시 목록 (메인 영역) ──────────────────────────────────────
     if st.session_state.get("is_admin") and st.session_state.get("_show_directives"):
