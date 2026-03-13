@@ -4512,6 +4512,36 @@ from typing import List, Dict
 import sqlite3
 import streamlit.components.v1 as components
 
+# ── [세션 초기화실] 앱 시작 시 필수 세션 변수 사전 등록 ───────────────────
+def initialize_session():
+    """앱 시작 시 모든 필수 세션 변수를 기본값으로 사전 등록.
+    값이 이미 있으면 덮어쓰지 않음 — 재실행 안전 (idempotent).
+    """
+    _defaults = {
+        '_is_auth':           False,
+        'authenticated':      False,
+        'user_id':            None,
+        'user_name':          None,
+        'is_admin':           False,
+        'target_sector':      None,
+        'user_info':          {},
+        'current_tab':        'home',
+        '_lp_landing':        False,
+        '_bid_visible':       True,
+        '_show_suggestions':  False,
+        '_show_directives':   False,
+        '_lp_terms':          {},
+        '_nav_history':       [],
+        '_open_sidebar':      False,
+        '_login_welcome':     False,
+        '_auto_close_sidebar': False,
+    }
+    for _k, _v in _defaults.items():
+        if _k not in st.session_state:
+            st.session_state[_k] = _v
+
+initialize_session()  # 앱 시작 즉시 실행 — 세션 변수 미등록으로 인한 KeyError 방지
+
 # 외부 격리 게이트웨이 — 모든 외부 접촉은 이 모듈을 통해서만
 try:
     import external_gateway as _gw
