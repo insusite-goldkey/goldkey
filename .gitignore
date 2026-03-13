@@ -1,3 +1,8 @@
+# 대용량 설치 파일 (GitHub 100MB 제한 초과)
+*.exe
+*.dmg
+*.msi
+
 # Streamlit secrets - API 키 등 민감 정보 (절대 Git에 올리지 말 것)
 .streamlit/secrets.toml
 
