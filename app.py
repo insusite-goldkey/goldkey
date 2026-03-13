@@ -560,6 +560,7 @@ _GP200_COMPANY_DB: list = [
     ("지에이코리아", "GA Korea"),
     ("인카금융서비스", "Inca Financial Services"),
     ("에이플러스에셋", "A+ Asset"),
+    ("케이지에이에셋", "KGA Asset"),
     ("더좋은보험서비스", "Better Insurance Service"),
     ("하나금융투자", "Hana Financial Investment"),
     ("신한금융투자", "Shinhan Financial Investment"),
@@ -741,6 +742,7 @@ _CORP_DB: list[dict] = [
     {"name": "인카금융서비스(주)",      "biz_no": "220-81-52049", "size": "중견기업", "sector": "GA 보험대리점", "addr": "서울 영등포구 국제금융로 10"},
     {"name": "글로벌금융판매(주)",      "biz_no": "220-86-04812", "size": "중견기업", "sector": "GA 보험대리점", "addr": "서울 강남구 테헤란로 133"},
     {"name": "한국보험금융(주)",        "biz_no": "220-81-79312", "size": "중소기업", "sector": "GA 보험대리점", "addr": "서울 서초구 강남대로 479"},
+    {"name": "케이지에이에셋(주)",         "biz_no": "",             "size": "중견기업", "sector": "GA 보험대리점", "addr": ""},
     {"name": "goldkey_Ai_masters2026",  "biz_no": "",             "size": "중소기업", "sector": "GA 보험대리점", "addr": ""},
 ]
 
@@ -4799,6 +4801,7 @@ def normalize_corp_name(name: str) -> str:
     반환: 정규화된 핵심명 (비교·중복 감지용)
     예) '(주)삼성전자' → '삼성전자' / '삼성전자(주식회사)' → '삼성전자'
     """
+    import re
     if not name:
         return name
     n = name.strip()
@@ -6328,37 +6331,58 @@ textarea::placeholder {
     text-shadow: none !important;
 }
 
-/* §4-C — 태블릿/모바일 사이드바 열림 버튼 항상 표시 */
-/* Streamlit은 중간 너비(768px~1024px)에서 사이드바를 자동 닫음.
-   collapsedControl 버튼을 항상 visible하게 유지하여 사용자가 탭으로 열 수 있도록 함. */
+/* §4-C — 사이드바 토글 버튼 항상 표시 */
 [data-testid="collapsedControl"] {
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
     z-index: 99999 !important;
-    position: fixed !important;
-    top: 0.5rem !important;
-    left: 0.5rem !important;
 }
-/* §4-C-2 — 태블릿/모바일 사이드바 강제 표시 (transform 리셋) */
+/* §4-C-2 — 모바일 사이드바 열림/닫힘 정상화 */
 @media (max-width: 1100px) {
     section[data-testid="stSidebar"] {
-        transform: none !important;
-        visibility: visible !important;
-        display: block !important;
-        min-width: 240px !important;
-        max-width: 320px !important;
         position: fixed !important;
-        left: 0 !important;
         top: 0 !important;
+        left: 0 !important;
         height: 100% !important;
         z-index: 9998 !important;
+        min-width: 260px !important;
+        max-width: 320px !important;
+        transition: transform 0.25s ease !important;
+    }
+    section[data-testid="stSidebar"][aria-expanded="true"] {
+        transform: translateX(0) !important;
+        visibility: visible !important;
     }
     section[data-testid="stSidebar"][aria-expanded="false"] {
-        transform: none !important;
-        margin-left: 0 !important;
-        left: 0 !important;
+        transform: translateX(-110%) !important;
+        visibility: hidden !important;
+    }
+}
+/* §4-C-3 — 모바일 레이아웃 잘림 방지 */
+@media (max-width: 768px) {
+    html, body {
+        overflow-x: hidden !important;
+    }
+    .block-container,
+    [data-testid="stAppViewContainer"] > section {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+    }
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+        min-width: 0 !important;
+        word-break: break-word !important;
+    }
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] span {
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
     }
 }
 
@@ -23716,7 +23740,7 @@ def _gp88_kakao_send() -> None:
     )
 
     st.markdown("**📋 발송 예정 메시지 미리보기:**")
-    st.text_area("", value=_combined_msg, height=220, key="_gp88_send_preview")
+    st.text_area("발송 메시지", value=_combined_msg, height=220, key="_gp88_send_preview", label_visibility="collapsed")
 
     if not _script_body:
         st.info("💡 §3 '명품 문구 선택' 탭에서 문구를 선택하면 발송 버튼이 활성화됩니다.")
@@ -27846,7 +27870,7 @@ function _normKo(t){{
 }}
 
 // ── 노이즈 패턴 필터 (환경음·클릭음·짧은 감탄사 제거) ─────────────────────
-var _noiseRx=[/^[아어으음네예]+[\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\\s]*$/,/^.{1,2}$/];
+var _noiseRx=[/^[아어으음네예]+[\\.?!]?$/,/^[\u3131-\u314e\u314f-\u3163]+$/,/^[\\s]*$/,/^.{1,2}$/];
 function _isNoise(t){{
   t=t.trim();
   for(var i=0;i<_noiseRx.length;i++) if(_noiseRx[i].test(t)) return true;
@@ -28512,8 +28536,9 @@ def section_housing_pension():
 # --------------------------------------------------------------------------
 def main():
     # ── STEP 1: set_page_config (항상 가장 먼저) ─────────────────────────
-    # [제53조] 로그인 완료 후 사이드바 초기 상태 collapsed 고정
-    _sb_init_state = "collapsed" if (st.session_state.get("user_id") or st.session_state.get("authenticated")) else "expanded"
+    # [제53조 복원] 로그인 후에도 사이드바 expanded 표시
+    _is_logged_in = st.session_state.get("user_id") or st.session_state.get("authenticated")
+    _sb_init_state = "collapsed"
     _layout_mode = "wide" if (st.session_state.get("user_id") or st.session_state.get("authenticated")) else "centered"
     st.set_page_config(
         page_title="goldkey_Ai_masters2026 마스터 AI",
@@ -28826,152 +28851,9 @@ footer, footer * {
     # 웹앱 기준: 사이드바 배경 #FFFFFF 즉시 고정, transition 제거 → 로드 시 깜빡임 없음.
     # (네이티브 앱 기준 #0a1628 다크 배경은 웹앱에서 라이트 UI를 파괴하므로 적용하지 않음.)
     _is_auth_css = st.session_state.get('authenticated', False) or bool(st.session_state.get('user_id'))
-    if _is_auth_css:
-        # [제53조 개정] 로그인 후 사이드바 + 토글버튼 완전 숨김 CSS
-        st.markdown("""<style>
-/* ═══════════════════════════════════════════════════════════════
-   [제53조 §2] 로그인 후 사이드바 완전 소멸 — 전 디바이스 공통
-   잔상 방지: transition/animation 즉시 제거 후 display:none
-═══════════════════════════════════════════════════════════════ */
-
-/* 0순위: transition/animation 즉시 OFF — 번쩍임 방지 */
-[data-testid="stSidebar"],
-[data-testid="stSidebarNav"],
-[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapseButton"],
-[data-testid="stSidebarCollapsedControl"],
-section[data-testid="stSidebar"],
-div[data-testid="stSidebarCollapsedControl"],
-.stSidebar,
-nav[data-testid="stSidebarNav"] {
-    transition: none !important;
-    animation: none !important;
-    display: none !important;
-    visibility: hidden !important;
-    width: 0 !important;
-    max-width: 0 !important;
-    min-width: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    pointer-events: none !important;
-    position: fixed !important;
-    left: -9999px !important;
-    top: -9999px !important;
-    opacity: 0 !important;
-}
-
-/* 메인 영역 전체 너비 확장 (데스크탑) */
-[data-testid="stMain"],
-.main,
-section[data-testid="stMain"] {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-left: 0 !important;
-    padding-left: 0 !important;
-    left: 0 !important;
-}
-.main .block-container,
-section.main > div.block-container,
-[data-testid="stMain"] .block-container {
-    max-width: 100% !important;
-    padding-left: 2rem !important;
-    padding-right: 2rem !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-}
-
-/* wide 레이아웃 헤더 왼쪽 정렬 */
-.stApp > header,
-.stApp [data-testid="stHeader"] {
-    left: 0 !important;
-    width: 100% !important;
-}
-
-/* ── 모바일 / 세로 모드 전용 (≤768px) ─────────────────────── */
-@media screen and (max-width: 768px) {
-    /* 사이드바 및 토글 버튼 완전 차단 */
-    [data-testid="stSidebar"],
-    [data-testid="stSidebarNav"],
-    [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapseButton"],
-    [data-testid="stSidebarCollapsedControl"],
-    section[data-testid="stSidebar"],
-    div[data-testid="stSidebarCollapsedControl"],
-    .stSidebar,
-    nav[data-testid="stSidebarNav"] {
-        display: none !important;
-        visibility: hidden !important;
-        width: 0 !important;
-        max-width: 0 !important;
-        min-width: 0 !important;
-        height: 0 !important;
-        position: fixed !important;
-        left: -9999px !important;
-        top: -9999px !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        z-index: -9999 !important;
-    }
-    /* 메인 콘텐츠 전체 너비 꽉 채움 */
-    [data-testid="stMain"],
-    .main,
-    section[data-testid="stMain"] {
-        width: 100vw !important;
-        max-width: 100vw !important;
-        margin-left: 0 !important;
-        padding-left: 0 !important;
-        left: 0 !important;
-    }
-    .main .block-container,
-    section.main > div.block-container,
-    [data-testid="stMain"] .block-container {
-        max-width: 100% !important;
-        padding-left: 0.75rem !important;
-        padding-right: 0.75rem !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-    }
-}
-
-/* ── 태블릿 세로 모드 (769px ~ 1024px) ───────────────────── */
-@media screen and (min-width: 769px) and (max-width: 1024px) {
-    [data-testid="stSidebar"],
-    [data-testid="stSidebarNav"],
-    [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapseButton"],
-    [data-testid="stSidebarCollapsedControl"],
-    section[data-testid="stSidebar"],
-    div[data-testid="stSidebarCollapsedControl"],
-    .stSidebar {
-        display: none !important;
-        visibility: hidden !important;
-        width: 0 !important;
-        position: fixed !important;
-        left: -9999px !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        z-index: -9999 !important;
-    }
-    [data-testid="stMain"],
-    .main,
-    section[data-testid="stMain"] {
-        width: 100% !important;
-        max-width: 100% !important;
-        margin-left: 0 !important;
-        padding-left: 0 !important;
-    }
-    .main .block-container,
-    [data-testid="stMain"] .block-container {
-        max-width: 100% !important;
-        padding-left: 1.5rem !important;
-        padding-right: 1.5rem !important;
-        margin-left: 0 !important;
-    }
-}
-</style>""", unsafe_allow_html=True)
-    else:
-        st.markdown("""<style>
-/* [제39조 §4] Visual Continuity: 첫 프레임 즉각 렌더 — transition 제거 */
+    # [제53조 복원] 로그인 후에도 사이드바 표시 — transition만 제거하여 깜빡임 방지
+    st.markdown("""<style>
+/* [제39조 §4] Visual Continuity: transition 제거 — 번쩍임 방지 */
 [data-testid="stSidebar"],
 [data-testid="stSidebar"] > div:first-child {
     transition: none !important;
@@ -34215,9 +34097,10 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
 
     def _crosscheck_answer(answer: str) -> tuple[str, list[str]]:
         """AI 답변 속 수치를 기준값 DB와 대조 — 범위 이탈 시 경고 반환"""
+        import re as _re_cx
         warnings = []
         # 숫자 추출 패턴: 한글 단위 앞의 숫자 (예: "400만원", "24개월", "5%")
-        num_pattern = re.compile(r"(\d[\d,]*\.?\d*)\s*(만원|억원|%|개월|년|㎡|만원/월|만원/일|만원/㎡)")
+        num_pattern = _re_cx.compile(r"(\d[\d,]*\.?\d*)\s*(만원|억원|%|개월|년|㎡|만원/월|만원/일|만원/㎡)")
         for trigger, (lo, hi, unit, src) in _CROSSCHECK_DB.items():
             if trigger not in answer:
                 continue
@@ -41322,11 +41205,11 @@ if(sim>={STT_LEV_THRESHOLD}&&age<{STT_DUP_TIME_MS}) return true;
 function _addQ(text){{ _lastQ.push({{text:text,ts:Date.now(),hash:_hash(text)}}); if(_lastQ.length>{STT_LEV_QUEUE}) _lastQ.shift(); }}
 
 var _nRules=[
-  [/실\s*손/g,'실손'],[/암\s*진\s*단/g,'암진단'],[/뇌\s*혈\s*관/g,'뇌혈관'],
-  [/심\s*근\s*경\s*색/g,'심근경색'],[/후\s*유\s*장\s*해/g,'후유장해'],
-  [/납\s*입\s*면\s*제/g,'납입면제'],[/갱\s*신\s*형/g,'갱신형'],[/비\s*갱\s*신\s*형/g,'비갱신형'],
-  [/치\s*매\s*보\s*험/g,'치매보험'],[/장\s*기\s*요\s*양/g,'장기요양'],
-  [/^(어+|음+|그+)[,\.\s]*/,'']
+  [/실\\s*손/g,'실손'],[/암\\s*진\\s*단/g,'암진단'],[/뇌\\s*혈\\s*관/g,'뇌혈관'],
+  [/심\\s*근\\s*경\\s*색/g,'심근경색'],[/후\\s*유\\s*장\\s*해/g,'후유장해'],
+  [/납\\s*입\\s*면\\s*제/g,'납입면제'],[/갱\\s*신\\s*형/g,'갱신형'],[/비\\s*갱\\s*신\\s*형/g,'비갱신형'],
+  [/치\\s*매\\s*보\\s*험/g,'치매보험'],[/장\\s*기\\s*요\\s*양/g,'장기요양'],
+  [/^(어+|음+|그+)[,\\.\\s]*/,'']
 ];
 function _normKo(t){{ t=t.trim(); for(var i=0;i<_nRules.length;i++) t=t.replace(_nRules[i][0],_nRules[i][1]); return t.trim(); }}
 
