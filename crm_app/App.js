@@ -20,16 +20,18 @@
  *            [일정 추가] → openScheduleModal → 메인 달력 즉시 반영.
  */
 
-import React, { useEffect } from 'react';
-import { StyleSheet, View }              from 'react-native';
+import React, { useEffect, useCallback } from 'react';
+import { StyleSheet, View, Linking }     from 'react-native';
 import { useCustomerStore }              from './src/store/customerStore';
+import { useAuthStore }                  from './src/store/authStore';
 import Dashboard                         from './src/screens/Dashboard';
 import CustomerProfileView               from './src/screens/CustomerProfileView';
 import MedicalScanResultView             from './src/screens/MedicalScanResultView';
 import ScheduleInputModal                from './src/components/ScheduleInputModal';
 import PremiumLoadingUI                  from './src/components/PremiumLoadingUI';
 import TrashScreen                       from './src/screens/TrashScreen';
-import GoldKeyCustomerScreen            from './src/screens/GoldKeyCustomerScreen';
+import GoldKeyCustomerScreen             from './src/screens/GoldKeyCustomerScreen';
+import OtpAuthScreen                     from './src/screens/OtpAuthScreen';
 
 // ── 메인 라우팅 가드 ─────────────────────────────────────────────────────────
 /**
@@ -52,8 +54,40 @@ const RoutingGuard = () => {
 
   const stopScanLoading = useCustomerStore((s) => s.stopScanLoading);
 
+  // ── [GP-SSO §3] 인증 상태 ───────────────────────────────────────────────
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const setSsoAuth      = useAuthStore((s) => s.setSsoAuth);
+
+  // ── [GP-SSO §3] 딥링크 수신 핸들러 — goldkeycrmapp://sso?token=...&user_id=...&name=... ──
+  const handleDeepLink = useCallback(async ({ url }) => {
+    try {
+      if (!url || !url.startsWith('goldkeycrmapp://sso')) return;
+      const queryStr = url.includes('?') ? url.split('?')[1] : '';
+      const params   = {};
+      queryStr.split('&').forEach((pair) => {
+        const [k, v] = pair.split('=');
+        if (k) params[decodeURIComponent(k)] = decodeURIComponent(v || '');
+      });
+      const { token, user_id, name, role } = params;
+      if (token && user_id && name) {
+        await setSsoAuth(token, user_id, name, role || 'agent');
+        console.log('[GP-SSO §3] SSO 인증 완료:', user_id, name);
+      }
+    } catch (e) {
+      console.warn('[GP-SSO §3] 딥링크 처리 오류:', e?.message);
+    }
+  }, [setSsoAuth]);
+
   useEffect(() => {
     stopScanLoading();
+
+    // [GP-SSO §3] 앱 실행 중 딥링크 수신
+    const sub = Linking.addEventListener('url', handleDeepLink);
+
+    // [GP-SSO §3] 앱이 닫혀있다가 딥링크로 열린 경우
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    }).catch(() => null);
 
     const timer = setTimeout(() => {
       try {
@@ -62,14 +96,26 @@ const RoutingGuard = () => {
         console.warn('[App] Firebase lazy init 건너뜀:', e?.message);
       }
     }, 0);
-    return () => clearTimeout(timer);
-  }, []);
+    return () => {
+      sub.remove();
+      clearTimeout(timer);
+    };
+  }, [handleDeepLink]);
 
   useEffect(() => {
     _openTrashScreen      = () => setTrashOpen(true);
     _openGkCustomerScreen = () => setGkCustomerOpen(true);
     return () => { _openTrashScreen = null; _openGkCustomerScreen = null; };
   }, []);
+
+  // ── [GP-SSO §3] 미인증 시 SSO 로그인 화면 표시 ───────────────────────────
+  if (!isAuthenticated()) {
+    return (
+      <View style={styles.root}>
+        <OtpAuthScreen />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>

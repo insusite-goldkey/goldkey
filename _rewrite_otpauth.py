@@ -1,4 +1,4 @@
-'use strict';
+new_content = r"""'use strict';
 /**
  * src/screens/OtpAuthScreen.js — Goldkey AI Masters 2026
  *
@@ -139,3 +139,8 @@ const styles = StyleSheet.create({
   btnText:     { fontSize: 16, fontWeight: '900', color: '#ffffff' },
   ssoNote:     { fontSize: 11, color: '#9ca3af', marginTop: 16, textAlign: 'center' },
 });
+"""
+
+with open(r'crm_app\src\screens\OtpAuthScreen.js', 'w', encoding='utf-8') as f:
+    f.write(new_content)
+print("OtpAuthScreen.js 재작성 완료")
