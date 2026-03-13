@@ -37072,6 +37072,11 @@ renderCalendar();
             "_home_scroll_to_sec05": "gk-sec-05-anchor",
             "_home_scroll_to_sec06": "gk-sec-06-anchor",
             "_home_scroll_to_sec07": "gk-sec-07-anchor",
+            "_home_scroll_to_sector_cancer": "sector_cancer",
+            "_home_scroll_to_sector_stroke": "sector_stroke",
+            "_home_scroll_to_sector_fire": "sector_fire",
+            "_home_scroll_to_sector_auto": "sector_auto",
+            "_home_scroll_to_sector_securities": "sector_securities",
         }
         for _sec_key, _sec_anchor in _sec_anchor_map.items():
             if st.session_state.pop(_sec_key, False):
@@ -37928,7 +37933,6 @@ div[data-testid="stSelectbox"] > div > div {
         # [GK-SEC-02] 가처분 소득 기반 3단계 솔루션
         # ═══════════════════════════════════════════════════════════════
         st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-02")}<span class="gk-sec-title">② 가처분 소득 기반 3단계 솔루션</span></div>', unsafe_allow_html=True)
-
         st.markdown("**종목별 바로가기** — 6대 솔루션 영역 및 최소/표준/적정 매트릭스")
         _s2_r1c1, _s2_r1c2 = st.columns(2, gap="small")
         _s2_r2c1, _s2_r2c2 = st.columns(2, gap="small")
@@ -37936,12 +37940,16 @@ div[data-testid="stSelectbox"] > div > div {
         with _s2_r1c1:
             st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("🔴 암", key="sec02_cancer", use_container_width=True):
-                _go_tab("t1")
+                st.session_state["target_sector"] = "cancer"
+                st.session_state["_home_scroll_to_sector_cancer"] = True
+                st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         with _s2_r1c2:
             st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
             if st.button("🧠 뇌·심장", key="sec02_brain", use_container_width=True):
-                _go_tab("t2")
+                st.session_state["target_sector"] = "stroke"
+                st.session_state["_home_scroll_to_sector_stroke"] = True
+                st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         with _s2_r2c1:
             st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
@@ -37955,13 +37963,17 @@ div[data-testid="stSelectbox"] > div > div {
             st.markdown('</div>', unsafe_allow_html=True)
         with _s2_r3c1:
             st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("🏥 간병시설계", key="sec02_nursing", use_container_width=True):
-                _go_tab("dementia")
+            if st.button("🔥 화재보험", key="sec02_fire", use_container_width=True):
+                st.session_state["target_sector"] = "fire"
+                st.session_state["_home_scroll_to_sector_fire"] = True
+                st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         with _s2_r3c2:
             st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("💰 노후연금설계", key="sec02_pension", use_container_width=True):
-                _go_tab("t3")
+            if st.button("🚗 자동차보험", key="sec02_auto", use_container_width=True):
+                st.session_state["target_sector"] = "auto"
+                st.session_state["_home_scroll_to_sector_auto"] = True
+                st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
@@ -38693,9 +38705,463 @@ div[data-testid="stSelectbox"] > div > div {
 
         st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-07 닫기
 
+        # ═══════════════════════════════════════════════════════════════
+        # [상담 깔때기] 하단 상담 섹터 — 액션 그리드에서 스크롤 진입
+        # ═══════════════════════════════════════════════════════════════
+
+        # ── 증권분석 버튼 특수 로직 (크롤링 병목 통과) ────────────────
+        if st.session_state.pop("_sec02_securities_clicked", False):
+            with st.spinner("내보험다보여 데이터 크롤링 및 취합 중..."):
+                import time as _time_sec
+                _time_sec.sleep(2)
+                st.session_state["_securities_data_ready"] = True
+                st.session_state["_securities_crawled_at"] = _time_sec.time()
+            st.session_state["target_sector"] = "securities"
+            st.session_state["_home_scroll_to_sector_securities"] = True
+            st.rerun()
+
+        # ── 증권분석 · 특별 상담 진입 버튼 섹션 ─────────────────────
+        st.markdown(
+            '<div class="gk-sec" style="border-top:4px solid #7c3aed;">'
+            '<span class="gk-sec-title" style="color:#7c3aed;">📊 증권분석 · 특별 상담 진입</span>',
+            unsafe_allow_html=True)
+        _sbtn_c1, _sbtn_c2, _sbtn_c3 = st.columns(3, gap="small")
+        with _sbtn_c1:
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("📊 통합 증권분석 (내보험다보여)", key="sec_securities_enter", use_container_width=True):
+                st.session_state["_sec02_securities_clicked"] = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with _sbtn_c2:
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("🔥 화재보험 섹터로", key="sec_fire_enter2", use_container_width=True):
+                st.session_state["target_sector"] = "fire"
+                st.session_state["_home_scroll_to_sector_fire"] = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with _sbtn_c3:
+            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+            if st.button("🚗 자동차보험 섹터로", key="sec_auto_enter2", use_container_width=True):
+                st.session_state["target_sector"] = "auto"
+                st.session_state["_home_scroll_to_sector_auto"] = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # ════════════════════════════════════════════════════════════════
+        # [SECTOR-CANCER] 암 상담 섹터
+        # ════════════════════════════════════════════════════════════════
+        st.markdown('<div id="sector_cancer" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+        _ts_cancer = st.session_state.get("target_sector") == "cancer"
+        _cancer_badge = ('<span style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;'
+                         'padding:2px 8px;font-size:0.75rem;color:#dc2626;margin-left:10px;">▶ 진입됨</span>'
+                         if _ts_cancer else "")
+        st.markdown(
+            f'<div class="gk-sec" style="border-top:4px solid #dc2626;">'
+            f'<span class="gk-sec-title" style="color:#dc2626;">🔴 암 보장 상담 센터</span>{_cancer_badge}',
+            unsafe_allow_html=True)
+        st.markdown(
+            "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
+            "암 진단비 · 항암치료비 · 수술비 · 요양병원 입원일당 — 가처분 소득 기반 최적 설계</div>",
+            unsafe_allow_html=True)
+        _cancer_l, _cancer_r = st.columns([5, 5], gap="medium")
+        with _cancer_l:
+            st.markdown(
+                "<div style='border:1px dashed #dc2626;border-radius:8px;"
+                "padding:12px 14px;background:#fff5f5;'>"
+                "<div style='font-weight:900;color:#dc2626;font-size:0.85rem;margin-bottom:8px;'>"
+                "📋 암 보장 체크리스트</div>",
+                unsafe_allow_html=True)
+            for _ci, (_cn, _cstd, _cdesc) in enumerate([
+                ("암 진단비", "3,000만원 이상", "일반암 기준 / 최소 보장액"),
+                ("소액암 진단비", "500만원 이상", "갑상선·유방·전립선 등"),
+                ("항암약물치료비", "300만원/회 이상", "신항암제·표적치료 포함"),
+                ("암 수술비", "300만원 이상", "로봇수술 포함 여부 확인"),
+                ("암 입원일당", "3만원/일 이상", "요양병원 포함 여부"),
+            ]):
+                _cbg = "#fff5f5" if _ci % 2 == 0 else "#ffffff"
+                st.markdown(
+                    f'<div style="background:{_cbg};border-bottom:1px solid #fecaca;padding:6px 8px;font-size:0.82rem;">'
+                    f'<span style="font-weight:900;color:#000;">{_cn}</span>'
+                    f' <span style="color:#dc2626;font-weight:700;">권장: {_cstd}</span>'
+                    f'<br><span style="color:#64748b;font-size:0.75rem;">{_cdesc}</span></div>',
+                    unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        with _cancer_r:
+            st.markdown(
+                "<div style='border:1px dashed #dc2626;border-radius:8px;"
+                "padding:12px 14px;background:#fff5f5;'>"
+                "<div style='font-weight:900;color:#dc2626;font-size:0.85rem;margin-bottom:8px;'>"
+                "🤖 AI 암 보장 분석</div>",
+                unsafe_allow_html=True)
+            _cancer_q = st.text_area(
+                "암 관련 질문 입력",
+                placeholder="예) 40대 여성 암보험 추천, 갑상선암 소액암 기준...",
+                height=100, key="sector_cancer_query")
+            if st.button("🔍 암 보장 AI 분석", key="sector_cancer_ai", use_container_width=True, type="primary"):
+                if _cancer_q and _cancer_q.strip():
+                    with st.spinner("AI 암 보장 분석 중..."):
+                        try:
+                            _cc = get_client()
+                            _cc_resp = _cc.chat.completions.create(
+                                model=st.session_state.get("model_name", "gemini-2.0-flash"),
+                                messages=[
+                                    {"role": "system", "content": (
+                                        "당신은 암보험 전문 컨설턴트입니다. "
+                                        f"고객명: {st.session_state.get('scan_client_name','고객')}. "
+                                        "KB 7대 분류 기준으로 암 보장 공백을 분석하고 권장액을 제시하세요.")},
+                                    {"role": "user", "content": _cancer_q.strip()},
+                                ], max_tokens=1200)
+                            st.session_state["sector_cancer_result"] = _cc_resp.choices[0].message.content
+                        except Exception as _cce:
+                            st.session_state["sector_cancer_result"] = f"⚠️ 오류: {_cce}"
+                else:
+                    st.warning("질문을 입력해 주세요.")
+            _cancer_result = st.session_state.get("sector_cancer_result")
+            if _cancer_result:
+                st.markdown(
+                    f'<div class="gk-ai-output-box" style="min-height:120px;max-height:280px;">'
+                    f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
+                    f'{_cancer_result}</div></div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        if st.button("🔴 암보험 전문 분석 탭으로 →", key="sector_cancer_goto_t1"):
+            _go_tab("t1")
+        st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-CANCER 닫기
+
+        # ════════════════════════════════════════════════════════════════
+        # [SECTOR-STROKE] 뇌졸중·뇌혈관 상담 섹터
+        # ════════════════════════════════════════════════════════════════
+        st.markdown('<div id="sector_stroke" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+        _ts_stroke = st.session_state.get("target_sector") == "stroke"
+        _stroke_badge = ('<span style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:6px;'
+                         'padding:2px 8px;font-size:0.75rem;color:#7c3aed;margin-left:10px;">▶ 진입됨</span>'
+                         if _ts_stroke else "")
+        st.markdown(
+            f'<div class="gk-sec" style="border-top:4px solid #7c3aed;">'
+            f'<span class="gk-sec-title" style="color:#7c3aed;">🧠 뇌졸중·뇌혈관 보장 상담 센터</span>{_stroke_badge}',
+            unsafe_allow_html=True)
+        st.markdown(
+            "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
+            "뇌졸중·뇌경색·뇌출혈 진단비 — 가이딩 프로토콜 제32조 18개월 소득대체 기준 분석</div>",
+            unsafe_allow_html=True)
+        _stroke_l, _stroke_r = st.columns([5, 5], gap="medium")
+        with _stroke_l:
+            st.markdown(
+                "<div style='border:1px dashed #7c3aed;border-radius:8px;"
+                "padding:12px 14px;background:#f5f3ff;'>"
+                "<div style='font-weight:900;color:#7c3aed;font-size:0.85rem;margin-bottom:8px;'>"
+                "📋 뇌혈관 보장 체크리스트</div>",
+                unsafe_allow_html=True)
+            for _si2, (_sn, _sstd, _sdesc) in enumerate([
+                ("뇌졸중 진단비", "2,000만원 이상", "뇌경색·뇌출혈 통합 / 제32조 기준"),
+                ("뇌경색 진단비", "2,000만원 이상", "허혈성 뇌졸중 별도 보장 여부"),
+                ("뇌출혈 진단비", "1,000만원 이상", "출혈성 뇌졸중 별도 보장"),
+                ("뇌혈관 수술비", "500만원/회 이상", "코일색전술·클리핑 포함"),
+                ("뇌졸중 입원일당", "3만원/일 이상", "요양병원 180일 한도 확인"),
+            ]):
+                _sbg2 = "#f5f3ff" if _si2 % 2 == 0 else "#ffffff"
+                st.markdown(
+                    f'<div style="background:{_sbg2};border-bottom:1px solid #c4b5fd;padding:6px 8px;font-size:0.82rem;">'
+                    f'<span style="font-weight:900;color:#000;">{_sn}</span>'
+                    f' <span style="color:#7c3aed;font-weight:700;">권장: {_sstd}</span>'
+                    f'<br><span style="color:#64748b;font-size:0.75rem;">{_sdesc}</span></div>',
+                    unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        with _stroke_r:
+            st.markdown(
+                "<div style='border:1px dashed #7c3aed;border-radius:8px;"
+                "padding:12px 14px;background:#f5f3ff;'>"
+                "<div style='font-weight:900;color:#7c3aed;font-size:0.85rem;margin-bottom:8px;'>"
+                "🤖 AI 뇌혈관 보장 분석</div>",
+                unsafe_allow_html=True)
+            _stroke_q = st.text_area(
+                "뇌혈관 관련 질문 입력",
+                placeholder="예) 50대 남성 뇌졸중보험, 뇌경색 뇌출혈 차이...",
+                height=100, key="sector_stroke_query")
+            if st.button("🔍 뇌혈관 보장 AI 분석", key="sector_stroke_ai", use_container_width=True, type="primary"):
+                if _stroke_q and _stroke_q.strip():
+                    with st.spinner("AI 뇌혈관 보장 분석 중..."):
+                        try:
+                            _sc3 = get_client()
+                            _sc3_resp = _sc3.chat.completions.create(
+                                model=st.session_state.get("model_name", "gemini-2.0-flash"),
+                                messages=[
+                                    {"role": "system", "content": (
+                                        "당신은 뇌혈관질환 보험 전문 컨설턴트입니다. "
+                                        f"고객명: {st.session_state.get('scan_client_name','고객')}. "
+                                        "가이딩 프로토콜 제32조(뇌졸중 18개월 소득대체) 기준으로 분석하세요.")},
+                                    {"role": "user", "content": _stroke_q.strip()},
+                                ], max_tokens=1200)
+                            st.session_state["sector_stroke_result"] = _sc3_resp.choices[0].message.content
+                        except Exception as _sce3:
+                            st.session_state["sector_stroke_result"] = f"⚠️ 오류: {_sce3}"
+                else:
+                    st.warning("질문을 입력해 주세요.")
+            _stroke_result = st.session_state.get("sector_stroke_result")
+            if _stroke_result:
+                st.markdown(
+                    f'<div class="gk-ai-output-box" style="min-height:120px;max-height:280px;">'
+                    f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
+                    f'{_stroke_result}</div></div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        if st.button("🧠 뇌·심장 전문 분석 탭으로 →", key="sector_stroke_goto_t2"):
+            _go_tab("t2")
+        st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-STROKE 닫기
+
+        # ════════════════════════════════════════════════════════════════
+        # [SECTOR-FIRE] 화재보험 상담 섹터
+        # ════════════════════════════════════════════════════════════════
+        st.markdown('<div id="sector_fire" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+        _ts_fire = st.session_state.get("target_sector") == "fire"
+        _fire_badge = ('<span style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;'
+                       'padding:2px 8px;font-size:0.75rem;color:#ea580c;margin-left:10px;">▶ 진입됨</span>'
+                       if _ts_fire else "")
+        st.markdown(
+            f'<div class="gk-sec" style="border-top:4px solid #ea580c;">'
+            f'<span class="gk-sec-title" style="color:#ea580c;">🔥 화재보험 전술 상담 센터</span>{_fire_badge}',
+            unsafe_allow_html=True)
+        st.markdown(
+            "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
+            "주택·상가·공장 화재보험 · 배상책임 · 재물손해 — 전문 상담 진입</div>",
+            unsafe_allow_html=True)
+        _fire_l, _fire_r = st.columns([5, 5], gap="medium")
+        with _fire_l:
+            st.markdown(
+                "<div style='border:1px dashed #ea580c;border-radius:8px;"
+                "padding:12px 14px;background:#fff7ed;'>"
+                "<div style='font-weight:900;color:#ea580c;font-size:0.85rem;margin-bottom:8px;'>"
+                "📋 화재보험 체크리스트</div>",
+                unsafe_allow_html=True)
+            for _fi, (_fn, _fstd, _fdesc) in enumerate([
+                ("건물 화재손해", "재건축비 100% 보상", "감가상각 없는 신가보상 확인"),
+                ("가재도구 손해", "실손 보상 한도 확인", "귀중품·전자기기 별도 특약"),
+                ("배상책임", "1억원 이상 권장", "임차인·제3자 배상책임 포함"),
+                ("수해·풍재", "특약 가입 여부 확인", "태풍·홍수·지진 포함 여부"),
+                ("법적 강제보험", "다중이용업소 의무 가입", "화재배상책임보험 법령 확인"),
+            ]):
+                _fbg = "#fff7ed" if _fi % 2 == 0 else "#ffffff"
+                st.markdown(
+                    f'<div style="background:{_fbg};border-bottom:1px solid #fed7aa;padding:6px 8px;font-size:0.82rem;">'
+                    f'<span style="font-weight:900;color:#000;">{_fn}</span>'
+                    f' <span style="color:#ea580c;font-weight:700;">{_fstd}</span>'
+                    f'<br><span style="color:#64748b;font-size:0.75rem;">{_fdesc}</span></div>',
+                    unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        with _fire_r:
+            st.markdown(
+                "<div style='border:1px dashed #ea580c;border-radius:8px;"
+                "padding:12px 14px;background:#fff7ed;'>"
+                "<div style='font-weight:900;color:#ea580c;font-size:0.85rem;margin-bottom:8px;'>"
+                "🤖 AI 화재보험 상담</div>",
+                unsafe_allow_html=True)
+            _fire_q = st.text_area(
+                "화재보험 질문 입력",
+                placeholder="예) 상가 화재보험 가입 기준, 임차인 배상책임...",
+                height=100, key="sector_fire_query")
+            if st.button("🔍 화재보험 AI 상담", key="sector_fire_ai", use_container_width=True, type="primary"):
+                if _fire_q and _fire_q.strip():
+                    with st.spinner("AI 화재보험 분석 중..."):
+                        try:
+                            _fc = get_client()
+                            _fc_resp = _fc.chat.completions.create(
+                                model=st.session_state.get("model_name", "gemini-2.0-flash"),
+                                messages=[
+                                    {"role": "system", "content": (
+                                        "당신은 화재보험·배상책임보험 전문 컨설턴트입니다. "
+                                        "주택·상가·공장·다중이용업소의 화재보험 가입 기준과 "
+                                        "배상책임, 재물손해 보장 구조를 실무 관점에서 안내하세요.")},
+                                    {"role": "user", "content": _fire_q.strip()},
+                                ], max_tokens=1200)
+                            st.session_state["sector_fire_result"] = _fc_resp.choices[0].message.content
+                        except Exception as _fce:
+                            st.session_state["sector_fire_result"] = f"⚠️ 오류: {_fce}"
+                else:
+                    st.warning("질문을 입력해 주세요.")
+            _fire_result = st.session_state.get("sector_fire_result")
+            if _fire_result:
+                st.markdown(
+                    f'<div class="gk-ai-output-box" style="min-height:120px;max-height:280px;">'
+                    f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
+                    f'{_fire_result}</div></div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        if st.button("🔥 화재보험 전문 분석 탭으로 →", key="sector_fire_goto"):
+            _go_tab("gk_sec08")
+        st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-FIRE 닫기
+
+        # ════════════════════════════════════════════════════════════════
+        # [SECTOR-AUTO] 자동차보험 상담 섹터
+        # ════════════════════════════════════════════════════════════════
+        st.markdown('<div id="sector_auto" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+        _ts_auto = st.session_state.get("target_sector") == "auto"
+        _auto_badge = ('<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;'
+                       'padding:2px 8px;font-size:0.75rem;color:#0369a1;margin-left:10px;">▶ 진입됨</span>'
+                       if _ts_auto else "")
+        st.markdown(
+            f'<div class="gk-sec" style="border-top:4px solid #0369a1;">'
+            f'<span class="gk-sec-title" style="color:#0369a1;">🚗 자동차보험 전술 상담 센터</span>{_auto_badge}',
+            unsafe_allow_html=True)
+        st.markdown(
+            "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
+            "자동차보험 보장 분석 · 교통사고 보상 실무 · 형사합의금 · 운전자보험 연계</div>",
+            unsafe_allow_html=True)
+        _auto_l, _auto_r = st.columns([5, 5], gap="medium")
+        with _auto_l:
+            st.markdown(
+                "<div style='border:1px dashed #0369a1;border-radius:8px;"
+                "padding:12px 14px;background:#eff6ff;'>"
+                "<div style='font-weight:900;color:#0369a1;font-size:0.85rem;margin-bottom:8px;'>"
+                "📋 자동차보험 체크리스트</div>",
+                unsafe_allow_html=True)
+            for _ai2, (_an, _astd, _adesc) in enumerate([
+                ("대인배상Ⅱ", "무한 가입 필수", "상해사망·부상 치료비 전액"),
+                ("대물배상", "2억원 이상 권장", "고가차량·시설물 사고 대비"),
+                ("자기신체사고", "사망 1.5억 이상", "운전자 본인 신체 보장"),
+                ("무보험차상해", "가입 여부 확인", "상대방 무보험 시 내 보험 청구"),
+                ("운전자보험 연계", "형사합의금 3,000만원+", "교통사고처리특례법 연계"),
+            ]):
+                _abg2 = "#eff6ff" if _ai2 % 2 == 0 else "#ffffff"
+                st.markdown(
+                    f'<div style="background:{_abg2};border-bottom:1px solid #bfdbfe;padding:6px 8px;font-size:0.82rem;">'
+                    f'<span style="font-weight:900;color:#000;">{_an}</span>'
+                    f' <span style="color:#0369a1;font-weight:700;">{_astd}</span>'
+                    f'<br><span style="color:#64748b;font-size:0.75rem;">{_adesc}</span></div>',
+                    unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        with _auto_r:
+            st.markdown(
+                "<div style='border:1px dashed #0369a1;border-radius:8px;"
+                "padding:12px 14px;background:#eff6ff;'>"
+                "<div style='font-weight:900;color:#0369a1;font-size:0.85rem;margin-bottom:8px;'>"
+                "🤖 AI 자동차보험 상담</div>",
+                unsafe_allow_html=True)
+            _auto_q = st.text_area(
+                "자동차보험 질문 입력",
+                placeholder="예) 교통사고 과실비율, 형사합의금 기준...",
+                height=100, key="sector_auto_query")
+            if st.button("🔍 자동차보험 AI 상담", key="sector_auto_ai", use_container_width=True, type="primary"):
+                if _auto_q and _auto_q.strip():
+                    with st.spinner("AI 자동차보험 분석 중..."):
+                        try:
+                            _ac = get_client()
+                            _ac_resp = _ac.chat.completions.create(
+                                model=st.session_state.get("model_name", "gemini-2.0-flash"),
+                                messages=[
+                                    {"role": "system", "content": (
+                                        "당신은 자동차보험·운전자보험 전문 컨설턴트입니다. "
+                                        "교통사고 과실비율, 형사합의금, 대인·대물·자기신체 보장 구조, "
+                                        "운전자보험 연계 전략을 실무 관점에서 상담하세요.")},
+                                    {"role": "user", "content": _auto_q.strip()},
+                                ], max_tokens=1200)
+                            st.session_state["sector_auto_result"] = _ac_resp.choices[0].message.content
+                        except Exception as _ace:
+                            st.session_state["sector_auto_result"] = f"⚠️ 오류: {_ace}"
+                else:
+                    st.warning("질문을 입력해 주세요.")
+            _auto_result = st.session_state.get("sector_auto_result")
+            if _auto_result:
+                st.markdown(
+                    f'<div class="gk-ai-output-box" style="min-height:120px;max-height:280px;">'
+                    f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
+                    f'{_auto_result}</div></div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        if st.button("🚗 자동차보험 전문 분석 탭으로 →", key="sector_auto_goto"):
+            _go_tab("gk_sec07")
+        st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-AUTO 닫기
+
+        # ════════════════════════════════════════════════════════════════
+        # [SECTOR-SECURITIES] 통합 증권분석 섹터 (내보험다보여 연계)
+        # ════════════════════════════════════════════════════════════════
+        st.markdown('<div id="sector_securities" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+        _sec_data_ready = st.session_state.get("_securities_data_ready", False)
+        _sec_badge = ('<span style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;'
+                      'padding:2px 8px;font-size:0.75rem;color:#059669;margin-left:10px;">▶ 데이터 취합 완료</span>'
+                      if _sec_data_ready else "")
+        st.markdown(
+            f'<div class="gk-sec" style="border-top:4px solid #059669;">'
+            f'<span class="gk-sec-title" style="color:#059669;">📊 통합 증권분석 센터 (내보험다보여)</span>{_sec_badge}',
+            unsafe_allow_html=True)
+        st.markdown(
+            "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
+            "내보험다보여 데이터 기반 전체 보험증권 통합 분석 · KB 7대 분류 보장공백 진단</div>",
+            unsafe_allow_html=True)
+        if not _sec_data_ready:
+            st.info(
+                "💡 상단 **📊 통합 증권분석** 버튼 클릭 시 내보험다보여 데이터를 크롤링·취합 후 이 섹터로 자동 이동됩니다.\n\n"
+                "또는 아래에서 직접 보험증권 정보를 입력하여 분석하세요."
+            )
+        _sec_l, _sec_r = st.columns([5, 5], gap="medium")
+        with _sec_l:
+            st.markdown(
+                "<div style='border:1px dashed #059669;border-radius:8px;"
+                "padding:12px 14px;background:#ecfdf5;'>"
+                "<div style='font-weight:900;color:#059669;font-size:0.85rem;margin-bottom:8px;'>"
+                "📋 보유 보험증권 목록 (직접 입력)</div>",
+                unsafe_allow_html=True)
+            _sec_policy_input = st.text_area(
+                "보유 증권 요약 입력",
+                value=st.session_state.get("_securities_policy_text", ""),
+                placeholder=(
+                    "예)\n삼성생명 종신보험 (2015년) — 사망 1억\n"
+                    "DB손해보험 통합보험 (2019년) — 암3000 뇌2000 심2000\n"
+                    "메리츠화재 실손의료비 (2021년) — 3세대"
+                ),
+                height=130, key="sector_sec_policy_input")
+            if st.button("💾 증권 목록 저장", key="sector_sec_save", use_container_width=True):
+                st.session_state["_securities_policy_text"] = _sec_policy_input
+                st.success("✅ 증권 목록 저장 완료")
+            st.markdown("</div>", unsafe_allow_html=True)
+        with _sec_r:
+            st.markdown(
+                "<div style='border:1px dashed #059669;border-radius:8px;"
+                "padding:12px 14px;background:#ecfdf5;'>"
+                "<div style='font-weight:900;color:#059669;font-size:0.85rem;margin-bottom:8px;'>"
+                "🤖 AI 통합 증권분석</div>",
+                unsafe_allow_html=True)
+            _sec_q = st.text_area(
+                "증권분석 질문 입력",
+                placeholder="예) 보장공백 분석, 중복보험 확인, KB 7대 분류 기준 검토...",
+                height=80, key="sector_sec_query")
+            if st.button("🔍 통합 증권 AI 분석", key="sector_sec_ai", use_container_width=True, type="primary"):
+                _policy_text = st.session_state.get("_securities_policy_text", "") or _sec_policy_input
+                if not _policy_text and not (_sec_q and _sec_q.strip()):
+                    st.warning("증권 목록 또는 질문을 입력해 주세요.")
+                else:
+                    with st.spinner("AI 통합 증권분석 중..."):
+                        try:
+                            _sec2_c = get_client()
+                            _sec2_user = f"[보유 증권]\n{_policy_text}\n\n[질문]\n{_sec_q or '전체 보장공백 분석'}"
+                            _sec2_resp = _sec2_c.chat.completions.create(
+                                model=st.session_state.get("model_name", "gemini-2.0-flash"),
+                                messages=[
+                                    {"role": "system", "content": (
+                                        "당신은 보험증권 통합분석 전문가입니다. "
+                                        f"고객명: {st.session_state.get('scan_client_name','고객')}. "
+                                        "KB 7대 분류 기준으로 보장공백·중복보험·적정 보장 여부를 분석하고 "
+                                        "KOSIS 통계 기반 우선순위를 제시하세요.")},
+                                    {"role": "user", "content": _sec2_user},
+                                ], max_tokens=1800)
+                            st.session_state["sector_sec_result"] = _sec2_resp.choices[0].message.content
+                        except Exception as _sec2e:
+                            st.session_state["sector_sec_result"] = f"⚠️ 오류: {_sec2e}"
+            _sec_result = st.session_state.get("sector_sec_result")
+            if _sec_result:
+                st.markdown(
+                    f'<div class="gk-ai-output-box" style="min-height:120px;max-height:320px;">'
+                    f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
+                    f'{_sec_result}</div></div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div style='background:#ecfdf5;border:1.5px solid #6ee7b7;border-radius:10px;"
+            "padding:10px 14px;margin:10px 0;font-size:0.82rem;color:#065f46;'>"
+            "💡 <b>깔때기 구조</b>: 각 상담 섹터 데이터는 GK-SEC-01 고객 마스터에 태깅됩니다. "
+            "최종 통합 분석은 <b>특별파트 5단계</b> 또는 <b>가문 안보 리포트</b>에서 완성됩니다."
+            "</div>",
+            unsafe_allow_html=True)
+        if st.button("📊 보험증권 전문 분석 탭으로 →", key="sector_sec_goto"):
+            _go_tab("policy_scan")
+        st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-SECURITIES 닫기
 
     # ══════════════════════════════════════════════════════════════════════
-    # [아키텍처 — Global Store] 기둥 간 공용 메모리 초기화 & 접근 함수
     # 전문가 제언: 응접실(메뉴창) 하부에 가벼운 공용 메모리를 두어
     # 기둥 간 데이터 공유를 매끄럽게 처리 (Data Consistency 보완)
     # ══════════════════════════════════════════════════════════════════════
