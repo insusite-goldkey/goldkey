@@ -28559,6 +28559,26 @@ footer, footer * {
 }
 </style>""", unsafe_allow_html=True)
 
+    # ── [제53조 §CSS] 사이드바 강제 열기 CSS ──────────────────────────────
+    st.markdown("""<style>
+section[data-testid="stSidebar"] {
+    display: flex !important;
+    visibility: visible !important;
+    transform: translateX(0) !important;
+    min-width: 240px !important;
+    left: 0 !important;
+}
+section[data-testid="stSidebar"][aria-expanded="false"] {
+    display: flex !important;
+    transform: translateX(0) !important;
+    min-width: 240px !important;
+}
+[data-testid="collapsedControl"] {
+    display: none !important;
+}
+</style>""", unsafe_allow_html=True)
+
+
     # ── [제49조] 직통 진입 — 랜딩 페이지 폐지, 항상 메인 화면 직통 ────────
     st.session_state["_lp_landing"] = True
 
