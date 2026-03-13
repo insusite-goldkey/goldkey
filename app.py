@@ -28525,7 +28525,7 @@ def main():
     # [제53조 복원] 로그인 후에도 사이드바 expanded 표시
     _is_logged_in = st.session_state.get("user_id") or st.session_state.get("authenticated")
     _sb_init_state = "expanded"
-    _layout_mode = "wide" if (st.session_state.get("user_id") or st.session_state.get("authenticated")) else "centered"
+    _layout_mode = "wide"
     st.set_page_config(
         page_title="goldkey_Ai_masters2026 마스터 AI",
         page_icon="🏆",
@@ -28572,9 +28572,6 @@ section[data-testid="stSidebar"][aria-expanded="false"] {
     display: flex !important;
     transform: translateX(0) !important;
     min-width: 240px !important;
-}
-[data-testid="collapsedControl"] {
-    display: none !important;
 }
 </style>""", unsafe_allow_html=True)
 
