@@ -31749,30 +31749,44 @@ watchRipple();
             import streamlit.components.v1 as _comp_open
             _comp_open.html("""<script>
 (function(){
-  function tryOpen() {
+  function isClosed() {
     try {
       var pd = window.parent.document;
       var sb = pd.querySelector('section[data-testid="stSidebar"]');
-      if (sb) {
-        sb.setAttribute('aria-expanded', 'true');
-        sb.style.transform = 'translateX(0)';
-        sb.style.visibility = 'visible';
-      }
+      if (!sb) return true;
+      return sb.getAttribute('aria-expanded') === 'false';
+    } catch(e) { return true; }
+  }
+  function clickToggle() {
+    try {
+      var pd = window.parent.document;
       var selectors = [
+        '[data-testid="collapsedControl"] button',
+        '[data-testid="stSidebarCollapseButton"] button',
         'button[aria-label="Open sidebar"]',
         'button[aria-label="사이드바를 열거나 닫으세요"]',
-        '[data-testid="collapsedControl"] button',
-        '[data-testid="stSidebarCollapseButton"] button'
+        'button[aria-label="open sidebar"]'
       ];
       for (var i = 0; i < selectors.length; i++) {
         var btn = pd.querySelector(selectors[i]);
-        if (btn) { btn.click(); break; }
+        if (btn) { btn.click(); return true; }
+      }
+      var all = pd.querySelectorAll('button');
+      for (var j = 0; j < all.length; j++) {
+        var lbl = (all[j].getAttribute('aria-label') || '').toLowerCase();
+        if (lbl.indexOf('sidebar') !== -1 || lbl.indexOf('사이드') !== -1) {
+          all[j].click(); return true;
+        }
       }
     } catch(e) {}
+    return false;
   }
-  setTimeout(tryOpen, 100);
-  setTimeout(tryOpen, 400);
-  setTimeout(tryOpen, 900);
+  function tryOpen() {
+    if (isClosed()) { clickToggle(); }
+  }
+  setTimeout(tryOpen, 200);
+  setTimeout(tryOpen, 600);
+  setTimeout(tryOpen, 1200);
 })();
 </script>""", height=0)
 
