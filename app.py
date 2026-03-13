@@ -192,6 +192,10 @@ _ART22_APPROVED_SOURCES = {
 #                  신경심리검사(SNSB, LICA 등) 해석.
 #      암·뇌혈관·심장질환 최신 의학 논문.
 #      치매 환자 관리 및 고령화 연구 논문.
+#      당뇨병: ADA Standards of Care in Diabetes(최신판),
+#              PubMed 최신 3년 내 메타분석·RCT — HbA1c 기준·합병증 예방 프로토콜.
+#              보험 요율 산정 위험 요인(Risk Factors) 및 완화 지표 추출·구조화.
+#              GCS Medical_Library 버킷 PDF/JSON 자료 연동.
 #
 #   § 5. 재무/세무/부동산:
 #      부동산 재무 컨설팅, 최신 세무 관련 법령·지침 자료.
@@ -225,10 +229,19 @@ _ART26_KNOWLEDGE_INDEX: dict = {
         "신경심리검사(SNSB, LICA) 해석",
         "암·뇌혈관·심장질환 최신 의학 논문",
         "치매 환자 관리 및 고령화 연구 논문",
+        "ADA Standards of Care in Diabetes (최신판) — HbA1c 진단 기준·합병증 예방 프로토콜",
+        "PubMed 최신 3년 메타분석·RCT — 당뇨병 위험 요인(Risk Factors) 및 완화 지표",
+        "당뇨병 보험 요율 산정 영향 인자 — 위험률 산정·건강코칭 할인 혜택 연동",
+        "GCS Medical_Library 버킷 PDF/JSON 의학 자료 (당뇨·고혈압 합병증 근거)",
     ],
     "재무/세무/부동산": [
         "부동산 재무 컨설팅 자료",
         "최신 세무 관련 법령·지침",
+    ],
+    "학습 금지": [
+        "개인 블로그", "카페", "지식인",
+        "유튜브(보험설계사 해설)", "유튜브(일반인 해설)",
+        "SNS 개인 게시물", "커뮤니티 게시물",
     ],
 }
 _ART26_ZERO_TOLERANCE: list = [          # § 6 학습 금지 소스 (제23조와 통합 적용)
@@ -44059,9 +44072,20 @@ if cur == "kcd_injury":
     st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
 # ── [auto_comp] 자동차보험 및 보상 실무 통합 ─────────────────────────
+def show_expiry_alerts():
+    st.error("🚨 **오늘의 만기 관리 대상: 3명**")
+    cols = st.columns(3)
+    with cols[0]:
+        st.metric(label="홍길동 고객님", value="D-15", delta="픽업트럭")
+    with cols[1]:
+        st.metric(label="김철수 고객님", value="D-21", delta="전기차")
+    with cols[2]:
+        st.metric(label="이영희 고객님", value="D-7", delta="캠핑카")
+
 if cur == "auto_comp":
     if not _auth_gate("auto_comp"): st.stop()
     tab_home_btn("auto_comp")
+    show_expiry_alerts()
 
     st.markdown(f"""
 <div class="gk-sky-trust gp-interactive"
