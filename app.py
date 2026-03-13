@@ -37229,6 +37229,107 @@ renderCalendar();
 </div>""", unsafe_allow_html=True)
         st.stop()
 
+    # ══════════════════════════════════════════════════════════════════════
+    # [Phase 4 — GP 마스터-그림자] HQ 응접 데스크 도킹 처리
+    # CRM 자 앱에서 gk_cid / gk_token / gk_sector 를 URL로 전달받아
+    # 스피너 → 고객 로드 → 섹터 자동 점프 실행
+    # ══════════════════════════════════════════════════════════════════════
+    _rd_cid    = st.query_params.get("gk_cid",    "")
+    _rd_name   = st.query_params.get("gk_name",   "")
+    _rd_sector = st.query_params.get("gk_sector", "")
+    _rd_token  = st.query_params.get("gk_token",  "")
+
+    # query_params에서 수신 → session_state에 보존 후 URL 정리
+    if _rd_cid and not st.session_state.get("_rd_docked_cid"):
+        st.session_state["_rd_docked_cid"]    = _rd_cid
+        st.session_state["_rd_docked_name"]   = _rd_name
+        st.session_state["_rd_docked_sector"] = _rd_sector
+        st.session_state["_rd_docked_token"]  = _rd_token
+        st.session_state["_rd_loading"]       = True
+        try:
+            st.query_params.clear()
+        except Exception:
+            pass
+        st.rerun()
+
+    _dock_cid    = st.session_state.get("_rd_docked_cid",    "")
+    _dock_name   = st.session_state.get("_rd_docked_name",   "")
+    _dock_sector = st.session_state.get("_rd_docked_sector", "")
+    _dock_loading = st.session_state.pop("_rd_loading", False)
+
+    # ── 응접 데스크 패널 (항상 렌더 — 홈 최상단 영구 고정) ──────────────
+    with st.container(border=True):
+        if not _dock_cid:
+            st.markdown(
+                "<div style='padding:5px 0;color:#94a3b8;font-size:0.83rem;text-align:center;'>"
+                "🛎️ <b>HQ 응접 데스크</b> — CRM 현장 기동대에서 고객을 선택하면 여기에 자동 도킹됩니다."
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            if _dock_loading:
+                with st.spinner("🛎️ CRM에서 고객 정보를 안전하게 불러오고 있습니다..."):
+                    import time as _time_rd; _time_rd.sleep(0.5)
+
+            _rd_sector_labels = {
+                "cancer": "암보험 분석", "brain": "뇌혈관 분석",
+                "heart": "심장 분석",   "fire": "화재보험 분석",
+                "auto": "자동차보험",   "t1": "보험금 청구 상담",
+                "t2": "실손보험 분석",  "t3": "KB7 보장 분석",
+                "t4": "AI 보고서",      "home": "홈",
+            }
+            _sector_lbl = _rd_sector_labels.get(_dock_sector, _dock_sector or "홈")
+
+            _rd_c1, _rd_c2 = st.columns([4, 1])
+            with _rd_c1:
+                st.markdown(
+                    f"<div style='padding:3px 0;'>"
+                    f"<span style='font-size:0.95rem;font-weight:900;color:#16a34a;'>"
+                    f"✅ HQ 정밀 상담 도킹 완료</span>"
+                    f"<span style='font-size:1.0rem;font-weight:900;color:#1e293b;"
+                    f"margin-left:10px;'>{_dock_name}</span>"
+                    f"<span style='font-size:0.72rem;color:#6b7280;margin-left:8px;'>"
+                    f"CID: {_dock_cid[:8]}...</span>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+                if _dock_sector and _dock_sector not in ("home", ""):
+                    st.caption(f"📍 목적지 섹터: **{_sector_lbl}** — 자동 이동 중")
+            with _rd_c2:
+                if st.button("✕ 도킹 해제", key="_rd_undock_btn", use_container_width=True):
+                    for _rk in ["_rd_docked_cid", "_rd_docked_name",
+                                "_rd_docked_sector", "_rd_docked_token"]:
+                        st.session_state.pop(_rk, None)
+                    st.rerun()
+
+            # 섹터 자동 점프 (Smooth Scroll + current_tab 전환)
+            if _dock_sector and _dock_sector not in ("home", ""):
+                _jump_done_key = f"_rd_jumped_{_dock_cid[:8]}_{_dock_sector}"
+                if not st.session_state.get(_jump_done_key):
+                    st.session_state[_jump_done_key] = True
+                    st.session_state["current_tab"] = _dock_sector
+                    st.session_state["_scroll_top"] = True
+                    import streamlit.components.v1 as _rd_comp
+                    _rd_comp.html(f"""
+<script>
+(function() {{
+  function smoothJump() {{
+    try {{
+      var pd = window.parent.document;
+      var anchor = pd.getElementById('{_dock_sector}')
+                || pd.querySelector('[data-sector="{_dock_sector}"]')
+                || pd.querySelector('#gk-sec-{_dock_sector}-anchor');
+      if (anchor) {{
+        anchor.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+      }}
+    }} catch(e) {{}}
+  }}
+  setTimeout(smoothJump, 900);
+  setTimeout(smoothJump, 2000);
+}})();
+</script>""", height=0)
+                    st.rerun()
+
     # ── [홈] 카드 네비게이션 ──────────────────────────────────────────────
     if cur == "home":
         # ── [NAV] _home_scroll_to_sec* 앵커 스크롤 처리 ──────────────────
