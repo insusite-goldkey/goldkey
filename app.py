@@ -28563,8 +28563,9 @@ def main():
         initial_sidebar_state=_sb_init_state
     )
 
-    # ── [로딩 UI 한국어화] Streamlit 기본 영어 메시지 즉시 숨김 ─────────────
-    st.markdown("""<style>
+    # ── [로딩 UI 한국어화] Running... 숨김 + 한국어 구동중 문구 오버레이 ────
+    st.markdown("""
+<style>
 /* ① 우측 상단 Running... 상태 위젯 숨김 */
 [data-testid="stStatusWidget"],
 div[data-testid="stStatusWidget"] {
@@ -28587,56 +28588,120 @@ footer, footer * {
 #MainMenu, [data-testid="stMainMenuButton"] {
     display: none !important;
 }
-</style>""", unsafe_allow_html=True)
-
-    # ── [제53조 §CSS] 사이드바 강제 열기 CSS (aria-expanded 무관 항상 표시) ──
-    st.markdown("""<style>
-/* collapsed 버튼(☰) 완전 숨김 - 사이드바 닫기 방지 */
-[data-testid="collapsedControl"],
-button[data-testid="collapsedControl"] {
-    display: none !important;
-    width: 0 !important;
-    overflow: hidden !important;
+/* ⑤ [GP-KO-LOADING] RUNNING 오버레이 → 한국어 구동중 문구 */
+#gk-loading-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.82);
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    backdrop-filter: blur(2px);
 }
-/* 사이드바 닫기 버튼 숨김 */
+#gk-loading-overlay.visible {
+    display: flex !important;
+}
+#gk-loading-overlay .gk-loading-title {
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: #1e3a8a;
+    letter-spacing: 0.02em;
+}
+#gk-loading-overlay .gk-loading-sub {
+    font-size: 0.95rem;
+    color: #374151;
+    font-weight: 600;
+}
+#gk-loading-overlay .gk-loading-dot {
+    display: flex; gap: 6px;
+}
+#gk-loading-overlay .gk-loading-dot span {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #1e3a8a;
+    animation: gk-bounce 1.2s infinite ease-in-out;
+}
+#gk-loading-overlay .gk-loading-dot span:nth-child(2) { animation-delay: 0.2s; }
+#gk-loading-overlay .gk-loading-dot span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes gk-bounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1.0); opacity: 1; }
+}
+</style>
+<div id="gk-loading-overlay">
+  <div class="gk-loading-title">Goldkey AI Masters 2026</div>
+  <div class="gk-loading-sub">구동중입니다. 잠시 기다려주세요!</div>
+  <div class="gk-loading-dot"><span></span><span></span><span></span></div>
+</div>
+<script>
+(function() {
+  var overlay = document.getElementById('gk-loading-overlay');
+  function checkRunning() {
+    try {
+      var pd = window.parent.document;
+      var statusWidget = pd.querySelector('[data-testid="stStatusWidget"]');
+      var isRunning = statusWidget && statusWidget.style.display !== 'none'
+                      && statusWidget.innerHTML.trim() !== '';
+      // Streamlit 내부 running 클래스 감지
+      var runningEl = pd.querySelector('.running') || pd.querySelector('[data-running="true"]');
+      if (isRunning || runningEl) {
+        overlay.classList.add('visible');
+      } else {
+        overlay.classList.remove('visible');
+      }
+    } catch(e) {}
+  }
+  // MutationObserver로 DOM 변화 감지
+  try {
+    var pd = window.parent.document;
+    var observer = new MutationObserver(checkRunning);
+    observer.observe(pd.body, { childList: true, subtree: true, attributes: true });
+  } catch(e) {}
+  setInterval(checkRunning, 300);
+})();
+</script>
+""", unsafe_allow_html=True)
+
+    # ── [제53조 §CSS] 사이드바 강제 열기 CSS ─────────────────────────────
+    st.markdown("""<style>
+/* ── 사이드바 collapse/expand 버튼 완전 숨김 ── */
+[data-testid="collapsedControl"],
+button[data-testid="collapsedControl"],
 [data-testid="stSidebarCollapseButton"],
 button[aria-label="Collapse sidebar"],
 button[aria-label="사이드바를 열거나 닫으세요"] {
     display: none !important;
+    width: 0 !important;
+    overflow: hidden !important;
 }
-/* 사이드바 항상 표시 - aria-expanded 값 무관 */
+/* ── 사이드바 항상 표시 (position 건드리지 않음 — Streamlit 내부 레이아웃 유지) ── */
 section[data-testid="stSidebar"] {
-    transform: none !important;
-    translate: none !important;
-    left: 0 !important;
-    position: relative !important;
-    display: flex !important;
+    transform: translateX(0) !important;
+    margin-left: 0 !important;
     visibility: visible !important;
     opacity: 1 !important;
     min-width: 244px !important;
-    width: 244px !important;
     max-width: 320px !important;
-    flex-shrink: 0 !important;
     pointer-events: auto !important;
+    z-index: 10 !important;
+}
+section[data-testid="stSidebar"][aria-expanded="false"] {
+    transform: translateX(0) !important;
+    margin-left: 0 !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 section[data-testid="stSidebar"] > div:first-child {
-    display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
     width: 100% !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
 }
-/* 메인 컨테이너가 사이드바 옆에 위치하도록 */
-[data-testid="stAppViewContainer"] {
-    flex-direction: row !important;
-}
-[data-testid="stMain"] {
-    flex: 1 !important;
-    min-width: 0 !important;
-}
 </style>""", unsafe_allow_html=True)
-
 
     # ── [제49조] 직통 진입 — 랜딩 페이지 폐지, 항상 메인 화면 직통 ────────
     st.session_state["_lp_landing"] = True
