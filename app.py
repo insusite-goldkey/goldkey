@@ -1,4 +1,4 @@
-﻿# ==========================================================
+# ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -6350,14 +6350,13 @@ textarea::placeholder {
         min-width: 260px !important;
         max-width: 320px !important;
         transition: transform 0.25s ease !important;
+        visibility: visible !important;
     }
     section[data-testid="stSidebar"][aria-expanded="true"] {
         transform: translateX(0) !important;
-        visibility: visible !important;
     }
     section[data-testid="stSidebar"][aria-expanded="false"] {
         transform: translateX(-110%) !important;
-        visibility: hidden !important;
     }
 }
 /* §4-C-3 — 모바일 레이아웃 잘림 방지 */
@@ -28538,7 +28537,7 @@ def main():
     # ── STEP 1: set_page_config (항상 가장 먼저) ─────────────────────────
     # [제53조 복원] 로그인 후에도 사이드바 expanded 표시
     _is_logged_in = st.session_state.get("user_id") or st.session_state.get("authenticated")
-    _sb_init_state = "collapsed"
+    _sb_init_state = "expanded" if _is_logged_in else "collapsed"
     _layout_mode = "wide" if (st.session_state.get("user_id") or st.session_state.get("authenticated")) else "centered"
     st.set_page_config(
         page_title="goldkey_Ai_masters2026 마스터 AI",
