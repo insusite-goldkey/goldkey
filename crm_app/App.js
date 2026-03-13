@@ -2,29 +2,26 @@
  * 골드키 CRM 앱 진입점 (App.js) — Goldkey AI Masters 2026
  * React Native CLI 기준
  *
- * ┌ 라우팅 흐름 ─────────────────────────────────────────────────────────┐
- * │  앱 시작 → <RoutingGuard />                                          │
- * │         ├─ <Dashboard />              (기본 화면)                    │
- * │         ├─ <CustomerProfileView />    (activeProfileId)              │
- * │         ├─ <MedicalScanResultView />  (activeScanId)                 │
- * │         └─ <ScheduleInputModal />     (전역 오버레이)                │
+ * ┌ 마스터-그림자 아키텍처 (GP §1·§2·§3) ──────────────────────────────────┐
+ * │  앱 시작 → SSO 인증(GP-SSO §3) → <RoutingGuard />                    │
+ * │         ├─ [미인증]  OtpAuthScreen  → 모 앱 SSO 리다이렉트           │
+ * │         └─ [인증됨]  DashboardLite  (초경량 메인 화면)                │
+ * │              ├─ 오늘의 업무 탭 (TaskCard)                            │
+ * │              ├─ 고객 목록/입력 탭 (shared/CustomerComponents)        │
+ * │              └─ 딥링크 발사대 탭 → 모 앱 AI 기능 위임               │
  * └──────────────────────────────────────────────────────────────────────┘
  *
- * 전역 데이터 동기화 가이딩 프로토콜 (SSOT):
- *   제1장 — 모든 화면은 useCustomerStore 단 하나만 구독.
- *            수정 시 해당 id 하나만 patch → 앱 전역 0.1초 즉시 동기화.
- *   제2장 — analyzeMedicalDocument() 단일 AI 파이프라인.
- *            PII 2중 마스킹(클라이언트 정규식 + Gemini System Prompt).
- *            삭제 시 2중 확인 팝업 + audit_log 영구 기록.
- *   제3장 — MedicalScanResultView 듀얼뷰(설계사/고객).
- *            [일정 추가] → openScheduleModal → 메인 달력 즉시 반영.
+ * [GP §1] 공통 모듈: src/shared/customerSchema.js
+ *                    src/shared/CustomerComponents.js
+ * [GP §2] 양방향 CRUD: src/shared/supabaseCrud.js → customerInputForm()
+ * [GP §3] 딥링크 발사대: DeepLinkButton → 모 앱 URL 전송
  */
 
 import React, { useEffect, useCallback } from 'react';
 import { StyleSheet, View, Linking }     from 'react-native';
 import { useCustomerStore }              from './src/store/customerStore';
 import { useAuthStore }                  from './src/store/authStore';
-import Dashboard                         from './src/screens/Dashboard';
+import Dashboard                         from './src/screens/DashboardLite';
 import CustomerProfileView               from './src/screens/CustomerProfileView';
 import MedicalScanResultView             from './src/screens/MedicalScanResultView';
 import ScheduleInputModal                from './src/components/ScheduleInputModal';
