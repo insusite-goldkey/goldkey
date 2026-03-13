@@ -31744,6 +31744,37 @@ watchRipple();
     with st.sidebar:
         # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (항상 렌더) ──
         render_goldkey_sidebar()
+        # ── [제53조 §열기] _open_sidebar 플래그 소비 → JS로 사이드바 강제 열기 ──
+        if st.session_state.pop("_open_sidebar", False):
+            import streamlit.components.v1 as _comp_open
+            _comp_open.html("""<script>
+(function(){
+  function tryOpen() {
+    try {
+      var pd = window.parent.document;
+      var sb = pd.querySelector('section[data-testid="stSidebar"]');
+      if (sb) {
+        sb.setAttribute('aria-expanded', 'true');
+        sb.style.transform = 'translateX(0)';
+        sb.style.visibility = 'visible';
+      }
+      var selectors = [
+        'button[aria-label="Open sidebar"]',
+        'button[aria-label="사이드바를 열거나 닫으세요"]',
+        '[data-testid="collapsedControl"] button',
+        '[data-testid="stSidebarCollapseButton"] button'
+      ];
+      for (var i = 0; i < selectors.length; i++) {
+        var btn = pd.querySelector(selectors[i]);
+        if (btn) { btn.click(); break; }
+      }
+    } catch(e) {}
+  }
+  setTimeout(tryOpen, 100);
+  setTimeout(tryOpen, 400);
+  setTimeout(tryOpen, 900);
+})();
+</script>""", height=0)
 
     if not _is_authenticated:
       with st.sidebar:
