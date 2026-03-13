@@ -32220,7 +32220,7 @@ section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
             for _i, (_ttk, _tbadge, _ttitle, _tbadge_color, _tcolor) in enumerate(_terms_list):
                 _tcb_col, _tlbl_col = st.columns([1, 7], gap="small")
                 with _tcb_col:
-                    _tcv = st.checkbox("", value=bool(_tr_top.get(_ttk, False)),
+                    _tcv = st.checkbox("동의", value=bool(_tr_top.get(_ttk, False)),
                                        key=f"_terms_top_cb_{_ttk}",
                                        label_visibility="collapsed")
                 with _tlbl_col:
