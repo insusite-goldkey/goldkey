@@ -28584,6 +28584,8 @@ def main():
         st.session_state["user_name"] = st.session_state.get("_saved_user_name", "")
         st.session_state["is_admin"]  = st.session_state.get("_saved_is_admin", False)
     _is_auth_now = bool(st.session_state.get("user_id") or st.session_state.get("authenticated"))
+    # ── [EARLY-CUR] current_tab 최상단 조기 정의 — NameError 방지 ────────
+    cur = st.session_state.get("current_tab", "home")
     st.session_state["_is_auth"] = _is_auth_now
 
     # ── [4단계 §3] 논블로킹 사이드바 — 미인증 시 즉시 렌더 후 st.stop() ─────
@@ -39965,41 +39967,20 @@ function selectCustomer(name) {{
                          use_container_width=False):
                 _go_tab("home")
     
+    # ── [customer_mgmt] CRM은 crm_app.py 전담 — 모 앱 안내 전용 ────────
     if cur == "customer_mgmt":
-        if not _auth_gate("customer_mgmt"): st.stop()
         tab_home_btn("customer_mgmt")
-        with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
-            st.markdown(f"""
-    <div class="gk-sky-trust gp-interactive" style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
-      {_bid('13-1-1')}
-      <div class="gk-st-title">👥 고객 관리</div>
-      <div style="font-size:0.8rem;margin-top:4px;">고객 정보 · 상담 이력 · 계약 현황 통합 관리</div>
-    </div>""", unsafe_allow_html=True)
-            try:
-                from customer_mgmt import render_customer_tab as _render_cm
-                _cm_sb  = _get_sb_client()
-                _cm_llm = get_client()
-                _render_cm(_cm_sb, _cm_llm)
-            except ImportError as _cm_ie:
-                st.error(f"고객관리 모듈 로드 실패: {_cm_ie}")
-                st.info("customer_mgmt.py 파일을 확인하세요.")
-            except Exception as _cm_ex:
-                st.error(f"고객관리 탭 오류: {_cm_ex}")
-                st.info("데이터베이스 연결을 확인하거나 잠시 후 다시 시도하세요.")
+        st.info("👉 고객 관리는 **Goldkey CRM 앱** 전용입니다. 모 앱(HQ)은 정밀 분석 전용입니다.")
+        st.stop()
 
     # ── [crm_gate] CRM 마스터 키 — 통합 입력 폼 + 전략 대시보드 ────────
+    # ── [crm_gate] CRM은 crm_app.py 전담 — 모 앱 안내 전용 ─────────────
     if cur == "crm_gate":
         if not _auth_gate("crm_gate"): st.stop()
         tab_home_btn("crm_gate")
-        with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
-            try:
-                from crm_fortress_ui import render_crm_gate_full as _rcgf
-                _sb_cg = _get_sb_client() if _SB_PKG_OK else None
-                _uid_cg = st.session_state.get("user_id", "")
-                _rcgf(_sb_cg, _uid_cg)
-            except Exception:
-                st.info("CRM 게이트를 불러오는 중 오류가 발생했습니다.")
-        st.stop()  # lazy-dispatch: tab rendered, skip remaining
+        st.info("👉 CRM 마스터 기능은 **Goldkey CRM 앱** 전용입니다. 모 앱(HQ)은 정밀 분석(암·화재·상해 등) 전용입니다.")
+        st.stop()  # lazy-dispatch
+
 
     # ── [policy_scan] 보험증권 분석 — 독립 전용 탭 ──────────────────────
     if cur == "policy_scan":
