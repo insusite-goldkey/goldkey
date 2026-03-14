@@ -34092,7 +34092,7 @@ watchRipple();
     # '시작하기' 클릭 → _lp_landing = True → 즉시 로그인 화면 전환
     # 로그인 완료 사용자는 랜딩 건너뜀 (세션당 1회만 노출)
     # ══════════════════════════════════════════════════════════════════════
-    _is_logged_in = bool(st.session_state.get("user_id"))
+    _is_logged_in = bool(st.session_state.get("user_id") or st.session_state.get("authenticated"))
     # [제49조 개정] 랜딩 페이지 폐지 — 항상 메인 화면 직통 진입
     _landing_done = True
     st.session_state["_lp_landing"] = True
