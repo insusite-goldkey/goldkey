@@ -19,8 +19,16 @@ import streamlit as st
 import uuid, datetime
 from typing import Optional
 
-# ── 모 앱 URL ────────────────────────────────────────────────────────────────
-HQ_APP_URL = "https://goldkey-ai-817097913199.asia-northeast3.run.app"
+# ── 모 앱 URL (로컬 개발 vs 프로덕션 자동 분기) ──────────────────────────────
+import os as _os
+HQ_APP_URL = (
+    "http://localhost:8501"
+    if (
+        _os.environ.get("STREAMLIT_ENV", "") == "local"
+        or (not _os.environ.get("K_SERVICE", "") and not _os.environ.get("GAE_ENV", ""))
+    )
+    else "https://goldkey-ai-817097913199.asia-northeast3.run.app"
+)
 
 # ── 고객 데이터 스키마 (모/자 앱 공통) ────────────────────────────────────────
 CUSTOMER_SCHEMA: dict = {

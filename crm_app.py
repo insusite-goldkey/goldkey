@@ -5,12 +5,17 @@
 - 공통 모듈(shared_components.py) import 전용
 - 역할: AI 아침 브리핑 · 고객 리스트 · 일정 · 딥링크 발사대
 
-실행: streamlit run crm_app.py --server.port 8502
+[동시 구동 방법]
+  본 앱(HQ):  streamlit run app.py     --server.port 8501
+  CRM 앱:    streamlit run crm_app.py --server.port 8502
+  접속 URL:  http://localhost:8501  (HQ)
+             http://localhost:8502  (CRM)
 """
 
 import streamlit as st
 import datetime
 import urllib.parse
+import os
 
 # ── [Phase 1] 공통 모듈 import ────────────────────────────────────────────────
 from shared_components import (
@@ -64,22 +69,27 @@ div[data-testid="stMainBlockContainer"] { padding-top: 1rem !important; }
 # [Phase 2] SSO 인증 처리
 # 세션 없으면 모 앱으로 자동 리다이렉트 (?return_to=crm_url)
 # ══════════════════════════════════════════════════════════════════════════════
-CRM_URL = st.secrets.get("CRM_URL", "https://crm.goldkey-ai.run.app")
+# ── 환경 감지: 로컬 개발 vs 프로덕션 ──────────────────────────────────────────
+_IS_LOCAL = (
+    os.environ.get("STREAMLIT_ENV", "") == "local"
+    or st.secrets.get("ENV", "") == "local"
+    or os.environ.get("GAE_ENV", "") == ""
+    and not os.environ.get("K_SERVICE", "")  # Cloud Run 환경변수 없으면 로컬
+)
+CRM_URL = st.secrets.get("CRM_URL", "http://localhost:8502")
 
 def _check_sso_token() -> bool:
-    """URL에서 SSO 토큰 수신 → supabase 세션 설정 → 인증 완료."""
+    """URL에서 SSO 토큰 수신 → 세션 설정 → 인증 완료."""
     _token   = st.query_params.get("token",   "")
     _user_id = st.query_params.get("user_id", "")
     _name    = st.query_params.get("name",    "")
     _role    = st.query_params.get("role",    "agent")
-
     if _token and _user_id:
         st.session_state["crm_authenticated"] = True
         st.session_state["crm_user_id"]       = _user_id
-        st.session_state["crm_user_name"]      = _name
-        st.session_state["crm_role"]           = _role
-        st.session_state["crm_token"]          = _token
-        # URL 정리
+        st.session_state["crm_user_name"]     = _name
+        st.session_state["crm_role"]          = _role
+        st.session_state["crm_token"]         = _token
         st.query_params.clear()
         return True
     return False
@@ -91,19 +101,41 @@ def _is_authenticated() -> bool:
 if _check_sso_token():
     st.rerun()
 
-# 미인증 → 모 앱으로 리다이렉트
+# ── 미인증 처리 ───────────────────────────────────────────────────────────────
 if not _is_authenticated():
-    sso_url = build_sso_redirect(CRM_URL)
-    st.markdown(f"""
+    if _IS_LOCAL:
+        # ── [로컬 개발 모드] Supabase 직접 로그인 폼 ──────────────────────────
+        st.markdown("""
+<div style="max-width:420px;margin:60px auto;background:#fff;
+  border:1px dashed #000;border-radius:20px;padding:28px;text-align:center;">
+  <div style="font-size:2.4rem;margin-bottom:6px;">📱</div>
+  <div style="font-size:1.2rem;font-weight:900;color:#1e3a8a;margin-bottom:2px;">골드키 CRM</div>
+  <div style="font-size:0.78rem;color:#6b7280;margin-bottom:18px;">
+    로컬 개발 모드 — 직접 로그인
+  </div>
+</div>""", unsafe_allow_html=True)
+        with st.form("crm_local_login"):
+            _lid  = st.text_input("사용자 ID (user_id)", placeholder="예: agent_001")
+            _lnm  = st.text_input("이름", placeholder="예: 홍길동")
+            _submitted = st.form_submit_button("🔑 개발 모드 로그인", use_container_width=True, type="primary")
+        if _submitted and _lid:
+            st.session_state["crm_authenticated"] = True
+            st.session_state["crm_user_id"]       = _lid
+            st.session_state["crm_user_name"]     = _lnm or "설계사"
+            st.session_state["crm_role"]          = "agent"
+            st.session_state["crm_token"]         = "dev-token"
+            st.rerun()
+        st.caption("💡 로컬 테스트용. 프로덕션에서는 SSO 인증이 적용됩니다.")
+        st.stop()
+    else:
+        # ── [프로덕션] 모 앱 SSO 리다이렉트 ──────────────────────────────────
+        sso_url = build_sso_redirect(CRM_URL)
+        st.markdown(f"""
 <div style="max-width:420px;margin:80px auto;background:#fff;
   border:1px dashed #000;border-radius:20px;padding:32px;text-align:center;">
   <div style="font-size:3rem;margin-bottom:8px;">🔑</div>
-  <div style="font-size:1.2rem;font-weight:900;color:#1e3a8a;margin-bottom:4px;">
-    골드키 CRM
-  </div>
-  <div style="font-size:0.85rem;color:#6b7280;margin-bottom:20px;">
-    SSO 통합 인증이 필요합니다
-  </div>
+  <div style="font-size:1.2rem;font-weight:900;color:#1e3a8a;margin-bottom:4px;">골드키 CRM</div>
+  <div style="font-size:0.85rem;color:#6b7280;margin-bottom:20px;">SSO 통합 인증이 필요합니다</div>
   <div style="background:#eff6ff;border:1px dashed #000;border-radius:10px;
     padding:14px;font-size:0.82rem;color:#374151;text-align:left;margin-bottom:20px;">
     <b>📋 로그인 방법</b><br>
@@ -118,9 +150,8 @@ if not _is_authenticated():
   <div style="font-size:0.70rem;color:#9ca3af;margin-top:14px;">
     Powered by Goldkey AI SSO · GP-SSO §1
   </div>
-</div>
-""", unsafe_allow_html=True)
-    st.stop()
+</div>""", unsafe_allow_html=True)
+        st.stop()
 
 # ── 인증 완료 후 메인 ─────────────────────────────────────────────────────────
 _user_id   = st.session_state.get("crm_user_id", "")
