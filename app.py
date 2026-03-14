@@ -8,11 +8,12 @@ import base64
 if 'initialized' not in st.session_state:
     st.session_state['initialized'] = False
 
+# [2] 사이드바 상태 및 여백 제어 변수
 # [중요] set_page_config는 반드시 최상단에 위치해야 합니다.
-sb_width   = "0px" if st.session_state['initialized'] else "260px"
-sb_display = "none" if st.session_state['initialized'] else "block"
 st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state="expanded")
 
+# [3] 이미지 Base64 변환 함수 (캐싱 적용으로 속도 최적화)
+@st.cache_data
 def get_base64_image(path: str) -> str:
     try:
         with open(path, "rb") as f:
@@ -20,7 +21,7 @@ def get_base64_image(path: str) -> str:
     except Exception:
         return ""
 
-# [4] 통합 CSS: 여백 제거 + 사이드바 제어 + 반응형 이미지
+# [4] 통합 CSS: 여백 제거 + 반응형 이미지
 st.markdown(f"""
     <style>
         /* 1. 전체 화면 여백 및 헤더 제거 */
@@ -35,14 +36,6 @@ st.markdown(f"""
             height: 0;
         }}
         [data-testid="stStatusWidget"] {{ visibility: hidden !important; }}
-
-        /* 2. 사이드바 제어 (initialized 상태에 연동) */
-        [data-testid="stSidebar"] {{
-            width: {sb_width} !important;
-            min-width: {sb_width} !important;
-            display: {sb_display} !important;
-            transform: none !important;
-        }}
 
         /* 3. 스플래시 이미지 반응형 컨테이너 */
         .splash-container {{
@@ -73,6 +66,12 @@ st.markdown(f"""
 
 # [5] 스플래시 실행 로직
 if not st.session_state['initialized']:
+    # 스플래시 중 사이드바 완전 숨김 (스플래시 전용)
+    st.markdown("""<style>
+[data-testid="stSidebar"] { display: none !important; }
+[data-testid="collapsedControl"] { display: none !important; }
+</style>""", unsafe_allow_html=True)
+
     _m_b64 = get_base64_image("splash_mobile.png")
     _t_b64 = get_base64_image("splash_tablet.png")
 
@@ -100,6 +99,7 @@ if not st.session_state['initialized']:
     # 퇴장 처리
     splash_placeholder.empty()
     st.session_state['initialized'] = True
+    st.rerun()  # initialized=True 상태로 재실행 → 사이드바 숨김 CSS 해제
 
 #  ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
