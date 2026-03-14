@@ -1,4 +1,4 @@
-﻿## 🚨 [SYSTEM INITIALIZATION] MUST BE LINE 1
+## 🚨 [SYSTEM INITIALIZATION] MUST BE LINE 1
 import streamlit as st
 import os
 import time
@@ -30,6 +30,26 @@ if not st.session_state['initialized']:
             st.info("🚀 **Goldkey_AI_Masters가 구동중! 최적의 분석 환경을 준비하고 있습니다...**")
     st.session_state['splash_placeholder'] = splash_placeholder
 # 
+# [4] 프리미엄 스플래시 (5초 유지 후 자동 퇴장 로직)
+if not st.session_state['initialized']:
+    splash_placeholder = st.empty()
+    with splash_placeholder.container():
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns([1, 2, 1])
+        with c2:
+            st.image("splash_mobile.jpg", use_container_width=True)
+            st.info("🚀 **Goldkey_AI_Masters가 구동중! 최적의 분석 환경을 준비하고 있습니다...**")
+    
+    # 🕒 설계사님 요청: 5초간 브랜드 노출 유지
+    time.sleep(5)
+    
+    # 퇴장 처리
+    splash_placeholder.empty()
+    st.session_state['initialized'] = True
+    
+    # 사이드바를 'collapsed'로 바꾸기 위해 1회 재실행
+    st.rerun()
+
 #  ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
@@ -4538,44 +4558,6 @@ def _art34_report_footer() -> str:
     )
 # ══════════════════════════════════════════════════════════════════════════
 
-import streamlit as st
-import os as _os_top
-import time as _time_top
-
-# ── [현관문] Streamlit 절대 규칙: 가장 먼저 실행 ─────────────────────────────
-# 로딩 전(스플래시): expanded / 로딩 완료 후: collapsed
-_sb_state = "collapsed" if st.session_state.get("initialized") else "expanded"
-st.set_page_config(
-    page_title="goldkey_Ai_masters2026 마스터 AI",
-    page_icon="🏆",
-    layout="wide",
-    initial_sidebar_state=_sb_state,
-)
-
-# 사이드바 투명망토 해제 CSS
-st.markdown("""
-    <style>
-        [data-testid="stSidebar"] { display: block !important; visibility: visible !important; }
-        .stApp [data-testid="stStatusWidget"] { visibility: hidden; }
-    </style>
-""", unsafe_allow_html=True)
-
-# ── 프리미엄 스플래시 화면 ────────────────────────────────────────────────────
-if "initialized" not in st.session_state:
-    _splash = st.empty()
-    with _splash.container():
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        _sc1, _sc2, _sc3 = st.columns([1, 2, 1])
-        with _sc2:
-            try:
-                st.image("splash_mobile.jpg", use_container_width=True)
-            except Exception:
-                st.markdown(
-                    "<div style='text-align:center;font-size:3rem;'>🏆</div>",
-                    unsafe_allow_html=True,
-                )
-            st.info("🚀 **Goldkey_AI_Masters가 구동중! 최적의 환경을 준비하고 있습니다...**")
-    st.session_state["splash_placeholder"] = _splash
 
 import sys, json, os, time, hashlib, base64, re, tempfile, pathlib, codecs, unicodedata, traceback as _traceback
 from functools import lru_cache as _lru_cache
