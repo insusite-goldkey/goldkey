@@ -28556,24 +28556,46 @@ def main():
     _is_auth_now = bool(st.session_state.get("user_id") or st.session_state.get("authenticated"))
     # ── [EARLY-CUR] current_tab 최상단 조기 정의 — NameError 방지 ────────
     cur = st.session_state.get("current_tab", "home")
-    st.session_state["_is_auth"] = _is_auth_now
 
     # ── [4단계 §3] 미인증 시 CSS 주입 + 메인 안내 렌더 ─────────────────────
     # 로그인 폼은 아래 with st.sidebar 블록(~31888)에서 렌더됨
     # 미인증이면 그 블록 실행 후 st.stop()으로 무거운 코드 진입 차단
     if not _is_auth_now:
-        # 사이드바 강제 노출 CSS
+        # 사이드바 강제 노출 CSS — position:fixed로 Streamlit 인라인 transform 완전 우회
         st.markdown("""<style>
+/* [미인증 사이드바 강제 노출] Streamlit이 주입하는 translateX(-100%) 완전 무력화 */
 section[data-testid="stSidebar"] {
-    display: block !important;
-    transform: translateX(0) !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    height: 100vh !important;
+    z-index: 999999 !important;
+    display: flex !important;
+    transform: none !important;
     visibility: visible !important;
     opacity: 1 !important;
-    min-width: 244px !important;
+    width: 260px !important;
+    min-width: 260px !important;
+    max-width: 320px !important;
     pointer-events: auto !important;
+    overflow-y: auto !important;
+    background-color: #ffffff !important;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.15) !important;
 }
+section[data-testid="stSidebar"] > div:first-child {
+    transform: none !important;
+    width: 100% !important;
+}
+/* 사이드바 토글 버튼 완전 숨김 (미인증 시 접기 불가) */
 [data-testid="collapsedControl"],
-[data-testid="stSidebarCollapseButton"] { display: none !important; }
+[data-testid="stSidebarCollapseButton"],
+button[aria-label="Close sidebar"],
+button[aria-label="사이드바를 열거나 닫으세요"] { display: none !important; }
+/* 메인 컨텐츠 영역 사이드바 너비만큼 오른쪽으로 밀기 */
+section[data-testid="stMain"],
+[data-testid="stAppViewContainer"] > section:not([data-testid="stSidebar"]) {
+    margin-left: 260px !important;
+}
 footer, footer * { display: none !important; }
 #MainMenu, [data-testid="stMainMenuButton"] { display: none !important; }
 </style>""", unsafe_allow_html=True)
@@ -28687,45 +28709,6 @@ footer, footer * {
 })();
 </script>
 """, unsafe_allow_html=True)
-
-    # ── [제53조 §CSS] 사이드바 강제 열기 CSS ─────────────────────────────
-    st.markdown("""<style>
-/* ── 사이드바 collapse/expand 버튼 완전 숨김 ── */
-[data-testid="collapsedControl"],
-button[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapseButton"],
-button[aria-label="Collapse sidebar"],
-button[aria-label="사이드바를 열거나 닫으세요"] {
-    display: none !important;
-    width: 0 !important;
-    overflow: hidden !important;
-}
-/* ── 사이드바 항상 표시 (position 건드리지 않음 — Streamlit 내부 레이아웃 유지) ── */
-section[data-testid="stSidebar"] {
-    transform: translateX(0) !important;
-    margin-left: 0 !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    min-width: 244px !important;
-    max-width: 320px !important;
-    pointer-events: auto !important;
-    z-index: 10 !important;
-}
-section[data-testid="stSidebar"][aria-expanded="false"] {
-    transform: translateX(0) !important;
-    margin-left: 0 !important;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-}
-section[data-testid="stSidebar"] > div:first-child {
-    visibility: visible !important;
-    opacity: 1 !important;
-    width: 100% !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-}
-</style>""", unsafe_allow_html=True)
 
     # ── [제49조] 직통 진입 — 랜딩 페이지 폐지, 항상 메인 화면 직통 ────────
     st.session_state["_lp_landing"] = True
