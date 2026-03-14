@@ -4,30 +4,26 @@ import os
 import time
 import base64
 
-# [1] 초기화 상태에 따라 사이드바 제어 (로딩 전: 열림 / 로딩 후: 접힘)
+# [1] 초기화 상태
 if 'initialized' not in st.session_state:
     st.session_state['initialized'] = False
 
-sb_state = "expanded" if not st.session_state['initialized'] else "collapsed"
-
 # [중요] set_page_config는 반드시 최상단에 위치해야 합니다.
-st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state=sb_state)
+# 사이드바는 항상 expanded — 로그인 폼이 사이드바에 있으므로 절대 collapsed 금지
+st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state="expanded")
 
-# [2] CSS: 사이드바 강제 표시 (접힘/열림 상태 모두 DOM 존재 보장)
+# [2] CSS: 사이드바 강제 표시
 st.markdown("""
     <style>
-        /* 사이드바 강제 표시 — collapsed 상태에서도 DOM 유지 */
         [data-testid="stSidebar"] {
             display: block !important;
             visibility: visible !important;
             transform: none !important;
-            min-width: 1px !important;
         }
         section[data-testid="stSidebarContent"] {
             display: block !important;
             visibility: visible !important;
         }
-        /* 로딩 위젯 숨김 */
         .stApp [data-testid="stStatusWidget"] { visibility: hidden !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -72,12 +68,9 @@ if not st.session_state['initialized']:
     # 5초간 브랜드 노출 유지
     time.sleep(5)
 
-    # 퇴장 처리
+    # 퇴장 처리 — rerun 없이 직접 스플래시만 제거하고 계속 진행
     splash_placeholder.empty()
     st.session_state['initialized'] = True
-
-    # 사이드바를 'collapsed'로 바꾸기 위해 1회 재실행
-    st.rerun()
 
 #  ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
