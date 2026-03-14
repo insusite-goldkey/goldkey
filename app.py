@@ -4507,6 +4507,45 @@ def _art34_report_footer() -> str:
 # ══════════════════════════════════════════════════════════════════════════
 
 import streamlit as st
+import os as _os_top
+import time as _time_top
+
+# ── [현관문] Streamlit 절대 규칙: 가장 먼저 실행 ─────────────────────────────
+try:
+    st.set_page_config(
+        page_title="goldkey_Ai_masters2026 마스터 AI",
+        page_icon="🏆",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+except Exception:
+    pass
+
+# 사이드바 투명망토 해제 CSS
+st.markdown("""
+    <style>
+        [data-testid="stSidebar"] { display: block !important; visibility: visible !important; }
+        .stApp [data-testid="stStatusWidget"] { visibility: hidden; }
+    </style>
+""", unsafe_allow_html=True)
+
+# ── 프리미엄 스플래시 화면 ────────────────────────────────────────────────────
+if "initialized" not in st.session_state:
+    _splash = st.empty()
+    with _splash.container():
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        _sc1, _sc2, _sc3 = st.columns([1, 2, 1])
+        with _sc2:
+            try:
+                st.image("splash_mobile.jpg", use_container_width=True)
+            except Exception:
+                st.markdown(
+                    "<div style='text-align:center;font-size:3rem;'>🏆</div>",
+                    unsafe_allow_html=True,
+                )
+            st.info("🚀 **Goldkey_AI_Masters가 구동중! 최적의 환경을 준비하고 있습니다...**")
+    st.session_state["splash_placeholder"] = _splash
+
 import sys, json, os, time, hashlib, base64, re, tempfile, pathlib, codecs, unicodedata, traceback as _traceback
 from functools import lru_cache as _lru_cache
 from datetime import datetime as dt, timedelta, date
@@ -28542,17 +28581,17 @@ def section_housing_pension():
 
 # --------------------------------------------------------------------------
 def main():
-    # ── STEP 1: set_page_config (항상 가장 먼저) ─────────────────────────
-    # [제53조 복원] 로그인 후에도 사이드바 expanded 표시
-    _is_logged_in = st.session_state.get("user_id") or st.session_state.get("authenticated")
-    _sb_init_state = "expanded"
-    _layout_mode = "wide"
-    st.set_page_config(
-        page_title="goldkey_Ai_masters2026 마스터 AI",
-        page_icon="🏆",
-        layout=_layout_mode,
-        initial_sidebar_state=_sb_init_state
-    )
+    # ── STEP 1: set_page_config → 최상단(파일 로드 즉시)으로 이전 완료 ──────
+    # [제53조] 사이드바 expanded는 최상단 set_page_config에서 보장됨
+
+    # ── 스플래시 제거 (initialize_session 완료 후) ────────────────────────────
+    if st.session_state.get("splash_placeholder") is not None:
+        try:
+            st.session_state["splash_placeholder"].empty()
+        except Exception:
+            pass
+        st.session_state["splash_placeholder"] = None
+    st.session_state["initialized"] = True
 
     # ── [4단계 §2] 세션 초기화 — 인증 상태 최우선 확인 ─────────────────────
     if "_is_auth" not in st.session_state:
