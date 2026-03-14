@@ -17906,397 +17906,6 @@ def output_manager(masked_name, result_text):
     st.info("[주의] 본 분석 결과의 최종 책임은 사용자(상담원)에게 귀속됩니다.")
 
 
-# ── [가이딩 프로토콜 제88조] 통합 상담 자산 관리 허브 ──────────────────────
-def _gp88_hub() -> dict:
-    """GP88 통합 대시보드 허브 — §1 검색·§2 OCR·§3 10대 명품 문구·§4 카카오 허브
-    반환값: {'selected_script': str, 'ocr_result': dict, 'prefill': dict}
-    """
-    import datetime as _dt, re as _re, json as _json
-
-    _HUB_KEY    = "_gp88_hub_open"
-    _SCRIPT_KEY = "_gp88_selected_script"
-    _OCR_KEY    = "_gp88_ocr_result"
-    _HIST_KEY   = "_gp88_consult_history"
-
-    # ── 세션 초기화 ──────────────────────────────────────────────────────────
-    for _k, _dv in [(_HUB_KEY, False), (_SCRIPT_KEY, ""), (_OCR_KEY, {}), (_HIST_KEY, [])]:
-        if _k not in st.session_state:
-            st.session_state[_k] = _dv
-
-    # ── 상담 이력 자동 적재 (이번 세션 result_* 키 수집) ────────────────────
-    _hist: list = st.session_state[_HIST_KEY]
-    for _sk, _sv in st.session_state.items():
-        if (isinstance(_sk, str) and _sk.startswith("result_")
-                and isinstance(_sv, str) and len(_sv) > 30):
-            _already = any(h.get("key") == _sk for h in _hist)
-            if not _already:
-                _m_name = _re.search(r"([가-힣]{2,5})님", _sv)
-                _m_amt  = _re.search(r"(\d[\d,\.]+\s*억|[1-9]\d*,?\d{3}만\s*원|\d+억)", _sv)
-                _hist.append({
-                    "key":   _sk,
-                    "name":  _m_name.group(1) if _m_name else st.session_state.get("current_c_name", ""),
-                    "amount": _m_amt.group(0) if _m_amt else "",
-                    "ts":    _dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "text":  _sv,
-                })
-    st.session_state[_HIST_KEY] = _hist
-
-    # 허브 토글 버튼
-    if st.button("🏛️ GP88 통합 상담 허브 열기/닫기",
-                 key="_gp88_toggle_btn", use_container_width=True):
-        st.session_state[_HUB_KEY] = not st.session_state[_HUB_KEY]
-
-    if not st.session_state[_HUB_KEY]:
-        return {"selected_script": st.session_state.get(_SCRIPT_KEY, ""),
-                "ocr_result": st.session_state.get(_OCR_KEY, {}),
-                "prefill": {}}
-
-    st.markdown("---")
-    st.markdown("## 🏛️ GP88 통합 상담 자산 관리 허브")
-
-    _tab_search, _tab_ocr, _tab_scripts, _tab_kakao = st.tabs([
-        "🔍 §1 상담 검색",
-        "📄 §2 계약서 스캔",
-        "✍️ §3 10대 명품 문구",
-        "📲 §4 카카오 허브",
-    ])
-
-    _prefill: dict = {}
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # §1 상담 이력 검색
-    # ══════════════════════════════════════════════════════════════════════════
-    with _tab_search:
-        st.markdown("#### 🔍 키워드로 과거 상담 즉시 호출")
-        _q = st.text_input("이름 · 날짜 · 키워드 입력", placeholder="예: 홍길동 / 상속 / 2026-03",
-                           key="_gp88_search_q")
-        if _hist:
-            _filtered = [h for h in _hist
-                         if not _q or _q in h.get("name","") or _q in h.get("ts","")
-                         or _q in h.get("text","") or _q in h.get("amount","")]
-            if _filtered:
-                for _h in reversed(_filtered[-20:]):
-                    with st.expander(
-                        f"🕐 {_h['ts']} | {_h['name'] or '(미상)'} | {_h['amount'] or '금액 미확인'}",
-                        expanded=False
-                    ):
-                        st.markdown(_h["text"][:600] + ("…" if len(_h["text"]) > 600 else ""))
-                        if st.button("이 상담으로 증서 발급", key=f"_gp88_load_{_h['key']}"):
-                            _prefill["result_text"] = _h["text"]
-                            _prefill["name"]        = _h["name"]
-                            _prefill["value"]       = _h["amount"]
-                            st.success(f"✅ '{_h['name']}' 상담 내용을 증서 폼에 불러왔습니다.")
-            else:
-                st.info("🔎 검색 결과가 없습니다.")
-        else:
-            st.info("📭 이번 세션에 저장된 상담 이력이 없습니다. 상담 분석을 먼저 실행하세요.")
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # §2 계약서 OCR 스캔
-    # ══════════════════════════════════════════════════════════════════════════
-    with _tab_ocr:
-        st.markdown("#### 📄 계약서/증권 스캔 → 핵심 담보 자동 추출")
-        # ── [GP193 §4] 전역 지식 베이스 업데이트 배지 ─────────────────────
-        try:
-            from modules.scan_engine import render_gp193_live_badge as _rgb
-            _badge_html = _rgb(session_state=st.session_state)
-            if _badge_html:
-                st.markdown(_badge_html, unsafe_allow_html=True)
-        except Exception:
-            pass
-        st.caption("PDF 또는 이미지(JPG·PNG)를 업로드하면 Gemini Vision AI가 핵심 담보를 읽어냅니다.")
-        st.markdown('<div class="gk-scan-wrap">', unsafe_allow_html=True)
-        _ocr_file = st.file_uploader(
-            "계약서 파일 업로드 (PDF · JPG · PNG)",
-            type=["pdf", "jpg", "jpeg", "png"],
-            key="_gp88_ocr_upload",
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # ── [GP196 §1] 파일 용량 사전 검사 ────────────────────────────────
-        if _ocr_file:
-            _ocr_raw_bytes = _ocr_file.read()
-            _ocr_file.seek(0)
-            _ocr_size_mb = len(_ocr_raw_bytes) / (1024 * 1024)
-            if len(_ocr_raw_bytes) > 10 * 1024 * 1024:
-                st.warning(
-                    f"⚠️ 용량이 너무 큽니다 ({_ocr_size_mb:.1f} MB). "
-                    "10 MB 이하로 최적화 후 다시 올려주세요."
-                )
-                _ocr_file = None
-            else:
-                st.caption(f"📦 파일 크기: {_ocr_size_mb:.2f} MB — 정상 범위")
-
-        # ── [GP193 §2] 전역 인제스트 후크 ─────────────────────────────────
-        if _ocr_file and st.session_state.get("_gp193_done_gp88_ocr_upload") != _ocr_file.name:
-            try:
-                from modules.scan_engine import global_ingest_hook as _gih
-                _gih_p = _gp193_get_hook_params()
-                with st.spinner("🌐 지능형 자산화 진행 중..."):
-                    _gih_r = _gih(
-                        file_bytes=_ocr_raw_bytes,
-                        filename=_ocr_file.name,
-                        source_tab="gp88_ocr_scan",
-                        doc_type="보험약관",
-                        **_gih_p,
-                    )
-                if _gih_r.get("success"):
-                    st.success("✅ 전역 지식 베이스 업데이트 완료")
-                st.session_state["_gp193_done_gp88_ocr_upload"] = _ocr_file.name
-            except Exception:
-                pass
-
-        if _ocr_file and st.button("🔍 AI 핵심 담보 추출 시작", key="_gp88_ocr_run",
-                                   type="primary", use_container_width=True):
-            import io as _io
-            _ext = _ocr_file.name.rsplit(".", 1)[-1].lower()
-
-            # ── [GP196 §2] 이미지 리사이징 ────────────────────────────────
-            try:
-                from modules.scan_engine import resize_image_bytes as _resize_img
-                _ocr_raw_bytes = _resize_img(_ocr_raw_bytes, _ocr_file.name)
-            except Exception:
-                pass
-
-            # ── [GP196 §3+§4] 프로그레스 바 + 배치 처리 ──────────────────
-            _ocr_prog = st.progress(0, text="🔍 분석 준비 중...")
-            _ocr_status = st.empty()
-            _client = get_client()
-
-            if _client is None:
-                st.error("GEMINI_API_KEY가 설정되지 않았습니다.")
-            else:
-                _vision_prompt = (
-                    "이 보험 계약서/증권 이미지에서 다음 항목을 추출하여 JSON으로 반환하세요:\n"
-                    '{"계약자":"","피보험자":"","보험사":"","상품명":"","납입기간":"","보험기간":"",'
-                    '"월보험료":"","사망보험금":"","암진단비":"","뇌진단비":"","심장진단비":"",'
-                    '"실손보험료":"","기타담보":[]}\n'
-                    "없는 항목은 빈 문자열로, 기타담보는 이름과 금액 쌍의 리스트로 표현하세요."
-                )
-                _types = _lazy_genai_types()
-                _merged_data = {}
-                _page_error_count = 0
-
-                if _ext == "pdf":
-                    # ── PDF 배치 처리 (Generator, 5페이지씩) ──────────────
-                    try:
-                        from modules.scan_engine import iter_pdf_pages as _iter_pages
-                        _batches = list(_iter_pages(_ocr_raw_bytes, batch_size=5))
-                    except Exception:
-                        _batches = [([ None], [_ocr_raw_bytes])]
-
-                    _total_batches = max(len(_batches), 1)
-                    for _bi, (_page_idxs, _page_imgs) in enumerate(_batches):
-                        _pct = int((_bi / _total_batches) * 90) + 5
-                        _page_label = (
-                            f"p.{_page_idxs[0]+1}~{_page_idxs[-1]+1}"
-                            if _page_idxs[0] is not None else "전체"
-                        )
-                        _ocr_prog.progress(_pct, text=f"📄 {_page_label} 분석 중... ({_bi+1}/{_total_batches})")
-                        _ocr_status.markdown(
-                            f"<span style='font-size:0.78rem;color:#64748b;'>"
-                            f"배치 {_bi+1}/{_total_batches} 처리 중...</span>",
-                            unsafe_allow_html=True
-                        )
-                        try:
-                            _batch_img = _page_imgs[0]  # 배치 대표 이미지
-                            _resp = _client.models.generate_content(
-                                model=GEMINI_MODEL,
-                                contents=[
-                                    _types.Part.from_bytes(data=_batch_img, mime_type="image/jpeg"),
-                                    _vision_prompt,
-                                ],
-                            )
-                            _raw_txt = _resp.text.strip()
-                            _jm = _re.search(r"\{[\s\S]+\}", _raw_txt)
-                            if _jm:
-                                try:
-                                    _batch_data = _json.loads(_jm.group(0))
-                                    for _k, _v in _batch_data.items():
-                                        if _v and not _merged_data.get(_k):
-                                            _merged_data[_k] = _v
-                                except Exception:
-                                    pass
-                        except MemoryError:
-                            _page_error_count += 1
-                            _ocr_status.warning(
-                                f"⚠️ {_page_label} 처리 중 메모리 부족 — 해당 배치를 건너뜁니다. "
-                                "다음 페이지부터 계속합니다."
-                            )
-                        except Exception as _batch_err:
-                            _page_error_count += 1
-                            _ocr_status.warning(
-                                f"⚠️ {_page_label} 처리 중 오류 발생 — 건너뜁니다. "
-                                f"({str(_batch_err)[:80]})"
-                            )
-                else:
-                    # ── 이미지 단일 처리 ──────────────────────────────────
-                    _ocr_prog.progress(30, text="🖼️ 이미지 분석 중...")
-                    try:
-                        _mime_type = f"image/{_ext.replace('jpg', 'jpeg')}"
-                        _resp = _client.models.generate_content(
-                            model=GEMINI_MODEL,
-                            contents=[
-                                _types.Part.from_bytes(data=_ocr_raw_bytes, mime_type=_mime_type),
-                                _vision_prompt,
-                            ],
-                        )
-                        _raw_txt = _resp.text.strip()
-                        _jm = _re.search(r"\{[\s\S]+\}", _raw_txt)
-                        if _jm:
-                            try:
-                                _merged_data = _json.loads(_jm.group(0))
-                            except Exception:
-                                _merged_data = {"raw": _raw_txt}
-                        else:
-                            _merged_data = {"raw": _raw_txt}
-                    except MemoryError:
-                        _ocr_status.error(
-                            "❌ 메모리 부족 — 이미지를 더 작게 줄이거나 해상도를 낮춰주세요."
-                        )
-                        _merged_data = {}
-                    except Exception as _e:
-                        _ocr_status.error(f"❌ OCR 오류: {str(_e)[:120]}")
-                        _merged_data = {}
-
-                _ocr_prog.progress(100, text="✅ 분석 완료!")
-                if _merged_data:
-                    st.session_state[_OCR_KEY] = _merged_data
-                    _success_msg = "✅ 핵심 담보 추출 완료!"
-                    if _page_error_count:
-                        _success_msg += f" (오류로 건너뜀: {_page_error_count}배치)"
-                    st.success(_success_msg)
-                else:
-                    st.warning("⚠️ 추출된 데이터가 없습니다. 파일을 확인해 주세요.")
-
-        _ocr_result = st.session_state.get(_OCR_KEY, {})
-        if _ocr_result:
-            st.markdown("**📋 추출된 계약 정보**")
-            if "raw" in _ocr_result:
-                st.text_area("원문", value=_ocr_result["raw"], height=200, key="_gp88_ocr_raw")
-            else:
-                _display_fields = [
-                    ("계약자", "계약자"), ("피보험자", "피보험자"), ("보험사", "보험사"),
-                    ("상품명", "상품명"), ("납입기간", "납입기간"), ("보험기간", "보험기간"),
-                    ("월보험료", "월보험료"), ("사망보험금", "사망보험금"),
-                    ("암진단비", "암진단비"), ("뇌진단비", "뇌진단비"), ("심장진단비", "심장진단비"),
-                ]
-                _cols = st.columns(2)
-                for _i, (_lbl, _fk) in enumerate(_display_fields):
-                    _v = _ocr_result.get(_fk, "")
-                    if _v:
-                        _cols[_i % 2].metric(_lbl, _v)
-                _extras = _ocr_result.get("기타담보", [])
-                if _extras:
-                    st.markdown("**기타 담보:**")
-                    for _ex in _extras:
-                        st.markdown(f"- {_ex}")
-                # 증서 폼 자동 채우기 연결
-                _pname  = _ocr_result.get("계약자") or _ocr_result.get("피보험자", "")
-                _pprice = _ocr_result.get("사망보험금") or _ocr_result.get("월보험료", "")
-                _pplan  = _ocr_result.get("상품명", "")
-                if st.button("이 계약 정보로 증서 발급 준비", key="_gp88_ocr_to_cert",
-                             use_container_width=True):
-                    _prefill["name"]  = _pname
-                    _prefill["value"] = _pprice
-                    _prefill["plan"]  = _pplan
-                    st.success(f"✅ '{_pplan}' 계약 정보를 증서 폼에 불러왔습니다.")
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # §3 10대 명품 문구
-    # ══════════════════════════════════════════════════════════════════════════
-    with _tab_scripts:
-        st.markdown("#### ✍️ 1인칭 마스터 문구 — 클릭 한 번으로 선택")
-        st.caption("선택한 문구는 황금빛 약속 증서 카카오 공유 메시지에 자동 결합됩니다.")
-
-        _MASTER_SCRIPTS = [
-            ("👨‍👩‍👧‍👦 가족 생계",
-             "내가 없어도 내 아이들이 지금처럼 웃으며 공부할 수 있는 튼튼한 울타리를 내가 직접 세웠습니다."),
-            ("🏛️ 상속세 재원",
-             "내 평생의 결실이 세금으로 흩어지지 않고 자녀에게 온전히 전달되도록 내가 현금 물길을 열었습니다."),
-            ("🏢 CEO 감자플랜",
-             "내가 헌신한 이 회사가 가족의 현금 창구가 되어 나를 지켜줄 수 있도록 내가 길을 닦았습니다."),
-            ("🌅 노후 독자 생존",
-             "누구에게도 짐이 되지 않고, 나 스스로 품위 있는 노후를 보낼 수 있는 마르지 않는 샘물을 내가 팠습니다."),
-            ("💰 이자소득 비과세",
-             "국가에 낼 세금까지 내 자산으로 확정 짓는, 나만의 세무 방어벽을 내가 구축했습니다."),
-            ("🛡️ 납입면제 특약",
-             "아픈 순간에도 내 자산은 멈추지 않고 스스로 불어나는 마법 같은 안전장치를 내가 걸었습니다."),
-            ("📚 교육비 보장",
-             "내 아이의 꿈이 어떤 폭풍우에도 꺾이지 않도록 내가 가장 단단한 뿌리를 심어두었습니다."),
-            ("🎖️ 경영인 퇴직금",
-             "무사히 완주한 나에게 주는 최고의 보너스를 법인의 이름으로 내가 직접 설계했습니다."),
-            ("📈 변액/자산 증식",
-             "시대의 흐름에 내 자산을 태워, 가치를 지키고 키워나가는 지혜로운 항해를 내가 시작했습니다."),
-            ("🌱 기초 자금 마련",
-             "먼 미래의 큰 기회를 놓치지 않도록, 오늘부터 작은 씨앗을 심어 내 숲을 가꾸기 시작했습니다."),
-        ]
-
-        _cur_script = st.session_state.get(_SCRIPT_KEY, "")
-        if _cur_script:
-            st.success(f"✅ 선택된 문구: **{_cur_script[:60]}…**")
-
-        for _idx, (_label, _script) in enumerate(_MASTER_SCRIPTS):
-            _col_a, _col_b = st.columns([1, 4])
-            with _col_a:
-                if st.button(_label, key=f"_gp88_script_{_idx}", use_container_width=True):
-                    st.session_state[_SCRIPT_KEY] = _script
-                    st.rerun()
-            with _col_b:
-                st.markdown(
-                    f'<div style="background:#FFFDF0;border-left:3px solid #D4AF37;'
-                    f'padding:8px 14px;border-radius:0 8px 8px 0;font-size:0.88rem;'
-                    f'color:#2c1a00;line-height:1.6;">{_script}</div>',
-                    unsafe_allow_html=True,
-                )
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # §4 카카오톡 통합 발송 블록
-    # ══════════════════════════════════════════════════════════════════════════
-    with _tab_kakao:
-        st.markdown("#### 📲 황금빛 증서 + 명품 문구 → 카카오톡 즉시 전송")
-        _sel_script = st.session_state.get(_SCRIPT_KEY, "")
-        _ocr_data   = st.session_state.get(_OCR_KEY, {})
-        _send_name  = st.text_input("전송 대상 이름",
-                                    value=_ocr_data.get("계약자","") or st.session_state.get("current_c_name",""),
-                                    key="_gp88_send_name")
-        _send_plan  = st.text_input("플랜명",
-                                    value=_ocr_data.get("상품명",""),
-                                    key="_gp88_send_plan")
-        _send_value = st.text_input("실질 이득 수치",
-                                    value=_ocr_data.get("사망보험금",""),
-                                    key="_gp88_send_value")
-        if _sel_script:
-            st.markdown(
-                f'<div style="background:#f0f9ff;border:1.5px solid #0ea5e9;border-radius:10px;'
-                f'padding:10px 16px;font-size:0.88rem;color:#0c4a6e;margin:8px 0;">'
-                f'📌 <b>선택된 명품 문구:</b><br>{_sel_script}</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.info("💡 §3 탭에서 명품 문구를 먼저 선택하세요.")
-
-        if st.button("📲 카카오톡으로 증서 + 문구 전송", key="_gp88_kakao_send_btn",
-                     type="primary", use_container_width=True):
-            _combined_value = _send_value or "소중한 재원 확보"
-            _combined_plan  = _send_plan  or "황금빛 플랜"
-            _combined_name  = _send_name  or "나"
-            # GP87 공유 함수 호출
-            _gp87_kakao_share(
-                name=_combined_name,
-                plan=_combined_plan + (f" | {_sel_script[:30]}…" if _sel_script else ""),
-                value=_combined_value,
-                date=_dt.date.today().strftime("%Y년 %m월 %d일"),
-            )
-
-    st.markdown("---")
-    return {
-        "selected_script": st.session_state.get(_SCRIPT_KEY, ""),
-        "ocr_result":      st.session_state.get(_OCR_KEY, {}),
-        "prefill":         _prefill,
-    }
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # [GP94] 손해보험 암 상품 실전 화법 엔진
 # 제94조: 치료 여정 기반 1인칭 세일즈 로직 + 5대 손보사 특약 실익 데이터베이스
@@ -23722,11 +23331,15 @@ def _gp88_search() -> None:
 
 # ── GP88 §2: 계약서 OCR 스캔 ──────────────────────────────────────────────────
 def _gp88_ocr_scan() -> None:
-    """GP88 §2 — PDF/이미지 업로드 후 핵심 담보 자동 추출 (pytesseract 또는 기본 텍스트 추출)"""
+    """GP88 §2 — PDF/이미지 업로드 후 핵심 담보 자동 추출
+    [통합] 구버전(Gemini Vision AI + 배치처리 + JSON구조추출 + prefill) +
+           최신버전(GP89 파이프라인 연동 + 키워드추출 + 1인칭화법필터) 완전 통합
+    """
     import io as _io
+    import re as _re
+    import json as _json
 
     st.markdown('<p class="gp88-tab-header">📄 계약서 OCR 스캔 — 핵심 담보 자동 추출</p>', unsafe_allow_html=True)
-    st.caption("PDF 또는 이미지(JPG·PNG) 파일을 업로드하면 핵심 담보 항목을 추출합니다.")
 
     # ── GP89 §1: 고객 컨텍스트 입력 (스캔 전 미리 설정) ─────────────────────
     _ocr_cname = st.text_input(
@@ -23738,12 +23351,22 @@ def _gp88_ocr_scan() -> None:
     if _ocr_cname:
         _gp89_set_customer(_ocr_cname)
 
+    # ── OCR 방식 선택 ─────────────────────────────────────────────────────────
+    _ocr_mode = st.radio(
+        "OCR 방식 선택",
+        ["🤖 Gemini Vision AI (정밀 JSON 구조 추출)", "🔑 키워드 텍스트 추출 (빠름)"],
+        key="_gp88_ocr_mode",
+        horizontal=True,
+    )
+    _use_gemini = _ocr_mode.startswith("🤖")
+
     _uploaded = st.file_uploader(
         "계약서 파일 업로드 (PDF / JPG / PNG)",
         type=["pdf", "jpg", "jpeg", "png"],
         key="_gp88_ocr_uploader",
     )
-    # ── [GP193 §2] 전역 인제스트 후크 — 업로드 즉시 GCS+RAG 동시 저장 ─
+
+    # ── [GP193 §2] 전역 인제스트 후크 — 업로드 즉시 GCS+RAG 동시 저장 ─────
     if _uploaded and st.session_state.get("_gp193_done__gp88_ocr_uploader") != _uploaded.name:
         try:
             from modules.scan_engine import global_ingest_hook as _gih
@@ -23762,76 +23385,230 @@ def _gp88_ocr_scan() -> None:
             st.session_state["_gp193_done__gp88_ocr_uploader"] = _uploaded.name
         except Exception:
             pass
+
     if _uploaded is None:
         return
 
+    _ocr_raw_bytes = _uploaded.read()
+    _uploaded.seek(0)
     _fname = _uploaded.name.lower()
-    _raw_text = ""
+    _ext   = _fname.rsplit(".", 1)[-1].lower()
 
-    try:
-        if _fname.endswith(".pdf"):
-            try:
-                import fitz as _fitz  # PyMuPDF
-                _doc = _fitz.open(stream=_uploaded.read(), filetype="pdf")
-                for _pg in _doc:
-                    _raw_text += _pg.get_text()
-            except ImportError:
-                st.warning("PyMuPDF(fitz) 미설치 — PDF 텍스트 레이어만 추출합니다.")
-                _raw_text = _uploaded.read().decode("utf-8", errors="ignore")
-        else:
-            try:
-                from PIL import Image as _PILImage
-                import pytesseract as _tess
-                _img = _PILImage.open(_io.BytesIO(_uploaded.read()))
-                _raw_text = _tess.image_to_string(_img, lang="kor+eng")
-            except ImportError:
-                st.warning("Tesseract/PIL 미설치 — 텍스트 레이어 시도 중.")
-                _raw_text = _uploaded.read().decode("utf-8", errors="ignore")
-    except Exception as _e:
-        st.error(f"파일 읽기 오류: {_e}")
+    # ── 파일 용량 사전 검사 (GP196 §1) ───────────────────────────────────────
+    _ocr_size_mb = len(_ocr_raw_bytes) / (1024 * 1024)
+    if len(_ocr_raw_bytes) > 10 * 1024 * 1024:
+        st.warning(f"⚠️ 용량이 너무 큽니다 ({_ocr_size_mb:.1f} MB). 10 MB 이하로 최적화 후 다시 올려주세요.")
         return
+    st.caption(f"📦 파일 크기: {_ocr_size_mb:.2f} MB")
 
-    if not _raw_text.strip():
-        st.warning("텍스트를 추출하지 못했습니다. 이미지 품질을 확인하거나 PDF 텍스트 레이어 여부를 확인하세요.")
-        return
+    # ══════════════════════════════════════════════════════════════════════════
+    # MODE A: Gemini Vision AI — JSON 구조 추출 + 배치처리 (구버전 핵심 기능)
+    # ══════════════════════════════════════════════════════════════════════════
+    if _use_gemini:
+        st.caption("Gemini Vision AI가 PDF/이미지를 분석하여 핵심 담보를 JSON으로 추출합니다.")
 
-    # 핵심 담보 키워드 추출
-    _KEYWORDS = [
-        "사망", "암", "뇌졸중", "뇌경색", "급성심근경색", "입원", "수술", "진단비",
-        "일당", "후유장해", "배상책임", "실손", "연금", "해지환급",
-        "보험료", "보험기간", "납입기간", "피보험자", "수익자",
-    ]
-    st.markdown("**🔑 추출된 핵심 담보 항목:**")
-    _found = {}
-    for _kw in _KEYWORDS:
-        _lines = [_l.strip() for _l in _raw_text.splitlines() if _kw in _l and _l.strip()]
-        if _lines:
-            _found[_kw] = _lines[:3]
+        # ── [GP196 §2] 이미지 리사이징 ───────────────────────────────────────
+        try:
+            from modules.scan_engine import resize_image_bytes as _resize_img
+            _ocr_raw_bytes = _resize_img(_ocr_raw_bytes, _uploaded.name)
+        except Exception:
+            pass
 
-    if _found:
-        # ── GP89 §2: 1인칭 화법 필터 적용 후 표시 ────────────────────────────
-        _found_filtered = {}
-        for _kw, _lines in _found.items():
-            _found_filtered[_kw] = [_gp89_tone_filter(_l) for _l in _lines]
+        if st.button("🔍 Gemini AI 핵심 담보 추출 시작", key="_gp88_ocr_gemini_run",
+                     type="primary", use_container_width=True):
+            _client = get_client()
+            if _client is None:
+                st.error("GEMINI_API_KEY가 설정되지 않았습니다.")
+            else:
+                _vision_prompt = (
+                    "이 보험 계약서/증권 이미지에서 다음 항목을 추출하여 JSON으로 반환하세요:\n"
+                    '{"계약자":"","피보험자":"","보험사":"","상품명":"","납입기간":"","보험기간":"",'
+                    '"월보험료":"","사망보험금":"","암진단비":"","뇌진단비":"","심장진단비":"",'
+                    '"실손보험료":"","기타담보":[]}\n'
+                    "없는 항목은 빈 문자열로, 기타담보는 이름과 금액 쌍의 리스트로 표현하세요."
+                )
+                _types        = _lazy_genai_types()
+                _merged_data  = {}
+                _page_err_cnt = 0
+                _ocr_prog     = st.progress(0, text="🔍 분석 준비 중...")
+                _ocr_status   = st.empty()
 
-        for _kw, _lines in _found_filtered.items():
-            with st.expander(f"🔸 {_kw}", expanded=False):
-                for _l in _lines:
-                    st.markdown(f"- {_l}")
+                if _ext == "pdf":
+                    try:
+                        from modules.scan_engine import iter_pdf_pages as _iter_pages
+                        _batches = list(_iter_pages(_ocr_raw_bytes, batch_size=5))
+                    except Exception:
+                        _batches = [([None], [_ocr_raw_bytes])]
 
-        # ── GP89 §1: 전역 파이프라인에 저장 (tone 필터 적용본) ─────────────
-        st.session_state["_gp88_ocr_result"] = _found_filtered
-        # 고객명이 설정된 경우 OCR 결과와 함께 파이프라인에 기록
-        _current_cname = st.session_state.get(_GP89_PIPE["customer_name"], "")
-        if _current_cname:
-            st.success(f"✅ OCR 추출 완료 — 👤 [{_current_cname}] 전역 파이프라인에 동기화되었습니다.")
-        else:
-            st.success("✅ OCR 추출 완료. §4 '카카오 통합 발송' 탭에서 전송할 수 있습니다.")
+                    _total = max(len(_batches), 1)
+                    for _bi, (_page_idxs, _page_imgs) in enumerate(_batches):
+                        _pct = int((_bi / _total) * 90) + 5
+                        _plabel = (
+                            f"p.{_page_idxs[0]+1}~{_page_idxs[-1]+1}"
+                            if _page_idxs[0] is not None else "전체"
+                        )
+                        _ocr_prog.progress(_pct, text=f"📄 {_plabel} 분석 중... ({_bi+1}/{_total})")
+                        _ocr_status.markdown(
+                            f"<span style='font-size:0.78rem;color:#64748b;'>"
+                            f"배치 {_bi+1}/{_total} 처리 중...</span>",
+                            unsafe_allow_html=True,
+                        )
+                        try:
+                            _resp = _client.models.generate_content(
+                                model=GEMINI_MODEL,
+                                contents=[
+                                    _types.Part.from_bytes(data=_page_imgs[0], mime_type="image/jpeg"),
+                                    _vision_prompt,
+                                ],
+                            )
+                            _jm = _re.search(r"\{[\s\S]+\}", _resp.text.strip())
+                            if _jm:
+                                try:
+                                    _bd = _json.loads(_jm.group(0))
+                                    for _k, _v in _bd.items():
+                                        if _v and not _merged_data.get(_k):
+                                            _merged_data[_k] = _v
+                                except Exception:
+                                    pass
+                        except MemoryError:
+                            _page_err_cnt += 1
+                            _ocr_status.warning(f"⚠️ {_plabel} 메모리 부족 — 건너뜁니다.")
+                        except Exception as _be:
+                            _page_err_cnt += 1
+                            _ocr_status.warning(f"⚠️ {_plabel} 오류: {str(_be)[:80]}")
+                else:
+                    _ocr_prog.progress(30, text="🖼️ 이미지 분석 중...")
+                    try:
+                        _mime = f"image/{_ext.replace('jpg','jpeg')}"
+                        _resp = _client.models.generate_content(
+                            model=GEMINI_MODEL,
+                            contents=[
+                                _types.Part.from_bytes(data=_ocr_raw_bytes, mime_type=_mime),
+                                _vision_prompt,
+                            ],
+                        )
+                        _jm = _re.search(r"\{[\s\S]+\}", _resp.text.strip())
+                        if _jm:
+                            try:
+                                _merged_data = _json.loads(_jm.group(0))
+                            except Exception:
+                                _merged_data = {"raw": _resp.text.strip()}
+                        else:
+                            _merged_data = {"raw": _resp.text.strip()}
+                    except MemoryError:
+                        st.error("❌ 메모리 부족 — 이미지를 더 작게 줄이거나 해상도를 낮춰주세요.")
+                    except Exception as _e:
+                        st.error(f"❌ OCR 오류: {str(_e)[:120]}")
+
+                _ocr_prog.progress(100, text="✅ 분석 완료!")
+                if _merged_data:
+                    st.session_state["_gp88_ocr_result"] = _merged_data
+                    _ok_msg = "✅ 핵심 담보 추출 완료!"
+                    if _page_err_cnt:
+                        _ok_msg += f" (오류 건너뜀: {_page_err_cnt}배치)"
+                    st.success(_ok_msg)
+                else:
+                    st.warning("⚠️ 추출된 데이터가 없습니다. 파일을 확인해 주세요.")
+
+        # 추출 결과 표시 + prefill 연동
+        _ocr_result = st.session_state.get("_gp88_ocr_result", {})
+        if _ocr_result and "raw" not in _ocr_result:
+            st.markdown("**📋 추출된 계약 정보**")
+            _display_fields = [
+                ("계약자","계약자"),("피보험자","피보험자"),("보험사","보험사"),
+                ("상품명","상품명"),("납입기간","납입기간"),("보험기간","보험기간"),
+                ("월보험료","월보험료"),("사망보험금","사망보험금"),
+                ("암진단비","암진단비"),("뇌진단비","뇌진단비"),("심장진단비","심장진단비"),
+            ]
+            _dcols = st.columns(2)
+            for _i, (_lbl, _fk) in enumerate(_display_fields):
+                _v = _ocr_result.get(_fk, "")
+                if _v:
+                    _dcols[_i % 2].metric(_lbl, _v)
+            _extras = _ocr_result.get("기타담보", [])
+            if _extras:
+                st.markdown("**기타 담보:**")
+                for _ex in _extras:
+                    st.markdown(f"- {_ex}")
+            # ── GP89 파이프라인 + prefill 연동 ────────────────────────────────
+            _pname  = _ocr_result.get("계약자") or _ocr_result.get("피보험자", "")
+            _pprice = _ocr_result.get("사망보험금") or _ocr_result.get("월보험료", "")
+            _pplan  = _ocr_result.get("상품명", "")
+            if _pname and not st.session_state.get(_GP89_PIPE["customer_name"]):
+                _gp89_set_customer(_pname, _pplan)
+            if st.button("📋 이 계약 정보로 §4 카카오 발송 준비", key="_gp88_gemini_to_kakao",
+                         use_container_width=True):
+                st.session_state["_gp88_prefill_name"]  = _pname
+                st.session_state["_gp88_prefill_value"] = _pprice
+                st.session_state["_gp88_prefill_plan"]  = _pplan
+                st.success(f"✅ '{_pplan}' 계약 정보를 §4 발송 탭에 불러왔습니다.")
+        elif _ocr_result and "raw" in _ocr_result:
+            st.text_area("원문", value=_ocr_result["raw"], height=200, key="_gp88_ocr_raw_area")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # MODE B: 키워드 텍스트 추출 (최신버전 원형 + GP89 화법 필터)
+    # ══════════════════════════════════════════════════════════════════════════
     else:
-        st.info("지정 키워드 담보 항목을 찾지 못했습니다. 전체 텍스트를 확인하세요.")
+        st.caption("PyMuPDF/Tesseract로 텍스트를 추출하고 핵심 담보 키워드를 찾습니다.")
+        _raw_text = ""
+        try:
+            if _fname.endswith(".pdf"):
+                try:
+                    import fitz as _fitz
+                    _doc = _fitz.open(stream=_ocr_raw_bytes, filetype="pdf")
+                    for _pg in _doc:
+                        _raw_text += _pg.get_text()
+                except ImportError:
+                    st.warning("PyMuPDF(fitz) 미설치 — PDF 텍스트 레이어만 추출합니다.")
+                    _raw_text = _ocr_raw_bytes.decode("utf-8", errors="ignore")
+            else:
+                try:
+                    from PIL import Image as _PILImage
+                    import pytesseract as _tess
+                    _img = _PILImage.open(_io.BytesIO(_ocr_raw_bytes))
+                    _raw_text = _tess.image_to_string(_img, lang="kor+eng")
+                except ImportError:
+                    st.warning("Tesseract/PIL 미설치 — 텍스트 레이어 시도 중.")
+                    _raw_text = _ocr_raw_bytes.decode("utf-8", errors="ignore")
+        except Exception as _e:
+            st.error(f"파일 읽기 오류: {_e}")
+            return
 
-    with st.expander("📃 원문 전체 텍스트 보기", expanded=False):
-        st.text(_raw_text[:3000] + ("…(이하 생략)" if len(_raw_text) > 3000 else ""))
+        if not _raw_text.strip():
+            st.warning("텍스트를 추출하지 못했습니다. 이미지 품질 또는 PDF 텍스트 레이어를 확인하세요.")
+            return
+
+        _KEYWORDS = [
+            "사망", "암", "뇌졸중", "뇌경색", "급성심근경색", "입원", "수술", "진단비",
+            "일당", "후유장해", "배상책임", "실손", "연금", "해지환급",
+            "보험료", "보험기간", "납입기간", "피보험자", "수익자",
+        ]
+        st.markdown("**🔑 추출된 핵심 담보 항목:**")
+        _found = {}
+        for _kw in _KEYWORDS:
+            _lns = [_l.strip() for _l in _raw_text.splitlines() if _kw in _l and _l.strip()]
+            if _lns:
+                _found[_kw] = _lns[:3]
+
+        if _found:
+            # ── GP89 §2: 1인칭 화법 필터 적용 ──────────────────────────────
+            _found_filtered = {_kw: [_gp89_tone_filter(_l) for _l in _lns]
+                               for _kw, _lns in _found.items()}
+            for _kw, _lns in _found_filtered.items():
+                with st.expander(f"🔸 {_kw}", expanded=False):
+                    for _l in _lns:
+                        st.markdown(f"- {_l}")
+            st.session_state["_gp88_ocr_result"] = _found_filtered
+            _current_cname = st.session_state.get(_GP89_PIPE["customer_name"], "")
+            if _current_cname:
+                st.success(f"✅ OCR 추출 완료 — 👤 [{_current_cname}] 전역 파이프라인에 동기화되었습니다.")
+            else:
+                st.success("✅ OCR 추출 완료. §4 '카카오 통합 발송' 탭에서 전송할 수 있습니다.")
+        else:
+            st.info("지정 키워드 담보 항목을 찾지 못했습니다. 전체 텍스트를 확인하세요.")
+
+        with st.expander("📃 원문 전체 텍스트 보기", expanded=False):
+            st.text(_raw_text[:3000] + ("…(이하 생략)" if len(_raw_text) > 3000 else ""))
 
 
 # ── GP88 §4: 카카오 통합 발송 블록 ────────────────────────────────────────────
