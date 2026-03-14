@@ -33715,12 +33715,6 @@ watchRipple();
 </script>
 """, height=0)
 
-    # ── [절대 생존 구조 §5] 사이드바 렌더 완료 후 미인증 차단 ──────────────
-    # with st.sidebar 블록이 위에서 완전히 렌더됨(로그인 폼 포함)
-    # 미인증이면 여기서 st.stop() → 메인 HQ 분석 로직 진입 방지
-    if not _is_auth_now:
-        st.stop()
-
     # ── 관리자 지시 목록 (메인 영역) ──────────────────────────────────────
     if st.session_state.get("is_admin") and st.session_state.get("_show_directives"):
         st.markdown("---")
