@@ -1,4 +1,36 @@
-﻿# ==========================================================
+﻿## 🚨 [SYSTEM INITIALIZATION] MUST BE LINE 1
+import streamlit as st
+import os
+import time
+
+# [1] 초기화 상태에 따라 사이드바 제어 (로딩 전: 열림 / 로딩 후: 접힘)
+if 'initialized' not in st.session_state:
+    st.session_state['initialized'] = False
+
+sb_state = "expanded" if not st.session_state['initialized'] else "collapsed"
+
+st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state=sb_state)
+
+# [2] CSS: 사이드바 및 로딩바 스타일 강제 적용
+st.markdown("""
+    <style>
+        [data-testid="stSidebar"] { display: block !important; visibility: visible !important; }
+        .stApp [data-testid="stStatusWidget"] { visibility: hidden !important; }
+    </style>
+""", unsafe_allow_html=True)
+
+# [3] 프리미엄 스플래시 화면 렌더링
+if not st.session_state['initialized']:
+    splash_placeholder = st.empty()
+    with splash_placeholder.container():
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns([1, 2, 1])
+        with c2:
+            st.image("splash_mobile.jpg", use_container_width=True)
+            st.info("🚀 **Goldkey_AI_Masters가 구동중! 최적의 분석 환경을 준비하고 있습니다...**")
+    st.session_state['splash_placeholder'] = splash_placeholder
+# 
+#  ==========================================================
 # ★★★ [영업비밀 / TRADE SECRET] ★★★
 # ----------------------------------------------------------
 # 본 소스코드 및 포함된 모든 알고리즘·프롬프트·로직·데이터
@@ -4511,15 +4543,14 @@ import os as _os_top
 import time as _time_top
 
 # ── [현관문] Streamlit 절대 규칙: 가장 먼저 실행 ─────────────────────────────
-try:
-    st.set_page_config(
-        page_title="goldkey_Ai_masters2026 마스터 AI",
-        page_icon="🏆",
-        layout="wide",
-        initial_sidebar_state="expanded",
-    )
-except Exception:
-    pass
+# 로딩 전(스플래시): expanded / 로딩 완료 후: collapsed
+_sb_state = "collapsed" if st.session_state.get("initialized") else "expanded"
+st.set_page_config(
+    page_title="goldkey_Ai_masters2026 마스터 AI",
+    page_icon="🏆",
+    layout="wide",
+    initial_sidebar_state=_sb_state,
+)
 
 # 사이드바 투명망토 해제 CSS
 st.markdown("""
@@ -28584,24 +28615,16 @@ def main():
     # ── STEP 1: set_page_config → 최상단(파일 로드 즉시)으로 이전 완료 ──────
     # [제53조] 사이드바 expanded는 최상단 set_page_config에서 보장됨
 
-    # ── 스플래시 제거 (initialize_session 완료 후) ────────────────────────────
-    if st.session_state.get("splash_placeholder") is not None:
-        try:
-            st.session_state["splash_placeholder"].empty()
-        except Exception:
-            pass
-        st.session_state["splash_placeholder"] = None
-    st.session_state["initialized"] = True
-
-    # ── [4단계 §2] 세션 초기화 — 인증 상태 최우선 확인 ─────────────────────
-    if "_is_auth" not in st.session_state:
-        st.session_state["_is_auth"] = False
-    # localStorage 복원 시도 (경량 — 무거운 DB 호출 없음)
-    if not st.session_state.get("user_id") and not st.session_state.get("_logout_flag"):
-        try:
-            _gp140_restore_from_ls()
-        except Exception:
-            pass
+    # ── 스플래시 제거 + 사이드바 collapsed 전환 ────────────────────────────────
+    if not st.session_state.get("initialized"):
+        if st.session_state.get("splash_placeholder") is not None:
+            try:
+                st.session_state["splash_placeholder"].empty()
+            except Exception:
+                pass
+            st.session_state["splash_placeholder"] = None
+        st.session_state["initialized"] = True
+        st.rerun()  # set_page_config를 collapsed로 재실행
     # 세션 백업에서 복원 (rerun 후 user_id 유실 방지)
     _early_saved_uid = st.session_state.get("_saved_user_id")
     if not st.session_state.get("user_id") and _early_saved_uid and not st.session_state.get("_logout_flag"):
