@@ -9,66 +9,95 @@ if 'initialized' not in st.session_state:
     st.session_state['initialized'] = False
 
 # [중요] set_page_config는 반드시 최상단에 위치해야 합니다.
-# 사이드바는 항상 expanded — 로그인 폼이 사이드바에 있으므로 절대 collapsed 금지
+sb_width   = "0px" if st.session_state['initialized'] else "260px"
+sb_display = "none" if st.session_state['initialized'] else "block"
 st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state="expanded")
 
-# [2] CSS: 사이드바 강제 표시
-st.markdown("""
+def get_base64_image(path: str) -> str:
+    try:
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except Exception:
+        return ""
+
+# [4] 통합 CSS: 여백 제거 + 사이드바 제어 + 반응형 이미지
+st.markdown(f"""
     <style>
-        [data-testid="stSidebar"] {
-            display: block !important;
-            visibility: visible !important;
+        /* 1. 전체 화면 여백 및 헤더 제거 */
+        .main .block-container {{
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }}
+        header {{
+            visibility: hidden;
+            height: 0;
+        }}
+        [data-testid="stStatusWidget"] {{ visibility: hidden !important; }}
+
+        /* 2. 사이드바 제어 (initialized 상태에 연동) */
+        [data-testid="stSidebar"] {{
+            width: {sb_width} !important;
+            min-width: {sb_width} !important;
+            display: {sb_display} !important;
             transform: none !important;
-        }
-        section[data-testid="stSidebarContent"] {
-            display: block !important;
-            visibility: visible !important;
-        }
-        .stApp [data-testid="stStatusWidget"] { visibility: hidden !important; }
+        }}
+
+        /* 3. 스플래시 이미지 반응형 컨테이너 */
+        .splash-container {{
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            line-height: 0;
+            width: 100%;
+        }}
+        .mobile-img, .tablet-img {{
+            width: 100%;
+            height: auto;
+            margin: 0;
+        }}
+
+        /* 모바일 (767px 이하) */
+        @media (max-width: 767px) {{
+            .mobile-img {{ display: block !important; }}
+            .tablet-img {{ display: none !important; }}
+        }}
+        /* 태블릿/PC (768px 이상) */
+        @media (min-width: 768px) {{
+            .mobile-img {{ display: none !important; }}
+            .tablet-img {{ display: block !important; max-width: 860px; margin: 0 auto; }}
+        }}
     </style>
 """, unsafe_allow_html=True)
 
-# [3] 프리미엄 스플래시 (모바일/태블릿 반응형 — base64 HTML img 방식)
+# [5] 스플래시 실행 로직
 if not st.session_state['initialized']:
-    def _img_b64(path: str) -> str:
-        try:
-            with open(path, "rb") as f:
-                return base64.b64encode(f.read()).decode()
-        except Exception:
-            return ""
-
-    _mobile_b64  = _img_b64("splash_mobile.png")
-    _tablet_b64  = _img_b64("splash_tablet.png")
-    _mobile_src  = f"data:image/png;base64,{_mobile_b64}"  if _mobile_b64  else ""
-    _tablet_src  = f"data:image/png;base64,{_tablet_b64}"  if _tablet_b64  else ""
+    _m_b64 = get_base64_image("splash_mobile.png")
+    _t_b64 = get_base64_image("splash_tablet.png")
 
     splash_placeholder = st.empty()
-    splash_placeholder.markdown(f"""
-        <style>
-            .gk-splash-wrap {{
-                display: flex; justify-content: center;
-                align-items: flex-start; padding: 40px 0;
-            }}
-            .gk-splash-mobile {{ display: none; max-width: 420px; width: 100%; }}
-            .gk-splash-tablet {{ display: block; max-width: 860px; width: 100%; }}
-            @media (max-width: 767px) {{
-                .gk-splash-mobile {{ display: block !important; }}
-                .gk-splash-tablet {{ display: none !important; }}
-            }}
-        </style>
-        <div class="gk-splash-wrap">
-            <img class="gk-splash-mobile" src="{_mobile_src}" alt="splash mobile"/>
-            <img class="gk-splash-tablet" src="{_tablet_src}" alt="splash tablet"/>
-        </div>
-        <p style="text-align:center;font-size:0.95rem;color:#555;margin-top:12px;">
-            🚀 <b>Goldkey_AI_Masters가 기기에 최적화된 환경을 준비 중입니다...</b>
-        </p>
-    """, unsafe_allow_html=True)
+
+    with splash_placeholder.container():
+        html_content = '<div class="splash-container">'
+        if _m_b64:
+            html_content += f'<img src="data:image/png;base64,{_m_b64}" class="mobile-img">'
+        if _t_b64:
+            html_content += f'<img src="data:image/png;base64,{_t_b64}" class="tablet-img">'
+        if not _m_b64 and not _t_b64:
+            html_content += "<h2 style='padding-top:150px;'>🏆 Goldkey AI Masters</h2>"
+        html_content += "</div>"
+        st.markdown(html_content, unsafe_allow_html=True)
+        st.markdown("""
+            <p style="text-align:center; font-size:1rem; color:#1e3a8a; font-weight:bold; margin-top:20px;">
+                🚀 Goldkey_AI_Masters가 최적의 분석 환경을 준비 중입니다...
+            </p>
+        """, unsafe_allow_html=True)
 
     # 5초간 브랜드 노출 유지
     time.sleep(5)
 
-    # 퇴장 처리 — rerun 없이 직접 스플래시만 제거하고 계속 진행
+    # 퇴장 처리
     splash_placeholder.empty()
     st.session_state['initialized'] = True
 
