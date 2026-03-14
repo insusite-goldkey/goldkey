@@ -5933,12 +5933,20 @@ def _gp512_get_remaining(fp_id: str) -> int:
 # ══════════════════════════════════════════════════════════════════════════
 
 def _gp0_instant_bootstrap() -> None:
-    """[제0조] 파스텔블루 한국어 스플래시 — 최초 1회 표시 후 2초 자동 해제."""
+    """[비활성화] 스플래시 제거 — 로그인 사이드바 즉시 표시."""
+    pass
+
+
+def _gp0_instant_bootstrap_DISABLED() -> None:
+    """[보관용] 원본 스플래시 코드 — 재활성화 필요 시 _gp0_instant_bootstrap 으로 복구."""
     import streamlit as _st0
     _st0.markdown("""
 <style>
 #gp0-veil ~ * { visibility: hidden !important; }
-section[data-testid="stSidebar"] { display:none !important; }
+section[data-testid="stSidebar"] {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
 </style>
 <div id="gp0-veil" style="
     position:fixed;top:0;left:0;width:100vw;height:100vh;
@@ -6009,9 +6017,9 @@ section[data-testid="stSidebar"] { display:none !important; }
     step();
     setTimeout(function(){
       var v = document.getElementById('gp0-veil');
-      if(v) v.style.cssText = 'display:none !important;';
+      if(v) v.style.display = 'none';
       var sb = document.querySelector('section[data-testid="stSidebar"]');
-      if(sb) sb.style.cssText = '';
+      if(sb){ sb.style.opacity='1'; sb.style.pointerEvents='auto'; }
     }, 150);
   }, 1000);
 })();
@@ -6019,9 +6027,6 @@ section[data-testid="stSidebar"] { display:none !important; }
 """, unsafe_allow_html=True)
 
 
-def _gp0_instant_bootstrap_DISABLED() -> None:
-    """[보관용] 원본 스플래시 코드 — 재활성화 필요 시 _gp0_instant_bootstrap 으로 복구."""
-    import streamlit as _st0
     _st0.markdown("""
 <div id="gp0-landing-veil" style="
     position:fixed;top:0;left:0;width:100vw;height:100vh;
@@ -28563,6 +28568,53 @@ def main():
         initial_sidebar_state=_sb_init_state
     )
 
+    # ── [4단계 §2] 세션 초기화 — 인증 상태 최우선 확인 ─────────────────────
+    if "_is_auth" not in st.session_state:
+        st.session_state["_is_auth"] = False
+    # localStorage 복원 시도 (경량 — 무거운 DB 호출 없음)
+    if not st.session_state.get("user_id") and not st.session_state.get("_logout_flag"):
+        try:
+            _gp140_restore_from_ls()
+        except Exception:
+            pass
+    # 세션 백업에서 복원 (rerun 후 user_id 유실 방지)
+    _early_saved_uid = st.session_state.get("_saved_user_id")
+    if not st.session_state.get("user_id") and _early_saved_uid and not st.session_state.get("_logout_flag"):
+        st.session_state["user_id"]   = _early_saved_uid
+        st.session_state["user_name"] = st.session_state.get("_saved_user_name", "")
+        st.session_state["is_admin"]  = st.session_state.get("_saved_is_admin", False)
+    _is_auth_now = bool(st.session_state.get("user_id") or st.session_state.get("authenticated"))
+    st.session_state["_is_auth"] = _is_auth_now
+
+    # ── [4단계 §3] 논블로킹 사이드바 — 미인증 시 즉시 렌더 후 st.stop() ─────
+    # 로그인이 안 되어 있으면 사이드바+로그인 폼만 그리고 무거운 코드 진입 차단
+    if not _is_auth_now:
+        # 사이드바 CSS 최소 주입 (사이드바가 보이도록)
+        st.markdown("""<style>
+section[data-testid="stSidebar"] {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-width: 244px !important;
+    pointer-events: auto !important;
+}
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapseButton"] { display: none !important; }
+footer, footer * { display: none !important; }
+#MainMenu, [data-testid="stMainMenuButton"] { display: none !important; }
+</style>""", unsafe_allow_html=True)
+        with st.sidebar:
+            render_goldkey_sidebar()
+        # 메인 영역에 로그인 안내 (사이드바에서 로그인하도록 유도)
+        st.markdown(
+            "<div style='text-align:center;padding:60px 20px;'>"
+            "<div style='font-size:2.2rem;font-weight:900;color:#1e3a8a;margin-bottom:12px;'>🏆 Goldkey AI Masters 2026</div>"
+            "<div style='font-size:1.05rem;color:#374151;'>왼쪽 사이드바에서 로그인해주세요.</div>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        st.stop()  # ⚠️ 미인증 시 여기서 완전 차단 — 아래 무거운 코드 실행 없음
+
     # ── [로딩 UI 한국어화] Running... 숨김 + 한국어 구동중 문구 오버레이 ────
     st.markdown("""
 <style>
@@ -28960,16 +29012,9 @@ section[data-testid="stSidebar"] > div:first-child {
             ".loss-ok  { background:#dcfce7; color:#166534; border-radius:6px; padding:2px 8px; font-size:0.70rem; font-weight:800; }"
             ".loss-gap { background:#fee2e2; color:#991b1b; border-radius:6px; padding:2px 8px; font-size:0.70rem; font-weight:800; }"
             ".loss-dup { background:#fef9c3; color:#854d0e; border-radius:6px; padding:2px 8px; font-size:0.70rem; font-weight:800; }"
-
             "</style>",
             unsafe_allow_html=True,
         )
-
-    # ── STEP 0: [제0조] 전광석화식 기동 헌법 — Instant Swap Bootstrap ────
-    # 최초 1회만 실행 (rerun 시 veil 재표시 방지)
-    if not st.session_state.get("_gp0_bootstrap_done"):
-        st.session_state["_gp0_bootstrap_done"] = True
-        _gp0_instant_bootstrap()
 
     # ── [MCH] 전역 데이터 파이프라인 동기화 — 매 렌더마다 분산 세션키 통합 ──
     try:
@@ -36286,40 +36331,58 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
     # [GP-52] home_portal 라우터
     # ══════════════════════════════════════════════════════════════════════
     if cur == "home_portal":
-        show_home_portal()
+        _ph_hp = st.empty()
+        with _ph_hp:
+            with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+                show_home_portal()
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
     # [GP-53] claim_scanner 라우터
     # ══════════════════════════════════════════════════════════════════════
     if cur == "claim_scanner":
-        show_claim_scanner()
+        _ph_cs = st.empty()
+        with _ph_cs:
+            with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+                show_claim_scanner()
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
     # [GP102/103] war_room 라우터 — 실전 상담 전략실
     # ══════════════════════════════════════════════════════════════════════
     if cur == "gk_risk":
-        _render_gk_risk()
+        _ph_gkr = st.empty()
+        with _ph_gkr:
+            with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+                _render_gk_risk()
         st.stop()
 
         # ══════════════════════════════════════════════════════════════════════
     # [GK-JOB] 계층형 직업 진단 엔진 라우터
     # ══════════════════════════════════════════════════════════════════════
     if cur == "war_room":
-        show_war_room()
+        _ph_wr = st.empty()
+        with _ph_wr:
+            with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+                show_war_room()
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
     if cur == "gk_job":
-        _render_gk_job()
+        _ph_gkj = st.empty()
+        with _ph_gkj:
+            with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+                _render_gk_job()
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
     # [GK-SEC-10] 디지털 보험 진단 시스템 라우터
     # ══════════════════════════════════════════════════════════════════════
     if cur == "gk_sec10":
-        _render_gk_sec10()
+        _ph_s10 = st.empty()
+        with _ph_s10:
+            with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+                _render_gk_sec10()
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
@@ -36327,7 +36390,10 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
     # ══════════════════════════════════════════════════════════════════════
     if cur == "gk_sec09":
         if not _auth_gate("gk_sec09"): st.stop()
-        _render_gk_sec09()
+        _ph_s09 = st.empty()
+        with _ph_s09:
+            with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+                _render_gk_sec09()
         st.stop()
 
         # ══════════════════════════════════════════════════════════════════════
@@ -36335,7 +36401,10 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
     # ══════════════════════════════════════════════════════════════════════
     if cur == "gk_sec08":
         if not _auth_gate("gk_sec08"): st.stop()
-        _render_gk_sec08()
+        _ph_s08 = st.empty()
+        with _ph_s08:
+            with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+                _render_gk_sec08()
         st.stop()
 
         # ══════════════════════════════════════════════════════════════════════
@@ -36343,7 +36412,10 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
     # ══════════════════════════════════════════════════════════════════════
     if cur == "gk_sec07":
         if not _auth_gate("gk_sec07"): st.stop()
-        _render_gk_sec07()
+        _ph_s07 = st.empty()
+        with _ph_s07:
+            with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+                _render_gk_sec07()
         st.stop()
 
         # ══════════════════════════════════════════════════════════════════════
@@ -36351,7 +36423,10 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
     # ══════════════════════════════════════════════════════════════════════
     if cur == "life_defense":
         tab_home_btn("life_defense")
-        _life_defense_command_panel()
+        _ph_ld = st.empty()
+        with _ph_ld:
+            with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+                _life_defense_command_panel()
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
@@ -36823,475 +36898,476 @@ function selectCustomer(name) {{
 
     # ── [달력] AgentCalendarView + ScheduleInputModal ─────────────────────
     if cur == "calendar":
-        st.markdown(f"""
-<div class="gk-sky-trust gp-interactive" style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:10px;">
-  {_bid('3-1-1')}
-  <div class="gk-st-title">📅 상담 일정 관리</div>
-  <div style="font-size:0.8rem;margin-top:4px;">고객 방문 · 계약 일정 · 약속 관리</div>
-</div>""", unsafe_allow_html=True)
-        _cal_back, _ = st.columns([1, 5])
-        with _cal_back:
-            if st.button("← 인트로", key="cal_back_btn", use_container_width=True):
-                _go_tab("intro")
-
-        # 세션에 저장된 일정 목록 로드
-        import json as _json_cal
-        _cal_events = st.session_state.get("_cal_events", [])
-        _cal_events_json = _json_cal.dumps(_cal_events, ensure_ascii=False)
-
-        # 고객 목록 (customer_mgmt 데이터와 연동)
-        _cal_customers = []
-        for _c in st.session_state.get("customers", []):
-            _name = _c.get("name", "") or _c.get("cname", "")
-            _cid  = _c.get("cust_id", "") or _c.get("id", "")
-            if _name:
-                _cal_customers.append({"id": _cid, "name": _name})
-        _cal_cust_json = _json_cal.dumps(_cal_customers, ensure_ascii=False)
-
-        import streamlit.components.v1 as _cv1_cal
-        _cv1_cal.html(f"""<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-*{{box-sizing:border-box;margin:0;padding:0;font-family:'Malgun Gothic','Noto Sans KR',sans-serif;}}
-body{{background:#f0f4f8;padding:12px;}}
-
-/* ── 헤더 ── */
-.cal-header{{
-  display:flex;align-items:center;justify-content:space-between;
-  background:#fff;border-radius:12px;padding:12px 20px;
-  box-shadow:0 1px 6px rgba(30,80,160,0.10);margin-bottom:12px;
-}}
-.cal-header h2{{font-size:1.15rem;font-weight:900;color:#1a3a5c;}}
-.cal-nav-btn{{
-  background:#1e5ba4;color:#fff;border:none;border-radius:8px;
-  padding:7px 18px;font-size:0.9rem;font-weight:700;cursor:pointer;
-}}
-.cal-nav-btn:hover{{background:#154a8a;}}
-.cal-today-btn{{
-  background:#f0f4f8;color:#1e5ba4;border:1.5px solid #1e5ba4;
-  border-radius:8px;padding:7px 14px;font-size:0.85rem;font-weight:700;cursor:pointer;
-}}
-
-/* ── 달력 그리드 ── */
-.cal-grid-wrap{{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(30,80,160,0.10);overflow:hidden;}}
-.cal-weekdays{{
-  display:grid;grid-template-columns:repeat(7,1fr);
-  background:#f8fafc;border-bottom:2px solid #e2e8f0;
-}}
-.cal-weekday{{
-  text-align:center;padding:8px 0;font-size:0.78rem;font-weight:900;
-  color:#475569;letter-spacing:0.05em;
-}}
-.cal-weekday.sun{{color:#ef4444;}}
-.cal-weekday.sat{{color:#3b82f6;}}
-.cal-days{{display:grid;grid-template-columns:repeat(7,1fr);}}
-.cal-cell{{
-  min-height:88px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;
-  padding:5px 6px;cursor:pointer;transition:background 0.12s;
-}}
-.cal-cell:hover{{background:#eff6ff;}}
-.cal-cell.other-month{{background:#f8fafc;}}
-.cal-cell.other-month .cal-day-num{{color:#cbd5e1;}}
-.cal-cell.today .cal-day-num{{
-  background:#1e5ba4;color:#fff;border-radius:50%;
-  width:26px;height:26px;display:flex;align-items:center;justify-content:center;
-  font-weight:900;
-}}
-.cal-cell.selected{{background:#eff6ff;outline:2px solid #1e5ba4;outline-offset:-2px;}}
-.cal-day-num{{font-size:0.82rem;font-weight:700;color:#1e293b;margin-bottom:3px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;}}
-.cal-cell.sun .cal-day-num{{color:#ef4444;}}
-.cal-cell.sat .cal-day-num{{color:#3b82f6;}}
-.cal-cell.today.sun .cal-day-num,.cal-cell.today.sat .cal-day-num{{color:#fff;}}
-.cal-badges{{display:flex;flex-direction:column;gap:2px;}}
-.badge{{
-  display:block;border-radius:4px;padding:1px 5px;
-  font-size:0.68rem;font-weight:700;white-space:nowrap;overflow:hidden;
-  text-overflow:ellipsis;max-width:100%;cursor:pointer;
-}}
-.badge-consult{{background:#fee2e2;color:#b91c1c;border-left:3px solid #ef4444;}}
-.badge-appointment{{background:#dbeafe;color:#1d4ed8;border-left:3px solid #3b82f6;}}
-.badge-todo{{background:#fef9c3;color:#92400e;border-left:3px solid #f59e0b;}}
-.badge-personal{{background:#f0fdf4;color:#166534;border-left:3px solid #22c55e;}}
-.badge-more{{background:#f1f5f9;color:#64748b;border-left:3px solid #94a3b8;}}
-
-/* ── 모달 오버레이 ── */
-.modal-overlay{{
-  display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);
-  z-index:1000;align-items:center;justify-content:center;
-}}
-.modal-overlay.open{{display:flex;}}
-.modal-box{{
-  background:#fff;border-radius:16px;width:min(480px,96vw);
-  box-shadow:0 8px 40px rgba(15,23,42,0.22);animation:fadeUp 0.22s ease;
-  max-height:92vh;overflow-y:auto;
-}}
-@keyframes fadeUp{{from{{opacity:0;transform:translateY(24px);}}to{{opacity:1;transform:translateY(0);}}}}
-.modal-header{{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:18px 22px 14px;border-bottom:1.5px solid #e2e8f0;
-}}
-.modal-header h3{{font-size:1.05rem;font-weight:900;color:#1a3a5c;}}
-.modal-close{{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;}}
-.modal-body{{padding:18px 22px;}}
-.form-group{{margin-bottom:14px;}}
-.form-label{{display:block;font-size:0.8rem;font-weight:700;color:#374151;margin-bottom:5px;}}
-.form-label .req{{color:#ef4444;margin-left:2px;}}
-.form-input{{
-  width:100%;border:1.5px solid #d1d5db;border-radius:8px;
-  padding:9px 12px;font-size:0.88rem;color:#1e293b;outline:none;
-  transition:border-color 0.15s;
-}}
-.form-input:focus{{border-color:#1e5ba4;box-shadow:0 0 0 3px rgba(30,91,164,0.12);}}
-.form-row{{display:grid;grid-template-columns:1fr 1fr;gap:10px;}}
-.category-select{{
-  width:100%;border:1.5px solid #d1d5db;border-radius:8px;
-  padding:9px 12px;font-size:0.88rem;color:#1e293b;background:#fff;
-  cursor:pointer;outline:none;
-}}
-.category-select:focus{{border-color:#1e5ba4;}}
-.form-textarea{{
-  width:100%;border:1.5px solid #d1d5db;border-radius:8px;
-  padding:9px 12px;font-size:0.88rem;color:#1e293b;resize:vertical;
-  min-height:72px;outline:none;
-}}
-.form-textarea:focus{{border-color:#1e5ba4;}}
-.modal-footer{{
-  display:flex;gap:10px;justify-content:flex-end;
-  padding:14px 22px 18px;border-top:1.5px solid #e2e8f0;
-}}
-.btn-save{{
-  background:#1e5ba4;color:#fff;border:none;border-radius:8px;
-  padding:9px 28px;font-size:0.92rem;font-weight:700;cursor:pointer;
-}}
-.btn-save:hover{{background:#154a8a;}}
-.btn-cancel{{
-  background:#f1f5f9;color:#475569;border:1.5px solid #e2e8f0;
-  border-radius:8px;padding:9px 20px;font-size:0.92rem;font-weight:700;cursor:pointer;
-}}
-.btn-delete{{
-  background:#fee2e2;color:#b91c1c;border:1.5px solid #fca5a5;
-  border-radius:8px;padding:9px 18px;font-size:0.88rem;font-weight:700;cursor:pointer;
-  margin-right:auto;
-}}
-
-/* ── 미니 범례 ── */
-.legend{{display:flex;gap:10px;flex-wrap:wrap;padding:10px 4px 2px;}}
-.legend-item{{display:flex;align-items:center;gap:4px;font-size:0.75rem;color:#374151;}}
-.legend-dot{{width:10px;height:10px;border-radius:2px;flex-shrink:0;}}
-</style>
-</head>
-<body>
-
-<!-- 헤더 -->
-<div class="cal-header">
-  <button class="cal-nav-btn" onclick="changeMonth(-1)">&#8249;</button>
-  <div style="text-align:center;">
-    <h2 id="cal-title">2025년 1월</h2>
-    <div class="legend">
-      <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div>상담</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div>약속</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div>할 일</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#22c55e;"></div>개인</div>
-    </div>
-  </div>
-  <button class="cal-nav-btn" onclick="changeMonth(1)">&#8250;</button>
-</div>
-<div style="text-align:right;margin-bottom:8px;">
-  <button class="cal-today-btn" onclick="goToday()">오늘</button>
-</div>
-
-<!-- 달력 -->
-<div class="cal-grid-wrap">
-  <div class="cal-weekdays">
-    <div class="cal-weekday sun">일</div>
-    <div class="cal-weekday">월</div>
-    <div class="cal-weekday">화</div>
-    <div class="cal-weekday">수</div>
-    <div class="cal-weekday">목</div>
-    <div class="cal-weekday">금</div>
-    <div class="cal-weekday sat">토</div>
-  </div>
-  <div class="cal-days" id="cal-days"></div>
-</div>
-
-<!-- 일정 입력 모달 -->
-<div class="modal-overlay" id="scheduleModal">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h3 id="modal-title">📅 일정 추가</h3>
-      <button class="modal-close" onclick="closeModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="edit-idx" value="-1">
-      <div class="form-group">
-        <label class="form-label">일정 제목 <span class="req">*</span></label>
-        <input class="form-input" id="f-title" type="text" placeholder="예: 김고객 신계약 상담">
-      </div>
-      <div class="form-group">
-        <label class="form-label">일정 분류 <span class="req">*</span></label>
-        <select class="category-select" id="f-category" onchange="updateCategoryColor()">
-          <option value="consult">🔴 상담</option>
-          <option value="appointment">🔵 약속</option>
-          <option value="todo">🟡 할 일</option>
-          <option value="personal">🟢 개인일정</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">시작 일시 <span class="req">*</span></label>
-        <div class="form-row">
-          <input class="form-input" id="f-start-date" type="date">
-          <input class="form-input" id="f-start-time" type="time" value="09:00">
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">종료 일시</label>
-        <div class="form-row">
-          <input class="form-input" id="f-end-date" type="date">
-          <input class="form-input" id="f-end-time" type="time" value="10:00">
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">관련 고객</label>
-        <select class="category-select" id="f-customer">
-          <option value="">— 선택 안 함 —</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">메모</label>
-        <textarea class="form-textarea" id="f-memo" placeholder="상담 메모, 준비사항 등..."></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-delete" id="btn-delete" onclick="deleteEvent()" style="display:none;">삭제</button>
-      <button class="btn-cancel" onclick="closeModal()">취소</button>
-      <button class="btn-save" onclick="saveEvent()">저장</button>
-    </div>
-  </div>
-</div>
-
-<script>
-// ── 상태 ─────────────────────────────────────────────────────────────────
-var events = {_cal_events_json};
-var customers = {_cal_cust_json};
-var today = new Date();
-var curYear = today.getFullYear();
-var curMonth = today.getMonth(); // 0-indexed
-
-// ── 고객 드롭다운 초기화 ─────────────────────────────────────────────────
-(function initCustomers() {{
-  var sel = document.getElementById('f-customer');
-  customers.forEach(function(c) {{
-    var opt = document.createElement('option');
-    opt.value = c.id || c.name;
-    opt.textContent = c.name;
-    sel.appendChild(opt);
-  }});
-}})();
-
-// ── 달력 렌더 ────────────────────────────────────────────────────────────
-function renderCalendar() {{
-  var title = curYear + '년 ' + (curMonth+1) + '월';
-  document.getElementById('cal-title').textContent = title;
-
-  var firstDay = new Date(curYear, curMonth, 1).getDay(); // 0=Sun
-  var daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
-  var daysInPrev = new Date(curYear, curMonth, 0).getDate();
-
-  var container = document.getElementById('cal-days');
-  container.innerHTML = '';
-
-  var todayY = today.getFullYear(), todayM = today.getMonth(), todayD = today.getDate();
-
-  // 이전 달 빈칸
-  for (var i = 0; i < firstDay; i++) {{
-    var d = daysInPrev - firstDay + 1 + i;
-    container.appendChild(makeCell(curYear, curMonth-1, d, true));
-  }}
-  // 현재 달
-  for (var d = 1; d <= daysInMonth; d++) {{
-    var isToday = (curYear===todayY && curMonth===todayM && d===todayD);
-    container.appendChild(makeCell(curYear, curMonth, d, false, isToday));
-  }}
-  // 다음 달 빈칸
-  var total = firstDay + daysInMonth;
-  var remaining = total % 7 === 0 ? 0 : 7 - (total % 7);
-  for (var d = 1; d <= remaining; d++) {{
-    container.appendChild(makeCell(curYear, curMonth+1, d, true));
-  }}
-}}
-
-function makeCell(y, m, d, otherMonth, isToday) {{
-  // 실제 날짜 계산
-  var realDate = new Date(y, m, d);
-  var realY = realDate.getFullYear();
-  var realM = realDate.getMonth();
-  var realD = realDate.getDate();
-  var dow = realDate.getDay(); // 0=Sun
-
-  var cell = document.createElement('div');
-  cell.className = 'cal-cell';
-  if (otherMonth) cell.classList.add('other-month');
-  if (isToday)    cell.classList.add('today');
-  if (dow===0)    cell.classList.add('sun');
-  if (dow===6)    cell.classList.add('sat');
-
-  var dateStr = realY + '-' + pad(realM+1) + '-' + pad(realD);
-  cell.dataset.date = dateStr;
-  cell.onclick = function() {{ openModal(dateStr); }};
-
-  // 날짜 숫자
-  var numDiv = document.createElement('div');
-  numDiv.className = 'cal-day-num';
-  numDiv.textContent = realD;
-  cell.appendChild(numDiv);
-
-  // 배지
-  var badgeWrap = document.createElement('div');
-  badgeWrap.className = 'cal-badges';
-  var dayEvents = events.filter(function(e) {{ return e.date === dateStr; }});
-  var maxShow = 3;
-  dayEvents.slice(0, maxShow).forEach(function(ev) {{
-    var b = document.createElement('span');
-    b.className = 'badge badge-' + ev.category;
-    var prefix = {{consult:'🔴',appointment:'🔵',todo:'🟡',personal:'🟢'}}[ev.category] || '⚪';
-    b.textContent = prefix + ' ' + ev.title;
-    b.onclick = function(e) {{ e.stopPropagation(); openEditModal(ev, dateStr); }};
-    badgeWrap.appendChild(b);
-  }});
-  if (dayEvents.length > maxShow) {{
-    var more = document.createElement('span');
-    more.className = 'badge badge-more';
-    more.textContent = '+' + (dayEvents.length - maxShow) + '개 더';
-    badgeWrap.appendChild(more);
-  }}
-  cell.appendChild(badgeWrap);
-  return cell;
-}}
-
-function pad(n) {{ return n < 10 ? '0'+n : ''+n; }}
-
-// ── 월 이동 ──────────────────────────────────────────────────────────────
-function changeMonth(delta) {{
-  curMonth += delta;
-  if (curMonth < 0) {{ curMonth = 11; curYear--; }}
-  if (curMonth > 11) {{ curMonth = 0; curYear++; }}
-  renderCalendar();
-}}
-function goToday() {{
-  curYear = today.getFullYear();
-  curMonth = today.getMonth();
-  renderCalendar();
-}}
-
-// ── 모달 열기 (신규) ─────────────────────────────────────────────────────
-function openModal(dateStr) {{
-  document.getElementById('modal-title').textContent = '📅 일정 추가';
-  document.getElementById('edit-idx').value = '-1';
-  document.getElementById('f-title').value = '';
-  document.getElementById('f-category').value = 'consult';
-  document.getElementById('f-start-date').value = dateStr;
-  document.getElementById('f-end-date').value = dateStr;
-  document.getElementById('f-start-time').value = '09:00';
-  document.getElementById('f-end-time').value = '10:00';
-  document.getElementById('f-customer').value = '';
-  document.getElementById('f-memo').value = '';
-  document.getElementById('btn-delete').style.display = 'none';
-  document.getElementById('scheduleModal').classList.add('open');
-}}
-
-// ── 모달 열기 (편집) ─────────────────────────────────────────────────────
-function openEditModal(ev, dateStr) {{
-  var idx = events.indexOf(ev);
-  document.getElementById('modal-title').textContent = '✏️ 일정 수정';
-  document.getElementById('edit-idx').value = idx;
-  document.getElementById('f-title').value = ev.title || '';
-  document.getElementById('f-category').value = ev.category || 'consult';
-  document.getElementById('f-start-date').value = ev.date || dateStr;
-  document.getElementById('f-end-date').value = ev.end_date || ev.date || dateStr;
-  document.getElementById('f-start-time').value = ev.start_time || '09:00';
-  document.getElementById('f-end-time').value = ev.end_time || '10:00';
-  document.getElementById('f-customer').value = ev.customer || '';
-  document.getElementById('f-memo').value = ev.memo || '';
-  document.getElementById('btn-delete').style.display = 'block';
-  document.getElementById('scheduleModal').classList.add('open');
-}}
-
-function closeModal() {{
-  document.getElementById('scheduleModal').classList.remove('open');
-}}
-
-// ── 저장 ─────────────────────────────────────────────────────────────────
-function saveEvent() {{
-  var title = document.getElementById('f-title').value.trim();
-  if (!title) {{ alert('일정 제목을 입력하세요.'); return; }}
-  var startDate = document.getElementById('f-start-date').value;
-  if (!startDate) {{ alert('시작 날짜를 선택하세요.'); return; }}
-
-  var ev = {{
-    title: title,
-    category: document.getElementById('f-category').value,
-    date: startDate,
-    end_date: document.getElementById('f-end-date').value || startDate,
-    start_time: document.getElementById('f-start-time').value,
-    end_time: document.getElementById('f-end-time').value,
-    customer: document.getElementById('f-customer').value,
-    memo: document.getElementById('f-memo').value.trim()
-  }};
-
-  var idx = parseInt(document.getElementById('edit-idx').value);
-  if (idx >= 0) {{
-    events[idx] = ev;
-  }} else {{
-    events.push(ev);
-  }}
-
-  closeModal();
-  renderCalendar();
-  // Streamlit에 저장 전달 (query_params 방식)
-  syncToStreamlit();
-}}
-
-// ── 삭제 ─────────────────────────────────────────────────────────────────
-function deleteEvent() {{
-  var idx = parseInt(document.getElementById('edit-idx').value);
-  if (idx >= 0 && confirm('이 일정을 삭제하시겠습니까?')) {{
-    events.splice(idx, 1);
-    closeModal();
-    renderCalendar();
-    syncToStreamlit();
-  }}
-}}
-
-// ── Streamlit 동기화 ─────────────────────────────────────────────────────
-function syncToStreamlit() {{
-  try {{
-    window.parent.postMessage({{
-      type: 'streamlit:setComponentValue',
-      value: JSON.stringify(events)
-    }}, '*');
-  }} catch(e) {{}}
-}}
-
-// 오버레이 클릭 시 닫기
-document.getElementById('scheduleModal').addEventListener('click', function(e) {{
-  if (e.target === this) closeModal();
-}});
-
-renderCalendar();
-</script>
-</body>
-</html>""", height=780, scrolling=True)
-
-        # Streamlit 컴포넌트에서 전달받은 이벤트 저장 처리
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        st.markdown("""
-<div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;
-  padding:10px 16px;font-size:0.82rem;color:#475569;text-align:center;">
-  💡 날짜 칸을 클릭하면 일정을 추가할 수 있습니다. 기존 배지를 클릭하면 수정/삭제가 가능합니다.
-</div>""", unsafe_allow_html=True)
+        with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+            st.markdown(f"""
+            <div class="gk-sky-trust gp-interactive" style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:10px;">
+            {_bid('3-1-1')}
+            <div class="gk-st-title">📅 상담 일정 관리</div>
+            <div style="font-size:0.8rem;margin-top:4px;">고객 방문 · 계약 일정 · 약속 관리</div>
+            </div>""", unsafe_allow_html=True)
+            _cal_back, _ = st.columns([1, 5])
+            with _cal_back:
+                if st.button("← 인트로", key="cal_back_btn", use_container_width=True):
+                    _go_tab("intro")
+        
+            # 세션에 저장된 일정 목록 로드
+            import json as _json_cal
+            _cal_events = st.session_state.get("_cal_events", [])
+            _cal_events_json = _json_cal.dumps(_cal_events, ensure_ascii=False)
+        
+            # 고객 목록 (customer_mgmt 데이터와 연동)
+            _cal_customers = []
+            for _c in st.session_state.get("customers", []):
+                _name = _c.get("name", "") or _c.get("cname", "")
+                _cid  = _c.get("cust_id", "") or _c.get("id", "")
+                if _name:
+                    _cal_customers.append({"id": _cid, "name": _name})
+            _cal_cust_json = _json_cal.dumps(_cal_customers, ensure_ascii=False)
+        
+            import streamlit.components.v1 as _cv1_cal
+            _cv1_cal.html(f"""<!DOCTYPE html>
+            <html lang="ko">
+            <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <style>
+            *{{box-sizing:border-box;margin:0;padding:0;font-family:'Malgun Gothic','Noto Sans KR',sans-serif;}}
+            body{{background:#f0f4f8;padding:12px;}}
+        
+            /* ── 헤더 ── */
+            .cal-header{{
+            display:flex;align-items:center;justify-content:space-between;
+            background:#fff;border-radius:12px;padding:12px 20px;
+            box-shadow:0 1px 6px rgba(30,80,160,0.10);margin-bottom:12px;
+            }}
+            .cal-header h2{{font-size:1.15rem;font-weight:900;color:#1a3a5c;}}
+            .cal-nav-btn{{
+            background:#1e5ba4;color:#fff;border:none;border-radius:8px;
+            padding:7px 18px;font-size:0.9rem;font-weight:700;cursor:pointer;
+            }}
+            .cal-nav-btn:hover{{background:#154a8a;}}
+            .cal-today-btn{{
+            background:#f0f4f8;color:#1e5ba4;border:1.5px solid #1e5ba4;
+            border-radius:8px;padding:7px 14px;font-size:0.85rem;font-weight:700;cursor:pointer;
+            }}
+        
+            /* ── 달력 그리드 ── */
+            .cal-grid-wrap{{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(30,80,160,0.10);overflow:hidden;}}
+            .cal-weekdays{{
+            display:grid;grid-template-columns:repeat(7,1fr);
+            background:#f8fafc;border-bottom:2px solid #e2e8f0;
+            }}
+            .cal-weekday{{
+            text-align:center;padding:8px 0;font-size:0.78rem;font-weight:900;
+            color:#475569;letter-spacing:0.05em;
+            }}
+            .cal-weekday.sun{{color:#ef4444;}}
+            .cal-weekday.sat{{color:#3b82f6;}}
+            .cal-days{{display:grid;grid-template-columns:repeat(7,1fr);}}
+            .cal-cell{{
+            min-height:88px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;
+            padding:5px 6px;cursor:pointer;transition:background 0.12s;
+            }}
+            .cal-cell:hover{{background:#eff6ff;}}
+            .cal-cell.other-month{{background:#f8fafc;}}
+            .cal-cell.other-month .cal-day-num{{color:#cbd5e1;}}
+            .cal-cell.today .cal-day-num{{
+            background:#1e5ba4;color:#fff;border-radius:50%;
+            width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+            font-weight:900;
+            }}
+            .cal-cell.selected{{background:#eff6ff;outline:2px solid #1e5ba4;outline-offset:-2px;}}
+            .cal-day-num{{font-size:0.82rem;font-weight:700;color:#1e293b;margin-bottom:3px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;}}
+            .cal-cell.sun .cal-day-num{{color:#ef4444;}}
+            .cal-cell.sat .cal-day-num{{color:#3b82f6;}}
+            .cal-cell.today.sun .cal-day-num,.cal-cell.today.sat .cal-day-num{{color:#fff;}}
+            .cal-badges{{display:flex;flex-direction:column;gap:2px;}}
+            .badge{{
+            display:block;border-radius:4px;padding:1px 5px;
+            font-size:0.68rem;font-weight:700;white-space:nowrap;overflow:hidden;
+            text-overflow:ellipsis;max-width:100%;cursor:pointer;
+            }}
+            .badge-consult{{background:#fee2e2;color:#b91c1c;border-left:3px solid #ef4444;}}
+            .badge-appointment{{background:#dbeafe;color:#1d4ed8;border-left:3px solid #3b82f6;}}
+            .badge-todo{{background:#fef9c3;color:#92400e;border-left:3px solid #f59e0b;}}
+            .badge-personal{{background:#f0fdf4;color:#166534;border-left:3px solid #22c55e;}}
+            .badge-more{{background:#f1f5f9;color:#64748b;border-left:3px solid #94a3b8;}}
+        
+            /* ── 모달 오버레이 ── */
+            .modal-overlay{{
+            display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);
+            z-index:1000;align-items:center;justify-content:center;
+            }}
+            .modal-overlay.open{{display:flex;}}
+            .modal-box{{
+            background:#fff;border-radius:16px;width:min(480px,96vw);
+            box-shadow:0 8px 40px rgba(15,23,42,0.22);animation:fadeUp 0.22s ease;
+            max-height:92vh;overflow-y:auto;
+            }}
+            @keyframes fadeUp{{from{{opacity:0;transform:translateY(24px);}}to{{opacity:1;transform:translateY(0);}}}}
+            .modal-header{{
+            display:flex;align-items:center;justify-content:space-between;
+            padding:18px 22px 14px;border-bottom:1.5px solid #e2e8f0;
+            }}
+            .modal-header h3{{font-size:1.05rem;font-weight:900;color:#1a3a5c;}}
+            .modal-close{{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;}}
+            .modal-body{{padding:18px 22px;}}
+            .form-group{{margin-bottom:14px;}}
+            .form-label{{display:block;font-size:0.8rem;font-weight:700;color:#374151;margin-bottom:5px;}}
+            .form-label .req{{color:#ef4444;margin-left:2px;}}
+            .form-input{{
+            width:100%;border:1.5px solid #d1d5db;border-radius:8px;
+            padding:9px 12px;font-size:0.88rem;color:#1e293b;outline:none;
+            transition:border-color 0.15s;
+            }}
+            .form-input:focus{{border-color:#1e5ba4;box-shadow:0 0 0 3px rgba(30,91,164,0.12);}}
+            .form-row{{display:grid;grid-template-columns:1fr 1fr;gap:10px;}}
+            .category-select{{
+            width:100%;border:1.5px solid #d1d5db;border-radius:8px;
+            padding:9px 12px;font-size:0.88rem;color:#1e293b;background:#fff;
+            cursor:pointer;outline:none;
+            }}
+            .category-select:focus{{border-color:#1e5ba4;}}
+            .form-textarea{{
+            width:100%;border:1.5px solid #d1d5db;border-radius:8px;
+            padding:9px 12px;font-size:0.88rem;color:#1e293b;resize:vertical;
+            min-height:72px;outline:none;
+            }}
+            .form-textarea:focus{{border-color:#1e5ba4;}}
+            .modal-footer{{
+            display:flex;gap:10px;justify-content:flex-end;
+            padding:14px 22px 18px;border-top:1.5px solid #e2e8f0;
+            }}
+            .btn-save{{
+            background:#1e5ba4;color:#fff;border:none;border-radius:8px;
+            padding:9px 28px;font-size:0.92rem;font-weight:700;cursor:pointer;
+            }}
+            .btn-save:hover{{background:#154a8a;}}
+            .btn-cancel{{
+            background:#f1f5f9;color:#475569;border:1.5px solid #e2e8f0;
+            border-radius:8px;padding:9px 20px;font-size:0.92rem;font-weight:700;cursor:pointer;
+            }}
+            .btn-delete{{
+            background:#fee2e2;color:#b91c1c;border:1.5px solid #fca5a5;
+            border-radius:8px;padding:9px 18px;font-size:0.88rem;font-weight:700;cursor:pointer;
+            margin-right:auto;
+            }}
+        
+            /* ── 미니 범례 ── */
+            .legend{{display:flex;gap:10px;flex-wrap:wrap;padding:10px 4px 2px;}}
+            .legend-item{{display:flex;align-items:center;gap:4px;font-size:0.75rem;color:#374151;}}
+            .legend-dot{{width:10px;height:10px;border-radius:2px;flex-shrink:0;}}
+            </style>
+            </head>
+            <body>
+        
+            <!-- 헤더 -->
+            <div class="cal-header">
+            <button class="cal-nav-btn" onclick="changeMonth(-1)">&#8249;</button>
+            <div style="text-align:center;">
+            <h2 id="cal-title">2025년 1월</h2>
+            <div class="legend">
+              <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div>상담</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div>약속</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div>할 일</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#22c55e;"></div>개인</div>
+            </div>
+            </div>
+            <button class="cal-nav-btn" onclick="changeMonth(1)">&#8250;</button>
+            </div>
+            <div style="text-align:right;margin-bottom:8px;">
+            <button class="cal-today-btn" onclick="goToday()">오늘</button>
+            </div>
+        
+            <!-- 달력 -->
+            <div class="cal-grid-wrap">
+            <div class="cal-weekdays">
+            <div class="cal-weekday sun">일</div>
+            <div class="cal-weekday">월</div>
+            <div class="cal-weekday">화</div>
+            <div class="cal-weekday">수</div>
+            <div class="cal-weekday">목</div>
+            <div class="cal-weekday">금</div>
+            <div class="cal-weekday sat">토</div>
+            </div>
+            <div class="cal-days" id="cal-days"></div>
+            </div>
+        
+            <!-- 일정 입력 모달 -->
+            <div class="modal-overlay" id="scheduleModal">
+            <div class="modal-box">
+            <div class="modal-header">
+              <h3 id="modal-title">📅 일정 추가</h3>
+              <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+              <input type="hidden" id="edit-idx" value="-1">
+              <div class="form-group">
+            <label class="form-label">일정 제목 <span class="req">*</span></label>
+            <input class="form-input" id="f-title" type="text" placeholder="예: 김고객 신계약 상담">
+              </div>
+              <div class="form-group">
+            <label class="form-label">일정 분류 <span class="req">*</span></label>
+            <select class="category-select" id="f-category" onchange="updateCategoryColor()">
+              <option value="consult">🔴 상담</option>
+              <option value="appointment">🔵 약속</option>
+              <option value="todo">🟡 할 일</option>
+              <option value="personal">🟢 개인일정</option>
+            </select>
+              </div>
+              <div class="form-group">
+            <label class="form-label">시작 일시 <span class="req">*</span></label>
+            <div class="form-row">
+              <input class="form-input" id="f-start-date" type="date">
+              <input class="form-input" id="f-start-time" type="time" value="09:00">
+            </div>
+              </div>
+              <div class="form-group">
+            <label class="form-label">종료 일시</label>
+            <div class="form-row">
+              <input class="form-input" id="f-end-date" type="date">
+              <input class="form-input" id="f-end-time" type="time" value="10:00">
+            </div>
+              </div>
+              <div class="form-group">
+            <label class="form-label">관련 고객</label>
+            <select class="category-select" id="f-customer">
+              <option value="">— 선택 안 함 —</option>
+            </select>
+              </div>
+              <div class="form-group">
+            <label class="form-label">메모</label>
+            <textarea class="form-textarea" id="f-memo" placeholder="상담 메모, 준비사항 등..."></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-delete" id="btn-delete" onclick="deleteEvent()" style="display:none;">삭제</button>
+              <button class="btn-cancel" onclick="closeModal()">취소</button>
+              <button class="btn-save" onclick="saveEvent()">저장</button>
+            </div>
+            </div>
+            </div>
+        
+            <script>
+            // ── 상태 ─────────────────────────────────────────────────────────────────
+            var events = {_cal_events_json};
+            var customers = {_cal_cust_json};
+            var today = new Date();
+            var curYear = today.getFullYear();
+            var curMonth = today.getMonth(); // 0-indexed
+        
+            // ── 고객 드롭다운 초기화 ─────────────────────────────────────────────────
+            (function initCustomers() {{
+            var sel = document.getElementById('f-customer');
+            customers.forEach(function(c) {{
+            var opt = document.createElement('option');
+            opt.value = c.id || c.name;
+            opt.textContent = c.name;
+            sel.appendChild(opt);
+            }});
+            }})();
+        
+            // ── 달력 렌더 ────────────────────────────────────────────────────────────
+            function renderCalendar() {{
+            var title = curYear + '년 ' + (curMonth+1) + '월';
+            document.getElementById('cal-title').textContent = title;
+        
+            var firstDay = new Date(curYear, curMonth, 1).getDay(); // 0=Sun
+            var daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
+            var daysInPrev = new Date(curYear, curMonth, 0).getDate();
+        
+            var container = document.getElementById('cal-days');
+            container.innerHTML = '';
+        
+            var todayY = today.getFullYear(), todayM = today.getMonth(), todayD = today.getDate();
+        
+            // 이전 달 빈칸
+            for (var i = 0; i < firstDay; i++) {{
+            var d = daysInPrev - firstDay + 1 + i;
+            container.appendChild(makeCell(curYear, curMonth-1, d, true));
+            }}
+            // 현재 달
+            for (var d = 1; d <= daysInMonth; d++) {{
+            var isToday = (curYear===todayY && curMonth===todayM && d===todayD);
+            container.appendChild(makeCell(curYear, curMonth, d, false, isToday));
+            }}
+            // 다음 달 빈칸
+            var total = firstDay + daysInMonth;
+            var remaining = total % 7 === 0 ? 0 : 7 - (total % 7);
+            for (var d = 1; d <= remaining; d++) {{
+            container.appendChild(makeCell(curYear, curMonth+1, d, true));
+            }}
+            }}
+        
+            function makeCell(y, m, d, otherMonth, isToday) {{
+            // 실제 날짜 계산
+            var realDate = new Date(y, m, d);
+            var realY = realDate.getFullYear();
+            var realM = realDate.getMonth();
+            var realD = realDate.getDate();
+            var dow = realDate.getDay(); // 0=Sun
+        
+            var cell = document.createElement('div');
+            cell.className = 'cal-cell';
+            if (otherMonth) cell.classList.add('other-month');
+            if (isToday)    cell.classList.add('today');
+            if (dow===0)    cell.classList.add('sun');
+            if (dow===6)    cell.classList.add('sat');
+        
+            var dateStr = realY + '-' + pad(realM+1) + '-' + pad(realD);
+            cell.dataset.date = dateStr;
+            cell.onclick = function() {{ openModal(dateStr); }};
+        
+            // 날짜 숫자
+            var numDiv = document.createElement('div');
+            numDiv.className = 'cal-day-num';
+            numDiv.textContent = realD;
+            cell.appendChild(numDiv);
+        
+            // 배지
+            var badgeWrap = document.createElement('div');
+            badgeWrap.className = 'cal-badges';
+            var dayEvents = events.filter(function(e) {{ return e.date === dateStr; }});
+            var maxShow = 3;
+            dayEvents.slice(0, maxShow).forEach(function(ev) {{
+            var b = document.createElement('span');
+            b.className = 'badge badge-' + ev.category;
+            var prefix = {{consult:'🔴',appointment:'🔵',todo:'🟡',personal:'🟢'}}[ev.category] || '⚪';
+            b.textContent = prefix + ' ' + ev.title;
+            b.onclick = function(e) {{ e.stopPropagation(); openEditModal(ev, dateStr); }};
+            badgeWrap.appendChild(b);
+            }});
+            if (dayEvents.length > maxShow) {{
+            var more = document.createElement('span');
+            more.className = 'badge badge-more';
+            more.textContent = '+' + (dayEvents.length - maxShow) + '개 더';
+            badgeWrap.appendChild(more);
+            }}
+            cell.appendChild(badgeWrap);
+            return cell;
+            }}
+        
+            function pad(n) {{ return n < 10 ? '0'+n : ''+n; }}
+        
+            // ── 월 이동 ──────────────────────────────────────────────────────────────
+            function changeMonth(delta) {{
+            curMonth += delta;
+            if (curMonth < 0) {{ curMonth = 11; curYear--; }}
+            if (curMonth > 11) {{ curMonth = 0; curYear++; }}
+            renderCalendar();
+            }}
+            function goToday() {{
+            curYear = today.getFullYear();
+            curMonth = today.getMonth();
+            renderCalendar();
+            }}
+        
+            // ── 모달 열기 (신규) ─────────────────────────────────────────────────────
+            function openModal(dateStr) {{
+            document.getElementById('modal-title').textContent = '📅 일정 추가';
+            document.getElementById('edit-idx').value = '-1';
+            document.getElementById('f-title').value = '';
+            document.getElementById('f-category').value = 'consult';
+            document.getElementById('f-start-date').value = dateStr;
+            document.getElementById('f-end-date').value = dateStr;
+            document.getElementById('f-start-time').value = '09:00';
+            document.getElementById('f-end-time').value = '10:00';
+            document.getElementById('f-customer').value = '';
+            document.getElementById('f-memo').value = '';
+            document.getElementById('btn-delete').style.display = 'none';
+            document.getElementById('scheduleModal').classList.add('open');
+            }}
+        
+            // ── 모달 열기 (편집) ─────────────────────────────────────────────────────
+            function openEditModal(ev, dateStr) {{
+            var idx = events.indexOf(ev);
+            document.getElementById('modal-title').textContent = '✏️ 일정 수정';
+            document.getElementById('edit-idx').value = idx;
+            document.getElementById('f-title').value = ev.title || '';
+            document.getElementById('f-category').value = ev.category || 'consult';
+            document.getElementById('f-start-date').value = ev.date || dateStr;
+            document.getElementById('f-end-date').value = ev.end_date || ev.date || dateStr;
+            document.getElementById('f-start-time').value = ev.start_time || '09:00';
+            document.getElementById('f-end-time').value = ev.end_time || '10:00';
+            document.getElementById('f-customer').value = ev.customer || '';
+            document.getElementById('f-memo').value = ev.memo || '';
+            document.getElementById('btn-delete').style.display = 'block';
+            document.getElementById('scheduleModal').classList.add('open');
+            }}
+        
+            function closeModal() {{
+            document.getElementById('scheduleModal').classList.remove('open');
+            }}
+        
+            // ── 저장 ─────────────────────────────────────────────────────────────────
+            function saveEvent() {{
+            var title = document.getElementById('f-title').value.trim();
+            if (!title) {{ alert('일정 제목을 입력하세요.'); return; }}
+            var startDate = document.getElementById('f-start-date').value;
+            if (!startDate) {{ alert('시작 날짜를 선택하세요.'); return; }}
+        
+            var ev = {{
+            title: title,
+            category: document.getElementById('f-category').value,
+            date: startDate,
+            end_date: document.getElementById('f-end-date').value || startDate,
+            start_time: document.getElementById('f-start-time').value,
+            end_time: document.getElementById('f-end-time').value,
+            customer: document.getElementById('f-customer').value,
+            memo: document.getElementById('f-memo').value.trim()
+            }};
+        
+            var idx = parseInt(document.getElementById('edit-idx').value);
+            if (idx >= 0) {{
+            events[idx] = ev;
+            }} else {{
+            events.push(ev);
+            }}
+        
+            closeModal();
+            renderCalendar();
+            // Streamlit에 저장 전달 (query_params 방식)
+            syncToStreamlit();
+            }}
+        
+            // ── 삭제 ─────────────────────────────────────────────────────────────────
+            function deleteEvent() {{
+            var idx = parseInt(document.getElementById('edit-idx').value);
+            if (idx >= 0 && confirm('이 일정을 삭제하시겠습니까?')) {{
+            events.splice(idx, 1);
+            closeModal();
+            renderCalendar();
+            syncToStreamlit();
+            }}
+            }}
+        
+            // ── Streamlit 동기화 ─────────────────────────────────────────────────────
+            function syncToStreamlit() {{
+            try {{
+            window.parent.postMessage({{
+              type: 'streamlit:setComponentValue',
+              value: JSON.stringify(events)
+            }}, '*');
+            }} catch(e) {{}}
+            }}
+        
+            // 오버레이 클릭 시 닫기
+            document.getElementById('scheduleModal').addEventListener('click', function(e) {{
+            if (e.target === this) closeModal();
+            }});
+        
+            renderCalendar();
+            </script>
+            </body>
+            </html>""", height=780, scrolling=True)
+        
+            # Streamlit 컴포넌트에서 전달받은 이벤트 저장 처리
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            st.markdown("""
+            <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;
+            padding:10px 16px;font-size:0.82rem;color:#475569;text-align:center;">
+            💡 날짜 칸을 클릭하면 일정을 추가할 수 있습니다. 기존 배지를 클릭하면 수정/삭제가 가능합니다.
+            </div>""", unsafe_allow_html=True)
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
@@ -37327,8 +37403,7 @@ renderCalendar();
         if not _dock_cid:
             st.markdown(
                 "<div style='padding:5px 0;color:#94a3b8;font-size:0.83rem;text-align:center;'>"
-                "🛎️ <b>HQ 응접 데스크</b> — CRM 현장 기동대에서 고객을 선택하면 여기에 자동 도킹됩니다."
-                "</div>",
+                "🛎️ <b>HQ 응접 데스크</b> — CRM 앱에서 고객을 선택하면 여기에 자동 도킹됩니다.</span>",
                 unsafe_allow_html=True,
             )
         else:
@@ -37397,3988 +37472,3990 @@ renderCalendar();
 
     # ── [홈] 카드 네비게이션 ──────────────────────────────────────────────
     if cur == "home":
-        # ── [NAV] _home_scroll_to_sec* 앵커 스크롤 처리 ──────────────────
-        _sec_anchor_map = {
-            "_home_scroll_to_sec01": "gk-sec-01-anchor",
-            "_home_scroll_to_sec05": "gk-sec-05-anchor",
-            "_home_scroll_to_sec06": "gk-sec-06-anchor",
-            "_home_scroll_to_sec07": "gk-sec-07-anchor",
-            "_home_scroll_to_sector_cancer": "sector_cancer",
-            "_home_scroll_to_sector_stroke": "sector_stroke",
-            "_home_scroll_to_sector_fire": "sector_fire",
-            "_home_scroll_to_sector_auto": "sector_auto",
-            "_home_scroll_to_sector_securities": "sector_securities",
-        }
-        for _sec_key, _sec_anchor in _sec_anchor_map.items():
-            if st.session_state.pop(_sec_key, False):
-                st.markdown(
-                    f'<div id="{_sec_anchor}" style="position:relative;height:0;"></div>'
-                    f'<script>try{{var el=window.parent.document.getElementById("{_sec_anchor}");'
-                    f'if(el){{el.scrollIntoView({{behavior:"smooth",block:"start"}});}}'
-                    f'}}catch(e){{}}</script>',
-                    unsafe_allow_html=True)
-                break
-
-        # ── 심야 배치 워커 트리거 (02~04 KST, 세션당 1회) ────────────────
-        if not st.session_state.get('home_rendered'):
-            st.session_state.home_rendered = True
-        if not st.session_state.get('_art38_night_ran_today'):
-            import datetime as _dt_nw
-            _nw_kst = _dt_nw.datetime.now(tz=_dt_nw.timezone(_dt_nw.timedelta(hours=9)))
-            _nw_min = _nw_kst.hour * 60 + _nw_kst.minute
-            if 120 <= _nw_min < 240:
-                import threading as _th_nw
-                _th_nw.Thread(target=_art38_night_worker, daemon=True).start()
-                st.session_state['_art38_night_ran_today'] = True
-
-        # ── [MASTER HUB 2026] 전역 CSS ──────────────────────────────────
-        st.markdown("""
-<style>
-.gk-sec {
-  border: none;
-  border-radius: 0;
-  padding: 18px 0 14px 0;
-  margin-bottom: 24px;
-  background: transparent;
-  box-shadow: none;
-  border-top: 4px solid #CC0000;
-}
-.gk-sec-title {
-  font-size: 0.92rem; font-weight: 900; color: #000000;
-  background: transparent; border-radius: 0;
-  padding: 0; display: inline-block;
-  margin-bottom: 12px; letter-spacing: 0.04em; text-transform: none;
-}
-.gk-ai-output-box {
-  border: 2px solid #000000 !important; border-radius: 8px;
-  padding: 16px 18px; background: #F8FAFC;
-  min-height: 260px; max-height: 420px;
-  overflow-y: auto; box-sizing: border-box;
-}
-.gk-scan-output {
-  border: 2px solid #000000 !important; border-radius: 8px;
-  padding: 16px 18px; background: #EFF8FF;
-  min-height: 260px; max-height: 420px;
-  overflow-y: auto; box-sizing: border-box;
-}
-.gk-scan-controller {
-  border: 2px solid #1565C0 !important; border-radius: 8px;
-  padding: 16px 14px; background: #F0F9FF;
-}
-.gk-pf-card {
-  border-radius: 14px; padding: 20px 18px 16px 18px;
-  margin-bottom: 6px; box-sizing: border-box;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-.gk-pf-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.22); }
-.gk-pf-title { font-size: 1.3rem; font-weight: 900; color: #ffffff; line-height: 1.25; margin-bottom: 6px; }
-.gk-pf-sub   { font-size: 0.84rem; font-weight: 700; color: #ffffff; line-height: 1.55; margin-bottom: 10px; }
-.gk-pf-count { font-size: 0.78rem; font-weight: 700; color: #ffffff;
-  background: rgba(255,255,255,0.18); border-radius: 16px; padding: 3px 10px; display: inline-block; }
-.gk-rb-btn > div > button {
-  background: #E3F2FD !important; color: #000000 !important;
-  font-weight: 800 !important; border: 1.5px solid #94a3b8 !important;
-  border-radius: 10px !important;
-}
-.gk-rb-btn > div > button:hover {
-  background: #BBDEFB !important; border-color: #64748b !important;
-}
-.gk-dash-box { box-sizing: border-box; overflow-y: auto; }
-.gk-dash-box::-webkit-scrollbar { width: 4px; }
-.gk-dash-box::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.35); border-radius: 4px; }
-.gk-save-btn-marker + div[data-testid="stButton"] > button {
-  background: #BAE6FD !important; border: 2px solid #0284C7 !important;
-  color: #000000 !important; font-weight: 800 !important;
-}
-@media (max-width: 768px) { .gk-pf-card { margin-bottom: 12px; } }
-/* ── [INPUT VISIBILITY] 전역 입력 요소 점선 테두리 ── */
-div[data-testid="stTextInput"] input,
-div[data-testid="stNumberInput"] input {
-  border: 1px dashed #000000 !important;
-  border-radius: 6px !important;
-  color: #000000 !important;
-  font-weight: 700 !important;
-  background: #ffffff !important;
-}
-div[data-testid="stTextInput"] input:focus,
-div[data-testid="stNumberInput"] input:focus {
-  border: 1.5px solid #000000 !important;
-  box-shadow: 0 0 0 2px rgba(0,0,0,0.08) !important;
-  outline: none !important;
-}
-div[data-testid="stTextArea"] textarea {
-  border: 1px dashed #000000 !important;
-  border-radius: 6px !important;
-  color: #000000 !important;
-  font-weight: 700 !important;
-  background: #ffffff !important;
-}
-div[data-testid="stTextArea"] textarea:focus {
-  border: 1.5px solid #000000 !important;
-  box-shadow: 0 0 0 2px rgba(0,0,0,0.08) !important;
-  outline: none !important;
-}
-div[data-testid="stFileUploadDropzone"] {
-  border: 2px dashed #000000 !important;
-  border-radius: 8px !important;
-  background: rgba(248,250,252,0.6) !important;
-}
-div[data-testid="stSelectbox"] > div > div {
-  border: 1px dashed #000000 !important;
-  border-radius: 6px !important;
-  font-weight: 700 !important;
-  color: #000000 !important;
-}
-</style>""", unsafe_allow_html=True)
-
-        st.markdown(f'<div style="position:relative;height:0;">{_bid("GK-HOME-01")}</div>', unsafe_allow_html=True)
-
-        # ══════════════════════════════════════════════════════════════════════
-        # [HQ-DOCK] 도킹 스테이션 — URL 파라미터 수신 + 고객 도킹 패널
-        # URL: ?gk_cid=XXX&gk_sector=cancer&gk_token=YYY&gk_name=홍길동
-        # ══════════════════════════════════════════════════════════════════════
-        _qp = st.query_params
-        _dock_cid_from_url    = _qp.get("gk_cid", "")
-        _dock_sector_from_url = _qp.get("gk_sector", "")
-        _dock_token_from_url  = _qp.get("gk_token", "")
-        _dock_name_from_url   = _qp.get("gk_name", "")
-
-        if _dock_cid_from_url and not st.session_state.get("_rd_docked_cid"):
-            st.session_state["_rd_docked_cid"]    = _dock_cid_from_url
-            st.session_state["_rd_docked_name"]   = _dock_name_from_url or "CRM 고객"
-            st.session_state["_rd_docked_sector"] = _dock_sector_from_url
-            st.session_state["_rd_docked_token"]  = _dock_token_from_url
-            if _dock_sector_from_url:
-                st.session_state["target_sector"] = _dock_sector_from_url
-            st.query_params.clear()
-
-        _docked_cid    = st.session_state.get("_rd_docked_cid", "")
-        _docked_name   = st.session_state.get("_rd_docked_name", "")
-        _docked_sector = st.session_state.get("_rd_docked_sector", "")
-        _SECTOR_LABELS = {
-            "cancer": "🔴 암 보장", "stroke": "🧠 뇌·심장",
-            "fire": "🔥 화재보험", "auto": "🚗 자동차보험",
-            "securities": "📄 통합증권", "all": "📋 전체 보기",
-        }
-
-        with st.container(border=True):
-            if _docked_cid:
-                _sec_label = _SECTOR_LABELS.get(_docked_sector, _docked_sector or "전체")
-                _dock_c1, _dock_c2 = st.columns([7, 1])
-                with _dock_c1:
-                    st.markdown(
-                        f"<div style='background:linear-gradient(90deg,#0a1628,#1a3a5c);border-radius:8px;"
-                        f"padding:10px 14px;'>"
-                        f"<span style='color:#D4AF37;font-weight:900;font-size:0.92rem;'>🛬 HQ 정밀상담 도킹 완료</span>"
-                        f"&nbsp;&nbsp;<span style='color:#ffffff;font-weight:700;font-size:0.88rem;'>{_docked_name}</span>"
-                        f"&nbsp;<span style='background:#D4AF37;color:#0a1628;border-radius:4px;"
-                        f"padding:2px 8px;font-size:0.75rem;font-weight:900;'>{_sec_label}</span>"
-                        f"&nbsp;&nbsp;<span style='color:#b0cce8;font-size:0.75rem;'>CID: {_docked_cid[:8]}…</span>"
-                        f"</div>", unsafe_allow_html=True)
-                with _dock_c2:
-                    if st.button("⏏ 언독", key="btn_hq_undock", use_container_width=True):
-                        for _dk in ["_rd_docked_cid","_rd_docked_name","_rd_docked_sector","_rd_docked_token"]:
-                            st.session_state.pop(_dk, None)
-                        st.session_state["target_sector"] = None
-                        st.rerun()
-            else:
-                st.markdown(
-                    "<span style='color:#6b7280;font-size:0.82rem;font-weight:700;'>"
-                    "🔌 HQ 도킹 스테이션 — CRM 앱에서 고객을 선택하면 여기에 자동 도킹됩니다.</span>",
-                    unsafe_allow_html=True)
-
-        # ══════════════════════════════════════════════════════════════════════
-        # [ELEVATOR] 메인 엘리베이터 Router — 섹터 선택 → Lazy Execution 진입
-        # ══════════════════════════════════════════════════════════════════════
-        _cur_sector = st.session_state.get("target_sector", None)
-        _SECTOR_MAP = [
-            ("all",        "📋 전체",      "#374151"),
-            ("cancer",     "🔴 암",         "#dc2626"),
-            ("stroke",     "🧠 뇌·심장",    "#7c3aed"),
-            ("fire",       "🔥 화재",       "#ea580c"),
-            ("auto",       "🚗 자동차",     "#0369a1"),
-            ("securities", "📄 증권분석",   "#059669"),
-        ]
-        _elev_cols = st.columns(len(_SECTOR_MAP), gap="small")
-        for _ei, (_sk, _sl, _sc) in enumerate(_SECTOR_MAP):
-            with _elev_cols[_ei]:
-                _is_active = (_cur_sector == _sk) or (_sk == "all" and not _cur_sector)
-                _btn_style = (
-                    f"background:{_sc}!important;color:#fff!important;"
-                    f"font-weight:900!important;border:2px solid {_sc}!important;"
-                ) if _is_active else ""
-                if _btn_style:
-                    st.markdown(f"<style>#elev_btn_{_sk}{{background:{_sc}!important;color:#fff!important;border:2px solid {_sc}!important;}}</style>", unsafe_allow_html=True)
-                if st.button(_sl, key=f"elev_btn_{_sk}", use_container_width=True):
-                    if _sk == "all":
-                        st.session_state["target_sector"] = None
-                    else:
-                        st.session_state["target_sector"] = _sk
-                        st.session_state[f"_home_scroll_to_sector_{_sk}"] = True
-                    st.rerun()
-
-        if not st.session_state.get("_gp45_splash_shown"):
-            st.session_state["_gp45_splash_shown"] = True
-            try:
-                import base64 as _b64
-                _splash_path = "image_da52b7.jpg"
-                import os as _os
-                if _os.path.exists(_splash_path):
-                    with open(_splash_path, "rb") as _sf:
-                        _SPLASH_SRC = "data:image/jpeg;base64," + _b64.b64encode(_sf.read()).decode()
-                else:
-                    _SPLASH_SRC = ""
-            except Exception:
-                _SPLASH_SRC = ""
-            if _SPLASH_SRC:
-                st.markdown(
-                    f"""
-<div style="width:100%;margin:0 0 16px 0;border-radius:16px;overflow:hidden;
-  box-shadow:0 4px 20px rgba(0,0,0,0.18);position:relative;">
-  <img src="{_SPLASH_SRC}" loading="lazy"
-    style="width:100%;max-height:260px;object-fit:cover;object-position:center top;
-    display:block;border-radius:16px;" alt="GOLDKEY AI MASTER" />
-  <div style="position:absolute;bottom:10px;right:14px;
-    font-size:0.62rem;color:rgba(255,255,255,0.75);font-weight:600;letter-spacing:0.05em;">
-    ※ 본 분석은 AI 시뮬레이션입니다. 보험금 지급 여부는 보험사 심사 및 손해사정사 판단에 따릅니다.
-  </div>
-</div>""", unsafe_allow_html=True)
-
-        # ═══════════════════════════════════════════════════════════════
-        # [GK-SEC-01] 고객 마스터 데이터 및 통합 상담
-        # ═══════════════════════════════════════════════════════════════
-        st.markdown('<div id="gk-sec-01-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-01")}<span class="gk-sec-title">① 고객 마스터 데이터 &amp; 통합 상담</span></div>', unsafe_allow_html=True)
-
-        if 'user_id' in st.session_state:
-            _uid_for_cust = st.session_state.get("user_id", "")
-
-            # ── CRM Fortress: gk_people 기반 고객 검색 로드 ────────────
-            _cust_cache_key = f"_fortress_people_{_uid_for_cust}"
-            _cust_cache_ts  = f"_fortress_people_ts_{_uid_for_cust}"
-            _cust_cache_valid = (
-                _cust_cache_key in st.session_state
-                and (time.time() - st.session_state.get(_cust_cache_ts, 0)) < 60
-            )
-            if _cust_cache_valid:
-                _people_rows = st.session_state[_cust_cache_key]
-            else:
-                try:
-                    from crm_fortress import search_people as _fp_search
-                    _sb_fp = _get_sb_client() if _SB_PKG_OK else None
-                    _people_rows = _fp_search(_sb_fp, _uid_for_cust) if (_sb_fp and _uid_for_cust) else []
-                    st.session_state[_cust_cache_key] = _people_rows
-                    st.session_state[_cust_cache_ts]  = time.time()
-                except Exception:
-                    _people_rows = st.session_state.get(_cust_cache_key, [])
-
-            # ── 검색/선택 헤더 ─────────────────────────────────────────
-            st.markdown(
-                "<div style='border:1px dashed #000000;border-radius:10px;"
-                "background:#f0fdf4;padding:10px 14px 8px 14px;margin-bottom:8px;'>"
-                "<div style='color:#065f46;font-weight:900;font-size:0.9rem;margin-bottom:4px;'>"
-                "🔍 등록 고객 검색 (피보험자 태그 기반)</div>"
-                "<div style='color:#374151;font-size:0.78rem;'>"
-                "이름 선택 시 해당 인물 정보가 자동 로드되며, 모든 자료가 해당 피보험자에 태깅됩니다.</div>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
-
-            def _fp_label(p):
-                _n = p.get("name", "")
-                _b = p.get("birth_date", "")
-                return f"{_n}  ({_b})" if _b else _n
-
-            _fp_options_map = {"✏️ 신규 고객 입력": None}
-            for _pr in _people_rows:
-                _fp_options_map[_fp_label(_pr)] = _pr
-            _fp_search_label = st.session_state.get("_fp_selected_label", "✏️ 신규 고객 입력")
-            if _fp_search_label not in _fp_options_map:
-                _fp_search_label = "✏️ 신규 고객 입력"
-
-            _fp_c1, _fp_c2, _fp_c3 = st.columns([3, 1, 1])
-            with _fp_c1:
-                _fp_selected_label = st.selectbox(
-                    "고객 선택",
-                    options=list(_fp_options_map.keys()),
-                    index=list(_fp_options_map.keys()).index(_fp_search_label),
-                    key="fp_cust_selectbox",
-                    help="등록된 피보험자 이름으로 검색·선택",
-                    label_visibility="collapsed",
-                )
-            with _fp_c2:
-                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-                if st.button("✅ 적용", key="btn_fp_apply", use_container_width=True):
-                    st.rerun()
-            with _fp_c3:
-                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-                if st.button("🔄 갱신", key="btn_fp_refresh", use_container_width=True):
-                    st.session_state.pop("_fp_selected_label", None)
-                    st.session_state.pop(_cust_cache_key, None)
-                    st.session_state.pop(_cust_cache_ts, None)
-                    st.rerun()
-
-            _fp_selected = _fp_options_map.get(_fp_selected_label)
-            if _fp_selected and _fp_selected_label != "✏️ 신규 고객 입력":
-                st.session_state["_fp_selected_label"]    = _fp_selected_label
-                st.session_state["selected_customer_id"]  = _fp_selected.get("id")
-                st.session_state["_fp_person_id"]         = _fp_selected.get("id")
-                _fp_auto = {
-                    "scan_client_name":   _fp_selected.get("name", ""),
-                    "scan_client_dob":    _fp_selected.get("birth_date", ""),
-                    "scan_client_gender": _fp_selected.get("gender", ""),
-                    "scan_client_contact":_fp_selected.get("contact", ""),
-                    "scan_client_job":    _fp_selected.get("job", ""),
-                    "scan_client_sick":   _fp_selected.get("sick", "해당없음"),
-                    "scan_client_items":  _fp_selected.get("items", []),
-                }
-                for _k, _v in _fp_auto.items():
-                    if st.session_state.get(_k) != _v:
-                        st.session_state[_k] = _v
-                st.success(
-                    f"✅ **[{_fp_selected.get('name','')}]** 로드 완료 "
-                    f"— 이하 모든 자료가 이 피보험자에 태깅됩니다."
-                )
-            else:
-                st.session_state["selected_customer_id"] = None
-                st.session_state["_fp_person_id"]        = None
-                st.session_state["_fp_selected_label"]   = "✏️ 신규 고객 입력"
-
-            # ── [GP-CRM] 그룹 A-1 : 피보험자 기본 정보 ───────────────────
-            st.markdown(
-                "<div style='border:1px dashed #000000;border-radius:10px;"
-                "background:#fffbeb;padding:12px 14px 8px 14px;margin:8px 0;'>"
-                "<div style='color:#92400e;font-weight:900;font-size:0.88rem;margin-bottom:8px;'>"
-                "👤 그룹 A-1 — 피보험자 기본 정보 <span style='font-size:0.75rem;"
-                "background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;"
-                "padding:1px 6px;margin-left:6px;'>TAG: 피보험자</span></div>",
-                unsafe_allow_html=True,
-            )
-
-            _SICK_OPTIONS = [
-                "해당없음",
-                "심사필요(3개월이내 치료 있음)",
-                "유병자(입원·수술이력 있음)",
-                "유병자(당뇨·고혈압·심장 등 약 투약중)",
-                "유병자(암·중풍 발병 있음)",
-            ]
-            _SICK_GUIDE = {
-                "해당없음":                             "✅ 일반·건강체 보험가입 설계 가능",
-                "심사필요(3개월이내 치료 있음)":          "⚠️ 최종 통원일 경과 후 신규보험 상담 진행. 유병자 운전자보험은 1개월 경과 후 심사 요청 가능",
-                "유병자(입원·수술이력 있음)":            "📋 유병자보험 3.0.5~3.5.5 — 병력에 따라 구분 가입 상담",
-                "유병자(당뇨·고혈압·심장 등 약 투약중)": "📋 유병자보험 3.0.5~3.5.5 — 병력에 따라 구분 가입 상담",
-                "유병자(암·중풍 발병 있음)":             "⚠️ 최종 통원일 이후 5년 경과 후 암 상담. 향후 유병자 신규 상품 가입 가능 여부 확인",
+        with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+            if not st.session_state.get("home_rendered"):
+                st.session_state["home_rendered"] = True
+            # ── [NAV] _home_scroll_to_sec* 앵커 스크롤 처리 ──────────────────
+            _sec_anchor_map = {
+                "_home_scroll_to_sec01": "gk-sec-01-anchor",
+                "_home_scroll_to_sec05": "gk-sec-05-anchor",
+                "_home_scroll_to_sec06": "gk-sec-06-anchor",
+                "_home_scroll_to_sec07": "gk-sec-07-anchor",
+                "_home_scroll_to_sector_cancer": "sector_cancer",
+                "_home_scroll_to_sector_stroke": "sector_stroke",
+                "_home_scroll_to_sector_fire": "sector_fire",
+                "_home_scroll_to_sector_auto": "sector_auto",
+                "_home_scroll_to_sector_securities": "sector_securities",
             }
-            _cur_sick = st.session_state.get("scan_client_sick", "해당없음")
-            if _cur_sick not in _SICK_OPTIONS:
-                _cur_sick = "해당없음"
-
-            _ga1, _ga2, _ga3 = st.columns([2, 2, 1])
-            with _ga1:
-                _si_name = st.text_input(
-                    "👤 성명 (피보험자)",
-                    value=st.session_state.get("scan_client_name", ""),
-                    placeholder="예) 홍길동", key="home_si_name",
-                    help="모든 보험·상담 자료가 이 이름에 태깅됩니다",
-                )
-                _si_dob = st.text_input(
-                    "📅 생년월일 (YYYYMMDD)",
-                    value=st.session_state.get("scan_client_dob", ""),
-                    placeholder="예) 19800101", max_chars=8, key="home_si_dob",
-                )
-            with _ga2:
-                _si_gender = st.selectbox(
-                    "⚧ 성별",
-                    ["", "남", "여", "기타"],
-                    index=["", "남", "여", "기타"].index(
-                        st.session_state.get("scan_client_gender", "") or ""
-                    ),
-                    key="home_si_gender",
-                )
-                _si_job = st.text_input(
-                    "💼 직업",
-                    value=st.session_state.get("scan_client_job", ""),
-                    placeholder="예) 회사원", key="home_si_job",
-                )
-            with _ga3:
-                _si_sick = st.selectbox(
-                    "🩺 유병자 여부",
-                    _SICK_OPTIONS,
-                    index=_SICK_OPTIONS.index(_cur_sick),
-                    key="home_si_sick",
-                )
-            _sick_guide_text = _SICK_GUIDE.get(_si_sick, "")
-            if _sick_guide_text:
-                _sick_color = "#9a3412" if "⚠️" in _sick_guide_text else "#14532d"
-                _sick_bg    = "#fff7ed" if "⚠️" in _sick_guide_text else "#f0fdf4"
-                _sick_bdr   = "#f97316" if "⚠️" in _sick_guide_text else "#22c55e"
-                st.markdown(
-                    f'<div style="background:{_sick_bg};border:1.5px solid {_sick_bdr};border-radius:8px;'
-                    f'padding:8px 12px;font-size:0.82rem;font-weight:700;color:{_sick_color};'
-                    f'white-space:pre-line;margin-bottom:6px;">{_sick_guide_text}</div>',
-                    unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            # ── [GP-CRM] 그룹 A-2 : 계약자 / 수익자 구분 ─────────────────
-            with st.expander("👥 그룹 A-2 — 계약자 · 수익자 구분 (피보험자와 다를 경우 입력)", expanded=False):
-                st.markdown(
-                    "<div style='font-size:0.78rem;color:#1e40af;background:#eff6ff;"
-                    "border:1px dashed #93c5fd;border-radius:6px;padding:6px 10px;margin-bottom:8px;'>"
-                    "💡 계약자·수익자가 피보험자와 동일하면 비워두세요. "
-                    "다른 인물인 경우 입력하면 별도 <b>gk_people</b> 레코드로 분리 저장됩니다.</div>",
-                    unsafe_allow_html=True,
-                )
-                _r2c1, _r2c2 = st.columns(2)
-                with _r2c1:
+            for _sec_key, _sec_anchor in _sec_anchor_map.items():
+                if st.session_state.pop(_sec_key, False):
                     st.markdown(
-                        "<span style='font-size:0.8rem;font-weight:900;color:#1d4ed8;"
-                        "background:#dbeafe;border:1px solid #93c5fd;border-radius:4px;"
-                        "padding:2px 8px;'>TAG: 계약자</span>",
-                        unsafe_allow_html=True,
-                    )
-                    _si_contractor_name = st.text_input(
-                        "계약자 성명",
-                        value=st.session_state.get("crm_contractor_name", ""),
-                        placeholder="피보험자와 동일하면 비워두세요",
-                        key="home_contractor_name",
-                    )
-                    _si_contractor_dob = st.text_input(
-                        "계약자 생년월일",
-                        value=st.session_state.get("crm_contractor_dob", ""),
-                        placeholder="예) 19750515",
-                        max_chars=8,
-                        key="home_contractor_dob",
-                    )
-                with _r2c2:
+                        f'<div id="{_sec_anchor}" style="position:relative;height:0;"></div>'
+                        f'<script>try{{var el=window.parent.document.getElementById("{_sec_anchor}");'
+                        f'if(el){{el.scrollIntoView({{behavior:"smooth",block:"start"}});}}'
+                        f'}}catch(e){{}}</script>',
+                        unsafe_allow_html=True)
+                    break
+    
+            # ── 심야 배치 워커 트리거 (02~04 KST, 세션당 1회) ────────────────
+            if not st.session_state.get('_art38_night_ran_today'):
+                import datetime as _dt_nw
+                _nw_kst = _dt_nw.datetime.now(tz=_dt_nw.timezone(_dt_nw.timedelta(hours=9)))
+                _nw_min = _nw_kst.hour * 60 + _nw_kst.minute
+                if 120 <= _nw_min < 240:
+                    import threading as _th_nw
+                    _th_nw.Thread(target=_art38_night_worker, daemon=True).start()
+                    st.session_state['_art38_night_ran_today'] = True
+    
+            # ── [MASTER HUB 2026] 전역 CSS ──────────────────────────────────
+            st.markdown("""
+    <style>
+    .gk-sec {
+      border: none;
+      border-radius: 0;
+      padding: 18px 0 14px 0;
+      margin-bottom: 24px;
+      background: transparent;
+      box-shadow: none;
+      border-top: 4px solid #CC0000;
+    }
+    .gk-sec-title {
+      font-size: 0.92rem; font-weight: 900; color: #000000;
+      background: transparent; border-radius: 0;
+      padding: 0; display: inline-block;
+      margin-bottom: 12px; letter-spacing: 0.04em; text-transform: none;
+    }
+    .gk-ai-output-box {
+      border: 2px solid #000000 !important; border-radius: 8px;
+      padding: 16px 18px; background: #F8FAFC;
+      min-height: 260px; max-height: 420px;
+      overflow-y: auto; box-sizing: border-box;
+    }
+    .gk-scan-output {
+      border: 2px solid #000000 !important; border-radius: 8px;
+      padding: 16px 18px; background: #EFF8FF;
+      min-height: 260px; max-height: 420px;
+      overflow-y: auto; box-sizing: border-box;
+    }
+    .gk-scan-controller {
+      border: 2px solid #1565C0 !important; border-radius: 8px;
+      padding: 16px 14px; background: #F0F9FF;
+    }
+    .gk-pf-card {
+      border-radius: 14px; padding: 20px 18px 16px 18px;
+      margin-bottom: 6px; box-sizing: border-box;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .gk-pf-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.22); }
+    .gk-pf-title { font-size: 1.3rem; font-weight: 900; color: #ffffff; line-height: 1.25; margin-bottom: 6px; }
+    .gk-pf-sub   { font-size: 0.84rem; font-weight: 700; color: #ffffff; line-height: 1.55; margin-bottom: 10px; }
+    .gk-pf-count { font-size: 0.78rem; font-weight: 700; color: #ffffff;
+      background: rgba(255,255,255,0.18); border-radius: 16px; padding: 3px 10px; display: inline-block; }
+    .gk-rb-btn > div > button {
+      background: #E3F2FD !important; color: #000000 !important;
+      font-weight: 800 !important; border: 1.5px solid #94a3b8 !important;
+      border-radius: 10px !important;
+    }
+    .gk-rb-btn > div > button:hover {
+      background: #BBDEFB !important; border-color: #64748b !important;
+    }
+    .gk-dash-box { box-sizing: border-box; overflow-y: auto; }
+    .gk-dash-box::-webkit-scrollbar { width: 4px; }
+    .gk-dash-box::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.35); border-radius: 4px; }
+    .gk-save-btn-marker + div[data-testid="stButton"] > button {
+      background: #BAE6FD !important; border: 2px solid #0284C7 !important;
+      color: #000000 !important; font-weight: 800 !important;
+    }
+    @media (max-width: 768px) { .gk-pf-card { margin-bottom: 12px; } }
+    /* ── [INPUT VISIBILITY] 전역 입력 요소 점선 테두리 ── */
+    div[data-testid="stTextInput"] input,
+    div[data-testid="stNumberInput"] input {
+      border: 1px dashed #000000 !important;
+      border-radius: 6px !important;
+      color: #000000 !important;
+      font-weight: 700 !important;
+      background: #ffffff !important;
+    }
+    div[data-testid="stTextInput"] input:focus,
+    div[data-testid="stNumberInput"] input:focus {
+      border: 1.5px solid #000000 !important;
+      box-shadow: 0 0 0 2px rgba(0,0,0,0.08) !important;
+      outline: none !important;
+    }
+    div[data-testid="stTextArea"] textarea {
+      border: 1px dashed #000000 !important;
+      border-radius: 6px !important;
+      color: #000000 !important;
+      font-weight: 700 !important;
+      background: #ffffff !important;
+    }
+    div[data-testid="stTextArea"] textarea:focus {
+      border: 1.5px solid #000000 !important;
+      box-shadow: 0 0 0 2px rgba(0,0,0,0.08) !important;
+      outline: none !important;
+    }
+    div[data-testid="stFileUploadDropzone"] {
+      border: 2px dashed #000000 !important;
+      border-radius: 8px !important;
+      background: rgba(248,250,252,0.6) !important;
+    }
+    div[data-testid="stSelectbox"] > div > div {
+      border: 1px dashed #000000 !important;
+      border-radius: 6px !important;
+      font-weight: 700 !important;
+      color: #000000 !important;
+    }
+    </style>""", unsafe_allow_html=True)
+    
+            st.markdown(f'<div style="position:relative;height:0;">{_bid("GK-HOME-01")}</div>', unsafe_allow_html=True)
+    
+            # ══════════════════════════════════════════════════════════════════════
+            # [HQ-DOCK] 도킹 스테이션 — URL 파라미터 수신 + 고객 도킹 패널
+            # URL: ?gk_cid=XXX&gk_sector=cancer&gk_token=YYY&gk_name=홍길동
+            # ══════════════════════════════════════════════════════════════════════
+            _qp = st.query_params
+            _dock_cid_from_url    = _qp.get("gk_cid", "")
+            _dock_sector_from_url = _qp.get("gk_sector", "")
+            _dock_token_from_url  = _qp.get("gk_token", "")
+            _dock_name_from_url   = _qp.get("gk_name", "")
+    
+            if _dock_cid_from_url and not st.session_state.get("_rd_docked_cid"):
+                st.session_state["_rd_docked_cid"]    = _dock_cid_from_url
+                st.session_state["_rd_docked_name"]   = _dock_name_from_url or "CRM 고객"
+                st.session_state["_rd_docked_sector"] = _dock_sector_from_url
+                st.session_state["_rd_docked_token"]  = _dock_token_from_url
+                if _dock_sector_from_url:
+                    st.session_state["target_sector"] = _dock_sector_from_url
+                st.query_params.clear()
+    
+            _docked_cid    = st.session_state.get("_rd_docked_cid", "")
+            _docked_name   = st.session_state.get("_rd_docked_name", "")
+            _docked_sector = st.session_state.get("_rd_docked_sector", "")
+            _SECTOR_LABELS = {
+                "cancer": "🔴 암 보장", "stroke": "🧠 뇌·심장",
+                "fire": "🔥 화재보험", "auto": "🚗 자동차보험",
+                "securities": "📄 통합증권", "all": "📋 전체 보기",
+            }
+    
+            with st.container(border=True):
+                if _docked_cid:
+                    _sec_label = _SECTOR_LABELS.get(_docked_sector, _docked_sector or "전체")
+                    _dock_c1, _dock_c2 = st.columns([7, 1])
+                    with _dock_c1:
+                        st.markdown(
+                            f"<div style='background:linear-gradient(90deg,#0a1628,#1a3a5c);border-radius:8px;"
+                            f"padding:10px 14px;'>"
+                            f"<span style='color:#D4AF37;font-weight:900;font-size:0.92rem;'>🛬 HQ 정밀상담 도킹 완료</span>"
+                            f"&nbsp;&nbsp;<span style='color:#ffffff;font-weight:700;font-size:0.88rem;'>{_docked_name}</span>"
+                            f"&nbsp;<span style='background:#D4AF37;color:#0a1628;border-radius:4px;"
+                            f"padding:2px 8px;font-size:0.75rem;font-weight:900;'>{_sec_label}</span>"
+                            f"&nbsp;&nbsp;<span style='color:#b0cce8;font-size:0.75rem;'>CID: {_docked_cid[:8]}…</span>"
+                            f"</div>", unsafe_allow_html=True)
+                    with _dock_c2:
+                        if st.button("⏏ 언독", key="btn_hq_undock", use_container_width=True):
+                            for _dk in ["_rd_docked_cid","_rd_docked_name","_rd_docked_sector","_rd_docked_token"]:
+                                st.session_state.pop(_dk, None)
+                            st.session_state["target_sector"] = None
+                            st.rerun()
+                else:
                     st.markdown(
-                        "<span style='font-size:0.8rem;font-weight:900;color:#6d28d9;"
-                        "background:#ede9fe;border:1px solid #c4b5fd;border-radius:4px;"
-                        "padding:2px 8px;'>TAG: 수익자</span>",
-                        unsafe_allow_html=True,
-                    )
-                    _si_beneficiary_name = st.text_input(
-                        "수익자 성명",
-                        value=st.session_state.get("crm_beneficiary_name", ""),
-                        placeholder="미입력 시 피보험자와 동일 처리",
-                        key="home_beneficiary_name",
-                    )
-                    _si_beneficiary_dob = st.text_input(
-                        "수익자 생년월일",
-                        value=st.session_state.get("crm_beneficiary_dob", ""),
-                        placeholder="예) 19551020",
-                        max_chars=8,
-                        key="home_beneficiary_dob",
-                    )
-
-            # ── [GP-CRM] 그룹 A-3 : 보험 증권 태깅 ───────────────────────
-            with st.expander("🛡️ 그룹 A-3 — 보험 증권 태깅 (이 고객에 연결할 증권)", expanded=False):
-                st.markdown(
-                    "<div style='font-size:0.78rem;color:#065f46;background:#ecfdf5;"
-                    "border:1px dashed #6ee7b7;border-radius:6px;padding:6px 10px;margin-bottom:8px;'>"
-                    "💡 저장 시 위 피보험자 정보와 이 증권이 <b>gk_policy_roles</b>로 자동 연결됩니다. "
-                    "여러 증권을 저장할 경우 저장 후 재입력하세요.</div>",
-                    unsafe_allow_html=True,
+                        "<span style='color:#6b7280;font-size:0.82rem;font-weight:700;'>"
+                        "🔌 HQ 도킹 스테이션 — CRM 앱에서 고객을 선택하면 여기에 자동 도킹됩니다.</span>",
+                        unsafe_allow_html=True)
+    
+            # ══════════════════════════════════════════════════════════════════════
+            # [ELEVATOR] 메인 엘리베이터 Router — 섹터 선택 → Lazy Execution 진입
+            # ══════════════════════════════════════════════════════════════════════
+            _cur_sector = st.session_state.get("target_sector", None)
+            _SECTOR_MAP = [
+                ("all",        "📋 전체",      "#374151"),
+                ("cancer",     "🔴 암",         "#dc2626"),
+                ("stroke",     "🧠 뇌·심장",    "#7c3aed"),
+                ("fire",       "🔥 화재",       "#ea580c"),
+                ("auto",       "🚗 자동차",     "#0369a1"),
+                ("securities", "📄 증권분석",   "#059669"),
+            ]
+            _elev_cols = st.columns(len(_SECTOR_MAP), gap="small")
+            for _ei, (_sk, _sl, _sc) in enumerate(_SECTOR_MAP):
+                with _elev_cols[_ei]:
+                    _is_active = (_cur_sector == _sk) or (_sk == "all" and not _cur_sector)
+                    _btn_style = (
+                        f"background:{_sc}!important;color:#fff!important;"
+                        f"font-weight:900!important;border:2px solid {_sc}!important;"
+                    ) if _is_active else ""
+                    if _btn_style:
+                        st.markdown(f"<style>#elev_btn_{_sk}{{background:{_sc}!important;color:#fff!important;border:2px solid {_sc}!important;}}</style>", unsafe_allow_html=True)
+                    if st.button(_sl, key=f"elev_btn_{_sk}", use_container_width=True):
+                        if _sk == "all":
+                            st.session_state["target_sector"] = None
+                        else:
+                            st.session_state["target_sector"] = _sk
+                            st.session_state[f"_home_scroll_to_sector_{_sk}"] = True
+                        st.rerun()
+    
+            if not st.session_state.get("_gp45_splash_shown"):
+                st.session_state["_gp45_splash_shown"] = True
+                try:
+                    import base64 as _b64
+                    _splash_path = "image_da52b7.jpg"
+                    import os as _os
+                    if _os.path.exists(_splash_path):
+                        with open(_splash_path, "rb") as _sf:
+                            _SPLASH_SRC = "data:image/jpeg;base64," + _b64.b64encode(_sf.read()).decode()
+                    else:
+                        _SPLASH_SRC = ""
+                except Exception:
+                    _SPLASH_SRC = ""
+                if _SPLASH_SRC:
+                    st.markdown(
+                        f"""
+    <div style="width:100%;margin:0 0 16px 0;border-radius:16px;overflow:hidden;
+      box-shadow:0 4px 20px rgba(0,0,0,0.18);position:relative;">
+      <img src="{_SPLASH_SRC}" loading="lazy"
+        style="width:100%;max-height:260px;object-fit:cover;object-position:center top;
+        display:block;border-radius:16px;" alt="GOLDKEY AI MASTER" />
+      <div style="position:absolute;bottom:10px;right:14px;
+        font-size:0.62rem;color:rgba(255,255,255,0.75);font-weight:600;letter-spacing:0.05em;">
+        ※ 본 분석은 AI 시뮬레이션입니다. 보험금 지급 여부는 보험사 심사 및 손해사정사 판단에 따릅니다.
+      </div>
+    </div>""", unsafe_allow_html=True)
+    
+            # ═══════════════════════════════════════════════════════════════
+            # [GK-SEC-01] 고객 마스터 데이터 및 통합 상담
+            # ═══════════════════════════════════════════════════════════════
+            st.markdown('<div id="gk-sec-01-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-01")}<span class="gk-sec-title">① 고객 마스터 데이터 &amp; 통합 상담</span></div>', unsafe_allow_html=True)
+    
+            if 'user_id' in st.session_state:
+                _uid_for_cust = st.session_state.get("user_id", "")
+    
+                # ── CRM Fortress: gk_people 기반 고객 검색 로드 ────────────
+                _cust_cache_key = f"_fortress_people_{_uid_for_cust}"
+                _cust_cache_ts  = f"_fortress_people_ts_{_uid_for_cust}"
+                _cust_cache_valid = (
+                    _cust_cache_key in st.session_state
+                    and (time.time() - st.session_state.get(_cust_cache_ts, 0)) < 60
                 )
-                _r3c1, _r3c2 = st.columns(2)
-                with _r3c1:
-                    _si_policy_company = st.text_input(
-                        "보험사",
-                        value=st.session_state.get("crm_policy_company", ""),
-                        placeholder="예) 삼성생명, DB손해보험",
-                        key="home_policy_company",
-                    )
-                    _si_policy_product = st.text_input(
-                        "상품명",
-                        value=st.session_state.get("crm_policy_product", ""),
-                        placeholder="예) 통합건강보험 플러스",
-                        key="home_policy_product",
-                    )
-                    _si_policy_number = st.text_input(
-                        "증권번호",
-                        value=st.session_state.get("crm_policy_number", ""),
-                        placeholder="예) 2023-0001234",
-                        key="home_policy_number",
-                    )
-                with _r3c2:
-                    _si_policy_roles_sel = st.multiselect(
-                        "역할 태그 (복수 선택 가능)",
-                        ["계약자", "피보험자", "수익자"],
-                        default=st.session_state.get("crm_policy_roles_sel", ["피보험자"]),
-                        key="home_policy_roles_sel",
-                        help="이 증권에서 위 인물이 담당하는 역할",
-                    )
-                    _si_policy_contract_date = st.text_input(
-                        "계약일 (YYYYMMDD)",
-                        value=st.session_state.get("crm_policy_contract_date", ""),
-                        placeholder="예) 20230101",
-                        max_chars=8,
-                        key="home_policy_contract_date",
-                    )
-                    _si_policy_premium = st.text_input(
-                        "월보험료 (원)",
-                        value=st.session_state.get("crm_policy_premium", ""),
-                        placeholder="예) 150000",
-                        key="home_policy_premium",
-                    )
-
-            # ── [HIRA-KCD] 질병 코드 자동완성 ────────────────────────────
-            st.markdown("<hr style='margin:8px 0;border-color:#e2e8f0;'>", unsafe_allow_html=True)
-            st.markdown(
-                "<div style='border:1px dashed #000000;border-radius:10px;"
-                "background:#F8FBFF;padding:10px 14px 6px 14px;margin-bottom:10px;'>"
-                "<div style='color:#1565C0;font-weight:900;font-size:0.86rem;margin-bottom:6px;'>"
-                "🔬 질병 진단코드(KCD) 검색 — 심평원 연동 · 보장 매핑 자동 표시</div>",
-                unsafe_allow_html=True,
-            )
-            _kcd_col1, _kcd_col2 = st.columns([3, 2])
-            with _kcd_col1:
-                _si_kcd_name = render_kcd_autocomplete(
-                    label="질병 검색 (한글명 또는 KCD 코드)",
-                    session_key="scan_client_kcd_name",
-                    placeholder="예) 유방암, 뇌경색, C50, I63…",
-                    autofill_kcd_key="scan_client_kcd_code",
-                    show_coverage=True,
-                )
-            with _kcd_col2:
-                _si_kcd_code = st.text_input(
-                    "KCD 코드 (자동 입력 또는 직접 입력)",
-                    value=st.session_state.get("scan_client_kcd_code", ""),
-                    placeholder="예) C50, I63, F00…",
-                    key="scan_kcd_code_manual",
-                )
-                if _si_kcd_code != st.session_state.get("scan_client_kcd_code", ""):
-                    st.session_state["scan_client_kcd_code"] = _si_kcd_code
-                _si_kcd_date = st.text_input(
-                    "진단 확정일 (YYYYMMDD)",
-                    value=st.session_state.get("scan_client_kcd_date", ""),
-                    placeholder="예) 20240315",
-                    max_chars=8,
-                    key="scan_kcd_date_input",
-                )
-                if _si_kcd_date != st.session_state.get("scan_client_kcd_date", ""):
-                    st.session_state["scan_client_kcd_date"] = _si_kcd_date
-            st.markdown("</div>", unsafe_allow_html=True)
-            # ── [HIRA-KCD] 끝 ─────────────────────────────────────────────
-
-            _si_items = st.multiselect(
-                "📋 상담 항목 (복수 선택)",
-                ["신규보험상담", "보험증권 분석", "보험금 청구", "장해 산출", "암·뇌·심장",
-                 "리플렛 분류", "약관 검색", "부동산 투자", "간병비", "노후설계", "법인상담"],
-                default=st.session_state.get("scan_client_items", []), key="home_si_items"
-            )
-
-            # ── [GP-CRM] 저장 버튼 — Fortress 태깅 저장 ──────────────────
-            st.markdown('<div class="gk-save-btn-marker" style="display:none;"></div>', unsafe_allow_html=True)
-            if st.button("💾 고객 정보 저장 (피보험자 태깅 + 전체 탭 연동)", key="btn_save_client_info", use_container_width=True):
-                # ① 세션 상태 동기화
-                st.session_state["scan_client_name"]        = _si_name
-                st.session_state["scan_client_dob"]         = _si_dob
-                st.session_state["scan_client_gender"]      = _si_gender
-                st.session_state["scan_client_job"]         = _si_job
-                st.session_state["scan_client_sick"]        = _si_sick
-                st.session_state["scan_client_items"]       = _si_items
-                st.session_state["crm_contractor_name"]     = _si_contractor_name
-                st.session_state["crm_contractor_dob"]      = _si_contractor_dob
-                st.session_state["crm_beneficiary_name"]    = _si_beneficiary_name
-                st.session_state["crm_beneficiary_dob"]     = _si_beneficiary_dob
-                st.session_state["crm_policy_company"]      = _si_policy_company
-                st.session_state["crm_policy_product"]      = _si_policy_product
-                st.session_state["crm_policy_number"]       = _si_policy_number
-                st.session_state["crm_policy_roles_sel"]    = _si_policy_roles_sel
-                st.session_state["crm_policy_contract_date"]= _si_policy_contract_date
-                st.session_state["crm_policy_premium"]      = _si_policy_premium
-
-                # ② CRM Fortress DB 저장
-                _fort_sb_ok  = False
-                _fort_msg    = ""
-                _fort_pid    = None   # person_id
-                _fort_pol_id = None   # policy_id
-                if _si_name and _si_name.strip() and _uid_for_cust:
+                if _cust_cache_valid:
+                    _people_rows = st.session_state[_cust_cache_key]
+                else:
                     try:
-                        from crm_fortress import (
-                            upsert_person     as _fp_upsert,
-                            upsert_policy     as _fp_pol,
-                            link_policy_role  as _fp_link,
-                        )
-                        _sb_f = _get_sb_client() if _SB_PKG_OK else None
-                        if _sb_f:
-                            # A-1: 피보험자 등록/갱신
-                            _existing_pid = st.session_state.get("_fp_person_id")
-                            _insured_row = _fp_upsert(
-                                _sb_f,
-                                name           = _si_name.strip(),
-                                birth_date     = _si_dob,
-                                gender         = _si_gender or "",
-                                is_real_client = True,
-                                agent_id       = _uid_for_cust,
-                                memo           = f"직업:{_si_job} / 유병:{_si_sick}",
-                                person_id      = _existing_pid,
-                            )
-                            _fort_pid = _insured_row.get("id", _existing_pid)
-                            st.session_state["_fp_person_id"] = _fort_pid
-
-                            # A-2: 계약자 별도 인물 등록 (피보험자와 다를 경우)
-                            _contractor_pid = _fort_pid
-                            if _si_contractor_name and _si_contractor_name.strip():
-                                _contr_row = _fp_upsert(
-                                    _sb_f,
-                                    name       = _si_contractor_name.strip(),
-                                    birth_date = _si_contractor_dob,
-                                    agent_id   = _uid_for_cust,
-                                )
-                                _contractor_pid = _contr_row.get("id", _fort_pid)
-
-                            # A-2: 수익자 별도 인물 등록
-                            _beneficiary_pid = None
-                            if _si_beneficiary_name and _si_beneficiary_name.strip():
-                                _bene_row = _fp_upsert(
-                                    _sb_f,
-                                    name       = _si_beneficiary_name.strip(),
-                                    birth_date = _si_beneficiary_dob,
-                                    agent_id   = _uid_for_cust,
-                                )
-                                _beneficiary_pid = _bene_row.get("id")
-
-                            # A-3: 증권 등록 + 역할 태깅
-                            if _si_policy_company and _si_policy_product:
-                                _prem_val = None
-                                try:
-                                    _prem_val = float(_si_policy_premium.replace(",", "")) if _si_policy_premium else None
-                                except Exception:
-                                    pass
-                                _pol_row = _fp_pol(
-                                    _sb_f,
-                                    insurance_company = _si_policy_company,
-                                    product_name      = _si_policy_product,
-                                    policy_number     = _si_policy_number,
-                                    contract_date     = _si_policy_contract_date,
-                                    premium           = _prem_val,
-                                    agent_id          = _uid_for_cust,
-                                    source            = "manual",
-                                )
-                                _fort_pol_id = _pol_row.get("id")
-                                if _fort_pol_id:
-                                    _roles_to_link = _si_policy_roles_sel or ["피보험자"]
-                                    for _rl in _roles_to_link:
-                                        if _rl == "계약자":
-                                            _fp_link(_sb_f, _fort_pol_id, _contractor_pid, "계약자", _uid_for_cust)
-                                        elif _rl == "피보험자":
-                                            _fp_link(_sb_f, _fort_pol_id, _fort_pid, "피보험자", _uid_for_cust)
-                                        elif _rl == "수익자" and _beneficiary_pid:
-                                            _fp_link(_sb_f, _fort_pol_id, _beneficiary_pid, "수익자", _uid_for_cust)
-
-                            _fort_sb_ok = True
-                            # 캐시 무효화
-                            st.session_state.pop(_cust_cache_key, None)
-                            st.session_state.pop(_cust_cache_ts, None)
-                    except Exception as _fe:
-                        _fort_msg = str(_fe)
-
-                # ③ 기존 customer_mgmt 병행 저장 (호환성 유지)
-                _cid_save = st.session_state.get("selected_customer_id")
-                if _cid_save:
-                    try:
-                        from customer_mgmt import update_profile as _upd_prof
-                        _sb_s = st.session_state.get("supabase_client") or st.session_state.get("sb")
-                        _upd_prof(_cid_save, {
-                            "dob": _si_dob, "job": _si_job,
-                            "sick": _si_sick, "items": _si_items,
-                        }, _sb_s)
+                        from crm_fortress import search_people as _fp_search
+                        _sb_fp = _get_sb_client() if _SB_PKG_OK else None
+                        _people_rows = _fp_search(_sb_fp, _uid_for_cust) if (_sb_fp and _uid_for_cust) else []
+                        st.session_state[_cust_cache_key] = _people_rows
+                        st.session_state[_cust_cache_ts]  = time.time()
                     except Exception:
-                        pass
-
-                # ④ 결과 메시지
-                if _fort_sb_ok:
-                    _tag_info = f"피보험자 ID: `{str(_fort_pid)[:8]}…`" if _fort_pid else ""
-                    _pol_info = f" | 증권 태깅 완료" if _fort_pol_id else ""
+                        _people_rows = st.session_state.get(_cust_cache_key, [])
+    
+                # ── 검색/선택 헤더 ─────────────────────────────────────────
+                st.markdown(
+                    "<div style='border:1px dashed #000000;border-radius:10px;"
+                    "background:#f0fdf4;padding:10px 14px 8px 14px;margin-bottom:8px;'>"
+                    "<div style='color:#065f46;font-weight:900;font-size:0.9rem;margin-bottom:4px;'>"
+                    "🔍 등록 고객 검색 (피보험자 태그 기반)</div>"
+                    "<div style='color:#374151;font-size:0.78rem;'>"
+                    "이름 선택 시 해당 인물 정보가 자동 로드되며, 모든 자료가 해당 피보험자에 태깅됩니다.</div>"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+    
+                def _fp_label(p):
+                    _n = p.get("name", "")
+                    _b = p.get("birth_date", "")
+                    return f"{_n}  ({_b})" if _b else _n
+    
+                _fp_options_map = {"✏️ 신규 고객 입력": None}
+                for _pr in _people_rows:
+                    _fp_options_map[_fp_label(_pr)] = _pr
+                _fp_search_label = st.session_state.get("_fp_selected_label", "✏️ 신규 고객 입력")
+                if _fp_search_label not in _fp_options_map:
+                    _fp_search_label = "✏️ 신규 고객 입력"
+    
+                _fp_c1, _fp_c2, _fp_c3 = st.columns([3, 1, 1])
+                with _fp_c1:
+                    _fp_selected_label = st.selectbox(
+                        "고객 선택",
+                        options=list(_fp_options_map.keys()),
+                        index=list(_fp_options_map.keys()).index(_fp_search_label),
+                        key="fp_cust_selectbox",
+                        help="등록된 피보험자 이름으로 검색·선택",
+                        label_visibility="collapsed",
+                    )
+                with _fp_c2:
+                    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                    if st.button("✅ 적용", key="btn_fp_apply", use_container_width=True):
+                        st.rerun()
+                with _fp_c3:
+                    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                    if st.button("🔄 갱신", key="btn_fp_refresh", use_container_width=True):
+                        st.session_state.pop("_fp_selected_label", None)
+                        st.session_state.pop(_cust_cache_key, None)
+                        st.session_state.pop(_cust_cache_ts, None)
+                        st.rerun()
+    
+                _fp_selected = _fp_options_map.get(_fp_selected_label)
+                if _fp_selected and _fp_selected_label != "✏️ 신규 고객 입력":
+                    st.session_state["_fp_selected_label"]    = _fp_selected_label
+                    st.session_state["selected_customer_id"]  = _fp_selected.get("id")
+                    st.session_state["_fp_person_id"]         = _fp_selected.get("id")
+                    _fp_auto = {
+                        "scan_client_name":   _fp_selected.get("name", ""),
+                        "scan_client_dob":    _fp_selected.get("birth_date", ""),
+                        "scan_client_gender": _fp_selected.get("gender", ""),
+                        "scan_client_contact":_fp_selected.get("contact", ""),
+                        "scan_client_job":    _fp_selected.get("job", ""),
+                        "scan_client_sick":   _fp_selected.get("sick", "해당없음"),
+                        "scan_client_items":  _fp_selected.get("items", []),
+                    }
+                    for _k, _v in _fp_auto.items():
+                        if st.session_state.get(_k) != _v:
+                            st.session_state[_k] = _v
                     st.success(
-                        f"✅ **{_si_name}** 고객 정보가 저장되었습니다.\n\n"
-                        f"☁️ **영구저장 완료** — 피보험자 고유 태그로 DB에 분리 보관됩니다. "
-                        f"{_tag_info}{_pol_info}"
+                        f"✅ **[{_fp_selected.get('name','')}]** 로드 완료 "
+                        f"— 이하 모든 자료가 이 피보험자에 태깅됩니다."
                     )
                 else:
-                    st.success(f"✅ {_si_name} 고객 정보가 저장되었습니다. (세션 저장 — 모든 탭에 자동 연동됩니다.)")
-                    if _fort_msg:
-                        st.caption(f"DB 저장 오류: {_fort_msg[:80]}")
-
-            # ── [SEC-01-MEMBER-INFO] FC 회원 정보 입력 ────────────────────
-            st.markdown("<hr style='margin:12px 0;border-color:#ffcccc;'>", unsafe_allow_html=True)
+                    st.session_state["selected_customer_id"] = None
+                    st.session_state["_fp_person_id"]        = None
+                    st.session_state["_fp_selected_label"]   = "✏️ 신규 고객 입력"
+    
+                # ── [GP-CRM] 그룹 A-1 : 피보험자 기본 정보 ───────────────────
+                st.markdown(
+                    "<div style='border:1px dashed #000000;border-radius:10px;"
+                    "background:#fffbeb;padding:12px 14px 8px 14px;margin:8px 0;'>"
+                    "<div style='color:#92400e;font-weight:900;font-size:0.88rem;margin-bottom:8px;'>"
+                    "👤 그룹 A-1 — 피보험자 기본 정보 <span style='font-size:0.75rem;"
+                    "background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;"
+                    "padding:1px 6px;margin-left:6px;'>TAG: 피보험자</span></div>",
+                    unsafe_allow_html=True,
+                )
+    
+                _SICK_OPTIONS = [
+                    "해당없음",
+                    "심사필요(3개월이내 치료 있음)",
+                    "유병자(입원·수술이력 있음)",
+                    "유병자(당뇨·고혈압·심장 등 약 투약중)",
+                    "유병자(암·중풍 발병 있음)",
+                ]
+                _SICK_GUIDE = {
+                    "해당없음":                             "✅ 일반·건강체 보험가입 설계 가능",
+                    "심사필요(3개월이내 치료 있음)":          "⚠️ 최종 통원일 경과 후 신규보험 상담 진행. 유병자 운전자보험은 1개월 경과 후 심사 요청 가능",
+                    "유병자(입원·수술이력 있음)":            "📋 유병자보험 3.0.5~3.5.5 — 병력에 따라 구분 가입 상담",
+                    "유병자(당뇨·고혈압·심장 등 약 투약중)": "📋 유병자보험 3.0.5~3.5.5 — 병력에 따라 구분 가입 상담",
+                    "유병자(암·중풍 발병 있음)":             "⚠️ 최종 통원일 이후 5년 경과 후 암 상담. 향후 유병자 신규 상품 가입 가능 여부 확인",
+                }
+                _cur_sick = st.session_state.get("scan_client_sick", "해당없음")
+                if _cur_sick not in _SICK_OPTIONS:
+                    _cur_sick = "해당없음"
+    
+                _ga1, _ga2, _ga3 = st.columns([2, 2, 1])
+                with _ga1:
+                    _si_name = st.text_input(
+                        "👤 성명 (피보험자)",
+                        value=st.session_state.get("scan_client_name", ""),
+                        placeholder="예) 홍길동", key="home_si_name",
+                        help="모든 보험·상담 자료가 이 이름에 태깅됩니다",
+                    )
+                    _si_dob = st.text_input(
+                        "📅 생년월일 (YYYYMMDD)",
+                        value=st.session_state.get("scan_client_dob", ""),
+                        placeholder="예) 19800101", max_chars=8, key="home_si_dob",
+                    )
+                with _ga2:
+                    _si_gender = st.selectbox(
+                        "⚧ 성별",
+                        ["", "남", "여", "기타"],
+                        index=["", "남", "여", "기타"].index(
+                            st.session_state.get("scan_client_gender", "") or ""
+                        ),
+                        key="home_si_gender",
+                    )
+                    _si_job = st.text_input(
+                        "💼 직업",
+                        value=st.session_state.get("scan_client_job", ""),
+                        placeholder="예) 회사원", key="home_si_job",
+                    )
+                with _ga3:
+                    _si_sick = st.selectbox(
+                        "🩺 유병자 여부",
+                        _SICK_OPTIONS,
+                        index=_SICK_OPTIONS.index(_cur_sick),
+                        key="home_si_sick",
+                    )
+                _sick_guide_text = _SICK_GUIDE.get(_si_sick, "")
+                if _sick_guide_text:
+                    _sick_color = "#9a3412" if "⚠️" in _sick_guide_text else "#14532d"
+                    _sick_bg    = "#fff7ed" if "⚠️" in _sick_guide_text else "#f0fdf4"
+                    _sick_bdr   = "#f97316" if "⚠️" in _sick_guide_text else "#22c55e"
+                    st.markdown(
+                        f'<div style="background:{_sick_bg};border:1.5px solid {_sick_bdr};border-radius:8px;'
+                        f'padding:8px 12px;font-size:0.82rem;font-weight:700;color:{_sick_color};'
+                        f'white-space:pre-line;margin-bottom:6px;">{_sick_guide_text}</div>',
+                        unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+    
+                # ── [GP-CRM] 그룹 A-2 : 계약자 / 수익자 구분 ─────────────────
+                with st.expander("👥 그룹 A-2 — 계약자 · 수익자 구분 (피보험자와 다를 경우 입력)", expanded=False):
+                    st.markdown(
+                        "<div style='font-size:0.78rem;color:#1e40af;background:#eff6ff;"
+                        "border:1px dashed #93c5fd;border-radius:6px;padding:6px 10px;margin-bottom:8px;'>"
+                        "💡 계약자·수익자가 피보험자와 동일하면 비워두세요. "
+                        "다른 인물인 경우 입력하면 별도 <b>gk_people</b> 레코드로 분리 저장됩니다.</div>",
+                        unsafe_allow_html=True,
+                    )
+                    _r2c1, _r2c2 = st.columns(2)
+                    with _r2c1:
+                        st.markdown(
+                            "<span style='font-size:0.8rem;font-weight:900;color:#1d4ed8;"
+                            "background:#dbeafe;border:1px solid #93c5fd;border-radius:4px;"
+                            "padding:2px 8px;'>TAG: 계약자</span>",
+                            unsafe_allow_html=True,
+                        )
+                        _si_contractor_name = st.text_input(
+                            "계약자 성명",
+                            value=st.session_state.get("crm_contractor_name", ""),
+                            placeholder="피보험자와 동일하면 비워두세요",
+                            key="home_contractor_name",
+                        )
+                        _si_contractor_dob = st.text_input(
+                            "계약자 생년월일",
+                            value=st.session_state.get("crm_contractor_dob", ""),
+                            placeholder="예) 19750515",
+                            max_chars=8,
+                            key="home_contractor_dob",
+                        )
+                    with _r2c2:
+                        st.markdown(
+                            "<span style='font-size:0.8rem;font-weight:900;color:#6d28d9;"
+                            "background:#ede9fe;border:1px solid #c4b5fd;border-radius:4px;"
+                            "padding:2px 8px;'>TAG: 수익자</span>",
+                            unsafe_allow_html=True,
+                        )
+                        _si_beneficiary_name = st.text_input(
+                            "수익자 성명",
+                            value=st.session_state.get("crm_beneficiary_name", ""),
+                            placeholder="미입력 시 피보험자와 동일 처리",
+                            key="home_beneficiary_name",
+                        )
+                        _si_beneficiary_dob = st.text_input(
+                            "수익자 생년월일",
+                            value=st.session_state.get("crm_beneficiary_dob", ""),
+                            placeholder="예) 19551020",
+                            max_chars=8,
+                            key="home_beneficiary_dob",
+                        )
+    
+                # ── [GP-CRM] 그룹 A-3 : 보험 증권 태깅 ───────────────────────
+                with st.expander("🛡️ 그룹 A-3 — 보험 증권 태깅 (이 고객에 연결할 증권)", expanded=False):
+                    st.markdown(
+                        "<div style='font-size:0.78rem;color:#065f46;background:#ecfdf5;"
+                        "border:1px dashed #6ee7b7;border-radius:6px;padding:6px 10px;margin-bottom:8px;'>"
+                        "💡 저장 시 위 피보험자 정보와 이 증권이 <b>gk_policy_roles</b>로 자동 연결됩니다. "
+                        "여러 증권을 저장할 경우 저장 후 재입력하세요.</div>",
+                        unsafe_allow_html=True,
+                    )
+                    _r3c1, _r3c2 = st.columns(2)
+                    with _r3c1:
+                        _si_policy_company = st.text_input(
+                            "보험사",
+                            value=st.session_state.get("crm_policy_company", ""),
+                            placeholder="예) 삼성생명, DB손해보험",
+                            key="home_policy_company",
+                        )
+                        _si_policy_product = st.text_input(
+                            "상품명",
+                            value=st.session_state.get("crm_policy_product", ""),
+                            placeholder="예) 통합건강보험 플러스",
+                            key="home_policy_product",
+                        )
+                        _si_policy_number = st.text_input(
+                            "증권번호",
+                            value=st.session_state.get("crm_policy_number", ""),
+                            placeholder="예) 2023-0001234",
+                            key="home_policy_number",
+                        )
+                    with _r3c2:
+                        _si_policy_roles_sel = st.multiselect(
+                            "역할 태그 (복수 선택 가능)",
+                            ["계약자", "피보험자", "수익자"],
+                            default=st.session_state.get("crm_policy_roles_sel", ["피보험자"]),
+                            key="home_policy_roles_sel",
+                            help="이 증권에서 위 인물이 담당하는 역할",
+                        )
+                        _si_policy_contract_date = st.text_input(
+                            "계약일 (YYYYMMDD)",
+                            value=st.session_state.get("crm_policy_contract_date", ""),
+                            placeholder="예) 20230101",
+                            max_chars=8,
+                            key="home_policy_contract_date",
+                        )
+                        _si_policy_premium = st.text_input(
+                            "월보험료 (원)",
+                            value=st.session_state.get("crm_policy_premium", ""),
+                            placeholder="예) 150000",
+                            key="home_policy_premium",
+                        )
+    
+                # ── [HIRA-KCD] 질병 코드 자동완성 ────────────────────────────
+                st.markdown("<hr style='margin:8px 0;border-color:#e2e8f0;'>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='border:1px dashed #000000;border-radius:10px;"
+                    "background:#F8FBFF;padding:10px 14px 6px 14px;margin-bottom:10px;'>"
+                    "<div style='color:#1565C0;font-weight:900;font-size:0.86rem;margin-bottom:6px;'>"
+                    "🔬 질병 진단코드(KCD) 검색 — 심평원 연동 · 보장 매핑 자동 표시</div>",
+                    unsafe_allow_html=True,
+                )
+                _kcd_col1, _kcd_col2 = st.columns([3, 2])
+                with _kcd_col1:
+                    _si_kcd_name = render_kcd_autocomplete(
+                        label="질병 검색 (한글명 또는 KCD 코드)",
+                        session_key="scan_client_kcd_name",
+                        placeholder="예) 유방암, 뇌경색, C50, I63…",
+                        autofill_kcd_key="scan_client_kcd_code",
+                        show_coverage=True,
+                    )
+                with _kcd_col2:
+                    _si_kcd_code = st.text_input(
+                        "KCD 코드 (자동 입력 또는 직접 입력)",
+                        value=st.session_state.get("scan_client_kcd_code", ""),
+                        placeholder="예) C50, I63, F00…",
+                        key="scan_kcd_code_manual",
+                    )
+                    if _si_kcd_code != st.session_state.get("scan_client_kcd_code", ""):
+                        st.session_state["scan_client_kcd_code"] = _si_kcd_code
+                    _si_kcd_date = st.text_input(
+                        "진단 확정일 (YYYYMMDD)",
+                        value=st.session_state.get("scan_client_kcd_date", ""),
+                        placeholder="예) 20240315",
+                        max_chars=8,
+                        key="scan_kcd_date_input",
+                    )
+                    if _si_kcd_date != st.session_state.get("scan_client_kcd_date", ""):
+                        st.session_state["scan_client_kcd_date"] = _si_kcd_date
+                st.markdown("</div>", unsafe_allow_html=True)
+                # ── [HIRA-KCD] 끝 ─────────────────────────────────────────────
+    
+                _si_items = st.multiselect(
+                    "📋 상담 항목 (복수 선택)",
+                    ["신규보험상담", "보험증권 분석", "보험금 청구", "장해 산출", "암·뇌·심장",
+                     "리플렛 분류", "약관 검색", "부동산 투자", "간병비", "노후설계", "법인상담"],
+                    default=st.session_state.get("scan_client_items", []), key="home_si_items"
+                )
+    
+                # ── [GP-CRM] 저장 버튼 — Fortress 태깅 저장 ──────────────────
+                st.markdown('<div class="gk-save-btn-marker" style="display:none;"></div>', unsafe_allow_html=True)
+                if st.button("💾 고객 정보 저장 (피보험자 태깅 + 전체 탭 연동)", key="btn_save_client_info", use_container_width=True):
+                    # ① 세션 상태 동기화
+                    st.session_state["scan_client_name"]        = _si_name
+                    st.session_state["scan_client_dob"]         = _si_dob
+                    st.session_state["scan_client_gender"]      = _si_gender
+                    st.session_state["scan_client_job"]         = _si_job
+                    st.session_state["scan_client_sick"]        = _si_sick
+                    st.session_state["scan_client_items"]       = _si_items
+                    st.session_state["crm_contractor_name"]     = _si_contractor_name
+                    st.session_state["crm_contractor_dob"]      = _si_contractor_dob
+                    st.session_state["crm_beneficiary_name"]    = _si_beneficiary_name
+                    st.session_state["crm_beneficiary_dob"]     = _si_beneficiary_dob
+                    st.session_state["crm_policy_company"]      = _si_policy_company
+                    st.session_state["crm_policy_product"]      = _si_policy_product
+                    st.session_state["crm_policy_number"]       = _si_policy_number
+                    st.session_state["crm_policy_roles_sel"]    = _si_policy_roles_sel
+                    st.session_state["crm_policy_contract_date"]= _si_policy_contract_date
+                    st.session_state["crm_policy_premium"]      = _si_policy_premium
+    
+                    # ② CRM Fortress DB 저장
+                    _fort_sb_ok  = False
+                    _fort_msg    = ""
+                    _fort_pid    = None   # person_id
+                    _fort_pol_id = None   # policy_id
+                    if _si_name and _si_name.strip() and _uid_for_cust:
+                        try:
+                            from crm_fortress import (
+                                upsert_person     as _fp_upsert,
+                                upsert_policy     as _fp_pol,
+                                link_policy_role  as _fp_link,
+                            )
+                            _sb_f = _get_sb_client() if _SB_PKG_OK else None
+                            if _sb_f:
+                                # A-1: 피보험자 등록/갱신
+                                _existing_pid = st.session_state.get("_fp_person_id")
+                                _insured_row = _fp_upsert(
+                                    _sb_f,
+                                    name           = _si_name.strip(),
+                                    birth_date     = _si_dob,
+                                    gender         = _si_gender or "",
+                                    is_real_client = True,
+                                    agent_id       = _uid_for_cust,
+                                    memo           = f"직업:{_si_job} / 유병:{_si_sick}",
+                                    person_id      = _existing_pid,
+                                )
+                                _fort_pid = _insured_row.get("id", _existing_pid)
+                                st.session_state["_fp_person_id"] = _fort_pid
+    
+                                # A-2: 계약자 별도 인물 등록 (피보험자와 다를 경우)
+                                _contractor_pid = _fort_pid
+                                if _si_contractor_name and _si_contractor_name.strip():
+                                    _contr_row = _fp_upsert(
+                                        _sb_f,
+                                        name       = _si_contractor_name.strip(),
+                                        birth_date = _si_contractor_dob,
+                                        agent_id   = _uid_for_cust,
+                                    )
+                                    _contractor_pid = _contr_row.get("id", _fort_pid)
+    
+                                # A-2: 수익자 별도 인물 등록
+                                _beneficiary_pid = None
+                                if _si_beneficiary_name and _si_beneficiary_name.strip():
+                                    _bene_row = _fp_upsert(
+                                        _sb_f,
+                                        name       = _si_beneficiary_name.strip(),
+                                        birth_date = _si_beneficiary_dob,
+                                        agent_id   = _uid_for_cust,
+                                    )
+                                    _beneficiary_pid = _bene_row.get("id")
+    
+                                # A-3: 증권 등록 + 역할 태깅
+                                if _si_policy_company and _si_policy_product:
+                                    _prem_val = None
+                                    try:
+                                        _prem_val = float(_si_policy_premium.replace(",", "")) if _si_policy_premium else None
+                                    except Exception:
+                                        pass
+                                    _pol_row = _fp_pol(
+                                        _sb_f,
+                                        insurance_company = _si_policy_company,
+                                        product_name      = _si_policy_product,
+                                        policy_number     = _si_policy_number,
+                                        contract_date     = _si_policy_contract_date,
+                                        premium           = _prem_val,
+                                        agent_id          = _uid_for_cust,
+                                        source            = "manual",
+                                    )
+                                    _fort_pol_id = _pol_row.get("id")
+                                    if _fort_pol_id:
+                                        _roles_to_link = _si_policy_roles_sel or ["피보험자"]
+                                        for _rl in _roles_to_link:
+                                            if _rl == "계약자":
+                                                _fp_link(_sb_f, _fort_pol_id, _contractor_pid, "계약자", _uid_for_cust)
+                                            elif _rl == "피보험자":
+                                                _fp_link(_sb_f, _fort_pol_id, _fort_pid, "피보험자", _uid_for_cust)
+                                            elif _rl == "수익자" and _beneficiary_pid:
+                                                _fp_link(_sb_f, _fort_pol_id, _beneficiary_pid, "수익자", _uid_for_cust)
+    
+                                _fort_sb_ok = True
+                                # 캐시 무효화
+                                st.session_state.pop(_cust_cache_key, None)
+                                st.session_state.pop(_cust_cache_ts, None)
+                        except Exception as _fe:
+                            _fort_msg = str(_fe)
+    
+                    # ③ 기존 customer_mgmt 병행 저장 (호환성 유지)
+                    _cid_save = st.session_state.get("selected_customer_id")
+                    if _cid_save:
+                        try:
+                            from customer_mgmt import update_profile as _upd_prof
+                            _sb_s = st.session_state.get("supabase_client") or st.session_state.get("sb")
+                            _upd_prof(_cid_save, {
+                                "dob": _si_dob, "job": _si_job,
+                                "sick": _si_sick, "items": _si_items,
+                            }, _sb_s)
+                        except Exception:
+                            pass
+    
+                    # ④ 결과 메시지
+                    if _fort_sb_ok:
+                        _tag_info = f"피보험자 ID: `{str(_fort_pid)[:8]}…`" if _fort_pid else ""
+                        _pol_info = f" | 증권 태깅 완료" if _fort_pol_id else ""
+                        st.success(
+                            f"✅ **{_si_name}** 고객 정보가 저장되었습니다.\n\n"
+                            f"☁️ **영구저장 완료** — 피보험자 고유 태그로 DB에 분리 보관됩니다. "
+                            f"{_tag_info}{_pol_info}"
+                        )
+                    else:
+                        st.success(f"✅ {_si_name} 고객 정보가 저장되었습니다. (세션 저장 — 모든 탭에 자동 연동됩니다.)")
+                        if _fort_msg:
+                            st.caption(f"DB 저장 오류: {_fort_msg[:80]}")
+    
+                # ── [SEC-01-MEMBER-INFO] FC 회원 정보 입력 ────────────────────
+                st.markdown("<hr style='margin:12px 0;border-color:#ffcccc;'>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div id='sec-01-member-info' style='border:2px solid #1565C0;border-radius:10px;"
+                    "padding:14px 16px 10px 16px;margin-bottom:10px;background:#F8FBFF;'>"
+                    "<div style='color:#0000FF;font-weight:900;font-size:0.88rem;margin-bottom:10px;'>"
+                    "🏢 회원정보를 입력하시면 각종 보고서에 FC님의 이름과 소속을 적어드립니다.</div>",
+                    unsafe_allow_html=True
+                )
+                _mi_c1, _mi_c2 = st.columns([1, 1])
+                with _mi_c1:
+                    _mi_company = render_corp_autocomplete(
+                        label="🏢 소속 보험사/대리점명",
+                        session_key="fc_company",
+                        placeholder="예) 삼성생명, 프라임에셋, goldkey_Ai_masters2026…",
+                        autofill_keys={
+                            "sector": "fc_company_sector",
+                            "size":   "fc_company_size",
+                            "addr":   "fc_company_addr",
+                        },
+                        show_detail=True,
+                    )
+                    _mi_branch = st.text_input(
+                        "지점 이름",
+                        value=st.session_state.get("fc_branch", ""),
+                        placeholder="예) 강남지점",
+                        key="home_mi_branch"
+                    )
+                with _mi_c2:
+                    _mi_contact = st.text_input(
+                        "FC 연락처",
+                        value=st.session_state.get("fc_contact", ""),
+                        placeholder="예) 010-1234-5678",
+                        key="home_mi_contact"
+                    )
+                if st.button("💾 회원정보 저장 (보고서 자동 반영)", key="btn_save_member_info", use_container_width=True):
+                    st.session_state["fc_company"] = _mi_company
+                    st.session_state["fc_branch"]  = _mi_branch
+                    st.session_state["fc_contact"] = _mi_contact
+                    st.success("✅ 회원정보 저장 완료 — 카카오톡 보고서 발송 시 자동 매핑됩니다.")
+                st.markdown("</div>", unsafe_allow_html=True)
+    
+                # ── 그룹 B: 오늘 할 일 · 오늘의 약속 · 상담 대기 ───────────
+                st.markdown("<hr style='margin:12px 0;border-color:#ffcccc;'>", unsafe_allow_html=True)
+                st.markdown("**📊 그룹 B — 오늘의 업무 현황**")
+    
+                if "_agent_todo" not in st.session_state:
+                    st.session_state["_agent_todo"] = [
+                        {"done": False, "text": "김○○ 고객 암보험 설계서 발송"},
+                        {"done": False, "text": "이○○ 고객 청구서류 취합"},
+                        {"done": True,  "text": "월간 실적 보고서 제출"},
+                    ]
+                if "_agent_appt" not in st.session_state:
+                    st.session_state["_agent_appt"] = [
+                        {"time": "10:30", "name": "박○○", "type": "신규상담"},
+                        {"time": "14:00", "name": "최○○", "type": "갱신안내"},
+                    ]
+                if "_agent_wait" not in st.session_state:
+                    st.session_state["_agent_wait"] = [
+                        {"name": "정○○", "status": "서류검토중"},
+                        {"name": "강○○", "status": "심사대기"},
+                        {"name": "윤○○", "status": "출금확인"},
+                    ]
+    
+                _todo_list = st.session_state["_agent_todo"]
+                _appt_list = st.session_state["_agent_appt"]
+                _wait_list = st.session_state["_agent_wait"]
+    
+                _todo_html = "".join(
+                    f'<div style="padding:3px 0;border-bottom:1px solid #f0f0f0;font-size:0.82rem;'
+                    f'font-weight:700;color:{"#94a3b8" if t["done"] else "#000000"};'
+                    f'text-decoration:{"line-through" if t["done"] else "none"};">'
+                    f'{"✅" if t["done"] else "⬜"} {t["text"]}</div>'
+                    for t in _todo_list
+                )
+                _appt_html = "".join(
+                    f'<div style="padding:3px 0;border-bottom:1px solid #f0f0f0;font-size:0.82rem;font-weight:700;color:#000000;">'
+                    f'<span style="color:#dc2626;font-weight:900;">{a["time"]}</span>'
+                    f' {a["name"]} <span style="color:#6b7280;">· {a["type"]}</span></div>'
+                    for a in _appt_list
+                )
+                _wait_html = "".join(
+                    f'<div style="padding:3px 0;border-bottom:1px solid #f0f0f0;font-size:0.82rem;font-weight:700;color:#000000;">'
+                    f'{w["name"]} <span style="color:#0369a1;">{w["status"]}</span></div>'
+                    for w in _wait_list
+                )
+    
+                _gb1, _gb2, _gb3 = st.columns(3, gap="small")
+                with _gb1:
+                    st.markdown(
+                        f'<div class="gk-dash-box" style="border:none;border-top:1.5px solid #e5e7eb;border-radius:0;'
+                        f'padding:10px 0;min-height:120px;max-height:180px;">'
+                        f'<div style="font-size:0.75rem;font-weight:900;color:#000000 !important;background:#E3F2FD !important;padding:4px 6px;border-radius:5px;margin-bottom:6px;">📋 오늘 할 일</div>'
+                        f'{_todo_html}</div>', unsafe_allow_html=True)
+                with _gb2:
+                    st.markdown(
+                        f'<div class="gk-dash-box" style="border:none;border-top:1.5px solid #e5e7eb;border-radius:0;'
+                        f'padding:10px 0;min-height:120px;max-height:180px;">'
+                        f'<div style="font-size:0.75rem;font-weight:900;color:#000000 !important;background:#E3F2FD !important;padding:4px 6px;border-radius:5px;margin-bottom:6px;">🕐 오늘의 약속</div>'
+                        f'{_appt_html}</div>', unsafe_allow_html=True)
+                with _gb3:
+                    st.markdown(
+                        f'<div class="gk-dash-box" style="border:none;border-top:1.5px solid #e5e7eb;border-radius:0;'
+                        f'padding:10px 0;min-height:120px;max-height:180px;">'
+                        f'<div style="font-size:0.75rem;font-weight:900;color:#000000 !important;background:#E3F2FD !important;padding:4px 6px;border-radius:5px;margin-bottom:6px;">⏳ 상담 대기</div>'
+                        f'{_wait_html}</div>', unsafe_allow_html=True)
+    
+                # ── 그룹 C: 상담노트(좌) / 보험가입상담(우) ─────────────────
+                st.markdown("<hr style='margin:12px 0;border-color:#ffcccc;'>", unsafe_allow_html=True)
+                st.markdown("**📝 그룹 C — 실전 상담**")
+                _gc_left, _gc_right = st.columns([5, 5], gap="medium")
+    
+                with _gc_left:
+                    st.markdown("**상담 노트** — 고객 상담 내용 전체 기록")
+                    with st.expander("📝 상담노트 입력", expanded=False):
+                        with st.form(key="form_consult_note", clear_on_submit=True):
+                            _nd_col1, _nd_col2 = st.columns([1, 2])
+                            with _nd_col1:
+                                _note_date = st.date_input("상담 일자", key="form_note_date")
+                            with _nd_col2:
+                                _note_summary = st.text_input(
+                                    "상담 요약", placeholder="예) 암보험상담", key="form_note_summary")
+                            _note_text = st.text_area(
+                                "상담 내용 (상세)",
+                                placeholder="고객과 관련된 모든 상담 내용을 입력하세요...",
+                                height=140, key="form_note_text")
+                            _note_submitted = st.form_submit_button("💾 상담노트 저장", use_container_width=True)
+                            if _note_submitted:
+                                _cid = st.session_state.get("selected_customer_id")
+                                _cname = st.session_state.get("scan_client_name", "")
+                                _sb_saved = save_home_note(
+                                    st.session_state.get("user_id", ""),
+                                    _cid, _cname, str(_note_date), _note_summary, _note_text,
+                                    device_uuid=st.session_state.get("_device_uuid", ""),
+                                )
+                                _notes = st.session_state.get("consult_notes", [])
+                                _notes.insert(0, {
+                                    "date": str(_note_date), "summary": _note_summary,
+                                    "content": _note_text, "customer_id": _cid, "customer_name": _cname,
+                                })
+                                st.session_state["consult_notes"] = _notes
+                                if _sb_saved:
+                                    st.success(f"✅ [{_note_date}] 저장됨 (영구저장✔️)")
+                                else:
+                                    st.warning("⚠️ 임시저장됨 — Supabase 연결 확인 필요")
+                    _cur_cid = st.session_state.get("selected_customer_id")
+                    _uid_now = st.session_state.get("user_id", "")
+                    _notes_saved = load_home_notes(_uid_now, _cur_cid) if _uid_now else []
+                    if not _notes_saved:
+                        _notes_all = st.session_state.get("consult_notes", [])
+                        _notes_saved = ([_n for _n in _notes_all if _n.get("customer_id") == _cur_cid]
+                                        if _cur_cid else _notes_all)
+                    if _notes_saved:
+                        _cname_disp = st.session_state.get("scan_client_name", "")
+                        st.markdown(
+                            f"**📋 저장된 상담 노트{' — ' + _cname_disp if _cname_disp else ''} (최근순)**")
+                        for _n in _notes_saved[:5]:
+                            st.markdown(
+                                f'<div style="border:1px solid #fca5a5;border-radius:6px;padding:8px 12px;'
+                                f'margin-bottom:5px;background:#fff5f5;">'
+                                f'<span style="font-weight:900;color:#000000;font-size:0.85rem;">{_n["date"]}</span>'
+                                f'{(" | <b>" + _n.get("summary","") + "</b>") if _n.get("summary") else ""}'
+                                f'<br><span style="color:#374151;font-size:0.8rem;">'
+                                f'{_n.get("content","")[:120]}{"..." if len(_n.get("content",""))>120 else ""}'
+                                f'</span></div>', unsafe_allow_html=True)
+    
+                with _gc_right:
+                    st.markdown("**보험 가입 상담** — 청약·설계 기록")
+                    with st.expander("🛡️ 보험 가입 상담 입력", expanded=False):
+                        with st.form(key="form_ins_consult", clear_on_submit=True):
+                            _id_col1, _id_col2 = st.columns([1, 2])
+                            with _id_col1:
+                                _ins_date = st.date_input("가입 일자", key="form_ins_date")
+                            with _id_col2:
+                                _ins_product = st.text_input(
+                                    "상품명", placeholder="예) ○○생명 통합보험", key="form_ins_product")
+                            _ins_bg = st.text_area(
+                                "청약 배경", height=90, key="form_ins_bg",
+                                placeholder="고지항목 병력 등 청약 배경 입력")
+                            _ins_special = st.text_area(
+                                "특이사항", height=90, key="form_ins_special",
+                                placeholder="판촉물, 심사 결과 특이사항 등")
+                            _ins_submitted = st.form_submit_button("💾 보험가입 상담 저장", use_container_width=True)
+                            if _ins_submitted:
+                                _cid = st.session_state.get("selected_customer_id")
+                                _cname = st.session_state.get("scan_client_name", "")
+                                _sb_saved2 = save_home_ins(
+                                    st.session_state.get("user_id", ""),
+                                    _cid, _cname, str(_ins_date), _ins_product, _ins_bg, _ins_special,
+                                    device_uuid=st.session_state.get("_device_uuid", ""),
+                                )
+                                _ins_list = st.session_state.get("insurance_consults", [])
+                                _ins_list.insert(0, {
+                                    "date": str(_ins_date), "product": _ins_product,
+                                    "background": _ins_bg, "special": _ins_special,
+                                    "customer_id": _cid, "customer_name": _cname,
+                                })
+                                st.session_state["insurance_consults"] = _ins_list
+                                if _sb_saved2:
+                                    st.success(f"✅ [{_ins_date}] 저장됨 (영구저장✔️)")
+                                else:
+                                    st.warning("⚠️ 임시저장됨")
+                    _cur_cid2 = st.session_state.get("selected_customer_id")
+                    _uid_now2 = st.session_state.get("user_id", "")
+                    _ins_saved = load_home_ins(_uid_now2, _cur_cid2) if _uid_now2 else []
+                    if not _ins_saved:
+                        _ins_all = st.session_state.get("insurance_consults", [])
+                        _ins_saved = ([_i for _i in _ins_all if _i.get("customer_id") == _cur_cid2]
+                                      if _cur_cid2 else _ins_all)
+                    if _ins_saved:
+                        _cname_ins = st.session_state.get("scan_client_name", "")
+                        st.markdown(
+                            f"**📋 저장된 보험가입 상담{' — ' + _cname_ins if _cname_ins else ''} (최근순)**")
+                        for _ins in _ins_saved[:5]:
+                            st.markdown(
+                                f'<div style="border:1px solid #bfdbfe;border-radius:6px;padding:8px 12px;'
+                                f'margin-bottom:5px;background:#eff6ff;">'
+                                f'<span style="font-weight:900;color:#000000;font-size:0.85rem;">{_ins["date"]}</span>'
+                                f'{(" | <b>" + _ins.get("product","") + "</b>") if _ins.get("product") else ""}'
+                                f'<br><span style="color:#374151;font-size:0.78rem;">배경: '
+                                f'{_ins.get("background","")[:80]}{"..." if len(_ins.get("background",""))>80 else ""}'
+                                f'</span></div>', unsafe_allow_html=True)
+            else:
+                st.markdown("**로그인 후 고객 정보 관리 기능이 활성화됩니다.**")
+    
+            # ── [NAV-01] 내비게이션 바 ─────────────────────────────────────────
+            st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+                        "margin:10px 0 4px 0;'>1 / 7단계 — 고객 마스터 데이터</div>",
+                        unsafe_allow_html=True)
+            _nav01_l, _nav01_r = st.columns([1, 1])
+            with _nav01_l:
+                if st.button("🏠 홈", key="nav01_home", use_container_width=True):
+                    _go_tab("home")
+            with _nav01_r:
+                st.markdown('<div style="background:#E3F2FD !important;border-radius:8px;">', unsafe_allow_html=True)
+                if st.button("✅ 정보저장완료",
+                             key="nav01_next", use_container_width=True):
+                    st.session_state["current_tab"] = "t0"
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+    
+            st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-01 닫기
+    
+            # ═══════════════════════════════════════════════════════════════
+            # [GK-SEC-02] 가처분 소득 기반 3단계 솔루션
+            # ═══════════════════════════════════════════════════════════════
+            st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-02")}<span class="gk-sec-title">② 가처분 소득 기반 3단계 솔루션</span></div>', unsafe_allow_html=True)
+            st.markdown("**종목별 바로가기** — 6대 솔루션 영역 및 최소/표준/적정 매트릭스")
+            _s2_r1c1, _s2_r1c2 = st.columns(2, gap="small")
+            _s2_r2c1, _s2_r2c2 = st.columns(2, gap="small")
+            _s2_r3c1, _s2_r3c2 = st.columns(2, gap="small")
+            with _s2_r1c1:
+                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                if st.button("🔴 암", key="sec02_cancer", use_container_width=True):
+                    st.session_state["target_sector"] = "cancer"
+                    st.session_state["_home_scroll_to_sector_cancer"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with _s2_r1c2:
+                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                if st.button("🧠 뇌·심장", key="sec02_brain", use_container_width=True):
+                    st.session_state["target_sector"] = "stroke"
+                    st.session_state["_home_scroll_to_sector_stroke"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with _s2_r2c1:
+                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                if st.button("🧓 치매", key="sec02_dementia", use_container_width=True):
+                    _go_tab("dementia")
+                st.markdown('</div>', unsafe_allow_html=True)
+            with _s2_r2c2:
+                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                if st.button("🦽 상해후유장해", key="sec02_disability", use_container_width=True):
+                    _go_tab("disability")
+                st.markdown('</div>', unsafe_allow_html=True)
+            with _s2_r3c1:
+                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                if st.button("🔥 화재보험", key="sec02_fire", use_container_width=True):
+                    st.session_state["target_sector"] = "fire"
+                    st.session_state["_home_scroll_to_sector_fire"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with _s2_r3c2:
+                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                if st.button("🚗 자동차보험", key="sec02_auto", use_container_width=True):
+                    st.session_state["target_sector"] = "auto"
+                    st.session_state["_home_scroll_to_sector_auto"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+    
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            _s2_items = [
+                ("암 진단비",     "1,000만원",  "3,000만원",  "5,000만원+"),
+                ("뇌혈관 진단비", "500만원",    "2,000만원",  "3,000만원+"),
+                ("심장 진단비",   "500만원",    "2,000만원",  "3,000만원+"),
+                ("치매 진단비",   "500만원",    "2,000만원",  "3,000만원+"),
+                ("운전자보험",    "가입 확인",  "상해사망 1억", "형사합의금 3천"),
+                ("입원일당",      "1만원/일",   "3만원/일",   "5만원/일"),
+                ("실손보험",      "4세대",      "3세대",      "1·2세대 유지"),
+            ]
+            # ── 가처분 산출 엔진으로 '적정' 컬럼 동적 반영 ───────────────────
+            _disp_result = st.session_state.get("sec02_disposable_result")
+            _opt_overrides = {}
+            if _disp_result:
+                _mo = _disp_result.get("monthly_income", 0)
+                _da = _disp_result.get("daily_value", 0)
+                _mo_man = round(_mo / 10000)
+                _da_man = round(_da / 10000, 1)
+                _opt_overrides = {
+                    "암 진단비":     f"{min(max(round(_mo_man * 3 / 1000) * 1000, 3000), 10000):,}만원",
+                    "뇌혈관 진단비": f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
+                    "심장 진단비":   f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
+                    "치매 진단비":   f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
+                    "입원일당":      f"{min(_da_man, 10):.0f}만원/일",
+                }
+    
+            _tbl_html = (
+                '<div style="overflow-x:auto;">'
+                '<table style="width:100%;border-collapse:collapse;font-size:0.83rem;border:2px solid #000000;">'
+                '<thead><tr>'
+                '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:left;border:1px solid #000000;">종목</th>'
+                '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">최소</th>'
+                '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">표준</th>'
+                '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">적정 ★</th>'
+                '</tr></thead><tbody>'
+            )
+            for _i2, (_name2, _mn, _stv, _opt) in enumerate(_s2_items):
+                _bg2 = "#fafeff" if _i2 % 2 == 0 else "#ffffff"
+                _opt_disp = _opt_overrides.get(_name2, _opt)
+                _opt_color = "#0055AA" if _name2 in _opt_overrides else "#CC0000"
+                _tbl_html += (
+                    f'<tr style="background:{_bg2};">'
+                    f'<td style="padding:6px 10px;font-weight:900;color:#000000;border:1px solid #000000;">{_name2}</td>'
+                    f'<td style="padding:6px 10px;text-align:center;font-weight:700;color:#374151;border:1px solid #000000;">{_mn}</td>'
+                    f'<td style="padding:6px 10px;text-align:center;font-weight:700;color:#000000;border:1px solid #000000;">{_stv}</td>'
+                    f'<td style="padding:6px 10px;text-align:center;font-weight:900;color:{_opt_color};border:1px solid #000000;">{_opt_disp}</td>'
+                    f'</tr>'
+                )
+            _tbl_html += '</tbody></table></div>'
+            if _disp_result:
+                _tbl_html += '<div style="font-size:0.75rem;color:#0055AA;margin-top:4px;">★ 적정 금액은 건보료 역산 기준으로 자동 산출되었습니다.</div>'
+            st.markdown(_tbl_html, unsafe_allow_html=True)
+    
+            # ── [SEC-02-DISPOSABLE] 가처분 산출 엔진 ────────────────────────
+            st.markdown("<hr style='margin:14px 0 10px 0;border:2px solid #1565C0;'>", unsafe_allow_html=True)
             st.markdown(
-                "<div id='sec-01-member-info' style='border:2px solid #1565C0;border-radius:10px;"
-                "padding:14px 16px 10px 16px;margin-bottom:10px;background:#F8FBFF;'>"
-                "<div style='color:#0000FF;font-weight:900;font-size:0.88rem;margin-bottom:10px;'>"
-                "🏢 회원정보를 입력하시면 각종 보고서에 FC님의 이름과 소속을 적어드립니다.</div>",
+                "<div id='sec-02-disposable' style='border:2px solid #1565C0;border-radius:10px;"
+                "padding:14px 16px 12px 16px;margin-bottom:10px;background:#F0F9FF;'>"
+                "<div style='color:#0000CD;font-weight:900;font-size:0.9rem;margin-bottom:10px;'>"
+                "💰 가처분 산출 및 금액 (SEC-02-DISPOSABLE) — 건강보험료 역산 엔진</div>",
                 unsafe_allow_html=True
             )
-            _mi_c1, _mi_c2 = st.columns([1, 1])
-            with _mi_c1:
-                _mi_company = render_corp_autocomplete(
-                    label="🏢 소속 보험사/대리점명",
-                    session_key="fc_company",
-                    placeholder="예) 삼성생명, 프라임에셋, goldkey_Ai_masters2026…",
-                    autofill_keys={
-                        "sector": "fc_company_sector",
-                        "size":   "fc_company_size",
-                        "addr":   "fc_company_addr",
-                    },
-                    show_detail=True,
-                )
-                _mi_branch = st.text_input(
-                    "지점 이름",
-                    value=st.session_state.get("fc_branch", ""),
-                    placeholder="예) 강남지점",
-                    key="home_mi_branch"
-                )
-            with _mi_c2:
-                _mi_contact = st.text_input(
-                    "FC 연락처",
-                    value=st.session_state.get("fc_contact", ""),
-                    placeholder="예) 010-1234-5678",
-                    key="home_mi_contact"
-                )
-            if st.button("💾 회원정보 저장 (보고서 자동 반영)", key="btn_save_member_info", use_container_width=True):
-                st.session_state["fc_company"] = _mi_company
-                st.session_state["fc_branch"]  = _mi_branch
-                st.session_state["fc_contact"] = _mi_contact
-                st.success("✅ 회원정보 저장 완료 — 카카오톡 보고서 발송 시 자동 매핑됩니다.")
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            # ── 그룹 B: 오늘 할 일 · 오늘의 약속 · 상담 대기 ───────────
-            st.markdown("<hr style='margin:12px 0;border-color:#ffcccc;'>", unsafe_allow_html=True)
-            st.markdown("**📊 그룹 B — 오늘의 업무 현황**")
-
-            if "_agent_todo" not in st.session_state:
-                st.session_state["_agent_todo"] = [
-                    {"done": False, "text": "김○○ 고객 암보험 설계서 발송"},
-                    {"done": False, "text": "이○○ 고객 청구서류 취합"},
-                    {"done": True,  "text": "월간 실적 보고서 제출"},
-                ]
-            if "_agent_appt" not in st.session_state:
-                st.session_state["_agent_appt"] = [
-                    {"time": "10:30", "name": "박○○", "type": "신규상담"},
-                    {"time": "14:00", "name": "최○○", "type": "갱신안내"},
-                ]
-            if "_agent_wait" not in st.session_state:
-                st.session_state["_agent_wait"] = [
-                    {"name": "정○○", "status": "서류검토중"},
-                    {"name": "강○○", "status": "심사대기"},
-                    {"name": "윤○○", "status": "출금확인"},
-                ]
-
-            _todo_list = st.session_state["_agent_todo"]
-            _appt_list = st.session_state["_agent_appt"]
-            _wait_list = st.session_state["_agent_wait"]
-
-            _todo_html = "".join(
-                f'<div style="padding:3px 0;border-bottom:1px solid #f0f0f0;font-size:0.82rem;'
-                f'font-weight:700;color:{"#94a3b8" if t["done"] else "#000000"};'
-                f'text-decoration:{"line-through" if t["done"] else "none"};">'
-                f'{"✅" if t["done"] else "⬜"} {t["text"]}</div>'
-                for t in _todo_list
-            )
-            _appt_html = "".join(
-                f'<div style="padding:3px 0;border-bottom:1px solid #f0f0f0;font-size:0.82rem;font-weight:700;color:#000000;">'
-                f'<span style="color:#dc2626;font-weight:900;">{a["time"]}</span>'
-                f' {a["name"]} <span style="color:#6b7280;">· {a["type"]}</span></div>'
-                for a in _appt_list
-            )
-            _wait_html = "".join(
-                f'<div style="padding:3px 0;border-bottom:1px solid #f0f0f0;font-size:0.82rem;font-weight:700;color:#000000;">'
-                f'{w["name"]} <span style="color:#0369a1;">{w["status"]}</span></div>'
-                for w in _wait_list
-            )
-
-            _gb1, _gb2, _gb3 = st.columns(3, gap="small")
-            with _gb1:
+            _disp_col1, _disp_col2 = st.columns([1, 1], gap="medium")
+            with _disp_col1:
                 st.markdown(
-                    f'<div class="gk-dash-box" style="border:none;border-top:1.5px solid #e5e7eb;border-radius:0;'
-                    f'padding:10px 0;min-height:120px;max-height:180px;">'
-                    f'<div style="font-size:0.75rem;font-weight:900;color:#000000 !important;background:#E3F2FD !important;padding:4px 6px;border-radius:5px;margin-bottom:6px;">📋 오늘 할 일</div>'
-                    f'{_todo_html}</div>', unsafe_allow_html=True)
-            with _gb2:
+                    "<div style='background:#fff;border:1px solid #BBDEFB;border-radius:8px;padding:12px 14px;'>"
+                    "<div style='font-weight:900;font-size:0.85rem;color:#000000;margin-bottom:8px;'>📥 월납입 건강보험료 역산 입력</div>",
+                    unsafe_allow_html=True
+                )
+                _nhis_input = st.number_input(
+                    "월납입 건강보험료 (원)",
+                    min_value=0,
+                    max_value=2_000_000,
+                    value=int(st.session_state.get("sec02_nhis_premium", 0)),
+                    step=1000,
+                    format="%d",
+                    key="disp_nhis_input",
+                    help="직장가입자는 본인부담분만 입력. 지역가입자는 장기요양 포함 전액 입력."
+                )
                 st.markdown(
-                    f'<div class="gk-dash-box" style="border:none;border-top:1.5px solid #e5e7eb;border-radius:0;'
-                    f'padding:10px 0;min-height:120px;max-height:180px;">'
-                    f'<div style="font-size:0.75rem;font-weight:900;color:#000000 !important;background:#E3F2FD !important;padding:4px 6px;border-radius:5px;margin-bottom:6px;">🕐 오늘의 약속</div>'
-                    f'{_appt_html}</div>', unsafe_allow_html=True)
-            with _gb3:
+                    "<div style='font-size:0.75rem;color:#64748b;margin-top:4px;'>"
+                    "예) 15만원 입력 시 → 월소득 약 211만원 산출</div></div>",
+                    unsafe_allow_html=True
+                )
+                if st.button("⚡ 가처분 소득 산출", key="btn_disp_calc", use_container_width=True, type="primary"):
+                    if _nhis_input and _nhis_input > 0:
+                        _calc = _art32_calc(float(_nhis_input))
+                        st.session_state["sec02_nhis_premium"] = _nhis_input
+                        st.session_state["sec02_disposable_result"] = _calc
+                        st.session_state["scan_nhis_premium"] = float(_nhis_input)
+                        st.rerun()
+                    else:
+                        st.warning("건강보험료를 입력해 주세요.")
+            with _disp_col2:
                 st.markdown(
-                    f'<div class="gk-dash-box" style="border:none;border-top:1.5px solid #e5e7eb;border-radius:0;'
-                    f'padding:10px 0;min-height:120px;max-height:180px;">'
-                    f'<div style="font-size:0.75rem;font-weight:900;color:#000000 !important;background:#E3F2FD !important;padding:4px 6px;border-radius:5px;margin-bottom:6px;">⏳ 상담 대기</div>'
-                    f'{_wait_html}</div>', unsafe_allow_html=True)
-
-            # ── 그룹 C: 상담노트(좌) / 보험가입상담(우) ─────────────────
-            st.markdown("<hr style='margin:12px 0;border-color:#ffcccc;'>", unsafe_allow_html=True)
-            st.markdown("**📝 그룹 C — 실전 상담**")
-            _gc_left, _gc_right = st.columns([5, 5], gap="medium")
-
-            with _gc_left:
-                st.markdown("**상담 노트** — 고객 상담 내용 전체 기록")
-                with st.expander("📝 상담노트 입력", expanded=False):
-                    with st.form(key="form_consult_note", clear_on_submit=True):
-                        _nd_col1, _nd_col2 = st.columns([1, 2])
-                        with _nd_col1:
-                            _note_date = st.date_input("상담 일자", key="form_note_date")
-                        with _nd_col2:
-                            _note_summary = st.text_input(
-                                "상담 요약", placeholder="예) 암보험상담", key="form_note_summary")
-                        _note_text = st.text_area(
-                            "상담 내용 (상세)",
-                            placeholder="고객과 관련된 모든 상담 내용을 입력하세요...",
-                            height=140, key="form_note_text")
-                        _note_submitted = st.form_submit_button("💾 상담노트 저장", use_container_width=True)
-                        if _note_submitted:
-                            _cid = st.session_state.get("selected_customer_id")
-                            _cname = st.session_state.get("scan_client_name", "")
-                            _sb_saved = save_home_note(
-                                st.session_state.get("user_id", ""),
-                                _cid, _cname, str(_note_date), _note_summary, _note_text,
-                                device_uuid=st.session_state.get("_device_uuid", ""),
-                            )
-                            _notes = st.session_state.get("consult_notes", [])
-                            _notes.insert(0, {
-                                "date": str(_note_date), "summary": _note_summary,
-                                "content": _note_text, "customer_id": _cid, "customer_name": _cname,
-                            })
-                            st.session_state["consult_notes"] = _notes
-                            if _sb_saved:
-                                st.success(f"✅ [{_note_date}] 저장됨 (영구저장✔️)")
-                            else:
-                                st.warning("⚠️ 임시저장됨 — Supabase 연결 확인 필요")
-                _cur_cid = st.session_state.get("selected_customer_id")
-                _uid_now = st.session_state.get("user_id", "")
-                _notes_saved = load_home_notes(_uid_now, _cur_cid) if _uid_now else []
-                if not _notes_saved:
-                    _notes_all = st.session_state.get("consult_notes", [])
-                    _notes_saved = ([_n for _n in _notes_all if _n.get("customer_id") == _cur_cid]
-                                    if _cur_cid else _notes_all)
-                if _notes_saved:
-                    _cname_disp = st.session_state.get("scan_client_name", "")
+                    "<div style='background:#fff;border:1px solid #BBDEFB;border-radius:8px;padding:12px 14px;min-height:140px;'>"
+                    "<div style='font-weight:900;font-size:0.85rem;color:#000000;margin-bottom:10px;'>📊 산출 결과 대시보드</div>",
+                    unsafe_allow_html=True
+                )
+                if _disp_result:
+                    _mo_disp  = round(_disp_result["monthly_income"] / 10000, 1)
+                    _da_disp  = round(_disp_result["daily_value"] / 10000, 2)
+                    _dis2y    = round(_disp_result["disability_2yr"] / 10000)
+                    _stk_disp = round(_disp_result["stroke_need"] / 10000)
                     st.markdown(
-                        f"**📋 저장된 상담 노트{' — ' + _cname_disp if _cname_disp else ''} (최근순)**")
-                    for _n in _notes_saved[:5]:
-                        st.markdown(
-                            f'<div style="border:1px solid #fca5a5;border-radius:6px;padding:8px 12px;'
-                            f'margin-bottom:5px;background:#fff5f5;">'
-                            f'<span style="font-weight:900;color:#000000;font-size:0.85rem;">{_n["date"]}</span>'
-                            f'{(" | <b>" + _n.get("summary","") + "</b>") if _n.get("summary") else ""}'
-                            f'<br><span style="color:#374151;font-size:0.8rem;">'
-                            f'{_n.get("content","")[:120]}{"..." if len(_n.get("content",""))>120 else ""}'
-                            f'</span></div>', unsafe_allow_html=True)
-
-            with _gc_right:
-                st.markdown("**보험 가입 상담** — 청약·설계 기록")
-                with st.expander("🛡️ 보험 가입 상담 입력", expanded=False):
-                    with st.form(key="form_ins_consult", clear_on_submit=True):
-                        _id_col1, _id_col2 = st.columns([1, 2])
-                        with _id_col1:
-                            _ins_date = st.date_input("가입 일자", key="form_ins_date")
-                        with _id_col2:
-                            _ins_product = st.text_input(
-                                "상품명", placeholder="예) ○○생명 통합보험", key="form_ins_product")
-                        _ins_bg = st.text_area(
-                            "청약 배경", height=90, key="form_ins_bg",
-                            placeholder="고지항목 병력 등 청약 배경 입력")
-                        _ins_special = st.text_area(
-                            "특이사항", height=90, key="form_ins_special",
-                            placeholder="판촉물, 심사 결과 특이사항 등")
-                        _ins_submitted = st.form_submit_button("💾 보험가입 상담 저장", use_container_width=True)
-                        if _ins_submitted:
-                            _cid = st.session_state.get("selected_customer_id")
-                            _cname = st.session_state.get("scan_client_name", "")
-                            _sb_saved2 = save_home_ins(
-                                st.session_state.get("user_id", ""),
-                                _cid, _cname, str(_ins_date), _ins_product, _ins_bg, _ins_special,
-                                device_uuid=st.session_state.get("_device_uuid", ""),
-                            )
-                            _ins_list = st.session_state.get("insurance_consults", [])
-                            _ins_list.insert(0, {
-                                "date": str(_ins_date), "product": _ins_product,
-                                "background": _ins_bg, "special": _ins_special,
-                                "customer_id": _cid, "customer_name": _cname,
-                            })
-                            st.session_state["insurance_consults"] = _ins_list
-                            if _sb_saved2:
-                                st.success(f"✅ [{_ins_date}] 저장됨 (영구저장✔️)")
-                            else:
-                                st.warning("⚠️ 임시저장됨")
-                _cur_cid2 = st.session_state.get("selected_customer_id")
-                _uid_now2 = st.session_state.get("user_id", "")
-                _ins_saved = load_home_ins(_uid_now2, _cur_cid2) if _uid_now2 else []
-                if not _ins_saved:
-                    _ins_all = st.session_state.get("insurance_consults", [])
-                    _ins_saved = ([_i for _i in _ins_all if _i.get("customer_id") == _cur_cid2]
-                                  if _cur_cid2 else _ins_all)
-                if _ins_saved:
-                    _cname_ins = st.session_state.get("scan_client_name", "")
+                        f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px;'>"
+                        f"<div style='background:#E3F2FD;border-radius:8px;padding:10px;text-align:center;'>"
+                        f"<div style='font-size:0.72rem;color:#1565C0;font-weight:700;'>산출 월 소득</div>"
+                        f"<div style='font-size:1.3rem;font-weight:900;color:#000000;'>{_mo_disp}<span style='font-size:0.75rem;'>만원</span></div>"
+                        f"</div>"
+                        f"<div style='background:#E3F2FD;border-radius:8px;padding:10px;text-align:center;'>"
+                        f"<div style='font-size:0.72rem;color:#1565C0;font-weight:700;'>산출 일당</div>"
+                        f"<div style='font-size:1.3rem;font-weight:900;color:#000000;'>{_da_disp}<span style='font-size:0.75rem;'>만원</span></div>"
+                        f"</div>"
+                        f"<div style='background:#FFF3E0;border-radius:8px;padding:8px;text-align:center;'>"
+                        f"<div style='font-size:0.68rem;color:#E65100;font-weight:700;'>2년 소득대체 목표</div>"
+                        f"<div style='font-size:1.0rem;font-weight:900;color:#000000;'>{_dis2y:,}<span style='font-size:0.68rem;'>만원</span></div>"
+                        f"</div>"
+                        f"<div style='background:#FFF3E0;border-radius:8px;padding:8px;text-align:center;'>"
+                        f"<div style='font-size:0.68rem;color:#E65100;font-weight:700;'>중풍 18개월 필요액</div>"
+                        f"<div style='font-size:1.0rem;font-weight:900;color:#000000;'>{_stk_disp:,}<span style='font-size:0.68rem;'>만원</span></div>"
+                        f"</div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                else:
                     st.markdown(
-                        f"**📋 저장된 보험가입 상담{' — ' + _cname_ins if _cname_ins else ''} (최근순)**")
-                    for _ins in _ins_saved[:5]:
-                        st.markdown(
-                            f'<div style="border:1px solid #bfdbfe;border-radius:6px;padding:8px 12px;'
-                            f'margin-bottom:5px;background:#eff6ff;">'
-                            f'<span style="font-weight:900;color:#000000;font-size:0.85rem;">{_ins["date"]}</span>'
-                            f'{(" | <b>" + _ins.get("product","") + "</b>") if _ins.get("product") else ""}'
-                            f'<br><span style="color:#374151;font-size:0.78rem;">배경: '
-                            f'{_ins.get("background","")[:80]}{"..." if len(_ins.get("background",""))>80 else ""}'
-                            f'</span></div>', unsafe_allow_html=True)
-        else:
-            st.markdown("**로그인 후 고객 정보 관리 기능이 활성화됩니다.**")
-
-        # ── [NAV-01] 내비게이션 바 ─────────────────────────────────────────
-        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
-                    "margin:10px 0 4px 0;'>1 / 7단계 — 고객 마스터 데이터</div>",
+                        "<div style='color:#94a3b8;font-size:0.85rem;padding:20px 0;text-align:center;'>"
+                        "좌측에 건강보험료를 입력하고<br>⚡ 산출 버튼을 누르세요.</div>",
+                        unsafe_allow_html=True
+                    )
+                st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)  # SEC-02-DISPOSABLE 닫기
+    
+            # ── [NAV-02] 내비게이션 바 ─────────────────────────────────────────
+            st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+                        "margin:10px 0 4px 0;'>2 / 7단계 — 가처분 소득 솔루션</div>",
+                        unsafe_allow_html=True)
+            _nav02_l, _nav02_r = st.columns([1, 1])
+            with _nav02_l:
+                if st.button("🏠 홈", key="nav02_home", use_container_width=True):
+                    _go_tab("home")
+            with _nav02_r:
+                st.markdown('<div style="background:#E3F2FD !important;border-radius:8px;">', unsafe_allow_html=True)
+                if st.button("🔍 분석 완료! '보험금 상담/검색' 이동하기 →",
+                             key="nav02_next", use_container_width=True):
+                    st.session_state["current_tab"] = "t1"
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+    
+            st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-02 닫기
+    
+            # ═══════════════════════════════════════════════════════════════
+            # [GK-SEC-03] 보험금 상담 및 용어 센터 (5:5)
+            # ═══════════════════════════════════════════════════════════════
+            st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-03")}<span class="gk-sec-title">③ 보험금 상담 &amp; 용어 센터</span></div>', unsafe_allow_html=True)
+            st.markdown("질문 입력(좌) / AI 답변 3단계 구조 출력(우)")
+    
+            _s3_left, _s3_right = st.columns([5, 5], gap="medium")
+            with _s3_left:
+                _s3_q = st.text_area(
+                    "보험 용어 · 보험금 질문 입력",
+                    placeholder="예) 실손의료비, 맥브라이드 장해율, KCD코드, 입원일당 청구 기준...",
+                    height=120, key="sec03_query")
+                if st.button("🔍 AI 답변 생성", key="sec03_search", use_container_width=True, type="primary"):
+                    if _s3_q and _s3_q.strip():
+                        with st.spinner("AI 분석 중..."):
+                            try:
+                                _s3_cli = get_client()
+                                _s3_sys = (
+                                    "당신은 보험 전문가입니다. 답변은 반드시 아래 3단계 구조로 작성하세요:\n"
+                                    "### 📘 (1) 용어 해설\n[용어 정의]\n\n"
+                                    "### 🔧 (2) 적용\n[실무 적용 방법]\n\n"
+                                    "### 💡 (3) 사용 사례\n[구체적 사례]"
+                                )
+                                _s3_resp = _s3_cli.chat.completions.create(
+                                    model=st.session_state.get("model_name", "gemini-2.0-flash"),
+                                    messages=[
+                                        {"role": "system", "content": _s3_sys},
+                                        {"role": "user", "content": _s3_q.strip()},
+                                    ],
+                                    max_tokens=1500,
+                                )
+                                st.session_state["sec03_result"] = _s3_resp.choices[0].message.content
+                                st.session_state["sec03_scroll"] = True
+                            except Exception as _s3_err:
+                                st.session_state["sec03_result"] = f"⚠️ 오류: {_s3_err}"
+                    else:
+                        st.warning("질문을 입력해 주세요.")
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                _nav_input_val = st.text_input(
+                    "🔊 코드/용어 네비게이션",
+                    placeholder="코드(예: 3000, 1220) 또는 용어(예: 보장공백·맥브라이드) 입력",
+                    key="voice_nav_input")
+                if _nav_input_val and _nav_input_val.strip():
+                    _dest = _voice_navigate(_nav_input_val.strip())
+                    if _dest and isinstance(_dest, str):
+                        _sc_info = SECTOR_CODES.get(_dest, {})
+                        st.success(f"🔍 → [{_dest}] {_sc_info.get('name', '')}")
+                        if st.button(f"➡️ 이동", key="sec03_nav_go"):
+                            _go_tab(_sc_info.get("tab_key", "home"))
+                            st.rerun()
+                    elif _dest and isinstance(_dest, list):
+                        st.info("여러 항목 매칭 — 선택하세요:")
+                        _amb_cols = st.columns(min(len(_dest), 3))
+                        for _ai, _amb in enumerate(_dest):
+                            _amb_sc = SECTOR_CODES.get(_amb.get("code", ""), {})
+                            with _amb_cols[_ai % len(_amb_cols)]:
+                                if st.button(
+                                    f"[{_amb.get('code','')}] {_amb_sc.get('name','')}",
+                                    key=f"sec03_amb_{_amb.get('code','')}",
+                                ):
+                                    _go_tab(_amb_sc.get("tab_key", "home"))
+                                    st.rerun()
+                    else:
+                        st.warning(f"'{_nav_input_val.strip()}' 항목을 찾지 못했습니다.")
+    
+            with _s3_right:
+                _s3_scroll = st.session_state.pop("sec03_scroll", False)
+                if _s3_scroll:
+                    import streamlit.components.v1 as _s3c
+                    _s3c.html(
+                        '<script>(function(){var e=document.getElementById("sec03-anchor");'
+                        'if(e)e.scrollIntoView({behavior:"smooth",block:"start"})})();</script>',
+                        height=0)
+                st.markdown(
+                    '<div id="sec03-anchor" style="font-size:0.9rem;font-weight:900;color:#CC0000;margin-bottom:8px;">'
+                    '🤖 AI 답변 (3단계: 용어해설 · 적용 · 사용사례)</div>',
                     unsafe_allow_html=True)
-        _nav01_l, _nav01_r = st.columns([1, 1])
-        with _nav01_l:
-            if st.button("🏠 홈", key="nav01_home", use_container_width=True):
-                _go_tab("home")
-        with _nav01_r:
-            st.markdown('<div style="background:#E3F2FD !important;border-radius:8px;">', unsafe_allow_html=True)
-            if st.button("✅ 정보저장완료",
-                         key="nav01_next", use_container_width=True):
-                st.session_state["current_tab"] = "t0"
-                st.session_state["_scroll_top"] = True
+                _s3_result = st.session_state.get("sec03_result")
+                _s3_out = st.empty()
+                with _s3_out.container():
+                    if _s3_result:
+                        st.markdown(
+                            f'<div class="gk-ai-output-box">'
+                            f'<div style="color:#000000;font-size:0.87rem;line-height:1.8;font-weight:700;">'
+                            f'{_s3_result}</div></div>',
+                            unsafe_allow_html=True)
+                    else:
+                        st.markdown(
+                            '<div class="gk-ai-output-box">'
+                            '<div style="color:#94a3b8;font-size:0.85rem;text-align:center;'
+                            'padding-top:50px;line-height:2.0;font-weight:700;">'
+                            '📖 좌측에 질문을 입력하면<br>여기에 3단계 구조 답변이 표시됩니다.'
+                            '</div></div>',
+                            unsafe_allow_html=True)
+    
+            # ── [NAV-03] 내비게이션 바 ─────────────────────────────────────────
+            st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+                        "margin:10px 0 4px 0;'>3 / 7단계 — 보험금 상담 &amp; 용어 센터</div>",
+                        unsafe_allow_html=True)
+            _nav03_l, _nav03_r = st.columns([2, 8])
+            with _nav03_l:
+                if st.button("🏠 홈", key="nav03_home", use_container_width=True):
+                    _go_tab("home")
+            with _nav03_r:
+                st.markdown(
+                    '<div style="background:#E3F2FD !important;border-radius:8px;">',
+                    unsafe_allow_html=True)
+                if st.button("📂 상담 자료 '스마트 스캔' 하러 가기 →",
+                             key="nav03_next", use_container_width=True):
+                    st.session_state["current_tab"] = "scan_hub"
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+    
+            st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-03 닫기
+    
+            # ═══════════════════════════════════════════════════════════════
+            # [GK-SEC-04] 스마트 스캔 분석 허브 (5:5)
+            # ═══════════════════════════════════════════════════════════════
+            st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-04")}<span class="gk-sec-title">④ 스마트 스캔 분석 허브</span></div>', unsafe_allow_html=True)
+            st.markdown("스마트 스캔 — 보험금 청구 서류, 의무기록, 약관을 업로드하면 AI가 즉시 분석합니다.")
+    
+            # ── 상담 고객 선택 (SEC-04) ──────────────────────────────────────
+            _s4_reg = st.session_state.get("gk_client_registry", {})
+            _s4_names = [n for n in _s4_reg.keys() if n not in ("", "익명 고객")]
+            _s4_cur = st.session_state.get("gs_c_name", "") or st.session_state.get("current_c_name", "")
+            _s4_idx = _s4_names.index(_s4_cur) if _s4_cur in _s4_names else 0
+            if _s4_names:
+                _s4_sel = st.selectbox(
+                    "👤 상담 고객 선택",
+                    options=_s4_names,
+                    index=_s4_idx,
+                    key="sec04_client_sel",
+                    help="GK-SEC-01에서 등록된 고객 목록입니다."
+                )
+                if _s4_sel != _s4_cur:
+                    st.session_state["gs_c_name"] = _s4_sel
+                    st.session_state["current_c_name"] = _s4_sel
+                    st.rerun()
+            else:
+                st.info("💡 GK-SEC-01에서 고객 정보를 먼저 입력하세요.")
+    
+            _scan_left, _scan_right = st.columns([5, 5], gap="medium")
+            with _scan_left:
+                st.markdown('<div class="gk-scan-controller">', unsafe_allow_html=True)
+                st.markdown(
+                    '<p style="font-size:0.88rem;font-weight:700;color:#000000;margin:0 0 10px 0;">'
+                    '📂 <strong>스마트 스캔 컨트롤러</strong>: PDF·JPG·PNG 업로드 또는 카메라 촬영. '
+                    '📱 모바일: 카메라 앱과 즉시 연동됩니다.</p>',
+                    unsafe_allow_html=True)
+                _home_scan_file = st.file_uploader(
+                    "파일 업로드", type=["pdf", "jpg", "jpeg", "png", "webp"],
+                    key="home_scan_uploader", label_visibility="collapsed",
+                    help="최대 10MB · PDF/이미지 · 드래그 앤 드롭 가능",
+                    accept_multiple_files=False,
+                )
+                if _home_scan_file:
+                    _fsize_mb = len(_home_scan_file.getvalue()) / (1024 * 1024)
+                    if _fsize_mb > 10:
+                        st.warning(f"⚠️ 파일 크기({_fsize_mb:.1f}MB) 초과")
+                    else:
+                        st.success(f"✅ {_home_scan_file.name} ({_fsize_mb:.1f}MB) — 분석 준비 완료")
+                        st.session_state["home_scan_file"] = _home_scan_file
+                st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+                if st.button("⚡ 자료 추출 및 분석 시작", key="btn_home_scan_start",
+                             use_container_width=True, type="primary"):
+                    _f = st.session_state.get("home_scan_file")
+                    if not _f:
+                        st.warning("먼저 파일을 업로드해 주세요.")
+                    else:
+                        with st.spinner("🔍 AI 분석 중..."):
+                            try:
+                                from modules.scan_engine import extract_and_analyze as _sea
+                                _sea_result = _sea(
+                                    file_bytes=_f.getvalue(), filename=_f.name,
+                                    client=get_client(), session_state=st.session_state,
+                                )
+                                st.session_state["home_scan_result"] = _sea_result
+                                st.session_state["gs_last_result"] = str(_sea_result)[:2000]
+                                st.session_state["home_scan_scroll_trigger"] = True
+                            except Exception:
+                                try:
+                                    _raw = extract_pdf_chunks(_f, char_limit=8000)
+                                    _cli = get_client()
+                                    _resp = _cli.chat.completions.create(
+                                        model=st.session_state.get("model_name", "gemini-2.0-flash"),
+                                        messages=[{"role": "user", "content":
+                                                   f"다음 보험 서류를 분석하세요:\n\n{_raw}\n\n"
+                                                   "1. 문서 유형 및 핵심 내용 요약\n"
+                                                   "2. 보험금 청구 적정성 평가\n"
+                                                   "3. 주요 쟁점 및 대응 방안"}],
+                                        max_tokens=2000,
+                                    )
+                                    _fb_text = _resp.choices[0].message.content
+                                    st.session_state["home_scan_result"] = _fb_text
+                                    st.session_state["gs_last_result"] = _fb_text[:2000]
+                                    st.session_state["home_scan_scroll_trigger"] = True
+                                except Exception as _fb_err:
+                                    st.session_state["home_scan_result"] = f"⚠️ 분석 오류: {_fb_err}"
+                st.markdown('</div>', unsafe_allow_html=True)
+    
+            with _scan_right:
+                _scan_scroll = st.session_state.pop("home_scan_scroll_trigger", False)
+                if _scan_scroll:
+                    import streamlit.components.v1 as _scan_c
+                    _scan_c.html(
+                        '<script>(function(){var e=document.getElementById("home-scan-result-anchor");'
+                        'if(e)e.scrollIntoView({behavior:"smooth",block:"start"})})();</script>',
+                        height=0)
+                st.markdown(
+                    '<div id="home-scan-result-anchor" style="font-size:0.9rem;font-weight:900;'
+                    'color:#CC0000;margin-bottom:8px;">🤖 AI 분석 스캔파일 요약</div>',
+                    unsafe_allow_html=True)
+                _scan_result = st.session_state.get("home_scan_result")
+                _scan_out = st.empty()
+                with _scan_out.container():
+                    if _scan_result:
+                        st.markdown(
+                            f'<div class="gk-scan-output">'
+                            f'<div style="color:#000000;font-size:0.87rem;line-height:1.8;'
+                            f'font-weight:700;white-space:pre-wrap;">{_scan_result}</div></div>',
+                            unsafe_allow_html=True)
+                    else:
+                        st.markdown(
+                            '<div class="gk-scan-output">'
+                            '<div style="color:#94a3b8;font-size:0.85rem;text-align:center;'
+                            'padding-top:50px;line-height:2.0;font-weight:700;">'
+                            '📄 파일 업로드 후<br>'
+                            '<strong style="color:#CC0000;">⚡ 분석 시작</strong>을 누르세요.<br><br>'
+                            '<span style="font-size:0.78rem;color:#b0bec5;">'
+                            '· 보험금 청구 적정성<br>· 법리적 쟁점 시뮬레이션<br>· 의무기록 핵심 키워드 요약'
+                            '</span></div></div>',
+                            unsafe_allow_html=True)
+    
+            # ── [NAV-04] 내비게이션 바 ─────────────────────────────────────────
+            st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+                        "margin:10px 0 4px 0;'>4 / 7단계 — 스마트 스캔 분석 허브</div>",
+                        unsafe_allow_html=True)
+            _nav04_l, _nav04_r = st.columns([2, 8])
+            with _nav04_l:
+                if st.button("🏠 홈", key="nav04_home", use_container_width=True):
+                    _go_tab("home")
+            with _nav04_r:
+                st.markdown(
+                    '<div style="background:#E3F2FD !important;border-radius:8px;">',
+                    unsafe_allow_html=True)
+                if st.button("🤖 스캔 완료! '포트폴리오 카드' 확인하기 →",
+                             key="nav04_next", use_container_width=True):
+                    st.session_state["current_tab"] = "policy_scan"
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+    
+            st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-04 닫기
+    
+            # ═══════════════════════════════════════════════════════════════
+            # [GK-SEC-05] 네비게이션 게이트웨이
+            # ═══════════════════════════════════════════════════════════════
+            st.markdown('<div id="gk-sec-05-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-05")}<span class="gk-sec-title">⑤ 네비게이션 게이트웨이</span></div>', unsafe_allow_html=True)
+    
+            # ── A~C 섹션: 3열 ──────────────────────────────────────────────────
+            _pf_c1, _pf_c2, _pf_c3 = st.columns(3, gap="medium")
+            with _pf_c1:
+                st.markdown(f"""<div style="background:#E3F2FD;border:1.5px solid #90CAF9;
+      border-radius:12px;padding:14px 14px 10px 14px;position:relative;min-height:170px;">
+      {_bid('1-5-1')}
+      <div style="font-size:0.78rem;font-weight:900;color:#1565C0;letter-spacing:0.08em;
+        text-transform:uppercase;margin-bottom:6px;">### A-SECTION: Smart Analysis &amp; Hub</div>
+      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
+        <li>보험증권 분석</li>
+        <li>약관 매칭 검색</li>
+        <li>통합 스캔 허브</li>
+        <li>리플렛 분류</li>
+        <li>고객자료 저장함</li>
+        <li>디지털 카탈로그</li>
+        <li>AI 자동 리포트</li>
+      </ol>
+    </div>""", unsafe_allow_html=True)
+                if st.button("🔬 A섹션 입장 → 보험증권 분석", key="ag_a_enter", use_container_width=True):
+                    _go_tab("policy_scan")
+            with _pf_c2:
+                st.markdown(f"""<div style="background:#F3E5F5;border:1.5px solid #CE93D8;
+      border-radius:12px;padding:14px 14px 10px 14px;position:relative;min-height:170px;">
+      {_bid('1-5-2')}
+      <div style="font-size:0.78rem;font-weight:900;color:#6A1B9A;letter-spacing:0.08em;
+        text-transform:uppercase;margin-bottom:6px;">### B-SECTION: Expert Consulting</div>
+      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
+        <li>신규보험 상담</li>
+        <li>보험금 청구 상담</li>
+        <li>장해 산출</li>
+        <li>상해 통합 관리</li>
+        <li>자동차사고 상담</li>
+        <li>KCD 상해 분석</li>
+        <li>암·뇌·심장 질환 상담</li>
+        <li>기본·통합보험 설계</li>
+        <li>자동차보험 보상 실무</li>
+        <li>LIFE CYCLE 설계</li>
+        <li>LIFE EVENT 상담</li>
+      </ol>
+    </div>""", unsafe_allow_html=True)
+                if st.button("🛡️ B섹션 입장 → 신규보험 상담", key="ag_b_enter", use_container_width=True):
+                    _go_tab("t0")
+            with _pf_c3:
+                st.markdown(f"""<div style="background:#FFF9C4;border:1.5px solid #F9A825;
+      border-radius:12px;padding:14px 14px 10px 14px;position:relative;min-height:170px;">
+      {_bid('1-5-3')}
+      <div style="font-size:0.78rem;font-weight:900;color:#E65100;letter-spacing:0.08em;
+        text-transform:uppercase;margin-bottom:6px;">### C-SECTION: Wealth &amp; Corporate</div>
+      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
+        <li>노후·상속 설계</li>
+        <li>세무 상담</li>
+        <li>법인 상담</li>
+        <li>CEO 플랜</li>
+        <li>비상장주식 평가</li>
+        <li>화재보험</li>
+        <li>배상책임보험</li>
+      </ol>
+    </div>""", unsafe_allow_html=True)
+                if st.button("💼 C섹션 입장 → 노후·상속 설계", key="ag_c_enter", use_container_width=True):
+                    _go_tab("t5")
+    
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    
+            # ── D~E 섹션: 2열 ──────────────────────────────────────────────────
+            _pf_d1, _pf_d2 = st.columns(2, gap="medium")
+            with _pf_d1:
+                st.markdown(f"""<div style="background:#FCE4EC;border:1.5px solid #F48FB1;
+      border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
+      {_bid('1-5-4')}
+      <div style="font-size:0.78rem;font-weight:900;color:#880E4F;letter-spacing:0.08em;
+        text-transform:uppercase;margin-bottom:6px;">### D-SECTION: Life &amp; Care</div>
+      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
+        <li>LIFE EVENT 상담</li>
+        <li>간병비 컨설팅</li>
+        <li>부동산 투자</li>
+        <li>의학경제학적 보장 컨설팅</li>
+      </ol>
+    </div>""", unsafe_allow_html=True)
+                if st.button("🌸 D섹션 입장 → LIFE EVENT 상담", key="ag_d_enter", use_container_width=True):
+                    _go_tab("life_event")
+            with _pf_d2:
+                st.markdown(f"""<div style="background:#E8F5E9;border:1.5px solid #A5D6A7;
+      border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
+      {_bid('1-5-5')}
+      <div style="font-size:0.78rem;font-weight:900;color:#1B5E20;letter-spacing:0.08em;
+        text-transform:uppercase;margin-bottom:6px;">### E-SECTION: 보상 시뮬레이션</div>
+      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
+        <li>보상 정보 시뮬레이션 가이드</li>
+        <li>교통사고 보상 가이드</li>
+        <li>산재 보상 가이드</li>
+        <li>일반상해 보상 가이드</li>
+        <li>KCD 상해 분석</li>
+      </ol>
+    </div>""", unsafe_allow_html=True)
+                if st.button("🔍 E섹션 입장 → 보상 시뮬레이션", key="ag_e_enter", use_container_width=True):
+                    _go_tab("kcd_injury")
+    
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    
+            # ── F 섹션: 풀 와이드 ───────────────────────────────────────────────
+            st.markdown(f"""<div style="background:#FFF3E0;border:1.5px solid #FFCC80;
+      border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
+      {_bid('1-5-6')}
+      <div style="font-size:0.78rem;font-weight:900;color:#BF360C;letter-spacing:0.08em;
+        text-transform:uppercase;margin-bottom:6px;">### F-SECTION: 보험봇 · InsuBot (가이딩 프로토콜 제6편 준수)</div>
+      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
+        <li>보험 전문용어 검색 (InsuBot)</li>
+        <li>가이딩 프로토콜 제22조 — 승인 출처 기반 AI 답변</li>
+        <li>제23조 금지 출처 자동 차단</li>
+        <li>제24조 2차 검증 · 제25조 Red Alert 시스템</li>
+        <li>보험 판례 · 사례 검색</li>
+      </ol>
+    </div>""", unsafe_allow_html=True)
+            if st.button("🤖 F섹션 입장 → 보험봇 · InsuBot", key="ag_f_enter", use_container_width=True):
+                _go_tab("ins_bot")
+    
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    
+            # ── [G 섹션] CRM 마스터 키 — 통합 고객 관리 요새 ─────────────────
+            st.markdown(f"""<div style="background:#f0fdf4;border:2px solid #16a34a;
+      border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
+      {_bid('1-5-7')}
+      <div style="font-size:0.78rem;font-weight:900;color:#15803d;letter-spacing:0.08em;
+        text-transform:uppercase;margin-bottom:6px;">
+        🗝️ G-SECTION: CRM 마스터 키 — The Master Gate</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:0.75rem;font-weight:900;color:#065f46;margin-bottom:4px;">
+            📥 통합 입력 폼 (3단계 스테퍼)</div>
+          <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 0 16px;padding:0;line-height:1.8;">
+            <li>인적 자원 등록 (중복 방지 자동검색)</li>
+            <li>관계망 형성 (가족·소개자 즉시 연결)</li>
+            <li>증권·역할 할당 (다중 피보험자 지원)</li>
+          </ol>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:0.75rem;font-weight:900;color:#065f46;margin-bottom:4px;">
+            📊 전략적 전황판 (Dashboard)</div>
+          <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 0 16px;padding:0;line-height:1.8;">
+            <li>Key Metrics (가족 합산 보험료·증권 수)</li>
+            <li>가족 관계도 (클릭 전환)</li>
+            <li>보장 공백 Bar차트 (KB 7대 분류)</li>
+            <li>계약자·피보험자 증권 탭 분리</li>
+          </ol>
+        </div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+            if st.button("🗝️ G섹션 입장 → CRM 마스터 키",
+                         key="ag_crm_enter", use_container_width=True):
+                _go_tab("crm_gate")
+    
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    
+            # ── [특별파트] 고객상담 특별파트 카드 ────────────────────────────
+            st.markdown(f"""<div style="background:#1e293b;border:2px solid #f59e0b;
+      border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
+      <div style="font-size:0.78rem;font-weight:900;color:#f59e0b;letter-spacing:0.08em;
+        text-transform:uppercase;margin-bottom:6px;">🎯 SPECIAL OPS: 고객상담 특별파트</div>
+      <ol style="font-size:0.79rem;color:#e2e8f0;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
+        <li>Step 1: 고객정보 자동 미러링</li>
+        <li>Step 2: 내보험다보여 동의 문자 발송</li>
+        <li>Step 3: 보험 가입 현황 수집</li>
+        <li>Step 4: KOSIS 통계 × 보장 공백 분석</li>
+        <li>Step 5: 카카오 알림톡 리포트 발송</li>
+      </ol>
+    </div>""", unsafe_allow_html=True)
+            if st.button("🎯 특별파트 입장 → 고객상담 5단계",
+                         key="ag_sops_enter", use_container_width=True):
+                _go_tab("special_ops")
+    
+            # ── [NAV-05] 내비게이션 바 ─────────────────────────────────────────
+            st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+                        "margin:10px 0 4px 0;'>5 / 7단계 — 네비게이션 게이트웨이</div>",
+                        unsafe_allow_html=True)
+            _nav05_l, _nav05_r = st.columns([2, 8])
+            with _nav05_l:
+                if st.button("🏠 홈", key="nav05_home", use_container_width=True):
+                    _go_tab("home")
+            with _nav05_r:
+                st.markdown(
+                    '<div style="background:#E3F2FD !important;border-radius:8px;">',
+                    unsafe_allow_html=True)
+                if st.button("🏆 마스터의 제언! '보험사 컨택 센터' 연결 →",
+                             key="nav05_next", use_container_width=True):
+                    st.session_state["_home_scroll_to_sec06"] = True
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+    
+            st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-05 닫기
+    
+            # ═══════════════════════════════════════════════════════════════
+            # [GK-SEC-06] 보험사 컨택 센터
+            # ═══════════════════════════════════════════════════════════════
+            st.markdown('<div id="gk-sec-06-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-06")}<span class="gk-sec-title">⑥ 보험사 컨택 센터</span></div>', unsafe_allow_html=True)
+    
+            _nonlife_contacts = [
+                ("삼성화재",   "1588-5114", "https://www.samsungfire.com"),
+                ("현대해상",   "1588-5656", "https://www.hi.co.kr"),
+                ("DB손해보험", "1588-0100", "https://www.idbins.com"),
+                ("KB손해보험", "1588-0114", "https://www.kbinsure.co.kr"),
+                ("메리츠화재", "1566-7711", "https://www.meritzfire.com"),
+                ("한화손해보험","1566-8000", "https://www.hwgeneralins.com"),
+                ("롯데손해보험","1588-3344", "https://www.lottege.com"),
+                ("MG손해보험", "1588-5959", "https://www.mggeneralins.com"),
+                ("흥국화재",   "1688-1688", "https://www.heungkukfire.co.kr"),
+                ("농협손해보험","1644-9000", "https://www.nonghyupins.com"),
+            ]
+            _life_contacts = [
+                ("삼성생명",   "1588-3114", "https://www.samsunglife.com"),
+                ("한화생명",   "1588-6363", "https://www.hanwhalife.com"),
+                ("교보생명",   "1588-1001", "https://www.kyobo.co.kr"),
+                ("NH농협생명", "1588-2100", "https://www.nhlife.co.kr"),
+                ("신한라이프", "1588-5580", "https://www.shinhanlife.co.kr"),
+                ("미래에셋생명","1588-0220", "https://www.miraeassetlife.co.kr"),
+                ("흥국생명",   "1588-2288", "https://www.heungkuklife.co.kr"),
+                ("동양생명",   "1577-1004", "https://www.myangel.co.kr"),
+                ("ABL생명",    "1588-6500", "https://www.abllife.co.kr"),
+                ("DB생명",     "1588-3131", "https://www.idblife.com"),
+            ]
+    
+            def _make_grid_html(contacts, bg, title):
+                rows = ""
+                for i, (_cn, _cp, _cu) in enumerate(contacts, 1):
+                    _num_raw = _cp.replace("-", "")
+                    rows += (
+                        f'<a href="tel:{_num_raw}" style="text-decoration:none;display:block;">'
+                        f'<div style="border:1px dashed #000000;border-radius:8px;'
+                        f'padding:9px 10px;background:{bg};cursor:pointer;height:100%;'
+                        f'box-sizing:border-box;">'
+                        f'<div style="font-size:0.72rem;font-weight:700;color:#555555;'
+                        f'margin-bottom:2px;">{i}.</div>'
+                        f'<div style="font-weight:900;color:#000000;font-size:0.86rem;'
+                        f'line-height:1.3;">{_cn}</div>'
+                        f'<div style="font-weight:700;color:#000000;font-size:0.82rem;'
+                        f'margin-top:3px;">📞 {_cp}</div>'
+                        f'</div></a>'
+                    )
+                grid = (
+                    f'<div style="font-weight:900;color:#000000;font-size:0.92rem;'
+                    f'margin-bottom:10px;">{title}</div>'
+                    f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+                    f'{rows}</div>'
+                )
+                return grid
+    
+            _col_nl, _col_lf = st.columns([5, 5])
+            with _col_nl:
+                st.markdown(
+                    _make_grid_html(_nonlife_contacts, "#E3F2FD", "🏠 1. 손해보험사 (긴급출동/사고접수)"),
+                    unsafe_allow_html=True)
+            with _col_lf:
+                st.markdown(
+                    _make_grid_html(_life_contacts, "#FFEBEE", "💖 2. 생명보험사 (상담/접수)"),
+                    unsafe_allow_html=True)
+    
+            # ── [NAV-06] 내비게이션 바 ─────────────────────────────────────────
+            st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+                        "margin:10px 0 4px 0;'>6 / 7단계 — 보험사 컨택 센터</div>",
+                        unsafe_allow_html=True)
+            _nav06_l, _nav06_r = st.columns([2, 8])
+            with _nav06_l:
+                if st.button("🏠 홈", key="nav06_home", use_container_width=True):
+                    _go_tab("home")
+            with _nav06_r:
+                st.markdown(
+                    '<div style="background:#E3F2FD !important;border-radius:8px;">',
+                    unsafe_allow_html=True)
+                if st.button("🔐 관리자 게이트 '시스템 설정' 이동 →",
+                             key="nav06_next", use_container_width=True):
+                    st.session_state["_home_scroll_to_sec07"] = True
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+    
+            st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-06 닫기
+    
+            # ═══════════════════════════════════════════════════════════════
+            # [GK-SEC-07] 관리자 게이트
+            # ═══════════════════════════════════════════════════════════════
+            st.markdown('<div id="gk-sec-07-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-07")}<span class="gk-sec-title">⑦ 관리자 게이트</span></div>', unsafe_allow_html=True)
+    
+            _adm_c1, _adm_c2 = st.columns([1, 1])
+            with _adm_c1:
+                if st.session_state.get("is_admin") or st.session_state.get("user_type") == "admin":
+                    st.markdown("**🔐 관리자 로그인 상태**")
+                    if st.button("⚙️ 관리자 패널", key="sec07_admin_panel", use_container_width=True):
+                        _go_tab("admin")
+                else:
+                    st.markdown("관리자 전용 — 권한 있는 계정으로 로그인하세요.")
+            with _adm_c2:
+                _show_bid_now = st.session_state.get("show_block_ids", False)
+                if st.toggle("🔢 섹션 ID 표시", value=_show_bid_now, key="sec07_bid_toggle"):
+                    st.session_state["show_block_ids"] = True
+                else:
+                    st.session_state["show_block_ids"] = False
+    
+            # ── [NAV-07] 내비게이션 바 ─────────────────────────────────────────
+            st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;margin:10px 0 4px 0;'>7 / 7단계 — 관리자 게이트 (마지막 단계)</div>", unsafe_allow_html=True)
+            _nav07_l, _nav07_r = st.columns([2, 8])
+            with _nav07_l:
+                if st.button("🏠 홈", key="nav07_home", use_container_width=True):
+                    _go_tab("home")
+            with _nav07_r:
+                st.markdown('<div style="background:#E3F2FD !important;border-radius:8px;">', unsafe_allow_html=True)
+                if st.button("🔄 처음으로 — '고객 마스터 데이터' 재입력하기 →", key="nav07_next", use_container_width=True):
+                    st.session_state["_scroll_top"] = True
+                    st.session_state["_home_scroll_to_sec01"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+    
+            st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-07 닫기
+    
+            # ═══════════════════════════════════════════════════════════════
+            # [상담 깔때기] 하단 상담 섹터 — 액션 그리드에서 스크롤 진입
+            # ═══════════════════════════════════════════════════════════════
+    
+            # ── 증권분석 버튼 특수 로직 (크롤링 병목 통과) ────────────────
+            if st.session_state.pop("_sec02_securities_clicked", False):
+                with st.spinner("내보험다보여 데이터 크롤링 및 취합 중..."):
+                    import time as _time_sec
+                    _time_sec.sleep(2)
+                    st.session_state["_securities_data_ready"] = True
+                    st.session_state["_securities_crawled_at"] = _time_sec.time()
+                st.session_state["target_sector"] = "securities"
+                st.session_state["_home_scroll_to_sector_securities"] = True
                 st.rerun()
+    
+            # ── 증권분석 · 특별 상담 진입 버튼 섹션 ─────────────────────
+            st.markdown(
+                '<div class="gk-sec" style="border-top:4px solid #7c3aed;">'
+                '<span class="gk-sec-title" style="color:#7c3aed;">📊 증권분석 · 특별 상담 진입</span>',
+                unsafe_allow_html=True)
+            _sbtn_c1, _sbtn_c2, _sbtn_c3 = st.columns(3, gap="small")
+            with _sbtn_c1:
+                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                if st.button("📊 통합 증권분석 (내보험다보여)", key="sec_securities_enter", use_container_width=True):
+                    st.session_state["_sec02_securities_clicked"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with _sbtn_c2:
+                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                if st.button("🔥 화재보험 섹터로", key="sec_fire_enter2", use_container_width=True):
+                    st.session_state["target_sector"] = "fire"
+                    st.session_state["_home_scroll_to_sector_fire"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with _sbtn_c3:
+                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                if st.button("🚗 자동차보험 섹터로", key="sec_auto_enter2", use_container_width=True):
+                    st.session_state["target_sector"] = "auto"
+                    st.session_state["_home_scroll_to_sector_auto"] = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-01 닫기
-
-        # ═══════════════════════════════════════════════════════════════
-        # [GK-SEC-02] 가처분 소득 기반 3단계 솔루션
-        # ═══════════════════════════════════════════════════════════════
-        st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-02")}<span class="gk-sec-title">② 가처분 소득 기반 3단계 솔루션</span></div>', unsafe_allow_html=True)
-        st.markdown("**종목별 바로가기** — 6대 솔루션 영역 및 최소/표준/적정 매트릭스")
-        _s2_r1c1, _s2_r1c2 = st.columns(2, gap="small")
-        _s2_r2c1, _s2_r2c2 = st.columns(2, gap="small")
-        _s2_r3c1, _s2_r3c2 = st.columns(2, gap="small")
-        with _s2_r1c1:
-            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("🔴 암", key="sec02_cancer", use_container_width=True):
-                st.session_state["target_sector"] = "cancer"
-                st.session_state["_home_scroll_to_sector_cancer"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with _s2_r1c2:
-            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("🧠 뇌·심장", key="sec02_brain", use_container_width=True):
-                st.session_state["target_sector"] = "stroke"
-                st.session_state["_home_scroll_to_sector_stroke"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with _s2_r2c1:
-            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("🧓 치매", key="sec02_dementia", use_container_width=True):
-                _go_tab("dementia")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with _s2_r2c2:
-            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("🦽 상해후유장해", key="sec02_disability", use_container_width=True):
-                _go_tab("disability")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with _s2_r3c1:
-            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("🔥 화재보험", key="sec02_fire", use_container_width=True):
-                st.session_state["target_sector"] = "fire"
-                st.session_state["_home_scroll_to_sector_fire"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with _s2_r3c2:
-            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("🚗 자동차보험", key="sec02_auto", use_container_width=True):
-                st.session_state["target_sector"] = "auto"
-                st.session_state["_home_scroll_to_sector_auto"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-        _s2_items = [
-            ("암 진단비",     "1,000만원",  "3,000만원",  "5,000만원+"),
-            ("뇌혈관 진단비", "500만원",    "2,000만원",  "3,000만원+"),
-            ("심장 진단비",   "500만원",    "2,000만원",  "3,000만원+"),
-            ("치매 진단비",   "500만원",    "2,000만원",  "3,000만원+"),
-            ("운전자보험",    "가입 확인",  "상해사망 1억", "형사합의금 3천"),
-            ("입원일당",      "1만원/일",   "3만원/일",   "5만원/일"),
-            ("실손보험",      "4세대",      "3세대",      "1·2세대 유지"),
-        ]
-        # ── 가처분 산출 엔진으로 '적정' 컬럼 동적 반영 ───────────────────
-        _disp_result = st.session_state.get("sec02_disposable_result")
-        _opt_overrides = {}
-        if _disp_result:
-            _mo = _disp_result.get("monthly_income", 0)
-            _da = _disp_result.get("daily_value", 0)
-            _mo_man = round(_mo / 10000)
-            _da_man = round(_da / 10000, 1)
-            _opt_overrides = {
-                "암 진단비":     f"{min(max(round(_mo_man * 3 / 1000) * 1000, 3000), 10000):,}만원",
-                "뇌혈관 진단비": f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
-                "심장 진단비":   f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
-                "치매 진단비":   f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
-                "입원일당":      f"{min(_da_man, 10):.0f}만원/일",
+    
+            # ════════════════════════════════════════════════════════════════
+            # [LAZY ROUTER] — target_sector 기반 지연 실행 (Lazy Execution)
+            # None 또는 "all" → 전체 보기 | 특정 값 → 해당 섹터만 실행
+            # ════════════════════════════════════════════════════════════════
+            _lazy_sector = st.session_state.get("target_sector") or "all"
+            # [SECTOR-CANCER] 암 상담 섹터
+            # ════════════════════════════════════════════════════════════════
+            if _lazy_sector in ("all", "cancer"):
+                st.markdown('<div id="sector_cancer" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+                _ts_cancer = _lazy_sector == "cancer"
+                _cancer_badge = ('<span style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;'
+                                 'padding:2px 8px;font-size:0.75rem;color:#dc2626;margin-left:10px;">▶ 진입됨</span>'
+                                 if _ts_cancer else "")
+                st.markdown(
+                    f'<div class="gk-sec" style="border-top:4px solid #dc2626;">'
+                    f'<span class="gk-sec-title" style="color:#dc2626;">🔴 암 보장 상담 센터</span>{_cancer_badge}',
+                    unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
+                    "암 진단비 · 항암치료비 · 수술비 · 요양병원 입원일당 — 가처분 소득 기반 최적 설계</div>",
+                    unsafe_allow_html=True)
+                _cancer_q = st.text_area(
+                    "암 관련 질문 입력",
+                    placeholder="예) 40대 여성 암보험 추천, 갑상선암 소액암 기준...",
+                    height=100, key="sector_cancer_query")
+                if st.button("🔍 암 보장 AI 분석", key="sector_cancer_ai", use_container_width=True, type="primary"):
+                    if _cancer_q and _cancer_q.strip():
+                        with st.spinner("AI 암 보장 분석 중..."):
+                            try:
+                                _cc = get_client()
+                                _cc_resp = _cc.chat.completions.create(
+                                    model=st.session_state.get("model_name", "gemini-2.0-flash"),
+                                    messages=[
+                                        {"role": "system", "content": (
+                                            "당신은 암보험 전문 컨설턴트입니다. "
+                                            f"고객명: {st.session_state.get('scan_client_name','고객')}. "
+                                            "KB 7대 분류 기준으로 암 보장 공백을 분석하고 권장액을 제시하세요.")},
+                                        {"role": "user", "content": _cancer_q.strip()},
+                                    ], max_tokens=1200)
+                                st.session_state["sector_cancer_result"] = _cc_resp.choices[0].message.content
+                            except Exception as _cce:
+                                st.session_state["sector_cancer_result"] = f"⚠️ 오류: {_cce}"
+                    else:
+                        st.warning("질문을 입력해 주세요.")
+                _cancer_result = st.session_state.get("sector_cancer_result")
+                if _cancer_result:
+                    st.markdown(
+                        f'<div class="gk-ai-output-box" style="min-height:120px;max-height:280px;">'
+                        f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
+                        f'{_cancer_result}</div></div>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+                if st.button("🔴 암보험 전문 분석 탭으로 →", key="sector_cancer_goto_t1"):
+                    _go_tab("t1")
+                st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-CANCER 닫기
+    
+            # ════════════════════════════════════════════════════════════════
+            # [SECTOR-STROKE] 뇌졸중·뇌혈관 상담 섹터
+            # ════════════════════════════════════════════════════════════════
+            if _lazy_sector in ("all", "stroke"):
+                st.markdown('<div id="sector_stroke" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+                _ts_stroke = _lazy_sector == "stroke"
+                _stroke_badge = ('<span style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:6px;'
+                                 'padding:2px 8px;font-size:0.75rem;color:#7c3aed;margin-left:10px;">▶ 진입됨</span>'
+                                 if _ts_stroke else "")
+                st.markdown(
+                    f'<div class="gk-sec" style="border-top:4px solid #7c3aed;">'
+                    f'<span class="gk-sec-title" style="color:#7c3aed;">🧠 뇌졸중·뇌혈관 보장 상담 센터</span>{_stroke_badge}',
+                    unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
+                    "뇌졸중·뇌경색·뇌출혈 진단비 — 가이딩 프로토콜 제32조 18개월 소득대체 기준 분석</div>",
+                    unsafe_allow_html=True)
+                _stroke_l, _stroke_r = st.columns([5, 5], gap="medium")
+                with _stroke_l:
+                    st.markdown(
+                        "<div style='border:1px dashed #7c3aed;border-radius:8px;"
+                        "padding:12px 14px;background:#f5f3ff;'>"
+                        "<div style='font-weight:900;color:#7c3aed;font-size:0.85rem;margin-bottom:8px;'>"
+                        "📋 뇌혈관 보장 체크리스트</div>",
+                        unsafe_allow_html=True)
+                    for _si2, (_sn, _sstd, _sdesc) in enumerate([
+                        ("뇌졸중 진단비", "2,000만원 이상", "뇌경색·뇌출혈 통합 / 제32조 기준"),
+                        ("뇌경색 진단비", "2,000만원 이상", "허혈성 뇌졸중 별도 보장 여부"),
+                        ("뇌출혈 진단비", "1,000만원 이상", "출혈성 뇌졸중 별도 보장"),
+                        ("뇌혈관 수술비", "500만원/회 이상", "코일색전술·클리핑 포함"),
+                        ("뇌졸중 입원일당", "3만원/일 이상", "요양병원 180일 한도 확인"),
+                    ]):
+                        _sbg2 = "#f5f3ff" if _si2 % 2 == 0 else "#ffffff"
+                        st.markdown(
+                            f'<div style="background:{_sbg2};border-bottom:1px solid #c4b5fd;padding:6px 8px;font-size:0.82rem;">'
+                            f'<span style="font-weight:900;color:#000;">{_sn}</span>'
+                            f' <span style="color:#7c3aed;font-weight:700;">권장: {_sstd}</span>'
+                            f'<br><span style="color:#64748b;font-size:0.75rem;">{_sdesc}</span></div>',
+                            unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                with _stroke_r:
+                    st.markdown(
+                        "<div style='border:1px dashed #7c3aed;border-radius:8px;"
+                        "padding:12px 14px;background:#f5f3ff;'>"
+                        "<div style='font-weight:900;color:#7c3aed;font-size:0.85rem;margin-bottom:8px;'>"
+                        "🤖 AI 뇌혈관 보장 분석</div>",
+                        unsafe_allow_html=True)
+                    _stroke_q = st.text_area(
+                        "뇌혈관 관련 질문 입력",
+                        placeholder="예) 50대 남성 뇌졸중보험, 뇌경색 뇌출혈 차이...",
+                        height=100, key="sector_stroke_query")
+                    if st.button("🔍 뇌혈관 보장 AI 분석", key="sector_stroke_ai", use_container_width=True, type="primary"):
+                        if _stroke_q and _stroke_q.strip():
+                            with st.spinner("AI 뇌혈관 보장 분석 중..."):
+                                try:
+                                    _sc3 = get_client()
+                                    _sc3_resp = _sc3.chat.completions.create(
+                                        model=st.session_state.get("model_name", "gemini-2.0-flash"),
+                                        messages=[
+                                            {"role": "system", "content": (
+                                                "당신은 뇌혈관질환 보험 전문 컨설턴트입니다. "
+                                                f"고객명: {st.session_state.get('scan_client_name','고객')}. "
+                                                "가이딩 프로토콜 제32조(뇌졸중 18개월 소득대체) 기준으로 분석하세요.")},
+                                            {"role": "user", "content": _stroke_q.strip()},
+                                        ], max_tokens=1200)
+                                    st.session_state["sector_stroke_result"] = _sc3_resp.choices[0].message.content
+                                except Exception as _sce3:
+                                    st.session_state["sector_stroke_result"] = f"⚠️ 오류: {_sce3}"
+                        else:
+                            st.warning("질문을 입력해 주세요.")
+                    _stroke_result = st.session_state.get("sector_stroke_result")
+                    if _stroke_result:
+                        st.markdown(
+                            f'<div class="gk-ai-output-box" style="min-height:120px;max-height:280px;">'
+                            f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
+                            f'{_stroke_result}</div></div>', unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                if st.button("🧠 뇌·심장 전문 분석 탭으로 →", key="sector_stroke_goto_t2"):
+                    _go_tab("t2")
+                st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-STROKE 닫기
+    
+            # ════════════════════════════════════════════════════════════════
+            # [SECTOR-FIRE] 화재보험 상담 섹터
+            # ════════════════════════════════════════════════════════════════
+            if _lazy_sector in ("all", "fire"):
+                st.markdown('<div id="sector_fire" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+                _ts_fire = _lazy_sector == "fire"
+                _fire_badge = ('<span style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;'
+                               'padding:2px 8px;font-size:0.75rem;color:#ea580c;margin-left:10px;">▶ 진입됨</span>'
+                               if _ts_fire else "")
+                st.markdown(
+                    f'<div class="gk-sec" style="border-top:4px solid #ea580c;">'
+                    f'<span class="gk-sec-title" style="color:#ea580c;">🔥 화재보험 전술 상담 센터</span>{_fire_badge}',
+                    unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
+                    "화재보험 보장 분석 · 건물·가재도구·배상책임 — 신가보상 기준 최적 설계</div>",
+                    unsafe_allow_html=True)
+                _fire_l, _fire_r = st.columns([5, 5], gap="medium")
+                with _fire_l:
+                    st.markdown(
+                        "<div style='border:1px dashed #ea580c;border-radius:8px;"
+                        "padding:12px 14px;background:#fff7ed;'>"
+                        "<div style='font-weight:900;color:#ea580c;font-size:0.85rem;margin-bottom:8px;'>"
+                        "📋 화재보험 체크리스트</div>",
+                        unsafe_allow_html=True)
+                    for _fi, (_fn, _fstd, _fdesc) in enumerate([
+                        ("건물 화재손해", "재건축비 100% 보상", "감가상각 없는 신가보상 확인"),
+                        ("가재도구 손해", "실손 보상 한도 확인", "귀중품·전자기기 별도 특약"),
+                        ("배상책임", "1억원 이상 권장", "임차인·제3자 배상책임 포함"),
+                        ("수해·풍재", "특약 가입 여부 확인", "태풍·홍수·지진 포함 여부"),
+                        ("법적 강제보험", "다중이용업소 의무 가입", "화재배상책임보험 법령 확인"),
+                    ]):
+                        _fbg = "#fff7ed" if _fi % 2 == 0 else "#ffffff"
+                        st.markdown(
+                            f'<div style="background:{_fbg};border-bottom:1px solid #fed7aa;padding:6px 8px;font-size:0.82rem;">'
+                            f'<span style="font-weight:900;color:#000;">{_fn}</span>'
+                            f' <span style="color:#ea580c;font-weight:700;">{_fstd}</span>'
+                            f'<br><span style="color:#64748b;font-size:0.75rem;">{_fdesc}</span></div>',
+                            unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                with _fire_r:
+                    st.markdown(
+                        "<div style='border:1px dashed #ea580c;border-radius:8px;"
+                        "padding:12px 14px;background:#fff7ed;'>"
+                        "<div style='font-weight:900;color:#ea580c;font-size:0.85rem;margin-bottom:8px;'>"
+                        "🤖 AI 화재보험 상담</div>",
+                        unsafe_allow_html=True)
+                    _fire_q = st.text_area(
+                        "화재보험 질문 입력",
+                        placeholder="예) 상가 화재보험 가입 기준, 임차인 배상책임...",
+                        height=100, key="sector_fire_query")
+                    if st.button("🔍 화재보험 AI 상담", key="sector_fire_ai", use_container_width=True, type="primary"):
+                        if _fire_q and _fire_q.strip():
+                            with st.spinner("AI 화재보험 분석 중..."):
+                                try:
+                                    _fc = get_client()
+                                    _fc_resp = _fc.chat.completions.create(
+                                        model=st.session_state.get("model_name", "gemini-2.0-flash"),
+                                        messages=[
+                                            {"role": "system", "content": (
+                                                "당신은 화재보험·배상책임보험 전문 컨설턴트입니다. "
+                                                "주택·상가·공장·다중이용업소의 화재보험 가입 기준과 "
+                                                "배상책임, 재물손해 보장 구조를 실무 관점에서 안내하세요.")},
+                                            {"role": "user", "content": _fire_q.strip()},
+                                        ], max_tokens=1200)
+                                    st.session_state["sector_fire_result"] = _fc_resp.choices[0].message.content
+                                except Exception as _fce:
+                                    st.session_state["sector_fire_result"] = f"⚠️ 오류: {_fce}"
+                        else:
+                            st.warning("질문을 입력해 주세요.")
+                    _fire_result = st.session_state.get("sector_fire_result")
+                    if _fire_result:
+                        st.markdown(
+                            f'<div class="gk-ai-output-box" style="min-height:120px;max-height:280px;">'
+                            f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
+                            f'{_fire_result}</div></div>', unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                if st.button("🔥 화재보험 전문 분석 탭으로 →", key="sector_fire_goto"):
+                    _go_tab("gk_sec08")
+                st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-FIRE 닫기
+    
+            # ════════════════════════════════════════════════════════════════
+            # [SECTOR-AUTO] 자동차보험 상담 섹터
+            # ════════════════════════════════════════════════════════════════
+            if _lazy_sector in ("all", "auto"):
+                st.markdown('<div id="sector_auto" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+                _ts_auto = _lazy_sector == "auto"
+                _auto_badge = ('<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;'
+                               'padding:2px 8px;font-size:0.75rem;color:#0369a1;margin-left:10px;">▶ 진입됨</span>'
+                               if _ts_auto else "")
+                st.markdown(
+                    f'<div class="gk-sec" style="border-top:4px solid #0369a1;">'
+                    f'<span class="gk-sec-title" style="color:#0369a1;">🚗 자동차보험 전술 상담 센터</span>{_auto_badge}',
+                    unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
+                    "자동차보험 보장 분석 · 교통사고 보상 실무 · 형사합의금 · 운전자보험 연계</div>",
+                    unsafe_allow_html=True)
+                _auto_l, _auto_r = st.columns([5, 5], gap="medium")
+                with _auto_l:
+                    st.markdown(
+                        "<div style='border:1px dashed #0369a1;border-radius:8px;"
+                        "padding:12px 14px;background:#eff6ff;'>"
+                        "<div style='font-weight:900;color:#0369a1;font-size:0.85rem;margin-bottom:8px;'>"
+                        "📋 자동차보험 체크리스트</div>",
+                        unsafe_allow_html=True)
+                    for _ai2, (_an, _astd, _adesc) in enumerate([
+                        ("대인배상Ⅱ", "무한 가입 필수", "상해사망·부상 치료비 전액"),
+                        ("대물배상", "2억원 이상 권장", "고가차량·시설물 사고 대비"),
+                        ("자기신체사고", "사망 1.5억 이상", "운전자 본인 신체 보장"),
+                        ("무보험차상해", "가입 여부 확인", "상대방 무보험 시 내 보험 청구"),
+                        ("운전자보험 연계", "형사합의금 3,000만원+", "교통사고처리특례법 연계"),
+                    ]):
+                        _abg2 = "#eff6ff" if _ai2 % 2 == 0 else "#ffffff"
+                        st.markdown(
+                            f'<div style="background:{_abg2};border-bottom:1px solid #bfdbfe;padding:6px 8px;font-size:0.82rem;">'
+                            f'<span style="font-weight:900;color:#000;">{_an}</span>'
+                            f' <span style="color:#0369a1;font-weight:700;">{_astd}</span>'
+                            f'<br><span style="color:#64748b;font-size:0.75rem;">{_adesc}</span></div>',
+                            unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                with _auto_r:
+                    st.markdown(
+                        "<div style='border:1px dashed #0369a1;border-radius:8px;"
+                        "padding:12px 14px;background:#eff6ff;'>"
+                        "<div style='font-weight:900;color:#0369a1;font-size:0.85rem;margin-bottom:8px;'>"
+                        "🤖 AI 자동차보험 상담</div>",
+                        unsafe_allow_html=True)
+                    _auto_q = st.text_area(
+                        "자동차보험 질문 입력",
+                        placeholder="예) 교통사고 과실비율, 형사합의금 기준...",
+                        height=100, key="sector_auto_query")
+                    if st.button("🔍 자동차보험 AI 상담", key="sector_auto_ai", use_container_width=True, type="primary"):
+                        if _auto_q and _auto_q.strip():
+                            with st.spinner("AI 자동차보험 분석 중..."):
+                                try:
+                                    _ac = get_client()
+                                    _ac_resp = _ac.chat.completions.create(
+                                        model=st.session_state.get("model_name", "gemini-2.0-flash"),
+                                        messages=[
+                                            {"role": "system", "content": (
+                                                "당신은 자동차보험·운전자보험 전문 컨설턴트입니다. "
+                                                "교통사고 과실비율, 형사합의금, 대인·대물·자기신체 보장 구조, "
+                                                "운전자보험 연계 전략을 실무 관점에서 상담하세요.")},
+                                            {"role": "user", "content": _auto_q.strip()},
+                                        ], max_tokens=1200)
+                                    st.session_state["sector_auto_result"] = _ac_resp.choices[0].message.content
+                                except Exception as _ace:
+                                    st.session_state["sector_auto_result"] = f"⚠️ 오류: {_ace}"
+                        else:
+                            st.warning("질문을 입력해 주세요.")
+                    _auto_result = st.session_state.get("sector_auto_result")
+                    if _auto_result:
+                        st.markdown(
+                            f'<div class="gk-ai-output-box" style="min-height:120px;max-height:280px;">'
+                            f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
+                            f'{_auto_result}</div></div>', unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                if st.button("🚗 자동차보험 전문 분석 탭으로 →", key="sector_auto_goto"):
+                    _go_tab("gk_sec07")
+                st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-AUTO 닫기
+    
+            # ════════════════════════════════════════════════════════════════
+            # [SECTOR-SECURITIES] 통합 증권분석 섹터 (내보험다보여 연계)
+            # ════════════════════════════════════════════════════════════════
+            if _lazy_sector in ("all", "securities"):
+                st.markdown('<div id="sector_securities" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
+                _sec_data_ready = st.session_state.get("_securities_data_ready", False)
+                _sec_badge = ('<span style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;'
+                              'padding:2px 8px;font-size:0.75rem;color:#059669;margin-left:10px;">▶ 데이터 취합 완료</span>'
+                              if _sec_data_ready else "")
+                st.markdown(
+                    f'<div class="gk-sec" style="border-top:4px solid #059669;">'
+                    f'<span class="gk-sec-title" style="color:#059669;">📊 통합 증권분석 센터 (내보험다보여)</span>{_sec_badge}',
+                    unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
+                    "내보험다보여 데이터 기반 전체 보험증권 통합 분석 · KB 7대 분류 보장공백 진단</div>",
+                    unsafe_allow_html=True)
+                if not _sec_data_ready:
+                    st.info(
+                        "💡 상단 **📊 통합 증권분석** 버튼 클릭 시 내보험다보여 데이터를 크롤링·취합 후 이 섹터로 자동 이동됩니다.\n\n"
+                        "또는 아래에서 직접 보험증권 정보를 입력하여 분석하세요."
+                    )
+                _sec_l, _sec_r = st.columns([5, 5], gap="medium")
+                with _sec_l:
+                    st.markdown(
+                        "<div style='border:1px dashed #059669;border-radius:8px;"
+                        "padding:12px 14px;background:#ecfdf5;'>"
+                        "<div style='font-weight:900;color:#059669;font-size:0.85rem;margin-bottom:8px;'>"
+                        "📋 보유 보험증권 목록 (직접 입력)</div>",
+                        unsafe_allow_html=True)
+                    _sec_policy_input = st.text_area(
+                        "보유 증권 요약 입력",
+                        value=st.session_state.get("_securities_policy_text", ""),
+                        placeholder=(
+                            "예)\n삼성생명 종신보험 (2015년) — 사망 1억\n"
+                            "DB손해보험 통합보험 (2019년) — 암3000 뇌2000 심2000\n"
+                            "메리츠화재 실손의료비 (2021년) — 3세대"
+                        ),
+                        height=130, key="sector_sec_policy_input")
+                    if st.button("💾 증권 목록 저장", key="sector_sec_save", use_container_width=True):
+                        st.session_state["_securities_policy_text"] = _sec_policy_input
+                        st.success("✅ 증권 목록 저장 완료")
+                    st.markdown("</div>", unsafe_allow_html=True)
+                with _sec_r:
+                    st.markdown(
+                        "<div style='border:1px dashed #059669;border-radius:8px;"
+                        "padding:12px 14px;background:#ecfdf5;'>"
+                        "<div style='font-weight:900;color:#059669;font-size:0.85rem;margin-bottom:8px;'>"
+                        "🤖 AI 통합 증권분석</div>",
+                        unsafe_allow_html=True)
+                    _sec_q = st.text_area(
+                        "증권분석 질문 입력",
+                        placeholder="예) 보장공백 분석, 중복보험 확인, KB 7대 분류 기준 검토...",
+                        height=80, key="sector_sec_query")
+                    if st.button("🔍 통합 증권 AI 분석", key="sector_sec_ai", use_container_width=True, type="primary"):
+                        _policy_text = st.session_state.get("_securities_policy_text", "") or _sec_policy_input
+                        if not _policy_text and not (_sec_q and _sec_q.strip()):
+                            st.warning("증권 목록 또는 질문을 입력해 주세요.")
+                        else:
+                            with st.spinner("AI 통합 증권분석 중..."):
+                                try:
+                                    _sec2_c = get_client()
+                                    _sec2_user = f"[보유 증권]\n{_policy_text}\n\n[질문]\n{_sec_q or '전체 보장공백 분석'}"
+                                    _sec2_resp = _sec2_c.chat.completions.create(
+                                        model=st.session_state.get("model_name", "gemini-2.0-flash"),
+                                        messages=[
+                                            {"role": "system", "content": (
+                                                "당신은 보험증권 통합분석 전문가입니다. "
+                                                f"고객명: {st.session_state.get('scan_client_name','고객')}. "
+                                                "KB 7대 분류 기준으로 보장공백·중복보험·적정 보장 여부를 분석하고 "
+                                                "KOSIS 통계 기반 우선순위를 제시하세요.")},
+                                            {"role": "user", "content": _sec2_user},
+                                        ], max_tokens=1800)
+                                    st.session_state["sector_sec_result"] = _sec2_resp.choices[0].message.content
+                                except Exception as _sec2e:
+                                    st.session_state["sector_sec_result"] = f"⚠️ 오류: {_sec2e}"
+                    _sec_result = st.session_state.get("sector_sec_result")
+                    if _sec_result:
+                        st.markdown(
+                            f'<div class="gk-ai-output-box" style="min-height:120px;max-height:320px;">'
+                            f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
+                            f'{_sec_result}</div></div>', unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='background:#ecfdf5;border:1.5px solid #6ee7b7;border-radius:10px;"
+                    "padding:10px 14px;margin:10px 0;font-size:0.82rem;color:#065f46;'>"
+                    "💡 <b>깔때기 구조</b>: 각 상담 섹터 데이터는 GK-SEC-01 고객 마스터에 태깅됩니다. "
+                    "최종 통합 분석은 <b>특별파트 5단계</b> 또는 <b>가문 안보 리포트</b>에서 완성됩니다."
+                    "</div>",
+                    unsafe_allow_html=True)
+                if st.button("📊 보험증권 전문 분석 탭으로 →", key="sector_sec_goto"):
+                    _go_tab("policy_scan")
+                st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-SECURITIES 닫기
+    
+        # ══════════════════════════════════════════════════════════════════════
+        # 전문가 제언: 응접실(메뉴창) 하부에 가벼운 공용 메모리를 두어
+        # 기둥 간 데이터 공유를 매끄럽게 처리 (Data Consistency 보완)
+        # ══════════════════════════════════════════════════════════════════════
+        _GS_DEFAULTS = {
+            "gs_c_name":       "",      # 현재 상담 고객명 (기둥 간 공유)
+            "gs_hi_premium":   0,       # 건강보험료 (기둥 간 공유)
+            "gs_product_key":  "",      # 현재 상담 상품 키
+            "gs_last_tab":     "home",  # 직전 방문 탭 (Deep Link 복귀용)
+            "gs_last_result":  "",      # 직전 AI 분석 결과 요약 (기둥 간 참조)
+            "gs_consult_mode": "",      # 종사자/비종사자 모드 (사이드바 연동)
+            "gs_pref_ins":     "",      # 선호 보험사 (사이드바 연동)
+            "gs_c_phone":      "",      # 현재 상담 고객 전화번호 (카카오 발송 기본값)
+        }
+    
+        def _gs_init():
+            """Global Store 초기화 — 미설정 키만 기본값으로 채움"""
+            for k, v in _GS_DEFAULTS.items():
+                if k not in st.session_state:
+                    st.session_state[k] = v
+            # 사이드바 설정값을 GS에 동기화
+            st.session_state["gs_consult_mode"] = st.session_state.get("user_consult_mode", "")
+            st.session_state["gs_pref_ins"]     = st.session_state.get("preferred_insurer", "")
+    
+        def _gs_set_client(c_name: str, hi_premium: int = 0, product_key: str = ""):
+            """ai_query_block 호출 시 GS에 고객 정보 동기화"""
+            if c_name:
+                st.session_state["gs_c_name"]      = c_name
+            if hi_premium:
+                st.session_state["gs_hi_premium"]  = hi_premium
+            if product_key:
+                st.session_state["gs_product_key"] = product_key
+    
+        def _gs_save_result(result_key: str):
+            """AI 분석 완료 후 결과 요약을 GS에 저장 (기둥 간 참조용)"""
+            result = st.session_state.get(result_key, "")
+            if result:
+                # 첫 300자만 요약 저장 (메모리 절약)
+                st.session_state["gs_last_result"] = result[:300] + ("…" if len(result) > 300 else "")
+    
+        # GS 초기화 실행 (매 렌더 사이클마다)
+        _gs_init()
+    
+        # ══════════════════════════════════════════════════════════════════════
+        # [GP200조] 플래너 브랜딩 정보 추출 헬퍼
+        # ══════════════════════════════════════════════════════════════════════
+        def _get_planner_info() -> dict:
+            """[GP200조] session_state의 gp200_* 값을 dict로 반환."""
+            return {
+                "company": st.session_state.get("gp200_company", ""),
+                "branch":  st.session_state.get("gp200_branch",  ""),
+                "name":    st.session_state.get("gp200_name",    "")
+                           or st.session_state.get("user_name",  ""),
+                "contact": st.session_state.get("gp200_contact", ""),
             }
-
-        _tbl_html = (
-            '<div style="overflow-x:auto;">'
-            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem;border:2px solid #000000;">'
-            '<thead><tr>'
-            '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:left;border:1px solid #000000;">종목</th>'
-            '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">최소</th>'
-            '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">표준</th>'
-            '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">적정 ★</th>'
-            '</tr></thead><tbody>'
+    
+        # ══════════════════════════════════════════════════════════════════════
+        # [NameError 방지] cur를 module-level global로 노출
+        # main() 밖 라우터 블록(if cur == ...)들이 참조할 수 있도록 설정
+        # ══════════════════════════════════════════════════════════════════════
+        import builtins as _builtins
+        _builtins._goldkey_cur = cur
+        _builtins._goldkey_go_tab = _go_tab
+        _builtins._goldkey_get_planner_info = _get_planner_info
+    
+    # ── module-level cur 호환 래퍼 ─────────────────────────────────────────────
+    # main() 외부의 라우터 블록들이 cur 변수를 직접 참조하므로,
+    # builtins에 저장된 값을 module-level 변수로 공급
+    import builtins as _builtins_mod
+    try:
+        cur = _builtins_mod._goldkey_cur
+    except AttributeError:
+        cur = st.session_state.get("current_tab", "home")
+    
+    try:
+        _go_tab = _builtins_mod._goldkey_go_tab
+    except AttributeError:
+        def _go_tab(dest: str):
+            st.session_state.current_tab = dest
+            st.rerun()
+    
+    try:
+        _get_planner_info = _builtins_mod._goldkey_get_planner_info
+    except AttributeError:
+        def _get_planner_info() -> dict:
+            return {
+                "company": st.session_state.get("gp200_company", ""),
+                "branch":  st.session_state.get("gp200_branch",  ""),
+                "name":    st.session_state.get("gp200_name",    "")
+                           or st.session_state.get("user_name",  ""),
+                "contact": st.session_state.get("gp200_contact", ""),
+            }
+    
+    def _rag_annotate_report(report_text: str) -> str:
+        """AI 보고서 텍스트에 약관 근거(몇 조, 몇 페이지) 주석을 자동 삽입.
+    
+        - 담보명 키워드를 감지하여 RAG에서 해당 약관 조항 검색
+        - 결과를 [※ 약관 근거: OO조 OO페이지] 형태로 텍스트 끝에 추가
+        - 매칭 없으면 원본 텍스트 그대로 반환
+        """
+        if not report_text or len(report_text) < 50:
+            return report_text
+    
+        _COVERAGE_KEYWORDS = [
+            "암진단비", "뇌혈관", "심장", "입원일당", "수술비", "후유장해",
+            "사망보험금", "실손", "간병비", "치매", "장기요양",
+        ]
+        _found_kws = [kw for kw in _COVERAGE_KEYWORDS if kw in report_text]
+        if not _found_kws:
+            return report_text
+    
+        _annotations = []
+        for _kw in _found_kws[:3]:  # 최대 3개 담보 주석
+            try:
+                _refs = _rag_sector_query(_kw + " 약관 조항", sector="terms", top_k=1)
+                if _refs and _refs[0].get("source"):
+                    _r = _refs[0]
+                    _ann = f"[※ {_kw} 약관 근거: {_r['source']}"
+                    if _r.get("page"):
+                        _ann += f" {_r['page']}페이지"
+                    _ann += "]"
+                    _annotations.append(_ann)
+            except Exception:
+                pass
+    
+        if _annotations:
+            report_text += "\n\n" + " / ".join(_annotations)
+        return report_text
+    
+    
+    def _render_report_send_ui(
+        result_key: str,
+        *,
+        tab_key: str = "",
+        title: str = "골드키 AI 분석 리포트",
+        client_name: str = "",
+        compact: bool = True,
+        ) -> None:
+        """
+        AI 분석 결과(session_state[result_key])를 카카오/SMS로 발송하고
+        PDF 다운로드 버튼을 렌더링하는 공통 UI 헬퍼.
+        [GP200조] 브랜딩 정보(gp200_*)를 자동으로 메시지·PDF에 삽입.
+        """
+        _report_text = st.session_state.get(result_key, "")
+        _pi = _get_planner_info()
+        _sk = f"_send_{tab_key or result_key}"
+        _default_phone = (
+            st.session_state.get("gs_c_phone", "")
+            or st.session_state.get("gp200_contact", "")
         )
-        for _i2, (_name2, _mn, _stv, _opt) in enumerate(_s2_items):
-            _bg2 = "#fafeff" if _i2 % 2 == 0 else "#ffffff"
-            _opt_disp = _opt_overrides.get(_name2, _opt)
-            _opt_color = "#0055AA" if _name2 in _opt_overrides else "#CC0000"
-            _tbl_html += (
-                f'<tr style="background:{_bg2};">'
-                f'<td style="padding:6px 10px;font-weight:900;color:#000000;border:1px solid #000000;">{_name2}</td>'
-                f'<td style="padding:6px 10px;text-align:center;font-weight:700;color:#374151;border:1px solid #000000;">{_mn}</td>'
-                f'<td style="padding:6px 10px;text-align:center;font-weight:700;color:#000000;border:1px solid #000000;">{_stv}</td>'
-                f'<td style="padding:6px 10px;text-align:center;font-weight:900;color:{_opt_color};border:1px solid #000000;">{_opt_disp}</td>'
-                f'</tr>'
-            )
-        _tbl_html += '</tbody></table></div>'
-        if _disp_result:
-            _tbl_html += '<div style="font-size:0.75rem;color:#0055AA;margin-top:4px;">★ 적정 금액은 건보료 역산 기준으로 자동 산출되었습니다.</div>'
-        st.markdown(_tbl_html, unsafe_allow_html=True)
-
-        # ── [SEC-02-DISPOSABLE] 가처분 산출 엔진 ────────────────────────
-        st.markdown("<hr style='margin:14px 0 10px 0;border:2px solid #1565C0;'>", unsafe_allow_html=True)
+    
+        st.markdown("---")
+        _su_c1, _su_c2, _su_c3 = st.columns(3)
+    
+        with _su_c1:
+            # [GP240조] 카카오/SMS 발송 UI (알림톡 — 채널 키 필요)
+            try:
+                from modules.kakao_sender import render_send_ui as _kk_ui
+                _kk_ui(
+                    _report_text,
+                    session_key=_sk,
+                    default_phone=_default_phone,
+                    title=title,
+                    compact=compact,
+                    planner_info=_pi,
+                )
+            except Exception as _kk_ex:
+                st.caption(f"⚠️ 카카오 발송 모듈 오류: {_kk_ex}")
+    
+        with _su_c2:
+            # [GP241조] 나에게 보내기 UI (REST API KEY만으로 즉시 사용 가능)
+            try:
+                from modules.kakao_memo import render_memo_ui as _memo_ui
+                _memo_ui(
+                    _report_text,
+                    title=title,
+                    session_key=f"_memo_{tab_key or result_key}",
+                    planner_info=_pi,
+                    compact=compact,
+                )
+            except Exception as _memo_ex:
+                st.caption(f"⚠️ 나에게 보내기 모듈 오류: {_memo_ex}")
+    
+        with _su_c3:
+            # PDF 다운로드 버튼
+            try:
+                from modules.pdf_generator import render_pdf_download as _pdf_dl
+                _pdf_dl(
+                    _report_text,
+                    title=title,
+                    client_name=client_name or st.session_state.get("gs_c_name", ""),
+                    key=f"pdf_{tab_key or result_key}",
+                    planner_info=_pi,
+                )
+            except Exception as _pdf_ex:
+                st.caption(f"⚠️ PDF 생성 모듈 오류: {_pdf_ex}")
+    
+        # [GP200조] 브랜딩 푸터 미리보기
+        _footer_html = gp200_brand_footer(st.session_state)
+        if _footer_html:
+            st.markdown(_footer_html, unsafe_allow_html=True)
+    
+    # ══════════════════════════════════════════════════════════════════════
+    # [아키텍처 — 중앙 인증 게이트] 회랑(라우터)에서 로그인 상태 중앙 체크
+    # 전문가 제언: 토큰 기반 인증을 회랑(메뉴)에서 관리하여 흐름 유지
+    # ══════════════════════════════════════════════════════════════════════
+    def _auth_gate(tab_key: str) -> bool:
+        """로그인 상태 중앙 체크 — False 반환 시 해당 기둥 렌더 중단"""
+        _GUEST_BLOCKED_TABS = {
+            "customer_mgmt", "customer_docs", "leaflet", "consult_catalog",
+            "digital_catalog", "know_pipe", "report43", "scan_hub",
+            "life_defense", "war_room",
+        }
+        _is_unauthed   = "user_id" not in st.session_state
+        _is_guest_role = st.session_state.get("_user_role") == "GUEST"
+        _is_guest_uid  = st.session_state.get("user_id", None) == ""
+    
+        if _is_unauthed:
+            st.markdown("""
+    <div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
+      border-radius:14px;padding:28px 22px;margin:20px 0;text-align:center;">
+      <div style="font-size:2.5rem;margin-bottom:10px;">🔒</div>
+      <div style="color:#1e3a5f;font-size:1.15rem;font-weight:900;margin-bottom:8px;">
+    로그인 후 이용 가능합니다
+      </div>
+      <div style="color:#b3d4f5;font-size:0.85rem;">
+    왼쪽 사이드바 하단 <b style="color:#ffd700;">Admin Console</b>에서 로그인하세요
+      </div>
+    </div>""", unsafe_allow_html=True)
+            _ag_c1, _ag_c2 = st.columns(2)
+            with _ag_c1:
+                if st.button("🏠 홈으로 돌아가기", key=f"auth_gate_home_{tab_key}",
+                             use_container_width=True, type="primary"):
+                    st.session_state.current_tab = "home"
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+            with _ag_c2:
+                if st.button("🔓 로그인 열기", key=f"auth_gate_login_{tab_key}",
+                             use_container_width=True):
+                    st.session_state["_open_sidebar"] = True
+                    st.rerun()
+            return False
+    
+        if (_is_guest_role or _is_guest_uid) and tab_key in _GUEST_BLOCKED_TABS:
+            st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#FFF9C4 0%,#FFF176 100%);
+      border:2px solid #F9A825;border-radius:14px;padding:24px 22px;
+      margin:20px 0;text-align:center;">
+      <div style="font-size:2.2rem;margin-bottom:8px;">🔒</div>
+      <div style="color:#000000;font-size:1.1rem;font-weight:900;margin-bottom:8px;">
+    정회원 전용 기능입니다
+      </div>
+      <div style="color:#5D4037;font-size:0.85rem;line-height:1.7;margin-bottom:10px;">
+    <b>고객 정보·등록·자료 관련 기능</b>은 임시/비회원에게 제공되지 않습니다.<br>
+    사이드바 <b>회원가입</b> 탭에서 가입 후 이용하세요.
+      </div>
+      <div style="font-size:0.75rem;color:#795548;">
+    ← 사이드바 · <b>📝 회원가입</b> 탭 즉시 이용 가능
+      </div>
+    </div>""", unsafe_allow_html=True)
+            _gb_c1, _gb_c2 = st.columns(2)
+            with _gb_c1:
+                if st.button("🏠 홈으로 돌아가기", key=f"guest_block_home_{tab_key}",
+                             use_container_width=True, type="primary"):
+                    st.session_state.current_tab = "home"
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+            with _gb_c2:
+                if st.button("📝 회원가입 하기", key=f"guest_block_signup_{tab_key}",
+                             use_container_width=True):
+                    st.session_state["_open_sidebar"] = True
+                    st.rerun()
+            return False
+    
+        st.session_state["gs_last_tab"] = tab_key
+        return True
+    
+    def _deep_link_bar(current_tab: str):
+        """현재 기둥에서 관련 기둥으로 바로 이동하는 Deep Link 버튼 바"""
+        links = _TAB_LINKS.get(current_tab, [])
+        if not links:
+            return
         st.markdown(
-            "<div id='sec-02-disposable' style='border:2px solid #1565C0;border-radius:10px;"
-            "padding:14px 16px 12px 16px;margin-bottom:10px;background:#F0F9FF;'>"
-            "<div style='color:#0000CD;font-weight:900;font-size:0.9rem;margin-bottom:10px;'>"
-            "💰 가처분 산출 및 금액 (SEC-02-DISPOSABLE) — 건강보험료 역산 엔진</div>",
+            "<div style='background:#f0f6ff;border:1px solid #2e6da4;border-radius:8px;"
+            "padding:6px 12px;margin:8px 0 4px 0;font-size:0.74rem;color:#1a3a5c;font-weight:700;'>"
+            "🔗 연관 섹터 바로가기</div>",
             unsafe_allow_html=True
         )
-        _disp_col1, _disp_col2 = st.columns([1, 1], gap="medium")
-        with _disp_col1:
+        _dl_cols = st.columns(len(links))
+        for i, (tab_id, label) in enumerate(links):
+            with _dl_cols[i]:
+                if st.button(label, key=f"dl_{current_tab}_{tab_id}", use_container_width=True):
+                    _go_tab(tab_id)
+    
+    # ── [홈 복귀 버튼] 각 탭 공통 ────────────────────────────────────────
+    def tab_home_btn(tab_key):
+        # GK-SEC-05 네비게이션 게이트웨이 하위 서비스 탭 목록
+        _SEC05_TABS = {
+            # A섹션
+            "policy_scan", "policy_terms", "scan_hub", "leaflet",
+            "customer_docs", "digital_catalog", "report43",
+            # B섹션
+            "t0", "t1", "disability", "injury", "t4", "kcd_injury",
+            "cancer", "brain", "heart", "t2", "t3", "auto_comp",
+            "life_cycle", "life_event",
+            # C섹션
+            "t5", "t6", "t7", "t8", "stock_eval", "fire", "liability",
+            # D섹션
+            "nursing", "realty", "med_econ",
+            # E섹션
+            "compensation",
+            # F섹션
+            "ins_bot",
+            "special_ops",
+        }
+        if tab_key in _SEC05_TABS:
             st.markdown(
-                "<div style='background:#fff;border:1px solid #BBDEFB;border-radius:8px;padding:12px 14px;'>"
-                "<div style='font-weight:900;font-size:0.85rem;color:#000000;margin-bottom:8px;'>📥 월납입 건강보험료 역산 입력</div>",
-                unsafe_allow_html=True
-            )
-            _nhis_input = st.number_input(
-                "월납입 건강보험료 (원)",
-                min_value=0,
-                max_value=2_000_000,
-                value=int(st.session_state.get("sec02_nhis_premium", 0)),
-                step=1000,
-                format="%d",
-                key="disp_nhis_input",
-                help="직장가입자는 본인부담분만 입력. 지역가입자는 장기요양 포함 전액 입력."
-            )
-            st.markdown(
-                "<div style='font-size:0.75rem;color:#64748b;margin-top:4px;'>"
-                "예) 15만원 입력 시 → 월소득 약 211만원 산출</div></div>",
-                unsafe_allow_html=True
-            )
-            if st.button("⚡ 가처분 소득 산출", key="btn_disp_calc", use_container_width=True, type="primary"):
-                if _nhis_input and _nhis_input > 0:
-                    _calc = _art32_calc(float(_nhis_input))
-                    st.session_state["sec02_nhis_premium"] = _nhis_input
-                    st.session_state["sec02_disposable_result"] = _calc
-                    st.session_state["scan_nhis_premium"] = float(_nhis_input)
-                    st.rerun()
-                else:
-                    st.warning("건강보험료를 입력해 주세요.")
-        with _disp_col2:
-            st.markdown(
-                "<div style='background:#fff;border:1px solid #BBDEFB;border-radius:8px;padding:12px 14px;min-height:140px;'>"
-                "<div style='font-weight:900;font-size:0.85rem;color:#000000;margin-bottom:10px;'>📊 산출 결과 대시보드</div>",
-                unsafe_allow_html=True
-            )
-            if _disp_result:
-                _mo_disp  = round(_disp_result["monthly_income"] / 10000, 1)
-                _da_disp  = round(_disp_result["daily_value"] / 10000, 2)
-                _dis2y    = round(_disp_result["disability_2yr"] / 10000)
-                _stk_disp = round(_disp_result["stroke_need"] / 10000)
-                st.markdown(
-                    f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px;'>"
-                    f"<div style='background:#E3F2FD;border-radius:8px;padding:10px;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#1565C0;font-weight:700;'>산출 월 소득</div>"
-                    f"<div style='font-size:1.3rem;font-weight:900;color:#000000;'>{_mo_disp}<span style='font-size:0.75rem;'>만원</span></div>"
-                    f"</div>"
-                    f"<div style='background:#E3F2FD;border-radius:8px;padding:10px;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#1565C0;font-weight:700;'>산출 일당</div>"
-                    f"<div style='font-size:1.3rem;font-weight:900;color:#000000;'>{_da_disp}<span style='font-size:0.75rem;'>만원</span></div>"
-                    f"</div>"
-                    f"<div style='background:#FFF3E0;border-radius:8px;padding:8px;text-align:center;'>"
-                    f"<div style='font-size:0.68rem;color:#E65100;font-weight:700;'>2년 소득대체 목표</div>"
-                    f"<div style='font-size:1.0rem;font-weight:900;color:#000000;'>{_dis2y:,}<span style='font-size:0.68rem;'>만원</span></div>"
-                    f"</div>"
-                    f"<div style='background:#FFF3E0;border-radius:8px;padding:8px;text-align:center;'>"
-                    f"<div style='font-size:0.68rem;color:#E65100;font-weight:700;'>중풍 18개월 필요액</div>"
-                    f"<div style='font-size:1.0rem;font-weight:900;color:#000000;'>{_stk_disp:,}<span style='font-size:0.68rem;'>만원</span></div>"
-                    f"</div>"
-                    f"</div>",
-                    unsafe_allow_html=True
-                )
-            else:
-                st.markdown(
-                    "<div style='color:#94a3b8;font-size:0.85rem;padding:20px 0;text-align:center;'>"
-                    "좌측에 건강보험료를 입력하고<br>⚡ 산출 버튼을 누르세요.</div>",
-                    unsafe_allow_html=True
-                )
-            st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)  # SEC-02-DISPOSABLE 닫기
-
-        # ── [NAV-02] 내비게이션 바 ─────────────────────────────────────────
-        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
-                    "margin:10px 0 4px 0;'>2 / 7단계 — 가처분 소득 솔루션</div>",
-                    unsafe_allow_html=True)
-        _nav02_l, _nav02_r = st.columns([1, 1])
-        with _nav02_l:
-            if st.button("🏠 홈", key="nav02_home", use_container_width=True):
-                _go_tab("home")
-        with _nav02_r:
-            st.markdown('<div style="background:#E3F2FD !important;border-radius:8px;">', unsafe_allow_html=True)
-            if st.button("🔍 분석 완료! '보험금 상담/검색' 이동하기 →",
-                         key="nav02_next", use_container_width=True):
-                st.session_state["current_tab"] = "t1"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-02 닫기
-
-        # ═══════════════════════════════════════════════════════════════
-        # [GK-SEC-03] 보험금 상담 및 용어 센터 (5:5)
-        # ═══════════════════════════════════════════════════════════════
-        st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-03")}<span class="gk-sec-title">③ 보험금 상담 &amp; 용어 센터</span></div>', unsafe_allow_html=True)
-        st.markdown("질문 입력(좌) / AI 답변 3단계 구조 출력(우)")
-
-        _s3_left, _s3_right = st.columns([5, 5], gap="medium")
-        with _s3_left:
-            _s3_q = st.text_area(
-                "보험 용어 · 보험금 질문 입력",
-                placeholder="예) 실손의료비, 맥브라이드 장해율, KCD코드, 입원일당 청구 기준...",
-                height=120, key="sec03_query")
-            if st.button("🔍 AI 답변 생성", key="sec03_search", use_container_width=True, type="primary"):
-                if _s3_q and _s3_q.strip():
-                    with st.spinner("AI 분석 중..."):
-                        try:
-                            _s3_cli = get_client()
-                            _s3_sys = (
-                                "당신은 보험 전문가입니다. 답변은 반드시 아래 3단계 구조로 작성하세요:\n"
-                                "### 📘 (1) 용어 해설\n[용어 정의]\n\n"
-                                "### 🔧 (2) 적용\n[실무 적용 방법]\n\n"
-                                "### 💡 (3) 사용 사례\n[구체적 사례]"
-                            )
-                            _s3_resp = _s3_cli.chat.completions.create(
-                                model=st.session_state.get("model_name", "gemini-2.0-flash"),
-                                messages=[
-                                    {"role": "system", "content": _s3_sys},
-                                    {"role": "user", "content": _s3_q.strip()},
-                                ],
-                                max_tokens=1500,
-                            )
-                            st.session_state["sec03_result"] = _s3_resp.choices[0].message.content
-                            st.session_state["sec03_scroll"] = True
-                        except Exception as _s3_err:
-                            st.session_state["sec03_result"] = f"⚠️ 오류: {_s3_err}"
-                else:
-                    st.warning("질문을 입력해 주세요.")
-            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-            _nav_input_val = st.text_input(
-                "🔊 코드/용어 네비게이션",
-                placeholder="코드(예: 3000, 1220) 또는 용어(예: 보장공백·맥브라이드) 입력",
-                key="voice_nav_input")
-            if _nav_input_val and _nav_input_val.strip():
-                _dest = _voice_navigate(_nav_input_val.strip())
-                if _dest and isinstance(_dest, str):
-                    _sc_info = SECTOR_CODES.get(_dest, {})
-                    st.success(f"🔍 → [{_dest}] {_sc_info.get('name', '')}")
-                    if st.button(f"➡️ 이동", key="sec03_nav_go"):
-                        _go_tab(_sc_info.get("tab_key", "home"))
-                        st.rerun()
-                elif _dest and isinstance(_dest, list):
-                    st.info("여러 항목 매칭 — 선택하세요:")
-                    _amb_cols = st.columns(min(len(_dest), 3))
-                    for _ai, _amb in enumerate(_dest):
-                        _amb_sc = SECTOR_CODES.get(_amb.get("code", ""), {})
-                        with _amb_cols[_ai % len(_amb_cols)]:
-                            if st.button(
-                                f"[{_amb.get('code','')}] {_amb_sc.get('name','')}",
-                                key=f"sec03_amb_{_amb.get('code','')}",
-                            ):
-                                _go_tab(_amb_sc.get("tab_key", "home"))
-                                st.rerun()
-                else:
-                    st.warning(f"'{_nav_input_val.strip()}' 항목을 찾지 못했습니다.")
-
-        with _s3_right:
-            _s3_scroll = st.session_state.pop("sec03_scroll", False)
-            if _s3_scroll:
-                import streamlit.components.v1 as _s3c
-                _s3c.html(
-                    '<script>(function(){var e=document.getElementById("sec03-anchor");'
-                    'if(e)e.scrollIntoView({behavior:"smooth",block:"start"})})();</script>',
-                    height=0)
-            st.markdown(
-                '<div id="sec03-anchor" style="font-size:0.9rem;font-weight:900;color:#CC0000;margin-bottom:8px;">'
-                '🤖 AI 답변 (3단계: 용어해설 · 적용 · 사용사례)</div>',
+                '<div style="background:#FFF9C4;border:1px solid #d1d5db;'
+                'border-radius:8px;padding:2px 6px;margin-bottom:10px;display:inline-block;">'
+                '</div>',
                 unsafe_allow_html=True)
-            _s3_result = st.session_state.get("sec03_result")
-            _s3_out = st.empty()
-            with _s3_out.container():
-                if _s3_result:
-                    st.markdown(
-                        f'<div class="gk-ai-output-box">'
-                        f'<div style="color:#000000;font-size:0.87rem;line-height:1.8;font-weight:700;">'
-                        f'{_s3_result}</div></div>',
-                        unsafe_allow_html=True)
-                else:
-                    st.markdown(
-                        '<div class="gk-ai-output-box">'
-                        '<div style="color:#94a3b8;font-size:0.85rem;text-align:center;'
-                        'padding-top:50px;line-height:2.0;font-weight:700;">'
-                        '📖 좌측에 질문을 입력하면<br>여기에 3단계 구조 답변이 표시됩니다.'
-                        '</div></div>',
-                        unsafe_allow_html=True)
-
-        # ── [NAV-03] 내비게이션 바 ─────────────────────────────────────────
-        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
-                    "margin:10px 0 4px 0;'>3 / 7단계 — 보험금 상담 &amp; 용어 센터</div>",
-                    unsafe_allow_html=True)
-        _nav03_l, _nav03_r = st.columns([2, 8])
-        with _nav03_l:
-            if st.button("🏠 홈", key="nav03_home", use_container_width=True):
-                _go_tab("home")
-        with _nav03_r:
-            st.markdown(
-                '<div style="background:#E3F2FD !important;border-radius:8px;">',
-                unsafe_allow_html=True)
-            if st.button("📂 상담 자료 '스마트 스캔' 하러 가기 →",
-                         key="nav03_next", use_container_width=True):
-                st.session_state["current_tab"] = "scan_hub"
+            if st.button("⬅️ 네비게이션 게이트웨이(A-F)로 돌아가기",
+                         key=f"btn_back_sec05_{tab_key}",
+                         use_container_width=False):
+                st.session_state["current_tab"] = "home"
+                st.session_state["_home_scroll_to_sec05"] = True
                 st.session_state["_scroll_top"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-03 닫기
-
-        # ═══════════════════════════════════════════════════════════════
-        # [GK-SEC-04] 스마트 스캔 분석 허브 (5:5)
-        # ═══════════════════════════════════════════════════════════════
-        st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-04")}<span class="gk-sec-title">④ 스마트 스캔 분석 허브</span></div>', unsafe_allow_html=True)
-        st.markdown("스마트 스캔 — 보험금 청구 서류, 의무기록, 약관을 업로드하면 AI가 즉시 분석합니다.")
-
-        # ── 상담 고객 선택 (SEC-04) ──────────────────────────────────────
-        _s4_reg = st.session_state.get("gk_client_registry", {})
-        _s4_names = [n for n in _s4_reg.keys() if n not in ("", "익명 고객")]
-        _s4_cur = st.session_state.get("gs_c_name", "") or st.session_state.get("current_c_name", "")
-        _s4_idx = _s4_names.index(_s4_cur) if _s4_cur in _s4_names else 0
-        if _s4_names:
-            _s4_sel = st.selectbox(
-                "👤 상담 고객 선택",
-                options=_s4_names,
-                index=_s4_idx,
-                key="sec04_client_sel",
-                help="GK-SEC-01에서 등록된 고객 목록입니다."
-            )
-            if _s4_sel != _s4_cur:
-                st.session_state["gs_c_name"] = _s4_sel
-                st.session_state["current_c_name"] = _s4_sel
                 st.rerun()
         else:
-            st.info("💡 GK-SEC-01에서 고객 정보를 먼저 입력하세요.")
-
-        _scan_left, _scan_right = st.columns([5, 5], gap="medium")
-        with _scan_left:
-            st.markdown('<div class="gk-scan-controller">', unsafe_allow_html=True)
-            st.markdown(
-                '<p style="font-size:0.88rem;font-weight:700;color:#000000;margin:0 0 10px 0;">'
-                '📂 <strong>스마트 스캔 컨트롤러</strong>: PDF·JPG·PNG 업로드 또는 카메라 촬영. '
-                '📱 모바일: 카메라 앱과 즉시 연동됩니다.</p>',
-                unsafe_allow_html=True)
-            _home_scan_file = st.file_uploader(
-                "파일 업로드", type=["pdf", "jpg", "jpeg", "png", "webp"],
-                key="home_scan_uploader", label_visibility="collapsed",
-                help="최대 10MB · PDF/이미지 · 드래그 앤 드롭 가능",
-                accept_multiple_files=False,
-            )
-            if _home_scan_file:
-                _fsize_mb = len(_home_scan_file.getvalue()) / (1024 * 1024)
-                if _fsize_mb > 10:
-                    st.warning(f"⚠️ 파일 크기({_fsize_mb:.1f}MB) 초과")
-                else:
-                    st.success(f"✅ {_home_scan_file.name} ({_fsize_mb:.1f}MB) — 분석 준비 완료")
-                    st.session_state["home_scan_file"] = _home_scan_file
-            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-            if st.button("⚡ 자료 추출 및 분석 시작", key="btn_home_scan_start",
-                         use_container_width=True, type="primary"):
-                _f = st.session_state.get("home_scan_file")
-                if not _f:
-                    st.warning("먼저 파일을 업로드해 주세요.")
-                else:
-                    with st.spinner("🔍 AI 분석 중..."):
-                        try:
-                            from modules.scan_engine import extract_and_analyze as _sea
-                            _sea_result = _sea(
-                                file_bytes=_f.getvalue(), filename=_f.name,
-                                client=get_client(), session_state=st.session_state,
-                            )
-                            st.session_state["home_scan_result"] = _sea_result
-                            st.session_state["gs_last_result"] = str(_sea_result)[:2000]
-                            st.session_state["home_scan_scroll_trigger"] = True
-                        except Exception:
-                            try:
-                                _raw = extract_pdf_chunks(_f, char_limit=8000)
-                                _cli = get_client()
-                                _resp = _cli.chat.completions.create(
-                                    model=st.session_state.get("model_name", "gemini-2.0-flash"),
-                                    messages=[{"role": "user", "content":
-                                               f"다음 보험 서류를 분석하세요:\n\n{_raw}\n\n"
-                                               "1. 문서 유형 및 핵심 내용 요약\n"
-                                               "2. 보험금 청구 적정성 평가\n"
-                                               "3. 주요 쟁점 및 대응 방안"}],
-                                    max_tokens=2000,
-                                )
-                                _fb_text = _resp.choices[0].message.content
-                                st.session_state["home_scan_result"] = _fb_text
-                                st.session_state["gs_last_result"] = _fb_text[:2000]
-                                st.session_state["home_scan_scroll_trigger"] = True
-                            except Exception as _fb_err:
-                                st.session_state["home_scan_result"] = f"⚠️ 분석 오류: {_fb_err}"
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with _scan_right:
-            _scan_scroll = st.session_state.pop("home_scan_scroll_trigger", False)
-            if _scan_scroll:
-                import streamlit.components.v1 as _scan_c
-                _scan_c.html(
-                    '<script>(function(){var e=document.getElementById("home-scan-result-anchor");'
-                    'if(e)e.scrollIntoView({behavior:"smooth",block:"start"})})();</script>',
-                    height=0)
-            st.markdown(
-                '<div id="home-scan-result-anchor" style="font-size:0.9rem;font-weight:900;'
-                'color:#CC0000;margin-bottom:8px;">🤖 AI 분석 스캔파일 요약</div>',
-                unsafe_allow_html=True)
-            _scan_result = st.session_state.get("home_scan_result")
-            _scan_out = st.empty()
-            with _scan_out.container():
-                if _scan_result:
-                    st.markdown(
-                        f'<div class="gk-scan-output">'
-                        f'<div style="color:#000000;font-size:0.87rem;line-height:1.8;'
-                        f'font-weight:700;white-space:pre-wrap;">{_scan_result}</div></div>',
-                        unsafe_allow_html=True)
-                else:
-                    st.markdown(
-                        '<div class="gk-scan-output">'
-                        '<div style="color:#94a3b8;font-size:0.85rem;text-align:center;'
-                        'padding-top:50px;line-height:2.0;font-weight:700;">'
-                        '📄 파일 업로드 후<br>'
-                        '<strong style="color:#CC0000;">⚡ 분석 시작</strong>을 누르세요.<br><br>'
-                        '<span style="font-size:0.78rem;color:#b0bec5;">'
-                        '· 보험금 청구 적정성<br>· 법리적 쟁점 시뮬레이션<br>· 의무기록 핵심 키워드 요약'
-                        '</span></div></div>',
-                        unsafe_allow_html=True)
-
-        # ── [NAV-04] 내비게이션 바 ─────────────────────────────────────────
-        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
-                    "margin:10px 0 4px 0;'>4 / 7단계 — 스마트 스캔 분석 허브</div>",
-                    unsafe_allow_html=True)
-        _nav04_l, _nav04_r = st.columns([2, 8])
-        with _nav04_l:
-            if st.button("🏠 홈", key="nav04_home", use_container_width=True):
+            if st.button("🏠 홈으로", key=f"tab_home_{tab_key}",
+                         use_container_width=False):
                 _go_tab("home")
-        with _nav04_r:
-            st.markdown(
-                '<div style="background:#E3F2FD !important;border-radius:8px;">',
-                unsafe_allow_html=True)
-            if st.button("🤖 스캔 완료! '포트폴리오 카드' 확인하기 →",
-                         key="nav04_next", use_container_width=True):
-                st.session_state["current_tab"] = "policy_scan"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-04 닫기
-
-        # ═══════════════════════════════════════════════════════════════
-        # [GK-SEC-05] 네비게이션 게이트웨이
-        # ═══════════════════════════════════════════════════════════════
-        st.markdown('<div id="gk-sec-05-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-05")}<span class="gk-sec-title">⑤ 네비게이션 게이트웨이</span></div>', unsafe_allow_html=True)
-
-        # ── A~C 섹션: 3열 ──────────────────────────────────────────────────
-        _pf_c1, _pf_c2, _pf_c3 = st.columns(3, gap="medium")
-        with _pf_c1:
-            st.markdown(f"""<div style="background:#E3F2FD;border:1.5px solid #90CAF9;
-  border-radius:12px;padding:14px 14px 10px 14px;position:relative;min-height:170px;">
-  {_bid('1-5-1')}
-  <div style="font-size:0.78rem;font-weight:900;color:#1565C0;letter-spacing:0.08em;
-    text-transform:uppercase;margin-bottom:6px;">### A-SECTION: Smart Analysis &amp; Hub</div>
-  <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-    <li>보험증권 분석</li>
-    <li>약관 매칭 검색</li>
-    <li>통합 스캔 허브</li>
-    <li>리플렛 분류</li>
-    <li>고객자료 저장함</li>
-    <li>디지털 카탈로그</li>
-    <li>AI 자동 리포트</li>
-  </ol>
-</div>""", unsafe_allow_html=True)
-            if st.button("🔬 A섹션 입장 → 보험증권 분석", key="ag_a_enter", use_container_width=True):
-                _go_tab("policy_scan")
-        with _pf_c2:
-            st.markdown(f"""<div style="background:#F3E5F5;border:1.5px solid #CE93D8;
-  border-radius:12px;padding:14px 14px 10px 14px;position:relative;min-height:170px;">
-  {_bid('1-5-2')}
-  <div style="font-size:0.78rem;font-weight:900;color:#6A1B9A;letter-spacing:0.08em;
-    text-transform:uppercase;margin-bottom:6px;">### B-SECTION: Expert Consulting</div>
-  <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-    <li>신규보험 상담</li>
-    <li>보험금 청구 상담</li>
-    <li>장해 산출</li>
-    <li>상해 통합 관리</li>
-    <li>자동차사고 상담</li>
-    <li>KCD 상해 분석</li>
-    <li>암·뇌·심장 질환 상담</li>
-    <li>기본·통합보험 설계</li>
-    <li>자동차보험 보상 실무</li>
-    <li>LIFE CYCLE 설계</li>
-    <li>LIFE EVENT 상담</li>
-  </ol>
-</div>""", unsafe_allow_html=True)
-            if st.button("🛡️ B섹션 입장 → 신규보험 상담", key="ag_b_enter", use_container_width=True):
-                _go_tab("t0")
-        with _pf_c3:
-            st.markdown(f"""<div style="background:#FFF9C4;border:1.5px solid #F9A825;
-  border-radius:12px;padding:14px 14px 10px 14px;position:relative;min-height:170px;">
-  {_bid('1-5-3')}
-  <div style="font-size:0.78rem;font-weight:900;color:#E65100;letter-spacing:0.08em;
-    text-transform:uppercase;margin-bottom:6px;">### C-SECTION: Wealth &amp; Corporate</div>
-  <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-    <li>노후·상속 설계</li>
-    <li>세무 상담</li>
-    <li>법인 상담</li>
-    <li>CEO 플랜</li>
-    <li>비상장주식 평가</li>
-    <li>화재보험</li>
-    <li>배상책임보험</li>
-  </ol>
-</div>""", unsafe_allow_html=True)
-            if st.button("💼 C섹션 입장 → 노후·상속 설계", key="ag_c_enter", use_container_width=True):
-                _go_tab("t5")
-
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-
-        # ── D~E 섹션: 2열 ──────────────────────────────────────────────────
-        _pf_d1, _pf_d2 = st.columns(2, gap="medium")
-        with _pf_d1:
-            st.markdown(f"""<div style="background:#FCE4EC;border:1.5px solid #F48FB1;
-  border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
-  {_bid('1-5-4')}
-  <div style="font-size:0.78rem;font-weight:900;color:#880E4F;letter-spacing:0.08em;
-    text-transform:uppercase;margin-bottom:6px;">### D-SECTION: Life &amp; Care</div>
-  <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-    <li>LIFE EVENT 상담</li>
-    <li>간병비 컨설팅</li>
-    <li>부동산 투자</li>
-    <li>의학경제학적 보장 컨설팅</li>
-  </ol>
-</div>""", unsafe_allow_html=True)
-            if st.button("🌸 D섹션 입장 → LIFE EVENT 상담", key="ag_d_enter", use_container_width=True):
-                _go_tab("life_event")
-        with _pf_d2:
-            st.markdown(f"""<div style="background:#E8F5E9;border:1.5px solid #A5D6A7;
-  border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
-  {_bid('1-5-5')}
-  <div style="font-size:0.78rem;font-weight:900;color:#1B5E20;letter-spacing:0.08em;
-    text-transform:uppercase;margin-bottom:6px;">### E-SECTION: 보상 시뮬레이션</div>
-  <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-    <li>보상 정보 시뮬레이션 가이드</li>
-    <li>교통사고 보상 가이드</li>
-    <li>산재 보상 가이드</li>
-    <li>일반상해 보상 가이드</li>
-    <li>KCD 상해 분석</li>
-  </ol>
-</div>""", unsafe_allow_html=True)
-            if st.button("🔍 E섹션 입장 → 보상 시뮬레이션", key="ag_e_enter", use_container_width=True):
-                _go_tab("kcd_injury")
-
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-
-        # ── F 섹션: 풀 와이드 ───────────────────────────────────────────────
-        st.markdown(f"""<div style="background:#FFF3E0;border:1.5px solid #FFCC80;
-  border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
-  {_bid('1-5-6')}
-  <div style="font-size:0.78rem;font-weight:900;color:#BF360C;letter-spacing:0.08em;
-    text-transform:uppercase;margin-bottom:6px;">### F-SECTION: 보험봇 · InsuBot (가이딩 프로토콜 제6편 준수)</div>
-  <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-    <li>보험 전문용어 검색 (InsuBot)</li>
-    <li>가이딩 프로토콜 제22조 — 승인 출처 기반 AI 답변</li>
-    <li>제23조 금지 출처 자동 차단</li>
-    <li>제24조 2차 검증 · 제25조 Red Alert 시스템</li>
-    <li>보험 판례 · 사례 검색</li>
-  </ol>
-</div>""", unsafe_allow_html=True)
-        if st.button("🤖 F섹션 입장 → 보험봇 · InsuBot", key="ag_f_enter", use_container_width=True):
-            _go_tab("ins_bot")
-
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-
-        # ── [G 섹션] CRM 마스터 키 — 통합 고객 관리 요새 ─────────────────
-        st.markdown(f"""<div style="background:#f0fdf4;border:2px solid #16a34a;
-  border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
-  {_bid('1-5-7')}
-  <div style="font-size:0.78rem;font-weight:900;color:#15803d;letter-spacing:0.08em;
-    text-transform:uppercase;margin-bottom:6px;">
-    🗝️ G-SECTION: CRM 마스터 키 — The Master Gate</div>
-  <div style="display:flex;gap:20px;flex-wrap:wrap;">
-    <div style="flex:1;min-width:200px;">
-      <div style="font-size:0.75rem;font-weight:900;color:#065f46;margin-bottom:4px;">
-        📥 통합 입력 폼 (3단계 스테퍼)</div>
-      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 0 16px;padding:0;line-height:1.8;">
-        <li>인적 자원 등록 (중복 방지 자동검색)</li>
-        <li>관계망 형성 (가족·소개자 즉시 연결)</li>
-        <li>증권·역할 할당 (다중 피보험자 지원)</li>
-      </ol>
-    </div>
-    <div style="flex:1;min-width:200px;">
-      <div style="font-size:0.75rem;font-weight:900;color:#065f46;margin-bottom:4px;">
-        📊 전략적 전황판 (Dashboard)</div>
-      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 0 16px;padding:0;line-height:1.8;">
-        <li>Key Metrics (가족 합산 보험료·증권 수)</li>
-        <li>가족 관계도 (클릭 전환)</li>
-        <li>보장 공백 Bar차트 (KB 7대 분류)</li>
-        <li>계약자·피보험자 증권 탭 분리</li>
-      </ol>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
-        if st.button("🗝️ G섹션 입장 → CRM 마스터 키",
-                     key="ag_crm_enter", use_container_width=True):
-            _go_tab("crm_gate")
-
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-
-        # ── [특별파트] 고객상담 특별파트 카드 ────────────────────────────
-        st.markdown(f"""<div style="background:#1e293b;border:2px solid #f59e0b;
-  border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
-  <div style="font-size:0.78rem;font-weight:900;color:#f59e0b;letter-spacing:0.08em;
-    text-transform:uppercase;margin-bottom:6px;">🎯 SPECIAL OPS: 고객상담 특별파트</div>
-  <ol style="font-size:0.79rem;color:#e2e8f0;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-    <li>Step 1: 고객정보 자동 미러링</li>
-    <li>Step 2: 내보험다보여 동의 문자 발송</li>
-    <li>Step 3: 보험 가입 현황 수집</li>
-    <li>Step 4: KOSIS 통계 × 보장 공백 분석</li>
-    <li>Step 5: 카카오 알림톡 리포트 발송</li>
-  </ol>
-</div>""", unsafe_allow_html=True)
-        if st.button("🎯 특별파트 입장 → 고객상담 5단계",
-                     key="ag_sops_enter", use_container_width=True):
-            _go_tab("special_ops")
-
-        # ── [NAV-05] 내비게이션 바 ─────────────────────────────────────────
-        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
-                    "margin:10px 0 4px 0;'>5 / 7단계 — 네비게이션 게이트웨이</div>",
-                    unsafe_allow_html=True)
-        _nav05_l, _nav05_r = st.columns([2, 8])
-        with _nav05_l:
-            if st.button("🏠 홈", key="nav05_home", use_container_width=True):
-                _go_tab("home")
-        with _nav05_r:
-            st.markdown(
-                '<div style="background:#E3F2FD !important;border-radius:8px;">',
-                unsafe_allow_html=True)
-            if st.button("🏆 마스터의 제언! '보험사 컨택 센터' 연결 →",
-                         key="nav05_next", use_container_width=True):
-                st.session_state["_home_scroll_to_sec06"] = True
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-05 닫기
-
-        # ═══════════════════════════════════════════════════════════════
-        # [GK-SEC-06] 보험사 컨택 센터
-        # ═══════════════════════════════════════════════════════════════
-        st.markdown('<div id="gk-sec-06-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-06")}<span class="gk-sec-title">⑥ 보험사 컨택 센터</span></div>', unsafe_allow_html=True)
-
-        _nonlife_contacts = [
-            ("삼성화재",   "1588-5114", "https://www.samsungfire.com"),
-            ("현대해상",   "1588-5656", "https://www.hi.co.kr"),
-            ("DB손해보험", "1588-0100", "https://www.idbins.com"),
-            ("KB손해보험", "1588-0114", "https://www.kbinsure.co.kr"),
-            ("메리츠화재", "1566-7711", "https://www.meritzfire.com"),
-            ("한화손해보험","1566-8000", "https://www.hwgeneralins.com"),
-            ("롯데손해보험","1588-3344", "https://www.lottege.com"),
-            ("MG손해보험", "1588-5959", "https://www.mggeneralins.com"),
-            ("흥국화재",   "1688-1688", "https://www.heungkukfire.co.kr"),
-            ("농협손해보험","1644-9000", "https://www.nonghyupins.com"),
-        ]
-        _life_contacts = [
-            ("삼성생명",   "1588-3114", "https://www.samsunglife.com"),
-            ("한화생명",   "1588-6363", "https://www.hanwhalife.com"),
-            ("교보생명",   "1588-1001", "https://www.kyobo.co.kr"),
-            ("NH농협생명", "1588-2100", "https://www.nhlife.co.kr"),
-            ("신한라이프", "1588-5580", "https://www.shinhanlife.co.kr"),
-            ("미래에셋생명","1588-0220", "https://www.miraeassetlife.co.kr"),
-            ("흥국생명",   "1588-2288", "https://www.heungkuklife.co.kr"),
-            ("동양생명",   "1577-1004", "https://www.myangel.co.kr"),
-            ("ABL생명",    "1588-6500", "https://www.abllife.co.kr"),
-            ("DB생명",     "1588-3131", "https://www.idblife.com"),
-        ]
-
-        def _make_grid_html(contacts, bg, title):
-            rows = ""
-            for i, (_cn, _cp, _cu) in enumerate(contacts, 1):
-                _num_raw = _cp.replace("-", "")
-                rows += (
-                    f'<a href="tel:{_num_raw}" style="text-decoration:none;display:block;">'
-                    f'<div style="border:1px dashed #000000;border-radius:8px;'
-                    f'padding:9px 10px;background:{bg};cursor:pointer;height:100%;'
-                    f'box-sizing:border-box;">'
-                    f'<div style="font-size:0.72rem;font-weight:700;color:#555555;'
-                    f'margin-bottom:2px;">{i}.</div>'
-                    f'<div style="font-weight:900;color:#000000;font-size:0.86rem;'
-                    f'line-height:1.3;">{_cn}</div>'
-                    f'<div style="font-weight:700;color:#000000;font-size:0.82rem;'
-                    f'margin-top:3px;">📞 {_cp}</div>'
-                    f'</div></a>'
-                )
-            grid = (
-                f'<div style="font-weight:900;color:#000000;font-size:0.92rem;'
-                f'margin-bottom:10px;">{title}</div>'
-                f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
-                f'{rows}</div>'
-            )
-            return grid
-
-        _col_nl, _col_lf = st.columns([5, 5])
-        with _col_nl:
-            st.markdown(
-                _make_grid_html(_nonlife_contacts, "#E3F2FD", "🏠 1. 손해보험사 (긴급출동/사고접수)"),
-                unsafe_allow_html=True)
-        with _col_lf:
-            st.markdown(
-                _make_grid_html(_life_contacts, "#FFEBEE", "💖 2. 생명보험사 (상담/접수)"),
-                unsafe_allow_html=True)
-
-        # ── [NAV-06] 내비게이션 바 ─────────────────────────────────────────
-        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
-                    "margin:10px 0 4px 0;'>6 / 7단계 — 보험사 컨택 센터</div>",
-                    unsafe_allow_html=True)
-        _nav06_l, _nav06_r = st.columns([2, 8])
-        with _nav06_l:
-            if st.button("🏠 홈", key="nav06_home", use_container_width=True):
-                _go_tab("home")
-        with _nav06_r:
-            st.markdown(
-                '<div style="background:#E3F2FD !important;border-radius:8px;">',
-                unsafe_allow_html=True)
-            if st.button("🔐 관리자 게이트 '시스템 설정' 이동 →",
-                         key="nav06_next", use_container_width=True):
-                st.session_state["_home_scroll_to_sec07"] = True
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-06 닫기
-
-        # ═══════════════════════════════════════════════════════════════
-        # [GK-SEC-07] 관리자 게이트
-        # ═══════════════════════════════════════════════════════════════
-        st.markdown('<div id="gk-sec-07-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-07")}<span class="gk-sec-title">⑦ 관리자 게이트</span></div>', unsafe_allow_html=True)
-
-        _adm_c1, _adm_c2 = st.columns([1, 1])
-        with _adm_c1:
-            if st.session_state.get("is_admin") or st.session_state.get("user_type") == "admin":
-                st.markdown("**🔐 관리자 로그인 상태**")
-                if st.button("⚙️ 관리자 패널", key="sec07_admin_panel", use_container_width=True):
-                    _go_tab("admin")
-            else:
-                st.markdown("관리자 전용 — 권한 있는 계정으로 로그인하세요.")
-        with _adm_c2:
-            _show_bid_now = st.session_state.get("show_block_ids", False)
-            if st.toggle("🔢 섹션 ID 표시", value=_show_bid_now, key="sec07_bid_toggle"):
-                st.session_state["show_block_ids"] = True
-            else:
-                st.session_state["show_block_ids"] = False
-
-        # ── [NAV-07] 내비게이션 바 ─────────────────────────────────────────
-        st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;margin:10px 0 4px 0;'>7 / 7단계 — 관리자 게이트 (마지막 단계)</div>", unsafe_allow_html=True)
-        _nav07_l, _nav07_r = st.columns([2, 8])
-        with _nav07_l:
-            if st.button("🏠 홈", key="nav07_home", use_container_width=True):
-                _go_tab("home")
-        with _nav07_r:
-            st.markdown('<div style="background:#E3F2FD !important;border-radius:8px;">', unsafe_allow_html=True)
-            if st.button("🔄 처음으로 — '고객 마스터 데이터' 재입력하기 →", key="nav07_next", use_container_width=True):
-                st.session_state["_scroll_top"] = True
-                st.session_state["_home_scroll_to_sec01"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-07 닫기
-
-        # ═══════════════════════════════════════════════════════════════
-        # [상담 깔때기] 하단 상담 섹터 — 액션 그리드에서 스크롤 진입
-        # ═══════════════════════════════════════════════════════════════
-
-        # ── 증권분석 버튼 특수 로직 (크롤링 병목 통과) ────────────────
-        if st.session_state.pop("_sec02_securities_clicked", False):
-            with st.spinner("내보험다보여 데이터 크롤링 및 취합 중..."):
-                import time as _time_sec
-                _time_sec.sleep(2)
-                st.session_state["_securities_data_ready"] = True
-                st.session_state["_securities_crawled_at"] = _time_sec.time()
-            st.session_state["target_sector"] = "securities"
-            st.session_state["_home_scroll_to_sector_securities"] = True
-            st.rerun()
-
-        # ── 증권분석 · 특별 상담 진입 버튼 섹션 ─────────────────────
-        st.markdown(
-            '<div class="gk-sec" style="border-top:4px solid #7c3aed;">'
-            '<span class="gk-sec-title" style="color:#7c3aed;">📊 증권분석 · 특별 상담 진입</span>',
-            unsafe_allow_html=True)
-        _sbtn_c1, _sbtn_c2, _sbtn_c3 = st.columns(3, gap="small")
-        with _sbtn_c1:
-            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("📊 통합 증권분석 (내보험다보여)", key="sec_securities_enter", use_container_width=True):
-                st.session_state["_sec02_securities_clicked"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with _sbtn_c2:
-            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("🔥 화재보험 섹터로", key="sec_fire_enter2", use_container_width=True):
-                st.session_state["target_sector"] = "fire"
-                st.session_state["_home_scroll_to_sector_fire"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with _sbtn_c3:
-            st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-            if st.button("🚗 자동차보험 섹터로", key="sec_auto_enter2", use_container_width=True):
-                st.session_state["target_sector"] = "auto"
-                st.session_state["_home_scroll_to_sector_auto"] = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # ════════════════════════════════════════════════════════════════
-        # [LAZY ROUTER] — target_sector 기반 지연 실행 (Lazy Execution)
-        # None 또는 "all" → 전체 보기 | 특정 값 → 해당 섹터만 실행
-        # ════════════════════════════════════════════════════════════════
-        _lazy_sector = st.session_state.get("target_sector") or "all"
-        # [SECTOR-CANCER] 암 상담 섹터
-        # ════════════════════════════════════════════════════════════════
-        if _lazy_sector in ("all", "cancer"):
-            st.markdown('<div id="sector_cancer" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
-            _ts_cancer = _lazy_sector == "cancer"
-            _cancer_badge = ('<span style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;'
-                             'padding:2px 8px;font-size:0.75rem;color:#dc2626;margin-left:10px;">▶ 진입됨</span>'
-                             if _ts_cancer else "")
-            st.markdown(
-                f'<div class="gk-sec" style="border-top:4px solid #dc2626;">'
-                f'<span class="gk-sec-title" style="color:#dc2626;">🔴 암 보장 상담 센터</span>{_cancer_badge}',
-                unsafe_allow_html=True)
-            st.markdown(
-                "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
-                "암 진단비 · 항암치료비 · 수술비 · 요양병원 입원일당 — 가처분 소득 기반 최적 설계</div>",
-                unsafe_allow_html=True)
-            _cancer_q = st.text_area(
-                "암 관련 질문 입력",
-                placeholder="예) 40대 여성 암보험 추천, 갑상선암 소액암 기준...",
-                height=100, key="sector_cancer_query")
-            if st.button("🔍 암 보장 AI 분석", key="sector_cancer_ai", use_container_width=True, type="primary"):
-                if _cancer_q and _cancer_q.strip():
-                    with st.spinner("AI 암 보장 분석 중..."):
-                        try:
-                            _cc = get_client()
-                            _cc_resp = _cc.chat.completions.create(
-                                model=st.session_state.get("model_name", "gemini-2.0-flash"),
-                                messages=[
-                                    {"role": "system", "content": (
-                                        "당신은 암보험 전문 컨설턴트입니다. "
-                                        f"고객명: {st.session_state.get('scan_client_name','고객')}. "
-                                        "KB 7대 분류 기준으로 암 보장 공백을 분석하고 권장액을 제시하세요.")},
-                                    {"role": "user", "content": _cancer_q.strip()},
-                                ], max_tokens=1200)
-                            st.session_state["sector_cancer_result"] = _cc_resp.choices[0].message.content
-                        except Exception as _cce:
-                            st.session_state["sector_cancer_result"] = f"⚠️ 오류: {_cce}"
-                else:
-                    st.warning("질문을 입력해 주세요.")
-            _cancer_result = st.session_state.get("sector_cancer_result")
-            if _cancer_result:
-                st.markdown(
-                    f'<div class="gk-ai-output-box" style="min-height:120px;max-height:280px;">'
-                    f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
-                    f'{_cancer_result}</div></div>', unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-            if st.button("🔴 암보험 전문 분석 탭으로 →", key="sector_cancer_goto_t1"):
-                _go_tab("t1")
-            st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-CANCER 닫기
-
-        # ════════════════════════════════════════════════════════════════
-        # [SECTOR-STROKE] 뇌졸중·뇌혈관 상담 섹터
-        # ════════════════════════════════════════════════════════════════
-        if _lazy_sector in ("all", "stroke"):
-            st.markdown('<div id="sector_stroke" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
-            _ts_stroke = _lazy_sector == "stroke"
-            _stroke_badge = ('<span style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:6px;'
-                             'padding:2px 8px;font-size:0.75rem;color:#7c3aed;margin-left:10px;">▶ 진입됨</span>'
-                             if _ts_stroke else "")
-            st.markdown(
-                f'<div class="gk-sec" style="border-top:4px solid #7c3aed;">'
-                f'<span class="gk-sec-title" style="color:#7c3aed;">🧠 뇌졸중·뇌혈관 보장 상담 센터</span>{_stroke_badge}',
-                unsafe_allow_html=True)
-            st.markdown(
-                "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
-                "뇌졸중·뇌경색·뇌출혈 진단비 — 가이딩 프로토콜 제32조 18개월 소득대체 기준 분석</div>",
-                unsafe_allow_html=True)
-            _stroke_l, _stroke_r = st.columns([5, 5], gap="medium")
-            with _stroke_l:
-                st.markdown(
-                    "<div style='border:1px dashed #7c3aed;border-radius:8px;"
-                    "padding:12px 14px;background:#f5f3ff;'>"
-                    "<div style='font-weight:900;color:#7c3aed;font-size:0.85rem;margin-bottom:8px;'>"
-                    "📋 뇌혈관 보장 체크리스트</div>",
-                    unsafe_allow_html=True)
-                for _si2, (_sn, _sstd, _sdesc) in enumerate([
-                    ("뇌졸중 진단비", "2,000만원 이상", "뇌경색·뇌출혈 통합 / 제32조 기준"),
-                    ("뇌경색 진단비", "2,000만원 이상", "허혈성 뇌졸중 별도 보장 여부"),
-                    ("뇌출혈 진단비", "1,000만원 이상", "출혈성 뇌졸중 별도 보장"),
-                    ("뇌혈관 수술비", "500만원/회 이상", "코일색전술·클리핑 포함"),
-                    ("뇌졸중 입원일당", "3만원/일 이상", "요양병원 180일 한도 확인"),
-                ]):
-                    _sbg2 = "#f5f3ff" if _si2 % 2 == 0 else "#ffffff"
-                    st.markdown(
-                        f'<div style="background:{_sbg2};border-bottom:1px solid #c4b5fd;padding:6px 8px;font-size:0.82rem;">'
-                        f'<span style="font-weight:900;color:#000;">{_sn}</span>'
-                        f' <span style="color:#7c3aed;font-weight:700;">권장: {_sstd}</span>'
-                        f'<br><span style="color:#64748b;font-size:0.75rem;">{_sdesc}</span></div>',
-                        unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-            with _stroke_r:
-                st.markdown(
-                    "<div style='border:1px dashed #7c3aed;border-radius:8px;"
-                    "padding:12px 14px;background:#f5f3ff;'>"
-                    "<div style='font-weight:900;color:#7c3aed;font-size:0.85rem;margin-bottom:8px;'>"
-                    "🤖 AI 뇌혈관 보장 분석</div>",
-                    unsafe_allow_html=True)
-                _stroke_q = st.text_area(
-                    "뇌혈관 관련 질문 입력",
-                    placeholder="예) 50대 남성 뇌졸중보험, 뇌경색 뇌출혈 차이...",
-                    height=100, key="sector_stroke_query")
-                if st.button("🔍 뇌혈관 보장 AI 분석", key="sector_stroke_ai", use_container_width=True, type="primary"):
-                    if _stroke_q and _stroke_q.strip():
-                        with st.spinner("AI 뇌혈관 보장 분석 중..."):
-                            try:
-                                _sc3 = get_client()
-                                _sc3_resp = _sc3.chat.completions.create(
-                                    model=st.session_state.get("model_name", "gemini-2.0-flash"),
-                                    messages=[
-                                        {"role": "system", "content": (
-                                            "당신은 뇌혈관질환 보험 전문 컨설턴트입니다. "
-                                            f"고객명: {st.session_state.get('scan_client_name','고객')}. "
-                                            "가이딩 프로토콜 제32조(뇌졸중 18개월 소득대체) 기준으로 분석하세요.")},
-                                        {"role": "user", "content": _stroke_q.strip()},
-                                    ], max_tokens=1200)
-                                st.session_state["sector_stroke_result"] = _sc3_resp.choices[0].message.content
-                            except Exception as _sce3:
-                                st.session_state["sector_stroke_result"] = f"⚠️ 오류: {_sce3}"
-                    else:
-                        st.warning("질문을 입력해 주세요.")
-                _stroke_result = st.session_state.get("sector_stroke_result")
-                if _stroke_result:
-                    st.markdown(
-                        f'<div class="gk-ai-output-box" style="min-height:120px;max-height:280px;">'
-                        f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
-                        f'{_stroke_result}</div></div>', unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-            if st.button("🧠 뇌·심장 전문 분석 탭으로 →", key="sector_stroke_goto_t2"):
-                _go_tab("t2")
-            st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-STROKE 닫기
-
-        # ════════════════════════════════════════════════════════════════
-        # [SECTOR-FIRE] 화재보험 상담 섹터
-        # ════════════════════════════════════════════════════════════════
-        if _lazy_sector in ("all", "fire"):
-            st.markdown('<div id="sector_fire" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
-            _ts_fire = _lazy_sector == "fire"
-            _fire_badge = ('<span style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;'
-                           'padding:2px 8px;font-size:0.75rem;color:#ea580c;margin-left:10px;">▶ 진입됨</span>'
-                           if _ts_fire else "")
-            st.markdown(
-                f'<div class="gk-sec" style="border-top:4px solid #ea580c;">'
-                f'<span class="gk-sec-title" style="color:#ea580c;">🔥 화재보험 전술 상담 센터</span>{_fire_badge}',
-                unsafe_allow_html=True)
-            st.markdown(
-                "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
-                "화재보험 보장 분석 · 건물·가재도구·배상책임 — 신가보상 기준 최적 설계</div>",
-                unsafe_allow_html=True)
-            _fire_l, _fire_r = st.columns([5, 5], gap="medium")
-            with _fire_l:
-                st.markdown(
-                    "<div style='border:1px dashed #ea580c;border-radius:8px;"
-                    "padding:12px 14px;background:#fff7ed;'>"
-                    "<div style='font-weight:900;color:#ea580c;font-size:0.85rem;margin-bottom:8px;'>"
-                    "📋 화재보험 체크리스트</div>",
-                    unsafe_allow_html=True)
-                for _fi, (_fn, _fstd, _fdesc) in enumerate([
-                    ("건물 화재손해", "재건축비 100% 보상", "감가상각 없는 신가보상 확인"),
-                    ("가재도구 손해", "실손 보상 한도 확인", "귀중품·전자기기 별도 특약"),
-                    ("배상책임", "1억원 이상 권장", "임차인·제3자 배상책임 포함"),
-                    ("수해·풍재", "특약 가입 여부 확인", "태풍·홍수·지진 포함 여부"),
-                    ("법적 강제보험", "다중이용업소 의무 가입", "화재배상책임보험 법령 확인"),
-                ]):
-                    _fbg = "#fff7ed" if _fi % 2 == 0 else "#ffffff"
-                    st.markdown(
-                        f'<div style="background:{_fbg};border-bottom:1px solid #fed7aa;padding:6px 8px;font-size:0.82rem;">'
-                        f'<span style="font-weight:900;color:#000;">{_fn}</span>'
-                        f' <span style="color:#ea580c;font-weight:700;">{_fstd}</span>'
-                        f'<br><span style="color:#64748b;font-size:0.75rem;">{_fdesc}</span></div>',
-                        unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-            with _fire_r:
-                st.markdown(
-                    "<div style='border:1px dashed #ea580c;border-radius:8px;"
-                    "padding:12px 14px;background:#fff7ed;'>"
-                    "<div style='font-weight:900;color:#ea580c;font-size:0.85rem;margin-bottom:8px;'>"
-                    "🤖 AI 화재보험 상담</div>",
-                    unsafe_allow_html=True)
-                _fire_q = st.text_area(
-                    "화재보험 질문 입력",
-                    placeholder="예) 상가 화재보험 가입 기준, 임차인 배상책임...",
-                    height=100, key="sector_fire_query")
-                if st.button("🔍 화재보험 AI 상담", key="sector_fire_ai", use_container_width=True, type="primary"):
-                    if _fire_q and _fire_q.strip():
-                        with st.spinner("AI 화재보험 분석 중..."):
-                            try:
-                                _fc = get_client()
-                                _fc_resp = _fc.chat.completions.create(
-                                    model=st.session_state.get("model_name", "gemini-2.0-flash"),
-                                    messages=[
-                                        {"role": "system", "content": (
-                                            "당신은 화재보험·배상책임보험 전문 컨설턴트입니다. "
-                                            "주택·상가·공장·다중이용업소의 화재보험 가입 기준과 "
-                                            "배상책임, 재물손해 보장 구조를 실무 관점에서 안내하세요.")},
-                                        {"role": "user", "content": _fire_q.strip()},
-                                    ], max_tokens=1200)
-                                st.session_state["sector_fire_result"] = _fc_resp.choices[0].message.content
-                            except Exception as _fce:
-                                st.session_state["sector_fire_result"] = f"⚠️ 오류: {_fce}"
-                    else:
-                        st.warning("질문을 입력해 주세요.")
-                _fire_result = st.session_state.get("sector_fire_result")
-                if _fire_result:
-                    st.markdown(
-                        f'<div class="gk-ai-output-box" style="min-height:120px;max-height:280px;">'
-                        f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
-                        f'{_fire_result}</div></div>', unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-            if st.button("🔥 화재보험 전문 분석 탭으로 →", key="sector_fire_goto"):
-                _go_tab("gk_sec08")
-            st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-FIRE 닫기
-
-        # ════════════════════════════════════════════════════════════════
-        # [SECTOR-AUTO] 자동차보험 상담 섹터
-        # ════════════════════════════════════════════════════════════════
-        if _lazy_sector in ("all", "auto"):
-            st.markdown('<div id="sector_auto" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
-            _ts_auto = _lazy_sector == "auto"
-            _auto_badge = ('<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;'
-                           'padding:2px 8px;font-size:0.75rem;color:#0369a1;margin-left:10px;">▶ 진입됨</span>'
-                           if _ts_auto else "")
-            st.markdown(
-                f'<div class="gk-sec" style="border-top:4px solid #0369a1;">'
-                f'<span class="gk-sec-title" style="color:#0369a1;">🚗 자동차보험 전술 상담 센터</span>{_auto_badge}',
-                unsafe_allow_html=True)
-            st.markdown(
-                "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
-                "자동차보험 보장 분석 · 교통사고 보상 실무 · 형사합의금 · 운전자보험 연계</div>",
-                unsafe_allow_html=True)
-            _auto_l, _auto_r = st.columns([5, 5], gap="medium")
-            with _auto_l:
-                st.markdown(
-                    "<div style='border:1px dashed #0369a1;border-radius:8px;"
-                    "padding:12px 14px;background:#eff6ff;'>"
-                    "<div style='font-weight:900;color:#0369a1;font-size:0.85rem;margin-bottom:8px;'>"
-                    "📋 자동차보험 체크리스트</div>",
-                    unsafe_allow_html=True)
-                for _ai2, (_an, _astd, _adesc) in enumerate([
-                    ("대인배상Ⅱ", "무한 가입 필수", "상해사망·부상 치료비 전액"),
-                    ("대물배상", "2억원 이상 권장", "고가차량·시설물 사고 대비"),
-                    ("자기신체사고", "사망 1.5억 이상", "운전자 본인 신체 보장"),
-                    ("무보험차상해", "가입 여부 확인", "상대방 무보험 시 내 보험 청구"),
-                    ("운전자보험 연계", "형사합의금 3,000만원+", "교통사고처리특례법 연계"),
-                ]):
-                    _abg2 = "#eff6ff" if _ai2 % 2 == 0 else "#ffffff"
-                    st.markdown(
-                        f'<div style="background:{_abg2};border-bottom:1px solid #bfdbfe;padding:6px 8px;font-size:0.82rem;">'
-                        f'<span style="font-weight:900;color:#000;">{_an}</span>'
-                        f' <span style="color:#0369a1;font-weight:700;">{_astd}</span>'
-                        f'<br><span style="color:#64748b;font-size:0.75rem;">{_adesc}</span></div>',
-                        unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-            with _auto_r:
-                st.markdown(
-                    "<div style='border:1px dashed #0369a1;border-radius:8px;"
-                    "padding:12px 14px;background:#eff6ff;'>"
-                    "<div style='font-weight:900;color:#0369a1;font-size:0.85rem;margin-bottom:8px;'>"
-                    "🤖 AI 자동차보험 상담</div>",
-                    unsafe_allow_html=True)
-                _auto_q = st.text_area(
-                    "자동차보험 질문 입력",
-                    placeholder="예) 교통사고 과실비율, 형사합의금 기준...",
-                    height=100, key="sector_auto_query")
-                if st.button("🔍 자동차보험 AI 상담", key="sector_auto_ai", use_container_width=True, type="primary"):
-                    if _auto_q and _auto_q.strip():
-                        with st.spinner("AI 자동차보험 분석 중..."):
-                            try:
-                                _ac = get_client()
-                                _ac_resp = _ac.chat.completions.create(
-                                    model=st.session_state.get("model_name", "gemini-2.0-flash"),
-                                    messages=[
-                                        {"role": "system", "content": (
-                                            "당신은 자동차보험·운전자보험 전문 컨설턴트입니다. "
-                                            "교통사고 과실비율, 형사합의금, 대인·대물·자기신체 보장 구조, "
-                                            "운전자보험 연계 전략을 실무 관점에서 상담하세요.")},
-                                        {"role": "user", "content": _auto_q.strip()},
-                                    ], max_tokens=1200)
-                                st.session_state["sector_auto_result"] = _ac_resp.choices[0].message.content
-                            except Exception as _ace:
-                                st.session_state["sector_auto_result"] = f"⚠️ 오류: {_ace}"
-                    else:
-                        st.warning("질문을 입력해 주세요.")
-                _auto_result = st.session_state.get("sector_auto_result")
-                if _auto_result:
-                    st.markdown(
-                        f'<div class="gk-ai-output-box" style="min-height:120px;max-height:280px;">'
-                        f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
-                        f'{_auto_result}</div></div>', unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-            if st.button("🚗 자동차보험 전문 분석 탭으로 →", key="sector_auto_goto"):
-                _go_tab("gk_sec07")
-            st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-AUTO 닫기
-
-        # ════════════════════════════════════════════════════════════════
-        # [SECTOR-SECURITIES] 통합 증권분석 섹터 (내보험다보여 연계)
-        # ════════════════════════════════════════════════════════════════
-        if _lazy_sector in ("all", "securities"):
-            st.markdown('<div id="sector_securities" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
-            _sec_data_ready = st.session_state.get("_securities_data_ready", False)
-            _sec_badge = ('<span style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;'
-                          'padding:2px 8px;font-size:0.75rem;color:#059669;margin-left:10px;">▶ 데이터 취합 완료</span>'
-                          if _sec_data_ready else "")
-            st.markdown(
-                f'<div class="gk-sec" style="border-top:4px solid #059669;">'
-                f'<span class="gk-sec-title" style="color:#059669;">📊 통합 증권분석 센터 (내보험다보여)</span>{_sec_badge}',
-                unsafe_allow_html=True)
-            st.markdown(
-                "<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>"
-                "내보험다보여 데이터 기반 전체 보험증권 통합 분석 · KB 7대 분류 보장공백 진단</div>",
-                unsafe_allow_html=True)
-            if not _sec_data_ready:
-                st.info(
-                    "💡 상단 **📊 통합 증권분석** 버튼 클릭 시 내보험다보여 데이터를 크롤링·취합 후 이 섹터로 자동 이동됩니다.\n\n"
-                    "또는 아래에서 직접 보험증권 정보를 입력하여 분석하세요."
-                )
-            _sec_l, _sec_r = st.columns([5, 5], gap="medium")
-            with _sec_l:
-                st.markdown(
-                    "<div style='border:1px dashed #059669;border-radius:8px;"
-                    "padding:12px 14px;background:#ecfdf5;'>"
-                    "<div style='font-weight:900;color:#059669;font-size:0.85rem;margin-bottom:8px;'>"
-                    "📋 보유 보험증권 목록 (직접 입력)</div>",
-                    unsafe_allow_html=True)
-                _sec_policy_input = st.text_area(
-                    "보유 증권 요약 입력",
-                    value=st.session_state.get("_securities_policy_text", ""),
-                    placeholder=(
-                        "예)\n삼성생명 종신보험 (2015년) — 사망 1억\n"
-                        "DB손해보험 통합보험 (2019년) — 암3000 뇌2000 심2000\n"
-                        "메리츠화재 실손의료비 (2021년) — 3세대"
-                    ),
-                    height=130, key="sector_sec_policy_input")
-                if st.button("💾 증권 목록 저장", key="sector_sec_save", use_container_width=True):
-                    st.session_state["_securities_policy_text"] = _sec_policy_input
-                    st.success("✅ 증권 목록 저장 완료")
-                st.markdown("</div>", unsafe_allow_html=True)
-            with _sec_r:
-                st.markdown(
-                    "<div style='border:1px dashed #059669;border-radius:8px;"
-                    "padding:12px 14px;background:#ecfdf5;'>"
-                    "<div style='font-weight:900;color:#059669;font-size:0.85rem;margin-bottom:8px;'>"
-                    "🤖 AI 통합 증권분석</div>",
-                    unsafe_allow_html=True)
-                _sec_q = st.text_area(
-                    "증권분석 질문 입력",
-                    placeholder="예) 보장공백 분석, 중복보험 확인, KB 7대 분류 기준 검토...",
-                    height=80, key="sector_sec_query")
-                if st.button("🔍 통합 증권 AI 분석", key="sector_sec_ai", use_container_width=True, type="primary"):
-                    _policy_text = st.session_state.get("_securities_policy_text", "") or _sec_policy_input
-                    if not _policy_text and not (_sec_q and _sec_q.strip()):
-                        st.warning("증권 목록 또는 질문을 입력해 주세요.")
-                    else:
-                        with st.spinner("AI 통합 증권분석 중..."):
-                            try:
-                                _sec2_c = get_client()
-                                _sec2_user = f"[보유 증권]\n{_policy_text}\n\n[질문]\n{_sec_q or '전체 보장공백 분석'}"
-                                _sec2_resp = _sec2_c.chat.completions.create(
-                                    model=st.session_state.get("model_name", "gemini-2.0-flash"),
-                                    messages=[
-                                        {"role": "system", "content": (
-                                            "당신은 보험증권 통합분석 전문가입니다. "
-                                            f"고객명: {st.session_state.get('scan_client_name','고객')}. "
-                                            "KB 7대 분류 기준으로 보장공백·중복보험·적정 보장 여부를 분석하고 "
-                                            "KOSIS 통계 기반 우선순위를 제시하세요.")},
-                                        {"role": "user", "content": _sec2_user},
-                                    ], max_tokens=1800)
-                                st.session_state["sector_sec_result"] = _sec2_resp.choices[0].message.content
-                            except Exception as _sec2e:
-                                st.session_state["sector_sec_result"] = f"⚠️ 오류: {_sec2e}"
-                _sec_result = st.session_state.get("sector_sec_result")
-                if _sec_result:
-                    st.markdown(
-                        f'<div class="gk-ai-output-box" style="min-height:120px;max-height:320px;">'
-                        f'<div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'
-                        f'{_sec_result}</div></div>', unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown(
-                "<div style='background:#ecfdf5;border:1.5px solid #6ee7b7;border-radius:10px;"
-                "padding:10px 14px;margin:10px 0;font-size:0.82rem;color:#065f46;'>"
-                "💡 <b>깔때기 구조</b>: 각 상담 섹터 데이터는 GK-SEC-01 고객 마스터에 태깅됩니다. "
-                "최종 통합 분석은 <b>특별파트 5단계</b> 또는 <b>가문 안보 리포트</b>에서 완성됩니다."
-                "</div>",
-                unsafe_allow_html=True)
-            if st.button("📊 보험증권 전문 분석 탭으로 →", key="sector_sec_goto"):
-                _go_tab("policy_scan")
-            st.markdown('</div>', unsafe_allow_html=True)  # SECTOR-SECURITIES 닫기
-
-    # ══════════════════════════════════════════════════════════════════════
-    # 전문가 제언: 응접실(메뉴창) 하부에 가벼운 공용 메모리를 두어
-    # 기둥 간 데이터 공유를 매끄럽게 처리 (Data Consistency 보완)
-    # ══════════════════════════════════════════════════════════════════════
-    _GS_DEFAULTS = {
-        "gs_c_name":       "",      # 현재 상담 고객명 (기둥 간 공유)
-        "gs_hi_premium":   0,       # 건강보험료 (기둥 간 공유)
-        "gs_product_key":  "",      # 현재 상담 상품 키
-        "gs_last_tab":     "home",  # 직전 방문 탭 (Deep Link 복귀용)
-        "gs_last_result":  "",      # 직전 AI 분석 결과 요약 (기둥 간 참조)
-        "gs_consult_mode": "",      # 종사자/비종사자 모드 (사이드바 연동)
-        "gs_pref_ins":     "",      # 선호 보험사 (사이드바 연동)
-        "gs_c_phone":      "",      # 현재 상담 고객 전화번호 (카카오 발송 기본값)
-    }
-
-    def _gs_init():
-        """Global Store 초기화 — 미설정 키만 기본값으로 채움"""
-        for k, v in _GS_DEFAULTS.items():
-            if k not in st.session_state:
-                st.session_state[k] = v
-        # 사이드바 설정값을 GS에 동기화
-        st.session_state["gs_consult_mode"] = st.session_state.get("user_consult_mode", "")
-        st.session_state["gs_pref_ins"]     = st.session_state.get("preferred_insurer", "")
-
-    def _gs_set_client(c_name: str, hi_premium: int = 0, product_key: str = ""):
-        """ai_query_block 호출 시 GS에 고객 정보 동기화"""
-        if c_name:
-            st.session_state["gs_c_name"]      = c_name
-        if hi_premium:
-            st.session_state["gs_hi_premium"]  = hi_premium
-        if product_key:
-            st.session_state["gs_product_key"] = product_key
-
-    def _gs_save_result(result_key: str):
-        """AI 분석 완료 후 결과 요약을 GS에 저장 (기둥 간 참조용)"""
-        result = st.session_state.get(result_key, "")
-        if result:
-            # 첫 300자만 요약 저장 (메모리 절약)
-            st.session_state["gs_last_result"] = result[:300] + ("…" if len(result) > 300 else "")
-
-    # GS 초기화 실행 (매 렌더 사이클마다)
-    _gs_init()
-
-    # ══════════════════════════════════════════════════════════════════════
-    # [GP200조] 플래너 브랜딩 정보 추출 헬퍼
-    # ══════════════════════════════════════════════════════════════════════
-    def _get_planner_info() -> dict:
-        """[GP200조] session_state의 gp200_* 값을 dict로 반환."""
-        return {
-            "company": st.session_state.get("gp200_company", ""),
-            "branch":  st.session_state.get("gp200_branch",  ""),
-            "name":    st.session_state.get("gp200_name",    "")
-                       or st.session_state.get("user_name",  ""),
-            "contact": st.session_state.get("gp200_contact", ""),
-        }
-
-    # ══════════════════════════════════════════════════════════════════════
-    # [NameError 방지] cur를 module-level global로 노출
-    # main() 밖 라우터 블록(if cur == ...)들이 참조할 수 있도록 설정
-    # ══════════════════════════════════════════════════════════════════════
-    import builtins as _builtins
-    _builtins._goldkey_cur = cur
-    _builtins._goldkey_go_tab = _go_tab
-    _builtins._goldkey_get_planner_info = _get_planner_info
-
-# ── module-level cur 호환 래퍼 ─────────────────────────────────────────────
-# main() 외부의 라우터 블록들이 cur 변수를 직접 참조하므로,
-# builtins에 저장된 값을 module-level 변수로 공급
-import builtins as _builtins_mod
-try:
-    cur = _builtins_mod._goldkey_cur
-except AttributeError:
-    cur = st.session_state.get("current_tab", "home")
-
-try:
-    _go_tab = _builtins_mod._goldkey_go_tab
-except AttributeError:
-    def _go_tab(dest: str):
-        st.session_state.current_tab = dest
-        st.rerun()
-
-try:
-    _get_planner_info = _builtins_mod._goldkey_get_planner_info
-except AttributeError:
-    def _get_planner_info() -> dict:
-        return {
-            "company": st.session_state.get("gp200_company", ""),
-            "branch":  st.session_state.get("gp200_branch",  ""),
-            "name":    st.session_state.get("gp200_name",    "")
-                       or st.session_state.get("user_name",  ""),
-            "contact": st.session_state.get("gp200_contact", ""),
-        }
-
-def _rag_annotate_report(report_text: str) -> str:
-    """AI 보고서 텍스트에 약관 근거(몇 조, 몇 페이지) 주석을 자동 삽입.
-
-    - 담보명 키워드를 감지하여 RAG에서 해당 약관 조항 검색
-    - 결과를 [※ 약관 근거: OO조 OO페이지] 형태로 텍스트 끝에 추가
-    - 매칭 없으면 원본 텍스트 그대로 반환
-    """
-    if not report_text or len(report_text) < 50:
-        return report_text
-
-    _COVERAGE_KEYWORDS = [
-        "암진단비", "뇌혈관", "심장", "입원일당", "수술비", "후유장해",
-        "사망보험금", "실손", "간병비", "치매", "장기요양",
-    ]
-    _found_kws = [kw for kw in _COVERAGE_KEYWORDS if kw in report_text]
-    if not _found_kws:
-        return report_text
-
-    _annotations = []
-    for _kw in _found_kws[:3]:  # 최대 3개 담보 주석
-        try:
-            _refs = _rag_sector_query(_kw + " 약관 조항", sector="terms", top_k=1)
-            if _refs and _refs[0].get("source"):
-                _r = _refs[0]
-                _ann = f"[※ {_kw} 약관 근거: {_r['source']}"
-                if _r.get("page"):
-                    _ann += f" {_r['page']}페이지"
-                _ann += "]"
-                _annotations.append(_ann)
-        except Exception:
-            pass
-
-    if _annotations:
-        report_text += "\n\n" + " / ".join(_annotations)
-    return report_text
-
-
-def _render_report_send_ui(
-    result_key: str,
-    *,
-    tab_key: str = "",
-    title: str = "골드키 AI 분석 리포트",
-    client_name: str = "",
-    compact: bool = True,
-    ) -> None:
-    """
-    AI 분석 결과(session_state[result_key])를 카카오/SMS로 발송하고
-    PDF 다운로드 버튼을 렌더링하는 공통 UI 헬퍼.
-    [GP200조] 브랜딩 정보(gp200_*)를 자동으로 메시지·PDF에 삽입.
-    """
-    _report_text = st.session_state.get(result_key, "")
-    _pi = _get_planner_info()
-    _sk = f"_send_{tab_key or result_key}"
-    _default_phone = (
-        st.session_state.get("gs_c_phone", "")
-        or st.session_state.get("gp200_contact", "")
-    )
-
-    st.markdown("---")
-    _su_c1, _su_c2, _su_c3 = st.columns(3)
-
-    with _su_c1:
-        # [GP240조] 카카오/SMS 발송 UI (알림톡 — 채널 키 필요)
-        try:
-            from modules.kakao_sender import render_send_ui as _kk_ui
-            _kk_ui(
-                _report_text,
-                session_key=_sk,
-                default_phone=_default_phone,
-                title=title,
-                compact=compact,
-                planner_info=_pi,
-            )
-        except Exception as _kk_ex:
-            st.caption(f"⚠️ 카카오 발송 모듈 오류: {_kk_ex}")
-
-    with _su_c2:
-        # [GP241조] 나에게 보내기 UI (REST API KEY만으로 즉시 사용 가능)
-        try:
-            from modules.kakao_memo import render_memo_ui as _memo_ui
-            _memo_ui(
-                _report_text,
-                title=title,
-                session_key=f"_memo_{tab_key or result_key}",
-                planner_info=_pi,
-                compact=compact,
-            )
-        except Exception as _memo_ex:
-            st.caption(f"⚠️ 나에게 보내기 모듈 오류: {_memo_ex}")
-
-    with _su_c3:
-        # PDF 다운로드 버튼
-        try:
-            from modules.pdf_generator import render_pdf_download as _pdf_dl
-            _pdf_dl(
-                _report_text,
-                title=title,
-                client_name=client_name or st.session_state.get("gs_c_name", ""),
-                key=f"pdf_{tab_key or result_key}",
-                planner_info=_pi,
-            )
-        except Exception as _pdf_ex:
-            st.caption(f"⚠️ PDF 생성 모듈 오류: {_pdf_ex}")
-
-    # [GP200조] 브랜딩 푸터 미리보기
-    _footer_html = gp200_brand_footer(st.session_state)
-    if _footer_html:
-        st.markdown(_footer_html, unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════════════
-# [아키텍처 — 중앙 인증 게이트] 회랑(라우터)에서 로그인 상태 중앙 체크
-# 전문가 제언: 토큰 기반 인증을 회랑(메뉴)에서 관리하여 흐름 유지
-# ══════════════════════════════════════════════════════════════════════
-def _auth_gate(tab_key: str) -> bool:
-    """로그인 상태 중앙 체크 — False 반환 시 해당 기둥 렌더 중단"""
-    _GUEST_BLOCKED_TABS = {
-        "customer_mgmt", "customer_docs", "leaflet", "consult_catalog",
-        "digital_catalog", "know_pipe", "report43", "scan_hub",
-        "life_defense", "war_room",
-    }
-    _is_unauthed   = "user_id" not in st.session_state
-    _is_guest_role = st.session_state.get("_user_role") == "GUEST"
-    _is_guest_uid  = st.session_state.get("user_id", None) == ""
-
-    if _is_unauthed:
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#dbeafe 0%,#bfdbfe 100%);
-  border-radius:14px;padding:28px 22px;margin:20px 0;text-align:center;">
-  <div style="font-size:2.5rem;margin-bottom:10px;">🔒</div>
-  <div style="color:#1e3a5f;font-size:1.15rem;font-weight:900;margin-bottom:8px;">
-로그인 후 이용 가능합니다
-  </div>
-  <div style="color:#b3d4f5;font-size:0.85rem;">
-왼쪽 사이드바 하단 <b style="color:#ffd700;">Admin Console</b>에서 로그인하세요
-  </div>
-</div>""", unsafe_allow_html=True)
-        _ag_c1, _ag_c2 = st.columns(2)
-        with _ag_c1:
-            if st.button("🏠 홈으로 돌아가기", key=f"auth_gate_home_{tab_key}",
-                         use_container_width=True, type="primary"):
-                st.session_state.current_tab = "home"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-        with _ag_c2:
-            if st.button("🔓 로그인 열기", key=f"auth_gate_login_{tab_key}",
-                         use_container_width=True):
-                st.session_state["_open_sidebar"] = True
-                st.rerun()
-        return False
-
-    if (_is_guest_role or _is_guest_uid) and tab_key in _GUEST_BLOCKED_TABS:
-        st.markdown(f"""
-<div style="background:linear-gradient(135deg,#FFF9C4 0%,#FFF176 100%);
-  border:2px solid #F9A825;border-radius:14px;padding:24px 22px;
-  margin:20px 0;text-align:center;">
-  <div style="font-size:2.2rem;margin-bottom:8px;">🔒</div>
-  <div style="color:#000000;font-size:1.1rem;font-weight:900;margin-bottom:8px;">
-정회원 전용 기능입니다
-  </div>
-  <div style="color:#5D4037;font-size:0.85rem;line-height:1.7;margin-bottom:10px;">
-<b>고객 정보·등록·자료 관련 기능</b>은 임시/비회원에게 제공되지 않습니다.<br>
-사이드바 <b>회원가입</b> 탭에서 가입 후 이용하세요.
-  </div>
-  <div style="font-size:0.75rem;color:#795548;">
-← 사이드바 · <b>📝 회원가입</b> 탭 즉시 이용 가능
-  </div>
-</div>""", unsafe_allow_html=True)
-        _gb_c1, _gb_c2 = st.columns(2)
-        with _gb_c1:
-            if st.button("🏠 홈으로 돌아가기", key=f"guest_block_home_{tab_key}",
-                         use_container_width=True, type="primary"):
-                st.session_state.current_tab = "home"
-                st.session_state["_scroll_top"] = True
-                st.rerun()
-        with _gb_c2:
-            if st.button("📝 회원가입 하기", key=f"guest_block_signup_{tab_key}",
-                         use_container_width=True):
-                st.session_state["_open_sidebar"] = True
-                st.rerun()
-        return False
-
-    st.session_state["gs_last_tab"] = tab_key
-    return True
-
-def _deep_link_bar(current_tab: str):
-    """현재 기둥에서 관련 기둥으로 바로 이동하는 Deep Link 버튼 바"""
-    links = _TAB_LINKS.get(current_tab, [])
-    if not links:
-        return
-    st.markdown(
-        "<div style='background:#f0f6ff;border:1px solid #2e6da4;border-radius:8px;"
-        "padding:6px 12px;margin:8px 0 4px 0;font-size:0.74rem;color:#1a3a5c;font-weight:700;'>"
-        "🔗 연관 섹터 바로가기</div>",
-        unsafe_allow_html=True
-    )
-    _dl_cols = st.columns(len(links))
-    for i, (tab_id, label) in enumerate(links):
-        with _dl_cols[i]:
-            if st.button(label, key=f"dl_{current_tab}_{tab_id}", use_container_width=True):
-                _go_tab(tab_id)
-
-# ── [홈 복귀 버튼] 각 탭 공통 ────────────────────────────────────────
-def tab_home_btn(tab_key):
-    # GK-SEC-05 네비게이션 게이트웨이 하위 서비스 탭 목록
-    _SEC05_TABS = {
-        # A섹션
-        "policy_scan", "policy_terms", "scan_hub", "leaflet",
-        "customer_docs", "digital_catalog", "report43",
-        # B섹션
-        "t0", "t1", "disability", "injury", "t4", "kcd_injury",
-        "cancer", "brain", "heart", "t2", "t3", "auto_comp",
-        "life_cycle", "life_event",
-        # C섹션
-        "t5", "t6", "t7", "t8", "stock_eval", "fire", "liability",
-        # D섹션
-        "nursing", "realty", "med_econ",
-        # E섹션
-        "compensation",
-        # F섹션
-        "ins_bot",
-        "special_ops",
-    }
-    if tab_key in _SEC05_TABS:
-        st.markdown(
-            '<div style="background:#FFF9C4;border:1px solid #d1d5db;'
-            'border-radius:8px;padding:2px 6px;margin-bottom:10px;display:inline-block;">'
-            '</div>',
-            unsafe_allow_html=True)
-        if st.button("⬅️ 네비게이션 게이트웨이(A-F)로 돌아가기",
-                     key=f"btn_back_sec05_{tab_key}",
-                     use_container_width=False):
-            st.session_state["current_tab"] = "home"
-            st.session_state["_home_scroll_to_sec05"] = True
-            st.session_state["_scroll_top"] = True
-            st.rerun()
-    else:
-        if st.button("🏠 홈으로", key=f"tab_home_{tab_key}",
-                     use_container_width=False):
-            _go_tab("home")
-
-# ── [customer_mgmt] 고객 관리 탭 (Phase 1) ───────────────────────────
-if cur == "customer_mgmt":
-    if not _auth_gate("customer_mgmt"): st.stop()
-    tab_home_btn("customer_mgmt")
-    st.markdown(f"""
-<div class="gk-sky-trust gp-interactive" style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
-  {_bid('13-1-1')}
-  <div class="gk-st-title">👥 고객 관리</div>
-  <div style="font-size:0.8rem;margin-top:4px;">고객 정보 · 상담 이력 · 계약 현황 통합 관리</div>
-</div>""", unsafe_allow_html=True)
-    try:
-        from customer_mgmt import render_customer_tab as _render_cm
-        _cm_sb  = _get_sb_client()
-        _cm_llm = get_client()
-        _render_cm(_cm_sb, _cm_llm)
-    except ImportError as _cm_ie:
-        st.error(f"고객관리 모듈 로드 실패: {_cm_ie}")
-        st.info("customer_mgmt.py 파일을 확인하세요.")
-    except Exception as _cm_ex:
-        st.error(f"고객관리 탭 오류: {_cm_ex}")
-        st.info("데이터베이스 연결을 확인하거나 잠시 후 다시 시도하세요.")
-    st.stop()
+    
+    if cur == "customer_mgmt":
+        if not _auth_gate("customer_mgmt"): st.stop()
+        tab_home_btn("customer_mgmt")
+        with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+            st.markdown(f"""
+    <div class="gk-sky-trust gp-interactive" style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+      {_bid('13-1-1')}
+      <div class="gk-st-title">👥 고객 관리</div>
+      <div style="font-size:0.8rem;margin-top:4px;">고객 정보 · 상담 이력 · 계약 현황 통합 관리</div>
+    </div>""", unsafe_allow_html=True)
+            try:
+                from customer_mgmt import render_customer_tab as _render_cm
+                _cm_sb  = _get_sb_client()
+                _cm_llm = get_client()
+                _render_cm(_cm_sb, _cm_llm)
+            except ImportError as _cm_ie:
+                st.error(f"고객관리 모듈 로드 실패: {_cm_ie}")
+                st.info("customer_mgmt.py 파일을 확인하세요.")
+            except Exception as _cm_ex:
+                st.error(f"고객관리 탭 오류: {_cm_ex}")
+                st.info("데이터베이스 연결을 확인하거나 잠시 후 다시 시도하세요.")
 
 # ── [crm_gate] CRM 마스터 키 — 통합 입력 폼 + 전략 대시보드 ────────
 if cur == "crm_gate":
     if not _auth_gate("crm_gate"): st.stop()
     tab_home_btn("crm_gate")
-    try:
-        from crm_fortress_ui import render_crm_gate_full as _rcgf
-        _sb_cg = _get_sb_client() if _SB_PKG_OK else None
-        _uid_cg = st.session_state.get("user_id", "")
-        _rcgf(_sb_cg, _uid_cg)
-    except Exception as _cg_ex:
-        st.error(f"CRM Gate 오류: {_cg_ex}")
-    st.stop()
+    with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+        try:
+            from crm_fortress_ui import render_crm_gate_full as _rcgf
+            _sb_cg = _get_sb_client() if _SB_PKG_OK else None
+            _uid_cg = st.session_state.get("user_id", "")
+            _rcgf(_sb_cg, _uid_cg)
+        except Exception:
+            st.info("CRM 게이트를 불러오는 중 오류가 발생했습니다.")
+    st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
 # ── [policy_scan] 보험증권 분석 — 독립 전용 탭 ──────────────────────
 if cur == "policy_scan":
     if not _auth_gate("policy_scan"): st.stop()
     tab_home_btn("policy_scan")
-
-    # ── [GP193 §4] 전역 지식 베이스 업데이트 배지 ─────────────────────
-    try:
-        from modules.scan_engine import render_gp193_live_badge as _rgb
-        _badge_html = _rgb(session_state=st.session_state)
-        if _badge_html:
-            st.markdown(_badge_html, unsafe_allow_html=True)
-    except Exception:
-        pass
-
-    st.markdown(f"""
-<div class="gk-sky-trust gp-interactive"
-  style="position:relative;border-radius:12px;padding:18px 22px 14px 22px;margin-bottom:14px;">
-  {_bid('4-1-1')}
-  <div style="display:flex;align-items:center;gap:12px;">
-<div style="font-size:2.2rem;">📎</div>
-<div>
-  <div class="gk-st-title" style="font-size:1.1rem;">보험증권 분석 시스템</div>
-  <div style="font-size:0.78rem;margin-top:3px;">
-    PDF·이미지 업로드 → AI 담보 자동 파싱 → 보장 공백 진단 → 신규 컨설팅 제안
-  </div>
-</div>
-  </div>
-  <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-<span style="background:rgba(21,101,192,0.12);color:#1565C0;border-radius:20px;
-  padding:3px 11px;font-size:0.72rem;font-weight:600;">📄 PDF 자동 파싱</span>
-<span style="background:rgba(21,101,192,0.12);color:#1565C0;border-radius:20px;
-  padding:3px 11px;font-size:0.72rem;font-weight:600;">🔍 담보 구조 분석</span>
-<span style="background:rgba(21,101,192,0.12);color:#1565C0;border-radius:20px;
-  padding:3px 11px;font-size:0.72rem;font-weight:600;">⚠️ 보장 공백 진단</span>
-<span style="background:rgba(21,101,192,0.12);color:#1565C0;border-radius:20px;
-  padding:3px 11px;font-size:0.72rem;font-weight:600;">💡 신규 설계 제안</span>
-  </div>
-</div>""", unsafe_allow_html=True)
-
-    # ── 입력 영역 ─────────────────────────────────────────────────────
-    _ps_col1, _ps_col2 = st.columns([1, 1], gap="medium")
-
-    with _ps_col1:
-        st.markdown("""<div style="background:#f0fff6;border-left:4px solid #27ae60;
-  border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:10px;
-  font-weight:900;font-size:0.9rem;color:#0d3b2e;">📋 고객 정보 & 증권 업로드</div>""",
-            unsafe_allow_html=True)
-
-        ps_c_name = st.text_input("👤 고객 성함", placeholder="홍길동", key="ps_cname")
-
-        _PS_PRODUCTS = [
-            "선택 안 함 (전체 분석)",
-            "통합보험 (종합설계)",
-            "실손보험 (실비)",
-            "암보험",
-            "치매·간병보험",
-            "뇌혈관·심장보험",
-            "종신보험",
-            "정기보험",
-            "연금보험",
-            "어린이·태아보험",
-            "운전자보험",
-            "화재·재물보험",
-            "경영인정기보험 (CEO플랜)",
-            "CI보험 (중대질병)",
-            "저축성보험",
-            "기타",
-        ]
-        _PS_DIRECTIONS = [
-            "보장 공백 진단",
-            "기존 증권 전체 분석",
-            "갱신형 → 비갱신형 전환 검토",
-            "보험료 절감 재설계",
-            "청구 가능 여부 확인",
-            "해지/감액 검토",
-            "신규 가입 상담",
-        ]
-        _psc1, _psc2 = st.columns(2)
-        with _psc1:
-            ps_product = st.selectbox("🏷️ 상담 상품", _PS_PRODUCTS, key="ps_product")
-        with _psc2:
-            ps_direction = st.selectbox("🎯 상담 방향", _PS_DIRECTIONS, key="ps_direction")
-
-        ps_hi = st.number_input("💊 월 건강보험료(원)", value=0, step=1000, key="ps_hi")
-        if ps_hi > 0:
-            _ps_income = ps_hi / 0.0709
-            st.success(f"역산 월 소득: **{_ps_income:,.0f}원** | 적정 보험료: **{_ps_income*0.15:,.0f}원**")
-
-        ps_query = st.text_area(
-            "📝 추가 상담 내용 (선택)",
-            height=100,
-            key="query_ps",
-            placeholder="예) 40대 남성, 암보험·실손 보유. 뇌·심장 공백 점검 및 갱신형 전환 검토 요청."
-        )
-
-        # ── SSOT selector: 스캔 허브 데이터 자동 활용 ───────────────
-        _ps_ssot = st.session_state.get("ssot_full_text", "")
-        _ps_ssot_covs = st.session_state.get("ssot_coverages", [])
-        if _ps_ssot or _ps_ssot_covs:
-            st.success(
-                f"🔬 **스캔 허브 데이터 자동 연동** — "
-                f"{'담보 ' + str(len(_ps_ssot_covs)) + '건 ' if _ps_ssot_covs else ''}"
-                f"{'텍스트 ' + str(len(_ps_ssot)) + '자' if _ps_ssot else ''} 준비됨. "
-                "아래 파일 첨부 없이 바로 분석 실행 가능합니다."
+    with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+    
+        # ── [GP193 §4] 전역 지식 베이스 업데이트 배지 ─────────────────────
+        try:
+            from modules.scan_engine import render_gp193_live_badge as _rgb
+            _badge_html = _rgb(session_state=st.session_state)
+            if _badge_html:
+                st.markdown(_badge_html, unsafe_allow_html=True)
+        except Exception:
+            pass
+    
+        st.markdown(f"""
+    <div class="gk-sky-trust gp-interactive"
+      style="position:relative;border-radius:12px;padding:18px 22px 14px 22px;margin-bottom:14px;">
+      {_bid('4-1-1')}
+      <div style="display:flex;align-items:center;gap:12px;">
+    <div style="font-size:2.2rem;">📎</div>
+    <div>
+      <div class="gk-st-title" style="font-size:1.1rem;">보험증권 분석 시스템</div>
+      <div style="font-size:0.78rem;margin-top:3px;">
+        PDF·이미지 업로드 → AI 담보 자동 파싱 → 보장 공백 진단 → 신규 컨설팅 제안
+      </div>
+    </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+    <span style="background:rgba(21,101,192,0.12);color:#1565C0;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">📄 PDF 자동 파싱</span>
+    <span style="background:rgba(21,101,192,0.12);color:#1565C0;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">🔍 담보 구조 분석</span>
+    <span style="background:rgba(21,101,192,0.12);color:#1565C0;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">⚠️ 보장 공백 진단</span>
+    <span style="background:rgba(21,101,192,0.12);color:#1565C0;border-radius:20px;
+      padding:3px 11px;font-size:0.72rem;font-weight:600;">💡 신규 설계 제안</span>
+      </div>
+    </div>""", unsafe_allow_html=True)
+    
+        # ── 입력 영역 ─────────────────────────────────────────────────────
+        _ps_col1, _ps_col2 = st.columns([1, 1], gap="medium")
+    
+        with _ps_col1:
+            st.markdown("""<div style="background:#f0fff6;border-left:4px solid #27ae60;
+      border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:10px;
+      font-weight:900;font-size:0.9rem;color:#0d3b2e;">📋 고객 정보 & 증권 업로드</div>""",
+                unsafe_allow_html=True)
+    
+            ps_c_name = st.text_input("👤 고객 성함", placeholder="홍길동", key="ps_cname")
+    
+            _PS_PRODUCTS = [
+                "선택 안 함 (전체 분석)",
+                "통합보험 (종합설계)",
+                "실손보험 (실비)",
+                "암보험",
+                "치매·간병보험",
+                "뇌혈관·심장보험",
+                "종신보험",
+                "정기보험",
+                "연금보험",
+                "어린이·태아보험",
+                "운전자보험",
+                "화재·재물보험",
+                "경영인정기보험 (CEO플랜)",
+                "CI보험 (중대질병)",
+                "저축성보험",
+                "기타",
+            ]
+            _PS_DIRECTIONS = [
+                "보장 공백 진단",
+                "기존 증권 전체 분석",
+                "갱신형 → 비갱신형 전환 검토",
+                "보험료 절감 재설계",
+                "청구 가능 여부 확인",
+                "해지/감액 검토",
+                "신규 가입 상담",
+            ]
+            _psc1, _psc2 = st.columns(2)
+            with _psc1:
+                ps_product = st.selectbox("🏷️ 상담 상품", _PS_PRODUCTS, key="ps_product")
+            with _psc2:
+                ps_direction = st.selectbox("🎯 상담 방향", _PS_DIRECTIONS, key="ps_direction")
+    
+            ps_hi = st.number_input("💊 월 건강보험료(원)", value=0, step=1000, key="ps_hi")
+            if ps_hi > 0:
+                _ps_income = ps_hi / 0.0709
+                st.success(f"역산 월 소득: **{_ps_income:,.0f}원** | 적정 보험료: **{_ps_income*0.15:,.0f}원**")
+    
+            ps_query = st.text_area(
+                "📝 추가 상담 내용 (선택)",
+                height=100,
+                key="query_ps",
+                placeholder="예) 40대 남성, 암보험·실손 보유. 뇌·심장 공백 점검 및 갱신형 전환 검토 요청."
             )
-        ps_files = st.file_uploader(
-            "📎 보험증권 PDF/이미지 첨부 (복수 가능 — 스캔허브 사용 시 생략 가능)",
-            accept_multiple_files=True,
-            type=['pdf', 'jpg', 'jpeg', 'png'],
-            key="up_ps"
-        )
-        # ── [GP193 §2] 전역 인제스트 후크 — 업로드 즉시 GCS+RAG 동시 저장 ─
-        if ps_files:
-            for _ps_f in ps_files:
-                _ps_done_key = f"_gp193_done_up_ps_{_ps_f.name}"
-                if st.session_state.get(_ps_done_key) != _ps_f.size:
-                    try:
-                        from modules.scan_engine import global_ingest_hook as _gih
-                        _gih_p = _gp193_get_hook_params()
-                        with st.spinner(f"🌐 지능형 자산화 진행 중... ({_ps_f.name})"):
-                            _gih_r = _gih(
-                                file_bytes=_ps_f.read(),
-                                filename=_ps_f.name,
-                                source_tab="policy_scan_ps",
-                                doc_type="보험증권",
-                                **_gih_p,
-                            )
-                            _ps_f.seek(0)
-                        if _gih_r.get("success"):
-                            st.success(f"✅ 전역 지식 베이스 업데이트 완료 — {_ps_f.name}")
-                        st.session_state[_ps_done_key] = _ps_f.size
-                    except Exception:
-                        pass
-        if ps_files:
-            st.success(f"✅ {len(ps_files)}개 파일 업로드 완료")
-
-        ps_do = st.button("🔍 AI 증권 정밀 분석 실행", type="primary",
-                          key="btn_ps_analyze", use_container_width=True)
-
-    with _ps_col2:
-        st.markdown("""<div style="background:#f0fff6;border-left:4px solid #27ae60;
-  border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:10px;
-  font-weight:900;font-size:0.9rem;color:#0d3b2e;">🤖 AI 분석 리포트</div>""",
-            unsafe_allow_html=True)
-
-        if ps_do:
-            if 'user_id' not in st.session_state:
-                st.error("로그인이 필요합니다.")
-            else:
-                # ── 모든 증권 파일(PDF+이미지)을 parse_policy_with_vision으로 통합 처리 ──
-                # PDF는 내부에서 텍스트 추출 시도 → 스캔본이면 자동으로 pymupdf→Gemini Vision으로 전환
-                _ps_doc_text = ""
-                _ps_vision_result = ""
-                _ssot_txt = st.session_state.get("ssot_full_text", "")
-
-                # ── 파일 · SSOT 둘 다 없으면 조기 종료 ────────────────
-                _ssot_covs = st.session_state.get("ssot_coverages", [])
-                if not ps_files and not _ssot_txt and not _ssot_covs:
-                    st.warning(
-                        "⚠️ 분석할 증권 데이터가 없습니다.\n\n"
-                        "**📎 보험증권 PDF/이미지를 업로드**하거나, "
-                        "**스캔 허브**에서 먼저 증권을 스캔한 뒤 분석을 실행하세요."
-                    )
-                    st.stop()
-
-                if ps_files:
-                    with st.spinner("🔍 증권 파일 분석 중 (스캔본은 Vision OCR 자동 적용)..."):
-                        _vr = parse_policy_with_vision(ps_files)
-                        if _vr.get("coverages"):
-                            _ps_vision_result = (
-                                "\n\n[증권 파싱 담보 목록 — 증권에 실제 있는 담보만]\n"
-                                + json.dumps(_vr["coverages"], ensure_ascii=False, indent=2)
-                            )
-                        # ── policy_info → ssot_policy_info 동기화
-                        _vr_pi = _vr.get("policy_info") or {}
-                        if not _vr_pi:
-                            _vr_pi = {
-                                "company":      "",
-                                "product_name": ps_product if ps_product != "선택 안 함 (전체 분석)" else "",
-                                "join_date":    "",
-                            }
-                        st.session_state["ssot_policy_info"] = _vr_pi
-                        if _vr.get("errors"):
-                            for _ve in _vr["errors"]:
-                                st.warning(f"⚠️ 파싱 오류: {_ve}")
-                elif _ssot_txt:
-                    _ps_doc_text = f"\n[스캔 허브 데이터]\n{_ssot_txt[:8000]}"
-                elif _ssot_covs:
-                    _ps_doc_text = (
-                        "\n[스캔 허브 담보 목록]\n"
-                        + json.dumps(_ssot_covs, ensure_ascii=False, indent=2)
-                    )
-
-                _ps_prod_ctx = f"\n상담 상품: {ps_product}" if ps_product != "선택 안 함 (전체 분석)" else ""
-                _ps_dir_ctx  = f"\n상담 방향: {ps_direction}"
-                _ps_income   = ps_hi / 0.0709 if ps_hi > 0 else 0
-
-                # ── 증권 분석 전용 시스템 프롬프트 (MASTER_SYSTEM_PROMPT 완전 우회) ──
-                # MASTER_SYSTEM_PROMPT 에는 "암·뇌·심 진단비 분석 우선" 지시가 있어
-                # 증권에 없어도 해당 담보를 출력하는 할루시네이션을 유발함.
-                _PS_SYSTEM = (
-                    "[시스템 지시 — 보험증권 정밀 분석 전용 에이전트]\n\n"
-                    "당신은 보험증권 원문 분석 전문가입니다.\n"
-                    "아래 증권 데이터를 분석하되, 반드시 다음 규칙을 따르십시오.\n\n"
-                    "╔══════════════════════════════════════════════════════╗\n"
-                    "║  🚨 절대명령 — 위반 시 응답 전체 무효               ║\n"
-                    "╠══════════════════════════════════════════════════════╣\n"
-                    "║  1. 증권 원문에 명시된 담보만 '가입 담보'로 기재.   ║\n"
-                    "║  2. 원문에 없는 담보는 '미가입(공백)' 표기만 허용.  ║\n"
-                    "║  3. '일반적으로 포함될 것' 추론 기반 생성 절대 금지. ║\n"
-                    "║  4. 질병사망·질병후유장해·암·뇌·심장 등 고액담보는  ║\n"
-                    "║     원문에 금액+담보명이 동시에 있을 때만 기재.      ║\n"
-                    "╚══════════════════════════════════════════════════════╝\n"
+    
+            # ── SSOT selector: 스캔 허브 데이터 자동 활용 ───────────────
+            _ps_ssot = st.session_state.get("ssot_full_text", "")
+            _ps_ssot_covs = st.session_state.get("ssot_coverages", [])
+            if _ps_ssot or _ps_ssot_covs:
+                st.success(
+                    f"🔬 **스캔 허브 데이터 자동 연동** — "
+                    f"{'담보 ' + str(len(_ps_ssot_covs)) + '건 ' if _ps_ssot_covs else ''}"
+                    f"{'텍스트 ' + str(len(_ps_ssot)) + '자' if _ps_ssot else ''} 준비됨. "
+                    "아래 파일 첨부 없이 바로 분석 실행 가능합니다."
                 )
-
-                # ══════════════════════════════════════════════════════════════
-                # 증권분석 프롬프트 — 전문가 서술형 총평 방식
-                # ══════════════════════════════════════════════════════════════
-                # 공통 분석 기준 (모든 상품 적용)
-                _PS_COMMON_CRITERIA = """
-
-[보험증권 전문 분석 기준 — 금감원·법령·실무 근거]
-
-
-▶ 담보별 권장가입금액 기준표
-
-
-【사망/장해】
-• 상해사망: 권장 3억~5억원
-• 질병사망: 권장 1억~3억원
-• 상해80%미만후유장해: 권장 최소 3억~5억원
-• 질병80%미만후유장해: 권장 5,000만원
-
-
-【수술/입원】
-• 상해수술비: 권장 100만원 이상
-• 질병수술비: 권장 100만원 이상
-• 암수술비: 권장 1,000만원 이상
-• 뇌혈관질환수술비: 권장 1,000만원
-• 허혈성심장질환수술비: 권장 1,000만원
-• 상해입원일당: 권장 10만원 (일당)
-• 질병입원일당: 권장 10만원 (일당)
-
-
-【실손의료비】
-• 상해입원의료비(실손): 가입 여부 확인 (상급병실료 포함 여부)
-• 질병입원의료비(실손): 가입 여부 확인
-• 상해통원의료비(실손): 가입 여부 확인
-• 질병통원의료비(실손): 가입 여부 확인
-• 세대구분(1~4세대) 및 자기부담금 비율 확인
-※ 실손은 중복가입 시 비례보상(상법 제672조) — 1건만 유지 권고
-
-
-【운전자/기타】
-• 교통사고처리지원금: 권장 2억원 이상 (불기소 단계부터 보장 여부 확인)
-• 형사합의금(6주미만 상해): 가입 여부 확인
-• 대인벌금: 권장 3,000만원 이상
-• 대물벌금: 권장 500만원 이상
-• 변호사선임비용: 수사단계부터 보장 여부 확인
-• 자동차사고부상위로금(14급): 보완 확인
-• 골절진단·수술: 가입 여부 확인
-• 민사소송법률비용: 가입 여부 확인
-• 화재벌금: 권장 2,000만원
-• 가족/일상/자녀배상책임: 권장 1억원
-
-
-【뇌/심장 진단】
-• 뇌혈관질환진단비: 권장 1,000만원 이상
-• 뇌졸중진단비: 권장 5,000만원 이상
-• 뇌출혈진단비: 권장 5,000만원 이상
-• 허혈성심장질환진단비: 권장 1,000만원 이상
-• 급성심근경색증진단비: 권장 3,000만원 이상
-• 심장질환진단비: 권장 5,000만원
-
-
-【암 진단】
-• 일반암진단비: 권장 5,000만원
-• 유사암진단비: 권장 2,000만원 (최소 1,000만원 이상)
-• 고액암진단비: 권장 2억원 이상
-• 표적항암치료비(고액): 권장 1억 5,000만원 이상
-• 장기요양진단비(치매 포함): 권장 2,000만원
-• 경증치매진단비(CDR1): 권장 3,000만원~5,000만원
-• 중증치매진단비(CDR2·3): CDR2 2,000만원↑, CDR3 5,000만원↑
-• 간호간병입원일당 (일반병동): 권장 15만원 (일당)
-• 간호간병입원일당 (통합병동): 권장 10만원 (일당)
-
-
-▶ 납입 보험료 적정 범위
-
-• 보장성: 가처분소득의 15% 이하 (연금·저축·자동차·화재·실손 별도)
-
-• 가처분소득 모를 때: 납입 건강보험료 ÷ 0.0709 = 추정 월소득
-
-
-▶ 비례보상·중복보장 원칙 (상법 제672조)
-
-• 실손·벌금·변호사비용·화재손해는 실제 발생 비용만 보상 → 중복가입 시 낭비
-
-• 종합보험 내 운전자 특약과 별도 운전자보험 중복 시 하나로 정리 권고
-
-
-▶ 법적 효력 점검
-
-• 고지의무 위반(상법 제651조) 위험 여부
-
-• 수익자·지정대리청구인 설정 여부
-
-• 갱신형 보험료 인상(Shock) 위험 진단
-"""
-
-
-                # 운전자보험 단품 전용 프롬프트 (서술형 총평)
-                _PS_DRIVER_PROMPT = (
-
-                    _PS_COMMON_CRITERIA
-
-                    + """
-[운전자보험 전문 분석 — 서술형 총평 출력 지시]
-
-
-운전자보험 제1목적: 교통사고 가해자 발생 시 형사·법률비용 보전.
-
-11중과실(음주·약물·무면허·뺑소니 4개 제외) 및 중상해사고 대비가 핵심.
-
-
-▶ 담보별 적정 기준 (운전자보험 전용)
-
-• 교통사고처리지원금: 2억원↑ / 불기소 단계부터 보장 여부 확인
-
-• 형사합의금(6주미만 상해): 가입 여부
-
-• 대인벌금: 3천만원↑ / 대물벌금: 500만원↑
-
-• 변호사선임비용: 수사단계부터 보장 여부 확인
-
-• 상해후유장해(3%): 최소 1억↑, 이상적 5억 (일반상해+교통상해 합산)
-
-• 자동차사고부상위로금(14급): 보완 확인
-
-• 보완: 골절진단·수술, 상해수술비, 상해입원일당, 민사소송법률비용
-
-
-▶▶ 출력 형식 (아래 순서대로 출력)
-
-
-[1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
-
-```json
-{
-  "coverages": [
-{"category": "사망/장해", "name": "상해사망", "recommended": "3억~5억", "enrolled": "3억", "diff": "-", "status": "충분"},
-{"category": "사망/장해", "name": "질병사망", "recommended": "1억~3억", "enrolled": "1천만", "diff": "-9천만", "status": "부족"},
-{"category": "운전자/기타", "name": "교통사고처리지원금", "recommended": "2억이상", "enrolled": "0", "diff": "-2억", "status": "미가입"}
-  ]
-}
-```
-※ status 값: "충분" | "부족" | "미가입" 중 하나만 사용. 증권에 없는 담보는 enrolled를 "0"으로, status를 "미가입"으로.
-※ recommended는 위 기준표 숫자 그대로 사용. 모든 담보 항목 빠짐없이 포함.
-
-
-[2단계 — 서술형 전문가 의견]
-
-### 📋 총평
-
-[전문가 시각에서 3~4문장 서술. 현재 가입 보장의 전체적인 충분·불충분 수준, 가장 중요한 리스크, 보험료 효율성 총평]
-
-
-### ✅ 충분 항목
-
-[충족된 담보를 쉼표로 나열 후, 그 이유·의미를 2~3문장 서술]
-
-
-### ⚠️ 불충분·공백 항목
-
-[미달·미가입 담보를 긴급도 순으로 나열하고, 각 항목마다 왜 부족한지·어떤 위험이 있는지 전문가 서술 2~3문장]
-
-
-### 💡 전문가 권고
-
-[우선 보완해야 할 사항 3가지를 번호로 서술. 법령·판례·실사례 근거 포함. 화법 포함 가능]
-"""
-
-                )
-
-
-                # 일반 보험(종합·암·치매·화재 등) 전용 프롬프트 (서술형 총평)
-                _PS_GENERAL_PROMPT = (
-
-                    _PS_COMMON_CRITERIA
-
-                    + """
-[보험증권 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
-
-
-▶▶ 출력 형식 (아래 순서대로 출력)
-
-
-[1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
-
-```json
-{
-  "coverages": [
-{"category": "사망/장해", "name": "상해사망", "recommended": "3억~5억", "enrolled": "3억", "diff": "-", "status": "충분"},
-{"category": "암 진단", "name": "일반암진단비", "recommended": "5,000만원", "enrolled": "0", "diff": "-5,000만원", "status": "미가입"},
-{"category": "뇌/심장 진단", "name": "뇌졸중진단비", "recommended": "5,000만원이상", "enrolled": "2,000만원", "diff": "-3,000만원", "status": "부족"}
-  ]
-}
-```
-※ status 값: "충분" | "부족" | "미가입" 중 하나만 사용. 증권에 없는 담보는 enrolled를 "0"으로, status를 "미가입"으로.
-※ recommended는 위 기준표 숫자 그대로. 모든 분석 대상 담보 항목 포함.
-
-
-[2단계 — 서술형 전문가 의견]
-
-### 📋 총평
-
-[전문가 시각에서 3~4문장 서술. 현재 가입 보장의 전체적인 충분·불충분 수준, 주요 보장 구조의 특징, 납입 보험료 효율성. 상품 유형(종합·암·치매 등)에 맞는 분석 관점 적용]
-
-
-### ✅ 충분 항목
-
-[적정 기준을 충족하는 담보를 나열하고, 왜 충분한지 전문가 의견 서술. 중복보장 없는지도 언급]
-
-
-### ⚠️ 불충분·공백 항목
-
-[미달·미가입 담보를 긴급도 순으로 나열. 각 항목마다 어떤 위험에 노출되는지, 법령·약관 관점에서 구체적으로 서술]
-
-
-### 💡 전문가 권고
-
-[우선 보완해야 할 사항 3가지를 번호로 서술. 금감원 가이드라인·상법·판례 근거 포함. 갱신형 위험, 고지의무, 수익자 설정 등 법적 사항도 포함]
-"""
-
-                )
-
-
-                # ── 암보험 전용 프롬프트 ────────────────────────────────
-                _PS_CANCER_PROMPT = (
-                    _PS_COMMON_CRITERIA
-                    + """
-[암보험 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
-
-▶ 암보험 핵심 분석 포인트
-• 일반암 vs 유사암(소액암) 구분 — 진단비 차등 여부
-• 비급여 항암 담보: 표적항암(레이저·면역·CAR-T) 보장 여부
-• 고액암(혈액암·뇌암·췌장암 등) 별도 진단비 포함 여부
-• 암수술비·항암약물치료비 가입 여부
-• 갱신형 암보험: 재진단 갱신 시 보험료 폭등 위험
-• 실손과의 중복 여부 (비급여 항암은 실손으로 보완)
-
-▶▶ 출력 형식 (아래 순서대로 출력)
-
-[1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
-
-```json
-{
-  "coverages": [
-{"category": "암 진단", "name": "일반암진단비", "recommended": "5,000만원", "enrolled": "3,000만원", "diff": "-2,000만원", "status": "부족"},
-{"category": "암 진단", "name": "고액암진단비", "recommended": "2억이상", "enrolled": "0", "diff": "-2억", "status": "미가입"},
-{"category": "암 진단", "name": "표적항암치료비", "recommended": "1억5,000만원이상", "enrolled": "0", "diff": "-1억5,000만원", "status": "미가입"}
-  ]
-}
-```
-※ status 값: "충분" | "부족" | "미가입". 증권에 없는 담보는 enrolled="0", status="미가입".
-※ 암 관련 담보 위주로 분석. 사망/실손 등은 보조적으로 포함.
-
-[2단계 — 서술형 전문가 의견]
-
-### 📋 총평
-[암보험 전문가 시각 3~4문장: 일반암·고액암·표적항암 커버리지 전체 수준, 비급여 항암 공백 여부, 갱신형 리스크]
-
-### ✅ 충분 항목
-[충족된 담보 나열 및 충분 이유 서술]
-
-### ⚠️ 불충분·공백 항목
-[미달·미가입 암 담보를 긴급도 순으로 나열. 특히 표적항암·고액암 공백의 재정적 위험 구체 서술]
-
-### 💡 전문가 권고
-[① 가장 시급한 보완 ② 갱신형→비갱신형 전환 검토 ③ 실손과의 조합 전략 순으로 3가지 번호 서술]
-"""
-                )
-
-                # ── 치매·간병보험 전용 프롬프트 ─────────────────────────
-                _PS_DEMENTIA_PROMPT = (
-                    _PS_COMMON_CRITERIA
-                    + """
-[치매·간병보험 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
-
-▶ 치매·간병보험 핵심 분석 포인트
-• CDR 척도 기준: CDR1(경증)·CDR2(중등도)·CDR3(중증) 각각 보장 여부
-• 장기요양 등급 연계: 1~2등급 자동 지급 상품 vs 별도 진단 필요 상품
-• 간호간병입원일당: 일반병동(15만원)/통합병동(10만원) 수준 확인
-• 레킴비(알츠하이머 치료제) 비급여 비용 대비 표적치료비 담보 여부
-• 지정대리청구인 설정 여부 (치매 발병 후 본인 청구 불가 위험)
-• 납입면제 조건: 장기요양 등급 취득 시 보험료 면제 여부
-
-▶▶ 출력 형식 (아래 순서대로 출력)
-
-[1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
-
-```json
-{
-  "coverages": [
-{"category": "치매/간병", "name": "경증치매진단비(CDR1)", "recommended": "3,000만원~5,000만원", "enrolled": "0", "diff": "-3,000만원", "status": "미가입"},
-{"category": "치매/간병", "name": "중증치매진단비(CDR3)", "recommended": "5,000만원이상", "enrolled": "3,000만원", "diff": "-2,000만원", "status": "부족"},
-{"category": "치매/간병", "name": "간호간병입원일당(일반병동)", "recommended": "15만원", "enrolled": "10만원", "diff": "-5만원", "status": "부족"}
-  ]
-}
-```
-※ status 값: "충분" | "부족" | "미가입". 치매·간병 담보 위주 분석.
-
-[2단계 — 서술형 전문가 의견]
-
-### 📋 총평
-[치매보험 전문가 시각 3~4문장: CDR 단계별 보장 구조 충족 여부, 간병비 현실 대비 일당 수준, 지정대리청구인 설정 여부]
-
-### ✅ 충분 항목
-[충족된 치매·간병 담보 나열 및 이유 서술]
-
-### ⚠️ 불충분·공백 항목
-[CDR1~3 단계 공백, 간병일당 부족분, 레킴비 등 비급여 치료 대비 부족 항목 구체 서술]
-
-### 💡 전문가 권고
-[① CDR1 경증 단계 보완 필요성 ② 지정대리청구인 즉시 설정 ③ 간병일당 현실화 방안 순으로 3가지 번호 서술]
-"""
-                )
-
-                # ── 실손의료비 전용 프롬프트 ─────────────────────────────
-                _PS_SILSON_PROMPT = (
-                    _PS_COMMON_CRITERIA
-                    + """
-[실손의료보험 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
-
-▶ 실손의료비 핵심 분석 포인트
-• 세대 구분: 1세대(~2009)·2세대(2009~2017)·3세대(2017~2021)·4세대(2021~)
-  - 1·2세대: 비급여 100% 보장 / 3세대: 비급여 특약 분리 / 4세대: 비급여 자기부담 30~40%
-• 갱신 주기 및 차기 갱신 예상 인상률 확인
-• 도수치료·비급여 주사·MRI 특약 가입 여부 (3·4세대 분리특약)
-• 중복가입 여부 — 상법 제672조 비례보상 원칙 적용 (2건 중복 시 낭비)
-• 상급병실료(2인실 이상) 보장 포함 여부
-
-▶▶ 출력 형식 (아래 순서대로 출력)
-
-[1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
-
-```json
-{
-  "coverages": [
-{"category": "실손의료비", "name": "상해입원의료비(실손)", "recommended": "가입필수", "enrolled": "4세대 가입", "diff": "-", "status": "충분"},
-{"category": "실손의료비", "name": "비급여도수치료특약", "recommended": "가입권장", "enrolled": "0", "diff": "미가입", "status": "미가입"},
-{"category": "실손의료비", "name": "비급여MRI특약", "recommended": "가입권장", "enrolled": "0", "diff": "미가입", "status": "미가입"}
-  ]
-}
-```
-※ 실손은 금액 비교보다 세대·특약 유무·갱신위험이 핵심. recommended에 "가입필수"/"가입권장" 사용 가능.
-
-[2단계 — 서술형 전문가 의견]
-
-### 📋 총평
-[실손 세대 확인 결과, 자기부담금 구조, 갱신 위험, 비급여 특약 커버리지 전반 3~4문장]
-
-### ✅ 충분 항목
-[충족된 실손 담보 및 보장 항목]
-
-### ⚠️ 불충분·공백 항목
-[비급여 특약 누락, 구실손 갱신 리스크, 자기부담금 과다 항목 구체 서술]
-
-### 💡 전문가 권고
-[① 세대별 전환/유지 전략 ② 비급여 특약 보완 ③ 중복가입 정리 방안 순으로 3가지 번호 서술]
-"""
-                )
-
-                # ── 뇌혈관·심장 전용 프롬프트 ───────────────────────────
-                _PS_BRAIN_HEART_PROMPT = (
-                    _PS_COMMON_CRITERIA
-                    + """
-[뇌혈관·심장보험 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
-
-▶ 뇌혈관·심장 핵심 분석 포인트
-• 뇌혈관질환(광의) vs 뇌졸중(협의) vs 뇌출혈(최협의): 보장 범위 단계별 확인
-• 허혈성심장질환(광의) vs 급성심근경색증(협의): 진단 범위 차이 인지
-• 권장: 뇌졸중 5,000만↑ / 급성심근경색 3,000만↑ / 심장질환 5,000만↑
-• 뇌·심장 수술비 1,000만원 이상 별도 가입 여부
-• 가족력(중풍·심근경색) 있을 경우 간병보험 추가 권고
-
-▶▶ 출력 형식 (아래 순서대로 출력)
-
-[1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
-
-```json
-{
-  "coverages": [
-{"category": "뇌/심장 진단", "name": "뇌졸중진단비", "recommended": "5,000만원이상", "enrolled": "2,000만원", "diff": "-3,000만원", "status": "부족"},
-{"category": "뇌/심장 진단", "name": "급성심근경색증진단비", "recommended": "3,000만원이상", "enrolled": "0", "diff": "-3,000만원", "status": "미가입"},
-{"category": "수술/입원", "name": "뇌혈관질환수술비", "recommended": "1,000만원", "enrolled": "500만원", "diff": "-500만원", "status": "부족"}
-  ]
-}
-```
-※ 뇌·심장 관련 담보 위주 분석. status: "충분"|"부족"|"미가입".
-
-[2단계 — 서술형 전문가 의견]
-
-### 📋 총평
-[뇌·심장 전문가 시각 3~4문장: 광의/협의 보장범위 커버리지, 진단비 수준 대비 실제 치료비, 가족력 리스크]
-
-### ✅ 충분 항목
-[충족된 뇌·심장 담보 나열 및 이유 서술]
-
-### ⚠️ 불충분·공백 항목
-[뇌졸중·심근경색·심장질환 공백 항목과 실제 치료비 대비 부족분 구체 서술]
-
-### 💡 전문가 권고
-[① 가장 시급한 뇌·심장 담보 보완 ② 광의→협의 보장범위 전략 ③ 가족력 고려 간병보험 연계 방안 순으로 3가지 번호 서술]
-"""
-                )
-
-                # 상품 선택에 따라 전용 프롬프트 적용
-                _is_driver_ins   = "운전자보험" in ps_product
-                _is_cancer_ins   = ps_product in ("암보험",)
-                _is_dementia_ins = ps_product in ("치매·간병보험",)
-                _is_silson_ins   = ps_product in ("실손보험 (실비)",)
-                _is_brainheart   = ps_product in ("뇌혈관·심장보험",)
-
-                if _is_driver_ins:
-                    _ps_product_section = _PS_DRIVER_PROMPT
-                elif _is_cancer_ins:
-                    _ps_product_section = _PS_CANCER_PROMPT
-                elif _is_dementia_ins:
-                    _ps_product_section = _PS_DEMENTIA_PROMPT
-                elif _is_silson_ins:
-                    _ps_product_section = _PS_SILSON_PROMPT
-                elif _is_brainheart:
-                    _ps_product_section = _PS_BRAIN_HEART_PROMPT
+            ps_files = st.file_uploader(
+                "📎 보험증권 PDF/이미지 첨부 (복수 가능 — 스캔허브 사용 시 생략 가능)",
+                accept_multiple_files=True,
+                type=['pdf', 'jpg', 'jpeg', 'png'],
+                key="up_ps"
+            )
+            # ── [GP193 §2] 전역 인제스트 후크 — 업로드 즉시 GCS+RAG 동시 저장 ─
+            if ps_files:
+                for _ps_f in ps_files:
+                    _ps_done_key = f"_gp193_done_up_ps_{_ps_f.name}"
+                    if st.session_state.get(_ps_done_key) != _ps_f.size:
+                        try:
+                            from modules.scan_engine import global_ingest_hook as _gih
+                            _gih_p = _gp193_get_hook_params()
+                            with st.spinner(f"🌐 지능형 자산화 진행 중... ({_ps_f.name})"):
+                                _gih_r = _gih(
+                                    file_bytes=_ps_f.read(),
+                                    filename=_ps_f.name,
+                                    source_tab="policy_scan_ps",
+                                    doc_type="보험증권",
+                                    **_gih_p,
+                                )
+                                _ps_f.seek(0)
+                            if _gih_r.get("success"):
+                                st.success(f"✅ 전역 지식 베이스 업데이트 완료 — {_ps_f.name}")
+                            st.session_state[_ps_done_key] = _ps_f.size
+                        except Exception:
+                            pass
+            if ps_files:
+                st.success(f"✅ {len(ps_files)}개 파일 업로드 완료")
+    
+            ps_do = st.button("🔍 AI 증권 정밀 분석 실행", type="primary",
+                              key="btn_ps_analyze", use_container_width=True)
+    
+        with _ps_col2:
+            st.markdown("""<div style="background:#f0fff6;border-left:4px solid #27ae60;
+      border-radius:0 8px 8px 0;padding:7px 14px;margin-bottom:10px;
+      font-weight:900;font-size:0.9rem;color:#0d3b2e;">🤖 AI 분석 리포트</div>""",
+                unsafe_allow_html=True)
+    
+            if ps_do:
+                if 'user_id' not in st.session_state:
+                    st.error("로그인이 필요합니다.")
                 else:
-                    _ps_product_section = _PS_GENERAL_PROMPT
-
-                _ps_full_prompt = (
-                    _PS_SYSTEM
-                    + f"\n고객: {ps_c_name or '고객'}{_ps_prod_ctx}{_ps_dir_ctx}\n"
-                    + (f"추정 월소득: {_ps_income:,.0f}원\n" if _ps_income > 0 else "")
-                    + (f"추가 요청: {ps_query}\n" if ps_query else "")
-                    + _ps_product_section
-                    + "---\n[증권 데이터 시작]\n"
-                    + _ps_doc_text + _ps_vision_result
-                    + "\n[증권 데이터 끝]"
-                )
-
-                with st.spinner("골드키AI마스터 분석 중..."):
-                    try:
-                        _ps_client = get_client()
-                        if _ps_client is None:
-                            st.error("API 클라이언트 초기화 실패")
-                        else:
-                            _ps_resp = _ps_client.models.generate_content(
-                                model=GEMINI_MODEL,
-                                contents=_ps_full_prompt,
-                                config=_get_strict_config(),
-                            )
-                            _ps_answer = sanitize_unicode(_ps_resp.text) if _ps_resp.text else "AI 응답을 받지 못했습니다."
-                            st.session_state["res_ps"] = _ps_answer
-                            update_usage(st.session_state.get('user_name', ''))
-                    except Exception as _ps_err:
-                        st.error(f"분석 오류: {sanitize_unicode(str(_ps_err))}")
-
-        # ── 운전자보험 전용: 핵심6개+보완5개 가입유무 체크 박스 ──────
-        # 분석 실행 전후 모두 항상 표시 — 기본 비교항목으로 고정
-        _drv_product = st.session_state.get("ps_product", "")
-        if "운전자보험" in _drv_product:
-            _drv_col1, _drv_col2 = st.columns(2, gap="small")
-
-            with _drv_col1:
-                # ── 박스1: 핵심 6개 담보 가입유무 ─────────────────────
-                st.markdown("""<div style="background:#fef3c7;border:2px solid #e8a000;
-  border-radius:10px;padding:10px 14px 6px 14px;margin-bottom:4px;">
-<span style="color:#ffd966;font-weight:900;font-size:0.85rem;">
-  🔑 박스1 · 핵심 6개 담보 (충족 여부)</span>
-<div style="color:#f5c77a;font-size:0.70rem;margin-top:2px;">
-  미충족 시 즉시 보완 권고</div></div>""", unsafe_allow_html=True)
-                # 교통사고처리지원금: 2억 이상 + 불기소 단계 보장
-                st.checkbox("① 교통사고처리지원금 **2억↑** · 불기소단계 보장",
-                            key="drv_c1", value=False)
-                # 형사합의금: 6주미만 상해 보장 포함
-                st.checkbox("② 형사합의금 (6주미만 상해) 보장",
-                            key="drv_c2", value=False)
-                # 대인벌금 3천만 / 대물벌금 500만
-                st.checkbox("③ 대인벌금 **3,000만↑** / 대물벌금 **500만↑**",
-                            key="drv_c3", value=False)
-                # 변호사선임비용: 수사단계부터 보장
-                st.checkbox("④ 변호사선임비용 · 수사단계부터 보장",
-                            key="drv_c4", value=False)
-                # 상해후유장해 3%~10%: 최소 1억 (이상적 5억)
-                st.checkbox("⑤ 상해후유장해 3%~10% **1억↑** (이상적 5억)",
-                            key="drv_c5", value=False)
-                # 자동차사고부상위로금 또는 교통사고처리지원금 보완 여부
-                st.checkbox("⑥ 자동차사고부상위로금 (14급) 또는 보완 담보",
-                            key="drv_c6", value=False)
-                # 충족 개수 집계
-                _drv_core_ok = sum([
-                    st.session_state.get("drv_c1", False),
-                    st.session_state.get("drv_c2", False),
-                    st.session_state.get("drv_c3", False),
-                    st.session_state.get("drv_c4", False),
-                    st.session_state.get("drv_c5", False),
-                    st.session_state.get("drv_c6", False),
-                ])
-                _drv_core_color = "#22c55e" if _drv_core_ok >= 5 else ("#f59e0b" if _drv_core_ok >= 3 else "#ef4444")
-                _drv_core_label = "충분" if _drv_core_ok >= 5 else ("보완필요" if _drv_core_ok >= 3 else "취약")
-                st.markdown(
-                    f'<div style="background:{_drv_core_color}22;border:1.5px solid {_drv_core_color};'
-                    f'border-radius:7px;padding:5px 10px;text-align:center;font-weight:900;'
-                    f'font-size:0.82rem;color:{_drv_core_color};margin-top:4px;">'
-                    f'핵심담보 {_drv_core_ok}/6 충족 — {_drv_core_label}</div>',
-                    unsafe_allow_html=True
-                )
-
-            with _drv_col2:
-                # ── 박스2: 보완 5개 담보 가입유무 ─────────────────────
-                st.markdown("""<div style="background:#dbeafe;border:2px solid #0ea5e9;
-  border-radius:10px;padding:10px 14px 6px 14px;margin-bottom:4px;">
-<span style="color:#1e40af;font-weight:900;font-size:0.85rem;">
-  🛡️ 박스2 · 보완 5개 담보 (충족 여부)</span>
-<div style="color:#1d4ed8;font-size:0.70rem;margin-top:2px;">
-  핵심 6개 확보 후 순차 보완</div></div>""", unsafe_allow_html=True)
-                # 골절 관련: 골절진단·수술 / 5대골절
-                st.checkbox("① 골절진단·수술 / 5대골절·수술",
-                            key="drv_s1", value=False)
-                # 상해수술비
-                st.checkbox("② 상해수술비",
-                            key="drv_s2", value=False)
-                # 상해후유장해 20%·50%·80% (일반+교통)
-                st.checkbox("③ 상해후유장해 20%·50%·80% (일반·교통)",
-                            key="drv_s3", value=False)
-                # 상해입원일당 / 중상해입원일당
-                st.checkbox("④ 상해입원일당 / 중상해입원일당",
-                            key="drv_s4", value=False)
-                # 민사소송법률비용
-                st.checkbox("⑤ 민사소송법률비용",
-                            key="drv_s5", value=False)
-                # 충족 개수 집계
-                _drv_supp_ok = sum([
-                    st.session_state.get("drv_s1", False),
-                    st.session_state.get("drv_s2", False),
-                    st.session_state.get("drv_s3", False),
-                    st.session_state.get("drv_s4", False),
-                    st.session_state.get("drv_s5", False),
-                ])
-                _drv_supp_color = "#22c55e" if _drv_supp_ok >= 4 else ("#f59e0b" if _drv_supp_ok >= 2 else "#ef4444")
-                _drv_supp_label = "충분" if _drv_supp_ok >= 4 else ("보완필요" if _drv_supp_ok >= 2 else "취약")
-                st.markdown(
-                    f'<div style="background:{_drv_supp_color}22;border:1.5px solid {_drv_supp_color};'
-                    f'border-radius:7px;padding:5px 10px;text-align:center;font-weight:900;'
-                    f'font-size:0.82rem;color:{_drv_supp_color};margin-top:4px;">'
-                    f'보완담보 {_drv_supp_ok}/5 충족 — {_drv_supp_label}</div>',
-                    unsafe_allow_html=True
-                )
-
-        # ── AI 증권분석 결과 — KB 스타일 담보 진단 카드 + 서술형 의견 ──
-        _res_ps = st.session_state.get("res_ps", "")
-        if _res_ps:
-            import re as _re, json as _json
-
-            # ── JSON 블록 추출 (중첩 중괄호 안전 파싱) ───────────────
-            _ps_json_data = None
-            # 1차: ```json ... ``` 블록에서 최외곽 { } 추출
-            _ps_json_match = _re.search(r'```json\s*(\{[\s\S]*?\})\s*```', _res_ps)
-            if _ps_json_match:
-                _raw_json = _ps_json_match.group(1)
-                # 중첩 괄호 균형 맞추기: 첫 { 부터 균형 잡힌 } 까지만 추출
-                try:
-                    _depth = 0
-                    _start = _raw_json.index('{')
-                    _end = _start
-                    for _ci, _ch in enumerate(_raw_json[_start:], _start):
-                        if _ch == '{': _depth += 1
-                        elif _ch == '}':
-                            _depth -= 1
-                            if _depth == 0:
-                                _end = _ci + 1
-                                break
-                    _ps_json_data = _json.loads(_raw_json[_start:_end])
-                except Exception:
-                    # 2차 fallback: 전체 블록 직접 파싱
-                    try:
-                        _ps_json_data = _json.loads(_raw_json)
-                    except Exception:
-                        _ps_json_data = None
-
-            # ── JSON 성공 시: 담보 진단 렌더링 ───────────────────────
-            if _ps_json_data and _ps_json_data.get("coverages"):
-                _covs = _ps_json_data["coverages"][:10]  # 상위 10개만 표시
-
-                # ── GP-61: gap 담보 목록 + 안보 지수 사전 계산 ─────────
-                _GAP_STATUSES = {"미가입", "부족", "위험", "과부족"}
-                _gp61_gap_covs = [_c for _c in _covs if _c.get("status","") in _GAP_STATUSES or _c.get("enrolled","0") in ("0","","미가입")]
-                _gp61_ok_count = len(_covs) - len(_gp61_gap_covs)
-                _gp61_security_score = round(_gp61_ok_count / max(len(_covs), 1) * 100)
-
-                # ── 종합 요약 표 ────────────────────────────────────────
-                st.markdown("""
-<div style="border-left:4px solid #1a3a5c;padding:6px 14px;margin:14px 0 6px 0;">
-  <span style="color:#1a3a5c;font-weight:900;font-size:0.9rem;">
-  📊 주요 담보별 과부족 현황</span>
-  <span style="color:#555;font-size:0.72rem;margin-left:8px;">권장금액 기준 비교 (상위 10개)</span>
-</div>""", unsafe_allow_html=True)
-
-                # 종합 요약 표 HTML — 흰 배경 검은 글자, 구분 컬럼 없음
-                _tbl_rows = ""
-                for _i, _c in enumerate(_covs):
-                    _st = _c.get("status", "미가입")
-                    _row_bg = "#ffffff" if _i % 2 == 0 else "#f8f9fa"
-                    _enrolled_val = _c.get("enrolled", "0")
-                    _enrolled_disp = _enrolled_val if _enrolled_val != "0" else "미가입"
-                    _tbl_rows += (
-                        f'<tr style="border-bottom:1px solid #e0e0e0;background:{_row_bg};">'
-                        f'<td style="padding:7px 10px;font-weight:700;color:#111;font-size:0.82rem;">{_c.get("name","")}</td>'
-                        f'<td style="padding:7px 10px;text-align:right;color:#111;font-size:0.82rem;font-weight:700;">{_c.get("recommended","")}</td>'
-                        f'<td style="padding:7px 10px;text-align:right;color:#111;font-size:0.82rem;">{_enrolled_disp}</td>'
-                        f'<td style="padding:7px 10px;text-align:right;font-weight:900;font-size:0.82rem;color:#111;">{_c.get("diff","")}</td>'
-                        f'<td style="padding:5px 8px;text-align:center;">'
-                        f'<span style="border:1.5px solid #333;border-radius:4px;padding:2px 8px;'
-                        f'font-size:0.70rem;font-weight:900;color:#111;background:#fff;">{_st}</span>'
-                        f'</td>'
-                        f'</tr>'
+                    # ── 모든 증권 파일(PDF+이미지)을 parse_policy_with_vision으로 통합 처리 ──
+                    # PDF는 내부에서 텍스트 추출 시도 → 스캔본이면 자동으로 pymupdf→Gemini Vision으로 전환
+                    _ps_doc_text = ""
+                    _ps_vision_result = ""
+                    _ssot_txt = st.session_state.get("ssot_full_text", "")
+    
+                    # ── 파일 · SSOT 둘 다 없으면 조기 종료 ────────────────
+                    _ssot_covs = st.session_state.get("ssot_coverages", [])
+                    if not ps_files and not _ssot_txt and not _ssot_covs:
+                        st.warning(
+                            "⚠️ 분석할 증권 데이터가 없습니다.\n\n"
+                            "**📎 보험증권 PDF/이미지를 업로드**하거나, "
+                            "**스캔 허브**에서 먼저 증권을 스캔한 뒤 분석을 실행하세요."
+                        )
+                        st.stop()
+    
+                    if ps_files:
+                        with st.spinner("🔍 증권 파일 분석 중 (스캔본은 Vision OCR 자동 적용)..."):
+                            _vr = parse_policy_with_vision(ps_files)
+                            if _vr.get("coverages"):
+                                _ps_vision_result = (
+                                    "\n\n[증권 파싱 담보 목록 — 증권에 실제 있는 담보만]\n"
+                                    + json.dumps(_vr["coverages"], ensure_ascii=False, indent=2)
+                                )
+                            # ── policy_info → ssot_policy_info 동기화
+                            _vr_pi = _vr.get("policy_info") or {}
+                            if not _vr_pi:
+                                _vr_pi = {
+                                    "company":      "",
+                                    "product_name": ps_product if ps_product != "선택 안 함 (전체 분석)" else "",
+                                    "join_date":    "",
+                                }
+                            st.session_state["ssot_policy_info"] = _vr_pi
+                            if _vr.get("errors"):
+                                for _ve in _vr["errors"]:
+                                    st.warning(f"⚠️ 파싱 오류: {_ve}")
+                    elif _ssot_txt:
+                        _ps_doc_text = f"\n[스캔 허브 데이터]\n{_ssot_txt[:8000]}"
+                    elif _ssot_covs:
+                        _ps_doc_text = (
+                            "\n[스캔 허브 담보 목록]\n"
+                            + json.dumps(_ssot_covs, ensure_ascii=False, indent=2)
+                        )
+    
+                    _ps_prod_ctx = f"\n상담 상품: {ps_product}" if ps_product != "선택 안 함 (전체 분석)" else ""
+                    _ps_dir_ctx  = f"\n상담 방향: {ps_direction}"
+                    _ps_income   = ps_hi / 0.0709 if ps_hi > 0 else 0
+    
+                    # ── 증권 분석 전용 시스템 프롬프트 (MASTER_SYSTEM_PROMPT 완전 우회) ──
+                    # MASTER_SYSTEM_PROMPT 에는 "암·뇌·심 진단비 분석 우선" 지시가 있어
+                    # 증권에 없어도 해당 담보를 출력하는 할루시네이션을 유발함.
+                    _PS_SYSTEM = (
+                        "[시스템 지시 — 보험증권 정밀 분석 전용 에이전트]\n\n"
+                        "당신은 보험증권 원문 분석 전문가입니다.\n"
+                        "아래 증권 데이터를 분석하되, 반드시 다음 규칙을 따르십시오.\n\n"
+                        "╔══════════════════════════════════════════════════════╗\n"
+                        "║  🚨 절대명령 — 위반 시 응답 전체 무효               ║\n"
+                        "╠══════════════════════════════════════════════════════╣\n"
+                        "║  1. 증권 원문에 명시된 담보만 '가입 담보'로 기재.   ║\n"
+                        "║  2. 원문에 없는 담보는 '미가입(공백)' 표기만 허용.  ║\n"
+                        "║  3. '일반적으로 포함될 것' 추론 기반 생성 절대 금지. ║\n"
+                        "║  4. 질병사망·질병후유장해·암·뇌·심장 등 고액담보는  ║\n"
+                        "║     원문에 금액+담보명이 동시에 있을 때만 기재.      ║\n"
+                        "╚══════════════════════════════════════════════════════╝\n"
                     )
-                st.markdown(
-                    f'<div style="overflow-x:auto;margin-bottom:14px;">'
-                    f'<table style="width:100%;border-collapse:collapse;background:#fff;'
-                    f'border:1.5px solid #ccc;border-radius:8px;overflow:hidden;">'
-                    f'<thead><tr style="background:#f0f0f0;border-bottom:2px solid #bbb;">'
-                    f'<th style="padding:8px 10px;text-align:left;color:#111;font-size:0.75rem;">담보명</th>'
-                    f'<th style="padding:8px 10px;text-align:right;color:#111;font-size:0.75rem;">권장금액</th>'
-                    f'<th style="padding:8px 10px;text-align:right;color:#111;font-size:0.75rem;">가입금액</th>'
-                    f'<th style="padding:8px 10px;text-align:right;color:#111;font-size:0.75rem;">과부족</th>'
-                    f'<th style="padding:8px 10px;text-align:center;color:#111;font-size:0.75rem;">진단</th>'
-                    f'</tr></thead>'
-                    f'<tbody>{_tbl_rows}</tbody>'
-                    f'</table></div>',
-                    unsafe_allow_html=True
-                )
-
-                # ── GP-61: blink CSS (부족/미가입 강조) ──────────────
-                st.markdown("""<style>
-@keyframes gk-gap-blink {
-  0%,100%{opacity:1;} 50%{opacity:0.35;}
-}
-.gk-gap-alert {
-  animation: gk-gap-blink 1s infinite;
-  color: #FF0000 !important;
-  font-weight: 900 !important;
-}
-</style>""", unsafe_allow_html=True)
-
-                # ── 카테고리별 담보 카드 (007~013 스타일) ────────────
-                _cat_order = ["사망/장해", "치매/간병", "암 진단", "뇌/심장 진단",
-                              "실손의료비", "수술/입원", "운전자/기타"]
-                _cats = {}
-                for _c in _covs:
-                    _cat = _c.get("category", "기타")
-                    _cats.setdefault(_cat, []).append(_c)
-                _sorted_cats = sorted(
-                    _cats.items(),
-                    key=lambda x: _cat_order.index(x[0]) if x[0] in _cat_order else 99
-                )
-
-                _cat_icons = {
-                    "사망/장해": "💀", "치매/간병": "🧠", "암 진단": "🎗️",
-                    "뇌/심장 진단": "❤️", "실손의료비": "🏥",
-                    "수술/입원": "🔪", "운전자/기타": "🚗"
-                }
-                _cat_subtitles = {
-                    "사망/장해": "남겨진 가족을 위한 보장",
-                    "치매/간병": "온 가족이 고통받는 질병",
-                    "암 진단": "이제는 생존을 위한 치료보장",
-                    "뇌/심장 진단": "어느날 갑자기 쓰러지는 질환",
-                    "실손의료비": "평생 든든한 치료비!",
-                    "수술/입원": "폭 넓은 보장을 위한 선택!",
-                    "운전자/기타": "안전한 생활을 위한 필수보장"
-                }
-
-                for _cat_name, _cat_covs in _sorted_cats:
-                    _icon = _cat_icons.get(_cat_name, "📋")
-                    _sub = _cat_subtitles.get(_cat_name, "")
+    
+                    # ══════════════════════════════════════════════════════════════
+                    # 증권분석 프롬프트 — 전문가 서술형 총평 방식
+                    # ══════════════════════════════════════════════════════════════
+                    # 공통 분석 기준 (모든 상품 적용)
+                    _PS_COMMON_CRITERIA = """
+    
+    [보험증권 전문 분석 기준 — 금감원·법령·실무 근거]
+    
+    
+    ▶ 담보별 권장가입금액 기준표
+    
+    
+    【사망/장해】
+    • 상해사망: 권장 3억~5억원
+    • 질병사망: 권장 1억~3억원
+    • 상해80%미만후유장해: 권장 최소 3억~5억원
+    • 질병80%미만후유장해: 권장 5,000만원
+    
+    
+    【수술/입원】
+    • 상해수술비: 권장 100만원 이상
+    • 질병수술비: 권장 100만원 이상
+    • 암수술비: 권장 1,000만원 이상
+    • 뇌혈관질환수술비: 권장 1,000만원
+    • 허혈성심장질환수술비: 권장 1,000만원
+    • 상해입원일당: 권장 10만원 (일당)
+    • 질병입원일당: 권장 10만원 (일당)
+    
+    
+    【실손의료비】
+    • 상해입원의료비(실손): 가입 여부 확인 (상급병실료 포함 여부)
+    • 질병입원의료비(실손): 가입 여부 확인
+    • 상해통원의료비(실손): 가입 여부 확인
+    • 질병통원의료비(실손): 가입 여부 확인
+    • 세대구분(1~4세대) 및 자기부담금 비율 확인
+    ※ 실손은 중복가입 시 비례보상(상법 제672조) — 1건만 유지 권고
+    
+    
+    【운전자/기타】
+    • 교통사고처리지원금: 권장 2억원 이상 (불기소 단계부터 보장 여부 확인)
+    • 형사합의금(6주미만 상해): 가입 여부 확인
+    • 대인벌금: 권장 3,000만원 이상
+    • 대물벌금: 권장 500만원 이상
+    • 변호사선임비용: 수사단계부터 보장 여부 확인
+    • 자동차사고부상위로금(14급): 보완 확인
+    • 골절진단·수술: 가입 여부 확인
+    • 민사소송법률비용: 가입 여부 확인
+    • 화재벌금: 권장 2,000만원
+    • 가족/일상/자녀배상책임: 권장 1억원
+    
+    
+    【뇌/심장 진단】
+    • 뇌혈관질환진단비: 권장 1,000만원 이상
+    • 뇌졸중진단비: 권장 5,000만원 이상
+    • 뇌출혈진단비: 권장 5,000만원 이상
+    • 허혈성심장질환진단비: 권장 1,000만원 이상
+    • 급성심근경색증진단비: 권장 3,000만원 이상
+    • 심장질환진단비: 권장 5,000만원
+    
+    
+    【암 진단】
+    • 일반암진단비: 권장 5,000만원
+    • 유사암진단비: 권장 2,000만원 (최소 1,000만원 이상)
+    • 고액암진단비: 권장 2억원 이상
+    • 표적항암치료비(고액): 권장 1억 5,000만원 이상
+    • 장기요양진단비(치매 포함): 권장 2,000만원
+    • 경증치매진단비(CDR1): 권장 3,000만원~5,000만원
+    • 중증치매진단비(CDR2·3): CDR2 2,000만원↑, CDR3 5,000만원↑
+    • 간호간병입원일당 (일반병동): 권장 15만원 (일당)
+    • 간호간병입원일당 (통합병동): 권장 10만원 (일당)
+    
+    
+    ▶ 납입 보험료 적정 범위
+    
+    • 보장성: 가처분소득의 15% 이하 (연금·저축·자동차·화재·실손 별도)
+    
+    • 가처분소득 모를 때: 납입 건강보험료 ÷ 0.0709 = 추정 월소득
+    
+    
+    ▶ 비례보상·중복보장 원칙 (상법 제672조)
+    
+    • 실손·벌금·변호사비용·화재손해는 실제 발생 비용만 보상 → 중복가입 시 낭비
+    
+    • 종합보험 내 운전자 특약과 별도 운전자보험 중복 시 하나로 정리 권고
+    
+    
+    ▶ 법적 효력 점검
+    
+    • 고지의무 위반(상법 제651조) 위험 여부
+    
+    • 수익자·지정대리청구인 설정 여부
+    
+    • 갱신형 보험료 인상(Shock) 위험 진단
+    """
+    
+    
+                    # 운전자보험 단품 전용 프롬프트 (서술형 총평)
+                    _PS_DRIVER_PROMPT = (
+    
+                        _PS_COMMON_CRITERIA
+    
+                        + """
+    [운전자보험 전문 분석 — 서술형 총평 출력 지시]
+    
+    
+    운전자보험 제1목적: 교통사고 가해자 발생 시 형사·법률비용 보전.
+    
+    11중과실(음주·약물·무면허·뺑소니 4개 제외) 및 중상해사고 대비가 핵심.
+    
+    
+    ▶ 담보별 적정 기준 (운전자보험 전용)
+    
+    • 교통사고처리지원금: 2억원↑ / 불기소 단계부터 보장 여부 확인
+    
+    • 형사합의금(6주미만 상해): 가입 여부
+    
+    • 대인벌금: 3천만원↑ / 대물벌금: 500만원↑
+    
+    • 변호사선임비용: 수사단계부터 보장 여부 확인
+    
+    • 상해후유장해(3%): 최소 1억↑, 이상적 5억 (일반상해+교통상해 합산)
+    
+    • 자동차사고부상위로금(14급): 보완 확인
+    
+    • 보완: 골절진단·수술, 상해수술비, 상해입원일당, 민사소송법률비용
+    
+    
+    ▶▶ 출력 형식 (아래 순서대로 출력)
+    
+    
+    [1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
+    
+    ```json
+    {
+      "coverages": [
+    {"category": "사망/장해", "name": "상해사망", "recommended": "3억~5억", "enrolled": "3억", "diff": "-", "status": "충분"},
+    {"category": "사망/장해", "name": "질병사망", "recommended": "1억~3억", "enrolled": "1천만", "diff": "-9천만", "status": "부족"},
+    {"category": "운전자/기타", "name": "교통사고처리지원금", "recommended": "2억이상", "enrolled": "0", "diff": "-2억", "status": "미가입"}
+      ]
+    }
+    ```
+    ※ status 값: "충분" | "부족" | "미가입" 중 하나만 사용. 증권에 없는 담보는 enrolled를 "0"으로, status를 "미가입"으로.
+    ※ recommended는 위 기준표 숫자 그대로 사용. 모든 담보 항목 빠짐없이 포함.
+    
+    
+    [2단계 — 서술형 전문가 의견]
+    
+    ### 📋 총평
+    
+    [전문가 시각에서 3~4문장 서술. 현재 가입 보장의 전체적인 충분·불충분 수준, 가장 중요한 리스크, 보험료 효율성 총평]
+    
+    
+    ### ✅ 충분 항목
+    
+    [충족된 담보를 쉼표로 나열 후, 그 이유·의미를 2~3문장 서술]
+    
+    
+    ### ⚠️ 불충분·공백 항목
+    
+    [미달·미가입 담보를 긴급도 순으로 나열하고, 각 항목마다 왜 부족한지·어떤 위험이 있는지 전문가 서술 2~3문장]
+    
+    
+    ### 💡 전문가 권고
+    
+    [우선 보완해야 할 사항 3가지를 번호로 서술. 법령·판례·실사례 근거 포함. 화법 포함 가능]
+    """
+    
+                    )
+    
+    
+                    # 일반 보험(종합·암·치매·화재 등) 전용 프롬프트 (서술형 총평)
+                    _PS_GENERAL_PROMPT = (
+    
+                        _PS_COMMON_CRITERIA
+    
+                        + """
+    [보험증권 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
+    
+    
+    ▶▶ 출력 형식 (아래 순서대로 출력)
+    
+    
+    [1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
+    
+    ```json
+    {
+      "coverages": [
+    {"category": "사망/장해", "name": "상해사망", "recommended": "3억~5억", "enrolled": "3억", "diff": "-", "status": "충분"},
+    {"category": "암 진단", "name": "일반암진단비", "recommended": "5,000만원", "enrolled": "0", "diff": "-5,000만원", "status": "미가입"},
+    {"category": "뇌/심장 진단", "name": "뇌졸중진단비", "recommended": "5,000만원이상", "enrolled": "2,000만원", "diff": "-3,000만원", "status": "부족"}
+      ]
+    }
+    ```
+    ※ status 값: "충분" | "부족" | "미가입" 중 하나만 사용. 증권에 없는 담보는 enrolled를 "0"으로, status를 "미가입"으로.
+    ※ recommended는 위 기준표 숫자 그대로. 모든 분석 대상 담보 항목 포함.
+    
+    
+    [2단계 — 서술형 전문가 의견]
+    
+    ### 📋 총평
+    
+    [전문가 시각에서 3~4문장 서술. 현재 가입 보장의 전체적인 충분·불충분 수준, 주요 보장 구조의 특징, 납입 보험료 효율성. 상품 유형(종합·암·치매 등)에 맞는 분석 관점 적용]
+    
+    
+    ### ✅ 충분 항목
+    
+    [적정 기준을 충족하는 담보를 나열하고, 왜 충분한지 전문가 의견 서술. 중복보장 없는지도 언급]
+    
+    
+    ### ⚠️ 불충분·공백 항목
+    
+    [미달·미가입 담보를 긴급도 순으로 나열. 각 항목마다 어떤 위험에 노출되는지, 법령·약관 관점에서 구체적으로 서술]
+    
+    
+    ### 💡 전문가 권고
+    
+    [우선 보완해야 할 사항 3가지를 번호로 서술. 금감원 가이드라인·상법·판례 근거 포함. 갱신형 위험, 고지의무, 수익자 설정 등 법적 사항도 포함]
+    """
+    
+                    )
+    
+    
+                    # ── 암보험 전용 프롬프트 ────────────────────────────────
+                    _PS_CANCER_PROMPT = (
+                        _PS_COMMON_CRITERIA
+                        + """
+    [암보험 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
+    
+    ▶ 암보험 핵심 분석 포인트
+    • 일반암 vs 유사암(소액암) 구분 — 진단비 차등 여부
+    • 비급여 항암 담보: 표적항암(레이저·면역·CAR-T) 보장 여부
+    • 고액암(혈액암·뇌암·췌장암 등) 별도 진단비 포함 여부
+    • 암수술비·항암약물치료비 가입 여부
+    • 갱신형 암보험: 재진단 갱신 시 보험료 폭등 위험
+    • 실손과의 중복 여부 (비급여 항암은 실손으로 보완)
+    
+    ▶▶ 출력 형식 (아래 순서대로 출력)
+    
+    [1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
+    
+    ```json
+    {
+      "coverages": [
+    {"category": "암 진단", "name": "일반암진단비", "recommended": "5,000만원", "enrolled": "3,000만원", "diff": "-2,000만원", "status": "부족"},
+    {"category": "암 진단", "name": "고액암진단비", "recommended": "2억이상", "enrolled": "0", "diff": "-2억", "status": "미가입"},
+    {"category": "암 진단", "name": "표적항암치료비", "recommended": "1억5,000만원이상", "enrolled": "0", "diff": "-1억5,000만원", "status": "미가입"}
+      ]
+    }
+    ```
+    ※ status 값: "충분" | "부족" | "미가입". 증권에 없는 담보는 enrolled="0", status="미가입".
+    ※ 암 관련 담보 위주로 분석. 사망/실손 등은 보조적으로 포함.
+    
+    [2단계 — 서술형 전문가 의견]
+    
+    ### 📋 총평
+    [암보험 전문가 시각 3~4문장: 일반암·고액암·표적항암 커버리지 전체 수준, 비급여 항암 공백 여부, 갱신형 리스크]
+    
+    ### ✅ 충분 항목
+    [충족된 담보 나열 및 충분 이유 서술]
+    
+    ### ⚠️ 불충분·공백 항목
+    [미달·미가입 암 담보를 긴급도 순으로 나열. 특히 표적항암·고액암 공백의 재정적 위험 구체 서술]
+    
+    ### 💡 전문가 권고
+    [① 가장 시급한 보완 ② 갱신형→비갱신형 전환 검토 ③ 실손과의 조합 전략 순으로 3가지 번호 서술]
+    """
+                    )
+    
+                    # ── 치매·간병보험 전용 프롬프트 ─────────────────────────
+                    _PS_DEMENTIA_PROMPT = (
+                        _PS_COMMON_CRITERIA
+                        + """
+    [치매·간병보험 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
+    
+    ▶ 치매·간병보험 핵심 분석 포인트
+    • CDR 척도 기준: CDR1(경증)·CDR2(중등도)·CDR3(중증) 각각 보장 여부
+    • 장기요양 등급 연계: 1~2등급 자동 지급 상품 vs 별도 진단 필요 상품
+    • 간호간병입원일당: 일반병동(15만원)/통합병동(10만원) 수준 확인
+    • 레킴비(알츠하이머 치료제) 비급여 비용 대비 표적치료비 담보 여부
+    • 지정대리청구인 설정 여부 (치매 발병 후 본인 청구 불가 위험)
+    • 납입면제 조건: 장기요양 등급 취득 시 보험료 면제 여부
+    
+    ▶▶ 출력 형식 (아래 순서대로 출력)
+    
+    [1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
+    
+    ```json
+    {
+      "coverages": [
+    {"category": "치매/간병", "name": "경증치매진단비(CDR1)", "recommended": "3,000만원~5,000만원", "enrolled": "0", "diff": "-3,000만원", "status": "미가입"},
+    {"category": "치매/간병", "name": "중증치매진단비(CDR3)", "recommended": "5,000만원이상", "enrolled": "3,000만원", "diff": "-2,000만원", "status": "부족"},
+    {"category": "치매/간병", "name": "간호간병입원일당(일반병동)", "recommended": "15만원", "enrolled": "10만원", "diff": "-5만원", "status": "부족"}
+      ]
+    }
+    ```
+    ※ status 값: "충분" | "부족" | "미가입". 치매·간병 담보 위주 분석.
+    
+    [2단계 — 서술형 전문가 의견]
+    
+    ### 📋 총평
+    [치매보험 전문가 시각 3~4문장: CDR 단계별 보장 구조 충족 여부, 간병비 현실 대비 일당 수준, 지정대리청구인 설정 여부]
+    
+    ### ✅ 충분 항목
+    [충족된 치매·간병 담보 나열 및 이유 서술]
+    
+    ### ⚠️ 불충분·공백 항목
+    [CDR1~3 단계 공백, 간병일당 부족분, 레킴비 등 비급여 치료 대비 부족 항목 구체 서술]
+    
+    ### 💡 전문가 권고
+    [① CDR1 경증 단계 보완 필요성 ② 지정대리청구인 즉시 설정 ③ 간병일당 현실화 방안 순으로 3가지 번호 서술]
+    """
+                    )
+    
+                    # ── 실손의료비 전용 프롬프트 ─────────────────────────────
+                    _PS_SILSON_PROMPT = (
+                        _PS_COMMON_CRITERIA
+                        + """
+    [실손의료보험 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
+    
+    ▶ 실손의료비 핵심 분석 포인트
+    • 세대 구분: 1세대(~2009)·2세대(2009~2017)·3세대(2017~2021)·4세대(2021~)
+      - 1·2세대: 비급여 100% 보장 / 3세대: 비급여 특약 분리 / 4세대: 비급여 자기부담 30~40%
+    • 갱신 주기 및 차기 갱신 예상 인상률 확인
+    • 도수치료·비급여 주사·MRI 특약 가입 여부 (3·4세대 분리특약)
+    • 중복가입 여부 — 상법 제672조 비례보상 원칙 적용 (2건 중복 시 낭비)
+    • 상급병실료(2인실 이상) 보장 포함 여부
+    
+    ▶▶ 출력 형식 (아래 순서대로 출력)
+    
+    [1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
+    
+    ```json
+    {
+      "coverages": [
+    {"category": "실손의료비", "name": "상해입원의료비(실손)", "recommended": "가입필수", "enrolled": "4세대 가입", "diff": "-", "status": "충분"},
+    {"category": "실손의료비", "name": "비급여도수치료특약", "recommended": "가입권장", "enrolled": "0", "diff": "미가입", "status": "미가입"},
+    {"category": "실손의료비", "name": "비급여MRI특약", "recommended": "가입권장", "enrolled": "0", "diff": "미가입", "status": "미가입"}
+      ]
+    }
+    ```
+    ※ 실손은 금액 비교보다 세대·특약 유무·갱신위험이 핵심. recommended에 "가입필수"/"가입권장" 사용 가능.
+    
+    [2단계 — 서술형 전문가 의견]
+    
+    ### 📋 총평
+    [실손 세대 확인 결과, 자기부담금 구조, 갱신 위험, 비급여 특약 커버리지 전반 3~4문장]
+    
+    ### ✅ 충분 항목
+    [충족된 실손 담보 및 보장 항목]
+    
+    ### ⚠️ 불충분·공백 항목
+    [비급여 특약 누락, 구실손 갱신 리스크, 자기부담금 과다 항목 구체 서술]
+    
+    ### 💡 전문가 권고
+    [① 세대별 전환/유지 전략 ② 비급여 특약 보완 ③ 중복가입 정리 방안 순으로 3가지 번호 서술]
+    """
+                    )
+    
+                    # ── 뇌혈관·심장 전용 프롬프트 ───────────────────────────
+                    _PS_BRAIN_HEART_PROMPT = (
+                        _PS_COMMON_CRITERIA
+                        + """
+    [뇌혈관·심장보험 전문 분석 — 담보진단표 + 서술형 총평 출력 지시]
+    
+    ▶ 뇌혈관·심장 핵심 분석 포인트
+    • 뇌혈관질환(광의) vs 뇌졸중(협의) vs 뇌출혈(최협의): 보장 범위 단계별 확인
+    • 허혈성심장질환(광의) vs 급성심근경색증(협의): 진단 범위 차이 인지
+    • 권장: 뇌졸중 5,000만↑ / 급성심근경색 3,000만↑ / 심장질환 5,000만↑
+    • 뇌·심장 수술비 1,000만원 이상 별도 가입 여부
+    • 가족력(중풍·심근경색) 있을 경우 간병보험 추가 권고
+    
+    ▶▶ 출력 형식 (아래 순서대로 출력)
+    
+    [1단계 — JSON 담보 진단표 (파싱용, 반드시 출력)]
+    
+    ```json
+    {
+      "coverages": [
+    {"category": "뇌/심장 진단", "name": "뇌졸중진단비", "recommended": "5,000만원이상", "enrolled": "2,000만원", "diff": "-3,000만원", "status": "부족"},
+    {"category": "뇌/심장 진단", "name": "급성심근경색증진단비", "recommended": "3,000만원이상", "enrolled": "0", "diff": "-3,000만원", "status": "미가입"},
+    {"category": "수술/입원", "name": "뇌혈관질환수술비", "recommended": "1,000만원", "enrolled": "500만원", "diff": "-500만원", "status": "부족"}
+      ]
+    }
+    ```
+    ※ 뇌·심장 관련 담보 위주 분석. status: "충분"|"부족"|"미가입".
+    
+    [2단계 — 서술형 전문가 의견]
+    
+    ### 📋 총평
+    [뇌·심장 전문가 시각 3~4문장: 광의/협의 보장범위 커버리지, 진단비 수준 대비 실제 치료비, 가족력 리스크]
+    
+    ### ✅ 충분 항목
+    [충족된 뇌·심장 담보 나열 및 이유 서술]
+    
+    ### ⚠️ 불충분·공백 항목
+    [뇌졸중·심근경색·심장질환 공백 항목과 실제 치료비 대비 부족분 구체 서술]
+    
+    ### 💡 전문가 권고
+    [① 가장 시급한 뇌·심장 담보 보완 ② 광의→협의 보장범위 전략 ③ 가족력 고려 간병보험 연계 방안 순으로 3가지 번호 서술]
+    """
+                    )
+    
+                    # 상품 선택에 따라 전용 프롬프트 적용
+                    _is_driver_ins   = "운전자보험" in ps_product
+                    _is_cancer_ins   = ps_product in ("암보험",)
+                    _is_dementia_ins = ps_product in ("치매·간병보험",)
+                    _is_silson_ins   = ps_product in ("실손보험 (실비)",)
+                    _is_brainheart   = ps_product in ("뇌혈관·심장보험",)
+    
+                    if _is_driver_ins:
+                        _ps_product_section = _PS_DRIVER_PROMPT
+                    elif _is_cancer_ins:
+                        _ps_product_section = _PS_CANCER_PROMPT
+                    elif _is_dementia_ins:
+                        _ps_product_section = _PS_DEMENTIA_PROMPT
+                    elif _is_silson_ins:
+                        _ps_product_section = _PS_SILSON_PROMPT
+                    elif _is_brainheart:
+                        _ps_product_section = _PS_BRAIN_HEART_PROMPT
+                    else:
+                        _ps_product_section = _PS_GENERAL_PROMPT
+    
+                    _ps_full_prompt = (
+                        _PS_SYSTEM
+                        + f"\n고객: {ps_c_name or '고객'}{_ps_prod_ctx}{_ps_dir_ctx}\n"
+                        + (f"추정 월소득: {_ps_income:,.0f}원\n" if _ps_income > 0 else "")
+                        + (f"추가 요청: {ps_query}\n" if ps_query else "")
+                        + _ps_product_section
+                        + "---\n[증권 데이터 시작]\n"
+                        + _ps_doc_text + _ps_vision_result
+                        + "\n[증권 데이터 끝]"
+                    )
+    
+                    with st.spinner("골드키AI마스터 분석 중..."):
+                        try:
+                            _ps_client = get_client()
+                            if _ps_client is None:
+                                st.error("API 클라이언트 초기화 실패")
+                            else:
+                                _ps_resp = _ps_client.models.generate_content(
+                                    model=GEMINI_MODEL,
+                                    contents=_ps_full_prompt,
+                                    config=_get_strict_config(),
+                                )
+                                _ps_answer = sanitize_unicode(_ps_resp.text) if _ps_resp.text else "AI 응답을 받지 못했습니다."
+                                st.session_state["res_ps"] = _ps_answer
+                                update_usage(st.session_state.get('user_name', ''))
+                        except Exception as _ps_err:
+                            st.error(f"분석 오류: {sanitize_unicode(str(_ps_err))}")
+    
+            # ── 운전자보험 전용: 핵심6개+보완5개 가입유무 체크 박스 ──────
+            # 분석 실행 전후 모두 항상 표시 — 기본 비교항목으로 고정
+            _drv_product = st.session_state.get("ps_product", "")
+            if "운전자보험" in _drv_product:
+                _drv_col1, _drv_col2 = st.columns(2, gap="small")
+    
+                with _drv_col1:
+                    # ── 박스1: 핵심 6개 담보 가입유무 ─────────────────────
+                    st.markdown("""<div style="background:#fef3c7;border:2px solid #e8a000;
+      border-radius:10px;padding:10px 14px 6px 14px;margin-bottom:4px;">
+    <span style="color:#ffd966;font-weight:900;font-size:0.85rem;">
+      🔑 박스1 · 핵심 6개 담보 (충족 여부)</span>
+    <div style="color:#f5c77a;font-size:0.70rem;margin-top:2px;">
+      미충족 시 즉시 보완 권고</div></div>""", unsafe_allow_html=True)
+                    # 교통사고처리지원금: 2억 이상 + 불기소 단계 보장
+                    st.checkbox("① 교통사고처리지원금 **2억↑** · 불기소단계 보장",
+                                key="drv_c1", value=False)
+                    # 형사합의금: 6주미만 상해 보장 포함
+                    st.checkbox("② 형사합의금 (6주미만 상해) 보장",
+                                key="drv_c2", value=False)
+                    # 대인벌금 3천만 / 대물벌금 500만
+                    st.checkbox("③ 대인벌금 **3,000만↑** / 대물벌금 **500만↑**",
+                                key="drv_c3", value=False)
+                    # 변호사선임비용: 수사단계부터 보장
+                    st.checkbox("④ 변호사선임비용 · 수사단계부터 보장",
+                                key="drv_c4", value=False)
+                    # 상해후유장해 3%~10%: 최소 1억 (이상적 5억)
+                    st.checkbox("⑤ 상해후유장해 3%~10% **1억↑** (이상적 5억)",
+                                key="drv_c5", value=False)
+                    # 자동차사고부상위로금 또는 교통사고처리지원금 보완 여부
+                    st.checkbox("⑥ 자동차사고부상위로금 (14급) 또는 보완 담보",
+                                key="drv_c6", value=False)
+                    # 충족 개수 집계
+                    _drv_core_ok = sum([
+                        st.session_state.get("drv_c1", False),
+                        st.session_state.get("drv_c2", False),
+                        st.session_state.get("drv_c3", False),
+                        st.session_state.get("drv_c4", False),
+                        st.session_state.get("drv_c5", False),
+                        st.session_state.get("drv_c6", False),
+                    ])
+                    _drv_core_color = "#22c55e" if _drv_core_ok >= 5 else ("#f59e0b" if _drv_core_ok >= 3 else "#ef4444")
+                    _drv_core_label = "충분" if _drv_core_ok >= 5 else ("보완필요" if _drv_core_ok >= 3 else "취약")
                     st.markdown(
-                        f'<div style="background:#e0e7ff;border-bottom:2px solid #f59e0b;'
-                        f'padding:7px 14px;margin:18px 0 8px 0;border-radius:6px 6px 0 0;">'
-                        f'<span style="color:#92400e;font-weight:900;font-size:0.88rem;">'
-                        f'{_icon} {_cat_name}</span>'
-                        f'<span style="color:#94a3b8;font-size:0.72rem;margin-left:8px;">{_sub}</span>'
-                        f'</div>',
+                        f'<div style="background:{_drv_core_color}22;border:1.5px solid {_drv_core_color};'
+                        f'border-radius:7px;padding:5px 10px;text-align:center;font-weight:900;'
+                        f'font-size:0.82rem;color:{_drv_core_color};margin-top:4px;">'
+                        f'핵심담보 {_drv_core_ok}/6 충족 — {_drv_core_label}</div>',
                         unsafe_allow_html=True
                     )
-                    st.markdown('<div style="background:#eff6ff;padding:8px;border-radius:0 0 10px 10px;margin-bottom:4px;">', unsafe_allow_html=True)
-
-                    # 4개씩 행으로 배치
-                    _cols_per_row = 4
-                    for _row_start in range(0, len(_cat_covs), _cols_per_row):
-                        _row_items = _cat_covs[_row_start:_row_start + _cols_per_row]
-                        _card_cols = st.columns(len(_row_items))
-                        for _ci, _cov in enumerate(_row_items):
-                            _st = _cov.get("status", "미가입")
-                            _sty = _cov_style(_st)
-                            _enrolled_disp = _cov.get("enrolled", "0")
-                            _is_unenrolled = _enrolled_disp in ("0", "", "미가입")
-                            _diff_disp = _cov.get("diff", "")
-                            _is_gap = _st in ("부족", "미가입")
-                            # GP-61: 부족 항목 blink 강조 border
-                            _card_border = "2px solid #FF0000" if _is_gap else f"1.5px solid {_sty['border']}"
-                            with _card_cols[_ci]:
-                                st.markdown(
-                                    f'<div style="background:{_sty["bg"]};border:{_card_border};'
-                                    f'border-radius:10px;padding:10px 12px;margin:3px 2px;min-height:110px;'
-                                    f'{"animation:gk-gap-blink 1s infinite;" if _is_gap else ""}">'
-                                    f'<div style="color:{_sty["text"]};font-size:0.66rem;margin-bottom:2px;">{_cat_name}</div>'
-                                    f'<div style="color:{_sty["text"]};font-weight:900;font-size:0.80rem;margin-bottom:6px;line-height:1.3;">{_cov.get("name","")}</div>'
-                                    f'<div style="display:flex;justify-content:space-between;font-size:0.68rem;color:{_sty["text"]};margin-bottom:1px;">'
-                                    f'<span>권장</span><span style="font-weight:700;">{_cov.get("recommended","")}</span></div>'
-                                    f'<div style="display:flex;justify-content:space-between;font-size:0.68rem;color:{_sty["text"]};margin-bottom:6px;">'
-                                    f'<span>가입</span><span style="font-weight:700;">{"미가입" if _is_unenrolled else _enrolled_disp}</span></div>'
-                                    f'<div style="background:{_sty["label_bg"]};color:{_sty["label_color"]};'
-                                    f'border-radius:5px;padding:3px 6px;text-align:center;'
-                                    f'font-weight:900;font-size:0.72rem;">'
-                                    f'{"<span class=gk-gap-alert>" if _is_gap else ""}{_st}&nbsp;&nbsp;<span style="font-size:0.78rem;">{_diff_disp}</span>{"</span>" if _is_gap else ""}'
-                                    f'</div>'
-                                    f'</div>',
-                                    unsafe_allow_html=True
-                                )
-                                # GP-61: 부족/미가입 항목에 [공백 분석] 버튼
-                                if _is_gap:
-                                    _btn_key = f"gp61_gap_{_cat_name}_{_cov.get('name','')}_{_ci}_{_row_start}"
-                                    if st.button(
-                                        "🔍 공백 분석",
-                                        key=_btn_key,
-                                        use_container_width=True,
-                                        help=f"[{_cov.get('name','')}] 보장 공백을 즉시 분석합니다"
-                                    ):
-                                        st.session_state["_gp61_gap_item"] = {
-                                            "name": _cov.get("name", ""),
-                                            "category": _cat_name,
-                                            "enrolled": _enrolled_disp,
-                                            "recommended": _cov.get("recommended", ""),
-                                            "diff": _diff_disp,
-                                            "status": _st,
-                                        }
-                                        st.session_state["current_tab"] = "injury"
-                                        st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-            # ── 서술형 AI 의견 (JSON 이후 또는 JSON 없을 때) ──────────
-            # JSON 블록 제거한 순수 서술형 텍스트만 표시
-            _narrative = _re.sub(r'```json.*?```', '', _res_ps, flags=_re.DOTALL).strip()
-            if _narrative:
-                st.markdown("""
-<div style="background:#eff6ff;border-left:4px solid #0ea5e9;border-radius:0 8px 8px 0;
-  padding:6px 14px;margin:18px 0 6px 0;">
-  <span style="color:#1d4ed8;font-weight:900;font-size:0.88rem;">
-  🏥 보험 전문가의 한 마디</span>
-</div>""", unsafe_allow_html=True)
-                st.markdown(
-                    f'<div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;'
-                    f'padding:18px 22px;font-size:0.88rem;line-height:1.8;color:#1e3a5f;'
-                    f'">'
-                    f'{_narrative.replace(chr(10), "<br>")}'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
-
-            # ── 증권분석 전용 면책 공고 ────────────────────────────────
-            st.markdown("""
-<div style="background:#fef9c3;border:1px solid #7c3a00;border-radius:8px;
-  padding:9px 14px;margin-top:8px;">
-  <span style="color:#92400e;font-weight:900;font-size:0.74rem;">⚠️ 면책 고지</span>
-  <span style="color:#d4a76a;font-size:0.72rem;">
-  &nbsp;본 AI 증권분석 결과는 <b>참고용</b>이며, 실제 보장 내용·보험금 청구 여부는
-  반드시 <b>해당 보험회사 약관 및 공인 설계사</b>를 통해 확인하시기 바랍니다.
-  AI 오답으로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.
-  </span>
-</div>""", unsafe_allow_html=True)
-
-            # ── GP-61 §3: 안보 지수 전략적 팝업 + CTA ─────────────
-            if _ps_json_data and _ps_json_data.get("coverages"):
-                _gap_count   = len(_gp61_gap_covs)
-                _gap_pct_val = round(_gap_count / max(len(_covs), 1) * 100)
-                _sec_score   = _gp61_security_score
-                _score_color = "#22c55e" if _sec_score >= 80 else ("#f59e0b" if _sec_score >= 60 else "#ef4444")
-
-                # 시각적 브릿지: [공백 발생 → 보완 필요]
-                st.markdown(f"""
-<div style="display:flex;align-items:center;justify-content:center;
-  gap:0;margin:18px 0 0 0;">
-  <div style="background:#dbeafe;border:1.5px solid #2e6da4;border-radius:10px;
-padding:8px 16px;font-size:0.80rem;font-weight:900;color:#1e40af;">
-📊 증권 분석 완료
-  </div>
-  <div style="display:flex;flex-direction:column;align-items:center;padding:0 8px;">
-<div style="width:60px;height:2px;background:linear-gradient(90deg,#2e6da4,#ef4444);"></div>
-<div style="font-size:0.62rem;color:#ef4444;font-weight:700;margin-top:1px;">공백 발생</div>
-  </div>
-  <div style="background:#fee2e2;border:1.5px solid #ef4444;border-radius:10px;
-padding:8px 16px;font-size:0.80rem;font-weight:900;color:#991b1b;">
-🛡️ 보완 필요
-  </div>
-  <div style="display:flex;flex-direction:column;align-items:center;padding:0 8px;">
-<div style="width:40px;height:2px;background:linear-gradient(90deg,#ef4444,#f59e0b);"></div>
-<div style="font-size:0.62rem;color:#f59e0b;font-weight:700;margin-top:1px;">▶▶▶</div>
-  </div>
-  <div style="background:#dcfce7;border:1.5px solid #22c55e;border-radius:10px;
-padding:8px 16px;font-size:0.80rem;font-weight:900;color:#166534;">
-🔍 보장공백 분석
-  </div>
-</div>""", unsafe_allow_html=True)
-
-                # 안보 지수 팝업
-                st.markdown(f"""
-<div style="background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);
-  border:2px solid {_score_color};border-radius:14px;padding:18px 22px;margin:14px 0 8px 0;
-  box-shadow:0 0 20px rgba(239,68,68,0.18);">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-<div>
-  <div style="font-size:0.72rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px;">
-    🏰 가이딩 프로토콜 제61조 — 가문 안보 종합 판정
-  </div>
-  <div style="font-size:1.6rem;font-weight:900;color:{_score_color};line-height:1;">
-    {_sec_score}<span style="font-size:1rem;color:#94a3b8;">/100점</span>
-  </div>
-  <div style="font-size:0.82rem;color:#cbd5e1;margin-top:6px;line-height:1.6;">
-    이 가문의 안보 지수는 <b style="color:{_score_color};">{_sec_score}점</b>입니다.<br>
-    <b style="color:#ef4444;animation:gk-gap-blink 1s infinite;display:inline-block;">
-      {_gap_pct_val}%({_gap_count}개 담보)의 보장 공백</b>을 확인하시겠습니까?
-  </div>
-</div>
-<div style="text-align:center;">
-  <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:8px 14px;">
-    <div style="font-size:0.68rem;color:#64748b;">담보 현황</div>
-    <div style="font-size:1.1rem;font-weight:900;color:#16a34a;">{len(_covs) - _gap_count}</div>
-    <div style="font-size:0.60rem;color:#64748b;">적정</div>
-  </div>
-  <div style="font-size:0.65rem;color:#ef4444;font-weight:700;margin:3px 0;">vs</div>
-  <div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:10px;padding:8px 14px;">
-    <div style="font-size:0.68rem;color:#dc2626;">공백</div>
-    <div style="font-size:1.1rem;font-weight:900;color:#ef4444;">{_gap_count}</div>
-    <div style="font-size:0.60rem;color:#dc2626;">미충족</div>
-  </div>
-</div>
-  </div>
-</div>""", unsafe_allow_html=True)
-
-                _cta_label = f"{_gap_pct_val}% 보장 공백 즉시 메우기 (분석 시작)"
-                if st.button(
-                    f"⚡ {_cta_label}",
-                    key="gp61_cta_gap_defense",
-                    use_container_width=True,
-                    type="primary",
-                ):
-                    st.session_state["_gp61_gap_summary"] = {
-                        "security_score": _sec_score,
-                        "gap_count": _gap_count,
-                        "gap_pct": _gap_pct_val,
-                        "gap_covs": [
-                            {
-                                "name": _c.get("name",""),
-                                "category": _c.get("category",""),
-                                "enrolled": _c.get("enrolled","0"),
-                                "recommended": _c.get("recommended",""),
-                                "diff": _c.get("diff",""),
-                                "status": _c.get("status",""),
-                            }
-                            for _c in _gp61_gap_covs
-                        ],
+    
+                with _drv_col2:
+                    # ── 박스2: 보완 5개 담보 가입유무 ─────────────────────
+                    st.markdown("""<div style="background:#dbeafe;border:2px solid #0ea5e9;
+      border-radius:10px;padding:10px 14px 6px 14px;margin-bottom:4px;">
+    <span style="color:#1e40af;font-weight:900;font-size:0.85rem;">
+      🛡️ 박스2 · 보완 5개 담보 (충족 여부)</span>
+    <div style="color:#1d4ed8;font-size:0.70rem;margin-top:2px;">
+      핵심 6개 확보 후 순차 보완</div></div>""", unsafe_allow_html=True)
+                    # 골절 관련: 골절진단·수술 / 5대골절
+                    st.checkbox("① 골절진단·수술 / 5대골절·수술",
+                                key="drv_s1", value=False)
+                    # 상해수술비
+                    st.checkbox("② 상해수술비",
+                                key="drv_s2", value=False)
+                    # 상해후유장해 20%·50%·80% (일반+교통)
+                    st.checkbox("③ 상해후유장해 20%·50%·80% (일반·교통)",
+                                key="drv_s3", value=False)
+                    # 상해입원일당 / 중상해입원일당
+                    st.checkbox("④ 상해입원일당 / 중상해입원일당",
+                                key="drv_s4", value=False)
+                    # 민사소송법률비용
+                    st.checkbox("⑤ 민사소송법률비용",
+                                key="drv_s5", value=False)
+                    # 충족 개수 집계
+                    _drv_supp_ok = sum([
+                        st.session_state.get("drv_s1", False),
+                        st.session_state.get("drv_s2", False),
+                        st.session_state.get("drv_s3", False),
+                        st.session_state.get("drv_s4", False),
+                        st.session_state.get("drv_s5", False),
+                    ])
+                    _drv_supp_color = "#22c55e" if _drv_supp_ok >= 4 else ("#f59e0b" if _drv_supp_ok >= 2 else "#ef4444")
+                    _drv_supp_label = "충분" if _drv_supp_ok >= 4 else ("보완필요" if _drv_supp_ok >= 2 else "취약")
+                    st.markdown(
+                        f'<div style="background:{_drv_supp_color}22;border:1.5px solid {_drv_supp_color};'
+                        f'border-radius:7px;padding:5px 10px;text-align:center;font-weight:900;'
+                        f'font-size:0.82rem;color:{_drv_supp_color};margin-top:4px;">'
+                        f'보완담보 {_drv_supp_ok}/5 충족 — {_drv_supp_label}</div>',
+                        unsafe_allow_html=True
+                    )
+    
+            # ── AI 증권분석 결과 — KB 스타일 담보 진단 카드 + 서술형 의견 ──
+            _res_ps = st.session_state.get("res_ps", "")
+            if _res_ps:
+                import re as _re, json as _json
+    
+                # ── JSON 블록 추출 (중첩 중괄호 안전 파싱) ───────────────
+                _ps_json_data = None
+                # 1차: ```json ... ``` 블록에서 최외곽 { } 추출
+                _ps_json_match = _re.search(r'```json\s*(\{[\s\S]*?\})\s*```', _res_ps)
+                if _ps_json_match:
+                    _raw_json = _ps_json_match.group(1)
+                    # 중첩 괄호 균형 맞추기: 첫 { 부터 균형 잡힌 } 까지만 추출
+                    try:
+                        _depth = 0
+                        _start = _raw_json.index('{')
+                        _end = _start
+                        for _ci, _ch in enumerate(_raw_json[_start:], _start):
+                            if _ch == '{': _depth += 1
+                            elif _ch == '}':
+                                _depth -= 1
+                                if _depth == 0:
+                                    _end = _ci + 1
+                                    break
+                        _ps_json_data = _json.loads(_raw_json[_start:_end])
+                    except Exception:
+                        # 2차 fallback: 전체 블록 직접 파싱
+                        try:
+                            _ps_json_data = _json.loads(_raw_json)
+                        except Exception:
+                            _ps_json_data = None
+    
+                # ── JSON 성공 시: 담보 진단 렌더링 ───────────────────────
+                if _ps_json_data and _ps_json_data.get("coverages"):
+                    _covs = _ps_json_data["coverages"][:10]  # 상위 10개만 표시
+    
+                    # ── GP-61: gap 담보 목록 + 안보 지수 사전 계산 ─────────
+                    _GAP_STATUSES = {"미가입", "부족", "위험", "과부족"}
+                    _gp61_gap_covs = [_c for _c in _covs if _c.get("status","") in _GAP_STATUSES or _c.get("enrolled","0") in ("0","","미가입")]
+                    _gp61_ok_count = len(_covs) - len(_gp61_gap_covs)
+                    _gp61_security_score = round(_gp61_ok_count / max(len(_covs), 1) * 100)
+    
+                    # ── 종합 요약 표 ────────────────────────────────────────
+                    st.markdown("""
+    <div style="border-left:4px solid #1a3a5c;padding:6px 14px;margin:14px 0 6px 0;">
+      <span style="color:#1a3a5c;font-weight:900;font-size:0.9rem;">
+      📊 주요 담보별 과부족 현황</span>
+      <span style="color:#555;font-size:0.72rem;margin-left:8px;">권장금액 기준 비교 (상위 10개)</span>
+    </div>""", unsafe_allow_html=True)
+    
+                    # 종합 요약 표 HTML — 흰 배경 검은 글자, 구분 컬럼 없음
+                    _tbl_rows = ""
+                    for _i, _c in enumerate(_covs):
+                        _st = _c.get("status", "미가입")
+                        _row_bg = "#ffffff" if _i % 2 == 0 else "#f8f9fa"
+                        _enrolled_val = _c.get("enrolled", "0")
+                        _enrolled_disp = _enrolled_val if _enrolled_val != "0" else "미가입"
+                        _tbl_rows += (
+                            f'<tr style="border-bottom:1px solid #e0e0e0;background:{_row_bg};">'
+                            f'<td style="padding:7px 10px;font-weight:700;color:#111;font-size:0.82rem;">{_c.get("name","")}</td>'
+                            f'<td style="padding:7px 10px;text-align:right;color:#111;font-size:0.82rem;font-weight:700;">{_c.get("recommended","")}</td>'
+                            f'<td style="padding:7px 10px;text-align:right;color:#111;font-size:0.82rem;">{_enrolled_disp}</td>'
+                            f'<td style="padding:7px 10px;text-align:right;font-weight:900;font-size:0.82rem;color:#111;">{_c.get("diff","")}</td>'
+                            f'<td style="padding:5px 8px;text-align:center;">'
+                            f'<span style="border:1.5px solid #333;border-radius:4px;padding:2px 8px;'
+                            f'font-size:0.70rem;font-weight:900;color:#111;background:#fff;">{_st}</span>'
+                            f'</td>'
+                            f'</tr>'
+                        )
+                    st.markdown(
+                        f'<div style="overflow-x:auto;margin-bottom:14px;">'
+                        f'<table style="width:100%;border-collapse:collapse;background:#fff;'
+                        f'border:1.5px solid #ccc;border-radius:8px;overflow:hidden;">'
+                        f'<thead><tr style="background:#f0f0f0;border-bottom:2px solid #bbb;">'
+                        f'<th style="padding:8px 10px;text-align:left;color:#111;font-size:0.75rem;">담보명</th>'
+                        f'<th style="padding:8px 10px;text-align:right;color:#111;font-size:0.75rem;">권장금액</th>'
+                        f'<th style="padding:8px 10px;text-align:right;color:#111;font-size:0.75rem;">가입금액</th>'
+                        f'<th style="padding:8px 10px;text-align:right;color:#111;font-size:0.75rem;">과부족</th>'
+                        f'<th style="padding:8px 10px;text-align:center;color:#111;font-size:0.75rem;">진단</th>'
+                        f'</tr></thead>'
+                        f'<tbody>{_tbl_rows}</tbody>'
+                        f'</table></div>',
+                        unsafe_allow_html=True
+                    )
+    
+                    # ── GP-61: blink CSS (부족/미가입 강조) ──────────────
+                    st.markdown("""<style>
+    @keyframes gk-gap-blink {
+      0%,100%{opacity:1;} 50%{opacity:0.35;}
+    }
+    .gk-gap-alert {
+      animation: gk-gap-blink 1s infinite;
+      color: #FF0000 !important;
+      font-weight: 900 !important;
+    }
+    </style>""", unsafe_allow_html=True)
+    
+                    # ── 카테고리별 담보 카드 (007~013 스타일) ────────────
+                    _cat_order = ["사망/장해", "치매/간병", "암 진단", "뇌/심장 진단",
+                                  "실손의료비", "수술/입원", "운전자/기타"]
+                    _cats = {}
+                    for _c in _covs:
+                        _cat = _c.get("category", "기타")
+                        _cats.setdefault(_cat, []).append(_c)
+                    _sorted_cats = sorted(
+                        _cats.items(),
+                        key=lambda x: _cat_order.index(x[0]) if x[0] in _cat_order else 99
+                    )
+    
+                    _cat_icons = {
+                        "사망/장해": "💀", "치매/간병": "🧠", "암 진단": "🎗️",
+                        "뇌/심장 진단": "❤️", "실손의료비": "🏥",
+                        "수술/입원": "🔪", "운전자/기타": "🚗"
                     }
-                    st.session_state["current_tab"] = "injury"
-                    st.rerun()
-
-        # ── 증권 자동추출 정보 표시 + 고객 파일 저장 버튼 ──────────
-        _pi = st.session_state.get("ssot_policy_info", {})
-        _ps_uploaded = st.session_state.get("up_ps")  # 업로드된 파일 목록
-        if _pi or _ps_uploaded:
-            st.divider()
-            st.markdown("#### 📋 증권 자동추출 정보 & 파일 저장")
-
-            # ── 자동추출 정보 표시 (policy_info 있을 때) ──────────────
-            if _pi and any(_pi.values()):
-                _pi_cols = st.columns(5)
-                _pi_fields = [
-                    ("👤 피보험자", _pi.get("insured_name") or _pi.get("contractor_name") or ""),
-                    ("🎂 생년월일", _pi.get("insured_dob") or ""),
-                    ("🏢 보험회사", _pi.get("company") or ""),
-                    ("📄 상품명",   _pi.get("product_name") or ""),
-                    ("🔢 증권번호", _pi.get("policy_number") or ""),
-                ]
-                for _col, (_label, _val) in zip(_pi_cols, _pi_fields):
-                    with _col:
-                        _disp = _val if _val else '<span style="color:#bbb">미확인</span>'
+                    _cat_subtitles = {
+                        "사망/장해": "남겨진 가족을 위한 보장",
+                        "치매/간병": "온 가족이 고통받는 질병",
+                        "암 진단": "이제는 생존을 위한 치료보장",
+                        "뇌/심장 진단": "어느날 갑자기 쓰러지는 질환",
+                        "실손의료비": "평생 든든한 치료비!",
+                        "수술/입원": "폭 넓은 보장을 위한 선택!",
+                        "운전자/기타": "안전한 생활을 위한 필수보장"
+                    }
+    
+                    for _cat_name, _cat_covs in _sorted_cats:
+                        _icon = _cat_icons.get(_cat_name, "📋")
+                        _sub = _cat_subtitles.get(_cat_name, "")
                         st.markdown(
-                            f'<div style="background:#f0fff6;border:1px solid #27ae60;'
-                            f'border-radius:8px;padding:6px 10px;font-size:0.78rem;'
-                            f'text-align:center;">'
-                            f'<div style="color:#666;font-size:0.68rem;">{_label}</div>'
-                            f'<div style="font-weight:900;color:#0d3b2e;margin-top:2px;">'
-                            f'{_disp}</div>'
+                            f'<div style="background:#e0e7ff;border-bottom:2px solid #f59e0b;'
+                            f'padding:7px 14px;margin:18px 0 8px 0;border-radius:6px 6px 0 0;">'
+                            f'<span style="color:#92400e;font-weight:900;font-size:0.88rem;">'
+                            f'{_icon} {_cat_name}</span>'
+                            f'<span style="color:#94a3b8;font-size:0.72rem;margin-left:8px;">{_sub}</span>'
                             f'</div>',
                             unsafe_allow_html=True
                         )
-                st.caption("※ AI Vision으로 자동 추출된 정보입니다. 부정확 시 직접 수정 후 저장하세요.")
-            else:
-                st.info("증권 파싱 후 피보험자명·생년월일·보험사·상품명·증권번호가 자동 추출됩니다.")
-
-            # ── 저장 폼 ────────────────────────────────────────────────
-            with st.expander("💾 고객 파일로 저장", expanded=bool(_ps_uploaded)):
-                _sv_c1, _sv_c2, _sv_c3 = st.columns([2, 2, 2])
-                with _sv_c1:
-                    _sv_name = st.text_input(
-                        "피보험자명",
-                        value=_pi.get("insured_name") or _pi.get("contractor_name") or ps_c_name or "",
-                        key="ps_sv_name"
-                    )
-                    _sv_id6 = st.text_input(
-                        "주민번호 앞 6자리",
-                        value=(_pi.get("insured_dob") or "").replace("-","")[:6],
-                        placeholder="800101",
-                        key="ps_sv_id6",
-                        max_chars=6
-                    )
-                with _sv_c2:
-                    _sv_category = st.selectbox(
-                        "자료 분류",
-                        CUSTOMER_DOC_CATEGORIES,
-                        index=CUSTOMER_DOC_CATEGORIES.index("증권분석") if "증권분석" in CUSTOMER_DOC_CATEGORIES else 0,
-                        key="ps_sv_cat"
-                    )
-                    _sv_memo = st.text_input(
-                        "메모 (선택)",
-                        value=f"{_pi.get('company','')} {_pi.get('product_name','')}".strip(),
-                        placeholder="예) 삼성 운전자 2024",
-                        key="ps_sv_memo"
-                    )
-                with _sv_c3:
-                    st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-                    _sv_btn = st.button(
-                        "💾 고객 파일로 저장",
-                        key="btn_ps_save_doc",
-                        type="primary",
-                        use_container_width=True
-                    )
-                    st.caption("홈 → 👤 고객자료 통합저장에서 확인")
-
-                if _sv_btn:
-                    if not _sv_name.strip():
-                        st.error("피보험자명을 입력하세요.")
-                    elif not _ps_uploaded:
-                        st.error("저장할 파일이 없습니다. 증권 파일을 먼저 업로드하세요.")
-                    else:
-                        _sv_ok_cnt = 0
-                        _sv_fail_cnt = 0
-                        for _sf in _ps_uploaded:
-                            _sf.seek(0)
-                            _res = customer_doc_save(
-                                _sf.read(), _sf.name,
-                                _sv_name.strip(), _sv_category,
-                                id6=_sv_id6.strip(),
-                                memo=_sv_memo,
-                                tab_source="policy_scan",
-                                uploaded_by=st.session_state.get("user_name", "")
-                            )
-                            if _res["ok"]:
-                                _sv_ok_cnt += 1
-                            else:
-                                _sv_fail_cnt += 1
-                                st.warning(f"⚠️ {_sf.name}: {_res['error']}")
-                        if _sv_ok_cnt > 0:
-                            st.success(
-                                f"✅ {_sv_ok_cnt}개 파일 저장 완료 "
-                                f"— 홈 > 👤 고객자료 통합저장에서 확인하세요."
-                            )
-                        if _sv_fail_cnt > 0:
-                            st.error(f"❌ {_sv_fail_cnt}개 저장 실패 (Supabase 연결 확인)")
-
-        # ── 체크포인트 박스 — 상품별 분기 ──────────────────────────
-        st.markdown("#### ✅ 증권 분석 체크포인트")
-        _cp_product = st.session_state.get("ps_product", "")
-        if "운전자보험" in _cp_product:
-            # ── 운전자보험 전용 체크포인트 ─────────────────────────────
-            st.markdown("""
-<div style="background:#fff8e8;border:1.5px solid #e8a000;border-radius:10px;
-  padding:14px 16px;font-size:0.80rem;line-height:1.85;color:#1a1a2e;">
-<b style="color:#7d4a00;font-size:0.88rem;">🚗 운전자보험 핵심 분석 기준</b>
-<span style="color:#888;font-size:0.74rem;margin-left:8px;">교통사고 가해자 시 형사·법률비용 보전이 제1목적 (11중과실·중상해 대비)</span>
-<hr style="border:none;border-top:1px solid #e8c87a;margin:7px 0;">
-
-<b style="color:#7d4a00;">▶ 핵심 6개 담보 — 적정 기준</b><br>
-① <b>교통사고처리지원금</b> &nbsp;→&nbsp; <b>2억원</b> 이상 / 경찰서 <b>불기소 단계부터</b> 보장 여부 확인<br>
-② <b>형사합의금 (6주미만)</b> &nbsp;→&nbsp; 경상 피해자 형사합의 보장 포함 여부 확인<br>
-③ <b>대인벌금 3,000만원</b> / <b>대물벌금 500만원</b> 이상<br>
-④ <b>변호사선임비용</b> &nbsp;→&nbsp; 경찰서 기소단계 이전 <b>수사단계부터</b> 보장 상품 유리<br>
-⑤ <b>상해후유장해 3%~10%</b> &nbsp;→&nbsp; 최소 <b>1억 / 이상적 5억</b><br>
-&nbsp;&nbsp;&nbsp;※ 1인당 보험사 한도 1억 → 5억 설계 시 복수 가입 필요<br>
-&nbsp;&nbsp;&nbsp;※ 10% 장해 → 재활 최소 <b>18개월</b> 이상, 생활비 보전 범위 필수 확인<br>
-&nbsp;&nbsp;&nbsp;※ 대안: 자동차사고부상위로금(14급 보상) 병행 확인<br><br>
-
-<b style="color:#7d4a00;">▶ 보완 5개 담보</b><br>
-① <b>골절진단·수술 / 5대골절·수술</b><br>
-&nbsp;&nbsp;&nbsp;정면충돌 시 경골·비골·슬개골·대퇴골두·손목뼈·경추뼈 골절 다발<br>
-&nbsp;&nbsp;&nbsp;50세↑ 골다공증: 요추 압박골절 다발 — 골절담보 더욱 중요<br>
-② <b>상해수술비</b> — 중상해 시 복수 수술 가능성 고려<br>
-③ <b>상해후유장해 20%·50%·80%</b> — 일반·교통 각각 / 치명적상해 포함 여부<br>
-④ <b>상해입원일당 / 중상해입원일당</b> — 장기입원(18개월↑) 생활비 보전<br>
-⑤ <b>민사소송법률비용</b> — 형사 외 민사 피소 소송비용 보전<br><br>
-
-<b style="color:#7d4a00;">▶ 현장 설득 화법</b><br>
-• "음주·무면허 제외, 나머지 11가지 중과실은 형사처벌 대상입니다. 교통사고처리지원금 2억 있으신가요?"<br>
-• "10% 장해 판정 시 재활만 18개월. 그 기간 소득 끊기면 생활비는 어떻게 하실 겁니까?"
-</div>""", unsafe_allow_html=True)
-        else:
-            # ── 일반 상품 체크포인트 (기존 유지) ─────────────────────
-            st.markdown("""
-<div style="background:#f0fff6;border:1.5px solid #27ae60;border-radius:10px;
-  padding:14px 16px;font-size:0.80rem;line-height:1.75;color:#1a1a2e;">
-<b style="color:#0d3b2e;">▶ 증권 분석 우선순위</b><br>
-① 실손보험 — 구실손 유지 여부 / 갱신형 확인<br>
-② 암보험 — 비급여 항암 담보 포함 여부<br>
-③ 뇌·심장 — 3대 질환 보장 공백 점검<br>
-④ 간병·치매 — 장기요양등급 연계 여부<br>
-⑤ 종신·CI — 사망보장 vs 생존보장 균형<br><br>
-<b style="color:#0d3b2e;">▶ 보험료 황금비율</b><br>
-• 가처분 소득의 <b>7~10%</b> 적정<br>
-• 위험직군 최대 <b>20%</b>까지 허용<br><br>
-<b style="color:#0d3b2e;">▶ 갱신형 전환 핵심 멘트</b><br>
-• "지금 보험, 10년 후에도 같은 금액 보장될까요?"<br>
-• 20년 갱신 시 보험료 2~3배 인상 시뮬레이션 제시<br>
-</div>""", unsafe_allow_html=True)
-
-    # ── [증권 없이 약관 직접 조회] ────────────────────────────────────
-    st.divider()
-    st.markdown("""
-<div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);
-  border-radius:12px;padding:14px 18px 10px 18px;margin-bottom:12px;
-  box-shadow:0 3px 14px rgba(14,165,233,0.18);">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-<span style="font-size:1.6rem;">📋</span>
-<div>
-  <div style="color:#fff;font-size:1.05rem;font-weight:900;letter-spacing:0.03em;">
-    약관 설명이 필요하신가요?
-  </div>
-  <div style="color:#b3d4f5;font-size:0.76rem;margin-top:2px;">
-    보험증권 없이도 보험사·상품명·가입년월만 알면 해당 약관을 즉시 불러옵니다
-  </div>
-</div>
-  </div>
-  <div style="color:#7ec8f5;font-size:0.72rem;margin-top:6px;padding-top:6px;
-border-top:1px solid rgba(255,255,255,0.12);">
-아래 조건에 맞춰 선택하세요 → <b style="color:#ffd700;">🔍 가입 약관 자동 추적 시작</b> 버튼 클릭
-  </div>
-</div>""", unsafe_allow_html=True)
-
-    _dq_companies = [
-        "── 손해보험 ──",
-        "삼성화재", "현대해상", "DB손해보험", "KB손해보험", "메리츠화재",
-        "롯데손해보험", "한화손해보험", "흥국화재", "MG손해보험",
-        "라이나손보(Chubb)",
-        "── 생명보험 ──",
-        "삼성생명", "한화생명", "교보생명", "신한라이프", "NH농협생명",
-        "미래에셋생명", "DB생명", "KDB생명", "라이나생명", "KB라이프생명",
-        "MetLife생명", "iM라이프생명", "푸본현대생명", "흥국생명",
-        "동양생명", "ABL생명", "하나생명",
-        "── 협회 ──",
-        "생명보험협회", "손해보험협회",
-    ]
-
-    _dq_col1, _dq_col2, _dq_col3 = st.columns([2, 3, 2])
-    with _dq_col1:
-        _dq_company_raw = st.selectbox(
-            "🏢 보험회사",
-            [c for c in _dq_companies if not c.startswith("──")],
-            key="dq_company",
-            help="가입한 보험회사를 선택하세요",
-        )
-    with _dq_col2:
-        _dq_product = st.text_input(
-            "📄 상품이름",
-            placeholder="보험증권에 나온 상품이름을 최대한 근접하게 입력  예) 무배당 삼성화재 New암보험 3.0",
-            key="dq_product",
-            help="증권 표지의 상품명을 그대로 입력하면 정확도가 높아집니다",
-        )
-    with _dq_col3:
-        import datetime as _dt_mod
-        _dq_year = st.selectbox(
-            "📅 가입년도",
-            [str(y) for y in range(_dt_mod.date.today().year, 1989, -1)],
-            key="dq_year",
-        )
-        _dq_month = st.selectbox(
-            "가입월",
-            [f"{m:02d}월" for m in range(1, 13)],
-            key="dq_month",
-        )
-
-    _dq_join_date = f"{_dq_year}-{_dq_month.replace('월','')}-01"
-
-    _dq_run = st.button(
-        "🔍 가입 약관 자동 추적",
-        type="primary",
-        use_container_width=True,
-        key="btn_dq_run",
-        disabled=(not _dq_product.strip()),
-    )
-
-    if not _dq_product.strip():
-        st.caption("⬆️ 상품이름을 입력하면 버튼이 활성화됩니다")
-
-    if _dq_run and _dq_product.strip():
-        _dq_cn  = _dq_company_raw
-        _dq_sb  = _get_sb_client()
-        # ── 돋보기 애니메이션 로딩 화면 ──
-        import streamlit.components.v1 as _dq_comp
-        _dq_comp.html("""
-<div id="magnify-loader" style="
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:28px 0 18px;">
-  <div style="position:relative;width:90px;height:90px;">
-<!-- 서류 아이콘 -->
-<svg width="52" height="60" viewBox="0 0 52 60" fill="none"
-  style="position:absolute;left:4px;top:8px;opacity:0.92;"
-  xmlns="http://www.w3.org/2000/svg">
-  <rect x="4" y="2" width="40" height="52" rx="4" fill="#1a3a5c" stroke="#0ea5e9" stroke-width="2"/>
-  <rect x="10" y="14" width="28" height="3" rx="1.5" fill="#7ec8f5"/>
-  <rect x="10" y="22" width="22" height="3" rx="1.5" fill="#7ec8f5"/>
-  <rect x="10" y="30" width="26" height="3" rx="1.5" fill="#7ec8f5"/>
-  <rect x="10" y="38" width="18" height="3" rx="1.5" fill="#a8f0c8"/>
-</svg>
-<!-- 돋보기 (움직임 애니메이션) -->
-<svg id="mag" width="46" height="46" viewBox="0 0 46 46" fill="none"
-  style="position:absolute;top:0;right:0;
-    animation:scan 1.8s ease-in-out infinite;"
-  xmlns="http://www.w3.org/2000/svg">
-  <circle cx="18" cy="18" r="14" stroke="#ffd700" stroke-width="3.5" fill="rgba(255,215,0,0.08)"/>
-  <line x1="29" y1="29" x2="43" y2="43" stroke="#ffd700" stroke-width="3.5" stroke-linecap="round"/>
-</svg>
-  </div>
-  <div style="margin-top:14px;color:#ffd700;font-weight:900;
-font-size:0.95rem;font-family:'Noto Sans KR',sans-serif;
-letter-spacing:0.03em;">
-🔍 AI가 약관 돋보기로 분석 중입니다...
-  </div>
-  <div style="margin-top:6px;color:#a8f0c8;font-size:0.75rem;
-font-family:'Noto Sans KR',sans-serif;text-align:center;max-width:320px;
-line-height:1.55;">
-보험사 공시실에 숨겨진 과거 판매 중지 약관까지<br>
-AI가 1분 만에 추적하여 분석합니다.
-  </div>
-  <style>
-@keyframes scan {
-  0%   { transform: translate(0px,  0px)  rotate(0deg);  }
-  25%  { transform: translate(-8px, 6px)  rotate(-8deg); }
-  50%  { transform: translate(0px,  12px) rotate(0deg);  }
-  75%  { transform: translate(8px,  6px)  rotate(8deg);  }
-  100% { transform: translate(0px,  0px)  rotate(0deg);  }
-}
-  </style>
-</div>
-""", height=180)
-        with st.status(
-            f"🔍 [{_dq_cn}] {_dq_product.strip()} — 가입 약관 자동 추적 중...", expanded=True
-        ) as _dq_st:
-            try:
-                from disclosure_crawler import run_jit_policy_lookup
-                _dq_r = run_jit_policy_lookup(
-                    company_name=_dq_cn,
-                    product_name=_dq_product.strip(),
-                    join_date=_dq_join_date,
-                    sb_client=_dq_sb,
-                    progress_cb=lambda m: st.write(m),
-                )
-                _dq_conf = _dq_r.get("confidence", 0)
-                _dq_cc = "#27ae60" if _dq_conf >= 80 else "#e67e22" if _dq_conf >= 50 else "#e74c3c"
-                _dq_st.update(
-                    label="✅ 약관 추적 완료" if _dq_r.get("pdf_url") else "⚠️ 약관을 찾지 못했습니다",
-                    state="complete" if _dq_r.get("pdf_url") else "error",
-                )
-                if _dq_r.get("pdf_url"):
+                        st.markdown('<div style="background:#eff6ff;padding:8px;border-radius:0 0 10px 10px;margin-bottom:4px;">', unsafe_allow_html=True)
+    
+                        # 4개씩 행으로 배치
+                        _cols_per_row = 4
+                        for _row_start in range(0, len(_cat_covs), _cols_per_row):
+                            _row_items = _cat_covs[_row_start:_row_start + _cols_per_row]
+                            _card_cols = st.columns(len(_row_items))
+                            for _ci, _cov in enumerate(_row_items):
+                                _st = _cov.get("status", "미가입")
+                                _sty = _cov_style(_st)
+                                _enrolled_disp = _cov.get("enrolled", "0")
+                                _is_unenrolled = _enrolled_disp in ("0", "", "미가입")
+                                _diff_disp = _cov.get("diff", "")
+                                _is_gap = _st in ("부족", "미가입")
+                                # GP-61: 부족 항목 blink 강조 border
+                                _card_border = "2px solid #FF0000" if _is_gap else f"1.5px solid {_sty['border']}"
+                                with _card_cols[_ci]:
+                                    st.markdown(
+                                        f'<div style="background:{_sty["bg"]};border:{_card_border};'
+                                        f'border-radius:10px;padding:10px 12px;margin:3px 2px;min-height:110px;'
+                                        f'{"animation:gk-gap-blink 1s infinite;" if _is_gap else ""}">'
+                                        f'<div style="color:{_sty["text"]};font-size:0.66rem;margin-bottom:2px;">{_cat_name}</div>'
+                                        f'<div style="color:{_sty["text"]};font-weight:900;font-size:0.80rem;margin-bottom:6px;line-height:1.3;">{_cov.get("name","")}</div>'
+                                        f'<div style="display:flex;justify-content:space-between;font-size:0.68rem;color:{_sty["text"]};margin-bottom:1px;">'
+                                        f'<span>권장</span><span style="font-weight:700;">{_cov.get("recommended","")}</span></div>'
+                                        f'<div style="display:flex;justify-content:space-between;font-size:0.68rem;color:{_sty["text"]};margin-bottom:6px;">'
+                                        f'<span>가입</span><span style="font-weight:700;">{"미가입" if _is_unenrolled else _enrolled_disp}</span></div>'
+                                        f'<div style="background:{_sty["label_bg"]};color:{_sty["label_color"]};'
+                                        f'border-radius:5px;padding:3px 6px;text-align:center;'
+                                        f'font-weight:900;font-size:0.72rem;">'
+                                        f'{"<span class=gk-gap-alert>" if _is_gap else ""}{_st}&nbsp;&nbsp;<span style="font-size:0.78rem;">{_diff_disp}</span>{"</span>" if _is_gap else ""}'
+                                        f'</div>'
+                                        f'</div>',
+                                        unsafe_allow_html=True
+                                    )
+                                    # GP-61: 부족/미가입 항목에 [공백 분석] 버튼
+                                    if _is_gap:
+                                        _btn_key = f"gp61_gap_{_cat_name}_{_cov.get('name','')}_{_ci}_{_row_start}"
+                                        if st.button(
+                                            "🔍 공백 분석",
+                                            key=_btn_key,
+                                            use_container_width=True,
+                                            help=f"[{_cov.get('name','')}] 보장 공백을 즉시 분석합니다"
+                                        ):
+                                            st.session_state["_gp61_gap_item"] = {
+                                                "name": _cov.get("name", ""),
+                                                "category": _cat_name,
+                                                "enrolled": _enrolled_disp,
+                                                "recommended": _cov.get("recommended", ""),
+                                                "diff": _diff_disp,
+                                                "status": _st,
+                                            }
+                                            st.session_state["current_tab"] = "injury"
+                                            st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
+    
+                # ── 서술형 AI 의견 (JSON 이후 또는 JSON 없을 때) ──────────
+                # JSON 블록 제거한 순수 서술형 텍스트만 표시
+                _narrative = _re.sub(r'```json.*?```', '', _res_ps, flags=_re.DOTALL).strip()
+                if _narrative:
+                    st.markdown("""
+    <div style="background:#eff6ff;border-left:4px solid #0ea5e9;border-radius:0 8px 8px 0;
+      padding:6px 14px;margin:18px 0 6px 0;">
+      <span style="color:#1d4ed8;font-weight:900;font-size:0.88rem;">
+      🏥 보험 전문가의 한 마디</span>
+    </div>""", unsafe_allow_html=True)
                     st.markdown(
-                        f"<div style='background:#eaf4ff;border:1.5px solid #0ea5e9;"
-                        f"border-radius:8px;padding:10px 14px;margin-top:6px;"
-                        f"font-size:0.83rem;'>"
-                        f"✅ <b>약관 확보 성공</b> &nbsp; 신뢰도 "
-                        f"<b style='color:{_dq_cc};'>{_dq_conf}%</b>"
-                        f" &nbsp;|&nbsp; 판매 기간: {_dq_r.get('period') or '미확인'}"
-                        f"<br>원문 청크: {_dq_r.get('chunks_indexed', 0)}개 "
-                        f"— Supabase <code>gk_policy_terms</code> 영구 저장 완료"
-                        f"</div>",
-                        unsafe_allow_html=True,
+                        f'<div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;'
+                        f'padding:18px 22px;font-size:0.88rem;line-height:1.8;color:#1e3a5f;'
+                        f'">'
+                        f'{_narrative.replace(chr(10), "<br>")}'
+                        f'</div>',
+                        unsafe_allow_html=True
                     )
-                    st.markdown(f"[📥 약관 PDF 원본 열기]({_dq_r['pdf_url']})")
-                    if _dq_r.get("cached"):
-                        st.info("💾 이미 DB에 저장된 약관 — 추적 생략 (캐시 활용)")
-                    # 약관 내 검색 키워드 바로 제공
-                    st.session_state["ps_jit_company"] = _dq_cn
-                    st.session_state["ps_jit_product"] = _dq_product.strip()
-                    st.session_state["ps_jit_join"]    = _dq_join_date
-                elif _dq_r.get("error"):
-                    st.error(f"❌ {_dq_r['error']}")
-                    st.info(
-                        "💡 상품명을 더 짧게 또는 다르게 입력해 보세요.\n"
-                        "예) '삼성화재 암보험' → '무배당 삼성화재 New암보험'"
-                    )
-                else:
-                    st.warning("약관 PDF를 찾지 못했습니다. 상품명·보험사를 확인해주세요.")
-            except ImportError:
-                st.error("disclosure_crawler 모듈 로드 실패")
-
-    # ── 약관 내 키워드 검색 (약관 추적 완료 후 활용) ─────────────────────
-    _dq_jit_product = st.session_state.get("ps_jit_product", "")
-    _dq_jit_company = st.session_state.get("ps_jit_company", "")
-    _dq_jit_join    = st.session_state.get("ps_jit_join", "")
-    if _dq_jit_product:
-        st.divider()
-        st.markdown("#### 🔎 약관 내 키워드 검색")
-        _kw_col1, _kw_col2 = st.columns([4, 1])
-        with _kw_col1:
-            _dq_kw = st.text_input(
-                "검색 키워드",
-                placeholder="예) 면책 기간 / 수술비 지급 기준 / 암 진단비",
-                key="dq_jit_keyword",
-            )
-        with _kw_col2:
-            st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
-            _dq_kw_run = st.button("🔎 검색", key="btn_dq_kw_search",
-                                   use_container_width=True)
-
-        if _dq_kw_run and _dq_kw.strip():
-            _kw_sb = _get_sb_client()
-            try:
-                from disclosure_crawler import JITPipelineRunner
-                _kw_hits = JITPipelineRunner(_kw_sb).search_terms(
-                    _dq_jit_company, _dq_jit_product, _dq_kw.strip(), limit=5
-                )
-                if _kw_hits:
-                    st.markdown(f"**🔎 '{_dq_kw}' 검색 결과 — {len(_kw_hits)}건**")
-                    for _hi, _ch in enumerate(_kw_hits, 1):
-                        with st.expander(f"[{_hi}] 약관 청크 #{_ch.get('chunk_idx', _hi)}"):
-                            _ht = _ch["chunk_text"][:800].replace(
-                                _dq_kw,
-                                f"<mark style='background:#fff176;padding:0 2px;"
-                                f"border-radius:3px;'>{_dq_kw}</mark>",
-                            )
+    
+                # ── 증권분석 전용 면책 공고 ────────────────────────────────
+                st.markdown("""
+    <div style="background:#fef9c3;border:1px solid #7c3a00;border-radius:8px;
+      padding:9px 14px;margin-top:8px;">
+      <span style="color:#92400e;font-weight:900;font-size:0.74rem;">⚠️ 면책 고지</span>
+      <span style="color:#d4a76a;font-size:0.72rem;">
+      &nbsp;본 AI 증권분석 결과는 <b>참고용</b>이며, 실제 보장 내용·보험금 청구 여부는
+      반드시 <b>해당 보험회사 약관 및 공인 설계사</b>를 통해 확인하시기 바랍니다.
+      AI 오답으로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.
+      </span>
+    </div>""", unsafe_allow_html=True)
+    
+                # ── GP-61 §3: 안보 지수 전략적 팝업 + CTA ─────────────
+                if _ps_json_data and _ps_json_data.get("coverages"):
+                    _gap_count   = len(_gp61_gap_covs)
+                    _gap_pct_val = round(_gap_count / max(len(_covs), 1) * 100)
+                    _sec_score   = _gp61_security_score
+                    _score_color = "#22c55e" if _sec_score >= 80 else ("#f59e0b" if _sec_score >= 60 else "#ef4444")
+    
+                    # 시각적 브릿지: [공백 발생 → 보완 필요]
+                    st.markdown(f"""
+    <div style="display:flex;align-items:center;justify-content:center;
+      gap:0;margin:18px 0 0 0;">
+      <div style="background:#dbeafe;border:1.5px solid #2e6da4;border-radius:10px;
+    padding:8px 16px;font-size:0.80rem;font-weight:900;color:#1e40af;">
+    📊 증권 분석 완료
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;padding:0 8px;">
+    <div style="width:60px;height:2px;background:linear-gradient(90deg,#2e6da4,#ef4444);"></div>
+    <div style="font-size:0.62rem;color:#ef4444;font-weight:700;margin-top:1px;">공백 발생</div>
+      </div>
+      <div style="background:#fee2e2;border:1.5px solid #ef4444;border-radius:10px;
+    padding:8px 16px;font-size:0.80rem;font-weight:900;color:#991b1b;">
+    🛡️ 보완 필요
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;padding:0 8px;">
+    <div style="width:40px;height:2px;background:linear-gradient(90deg,#ef4444,#f59e0b);"></div>
+    <div style="font-size:0.62rem;color:#f59e0b;font-weight:700;margin-top:1px;">▶▶▶</div>
+      </div>
+      <div style="background:#dcfce7;border:1.5px solid #22c55e;border-radius:10px;
+    padding:8px 16px;font-size:0.80rem;font-weight:900;color:#166534;">
+    🔍 보장공백 분석
+      </div>
+    </div>""", unsafe_allow_html=True)
+    
+                    # 안보 지수 팝업
+                    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);
+      border:2px solid {_score_color};border-radius:14px;padding:18px 22px;margin:14px 0 8px 0;
+      box-shadow:0 0 20px rgba(239,68,68,0.18);">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div style="font-size:0.72rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;margin-bottom:4px;">
+        🏰 가이딩 프로토콜 제61조 — 가문 안보 종합 판정
+      </div>
+      <div style="font-size:1.6rem;font-weight:900;color:{_score_color};line-height:1;">
+        {_sec_score}<span style="font-size:1rem;color:#94a3b8;">/100점</span>
+      </div>
+      <div style="font-size:0.82rem;color:#cbd5e1;margin-top:6px;line-height:1.6;">
+        이 가문의 안보 지수는 <b style="color:{_score_color};">{_sec_score}점</b>입니다.<br>
+        <b style="color:#ef4444;animation:gk-gap-blink 1s infinite;display:inline-block;">
+          {_gap_pct_val}%({_gap_count}개 담보)의 보장 공백</b>을 확인하시겠습니까?
+      </div>
+    </div>
+    <div style="text-align:center;">
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:8px 14px;">
+        <div style="font-size:0.68rem;color:#64748b;">담보 현황</div>
+        <div style="font-size:1.1rem;font-weight:900;color:#16a34a;">{len(_covs) - _gap_count}</div>
+        <div style="font-size:0.60rem;color:#64748b;">적정</div>
+      </div>
+      <div style="font-size:0.65rem;color:#ef4444;font-weight:700;margin:3px 0;">vs</div>
+      <div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:10px;padding:8px 14px;">
+        <div style="font-size:0.68rem;color:#dc2626;">공백</div>
+        <div style="font-size:1.1rem;font-weight:900;color:#ef4444;">{_gap_count}</div>
+        <div style="font-size:0.60rem;color:#dc2626;">미충족</div>
+      </div>
+    </div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+    
+                    _cta_label = f"{_gap_pct_val}% 보장 공백 즉시 메우기 (분석 시작)"
+                    if st.button(
+                        f"⚡ {_cta_label}",
+                        key="gp61_cta_gap_defense",
+                        use_container_width=True,
+                        type="primary",
+                    ):
+                        st.session_state["_gp61_gap_summary"] = {
+                            "security_score": _sec_score,
+                            "gap_count": _gap_count,
+                            "gap_pct": _gap_pct_val,
+                            "gap_covs": [
+                                {
+                                    "name": _c.get("name",""),
+                                    "category": _c.get("category",""),
+                                    "enrolled": _c.get("enrolled","0"),
+                                    "recommended": _c.get("recommended",""),
+                                    "diff": _c.get("diff",""),
+                                    "status": _c.get("status",""),
+                                }
+                                for _c in _gp61_gap_covs
+                            ],
+                        }
+                        st.session_state["current_tab"] = "injury"
+                        st.rerun()
+    
+            # ── 증권 자동추출 정보 표시 + 고객 파일 저장 버튼 ──────────
+            _pi = st.session_state.get("ssot_policy_info", {})
+            _ps_uploaded = st.session_state.get("up_ps")  # 업로드된 파일 목록
+            if _pi or _ps_uploaded:
+                st.divider()
+                st.markdown("#### 📋 증권 자동추출 정보 & 파일 저장")
+    
+                # ── 자동추출 정보 표시 (policy_info 있을 때) ──────────────
+                if _pi and any(_pi.values()):
+                    _pi_cols = st.columns(5)
+                    _pi_fields = [
+                        ("👤 피보험자", _pi.get("insured_name") or _pi.get("contractor_name") or ""),
+                        ("🎂 생년월일", _pi.get("insured_dob") or ""),
+                        ("🏢 보험회사", _pi.get("company") or ""),
+                        ("📄 상품명",   _pi.get("product_name") or ""),
+                        ("🔢 증권번호", _pi.get("policy_number") or ""),
+                    ]
+                    for _col, (_label, _val) in zip(_pi_cols, _pi_fields):
+                        with _col:
+                            _disp = _val if _val else '<span style="color:#bbb">미확인</span>'
                             st.markdown(
-                                f"<div style='font-size:0.82rem;line-height:1.75;'>"
-                                f"{_ht.replace(chr(10), '<br>')}</div>",
-                                unsafe_allow_html=True,
+                                f'<div style="background:#f0fff6;border:1px solid #27ae60;'
+                                f'border-radius:8px;padding:6px 10px;font-size:0.78rem;'
+                                f'text-align:center;">'
+                                f'<div style="color:#666;font-size:0.68rem;">{_label}</div>'
+                                f'<div style="font-weight:900;color:#0d3b2e;margin-top:2px;">'
+                                f'{_disp}</div>'
+                                f'</div>',
+                                unsafe_allow_html=True
                             )
+                    st.caption("※ AI Vision으로 자동 추출된 정보입니다. 부정확 시 직접 수정 후 저장하세요.")
                 else:
-                    st.info("검색 결과 없음 — 먼저 위에서 **🔍 가입 약관 자동 추적**을 실행하세요.")
-            except ImportError:
-                st.error("disclosure_crawler 모듈 로드 실패")
-
+                    st.info("증권 파싱 후 피보험자명·생년월일·보험사·상품명·증권번호가 자동 추출됩니다.")
+    
+                # ── 저장 폼 ────────────────────────────────────────────────
+                with st.expander("💾 고객 파일로 저장", expanded=bool(_ps_uploaded)):
+                    _sv_c1, _sv_c2, _sv_c3 = st.columns([2, 2, 2])
+                    with _sv_c1:
+                        _sv_name = st.text_input(
+                            "피보험자명",
+                            value=_pi.get("insured_name") or _pi.get("contractor_name") or ps_c_name or "",
+                            key="ps_sv_name"
+                        )
+                        _sv_id6 = st.text_input(
+                            "주민번호 앞 6자리",
+                            value=(_pi.get("insured_dob") or "").replace("-","")[:6],
+                            placeholder="800101",
+                            key="ps_sv_id6",
+                            max_chars=6
+                        )
+                    with _sv_c2:
+                        _sv_category = st.selectbox(
+                            "자료 분류",
+                            CUSTOMER_DOC_CATEGORIES,
+                            index=CUSTOMER_DOC_CATEGORIES.index("증권분석") if "증권분석" in CUSTOMER_DOC_CATEGORIES else 0,
+                            key="ps_sv_cat"
+                        )
+                        _sv_memo = st.text_input(
+                            "메모 (선택)",
+                            value=f"{_pi.get('company','')} {_pi.get('product_name','')}".strip(),
+                            placeholder="예) 삼성 운전자 2024",
+                            key="ps_sv_memo"
+                        )
+                    with _sv_c3:
+                        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                        _sv_btn = st.button(
+                            "💾 고객 파일로 저장",
+                            key="btn_ps_save_doc",
+                            type="primary",
+                            use_container_width=True
+                        )
+                        st.caption("홈 → 👤 고객자료 통합저장에서 확인")
+    
+                    if _sv_btn:
+                        if not _sv_name.strip():
+                            st.error("피보험자명을 입력하세요.")
+                        elif not _ps_uploaded:
+                            st.error("저장할 파일이 없습니다. 증권 파일을 먼저 업로드하세요.")
+                        else:
+                            _sv_ok_cnt = 0
+                            _sv_fail_cnt = 0
+                            for _sf in _ps_uploaded:
+                                _sf.seek(0)
+                                _res = customer_doc_save(
+                                    _sf.read(), _sf.name,
+                                    _sv_name.strip(), _sv_category,
+                                    id6=_sv_id6.strip(),
+                                    memo=_sv_memo,
+                                    tab_source="policy_scan",
+                                    uploaded_by=st.session_state.get("user_name", "")
+                                )
+                                if _res["ok"]:
+                                    _sv_ok_cnt += 1
+                                else:
+                                    _sv_fail_cnt += 1
+                                    st.warning(f"⚠️ {_sf.name}: {_res['error']}")
+                            if _sv_ok_cnt > 0:
+                                st.success(
+                                    f"✅ {_sv_ok_cnt}개 파일 저장 완료 "
+                                    f"— 홈 > 👤 고객자료 통합저장에서 확인하세요."
+                                )
+                            if _sv_fail_cnt > 0:
+                                st.error(f"❌ {_sv_fail_cnt}개 저장 실패 (Supabase 연결 확인)")
+    
+            # ── 체크포인트 박스 — 상품별 분기 ──────────────────────────
+            st.markdown("#### ✅ 증권 분석 체크포인트")
+            _cp_product = st.session_state.get("ps_product", "")
+            if "운전자보험" in _cp_product:
+                # ── 운전자보험 전용 체크포인트 ─────────────────────────────
+                st.markdown("""
+    <div style="background:#fff8e8;border:1.5px solid #e8a000;border-radius:10px;
+      padding:14px 16px;font-size:0.80rem;line-height:1.85;color:#1a1a2e;">
+    <b style="color:#7d4a00;font-size:0.88rem;">🚗 운전자보험 핵심 분석 기준</b>
+    <span style="color:#888;font-size:0.74rem;margin-left:8px;">교통사고 가해자 시 형사·법률비용 보전이 제1목적 (11중과실·중상해 대비)</span>
+    <hr style="border:none;border-top:1px solid #e8c87a;margin:7px 0;">
+    
+    <b style="color:#7d4a00;">▶ 핵심 6개 담보 — 적정 기준</b><br>
+    ① <b>교통사고처리지원금</b> &nbsp;→&nbsp; <b>2억원</b> 이상 / 경찰서 <b>불기소 단계부터</b> 보장 여부 확인<br>
+    ② <b>형사합의금 (6주미만)</b> &nbsp;→&nbsp; 경상 피해자 형사합의 보장 포함 여부 확인<br>
+    ③ <b>대인벌금 3,000만원</b> / <b>대물벌금 500만원</b> 이상<br>
+    ④ <b>변호사선임비용</b> &nbsp;→&nbsp; 경찰서 기소단계 이전 <b>수사단계부터</b> 보장 상품 유리<br>
+    ⑤ <b>상해후유장해 3%~10%</b> &nbsp;→&nbsp; 최소 <b>1억 / 이상적 5억</b><br>
+    &nbsp;&nbsp;&nbsp;※ 1인당 보험사 한도 1억 → 5억 설계 시 복수 가입 필요<br>
+    &nbsp;&nbsp;&nbsp;※ 10% 장해 → 재활 최소 <b>18개월</b> 이상, 생활비 보전 범위 필수 확인<br>
+    &nbsp;&nbsp;&nbsp;※ 대안: 자동차사고부상위로금(14급 보상) 병행 확인<br><br>
+    
+    <b style="color:#7d4a00;">▶ 보완 5개 담보</b><br>
+    ① <b>골절진단·수술 / 5대골절·수술</b><br>
+    &nbsp;&nbsp;&nbsp;정면충돌 시 경골·비골·슬개골·대퇴골두·손목뼈·경추뼈 골절 다발<br>
+    &nbsp;&nbsp;&nbsp;50세↑ 골다공증: 요추 압박골절 다발 — 골절담보 더욱 중요<br>
+    ② <b>상해수술비</b> — 중상해 시 복수 수술 가능성 고려<br>
+    ③ <b>상해후유장해 20%·50%·80%</b> — 일반·교통 각각 / 치명적상해 포함 여부<br>
+    ④ <b>상해입원일당 / 중상해입원일당</b> — 장기입원(18개월↑) 생활비 보전<br>
+    ⑤ <b>민사소송법률비용</b> — 형사 외 민사 피소 소송비용 보전<br><br>
+    
+    <b style="color:#7d4a00;">▶ 현장 설득 화법</b><br>
+    • "음주·무면허 제외, 나머지 11가지 중과실은 형사처벌 대상입니다. 교통사고처리지원금 2억 있으신가요?"<br>
+    • "10% 장해 판정 시 재활만 18개월. 그 기간 소득 끊기면 생활비는 어떻게 하실 겁니까?"
+    </div>""", unsafe_allow_html=True)
+            else:
+                # ── 일반 상품 체크포인트 (기존 유지) ─────────────────────
+                st.markdown("""
+    <div style="background:#f0fff6;border:1.5px solid #27ae60;border-radius:10px;
+      padding:14px 16px;font-size:0.80rem;line-height:1.75;color:#1a1a2e;">
+    <b style="color:#0d3b2e;">▶ 증권 분석 우선순위</b><br>
+    ① 실손보험 — 구실손 유지 여부 / 갱신형 확인<br>
+    ② 암보험 — 비급여 항암 담보 포함 여부<br>
+    ③ 뇌·심장 — 3대 질환 보장 공백 점검<br>
+    ④ 간병·치매 — 장기요양등급 연계 여부<br>
+    ⑤ 종신·CI — 사망보장 vs 생존보장 균형<br><br>
+    <b style="color:#0d3b2e;">▶ 보험료 황금비율</b><br>
+    • 가처분 소득의 <b>7~10%</b> 적정<br>
+    • 위험직군 최대 <b>20%</b>까지 허용<br><br>
+    <b style="color:#0d3b2e;">▶ 갱신형 전환 핵심 멘트</b><br>
+    • "지금 보험, 10년 후에도 같은 금액 보장될까요?"<br>
+    • 20년 갱신 시 보험료 2~3배 인상 시뮬레이션 제시<br>
+    </div>""", unsafe_allow_html=True)
+    
+        # ── [증권 없이 약관 직접 조회] ────────────────────────────────────
+        st.divider()
+        st.markdown("""
+    <div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);
+      border-radius:12px;padding:14px 18px 10px 18px;margin-bottom:12px;
+      box-shadow:0 3px 14px rgba(14,165,233,0.18);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+    <span style="font-size:1.6rem;">📋</span>
+    <div>
+      <div style="color:#fff;font-size:1.05rem;font-weight:900;letter-spacing:0.03em;">
+        약관 설명이 필요하신가요?
+      </div>
+      <div style="color:#b3d4f5;font-size:0.76rem;margin-top:2px;">
+        보험증권 없이도 보험사·상품명·가입년월만 알면 해당 약관을 즉시 불러옵니다
+      </div>
+    </div>
+      </div>
+      <div style="color:#7ec8f5;font-size:0.72rem;margin-top:6px;padding-top:6px;
+    border-top:1px solid rgba(255,255,255,0.12);">
+    아래 조건에 맞춰 선택하세요 → <b style="color:#ffd700;">🔍 가입 약관 자동 추적 시작</b> 버튼 클릭
+      </div>
+    </div>""", unsafe_allow_html=True)
+    
+        _dq_companies = [
+            "── 손해보험 ──",
+            "삼성화재", "현대해상", "DB손해보험", "KB손해보험", "메리츠화재",
+            "롯데손해보험", "한화손해보험", "흥국화재", "MG손해보험",
+            "라이나손보(Chubb)",
+            "── 생명보험 ──",
+            "삼성생명", "한화생명", "교보생명", "신한라이프", "NH농협생명",
+            "미래에셋생명", "DB생명", "KDB생명", "라이나생명", "KB라이프생명",
+            "MetLife생명", "iM라이프생명", "푸본현대생명", "흥국생명",
+            "동양생명", "ABL생명", "하나생명",
+            "── 협회 ──",
+            "생명보험협회", "손해보험협회",
+        ]
+    
+        _dq_col1, _dq_col2, _dq_col3 = st.columns([2, 3, 2])
+        with _dq_col1:
+            _dq_company_raw = st.selectbox(
+                "🏢 보험회사",
+                [c for c in _dq_companies if not c.startswith("──")],
+                key="dq_company",
+                help="가입한 보험회사를 선택하세요",
+            )
+        with _dq_col2:
+            _dq_product = st.text_input(
+                "📄 상품이름",
+                placeholder="보험증권에 나온 상품이름을 최대한 근접하게 입력  예) 무배당 삼성화재 New암보험 3.0",
+                key="dq_product",
+                help="증권 표지의 상품명을 그대로 입력하면 정확도가 높아집니다",
+            )
+        with _dq_col3:
+            import datetime as _dt_mod
+            _dq_year = st.selectbox(
+                "📅 가입년도",
+                [str(y) for y in range(_dt_mod.date.today().year, 1989, -1)],
+                key="dq_year",
+            )
+            _dq_month = st.selectbox(
+                "가입월",
+                [f"{m:02d}월" for m in range(1, 13)],
+                key="dq_month",
+            )
+    
+        _dq_join_date = f"{_dq_year}-{_dq_month.replace('월','')}-01"
+    
+        _dq_run = st.button(
+            "🔍 가입 약관 자동 추적",
+            type="primary",
+            use_container_width=True,
+            key="btn_dq_run",
+            disabled=(not _dq_product.strip()),
+        )
+    
+        if not _dq_product.strip():
+            st.caption("⬆️ 상품이름을 입력하면 버튼이 활성화됩니다")
+    
+        if _dq_run and _dq_product.strip():
+            _dq_cn  = _dq_company_raw
+            _dq_sb  = _get_sb_client()
+            # ── 돋보기 애니메이션 로딩 화면 ──
+            import streamlit.components.v1 as _dq_comp
+            _dq_comp.html("""
+    <div id="magnify-loader" style="
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      padding:28px 0 18px;">
+      <div style="position:relative;width:90px;height:90px;">
+    <!-- 서류 아이콘 -->
+    <svg width="52" height="60" viewBox="0 0 52 60" fill="none"
+      style="position:absolute;left:4px;top:8px;opacity:0.92;"
+      xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="2" width="40" height="52" rx="4" fill="#1a3a5c" stroke="#0ea5e9" stroke-width="2"/>
+      <rect x="10" y="14" width="28" height="3" rx="1.5" fill="#7ec8f5"/>
+      <rect x="10" y="22" width="22" height="3" rx="1.5" fill="#7ec8f5"/>
+      <rect x="10" y="30" width="26" height="3" rx="1.5" fill="#7ec8f5"/>
+      <rect x="10" y="38" width="18" height="3" rx="1.5" fill="#a8f0c8"/>
+    </svg>
+    <!-- 돋보기 (움직임 애니메이션) -->
+    <svg id="mag" width="46" height="46" viewBox="0 0 46 46" fill="none"
+      style="position:absolute;top:0;right:0;
+        animation:scan 1.8s ease-in-out infinite;"
+      xmlns="http://www.w3.org/2000/svg">
+      <circle cx="18" cy="18" r="14" stroke="#ffd700" stroke-width="3.5" fill="rgba(255,215,0,0.08)"/>
+      <line x1="29" y1="29" x2="43" y2="43" stroke="#ffd700" stroke-width="3.5" stroke-linecap="round"/>
+    </svg>
+      </div>
+      <div style="margin-top:14px;color:#ffd700;font-weight:900;
+    font-size:0.95rem;font-family:'Noto Sans KR',sans-serif;
+    letter-spacing:0.03em;">
+    🔍 AI가 약관 돋보기로 분석 중입니다...
+      </div>
+      <div style="margin-top:6px;color:#a8f0c8;font-size:0.75rem;
+    font-family:'Noto Sans KR',sans-serif;text-align:center;max-width:320px;
+    line-height:1.55;">
+    보험사 공시실에 숨겨진 과거 판매 중지 약관까지<br>
+    AI가 1분 만에 추적하여 분석합니다.
+      </div>
+      <style>
+    @keyframes scan {
+      0%   { transform: translate(0px,  0px)  rotate(0deg);  }
+      25%  { transform: translate(-8px, 6px)  rotate(-8deg); }
+      50%  { transform: translate(0px,  12px) rotate(0deg);  }
+      75%  { transform: translate(8px,  6px)  rotate(8deg);  }
+      100% { transform: translate(0px,  0px)  rotate(0deg);  }
+    }
+      </style>
+    </div>
+    """, height=180)
+            with st.status(
+                f"🔍 [{_dq_cn}] {_dq_product.strip()} — 가입 약관 자동 추적 중...", expanded=True
+            ) as _dq_st:
+                try:
+                    from disclosure_crawler import run_jit_policy_lookup
+                    _dq_r = run_jit_policy_lookup(
+                        company_name=_dq_cn,
+                        product_name=_dq_product.strip(),
+                        join_date=_dq_join_date,
+                        sb_client=_dq_sb,
+                        progress_cb=lambda m: st.write(m),
+                    )
+                    _dq_conf = _dq_r.get("confidence", 0)
+                    _dq_cc = "#27ae60" if _dq_conf >= 80 else "#e67e22" if _dq_conf >= 50 else "#e74c3c"
+                    _dq_st.update(
+                        label="✅ 약관 추적 완료" if _dq_r.get("pdf_url") else "⚠️ 약관을 찾지 못했습니다",
+                        state="complete" if _dq_r.get("pdf_url") else "error",
+                    )
+                    if _dq_r.get("pdf_url"):
+                        st.markdown(
+                            f"<div style='background:#eaf4ff;border:1.5px solid #0ea5e9;"
+                            f"border-radius:8px;padding:10px 14px;margin-top:6px;"
+                            f"font-size:0.83rem;'>"
+                            f"✅ <b>약관 확보 성공</b> &nbsp; 신뢰도 "
+                            f"<b style='color:{_dq_cc};'>{_dq_conf}%</b>"
+                            f" &nbsp;|&nbsp; 판매 기간: {_dq_r.get('period') or '미확인'}"
+                            f"<br>원문 청크: {_dq_r.get('chunks_indexed', 0)}개 "
+                            f"— Supabase <code>gk_policy_terms</code> 영구 저장 완료"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown(f"[📥 약관 PDF 원본 열기]({_dq_r['pdf_url']})")
+                        if _dq_r.get("cached"):
+                            st.info("💾 이미 DB에 저장된 약관 — 추적 생략 (캐시 활용)")
+                        # 약관 내 검색 키워드 바로 제공
+                        st.session_state["ps_jit_company"] = _dq_cn
+                        st.session_state["ps_jit_product"] = _dq_product.strip()
+                        st.session_state["ps_jit_join"]    = _dq_join_date
+                    elif _dq_r.get("error"):
+                        st.error(f"❌ {_dq_r['error']}")
+                        st.info(
+                            "💡 상품명을 더 짧게 또는 다르게 입력해 보세요.\n"
+                            "예) '삼성화재 암보험' → '무배당 삼성화재 New암보험'"
+                        )
+                    else:
+                        st.warning("약관 PDF를 찾지 못했습니다. 상품명·보험사를 확인해주세요.")
+                except ImportError:
+                    st.error("disclosure_crawler 모듈 로드 실패")
+    
+        # ── 약관 내 키워드 검색 (약관 추적 완료 후 활용) ─────────────────────
+        _dq_jit_product = st.session_state.get("ps_jit_product", "")
+        _dq_jit_company = st.session_state.get("ps_jit_company", "")
+        _dq_jit_join    = st.session_state.get("ps_jit_join", "")
+        if _dq_jit_product:
+            st.divider()
+            st.markdown("#### 🔎 약관 내 키워드 검색")
+            _kw_col1, _kw_col2 = st.columns([4, 1])
+            with _kw_col1:
+                _dq_kw = st.text_input(
+                    "검색 키워드",
+                    placeholder="예) 면책 기간 / 수술비 지급 기준 / 암 진단비",
+                    key="dq_jit_keyword",
+                )
+            with _kw_col2:
+                st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+                _dq_kw_run = st.button("🔎 검색", key="btn_dq_kw_search",
+                                       use_container_width=True)
+    
+            if _dq_kw_run and _dq_kw.strip():
+                _kw_sb = _get_sb_client()
+                try:
+                    from disclosure_crawler import JITPipelineRunner
+                    _kw_hits = JITPipelineRunner(_kw_sb).search_terms(
+                        _dq_jit_company, _dq_jit_product, _dq_kw.strip(), limit=5
+                    )
+                    if _kw_hits:
+                        st.markdown(f"**🔎 '{_dq_kw}' 검색 결과 — {len(_kw_hits)}건**")
+                        for _hi, _ch in enumerate(_kw_hits, 1):
+                            with st.expander(f"[{_hi}] 약관 청크 #{_ch.get('chunk_idx', _hi)}"):
+                                _ht = _ch["chunk_text"][:800].replace(
+                                    _dq_kw,
+                                    f"<mark style='background:#fff176;padding:0 2px;"
+                                    f"border-radius:3px;'>{_dq_kw}</mark>",
+                                )
+                                st.markdown(
+                                    f"<div style='font-size:0.82rem;line-height:1.75;'>"
+                                    f"{_ht.replace(chr(10), '<br>')}</div>",
+                                    unsafe_allow_html=True,
+                                )
+                    else:
+                        st.info("검색 결과 없음 — 먼저 위에서 **🔍 가입 약관 자동 추적**을 실행하세요.")
+                except ImportError:
+                    st.error("disclosure_crawler 모듈 로드 실패")
+    
     st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
 # ── [t0] 신규보험 상품 상담 — 보험설계사 전용 ───────────────────────
@@ -42769,2049 +42846,2052 @@ box-shadow:0 0 24px rgba(56,189,248,0.15));">
 if cur == "injury":
     if not _auth_gate("injury"): st.stop()
     tab_home_btn("injury")
-
-    # ── 헤더 ──────────────────────────────────────────────────────────
-    st.markdown(f"""
-<div class="gk-sky-trust gp-interactive"
-  style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
-  {_bid('7-1-1')}
-  <div class="gk-st-title">🚑 상해 통합 관리 — Life-Cycle Risk Management</div>
-  <div style="font-size:0.78rem;margin-top:4px;">
-사고 유형 자동 분류 · 소득 보전 역산 · 보장 공백(Gap) 시각화 · 치료→장해→소득→사망 전 흐름 One-Stop
-  </div>
-</div>""", unsafe_allow_html=True)
-
-    # ── [GP193 §4] 전역 지식 베이스 업데이트 배지 ─────────────────────
-    try:
-        from modules.scan_engine import render_gp193_live_badge as _rgb
-        _badge_html = _rgb(session_state=st.session_state)
-        if _badge_html:
-            st.markdown(_badge_html, unsafe_allow_html=True)
-    except Exception:
-        pass
-
-    # ── GP-61 §6: 증권분석 미러링 데이터 수신 표시 ───────────────────
-    _gp61_gs = st.session_state.get("_gp61_gap_summary")
-    _gp61_gi = st.session_state.get("_gp61_gap_item")
-    if _gp61_gs or _gp61_gi:
-        st.markdown("""<style>
-@keyframes gk-mirror-pulse {
-  0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5);}
-  50%{box-shadow:0 0 0 8px rgba(239,68,68,0);}
-}
-.gk-mirror-card {
-  animation: gk-mirror-pulse 2s infinite;
-}
-</style>""", unsafe_allow_html=True)
-
-        if _gp61_gs:
-            _ms  = _gp61_gs.get("security_score", 0)
-            _mc  = _gp61_gs.get("gap_count", 0)
-            _mp  = _gp61_gs.get("gap_pct", 0)
-            _mgc = _gp61_gs.get("gap_covs", [])
-            _sc_color = "#22c55e" if _ms >= 80 else ("#f59e0b" if _ms >= 60 else "#ef4444")
-            _rows_html = "".join(
-                f'<tr style="border-bottom:1px solid #2a3a5a;">'
-                f'<td style="padding:5px 8px;color:#f1f5f9;font-size:0.78rem;font-weight:700;">{_gc.get("name","")}</td>'
-                f'<td style="padding:5px 8px;color:#94a3b8;font-size:0.75rem;">{_gc.get("category","")}</td>'
-                f'<td style="padding:5px 8px;text-align:right;color:#fca5a5;font-size:0.75rem;">{_gc.get("enrolled","0") if _gc.get("enrolled","0") not in ("0","","미가입") else "미가입"}</td>'
-                f'<td style="padding:5px 8px;text-align:right;color:#86efac;font-size:0.75rem;">{_gc.get("recommended","")}</td>'
-                f'<td style="padding:5px 8px;text-align:right;color:#ef4444;font-size:0.75rem;font-weight:900;">{_gc.get("diff","")}</td>'
-                f'</tr>'
-                for _gc in _mgc
-            )
-            st.markdown(f"""
-<div class="gk-mirror-card" style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);
-  border:2px solid #ef4444;border-radius:14px;padding:16px 20px;margin-bottom:14px;">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-<div style="font-size:1.1rem;font-weight:900;color:#dc2626;">📡 GP-61 증권분석 연동 데이터 수신됨</div>
-<div style="background:#fff1f2;border:1px solid #ef4444;border-radius:6px;
-  padding:3px 10px;font-size:0.75rem;font-weight:900;color:#dc2626;">안보 지수 {_ms}점</div>
-<div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:6px;
-  padding:3px 10px;font-size:0.75rem;font-weight:900;color:#92400e;">{_mp}% 보장 공백 ({_mc}개 담보)</div>
-  </div>
-  <div style="overflow-x:auto;">
-<table style="width:100%;border-collapse:collapse;">
-  <thead><tr style="background:#dbeafe;">
-    <th style="padding:5px 8px;text-align:left;color:#1e3a5f;font-size:0.72rem;">담보명</th>
-    <th style="padding:5px 8px;text-align:left;color:#1e3a5f;font-size:0.72rem;">카테고리</th>
-    <th style="padding:5px 8px;text-align:right;color:#1e3a5f;font-size:0.72rem;">현재 가입</th>
-    <th style="padding:5px 8px;text-align:right;color:#1e3a5f;font-size:0.72rem;">권장 금액</th>
-    <th style="padding:5px 8px;text-align:right;color:#1e3a5f;font-size:0.72rem;">부족분</th>
-  </tr></thead>
-  <tbody>{_rows_html}</tbody>
-</table>
-  </div>
-  <div style="margin-top:10px;font-size:0.72rem;color:#64748b;">
-⚡ 증권분석 탭에서 전달된 데이터입니다 — 아래 입력값을 조정한 뒤 AI 분석을 실행하세요
-  </div>
-</div>""", unsafe_allow_html=True)
-
-        elif _gp61_gi:
-            _gn  = _gp61_gi.get("name", "")
-            _ge  = _gp61_gi.get("enrolled", "미가입")
-            _gr  = _gp61_gi.get("recommended", "")
-            _gd  = _gp61_gi.get("diff", "")
-            _gst = _gp61_gi.get("status", "")
-            st.markdown(f"""
-<div class="gk-mirror-card" style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);
-  border:2px solid #ef4444;border-radius:14px;padding:14px 18px;margin-bottom:14px;">
-  <div style="font-size:0.88rem;font-weight:900;color:#dc2626;margin-bottom:8px;">
-📡 GP-61 단일 담보 공백 분석 연동 — [{_gn}]
-  </div>
-  <div style="display:flex;gap:12px;flex-wrap:wrap;">
-<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 14px;">
-  <div style="font-size:0.68rem;color:#475569;">현재 가입금액</div>
-  <div style="font-size:1rem;font-weight:900;color:#dc2626;">{_ge if _ge not in ("0","","미가입") else "미가입"}</div>
-</div>
-<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:8px 14px;">
-  <div style="font-size:0.68rem;color:#475569;">권장 금액</div>
-  <div style="font-size:1rem;font-weight:900;color:#15803d;">{_gr}</div>
-</div>
-<div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:8px;padding:8px 14px;">
-  <div style="font-size:0.68rem;color:#dc2626;">부족분</div>
-  <div style="font-size:1rem;font-weight:900;color:#ef4444;">{_gd}</div>
-</div>
-<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 14px;">
-  <div style="font-size:0.68rem;color:#475569;">진단 상태</div>
-  <div style="font-size:1rem;font-weight:900;color:#92400e;">{_gst}</div>
-</div>
-  </div>
-  <div style="margin-top:8px;font-size:0.72rem;color:#64748b;">
-⚡ 증권분석 [공백 분석] 버튼에서 전달된 데이터입니다
-  </div>
-</div>""", unsafe_allow_html=True)
-
-    # ── STEP 1: Life Stage 카드 선택 ─────────────────────────────────
-    st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 14px;margin-bottom:8px;
-  font-weight:900;font-size:0.88rem;color:#1a3a5c;">
-  ① 생애 단계 선택 (기본값 자동 설정)</div>""", unsafe_allow_html=True)
-
-    _life_stages = {
-        "사회초년생": {"income": 250, "work_loss": 12, "rehab": 6,  "disability": 15, "social_sec": 0,    "icon": "🎓"},
-        "가    장":   {"income": 400, "work_loss": 24, "rehab": 12, "disability": 15, "social_sec": 500,  "icon": "👨‍👩‍👧"},
-        "사 업 자":   {"income": 600, "work_loss": 24, "rehab": 12, "disability": 20, "social_sec": 0,    "icon": "💼"},
-        "시 니 어":   {"income": 200, "work_loss": 18, "rehab": 12, "disability": 30, "social_sec": 800,  "icon": "🌅"},
+    with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+    
+        # ── 헤더 ──────────────────────────────────────────────────────────
+        st.markdown(f"""
+    <div class="gk-sky-trust gp-interactive"
+      style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+      {_bid('7-1-1')}
+      <div class="gk-st-title">🚑 상해 통합 관리 — Life-Cycle Risk Management</div>
+      <div style="font-size:0.78rem;margin-top:4px;">
+    사고 유형 자동 분류 · 소득 보전 역산 · 보장 공백(Gap) 시각화 · 치료→장해→소득→사망 전 흐름 One-Stop
+      </div>
+    </div>""", unsafe_allow_html=True)
+    
+        # ── [GP193 §4] 전역 지식 베이스 업데이트 배지 ─────────────────────
+        try:
+            from modules.scan_engine import render_gp193_live_badge as _rgb
+            _badge_html = _rgb(session_state=st.session_state)
+            if _badge_html:
+                st.markdown(_badge_html, unsafe_allow_html=True)
+        except Exception:
+            pass
+    
+        # ── GP-61 §6: 증권분석 미러링 데이터 수신 표시 ───────────────────
+        _gp61_gs = st.session_state.get("_gp61_gap_summary")
+        _gp61_gi = st.session_state.get("_gp61_gap_item")
+        if _gp61_gs or _gp61_gi:
+            st.markdown("""<style>
+    @keyframes gk-mirror-pulse {
+      0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5);}
+      50%{box-shadow:0 0 0 8px rgba(239,68,68,0);}
     }
-    _ls_keys = list(_life_stages.keys())
-    _ls_cols = st.columns(4)
-    if "inj_life_stage" not in st.session_state:
-        st.session_state["inj_life_stage"] = "가    장"
-    for _i, (_lk, _lv) in enumerate(_life_stages.items()):
-        with _ls_cols[_i]:
-            _is_sel = st.session_state["inj_life_stage"] == _lk
-            _bg = "linear-gradient(135deg,#1a3a5c,#2e6da4)" if _is_sel else "#f8fafc"
-            _fc = "#fff" if _is_sel else "#1a3a5c"
-            st.markdown(f"""<div style="background:{_bg};border:2px solid {'#2e6da4' if _is_sel else '#d0d7de'};
-  border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;margin-bottom:4px;">
-  <div style="font-size:1.4rem;">{_lv['icon']}</div>
-  <div style="font-size:0.78rem;font-weight:900;color:{_fc};margin-top:4px;">{_lk}</div>
-  <div style="font-size:0.68rem;color:{'#add8ff' if _is_sel else '#888'};margin-top:2px;">
-월소득 {_lv['income']}만</div>
-</div>""", unsafe_allow_html=True)
-            if st.button("선택", key=f"inj_ls_{_i}", use_container_width=True,
-                         type="primary" if _is_sel else "secondary"):
-                st.session_state["inj_life_stage"] = _lk
-                _d = _life_stages[_lk]
-                st.session_state["inj_income"]     = _d["income"]
-                st.session_state["inj_work_loss"]  = _d["work_loss"]
-                st.session_state["inj_rehab"]      = _d["rehab"]
-                st.session_state["inj_dis_rate"]   = _d["disability"]
-                st.session_state["inj_social_sec"] = _d["social_sec"]
-                st.rerun()
-
-    _sel_stage = _life_stages[st.session_state["inj_life_stage"]]
-
-    st.divider()
-
-    # ── STEP 2: Intelligence Box + 변수 입력 ─────────────────────────
-    _inj_left, _inj_right = st.columns([5, 5])
-
-    with _inj_left:
-        st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
-  border-radius:0 8px 8px 0;padding:6px 14px;margin-bottom:8px;
-  font-weight:900;font-size:0.88rem;color:#7d3c00;">
-  ② 상황 입력 — 오늘 있었던 사고나 걱정되는 상황을 말씀해 주세요</div>""", unsafe_allow_html=True)
-
-        _inj_c_name = st.text_input("고객 성함", st.session_state.get("global_c_name", "우량 고객"),
-                                    key="inj_c_name")
-        st.session_state.current_c_name = _inj_c_name
-
-        _inj_query = st.text_area(
-            "사고·상황 입력",
-            height=110,
-            key="inj_query",
-            placeholder='예) "월 400만원 버는 가장입니다. 빗길 운전 중 사고로 2년 정도 일을 못 하게 되면 가족은 어떻게 될까요?"',
-            label_visibility="collapsed",
-        )
-
-        # 자동 분류 표시
-        if _inj_query:
-            _inj_type = classify_injury_type(_inj_query)
-            _type_map = {
-                "traffic":    ("🚗 교통상해", "#e74c3c", "맥브라이드 방식 + 자동차/운전자보험 연동"),
-                "industrial": ("🏭 산재사고", "#e67e22", "근로복지공단 장해등급 + 단체보험 연동"),
-                "general":    ("🏃 일반상해", "#2e6da4", "AMA 방식 + 개인보험 상해담보 연동"),
-            }
-            _tl, _tc, _td = _type_map[_inj_type]
-            st.markdown(f"""<div style="background:#f8fafc;border:1px solid {_tc};
-  border-radius:7px;padding:6px 12px;margin:4px 0 8px 0;font-size:0.80rem;">
-  <b style="color:{_tc};">{_tl}</b> 자동 분류됨<br>
-  <span style="color:#555;font-size:0.75rem;">{_td}</span>
-</div>""", unsafe_allow_html=True)
-            st.session_state["inj_auto_type"] = _inj_type
-        else:
-            _inj_type = st.session_state.get("inj_auto_type", "general")
-
+    .gk-mirror-card {
+      animation: gk-mirror-pulse 2s infinite;
+    }
+    </style>""", unsafe_allow_html=True)
+    
+            if _gp61_gs:
+                _ms  = _gp61_gs.get("security_score", 0)
+                _mc  = _gp61_gs.get("gap_count", 0)
+                _mp  = _gp61_gs.get("gap_pct", 0)
+                _mgc = _gp61_gs.get("gap_covs", [])
+                _sc_color = "#22c55e" if _ms >= 80 else ("#f59e0b" if _ms >= 60 else "#ef4444")
+                _rows_html = "".join(
+                    f'<tr style="border-bottom:1px solid #2a3a5a;">'
+                    f'<td style="padding:5px 8px;color:#f1f5f9;font-size:0.78rem;font-weight:700;">{_gc.get("name","")}</td>'
+                    f'<td style="padding:5px 8px;color:#94a3b8;font-size:0.75rem;">{_gc.get("category","")}</td>'
+                    f'<td style="padding:5px 8px;text-align:right;color:#fca5a5;font-size:0.75rem;">{_gc.get("enrolled","0") if _gc.get("enrolled","0") not in ("0","","미가입") else "미가입"}</td>'
+                    f'<td style="padding:5px 8px;text-align:right;color:#86efac;font-size:0.75rem;">{_gc.get("recommended","")}</td>'
+                    f'<td style="padding:5px 8px;text-align:right;color:#ef4444;font-size:0.75rem;font-weight:900;">{_gc.get("diff","")}</td>'
+                    f'</tr>'
+                    for _gc in _mgc
+                )
+                st.markdown(f"""
+    <div class="gk-mirror-card" style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);
+      border:2px solid #ef4444;border-radius:14px;padding:16px 20px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+    <div style="font-size:1.1rem;font-weight:900;color:#dc2626;">📡 GP-61 증권분석 연동 데이터 수신됨</div>
+    <div style="background:#fff1f2;border:1px solid #ef4444;border-radius:6px;
+      padding:3px 10px;font-size:0.75rem;font-weight:900;color:#dc2626;">안보 지수 {_ms}점</div>
+    <div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:6px;
+      padding:3px 10px;font-size:0.75rem;font-weight:900;color:#92400e;">{_mp}% 보장 공백 ({_mc}개 담보)</div>
+      </div>
+      <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="background:#dbeafe;">
+        <th style="padding:5px 8px;text-align:left;color:#1e3a5f;font-size:0.72rem;">담보명</th>
+        <th style="padding:5px 8px;text-align:left;color:#1e3a5f;font-size:0.72rem;">카테고리</th>
+        <th style="padding:5px 8px;text-align:right;color:#1e3a5f;font-size:0.72rem;">현재 가입</th>
+        <th style="padding:5px 8px;text-align:right;color:#1e3a5f;font-size:0.72rem;">권장 금액</th>
+        <th style="padding:5px 8px;text-align:right;color:#1e3a5f;font-size:0.72rem;">부족분</th>
+      </tr></thead>
+      <tbody>{_rows_html}</tbody>
+    </table>
+      </div>
+      <div style="margin-top:10px;font-size:0.72rem;color:#64748b;">
+    ⚡ 증권분석 탭에서 전달된 데이터입니다 — 아래 입력값을 조정한 뒤 AI 분석을 실행하세요
+      </div>
+    </div>""", unsafe_allow_html=True)
+    
+            elif _gp61_gi:
+                _gn  = _gp61_gi.get("name", "")
+                _ge  = _gp61_gi.get("enrolled", "미가입")
+                _gr  = _gp61_gi.get("recommended", "")
+                _gd  = _gp61_gi.get("diff", "")
+                _gst = _gp61_gi.get("status", "")
+                st.markdown(f"""
+    <div class="gk-mirror-card" style="background:linear-gradient(135deg,#fff1f2,#ffe4e6);
+      border:2px solid #ef4444;border-radius:14px;padding:14px 18px;margin-bottom:14px;">
+      <div style="font-size:0.88rem;font-weight:900;color:#dc2626;margin-bottom:8px;">
+    📡 GP-61 단일 담보 공백 분석 연동 — [{_gn}]
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 14px;">
+      <div style="font-size:0.68rem;color:#475569;">현재 가입금액</div>
+      <div style="font-size:1rem;font-weight:900;color:#dc2626;">{_ge if _ge not in ("0","","미가입") else "미가입"}</div>
+    </div>
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:8px 14px;">
+      <div style="font-size:0.68rem;color:#475569;">권장 금액</div>
+      <div style="font-size:1rem;font-weight:900;color:#15803d;">{_gr}</div>
+    </div>
+    <div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:8px;padding:8px 14px;">
+      <div style="font-size:0.68rem;color:#dc2626;">부족분</div>
+      <div style="font-size:1rem;font-weight:900;color:#ef4444;">{_gd}</div>
+    </div>
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 14px;">
+      <div style="font-size:0.68rem;color:#475569;">진단 상태</div>
+      <div style="font-size:1rem;font-weight:900;color:#92400e;">{_gst}</div>
+    </div>
+      </div>
+      <div style="margin-top:8px;font-size:0.72rem;color:#64748b;">
+    ⚡ 증권분석 [공백 분석] 버튼에서 전달된 데이터입니다
+      </div>
+    </div>""", unsafe_allow_html=True)
+    
+        # ── STEP 1: Life Stage 카드 선택 ─────────────────────────────────
         st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 14px;margin:8px 0 6px 0;
-  font-weight:900;font-size:0.85rem;color:#1a3a5c;">③ 소득 보전 역산 변수</div>""", unsafe_allow_html=True)
-
-        _vi1, _vi2 = st.columns(2)
-        with _vi1:
-            _inj_income = st.number_input("월 가처분 소득 (만원)",
-                min_value=50, max_value=5000,
-                value=int(st.session_state.get("inj_income", _sel_stage["income"])),
-                step=50, key="inj_income_input")
-            _inj_work_loss = st.number_input("휴업 기간 T (개월)",
-                min_value=1, max_value=120,
-                value=int(st.session_state.get("inj_work_loss", _sel_stage["work_loss"])),
-                step=1, key="inj_work_loss_input")
-        with _vi2:
-            _inj_dis_rate = st.number_input("예상 장해율 D (%)",
-                min_value=3.0, max_value=100.0,
-                value=float(st.session_state.get("inj_dis_rate", _sel_stage["disability"])),
-                step=0.5, key="inj_dis_rate_input")
-            _inj_rehab = st.number_input("재활 기간 B (개월)",
-                min_value=0, max_value=60,
-                value=int(st.session_state.get("inj_rehab", _sel_stage["rehab"])),
-                step=1, key="inj_rehab_input")
-
-        _inj_existing = st.number_input("현재 상해 가입금액 합계 (만원)",
-            min_value=0, value=20000, step=1000, key="inj_existing_input")
-        _inj_social = st.number_input("사회보장 예상 수령액 (산재·국민연금, 만원)",
-            min_value=0,
-            value=int(st.session_state.get("inj_social_sec", _sel_stage["social_sec"])),
-            step=100, key="inj_social_input")
-
-        # Gap 계산
-        _gap_result = calculate_insurance_gap(
-            monthly_income    = _inj_income * 10000,
-            disability_rate   = _inj_dis_rate,
-            work_loss_months  = _inj_work_loss,
-            rehab_months      = _inj_rehab,
-            existing_insurance= _inj_existing * 10000,
-            social_security   = _inj_social * 10000,
-        )
-
-        # ── GP-62 §1: 소득 역산 패널 ─────────────────────────────────
-        st.markdown("""<div style="background:#eff6ff;border:1px solid #2563eb;
-  border-radius:9px;padding:8px 14px;margin:10px 0 6px 0;">
-  <span style="font-size:0.82rem;font-weight:900;color:#1d4ed8;">
-  ⚙️ GP-62 소득 역산 엔진 — 건강보험료 입력 시 자동 산출</span></div>""",
-            unsafe_allow_html=True)
-        _g62c1, _g62c2 = st.columns(2)
-        with _g62c1:
-            _g62_nhis = st.number_input("건강보험료 (원/월)",
-                min_value=0, value=int(st.session_state.get("g62_nhis", 0)),
-                step=1000, key="g62_nhis",
-                help="입력 시 7.09% 요율로 월소득 자동 역산")
-        with _g62c2:
-            _g62_override = st.number_input("소득 Override (만원, 0=자동)",
-                min_value=0, value=int(st.session_state.get("g62_override", 0)),
-                step=50, key="g62_override",
-                help="직접 수정 시 역산값 대신 이 값이 최우선 적용")
-        _g62r = _art62_calc(
-            monthly_income_man  = _inj_income,
-            nhis_premium        = float(_g62_nhis),
-            override_income_man = float(_g62_override),
-        )
-        _g62_m   = _g62r["monthly_income"]
-        _g62_src = _g62r["income_source"]
-        _g62_is_fallback = (_g62_src == "Fallback·고정액")
-
-        # ── GP-66 §3: 소득 미입력 여부에 따라 배너 분기 ─────────────────
-        if _g62_is_fallback:
-            # 소득 데이터 부재 → 관리자 표준 권장 기준(기준 B) 100% 적용 안내
-            st.markdown(
-                f'<div style="background:#fffbeb;border:2px solid #f59e0b;border-radius:7px;'
-                f'padding:9px 14px;font-size:0.78rem;margin-bottom:6px;">'
-                f'<div style="color:#92400e;font-weight:900;font-size:0.82rem;margin-bottom:4px;">'
-                f'⚠️ 소득 데이터 미제공 → 마스터 권장 기준(기준 B) 적용</div>'
-                f'<span style="color:#78350f;">전문가 권장 표준 안보 지수 기준으로 분석되었습니다.</span>'
-                f'&nbsp;|&nbsp;<span style="color:#fcd34d;font-weight:700;">암: {_g62r["target_cancer"]:,}만원</span>'
-                f'&nbsp;|&nbsp;<span style="color:#f87171;font-weight:700;">뇌혈관: {_g62r["target_brain"]:,}만원</span>'
-                f'&nbsp;|&nbsp;<span style="color:#7ec8f5;font-weight:700;">일당: {_g62r["target_daily"]:,.1f}만원</span>'
-                f'&nbsp;|&nbsp;<span style="color:#c4b5fd;font-weight:700;">후유장해: {_g62r["target_disability"]:,}만원</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            # 소득 데이터 정상 → 기준 C(Dynamic/Static) 적용 결과 표시
-            _basis_tag = {
-                "Dynamic":  ("📊", "#22c55e", "소득역산"),
-                "Static":   ("🔒", "#f59e0b", "관리자고정"),
-                "Fallback": ("⚠️", "#f59e0b", "기준B"),
-            }.get(_g62r.get("cancer_basis", "Dynamic"), ("📊", "#22c55e", "소득역산"))
-            st.markdown(
-                f'<div style="background:#f0fdf4;border:1px solid #22c55e;border-radius:7px;'
-                f'padding:7px 14px;font-size:0.78rem;margin-bottom:6px;">'
-                f'<span style="color:#86efac;font-weight:900;">적용 월소득: {_g62_m:,.1f}만원</span>'
-                f'&nbsp;<span style="color:#64748b;">({_g62_src})</span>'
-                f'&nbsp;<span style="color:{_basis_tag[1]};font-size:0.72rem;">{_basis_tag[0]}{_basis_tag[2]}</span>'
-                f'&nbsp;|&nbsp;<span style="color:#fcd34d;">암: {_g62r["target_cancer"]:,}만원</span>'
-                f'&nbsp;|&nbsp;<span style="color:#f87171;">뇌혈관: {_g62r["target_brain"]:,}만원</span>'
-                f'&nbsp;|&nbsp;<span style="color:#7ec8f5;">일당: {_g62r["target_daily"]:,.1f}만원</span>'
-                f'&nbsp;|&nbsp;<span style="color:#c4b5fd;">후유장해: {_g62r["target_disability"]:,}만원</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-        st.session_state["_g62_result"] = _g62r
-
-        _do_inj_ai = st.button("🔍 AI 통합 상해 분석", type="primary",
-                               key="btn_inj_ai", use_container_width=True)
-
-    with _inj_right:
-        # ── Gap 시각화 대시보드 ───────────────────────────────────────
-        st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 14px;margin-bottom:8px;
-  font-weight:900;font-size:0.88rem;color:#1a3a5c;">④ 보장 공백(Gap) 시각화</div>""", unsafe_allow_html=True)
-
-        _req_man  = _gap_result["required"] // 10000
-        _cur_man  = _gap_result["current"] // 10000
-        _gap_man  = _gap_result["gap"] // 10000
-        _dep_mon  = _gap_result["depletion_months"]
-        _h_coeff  = _gap_result["h_coeff"]
-        _over_lim = _gap_result["is_over_limit"]
-
-        # 바 차트 HTML
-        _bar_max  = max(_req_man, _cur_man, 1)
-        _req_pct  = min(100, round(_req_man / _bar_max * 100))
-        _cur_pct  = min(100, round(_cur_man / _bar_max * 100))
-        _gap_pct  = max(0, _req_pct - _cur_pct)
-
-        components.html(f"""
-<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;padding:10px 4px;">
-
-  <div style="margin-bottom:14px;">
-<div style="font-size:0.75rem;color:#c0392b;font-weight:700;margin-bottom:3px;">
-  📌 필요 가입금액 (역산) — S = M×H(T+B) / D - G - P
-</div>
-<div style="background:#ffe0e0;border-radius:6px;height:28px;position:relative;overflow:hidden;">
-  <div style="background:#e74c3c;height:100%;width:{_req_pct}%;border-radius:6px;
-    display:flex;align-items:center;justify-content:flex-end;padding-right:8px;">
-    <span style="color:#fff;font-size:0.78rem;font-weight:900;">{_req_man:,}만원</span>
-  </div>
-</div>
-<div style="font-size:0.68rem;color:#999;margin-top:2px;">
-  호프만 계수 H={_h_coeff} 적용 (5% 단리 · {_gap_result['total_months']}개월)
-  {'&nbsp;⚠️ <b style="color:#c0392b;">업계 한도 15억 초과 → 분산 가입 필요</b>' if _over_lim else ''}
-</div>
-  </div>
-
-  <div style="margin-bottom:14px;">
-<div style="font-size:0.75rem;color:#2e6da4;font-weight:700;margin-bottom:3px;">
-  🛡️ 현재 준비 (기 가입금액 합계)
-</div>
-<div style="background:#e0eeff;border-radius:6px;height:28px;overflow:hidden;">
-  <div style="background:#2e6da4;height:100%;width:{_cur_pct}%;border-radius:6px;
-    display:flex;align-items:center;justify-content:flex-end;padding-right:8px;">
-    <span style="color:#fff;font-size:0.78rem;font-weight:900;">{_cur_man:,}만원</span>
-  </div>
-</div>
-  </div>
-
-  <div style="margin-bottom:10px;">
-<div style="font-size:0.75rem;color:#e67e22;font-weight:700;margin-bottom:3px;">
-  ⚠️ 보장 공백 (Gap)
-</div>
-<div style="background:#fff3e0;border:2px dashed #e67e22;border-radius:6px;
-  height:28px;display:flex;align-items:center;padding:0 12px;">
-  <span style="color:#c0392b;font-size:0.88rem;font-weight:900;">{_gap_man:,}만원 부족</span>
-</div>
-  </div>
-
-  <div style="background:{'#fff5f5' if _gap_man > 0 else '#f0fff4'};
-border:1px solid {'#f5a6a6' if _gap_man > 0 else '#6fcf97'};
-border-radius:8px;padding:10px 14px;margin-top:8px;font-size:0.80rem;line-height:1.8;">
-<b style="color:{'#c0392b' if _gap_man > 0 else '#1a7a2e'};">
-  {'⏱️ 소득 단절 시나리오' if _gap_man > 0 else '✅ 보장 적정'}
-</b><br>
-현재 준비금으로 <b style="color:#2e6da4;">{_dep_mon}개월</b> 뒤 생활비 고갈 예상<br>
-{'<b style="color:#e74c3c;">→ 월 ' + f'{round(_gap_man * 10000 / max(_inj_work_loss + _inj_rehab, 1) / 10000):,}만원' + ' 규모 추가 담보 설계 권장</b>' if _gap_man > 0 else ''}
-  </div>
-
-  {'<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 14px;margin-top:8px;font-size:0.77rem;color:#856404;font-weight:700;">⚠️ 역산 필요 가입금액이 업계 한도(15억) 초과 → 보험사 분산 가입 전략 필요<br><span style="font-weight:400;">1순위: 고도장해(80%) · 2순위: 중도장해(20%~50%) · 3순위: 소액장해 실손 연동</span></div>' if _over_lim else ''}
-
-</div>""", height=340)
-
-        # ── GP-66 §3: 담보별 권장 비교표 (Fallback 분기) ────────────────
-        _g62r_cached = st.session_state.get("_g62_result", _g62r)
-        _b_cancer_disp  = _g62r_cached.get("cancer_b",  _g62r_cached.get("target_cancer", 0))
-        _b_brain_disp   = _g62r_cached.get("brain_b",   _g62r_cached.get("target_brain",  0))
-        _a_cancer_disp  = _g62r_cached.get("cancer_a",  0)
-        _a_brain_disp   = _g62r_cached.get("brain_a",   0)
-        if _g62_is_fallback:
-            # 소득 없음 → 관리자 표준 권장선만 굵게, 소득 기반 권장선 숨김
-            components.html(f"""
-<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
-  background:#fffbeb;border:2px solid #f59e0b;border-radius:9px;
-  padding:12px 16px;margin:10px 0;">
-  <div style="color:#92400e;font-weight:900;font-size:0.83rem;margin-bottom:8px;">
-⚠️ 소득 데이터 미제공 — 관리자 표준 권장선(기준 B) 단독 적용
-  </div>
-  <table style="width:100%;border-collapse:collapse;font-size:0.76rem;">
-  <tr style="background:#fef3c7;color:#78350f;">
-<th style="padding:4px 8px;border:1px solid #fde68a;text-align:center;">담보</th>
-<th style="padding:4px 8px;border:1px solid #fde68a;text-align:center;">소득 기반 권장선</th>
-<th style="padding:4px 8px;border:1px solid #f59e0b;text-align:center;background:#fef9c3;">
-  ★ 관리자 표준 권장선 (최종)</th>
-  </tr>
-  <tr style="color:#aaa;">
-<td style="padding:4px 8px;border:1px solid #444;text-align:center;color:#666;">암 진단비</td>
-<td style="padding:4px 8px;border:1px solid #444;text-align:center;
-  text-decoration:line-through;color:#555;">미산출</td>
-<td style="padding:4px 8px;border:2px solid #f59e0b;text-align:center;
-  font-weight:900;color:#fbbf24;font-size:0.88rem;">{_b_cancer_disp:,}만원</td>
-  </tr>
-  <tr style="color:#aaa;">
-<td style="padding:4px 8px;border:1px solid #444;text-align:center;color:#666;">뇌혈관 진단비</td>
-<td style="padding:4px 8px;border:1px solid #444;text-align:center;
-  text-decoration:line-through;color:#555;">미산출</td>
-<td style="padding:4px 8px;border:2px solid #f59e0b;text-align:center;
-  font-weight:900;color:#fbbf24;font-size:0.88rem;">{_b_brain_disp:,}만원</td>
-  </tr>
-  <tr style="color:#aaa;">
-<td style="padding:4px 8px;border:1px solid #444;text-align:center;color:#666;">일당</td>
-<td style="padding:4px 8px;border:1px solid #444;text-align:center;
-  text-decoration:line-through;color:#555;">미산출</td>
-<td style="padding:4px 8px;border:2px solid #f59e0b;text-align:center;
-  font-weight:900;color:#fbbf24;font-size:0.88rem;">{_g62r_cached.get("target_daily",0):,.1f}만원</td>
-  </tr>
-  <tr style="color:#aaa;">
-<td style="padding:4px 8px;border:1px solid #444;text-align:center;color:#666;">후유장해</td>
-<td style="padding:4px 8px;border:1px solid #444;text-align:center;
-  text-decoration:line-through;color:#555;">미산출</td>
-<td style="padding:4px 8px;border:2px solid #f59e0b;text-align:center;
-  font-weight:900;color:#fbbf24;font-size:0.88rem;">{_g62r_cached.get("target_disability",0):,}만원</td>
-  </tr>
-  </table>
-  <div style="color:#f97316;font-size:0.70rem;margin-top:6px;">
-* GP-66: 건강보험료 미입력 시 관리자 고정 권장액(기준 B)이 최종 권장값으로 자동 채택됩니다.
-  </div>
-</div>""", height=210)
-        else:
-            # 소득 있음 → 기준 A vs 기준 B 비교표
-            components.html(f"""
-<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
-  background:#f0fdf4;border:1px solid #22c55e;border-radius:9px;
-  padding:10px 14px;margin:10px 0;">
-  <div style="color:#86efac;font-weight:900;font-size:0.82rem;margin-bottom:7px;">
-📊 GP-65 기준 A vs B 비교 — 최종 = MAX(A, B)
-  </div>
-  <table style="width:100%;border-collapse:collapse;font-size:0.75rem;">
-  <tr style="background:#E8F0FE;color:#94a3b8;">
-<th style="padding:4px 8px;border:1px solid #334155;text-align:center;">담보</th>
-<th style="padding:4px 8px;border:1px solid #334155;text-align:center;">소득 기반 (A)</th>
-<th style="padding:4px 8px;border:1px solid #334155;text-align:center;">관리자 표준 (B)</th>
-<th style="padding:4px 8px;border:1px solid #22c55e;text-align:center;background:#dcfce7;color:#14532d;">최종 채택</th>
-  </tr>
-  <tr>
-<td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#e2e8f0;">암</td>
-<td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#7dd3fc;">{_a_cancer_disp:,}만원</td>
-<td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#fcd34d;">{_b_cancer_disp:,}만원</td>
-<td style="padding:4px 8px;border:1px solid #22c55e;text-align:center;
-  font-weight:900;color:#4ade80;">{_g62r_cached.get("target_cancer",0):,}만원
-  <span style="font-size:0.68rem;color:#86efac;">({_g62r_cached.get("cancer_basis","?")})</span></td>
-  </tr>
-  <tr style="background:#EEF2FF;">
-<td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#e2e8f0;">뇌혈관</td>
-<td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#7dd3fc;">{_a_brain_disp:,}만원</td>
-<td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#fcd34d;">{_b_brain_disp:,}만원</td>
-<td style="padding:4px 8px;border:1px solid #22c55e;text-align:center;
-  font-weight:900;color:#4ade80;">{_g62r_cached.get("target_brain",0):,}만원
-  <span style="font-size:0.68rem;color:#86efac;">({_g62r_cached.get("brain_basis","?")})</span></td>
-  </tr>
-  </table>
-</div>""", height=175)
-
-        # ── 5단계 생애 흐름 ───────────────────────────────────────────
-        st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 14px;margin:10px 0 6px 0;
-  font-weight:900;font-size:0.85rem;color:#1a3a5c;">⑤ 상해의 일생 — 5단계 통합 흐름</div>""", unsafe_allow_html=True)
-
-        _inj_type_disp = {"traffic": "🚗 교통상해 (맥브라이드)",
-                           "industrial": "🏭 산재사고 (근복 장해등급)",
-                           "general": "🏃 일반상해 (AMA)"}
-        components.html(f"""
-<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.77rem;line-height:1.7;">
-<table style="width:100%;border-collapse:collapse;">
-<tr style="background:#3B82F6;color:#fff;">
-  <th style="padding:5px 8px;border:1px solid #2e6da4;text-align:center;width:18%;">단계</th>
-  <th style="padding:5px 8px;border:1px solid #2e6da4;width:25%;">항목</th>
-  <th style="padding:5px 8px;border:1px solid #2e6da4;">적용 로직 · 연동 담보</th>
-</tr>
-<tr style="background:#fff0f0;">
-  <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#c0392b;">1️⃣ 유입</td>
-  <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">사고 접수</td>
-  <td style="padding:5px 8px;border:1px solid #ddd;">{_inj_type_disp.get(_inj_type,"일반상해")} 자동 분류</td>
-</tr>
-<tr style="background:#fff8f0;">
-  <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#e67e22;">2️⃣ 치료</td>
-  <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">요양·수술·입원</td>
-  <td style="padding:5px 8px;border:1px solid #ddd;">실손보험 · 수술비 · 입원일당 연동</td>
-</tr>
-<tr style="background:#f0fff4;">
-  <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#1a7a2e;">3️⃣ 평가</td>
-  <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">장해율 산정</td>
-  <td style="padding:5px 8px;border:1px solid #ddd;">장해율 {_inj_dis_rate}% → 후유장해 3%~100% 담보 자동 매핑</td>
-</tr>
-<tr style="background:#f0f4ff;">
-  <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#2e6da4;">4️⃣ 소득</td>
-  <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">소득 보전</td>
-  <td style="padding:5px 8px;border:1px solid #ddd;">{'⚠️ 소득 데이터 미제공 → 마스터 권장 기준 적용' if _g62_is_fallback else f'{_inj_work_loss+_inj_rehab}개월 × {_inj_income:,}만원 → H={_h_coeff} 할인 → <b>필요 {_req_man:,}만원</b>'}</td>
-</tr>
-<tr style="background:#fdf0ff;">
-  <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#8e44ad;">5️⃣ 종결</td>
-  <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">사망 보장</td>
-  <td style="padding:5px 8px;border:1px solid #ddd;">고도장해(80%) ↔ 사망보험금 Offset 로직 적용 · 유가족 소득 자본화</td>
-</tr>
-</table>
-
-<div style="background:#f8fafc;border:1px solid #d0d7de;border-radius:7px;padding:8px 12px;margin-top:8px;font-size:0.73rem;color:#555;">
-  <b>담보 간 상충(Offset) 주의:</b> 고도후유장해(80%↑) 지급 시 사망보험금과 연동 여부를 반드시 약관 확인<br>
-  1순위 고액장해(50~80%) · 2순위 중간장해(20%) · 3순위 소액장해 → 실손 연동으로 보험료 최적화
-</div>
-</div>""", height=310)
-
-        # ── AI 분석 결과 ──────────────────────────────────────────────
-        st.markdown("##### 🤖 AI 통합 분석 리포트")
-        show_result("res_injury")
-
-    # ── AI 분석 실행 ──────────────────────────────────────────────────
-    if _do_inj_ai:
-        _type_prompt = {
-            "traffic":    "[교통상해] 맥브라이드 방식 + 자동차/운전자보험 연동\n",
-            "industrial": "[산재사고] 근로복지공단 장해등급 + 단체보험 연동\n",
-            "general":    "[일반상해] AMA 방식 + 개인보험 상해담보 연동\n",
+      border-radius:0 8px 8px 0;padding:6px 14px;margin-bottom:8px;
+      font-weight:900;font-size:0.88rem;color:#1a3a5c;">
+      ① 생애 단계 선택 (기본값 자동 설정)</div>""", unsafe_allow_html=True)
+    
+        _life_stages = {
+            "사회초년생": {"income": 250, "work_loss": 12, "rehab": 6,  "disability": 15, "social_sec": 0,    "icon": "🎓"},
+            "가    장":   {"income": 400, "work_loss": 24, "rehab": 12, "disability": 15, "social_sec": 500,  "icon": "👨‍👩‍👧"},
+            "사 업 자":   {"income": 600, "work_loss": 24, "rehab": 12, "disability": 20, "social_sec": 0,    "icon": "💼"},
+            "시 니 어":   {"income": 200, "work_loss": 18, "rehab": 12, "disability": 30, "social_sec": 800,  "icon": "🌅"},
         }
-        _over_txt = "\n⚠️ 역산 가입금액이 업계 한도 15억 초과 → 보험사 분산 가입 전략 포함 제시 필요" if _over_lim else ""
-        run_ai_analysis(
-            _inj_c_name, _inj_query, _inj_hi, "res_injury",
-            extra_prompt=(
-                "[상해 통합 관리 — LCRM 분석]\n"
-                f"{_type_prompt.get(_inj_type, '')}"
-                f"월소득: {'미입력(관리자표준기준B적용)' if _g62_is_fallback else f'{_inj_income}만원'} / 휴업: {_inj_work_loss}개월 / 재활: {_inj_rehab}개월\n"
-                f"{'[GP-66] 소득 데이터 미제공 → 마스터 권장 기준(기준 B) 100% 적용' + chr(10) if _g62_is_fallback else ''}"
-                f"장해율: {_inj_dis_rate}% / 호프만계수 H={_h_coeff} / 필요 가입금액: {_req_man:,}만원\n"
-                f"현재 준비: {_cur_man:,}만원 / 보장 공백: {_gap_man:,}만원 / 소득단절: {_dep_mon}개월 후 고갈\n"
-                f"사회보장 보전액: {_inj_social}만원{_over_txt}\n\n"
-                "## 분석 지시 (순서대로)\n"
-                "1. 사고 성격 확인 및 적용 산출 방식(AMA/맥브라이드/산재) 근거 설명\n"
-                "2. 치료비·수술비·입원일당 단계 보장 현황 분석\n"
-                "3. 후유장해 3%~100% 구간별 보험금 시뮬레이션 (현재 가입 기준)\n"
-                "4. 소득 보전 공백 기간 및 필요 추가 담보 우선순위 제안 (예산 효율 최적화)\n"
-                "5. 고도장해 ↔ 사망 담보 Offset 관계 분석 (중복 산출 방지)\n"
-                "6. 보험사 분산 가입 필요 여부 및 포트폴리오 구성안\n"
-                "7. 민법 판례·국가배상법 기준 오차 자가 검증 후 최종 리포트 발행\n"
-            ),
-        )
-
-    # ── 딥링크: 세부 탭 바로가기 ─────────────────────────────────────
-    st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 14px;margin:14px 0 6px 0;
-  font-weight:900;font-size:0.85rem;color:#1a3a5c;">🔗 세부 전문 도구 바로가기</div>""", unsafe_allow_html=True)
-    _dl1, _dl2, _dl3, _dl4 = st.columns(4)
-    with _dl1:
-        if st.button("🩺 장해보험금\n정밀 산출", key="inj_goto_dis", use_container_width=True):
-            st.session_state["current_tab"] = "disability"
-            st.rerun()
-    with _dl2:
-        if st.button("💰 보험금\n청구 상담", key="inj_goto_t1", use_container_width=True):
-            st.session_state["current_tab"] = "t1"
-            st.rerun()
-    with _dl3:
-        if st.button("🚗 자동차사고\n과실비율", key="inj_goto_t4", use_container_width=True):
-            st.session_state["current_tab"] = "t4"
-            st.rerun()
-    with _dl4:
-        if st.button("🏥 통합보험\n설계", key="inj_goto_t3", use_container_width=True):
-            st.session_state["current_tab"] = "t3"
-            st.rerun()
-
-    # ── 상해 디멘드 참고사항 ─────────────────────────────────────────
-    with st.expander("📚 상해 디멘드 참고사항 — KCD 코드 체계·코드 전환·분쟁 실무", expanded=False):
-        components.html("""
-<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.80rem;
-  line-height:1.85;color:#1a1a2e;padding:4px 2px;">
-
-<!-- ═══════════════ PART 1 ═══════════════ -->
-<div style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px 8px 0 0;
-  padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;">
-  PART 1 &nbsp;|&nbsp; 상해사고 × KCD 코드 상관관계 &amp; S·T → M 전환 메커니즘
-</div>
-<div style="background:#f4f8ff;border:1px solid #b3c8e8;border-top:none;
-  border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:14px;">
-
-  <b style="color:#1a3a5c;">1. 코드 체계 한눈에 보기</b><br>
-  <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
-<tr style="background:#eff6ff;color:#1e40af;">
-  <th style="padding:4px 8px;border:1px solid #bfdbfe;width:12%;">코드</th>
-  <th style="padding:4px 8px;border:1px solid #bfdbfe;width:28%;">분류명</th>
-  <th style="padding:4px 8px;border:1px solid #bfdbfe;">보험 실무 의미</th>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#e74c3c;">S</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">신체 부위별 손상</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">상해보험금 청구 1차 인정 코드 (예: S82.2 경골골절)</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#e74c3c;">T</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">중독·외인 특정 결과</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">화상·중독·다발성 외상 등 (예: T20 화상)</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#27ae60;">M</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">근골격계·결합조직 질환</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">원칙적 '질병' → 보험사 상해 지급 거절 근거</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#8e44ad;">V·W·X·Y</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">외인(사고 원인)</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">사고 경위 코드 — 단독 청구 불가, S/T와 병기</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#555;">Z</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">건강상태·보건서비스</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">후속 추적 관찰 코드 — 장해 판정 이후 혼용</td>
-</tr>
-  </table>
-
-  <b style="color:#c0392b;">⚠️ 핵심 법리 (대법원 98다158)</b><br>
-  진단서 코드보다 <b>'사고의 외래성'</b>과 <b>'신체 손상 간 상당인과관계'</b>가 판단 우선순위.<br>
-  → M코드라도 인과관계 입증 시 상해 인정 가능.<br><br>
-
-  <b style="color:#1a3a5c;">2. S·T → M 전환 3대 원인</b><br>
-  <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
-<tr style="background:#eff6ff;color:#1e40af;">
-  <th style="padding:4px 8px;border:1px solid #bfdbfe;width:22%;">원인</th>
-  <th style="padding:4px 8px;border:1px solid #bfdbfe;">메커니즘</th>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 8px;border:1px solid #ddd;font-weight:700;">① 퇴행성 병변 개입</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">MRI에서 이미 노화성 변성 발견 → 의사가 M코드 부여 (예: M51 추간판탈출증, M75 회전근개)</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:4px 8px;border:1px solid #ddd;font-weight:700;">② 증상 고착 (6개월)</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">보험약관상 장해 판정 기점(사고 후 6개월). 급성기(S) 치유 후 만성 통증·기능장애 잔존 → M코드 전환</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 8px;border:1px solid #ddd;font-weight:700;">③ 의료법 제18조</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">의사는 현재 주된 병변 기준으로 진단서 작성 의무 → 6개월 후 염증·퇴행이 주병변이면 M 부여 불가피</td>
-</tr>
-  </table>
-
-  <b style="color:#1a3a5c;">3. 기여도 공제 법리 (표준약관 제7조)</b><br>
-  기왕증이 손상을 악화시킨 경우 → <b>사고 기여도만큼만 보상</b> (통상 20~50% 범위 결정).<br>
-  → 금감원·대법원 모두 "기여도 감액 후 지급" 원칙 적용.<br><br>
-
-  <b style="color:#27ae60;">✅ 피보험자 대응 전략 4단계</b>
-  <ol style="margin:4px 0 0 14px;padding:0;">
-<li><b>사고 직후 초진 차트·영상 보존</b> — 급성 외상 소견(부종·신호강도 변화) 결정적 증거</li>
-<li><b>사고 前 증상 부재 입증</b> — 과거 병력 조회로 기왕증 없음 확인</li>
-<li><b>외상 기여도 소견서 확보</b> — 주치의에게 사고 기여도(%) 명기 요청</li>
-<li><b>코드 병기 요청</b> — S코드(손상) + M코드(현 상태) 진단서 병기 가능 여부 확인</li>
-  </ol>
-</div>
-
-<!-- ═══════════════ PART 2 ═══════════════ -->
-<div style="background:#fff8f0;color:#7d3c00;border:1px solid #f5d5a0;border-radius:8px 8px 0 0;
-  padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;margin-top:4px;">
-  PART 2 &nbsp;|&nbsp; 고빈도 분쟁 부위 — 허리 디스크(M51) · 어깨 회전근개(M75)
-</div>
-<div style="background:#fff8f0;border:1px solid #f5d5a0;border-top:none;
-  border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:8px;">
-
-  <!-- 허리 디스크 -->
-  <b style="color:#7d3c00;font-size:0.83rem;">🦴 허리 디스크 (추간판탈출증 M51)</b><br>
-  <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
-<tr style="background:#e67e22;color:#fff;">
-  <th style="padding:4px 8px;border:1px solid #c0621c;width:30%;">장해 등급 (통합약관)</th>
-  <th style="padding:4px 8px;border:1px solid #c0621c;width:12%;">지급률</th>
-  <th style="padding:4px 8px;border:1px solid #c0621c;">인정 요건</th>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 8px;border:1px solid #ddd;">심한 추간판탈출증</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#c0392b;">20%</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">마미신경증후군 → 하지 마비 또는 대소변 장해</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:4px 8px;border:1px solid #ddd;">뚜렷한 추간판탈출증</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#e67e22;">15%</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">수술 후에도 신경증상 잔존 OR 수술 없이 뚜렷한 마비</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 8px;border:1px solid #ddd;">약간의 추간판탈출증</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#27ae60;">10%</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">단순 신경증상(저림·통증) 잔존</td>
-</tr>
-  </table>
-  <b style="color:#c0392b;">주요 판례 (대법원 2002다3040)</b><br>
-  사고 전 퇴행성 소인이 있어도 <b>사고로 급격 악화</b>되었다면 기여도 분담 보상.<br>
-  입증 책임: 보험사(M코드·노화 주장) vs 피보험자(급성 외상 MRI 소견 제출).<br>
-  사고 관여도 통상 <b>20~50%</b> 범위 내 결정.<br><br>
-
-  <!-- 어깨 회전근개 -->
-  <b style="color:#7d3c00;font-size:0.83rem;">🦾 어깨 회전근개 파열 (M75)</b><br>
-  <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
-<tr style="background:#e67e22;color:#fff;">
-  <th style="padding:4px 8px;border:1px solid #c0621c;width:30%;">장해 등급</th>
-  <th style="padding:4px 8px;border:1px solid #c0621c;width:12%;">지급률</th>
-  <th style="padding:4px 8px;border:1px solid #c0621c;">인정 요건 (운동범위 기준)</th>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 8px;border:1px solid #ddd;">한 팔 기능 완전 상실</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#c0392b;">30%</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">완전 마비 또는 관절 강직</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:4px 8px;border:1px solid #ddd;">팔 뚜렷한 장해</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#e67e22;">10%</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">정상 운동범위 <b>1/2 이하</b> 제한</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 8px;border:1px solid #ddd;">팔 약간의 장해</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#27ae60;">5%</td>
-  <td style="padding:4px 8px;border:1px solid #ddd;">정상 운동범위 <b>3/4 이하</b> 제한</td>
-</tr>
-  </table>
-  <b style="color:#c0392b;">금감원 분쟁조정 제2014-4호</b><br>
-  50대 이상은 외상 없이도 자연 파열 가능 → 명백한 외력(고소 추락·교통사고) 미입증 시 <b>질병으로 판정</b>.<br>
-  단, 사고 전 치료력 없음 + 사고 강도 충분 → S코드 인정·상해보험금 지급 판결 추세.<br><br>
-
-  <!-- 공통 쟁점 -->
-  <div style="background:#fff0e0;border:1px solid #e8a87c;border-radius:7px;
-padding:8px 12px;margin-top:6px;font-size:0.77rem;">
-<b style="color:#7d3c00;">⚖️ AMA vs 맥브라이드 방식 선택 기준</b><br>
-<table style="width:100%;border-collapse:collapse;margin:5px 0 0 0;font-size:0.75rem;">
-  <tr style="background:#e67e22;color:#fff;">
-    <th style="padding:3px 7px;border:1px solid #c0621c;width:20%;">방식</th>
-    <th style="padding:3px 7px;border:1px solid #c0621c;width:28%;">적용 상황</th>
-    <th style="padding:3px 7px;border:1px solid #c0621c;">허리·어깨 장해 특이사항</th>
-  </tr>
-  <tr style="background:#fff;">
-    <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">AMA (개인보험)</td>
-    <td style="padding:3px 7px;border:1px solid #ddd;">생명·손보 표준약관</td>
-    <td style="padding:3px 7px;border:1px solid #ddd;">운동범위 제한율 × 지급률 — 퇴행성 포함 전체 기능 기준</td>
-  </tr>
-  <tr style="background:#f8f8f8;">
-    <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">맥브라이드</td>
-    <td style="padding:3px 7px;border:1px solid #ddd;">산재·일부 손보사·법원</td>
-    <td style="padding:3px 7px;border:1px solid #ddd;">직업계수 반영 → 육체노동자 유리, 퇴행성 기여도 별도 감산</td>
-  </tr>
-</table>
-  </div>
-
-  <!-- 결론 요약 -->
-  <div style="background:#3B82F6;color:#fff;border-radius:7px;
-padding:8px 12px;margin-top:10px;font-size:0.77rem;line-height:1.8;">
-<b>📌 실무 핵심 체크리스트</b><br>
-① 사고 직후 초진 MRI·X-ray <b>보존</b> (급성 외상 소견이 S코드 수호 열쇠)<br>
-② 6개월 이내 <b>장해 판정 준비</b> — M코드 고착 전 S코드 유지 기간 활용<br>
-③ 주치의 외상 기여도(%) 소견서 — 보험사 의료자문 대응 카드<br>
-④ 코드가 M으로 전환된 경우 → <b>'질병·상해 경합' 법리</b>로 인과관계 재입증<br>
-⑤ 금감원 분쟁조정 또는 독립 손해사정사 선임 (보험업법 제185조, 3영업일 이내)
-  </div>
-</div>
-
-</div>""", height=1080)
-
-    # ── 사망 디멘드 참고사항 ─────────────────────────────────────────
-    with st.expander("💀 사망 디멘드 참고사항 — CFP 설계 논리·생애주기 가입금액·상속 전략·후킹 대화법", expanded=False):
-        components.html("""
-<div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.80rem;
-  line-height:1.85;color:#1a1a2e;padding:4px 2px;">
-
-<!-- ═══ PART 1: 생애주기별 사망보험 필요성 ═══ -->
-<div style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px 8px 0 0;
-  padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;">
-  PART 1 &nbsp;|&nbsp; CFP 관점 — 생애주기(Life Cycle)별 사망보험 필요성 &amp; 가입금액
-</div>
-<div style="background:#f4f8ff;border:1px solid #b3c8e8;border-top:none;
-  border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:14px;">
-
-  <b style="color:#c0392b;">핵심 정의:</b> 사망보험 = 가장이 미래에 벌어올 모든 가처분 소득을 오늘 시점으로 당겨와 예치하는 장치.<br>
-  CFP 산출 공식: <b>① 자본운용법</b> (연 필요생활비 ÷ 투자수익률) · <b>② 인적가치법</b> (은퇴 시점까지 총소득 현재가치 PV)<br><br>
-
-  <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-bottom:10px;">
-<tr style="background:#eff6ff;color:#1e40af;">
-  <th style="padding:4px 7px;border:1px solid #bfdbfe;width:18%;">생애주기</th>
-  <th style="padding:4px 7px;border:1px solid #bfdbfe;width:20%;">주요 Event</th>
-  <th style="padding:4px 7px;border:1px solid #bfdbfe;">사망보험 필요성</th>
-  <th style="padding:4px 7px;border:1px solid #bfdbfe;width:24%;">권장 가입금액 범위</th>
-</tr>
-<tr style="background:#f9f9f9;">
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">미혼/사회초년생</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">취업·독립</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">장례비·학자금 채무 정리. 부양 책임 최소</td>
-{{ ... }
-  <td style="padding:4px 7px;border:1px solid #ddd;color:#2e6da4;font-weight:700;">연소득 1~2배 (5천~1억)</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족형성기</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">결혼·출산</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;"><b style="color:#c0392b;">필요성 최대.</b> 배우자 생활비 + 양육비 확보</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;color:#c0392b;font-weight:700;">연소득 5~10배 + 부채 (3~5억)</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족확장기</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">교육·주택</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">교육비 목적자금 수요 정점. 고액 보장 유지</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;color:#c0392b;font-weight:700;">연소득 7~10배 + 교육비 (5~10억)</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족성숙기</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">자녀독립·은퇴</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">상속세 재원·사후정리 자금으로 성격 전환</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;color:#1a7a2e;font-weight:700;">상속세 추정액 or 소득 3~5년분</td>
-</tr>
-  </table>
-
-  <b style="color:#1a3a5c;">▶ 상속 관점 종신보험 설계 가이드 (2026년 기준 누진세율 적용)</b><br>
-  <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-top:6px;">
-<tr style="background:#eff6ff;color:#1e40af;">
-  <th style="padding:4px 7px;border:1px solid #bfdbfe;width:22%;">상속재산 규모</th>
-  <th style="padding:4px 7px;border:1px solid #bfdbfe;width:20%;">예상 상속세액</th>
-  <th style="padding:4px 7px;border:1px solid #bfdbfe;width:22%;">종신보험 설계 범위</th>
-  <th style="padding:4px 7px;border:1px solid #bfdbfe;">CFP 핵심 전략</th>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 7px;border:1px solid #ddd;">10억 ~ 30억</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">약 0.9억 ~ 8억</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">3억 ~ 8억</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">배우자·일괄공제 활용 후 현금 흐름 보완</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:4px 7px;border:1px solid #ddd;">30억 ~ 100억</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">약 8억 ~ 35억</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">10억 ~ 30억</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">부동산 비중 높을 경우 <b>급매 방지</b> 유동성 확보</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 7px;border:1px solid #ddd;">100억 ~ 200억</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">약 35억 ~ 85억</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">50억 이상</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">가업상속공제 병행 · <b>수익자 부담 원칙</b>(자녀 소득 증빙)</td>
-</tr>
-  </table>
-
-  <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:7px;padding:7px 12px;margin-top:8px;font-size:0.76rem;color:#856404;">
-<b>⚠️ 간주상속재산 주의 (상증세법 제8조):</b> 피보험자=피상속인·보험료납입=피상속인 → 사망보험금 상속재산 포함 (세금 증가)<br>
-<b>절세 구조:</b> 계약자/수익자=자녀, 피보험자=부모 → 사망보험금 상속재산 제외. 단, 자녀 보험료 납입 능력 없으면 <b>증여세 이슈</b> 발생 → 사전 증여로 자금출처 확보 선행.
-  </div>
-</div>
-
-<!-- ═══ PART 2: 생애주기별 평균 가처분소득 × 사망보험금 산출 ═══ -->
-<div style="background:#fff8f0;color:#7d3c00;border:1px solid #f5d5a0;border-radius:8px 8px 0 0;
-  padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;margin-top:4px;">
-  PART 2 &nbsp;|&nbsp; 생애주기별 평균 가처분소득 &amp; 적정 사망보험금 산출 (통계청 2023 기준)
-</div>
-<div style="background:#fff8f0;border:1px solid #f5d5a0;border-top:none;
-  border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:14px;">
-
-  <b style="color:#7d3c00;">산출 로직:</b> 유가족 생활비(연소득×소득대체율×5년) + 부채(평균 9,100만원) + 목적자금<br>
-  소득대체율: 가족형성 70% / 확장기 80% / 성숙기 50% (가장 본인 소비분 20~30% 제외)<br><br>
-
-  <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-bottom:10px;">
-<tr style="background:#e67e22;color:#fff;">
-  <th style="padding:4px 7px;border:1px solid #c0621c;width:20%;">생애 Event</th>
-  <th style="padding:4px 7px;border:1px solid #c0621c;width:20%;">평균 가처분소득(연)</th>
-  <th style="padding:4px 7px;border:1px solid #c0621c;">산출 근거</th>
-  <th style="padding:4px 7px;border:1px solid #c0621c;width:22%;">적정 가입금액</th>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">사회초년생/미혼</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">약 3,400만원</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">사후정리비 + 소액부채 + 부모 부양(2년)</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#2e6da4;">5천만 ~ 1억원</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족형성기(신혼)</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">약 6,200만원</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">6,200만×70%×5년 + 주택대출</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#c0392b;">3억 ~ 5억원</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족확장기(자녀양육)</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">약 7,800만원</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">7,800만×80%×5년 + 교육비(1억) + 대출</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#c0392b;">5억 ~ 8억원 (피크)</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족성숙기(노후준비)</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">약 6,500만원</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">6,500만×50%×5년 + 상속세 재원</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#1a7a2e;">2억 ~ 상속세액</td>
-</tr>
-  </table>
-
-  <b style="color:#1a3a5c;">▶ 증권분석 기준 — Event별 적정 가입금액 (기가입 충족도 판단표)</b><br>
-  <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-top:6px;">
-<tr style="background:#e67e22;color:#fff;">
-  <th style="padding:4px 7px;border:1px solid #c0621c;width:22%;">생애 Event</th>
-  <th style="padding:4px 7px;border:1px solid #c0621c;">산출 로직</th>
-  <th style="padding:4px 7px;border:1px solid #c0621c;width:25%;">증권분석 적정 금액</th>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">자녀 출산기</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">가처분소득 100%×5년 + 주택대출</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#c0392b;">4억 ~ 6억원</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">자녀 교육기</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">가처분소득 80%×5년 + 대학교육비 + 대출</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#c0392b;">6억 ~ 10억원 (최고)</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">자녀 독립기</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">가처분소득 50%×5년 + 사후정리</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#1a7a2e;">2억 ~ 3억원</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">상속 대비기</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;">추정 상속세액 + 유동성</td>
-  <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#8e44ad;">상속세액의 120% 수준</td>
-</tr>
-  </table>
-
-  <div style="background:#e8f4fd;border:1px solid #b3d7f0;border-radius:7px;padding:7px 12px;margin-top:8px;font-size:0.76rem;">
-<b style="color:#1a3a5c;">CFP 복합 설계 원칙 (자녀확장기 최적안):</b><br>
-• <b>종신보험</b> 1~2억: 평생 보장 + 상속세 재원<br>
-• <b>정기보험</b> 3~5억: 자녀 독립 전까지 집중 보장 → 보험료 효율 극대화<br>
-• 보장성 보험료 지출 기준: 가처분소득의 <b>8~12% 이내</b> (금감원 권고)
-  </div>
-</div>
-
-<!-- ═══ PART 3: 후킹 대화법 + 가입 논리 ═══ -->
-<div style="background:#fdf4ff;color:#4a1259;border:1px solid #d9b3e8;border-radius:8px 8px 0 0;
-  padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;margin-top:4px;">
-  PART 3 &nbsp;|&nbsp; 1:1 가입 논리 &amp; 후킹(Hooking) 대화법 — 클로징 실전 기법
-</div>
-<div style="background:#fdf4ff;border:1px solid #d9b3e8;border-top:none;
-  border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:8px;">
-
-  <b style="color:#4a1259;font-size:0.83rem;">① 인적가치(Human Life Value) 가입 논리</b><br>
-  가장이 월 500만원 가처분소득 창출 → 향후 20년간 <b>약 12억원</b> 현금흐름 발생.<br>
-  사망보험 = 이 '미래 자산'에 대한 확실한 담보.<br><br>
-
-  <div style="background:#fff0fa;border-left:4px solid #8e44ad;border-radius:0 7px 7px 0;
-padding:8px 12px;margin:6px 0 10px 0;font-size:0.78rem;font-style:italic;color:#4a1259;">
-"고객님, 지금 타시는 차에는 자차보험을 드시면서, 그 차와 집을 유지하게 해주는
-<b>'고객님이라는 엔진'</b>에는 얼마짜리 보험을 드셨습니까?<br>
-고객님의 부재는 단순한 슬픔이 아니라, 가족에게 <b>'수입 0원'</b>이라는 경영 위기입니다."
-  </div>
-
-  <b style="color:#4a1259;font-size:0.83rem;">② 후킹 대화법 — 왜 필요한가</b><br>
-  사망보험은 고객이 회피하는 <b>'죽음'</b> 주제를 다룸 → 낙관적 편향(Optimism Bias) 극복 필요.<br>
-  목적: 위험의 시각화(Risk Visualization)로 심리적 장벽 해제.<br><br>
-
-  <div style="background:#fff0fa;border-left:4px solid #c0392b;border-radius:0 7px 7px 0;
-padding:8px 12px;margin:6px 0 10px 0;font-size:0.78rem;font-style:italic;color:#4a1259;">
-<b>The "Empty Chair" Logic (빈 의자 기법):</b><br>
-"오늘 저녁 식탁에 온 가족이 앉아 있습니다. 그런데 내일 저녁, 그 식탁에 고객님 의자만
-비어 있다면, 남겨진 아내와 아이들이 그 식탁을 오늘처럼 풍성하게 유지할 수 있을까요?<br>
-<b>그 비어 있는 의자의 무게만큼을 채워주는 것이 사망보험금입니다.</b>"
-  </div>
-
-  <b style="color:#4a1259;font-size:0.83rem;">③ 관련 법조문 체크리스트</b>
-  <table style="width:100%;border-collapse:collapse;font-size:0.75rem;margin-top:5px;">
-<tr style="background:#fdf4ff;color:#6b21a8;">
-  <th style="padding:3px 7px;border:1px solid #d8b4fe;width:30%;">법조문</th>
-  <th style="padding:3px 7px;border:1px solid #d8b4fe;">실무 적용 포인트</th>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">상법 제732조</td>
-  <td style="padding:3px 7px;border:1px solid #ddd;">15세 미만·심신상실자 사망보험 계약 무효 — 설계 시 필수 확인</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">상법 제733조</td>
-  <td style="padding:3px 7px;border:1px solid #ddd;">보험수익자 지정 → 사망보험금은 수익자 고유재산 (압류·상속채무 제외)</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">대법원 2001다61175</td>
-  <td style="padding:3px 7px;border:1px solid #ddd;">수익자='상속인' 지정 시 보험금은 상속재산 제외 → 채권자 압류 불가</td>
-</tr>
-<tr style="background:#f8f8f8;">
-  <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">상증세법 제26조</td>
-  <td style="padding:3px 7px;border:1px solid #ddd;">상속세율: 1억 이하 10% ~ 30억 초과 50% 누진 (2026년 현행)</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">금감원 권고</td>
-  <td style="padding:3px 7px;border:1px solid #ddd;">보장성 보험료 = 가처분소득 8~12% 이내 / 종신보험 ≠ 저축 (불완전판매 주의)</td>
-</tr>
-  </table>
-
-  <!-- 상속 구간 재정립 -->
-  <div style="background:#3B82F6;color:#fff;border-radius:7px;
-padding:8px 12px;margin-top:10px;font-size:0.77rem;line-height:1.8;">
-<b>📌 상속 관점 종신보험 — 실무 핵심 원칙</b><br>
-• <b>10억~50억:</b> 부동산 비중 높음 → 상속세 급매 손실(30~40%) 방지 = 자산의 10~20% 보험금 설정<br>
-• <b>100억~200억 (최고세율 50%):</b> 보험금액 확대보다 <b>수익자 부담 원칙</b>(자녀 소득 증빙) 구조 핵심<br>
-• <b>종신보험의 본질:</b> '절세'가 아닌 <b>'상속세 납부 재원(Liquidity) 마련'</b><br>
-• 물가 반영: PV = Σ C/(1+r)^t — 정액 보험금의 실질가치 하락 고객 안내 필수
-  </div>
-</div>
-
-</div>""", height=1260)
-
+        _ls_keys = list(_life_stages.keys())
+        _ls_cols = st.columns(4)
+        if "inj_life_stage" not in st.session_state:
+            st.session_state["inj_life_stage"] = "가    장"
+        for _i, (_lk, _lv) in enumerate(_life_stages.items()):
+            with _ls_cols[_i]:
+                _is_sel = st.session_state["inj_life_stage"] == _lk
+                _bg = "linear-gradient(135deg,#1a3a5c,#2e6da4)" if _is_sel else "#f8fafc"
+                _fc = "#fff" if _is_sel else "#1a3a5c"
+                st.markdown(f"""<div style="background:{_bg};border:2px solid {'#2e6da4' if _is_sel else '#d0d7de'};
+      border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;margin-bottom:4px;">
+      <div style="font-size:1.4rem;">{_lv['icon']}</div>
+      <div style="font-size:0.78rem;font-weight:900;color:{_fc};margin-top:4px;">{_lk}</div>
+      <div style="font-size:0.68rem;color:{'#add8ff' if _is_sel else '#888'};margin-top:2px;">
+    월소득 {_lv['income']}만</div>
+    </div>""", unsafe_allow_html=True)
+                if st.button("선택", key=f"inj_ls_{_i}", use_container_width=True,
+                             type="primary" if _is_sel else "secondary"):
+                    st.session_state["inj_life_stage"] = _lk
+                    _d = _life_stages[_lk]
+                    st.session_state["inj_income"]     = _d["income"]
+                    st.session_state["inj_work_loss"]  = _d["work_loss"]
+                    st.session_state["inj_rehab"]      = _d["rehab"]
+                    st.session_state["inj_dis_rate"]   = _d["disability"]
+                    st.session_state["inj_social_sec"] = _d["social_sec"]
+                    st.rerun()
+    
+        _sel_stage = _life_stages[st.session_state["inj_life_stage"]]
+    
+        st.divider()
+    
+        # ── STEP 2: Intelligence Box + 변수 입력 ─────────────────────────
+        _inj_left, _inj_right = st.columns([5, 5])
+    
+        with _inj_left:
+            st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
+      border-radius:0 8px 8px 0;padding:6px 14px;margin-bottom:8px;
+      font-weight:900;font-size:0.88rem;color:#7d3c00;">
+      ② 상황 입력 — 오늘 있었던 사고나 걱정되는 상황을 말씀해 주세요</div>""", unsafe_allow_html=True)
+    
+            _inj_c_name = st.text_input("고객 성함", st.session_state.get("global_c_name", "우량 고객"),
+                                        key="inj_c_name")
+            st.session_state.current_c_name = _inj_c_name
+    
+            _inj_query = st.text_area(
+                "사고·상황 입력",
+                height=110,
+                key="inj_query",
+                placeholder='예) "월 400만원 버는 가장입니다. 빗길 운전 중 사고로 2년 정도 일을 못 하게 되면 가족은 어떻게 될까요?"',
+                label_visibility="collapsed",
+            )
+    
+            # 자동 분류 표시
+            if _inj_query:
+                _inj_type = classify_injury_type(_inj_query)
+                _type_map = {
+                    "traffic":    ("🚗 교통상해", "#e74c3c", "맥브라이드 방식 + 자동차/운전자보험 연동"),
+                    "industrial": ("🏭 산재사고", "#e67e22", "근로복지공단 장해등급 + 단체보험 연동"),
+                    "general":    ("🏃 일반상해", "#2e6da4", "AMA 방식 + 개인보험 상해담보 연동"),
+                }
+                _tl, _tc, _td = _type_map[_inj_type]
+                st.markdown(f"""<div style="background:#f8fafc;border:1px solid {_tc};
+      border-radius:7px;padding:6px 12px;margin:4px 0 8px 0;font-size:0.80rem;">
+      <b style="color:{_tc};">{_tl}</b> 자동 분류됨<br>
+      <span style="color:#555;font-size:0.75rem;">{_td}</span>
+    </div>""", unsafe_allow_html=True)
+                st.session_state["inj_auto_type"] = _inj_type
+            else:
+                _inj_type = st.session_state.get("inj_auto_type", "general")
+    
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+      border-radius:0 8px 8px 0;padding:6px 14px;margin:8px 0 6px 0;
+      font-weight:900;font-size:0.85rem;color:#1a3a5c;">③ 소득 보전 역산 변수</div>""", unsafe_allow_html=True)
+    
+            _vi1, _vi2 = st.columns(2)
+            with _vi1:
+                _inj_income = st.number_input("월 가처분 소득 (만원)",
+                    min_value=50, max_value=5000,
+                    value=int(st.session_state.get("inj_income", _sel_stage["income"])),
+                    step=50, key="inj_income_input")
+                _inj_work_loss = st.number_input("휴업 기간 T (개월)",
+                    min_value=1, max_value=120,
+                    value=int(st.session_state.get("inj_work_loss", _sel_stage["work_loss"])),
+                    step=1, key="inj_work_loss_input")
+            with _vi2:
+                _inj_dis_rate = st.number_input("예상 장해율 D (%)",
+                    min_value=3.0, max_value=100.0,
+                    value=float(st.session_state.get("inj_dis_rate", _sel_stage["disability"])),
+                    step=0.5, key="inj_dis_rate_input")
+                _inj_rehab = st.number_input("재활 기간 B (개월)",
+                    min_value=0, max_value=60,
+                    value=int(st.session_state.get("inj_rehab", _sel_stage["rehab"])),
+                    step=1, key="inj_rehab_input")
+    
+            _inj_existing = st.number_input("현재 상해 가입금액 합계 (만원)",
+                min_value=0, value=20000, step=1000, key="inj_existing_input")
+            _inj_social = st.number_input("사회보장 예상 수령액 (산재·국민연금, 만원)",
+                min_value=0,
+                value=int(st.session_state.get("inj_social_sec", _sel_stage["social_sec"])),
+                step=100, key="inj_social_input")
+    
+            # Gap 계산
+            _gap_result = calculate_insurance_gap(
+                monthly_income    = _inj_income * 10000,
+                disability_rate   = _inj_dis_rate,
+                work_loss_months  = _inj_work_loss,
+                rehab_months      = _inj_rehab,
+                existing_insurance= _inj_existing * 10000,
+                social_security   = _inj_social * 10000,
+            )
+    
+            # ── GP-62 §1: 소득 역산 패널 ─────────────────────────────────
+            st.markdown("""<div style="background:#eff6ff;border:1px solid #2563eb;
+      border-radius:9px;padding:8px 14px;margin:10px 0 6px 0;">
+      <span style="font-size:0.82rem;font-weight:900;color:#1d4ed8;">
+      ⚙️ GP-62 소득 역산 엔진 — 건강보험료 입력 시 자동 산출</span></div>""",
+                unsafe_allow_html=True)
+            _g62c1, _g62c2 = st.columns(2)
+            with _g62c1:
+                _g62_nhis = st.number_input("건강보험료 (원/월)",
+                    min_value=0, value=int(st.session_state.get("g62_nhis", 0)),
+                    step=1000, key="g62_nhis",
+                    help="입력 시 7.09% 요율로 월소득 자동 역산")
+            with _g62c2:
+                _g62_override = st.number_input("소득 Override (만원, 0=자동)",
+                    min_value=0, value=int(st.session_state.get("g62_override", 0)),
+                    step=50, key="g62_override",
+                    help="직접 수정 시 역산값 대신 이 값이 최우선 적용")
+            _g62r = _art62_calc(
+                monthly_income_man  = _inj_income,
+                nhis_premium        = float(_g62_nhis),
+                override_income_man = float(_g62_override),
+            )
+            _g62_m   = _g62r["monthly_income"]
+            _g62_src = _g62r["income_source"]
+            _g62_is_fallback = (_g62_src == "Fallback·고정액")
+    
+            # ── GP-66 §3: 소득 미입력 여부에 따라 배너 분기 ─────────────────
+            if _g62_is_fallback:
+                # 소득 데이터 부재 → 관리자 표준 권장 기준(기준 B) 100% 적용 안내
+                st.markdown(
+                    f'<div style="background:#fffbeb;border:2px solid #f59e0b;border-radius:7px;'
+                    f'padding:9px 14px;font-size:0.78rem;margin-bottom:6px;">'
+                    f'<div style="color:#92400e;font-weight:900;font-size:0.82rem;margin-bottom:4px;">'
+                    f'⚠️ 소득 데이터 미제공 → 마스터 권장 기준(기준 B) 적용</div>'
+                    f'<span style="color:#78350f;">전문가 권장 표준 안보 지수 기준으로 분석되었습니다.</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#fcd34d;font-weight:700;">암: {_g62r["target_cancer"]:,}만원</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#f87171;font-weight:700;">뇌혈관: {_g62r["target_brain"]:,}만원</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#7ec8f5;font-weight:700;">일당: {_g62r["target_daily"]:,.1f}만원</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#c4b5fd;font-weight:700;">후유장해: {_g62r["target_disability"]:,}만원</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                # 소득 데이터 정상 → 기준 C(Dynamic/Static) 적용 결과 표시
+                _basis_tag = {
+                    "Dynamic":  ("📊", "#22c55e", "소득역산"),
+                    "Static":   ("🔒", "#f59e0b", "관리자고정"),
+                    "Fallback": ("⚠️", "#f59e0b", "기준B"),
+                }.get(_g62r.get("cancer_basis", "Dynamic"), ("📊", "#22c55e", "소득역산"))
+                st.markdown(
+                    f'<div style="background:#f0fdf4;border:1px solid #22c55e;border-radius:7px;'
+                    f'padding:7px 14px;font-size:0.78rem;margin-bottom:6px;">'
+                    f'<span style="color:#86efac;font-weight:900;">적용 월소득: {_g62_m:,.1f}만원</span>'
+                    f'&nbsp;<span style="color:#64748b;">({_g62_src})</span>'
+                    f'&nbsp;<span style="color:{_basis_tag[1]};font-size:0.72rem;">{_basis_tag[0]}{_basis_tag[2]}</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#fcd34d;">암: {_g62r["target_cancer"]:,}만원</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#f87171;">뇌혈관: {_g62r["target_brain"]:,}만원</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#7ec8f5;">일당: {_g62r["target_daily"]:,.1f}만원</span>'
+                    f'&nbsp;|&nbsp;<span style="color:#c4b5fd;">후유장해: {_g62r["target_disability"]:,}만원</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            st.session_state["_g62_result"] = _g62r
+    
+            _do_inj_ai = st.button("🔍 AI 통합 상해 분석", type="primary",
+                                   key="btn_inj_ai", use_container_width=True)
+    
+        with _inj_right:
+            # ── Gap 시각화 대시보드 ───────────────────────────────────────
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+      border-radius:0 8px 8px 0;padding:6px 14px;margin-bottom:8px;
+      font-weight:900;font-size:0.88rem;color:#1a3a5c;">④ 보장 공백(Gap) 시각화</div>""", unsafe_allow_html=True)
+    
+            _req_man  = _gap_result["required"] // 10000
+            _cur_man  = _gap_result["current"] // 10000
+            _gap_man  = _gap_result["gap"] // 10000
+            _dep_mon  = _gap_result["depletion_months"]
+            _h_coeff  = _gap_result["h_coeff"]
+            _over_lim = _gap_result["is_over_limit"]
+    
+            # 바 차트 HTML
+            _bar_max  = max(_req_man, _cur_man, 1)
+            _req_pct  = min(100, round(_req_man / _bar_max * 100))
+            _cur_pct  = min(100, round(_cur_man / _bar_max * 100))
+            _gap_pct  = max(0, _req_pct - _cur_pct)
+    
+            components.html(f"""
+    <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;padding:10px 4px;">
+    
+      <div style="margin-bottom:14px;">
+    <div style="font-size:0.75rem;color:#c0392b;font-weight:700;margin-bottom:3px;">
+      📌 필요 가입금액 (역산) — S = M×H(T+B) / D - G - P
+    </div>
+    <div style="background:#ffe0e0;border-radius:6px;height:28px;position:relative;overflow:hidden;">
+      <div style="background:#e74c3c;height:100%;width:{_req_pct}%;border-radius:6px;
+        display:flex;align-items:center;justify-content:flex-end;padding-right:8px;">
+        <span style="color:#fff;font-size:0.78rem;font-weight:900;">{_req_man:,}만원</span>
+      </div>
+    </div>
+    <div style="font-size:0.68rem;color:#999;margin-top:2px;">
+      호프만 계수 H={_h_coeff} 적용 (5% 단리 · {_gap_result['total_months']}개월)
+      {'&nbsp;⚠️ <b style="color:#c0392b;">업계 한도 15억 초과 → 분산 가입 필요</b>' if _over_lim else ''}
+    </div>
+      </div>
+    
+      <div style="margin-bottom:14px;">
+    <div style="font-size:0.75rem;color:#2e6da4;font-weight:700;margin-bottom:3px;">
+      🛡️ 현재 준비 (기 가입금액 합계)
+    </div>
+    <div style="background:#e0eeff;border-radius:6px;height:28px;overflow:hidden;">
+      <div style="background:#2e6da4;height:100%;width:{_cur_pct}%;border-radius:6px;
+        display:flex;align-items:center;justify-content:flex-end;padding-right:8px;">
+        <span style="color:#fff;font-size:0.78rem;font-weight:900;">{_cur_man:,}만원</span>
+      </div>
+    </div>
+      </div>
+    
+      <div style="margin-bottom:10px;">
+    <div style="font-size:0.75rem;color:#e67e22;font-weight:700;margin-bottom:3px;">
+      ⚠️ 보장 공백 (Gap)
+    </div>
+    <div style="background:#fff3e0;border:2px dashed #e67e22;border-radius:6px;
+      height:28px;display:flex;align-items:center;padding:0 12px;">
+      <span style="color:#c0392b;font-size:0.88rem;font-weight:900;">{_gap_man:,}만원 부족</span>
+    </div>
+      </div>
+    
+      <div style="background:{'#fff5f5' if _gap_man > 0 else '#f0fff4'};
+    border:1px solid {'#f5a6a6' if _gap_man > 0 else '#6fcf97'};
+    border-radius:8px;padding:10px 14px;margin-top:8px;font-size:0.80rem;line-height:1.8;">
+    <b style="color:{'#c0392b' if _gap_man > 0 else '#1a7a2e'};">
+      {'⏱️ 소득 단절 시나리오' if _gap_man > 0 else '✅ 보장 적정'}
+    </b><br>
+    현재 준비금으로 <b style="color:#2e6da4;">{_dep_mon}개월</b> 뒤 생활비 고갈 예상<br>
+    {'<b style="color:#e74c3c;">→ 월 ' + f'{round(_gap_man * 10000 / max(_inj_work_loss + _inj_rehab, 1) / 10000):,}만원' + ' 규모 추가 담보 설계 권장</b>' if _gap_man > 0 else ''}
+      </div>
+    
+      {'<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 14px;margin-top:8px;font-size:0.77rem;color:#856404;font-weight:700;">⚠️ 역산 필요 가입금액이 업계 한도(15억) 초과 → 보험사 분산 가입 전략 필요<br><span style="font-weight:400;">1순위: 고도장해(80%) · 2순위: 중도장해(20%~50%) · 3순위: 소액장해 실손 연동</span></div>' if _over_lim else ''}
+    
+    </div>""", height=340)
+    
+            # ── GP-66 §3: 담보별 권장 비교표 (Fallback 분기) ────────────────
+            _g62r_cached = st.session_state.get("_g62_result", _g62r)
+            _b_cancer_disp  = _g62r_cached.get("cancer_b",  _g62r_cached.get("target_cancer", 0))
+            _b_brain_disp   = _g62r_cached.get("brain_b",   _g62r_cached.get("target_brain",  0))
+            _a_cancer_disp  = _g62r_cached.get("cancer_a",  0)
+            _a_brain_disp   = _g62r_cached.get("brain_a",   0)
+            if _g62_is_fallback:
+                # 소득 없음 → 관리자 표준 권장선만 굵게, 소득 기반 권장선 숨김
+                components.html(f"""
+    <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+      background:#fffbeb;border:2px solid #f59e0b;border-radius:9px;
+      padding:12px 16px;margin:10px 0;">
+      <div style="color:#92400e;font-weight:900;font-size:0.83rem;margin-bottom:8px;">
+    ⚠️ 소득 데이터 미제공 — 관리자 표준 권장선(기준 B) 단독 적용
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:0.76rem;">
+      <tr style="background:#fef3c7;color:#78350f;">
+    <th style="padding:4px 8px;border:1px solid #fde68a;text-align:center;">담보</th>
+    <th style="padding:4px 8px;border:1px solid #fde68a;text-align:center;">소득 기반 권장선</th>
+    <th style="padding:4px 8px;border:1px solid #f59e0b;text-align:center;background:#fef9c3;">
+      ★ 관리자 표준 권장선 (최종)</th>
+      </tr>
+      <tr style="color:#aaa;">
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;color:#666;">암 진단비</td>
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;
+      text-decoration:line-through;color:#555;">미산출</td>
+    <td style="padding:4px 8px;border:2px solid #f59e0b;text-align:center;
+      font-weight:900;color:#fbbf24;font-size:0.88rem;">{_b_cancer_disp:,}만원</td>
+      </tr>
+      <tr style="color:#aaa;">
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;color:#666;">뇌혈관 진단비</td>
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;
+      text-decoration:line-through;color:#555;">미산출</td>
+    <td style="padding:4px 8px;border:2px solid #f59e0b;text-align:center;
+      font-weight:900;color:#fbbf24;font-size:0.88rem;">{_b_brain_disp:,}만원</td>
+      </tr>
+      <tr style="color:#aaa;">
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;color:#666;">일당</td>
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;
+      text-decoration:line-through;color:#555;">미산출</td>
+    <td style="padding:4px 8px;border:2px solid #f59e0b;text-align:center;
+      font-weight:900;color:#fbbf24;font-size:0.88rem;">{_g62r_cached.get("target_daily",0):,.1f}만원</td>
+      </tr>
+      <tr style="color:#aaa;">
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;color:#666;">후유장해</td>
+    <td style="padding:4px 8px;border:1px solid #444;text-align:center;
+      text-decoration:line-through;color:#555;">미산출</td>
+    <td style="padding:4px 8px;border:2px solid #f59e0b;text-align:center;
+      font-weight:900;color:#fbbf24;font-size:0.88rem;">{_g62r_cached.get("target_disability",0):,}만원</td>
+      </tr>
+      </table>
+      <div style="color:#f97316;font-size:0.70rem;margin-top:6px;">
+    * GP-66: 건강보험료 미입력 시 관리자 고정 권장액(기준 B)이 최종 권장값으로 자동 채택됩니다.
+      </div>
+    </div>""", height=210)
+            else:
+                # 소득 있음 → 기준 A vs 기준 B 비교표
+                components.html(f"""
+    <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+      background:#f0fdf4;border:1px solid #22c55e;border-radius:9px;
+      padding:10px 14px;margin:10px 0;">
+      <div style="color:#86efac;font-weight:900;font-size:0.82rem;margin-bottom:7px;">
+    📊 GP-65 기준 A vs B 비교 — 최종 = MAX(A, B)
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:0.75rem;">
+      <tr style="background:#E8F0FE;color:#94a3b8;">
+    <th style="padding:4px 8px;border:1px solid #334155;text-align:center;">담보</th>
+    <th style="padding:4px 8px;border:1px solid #334155;text-align:center;">소득 기반 (A)</th>
+    <th style="padding:4px 8px;border:1px solid #334155;text-align:center;">관리자 표준 (B)</th>
+    <th style="padding:4px 8px;border:1px solid #22c55e;text-align:center;background:#dcfce7;color:#14532d;">최종 채택</th>
+      </tr>
+      <tr>
+    <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#e2e8f0;">암</td>
+    <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#7dd3fc;">{_a_cancer_disp:,}만원</td>
+    <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#fcd34d;">{_b_cancer_disp:,}만원</td>
+    <td style="padding:4px 8px;border:1px solid #22c55e;text-align:center;
+      font-weight:900;color:#4ade80;">{_g62r_cached.get("target_cancer",0):,}만원
+      <span style="font-size:0.68rem;color:#86efac;">({_g62r_cached.get("cancer_basis","?")})</span></td>
+      </tr>
+      <tr style="background:#EEF2FF;">
+    <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#e2e8f0;">뇌혈관</td>
+    <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#7dd3fc;">{_a_brain_disp:,}만원</td>
+    <td style="padding:4px 8px;border:1px solid #334155;text-align:center;color:#fcd34d;">{_b_brain_disp:,}만원</td>
+    <td style="padding:4px 8px;border:1px solid #22c55e;text-align:center;
+      font-weight:900;color:#4ade80;">{_g62r_cached.get("target_brain",0):,}만원
+      <span style="font-size:0.68rem;color:#86efac;">({_g62r_cached.get("brain_basis","?")})</span></td>
+      </tr>
+      </table>
+    </div>""", height=175)
+    
+            # ── 5단계 생애 흐름 ───────────────────────────────────────────
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+      border-radius:0 8px 8px 0;padding:6px 14px;margin:10px 0 6px 0;
+      font-weight:900;font-size:0.85rem;color:#1a3a5c;">⑤ 상해의 일생 — 5단계 통합 흐름</div>""", unsafe_allow_html=True)
+    
+            _inj_type_disp = {"traffic": "🚗 교통상해 (맥브라이드)",
+                               "industrial": "🏭 산재사고 (근복 장해등급)",
+                               "general": "🏃 일반상해 (AMA)"}
+            components.html(f"""
+    <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.77rem;line-height:1.7;">
+    <table style="width:100%;border-collapse:collapse;">
+    <tr style="background:#3B82F6;color:#fff;">
+      <th style="padding:5px 8px;border:1px solid #2e6da4;text-align:center;width:18%;">단계</th>
+      <th style="padding:5px 8px;border:1px solid #2e6da4;width:25%;">항목</th>
+      <th style="padding:5px 8px;border:1px solid #2e6da4;">적용 로직 · 연동 담보</th>
+    </tr>
+    <tr style="background:#fff0f0;">
+      <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#c0392b;">1️⃣ 유입</td>
+      <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">사고 접수</td>
+      <td style="padding:5px 8px;border:1px solid #ddd;">{_inj_type_disp.get(_inj_type,"일반상해")} 자동 분류</td>
+    </tr>
+    <tr style="background:#fff8f0;">
+      <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#e67e22;">2️⃣ 치료</td>
+      <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">요양·수술·입원</td>
+      <td style="padding:5px 8px;border:1px solid #ddd;">실손보험 · 수술비 · 입원일당 연동</td>
+    </tr>
+    <tr style="background:#f0fff4;">
+      <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#1a7a2e;">3️⃣ 평가</td>
+      <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">장해율 산정</td>
+      <td style="padding:5px 8px;border:1px solid #ddd;">장해율 {_inj_dis_rate}% → 후유장해 3%~100% 담보 자동 매핑</td>
+    </tr>
+    <tr style="background:#f0f4ff;">
+      <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#2e6da4;">4️⃣ 소득</td>
+      <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">소득 보전</td>
+      <td style="padding:5px 8px;border:1px solid #ddd;">{'⚠️ 소득 데이터 미제공 → 마스터 권장 기준 적용' if _g62_is_fallback else f'{_inj_work_loss+_inj_rehab}개월 × {_inj_income:,}만원 → H={_h_coeff} 할인 → <b>필요 {_req_man:,}만원</b>'}</td>
+    </tr>
+    <tr style="background:#fdf0ff;">
+      <td style="padding:5px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#8e44ad;">5️⃣ 종결</td>
+      <td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">사망 보장</td>
+      <td style="padding:5px 8px;border:1px solid #ddd;">고도장해(80%) ↔ 사망보험금 Offset 로직 적용 · 유가족 소득 자본화</td>
+    </tr>
+    </table>
+    
+    <div style="background:#f8fafc;border:1px solid #d0d7de;border-radius:7px;padding:8px 12px;margin-top:8px;font-size:0.73rem;color:#555;">
+      <b>담보 간 상충(Offset) 주의:</b> 고도후유장해(80%↑) 지급 시 사망보험금과 연동 여부를 반드시 약관 확인<br>
+      1순위 고액장해(50~80%) · 2순위 중간장해(20%) · 3순위 소액장해 → 실손 연동으로 보험료 최적화
+    </div>
+    </div>""", height=310)
+    
+            # ── AI 분석 결과 ──────────────────────────────────────────────
+            st.markdown("##### 🤖 AI 통합 분석 리포트")
+            show_result("res_injury")
+    
+        # ── AI 분석 실행 ──────────────────────────────────────────────────
+        if _do_inj_ai:
+            _type_prompt = {
+                "traffic":    "[교통상해] 맥브라이드 방식 + 자동차/운전자보험 연동\n",
+                "industrial": "[산재사고] 근로복지공단 장해등급 + 단체보험 연동\n",
+                "general":    "[일반상해] AMA 방식 + 개인보험 상해담보 연동\n",
+            }
+            _over_txt = "\n⚠️ 역산 가입금액이 업계 한도 15억 초과 → 보험사 분산 가입 전략 포함 제시 필요" if _over_lim else ""
+            run_ai_analysis(
+                _inj_c_name, _inj_query, _inj_hi, "res_injury",
+                extra_prompt=(
+                    "[상해 통합 관리 — LCRM 분석]\n"
+                    f"{_type_prompt.get(_inj_type, '')}"
+                    f"월소득: {'미입력(관리자표준기준B적용)' if _g62_is_fallback else f'{_inj_income}만원'} / 휴업: {_inj_work_loss}개월 / 재활: {_inj_rehab}개월\n"
+                    f"{'[GP-66] 소득 데이터 미제공 → 마스터 권장 기준(기준 B) 100% 적용' + chr(10) if _g62_is_fallback else ''}"
+                    f"장해율: {_inj_dis_rate}% / 호프만계수 H={_h_coeff} / 필요 가입금액: {_req_man:,}만원\n"
+                    f"현재 준비: {_cur_man:,}만원 / 보장 공백: {_gap_man:,}만원 / 소득단절: {_dep_mon}개월 후 고갈\n"
+                    f"사회보장 보전액: {_inj_social}만원{_over_txt}\n\n"
+                    "## 분석 지시 (순서대로)\n"
+                    "1. 사고 성격 확인 및 적용 산출 방식(AMA/맥브라이드/산재) 근거 설명\n"
+                    "2. 치료비·수술비·입원일당 단계 보장 현황 분석\n"
+                    "3. 후유장해 3%~100% 구간별 보험금 시뮬레이션 (현재 가입 기준)\n"
+                    "4. 소득 보전 공백 기간 및 필요 추가 담보 우선순위 제안 (예산 효율 최적화)\n"
+                    "5. 고도장해 ↔ 사망 담보 Offset 관계 분석 (중복 산출 방지)\n"
+                    "6. 보험사 분산 가입 필요 여부 및 포트폴리오 구성안\n"
+                    "7. 민법 판례·국가배상법 기준 오차 자가 검증 후 최종 리포트 발행\n"
+                ),
+            )
+    
+        # ── 딥링크: 세부 탭 바로가기 ─────────────────────────────────────
+        st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+      border-radius:0 8px 8px 0;padding:6px 14px;margin:14px 0 6px 0;
+      font-weight:900;font-size:0.85rem;color:#1a3a5c;">🔗 세부 전문 도구 바로가기</div>""", unsafe_allow_html=True)
+        _dl1, _dl2, _dl3, _dl4 = st.columns(4)
+        with _dl1:
+            if st.button("🩺 장해보험금\n정밀 산출", key="inj_goto_dis", use_container_width=True):
+                st.session_state["current_tab"] = "disability"
+                st.rerun()
+        with _dl2:
+            if st.button("💰 보험금\n청구 상담", key="inj_goto_t1", use_container_width=True):
+                st.session_state["current_tab"] = "t1"
+                st.rerun()
+        with _dl3:
+            if st.button("🚗 자동차사고\n과실비율", key="inj_goto_t4", use_container_width=True):
+                st.session_state["current_tab"] = "t4"
+                st.rerun()
+        with _dl4:
+            if st.button("🏥 통합보험\n설계", key="inj_goto_t3", use_container_width=True):
+                st.session_state["current_tab"] = "t3"
+                st.rerun()
+    
+        # ── 상해 디멘드 참고사항 ─────────────────────────────────────────
+        with st.expander("📚 상해 디멘드 참고사항 — KCD 코드 체계·코드 전환·분쟁 실무", expanded=False):
+            components.html("""
+    <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.80rem;
+      line-height:1.85;color:#1a1a2e;padding:4px 2px;">
+    
+    <!-- ═══════════════ PART 1 ═══════════════ -->
+    <div style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px 8px 0 0;
+      padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;">
+      PART 1 &nbsp;|&nbsp; 상해사고 × KCD 코드 상관관계 &amp; S·T → M 전환 메커니즘
+    </div>
+    <div style="background:#f4f8ff;border:1px solid #b3c8e8;border-top:none;
+      border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:14px;">
+    
+      <b style="color:#1a3a5c;">1. 코드 체계 한눈에 보기</b><br>
+      <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
+    <tr style="background:#eff6ff;color:#1e40af;">
+      <th style="padding:4px 8px;border:1px solid #bfdbfe;width:12%;">코드</th>
+      <th style="padding:4px 8px;border:1px solid #bfdbfe;width:28%;">분류명</th>
+      <th style="padding:4px 8px;border:1px solid #bfdbfe;">보험 실무 의미</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#e74c3c;">S</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">신체 부위별 손상</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">상해보험금 청구 1차 인정 코드 (예: S82.2 경골골절)</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#e74c3c;">T</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">중독·외인 특정 결과</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">화상·중독·다발성 외상 등 (예: T20 화상)</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#27ae60;">M</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">근골격계·결합조직 질환</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">원칙적 '질병' → 보험사 상해 지급 거절 근거</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#8e44ad;">V·W·X·Y</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">외인(사고 원인)</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">사고 경위 코드 — 단독 청구 불가, S/T와 병기</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:900;color:#555;">Z</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">건강상태·보건서비스</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">후속 추적 관찰 코드 — 장해 판정 이후 혼용</td>
+    </tr>
+      </table>
+    
+      <b style="color:#c0392b;">⚠️ 핵심 법리 (대법원 98다158)</b><br>
+      진단서 코드보다 <b>'사고의 외래성'</b>과 <b>'신체 손상 간 상당인과관계'</b>가 판단 우선순위.<br>
+      → M코드라도 인과관계 입증 시 상해 인정 가능.<br><br>
+    
+      <b style="color:#1a3a5c;">2. S·T → M 전환 3대 원인</b><br>
+      <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
+    <tr style="background:#eff6ff;color:#1e40af;">
+      <th style="padding:4px 8px;border:1px solid #bfdbfe;width:22%;">원인</th>
+      <th style="padding:4px 8px;border:1px solid #bfdbfe;">메커니즘</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:700;">① 퇴행성 병변 개입</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">MRI에서 이미 노화성 변성 발견 → 의사가 M코드 부여 (예: M51 추간판탈출증, M75 회전근개)</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:700;">② 증상 고착 (6개월)</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">보험약관상 장해 판정 기점(사고 후 6개월). 급성기(S) 치유 후 만성 통증·기능장애 잔존 → M코드 전환</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;font-weight:700;">③ 의료법 제18조</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">의사는 현재 주된 병변 기준으로 진단서 작성 의무 → 6개월 후 염증·퇴행이 주병변이면 M 부여 불가피</td>
+    </tr>
+      </table>
+    
+      <b style="color:#1a3a5c;">3. 기여도 공제 법리 (표준약관 제7조)</b><br>
+      기왕증이 손상을 악화시킨 경우 → <b>사고 기여도만큼만 보상</b> (통상 20~50% 범위 결정).<br>
+      → 금감원·대법원 모두 "기여도 감액 후 지급" 원칙 적용.<br><br>
+    
+      <b style="color:#27ae60;">✅ 피보험자 대응 전략 4단계</b>
+      <ol style="margin:4px 0 0 14px;padding:0;">
+    <li><b>사고 직후 초진 차트·영상 보존</b> — 급성 외상 소견(부종·신호강도 변화) 결정적 증거</li>
+    <li><b>사고 前 증상 부재 입증</b> — 과거 병력 조회로 기왕증 없음 확인</li>
+    <li><b>외상 기여도 소견서 확보</b> — 주치의에게 사고 기여도(%) 명기 요청</li>
+    <li><b>코드 병기 요청</b> — S코드(손상) + M코드(현 상태) 진단서 병기 가능 여부 확인</li>
+      </ol>
+    </div>
+    
+    <!-- ═══════════════ PART 2 ═══════════════ -->
+    <div style="background:#fff8f0;color:#7d3c00;border:1px solid #f5d5a0;border-radius:8px 8px 0 0;
+      padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;margin-top:4px;">
+      PART 2 &nbsp;|&nbsp; 고빈도 분쟁 부위 — 허리 디스크(M51) · 어깨 회전근개(M75)
+    </div>
+    <div style="background:#fff8f0;border:1px solid #f5d5a0;border-top:none;
+      border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:8px;">
+    
+      <!-- 허리 디스크 -->
+      <b style="color:#7d3c00;font-size:0.83rem;">🦴 허리 디스크 (추간판탈출증 M51)</b><br>
+      <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
+    <tr style="background:#e67e22;color:#fff;">
+      <th style="padding:4px 8px;border:1px solid #c0621c;width:30%;">장해 등급 (통합약관)</th>
+      <th style="padding:4px 8px;border:1px solid #c0621c;width:12%;">지급률</th>
+      <th style="padding:4px 8px;border:1px solid #c0621c;">인정 요건</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;">심한 추간판탈출증</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#c0392b;">20%</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">마미신경증후군 → 하지 마비 또는 대소변 장해</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 8px;border:1px solid #ddd;">뚜렷한 추간판탈출증</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#e67e22;">15%</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">수술 후에도 신경증상 잔존 OR 수술 없이 뚜렷한 마비</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;">약간의 추간판탈출증</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#27ae60;">10%</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">단순 신경증상(저림·통증) 잔존</td>
+    </tr>
+      </table>
+      <b style="color:#c0392b;">주요 판례 (대법원 2002다3040)</b><br>
+      사고 전 퇴행성 소인이 있어도 <b>사고로 급격 악화</b>되었다면 기여도 분담 보상.<br>
+      입증 책임: 보험사(M코드·노화 주장) vs 피보험자(급성 외상 MRI 소견 제출).<br>
+      사고 관여도 통상 <b>20~50%</b> 범위 내 결정.<br><br>
+    
+      <!-- 어깨 회전근개 -->
+      <b style="color:#7d3c00;font-size:0.83rem;">🦾 어깨 회전근개 파열 (M75)</b><br>
+      <table style="width:100%;border-collapse:collapse;margin:6px 0 10px 0;font-size:0.77rem;">
+    <tr style="background:#e67e22;color:#fff;">
+      <th style="padding:4px 8px;border:1px solid #c0621c;width:30%;">장해 등급</th>
+      <th style="padding:4px 8px;border:1px solid #c0621c;width:12%;">지급률</th>
+      <th style="padding:4px 8px;border:1px solid #c0621c;">인정 요건 (운동범위 기준)</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;">한 팔 기능 완전 상실</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#c0392b;">30%</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">완전 마비 또는 관절 강직</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 8px;border:1px solid #ddd;">팔 뚜렷한 장해</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#e67e22;">10%</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">정상 운동범위 <b>1/2 이하</b> 제한</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 8px;border:1px solid #ddd;">팔 약간의 장해</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:900;color:#27ae60;">5%</td>
+      <td style="padding:4px 8px;border:1px solid #ddd;">정상 운동범위 <b>3/4 이하</b> 제한</td>
+    </tr>
+      </table>
+      <b style="color:#c0392b;">금감원 분쟁조정 제2014-4호</b><br>
+      50대 이상은 외상 없이도 자연 파열 가능 → 명백한 외력(고소 추락·교통사고) 미입증 시 <b>질병으로 판정</b>.<br>
+      단, 사고 전 치료력 없음 + 사고 강도 충분 → S코드 인정·상해보험금 지급 판결 추세.<br><br>
+    
+      <!-- 공통 쟁점 -->
+      <div style="background:#fff0e0;border:1px solid #e8a87c;border-radius:7px;
+    padding:8px 12px;margin-top:6px;font-size:0.77rem;">
+    <b style="color:#7d3c00;">⚖️ AMA vs 맥브라이드 방식 선택 기준</b><br>
+    <table style="width:100%;border-collapse:collapse;margin:5px 0 0 0;font-size:0.75rem;">
+      <tr style="background:#e67e22;color:#fff;">
+        <th style="padding:3px 7px;border:1px solid #c0621c;width:20%;">방식</th>
+        <th style="padding:3px 7px;border:1px solid #c0621c;width:28%;">적용 상황</th>
+        <th style="padding:3px 7px;border:1px solid #c0621c;">허리·어깨 장해 특이사항</th>
+      </tr>
+      <tr style="background:#fff;">
+        <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">AMA (개인보험)</td>
+        <td style="padding:3px 7px;border:1px solid #ddd;">생명·손보 표준약관</td>
+        <td style="padding:3px 7px;border:1px solid #ddd;">운동범위 제한율 × 지급률 — 퇴행성 포함 전체 기능 기준</td>
+      </tr>
+      <tr style="background:#f8f8f8;">
+        <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">맥브라이드</td>
+        <td style="padding:3px 7px;border:1px solid #ddd;">산재·일부 손보사·법원</td>
+        <td style="padding:3px 7px;border:1px solid #ddd;">직업계수 반영 → 육체노동자 유리, 퇴행성 기여도 별도 감산</td>
+      </tr>
+    </table>
+      </div>
+    
+      <!-- 결론 요약 -->
+      <div style="background:#3B82F6;color:#fff;border-radius:7px;
+    padding:8px 12px;margin-top:10px;font-size:0.77rem;line-height:1.8;">
+    <b>📌 실무 핵심 체크리스트</b><br>
+    ① 사고 직후 초진 MRI·X-ray <b>보존</b> (급성 외상 소견이 S코드 수호 열쇠)<br>
+    ② 6개월 이내 <b>장해 판정 준비</b> — M코드 고착 전 S코드 유지 기간 활용<br>
+    ③ 주치의 외상 기여도(%) 소견서 — 보험사 의료자문 대응 카드<br>
+    ④ 코드가 M으로 전환된 경우 → <b>'질병·상해 경합' 법리</b>로 인과관계 재입증<br>
+    ⑤ 금감원 분쟁조정 또는 독립 손해사정사 선임 (보험업법 제185조, 3영업일 이내)
+      </div>
+    </div>
+    
+    </div>""", height=1080)
+    
+        # ── 사망 디멘드 참고사항 ─────────────────────────────────────────
+        with st.expander("💀 사망 디멘드 참고사항 — CFP 설계 논리·생애주기 가입금액·상속 전략·후킹 대화법", expanded=False):
+            components.html("""
+    <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:0.80rem;
+      line-height:1.85;color:#1a1a2e;padding:4px 2px;">
+    
+    <!-- ═══ PART 1: 생애주기별 사망보험 필요성 ═══ -->
+    <div style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px 8px 0 0;
+      padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;">
+      PART 1 &nbsp;|&nbsp; CFP 관점 — 생애주기(Life Cycle)별 사망보험 필요성 &amp; 가입금액
+    </div>
+    <div style="background:#f4f8ff;border:1px solid #b3c8e8;border-top:none;
+      border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:14px;">
+    
+      <b style="color:#c0392b;">핵심 정의:</b> 사망보험 = 가장이 미래에 벌어올 모든 가처분 소득을 오늘 시점으로 당겨와 예치하는 장치.<br>
+      CFP 산출 공식: <b>① 자본운용법</b> (연 필요생활비 ÷ 투자수익률) · <b>② 인적가치법</b> (은퇴 시점까지 총소득 현재가치 PV)<br><br>
+    
+      <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-bottom:10px;">
+    <tr style="background:#eff6ff;color:#1e40af;">
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;width:18%;">생애주기</th>
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;width:20%;">주요 Event</th>
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;">사망보험 필요성</th>
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;width:24%;">권장 가입금액 범위</th>
+    </tr>
+    <tr style="background:#f9f9f9;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">미혼/사회초년생</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">취업·독립</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">장례비·학자금 채무 정리. 부양 책임 최소</td>
+    {{ ... }
+      <td style="padding:4px 7px;border:1px solid #ddd;color:#2e6da4;font-weight:700;">연소득 1~2배 (5천~1억)</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족형성기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">결혼·출산</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;"><b style="color:#c0392b;">필요성 최대.</b> 배우자 생활비 + 양육비 확보</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;color:#c0392b;font-weight:700;">연소득 5~10배 + 부채 (3~5억)</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족확장기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">교육·주택</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">교육비 목적자금 수요 정점. 고액 보장 유지</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;color:#c0392b;font-weight:700;">연소득 7~10배 + 교육비 (5~10억)</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족성숙기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">자녀독립·은퇴</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">상속세 재원·사후정리 자금으로 성격 전환</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;color:#1a7a2e;font-weight:700;">상속세 추정액 or 소득 3~5년분</td>
+    </tr>
+      </table>
+    
+      <b style="color:#1a3a5c;">▶ 상속 관점 종신보험 설계 가이드 (2026년 기준 누진세율 적용)</b><br>
+      <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-top:6px;">
+    <tr style="background:#eff6ff;color:#1e40af;">
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;width:22%;">상속재산 규모</th>
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;width:20%;">예상 상속세액</th>
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;width:22%;">종신보험 설계 범위</th>
+      <th style="padding:4px 7px;border:1px solid #bfdbfe;">CFP 핵심 전략</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;">10억 ~ 30억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 0.9억 ~ 8억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">3억 ~ 8억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">배우자·일괄공제 활용 후 현금 흐름 보완</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;">30억 ~ 100억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 8억 ~ 35억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">10억 ~ 30억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">부동산 비중 높을 경우 <b>급매 방지</b> 유동성 확보</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;">100억 ~ 200억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 35억 ~ 85억</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">50억 이상</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">가업상속공제 병행 · <b>수익자 부담 원칙</b>(자녀 소득 증빙)</td>
+    </tr>
+      </table>
+    
+      <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:7px;padding:7px 12px;margin-top:8px;font-size:0.76rem;color:#856404;">
+    <b>⚠️ 간주상속재산 주의 (상증세법 제8조):</b> 피보험자=피상속인·보험료납입=피상속인 → 사망보험금 상속재산 포함 (세금 증가)<br>
+    <b>절세 구조:</b> 계약자/수익자=자녀, 피보험자=부모 → 사망보험금 상속재산 제외. 단, 자녀 보험료 납입 능력 없으면 <b>증여세 이슈</b> 발생 → 사전 증여로 자금출처 확보 선행.
+      </div>
+    </div>
+    
+    <!-- ═══ PART 2: 생애주기별 평균 가처분소득 × 사망보험금 산출 ═══ -->
+    <div style="background:#fff8f0;color:#7d3c00;border:1px solid #f5d5a0;border-radius:8px 8px 0 0;
+      padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;margin-top:4px;">
+      PART 2 &nbsp;|&nbsp; 생애주기별 평균 가처분소득 &amp; 적정 사망보험금 산출 (통계청 2023 기준)
+    </div>
+    <div style="background:#fff8f0;border:1px solid #f5d5a0;border-top:none;
+      border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:14px;">
+    
+      <b style="color:#7d3c00;">산출 로직:</b> 유가족 생활비(연소득×소득대체율×5년) + 부채(평균 9,100만원) + 목적자금<br>
+      소득대체율: 가족형성 70% / 확장기 80% / 성숙기 50% (가장 본인 소비분 20~30% 제외)<br><br>
+    
+      <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-bottom:10px;">
+    <tr style="background:#e67e22;color:#fff;">
+      <th style="padding:4px 7px;border:1px solid #c0621c;width:20%;">생애 Event</th>
+      <th style="padding:4px 7px;border:1px solid #c0621c;width:20%;">평균 가처분소득(연)</th>
+      <th style="padding:4px 7px;border:1px solid #c0621c;">산출 근거</th>
+      <th style="padding:4px 7px;border:1px solid #c0621c;width:22%;">적정 가입금액</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">사회초년생/미혼</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 3,400만원</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">사후정리비 + 소액부채 + 부모 부양(2년)</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#2e6da4;">5천만 ~ 1억원</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족형성기(신혼)</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 6,200만원</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">6,200만×70%×5년 + 주택대출</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#c0392b;">3억 ~ 5억원</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족확장기(자녀양육)</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 7,800만원</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">7,800만×80%×5년 + 교육비(1억) + 대출</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#c0392b;">5억 ~ 8억원 (피크)</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">가족성숙기(노후준비)</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">약 6,500만원</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">6,500만×50%×5년 + 상속세 재원</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#1a7a2e;">2억 ~ 상속세액</td>
+    </tr>
+      </table>
+    
+      <b style="color:#1a3a5c;">▶ 증권분석 기준 — Event별 적정 가입금액 (기가입 충족도 판단표)</b><br>
+      <table style="width:100%;border-collapse:collapse;font-size:0.76rem;margin-top:6px;">
+    <tr style="background:#e67e22;color:#fff;">
+      <th style="padding:4px 7px;border:1px solid #c0621c;width:22%;">생애 Event</th>
+      <th style="padding:4px 7px;border:1px solid #c0621c;">산출 로직</th>
+      <th style="padding:4px 7px;border:1px solid #c0621c;width:25%;">증권분석 적정 금액</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">자녀 출산기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">가처분소득 100%×5년 + 주택대출</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#c0392b;">4억 ~ 6억원</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">자녀 교육기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">가처분소득 80%×5년 + 대학교육비 + 대출</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#c0392b;">6억 ~ 10억원 (최고)</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">자녀 독립기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">가처분소득 50%×5년 + 사후정리</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#1a7a2e;">2억 ~ 3억원</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;">상속 대비기</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;">추정 상속세액 + 유동성</td>
+      <td style="padding:4px 7px;border:1px solid #ddd;font-weight:700;color:#8e44ad;">상속세액의 120% 수준</td>
+    </tr>
+      </table>
+    
+      <div style="background:#e8f4fd;border:1px solid #b3d7f0;border-radius:7px;padding:7px 12px;margin-top:8px;font-size:0.76rem;">
+    <b style="color:#1a3a5c;">CFP 복합 설계 원칙 (자녀확장기 최적안):</b><br>
+    • <b>종신보험</b> 1~2억: 평생 보장 + 상속세 재원<br>
+    • <b>정기보험</b> 3~5억: 자녀 독립 전까지 집중 보장 → 보험료 효율 극대화<br>
+    • 보장성 보험료 지출 기준: 가처분소득의 <b>8~12% 이내</b> (금감원 권고)
+      </div>
+    </div>
+    
+    <!-- ═══ PART 3: 후킹 대화법 + 가입 논리 ═══ -->
+    <div style="background:#fdf4ff;color:#4a1259;border:1px solid #d9b3e8;border-radius:8px 8px 0 0;
+      padding:7px 14px;font-weight:900;font-size:0.88rem;letter-spacing:0.04em;margin-top:4px;">
+      PART 3 &nbsp;|&nbsp; 1:1 가입 논리 &amp; 후킹(Hooking) 대화법 — 클로징 실전 기법
+    </div>
+    <div style="background:#fdf4ff;border:1px solid #d9b3e8;border-top:none;
+      border-radius:0 0 8px 8px;padding:12px 16px;margin-bottom:8px;">
+    
+      <b style="color:#4a1259;font-size:0.83rem;">① 인적가치(Human Life Value) 가입 논리</b><br>
+      가장이 월 500만원 가처분소득 창출 → 향후 20년간 <b>약 12억원</b> 현금흐름 발생.<br>
+      사망보험 = 이 '미래 자산'에 대한 확실한 담보.<br><br>
+    
+      <div style="background:#fff0fa;border-left:4px solid #8e44ad;border-radius:0 7px 7px 0;
+    padding:8px 12px;margin:6px 0 10px 0;font-size:0.78rem;font-style:italic;color:#4a1259;">
+    "고객님, 지금 타시는 차에는 자차보험을 드시면서, 그 차와 집을 유지하게 해주는
+    <b>'고객님이라는 엔진'</b>에는 얼마짜리 보험을 드셨습니까?<br>
+    고객님의 부재는 단순한 슬픔이 아니라, 가족에게 <b>'수입 0원'</b>이라는 경영 위기입니다."
+      </div>
+    
+      <b style="color:#4a1259;font-size:0.83rem;">② 후킹 대화법 — 왜 필요한가</b><br>
+      사망보험은 고객이 회피하는 <b>'죽음'</b> 주제를 다룸 → 낙관적 편향(Optimism Bias) 극복 필요.<br>
+      목적: 위험의 시각화(Risk Visualization)로 심리적 장벽 해제.<br><br>
+    
+      <div style="background:#fff0fa;border-left:4px solid #c0392b;border-radius:0 7px 7px 0;
+    padding:8px 12px;margin:6px 0 10px 0;font-size:0.78rem;font-style:italic;color:#4a1259;">
+    <b>The "Empty Chair" Logic (빈 의자 기법):</b><br>
+    "오늘 저녁 식탁에 온 가족이 앉아 있습니다. 그런데 내일 저녁, 그 식탁에 고객님 의자만
+    비어 있다면, 남겨진 아내와 아이들이 그 식탁을 오늘처럼 풍성하게 유지할 수 있을까요?<br>
+    <b>그 비어 있는 의자의 무게만큼을 채워주는 것이 사망보험금입니다.</b>"
+      </div>
+    
+      <b style="color:#4a1259;font-size:0.83rem;">③ 관련 법조문 체크리스트</b>
+      <table style="width:100%;border-collapse:collapse;font-size:0.75rem;margin-top:5px;">
+    <tr style="background:#fdf4ff;color:#6b21a8;">
+      <th style="padding:3px 7px;border:1px solid #d8b4fe;width:30%;">법조문</th>
+      <th style="padding:3px 7px;border:1px solid #d8b4fe;">실무 적용 포인트</th>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">상법 제732조</td>
+      <td style="padding:3px 7px;border:1px solid #ddd;">15세 미만·심신상실자 사망보험 계약 무효 — 설계 시 필수 확인</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">상법 제733조</td>
+      <td style="padding:3px 7px;border:1px solid #ddd;">보험수익자 지정 → 사망보험금은 수익자 고유재산 (압류·상속채무 제외)</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">대법원 2001다61175</td>
+      <td style="padding:3px 7px;border:1px solid #ddd;">수익자='상속인' 지정 시 보험금은 상속재산 제외 → 채권자 압류 불가</td>
+    </tr>
+    <tr style="background:#f8f8f8;">
+      <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">상증세법 제26조</td>
+      <td style="padding:3px 7px;border:1px solid #ddd;">상속세율: 1억 이하 10% ~ 30억 초과 50% 누진 (2026년 현행)</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:3px 7px;border:1px solid #ddd;font-weight:700;">금감원 권고</td>
+      <td style="padding:3px 7px;border:1px solid #ddd;">보장성 보험료 = 가처분소득 8~12% 이내 / 종신보험 ≠ 저축 (불완전판매 주의)</td>
+    </tr>
+      </table>
+    
+      <!-- 상속 구간 재정립 -->
+      <div style="background:#3B82F6;color:#fff;border-radius:7px;
+    padding:8px 12px;margin-top:10px;font-size:0.77rem;line-height:1.8;">
+    <b>📌 상속 관점 종신보험 — 실무 핵심 원칙</b><br>
+    • <b>10억~50억:</b> 부동산 비중 높음 → 상속세 급매 손실(30~40%) 방지 = 자산의 10~20% 보험금 설정<br>
+    • <b>100억~200억 (최고세율 50%):</b> 보험금액 확대보다 <b>수익자 부담 원칙</b>(자녀 소득 증빙) 구조 핵심<br>
+    • <b>종신보험의 본질:</b> '절세'가 아닌 <b>'상속세 납부 재원(Liquidity) 마련'</b><br>
+    • 물가 반영: PV = Σ C/(1+r)^t — 정액 보험금의 실질가치 하락 고객 안내 필수
+      </div>
+    </div>
+    
+    </div>""", height=1260)
+    
     st.stop()  # lazy-dispatch
 
 # ── [disability] 장해보험금 산출 ─────────────────────────────────────
 if cur == "disability":
     tab_home_btn("disability")
-    st.markdown(f"""
-<div class="gk-sky-trust gp-interactive"
-  style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
-  {_bid('8-1-1')}
-  <div class="gk-st-title">🩺 장해보험금 산출</div>
-  <div style="font-size:0.82rem;margin-top:4px;">
-AMA 방식 · 맥브라이드(McBride) 방식 · 후유장해 산정
-  </div>
-</div>""", unsafe_allow_html=True)
-
-    # ── [GP193 §4] 전역 지식 베이스 업데이트 배지 ─────────────────────
-    try:
-        from modules.scan_engine import render_gp193_live_badge as _rgb
-        _badge_html = _rgb(session_state=st.session_state)
-        if _badge_html:
-            st.markdown(_badge_html, unsafe_allow_html=True)
-    except Exception:
-        pass
-
-    # ── SmartScanner 연동 ──────────────────────────────────────────
-    if _SMART_SCANNER_OK:
-        render_ssot_banner(sector="disability")
-        with st.expander("🔬 SmartScanner — AI 의무기록 자동 판독", expanded=False):
-            render_smart_scanner(
-                doc_type="의무기록",
-                session_key="smart_scanner_result",
-                uploader_key="disability_smart_uploader",
-                show_result_inline=True,
+    with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+        st.markdown(f"""
+    <div class="gk-sky-trust gp-interactive"
+      style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+      {_bid('8-1-1')}
+      <div class="gk-st-title">🩺 장해보험금 산출</div>
+      <div style="font-size:0.82rem;margin-top:4px;">
+    AMA 방식 · 맥브라이드(McBride) 방식 · 후유장해 산정
+      </div>
+    </div>""", unsafe_allow_html=True)
+    
+        # ── [GP193 §4] 전역 지식 베이스 업데이트 배지 ─────────────────────
+        try:
+            from modules.scan_engine import render_gp193_live_badge as _rgb
+            _badge_html = _rgb(session_state=st.session_state)
+            if _badge_html:
+                st.markdown(_badge_html, unsafe_allow_html=True)
+        except Exception:
+            pass
+    
+        # ── SmartScanner 연동 ──────────────────────────────────────────
+        if _SMART_SCANNER_OK:
+            render_ssot_banner(sector="disability")
+            with st.expander("🔬 SmartScanner — AI 의무기록 자동 판독", expanded=False):
+                render_smart_scanner(
+                    doc_type="의무기록",
+                    session_key="smart_scanner_result",
+                    uploader_key="disability_smart_uploader",
+                    show_result_inline=True,
+                )
+        dis_sub = st.radio("산출 방식 선택",
+            ["AMA 방식 (개인보험)", "맥브라이드 방식 (산재·일부 손보사)", "호프만계수 적용 (법원)"],
+            horizontal=True, key="dis_sub")
+        col1, col2 = st.columns([5, 5])
+        with col1:
+            # ── 고객 성함 ────────────────────────────────────────────────
+            c_name_d = st.text_input("고객 성함", "우량 고객", key="c_name_disability")
+            st.session_state.current_c_name = c_name_d
+    
+            # ── 기본 정보 입력 ────────────────────────────────────────────
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 8px 0;font-weight:900;
+      font-size:0.85rem;color:#1a3a5c;">📋 기본 정보 입력</div>""", unsafe_allow_html=True)
+            _dc1, _dc2 = st.columns(2)
+            with _dc1:
+                dis_gender = st.selectbox("성별", ["남성","여성"], key="dis_gender")
+                dis_age    = st.number_input("나이 (세)", min_value=1, max_value=80, value=45, step=1, key="dis_age")
+            with _dc2:
+                dis_type = st.selectbox("장해 유형", ["영구장해","한시장해(5년 이상)"], key="dis_type")
+    
+            # ── 장해율 2개 (교통 / 일반) ─────────────────────────────────
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 4px 0;font-weight:900;
+      font-size:0.85rem;color:#1a3a5c;">📐 장해율 입력</div>""", unsafe_allow_html=True)
+            _r1, _r2 = st.columns(2)
+            with _r1:
+                dis_rate_traffic = st.number_input("🚗 교통상해 장해율 (%)", min_value=0.0, max_value=100.0, value=0.0, step=0.5, key="dis_rate_traffic")
+            with _r2:
+                dis_rate_general = st.number_input("🏃 일반상해 장해율 (%)", min_value=0.0, max_value=100.0, value=15.0, step=0.5, key="dis_rate_general")
+            dis_rate = max(dis_rate_traffic, dis_rate_general)
+    
+            # ── 직전 3개월 평균소득 산출 ─────────────────────────────────
+            st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 4px 0;font-weight:900;
+      font-size:0.85rem;color:#7d3c00;">💰 직전 3개월 평균소득 산출 방식</div>""", unsafe_allow_html=True)
+            st.markdown("""<div style="background:#fffaf5;border:1px solid #f5d5a0;border-radius:0 0 8px 8px;
+      padding:8px 12px;font-size:0.80rem;color:#5a3000;margin-bottom:6px;line-height:1.8;">
+      <b>(직전 3개월간 급여총액 ÷ 3) + (직전 1년간 정기상여금 ÷ 12) = 평균 월소득</b>
+    </div>""", unsafe_allow_html=True)
+            _inc1, _inc2 = st.columns(2)
+            with _inc1:
+                dis_salary3 = st.number_input("직전 3개월 급여총액 (만원)", min_value=0, value=1050, step=10, key="dis_salary3")
+            with _inc2:
+                dis_bonus12 = st.number_input("직전 1년 정기상여금 (만원)", min_value=0, value=0, step=10, key="dis_bonus12")
+            dis_income = round(dis_salary3 / 3 + dis_bonus12 / 12, 1)
+            st.info(f"📊 산출 평균 월소득: **{dis_income:.1f}만원** (직전 3개월 급여 ÷ 3 + 연간상여 ÷ 12)")
+    
+            # ── 보험가입금액 — 담보별 5종 × 교통/일반 ───────────────────
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 4px 0;font-weight:900;
+      font-size:0.85rem;color:#1a3a5c;">🛡️ 보험가입금액 (만원) — 담보별 입력</div>""", unsafe_allow_html=True)
+            st.markdown("""<div style="background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
+      padding:5px 10px;font-size:0.77rem;color:#1a3a5c;margin-bottom:6px;line-height:1.65;">
+      • 장해율에 해당하는 담보만 활성화됩니다 (3%·20%·50%·80% 기준 자동 적용)<br>
+      • 3% 기입금액 기준 입력 | 교통상해와 일반상해를 각각 입력<br>
+      • 장해연금은 월 지급액(만원) 입력
+    </div>""", unsafe_allow_html=True)
+    
+            _dis_rate_max = max(dis_rate_traffic, dis_rate_general)
+            _active_3   = _dis_rate_max >= 3.0
+            _active_20  = _dis_rate_max >= 20.0
+            _active_50  = _dis_rate_max >= 50.0
+            _active_80  = _dis_rate_max >= 80.0
+    
+            def _dis_badge(active):
+                return ("✅ 조건 해당" if active else "⛔ 조건 미달")
+    
+            _tiers = [
+                ("3%",  _active_3,  "dis_t_3",  "dis_g_3"),
+                ("20%", _active_20, "dis_t_20", "dis_g_20"),
+                ("50%", _active_50, "dis_t_50", "dis_g_50"),
+                ("80%", _active_80, "dis_t_80", "dis_g_80"),
+            ]
+    
+            _sum_rows = {}
+            for _label, _act, _kt, _kg in _tiers:
+                _color = "#1a7a2e" if _act else "#999"
+                _bg    = "#f0fff4" if _act else "#f5f5f5"
+                st.markdown(f"""<div style="background:{_bg};border:1px solid {'#6fcf97' if _act else '#ddd'};
+      border-radius:7px;padding:4px 10px;margin:4px 0 2px 0;font-size:0.80rem;
+      font-weight:900;color:{_color};">
+      상해후유장해 {_label} 이상 — {_dis_badge(_act)}</div>""", unsafe_allow_html=True)
+                _sa, _sb = st.columns(2)
+                with _sa:
+                    _vt = st.number_input(f"교통상해 {_label} 가입금액", min_value=0, value=0, step=500,
+                        key=_kt, disabled=(not _act))
+                with _sb:
+                    _vg = st.number_input(f"일반상해 {_label} 가입금액", min_value=0, value=0, step=500,
+                        key=_kg, disabled=(not _act))
+                _sum_rows[_label] = (_vt, _vg)
+    
+            st.markdown("""<div style="background:#fff8f0;border:1px solid #f5a623;
+      border-radius:7px;padding:4px 10px;margin:4px 0 2px 0;font-size:0.80rem;
+      font-weight:900;color:#7d3c00;">장해연금 (월 지급액 만원)</div>""", unsafe_allow_html=True)
+            _pan1, _pan2 = st.columns(2)
+            with _pan1:
+                dis_annuity_traffic = st.number_input("교통상해 장해연금 (월/만원)", min_value=0, value=0, step=10, key="dis_annuity_t")
+            with _pan2:
+                dis_annuity_general = st.number_input("일반상해 장해연금 (월/만원)", min_value=0, value=0, step=10, key="dis_annuity_g")
+    
+            dis_sum_traffic = sum(v[0] for v in _sum_rows.values())
+            dis_sum_general = sum(v[1] for v in _sum_rows.values())
+            dis_sum = dis_sum_traffic + dis_sum_general
+    
+            # ── SSOT selector: 스캔 허브 데이터 자동 활용 ───────────────
+            _dis_ssot_txt  = st.session_state.get("ssot_full_text", "")
+            _dis_ssot_covs = st.session_state.get("ssot_coverages", [])
+            if _dis_ssot_covs:
+                st.success(f"🔬 **스캔 허브 담보 {len(_dis_ssot_covs)}건 자동 연동** — 우측에서 자동 매핑됩니다.")
+            elif _dis_ssot_txt:
+                st.info(f"🔬 스캔 허브 텍스트 {len(_dis_ssot_txt)}자 연동 — 의무기록 미업로드 시 AI 분석에 활용됩니다.")
+            # ── 파일 업로드 — 의무기록 ─────────────────────────────
+            st.markdown("""<div style="background:#3B82F6;border-radius:7px 7px 0 0;
+      padding:5px 12px;font-size:0.80rem;font-weight:900;color:#fff;margin-top:8px;">
+      📂 의무기록 파일 업로드 (AI 분석)</div>""", unsafe_allow_html=True)
+            st.markdown("""<div style="background:#eef4fc;border:1px solid #b3c8e8;border-top:none;
+      border-radius:0 0 7px 7px;padding:5px 10px;font-size:0.76rem;color:#1a3a5c;margin-bottom:4px;">
+      • <b>장해진단서</b>: AMA·맥브라이드 장해율 자동 분석<br>
+      • <b>일반의무기록</b>: 사고원인·장해진단 여부·의사명 인식
+    </div>""", unsafe_allow_html=True)
+            dis_med_files = st.file_uploader(
+                "의무기록 업로드 (PDF/JPG/PNG)",
+                type=["pdf","jpg","jpeg","png"],
+                accept_multiple_files=True,
+                key="dis_med_files"
             )
-    dis_sub = st.radio("산출 방식 선택",
-        ["AMA 방식 (개인보험)", "맥브라이드 방식 (산재·일부 손보사)", "호프만계수 적용 (법원)"],
-        horizontal=True, key="dis_sub")
-    col1, col2 = st.columns([5, 5])
-    with col1:
-        # ── 고객 성함 ────────────────────────────────────────────────
-        c_name_d = st.text_input("고객 성함", "우량 고객", key="c_name_disability")
-        st.session_state.current_c_name = c_name_d
-
-        # ── 기본 정보 입력 ────────────────────────────────────────────
-        st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 8px 0;font-weight:900;
-  font-size:0.85rem;color:#1a3a5c;">📋 기본 정보 입력</div>""", unsafe_allow_html=True)
-        _dc1, _dc2 = st.columns(2)
-        with _dc1:
-            dis_gender = st.selectbox("성별", ["남성","여성"], key="dis_gender")
-            dis_age    = st.number_input("나이 (세)", min_value=1, max_value=80, value=45, step=1, key="dis_age")
-        with _dc2:
-            dis_type = st.selectbox("장해 유형", ["영구장해","한시장해(5년 이상)"], key="dis_type")
-
-        # ── 장해율 2개 (교통 / 일반) ─────────────────────────────────
-        st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 4px 0;font-weight:900;
-  font-size:0.85rem;color:#1a3a5c;">📐 장해율 입력</div>""", unsafe_allow_html=True)
-        _r1, _r2 = st.columns(2)
-        with _r1:
-            dis_rate_traffic = st.number_input("🚗 교통상해 장해율 (%)", min_value=0.0, max_value=100.0, value=0.0, step=0.5, key="dis_rate_traffic")
-        with _r2:
-            dis_rate_general = st.number_input("🏃 일반상해 장해율 (%)", min_value=0.0, max_value=100.0, value=15.0, step=0.5, key="dis_rate_general")
-        dis_rate = max(dis_rate_traffic, dis_rate_general)
-
-        # ── 직전 3개월 평균소득 산출 ─────────────────────────────────
-        st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 4px 0;font-weight:900;
-  font-size:0.85rem;color:#7d3c00;">💰 직전 3개월 평균소득 산출 방식</div>""", unsafe_allow_html=True)
-        st.markdown("""<div style="background:#fffaf5;border:1px solid #f5d5a0;border-radius:0 0 8px 8px;
-  padding:8px 12px;font-size:0.80rem;color:#5a3000;margin-bottom:6px;line-height:1.8;">
-  <b>(직전 3개월간 급여총액 ÷ 3) + (직전 1년간 정기상여금 ÷ 12) = 평균 월소득</b>
-</div>""", unsafe_allow_html=True)
-        _inc1, _inc2 = st.columns(2)
-        with _inc1:
-            dis_salary3 = st.number_input("직전 3개월 급여총액 (만원)", min_value=0, value=1050, step=10, key="dis_salary3")
-        with _inc2:
-            dis_bonus12 = st.number_input("직전 1년 정기상여금 (만원)", min_value=0, value=0, step=10, key="dis_bonus12")
-        dis_income = round(dis_salary3 / 3 + dis_bonus12 / 12, 1)
-        st.info(f"📊 산출 평균 월소득: **{dis_income:.1f}만원** (직전 3개월 급여 ÷ 3 + 연간상여 ÷ 12)")
-
-        # ── 보험가입금액 — 담보별 5종 × 교통/일반 ───────────────────
-        st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 4px 0;font-weight:900;
-  font-size:0.85rem;color:#1a3a5c;">🛡️ 보험가입금액 (만원) — 담보별 입력</div>""", unsafe_allow_html=True)
-        st.markdown("""<div style="background:#f8faff;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
-  padding:5px 10px;font-size:0.77rem;color:#1a3a5c;margin-bottom:6px;line-height:1.65;">
-  • 장해율에 해당하는 담보만 활성화됩니다 (3%·20%·50%·80% 기준 자동 적용)<br>
-  • 3% 기입금액 기준 입력 | 교통상해와 일반상해를 각각 입력<br>
-  • 장해연금은 월 지급액(만원) 입력
-</div>""", unsafe_allow_html=True)
-
-        _dis_rate_max = max(dis_rate_traffic, dis_rate_general)
-        _active_3   = _dis_rate_max >= 3.0
-        _active_20  = _dis_rate_max >= 20.0
-        _active_50  = _dis_rate_max >= 50.0
-        _active_80  = _dis_rate_max >= 80.0
-
-        def _dis_badge(active):
-            return ("✅ 조건 해당" if active else "⛔ 조건 미달")
-
-        _tiers = [
-            ("3%",  _active_3,  "dis_t_3",  "dis_g_3"),
-            ("20%", _active_20, "dis_t_20", "dis_g_20"),
-            ("50%", _active_50, "dis_t_50", "dis_g_50"),
-            ("80%", _active_80, "dis_t_80", "dis_g_80"),
-        ]
-
-        _sum_rows = {}
-        for _label, _act, _kt, _kg in _tiers:
-            _color = "#1a7a2e" if _act else "#999"
-            _bg    = "#f0fff4" if _act else "#f5f5f5"
-            st.markdown(f"""<div style="background:{_bg};border:1px solid {'#6fcf97' if _act else '#ddd'};
-  border-radius:7px;padding:4px 10px;margin:4px 0 2px 0;font-size:0.80rem;
-  font-weight:900;color:{_color};">
-  상해후유장해 {_label} 이상 — {_dis_badge(_act)}</div>""", unsafe_allow_html=True)
-            _sa, _sb = st.columns(2)
-            with _sa:
-                _vt = st.number_input(f"교통상해 {_label} 가입금액", min_value=0, value=0, step=500,
-                    key=_kt, disabled=(not _act))
-            with _sb:
-                _vg = st.number_input(f"일반상해 {_label} 가입금액", min_value=0, value=0, step=500,
-                    key=_kg, disabled=(not _act))
-            _sum_rows[_label] = (_vt, _vg)
-
-        st.markdown("""<div style="background:#fff8f0;border:1px solid #f5a623;
-  border-radius:7px;padding:4px 10px;margin:4px 0 2px 0;font-size:0.80rem;
-  font-weight:900;color:#7d3c00;">장해연금 (월 지급액 만원)</div>""", unsafe_allow_html=True)
-        _pan1, _pan2 = st.columns(2)
-        with _pan1:
-            dis_annuity_traffic = st.number_input("교통상해 장해연금 (월/만원)", min_value=0, value=0, step=10, key="dis_annuity_t")
-        with _pan2:
-            dis_annuity_general = st.number_input("일반상해 장해연금 (월/만원)", min_value=0, value=0, step=10, key="dis_annuity_g")
-
-        dis_sum_traffic = sum(v[0] for v in _sum_rows.values())
-        dis_sum_general = sum(v[1] for v in _sum_rows.values())
-        dis_sum = dis_sum_traffic + dis_sum_general
-
-        # ── SSOT selector: 스캔 허브 데이터 자동 활용 ───────────────
-        _dis_ssot_txt  = st.session_state.get("ssot_full_text", "")
-        _dis_ssot_covs = st.session_state.get("ssot_coverages", [])
-        if _dis_ssot_covs:
-            st.success(f"🔬 **스캔 허브 담보 {len(_dis_ssot_covs)}건 자동 연동** — 우측에서 자동 매핑됩니다.")
-        elif _dis_ssot_txt:
-            st.info(f"🔬 스캔 허브 텍스트 {len(_dis_ssot_txt)}자 연동 — 의무기록 미업로드 시 AI 분석에 활용됩니다.")
-        # ── 파일 업로드 — 의무기록 ─────────────────────────────
-        st.markdown("""<div style="background:#3B82F6;border-radius:7px 7px 0 0;
-  padding:5px 12px;font-size:0.80rem;font-weight:900;color:#fff;margin-top:8px;">
-  📂 의무기록 파일 업로드 (AI 분석)</div>""", unsafe_allow_html=True)
-        st.markdown("""<div style="background:#eef4fc;border:1px solid #b3c8e8;border-top:none;
-  border-radius:0 0 7px 7px;padding:5px 10px;font-size:0.76rem;color:#1a3a5c;margin-bottom:4px;">
-  • <b>장해진단서</b>: AMA·맥브라이드 장해율 자동 분석<br>
-  • <b>일반의무기록</b>: 사고원인·장해진단 여부·의사명 인식
-</div>""", unsafe_allow_html=True)
-        dis_med_files = st.file_uploader(
-            "의무기록 업로드 (PDF/JPG/PNG)",
-            type=["pdf","jpg","jpeg","png"],
-            accept_multiple_files=True,
-            key="dis_med_files"
-        )
-        if dis_med_files:
-            st.success(f"✅ 의무기록 {len(dis_med_files)}개 파일 업로드 완료")
-            # ── [GP193 §2] 전역 인제스트 후크 — 업로드 즉시 GCS+RAG 동시 저장 ─
-            for _dmf in dis_med_files:
-                _dmf_done_key = f"_gp193_done_dis_med_{_dmf.name}"
-                if st.session_state.get(_dmf_done_key) != _dmf.size:
-                    try:
-                        from modules.scan_engine import global_ingest_hook as _gih
-                        _gih_p = _gp193_get_hook_params()
-                        with st.spinner(f"🌐 지능형 자산화 진행 중... ({_dmf.name})"):
-                            _gih_r = _gih(
-                                file_bytes=_dmf.read(),
-                                filename=_dmf.name,
-                                source_tab="consult_dis_medical",
-                                doc_type="의무기록",
-                                session_state=st.session_state,
-                                **_gih_p,
-                            )
-                            _dmf.seek(0)
-                        if _gih_r.get("success"):
-                            st.success(f"✅ 전역 지식 베이스 업데이트 완료 — {_dmf.name}")
-                        st.session_state[_dmf_done_key] = _dmf.size
-                    except Exception:
-                        pass
-            for _f in dis_med_files:
-                if _f.type.startswith("image/"):
-                    st.image(_f, caption=_f.name, width=180)
-
-        # ── 파일 업로드 — 개인보험증권 ──────────────────────────────
-        st.markdown("""<div style="background:#fff8f0;border:1px solid #f5d5a0;border-radius:7px 7px 0 0;
-  padding:5px 12px;font-size:0.80rem;font-weight:900;color:#7d3c00;margin-top:6px;">
-  📋 개인보험증권 파일 업로드 (담보 자동 인식)</div>""", unsafe_allow_html=True)
-        st.markdown("""<div style="background:#fff8f0;border:1px solid #f5d5a0;border-top:none;
-  border-radius:0 0 7px 7px;padding:5px 10px;font-size:0.76rem;color:#5a3000;margin-bottom:4px;">
-  • 상해후유장해(3%·20%·50%·80%) 및 장해연금 담보 자동 도출<br>
-  • 교통상해 담보 vs 일반상해 담보 구분 인식 후 각각 출력
-</div>""", unsafe_allow_html=True)
-        dis_policy_files = st.file_uploader(
-            "보험증권 업로드 (PDF/JPG/PNG)",
-            type=["pdf","jpg","jpeg","png"],
-            accept_multiple_files=True,
-            key="dis_policy_files"
-        )
-        if dis_policy_files:
-            st.success(f"✅ 보험증권 {len(dis_policy_files)}개 파일 업로드 완료")
-            # ── [GP193 §2] 전역 인제스트 후크 — 업로드 즉시 GCS+RAG 동시 저장 ─
-            for _dpf in dis_policy_files:
-                _dpf_done_key = f"_gp193_done_dis_pol_{_dpf.name}"
-                if st.session_state.get(_dpf_done_key) != _dpf.size:
-                    try:
-                        from modules.scan_engine import global_ingest_hook as _gih
-                        _gih_p = _gp193_get_hook_params()
-                        with st.spinner(f"🌐 지능형 자산화 진행 중... ({_dpf.name})"):
-                            _gih_r = _gih(
-                                file_bytes=_dpf.read(),
-                                filename=_dpf.name,
-                                source_tab="consult_dis_policy",
-                                doc_type="보험증권",
-                                session_state=st.session_state,
-                                **_gih_p,
-                            )
-                            _dpf.seek(0)
-                        if _gih_r.get("success"):
-                            st.success(f"✅ 전역 지식 베이스 업데이트 완료 — {_dpf.name}")
-                        st.session_state[_dpf_done_key] = _dpf.size
-                    except Exception:
-                        pass
-            for _f in dis_policy_files:
-                if _f.type.startswith("image/"):
-                    st.image(_f, caption=_f.name, width=180)
-
-            _do_parse = st.button("🤖 담보 자동 파싱 (증권 인식)", key="btn_parse_policy",
-                                  use_container_width=True, type="secondary")
-            if _do_parse:
-                with st.spinner("보험증권 담보 인식 중..."):
-                    _parsed_result = parse_policy_with_vision(dis_policy_files)
-                    st.session_state["dis_parsed_coverages"] = _parsed_result.get("coverages", [])
-                    st.session_state["dis_parsed_errors"]    = _parsed_result.get("errors", [])
-                    st.session_state["dis_parsed_raw_debug"] = _parsed_result.get("_raw_ai_response", "")
-                    # ── policy_info를 scan_hub SSOT에도 동기화 (약관 크롤링 자동 반영) ──
-                    _dis_pi = _parsed_result.get("policy_info") or {}
-                    if _dis_pi:
-                        st.session_state["ssot_policy_info"] = _dis_pi
-                        if _dis_pi.get("insured_name"):
-                            st.session_state["ssot_client_name"] = _dis_pi["insured_name"]
-                        # ssot_scan_data에도 policy 타입으로 추가 (약관 추적 fallback 대비)
-                        _dis_texts = []
-                        for _df in dis_policy_files:
-                            try:
-                                _dis_txt = extract_pdf_chunks(_df, char_limit=6000) if _df.type == "application/pdf" else f"[이미지: {_df.name}]"
-                            except Exception:
-                                _dis_txt = f"[{_df.name}]"
-                            _dis_texts.append({"file": _df.name, "type": "policy", "text": _dis_txt,
-                                               "ts": dt.now().strftime("%Y-%m-%d %H:%M:%S")})
-                        _prev_ssot = st.session_state.get("ssot_scan_data", [])
-                        _prev_ssot = [d for d in _prev_ssot if d.get("type") != "policy"]
-                        _prev_ssot.extend(_dis_texts)
-                        st.session_state["ssot_scan_data"] = _prev_ssot
-                        st.session_state["ssot_scan_type"] = "policy"
-                        st.session_state["ssot_scan_ts"]   = dt.now().strftime("%Y-%m-%d %H:%M:%S")
-                        st.session_state["ssot_coverages"] = _parsed_result.get("coverages", [])
-                st.rerun()
-
-            # ── 파싱 결과 표시 및 자동 채우기 ───────────────────────
-            _parsed_covs = st.session_state.get("dis_parsed_coverages", [])
-            _parsed_errs = st.session_state.get("dis_parsed_errors", [])
-            _raw_debug   = st.session_state.get("dis_parsed_raw_debug", "")
-
-            # ── 🔬 AI raw 응답 디버그 (할루시네이션 추적용) ──
-            if _raw_debug:
-                with st.expander("🔬 [디버그] AI 원본 응답 — 할루시네이션 추적", expanded=False):
-                    st.code(_raw_debug, language="json")
-
-            if _parsed_errs:
-                for _pe in _parsed_errs:
-                    st.warning(f"⚠️ {_pe}")
-
-            if _parsed_covs:
-                st.markdown("""<div style="background:#1a7a2e;color:#fff;
-  border-radius:7px 7px 0 0;padding:4px 10px;font-size:0.79rem;font-weight:900;
-  margin-top:6px;">✅ 보험증권 파싱 결과 — 담보 자동 인식</div>""", unsafe_allow_html=True)
-
-                _dis_covs  = [c for c in _parsed_covs if c.get("category") == "disability"]
-                _ann_covs  = [c for c in _parsed_covs if c.get("category") == "disability_annuity"]
-                _other_covs= [c for c in _parsed_covs if c.get("category") not in ("disability","disability_annuity")]
-
-                # 담보 인식 결과 테이블 (HTML)
-                _tbl_rows = ""
-                for _cv in _parsed_covs:
-                    _conf_color = {"high":"#1a7a2e","medium":"#b8860b","low":"#c0392b"}.get(_cv.get("confidence",""),"#555")
-                    _amt = f'{int(_cv["amount"])//10000:,}만원' if _cv.get("amount") else "미확인"
-                    _ann = f'{int(_cv["annuity_monthly"])//10000:,}만원/월' if _cv.get("annuity_monthly") else "-"
-                    _sub_map = {"traffic":"🚗교통","general":"🏃일반","disease":"🏥질병"}
-                    _sub_label = _sub_map.get(_cv.get("subcategory",""), _cv.get("subcategory",""))
-                    # §5: 사망·80%이상 장해 항목 → red-alert-focus 클래스 (가이딩 프로토콜 제36조)
-                    _cv_cat  = _cv.get("category", "")
-                    _cv_thr  = _cv.get("threshold_min")
-                    _is_critical = (
-                        _cv_cat in ("death",)
-                        or "사망" in _cv.get("name","")
-                        or (_cv_cat == "disability" and _cv_thr is not None and float(_cv_thr) >= 80)
-                    )
-                    _raf_class = ' class="red-alert-focus"' if _is_critical else ''
-                    _name_cell = (
-                        f'<td style="padding:3px 6px;border:1px solid #ddd;font-size:0.77rem;">'
-                        f'<span{_raf_class}>{_cv.get("name","")}</span></td>'
-                    )
-                    _tbl_rows += (
-                        f'<tr><td style="padding:3px 6px;border:1px solid #ddd;">{_sub_label}</td>'
-                        f'{_name_cell}'
-                        f'<td style="padding:3px 6px;border:1px solid #ddd;text-align:right;">{_amt}</td>'
-                        f'<td style="padding:3px 6px;border:1px solid #ddd;text-align:right;">{_ann}</td>'
-                        f'<td style="padding:3px 6px;border:1px solid #ddd;color:{_conf_color};text-align:center;">{_cv.get("confidence","")}</td></tr>'
-                    )
-                components.html(f"""
-<div style="overflow-x:auto;max-height:220px;overflow-y:auto;font-family:'Noto Sans KR',sans-serif;font-size:0.79rem;">
-<table style="width:100%;border-collapse:collapse;background:#fff;">
-<tr style="background:#eff6ff;color:#1e40af;">
-  <th style="padding:4px 6px;border:1px solid #bfdbfe;">구분</th>
-  <th style="padding:4px 6px;border:1px solid #bfdbfe;">담보명</th>
-  <th style="padding:4px 6px;border:1px solid #bfdbfe;">가입금액</th>
-  <th style="padding:4px 6px;border:1px solid #bfdbfe;">연금/월</th>
-  <th style="padding:4px 6px;border:1px solid #bfdbfe;">확신도</th>
-</tr>
-{_tbl_rows}
-</table></div>""", height=240)
-
-                # ── 가입금액 자동 채우기 (장해율별 티어 매핑) ────────
-                _fill_map = {"3%": {"traffic":0,"general":0},
-                             "20%":{"traffic":0,"general":0},
-                             "50%":{"traffic":0,"general":0},
-                             "80%":{"traffic":0,"general":0}}
-                _fill_annuity = {"traffic":0,"general":0}
-
-                for _cv in _dis_covs:
-                    _thr = _cv.get("threshold_min")
-                    _amt_won = _cv.get("amount") or 0
-                    _amt_man = int(_amt_won) // 10000
-                    _sub = _cv.get("subcategory", "general")
-                    _side = "traffic" if _sub == "traffic" else "general"
-                    if _thr is not None:
-                        for _tk in ("3%","20%","50%","80%"):
-                            if abs(float(_thr) - float(_tk.rstrip("%"))) < 1.0:
-                                _fill_map[_tk][_side] += _amt_man
-                                break
-
-                for _cv in _ann_covs:
-                    _ann_won = _cv.get("annuity_monthly") or 0
-                    _ann_man = int(_ann_won) // 10000
-                    _sub = _cv.get("subcategory","general")
-                    _side = "traffic" if _sub == "traffic" else "general"
-                    _fill_annuity[_side] += _ann_man
-
-                _fill_keys = {
-                    "3%": ("dis_t_3","dis_g_3"),
-                    "20%":("dis_t_20","dis_g_20"),
-                    "50%":("dis_t_50","dis_g_50"),
-                    "80%":("dis_t_80","dis_g_80"),
-                }
-                for _lbl, (_kt, _kg) in _fill_keys.items():
-                    if _fill_map[_lbl]["traffic"] > 0:
-                        st.session_state[_kt] = _fill_map[_lbl]["traffic"]
-                    if _fill_map[_lbl]["general"] > 0:
-                        st.session_state[_kg] = _fill_map[_lbl]["general"]
-                if _fill_annuity["traffic"] > 0:
-                    st.session_state["dis_annuity_t"] = _fill_annuity["traffic"]
-                if _fill_annuity["general"] > 0:
-                    st.session_state["dis_annuity_g"] = _fill_annuity["general"]
-
-                if any(v > 0 for d in _fill_map.values() for v in d.values()):
-                    st.info("📥 담보 자동 파싱 완료 — 위 가입금액 박스에 자동 반영됐습니다. 수정 후 분석을 실행하세요.")
-                if _other_covs:
-                    st.caption(f"ℹ️ 장해 외 담보 {len(_other_covs)}건도 인식됨 (수술비·입원일당 등) — AI 분석에 포함됩니다.")
-
-        # ── AI 입력 ─────────────────────────────────────────────────
-        _pkd = "후유장해보험"
-        hi_d = 0
-        query_d = st.text_area("상담 내용 입력", height=100, key="query_disability",
-            placeholder="예: 남성 45세, 건설노동자, 요추 추간판탈출증 수술 후 척추 장해 15% 판정")
-        do_d = st.button("🔍 정밀 분석 실행", type="primary", key="btn_analyze_disability", use_container_width=True)
-        if do_d:
-            _n_years = max(0, (65 - dis_age))
-            _hoffman = round(_n_years / (1 + 0.05 * _n_years / 2), 2) if _n_years > 0 else 0
-            _ama_t   = round(dis_sum_traffic * dis_rate_traffic / 100 * (0.2 if "한시" in dis_type else 1.0), 1)
-            _ama_g   = round(dis_sum_general * dis_rate_general / 100 * (0.2 if "한시" in dis_type else 1.0), 1)
-            _mcb_est = round(dis_income * (dis_rate / 100) * (2 / 3) * _hoffman, 1)
-
-            _med_text = ""
             if dis_med_files:
-                for _mf in dis_med_files:
-                    if _mf.type == "application/pdf":
-                        _med_text += f"\n[의무기록: {_mf.name}]\n" + extract_pdf_chunks(_mf, char_limit=4000)
-                    else:
-                        _med_text += f"\n[의무기록 이미지: {_mf.name} — OCR 분석 요청]\n"
-
-            _pol_text = ""
+                st.success(f"✅ 의무기록 {len(dis_med_files)}개 파일 업로드 완료")
+                # ── [GP193 §2] 전역 인제스트 후크 — 업로드 즉시 GCS+RAG 동시 저장 ─
+                for _dmf in dis_med_files:
+                    _dmf_done_key = f"_gp193_done_dis_med_{_dmf.name}"
+                    if st.session_state.get(_dmf_done_key) != _dmf.size:
+                        try:
+                            from modules.scan_engine import global_ingest_hook as _gih
+                            _gih_p = _gp193_get_hook_params()
+                            with st.spinner(f"🌐 지능형 자산화 진행 중... ({_dmf.name})"):
+                                _gih_r = _gih(
+                                    file_bytes=_dmf.read(),
+                                    filename=_dmf.name,
+                                    source_tab="consult_dis_medical",
+                                    doc_type="의무기록",
+                                    session_state=st.session_state,
+                                    **_gih_p,
+                                )
+                                _dmf.seek(0)
+                            if _gih_r.get("success"):
+                                st.success(f"✅ 전역 지식 베이스 업데이트 완료 — {_dmf.name}")
+                            st.session_state[_dmf_done_key] = _dmf.size
+                        except Exception:
+                            pass
+                for _f in dis_med_files:
+                    if _f.type.startswith("image/"):
+                        st.image(_f, caption=_f.name, width=180)
+    
+            # ── 파일 업로드 — 개인보험증권 ──────────────────────────────
+            st.markdown("""<div style="background:#fff8f0;border:1px solid #f5d5a0;border-radius:7px 7px 0 0;
+      padding:5px 12px;font-size:0.80rem;font-weight:900;color:#7d3c00;margin-top:6px;">
+      📋 개인보험증권 파일 업로드 (담보 자동 인식)</div>""", unsafe_allow_html=True)
+            st.markdown("""<div style="background:#fff8f0;border:1px solid #f5d5a0;border-top:none;
+      border-radius:0 0 7px 7px;padding:5px 10px;font-size:0.76rem;color:#5a3000;margin-bottom:4px;">
+      • 상해후유장해(3%·20%·50%·80%) 및 장해연금 담보 자동 도출<br>
+      • 교통상해 담보 vs 일반상해 담보 구분 인식 후 각각 출력
+    </div>""", unsafe_allow_html=True)
+            dis_policy_files = st.file_uploader(
+                "보험증권 업로드 (PDF/JPG/PNG)",
+                type=["pdf","jpg","jpeg","png"],
+                accept_multiple_files=True,
+                key="dis_policy_files"
+            )
             if dis_policy_files:
-                for _pf in dis_policy_files:
-                    if _pf.type == "application/pdf":
-                        _pol_text += f"\n[보험증권: {_pf.name}]\n" + extract_pdf_chunks(_pf, char_limit=4000)
-                    else:
-                        _pol_text += f"\n[보험증권 이미지: {_pf.name} — OCR 분석 요청]\n"
-
-            _tier_summary = "\n".join([
-                f"  {lb}이상: 교통 {_sum_rows[lb][0]}만원 / 일반 {_sum_rows[lb][1]}만원"
-                for lb in ["3%","20%","50%","80%"]
-            ])
-            run_ai_analysis(c_name_d, query_d, hi_d, "res_disability",
-                product_key=_pkd,
-                extra_prompt=f"[장해보험금 산출 — {dis_sub}]\n"
-                f"성별: {dis_gender}, 나이: {dis_age}세, 월평균소득: {dis_income}만원\n"
-                f"교통상해 장해율: {dis_rate_traffic}%, 일반상해 장해율: {dis_rate_general}%, 장해유형: {dis_type}\n"
-                f"담보별 가입금액(교통/일반):\n{_tier_summary}\n"
-                f"장해연금: 교통 {dis_annuity_traffic}만원/월, 일반 {dis_annuity_general}만원/월\n"
-                f"호프만계수(65세 기준): {_hoffman}\n"
-                f"AMA 예상 보험금: 교통 {_ama_t}만원 / 일반 {_ama_g}만원\n"
-                f"맥브라이드 일실수익: {_mcb_est}만원\n"
-                f"{_med_text}\n{_pol_text}\n\n"
-                "## [의무기록 분석]\n"
-                "- 장해진단서인 경우: AMA방식 장해율 / 맥브라이드방식 운동장해율 구분 출력\n"
-                "- 일반의무기록인 경우: 사고원인, 장해진단 여부, 진단 병원명·의사명 인식 출력\n\n"
-                "## [보험증권 분석]\n"
-                "- 상해후유장해(3%·20%·50%·80%) 담보 도출\n"
-                "- 교통상해 담보 vs 일반상해 담보 구분하여 각각 가입금액 표로 출력\n"
-                "- 장해연금 담보(월 지급액) 별도 출력\n\n"
-                "## 필수 분석 항목 (순서대로 빠짐없이 답변)\n\n"
-                "### 1. 상해장해 보험금 정밀 산출\n"
-                "- AMA방식: 가입금액 × 장해지급률 = 예상 보험금 (영구/한시 구분)\n"
-                "- 요추압박골절 장해율 23% 기준 약관상 해당 지급률 확인\n"
-                "  (척추 장해: 운동장해 + 기형장해 합산 방식 설명)\n"
-                "- 상해후유장해 vs 질병후유장해 구분 및 지급 조건 차이\n"
-                "- 3%이상 장해담보 2억 가입 시 실제 지급 예상액 계산\n\n"
-                "### 2. 입원일당 보험금 산출\n"
-                "- 3개월(90일) 입원 기준 일당 보험금 총액 계산\n"
-                "- 상해입원일당 vs 질병입원일당 구분 — 요추압박골절은 상해 해당 여부\n"
-                "- 입원일당 지급 한도일수 확인 (180일·365일·무제한 구분)\n"
-                "- 중복 지급 가능 여부 (실손+일당 동시 청구)\n\n"
-                "### 3. 수술비 보험금 산출\n"
-                "- 요추압박골절 수술 종류별 해당 담보 확인\n"
-                "  (척추성형술·추체성형술·척추고정술·골절정복술)\n"
-                "- 수술 1회당 지급액 및 동일 상해 재수술 시 중복 지급 여부\n"
-                "- 비급여 수술비 실손 청구 가능 범위\n\n"
-                "### 4. 간병인 담보 정확한 구분 및 보험금 산출\n"
-                "- **[중요] 간병인사용일당 vs 간병인지원서비스 반드시 구분하여 답변**\n\n"
-                "  ▶ 간병인사용일당 (정액 지급형)\n"
-                "  - 정의: 입원 중 실제 간병인을 고용한 날에 대해 약정 일당 지급\n"
-                "  - 지급 요건: ① 입원 중 ② 간병인 실제 사용 ③ 간병인사용확인서 제출\n"
-                "  - 필수 청구서류:\n"
-                "    · 간병인사용확인서 (병원 간호사실 또는 간병인 소속 업체 발급)\n"
-                "    · 간병인 고용 영수증 또는 간병비 지급 확인서\n"
-                "    · 입원확인서 (입퇴원일 명시)\n"
-                "    · 진단서 (상병명·입원 사유 포함)\n"
-                "  - 주의: 가족이 직접 간병한 경우 → 간병인사용일당 **지급 불가**\n"
-                "    (가족 간병은 간병인 '고용' 아님 — 대부분 약관상 지급 제외)\n"
-                "  - 영수증 없이 청구: **불가** — 간병인 고용 증빙 필수\n\n"
-                "  ▶ 간병인지원서비스 (서비스형)\n"
-                "  - 정의: 보험사가 직접 간병인을 파견해주는 서비스 (현금 지급 아님)\n"
-                "  - 지급 요건: 보험사 고객센터에 서비스 신청 → 보험사가 간병인 파견\n"
-                "  - 현금 청구 불가 — 서비스 이용 후 현금으로 전환 요청 불가\n"
-                "  - 미사용 시 소멸 (현금 환급 없음)\n\n"
-                "- 3개월(90일) 입원 기준 간병인사용일당 총액 계산 (가입 일당 × 90일)\n"
-                "- 보험사별 지급 한도일수 확인 (30일·60일·180일·365일 구분)\n\n"
-                "### 5. 전체 청구 가능 보험금 합산표\n"
-                "- 항목별 예상 보험금을 표 형식으로 정리:\n"
-                "  | 담보명 | 가입금액 | 지급 조건 | 예상 지급액 |\n"
-                "  (상해장해 / 입원일당 / 수술비 / 간병인일당 각각)\n"
-                "- 합산 총 예상 보험금\n\n"
-                "### 6. 청구 실무 전략\n"
-                "- 필요 서류 목록 (진단서·수술확인서·입원확인서·간병인사용확인서)\n"
-                "- 장해진단서 발급 시점 (퇴원 후 6개월~1년 후 재진단 권고 이유)\n"
-                "- 보험사 장해심사 이의신청 방법 및 독립 손해사정 의뢰 기준\n"
-                "- 50대 여성 골다공증 기왕증 감액 주장 시 대응 전략\n"
-                "⚠️ 본 산출은 참고용이며 최종 보험금은 보험사 심사 및 법원 판결에 따릅니다.")
-    with col2:
-        st.subheader("📋 장해보험 참고사항")
-
-        # ── DisabilityLogic 산출 결과 표 ─────────────────────────────
-        st.markdown("""<div style="background:#3B82F6;color:#fff;
-  border-radius:8px 8px 0 0;padding:5px 12px;font-size:0.82rem;font-weight:900;
-  margin-bottom:0;">⚡ 예상 보험금 자동 산출 (확정적 계산 엔진)</div>""", unsafe_allow_html=True)
-
-        _dtype_mult = 0.2 if "한시" in dis_type else 1.0
-        _tiers_calc = [
-            ("3%",  dis_rate_traffic, dis_rate_general,
-             st.session_state.get("dis_t_3", 0),
-             st.session_state.get("dis_g_3", 0)),
-            ("20%", dis_rate_traffic, dis_rate_general,
-             st.session_state.get("dis_t_20", 0),
-             st.session_state.get("dis_g_20", 0)),
-            ("50%", dis_rate_traffic, dis_rate_general,
-             st.session_state.get("dis_t_50", 0),
-             st.session_state.get("dis_g_50", 0)),
-            ("80%", dis_rate_traffic, dis_rate_general,
-             st.session_state.get("dis_t_80", 0),
-             st.session_state.get("dis_g_80", 0)),
-        ]
-        _calc_rows = ""
-        _total_t = 0
-        _total_g = 0
-        for _lbl, _rt, _rg, _amt_t, _amt_g in _tiers_calc:
-            _thr = float(_lbl.rstrip("%"))
-            _pay_t = DisabilityLogic.benefit_by_tier(int(_amt_t) * 10000, _rt, dis_type)[_lbl] if _amt_t > 0 else None
-            _pay_g = DisabilityLogic.benefit_by_tier(int(_amt_g) * 10000, _rg, dis_type)[_lbl] if _amt_g > 0 else None
-            _pt_str = f"{_pay_t//10000:,}만원" if _pay_t is not None else "⛔ 미충족"
-            _pg_str = f"{_pay_g//10000:,}만원" if _pay_g is not None else "⛔ 미충족"
-            _row_bg = "#f0fff4" if (_pay_t or _pay_g) else "#f9f9f9"
-            _calc_rows += (
-                f'<tr style="background:{_row_bg};">'
-                f'<td style="padding:4px 6px;border:1px solid #c8d8ec;font-weight:700;">{_lbl} 이상</td>'
-                f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;">{_amt_t:,}만원</td>'
-                f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;color:{"#1a7a2e" if _pay_t else "#c0392b"};">{_pt_str}</td>'
-                f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;">{_amt_g:,}만원</td>'
-                f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;color:{"#1a7a2e" if _pay_g else "#c0392b"};">{_pg_str}</td>'
-                f'</tr>'
-            )
-            if _pay_t: _total_t += _pay_t
-            if _pay_g: _total_g += _pay_g
-
-        _ann_t_val = st.session_state.get("dis_annuity_t", 0)
-        _ann_g_val = st.session_state.get("dis_annuity_g", 0)
-        _ann_row = ""
-        if _ann_t_val > 0 or _ann_g_val > 0:
-            _ann_row = (
-                f'<tr style="background:#fff8f0;">'
-                f'<td style="padding:4px 6px;border:1px solid #c8d8ec;font-weight:700;">장해연금</td>'
-                f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;">-</td>'
-                f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;color:#7d3c00;">{_ann_t_val:,}만/월</td>'
-                f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;">-</td>'
-                f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;color:#7d3c00;">{_ann_g_val:,}만/월</td>'
-                f'</tr>'
-            )
-
-        _n_years_c = max(0, (65 - dis_age))
-        _hoffman_c = round(_n_years_c / (1 + 0.05 * _n_years_c / 2), 2) if _n_years_c > 0 else 0
-        _mcb_t = round(dis_income * (dis_rate_traffic / 100) * (2/3) * _hoffman_c, 1)
-        _mcb_g = round(dis_income * (dis_rate_general / 100) * (2/3) * _hoffman_c, 1)
-
-        components.html(f"""
-<div style="font-family:'Noto Sans KR',sans-serif;font-size:0.80rem;">
-<table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
-<tr style="background:#eff6ff;color:#1e40af;">
-  <th style="padding:4px 6px;border:1px solid #bfdbfe;">담보</th>
-  <th style="padding:4px 6px;border:1px solid #bfdbfe;">교통가입</th>
-  <th style="padding:4px 6px;border:1px solid #bfdbfe;">교통지급</th>
-  <th style="padding:4px 6px;border:1px solid #bfdbfe;">일반가입</th>
-  <th style="padding:4px 6px;border:1px solid #bfdbfe;">일반지급</th>
-</tr>
-{_calc_rows}{_ann_row}
-<tr style="background:#eff6ff;color:#1e40af;font-weight:900;">
-  <td style="padding:4px 6px;border:1px solid #bfdbfe;">합계</td>
-  <td colspan="2" style="padding:4px 6px;border:1px solid #bfdbfe;text-align:right;">교통: {_total_t//10000:,}만원</td>
-  <td colspan="2" style="padding:4px 6px;border:1px solid #bfdbfe;text-align:right;">일반: {_total_g//10000:,}만원</td>
-</tr>
-</table>
-<div style="background:#fff8f0;border:1px solid #f5a623;border-radius:5px;padding:5px 10px;font-size:0.77rem;color:#5a3000;">
-  <b>맥브라이드 일실수익</b> (호프만계수 {_hoffman_c})<br>
-  교통상해 {_mcb_t:,.1f}만원 &nbsp;|&nbsp; 일반상해 {_mcb_g:,.1f}만원<br>
-  <span style="font-size:0.72rem;color:#888;">장해유형: {dis_type} {"(한시 20% 적용)" if "한시" in dis_type else "(영구 100%)"}</span>
-</div>
-</div>""", height=310)
-
-        show_result("res_disability")
-
-        components.html("""
-<div style="height:340px;overflow-y:auto;padding:12px 15px;
-  background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
-  font-size:0.83rem;line-height:1.5;
-  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
-<b style="font-size:0.85rem;color:#1a3a5c;">🩺 장해보험금 산출 안내</b><br><br>
-<b style="color:#c0392b;">▶ AMA방식 (개인보험)</b><br>
-• 보험가입금액 × 장해지급률(%) = 예상 보험금<br>
-• 한시장해(5년 이상): 해당 지급률의 <b>20%만 인정</b><br>
-• 영구장해: 전액 지급률 적용<br><br>
-<b style="color:#c0392b;">▶ 맥브라이드방식 (배상책임·손해배상)</b><br>
-• 월평균소득 × 장해율(%) × (1-생활비율1/3) × 호프만계수<br>
-• 가동연한(65세)까지 잔여 기간 적용<br><br>
-<b style="color:#c0392b;">▶ 호프만 vs 라이프니쯔 비교</b><br>
-• <b>호프만(단리)</b>: 법원·표준약관 기준 — 피해자에게 유리<br>
-• <b>라이프니쯔(복리)</b>: 구 보험사 방식 — 보상금 상대적으로 적음<br>
-• 2023.1.1 이후 사고: 표준약관상 호프만 의무 적용<br>
-• 동일 장해율에서 약 <b>15~20% 차이</b> 발생<br><br>
-<b style="color:#c0392b;">▶ 기본 준비서류</b><br>
-• 성별·직업·직전 3개월 평균소득<br>
-• 나이·장해부위(한시/영구)<br>
-• 의사 장해진단서 (필수)<br><br>
-<b style="color:#555;font-size:0.78rem;">⚠️ 본 산출은 참고용이며 최종 보험금은 보험사 심사 및 법원 판결에 따릅니다.</b>
-</div>""", height=360)
-        st.markdown("##### 🔬 전문의 수준 의무기록 분석 가이드")
-        components.html("""
-<div style="height:480px;overflow-y:auto;padding:14px 16px;
-  background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
-  font-size:0.83rem;line-height:1.55;
-  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
-<b style="font-size:0.88rem;color:#1a3a5c;">🔬 의무기록 판독 핵심 포인트</b><br><br>
-<b style="color:#c0392b;">▶ 진단서 (Diagnosis Certificate)</b><br>
-• <b>상병명(ICD코드)</b>: 주상병·부상병 구분 확인 — 보험 약관상 보장 여부 직결<br>
-• <b>발병일 vs 진단일</b>: 보험 가입일 이전 발병 여부 → 기왕증 분쟁 핵심<br>
-• <b>인과관계</b>: 사고·질병과 현재 상태의 의학적 연관성 기재 여부<br>
-• <b>치료 기간</b>: 입원·통원 기간 명시 → 입원일당·통원일당 청구 근거<br><br>
-<b style="color:#c0392b;">▶ 장해진단서 (Disability Certificate)</b><br>
-• <b>장해 부위 및 정도</b>: AMA 기준 vs 맥브라이드 기준 구분 확인<br>
-• <b>영구장해 vs 한시장해</b>: 한시장해는 AMA방식 지급률의 20%만 인정<br>
-• <b>장해지급률</b>: 보험사 자체 산정 vs 의사 소견 차이 → 분쟁 주요 원인<br>
-• <b>기왕증 기여도</b>: 기존 질환 기여도 % 기재 → 보험금 감액 근거로 활용됨<br>
-• <b>확인 포인트</b>: 전문의(해당과) 발급 여부, 병원 직인·의사 면허번호 확인<br><br>
-<b style="color:#c0392b;">▶ 수술기록지 (Operative Record)</b><br>
-• <b>수술명</b>: 약관상 수술 해당 여부 확인 (단순 처치 vs 수술 구분)<br>
-• <b>마취 방법</b>: 전신마취·척추마취·국소마취 → 수술비 지급 기준 상이<br>
-• <b>수술 부위·범위</b>: 다발성 수술 시 각 부위별 청구 가능 여부 검토<br>
-• <b>집도의 전문과목</b>: 해당 수술의 적정성 판단 기준<br><br>
-<b style="color:#c0392b;">▶ 영상검사 (MRI·CT·X-ray)</b><br>
-• <b>판독 소견서</b>: 영상 자체보다 <b>판독 소견서</b>가 보험 청구 핵심 서류<br>
-• <b>추간판탈출증(디스크)</b>: 탈출 레벨·압박 정도 → 장해율 산정 기준<br>
-• <b>골절</b>: 골절선 위치·분쇄 여부 → 5대 골절 해당 시 추가 보험금<br>
-• <b>뇌·심장</b>: 뇌경색 범위·심근경색 부위 → 진단비 지급 기준<br><br>
-<b style="color:#c0392b;">▶ 입·퇴원 확인서 (Admission/Discharge Summary)</b><br>
-• <b>입원 사유</b>: 치료 목적 입원 vs 요양 목적 → 실손보험 지급 기준 상이<br>
-• <b>주치의 소견</b>: 퇴원 후 치료 계획 → 향후 치료비 청구 근거<br>
-• <b>입원 기간</b>: 연속 입원 vs 분리 입원 → 입원일당 산정 방식 차이<br><br>
-<b style="color:#c0392b;">▶ 보험사 분쟁 대응 전략</b><br>
-• <b>보험사 장해율 < 의사 소견</b>: 독립 손해사정사 선임 권장<br>
-• <b>기왕증 기여도 과다 적용</b>: 의무기록 재검토 + 전문의 소견서 추가 확보<br>
-• <b>약관 해석 분쟁</b>: 금융감독원 분쟁조정위원회 신청 (무료)<br>
-• <b>소멸시효</b>: 보험금 청구권 <b>3년</b> (상법 제662조) — 기산점 주의<br><br>
-<b style="color:#8e44ad;">▶ 주요 ICD-10 코드 (보험 청구 빈출)</b><br>
-• <b>M51</b>: 추간판 장애 (디스크) &nbsp;• <b>S72</b>: 대퇴골 골절<br>
-• <b>I63</b>: 뇌경색 &nbsp;• <b>I21</b>: 급성 심근경색<br>
-• <b>C00-C97</b>: 악성신생물(암) &nbsp;• <b>G35</b>: 다발성 경화증<br>
-• <b>F00-F03</b>: 치매 &nbsp;• <b>G20</b>: 파킨슨병<br>
-<b style="color:#555;font-size:0.78rem;">⚠️ 의무기록 해석은 전문의·손해사정사와 반드시 확인하십시오.</b>
-</div>
-""", height=498)
-
-        st.markdown("""<div style="background:#f0f4ff;border:1.5px solid #2e6da4;
-  border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
-  font-weight:900;color:#1a3a5c;">📊 후유장해 보험금 산출 기준 — 실무 질문표</div>""", unsafe_allow_html=True)
-        components.html("""
-<div style="height:480px;overflow-y:auto;padding:12px 15px;
-  background:#f8fafc;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
-  font-size:0.82rem;line-height:1.6;
-  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
-
-<b style="font-size:0.87rem;color:#1a3a5c;">1. 직전 3개월 소실소득 평균 산정 방식 기준</b><br><br>
-
-<b style="color:#2e6da4;">① 급여소득자 산정 원칙</b><br>
-평균 월소득 = <b>(직전 3개월간 급여총액 ÷ 3) + (직전 1년간 정기상여금 ÷ 12)</b><br>
-• 본봉·수당: 사고 전 3개월 지급된 기본급 및 통상 수당 포함<br>
-• 상여금·성과급: 전 1년 지급 총액 ÷ 12 (직전 3개월치만 합산 아님에 주의)<br>
-• 제외 항목: 출장비·식대 등 실비변상적 급여, 일시적·은혜적 급여<br><br>
-
-<b style="color:#2e6da4;">② 세부 상황별 계산</b><br>
-<b>소득 변동 있는 경우</b><br>
-• 사고 직전 소득 인상 — 단체협약·객관적 통계 등 확정 시 인상 소득 기준<br>
-• 일시적 초과근무로 급등 시 → 평균화 과정 조정 적용<br><br>
-<b>소득 증빙 어려운 경우</b><br>
-• 세무서 신고 소득 &lt; 실제 소득 → 급여대장·통장 입금내역 증명 시 실급여 인정<br>
-• 자료 없을 때: <b>고용노동부 '임금실태통계조사보고서'</b> 상 유사통계소득 적용<br><br>
-<b>일용근로자·무직</b><br>
-• 대한건설협회·중소기업중앙회 발표 <b>시중노임단가 × 월 22일</b> 기준 산정<br><br>
-
-<b style="font-size:0.87rem;color:#1a3a5c;">2. 후유장해 보험금 산출 및 담보별 적용 방식</b><br><br>
-
-<b style="color:#2e6da4;">① 상해후유장해 vs 교통상해 후유장해</b><br>
-• <b>상해후유장해</b>: 급격·우연·외래의 사고(일상 포함 모든 상해) → 영구 훼손 보상<br>
-• <b>교통상해 후유장해</b>: 약관상 교통사고 범위(운행 중 차량 탑승·충돌·접촉 등) 충족 필수<br>
-• 교통사고는 두 담보 요건 동시 충족 → <b>정액보상 원칙(상법 제727조)에 따라 합산 중복 수령 가능</b><br><br>
-
-<b style="color:#2e6da4;">② 담보별(3%·20%·50%·80%) 산출 방식</b><br>
-<table style="width:100%;border-collapse:collapse;font-size:0.79rem;margin-bottom:8px;">
-<tr style="background:#dce8f8;"><th style="border:1px solid #b3c8e8;padding:3px 6px;">담보</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">지급 조건</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">특징</th></tr>
-<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">3% 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">3% ≤ 장해율 &lt; 100%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">가장 포괄적 — 경미한 장해부터 합산 지급</td></tr>
-<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">20% 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">20% ≤ 장해율 &lt; 100%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">합산 또는 단일 장해 20% 초과 시 지급 개시</td></tr>
-<tr><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">50% 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">50% ≤ 장해율 &lt; 100%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">중등도 이상 장해 (소득보상형 담보 多)</td></tr>
-<tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;color:#c0392b;">80% 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">80% ≤ 장해율</td><td style="border:1px solid #c8d8ec;padding:3px 6px;"><b>고도후유장해</b> — 식물인간·극심한 마비 등</td></tr>
-</table>
-[예시] 가입금액 1억, 장해율 20% 판정 시:<br>
-• 3% 이상 담보: 1억 × 20% = <b>2,000만원 지급</b><br>
-• 50% 이상 담보만 보유 시: <b>0원 (조건 미달)</b><br><br>
-
-<b style="font-size:0.87rem;color:#1a3a5c;">3. 인체 13개 부위 분류 (표준약관 장해분류표)</b><br><br>
-눈 / 귀 / 코 / 씹어먹거나 말하는 장해 / 외모 / 척추(등뼈) / 체간골 / 팔 / 다리 / 손가락 / 발가락 / 흉·복부 장기 및 비뇨생식기 / 신경계·정신행동<br><br>
-
-<b style="font-size:0.87rem;color:#1a3a5c;">4. 장해율 합산 원칙 (표준약관 장해분류표 총칙)</b><br><br>
-<b style="color:#2e6da4;">① 원칙: 부위별 합산 (다중장해)</b><br>
-서로 다른 부위(13개 중 2개 이상) 장해 → 각 장해지급률 <b>단순 합산</b><br>
-예) 척추 15% + 다리 10% = <b>최종 25%</b><br><br>
-<b style="color:#2e6da4;">② 예외: 동일 부위 내 여러 장해 → 최고 지급률만 적용</b><br>
-예) 같은 '팔' 부위 어깨관절 10% + 팔목관절 5% = <b>10%만 인정</b><br>
-단, 손가락·발가락은 약관상 각각 합산 허용 (별도 규정)<br><br>
-<b style="color:#2e6da4;">③ 지급 한도: 동일 사고 장해 합계 최대 100% 초과 불가</b><br><br>
-<b style="color:#c0392b;">⚠️ 실무 주의</b>: '팔'과 '손가락'은 별도 부위 → 각각 합산 적용<br>
-근거: 상법 제727조, 보험업법, 표준약관 [별표] 장해분류표 제1항<br>
-금감원 2018년 장해분류표 개정 — 부위별 정의 명확화
-</div>
-""", height=500)
+                st.success(f"✅ 보험증권 {len(dis_policy_files)}개 파일 업로드 완료")
+                # ── [GP193 §2] 전역 인제스트 후크 — 업로드 즉시 GCS+RAG 동시 저장 ─
+                for _dpf in dis_policy_files:
+                    _dpf_done_key = f"_gp193_done_dis_pol_{_dpf.name}"
+                    if st.session_state.get(_dpf_done_key) != _dpf.size:
+                        try:
+                            from modules.scan_engine import global_ingest_hook as _gih
+                            _gih_p = _gp193_get_hook_params()
+                            with st.spinner(f"🌐 지능형 자산화 진행 중... ({_dpf.name})"):
+                                _gih_r = _gih(
+                                    file_bytes=_dpf.read(),
+                                    filename=_dpf.name,
+                                    source_tab="consult_dis_policy",
+                                    doc_type="보험증권",
+                                    session_state=st.session_state,
+                                    **_gih_p,
+                                )
+                                _dpf.seek(0)
+                            if _gih_r.get("success"):
+                                st.success(f"✅ 전역 지식 베이스 업데이트 완료 — {_dpf.name}")
+                            st.session_state[_dpf_done_key] = _dpf.size
+                        except Exception:
+                            pass
+                for _f in dis_policy_files:
+                    if _f.type.startswith("image/"):
+                        st.image(_f, caption=_f.name, width=180)
+    
+                _do_parse = st.button("🤖 담보 자동 파싱 (증권 인식)", key="btn_parse_policy",
+                                      use_container_width=True, type="secondary")
+                if _do_parse:
+                    with st.spinner("보험증권 담보 인식 중..."):
+                        _parsed_result = parse_policy_with_vision(dis_policy_files)
+                        st.session_state["dis_parsed_coverages"] = _parsed_result.get("coverages", [])
+                        st.session_state["dis_parsed_errors"]    = _parsed_result.get("errors", [])
+                        st.session_state["dis_parsed_raw_debug"] = _parsed_result.get("_raw_ai_response", "")
+                        # ── policy_info를 scan_hub SSOT에도 동기화 (약관 크롤링 자동 반영) ──
+                        _dis_pi = _parsed_result.get("policy_info") or {}
+                        if _dis_pi:
+                            st.session_state["ssot_policy_info"] = _dis_pi
+                            if _dis_pi.get("insured_name"):
+                                st.session_state["ssot_client_name"] = _dis_pi["insured_name"]
+                            # ssot_scan_data에도 policy 타입으로 추가 (약관 추적 fallback 대비)
+                            _dis_texts = []
+                            for _df in dis_policy_files:
+                                try:
+                                    _dis_txt = extract_pdf_chunks(_df, char_limit=6000) if _df.type == "application/pdf" else f"[이미지: {_df.name}]"
+                                except Exception:
+                                    _dis_txt = f"[{_df.name}]"
+                                _dis_texts.append({"file": _df.name, "type": "policy", "text": _dis_txt,
+                                                   "ts": dt.now().strftime("%Y-%m-%d %H:%M:%S")})
+                            _prev_ssot = st.session_state.get("ssot_scan_data", [])
+                            _prev_ssot = [d for d in _prev_ssot if d.get("type") != "policy"]
+                            _prev_ssot.extend(_dis_texts)
+                            st.session_state["ssot_scan_data"] = _prev_ssot
+                            st.session_state["ssot_scan_type"] = "policy"
+                            st.session_state["ssot_scan_ts"]   = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+                            st.session_state["ssot_coverages"] = _parsed_result.get("coverages", [])
+                    st.rerun()
+    
+                # ── 파싱 결과 표시 및 자동 채우기 ───────────────────────
+                _parsed_covs = st.session_state.get("dis_parsed_coverages", [])
+                _parsed_errs = st.session_state.get("dis_parsed_errors", [])
+                _raw_debug   = st.session_state.get("dis_parsed_raw_debug", "")
+    
+                # ── 🔬 AI raw 응답 디버그 (할루시네이션 추적용) ──
+                if _raw_debug:
+                    with st.expander("🔬 [디버그] AI 원본 응답 — 할루시네이션 추적", expanded=False):
+                        st.code(_raw_debug, language="json")
+    
+                if _parsed_errs:
+                    for _pe in _parsed_errs:
+                        st.warning(f"⚠️ {_pe}")
+    
+                if _parsed_covs:
+                    st.markdown("""<div style="background:#1a7a2e;color:#fff;
+      border-radius:7px 7px 0 0;padding:4px 10px;font-size:0.79rem;font-weight:900;
+      margin-top:6px;">✅ 보험증권 파싱 결과 — 담보 자동 인식</div>""", unsafe_allow_html=True)
+    
+                    _dis_covs  = [c for c in _parsed_covs if c.get("category") == "disability"]
+                    _ann_covs  = [c for c in _parsed_covs if c.get("category") == "disability_annuity"]
+                    _other_covs= [c for c in _parsed_covs if c.get("category") not in ("disability","disability_annuity")]
+    
+                    # 담보 인식 결과 테이블 (HTML)
+                    _tbl_rows = ""
+                    for _cv in _parsed_covs:
+                        _conf_color = {"high":"#1a7a2e","medium":"#b8860b","low":"#c0392b"}.get(_cv.get("confidence",""),"#555")
+                        _amt = f'{int(_cv["amount"])//10000:,}만원' if _cv.get("amount") else "미확인"
+                        _ann = f'{int(_cv["annuity_monthly"])//10000:,}만원/월' if _cv.get("annuity_monthly") else "-"
+                        _sub_map = {"traffic":"🚗교통","general":"🏃일반","disease":"🏥질병"}
+                        _sub_label = _sub_map.get(_cv.get("subcategory",""), _cv.get("subcategory",""))
+                        # §5: 사망·80%이상 장해 항목 → red-alert-focus 클래스 (가이딩 프로토콜 제36조)
+                        _cv_cat  = _cv.get("category", "")
+                        _cv_thr  = _cv.get("threshold_min")
+                        _is_critical = (
+                            _cv_cat in ("death",)
+                            or "사망" in _cv.get("name","")
+                            or (_cv_cat == "disability" and _cv_thr is not None and float(_cv_thr) >= 80)
+                        )
+                        _raf_class = ' class="red-alert-focus"' if _is_critical else ''
+                        _name_cell = (
+                            f'<td style="padding:3px 6px;border:1px solid #ddd;font-size:0.77rem;">'
+                            f'<span{_raf_class}>{_cv.get("name","")}</span></td>'
+                        )
+                        _tbl_rows += (
+                            f'<tr><td style="padding:3px 6px;border:1px solid #ddd;">{_sub_label}</td>'
+                            f'{_name_cell}'
+                            f'<td style="padding:3px 6px;border:1px solid #ddd;text-align:right;">{_amt}</td>'
+                            f'<td style="padding:3px 6px;border:1px solid #ddd;text-align:right;">{_ann}</td>'
+                            f'<td style="padding:3px 6px;border:1px solid #ddd;color:{_conf_color};text-align:center;">{_cv.get("confidence","")}</td></tr>'
+                        )
+                    components.html(f"""
+    <div style="overflow-x:auto;max-height:220px;overflow-y:auto;font-family:'Noto Sans KR',sans-serif;font-size:0.79rem;">
+    <table style="width:100%;border-collapse:collapse;background:#fff;">
+    <tr style="background:#eff6ff;color:#1e40af;">
+      <th style="padding:4px 6px;border:1px solid #bfdbfe;">구분</th>
+      <th style="padding:4px 6px;border:1px solid #bfdbfe;">담보명</th>
+      <th style="padding:4px 6px;border:1px solid #bfdbfe;">가입금액</th>
+      <th style="padding:4px 6px;border:1px solid #bfdbfe;">연금/월</th>
+      <th style="padding:4px 6px;border:1px solid #bfdbfe;">확신도</th>
+    </tr>
+    {_tbl_rows}
+    </table></div>""", height=240)
+    
+                    # ── 가입금액 자동 채우기 (장해율별 티어 매핑) ────────
+                    _fill_map = {"3%": {"traffic":0,"general":0},
+                                 "20%":{"traffic":0,"general":0},
+                                 "50%":{"traffic":0,"general":0},
+                                 "80%":{"traffic":0,"general":0}}
+                    _fill_annuity = {"traffic":0,"general":0}
+    
+                    for _cv in _dis_covs:
+                        _thr = _cv.get("threshold_min")
+                        _amt_won = _cv.get("amount") or 0
+                        _amt_man = int(_amt_won) // 10000
+                        _sub = _cv.get("subcategory", "general")
+                        _side = "traffic" if _sub == "traffic" else "general"
+                        if _thr is not None:
+                            for _tk in ("3%","20%","50%","80%"):
+                                if abs(float(_thr) - float(_tk.rstrip("%"))) < 1.0:
+                                    _fill_map[_tk][_side] += _amt_man
+                                    break
+    
+                    for _cv in _ann_covs:
+                        _ann_won = _cv.get("annuity_monthly") or 0
+                        _ann_man = int(_ann_won) // 10000
+                        _sub = _cv.get("subcategory","general")
+                        _side = "traffic" if _sub == "traffic" else "general"
+                        _fill_annuity[_side] += _ann_man
+    
+                    _fill_keys = {
+                        "3%": ("dis_t_3","dis_g_3"),
+                        "20%":("dis_t_20","dis_g_20"),
+                        "50%":("dis_t_50","dis_g_50"),
+                        "80%":("dis_t_80","dis_g_80"),
+                    }
+                    for _lbl, (_kt, _kg) in _fill_keys.items():
+                        if _fill_map[_lbl]["traffic"] > 0:
+                            st.session_state[_kt] = _fill_map[_lbl]["traffic"]
+                        if _fill_map[_lbl]["general"] > 0:
+                            st.session_state[_kg] = _fill_map[_lbl]["general"]
+                    if _fill_annuity["traffic"] > 0:
+                        st.session_state["dis_annuity_t"] = _fill_annuity["traffic"]
+                    if _fill_annuity["general"] > 0:
+                        st.session_state["dis_annuity_g"] = _fill_annuity["general"]
+    
+                    if any(v > 0 for d in _fill_map.values() for v in d.values()):
+                        st.info("📥 담보 자동 파싱 완료 — 위 가입금액 박스에 자동 반영됐습니다. 수정 후 분석을 실행하세요.")
+                    if _other_covs:
+                        st.caption(f"ℹ️ 장해 외 담보 {len(_other_covs)}건도 인식됨 (수술비·입원일당 등) — AI 분석에 포함됩니다.")
+    
+            # ── AI 입력 ─────────────────────────────────────────────────
+            _pkd = "후유장해보험"
+            hi_d = 0
+            query_d = st.text_area("상담 내용 입력", height=100, key="query_disability",
+                placeholder="예: 남성 45세, 건설노동자, 요추 추간판탈출증 수술 후 척추 장해 15% 판정")
+            do_d = st.button("🔍 정밀 분석 실행", type="primary", key="btn_analyze_disability", use_container_width=True)
+            if do_d:
+                _n_years = max(0, (65 - dis_age))
+                _hoffman = round(_n_years / (1 + 0.05 * _n_years / 2), 2) if _n_years > 0 else 0
+                _ama_t   = round(dis_sum_traffic * dis_rate_traffic / 100 * (0.2 if "한시" in dis_type else 1.0), 1)
+                _ama_g   = round(dis_sum_general * dis_rate_general / 100 * (0.2 if "한시" in dis_type else 1.0), 1)
+                _mcb_est = round(dis_income * (dis_rate / 100) * (2 / 3) * _hoffman, 1)
+    
+                _med_text = ""
+                if dis_med_files:
+                    for _mf in dis_med_files:
+                        if _mf.type == "application/pdf":
+                            _med_text += f"\n[의무기록: {_mf.name}]\n" + extract_pdf_chunks(_mf, char_limit=4000)
+                        else:
+                            _med_text += f"\n[의무기록 이미지: {_mf.name} — OCR 분석 요청]\n"
+    
+                _pol_text = ""
+                if dis_policy_files:
+                    for _pf in dis_policy_files:
+                        if _pf.type == "application/pdf":
+                            _pol_text += f"\n[보험증권: {_pf.name}]\n" + extract_pdf_chunks(_pf, char_limit=4000)
+                        else:
+                            _pol_text += f"\n[보험증권 이미지: {_pf.name} — OCR 분석 요청]\n"
+    
+                _tier_summary = "\n".join([
+                    f"  {lb}이상: 교통 {_sum_rows[lb][0]}만원 / 일반 {_sum_rows[lb][1]}만원"
+                    for lb in ["3%","20%","50%","80%"]
+                ])
+                run_ai_analysis(c_name_d, query_d, hi_d, "res_disability",
+                    product_key=_pkd,
+                    extra_prompt=f"[장해보험금 산출 — {dis_sub}]\n"
+                    f"성별: {dis_gender}, 나이: {dis_age}세, 월평균소득: {dis_income}만원\n"
+                    f"교통상해 장해율: {dis_rate_traffic}%, 일반상해 장해율: {dis_rate_general}%, 장해유형: {dis_type}\n"
+                    f"담보별 가입금액(교통/일반):\n{_tier_summary}\n"
+                    f"장해연금: 교통 {dis_annuity_traffic}만원/월, 일반 {dis_annuity_general}만원/월\n"
+                    f"호프만계수(65세 기준): {_hoffman}\n"
+                    f"AMA 예상 보험금: 교통 {_ama_t}만원 / 일반 {_ama_g}만원\n"
+                    f"맥브라이드 일실수익: {_mcb_est}만원\n"
+                    f"{_med_text}\n{_pol_text}\n\n"
+                    "## [의무기록 분석]\n"
+                    "- 장해진단서인 경우: AMA방식 장해율 / 맥브라이드방식 운동장해율 구분 출력\n"
+                    "- 일반의무기록인 경우: 사고원인, 장해진단 여부, 진단 병원명·의사명 인식 출력\n\n"
+                    "## [보험증권 분석]\n"
+                    "- 상해후유장해(3%·20%·50%·80%) 담보 도출\n"
+                    "- 교통상해 담보 vs 일반상해 담보 구분하여 각각 가입금액 표로 출력\n"
+                    "- 장해연금 담보(월 지급액) 별도 출력\n\n"
+                    "## 필수 분석 항목 (순서대로 빠짐없이 답변)\n\n"
+                    "### 1. 상해장해 보험금 정밀 산출\n"
+                    "- AMA방식: 가입금액 × 장해지급률 = 예상 보험금 (영구/한시 구분)\n"
+                    "- 요추압박골절 장해율 23% 기준 약관상 해당 지급률 확인\n"
+                    "  (척추 장해: 운동장해 + 기형장해 합산 방식 설명)\n"
+                    "- 상해후유장해 vs 질병후유장해 구분 및 지급 조건 차이\n"
+                    "- 3%이상 장해담보 2억 가입 시 실제 지급 예상액 계산\n\n"
+                    "### 2. 입원일당 보험금 산출\n"
+                    "- 3개월(90일) 입원 기준 일당 보험금 총액 계산\n"
+                    "- 상해입원일당 vs 질병입원일당 구분 — 요추압박골절은 상해 해당 여부\n"
+                    "- 입원일당 지급 한도일수 확인 (180일·365일·무제한 구분)\n"
+                    "- 중복 지급 가능 여부 (실손+일당 동시 청구)\n\n"
+                    "### 3. 수술비 보험금 산출\n"
+                    "- 요추압박골절 수술 종류별 해당 담보 확인\n"
+                    "  (척추성형술·추체성형술·척추고정술·골절정복술)\n"
+                    "- 수술 1회당 지급액 및 동일 상해 재수술 시 중복 지급 여부\n"
+                    "- 비급여 수술비 실손 청구 가능 범위\n\n"
+                    "### 4. 간병인 담보 정확한 구분 및 보험금 산출\n"
+                    "- **[중요] 간병인사용일당 vs 간병인지원서비스 반드시 구분하여 답변**\n\n"
+                    "  ▶ 간병인사용일당 (정액 지급형)\n"
+                    "  - 정의: 입원 중 실제 간병인을 고용한 날에 대해 약정 일당 지급\n"
+                    "  - 지급 요건: ① 입원 중 ② 간병인 실제 사용 ③ 간병인사용확인서 제출\n"
+                    "  - 필수 청구서류:\n"
+                    "    · 간병인사용확인서 (병원 간호사실 또는 간병인 소속 업체 발급)\n"
+                    "    · 간병인 고용 영수증 또는 간병비 지급 확인서\n"
+                    "    · 입원확인서 (입퇴원일 명시)\n"
+                    "    · 진단서 (상병명·입원 사유 포함)\n"
+                    "  - 주의: 가족이 직접 간병한 경우 → 간병인사용일당 **지급 불가**\n"
+                    "    (가족 간병은 간병인 '고용' 아님 — 대부분 약관상 지급 제외)\n"
+                    "  - 영수증 없이 청구: **불가** — 간병인 고용 증빙 필수\n\n"
+                    "  ▶ 간병인지원서비스 (서비스형)\n"
+                    "  - 정의: 보험사가 직접 간병인을 파견해주는 서비스 (현금 지급 아님)\n"
+                    "  - 지급 요건: 보험사 고객센터에 서비스 신청 → 보험사가 간병인 파견\n"
+                    "  - 현금 청구 불가 — 서비스 이용 후 현금으로 전환 요청 불가\n"
+                    "  - 미사용 시 소멸 (현금 환급 없음)\n\n"
+                    "- 3개월(90일) 입원 기준 간병인사용일당 총액 계산 (가입 일당 × 90일)\n"
+                    "- 보험사별 지급 한도일수 확인 (30일·60일·180일·365일 구분)\n\n"
+                    "### 5. 전체 청구 가능 보험금 합산표\n"
+                    "- 항목별 예상 보험금을 표 형식으로 정리:\n"
+                    "  | 담보명 | 가입금액 | 지급 조건 | 예상 지급액 |\n"
+                    "  (상해장해 / 입원일당 / 수술비 / 간병인일당 각각)\n"
+                    "- 합산 총 예상 보험금\n\n"
+                    "### 6. 청구 실무 전략\n"
+                    "- 필요 서류 목록 (진단서·수술확인서·입원확인서·간병인사용확인서)\n"
+                    "- 장해진단서 발급 시점 (퇴원 후 6개월~1년 후 재진단 권고 이유)\n"
+                    "- 보험사 장해심사 이의신청 방법 및 독립 손해사정 의뢰 기준\n"
+                    "- 50대 여성 골다공증 기왕증 감액 주장 시 대응 전략\n"
+                    "⚠️ 본 산출은 참고용이며 최종 보험금은 보험사 심사 및 법원 판결에 따릅니다.")
+        with col2:
+            st.subheader("📋 장해보험 참고사항")
+    
+            # ── DisabilityLogic 산출 결과 표 ─────────────────────────────
+            st.markdown("""<div style="background:#3B82F6;color:#fff;
+      border-radius:8px 8px 0 0;padding:5px 12px;font-size:0.82rem;font-weight:900;
+      margin-bottom:0;">⚡ 예상 보험금 자동 산출 (확정적 계산 엔진)</div>""", unsafe_allow_html=True)
+    
+            _dtype_mult = 0.2 if "한시" in dis_type else 1.0
+            _tiers_calc = [
+                ("3%",  dis_rate_traffic, dis_rate_general,
+                 st.session_state.get("dis_t_3", 0),
+                 st.session_state.get("dis_g_3", 0)),
+                ("20%", dis_rate_traffic, dis_rate_general,
+                 st.session_state.get("dis_t_20", 0),
+                 st.session_state.get("dis_g_20", 0)),
+                ("50%", dis_rate_traffic, dis_rate_general,
+                 st.session_state.get("dis_t_50", 0),
+                 st.session_state.get("dis_g_50", 0)),
+                ("80%", dis_rate_traffic, dis_rate_general,
+                 st.session_state.get("dis_t_80", 0),
+                 st.session_state.get("dis_g_80", 0)),
+            ]
+            _calc_rows = ""
+            _total_t = 0
+            _total_g = 0
+            for _lbl, _rt, _rg, _amt_t, _amt_g in _tiers_calc:
+                _thr = float(_lbl.rstrip("%"))
+                _pay_t = DisabilityLogic.benefit_by_tier(int(_amt_t) * 10000, _rt, dis_type)[_lbl] if _amt_t > 0 else None
+                _pay_g = DisabilityLogic.benefit_by_tier(int(_amt_g) * 10000, _rg, dis_type)[_lbl] if _amt_g > 0 else None
+                _pt_str = f"{_pay_t//10000:,}만원" if _pay_t is not None else "⛔ 미충족"
+                _pg_str = f"{_pay_g//10000:,}만원" if _pay_g is not None else "⛔ 미충족"
+                _row_bg = "#f0fff4" if (_pay_t or _pay_g) else "#f9f9f9"
+                _calc_rows += (
+                    f'<tr style="background:{_row_bg};">'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;font-weight:700;">{_lbl} 이상</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;">{_amt_t:,}만원</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;color:{"#1a7a2e" if _pay_t else "#c0392b"};">{_pt_str}</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;">{_amt_g:,}만원</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;color:{"#1a7a2e" if _pay_g else "#c0392b"};">{_pg_str}</td>'
+                    f'</tr>'
+                )
+                if _pay_t: _total_t += _pay_t
+                if _pay_g: _total_g += _pay_g
+    
+            _ann_t_val = st.session_state.get("dis_annuity_t", 0)
+            _ann_g_val = st.session_state.get("dis_annuity_g", 0)
+            _ann_row = ""
+            if _ann_t_val > 0 or _ann_g_val > 0:
+                _ann_row = (
+                    f'<tr style="background:#fff8f0;">'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;font-weight:700;">장해연금</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;">-</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;color:#7d3c00;">{_ann_t_val:,}만/월</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;">-</td>'
+                    f'<td style="padding:4px 6px;border:1px solid #c8d8ec;text-align:right;color:#7d3c00;">{_ann_g_val:,}만/월</td>'
+                    f'</tr>'
+                )
+    
+            _n_years_c = max(0, (65 - dis_age))
+            _hoffman_c = round(_n_years_c / (1 + 0.05 * _n_years_c / 2), 2) if _n_years_c > 0 else 0
+            _mcb_t = round(dis_income * (dis_rate_traffic / 100) * (2/3) * _hoffman_c, 1)
+            _mcb_g = round(dis_income * (dis_rate_general / 100) * (2/3) * _hoffman_c, 1)
+    
+            components.html(f"""
+    <div style="font-family:'Noto Sans KR',sans-serif;font-size:0.80rem;">
+    <table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
+    <tr style="background:#eff6ff;color:#1e40af;">
+      <th style="padding:4px 6px;border:1px solid #bfdbfe;">담보</th>
+      <th style="padding:4px 6px;border:1px solid #bfdbfe;">교통가입</th>
+      <th style="padding:4px 6px;border:1px solid #bfdbfe;">교통지급</th>
+      <th style="padding:4px 6px;border:1px solid #bfdbfe;">일반가입</th>
+      <th style="padding:4px 6px;border:1px solid #bfdbfe;">일반지급</th>
+    </tr>
+    {_calc_rows}{_ann_row}
+    <tr style="background:#eff6ff;color:#1e40af;font-weight:900;">
+      <td style="padding:4px 6px;border:1px solid #bfdbfe;">합계</td>
+      <td colspan="2" style="padding:4px 6px;border:1px solid #bfdbfe;text-align:right;">교통: {_total_t//10000:,}만원</td>
+      <td colspan="2" style="padding:4px 6px;border:1px solid #bfdbfe;text-align:right;">일반: {_total_g//10000:,}만원</td>
+    </tr>
+    </table>
+    <div style="background:#fff8f0;border:1px solid #f5a623;border-radius:5px;padding:5px 10px;font-size:0.77rem;color:#5a3000;">
+      <b>맥브라이드 일실수익</b> (호프만계수 {_hoffman_c})<br>
+      교통상해 {_mcb_t:,.1f}만원 &nbsp;|&nbsp; 일반상해 {_mcb_g:,.1f}만원<br>
+      <span style="font-size:0.72rem;color:#888;">장해유형: {dis_type} {"(한시 20% 적용)" if "한시" in dis_type else "(영구 100%)"}</span>
+    </div>
+    </div>""", height=310)
+    
+            show_result("res_disability")
+    
+            components.html("""
+    <div style="height:340px;overflow-y:auto;padding:12px 15px;
+      background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
+      font-size:0.83rem;line-height:1.5;
+      font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+    <b style="font-size:0.85rem;color:#1a3a5c;">🩺 장해보험금 산출 안내</b><br><br>
+    <b style="color:#c0392b;">▶ AMA방식 (개인보험)</b><br>
+    • 보험가입금액 × 장해지급률(%) = 예상 보험금<br>
+    • 한시장해(5년 이상): 해당 지급률의 <b>20%만 인정</b><br>
+    • 영구장해: 전액 지급률 적용<br><br>
+    <b style="color:#c0392b;">▶ 맥브라이드방식 (배상책임·손해배상)</b><br>
+    • 월평균소득 × 장해율(%) × (1-생활비율1/3) × 호프만계수<br>
+    • 가동연한(65세)까지 잔여 기간 적용<br><br>
+    <b style="color:#c0392b;">▶ 호프만 vs 라이프니쯔 비교</b><br>
+    • <b>호프만(단리)</b>: 법원·표준약관 기준 — 피해자에게 유리<br>
+    • <b>라이프니쯔(복리)</b>: 구 보험사 방식 — 보상금 상대적으로 적음<br>
+    • 2023.1.1 이후 사고: 표준약관상 호프만 의무 적용<br>
+    • 동일 장해율에서 약 <b>15~20% 차이</b> 발생<br><br>
+    <b style="color:#c0392b;">▶ 기본 준비서류</b><br>
+    • 성별·직업·직전 3개월 평균소득<br>
+    • 나이·장해부위(한시/영구)<br>
+    • 의사 장해진단서 (필수)<br><br>
+    <b style="color:#555;font-size:0.78rem;">⚠️ 본 산출은 참고용이며 최종 보험금은 보험사 심사 및 법원 판결에 따릅니다.</b>
+    </div>""", height=360)
+            st.markdown("##### 🔬 전문의 수준 의무기록 분석 가이드")
+            components.html("""
+    <div style="height:480px;overflow-y:auto;padding:14px 16px;
+      background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
+      font-size:0.83rem;line-height:1.55;
+      font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+    <b style="font-size:0.88rem;color:#1a3a5c;">🔬 의무기록 판독 핵심 포인트</b><br><br>
+    <b style="color:#c0392b;">▶ 진단서 (Diagnosis Certificate)</b><br>
+    • <b>상병명(ICD코드)</b>: 주상병·부상병 구분 확인 — 보험 약관상 보장 여부 직결<br>
+    • <b>발병일 vs 진단일</b>: 보험 가입일 이전 발병 여부 → 기왕증 분쟁 핵심<br>
+    • <b>인과관계</b>: 사고·질병과 현재 상태의 의학적 연관성 기재 여부<br>
+    • <b>치료 기간</b>: 입원·통원 기간 명시 → 입원일당·통원일당 청구 근거<br><br>
+    <b style="color:#c0392b;">▶ 장해진단서 (Disability Certificate)</b><br>
+    • <b>장해 부위 및 정도</b>: AMA 기준 vs 맥브라이드 기준 구분 확인<br>
+    • <b>영구장해 vs 한시장해</b>: 한시장해는 AMA방식 지급률의 20%만 인정<br>
+    • <b>장해지급률</b>: 보험사 자체 산정 vs 의사 소견 차이 → 분쟁 주요 원인<br>
+    • <b>기왕증 기여도</b>: 기존 질환 기여도 % 기재 → 보험금 감액 근거로 활용됨<br>
+    • <b>확인 포인트</b>: 전문의(해당과) 발급 여부, 병원 직인·의사 면허번호 확인<br><br>
+    <b style="color:#c0392b;">▶ 수술기록지 (Operative Record)</b><br>
+    • <b>수술명</b>: 약관상 수술 해당 여부 확인 (단순 처치 vs 수술 구분)<br>
+    • <b>마취 방법</b>: 전신마취·척추마취·국소마취 → 수술비 지급 기준 상이<br>
+    • <b>수술 부위·범위</b>: 다발성 수술 시 각 부위별 청구 가능 여부 검토<br>
+    • <b>집도의 전문과목</b>: 해당 수술의 적정성 판단 기준<br><br>
+    <b style="color:#c0392b;">▶ 영상검사 (MRI·CT·X-ray)</b><br>
+    • <b>판독 소견서</b>: 영상 자체보다 <b>판독 소견서</b>가 보험 청구 핵심 서류<br>
+    • <b>추간판탈출증(디스크)</b>: 탈출 레벨·압박 정도 → 장해율 산정 기준<br>
+    • <b>골절</b>: 골절선 위치·분쇄 여부 → 5대 골절 해당 시 추가 보험금<br>
+    • <b>뇌·심장</b>: 뇌경색 범위·심근경색 부위 → 진단비 지급 기준<br><br>
+    <b style="color:#c0392b;">▶ 입·퇴원 확인서 (Admission/Discharge Summary)</b><br>
+    • <b>입원 사유</b>: 치료 목적 입원 vs 요양 목적 → 실손보험 지급 기준 상이<br>
+    • <b>주치의 소견</b>: 퇴원 후 치료 계획 → 향후 치료비 청구 근거<br>
+    • <b>입원 기간</b>: 연속 입원 vs 분리 입원 → 입원일당 산정 방식 차이<br><br>
+    <b style="color:#c0392b;">▶ 보험사 분쟁 대응 전략</b><br>
+    • <b>보험사 장해율 < 의사 소견</b>: 독립 손해사정사 선임 권장<br>
+    • <b>기왕증 기여도 과다 적용</b>: 의무기록 재검토 + 전문의 소견서 추가 확보<br>
+    • <b>약관 해석 분쟁</b>: 금융감독원 분쟁조정위원회 신청 (무료)<br>
+    • <b>소멸시효</b>: 보험금 청구권 <b>3년</b> (상법 제662조) — 기산점 주의<br><br>
+    <b style="color:#8e44ad;">▶ 주요 ICD-10 코드 (보험 청구 빈출)</b><br>
+    • <b>M51</b>: 추간판 장애 (디스크) &nbsp;• <b>S72</b>: 대퇴골 골절<br>
+    • <b>I63</b>: 뇌경색 &nbsp;• <b>I21</b>: 급성 심근경색<br>
+    • <b>C00-C97</b>: 악성신생물(암) &nbsp;• <b>G35</b>: 다발성 경화증<br>
+    • <b>F00-F03</b>: 치매 &nbsp;• <b>G20</b>: 파킨슨병<br>
+    <b style="color:#555;font-size:0.78rem;">⚠️ 의무기록 해석은 전문의·손해사정사와 반드시 확인하십시오.</b>
+    </div>
+    """, height=498)
+    
+            st.markdown("""<div style="background:#f0f4ff;border:1.5px solid #2e6da4;
+      border-radius:8px;padding:5px 10px;margin-bottom:4px;font-size:0.8rem;
+      font-weight:900;color:#1a3a5c;">📊 후유장해 보험금 산출 기준 — 실무 질문표</div>""", unsafe_allow_html=True)
+            components.html("""
+    <div style="height:480px;overflow-y:auto;padding:12px 15px;
+      background:#f8fafc;border:1px solid #b3c8e8;border-radius:0 0 8px 8px;
+      font-size:0.82rem;line-height:1.6;
+      font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+    
+    <b style="font-size:0.87rem;color:#1a3a5c;">1. 직전 3개월 소실소득 평균 산정 방식 기준</b><br><br>
+    
+    <b style="color:#2e6da4;">① 급여소득자 산정 원칙</b><br>
+    평균 월소득 = <b>(직전 3개월간 급여총액 ÷ 3) + (직전 1년간 정기상여금 ÷ 12)</b><br>
+    • 본봉·수당: 사고 전 3개월 지급된 기본급 및 통상 수당 포함<br>
+    • 상여금·성과급: 전 1년 지급 총액 ÷ 12 (직전 3개월치만 합산 아님에 주의)<br>
+    • 제외 항목: 출장비·식대 등 실비변상적 급여, 일시적·은혜적 급여<br><br>
+    
+    <b style="color:#2e6da4;">② 세부 상황별 계산</b><br>
+    <b>소득 변동 있는 경우</b><br>
+    • 사고 직전 소득 인상 — 단체협약·객관적 통계 등 확정 시 인상 소득 기준<br>
+    • 일시적 초과근무로 급등 시 → 평균화 과정 조정 적용<br><br>
+    <b>소득 증빙 어려운 경우</b><br>
+    • 세무서 신고 소득 &lt; 실제 소득 → 급여대장·통장 입금내역 증명 시 실급여 인정<br>
+    • 자료 없을 때: <b>고용노동부 '임금실태통계조사보고서'</b> 상 유사통계소득 적용<br><br>
+    <b>일용근로자·무직</b><br>
+    • 대한건설협회·중소기업중앙회 발표 <b>시중노임단가 × 월 22일</b> 기준 산정<br><br>
+    
+    <b style="font-size:0.87rem;color:#1a3a5c;">2. 후유장해 보험금 산출 및 담보별 적용 방식</b><br><br>
+    
+    <b style="color:#2e6da4;">① 상해후유장해 vs 교통상해 후유장해</b><br>
+    • <b>상해후유장해</b>: 급격·우연·외래의 사고(일상 포함 모든 상해) → 영구 훼손 보상<br>
+    • <b>교통상해 후유장해</b>: 약관상 교통사고 범위(운행 중 차량 탑승·충돌·접촉 등) 충족 필수<br>
+    • 교통사고는 두 담보 요건 동시 충족 → <b>정액보상 원칙(상법 제727조)에 따라 합산 중복 수령 가능</b><br><br>
+    
+    <b style="color:#2e6da4;">② 담보별(3%·20%·50%·80%) 산출 방식</b><br>
+    <table style="width:100%;border-collapse:collapse;font-size:0.79rem;margin-bottom:8px;">
+    <tr style="background:#dce8f8;"><th style="border:1px solid #b3c8e8;padding:3px 6px;">담보</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">지급 조건</th><th style="border:1px solid #b3c8e8;padding:3px 6px;">특징</th></tr>
+    <tr><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">3% 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">3% ≤ 장해율 &lt; 100%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">가장 포괄적 — 경미한 장해부터 합산 지급</td></tr>
+    <tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">20% 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">20% ≤ 장해율 &lt; 100%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">합산 또는 단일 장해 20% 초과 시 지급 개시</td></tr>
+    <tr><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;">50% 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">50% ≤ 장해율 &lt; 100%</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">중등도 이상 장해 (소득보상형 담보 多)</td></tr>
+    <tr style="background:#f0f5fc;"><td style="border:1px solid #c8d8ec;padding:3px 6px;font-weight:700;color:#c0392b;">80% 이상</td><td style="border:1px solid #c8d8ec;padding:3px 6px;">80% ≤ 장해율</td><td style="border:1px solid #c8d8ec;padding:3px 6px;"><b>고도후유장해</b> — 식물인간·극심한 마비 등</td></tr>
+    </table>
+    [예시] 가입금액 1억, 장해율 20% 판정 시:<br>
+    • 3% 이상 담보: 1억 × 20% = <b>2,000만원 지급</b><br>
+    • 50% 이상 담보만 보유 시: <b>0원 (조건 미달)</b><br><br>
+    
+    <b style="font-size:0.87rem;color:#1a3a5c;">3. 인체 13개 부위 분류 (표준약관 장해분류표)</b><br><br>
+    눈 / 귀 / 코 / 씹어먹거나 말하는 장해 / 외모 / 척추(등뼈) / 체간골 / 팔 / 다리 / 손가락 / 발가락 / 흉·복부 장기 및 비뇨생식기 / 신경계·정신행동<br><br>
+    
+    <b style="font-size:0.87rem;color:#1a3a5c;">4. 장해율 합산 원칙 (표준약관 장해분류표 총칙)</b><br><br>
+    <b style="color:#2e6da4;">① 원칙: 부위별 합산 (다중장해)</b><br>
+    서로 다른 부위(13개 중 2개 이상) 장해 → 각 장해지급률 <b>단순 합산</b><br>
+    예) 척추 15% + 다리 10% = <b>최종 25%</b><br><br>
+    <b style="color:#2e6da4;">② 예외: 동일 부위 내 여러 장해 → 최고 지급률만 적용</b><br>
+    예) 같은 '팔' 부위 어깨관절 10% + 팔목관절 5% = <b>10%만 인정</b><br>
+    단, 손가락·발가락은 약관상 각각 합산 허용 (별도 규정)<br><br>
+    <b style="color:#2e6da4;">③ 지급 한도: 동일 사고 장해 합계 최대 100% 초과 불가</b><br><br>
+    <b style="color:#c0392b;">⚠️ 실무 주의</b>: '팔'과 '손가락'은 별도 부위 → 각각 합산 적용<br>
+    근거: 상법 제727조, 보험업법, 표준약관 [별표] 장해분류표 제1항<br>
+    금감원 2018년 장해분류표 개정 — 부위별 정의 명확화
+    </div>
+    """, height=500)
     st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
 # ── [kcd_injury] 상해(S·T·V·W·X·Y)와 M의 상관관계 ───────────────────
 if cur == "kcd_injury":
     if not _auth_gate("kcd_injury"): st.stop()
-    tab_home_btn("kcd_injury")
-
-    st.markdown(f"""
-<div class="gk-sky-trust gp-interactive"
-  style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:16px;">
-  {_bid('9-1-1')}
-  <div class="gk-st-title">🔬 상해(S·T·V·W·X·Y)와 M의 상관관계</div>
-  <div style="font-size:0.78rem;margin-top:4px;">
-후유장해 손해사정 · KCD 코드 전환 논리 · 외인코드 결합 실무 · 주체별 심사 기준
-  </div>
-</div>""", unsafe_allow_html=True)
-
-    kcd_tab1, kcd_tab2, kcd_tab3, kcd_tab4, kcd_tab5 = st.tabs([
-        "📋 분석 원칙 & 코드 체계",
-        "🔄 S·T→M 전환 논리",
-        "👁️ 주체별 심사 기준",
-        "⚖️ 외인코드 결합 실무",
-        "🤖 AI 손해사정 분석",
-    ])
-
-    with kcd_tab1:
-        st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
-  font-size:0.9rem;color:#1a3a5c;">📌 상해 분석 원칙</div>""", unsafe_allow_html=True)
-        st.markdown("""<div style="background:#f8faff;border:1px solid #b3c8e8;border-radius:8px;
-  padding:12px 16px;font-size:0.83rem;color:#1a2e4a;line-height:1.9;">
-<b>① 상해 인정 3대 요건</b><br>
-• <b>급격성</b>: 돌발적·순간적 사고 — 서서히 발생한 직업병·과로는 해당 없음<br>
-• <b>우연성</b>: 피보험자가 예측·의도하지 않은 사고 — 고의성 입증 시 면책<br>
-• <b>외래성</b>: 신체 외부에서 기인한 사고 — 질병의 내인적 악화는 해당 없음<br><br>
-<b>② KCD 분류 원칙</b><br>
-• <b>S코드</b>: 특정 신체 부위의 <u>외상성 급성 손상</u> → 사고 직후 적용<br>
-• <b>T코드</b>: 중독·화상·부식·수술 합병증 등 <u>외인에 의한 특수 손상</u><br>
-• <b>M코드</b>: 근골격계·결합조직 <u>질환</u> → 퇴행성·만성 병변<br>
-• <b>V·W·X·Y코드</b>: 사고의 <u>원인(외인)</u> 보조 코드 — S·T코드와 반드시 병기<br><br>
-<b style="color:#c0392b;">⚠️ 실무 핵심</b>: S·T코드는 외인코드(V~Y)가 병기되어야 인과관계가 법적으로 명확해집니다.
-</div>""", unsafe_allow_html=True)
-
-        st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:14px 0 8px 0;font-weight:900;
-  font-size:0.9rem;color:#1a3a5c;">📊 KCD 코드 대분류 체계</div>""", unsafe_allow_html=True)
-        st.components.v1.html("""
-<div style="overflow-x:auto;">
-<table style="width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;">
-<thead>
-<tr style="background:#3B82F6;color:#fff;">
-  <th style="padding:8px 10px;text-align:left;">코드 분류</th>
-  <th style="padding:8px 10px;text-align:left;">정의 및 특징</th>
-  <th style="padding:8px 10px;text-align:left;">주요 적용 상병 예시</th>
-</tr>
-</thead>
-<tbody>
-<tr style="background:#f0f8ff;">
-  <td style="padding:7px 10px;font-weight:700;color:#1a6bb5;">S코드 (Injury)</td>
-  <td style="padding:7px 10px;">특정 신체 부위의 외상성 급성 손상</td>
-  <td style="padding:7px 10px;">골절(S82), 탈구(S43), 뇌진탕(S06), 인대파열(S83), 척수손상(S14)</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:7px 10px;font-weight:700;color:#1a6bb5;">T코드 (Poisoning 등)</td>
-  <td style="padding:7px 10px;">외인에 의한 중독·화상·부식·합병증</td>
-  <td style="padding:7px 10px;">화상(T30), 약물중독(T36), 수술 후 합병증(T81), 질식(T71), 감전(T75.4)</td>
-</tr>
-<tr style="background:#f0fff4;">
-  <td style="padding:7px 10px;font-weight:700;color:#15803d;">M코드 (Musculoskeletal)</td>
-  <td style="padding:7px 10px;">근골격계·결합조직 질환 (퇴행성)</td>
-  <td style="padding:7px 10px;">추간판탈출증(M51), 회전근개증후군(M75), 관절염(M17), 반월상연골(M23)</td>
-</tr>
-<tr style="background:#fffbeb;">
-  <td style="padding:7px 10px;font-weight:700;color:#d97706;">V코드 (운수사고)</td>
-  <td style="padding:7px 10px;">보행자·차량 운수사고 원인 코드</td>
-  <td style="padding:7px 10px;">보행자 사고(V01~V09), 이륜차(V20~V29), 승용차(V40~V49)</td>
-</tr>
-<tr style="background:#fff7ed;">
-  <td style="padding:7px 10px;font-weight:700;color:#d97706;">W코드 (추락·물리적 힘)</td>
-  <td style="padding:7px 10px;">추락·전도·물체충격 원인 코드</td>
-  <td style="padding:7px 10px;">미끄러짐(W01), 계단추락(W10), 사다리추락(W11), 물체충격(W20~W64)</td>
-</tr>
-<tr style="background:#fef2f2;">
-  <td style="padding:7px 10px;font-weight:700;color:#dc2626;">X코드 (환경노출)</td>
-  <td style="padding:7px 10px;">화재·유독물·자연재해·자해 원인</td>
-  <td style="padding:7px 10px;">화재(X00), 낙뢰(X33), 유독동물접촉(X20~X29), 고의자해(X60~X84)</td>
-</tr>
-<tr style="background:#fdf4ff;">
-  <td style="padding:7px 10px;font-weight:700;color:#7c3aed;">Y코드 (의료처치·폭행)</td>
-  <td style="padding:7px 10px;">수술사고·약물부작용·타인폭행</td>
-  <td style="padding:7px 10px;">수술 중 사고(Y60), 약물부작용(Y40~Y59), 타인에 의한 폭행(Y00~Y09)</td>
-</tr>
-</tbody>
-</table>
-</div>""", height=280)
-
-    with kcd_tab2:
-        st.markdown("""<div style="background:#f0fff4;border-left:4px solid #059669;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
-  font-size:0.9rem;color:#064e3b;">🔄 S·T코드 → M코드 전환 시점 및 논리</div>""", unsafe_allow_html=True)
-        st.components.v1.html("""
-<div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#1a2e1a;padding:4px;">
-<b style="font-size:0.9rem;color:#059669;">▶ 핵심 전환 기점: 사고 후 6개월(180일)</b><br><br>
-
-<b>① 증상의 고착화</b><br>
-급성 외상(S코드)은 통상 6개월 이내 치유되거나 고착됩니다.<br>
-이후 남은 통증은 '손상(Injury)'이 아닌 <b style="color:#dc2626;">'상태(Condition)'인 질환(M코드)</b>으로 분류됩니다.<br><br>
-
-<b>② 퇴행성 병변 가시화</b><br>
-사고 초기엔 부종으로 보이지 않던 퇴행성 변화가 시간이 지나며 MRI상 명확해질 때,<br>
-전문의는 정밀 검사 결과에 따라 M코드를 추가하거나 변경합니다.<br><br>
-
-<b>③ 장해 판정 시점</b><br>
-보험약관 및 맥브라이드 평가는 <b>사고 후 180일 경과 후</b> 가능합니다.<br>
-'영구적 기능 장해'는 급성 손상이 아닌 <b>만성적 변형(M코드)</b>으로 간주되는 경우가 많습니다.<br><br>
-
-<b style="color:#1a6bb5;">▶ 부위별 전환 논리 예시</b><br>
-• <b>허리(추간판)</b>: S33.5(요추염좌) → <span style="color:#dc2626;">M51(추간판탈출증)</span><br>
-&nbsp;&nbsp;지급률 기준: 20%(고도) / 15%(중등도) / 10%(경도), 외상 기여도 20~50% 산출<br>
-• <b>어깨(회전근개)</b>: S43.0(탈구)·S46(힘줄손상) → <span style="color:#dc2626;">M75.1(회전근개증후군)</span><br>
-&nbsp;&nbsp;ROM 제한 지급률: 30%(고도) / 10%(중등도) / 5%(경도), 사고 전 치료력 필수 확인<br>
-• <b>무릎(연골)</b>: S83.2(인대파열) → <span style="color:#dc2626;">M23.2(반월상연골파열)</span><br><br>
-
-<b style="color:#7c3aed;">▶ 법적 근거</b><br>
-• 대법원 98다158: 상해 입증책임은 청구권자에게 있음<br>
-• 대법원 2002다3040: 기왕증과 사고의 복합 기여 인정<br>
-• 상법 제737조·표준약관 제7조: 상해·질병 경합 시 상해 부분만 보상<br>
-• 금감원 분쟁조정: 질병의 영향이 있는 상해 → 기왕증 기여도 공제 권고
-</div>""", height=420)
-
-        st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:12px 0 8px 0;font-weight:900;
-  font-size:0.9rem;color:#7d3c00;">💊 건강보험 적용 변화 및 지불 주체 전환</div>""", unsafe_allow_html=True)
-        st.components.v1.html("""
-<div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#3d1f00;padding:4px;">
-<b>① 본인부담금 변화</b><br>
-단순 상해(S) → 만성 질환(M) 전환 시, 산정특례·본인부담상한제 적용 범위가 달라질 수 있습니다.<br><br>
-
-<b>② 지불 주체 전환</b><br>
-• 사고 초기: 자동차보험(자보) 또는 산재보험으로 처리<br>
-• 6개월 후 질병 판명 시: <b style="color:#1a6bb5;">지불 주체 → 국민건강보험공단</b>으로 전환 가능<br>
-• 보험사는 기지불 치료비 중 질병 분에 대해 <b style="color:#dc2626;">부당이득 반환 청구</b> 가능<br><br>
-
-<b>③ 의료법 제18조</b><br>
-의사는 KCD 지침에 따라 진단해야 하므로, 환자 요구만으로 M→S 유지 불가.<br>
-단, <b>'외상성(Traumatic)'</b> 문구를 비고란에 기재하면 상해성을 법적으로 보전 가능.
-</div>""", height=220)
-
-    with kcd_tab3:
-        st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
-  font-size:0.9rem;color:#1a3a5c;">👁️ 주체별 관점에서의 코드 운용 및 심사 기준</div>""", unsafe_allow_html=True)
-
-        with st.expander("① 전문의(Clinician) 관점 — 임상적 상태와 치료 단계", expanded=True):
-            st.components.v1.html("""
-<div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#1a2e4a;padding:4px;">
-<b>판단 기준: '외력에 의한 급성 손상'인가 vs '내인적 퇴행성 변화'인가</b><br><br>
-• <b style="color:#1a6bb5;">S·T코드 부여</b>: 사고 직후 외상 소견(부종·출혈·골절)이 명확할 때<br>
-• <b style="color:#dc2626;">M코드 부여</b>: 급성기 치료 후 통증 지속 또는 MRI상 사고 전부터 존재하던<br>
-&nbsp;&nbsp;신경 퇴행·연골 마모 등이 주된 원인일 때<br><br>
-<b>실무 Tip</b>: 초진 차트에 <b>'외상성(Traumatic)'</b> 명시 및 영상 판독지 보관이 핵심
-</div>""", height=160)
-
-        with st.expander("② 심사평가원(HIRA) 관점 — 급여 적정성과 책임 소재"):
-            st.components.v1.html("""
-<div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#1a2e4a;padding:4px;">
-<b>목적: 건강보험 재정 보호 — '사고의 외래성' 엄격 모니터링</b><br><br>
-• <b>심사 핵심</b>: S코드 청구 → 동일 부위 M코드 과거 치료력 반복 확인 시<br>
-&nbsp;&nbsp;→ '질병의 재발'로 간주, 심사 조정(삭감) 또는 건보공단 통보<br>
-• <b>연동 체계</b>: 자동차보험·산재보험과의 중복 청구 방지를 위해<br>
-&nbsp;&nbsp;외인코드(V~Y) 기재 여부 필수 체크
-</div>""", height=145)
-
-        with st.expander("③ 손해사정인 관점 — 입증 책임과 보험금 지급"):
-            st.components.v1.html("""
-<div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#1a2e4a;padding:4px;">
-<b>핵심 업무: 보험약관상 '상해' 요건(급격·우연·외래) 충족 여부를 코드로 1차 판단</b><br><br>
-• <b>분쟁 지점</b>: S코드 → M코드 전환 시 보험사는 <b style="color:#dc2626;">'기왕증 기여도'</b> 주장 → 보험금 감액 시도<br>
-• <b>대응 전략</b>: 진단서상 코드가 M이라도,<br>
-&nbsp;&nbsp;<b>사고와의 상당인과관계</b> 입증 → 상해 보험금(또는 배상금) 확보<br>
-• <b>필수 서류</b>: 사고 직후 초진 기록 + 영상 판독지 (최우선 증거)<br>
-&nbsp;&nbsp;기여도 입증: 주치의에게 <b>"외상 기여도 %"</b> 소견서 요청
-</div>""", height=170)
-
-    with kcd_tab4:
-        st.markdown("""<div style="background:#fef3c7;border-left:4px solid #d97706;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
-  font-size:0.9rem;color:#78350f;">⚖️ S·T코드(결과)와 V·W·X·Y코드(원인)의 법적·실무적 결합</div>""", unsafe_allow_html=True)
-
-        st.components.v1.html("""
-<div style="overflow-x:auto;">
-<table style="width:100%;border-collapse:collapse;font-size:0.81rem;font-family:sans-serif;">
-<thead>
-<tr style="background:#78350f;color:#fff;">
-  <th style="padding:7px 10px;">대분류</th>
-  <th style="padding:7px 10px;">코드 범위</th>
-  <th style="padding:7px 10px;">상세 내용 및 예시</th>
-</tr>
-</thead>
-<tbody>
-<tr style="background:#fffbeb;">
-  <td style="padding:6px 10px;font-weight:700;">운수 사고 (V)</td>
-  <td style="padding:6px 10px;">V01–V99</td>
-  <td style="padding:6px 10px;">보행자 사고, 자전거, 이륜차, 승용차 사고 등 (교통사고 처리 시 필수)</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:6px 10px;font-weight:700;">추락·전도 (W)</td>
-  <td style="padding:6px 10px;">W00–W19</td>
-  <td style="padding:6px 10px;">미끄러짐, 걸려 넘어짐(W01), 계단 추락(W10), 사다리 추락(W11)</td>
-</tr>
-<tr style="background:#fffbeb;">
-  <td style="padding:6px 10px;font-weight:700;">물리적 힘 (W)</td>
-  <td style="padding:6px 10px;">W20–W64</td>
-  <td style="padding:6px 10px;">물체에 부딪힘, 끼임, 날카로운 물체에 베임, 기계 사고</td>
-</tr>
-<tr style="background:#fff;">
-  <td style="padding:6px 10px;font-weight:700;">환경적 노출 (X)</td>
-  <td style="padding:6px 10px;">X00–X59</td>
-  <td style="padding:6px 10px;">화재, 연기 노출, 유독 동물(뱀·벌) 접촉, 자연재해(낙뢰·폭염)</td>
-</tr>
-<tr style="background:#fef2f2;">
-  <td style="padding:6px 10px;font-weight:700;color:#dc2626;">의도적 자해/공격 (X/Y)</td>
-  <td style="padding:6px 10px;">X60–Y09</td>
-  <td style="padding:6px 10px;">고의적 자해(X60~) → 우연성 파괴 → 면책 사유 / 타인 폭행(Y00~)</td>
-</tr>
-<tr style="background:#fffbeb;">
-  <td style="padding:6px 10px;font-weight:700;">의료 처치 부작용 (Y)</td>
-  <td style="padding:6px 10px;">Y40–Y84</td>
-  <td style="padding:6px 10px;">수술 중 사고, 약물 부작용, 의료기기 결함에 의한 손상</td>
-</tr>
-</tbody>
-</table>
-</div>""", height=230)
-
-        st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:14px 0 8px 0;font-weight:900;
-  font-size:0.9rem;color:#7d3c00;">🔍 손해사정인 3대 검증 포인트</div>""", unsafe_allow_html=True)
-        st.components.v1.html("""
-<div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#3d1f00;padding:4px;">
-<b>① 사고의 외래성 및 일관성 검토</b><br>
-• 청구 경위(V~Y)와 의무기록지 '초진 차트' 내용 일치 여부 확인<br>
-• 예시: "계단에서 굴렀다(W10)" 주장 vs 병원 기록 "아침에 갑자기 허리 통증" → <span style="color:#dc2626;">외래성 결여로 지급 거절</span><br><br>
-
-<b>② 상병 부위와 사고 기전의 정합성</b><br>
-• 사고의 물리적 에너지 방향이 진단된 S코드 부위에 영향을 줄 수 있는지 분석<br>
-• 예시: "후방 추돌(V43) → 무릎 십자인대 파열(S83)" → 직접 충격 흔적 없으면 퇴행성(M코드) 간주<br><br>
-
-<b>③ 고의 및 면책 사유 해당 여부</b><br>
-• X60~X84(자해) 외인코드 → <b>'우연성' 파괴</b> → 면책 처리<br>
-• 추락(W13) 신고이나 고의성 의심 시 경찰 조사·유서 등 정밀 조사 필요<br><br>
-
-<b style="color:#1a6bb5;">▶ 실무 사례: 허리 압박골절(S32.0) + 화장실 미끄러짐(W01)</b><br>
-• 골밀도 T-score 확인 → 골다공증 심하면 사고 기여도 30~50%만 인정<br>
-• MRI 신호강도 확인 → 진구성(오래된) 골절이면 금번 사고와 무관 → 지급 거절<br>
-• 사고 장소 조사: 화장실 물기·신발 종류 등 객관적 증거 확보
-</div>""", height=310)
-
-        st.info("📌 실무 권고: 진단서에 S코드만 기재된 경우, 반드시 추가 진단서나 소견서를 통해 V~Y코드를 보완하십시오. 향후 재보험사 심사나 금감원 민원 시 강력한 방어 논리가 됩니다.")
-
-    with kcd_tab5:
-        st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
-  font-size:0.9rem;color:#1a3a5c;">🤖 AI 손해사정 분석 — 후유장해 기여도 산출</div>""", unsafe_allow_html=True)
-
-        col_ki1, col_ki2 = st.columns([1, 1])
-        with col_ki1:
-            ki_c_name = st.text_input("고객 성함", "우량 고객", key="ki_c_name")
-            st.session_state.current_c_name = ki_c_name
-            ki_accident_date = st.date_input("사고 발생일", key="ki_accident_date")
-            ki_initial_code  = st.text_input("초진 KCD 코드 (예: S13.4, S32.0)", "S13.4", key="ki_initial_code")
-            ki_current_code  = st.text_input("현재 KCD 코드 (예: M51, M75.1)", "M51",   key="ki_current_code")
-            ki_body_part = st.selectbox("손상 부위", ["허리(추간판)", "어깨(회전근개)", "무릎(연골·인대)", "경추(목)", "기타"], key="ki_body_part")
-            ki_contribution  = st.slider("외상 기여도 추정 (%)", min_value=0, max_value=100, value=50, step=5, key="ki_contribution")
-            ki_severity = st.selectbox("중증도", ["고도(High)", "중등도(Mid)", "경도(Low)"], key="ki_severity")
-            ki_prior_history = st.checkbox("사고 전 동일 부위 치료력 있음", key="ki_prior_history")
-            ki_query_extra   = st.text_area("추가 사항 (MRI 소견, 초진 내용 등)", height=80, key="ki_query_extra")
-        with col_ki2:
-            import datetime as _dt
-            _today    = _dt.date.today()
-            _acc_date = ki_accident_date if ki_accident_date else _today
-            _months   = (_today.year - _acc_date.year) * 12 + (_today.month - _acc_date.month)
-            _is_6m    = _months >= 6
-            _sev_map  = {"고도(High)": "high", "중등도(Mid)": "mid", "경도(Low)": "low"}
-            _part_map = {"허리(추간판)": "spine", "어깨(회전근개)": "shoulder", "무릎(연골·인대)": "knee",
-                         "경추(목)": "cervical", "기타": "other"}
-            _base_rates = {
-                "spine":    {"high": 0.20, "mid": 0.15, "low": 0.10},
-                "shoulder": {"high": 0.30, "mid": 0.10, "low": 0.05},
-                "knee":     {"high": 0.20, "mid": 0.10, "low": 0.05},
-                "cervical": {"high": 0.20, "mid": 0.15, "low": 0.10},
-                "other":    {"high": 0.20, "mid": 0.10, "low": 0.05},
-            }
-            _part_key = _part_map.get(ki_body_part, "other")
-            _sev_key  = _sev_map.get(ki_severity, "mid")
-            _base     = _base_rates.get(_part_key, {}).get(_sev_key, 0.10)
-            _contrib  = ki_contribution / 100
-            _final    = _base * _contrib
-
+    with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
+        tab_home_btn("kcd_injury")
+    
+        st.markdown(f"""
+    <div class="gk-sky-trust gp-interactive"
+      style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:16px;">
+      {_bid('9-1-1')}
+      <div class="gk-st-title">🔬 상해(S·T·V·W·X·Y)와 M의 상관관계</div>
+      <div style="font-size:0.78rem;margin-top:4px;">
+    후유장해 손해사정 · KCD 코드 전환 논리 · 외인코드 결합 실무 · 주체별 심사 기준
+      </div>
+    </div>""", unsafe_allow_html=True)
+    
+        kcd_tab1, kcd_tab2, kcd_tab3, kcd_tab4, kcd_tab5 = st.tabs([
+            "📋 분석 원칙 & 코드 체계",
+            "🔄 S·T→M 전환 논리",
+            "👁️ 주체별 심사 기준",
+            "⚖️ 외인코드 결합 실무",
+            "🤖 AI 손해사정 분석",
+        ])
+    
+        with kcd_tab1:
             st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
-  border-radius:0 8px 8px 0;padding:6px 12px;margin:0 0 8px 0;font-weight:900;
-  font-size:0.85rem;color:#1a3a5c;">📐 자동 산출 결과</div>""", unsafe_allow_html=True)
-            _badge_color = "#dc2626" if _is_6m else "#16a34a"
-            _badge_text  = f"사고 후 {_months}개월 경과 → {'M코드 전환 가능성 높음 ⚠️' if _is_6m else '급성기(S코드) 유지 단계 ✅'}"
-            st.markdown(f"""<div style="background:#{'fff0f0' if _is_6m else '#f0fff4'};
-  border:1px solid {'#fca5a5' if _is_6m else '#86efac'};border-radius:6px;
-  padding:8px 12px;font-size:0.82rem;font-weight:700;color:{_badge_color};margin-bottom:8px;">
-  {_badge_text}
-</div>""", unsafe_allow_html=True)
-            st.markdown(f"""<div style="background:#f8faff;border:1px solid #b3c8e8;border-radius:8px;
-  padding:12px;font-size:0.83rem;color:#1a2e4a;line-height:2.0;">
-  <b>초진 코드:</b> {ki_initial_code} &nbsp;→&nbsp; <b>현재 코드:</b> {ki_current_code}<br>
-  <b>기준 장해율(약관):</b> {_base*100:.0f}%<br>
-  <b>외상 기여도:</b> {ki_contribution}%<br>
-  <b>최종 지급률:</b> <span style="color:#dc2626;font-size:1.05rem;font-weight:900;">{_final*100:.1f}%</span><br>
-  <b>계산식:</b> {_base*100:.0f}% × {ki_contribution}% = {_final*100:.1f}%<br>
-  {'<b style="color:#e67e22;">⚠️ 사고 전 치료력 있음 → 기왕증 공제 추가 검토 필요</b>' if ki_prior_history else ''}
-</div>""", unsafe_allow_html=True)
-
-            if st.button("🤖 AI 심층 손해사정 분석 실행", key="ki_ai_run", use_container_width=True):
-                _ai_prompt = (
-                    f"[KCD 상해 손해사정 분석 — 후유장해 기여도 산출]\n"
-                    f"고객: {ki_c_name} | 사고일: {_acc_date} | 경과: {_months}개월\n"
-                    f"초진코드: {ki_initial_code} → 현재코드: {ki_current_code}\n"
-                    f"손상부위: {ki_body_part} | 중증도: {ki_severity} | 외상기여도: {ki_contribution}%\n"
-                    f"사고 전 치료력: {'있음' if ki_prior_history else '없음'}\n"
-                    f"추가소견: {ki_query_extra}\n\n"
-                    "다음 3개 파트로 분석하십시오:\n"
-                    "【의학적 소견】\n"
-                    f"1. {ki_initial_code}(S/T코드) → {ki_current_code}(M코드) 전환의 의학적 타당성\n"
-                    "2. 사고 후 6개월 기점 증상 고착화 및 퇴행성 병변 개입 여부\n"
-                    "3. MRI 소견상 외상성 변화와 기왕증 구분 기준\n\n"
-                    "【법리적 검토】\n"
-                    "4. 대법원 98다158, 2002다3040 판례 적용 — 인과관계 입증 기준\n"
-                    "5. 상법 제737조·표준약관 제7조 기왕증 공제 적용 가능성\n"
-                    "6. 금감원 분쟁조정사례 기준 보험금 지급 여부 판단\n\n"
-                    "【실무적 대응 전략】\n"
-                    f"7. 외상 기여도 {ki_contribution}% 적용 시 예상 보험금 지급률\n"
-                    "8. 손해사정인이 확보해야 할 필수 서류 목록\n"
-                    "9. 보험사 지급 거절 시 대응 전략 (소견서 요청, 금감원 민원 등)\n"
-                    "[주의] 모든 법조문·판례 인용 시 원본 출처 명시 필수."
-                )
-                try:
-                    _client, _cfg = get_master_model()
-                    _resp = _client.models.generate_content(
-                        model=GEMINI_MODEL, contents=_ai_prompt, config=_cfg)
-                    st.session_state["res_kcd_injury"] = sanitize_unicode(_resp.text) if _resp.text else "응답 없음"
-                    update_usage(st.session_state.get('user_name', ''))
-                    st.rerun()
-                except Exception as _e:
-                    st.error(f"AI 분석 오류: {sanitize_unicode(str(_e))}")
-
-        show_result("res_kcd_injury")
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+      font-size:0.9rem;color:#1a3a5c;">📌 상해 분석 원칙</div>""", unsafe_allow_html=True)
+            st.markdown("""<div style="background:#f8faff;border:1px solid #b3c8e8;border-radius:8px;
+      padding:12px 16px;font-size:0.83rem;color:#1a2e4a;line-height:1.9;">
+    <b>① 상해 인정 3대 요건</b><br>
+    • <b>급격성</b>: 돌발적·순간적 사고 — 서서히 발생한 직업병·과로는 해당 없음<br>
+    • <b>우연성</b>: 피보험자가 예측·의도하지 않은 사고 — 고의성 입증 시 면책<br>
+    • <b>외래성</b>: 신체 외부에서 기인한 사고 — 질병의 내인적 악화는 해당 없음<br><br>
+    <b>② KCD 분류 원칙</b><br>
+    • <b>S코드</b>: 특정 신체 부위의 <u>외상성 급성 손상</u> → 사고 직후 적용<br>
+    • <b>T코드</b>: 중독·화상·부식·수술 합병증 등 <u>외인에 의한 특수 손상</u><br>
+    • <b>M코드</b>: 근골격계·결합조직 <u>질환</u> → 퇴행성·만성 병변<br>
+    • <b>V·W·X·Y코드</b>: 사고의 <u>원인(외인)</u> 보조 코드 — S·T코드와 반드시 병기<br><br>
+    <b style="color:#c0392b;">⚠️ 실무 핵심</b>: S·T코드는 외인코드(V~Y)가 병기되어야 인과관계가 법적으로 명확해집니다.
+    </div>""", unsafe_allow_html=True)
+    
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:14px 0 8px 0;font-weight:900;
+      font-size:0.9rem;color:#1a3a5c;">📊 KCD 코드 대분류 체계</div>""", unsafe_allow_html=True)
+            st.components.v1.html("""
+    <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem;font-family:sans-serif;">
+    <thead>
+    <tr style="background:#3B82F6;color:#fff;">
+      <th style="padding:8px 10px;text-align:left;">코드 분류</th>
+      <th style="padding:8px 10px;text-align:left;">정의 및 특징</th>
+      <th style="padding:8px 10px;text-align:left;">주요 적용 상병 예시</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr style="background:#f0f8ff;">
+      <td style="padding:7px 10px;font-weight:700;color:#1a6bb5;">S코드 (Injury)</td>
+      <td style="padding:7px 10px;">특정 신체 부위의 외상성 급성 손상</td>
+      <td style="padding:7px 10px;">골절(S82), 탈구(S43), 뇌진탕(S06), 인대파열(S83), 척수손상(S14)</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:7px 10px;font-weight:700;color:#1a6bb5;">T코드 (Poisoning 등)</td>
+      <td style="padding:7px 10px;">외인에 의한 중독·화상·부식·합병증</td>
+      <td style="padding:7px 10px;">화상(T30), 약물중독(T36), 수술 후 합병증(T81), 질식(T71), 감전(T75.4)</td>
+    </tr>
+    <tr style="background:#f0fff4;">
+      <td style="padding:7px 10px;font-weight:700;color:#15803d;">M코드 (Musculoskeletal)</td>
+      <td style="padding:7px 10px;">근골격계·결합조직 질환 (퇴행성)</td>
+      <td style="padding:7px 10px;">추간판탈출증(M51), 회전근개증후군(M75), 관절염(M17), 반월상연골(M23)</td>
+    </tr>
+    <tr style="background:#fffbeb;">
+      <td style="padding:7px 10px;font-weight:700;color:#d97706;">V코드 (운수사고)</td>
+      <td style="padding:7px 10px;">보행자·차량 운수사고 원인 코드</td>
+      <td style="padding:7px 10px;">보행자 사고(V01~V09), 이륜차(V20~V29), 승용차(V40~V49)</td>
+    </tr>
+    <tr style="background:#fff7ed;">
+      <td style="padding:7px 10px;font-weight:700;color:#d97706;">W코드 (추락·물리적 힘)</td>
+      <td style="padding:7px 10px;">추락·전도·물체충격 원인 코드</td>
+      <td style="padding:7px 10px;">미끄러짐(W01), 계단추락(W10), 사다리추락(W11), 물체충격(W20~W64)</td>
+    </tr>
+    <tr style="background:#fef2f2;">
+      <td style="padding:7px 10px;font-weight:700;color:#dc2626;">X코드 (환경노출)</td>
+      <td style="padding:7px 10px;">화재·유독물·자연재해·자해 원인</td>
+      <td style="padding:7px 10px;">화재(X00), 낙뢰(X33), 유독동물접촉(X20~X29), 고의자해(X60~X84)</td>
+    </tr>
+    <tr style="background:#fdf4ff;">
+      <td style="padding:7px 10px;font-weight:700;color:#7c3aed;">Y코드 (의료처치·폭행)</td>
+      <td style="padding:7px 10px;">수술사고·약물부작용·타인폭행</td>
+      <td style="padding:7px 10px;">수술 중 사고(Y60), 약물부작용(Y40~Y59), 타인에 의한 폭행(Y00~Y09)</td>
+    </tr>
+    </tbody>
+    </table>
+    </div>""", height=280)
+    
+        with kcd_tab2:
+            st.markdown("""<div style="background:#f0fff4;border-left:4px solid #059669;
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+      font-size:0.9rem;color:#064e3b;">🔄 S·T코드 → M코드 전환 시점 및 논리</div>""", unsafe_allow_html=True)
+            st.components.v1.html("""
+    <div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#1a2e1a;padding:4px;">
+    <b style="font-size:0.9rem;color:#059669;">▶ 핵심 전환 기점: 사고 후 6개월(180일)</b><br><br>
+    
+    <b>① 증상의 고착화</b><br>
+    급성 외상(S코드)은 통상 6개월 이내 치유되거나 고착됩니다.<br>
+    이후 남은 통증은 '손상(Injury)'이 아닌 <b style="color:#dc2626;">'상태(Condition)'인 질환(M코드)</b>으로 분류됩니다.<br><br>
+    
+    <b>② 퇴행성 병변 가시화</b><br>
+    사고 초기엔 부종으로 보이지 않던 퇴행성 변화가 시간이 지나며 MRI상 명확해질 때,<br>
+    전문의는 정밀 검사 결과에 따라 M코드를 추가하거나 변경합니다.<br><br>
+    
+    <b>③ 장해 판정 시점</b><br>
+    보험약관 및 맥브라이드 평가는 <b>사고 후 180일 경과 후</b> 가능합니다.<br>
+    '영구적 기능 장해'는 급성 손상이 아닌 <b>만성적 변형(M코드)</b>으로 간주되는 경우가 많습니다.<br><br>
+    
+    <b style="color:#1a6bb5;">▶ 부위별 전환 논리 예시</b><br>
+    • <b>허리(추간판)</b>: S33.5(요추염좌) → <span style="color:#dc2626;">M51(추간판탈출증)</span><br>
+    &nbsp;&nbsp;지급률 기준: 20%(고도) / 15%(중등도) / 10%(경도), 외상 기여도 20~50% 산출<br>
+    • <b>어깨(회전근개)</b>: S43.0(탈구)·S46(힘줄손상) → <span style="color:#dc2626;">M75.1(회전근개증후군)</span><br>
+    &nbsp;&nbsp;ROM 제한 지급률: 30%(고도) / 10%(중등도) / 5%(경도), 사고 전 치료력 필수 확인<br>
+    • <b>무릎(연골)</b>: S83.2(인대파열) → <span style="color:#dc2626;">M23.2(반월상연골파열)</span><br><br>
+    
+    <b style="color:#7c3aed;">▶ 법적 근거</b><br>
+    • 대법원 98다158: 상해 입증책임은 청구권자에게 있음<br>
+    • 대법원 2002다3040: 기왕증과 사고의 복합 기여 인정<br>
+    • 상법 제737조·표준약관 제7조: 상해·질병 경합 시 상해 부분만 보상<br>
+    • 금감원 분쟁조정: 질병의 영향이 있는 상해 → 기왕증 기여도 공제 권고
+    </div>""", height=420)
+    
+            st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:12px 0 8px 0;font-weight:900;
+      font-size:0.9rem;color:#7d3c00;">💊 건강보험 적용 변화 및 지불 주체 전환</div>""", unsafe_allow_html=True)
+            st.components.v1.html("""
+    <div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#3d1f00;padding:4px;">
+    <b>① 본인부담금 변화</b><br>
+    단순 상해(S) → 만성 질환(M) 전환 시, 산정특례·본인부담상한제 적용 범위가 달라질 수 있습니다.<br><br>
+    
+    <b>② 지불 주체 전환</b><br>
+    • 사고 초기: 자동차보험(자보) 또는 산재보험으로 처리<br>
+    • 6개월 후 질병 판명 시: <b style="color:#1a6bb5;">지불 주체 → 국민건강보험공단</b>으로 전환 가능<br>
+    • 보험사는 기지불 치료비 중 질병 분에 대해 <b style="color:#dc2626;">부당이득 반환 청구</b> 가능<br><br>
+    
+    <b>③ 의료법 제18조</b><br>
+    의사는 KCD 지침에 따라 진단해야 하므로, 환자 요구만으로 M→S 유지 불가.<br>
+    단, <b>'외상성(Traumatic)'</b> 문구를 비고란에 기재하면 상해성을 법적으로 보전 가능.
+    </div>""", height=220)
+    
+        with kcd_tab3:
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+      font-size:0.9rem;color:#1a3a5c;">👁️ 주체별 관점에서의 코드 운용 및 심사 기준</div>""", unsafe_allow_html=True)
+    
+            with st.expander("① 전문의(Clinician) 관점 — 임상적 상태와 치료 단계", expanded=True):
+                st.components.v1.html("""
+    <div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#1a2e4a;padding:4px;">
+    <b>판단 기준: '외력에 의한 급성 손상'인가 vs '내인적 퇴행성 변화'인가</b><br><br>
+    • <b style="color:#1a6bb5;">S·T코드 부여</b>: 사고 직후 외상 소견(부종·출혈·골절)이 명확할 때<br>
+    • <b style="color:#dc2626;">M코드 부여</b>: 급성기 치료 후 통증 지속 또는 MRI상 사고 전부터 존재하던<br>
+    &nbsp;&nbsp;신경 퇴행·연골 마모 등이 주된 원인일 때<br><br>
+    <b>실무 Tip</b>: 초진 차트에 <b>'외상성(Traumatic)'</b> 명시 및 영상 판독지 보관이 핵심
+    </div>""", height=160)
+    
+            with st.expander("② 심사평가원(HIRA) 관점 — 급여 적정성과 책임 소재"):
+                st.components.v1.html("""
+    <div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#1a2e4a;padding:4px;">
+    <b>목적: 건강보험 재정 보호 — '사고의 외래성' 엄격 모니터링</b><br><br>
+    • <b>심사 핵심</b>: S코드 청구 → 동일 부위 M코드 과거 치료력 반복 확인 시<br>
+    &nbsp;&nbsp;→ '질병의 재발'로 간주, 심사 조정(삭감) 또는 건보공단 통보<br>
+    • <b>연동 체계</b>: 자동차보험·산재보험과의 중복 청구 방지를 위해<br>
+    &nbsp;&nbsp;외인코드(V~Y) 기재 여부 필수 체크
+    </div>""", height=145)
+    
+            with st.expander("③ 손해사정인 관점 — 입증 책임과 보험금 지급"):
+                st.components.v1.html("""
+    <div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#1a2e4a;padding:4px;">
+    <b>핵심 업무: 보험약관상 '상해' 요건(급격·우연·외래) 충족 여부를 코드로 1차 판단</b><br><br>
+    • <b>분쟁 지점</b>: S코드 → M코드 전환 시 보험사는 <b style="color:#dc2626;">'기왕증 기여도'</b> 주장 → 보험금 감액 시도<br>
+    • <b>대응 전략</b>: 진단서상 코드가 M이라도,<br>
+    &nbsp;&nbsp;<b>사고와의 상당인과관계</b> 입증 → 상해 보험금(또는 배상금) 확보<br>
+    • <b>필수 서류</b>: 사고 직후 초진 기록 + 영상 판독지 (최우선 증거)<br>
+    &nbsp;&nbsp;기여도 입증: 주치의에게 <b>"외상 기여도 %"</b> 소견서 요청
+    </div>""", height=170)
+    
+        with kcd_tab4:
+            st.markdown("""<div style="background:#fef3c7;border-left:4px solid #d97706;
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+      font-size:0.9rem;color:#78350f;">⚖️ S·T코드(결과)와 V·W·X·Y코드(원인)의 법적·실무적 결합</div>""", unsafe_allow_html=True)
+    
+            st.components.v1.html("""
+    <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.81rem;font-family:sans-serif;">
+    <thead>
+    <tr style="background:#78350f;color:#fff;">
+      <th style="padding:7px 10px;">대분류</th>
+      <th style="padding:7px 10px;">코드 범위</th>
+      <th style="padding:7px 10px;">상세 내용 및 예시</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr style="background:#fffbeb;">
+      <td style="padding:6px 10px;font-weight:700;">운수 사고 (V)</td>
+      <td style="padding:6px 10px;">V01–V99</td>
+      <td style="padding:6px 10px;">보행자 사고, 자전거, 이륜차, 승용차 사고 등 (교통사고 처리 시 필수)</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:6px 10px;font-weight:700;">추락·전도 (W)</td>
+      <td style="padding:6px 10px;">W00–W19</td>
+      <td style="padding:6px 10px;">미끄러짐, 걸려 넘어짐(W01), 계단 추락(W10), 사다리 추락(W11)</td>
+    </tr>
+    <tr style="background:#fffbeb;">
+      <td style="padding:6px 10px;font-weight:700;">물리적 힘 (W)</td>
+      <td style="padding:6px 10px;">W20–W64</td>
+      <td style="padding:6px 10px;">물체에 부딪힘, 끼임, 날카로운 물체에 베임, 기계 사고</td>
+    </tr>
+    <tr style="background:#fff;">
+      <td style="padding:6px 10px;font-weight:700;">환경적 노출 (X)</td>
+      <td style="padding:6px 10px;">X00–X59</td>
+      <td style="padding:6px 10px;">화재, 연기 노출, 유독 동물(뱀·벌) 접촉, 자연재해(낙뢰·폭염)</td>
+    </tr>
+    <tr style="background:#fef2f2;">
+      <td style="padding:6px 10px;font-weight:700;color:#dc2626;">의도적 자해/공격 (X/Y)</td>
+      <td style="padding:6px 10px;">X60–Y09</td>
+      <td style="padding:6px 10px;">고의적 자해(X60~) → 우연성 파괴 → 면책 사유 / 타인 폭행(Y00~)</td>
+    </tr>
+    <tr style="background:#fffbeb;">
+      <td style="padding:6px 10px;font-weight:700;">의료 처치 부작용 (Y)</td>
+      <td style="padding:6px 10px;">Y40–Y84</td>
+      <td style="padding:6px 10px;">수술 중 사고, 약물 부작용, 의료기기 결함에 의한 손상</td>
+    </tr>
+    </tbody>
+    </table>
+    </div>""", height=230)
+    
+            st.markdown("""<div style="background:#fff8f0;border-left:4px solid #e67e22;
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:14px 0 8px 0;font-weight:900;
+      font-size:0.9rem;color:#7d3c00;">🔍 손해사정인 3대 검증 포인트</div>""", unsafe_allow_html=True)
+            st.components.v1.html("""
+    <div style="font-size:0.83rem;font-family:sans-serif;line-height:1.9;color:#3d1f00;padding:4px;">
+    <b>① 사고의 외래성 및 일관성 검토</b><br>
+    • 청구 경위(V~Y)와 의무기록지 '초진 차트' 내용 일치 여부 확인<br>
+    • 예시: "계단에서 굴렀다(W10)" 주장 vs 병원 기록 "아침에 갑자기 허리 통증" → <span style="color:#dc2626;">외래성 결여로 지급 거절</span><br><br>
+    
+    <b>② 상병 부위와 사고 기전의 정합성</b><br>
+    • 사고의 물리적 에너지 방향이 진단된 S코드 부위에 영향을 줄 수 있는지 분석<br>
+    • 예시: "후방 추돌(V43) → 무릎 십자인대 파열(S83)" → 직접 충격 흔적 없으면 퇴행성(M코드) 간주<br><br>
+    
+    <b>③ 고의 및 면책 사유 해당 여부</b><br>
+    • X60~X84(자해) 외인코드 → <b>'우연성' 파괴</b> → 면책 처리<br>
+    • 추락(W13) 신고이나 고의성 의심 시 경찰 조사·유서 등 정밀 조사 필요<br><br>
+    
+    <b style="color:#1a6bb5;">▶ 실무 사례: 허리 압박골절(S32.0) + 화장실 미끄러짐(W01)</b><br>
+    • 골밀도 T-score 확인 → 골다공증 심하면 사고 기여도 30~50%만 인정<br>
+    • MRI 신호강도 확인 → 진구성(오래된) 골절이면 금번 사고와 무관 → 지급 거절<br>
+    • 사고 장소 조사: 화장실 물기·신발 종류 등 객관적 증거 확보
+    </div>""", height=310)
+    
+            st.info("📌 실무 권고: 진단서에 S코드만 기재된 경우, 반드시 추가 진단서나 소견서를 통해 V~Y코드를 보완하십시오. 향후 재보험사 심사나 금감원 민원 시 강력한 방어 논리가 됩니다.")
+    
+        with kcd_tab5:
+            st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:6px 0 10px 0;font-weight:900;
+      font-size:0.9rem;color:#1a3a5c;">🤖 AI 손해사정 분석 — 후유장해 기여도 산출</div>""", unsafe_allow_html=True)
+    
+            col_ki1, col_ki2 = st.columns([1, 1])
+            with col_ki1:
+                ki_c_name = st.text_input("고객 성함", "우량 고객", key="ki_c_name")
+                st.session_state.current_c_name = ki_c_name
+                ki_accident_date = st.date_input("사고 발생일", key="ki_accident_date")
+                ki_initial_code  = st.text_input("초진 KCD 코드 (예: S13.4, S32.0)", "S13.4", key="ki_initial_code")
+                ki_current_code  = st.text_input("현재 KCD 코드 (예: M51, M75.1)", "M51",   key="ki_current_code")
+                ki_body_part = st.selectbox("손상 부위", ["허리(추간판)", "어깨(회전근개)", "무릎(연골·인대)", "경추(목)", "기타"], key="ki_body_part")
+                ki_contribution  = st.slider("외상 기여도 추정 (%)", min_value=0, max_value=100, value=50, step=5, key="ki_contribution")
+                ki_severity = st.selectbox("중증도", ["고도(High)", "중등도(Mid)", "경도(Low)"], key="ki_severity")
+                ki_prior_history = st.checkbox("사고 전 동일 부위 치료력 있음", key="ki_prior_history")
+                ki_query_extra   = st.text_area("추가 사항 (MRI 소견, 초진 내용 등)", height=80, key="ki_query_extra")
+            with col_ki2:
+                import datetime as _dt
+                _today    = _dt.date.today()
+                _acc_date = ki_accident_date if ki_accident_date else _today
+                _months   = (_today.year - _acc_date.year) * 12 + (_today.month - _acc_date.month)
+                _is_6m    = _months >= 6
+                _sev_map  = {"고도(High)": "high", "중등도(Mid)": "mid", "경도(Low)": "low"}
+                _part_map = {"허리(추간판)": "spine", "어깨(회전근개)": "shoulder", "무릎(연골·인대)": "knee",
+                             "경추(목)": "cervical", "기타": "other"}
+                _base_rates = {
+                    "spine":    {"high": 0.20, "mid": 0.15, "low": 0.10},
+                    "shoulder": {"high": 0.30, "mid": 0.10, "low": 0.05},
+                    "knee":     {"high": 0.20, "mid": 0.10, "low": 0.05},
+                    "cervical": {"high": 0.20, "mid": 0.15, "low": 0.10},
+                    "other":    {"high": 0.20, "mid": 0.10, "low": 0.05},
+                }
+                _part_key = _part_map.get(ki_body_part, "other")
+                _sev_key  = _sev_map.get(ki_severity, "mid")
+                _base     = _base_rates.get(_part_key, {}).get(_sev_key, 0.10)
+                _contrib  = ki_contribution / 100
+                _final    = _base * _contrib
+    
+                st.markdown("""<div style="background:#f0f4ff;border-left:4px solid #2e6da4;
+      border-radius:0 8px 8px 0;padding:6px 12px;margin:0 0 8px 0;font-weight:900;
+      font-size:0.85rem;color:#1a3a5c;">📐 자동 산출 결과</div>""", unsafe_allow_html=True)
+                _badge_color = "#dc2626" if _is_6m else "#16a34a"
+                _badge_text  = f"사고 후 {_months}개월 경과 → {'M코드 전환 가능성 높음 ⚠️' if _is_6m else '급성기(S코드) 유지 단계 ✅'}"
+                st.markdown(f"""<div style="background:#{'fff0f0' if _is_6m else '#f0fff4'};
+      border:1px solid {'#fca5a5' if _is_6m else '#86efac'};border-radius:6px;
+      padding:8px 12px;font-size:0.82rem;font-weight:700;color:{_badge_color};margin-bottom:8px;">
+      {_badge_text}
+    </div>""", unsafe_allow_html=True)
+                st.markdown(f"""<div style="background:#f8faff;border:1px solid #b3c8e8;border-radius:8px;
+      padding:12px;font-size:0.83rem;color:#1a2e4a;line-height:2.0;">
+      <b>초진 코드:</b> {ki_initial_code} &nbsp;→&nbsp; <b>현재 코드:</b> {ki_current_code}<br>
+      <b>기준 장해율(약관):</b> {_base*100:.0f}%<br>
+      <b>외상 기여도:</b> {ki_contribution}%<br>
+      <b>최종 지급률:</b> <span style="color:#dc2626;font-size:1.05rem;font-weight:900;">{_final*100:.1f}%</span><br>
+      <b>계산식:</b> {_base*100:.0f}% × {ki_contribution}% = {_final*100:.1f}%<br>
+      {'<b style="color:#e67e22;">⚠️ 사고 전 치료력 있음 → 기왕증 공제 추가 검토 필요</b>' if ki_prior_history else ''}
+    </div>""", unsafe_allow_html=True)
+    
+                if st.button("🤖 AI 심층 손해사정 분석 실행", key="ki_ai_run", use_container_width=True):
+                    _ai_prompt = (
+                        f"[KCD 상해 손해사정 분석 — 후유장해 기여도 산출]\n"
+                        f"고객: {ki_c_name} | 사고일: {_acc_date} | 경과: {_months}개월\n"
+                        f"초진코드: {ki_initial_code} → 현재코드: {ki_current_code}\n"
+                        f"손상부위: {ki_body_part} | 중증도: {ki_severity} | 외상기여도: {ki_contribution}%\n"
+                        f"사고 전 치료력: {'있음' if ki_prior_history else '없음'}\n"
+                        f"추가소견: {ki_query_extra}\n\n"
+                        "다음 3개 파트로 분석하십시오:\n"
+                        "【의학적 소견】\n"
+                        f"1. {ki_initial_code}(S/T코드) → {ki_current_code}(M코드) 전환의 의학적 타당성\n"
+                        "2. 사고 후 6개월 기점 증상 고착화 및 퇴행성 병변 개입 여부\n"
+                        "3. MRI 소견상 외상성 변화와 기왕증 구분 기준\n\n"
+                        "【법리적 검토】\n"
+                        "4. 대법원 98다158, 2002다3040 판례 적용 — 인과관계 입증 기준\n"
+                        "5. 상법 제737조·표준약관 제7조 기왕증 공제 적용 가능성\n"
+                        "6. 금감원 분쟁조정사례 기준 보험금 지급 여부 판단\n\n"
+                        "【실무적 대응 전략】\n"
+                        f"7. 외상 기여도 {ki_contribution}% 적용 시 예상 보험금 지급률\n"
+                        "8. 손해사정인이 확보해야 할 필수 서류 목록\n"
+                        "9. 보험사 지급 거절 시 대응 전략 (소견서 요청, 금감원 민원 등)\n"
+                        "[주의] 모든 법조문·판례 인용 시 원본 출처 명시 필수."
+                    )
+                    try:
+                        _client, _cfg = get_master_model()
+                        _resp = _client.models.generate_content(
+                            model=GEMINI_MODEL, contents=_ai_prompt, config=_cfg)
+                        st.session_state["res_kcd_injury"] = sanitize_unicode(_resp.text) if _resp.text else "응답 없음"
+                        update_usage(st.session_state.get('user_name', ''))
+                        st.rerun()
+                    except Exception as _e:
+                        st.error(f"AI 분석 오류: {sanitize_unicode(str(_e))}")
+    
+            show_result("res_kcd_injury")
     st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
 # ── [auto_comp] 자동차보험 및 보상 실무 통합 ─────────────────────────
