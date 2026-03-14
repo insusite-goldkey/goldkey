@@ -80,6 +80,9 @@ avatar.png
 
 # assets 폴더 이미지는 배포에 필요하므로 예외 허용
 !assets/*.png
+# 스플래시 이미지 — 루트 경로 예외 허용
+!splash_mobile.png
+!splash_tablet.png
 !assets/*.svg
 !assets/*.jpg
 !assets/*.jpeg
