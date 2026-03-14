@@ -46,9 +46,9 @@ st.markdown(f"""
             width: 100%;
         }}
         .mobile-img, .tablet-img {{
-            width: 100%;
-            height: auto;
-            margin: 0;
+            width: 100vw;   /* 화면 가로폭 꽉 채우기 */
+            height: 100vh;  /* 화면 세로폭 꽉 채우기 */
+            object-fit: cover; /* ⭐ 중요: 비율을 유지하면서 남는 부분은 잘라내기 */
         }}
 
         /* 모바일 (767px 이하) */
@@ -214,6 +214,274 @@ if not st.session_state['initialized']:
 # ██   SECTION 8    — 메인 UI (사이드바 / 탭)           ██
 # ██   SECTION 9    — 자가 복구 시스템 + 진입점         ██
 # ██████████████████████████████████████████████████████████
+
+
+import sys, json, os, time, hashlib, base64, re, tempfile, pathlib, codecs, unicodedata, traceback as _traceback
+from functools import lru_cache as _lru_cache
+from datetime import datetime as dt, timedelta, date
+from typing import List, Dict
+import sqlite3
+import streamlit.components.v1 as components
+try:
+    from shared_components import (
+        render_auth_screen as _sc_render_auth_screen,
+        verify_sso_token as _sc_verify_sso_token,
+        build_sso_handoff_to_hq as _sc_build_sso_handoff,
+        encrypt_pii as _sc_encrypt_pii,
+        decrypt_pii as _sc_decrypt_pii,
+        upload_file_with_tag as _sc_upload_file_with_tag,
+    )
+except Exception:
+    _sc_render_auth_screen = None
+    _sc_verify_sso_token   = None
+    _sc_build_sso_handoff  = None
+    _sc_encrypt_pii        = None
+    _sc_decrypt_pii        = None
+    _sc_upload_file_with_tag = None
+
+def get_env_secret(key: str, default_value: str = "") -> str:
+    """st.secrets가 없어도 뻗지 않고 클라우드 환경변수로 대체하는 안전한 함수"""
+    try:
+        return st.secrets.get(key, os.environ.get(key, default_value))
+    except Exception:
+        return os.environ.get(key, default_value)
+
+# ── [세션 초기화실] 앱 시작 시 필수 세션 변수 사전 등록 ───────────────────
+def initialize_session():
+    """앱 시작 시 모든 필수 세션 변수를 기본값으로 사전 등록.
+    값이 이미 있으면 덮어쓰지 않음 — 재실행 안전 (idempotent).
+    """
+    _defaults = {
+        '_is_auth':           False,
+        'authenticated':      False,
+        'user_id':            None,
+        'user_name':          None,
+        'is_admin':           False,
+        'target_sector':      None,
+        'user_info':          {},
+        'current_tab':        'home',
+        '_lp_landing':        False,
+        '_bid_visible':       True,
+        '_show_suggestions':  False,
+        '_show_directives':   False,
+        '_lp_terms':          {},
+        '_nav_history':       [],
+        '_open_sidebar':      False,
+        '_login_welcome':     False,
+        '_auto_close_sidebar': False,
+    }
+    for _k, _v in _defaults.items():
+        if _k not in st.session_state:
+            st.session_state[_k] = _v
+
+initialize_session()  # 앱 시작 즉시 실행 — 세션 변수 미등록으로 인한 KeyError 방지
+
+# 외부 격리 게이트웨이 — 모든 외부 접촉은 이 모듈을 통해서만
+try:
+    import external_gateway as _gw
+    _GW_OK = True
+except ImportError:
+    _GW_OK = False
+
+# ── Lazy Load 래퍼 (부팅 시 즉시 로드 금지) ───────────────────────────────
+# pandas: 금감원 API 결과 표시 / 업종 요율표 렌더링 시점에만 로드
+def _lazy_pd():
+    import pandas as _pd
+    return _pd
+
+# PIL: 이미지 파일 분석 기능 실행 시점에만 로드
+def _lazy_pil_image():
+    import PIL.Image as _img
+    return _img
+
+# Fernet: 세션 암호화 키 초기화 시점에만 로드 (get_cipher() 호출 시)
+def _lazy_fernet():
+    from cryptography.fernet import Fernet as _Fernet
+    return _Fernet
+
+# google.genai / types: AI 호출 시점에만 로드 (부팅 ~0.8s 절감)
+def _lazy_genai():
+    from google import genai as _genai
+    return _genai
+
+def _lazy_genai_types():
+    from google.genai import types as _types
+    return _types
+
+# ftfy: 텍스트 교정 요청 시점에만 로드 (부팅 ~0.3s 절감)
+def _lazy_ftfy():
+    try:
+        import ftfy as _ftfy
+        return _ftfy
+    except ImportError:
+        return None
+
+_SMART_SCANNER_OK = False
+_smart_scanner_mod = None
+
+def _load_smart_scanner():
+    global _SMART_SCANNER_OK, _smart_scanner_mod
+    if _smart_scanner_mod is not None:
+        return _SMART_SCANNER_OK
+    try:
+        import modules.smart_scanner as _sm
+        _smart_scanner_mod = _sm
+        _SMART_SCANNER_OK = True
+    except Exception:
+        _SMART_SCANNER_OK = False
+    return _SMART_SCANNER_OK
+
+def render_smart_scanner(*a, **kw):
+    if _load_smart_scanner(): return _smart_scanner_mod.render_smart_scanner(*a, **kw)
+def render_scan_report(*a, **kw):
+    if _load_smart_scanner(): return _smart_scanner_mod.render_scan_report(*a, **kw)
+def render_ssot_banner(*a, **kw):
+    if _load_smart_scanner(): return _smart_scanner_mod.render_ssot_banner(*a, **kw)
+def render_legal_scanner(*a, **kw):
+    if _load_smart_scanner(): return _smart_scanner_mod.render_legal_scanner(*a, **kw)
+def render_legal_report(*a, **kw):
+    if _load_smart_scanner(): return _smart_scanner_mod.render_legal_report(*a, **kw)
+
+# ==========================================================
+# [SURROGATE 전역 차단] — 모든 문자열 처리 전 최우선 적용
+# Python 인터프리터 레벨에서 surrogate 문자를 replace로 강제 치환
+# Streamlit 렌더링 엔진은 stdout 설정을 우회하므로
+# str 서브클래스 + __str__ 후킹 대신 encode 레벨에서 차단
+# ==========================================================
+os.environ["PYTHONIOENCODING"] = "utf-8:replace"
+os.environ["PYTHONUTF8"] = "1"
+
+# ── Playwright Chromium 자동 설치 비활성화 ──────────────────────────────────
+# HF Space cpu-basic 환경에서 OOM/타임아웃 유발 → 완전 제거
+# 약관 추적 기능은 playwright 미설치 시 사용자 안내 메시지로 대체
+def _install_playwright_bg():
+    pass  # disabled
+
+# _threading.Thread 미실행 — HF Space 안정성 확보
+
+# 환경변수 전체를 surrogate-safe하게 정제 (앱 시작 시 1회만 실행)
+try:
+    for _ekey in list(os.environ.keys()):
+        _eval = os.environ[_ekey]
+        _safe_eval = _eval.encode("utf-8", errors="ignore").decode("utf-8")
+        if _safe_eval != _eval:
+            os.environ[_ekey] = _safe_eval
+except Exception:
+    pass
+
+def _safe_str(obj) -> str:
+    """surrogate 문자를 완전 제거한 안전한 문자열 반환 — 전역 사용"""
+    try:
+        s = obj if isinstance(obj, str) else str(obj)
+        return s.encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+    except Exception:
+        return repr(obj).encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+# 선택적 임포트 — 앱 시작 시 즉시 로드하지 않음 (지연 로드)
+# PDF 라이브러리는 실제 사용 시점에 로드하여 콜드 스타트 최소화
+PDF_AVAILABLE = None
+
+def _check_pdf():
+    global PDF_AVAILABLE
+    if PDF_AVAILABLE is None:
+        try:
+            import pdfplumber  # noqa
+            PDF_AVAILABLE = True
+        except ImportError:
+            PDF_AVAILABLE = False
+    return PDF_AVAILABLE
+
+# ==========================================================
+# [시스템 필수 설정] — 원칙 ② No Local Storage 적용
+# 상태 보존의 단일 진실 원천(SSOT) = Supabase(PostgreSQL)
+# /tmp JSON 경로는 Supabase 장애 시 최후 비상 폴백 전용.
+# 신규 기능에서 USAGE_DB / MEMBER_DB 직접 쓰기 절대 금지.
+# ==========================================================
+_IS_CLOUD = (
+    os.environ.get("K_SERVICE") is not None or          # Cloud Run
+    os.environ.get("HOME", "").startswith("/home") or   # Streamlit Cloud
+    not os.access(".", os.W_OK)                         # 현재 디렉토리 쓰기 불가
+)
+_DATA_DIR = "/tmp" if _IS_CLOUD else "."
+# ★ DEPRECATED: 아래 두 상수는 Supabase 장애 시 비상 폴백 전용.
+#   상태 보존 주경로는 반드시 Supabase를 사용할 것 (원칙 ② 준수).
+USAGE_DB  = os.path.join(_DATA_DIR, "usage_log.json")
+MEMBER_DB = os.path.join(_DATA_DIR, "members.json")
+
+# ── Supabase 클라이언트 초기화 (원칙 ②: 상태 보존 SSOT) ──────────────────
+# 모든 usage_logs / members 읽기·쓰기는 _get_sb_client()를 통해 수행.
+# 정의 위치: SECTION 1 내부 (_get_sb_client / _get_sb_client_cached 함수)
+# secrets 미설정 시 None 반환 → 각 함수에서 로컬 JSON 폴백 처리.
+
+# ==========================================================================
+# [STT/TTS 전역 설정 — 절대명령: 이 값을 직접 수정하지 말 것]
+# 본 앱의 모든 섹터(현재 및 신규 추가 섹터 포함)의 음성 입력(STT)·출력(TTS)은
+# 반드시 아래 상수를 참조해야 하며, 임의로 값을 하드코딩하는 것을 금지한다.
+# 설정 변경 시 이 블록만 수정하면 전체 앱에 즉시 반영된다.
+# ==========================================================================
+STT_LANG          = "ko-KR"          # 언어: 반드시 ko-KR 명시 (미설정 시 영어 오인식)
+STT_INTERIM       = "true"           # 중간 결과 실시간 표시 (사용자 안심 효과)
+STT_CONTINUOUS    = "true"           # 연속 인식 (단일 객체 유지 → 권한 팝업 1회)
+STT_MAX_ALT       = 3                # 후보 수: 신뢰도 최고값 자동 선택
+STT_NO_SPEECH_MS      = 3500         # VAD silence_duration_ms: 3.5초 — 고령자/사투리 말 사이 pause 충분히 허용 (+1초)
+STT_SILENCE_TIMEOUT_MS= 2000         # End-point 판단 침묵 기준: 2.0초 — 말 끝 후 800ms 추가 대기로 Chop-off 방지
+STT_MIN_UTTERANCE_MS  = 300          # 최소 발화 길이: 0.3초 미만 노이즈(기침·클릭·환경음) 무시
+STT_POST_ROLL_MS      = 800          # Post-roll 버퍼: 말 끝난 후 0.8초 추가 캡처 — end_pointing_delay +500~1000ms 적용
+STT_RESTART_MS    = 1000             # 비정상 종료 후 재시작 대기(ms) — Race Condition 방지 (800→1000ms)
+STT_PREFIX_PAD_MS = 600              # prefix_padding_ms: 말 시작 전 600ms 버퍼 — '아...','음...' 뒤 본론 잘림 방지 (Pre-roll)
+STT_LEV_THRESHOLD = 0.88             # Levenshtein 중복 판정 유사도 임계값 (88% — 사투리 변형 허용폭 유지하되 중복 차단 강화)
+STT_LEV_QUEUE     = 10               # De-duplication 큐 크기 (8→10 확장 — Race Condition 시 중복 문장 흡수)
+STT_DUP_TIME_MS   = 4000             # 시간 기반 중복 차단: 동일 문장 4초 내 재입력 차단 (3→4초, 다중 입력 Race Condition 방지)
+# speechContext 부스트 용어 — Google STT 적응형 인식 (보험/의료/법률 전문용어 오인식 방지)
+# Web Speech API는 직접 speechContexts 파라미터를 지원하지 않으나,
+# 아래 용어를 grammars(JSpeech Grammar Format) 힌트로 주입하여 인식률을 높인다.
+STT_BOOST_TERMS   = [
+    "치매보험", "경도인지장애", "납입면제", "해지환급금", "CDR척도",
+    "장기요양등급", "노인성질환", "알츠하이머", "혈관성치매",
+    "실손보험", "암진단비", "뇌혈관질환", "심근경색", "후유장해",
+    "보험료", "보장기간", "갱신형", "비갱신형", "특약", "주계약",
+    "설명의무", "청약철회", "보험금청구", "표준약관",
+]
+
+TTS_LANG          = "ko-KR"          # TTS 언어
+TTS_RATE          = 0.9              # 말하기 속도: 0.9 (명료·자연스러운 20대 여성 아나운서)
+TTS_RATE_ELDERLY  = 0.75             # 고령자 모드 속도: 0.75 (또박또박 천천히)
+TTS_PITCH         = 1.4              # 음높이: 1.4 (20대 여성 아나운서 톤)
+TTS_VOLUME        = 1.0              # 음량: 최대
+# 여성 목소리 우선순위: Yuna(삼성) > Female > Google 한국어 > Heami
+TTS_VOICE_PRIORITY = ["Yuna", "Female", "Google", "Heami"]
+# Prosody Control — 컨텍스트 톤 프리셋 (rate, pitch)
+# 사용: s_voice(text, tone="calm") / s_voice(text, tone="bright") 등
+TTS_TONE_PRESETS = {
+    "default": (0.9,  1.4),   # 기본: 명료 아나운서
+    "calm":    (0.78, 1.1),   # 차분: 사고접수·보험금 청구·불만 응대
+    "bright":  (1.0,  1.6),   # 밝음: 상품 안내·신규 가입 권유
+    "empathy": (0.75, 1.0),   # 공감: 사망·입원·진단 등 민감 상황
+    "clear":   (0.85, 1.3),   # 또렷: 약관·법률 안내 — 정확성 중시
+}
+# ==========================================================================
+
+# --------------------------------------------------------------------------
+# [SECTION 0] 앱 아이덴티티 상수
+# --------------------------------------------------------------------------
+APP_NAME       = "Goldkey_Ai_masters2026"   # 정식 명칭 (영업비밀 등록용)
+APP_SHORT      = "insuAi"                   # 약칭 (일상 호칭)
+APP_AUTHOR     = "이세윤 (골드키지사)"
+APP_START_DATE = "2026-02-01"               # 최초 개발 시작일
+APP_DEVLOG_DB  = os.path.join(_DATA_DIR if '_DATA_DIR' in dir() else ".", "devlog.json")
+
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # ★★★ [제6편: 전문가 자문 시스템 및 데이터 무결성] ★★★
@@ -4607,273 +4875,6 @@ def _art34_report_footer() -> str:
         f"본 분석은 {_ym} 공시된 최신 요율(건강보험료율 {_rate_pct}%)을 "
         f"기준으로 작성되었습니다. (출처: {_ART34_RATE_SOURCE})"
     )
-# ══════════════════════════════════════════════════════════════════════════
-
-
-import sys, json, os, time, hashlib, base64, re, tempfile, pathlib, codecs, unicodedata, traceback as _traceback
-from functools import lru_cache as _lru_cache
-from datetime import datetime as dt, timedelta, date
-from typing import List, Dict
-import sqlite3
-import streamlit.components.v1 as components
-try:
-    from shared_components import (
-        render_auth_screen as _sc_render_auth_screen,
-        verify_sso_token as _sc_verify_sso_token,
-        build_sso_handoff_to_hq as _sc_build_sso_handoff,
-        encrypt_pii as _sc_encrypt_pii,
-        decrypt_pii as _sc_decrypt_pii,
-        upload_file_with_tag as _sc_upload_file_with_tag,
-    )
-except Exception:
-    _sc_render_auth_screen = None
-    _sc_verify_sso_token   = None
-    _sc_build_sso_handoff  = None
-    _sc_encrypt_pii        = None
-    _sc_decrypt_pii        = None
-    _sc_upload_file_with_tag = None
-
-def get_env_secret(key: str, default_value: str = "") -> str:
-    """st.secrets가 없어도 뻗지 않고 클라우드 환경변수로 대체하는 안전한 함수"""
-    try:
-        return st.secrets.get(key, os.environ.get(key, default_value))
-    except Exception:
-        return os.environ.get(key, default_value)
-
-# ── [세션 초기화실] 앱 시작 시 필수 세션 변수 사전 등록 ───────────────────
-def initialize_session():
-    """앱 시작 시 모든 필수 세션 변수를 기본값으로 사전 등록.
-    값이 이미 있으면 덮어쓰지 않음 — 재실행 안전 (idempotent).
-    """
-    _defaults = {
-        '_is_auth':           False,
-        'authenticated':      False,
-        'user_id':            None,
-        'user_name':          None,
-        'is_admin':           False,
-        'target_sector':      None,
-        'user_info':          {},
-        'current_tab':        'home',
-        '_lp_landing':        False,
-        '_bid_visible':       True,
-        '_show_suggestions':  False,
-        '_show_directives':   False,
-        '_lp_terms':          {},
-        '_nav_history':       [],
-        '_open_sidebar':      False,
-        '_login_welcome':     False,
-        '_auto_close_sidebar': False,
-    }
-    for _k, _v in _defaults.items():
-        if _k not in st.session_state:
-            st.session_state[_k] = _v
-
-initialize_session()  # 앱 시작 즉시 실행 — 세션 변수 미등록으로 인한 KeyError 방지
-
-# 외부 격리 게이트웨이 — 모든 외부 접촉은 이 모듈을 통해서만
-try:
-    import external_gateway as _gw
-    _GW_OK = True
-except ImportError:
-    _GW_OK = False
-
-# ── Lazy Load 래퍼 (부팅 시 즉시 로드 금지) ───────────────────────────────
-# pandas: 금감원 API 결과 표시 / 업종 요율표 렌더링 시점에만 로드
-def _lazy_pd():
-    import pandas as _pd
-    return _pd
-
-# PIL: 이미지 파일 분석 기능 실행 시점에만 로드
-def _lazy_pil_image():
-    import PIL.Image as _img
-    return _img
-
-# Fernet: 세션 암호화 키 초기화 시점에만 로드 (get_cipher() 호출 시)
-def _lazy_fernet():
-    from cryptography.fernet import Fernet as _Fernet
-    return _Fernet
-
-# google.genai / types: AI 호출 시점에만 로드 (부팅 ~0.8s 절감)
-def _lazy_genai():
-    from google import genai as _genai
-    return _genai
-
-def _lazy_genai_types():
-    from google.genai import types as _types
-    return _types
-
-# ftfy: 텍스트 교정 요청 시점에만 로드 (부팅 ~0.3s 절감)
-def _lazy_ftfy():
-    try:
-        import ftfy as _ftfy
-        return _ftfy
-    except ImportError:
-        return None
-
-_SMART_SCANNER_OK = False
-_smart_scanner_mod = None
-
-def _load_smart_scanner():
-    global _SMART_SCANNER_OK, _smart_scanner_mod
-    if _smart_scanner_mod is not None:
-        return _SMART_SCANNER_OK
-    try:
-        import modules.smart_scanner as _sm
-        _smart_scanner_mod = _sm
-        _SMART_SCANNER_OK = True
-    except Exception:
-        _SMART_SCANNER_OK = False
-    return _SMART_SCANNER_OK
-
-def render_smart_scanner(*a, **kw):
-    if _load_smart_scanner(): return _smart_scanner_mod.render_smart_scanner(*a, **kw)
-def render_scan_report(*a, **kw):
-    if _load_smart_scanner(): return _smart_scanner_mod.render_scan_report(*a, **kw)
-def render_ssot_banner(*a, **kw):
-    if _load_smart_scanner(): return _smart_scanner_mod.render_ssot_banner(*a, **kw)
-def render_legal_scanner(*a, **kw):
-    if _load_smart_scanner(): return _smart_scanner_mod.render_legal_scanner(*a, **kw)
-def render_legal_report(*a, **kw):
-    if _load_smart_scanner(): return _smart_scanner_mod.render_legal_report(*a, **kw)
-
-# ==========================================================
-# [SURROGATE 전역 차단] — 모든 문자열 처리 전 최우선 적용
-# Python 인터프리터 레벨에서 surrogate 문자를 replace로 강제 치환
-# Streamlit 렌더링 엔진은 stdout 설정을 우회하므로
-# str 서브클래스 + __str__ 후킹 대신 encode 레벨에서 차단
-# ==========================================================
-os.environ["PYTHONIOENCODING"] = "utf-8:replace"
-os.environ["PYTHONUTF8"] = "1"
-
-# ── Playwright Chromium 자동 설치 비활성화 ──────────────────────────────────
-# HF Space cpu-basic 환경에서 OOM/타임아웃 유발 → 완전 제거
-# 약관 추적 기능은 playwright 미설치 시 사용자 안내 메시지로 대체
-def _install_playwright_bg():
-    pass  # disabled
-
-# _threading.Thread 미실행 — HF Space 안정성 확보
-
-# 환경변수 전체를 surrogate-safe하게 정제 (앱 시작 시 1회만 실행)
-try:
-    for _ekey in list(os.environ.keys()):
-        _eval = os.environ[_ekey]
-        _safe_eval = _eval.encode("utf-8", errors="ignore").decode("utf-8")
-        if _safe_eval != _eval:
-            os.environ[_ekey] = _safe_eval
-except Exception:
-    pass
-
-def _safe_str(obj) -> str:
-    """surrogate 문자를 완전 제거한 안전한 문자열 반환 — 전역 사용"""
-    try:
-        s = obj if isinstance(obj, str) else str(obj)
-        return s.encode("utf-8", errors="replace").decode("utf-8", errors="replace")
-    except Exception:
-        return repr(obj).encode("utf-8", errors="replace").decode("utf-8", errors="replace")
-
-if hasattr(sys.stdout, "reconfigure"):
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-if hasattr(sys.stderr, "reconfigure"):
-    try:
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
-# 선택적 임포트 — 앱 시작 시 즉시 로드하지 않음 (지연 로드)
-# PDF 라이브러리는 실제 사용 시점에 로드하여 콜드 스타트 최소화
-PDF_AVAILABLE = None
-
-def _check_pdf():
-    global PDF_AVAILABLE
-    if PDF_AVAILABLE is None:
-        try:
-            import pdfplumber  # noqa
-            PDF_AVAILABLE = True
-        except ImportError:
-            PDF_AVAILABLE = False
-    return PDF_AVAILABLE
-
-# ==========================================================
-# [시스템 필수 설정] — 원칙 ② No Local Storage 적용
-# 상태 보존의 단일 진실 원천(SSOT) = Supabase(PostgreSQL)
-# /tmp JSON 경로는 Supabase 장애 시 최후 비상 폴백 전용.
-# 신규 기능에서 USAGE_DB / MEMBER_DB 직접 쓰기 절대 금지.
-# ==========================================================
-_IS_CLOUD = (
-    os.environ.get("K_SERVICE") is not None or          # Cloud Run
-    os.environ.get("HOME", "").startswith("/home") or   # Streamlit Cloud
-    not os.access(".", os.W_OK)                         # 현재 디렉토리 쓰기 불가
-)
-_DATA_DIR = "/tmp" if _IS_CLOUD else "."
-# ★ DEPRECATED: 아래 두 상수는 Supabase 장애 시 비상 폴백 전용.
-#   상태 보존 주경로는 반드시 Supabase를 사용할 것 (원칙 ② 준수).
-USAGE_DB  = os.path.join(_DATA_DIR, "usage_log.json")
-MEMBER_DB = os.path.join(_DATA_DIR, "members.json")
-
-# ── Supabase 클라이언트 초기화 (원칙 ②: 상태 보존 SSOT) ──────────────────
-# 모든 usage_logs / members 읽기·쓰기는 _get_sb_client()를 통해 수행.
-# 정의 위치: SECTION 1 내부 (_get_sb_client / _get_sb_client_cached 함수)
-# secrets 미설정 시 None 반환 → 각 함수에서 로컬 JSON 폴백 처리.
-
-# ==========================================================================
-# [STT/TTS 전역 설정 — 절대명령: 이 값을 직접 수정하지 말 것]
-# 본 앱의 모든 섹터(현재 및 신규 추가 섹터 포함)의 음성 입력(STT)·출력(TTS)은
-# 반드시 아래 상수를 참조해야 하며, 임의로 값을 하드코딩하는 것을 금지한다.
-# 설정 변경 시 이 블록만 수정하면 전체 앱에 즉시 반영된다.
-# ==========================================================================
-STT_LANG          = "ko-KR"          # 언어: 반드시 ko-KR 명시 (미설정 시 영어 오인식)
-STT_INTERIM       = "true"           # 중간 결과 실시간 표시 (사용자 안심 효과)
-STT_CONTINUOUS    = "true"           # 연속 인식 (단일 객체 유지 → 권한 팝업 1회)
-STT_MAX_ALT       = 3                # 후보 수: 신뢰도 최고값 자동 선택
-STT_NO_SPEECH_MS      = 3500         # VAD silence_duration_ms: 3.5초 — 고령자/사투리 말 사이 pause 충분히 허용 (+1초)
-STT_SILENCE_TIMEOUT_MS= 2000         # End-point 판단 침묵 기준: 2.0초 — 말 끝 후 800ms 추가 대기로 Chop-off 방지
-STT_MIN_UTTERANCE_MS  = 300          # 최소 발화 길이: 0.3초 미만 노이즈(기침·클릭·환경음) 무시
-STT_POST_ROLL_MS      = 800          # Post-roll 버퍼: 말 끝난 후 0.8초 추가 캡처 — end_pointing_delay +500~1000ms 적용
-STT_RESTART_MS    = 1000             # 비정상 종료 후 재시작 대기(ms) — Race Condition 방지 (800→1000ms)
-STT_PREFIX_PAD_MS = 600              # prefix_padding_ms: 말 시작 전 600ms 버퍼 — '아...','음...' 뒤 본론 잘림 방지 (Pre-roll)
-STT_LEV_THRESHOLD = 0.88             # Levenshtein 중복 판정 유사도 임계값 (88% — 사투리 변형 허용폭 유지하되 중복 차단 강화)
-STT_LEV_QUEUE     = 10               # De-duplication 큐 크기 (8→10 확장 — Race Condition 시 중복 문장 흡수)
-STT_DUP_TIME_MS   = 4000             # 시간 기반 중복 차단: 동일 문장 4초 내 재입력 차단 (3→4초, 다중 입력 Race Condition 방지)
-# speechContext 부스트 용어 — Google STT 적응형 인식 (보험/의료/법률 전문용어 오인식 방지)
-# Web Speech API는 직접 speechContexts 파라미터를 지원하지 않으나,
-# 아래 용어를 grammars(JSpeech Grammar Format) 힌트로 주입하여 인식률을 높인다.
-STT_BOOST_TERMS   = [
-    "치매보험", "경도인지장애", "납입면제", "해지환급금", "CDR척도",
-    "장기요양등급", "노인성질환", "알츠하이머", "혈관성치매",
-    "실손보험", "암진단비", "뇌혈관질환", "심근경색", "후유장해",
-    "보험료", "보장기간", "갱신형", "비갱신형", "특약", "주계약",
-    "설명의무", "청약철회", "보험금청구", "표준약관",
-]
-
-TTS_LANG          = "ko-KR"          # TTS 언어
-TTS_RATE          = 0.9              # 말하기 속도: 0.9 (명료·자연스러운 20대 여성 아나운서)
-TTS_RATE_ELDERLY  = 0.75             # 고령자 모드 속도: 0.75 (또박또박 천천히)
-TTS_PITCH         = 1.4              # 음높이: 1.4 (20대 여성 아나운서 톤)
-TTS_VOLUME        = 1.0              # 음량: 최대
-# 여성 목소리 우선순위: Yuna(삼성) > Female > Google 한국어 > Heami
-TTS_VOICE_PRIORITY = ["Yuna", "Female", "Google", "Heami"]
-# Prosody Control — 컨텍스트 톤 프리셋 (rate, pitch)
-# 사용: s_voice(text, tone="calm") / s_voice(text, tone="bright") 등
-TTS_TONE_PRESETS = {
-    "default": (0.9,  1.4),   # 기본: 명료 아나운서
-    "calm":    (0.78, 1.1),   # 차분: 사고접수·보험금 청구·불만 응대
-    "bright":  (1.0,  1.6),   # 밝음: 상품 안내·신규 가입 권유
-    "empathy": (0.75, 1.0),   # 공감: 사망·입원·진단 등 민감 상황
-    "clear":   (0.85, 1.3),   # 또렷: 약관·법률 안내 — 정확성 중시
-}
-# ==========================================================================
-
-# --------------------------------------------------------------------------
-# [SECTION 0] 앱 아이덴티티 상수
-# --------------------------------------------------------------------------
-APP_NAME       = "Goldkey_Ai_masters2026"   # 정식 명칭 (영업비밀 등록용)
-APP_SHORT      = "insuAi"                   # 약칭 (일상 호칭)
-APP_AUTHOR     = "이세윤 (골드키지사)"
-APP_START_DATE = "2026-02-01"               # 최초 개발 시작일
-APP_DEVLOG_DB  = os.path.join(_DATA_DIR if '_DATA_DIR' in dir() else ".", "devlog.json")
 
 # --------------------------------------------------------------------------
 # [SECTION 1] 보안 및 암호화 엔진
