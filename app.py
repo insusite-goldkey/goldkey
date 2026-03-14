@@ -918,7 +918,7 @@ def _hira_get_key() -> str:
     import os as _os
     try:
         import streamlit as _st
-        return _os.environ.get("HIRA_API_KEY", "") or _st.secrets.get("HIRA_API_KEY", "")
+        return _os.environ.get("HIRA_API_KEY", "") or get_env_secret("HIRA_API_KEY", "")
     except Exception:
         return _os.environ.get("HIRA_API_KEY", "")
 
@@ -1192,7 +1192,7 @@ def _law_get_oc() -> str:
     import os as _os
     try:
         import streamlit as _st
-        return _os.environ.get("LAW_API_OC", "") or _st.secrets.get("LAW_API_OC", "goldkey")
+        return _os.environ.get("LAW_API_OC", "") or get_env_secret("LAW_API_OC", "goldkey")
     except Exception:
         return _os.environ.get("LAW_API_OC", "goldkey")
 
@@ -4000,7 +4000,7 @@ def _art38_cache_get(question: str) -> dict | None:
             return None
         _bucket_name = (
             os.environ.get("GCS_CACHE_BUCKET")
-            or (st.secrets.get("GCS_CACHE_BUCKET", "") if hasattr(st, "secrets") else "")
+            or get_env_secret("GCS_CACHE_BUCKET", "")
             or GCS_BUCKET
         )
         _blob = _gcs.bucket(_bucket_name).blob(_key)
@@ -4049,6 +4049,7 @@ def _art38_cache_put(question: str, answer: str, source: str = "night_worker") -
                 return
             _bucket_name = (
                 os.environ.get("GCS_CACHE_BUCKET")
+                or get_env_secret("GCS_CACHE_BUCKET", "")
                 or GCS_BUCKET
             )
             _gcs.bucket(_bucket_name).blob(_key).upload_from_string(
@@ -4076,6 +4077,7 @@ def _art38_load_wisdom() -> list:
         if _gcs:
             _bucket_name = (
                 os.environ.get("GCS_CACHE_BUCKET")
+                or get_env_secret("GCS_CACHE_BUCKET", "")
                 or GCS_BUCKET
             )
             _blob = _gcs.bucket(_bucket_name).blob(_ART38_WISDOM_GCS_PATH)
@@ -4118,7 +4120,7 @@ def _art38_mark_wisdom_shown() -> None:
             _gcs = _get_gcs_client()
             if not _gcs:
                 return
-            _bucket_name = os.environ.get("GCS_CACHE_BUCKET") or GCS_BUCKET
+            _bucket_name = os.environ.get("GCS_CACHE_BUCKET") or get_env_secret("GCS_CACHE_BUCKET", "") or GCS_BUCKET
             _blob = _gcs.bucket(_bucket_name).blob(_ART38_WISDOM_GCS_PATH)
             if _blob.exists():
                 _all = json.loads(_blob.download_as_text(encoding="utf-8"))
@@ -4244,7 +4246,7 @@ def _art38_night_worker() -> dict:
     try:
         _api_key = (
             os.environ.get("GOOGLE_API_KEY", "")
-            or st.secrets.get("GOOGLE_API_KEY", "")
+            or get_env_secret("GOOGLE_API_KEY", "")
         )
     except Exception:
         pass
@@ -4512,6 +4514,13 @@ from typing import List, Dict
 import sqlite3
 import streamlit.components.v1 as components
 
+def get_env_secret(key: str, default_value: str = "") -> str:
+    """st.secrets가 없어도 뻗지 않고 클라우드 환경변수로 대체하는 안전한 함수"""
+    try:
+        return st.secrets.get(key, os.environ.get(key, default_value))
+    except Exception:
+        return os.environ.get(key, default_value)
+
 # ── [세션 초기화실] 앱 시작 시 필수 세션 변수 사전 등록 ───────────────────
 def initialize_session():
     """앱 시작 시 모든 필수 세션 변수를 기본값으로 사전 등록.
@@ -4756,11 +4765,9 @@ def get_encryption_key():
     key = os.environ.get("ENCRYPTION_KEY", "")
     if key:
         return key.encode() if isinstance(key, str) else key
-    try:
-        if "ENCRYPTION_KEY" in st.secrets:
-            return st.secrets["ENCRYPTION_KEY"].encode()
-    except Exception:
-        pass
+    v = get_env_secret("ENCRYPTION_KEY", "")
+    if v:
+        return v.encode() if isinstance(v, str) else v
     return DEFAULT_KEY
 
 def get_cipher():
@@ -5375,12 +5382,7 @@ def sanitize_prompt(text):
 
 def get_admin_key():
     """관리자 키를 st.secrets 또는 환경변수에서 가져옴"""
-    try:
-        v = st.secrets.get("ADMIN_KEY", "")
-        if v: return v
-    except Exception:
-        pass
-    return os.environ.get("ADMIN_KEY", "")
+    return get_env_secret("ADMIN_KEY", "")
 
 def _check_admin_key(input_key: str) -> bool:
     """입력 키가 ADMIN_KEY / ADMIN_CODE / MASTER_CODE 중 하나와 일치하면 True"""
@@ -5389,23 +5391,13 @@ def _check_admin_key(input_key: str) -> bool:
         return False
     valid = set()
     for _secret_name in ("ADMIN_KEY", "ADMIN_CODE", "MASTER_CODE"):
-        try:
-            v = st.secrets.get(_secret_name, "")
-            if v: valid.add(v)
-        except Exception:
-            pass
-        v2 = os.environ.get(_secret_name, "")
-        if v2: valid.add(v2)
+        v = get_env_secret(_secret_name, "")
+        if v: valid.add(v)
     return k in valid
 
 def get_admin_code():
     """관리자 코드를 st.secrets 또는 환경변수에서 가져옴"""
-    try:
-        v = st.secrets.get("ADMIN_CODE", "")
-        if v: return v
-    except Exception:
-        pass
-    return os.environ.get("ADMIN_CODE", "")
+    return get_env_secret("ADMIN_CODE", "")
 
 # --------------------------------------------------------------------------
 # [SECTION 1.8] Brute-force 로그인 방어 — _LoginGuard
@@ -7839,7 +7831,10 @@ def _get_gcs_client_cached():
         from google.oauth2 import service_account
         gcs_cfg = {}
         try:
-            gcs_cfg = dict(st.secrets.get("gcs", {}))
+            import streamlit as _st_gcs
+            _gcs_s = _st_gcs.secrets.get("gcs", {})
+            if _gcs_s:
+                gcs_cfg = dict(_gcs_s)
         except Exception:
             pass
         if not gcs_cfg or not gcs_cfg.get("private_key"):
@@ -7876,10 +7871,7 @@ def _get_gcs_cache_bucket():
     global _GCS_CACHE_BUCKET
     if _GCS_CACHE_BUCKET:
         return _GCS_CACHE_BUCKET
-    try:
-        _GCS_CACHE_BUCKET = os.environ.get("GCS_CACHE_BUCKET") or st.secrets.get("GCS_CACHE_BUCKET", "")
-    except Exception:
-        _GCS_CACHE_BUCKET = os.environ.get("GCS_CACHE_BUCKET", "")
+    _GCS_CACHE_BUCKET = os.environ.get("GCS_CACHE_BUCKET") or get_env_secret("GCS_CACHE_BUCKET", "")
     return _GCS_CACHE_BUCKET or None
 
 def _gcs_cache_key(user_name: str, query: str, product_key: str) -> str:
@@ -8017,17 +8009,15 @@ def _get_sb_client():
         key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
         if not url or not key:
             try:
-                _sb_sec = st.secrets.get("supabase", {})
+                import streamlit as _st_sb
+                _sb_sec = _st_sb.secrets.get("supabase", {})
                 url = url or _sb_sec.get("url", "").strip()
                 key = key or _sb_sec.get("service_role_key", "").strip()
             except Exception:
                 pass
         if not url or not key:
-            try:
-                url = url or st.secrets.get("SUPABASE_URL", "").strip()
-                key = key or st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
-            except Exception:
-                pass
+            url = url or get_env_secret("SUPABASE_URL", "").strip()
+            key = key or get_env_secret("SUPABASE_SERVICE_ROLE_KEY", "").strip()
         if not url or not key:
             return None
         # url+key가 있을 때만 캐시 — None이 캐시되는 것을 방지
@@ -8663,10 +8653,7 @@ MAX_FREE_DAILY = 10
 BETA_END_DATE  = date(2026, 8, 31)
 def _get_unlimited_users():
     if '_unlimited_users_cache' not in st.session_state:
-        try:
-            master = st.secrets.get("MASTER_NAME", "PERMANENT_MASTER")
-        except Exception:
-            master = "PERMANENT_MASTER"
+        master = get_env_secret("MASTER_NAME", "PERMANENT_MASTER")
         st.session_state['_unlimited_users_cache'] = {master, "PERMANENT_MASTER", "이세윤", "박보정"}
     return st.session_state['_unlimited_users_cache']
 
@@ -8857,12 +8844,7 @@ def get_client():
         api_key = _gw.get_secret("GEMINI_API_KEY")
     else:
         api_key = None
-        try:
-            api_key = st.secrets.get("GEMINI_API_KEY")
-        except Exception:
-            pass
-        if not api_key:
-            api_key = os.environ.get("GEMINI_API_KEY", "")
+        api_key = get_env_secret("GEMINI_API_KEY", "")
         api_key = api_key.encode("utf-8", errors="ignore").decode("utf-8")
     if not api_key:
         return None
@@ -10424,7 +10406,7 @@ def _fss_get_key() -> str:
     import os as _os
     try:
         import streamlit as _st
-        return _os.environ.get("FSS_API_KEY", "") or _st.secrets.get("FSS_API_KEY", "ae6f53ce")
+        return _os.environ.get("FSS_API_KEY", "") or get_env_secret("FSS_API_KEY", "ae6f53ce")
     except Exception:
         return _os.environ.get("FSS_API_KEY", "ae6f53ce")
 
@@ -25690,13 +25672,7 @@ _FINLIFE_BASE = "https://finlife.fss.or.kr/finlifeapi"
 
 def _get_finlife_key() -> str:
     """Secrets / 환경변수에서 finlife API 키 읽기"""
-    try:
-        key = st.secrets.get("FINLIFE_API_KEY", "")
-        if key:
-            return key
-    except Exception:
-        pass
-    return os.environ.get("FINLIFE_API_KEY", "")
+    return get_env_secret("FINLIFE_API_KEY", "")
 
 @st.cache_data(ttl=3600)
 def finlife_get_deposit(topFinGrpNo: str = "020000", pageNo: int = 1) -> dict:
@@ -26119,15 +26095,9 @@ def _rag_supabase_ensure_tables():
                 _sb_url = os.environ.get("SUPABASE_URL", "") or ""
                 _sb_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "") or ""
                 if not _sb_url:
-                    try:
-                        _sb_url = st.secrets.get("supabase", {}).get("url", "") or st.secrets.get("SUPABASE_URL", "")
-                    except Exception:
-                        pass
+                    _sb_url = get_env_secret("SUPABASE_URL", "")
                 if not _sb_key:
-                    try:
-                        _sb_key = st.secrets.get("supabase", {}).get("service_role_key", "") or st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", "")
-                    except Exception:
-                        pass
+                    _sb_key = get_env_secret("SUPABASE_SERVICE_ROLE_KEY", "")
                 # project ref 추출 (https://XXXX.supabase.co → XXXX)
                 _ref = _sb_url.replace("https://","").split(".")[0] if _sb_url else ""
                 if _ref and _sb_key:
@@ -29357,7 +29327,7 @@ section[data-testid="stSidebar"] > div:first-child {
         try:
             # 토큰 = HMAC-SHA256(user_name + user_id, SECRET_KEY) 검증
             import hmac as _hmac
-            _tok_secret = st.secrets.get("ENCRYPTION_KEY", "gk_token_secret_2026")
+            _tok_secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
             if isinstance(_tok_secret, bytes):
                 _tok_secret = _tok_secret.decode()
             _tok_members = (
@@ -32470,7 +32440,7 @@ section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="
                             st.session_state.pop(_k, None)
                         try:
                             import hmac as _hmac2
-                            _ts = st.secrets.get("ENCRYPTION_KEY", "gk_token_secret_2026")
+                            _ts = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
                             if isinstance(_ts, bytes): _ts = _ts.decode()
                             _tok = _hmac2.new(_ts.encode(), (ln + m["user_id"]).encode(), "sha256").hexdigest()[:32]
                             st.session_state["_auto_login_token"] = _tok
@@ -33157,7 +33127,7 @@ setTimeout(function(){
             _auto_tok = st.session_state.get("_auto_login_token", "")
             if _auto_tok:
                 try:
-                    _app_url = st.secrets.get("APP_URL", "https://goldkey-ai.streamlit.app")
+                    _app_url = get_env_secret("APP_URL", "https://goldkey-ai.streamlit.app")
                     _bookmark_url = f"{_app_url}?t={_auto_tok}"
                 except Exception:
                     _bookmark_url = ""
@@ -33457,14 +33427,8 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
                 # [B3 수정] strip/lower 처리로 공백·대소문자 무관하게 비교
                 _aid = (admin_id or "").strip()
                 _acd = (admin_code or "").strip()
-                try:
-                    _admin_code = st.secrets.get("ADMIN_CODE", "") or os.environ.get("ADMIN_CODE", "")
-                except Exception:
-                    _admin_code = os.environ.get("ADMIN_CODE", "")
-                try:
-                    _master_code = st.secrets.get("MASTER_CODE", "") or os.environ.get("MASTER_CODE", "")
-                except Exception:
-                    _master_code = os.environ.get("MASTER_CODE", "")
+                _admin_code = get_env_secret("ADMIN_CODE", "")
+                _master_code = get_env_secret("MASTER_CODE", "")
                 if _aid.lower() in ("admin", "이세윤") and _acd == _admin_code:
                     st.session_state.user_id = "ADMIN_MASTER"
                     st.session_state.user_name = "이세윤"
@@ -33479,10 +33443,7 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
                     _s39_save_session_cache(user_id="ADMIN_MASTER", user_name="이세윤", user_role="admin")
                     st.rerun()
                 elif _acd == _master_code:
-                    try:
-                        _master_name = st.secrets.get("MASTER_NAME", "이세윤")
-                    except Exception:
-                        _master_name = "이세윤"
+                    _master_name = get_env_secret("MASTER_NAME", "이세윤")
                     st.session_state.user_id = "PERMANENT_MASTER"
                     st.session_state.user_name = _master_name
                     st.session_state.join_date = dt.now()
@@ -33513,7 +33474,7 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
                 # ── Supabase DB 관리 바로가기 ────────────────────────────
                 st.markdown("**🗄️ Supabase DB 관리**")
                 try:
-                    _sb_url = st.secrets.get("SUPABASE_URL", "")
+                    _sb_url = get_env_secret("SUPABASE_URL", "")
                     _sb_proj = _sb_url.replace("https://","").split(".")[0] if _sb_url else ""
                 except Exception:
                     _sb_proj = ""
@@ -45791,7 +45752,7 @@ function selectCustomer(name) {{
             try:
                 _genai_mod = _lazy_genai()
                 _client = _genai_mod.Client(
-                    api_key=st.secrets.get("GEMINI_API_KEY", "")
+                    api_key=get_env_secret("GEMINI_API_KEY", "")
                 )
                 _types_mod = _lazy_genai_types()
                 _resp = _client.models.generate_content(
@@ -46181,19 +46142,19 @@ function selectCustomer(name) {{
         # ── GCS / Document AI 설정 (GP190/191/192) ──────────────────────
         _KP_GCS_BUCKET    = (
             os.environ.get("GCS_KNOWLEDGE_BUCKET")
-            or (st.secrets.get("GCS_KNOWLEDGE_BUCKET", "") if hasattr(st, "secrets") else "")
+            or get_env_secret("GCS_KNOWLEDGE_BUCKET", "")
             or os.environ.get("GCS_CACHE_BUCKET", "")
             or "goldkey-knowledge-vault"
         )
         _KP_DAI_PROJECT   = (
             os.environ.get("GCS_PROJECT_ID")
-            or (st.secrets.get("GCS_PROJECT_ID", "") if hasattr(st, "secrets") else "")
-            or (st.secrets.get("gcs", {}).get("project_id", "") if hasattr(st, "secrets") else "")
+            or get_env_secret("GCS_PROJECT_ID", "")
+            or get_env_secret("GCS_PROJECT_ID", "")
         )
         _KP_DAI_LOCATION  = os.environ.get("DAI_LOCATION", "us")
         _KP_DAI_PROCESSOR = (
             os.environ.get("DAI_PROCESSOR_ID")
-            or (st.secrets.get("DAI_PROCESSOR_ID", "") if hasattr(st, "secrets") else "")
+            or get_env_secret("DAI_PROCESSOR_ID", "")
         )
         _kp_gcs           = _get_gcs_client()
         _gcs_client_ok    = _kp_gcs is not None
@@ -46721,7 +46682,13 @@ function selectCustomer(name) {{
 
                     _gcs_cfg: dict = {}
                     try:
-                        _gcs_cfg = dict(st.secrets.get("gcs", {}))
+                        _gcs_cfg = {}
+                        try:
+                            import streamlit as _st_gcs2
+                            _gcs_s2 = _st_gcs2.secrets.get("gcs", {})
+                            if _gcs_s2: _gcs_cfg = dict(_gcs_s2)
+                        except Exception:
+                            pass
                     except Exception:
                         pass
                     if not _gcs_cfg.get("private_key"):
@@ -49215,8 +49182,7 @@ function selectCustomer(name) {{
             try:
                 _sb_base = (
                     os.environ.get("SUPABASE_URL", "").strip()
-                    or st.secrets.get("SUPABASE_URL", "")
-                    or st.secrets.get("supabase", {}).get("url", "")
+                    or get_env_secret("SUPABASE_URL", "")
                 ).rstrip("/")
                 if _sb_base:
                     _pdf_url = f"{_sb_base}/storage/v1/object/public/{SB_BUCKET}/{_pdf_filename}"
@@ -53284,11 +53250,11 @@ function selectCustomer(name) {{
             except Exception:
                 _sb_ok = False
             try:
-                _enc_key_ok = "ENCRYPTION_KEY" in st.secrets and bool(st.secrets["ENCRYPTION_KEY"])
+                _enc_key_ok = bool(get_env_secret("ENCRYPTION_KEY", ""))
             except Exception:
                 _enc_key_ok = False
             try:
-                _admin_code_ok = bool(st.secrets.get("ADMIN_CODE", ""))
+                _admin_code_ok = bool(get_env_secret("ADMIN_CODE", ""))
             except Exception:
                 _admin_code_ok = False
 
@@ -54179,7 +54145,7 @@ function selectCustomer(name) {{
                     _ea_sb  = _get_sb_client()
                     _ea_gc  = get_client()
                     try:
-                        _ea_law_key = st.secrets.get("LAW_API_KEY", "")
+                        _ea_law_key = get_env_secret("LAW_API_KEY", "")
                     except Exception:
                         _ea_law_key = os.environ.get("LAW_API_KEY", "")
 

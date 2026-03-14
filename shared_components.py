@@ -16,8 +16,17 @@ export:
 
 from __future__ import annotations
 import streamlit as st
+import os
 import uuid, datetime
 from typing import Optional
+
+
+def get_env_secret(key: str, default_value: str = "") -> str:
+    """st.secrets가 없어도 뻗지 않고 클라우드 환경변수로 대체하는 안전한 함수"""
+    try:
+        return st.secrets.get(key, os.environ.get(key, default_value))
+    except Exception:
+        return os.environ.get(key, default_value)
 
 # ── 모 앱 URL (환경 자동 분기) ────────────────────────────────────────────────
 # GK_APP_ID=crm  → CRM 앱 컨테이너 (Dockerfile.crm에서 설정)
@@ -225,9 +234,9 @@ def customer_input_form(customer_data: dict, agent_id: str,
     if supabase_client is None:
         try:
             from supabase import create_client
-            sb_url = st.secrets.get("SUPABASE_URL", "")
-            sb_key = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY",
-                        st.secrets.get("SUPABASE_KEY", ""))
+            sb_url = get_env_secret("SUPABASE_URL", "")
+            sb_key = get_env_secret("SUPABASE_SERVICE_ROLE_KEY",
+                        get_env_secret("SUPABASE_KEY", ""))
             supabase_client = create_client(sb_url, sb_key)
         except Exception as e:
             raise RuntimeError(f"Supabase 연결 실패: {e}")

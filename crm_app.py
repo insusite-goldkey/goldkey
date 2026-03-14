@@ -29,6 +29,7 @@ from shared_components import (
     build_sso_redirect,
     HQ_APP_URL,
     CRM_APP_URL,
+    get_env_secret,
 )
 
 # ── 페이지 설정 ───────────────────────────────────────────────────────────────
@@ -73,11 +74,11 @@ div[data-testid="stMainBlockContainer"] { padding-top: 1rem !important; }
 # ── 환경 감지: 로컬 개발 vs 프로덕션 ──────────────────────────────────────────
 _IS_LOCAL = (
     os.environ.get("STREAMLIT_ENV", "") == "local"
-    or st.secrets.get("ENV", "") == "local"
+    or get_env_secret("ENV", "") == "local"
     or os.environ.get("GAE_ENV", "") == ""
     and not os.environ.get("K_SERVICE", "")  # Cloud Run 환경변수 없으면 로컬
 )
-CRM_URL = st.secrets.get("CRM_URL", CRM_APP_URL)
+CRM_URL = get_env_secret("CRM_URL", CRM_APP_URL)
 
 def _check_sso_token() -> bool:
     """URL에서 SSO 토큰 수신 → 세션 설정 → 인증 완료."""
@@ -164,9 +165,9 @@ _token     = st.session_state.get("crm_token", "")
 def _get_supabase():
     try:
         from supabase import create_client
-        url = st.secrets["SUPABASE_URL"]
-        key = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY",
-                              st.secrets.get("SUPABASE_KEY", ""))
+        url = get_env_secret("SUPABASE_URL", "")
+        key = get_env_secret("SUPABASE_SERVICE_ROLE_KEY",
+                              get_env_secret("SUPABASE_KEY", ""))
         return create_client(url, key)
     except Exception:
         return None
