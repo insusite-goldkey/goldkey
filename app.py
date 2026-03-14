@@ -28900,9 +28900,1815 @@ footer, footer * { display: none !important; }
                                             st.success("\u2705 이름 변경 완료!")
                                         except Exception as _e_nm:
                                             st.error(f"변경 실패: {_e_nm}")
-        # ── [★근본수정] 미인증 시 사이드바 렌더 — st.stop() 전에 실행
-        with st.sidebar:
-            render_goldkey_sidebar()
+    # ── 사이드바 (미인증 st.stop() 전 이동) ─────────────────────────────
+    # ── 사이드바 ──────────────────────────────────────────────────────────
+    # [제53조 개정] 인증 완료 후 사이드바 완전 미렌더 — 조건부 렌더링
+    _is_authenticated = st.session_state.get('authenticated', False) or bool(st.session_state.get('user_id'))
+    with st.sidebar:
+        # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (항상 렌더) ──
+        render_goldkey_sidebar()
+        # ── [제53조 §열기] 비로그인 시 항상 / 로그인 시 플래그 소비 → JS로 사이드바 강제 열기 ──
+        if not _is_authenticated:
+            import streamlit.components.v1 as _comp_open
+            _comp_open.html("""<script>
+(function(){
+  function isClosed() {
+    try {
+      var pd = window.parent.document;
+      var sb = pd.querySelector('section[data-testid="stSidebar"]');
+      if (!sb) return true;
+      return sb.getAttribute('aria-expanded') === 'false';
+    } catch(e) { return true; }
+  }
+  function clickToggle() {
+    try {
+      var pd = window.parent.document;
+      var selectors = [
+        '[data-testid="collapsedControl"] button',
+        '[data-testid="stSidebarCollapseButton"] button',
+        'button[aria-label="Open sidebar"]',
+        'button[aria-label="사이드바를 열거나 닫으세요"]',
+        'button[aria-label="open sidebar"]'
+      ];
+      for (var i = 0; i < selectors.length; i++) {
+        var btn = pd.querySelector(selectors[i]);
+        if (btn) { btn.click(); return true; }
+      }
+      var all = pd.querySelectorAll('button');
+      for (var j = 0; j < all.length; j++) {
+        var lbl = (all[j].getAttribute('aria-label') || '').toLowerCase();
+        if (lbl.indexOf('sidebar') !== -1 || lbl.indexOf('사이드') !== -1) {
+          all[j].click(); return true;
+        }
+      }
+    } catch(e) {}
+    return false;
+  }
+  function tryOpen() {
+    if (isClosed()) { clickToggle(); }
+  }
+  setTimeout(tryOpen, 150);
+  setTimeout(tryOpen, 500);
+  setTimeout(tryOpen, 1000);
+  setTimeout(tryOpen, 2000);
+})();
+</script>""", height=0)
+
+        if 'user_id' not in st.session_state:
+            st.markdown("""
+<div style='background:#FEFCE8;border:1.5px solid #FCD34D;border-left:4px solid #F59E0B;
+  border-radius:14px;padding:14px 15px 12px 15px;margin:8px 0 8px 0;
+  box-shadow:0 2px 10px rgba(245,158,11,0.12);'>
+  <div style='font-size:0.80rem;font-weight:900;color:#92400E;
+    letter-spacing:0.04em;margin-bottom:10px;
+    border-bottom:1px solid rgba(245,158,11,0.30);padding-bottom:7px;'>
+    🔐 로그인절차 안내
+  </div>
+  <div style='font-size:0.78rem;color:#1C1917;line-height:1.55;'>
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
+      <span style='font-size:1.0rem;flex-shrink:0;'>1️⃣</span>
+      <span><b style='color:#B45309;'>필수동의:</b> 왼쪽 사이드바<br>&nbsp;&nbsp;필수항목 <b style='color:#000;'>(4개)</b> 체크</span>
+    </div>
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
+      <span style='font-size:1.0rem;flex-shrink:0;'>2️⃣</span>
+      <span><b style='color:#B45309;'>정보입력:</b> <b style='color:#000;'>이름 및 연락처</b> 입력</span>
+    </div>
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
+      <span style='font-size:1.0rem;flex-shrink:0;'>3️⃣</span>
+      <span><b style='color:#B45309;'>로그인 실행:</b><br>&nbsp;&nbsp;<b style='color:#000;'>AI 마스터 로그인</b> 버튼 클릭</span>
+    </div>
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
+      <span style='font-size:1.0rem;flex-shrink:0;'>4️⃣</span>
+      <span><b style='color:#B45309;'>번호확인:</b> 화면에 표시된<br>&nbsp;&nbsp;<b style='color:#000;'>인증번호 6자리</b> 확인</span>
+    </div>
+    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:2px;'>
+      <span style='font-size:1.0rem;flex-shrink:0;'>5️⃣</span>
+      <span><b style='color:#B45309;'>최종인증:</b> OTP 박스에<br>&nbsp;&nbsp;번호 입력 후 <b style='color:#000;'>[클릭]</b></span>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            st.markdown("""
+<style>
+section[data-testid="stSidebar"] details summary,
+section[data-testid="stSidebar"] details summary span,
+section[data-testid="stSidebar"] details summary p,
+section[data-testid="stSidebar"] .st-expander summary {
+  color: #000000 !important;
+  text-shadow: none !important;
+}
+</style>""", unsafe_allow_html=True)
+
+            with st.expander("이용약관 · 서비스 안내", expanded=False):
+                st.markdown("""
+<div style="line-height:1.5;">
+  <div style="font-size:0.95rem;font-weight:800;color:#1a2d5a;letter-spacing:0.02em;">
+    📜 이용약관 · 서비스 안내
+  </div>
+  <div style="font-size:0.82rem;font-weight:700;color:#c0392b;margin-top:2px;">
+    (로그인 후 이용 가능)
+  </div>
+</div>
+""", unsafe_allow_html=True)
+                st.caption("로그인 후 사이드바 하단에서 전체 약관을 확인하실 수 있습니다.")
+
+            # ── [GP241조 §보안] 🔒 카카오 보안/권한 안내 서브메뉴 ───────────────
+            with st.expander("🔒 카카오 보안/권한 안내", expanded=False):
+                st.markdown("""
+<div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);
+  border:1.5px solid #3B82F6;border-left:5px solid #1D4ED8;
+  border-radius:12px;padding:16px 18px 14px 18px;
+  box-shadow:0 3px 12px rgba(59,130,246,0.18);">
+  <div style="font-size:0.92rem;font-weight:900;color:#1E3A8A;margin-bottom:12px;
+    display:flex;align-items:center;gap:8px;">
+    🔒 골드키 마스터 AI 리포트 전송 시스템
+    <span style="font-size:0.65rem;background:#1D4ED8;color:#fff;
+      border-radius:4px;padding:1px 7px;font-weight:700;margin-left:4px;">금융권 수준 보안</span>
+  </div>
+  <div style="font-size:0.78rem;color:#1E3A8A;line-height:1.9;">
+    <div style="margin-bottom:7px;padding:6px 10px;background:rgba(255,255,255,0.6);
+      border-radius:8px;border-left:3px solid #3B82F6;">
+      <span style="font-weight:800;color:#1D4ED8;">🎯 서비스명</span><br>
+      <span style="color:#1e40af;">골드키 마스터 AI 리포트 전송 시스템</span>
+    </div>
+    <div style="margin-bottom:7px;padding:6px 10px;background:rgba(255,255,255,0.6);
+      border-radius:8px;border-left:3px solid #3B82F6;">
+      <span style="font-weight:800;color:#1D4ED8;">🔐 보안 약속</span><br>
+      <span style="color:#1e40af;">대화 내용 열람 <b>불가</b> · 친구 목록 수집 <b>불가</b><br>
+      요청 권한: <code style="background:#DBEAFE;padding:1px 4px;border-radius:3px;
+      font-size:0.72rem;">talk_message</code> 발송 전용</span>
+    </div>
+    <div style="margin-bottom:7px;padding:6px 10px;background:rgba(255,255,255,0.6);
+      border-radius:8px;border-left:3px solid #3B82F6;">
+      <span style="font-weight:800;color:#1D4ED8;">🛡️ 데이터 처리</span><br>
+      <span style="color:#1e40af;">전송 데이터 TLS 암호화 처리 후 발송 즉시 파기<br>
+      서버 저장 없음 · 제3자 제공 없음</span>
+    </div>
+    <div style="padding:6px 10px;background:rgba(255,255,255,0.6);
+      border-radius:8px;border-left:3px solid #3B82F6;">
+      <span style="font-weight:800;color:#1D4ED8;">↩️ 권한 철회</span><br>
+      <span style="color:#1e40af;">카카오톡 앱 → 설정 → 자산 → 서비스 관리에서 언제든지 철회 가능</span>
+    </div>
+  </div>
+  <div style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(59,130,246,0.25);
+    font-size:0.68rem;color:#3B82F6;text-align:center;">
+    🔗 카카오 개발자 센터 OAuth2.0 표준 인증 준수 · 권한 범위:
+    <code style="background:#DBEAFE;padding:1px 3px;border-radius:3px;">talk_message</code> only
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            with st.expander("⚠️ 면책 및 서비스 이용 안내 (Disclaimer)", expanded=False):
+                st.markdown("""
+<div style='font-size:0.72rem;line-height:1.6;color:#4A3700;'>
+  <b>1. 본 앱(Goldkey_AI_Master2026)의 목적 및 한계:</b><br>
+  (1) 본 앱은 원활한 고객 상담과 보험 내용 이해를 돕기 위한 업무 보조 도구입니다.
+  앱에서 제공하는 모든 AI 분석 결과 및 자료는 참고용 보조 지표일 뿐이며,
+  어떠한 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.<br>
+  (2) 보장 내용·약관 해석·보험금 청구는 반드시 해당 보험회사 보상담당자 또는
+  손해사정인(독립사정인 포함) 등에게 확인하시기 바랍니다.<br>
+  (3) AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며,
+  이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.<br><br>
+  <b>2. 전문가 상담 필수 및 책임 소재</b><br>
+  본 앱은 의료·법률·세무·회계·부동산 등의 전문적인 진단이나 상담을 대체할 수 없습니다.
+  관련 사항은 반드시 분야별 전문가(의사·변호사·세무사 등)와 상담하시기 바랍니다.
+  아울러 최종적인 보험 가입 및 해지 결정은 전문 자격을 갖춘 설계사를 통해 진행하셔야 하며,
+  본 앱의 정보를 바탕으로 한 최종 판단과 책임은 이용자 본인에게 있습니다.
+</div>
+""", unsafe_allow_html=True)
+
+            if False:  # 약관 전문 — 로딩 지연 방지용 비활성화 블록
+                st.markdown("""
+## Goldkey AI Master Lab. Beta 이용약관
+- **서비스명:** Goldkey AI Master Lab. Beta
+- **운영자:** 이세윤
+- **앱 문의:** 010-3074-2616 / insusite@gmail.com
+
+---
+
+**제2조 (서비스 이용 조건)**
+- 현재 **전체 무료** 베타 서비스 운영 중
+- 회원가입 후 모든 기능 무료 제공
+- 회원 1인당 **1일 10회** AI 상담 이용 제한 (서버 부하 방지를 위한 기술적 제한)
+- **사용기간: 2026.08.31. 한정 (앱 고도화기간)**
+- 만 19세 이상 보험 관련 업무 종사자, 전문가 및 관심 있는 고객 대상
+
+**제3조 (서비스 범위)**
+- 보험 상담 보조 AI 분석 도구 제공
+- 세무·법인·상속·증여 참고 정보 제공
+- 보험사 연락처 및 청구 절차 안내
+- 장해보험금·재조달가액 산출 보조 도구
+
+**제4조 (금지 행위)**
+- 타인 명의 도용 및 허위 정보 입력 금지
+- 서비스를 이용한 불법 행위 및 부당 승환 금지
+- 시스템 해킹·크롤링·자동화 접근 금지
+- 분석 결과의 무단 상업적 재배포 금지
+
+---
+
+**제5조 (개인정보 수집 및 이용)**
+- **수집 항목:** 이름, 연락처(암호화 저장), 이용 횟수
+- **이용 목적:** 회원 인증, 이용 한도 관리, 서비스 품질 개선
+- **보유 기간:** 회원 탈퇴 후 즉시 파기 (법령 의무 보존 기간 제외)
+- **제3자 제공:** 법령에 의한 경우 외 제공 금지
+
+**제5조의2 (회원 개인정보 암호화 보호)**
+
+본 서비스는 회원의 개인정보를 다음과 같이 기술적으로 보호합니다.
+
+- **연락처(비밀번호):** SHA-256 **단방향 해시(One-Way Hash)** 방식으로 변환하여 저장합니다.
+  단방향 해시는 원문으로 되돌릴 수 없는 구조로, **운영자·관리자를 포함한 누구도 가입 시 입력한 연락처 원문을 열람하거나 복원할 수 없습니다.**
+  로그인 시에는 입력값을 동일 방식으로 해시 변환한 후 저장된 값과 비교하는 방식으로만 인증이 이루어집니다.
+
+- **이름:** 회원 인증 및 서비스 제공 목적으로만 사용되며, 외부에 제공되지 않습니다.
+
+- **세션 데이터:** AES 기반 Fernet 대칭키 암호화로 보호되며, 세션 종료 시 자동 파기됩니다.
+
+- **전송 구간:** TLS(HTTPS) 암호화를 통해 전송 중 데이터를 보호합니다.
+
+> ✅ **요약:** 가입 회원의 연락처(비밀번호)는 암호화된 해시값으로만 저장되며, 관리자를 포함한 어떠한 주체도 원문을 확인할 수 없습니다.
+
+**제6조 (고객정보 보안 기준)**
+- 연락처: SHA-256 단방향 해시 암호화 저장 (복호화 불가 — 관리자 포함 원문 열람 불가)
+- 세션 데이터: AES-128 Fernet 암호화
+- 전송 구간: TLS 암호화 (서버 레벨)
+- 분석 내용: 서버에 저장하지 않으며 세션 종료 시 자동 파기
+- ISO/IEC 27001 정보보안 관리체계 준거
+- GDPR 및 개인정보보호법 준거
+
+**제6조의2 (마이크 접근 권한 정책)**
+- 본 서비스는 음성 입력(STT) 기능 제공을 위해 **마이크 접근 권한**을 요청합니다.
+- 마이크 권한은 음성 상담 입력 시에만 일시적으로 사용되며, 녹음 파일은 서버에 저장되지 않습니다.
+- 권한 요청은 **최초 로그인 후 1회**만 브라우저를 통해 안내되며, 이후 동일 브라우저에서는 재요청하지 않습니다.
+- 마이크 권한을 거부하더라도 텍스트 입력 방식으로 모든 기능을 정상 이용할 수 있습니다.
+- 권한 설정 변경: 브라우저 주소창 왼쪽 🔒 아이콘 → 사이트 설정 → 마이크 → 허용
+- 본 서비스는 Web Speech API(Google 제공)를 통해 음성을 텍스트로 변환하며, 변환 처리는 Google 서버에서 이루어집니다.
+
+**제7조 (고객정보 폐기 지침)**
+- **즉시 파기:** 회원 탈퇴 요청 시 회원 DB에서 즉시 삭제
+- **자동 파기:** 세션 종료 시 메모리 내 상담 내용 자동 초기화
+- **정기 파기:** 이용 로그는 90일 경과 후 자동 삭제
+- **파기 방법:** 전자적 파일은 복구 불가능한 방법으로 영구 삭제
+- **파기 확인:** 관리자 시스템에서 파기 이력 확인 가능
+
+---
+
+**제8조 (면책 고지)**
+
+본 서비스는 AI 기술을 활용한 상담 **보조** 도구이며, 모든 분석 결과의 최종 판단 및 법적 책임은 **사용자(상담원)** 에게 있습니다.
+
+보험금 지급 여부의 최종 결정은 보험사 심사 및 관련 법령에 따르며, 법률·세무·의료 분야의 최종 판단은 반드시 해당 전문가(변호사·세무사·의사)와 확인하십시오.
+
+본 서비스는 보험 모집·중개·알선 행위와 **무관한 순수 AI 분석 보조 도구**이며, 본 앱의 분석 결과를 활용한 보험 계약 체결·보험금 수령에 대해 **앱 운영자는 일체의 법적 책임을 지지 않습니다.** 모든 책임은 해당 서비스를 활용한 사용자에게 귀속됩니다.
+
+**제8조의2 (회원정보 변경 및 책임)**
+
+회원은 가입 시 등록한 이름·연락처(비밀번호)를 서비스 내 셀프 변경 기능을 통해 직접 변경할 수 있습니다.
+
+- **이름 변경(개명 포함):** 기존 이름과 기존 연락처(비번) 확인 후 새 이름으로 변경 가능합니다.
+- **연락처(비밀번호) 변경:** 기존 연락처(비번) 확인 후 새 연락처로 변경 가능합니다.
+- **변경 책임:** 회원이 직접 입력·변경한 정보의 오류로 인해 발생하는 결과(로그인 불가, 데이터 접근 오류 등)에 대한 책임은 해당 회원 본인에게 귀속됩니다. **단, 시스템 오류·서버 장애·기술적 결함으로 인한 손해는 운영자가 책임을 집니다.**
+- **운영자 면책 범위:** 운영자는 회원이 직접 변경한 정보의 오류·분실로 인한 서비스 이용 불가에 대해 책임을 지지 않습니다. 단, 개인정보보호법 제29조에 따른 기술적·관리적 보호조치 의무는 운영자가 이행합니다.
+- **정보주체 권리 보장:** 회원은 개인정보보호법 제4조에 따라 언제든지 자신의 정보에 대한 열람·정정·삭제·처리정지를 요구할 권리가 있으며, 운영자는 이를 보장합니다.
+- **변경 불가 시:** 셀프 변경이 불가한 경우 운영자(insusite@gmail.com / 010-3074-2616)에게 문의하시기 바랍니다.
+
+**제9조 (금융소비자보호법 준수 원칙)**
+
+본 서비스는 **금융소비자보호법(금소법)** 의 6대 판매원칙을 준수하는 방향으로 설계·운영됩니다.
+
+**① 적합성 원칙 (제17조)**
+- AI 분석 결과는 고객의 연령·소득·위험 성향에 적합한 상품을 우선 제시하도록 설계되어 있습니다.
+- 고객 정보 없이 특정 상품을 일방적으로 권유하는 기능은 제공하지 않습니다.
+
+**② 적정성 원칙 (제18조)**
+- 고객이 자발적으로 상품을 선택하는 경우에도, AI는 해당 상품이 고객 상황에 부적합할 수 있음을 경고하도록 설계되어 있습니다.
+
+**③ 설명 의무 (제19조)**
+- AI 분석 결과에는 보장 범위·면책 사항·주요 위험 요소가 반드시 포함됩니다.
+- 모든 분석 리포트 하단에 설명 완료 항목이 자동 표시됩니다.
+- 본 서비스를 활용한 상담 시, 사용자(설계사)는 금소법 제19조에 따른 설명 의무를 직접 이행할 책임이 있습니다.
+
+**④ 불공정영업행위 금지 (제20조)**
+- 본 서비스는 특정 보험사와 제휴·수수료 계약 관계가 없으며, 상업적 이해관계에 의한 편향 추천을 하지 않습니다.
+- 사용자가 '주력 보험사'를 선택하는 기능은 설계사의 영업 보조 목적이며, AI는 반드시 타사 비교 데이터를 병렬 제시합니다.
+
+**⑤ 부당권유 금지 (제21조)**
+- AI가 생성하는 모든 답변은 "무조건", "100% 보장", "가장 좋다" 등 단정적 표현을 자동 감지하여 법률적 허용 범위 내 문구로 치환합니다.
+- 치환 기준: "현시점 상담 상품 중 우수한 조건을 보유하고 있습니다" 등 사실 기반 표현으로 대체
+
+**⑥ 허위·과장 광고 금지 (제22조)**
+- AI 분석 결과는 공인된 통계·약관·판례·의학 실무 지침에 근거하며, 근거 없는 수치나 효과를 과장하지 않습니다.
+- 분석 결과에 포함된 수치(간병비·치료비 등)는 출처 기반 추정치임을 명시합니다.
+
+**[비교 안내 의무 이행]**
+- 사용자가 특정 보험사를 선택한 경우, AI는 해당사 상품 분석 후 반드시 **시장 표준 데이터 및 타사 상품 요약을 병렬 제시**합니다.
+- 분석 리포트 하단에 금융소비자보호법 준수 안내 문구가 자동 삽입됩니다.
+
+**[면책 고지 — 금소법 관련]**
+- 본 서비스는 보험 모집·중개·알선 행위와 무관한 **AI 분석 보조 도구**입니다.
+- 본 서비스의 분석 결과를 활용한 보험 계약 체결·보험금 수령에 대해 앱 운영자는 일체의 법적 책임을 지지 않습니다.
+- 최종 상품 선택 및 계약 체결 전 반드시 해당 보험사 약관 및 전문가 상담을 통해 확인하시기 바랍니다.
+
+---
+
+**제10조 (약관 변경)**
+- 약관 변경 시 서비스 내 공지 후 7일 이후 적용
+- 변경 약관에 동의하지 않을 경우 서비스 이용 중단 가능
+
+---
+
+**제11조 (데이터 저장 분리 및 개인정보 주권 보호 — 하이브리드 아키텍처)**
+
+본 서비스는 **하이브리드 아키텍처(Hybrid Architecture)** 기술을 채택하여 운영됩니다.
+
+**① 데이터 저장 구조 분리**
+- **Public Zone (공용 저장소):** 모든 회원에게 공통으로 제공되는 보험사 카탈로그, 의학 논문, 법령 데이터 등은 중앙 공용 서버에 보관됩니다.
+- **Private Zone (개인 보안 저장소):** 회원이 직접 업로드한 고객 의무기록, 개인 증권 분석, 카탈로그 등 민감 정보는 해당 회원의 고유 식별 계정(UID)에 귀속된 **독립된 보안 저장소(Private Bucket)** 에 분리 보관됩니다.
+
+**② 운영진 접근 차단 (물리적·논리적 이중 차단)**
+- 본 서비스의 운영진 및 관리자(AI 포함)는 **기술적으로 회원의 개별 보안 저장소에 접근하거나 데이터를 열람할 수 없도록 물리적·논리적으로 차단**되어 있습니다.
+- IAM(Identity and Access Management) 정책에 의해 관리자 토큰으로 Private Zone 접근 시 **403 차단**이 적용됩니다.
+- 데이터의 주권은 전적으로 해당 회원에게 있습니다.
+
+**③ 암호화 보호**
+- Private Zone에 저장되는 모든 파일은 **AES-256-GCM 암호화**를 거쳐 저장됩니다.
+- 암호화 키는 회원 고유 UID 기반으로 파생되며, 타인이 복호화할 수 없습니다.
+
+**④ 탈퇴 시 완전 삭제**
+- 회원 탈퇴 요청 시 Private Zone의 모든 파일·메타데이터·계정 정보가 **즉시 완전 삭제(복구 불가)** 됩니다.
+
+**⑤ 데이터 소스 완전 분리 원칙**
+- Public Zone과 Private Zone의 데이터는 UI상에서 자연스럽게 연결되어 표시되지만, **데이터 소스(Source)는 기술적으로 완전히 분리**되어 운영됩니다.
+- 공용 법령·의학 지식 데이터와 회원의 개인 상담 자료는 엄격히 분리되어 구동됩니다.
+
+> ✅ **요약:** 회원이 업로드한 개인 자료는 본인의 UID에 귀속된 암호화 저장소에만 보관되며, 운영진을 포함한 어떠한 주체도 기술적으로 접근할 수 없습니다.
+
+---
+
+**제12조 (준거법 및 관할)**
+- 본 약관은 대한민국 법률에 따라 해석됩니다.
+- 분쟁 발생 시 운영자 소재지 관할 법원을 전속 관할로 합니다.
+
+*최종 개정일: 2026년 2월*
+            """)
+
+        # ── 회원가입 / 로그인 (헤더 바로 아래) ──────────────────────────
+        if 'user_id' not in st.session_state:
+            # ── [GP-SEC §5] 공통 약관 동의 UI (shared_components.render_auth_screen) ──
+            if _sc_render_auth_screen:
+                _req_agreed_top = _sc_render_auth_screen(
+                    app_name="Goldkey AI Masters 2026",
+                    app_icon="🏆",
+                    terms_agree_key="_gp_terms_agreed",
+                )
+            else:
+                # Fallback: shared_components 임포트 실패 시 단순 체크박스
+                _req_agreed_top = st.checkbox(
+                    "이용약관 및 개인정보 처리방침에 동의합니다.",
+                    value=st.session_state.get("_gp_terms_agreed", False),
+                    key="_gp_terms_agreed",
+                )
+
+            # ── 약관동의 완료 시에만 탭 표시 ─────────────────────────────
+            if _req_agreed_top:
+                if st.session_state.pop("_terms_agreed_notify", False):
+                    st.success("✅ 동의 완료! 아래 로그인 탭에서 로그인하세요.", icon="🔓")
+
+                st.markdown("""
+<style>
+/* [GP160] 탭 2x2 그리드 배치 */
+section[data-testid="stSidebar"] div[data-testid="stTabs"] [role="tablist"] {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 4px !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="tab"] {
+  border: 1.5px solid #000000 !important;
+  border-radius: 8px !important;
+  margin: 0 !important;
+  font-weight: 700 !important;
+  color: #000000 !important;
+  font-size: 0.85rem !important;
+  padding: 4px 8px !important;
+  text-align: center !important;
+  justify-content: center !important;
+  white-space: normal !important;
+  word-break: keep-all !important;
+  line-height: 1.3 !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+  border: 2px solid #1565C0 !important;
+  background: #E3F2FD !important;
+  color: #1565C0 !important;
+}
+</style>""", unsafe_allow_html=True)
+                tab_l, tab_s, tab_pw, tab_nm = st.tabs(["🔑 임시/비회원 빠른 접속", "📝 회원가입", "🔒 비번변경", "✏️ 이름변경"])
+                components.html("""<script>
+(function _rmTitle(){
+  function clean(){
+    document.querySelectorAll('input[title]').forEach(function(el){
+      el.removeAttribute('title');
+    });
+  }
+  clean();
+  var ob=new MutationObserver(clean);
+  ob.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['title']});
+})();
+</script>""", height=0)
+                with tab_l:
+                    # ══════════════════════════════════════════════════════════════
+                    # [제37조 개정] 간소화 로그인 — 2단계 플로우
+                    # Phase A: 이름+연락처 확인 → OTP 발급
+                    # Phase B: 6자리 OTP 인증 → 즉시 메인 진입
+                    # (생체/패턴/SETUP/Phase C 전면 폐지)
+                    # ══════════════════════════════════════════════════════════════
+                    import random as _rnd, re as _re2
+
+                    def _do_final_login(ln: str):
+                        """인증 성공 처리 — 기존 session_state 세팅 그대로 유지"""
+                        members = load_members()
+                        m = members[ln]
+                        _jd = dt.strptime(m["join_date"], "%Y-%m-%d")
+                        _adm = (ln in _get_unlimited_users())
+                        for _ck in ["dc_priv_cache","cc_file_cache","dc_ai_company",
+                                    "dc_ai_doctype","dc_ai_tags","dc_ai_conf",
+                                    "dc_ai_fileno","catalog_jwt"]:
+                            st.session_state.pop(_ck, None)
+                        st.session_state.user_id   = m["user_id"]
+                        st.session_state.user_name = ln
+                        st.session_state.join_date = _jd
+                        st.session_state.is_admin  = _adm
+                        st.session_state["_mic_notice"]         = True
+                        st.session_state["_login_welcome"]      = ln
+                        st.session_state["_auto_close_sidebar"] = True
+                        st.session_state["_login_just_done"]    = True
+                        st.session_state["authenticated"]       = True
+                        # [C1] Entity ID 자동 발급 — AGNT_ (설계사) / CUST_ (일반고객)
+                        _is_pro_eid = st.session_state.get("_lp_is_pro", "비종사자")
+                        _eid_type   = "agent" if _is_pro_eid == "종사자" or _adm else "customer"
+                        _eid_set_login_user(ln, _eid_type)
+                        # Phase A에서 선택한 종사자 여부 반영
+                        _is_pro = st.session_state.get("_lp_is_pro", "비종사자")
+                        if _is_pro == "종사자":
+                            st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)"
+                            _pf = st.session_state.get("_lp_insurer", "선택 안 함 (중립 분석)")
+                            st.session_state["preferred_insurer"] = _pf
+                        else:
+                            st.session_state["user_consult_mode"] = "🙋 일반고객 (중립 분석)"
+                            _pf = "선택 안 함 (중립 분석)"
+                            st.session_state["preferred_insurer"] = _pf
+                        # [GP-58 §1·§2] 주력 판매 분야 세션 고정 (Fallback: 종합 보장)
+                        _FIELD_MAP = {
+                            "🏦 생명보험 주력": "생명보험",
+                            "🛡️ 손해보험 주력": "손해보험",
+                            "🏢 생명·손해 종합(GA)": "종합 보장",
+                        }
+                        st.session_state["user_primary_field"] = _FIELD_MAP.get(_pf, "종합 보장")
+                        # [제37조 §1] _sec_methods 저장 폐지 — Phase C/SETUP 제거로 불필요
+                        # [제39조 §3] 로그인 성공 → 세션 캐시 저장 (다음 구동 시 즉시 복원용)
+                        _s39_save_session_cache(
+                            user_id=m["user_id"], user_name=ln,
+                            user_role="agent" if _adm else "customer"
+                        )
+                        # 로그인 단계 초기화 — [제37조] Phase A/B 관련 키만 정리
+                        for _k in ["_lp","_lp_name","_lp_otp","_lp_methods",
+                                   "_lp_is_pro","_lp_insurer"]:
+                            st.session_state.pop(_k, None)
+                        try:
+                            import hmac as _hmac2
+                            _ts = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+                            if isinstance(_ts, bytes): _ts = _ts.decode()
+                            _tok = _hmac2.new(_ts.encode(), (ln + m["user_id"]).encode(), "sha256").hexdigest()[:32]
+                            st.session_state["_auto_login_token"] = _tok
+                        except Exception:
+                            pass
+                        _LoginGuard.record_success(ln)
+                        # [제140조 §1] 로그인 성공 → localStorage에 인증 토큰 저장 (Universal Continuity)
+                        try:
+                            _gp140_tok = st.session_state.get("_auto_login_token", "")
+                            _gp140_role = "agent" if _adm else "customer"
+                            st.markdown(_gp140_save_token_js(
+                                user_id=m["user_id"], user_name=ln,
+                                user_role=_gp140_role, token=_gp140_tok
+                            ), unsafe_allow_html=True)
+                        except Exception:
+                            pass
+                        # [제75조 §4] 로그인 성공 시 기기 지문 수집 JS 주입
+                        # JS가 LocalStorage에서 fp_id를 읽어 hidden input으로 서버에 전달
+                        # 실제 저장은 _gp75_fp_pending 세션 플래그로 다음 rerun에서 처리
+                        st.session_state["_gp75_login_name"] = ln
+                        st.session_state["_gp75_fp_pending"] = True
+                        # ── [GP-SSO §1] 로그인 완료 후 CRM 딥링크 SSO 처리 ──────────────
+                        try:
+                            _sso_return_to = st.query_params.get("return_to", "")
+                            if _sso_return_to and _sso_return_to.startswith("goldkeycrmapp://"):
+                                import urllib.parse as _up_sso
+                                _sso_uid   = m.get("user_id", "")
+                                _sso_name  = ln
+                                _sso_token = st.session_state.get("_auto_login_token", "")
+                                _sso_params = _up_sso.urlencode({
+                                    "token":   _sso_token,
+                                    "user_id": _sso_uid,
+                                    "name":    _sso_name,
+                                    "role":    "agent" if _adm else "customer",
+                                })
+                                _sso_deeplink = _sso_return_to + "?" + _sso_params
+                                st.markdown(
+                                    "<script>(function(){try{window.location.href='"
+                                    + _sso_deeplink.replace("'", "\'")
+                                    + "';}catch(e){}})()</script>",
+                                    unsafe_allow_html=True
+                                )
+                                st.query_params.clear()
+                        except Exception:
+                            pass
+                        # [GP-56] 로그인 전환 스켈레톤 — 화이트아웃 0ms 목표
+                        _skel_login = st.empty()
+                        _skel_login.markdown("""
+<div style="padding:20px 12px;background:#E3F2FD;min-height:60vh;
+  border-radius:12px;margin-top:8px;border:1px solid #90CAF9;">
+  <div class="gk-trans-skel" style="height:28px;width:55%;margin-bottom:14px;"></div>
+  <div class="gk-trans-skel" style="height:18px;width:80%;margin-bottom:8px;"></div>
+  <div class="gk-trans-skel" style="height:18px;width:65%;margin-bottom:8px;"></div>
+  <div class="gk-trans-skel" style="height:18px;width:72%;margin-bottom:20px;"></div>
+  <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
+  <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
+  <div class="gk-trans-skel" style="height:60px;width:100%;"></div>
+</div>""", unsafe_allow_html=True)
+                        st.rerun()
+
+                    _lp = st.session_state.get("_lp", "A")
+
+                    # ─────────────────────────────────────────────────────────────
+                    # Phase A — 이름 + 연락처 확인 → OTP 발급
+                    # ─────────────────────────────────────────────────────────────
+                    if _lp == "A":
+                        st.markdown("""
+    <style>
+    section[data-testid="stSidebar"] input[type="text"],
+    section[data-testid="stSidebar"] input[type="password"] {
+        border:2px solid #000000!important;
+        border-bottom:3px solid #000000!important;
+        border-radius:8px!important;
+        outline:none!important;
+        box-shadow:0 2px 4px rgba(0,0,0,0.25)!important;
+        margin-bottom:4px!important;
+    }
+    section[data-testid="stSidebar"] input[type="text"]:focus,
+    section[data-testid="stSidebar"] input[type="password"]:focus {
+        border:2.5px solid #0369a1!important;
+        border-bottom:3px solid #0369a1!important;
+        box-shadow:0 2px 4px rgba(3,105,161,0.30)!important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stTextInput"] {
+        padding-bottom:6px!important;
+    }
+    </style>
+    <div style='background:#FFFFFF;border-radius:10px;
+      padding:6px 10px 6px 12px;margin-top:6px;margin-bottom:8px;text-align:center;
+      border:1px dashed #004D40;
+      border-left:3px solid #D4AF37;
+      box-shadow:0 1px 4px rgba(0,77,64,0.08);
+      position:relative;box-sizing:border-box;
+      width:100%;max-width:100%;overflow:hidden;'>
+      <div style='color:#004D40;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;
+        word-break:keep-all;white-space:normal;line-height:1.4;'>🛡️ 가문 안보를 위한 트리플 보안 가동 중</div>
+    </div>
+    <div style='background:#E3F2FD;border-radius:12px;
+      padding:10px 12px 8px 12px;margin-bottom:10px;text-align:center;
+      border:1px solid #90CAF9;
+      box-shadow:0 1px 6px rgba(33,150,243,0.10);
+      position:relative;box-sizing:border-box;
+      width:100%;max-width:100%;overflow:hidden;'>
+      <div style='font-size:1.5rem;margin-bottom:3px;'>🛡️</div>
+      <div style='color:#000000;font-size:0.92rem;font-weight:800;'>goldkey_Ai_masters2026 보안 로그인</div>
+      <div style='color:#000000;font-size:0.72rem;margin-top:2px;opacity:0.72;
+        word-break:keep-all;white-space:normal;'>가입 시 등록한 정보로 본인 확인 후 OTP를 발급합니다</div>
+    </div>""", unsafe_allow_html=True)
+                        ln_a = st.text_input("👤 이름", key="hlp_name_a", placeholder="가입 시 등록한 이름",
+                                             label_visibility="collapsed")
+                        lc_a = st.text_input("📱 연락처", type="password", key="hlp_contact_a",
+                                             placeholder="연락처 (숫자만, - 제외)",
+                                             label_visibility="collapsed")
+                        login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"],
+                                                horizontal=True, key="login_is_pro")
+                        if login_is_pro == "종사자":
+                            st.radio("📋 주력판매 분야 선택(상담반영)",
+                                     ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"],
+                                     horizontal=True, key="login_insurer")
+                        else:
+                            st.session_state["login_insurer"] = "선택 안 함 (중립 분석)"
+                            st.markdown("<div style='font-size:0.76rem;color:#555;'>🟩 중립 분석 모드</div>",
+                                        unsafe_allow_html=True)
+                        st.markdown("""
+<style>
+button[kind="primary"][data-testid="baseButton-primary"]#hlp_otp_start_btn,
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
+  background: #E3F2FD !important;
+  color: #1A237E !important;
+  font-weight: 900 !important;
+  border: 2px solid #004D40 !important;
+  font-size: 1.05rem !important;
+  letter-spacing: 0.04em !important;
+  box-shadow: 0 2px 8px rgba(0,77,64,0.18) !important;
+}
+</style>""", unsafe_allow_html=True)
+                        _all_checked = (_tr_top.get("t1") and _tr_top.get("t2")
+                                        and _tr_top.get("t3") and _tr_top.get("t4"))
+                        if not _all_checked:
+                            st.markdown(
+                                "<div style='font-size:0.82rem;font-weight:900;color:#000000;"
+                                "background:#FFF9C4;border:1.5px solid #F9A825;"
+                                "border-radius:8px;padding:10px 12px;margin-bottom:8px;"
+                                "text-align:center;'>⚠️ 사이드바에서 필수 동의 후 접속 가능합니다</div>",
+                                unsafe_allow_html=True
+                            )
+                        st.markdown(
+                            '<div style="font-size:0.78rem;font-weight:700;color:#0000FF;'
+                            'text-align:center;margin-bottom:6px;padding:4px 0;">'
+                            '체험 모드에서는 저장·등록이 제한됩니다</div>',
+                            unsafe_allow_html=True
+                        )
+                        _btn_otp = st.button("🔐 AI 마스터 로그인", key="hlp_otp_start_btn",
+                                             use_container_width=True, type="primary",
+                                             disabled=not bool(_all_checked))
+
+                        if _btn_otp:
+                            _ln_a = (st.session_state.get("hlp_name_a") or ln_a or "").strip()
+                            _lc_a = (st.session_state.get("hlp_contact_a") or lc_a or "").strip()
+                            if not _ln_a or len(_ln_a) < 2:
+                                st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
+                            elif not _re2.fullmatch(r'[0-9]{10,11}', _lc_a):
+                                st.error("⚠️ 올바른 전화번호 형식이 아닙니다. (숫자만, - 제외 10~11자리)")
+                            else:
+                                _lk_a, _lk_sec_a = _LoginGuard.is_locked(_ln_a)
+                                if _lk_a:
+                                    _lm = _lk_sec_a // 60; _ls = _lk_sec_a % 60
+                                    st.error(f"🔒 **{_lm}분 {_ls}초** 잠금 중입니다. 운영자(010-3074-2616)에게 문의하세요.")
+                                else:
+                                    _mbs = load_members()
+                                    _ok_a = _ln_a in _mbs and decrypt_data(_mbs[_ln_a]["contact"], _lc_a)
+                                    if _ok_a:
+                                        _otp_val = str(_rnd.randint(100000, 999999))
+                                        st.session_state["_lp_name"]    = _ln_a
+                                        st.session_state["_lp_otp"]     = _otp_val
+                                        st.session_state["_lp_is_pro"]  = st.session_state.get("login_is_pro", "비종사자")
+                                        st.session_state["_lp_insurer"] = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)")
+                                        st.session_state["_lp"]         = "B"
+                                        st.rerun()
+                                    elif _ln_a not in _mbs:
+                                        st.error("미가입회원입니다. 회원가입 탭에서 가입 후 이용해주세요.")
+                                    else:
+                                        _LoginGuard.record_fail(_ln_a)
+                                        _rem_a = _LoginGuard.remaining_attempts(_ln_a)
+                                        _lk2_a, _ = _LoginGuard.is_locked(_ln_a)
+                                        if _lk2_a:
+                                            st.error(f"🔒 {_LoginGuard.MAX_FAIL}회 실패 — {_LoginGuard.LOCK_MINUTES}분 잠금.")
+                                        else:
+                                            st.error(f"연락처가 올바르지 않습니다. (남은 시도: **{_rem_a}회**)")
+
+                    # ─────────────────────────────────────────────────────────────
+                    # [GP-51.2] 임시/비회원 빠른 접속 섹션 (Phase A 하단 — 항상 표시)
+                    # 1일 1회 / 총 10회 제한 | LocalStorage + 서버사이드 기기 지문
+                    # ─────────────────────────────────────────────────────────────
+                    if _lp == "A":
+                        st.markdown(
+                            "<hr style='border:none;border-top:1.5px solid #000000;"
+                            "margin:14px 0 10px 0;'>",
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            "<div style='font-size:0.85rem;font-weight:900;color:#000000;"
+                            "text-align:center;margin-bottom:3px;word-break:keep-all;'>"
+                            "👁️ 임시/비회원 빠른 접속</div>"
+                            "<div style='font-size:0.72rem;color:#555555;text-align:center;"
+                            "margin-bottom:4px;'>1일 1회 / 누적 최대 10회 이용 가능</div>",
+                            unsafe_allow_html=True
+                        )
+                        if st.button("👁️ 임시/비회원으로 접속하기", key="btn_guest_enter",
+                                     use_container_width=True):
+                            import uuid as _gu
+                            _g_fp = st.session_state.get("_gp75_current_fp", "")
+                            if _g_fp:
+                                _g_gate = _gp512_check_and_record(_g_fp)
+                                if not _g_gate["allowed"]:
+                                    st.error(
+                                        f"⛔ **접속 제한 안내**\n\n{_g_gate['reason']}\n\n"
+                                        f"— 총 방문: {_g_gate['total_visits']}회 / "
+                                        f"남은 횟수: {_g_gate['remaining']}회"
+                                    )
+                                    st.stop()
+                                st.session_state["_gp512_remaining"] = _g_gate["remaining"]
+                            else:
+                                _g_soft = st.session_state.get("_gp512_soft_count", 0)
+                                if _g_soft >= _GP512_MAX_TOTAL:
+                                    st.error("⛔ 접속 횟수를 모두 사용하셨습니다. 회원가입 후 이용해 주세요.")
+                                    st.stop()
+                                st.session_state["_gp512_soft_count"] = _g_soft + 1
+                                st.session_state["_gp512_remaining"] = max(0, _GP512_MAX_TOTAL - _g_soft - 1)
+                            st.session_state["_user_role"]          = "GUEST"
+                            st.session_state["user_id"]             = ""
+                            st.session_state["user_name"]           = "체험 게스트"
+                            st.session_state["is_admin"]            = False
+                            if "_device_uuid" not in st.session_state:
+                                st.session_state["_device_uuid"] = _gu.uuid4().hex[:16]
+                            st.session_state["_login_just_done"]    = False
+                            st.session_state["_auto_close_sidebar"] = True
+                            st.session_state["authenticated"]       = True
+                            _skel_guest = st.empty()
+                            _skel_guest.markdown("""
+<div style="padding:20px 12px;background:#E3F2FD;min-height:60vh;
+  border-radius:12px;margin-top:8px;border:1px solid #90CAF9;">
+  <div class="gk-trans-skel" style="height:28px;width:55%;margin-bottom:14px;"></div>
+  <div class="gk-trans-skel" style="height:18px;width:80%;margin-bottom:8px;"></div>
+  <div class="gk-trans-skel" style="height:18px;width:65%;margin-bottom:20px;"></div>
+  <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
+  <div class="gk-trans-skel" style="height:90px;width:100%;"></div>
+</div>""", unsafe_allow_html=True)
+                            st.rerun()
+
+                    # ─────────────────────────────────────────────────────────────
+                    # Phase B — OTP 인증 + 보안 방식 선택
+                    # ─────────────────────────────────────────────────────────────
+                    elif _lp == "B":
+                        _otp_target = st.session_state.get("_lp_otp", "")
+                        _lp_name    = st.session_state.get("_lp_name", "")
+
+                        # ① 로그인 버튼 박스 (본인확인 완료 안내)
+                        st.markdown(f"""
+    <div style='background:#E8F5E9;border-radius:15px;
+      padding:14px 18px;margin-bottom:10px;text-align:center;
+      border:1.5px solid #A5D6A7;
+      box-shadow:0 2px 10px rgba(76,175,80,0.12);'>
+      <div style='color:#000000;font-size:0.95rem;font-weight:800;margin-bottom:4px;'>
+        ✅ 본인 확인 완료
+      </div>
+      <div style='color:#000000;font-size:0.8rem;opacity:0.72;'>
+        {_lp_name}님, 아래 OTP 번호로 최종 인증을 완료하세요
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+                        # ② 본인확인 안내 — OTP 번호 표시 박스
+                        st.markdown(f"""
+    <div style='background:#FFF9C4;border:2px dashed #000000;border-radius:12px;
+      padding:18px 10px 18px 10px;margin-bottom:10px;text-align:center;'>
+      <div style='font-size:0.72rem;color:#7c4d00;margin-bottom:10px;font-weight:700;
+        letter-spacing:0.04em;'>📱 인증번호 (테스트용 화면 표시. 임시기능)</div>
+      <div style='font-size:3.8rem;font-weight:900;letter-spacing:0.28em;color:#000000;
+        line-height:1.2;word-break:break-all;'>{_otp_target}</div>
+    </div>""", unsafe_allow_html=True)
+
+                        # ③ 6자리 인증번호 입력 안내 텍스트 (강조)
+                        st.markdown("""
+    <div style='background:#f0f9ff;border-top:3px solid #0369a1;border-bottom:3px solid #0369a1;
+      border-left:1.5px solid #bae6fd;border-right:1.5px solid #bae6fd;
+      border-radius:10px;padding:9px 14px;margin-bottom:6px;text-align:center;'>
+      <div style='font-size:0.92rem;font-weight:900;color:#1e3a5f;letter-spacing:0.03em;'>
+        🔢 위쪽 박스 <span style='color:#E53935;'>6자리 인증번호</span>를 아래 입력창에 입력하세요 <span style='color:#b45309;font-size:0.78rem;'>(임시운영)</span>
+      </div>
+      <div style='font-size:0.70rem;color:#475569;margin-top:3px;'>[가이딩 프로토콜 제37조] 표준 인증 수단 &nbsp;·&nbsp; <span style='color:#b45309;font-weight:800;'>⚠️ 임시운영</span></div>
+    </div>
+    <style>
+    /* [GP160 §3] OTP 입력창 상하 테두리 강화 + 대형화 */
+    section[data-testid="stSidebar"] div[data-baseweb="input"] input#hlp_otp_in,
+    section[data-testid="stSidebar"] input[aria-label="6자리 인증번호 입력"] {
+      font-size: 2.4rem !important;
+      font-weight: 900 !important;
+      letter-spacing: 0.35em !important;
+      text-align: center !important;
+      color: #1a3a5c !important;
+      height: 68px !important;
+      border-top: 4px solid #0369a1 !important;
+      border-bottom: 5px solid #0369a1 !important;
+      border-left: 2px solid #60a5fa !important;
+      border-right: 2px solid #60a5fa !important;
+      border-radius: 12px !important;
+      background: #f0f9ff !important;
+      transition: border-color 0.15s, box-shadow 0.15s !important;
+      box-shadow: 0 2px 8px rgba(3,105,161,0.18) !important;
+    }
+    section[data-testid="stSidebar"] div[data-baseweb="input"] input#hlp_otp_in:focus,
+    section[data-testid="stSidebar"] input[aria-label="6자리 인증번호 입력"]:focus {
+      border-top: 4px solid #D4AF37 !important;
+      border-bottom: 5px solid #D4AF37 !important;
+      border-left: 2px solid #fde68a !important;
+      border-right: 2px solid #fde68a !important;
+      box-shadow: 0 0 0 3px rgba(212,175,55,0.35), 0 2px 8px rgba(212,175,55,0.20) !important;
+      background: #fffde7 !important;
+      outline: none !important;
+    }
+    /* baseweb wrapper 외곽선 제거 */
+    section[data-testid="stSidebar"] div[data-baseweb="input"] {
+      border: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
+    }
+    </style>""", unsafe_allow_html=True)
+
+                        # ④ OTP 입력창
+                        _otp_input = st.text_input("6자리 인증번호 입력", key="hlp_otp_in",
+                                                   placeholder="000000", max_chars=6,
+                                                   label_visibility="collapsed")
+                        _otp_confirm = st.button("✅ 위쪽 박스 OTP번호 입력 후 클릭", key="hlp_otp_btn",
+                                                 use_container_width=True, type="primary")
+                        if _otp_confirm:
+                            if (_otp_input or "").strip() == _otp_target:
+                                # [제37조 §2] OTP 일치 즉시 메인 진입 — 추가 단계 없음
+                                _lp_name_b = st.session_state.get("_lp_name", "")
+                                _do_final_login(_lp_name_b)
+                            else:
+                                st.error("❌ 인증번호가 올바르지 않습니다. 다시 확인해 주세요.")
+                        st.markdown("""
+    <style>
+    /* [제59조] OTP 확인 버튼 — 파스텔 블루 + 붉은 외곽선 */
+    section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
+      background: #E3F2FD !important;
+      color: #000000 !important;
+      font-weight: 900 !important;
+      font-size: 1.0rem !important;
+      border: 2px solid #E53935 !important;
+      border-radius: 10px !important;
+      box-shadow: 0 2px 8px rgba(229,57,53,0.15) !important;
+      transition: background 0.15s, box-shadow 0.15s !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"]:hover {
+      background: #BBDEFB !important;
+      box-shadow: 0 4px 12px rgba(229,57,53,0.28) !important;
+    }
+    /* [제59조] 처음으로 버튼 — 파스텔 옐로 + 붉은 외곽선 */
+    section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="secondary"] {
+      background: #FFF9C4 !important;
+      color: #000000 !important;
+      font-weight: 800 !important;
+      border: 2px solid #E53935 !important;
+      border-radius: 10px !important;
+      box-shadow: 0 2px 8px rgba(229,57,53,0.12) !important;
+      transition: background 0.15s, box-shadow 0.15s !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="secondary"]:hover {
+      background: #FFF176 !important;
+      box-shadow: 0 4px 12px rgba(229,57,53,0.25) !important;
+    }
+    </style>""", unsafe_allow_html=True)
+                        if st.button("↩️ 처음으로", key="hlp_back_b", use_container_width=True):
+                            st.session_state["_lp"] = "A"
+                            st.rerun()
+
+                    # [제37조 개정] Phase SETUP / Phase C 전면 폐지
+                    # OTP 인증 성공 즉시 _do_final_login() → 메인 진입 (추가 단계 없음)
+                    elif _lp in ("SETUP", "C"):
+                        # 구 버전 세션에서 SETUP/C 상태로 남아있는 경우 → A로 초기화
+                        st.session_state["_lp"] = "A"
+                        st.rerun()
+
+                with tab_s:
+                    st.markdown("""
+    <div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:15px;
+      padding:16px 18px 12px 18px;margin-bottom:12px;text-align:center;
+      box-shadow:0 4px 20px rgba(79,172,254,0.28);'>
+      <div style='font-size:1.6rem;margin-bottom:6px;'>📝</div>
+      <div style='color:#0a1628;font-size:1rem;font-weight:800;'>회원가입</div>
+      <div style='color:#1a3a5c;font-size:0.78rem;margin-top:4px;line-height:1.5;'>
+        이름과 연락처(숫자만, - 제외)를 입력하세요
+      </div>
+    </div>""", unsafe_allow_html=True)
+                    with st.form("sb_signup_form"):
+                        st.markdown("<div style='font-size:0.82rem;color:#0369a1;font-weight:700;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
+                        name = st.text_input("👤 이름", key="signup_name", label_visibility="collapsed")
+                        contact = st.text_input("📱 연락처", type="password", key="signup_contact", label_visibility="collapsed")
+                        if st.form_submit_button("✅ 가입하기", use_container_width=True):
+                            _su_err = None
+                            if not name or not name.strip():
+                                _su_err = "⚠️ 성함을 입력해 주세요."
+                            elif len(name.strip()) < 2:
+                                _su_err = "⚠️ 이름을 2자 이상 정확히 입력해 주세요."
+                            elif not contact or not contact.strip():
+                                _su_err = "⚠️ 연락처(비밀번호)를 입력해 주세요."
+                            elif not __import__('re').fullmatch(r'[0-9]{10,11}', contact.strip()):
+                                _su_err = "⚠️ 올바른 전화번호 형식이 아닙니다. (숫자만, - 제외 10~11자리)"
+                            if _su_err:
+                                st.error(_su_err)
+                            else:
+                                try:
+                                    with st.spinner("⏳ 가입 처리 중입니다. 잠시만 기다려주세요..."):
+                                        info = add_member(name, contact)
+                                        _jd2 = dt.strptime(info["join_date"], "%Y-%m-%d")
+                                        st.session_state.user_id   = info["user_id"]
+                                        st.session_state.user_name = name
+                                        st.session_state.join_date = _jd2
+                                        st.session_state.is_admin  = False
+                                        st.session_state["_mic_notice"] = True
+                                        st.session_state["_auto_close_sidebar"] = True
+                                        # [C1] 회원가입 시 CUST_ Entity ID 자동 발급
+                                        _eid_set_login_user(name, "customer")
+                                        # [제39조 §3] 회원가입 성공 → 세션 캐시 저장
+                                        _s39_save_session_cache(
+                                            user_id=info["user_id"], user_name=name,
+                                            user_role="customer"
+                                        )
+                                        # 영구저장 여부 확인
+                                        _signup_sb_ok = _SB_PKG_OK and bool(_get_sb_client())
+                                    if _signup_sb_ok:
+                                        st.success(f"🎉 회원가입 감사합니다, {name}님!\n\n✅ **영구저장 완료** — Supabase DB에 안전하게 저장되었습니다.")
+                                    else:
+                                        st.success(f"🎉 회원가입 감사합니다, {name}님!")
+                                        st.warning("⚠️ 임시저장됨 — 서버 재시작 시 소실될 수 있습니다. 관리자에게 문의하세요.")
+                                    st.rerun()
+                                except ValueError as _su_ve:
+                                    _sve_msg = str(_su_ve)
+                                    if _sve_msg.startswith("SAME_PERSON:"):
+                                        st.error("⚠️ 이미 가입된 회원입니다. 로그인 탭에서 로그인해 주세요.")
+                                        from streamlit import components as _cmp
+                                        _cmp.v1.html("""
+    <script>
+    try {
+      var u = new SpeechSynthesisUtterance('회원가입되어 있습니다.');
+      u.lang = 'ko-KR'; u.rate = 0.95; u.pitch = 1.0;
+      window.speechSynthesis.speak(u);
+    } catch(e) {}
+    </script>""", height=0)
+                                    else:
+                                        st.error(f"⚠️ {_sve_msg}")
+                with tab_pw:
+                    st.markdown("""
+    <div style='border:2px solid #1565C0;border-radius:12px;padding:12px 14px 4px 14px;
+    background:transparent;margin-bottom:6px;'>
+    <div style='font-size:0.82rem;color:#555;margin-bottom:8px;'>🔐 가입 시 등록한 이름과 기존 연락처로 본인 확인 후 새 비번을 설정합니다.</div>
+    """, unsafe_allow_html=True)
+                    with st.form("pw_change_form"):
+                        pw_name    = st.text_input("👤 이름", key="pw_name", label_visibility="collapsed")
+                        pw_old     = st.text_input("📱 기존 연락처", type="password", key="pw_old", label_visibility="collapsed")
+                        pw_new1    = st.text_input("🔑 새 연락처", type="password", key="pw_new1", label_visibility="collapsed")
+                        pw_new2    = st.text_input("🔑 새 연락처 확인", type="password", key="pw_new2", label_visibility="collapsed")
+                        if st.form_submit_button("🔄 비번 변경", use_container_width=True):
+                            if not (pw_name and pw_old and pw_new1 and pw_new2):
+                                st.error("모든 항목을 입력해주세요.")
+                            elif pw_new1 != pw_new2:
+                                st.error("새 연락처(비번)가 일치하지 않습니다.")
+                            elif pw_new1 == pw_old:
+                                st.error("새 비번이 기존 비번과 동일합니다.")
+                            else:
+                                _pw_lk, _pw_lk_sec = _LoginGuard.is_locked(pw_name)
+                                if _pw_lk:
+                                    _pm = _pw_lk_sec // 60; _ps = _pw_lk_sec % 60
+                                    st.error(f"🔒 시도 횟수 초과로 **{_pm}분 {_ps}초** 잠금 중입니다. 운영자(010-3074-2616)에게 문의하세요.")
+                                else:
+                                    _pw_members = load_members()
+                                    if pw_name not in _pw_members:
+                                        st.error("미가입회원입니다.")
+                                    elif not decrypt_data(_pw_members[pw_name]["contact"], pw_old):
+                                        _LoginGuard.record_fail(pw_name)
+                                        _pw_rem = _LoginGuard.remaining_attempts(pw_name)
+                                        _pw_lk2, _ = _LoginGuard.is_locked(pw_name)
+                                        if _pw_lk2:
+                                            st.error(f"🔒 {_LoginGuard.MAX_FAIL}회 실패로 **{_LoginGuard.LOCK_MINUTES}분 잠금**되었습니다.")
+                                        else:
+                                            st.error(f"기존 연락처(비번)가 올바르지 않습니다. (남은 시도: **{_pw_rem}회**)")
+                                    else:
+                                        _LoginGuard.record_success(pw_name)
+                                        _pw_members[pw_name]["contact"] = encrypt_contact(pw_new1)
+                                        save_members(_pw_members)
+                                        # ── 제75조 §3 기기 대조 Case A/B ─────────────────
+                                        _pw_fp_now = st.session_state.get("_gp75_current_fp", "")
+                                        _pw_uid    = _pw_members.get(pw_name, {}).get("user_id", "")
+                                        _pw_known  = _gp75_get_all_devices(_pw_uid) if _pw_uid else []
+                                        _pw_known_fps = [d.get("fp_id", "") for d in _pw_known]
+                                        if _pw_fp_now and _pw_fp_now in _pw_known_fps:
+                                            # Case A: 기존 등록 기기 — 간소 절차
+                                            st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
+                                            st.info(
+                                                "🟢 **[제75조 Case A] 신뢰 기기 확인됨**\n\n"
+                                                "현재 기기가 기존에 로그인했던 기기와 일치합니다. "
+                                                "비번 변경이 정상 처리되었습니다.",
+                                                icon=None,
+                                            )
+                                        else:
+                                            # Case B: 미등록 기기 — 강화 절차
+                                            st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
+                                            st.warning(
+                                                "🔴 **[제75조 Case B] 미등록 기기 감지**\n\n"
+                                                "현재 기기가 기존 로그인 기기 목록에 없습니다. "
+                                                "본인이 직접 변경한 것이 맞다면 새 연락처로 로그인 후 기기가 자동 등록됩니다.\n\n"
+                                                "**본인이 아닌 경우 즉시 운영자(010-3074-2616)에게 문의하세요.**",
+                                                icon=None,
+                                            )
+                    st.markdown("""
+    <div style='border:2px solid #f97316;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#9a3412;margin-top:6px;margin-bottom:6px;line-height:1.8;background:#fff7ed;'>
+    ⚠️ <b>비번(연락처)을 잊어버리신 경우</b><br>
+    관리자는 고객의 정보를 알지 못하므로 비번을 알려드리지 못합니다.<br>
+    기존 계정을 삭제하고 <b>신규로 회원가입</b>하신 후 이용해 주세요.<br>
+    문의: <b>010-3074-2616</b>
+    </div>
+    <div style='border:1.5px solid #0369a1;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#0369a1;margin-top:0;margin-bottom:6px;line-height:1.7;background:#f0f9ff;'>
+    🔒 <b>보안 안내</b><br>
+    • 기존 연락처(비번) 확인 후에만 변경 가능합니다.<br>
+    • 변경된 비번은 즉시 암호화(SHA-256 해시)되어 저장됩니다.<br>
+    • 기존 비번은 변경 즉시 폐기되며 복구되지 않습니다.
+    </div>
+    </div>""", unsafe_allow_html=True)
+                with tab_nm:
+                    st.markdown("""
+    <div style='border:2px solid #1565C0;border-radius:12px;padding:12px 14px 4px 14px;
+    background:transparent;margin-bottom:6px;'>
+    <div style='font-size:0.82rem;color:#555;margin-bottom:8px;'>✏️ 개명 등으로 이름 변경이 필요한 경우, 기존 이름과 연락처(비번)로 본인 확인 후 새 이름으로 변경합니다.</div>
+    <div style='border:1.5px solid #f97316;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#9a3412;margin-bottom:8px;line-height:1.7;background:#fff7ed;'>
+    ⚠️ <b>책임 고지</b><br>
+    회원이 직접 입력한 정보의 오류로 인한 결과(로그인 오류, 데이터 접근 불가 등)의 책임은 본인에게 귀속됩니다.<br>
+    <b>단, 시스템 오류·서버 장애로 인한 손해는 운영자가 책임집니다.</b><br>
+    변경이 어려운 경우 운영자(010-3074-2616)에게 문의하세요.
+    </div>
+    """, unsafe_allow_html=True)
+                    with st.form("name_change_form"):
+                        nm_old   = st.text_input("👤 현재 이름", key="nm_old", label_visibility="collapsed")
+                        nm_pw    = st.text_input("📱 연락처", type="password", key="nm_pw", label_visibility="collapsed")
+                        nm_new   = st.text_input("✏️ 새 이름", key="nm_new", label_visibility="collapsed")
+                        nm_new2  = st.text_input("✏️ 새 이름 확인", key="nm_new2", label_visibility="collapsed")
+                        if st.form_submit_button("🔄 이름 변경", use_container_width=True):
+                            if not (nm_old and nm_pw and nm_new and nm_new2):
+                                st.error("모든 항목을 입력해주세요.")
+                            elif nm_new != nm_new2:
+                                st.error("새 이름이 일치하지 않습니다.")
+                            elif nm_new == nm_old:
+                                st.error("새 이름이 기존 이름과 동일합니다.")
+                            else:
+                                _nm_members = load_members()
+                                if nm_old not in _nm_members:
+                                    st.error("미가입회원입니다.")
+                                elif not decrypt_data(_nm_members[nm_old]["contact"], nm_pw):
+                                    st.error("연락처(비번)가 올바르지 않습니다.")
+                                elif nm_new in _nm_members:
+                                    st.error("이미 사용 중인 이름입니다.")
+                                else:
+                                    _nm_members[nm_new] = _nm_members.pop(nm_old)
+                                    save_members(_nm_members)
+                                    st.success("✅ 이름이 변경되었습니다. 새 이름으로 로그인해주세요.")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                    # ── 모바일 키보드 최적화: 연락처=숫자패드, 이름=소문자 ──────────
+                    components.html("""
+        <script>
+        (function(){
+          function fixInputs(){
+            var doc = window.parent.document;
+            // 연락처(비밀번호) 입력창 → 숫자패드
+            var pws = doc.querySelectorAll('input[type="password"]');
+            pws.forEach(function(el){
+              el.setAttribute('inputmode','tel');
+              el.setAttribute('autocomplete','tel');
+            });
+            // 이름 입력창 → 소문자 우선, 자동대문자 OFF
+            var txts = doc.querySelectorAll('input[type="text"]');
+            txts.forEach(function(el){
+              el.setAttribute('autocapitalize','none');
+              el.setAttribute('autocorrect','off');
+              el.setAttribute('spellcheck','false');
+            });
+          }
+          // 즉시 + 0.5초 후 재시도 (Streamlit 렌더 지연 대응)
+          fixInputs();
+          setTimeout(fixInputs, 500);
+          setTimeout(fixInputs, 1200);
+        })();
+        </script>
+        """, height=0)
+                    st.divider()
+                    st.markdown(f"""
+        <div style="position:relative;background:linear-gradient(135deg,#f7971e 0%,#ffd200 100%);
+          border-radius:15px;padding:16px 16px 14px 16px;margin-bottom:10px;
+          box-shadow:0 4px 20px rgba(247,151,30,0.35);">
+          {_bid('0-1-3')}
+          <div style="font-size:1.15rem;font-weight:900;color:#ffffff;
+            letter-spacing:0.03em;margin-bottom:12px;text-align:center;
+            text-shadow:0 1px 4px rgba(0,0,0,0.3);">
+            🎁 지금 가입하면 무료!
+          </div>
+          <div style="background:rgba(255,255,255,0.28);border-radius:10px;
+            padding:12px 14px;margin-bottom:10px;">
+            <div style="font-size:1.0rem;font-weight:900;color:#ffffff;
+              margin-bottom:8px;text-shadow:0 1px 3px rgba(0,0,0,0.25);">⏰ ~2026.08.31. 한정. (앱 고도화기간)</div>
+            <div style="font-size:0.95rem;font-weight:700;color:#ffffff;
+              line-height:2.0;text-shadow:0 1px 3px rgba(0,0,0,0.2);">
+              ✅ 모든 기능 전체 무료<br>
+              ✅ AI 상담 매일 10회 (무료)<br>
+              ✅ 보험·연금·CEO(법인). 상담지원
+            </div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+        if 'user_id' in st.session_state:
+            # 로그인 상태
+            user_name = st.session_state.get('user_name', '')
+            st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-1-4')}</div>""",
+                        unsafe_allow_html=True)
+            # ── is_admin 매 렌더마다 재검증 (세션 복구 후 권한 소실 방지) ──
+            st.session_state.is_admin = user_name in _get_unlimited_users()
+            st.success(f"✅ {mask_name(user_name)} {'👑 관리자' if st.session_state.is_admin else '마스터님'} · 로그인됨")
+
+            # ── [Lazy Loading] 로그인 직후 첫 rerun — 스켈레톤 메뉴만 표시 ──
+            _sb_lazy_done = st.session_state.get("_sb_menu_loaded", False)
+            _is_login_first = _login_first_run  # [제40조] pop() 소비 후 로컬 변수로 전달
+            if _is_login_first and not _sb_lazy_done:
+                # 첫 rerun: SVG 아이콘 기반 스켈레톤 메뉴 렌더
+                st.markdown("""
+<style>
+@keyframes gk-sb-shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.gk-sb-skeleton{
+  height:36px;border-radius:8px;margin:4px 0;
+  background:linear-gradient(90deg,#1a2a40 25%,#243550 50%,#1a2a40 75%);
+  background-size:800px 36px;
+  animation:gk-sb-shimmer 1.4s infinite linear;
+  display:flex;align-items:center;padding:0 10px;gap:10px;
+}
+.gk-sb-sk-icon{width:22px;height:22px;flex-shrink:0;opacity:0.55;}
+.gk-sb-sk-bar{height:12px;border-radius:4px;flex:1;
+  background:rgba(255,255,255,0.08);}
+</style>
+<div style="margin:6px 0 2px 0;font-size:0.7rem;color:#475569;
+  text-transform:uppercase;letter-spacing:0.08em;">⏳ 메뉴 로딩 중...</div>""",
+                    unsafe_allow_html=True)
+                _sk_icons = [
+                    ('<svg viewBox="0 0 24 24" fill="none" stroke="#f0c040" stroke-width="2" width="22" height="22"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', "고객 관리"),
+                    ('<svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" width="22" height="22"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>', "보험증권 AI 분석"),
+                    ('<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" width="22" height="22"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>', "약관 검색"),
+                ]
+                for _sk_svg, _sk_lbl in _sk_icons:
+                    st.markdown(
+                        f'<div class="gk-sb-skeleton">'
+                        f'<span class="gk-sb-sk-icon">{_sk_svg}</span>'
+                        f'<span style="font-size:0.78rem;color:#64748b;">{_sk_lbl}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                # 메뉴 로드 완료 플래그 세팅 → 다음 rerun에서 실제 메뉴 렌더
+                st.session_state["_sb_menu_loaded"] = True
+                # 즉시 rerun 트리거 (500ms 뒤 JS로 자동 실행)
+                components.html("""<script>
+setTimeout(function(){
+  try{var d=window.parent.document;
+    var btn=d.querySelector('[data-testid="stStatusWidget"] button')
+      || d.querySelector('.stApp button[kind="minimal"]');
+  }catch(e){}
+  // Streamlit heartbeat를 통한 soft-rerun 유도
+  window.parent.postMessage({type:'streamlit:setComponentValue',value:1},'*');
+},600);
+</script>""", height=0)
+                # Python 측에서도 rerun 보장
+                import time as _t_lazy
+                _t_lazy.sleep(0.05)
+                st.rerun()
+
+            # ── 기기 통합 자동 로그인 URL 북마크 안내 ─────────────────────
+            st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-1-5')}</div>""",
+                        unsafe_allow_html=True)
+            _auto_tok = st.session_state.get("_auto_login_token", "")
+            if _auto_tok:
+                try:
+                    _app_url = get_env_secret("APP_URL", "https://goldkey-ai.streamlit.app")
+                    _bookmark_url = f"{_app_url}?t={_auto_tok}"
+                except Exception:
+                    _bookmark_url = ""
+                if _bookmark_url:
+                    with st.expander("📱 다른 기기 자동 로그인 URL", expanded=False):
+                        st.markdown(
+                            f"""<div style="background:#f0fff6;border:1.5px solid #27ae60;
+  border-radius:8px;padding:8px 12px;font-size:0.76rem;color:#0d3b2e;line-height:1.8;">
+  <b>📌 북마크 방법</b><br>
+  아래 URL을 핸드폰·태블릿 브라우저에서 열면<br>
+  이름/비번 입력 없이 <b>자동 로그인</b>됩니다.<br><br>
+  <div style="background:#fff;border:1px solid #86efac;border-radius:6px;
+    padding:6px 8px;word-break:break-all;font-size:0.72rem;color:#1a1a2e;">
+  {_bookmark_url}
+  </div><br>
+  ⚠️ 이 URL은 <b>본인만</b> 사용하세요. 타인에게 공유 시 계정이 도용될 수 있습니다.
+  </div>""", unsafe_allow_html=True
+                        )
+                        st.code(_bookmark_url, language=None)
+
+            # ── 사이드바 사용량 표시: TTL 60초 캐시로 DB 조회 최소화 ────────
+            st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-1-6')}</div>""",
+                        unsafe_allow_html=True)
+            import time as _time
+            _usage_cache_key = f"_sb_usage_cache_{user_name}"
+            _usage_cache = st.session_state.get(_usage_cache_key)
+            _usage_ts_key = f"_sb_usage_ts_{user_name}"
+            _now_ts = _time.time()
+            if _usage_cache is None or (_now_ts - st.session_state.get(_usage_ts_key, 0)) > 60:
+                _remaining_usage = get_remaining_usage(user_name)
+                st.session_state[_usage_cache_key] = _remaining_usage
+                st.session_state[_usage_ts_key] = _now_ts
+            else:
+                _remaining_usage = _usage_cache
+
+            st.info(
+                f"**서비스 상태**: 무료 이용 중\n\n"
+                f"**오늘 남은 횟수**: {_remaining_usage}회"
+            )
+
+            display_usage_dashboard(user_name)
+
+            # ── 사용자 모드 & 선호 보험사 설정 ──────────────────────────
+            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,rgba(26,58,92,0.30),rgba(46,109,164,0.30));
+  border-radius:10px;padding:8px 12px;margin:6px 0 4px 0;border:1.5px solid rgba(46,109,164,0.55);
+  font-size:0.8rem;font-weight:900;color:#1a3a5c;letter-spacing:0.03em;">
+  {_bid('0-2-1')}
+  ⚙️ AI 상담 모드 설정</div>""", unsafe_allow_html=True)
+
+            # ── 박스 1: 상담 모드 ──────────────────────────────────────────────
+            st.markdown(f"""<div style="position:relative;background:rgba(26,58,92,0.25);border-radius:8px 8px 0 0;
+  border:1.5px solid rgba(26,58,92,0.50);border-bottom:none;
+  padding:6px 12px;font-size:0.78rem;font-weight:900;color:#1a3a5c;
+  letter-spacing:0.03em;">{_bid('0-2-2')}👤 상담 모드 선택</div>""", unsafe_allow_html=True)
+            _mode_options = ["👔 보험종사자 (설계사·전문가)", "👤 비종사자 (고객·일반인)"]
+            _cur_mode = st.session_state.get("user_consult_mode", _mode_options[0])
+            if _cur_mode not in _mode_options:
+                _cur_mode = _mode_options[0]
+            with st.container():
+                st.markdown("""<div style="background:#f0f4ff;border:2px solid #1a3a5c;
+  border-top:none;border-radius:0 0 8px 8px;padding:6px 10px 8px 10px;
+  margin-bottom:8px;">""", unsafe_allow_html=True)
+                _sel_mode = st.radio(
+                    "상담 모드",
+                    _mode_options,
+                    index=_mode_options.index(_cur_mode),
+                    label_visibility="collapsed",
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+            st.session_state["user_consult_mode"] = _sel_mode
+
+            # ── 박스 2: 주력 판매 분야 ─────────────────────────────────────────
+            st.markdown(f"""<div style="position:relative;background:rgba(125,60,0,0.20);border-radius:8px 8px 0 0;
+  border:1.5px solid rgba(125,60,0,0.45);border-bottom:none;
+  padding:6px 12px;font-size:0.78rem;font-weight:900;color:#7d3c00;
+  letter-spacing:0.03em;">{_bid('0-2-3')}📋 주력 판매 분야</div>""", unsafe_allow_html=True)
+            _ins_options = ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)", "선택 안 함 (중립 분석)"]
+            _cur_ins = st.session_state.get("preferred_insurer", _ins_options[-1])
+            if _cur_ins not in _ins_options:
+                _cur_ins = _ins_options[-1]
+            with st.container():
+                st.markdown("""<div style="background:#fff8f0;border:2px solid #7d3c00;
+  border-top:none;border-radius:0 0 8px 8px;padding:6px 10px 8px 10px;
+  margin-bottom:8px;">""", unsafe_allow_html=True)
+                _sel_ins = st.radio(
+                    "주력 판매 분야",
+                    _ins_options,
+                    index=_ins_options.index(_cur_ins),
+                    label_visibility="collapsed",
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+            st.session_state["preferred_insurer"] = _sel_ins
+
+            _mode_badge = "🟦 종사자" if "종사자" in st.session_state.get("user_consult_mode","") else "🟩 비종사자"
+            _ins_badge  = st.session_state.get("preferred_insurer","선택 안 함")
+            st.markdown(f"""<div style="position:relative;background:#f0f6ff;border:1px solid #2e6da4;
+  border-radius:7px;padding:5px 10px;font-size:0.74rem;color:#1a3a5c;margin-bottom:4px;">
+  {_bid('0-2-4')}
+  {_mode_badge} &nbsp;|&nbsp; 주력사: <b>{_ins_badge}</b>
+</div>""", unsafe_allow_html=True)
+
+
+            # ── [GP200 §1] 전문 브랜딩 정보 입력 UI ─────────────────────────
+            st.markdown(f"""<div style="position:relative;margin:10px 0 0 0;">
+  <div style="background:linear-gradient(135deg,#0a1628 0%,#1a3a5c 100%);
+    border-radius:10px;padding:10px 14px 6px 14px;
+    border:1.5px solid #D4AF37;box-shadow:0 2px 10px rgba(212,175,55,0.18);">
+    <div style="font-size:0.80rem;font-weight:900;color:#D4AF37;
+      letter-spacing:0.04em;margin-bottom:4px;">🏢 담당자 브랜딩 설정</div>
+    <div style="font-size:0.72rem;color:#b0c4de;line-height:1.55;">
+      소속과 연락처를 입력하면 출력물 및 설명 지원 문서 일체에<br>
+      귀하의 소속을 넣어 드립니다!
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+            # 회사명 입력 + 실시간 자동완성 (GP200 §2)
+            _gp200_co_input = st.text_input(
+                "🏢 회사명 (GA/보험사)",
+                key="gp200_company_input",
+                value=st.session_state.get("gp200_company", ""),
+                placeholder="예: 골드키, 삼성생명, 프라임에셋…",
+                label_visibility="visible",
+            )
+            # 자동완성 후보 표시
+            if _gp200_co_input and _gp200_co_input != st.session_state.get("gp200_company", ""):
+                _gp200_hits = gp200_search_companies(_gp200_co_input, limit=6)
+                if _gp200_hits:
+                    st.markdown("<div style='font-size:0.72rem;color:#64748b;margin-bottom:2px;'>🔍 회사 선택:</div>",
+                                unsafe_allow_html=True)
+                    for _gp200_ko, _gp200_en in _gp200_hits:
+                        if st.button(
+                            f"{_gp200_ko}  ({_gp200_en})",
+                            key=f"gp200_ac_{_gp200_ko}",
+                            use_container_width=True,
+                        ):
+                            st.session_state["gp200_company"] = _gp200_ko
+                            st.rerun()
+            else:
+                st.session_state["gp200_company"] = _gp200_co_input
+
+            _gp200_br_input = st.text_input(
+                "📍 지점 (선택)",
+                key="gp200_branch_input",
+                value=st.session_state.get("gp200_branch", ""),
+                placeholder="예: 강남지점, 본사…",
+                label_visibility="visible",
+            )
+            st.session_state["gp200_branch"] = _gp200_br_input
+
+            _gp200_nm_input = st.text_input(
+                "👤 성명 (선택)",
+                key="gp200_name_input",
+                value=st.session_state.get("gp200_name", ""),
+                placeholder="예: 홍길동",
+                label_visibility="visible",
+            )
+            st.session_state["gp200_name"] = _gp200_nm_input
+
+            _gp200_ct_input = st.text_input(
+                "📞 연락처 (선택)",
+                key="gp200_contact_input",
+                value=st.session_state.get("gp200_contact", ""),
+                placeholder="예: 010-1234-5678",
+                label_visibility="visible",
+            )
+            st.session_state["gp200_contact"] = _gp200_ct_input
+
+            # 브랜딩 미리보기 / 초기화 버튼
+            _gp200_has_data = any([
+                st.session_state.get("gp200_company", "").strip(),
+                st.session_state.get("gp200_name", "").strip(),
+                st.session_state.get("gp200_contact", "").strip(),
+            ])
+            if _gp200_has_data:
+                _gp200_footer_html = gp200_brand_footer(st.session_state)
+                if _gp200_footer_html:
+                    st.markdown(
+                        "<div style='font-size:0.70rem;color:#64748b;margin-top:4px;'>"
+                        "📋 출력물 푸터 미리보기:</div>",
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(_gp200_footer_html, unsafe_allow_html=True)
+                if st.button("🗑️ 브랜딩 정보 초기화", key="btn_gp200_clear",
+                             use_container_width=True):
+                    for _gp200_k in ["gp200_company", "gp200_branch", "gp200_name", "gp200_contact",
+                                     "gp200_company_input", "gp200_branch_input",
+                                     "gp200_name_input", "gp200_contact_input"]:
+                        st.session_state.pop(_gp200_k, None)
+                    st.rerun()
+            # ── [GP200 §1] 끝 ────────────────────────────────────────────────
+
+        st.divider()
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-2-6')}</div>""",
+                    unsafe_allow_html=True)
+        st.caption("문의: insusite@gmail.com")
+        st.caption("앱 관리자 이세윤: 010-3074-2616")
+        display_security_sidebar()
+
+        # ── (2) 앱 내 에러 로그 확인 패널 ──────────────────────────────
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-2-7')}</div>""",
+                    unsafe_allow_html=True)
+        with st.expander("🔍 앱 상태 · 오류 확인", expanded=False):
+            _err_items = []
+            # 회원 저장 경고
+            _msw = st.session_state.get("_member_save_warn", "")
+            if _msw:
+                _err_items.append(("⚠️ 회원저장", _msw))
+            # Supabase 연결 상태
+            _sb_status = "✅ 연결됨" if _SB_PKG_OK else "❌ 패키지 없음"
+            try:
+                if _SB_PKG_OK:
+                    _test_sb = _get_sb_client()
+                    _sb_status = "✅ 연결됨" if _test_sb else "❌ 클라이언트 생성 실패"
+            except Exception as _sbe:
+                _sb_status = f"❌ 오류: {str(_sbe)[:60]}"
+            _err_items.append(("🗄️ Supabase", _sb_status))
+            # 로그인 상태
+            _uid_stat = st.session_state.get("user_id", "")
+            _err_items.append(("👤 로그인", f"✅ {mask_name(st.session_state.get('user_name',''))} ({_uid_stat[:12]}...)" if _uid_stat else "❌ 미로그인"))
+            # 환경
+            _err_items.append(("🌐 환경", "☁️ Cloud Run (GCS)" if _IS_CLOUD else "💻 로컬"))
+            # 최근 오류 로그 (session_state에 수집된 것)
+            _recent_errs = st.session_state.get("_app_error_log", [])
+            for _k, _v in _err_items:
+                _color = "#dc2626" if "❌" in _v else "#16a34a" if "✅" in _v else "#d97706"
+                st.markdown(
+                    f"<div style='font-size:0.78rem;padding:3px 6px;border-radius:4px;"
+                    f"background:#f8fafc;border-left:3px solid {_color};margin-bottom:3px;'>"
+                    f"<b>{_k}</b>: {_v}</div>",
+                    unsafe_allow_html=True
+                )
+            if _recent_errs:
+                st.markdown("**최근 오류 로그:**")
+                for _re in _recent_errs[-5:]:
+                    st.caption(_re)
+            st.markdown("""
+<div style='font-size:0.72rem;color:#64748b;margin-top:6px;line-height:1.7;'>
+<b>💡 오류 원인 안내</b><br>
+• <b>동시접속 오류</b>: 서버 과부하 → 잠시 후 새로고침<br>
+• <b>접속 오류</b>: Supabase 일시 지연 또는 Cloud Run 워밍업 중 → 1~2분 대기<br>
+• <b>고객 안 보임</b>: 🔍 검색 버튼 클릭으로 목록 새로고침
+</div>""", unsafe_allow_html=True)
+        # ── 상담 자료 파기 버튼 [제56조 개정: 파스텔 붉은 경고 박스] ────
+        if st.session_state.get("user_id"):
+            st.markdown("""
+<style>
+div[data-testid="stButton"]:has(button[kind="secondary"][data-testid="baseButton-secondary"]) button[key="btn_purge_sb"],
+div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
+.gk-purge-btn-wrap div[data-testid="stButton"] button {
+    background-color: #FFEBEE !important;
+    border: 2px solid #E53935 !important;
+    color: #000000 !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    transition: background-color 0.2s ease !important;
+}
+.gk-purge-btn-wrap div[data-testid="stButton"] button:hover {
+    background-color: #FFCDD2 !important;
+    border-color: #C62828 !important;
+}
+</style>
+<div style="border:2px solid #E53935;border-radius:10px;
+  padding:8px 10px 6px 10px;margin:8px 0 4px 0;
+  background:#FFEBEE;">
+  <div style="font-size:0.70rem;font-weight:900;color:#C62828;
+    letter-spacing:0.04em;margin-bottom:6px;text-align:center;">
+    🗑️ 상담 자료 파기
+  </div>
+</div>""", unsafe_allow_html=True)
+            st.markdown('<div class="gk-purge-btn-wrap">', unsafe_allow_html=True)
+            if st.button("🗑️ 상담 자료 파기 실행", key="btn_purge_sb",
+                         use_container_width=True, type="secondary"):
+                if st.session_state.pop("_sb_purge_confirm", None):
+                    st.session_state.rag_system = LightRAGSystem()
+                    for _k in ["analysis_result"]:
+                        st.session_state.pop(_k, None)
+                    st.success("✅ 상담 자료가 파기되었습니다.")
+                    st.rerun()
+                else:
+                    st.session_state["_sb_purge_confirm"] = True
+                    st.warning("⚠️ 한 번 더 클릭하면 파기됩니다.")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.divider()
+        # ── 관리자 콘솔 (최하단) ──────────────────────────────────────────
+        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-2-8')}</div>""",
+                    unsafe_allow_html=True)
+        with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
+            with st.form("admin_login_form", clear_on_submit=False):
+                admin_id = st.text_input("관리자 ID", key="admin_id_f",
+                    placeholder="admin 또는 이세윤")
+                admin_code = st.text_input("관리자 코드", key="admin_code_f", type="password",
+                    placeholder="코드 입력")
+                _admin_submitted = st.form_submit_button("관리자 로그인", use_container_width=True)
+            if _admin_submitted:
+                # [B3 수정] strip/lower 처리로 공백·대소문자 무관하게 비교
+                _aid = (admin_id or "").strip()
+                _acd = (admin_code or "").strip()
+                _admin_code = get_env_secret("ADMIN_CODE", "")
+                _master_code = get_env_secret("MASTER_CODE", "")
+                if _aid.lower() in ("admin", "이세윤") and _acd == _admin_code:
+                    st.session_state.user_id = "ADMIN_MASTER"
+                    st.session_state.user_name = "이세윤"
+                    st.session_state.join_date = dt.now()
+                    st.session_state.is_admin = True
+                    st.session_state["_login_welcome"] = "이세윤"
+                    st.session_state["_auto_close_sidebar"] = True
+                    st.session_state["authenticated"]       = True
+                    st.session_state["_admin_scroll_trigger"] = True
+                    st.session_state["current_tab"]         = "t9"
+                    # [제39조 §3] 관리자 로그인 → 세션 캐시 저장
+                    _s39_save_session_cache(user_id="ADMIN_MASTER", user_name="이세윤", user_role="admin")
+                    st.rerun()
+                elif _acd == _master_code:
+                    _master_name = get_env_secret("MASTER_NAME", "이세윤")
+                    st.session_state.user_id = "PERMANENT_MASTER"
+                    st.session_state.user_name = _master_name
+                    st.session_state.join_date = dt.now()
+                    st.session_state.is_admin = True
+                    st.session_state["_login_welcome"] = _master_name
+                    st.session_state["_auto_close_sidebar"] = True
+                    st.session_state["authenticated"]       = True
+                    st.session_state["_admin_scroll_trigger"] = True
+                    st.session_state["current_tab"]         = "t9"
+                    # [제39조 §3] 마스터 로그인 → 세션 캐시 저장
+                    _s39_save_session_cache(user_id="PERMANENT_MASTER", user_name=_master_name, user_role="admin")
+                    st.rerun()
+                else:
+                    st.error("ID 또는 코드가 올바르지 않습니다.")
+            # 관리자 로그인 상태일 때
+            if st.session_state.get("is_admin"):
+                # ── RAG 지식베이스 바로가기 ──────────────────────────
+                st.markdown("---")
+                st.markdown("**📚 AI 지식베이스 (RAG)**")
+                _rag_store_sb = _get_rag_store()
+                _rag_cnt_sb = len(_rag_store_sb.get("docs", []))
+                st.caption(f"현재 저장된 청크: {_rag_cnt_sb}개")
+                if st.button("📚 RAG 지식베이스 관리", key="btn_goto_rag",
+                             use_container_width=True, type="primary"):
+                    st.session_state["_rag_admin_hint"] = True
+                    _go_tab("t9")
+                st.markdown("---")
+                # ── Supabase DB 관리 바로가기 ────────────────────────────
+                st.markdown("**🗄️ Supabase DB 관리**")
+                try:
+                    _sb_url = get_env_secret("SUPABASE_URL", "")
+                    _sb_proj = _sb_url.replace("https://","").split(".")[0] if _sb_url else ""
+                except Exception:
+                    _sb_proj = ""
+                if _sb_proj:
+                    _sql_editor_url = f"https://supabase.com/dashboard/project/{_sb_proj}/sql/new"
+                    st.markdown(
+                        f'<a href="{_sql_editor_url}" target="_blank">'
+                        f'<button style="width:100%;padding:8px;background:#3ecf8e;color:#fff;'
+                        f'border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;">'
+                        f'🔗 Supabase SQL Editor 열기</button></a>',
+                        unsafe_allow_html=True
+                    )
+                else:
+                    st.markdown(
+                        '<a href="https://supabase.com/dashboard" target="_blank">'
+                        '<button style="width:100%;padding:8px;background:#3ecf8e;color:#fff;'
+                        'border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;">'
+                        '🔗 Supabase 대시보드 열기</button></a>',
+                        unsafe_allow_html=True
+                    )
+                st.success("✅ user_files.client_name 컬럼 마이그레이션 완료 (2026-03-12)")
+                st.markdown("---")
+                if st.button("📋 제안 목록 보기", key="btn_show_suggestions", use_container_width=True):
+                    st.session_state["_show_suggestions"] = not st.session_state.get("_show_suggestions", False)
+                if st.button("📢 개선 지시 목록", key="btn_show_directives", use_container_width=True):
+                    st.session_state["_show_directives"] = not st.session_state.get("_show_directives", False)
+                st.markdown("---")
+                # ── [제29조] 블록 식별번호(Block ID) 토글 ────────────────────
+                st.markdown("**🔢 블록 식별번호 (Block ID)**")
+                _bid_on = st.toggle(
+                    "식별번호 표시",
+                    value=st.session_state.get("_bid_visible", True),
+                    key="_bid_toggle_sb",
+                    help="제29조 — 관리자 전용 블록/위젯 식별번호 표시 On/Off",
+                )
+                st.session_state["_bid_visible"] = _bid_on
+                if _bid_on:
+                    st.caption("🟢 블록 번호 표시 중 (우측 상단 회색 소자)")
+                else:
+                    st.caption("⚫ 블록 번호 숨김")
+
+        if _is_authenticated:
+            # ══════════════════════════════════════════════════════════════
+            # [GP200 §1] 인증 완료 후 사이드바 — 전문 브랜딩 정보 입력 UI
+            # 선택 입력: 회사명 / 지점 / 성명 / 연락처
+            # 입력 시 모든 분석 리포트 하단에 담당자 브랜딩 푸터 자동 삽입
+            # ══════════════════════════════════════════════════════════════
+            with st.sidebar:
+                # ── [제39조 §2] 로그인 후 사이드바 최상단 아바타 카드 ─────────────
+                _post_av_key = "_s39_post_av_src"
+                _post_av_src = st.session_state.get(_post_av_key, "")
+                if not _post_av_src:
+                    _post_base = os.path.dirname(os.path.abspath(__file__))
+                    for _post_p, _post_mime in [
+                        (os.path.join(_post_base, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
+                        (os.path.join(_post_base, "assets", "goldkey_ai_avatar.png"), "image/png"),
+                        (os.path.join(_post_base, "assets", "avatar_goldkey.png"),    "image/png"),
+                        (os.path.join(_post_base, "assets", "avatar_goldkey.svg"),    "image/svg+xml"),
+                    ]:
+                        try:
+                            _pp = pathlib.Path(_post_p)
+                            if _pp.exists() and _pp.stat().st_size > 50:
+                                _post_av_src = f"data:{_post_mime};base64,{base64.b64encode(_pp.read_bytes()).decode()}"
+                                st.session_state[_post_av_key] = _post_av_src
+                                break
+                        except Exception:
+                            continue
+                _post_av_img = (
+                    f'<img src="{_post_av_src}" width="80" height="80" loading="lazy"'
+                    ' style="border-radius:50%;border:3px solid rgba(255,255,255,0.85);'
+                    'box-shadow:0 2px 10px rgba(0,0,0,0.18);object-fit:cover;'
+                    'display:block;margin:0 auto 8px auto;" />'
+                    if _post_av_src else
+                    '<div style="width:80px;height:80px;border-radius:50%;'
+                    'background:rgba(255,255,255,0.2);margin:0 auto 8px auto;"></div>'
+                )
+                _post_uname = st.session_state.get("user_name", "") or st.session_state.get("user_id", "마스터")
+                st.markdown(f"""
+<div style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
+  border-radius:12px;padding:10px 10px 8px 10px;margin-bottom:6px;
+  box-shadow:0 2px 10px rgba(79,172,254,0.20);text-align:center;
+  width:100%;max-width:100%;box-sizing:border-box;overflow:hidden;">
+  {_post_av_img}
+  <div style="font-size:1.0rem;font-weight:800;color:#0a1628;
+    line-height:1.3;margin-bottom:2px;">Goldkey_AI_Masters2026</div>
+  <div style="font-size:0.78rem;font-weight:600;color:#0d2344;margin-bottom:2px;">
+    👤 {_post_uname} 마스터</div>
+  <div style="font-size:0.70rem;color:#1a3a5c;">전문 보장 상담의 동반자</div>
+  <div style="text-align:right;margin-top:4px;">
+    <span style="font-size:0.60rem;color:rgba(10,22,40,0.5);">v1.3.0</span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                st.markdown("""
+<div style='background:linear-gradient(135deg,#0a1628 0%,#1a3a5c 100%);
+  border-radius:10px;padding:8px 10px 6px 10px;margin:4px 0 4px 0;
+  border:1px solid #D4AF37;box-shadow:0 1px 5px rgba(10,22,40,0.15);
+  width:100%;max-width:100%;box-sizing:border-box;overflow:hidden;'>
+  <div style='font-size:0.82rem;font-weight:900;color:#D4AF37;
+    letter-spacing:0.04em;margin-bottom:5px;'>
+    🏅 전문가 브랜딩 설정 (선택)
+  </div>
+  <div style='font-size:0.74rem;color:#b0cce8;line-height:1.55;'>
+    소속과 연락처를 입력하면<br>
+    <b style='color:#FFD700;'>출력물 및 설명 지원 문서 일체</b>에<br>
+    귀하의 소속을 넣어 드립니다!
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                # ── 회사명 입력 + 실시간 자동완성 ────────────────────────
+                _g200_co_input = st.text_input(
+                    "🏢 회사명 (GA / 보험사)",
+                    value=st.session_state.get("gp200_company", ""),
+                    placeholder="예: 골드키지사, 삼성생명, 피플라이프...",
+                    key="_gp200_co_raw",
+                    max_chars=60,
+                )
+                # 실시간 자동완성 제안 표시
+                if _g200_co_input and _g200_co_input != st.session_state.get("gp200_company", ""):
+                    _g200_suggestions = gp200_search_companies(_g200_co_input, limit=5)
+                    if _g200_suggestions:
+                        st.markdown(
+                            "<div style='font-size:0.72rem;color:#374151;margin:-4px 0 2px 0;"
+                            "font-weight:700;'>💡 자동완성 후보:</div>",
+                            unsafe_allow_html=True,
+                        )
+                        for _g200_ko, _g200_en in _g200_suggestions:
+                            if st.button(
+                                f"{_g200_ko}  ({_g200_en})",
+                                key=f"_gp200_ac_{_g200_ko}",
+                                use_container_width=True,
+                            ):
+                                st.session_state["gp200_company"] = _g200_ko
+                                st.rerun()
+                # 입력값 저장
+                if _g200_co_input != st.session_state.get("gp200_company", ""):
+                    st.session_state["gp200_company"] = _g200_co_input
+
+                # ── 지점 / 팀명 ───────────────────────────────────────────
+                _g200_br_input = st.text_input(
+                    "🏬 지점 / 팀명",
+                    value=st.session_state.get("gp200_branch", ""),
+                    placeholder="예: 강남지점, 디지털팀...",
+                    key="_gp200_br_raw",
+                    max_chars=40,
+                )
+                if _g200_br_input != st.session_state.get("gp200_branch", ""):
+                    st.session_state["gp200_branch"] = _g200_br_input
+
+                # ── 성명 ──────────────────────────────────────────────────
+                _g200_nm_input = st.text_input(
+                    "👤 성명",
+                    value=st.session_state.get("gp200_name", ""),
+                    placeholder="예: 홍길동",
+                    key="_gp200_nm_raw",
+                    max_chars=30,
+                )
+                if _g200_nm_input != st.session_state.get("gp200_name", ""):
+                    st.session_state["gp200_name"] = _g200_nm_input
+
+                # ── 연락처 ────────────────────────────────────────────────
+                _g200_ct_input = st.text_input(
+                    "📞 연락처",
+                    value=st.session_state.get("gp200_contact", ""),
+                    placeholder="예: 010-1234-5678",
+                    key="_gp200_ct_raw",
+                    max_chars=20,
+                )
+                if _g200_ct_input != st.session_state.get("gp200_contact", ""):
+                    st.session_state["gp200_contact"] = _g200_ct_input
+
+                # ── 현재 브랜딩 미리보기 + 초기화 버튼 ──────────────────
+                _g200_has_data = any([
+                    st.session_state.get("gp200_company", "").strip(),
+                    st.session_state.get("gp200_name", "").strip(),
+                    st.session_state.get("gp200_contact", "").strip(),
+                ])
+                if _g200_has_data:
+                    _g200_preview_html = gp200_brand_footer(st.session_state)
+                    if _g200_preview_html:
+                        st.markdown(
+                            "<div style='font-size:0.72rem;color:#374151;margin-top:6px;"
+                            "font-weight:700;'>📋 리포트 푸터 미리보기:</div>",
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown(_g200_preview_html, unsafe_allow_html=True)
+                    if st.button(
+                        "🗑️ 브랜딩 정보 초기화",
+                        key="_gp200_clear_btn",
+                        use_container_width=True,
+                        help="입력한 소속·연락처 정보를 즉시 삭제합니다",
+                    ):
+                        for _k200 in ["gp200_company", "gp200_branch", "gp200_name", "gp200_contact"]:
+                            st.session_state.pop(_k200, None)
+                        st.rerun()
+                else:
+                    st.markdown(
+                        "<div style='font-size:0.71rem;color:#6b7280;text-align:center;"
+                        "padding:6px 0 2px 0;font-style:italic;'>"
+                        "입력 시 리포트에 담당자 정보가 자동 표시됩니다</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                # ── [GP200 §4] 내 보고서 미리보기 ────────────────────────────
+                st.markdown("---")
+                st.markdown(
+                    "<div style='font-size:0.9rem;font-weight:900;color:#1a2d5a;"
+                    "margin-bottom:8px;'>📄 내 보고서 미리보기</div>",
+                    unsafe_allow_html=True,
+                )
+                st.caption("내 정보가 실제 보고서·카카오 메시지에 어떻게 찍히는지 확인하세요.")
+                if st.button("🔍 보고서 미리보기 생성", key="_gp200_report_preview_btn",
+                             use_container_width=True):
+                    st.session_state["_gp200_show_preview"] = True
+
+                if st.session_state.get("_gp200_show_preview"):
+                    _prev_pi = {
+                        "company": st.session_state.get("gp200_company", ""),
+                        "branch":  st.session_state.get("gp200_branch",  ""),
+                        "name":    st.session_state.get("gp200_name", "")
+                                   or st.session_state.get("user_name", "마스터"),
+                        "contact": st.session_state.get("gp200_contact", ""),
+                    }
+                    _prev_co   = _prev_pi["company"] or "소속 회사"
+                    _prev_br   = _prev_pi["branch"]  or ""
+                    _prev_nm   = _prev_pi["name"]    or "마스터"
+                    _prev_ct   = _prev_pi["contact"] or ""
+                    _prev_affil = " ".join(filter(None, [_prev_co, _prev_br]))
+
+                    # ── PDF 리포트 푸터 미리보기 ─────────────────────────────
+                    _prev_pdf_footer = f"담당: {_prev_affil} | {_prev_nm} 마스터" + (
+                        f" | 연락처: {_prev_ct}" if _prev_ct else "")
+                    _prev_report_body = (
+                        "본 리포트는 **{affil}** 소속 **{nm} 마스터**가 "
+                        "Goldkey AI 시스템을 통해 정밀 분석한 결과입니다.\n\n"
+                        "─────────────────────────────────────────\n"
+                        "**[AI 분석 결과 예시]**\n\n"
+                        "고객님의 현재 보장 현황을 분석한 결과, 암·뇌·심장 3대 중증질환 보장이\n"
+                        "충분히 구성되어 있으나, 간병 및 치매 관련 장기 케어 보장이 부족합니다.\n\n"
+                        "▶ 권장 보완 담보: 장기요양 특약, 치매간병비 특약\n"
+                        "▶ 예상 추가 보험료: 월 2~4만원 수준\n\n"
+                        "─────────────────────────────────────────\n"
+                        "*[면책 고지] 본 분석 결과는 AI 보조 도구에 의한 참고용 자료입니다.*"
+                    ).format(affil=_prev_affil, nm=_prev_nm)
+
+                    with st.expander("📋 PDF 리포트 미리보기", expanded=True):
+                        st.markdown(f"""
+<div style="background:#fff;border:1.5px solid #d0d7de;border-radius:12px;
+  padding:20px 22px;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  font-size:0.85rem;line-height:1.9;color:#1a1a2e;">
+  <div style="font-size:1.1rem;font-weight:900;color:#1a2d5a;
+    border-bottom:2px solid #2e6da4;padding-bottom:8px;margin-bottom:14px;">
+    🏅 골드키 AI 분석 리포트
+  </div>
+  <div style="white-space:pre-wrap;">{_prev_report_body.replace(chr(10), '<br>')}</div>
+  <div style="margin-top:16px;padding:10px 14px;
+    background:#f0f4ff;border-radius:8px;border-left:4px solid #2e6da4;
+    font-size:0.78rem;font-weight:700;color:#1a3a5c;">
+    {_prev_pdf_footer}
+  </div>
+</div>""", unsafe_allow_html=True)
+
+                    # ── 카카오 메시지 미리보기 ──────────────────────────────
+                    _prev_kakao_footer = "[발송: " + " | ".join(filter(None, [
+                        _prev_affil,
+                        f"{_prev_nm} 설계사",
+                        _prev_ct,
+                    ])) + "]"
+                    _prev_kakao_body = (
+                        f"[{_prev_co}] {_prev_nm} 설계사입니다.\n"
+                        f"고객님을 위해 정밀 분석한 'AI 인생 방어 리포트'가 도착했습니다.\n\n"
+                        f"■ 골드키 AI 분석 리포트\n\n"
+                        f"고객님의 보장 분석 결과 핵심 내용을 정리해 전달드립니다.\n"
+                        f"암·뇌·심장 3대 보장 현황 및 보완 안내입니다.\n\n"
+                        f"─────────────────\n"
+                        f"담당: {_prev_nm} ({_prev_co})"
+                        + (f"\n연락처: {_prev_ct}" if _prev_ct else "")
+                        + f"\n\n{_prev_kakao_footer}"
+                    )
+                    with st.expander("💬 카카오 메시지 미리보기", expanded=True):
+                        st.markdown(f"""
+<div style="background:#FEE500;border-radius:14px;padding:16px 18px;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+  font-size:0.83rem;line-height:1.8;color:#3C1E1E;
+  white-space:pre-wrap;max-width:360px;margin:0 auto;
+  box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+  <div style="font-size:0.95rem;font-weight:900;margin-bottom:8px;">
+    💬 카카오톡 알림톡 미리보기
+  </div>
+  {_prev_kakao_body.replace(chr(10), '<br>')}
+</div>""", unsafe_allow_html=True)
+
+                    if st.button("✖ 미리보기 닫기", key="_gp200_preview_close",
+                                 use_container_width=False):
+                        st.session_state.pop("_gp200_show_preview", None)
+                        st.rerun()
+                # ── [GP200 §4] 끝 ─────────────────────────────────────────────
+
         st.stop()
 
     # ── [로딩 UI 한국어화] Running... 숨김 + 한국어 구동중 문구 오버레이 ────
@@ -32130,1814 +33936,6 @@ watchRipple();
 }})();
 </script>
 """, height=0)
-
-    # ── 사이드바 ──────────────────────────────────────────────────────────
-    # [제53조 개정] 인증 완료 후 사이드바 완전 미렌더 — 조건부 렌더링
-    _is_authenticated = st.session_state.get('authenticated', False) or bool(st.session_state.get('user_id'))
-    with st.sidebar:
-        # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (항상 렌더) ──
-        render_goldkey_sidebar()
-        # ── [제53조 §열기] 비로그인 시 항상 / 로그인 시 플래그 소비 → JS로 사이드바 강제 열기 ──
-        if not _is_authenticated:
-            import streamlit.components.v1 as _comp_open
-            _comp_open.html("""<script>
-(function(){
-  function isClosed() {
-    try {
-      var pd = window.parent.document;
-      var sb = pd.querySelector('section[data-testid="stSidebar"]');
-      if (!sb) return true;
-      return sb.getAttribute('aria-expanded') === 'false';
-    } catch(e) { return true; }
-  }
-  function clickToggle() {
-    try {
-      var pd = window.parent.document;
-      var selectors = [
-        '[data-testid="collapsedControl"] button',
-        '[data-testid="stSidebarCollapseButton"] button',
-        'button[aria-label="Open sidebar"]',
-        'button[aria-label="사이드바를 열거나 닫으세요"]',
-        'button[aria-label="open sidebar"]'
-      ];
-      for (var i = 0; i < selectors.length; i++) {
-        var btn = pd.querySelector(selectors[i]);
-        if (btn) { btn.click(); return true; }
-      }
-      var all = pd.querySelectorAll('button');
-      for (var j = 0; j < all.length; j++) {
-        var lbl = (all[j].getAttribute('aria-label') || '').toLowerCase();
-        if (lbl.indexOf('sidebar') !== -1 || lbl.indexOf('사이드') !== -1) {
-          all[j].click(); return true;
-        }
-      }
-    } catch(e) {}
-    return false;
-  }
-  function tryOpen() {
-    if (isClosed()) { clickToggle(); }
-  }
-  setTimeout(tryOpen, 150);
-  setTimeout(tryOpen, 500);
-  setTimeout(tryOpen, 1000);
-  setTimeout(tryOpen, 2000);
-})();
-</script>""", height=0)
-
-        if 'user_id' not in st.session_state:
-            st.markdown("""
-<div style='background:#FEFCE8;border:1.5px solid #FCD34D;border-left:4px solid #F59E0B;
-  border-radius:14px;padding:14px 15px 12px 15px;margin:8px 0 8px 0;
-  box-shadow:0 2px 10px rgba(245,158,11,0.12);'>
-  <div style='font-size:0.80rem;font-weight:900;color:#92400E;
-    letter-spacing:0.04em;margin-bottom:10px;
-    border-bottom:1px solid rgba(245,158,11,0.30);padding-bottom:7px;'>
-    🔐 로그인절차 안내
-  </div>
-  <div style='font-size:0.78rem;color:#1C1917;line-height:1.55;'>
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
-      <span style='font-size:1.0rem;flex-shrink:0;'>1️⃣</span>
-      <span><b style='color:#B45309;'>필수동의:</b> 왼쪽 사이드바<br>&nbsp;&nbsp;필수항목 <b style='color:#000;'>(4개)</b> 체크</span>
-    </div>
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
-      <span style='font-size:1.0rem;flex-shrink:0;'>2️⃣</span>
-      <span><b style='color:#B45309;'>정보입력:</b> <b style='color:#000;'>이름 및 연락처</b> 입력</span>
-    </div>
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
-      <span style='font-size:1.0rem;flex-shrink:0;'>3️⃣</span>
-      <span><b style='color:#B45309;'>로그인 실행:</b><br>&nbsp;&nbsp;<b style='color:#000;'>AI 마스터 로그인</b> 버튼 클릭</span>
-    </div>
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
-      <span style='font-size:1.0rem;flex-shrink:0;'>4️⃣</span>
-      <span><b style='color:#B45309;'>번호확인:</b> 화면에 표시된<br>&nbsp;&nbsp;<b style='color:#000;'>인증번호 6자리</b> 확인</span>
-    </div>
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:2px;'>
-      <span style='font-size:1.0rem;flex-shrink:0;'>5️⃣</span>
-      <span><b style='color:#B45309;'>최종인증:</b> OTP 박스에<br>&nbsp;&nbsp;번호 입력 후 <b style='color:#000;'>[클릭]</b></span>
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
-
-            st.markdown("""
-<style>
-section[data-testid="stSidebar"] details summary,
-section[data-testid="stSidebar"] details summary span,
-section[data-testid="stSidebar"] details summary p,
-section[data-testid="stSidebar"] .st-expander summary {
-  color: #000000 !important;
-  text-shadow: none !important;
-}
-</style>""", unsafe_allow_html=True)
-
-            with st.expander("이용약관 · 서비스 안내", expanded=False):
-                st.markdown("""
-<div style="line-height:1.5;">
-  <div style="font-size:0.95rem;font-weight:800;color:#1a2d5a;letter-spacing:0.02em;">
-    📜 이용약관 · 서비스 안내
-  </div>
-  <div style="font-size:0.82rem;font-weight:700;color:#c0392b;margin-top:2px;">
-    (로그인 후 이용 가능)
-  </div>
-</div>
-""", unsafe_allow_html=True)
-                st.caption("로그인 후 사이드바 하단에서 전체 약관을 확인하실 수 있습니다.")
-
-            # ── [GP241조 §보안] 🔒 카카오 보안/권한 안내 서브메뉴 ───────────────
-            with st.expander("🔒 카카오 보안/권한 안내", expanded=False):
-                st.markdown("""
-<div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);
-  border:1.5px solid #3B82F6;border-left:5px solid #1D4ED8;
-  border-radius:12px;padding:16px 18px 14px 18px;
-  box-shadow:0 3px 12px rgba(59,130,246,0.18);">
-  <div style="font-size:0.92rem;font-weight:900;color:#1E3A8A;margin-bottom:12px;
-    display:flex;align-items:center;gap:8px;">
-    🔒 골드키 마스터 AI 리포트 전송 시스템
-    <span style="font-size:0.65rem;background:#1D4ED8;color:#fff;
-      border-radius:4px;padding:1px 7px;font-weight:700;margin-left:4px;">금융권 수준 보안</span>
-  </div>
-  <div style="font-size:0.78rem;color:#1E3A8A;line-height:1.9;">
-    <div style="margin-bottom:7px;padding:6px 10px;background:rgba(255,255,255,0.6);
-      border-radius:8px;border-left:3px solid #3B82F6;">
-      <span style="font-weight:800;color:#1D4ED8;">🎯 서비스명</span><br>
-      <span style="color:#1e40af;">골드키 마스터 AI 리포트 전송 시스템</span>
-    </div>
-    <div style="margin-bottom:7px;padding:6px 10px;background:rgba(255,255,255,0.6);
-      border-radius:8px;border-left:3px solid #3B82F6;">
-      <span style="font-weight:800;color:#1D4ED8;">🔐 보안 약속</span><br>
-      <span style="color:#1e40af;">대화 내용 열람 <b>불가</b> · 친구 목록 수집 <b>불가</b><br>
-      요청 권한: <code style="background:#DBEAFE;padding:1px 4px;border-radius:3px;
-      font-size:0.72rem;">talk_message</code> 발송 전용</span>
-    </div>
-    <div style="margin-bottom:7px;padding:6px 10px;background:rgba(255,255,255,0.6);
-      border-radius:8px;border-left:3px solid #3B82F6;">
-      <span style="font-weight:800;color:#1D4ED8;">🛡️ 데이터 처리</span><br>
-      <span style="color:#1e40af;">전송 데이터 TLS 암호화 처리 후 발송 즉시 파기<br>
-      서버 저장 없음 · 제3자 제공 없음</span>
-    </div>
-    <div style="padding:6px 10px;background:rgba(255,255,255,0.6);
-      border-radius:8px;border-left:3px solid #3B82F6;">
-      <span style="font-weight:800;color:#1D4ED8;">↩️ 권한 철회</span><br>
-      <span style="color:#1e40af;">카카오톡 앱 → 설정 → 자산 → 서비스 관리에서 언제든지 철회 가능</span>
-    </div>
-  </div>
-  <div style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(59,130,246,0.25);
-    font-size:0.68rem;color:#3B82F6;text-align:center;">
-    🔗 카카오 개발자 센터 OAuth2.0 표준 인증 준수 · 권한 범위:
-    <code style="background:#DBEAFE;padding:1px 3px;border-radius:3px;">talk_message</code> only
-  </div>
-</div>""", unsafe_allow_html=True)
-
-            with st.expander("⚠️ 면책 및 서비스 이용 안내 (Disclaimer)", expanded=False):
-                st.markdown("""
-<div style='font-size:0.72rem;line-height:1.6;color:#4A3700;'>
-  <b>1. 본 앱(Goldkey_AI_Master2026)의 목적 및 한계:</b><br>
-  (1) 본 앱은 원활한 고객 상담과 보험 내용 이해를 돕기 위한 업무 보조 도구입니다.
-  앱에서 제공하는 모든 AI 분석 결과 및 자료는 참고용 보조 지표일 뿐이며,
-  어떠한 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.<br>
-  (2) 보장 내용·약관 해석·보험금 청구는 반드시 해당 보험회사 보상담당자 또는
-  손해사정인(독립사정인 포함) 등에게 확인하시기 바랍니다.<br>
-  (3) AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며,
-  이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.<br><br>
-  <b>2. 전문가 상담 필수 및 책임 소재</b><br>
-  본 앱은 의료·법률·세무·회계·부동산 등의 전문적인 진단이나 상담을 대체할 수 없습니다.
-  관련 사항은 반드시 분야별 전문가(의사·변호사·세무사 등)와 상담하시기 바랍니다.
-  아울러 최종적인 보험 가입 및 해지 결정은 전문 자격을 갖춘 설계사를 통해 진행하셔야 하며,
-  본 앱의 정보를 바탕으로 한 최종 판단과 책임은 이용자 본인에게 있습니다.
-</div>
-""", unsafe_allow_html=True)
-
-            if False:  # 약관 전문 — 로딩 지연 방지용 비활성화 블록
-                st.markdown("""
-## Goldkey AI Master Lab. Beta 이용약관
-- **서비스명:** Goldkey AI Master Lab. Beta
-- **운영자:** 이세윤
-- **앱 문의:** 010-3074-2616 / insusite@gmail.com
-
----
-
-**제2조 (서비스 이용 조건)**
-- 현재 **전체 무료** 베타 서비스 운영 중
-- 회원가입 후 모든 기능 무료 제공
-- 회원 1인당 **1일 10회** AI 상담 이용 제한 (서버 부하 방지를 위한 기술적 제한)
-- **사용기간: 2026.08.31. 한정 (앱 고도화기간)**
-- 만 19세 이상 보험 관련 업무 종사자, 전문가 및 관심 있는 고객 대상
-
-**제3조 (서비스 범위)**
-- 보험 상담 보조 AI 분석 도구 제공
-- 세무·법인·상속·증여 참고 정보 제공
-- 보험사 연락처 및 청구 절차 안내
-- 장해보험금·재조달가액 산출 보조 도구
-
-**제4조 (금지 행위)**
-- 타인 명의 도용 및 허위 정보 입력 금지
-- 서비스를 이용한 불법 행위 및 부당 승환 금지
-- 시스템 해킹·크롤링·자동화 접근 금지
-- 분석 결과의 무단 상업적 재배포 금지
-
----
-
-**제5조 (개인정보 수집 및 이용)**
-- **수집 항목:** 이름, 연락처(암호화 저장), 이용 횟수
-- **이용 목적:** 회원 인증, 이용 한도 관리, 서비스 품질 개선
-- **보유 기간:** 회원 탈퇴 후 즉시 파기 (법령 의무 보존 기간 제외)
-- **제3자 제공:** 법령에 의한 경우 외 제공 금지
-
-**제5조의2 (회원 개인정보 암호화 보호)**
-
-본 서비스는 회원의 개인정보를 다음과 같이 기술적으로 보호합니다.
-
-- **연락처(비밀번호):** SHA-256 **단방향 해시(One-Way Hash)** 방식으로 변환하여 저장합니다.
-  단방향 해시는 원문으로 되돌릴 수 없는 구조로, **운영자·관리자를 포함한 누구도 가입 시 입력한 연락처 원문을 열람하거나 복원할 수 없습니다.**
-  로그인 시에는 입력값을 동일 방식으로 해시 변환한 후 저장된 값과 비교하는 방식으로만 인증이 이루어집니다.
-
-- **이름:** 회원 인증 및 서비스 제공 목적으로만 사용되며, 외부에 제공되지 않습니다.
-
-- **세션 데이터:** AES 기반 Fernet 대칭키 암호화로 보호되며, 세션 종료 시 자동 파기됩니다.
-
-- **전송 구간:** TLS(HTTPS) 암호화를 통해 전송 중 데이터를 보호합니다.
-
-> ✅ **요약:** 가입 회원의 연락처(비밀번호)는 암호화된 해시값으로만 저장되며, 관리자를 포함한 어떠한 주체도 원문을 확인할 수 없습니다.
-
-**제6조 (고객정보 보안 기준)**
-- 연락처: SHA-256 단방향 해시 암호화 저장 (복호화 불가 — 관리자 포함 원문 열람 불가)
-- 세션 데이터: AES-128 Fernet 암호화
-- 전송 구간: TLS 암호화 (서버 레벨)
-- 분석 내용: 서버에 저장하지 않으며 세션 종료 시 자동 파기
-- ISO/IEC 27001 정보보안 관리체계 준거
-- GDPR 및 개인정보보호법 준거
-
-**제6조의2 (마이크 접근 권한 정책)**
-- 본 서비스는 음성 입력(STT) 기능 제공을 위해 **마이크 접근 권한**을 요청합니다.
-- 마이크 권한은 음성 상담 입력 시에만 일시적으로 사용되며, 녹음 파일은 서버에 저장되지 않습니다.
-- 권한 요청은 **최초 로그인 후 1회**만 브라우저를 통해 안내되며, 이후 동일 브라우저에서는 재요청하지 않습니다.
-- 마이크 권한을 거부하더라도 텍스트 입력 방식으로 모든 기능을 정상 이용할 수 있습니다.
-- 권한 설정 변경: 브라우저 주소창 왼쪽 🔒 아이콘 → 사이트 설정 → 마이크 → 허용
-- 본 서비스는 Web Speech API(Google 제공)를 통해 음성을 텍스트로 변환하며, 변환 처리는 Google 서버에서 이루어집니다.
-
-**제7조 (고객정보 폐기 지침)**
-- **즉시 파기:** 회원 탈퇴 요청 시 회원 DB에서 즉시 삭제
-- **자동 파기:** 세션 종료 시 메모리 내 상담 내용 자동 초기화
-- **정기 파기:** 이용 로그는 90일 경과 후 자동 삭제
-- **파기 방법:** 전자적 파일은 복구 불가능한 방법으로 영구 삭제
-- **파기 확인:** 관리자 시스템에서 파기 이력 확인 가능
-
----
-
-**제8조 (면책 고지)**
-
-본 서비스는 AI 기술을 활용한 상담 **보조** 도구이며, 모든 분석 결과의 최종 판단 및 법적 책임은 **사용자(상담원)** 에게 있습니다.
-
-보험금 지급 여부의 최종 결정은 보험사 심사 및 관련 법령에 따르며, 법률·세무·의료 분야의 최종 판단은 반드시 해당 전문가(변호사·세무사·의사)와 확인하십시오.
-
-본 서비스는 보험 모집·중개·알선 행위와 **무관한 순수 AI 분석 보조 도구**이며, 본 앱의 분석 결과를 활용한 보험 계약 체결·보험금 수령에 대해 **앱 운영자는 일체의 법적 책임을 지지 않습니다.** 모든 책임은 해당 서비스를 활용한 사용자에게 귀속됩니다.
-
-**제8조의2 (회원정보 변경 및 책임)**
-
-회원은 가입 시 등록한 이름·연락처(비밀번호)를 서비스 내 셀프 변경 기능을 통해 직접 변경할 수 있습니다.
-
-- **이름 변경(개명 포함):** 기존 이름과 기존 연락처(비번) 확인 후 새 이름으로 변경 가능합니다.
-- **연락처(비밀번호) 변경:** 기존 연락처(비번) 확인 후 새 연락처로 변경 가능합니다.
-- **변경 책임:** 회원이 직접 입력·변경한 정보의 오류로 인해 발생하는 결과(로그인 불가, 데이터 접근 오류 등)에 대한 책임은 해당 회원 본인에게 귀속됩니다. **단, 시스템 오류·서버 장애·기술적 결함으로 인한 손해는 운영자가 책임을 집니다.**
-- **운영자 면책 범위:** 운영자는 회원이 직접 변경한 정보의 오류·분실로 인한 서비스 이용 불가에 대해 책임을 지지 않습니다. 단, 개인정보보호법 제29조에 따른 기술적·관리적 보호조치 의무는 운영자가 이행합니다.
-- **정보주체 권리 보장:** 회원은 개인정보보호법 제4조에 따라 언제든지 자신의 정보에 대한 열람·정정·삭제·처리정지를 요구할 권리가 있으며, 운영자는 이를 보장합니다.
-- **변경 불가 시:** 셀프 변경이 불가한 경우 운영자(insusite@gmail.com / 010-3074-2616)에게 문의하시기 바랍니다.
-
-**제9조 (금융소비자보호법 준수 원칙)**
-
-본 서비스는 **금융소비자보호법(금소법)** 의 6대 판매원칙을 준수하는 방향으로 설계·운영됩니다.
-
-**① 적합성 원칙 (제17조)**
-- AI 분석 결과는 고객의 연령·소득·위험 성향에 적합한 상품을 우선 제시하도록 설계되어 있습니다.
-- 고객 정보 없이 특정 상품을 일방적으로 권유하는 기능은 제공하지 않습니다.
-
-**② 적정성 원칙 (제18조)**
-- 고객이 자발적으로 상품을 선택하는 경우에도, AI는 해당 상품이 고객 상황에 부적합할 수 있음을 경고하도록 설계되어 있습니다.
-
-**③ 설명 의무 (제19조)**
-- AI 분석 결과에는 보장 범위·면책 사항·주요 위험 요소가 반드시 포함됩니다.
-- 모든 분석 리포트 하단에 설명 완료 항목이 자동 표시됩니다.
-- 본 서비스를 활용한 상담 시, 사용자(설계사)는 금소법 제19조에 따른 설명 의무를 직접 이행할 책임이 있습니다.
-
-**④ 불공정영업행위 금지 (제20조)**
-- 본 서비스는 특정 보험사와 제휴·수수료 계약 관계가 없으며, 상업적 이해관계에 의한 편향 추천을 하지 않습니다.
-- 사용자가 '주력 보험사'를 선택하는 기능은 설계사의 영업 보조 목적이며, AI는 반드시 타사 비교 데이터를 병렬 제시합니다.
-
-**⑤ 부당권유 금지 (제21조)**
-- AI가 생성하는 모든 답변은 "무조건", "100% 보장", "가장 좋다" 등 단정적 표현을 자동 감지하여 법률적 허용 범위 내 문구로 치환합니다.
-- 치환 기준: "현시점 상담 상품 중 우수한 조건을 보유하고 있습니다" 등 사실 기반 표현으로 대체
-
-**⑥ 허위·과장 광고 금지 (제22조)**
-- AI 분석 결과는 공인된 통계·약관·판례·의학 실무 지침에 근거하며, 근거 없는 수치나 효과를 과장하지 않습니다.
-- 분석 결과에 포함된 수치(간병비·치료비 등)는 출처 기반 추정치임을 명시합니다.
-
-**[비교 안내 의무 이행]**
-- 사용자가 특정 보험사를 선택한 경우, AI는 해당사 상품 분석 후 반드시 **시장 표준 데이터 및 타사 상품 요약을 병렬 제시**합니다.
-- 분석 리포트 하단에 금융소비자보호법 준수 안내 문구가 자동 삽입됩니다.
-
-**[면책 고지 — 금소법 관련]**
-- 본 서비스는 보험 모집·중개·알선 행위와 무관한 **AI 분석 보조 도구**입니다.
-- 본 서비스의 분석 결과를 활용한 보험 계약 체결·보험금 수령에 대해 앱 운영자는 일체의 법적 책임을 지지 않습니다.
-- 최종 상품 선택 및 계약 체결 전 반드시 해당 보험사 약관 및 전문가 상담을 통해 확인하시기 바랍니다.
-
----
-
-**제10조 (약관 변경)**
-- 약관 변경 시 서비스 내 공지 후 7일 이후 적용
-- 변경 약관에 동의하지 않을 경우 서비스 이용 중단 가능
-
----
-
-**제11조 (데이터 저장 분리 및 개인정보 주권 보호 — 하이브리드 아키텍처)**
-
-본 서비스는 **하이브리드 아키텍처(Hybrid Architecture)** 기술을 채택하여 운영됩니다.
-
-**① 데이터 저장 구조 분리**
-- **Public Zone (공용 저장소):** 모든 회원에게 공통으로 제공되는 보험사 카탈로그, 의학 논문, 법령 데이터 등은 중앙 공용 서버에 보관됩니다.
-- **Private Zone (개인 보안 저장소):** 회원이 직접 업로드한 고객 의무기록, 개인 증권 분석, 카탈로그 등 민감 정보는 해당 회원의 고유 식별 계정(UID)에 귀속된 **독립된 보안 저장소(Private Bucket)** 에 분리 보관됩니다.
-
-**② 운영진 접근 차단 (물리적·논리적 이중 차단)**
-- 본 서비스의 운영진 및 관리자(AI 포함)는 **기술적으로 회원의 개별 보안 저장소에 접근하거나 데이터를 열람할 수 없도록 물리적·논리적으로 차단**되어 있습니다.
-- IAM(Identity and Access Management) 정책에 의해 관리자 토큰으로 Private Zone 접근 시 **403 차단**이 적용됩니다.
-- 데이터의 주권은 전적으로 해당 회원에게 있습니다.
-
-**③ 암호화 보호**
-- Private Zone에 저장되는 모든 파일은 **AES-256-GCM 암호화**를 거쳐 저장됩니다.
-- 암호화 키는 회원 고유 UID 기반으로 파생되며, 타인이 복호화할 수 없습니다.
-
-**④ 탈퇴 시 완전 삭제**
-- 회원 탈퇴 요청 시 Private Zone의 모든 파일·메타데이터·계정 정보가 **즉시 완전 삭제(복구 불가)** 됩니다.
-
-**⑤ 데이터 소스 완전 분리 원칙**
-- Public Zone과 Private Zone의 데이터는 UI상에서 자연스럽게 연결되어 표시되지만, **데이터 소스(Source)는 기술적으로 완전히 분리**되어 운영됩니다.
-- 공용 법령·의학 지식 데이터와 회원의 개인 상담 자료는 엄격히 분리되어 구동됩니다.
-
-> ✅ **요약:** 회원이 업로드한 개인 자료는 본인의 UID에 귀속된 암호화 저장소에만 보관되며, 운영진을 포함한 어떠한 주체도 기술적으로 접근할 수 없습니다.
-
----
-
-**제12조 (준거법 및 관할)**
-- 본 약관은 대한민국 법률에 따라 해석됩니다.
-- 분쟁 발생 시 운영자 소재지 관할 법원을 전속 관할로 합니다.
-
-*최종 개정일: 2026년 2월*
-            """)
-
-        # ── 회원가입 / 로그인 (헤더 바로 아래) ──────────────────────────
-        if 'user_id' not in st.session_state:
-            # ── [GP-SEC §5] 공통 약관 동의 UI (shared_components.render_auth_screen) ──
-            if _sc_render_auth_screen:
-                _req_agreed_top = _sc_render_auth_screen(
-                    app_name="Goldkey AI Masters 2026",
-                    app_icon="🏆",
-                    terms_agree_key="_gp_terms_agreed",
-                )
-            else:
-                # Fallback: shared_components 임포트 실패 시 단순 체크박스
-                _req_agreed_top = st.checkbox(
-                    "이용약관 및 개인정보 처리방침에 동의합니다.",
-                    value=st.session_state.get("_gp_terms_agreed", False),
-                    key="_gp_terms_agreed",
-                )
-
-            # ── 약관동의 완료 시에만 탭 표시 ─────────────────────────────
-            if _req_agreed_top:
-                if st.session_state.pop("_terms_agreed_notify", False):
-                    st.success("✅ 동의 완료! 아래 로그인 탭에서 로그인하세요.", icon="🔓")
-
-                st.markdown("""
-<style>
-/* [GP160] 탭 2x2 그리드 배치 */
-section[data-testid="stSidebar"] div[data-testid="stTabs"] [role="tablist"] {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  gap: 4px !important;
-}
-section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="tab"] {
-  border: 1.5px solid #000000 !important;
-  border-radius: 8px !important;
-  margin: 0 !important;
-  font-weight: 700 !important;
-  color: #000000 !important;
-  font-size: 0.85rem !important;
-  padding: 4px 8px !important;
-  text-align: center !important;
-  justify-content: center !important;
-  white-space: normal !important;
-  word-break: keep-all !important;
-  line-height: 1.3 !important;
-}
-section[data-testid="stSidebar"] div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
-  border: 2px solid #1565C0 !important;
-  background: #E3F2FD !important;
-  color: #1565C0 !important;
-}
-</style>""", unsafe_allow_html=True)
-                tab_l, tab_s, tab_pw, tab_nm = st.tabs(["🔑 임시/비회원 빠른 접속", "📝 회원가입", "🔒 비번변경", "✏️ 이름변경"])
-                components.html("""<script>
-(function _rmTitle(){
-  function clean(){
-    document.querySelectorAll('input[title]').forEach(function(el){
-      el.removeAttribute('title');
-    });
-  }
-  clean();
-  var ob=new MutationObserver(clean);
-  ob.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['title']});
-})();
-</script>""", height=0)
-                with tab_l:
-                    # ══════════════════════════════════════════════════════════════
-                    # [제37조 개정] 간소화 로그인 — 2단계 플로우
-                    # Phase A: 이름+연락처 확인 → OTP 발급
-                    # Phase B: 6자리 OTP 인증 → 즉시 메인 진입
-                    # (생체/패턴/SETUP/Phase C 전면 폐지)
-                    # ══════════════════════════════════════════════════════════════
-                    import random as _rnd, re as _re2
-
-                    def _do_final_login(ln: str):
-                        """인증 성공 처리 — 기존 session_state 세팅 그대로 유지"""
-                        members = load_members()
-                        m = members[ln]
-                        _jd = dt.strptime(m["join_date"], "%Y-%m-%d")
-                        _adm = (ln in _get_unlimited_users())
-                        for _ck in ["dc_priv_cache","cc_file_cache","dc_ai_company",
-                                    "dc_ai_doctype","dc_ai_tags","dc_ai_conf",
-                                    "dc_ai_fileno","catalog_jwt"]:
-                            st.session_state.pop(_ck, None)
-                        st.session_state.user_id   = m["user_id"]
-                        st.session_state.user_name = ln
-                        st.session_state.join_date = _jd
-                        st.session_state.is_admin  = _adm
-                        st.session_state["_mic_notice"]         = True
-                        st.session_state["_login_welcome"]      = ln
-                        st.session_state["_auto_close_sidebar"] = True
-                        st.session_state["_login_just_done"]    = True
-                        st.session_state["authenticated"]       = True
-                        # [C1] Entity ID 자동 발급 — AGNT_ (설계사) / CUST_ (일반고객)
-                        _is_pro_eid = st.session_state.get("_lp_is_pro", "비종사자")
-                        _eid_type   = "agent" if _is_pro_eid == "종사자" or _adm else "customer"
-                        _eid_set_login_user(ln, _eid_type)
-                        # Phase A에서 선택한 종사자 여부 반영
-                        _is_pro = st.session_state.get("_lp_is_pro", "비종사자")
-                        if _is_pro == "종사자":
-                            st.session_state["user_consult_mode"] = "👔 보험종사자 (설계사·전문가)"
-                            _pf = st.session_state.get("_lp_insurer", "선택 안 함 (중립 분석)")
-                            st.session_state["preferred_insurer"] = _pf
-                        else:
-                            st.session_state["user_consult_mode"] = "🙋 일반고객 (중립 분석)"
-                            _pf = "선택 안 함 (중립 분석)"
-                            st.session_state["preferred_insurer"] = _pf
-                        # [GP-58 §1·§2] 주력 판매 분야 세션 고정 (Fallback: 종합 보장)
-                        _FIELD_MAP = {
-                            "🏦 생명보험 주력": "생명보험",
-                            "🛡️ 손해보험 주력": "손해보험",
-                            "🏢 생명·손해 종합(GA)": "종합 보장",
-                        }
-                        st.session_state["user_primary_field"] = _FIELD_MAP.get(_pf, "종합 보장")
-                        # [제37조 §1] _sec_methods 저장 폐지 — Phase C/SETUP 제거로 불필요
-                        # [제39조 §3] 로그인 성공 → 세션 캐시 저장 (다음 구동 시 즉시 복원용)
-                        _s39_save_session_cache(
-                            user_id=m["user_id"], user_name=ln,
-                            user_role="agent" if _adm else "customer"
-                        )
-                        # 로그인 단계 초기화 — [제37조] Phase A/B 관련 키만 정리
-                        for _k in ["_lp","_lp_name","_lp_otp","_lp_methods",
-                                   "_lp_is_pro","_lp_insurer"]:
-                            st.session_state.pop(_k, None)
-                        try:
-                            import hmac as _hmac2
-                            _ts = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
-                            if isinstance(_ts, bytes): _ts = _ts.decode()
-                            _tok = _hmac2.new(_ts.encode(), (ln + m["user_id"]).encode(), "sha256").hexdigest()[:32]
-                            st.session_state["_auto_login_token"] = _tok
-                        except Exception:
-                            pass
-                        _LoginGuard.record_success(ln)
-                        # [제140조 §1] 로그인 성공 → localStorage에 인증 토큰 저장 (Universal Continuity)
-                        try:
-                            _gp140_tok = st.session_state.get("_auto_login_token", "")
-                            _gp140_role = "agent" if _adm else "customer"
-                            st.markdown(_gp140_save_token_js(
-                                user_id=m["user_id"], user_name=ln,
-                                user_role=_gp140_role, token=_gp140_tok
-                            ), unsafe_allow_html=True)
-                        except Exception:
-                            pass
-                        # [제75조 §4] 로그인 성공 시 기기 지문 수집 JS 주입
-                        # JS가 LocalStorage에서 fp_id를 읽어 hidden input으로 서버에 전달
-                        # 실제 저장은 _gp75_fp_pending 세션 플래그로 다음 rerun에서 처리
-                        st.session_state["_gp75_login_name"] = ln
-                        st.session_state["_gp75_fp_pending"] = True
-                        # ── [GP-SSO §1] 로그인 완료 후 CRM 딥링크 SSO 처리 ──────────────
-                        try:
-                            _sso_return_to = st.query_params.get("return_to", "")
-                            if _sso_return_to and _sso_return_to.startswith("goldkeycrmapp://"):
-                                import urllib.parse as _up_sso
-                                _sso_uid   = m.get("user_id", "")
-                                _sso_name  = ln
-                                _sso_token = st.session_state.get("_auto_login_token", "")
-                                _sso_params = _up_sso.urlencode({
-                                    "token":   _sso_token,
-                                    "user_id": _sso_uid,
-                                    "name":    _sso_name,
-                                    "role":    "agent" if _adm else "customer",
-                                })
-                                _sso_deeplink = _sso_return_to + "?" + _sso_params
-                                st.markdown(
-                                    "<script>(function(){try{window.location.href='"
-                                    + _sso_deeplink.replace("'", "\'")
-                                    + "';}catch(e){}})()</script>",
-                                    unsafe_allow_html=True
-                                )
-                                st.query_params.clear()
-                        except Exception:
-                            pass
-                        # [GP-56] 로그인 전환 스켈레톤 — 화이트아웃 0ms 목표
-                        _skel_login = st.empty()
-                        _skel_login.markdown("""
-<div style="padding:20px 12px;background:#E3F2FD;min-height:60vh;
-  border-radius:12px;margin-top:8px;border:1px solid #90CAF9;">
-  <div class="gk-trans-skel" style="height:28px;width:55%;margin-bottom:14px;"></div>
-  <div class="gk-trans-skel" style="height:18px;width:80%;margin-bottom:8px;"></div>
-  <div class="gk-trans-skel" style="height:18px;width:65%;margin-bottom:8px;"></div>
-  <div class="gk-trans-skel" style="height:18px;width:72%;margin-bottom:20px;"></div>
-  <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
-  <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
-  <div class="gk-trans-skel" style="height:60px;width:100%;"></div>
-</div>""", unsafe_allow_html=True)
-                        st.rerun()
-
-                    _lp = st.session_state.get("_lp", "A")
-
-                    # ─────────────────────────────────────────────────────────────
-                    # Phase A — 이름 + 연락처 확인 → OTP 발급
-                    # ─────────────────────────────────────────────────────────────
-                    if _lp == "A":
-                        st.markdown("""
-    <style>
-    section[data-testid="stSidebar"] input[type="text"],
-    section[data-testid="stSidebar"] input[type="password"] {
-        border:2px solid #000000!important;
-        border-bottom:3px solid #000000!important;
-        border-radius:8px!important;
-        outline:none!important;
-        box-shadow:0 2px 4px rgba(0,0,0,0.25)!important;
-        margin-bottom:4px!important;
-    }
-    section[data-testid="stSidebar"] input[type="text"]:focus,
-    section[data-testid="stSidebar"] input[type="password"]:focus {
-        border:2.5px solid #0369a1!important;
-        border-bottom:3px solid #0369a1!important;
-        box-shadow:0 2px 4px rgba(3,105,161,0.30)!important;
-    }
-    section[data-testid="stSidebar"] div[data-testid="stTextInput"] {
-        padding-bottom:6px!important;
-    }
-    </style>
-    <div style='background:#FFFFFF;border-radius:10px;
-      padding:6px 10px 6px 12px;margin-top:6px;margin-bottom:8px;text-align:center;
-      border:1px dashed #004D40;
-      border-left:3px solid #D4AF37;
-      box-shadow:0 1px 4px rgba(0,77,64,0.08);
-      position:relative;box-sizing:border-box;
-      width:100%;max-width:100%;overflow:hidden;'>
-      <div style='color:#004D40;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;
-        word-break:keep-all;white-space:normal;line-height:1.4;'>🛡️ 가문 안보를 위한 트리플 보안 가동 중</div>
-    </div>
-    <div style='background:#E3F2FD;border-radius:12px;
-      padding:10px 12px 8px 12px;margin-bottom:10px;text-align:center;
-      border:1px solid #90CAF9;
-      box-shadow:0 1px 6px rgba(33,150,243,0.10);
-      position:relative;box-sizing:border-box;
-      width:100%;max-width:100%;overflow:hidden;'>
-      <div style='font-size:1.5rem;margin-bottom:3px;'>🛡️</div>
-      <div style='color:#000000;font-size:0.92rem;font-weight:800;'>goldkey_Ai_masters2026 보안 로그인</div>
-      <div style='color:#000000;font-size:0.72rem;margin-top:2px;opacity:0.72;
-        word-break:keep-all;white-space:normal;'>가입 시 등록한 정보로 본인 확인 후 OTP를 발급합니다</div>
-    </div>""", unsafe_allow_html=True)
-                        ln_a = st.text_input("👤 이름", key="hlp_name_a", placeholder="가입 시 등록한 이름",
-                                             label_visibility="collapsed")
-                        lc_a = st.text_input("📱 연락처", type="password", key="hlp_contact_a",
-                                             placeholder="연락처 (숫자만, - 제외)",
-                                             label_visibility="collapsed")
-                        login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"],
-                                                horizontal=True, key="login_is_pro")
-                        if login_is_pro == "종사자":
-                            st.radio("📋 주력판매 분야 선택(상담반영)",
-                                     ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"],
-                                     horizontal=True, key="login_insurer")
-                        else:
-                            st.session_state["login_insurer"] = "선택 안 함 (중립 분석)"
-                            st.markdown("<div style='font-size:0.76rem;color:#555;'>🟩 중립 분석 모드</div>",
-                                        unsafe_allow_html=True)
-                        st.markdown("""
-<style>
-button[kind="primary"][data-testid="baseButton-primary"]#hlp_otp_start_btn,
-section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
-  background: #E3F2FD !important;
-  color: #1A237E !important;
-  font-weight: 900 !important;
-  border: 2px solid #004D40 !important;
-  font-size: 1.05rem !important;
-  letter-spacing: 0.04em !important;
-  box-shadow: 0 2px 8px rgba(0,77,64,0.18) !important;
-}
-</style>""", unsafe_allow_html=True)
-                        _all_checked = (_tr_top.get("t1") and _tr_top.get("t2")
-                                        and _tr_top.get("t3") and _tr_top.get("t4"))
-                        if not _all_checked:
-                            st.markdown(
-                                "<div style='font-size:0.82rem;font-weight:900;color:#000000;"
-                                "background:#FFF9C4;border:1.5px solid #F9A825;"
-                                "border-radius:8px;padding:10px 12px;margin-bottom:8px;"
-                                "text-align:center;'>⚠️ 사이드바에서 필수 동의 후 접속 가능합니다</div>",
-                                unsafe_allow_html=True
-                            )
-                        st.markdown(
-                            '<div style="font-size:0.78rem;font-weight:700;color:#0000FF;'
-                            'text-align:center;margin-bottom:6px;padding:4px 0;">'
-                            '체험 모드에서는 저장·등록이 제한됩니다</div>',
-                            unsafe_allow_html=True
-                        )
-                        _btn_otp = st.button("🔐 AI 마스터 로그인", key="hlp_otp_start_btn",
-                                             use_container_width=True, type="primary",
-                                             disabled=not bool(_all_checked))
-
-                        if _btn_otp:
-                            _ln_a = (st.session_state.get("hlp_name_a") or ln_a or "").strip()
-                            _lc_a = (st.session_state.get("hlp_contact_a") or lc_a or "").strip()
-                            if not _ln_a or len(_ln_a) < 2:
-                                st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
-                            elif not _re2.fullmatch(r'[0-9]{10,11}', _lc_a):
-                                st.error("⚠️ 올바른 전화번호 형식이 아닙니다. (숫자만, - 제외 10~11자리)")
-                            else:
-                                _lk_a, _lk_sec_a = _LoginGuard.is_locked(_ln_a)
-                                if _lk_a:
-                                    _lm = _lk_sec_a // 60; _ls = _lk_sec_a % 60
-                                    st.error(f"🔒 **{_lm}분 {_ls}초** 잠금 중입니다. 운영자(010-3074-2616)에게 문의하세요.")
-                                else:
-                                    _mbs = load_members()
-                                    _ok_a = _ln_a in _mbs and decrypt_data(_mbs[_ln_a]["contact"], _lc_a)
-                                    if _ok_a:
-                                        _otp_val = str(_rnd.randint(100000, 999999))
-                                        st.session_state["_lp_name"]    = _ln_a
-                                        st.session_state["_lp_otp"]     = _otp_val
-                                        st.session_state["_lp_is_pro"]  = st.session_state.get("login_is_pro", "비종사자")
-                                        st.session_state["_lp_insurer"] = st.session_state.get("login_insurer", "선택 안 함 (중립 분석)")
-                                        st.session_state["_lp"]         = "B"
-                                        st.rerun()
-                                    elif _ln_a not in _mbs:
-                                        st.error("미가입회원입니다. 회원가입 탭에서 가입 후 이용해주세요.")
-                                    else:
-                                        _LoginGuard.record_fail(_ln_a)
-                                        _rem_a = _LoginGuard.remaining_attempts(_ln_a)
-                                        _lk2_a, _ = _LoginGuard.is_locked(_ln_a)
-                                        if _lk2_a:
-                                            st.error(f"🔒 {_LoginGuard.MAX_FAIL}회 실패 — {_LoginGuard.LOCK_MINUTES}분 잠금.")
-                                        else:
-                                            st.error(f"연락처가 올바르지 않습니다. (남은 시도: **{_rem_a}회**)")
-
-                    # ─────────────────────────────────────────────────────────────
-                    # [GP-51.2] 임시/비회원 빠른 접속 섹션 (Phase A 하단 — 항상 표시)
-                    # 1일 1회 / 총 10회 제한 | LocalStorage + 서버사이드 기기 지문
-                    # ─────────────────────────────────────────────────────────────
-                    if _lp == "A":
-                        st.markdown(
-                            "<hr style='border:none;border-top:1.5px solid #000000;"
-                            "margin:14px 0 10px 0;'>",
-                            unsafe_allow_html=True
-                        )
-                        st.markdown(
-                            "<div style='font-size:0.85rem;font-weight:900;color:#000000;"
-                            "text-align:center;margin-bottom:3px;word-break:keep-all;'>"
-                            "👁️ 임시/비회원 빠른 접속</div>"
-                            "<div style='font-size:0.72rem;color:#555555;text-align:center;"
-                            "margin-bottom:4px;'>1일 1회 / 누적 최대 10회 이용 가능</div>",
-                            unsafe_allow_html=True
-                        )
-                        if st.button("👁️ 임시/비회원으로 접속하기", key="btn_guest_enter",
-                                     use_container_width=True):
-                            import uuid as _gu
-                            _g_fp = st.session_state.get("_gp75_current_fp", "")
-                            if _g_fp:
-                                _g_gate = _gp512_check_and_record(_g_fp)
-                                if not _g_gate["allowed"]:
-                                    st.error(
-                                        f"⛔ **접속 제한 안내**\n\n{_g_gate['reason']}\n\n"
-                                        f"— 총 방문: {_g_gate['total_visits']}회 / "
-                                        f"남은 횟수: {_g_gate['remaining']}회"
-                                    )
-                                    st.stop()
-                                st.session_state["_gp512_remaining"] = _g_gate["remaining"]
-                            else:
-                                _g_soft = st.session_state.get("_gp512_soft_count", 0)
-                                if _g_soft >= _GP512_MAX_TOTAL:
-                                    st.error("⛔ 접속 횟수를 모두 사용하셨습니다. 회원가입 후 이용해 주세요.")
-                                    st.stop()
-                                st.session_state["_gp512_soft_count"] = _g_soft + 1
-                                st.session_state["_gp512_remaining"] = max(0, _GP512_MAX_TOTAL - _g_soft - 1)
-                            st.session_state["_user_role"]          = "GUEST"
-                            st.session_state["user_id"]             = ""
-                            st.session_state["user_name"]           = "체험 게스트"
-                            st.session_state["is_admin"]            = False
-                            if "_device_uuid" not in st.session_state:
-                                st.session_state["_device_uuid"] = _gu.uuid4().hex[:16]
-                            st.session_state["_login_just_done"]    = False
-                            st.session_state["_auto_close_sidebar"] = True
-                            st.session_state["authenticated"]       = True
-                            _skel_guest = st.empty()
-                            _skel_guest.markdown("""
-<div style="padding:20px 12px;background:#E3F2FD;min-height:60vh;
-  border-radius:12px;margin-top:8px;border:1px solid #90CAF9;">
-  <div class="gk-trans-skel" style="height:28px;width:55%;margin-bottom:14px;"></div>
-  <div class="gk-trans-skel" style="height:18px;width:80%;margin-bottom:8px;"></div>
-  <div class="gk-trans-skel" style="height:18px;width:65%;margin-bottom:20px;"></div>
-  <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
-  <div class="gk-trans-skel" style="height:90px;width:100%;"></div>
-</div>""", unsafe_allow_html=True)
-                            st.rerun()
-
-                    # ─────────────────────────────────────────────────────────────
-                    # Phase B — OTP 인증 + 보안 방식 선택
-                    # ─────────────────────────────────────────────────────────────
-                    elif _lp == "B":
-                        _otp_target = st.session_state.get("_lp_otp", "")
-                        _lp_name    = st.session_state.get("_lp_name", "")
-
-                        # ① 로그인 버튼 박스 (본인확인 완료 안내)
-                        st.markdown(f"""
-    <div style='background:#E8F5E9;border-radius:15px;
-      padding:14px 18px;margin-bottom:10px;text-align:center;
-      border:1.5px solid #A5D6A7;
-      box-shadow:0 2px 10px rgba(76,175,80,0.12);'>
-      <div style='color:#000000;font-size:0.95rem;font-weight:800;margin-bottom:4px;'>
-        ✅ 본인 확인 완료
-      </div>
-      <div style='color:#000000;font-size:0.8rem;opacity:0.72;'>
-        {_lp_name}님, 아래 OTP 번호로 최종 인증을 완료하세요
-      </div>
-    </div>""", unsafe_allow_html=True)
-
-                        # ② 본인확인 안내 — OTP 번호 표시 박스
-                        st.markdown(f"""
-    <div style='background:#FFF9C4;border:2px dashed #000000;border-radius:12px;
-      padding:18px 10px 18px 10px;margin-bottom:10px;text-align:center;'>
-      <div style='font-size:0.72rem;color:#7c4d00;margin-bottom:10px;font-weight:700;
-        letter-spacing:0.04em;'>📱 인증번호 (테스트용 화면 표시. 임시기능)</div>
-      <div style='font-size:3.8rem;font-weight:900;letter-spacing:0.28em;color:#000000;
-        line-height:1.2;word-break:break-all;'>{_otp_target}</div>
-    </div>""", unsafe_allow_html=True)
-
-                        # ③ 6자리 인증번호 입력 안내 텍스트 (강조)
-                        st.markdown("""
-    <div style='background:#f0f9ff;border-top:3px solid #0369a1;border-bottom:3px solid #0369a1;
-      border-left:1.5px solid #bae6fd;border-right:1.5px solid #bae6fd;
-      border-radius:10px;padding:9px 14px;margin-bottom:6px;text-align:center;'>
-      <div style='font-size:0.92rem;font-weight:900;color:#1e3a5f;letter-spacing:0.03em;'>
-        🔢 위쪽 박스 <span style='color:#E53935;'>6자리 인증번호</span>를 아래 입력창에 입력하세요 <span style='color:#b45309;font-size:0.78rem;'>(임시운영)</span>
-      </div>
-      <div style='font-size:0.70rem;color:#475569;margin-top:3px;'>[가이딩 프로토콜 제37조] 표준 인증 수단 &nbsp;·&nbsp; <span style='color:#b45309;font-weight:800;'>⚠️ 임시운영</span></div>
-    </div>
-    <style>
-    /* [GP160 §3] OTP 입력창 상하 테두리 강화 + 대형화 */
-    section[data-testid="stSidebar"] div[data-baseweb="input"] input#hlp_otp_in,
-    section[data-testid="stSidebar"] input[aria-label="6자리 인증번호 입력"] {
-      font-size: 2.4rem !important;
-      font-weight: 900 !important;
-      letter-spacing: 0.35em !important;
-      text-align: center !important;
-      color: #1a3a5c !important;
-      height: 68px !important;
-      border-top: 4px solid #0369a1 !important;
-      border-bottom: 5px solid #0369a1 !important;
-      border-left: 2px solid #60a5fa !important;
-      border-right: 2px solid #60a5fa !important;
-      border-radius: 12px !important;
-      background: #f0f9ff !important;
-      transition: border-color 0.15s, box-shadow 0.15s !important;
-      box-shadow: 0 2px 8px rgba(3,105,161,0.18) !important;
-    }
-    section[data-testid="stSidebar"] div[data-baseweb="input"] input#hlp_otp_in:focus,
-    section[data-testid="stSidebar"] input[aria-label="6자리 인증번호 입력"]:focus {
-      border-top: 4px solid #D4AF37 !important;
-      border-bottom: 5px solid #D4AF37 !important;
-      border-left: 2px solid #fde68a !important;
-      border-right: 2px solid #fde68a !important;
-      box-shadow: 0 0 0 3px rgba(212,175,55,0.35), 0 2px 8px rgba(212,175,55,0.20) !important;
-      background: #fffde7 !important;
-      outline: none !important;
-    }
-    /* baseweb wrapper 외곽선 제거 */
-    section[data-testid="stSidebar"] div[data-baseweb="input"] {
-      border: none !important;
-      box-shadow: none !important;
-      background: transparent !important;
-    }
-    </style>""", unsafe_allow_html=True)
-
-                        # ④ OTP 입력창
-                        _otp_input = st.text_input("6자리 인증번호 입력", key="hlp_otp_in",
-                                                   placeholder="000000", max_chars=6,
-                                                   label_visibility="collapsed")
-                        _otp_confirm = st.button("✅ 위쪽 박스 OTP번호 입력 후 클릭", key="hlp_otp_btn",
-                                                 use_container_width=True, type="primary")
-                        if _otp_confirm:
-                            if (_otp_input or "").strip() == _otp_target:
-                                # [제37조 §2] OTP 일치 즉시 메인 진입 — 추가 단계 없음
-                                _lp_name_b = st.session_state.get("_lp_name", "")
-                                _do_final_login(_lp_name_b)
-                            else:
-                                st.error("❌ 인증번호가 올바르지 않습니다. 다시 확인해 주세요.")
-                        st.markdown("""
-    <style>
-    /* [제59조] OTP 확인 버튼 — 파스텔 블루 + 붉은 외곽선 */
-    section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
-      background: #E3F2FD !important;
-      color: #000000 !important;
-      font-weight: 900 !important;
-      font-size: 1.0rem !important;
-      border: 2px solid #E53935 !important;
-      border-radius: 10px !important;
-      box-shadow: 0 2px 8px rgba(229,57,53,0.15) !important;
-      transition: background 0.15s, box-shadow 0.15s !important;
-    }
-    section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"]:hover {
-      background: #BBDEFB !important;
-      box-shadow: 0 4px 12px rgba(229,57,53,0.28) !important;
-    }
-    /* [제59조] 처음으로 버튼 — 파스텔 옐로 + 붉은 외곽선 */
-    section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="secondary"] {
-      background: #FFF9C4 !important;
-      color: #000000 !important;
-      font-weight: 800 !important;
-      border: 2px solid #E53935 !important;
-      border-radius: 10px !important;
-      box-shadow: 0 2px 8px rgba(229,57,53,0.12) !important;
-      transition: background 0.15s, box-shadow 0.15s !important;
-    }
-    section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="secondary"]:hover {
-      background: #FFF176 !important;
-      box-shadow: 0 4px 12px rgba(229,57,53,0.25) !important;
-    }
-    </style>""", unsafe_allow_html=True)
-                        if st.button("↩️ 처음으로", key="hlp_back_b", use_container_width=True):
-                            st.session_state["_lp"] = "A"
-                            st.rerun()
-
-                    # [제37조 개정] Phase SETUP / Phase C 전면 폐지
-                    # OTP 인증 성공 즉시 _do_final_login() → 메인 진입 (추가 단계 없음)
-                    elif _lp in ("SETUP", "C"):
-                        # 구 버전 세션에서 SETUP/C 상태로 남아있는 경우 → A로 초기화
-                        st.session_state["_lp"] = "A"
-                        st.rerun()
-
-                with tab_s:
-                    st.markdown("""
-    <div style='background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);border-radius:15px;
-      padding:16px 18px 12px 18px;margin-bottom:12px;text-align:center;
-      box-shadow:0 4px 20px rgba(79,172,254,0.28);'>
-      <div style='font-size:1.6rem;margin-bottom:6px;'>📝</div>
-      <div style='color:#0a1628;font-size:1rem;font-weight:800;'>회원가입</div>
-      <div style='color:#1a3a5c;font-size:0.78rem;margin-top:4px;line-height:1.5;'>
-        이름과 연락처(숫자만, - 제외)를 입력하세요
-      </div>
-    </div>""", unsafe_allow_html=True)
-                    with st.form("sb_signup_form"):
-                        st.markdown("<div style='font-size:0.82rem;color:#0369a1;font-weight:700;margin-bottom:4px;'>📝 이름과 연락처를 입력하세요</div>", unsafe_allow_html=True)
-                        name = st.text_input("👤 이름", key="signup_name", label_visibility="collapsed")
-                        contact = st.text_input("📱 연락처", type="password", key="signup_contact", label_visibility="collapsed")
-                        if st.form_submit_button("✅ 가입하기", use_container_width=True):
-                            _su_err = None
-                            if not name or not name.strip():
-                                _su_err = "⚠️ 성함을 입력해 주세요."
-                            elif len(name.strip()) < 2:
-                                _su_err = "⚠️ 이름을 2자 이상 정확히 입력해 주세요."
-                            elif not contact or not contact.strip():
-                                _su_err = "⚠️ 연락처(비밀번호)를 입력해 주세요."
-                            elif not __import__('re').fullmatch(r'[0-9]{10,11}', contact.strip()):
-                                _su_err = "⚠️ 올바른 전화번호 형식이 아닙니다. (숫자만, - 제외 10~11자리)"
-                            if _su_err:
-                                st.error(_su_err)
-                            else:
-                                try:
-                                    with st.spinner("⏳ 가입 처리 중입니다. 잠시만 기다려주세요..."):
-                                        info = add_member(name, contact)
-                                        _jd2 = dt.strptime(info["join_date"], "%Y-%m-%d")
-                                        st.session_state.user_id   = info["user_id"]
-                                        st.session_state.user_name = name
-                                        st.session_state.join_date = _jd2
-                                        st.session_state.is_admin  = False
-                                        st.session_state["_mic_notice"] = True
-                                        st.session_state["_auto_close_sidebar"] = True
-                                        # [C1] 회원가입 시 CUST_ Entity ID 자동 발급
-                                        _eid_set_login_user(name, "customer")
-                                        # [제39조 §3] 회원가입 성공 → 세션 캐시 저장
-                                        _s39_save_session_cache(
-                                            user_id=info["user_id"], user_name=name,
-                                            user_role="customer"
-                                        )
-                                        # 영구저장 여부 확인
-                                        _signup_sb_ok = _SB_PKG_OK and bool(_get_sb_client())
-                                    if _signup_sb_ok:
-                                        st.success(f"🎉 회원가입 감사합니다, {name}님!\n\n✅ **영구저장 완료** — Supabase DB에 안전하게 저장되었습니다.")
-                                    else:
-                                        st.success(f"🎉 회원가입 감사합니다, {name}님!")
-                                        st.warning("⚠️ 임시저장됨 — 서버 재시작 시 소실될 수 있습니다. 관리자에게 문의하세요.")
-                                    st.rerun()
-                                except ValueError as _su_ve:
-                                    _sve_msg = str(_su_ve)
-                                    if _sve_msg.startswith("SAME_PERSON:"):
-                                        st.error("⚠️ 이미 가입된 회원입니다. 로그인 탭에서 로그인해 주세요.")
-                                        from streamlit import components as _cmp
-                                        _cmp.v1.html("""
-    <script>
-    try {
-      var u = new SpeechSynthesisUtterance('회원가입되어 있습니다.');
-      u.lang = 'ko-KR'; u.rate = 0.95; u.pitch = 1.0;
-      window.speechSynthesis.speak(u);
-    } catch(e) {}
-    </script>""", height=0)
-                                    else:
-                                        st.error(f"⚠️ {_sve_msg}")
-                with tab_pw:
-                    st.markdown("""
-    <div style='border:2px solid #1565C0;border-radius:12px;padding:12px 14px 4px 14px;
-    background:transparent;margin-bottom:6px;'>
-    <div style='font-size:0.82rem;color:#555;margin-bottom:8px;'>🔐 가입 시 등록한 이름과 기존 연락처로 본인 확인 후 새 비번을 설정합니다.</div>
-    """, unsafe_allow_html=True)
-                    with st.form("pw_change_form"):
-                        pw_name    = st.text_input("👤 이름", key="pw_name", label_visibility="collapsed")
-                        pw_old     = st.text_input("📱 기존 연락처", type="password", key="pw_old", label_visibility="collapsed")
-                        pw_new1    = st.text_input("🔑 새 연락처", type="password", key="pw_new1", label_visibility="collapsed")
-                        pw_new2    = st.text_input("🔑 새 연락처 확인", type="password", key="pw_new2", label_visibility="collapsed")
-                        if st.form_submit_button("🔄 비번 변경", use_container_width=True):
-                            if not (pw_name and pw_old and pw_new1 and pw_new2):
-                                st.error("모든 항목을 입력해주세요.")
-                            elif pw_new1 != pw_new2:
-                                st.error("새 연락처(비번)가 일치하지 않습니다.")
-                            elif pw_new1 == pw_old:
-                                st.error("새 비번이 기존 비번과 동일합니다.")
-                            else:
-                                _pw_lk, _pw_lk_sec = _LoginGuard.is_locked(pw_name)
-                                if _pw_lk:
-                                    _pm = _pw_lk_sec // 60; _ps = _pw_lk_sec % 60
-                                    st.error(f"🔒 시도 횟수 초과로 **{_pm}분 {_ps}초** 잠금 중입니다. 운영자(010-3074-2616)에게 문의하세요.")
-                                else:
-                                    _pw_members = load_members()
-                                    if pw_name not in _pw_members:
-                                        st.error("미가입회원입니다.")
-                                    elif not decrypt_data(_pw_members[pw_name]["contact"], pw_old):
-                                        _LoginGuard.record_fail(pw_name)
-                                        _pw_rem = _LoginGuard.remaining_attempts(pw_name)
-                                        _pw_lk2, _ = _LoginGuard.is_locked(pw_name)
-                                        if _pw_lk2:
-                                            st.error(f"🔒 {_LoginGuard.MAX_FAIL}회 실패로 **{_LoginGuard.LOCK_MINUTES}분 잠금**되었습니다.")
-                                        else:
-                                            st.error(f"기존 연락처(비번)가 올바르지 않습니다. (남은 시도: **{_pw_rem}회**)")
-                                    else:
-                                        _LoginGuard.record_success(pw_name)
-                                        _pw_members[pw_name]["contact"] = encrypt_contact(pw_new1)
-                                        save_members(_pw_members)
-                                        # ── 제75조 §3 기기 대조 Case A/B ─────────────────
-                                        _pw_fp_now = st.session_state.get("_gp75_current_fp", "")
-                                        _pw_uid    = _pw_members.get(pw_name, {}).get("user_id", "")
-                                        _pw_known  = _gp75_get_all_devices(_pw_uid) if _pw_uid else []
-                                        _pw_known_fps = [d.get("fp_id", "") for d in _pw_known]
-                                        if _pw_fp_now and _pw_fp_now in _pw_known_fps:
-                                            # Case A: 기존 등록 기기 — 간소 절차
-                                            st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
-                                            st.info(
-                                                "🟢 **[제75조 Case A] 신뢰 기기 확인됨**\n\n"
-                                                "현재 기기가 기존에 로그인했던 기기와 일치합니다. "
-                                                "비번 변경이 정상 처리되었습니다.",
-                                                icon=None,
-                                            )
-                                        else:
-                                            # Case B: 미등록 기기 — 강화 절차
-                                            st.success("✅ 비번이 변경되었습니다. 새 연락처로 로그인해주세요.")
-                                            st.warning(
-                                                "🔴 **[제75조 Case B] 미등록 기기 감지**\n\n"
-                                                "현재 기기가 기존 로그인 기기 목록에 없습니다. "
-                                                "본인이 직접 변경한 것이 맞다면 새 연락처로 로그인 후 기기가 자동 등록됩니다.\n\n"
-                                                "**본인이 아닌 경우 즉시 운영자(010-3074-2616)에게 문의하세요.**",
-                                                icon=None,
-                                            )
-                    st.markdown("""
-    <div style='border:2px solid #f97316;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#9a3412;margin-top:6px;margin-bottom:6px;line-height:1.8;background:#fff7ed;'>
-    ⚠️ <b>비번(연락처)을 잊어버리신 경우</b><br>
-    관리자는 고객의 정보를 알지 못하므로 비번을 알려드리지 못합니다.<br>
-    기존 계정을 삭제하고 <b>신규로 회원가입</b>하신 후 이용해 주세요.<br>
-    문의: <b>010-3074-2616</b>
-    </div>
-    <div style='border:1.5px solid #0369a1;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#0369a1;margin-top:0;margin-bottom:6px;line-height:1.7;background:#f0f9ff;'>
-    🔒 <b>보안 안내</b><br>
-    • 기존 연락처(비번) 확인 후에만 변경 가능합니다.<br>
-    • 변경된 비번은 즉시 암호화(SHA-256 해시)되어 저장됩니다.<br>
-    • 기존 비번은 변경 즉시 폐기되며 복구되지 않습니다.
-    </div>
-    </div>""", unsafe_allow_html=True)
-                with tab_nm:
-                    st.markdown("""
-    <div style='border:2px solid #1565C0;border-radius:12px;padding:12px 14px 4px 14px;
-    background:transparent;margin-bottom:6px;'>
-    <div style='font-size:0.82rem;color:#555;margin-bottom:8px;'>✏️ 개명 등으로 이름 변경이 필요한 경우, 기존 이름과 연락처(비번)로 본인 확인 후 새 이름으로 변경합니다.</div>
-    <div style='border:1.5px solid #f97316;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#9a3412;margin-bottom:8px;line-height:1.7;background:#fff7ed;'>
-    ⚠️ <b>책임 고지</b><br>
-    회원이 직접 입력한 정보의 오류로 인한 결과(로그인 오류, 데이터 접근 불가 등)의 책임은 본인에게 귀속됩니다.<br>
-    <b>단, 시스템 오류·서버 장애로 인한 손해는 운영자가 책임집니다.</b><br>
-    변경이 어려운 경우 운영자(010-3074-2616)에게 문의하세요.
-    </div>
-    """, unsafe_allow_html=True)
-                    with st.form("name_change_form"):
-                        nm_old   = st.text_input("👤 현재 이름", key="nm_old", label_visibility="collapsed")
-                        nm_pw    = st.text_input("📱 연락처", type="password", key="nm_pw", label_visibility="collapsed")
-                        nm_new   = st.text_input("✏️ 새 이름", key="nm_new", label_visibility="collapsed")
-                        nm_new2  = st.text_input("✏️ 새 이름 확인", key="nm_new2", label_visibility="collapsed")
-                        if st.form_submit_button("🔄 이름 변경", use_container_width=True):
-                            if not (nm_old and nm_pw and nm_new and nm_new2):
-                                st.error("모든 항목을 입력해주세요.")
-                            elif nm_new != nm_new2:
-                                st.error("새 이름이 일치하지 않습니다.")
-                            elif nm_new == nm_old:
-                                st.error("새 이름이 기존 이름과 동일합니다.")
-                            else:
-                                _nm_members = load_members()
-                                if nm_old not in _nm_members:
-                                    st.error("미가입회원입니다.")
-                                elif not decrypt_data(_nm_members[nm_old]["contact"], nm_pw):
-                                    st.error("연락처(비번)가 올바르지 않습니다.")
-                                elif nm_new in _nm_members:
-                                    st.error("이미 사용 중인 이름입니다.")
-                                else:
-                                    _nm_members[nm_new] = _nm_members.pop(nm_old)
-                                    save_members(_nm_members)
-                                    st.success("✅ 이름이 변경되었습니다. 새 이름으로 로그인해주세요.")
-                    st.markdown("</div>", unsafe_allow_html=True)
-
-                    # ── 모바일 키보드 최적화: 연락처=숫자패드, 이름=소문자 ──────────
-                    components.html("""
-        <script>
-        (function(){
-          function fixInputs(){
-            var doc = window.parent.document;
-            // 연락처(비밀번호) 입력창 → 숫자패드
-            var pws = doc.querySelectorAll('input[type="password"]');
-            pws.forEach(function(el){
-              el.setAttribute('inputmode','tel');
-              el.setAttribute('autocomplete','tel');
-            });
-            // 이름 입력창 → 소문자 우선, 자동대문자 OFF
-            var txts = doc.querySelectorAll('input[type="text"]');
-            txts.forEach(function(el){
-              el.setAttribute('autocapitalize','none');
-              el.setAttribute('autocorrect','off');
-              el.setAttribute('spellcheck','false');
-            });
-          }
-          // 즉시 + 0.5초 후 재시도 (Streamlit 렌더 지연 대응)
-          fixInputs();
-          setTimeout(fixInputs, 500);
-          setTimeout(fixInputs, 1200);
-        })();
-        </script>
-        """, height=0)
-                    st.divider()
-                    st.markdown(f"""
-        <div style="position:relative;background:linear-gradient(135deg,#f7971e 0%,#ffd200 100%);
-          border-radius:15px;padding:16px 16px 14px 16px;margin-bottom:10px;
-          box-shadow:0 4px 20px rgba(247,151,30,0.35);">
-          {_bid('0-1-3')}
-          <div style="font-size:1.15rem;font-weight:900;color:#ffffff;
-            letter-spacing:0.03em;margin-bottom:12px;text-align:center;
-            text-shadow:0 1px 4px rgba(0,0,0,0.3);">
-            🎁 지금 가입하면 무료!
-          </div>
-          <div style="background:rgba(255,255,255,0.28);border-radius:10px;
-            padding:12px 14px;margin-bottom:10px;">
-            <div style="font-size:1.0rem;font-weight:900;color:#ffffff;
-              margin-bottom:8px;text-shadow:0 1px 3px rgba(0,0,0,0.25);">⏰ ~2026.08.31. 한정. (앱 고도화기간)</div>
-            <div style="font-size:0.95rem;font-weight:700;color:#ffffff;
-              line-height:2.0;text-shadow:0 1px 3px rgba(0,0,0,0.2);">
-              ✅ 모든 기능 전체 무료<br>
-              ✅ AI 상담 매일 10회 (무료)<br>
-              ✅ 보험·연금·CEO(법인). 상담지원
-            </div>
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-        if 'user_id' in st.session_state:
-            # 로그인 상태
-            user_name = st.session_state.get('user_name', '')
-            st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-1-4')}</div>""",
-                        unsafe_allow_html=True)
-            # ── is_admin 매 렌더마다 재검증 (세션 복구 후 권한 소실 방지) ──
-            st.session_state.is_admin = user_name in _get_unlimited_users()
-            st.success(f"✅ {mask_name(user_name)} {'👑 관리자' if st.session_state.is_admin else '마스터님'} · 로그인됨")
-
-            # ── [Lazy Loading] 로그인 직후 첫 rerun — 스켈레톤 메뉴만 표시 ──
-            _sb_lazy_done = st.session_state.get("_sb_menu_loaded", False)
-            _is_login_first = _login_first_run  # [제40조] pop() 소비 후 로컬 변수로 전달
-            if _is_login_first and not _sb_lazy_done:
-                # 첫 rerun: SVG 아이콘 기반 스켈레톤 메뉴 렌더
-                st.markdown("""
-<style>
-@keyframes gk-sb-shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
-.gk-sb-skeleton{
-  height:36px;border-radius:8px;margin:4px 0;
-  background:linear-gradient(90deg,#1a2a40 25%,#243550 50%,#1a2a40 75%);
-  background-size:800px 36px;
-  animation:gk-sb-shimmer 1.4s infinite linear;
-  display:flex;align-items:center;padding:0 10px;gap:10px;
-}
-.gk-sb-sk-icon{width:22px;height:22px;flex-shrink:0;opacity:0.55;}
-.gk-sb-sk-bar{height:12px;border-radius:4px;flex:1;
-  background:rgba(255,255,255,0.08);}
-</style>
-<div style="margin:6px 0 2px 0;font-size:0.7rem;color:#475569;
-  text-transform:uppercase;letter-spacing:0.08em;">⏳ 메뉴 로딩 중...</div>""",
-                    unsafe_allow_html=True)
-                _sk_icons = [
-                    ('<svg viewBox="0 0 24 24" fill="none" stroke="#f0c040" stroke-width="2" width="22" height="22"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', "고객 관리"),
-                    ('<svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" width="22" height="22"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>', "보험증권 AI 분석"),
-                    ('<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" width="22" height="22"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>', "약관 검색"),
-                ]
-                for _sk_svg, _sk_lbl in _sk_icons:
-                    st.markdown(
-                        f'<div class="gk-sb-skeleton">'
-                        f'<span class="gk-sb-sk-icon">{_sk_svg}</span>'
-                        f'<span style="font-size:0.78rem;color:#64748b;">{_sk_lbl}</span>'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
-                # 메뉴 로드 완료 플래그 세팅 → 다음 rerun에서 실제 메뉴 렌더
-                st.session_state["_sb_menu_loaded"] = True
-                # 즉시 rerun 트리거 (500ms 뒤 JS로 자동 실행)
-                components.html("""<script>
-setTimeout(function(){
-  try{var d=window.parent.document;
-    var btn=d.querySelector('[data-testid="stStatusWidget"] button')
-      || d.querySelector('.stApp button[kind="minimal"]');
-  }catch(e){}
-  // Streamlit heartbeat를 통한 soft-rerun 유도
-  window.parent.postMessage({type:'streamlit:setComponentValue',value:1},'*');
-},600);
-</script>""", height=0)
-                # Python 측에서도 rerun 보장
-                import time as _t_lazy
-                _t_lazy.sleep(0.05)
-                st.rerun()
-
-            # ── 기기 통합 자동 로그인 URL 북마크 안내 ─────────────────────
-            st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-1-5')}</div>""",
-                        unsafe_allow_html=True)
-            _auto_tok = st.session_state.get("_auto_login_token", "")
-            if _auto_tok:
-                try:
-                    _app_url = get_env_secret("APP_URL", "https://goldkey-ai.streamlit.app")
-                    _bookmark_url = f"{_app_url}?t={_auto_tok}"
-                except Exception:
-                    _bookmark_url = ""
-                if _bookmark_url:
-                    with st.expander("📱 다른 기기 자동 로그인 URL", expanded=False):
-                        st.markdown(
-                            f"""<div style="background:#f0fff6;border:1.5px solid #27ae60;
-  border-radius:8px;padding:8px 12px;font-size:0.76rem;color:#0d3b2e;line-height:1.8;">
-  <b>📌 북마크 방법</b><br>
-  아래 URL을 핸드폰·태블릿 브라우저에서 열면<br>
-  이름/비번 입력 없이 <b>자동 로그인</b>됩니다.<br><br>
-  <div style="background:#fff;border:1px solid #86efac;border-radius:6px;
-    padding:6px 8px;word-break:break-all;font-size:0.72rem;color:#1a1a2e;">
-  {_bookmark_url}
-  </div><br>
-  ⚠️ 이 URL은 <b>본인만</b> 사용하세요. 타인에게 공유 시 계정이 도용될 수 있습니다.
-  </div>""", unsafe_allow_html=True
-                        )
-                        st.code(_bookmark_url, language=None)
-
-            # ── 사이드바 사용량 표시: TTL 60초 캐시로 DB 조회 최소화 ────────
-            st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-1-6')}</div>""",
-                        unsafe_allow_html=True)
-            import time as _time
-            _usage_cache_key = f"_sb_usage_cache_{user_name}"
-            _usage_cache = st.session_state.get(_usage_cache_key)
-            _usage_ts_key = f"_sb_usage_ts_{user_name}"
-            _now_ts = _time.time()
-            if _usage_cache is None or (_now_ts - st.session_state.get(_usage_ts_key, 0)) > 60:
-                _remaining_usage = get_remaining_usage(user_name)
-                st.session_state[_usage_cache_key] = _remaining_usage
-                st.session_state[_usage_ts_key] = _now_ts
-            else:
-                _remaining_usage = _usage_cache
-
-            st.info(
-                f"**서비스 상태**: 무료 이용 중\n\n"
-                f"**오늘 남은 횟수**: {_remaining_usage}회"
-            )
-
-            display_usage_dashboard(user_name)
-
-            # ── 사용자 모드 & 선호 보험사 설정 ──────────────────────────
-            st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,rgba(26,58,92,0.30),rgba(46,109,164,0.30));
-  border-radius:10px;padding:8px 12px;margin:6px 0 4px 0;border:1.5px solid rgba(46,109,164,0.55);
-  font-size:0.8rem;font-weight:900;color:#1a3a5c;letter-spacing:0.03em;">
-  {_bid('0-2-1')}
-  ⚙️ AI 상담 모드 설정</div>""", unsafe_allow_html=True)
-
-            # ── 박스 1: 상담 모드 ──────────────────────────────────────────────
-            st.markdown(f"""<div style="position:relative;background:rgba(26,58,92,0.25);border-radius:8px 8px 0 0;
-  border:1.5px solid rgba(26,58,92,0.50);border-bottom:none;
-  padding:6px 12px;font-size:0.78rem;font-weight:900;color:#1a3a5c;
-  letter-spacing:0.03em;">{_bid('0-2-2')}👤 상담 모드 선택</div>""", unsafe_allow_html=True)
-            _mode_options = ["👔 보험종사자 (설계사·전문가)", "👤 비종사자 (고객·일반인)"]
-            _cur_mode = st.session_state.get("user_consult_mode", _mode_options[0])
-            if _cur_mode not in _mode_options:
-                _cur_mode = _mode_options[0]
-            with st.container():
-                st.markdown("""<div style="background:#f0f4ff;border:2px solid #1a3a5c;
-  border-top:none;border-radius:0 0 8px 8px;padding:6px 10px 8px 10px;
-  margin-bottom:8px;">""", unsafe_allow_html=True)
-                _sel_mode = st.radio(
-                    "상담 모드",
-                    _mode_options,
-                    index=_mode_options.index(_cur_mode),
-                    label_visibility="collapsed",
-                )
-                st.markdown("</div>", unsafe_allow_html=True)
-            st.session_state["user_consult_mode"] = _sel_mode
-
-            # ── 박스 2: 주력 판매 분야 ─────────────────────────────────────────
-            st.markdown(f"""<div style="position:relative;background:rgba(125,60,0,0.20);border-radius:8px 8px 0 0;
-  border:1.5px solid rgba(125,60,0,0.45);border-bottom:none;
-  padding:6px 12px;font-size:0.78rem;font-weight:900;color:#7d3c00;
-  letter-spacing:0.03em;">{_bid('0-2-3')}📋 주력 판매 분야</div>""", unsafe_allow_html=True)
-            _ins_options = ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)", "선택 안 함 (중립 분석)"]
-            _cur_ins = st.session_state.get("preferred_insurer", _ins_options[-1])
-            if _cur_ins not in _ins_options:
-                _cur_ins = _ins_options[-1]
-            with st.container():
-                st.markdown("""<div style="background:#fff8f0;border:2px solid #7d3c00;
-  border-top:none;border-radius:0 0 8px 8px;padding:6px 10px 8px 10px;
-  margin-bottom:8px;">""", unsafe_allow_html=True)
-                _sel_ins = st.radio(
-                    "주력 판매 분야",
-                    _ins_options,
-                    index=_ins_options.index(_cur_ins),
-                    label_visibility="collapsed",
-                )
-                st.markdown("</div>", unsafe_allow_html=True)
-            st.session_state["preferred_insurer"] = _sel_ins
-
-            _mode_badge = "🟦 종사자" if "종사자" in st.session_state.get("user_consult_mode","") else "🟩 비종사자"
-            _ins_badge  = st.session_state.get("preferred_insurer","선택 안 함")
-            st.markdown(f"""<div style="position:relative;background:#f0f6ff;border:1px solid #2e6da4;
-  border-radius:7px;padding:5px 10px;font-size:0.74rem;color:#1a3a5c;margin-bottom:4px;">
-  {_bid('0-2-4')}
-  {_mode_badge} &nbsp;|&nbsp; 주력사: <b>{_ins_badge}</b>
-</div>""", unsafe_allow_html=True)
-
-
-            # ── [GP200 §1] 전문 브랜딩 정보 입력 UI ─────────────────────────
-            st.markdown(f"""<div style="position:relative;margin:10px 0 0 0;">
-  <div style="background:linear-gradient(135deg,#0a1628 0%,#1a3a5c 100%);
-    border-radius:10px;padding:10px 14px 6px 14px;
-    border:1.5px solid #D4AF37;box-shadow:0 2px 10px rgba(212,175,55,0.18);">
-    <div style="font-size:0.80rem;font-weight:900;color:#D4AF37;
-      letter-spacing:0.04em;margin-bottom:4px;">🏢 담당자 브랜딩 설정</div>
-    <div style="font-size:0.72rem;color:#b0c4de;line-height:1.55;">
-      소속과 연락처를 입력하면 출력물 및 설명 지원 문서 일체에<br>
-      귀하의 소속을 넣어 드립니다!
-    </div>
-  </div>
-</div>""", unsafe_allow_html=True)
-
-            # 회사명 입력 + 실시간 자동완성 (GP200 §2)
-            _gp200_co_input = st.text_input(
-                "🏢 회사명 (GA/보험사)",
-                key="gp200_company_input",
-                value=st.session_state.get("gp200_company", ""),
-                placeholder="예: 골드키, 삼성생명, 프라임에셋…",
-                label_visibility="visible",
-            )
-            # 자동완성 후보 표시
-            if _gp200_co_input and _gp200_co_input != st.session_state.get("gp200_company", ""):
-                _gp200_hits = gp200_search_companies(_gp200_co_input, limit=6)
-                if _gp200_hits:
-                    st.markdown("<div style='font-size:0.72rem;color:#64748b;margin-bottom:2px;'>🔍 회사 선택:</div>",
-                                unsafe_allow_html=True)
-                    for _gp200_ko, _gp200_en in _gp200_hits:
-                        if st.button(
-                            f"{_gp200_ko}  ({_gp200_en})",
-                            key=f"gp200_ac_{_gp200_ko}",
-                            use_container_width=True,
-                        ):
-                            st.session_state["gp200_company"] = _gp200_ko
-                            st.rerun()
-            else:
-                st.session_state["gp200_company"] = _gp200_co_input
-
-            _gp200_br_input = st.text_input(
-                "📍 지점 (선택)",
-                key="gp200_branch_input",
-                value=st.session_state.get("gp200_branch", ""),
-                placeholder="예: 강남지점, 본사…",
-                label_visibility="visible",
-            )
-            st.session_state["gp200_branch"] = _gp200_br_input
-
-            _gp200_nm_input = st.text_input(
-                "👤 성명 (선택)",
-                key="gp200_name_input",
-                value=st.session_state.get("gp200_name", ""),
-                placeholder="예: 홍길동",
-                label_visibility="visible",
-            )
-            st.session_state["gp200_name"] = _gp200_nm_input
-
-            _gp200_ct_input = st.text_input(
-                "📞 연락처 (선택)",
-                key="gp200_contact_input",
-                value=st.session_state.get("gp200_contact", ""),
-                placeholder="예: 010-1234-5678",
-                label_visibility="visible",
-            )
-            st.session_state["gp200_contact"] = _gp200_ct_input
-
-            # 브랜딩 미리보기 / 초기화 버튼
-            _gp200_has_data = any([
-                st.session_state.get("gp200_company", "").strip(),
-                st.session_state.get("gp200_name", "").strip(),
-                st.session_state.get("gp200_contact", "").strip(),
-            ])
-            if _gp200_has_data:
-                _gp200_footer_html = gp200_brand_footer(st.session_state)
-                if _gp200_footer_html:
-                    st.markdown(
-                        "<div style='font-size:0.70rem;color:#64748b;margin-top:4px;'>"
-                        "📋 출력물 푸터 미리보기:</div>",
-                        unsafe_allow_html=True,
-                    )
-                    st.markdown(_gp200_footer_html, unsafe_allow_html=True)
-                if st.button("🗑️ 브랜딩 정보 초기화", key="btn_gp200_clear",
-                             use_container_width=True):
-                    for _gp200_k in ["gp200_company", "gp200_branch", "gp200_name", "gp200_contact",
-                                     "gp200_company_input", "gp200_branch_input",
-                                     "gp200_name_input", "gp200_contact_input"]:
-                        st.session_state.pop(_gp200_k, None)
-                    st.rerun()
-            # ── [GP200 §1] 끝 ────────────────────────────────────────────────
-
-        st.divider()
-        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-2-6')}</div>""",
-                    unsafe_allow_html=True)
-        st.caption("문의: insusite@gmail.com")
-        st.caption("앱 관리자 이세윤: 010-3074-2616")
-        display_security_sidebar()
-
-        # ── (2) 앱 내 에러 로그 확인 패널 ──────────────────────────────
-        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-2-7')}</div>""",
-                    unsafe_allow_html=True)
-        with st.expander("🔍 앱 상태 · 오류 확인", expanded=False):
-            _err_items = []
-            # 회원 저장 경고
-            _msw = st.session_state.get("_member_save_warn", "")
-            if _msw:
-                _err_items.append(("⚠️ 회원저장", _msw))
-            # Supabase 연결 상태
-            _sb_status = "✅ 연결됨" if _SB_PKG_OK else "❌ 패키지 없음"
-            try:
-                if _SB_PKG_OK:
-                    _test_sb = _get_sb_client()
-                    _sb_status = "✅ 연결됨" if _test_sb else "❌ 클라이언트 생성 실패"
-            except Exception as _sbe:
-                _sb_status = f"❌ 오류: {str(_sbe)[:60]}"
-            _err_items.append(("🗄️ Supabase", _sb_status))
-            # 로그인 상태
-            _uid_stat = st.session_state.get("user_id", "")
-            _err_items.append(("👤 로그인", f"✅ {mask_name(st.session_state.get('user_name',''))} ({_uid_stat[:12]}...)" if _uid_stat else "❌ 미로그인"))
-            # 환경
-            _err_items.append(("🌐 환경", "☁️ Cloud Run (GCS)" if _IS_CLOUD else "💻 로컬"))
-            # 최근 오류 로그 (session_state에 수집된 것)
-            _recent_errs = st.session_state.get("_app_error_log", [])
-            for _k, _v in _err_items:
-                _color = "#dc2626" if "❌" in _v else "#16a34a" if "✅" in _v else "#d97706"
-                st.markdown(
-                    f"<div style='font-size:0.78rem;padding:3px 6px;border-radius:4px;"
-                    f"background:#f8fafc;border-left:3px solid {_color};margin-bottom:3px;'>"
-                    f"<b>{_k}</b>: {_v}</div>",
-                    unsafe_allow_html=True
-                )
-            if _recent_errs:
-                st.markdown("**최근 오류 로그:**")
-                for _re in _recent_errs[-5:]:
-                    st.caption(_re)
-            st.markdown("""
-<div style='font-size:0.72rem;color:#64748b;margin-top:6px;line-height:1.7;'>
-<b>💡 오류 원인 안내</b><br>
-• <b>동시접속 오류</b>: 서버 과부하 → 잠시 후 새로고침<br>
-• <b>접속 오류</b>: Supabase 일시 지연 또는 Cloud Run 워밍업 중 → 1~2분 대기<br>
-• <b>고객 안 보임</b>: 🔍 검색 버튼 클릭으로 목록 새로고침
-</div>""", unsafe_allow_html=True)
-        # ── 상담 자료 파기 버튼 [제56조 개정: 파스텔 붉은 경고 박스] ────
-        if st.session_state.get("user_id"):
-            st.markdown("""
-<style>
-div[data-testid="stButton"]:has(button[kind="secondary"][data-testid="baseButton-secondary"]) button[key="btn_purge_sb"],
-div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
-.gk-purge-btn-wrap div[data-testid="stButton"] button {
-    background-color: #FFEBEE !important;
-    border: 2px solid #E53935 !important;
-    color: #000000 !important;
-    font-weight: 700 !important;
-    border-radius: 10px !important;
-    transition: background-color 0.2s ease !important;
-}
-.gk-purge-btn-wrap div[data-testid="stButton"] button:hover {
-    background-color: #FFCDD2 !important;
-    border-color: #C62828 !important;
-}
-</style>
-<div style="border:2px solid #E53935;border-radius:10px;
-  padding:8px 10px 6px 10px;margin:8px 0 4px 0;
-  background:#FFEBEE;">
-  <div style="font-size:0.70rem;font-weight:900;color:#C62828;
-    letter-spacing:0.04em;margin-bottom:6px;text-align:center;">
-    🗑️ 상담 자료 파기
-  </div>
-</div>""", unsafe_allow_html=True)
-            st.markdown('<div class="gk-purge-btn-wrap">', unsafe_allow_html=True)
-            if st.button("🗑️ 상담 자료 파기 실행", key="btn_purge_sb",
-                         use_container_width=True, type="secondary"):
-                if st.session_state.pop("_sb_purge_confirm", None):
-                    st.session_state.rag_system = LightRAGSystem()
-                    for _k in ["analysis_result"]:
-                        st.session_state.pop(_k, None)
-                    st.success("✅ 상담 자료가 파기되었습니다.")
-                    st.rerun()
-                else:
-                    st.session_state["_sb_purge_confirm"] = True
-                    st.warning("⚠️ 한 번 더 클릭하면 파기됩니다.")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.divider()
-        # ── 관리자 콘솔 (최하단) ──────────────────────────────────────────
-        st.markdown(f"""<div style="position:relative;margin-bottom:0;">{_bid('0-2-8')}</div>""",
-                    unsafe_allow_html=True)
-        with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
-            with st.form("admin_login_form", clear_on_submit=False):
-                admin_id = st.text_input("관리자 ID", key="admin_id_f",
-                    placeholder="admin 또는 이세윤")
-                admin_code = st.text_input("관리자 코드", key="admin_code_f", type="password",
-                    placeholder="코드 입력")
-                _admin_submitted = st.form_submit_button("관리자 로그인", use_container_width=True)
-            if _admin_submitted:
-                # [B3 수정] strip/lower 처리로 공백·대소문자 무관하게 비교
-                _aid = (admin_id or "").strip()
-                _acd = (admin_code or "").strip()
-                _admin_code = get_env_secret("ADMIN_CODE", "")
-                _master_code = get_env_secret("MASTER_CODE", "")
-                if _aid.lower() in ("admin", "이세윤") and _acd == _admin_code:
-                    st.session_state.user_id = "ADMIN_MASTER"
-                    st.session_state.user_name = "이세윤"
-                    st.session_state.join_date = dt.now()
-                    st.session_state.is_admin = True
-                    st.session_state["_login_welcome"] = "이세윤"
-                    st.session_state["_auto_close_sidebar"] = True
-                    st.session_state["authenticated"]       = True
-                    st.session_state["_admin_scroll_trigger"] = True
-                    st.session_state["current_tab"]         = "t9"
-                    # [제39조 §3] 관리자 로그인 → 세션 캐시 저장
-                    _s39_save_session_cache(user_id="ADMIN_MASTER", user_name="이세윤", user_role="admin")
-                    st.rerun()
-                elif _acd == _master_code:
-                    _master_name = get_env_secret("MASTER_NAME", "이세윤")
-                    st.session_state.user_id = "PERMANENT_MASTER"
-                    st.session_state.user_name = _master_name
-                    st.session_state.join_date = dt.now()
-                    st.session_state.is_admin = True
-                    st.session_state["_login_welcome"] = _master_name
-                    st.session_state["_auto_close_sidebar"] = True
-                    st.session_state["authenticated"]       = True
-                    st.session_state["_admin_scroll_trigger"] = True
-                    st.session_state["current_tab"]         = "t9"
-                    # [제39조 §3] 마스터 로그인 → 세션 캐시 저장
-                    _s39_save_session_cache(user_id="PERMANENT_MASTER", user_name=_master_name, user_role="admin")
-                    st.rerun()
-                else:
-                    st.error("ID 또는 코드가 올바르지 않습니다.")
-            # 관리자 로그인 상태일 때
-            if st.session_state.get("is_admin"):
-                # ── RAG 지식베이스 바로가기 ──────────────────────────
-                st.markdown("---")
-                st.markdown("**📚 AI 지식베이스 (RAG)**")
-                _rag_store_sb = _get_rag_store()
-                _rag_cnt_sb = len(_rag_store_sb.get("docs", []))
-                st.caption(f"현재 저장된 청크: {_rag_cnt_sb}개")
-                if st.button("📚 RAG 지식베이스 관리", key="btn_goto_rag",
-                             use_container_width=True, type="primary"):
-                    st.session_state["_rag_admin_hint"] = True
-                    _go_tab("t9")
-                st.markdown("---")
-                # ── Supabase DB 관리 바로가기 ────────────────────────────
-                st.markdown("**🗄️ Supabase DB 관리**")
-                try:
-                    _sb_url = get_env_secret("SUPABASE_URL", "")
-                    _sb_proj = _sb_url.replace("https://","").split(".")[0] if _sb_url else ""
-                except Exception:
-                    _sb_proj = ""
-                if _sb_proj:
-                    _sql_editor_url = f"https://supabase.com/dashboard/project/{_sb_proj}/sql/new"
-                    st.markdown(
-                        f'<a href="{_sql_editor_url}" target="_blank">'
-                        f'<button style="width:100%;padding:8px;background:#3ecf8e;color:#fff;'
-                        f'border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;">'
-                        f'🔗 Supabase SQL Editor 열기</button></a>',
-                        unsafe_allow_html=True
-                    )
-                else:
-                    st.markdown(
-                        '<a href="https://supabase.com/dashboard" target="_blank">'
-                        '<button style="width:100%;padding:8px;background:#3ecf8e;color:#fff;'
-                        'border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;">'
-                        '🔗 Supabase 대시보드 열기</button></a>',
-                        unsafe_allow_html=True
-                    )
-                st.success("✅ user_files.client_name 컬럼 마이그레이션 완료 (2026-03-12)")
-                st.markdown("---")
-                if st.button("📋 제안 목록 보기", key="btn_show_suggestions", use_container_width=True):
-                    st.session_state["_show_suggestions"] = not st.session_state.get("_show_suggestions", False)
-                if st.button("📢 개선 지시 목록", key="btn_show_directives", use_container_width=True):
-                    st.session_state["_show_directives"] = not st.session_state.get("_show_directives", False)
-                st.markdown("---")
-                # ── [제29조] 블록 식별번호(Block ID) 토글 ────────────────────
-                st.markdown("**🔢 블록 식별번호 (Block ID)**")
-                _bid_on = st.toggle(
-                    "식별번호 표시",
-                    value=st.session_state.get("_bid_visible", True),
-                    key="_bid_toggle_sb",
-                    help="제29조 — 관리자 전용 블록/위젯 식별번호 표시 On/Off",
-                )
-                st.session_state["_bid_visible"] = _bid_on
-                if _bid_on:
-                    st.caption("🟢 블록 번호 표시 중 (우측 상단 회색 소자)")
-                else:
-                    st.caption("⚫ 블록 번호 숨김")
-
-        if _is_authenticated:
-            # ══════════════════════════════════════════════════════════════
-            # [GP200 §1] 인증 완료 후 사이드바 — 전문 브랜딩 정보 입력 UI
-            # 선택 입력: 회사명 / 지점 / 성명 / 연락처
-            # 입력 시 모든 분석 리포트 하단에 담당자 브랜딩 푸터 자동 삽입
-            # ══════════════════════════════════════════════════════════════
-            with st.sidebar:
-                # ── [제39조 §2] 로그인 후 사이드바 최상단 아바타 카드 ─────────────
-                _post_av_key = "_s39_post_av_src"
-                _post_av_src = st.session_state.get(_post_av_key, "")
-                if not _post_av_src:
-                    _post_base = os.path.dirname(os.path.abspath(__file__))
-                    for _post_p, _post_mime in [
-                        (os.path.join(_post_base, "assets", "goldkey_ai_avatar.jpg"), "image/jpeg"),
-                        (os.path.join(_post_base, "assets", "goldkey_ai_avatar.png"), "image/png"),
-                        (os.path.join(_post_base, "assets", "avatar_goldkey.png"),    "image/png"),
-                        (os.path.join(_post_base, "assets", "avatar_goldkey.svg"),    "image/svg+xml"),
-                    ]:
-                        try:
-                            _pp = pathlib.Path(_post_p)
-                            if _pp.exists() and _pp.stat().st_size > 50:
-                                _post_av_src = f"data:{_post_mime};base64,{base64.b64encode(_pp.read_bytes()).decode()}"
-                                st.session_state[_post_av_key] = _post_av_src
-                                break
-                        except Exception:
-                            continue
-                _post_av_img = (
-                    f'<img src="{_post_av_src}" width="80" height="80" loading="lazy"'
-                    ' style="border-radius:50%;border:3px solid rgba(255,255,255,0.85);'
-                    'box-shadow:0 2px 10px rgba(0,0,0,0.18);object-fit:cover;'
-                    'display:block;margin:0 auto 8px auto;" />'
-                    if _post_av_src else
-                    '<div style="width:80px;height:80px;border-radius:50%;'
-                    'background:rgba(255,255,255,0.2);margin:0 auto 8px auto;"></div>'
-                )
-                _post_uname = st.session_state.get("user_name", "") or st.session_state.get("user_id", "마스터")
-                st.markdown(f"""
-<div style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
-  border-radius:12px;padding:10px 10px 8px 10px;margin-bottom:6px;
-  box-shadow:0 2px 10px rgba(79,172,254,0.20);text-align:center;
-  width:100%;max-width:100%;box-sizing:border-box;overflow:hidden;">
-  {_post_av_img}
-  <div style="font-size:1.0rem;font-weight:800;color:#0a1628;
-    line-height:1.3;margin-bottom:2px;">Goldkey_AI_Masters2026</div>
-  <div style="font-size:0.78rem;font-weight:600;color:#0d2344;margin-bottom:2px;">
-    👤 {_post_uname} 마스터</div>
-  <div style="font-size:0.70rem;color:#1a3a5c;">전문 보장 상담의 동반자</div>
-  <div style="text-align:right;margin-top:4px;">
-    <span style="font-size:0.60rem;color:rgba(10,22,40,0.5);">v1.3.0</span>
-  </div>
-</div>""", unsafe_allow_html=True)
-
-                st.markdown("""
-<div style='background:linear-gradient(135deg,#0a1628 0%,#1a3a5c 100%);
-  border-radius:10px;padding:8px 10px 6px 10px;margin:4px 0 4px 0;
-  border:1px solid #D4AF37;box-shadow:0 1px 5px rgba(10,22,40,0.15);
-  width:100%;max-width:100%;box-sizing:border-box;overflow:hidden;'>
-  <div style='font-size:0.82rem;font-weight:900;color:#D4AF37;
-    letter-spacing:0.04em;margin-bottom:5px;'>
-    🏅 전문가 브랜딩 설정 (선택)
-  </div>
-  <div style='font-size:0.74rem;color:#b0cce8;line-height:1.55;'>
-    소속과 연락처를 입력하면<br>
-    <b style='color:#FFD700;'>출력물 및 설명 지원 문서 일체</b>에<br>
-    귀하의 소속을 넣어 드립니다!
-  </div>
-</div>""", unsafe_allow_html=True)
-
-                # ── 회사명 입력 + 실시간 자동완성 ────────────────────────
-                _g200_co_input = st.text_input(
-                    "🏢 회사명 (GA / 보험사)",
-                    value=st.session_state.get("gp200_company", ""),
-                    placeholder="예: 골드키지사, 삼성생명, 피플라이프...",
-                    key="_gp200_co_raw",
-                    max_chars=60,
-                )
-                # 실시간 자동완성 제안 표시
-                if _g200_co_input and _g200_co_input != st.session_state.get("gp200_company", ""):
-                    _g200_suggestions = gp200_search_companies(_g200_co_input, limit=5)
-                    if _g200_suggestions:
-                        st.markdown(
-                            "<div style='font-size:0.72rem;color:#374151;margin:-4px 0 2px 0;"
-                            "font-weight:700;'>💡 자동완성 후보:</div>",
-                            unsafe_allow_html=True,
-                        )
-                        for _g200_ko, _g200_en in _g200_suggestions:
-                            if st.button(
-                                f"{_g200_ko}  ({_g200_en})",
-                                key=f"_gp200_ac_{_g200_ko}",
-                                use_container_width=True,
-                            ):
-                                st.session_state["gp200_company"] = _g200_ko
-                                st.rerun()
-                # 입력값 저장
-                if _g200_co_input != st.session_state.get("gp200_company", ""):
-                    st.session_state["gp200_company"] = _g200_co_input
-
-                # ── 지점 / 팀명 ───────────────────────────────────────────
-                _g200_br_input = st.text_input(
-                    "🏬 지점 / 팀명",
-                    value=st.session_state.get("gp200_branch", ""),
-                    placeholder="예: 강남지점, 디지털팀...",
-                    key="_gp200_br_raw",
-                    max_chars=40,
-                )
-                if _g200_br_input != st.session_state.get("gp200_branch", ""):
-                    st.session_state["gp200_branch"] = _g200_br_input
-
-                # ── 성명 ──────────────────────────────────────────────────
-                _g200_nm_input = st.text_input(
-                    "👤 성명",
-                    value=st.session_state.get("gp200_name", ""),
-                    placeholder="예: 홍길동",
-                    key="_gp200_nm_raw",
-                    max_chars=30,
-                )
-                if _g200_nm_input != st.session_state.get("gp200_name", ""):
-                    st.session_state["gp200_name"] = _g200_nm_input
-
-                # ── 연락처 ────────────────────────────────────────────────
-                _g200_ct_input = st.text_input(
-                    "📞 연락처",
-                    value=st.session_state.get("gp200_contact", ""),
-                    placeholder="예: 010-1234-5678",
-                    key="_gp200_ct_raw",
-                    max_chars=20,
-                )
-                if _g200_ct_input != st.session_state.get("gp200_contact", ""):
-                    st.session_state["gp200_contact"] = _g200_ct_input
-
-                # ── 현재 브랜딩 미리보기 + 초기화 버튼 ──────────────────
-                _g200_has_data = any([
-                    st.session_state.get("gp200_company", "").strip(),
-                    st.session_state.get("gp200_name", "").strip(),
-                    st.session_state.get("gp200_contact", "").strip(),
-                ])
-                if _g200_has_data:
-                    _g200_preview_html = gp200_brand_footer(st.session_state)
-                    if _g200_preview_html:
-                        st.markdown(
-                            "<div style='font-size:0.72rem;color:#374151;margin-top:6px;"
-                            "font-weight:700;'>📋 리포트 푸터 미리보기:</div>",
-                            unsafe_allow_html=True,
-                        )
-                        st.markdown(_g200_preview_html, unsafe_allow_html=True)
-                    if st.button(
-                        "🗑️ 브랜딩 정보 초기화",
-                        key="_gp200_clear_btn",
-                        use_container_width=True,
-                        help="입력한 소속·연락처 정보를 즉시 삭제합니다",
-                    ):
-                        for _k200 in ["gp200_company", "gp200_branch", "gp200_name", "gp200_contact"]:
-                            st.session_state.pop(_k200, None)
-                        st.rerun()
-                else:
-                    st.markdown(
-                        "<div style='font-size:0.71rem;color:#6b7280;text-align:center;"
-                        "padding:6px 0 2px 0;font-style:italic;'>"
-                        "입력 시 리포트에 담당자 정보가 자동 표시됩니다</div>",
-                        unsafe_allow_html=True,
-                    )
-
-                # ── [GP200 §4] 내 보고서 미리보기 ────────────────────────────
-                st.markdown("---")
-                st.markdown(
-                    "<div style='font-size:0.9rem;font-weight:900;color:#1a2d5a;"
-                    "margin-bottom:8px;'>📄 내 보고서 미리보기</div>",
-                    unsafe_allow_html=True,
-                )
-                st.caption("내 정보가 실제 보고서·카카오 메시지에 어떻게 찍히는지 확인하세요.")
-                if st.button("🔍 보고서 미리보기 생성", key="_gp200_report_preview_btn",
-                             use_container_width=True):
-                    st.session_state["_gp200_show_preview"] = True
-
-                if st.session_state.get("_gp200_show_preview"):
-                    _prev_pi = {
-                        "company": st.session_state.get("gp200_company", ""),
-                        "branch":  st.session_state.get("gp200_branch",  ""),
-                        "name":    st.session_state.get("gp200_name", "")
-                                   or st.session_state.get("user_name", "마스터"),
-                        "contact": st.session_state.get("gp200_contact", ""),
-                    }
-                    _prev_co   = _prev_pi["company"] or "소속 회사"
-                    _prev_br   = _prev_pi["branch"]  or ""
-                    _prev_nm   = _prev_pi["name"]    or "마스터"
-                    _prev_ct   = _prev_pi["contact"] or ""
-                    _prev_affil = " ".join(filter(None, [_prev_co, _prev_br]))
-
-                    # ── PDF 리포트 푸터 미리보기 ─────────────────────────────
-                    _prev_pdf_footer = f"담당: {_prev_affil} | {_prev_nm} 마스터" + (
-                        f" | 연락처: {_prev_ct}" if _prev_ct else "")
-                    _prev_report_body = (
-                        "본 리포트는 **{affil}** 소속 **{nm} 마스터**가 "
-                        "Goldkey AI 시스템을 통해 정밀 분석한 결과입니다.\n\n"
-                        "─────────────────────────────────────────\n"
-                        "**[AI 분석 결과 예시]**\n\n"
-                        "고객님의 현재 보장 현황을 분석한 결과, 암·뇌·심장 3대 중증질환 보장이\n"
-                        "충분히 구성되어 있으나, 간병 및 치매 관련 장기 케어 보장이 부족합니다.\n\n"
-                        "▶ 권장 보완 담보: 장기요양 특약, 치매간병비 특약\n"
-                        "▶ 예상 추가 보험료: 월 2~4만원 수준\n\n"
-                        "─────────────────────────────────────────\n"
-                        "*[면책 고지] 본 분석 결과는 AI 보조 도구에 의한 참고용 자료입니다.*"
-                    ).format(affil=_prev_affil, nm=_prev_nm)
-
-                    with st.expander("📋 PDF 리포트 미리보기", expanded=True):
-                        st.markdown(f"""
-<div style="background:#fff;border:1.5px solid #d0d7de;border-radius:12px;
-  padding:20px 22px;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
-  font-size:0.85rem;line-height:1.9;color:#1a1a2e;">
-  <div style="font-size:1.1rem;font-weight:900;color:#1a2d5a;
-    border-bottom:2px solid #2e6da4;padding-bottom:8px;margin-bottom:14px;">
-    🏅 골드키 AI 분석 리포트
-  </div>
-  <div style="white-space:pre-wrap;">{_prev_report_body.replace(chr(10), '<br>')}</div>
-  <div style="margin-top:16px;padding:10px 14px;
-    background:#f0f4ff;border-radius:8px;border-left:4px solid #2e6da4;
-    font-size:0.78rem;font-weight:700;color:#1a3a5c;">
-    {_prev_pdf_footer}
-  </div>
-</div>""", unsafe_allow_html=True)
-
-                    # ── 카카오 메시지 미리보기 ──────────────────────────────
-                    _prev_kakao_footer = "[발송: " + " | ".join(filter(None, [
-                        _prev_affil,
-                        f"{_prev_nm} 설계사",
-                        _prev_ct,
-                    ])) + "]"
-                    _prev_kakao_body = (
-                        f"[{_prev_co}] {_prev_nm} 설계사입니다.\n"
-                        f"고객님을 위해 정밀 분석한 'AI 인생 방어 리포트'가 도착했습니다.\n\n"
-                        f"■ 골드키 AI 분석 리포트\n\n"
-                        f"고객님의 보장 분석 결과 핵심 내용을 정리해 전달드립니다.\n"
-                        f"암·뇌·심장 3대 보장 현황 및 보완 안내입니다.\n\n"
-                        f"─────────────────\n"
-                        f"담당: {_prev_nm} ({_prev_co})"
-                        + (f"\n연락처: {_prev_ct}" if _prev_ct else "")
-                        + f"\n\n{_prev_kakao_footer}"
-                    )
-                    with st.expander("💬 카카오 메시지 미리보기", expanded=True):
-                        st.markdown(f"""
-<div style="background:#FEE500;border-radius:14px;padding:16px 18px;
-  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
-  font-size:0.83rem;line-height:1.8;color:#3C1E1E;
-  white-space:pre-wrap;max-width:360px;margin:0 auto;
-  box-shadow:0 2px 8px rgba(0,0,0,0.15);">
-  <div style="font-size:0.95rem;font-weight:900;margin-bottom:8px;">
-    💬 카카오톡 알림톡 미리보기
-  </div>
-  {_prev_kakao_body.replace(chr(10), '<br>')}
-</div>""", unsafe_allow_html=True)
-
-                    if st.button("✖ 미리보기 닫기", key="_gp200_preview_close",
-                                 use_container_width=False):
-                        st.session_state.pop("_gp200_show_preview", None)
-                        st.rerun()
-                # ── [GP200 §4] 끝 ─────────────────────────────────────────────
 
     # ── [절대 생존 구조 §5] 사이드바 렌더 완료 후 미인증 차단 ──────────────
     # with st.sidebar 블록이 위에서 완전히 렌더됨(로그인 폼 포함)
