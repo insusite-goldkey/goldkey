@@ -1,7 +1,8 @@
-## 🚨 [SYSTEM INITIALIZATION] MUST BE LINE 1
+## [SYSTEM INITIALIZATION] MUST BE LINE 1
 import streamlit as st
 import os
 import time
+import base64
 
 # [1] 초기화 상태에 따라 사이드바 제어 (로딩 전: 열림 / 로딩 후: 접힘)
 if 'initialized' not in st.session_state:
@@ -9,60 +10,72 @@ if 'initialized' not in st.session_state:
 
 sb_state = "expanded" if not st.session_state['initialized'] else "collapsed"
 
+# [중요] set_page_config는 반드시 최상단에 위치해야 합니다.
 st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state=sb_state)
 
-# [2] CSS: 사이드바 및 로딩바 스타일 강제 적용
+# [2] CSS: 사이드바 강제 표시 (접힘/열림 상태 모두 DOM 존재 보장)
 st.markdown("""
     <style>
-        [data-testid="stSidebar"] { display: block !important; visibility: visible !important; }
+        /* 사이드바 강제 표시 — collapsed 상태에서도 DOM 유지 */
+        [data-testid="stSidebar"] {
+            display: block !important;
+            visibility: visible !important;
+            transform: none !important;
+            min-width: 1px !important;
+        }
+        section[data-testid="stSidebarContent"] {
+            display: block !important;
+            visibility: visible !important;
+        }
+        /* 로딩 위젯 숨김 */
         .stApp [data-testid="stStatusWidget"] { visibility: hidden !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# [3] 프리미엄 스플래시 (모바일/태블릿 반응형)
+# [3] 프리미엄 스플래시 (모바일/태블릿 반응형 — base64 HTML img 방식)
 if not st.session_state['initialized']:
-    # 반응형 이미지 전환을 위한 CSS 추가
-    st.markdown("""
-        <style>
-            /* 기본적으로 둘 다 숨김 */
-            .mobile-only, .tablet-only { display: none; }
+    def _img_b64(path: str) -> str:
+        try:
+            with open(path, "rb") as f:
+                return base64.b64encode(f.read()).decode()
+        except Exception:
+            return ""
 
-            /* 화면 너비가 768px 미만일 때 (핸드폰) */
-            @media (max-width: 767px) {
-                .mobile-only { display: block !important; }
-            }
-
-            /* 화면 너비가 768px 이상일 때 (태블릿/PC) */
-            @media (min-width: 768px) {
-                .tablet-only { display: block !important; }
-            }
-        </style>
-    """, unsafe_allow_html=True)
+    _mobile_b64  = _img_b64("splash_mobile.png")
+    _tablet_b64  = _img_b64("splash_tablet.png")
+    _mobile_src  = f"data:image/png;base64,{_mobile_b64}"  if _mobile_b64  else ""
+    _tablet_src  = f"data:image/png;base64,{_tablet_b64}"  if _tablet_b64  else ""
 
     splash_placeholder = st.empty()
-    with splash_placeholder.container():
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([1, 2, 1])
-        with c2:
-            # 📱 핸드폰용 이미지 렌더링
-            st.markdown('<div class="mobile-only">', unsafe_allow_html=True)
-            st.image("splash_mobile.png", use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+    splash_placeholder.markdown(f"""
+        <style>
+            .gk-splash-wrap {{
+                display: flex; justify-content: center;
+                align-items: flex-start; padding: 40px 0;
+            }}
+            .gk-splash-mobile {{ display: none; max-width: 420px; width: 100%; }}
+            .gk-splash-tablet {{ display: block; max-width: 860px; width: 100%; }}
+            @media (max-width: 767px) {{
+                .gk-splash-mobile {{ display: block !important; }}
+                .gk-splash-tablet {{ display: none !important; }}
+            }}
+        </style>
+        <div class="gk-splash-wrap">
+            <img class="gk-splash-mobile" src="{_mobile_src}" alt="splash mobile"/>
+            <img class="gk-splash-tablet" src="{_tablet_src}" alt="splash tablet"/>
+        </div>
+        <p style="text-align:center;font-size:0.95rem;color:#555;margin-top:12px;">
+            🚀 <b>Goldkey_AI_Masters가 기기에 최적화된 환경을 준비 중입니다...</b>
+        </p>
+    """, unsafe_allow_html=True)
 
-            # 📑 태블릿용 이미지 렌더링
-            st.markdown('<div class="tablet-only">', unsafe_allow_html=True)
-            st.image("splash_tablet.png", use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.info("🚀 **Goldkey_AI_Masters가 기기에 최적화된 환경을 준비 중입니다...**")
-
-    # 🕒 5초간 브랜드 노출 유지
+    # 5초간 브랜드 노출 유지
     time.sleep(5)
-    
+
     # 퇴장 처리
     splash_placeholder.empty()
     st.session_state['initialized'] = True
-    
+
     # 사이드바를 'collapsed'로 바꾸기 위해 1회 재실행
     st.rerun()
 
