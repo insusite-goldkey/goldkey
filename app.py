@@ -28588,12 +28588,14 @@ def main():
     cur = st.session_state.get("current_tab", "home")
     st.session_state["_is_auth"] = _is_auth_now
 
-    # ── [4단계 §3] 논블로킹 사이드바 — 미인증 시 즉시 렌더 후 st.stop() ─────
-    # 로그인이 안 되어 있으면 사이드바+로그인 폼만 그리고 무거운 코드 진입 차단
+    # ── [4단계 §3] 미인증 시 CSS 주입 + 메인 안내 렌더 ─────────────────────
+    # 로그인 폼은 아래 with st.sidebar 블록(~31888)에서 렌더됨
+    # 미인증이면 그 블록 실행 후 st.stop()으로 무거운 코드 진입 차단
     if not _is_auth_now:
-        # 사이드바 CSS 최소 주입 (사이드바가 보이도록)
+        # 사이드바 강제 노출 CSS
         st.markdown("""<style>
 section[data-testid="stSidebar"] {
+    display: block !important;
     transform: translateX(0) !important;
     visibility: visible !important;
     opacity: 1 !important;
@@ -28605,9 +28607,7 @@ section[data-testid="stSidebar"] {
 footer, footer * { display: none !important; }
 #MainMenu, [data-testid="stMainMenuButton"] { display: none !important; }
 </style>""", unsafe_allow_html=True)
-        with st.sidebar:
-            render_goldkey_sidebar()
-        # 메인 영역에 로그인 안내 (사이드바에서 로그인하도록 유도)
+        # 메인 영역 로그인 안내
         st.markdown(
             "<div style='text-align:center;padding:60px 20px;'>"
             "<div style='font-size:2.2rem;font-weight:900;color:#1e3a8a;margin-bottom:12px;'>🏆 Goldkey AI Masters 2026</div>"
@@ -28615,7 +28615,7 @@ footer, footer * { display: none !important; }
             "</div>",
             unsafe_allow_html=True,
         )
-        st.stop()  # ⚠️ 미인증 시 여기서 완전 차단 — 아래 무거운 코드 실행 없음
+        # ── 아래 with st.sidebar 블록까지 낙하 → 로그인 폼 렌더 → st.stop() ──
 
     # ── [로딩 UI 한국어화] Running... 숨김 + 한국어 구동중 문구 오버레이 ────
     st.markdown("""
@@ -33811,6 +33811,12 @@ div[data-testid="stButton"] button[kind="secondary"]#btn_purge_sb,
                         st.session_state.pop("_gp200_show_preview", None)
                         st.rerun()
                 # ── [GP200 §4] 끝 ─────────────────────────────────────────────
+
+    # ── [절대 생존 구조 §5] 사이드바 렌더 완료 후 미인증 차단 ──────────────
+    # with st.sidebar 블록이 위에서 완전히 렌더됨(로그인 폼 포함)
+    # 미인증이면 여기서 st.stop() → 메인 HQ 분석 로직 진입 방지
+    if not _is_auth_now:
+        st.stop()
 
     # ── 관리자 지시 목록 (메인 영역) ──────────────────────────────────────
     if st.session_state.get("is_admin") and st.session_state.get("_show_directives"):
