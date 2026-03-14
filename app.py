@@ -58594,890 +58594,890 @@ function selectCustomer(name) {{
     )
 
 
+# --------------------------------------------------------------------------
+# [SECTION 9-A] 에러 레지스트리 + 자가 진단 엔진
+# --------------------------------------------------------------------------
+# ── 알려진 반복 에러 패턴 등록부 ─────────────────────────────────────────
+# 구조: { "에러ID": { "pattern": 감지문자열, "fix": 수정함수, "desc": 설명 } }
+_ERROR_REGISTRY: list = [
+{
+    "id": "sidebar_scroll",
+    "desc": "사이드바 스크롤 불가 — 로그인 폼 잘림",
+    "check": lambda: not any(
+        "overflow-y: auto" in str(v)
+        for v in st.session_state.get("_injected_css", [])
+    ),
+    "fix": lambda: st.session_state.update({"_sidebar_css_needed": True}),
+},
+{
+    "id": "rag_empty_on_login",
+    "desc": "로그인 후 RAG 인덱스 비어있음 — 문서 검색 불가",
+    "check": lambda: (
+        "rag_system" in st.session_state
+        and hasattr(st.session_state.rag_system, "index")
+        and st.session_state.rag_system.index is None
+        and bool(_get_rag_store().get("docs"))
+    ),
+    "fix": lambda: (
+        _rag_sync_from_db(force=True),
+        st.session_state.update({"rag_system": LightRAGSystem()}),
+    ),
+},
+{
+    "id": "session_db_not_ready",
+    "desc": "DB 초기화 누락 — 회원/사용량 DB 미생성",
+    "check": lambda: not st.session_state.get("db_ready"),
+    "fix": lambda: (setup_database(), ensure_master_members(),
+                    st.session_state.update({"db_ready": True})),
+},
+{
+    "id": "encoding_surrogate",
+    "desc": "유니코드 surrogate 문자 — 화면 출력 오류",
+    "check": lambda: any(
+        isinstance(v, str) and "\ud800" <= v[:1] <= "\udfff"
+        for v in st.session_state.values()
+        if isinstance(v, str)
+    ),
+    "fix": lambda: [
+        st.session_state.update({k: sanitize_unicode(v)})
+        for k, v in list(st.session_state.items())
+        if isinstance(v, str)
+    ],
+},
+{
+    "id": "gcs_secret_missing",
+    "desc": "secrets.toml [gcs] 섹션 누락 — GCS 폴백 불가",
+    "admin_only": True,  # 관리자 전용 — 일반 세션에서 실행 안 함 (GCS 연결 시도 오버헤드)
+    "check": lambda: _get_gcs_client() is None,
+    "fix": lambda: log_error("자가진단", "GCS 클라이언트 없음 — secrets.toml [gcs] 확인 필요"),
+},
+# ── 2026-02-24 세션 등록 오류 ─────────────────────────────────────────
+{
+    "id": "fire_tab_product_key_missing",
+    "desc": "[화재탭] ai_query_block 반환값 5개 중 product_key(_pk) 미수신 → run_ai_analysis에 product_key 미전달",
+    # check: fire 탭 result_key 존재 시 product_key 세션값 확인
+    "check": lambda: (
+        st.session_state.get("current_tab") == "fire"
+        and not st.session_state.get("product_key_fire", "")
+        and bool(st.session_state.get("res_fire", ""))
+    ),
+    "fix": lambda: st.session_state.update({"product_key_fire": "화재보험"}),
+},
+{
+    "id": "rag_admin_btn_column_mismatch",
+    "desc": "[RAG관리] st.columns 블록 밖에서 with _rbtn2 사용 → '전체 초기화' 버튼 미표시",
+    # 런타임 감지 불가(레이아웃 오류) — 로그 기록용 패시브 항목
+    "check": lambda: False,
+    "fix": lambda: log_error("자가진단", "rag_admin_btn_column_mismatch: 코드 수정 완료(2026-02-24)"),
+},
+{
+    "id": "home_cards_row_overflow",
+    "desc": "[홈 대시보드] _render_cards 고정 3행(range(3)) → 카드 8개 이상 시 초과분 미표시",
+    "check": lambda: False,  # 코드 수정 완료 — math.ceil 동적 행 수로 변경됨
+    "fix": lambda: log_error("자가진단", "home_cards_row_overflow: 코드 수정 완료(2026-02-24)"),
+},
+{
+    "id": "unknown_tab_blank_screen",
+    "desc": "[탭 라우터] current_tab에 미등록 탭 ID 진입 시 빈 화면 — brain/heart 탭 추가 전 발생",
+    "check": lambda: (
+        st.session_state.get("current_tab", "home") not in (
+        "home", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
+        "cancer", "brain", "heart", "img", "fire", "liability", "nursing",
+        "realty", "disability", "life_cycle", "life_event", "leaflet",
+        "customer_docs", "stock_eval", "policy_terms", "policy_scan",
+    )    ),
+    "fix": lambda: st.session_state.update({"current_tab": "home"}),
+},
+]
+
+# ── 자가 진단 실행 함수 ───────────────────────────────────────────────────
+def _run_self_diagnosis(force: bool = False, admin_mode: bool = False) -> list:
+    """
+    등록된 에러 패턴을 순회하며 자동 점검 + 수정.
+    - 세션당 1회 실행 (force=True 시 강제 재실행)
+    - admin_mode=False: 메모리 연산만 (가볍) — 일반 세션 자동 실행용
+    - admin_mode=True: admin_only 항목 포함 전체 실행 — 관리자 수동 실행용
+    - 수정된 항목 목록 반환
+    """
+    _DIAG_KEY = "_diag_done"
+    if not force and st.session_state.get(_DIAG_KEY):
+        return []
+
+    fixed = []
+    for rule in _ERROR_REGISTRY:
+        # admin_only 항목은 admin_mode일 때만 실행
+        if rule.get("admin_only") and not admin_mode:
+            continue
+        try:
+            if rule["check"]():
+                rule["fix"]()
+                log_error(f"자가진단[수정]", f"{rule['id']}: {rule['desc']}")
+                fixed.append(rule["id"])
+        except Exception as _de:
+            log_error(f"자가진단[오류]", f"{rule['id']}: {_de}")
+
+    st.session_state[_DIAG_KEY] = True
+    return fixed
+
+    # ==========================================================================
+    # [HEALTH CHECK SYSTEM] 섹터별 자동 점검 + 10분 간격 스케줄러 + 자동 수리
+    # ==========================================================================
+    _HC_INTERVAL_SEC = 600   # 10분
+    _HC_SESSION_KEY  = "_hc_last_run"
+    _HC_RESULT_KEY   = "_hc_last_result"
+
     # --------------------------------------------------------------------------
-    # [SECTION 9-A] 에러 레지스트리 + 자가 진단 엔진
+    # [기준 스냅샷] 직전 24시간 정상 상태 자동저장 — 파일 영구보존
+    # 갱신 트리거: ① 24시간 경과 시 자동 ② 관리자 지시 실행 시점
     # --------------------------------------------------------------------------
-    # ── 알려진 반복 에러 패턴 등록부 ─────────────────────────────────────────
-    # 구조: { "에러ID": { "pattern": 감지문자열, "fix": 수정함수, "desc": 설명 } }
-    _ERROR_REGISTRY: list = [
-    {
-        "id": "sidebar_scroll",
-        "desc": "사이드바 스크롤 불가 — 로그인 폼 잘림",
-        "check": lambda: not any(
-            "overflow-y: auto" in str(v)
-            for v in st.session_state.get("_injected_css", [])
-        ),
-        "fix": lambda: st.session_state.update({"_sidebar_css_needed": True}),
-    },
-    {
-        "id": "rag_empty_on_login",
-        "desc": "로그인 후 RAG 인덱스 비어있음 — 문서 검색 불가",
-        "check": lambda: (
-            "rag_system" in st.session_state
-            and hasattr(st.session_state.rag_system, "index")
-            and st.session_state.rag_system.index is None
-            and bool(_get_rag_store().get("docs"))
-        ),
-        "fix": lambda: (
-            _rag_sync_from_db(force=True),
-            st.session_state.update({"rag_system": LightRAGSystem()}),
-        ),
-    },
-    {
-        "id": "session_db_not_ready",
-        "desc": "DB 초기화 누락 — 회원/사용량 DB 미생성",
-        "check": lambda: not st.session_state.get("db_ready"),
-        "fix": lambda: (setup_database(), ensure_master_members(),
-                        st.session_state.update({"db_ready": True})),
-    },
-    {
-        "id": "encoding_surrogate",
-        "desc": "유니코드 surrogate 문자 — 화면 출력 오류",
-        "check": lambda: any(
-            isinstance(v, str) and "\ud800" <= v[:1] <= "\udfff"
-            for v in st.session_state.values()
-            if isinstance(v, str)
-        ),
-        "fix": lambda: [
-            st.session_state.update({k: sanitize_unicode(v)})
-            for k, v in list(st.session_state.items())
-            if isinstance(v, str)
-        ],
-    },
-    {
-        "id": "gcs_secret_missing",
-        "desc": "secrets.toml [gcs] 섹션 누락 — GCS 폴백 불가",
-        "admin_only": True,  # 관리자 전용 — 일반 세션에서 실행 안 함 (GCS 연결 시도 오버헤드)
-        "check": lambda: _get_gcs_client() is None,
-        "fix": lambda: log_error("자가진단", "GCS 클라이언트 없음 — secrets.toml [gcs] 확인 필요"),
-    },
-    # ── 2026-02-24 세션 등록 오류 ─────────────────────────────────────────
-    {
-        "id": "fire_tab_product_key_missing",
-        "desc": "[화재탭] ai_query_block 반환값 5개 중 product_key(_pk) 미수신 → run_ai_analysis에 product_key 미전달",
-        # check: fire 탭 result_key 존재 시 product_key 세션값 확인
-        "check": lambda: (
-            st.session_state.get("current_tab") == "fire"
-            and not st.session_state.get("product_key_fire", "")
-            and bool(st.session_state.get("res_fire", ""))
-        ),
-        "fix": lambda: st.session_state.update({"product_key_fire": "화재보험"}),
-    },
-    {
-        "id": "rag_admin_btn_column_mismatch",
-        "desc": "[RAG관리] st.columns 블록 밖에서 with _rbtn2 사용 → '전체 초기화' 버튼 미표시",
-        # 런타임 감지 불가(레이아웃 오류) — 로그 기록용 패시브 항목
-        "check": lambda: False,
-        "fix": lambda: log_error("자가진단", "rag_admin_btn_column_mismatch: 코드 수정 완료(2026-02-24)"),
-    },
-    {
-        "id": "home_cards_row_overflow",
-        "desc": "[홈 대시보드] _render_cards 고정 3행(range(3)) → 카드 8개 이상 시 초과분 미표시",
-        "check": lambda: False,  # 코드 수정 완료 — math.ceil 동적 행 수로 변경됨
-        "fix": lambda: log_error("자가진단", "home_cards_row_overflow: 코드 수정 완료(2026-02-24)"),
-    },
-    {
-        "id": "unknown_tab_blank_screen",
-        "desc": "[탭 라우터] current_tab에 미등록 탭 ID 진입 시 빈 화면 — brain/heart 탭 추가 전 발생",
-        "check": lambda: (
-            st.session_state.get("current_tab", "home") not in (
-            "home", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
-            "cancer", "brain", "heart", "img", "fire", "liability", "nursing",
-            "realty", "disability", "life_cycle", "life_event", "leaflet",
-            "customer_docs", "stock_eval", "policy_terms", "policy_scan",
-        )    ),
-        "fix": lambda: st.session_state.update({"current_tab": "home"}),
-    },
+    _HC_BASELINE_PATH = "/tmp/hc_baseline.json"  # 파일 영구저장 경로
+    _HC_BASELINE_TTL  = 86400                     # 24시간(초)
+
+def _hc_load_baseline_file() -> dict:
+    """저장된 기준 스냅샷 파일 읽기. 없으면 {}."""
+    try:
+        if os.path.exists(_HC_BASELINE_PATH):
+            with open(_HC_BASELINE_PATH, "r", encoding="utf-8") as _f:
+                return json.load(_f)
+    except Exception:
+        pass
+    return {}
+
+def _hc_save_baseline_file(baseline: dict):
+    """기준 스냅샷을 파일에 저장."""
+    try:
+        with open(_HC_BASELINE_PATH, "w", encoding="utf-8") as _f:
+            json.dump(baseline, _f, ensure_ascii=False, indent=2)
+    except Exception as _e:
+        log_error("헬스체크", f"기준 스냅샷 저장 실패: {_e}")
+
+def _hc_build_snapshot(reason: str = "auto") -> dict:
+    """현재 시스템 상태로 스냅샷 생성 (저장은 하지 않음)."""
+    import hashlib as _hl
+    import time as _time
+    baseline = {}
+
+    # 1. app.py 파일 해시
+    try:
+        _app_path = os.path.abspath(__file__)
+        _h = _hl.sha256()
+        with open(_app_path, "rb") as _f:
+            for _chunk in iter(lambda: _f.read(65536), b""):
+                _h.update(_chunk)
+        baseline["app_sha256"] = _h.hexdigest()
+        baseline["app_size"]   = os.path.getsize(_app_path)
+        baseline["app_mtime"]  = os.path.getmtime(_app_path)
+    except Exception as _e:
+        baseline["app_sha256"] = f"ERROR:{_e}"
+
+    # 2. 핵심 함수 smoke test
+    _smoke = {}
+    for _fn, _t in [
+        ("get_client",     lambda: type(get_client()).__name__),
+        ("load_members",   lambda: type(load_members()).__name__),
+        ("load_error_log", lambda: type(load_error_log()).__name__),
+        ("_get_sb_client", lambda: type(_get_sb_client()).__name__),
+    ]:
+        try:
+            _smoke[_fn] = {"baseline_type": _t(), "status": "ok"}
+        except Exception as _se:
+            _smoke[_fn] = {"baseline_type": "ERROR", "status": str(_se)}
+    baseline["smoke"] = _smoke
+
+    # 3. 유효 탭 목록
+    baseline["valid_tabs"] = [
+        "home","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
+        "cancer","brain","heart","img","fire","liability","nursing",
+        "realty","disability","life_cycle","life_event","leaflet",
+        "customer_docs","stock_eval","policy_terms","policy_scan","scan_hub","report43"
     ]
 
-    # ── 자가 진단 실행 함수 ───────────────────────────────────────────────────
-    def _run_self_diagnosis(force: bool = False, admin_mode: bool = False) -> list:
-        """
-        등록된 에러 패턴을 순회하며 자동 점검 + 수정.
-        - 세션당 1회 실행 (force=True 시 강제 재실행)
-        - admin_mode=False: 메모리 연산만 (가볍) — 일반 세션 자동 실행용
-        - admin_mode=True: admin_only 항목 포함 전체 실행 — 관리자 수동 실행용
-        - 수정된 항목 목록 반환
-        """
-        _DIAG_KEY = "_diag_done"
-        if not force and st.session_state.get(_DIAG_KEY):
-            return []
+    baseline["recorded_at"]  = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    baseline["recorded_ts"]  = _time.time()
+    baseline["reason"]       = reason   # "auto_24h" | "admin_directive" | "init"
+    return baseline
 
-        fixed = []
-        for rule in _ERROR_REGISTRY:
-            # admin_only 항목은 admin_mode일 때만 실행
-            if rule.get("admin_only") and not admin_mode:
-                continue
-            try:
-                if rule["check"]():
-                    rule["fix"]()
-                    log_error(f"자가진단[수정]", f"{rule['id']}: {rule['desc']}")
-                    fixed.append(rule["id"])
-            except Exception as _de:
-                log_error(f"자가진단[오류]", f"{rule['id']}: {_de}")
+def _hc_take_baseline(force: bool = False, reason: str = "auto"):
+    """
+    기준 스냅샷 자동 관리.
+    갱신 규칙:
+      - 파일이 없거나 24시간 경과: 자동 갱신 (reason="auto_24h")
+      - force=True: 즉시 갱신 (관리자 지시 시점 등)
+      - 세션 내 이미 로드됐으면 파일 재읽기 생략
+    """
+    import time as _time
+    _BL_KEY = "_hc_baseline"
 
-        st.session_state[_DIAG_KEY] = True
-        return fixed
+    # 세션에 이미 있고 force 아니면 바로 반환
+    if not force and st.session_state.get(_BL_KEY):
+        return st.session_state[_BL_KEY]
 
-        # ==========================================================================
-        # [HEALTH CHECK SYSTEM] 섹터별 자동 점검 + 10분 간격 스케줄러 + 자동 수리
-        # ==========================================================================
-        _HC_INTERVAL_SEC = 600   # 10분
-        _HC_SESSION_KEY  = "_hc_last_run"
-        _HC_RESULT_KEY   = "_hc_last_result"
+    # 파일에서 기존 스냅샷 로드
+    _existing = _hc_load_baseline_file()
+    _now_ts   = _time.time()
+    _recorded = _existing.get("recorded_ts", 0)
+    _age_sec  = _now_ts - _recorded
 
-        # --------------------------------------------------------------------------
-        # [기준 스냅샷] 직전 24시간 정상 상태 자동저장 — 파일 영구보존
-        # 갱신 트리거: ① 24시간 경과 시 자동 ② 관리자 지시 실행 시점
-        # --------------------------------------------------------------------------
-        _HC_BASELINE_PATH = "/tmp/hc_baseline.json"  # 파일 영구저장 경로
-        _HC_BASELINE_TTL  = 86400                     # 24시간(초)
+    if force:
+        # 관리자 지시 또는 강제 갱신
+        _new = _hc_build_snapshot(reason=reason)
+        _hc_save_baseline_file(_new)
+        st.session_state[_BL_KEY] = _new
+        log_error("헬스체크", f"기준 스냅샷 갱신 [{reason}] — {_new['recorded_at']}")
+        return _new
+    elif not _existing or _age_sec >= _HC_BASELINE_TTL:
+        # 최초 또는 24시간 경과 → 자동 갱신
+        _new = _hc_build_snapshot(reason="auto_24h" if _existing else "init")
+        _hc_save_baseline_file(_new)
+        st.session_state[_BL_KEY] = _new
+        if _existing:  # 갱신 시 로그 기록
+            log_error("헬스체크", f"기준 스냅샷 24시간 자동갱신 — {_new['recorded_at']}")
+        return _new
+    else:
+        # 아직 유효 — 기존 스냅샷 세션에 올리기만
+        st.session_state[_BL_KEY] = _existing
+        return _existing
 
-    def _hc_load_baseline_file() -> dict:
-        """저장된 기준 스냅샷 파일 읽기. 없으면 {}."""
-        try:
-            if os.path.exists(_HC_BASELINE_PATH):
-                with open(_HC_BASELINE_PATH, "r", encoding="utf-8") as _f:
-                    return json.load(_f)
-        except Exception:
-            pass
-        return {}
-
-    def _hc_save_baseline_file(baseline: dict):
-        """기준 스냅샷을 파일에 저장."""
-        try:
-            with open(_HC_BASELINE_PATH, "w", encoding="utf-8") as _f:
-                json.dump(baseline, _f, ensure_ascii=False, indent=2)
-        except Exception as _e:
-            log_error("헬스체크", f"기준 스냅샷 저장 실패: {_e}")
-
-    def _hc_build_snapshot(reason: str = "auto") -> dict:
-        """현재 시스템 상태로 스냅샷 생성 (저장은 하지 않음)."""
-        import hashlib as _hl
-        import time as _time
-        baseline = {}
-
-        # 1. app.py 파일 해시
-        try:
-            _app_path = os.path.abspath(__file__)
-            _h = _hl.sha256()
-            with open(_app_path, "rb") as _f:
-                for _chunk in iter(lambda: _f.read(65536), b""):
-                    _h.update(_chunk)
-            baseline["app_sha256"] = _h.hexdigest()
-            baseline["app_size"]   = os.path.getsize(_app_path)
-            baseline["app_mtime"]  = os.path.getmtime(_app_path)
-        except Exception as _e:
-            baseline["app_sha256"] = f"ERROR:{_e}"
-
-        # 2. 핵심 함수 smoke test
-        _smoke = {}
-        for _fn, _t in [
-            ("get_client",     lambda: type(get_client()).__name__),
-            ("load_members",   lambda: type(load_members()).__name__),
-            ("load_error_log", lambda: type(load_error_log()).__name__),
-            ("_get_sb_client", lambda: type(_get_sb_client()).__name__),
-        ]:
-            try:
-                _smoke[_fn] = {"baseline_type": _t(), "status": "ok"}
-            except Exception as _se:
-                _smoke[_fn] = {"baseline_type": "ERROR", "status": str(_se)}
-        baseline["smoke"] = _smoke
-
-        # 3. 유효 탭 목록
-        baseline["valid_tabs"] = [
-            "home","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
-            "cancer","brain","heart","img","fire","liability","nursing",
-            "realty","disability","life_cycle","life_event","leaflet",
-            "customer_docs","stock_eval","policy_terms","policy_scan","scan_hub","report43"
-        ]
-
-        baseline["recorded_at"]  = dt.now().strftime("%Y-%m-%d %H:%M:%S")
-        baseline["recorded_ts"]  = _time.time()
-        baseline["reason"]       = reason   # "auto_24h" | "admin_directive" | "init"
-        return baseline
-
-    def _hc_take_baseline(force: bool = False, reason: str = "auto"):
-        """
-        기준 스냅샷 자동 관리.
-        갱신 규칙:
-          - 파일이 없거나 24시간 경과: 자동 갱신 (reason="auto_24h")
-          - force=True: 즉시 갱신 (관리자 지시 시점 등)
-          - 세션 내 이미 로드됐으면 파일 재읽기 생략
-        """
-        import time as _time
-        _BL_KEY = "_hc_baseline"
-
-        # 세션에 이미 있고 force 아니면 바로 반환
-        if not force and st.session_state.get(_BL_KEY):
-            return st.session_state[_BL_KEY]
-
-        # 파일에서 기존 스냅샷 로드
-        _existing = _hc_load_baseline_file()
-        _now_ts   = _time.time()
-        _recorded = _existing.get("recorded_ts", 0)
-        _age_sec  = _now_ts - _recorded
-
-        if force:
-            # 관리자 지시 또는 강제 갱신
-            _new = _hc_build_snapshot(reason=reason)
-            _hc_save_baseline_file(_new)
-            st.session_state[_BL_KEY] = _new
-            log_error("헬스체크", f"기준 스냅샷 갱신 [{reason}] — {_new['recorded_at']}")
-            return _new
-        elif not _existing or _age_sec >= _HC_BASELINE_TTL:
-            # 최초 또는 24시간 경과 → 자동 갱신
-            _new = _hc_build_snapshot(reason="auto_24h" if _existing else "init")
-            _hc_save_baseline_file(_new)
-            st.session_state[_BL_KEY] = _new
-            if _existing:  # 갱신 시 로그 기록
-                log_error("헬스체크", f"기준 스냅샷 24시간 자동갱신 — {_new['recorded_at']}")
-            return _new
-        else:
-            # 아직 유효 — 기존 스냅샷 세션에 올리기만
-            st.session_state[_BL_KEY] = _existing
-            return _existing
-
-    def _hc_baseline_on_admin_directive():
-        """
-        관리자 지시(수정 등록/완료) 시 호출 — 해당 시점을 새 기준으로 즉시 저장.
-        """
-        _hc_take_baseline(force=True, reason="admin_directive")
+def _hc_baseline_on_admin_directive():
+    """
+    관리자 지시(수정 등록/완료) 시 호출 — 해당 시점을 새 기준으로 즉시 저장.
+    """
+    _hc_take_baseline(force=True, reason="admin_directive")
 
 
-    def _hc_compare_snapshot() -> list:
-        """
-        현재 상태를 기준 스냅샷과 비교.
-        반환: [{"item": ..., "baseline": ..., "current": ..., "match": bool}, ...]
-        """
-        import hashlib as _hl
-        baseline = st.session_state.get("_hc_baseline", {})
-        if not baseline:
-            return []
+def _hc_compare_snapshot() -> list:
+    """
+    현재 상태를 기준 스냅샷과 비교.
+    반환: [{"item": ..., "baseline": ..., "current": ..., "match": bool}, ...]
+    """
+    import hashlib as _hl
+    baseline = st.session_state.get("_hc_baseline", {})
+    if not baseline:
+        return []
 
-        diffs = []
+    diffs = []
 
-        # 1. app.py 파일 해시 비교
-        try:
-            _app_path = os.path.abspath(__file__)
-            _h = _hl.sha256()
-            with open(_app_path, "rb") as _f:
-                for _chunk in iter(lambda: _f.read(65536), b""):
-                    _h.update(_chunk)
-            _cur_hash = _h.hexdigest()
-            _bl_hash  = baseline.get("app_sha256", "")
-            diffs.append({
-                "item": "app.py 파일 해시",
-                "baseline": _bl_hash[:16] + "..." if len(_bl_hash) > 16 else _bl_hash,
-                "current":  _cur_hash[:16] + "...",
-                "match": _cur_hash == _bl_hash,
-            })
-        except Exception as _e:
-            diffs.append({"item": "app.py 파일 해시", "baseline": "?", "current": f"ERROR:{_e}", "match": False})
-
-        # 2. 핵심 함수 smoke test 비교
-        _smoke_tests = [
-            ("get_client",       lambda: type(get_client()).__name__),
-            ("load_members",     lambda: type(load_members()).__name__),
-            ("load_error_log",   lambda: type(load_error_log()).__name__),
-        ]
-        for _fn, _t in _smoke_tests:
-            _bl_type = baseline.get("smoke", {}).get(_fn, {}).get("baseline_type", "?")
-            try:
-                _cur_type = _t()
-                diffs.append({
-                    "item": f"{_fn}() 반환타입",
-                    "baseline": _bl_type,
-                    "current":  _cur_type,
-                    "match": _cur_type == _bl_type,
-                })
-            except Exception as _se:
-                diffs.append({
-                    "item": f"{_fn}() 반환타입",
-                    "baseline": _bl_type,
-                    "current": f"ERROR:{_se}",
-                    "match": False,
-                })
-
-        # 3. 탭 목록 일치 여부
-        _bl_tabs  = set(baseline.get("valid_tabs", []))
-        _cur_tab  = st.session_state.get("current_tab", "home")
-        _tab_ok   = _cur_tab in _bl_tabs
+    # 1. app.py 파일 해시 비교
+    try:
+        _app_path = os.path.abspath(__file__)
+        _h = _hl.sha256()
+        with open(_app_path, "rb") as _f:
+            for _chunk in iter(lambda: _f.read(65536), b""):
+                _h.update(_chunk)
+        _cur_hash = _h.hexdigest()
+        _bl_hash  = baseline.get("app_sha256", "")
         diffs.append({
-            "item": "현재 탭 유효성",
-            "baseline": "등록 탭 목록 내",
-            "current":  _cur_tab,
-            "match": _tab_ok,
+            "item": "app.py 파일 해시",
+            "baseline": _bl_hash[:16] + "..." if len(_bl_hash) > 16 else _bl_hash,
+            "current":  _cur_hash[:16] + "...",
+            "match": _cur_hash == _bl_hash,
+        })
+    except Exception as _e:
+        diffs.append({"item": "app.py 파일 해시", "baseline": "?", "current": f"ERROR:{_e}", "match": False})
+
+    # 2. 핵심 함수 smoke test 비교
+    _smoke_tests = [
+        ("get_client",       lambda: type(get_client()).__name__),
+        ("load_members",     lambda: type(load_members()).__name__),
+        ("load_error_log",   lambda: type(load_error_log()).__name__),
+    ]
+    for _fn, _t in _smoke_tests:
+        _bl_type = baseline.get("smoke", {}).get(_fn, {}).get("baseline_type", "?")
+        try:
+            _cur_type = _t()
+            diffs.append({
+                "item": f"{_fn}() 반환타입",
+                "baseline": _bl_type,
+                "current":  _cur_type,
+                "match": _cur_type == _bl_type,
+            })
+        except Exception as _se:
+            diffs.append({
+                "item": f"{_fn}() 반환타입",
+                "baseline": _bl_type,
+                "current": f"ERROR:{_se}",
+                "match": False,
+            })
+
+    # 3. 탭 목록 일치 여부
+    _bl_tabs  = set(baseline.get("valid_tabs", []))
+    _cur_tab  = st.session_state.get("current_tab", "home")
+    _tab_ok   = _cur_tab in _bl_tabs
+    diffs.append({
+        "item": "현재 탭 유효성",
+        "baseline": "등록 탭 목록 내",
+        "current":  _cur_tab,
+        "match": _tab_ok,
+    })
+
+    return diffs
+
+def _hc_run_all(force: bool = False) -> dict:
+    """
+    전체 섹터 헬스체크 실행.
+    - force=False: _HC_INTERVAL_SEC(10분) 이내 재실행 방지
+    - 반환: {"time": ..., "sectors": [...], "fixed": [...], "errors": [...]}
+    """
+    import time as _time
+    now = _time.time()
+    if not force:
+        last = st.session_state.get(_HC_SESSION_KEY, 0)
+        if now - last < _HC_INTERVAL_SEC:
+            return st.session_state.get(_HC_RESULT_KEY, {})
+
+    ts = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    sectors = []
+    fixed   = []
+    errors  = []
+
+    # ── 섹터 점검 목록 ─────────────────────────────────────────────────────
+    checks = [
+        # (섹터ID, 섹터명, 점검함수, 자동수리함수)
+        ("api_client",    "AI API 클라이언트",
+         lambda: get_client() is None,
+         lambda: st.session_state.pop("_gemini_client", None)),
+
+        ("supabase",      "Supabase DB 연결",
+         lambda: _get_sb_client() is None,
+         lambda: None),
+
+        ("session_tab",   "탭 라우터 — 미등록 탭 ID",
+         lambda: st.session_state.get("current_tab","home") not in (
+             "home","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
+             "cancer","brain","heart","img","fire","liability","nursing",
+             "realty","disability","life_cycle","life_event","leaflet",
+             "customer_docs","stock_eval","policy_terms","policy_scan","scan_hub","report43"),
+         lambda: st.session_state.update({"current_tab": "home"})),
+
+        ("session_encoding", "세션 유니코드 surrogate 오염",
+         lambda: any(
+             isinstance(v, str) and "\ud800" <= v[:1] <= "\udfff"
+             for v in st.session_state.values() if isinstance(v, str)),
+         lambda: [st.session_state.update({k: sanitize_unicode(v)})
+                  for k, v in list(st.session_state.items()) if isinstance(v, str)]),
+
+        ("error_log_path", "에러 로그 파일 접근",
+         lambda: not os.path.exists(os.path.dirname(ERROR_LOG_PATH))
+                 if os.path.dirname(ERROR_LOG_PATH) else False,
+         lambda: None),
+
+        ("rag_db",        "RAG 지식베이스 DB",
+         lambda: not os.path.exists(RAG_DB_PATH),
+         lambda: None),
+
+        ("scan_cache",    "스캔 파일 캐시 상태",
+         lambda: (st.session_state.get("sh_scan_pending", False)
+                  and not st.session_state.get("sh_file_cache")),
+         lambda: st.session_state.pop("sh_scan_pending", None)),
+
+        ("directive_db",  "수정지시 채널 DB",
+         lambda: (os.path.exists(DIRECTIVE_DB)
+                  and os.path.getsize(DIRECTIVE_DB) == 0),
+         lambda: None),
+
+        ("members_db",    "회원 DB 접근",
+         lambda: (os.path.exists(MEMBERS_DB)
+                  and os.path.getsize(MEMBERS_DB) < 2),
+         lambda: None),
+
+        ("import_pdfplumber", "pdfplumber 패키지",
+         lambda: __import__("importlib").util.find_spec("pdfplumber") is None,
+         lambda: log_error("헬스체크", "pdfplumber 미설치 — requirements.txt 확인")),
+
+        ("import_openpyxl", "openpyxl 패키지",
+         lambda: __import__("importlib").util.find_spec("openpyxl") is None,
+         lambda: log_error("헬스체크", "openpyxl 미설치 — requirements.txt 확인")),
+
+        ("import_pypdf",  "pypdf 패키지",
+         lambda: __import__("importlib").util.find_spec("pypdf") is None,
+         lambda: log_error("헬스체크", "pypdf 미설치 — requirements.txt 확인")),
+    ]
+
+    for sid, sname, check_fn, fix_fn in checks:
+        try:
+            is_err = check_fn()
+        except Exception as _ce:
+            is_err = None
+            errors.append({"sector": sid, "name": sname, "error": str(_ce)})
+
+        repaired = False
+        if is_err:
+            try:
+                fix_fn()
+                repaired = True
+                fixed.append(sid)
+                log_error("헬스체크[수리]", f"{sid}: {sname} 자동수리 완료")
+            except Exception as _fe:
+                errors.append({"sector": sid, "name": sname, "error": f"수리실패: {_fe}"})
+
+        status = "error" if is_err and not repaired else \
+                 "repaired" if repaired else \
+                 "unknown" if is_err is None else "ok"
+        sectors.append({
+            "id": sid, "name": sname,
+            "status": status,
+            "repaired": repaired,
         })
 
-        return diffs
-
-    def _hc_run_all(force: bool = False) -> dict:
-        """
-        전체 섹터 헬스체크 실행.
-        - force=False: _HC_INTERVAL_SEC(10분) 이내 재실행 방지
-        - 반환: {"time": ..., "sectors": [...], "fixed": [...], "errors": [...]}
-        """
-        import time as _time
-        now = _time.time()
-        if not force:
-            last = st.session_state.get(_HC_SESSION_KEY, 0)
-            if now - last < _HC_INTERVAL_SEC:
-                return st.session_state.get(_HC_RESULT_KEY, {})
-
-        ts = dt.now().strftime("%Y-%m-%d %H:%M:%S")
-        sectors = []
-        fixed   = []
-        errors  = []
-
-        # ── 섹터 점검 목록 ─────────────────────────────────────────────────────
-        checks = [
-            # (섹터ID, 섹터명, 점검함수, 자동수리함수)
-            ("api_client",    "AI API 클라이언트",
-             lambda: get_client() is None,
-             lambda: st.session_state.pop("_gemini_client", None)),
-
-            ("supabase",      "Supabase DB 연결",
-             lambda: _get_sb_client() is None,
-             lambda: None),
-
-            ("session_tab",   "탭 라우터 — 미등록 탭 ID",
-             lambda: st.session_state.get("current_tab","home") not in (
-                 "home","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
-                 "cancer","brain","heart","img","fire","liability","nursing",
-                 "realty","disability","life_cycle","life_event","leaflet",
-                 "customer_docs","stock_eval","policy_terms","policy_scan","scan_hub","report43"),
-             lambda: st.session_state.update({"current_tab": "home"})),
-
-            ("session_encoding", "세션 유니코드 surrogate 오염",
-             lambda: any(
-                 isinstance(v, str) and "\ud800" <= v[:1] <= "\udfff"
-                 for v in st.session_state.values() if isinstance(v, str)),
-             lambda: [st.session_state.update({k: sanitize_unicode(v)})
-                      for k, v in list(st.session_state.items()) if isinstance(v, str)]),
-
-            ("error_log_path", "에러 로그 파일 접근",
-             lambda: not os.path.exists(os.path.dirname(ERROR_LOG_PATH))
-                     if os.path.dirname(ERROR_LOG_PATH) else False,
-             lambda: None),
-
-            ("rag_db",        "RAG 지식베이스 DB",
-             lambda: not os.path.exists(RAG_DB_PATH),
-             lambda: None),
-
-            ("scan_cache",    "스캔 파일 캐시 상태",
-             lambda: (st.session_state.get("sh_scan_pending", False)
-                      and not st.session_state.get("sh_file_cache")),
-             lambda: st.session_state.pop("sh_scan_pending", None)),
-
-            ("directive_db",  "수정지시 채널 DB",
-             lambda: (os.path.exists(DIRECTIVE_DB)
-                      and os.path.getsize(DIRECTIVE_DB) == 0),
-             lambda: None),
-
-            ("members_db",    "회원 DB 접근",
-             lambda: (os.path.exists(MEMBERS_DB)
-                      and os.path.getsize(MEMBERS_DB) < 2),
-             lambda: None),
-
-            ("import_pdfplumber", "pdfplumber 패키지",
-             lambda: __import__("importlib").util.find_spec("pdfplumber") is None,
-             lambda: log_error("헬스체크", "pdfplumber 미설치 — requirements.txt 확인")),
-
-            ("import_openpyxl", "openpyxl 패키지",
-             lambda: __import__("importlib").util.find_spec("openpyxl") is None,
-             lambda: log_error("헬스체크", "openpyxl 미설치 — requirements.txt 확인")),
-
-            ("import_pypdf",  "pypdf 패키지",
-             lambda: __import__("importlib").util.find_spec("pypdf") is None,
-             lambda: log_error("헬스체크", "pypdf 미설치 — requirements.txt 확인")),
-        ]
-
-        for sid, sname, check_fn, fix_fn in checks:
-            try:
-                is_err = check_fn()
-            except Exception as _ce:
-                is_err = None
-                errors.append({"sector": sid, "name": sname, "error": str(_ce)})
-
-            repaired = False
-            if is_err:
-                try:
-                    fix_fn()
-                    repaired = True
-                    fixed.append(sid)
-                    log_error("헬스체크[수리]", f"{sid}: {sname} 자동수리 완료")
-                except Exception as _fe:
-                    errors.append({"sector": sid, "name": sname, "error": f"수리실패: {_fe}"})
-
-            status = "error" if is_err and not repaired else \
-                     "repaired" if repaired else \
-                     "unknown" if is_err is None else "ok"
-            sectors.append({
-                "id": sid, "name": sname,
-                "status": status,
-                "repaired": repaired,
-            })
-
-        result = {"time": ts, "sectors": sectors, "fixed": fixed, "errors": errors}
-        st.session_state[_HC_SESSION_KEY]  = now
-        st.session_state[_HC_RESULT_KEY]   = result
-        if fixed:
-            log_error("헬스체크", f"자동수리 완료: {', '.join(fixed)}")
-        if errors:
-            for _e in errors:
-                log_error("헬스체크[오류]", f"{_e['sector']}: {_e['error']}")
-        return result
+    result = {"time": ts, "sectors": sectors, "fixed": fixed, "errors": errors}
+    st.session_state[_HC_SESSION_KEY]  = now
+    st.session_state[_HC_RESULT_KEY]   = result
+    if fixed:
+        log_error("헬스체크", f"자동수리 완료: {', '.join(fixed)}")
+    if errors:
+        for _e in errors:
+            log_error("헬스체크[오류]", f"{_e['sector']}: {_e['error']}")
+    return result
 
 
-    def _hc_auto_tick():
-        """매 Streamlit rerun 시 호출 — 10분 경과 시 자동 헬스체크 실행 (비강제)"""
-        import time as _time
-        last = st.session_state.get(_HC_SESSION_KEY, 0)
-        if _time.time() - last >= _HC_INTERVAL_SEC:
-            _hc_run_all(force=False)
+def _hc_auto_tick():
+    """매 Streamlit rerun 시 호출 — 10분 경과 시 자동 헬스체크 실행 (비강제)"""
+    import time as _time
+    last = st.session_state.get(_HC_SESSION_KEY, 0)
+    if _time.time() - last >= _HC_INTERVAL_SEC:
+        _hc_run_all(force=False)
 
 
-    def _render_healthcheck_dashboard():
-        """t9 관리자 탭 — 헬스체크 전용 패널"""
-        import time as _time
+def _render_healthcheck_dashboard():
+    """t9 관리자 탭 — 헬스체크 전용 패널"""
+    import time as _time
 
-        st.markdown("""
-        <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:10px;
-          padding:14px 18px;margin-bottom:14px;border-left:4px solid #16a34a;">
-          <span style="color:#14532d;font-size:1rem;font-weight:900;">🩺 시스템 헬스체크</span><br>
-          <span style="color:#166534;font-size:0.78rem;">
-        전체 섹터 자동 점검 · 10분 간격 자동실행 · 이상 감지 시 즉시 자동수리
-          </span>
-        </div>""", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:10px;
+      padding:14px 18px;margin-bottom:14px;border-left:4px solid #16a34a;">
+      <span style="color:#14532d;font-size:1rem;font-weight:900;">🩺 시스템 헬스체크</span><br>
+      <span style="color:#166534;font-size:0.78rem;">
+    전체 섹터 자동 점검 · 10분 간격 자동실행 · 이상 감지 시 즉시 자동수리
+      </span>
+    </div>""", unsafe_allow_html=True)
 
-        last_result = st.session_state.get(_HC_RESULT_KEY, {})
-        last_run    = st.session_state.get(_HC_SESSION_KEY, 0)
-        elapsed     = int(_time.time() - last_run) if last_run else None
+    last_result = st.session_state.get(_HC_RESULT_KEY, {})
+    last_run    = st.session_state.get(_HC_SESSION_KEY, 0)
+    elapsed     = int(_time.time() - last_run) if last_run else None
 
-        # ── 상태 배너 ──────────────────────────────────────────────────────────
-        if last_result:
-            n_ok  = sum(1 for s in last_result.get("sectors",[]) if s["status"] == "ok")
-            n_err = sum(1 for s in last_result.get("sectors",[]) if s["status"] == "error")
-            n_rep = sum(1 for s in last_result.get("sectors",[]) if s["status"] == "repaired")
-            n_unk = sum(1 for s in last_result.get("sectors",[]) if s["status"] == "unknown")
-            _hm1, _hm2, _hm3, _hm4 = st.columns(4)
-            _hm1.metric("🟢 정상", n_ok)
-            _hm2.metric("🔴 이상", n_err)
-            _hm3.metric("🔧 자동수리", n_rep)
-            _hm4.metric("⚪ 확인불가", n_unk)
-            st.caption(f"마지막 점검: {last_result.get('time','—')} "
-                       f"({'방금 전' if elapsed and elapsed < 60 else f'{elapsed//60}분 전' if elapsed else '—'})")
-        else:
-            st.info("아직 점검이 실행되지 않았습니다. 아래 버튼으로 점검을 시작하세요.")
+    # ── 상태 배너 ──────────────────────────────────────────────────────────
+    if last_result:
+        n_ok  = sum(1 for s in last_result.get("sectors",[]) if s["status"] == "ok")
+        n_err = sum(1 for s in last_result.get("sectors",[]) if s["status"] == "error")
+        n_rep = sum(1 for s in last_result.get("sectors",[]) if s["status"] == "repaired")
+        n_unk = sum(1 for s in last_result.get("sectors",[]) if s["status"] == "unknown")
+        _hm1, _hm2, _hm3, _hm4 = st.columns(4)
+        _hm1.metric("🟢 정상", n_ok)
+        _hm2.metric("🔴 이상", n_err)
+        _hm3.metric("🔧 자동수리", n_rep)
+        _hm4.metric("⚪ 확인불가", n_unk)
+        st.caption(f"마지막 점검: {last_result.get('time','—')} "
+                   f"({'방금 전' if elapsed and elapsed < 60 else f'{elapsed//60}분 전' if elapsed else '—'})")
+    else:
+        st.info("아직 점검이 실행되지 않았습니다. 아래 버튼으로 점검을 시작하세요.")
 
-        # ── 점검 제어 버튼 ─────────────────────────────────────────────────────
-        # ── 기준 스냅샷 현황 표시 ──────────────────────────────────────────────
-        import time as _time2
-        _bl_info = st.session_state.get("_hc_baseline") or _hc_load_baseline_file()
-        if _bl_info:
-            _bl_age  = int(_time2.time() - _bl_info.get("recorded_ts", 0))
-            _bl_h    = _bl_age // 3600
-            _bl_m    = (_bl_age % 3600) // 60
-            _bl_reason_map = {"init": "최초 기록", "auto_24h": "24시간 자동갱신",
-                              "admin_directive": "관리자 지시 시점", "auto": "자동"}
-            _bl_reason_ko = _bl_reason_map.get(_bl_info.get("reason", ""), _bl_info.get("reason", ""))
-            _bl_next = max(0, _HC_BASELINE_TTL - _bl_age)
-            _bl_next_h = _bl_next // 3600
-            _bl_next_m = (_bl_next % 3600) // 60
-            st.info(
-                f"📸 기준 스냅샷 — **{_bl_info.get('recorded_at','—')}** 기록 "
-                f"({_bl_reason_ko}) | 경과: {_bl_h}시간 {_bl_m}분 "
-                f"| 다음 자동갱신: {_bl_next_h}시간 {_bl_next_m}분 후"
-            )
-        else:
-            st.warning("⚠️ 기준 스냅샷 없음 — 앱 재시작 후 자동 생성됩니다.")
+    # ── 점검 제어 버튼 ─────────────────────────────────────────────────────
+    # ── 기준 스냅샷 현황 표시 ──────────────────────────────────────────────
+    import time as _time2
+    _bl_info = st.session_state.get("_hc_baseline") or _hc_load_baseline_file()
+    if _bl_info:
+        _bl_age  = int(_time2.time() - _bl_info.get("recorded_ts", 0))
+        _bl_h    = _bl_age // 3600
+        _bl_m    = (_bl_age % 3600) // 60
+        _bl_reason_map = {"init": "최초 기록", "auto_24h": "24시간 자동갱신",
+                          "admin_directive": "관리자 지시 시점", "auto": "자동"}
+        _bl_reason_ko = _bl_reason_map.get(_bl_info.get("reason", ""), _bl_info.get("reason", ""))
+        _bl_next = max(0, _HC_BASELINE_TTL - _bl_age)
+        _bl_next_h = _bl_next // 3600
+        _bl_next_m = (_bl_next % 3600) // 60
+        st.info(
+            f"📸 기준 스냅샷 — **{_bl_info.get('recorded_at','—')}** 기록 "
+            f"({_bl_reason_ko}) | 경과: {_bl_h}시간 {_bl_m}분 "
+            f"| 다음 자동갱신: {_bl_next_h}시간 {_bl_next_m}분 후"
+        )
+    else:
+        st.warning("⚠️ 기준 스냅샷 없음 — 앱 재시작 후 자동 생성됩니다.")
 
-        _hc_b1, _hc_b2, _hc_b3 = st.columns(3)
-        with _hc_b1:
-            if st.button("🔍 즉시 점검 시작", key="btn_hc_run",
-                         use_container_width=True, type="primary"):
-                with st.spinner("전체 섹터 점검 중..."):
-                    _res = _hc_run_all(force=True)
-                st.success(f"✅ 점검 완료 — "
-                           f"정상 {sum(1 for s in _res['sectors'] if s['status']=='ok')}개 / "
-                           f"수리 {len(_res['fixed'])}개 / "
-                           f"이상 {sum(1 for s in _res['sectors'] if s['status']=='error')}개")
-                st.rerun()
-        with _hc_b2:
-            if st.button("⏰ 자동점검 리셋 (10분)", key="btn_hc_reset",
-                         use_container_width=True):
-                st.session_state.pop(_HC_SESSION_KEY, None)
-                st.session_state.pop(_HC_RESULT_KEY, None)
-                st.success("타이머 초기화 — 다음 rerun 시 자동 점검 실행")
-                st.rerun()
-        with _hc_b3:
-            if st.button("🔧 자가진단 엔진 실행", key="btn_hc_registry",
-                         use_container_width=True):
-                _fixed = _run_self_diagnosis(force=True, admin_mode=True)
-                if _fixed:
-                    st.success(f"자가진단 수정: {', '.join(_fixed)}")
-                else:
-                    st.info("자가진단 이상 없음")
-
-        st.divider()
-
-        # ── 섹터별 점검 결과 테이블 ────────────────────────────────────────────
-        if last_result.get("sectors"):
-            st.markdown("**📊 섹터별 점검 결과**")
-            _icon_map = {"ok": "🟢", "error": "🔴", "repaired": "🔧", "unknown": "⚪"}
-            _label_map = {"ok": "정상", "error": "이상감지", "repaired": "자동수리완료", "unknown": "확인불가"}
-            for _sec in last_result["sectors"]:
-                _si  = _icon_map.get(_sec["status"], "⚪")
-                _sl  = _label_map.get(_sec["status"], _sec["status"])
-                _clr = {"ok":"#27ae60","error":"#e74c3c","repaired":"#2e6da4","unknown":"#888"}.get(_sec["status"],"#888")
-                st.markdown(
-                    f"<div style='padding:6px 10px;border-left:4px solid {_clr};"
-                    f"border-radius:0 6px 6px 0;background:#f8fafc;margin-bottom:4px;"
-                    f"font-size:0.88rem;'>"
-                    f"{_si} <b>{_sec['name']}</b>"
-                    f"<span style='float:right;color:{_clr};font-weight:700;'>{_sl}</span></div>",
-                    unsafe_allow_html=True
-                )
-
-        # ── 자동수리 내역 ──────────────────────────────────────────────────────
-        if last_result.get("fixed"):
-            st.divider()
-            st.markdown("**🔧 이번 점검 자동수리 내역**")
-            for _f in last_result["fixed"]:
-                st.success(f"수리완료: `{_f}`")
-
-        # ── 점검 오류 내역 ─────────────────────────────────────────────────────
-        if last_result.get("errors"):
-            st.divider()
-            st.markdown("**⚠️ 점검 중 발생한 오류**")
-            for _e in last_result["errors"]:
-                st.error(f"`{_e['sector']}` ({_e['name']}): {_e['error']}")
-
-        # ── 기준 스냅샷 비교 ────────────────────────────────────────────────
-        st.divider()
-        _bl = st.session_state.get("_hc_baseline") or _hc_load_baseline_file()
-        if _bl:
-            st.markdown(f"**🔬 기준 스냅샷 비교** <span style='font-size:0.78rem;color:#888;'>(기준 기록: {_bl.get('recorded_at','—')})</span>",
-                        unsafe_allow_html=True)
-            _diffs = _hc_compare_snapshot()
-            _all_match = all(d["match"] for d in _diffs)
-            if _all_match:
-                st.success("✅ 모든 항목이 기준 스냅샷과 일치합니다 — 코드 변조 없음")
+    _hc_b1, _hc_b2, _hc_b3 = st.columns(3)
+    with _hc_b1:
+        if st.button("🔍 즉시 점검 시작", key="btn_hc_run",
+                     use_container_width=True, type="primary"):
+            with st.spinner("전체 섹터 점검 중..."):
+                _res = _hc_run_all(force=True)
+            st.success(f"✅ 점검 완료 — "
+                       f"정상 {sum(1 for s in _res['sectors'] if s['status']=='ok')}개 / "
+                       f"수리 {len(_res['fixed'])}개 / "
+                       f"이상 {sum(1 for s in _res['sectors'] if s['status']=='error')}개")
+            st.rerun()
+    with _hc_b2:
+        if st.button("⏰ 자동점검 리셋 (10분)", key="btn_hc_reset",
+                     use_container_width=True):
+            st.session_state.pop(_HC_SESSION_KEY, None)
+            st.session_state.pop(_HC_RESULT_KEY, None)
+            st.success("타이머 초기화 — 다음 rerun 시 자동 점검 실행")
+            st.rerun()
+    with _hc_b3:
+        if st.button("🔧 자가진단 엔진 실행", key="btn_hc_registry",
+                     use_container_width=True):
+            _fixed = _run_self_diagnosis(force=True, admin_mode=True)
+            if _fixed:
+                st.success(f"자가진단 수정: {', '.join(_fixed)}")
             else:
-                st.warning("⚠️ 일부 항목이 기준과 다릅니다 — 아래 상세 확인")
-            for _d in _diffs:
-                _ic  = "🟢" if _d["match"] else "🔴"
-                _clr = "#27ae60" if _d["match"] else "#e74c3c"
-                st.markdown(
-                    f"<div style='padding:5px 10px;border-left:4px solid {_clr};"
-                    f"border-radius:0 6px 6px 0;background:#f8fafc;margin-bottom:3px;"
-                    f"font-size:0.85rem;'>"
-                    f"{_ic} <b>{_d['item']}</b>"
-                    f"<span style='float:right;color:#555;font-size:0.78rem;'>"
-                    f"기준: <code>{_d['baseline']}</code> → "
-                    f"현재: <code style='color:{_clr};'>{_d['current']}</code></span></div>",
-                    unsafe_allow_html=True
-                )
-            # 파일 해시 불일치 시 자동 경고
-            _hash_diff = next((d for d in _diffs if d["item"] == "app.py 파일 해시" and not d["match"]), None)
-            if _hash_diff:
-                st.error(
-                    "🚨 **app.py 파일이 기준 스냅샷과 다릅니다.**\n"
-                    "배포 후 파일이 변경되었거나 다른 버전이 실행 중일 수 있습니다.\n"
-                    "정상 상태라면 24시간 후 자동 갱신되거나, 관리자 지시 등록/완료 시 즉시 새 기준이 저장됩니다."
-                )
-        else:
-            st.info("📸 기준 스냅샷 없음 — 앱 재시작 시 자동 생성됩니다.")
+                st.info("자가진단 이상 없음")
 
-        st.divider()
-        st.caption("⏰ 자동 점검 주기: 10분 | 기준 스냅샷 갱신: 24시간 자동 + 관리자 지시 시점 | 비교: SHA-256 해시 + smoke test")
+    st.divider()
 
-
-        # ── 관리자용 에러 레지스트리 대시보드 ────────────────────────────────────
-    def _render_error_dashboard():
-        """관리자 전용 — 에러 레지스트리 현황 + 수동 진단 실행"""
-        st.markdown("#### 🔧 자가 진단 엔진 — 에러 레지스트리")
-        col_run, col_reset = st.columns(2)
-        with col_run:
-            if st.button("🔍 지금 진단 실행", key="btn_diag_run", use_container_width=True):
-                fixed = _run_self_diagnosis(force=True, admin_mode=True)
-                if fixed:
-                    st.success(f"✅ {len(fixed)}건 자동 수정: {', '.join(fixed)}")
-                else:
-                    st.info("✅ 이상 없음 — 모든 항목 정상")
-        with col_reset:
-            if st.button("🔄 진단 초기화", key="btn_diag_reset", use_container_width=True):
-                st.session_state.pop("_diag_done", None)
-                st.success("진단 초기화 완료 — 다음 접속 시 재진단")
-
-        st.markdown("---")
-        for rule in _ERROR_REGISTRY:
-            try:
-                is_err = rule["check"]()
-            except Exception:
-                is_err = None
-            status = "🔴 이상 감지" if is_err else ("⚪ 확인불가" if is_err is None else "🟢 정상")
+    # ── 섹터별 점검 결과 테이블 ────────────────────────────────────────────
+    if last_result.get("sectors"):
+        st.markdown("**📊 섹터별 점검 결과**")
+        _icon_map = {"ok": "🟢", "error": "🔴", "repaired": "🔧", "unknown": "⚪"}
+        _label_map = {"ok": "정상", "error": "이상감지", "repaired": "자동수리완료", "unknown": "확인불가"}
+        for _sec in last_result["sectors"]:
+            _si  = _icon_map.get(_sec["status"], "⚪")
+            _sl  = _label_map.get(_sec["status"], _sec["status"])
+            _clr = {"ok":"#27ae60","error":"#e74c3c","repaired":"#2e6da4","unknown":"#888"}.get(_sec["status"],"#888")
             st.markdown(
-                f"**{status}** `{rule['id']}`  \n"
-                f"<span style='font-size:0.8rem;color:#555;'>{rule['desc']}</span>",
-                unsafe_allow_html=True,
+                f"<div style='padding:6px 10px;border-left:4px solid {_clr};"
+                f"border-radius:0 6px 6px 0;background:#f8fafc;margin-bottom:4px;"
+                f"font-size:0.88rem;'>"
+                f"{_si} <b>{_sec['name']}</b>"
+                f"<span style='float:right;color:{_clr};font-weight:700;'>{_sl}</span></div>",
+                unsafe_allow_html=True
             )
 
-        # ── 최근 에러 로그 표시 ──
-        st.markdown("---")
-        st.markdown("#### 📋 최근 에러 로그")
-        try:
-            logs = load_error_log() if callable(globals().get("load_error_log")) else []
-            if logs:
-                import pandas as _pd
-                df = _pd.DataFrame(logs[-30:][::-1])
-                st.dataframe(df, use_container_width=True, height=300)
+    # ── 자동수리 내역 ──────────────────────────────────────────────────────
+    if last_result.get("fixed"):
+        st.divider()
+        st.markdown("**🔧 이번 점검 자동수리 내역**")
+        for _f in last_result["fixed"]:
+            st.success(f"수리완료: `{_f}`")
+
+    # ── 점검 오류 내역 ─────────────────────────────────────────────────────
+    if last_result.get("errors"):
+        st.divider()
+        st.markdown("**⚠️ 점검 중 발생한 오류**")
+        for _e in last_result["errors"]:
+            st.error(f"`{_e['sector']}` ({_e['name']}): {_e['error']}")
+
+    # ── 기준 스냅샷 비교 ────────────────────────────────────────────────
+    st.divider()
+    _bl = st.session_state.get("_hc_baseline") or _hc_load_baseline_file()
+    if _bl:
+        st.markdown(f"**🔬 기준 스냅샷 비교** <span style='font-size:0.78rem;color:#888;'>(기준 기록: {_bl.get('recorded_at','—')})</span>",
+                    unsafe_allow_html=True)
+        _diffs = _hc_compare_snapshot()
+        _all_match = all(d["match"] for d in _diffs)
+        if _all_match:
+            st.success("✅ 모든 항목이 기준 스냅샷과 일치합니다 — 코드 변조 없음")
+        else:
+            st.warning("⚠️ 일부 항목이 기준과 다릅니다 — 아래 상세 확인")
+        for _d in _diffs:
+            _ic  = "🟢" if _d["match"] else "🔴"
+            _clr = "#27ae60" if _d["match"] else "#e74c3c"
+            st.markdown(
+                f"<div style='padding:5px 10px;border-left:4px solid {_clr};"
+                f"border-radius:0 6px 6px 0;background:#f8fafc;margin-bottom:3px;"
+                f"font-size:0.85rem;'>"
+                f"{_ic} <b>{_d['item']}</b>"
+                f"<span style='float:right;color:#555;font-size:0.78rem;'>"
+                f"기준: <code>{_d['baseline']}</code> → "
+                f"현재: <code style='color:{_clr};'>{_d['current']}</code></span></div>",
+                unsafe_allow_html=True
+            )
+        # 파일 해시 불일치 시 자동 경고
+        _hash_diff = next((d for d in _diffs if d["item"] == "app.py 파일 해시" and not d["match"]), None)
+        if _hash_diff:
+            st.error(
+                "🚨 **app.py 파일이 기준 스냅샷과 다릅니다.**\n"
+                "배포 후 파일이 변경되었거나 다른 버전이 실행 중일 수 있습니다.\n"
+                "정상 상태라면 24시간 후 자동 갱신되거나, 관리자 지시 등록/완료 시 즉시 새 기준이 저장됩니다."
+            )
+    else:
+        st.info("📸 기준 스냅샷 없음 — 앱 재시작 시 자동 생성됩니다.")
+
+    st.divider()
+    st.caption("⏰ 자동 점검 주기: 10분 | 기준 스냅샷 갱신: 24시간 자동 + 관리자 지시 시점 | 비교: SHA-256 해시 + smoke test")
+
+
+    # ── 관리자용 에러 레지스트리 대시보드 ────────────────────────────────────
+def _render_error_dashboard():
+    """관리자 전용 — 에러 레지스트리 현황 + 수동 진단 실행"""
+    st.markdown("#### 🔧 자가 진단 엔진 — 에러 레지스트리")
+    col_run, col_reset = st.columns(2)
+    with col_run:
+        if st.button("🔍 지금 진단 실행", key="btn_diag_run", use_container_width=True):
+            fixed = _run_self_diagnosis(force=True, admin_mode=True)
+            if fixed:
+                st.success(f"✅ {len(fixed)}건 자동 수정: {', '.join(fixed)}")
             else:
-                st.info("기록된 에러 로그가 없습니다.")
-        except Exception as _le:
-            st.caption(f"로그 조회 오류: {_le}")
+                st.info("✅ 이상 없음 — 모든 항목 정상")
+    with col_reset:
+        if st.button("🔄 진단 초기화", key="btn_diag_reset", use_container_width=True):
+            st.session_state.pop("_diag_done", None)
+            st.success("진단 초기화 완료 — 다음 접속 시 재진단")
+
+    st.markdown("---")
+    for rule in _ERROR_REGISTRY:
+        try:
+            is_err = rule["check"]()
+        except Exception:
+            is_err = None
+        status = "🔴 이상 감지" if is_err else ("⚪ 확인불가" if is_err is None else "🟢 정상")
+        st.markdown(
+            f"**{status}** `{rule['id']}`  \n"
+            f"<span style='font-size:0.8rem;color:#555;'>{rule['desc']}</span>",
+            unsafe_allow_html=True,
+        )
+
+    # ── 최근 에러 로그 표시 ──
+    st.markdown("---")
+    st.markdown("#### 📋 최근 에러 로그")
+    try:
+        logs = load_error_log() if callable(globals().get("load_error_log")) else []
+        if logs:
+            import pandas as _pd
+            df = _pd.DataFrame(logs[-30:][::-1])
+            st.dataframe(df, use_container_width=True, height=300)
+        else:
+            st.info("기록된 에러 로그가 없습니다.")
+    except Exception as _le:
+        st.caption(f"로그 조회 오류: {_le}")
 
 
-        # --------------------------------------------------------------------------
-        # [SECTION 9] 자가 복구 시스템 + 앱 진입점
-        # --------------------------------------------------------------------------
-    def auto_recover(e: Exception) -> bool:
-        """오류 유형별 자동 복구 시도. 복구 성공 시 True 반환."""
-        # surrogate 문자가 포함된 예외 메시지 자체가 또 오류를 유발하지 않도록 먼저 정제
-        err = str(e).encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
+    # --------------------------------------------------------------------------
+    # [SECTION 9] 자가 복구 시스템 + 앱 진입점
+    # --------------------------------------------------------------------------
+def auto_recover(e: Exception) -> bool:
+    """오류 유형별 자동 복구 시도. 복구 성공 시 True 반환."""
+    # surrogate 문자가 포함된 예외 메시지 자체가 또 오류를 유발하지 않도록 먼저 정제
+    err = str(e).encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
 
-        # 1. 인코딩 오류 → 세션 초기화 후 재시도
-        if "codec" in err or "surrogate" in err or "encode" in err:
-            log_error("인코딩", err)
-            for key in ['analysis_result']:
-                st.session_state.pop(key, None)
-            st.warning("⚠️ 인코딩 오류가 발생했습니다. 자동 복구되었습니다. 다시 시도해주세요.")
-            return True
+    # 1. 인코딩 오류 → 세션 초기화 후 재시도
+    if "codec" in err or "surrogate" in err or "encode" in err:
+        log_error("인코딩", err)
+        for key in ['analysis_result']:
+            st.session_state.pop(key, None)
+        st.warning("⚠️ 인코딩 오류가 발생했습니다. 자동 복구되었습니다. 다시 시도해주세요.")
+        return True
 
-        # 2. 파일 쓰기 오류 → /tmp/ 경로로 전환
-        if "Read-only" in err or "Permission denied" in err or "No such file" in err:
-            log_error("파일I/O", err)
-            global _DATA_DIR, USAGE_DB, MEMBER_DB
-            _DATA_DIR = "/tmp"
-            USAGE_DB  = "/tmp/usage_log.json"
-            MEMBER_DB = "/tmp/members.json"
-            st.session_state["_force_tmp"] = True
-            st.warning("⚠️ 파일 경로 오류가 발생했습니다. 자동 복구되었습니다.")
-            return True
+    # 2. 파일 쓰기 오류 → /tmp/ 경로로 전환
+    if "Read-only" in err or "Permission denied" in err or "No such file" in err:
+        log_error("파일I/O", err)
+        global _DATA_DIR, USAGE_DB, MEMBER_DB
+        _DATA_DIR = "/tmp"
+        USAGE_DB  = "/tmp/usage_log.json"
+        MEMBER_DB = "/tmp/members.json"
+        st.session_state["_force_tmp"] = True
+        st.warning("⚠️ 파일 경로 오류가 발생했습니다. 자동 복구되었습니다.")
+        return True
 
-        # 3. API 오류 → 안내 메시지 + 음성 안내 (재시도 불필요 — 무한루프 방지)
-        if "API" in err or "quota" in err.lower() or "rate" in err.lower():
-            log_error("API", err)
-            st.warning("⚠️ 서버사정으로 잠시후 로그인 지연")
-            _tts_msg = "서버사정으로 잠시후 로그인 진행해주세요."
-            components.html(s_voice(_tts_msg), height=0)
-            return False
+    # 3. API 오류 → 안내 메시지 + 음성 안내 (재시도 불필요 — 무한루프 방지)
+    if "API" in err or "quota" in err.lower() or "rate" in err.lower():
+        log_error("API", err)
+        st.warning("⚠️ 서버사정으로 잠시후 로그인 지연")
+        _tts_msg = "서버사정으로 잠시후 로그인 진행해주세요."
+        components.html(s_voice(_tts_msg), height=0)
+        return False
 
-        # 4. 세션 오류 → 로그인 키 보존 후 부분 초기화
-        if "session" in err.lower() or "StreamlitAPIException" in err:
-            log_error("세션", err)
-            # 로그인 관련 핵심 키는 보존 (user_id 등이 날아가면 재로그인 필요)
-            _PRESERVE_KEYS = {
-                "user_id", "user_name", "is_admin", "join_date",
-                "user_consult_mode", "preferred_insurer",
-                "_auto_login_token", "current_tab",
-                "db_ready", "rag_system", "_force_tmp", "_error_log",
-            }
-            _saved = {k: v for k, v in st.session_state.items() if k in _PRESERVE_KEYS}
-            st.session_state.clear()
-            st.session_state.update(_saved)
-            st.warning("⚠️ 세션 오류가 발생했습니다. 자동 복구되었습니다.")
-            return True
+    # 4. 세션 오류 → 로그인 키 보존 후 부분 초기화
+    if "session" in err.lower() or "StreamlitAPIException" in err:
+        log_error("세션", err)
+        # 로그인 관련 핵심 키는 보존 (user_id 등이 날아가면 재로그인 필요)
+        _PRESERVE_KEYS = {
+            "user_id", "user_name", "is_admin", "join_date",
+            "user_consult_mode", "preferred_insurer",
+            "_auto_login_token", "current_tab",
+            "db_ready", "rag_system", "_force_tmp", "_error_log",
+        }
+        _saved = {k: v for k, v in st.session_state.items() if k in _PRESERVE_KEYS}
+        st.session_state.clear()
+        st.session_state.update(_saved)
+        st.warning("⚠️ 세션 오류가 발생했습니다. 자동 복구되었습니다.")
+        return True
 
-        # 5. 기타 오류 → 로그만 기록
-        log_error("기타", err)
-        return False  # 복구 불가 → 원본 오류 표시
+    # 5. 기타 오류 → 로그만 기록
+    log_error("기타", err)
+    return False  # 복구 불가 → 원본 오류 표시
 
 
-        # ══════════════════════════════════════════════════════════════════════════════
-        # [MCH-AS] 앱 AS요청 보고 박스 — 메인 하단 관리자 보고 UI
-        # ══════════════════════════════════════════════════════════════════════════════
-    def _show_as_request_box() -> None:
-        """관리자 전용 AS요청 보고 박스 — 오류 로그 시각화 + 수동 보고 입력"""
-        import datetime as _dt
+    # ══════════════════════════════════════════════════════════════════════════════
+    # [MCH-AS] 앱 AS요청 보고 박스 — 메인 하단 관리자 보고 UI
+    # ══════════════════════════════════════════════════════════════════════════════
+def _show_as_request_box() -> None:
+    """관리자 전용 AS요청 보고 박스 — 오류 로그 시각화 + 수동 보고 입력"""
+    import datetime as _dt
 
-        # 로그인된 사용자만 표시
-        if not (st.session_state.get("user_id") or st.session_state.get("authenticated")):
-            return
+    # 로그인된 사용자만 표시
+    if not (st.session_state.get("user_id") or st.session_state.get("authenticated")):
+        return
 
-        hub = _mch_init()
-        _err_log = hub.get("error_log", [])
-        _sys_err  = st.session_state.get("_error_log", [])
+    hub = _mch_init()
+    _err_log = hub.get("error_log", [])
+    _sys_err  = st.session_state.get("_error_log", [])
 
-        _is_admin = st.session_state.get("is_admin", False)
-        _has_err  = bool(_err_log or _sys_err)
-        if not _is_admin and not _has_err:
-            return
+    _is_admin = st.session_state.get("is_admin", False)
+    _has_err  = bool(_err_log or _sys_err)
+    if not _is_admin and not _has_err:
+        return
 
-        st.markdown("---")
-        st.markdown("""
-        <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);
-          border:2px solid #e74c3c;border-radius:14px;padding:14px 18px;margin-top:8px;">
-          <span style="color:#e74c3c;font-size:1.05rem;font-weight:900;letter-spacing:0.08em;">
-        🛠️ 앱 AS요청
-          </span>
-          <span style="color:#aaa;font-size:0.78rem;margin-left:10px;">
-        — 기능 이상 시 마스터가 직접 보고하는 채널
-          </span>
-        </div>""", unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);
+      border:2px solid #e74c3c;border-radius:14px;padding:14px 18px;margin-top:8px;">
+      <span style="color:#e74c3c;font-size:1.05rem;font-weight:900;letter-spacing:0.08em;">
+    🛠️ 앱 AS요청
+      </span>
+      <span style="color:#aaa;font-size:0.78rem;margin-left:10px;">
+    — 기능 이상 시 마스터가 직접 보고하는 채널
+      </span>
+    </div>""", unsafe_allow_html=True)
 
-        with st.expander("📋 AS요청 / 오류 현황 보기", expanded=_has_err):
+    with st.expander("📋 AS요청 / 오류 현황 보기", expanded=_has_err):
 
-            # ── 1. 파이프라인 상태 ──────────────────────────────────────────────
-            st.markdown("**📡 현재 데이터 파이프라인 상태**")
-            st.markdown(f'<div style="margin:6px 0 10px 0;">{_mch_get_pipeline_html()}</div>',
-                        unsafe_allow_html=True)
+        # ── 1. 파이프라인 상태 ──────────────────────────────────────────────
+        st.markdown("**📡 현재 데이터 파이프라인 상태**")
+        st.markdown(f'<div style="margin:6px 0 10px 0;">{_mch_get_pipeline_html()}</div>',
+                    unsafe_allow_html=True)
 
-            _hub_info = [
-                ("고객명",      hub.get("client_name") or "미설정"),
-                ("건보료",      f"{hub.get('nhis_premium', 0):,.0f}원" if hub.get('nhis_premium') else "미입력"),
-                ("월소득(역산)", f"{hub.get('monthly_income', 0):,.0f}원" if hub.get('monthly_income') else "미산출"),
-                ("총 공백자금",  f"{hub.get('total_gap_fund', 0):,.0f}원" if hub.get('total_gap_fund') else "미산출"),
-                ("OCR 담보수",  f"{len(hub.get('ocr_coverages', {}))}건"),
-                ("AI분석",      "있음" if hub.get("ai_analysis") else "없음"),
-                ("카톡발송",    "완료" if hub.get("kakao_sent") else "미발송"),
-            ]
-            _cols = st.columns(4)
-            for _i, (_lbl, _val) in enumerate(_hub_info):
-                _cols[_i % 4].metric(_lbl, _val)
+        _hub_info = [
+            ("고객명",      hub.get("client_name") or "미설정"),
+            ("건보료",      f"{hub.get('nhis_premium', 0):,.0f}원" if hub.get('nhis_premium') else "미입력"),
+            ("월소득(역산)", f"{hub.get('monthly_income', 0):,.0f}원" if hub.get('monthly_income') else "미산출"),
+            ("총 공백자금",  f"{hub.get('total_gap_fund', 0):,.0f}원" if hub.get('total_gap_fund') else "미산출"),
+            ("OCR 담보수",  f"{len(hub.get('ocr_coverages', {}))}건"),
+            ("AI분석",      "있음" if hub.get("ai_analysis") else "없음"),
+            ("카톡발송",    "완료" if hub.get("kakao_sent") else "미발송"),
+        ]
+        _cols = st.columns(4)
+        for _i, (_lbl, _val) in enumerate(_hub_info):
+            _cols[_i % 4].metric(_lbl, _val)
 
-            # ── 2. 자동 감지 오류 로그 ─────────────────────────────────────────
-            if _err_log:
-                st.markdown("**⚠️ 자동 감지된 오류 로그 (파이프라인)**")
-                for _e in reversed(_err_log[-10:]):
-                    _stage_label = _e.get("stage", "?")
-                    _ts          = _e.get("ts", "")
-                    _msg         = _e.get("msg", "")
-                    _tb_str      = _e.get("tb", "")
-                    _bg = "#fff5f5" if "scan" in _stage_label or "AI" in _stage_label else "#fffde7"
-                    st.markdown(
-                        f'<div style="background:{_bg};border-left:4px solid #e74c3c;'
-                        f'border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:0.82rem;">'
-                        f'<b style="color:#c0392b;">[{_stage_label}]</b> '
-                        f'<span style="color:#555;">{_ts}</span><br>'
-                        f'<span style="color:#1a1a2e;">{_msg}</span>'
-                        f'{"<br><code style=font-size:0.72rem;color:#666;>"+_tb_str[:300]+"</code>" if _tb_str else ""}'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-
-            if _sys_err:
-                st.markdown("**⚠️ 시스템 오류 로그 (세션)**")
-                for _se in _sys_err[-5:]:
-                    st.markdown(
-                        f'<div style="background:#fff0f0;border-left:3px solid #e74c3c;'
-                        f'border-radius:5px;padding:6px 10px;margin-bottom:4px;font-size:0.80rem;">'
-                        f'{str(_se)[:300]}'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-
-            if not _err_log and not _sys_err:
-                st.success("✅ 현재 파이프라인 오류 없음 — 정상 작동 중")
-
-            # ── 3. 수동 AS 보고 입력 폼 ────────────────────────────────────────
-            st.markdown("**📝 마스터 직접 AS보고 작성**")
-            _as_cols = st.columns([3, 1])
-            with _as_cols[0]:
-                _as_text = st.text_area(
-                    "증상 / 발생 상황을 구체적으로 입력하세요",
-                    key="_as_report_input",
-                    placeholder="예) 스캔 후 공백자금이 0원으로 표시됨 / 카톡 발송 버튼 클릭 시 오류 발생",
-                    height=90,
-                )
-            with _as_cols[1]:
-                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-                _as_stage = st.selectbox(
-                    "발생 단계",
-                    ["질문·검색", "스캔·OCR", "AI 분석", "공백자금 산출", "보고서 출력", "카톡 발송", "기타"],
-                    key="_as_stage_sel",
+        # ── 2. 자동 감지 오류 로그 ─────────────────────────────────────────
+        if _err_log:
+            st.markdown("**⚠️ 자동 감지된 오류 로그 (파이프라인)**")
+            for _e in reversed(_err_log[-10:]):
+                _stage_label = _e.get("stage", "?")
+                _ts          = _e.get("ts", "")
+                _msg         = _e.get("msg", "")
+                _tb_str      = _e.get("tb", "")
+                _bg = "#fff5f5" if "scan" in _stage_label or "AI" in _stage_label else "#fffde7"
+                st.markdown(
+                    f'<div style="background:{_bg};border-left:4px solid #e74c3c;'
+                    f'border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:0.82rem;">'
+                    f'<b style="color:#c0392b;">[{_stage_label}]</b> '
+                    f'<span style="color:#555;">{_ts}</span><br>'
+                    f'<span style="color:#1a1a2e;">{_msg}</span>'
+                    f'{"<br><code style=font-size:0.72rem;color:#666;>"+_tb_str[:300]+"</code>" if _tb_str else ""}'
+                    f'</div>',
+                    unsafe_allow_html=True,
                 )
 
-            if st.button("📨 AS 보고 제출", key="_as_submit_btn", type="primary"):
-                if _as_text.strip():
-                    _mch_log_error(
-                        stage=_as_stage,
-                        msg=f"[마스터 직접 보고] {_as_text.strip()}",
-                        tb="",
-                    )
-                    try:
-                        from database import get_supabase_client as _get_sb
-                        _sb = _get_sb()
-                        if _sb:
-                            _sb.table("as_requests").insert({
-                                "user_id":    st.session_state.get("user_id", ""),
-                                "user_name":  st.session_state.get("user_name", ""),
-                                "stage":      _as_stage,
-                                "message":    _as_text.strip()[:1000],
-                                "hub_state":  str({
-                                    k: hub.get(k)
-                                    for k in ("client_name", "pipeline_stage",
-                                              "total_gap_fund", "monthly_income", "kakao_sent")
-                                }),
-                                "created_at": _dt.datetime.now().isoformat(),
-                            }).execute()
-                    except Exception:
-                        pass
-                    st.success(
-                        f"✅ AS 보고가 접수되었습니다.\n\n"
-                        f"**[{_as_stage}]** 단계 문제가 로그에 기록되었습니다."
-                    )
-                    st.session_state.pop("_as_report_input", None)
-                    st.rerun()
-                else:
-                    st.warning("증상을 입력해주세요.")
+        if _sys_err:
+            st.markdown("**⚠️ 시스템 오류 로그 (세션)**")
+            for _se in _sys_err[-5:]:
+                st.markdown(
+                    f'<div style="background:#fff0f0;border-left:3px solid #e74c3c;'
+                    f'border-radius:5px;padding:6px 10px;margin-bottom:4px;font-size:0.80rem;">'
+                    f'{str(_se)[:300]}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
-            # ── 4. 오류 로그 초기화 (관리자 전용) ─────────────────────────────
-            if _is_admin and _err_log:
-                if st.button("🗑️ 오류 로그 초기화", key="_as_clear_log"):
-                    hub["error_log"] = []
-                    st.session_state[_MCH_KEY] = hub
-                    st.rerun()
+        if not _err_log and not _sys_err:
+            st.success("✅ 현재 파이프라인 오류 없음 — 정상 작동 중")
+
+        # ── 3. 수동 AS 보고 입력 폼 ────────────────────────────────────────
+        st.markdown("**📝 마스터 직접 AS보고 작성**")
+        _as_cols = st.columns([3, 1])
+        with _as_cols[0]:
+            _as_text = st.text_area(
+                "증상 / 발생 상황을 구체적으로 입력하세요",
+                key="_as_report_input",
+                placeholder="예) 스캔 후 공백자금이 0원으로 표시됨 / 카톡 발송 버튼 클릭 시 오류 발생",
+                height=90,
+            )
+        with _as_cols[1]:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+            _as_stage = st.selectbox(
+                "발생 단계",
+                ["질문·검색", "스캔·OCR", "AI 분석", "공백자금 산출", "보고서 출력", "카톡 발송", "기타"],
+                key="_as_stage_sel",
+            )
+
+        if st.button("📨 AS 보고 제출", key="_as_submit_btn", type="primary"):
+            if _as_text.strip():
+                _mch_log_error(
+                    stage=_as_stage,
+                    msg=f"[마스터 직접 보고] {_as_text.strip()}",
+                    tb="",
+                )
+                try:
+                    from database import get_supabase_client as _get_sb
+                    _sb = _get_sb()
+                    if _sb:
+                        _sb.table("as_requests").insert({
+                            "user_id":    st.session_state.get("user_id", ""),
+                            "user_name":  st.session_state.get("user_name", ""),
+                            "stage":      _as_stage,
+                            "message":    _as_text.strip()[:1000],
+                            "hub_state":  str({
+                                k: hub.get(k)
+                                for k in ("client_name", "pipeline_stage",
+                                          "total_gap_fund", "monthly_income", "kakao_sent")
+                            }),
+                            "created_at": _dt.datetime.now().isoformat(),
+                        }).execute()
+                except Exception:
+                    pass
+                st.success(
+                    f"✅ AS 보고가 접수되었습니다.\n\n"
+                    f"**[{_as_stage}]** 단계 문제가 로그에 기록되었습니다."
+                )
+                st.session_state.pop("_as_report_input", None)
+                st.rerun()
+            else:
+                st.warning("증상을 입력해주세요.")
+
+        # ── 4. 오류 로그 초기화 (관리자 전용) ─────────────────────────────
+        if _is_admin and _err_log:
+            if st.button("🗑️ 오류 로그 초기화", key="_as_clear_log"):
+                hub["error_log"] = []
+                st.session_state[_MCH_KEY] = hub
+                st.rerun()
 
 
-        # ==========================================================
-        # [앱 진입점] surrogate-safe 래퍼로 main() 실행
-        # 모든 예외의 str() 변환을 encode/decode로 정제 후 처리
-        # ==========================================================
-    def _run_safe():
-        """surrogate 문자 포함 예외를 안전하게 처리하는 진입점 래퍼"""
-        _MAX_RETRY = 2
-        for _attempt in range(_MAX_RETRY):
-            try:
-                main()
+    # ==========================================================
+    # [앱 진입점] surrogate-safe 래퍼로 main() 실행
+    # 모든 예외의 str() 변환을 encode/decode로 정제 후 처리
+    # ==========================================================
+def _run_safe():
+    """surrogate 문자 포함 예외를 안전하게 처리하는 진입점 래퍼"""
+    _MAX_RETRY = 2
+    for _attempt in range(_MAX_RETRY):
+        try:
+            main()
+            break
+        except UnicodeEncodeError as _ue:
+            # traceback 전체를 로그에 기록 → 정확한 발생 위치 파악
+            _tb = _traceback.format_exc().encode("utf-8", errors="ignore").decode("utf-8")
+            log_error("인코딩[TB]", _tb)
+            _KEEP = {"user_id","user_name","is_admin","join_date",
+                     "user_consult_mode","preferred_insurer","current_tab",
+                     "_force_tmp","_error_log","db_ready","rag_system"}
+            for _k in list(st.session_state.keys()):
+                if _k not in _KEEP:
+                    st.session_state.pop(_k, None)
+            if _attempt < _MAX_RETRY - 1:
+                st.warning("⚠️ 인코딩 오류가 감지되어 자동 복구합니다. 잠시만 기다려주세요.")
+                st.rerun()
+            else:
+                st.error("인코딩 오류가 반복됩니다. 페이지를 새로고침(F5)해주세요.")
                 break
-            except UnicodeEncodeError as _ue:
-                # traceback 전체를 로그에 기록 → 정확한 발생 위치 파악
-                _tb = _traceback.format_exc().encode("utf-8", errors="ignore").decode("utf-8")
-                log_error("인코딩[TB]", _tb)
-                _KEEP = {"user_id","user_name","is_admin","join_date",
-                         "user_consult_mode","preferred_insurer","current_tab",
-                         "_force_tmp","_error_log","db_ready","rag_system"}
-                for _k in list(st.session_state.keys()):
-                    if _k not in _KEEP:
-                        st.session_state.pop(_k, None)
-                if _attempt < _MAX_RETRY - 1:
-                    st.warning("⚠️ 인코딩 오류가 감지되어 자동 복구합니다. 잠시만 기다려주세요.")
-                    st.rerun()
-                else:
-                    st.error("인코딩 오류가 반복됩니다. 페이지를 새로고침(F5)해주세요.")
-                    break
-            except Exception as _e:
-                # 일반 예외도 traceback 기록
-                _tb = _traceback.format_exc().encode("utf-8", errors="ignore").decode("utf-8")
-                log_error("예외[TB]", _tb)
-                _recovered = auto_recover(_e)
-                if _recovered and _attempt < _MAX_RETRY - 1:
-                    st.rerun()
-                else:
-                    st.error(f"시스템 오류 (복구 불가): {_safe_str(_e)}")
-                    st.info("페이지를 새로고침(F5)하거나 관리자에게 문의하세요: 010-3074-2616")
-                    break
+        except Exception as _e:
+            # 일반 예외도 traceback 기록
+            _tb = _traceback.format_exc().encode("utf-8", errors="ignore").decode("utf-8")
+            log_error("예외[TB]", _tb)
+            _recovered = auto_recover(_e)
+            if _recovered and _attempt < _MAX_RETRY - 1:
+                st.rerun()
+            else:
+                st.error(f"시스템 오류 (복구 불가): {_safe_str(_e)}")
+                st.info("페이지를 새로고침(F5)하거나 관리자에게 문의하세요: 010-3074-2616")
+                break
 
     _run_safe()
