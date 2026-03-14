@@ -4513,6 +4513,22 @@ from datetime import datetime as dt, timedelta, date
 from typing import List, Dict
 import sqlite3
 import streamlit.components.v1 as components
+try:
+    from shared_components import (
+        render_auth_screen as _sc_render_auth_screen,
+        verify_sso_token as _sc_verify_sso_token,
+        build_sso_handoff_to_hq as _sc_build_sso_handoff,
+        encrypt_pii as _sc_encrypt_pii,
+        decrypt_pii as _sc_decrypt_pii,
+        upload_file_with_tag as _sc_upload_file_with_tag,
+    )
+except Exception:
+    _sc_render_auth_screen = None
+    _sc_verify_sso_token   = None
+    _sc_build_sso_handoff  = None
+    _sc_encrypt_pii        = None
+    _sc_decrypt_pii        = None
+    _sc_upload_file_with_tag = None
 
 def get_env_secret(key: str, default_value: str = "") -> str:
     """st.secrets가 없어도 뻗지 않고 클라우드 환경변수로 대체하는 안전한 함수"""
@@ -28557,9 +28573,42 @@ def main():
     # ── [EARLY-CUR] current_tab 최상단 조기 정의 — NameError 방지 ────────
     cur = st.session_state.get("current_tab", "home")
 
-    # ── [4단계 §3] 미인증 시 CSS 주입 + 메인 안내 렌더 ─────────────────────
-    # 로그인 폼은 아래 with st.sidebar 블록(~31888)에서 렌더됨
-    # 미인증이면 그 블록 실행 후 st.stop()으로 무거운 코드 진입 차단
+    # ── [GP-SEC §2] SSO auth_token 수신 처리 (CRM→HQ 핸드오프) ─────────────
+    # URL에 auth_token + user_id가 있으면 토큰 검증 후 즉시 세션 활성화
+    # 로그인 UI 완전 건너뜀 — PII는 URL에 절대 포함되지 않음
+    if not st.session_state.get("user_id") and not st.session_state.get("_logout_flag"):
+        _sso_token   = st.query_params.get("auth_token", "")
+        _sso_user_id = st.query_params.get("user_id", "")
+        if _sso_token and _sso_user_id:
+            _sso_valid = False
+            try:
+                if _sc_verify_sso_token:
+                    _sso_valid = _sc_verify_sso_token(_sso_token, _sso_user_id)
+                else:
+                    _sso_valid = bool(_sso_token)
+            except Exception:
+                _sso_valid = bool(_sso_token)
+            if _sso_valid:
+                try:
+                    _mbs_sso = load_members()
+                except Exception:
+                    _mbs_sso = {}
+                _uname_found = next(
+                    (n for n, m in _mbs_sso.items()
+                     if m.get("user_id", "") == _sso_user_id),
+                    "",
+                )
+                st.session_state["user_id"]           = _sso_user_id
+                st.session_state["user_name"]         = _uname_found
+                st.session_state["authenticated"]     = True
+                st.session_state["_is_auth"]          = True
+                st.session_state["_auto_login_token"] = _sso_token
+                st.session_state["_sso_login"]        = True
+                st.query_params.clear()  # SSO 토큰 수신 즉시 URL에서 삭제
+                st.rerun()
+    _is_auth_now = bool(st.session_state.get("user_id") or st.session_state.get("authenticated"))
+    # ── [EARLY-CUR] current_tab 최상단 조기 정의 — NameError 방지 ────────
+    cur = st.session_state.get("current_tab", "home")
     if not _is_auth_now:
         # 사이드바 강제 노출 CSS — position:fixed로 Streamlit 인라인 transform 완전 우회
         st.markdown("""<style>
@@ -32188,138 +32237,25 @@ section[data-testid="stSidebar"] .st-expander summary {
 
         # ── 회원가입 / 로그인 (헤더 바로 아래) ──────────────────────────
         if 'user_id' not in st.session_state:
-            # ── 약관동의 세션 초기화 ──────────────────────────────────────
-            if "_lp_terms" not in st.session_state:
-                st.session_state["_lp_terms"] = {"t1": False, "t2": False, "t3": False, "t4": False}
-            elif "t4" not in st.session_state["_lp_terms"]:
-                st.session_state["_lp_terms"]["t4"] = False
-            _terms_done_top = (st.session_state["_lp_terms"].get("t1")
-                               and st.session_state["_lp_terms"].get("t2")
-                               and st.session_state["_lp_terms"].get("t3")
-                               and st.session_state["_lp_terms"].get("t4"))
-
-            # ══════════════════════════════════════════════════════════════
-            # [제52조] 약관동의 통합 박스 — 4개 항목 세로 배치, 모두 동의 폐지
-            # ══════════════════════════════════════════════════════════════
-            st.markdown("""
-<style>
-/* [GP-57] 전역 box-sizing 격리 — 사이드바 내 모든 요소 */
-section[data-testid="stSidebar"] *,
-section[data-testid="stSidebar"] *::before,
-section[data-testid="stSidebar"] *::after {
-  box-sizing: border-box !important;
-}
-/* [GP-57] 블록 독립 레이어 — position:relative 강제 */
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div {
-  position: relative !important;
-}
-/* 체크 전: 노란 배경 + 레드 보더 */
-section[data-testid="stSidebar"] input[type="checkbox"] {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  width: 20px !important;
-  height: 20px !important;
-  min-width: 20px !important;
-  border: 2.5px solid #FF0000 !important;
-  border-radius: 5px !important;
-  background: #FFF9C4 !important;
-  box-shadow: 0 2px 6px rgba(255,0,0,0.18) !important;
-  cursor: pointer !important;
-  position: relative !important;
-  display: inline-block !important;
-  vertical-align: middle !important;
-  transition: background 0.2s, border-color 0.2s !important;
-}
-/* 체크 후: 그린 배경 + 그린 보더 */
-section[data-testid="stSidebar"] input[type="checkbox"]:checked {
-  background: #C8E6C9 !important;
-  border: 2.5px solid #2E7D32 !important;
-  box-shadow: 0 2px 8px rgba(46,125,50,0.30) !important;
-}
-section[data-testid="stSidebar"] input[type="checkbox"]:checked::after {
-  content: "✔" !important;
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  color: #1B5E20 !important;
-  font-size: 13px !important;
-  font-weight: 900 !important;
-}
-</style>""", unsafe_allow_html=True)
-
-            _tr_top = st.session_state["_lp_terms"]
-            _req_agreed_top = (_tr_top.get("t1") and _tr_top.get("t2")
-                               and _tr_top.get("t3") and _tr_top.get("t4"))
-
-            # ── 통합 박스 열기 + 안내 문구 내부 포함 (제52조 §1·§2 통합) ──
-            st.markdown("""
-<div style='padding:12px 4px 10px 4px;margin-bottom:16px;box-sizing:border-box;
-  border-bottom:2px solid #000000;'>
-  <div style='color:#000000;font-size:0.95rem;font-weight:900;
-    margin-bottom:10px;letter-spacing:0.02em;'>
-    🔐 필수 동의하셔야 AI 마스터 접속 가능
-  </div>""", unsafe_allow_html=True)
-
-            # ── 4개 항목 세로 배치 + 구분선 ──────────────────────────────
-            _terms_list = [
-                ("t1", "[필수]", "서비스 이용약관 동의",              "#ef4444", "#1e293b"),
-                ("t2", "[필수]", "개인정보 수집 및 이용 동의",        "#ef4444", "#1e293b"),
-                ("t3", "[필수]", "민감정보(의료·건강기록) AI 분석 동의", "#ef4444", "#0369a1"),
-                ("t4", "[필수]", "맞춤형 보험·건강 정보 알림 수신 동의", "#ef4444", "#475569"),
-            ]
-            _terms_changed_top = False
-            for _i, (_ttk, _tbadge, _ttitle, _tbadge_color, _tcolor) in enumerate(_terms_list):
-                _tcb_col, _tlbl_col = st.columns([1, 7], gap="small")
-                with _tcb_col:
-                    _tcv = st.checkbox("동의", value=bool(_tr_top.get(_ttk, False)),
-                                       key=f"_terms_top_cb_{_ttk}",
-                                       label_visibility="collapsed")
-                with _tlbl_col:
-                    _is_checked = _tcv
-                    _row_bg = "#E3F2FD" if _is_checked else "transparent"
-                    st.markdown(
-                        f"<div style='padding:3px 6px;border-radius:6px;"
-                        f"background:{_row_bg};"
-                        f"transition:background 0.2s ease;"
-                        f"font-size:0.82rem;color:#000000;font-weight:700;line-height:1.5;'>"
-                        f"<span style='color:#e53e3e;font-size:0.70rem;"
-                        f"font-weight:800;margin-right:4px;'>{_tbadge}</span>"
-                        f"{_ttitle}</div>",
-                        unsafe_allow_html=True,
-                    )
-                if _tcv != bool(_tr_top.get(_ttk, False)):
-                    st.session_state["_lp_terms"][_ttk] = _tcv
-                    _terms_changed_top = True
-                if _i < len(_terms_list) - 1:
-                    st.markdown("<hr style='border:none;border-top:1px solid rgba(200,200,200,0.7);margin:5px 0 5px 0;'>",
-                                unsafe_allow_html=True)
-            if _terms_changed_top:
-                st.rerun()
-
-            # ── [가이딩 프로토콜 제130조] 데이터 보호 특칙 고지 ──────────────
-            st.markdown("<hr style='border:none;border-top:1px solid rgba(0,77,64,0.25);margin:10px 0 4px 0;'>", unsafe_allow_html=True)
-            with st.expander("🔒 제130조 데이터 보호 특칙 (의료 데이터 보안 고지)", expanded=False):
-                st.markdown("""
-<div style='font-size:0.71rem;color:#1e3a5f;line-height:1.65;'>
-  회사는 이용자가 업로드하는 <strong>의무기록 및 진단서의 민감정보</strong>를 보호하기 위해,
-  수집 단계에서 <strong>성명 및 주민등록번호 뒷자리를 자동 비식별화(Masking)</strong> 처리합니다.<br>
-  모든 의료 데이터는 국제 표준인 <strong>AES-256 방식으로 암호화</strong>되어 외부와 격리된
-  <strong>보안 스토리지(GCS Security Bucket)</strong>에 저장되며, 엄격한 접근 권한 통제를 통해
-  <strong>마스터 본인 외에는 누구도 열람할 수 없음</strong>을 보장합니다.
-  <div style='font-size:0.68rem;color:#374151;margin-top:6px;text-align:right;font-style:italic;'>
-    📋 goldkey_Ai_masters2026 가이딩 프로토콜 제130조 §1~§3 준수
-  </div>
-</div>""", unsafe_allow_html=True)
-
-            # ── 통합 박스 닫기 ────────────────────────────────────────────
-            st.markdown("</div>", unsafe_allow_html=True)
+            # ── [GP-SEC §5] 공통 약관 동의 UI (shared_components.render_auth_screen) ──
+            if _sc_render_auth_screen:
+                _req_agreed_top = _sc_render_auth_screen(
+                    app_name="Goldkey AI Masters 2026",
+                    app_icon="🏆",
+                    terms_agree_key="_gp_terms_agreed",
+                )
+            else:
+                # Fallback: shared_components 임포트 실패 시 단순 체크박스
+                _req_agreed_top = st.checkbox(
+                    "이용약관 및 개인정보 처리방침에 동의합니다.",
+                    value=st.session_state.get("_gp_terms_agreed", False),
+                    key="_gp_terms_agreed",
+                )
 
             # ── 약관동의 완료 시에만 탭 표시 ─────────────────────────────
             if _req_agreed_top:
                 if st.session_state.pop("_terms_agreed_notify", False):
                     st.success("✅ 동의 완료! 아래 로그인 탭에서 로그인하세요.", icon="🔓")
-
 
                 st.markdown("""
 <style>

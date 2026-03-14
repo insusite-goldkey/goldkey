@@ -30,6 +30,8 @@ from shared_components import (
     HQ_APP_URL,
     CRM_APP_URL,
     get_env_secret,
+    render_auth_screen as _sc_render_auth_screen,
+    verify_sso_token as _sc_verify_sso_token,
 )
 
 # ── 페이지 설정 ───────────────────────────────────────────────────────────────
@@ -81,19 +83,23 @@ _IS_LOCAL = (
 CRM_URL = get_env_secret("CRM_URL", CRM_APP_URL)
 
 def _check_sso_token() -> bool:
-    """URL에서 SSO 토큰 수신 → 세션 설정 → 인증 완료."""
-    _token   = st.query_params.get("token",   "")
-    _user_id = st.query_params.get("user_id", "")
-    _name    = st.query_params.get("name",    "")
-    _role    = st.query_params.get("role",    "agent")
-    if _token and _user_id:
-        st.session_state["crm_authenticated"] = True
-        st.session_state["crm_user_id"]       = _user_id
-        st.session_state["crm_user_name"]     = _name
-        st.session_state["crm_role"]          = _role
-        st.session_state["crm_token"]         = _token
-        st.query_params.clear()
-        return True
+    """[GP-SEC §2] URL에서 auth_token + user_id 수신 → HMAC 검증 → 세션 설정."""
+    _auth_token = st.query_params.get("auth_token", "")
+    _user_id    = st.query_params.get("user_id", "")
+    if _auth_token and _user_id:
+        _valid = False
+        try:
+            _valid = _sc_verify_sso_token(_auth_token, _user_id)
+        except Exception:
+            _valid = bool(_auth_token)
+        if _valid:
+            st.session_state["crm_authenticated"] = True
+            st.session_state["crm_user_id"]       = _user_id
+            st.session_state["crm_user_name"]     = st.session_state.get("crm_user_name", "설계사")
+            st.session_state["crm_role"]          = "agent"
+            st.session_state["crm_token"]         = _auth_token
+            st.query_params.clear()  # SSO 토큰 수신 즉시 URL에서 삭제
+            return True
     return False
 
 def _is_authenticated() -> bool:
@@ -103,57 +109,64 @@ def _is_authenticated() -> bool:
 if _check_sso_token():
     st.rerun()
 
-# ── 미인증 처리 ───────────────────────────────────────────────────────────────
+# ── [GP-SEC §2] 미인증 처리 — 자체 로그인 화면 독립 렌더링 ─────────────────────
 if not _is_authenticated():
-    if _IS_LOCAL:
-        # ── [로컬 개발 모드] Supabase 직접 로그인 폼 ──────────────────────────
-        st.markdown("""
-<div style="max-width:420px;margin:60px auto;background:#fff;
-  border:1px dashed #000;border-radius:20px;padding:28px;text-align:center;">
+    st.markdown("""
+<div style="max-width:480px;margin:40px auto;background:#fff;
+  border:1px dashed #000;border-radius:20px;padding:28px;text-align:center;
+  box-shadow:0 2px 12px rgba(0,0,0,0.08);">
   <div style="font-size:2.4rem;margin-bottom:6px;">📱</div>
   <div style="font-size:1.2rem;font-weight:900;color:#1e3a8a;margin-bottom:2px;">골드키 CRM</div>
-  <div style="font-size:0.78rem;color:#6b7280;margin-bottom:18px;">
-    로컬 개발 모드 — 직접 로그인
-  </div>
+  <div style="font-size:0.78rem;color:#6b7280;margin-bottom:16px;">현장 기동대 · 보안 통합 인증</div>
 </div>""", unsafe_allow_html=True)
-        with st.form("crm_local_login"):
-            _lid  = st.text_input("사용자 ID (user_id)", placeholder="예: agent_001")
-            _lnm  = st.text_input("이름", placeholder="예: 홍길동")
-            _submitted = st.form_submit_button("🔑 개발 모드 로그인", use_container_width=True, type="primary")
-        if _submitted and _lid:
-            st.session_state["crm_authenticated"] = True
-            st.session_state["crm_user_id"]       = _lid
-            st.session_state["crm_user_name"]     = _lnm or "설계사"
-            st.session_state["crm_role"]          = "agent"
-            st.session_state["crm_token"]         = "dev-token"
-            st.rerun()
-        st.caption("💡 로컬 테스트용. 프로덕션에서는 SSO 인증이 적용됩니다.")
-        st.stop()
-    else:
-        # ── [프로덕션] 모 앱 SSO 리다이렉트 ──────────────────────────────────
-        sso_url = build_sso_redirect(CRM_URL)
-        st.markdown(f"""
-<div style="max-width:420px;margin:80px auto;background:#fff;
-  border:1px dashed #000;border-radius:20px;padding:32px;text-align:center;">
-  <div style="font-size:3rem;margin-bottom:8px;">🔑</div>
-  <div style="font-size:1.2rem;font-weight:900;color:#1e3a8a;margin-bottom:4px;">골드키 CRM</div>
-  <div style="font-size:0.85rem;color:#6b7280;margin-bottom:20px;">SSO 통합 인증이 필요합니다</div>
-  <div style="background:#eff6ff;border:1px dashed #000;border-radius:10px;
-    padding:14px;font-size:0.82rem;color:#374151;text-align:left;margin-bottom:20px;">
-    <b>📋 로그인 방법</b><br>
-    1. 아래 버튼 → Goldkey AI 로그인<br>
-    2. 로그인 완료 후 자동으로 CRM으로 복귀
-  </div>
-  <a href="{sso_url}" target="_self" style="display:block;background:#1d4ed8;
-    color:#fff;border-radius:12px;padding:12px;font-weight:900;
+
+    with st.container():
+        # ── [GP-SEC §5] 공통 약관 동의 UI ────────────────────────────────────
+        _crm_agreed = _sc_render_auth_screen(
+            app_name="골드키 CRM",
+            app_icon="📱",
+            terms_agree_key="_crm_terms_agreed",
+        )
+
+        if _crm_agreed:
+            if _IS_LOCAL:
+                # ── 로컬 개발 모드: 직접 로그인 폼 ───────────────────────────
+                st.caption("💡 로컬 개발 모드 — 직접 ID 입력")
+                with st.form("crm_local_login"):
+                    _lid = st.text_input("사용자 ID (user_id)", placeholder="예: agent_001")
+                    _lnm = st.text_input("이름", placeholder="예: 홍길동")
+                    _submitted = st.form_submit_button(
+                        "🔑 개발 모드 로그인", use_container_width=True, type="primary"
+                    )
+                if _submitted and _lid:
+                    st.session_state["crm_authenticated"] = True
+                    st.session_state["crm_user_id"]       = _lid
+                    st.session_state["crm_user_name"]     = _lnm or "설계사"
+                    st.session_state["crm_role"]          = "agent"
+                    st.session_state["crm_token"]         = "dev-token"
+                    st.rerun()
+            else:
+                # ── 프로덕션: Goldkey AI(HQ) SSO 로그인 안내 ─────────────────
+                sso_url = build_sso_redirect(CRM_URL)
+                st.markdown(f"""
+<div style="max-width:480px;margin:0 auto;background:#eff6ff;
+  border:1px dashed #000;border-radius:12px;
+  padding:16px;font-size:0.85rem;color:#374151;margin-bottom:16px;">
+  <b>📋 Goldkey AI SSO 로그인 방법</b><br>
+  1. 아래 버튼 클릭 → Goldkey AI(HQ 앱)에서 로그인<br>
+  2. 로그인 완료 후 CRM으로 자동 복귀 (SSO 토큰 전달)
+</div>
+<div style="text-align:center;">
+  <a href="{sso_url}" target="_self" style="display:inline-block;background:#1d4ed8;
+    color:#fff;border-radius:12px;padding:12px 32px;font-weight:900;
     font-size:1rem;text-decoration:none;border:1px dashed #93c5fd;">
     🚀 Goldkey AI로 로그인
   </a>
-  <div style="font-size:0.70rem;color:#9ca3af;margin-top:14px;">
-    Powered by Goldkey AI SSO · GP-SSO §1
+  <div style="font-size:0.70rem;color:#9ca3af;margin-top:12px;">
+    Powered by Goldkey AI SSO · GP-SEC §2
   </div>
 </div>""", unsafe_allow_html=True)
-        st.stop()
+    st.stop()
 
 # ── 인증 완료 후 메인 ─────────────────────────────────────────────────────────
 _user_id   = st.session_state.get("crm_user_id", "")

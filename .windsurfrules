@@ -1,0 +1,49 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Goldkey AI Masters 2026 — GP 핵심 아키텍처 절대 규칙
+# 이 파일은 모든 코딩 세션에 영구 적용된다. 절대 삭제·수정 금지.
+# ══════════════════════════════════════════════════════════════════════════════
+
+## [GP-NAME] 3대 명칭 규칙 (절대 준수)
+- [HQ 앱]:  app.py 수정 / GCP 서비스명: goldkey-ai / 정밀 증권 분석 전담
+- [CRM 앱]: crm_app.py 수정 / GCP 서비스명: goldkey-crm / 모바일 스캐너·현장 영업 전담
+- [공통 모듈]: shared_components.py — 양쪽 앱이 공유하는 UI·Supabase·인증 로직
+
+## [GP-SEC] 데이터 보안 및 물리적 분리/통합 인증(SSO) 절대 규칙
+
+### §1 PII(개인식별정보) 처리 원칙
+- 전화번호·주민등록번호 등 고유식별정보는 **절대 평문으로 DB·로그·세션에 저장 금지**
+- 인증용(비밀번호 역할) 연락처: SHA-256 단방향 해시로만 저장 (복호화 불가)
+- 복호화가 필요한 PII(고객 연락처 등): cryptography Fernet(AES-128-CBC) 양방향 암호화
+- URL 파라미터에 PII(전화번호 등 원문) 절대 포함 금지 — 반드시 암호화된 cid 또는 token만 사용
+
+### §2 앱 간 인증(SSO) 규칙
+- 앱 간 직접 리다이렉트(로그인 화면 강제 이동) 금지
+- 각 앱은 자체 로그인 화면(render_auth_screen())을 독립적으로 렌더링
+- SSO 핸드오프: auth_token(HMAC-SHA256, 32자 hex) + user_id만 URL 파라미터로 전달
+- auth_token 수신 앱은 토큰 검증 후 즉시 세션 활성화 → 로그인 UI 건너뜀
+- SSO 토큰은 수신 즉시 query_params에서 삭제 (st.query_params.clear())
+
+### §3 세션 휘발성 방어 (Supabase 즉시 저장)
+- 핵심 고객 데이터(이름·연락처·직업·주소 등) 입력 시 세션에만 저장 금지
+- 반드시 customer_input_form() 또는 동급 함수로 즉시 Supabase upsert 처리
+- 설계사(회원) 정보 변경 시도 즉시 members 테이블 업데이트
+
+### §4 Storage 파일 태깅 규칙
+- GCS/Supabase Storage 업로드 파일에 반드시 agent_id + person_id 메타데이터 태깅
+- 파일 경로 규칙: {agent_id}/{person_id}/{filename} — 연결 고리 영구 보존
+- 증권 사진·상담 자료 업로드 함수는 반드시 agent_id, person_id 파라미터 필수
+
+### §5 로그인 UI 공통 모듈 규칙
+- 로그인/약관 동의 UI는 shared_components.py의 render_auth_screen()으로 통일
+- 약관 원문(개인정보·암호화·영구보관·파기 내용)은 공통 모듈 내 스크롤 박스에 렌더링
+- 동의 체크박스 미체크 시 가입/로그인 버튼 비활성화 강제
+
+### §6 비밀키 관리
+- st.secrets 직접 호출 금지 — 반드시 get_env_secret() 함수 사용
+- 클라우드(Cloud Run) 환경에서 secrets.toml 없어도 os.environ 폴백으로 정상 작동
+
+## [GP-DEPLOY] 배포 규칙
+- HQ 배포: backup_and_push.ps1 실행
+- CRM 배포: deploy_crm.ps1 실행
+- 배포 전 반드시 Python 구문 검사(ast.parse) SYNTAX OK 확인
+- K_SERVICE는 Cloud Run 예약 환경변수 — Dockerfile에서 직접 설정 금지

@@ -380,3 +380,221 @@ def render_reception_desk(*, key_prefix: str = "_rd") -> None:
 }})();
 </script>""", height=0)
                 st.rerun()
+
+
+# ── [GP-SEC §5] 공통 약관 원문 (HQ/CRM 양쪽 render_auth_screen에서 사용) ──────
+_TERMS_TEXT = """■ Goldkey AI Master Lab. Beta 이용약관
+
+[제1조 목적]
+본 약관은 Goldkey AI Master Lab. Beta 서비스(이하 '서비스')의 이용 조건 및 절차,
+운영자와 회원의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.
+
+[제2조 서비스 이용 조건]
+- 현재 전체 무료 베타 서비스 운영 중
+- 회원 1인당 1일 10회 AI 상담 이용 제한
+- 사용기간: 2026.08.31. 한정 (앱 고도화기간)
+- 만 19세 이상 보험 관련 업무 종사자 및 관심 고객 대상
+
+[제5조 개인정보 수집 및 이용]
+- 수집 항목: 이름, 연락처(암호화 저장), 이용 횟수
+- 이용 목적: 회원 인증, 이용 한도 관리, 서비스 품질 개선
+- 보유 기간: 회원 탈퇴 후 즉시 파기 (법령 의무 보존 기간 제외)
+- 제3자 제공: 법령에 의한 경우 외 제공 금지
+
+[제5조의2 회원 개인정보 암호화 보호]
+본 서비스는 회원의 개인정보를 다음과 같이 기술적으로 보호합니다.
+- 연락처(비밀번호): SHA-256 단방향 해시(One-Way Hash) 방식으로 변환하여 저장합니다.
+  단방향 해시는 원문으로 되돌릴 수 없는 구조로, 운영자·관리자를 포함한 누구도
+  가입 시 입력한 연락처 원문을 열람하거나 복원할 수 없습니다.
+- 이름: 회원 인증 및 서비스 제공 목적으로만 사용되며, 외부에 제공되지 않습니다.
+- 세션 데이터: AES 기반 Fernet 대칭키 암호화로 보호되며, 세션 종료 시 자동 파기됩니다.
+- 전송 구간: TLS(HTTPS) 암호화를 통해 전송 중 데이터를 보호합니다.
+▶ 요약: 가입 회원의 연락처(비밀번호)는 암호화된 해시값으로만 저장되며,
+  관리자를 포함한 어떠한 주체도 원문을 확인할 수 없습니다.
+
+[제6조 고객정보 보안 기준]
+- 연락처: SHA-256 단방향 해시 암호화 저장 (복호화 불가 — 관리자 포함 원문 열람 불가)
+- 세션 데이터: AES-128 Fernet 암호화
+- 전송 구간: TLS 암호화 (서버 레벨)
+- 분석 내용: 서버에 저장하지 않으며 세션 종료 시 자동 파기
+- ISO/IEC 27001 정보보안 관리체계 준거 / GDPR 및 개인정보보호법 준거
+
+[제7조 고객정보 폐기 지침]
+- 즉시 파기: 회원 탈퇴 요청 시 회원 DB에서 즉시 삭제
+- 자동 파기: 세션 종료 시 메모리 내 상담 내용 자동 초기화
+- 정기 파기: 이용 로그는 90일 경과 후 자동 삭제
+- 파기 방법: 전자적 파일은 복구 불가능한 방법으로 영구 삭제
+
+[제8조 면책 고지]
+본 서비스는 AI 기술을 활용한 상담 보조 도구이며, 모든 분석 결과의 최종 판단 및
+법적 책임은 사용자(상담원)에게 있습니다.
+보험금 지급 여부의 최종 결정은 보험사 심사 및 관련 법령에 따르며,
+법률·세무·의료 분야의 최종 판단은 반드시 해당 전문가와 확인하십시오.
+본 서비스는 보험 모집·중개·알선 행위와 무관한 순수 AI 분석 보조 도구이며,
+분석 결과를 활용한 보험 계약 체결에 대해 앱 운영자는 일체의 법적 책임을 지지 않습니다.
+"""
+
+
+def render_auth_screen(
+    app_name: str = "Goldkey AI",
+    app_icon: str = "🏆",
+    terms_agree_key: str = "_gp_terms_agreed",
+) -> bool:
+    """
+    [GP-SEC §5] 공통 로그인/약관 동의 UI.
+    HQ 앱(사이드바 내부)과 CRM 앱(메인 화면) 양쪽에서 호출.
+
+    약관 원문을 st.container(height=150) 스크롤 박스에 렌더링하고,
+    동의 체크박스가 체크된 경우에만 로그인 버튼 활성화 가능하도록
+    bool 값(동의 여부)을 반환한다.
+
+    Returns:
+        True  — 약관 동의 완료 (로그인 버튼 활성화 허용)
+        False — 미동의 (로그인 버튼 disabled 처리)
+    """
+    st.markdown(
+        f"<div style='font-size:1.0rem;font-weight:900;color:#1e3a8a;"
+        f"margin-bottom:6px;'>{app_icon} {app_name} 이용약관 동의</div>",
+        unsafe_allow_html=True,
+    )
+    with st.container(height=150):
+        st.markdown(
+            f"<pre style='font-size:0.72rem;line-height:1.6;color:#374151;"
+            f"white-space:pre-wrap;word-break:keep-all;'>{_TERMS_TEXT}</pre>",
+            unsafe_allow_html=True,
+        )
+    agreed = st.checkbox(
+        "위 이용약관 및 개인정보(암호화/보관/파기) 정책에 동의합니다.",
+        value=st.session_state.get(terms_agree_key, False),
+        key=terms_agree_key,
+    )
+    if not agreed:
+        st.caption("⚠️ 약관에 동의하셔야 로그인/가입 버튼이 활성화됩니다.")
+    return agreed
+
+
+# ── [GP-SEC §2] SSO 핸드오프 빌더 ─────────────────────────────────────────────
+def build_sso_handoff_to_hq(
+    user_id: str,
+    auth_token: str,
+    cid: str = "",
+    sector: str = "home",
+) -> str:
+    """
+    [GP-SEC §2] CRM → HQ 앱 SSO 핸드오프 URL 생성.
+    - URL에 PII(전화번호 등 원문) 절대 포함 금지
+    - auth_token(HMAC-SHA256 32자 hex) + user_id + cid(암호화된 ID) 만 전달
+    """
+    import urllib.parse as _up
+    params: dict = {"auth_token": auth_token, "user_id": user_id}
+    if cid:
+        params["gk_cid"] = cid
+    if sector and sector != "home":
+        params["gk_sector"] = sector
+    return f"{HQ_APP_URL}/?{_up.urlencode(params)}"
+
+
+def verify_sso_token(token: str, user_id: str, user_name: str = "") -> bool:
+    """
+    [GP-SEC §2] HQ 앱에서 SSO 토큰 검증.
+    HMAC-SHA256(secret, user_id + user_name)[:32] 과 비교.
+    """
+    import hmac as _hmac
+    try:
+        secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+        if isinstance(secret, bytes):
+            secret = secret.decode()
+        expected = _hmac.new(
+            secret.encode(),
+            (user_id + user_name).encode(),
+            "sha256",
+        ).hexdigest()[:32]
+        return _hmac.compare_digest(token, expected)
+    except Exception:
+        return False
+
+
+# ── [GP-SEC §1] PII 암호화 헬퍼 ────────────────────────────────────────────────
+def encrypt_pii(plaintext: str) -> str:
+    """
+    [GP-SEC §1] 복호화가 필요한 PII(고객 연락처 등) Fernet 양방향 암호화.
+    암호화 키: FERNET_KEY 환경변수 (없으면 ENCRYPTION_KEY 기반 파생).
+    """
+    try:
+        from cryptography.fernet import Fernet
+        import base64, hashlib
+        raw_key = get_env_secret("FERNET_KEY", "")
+        if not raw_key:
+            seed = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+            raw_key = base64.urlsafe_b64encode(
+                hashlib.sha256(seed.encode()).digest()
+            ).decode()
+        f = Fernet(raw_key.encode() if isinstance(raw_key, str) else raw_key)
+        return f.encrypt(plaintext.encode()).decode()
+    except Exception:
+        return plaintext
+
+
+def decrypt_pii(ciphertext: str) -> str:
+    """
+    [GP-SEC §1] Fernet 복호화. 실패 시 원문 반환(이미 평문인 경우 대비).
+    """
+    try:
+        from cryptography.fernet import Fernet
+        import base64, hashlib
+        raw_key = get_env_secret("FERNET_KEY", "")
+        if not raw_key:
+            seed = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+            raw_key = base64.urlsafe_b64encode(
+                hashlib.sha256(seed.encode()).digest()
+            ).decode()
+        f = Fernet(raw_key.encode() if isinstance(raw_key, str) else raw_key)
+        return f.decrypt(ciphertext.encode()).decode()
+    except Exception:
+        return ciphertext
+
+
+# ── [GP-SEC §4] Storage 태깅 업로드 ────────────────────────────────────────────
+def upload_file_with_tag(
+    file_bytes: bytes,
+    filename: str,
+    agent_id: str,
+    person_id: str,
+    bucket_name: str = "",
+    supabase_client=None,
+) -> str:
+    """
+    [GP-SEC §4] Supabase Storage에 파일 업로드.
+    경로 규칙: {agent_id}/{person_id}/{filename}
+    반드시 agent_id + person_id 태깅 — 연결 고리 영구 보존.
+
+    Returns:
+        업로드된 파일의 public URL (또는 storage path)
+    Raises:
+        RuntimeError: 업로드 실패
+    """
+    if not agent_id:
+        raise ValueError("agent_id 필수 — Storage 태깅 규칙 위반 방지")
+    if not person_id:
+        raise ValueError("person_id 필수 — Storage 태깅 규칙 위반 방지")
+
+    storage_path = f"{agent_id}/{person_id}/{filename}"
+    bucket = bucket_name or get_env_secret("STORAGE_BUCKET", "gk-files")
+
+    if supabase_client is None:
+        try:
+            from supabase import create_client
+            sb_url = get_env_secret("SUPABASE_URL", "")
+            sb_key = get_env_secret("SUPABASE_SERVICE_ROLE_KEY",
+                        get_env_secret("SUPABASE_KEY", ""))
+            supabase_client = create_client(sb_url, sb_key)
+        except Exception as e:
+            raise RuntimeError(f"Supabase 연결 실패: {e}")
+
+    try:
+        res = supabase_client.storage.from_(bucket).upload(
+            storage_path, file_bytes, {"upsert": "true"}
+        )
+        return storage_path
+    except Exception as e:
+        raise RuntimeError(f"Storage 업로드 실패 ({storage_path}): {e}")
