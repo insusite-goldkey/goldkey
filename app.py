@@ -28900,6 +28900,9 @@ footer, footer * { display: none !important; }
                                             st.success("\u2705 이름 변경 완료!")
                                         except Exception as _e_nm:
                                             st.error(f"변경 실패: {_e_nm}")
+        # ── [★근본수정] 미인증 시 사이드바 렌더 — st.stop() 전에 실행
+        with st.sidebar:
+            render_goldkey_sidebar()
         st.stop()
 
     # ── [로딩 UI 한국어화] Running... 숨김 + 한국어 구동중 문구 오버레이 ────
