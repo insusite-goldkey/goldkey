@@ -19,15 +19,21 @@ import streamlit as st
 import uuid, datetime
 from typing import Optional
 
-# ── 모 앱 URL (로컬 개발 vs 프로덕션 자동 분기) ──────────────────────────────
+# ── 모 앱 URL (환경 자동 분기) ────────────────────────────────────────────────
+# GK_APP_ID=crm  → CRM 앱 컨테이너 (Dockerfile.crm에서 설정)
+# K_SERVICE 존재 → Cloud Run 프로덕션 환경
+# 그 외           → 로컬 개발 환경
 import os as _os
+_on_cloud = bool(_os.environ.get("K_SERVICE", ""))
 HQ_APP_URL = (
-    "http://localhost:8501"
-    if (
-        _os.environ.get("STREAMLIT_ENV", "") == "local"
-        or (not _os.environ.get("K_SERVICE", "") and not _os.environ.get("GAE_ENV", ""))
-    )
-    else "https://goldkey-ai-817097913199.asia-northeast3.run.app"
+    "https://goldkey-ai-817097913199.asia-northeast3.run.app"
+    if _on_cloud
+    else "http://localhost:8501"
+)
+CRM_APP_URL = (
+    "https://goldkey-crm-vje5ef5qka-du.a.run.app"
+    if _on_cloud
+    else "http://localhost:8502"
 )
 
 # ── 고객 데이터 스키마 (모/자 앱 공통) ────────────────────────────────────────

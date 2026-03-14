@@ -28,6 +28,7 @@ from shared_components import (
     build_deeplink_to_hq,
     build_sso_redirect,
     HQ_APP_URL,
+    CRM_APP_URL,
 )
 
 # ── 페이지 설정 ───────────────────────────────────────────────────────────────
@@ -76,7 +77,7 @@ _IS_LOCAL = (
     or os.environ.get("GAE_ENV", "") == ""
     and not os.environ.get("K_SERVICE", "")  # Cloud Run 환경변수 없으면 로컬
 )
-CRM_URL = st.secrets.get("CRM_URL", "http://localhost:8502")
+CRM_URL = st.secrets.get("CRM_URL", CRM_APP_URL)
 
 def _check_sso_token() -> bool:
     """URL에서 SSO 토큰 수신 → 세션 설정 → 인증 완료."""
