@@ -19,28 +19,44 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# [3] 프리미엄 스플래시 화면 렌더링
+# [3] 프리미엄 스플래시 (모바일/태블릿 반응형)
 if not st.session_state['initialized']:
+    # 반응형 이미지 전환을 위한 CSS 추가
+    st.markdown("""
+        <style>
+            /* 기본적으로 둘 다 숨김 */
+            .mobile-only, .tablet-only { display: none; }
+
+            /* 화면 너비가 768px 미만일 때 (핸드폰) */
+            @media (max-width: 767px) {
+                .mobile-only { display: block !important; }
+            }
+
+            /* 화면 너비가 768px 이상일 때 (태블릿/PC) */
+            @media (min-width: 768px) {
+                .tablet-only { display: block !important; }
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     splash_placeholder = st.empty()
     with splash_placeholder.container():
         st.markdown("<br><br>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
-            st.image("splash_mobile.jpg", use_container_width=True)
-            st.info("🚀 **Goldkey_AI_Masters가 구동중! 최적의 분석 환경을 준비하고 있습니다...**")
-    st.session_state['splash_placeholder'] = splash_placeholder
-# 
-# [4] 프리미엄 스플래시 (5초 유지 후 자동 퇴장 로직)
-if not st.session_state['initialized']:
-    splash_placeholder = st.empty()
-    with splash_placeholder.container():
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([1, 2, 1])
-        with c2:
-            st.image("splash_mobile.jpg", use_container_width=True)
-            st.info("🚀 **Goldkey_AI_Masters가 구동중! 최적의 분석 환경을 준비하고 있습니다...**")
-    
-    # 🕒 설계사님 요청: 5초간 브랜드 노출 유지
+            # 📱 핸드폰용 이미지 렌더링
+            st.markdown('<div class="mobile-only">', unsafe_allow_html=True)
+            st.image("splash_mobile.png", use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # 📑 태블릿용 이미지 렌더링
+            st.markdown('<div class="tablet-only">', unsafe_allow_html=True)
+            st.image("splash_tablet.png", use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.info("🚀 **Goldkey_AI_Masters가 기기에 최적화된 환경을 준비 중입니다...**")
+
+    # 🕒 5초간 브랜드 노출 유지
     time.sleep(5)
     
     # 퇴장 처리
@@ -28597,16 +28613,6 @@ def main():
     # ── STEP 1: set_page_config → 최상단(파일 로드 즉시)으로 이전 완료 ──────
     # [제53조] 사이드바 expanded는 최상단 set_page_config에서 보장됨
 
-    # ── 스플래시 제거 + 사이드바 collapsed 전환 ────────────────────────────────
-    if not st.session_state.get("initialized"):
-        if st.session_state.get("splash_placeholder") is not None:
-            try:
-                st.session_state["splash_placeholder"].empty()
-            except Exception:
-                pass
-            st.session_state["splash_placeholder"] = None
-        st.session_state["initialized"] = True
-        st.rerun()  # set_page_config를 collapsed로 재실행
     # 세션 백업에서 복원 (rerun 후 user_id 유실 방지)
     _early_saved_uid = st.session_state.get("_saved_user_id")
     if not st.session_state.get("user_id") and _early_saved_uid and not st.session_state.get("_logout_flag"):
