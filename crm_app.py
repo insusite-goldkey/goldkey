@@ -200,9 +200,10 @@ TAB_BRIEFING  = "🌅 AI 브리핑"
 TAB_CUSTOMERS = "👥 고객 목록"
 TAB_SCHEDULE  = "📅 일정"
 TAB_DEEPLINK  = "🚀 HQ 연결"
+TAB_HQ_GUIDE  = "🏢 HQ 앱 안내"
 
 _active_tab = st.session_state.get("crm_tab", TAB_BRIEFING)
-tab1, tab2, tab3, tab4 = st.tabs([TAB_BRIEFING, TAB_CUSTOMERS, TAB_SCHEDULE, TAB_DEEPLINK])
+tab1, tab2, tab3, tab4, tab5 = st.tabs([TAB_BRIEFING, TAB_CUSTOMERS, TAB_SCHEDULE, TAB_DEEPLINK, TAB_HQ_GUIDE])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1: AI 아침 브리핑 — 우선순위 고객 3명 + 오늘 일정
@@ -515,6 +516,88 @@ with tab4:
                 f'border:1px dashed #93c5fd;">{label}</a>',
                 unsafe_allow_html=True,
             )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 5: HQ 앱 설치 안내 — 온보딩 안내 데스크
+# ══════════════════════════════════════════════════════════════════════════════
+with tab5:
+    st.markdown('<div class="gk-section-title">🏢 Goldkey HQ 마스터 앱 설치 센터</div>',
+                unsafe_allow_html=True)
+
+    with st.container(border=True):
+        st.info(
+            "더 깊고 정밀한 증권분석과 세부 상담(암·뇌혈관·화재 등)은 **HQ 마스터 앱**에서 진행됩니다.\n\n"
+            "완벽한 상담을 위해 태블릿이나 스마트폰에 정식 앱을 다운로드해 주세요."
+        )
+
+        # ── 역할 분담 안내 ──────────────────────────────────────────────────────
+        st.markdown(
+            "<div style='background:#eff6ff;border:1px dashed #000;border-radius:10px;"
+            "padding:12px 16px;margin-bottom:12px;font-size:0.85rem;color:#1e3a8a;'>"
+            "<b>📌 역할 분담</b><br>"
+            "<span style='color:#374151;'>"
+            "✅ <b>CRM 앱 (현재 앱)</b> — 현장 스캐너 · 고객 리스트 · 일정 · 빠른 딥링크 발사대<br>"
+            "🏢 <b>HQ 마스터 앱</b> — 정밀 암/뇌혈관/화재 분석 · KB 7대 보장공백 진단 · AI 종합 리포트"
+            "</span></div>",
+            unsafe_allow_html=True,
+        )
+
+        st.divider()
+
+        # ── 스토어 설치 버튼 ────────────────────────────────────────────────────
+        st.markdown("**📲 정식 앱 다운로드**")
+        _inst_c1, _inst_c2 = st.columns(2)
+        with _inst_c1:
+            st.link_button(
+                "🤖 Google Play 다운로드",
+                "https://play.google.com/",
+                use_container_width=True,
+            )
+        with _inst_c2:
+            st.link_button(
+                "🍎 App Store 다운로드",
+                "https://www.apple.com/app-store/",
+                use_container_width=True,
+            )
+
+        st.link_button(
+            "💻 웹 버전 즉시 실행 (PC / 태블릿)",
+            HQ_APP_URL,
+            use_container_width=True,
+        )
+
+        st.divider()
+
+        # ── 사용법 가이드 (아코디언) ─────────────────────────────────────────────
+        with st.expander("💡 HQ 앱과 CRM 앱, 어떻게 같이 쓰나요?", expanded=True):
+            st.markdown(
+                "<div style='border:1px dashed #000;border-radius:10px;"
+                "padding:14px 18px;background:#ffffff;font-size:0.87rem;line-height:2.0;'>"
+                "<b style='color:#1e3a8a;font-size:0.95rem;'>3단계 연동 워크플로우</b><br><br>"
+                "1️⃣ <b>현장 스캔</b><br>"
+                "&nbsp;&nbsp;&nbsp;CRM 앱(현재 앱)으로 고객 증권을 스캔하고 상담 일정을 잡습니다.<br><br>"
+                "2️⃣ <b>HQ 호출</b><br>"
+                "&nbsp;&nbsp;&nbsp;정밀 분석이 필요할 때, 고객 카드의 "
+                "<b style='background:#1e3a8a;color:#fff;padding:1px 6px;border-radius:4px;'>"
+                "🚀 HQ 정밀 분석 진행</b> 버튼을 누릅니다.<br><br>"
+                "3️⃣ <b>마법 같은 연동</b><br>"
+                "&nbsp;&nbsp;&nbsp;추가 로그인 없이 HQ 앱이 즉시 열리며, "
+                "<b>해당 고객의 분석 화면으로 자동 이동</b>합니다!"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+        st.divider()
+
+        # ── QR 코드 힌트 ────────────────────────────────────────────────────────
+        st.markdown(
+            "<div style='background:#f9fafb;border:1px dashed #000;border-radius:10px;"
+            "padding:12px 16px;font-size:0.82rem;color:#374151;text-align:center;'>"
+            "📱 <b>태블릿 사용자 팁</b> — 태블릿에서 QR 코드를 스캔하면 바로 HQ 웹 버전이 실행됩니다.<br>"
+            f"<span style='font-size:0.75rem;color:#6b7280;'>웹 주소: {HQ_APP_URL}</span>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
 
 # ── 푸터 ─────────────────────────────────────────────────────────────────────
 st.markdown("---")
