@@ -444,7 +444,7 @@ def render_auth_screen(
     [GP-SEC §5] 공통 로그인/약관 동의 UI.
     HQ 앱(사이드바 내부)과 CRM 앱(메인 화면) 양쪽에서 호출.
 
-    약관 원문을 st.container(height=150) 스크롤 박스에 렌더링하고,
+    약관 원문을 HTML div 스크롤 박스에 렌더링하고,
     동의 체크박스가 체크된 경우에만 로그인 버튼 활성화 가능하도록
     bool 값(동의 여부)을 반환한다.
 
@@ -452,17 +452,61 @@ def render_auth_screen(
         True  — 약관 동의 완료 (로그인 버튼 활성화 허용)
         False — 미동의 (로그인 버튼 disabled 처리)
     """
+    # ── 아바타 로드 (get_goldkey_avatar 공통 함수 없을 경우 플레이스홀더) ──
+    _av_src = ""
+    try:
+        import sys
+        for _mod in sys.modules.values():
+            if hasattr(_mod, "get_goldkey_avatar"):
+                _av_src = _mod.get_goldkey_avatar()
+                break
+    except Exception:
+        pass
+    _av_html = (
+        f'<img src="{_av_src}" width="90" height="90" loading="eager"'
+        ' style="border-radius:50%;border:3px solid #D4AF37;'
+        'box-shadow:0 3px 14px rgba(212,175,55,0.4);object-fit:cover;'
+        'display:block;margin:0 auto 10px auto;" />'
+        if _av_src else
+        '<div style="width:90px;height:90px;border-radius:50%;'
+        'background:linear-gradient(135deg,#1e3a8a,#D4AF37);'
+        'margin:0 auto 10px auto;border:3px solid #D4AF37;"></div>'
+    )
     st.markdown(
+        f"<div style='text-align:center;margin-bottom:8px;'>"
+        f"{_av_html}"
         f"<div style='font-size:1.0rem;font-weight:900;color:#1e3a8a;"
-        f"margin-bottom:6px;'>{app_icon} {app_name} 이용약관 동의</div>",
+        f"margin-bottom:2px;'>{app_icon} {app_name} 이용약관 동의</div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
-    with st.container(height=150):
-        st.markdown(
-            f"<pre style='font-size:0.72rem;line-height:1.6;color:#374151;"
-            f"white-space:pre-wrap;word-break:keep-all;'>{_TERMS_TEXT}</pre>",
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        "<div style='max-height:160px;overflow-y:auto;font-size:0.78rem;"
+        "color:#333;line-height:1.8;border:1px solid #ddd;border-radius:8px;"
+        "padding:10px 12px;background:#f9fafb;margin-bottom:8px;'>"
+        "<b style='font-size:0.85rem;color:#0a1628;'>[제1조] 목적</b><br>"
+        "본 약관은 Goldkey AI Master Lab. Beta(이하 '서비스')의 이용 조건 및 절차,"
+        " 운영자와 회원 간의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다."
+        "<br><br>"
+        "<b style='font-size:0.85rem;color:#0a1628;'>[제2조] 서비스 이용 조건</b><br>"
+        "• 현재 <b>전체 무료</b> 베타 서비스 운영 중<br>"
+        "• 회원 1인당 <b>1일 10회</b> AI 상담 이용 제한<br>"
+        "• <b>사용기간: 2026.08.31. 한정</b><br>"
+        "• 만 19세 이상 보험 관련 업무 종사자 및 관심 고객 대상"
+        "<br><br>"
+        "<b style='font-size:0.85rem;color:#0a1628;'>[제5조] 개인정보 수집 및 이용</b><br>"
+        "• <b>수집 항목:</b> 이름, 연락처(암호화 저장), 이용 횟수<br>"
+        "• <b>이용 목적:</b> 회원 인증, 이용 한도 관리, 서비스 품질 개선<br>"
+        "• <b>보유 기간:</b> 회원 탈퇴 후 즉시 파기<br>"
+        "• 연락처(비밀번호): SHA-256 단방향 해시로 저장 — 운영자 포함 누구도 원문 열람 불가<br>"
+        "• 세션 종료 시 상담 내용 자동 파기"
+        "<br><br>"
+        "<b style='font-size:0.85rem;color:#0a1628;'>[제8조] 면책 고지</b><br>"
+        "본 서비스는 AI 기술을 활용한 상담 <b>보조</b> 도구이며, 모든 분석 결과의"
+        " 최종 판단 및 법적 책임은 <b>사용자(상담원)</b>에게 있습니다."
+        "</div>",
+        unsafe_allow_html=True,
+    )
     agreed = st.checkbox(
         "위 이용약관 및 개인정보(암호화/보관/파기) 정책에 동의합니다.",
         value=st.session_state.get(terms_agree_key, False),

@@ -28598,43 +28598,66 @@ footer, footer * { display: none !important; }
 #MainMenu, [data-testid="stMainMenuButton"] { display: none !important; }
 </style>""", unsafe_allow_html=True)
         # ── [메인 화면 로그인 폼] 사이드바 의존 완전 제거 ──
+        _main_av = get_goldkey_avatar()
+        _main_av_html = (
+            f'<img src="{_main_av}" width="110" height="110" loading="eager"'
+            ' style="border-radius:50%;border:4px solid #D4AF37;'
+            'box-shadow:0 4px 20px rgba(212,175,55,0.4);object-fit:cover;'
+            'display:block;margin:0 auto 14px auto;" />' if _main_av else
+            '<div style="width:110px;height:110px;border-radius:50%;'
+            'background:linear-gradient(135deg,#1e3a8a,#D4AF37);'
+            'margin:0 auto 14px auto;"></div>'
+        )
         st.markdown(
-            "<div style='text-align:center;padding:20px 20px 10px;'>"
-            "<div style='font-size:2.0rem;font-weight:900;color:#1e3a8a;margin-bottom:6px;'>\U0001f3c6 Goldkey AI Masters 2026</div>"
-            "<div style='font-size:0.95rem;color:#374151;'>아래에서 로그인하세요</div>"
+            f"<div style='text-align:center;padding:20px 20px 6px;'>"
+            f"{_main_av_html}"
+            "<div style='font-size:1.8rem;font-weight:900;color:#1e3a8a;margin-bottom:4px;'>🏆 Goldkey AI Masters 2026</div>"
+            "<div style='font-size:0.9rem;color:#374151;margin-bottom:8px;'>아래에서 로그인하세요</div>"
             "</div>",
             unsafe_allow_html=True,
         )
         _mc1, _mc2, _mc3 = st.columns([1, 2, 1])
         with _mc2:
-            if _sc_render_auth_screen:
-                _main_agreed = _sc_render_auth_screen(
-                    app_name="Goldkey AI Masters 2026",
-                    app_icon="\U0001f3c6",
-                    terms_agree_key="_gp_terms_agreed",
-                )
-            else:
+            # 약관 expander
+            with st.expander("📜 이용약관 동의 (필수)", expanded=True):
+                st.markdown("""
+<div style="max-height:180px;overflow-y:auto;font-size:0.78rem;color:#333;line-height:1.8;border:1px solid #ddd;border-radius:8px;padding:10px 12px;background:#f9fafb;">
+<b style="font-size:0.88rem;color:#0a1628;">[제1조] 목적</b><br>
+본 약관은 Goldkey AI Master Lab. Beta(이하 "서비스")의 이용 조건 및 절차, 운영자와 회원 간의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
+<br><br>
+<b style="font-size:0.88rem;color:#0a1628;">[제2조] 서비스 이용 조건</b><br>
+• 현재 <b>전체 무료</b> 베타 서비스 운영 중<br>
+• 회원가입 후 모든 기능 무료 제공<br>
+• 회원 1인당 <b>1일 10회</b> AI 상담 이용 제한<br>
+• <b>사용기간: 2026.08.31. 한정</b><br>
+• 만 19세 이상 보험 관련 업무 종사자 및 관심 고객 대상
+<br><br>
+<b style="font-size:0.88rem;color:#0a1628;">[제5조] 개인정보 수집 및 이용</b><br>
+• <b>수집 항목:</b> 이름, 연락처(암호화 저장), 이용 횟수<br>
+• <b>이용 목적:</b> 회원 인증, 이용 한도 관리, 서비스 품질 개선<br>
+• <b>보유 기간:</b> 회원 탈퇴 후 즉시 파기<br>
+• 연락처(비밀번호): SHA-256 단방향 해시로 저장 — 운영자 포함 누구도 원문 열람 불가<br>
+• 세션 종료 시 상담 내용 자동 파기
+<br><br>
+<b style="font-size:0.88rem;color:#0a1628;">[제8조] 면책 고지</b><br>
+본 서비스는 AI 기술을 활용한 상담 <b>보조</b> 도구이며, 모든 분석 결과의 최종 판단 및 법적 책임은 <b>사용자(상담원)</b>에게 있습니다.
+</div>""", unsafe_allow_html=True)
                 _main_agreed = st.checkbox(
-                    "이용약관 및 개인정보 처리방침에 동의합니다.",
+                    "위 이용약관 및 개인정보(암호화/보관/파기) 정책에 동의합니다.",
                     value=st.session_state.get("_gp_terms_agreed", False),
                     key="_gp_terms_agreed",
                 )
+                if not _main_agreed:
+                    st.warning("⚠️ 약관에 동의하셔야 로그인/가입 버튼이 활성화됩니다.")
             if _main_agreed:
                 _tab_l, _tab_s, _tab_pw, _tab_nm = st.tabs(["\U0001f511 로그인", "\U0001f4dd 회원가입", "\U0001f512 비번변경", "\U0000270f\ufe0f 이름변경"])
                 with _tab_l:
                     import random as _rnd2
                     _lp2 = st.session_state.get("_main_login_phase", "A")
                     if _lp2 == "A":
-                        _tr2 = st.session_state.setdefault("_main_tr", {})
-                        _tr2["t1"] = st.checkbox("\u2705 [필수] 개인정보 수집·이용 동의",      value=_tr2.get("t1", False), key="_main_t1")
-                        _tr2["t2"] = st.checkbox("\u2705 [필수] 서비스 이용약관 동의",          value=_tr2.get("t2", False), key="_main_t2")
-                        _tr2["t3"] = st.checkbox("\u2705 [필수] 암호화 보관·영구보관 동의",     value=_tr2.get("t3", False), key="_main_t3")
-                        _tr2["t4"] = st.checkbox("\u2705 [필수] 서비스 면책 및 이용 안내 동의", value=_tr2.get("t4", False), key="_main_t4")
-                        _all2 = _tr2.get("t1") and _tr2.get("t2") and _tr2.get("t3") and _tr2.get("t4")
                         _name2    = st.text_input("\U0001f464 이름",   key="main_login_name",    placeholder="가입 시 등록한 이름",        label_visibility="collapsed")
                         _contact2 = st.text_input("\U0001f4f1 연락처", type="password", key="main_login_contact", placeholder="연락처 (숫자만, - 제외)", label_visibility="collapsed")
-                        if not _all2:
-                            st.warning("\u26a0\ufe0f 필수 항목 4개 모두 동의 후 로그인 가능합니다.")
+                        _all2 = _main_agreed
                         if st.button("\U0001f510 AI 마스터 로그인", key="main_login_btn", use_container_width=True, type="primary", disabled=not bool(_all2)):
                             _n2  = (_name2    or "").strip()
                             _c2v = (_contact2 or "").strip()

@@ -111,20 +111,44 @@ if _check_sso_token():
 
 # ── [GP-SEC §2] 미인증 처리 — 자체 로그인 화면 독립 렌더링 ─────────────────────
 if not _is_authenticated():
-    st.markdown("""
-<div style="max-width:480px;margin:40px auto;background:#fff;
-  border:1px dashed #000;border-radius:20px;padding:28px;text-align:center;
-  box-shadow:0 2px 12px rgba(0,0,0,0.08);">
-  <div style="font-size:2.4rem;margin-bottom:6px;">📱</div>
-  <div style="font-size:1.2rem;font-weight:900;color:#1e3a8a;margin-bottom:2px;">골드키 CRM</div>
-  <div style="font-size:0.78rem;color:#6b7280;margin-bottom:16px;">현장 기동대 · 보안 통합 인증</div>
-</div>""", unsafe_allow_html=True)
-
-    with st.container():
+    # ── 아바타 로드 (shared_components 경유) ──────────────────────────────
+    _crm_av_src = ""
+    try:
+        import sys as _sys
+        for _m in _sys.modules.values():
+            if hasattr(_m, "get_goldkey_avatar"):
+                _crm_av_src = _m.get_goldkey_avatar()
+                break
+    except Exception:
+        pass
+    _crm_av_html = (
+        f'<img src="{_crm_av_src}" width="100" height="100" loading="eager"'
+        ' style="border-radius:50%;border:4px solid #D4AF37;'
+        'box-shadow:0 4px 18px rgba(212,175,55,0.4);object-fit:cover;'
+        'display:block;margin:0 auto 12px auto;" />'
+        if _crm_av_src else
+        '<div style="width:100px;height:100px;border-radius:50%;'
+        'background:linear-gradient(135deg,#1e3a8a,#D4AF37);'
+        'margin:0 auto 12px auto;border:4px solid #D4AF37;"></div>'
+    )
+    _crm_c1, _crm_c2, _crm_c3 = st.columns([1, 2, 1])
+    with _crm_c2:
+        st.markdown(
+            f"<div style='text-align:center;padding:24px 0 8px;'>"
+            f"{_crm_av_html}"
+            "<div style='font-size:1.6rem;font-weight:900;color:#1e3a8a;margin-bottom:3px;'>"
+            "🏆 Goldkey AI Masters 2026</div>"
+            "<div style='font-size:0.9rem;font-weight:700;color:#374151;margin-bottom:2px;'>"
+            "📱 골드키 CRM — 현장 기동대</div>"
+            "<div style='font-size:0.75rem;color:#6b7280;margin-bottom:14px;'>"
+            "고객정보 · 상담 · 내보험다보여 전용 앱</div>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
         # ── [GP-SEC §5] 공통 약관 동의 UI ────────────────────────────────────
         _crm_agreed = _sc_render_auth_screen(
-            app_name="골드키 CRM",
-            app_icon="📱",
+            app_name="Goldkey AI Masters 2026",
+            app_icon="🏆",
             terms_agree_key="_crm_terms_agreed",
         )
 
