@@ -3057,11 +3057,12 @@ def _gp140_save_token_js(user_id: str, user_name: str,
     """
     import json as _json
     _payload = _json.dumps({
-        "uid":   user_id,
-        "uname": user_name,
-        "role":  user_role,
-        "tok":   token,
-        "ts":    0,
+        "uid":      user_id,
+        "uname":    user_name,
+        "role":     user_role,
+        "is_admin": st.session_state.get("is_admin", False),
+        "tok":      token,
+        "ts":       0,
     }, ensure_ascii=False)
     _escaped = _payload.replace("'", "\\'").replace("`", "\\`")
     return f"""
@@ -3128,11 +3129,22 @@ def _gp140_restore_from_ls() -> bool:
             _uname = _data.get("uname", "")
             _role  = _data.get("role", "")
             if _uid and _uname:
-                st.session_state["user_id"]   = _uid
-                st.session_state["user_name"] = _uname
-                st.session_state["user_role"] = _role
+                st.session_state["user_id"]       = _uid
+                st.session_state["user_name"]     = _uname
+                st.session_state["user_role"]     = _role
+                st.session_state["is_admin"]      = _data.get("is_admin", False)
                 st.session_state["authenticated"] = True
                 st.session_state["_gp140_restored"] = True
+                # [GP140-FIX] join_date 복원 — members DB 재조회
+                try:
+                    _mbs140 = load_members()
+                    if _uname in _mbs140:
+                        _jd140_str = _mbs140[_uname].get("join_date", "")
+                        if _jd140_str:
+                            import datetime as _dt140
+                            st.session_state["join_date"] = _dt140.datetime.strptime(_jd140_str, "%Y-%m-%d")
+                except Exception:
+                    pass
                 # 탭 복원
                 _tab_raw = _qp.get("_gp140t", "")
                 if _tab_raw and not st.session_state.get("current_tab"):
@@ -28472,14 +28484,12 @@ def main():
     _is_auth_now = bool(st.session_state.get("user_id") or st.session_state.get("authenticated"))
     # ── [EARLY-CUR] current_tab 최상단 조기 정의 — NameError 방지 ────────
     cur = st.session_state.get("current_tab", "home")
-    # ── [ID-000-NAV] 로그인 후 사이드바 — 항상-실행 블록 ─────────────────────
-    # 기존 with st.sidebar: 가 if not _is_auth_now: 안에만 있어 로그인 후 미렌더
-    # 수정: if _is_auth_now 일 때 별도 with st.sidebar: 로 항상 렌더 보장
-    if _is_auth_now:
-        with st.sidebar:
-            render_goldkey_sidebar()
-            # 사이드바 열기 JS — get()으로 읽기만 (pop 금지: 메인 영역 풀버전 JS가 소비)
-            # 31901줄의 components.html() 풀버전 JS가 실제 사이드바 열기 담당
+    # ── [ID-000-NAV] 사이드바 — 로그인 여부와 무관하게 항상 렌더링 ─────────────
+    with st.sidebar:
+        # 아바타 박스는 로그인 전/후 항상 표시
+        render_goldkey_sidebar()
+        if _is_auth_now:
+            # 사이드바 열기 JS — pop 금지: 메인 영역 풀버전 JS가 소비
             pass  # [ID-000-NAV] 플래그 소비는 메인 영역(31901줄)에서 처리
             # 로그인 후 사용자 카드
             _nav_uname = st.session_state.get('user_name','') or st.session_state.get('user_id','마스터')
@@ -28516,43 +28526,58 @@ def main():
                 else:
                     st.info('👤 일반 회원')
                     st.caption('이름/연락처 변경: 메인 화면 → 내 정보 탭')
+        else:
+            st.info('🔑 로그인 후 이용하세요')
 
     if not _is_auth_now:
         # 사이드바 강제 노출 CSS — position:fixed로 Streamlit 인라인 transform 완전 우회
         st.markdown("""<style>
 /* [미인증 사이드바 강제 노출] Streamlit이 주입하는 translateX(-100%) 완전 무력화 */
-section[data-testid="stSidebar"] {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    height: 100vh !important;
-    z-index: 999999 !important;
-    display: flex !important;
-    transform: none !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    width: 260px !important;
-    min-width: 260px !important;
-    max-width: 320px !important;
-    pointer-events: auto !important;
-    overflow-y: auto !important;
-    background-color: #ffffff !important;
-    box-shadow: 2px 0 12px rgba(0,0,0,0.15) !important;
+/* 데스크탑(769px 이상): 사이드바 고정 + 메인 영역 밀기 */
+@media (min-width: 769px) {
+    section[data-testid="stSidebar"] {
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        height: 100vh !important;
+        z-index: 999999 !important;
+        display: flex !important;
+        transform: none !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        width: 260px !important;
+        min-width: 260px !important;
+        max-width: 320px !important;
+        pointer-events: auto !important;
+        overflow-y: auto !important;
+        background-color: #ffffff !important;
+        box-shadow: 2px 0 12px rgba(0,0,0,0.15) !important;
+    }
+    section[data-testid="stSidebar"] > div:first-child {
+        transform: none !important;
+        width: 100% !important;
+    }
+    section[data-testid="stMain"],
+    [data-testid="stAppViewContainer"] > section:not([data-testid="stSidebar"]) {
+        margin-left: 260px !important;
+    }
 }
-section[data-testid="stSidebar"] > div:first-child {
-    transform: none !important;
-    width: 100% !important;
+/* 모바일(768px 이하): 사이드바 완전 숨김 — 메인 영역 전체 사용 */
+@media (max-width: 768px) {
+    section[data-testid="stSidebar"] {
+        display: none !important;
+    }
+    section[data-testid="stMain"],
+    [data-testid="stAppViewContainer"] > section:not([data-testid="stSidebar"]) {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
 }
 /* 사이드바 토글 버튼 완전 숨김 (미인증 시 접기 불가) */
 [data-testid="collapsedControl"],
 [data-testid="stSidebarCollapseButton"],
 button[aria-label="Close sidebar"],
 button[aria-label="사이드바를 열거나 닫으세요"] { display: none !important; }
-/* 메인 컨텐츠 영역 사이드바 너비만큼 오른쪽으로 밀기 */
-section[data-testid="stMain"],
-[data-testid="stAppViewContainer"] > section:not([data-testid="stSidebar"]) {
-    margin-left: 260px !important;
-}
 footer, footer * { display: none !important; }
 #MainMenu, [data-testid="stMainMenuButton"] { display: none !important; }
 </style>""", unsafe_allow_html=True)
@@ -29249,7 +29274,10 @@ footer, footer * { display: none !important; }
                         """인증 성공 처리 — 기존 session_state 세팅 그대로 유지"""
                         members = load_members()
                         m = members[ln]
-                        _jd = dt.strptime(m["join_date"], "%Y-%m-%d")
+                        try:
+                            _jd = dt.strptime(m.get("join_date", ""), "%Y-%m-%d")
+                        except (ValueError, TypeError):
+                            _jd = dt.now()
                         _adm = (ln in _get_unlimited_users())
                         for _ck in ["dc_priv_cache","cc_file_cache","dc_ai_company",
                                     "dc_ai_doctype","dc_ai_tags","dc_ai_conf",
