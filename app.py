@@ -38743,22 +38743,21 @@ function selectCustomer(name) {{
             _pf_c1, _pf_c2, _pf_c3 = st.columns(3, gap="medium")
             with _pf_c1:
                 st.markdown(f"""<div style="background:#E3F2FD;border:1.5px solid #90CAF9;
-      border-radius:12px;padding:14px 14px 10px 14px;position:relative;min-height:170px;">
+      border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
       {_bid('1-5-1')}
       <div style="font-size:0.78rem;font-weight:900;color:#1565C0;letter-spacing:0.08em;
-        text-transform:uppercase;margin-bottom:6px;">### A-SECTION: Smart Analysis &amp; Hub</div>
-      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-        <li>보험증권 분석</li>
-        <li>약관 매칭 검색</li>
-        <li>통합 스캔 허브</li>
-        <li>리플렛 분류</li>
-        <li>고객자료 저장함</li>
-        <li>디지털 카탈로그</li>
-        <li>AI 자동 리포트</li>
-      </ol>
+        text-transform:uppercase;margin-bottom:2px;">🔬 A-SECTION: Smart Analysis &amp; Hub</div>
     </div>""", unsafe_allow_html=True)
-                if st.button("🔬 A섹션 입장 → 보험증권 분석", key="ag_a_enter", use_container_width=True):
-                    _go_tab("policy_scan")
+                _a_c1, _a_c2 = st.columns(2, gap="small")
+                with _a_c1:
+                    if st.button("① 보험증권 분석",   key="ag_a1", use_container_width=True): _go_tab("policy_scan")
+                    if st.button("② 약관 매칭 검색",  key="ag_a2", use_container_width=True): _go_tab("policy_terms")
+                    if st.button("③ 통합 스캔 허브",  key="ag_a3", use_container_width=True): _go_tab("scan_hub")
+                    if st.button("④ 리플렛 분류",     key="ag_a4", use_container_width=True): _go_tab("leaflet")
+                with _a_c2:
+                    if st.button("⑤ 고객자료 저장함", key="ag_a5", use_container_width=True): _go_tab("customer_docs")
+                    if st.button("⑥ 디지털 카탈로그", key="ag_a6", use_container_width=True): _go_tab("digital_catalog")
+                    if st.button("⑦ AI 자동 리포트",  key="ag_a7", use_container_width=True): _go_tab("report43")
             with _pf_c2:
                 st.markdown(f"""<div style="background:#F3E5F5;border:1.5px solid #CE93D8;
       border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
