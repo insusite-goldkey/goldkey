@@ -28708,7 +28708,13 @@ footer, footer * { display: none !important; }
                                             _fernet_ok = (_dec == _clean_c2v) or (_dec == _c2v)
                                         except Exception:
                                             _fernet_ok = False
-                                    _m2_ok = _pin_ok or _contact_hash_ok or _fernet_ok
+                                    # Track 4: Legacy — 하이픈 포함 입력으로 가입한 기존 회원 복구
+                                    _legacy_ok = False
+                                    if not _pin_ok and not _contact_hash_ok and not _fernet_ok:
+                                        _raw_hash4 = hashlib.sha256((_contact2 or "").strip().encode()).hexdigest()
+                                        _legacy_ok = (bool(_m2_pin) and _m2_pin == _raw_hash4) or \
+                                                     (bool(_m2_contact) and _m2_contact == _raw_hash4)
+                                    _m2_ok = _pin_ok or _contact_hash_ok or _fernet_ok or _legacy_ok
                                     if _m2_ok:
                                         _otp2 = str(_rnd2.randint(100000, 999999))
                                         st.session_state["_main_otp"]         = _otp2
@@ -28719,7 +28725,35 @@ footer, footer * { display: none !important; }
                                     else:
                                         st.error("❌ 연락처가 일치하지 않습니다.")
                     elif _lp2 == "B":
-                        _otp_inp2 = st.text_input("🔢 인증번호 6자리", key="main_otp_input", placeholder="화면의 6자리 숫자 입력")
+                        _otp_show2 = st.session_state.get("_main_otp", "")
+                        _ln_show2  = st.session_state.get("_main_login_name", "")
+                        st.markdown(f"""
+<div style='background:#E8F5E9;border-radius:12px;padding:12px 16px;
+  margin-bottom:8px;text-align:center;border:1.5px solid #A5D6A7;
+  box-shadow:0 2px 8px rgba(76,175,80,0.12);'>
+  <div style='font-weight:800;font-size:0.95rem;color:#000000;margin-bottom:3px;'>
+    ✅ 본인 확인 완료
+  </div>
+  <div style='font-size:0.8rem;color:#333333;'>{_ln_show2}님, 아래 OTP 번호로 최종 인증하세요</div>
+</div>""", unsafe_allow_html=True)
+                        st.markdown(f"""
+<div style='background:#FFF9C4;border:2px dashed #000000;border-radius:12px;
+  padding:18px 10px;margin-bottom:10px;text-align:center;'>
+  <div style='font-size:0.72rem;color:#7c4d00;margin-bottom:8px;font-weight:700;
+    letter-spacing:0.04em;'>📱 인증번호 (임시 화면 표시)</div>
+  <div style='font-size:3.6rem;font-weight:900;letter-spacing:0.28em;
+    color:#000000;line-height:1.2;'>{_otp_show2}</div>
+</div>""", unsafe_allow_html=True)
+                        st.markdown("""
+<div style='background:#f0f9ff;border-top:3px solid #0369a1;border-bottom:3px solid #0369a1;
+  border-radius:10px;padding:8px 14px;margin-bottom:6px;text-align:center;'>
+  <div style='font-size:0.88rem;font-weight:900;color:#1e3a5f;'>
+    🔢 위쪽 <span style='color:#E53935;'>6자리 인증번호</span>를 아래 입력창에 입력하세요
+  </div>
+</div>""", unsafe_allow_html=True)
+                        _otp_inp2 = st.text_input("6자리 인증번호", key="main_otp_input",
+                                                   placeholder="6자리 숫자 입력",
+                                                   label_visibility="collapsed")
                         if st.button("✅ 인증 완료", key="main_otp_confirm", use_container_width=True, type="primary"):
                             if (_otp_inp2 or "").strip() == st.session_state.get("_main_otp", ""):
                                 _ln2  = st.session_state.get("_main_login_name", "")
@@ -28744,19 +28778,21 @@ footer, footer * { display: none !important; }
                     _sc2c = st.text_input("📱 연락처 확인", type="password", key="main_signup_contact2", placeholder="연락처 재입력")
                     if st.button("📝 회원가입", key="main_signup_btn", use_container_width=True, type="primary"):
                         _sn = (_sn or "").strip(); _sc2 = (_sc2 or "").strip()
+                        _sc2_clean  = _sc2.replace("-", "").replace(" ", "")
+                        _sc2c_clean = (_sc2c or "").strip().replace("-", "").replace(" ", "")
                         if not _sn or len(_sn) < 2:
                             st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
-                        elif not _sc2 or len(_sc2) < 10:
+                        elif not _sc2_clean or len(_sc2_clean) < 10:
                             st.error("⚠️ 연락처를 올바르게 입력해 주세요. (숫자만 10~11자리)")
-                        elif _sc2 != (_sc2c or "").strip():
+                        elif _sc2_clean != _sc2c_clean:
                             st.error("⚠️ 연락처가 일치하지 않습니다.")
                         else:
                             _mbs_su = load_members(force=True)
                             if _sn in _mbs_su:
                                 st.error("❌ 이미 가입된 이름입니다.")
                             else:
-                                _h_su = hashlib.sha256(_sc2.encode()).hexdigest()
-                                _uid_su = hashlib.md5(f"{_sn}{_sc2}".encode()).hexdigest()[:12]
+                                _h_su = hashlib.sha256(_sc2_clean.encode()).hexdigest()
+                                _uid_su = hashlib.md5(f"{_sn}{_sc2_clean}".encode()).hexdigest()[:12]
                                 try:
                                     _sb_su = _get_sb_client()
                                     if _sb_su:
@@ -29137,7 +29173,19 @@ footer, footer * { display: none !important; }
                                             _fernet_ok_a = (_dec_a == _clean_lc) or (_dec_a == _lc_a)
                                         except Exception:
                                             _fernet_ok_a = False
-                                    _ok_a = (_ln_a in _mbs) and (_pin_ok_a or _chash_ok_a or _fernet_ok_a)
+                                    # Track 4: Legacy — 하이픈 포함 입력으로 가입한 기존 회원 복구
+                                    _legacy_ok_a = False
+                                    if not _pin_ok_a and not _chash_ok_a and not _fernet_ok_a:
+                                        _lc_hyp_a = ""
+                                        if len(_lc_a) == 11:
+                                            _lc_hyp_a = f"{_lc_a[:3]}-{_lc_a[3:7]}-{_lc_a[7:]}"
+                                        elif len(_lc_a) == 10:
+                                            _lc_hyp_a = f"{_lc_a[:3]}-{_lc_a[3:6]}-{_lc_a[6:]}"
+                                        if _lc_hyp_a:
+                                            _hyp_hash_a = hashlib.sha256(_lc_hyp_a.encode()).hexdigest()
+                                            _legacy_ok_a = (bool(_stored_pin) and _stored_pin == _hyp_hash_a) or \
+                                                           (bool(_stored_contact) and _stored_contact == _hyp_hash_a)
+                                    _ok_a = (_ln_a in _mbs) and (_pin_ok_a or _chash_ok_a or _fernet_ok_a or _legacy_ok_a)
                                     if _ok_a:
                                         _otp_val = str(_rnd.randint(100000, 999999))
                                         st.session_state["_lp_name"]    = _ln_a

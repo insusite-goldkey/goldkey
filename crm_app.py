@@ -202,7 +202,7 @@ div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stCheckbox"]) {
                         _crm_member = None
                         if _crm_sb:
                             try:
-                                _resp = _crm_sb.table("members").select("*") \
+                                _resp = _crm_sb.table("gk_members").select("*") \
                                     .eq("name", _cn).execute()
                                 _rows = _resp.data or []
                                 if _rows:
