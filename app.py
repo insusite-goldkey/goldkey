@@ -4950,6 +4950,13 @@ def encrypt_data(data):
     """단방향 해시 암호화 (연락처 등 민감 정보)"""
     return hashlib.sha256(data.encode()).hexdigest()
 
+def get_sha256(text):
+    """[ID-000-REG] 하이픈·공백 제거 후 SHA-256 해시 반환 — 모든 연락처 해싱에 사용"""
+    if not text:
+        return ""
+    clean = str(text).replace("-", "").replace(" ", "").strip()
+    return hashlib.sha256(clean.encode()).hexdigest()
+
 def decrypt_data(stored_hash, input_data):
     """해시 비교 검증"""
     return stored_hash == hashlib.sha256(input_data.encode()).hexdigest()
@@ -28686,18 +28693,22 @@ footer, footer * { display: none !important; }
                                     _m2r    = _mbs2[_n2]
                                     _m2_pin = _m2r.get("pin_hash", "")
                                     _m2_contact = _m2r.get("contact", "")
-                                    _m2_hash = hashlib.sha256(_c2v.encode()).hexdigest()
-                                    # pin_hash 비교 (신규 가입 회원)
-                                    _pin_ok = bool(_m2_pin) and (_m2_pin == _m2_hash)
-                                    # Fernet 복호화 비교 (마스터 회원 등 contact 필드 보유 시)
+                                    # [ID-100-AUTH] get_sha256: 하이픈·공백 자동 제거 후 해싱
+                                    _input_hash = get_sha256(_c2v)
+                                    # Track 1: pin_hash vs 입력 해시 (신규 가입 회원)
+                                    _pin_ok = bool(_m2_pin) and (_m2_pin == _input_hash)
+                                    # Track 2: contact(SHA-256) vs 입력 해시 (마스터 회원 SHA-256 저장)
+                                    _contact_hash_ok = bool(_m2_contact) and (_m2_contact == _input_hash)
+                                    # Track 3: contact(Fernet) 복호화 비교 (Fernet 저장된 경우)
                                     _fernet_ok = False
-                                    if not _pin_ok and _m2_contact:
+                                    if not _pin_ok and not _contact_hash_ok and _m2_contact:
                                         try:
                                             _dec = decrypt_val(_m2_contact)
-                                            _fernet_ok = (_dec == _c2v)
+                                            _clean_c2v = _c2v.replace("-", "").replace(" ", "").strip()
+                                            _fernet_ok = (_dec == _clean_c2v) or (_dec == _c2v)
                                         except Exception:
                                             _fernet_ok = False
-                                    _m2_ok = _pin_ok or _fernet_ok
+                                    _m2_ok = _pin_ok or _contact_hash_ok or _fernet_ok
                                     if _m2_ok:
                                         _otp2 = str(_rnd2.randint(100000, 999999))
                                         st.session_state["_main_otp"]         = _otp2
