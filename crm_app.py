@@ -30,6 +30,7 @@ from shared_components import (
     HQ_APP_URL,
     CRM_APP_URL,
     get_env_secret,
+    get_clean_phone,
     render_auth_screen as _sc_render_auth_screen,
     verify_sso_token as _sc_verify_sso_token,
 )
@@ -212,8 +213,8 @@ div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stCheckbox"]) {
                         if _crm_member is None:
                             st.error("❌ 등록되지 않은 이름입니다. HQ 앱에서 먼저 가입해 주세요.")
                         else:
-                            # [GP-SEC §1] 3-track 연락처 검증
-                            _clean_cc = _cc.replace("-", "").replace(" ", "").strip()
+                            # [GP-SEC §1][GP-회원관리 §연락처표준] 3-track 연락처 검증
+                            _clean_cc = get_clean_phone(_cc)
                             _input_hash = _hl.sha256(_clean_cc.encode()).hexdigest()
                             _m_pin      = _crm_member.get("pin_hash", "")
                             _m_contact  = _crm_member.get("contact", "")
@@ -225,7 +226,7 @@ div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stCheckbox"]) {
                                     from cryptography.fernet import Fernet as _F
                                     _fk = get_env_secret("FERNET_KEY", "").encode()
                                     _dec = _F(_fk).decrypt(_m_contact.encode()).decode()
-                                    _fernet_ok = (_dec == _clean_cc) or (_dec == _cc)
+                                    _fernet_ok = (_dec == _clean_cc) or (_dec == get_clean_phone(_cc))
                                 except Exception:
                                     pass
                             if _pin_ok or _chash_ok or _fernet_ok:

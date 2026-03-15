@@ -28,6 +28,16 @@ def get_env_secret(key: str, default_value: str = "") -> str:
     except Exception:
         return os.environ.get(key, default_value)
 
+
+def get_clean_phone(raw: str) -> str:
+    """[GP-회원관리 §연락처표준] 연락처 표준 정규화 — 숫자만 추출
+    하이픈(-), 공백, 괄호, 특수문자 등 모두 제거 후 순수 숫자만 반환.
+    모든 연락처 비교·해싱·저장 전 반드시 이 함수를 먼저 호출할 것.
+    """
+    if not raw:
+        return ""
+    return "".join(filter(str.isdigit, str(raw)))
+
 # ── 모 앱 URL (환경 자동 분기) ────────────────────────────────────────────────
 # GK_APP_ID=crm  → CRM 앱 컨테이너 (Dockerfile.crm에서 설정)
 # K_SERVICE 존재 → Cloud Run 프로덕션 환경

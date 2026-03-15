@@ -4950,16 +4950,30 @@ def encrypt_data(data):
     """단방향 해시 암호화 (연락처 등 민감 정보)"""
     return hashlib.sha256(data.encode()).hexdigest()
 
+def get_clean_phone(raw: str) -> str:
+    """[GP-회원관리 §연락처표준] 연락처 표준 정규화 — 숫자만 추출
+    하이픈(-), 공백, 괄호, 특수문자 등 모두 제거 후 순수 숫자만 반환.
+    모든 연락처 비교·해싱·저장 전 반드시 이 함수를 먼저 호출할 것.
+    """
+    if not raw:
+        return ""
+    return "".join(filter(str.isdigit, str(raw)))
+
 def get_sha256(text):
-    """[ID-000-REG] 하이픈·공백 제거 후 SHA-256 해시 반환 — 모든 연락처 해싱에 사용"""
+    """[ID-000-REG][GP-회원관리 §연락처표준] get_clean_phone() 정규화 후 SHA-256 해시 반환"""
     if not text:
         return ""
-    clean = str(text).replace("-", "").replace(" ", "").strip()
+    clean = get_clean_phone(str(text))
+    if not clean:
+        clean = str(text).strip()
     return hashlib.sha256(clean.encode()).hexdigest()
 
 def decrypt_data(stored_hash, input_data):
-    """해시 비교 검증"""
-    return stored_hash == hashlib.sha256(input_data.encode()).hexdigest()
+    """해시 비교 검증 — [GP-회원관리 §연락처표준] 입력값 정규화 후 비교"""
+    clean = get_clean_phone(str(input_data)) if input_data else ""
+    if not clean:
+        clean = str(input_data or "").strip()
+    return stored_hash == hashlib.sha256(clean.encode()).hexdigest()
 
 # ★★★ [PII 보호 — 절대명령] ★★★
 # 주민등록번호·전화번호·이메일 등 고유식별정보(PII)는
@@ -4968,7 +4982,11 @@ def decrypt_data(stored_hash, input_data):
 # 복호화가 필요한 데이터는 encrypt_val/decrypt_val(Fernet 양방향)을 사용하되,
 # 고유식별정보는 단방향 해시만 허용한다. (개인정보보호법 제24조·제29조 준수)
 def encrypt_contact(contact):
-    return hashlib.sha256(contact.encode()).hexdigest()
+    """[GP-회원관리 §연락처표준] 연락처 정규화(get_clean_phone) 후 SHA-256 해시 저장"""
+    clean = get_clean_phone(str(contact)) if contact else ""
+    if not clean:
+        clean = str(contact or "").strip()
+    return hashlib.sha256(clean.encode()).hexdigest()
 
 def sanitize_unicode(text) -> str:
     """surrogate 문자 완전 제거 — ftfy 우선 + 3단계 방어 (근본 해결판)"""
@@ -7425,8 +7443,8 @@ def ensure_master_members():
     members = load_members()
     changed = False
     for name, contact, uid in masters:
-        _contact_hash = encrypt_contact(contact)
-        _pin_hash     = hashlib.sha256(contact.encode()).hexdigest()
+        _contact_hash = encrypt_contact(contact)  # get_clean_phone() 내부 적용
+        _pin_hash     = hashlib.sha256(get_clean_phone(contact).encode()).hexdigest()
         if name not in members:
             members[name] = {
                 "user_id": uid,
@@ -28704,14 +28722,16 @@ footer, footer * { display: none !important; }
                                     if not _pin_ok and not _contact_hash_ok and _m2_contact:
                                         try:
                                             _dec = decrypt_val(_m2_contact)
-                                            _clean_c2v = _c2v.replace("-", "").replace(" ", "").strip()
+                                            _clean_c2v = get_clean_phone(_c2v)
                                             _fernet_ok = (_dec == _clean_c2v) or (_dec == _c2v)
                                         except Exception:
                                             _fernet_ok = False
                                     # Track 4: Legacy — 하이픈 포함 입력으로 가입한 기존 회원 복구
                                     _legacy_ok = False
                                     if not _pin_ok and not _contact_hash_ok and not _fernet_ok:
-                                        _raw_hash4 = hashlib.sha256((_contact2 or "").strip().encode()).hexdigest()
+                                        _lc4  = get_clean_phone(_contact2 or "")
+                                        _hyp4 = f"{_lc4[:3]}-{_lc4[3:7]}-{_lc4[7:]}" if len(_lc4) == 11 else _lc4
+                                        _raw_hash4 = hashlib.sha256(_hyp4.encode()).hexdigest()
                                         _legacy_ok = (bool(_m2_pin) and _m2_pin == _raw_hash4) or \
                                                      (bool(_m2_contact) and _m2_contact == _raw_hash4)
                                     _m2_ok = _pin_ok or _contact_hash_ok or _fernet_ok or _legacy_ok
@@ -28778,8 +28798,8 @@ footer, footer * { display: none !important; }
                     _sc2c = st.text_input("📱 연락처 확인", type="password", key="main_signup_contact2", placeholder="연락처 재입력")
                     if st.button("📝 회원가입", key="main_signup_btn", use_container_width=True, type="primary"):
                         _sn = (_sn or "").strip(); _sc2 = (_sc2 or "").strip()
-                        _sc2_clean  = _sc2.replace("-", "").replace(" ", "")
-                        _sc2c_clean = (_sc2c or "").strip().replace("-", "").replace(" ", "")
+                        _sc2_clean  = get_clean_phone(_sc2)
+                        _sc2c_clean = get_clean_phone(_sc2c or "")
                         if not _sn or len(_sn) < 2:
                             st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
                         elif not _sc2_clean or len(_sc2_clean) < 10:
@@ -28791,7 +28811,7 @@ footer, footer * { display: none !important; }
                             if _sn in _mbs_su:
                                 st.error("❌ 이미 가입된 이름입니다.")
                             else:
-                                _h_su = hashlib.sha256(_sc2_clean.encode()).hexdigest()
+                                _h_su = get_sha256(_sc2_clean)
                                 _uid_su = hashlib.md5(f"{_sn}{_sc2_clean}".encode()).hexdigest()[:12]
                                 try:
                                     _sb_su = _get_sb_client()
@@ -28818,10 +28838,10 @@ footer, footer * { display: none !important; }
                         if _pn not in _mbs_pw:
                             st.error("등록되지 않은 이름입니다.")
                         else:
-                            _po_n = (_po or "").strip().replace("-", "").replace(" ", "")
-                            _p1_n = (_p1 or "").strip().replace("-", "").replace(" ", "")
-                            _p2_n = (_p2 or "").strip().replace("-", "").replace(" ", "")
-                            if _mbs_pw[_pn].get("pin_hash", "") != hashlib.sha256(_po_n.encode()).hexdigest():
+                            _po_n = get_clean_phone(_po or "")
+                            _p1_n = get_clean_phone(_p1 or "")
+                            _p2_n = get_clean_phone(_p2 or "")
+                            if _mbs_pw[_pn].get("pin_hash", "") != get_sha256(_po_n):
                                 st.error("기존 연락처가 일치하지 않습니다.")
                             elif not _p1_n or len(_p1_n) < 10:
                                 st.error("새 연락처를 올바르게 입력해 주세요. (숫자만 10~11자리)")
@@ -28831,7 +28851,7 @@ footer, footer * { display: none !important; }
                                 _sb_pw = _get_sb_client()
                                 if _sb_pw:
                                     try:
-                                        _sb_pw.table("gk_members").update({"pin_hash": hashlib.sha256(_p1_n.encode()).hexdigest()}).eq("name", _pn).execute()
+                                        _sb_pw.table("gk_members").update({"pin_hash": get_sha256(_p1_n)}).eq("name", _pn).execute()
                                         load_members(force=True)
                                         st.success("✅ 변경 완료!")
                                     except Exception as _e_pw:
@@ -28845,7 +28865,7 @@ footer, footer * { display: none !important; }
                         _mbs_nm = load_members()
                         if _no not in _mbs_nm:
                             st.error("등록되지 않은 이름입니다.")
-                        elif _mbs_nm[_no].get("pin_hash", "") != hashlib.sha256((_np or "").strip().replace("-", "").replace(" ", "").encode()).hexdigest():
+                        elif _mbs_nm[_no].get("pin_hash", "") != get_sha256(get_clean_phone(_np or "")):
                             st.error("연락처가 일치하지 않습니다.")
                         elif not (_nn or "").strip():
                             st.error("새 이름을 입력해주세요.")
@@ -29169,7 +29189,7 @@ footer, footer * { display: none !important; }
                                     if not _pin_ok_a and not _chash_ok_a and _stored_contact:
                                         try:
                                             _dec_a = decrypt_val(_stored_contact)
-                                            _clean_lc = _lc_a.replace("-", "").replace(" ", "").strip()
+                                            _clean_lc = get_clean_phone(_lc_a)
                                             _fernet_ok_a = (_dec_a == _clean_lc) or (_dec_a == _lc_a)
                                         except Exception:
                                             _fernet_ok_a = False

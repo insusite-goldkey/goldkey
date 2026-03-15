@@ -2737,3 +2737,64 @@ powershell -ExecutionPolicy Bypass -File "D:\CascadeProjects\backup_and_push.ps1
 3. GitHub push만 하고 Cloud Run 배포를 생략하는 것은 **가이딩 프로토콜 위반**이다
 
 *이상 제130.3조는 골드키 총통합헌법 DEPLOY-PROTOCOL 추록(2026.03)에 공식 수록된다.*
+
+---
+
+## [GP-회원관리 §연락처표준] 연락처 데이터 단일 규격화 원칙 (2026-03-16 신설)
+
+> **핵심 명제: "어떤 형식으로 입력해도, 시스템 내부는 항상 순수 숫자 11자리다."**
+> 본 조항은 HQ 앱, CRM 앱, GCS, RAG, OPT 시스템 등 프로젝트 전역에서 연락처(전화번호) 데이터의 저장·비교·인증을 단일 표준으로 통일하는 것을 목적으로 한다.
+
+### §1 [표준 함수 정의 — get_clean_phone()]
+
+모든 연락처 처리는 반드시 `get_clean_phone()` 함수를 최우선으로 거친다.
+
+```python
+def get_clean_phone(raw: str) -> str:
+    if not raw:
+        return ""
+    return "".join(filter(str.isdigit, str(raw)))
+```
+
+- **구현 위치**: `app.py` 및 `shared_components.py` (양쪽 앱 공유)
+- **입력 예시**: `"010-1234-5678"` → `"01012345678"` / `"010 1234 5678"` → `"01012345678"`
+- 하이픈(-), 공백, 괄호, 특수문자 등 모두 제거 후 순수 숫자만 반환
+
+### §2 [인증 및 로그인 적용 — ID-100-AUTH]
+
+- 사용자가 입력한 모든 연락처 변수를 SHA-256 해싱하기 직전에 반드시 `get_clean_phone()`을 거친다
+- `get_sha256(text)` 함수는 내부적으로 `get_clean_phone()`을 호출하여 정규화 후 해싱
+- `encrypt_contact(contact)` 함수도 동일하게 `get_clean_phone()` 선처리 필수
+- `decrypt_data(stored_hash, input_data)` 함수도 입력값을 `get_clean_phone()`으로 정규화 후 비교
+- 로그인 Track 1~4 모두 정규화된 값으로 검증하여 하이픈 유무에 따른 인증 실패 원천 차단
+
+### §3 [GCS 정보 관리 및 저장 적용 — ID-200-REG]
+
+- 신규 회원 가입 및 정보 수정 시, Supabase/GCS에 저장되기 전 단계에서 `get_clean_phone()` 적용
+- 저장되는 해시값(`pin_hash`, `contact`)은 반드시 **순수 숫자 기반** SHA-256 해시여야 한다
+- `ensure_master_members()` 함수의 `_pin_hash` 생성도 `get_clean_phone()` 경유 필수
+
+### §4 [전역 일관성 규칙]
+
+| 처리 단계 | 규칙 |
+|----------|------|
+| 사용자 입력 수신 | `get_clean_phone()` 즉시 적용 |
+| SHA-256 해싱 | 정규화된 값만 허용 (`get_sha256()` 사용) |
+| DB 저장 (pin_hash) | `get_clean_phone()` 후 해시 저장 |
+| 로그인 비교 | `get_sha256()` 통해 정규화 후 비교 |
+| Fernet 복호화 비교 | 복호화 결과와 `get_clean_phone(입력값)` 비교 |
+
+### §5 [Legacy 데이터 호환 — Track 4]
+
+하이픈 포함 형식으로 등록된 기존 회원(레거시 데이터) 지원을 위해 Track 4를 운영한다:
+- 입력 연락처를 정규화 후 `"XXX-XXXX-XXXX"` 형식으로 복원하여 재해시
+- Track 1~3 실패 시에만 Track 4 시도 (HQ 메인/사이드바 로그인 공통 적용)
+- CRM 앱도 동일한 `get_clean_phone()` 기반 3-track 검증 적용
+
+### §6 [구현 파일 목록]
+
+| 파일 | 적용 함수 |
+|------|---------|
+| `app.py` | `get_clean_phone()`, `get_sha256()`, `encrypt_contact()`, `decrypt_data()`, `ensure_master_members()` |
+| `shared_components.py` | `get_clean_phone()` (CRM 공유 모듈) |
+| `crm_app.py` | `get_clean_phone()` import from shared_components, 로그인 3-track 검증 적용 |
