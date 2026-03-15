@@ -38820,26 +38820,25 @@ function selectCustomer(name) {{
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
       {_bid('1-5-5')}
       <div style="font-size:0.78rem;font-weight:900;color:#1B5E20;letter-spacing:0.08em;
-        text-transform:uppercase;margin-bottom:6px;">### E-SECTION: 보상 시뮬레이션</div>
-      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-        <li>보상 정보 시뮬레이션 가이드</li>
-        <li>교통사고 보상 가이드</li>
-        <li>산재 보상 가이드</li>
-        <li>일반상해 보상 가이드</li>
-        <li>KCD 상해 분석</li>
-      </ol>
+        text-transform:uppercase;margin-bottom:2px;">🔍 E-SECTION: 보상 시뮬레이션</div>
     </div>""", unsafe_allow_html=True)
-                if st.button("🔍 E섹션 입장 → 보상 시뮬레이션", key="ag_e_enter", use_container_width=True):
-                    _go_tab("kcd_injury")
-    
+                _e_c1, _e_c2 = st.columns(2, gap="small")
+                with _e_c1:
+                    if st.button("① 보상정보 시뮬레이션",  key="ag_e1", use_container_width=True): _go_tab("compensation")
+                    if st.button("② 교통사고 보상 가이드", key="ag_e2", use_container_width=True): _go_tab("compensation")
+                    if st.button("③ 산재 보상 가이드",     key="ag_e3", use_container_width=True): _go_tab("compensation")
+                with _e_c2:
+                    if st.button("④ 일반상해 보상 가이드", key="ag_e4", use_container_width=True): _go_tab("compensation")
+                    if st.button("⑤ KCD 상해 분석",        key="ag_e5", use_container_width=True): _go_tab("kcd_injury")
+
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-    
+
             # ── F 섹션: 풀 와이드 ───────────────────────────────────────────────
             st.markdown(f"""<div style="background:#FFF3E0;border:1.5px solid #FFCC80;
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
       {_bid('1-5-6')}
       <div style="font-size:0.78rem;font-weight:900;color:#BF360C;letter-spacing:0.08em;
-        text-transform:uppercase;margin-bottom:6px;">### F-SECTION: 보험봇 · InsuBot (가이딩 프로토콜 제6편 준수)</div>
+        text-transform:uppercase;margin-bottom:6px;">### F-SECTION: 보험봇 · InsuBot</div>
       <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
         <li>보험 전문용어 검색 (InsuBot)</li>
         <li>가이딩 프로토콜 제22조 — 승인 출처 기반 AI 답변</li>
