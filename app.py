@@ -29215,7 +29215,7 @@ footer, footer * { display: none !important; }
                         st.session_state.is_admin  = _adm
                         st.session_state["_mic_notice"]         = True
                         st.session_state["_login_welcome"]      = ln
-                        st.session_state["_auto_close_sidebar"] = True
+                        st.session_state["_auto_close_sidebar"] = False
                         st.session_state["_login_just_done"]    = True
                         st.session_state["authenticated"]       = True
                         # [C1] Entity ID 자동 발급 — AGNT_ (설계사) / CUST_ (일반고객)
@@ -29489,7 +29489,7 @@ footer, footer * { display: none !important; }
                             if "_device_uuid" not in st.session_state:
                                 st.session_state["_device_uuid"] = _gu.uuid4().hex[:16]
                             st.session_state["_login_just_done"]    = False
-                            st.session_state["_auto_close_sidebar"] = True
+                            st.session_state["_auto_close_sidebar"] = False
                             st.session_state["authenticated"]       = True
                             _skel_guest = st.empty()
                             _skel_guest.markdown("""
@@ -29674,7 +29674,7 @@ footer, footer * { display: none !important; }
                                         st.session_state.join_date = _jd2
                                         st.session_state.is_admin  = False
                                         st.session_state["_mic_notice"] = True
-                                        st.session_state["_auto_close_sidebar"] = True
+                                        st.session_state["_auto_close_sidebar"] = False
                                         # [C1] 회원가입 시 CUST_ Entity ID 자동 발급
                                         _eid_set_login_user(name, "customer")
                                         # [제39조 §3] 회원가입 성공 → 세션 캐시 저장
@@ -30247,7 +30247,7 @@ footer, footer * { display: none !important; }
                     st.session_state.join_date = dt.now()
                     st.session_state.is_admin = True
                     st.session_state["_login_welcome"] = "이세윤"
-                    st.session_state["_auto_close_sidebar"] = True
+                    st.session_state["_auto_close_sidebar"] = False
                     st.session_state["authenticated"]       = True
                     st.session_state["_admin_scroll_trigger"] = True
                     st.session_state["current_tab"]         = "t9"
@@ -30261,7 +30261,7 @@ footer, footer * { display: none !important; }
                     st.session_state.join_date = dt.now()
                     st.session_state.is_admin = True
                     st.session_state["_login_welcome"] = _master_name
-                    st.session_state["_auto_close_sidebar"] = True
+                    st.session_state["_auto_close_sidebar"] = False
                     st.session_state["authenticated"]       = True
                     st.session_state["_admin_scroll_trigger"] = True
                     st.session_state["current_tab"]         = "t9"
@@ -31996,7 +31996,7 @@ section[data-testid="stSidebar"] .stButton button {
 
     # ── 로그인 후 사이드바 자동 접힘 ─────────────────────────────────────────
     # [제53조 개정] _auto_close_sidebar 플래그 소비 → JS로 강제 닫기
-    if st.session_state.pop("_auto_close_sidebar", False):
+    if False and st.session_state.pop("_auto_close_sidebar", False):  # [비활성화] 로그인 후 사이드바 유지
         import streamlit.components.v1 as _comp_close
         _comp_close.html("""<script>
 (function(){
