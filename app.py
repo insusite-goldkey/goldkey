@@ -38885,9 +38885,14 @@ function selectCustomer(name) {{
         <li>Step 5: 카카오 알림톡 리포트 발송</li>
       </ol>
     </div>""", unsafe_allow_html=True)
-            if st.button("🎯 특별파트 입장 → 고객상담 5단계",
-                         key="ag_sops_enter", use_container_width=True):
-                _go_tab("special_ops")
+            _sops_c1, _sops_c2 = st.columns(2, gap="small")
+            with _sops_c1:
+                if st.button("① 고객정보 자동 미러링",       key="ag_sops1", use_container_width=True): _go_tab("special_ops")
+                if st.button("② 내보험다보여 동의 SMS 발송", key="ag_sops2", use_container_width=True): _go_tab("special_ops")
+                if st.button("③ 보험 가입 현황 수집",        key="ag_sops3", use_container_width=True): _go_tab("scan_hub")
+            with _sops_c2:
+                if st.button("④ KOSIS × 보장 공백 분석",    key="ag_sops4", use_container_width=True): _go_tab("policy_scan")
+                if st.button("⑤ 카카오 알림톡 리포트 발송", key="ag_sops5", use_container_width=True): _go_tab("report43")
     
             # ── [NAV-05] 내비게이션 바 ─────────────────────────────────────────
             st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
@@ -58578,6 +58583,7 @@ function selectCustomer(name) {{
 
     if cur == "special_ops":
         if not _auth_gate("special_ops"): st.stop()
+        tab_home_btn("special_ops")
         render_special_ops_sector()
         st.stop()
 
