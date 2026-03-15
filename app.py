@@ -28673,7 +28673,7 @@ footer, footer * { display: none !important; }
                         _contact2 = st.text_input("📱 연락처", type="password", key="main_login_contact", placeholder="연락처 (숫자만, - 제외)", label_visibility="collapsed")
                         if st.button("🔐 AI 마스터 로그인", key="main_login_btn", use_container_width=True, type="primary"):
                             _n2  = (_name2    or "").strip()
-                            _c2v = (_contact2 or "").strip()
+                            _c2v = (_contact2 or "").strip().replace("-", "").replace(" ", "")
                             if not _n2 or len(_n2) < 2:
                                 st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
                             elif not _c2v:
@@ -28687,8 +28687,17 @@ footer, footer * { display: none !important; }
                                     _m2_pin = _m2r.get("pin_hash", "")
                                     _m2_contact = _m2r.get("contact", "")
                                     _m2_hash = hashlib.sha256(_c2v.encode()).hexdigest()
-                                    _m2_ok = (_m2_pin and _m2_pin == _m2_hash) or \
-                                             (_m2_contact and decrypt_data(_m2_contact, _c2v))
+                                    # pin_hash 비교 (신규 가입 회원)
+                                    _pin_ok = bool(_m2_pin) and (_m2_pin == _m2_hash)
+                                    # Fernet 복호화 비교 (마스터 회원 등 contact 필드 보유 시)
+                                    _fernet_ok = False
+                                    if not _pin_ok and _m2_contact:
+                                        try:
+                                            _dec = decrypt_val(_m2_contact)
+                                            _fernet_ok = (_dec == _c2v)
+                                        except Exception:
+                                            _fernet_ok = False
+                                    _m2_ok = _pin_ok or _fernet_ok
                                     if _m2_ok:
                                         _otp2 = str(_rnd2.randint(100000, 999999))
                                         st.session_state["_main_otp"]         = _otp2
@@ -28761,19 +28770,25 @@ footer, footer * { display: none !important; }
                         _mbs_pw = load_members()
                         if _pn not in _mbs_pw:
                             st.error("등록되지 않은 이름입니다.")
-                        elif _mbs_pw[_pn].get("pin_hash", "") != hashlib.sha256((_po or "").encode()).hexdigest():
-                            st.error("기존 연락처가 일치하지 않습니다.")
-                        elif (_p1 or "").strip() != (_p2 or "").strip():
-                            st.error("새 연락처가 일치하지 않습니다.")
                         else:
-                            _sb_pw = _get_sb_client()
-                            if _sb_pw:
-                                try:
-                                    _sb_pw.table("gk_members").update({"pin_hash": hashlib.sha256((_p1 or "").encode()).hexdigest()}).eq("name", _pn).execute()
-                                    load_members(force=True)
-                                    st.success("✅ 변경 완료!")
-                                except Exception as _e_pw:
-                                    st.error(f"변경 오류: {_e_pw}")
+                            _po_n = (_po or "").strip().replace("-", "").replace(" ", "")
+                            _p1_n = (_p1 or "").strip().replace("-", "").replace(" ", "")
+                            _p2_n = (_p2 or "").strip().replace("-", "").replace(" ", "")
+                            if _mbs_pw[_pn].get("pin_hash", "") != hashlib.sha256(_po_n.encode()).hexdigest():
+                                st.error("기존 연락처가 일치하지 않습니다.")
+                            elif not _p1_n or len(_p1_n) < 10:
+                                st.error("새 연락처를 올바르게 입력해 주세요. (숫자만 10~11자리)")
+                            elif _p1_n != _p2_n:
+                                st.error("새 연락처가 일치하지 않습니다.")
+                            else:
+                                _sb_pw = _get_sb_client()
+                                if _sb_pw:
+                                    try:
+                                        _sb_pw.table("gk_members").update({"pin_hash": hashlib.sha256(_p1_n.encode()).hexdigest()}).eq("name", _pn).execute()
+                                        load_members(force=True)
+                                        st.success("✅ 변경 완료!")
+                                    except Exception as _e_pw:
+                                        st.error(f"변경 오류: {_e_pw}")
                 with _tab_nm:
                     _no = st.text_input("👤 현재 이름", key="main_nm_old", placeholder="현재 가입된 이름")
                     _np = st.text_input("📱 연락처 확인", type="password", key="main_nm_pin", placeholder="연락처")
@@ -28783,7 +28798,7 @@ footer, footer * { display: none !important; }
                         _mbs_nm = load_members()
                         if _no not in _mbs_nm:
                             st.error("등록되지 않은 이름입니다.")
-                        elif _mbs_nm[_no].get("pin_hash", "") != hashlib.sha256((_np or "").encode()).hexdigest():
+                        elif _mbs_nm[_no].get("pin_hash", "") != hashlib.sha256((_np or "").strip().replace("-", "").replace(" ", "").encode()).hexdigest():
                             st.error("연락처가 일치하지 않습니다.")
                         elif not (_nn or "").strip():
                             st.error("새 이름을 입력해주세요.")
@@ -29723,7 +29738,7 @@ footer, footer * { display: none !important; }
             st.markdown(f"""<div style="position:relative;background:#f0f6ff;border:1px solid #2e6da4;
       border-radius:7px;padding:5px 10px;font-size:0.74rem;color:#1a3a5c;margin-bottom:4px;">
       {_bid('0-2-4')}
-      {_mode_badge} &nbsp;|&nbsp; 주력사: <b>{_ins_badge}</b>
+      {_mode_badge} &#124; 주력사: <strong>{_ins_badge}</strong>
     </div>""", unsafe_allow_html=True)
 
 
