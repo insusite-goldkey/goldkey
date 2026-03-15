@@ -29694,62 +29694,72 @@ footer, footer * { display: none !important; }
             display_usage_dashboard(user_name)
 
             # ── 사용자 모드 & 선호 보험사 설정 ──────────────────────────
+            # [ID-000-STYLE] CSS 전역 타겟팅 방식 — HTML div 감싸기 완전 제거
+            st.markdown("""<style>
+/* [0-2-2] 상담모드 라디오 컨테이너 */
+div[data-testid="stSidebar"] div[data-testid="stRadio"]:has(label[data-testid="stWidgetLabel"] p) {
+    background: #f0f4ff;
+    border: 1.5px solid #1a3a5c;
+    border-radius: 8px;
+    padding: 6px 10px 8px 10px;
+    margin-bottom: 6px;
+}
+/* [0-2-3] 주력분야 라디오 컨테이너 */
+div[data-testid="stSidebar"] div[data-testid="stRadio"]:has(label[data-testid="stWidgetLabel"] p) + div[data-testid="stRadio"],
+div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-type(2) div[data-testid="stRadio"] {
+    background: #fff8f0;
+    border: 1.5px solid #7d3c00;
+    border-radius: 8px;
+    padding: 6px 10px 8px 10px;
+    margin-bottom: 6px;
+}
+</style>""", unsafe_allow_html=True)
             st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,rgba(26,58,92,0.30),rgba(46,109,164,0.30));
       border-radius:10px;padding:8px 12px;margin:6px 0 4px 0;border:1.5px solid rgba(46,109,164,0.55);
       font-size:0.92rem;font-weight:900;color:#1a3a5c;letter-spacing:0.03em;">
-      {_bid('0-2-1')}
-      ⚙️ AI 상담 모드 설정</div>""", unsafe_allow_html=True)
+      {_bid('0-2-1')}⚙️ AI 상담 모드 설정</div>""", unsafe_allow_html=True)
 
-            # ── 박스 1: 상담 모드 ──────────────────────────────────────────────
+            # ── 박스 1: 상담 모드 (CSS 타겟팅, div 감싸기 없음) ───────────────
             st.markdown(f"""<div style="position:relative;background:rgba(26,58,92,0.25);border-radius:8px 8px 0 0;
       border:1.5px solid rgba(26,58,92,0.50);border-bottom:none;
       padding:6px 12px;font-size:0.92rem;font-weight:900;color:#1a3a5c;
-      letter-spacing:0.03em;">{_bid('0-2-2')}👤 상담 모드 선택</div>""", unsafe_allow_html=True)
+      letter-spacing:0.03em;margin-bottom:-2px;">{_bid('0-2-2')}👤 상담 모드 선택</div>""", unsafe_allow_html=True)
             _mode_options = ["👔 보험종사자 (설계사·전문가)", "👤 비종사자 (고객·일반인)"]
             _cur_mode = st.session_state.get("user_consult_mode", _mode_options[0])
             if _cur_mode not in _mode_options:
                 _cur_mode = _mode_options[0]
-            with st.container():
-                st.markdown("""<div style="background:#f0f4ff;border:2px solid #1a3a5c;
-      border-top:none;border-radius:0 0 8px 8px;padding:6px 10px 8px 10px;
-      margin-bottom:8px;">""", unsafe_allow_html=True)
-                _sel_mode = st.radio(
-                    "상담 모드",
-                    _mode_options,
-                    index=_mode_options.index(_cur_mode),
-                    label_visibility="collapsed",
-                )
-                st.markdown("</div>", unsafe_allow_html=True)
+            _sel_mode = st.radio(
+                "상담 모드",
+                _mode_options,
+                index=_mode_options.index(_cur_mode),
+                label_visibility="collapsed",
+                key="_sidebar_mode_radio",
+            )
             st.session_state["user_consult_mode"] = _sel_mode
 
-            # ── 박스 2: 주력 판매 분야 ─────────────────────────────────────────
+            # ── 박스 2: 주력 판매 분야 (CSS 타겟팅, div 감싸기 없음) ───────────
             st.markdown(f"""<div style="position:relative;background:rgba(125,60,0,0.20);border-radius:8px 8px 0 0;
       border:1.5px solid rgba(125,60,0,0.45);border-bottom:none;
       padding:6px 12px;font-size:0.92rem;font-weight:900;color:#7d3c00;
-      letter-spacing:0.03em;">{_bid('0-2-3')}📋 주력 판매 분야</div>""", unsafe_allow_html=True)
+      letter-spacing:0.03em;margin-bottom:-2px;">{_bid('0-2-3')}📋 주력 판매 분야</div>""", unsafe_allow_html=True)
             _ins_options = ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)", "선택 안 함 (중립 분석)"]
             _cur_ins = st.session_state.get("preferred_insurer", _ins_options[-1])
             if _cur_ins not in _ins_options:
                 _cur_ins = _ins_options[-1]
-            with st.container():
-                st.markdown("""<div style="background:#fff8f0;border:2px solid #7d3c00;
-      border-top:none;border-radius:0 0 8px 8px;padding:6px 10px 8px 10px;
-      margin-bottom:8px;">""", unsafe_allow_html=True)
-                _sel_ins = st.radio(
-                    "주력 판매 분야",
-                    _ins_options,
-                    index=_ins_options.index(_cur_ins),
-                    label_visibility="collapsed",
-                )
-                st.markdown("</div>", unsafe_allow_html=True)
+            _sel_ins = st.radio(
+                "주력 판매 분야",
+                _ins_options,
+                index=_ins_options.index(_cur_ins),
+                label_visibility="collapsed",
+                key="_sidebar_ins_radio",
+            )
             st.session_state["preferred_insurer"] = _sel_ins
 
             _mode_badge = "🟦 종사자" if "종사자" in st.session_state.get("user_consult_mode","") else "🟩 비종사자"
             _ins_badge  = st.session_state.get("preferred_insurer","선택 안 함")
             st.markdown(f"""<div style="position:relative;background:#f0f6ff;border:1px solid #2e6da4;
       border-radius:7px;padding:5px 10px;font-size:0.74rem;color:#1a3a5c;margin-bottom:4px;">
-      {_bid('0-2-4')}
-      {_mode_badge} &#124; 주력사: <strong>{_ins_badge}</strong>
+      {_bid('0-2-4')}{_mode_badge} | 주력사: <strong>{_ins_badge}</strong>
     </div>""", unsafe_allow_html=True)
 
 
