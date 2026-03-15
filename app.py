@@ -32687,9 +32687,6 @@ section[data-testid="stSidebar"] > div:first-child {
 
 /* ══════════════════════════════════════════════════
    가이딩 프로토콜 제36조 — 유니버설 시각 디자인 시스템
-   §1: 돋보기(시니어) 모드 1.2x 스케일링
-   §2: 고대비 7:1 이상
-   §3: 실시간 토스트 배너
    §4: 핵심 지표 1.5x KPI 클래스
    §5: 사망보험금 레드 펄스 클래스
 ══════════════════════════════════════════════════ */
@@ -32698,114 +32695,6 @@ section[data-testid="stSidebar"] > div:first-child {
 :root {
     --ui-scale: 1.0;
     --ui-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* §1: 돋보기 모드 — body.gk-senior 클래스로 전역 1.2x 확대 */
-body.gk-senior p,
-body.gk-senior span,
-body.gk-senior div,
-body.gk-senior li,
-body.gk-senior label,
-body.gk-senior td,
-body.gk-senior th,
-body.gk-senior .stMarkdown {
-    font-size: calc(1rem * 1.2) !important;
-    line-height: 1.85 !important;
-    transition: var(--ui-transition) !important;
-}
-body.gk-senior h1 { font-size: calc(1.65rem * 1.2) !important; }
-body.gk-senior h2 { font-size: calc(1.35rem * 1.2) !important; }
-body.gk-senior h3 { font-size: calc(1.15rem * 1.2) !important; }
-body.gk-senior .stButton > button {
-    min-height: calc(48px * 1.2) !important;
-    font-size: calc(1.05rem * 1.2) !important;
-    padding: calc(10px * 1.2) calc(16px * 1.2) !important;
-    transition: var(--ui-transition) !important;
-}
-body.gk-senior [data-testid="stMetricValue"] {
-    font-size: calc(1.5rem * 1.2) !important;
-    transition: var(--ui-transition) !important;
-}
-body.gk-senior [data-testid="stImage"] img {
-    transform: scale(1.1) !important;
-    transform-origin: top left !important;
-    transition: var(--ui-transition) !important;
-}
-/* 여백·간격 비례 확대 */
-body.gk-senior .block-container {
-    padding: calc(0.8rem * 1.2) calc(1.8rem * 1.2) !important;
-    gap: calc(1rem * 1.2) !important;
-}
-body.gk-senior [data-testid="stExpander"] {
-    padding: calc(8px * 1.2) !important;
-}
-
-/* §2: 고대비 모드 — 텍스트 #000000, 대비 7:1+ */
-body.gk-senior p,
-body.gk-senior span,
-body.gk-senior div,
-body.gk-senior li,
-body.gk-senior label {
-    color: #000000 !important;
-}
-body.gk-senior h1,
-body.gk-senior h2,
-body.gk-senior h3,
-body.gk-senior h4 {
-    color: #000000 !important;
-}
-body.gk-senior [data-testid="stApp"],
-body.gk-senior .block-container {
-    background: #FFFFFF !important;
-}
-body.gk-senior .stButton > button {
-    border: 2px solid #000000 !important;
-    color: #000000 !important;
-    background: #FFFFFF !important;
-}
-body.gk-senior .stButton > button[kind="primary"] {
-    background: #3B5BDB !important;
-    color: #FFFFFF !important;
-    border: none !important;
-}
-
-/* §3: 시니어 모드 배지 (우상단 고정) */
-#gk-senior-badge {
-    display: none;
-    position: fixed;
-    top: 8px;
-    right: 12px;
-    z-index: 2147483640;
-    background: #4F6EF5;
-    color: #FFFFFF;
-    font-size: 0.85rem;
-    font-weight: 900;
-    padding: 5px 12px;
-    border-radius: 20px;
-    letter-spacing: 0.04em;
-    box-shadow: 0 2px 10px rgba(79,110,245,0.35);
-    animation: gk-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
-}
-body.gk-senior #gk-senior-badge { display: block !important; }
-
-/* §3: 토스트 배너 */
-#gk-senior-toast {
-    display: none;
-    position: fixed;
-    top: 18px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 2147483641;
-    background: #5B82F0;
-    color: #FFFFFF;
-    font-size: 1.05rem;
-    font-weight: 900;
-    padding: 12px 28px;
-    border-radius: 14px;
-    box-shadow: 0 4px 24px rgba(91,130,240,0.40);
-    animation: gk-fadeup 0.4s ease both;
-    white-space: nowrap;
-    pointer-events: none;
 }
 
 /* §4: 핵심 지표 1.5x KPI — 모드 무관 항상 적용 */
@@ -33827,6 +33716,10 @@ watchRipple();
 </div>""", unsafe_allow_html=True)
         st.stop()
 
+    if not st.session_state.get("_gk_session_init"):
+        st.session_state.current_tab = "home"
+        st.session_state._nav_history = []
+        st.session_state["_gk_session_init"] = True
     if 'current_tab' not in st.session_state:
         st.session_state.current_tab = "home"
     if '_nav_history' not in st.session_state:
