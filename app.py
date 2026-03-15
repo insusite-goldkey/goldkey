@@ -19,6 +19,8 @@ if "user_name" not in st.session_state:
     st.session_state["user_name"] = ""
 if "user_id" not in st.session_state:
     st.session_state["user_id"] = ""
+# 인증 상태 조기 정의 — 파일 어느 위치에서도 NameError 없이 참조 가능
+_is_authenticated = st.session_state.get("authenticated", False)
 
 # [3] 이미지 Base64 변환 함수 (캐싱 적용으로 속도 최적화)
 @st.cache_data
@@ -71,6 +73,10 @@ st.markdown(f"""
         }}
 
         /* [ID-000-STYLE] 태블릿 최적화 6종 — 기존 padding:0 제외, 비충돌 항목만 적용 */
+        /* 1. 콘텐츠 최대 너비 880px — 태블릿 비율 최적화 */
+        @media (min-width: 768px) {{
+            .main .block-container {{ max-width: 880px; padding-top: 3rem !important; }}
+        }}
         /* 2. 박스색(Box Color): 경고/알림 박스 고대비 파스텔 블루 */
         .stAlert {{ background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 16px; }}
         /* 3. 글자크기(Font Size): 태블릿 가시성 16px 기준선 */
@@ -79,11 +85,10 @@ st.markdown(f"""
         .stMarkdown p {{ line-height: 1.6; letter-spacing: -0.02em; margin-bottom: 1.2rem; }}
         /* 6. 입력창(Input): 포커스 시 테두리 강조 및 내부 여백 확장 */
         .stTextInput input {{ border: 2px solid #e2e8f0; border-radius: 10px; padding: 12px 15px; }}
-        /* 4. 버튼(Button): 터치 친화적 높이(56px) — 로그인 버튼 등 primary 버튼 전용 스타일 덮어쓰지 않음 */
-        @media (min-width: 768px) {{
-            div.stButton > button:not([kind="primary"]) {{
-                height: 3rem; border-radius: 10px; font-weight: 600;
-            }}
+        /* 4. 버튼(Button): 골드 컬러 + 터치 친화적 높이 */
+        div.stButton > button {{
+            height: 3.5rem; border-radius: 12px; font-weight: 700;
+            background: #b8860b; color: white;
         }}
     </style>
 """, unsafe_allow_html=True)
