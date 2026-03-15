@@ -12,6 +12,14 @@ if 'initialized' not in st.session_state:
 # [중요] set_page_config는 반드시 최상단에 위치해야 합니다.
 st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state="expanded")
 
+# [ID-000-REG] 인증 세션키 조기 초기화 — NameError 원천 차단 (징검다리)
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+if "user_name" not in st.session_state:
+    st.session_state["user_name"] = ""
+if "user_id" not in st.session_state:
+    st.session_state["user_id"] = ""
+
 # [3] 이미지 Base64 변환 함수 (캐싱 적용으로 속도 최적화)
 @st.cache_data
 def get_base64_image(path: str) -> str:
@@ -60,6 +68,22 @@ st.markdown(f"""
         @media (min-width: 768px) {{
             .mobile-img {{ display: none !important; }}
             .tablet-img {{ display: block !important; max-width: 860px; margin: 0 auto; }}
+        }}
+
+        /* [ID-000-STYLE] 태블릿 최적화 6종 — 기존 padding:0 제외, 비충돌 항목만 적용 */
+        /* 2. 박스색(Box Color): 경고/알림 박스 고대비 파스텔 블루 */
+        .stAlert {{ background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 16px; }}
+        /* 3. 글자크기(Font Size): 태블릿 가시성 16px 기준선 */
+        html, body, [class*="css"] {{ font-size: 16px; color: #1e293b; }}
+        /* 5. 문장(Messaging): 자간·행간 조절로 긴 문장 가독성 개선 */
+        .stMarkdown p {{ line-height: 1.6; letter-spacing: -0.02em; margin-bottom: 1.2rem; }}
+        /* 6. 입력창(Input): 포커스 시 테두리 강조 및 내부 여백 확장 */
+        .stTextInput input {{ border: 2px solid #e2e8f0; border-radius: 10px; padding: 12px 15px; }}
+        /* 4. 버튼(Button): 터치 친화적 높이(56px) — 로그인 버튼 등 primary 버튼 전용 스타일 덮어쓰지 않음 */
+        @media (min-width: 768px) {{
+            div.stButton > button:not([kind="primary"]) {{
+                height: 3rem; border-radius: 10px; font-weight: 600;
+            }}
         }}
     </style>
 """, unsafe_allow_html=True)
