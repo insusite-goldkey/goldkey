@@ -452,58 +452,92 @@ def render_auth_screen(
         True  — 약관 동의 완료 (로그인 버튼 활성화 허용)
         False — 미동의 (로그인 버튼 disabled 처리)
     """
-    # ── 아바타 로드 (get_goldkey_avatar 공통 함수 없을 경우 플레이스홀더) ──
-    _av_src = ""
-    try:
-        import sys
-        for _mod in sys.modules.values():
-            if hasattr(_mod, "get_goldkey_avatar"):
-                _av_src = _mod.get_goldkey_avatar()
-                break
-    except Exception:
-        pass
-    _av_html = (
-        f'<img src="{_av_src}" width="90" height="90" loading="eager"'
-        ' style="border-radius:50%;border:3px solid #D4AF37;'
-        'box-shadow:0 3px 14px rgba(212,175,55,0.4);object-fit:cover;'
-        'display:block;margin:0 auto 10px auto;" />'
-        if _av_src else
-        '<div style="width:90px;height:90px;border-radius:50%;'
-        'background:linear-gradient(135deg,#1e3a8a,#D4AF37);'
-        'margin:0 auto 10px auto;border:3px solid #D4AF37;"></div>'
-    )
     st.markdown(
-        f"<div style='text-align:center;margin-bottom:8px;'>"
-        f"{_av_html}"
-        f"<div style='font-size:1.0rem;font-weight:900;color:#1e3a8a;"
-        f"margin-bottom:2px;'>{app_icon} {app_name} 이용약관 동의</div>"
-        f"</div>",
+        f"<div style='font-size:0.88rem;font-weight:900;color:#1e3a8a;"
+        f"margin-bottom:6px;text-align:center;'>{app_icon} {app_name} 이용약관</div>",
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<div style='max-height:160px;overflow-y:auto;font-size:0.78rem;"
-        "color:#333;line-height:1.8;border:1px solid #ddd;border-radius:8px;"
-        "padding:10px 12px;background:#f9fafb;margin-bottom:8px;'>"
-        "<b style='font-size:0.85rem;color:#0a1628;'>[제1조] 목적</b><br>"
-        "본 약관은 Goldkey AI Master Lab. Beta(이하 '서비스')의 이용 조건 및 절차,"
-        " 운영자와 회원 간의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다."
-        "<br><br>"
-        "<b style='font-size:0.85rem;color:#0a1628;'>[제2조] 서비스 이용 조건</b><br>"
-        "• 현재 <b>전체 무료</b> 베타 서비스 운영 중<br>"
-        "• 회원 1인당 <b>1일 10회</b> AI 상담 이용 제한<br>"
-        "• <b>사용기간: 2026.08.31. 한정</b><br>"
-        "• 만 19세 이상 보험 관련 업무 종사자 및 관심 고객 대상"
-        "<br><br>"
-        "<b style='font-size:0.85rem;color:#0a1628;'>[제5조] 개인정보 수집 및 이용</b><br>"
+        "<div style='max-height:220px;overflow-y:auto;font-size:0.76rem;"
+        "color:#222;line-height:1.75;border:1px dashed #000;border-radius:8px;"
+        "padding:10px 14px;background:#f9fafb;margin-bottom:8px;'>"
+
+        "<b style='color:#0a1628;'>■ 서비스명:</b> Goldkey AI Master Lab. Beta &nbsp;|&nbsp; "
+        "<b style='color:#0a1628;'>운영자:</b> 이세윤 &nbsp;|&nbsp; "
+        "<b style='color:#0a1628;'>문의:</b> 010-3074-2616 / insusite@gmail.com<br><br>"
+
+        "<b style='color:#0a1628;'>[제1조] 목적</b><br>"
+        "본 약관은 Goldkey AI Master Lab. Beta(이하 '서비스')의 이용 조건·절차, 운영자와 회원 간의 권리·의무 및 책임사항을 규정합니다.<br><br>"
+
+        "<b style='color:#0a1628;'>[제2조] 서비스 이용 조건</b><br>"
+        "• 현재 <b>전체 무료</b> 베타 서비스 운영 중 / 회원 1인당 <b>1일 10회</b> AI 상담 이용 제한<br>"
+        "• <b>사용기간: 2026.08.31. 한정</b> / 만 19세 이상 보험 관련 업무 종사자 대상<br><br>"
+
+        "<b style='color:#0a1628;'>[제3조] 서비스 범위</b><br>"
+        "보험 상담 보조 AI 분석 도구 / 세무·법인·상속·증여 참고 정보 / 보험사 연락처 및 청구 절차 안내<br><br>"
+
+        "<b style='color:#0a1628;'>[제4조] 금지 행위</b><br>"
+        "타인 명의 도용·허위 정보 입력 금지 / 서비스를 이용한 불법 행위·부당 승환 금지 / 시스템 해킹·크롤링·자동화 접근 금지<br><br>"
+
+        "<b style='color:#0a1628;'>[제5조] 개인정보 수집 및 이용</b><br>"
         "• <b>수집 항목:</b> 이름, 연락처(암호화 저장), 이용 횟수<br>"
         "• <b>이용 목적:</b> 회원 인증, 이용 한도 관리, 서비스 품질 개선<br>"
-        "• <b>보유 기간:</b> 회원 탈퇴 후 즉시 파기<br>"
-        "• 연락처(비밀번호): SHA-256 단방향 해시로 저장 — 운영자 포함 누구도 원문 열람 불가<br>"
-        "• 세션 종료 시 상담 내용 자동 파기"
-        "<br><br>"
-        "<b style='font-size:0.85rem;color:#0a1628;'>[제8조] 면책 고지</b><br>"
-        "본 서비스는 AI 기술을 활용한 상담 <b>보조</b> 도구이며, 모든 분석 결과의"
-        " 최종 판단 및 법적 책임은 <b>사용자(상담원)</b>에게 있습니다."
+        "• <b>보유 기간:</b> 회원 탈퇴 후 즉시 파기 (법령 의무 보존 기간 제외) / 제3자 제공: 법령 외 금지<br><br>"
+
+        "<b style='color:#0a1628;'>[제5조의2] 회원 개인정보 암호화 보호</b><br>"
+        "• <b>연락처(비밀번호):</b> SHA-256 <b>단방향 해시(One-Way Hash)</b>로 저장 — <b>운영자·관리자 포함 누구도 원문 열람·복원 불가</b><br>"
+        "• 로그인 시 입력값을 동일 방식으로 해시 변환 후 저장값과 비교하는 방식으로만 인증<br>"
+        "• 세션 데이터: AES 기반 Fernet 암호화, 세션 종료 시 자동 파기 / 전송 구간: TLS(HTTPS) 암호화<br><br>"
+
+        "<b style='color:#0a1628;'>[제6조] 고객정보 보안 기준</b><br>"
+        "SHA-256 단방향 해시 / AES-128 Fernet / TLS 전송 암호화 / ISO/IEC 27001 준거 / GDPR·개인정보보호법 준거<br><br>"
+
+        "<b style='color:#0a1628;'>[제6조의2] 마이크 접근 권한 정책</b><br>"
+        "• 음성 입력(STT) 기능용 마이크 권한 요청 — 녹음 파일 서버 미저장<br>"
+        "• 권한 거부 시에도 텍스트 입력으로 모든 기능 정상 이용 가능<br>"
+        "• Web Speech API(Google 제공)를 통해 음성→텍스트 변환 (Google 서버 처리)<br><br>"
+
+        "<b style='color:#0a1628;'>[제7조] 고객정보 폐기 지침</b><br>"
+        "• 즉시 파기: 탈퇴 요청 시 DB 즉시 삭제 / 자동 파기: 세션 종료 시 상담 내용 초기화<br>"
+        "• 정기 파기: 이용 로그 90일 경과 후 자동 삭제 / 전자적 파일 복구 불가능 방법으로 영구 삭제<br><br>"
+
+        "<b style='color:#0a1628;'>[제8조] 면책 고지</b><br>"
+        "본 서비스는 AI 기술을 활용한 상담 <b>보조</b> 도구이며, 모든 분석 결과의 최종 판단 및 법적 책임은 <b>사용자(상담원)</b>에게 있습니다.<br>"
+        "보험금 지급 여부의 최종 결정은 보험사 심사 및 관련 법령에 따르며, 법률·세무·의료 판단은 반드시 해당 전문가와 확인하십시오.<br>"
+        "본 서비스는 보험 모집·중개·알선 행위와 <b>무관한 순수 AI 분석 보조 도구</b>이며, 앱 운영자는 일체의 법적 책임을 지지 않습니다.<br><br>"
+
+        "<b style='color:#0a1628;'>[제8조의2] 회원정보 변경 및 책임</b><br>"
+        "회원은 이름·연락처(비번)를 셀프 변경 기능으로 직접 변경할 수 있습니다. 회원이 직접 변경한 정보의 오류로 인한 결과는 회원 본인에게 귀속됩니다.<br>"
+        "단, 시스템 오류·서버 장애로 인한 손해는 운영자가 책임집니다. 변경 불가 시: insusite@gmail.com / 010-3074-2616<br><br>"
+
+        "<b style='color:#0a1628;'>[제9조] 금융소비자보호법(금소법) 준수 원칙</b><br>"
+        "① 적합성 원칙(제17조): 고객 연령·소득·위험성향 기반 분석 / ② 적정성 원칙(제18조): 부적합 상품 경고 설계<br>"
+        "③ 설명 의무(제19조): 보장범위·면책·위험요소 포함 / ④ 불공정영업 금지(제20조): 특정 보험사 제휴·수수료 없음<br>"
+        "⑤ 부당권유 금지(제21조): 단정적 표현 자동 감지·치환 / ⑥ 허위·과장 광고 금지(제22조): 공인 통계·약관·판례 근거 분석<br>"
+        "<b>본 서비스는 보험 모집·중개·알선 행위와 무관한 AI 분석 보조 도구입니다.</b><br><br>"
+
+        "<b style='color:#0a1628;'>[제11조] 데이터 저장 분리 및 개인정보 주권 보호 (하이브리드 아키텍처)</b><br>"
+        "• Public Zone: 공용 보험사 카탈로그·의학 논문·법령 데이터 (중앙 공용 서버)<br>"
+        "• Private Zone: 회원 업로드 고객 의무기록·증권 분석 등 민감 정보 → 회원 UID 귀속 독립 보안 저장소<br>"
+        "• 운영진·관리자는 기술적으로 Private Zone 접근 불가 (IAM 403 차단) / AES-256-GCM 암호화 저장<br>"
+        "• 탈퇴 시 모든 파일·메타데이터·계정정보 즉시 완전 삭제(복구 불가)<br><br>"
+
+        "<b style='color:#0a1628;'>[제12조] 준거법 및 관할</b><br>"
+        "본 약관은 대한민국 법률에 따라 해석되며, 분쟁 발생 시 운영자 소재지 관할 법원을 전속 관할로 합니다.<br><br>"
+
+        "<b style='color:#0a1628;'>[제13조] 내보험다보여 서비스 연계 이용</b><br>"
+        "본 서비스는 금융감독원 <b>내보험다보여(www.insure.or.kr)</b> 조회 결과를 상담 보조 자료로 활용할 수 있습니다.<br>"
+        "본 앱은 금융감독원과 제휴·위탁 관계가 없는 독립 보조 도구입니다.<br><br>"
+
+        "<div style='background:#FFF3CD;border:1px solid #F0A500;border-radius:6px;padding:8px 10px;"
+        "font-size:0.75rem;color:#7A4F00;margin-top:4px;'>"
+        "<b>⚠️ 면책 및 서비스 이용 안내 (Disclaimer)</b><br>"
+        "① 본 앱(Goldkey_AI_Master2026)은 고객 상담 보조 업무 도구입니다. 모든 AI 분석 결과는 참고용 보조 지표이며, 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.<br>"
+        "② 보장 내용·약관 해석·보험금 청구는 반드시 해당 보험회사 보상담당자 또는 손해사정인에게 확인하십시오.<br>"
+        "③ AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며, 이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.<br>"
+        "④ 본 앱은 의료·법률·세무·회계·부동산 등 전문적 진단·상담을 대체할 수 없습니다. 최종 판단과 책임은 이용자 본인에게 있습니다.<br>"
+        "<i>최종 개정일: 2026년 3월 31일 (구글 앱 신청 예정일)</i>"
+        "</div>"
         "</div>",
         unsafe_allow_html=True,
     )

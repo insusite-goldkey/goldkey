@@ -28618,74 +28618,57 @@ footer, footer * { display: none !important; }
         )
         _mc1, _mc2, _mc3 = st.columns([1, 2, 1])
         with _mc2:
-            # 약관 expander
-            with st.expander("📜 이용약관 동의 (필수)", expanded=True):
-                st.markdown("""
-<div style="max-height:180px;overflow-y:auto;font-size:0.78rem;color:#333;line-height:1.8;border:1px solid #ddd;border-radius:8px;padding:10px 12px;background:#f9fafb;">
-<b style="font-size:0.88rem;color:#0a1628;">[제1조] 목적</b><br>
-본 약관은 Goldkey AI Master Lab. Beta(이하 "서비스")의 이용 조건 및 절차, 운영자와 회원 간의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
-<br><br>
-<b style="font-size:0.88rem;color:#0a1628;">[제2조] 서비스 이용 조건</b><br>
-• 현재 <b>전체 무료</b> 베타 서비스 운영 중<br>
-• 회원가입 후 모든 기능 무료 제공<br>
-• 회원 1인당 <b>1일 10회</b> AI 상담 이용 제한<br>
-• <b>사용기간: 2026.08.31. 한정</b><br>
-• 만 19세 이상 보험 관련 업무 종사자 및 관심 고객 대상
-<br><br>
-<b style="font-size:0.88rem;color:#0a1628;">[제5조] 개인정보 수집 및 이용</b><br>
-• <b>수집 항목:</b> 이름, 연락처(암호화 저장), 이용 횟수<br>
-• <b>이용 목적:</b> 회원 인증, 이용 한도 관리, 서비스 품질 개선<br>
-• <b>보유 기간:</b> 회원 탈퇴 후 즉시 파기<br>
-• 연락처(비밀번호): SHA-256 단방향 해시로 저장 — 운영자 포함 누구도 원문 열람 불가<br>
-• 세션 종료 시 상담 내용 자동 파기
-<br><br>
-<b style="font-size:0.88rem;color:#0a1628;">[제8조] 면책 고지</b><br>
-본 서비스는 AI 기술을 활용한 상담 <b>보조</b> 도구이며, 모든 분석 결과의 최종 판단 및 법적 책임은 <b>사용자(상담원)</b>에게 있습니다.
-</div>""", unsafe_allow_html=True)
-                _main_agreed = st.checkbox(
-                    "위 이용약관 및 개인정보(암호화/보관/파기) 정책에 동의합니다.",
-                    value=st.session_state.get("_gp_terms_agreed", False),
-                    key="_gp_terms_agreed",
-                )
+            # ── 약관 동의 + 로그인 폼 (shared_components.render_auth_screen 전문 표시)
+            with st.expander("📜 이용약관 동의 (필수 — 클릭하여 전문 확인)", expanded=True):
+                if _sc_render_auth_screen:
+                    _main_agreed = _sc_render_auth_screen(
+                        app_name="Goldkey AI Masters 2026",
+                        app_icon="🏆",
+                        terms_agree_key="_gp_terms_agreed",
+                    )
+                else:
+                    _main_agreed = st.checkbox(
+                        "위 이용약관 및 개인정보(암호화/보관/파기) 정책에 동의합니다.",
+                        value=st.session_state.get("_gp_terms_agreed", False),
+                        key="_gp_terms_agreed",
+                    )
                 if not _main_agreed:
                     st.warning("⚠️ 약관에 동의하셔야 로그인/가입 버튼이 활성화됩니다.")
             if _main_agreed:
-                _tab_l, _tab_s, _tab_pw, _tab_nm = st.tabs(["\U0001f511 로그인", "\U0001f4dd 회원가입", "\U0001f512 비번변경", "\U0000270f\ufe0f 이름변경"])
+                _tab_l, _tab_s, _tab_pw, _tab_nm = st.tabs(["🔑 로그인", "📝 회원가입", "🔒 비번변경", "✏️ 이름변경"])
                 with _tab_l:
                     import random as _rnd2
                     _lp2 = st.session_state.get("_main_login_phase", "A")
                     if _lp2 == "A":
-                        _name2    = st.text_input("\U0001f464 이름",   key="main_login_name",    placeholder="가입 시 등록한 이름",        label_visibility="collapsed")
-                        _contact2 = st.text_input("\U0001f4f1 연락처", type="password", key="main_login_contact", placeholder="연락처 (숫자만, - 제외)", label_visibility="collapsed")
-                        _all2 = _main_agreed
-                        if st.button("\U0001f510 AI 마스터 로그인", key="main_login_btn", use_container_width=True, type="primary", disabled=not bool(_all2)):
+                        _name2    = st.text_input("👤 이름",   key="main_login_name",    placeholder="가입 시 등록한 이름",        label_visibility="collapsed")
+                        _contact2 = st.text_input("📱 연락처", type="password", key="main_login_contact", placeholder="연락처 (숫자만, - 제외)", label_visibility="collapsed")
+                        if st.button("🔐 AI 마스터 로그인", key="main_login_btn", use_container_width=True, type="primary"):
                             _n2  = (_name2    or "").strip()
                             _c2v = (_contact2 or "").strip()
                             if not _n2 or len(_n2) < 2:
-                                st.error("\u26a0\ufe0f 이름을 2자 이상 입력해 주세요.")
+                                st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
                             elif not _c2v:
-                                st.error("\u26a0\ufe0f 연락처를 입력해 주세요.")
+                                st.error("⚠️ 연락처를 입력해 주세요.")
                             else:
                                 _mbs2 = load_members(force=True)
                                 if _n2 not in _mbs2:
-                                    st.error("\u274c 등록되지 않은 이름입니다. 회원가입 탭에서 가입해주세요.")
+                                    st.error("❌ 등록되지 않은 이름입니다. 회원가입 탭에서 가입해주세요.")
                                 else:
-                                    _m2r        = _mbs2[_n2]
-                                    _m2_contact = _m2r.get("contact", "")
-                                    _m2_pin     = _m2r.get("pin_hash", "")
-                                    _m2_hash    = hashlib.sha256(_c2v.encode()).hexdigest()
-                                    if (_m2_pin and _m2_pin == _m2_hash) or (_m2_contact and decrypt_data(_m2_contact, _c2v)):
+                                    _m2r    = _mbs2[_n2]
+                                    _m2_pin = _m2r.get("pin_hash", "")
+                                    _m2_hash = hashlib.sha256(_c2v.encode()).hexdigest()
+                                    if _m2_pin and _m2_pin == _m2_hash:
                                         _otp2 = str(_rnd2.randint(100000, 999999))
                                         st.session_state["_main_otp"]         = _otp2
                                         st.session_state["_main_login_name"]  = _n2
                                         st.session_state["_main_login_phase"] = "B"
-                                        st.info(f"\u2705 인증번호: **{_otp2}** (아래 입력창에 입력하세요)")
+                                        st.info(f"✅ 인증번호: **{_otp2}** (아래 입력창에 입력하세요)")
                                         st.rerun()
                                     else:
-                                        st.error("\u274c 연락처가 일치하지 않습니다.")
+                                        st.error("❌ 연락처가 일치하지 않습니다.")
                     elif _lp2 == "B":
-                        _otp_inp2 = st.text_input("\U0001f522 인증번호 6자리", key="main_otp_input", placeholder="화면의 6자리 숫자 입력")
-                        if st.button("\u2705 인증 완료", key="main_otp_confirm", use_container_width=True, type="primary"):
+                        _otp_inp2 = st.text_input("🔢 인증번호 6자리", key="main_otp_input", placeholder="화면의 6자리 숫자 입력")
+                        if st.button("✅ 인증 완료", key="main_otp_confirm", use_container_width=True, type="primary"):
                             if (_otp_inp2 or "").strip() == st.session_state.get("_main_otp", ""):
                                 _ln2  = st.session_state.get("_main_login_name", "")
                                 _mbs3 = load_members()
@@ -28697,618 +28680,90 @@ footer, footer * { display: none !important; }
                                 st.session_state["is_admin"]      = (_ln2 in _get_unlimited_users())
                                 st.session_state["_open_sidebar"] = True
                                 st.session_state.pop("_main_login_phase", None)
-                                st.session_state.pop("_main_otp", None)
                                 st.rerun()
                             else:
-                                st.error("\u274c 인증번호가 틀렸습니다.")
-                        if st.button("\u21a9\ufe0f 다시 입력", key="main_otp_back"):
-                            st.session_state["_main_login_phase"] = "A"
+                                st.error("❌ 인증번호가 올바르지 않습니다.")
+                        if st.button("↩️ 처음으로", key="main_otp_back", use_container_width=True):
+                            st.session_state.pop("_main_login_phase", None)
                             st.rerun()
                 with _tab_s:
-                    with st.form("main_signup_form"):
-                        _su_name    = st.text_input("이름",    key="main_su_name",    label_visibility="collapsed", placeholder="이름 (2자 이상)")
-                        _su_contact = st.text_input("연락처", type="password", key="main_su_contact", label_visibility="collapsed", placeholder="연락처 (숫자만)")
-                        if st.form_submit_button("\u2705 가입하기", use_container_width=True):
-                            _sn  = (_su_name    or "").strip()
-                            _sc2 = (_su_contact or "").strip()
-                            if not _sn or len(_sn) < 2:
-                                st.error("이름을 2자 이상 입력해주세요.")
-                            elif not _sc2 or len(_sc2) < 4:
-                                st.error("연락처를 입력해주세요.")
+                    _sn = st.text_input("👤 이름", key="main_signup_name", placeholder="가입할 이름")
+                    _sc2 = st.text_input("📱 연락처", type="password", key="main_signup_contact", placeholder="연락처 (숫자만, - 제외)")
+                    _sc2c = st.text_input("📱 연락처 확인", type="password", key="main_signup_contact2", placeholder="연락처 재입력")
+                    if st.button("📝 회원가입", key="main_signup_btn", use_container_width=True, type="primary"):
+                        _sn = (_sn or "").strip(); _sc2 = (_sc2 or "").strip()
+                        if not _sn or len(_sn) < 2:
+                            st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
+                        elif not _sc2 or len(_sc2) < 10:
+                            st.error("⚠️ 연락처를 올바르게 입력해 주세요. (숫자만 10~11자리)")
+                        elif _sc2 != (_sc2c or "").strip():
+                            st.error("⚠️ 연락처가 일치하지 않습니다.")
+                        else:
+                            _mbs_su = load_members(force=True)
+                            if _sn in _mbs_su:
+                                st.error("❌ 이미 가입된 이름입니다.")
                             else:
-                                _mbs_su = load_members()
-                                if _sn in _mbs_su:
-                                    st.error("이미 등록된 이름입니다.")
-                                else:
+                                _h_su = hashlib.sha256(_sc2.encode()).hexdigest()
+                                _uid_su = hashlib.md5(f"{_sn}{_sc2}".encode()).hexdigest()[:12]
+                                try:
                                     _sb_su = _get_sb_client()
                                     if _sb_su:
-                                        _h_su   = hashlib.sha256(_sc2.encode()).hexdigest()
-                                        _uid_su = hashlib.md5(f"{_sn}{_sc2}".encode()).hexdigest()[:12]
-                                        try:
-                                            _sb_su.table("gk_members").insert({
-                                                "name": _sn, "user_id": _uid_su, "pin_hash": _h_su,
-                                                "join_date": dt.now().strftime("%Y-%m-%d"),
-                                                "is_active": True, "status": "active"
-                                            }).execute()
-                                            load_members(force=True)
-                                            st.success(f"\u2705 가입 완료! '{_sn}'님, 로그인 탭에서 로그인하세요.")
-                                        except Exception as _e_su:
-                                            st.error(f"가입 실패: {_e_su}")
+                                        _sb_su.table("gk_members").insert({
+                                            "name": _sn, "user_id": _uid_su, "pin_hash": _h_su,
+                                            "join_date": dt.now().strftime("%Y-%m-%d"),
+                                            "is_active": True, "status": "active"
+                                        }).execute()
+                                        load_members(force=True)
+                                        st.success("✅ 가입 완료! 로그인 탭에서 로그인하세요.")
                                     else:
-                                        st.error("서버 연결 오류. 잠시 후 다시 시도해주세요.")
+                                        st.error("DB 연결 실패. 잠시 후 다시 시도해주세요.")
+                                except Exception as _e_su:
+                                    st.error(f"가입 오류: {_e_su}")
                 with _tab_pw:
-                    with st.form("main_pw_form"):
-                        _pw_name = st.text_input("이름",           key="main_pw_name", label_visibility="collapsed", placeholder="이름")
-                        _pw_old  = st.text_input("기존 연락처",    type="password", key="main_pw_old",  label_visibility="collapsed", placeholder="기존 연락처")
-                        _pw_new1 = st.text_input("새 연락처",      type="password", key="main_pw_new1", label_visibility="collapsed", placeholder="새 연락처")
-                        _pw_new2 = st.text_input("새 연락처 확인", type="password", key="main_pw_new2", label_visibility="collapsed", placeholder="새 연락처 재입력")
-                        if st.form_submit_button("\U0001f504 변경", use_container_width=True):
-                            _pn = (_pw_name or "").strip(); _po = (_pw_old  or "").strip()
-                            _p1 = (_pw_new1 or "").strip(); _p2 = (_pw_new2 or "").strip()
-                            if not all([_pn, _po, _p1, _p2]):
-                                st.error("모든 항목을 입력해주세요.")
-                            elif _p1 != _p2:
-                                st.error("새 연락처가 일치하지 않습니다.")
-                            else:
-                                _mbs_pw = load_members()
-                                if _pn not in _mbs_pw:
-                                    st.error("등록되지 않은 이름입니다.")
-                                elif _mbs_pw[_pn].get("pin_hash", "") != hashlib.sha256(_po.encode()).hexdigest():
-                                    st.error("기존 연락처가 일치하지 않습니다.")
-                                else:
-                                    _sb_pw = _get_sb_client()
-                                    if _sb_pw:
-                                        try:
-                                            _sb_pw.table("gk_members").update({"pin_hash": hashlib.sha256(_p1.encode()).hexdigest()}).eq("name", _pn).execute()
-                                            load_members(force=True)
-                                            st.success("\u2705 변경 완료!")
-                                        except Exception as _e_pw:
-                                            st.error(f"변경 실패: {_e_pw}")
+                    _pn = st.text_input("👤 이름", key="main_pw_name", placeholder="가입한 이름")
+                    _po = st.text_input("📱 현재 연락처", type="password", key="main_pw_old", placeholder="현재 연락처")
+                    _p1 = st.text_input("📱 새 연락처", type="password", key="main_pw_new1", placeholder="새 연락처")
+                    _p2 = st.text_input("📱 새 연락처 확인", type="password", key="main_pw_new2", placeholder="새 연락처 재입력")
+                    if st.button("🔒 비밀번호 변경", key="main_pw_btn", use_container_width=True, type="primary"):
+                        _pn = (_pn or "").strip()
+                        _mbs_pw = load_members()
+                        if _pn not in _mbs_pw:
+                            st.error("등록되지 않은 이름입니다.")
+                        elif _mbs_pw[_pn].get("pin_hash", "") != hashlib.sha256((_po or "").encode()).hexdigest():
+                            st.error("기존 연락처가 일치하지 않습니다.")
+                        elif (_p1 or "").strip() != (_p2 or "").strip():
+                            st.error("새 연락처가 일치하지 않습니다.")
+                        else:
+                            _sb_pw = _get_sb_client()
+                            if _sb_pw:
+                                try:
+                                    _sb_pw.table("gk_members").update({"pin_hash": hashlib.sha256((_p1 or "").encode()).hexdigest()}).eq("name", _pn).execute()
+                                    load_members(force=True)
+                                    st.success("✅ 변경 완료!")
+                                except Exception as _e_pw:
+                                    st.error(f"변경 오류: {_e_pw}")
                 with _tab_nm:
-                    with st.form("main_nm_form"):
-                        _nm_old  = st.text_input("현재 이름",    key="main_nm_old",  label_visibility="collapsed", placeholder="현재 이름")
-                        _nm_pw   = st.text_input("연락처",       type="password", key="main_nm_pw",   label_visibility="collapsed", placeholder="연락처")
-                        _nm_new  = st.text_input("새 이름",      key="main_nm_new",  label_visibility="collapsed", placeholder="새 이름")
-                        _nm_new2 = st.text_input("새 이름 확인", key="main_nm_new2", label_visibility="collapsed", placeholder="새 이름 재입력")
-                        if st.form_submit_button("\U0001f504 변경", use_container_width=True):
-                            _no  = (_nm_old  or "").strip(); _np  = (_nm_pw   or "").strip()
-                            _n1  = (_nm_new  or "").strip(); _n2b = (_nm_new2 or "").strip()
-                            if not all([_no, _np, _n1, _n2b]):
-                                st.error("모든 항목을 입력해주세요.")
-                            elif _n1 != _n2b:
-                                st.error("새 이름이 일치하지 않습니다.")
-                            else:
-                                _mbs_nm = load_members()
-                                if _no not in _mbs_nm:
-                                    st.error("등록되지 않은 이름입니다.")
-                                elif _mbs_nm[_no].get("pin_hash", "") != hashlib.sha256(_np.encode()).hexdigest():
-                                    st.error("연락처가 일치하지 않습니다.")
-                                else:
-                                    _sb_nm = _get_sb_client()
-                                    if _sb_nm:
-                                        try:
-                                            _sb_nm.table("gk_members").update({"name": _n1}).eq("name", _no).execute()
-                                            load_members(force=True)
-                                            st.success("\u2705 이름 변경 완료!")
-                                        except Exception as _e_nm:
-                                            st.error(f"변경 실패: {_e_nm}")
-        st.stop()
-
-    # ── 사이드바 ──────────────────────────────────────────────────────────
-    # [제53조 개정] 인증 완료 후 사이드바 완전 미렌더 — 조건부 렌더링
-    _is_authenticated = st.session_state.get('authenticated', False) or bool(st.session_state.get('user_id'))
-    with st.sidebar:
-        # ── [SECTION 8] Goldkey_AI_Masters 전용 브랜드 아바타 (항상 렌더) ──
-        render_goldkey_sidebar()
-        # ── [제53조 §열기] 비로그인 시 항상 / 로그인 시 플래그 소비 → JS로 사이드바 강제 열기 ──
-        if not _is_authenticated:
-            import streamlit.components.v1 as _comp_open
-            _comp_open.html("""<script>
-    (function(){
-      function isClosed() {
-    try {
-      var pd = window.parent.document;
-      var sb = pd.querySelector('section[data-testid="stSidebar"]');
-      if (!sb) return true;
-      return sb.getAttribute('aria-expanded') === 'false';
-    } catch(e) { return true; }
-      }
-      function clickToggle() {
-    try {
-      var pd = window.parent.document;
-      var selectors = [
-        '[data-testid="collapsedControl"] button',
-        '[data-testid="stSidebarCollapseButton"] button',
-        'button[aria-label="Open sidebar"]',
-        'button[aria-label="사이드바를 열거나 닫으세요"]',
-        'button[aria-label="open sidebar"]'
-      ];
-      for (var i = 0; i < selectors.length; i++) {
-        var btn = pd.querySelector(selectors[i]);
-        if (btn) { btn.click(); return true; }
-      }
-      var all = pd.querySelectorAll('button');
-      for (var j = 0; j < all.length; j++) {
-        var lbl = (all[j].getAttribute('aria-label') || '').toLowerCase();
-        if (lbl.indexOf('sidebar') !== -1 || lbl.indexOf('사이드') !== -1) {
-          all[j].click(); return true;
-        }
-      }
-    } catch(e) {}
-    return false;
-      }
-      function tryOpen() {
-    if (isClosed()) { clickToggle(); }
-      }
-      setTimeout(tryOpen, 150);
-      setTimeout(tryOpen, 500);
-      setTimeout(tryOpen, 1000);
-      setTimeout(tryOpen, 2000);
-    })();
-    </script>""", height=0)
-
-        if 'user_id' not in st.session_state:
-            st.markdown("""
-    <div style='background:#FEFCE8;border:1.5px solid #FCD34D;border-left:4px solid #F59E0B;
-      border-radius:14px;padding:14px 15px 12px 15px;margin:8px 0 8px 0;
-      box-shadow:0 2px 10px rgba(245,158,11,0.12);'>
-      <div style='font-size:0.80rem;font-weight:900;color:#92400E;
-    letter-spacing:0.04em;margin-bottom:10px;
-    border-bottom:1px solid rgba(245,158,11,0.30);padding-bottom:7px;'>
-    🔐 로그인절차 안내
-      </div>
-      <div style='font-size:0.78rem;color:#1C1917;line-height:1.55;'>
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
-      <span style='font-size:1.0rem;flex-shrink:0;'>1️⃣</span>
-      <span><b style='color:#B45309;'>필수동의:</b> 왼쪽 사이드바<br>&nbsp;&nbsp;필수항목 <b style='color:#000;'>(4개)</b> 체크</span>
-    </div>
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
-      <span style='font-size:1.0rem;flex-shrink:0;'>2️⃣</span>
-      <span><b style='color:#B45309;'>정보입력:</b> <b style='color:#000;'>이름 및 연락처</b> 입력</span>
-    </div>
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
-      <span style='font-size:1.0rem;flex-shrink:0;'>3️⃣</span>
-      <span><b style='color:#B45309;'>로그인 실행:</b><br>&nbsp;&nbsp;<b style='color:#000;'>AI 마스터 로그인</b> 버튼 클릭</span>
-    </div>
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;'>
-      <span style='font-size:1.0rem;flex-shrink:0;'>4️⃣</span>
-      <span><b style='color:#B45309;'>번호확인:</b> 화면에 표시된<br>&nbsp;&nbsp;<b style='color:#000;'>인증번호 6자리</b> 확인</span>
-    </div>
-    <div style='display:flex;align-items:flex-start;gap:8px;margin-bottom:2px;'>
-      <span style='font-size:1.0rem;flex-shrink:0;'>5️⃣</span>
-      <span><b style='color:#B45309;'>최종인증:</b> OTP 박스에<br>&nbsp;&nbsp;번호 입력 후 <b style='color:#000;'>[클릭]</b></span>
-    </div>
-      </div>
-    </div>""", unsafe_allow_html=True)
-
-            st.markdown("""
-    <style>
-    section[data-testid="stSidebar"] details summary,
-    section[data-testid="stSidebar"] details summary span,
-    section[data-testid="stSidebar"] details summary p,
-    section[data-testid="stSidebar"] .st-expander summary {
-      color: #000000 !important;
-      text-shadow: none !important;
-    }
-    </style>""", unsafe_allow_html=True)
-
-            with st.expander("📜 이용약관 전문 (로그인 전·후 열람 가능)", expanded=False):
-                st.markdown("""
-    <div style="font-size:0.78rem;font-weight:800;color:#1a2d5a;margin-bottom:4px;">
-    📜 Goldkey AI Masters 2026 이용약관
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제1조] 목적</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-본 약관은 Goldkey AI Master Lab. Beta(이하 "서비스")의 이용 조건 및 절차, 운영자와 회원 간의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
-</div>
-</div>
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제2조] 서비스 이용 조건</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-• 현재 <b>전체 무료</b> 베타 서비스 운영 중<br>
-• 회원가입 후 모든 기능 무료 제공<br>
-• 회원 1인당 <b>1일 10회</b> AI 상담 이용 제한<br>
-• <b>사용기간: 2026.08.31. 한정 (앱 고도화기간)</b><br>
-• 만 19세 이상 보험 관련 업무 종사자 및 관심 고객 대상
-</div>
-</div>
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제3조] 서비스 범위</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-• 보험 상담 보조 AI 분석 도구 제공<br>
-• 세무·법인·상속·증여 참고 정보 제공<br>
-• 보험사 연락처 및 청구 절차 안내<br>
-• 장해보험금·재조달가액 산출 보조 도구
-</div>
-</div>
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제4조] 금지 행위</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-• 타인 명의 도용 및 허위 정보 입력 금지<br>
-• 서비스를 이용한 불법 행위 및 부당 승환 금지<br>
-• 시스템 해킹·크롤링·자동화 접근 금지<br>
-• 분석 결과의 무단 상업적 재배포 금지
-</div>
-</div>
-
-<hr style="border:none;border-top:1px solid #ccc;margin:8px 0;">
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제5조] 개인정보 수집 및 이용</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-• <b>수집 항목:</b> 이름, 연락처(암호화 저장), 이용 횟수<br>
-• <b>이용 목적:</b> 회원 인증, 이용 한도 관리, 서비스 품질 개선<br>
-• <b>보유 기간:</b> 회원 탈퇴 후 즉시 파기 (법령 의무 보존 기간 제외)<br>
-• <b>제3자 제공:</b> 법령에 의한 경우 외 제공 금지
-</div>
-</div>
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제5조의2] 회원 개인정보 암호화 보호</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-• <b>연락처(비밀번호):</b> SHA-256 단방향 해시로 저장 — 운영자 포함 누구도 원문 열람 불가<br>
-• <b>세션 데이터:</b> AES 기반 Fernet 대칭키 암호화 보호, 세션 종료 시 자동 파기<br>
-• <b>전송 구간:</b> TLS(HTTPS) 암호화
-</div>
-</div>
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제6조] 고객정보 보안 기준</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-• 연락처: SHA-256 단방향 해시 암호화 저장 (복호화 불가)<br>
-• 세션 데이터: AES-128 Fernet 암호화<br>
-• 전송 구간: TLS 암호화 (서버 레벨)
-</div>
-</div>
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제7조] 고객정보 폐기 지침</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-• <b>즉시 파기:</b> 회원 탈퇴 요청 시 회원 DB에서 즉시 삭제<br>
-• <b>자동 파기:</b> 세션 종료 시 메모리 내 상담 내용 자동 초기화<br>
-• <b>정기 파기:</b> 이용 로그는 90일 경과 후 자동 삭제
-</div>
-</div>
-
-<hr style="border:none;border-top:1px solid #ccc;margin:8px 0;">
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제8조] 면책 고지</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-본 서비스는 AI 기술을 활용한 상담 <b>보조</b> 도구이며, 모든 분석 결과의 최종 판단 및 법적 책임은 <b>사용자(상담원)</b>에게 있습니다.
-</div>
-</div>
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제8조의2] 회원정보 변경 및 책임</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-• <b>이름 변경:</b> 기존 이름·연락처 확인 후 새 이름으로 변경 가능<br>
-• <b>연락처 변경:</b> 기존 연락처 확인 후 새 연락처로 변경 가능<br>
-• 변경 오류로 인한 결과 책임은 회원 본인에게 귀속 (시스템 오류는 운영자 책임)
-</div>
-</div>
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제9조] 금융소비자보호법 준수 원칙</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-본 서비스는 금소법 6대 판매원칙을 준수하는 방향으로 설계·운영됩니다.<br>
-① 적합성 원칙(제17조) &nbsp; ② 적정성 원칙(제18조) &nbsp; ③ 설명 의무(제19조)<br>
-④ 불공정영업행위 금지(제20조) &nbsp; ⑤ 부당권유 금지(제21조) &nbsp; ⑥ 허위·과장 광고 금지(제22조)
-</div>
-</div>
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제10조] 약관 변경</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-• 약관 변경 시 서비스 내 공지 후 7일 이후 적용
-</div>
-</div>
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제11조] 데이터 저장 분리 및 개인정보 주권 보호</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-• <b>Public Zone:</b> 공통 보험사 카탈로그·법령 데이터는 공용 서버 보관<br>
-• <b>Private Zone:</b> 회원 업로드 자료는 UID 귀속 독립 암호화 저장소 분리 보관<br>
-• 탈퇴 시 Private Zone 전체 즉시 완전 삭제 (복구 불가)
-</div>
-</div>
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제12조] 준거법 및 관할</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-• 본 약관은 대한민국 법률에 따라 해석됩니다.<br>
-• 분쟁 발생 시 운영자 소재지 관할 법원을 전속 관할로 합니다.
-</div>
-</div>
-
-<hr style="border:none;border-top:1px solid #ccc;margin:8px 0;">
-
-<div style="margin-bottom:12px;">
-<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
-[제13조] 내보험다보여 서비스 연계 이용</div>
-<div style="font-size:0.78rem;color:#333;line-height:1.8;">
-본 서비스는 금융감독원 <b>내보험다보여(www.insure.or.kr)</b> 조회 결과를 상담 보조 자료로 활용할 수 있습니다.<br>
-• <b>서비스 목적:</b> 고객이 직접 조회한 결과를 AI 분석 참고 자료로 입력 가능<br>
-• <b>데이터 처리:</b> 세션 내 분석 목적으로만 사용, 서버 저장 없음<br>
-• <b>독립성:</b> 본 앱은 금융감독원과 제휴·위탁 관계 없는 독립 보조 도구
-</div>
-</div>
-
-<div style="font-size:0.72rem;color:#888;text-align:right;margin-top:8px;">
-최종 개정일: 2026년 3월
-</div>
-""", unsafe_allow_html=True)
-
-            # ── [GP241조 §보안] 🔒 카카오 보안/권한 안내 서브메뉴 ───────────────
-            with st.expander("🔒 카카오 보안/권한 안내", expanded=False):
-                st.markdown("""
-    <div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);
-      border:1.5px solid #3B82F6;border-left:5px solid #1D4ED8;
-      border-radius:12px;padding:16px 18px 14px 18px;
-      box-shadow:0 3px 12px rgba(59,130,246,0.18);">
-      <div style="font-size:0.92rem;font-weight:900;color:#1E3A8A;margin-bottom:12px;
-    display:flex;align-items:center;gap:8px;">
-    🔒 골드키 마스터 AI 리포트 전송 시스템
-    <span style="font-size:0.65rem;background:#1D4ED8;color:#fff;
-      border-radius:4px;padding:1px 7px;font-weight:700;margin-left:4px;">금융권 수준 보안</span>
-      </div>
-      <div style="font-size:0.78rem;color:#1E3A8A;line-height:1.9;">
-    <div style="margin-bottom:7px;padding:6px 10px;background:rgba(255,255,255,0.6);
-      border-radius:8px;border-left:3px solid #3B82F6;">
-      <span style="font-weight:800;color:#1D4ED8;">🎯 서비스명</span><br>
-      <span style="color:#1e40af;">골드키 마스터 AI 리포트 전송 시스템</span>
-    </div>
-    <div style="margin-bottom:7px;padding:6px 10px;background:rgba(255,255,255,0.6);
-      border-radius:8px;border-left:3px solid #3B82F6;">
-      <span style="font-weight:800;color:#1D4ED8;">🔐 보안 약속</span><br>
-      <span style="color:#1e40af;">대화 내용 열람 <b>불가</b> · 친구 목록 수집 <b>불가</b><br>
-      요청 권한: <code style="background:#DBEAFE;padding:1px 4px;border-radius:3px;
-      font-size:0.72rem;">talk_message</code> 발송 전용</span>
-    </div>
-    <div style="margin-bottom:7px;padding:6px 10px;background:rgba(255,255,255,0.6);
-      border-radius:8px;border-left:3px solid #3B82F6;">
-      <span style="font-weight:800;color:#1D4ED8;">🛡️ 데이터 처리</span><br>
-      <span style="color:#1e40af;">전송 데이터 TLS 암호화 처리 후 발송 즉시 파기<br>
-      서버 저장 없음 · 제3자 제공 없음</span>
-    </div>
-    <div style="padding:6px 10px;background:rgba(255,255,255,0.6);
-      border-radius:8px;border-left:3px solid #3B82F6;">
-      <span style="font-weight:800;color:#1D4ED8;">↩️ 권한 철회</span><br>
-      <span style="color:#1e40af;">카카오톡 앱 → 설정 → 자산 → 서비스 관리에서 언제든지 철회 가능</span>
-    </div>
-      </div>
-      <div style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(59,130,246,0.25);
-    font-size:0.68rem;color:#3B82F6;text-align:center;">
-    🔗 카카오 개발자 센터 OAuth2.0 표준 인증 준수 · 권한 범위:
-    <code style="background:#DBEAFE;padding:1px 3px;border-radius:3px;">talk_message</code> only
-      </div>
-    </div>""", unsafe_allow_html=True)
-
-            with st.expander("⚠️ 면책 및 서비스 이용 안내 (Disclaimer)", expanded=False):
-                st.markdown("""
-    <div style='font-size:0.72rem;line-height:1.6;color:#4A3700;'>
-      <b>1. 본 앱(Goldkey_AI_Master2026)의 목적 및 한계:</b><br>
-      (1) 본 앱은 원활한 고객 상담과 보험 내용 이해를 돕기 위한 업무 보조 도구입니다.
-      앱에서 제공하는 모든 AI 분석 결과 및 자료는 참고용 보조 지표일 뿐이며,
-      어떠한 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.<br>
-      (2) 보장 내용·약관 해석·보험금 청구는 반드시 해당 보험회사 보상담당자 또는
-      손해사정인(독립사정인 포함) 등에게 확인하시기 바랍니다.<br>
-      (3) AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며,
-      이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.<br><br>
-      <b>2. 전문가 상담 필수 및 책임 소재</b><br>
-      본 앱은 의료·법률·세무·회계·부동산 등의 전문적인 진단이나 상담을 대체할 수 없습니다.
-      관련 사항은 반드시 분야별 전문가(의사·변호사·세무사 등)와 상담하시기 바랍니다.
-      아울러 최종적인 보험 가입 및 해지 결정은 전문 자격을 갖춘 설계사를 통해 진행하셔야 하며,
-      본 앱의 정보를 바탕으로 한 최종 판단과 책임은 이용자 본인에게 있습니다.
-    </div>
-    """, unsafe_allow_html=True)
-
-            if False:  # 약관 전문 — 로딩 지연 방지용 비활성화 블록
-                st.markdown("""
-    ## Goldkey AI Master Lab. Beta 이용약관
-    - **서비스명:** Goldkey AI Master Lab. Beta
-    - **운영자:** 이세윤
-    - **앱 문의:** 010-3074-2616 / insusite@gmail.com
-
-    ---
-
-    **제2조 (서비스 이용 조건)**
-    - 현재 **전체 무료** 베타 서비스 운영 중
-    - 회원가입 후 모든 기능 무료 제공
-    - 회원 1인당 **1일 10회** AI 상담 이용 제한 (서버 부하 방지를 위한 기술적 제한)
-    - **사용기간: 2026.08.31. 한정 (앱 고도화기간)**
-    - 만 19세 이상 보험 관련 업무 종사자, 전문가 및 관심 있는 고객 대상
-
-    **제3조 (서비스 범위)**
-    - 보험 상담 보조 AI 분석 도구 제공
-    - 세무·법인·상속·증여 참고 정보 제공
-    - 보험사 연락처 및 청구 절차 안내
-    - 장해보험금·재조달가액 산출 보조 도구
-
-    **제4조 (금지 행위)**
-    - 타인 명의 도용 및 허위 정보 입력 금지
-    - 서비스를 이용한 불법 행위 및 부당 승환 금지
-    - 시스템 해킹·크롤링·자동화 접근 금지
-    - 분석 결과의 무단 상업적 재배포 금지
-
-    ---
-
-    **제5조 (개인정보 수집 및 이용)**
-    - **수집 항목:** 이름, 연락처(암호화 저장), 이용 횟수
-    - **이용 목적:** 회원 인증, 이용 한도 관리, 서비스 품질 개선
-    - **보유 기간:** 회원 탈퇴 후 즉시 파기 (법령 의무 보존 기간 제외)
-    - **제3자 제공:** 법령에 의한 경우 외 제공 금지
-
-    **제5조의2 (회원 개인정보 암호화 보호)**
-
-    본 서비스는 회원의 개인정보를 다음과 같이 기술적으로 보호합니다.
-
-    - **연락처(비밀번호):** SHA-256 **단방향 해시(One-Way Hash)** 방식으로 변환하여 저장합니다.
-      단방향 해시는 원문으로 되돌릴 수 없는 구조로, **운영자·관리자를 포함한 누구도 가입 시 입력한 연락처 원문을 열람하거나 복원할 수 없습니다.**
-      로그인 시에는 입력값을 동일 방식으로 해시 변환한 후 저장된 값과 비교하는 방식으로만 인증이 이루어집니다.
-
-    - **이름:** 회원 인증 및 서비스 제공 목적으로만 사용되며, 외부에 제공되지 않습니다.
-
-    - **세션 데이터:** AES 기반 Fernet 대칭키 암호화로 보호되며, 세션 종료 시 자동 파기됩니다.
-
-    - **전송 구간:** TLS(HTTPS) 암호화를 통해 전송 중 데이터를 보호합니다.
-
-    > ✅ **요약:** 가입 회원의 연락처(비밀번호)는 암호화된 해시값으로만 저장되며, 관리자를 포함한 어떠한 주체도 원문을 확인할 수 없습니다.
-
-    **제6조 (고객정보 보안 기준)**
-    - 연락처: SHA-256 단방향 해시 암호화 저장 (복호화 불가 — 관리자 포함 원문 열람 불가)
-    - 세션 데이터: AES-128 Fernet 암호화
-    - 전송 구간: TLS 암호화 (서버 레벨)
-    - 분석 내용: 서버에 저장하지 않으며 세션 종료 시 자동 파기
-    - ISO/IEC 27001 정보보안 관리체계 준거
-    - GDPR 및 개인정보보호법 준거
-
-    **제6조의2 (마이크 접근 권한 정책)**
-    - 본 서비스는 음성 입력(STT) 기능 제공을 위해 **마이크 접근 권한**을 요청합니다.
-    - 마이크 권한은 음성 상담 입력 시에만 일시적으로 사용되며, 녹음 파일은 서버에 저장되지 않습니다.
-    - 권한 요청은 **최초 로그인 후 1회**만 브라우저를 통해 안내되며, 이후 동일 브라우저에서는 재요청하지 않습니다.
-    - 마이크 권한을 거부하더라도 텍스트 입력 방식으로 모든 기능을 정상 이용할 수 있습니다.
-    - 권한 설정 변경: 브라우저 주소창 왼쪽 🔒 아이콘 → 사이트 설정 → 마이크 → 허용
-    - 본 서비스는 Web Speech API(Google 제공)를 통해 음성을 텍스트로 변환하며, 변환 처리는 Google 서버에서 이루어집니다.
-
-    **제7조 (고객정보 폐기 지침)**
-    - **즉시 파기:** 회원 탈퇴 요청 시 회원 DB에서 즉시 삭제
-    - **자동 파기:** 세션 종료 시 메모리 내 상담 내용 자동 초기화
-    - **정기 파기:** 이용 로그는 90일 경과 후 자동 삭제
-    - **파기 방법:** 전자적 파일은 복구 불가능한 방법으로 영구 삭제
-    - **파기 확인:** 관리자 시스템에서 파기 이력 확인 가능
-
-    ---
-
-    **제8조 (면책 고지)**
-
-    본 서비스는 AI 기술을 활용한 상담 **보조** 도구이며, 모든 분석 결과의 최종 판단 및 법적 책임은 **사용자(상담원)** 에게 있습니다.
-
-    보험금 지급 여부의 최종 결정은 보험사 심사 및 관련 법령에 따르며, 법률·세무·의료 분야의 최종 판단은 반드시 해당 전문가(변호사·세무사·의사)와 확인하십시오.
-
-    본 서비스는 보험 모집·중개·알선 행위와 **무관한 순수 AI 분석 보조 도구**이며, 본 앱의 분석 결과를 활용한 보험 계약 체결·보험금 수령에 대해 **앱 운영자는 일체의 법적 책임을 지지 않습니다.** 모든 책임은 해당 서비스를 활용한 사용자에게 귀속됩니다.
-
-    **제8조의2 (회원정보 변경 및 책임)**
-
-    회원은 가입 시 등록한 이름·연락처(비밀번호)를 서비스 내 셀프 변경 기능을 통해 직접 변경할 수 있습니다.
-
-    - **이름 변경(개명 포함):** 기존 이름과 기존 연락처(비번) 확인 후 새 이름으로 변경 가능합니다.
-    - **연락처(비밀번호) 변경:** 기존 연락처(비번) 확인 후 새 연락처로 변경 가능합니다.
-    - **변경 책임:** 회원이 직접 입력·변경한 정보의 오류로 인해 발생하는 결과(로그인 불가, 데이터 접근 오류 등)에 대한 책임은 해당 회원 본인에게 귀속됩니다. **단, 시스템 오류·서버 장애·기술적 결함으로 인한 손해는 운영자가 책임을 집니다.**
-    - **운영자 면책 범위:** 운영자는 회원이 직접 변경한 정보의 오류·분실로 인한 서비스 이용 불가에 대해 책임을 지지 않습니다. 단, 개인정보보호법 제29조에 따른 기술적·관리적 보호조치 의무는 운영자가 이행합니다.
-    - **정보주체 권리 보장:** 회원은 개인정보보호법 제4조에 따라 언제든지 자신의 정보에 대한 열람·정정·삭제·처리정지를 요구할 권리가 있으며, 운영자는 이를 보장합니다.
-    - **변경 불가 시:** 셀프 변경이 불가한 경우 운영자(insusite@gmail.com / 010-3074-2616)에게 문의하시기 바랍니다.
-
-    **제9조 (금융소비자보호법 준수 원칙)**
-
-    본 서비스는 **금융소비자보호법(금소법)** 의 6대 판매원칙을 준수하는 방향으로 설계·운영됩니다.
-
-    **① 적합성 원칙 (제17조)**
-    - AI 분석 결과는 고객의 연령·소득·위험 성향에 적합한 상품을 우선 제시하도록 설계되어 있습니다.
-    - 고객 정보 없이 특정 상품을 일방적으로 권유하는 기능은 제공하지 않습니다.
-
-    **② 적정성 원칙 (제18조)**
-    - 고객이 자발적으로 상품을 선택하는 경우에도, AI는 해당 상품이 고객 상황에 부적합할 수 있음을 경고하도록 설계되어 있습니다.
-
-    **③ 설명 의무 (제19조)**
-    - AI 분석 결과에는 보장 범위·면책 사항·주요 위험 요소가 반드시 포함됩니다.
-    - 모든 분석 리포트 하단에 설명 완료 항목이 자동 표시됩니다.
-    - 본 서비스를 활용한 상담 시, 사용자(설계사)는 금소법 제19조에 따른 설명 의무를 직접 이행할 책임이 있습니다.
-
-    **④ 불공정영업행위 금지 (제20조)**
-    - 본 서비스는 특정 보험사와 제휴·수수료 계약 관계가 없으며, 상업적 이해관계에 의한 편향 추천을 하지 않습니다.
-    - 사용자가 '주력 보험사'를 선택하는 기능은 설계사의 영업 보조 목적이며, AI는 반드시 타사 비교 데이터를 병렬 제시합니다.
-
-    **⑤ 부당권유 금지 (제21조)**
-    - AI가 생성하는 모든 답변은 "무조건", "100% 보장", "가장 좋다" 등 단정적 표현을 자동 감지하여 법률적 허용 범위 내 문구로 치환합니다.
-    - 치환 기준: "현시점 상담 상품 중 우수한 조건을 보유하고 있습니다" 등 사실 기반 표현으로 대체
-
-    **⑥ 허위·과장 광고 금지 (제22조)**
-    - AI 분석 결과는 공인된 통계·약관·판례·의학 실무 지침에 근거하며, 근거 없는 수치나 효과를 과장하지 않습니다.
-    - 분석 결과에 포함된 수치(간병비·치료비 등)는 출처 기반 추정치임을 명시합니다.
-
-    **[비교 안내 의무 이행]**
-    - 사용자가 특정 보험사를 선택한 경우, AI는 해당사 상품 분석 후 반드시 **시장 표준 데이터 및 타사 상품 요약을 병렬 제시**합니다.
-    - 분석 리포트 하단에 금융소비자보호법 준수 안내 문구가 자동 삽입됩니다.
-
-    **[면책 고지 — 금소법 관련]**
-    - 본 서비스는 보험 모집·중개·알선 행위와 무관한 **AI 분석 보조 도구**입니다.
-    - 본 서비스의 분석 결과를 활용한 보험 계약 체결·보험금 수령에 대해 앱 운영자는 일체의 법적 책임을 지지 않습니다.
-    - 최종 상품 선택 및 계약 체결 전 반드시 해당 보험사 약관 및 전문가 상담을 통해 확인하시기 바랍니다.
-
-    ---
-
-    **제10조 (약관 변경)**
-    - 약관 변경 시 서비스 내 공지 후 7일 이후 적용
-    - 변경 약관에 동의하지 않을 경우 서비스 이용 중단 가능
-
-    ---
-
-    **제11조 (데이터 저장 분리 및 개인정보 주권 보호 — 하이브리드 아키텍처)**
-
-    본 서비스는 **하이브리드 아키텍처(Hybrid Architecture)** 기술을 채택하여 운영됩니다.
-
-    **① 데이터 저장 구조 분리**
-    - **Public Zone (공용 저장소):** 모든 회원에게 공통으로 제공되는 보험사 카탈로그, 의학 논문, 법령 데이터 등은 중앙 공용 서버에 보관됩니다.
-    - **Private Zone (개인 보안 저장소):** 회원이 직접 업로드한 고객 의무기록, 개인 증권 분석, 카탈로그 등 민감 정보는 해당 회원의 고유 식별 계정(UID)에 귀속된 **독립된 보안 저장소(Private Bucket)** 에 분리 보관됩니다.
-
-    **② 운영진 접근 차단 (물리적·논리적 이중 차단)**
-    - 본 서비스의 운영진 및 관리자(AI 포함)는 **기술적으로 회원의 개별 보안 저장소에 접근하거나 데이터를 열람할 수 없도록 물리적·논리적으로 차단**되어 있습니다.
-    - IAM(Identity and Access Management) 정책에 의해 관리자 토큰으로 Private Zone 접근 시 **403 차단**이 적용됩니다.
-    - 데이터의 주권은 전적으로 해당 회원에게 있습니다.
-
-    **③ 암호화 보호**
-    - Private Zone에 저장되는 모든 파일은 **AES-256-GCM 암호화**를 거쳐 저장됩니다.
-    - 암호화 키는 회원 고유 UID 기반으로 파생되며, 타인이 복호화할 수 없습니다.
-
-    **④ 탈퇴 시 완전 삭제**
-    - 회원 탈퇴 요청 시 Private Zone의 모든 파일·메타데이터·계정 정보가 **즉시 완전 삭제(복구 불가)** 됩니다.
-
-    **⑤ 데이터 소스 완전 분리 원칙**
-    - Public Zone과 Private Zone의 데이터는 UI상에서 자연스럽게 연결되어 표시되지만, **데이터 소스(Source)는 기술적으로 완전히 분리**되어 운영됩니다.
-    - 공용 법령·의학 지식 데이터와 회원의 개인 상담 자료는 엄격히 분리되어 구동됩니다.
-
-    > ✅ **요약:** 회원이 업로드한 개인 자료는 본인의 UID에 귀속된 암호화 저장소에만 보관되며, 운영진을 포함한 어떠한 주체도 기술적으로 접근할 수 없습니다.
-
-    ---
-
-    **제12조 (준거법 및 관할)**
-    - 본 약관은 대한민국 법률에 따라 해석됩니다.
-    - 분쟁 발생 시 운영자 소재지 관할 법원을 전속 관할로 합니다.
-
-    *최종 개정일: 2026년 2월*
-
-    ---
-
-    **제13조 (내보험다보여 서비스 연계 이용)**
-
-    본 서비스는 금융감독원 **내보험다보여(www.insure.or.kr)** 조회 결과를 상담 보조 자료로 활용할 수 있습니다.
-
-    - **서비스 목적:** 고객이 직접 조회한 내보험다보여 결과를 AI 분석 참고 자료로 입력 가능
-    - **데이터 처리:** 조회 데이터는 해당 세션 내 분석 목적으로만 사용되며 서버에 저장되지 않음
-    - **독립성:** 본 앱은 금융감독원과 제휴·위탁 관계가 없는 독립 보조 도구임
-    - **이용 방법:** 내보험다보여(www.insure.or.kr) → 본인인증 → 보험계약 조회 → 결과를 앱 내 해당 탭에 입력
-
-    *최종 개정일: 2026년 3월*
-            """)
+                    _no = st.text_input("👤 현재 이름", key="main_nm_old", placeholder="현재 가입된 이름")
+                    _np = st.text_input("📱 연락처 확인", type="password", key="main_nm_pin", placeholder="연락처")
+                    _nn = st.text_input("✏️ 새 이름", key="main_nm_new", placeholder="변경할 새 이름")
+                    if st.button("✏️ 이름 변경", key="main_nm_btn", use_container_width=True, type="primary"):
+                        _no = (_no or "").strip()
+                        _mbs_nm = load_members()
+                        if _no not in _mbs_nm:
+                            st.error("등록되지 않은 이름입니다.")
+                        elif _mbs_nm[_no].get("pin_hash", "") != hashlib.sha256((_np or "").encode()).hexdigest():
+                            st.error("연락처가 일치하지 않습니다.")
+                        elif not (_nn or "").strip():
+                            st.error("새 이름을 입력해주세요.")
+                        else:
+                            _sb_nm = _get_sb_client()
+                            if _sb_nm:
+                                try:
+                                    _sb_nm.table("gk_members").update({"name": (_nn or "").strip()}).eq("name", _no).execute()
+                                    load_members(force=True)
+                                    st.success("✅ 이름 변경 완료!")
+                                except Exception as _e_nm:
+                                    st.error(f"변경 오류: {_e_nm}")
 
         # ── 회원가입 / 로그인 (헤더 바로 아래) ──────────────────────────
         if 'user_id' not in st.session_state:
@@ -29401,7 +28856,6 @@ footer, footer * { display: none !important; }
                         st.session_state.is_admin  = _adm
                         st.session_state["_mic_notice"]         = True
                         st.session_state["_login_welcome"]      = ln
-                        st.session_state["_auto_close_sidebar"] = False
                         st.session_state["_login_just_done"]    = True
                         st.session_state["authenticated"]       = True
                         # [C1] Entity ID 자동 발급 — AGNT_ (설계사) / CUST_ (일반고객)
@@ -29491,7 +28945,6 @@ footer, footer * { display: none !important; }
       <div class="gk-trans-skel" style="height:28px;width:55%;margin-bottom:14px;"></div>
       <div class="gk-trans-skel" style="height:18px;width:80%;margin-bottom:8px;"></div>
       <div class="gk-trans-skel" style="height:18px;width:65%;margin-bottom:8px;"></div>
-      <div class="gk-trans-skel" style="height:18px;width:72%;margin-bottom:20px;"></div>
       <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
       <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
       <div class="gk-trans-skel" style="height:60px;width:100%;"></div>
