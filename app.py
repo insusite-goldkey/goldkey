@@ -7381,7 +7381,7 @@ def mask_name(name: str) -> str:
     return name[0] + "*" * (len(name) - 1)
 
 def ensure_master_members():
-    """마스터 회원 자동 등록 (앱 시작 시 1회) — 없으면 추가, 있으면 스킵"""
+    """마스터 회원 자동 등록 (앱 시작 시 1회) — 없으면 추가, contact/pin_hash 누락 시 보완"""
     masters = [
         ("이세윤", "01030742616", "GK_이세윤_MASTER"),
         ("박보정", "01062534823", "GK_박보정_MASTER"),
@@ -7389,15 +7389,31 @@ def ensure_master_members():
     members = load_members()
     changed = False
     for name, contact, uid in masters:
+        _contact_hash = encrypt_contact(contact)
+        _pin_hash     = hashlib.sha256(contact.encode()).hexdigest()
         if name not in members:
             members[name] = {
                 "user_id": uid,
-                "contact": encrypt_contact(contact),
+                "contact": _contact_hash,
+                "pin_hash": _pin_hash,
                 "join_date": dt.now().strftime("%Y-%m-%d"),
                 "subscription_end": (dt.now() + timedelta(days=3650)).strftime("%Y-%m-%d"),
                 "is_active": True
             }
             changed = True
+        else:
+            # 기존 행에 contact 또는 pin_hash 누락 시 보완
+            _row = members[name]
+            _needs_update = False
+            if not _row.get("contact"):
+                _row["contact"]  = _contact_hash
+                _needs_update = True
+            if not _row.get("pin_hash"):
+                _row["pin_hash"] = _pin_hash
+                _needs_update = True
+            if _needs_update:
+                members[name] = _row
+                changed = True
     if changed:
         save_members(members)
 
@@ -28627,18 +28643,23 @@ footer, footer * { display: none !important; }
                             elif not _c2v:
                                 st.error("\u26a0\ufe0f 연락처를 입력해 주세요.")
                             else:
-                                _mbs2 = load_members()
+                                _mbs2 = load_members(force=True)
                                 if _n2 not in _mbs2:
                                     st.error("\u274c 등록되지 않은 이름입니다. 회원가입 탭에서 가입해주세요.")
-                                elif _mbs2[_n2].get("pin_hash", "") != hashlib.sha256(_c2v.encode()).hexdigest():
-                                    st.error("\u274c 연락처가 일치하지 않습니다.")
                                 else:
-                                    _otp2 = str(_rnd2.randint(100000, 999999))
-                                    st.session_state["_main_otp"]         = _otp2
-                                    st.session_state["_main_login_name"]  = _n2
-                                    st.session_state["_main_login_phase"] = "B"
-                                    st.info(f"\u2705 인증번호: **{_otp2}** (아래 입력창에 입력하세요)")
-                                    st.rerun()
+                                    _m2r        = _mbs2[_n2]
+                                    _m2_contact = _m2r.get("contact", "")
+                                    _m2_pin     = _m2r.get("pin_hash", "")
+                                    _m2_hash    = hashlib.sha256(_c2v.encode()).hexdigest()
+                                    if (_m2_pin and _m2_pin == _m2_hash) or (_m2_contact and decrypt_data(_m2_contact, _c2v)):
+                                        _otp2 = str(_rnd2.randint(100000, 999999))
+                                        st.session_state["_main_otp"]         = _otp2
+                                        st.session_state["_main_login_name"]  = _n2
+                                        st.session_state["_main_login_phase"] = "B"
+                                        st.info(f"\u2705 인증번호: **{_otp2}** (아래 입력창에 입력하세요)")
+                                        st.rerun()
+                                    else:
+                                        st.error("\u274c 연락처가 일치하지 않습니다.")
                     elif _lp2 == "B":
                         _otp_inp2 = st.text_input("\U0001f522 인증번호 6자리", key="main_otp_input", placeholder="화면의 6자리 숫자 입력")
                         if st.button("\u2705 인증 완료", key="main_otp_confirm", use_container_width=True, type="primary"):
