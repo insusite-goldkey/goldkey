@@ -29310,6 +29310,7 @@ footer, footer * { display: none !important; }
       <div class="gk-trans-skel" style="height:90px;width:100%;margin-bottom:12px;"></div>
       <div class="gk-trans-skel" style="height:60px;width:100%;"></div>
     </div>""", unsafe_allow_html=True)
+                        st.session_state["_open_sidebar"] = True
                         st.rerun()
 
                     _lp = st.session_state.get("_lp", "A")
