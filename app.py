@@ -7412,6 +7412,44 @@ def save_member_pin(name: str, pin: str) -> bool:
         return True
     return False
 
+def _silent_update_pin_hash(name: str, clean_contact: str) -> bool:
+    """[GP-회원관리 §연락처표준 §7-SU] Silent Update — 레거시 해시 → 신형(순수 숫자) 해시로 자동 교정
+    Track 4 (하이픈 레거시) 로그인 성공 시 즉시 호출하여 DB를 신형 규격으로 갱신.
+    실패해도 로그인 흐름을 중단하지 않음 (Silent).
+    """
+    if not name or not clean_contact:
+        return False
+    _new_hash = hashlib.sha256(get_clean_phone(clean_contact).encode()).hexdigest()
+    if _SB_PKG_OK:
+        try:
+            sb = _get_sb_client()
+            if sb:
+                sb.table("gk_members").update({"pin_hash": _new_hash}).eq("name", name).execute()
+                _get_member_cache().update({"data": None, "ts": 0.0})
+                st.session_state.pop("_members_cache", None)
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def prepare_member_data(raw_data: dict) -> dict:
+    """[GP-회원관리 §연락처표준 §8-GW] 저장 게이트웨이 — 어떤 경로로 들어오든 연락처를 순수 숫자로 정규화
+    save_members, 회원가입, 정보수정 등 모든 저장 경로의 입구에서 호출.
+    contact 원문은 SHA-256 해시로 치환, pin_hash도 정규화된 숫자 기반으로 재생성.
+    """
+    _raw_phone = raw_data.get("contact", "") or ""
+    _clean     = get_clean_phone(str(_raw_phone))
+    if not _clean:
+        return raw_data
+    _result = dict(raw_data)
+    if not _raw_phone.startswith("$2b$") and len(_raw_phone) != 64:
+        _result["contact"] = hashlib.sha256(_clean.encode()).hexdigest()
+    if not _result.get("pin_hash"):
+        _result["pin_hash"] = hashlib.sha256(_clean.encode()).hexdigest()
+    return _result
+
+
 def load_member_pin_hash(name: str) -> str:
     """DB에서 특정 회원의 pin_hash 직접 조회 (캐시 무시).
     반환: hash 문자열 or ""
@@ -28755,6 +28793,10 @@ footer, footer * { display: none !important; }
                                                      (bool(_m2_contact) and _m2_contact == _raw_hash4)
                                     _m2_ok = _pin_ok or _contact_hash_ok or _fernet_ok or _legacy_ok
                                     if _m2_ok:
+                                        # [GP-회원관리 §연락처표준 §7-SU] Silent Update
+                                        # Track 4 (레거시 하이픈 해시) 로 성공 시 신형 해시로 자동 교정
+                                        if _legacy_ok and not (_pin_ok or _contact_hash_ok or _fernet_ok):
+                                            _silent_update_pin_hash(_n2, get_clean_phone(_contact2 or ""))
                                         _otp2 = str(_rnd2.randint(100000, 999999))
                                         st.session_state["_main_otp"]         = _otp2
                                         st.session_state["_main_login_name"]  = _n2
@@ -29226,6 +29268,9 @@ footer, footer * { display: none !important; }
                                                            (bool(_stored_contact) and _stored_contact == _hyp_hash_a)
                                     _ok_a = (_ln_a in _mbs) and (_pin_ok_a or _chash_ok_a or _fernet_ok_a or _legacy_ok_a)
                                     if _ok_a:
+                                        # [GP-회원관리 §연락처표준 §7-SU] Silent Update
+                                        if _legacy_ok_a and not (_pin_ok_a or _chash_ok_a or _fernet_ok_a):
+                                            _silent_update_pin_hash(_ln_a, _lc_a)
                                         _otp_val = str(_rnd.randint(100000, 999999))
                                         st.session_state["_lp_name"]    = _ln_a
                                         st.session_state["_lp_otp"]     = _otp_val

@@ -2795,6 +2795,33 @@ def get_clean_phone(raw: str) -> str:
 
 | 파일 | 적용 함수 |
 |------|---------|
-| `app.py` | `get_clean_phone()`, `get_sha256()`, `encrypt_contact()`, `decrypt_data()`, `ensure_master_members()` |
+| `app.py` | `get_clean_phone()`, `get_sha256()`, `encrypt_contact()`, `decrypt_data()`, `ensure_master_members()`, `_silent_update_pin_hash()`, `prepare_member_data()` |
 | `shared_components.py` | `get_clean_phone()` (CRM 공유 모듈) |
 | `crm_app.py` | `get_clean_phone()` import from shared_components, 로그인 3-track 검증 적용 |
+
+### §7 [Silent Update — 레거시 해시 자동 교정]
+
+Track 4 (레거시 하이픈 해시) 로 로그인 성공 시 DB를 신형 규격으로 자동 갱신한다:
+
+- 조건: `_legacy_ok == True` AND `_pin_ok / _contact_hash_ok / _fernet_ok` 모두 False
+- 처리: `_silent_update_pin_hash(name, clean_contact)` 즉시 호출
+  - `gk_members` 테이블의 `pin_hash`를 `sha256(순수숫자)` 으로 업데이트
+  - 성공/실패와 무관하게 로그인 흐름을 중단하지 않음 (Silent)
+  - 캐시(`_get_member_cache`, `st.session_state["_members_cache"]`) 즉시 무효화
+- 적용 위치: HQ 메인 로그인 (`app.py` ~28798), 사이드바 로그인 (~29272)
+
+### §8 [Data Storage Gateway — 저장 게이트웨이]
+
+모든 회원 데이터 저장 경로의 입구에서 `prepare_member_data(raw_data)` 를 호출하여 연락처를 정규화한다:
+
+- `contact` 필드: 원문이 SHA-256/Fernet 형식이 아닌 경우 `get_clean_phone()` → SHA-256 해시로 치환
+- `pin_hash` 필드: 누락된 경우 `get_clean_phone()` → SHA-256 해시로 자동 보완
+- 적용 원칙: 신규 가입, 정보 수정, 관리자 변경 등 어떤 경로로 들어오든 DB에는 순수 숫자 기반 해시만 저장
+
+### §9 [DB 쓰기 에러 로깅 원칙]
+
+Supabase 저장 작업 실패 시 조용히 넘어가지 않고 명확한 에러를 출력한다:
+
+- `save_members`, `ensure_master_members`, `_silent_update_pin_hash` 등 모든 DB 쓰기 함수에서 예외 발생 시 `st.error()` 또는 로그 출력 강제
+- Silent 허용 예외: `_silent_update_pin_hash` — 로그인 흐름 중단 방지 목적으로만 silent 허용
+- 그 외 저장 실패는 반드시 사용자에게 가시적 에러 메시지 노출
