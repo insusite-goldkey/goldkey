@@ -28791,7 +28791,27 @@ footer, footer * { display: none !important; }
                                         _raw_hash4 = hashlib.sha256(_hyp4.encode()).hexdigest()
                                         _legacy_ok = (bool(_m2_pin) and _m2_pin == _raw_hash4) or \
                                                      (bool(_m2_contact) and _m2_contact == _raw_hash4)
-                                    _m2_ok = _pin_ok or _contact_hash_ok or _fernet_ok or _legacy_ok
+                                    # Track 5: 이름 변형(이름(2)...) 검색 — 동명이인 suffix로 가입된 경우 자동 매칭
+                                    if not _pin_ok and not _contact_hash_ok and not _fernet_ok and not _legacy_ok:
+                                        for _t5b_sfx in range(2, 11):
+                                            _t5b_nm = f"{_n2}({_t5b_sfx})"
+                                            if _t5b_nm not in _mbs2:
+                                                break
+                                            _t5b_r = _mbs2[_t5b_nm]
+                                            _t5b_pin = _t5b_r.get("pin_hash", "")
+                                            _t5b_con = _t5b_r.get("contact", "")
+                                            _t5b_ok = (bool(_t5b_pin) and _t5b_pin == _input_hash) or (bool(_t5b_con) and _t5b_con == _input_hash)
+                                            if not _t5b_ok and _t5b_con:
+                                                try:
+                                                    _t5b_dec = decrypt_val(_t5b_con)
+                                                    _t5b_clean = get_clean_phone(_c2v)
+                                                    _t5b_ok = (_t5b_dec == _t5b_clean) or (_t5b_dec == _c2v)
+                                                except Exception:
+                                                    pass
+                                            if _t5b_ok:
+                                                _n2 = _t5b_nm
+                                                break
+                                    _m2_ok = _pin_ok or _contact_hash_ok or _fernet_ok or _legacy_ok or (_t5b_ok if '_t5b_ok' in locals() else False)
                                     if _m2_ok:
                                         # [GP-회원관리 §연락처표준 §7-SU] Silent Update
                                         # Track 4 (레거시 하이픈 해시) 로 성공 시 신형 해시로 자동 교정
@@ -28844,7 +28864,7 @@ footer, footer * { display: none !important; }
                                 st.session_state["user_name"]     = _ln2
                                 st.session_state["authenticated"] = True
                                 st.session_state["_is_auth"]      = True
-                                st.session_state["is_admin"]      = (_ln2 in _get_unlimited_users())
+                                st.session_state["is_admin"]      = (_ln2 in _get_unlimited_users()) or (_ln2.split("(")[0] in _get_unlimited_users())
                                 st.session_state["_open_sidebar"] = True
                                 st.session_state.pop("_main_login_phase", None)
                                 st.rerun()
@@ -29020,7 +29040,7 @@ footer, footer * { display: none !important; }
                             _jd = dt.strptime(m.get("join_date", ""), "%Y-%m-%d")
                         except (ValueError, TypeError):
                             _jd = dt.now()
-                        _adm = (ln in _get_unlimited_users())
+                        _adm = (ln in _get_unlimited_users()) or (ln.split("(")[0] in _get_unlimited_users())
                         for _ck in ["dc_priv_cache","cc_file_cache","dc_ai_company",
                                     "dc_ai_doctype","dc_ai_tags","dc_ai_conf",
                                     "dc_ai_fileno","catalog_jwt"]:
@@ -29267,6 +29287,27 @@ footer, footer * { display: none !important; }
                                             _legacy_ok_a = (bool(_stored_pin) and _stored_pin == _hyp_hash_a) or \
                                                            (bool(_stored_contact) and _stored_contact == _hyp_hash_a)
                                     _ok_a = (_ln_a in _mbs) and (_pin_ok_a or _chash_ok_a or _fernet_ok_a or _legacy_ok_a)
+                                    # Track 5: 이름 변형(이름(2)...) 검색 — 동명이인 suffix로 가입된 경우 자동 매칭
+                                    if not _ok_a and _ln_a in _mbs:
+                                        for _t5_sfx in range(2, 11):
+                                            _t5_nm = f"{_ln_a}({_t5_sfx})"
+                                            if _t5_nm not in _mbs:
+                                                break
+                                            _t5_r = _mbs[_t5_nm]
+                                            _t5_pin = _t5_r.get("pin_hash", "")
+                                            _t5_con = _t5_r.get("contact", "")
+                                            _t5_ok = (bool(_t5_pin) and _t5_pin == _input_hash_a) or (bool(_t5_con) and _t5_con == _input_hash_a)
+                                            if not _t5_ok and _t5_con:
+                                                try:
+                                                    _t5_dec = decrypt_val(_t5_con)
+                                                    _t5_clean = get_clean_phone(_lc_a)
+                                                    _t5_ok = (_t5_dec == _t5_clean) or (_t5_dec == _lc_a)
+                                                except Exception:
+                                                    pass
+                                            if _t5_ok:
+                                                _ln_a = _t5_nm
+                                                _ok_a = True
+                                                break
                                     if _ok_a:
                                         # [GP-회원관리 §연락처표준 §7-SU] Silent Update
                                         if _legacy_ok_a and not (_pin_ok_a or _chash_ok_a or _fernet_ok_a):
@@ -53334,6 +53375,7 @@ function selectCustomer(name) {{
                         if st.button("🔑 비번 임시 초기화", key="btn_reset_pw", type="primary"):
                             _tmp_pw = "0000"
                             members[selected]["contact"] = encrypt_contact(_tmp_pw)
+                            members[selected]["pin_hash"] = get_sha256(get_clean_phone(_tmp_pw))
                             save_members(members)
                             # 로그인 잠금도 함께 해제
                             _lf_s = _get_login_fail_store()
