@@ -28478,20 +28478,9 @@ def main():
     if _is_auth_now:
         with st.sidebar:
             render_goldkey_sidebar()
-            # 사이드바 열기 JS (_open_sidebar 플래그 소비)
-            if st.session_state.pop('_open_sidebar', False):
-                import streamlit.components.v1 as _nav_cmp
-                _nav_cmp.html(
-                    '<script>(function(){'
-                    'function t(){try{var p=window.parent.document;'
-                    'var s=[\'[data-testid="collapsedControl"] button\','
-                    '\'button[aria-label="Open sidebar"]\'];'
-                    'for(var i=0;i<s.length;i++){var b=p.querySelector(s[i]);if(b){b.click();return;}}'
-                    '}catch(e){}}'
-                    'setTimeout(t,200);setTimeout(t,700);setTimeout(t,1500);'
-                    '})();</script>',
-                    height=0,
-                )
+            # 사이드바 열기 JS — get()으로 읽기만 (pop 금지: 메인 영역 풀버전 JS가 소비)
+            # 31901줄의 components.html() 풀버전 JS가 실제 사이드바 열기 담당
+            pass  # [ID-000-NAV] 플래그 소비는 메인 영역(31901줄)에서 처리
             # 로그인 후 사용자 카드
             _nav_uname = st.session_state.get('user_name','') or st.session_state.get('user_id','마스터')
             st.markdown(
@@ -28637,6 +28626,7 @@ footer, footer * { display: none !important; }
                                 st.session_state["authenticated"] = True
                                 st.session_state["_is_auth"]      = True
                                 st.session_state["is_admin"]      = (_ln2 in _get_unlimited_users())
+                                st.session_state["_open_sidebar"] = True
                                 st.session_state.pop("_main_login_phase", None)
                                 st.session_state.pop("_main_otp", None)
                                 st.rerun()
@@ -31896,9 +31886,9 @@ section[data-testid="stSidebar"] .stButton button {
 }
 </style>""", unsafe_allow_html=True)
 
-    # ── (1) _open_sidebar: 사이드바 JS는 with st.sidebar 내부에서만 실행 ──────────
-    # (DOM 생성 전 바깥에서 실행하면 타이밍 실패 → 아래 with st.sidebar 블록에서 pop() + JS 처리)
-    if st.session_state.get("_open_sidebar", False):
+    # ── (1) _open_sidebar: 메인 영역에서 pop() 소비 + 풀버전 JS 실행 ──────────
+    # with st.sidebar 내부 pop()은 제거됨 — 여기서 단독 소비
+    if st.session_state.pop("_open_sidebar", False):
         components.html("""
 <script>
 (function(){
@@ -59639,6 +59629,69 @@ def _show_as_request_box() -> None:
     # [앱 진입점] surrogate-safe 래퍼로 main() 실행
     # 모든 예외의 str() 변환을 encode/decode로 정제 후 처리
     # ==========================================================
+def _run_session_auditor():
+    """[ID-900-AUDITOR] 관리자 전용 세션 감사기 + 캐시/세션 초기화 도구"""
+    import os as _os_aud
+    _is_dev = _os_aud.environ.get("K_SERVICE") is None  # Cloud Run 아니면 로컬
+    _is_admin_aud = st.session_state.get("is_admin", False)
+    _audit_param  = st.query_params.get("audit", "") == "1"
+    if not (_is_dev or (_is_admin_aud and _audit_param)):
+        return  # 비관리자·비개발 환경에서는 렌더하지 않음
+    st.markdown("---")
+    st.markdown("#### 🔬 [ID-900-AUDITOR] 세션 감사기")
+    st.caption("관리자 전용 | URL에 ?audit=1 추가 시 노출")
+    # 세션 상태 전체 표 출력
+    try:
+        import pandas as _pd_aud
+        _ss_items = []
+        for _k, _v in sorted(st.session_state.items()):
+            _vstr = str(_v)
+            if len(_vstr) > 120:
+                _vstr = _vstr[:117] + "..."
+            _ss_items.append({"키": _k, "값": _vstr, "타입": type(_v).__name__})
+        if _ss_items:
+            _df_aud = _pd_aud.DataFrame(_ss_items)
+            st.dataframe(_df_aud, use_container_width=True, height=400)
+            st.caption(f"총 {len(_ss_items)}개 세션 변수")
+        else:
+            st.info("세션 상태 없음")
+    except Exception as _e_aud:
+        st.warning(f"세션 표시 오류: {_e_aud}")
+    # 캐시·세션 초기화 버튼
+    _col_a, _col_b, _col_c = st.columns(3)
+    with _col_a:
+        if st.button("🗑️ 전체 세션 초기화", key="_aud_clear_all", use_container_width=True):
+            _keep = {"user_id", "user_name", "is_admin", "authenticated"}
+            for _k in list(st.session_state.keys()):
+                if _k not in _keep:
+                    st.session_state.pop(_k, None)
+            st.success("세션 초기화 완료 (로그인 정보 유지)")
+            st.rerun()
+    with _col_b:
+        if st.button("🔄 자가진단 강제 재실행", key="_aud_diag_force", use_container_width=True):
+            st.session_state.pop("_diag_done", None)
+            try:
+                _fixed = _run_self_diagnosis(force=True, admin_mode=True)
+                st.success(f"진단 완료: {len(_fixed)}건 수정 — {', '.join(_fixed) if _fixed else '이상 없음'}")
+            except Exception as _e_diag:
+                st.error(f"진단 오류: {_e_diag}")
+    with _col_c:
+        if st.button("📋 에러 로그 표시", key="_aud_err_log", use_container_width=True):
+            try:
+                _logs = load_error_log() if callable(globals().get("load_error_log")) else []
+                if _logs:
+                    import pandas as _pd_log
+                    st.dataframe(_pd_log.DataFrame(_logs[-20:][::-1]), use_container_width=True)
+                else:
+                    st.info("에러 로그 없음")
+            except Exception as _e_log:
+                st.error(f"로그 오류: {_e_log}")
+
+
+# ==========================================================
+# [앱 진입점] surrogate-safe 래퍼로 main() 실행
+# 모든 예외의 str() 변환을 encode/decode로 정제 후 처리
+# ==========================================================
 def _run_safe():
     """surrogate 문자 포함 예외를 안전하게 처리하는 진입점 래퍼"""
     _MAX_RETRY = 2
@@ -59674,4 +59727,5 @@ def _run_safe():
                 st.info("페이지를 새로고침(F5)하거나 관리자에게 문의하세요: 010-3074-2616")
                 break
 
-    _run_safe()
+_run_safe()
+_run_session_auditor()
