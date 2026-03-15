@@ -37320,6 +37320,7 @@ function selectCustomer(name) {{
                 "_home_scroll_to_sec05": "gk-sec-05-anchor",
                 "_home_scroll_to_sec06": "gk-sec-06-anchor",
                 "_home_scroll_to_sec07": "gk-sec-07-anchor",
+                "_home_scroll_to_action_grid": "sector-action-grid",
                 "_home_scroll_to_sector_cancer": "sector_cancer",
                 "_home_scroll_to_sector_stroke": "sector_stroke",
                 "_home_scroll_to_sector_fire": "sector_fire",
@@ -39055,6 +39056,7 @@ function selectCustomer(name) {{
                 st.rerun()
     
             # ── 증권분석 · 특별 상담 진입 버튼 섹션 ─────────────────────
+            st.markdown('<div id="sector-action-grid" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
             st.markdown(
                 '<div class="gk-sec" style="border-top:4px solid #7c3aed;">'
                 '<span class="gk-sec-title" style="color:#7c3aed;">📊 증권분석 · 특별 상담 진입</span>',
@@ -39063,22 +39065,17 @@ function selectCustomer(name) {{
             with _sbtn_c1:
                 st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
                 if st.button("📊 통합 증권분석 (내보험다보여)", key="sec_securities_enter", use_container_width=True):
-                    st.session_state["_sec02_securities_clicked"] = True
-                    st.rerun()
+                    _go_tab("scan_hub")
                 st.markdown('</div>', unsafe_allow_html=True)
             with _sbtn_c2:
                 st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
                 if st.button("🔥 화재보험 섹터로", key="sec_fire_enter2", use_container_width=True):
-                    st.session_state["target_sector"] = "fire"
-                    st.session_state["_home_scroll_to_sector_fire"] = True
-                    st.rerun()
+                    _go_tab("fire")
                 st.markdown('</div>', unsafe_allow_html=True)
             with _sbtn_c3:
                 st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
                 if st.button("🚗 자동차보험 섹터로", key="sec_auto_enter2", use_container_width=True):
-                    st.session_state["target_sector"] = "auto"
-                    st.session_state["_home_scroll_to_sector_auto"] = True
-                    st.rerun()
+                    _go_tab("auto_comp")
                 st.markdown('</div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
     
@@ -44731,6 +44728,11 @@ function selectCustomer(name) {{
     if cur == "auto_comp":
         if not _auth_gate("auto_comp"): st.stop()
         tab_home_btn("auto_comp")
+        if st.button("📊 증권분석 이동", key="btn_back_action_grid_auto_comp", use_container_width=False):
+            st.session_state["current_tab"] = "home"
+            st.session_state["_home_scroll_to_action_grid"] = True
+            st.session_state["_scroll_top"] = True
+            st.rerun()
         show_expiry_alerts()
 
         st.markdown(f"""
@@ -49952,6 +49954,11 @@ function selectCustomer(name) {{
     if cur == "fire":
         if not _auth_gate("fire"): st.stop()
         tab_home_btn("fire")
+        if st.button("📊 증권분석 이동", key="btn_back_action_grid_fire", use_container_width=False):
+            st.session_state["current_tab"] = "home"
+            st.session_state["_home_scroll_to_action_grid"] = True
+            st.session_state["_scroll_top"] = True
+            st.rerun()
         st.markdown(f"""
     <div style="position:relative;background:linear-gradient(135deg,#fff7ed 0%,#ffedd5 100%);
       border-radius:12px;padding:14px 20px;margin-bottom:14px;border-left:4px solid #ea580c;">
@@ -57453,6 +57460,11 @@ function selectCustomer(name) {{
     if cur == "scan_hub":
         if not _auth_gate("scan_hub"): st.stop()
         tab_home_btn("scan_hub")
+        if st.button("📊 증권분석 이동", key="btn_back_action_grid_scan_hub", use_container_width=False):
+            st.session_state["current_tab"] = "home"
+            st.session_state["_home_scroll_to_action_grid"] = True
+            st.session_state["_scroll_top"] = True
+            st.rerun()
 
         st.markdown(f"""
     <div style="position:relative;background:linear-gradient(135deg,#f0fdf4 0%,#dcfce7 50%,#bbf7d0 100%);
