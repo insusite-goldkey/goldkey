@@ -28852,98 +28852,166 @@ footer, footer * { display: none !important; }
                 st.markdown("""
     <div style="font-size:0.78rem;font-weight:800;color:#1a2d5a;margin-bottom:4px;">
     📜 Goldkey AI Masters 2026 이용약관
-    </div>
-    <div style="font-size:0.70rem;color:#888;margin-bottom:8px;">
-    동의 후 서비스 이용 · 로그인 전·후 모두 열람 가능
-    </div>
-    """, unsafe_allow_html=True)
-                st.markdown("""
-## Goldkey AI Master Lab. Beta 이용약관
-- **서비스명:** Goldkey AI Master Lab. Beta
-- **운영자:** 이세윤
-- **앱 문의:** 010-3074-2616 / insusite@gmail.com
 
----
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제1조] 목적</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+본 약관은 Goldkey AI Master Lab. Beta(이하 "서비스")의 이용 조건 및 절차, 운영자와 회원 간의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
+</div>
+</div>
 
-**제2조 (서비스 이용 조건)**
-- 현재 **전체 무료** 베타 서비스 운영 중
-- 회원가입 후 모든 기능 무료 제공
-- 회원 1인당 **1일 10회** AI 상담 이용 제한
-- **사용기간: 2026.08.31. 한정 (앱 고도화기간)**
-- 만 19세 이상 보험 관련 업무 종사자 및 관심 고객 대상
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제2조] 서비스 이용 조건</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+• 현재 <b>전체 무료</b> 베타 서비스 운영 중<br>
+• 회원가입 후 모든 기능 무료 제공<br>
+• 회원 1인당 <b>1일 10회</b> AI 상담 이용 제한<br>
+• <b>사용기간: 2026.08.31. 한정 (앱 고도화기간)</b><br>
+• 만 19세 이상 보험 관련 업무 종사자 및 관심 고객 대상
+</div>
+</div>
 
-**제3조 (서비스 범위)**
-- 보험 상담 보조 AI 분석 도구 제공
-- 세무·법인·상속·증여 참고 정보 제공
-- 보험사 연락처 및 청구 절차 안내
-- 장해보험금·재조달가액 산출 보조 도구
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제3조] 서비스 범위</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+• 보험 상담 보조 AI 분석 도구 제공<br>
+• 세무·법인·상속·증여 참고 정보 제공<br>
+• 보험사 연락처 및 청구 절차 안내<br>
+• 장해보험금·재조달가액 산출 보조 도구
+</div>
+</div>
 
-**제4조 (금지 행위)**
-- 타인 명의 도용 및 허위 정보 입력 금지
-- 서비스를 이용한 불법 행위 및 부당 승환 금지
-- 시스템 해킹·크롤링·자동화 접근 금지
-- 분석 결과의 무단 상업적 재배포 금지
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제4조] 금지 행위</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+• 타인 명의 도용 및 허위 정보 입력 금지<br>
+• 서비스를 이용한 불법 행위 및 부당 승환 금지<br>
+• 시스템 해킹·크롤링·자동화 접근 금지<br>
+• 분석 결과의 무단 상업적 재배포 금지
+</div>
+</div>
 
----
+<hr style="border:none;border-top:1px solid #ccc;margin:8px 0;">
 
-**제5조 (개인정보 수집 및 이용)**
-- **수집 항목:** 이름, 연락처(암호화 저장), 이용 횟수
-- **이용 목적:** 회원 인증, 이용 한도 관리, 서비스 품질 개선
-- **보유 기간:** 회원 탈퇴 후 즉시 파기 (법령 의무 보존 기간 제외)
-- **제3자 제공:** 법령에 의한 경우 외 제공 금지
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제5조] 개인정보 수집 및 이용</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+• <b>수집 항목:</b> 이름, 연락처(암호화 저장), 이용 횟수<br>
+• <b>이용 목적:</b> 회원 인증, 이용 한도 관리, 서비스 품질 개선<br>
+• <b>보유 기간:</b> 회원 탈퇴 후 즉시 파기 (법령 의무 보존 기간 제외)<br>
+• <b>제3자 제공:</b> 법령에 의한 경우 외 제공 금지
+</div>
+</div>
 
-**제5조의2 (회원 개인정보 암호화 보호)**
-- **연락처(비밀번호):** SHA-256 단방향 해시로 저장 — 운영자 포함 누구도 원문 열람 불가
-- **세션 데이터:** AES 기반 Fernet 대칭키 암호화 보호, 세션 종료 시 자동 파기
-- **전송 구간:** TLS(HTTPS) 암호화
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제5조의2] 회원 개인정보 암호화 보호</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+• <b>연락처(비밀번호):</b> SHA-256 단방향 해시로 저장 — 운영자 포함 누구도 원문 열람 불가<br>
+• <b>세션 데이터:</b> AES 기반 Fernet 대칭키 암호화 보호, 세션 종료 시 자동 파기<br>
+• <b>전송 구간:</b> TLS(HTTPS) 암호화
+</div>
+</div>
 
-**제6조 (고객정보 보안 기준)**
-- 연락처: SHA-256 단방향 해시 암호화 저장 (복호화 불가)
-- 세션 데이터: AES-128 Fernet 암호화
-- 전송 구간: TLS 암호화 (서버 레벨)
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제6조] 고객정보 보안 기준</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+• 연락처: SHA-256 단방향 해시 암호화 저장 (복호화 불가)<br>
+• 세션 데이터: AES-128 Fernet 암호화<br>
+• 전송 구간: TLS 암호화 (서버 레벨)
+</div>
+</div>
 
-**제7조 (고객정보 폐기 지침)**
-- **즉시 파기:** 회원 탈퇴 요청 시 회원 DB에서 즉시 삭제
-- **자동 파기:** 세션 종료 시 메모리 내 상담 내용 자동 초기화
-- **정기 파기:** 이용 로그는 90일 경과 후 자동 삭제
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제7조] 고객정보 폐기 지침</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+• <b>즉시 파기:</b> 회원 탈퇴 요청 시 회원 DB에서 즉시 삭제<br>
+• <b>자동 파기:</b> 세션 종료 시 메모리 내 상담 내용 자동 초기화<br>
+• <b>정기 파기:</b> 이용 로그는 90일 경과 후 자동 삭제
+</div>
+</div>
 
----
+<hr style="border:none;border-top:1px solid #ccc;margin:8px 0;">
 
-**제8조 (면책 고지)**
-본 서비스는 AI 기술을 활용한 상담 **보조** 도구이며, 모든 분석 결과의 최종 판단 및 법적 책임은 **사용자(상담원)** 에게 있습니다.
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제8조] 면책 고지</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+본 서비스는 AI 기술을 활용한 상담 <b>보조</b> 도구이며, 모든 분석 결과의 최종 판단 및 법적 책임은 <b>사용자(상담원)</b>에게 있습니다.
+</div>
+</div>
 
-**제8조의2 (회원정보 변경 및 책임)**
-- **이름 변경:** 기존 이름·연락처 확인 후 새 이름으로 변경 가능
-- **연락처 변경:** 기존 연락처 확인 후 새 연락처로 변경 가능
-- 변경 오류로 인한 결과 책임은 회원 본인에게 귀속 (시스템 오류는 운영자 책임)
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제8조의2] 회원정보 변경 및 책임</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+• <b>이름 변경:</b> 기존 이름·연락처 확인 후 새 이름으로 변경 가능<br>
+• <b>연락처 변경:</b> 기존 연락처 확인 후 새 연락처로 변경 가능<br>
+• 변경 오류로 인한 결과 책임은 회원 본인에게 귀속 (시스템 오류는 운영자 책임)
+</div>
+</div>
 
-**제9조 (금융소비자보호법 준수 원칙)**
-본 서비스는 금소법 6대 판매원칙을 준수하는 방향으로 설계·운영됩니다.
-- ① 적합성 원칙 (제17조) ② 적정성 원칙 (제18조) ③ 설명 의무 (제19조)
-- ④ 불공정영업행위 금지 (제20조) ⑤ 부당권유 금지 (제21조) ⑥ 허위·과장 광고 금지 (제22조)
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제9조] 금융소비자보호법 준수 원칙</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+본 서비스는 금소법 6대 판매원칙을 준수하는 방향으로 설계·운영됩니다.<br>
+① 적합성 원칙(제17조) &nbsp; ② 적정성 원칙(제18조) &nbsp; ③ 설명 의무(제19조)<br>
+④ 불공정영업행위 금지(제20조) &nbsp; ⑤ 부당권유 금지(제21조) &nbsp; ⑥ 허위·과장 광고 금지(제22조)
+</div>
+</div>
 
-**제10조 (약관 변경)**
-- 약관 변경 시 서비스 내 공지 후 7일 이후 적용
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제10조] 약관 변경</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+• 약관 변경 시 서비스 내 공지 후 7일 이후 적용
+</div>
+</div>
 
-**제11조 (데이터 저장 분리 및 개인정보 주권 보호)**
-- **Public Zone:** 공통 보험사 카탈로그·법령 데이터는 공용 서버 보관
-- **Private Zone:** 회원 업로드 자료는 UID 귀속 독립 암호화 저장소 분리 보관
-- 탈퇴 시 Private Zone 전체 즉시 완전 삭제 (복구 불가)
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제11조] 데이터 저장 분리 및 개인정보 주권 보호</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+• <b>Public Zone:</b> 공통 보험사 카탈로그·법령 데이터는 공용 서버 보관<br>
+• <b>Private Zone:</b> 회원 업로드 자료는 UID 귀속 독립 암호화 저장소 분리 보관<br>
+• 탈퇴 시 Private Zone 전체 즉시 완전 삭제 (복구 불가)
+</div>
+</div>
 
-**제12조 (준거법 및 관할)**
-- 본 약관은 대한민국 법률에 따라 해석됩니다.
-- 분쟁 발생 시 운영자 소재지 관할 법원을 전속 관할로 합니다.
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제12조] 준거법 및 관할</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+• 본 약관은 대한민국 법률에 따라 해석됩니다.<br>
+• 분쟁 발생 시 운영자 소재지 관할 법원을 전속 관할로 합니다.
+</div>
+</div>
 
----
+<hr style="border:none;border-top:1px solid #ccc;margin:8px 0;">
 
-**제13조 (내보험다보여 서비스 연계 이용)**
-본 서비스는 금융감독원 **내보험다보여(www.insure.or.kr)** 조회 결과를 상담 보조 자료로 활용할 수 있습니다.
-- **서비스 목적:** 고객이 직접 조회한 결과를 AI 분석 참고 자료로 입력 가능
-- **데이터 처리:** 세션 내 분석 목적으로만 사용, 서버 저장 없음
-- **독립성:** 본 앱은 금융감독원과 제휴·위탁 관계 없는 독립 보조 도구
+<div style="margin-bottom:12px;">
+<div style="font-size:0.88rem;font-weight:900;color:#0a1628;margin-bottom:4px;">
+[제13조] 내보험다보여 서비스 연계 이용</div>
+<div style="font-size:0.78rem;color:#333;line-height:1.8;">
+본 서비스는 금융감독원 <b>내보험다보여(www.insure.or.kr)</b> 조회 결과를 상담 보조 자료로 활용할 수 있습니다.<br>
+• <b>서비스 목적:</b> 고객이 직접 조회한 결과를 AI 분석 참고 자료로 입력 가능<br>
+• <b>데이터 처리:</b> 세션 내 분석 목적으로만 사용, 서버 저장 없음<br>
+• <b>독립성:</b> 본 앱은 금융감독원과 제휴·위탁 관계 없는 독립 보조 도구
+</div>
+</div>
 
-*최종 개정일: 2026년 3월*
-                """)
+<div style="font-size:0.72rem;color:#888;text-align:right;margin-top:8px;">
+최종 개정일: 2026년 3월
+</div>
+""", unsafe_allow_html=True)
 
             # ── [GP241조 §보안] 🔒 카카오 보안/권한 안내 서브메뉴 ───────────────
             with st.expander("🔒 카카오 보안/권한 안내", expanded=False):
@@ -29496,8 +29564,17 @@ footer, footer * { display: none !important; }
                                     _lm = _lk_sec_a // 60; _ls = _lk_sec_a % 60
                                     st.error(f"🔒 **{_lm}분 {_ls}초** 잠금 중입니다. 운영자(010-3074-2616)에게 문의하세요.")
                                 else:
-                                    _mbs = load_members()
-                                    _ok_a = _ln_a in _mbs and decrypt_data(_mbs[_ln_a]["contact"], _lc_a)
+                                    _mbs = load_members(force=True)
+                                    # [GP-LOGIN-FIX] contact(암호화) 또는 pin_hash(SHA-256) 둘 다 지원
+                                    _m_row = _mbs.get(_ln_a, {})
+                                    _stored_contact = _m_row.get("contact", "")
+                                    _stored_pin     = _m_row.get("pin_hash", "")
+                                    import hashlib as _hl_login
+                                    _input_hash = _hl_login.sha256(_lc_a.encode()).hexdigest()
+                                    _ok_a = (_ln_a in _mbs) and (
+                                        (_stored_contact and decrypt_data(_stored_contact, _lc_a))
+                                        or (_stored_pin and _stored_pin == _input_hash)
+                                    )
                                     if _ok_a:
                                         _otp_val = str(_rnd.randint(100000, 999999))
                                         st.session_state["_lp_name"]    = _ln_a
