@@ -39028,7 +39028,7 @@ function selectCustomer(name) {{
                 if st.session_state.get("is_admin") or st.session_state.get("user_type") == "admin":
                     st.markdown("**🔐 관리자 로그인 상태**")
                     if st.button("⚙️ 관리자 패널", key="sec07_admin_panel", use_container_width=True):
-                        _go_tab("admin")
+                        _go_tab("t9")
                 else:
                     st.markdown("관리자 전용 — 권한 있는 계정으로 로그인하세요.")
             with _adm_c2:
