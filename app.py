@@ -53380,10 +53380,6 @@ function selectCustomer(name) {{
                             # 로그인 잠금도 함께 해제
                             _lf_s = _get_login_fail_store()
                             _lf_s.pop(selected, None)
-                            st.success(
-                                f"✅ **{selected}**님 비번이 임시비번 **0000**으로 초기화됐습니다.\n\n"
-                                f"전화로 임시비번 **0000** 안내 후, 회원이 직접 비번 변경하도록 안내하세요."
-                            )
 
                     # ── 비번 분실 안내 문구 ──────────────────────────────
                     st.info(
@@ -53393,6 +53389,71 @@ function selectCustomer(name) {{
                         "3. 회원이 **0000**으로 로그인 후 → 비번 변경 폼에서 새 비번으로 변경\n"
                         "4. 변경 완료 후 정상 이용 가능"
                     )
+
+                    st.divider()
+                    # ── 고객 연락처(비번) 개별 초기화 ──────────────────────
+                    st.markdown(
+                        "<div style='background:#fff5f5;border:2px solid #e74c3c;border-radius:10px;"
+                        "padding:10px 16px;margin-bottom:8px;'>"
+                        "<span style='color:#e74c3c;font-weight:900;font-size:0.92rem;'>"
+                        "🔑 고객 연락처(비번) 개별 초기화</span>"
+                        "<span style='color:#888;font-size:0.78rem;margin-left:10px;'>"
+                        "— 고객이 입력한 정보는 유지, 연락처(비번)만 0000으로 초기화</span>"
+                        "</div>",
+                        unsafe_allow_html=True,
+                    )
+                    with st.container(border=True):
+                        _cr_c1, _cr_c2, _cr_c3 = st.columns([3, 1, 1])
+                        with _cr_c1:
+                            _cust_nm_input = st.text_input(
+                                "고객 이름",
+                                placeholder="초기화할 고객 이름 입력",
+                                key="cust_reset_nm",
+                                label_visibility="collapsed",
+                            )
+                        with _cr_c2:
+                            _cust_srch_btn = st.button(
+                                "🔍 검색", key="btn_cust_srch", use_container_width=True
+                            )
+                        with _cr_c3:
+                            _cust_rst_btn = st.button(
+                                "🔑 초기화", key="btn_cust_rst",
+                                use_container_width=True, type="primary",
+                            )
+
+                    # ── 검색 처리 ──────────────────────────────────────────
+                    if _cust_srch_btn:
+                        _q = (_cust_nm_input or "").strip()
+                        if not _q:
+                            st.warning("⚠️ 이름을 입력해주세요.")
+                            st.session_state.pop("_cust_rst_target", None)
+                        elif _q in members:
+                            st.session_state["_cust_rst_target"] = _q
+                            st.success(f"✅ **{_q}** 고객을 찾았습니다. 초기화 버튼을 눌러 비번을 초기화하세요.")
+                        else:
+                            st.session_state.pop("_cust_rst_target", None)
+                            st.error(f"❌ **{_q}** — 등록된 고객이 없습니다.")
+
+                    # ── 초기화 처리 ──────────────────────────────────────────
+                    if _cust_rst_btn:
+                        _tgt = st.session_state.get("_cust_rst_target", "")
+                        if not _tgt:
+                            st.warning("⚠️ 먼저 검색 버튼으로 고객을 확인해주세요.")
+                        elif _tgt not in members:
+                            st.error(f"❌ **{_tgt}** — 더 이상 존재하지 않는 고객입니다.")
+                            st.session_state.pop("_cust_rst_target", None)
+                        else:
+                            _rst_pw = "0000"
+                            members[_tgt]["contact"]  = encrypt_contact(_rst_pw)
+                            members[_tgt]["pin_hash"] = get_sha256(get_clean_phone(_rst_pw))
+                            save_members(members)
+                            _lf_cr = _get_login_fail_store()
+                            _lf_cr.pop(_tgt, None)
+                            st.session_state.pop("_cust_rst_target", None)
+                            st.success(
+                                f"✅ **{_tgt}** 고객 연락처(비번)가 임시비번 **0000**으로 초기화됐습니다.\n\n"
+                                f"고객이 입력한 정보(이름·가입일·이용기간 등)는 그대로 유지됩니다."
+                            )
                 else:
                     st.info("등록된 회원이 없습니다.")
             with inner_tabs[3]:
