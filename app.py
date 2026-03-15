@@ -38806,16 +38806,15 @@ function selectCustomer(name) {{
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
       {_bid('1-5-4')}
       <div style="font-size:0.78rem;font-weight:900;color:#880E4F;letter-spacing:0.08em;
-        text-transform:uppercase;margin-bottom:6px;">### D-SECTION: Life &amp; Care</div>
-      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-        <li>LIFE EVENT 상담</li>
-        <li>간병비 컨설팅</li>
-        <li>부동산 투자</li>
-        <li>의학경제학적 보장 컨설팅</li>
-      </ol>
+        text-transform:uppercase;margin-bottom:2px;">🌸 D-SECTION: Life &amp; Care</div>
     </div>""", unsafe_allow_html=True)
-                if st.button("🌸 D섹션 입장 → LIFE EVENT 상담", key="ag_d_enter", use_container_width=True):
-                    _go_tab("life_event")
+                _d_c1, _d_c2 = st.columns(2, gap="small")
+                with _d_c1:
+                    if st.button("① LIFE EVENT 상담",      key="ag_d1", use_container_width=True): _go_tab("life_event")
+                    if st.button("② 간병비 컨설팅",        key="ag_d2", use_container_width=True): _go_tab("nursing")
+                with _d_c2:
+                    if st.button("③ 부동산 투자",          key="ag_d3", use_container_width=True): _go_tab("realty")
+                    if st.button("④ 의학경제학적 보장",    key="ag_d4", use_container_width=True): _go_tab("med_econ")
             with _pf_d2:
                 st.markdown(f"""<div style="background:#E8F5E9;border:1.5px solid #A5D6A7;
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
