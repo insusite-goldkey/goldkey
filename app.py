@@ -7435,16 +7435,42 @@ def mask_name(name: str) -> str:
     return name[0] + "*" * (len(name) - 1)
 
 def ensure_master_members():
-    """마스터 회원 자동 등록 (앱 시작 시 1회) — 없으면 추가, contact/pin_hash 누락 시 보완"""
+    """마스터 회원 자동 등록 (앱 시작 시 1회) — 항상 직접 Supabase upsert로 강제 동기화
+    [GP-회원관리 §연락처표준] pin_hash/contact 누락·오류 무관하게 매 시작 시 올바른 해시로 덮어씀
+    """
     masters = [
         ("이세윤", "01030742616", "GK_이세윤_MASTER"),
         ("박보정", "01062534823", "GK_박보정_MASTER"),
     ]
+    # ── 직접 Supabase upsert (save_members 우회 — 가장 신뢰도 높음) ──────────
+    if _SB_PKG_OK:
+        try:
+            sb = _get_sb_client()
+            if sb:
+                for name, contact, uid in masters:
+                    _clean = get_clean_phone(contact)
+                    _ph    = hashlib.sha256(_clean.encode()).hexdigest()
+                    _ch    = hashlib.sha256(_clean.encode()).hexdigest()  # SHA-256 직접
+                    sb.table("gk_members").upsert({
+                        "name":             name,
+                        "user_id":          uid,
+                        "contact":          _ch,
+                        "pin_hash":         _ph,
+                        "is_active":        True,
+                        "status":           "active",
+                    }, on_conflict="name").execute()
+                _get_member_cache().update({"data": None, "ts": 0.0})
+                st.session_state.pop("_members_cache", None)
+                return  # Supabase 성공 시 조기 반환
+        except Exception:
+            pass
+    # ── Supabase 실패 시 → 기존 로컬 로직 폴백 ──────────────────────────────
     members = load_members()
     changed = False
     for name, contact, uid in masters:
-        _contact_hash = encrypt_contact(contact)  # get_clean_phone() 내부 적용
-        _pin_hash     = hashlib.sha256(get_clean_phone(contact).encode()).hexdigest()
+        _clean        = get_clean_phone(contact)
+        _contact_hash = hashlib.sha256(_clean.encode()).hexdigest()
+        _pin_hash     = hashlib.sha256(_clean.encode()).hexdigest()
         if name not in members:
             members[name] = {
                 "user_id": uid,
@@ -7456,18 +7482,11 @@ def ensure_master_members():
             }
             changed = True
         else:
-            # 기존 행에 contact 또는 pin_hash 누락 시 보완
             _row = members[name]
-            _needs_update = False
-            if not _row.get("contact"):
-                _row["contact"]  = _contact_hash
-                _needs_update = True
-            if not _row.get("pin_hash"):
-                _row["pin_hash"] = _pin_hash
-                _needs_update = True
-            if _needs_update:
-                members[name] = _row
-                changed = True
+            _row["contact"]  = _contact_hash
+            _row["pin_hash"] = _pin_hash
+            members[name] = _row
+            changed = True
     if changed:
         save_members(members)
 
