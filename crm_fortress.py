@@ -11,6 +11,14 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+try:
+    from shared_components import get_clean_phone, encrypt_pii, decrypt_pii
+except ImportError:
+    def get_clean_phone(raw: str) -> str:
+        return "".join(filter(str.isdigit, str(raw or "")))
+    def encrypt_pii(t: str) -> str: return t
+    def decrypt_pii(t: str) -> str: return t
+
 # ────────────────────────────────────────────────────────────────────────────
 # 상수
 # ────────────────────────────────────────────────────────────────────────────
@@ -75,6 +83,15 @@ def upsert_person(
     person_id 있으면 UPDATE, 없으면 name+agent_id+birth_date 기준 검색 후 INSERT.
     반환: 저장된 행 dict
     """
+    # [GP-SEC §1][GP-회원관리 §연락처표준] 연락처 정규화 → Fernet 암호화
+    if contact:
+        _c_clean = get_clean_phone(contact)
+        if _c_clean:
+            # 이미 암호화된 경우 skip (decrypt 결과가 원문과 다른 경우)
+            _dec_test = decrypt_pii(contact)
+            if _dec_test == contact and not contact.startswith("gAAAA"):
+                contact = encrypt_pii(_c_clean)
+
     row = _clean({
         "name":               name.strip(),
         "birth_date":         birth_date or None,

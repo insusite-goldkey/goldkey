@@ -7702,7 +7702,7 @@ def _gp_gcs_upload(
     """
     import datetime as _gdt, hashlib as _ghl
     _ts = _gdt.datetime.now().strftime("%Y%m%d_%H%M%S")
-    _safe_contact = owner_contact.replace("+", "").replace("-", "").replace(" ", "")
+    _safe_contact = get_clean_phone(owner_contact)  # [GP-회원관리 §연락처표준] 표준 함수 적용
     _safe_client  = client_name.replace(" ", "_")[:30]
     _gcs_path = f"{_safe_contact}/{_safe_client}_{_ts}/package.zip"
     _gcs_uri  = f"gs://{bucket}/{_gcs_path}"
@@ -37609,7 +37609,7 @@ function selectCustomer(name) {{
                         "scan_client_name":   _fp_selected.get("name", ""),
                         "scan_client_dob":    _fp_selected.get("birth_date", ""),
                         "scan_client_gender": _fp_selected.get("gender", ""),
-                        "scan_client_contact":_fp_selected.get("contact", ""),
+                        "scan_client_contact":(_sc_decrypt_pii or decrypt_val)(_fp_selected.get("contact", "")),
                         "scan_client_job":    _fp_selected.get("job", ""),
                         "scan_client_sick":   _fp_selected.get("sick", "해당없음"),
                         "scan_client_items":  _fp_selected.get("items", []),
@@ -37891,6 +37891,8 @@ function selectCustomer(name) {{
                                     name           = _si_name.strip(),
                                     birth_date     = _si_dob,
                                     gender         = _si_gender or "",
+                                    contact        = st.session_state.get("scan_client_contact", ""),
+                                    job            = _si_job or "",
                                     is_real_client = True,
                                     agent_id       = _uid_for_cust,
                                     memo           = f"직업:{_si_job} / 유병:{_si_sick}",

@@ -158,7 +158,7 @@ def customer_card_html(c: dict, *, show_deeplink: bool = True, agent_tab: str = 
         background:{sm['bg']};padding:1px 6px;border-radius:5px;">{sm['label']}</span>
     </div>
     <div style="font-size:0.80rem;color:#6b7280;margin-top:2px;">
-      {c.get('job', '')}  {'·' if c.get('job') and c.get('contact') else ''}  {c.get('contact', '')}
+      {c.get('job', '')}  {'·' if c.get('job') and c.get('contact') else ''}  {decrypt_pii(c.get('contact', ''))}
     </div>
     {renewal_html}
     {deeplink_btn}
@@ -190,8 +190,10 @@ def customer_form(initial: Optional[dict] = None, *, key_prefix: str = "cf") -> 
     col1, col2 = st.columns(2)
     with col1:
         name    = st.text_input("이름 *",    value=d.get("name", ""),    key=f"{key_prefix}_name")
-        contact = st.text_input("연락처 *",  value=d.get("contact", ""), key=f"{key_prefix}_contact",
-                                placeholder="010-0000-0000")
+        # [GP-SEC §1] 저장된 Fernet 암호화값 → 평문으로 복호화하여 표시
+        _disp_contact = decrypt_pii(d.get("contact", "")) if d.get("contact") else ""
+        contact = st.text_input("연락처 *",  value=_disp_contact, key=f"{key_prefix}_contact",
+                                placeholder="010-00000000 (숫자만)")
         job     = st.text_input("직업",      value=d.get("job", ""),     key=f"{key_prefix}_job")
     with col2:
         gender  = st.selectbox("성별",        ["(선택)", "남성", "여성"],
@@ -240,6 +242,19 @@ def customer_input_form(customer_data: dict, agent_id: str,
         raise ValueError("이름을 입력해 주세요.")
     if not customer_data.get("contact", "").strip():
         raise ValueError("연락처를 입력해 주세요.")
+
+    # [GP-SEC §1][GP-회원관리 §연락처표준] 저장 게이트웨이: 정규화 → Fernet 암호화
+    _raw_contact = customer_data.get("contact", "")
+    _clean_contact = get_clean_phone(_raw_contact)
+    if _clean_contact:  # 유효한 전화번호인 경우만 암호화 (이미 암호화된 경우 skip)
+        try:
+            _dec_test = decrypt_pii(_raw_contact)
+            if _dec_test == _raw_contact and not _raw_contact.startswith("gAAAA"):
+                # 아직 평문 → 정규화 후 암호화
+                customer_data = dict(customer_data)
+                customer_data["contact"] = encrypt_pii(_clean_contact)
+        except Exception:
+            pass
 
     if supabase_client is None:
         try:

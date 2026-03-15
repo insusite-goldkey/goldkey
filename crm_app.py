@@ -31,6 +31,7 @@ from shared_components import (
     CRM_APP_URL,
     get_env_secret,
     get_clean_phone,
+    decrypt_pii,
     render_auth_screen as _sc_render_auth_screen,
     verify_sso_token as _sc_verify_sso_token,
 )
@@ -213,23 +214,46 @@ div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stCheckbox"]) {
                         if _crm_member is None:
                             st.error("❌ 등록되지 않은 이름입니다. HQ 앱에서 먼저 가입해 주세요.")
                         else:
-                            # [GP-SEC §1][GP-회원관리 §연락처표준] 3-track 연락처 검증
+                            # [GP-SEC §1][GP-회원관리 §연락처표준] 4-track 연락처 검증
                             _clean_cc = get_clean_phone(_cc)
                             _input_hash = _hl.sha256(_clean_cc.encode()).hexdigest()
                             _m_pin      = _crm_member.get("pin_hash", "")
                             _m_contact  = _crm_member.get("contact", "")
+                            # Track 1: pin_hash vs 입력 해시
                             _pin_ok     = bool(_m_pin) and (_m_pin == _input_hash)
+                            # Track 2: contact(SHA-256) vs 입력 해시
                             _chash_ok   = bool(_m_contact) and (_m_contact == _input_hash)
+                            # Track 3: contact(Fernet) 복호화 비교 — 키 파생 폴백 포함
                             _fernet_ok  = False
                             if not _pin_ok and not _chash_ok and _m_contact:
                                 try:
+                                    import base64 as _b64, hashlib as _hsha
                                     from cryptography.fernet import Fernet as _F
-                                    _fk = get_env_secret("FERNET_KEY", "").encode()
-                                    _dec = _F(_fk).decrypt(_m_contact.encode()).decode()
-                                    _fernet_ok = (_dec == _clean_cc) or (_dec == get_clean_phone(_cc))
+                                    _fk = get_env_secret("FERNET_KEY", "")
+                                    if not _fk:  # [오류5 수정] ENCRYPTION_KEY 기반 자동 파생
+                                        _seed = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+                                        _fk = _b64.urlsafe_b64encode(_hsha.sha256(_seed.encode()).digest()).decode()
+                                    _dec = _F(_fk.encode() if isinstance(_fk, str) else _fk).decrypt(_m_contact.encode()).decode()
+                                    _fernet_ok = (_dec == _clean_cc) or (_dec == _cc)
                                 except Exception:
                                     pass
-                            if _pin_ok or _chash_ok or _fernet_ok:
+                            # Track 4: Legacy — 하이픈 포함 입력으로 가입한 기존 회원 복구
+                            _legacy_ok = False
+                            if not _pin_ok and not _chash_ok and not _fernet_ok:
+                                _hyp = f"{_clean_cc[:3]}-{_clean_cc[3:7]}-{_clean_cc[7:]}" if len(_clean_cc) == 11 else \
+                                       (f"{_clean_cc[:3]}-{_clean_cc[3:6]}-{_clean_cc[6:]}" if len(_clean_cc) == 10 else "")
+                                if _hyp:
+                                    _hyp_hash = _hl.sha256(_hyp.encode()).hexdigest()
+                                    _legacy_ok = (bool(_m_pin) and _m_pin == _hyp_hash) or \
+                                                 (bool(_m_contact) and _m_contact == _hyp_hash)
+                            if _pin_ok or _chash_ok or _fernet_ok or _legacy_ok:
+                                # [GP-회원관리 §연락처표준 §7-SU] Track 4 성공 시 Silent Update
+                                if _legacy_ok and not (_pin_ok or _chash_ok or _fernet_ok):
+                                    try:
+                                        _new_h = _hl.sha256(_clean_cc.encode()).hexdigest()
+                                        _crm_sb.table("gk_members").update({"pin_hash": _new_h}).eq("name", _cn).execute()
+                                    except Exception:
+                                        pass
                                 _uid = _crm_member.get("user_id", _cn)
                                 st.session_state["crm_authenticated"] = True
                                 st.session_state["crm_user_id"]       = _uid
@@ -372,7 +396,7 @@ with tab1:
   <span class="gk-badge" style="color:{tier_m['color']};background:{tier_m['bg']};
     margin-left:8px;">{tier_m['icon']} {tier_m['label']}</span>
   <div style="font-size:0.8rem;color:#6b7280;margin-top:3px;">
-    {c.get('job', '')} · {c.get('contact', '')}
+    {c.get('job', '')} · {decrypt_pii(c.get('contact', ''))}
   </div>
   <div style="font-size:0.78rem;color:#d97706;margin-top:2px;">{renewal_hint}</div>
   <a href="{dl_url}" target="_blank" class="gk-deeplink-btn">
