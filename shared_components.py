@@ -525,10 +525,6 @@ def render_auth_screen(
         "본 서비스는 금융감독원 <b>내보험다보여(www.insure.or.kr)</b> 조회 결과를 상담 보조 자료로 활용할 수 있습니다.<br>"
         "본 앱은 금융감독원과 제휴·위탁 관계가 없는 독립 보조 도구입니다.<br><br>"
 
-        "<b style='color:#0a1628;'>■ 서비스명:</b> Goldkey AI Master Lab. Beta &nbsp;|&nbsp; "
-        "<b style='color:#0a1628;'>운영자:</b> 이세윤 &nbsp;|&nbsp; "
-        "<b style='color:#0a1628;'>문의:</b> 010-3074-2616 / insusite@gmail.com<br><br>"
-
         "<div style='background:#FFF3CD;border:1px solid #F0A500;border-radius:6px;padding:8px 10px;"
         "font-size:0.75rem;color:#7A4F00;margin-top:4px;'>"
         "<b>⚠️ 면책 및 서비스 이용 안내 (Disclaimer)</b><br>"
@@ -537,6 +533,13 @@ def render_auth_screen(
         "③ AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며, 이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.<br>"
         "④ 본 앱은 의료·법률·세무·회계·부동산 등 전문적 진단·상담을 대체할 수 없습니다. 최종 판단과 책임은 이용자 본인에게 있습니다.<br>"
         "<i>최종 개정일: 2026년 3월 31일 (구글 앱 신청 예정일)</i>"
+        "</div>"
+
+        "<div style='margin-top:8px;padding:6px 10px;font-size:0.74rem;color:#374151;"
+        "border-top:1px dashed #cbd5e1;'>"
+        "<b style='color:#0a1628;'>■ 서비스명:</b> Goldkey AI Master Lab. Beta &nbsp;|&nbsp; "
+        "<b style='color:#0a1628;'>운영자:</b> 이세윤 &nbsp;|&nbsp; "
+        "<b style='color:#0a1628;'>문의:</b> 010-3074-2616 / insusite@gmail.com"
         "</div>"
         "</div>",
         unsafe_allow_html=True,

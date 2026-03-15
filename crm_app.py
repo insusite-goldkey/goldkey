@@ -36,7 +36,7 @@ from shared_components import (
 
 # ── 페이지 설정 ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="골드키 CRM — 현장 기동대",
+    page_title="골드키 CRM — 고객상담 앱",
     page_icon="📱",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -138,14 +138,29 @@ if not _is_authenticated():
             f"{_crm_av_html}"
             "<div style='font-size:1.6rem;font-weight:900;color:#1e3a8a;margin-bottom:3px;'>"
             "🏆 Goldkey AI Masters 2026</div>"
-            "<div style='font-size:0.9rem;font-weight:700;color:#374151;margin-bottom:2px;'>"
-            "📱 골드키 CRM — 현장 기동대</div>"
-            "<div style='font-size:0.75rem;color:#6b7280;margin-bottom:14px;'>"
-            "고객정보 · 상담 · 내보험다보여 전용 앱</div>"
+            "<div style='font-size:1.05rem;font-weight:900;color:#374151;margin-bottom:14px;'>"
+            "📱 골드키 CRM — 고객상담 앱</div>"
             "</div>",
             unsafe_allow_html=True,
         )
-        # ── [GP-SEC §5] 공통 약관 동의 UI ────────────────────────────────────
+        # ── [GP-SEC §5] 공통 약관 동의 UI (제목 박스 포함, CSS 타겟팅) ────────
+        st.markdown(
+            "<div style='background:#1e3a8a;border-radius:8px 8px 0 0;padding:8px 14px;"
+            "text-align:center;margin-bottom:0;'>"
+            "<span style='font-size:0.92rem;font-weight:900;color:#ffffff;'>🏆 Goldkey AI Masters 2026 이용약관</span>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown("""<style>
+/* CRM 약관 동의 UI — 제목 박스 하단 테두리 연결 */
+div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stCheckbox"]) {
+    border: 1.5px solid #1e3a8a;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 0 8px 8px 8px;
+    margin-bottom: 8px;
+}
+</style>""", unsafe_allow_html=True)
         _crm_agreed = _sc_render_auth_screen(
             app_name="Goldkey AI Masters 2026",
             app_icon="🏆",
@@ -153,43 +168,77 @@ if not _is_authenticated():
         )
 
         if _crm_agreed:
-            if _IS_LOCAL:
-                # ── 로컬 개발 모드: 직접 로그인 폼 ───────────────────────────
-                st.caption("💡 로컬 개발 모드 — 직접 ID 입력")
-                with st.form("crm_local_login"):
-                    _lid = st.text_input("사용자 ID (user_id)", placeholder="예: agent_001")
-                    _lnm = st.text_input("이름", placeholder="예: 홍길동")
-                    _submitted = st.form_submit_button(
-                        "🔑 개발 모드 로그인", use_container_width=True, type="primary"
-                    )
-                if _submitted and _lid:
-                    st.session_state["crm_authenticated"] = True
-                    st.session_state["crm_user_id"]       = _lid
-                    st.session_state["crm_user_name"]     = _lnm or "설계사"
-                    st.session_state["crm_role"]          = "agent"
-                    st.session_state["crm_token"]         = "dev-token"
-                    st.rerun()
-            else:
-                # ── 프로덕션: Goldkey AI(HQ) SSO 로그인 안내 ─────────────────
-                sso_url = build_sso_redirect(CRM_URL)
-                st.markdown(f"""
-<div style="max-width:480px;margin:0 auto;background:#eff6ff;
-  border:1px dashed #000;border-radius:12px;
-  padding:16px;font-size:0.85rem;color:#374151;margin-bottom:16px;">
-  <b>📋 Goldkey AI SSO 로그인 방법</b><br>
-  1. 아래 버튼 클릭 → Goldkey AI(HQ 앱)에서 로그인<br>
-  2. 로그인 완료 후 CRM으로 자동 복귀 (SSO 토큰 전달)
-</div>
-<div style="text-align:center;">
-  <a href="{sso_url}" target="_self" style="display:inline-block;background:#1d4ed8;
-    color:#fff;border-radius:12px;padding:12px 32px;font-weight:900;
-    font-size:1rem;text-decoration:none;border:1px dashed #93c5fd;">
-    🚀 Goldkey AI로 로그인
-  </a>
-  <div style="font-size:0.70rem;color:#9ca3af;margin-top:12px;">
-    Powered by Goldkey AI SSO · GP-SEC §2
-  </div>
-</div>""", unsafe_allow_html=True)
+            # ── [GP-SEC §1] 이름 + 연락처 직접 로그인 (HQ와 동일 방식) ─────
+            import hashlib as _hl
+            _crm_lp = st.session_state.get("_crm_login_phase", "A")
+            if _crm_lp == "A":
+                with st.form("crm_direct_login"):
+                    _crm_name_in    = st.text_input("👤 이름", placeholder="가입 시 등록한 이름",
+                                                    label_visibility="collapsed", key="crm_login_name")
+                    _crm_contact_in = st.text_input("📱 연락처", type="password",
+                                                    placeholder="연락처 (숫자만, - 제외)",
+                                                    label_visibility="collapsed", key="crm_login_contact")
+                    _crm_login_btn  = st.form_submit_button("🔐 로그인",
+                                                             use_container_width=True, type="primary")
+                if _crm_login_btn:
+                    _cn = (_crm_name_in    or "").strip()
+                    _cc = (_crm_contact_in or "").strip()
+                    if not _cn or len(_cn) < 2:
+                        st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
+                    elif not _cc:
+                        st.error("⚠️ 연락처를 입력해 주세요.")
+                    else:
+                        # Supabase members 테이블 조회
+                        _crm_sb = None
+                        try:
+                            from supabase import create_client as _cc_sb
+                            _crm_sb = _cc_sb(
+                                get_env_secret("SUPABASE_URL", ""),
+                                get_env_secret("SUPABASE_SERVICE_ROLE_KEY",
+                                               get_env_secret("SUPABASE_KEY", "")),
+                            )
+                        except Exception:
+                            pass
+                        _crm_member = None
+                        if _crm_sb:
+                            try:
+                                _resp = _crm_sb.table("members").select("*") \
+                                    .eq("name", _cn).execute()
+                                _rows = _resp.data or []
+                                if _rows:
+                                    _crm_member = _rows[0]
+                            except Exception:
+                                pass
+                        if _crm_member is None:
+                            st.error("❌ 등록되지 않은 이름입니다. HQ 앱에서 먼저 가입해 주세요.")
+                        else:
+                            # [GP-SEC §1] 3-track 연락처 검증
+                            _clean_cc = _cc.replace("-", "").replace(" ", "").strip()
+                            _input_hash = _hl.sha256(_clean_cc.encode()).hexdigest()
+                            _m_pin      = _crm_member.get("pin_hash", "")
+                            _m_contact  = _crm_member.get("contact", "")
+                            _pin_ok     = bool(_m_pin) and (_m_pin == _input_hash)
+                            _chash_ok   = bool(_m_contact) and (_m_contact == _input_hash)
+                            _fernet_ok  = False
+                            if not _pin_ok and not _chash_ok and _m_contact:
+                                try:
+                                    from cryptography.fernet import Fernet as _F
+                                    _fk = get_env_secret("FERNET_KEY", "").encode()
+                                    _dec = _F(_fk).decrypt(_m_contact.encode()).decode()
+                                    _fernet_ok = (_dec == _clean_cc) or (_dec == _cc)
+                                except Exception:
+                                    pass
+                            if _pin_ok or _chash_ok or _fernet_ok:
+                                _uid = _crm_member.get("user_id", _cn)
+                                st.session_state["crm_authenticated"] = True
+                                st.session_state["crm_user_id"]       = _uid
+                                st.session_state["crm_user_name"]     = _cn
+                                st.session_state["crm_role"]          = "agent"
+                                st.session_state["crm_token"]         = "direct-login"
+                                st.session_state.pop("_crm_login_phase", None)
+                                st.rerun()
+                            else:
+                                st.error("❌ 연락처가 일치하지 않습니다.")
     st.stop()
 
 # ── 인증 완료 후 메인 ─────────────────────────────────────────────────────────
@@ -257,7 +306,7 @@ st.markdown(f"""
   display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
   <div>
     <span style="font-size:1.3rem;font-weight:900;color:#ffd700;">📱 골드키 CRM</span>
-    <span style="font-size:0.78rem;color:#93c5fd;margin-left:10px;">현장 기동대 · Shadow App</span>
+    <span style="font-size:0.78rem;color:#93c5fd;margin-left:10px;">고객상담 앱</span>
   </div>
   <div style="font-size:0.82rem;color:#e2e8f0;">{_user_name} 설계사</div>
 </div>

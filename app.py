@@ -29119,16 +29119,25 @@ footer, footer * { display: none !important; }
                                     st.error(f"🔒 **{_lm}분 {_ls}초** 잠금 중입니다. 운영자(010-3074-2616)에게 문의하세요.")
                                 else:
                                     _mbs = load_members(force=True)
-                                    # [GP-LOGIN-FIX] contact(암호화) 또는 pin_hash(SHA-256) 둘 다 지원
+                                    # [ID-100-AUTH] get_sha256: 하이픈·공백 제거 후 SHA-256 (3-track)
                                     _m_row = _mbs.get(_ln_a, {})
                                     _stored_contact = _m_row.get("contact", "")
                                     _stored_pin     = _m_row.get("pin_hash", "")
-                                    import hashlib as _hl_login
-                                    _input_hash = _hl_login.sha256(_lc_a.encode()).hexdigest()
-                                    _ok_a = (_ln_a in _mbs) and (
-                                        (_stored_contact and decrypt_data(_stored_contact, _lc_a))
-                                        or (_stored_pin and _stored_pin == _input_hash)
-                                    )
+                                    _input_hash_a   = get_sha256(_lc_a)
+                                    # Track 1: pin_hash vs 입력 해시
+                                    _pin_ok_a     = bool(_stored_pin) and (_stored_pin == _input_hash_a)
+                                    # Track 2: contact(SHA-256) vs 입력 해시
+                                    _chash_ok_a   = bool(_stored_contact) and (_stored_contact == _input_hash_a)
+                                    # Track 3: contact(Fernet) 복호화 비교
+                                    _fernet_ok_a  = False
+                                    if not _pin_ok_a and not _chash_ok_a and _stored_contact:
+                                        try:
+                                            _dec_a = decrypt_val(_stored_contact)
+                                            _clean_lc = _lc_a.replace("-", "").replace(" ", "").strip()
+                                            _fernet_ok_a = (_dec_a == _clean_lc) or (_dec_a == _lc_a)
+                                        except Exception:
+                                            _fernet_ok_a = False
+                                    _ok_a = (_ln_a in _mbs) and (_pin_ok_a or _chash_ok_a or _fernet_ok_a)
                                     if _ok_a:
                                         _otp_val = str(_rnd.randint(100000, 999999))
                                         st.session_state["_lp_name"]    = _ln_a
