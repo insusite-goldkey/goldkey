@@ -38858,31 +38858,17 @@ function selectCustomer(name) {{
       <div style="font-size:0.78rem;font-weight:900;color:#15803d;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:6px;">
         🗝️ G-SECTION: CRM 마스터 키 — The Master Gate</div>
-      <div style="display:flex;gap:20px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:200px;">
-          <div style="font-size:0.75rem;font-weight:900;color:#065f46;margin-bottom:4px;">
-            📥 통합 입력 폼 (3단계 스테퍼)</div>
-          <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 0 16px;padding:0;line-height:1.8;">
-            <li>인적 자원 등록 (중복 방지 자동검색)</li>
-            <li>관계망 형성 (가족·소개자 즉시 연결)</li>
-            <li>증권·역할 할당 (다중 피보험자 지원)</li>
-          </ol>
-        </div>
-        <div style="flex:1;min-width:200px;">
-          <div style="font-size:0.75rem;font-weight:900;color:#065f46;margin-bottom:4px;">
-            📊 전략적 전황판 (Dashboard)</div>
-          <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 0 16px;padding:0;line-height:1.8;">
-            <li>Key Metrics (가족 합산 보험료·증권 수)</li>
-            <li>가족 관계도 (클릭 전환)</li>
-            <li>보장 공백 Bar차트 (KB 7대 분류)</li>
-            <li>계약자·피보험자 증권 탭 분리</li>
-          </ol>
-        </div>
-      </div>
     </div>""", unsafe_allow_html=True)
-            if st.button("🗝️ G섹션 입장 → CRM 마스터 키",
-                         key="ag_crm_enter", use_container_width=True):
-                _go_tab("crm_gate")
+            _g_c1, _g_c2 = st.columns(2, gap="small")
+            with _g_c1:
+                if st.button("① 인적 자원 등록",          key="ag_g1", use_container_width=True): _go_tab("crm_gate")
+                if st.button("② 관계망 형성",              key="ag_g2", use_container_width=True): _go_tab("crm_gate")
+                if st.button("③ 증권·역할 할당",           key="ag_g3", use_container_width=True): _go_tab("crm_gate")
+                if st.button("④ Key Metrics 대시보드",     key="ag_g4", use_container_width=True): _go_tab("crm_gate")
+            with _g_c2:
+                if st.button("⑤ 가족 관계도",              key="ag_g5", use_container_width=True): _go_tab("crm_gate")
+                if st.button("⑥ 보장 공백 Bar차트",        key="ag_g6", use_container_width=True): _go_tab("crm_gate")
+                if st.button("⑦ 계약자·피보험자 증권 탭", key="ag_g7", use_container_width=True): _go_tab("crm_gate")
     
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     
@@ -39048,9 +39034,9 @@ function selectCustomer(name) {{
     
             st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-07 닫기
     
-            # ═══════════════════════════════════════════════════════════════
+            # ════════════════════════════════════════════════════════════════
             # [상담 깔때기] 하단 상담 섹터 — 액션 그리드에서 스크롤 진입
-            # ═══════════════════════════════════════════════════════════════
+            # ════════════════════════════════════════════════════════════════
     
             # ── 증권분석 버튼 특수 로직 (크롤링 병목 통과) ────────────────
             if st.session_state.pop("_sec02_securities_clicked", False):
@@ -39797,6 +39783,8 @@ function selectCustomer(name) {{
             # F섹션
             "ins_bot",
             "special_ops",
+            # G섹션
+            "crm_gate",
         }
         if tab_key in _SEC05_TABS:
             st.markdown(
