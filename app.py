@@ -38761,26 +38761,25 @@ function selectCustomer(name) {{
                     _go_tab("policy_scan")
             with _pf_c2:
                 st.markdown(f"""<div style="background:#F3E5F5;border:1.5px solid #CE93D8;
-      border-radius:12px;padding:14px 14px 10px 14px;position:relative;min-height:170px;">
+      border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
       {_bid('1-5-2')}
       <div style="font-size:0.78rem;font-weight:900;color:#6A1B9A;letter-spacing:0.08em;
-        text-transform:uppercase;margin-bottom:6px;">### B-SECTION: Expert Consulting</div>
-      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-        <li>신규보험 상담</li>
-        <li>보험금 청구 상담</li>
-        <li>장해 산출</li>
-        <li>상해 통합 관리</li>
-        <li>자동차사고 상담</li>
-        <li>KCD 상해 분석</li>
-        <li>암·뇌·심장 질환 상담</li>
-        <li>기본·통합보험 설계</li>
-        <li>자동차보험 보상 실무</li>
-        <li>LIFE CYCLE 설계</li>
-        <li>LIFE EVENT 상담</li>
-      </ol>
+        text-transform:uppercase;margin-bottom:2px;">🛡️ B-SECTION: Expert Consulting</div>
     </div>""", unsafe_allow_html=True)
-                if st.button("🛡️ B섹션 입장 → 신규보험 상담", key="ag_b_enter", use_container_width=True):
-                    _go_tab("t0")
+                _b_c1, _b_c2 = st.columns(2, gap="small")
+                with _b_c1:
+                    if st.button("① 신규보험 상담",    key="ag_b1",  use_container_width=True): _go_tab("t0")
+                    if st.button("② 보험금 청구 상담", key="ag_b2",  use_container_width=True): _go_tab("t1")
+                    if st.button("③ 장해 산출",         key="ag_b3",  use_container_width=True): _go_tab("disability")
+                    if st.button("④ 상해 통합 관리",   key="ag_b4",  use_container_width=True): _go_tab("injury")
+                    if st.button("⑤ 자동차사고 상담",  key="ag_b5",  use_container_width=True): _go_tab("t4")
+                    if st.button("⑥ KCD 상해 분석",    key="ag_b6",  use_container_width=True): _go_tab("kcd_injury")
+                with _b_c2:
+                    if st.button("⑦ 암·뇌·심장 상담", key="ag_b7",  use_container_width=True): _go_tab("t2")
+                    if st.button("⑧ 기본·통합 설계",   key="ag_b8",  use_container_width=True): _go_tab("t3")
+                    if st.button("⑨ 자동차보험 실무",  key="ag_b9",  use_container_width=True): _go_tab("auto_comp")
+                    if st.button("⑩ LIFE CYCLE 설계",  key="ag_b10", use_container_width=True): _go_tab("life_cycle")
+                    if st.button("⑪ LIFE EVENT 상담",  key="ag_b11", use_container_width=True): _go_tab("life_event")
             with _pf_c3:
                 st.markdown(f"""<div style="background:#FFF9C4;border:1.5px solid #F9A825;
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;min-height:170px;">
