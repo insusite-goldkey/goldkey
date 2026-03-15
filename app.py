@@ -29530,7 +29530,7 @@ footer, footer * { display: none !important; }
 
             # ── [Lazy Loading] 로그인 직후 첫 rerun — 스켈레톤 메뉴만 표시 ──
             _sb_lazy_done = st.session_state.get("_sb_menu_loaded", False)
-            _is_login_first = _login_first_run  # [제40조] pop() 소비 후 로컬 변수로 전달
+            _is_login_first = st.session_state.get("_login_just_done", False)  # [제40조] STEP6 pop() 이전에도 안전하게 읽기
             if _is_login_first and not _sb_lazy_done:
                 # 첫 rerun: SVG 아이콘 기반 스켈레톤 메뉴 렌더
                 st.markdown("""

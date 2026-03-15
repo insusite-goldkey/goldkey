@@ -462,10 +462,6 @@ def render_auth_screen(
         "color:#222;line-height:1.75;border:1px dashed #000;border-radius:8px;"
         "padding:10px 14px;background:#f9fafb;margin-bottom:8px;'>"
 
-        "<b style='color:#0a1628;'>■ 서비스명:</b> Goldkey AI Master Lab. Beta &nbsp;|&nbsp; "
-        "<b style='color:#0a1628;'>운영자:</b> 이세윤 &nbsp;|&nbsp; "
-        "<b style='color:#0a1628;'>문의:</b> 010-3074-2616 / insusite@gmail.com<br><br>"
-
         "<b style='color:#0a1628;'>[제1조] 목적</b><br>"
         "본 약관은 Goldkey AI Master Lab. Beta(이하 '서비스')의 이용 조건·절차, 운영자와 회원 간의 권리·의무 및 책임사항을 규정합니다.<br><br>"
 
@@ -516,18 +512,22 @@ def render_auth_screen(
         "⑤ 부당권유 금지(제21조): 단정적 표현 자동 감지·치환 / ⑥ 허위·과장 광고 금지(제22조): 공인 통계·약관·판례 근거 분석<br>"
         "<b>본 서비스는 보험 모집·중개·알선 행위와 무관한 AI 분석 보조 도구입니다.</b><br><br>"
 
-        "<b style='color:#0a1628;'>[제11조] 데이터 저장 분리 및 개인정보 주권 보호 (하이브리드 아키텍처)</b><br>"
+        "<b style='color:#0a1628;'>[제10조] 데이터 저장 분리 및 개인정보 주권 보호 (하이브리드 아키텍처)</b><br>"
         "• Public Zone: 공용 보험사 카탈로그·의학 논문·법령 데이터 (중앙 공용 서버)<br>"
         "• Private Zone: 회원 업로드 고객 의무기록·증권 분석 등 민감 정보 → 회원 UID 귀속 독립 보안 저장소<br>"
         "• 운영진·관리자는 기술적으로 Private Zone 접근 불가 (IAM 403 차단) / AES-256-GCM 암호화 저장<br>"
         "• 탈퇴 시 모든 파일·메타데이터·계정정보 즉시 완전 삭제(복구 불가)<br><br>"
 
-        "<b style='color:#0a1628;'>[제12조] 준거법 및 관할</b><br>"
+        "<b style='color:#0a1628;'>[제11조] 준거법 및 관할</b><br>"
         "본 약관은 대한민국 법률에 따라 해석되며, 분쟁 발생 시 운영자 소재지 관할 법원을 전속 관할로 합니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제13조] 내보험다보여 서비스 연계 이용</b><br>"
+        "<b style='color:#0a1628;'>[제12조] 내보험다보여 서비스 연계 이용</b><br>"
         "본 서비스는 금융감독원 <b>내보험다보여(www.insure.or.kr)</b> 조회 결과를 상담 보조 자료로 활용할 수 있습니다.<br>"
         "본 앱은 금융감독원과 제휴·위탁 관계가 없는 독립 보조 도구입니다.<br><br>"
+
+        "<b style='color:#0a1628;'>■ 서비스명:</b> Goldkey AI Master Lab. Beta &nbsp;|&nbsp; "
+        "<b style='color:#0a1628;'>운영자:</b> 이세윤 &nbsp;|&nbsp; "
+        "<b style='color:#0a1628;'>문의:</b> 010-3074-2616 / insusite@gmail.com<br><br>"
 
         "<div style='background:#FFF3CD;border:1px solid #F0A500;border-radius:6px;padding:8px 10px;"
         "font-size:0.75rem;color:#7A4F00;margin-top:4px;'>"
