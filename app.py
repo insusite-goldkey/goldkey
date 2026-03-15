@@ -28656,8 +28656,11 @@ footer, footer * { display: none !important; }
                                 else:
                                     _m2r    = _mbs2[_n2]
                                     _m2_pin = _m2r.get("pin_hash", "")
+                                    _m2_contact = _m2r.get("contact", "")
                                     _m2_hash = hashlib.sha256(_c2v.encode()).hexdigest()
-                                    if _m2_pin and _m2_pin == _m2_hash:
+                                    _m2_ok = (_m2_pin and _m2_pin == _m2_hash) or \
+                                             (_m2_contact and decrypt_data(_m2_contact, _c2v))
+                                    if _m2_ok:
                                         _otp2 = str(_rnd2.randint(100000, 999999))
                                         st.session_state["_main_otp"]         = _otp2
                                         st.session_state["_main_login_name"]  = _n2
@@ -29028,14 +29031,13 @@ footer, footer * { display: none !important; }
       box-shadow: 0 2px 8px rgba(0,77,64,0.18) !important;
     }
     </style>""", unsafe_allow_html=True)
-                        _all_checked = (_tr_top.get("t1") and _tr_top.get("t2")
-                                        and _tr_top.get("t3") and _tr_top.get("t4"))
+                        _all_checked = st.session_state.get("_gp_terms_agreed", False)
                         if not _all_checked:
                             st.markdown(
                                 "<div style='font-size:0.82rem;font-weight:900;color:#000000;"
                                 "background:#FFF9C4;border:1.5px solid #F9A825;"
                                 "border-radius:8px;padding:10px 12px;margin-bottom:8px;"
-                                "text-align:center;'>⚠️ 사이드바에서 필수 동의 후 접속 가능합니다</div>",
+                                "text-align:center;'>⚠️ 위 약관에 동의 체크 후 접속 가능합니다</div>",
                                 unsafe_allow_html=True
                             )
                         st.markdown(
@@ -29358,6 +29360,12 @@ footer, footer * { display: none !important; }
     <div style='border:2px solid #1565C0;border-radius:12px;padding:12px 14px 4px 14px;
     background:transparent;margin-bottom:6px;'>
     <div style='font-size:0.82rem;color:#555;margin-bottom:8px;'>🔐 가입 시 등록한 이름과 기존 연락처로 본인 확인 후 새 비번을 설정합니다.</div>
+    <div style='border:1.5px solid #f97316;border-radius:10px;padding:10px 14px;font-size:0.76rem;color:#9a3412;margin-bottom:8px;line-height:1.7;background:#fff7ed;'>
+    ⚠️ <b>책임 고지</b><br>
+    회원이 직접 입력한 정보의 오류로 인한 결과(로그인 오류, 데이터 접근 불가 등)의 책임은 본인에게 귀속됩니다.<br>
+    <b>단, 시스템 오류·서버 장애로 인한 손해는 운영자가 책임집니다.</b><br>
+    변경이 어려운 경우 운영자(010-3074-2616)에게 문의하세요.
+    </div>
     """, unsafe_allow_html=True)
                     with st.form("pw_change_form"):
                         pw_name    = st.text_input("👤 이름", key="pw_name", label_visibility="collapsed")
@@ -29457,7 +29465,7 @@ footer, footer * { display: none !important; }
                             else:
                                 _nm_members = load_members()
                                 if nm_old not in _nm_members:
-                                    st.error("미가입회원입니다.")
+                                    st.error("등록되지 않은 이름입니다.")
                                 elif not decrypt_data(_nm_members[nm_old]["contact"], nm_pw):
                                     st.error("연락처(비번)가 올바르지 않습니다.")
                                 elif nm_new in _nm_members:
@@ -29633,14 +29641,14 @@ footer, footer * { display: none !important; }
             # ── 사용자 모드 & 선호 보험사 설정 ──────────────────────────
             st.markdown(f"""<div style="position:relative;background:linear-gradient(135deg,rgba(26,58,92,0.30),rgba(46,109,164,0.30));
       border-radius:10px;padding:8px 12px;margin:6px 0 4px 0;border:1.5px solid rgba(46,109,164,0.55);
-      font-size:0.8rem;font-weight:900;color:#1a3a5c;letter-spacing:0.03em;">
+      font-size:0.92rem;font-weight:900;color:#1a3a5c;letter-spacing:0.03em;">
       {_bid('0-2-1')}
       ⚙️ AI 상담 모드 설정</div>""", unsafe_allow_html=True)
 
             # ── 박스 1: 상담 모드 ──────────────────────────────────────────────
             st.markdown(f"""<div style="position:relative;background:rgba(26,58,92,0.25);border-radius:8px 8px 0 0;
       border:1.5px solid rgba(26,58,92,0.50);border-bottom:none;
-      padding:6px 12px;font-size:0.78rem;font-weight:900;color:#1a3a5c;
+      padding:6px 12px;font-size:0.92rem;font-weight:900;color:#1a3a5c;
       letter-spacing:0.03em;">{_bid('0-2-2')}👤 상담 모드 선택</div>""", unsafe_allow_html=True)
             _mode_options = ["👔 보험종사자 (설계사·전문가)", "👤 비종사자 (고객·일반인)"]
             _cur_mode = st.session_state.get("user_consult_mode", _mode_options[0])
@@ -29662,7 +29670,7 @@ footer, footer * { display: none !important; }
             # ── 박스 2: 주력 판매 분야 ─────────────────────────────────────────
             st.markdown(f"""<div style="position:relative;background:rgba(125,60,0,0.20);border-radius:8px 8px 0 0;
       border:1.5px solid rgba(125,60,0,0.45);border-bottom:none;
-      padding:6px 12px;font-size:0.78rem;font-weight:900;color:#7d3c00;
+      padding:6px 12px;font-size:0.92rem;font-weight:900;color:#7d3c00;
       letter-spacing:0.03em;">{_bid('0-2-3')}📋 주력 판매 분야</div>""", unsafe_allow_html=True)
             _ins_options = ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)", "선택 안 함 (중립 분석)"]
             _cur_ins = st.session_state.get("preferred_insurer", _ins_options[-1])
@@ -29692,14 +29700,13 @@ footer, footer * { display: none !important; }
 
             # ── [GP200 §1] 전문 브랜딩 정보 입력 UI ─────────────────────────
             st.markdown(f"""<div style="position:relative;margin:10px 0 0 0;">
-      <div style="background:linear-gradient(135deg,#0a1628 0%,#1a3a5c 100%);
+      <div style="background:#f0f6ff;
     border-radius:10px;padding:10px 14px 6px 14px;
-    border:1.5px solid #D4AF37;box-shadow:0 2px 10px rgba(212,175,55,0.18);">
-    <div style="font-size:0.80rem;font-weight:900;color:#D4AF37;
+    border:1.5px solid #2e6da4;box-shadow:0 2px 10px rgba(46,109,164,0.12);">
+    <div style="font-size:0.92rem;font-weight:900;color:#D4AF37;
       letter-spacing:0.04em;margin-bottom:4px;">🏢 담당자 브랜딩 설정</div>
-    <div style="font-size:0.72rem;color:#b0c4de;line-height:1.55;">
-      소속과 연락처를 입력하면 출력물 및 설명 지원 문서 일체에<br>
-      귀하의 소속을 넣어 드립니다!
+    <div style="font-size:0.80rem;color:#555555;line-height:1.55;">
+      소속과 연락처를 입력하면 출력물 및 설명 지원 문서 일체에 귀하의 소속을 넣어 드립니다!
     </div>
       </div>
     </div>""", unsafe_allow_html=True)
@@ -29976,6 +29983,7 @@ footer, footer * { display: none !important; }
                 else:
                     st.caption("⚫ 블록 번호 숨김")
 
+        _is_authenticated = st.session_state.get("authenticated", False)
         if _is_authenticated:
             # ══════════════════════════════════════════════════════════════
             # [GP200 §1] 인증 완료 후 사이드바 — 전문 브랜딩 정보 입력 UI
