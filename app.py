@@ -38784,22 +38784,21 @@ function selectCustomer(name) {{
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;min-height:170px;">
       {_bid('1-5-3')}
       <div style="font-size:0.78rem;font-weight:900;color:#E65100;letter-spacing:0.08em;
-        text-transform:uppercase;margin-bottom:6px;">### C-SECTION: Wealth &amp; Corporate</div>
-      <ol style="font-size:0.79rem;color:#000;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-        <li>노후·상속 설계</li>
-        <li>세무 상담</li>
-        <li>법인 상담</li>
-        <li>CEO 플랜</li>
-        <li>비상장주식 평가</li>
-        <li>화재보험</li>
-        <li>배상책임보험</li>
-      </ol>
+        text-transform:uppercase;margin-bottom:2px;">💼 C-SECTION: Wealth &amp; Corporate</div>
     </div>""", unsafe_allow_html=True)
-                if st.button("💼 C섹션 입장 → 노후·상속 설계", key="ag_c_enter", use_container_width=True):
-                    _go_tab("t5")
-    
+                _c_c1, _c_c2 = st.columns(2, gap="small")
+                with _c_c1:
+                    if st.button("① 노후·상속 설계",   key="ag_c1", use_container_width=True): _go_tab("t5")
+                    if st.button("② 세무 상담",         key="ag_c2", use_container_width=True): _go_tab("t6")
+                    if st.button("③ 법인 상담",         key="ag_c3", use_container_width=True): _go_tab("t7")
+                    if st.button("④ CEO 플랜",          key="ag_c4", use_container_width=True): _go_tab("t8")
+                with _c_c2:
+                    if st.button("⑤ 비상장주식 평가",   key="ag_c5", use_container_width=True): _go_tab("stock_eval")
+                    if st.button("⑥ 화재보험",          key="ag_c6", use_container_width=True): _go_tab("fire")
+                    if st.button("⑦ 배상책임보험",      key="ag_c7", use_container_width=True): _go_tab("liability")
+
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-    
+
             # ── D~E 섹션: 2열 ──────────────────────────────────────────────────
             _pf_d1, _pf_d2 = st.columns(2, gap="medium")
             with _pf_d1:
