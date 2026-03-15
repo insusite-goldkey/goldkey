@@ -37284,12 +37284,12 @@ function selectCustomer(name) {{
             st.markdown("""
     <style>
     .gk-sec {
-      border: none;
-      border-radius: 0;
-      padding: 18px 0 14px 0;
-      margin-bottom: 24px;
-      background: transparent;
-      box-shadow: none;
+      border: 1.5px dashed #000000;
+      border-radius: 10px;
+      padding: 16px 14px 14px 14px;
+      margin-bottom: 20px;
+      background: #ffffff;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
       border-top: 4px solid #CC0000;
     }
     .gk-sec-title {
@@ -37448,6 +37448,13 @@ function selectCustomer(name) {{
                 ("auto",       "🚗 자동차",     "#0369a1"),
                 ("securities", "📄 증권분석",   "#059669"),
             ]
+            st.markdown(
+                "<style>div[data-testid='stHorizontalBlock']:has(button[key='elev_btn_all']){align-items:stretch!important;}</style>",
+                unsafe_allow_html=True)
+            st.markdown(
+                "<div style='border:1.5px dashed #000000;border-radius:10px;"
+                "padding:8px 10px 6px 10px;margin-bottom:10px;background:#f9fafb;'>",
+                unsafe_allow_html=True)
             _elev_cols = st.columns(len(_SECTOR_MAP), gap="small")
             for _ei, (_sk, _sl, _sc) in enumerate(_SECTOR_MAP):
                 with _elev_cols[_ei]:
@@ -37465,6 +37472,7 @@ function selectCustomer(name) {{
                             st.session_state["target_sector"] = _sk
                             st.session_state[f"_home_scroll_to_sector_{_sk}"] = True
                         st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
     
             if not st.session_state.get("_gp45_splash_shown"):
                 st.session_state["_gp45_splash_shown"] = True
@@ -38392,13 +38400,7 @@ function selectCustomer(name) {{
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
     
-            st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-02 닫기
-    
-            # ═══════════════════════════════════════════════════════════════
-            # [GK-SEC-03] 보험금 상담 및 용어 센터 (5:5)
-            # ═══════════════════════════════════════════════════════════════
             st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-03")}<span class="gk-sec-title">③ 보험금 상담 &amp; 용어 센터</span></div>', unsafe_allow_html=True)
-            st.markdown("질문 입력(좌) / AI 답변 3단계 구조 출력(우)")
     
             _s3_left, _s3_right = st.columns([5, 5], gap="medium")
             with _s3_left:
@@ -38406,16 +38408,23 @@ function selectCustomer(name) {{
                     "보험 용어 · 보험금 질문 입력",
                     placeholder="예) 실손의료비, 맥브라이드 장해율, KCD코드, 입원일당 청구 기준...",
                     height=120, key="sec03_query")
-                if st.button("🔍 AI 답변 생성", key="sec03_search", use_container_width=True, type="primary"):
+                if st.button("🔍 AI 답변 생성", key="sec03_ai_gen", use_container_width=True, type="primary"):
                     if _s3_q and _s3_q.strip():
                         with st.spinner("AI 분석 중..."):
                             try:
                                 _s3_cli = get_client()
                                 _s3_sys = (
-                                    "당신은 보험 전문가입니다. 답변은 반드시 아래 3단계 구조로 작성하세요:\n"
-                                    "### 📘 (1) 용어 해설\n[용어 정의]\n\n"
-                                    "### 🔧 (2) 적용\n[실무 적용 방법]\n\n"
-                                    "### 💡 (3) 사용 사례\n[구체적 사례]"
+                                    "당신은 보험 및 의학 전문가입니다. 답변은 반드시 아래 4단계 구조로 작성하세요:\n"
+                                    "### 📘 (1) 용어 해설\n"
+                                    "- 정확한 정의와 설명을 작성하세요.\n"
+                                    "- 병명 질문 시 한국표준질병사인분류(KCD) 코드(예: I63.9)를 반드시 명시하세요.\n\n"
+                                    "### 🔧 (2) 실무 적용\n"
+                                    "- 보험 실무에서 어떻게 적용되는지 설명하세요.\n\n"
+                                    "### 💰 (3) 보험금 청구 대상\n"
+                                    "- 해당 질병/사고로 청구 가능한 보험금 종류를 구체적으로 나열하세요.\n"
+                                    "- 예: 진단비, 입원일당, 수술비, 실손의료비, 질병후유장해, 간병비 등\n\n"
+                                    "### 💡 (4) 상담 사례\n"
+                                    "- 실제 상담에서 활용할 수 있는 구체적인 사례를 작성하세요."
                                 )
                                 _s3_resp = _s3_cli.chat.completions.create(
                                     model=st.session_state.get("model_name", "gemini-2.0-flash"),
@@ -38423,7 +38432,7 @@ function selectCustomer(name) {{
                                         {"role": "system", "content": _s3_sys},
                                         {"role": "user", "content": _s3_q.strip()},
                                     ],
-                                    max_tokens=1500,
+                                    max_tokens=1800,
                                 )
                                 st.session_state["sec03_result"] = _s3_resp.choices[0].message.content
                                 st.session_state["sec03_scroll"] = True
@@ -38431,17 +38440,59 @@ function selectCustomer(name) {{
                                 st.session_state["sec03_result"] = f"⚠️ 오류: {_s3_err}"
                     else:
                         st.warning("질문을 입력해 주세요.")
+                # ── 🔊 코드/용어 네비게이션 (입력+검색버튼 좌측) ────────────────
                 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-                _nav_input_val = st.text_input(
-                    "🔊 코드/용어 네비게이션",
-                    placeholder="코드(예: 3000, 1220) 또는 용어(예: 보장공백·맥브라이드) 입력",
-                    key="voice_nav_input")
+                st.markdown(
+                    "<div style='font-size:0.82rem;font-weight:900;color:#1a3a5c;margin-bottom:4px;'>"
+                    "🔊 코드/용어 네비게이션</div>",
+                    unsafe_allow_html=True)
+                _nav_col_in, _nav_col_btn = st.columns([3, 1], gap="small")
+                with _nav_col_in:
+                    _nav_input_val = st.text_input(
+                        "코드/용어 입력",
+                        placeholder="코드(3000) 또는 용어(맥브라이드) 입력",
+                        key="voice_nav_input",
+                        label_visibility="collapsed")
+                with _nav_col_btn:
+                    _nav_search_btn = st.button("🔍 검색", key="sec03_nav_search", use_container_width=True)
+    
+            with _s3_right:
+                _s3_scroll = st.session_state.pop("sec03_scroll", False)
+                if _s3_scroll:
+                    import streamlit.components.v1 as _s3c
+                    _s3c.html(
+                        '<script>(function(){var e=document.getElementById("sec03-anchor");'
+                        'if(e)e.scrollIntoView({behavior:"smooth",block:"start"})})();</script>',
+                        height=0)
+                st.markdown(
+                    '<div id="sec03-anchor" style="font-size:0.9rem;font-weight:900;color:#CC0000;margin-bottom:8px;">'
+                    '🤖 AI 답변 (4단계: 용어해설 · 실무 · 보험금대상 · 사례)</div>',
+                    unsafe_allow_html=True)
+                _s3_result = st.session_state.get("sec03_result")
+                _s3_out = st.empty()
+                with _s3_out.container():
+                    if _s3_result:
+                        st.markdown(
+                            f'<div class="gk-ai-output-box">'
+                            f'<div style="color:#000000;font-size:0.87rem;line-height:1.8;font-weight:700;">'
+                            f'{_s3_result}</div></div>',
+                            unsafe_allow_html=True)
+                    else:
+                        st.markdown(
+                            '<div class="gk-ai-output-box">'
+                            '<div style="color:#94a3b8;font-size:0.85rem;text-align:center;'
+                            'padding-top:40px;line-height:2.0;font-weight:700;">'
+                            '📖 좌측에 질문 입력 후<br>🔍 AI 답변 생성 클릭<br><br>'
+                            '💡 KCD 코드 · 보험금 청구대상 포함 답변'
+                            '</div></div>',
+                            unsafe_allow_html=True)
+                # ── 코드/용어 네비게이션 결과 (우측 하단) ────────────────────
                 if _nav_input_val and _nav_input_val.strip():
                     _dest = _voice_navigate(_nav_input_val.strip())
                     if _dest and isinstance(_dest, str):
                         _sc_info = SECTOR_CODES.get(_dest, {})
-                        st.success(f"🔍 → [{_dest}] {_sc_info.get('name', '')}")
-                        if st.button(f"➡️ 이동", key="sec03_nav_go"):
+                        st.success(f"🔍 [{_dest}] {_sc_info.get('name', '')}")
+                        if st.button(f"➡️ {_sc_info.get('name', '해당 탭')}으로 이동", key="sec03_nav_go"):
                             _go_tab(_sc_info.get("tab_key", "home"))
                             st.rerun()
                     elif _dest and isinstance(_dest, list):
@@ -38459,59 +38510,24 @@ function selectCustomer(name) {{
                     else:
                         st.warning(f"'{_nav_input_val.strip()}' 항목을 찾지 못했습니다.")
     
-            with _s3_right:
-                _s3_scroll = st.session_state.pop("sec03_scroll", False)
-                if _s3_scroll:
-                    import streamlit.components.v1 as _s3c
-                    _s3c.html(
-                        '<script>(function(){var e=document.getElementById("sec03-anchor");'
-                        'if(e)e.scrollIntoView({behavior:"smooth",block:"start"})})();</script>',
-                        height=0)
-                st.markdown(
-                    '<div id="sec03-anchor" style="font-size:0.9rem;font-weight:900;color:#CC0000;margin-bottom:8px;">'
-                    '🤖 AI 답변 (3단계: 용어해설 · 적용 · 사용사례)</div>',
-                    unsafe_allow_html=True)
-                _s3_result = st.session_state.get("sec03_result")
-                _s3_out = st.empty()
-                with _s3_out.container():
-                    if _s3_result:
-                        st.markdown(
-                            f'<div class="gk-ai-output-box">'
-                            f'<div style="color:#000000;font-size:0.87rem;line-height:1.8;font-weight:700;">'
-                            f'{_s3_result}</div></div>',
-                            unsafe_allow_html=True)
-                    else:
-                        st.markdown(
-                            '<div class="gk-ai-output-box">'
-                            '<div style="color:#94a3b8;font-size:0.85rem;text-align:center;'
-                            'padding-top:50px;line-height:2.0;font-weight:700;">'
-                            '📖 좌측에 질문을 입력하면<br>여기에 3단계 구조 답변이 표시됩니다.'
-                            '</div></div>',
-                            unsafe_allow_html=True)
-    
             # ── [NAV-03] 내비게이션 바 ─────────────────────────────────────────
             st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
                         "margin:10px 0 4px 0;'>3 / 7단계 — 보험금 상담 &amp; 용어 센터</div>",
                         unsafe_allow_html=True)
-            _nav03_l, _nav03_r = st.columns([2, 8])
+            _nav03_l, _nav03_r = st.columns([1, 1])
             with _nav03_l:
-                if st.button("🏠 홈", key="nav03_home", use_container_width=True):
+                if st.button("🏠 홈으로 돌아가기", key="nav03_home", use_container_width=True):
                     _go_tab("home")
             with _nav03_r:
-                st.markdown(
-                    '<div style="background:#E3F2FD !important;border-radius:8px;">',
-                    unsafe_allow_html=True)
-                if st.button("📂 상담 자료 '스마트 스캔' 하러 가기 →",
-                             key="nav03_next", use_container_width=True):
+                if st.button("📂 상담자료 스마트 스캔 하러 가기 →",
+                             key="nav03_next", use_container_width=True, type="primary"):
                     st.session_state["current_tab"] = "scan_hub"
                     st.session_state["_scroll_top"] = True
                     st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
     
             st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-03 닫기
     
-            # ═══════════════════════════════════════════════════════════════
-            # [GK-SEC-04] 스마트 스캔 분석 허브 (5:5)
+            # ... rest of the code remains the same ...
             # ═══════════════════════════════════════════════════════════════
             st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-04")}<span class="gk-sec-title">④ 스마트 스캔 분석 허브</span></div>', unsafe_allow_html=True)
             st.markdown("스마트 스캔 — 보험금 청구 서류, 의무기록, 약관을 업로드하면 AI가 즉시 분석합니다.")
