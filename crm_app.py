@@ -654,77 +654,172 @@ with tab4:
   3️⃣ 모바일에서 앱이 미설치 시: 위 링크를 북마크에 추가하세요.
 </div>""", unsafe_allow_html=True)
 
-        # ── [트리니티 엔진] 빠른 분석 & HQ DB 저장 ────────────────────────────
+        # ── [트리니티 엔진] 완전 파이프라인 & HQ DB 저장 ────────────────────────
         st.markdown("---")
         st.markdown(
             "<div style='background:#f0fdf4;border:1px dashed #059669;border-radius:10px;"
             "padding:10px 14px;font-size:0.82rem;margin-bottom:8px;'>"
-            "<b style='color:#059669;'>📊 트리니티 빠른 분석 & HQ DB 저장</b><br>"
-            "건강보험료 입력 → 소득 역산 보장 공백 분석 → HQ와 실시간 공유</div>",
+            "<b style='color:#059669;'>📊 트리니티 완전 파이프라인 & HQ DB 저장</b><br>"
+            "내보험다보여 JSON 또는 수동 입력 → 정규화 → 분석 → HQ 실시간 공유</div>",
             unsafe_allow_html=True,
         )
-        with st.expander("🔬 트리니티 분석 실행", expanded=False):
-            _t_nhi = st.number_input(
-                "월 건강보험료(원)", min_value=0, max_value=2_000_000,
-                value=0, step=10_000, key="crm_tri_nhi",
-                help="직장인: 보수월액×7.09% / 지역가입자: 고지서 확인",
+        if not st.session_state.get("nibo_consent_agreed", False):
+            st.warning(
+                "⚠️ 트리니티 분석을 이용하려면 **[내보험다보여 필수]** 동의가 필요합니다. "
+                "로그인 화면에서 신용정보 조회 동의 후 이용해 주세요."
             )
-            _tc1, _tc2 = st.columns(2)
-            with _tc1:
-                _t_cancer = st.number_input("암진단비 가입액(원)",      0, step=1_000_000,  key="crm_tri_cancer")
-                _t_stroke = st.number_input("뇌졸중진단비 가입액(원)",  0, step=1_000_000,  key="crm_tri_stroke")
-                _t_ci     = st.number_input("심근경색진단비 가입액(원)",0, step=1_000_000,  key="crm_tri_ci")
-            with _tc2:
-                _t_acci   = st.number_input("상해후유장해 가입액(원)",  0, step=10_000_000, key="crm_tri_acci")
-                _t_surg   = st.number_input("수술비 가입액(원)",         0, step=1_000_000,  key="crm_tri_surgery")
-                _t_hosp   = st.number_input("입원일당 가입액(원)",       0, step=10_000,     key="crm_tri_hosp")
-            if st.button("🔬 분석 실행 & HQ 전송", key="crm_tri_run",
-                         use_container_width=True, type="primary"):
-                if _t_nhi > 0:
-                    with st.spinner("트리니티 분석 및 DB 저장 중..."):
-                        try:
-                            from trinity_engine import (
-                                run_trinity_analysis  as _tri_run,
-                                save_analysis_to_db   as _tri_save,
-                                render_trinity_report as _tri_rdr,
-                            )
-                            _t_cov = {
-                                "암진단비":       float(_t_cancer),
-                                "뇌졸중진단비":   float(_t_stroke),
-                                "심근경색진단비": float(_t_ci),
-                                "상해후유장해":   float(_t_acci),
-                                "수술비":         float(_t_surg),
-                                "입원일당":       float(_t_hosp),
-                            }
-                            _tri_adata, _tri_income = _tri_run(_t_cov, float(_t_nhi))
-                            _c_raw = decrypt_pii(_sel_cust.get("contact", ""))
-                            _rpt_t = _tri_rdr(
-                                analysis_data=_tri_adata,
-                                estimated_income=_tri_income,
-                                consultant_info={
-                                    "소속":   st.session_state.get("crm_user_company", ""),
-                                    "이름":   _user_name,
-                                    "연락처": st.session_state.get("crm_user_phone", ""),
-                                },
-                                client_name=_sel_cust.get("name", ""),
-                                show_kakao=True,
-                            )
-                            _ok = _tri_save(
-                                client_contact=_c_raw,
-                                analysis_data=_tri_adata,
-                                estimated_income=_tri_income,
-                                agent_id=_user_id,
-                                report_text=_rpt_t,
-                                person_id=_sel_cust.get("person_id", ""),
-                            )
-                            if _ok:
-                                st.success("✅ 분석 완료! HQ 본부로 데이터가 전송되었습니다.")
-                            else:
-                                st.warning("⚠️ 분석 완료. DB 저장 실패 (연결 확인 필요)")
-                        except Exception as _te:
-                            st.error(f"분석 오류: {_te}")
-                else:
-                    st.warning("월 건강보험료를 입력해 주세요.")
+        else:
+            _crm_tri_t1, _crm_tri_t2 = st.tabs(["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 담보 입력"])
+            with _crm_tri_t1:
+                st.caption("내보험다보여 API JSON → data_normalizer 정규화 → 트리니티 분석 → HQ DB 저장")
+                _crm_nibo_raw = st.text_area(
+                    "내보험다보여 API JSON 붙여넣기",
+                    value=st.session_state.get("crm_nibo_raw_json", ""),
+                    placeholder='[{"prodName":"삼성생명 종신","traitName":"암진단비","amt":"3000만원","status":"유효"}]',
+                    height=120, key="crm_lsec_nibo_json",
+                )
+                _crm_nhi_j = st.number_input(
+                    "월 건강보험료(원)", min_value=0, max_value=2_000_000,
+                    value=0, step=10_000, key="crm_tri_nhi_json",
+                    help="직장인: 보수월액×7.09% | 트리니티 소득 역산 기준",
+                )
+                _crm_json_btn = "⚡ JSON 파싱 → 분석 → HQ 전송"
+                if st.button(_crm_json_btn, key="crm_json_pipeline_run",
+                             use_container_width=True, type="primary"):
+                    if not _crm_nibo_raw.strip():
+                        st.warning("JSON 데이터를 붙여넣어 주세요.")
+                    elif _crm_nhi_j <= 0:
+                        st.warning("월 건강보험료를 입력해 주세요.")
+                    else:
+                        with st.spinner("⚙️ 정규화 → 트리니티 분석 → HQ DB 저장 중..."):
+                            try:
+                                import json as _js_crm
+                                from data_normalizer import (
+                                    transform_to_trinity_format as _crm_dnorm,
+                                    save_nibo_consent_log        as _crm_save_consent,
+                                )
+                                from trinity_engine import (
+                                    run_trinity_analysis  as _crm_tri_run,
+                                    save_analysis_to_db   as _crm_tri_save,
+                                    render_trinity_report as _crm_tri_rdr,
+                                )
+                                _crm_raw_list = _js_crm.loads(_crm_nibo_raw.strip())
+                                if isinstance(_crm_raw_list, dict):
+                                    _crm_raw_list = [_crm_raw_list]
+                                # [Step 1→2] JSON → 정규화
+                                _crm_cov, _crm_unmapped = _crm_dnorm(_crm_raw_list, source="CRM-내보험다보여")
+                                st.session_state["crm_nibo_raw_json"] = _crm_nibo_raw
+                                # [Step 3] 트리니티 분석
+                                _crm_adata, _crm_income = _crm_tri_run(
+                                    current_coverage=_crm_cov,
+                                    nhi_premium=float(_crm_nhi_j),
+                                )
+                                # [Step 4] 리포트
+                                _c_raw_j = decrypt_pii(_sel_cust.get("contact", ""))
+                                _crm_rpt = _crm_tri_rdr(
+                                    analysis_data=_crm_adata,
+                                    estimated_income=_crm_income,
+                                    consultant_info={
+                                        "소속":   st.session_state.get("crm_user_company", ""),
+                                        "이름":   _user_name,
+                                        "연락처": st.session_state.get("crm_user_phone", ""),
+                                    },
+                                    client_name=_sel_cust.get("name", ""),
+                                    show_kakao=True,
+                                )
+                                # [Step 5] DB 저장
+                                _crm_ok = _crm_tri_save(
+                                    client_contact=_c_raw_j,
+                                    analysis_data=_crm_adata,
+                                    estimated_income=_crm_income,
+                                    agent_id=_user_id,
+                                    report_text=_crm_rpt,
+                                    person_id=_sel_cust.get("person_id", ""),
+                                )
+                                # [Step 6] 동의 이력
+                                _crm_save_consent(
+                                    agent_id=_user_id,
+                                    person_id=_sel_cust.get("person_id", ""),
+                                    consented=True,
+                                    consent_version=st.session_state.get("nibo_consent_version", ""),
+                                )
+                                _crm_active = len([k for k, v in _crm_cov.items() if v > 0])
+                                if _crm_ok:
+                                    st.success("✅ 파이프라인 완료! 담보 " + str(_crm_active) + "개 → HQ 전송")
+                                else:
+                                    st.warning("⚠️ 분석 완료 (" + str(_crm_active) + "개). DB 저장 실패")
+                                if _crm_unmapped:
+                                    _u_names = ", ".join(u["raw"][:15] for u in _crm_unmapped[:3])
+                                    _u_more = " ..." if len(_crm_unmapped) > 3 else ""
+                                    st.info("ℹ️ '기타담보' " + str(len(_crm_unmapped)) + "개: " + _u_names + _u_more)
+                            except Exception as _crm_pe:
+                                if "JSONDecodeError" in type(_crm_pe).__name__:
+                                    st.error("❌ JSON 형식 오류. 올바른 JSON을 붙여넣어 주세요.")
+                                else:
+                                    st.error("❌ 파이프라인 오류: " + str(_crm_pe))
+            with _crm_tri_t2:
+                st.caption("담보 금액을 직접 입력하여 트리니티 분석을 실행합니다.")
+                _t_nhi = st.number_input(
+                    "월 건강보험료(원)", min_value=0, max_value=2_000_000,
+                    value=0, step=10_000, key="crm_tri_nhi",
+                    help="직장인: 보수월액×7.09% / 지역가입자: 고지서 확인",
+                )
+                _tc1, _tc2 = st.columns(2)
+                with _tc1:
+                    _t_cancer = st.number_input("암진단비 가입액(원)",      0, step=1_000_000,  key="crm_tri_cancer")
+                    _t_stroke = st.number_input("뇌졸중진단비 가입액(원)",  0, step=1_000_000,  key="crm_tri_stroke")
+                    _t_ci     = st.number_input("심근경색진단비 가입액(원)",0, step=1_000_000,  key="crm_tri_ci")
+                with _tc2:
+                    _t_acci   = st.number_input("상해후유장해 가입액(원)",  0, step=10_000_000, key="crm_tri_acci")
+                    _t_surg   = st.number_input("수술비 가입액(원)",         0, step=1_000_000,  key="crm_tri_surgery")
+                    _t_hosp   = st.number_input("입원일당 가입액(원)",       0, step=10_000,     key="crm_tri_hosp")
+                if st.button("🔬 분석 실행 & HQ 전송", key="crm_tri_run",
+                             use_container_width=True, type="primary"):
+                    if _t_nhi > 0:
+                        with st.spinner("트리니티 분석 및 DB 저장 중..."):
+                            try:
+                                from trinity_engine import (
+                                    run_trinity_analysis  as _tri_run,
+                                    save_analysis_to_db   as _tri_save,
+                                    render_trinity_report as _tri_rdr,
+                                )
+                                _t_cov = {
+                                    "암진단비":       float(_t_cancer),
+                                    "뇌졸중진단비":   float(_t_stroke),
+                                    "심근경색진단비": float(_t_ci),
+                                    "상해후유장해":   float(_t_acci),
+                                    "수술비":         float(_t_surg),
+                                    "입원일당":       float(_t_hosp),
+                                }
+                                _tri_adata, _tri_income = _tri_run(_t_cov, float(_t_nhi))
+                                _c_raw = decrypt_pii(_sel_cust.get("contact", ""))
+                                _rpt_t = _tri_rdr(
+                                    analysis_data=_tri_adata,
+                                    estimated_income=_tri_income,
+                                    consultant_info={
+                                        "소속":   st.session_state.get("crm_user_company", ""),
+                                        "이름":   _user_name,
+                                        "연락처": st.session_state.get("crm_user_phone", ""),
+                                    },
+                                    client_name=_sel_cust.get("name", ""),
+                                    show_kakao=True,
+                                )
+                                _ok = _tri_save(
+                                    client_contact=_c_raw,
+                                    analysis_data=_tri_adata,
+                                    estimated_income=_tri_income,
+                                    agent_id=_user_id,
+                                    report_text=_rpt_t,
+                                    person_id=_sel_cust.get("person_id", ""),
+                                )
+                                if _ok:
+                                    st.success("✅ 분석 완료! HQ 본부로 데이터가 전송되었습니다.")
+                                else:
+                                    st.warning("⚠️ 분석 완료. DB 저장 실패 (연결 확인 필요)")
+                            except Exception as _te:
+                                st.error("분석 오류: " + str(_te))
+                    else:
+                        st.warning("월 건강보험료를 입력해 주세요.")
     else:
         st.info("위에서 고객을 먼저 선택해 주세요.")
 

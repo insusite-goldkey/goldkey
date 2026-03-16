@@ -39000,29 +39000,135 @@ div[data-testid="stButton"] > button {
                 f'{_lsec_badge}</div>',
                 unsafe_allow_html=True)
             st.markdown("<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>내보험다보여 데이터 기반 전체 보험증권 통합 분석 · KB 7대 분류 보장공백 진단</div>", unsafe_allow_html=True)
-            _secl, _secr = st.columns([5,5], gap="medium")
-            with _secl:
-                _sec_policy_input = st.text_area("보유 증권 요약 입력", value=st.session_state.get("_securities_policy_text",""), placeholder="예)\n삼성생명 종신 2015 — 사망1억\nDB손해 통합 2019 — 암3000 뇌2000", height=120, key="sector_sec_policy_input")
-                if st.button("💾 증권 목록 저장", key="sector_sec_save", use_container_width=True):
-                    st.session_state["_securities_policy_text"] = _sec_policy_input; st.success("✅ 저장 완료")
-            with _secr:
-                _sec_q = st.text_area("증권분석 질문", placeholder="예) 보장공백 분석, KB 7대 분류 검토...", height=80, key="sector_sec_query")
-                if st.button("🔍 통합 증권 AI 분석", key="sector_sec_ai", use_container_width=True, type="primary"):
-                    _pt = st.session_state.get("_securities_policy_text","") or _sec_policy_input
-                    if not _pt and not (_sec_q and _sec_q.strip()): st.warning("증권 목록 또는 질문을 입력해 주세요.")
-                    else:
-                        with st.spinner("AI 통합 증권분석 중..."):
-                            try:
-                                _sec2c=get_client(); _sec2r=_sec2c.chat.completions.create(model=st.session_state.get("model_name","gemini-2.0-flash"),messages=[{"role":"system","content":f"보험증권 통합분석 전문가. 고객:{st.session_state.get('scan_client_name','고객')}. KB 7대 분류 보장공백·중복보험 분석."},{"role":"user","content":f"[증권]\n{_pt}\n[질문]\n{_sec_q or '전체 보장공백 분석'}"}],max_tokens=1800)
-                                st.session_state["sector_sec_result"]=_sec2r.choices[0].message.content
-                            except Exception as _s2e: st.session_state["sector_sec_result"]=f"⚠️ 오류: {_s2e}"
-                if st.session_state.get("sector_sec_result"): st.markdown(f'<div class="gk-ai-output-box"><div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">{st.session_state["sector_sec_result"]}</div></div>', unsafe_allow_html=True)
-            if st.button("📊 증권 전문 분석 탭으로 →", key="sector_sec_goto"): _go_tab("policy_scan")
+            # ── [내보험다보여 완전 파이프라인] 동의 가드 ────────────────────────
+            if not st.session_state.get("nibo_consent_agreed", False):
+                st.warning(
+                    "⚠️ 내보험다보여 기능을 이용하려면 **[내보험다보여 필수]** 동의가 필요합니다. "
+                    "로그인 화면에서 신용정보 조회 동의 후 이용해 주세요."
+                )
+                if st.button("📊 증권 전문 분석 탭으로 →", key="sector_sec_goto_ng"):
+                    _go_tab("policy_scan")
+            else:
+                _lsec_t1, _lsec_t2 = st.tabs(["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 입력 + AI 분석"])
+                with _lsec_t1:
+                    st.caption("내보험다보여 API 응답 JSON → 정규화 → 트리니티 분석 → DB 저장 일괄 처리")
+                    _nibo_raw = st.text_area(
+                        "내보험다보여 API JSON 붙여넣기",
+                        value=st.session_state.get("_nibo_raw_json", ""),
+                        placeholder='[{"prodName":"삼성생명 종신","traitName":"암진단비","amt":"3000만원","status":"유효"}]',
+                        height=130, key="lsec_nibo_json",
+                    )
+                    _nibo_nhi = st.number_input(
+                        "월 건강보험료(원)", min_value=0, max_value=2_000_000,
+                        value=int(st.session_state.get("gs_hi_premium") or 0),
+                        step=10_000, key="lsec_nhi",
+                        help="직장인: 보수월액×7.09% | 트리니티 소득 역산 기준 (추정 월소득 = 건보료×30)",
+                    )
+                    _lsec_btn = "⚡ 파싱 → 분석 → DB 저장 (전체 파이프라인)"
+                    if st.button(_lsec_btn, key="lsec_pipeline_run",
+                                 use_container_width=True, type="primary"):
+                        if not _nibo_raw.strip():
+                            st.warning("JSON 데이터를 붙여넣어 주세요.")
+                        elif _nibo_nhi <= 0:
+                            st.warning("월 건강보험료를 입력해 주세요.")
+                        else:
+                            with st.spinner("⚙️ 데이터 정규화 → 트리니티 분석 → DB 저장 중..."):
+                                try:
+                                    import json as _js_lsec
+                                    from data_normalizer import (
+                                        transform_to_trinity_format as _dnorm,
+                                        save_nibo_consent_log        as _save_consent,
+                                    )
+                                    from trinity_engine import (
+                                        run_trinity_analysis  as _tri_run_lsec,
+                                        save_analysis_to_db   as _tri_save_lsec,
+                                        render_trinity_report as _tri_rdr_lsec,
+                                    )
+                                    # [Step 1] JSON 파싱
+                                    _raw_list = _js_lsec.loads(_nibo_raw.strip())
+                                    if isinstance(_raw_list, dict):
+                                        _raw_list = [_raw_list]
+                                    # [Step 2] 정규화 → current_coverage dict
+                                    _cov_dict, _unmapped = _dnorm(_raw_list, source="HQ-내보험다보여")
+                                    st.session_state["_nibo_raw_json"]         = _nibo_raw
+                                    st.session_state["gs_hi_premium"]          = _nibo_nhi
+                                    st.session_state["_securities_data_ready"] = True
+                                    # [Step 3] 트리니티 엔진 분석
+                                    _adata, _income = _tri_run_lsec(
+                                        current_coverage=_cov_dict,
+                                        nhi_premium=float(_nibo_nhi),
+                                    )
+                                    # [Step 4] 리포트 렌더링 + 카카오톡
+                                    _mp = {
+                                        "소속": st.session_state.get("_mp_company", ""),
+                                        "이름": st.session_state.get("_mp_name", ""),
+                                        "연락처": st.session_state.get("_mp_phone", ""),
+                                    }
+                                    _rpt_text = _tri_rdr_lsec(
+                                        analysis_data=_adata,
+                                        estimated_income=_income,
+                                        consultant_info=_mp,
+                                        client_name=st.session_state.get("scan_client_name", ""),
+                                        show_kakao=True,
+                                    )
+                                    # [Step 5] DB 저장
+                                    _ok = _tri_save_lsec(
+                                        client_contact=st.session_state.get("scan_client_contact", ""),
+                                        analysis_data=_adata,
+                                        estimated_income=_income,
+                                        agent_id=st.session_state.get("user_id", ""),
+                                        kb7_score=int(st.session_state.get("_sops_kb_score", 0) or 0),
+                                        report_text=_rpt_text,
+                                        person_id=st.session_state.get("selected_customer_id", ""),
+                                    )
+                                    # [Step 6] 동의 이력 기록
+                                    _save_consent(
+                                        agent_id=st.session_state.get("user_id", ""),
+                                        person_id=st.session_state.get("selected_customer_id", ""),
+                                        consented=True,
+                                        consent_version=st.session_state.get("nibo_consent_version", ""),
+                                    )
+                                    _active = len([k for k, v in _cov_dict.items() if v > 0])
+                                    if _ok:
+                                        st.success("✅ 파이프라인 완료! 담보 " + str(_active) + "개 분석 → DB 저장")
+                                    else:
+                                        st.warning("⚠️ 분석 완료 (" + str(_active) + "개). DB 저장 실패 (연결 확인)")
+                                    if _unmapped:
+                                        _um_names = ", ".join(u["raw"][:15] for u in _unmapped[:3])
+                                        _um_more = " ..." if len(_unmapped) > 3 else ""
+                                        st.info("ℹ️ '기타담보' 처리 " + str(len(_unmapped)) + "개: " + _um_names + _um_more)
+                                except Exception as _pipe_e:
+                                    if "JSONDecodeError" in type(_pipe_e).__name__:
+                                        st.error("❌ JSON 형식 오류. 올바른 JSON을 붙여넣어 주세요.")
+                                    else:
+                                        st.error("❌ 파이프라인 오류: " + str(_pipe_e))
+                with _lsec_t2:
+                    st.caption("보유 증권을 직접 입력하거나 AI 분석을 요청합니다.")
+                    _secl, _secr = st.columns([5,5], gap="medium")
+                    with _secl:
+                        _sec_policy_input = st.text_area("보유 증권 요약 입력", value=st.session_state.get("_securities_policy_text",""), placeholder="예)\n삼성생명 종신 2015 — 사망1억\nDB손해 통합 2019 — 암3000 뇌2000", height=120, key="sector_sec_policy_input")
+                        if st.button("💾 증권 목록 저장", key="sector_sec_save", use_container_width=True):
+                            st.session_state["_securities_policy_text"] = _sec_policy_input; st.success("✅ 저장 완료")
+                    with _secr:
+                        _sec_q = st.text_area("증권분석 질문", placeholder="예) 보장공백 분석, KB 7대 분류 검토...", height=80, key="sector_sec_query")
+                        if st.button("🔍 통합 증권 AI 분석", key="sector_sec_ai", use_container_width=True, type="primary"):
+                            _pt = st.session_state.get("_securities_policy_text","") or _sec_policy_input
+                            if not _pt and not (_sec_q and _sec_q.strip()): st.warning("증권 목록 또는 질문을 입력해 주세요.")
+                            else:
+                                with st.spinner("AI 통합 증권분석 중..."):
+                                    try:
+                                        _sec2c=get_client()
+                                        _sec2r=_sec2c.chat.completions.create(
+                                            model=st.session_state.get("model_name","gemini-2.0-flash"),
+                                            messages=[
+                                                {"role":"system","content":"보험증권 통합분석 전문가. KB 7대 분류 보장공백·중복보험 분석."},
+                                                {"role":"user","content":"[증권]\n"+str(_pt)+"\n[질문]\n"+str(_sec_q or "전체 보장공백 분석")},
+                                            ],max_tokens=1800)
+                                        st.session_state["sector_sec_result"]=_sec2r.choices[0].message.content
+                                    except Exception as _s2e: st.session_state["sector_sec_result"]="⚠️ 오류: "+str(_s2e)
+                        if st.session_state.get("sector_sec_result"): st.markdown('<div class="gk-ai-output-box"><div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'+st.session_state["sector_sec_result"]+'</div></div>', unsafe_allow_html=True)
+                if st.button("📊 증권 전문 분석 탭으로 →", key="sector_sec_goto"): _go_tab("policy_scan")
             st.markdown('</div>', unsafe_allow_html=True)
-
-            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-
-            # ── [M 섹션] CRM 마스터 키 — 통합 고객 관리 요새 ─────────────────
             st.markdown(f"""<div style="background:#f0fdf4;border:2px solid #16a34a;
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
       {_bid('1-5-7')}
