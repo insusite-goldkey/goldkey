@@ -80,15 +80,16 @@ st.markdown(f"""
         /* 2. 박스색(Box Color): 경고/알림 박스 고대비 파스텔 블루 */
         .stAlert {{ background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 16px; }}
         /* 3. 글자크기(Font Size): 태블릿 가시성 16px 기준선 */
-        html, body, [class*="css"] {{ font-size: 16px; color: #1e293b; }}
+        html, body, [class*="css"] {{ font-size: 16px; color: #0f172a; font-family: 'Inter', 'Noto Sans KR', sans-serif; letter-spacing: -0.01em; }}
         /* 5. 문장(Messaging): 자간·행간 조절로 긴 문장 가독성 개선 */
-        .stMarkdown p {{ line-height: 1.6; letter-spacing: -0.02em; margin-bottom: 1.2rem; }}
-        /* 6. 입력창(Input): 포커스 시 테두리 강조 및 내부 여백 확장 */
-        .stTextInput input {{ border: 2px solid #e2e8f0; border-radius: 10px; padding: 12px 15px; }}
-        /* 4. 버튼(Button): 골드 컬러 + 터치 친화적 높이 */
+        .stMarkdown p {{ line-height: 1.7; letter-spacing: -0.02em; margin-bottom: 1.2rem; }}
+        /* 6. 입력잘(Input): 포커스 시 테두리 강조 및 내부 여백 확장 */
+        .stTextInput input {{ border: 1.5px solid rgba(99,102,241,0.25); border-radius: 10px; padding: 12px 15px; background: rgba(255,255,255,0.85); }}
+        /* 4. 버튼(Button): Indigo Premium Gradient */
         div.stButton > button {{
-            height: 3.5rem; border-radius: 12px; font-weight: 700;
-            background: #b8860b; color: white;
+            height: 3.2rem; border-radius: 10px; font-weight: 700;
+            background: linear-gradient(135deg, #6366F1 0%, #818CF8 100%); color: white;
+            border: none; box-shadow: 0 2px 10px rgba(99,102,241,0.28);
         }}
     </style>
 """, unsafe_allow_html=True)
@@ -6342,39 +6343,50 @@ def _gp84_inject_global_css() -> None:
     """
     import streamlit as _st84
     _st84.markdown("""<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
+
 /* ================================================================
    가이딩 프로토콜 제84조: 전역 시각 인터페이스 색상 기강
-   TOTAL UI COLOR PURGE & RECONSTRUCTION
-   §1 파스텔 배경 토큰 + 전역 배경 재건
-   §2 텍스트 백색 통일 + 황금색 절대 예외
-   §3 text-shadow 시인성 보강
-   §4 Streamlit 내부 컴포넌트 오버라이드
-   §5 시맨틱 블록 파스텔 재정의
-   §6 입력/버튼/사이드바/탭/익스팬더
+   PREMIUM SAAS EDITION — Inspired by Apple · Linear · Vercel
+   밝고 신선한 Premium Glassmorphism Design System
 ================================================================ */
 
-/* §1-A — 파스텔 배경 토큰 정의 */
+/* §1-A — 프리미엄 디자인 토큰 */
 :root {
-    --gp84-pastel-base:     #EEF2FF;
-    --gp84-pastel-warm:     #FFF4ED;
-    --gp84-pastel-cool:     #EDFFF5;
-    --gp84-pastel-alert:    #FFF0F0;
-    --gp84-pastel-neutral:  #FDFCF2;
-    --gp84-pastel-vip:      #F3EEFF;
-    --gp84-pastel-income:   #E8F0FE;
-    --gp84-pastel-medical:  #E6F4EA;
-    --gp84-pastel-risk:     #FDECEA;
-    --gp84-txt-main:        #1A1A2E;
+    --gp84-pastel-base:     #F6F8FF;
+    --gp84-pastel-warm:     #FFF8F0;
+    --gp84-pastel-cool:     #F0FDF8;
+    --gp84-pastel-alert:    #FFF1F2;
+    --gp84-pastel-neutral:  #FAFAFA;
+    --gp84-pastel-vip:      #F5F0FF;
+    --gp84-pastel-income:   #EEF5FF;
+    --gp84-pastel-medical:  #EDFAF4;
+    --gp84-pastel-risk:     #FFF0EE;
+    --gp84-txt-main:        #0F172A;
+    --gp84-txt-secondary:   #475569;
     --gp84-txt-shadow:      none;
     --gp84-gold-preserve:   #FFD700;
+    --gp84-bg-gradient:     linear-gradient(145deg, #eef2ff 0%, #f8faff 40%, #f0fdf8 100%);
+    --gp84-card-bg:         rgba(255,255,255,0.78);
+    --gp84-card-border:     rgba(99,102,241,0.13);
+    --gp84-card-shadow:     0 4px 24px rgba(99,102,241,0.08), 0 1px 4px rgba(0,0,0,0.04);
+    --gp84-accent:          #6366F1;
+    --gp84-accent2:         #0EA5E9;
+    --gp84-accent3:         #10B981;
+    --gp84-radius-card:     16px;
+    --gp84-font:            'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
 }
 
-/* §1-B — HTML/BODY 전역 배경 파스텔화 */
+/* §1-B — HTML/BODY 프리미엄 그라디언트 배경 */
 html, body {
-    background-color: var(--gp84-pastel-base) !important;
+    background: var(--gp84-bg-gradient) !important;
+    background-attachment: fixed !important;
+    font-family: var(--gp84-font) !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
 }
 
-/* §1-C — Streamlit 앱 컨테이너 전체 파스텔화 */
+/* §1-C — Streamlit 앱 컨테이너 배경 투명 처리 (gradient 하나로 통일) */
 [data-testid="stApp"],
 [data-testid="stAppViewContainer"],
 .stApp,
@@ -6384,7 +6396,7 @@ section[data-testid="stMain"] > div > div,
 .main,
 .main .block-container,
 .block-container {
-    background-color: var(--gp84-pastel-base) !important;
+    background: transparent !important;
 }
 
 /* §1-D — Streamlit 컴포넌트 컨테이너 파스텔화 */
@@ -6496,17 +6508,23 @@ textarea::placeholder {
     text-shadow: none !important;
 }
 
-/* §2-D — 버튼: 블루 파스텔 + 흰 글씨 */
+/* §2-D — 버튼: Premium Indigo Gradient */
 [data-testid="stButton"] > button {
-    background-color: #4A6FD4 !important;
+    background: linear-gradient(135deg, #6366F1 0%, #818CF8 100%) !important;
     color: #FFFFFF !important;
-    text-shadow: 0px 1px 2px rgba(0,0,0,0.40) !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.15) !important;
     border: none !important;
-    border-radius: 8px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 10px rgba(99,102,241,0.30) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
+    transition: all 0.22s cubic-bezier(0.25,0.46,0.45,0.94) !important;
 }
 [data-testid="stButton"] > button:hover {
-    background-color: #3557B7 !important;
+    background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%) !important;
     color: #FFFFFF !important;
+    box-shadow: 0 6px 20px rgba(99,102,241,0.45) !important;
+    transform: translateY(-2px) !important;
 }
 /* gp82 내비게이션 버튼 예외 — 자체 스타일 유지 */
 .gp82-home-btn button,
@@ -6520,7 +6538,8 @@ textarea::placeholder {
 [data-testid="stSidebar"],
 [data-testid="stSidebar"] > div,
 [data-testid="stSidebar"] > div > div {
-    background-color: var(--gp84-pastel-vip) !important;
+    background: linear-gradient(180deg, #F5F0FF 0%, #EEF2FF 100%) !important;
+    border-right: 1px solid rgba(99,102,241,0.12) !important;
 }
 [data-testid="stSidebar"] * {
     color: #000000 !important;
@@ -6595,19 +6614,25 @@ textarea::placeholder {
     text-shadow: var(--gp84-txt-shadow) !important;
 }
 [data-baseweb="tab"][aria-selected="true"] {
-    background-color: #4A6FD4 !important;
+    background: linear-gradient(135deg, #6366F1 0%, #818CF8 100%) !important;
     color: #FFFFFF !important;
     font-weight: 700 !important;
-    text-shadow: 0px 1px 2px rgba(0,0,0,0.40) !important;
+    text-shadow: 0 1px 2px rgba(99,102,241,0.30) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 10px rgba(99,102,241,0.30) !important;
 }
 
 /* §4-C — 익스팬더 헤더 */
 [data-testid="stExpander"] summary,
 [data-testid="stExpander"] > details > summary {
-    background-color: var(--gp84-pastel-cool) !important;
+    background: rgba(255,255,255,0.70) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
     color: var(--gp84-txt-main) !important;
     text-shadow: var(--gp84-txt-shadow) !important;
-    border-radius: 8px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(99,102,241,0.12) !important;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.06) !important;
 }
 
 /* §4-D — 메트릭 레이블/값/델타 */
@@ -32025,11 +32050,11 @@ section[data-testid="stSidebar"] .stButton button {
     #   · Shimmer 스켈레톤, Count-up, Haptic API 지원
     st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
 
 /* ══════════════════════════════════════════════════
-   GOLDKEY AI MASTER — Global Design System v2
-   Glassmorphism · Spring Motion · Dynamic Theme
+   GOLDKEY AI MASTER — Global Design System v3 PREMIUM
+   Glassmorphism · Spring Motion · Inter Font · Fresh Pastel
 ══════════════════════════════════════════════════ */
 
 
@@ -32061,22 +32086,27 @@ section[data-testid="stSidebar"] .stButton button {
 /* 원인: Streamlit rerun 시 CSS 적용 전 브라우저 기본 흰색 노출 0~30ms */
 /* 대책: color-scheme 고정 + 배경 즉시 채우기 + transition 완전 제거 */
 html {
-    background-color: #F8F9FA !important;
-    color-scheme: light !important;  /* 다크모드 OS 설정으로 인한 순간 흰색 방지 */
+    background: linear-gradient(145deg, #eef2ff 0%, #f8faff 40%, #f0fdf8 100%) !important;
+    background-attachment: fixed !important;
+    color-scheme: light !important;
 }
 body {
-    background-color: #F8F9FA !important;
+    background: linear-gradient(145deg, #eef2ff 0%, #f8faff 40%, #f0fdf8 100%) !important;
+    background-attachment: fixed !important;
     margin: 0 !important;
-    transition: none !important;  /* 전환 중 배경 깜빡임 차단 */
+    transition: none !important;
+    font-family: 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif !important;
+    -webkit-font-smoothing: antialiased !important;
+    letter-spacing: -0.01em !important;
 }
 [data-testid="stApp"],
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
 [data-testid="stAppViewBlockContainer"],
 .stApp {
-    background-color: #F8F9FA !important;
+    background: transparent !important;
     min-height: 100vh !important;
-    transition: none !important;  /* rerun 배경 전환 차단 */
+    transition: none !important;
 }
 /* Streamlit 내부 스크롤 컨테이너 배경 고정 */
 [data-testid="stMainBlocksContainer"],
@@ -32109,11 +32139,12 @@ body {
 
 /* ── 전체 기본 폰트 & 배경 ── */
 html, body, [data-testid="stApp"] {
-    font-family: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif !important;
+    font-family: 'Inter', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif !important;
     font-size: 16px !important;
-    -webkit-font-smoothing: antialiased;
-    background-color: hsl(var(--gk-bg-h), var(--gk-bg-s), var(--gk-bg-l)) !important;
-    /* transition: background-color 2s — 백화현상 원인이므로 제거 */
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    letter-spacing: -0.01em !important;
+    background: transparent !important;
 }
 
 /* ── 메인 컨테이너 여백 (제47조 최종안: 실선-첫블럭 15px) ── */
@@ -32178,41 +32209,50 @@ h3 { font-size: 1.15rem !important; font-weight: 800 !important; }
     transition-duration: 0.1s !important;
 }
 
-/* ── Primary 버튼 — 시안 그라디언트 (WCAG AA 5.2:1) ── */
+/* ── Primary 버튼 — Indigo Premium (WCAG AA 7:1) ── */
 .stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%) !important;
+    background: linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #818CF8 100%) !important;
     color: #ffffff !important;
     border: none !important;
-    box-shadow: 0 3px 12px rgba(14,165,233,0.40) !important;
+    box-shadow: 0 4px 14px rgba(99,102,241,0.45), 0 1px 3px rgba(0,0,0,0.08) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
 }
 .stButton > button[kind="primary"]:hover {
-    background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%) !important;
-    box-shadow: 0 6px 20px rgba(14,165,233,0.55) !important;
+    background: linear-gradient(135deg, #4338CA 0%, #4F46E5 50%, #6366F1 100%) !important;
+    box-shadow: 0 8px 24px rgba(99,102,241,0.55), 0 2px 6px rgba(0,0,0,0.10) !important;
+    transform: translateY(-2px) scale(1.01) !important;
 }
 
-/* ── Secondary 버튼 ── */
+/* ── Secondary 버튼 — Light Glass ── */
 .stButton > button[kind="secondary"] {
-    background: rgba(30,41,59,0.82) !important;
-    backdrop-filter: blur(8px) !important;
-    color: #e2e8f0 !important;
-    border: 1.5px solid rgba(51,65,85,0.8) !important;
+    background: rgba(255,255,255,0.80) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    color: #4F46E5 !important;
+    border: 1.5px solid rgba(99,102,241,0.30) !important;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.12) !important;
 }
 .stButton > button[kind="secondary"]:hover {
-    background: rgba(51,65,85,0.90) !important;
-    border-color: #0ea5e9 !important;
+    background: rgba(238,242,255,0.95) !important;
+    border-color: #6366F1 !important;
+    box-shadow: 0 4px 14px rgba(99,102,241,0.25) !important;
 }
 
-/* ── 일반(default) 버튼 — Glass 스타일 ── */
+/* ── 일반(default) 버튼 — Premium White Glass ── */
 .stButton > button:not([kind]) {
-    background: rgba(248,250,252,0.75) !important;
-    backdrop-filter: blur(8px) !important;
-    color: #0f172a !important;
-    border: 1.5px solid rgba(203,213,225,0.70) !important;
+    background: rgba(255,255,255,0.82) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    color: #1e293b !important;
+    border: 1.5px solid rgba(99,102,241,0.18) !important;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.08) !important;
 }
 .stButton > button:not([kind]):hover {
-    border-color: #0ea5e9 !important;
-    background: rgba(240,249,255,0.90) !important;
-    box-shadow: 0 4px 14px rgba(14,165,233,0.20) !important;
+    border-color: #6366F1 !important;
+    background: rgba(238,242,255,0.95) !important;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.22) !important;
+    color: #4F46E5 !important;
 }
 
 /* ── [RED BORDER PROTOCOL] 액션 그리드 버튼 전역 클래스 ── */
@@ -32239,6 +32279,97 @@ h3 { font-size: 1.15rem !important; font-weight: 800 !important; }
 .gk-rb-btn div[data-testid="stButton"] > button:active {
     background: #90CAF9 !important;
     border-color: #990000 !important;
+}
+
+/* ── 프리미엄 카드 스타일 ── */
+.gk-premium-card {
+    background: rgba(255,255,255,0.80) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border: 1px solid rgba(99,102,241,0.14) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 24px rgba(99,102,241,0.08), 0 1px 4px rgba(0,0,0,0.04) !important;
+    padding: 20px 22px !important;
+    margin-bottom: 12px !important;
+    transition: box-shadow 0.22s ease, transform 0.22s ease !important;
+}
+.gk-premium-card:hover {
+    box-shadow: 0 8px 32px rgba(99,102,241,0.14), 0 2px 8px rgba(0,0,0,0.06) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* ── 섹션 헤더 타이틀 스타일 ── */
+.gk-section-title {
+    font-family: 'Inter', 'Noto Sans KR', sans-serif !important;
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+    color: #0F172A !important;
+    margin-bottom: 6px !important;
+}
+
+/* ── 메트릭 카드 업그레이드 ── */
+[data-testid="stMetric"] {
+    background: rgba(255,255,255,0.78) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(99,102,241,0.12) !important;
+    border-radius: 14px !important;
+    padding: 16px 18px !important;
+    box-shadow: 0 3px 14px rgba(99,102,241,0.07) !important;
+}
+[data-testid="stMetricValue"] {
+    font-size: 1.6rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    color: #4F46E5 !important;
+}
+[data-testid="stMetricLabel"] {
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    color: #64748B !important;
+    letter-spacing: 0.03em !important;
+    text-transform: uppercase !important;
+}
+
+/* ── 입력원 프리미엄 스타일 ── */
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stNumberInput"] input {
+    background: rgba(255,255,255,0.90) !important;
+    border: 1.5px solid rgba(99,102,241,0.20) !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
+    font-family: 'Inter', 'Noto Sans KR', sans-serif !important;
+    color: #0F172A !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+    border-color: #6366F1 !important;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
+    outline: none !important;
+}
+
+/* ── 탭 리스트 프리미엄 ── */
+[data-baseweb="tab-list"] {
+    background: rgba(238,242,255,0.70) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 12px !important;
+    padding: 4px !important;
+    gap: 4px !important;
+}
+[data-baseweb="tab"] {
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    transition: all 0.18s ease !important;
+}
+
+/* ── 선택박스/라디오 프리미엄 ── */
+[data-testid="stSelectbox"] [data-baseweb="select"] > div {
+    background: rgba(255,255,255,0.88) !important;
+    border: 1.5px solid rgba(99,102,241,0.20) !important;
+    border-radius: 10px !important;
 }
 
 /* ══════════════════════════════════════════════════════════════
