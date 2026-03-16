@@ -1311,6 +1311,7 @@ _amt_major_bonus = _amt_major_raw * 0.5   # 희망 보장 영역 (6~10년)
 | 2026-03-07 | — | — | 제82조 신설(전역 통합 내비게이션 바·홈+로그아웃 2단계 확인·Sticky 고정·안보 내비게이션 전역 배포) + _gp82_render_nav_bar() 구현 + 리포트 표지 제0.2조 금박 스탬핑·엠보싱·리넌 질감·열쇠 워터마크 구현 |
 | 2026-03-07 | — | — | 제81조 최종 통합 개정: 용어 병기 표준 형식(§1) + 5단계 리스크 강조형 구조(§2 개정) + 제척기간/면책기간/부활 치명적 불이익 경고(§3 신설) + _GP81_TERM_PAIRS 병기 상수 + _gp81_annotate() 헬퍼 + _gp81_build_answer() 전면 개정 |
 | 2026-03-07 | — | — | 제84조 신설(전역 시각 인터페이스 색상 기강·파스텔 배경 토큰·백색 텍스트 통일·황금색 예외 보존·text-shadow 시인성) + _gp84_inject_global_css() 구현 + main() STEP 1-A1 전역 주입 |
+| 2026-03-16 | — | — | 제84조 **전면 개정** — Premium Global Design System v3 확립 (Apple HIG + Linear + Vercel 기반): §1 3대원칙(명료성·깊이·생동감)·§2 디자인토큰(Indigo #6366F1·파스텔그라디언트·Glassmorphism)·§3 타이포그래피(Inter+Noto Sans KR 듀얼스택·타입스케일)·§4 버튼시스템(Primary인디고그라디언트·Secondary라이트글라스·Spring모션·48px터치타겟)·§5 카드&컨테이너(Glassmorphism·8px그리드·HQ820px/CRM480px)·§6 메트릭표시·§7 입력필드포커스링·§8 WCAG2.1AA접근성·§9 구현위치·§10 금지패턴(다크Secondary·흑색테두리·단독Noto)·§11 HQ+CRM 동시적용 + app.py Design System v3 블록 구현 + crm_app.py GP-84 모바일최적화 CSS 적용 |
 | 2026-03-07 | — | — | 제0조 신설(즉각 전환형 초연결 기동 헌법·0ms Instant Swap·UA 기기 분기·3단계 병참 로딩·AppReady 신호·화이트아웃 영구 박멸) + _gp0_instant_bootstrap() 구현 + main() STEP 0 최선두 주입 |
 | 2026-03-08 | — | — | 제44조 개정(클라우드 트랙 신설·Google Cloud Run 프로덕션 서버 등록) — Cloud Run URL: `https://goldkey-ai-817097913199.asia-northeast3.run.app` / 이미지: `asia-northeast3-docker.pkg.dev/gen-lang-client-0777682955/goldkey/goldkey-ai` / 포트 8080 |
 | 2026-03-08 | — | — | 제59조 신설(통합 인증 게이트웨이 디자인 일원화 원칙) — 중앙 로그인 박스 #E3F2FD + 붉은 외곽선 #E53935, OTP확인 버튼 #E3F2FD, 처음으로 버튼 #FFF9C4 통합 적용 |
@@ -1357,34 +1358,223 @@ _amt_major_bonus = _amt_major_raw * 0.5   # 희망 보장 영역 (6~10년)
 
 ---
 
-## 제84조 — 전역 시각 인터페이스 시인성 통합 및 색상 기강 확립
+## 제84조 — 프리미엄 글로벌 디자인 시스템 (Premium Global Design System v3)
 
-**시행일: 2026-03-07**
+**최초 시행일: 2026-03-07 | 전면 개정일: 2026-03-16**
+**설계 철학: Apple Human Interface Guidelines + Linear + Vercel 기반**
 
-### §1 목적
-모든 UI 블록의 배경색·텍스트색을 통일된 파스텔-백색 체계로 재편하여 시각적 일관성과 가독성을 확립한다.
+> "훌륭한 디자인은 보이지 않는다. 사용자가 앱이 아닌 '목적'에 집중하게 만든다." — Apple HIG 핵심 원칙
 
-### §2 배경색 기강
-- 다크 배경(#000000 ~ #444444 범위)은 전면 파스텔 토큰으로 대체한다.
-- 파스텔 토큰: `--gp84-bg-blue:#F0F4FF`, `--gp84-bg-red:#FFF5F5`, `--gp84-bg-yellow:#FDFCF0`, `--gp84-bg-green:#F0FFF4`, `--gp84-bg-purple:#F5F0FF`, `--gp84-bg-gray:#F8F8F8`
-- 적용 대상: `[data-testid]` Streamlit 컴포넌트, `.stMarkdown`, `.stApp`, 동적 BLK_/INP_ ID 블록 전체.
+---
 
-### §3 텍스트색 기강
-- 모든 텍스트는 백색(`#FFFFFF`) 또는 기존 황금색(`#FFD700`, `#D4AF37`, `#F9C74F`)으로만 표시한다.
-- 황금색 텍스트는 명시적 예외로 보존한다. 그 외 모든 비표준 색상은 백색으로 재정의한다.
-- `color: #FFFFFF !important` 전역 적용 + `text-shadow: 0 1px 3px rgba(0,0,0,0.4)` 시인성 보조.
+### §1 목적 및 설계 철학
 
-### §4 강제 적용 원칙
-- 모든 CSS 규칙은 `!important`를 사용하여 인라인 스타일 및 동적 주입을 포함한 모든 기존 스타일을 무효화한다.
-- `_gp84_inject_global_css()` 함수는 `main()` 내 `set_page_config` 직후 STEP 1-A1에서 최우선 호출된다.
+본 조항은 Goldkey AI Masters 2026 및 CRM 앱의 모든 시각적 레이어를 **Apple Human Interface Guidelines(HIG)** 원칙에 따라 통일하며, 현장 설계사가 태블릿·모바일 어느 환경에서도 **신선하고 신뢰감 있는 프리미엄 SaaS 경험**을 제공받도록 강제한다.
 
-### §5 예외 블록
-- `.gk-sky-trust`: 밝은 배경 + 검정 텍스트 허용 (신뢰 지수 전용 블록).
-- `rpt-cover` 리포트 표지: 고유 브랜드 색상 유지.
-- 관리자 패널 내 원시 데이터 표: 기존 스타일 유지.
+**3대 핵심 원칙**:
+1. **명료성(Clarity)**: 텍스트는 모든 크기에서 읽기 쉬워야 하며, 아이콘은 정확하고 명확해야 한다. 화려함보다 가독성 우선.
+2. **깊이(Depth)**: Glassmorphism(반투명 레이어)과 소프트 멀티레이어 그림자로 공간감을 부여한다.
+3. **생동감(Deference)**: 콘텐츠가 UI보다 앞에 선다. UI는 콘텐츠를 돋보이게 하는 배경 역할을 한다.
 
-### §6 불이행 보고
-- 주입 후에도 다크 배경이 잔존하는 블록은 관리자 패널 자가 진단(제76조) 탭에 비준수 블록으로 기록되어야 한다.
+---
+
+### §2 디자인 토큰 (Design Tokens) — 절대 기준값
+
+모든 CSS는 아래 토큰을 변수로 참조하며, 하드코딩된 색상값 단독 사용을 금지한다.
+
+#### §2-A 색상 팔레트
+| 토큰 | 값 | 용도 |
+|------|-----|------|
+| `--gp84-accent` | `#6366F1` | Primary 인디고 (WCAG AA 7:1) |
+| `--gp84-accent-light` | `#818CF8` | Hover/Gradient 끝색 |
+| `--gp84-accent-dark` | `#4F46E5` | Pressed/Active 상태 |
+| `--gp84-success` | `#10B981` | 긍정/완료 상태 |
+| `--gp84-warning` | `#F59E0B` | 경고 상태 |
+| `--gp84-danger` | `#EF4444` | 오류/위험 상태 |
+| `--gp84-txt-primary` | `#0F172A` | 본문 텍스트 (WCAG AAA) |
+| `--gp84-txt-secondary` | `#475569` | 보조 텍스트 |
+| `--gp84-txt-muted` | `#94A3B8` | 비활성/힌트 텍스트 |
+| `--gp84-gold` | `#FFD700` | 브랜드 골드 (보존) |
+
+#### §2-B 배경 그라디언트
+```css
+--gp84-bg-gradient: linear-gradient(145deg, #eef2ff 0%, #f8faff 40%, #f0fdf8 100%);
+--gp84-bg-gradient-fixed: background-attachment: fixed;
+```
+- **절대 금지**: 단색 흰색(`#FFFFFF`) 또는 단색 회색(`#F8F9FA`) 전체 배경 사용
+- 이유: 파스텔 3색 그라디언트가 브랜드 정체성이며 Apple의 "Layered Translucency" 원칙과 일치
+
+#### §2-C Glassmorphism 카드 토큰
+```css
+--gp84-card-bg:     rgba(255,255,255,0.78);
+--gp84-card-border: rgba(99,102,241,0.13);
+--gp84-card-shadow: 0 4px 24px rgba(99,102,241,0.08), 0 1px 4px rgba(0,0,0,0.04);
+--gp84-card-blur:   blur(20px) saturate(180%);
+--gp84-radius-card: 16px;
+--gp84-radius-btn:  12px;
+--gp84-radius-input: 10px;
+```
+
+---
+
+### §3 타이포그래피 시스템 (Typography)
+
+**Apple HIG 타이포그래피 원칙**: 정보 계층이 명확하고, 모든 크기에서 가독성이 보장되어야 한다.
+
+#### §3-A 폰트 스택 (절대 준수)
+```css
+font-family: 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo',
+             'Malgun Gothic', -apple-system, BlinkMacSystemFont, sans-serif;
+```
+- **Inter**: 숫자·영문 최우선 (보험료·보장금액 가독성)
+- **Noto Sans KR**: 한국어 보조 폰트
+- **-apple-system**: iOS/macOS 네이티브 폰트 폴백
+
+#### §3-B 타입 스케일
+| 용도 | 크기 | 굵기 | 자간 |
+|------|------|------|------|
+| 페이지 제목 | `1.65rem` | 900 | `-0.03em` |
+| 섹션 헤더 | `1.35rem` | 800 | `-0.02em` |
+| 서브헤더 | `1.15rem` | 700 | `-0.02em` |
+| 본문 | `1.0rem` | 400 | `-0.01em` |
+| 캡션/라벨 | `0.78rem` | 600 | `+0.02em` |
+| 메트릭 값 | `1.6rem` | 800 | `-0.03em` |
+
+- **줄간격(line-height)**: 본문 `1.75`, 헤더 `1.2`
+- **최소 폰트**: 14px (GP-30 § 반응형 원칙과 연동)
+- **Anti-aliasing**: `-webkit-font-smoothing: antialiased` 전역 적용
+
+---
+
+### §4 버튼 시스템 (Button System)
+
+**Apple HIG 버튼 원칙**: 버튼은 명확하고 예측 가능해야 한다. 시각적 계층이 행동의 우선순위를 나타낸다.
+
+#### §4-A Primary 버튼 (주요 행동)
+```css
+background: linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #818CF8 100%);
+color: #ffffff;
+box-shadow: 0 4px 14px rgba(99,102,241,0.45), 0 1px 3px rgba(0,0,0,0.08);
+min-height: 48px; border-radius: 12px; font-weight: 700;
+```
+- Hover: `translateY(-2px)` + 그림자 강화
+- Active: `scale(0.96)` (스프링 애니메이션)
+- **WCAG AA 기준**: 대비비 7:1 이상 준수
+
+#### §4-B Secondary 버튼 (보조 행동)
+```css
+background: rgba(255,255,255,0.80); backdrop-filter: blur(12px);
+color: #4F46E5; border: 1.5px solid rgba(99,102,241,0.30);
+```
+- 어두운 배경 Secondary 버튼 **절대 금지** (구버전 다크 글라스 폐기)
+
+#### §4-C 버튼 애니메이션 (Spring Motion)
+```css
+transition: background 0.22s cubic-bezier(0.25,0.46,0.45,0.94),
+            transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+```
+
+#### §4-D 터치 타겟
+- 최소 높이: **48px** (Apple HIG 44pt 기준, 1px=1pt 동일)
+- 패딩: 좌우 `16px` 이상
+- 이유: 현장 설계사 현장 사용 중 오터치 방지
+
+---
+
+### §5 카드 & 컨테이너 시스템
+
+**Apple HIG 레이어 원칙**: 레이어는 깊이를 만들고, 계층 구조를 시각화한다.
+
+#### §5-A Glassmorphism 카드 (`.gk-glass`, `.gk-premium-card`)
+```css
+background: rgba(255,255,255,0.78~0.80);
+backdrop-filter: blur(16~20px) saturate(180%);
+border: 1px solid rgba(99,102,241,0.13~0.14);
+border-radius: 16px;
+box-shadow: 0 4px 24px rgba(99,102,241,0.08), 0 1px 4px rgba(0,0,0,0.04);
+```
+- Hover: `translateY(-2px)` + 그림자 강화
+
+#### §5-B 8px 그리드 시스템
+- 모든 여백(padding/margin/gap)은 **8의 배수** 원칙 준수
+- `8px`, `12px`, `16px`, `20px`, `24px`, `32px`, `40px`
+- 단독 `5px`, `7px`, `13px` 같은 비규격 값 금지
+
+#### §5-C 최대 너비
+- 메인 컨텐츠: `max-width: 820px` (태블릿 최적)
+- CRM 앱(모바일): `max-width: 480px` (핸드폰 최적)
+
+---
+
+### §6 메트릭 & 데이터 표시 원칙
+
+**Apple HIG 데이터 표시**: 숫자는 크고 굵게, 라벨은 작고 대문자로.
+
+```css
+/* 메트릭 값 */
+font-size: 1.6rem; font-weight: 800; color: #4F46E5; letter-spacing: -0.03em;
+/* 메트릭 라벨 */
+font-size: 0.78rem; font-weight: 600; color: #64748B;
+text-transform: uppercase; letter-spacing: 0.03em;
+```
+
+---
+
+### §7 입력 필드 시스템
+
+**Apple HIG 입력 원칙**: 입력 필드는 현재 상태가 명확해야 하며, 포커스 링으로 접근성을 보장한다.
+
+```css
+background: rgba(255,255,255,0.90);
+border: 1.5px solid rgba(99,102,241,0.20);
+border-radius: 10px;
+/* 포커스 상태 */
+border-color: #6366F1;
+box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+```
+- 흑색 테두리(`border: 1.5px solid #000`) **절대 금지** — 구버전 폐기
+
+---
+
+### §8 접근성 (Accessibility) — WCAG 2.1 AA 필수
+
+| 항목 | 기준 | 적용 |
+|------|------|------|
+| 텍스트 대비 | 4.5:1 이상 | 모든 본문 |
+| 대형 텍스트 대비 | 3:1 이상 | 18pt(24px) 이상 |
+| Primary 버튼 | 7:1 이상 | `#6366F1` on `#ffffff` |
+| 터치 타겟 | 44px 이상 | 모든 버튼/링크 |
+| 포커스 가시성 | 3px 링 | 모든 인터랙티브 요소 |
+
+---
+
+### §9 구현 위치 및 함수
+
+| 함수/블록 | 파일 | 역할 |
+|----------|------|------|
+| `_gp84_inject_global_css()` | `app.py` | HQ 앱 전역 CSS 주입 (STEP 1-A1 최선두) |
+| Design System v3 CSS 블록 | `app.py` 말미 | 버튼·카드·메트릭·탭·입력 상세 스타일 |
+| CRM 전역 CSS 블록 | `crm_app.py` line ~47 | CRM 모바일 최적화 동일 토큰 적용 |
+| `:root` CSS 변수 | 양쪽 앱 공통 | 토큰 중앙 관리 |
+
+---
+
+### §10 금지 사항 (Forbidden Patterns)
+
+- ❌ 전체 배경 단색 흰색/회색 (`background: #fff`, `background: #F8F9FA`)
+- ❌ 어두운 Secondary 버튼 (`background: rgba(30,41,59,0.82)`)
+- ❌ 흑색 입력 테두리 (`border: 1.5px solid #000`)
+- ❌ `Noto Sans KR` 단독 사용 (Inter 없이)
+- ❌ 비표준 여백값 (`padding: 5px`, `margin: 7px` 등 8px 비배수)
+- ❌ 8px 그리드 외 border-radius (`border-radius: 5px` 허용, `3px`·`7px` 금지)
+- ❌ `transition: none` (애니메이션 완전 제거) — 성능 최적화는 `will-change`로 대체
+
+---
+
+### §11 적용 범위
+
+본 조항은 **[HQ 앱]** `app.py` 와 **[CRM 앱]** `crm_app.py` 양쪽 앱에 동일하게 적용된다.
+단, CRM 앱은 모바일 우선(Mobile-first)으로 터치 타겟 최대화, 컨텐츠 너비 480px 제한이 추가된다.
 
 ---
 

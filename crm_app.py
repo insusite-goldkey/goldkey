@@ -44,41 +44,173 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── 전역 CSS (1px dashed #000 기본값) ─────────────────────────────────────────
+# ── [GP-84 §11] 전역 CSS — Premium Design System v3 (모바일 우선) ──────────────
 st.markdown("""
 <style>
-body, .stApp { background: #f0f4ff !important; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
+
+/* ══════════════════════════════════════════════════════
+   [CRM] GP-84 Premium Design System v3 — Mobile-First
+   Apple HIG · Inter Font · Indigo Accent · Glassmorphism
+══════════════════════════════════════════════════════ */
+
+/* §2-B 파스텔 3색 그라디언트 배경 (GP-84 절대 규정) */
+html, body {
+  background: linear-gradient(145deg, #eef2ff 0%, #f8faff 40%, #f0fdf8 100%) !important;
+  background-attachment: fixed !important;
+  font-family: 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', -apple-system, sans-serif !important;
+  -webkit-font-smoothing: antialiased !important;
+  letter-spacing: -0.01em !important;
+}
+[data-testid="stApp"], .stApp,
+[data-testid="stAppViewContainer"],
+section[data-testid="stMain"],
+.main, .block-container {
+  background: transparent !important;
+}
+
+/* §5-C CRM 모바일 최대 너비 480px */
+.block-container {
+  max-width: 480px !important;
+  padding-top: 12px !important;
+  padding-bottom: 80px !important;
+}
+div[data-testid="stMainBlockContainer"] { padding-top: 0.75rem !important; }
+
+/* §5-A Glassmorphism 카드 */
 .gk-card {
-  background: #fff; border: 1px dashed #000;
-  border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
+  background: rgba(255,255,255,0.80) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border: 1px solid rgba(99,102,241,0.14) !important;
+  border-radius: 16px !important;
+  padding: 16px !important;
+  margin-bottom: 12px !important;
+  box-shadow: 0 4px 24px rgba(99,102,241,0.08), 0 1px 4px rgba(0,0,0,0.04) !important;
+  transition: box-shadow 0.22s ease, transform 0.22s ease !important;
 }
+.gk-card:hover {
+  box-shadow: 0 8px 32px rgba(99,102,241,0.14) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* §3-B 섹션 타이틀 — Inter 800 */
 .gk-section-title {
-  font-size: 1.05rem; font-weight: 900; color: #1e3a8a;
-  border-bottom: 2px solid #1e3a8a; padding-bottom: 4px; margin-bottom: 12px;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif !important;
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+  color: #0F172A !important;
+  border-bottom: 2px solid rgba(99,102,241,0.25) !important;
+  padding-bottom: 6px !important;
+  margin-bottom: 12px !important;
 }
+
+/* 배지 스타일 */
 .gk-badge {
-  display: inline-block; font-size: 0.72rem; font-weight: 700;
-  padding: 2px 8px; border-radius: 5px; border: 1px dashed currentColor;
-}
-.gk-deeplink-btn {
-  display: inline-block; background: #1e3a8a; color: #fff !important;
-  border: 1px dashed #93c5fd; border-radius: 8px;
-  padding: 6px 14px; font-size: 0.82rem; font-weight: 900;
-  text-decoration: none; margin-top: 8px;
-}
-.gk-deeplink-btn:hover { background: #1d4ed8; }
-div[data-testid="stMainBlockContainer"] { padding-top: 1rem !important; }
-input[type="text"], input[type="password"] {
-  border: 1.5px solid #000 !important;
+  display: inline-block !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  padding: 2px 8px !important;
   border-radius: 6px !important;
-  box-shadow: none !important;
+  border: 1.5px solid currentColor !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* 딥링크 버튼 — GP-84 §4-A Primary 계열 */
+.gk-deeplink-btn {
+  display: inline-block !important;
+  background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 8px 16px !important;
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  margin-top: 8px !important;
+  box-shadow: 0 3px 10px rgba(99,102,241,0.35) !important;
+  transition: box-shadow 0.2s ease, transform 0.2s ease !important;
+}
+.gk-deeplink-btn:hover {
+  box-shadow: 0 6px 18px rgba(99,102,241,0.50) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* §4-A 버튼 전역 — 48px 터치 타겟 (Apple HIG 44pt) */
+.stButton > button {
+  min-height: 48px !important;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif !important;
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  border-radius: 12px !important;
+  letter-spacing: -0.01em !important;
+  transition: background 0.22s ease, box-shadow 0.22s ease, transform 0.3s cubic-bezier(0.34,1.56,0.64,1) !important;
+}
+.stButton > button[kind="primary"] {
+  background: linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #818CF8 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(99,102,241,0.40) !important;
+}
+.stButton > button[kind="primary"]:hover {
+  box-shadow: 0 8px 22px rgba(99,102,241,0.55) !important;
+  transform: translateY(-2px) !important;
+}
+.stButton > button:not([kind]) {
+  background: rgba(255,255,255,0.82) !important;
+  backdrop-filter: blur(10px) !important;
+  color: #1e293b !important;
+  border: 1.5px solid rgba(99,102,241,0.18) !important;
+}
+.stButton > button:not([kind]):hover {
+  background: rgba(238,242,255,0.95) !important;
+  border-color: #6366F1 !important;
+  color: #4F46E5 !important;
+}
+.stButton > button:active {
+  transform: scale(0.96) !important;
+}
+
+/* §7 입력 필드 — 포커스 링 (GP-84 §7) */
+input[type="text"], input[type="password"],
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea {
+  background: rgba(255,255,255,0.90) !important;
+  border: 1.5px solid rgba(99,102,241,0.22) !important;
+  border-radius: 10px !important;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif !important;
+  color: #0F172A !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
   outline: none !important;
 }
-input[type="text"]:focus, input[type="password"]:focus {
-  border: 1.5px solid #000 !important;
-  box-shadow: 0 0 0 1px #000 !important;
+input[type="text"]:focus, input[type="password"]:focus,
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+  border: 1.5px solid #6366F1 !important;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
   outline: none !important;
 }
+
+/* 메트릭 카드 (GP-84 §6) */
+[data-testid="stMetric"] {
+  background: rgba(255,255,255,0.78) !important;
+  border: 1px solid rgba(99,102,241,0.12) !important;
+  border-radius: 14px !important;
+  padding: 14px 16px !important;
+}
+[data-testid="stMetricValue"] {
+  font-size: 1.5rem !important; font-weight: 800 !important;
+  color: #4F46E5 !important; letter-spacing: -0.03em !important;
+}
+[data-testid="stMetricLabel"] {
+  font-size: 0.75rem !important; font-weight: 600 !important;
+  color: #64748B !important; text-transform: uppercase !important;
+  letter-spacing: 0.03em !important;
+}
+
+/* 알림 박스 */
+.stAlert { background: rgba(255,255,255,0.82) !important; border-radius: 12px !important; }
 </style>
 """, unsafe_allow_html=True)
 
