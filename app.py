@@ -24982,32 +24982,48 @@ def get_goldkey_avatar() -> str:
 def render_goldkey_sidebar():
     """Goldkey_AI_Masters 전용 카드형 프로필 박스를 사이드바 최상단에 렌더링."""
 
-    # ── [제39조 §2/§3] 아바타 이미지 — get_goldkey_avatar() 공통 함수로 통일 ──
+    # ── [제39조 §2/§3] 아바타 이미지 — st.sidebar.image()로 확실하게 렌더 (CSP 우회) ──
     _av_src = get_goldkey_avatar()
 
-    # ── [제39조 §2] 카드 전체를 하나의 HTML 블록으로 렌더 ──────────────────
-    # 이미지 있음: loading="lazy" 지연 로드 / 없음: shimmer 스켈레톤 원형 플레이스홀더
-    _av_img_html = (
-        f'<img src="{_av_src}" width="88" height="88" loading="lazy"'
-        ' style="border-radius:50%;border:3px solid rgba(255,255,255,0.85);'
-        'box-shadow:0 2px 10px rgba(0,0,0,0.18);object-fit:cover;'
-        'display:block;margin:0 auto 10px auto;" />'
-        if _av_src else
-        '<div class="gk-skeleton" style="width:88px;height:88px;border-radius:50%;'
-        'margin:0 auto 10px auto;"></div>'
-    )
+    # 원형·중앙정렬 CSS 주입
+    st.sidebar.markdown("""<style>
+[data-testid="stSidebar"] .stImage img {
+    border-radius:50% !important;
+    border:3px solid rgba(255,255,255,0.85) !important;
+    box-shadow:0 2px 10px rgba(0,0,0,0.18) !important;
+    object-fit:cover !important;
+    display:block !important;
+    margin:6px auto 0 auto !important;
+}
+[data-testid="stSidebar"] .stImage {
+    text-align:center !important;
+    display:flex !important;
+    justify-content:center !important;
+    margin-bottom:-4px !important;
+}
+</style>""", unsafe_allow_html=True)
+
+    if _av_src and _av_src.startswith("data:"):
+        import io as _io
+        _b64 = _av_src.split(",", 1)[1]
+        try:
+            _img_bytes = _io.BytesIO(base64.b64decode(_b64))
+            st.sidebar.image(_img_bytes, width=88)
+        except Exception:
+            pass
+
+    # ── [제39조 §2] 카드 텍스트 블록 ──────────────────────────────────────
     st.sidebar.markdown(f"""
 <div style="position:relative;
   background: linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);
   border-radius:15px;
-  padding:16px 14px 14px 14px;
+  padding:12px 14px 14px 14px;
   margin-bottom:10px;
   box-shadow:0 4px 20px rgba(79,172,254,0.28);
   text-align:center;
   border:none;
 ">
   {_bid('0-1-1')}
-  {_av_img_html}
   <div style="font-size:32px;font-weight:800;color:#0a1628;
     line-height:1.3;margin-bottom:3px;letter-spacing:0.01em;">
     Goldkey_AI_Masters2026
