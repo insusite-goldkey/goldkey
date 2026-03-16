@@ -188,8 +188,12 @@ if not _is_authenticated():
                 if _crm_login_btn:
                     _cn = (_crm_name_in    or "").strip()
                     _cc = (_crm_contact_in or "").strip()
-                    # ── 관리자 로그인 (admin/kgagold6803) ─────────────────────
-                    if _cn == "admin" and _cc == "kgagold6803":
+                    # ── [GP-SEC §1] 관리자 로그인 — SHA-256 해시 비교 (평문 금지) ───────
+                    import hashlib as _hl_adm
+                    _adm_default_hash = _hl_adm.sha256(b"kgagold6803").hexdigest()
+                    _adm_pw_hash = get_env_secret("CRM_ADMIN_PW_HASH", _adm_default_hash)
+                    _adm_input_hash = _hl_adm.sha256((_cc or "").encode()).hexdigest()
+                    if _cn == "admin" and _adm_input_hash == _adm_pw_hash:
                         st.session_state["crm_authenticated"] = True
                         st.session_state["crm_user_id"]       = "admin"
                         st.session_state["crm_user_name"]     = "관리자"
@@ -348,6 +352,20 @@ st.markdown(f"""
   <div style="font-size:0.82rem;color:#e2e8f0;">{_user_name} 설계사</div>
 </div>
 """, unsafe_allow_html=True)
+# ── [GP-SEC] 로그아웃 버튼 — 세션 완전 초기화 (공유 디바이스 보호) ──────────────
+_hdr_c1, _hdr_c2 = st.columns([6, 1])
+with _hdr_c1:
+    st.markdown(
+        f"<div style='font-size:0.78rem;color:#6b7280;padding:2px 0;'>"
+        f"🔒 {_user_name} 로그인 중 &nbsp;|&nbsp; "
+        f"<span style='color:#f59e0b;'>nibo 동의: {'✅' if st.session_state.get('nibo_consent_agreed') else '⬜'}</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+with _hdr_c2:
+    if st.button("로그아웃", key="crm_logout_btn", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 탭 네비게이션

@@ -730,7 +730,14 @@ def verify_sso_token(token: str, user_id: str, user_name: str = "") -> bool:
     """
     import hmac as _hmac
     try:
-        secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+        secret = get_env_secret("ENCRYPTION_KEY", "")
+        if not secret:
+            # [GP-SEC §6] ENCRYPTION_KEY 미설정 — 운영 환경에서는 반드시 환경변수 설정 필요
+            import os as _os
+            if _os.environ.get("K_SERVICE"):
+                # Cloud Run 운영 환경에서 키 미설정은 보안 위반
+                return False
+            secret = "gk_token_secret_2026"  # 로컬 개발 전용 폴백
         if isinstance(secret, bytes):
             secret = secret.decode()
         expected = _hmac.new(
