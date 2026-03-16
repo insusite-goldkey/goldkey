@@ -39793,12 +39793,15 @@ div[data-testid="stButton"] > button {
         st.stop()
 
     # ── [crm_gate] CRM 마스터 키 — 통합 입력 폼 + 전략 대시보드 ────────
-    # ── [crm_gate] CRM은 crm_app.py 전담 — 모 앱 안내 전용 ─────────────
     if cur == "crm_gate":
         if not _auth_gate("crm_gate"): st.stop()
         tab_home_btn("crm_gate")
-        st.info("👉 CRM 마스터 기능은 **Goldkey CRM 앱** 전용입니다. 모 앱(HQ)은 정밀 분석(암·화재·상해 등) 전용입니다.")
-        st.stop()  # lazy-dispatch
+        try:
+            from crm_fortress_ui import render_crm_gate_full as _crm_full
+            _sb = _get_sb_client() if _SB_PKG_OK else None
+            _crm_full(_sb, st.session_state.get("user_id", ""))
+        except Exception as _cgf_e:
+            st.error(f"CRM 게이트 로드 오류: {_cgf_e}")
 
 
     # ── [policy_scan] 보험증권 분석 — 독립 전용 탭 ──────────────────────
