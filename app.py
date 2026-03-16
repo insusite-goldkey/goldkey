@@ -38984,6 +38984,39 @@ div[data-testid="stButton"] > button {
 
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
+            # ── [L 섹션] 내보험다보여 전용 동의 다이얼로그 (st.dialog Guard) ──────
+            @st.dialog("내보험다보여 서비스 이용 동의")
+            def _lsec_nibo_consent_dialog():
+                st.markdown("""
+### [서비스 연동 및 정보 활용 안내]
+본 서비스는 **한국신용정보원의 '내보험다보여'** 시스템과 연동하여 분석을 진행합니다.
+
+1. **신용정보 수집/활용:** 보험사명, 담보 내역, 보험료 등
+2. **활용 목적:** AI 트리니티 엔진 기반 보장 적정성 및 실질 생계비 분석
+3. **데이터 보호:** 인증 정보는 추출 후 **즉시 파기**하며 서버에 저장되지 않습니다.
+4. **책임 한계:** 정보원 데이터 기반으로 실제 증권과 차이가 있을 수 있습니다.
+                """)
+                st.divider()
+                _dlg_agreed = st.checkbox(
+                    "위 안내 사항을 확인하였으며, 신용정보 조회 및 분석에 동의합니다.",
+                    key="_lsec_dlg_chk",
+                )
+                if st.button("확인 및 분석 시작", disabled=not _dlg_agreed,
+                             type="primary", key="_lsec_dlg_confirm",
+                             use_container_width=True):
+                    from data_normalizer import save_nibo_consent_log as _dlg_log
+                    try:
+                        _dlg_log(
+                            agent_id        = st.session_state.get("user_id", ""),
+                            person_id       = st.session_state.get("selected_customer_id", ""),
+                            consented       = True,
+                            consent_version = st.session_state.get("nibo_consent_version", ""),
+                        )
+                    except Exception:
+                        pass
+                    st.session_state["lsec_analysis_consented"] = True
+                    st.rerun()
+
             # ── [L 섹션] 통합 증권분석 센터 (내보험다보여) ────────────────────────
             if st.session_state.pop("_sec02_securities_clicked", False):
                 with st.spinner("내보험다보여 데이터 크롤링 중..."):
@@ -39044,6 +39077,46 @@ div[data-testid="stButton"] > button {
             else:
                 _lsec_t1, _lsec_t2 = st.tabs(["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 입력 + AI 분석"])
                 with _lsec_t1:
+                    # ── [GUARD] 동의 완료 시 자동 분석 실행 ────────────────────────────
+                    if st.session_state.pop("lsec_analysis_consented", False):
+                        _auto_raw = st.session_state.get("_nibo_raw_json", "")
+                        _auto_nhi = float(st.session_state.get("gs_hi_premium") or 0)
+                        if _auto_raw.strip() and _auto_nhi > 0:
+                            with st.spinner("🤖 AI가 증권을 정밀 분석 중입니다..."):
+                                try:
+                                    import json as _js_auto
+                                    from trinity_engine import execute_integrated_analysis as _exec_auto
+                                    _raw_auto = _js_auto.loads(_auto_raw.strip())
+                                    if isinstance(_raw_auto, dict):
+                                        _raw_auto = [_raw_auto]
+                                    _adata_a, _unm_a, _ok_a = _exec_auto(
+                                        raw_external_data = _raw_auto,
+                                        client_contact    = st.session_state.get("scan_client_contact", ""),
+                                        nhi_premium       = _auto_nhi,
+                                        consultant_info   = {
+                                            "소속": st.session_state.get("_mp_company", ""),
+                                            "이름": st.session_state.get("_mp_name", ""),
+                                            "연락처": st.session_state.get("_mp_phone", ""),
+                                        },
+                                        client_name     = st.session_state.get("scan_client_name", ""),
+                                        agent_id        = st.session_state.get("user_id", ""),
+                                        person_id       = st.session_state.get("selected_customer_id", ""),
+                                        kb7_score       = int(st.session_state.get("_sops_kb_score", 0) or 0),
+                                        consent_version = st.session_state.get("nibo_consent_version", ""),
+                                        source          = "HQ-내보험다보여",
+                                    )
+                                    _act_a = len([k for k, v in _adata_a.items() if not str(k).startswith("_") and float(v.get("현재가입", 0) or 0) > 0])
+                                    if _ok_a:
+                                        st.success("✅ 파이프라인 완료! 담보 " + str(_act_a) + "개 분석 → DB 저장")
+                                    else:
+                                        st.warning("⚠️ 분석 완료 (" + str(_act_a) + "개). DB 저장 실패 (연결 확인)")
+                                except Exception as _ea:
+                                    if "JSONDecodeError" in type(_ea).__name__:
+                                        st.error("❌ JSON 형식 오류. 올바른 JSON을 붙여넣어 주세요.")
+                                    else:
+                                        st.error("❌ 파이프라인 오류: " + str(_ea))
+                        else:
+                            st.warning("⚠️ JSON 또는 건강보험료 데이터가 없습니다.")
                     st.caption("내보험다보여 API 응답 JSON → 정규화 → 트리니티 분석 → DB 저장 일괄 처리")
                     if st.button("📋 샘플 데이터 불러오기", key="lsec_sample_btn"):
                         import json as _js_smp
@@ -39074,42 +39147,10 @@ div[data-testid="stButton"] > button {
                         elif _nibo_nhi <= 0:
                             st.warning("월 건강보험료를 입력해 주세요.")
                         else:
-                            with st.spinner("🤖 AI가 증권을 정밀 분석 중입니다..."):
-                                try:
-                                    import json as _js_lsec
-                                    from trinity_engine import execute_integrated_analysis as _exec_int
-                                    _raw_list = _js_lsec.loads(_nibo_raw.strip())
-                                    if isinstance(_raw_list, dict):
-                                        _raw_list = [_raw_list]
-                                    st.session_state["_nibo_raw_json"]         = _nibo_raw
-                                    st.session_state["gs_hi_premium"]          = _nibo_nhi
-                                    st.session_state["_securities_data_ready"] = True
-                                    _adata, _unmapped, _ok = _exec_int(
-                                        raw_external_data = _raw_list,
-                                        client_contact    = st.session_state.get("scan_client_contact", ""),
-                                        nhi_premium       = float(_nibo_nhi),
-                                        consultant_info   = {
-                                            "소속": st.session_state.get("_mp_company", ""),
-                                            "이름": st.session_state.get("_mp_name", ""),
-                                            "연락처": st.session_state.get("_mp_phone", ""),
-                                        },
-                                        client_name     = st.session_state.get("scan_client_name", ""),
-                                        agent_id        = st.session_state.get("user_id", ""),
-                                        person_id       = st.session_state.get("selected_customer_id", ""),
-                                        kb7_score       = int(st.session_state.get("_sops_kb_score", 0) or 0),
-                                        consent_version = st.session_state.get("nibo_consent_version", ""),
-                                        source          = "HQ-내보험다보여",
-                                    )
-                                    _active = len([k for k, v in _adata.items() if not str(k).startswith("_") and float(v.get("현재가입", 0) or 0) > 0])
-                                    if _ok:
-                                        st.success("✅ 파이프라인 완료! 담보 " + str(_active) + "개 분석 → DB 저장")
-                                    else:
-                                        st.warning("⚠️ 분석 완료 (" + str(_active) + "개). DB 저장 실패 (연결 확인)")
-                                except Exception as _pipe_e:
-                                    if "JSONDecodeError" in type(_pipe_e).__name__:
-                                        st.error("❌ JSON 형식 오류. 올바른 JSON을 붙여넣어 주세요.")
-                                    else:
-                                        st.error("❌ 파이프라인 오류: " + str(_pipe_e))
+                            st.session_state["_nibo_raw_json"]         = _nibo_raw
+                            st.session_state["gs_hi_premium"]          = _nibo_nhi
+                            st.session_state["_securities_data_ready"] = True
+                            _lsec_nibo_consent_dialog()
                 with _lsec_t2:
                     st.caption("보유 증권을 직접 입력하거나 AI 분석을 요청합니다.")
                     _secl, _secr = st.columns([5,5], gap="medium")
