@@ -37419,6 +37419,7 @@ function selectCustomer(name) {{
                 st.session_state["_rd_docked_token"]  = _dock_token_from_url
                 if _dock_sector_from_url:
                     st.session_state["target_sector"] = _dock_sector_from_url
+                    st.session_state[f"_home_scroll_to_sector_{_dock_sector_from_url}"] = True
                 st.query_params.clear()
     
             _docked_cid    = st.session_state.get("_rd_docked_cid", "")
@@ -39483,6 +39484,7 @@ div[data-testid="stButton"] > button {
             "life_cycle", "life_event",
             # C섹션
             "t5", "t6", "t7", "t8", "stock_eval", "fire", "liability",
+            "gk_sec07", "gk_sec08",
             # D섹션
             "nursing", "realty", "med_econ",
             # E섹션
@@ -39499,7 +39501,7 @@ div[data-testid="stButton"] > button {
                 'border-radius:8px;padding:2px 6px;margin-bottom:10px;display:inline-block;">'
                 '</div>',
                 unsafe_allow_html=True)
-            if st.button("⬅️ 네비게이션 게이트웨이(A-F)로 돌아가기",
+            if st.button("⬅️ 네비게이션 게이트웨이(A-M)로 돌아가기",
                          key=f"btn_back_sec05_{tab_key}",
                          use_container_width=False):
                 st.session_state["current_tab"] = "home"
