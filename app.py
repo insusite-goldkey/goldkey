@@ -38753,9 +38753,7 @@ function selectCustomer(name) {{
             with _nav03_r:
                 if st.button("📂 상담자료 스마트 스캔 하러 가기 →",
                              key="nav03_next", use_container_width=True, type="primary"):
-                    st.session_state["current_tab"] = "scan_hub"
-                    st.session_state["_scroll_top"] = True
-                    st.rerun()
+                    _go_tab("scan_hub")
     
             st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-03 닫기
     
@@ -39608,15 +39606,30 @@ div[data-testid="stButton"] > button {
     
             _adm_c1, _adm_c2 = st.columns([1, 1])
             with _adm_c1:
-                if st.session_state.get("is_admin") or st.session_state.get("user_type") == "admin":
+                _is_adm = st.session_state.get("is_admin") or st.session_state.get("user_type") == "admin"
+                if _is_adm:
                     st.markdown("**🔐 관리자 로그인 상태**")
-                    if st.button("🔐 관리자 시스템 설정", key="sec07_admin_settings", use_container_width=True, type="primary"):
-                        _go_tab("t9")
                 else:
-                    st.markdown("관리자 전용 — 권한 있는 계정으로 로그인하세요.")
-                    if st.button("🔐 관리자 시스템 설정", key="sec07_admin_settings_noauth", use_container_width=True):
-                        _go_tab("t9")
+                    st.markdown("<div style='font-size:0.8rem;color:#64748b;'>관리자 키 입력 후 접근 가능</div>", unsafe_allow_html=True)
+                if st.button("🔐 관리자 시스템 설정 (RAG·약관·요율)", key="sec07_admin_settings", use_container_width=True, type="primary"):
+                    _go_tab("t9")
+                if st.button("📂 통합 스캔 센터로 이동", key="sec07_scan_hub", use_container_width=True):
+                    _go_tab("scan_hub")
+                if st.button("📄 팜플릿 관리", key="sec07_leaflet", use_container_width=True):
+                    _go_tab("leaflet")
             with _adm_c2:
+                st.markdown(
+                    "<div style='background:#F0F9FF;border:1px solid #BBDEFB;border-radius:8px;"
+                    "padding:8px 12px;font-size:0.8rem;'>"
+                    "<b>📋 관리자 기능 안내</b><br>"
+                    "• <b>RAG 지식베이스</b>: PDF/TXT 문서 업로드 → AI 지식 인덱싱<br>"
+                    "• <b>약관 스캔 로드</b>: 보험사·상품명 입력 → JIT 크롤링<br>"
+                    "• <b>건강보험료율</b>: 연간 법정 요율 업데이트<br>"
+                    "• <b>통합 스캔 센터</b>: 증권·의무기록·진단서 업로드 허브<br>"
+                    "• <b>팜플릿 관리</b>: 보험사 상품 팜플릿 분류·저장"
+                    "</div>",
+                    unsafe_allow_html=True
+                )
                 _show_bid_now = st.session_state.get("show_block_ids", False)
                 if st.toggle("🔢 섹션 ID 표시", value=_show_bid_now, key="sec07_bid_toggle"):
                     st.session_state["show_block_ids"] = True
@@ -52130,7 +52143,7 @@ div[data-testid="stButton"] > button {
                 st.error("인증키가 올바르지 않습니다. (ADMIN_KEY / ADMIN_CODE / MASTER_CODE 중 하나를 입력하세요)")
         # admin_key_input이 빈 값이면 기존 session_state 유지 (입력 중 rerun 시 인증 풀림 방지)
 
-        if st.session_state.get("_admin_tab_auth"):
+        if st.session_state.get("_admin_tab_auth") or st.session_state.get("is_admin"):
             st.success("✅ 관리자 시스템 활성화 — 핵심 관리 도구를 사용하세요.")
 
             st.markdown("""
