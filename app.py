@@ -39323,7 +39323,7 @@ div[data-testid="stButton"] > button {
                     st.error("시뮬레이션 로드 오류: " + str(_sim_e))
     
             # ── [NAV-05] 내비게이션 바 ─────────────────────────────────────────
-            st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;'
+            st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
                         "margin:10px 0 4px 0;'>5 / 7단계 — 네비게이션 게이트웨이</div>",
                         unsafe_allow_html=True)
             _nav05_l, _nav05_r = st.columns([2, 8])
