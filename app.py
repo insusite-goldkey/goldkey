@@ -39559,15 +39559,15 @@ div[data-testid="stButton"] > button {
                     _num_raw = _cp.replace("-", "")
                     rows += (
                         f'<a href="tel:{_num_raw}" style="text-decoration:none;display:block;">'
-                        f'<div style="border:1px dashed #000000;border-radius:8px;'
-                        f'padding:9px 10px;background:{bg};cursor:pointer;height:100%;'
-                        f'box-sizing:border-box;">'
-                        f'<div style="font-size:0.72rem;font-weight:700;color:#555555;'
-                        f'margin-bottom:2px;">{i}.</div>'
-                        f'<div style="font-weight:900;color:#000000;font-size:0.86rem;'
-                        f'line-height:1.3;">{_cn}</div>'
-                        f'<div style="font-weight:700;color:#000000;font-size:0.82rem;'
-                        f'margin-top:3px;">📞 {_cp}</div>'
+                        f'<div style="border:1px dashed #000000;border-radius:6px;'
+                        f'padding:4px 7px 5px;background:{bg};cursor:pointer;'
+                        f'display:inline-block;width:100%;box-sizing:border-box;">'
+                        f'<div style="font-size:0.67rem;font-weight:700;color:#777777;'
+                        f'margin-bottom:1px;line-height:1.2;">{i}.</div>'
+                        f'<div style="font-weight:900;color:#000000;font-size:0.83rem;'
+                        f'line-height:1.25;">{_cn}</div>'
+                        f'<div style="font-weight:700;color:#000000;font-size:0.78rem;'
+                        f'margin-top:2px;line-height:1.2;">📞 {_cp}</div>'
                         f'</div></a>'
                     )
                 grid = (
