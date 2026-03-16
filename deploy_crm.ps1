@@ -60,9 +60,9 @@ Write-Host "✅ 이미지 빌드 완료: $image"
 
 # 3. Cloud Run 배포
 Write-Host "`n[3/4] Cloud Run 배포 시작..."
-gcloud run deploy $service `
+gcloud run deploy goldkey-crm `
     --image $image `
-    --region $region `
+    --region asia-northeast3 `
     --platform managed `
     --allow-unauthenticated `
     --memory 1Gi `
@@ -70,15 +70,14 @@ gcloud run deploy $service `
     --min-instances 0 `
     --max-instances 3 `
     --port 8080 `
-    --project $project `
+    --project gen-lang-client-0777682955 `
     --service-account "817097913199-compute@developer.gserviceaccount.com" `
-    --set-env-vars "GK_APP_ID=crm" `
     --timeout 300 `
     --quiet
-
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Cloud Run 배포 실패 (exit code: $LASTEXITCODE)"; exit 1
 }
+gcloud run services update goldkey-crm --region asia-northeast3 --project gen-lang-client-0777682955 --update-env-vars "GK_APP_ID=crm" --quiet
 Write-Host "✅ Cloud Run 배포 완료"
 
 # 4. 배포 후 URL 확인 및 HTTP 응답 체크

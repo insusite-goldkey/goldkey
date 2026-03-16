@@ -96,6 +96,7 @@ st.markdown(f"""
                 font-size: 1rem !important;
             }}
         }}
+        body {{ background-color: #eef2ff; }}
         html, body, [class*="css"] {{ color: #0f172a; font-family: 'Inter', 'Noto Sans KR', sans-serif; letter-spacing: -0.01em; }}
         /* 5. 문장(Messaging): 자간·행간 조절로 긴 문장 가독성 개선 */
         .stMarkdown p {{ line-height: 1.7; letter-spacing: -0.02em; margin-bottom: 1.2rem; }}
@@ -37742,11 +37743,13 @@ function selectCustomer(name) {{
                     )
                 with _fp_c2:
                     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-                    if st.button("✅ 적용", key="btn_fp_apply", use_container_width=True):
-                        st.rerun()
+                    if st.button("📌 입력클릭", key="btn_fp_apply", use_container_width=True):
+                        _sel_now = st.session_state.get("fp_cust_selectbox", "✏️ 신규 고객 입력")
+                        st.session_state["_fp_selected_label"] = _sel_now
                 with _fp_c3:
                     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-                    if st.button("🔄 갱신", key="btn_fp_refresh", use_container_width=True):
+                    if st.button("🔄 새로고침", key="btn_fp_refresh", use_container_width=True,
+                                 help="DB에서 고객 목록을 다시 불러옵니다"):
                         st.session_state.pop("_fp_selected_label", None)
                         st.session_state.pop(_cust_cache_key, None)
                         st.session_state.pop(_cust_cache_ts, None)
@@ -37766,9 +37769,18 @@ function selectCustomer(name) {{
                         "scan_client_sick":   _fp_selected.get("sick", "해당없음"),
                         "scan_client_items":  _fp_selected.get("items", []),
                     }
+                    _fp_widget_sync = {
+                        "scan_client_name":   "home_si_name",
+                        "scan_client_dob":    "home_si_dob",
+                        "scan_client_gender": "home_si_gender",
+                        "scan_client_job":    "home_si_job",
+                        "scan_client_sick":   "home_si_sick",
+                    }
                     for _k, _v in _fp_auto.items():
-                        if st.session_state.get(_k) != _v:
-                            st.session_state[_k] = _v
+                        st.session_state[_k] = _v
+                        _wk = _fp_widget_sync.get(_k)
+                        if _wk:
+                            st.session_state[_wk] = _v
                     st.success(
                         f"✅ **[{_fp_selected.get('name','')}]** 로드 완료 "
                         f"— 이하 모든 자료가 이 피보험자에 태깅됩니다."
@@ -37810,10 +37822,10 @@ function selectCustomer(name) {{
                 _ga1, _ga2, _ga3 = st.columns([2, 2, 1])
                 with _ga1:
                     _si_name = st.text_input(
-                        "👤 성명 (피보험자)",
+                        "👤 성명 (피보험자 / 법인명)",
                         value=st.session_state.get("scan_client_name", ""),
-                        placeholder="예) 홍길동", key="home_si_name",
-                        help="모든 보험·상담 자료가 이 이름에 태깅됩니다",
+                        placeholder="예) 홍길동 또는 (유)명신산업", key="home_si_name",
+                        help="개인 및 법인 모두 입력 가능. 모든 보험·상담 자료가 이 이름에 태깅됩니다",
                     )
                     _si_dob = st.text_input(
                         "📅 생년월일 (YYYYMMDD)",

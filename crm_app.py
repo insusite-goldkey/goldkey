@@ -1134,3 +1134,106 @@ st.markdown("""
   GP 마스터-그림자 원칙 Phase 1~4 준수
 </div>
 """, unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 관리자 콘솔 (최하단) — HQ Admin Console 동일 패턴
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
+with st.expander("🛠️ Admin Console · CRM", expanded=False):
+    _cadm_already = (
+        st.session_state.get("crm_is_admin")
+        or st.session_state.get("crm_role") == "admin"
+    )
+    if not _cadm_already:
+        with st.form("crm_admin_login_form", clear_on_submit=False):
+            _cadm_id   = st.text_input("관리자 ID", key="crm_admin_id_f",
+                                        placeholder="admin 또는 이세윤")
+            _cadm_code = st.text_input("관리자 코드", key="crm_admin_code_f",
+                                        type="password", placeholder="코드 입력")
+            _cadm_sub  = st.form_submit_button("🔐 관리자 로그인",
+                                                use_container_width=True)
+        if _cadm_sub:
+            _cadm_id_v   = (_cadm_id   or "").strip()
+            _cadm_code_v = (_cadm_code or "").strip()
+            _cadm_env    = get_env_secret("ADMIN_CODE", "")
+            _master_env  = get_env_secret("MASTER_CODE", "")
+            if _cadm_id_v.lower() in ("admin", "이세윤") and _cadm_code_v == _cadm_env:
+                st.session_state["crm_is_admin"]  = True
+                st.session_state["crm_user_id"]   = "ADMIN_MASTER"
+                st.session_state["crm_user_name"] = "이세윤"
+                st.session_state["crm_role"]      = "admin"
+                st.rerun()
+            elif _cadm_code_v == _master_env and _master_env:
+                _mname = get_env_secret("MASTER_NAME", "이세윤")
+                st.session_state["crm_is_admin"]  = True
+                st.session_state["crm_user_id"]   = "PERMANENT_MASTER"
+                st.session_state["crm_user_name"] = _mname
+                st.session_state["crm_role"]      = "admin"
+                st.rerun()
+            else:
+                st.error("ID 또는 코드가 올바르지 않습니다.")
+    else:
+        _cadm_name = st.session_state.get("crm_user_name", "관리자")
+        st.success(f"✅ 관리자 로그인 중: **{_cadm_name}**")
+        st.markdown("---")
+
+        # ── Supabase DB 관리 ──────────────────────────────────────────────
+        st.markdown("**🗄️ Supabase DB 관리**")
+        try:
+            _cadm_sb_url  = get_env_secret("SUPABASE_URL", "")
+            _cadm_sb_proj = _cadm_sb_url.replace("https://", "").split(".")[0] if _cadm_sb_url else ""
+        except Exception:
+            _cadm_sb_proj = ""
+        if _cadm_sb_proj:
+            _cadm_sql_url = f"https://supabase.com/dashboard/project/{_cadm_sb_proj}/sql/new"
+            st.markdown(
+                f'<a href="{_cadm_sql_url}" target="_blank">'
+                f'<button style="width:100%;padding:8px;background:#3ecf8e;color:#fff;'
+                f'border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;">'
+                f'🔗 Supabase SQL Editor 열기</button></a>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<a href="https://supabase.com/dashboard" target="_blank">'
+                '<button style="width:100%;padding:8px;background:#3ecf8e;color:#fff;'
+                'border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;">'
+                '🔗 Supabase 대시보드 열기</button></a>',
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("---")
+
+        # ── 전체 회원 현황 ───────────────────────────────────────────────
+        st.markdown("**👥 전체 회원 현황**")
+        try:
+            _cadm_db = _get_supabase()
+            if _cadm_db:
+                _cadm_rows = (
+                    _cadm_db.table("members")
+                    .select("user_id,user_name,join_date,is_deleted")
+                    .eq("is_deleted", False)
+                    .execute()
+                )
+                _cadm_list = _cadm_rows.data or []
+                st.caption(f"총 등록 회원: {len(_cadm_list)}명")
+                if _cadm_list:
+                    import pandas as _pd_adm
+                    _cadm_df = _pd_adm.DataFrame([{
+                        "이름":  m.get("user_name", ""),
+                        "ID":    str(m.get("user_id", ""))[:10] + "…",
+                        "가입일": str(m.get("join_date", ""))[:10],
+                    } for m in _cadm_list[:30]])
+                    st.dataframe(_cadm_df, use_container_width=True, hide_index=True)
+            else:
+                st.warning("Supabase 연결 없음")
+        except Exception as _cadm_err:
+            st.caption(f"회원 조회 오류: {_cadm_err}")
+
+        st.markdown("---")
+        if st.button("🚪 관리자 로그아웃", key="crm_admin_logout_btn",
+                     use_container_width=True):
+            st.session_state.pop("crm_is_admin", None)
+            if st.session_state.get("crm_role") == "admin":
+                st.session_state["crm_role"] = "agent"
+            st.rerun()
