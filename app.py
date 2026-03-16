@@ -13099,6 +13099,29 @@ def render_special_ops_sector():
                 insured_coverages=_covs5, gap_summary=_gs5, master_comment=_mc5,
                 agent_uid=st.session_state.get("user_id", ""), send_kakao=False,
             )
+            # ── [트리니티 엔진] 분석 결과 중앙 DB 자동 저장 (GP-44 공유 아키텍처) ──
+            try:
+                from trinity_engine import run_trinity_analysis as _tri_run
+                from trinity_engine import save_analysis_to_db  as _tri_save
+                _nhi5 = float(st.session_state.get("gs_hi_premium") or 0)
+                _tri_adata, _tri_income = _tri_run(
+                    current_coverage={},
+                    nhi_premium=_nhi5,
+                )
+                _tri_adata["_kb7_score"]   = int(st.session_state.get("_sops_kb_score", 0) or 0)
+                _tri_adata["_gap_summary"] = _gs5
+                _tri_adata["_covs_list"]   = _covs5
+                _tri_save(
+                    client_contact=_ph5,
+                    analysis_data=_tri_adata,
+                    estimated_income=_tri_income,
+                    agent_id=st.session_state.get("user_id", ""),
+                    kb7_score=int(st.session_state.get("_sops_kb_score", 0) or 0),
+                    report_text=_rpt or "",
+                    person_id=st.session_state.get("selected_customer_id", "") or "",
+                )
+            except Exception:
+                pass
             _kp5 = _st.text_input("📱 카카오톡 발송 번호", value=_ph5, key="sops_kakao_ph",
                                   placeholder="010-0000-0000")
             _s5a, _s5b = _st.columns(2)
@@ -37451,6 +37474,17 @@ function selectCustomer(name) {{
                                 st.session_state.pop(_dk, None)
                             st.session_state["target_sector"] = None
                             st.rerun()
+                    # ── [트리니티 엔진] CRM 분석 결과 Pull 위젯 ─────────────────
+                    try:
+                        from trinity_engine import render_trinity_pull_box as _tri_pull
+                        _tri_pull(
+                            client_contact=st.session_state.get("scan_client_contact", ""),
+                            person_id=_docked_cid,
+                            agent_id=st.session_state.get("user_id", ""),
+                            client_name=_docked_name,
+                        )
+                    except Exception:
+                        pass
                 else:
                     st.markdown(
                         "<span style='color:#6b7280;font-size:0.82rem;font-weight:700;'>"
@@ -38962,7 +38996,7 @@ div[data-testid="stButton"] > button {
                 f'<div class="gk-sec" style="border-top:4px solid #059669;">'
                 f'<div style="position:relative;">{_bid("1-5-13")}'
                 f'<span class="gk-sec-title" style="color:#059669;">📊 L-SECTION: 통합 증권분석 센터 (내보험다보여)</span>'
-                f'{"<span style=\"background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;padding:2px 8px;font-size:0.75rem;color:#059669;margin-left:10px;\">▶ 데이터 완료</span>" if _sec_data_ready else ""}</div>',
+                f'{"<span style=\'background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;padding:2px 8px;font-size:0.75rem;color:#059669;margin-left:10px;\'>▶ 데이터 완료</span>" if _sec_data_ready else ""}</div>',
                 unsafe_allow_html=True)
             st.markdown("<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>내보험다보여 데이터 기반 전체 보험증권 통합 분석 · KB 7대 분류 보장공백 진단</div>", unsafe_allow_html=True)
             _secl, _secr = st.columns([5,5], gap="medium")

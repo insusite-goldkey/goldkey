@@ -653,6 +653,78 @@ with tab4:
   &nbsp;&nbsp;<code>?gk_cid={_sel_cust.get('person_id','')}&gk_sector={_sel_sector}</code><br><br>
   3️⃣ 모바일에서 앱이 미설치 시: 위 링크를 북마크에 추가하세요.
 </div>""", unsafe_allow_html=True)
+
+        # ── [트리니티 엔진] 빠른 분석 & HQ DB 저장 ────────────────────────────
+        st.markdown("---")
+        st.markdown(
+            "<div style='background:#f0fdf4;border:1px dashed #059669;border-radius:10px;"
+            "padding:10px 14px;font-size:0.82rem;margin-bottom:8px;'>"
+            "<b style='color:#059669;'>📊 트리니티 빠른 분석 & HQ DB 저장</b><br>"
+            "건강보험료 입력 → 소득 역산 보장 공백 분석 → HQ와 실시간 공유</div>",
+            unsafe_allow_html=True,
+        )
+        with st.expander("🔬 트리니티 분석 실행", expanded=False):
+            _t_nhi = st.number_input(
+                "월 건강보험료(원)", min_value=0, max_value=2_000_000,
+                value=0, step=10_000, key="crm_tri_nhi",
+                help="직장인: 보수월액×7.09% / 지역가입자: 고지서 확인",
+            )
+            _tc1, _tc2 = st.columns(2)
+            with _tc1:
+                _t_cancer = st.number_input("암진단비 가입액(원)",      0, step=1_000_000,  key="crm_tri_cancer")
+                _t_stroke = st.number_input("뇌졸중진단비 가입액(원)",  0, step=1_000_000,  key="crm_tri_stroke")
+                _t_ci     = st.number_input("심근경색진단비 가입액(원)",0, step=1_000_000,  key="crm_tri_ci")
+            with _tc2:
+                _t_acci   = st.number_input("상해후유장해 가입액(원)",  0, step=10_000_000, key="crm_tri_acci")
+                _t_surg   = st.number_input("수술비 가입액(원)",         0, step=1_000_000,  key="crm_tri_surgery")
+                _t_hosp   = st.number_input("입원일당 가입액(원)",       0, step=10_000,     key="crm_tri_hosp")
+            if st.button("🔬 분석 실행 & HQ 전송", key="crm_tri_run",
+                         use_container_width=True, type="primary"):
+                if _t_nhi > 0:
+                    with st.spinner("트리니티 분석 및 DB 저장 중..."):
+                        try:
+                            from trinity_engine import (
+                                run_trinity_analysis  as _tri_run,
+                                save_analysis_to_db   as _tri_save,
+                                render_trinity_report as _tri_rdr,
+                            )
+                            _t_cov = {
+                                "암진단비":       float(_t_cancer),
+                                "뇌졸중진단비":   float(_t_stroke),
+                                "심근경색진단비": float(_t_ci),
+                                "상해후유장해":   float(_t_acci),
+                                "수술비":         float(_t_surg),
+                                "입원일당":       float(_t_hosp),
+                            }
+                            _tri_adata, _tri_income = _tri_run(_t_cov, float(_t_nhi))
+                            _c_raw = decrypt_pii(_sel_cust.get("contact", ""))
+                            _rpt_t = _tri_rdr(
+                                analysis_data=_tri_adata,
+                                estimated_income=_tri_income,
+                                consultant_info={
+                                    "소속":   st.session_state.get("crm_user_company", ""),
+                                    "이름":   _user_name,
+                                    "연락처": st.session_state.get("crm_user_phone", ""),
+                                },
+                                client_name=_sel_cust.get("name", ""),
+                                show_kakao=True,
+                            )
+                            _ok = _tri_save(
+                                client_contact=_c_raw,
+                                analysis_data=_tri_adata,
+                                estimated_income=_tri_income,
+                                agent_id=_user_id,
+                                report_text=_rpt_t,
+                                person_id=_sel_cust.get("person_id", ""),
+                            )
+                            if _ok:
+                                st.success("✅ 분석 완료! HQ 본부로 데이터가 전송되었습니다.")
+                            else:
+                                st.warning("⚠️ 분석 완료. DB 저장 실패 (연결 확인 필요)")
+                        except Exception as _te:
+                            st.error(f"분석 오류: {_te}")
+                else:
+                    st.warning("월 건강보험료를 입력해 주세요.")
     else:
         st.info("위에서 고객을 먼저 선택해 주세요.")
 
