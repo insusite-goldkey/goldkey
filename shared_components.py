@@ -407,6 +407,37 @@ def render_reception_desk(*, key_prefix: str = "_rd") -> None:
                 st.rerun()
 
 
+# ── [내보험다보여 연동 전용 안내문] — 신용정보법 제32조 별도 고지 의무 ──────────
+_NIBO_CONSENT_VERSION = "2026-03-16-v1"   # 개정 시 이 값을 변경 (동의 이력에 기록)
+_NIBO_CONSENT_HTML = """
+<div style='font-size:0.80rem;line-height:1.85;color:#1e293b;'>
+<b style='font-size:0.88rem;color:#1a3a5c;'>[내보험다보여 서비스 연동 및 신용정보 활용 안내]</b><br><br>
+
+<b>1. 서비스 연계 개요</b><br>
+본 서비스는 한국신용정보원의 '내보험다보여' 시스템과 연동하여 고객님의 보험 가입 내역을 통합 분석합니다.
+법적 근거: 신용정보의 이용 및 보호에 관한 법률 제32조(개인신용정보 제공·활용에 대한 동의)<br><br>
+
+<b>2. 신용정보 수집 및 활용</b><br>
+• <b>수집 항목:</b> 보험사명, 상품명, 증권번호, 담보 내역, 보험료, 계약 상태<br>
+• <b>활용 목적:</b> AI 트리니티 엔진 기반 보장 적정성 분석 및 실질 생계비 기반 리모델링 제안<br>
+• <b>보유 기간:</b> 분석 완료 후 30일 경과 시 자동 파기 (보고서 이력은 최대 3년 암호화 보관)<br><br>
+
+<b>3. 책임의 한계</b><br>
+제공되는 정보는 한국신용정보원 등록 데이터 기준이며, 실제 증권 내용과 미세한 차이가 있을 수 있습니다.
+정확한 분석을 위해 증권 스캔 기능을 병행하시길 권장합니다.<br><br>
+
+<b>4. 정보 보호 조치</b><br>
+• 연동 시 인증 정보(ID/PW/간편인증 세션)는 데이터 추출 후 <b>즉시 메모리에서 파기</b>되며 서버 저장 불가<br>
+• 담보 내역 등 분석 결과는 AES-256 암호화 후 저장, 관리자도 원문 열람 불가<br>
+• 연락처 등 PII는 SHA-256 단방향 해시로만 DB에 저장 (GP-SEC §1)<br><br>
+
+<b>5. 동의 거부권 및 불이익</b><br>
+본 동의를 거부할 권리가 있습니다. 단, 미동의 시 'AI 증권분석' 및 '트리니티 리포트' 서비스 이용이 제한됩니다.<br><br>
+
+<i style='color:#6b7280;font-size:0.74rem;'>안내문 버전: 2026-03-16-v1 | 출처: 신용정보의 이용 및 보호에 관한 법률 제32조</i>
+</div>
+"""
+
 # ── [GP-SEC §5] 공통 약관 원문 (HQ/CRM 양쪽 render_auth_screen에서 사용) ──────
 _TERMS_TEXT = """■ Goldkey AI Master Lab. Beta 이용약관
 
@@ -611,7 +642,8 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         st.session_state[f"{terms_agree_key}_c2"] = True
         st.session_state[f"{terms_agree_key}_c3"] = True
         st.session_state[f"{terms_agree_key}_c4"] = True
-    st.checkbox("🔲 **전체 동의** (필수·선택 항목 모두 동의)", key=_all_key)
+        st.session_state[f"{terms_agree_key}_c5"] = True
+    st.checkbox("🔲 **전체 동의** (필수·선택·내보험다보여 항목 모두 동의)", key=_all_key)
     _c1 = st.checkbox(
         "✅ **[필수]** 서비스 이용약관에 동의합니다 (제1조~제11조)",
         key=f"{terms_agree_key}_c1",
@@ -627,6 +659,22 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     _c4 = st.checkbox(
         "☑️ **[선택]** 마케팅·서비스 개선 목적 정보 활용에 동의합니다",
         key=f"{terms_agree_key}_c4",
+    )
+    # ── [내보험다보여 전용 동의] 신용정보법 제32조 별도 고지 ──────────────────
+    with st.expander(
+        "📋 내보험다보여 연동 안내 전문 보기 (클릭하여 확인)", expanded=False
+    ):
+        st.markdown(_NIBO_CONSENT_HTML, unsafe_allow_html=True)
+    _c5 = st.checkbox(
+        "✅ **[내보험다보여 필수]** 신용정보원 '내보험다보여' 연동 및 신용정보 조회·분석에 동의합니다 (신용정보법 제32조)",
+        key=f"{terms_agree_key}_c5",
+        help="AI 증권분석·트리니티 리포트 기능 사용 시 필수. 미동의 시 해당 기능이 비활성화됩니다.",
+    )
+    # 내보험다보여 동의 여부를 독립 세션키로도 저장 (feature gate용)
+    st.session_state["nibo_consent_agreed"]    = _c5
+    st.session_state["nibo_consent_version"]   = _NIBO_CONSENT_VERSION if _c5 else ""
+    st.session_state["nibo_consent_timestamp"] = (
+        __import__("datetime").datetime.now().isoformat() if _c5 else ""
     )
     agreed = _c1 and _c2 and _c3
     st.session_state[terms_agree_key] = agreed

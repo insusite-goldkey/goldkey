@@ -38992,11 +38992,12 @@ div[data-testid="stButton"] > button {
                 st.rerun()
             st.markdown('<div id="sector_securities" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
             _sec_data_ready = st.session_state.get("_securities_data_ready", False)
+            _lsec_badge = ("<span style='background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;padding:2px 8px;font-size:0.75rem;color:#059669;margin-left:10px;'>▶ 데이터 완료</span>" if _sec_data_ready else "")
             st.markdown(
                 f'<div class="gk-sec" style="border-top:4px solid #059669;">'
                 f'<div style="position:relative;">{_bid("1-5-13")}'
                 f'<span class="gk-sec-title" style="color:#059669;">📊 L-SECTION: 통합 증권분석 센터 (내보험다보여)</span>'
-                f'{"<span style=\'background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;padding:2px 8px;font-size:0.75rem;color:#059669;margin-left:10px;\'>▶ 데이터 완료</span>" if _sec_data_ready else ""}</div>',
+                f'{_lsec_badge}</div>',
                 unsafe_allow_html=True)
             st.markdown("<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>내보험다보여 데이터 기반 전체 보험증권 통합 분석 · KB 7대 분류 보장공백 진단</div>", unsafe_allow_html=True)
             _secl, _secr = st.columns([5,5], gap="medium")
