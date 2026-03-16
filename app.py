@@ -38508,24 +38508,16 @@ function selectCustomer(name) {{
                     _go_tab("gk_sec07")
                 st.markdown('</div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
-            _disp_result = st.session_state.get("sec02_disposable_result")
-    
             # ── [SEC-02-DISPOSABLE] 가처분 산출 엔진 ────────────────────────
             st.markdown("<hr style='margin:14px 0 10px 0;border:2px solid #1565C0;'>", unsafe_allow_html=True)
             st.markdown(
-                "<div id='sec-02-disposable' style='border:2px solid #1565C0;border-radius:10px;"
-                "padding:14px 16px 12px 16px;margin-bottom:10px;background:#F0F9FF;'>"
-                "<div style='color:#0000CD;font-weight:900;font-size:0.9rem;margin-bottom:10px;'>"
+                "<div style='color:#0000CD;font-weight:900;font-size:0.9rem;margin-bottom:8px;'>"
                 "💰 가처분 산출 및 금액 (SEC-02-DISPOSABLE) — 건강보험료 역산 엔진</div>",
                 unsafe_allow_html=True
             )
             _disp_col1, _disp_col2 = st.columns([1, 1], gap="medium")
             with _disp_col1:
-                st.markdown(
-                    "<div style='background:#fff;border:1px solid #BBDEFB;border-radius:8px;padding:12px 14px;'>"
-                    "<div style='font-weight:900;font-size:0.85rem;color:#000000;margin-bottom:8px;'>📥 월납입 건강보험료 역산 입력</div>",
-                    unsafe_allow_html=True
-                )
+                st.markdown("**📥 월납입 건강보험료 역산 입력**")
                 _nhis_input = st.number_input(
                     "월납입 건강보험료 (원)",
                     min_value=0,
@@ -38536,60 +38528,90 @@ function selectCustomer(name) {{
                     key="disp_nhis_input",
                     help="직장가입자는 본인부담분만 입력. 지역가입자는 장기요양 포함 전액 입력."
                 )
-                st.markdown(
-                    "<div style='font-size:0.75rem;color:#64748b;margin-top:4px;'>"
-                    "예) 15만원 입력 시 → 월소득 약 211만원 산출</div></div>",
-                    unsafe_allow_html=True
-                )
-                if st.button("⚡ 가처분 소득 산출", key="btn_disp_calc", use_container_width=True, type="primary"):
+                st.caption("예) 15만원 입력 시 → 월소득 약 211만원 산출")
+                if st.button("⚡ 가처분 소득 산출", key="btn_disp_calc",
+                             use_container_width=True, type="primary"):
                     if _nhis_input and _nhis_input > 0:
                         _calc = _art32_calc(float(_nhis_input))
                         st.session_state["sec02_nhis_premium"] = _nhis_input
                         st.session_state["sec02_disposable_result"] = _calc
                         st.session_state["scan_nhis_premium"] = float(_nhis_input)
-                        st.rerun()
                     else:
                         st.warning("건강보험료를 입력해 주세요.")
             with _disp_col2:
-                st.markdown(
-                    "<div style='background:#fff;border:1px solid #BBDEFB;border-radius:8px;padding:12px 14px;min-height:140px;'>"
-                    "<div style='font-weight:900;font-size:0.85rem;color:#000000;margin-bottom:10px;'>📊 산출 결과 대시보드</div>",
-                    unsafe_allow_html=True
-                )
+                _disp_result = st.session_state.get("sec02_disposable_result")
+                _nhis_ss     = int(st.session_state.get("sec02_nhis_premium", 0))
+                _rate_pct_d  = round(_CURRENT_NHIS_RATE * 100, 2)
                 if _disp_result:
-                    _mo_disp  = round(_disp_result["monthly_income"] / 10000, 1)
-                    _da_disp  = round(_disp_result["daily_value"] / 10000, 2)
-                    _dis2y    = round(_disp_result["disability_2yr"] / 10000)
-                    _stk_disp = round(_disp_result["stroke_need"] / 10000)
+                    _mo  = _disp_result["monthly_income"]
+                    _da  = _disp_result["daily_value"]
+                    _d2y = _disp_result["disability_2yr"]
+                    _stk = _disp_result["stroke_need"]
+                    _mo_m   = round(_mo  / 10000, 1)
+                    _da_m   = round(_da  / 10000, 2)
+                    _d2y_m  = round(_d2y / 10000)
+                    _stk_full_m   = round((_stk + 4_000_000 * 18) / 10000)
+                    _stk_6mo_m    = round((_mo * 6 + 4_000_000 * 6) / 10000)
                     st.markdown(
-                        f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px;'>"
-                        f"<div style='background:#E3F2FD;border-radius:8px;padding:10px;text-align:center;'>"
-                        f"<div style='font-size:0.72rem;color:#1565C0;font-weight:700;'>산출 월 소득</div>"
-                        f"<div style='font-size:1.3rem;font-weight:900;color:#000000;'>{_mo_disp}<span style='font-size:0.75rem;'>만원</span></div>"
+                        f"<div style='background:#fff;border:1px solid #BBDEFB;"
+                        f"border-radius:8px;padding:12px 14px;'>"
+                        f"<div style='font-weight:900;font-size:0.85rem;color:#000000;"
+                        f"margin-bottom:8px;'>📊 산출 결과 대시보드</div>"
+                        f"<div style='background:#E3F2FD;border-radius:6px;"
+                        f"padding:7px 10px;margin-bottom:5px;'>"
+                        f"<div style='font-size:0.68rem;color:#1565C0;font-weight:700;'>"
+                        f"① 산출 월 가처분소득</div>"
+                        f"<div style='font-size:1.15rem;font-weight:900;color:#0000CD;"
+                        f"margin:2px 0;'>{_mo_m:,}만원</div>"
+                        f"<div style='font-size:0.67rem;color:#374151;'>"
+                        f"= {_nhis_ss:,}원 ÷ {_rate_pct_d}% = {_mo_m:,}만원</div>"
                         f"</div>"
-                        f"<div style='background:#E3F2FD;border-radius:8px;padding:10px;text-align:center;'>"
-                        f"<div style='font-size:0.72rem;color:#1565C0;font-weight:700;'>산출 일당</div>"
-                        f"<div style='font-size:1.3rem;font-weight:900;color:#000000;'>{_da_disp}<span style='font-size:0.75rem;'>만원</span></div>"
+                        f"<div style='background:#E3F2FD;border-radius:6px;"
+                        f"padding:7px 10px;margin-bottom:5px;'>"
+                        f"<div style='font-size:0.68rem;color:#1565C0;font-weight:700;'>"
+                        f"② 산출 필요 일당</div>"
+                        f"<div style='font-size:1.15rem;font-weight:900;color:#0000CD;"
+                        f"margin:2px 0;'>{_da_m:,}만원/일</div>"
+                        f"<div style='font-size:0.67rem;color:#374151;'>"
+                        f"= {_mo_m:,}만원 ÷ 30일 = {_da_m:,}만원/일</div>"
                         f"</div>"
-                        f"<div style='background:#FFF3E0;border-radius:8px;padding:8px;text-align:center;'>"
-                        f"<div style='font-size:0.68rem;color:#E65100;font-weight:700;'>2년 소득대체 목표</div>"
-                        f"<div style='font-size:1.0rem;font-weight:900;color:#000000;'>{_dis2y:,}<span style='font-size:0.68rem;'>만원</span></div>"
+                        f"<div style='background:#FFF3E0;border-radius:6px;"
+                        f"padding:7px 10px;margin-bottom:5px;'>"
+                        f"<div style='font-size:0.68rem;color:#E65100;font-weight:700;'>"
+                        f"③ 2년 소득대체 필요금액</div>"
+                        f"<div style='font-size:1.15rem;font-weight:900;color:#CC0000;"
+                        f"margin:2px 0;'>{_d2y_m:,}만원</div>"
+                        f"<div style='font-size:0.67rem;color:#374151;'>"
+                        f"= {_mo_m:,}만원 × 24개월 = {_d2y_m:,}만원</div>"
                         f"</div>"
-                        f"<div style='background:#FFF3E0;border-radius:8px;padding:8px;text-align:center;'>"
-                        f"<div style='font-size:0.68rem;color:#E65100;font-weight:700;'>중풍 18개월 필요액</div>"
-                        f"<div style='font-size:1.0rem;font-weight:900;color:#000000;'>{_stk_disp:,}<span style='font-size:0.68rem;'>만원</span></div>"
+                        f"<div style='background:#FCE4EC;border-radius:6px;"
+                        f"padding:7px 10px;'>"
+                        f"<div style='font-size:0.68rem;color:#880E4F;font-weight:700;'>"
+                        f"④ 뇌졸중 18개월 필요금액</div>"
+                        f"<div style='font-size:1.15rem;font-weight:900;color:#880E4F;"
+                        f"margin:2px 0;'>{_stk_full_m:,}만원</div>"
+                        f"<div style='font-size:0.67rem;color:#374151;'>"
+                        f"= ({_mo_m:,}만원 × 18개월) + (간병비 400만원 × 18개월)</div>"
+                        f"<div style='font-size:0.67rem;background:#F3E5F5;"
+                        f"border-radius:4px;padding:3px 6px;margin-top:3px;'>"
+                        f"💡 간병보험 가입 시 12개월 공제 → 잔여 6개월: "
+                        f"<b>{_stk_6mo_m:,}만원</b></div>"
                         f"</div>"
                         f"</div>",
-                        unsafe_allow_html=True
+                        unsafe_allow_html=True,
                     )
                 else:
                     st.markdown(
-                        "<div style='color:#94a3b8;font-size:0.85rem;padding:20px 0;text-align:center;'>"
-                        "좌측에 건강보험료를 입력하고<br>⚡ 산출 버튼을 누르세요.</div>",
-                        unsafe_allow_html=True
+                        "<div style='background:#fff;border:1px solid #BBDEFB;"
+                        "border-radius:8px;padding:12px 14px;min-height:200px;'>"
+                        "<div style='font-weight:900;font-size:0.85rem;color:#000000;"
+                        "margin-bottom:10px;'>📊 산출 결과 대시보드</div>"
+                        "<div style='color:#94a3b8;font-size:0.85rem;"
+                        "padding:30px 0;text-align:center;'>"
+                        "좌측에 건강보험료를 입력하고<br>⚡ 산출 버튼을 누르세요.</div>"
+                        "</div>",
+                        unsafe_allow_html=True,
                     )
-                st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)  # SEC-02-DISPOSABLE 닫기
     
             # ── [NAV-02] 내비게이션 바 ─────────────────────────────────────────
             st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
