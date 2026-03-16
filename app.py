@@ -39075,7 +39075,19 @@ div[data-testid="stButton"] > button {
                     st.success("✅ 동의 완료! AI 증권분석·트리니티 리포트가 활성화됩니다.")
                     st.rerun()
             else:
-                _lsec_t1, _lsec_t2 = st.tabs(["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 입력 + AI 분석"])
+                st.markdown("""
+                <div style='display:flex;align-items:center;background:linear-gradient(90deg,#f0fdf4 0%,#ffffff 100%);
+                border:1px solid #bbf7d0;padding:10px 18px;border-radius:10px;margin-bottom:12px;'>
+                  <div style='color:#16a34a;font-size:1.4rem;margin-right:14px;'>🛡️</div>
+                  <div style='color:#166534;font-size:0.82rem;line-height:1.5;'>
+                    <span style='background:#16a34a;color:white;padding:2px 7px;border-radius:4px;
+                    font-size:0.68rem;font-weight:900;margin-right:7px;'>ISO 27001 준수</span>
+                    <strong>Goldkey 통합 보안 엔진 가동 중</strong><br>
+                    실시간 데이터 암호화(AES-256) 및 신용정보원 보안 가이드라인을 준수합니다.
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+                _lsec_t1, _lsec_t2, _lsec_t3 = st.tabs(["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 입력 + AI 분석", "🏆 실전 데모"])
                 with _lsec_t1:
                     # ── [GUARD] 동의 완료 시 자동 분석 실행 ────────────────────────────
                     if st.session_state.pop("lsec_analysis_consented", False):
@@ -39176,6 +39188,61 @@ div[data-testid="stButton"] > button {
                                         st.session_state["sector_sec_result"]=_sec2r.choices[0].message.content
                                     except Exception as _s2e: st.session_state["sector_sec_result"]="⚠️ 오류: "+str(_s2e)
                         if st.session_state.get("sector_sec_result"): st.markdown('<div class="gk-ai-output-box"><div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'+st.session_state["sector_sec_result"]+'</div></div>', unsafe_allow_html=True)
+                with _lsec_t3:
+                    st.caption("가상 고객 데이터로 트리니티 엔진 전체 파이프라인을 즉시 실행합니다.")
+                    st.markdown("""
+                    <div style='background:#eff6ff;border:1px dashed #000;border-radius:8px;
+                    padding:10px 14px;margin-bottom:10px;font-size:0.8rem;color:#1e3a8a;'>
+                    <strong>📋 시뮬레이션 고객 데이터</strong><br>
+                    ① (무)슈퍼암보험 진단비 — 4500만원 &nbsp;|&nbsp;
+                    ② 뇌졸중 및 뇌혈관질환 진단 — 20,000,000원<br>
+                    ③ 급성심근경색증 진단비 — 20,000,000원 &nbsp;|&nbsp;
+                    ④ 일반상해후유장해(3~100%) — 1억<br>
+                    <em>월 건강보험료: 185,000원 (추정 월소득 약 555만원)</em>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    _demo_nhi = st.number_input(
+                        "데모용 월 건강보험료(원)", min_value=0, max_value=2_000_000,
+                        value=185_000, step=10_000, key="lsec_demo_nhi",
+                        help="기본값 185,000원 — 자유롭게 변경 가능",
+                    )
+                    if st.button("🚀 실전 데이터 분석 및 리포트 생성", type="primary",
+                                 use_container_width=True, key="lsec_demo_run"):
+                        with st.spinner("🤖 AI 트리니티 엔진 정밀 분석 중..."):
+                            try:
+                                from trinity_engine import execute_integrated_analysis as _demo_exec
+                                _demo_raw = [
+                                    {"prodName": "(무)슈퍼암보험 진단비",       "amt": "4500만원"},
+                                    {"prodName": "뇌졸중 및 뇌혈관질환 진단",    "amt": "20000000"},
+                                    {"prodName": "급성심근경색증 진단비",         "amt": "20,000,000"},
+                                    {"prodName": "일반상해후유장해(3~100%)",     "amt": "1억"},
+                                ]
+                                _demo_adata, _demo_unm, _demo_ok = _demo_exec(
+                                    raw_external_data = _demo_raw,
+                                    client_contact    = st.session_state.get("scan_client_contact", "01000000000"),
+                                    nhi_premium       = float(_demo_nhi),
+                                    consultant_info   = {
+                                        "소속":   st.session_state.get("_mp_company", "Goldkey AI 마스터 지점"),
+                                        "이름":   st.session_state.get("_mp_name",    "설계자 마스터"),
+                                        "연락처": st.session_state.get("_mp_phone",   "010-1234-5678"),
+                                    },
+                                    client_name     = st.session_state.get("scan_client_name", "데모 고객"),
+                                    agent_id        = st.session_state.get("user_id", ""),
+                                    person_id       = st.session_state.get("selected_customer_id", ""),
+                                    consent_version = st.session_state.get("nibo_consent_version", ""),
+                                    source          = "HQ-실전데모",
+                                    show_kakao      = True,
+                                )
+                                _demo_act = len([k for k, v in _demo_adata.items() if not str(k).startswith("_") and float(v.get("현재가입", 0) or 0) > 0])
+                                st.balloons()
+                                if _demo_ok:
+                                    st.success("✅ 분석 완료! 담보 " + str(_demo_act) + "개 분석 → DB 저장. 위 리포트를 카카오톡으로 전송할 준비가 되었습니다.")
+                                else:
+                                    st.success("✅ 분석 완료! 담보 " + str(_demo_act) + "개 분석 (DB 저장 생략).")
+                                if _demo_unm:
+                                    st.info("ℹ️ 미매핑 " + str(len(_demo_unm)) + "건은 '기타담보'로 처리되었습니다.")
+                            except Exception as _demo_e:
+                                st.error("❌ 데모 오류: " + str(_demo_e))
                 if st.button("📊 증권 전문 분석 탭으로 →", key="sector_sec_goto"): _go_tab("policy_scan")
             st.markdown('</div>', unsafe_allow_html=True)
             st.markdown(f"""<div style="background:#f0fdf4;border:2px solid #16a34a;
