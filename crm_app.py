@@ -375,9 +375,10 @@ TAB_CUSTOMERS = "👥 고객 목록"
 TAB_SCHEDULE  = "📅 일정"
 TAB_DEEPLINK  = "🚀 HQ 연결"
 TAB_HQ_GUIDE  = "🏢 HQ 앱 안내"
+TAB_SIM       = "🎮 AI 시뮬"
 
 _active_tab = st.session_state.get("crm_tab", TAB_BRIEFING)
-tab1, tab2, tab3, tab4, tab5 = st.tabs([TAB_BRIEFING, TAB_CUSTOMERS, TAB_SCHEDULE, TAB_DEEPLINK, TAB_HQ_GUIDE])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([TAB_BRIEFING, TAB_CUSTOMERS, TAB_SCHEDULE, TAB_DEEPLINK, TAB_HQ_GUIDE, TAB_SIM])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1: AI 아침 브리핑 — 우선순위 고객 3명 + 오늘 일정
@@ -937,6 +938,19 @@ with tab5:
             "</div>",
             unsafe_allow_html=True,
         )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 6: AI 상담 시뮬레이션 — 설계사 교육 롤플레이
+# ══════════════════════════════════════════════════════════════════════════════
+with tab6:
+    st.markdown('<div class="gk-section-title">🎮 AI 상담 시나리오 시뮬레이터</div>',
+                unsafe_allow_html=True)
+    st.caption("페르소나 기반 AI 고객과 롤플레이 → 트리니티 핵심 키워드 채점 → 마스터의 코칭")
+    try:
+        from sim_trainer import render_simulation_dashboard as _crm_render_sim
+        _crm_render_sim(compact=True)
+    except Exception as _crm_sim_e:
+        st.error("시뮬레이션 로드 오류: " + str(_crm_sim_e))
 
 # ── 푸터 ─────────────────────────────────────────────────────────────────────
 st.markdown("---")

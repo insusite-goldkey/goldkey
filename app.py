@@ -39285,10 +39285,32 @@ div[data-testid="stButton"] > button {
                 if st.button("③ 보험 가입 현황 수집",        key="ag_sops3", use_container_width=True): _go_tab("scan_hub")
             with _sops_c2:
                 if st.button("④ KOSIS × 보장 공백 분석",    key="ag_sops4", use_container_width=True): _go_tab("policy_scan")
-                if st.button("⑤ 카카오 알림톡 리포트 발송", key="ag_sops5", use_container_width=True): _go_tab("report43")
+                if st.button("⑤ 카카오톡 알림톡 리포트 발송", key="ag_sops5", use_container_width=True): _go_tab("report43")
+    
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    
+            # ── [TRAIN] AI 상담 시뮬레이션 섹션 ──────────────────────────────────
+            st.markdown(
+                f"""<div style='background:#1e293b;border:2px solid #7c3aed;
+      border-radius:12px;padding:14px 14px 10px 14px;position:relative;'>
+      <div style='font-size:0.78rem;font-weight:900;color:#a78bfa;letter-spacing:0.08em;
+        text-transform:uppercase;margin-bottom:6px;'>
+        🎮 TRAIN-01: AI 상담 시뮬레이션 모드</div>
+      <div style='font-size:0.76rem;color:#e2e8f0;line-height:1.6;'>
+        페르소나 기반 AI 고객과 롤플레이 → 트리니티 핵심 키워드 체점 → 마스터의 코칌
+      </div>
+    </div>""",
+                unsafe_allow_html=True,
+            )
+            with st.expander("🎮 AI 상담 시뮬레이션 시작하기 ↓", expanded=False):
+                try:
+                    from sim_trainer import render_simulation_dashboard as _render_sim
+                    _render_sim(compact=False)
+                except Exception as _sim_e:
+                    st.error("시뮬레이션 로드 오류: " + str(_sim_e))
     
             # ── [NAV-05] 내비게이션 바 ─────────────────────────────────────────
-            st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
+            st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;'
                         "margin:10px 0 4px 0;'>5 / 7단계 — 네비게이션 게이트웨이</div>",
                         unsafe_allow_html=True)
             _nav05_l, _nav05_r = st.columns([2, 8])
