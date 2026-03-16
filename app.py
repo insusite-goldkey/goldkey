@@ -30270,8 +30270,7 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
                     st.session_state["_login_welcome"] = "이세윤"
                     st.session_state["_auto_close_sidebar"] = False
                     st.session_state["authenticated"]       = True
-                    st.session_state["_admin_scroll_trigger"] = True
-                    st.session_state["current_tab"]         = "t9"
+                    # [GP-FIX] 백화현상 방지: 탭 강제 이동 제거 → 현재 탭 유지
                     # [제39조 §3] 관리자 로그인 → 세션 캐시 저장
                     _s39_save_session_cache(user_id="ADMIN_MASTER", user_name="이세윤", user_role="admin")
                     st.rerun()
@@ -30284,8 +30283,7 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
                     st.session_state["_login_welcome"] = _master_name
                     st.session_state["_auto_close_sidebar"] = False
                     st.session_state["authenticated"]       = True
-                    st.session_state["_admin_scroll_trigger"] = True
-                    st.session_state["current_tab"]         = "t9"
+                    # [GP-FIX] 백화현상 방지: 탭 강제 이동 제거 → 현재 탭 유지
                     # [제39조 §3] 마스터 로그인 → 세션 캐시 저장
                     _s39_save_session_cache(user_id="PERMANENT_MASTER", user_name=_master_name, user_role="admin")
                     st.rerun()
@@ -39542,10 +39540,17 @@ div[data-testid="stButton"] > button {
                     st.markdown("<div style='font-size:0.8rem;color:#64748b;'>관리자 키 입력 후 접근 가능</div>", unsafe_allow_html=True)
                 if st.button("🔐 관리자 시스템 설정 (RAG·약관·요율)", key="sec07_admin_settings", use_container_width=True, type="primary"):
                     _go_tab("t9")
+                _sec07_uid = st.session_state.get("user_id") or st.session_state.get("authenticated")
                 if st.button("📂 통합 스캔 센터로 이동", key="sec07_scan_hub", use_container_width=True):
-                    _go_tab("scan_hub")
+                    if _sec07_uid:
+                        _go_tab("scan_hub")
+                    else:
+                        st.warning("🔒 로그인 후 이용 가능합니다. 사이드바 하단 **Admin Console**에서 로그인하세요.")
                 if st.button("📄 팜플릿 관리", key="sec07_leaflet", use_container_width=True):
-                    _go_tab("leaflet")
+                    if _sec07_uid:
+                        _go_tab("leaflet")
+                    else:
+                        st.warning("🔒 로그인 후 이용 가능합니다. 사이드바 하단 **Admin Console**에서 로그인하세요.")
             with _adm_c2:
                 st.markdown(
                     "<div style='background:#F0F9FF;border:1px solid #BBDEFB;border-radius:8px;"
@@ -52062,15 +52067,27 @@ div[data-testid="stButton"] > button {
 
         # RAG 바로가기 힌트 (사이드바 버튼으로 진입 시)
         if st.session_state.pop("_rag_admin_hint", False):
-            st.info("👇 관리자 인증키 입력 후 **'RAG 지식베이스'** 탭을 클릭하세요.")
-        admin_key_input = st.text_input("관리자 인증키", type="password", key="admin_key_tab3")
-        if admin_key_input:
-            if _check_admin_key(admin_key_input):
-                st.session_state["_admin_tab_auth"] = True
-            else:
-                st.session_state["_admin_tab_auth"] = False
-                st.error("인증키가 올바르지 않습니다. (ADMIN_KEY / ADMIN_CODE / MASTER_CODE 중 하나를 입력하세요)")
-        # admin_key_input이 빈 값이면 기존 session_state 유지 (입력 중 rerun 시 인증 풀림 방지)
+            st.info("👇 아래 **'RAG 지식베이스'** 탭을 클릭하세요.")
+        # [GP-FIX] is_admin=True 이면 키 입력 불필요 → 중복 폼 제거
+        if not st.session_state.get("is_admin"):
+            admin_key_input = st.text_input("관리자 인증키", type="password", key="admin_key_tab3")
+            if admin_key_input:
+                if _check_admin_key(admin_key_input):
+                    st.session_state["_admin_tab_auth"] = True
+                else:
+                    st.session_state["_admin_tab_auth"] = False
+                    st.error("인증키가 올바르지 않습니다. (ADMIN_KEY / ADMIN_CODE / MASTER_CODE 중 하나를 입력하세요)")
+        # ── 빠른 이동 버튼 ──────────────────────────────────────────────────
+        _t9_qn1, _t9_qn2, _t9_qn3 = st.columns(3)
+        with _t9_qn1:
+            if st.button("📂 통합 스캔 센터", key="t9_goto_scan", use_container_width=True):
+                _go_tab("scan_hub")
+        with _t9_qn2:
+            if st.button("📄 팜플릿 관리", key="t9_goto_leaflet", use_container_width=True):
+                _go_tab("leaflet")
+        with _t9_qn3:
+            if st.button("🏠 홈으로", key="t9_goto_home_qn", use_container_width=True):
+                _go_tab("home")
 
         if st.session_state.get("_admin_tab_auth") or st.session_state.get("is_admin"):
             st.success("✅ 관리자 시스템 활성화 — 핵심 관리 도구를 사용하세요.")
