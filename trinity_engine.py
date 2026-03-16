@@ -400,6 +400,36 @@ def render_trinity_report(
             unsafe_allow_html=True,
         )
 
+    # ── AI 필살 클로징 생성기 ──────────────────────────────────────────────────
+    _closing_key = f"_trinity_closing_{hash(client_name or 'x') % 99999}"
+    st.markdown(
+        "<div style='margin-top:10px;border-top:1px dashed #000;padding-top:10px;'>",
+        unsafe_allow_html=True,
+    )
+    if st.button(
+        "🪄 AI 필살 클로징 멘트 생성",
+        key=_closing_key,
+        use_container_width=True,
+        help="트리니티 분석 결과 기반 FCS(Fact-Crisis-Solution) 3단계 설득 스크립트 생성",
+    ):
+        with st.status("고객 맞춤형 심리 설득 스크립트 구성 중...", expanded=True) as _cls_status:
+            try:
+                from closing_engine import generate_killer_closing as _gkc
+                _script = _gkc(
+                    analysis_result  = analysis_data,
+                    estimated_income = estimated_income,
+                    client_name      = client_name or "고객",
+                )
+                _cls_status.update(label="✅ 클로징 스크립트 완성!", state="complete")
+                st.markdown(_script)
+                st.info(
+                    "💡 위 멘트를 복사하여 상담 시 활용하거나, 카카오톡 메시지에 포함하여 발송하세요."
+                )
+            except Exception as _ce:
+                _cls_status.update(label="⚠️ 오류 발생", state="error")
+                st.error("클로징 생성 오류: " + str(_ce))
+    st.markdown("</div>", unsafe_allow_html=True)
+
     return report_text
 
 
