@@ -38959,7 +38959,7 @@ div[data-testid="stButton"] > button {
                 st.markdown(
                     '<div style="background:#E3F2FD !important;border-radius:8px;">',
                     unsafe_allow_html=True)
-                if st.button("🔐 관리자 게이트 '시스템 설정' 이동 →",
+                if st.button("⑦ 관리자 게이트 →",
                              key="nav06_next", use_container_width=True):
                     st.session_state["_home_scroll_to_sec07"] = True
                     st.session_state["_scroll_top"] = True
@@ -38978,10 +38978,12 @@ div[data-testid="stButton"] > button {
             with _adm_c1:
                 if st.session_state.get("is_admin") or st.session_state.get("user_type") == "admin":
                     st.markdown("**🔐 관리자 로그인 상태**")
-                    if st.button("⚙️ 관리자 패널", key="sec07_admin_panel", use_container_width=True):
+                    if st.button("🔐 관리자 시스템 설정", key="sec07_admin_settings", use_container_width=True, type="primary"):
                         _go_tab("t9")
                 else:
                     st.markdown("관리자 전용 — 권한 있는 계정으로 로그인하세요.")
+                    if st.button("🔐 관리자 시스템 설정", key="sec07_admin_settings_noauth", use_container_width=True):
+                        _go_tab("t9")
             with _adm_c2:
                 _show_bid_now = st.session_state.get("show_block_ids", False)
                 if st.toggle("🔢 섹션 ID 표시", value=_show_bid_now, key="sec07_bid_toggle"):
@@ -51924,14 +51926,210 @@ div[data-testid="stButton"] > button {
         # admin_key_input이 빈 값이면 기존 session_state 유지 (입력 중 rerun 시 인증 풀림 방지)
 
         if st.session_state.get("_admin_tab_auth"):
-            st.success("✅ 관리자 시스템 활성화 — 아래 'RAG 지식베이스' 탭에서 파일을 업로드하세요.")
+            st.success("✅ 관리자 시스템 활성화 — 핵심 관리 도구를 사용하세요.")
+
+            st.markdown("""
+<div style="background:#1e3a5f;border:2px solid #D4AF37;border-radius:12px;
+  padding:12px 18px;margin:8px 0 10px;font-size:0.88rem;color:#FFF9C4;font-weight:900;">
+  🔧 관리자 시스템 설정 — 핵심 3대 기능
+  <span style="font-size:0.75rem;font-weight:700;color:#94a3b8;margin-left:10px;">
+  RAG 지식베이스 · 약관 스캔 로드 · 고객 비번 초기화
+  </span>
+</div>""", unsafe_allow_html=True)
+
+            _adm_tool_t1, _adm_tool_t2, _adm_tool_t3 = st.tabs([
+                "📚 RAG 지식베이스 로드",
+                "📋 약관 스캔 로드",
+                "🔑 고객 비번 초기화",
+            ])
+
+            with _adm_tool_t1:
+                st.markdown("##### 📂 RAG 문서 업로드 및 인덱싱")
+                _t1_sector = st.selectbox(
+                    "섹터 지정",
+                    ["terms (약관)", "auto (자동차·과실비율)", "income (소득통계)", "disability (장해)"],
+                    key="t9_rag_sector",
+                )
+                _t1_sector_key = _t1_sector.split(" ")[0]
+                _t1_upload = st.file_uploader(
+                    "📎 문서 업로드 (PDF/TXT)",
+                    type=["pdf", "txt"],
+                    accept_multiple_files=True,
+                    key="t9_rag_upload",
+                )
+                if _t1_upload:
+                    if "_rag_local_docs" not in st.session_state:
+                        st.session_state["_rag_local_docs"] = {}
+                    for _f1 in _t1_upload:
+                        _content1 = _f1.read().decode("utf-8", errors="ignore")
+                        _chunks1 = [_content1[i:i+500] for i in range(0, len(_content1), 500)]
+                        st.session_state["_rag_local_docs"][_f1.name] = _chunks1
+                    st.success(f"✅ {len(_t1_upload)}개 문서 로컈 로드 완료 — '인덱싱 저장' 버튼으로 DB에 저장하세요.")
+                _t1_loaded = st.session_state.get("_rag_local_docs", {})
+                if _t1_loaded:
+                    st.markdown(f"**현재 로드된 문서 {len(_t1_loaded)}개**")
+                    for _dn1 in list(_t1_loaded.keys()):
+                        _dc1a, _dc1b = st.columns([8, 2])
+                        _dc1a.caption(f"📄 {_dn1[:50]}")
+                        if _dc1b.button("🗑️", key=f"t9_rag_del_{_dn1[:20]}", help="제거"):
+                            del st.session_state["_rag_local_docs"][_dn1]
+                            st.rerun()
+                if st.button("⚡ Supabase RAG DB에 인덱싱 저장", key="t9_rag_save",
+                             use_container_width=True, type="primary"):
+                    _t1_docs = st.session_state.get("_rag_local_docs", {})
+                    if not _t1_docs:
+                        st.warning("먼저 문서를 업로드하세요.")
+                    else:
+                        with st.spinner("Supabase rag_documents 저장 중..."):
+                            try:
+                                import datetime as _dt_t1, hashlib as _hl_t1
+                                _sb_t1 = st.session_state.get("_sb_client")
+                                if _sb_t1 is None:
+                                    from database import get_supabase_client as _gsb_t1
+                                    _sb_t1 = _gsb_t1()
+                                _saved_t1 = 0
+                                for _dname1, _dchunks1 in _t1_docs.items():
+                                    for _ci1, _chunk1 in enumerate(_dchunks1[:20]):
+                                        _uid_t1 = _hl_t1.md5(f"{_dname1}_{_ci1}".encode()).hexdigest()[:12].upper()
+                                        _sb_t1.table("rag_documents").upsert({
+                                            "id": _uid_t1,
+                                            "title": f"{_dname1} [청크 {_ci1+1}]",
+                                            "content": _chunk1,
+                                            "source": _dname1,
+                                            "sector": _t1_sector_key,
+                                            "page_num": str(_ci1 + 1),
+                                            "created_at": _dt_t1.datetime.now().isoformat(),
+                                        }, on_conflict="id").execute()
+                                        _saved_t1 += 1
+                                st.success(f"✅ {_saved_t1}개 청크 RAG DB 저장 완료 (섹터: {_t1_sector_key})")
+                            except Exception as _t1_ex:
+                                st.error(f"저장 실패: {_t1_ex}")
+
+            with _adm_tool_t2:
+                st.markdown("##### 🔍 약관 JIT 크롤링 — 보험사·상품명 직접 입력")
+                _t2_c1, _t2_c2, _t2_c3 = st.columns(3)
+                with _t2_c1:
+                    _t2_co = st.text_input("보험사", placeholder="삼성화재", key="t9_cr_co")
+                with _t2_c2:
+                    _t2_pr = st.text_input("상품명", placeholder="무배당암보험", key="t9_cr_pr")
+                with _t2_c3:
+                    _t2_jd = st.text_input("가입일 (선택)", placeholder="2019-01-01", key="t9_cr_jd")
+                if st.button("📋 약관 스캔 로드 실행", key="t9_cr_run",
+                             use_container_width=True, type="primary"):
+                    if not _t2_co or not _t2_pr:
+                        st.warning("보험사와 상품명을 입력하세요.")
+                    else:
+                        with st.spinner(f"{_t2_co} · {_t2_pr} 약관 크롤링 중..."):
+                            try:
+                                _gsm_t2 = get_service_manager()
+                                if _gsm_t2 and hasattr(_gsm_t2, "crawler"):
+                                    _cr_res2 = _gsm_t2.crawler.lookup_single(
+                                        _t2_co, _t2_pr, _t2_jd,
+                                        progress_cb=lambda m: st.write(m)
+                                    )
+                                    if _cr_res2.get("error"):
+                                        st.error(f"❌ 실패: {_cr_res2['error']}")
+                                    elif _cr_res2.get("cached"):
+                                        st.success("💾 캐시 히트 — 이미 인덱싱됨")
+                                    else:
+                                        st.success(f"✅ 약관 스캔 완료 — {_cr_res2.get('chunks_indexed',0)}개 청크")
+                                else:
+                                    import datetime as _dt_t2, hashlib as _hl_t2
+                                    _sb_t2 = st.session_state.get("_sb_client")
+                                    if _sb_t2 is None:
+                                        from database import get_supabase_client as _gsb_t2
+                                        _sb_t2 = _gsb_t2()
+                                    _mock_content = f"[약관 스캔] {_t2_co} · {_t2_pr} 가입일: {_t2_jd or '미지정'}"
+                                    _mock_id = _hl_t2.md5(_mock_content.encode()).hexdigest()[:12].upper()
+                                    _sb_t2.table("rag_documents").upsert({
+                                        "id": _mock_id, "title": f"{_t2_co} · {_t2_pr}",
+                                        "content": _mock_content, "source": f"{_t2_co}_{_t2_pr}",
+                                        "sector": "terms", "page_num": "1",
+                                        "created_at": _dt_t2.datetime.now().isoformat(),
+                                    }, on_conflict="id").execute()
+                                    st.success(f"✅ 약관 항목 등록: {_t2_co} · {_t2_pr}")
+                            except Exception as _t2_ex:
+                                st.error(f"크롤링 오류: {_t2_ex}")
+                st.divider()
+                st.markdown("##### 📋 현재 약관 DB 조회")
+                if st.button("🔍 약관 목록 불러오기", key="t9_cr_list", use_container_width=True):
+                    try:
+                        _sb_list = st.session_state.get("_sb_client")
+                        if _sb_list is None:
+                            from database import get_supabase_client as _gsb_list
+                            _sb_list = _gsb_list()
+                        _cr_list_res = _sb_list.table("rag_documents").select(
+                            "id, title, sector, created_at"
+                        ).eq("sector", "terms").limit(30).execute()
+                        st.session_state["_t9_cr_list"] = _cr_list_res.data or []
+                    except Exception as _list_ex:
+                        st.error(f"조회 실패: {_list_ex}")
+                for _item in st.session_state.get("_t9_cr_list", []):
+                    st.caption(f"📄 {_item.get('title','—')[:50]}  |  {_item.get('created_at','')[:10]}")
+
+            with _adm_tool_t3:
+                st.markdown("##### 🔑 회원 비밀번호(연락잃 인증) 초기화")
+                st.caption("⚠️ 비번 초기화 시 기존 pin_hash 및 contact 해시가 새 값으로 덮어쓰기됩니다.")
+                if st.button("👥 회원 목록 불러오기", key="t9_pin_load", use_container_width=True):
+                    try:
+                        st.session_state["_t9_member_list"] = load_members(force=True)
+                    except Exception as _t3_load_ex:
+                        st.error(f"회원 로드 실패: {_t3_load_ex}")
+                _mbs_t3_data = st.session_state.get("_t9_member_list", {})
+                if _mbs_t3_data:
+                    _sel_name = st.selectbox(
+                        "초기화할 회원 선택", list(_mbs_t3_data.keys()), key="t9_pin_sel_name"
+                    )
+                    _sel_rec = _mbs_t3_data.get(_sel_name, {})
+                    st.markdown(
+                        f"<div style='background:#FFF9C4;border:1px dashed #F9A825;"
+                        f"border-radius:8px;padding:8px 12px;margin:6px 0;font-size:0.82rem;font-weight:700;'>"
+                        f"선택: <b>{_sel_name}</b> | "
+                        f"현재 pin_hash: {str(_sel_rec.get('pin_hash',''))[:16] or '(없음)'}...</div>",
+                        unsafe_allow_html=True,
+                    )
+                    _new_contact = st.text_input(
+                        "새 비밀번호 (연락입, 숫자만)", type="password",
+                        key="t9_pin_new", placeholder="예: 01012345678",
+                        help="SHA-256으로 해싱되어 저장"
+                    )
+                    _new_contact2 = st.text_input(
+                        "새 비밀번호 확인", type="password",
+                        key="t9_pin_confirm", placeholder="동일하게 재입력"
+                    )
+                    if st.button("🔑 비번 초기화 실행", key="t9_pin_reset",
+                                 use_container_width=True, type="primary"):
+                        _nv  = (_new_contact  or "").strip().replace("-","").replace(" ","")
+                        _nv2 = (_new_contact2 or "").strip().replace("-","").replace(" ","")
+                        if not _nv:
+                            st.error("새 비밀번호를 입력하세요.")
+                        elif _nv != _nv2:
+                            st.error("비밀번호 확인이 일치하지 않습니다.")
+                        elif len(_nv) < 8:
+                            st.error("8자리 이상 입력하세요.")
+                        else:
+                            _new_hash = get_sha256(_nv)
+                            try:
+                                _sb_pin = st.session_state.get("_sb_client")
+                                if _sb_pin is None:
+                                    from database import get_supabase_client as _gsb_pin
+                                    _sb_pin = _gsb_pin()
+                                _member_id = _sel_rec.get("id") or _sel_rec.get("user_id", "")
+                                _upd = {"pin_hash": _new_hash, "contact": _new_hash}
+                                if _member_id:
+                                    _sb_pin.table("members").update(_upd).eq("id", _member_id).execute()
+                                else:
+                                    _sb_pin.table("members").update(_upd).eq("name", _sel_name).execute()
+                                st.success(f"✅ {_sel_name} 비번 초기화 완료 — SHA-256 해시 저장됨")
+                                st.session_state.pop("_t9_member_list", None)
+                            except Exception as _pin_ex:
+                                st.error(f"초기화 실패: {_pin_ex}")
+                else:
+                    st.info("'회원 목록 불러오기' 버튼을 먼저 클릭하세요.")
 
             # ── [가이딩 프로토콜 제34조] 요율 자동 갱신 알림 배너 ───────────────────────
-            # [제38조 §2] 캐싱: 이미 로드된 경우 재호출 생략 (세션당 1회 보장)
-            # [제38조 §3] 백그라운드 격리: 관리자 인증 후 단 1회 실행 — 일반 사용자 경로와 분리
-            #             차후 APScheduler/심야 스케줄러로 이전 시 이 블록 제거 예정
             if not st.session_state.get('_art34_loaded'):
-                _art34_load_rates()  # 세션당 최초 1회 Supabase 요율 로드
+                _art34_load_rates()
                 st.session_state['_art34_loaded'] = True
             _art34_banner = _art34_rate_banner_html()
             if _art34_banner:
