@@ -260,6 +260,8 @@ try:
         encrypt_pii as _sc_encrypt_pii,
         decrypt_pii as _sc_decrypt_pii,
         upload_file_with_tag as _sc_upload_file_with_tag,
+        notify_admin_member_error as _sc_notify_admin_error,
+        render_member_emergency_btn as _sc_emergency_btn,
     )
 except Exception:
     _sc_render_auth_screen = None
@@ -268,6 +270,8 @@ except Exception:
     _sc_encrypt_pii        = None
     _sc_decrypt_pii        = None
     _sc_upload_file_with_tag = None
+    _sc_notify_admin_error   = None
+    _sc_emergency_btn        = None
 
 def get_env_secret(key: str, default_value: str = "") -> str:
     """st.secrets가 없어도 뻗지 않고 클라우드 환경변수로 대체하는 안전한 함수"""
@@ -28869,6 +28873,13 @@ footer, footer * { display: none !important; }
                                         st.rerun()
                                     else:
                                         st.error("❌ 연락처가 일치하지 않습니다.")
+                                        try:
+                                            if _sc_notify_admin_error:
+                                                _sc_notify_admin_error(_n2, "AUTH_MISMATCH", "HQ")
+                                        except Exception:
+                                            pass
+                        if _sc_emergency_btn:
+                            _sc_emergency_btn(app_name="HQ", key_prefix="hq_login_emg")
                     elif _lp2 == "B":
                         _otp_show2 = st.session_state.get("_main_otp", "")
                         _ln_show2  = st.session_state.get("_main_login_name", "")
@@ -52155,10 +52166,11 @@ div[data-testid="stButton"] > button {
   </span>
 </div>""", unsafe_allow_html=True)
 
-            _adm_tool_t1, _adm_tool_t2, _adm_tool_t3 = st.tabs([
+            _adm_tool_t1, _adm_tool_t2, _adm_tool_t3, _adm_tool_t4 = st.tabs([
                 "📚 RAG 지식베이스 로드",
                 "📋 약관 스캔 로드",
                 "🔑 고객 비번 초기화",
+                "🚨 회원정보 오류 관리",
             ])
 
             with _adm_tool_t1:
@@ -52344,6 +52356,147 @@ div[data-testid="stButton"] > button {
                                 st.error(f"초기화 실패: {_pin_ex}")
                 else:
                     st.info("'회원 목록 불러오기' 버튼을 먼저 클릭하세요.")
+
+            with _adm_tool_t4:
+                st.markdown("##### 🚨 회원정보 오류 관리 — GCS 매칭 오류 자동감지 & 초기화")
+                st.caption(
+                    "회원이 가입되어 있으나 로그인 불가(DB/GCS 매칭 오류) 발생 시, "
+                    "이름에 한하여 contact·pin_hash만 초기화합니다. 다른 회원 정보는 보존됩니다."
+                )
+                # ── 오류 신고 목록 (Supabase member_errors 조회) ──────────────────
+                _t4_c1, _t4_c2 = st.columns([3, 1])
+                with _t4_c1:
+                    st.markdown("**📋 미처리 오류 알람 목록**")
+                with _t4_c2:
+                    _t4_refresh = st.button("🔄 새로고침", key="t4_refresh_errs", use_container_width=True)
+
+                if _t4_refresh or st.session_state.get("_t4_err_list") is None:
+                    try:
+                        _sb_t4 = st.session_state.get("_sb_client")
+                        if _sb_t4 is None:
+                            from database import get_supabase_client as _gsb_t4
+                            _sb_t4 = _gsb_t4()
+                        _t4_rows = (
+                            _sb_t4.table("member_errors")
+                            .select("*")
+                            .eq("status", "pending")
+                            .order("created_at", desc=True)
+                            .limit(50)
+                            .execute()
+                        )
+                        st.session_state["_t4_err_list"] = _t4_rows.data or []
+                    except Exception as _t4_ex:
+                        st.session_state["_t4_err_list"] = []
+                        st.caption(f"⚠️ Supabase 조회 실패 (member_errors 테이블 없음): {_t4_ex}")
+
+                _t4_errors = st.session_state.get("_t4_err_list", [])
+                if _t4_errors:
+                    for _er in _t4_errors:
+                        _er_name = _er.get("member_name", "?")
+                        _er_type = _er.get("error_type", "?")
+                        _er_app  = _er.get("app_name", "?")
+                        _er_id   = _er.get("error_id", "?")
+                        _er_time = (_er.get("created_at") or "")[:16]
+                        _er_type_label = {
+                            "AUTH_MISMATCH": "연락처 매칭 오류",
+                            "LOGIN_BLOCKED": "로그인 잠금",
+                            "MANUAL_REPORT": "회원 직접 신고",
+                        }.get(_er_type, _er_type)
+                        st.markdown(
+                            f"<div style='background:#FFF3CD;border:1px dashed #F59E0B;"
+                            f"border-radius:8px;padding:7px 12px;margin:4px 0;"
+                            f"font-size:0.82rem;'>"
+                            f"⚠️ <b>{_er_name}</b> | {_er_type_label} | 앱:{_er_app} | "
+                            f"{_er_time} | ID:{_er_id}"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    st.success("✅ 미처리 오류 없음")
+
+                st.divider()
+                # ── 이름 검색 → 초기화 실행 ───────────────────────────────────────
+                st.markdown("**🔍 회원 이름 검색 후 초기화**")
+                st.caption("이름만 일치하면 contact·pin_hash를 초기화합니다. 회원의 다른 정보(가입일·구독·직업 등)는 손상 없이 유지됩니다.")
+                _t4_search = st.text_input(
+                    "초기화할 회원 이름 입력", key="t4_reset_name_input",
+                    placeholder="예: 홍길동",
+                    label_visibility="collapsed",
+                )
+                _t4_found  = None
+                _t4_found_key = None
+                if (_t4_search or "").strip():
+                    try:
+                        _mbs_t4 = load_members()
+                        _t4_key = (_t4_search or "").strip()
+                        if _t4_key in _mbs_t4:
+                            _t4_found     = _mbs_t4[_t4_key]
+                            _t4_found_key = _t4_key
+                        else:
+                            for _k in _mbs_t4:
+                                if _k.startswith(_t4_key):
+                                    _t4_found     = _mbs_t4[_k]
+                                    _t4_found_key = _k
+                                    break
+                    except Exception:
+                        pass
+
+                    if _t4_found:
+                        _jd = _t4_found.get("join_date", "?")
+                        _se = _t4_found.get("subscription_end", "?")
+                        st.markdown(
+                            f"<div style='background:#E8F5E9;border:1px dashed #4CAF50;"
+                            f"border-radius:8px;padding:8px 12px;margin:4px 0;font-size:0.82rem;'>"
+                            f"✅ 회원 확인: <b>{_t4_found_key}</b> | 가입일:{_jd} | 만료:{_se}"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                        if st.button(
+                            f"🔄 '{_t4_found_key}' 이름·연락처 초기화 실행",
+                            key="t4_reset_execute",
+                            use_container_width=True,
+                            type="primary",
+                        ):
+                            try:
+                                _sb_t4r = st.session_state.get("_sb_client")
+                                if _sb_t4r is None:
+                                    from database import get_supabase_client as _gsb_t4r
+                                    _sb_t4r = _gsb_t4r()
+                                _mid_t4 = _t4_found.get("id") or _t4_found.get("user_id", "")
+                                _upd_t4 = {"contact": None, "pin_hash": None}
+                                if _mid_t4:
+                                    _sb_t4r.table("members").update(_upd_t4).eq("id", _mid_t4).execute()
+                                else:
+                                    _sb_t4r.table("members").update(_upd_t4).eq("name", _t4_found_key).execute()
+                                try:
+                                    _sb_t4r.table("member_errors").update({"status": "resolved"}).eq("member_name", _t4_found_key).execute()
+                                except Exception:
+                                    pass
+                                st.success(
+                                    f"✅ '{_t4_found_key}' contact·pin_hash 초기화 완료 — "
+                                    f"회원이 앱에서 연락처를 다시 등록하면 정상 로그인 가능합니다."
+                                )
+                                st.session_state.pop("_t4_err_list", None)
+                                st.rerun()
+                            except Exception as _t4r_ex:
+                                st.error(f"초기화 실패: {_t4r_ex}")
+                    else:
+                        st.warning(f"'{_t4_search}' 이름으로 등록된 회원을 찾을 수 없습니다.")
+
+                st.divider()
+                # ── 알림 설정 안내 ───────────────────────────────────────────────
+                st.markdown("**⚙️ 관리자 알람 수신 설정**")
+                st.caption("오류 발생 시 카카오톡/SMS 수신 번호 — 환경변수 ADMIN_NOTIFY_PHONE 설정 권장")
+                _t4_ap = st.text_input(
+                    "관리자 수신 번호 (세션 임시 저장)",
+                    key="t4_admin_phone_tmp",
+                    value=st.session_state.get("gp200_master_phone", ""),
+                    placeholder="010-XXXX-XXXX",
+                    label_visibility="collapsed",
+                )
+                if st.button("💾 세션 저장", key="t4_admin_phone_save"):
+                    st.session_state["gp200_master_phone"] = _t4_ap
+                    st.success("✅ 관리자 알람 수신 번호 세션 저장 완료")
 
             # ── [가이딩 프로토콜 제34조] 요율 자동 갱신 알림 배너 ───────────────────────
             if not st.session_state.get('_art34_loaded'):

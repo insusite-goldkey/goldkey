@@ -832,3 +832,161 @@ def upload_file_with_tag(
         return storage_path
     except Exception as e:
         raise RuntimeError(f"Storage 업로드 실패 ({storage_path}): {e}")
+
+
+# ===========================================================================
+# [GP-ALERT §1·§2] 회원 인증 오류 알람 + 관리자 긴급 신고 프로토콜
+# HQ/CRM 양쪽 앱 공통 — 동일 함수, 동일 운용 프로토콜
+# ===========================================================================
+
+def notify_admin_member_error(
+    member_name: str,
+    error_type: str = "AUTH_MISMATCH",
+    app_name: str = "HQ",
+    extra_note: str = "",
+) -> dict:
+    """
+    [GP-ALERT §1] 회원 인증 오류 발생 시:
+      1) Supabase member_errors 테이블에 오류 기록 (status='pending')
+      2) 관리자에게 카카오톡 알림톡 / SMS 즉시 발송
+    error_type: "AUTH_MISMATCH" | "LOGIN_BLOCKED" | "MANUAL_REPORT"
+    Returns: {"success": bool, "error_id": str, "sb_saved": bool, "notified": bool, "msg": str}
+    """
+    import datetime as _dt, hashlib as _hl
+    now_str  = _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    error_id = _hl.md5(f"{member_name}{now_str}".encode()).hexdigest()[:12].upper()
+    _app_label = {"HQ": "HQ(정밀분석)", "CRM": "CRM(모바일)"}
+    _type_labels = {
+        "AUTH_MISMATCH": "연락처/비밀번호 불일치 (DB·GCS 매칭 오류)",
+        "LOGIN_BLOCKED": "로그인 잠금 횟수 초과",
+        "MANUAL_REPORT": "회원 직접 신고",
+    }
+    _label = _type_labels.get(error_type, error_type)
+
+    # ── 1) Supabase member_errors 기록 ──────────────────────────────────────
+    _sb_ok = False
+    try:
+        from supabase import create_client as _sc_sb
+        _sb_url = get_env_secret("SUPABASE_URL", "")
+        _sb_key = get_env_secret("SUPABASE_SERVICE_ROLE_KEY",
+                      get_env_secret("SUPABASE_KEY", ""))
+        if _sb_url and _sb_key:
+            _sb2 = _sc_sb(_sb_url, _sb_key)
+            _sb2.table("member_errors").upsert({
+                "error_id":    error_id,
+                "member_name": member_name,
+                "error_type":  error_type,
+                "app_name":    app_name,
+                "status":      "pending",
+                "created_at":  _dt.datetime.now().isoformat(),
+                "note":        extra_note or "",
+            }, on_conflict="error_id").execute()
+            _sb_ok = True
+    except Exception:
+        pass
+
+    # ── 2) 관리자 카카오/SMS 알림 ────────────────────────────────────────────
+    _admin_phone = get_env_secret("ADMIN_NOTIFY_PHONE", "")
+    if not _admin_phone:
+        try:
+            import streamlit as _st2
+            _admin_phone = _st2.session_state.get("gp200_master_phone", "")
+        except Exception:
+            pass
+
+    _send_ok  = False
+    _send_msg = "관리자 연락처(ADMIN_NOTIFY_PHONE) 미설정"
+    if _admin_phone:
+        try:
+            from modules.kakao_service import send_report, MSG_TYPE_NOTICE
+            _alert_text = (
+                f"[회원 오류 알람] #{error_id}\n\n"
+                f"앱: {_app_label.get(app_name, app_name)}\n"
+                f"회원명: {member_name}\n"
+                f"오류유형: {_label}\n"
+                f"발생시각: {now_str}\n"
+            )
+            if extra_note:
+                _alert_text += f"메모: {extra_note}\n"
+            _alert_text += "\n→ 관리자 시스템 설정 > '회원정보 오류 관리' 탭에서 초기화하세요."
+            _res = send_report(
+                _admin_phone, _alert_text,
+                msg_type=MSG_TYPE_NOTICE,
+                client_name="관리자",
+                title=f"[긴급] 회원 인증 오류 — {member_name}",
+            )
+            _send_ok  = _res.get("success", False)
+            _send_msg = _res.get("msg", "")
+        except Exception as _e:
+            _send_msg = str(_e)
+
+    return {
+        "success":  True,
+        "error_id": error_id,
+        "sb_saved": _sb_ok,
+        "notified": _send_ok,
+        "msg":      _send_msg,
+    }
+
+
+def render_member_emergency_btn(
+    app_name: str = "HQ",
+    key_prefix: str = "emergency",
+) -> None:
+    """
+    [GP-ALERT §2] 로그인 화면 — '관리자 오류 신고' 긴급 버튼.
+    회원이 진입 불가 시 클릭 → 이름 입력 → 관리자에게 즉시 신고.
+    HQ/CRM 양쪽 앱 동일 함수로 공유.
+    """
+    try:
+        import streamlit as _st3
+    except ImportError:
+        return
+
+    _show_key = f"{key_prefix}_show_form"
+    _done_key = f"{key_prefix}_sent_done"
+
+    if _st3.session_state.get(_done_key):
+        _st3.success("✅ 관리자에게 신고 완료. 확인 후 조치합니다.", icon="📞")
+        if _st3.button("↩️ 다시 로그인 시도", key=f"{key_prefix}_retry"):
+            _st3.session_state.pop(_done_key, None)
+            _st3.session_state.pop(_show_key, None)
+            _st3.rerun()
+        return
+
+    _st3.markdown(
+        "<div style='border:1px dashed #DC2626;border-radius:8px;"
+        "padding:6px 10px;margin-top:6px;background:#FEF2F2;'>",
+        unsafe_allow_html=True,
+    )
+    _ec1, _ec2 = _st3.columns([6, 4])
+    with _ec1:
+        _st3.markdown(
+            "<span style='font-size:0.78rem;color:#DC2626;font-weight:700;'>"
+            "🆘 로그인 오류가 계속되시나요?</span>",
+            unsafe_allow_html=True,
+        )
+    with _ec2:
+        if _st3.button("🆘 관리자 신고", key=f"{key_prefix}_toggle",
+                       use_container_width=True):
+            _st3.session_state[_show_key] = not _st3.session_state.get(_show_key, False)
+    if _st3.session_state.get(_show_key):
+        _nm = _st3.text_input(
+            "가입 시 이름 입력", key=f"{key_prefix}_report_name",
+            placeholder="등록한 이름을 입력하세요",
+            label_visibility="collapsed",
+        )
+        if _st3.button("📨 관리자에게 오류 신고 발송", key=f"{key_prefix}_send",
+                       use_container_width=True, type="primary"):
+            if not (_nm or "").strip() or len((_nm or "").strip()) < 2:
+                _st3.warning("이름을 2자 이상 입력하세요.")
+            else:
+                with _st3.spinner("신고 중..."):
+                    notify_admin_member_error(
+                        member_name=_nm.strip(),
+                        error_type="MANUAL_REPORT",
+                        app_name=app_name,
+                    )
+                _st3.session_state[_done_key] = True
+                _st3.rerun()
+    _st3.markdown("</div>", unsafe_allow_html=True)

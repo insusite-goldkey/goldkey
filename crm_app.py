@@ -34,6 +34,8 @@ from shared_components import (
     decrypt_pii,
     render_auth_screen as _sc_render_auth_screen,
     verify_sso_token as _sc_verify_sso_token,
+    notify_admin_member_error as _sc_notify_admin_error,
+    render_member_emergency_btn as _sc_emergency_btn,
 )
 
 # ── 페이지 설정 ───────────────────────────────────────────────────────────────
@@ -412,6 +414,15 @@ if not _is_authenticated():
                                 st.rerun()
                             else:
                                 st.error("❌ 연락처가 일치하지 않습니다.")
+                                try:
+                                    _sc_notify_admin_error(_cn, "AUTH_MISMATCH", "CRM")
+                                except Exception:
+                                    pass
+                if _crm_lp == "A":
+                    try:
+                        _sc_emergency_btn(app_name="CRM", key_prefix="crm_login_emg")
+                    except Exception:
+                        pass
     st.stop()
 
 # ── 인증 완료 후 메인 ─────────────────────────────────────────────────────────
