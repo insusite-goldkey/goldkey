@@ -38656,15 +38656,17 @@ function selectCustomer(name) {{
                                     "### 💡 (4) 상담 사례\n"
                                     "- 실제 상담에서 활용할 수 있는 구체적인 사례를 작성하세요."
                                 )
-                                _s3_resp = _s3_cli.chat.completions.create(
-                                    model=st.session_state.get("model_name", "gemini-2.0-flash"),
-                                    messages=[
-                                        {"role": "system", "content": _s3_sys},
-                                        {"role": "user", "content": _s3_q.strip()},
-                                    ],
-                                    max_tokens=1800,
+                                _s3_cfg = _lazy_genai_types().GenerateContentConfig(
+                                    system_instruction=_s3_sys,
+                                    max_output_tokens=1800,
+                                    temperature=0.7,
                                 )
-                                st.session_state["sec03_result"] = _s3_resp.choices[0].message.content
+                                _s3_resp = _s3_cli.models.generate_content(
+                                    model=st.session_state.get("model_name", GEMINI_MODEL),
+                                    contents=_s3_q.strip(),
+                                    config=_s3_cfg,
+                                )
+                                st.session_state["sec03_result"] = _s3_resp.text or ""
                                 st.session_state["sec03_scroll"] = True
                             except Exception as _s3_err:
                                 st.session_state["sec03_result"] = f"⚠️ 오류: {_s3_err}"
@@ -38824,16 +38826,18 @@ function selectCustomer(name) {{
                                 try:
                                     _raw = extract_pdf_chunks(_f, char_limit=8000)
                                     _cli = get_client()
-                                    _resp = _cli.chat.completions.create(
-                                        model=st.session_state.get("model_name", "gemini-2.0-flash"),
-                                        messages=[{"role": "user", "content":
-                                                   f"다음 보험 서류를 분석하세요:\n\n{_raw}\n\n"
-                                                   "1. 문서 유형 및 핵심 내용 요약\n"
-                                                   "2. 보험금 청구 적정성 평가\n"
-                                                   "3. 주요 쟁점 및 대응 방안"}],
-                                        max_tokens=2000,
+                                    _resp = _cli.models.generate_content(
+                                        model=st.session_state.get("model_name", GEMINI_MODEL),
+                                        contents=(
+                                            f"다음 보험 서류를 분석하세요:\n\n{_raw}\n\n"
+                                            "1. 문서 유형 및 핵심 내용 요약\n"
+                                            "2. 보험금 청구 적정성 평가\n"
+                                            "3. 주요 쟁점 및 대응 방안"
+                                        ),
+                                        config=_lazy_genai_types().GenerateContentConfig(
+                                            max_output_tokens=2000, temperature=0.7),
                                     )
-                                    _fb_text = _resp.choices[0].message.content
+                                    _fb_text = _resp.text or ""
                                     st.session_state["home_scan_result"] = _fb_text
                                     st.session_state["gs_last_result"] = _fb_text[:2000]
                                     st.session_state["home_scan_scroll_trigger"] = True
@@ -39068,8 +39072,11 @@ div[data-testid="stButton"] > button {
                         with st.spinner("AI 암 보장 분석 중..."):
                             try:
                                 _cc = get_client()
-                                _cc_resp = _cc.chat.completions.create(model=st.session_state.get("model_name","gemini-2.0-flash"),messages=[{"role":"system","content":f"암보험 전문 컨설턴트. 고객:{st.session_state.get('scan_client_name','고객')}. KB 7대 분류 기준 분석."},{"role":"user","content":_cancer_q.strip()}],max_tokens=1200)
-                                st.session_state["sector_cancer_result"] = _cc_resp.choices[0].message.content
+                                _cc_cfg = _lazy_genai_types().GenerateContentConfig(
+                                    system_instruction=f"암보험 전문 컨설턴트. 고객:{st.session_state.get('scan_client_name','고객')}. KB 7대 분류 기준 분석.",
+                                    max_output_tokens=1200, temperature=0.7)
+                                _cc_resp = _cc.models.generate_content(model=st.session_state.get("model_name",GEMINI_MODEL),contents=_cancer_q.strip(),config=_cc_cfg)
+                                st.session_state["sector_cancer_result"] = _cc_resp.text or ""
                             except Exception as _cce: st.session_state["sector_cancer_result"] = f"⚠️ 오류: {_cce}"
                     else: st.warning("질문을 입력해 주세요.")
                 if st.session_state.get("sector_cancer_result"): st.markdown(f'<div class="gk-ai-output-box"><div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">{st.session_state["sector_cancer_result"]}</div></div>', unsafe_allow_html=True)
@@ -39098,8 +39105,10 @@ div[data-testid="stButton"] > button {
                     if _stroke_q and _stroke_q.strip():
                         with st.spinner("분석 중..."):
                             try:
-                                _sc3=get_client(); _sc3_resp=_sc3.chat.completions.create(model=st.session_state.get("model_name","gemini-2.0-flash"),messages=[{"role":"system","content":f"뇌혈관질환 보험 전문가. 고객:{st.session_state.get('scan_client_name','고객')}. 제32조 기준 분석."},{"role":"user","content":_stroke_q.strip()}],max_tokens=1200)
-                                st.session_state["sector_stroke_result"]=_sc3_resp.choices[0].message.content
+                                _sc3=get_client()
+                                _sc3_cfg=_lazy_genai_types().GenerateContentConfig(system_instruction=f"뇌혈관질환 보험 전문가. 고객:{st.session_state.get('scan_client_name','고객')}. 제32조 기준 분석.",max_output_tokens=1200,temperature=0.7)
+                                _sc3_resp=_sc3.models.generate_content(model=st.session_state.get("model_name",GEMINI_MODEL),contents=_stroke_q.strip(),config=_sc3_cfg)
+                                st.session_state["sector_stroke_result"]=_sc3_resp.text or ""
                             except Exception as _sce3: st.session_state["sector_stroke_result"]=f"⚠️ 오류: {_sce3}"
                     else: st.warning("질문을 입력해 주세요.")
                 if st.session_state.get("sector_stroke_result"): st.markdown(f'<div class="gk-ai-output-box"><div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">{st.session_state["sector_stroke_result"]}</div></div>', unsafe_allow_html=True)
@@ -39128,8 +39137,10 @@ div[data-testid="stButton"] > button {
                     if _fire_q and _fire_q.strip():
                         with st.spinner("분석 중..."):
                             try:
-                                _fc=get_client(); _fc_resp=_fc.chat.completions.create(model=st.session_state.get("model_name","gemini-2.0-flash"),messages=[{"role":"system","content":"화재보험·배상책임보험 전문 컨설턴트. 주택·상가·공장·다중이용업소 화재보험 실무 안내."},{"role":"user","content":_fire_q.strip()}],max_tokens=1200)
-                                st.session_state["sector_fire_result"]=_fc_resp.choices[0].message.content
+                                _fc=get_client()
+                                _fc_cfg=_lazy_genai_types().GenerateContentConfig(system_instruction="화재보험·배상책임보험 전문 컨설턴트. 주택·상가·공장·다중이용업소 화재보험 실무 안내.",max_output_tokens=1200,temperature=0.7)
+                                _fc_resp=_fc.models.generate_content(model=st.session_state.get("model_name",GEMINI_MODEL),contents=_fire_q.strip(),config=_fc_cfg)
+                                st.session_state["sector_fire_result"]=_fc_resp.text or ""
                             except Exception as _fce: st.session_state["sector_fire_result"]=f"⚠️ 오류: {_fce}"
                     else: st.warning("질문을 입력해 주세요.")
                 if st.session_state.get("sector_fire_result"): st.markdown(f'<div class="gk-ai-output-box"><div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">{st.session_state["sector_fire_result"]}</div></div>', unsafe_allow_html=True)
@@ -39158,8 +39169,10 @@ div[data-testid="stButton"] > button {
                     if _auto_q and _auto_q.strip():
                         with st.spinner("분석 중..."):
                             try:
-                                _ac=get_client(); _ac_resp=_ac.chat.completions.create(model=st.session_state.get("model_name","gemini-2.0-flash"),messages=[{"role":"system","content":"자동차보험·운전자보험 전문 컨설턴트. 과실비율·형사합의금·보장구조 실무 상담."},{"role":"user","content":_auto_q.strip()}],max_tokens=1200)
-                                st.session_state["sector_auto_result"]=_ac_resp.choices[0].message.content
+                                _ac=get_client()
+                                _ac_cfg=_lazy_genai_types().GenerateContentConfig(system_instruction="자동차보험·운전자보험 전문 컨설턴트. 과실비율·형사합의금·보장구조 실무 상담.",max_output_tokens=1200,temperature=0.7)
+                                _ac_resp=_ac.models.generate_content(model=st.session_state.get("model_name",GEMINI_MODEL),contents=_auto_q.strip(),config=_ac_cfg)
+                                st.session_state["sector_auto_result"]=_ac_resp.text or ""
                             except Exception as _ace: st.session_state["sector_auto_result"]=f"⚠️ 오류: {_ace}"
                     else: st.warning("질문을 입력해 주세요.")
                 if st.session_state.get("sector_auto_result"): st.markdown(f'<div class="gk-ai-output-box"><div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">{st.session_state["sector_auto_result"]}</div></div>', unsafe_allow_html=True)
@@ -39363,13 +39376,14 @@ div[data-testid="stButton"] > button {
                                 with st.spinner("AI 통합 증권분석 중..."):
                                     try:
                                         _sec2c=get_client()
-                                        _sec2r=_sec2c.chat.completions.create(
-                                            model=st.session_state.get("model_name","gemini-2.0-flash"),
-                                            messages=[
-                                                {"role":"system","content":"보험증권 통합분석 전문가. KB 7대 분류 보장공백·중복보험 분석."},
-                                                {"role":"user","content":"[증권]\n"+str(_pt)+"\n[질문]\n"+str(_sec_q or "전체 보장공백 분석")},
-                                            ],max_tokens=1800)
-                                        st.session_state["sector_sec_result"]=_sec2r.choices[0].message.content
+                                        _sec2_cfg=_lazy_genai_types().GenerateContentConfig(
+                                            system_instruction="보험증권 통합분석 전문가. KB 7대 분류 보장공백·중복보험 분석.",
+                                            max_output_tokens=1800,temperature=0.7)
+                                        _sec2r=_sec2c.models.generate_content(
+                                            model=st.session_state.get("model_name",GEMINI_MODEL),
+                                            contents="[증권]\n"+str(_pt)+"\n[질문]\n"+str(_sec_q or "전체 보장공백 분석"),
+                                            config=_sec2_cfg)
+                                        st.session_state["sector_sec_result"]=_sec2r.text or ""
                                     except Exception as _s2e: st.session_state["sector_sec_result"]="⚠️ 오류: "+str(_s2e)
                         if st.session_state.get("sector_sec_result"): st.markdown('<div class="gk-ai-output-box"><div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">'+st.session_state["sector_sec_result"]+'</div></div>', unsafe_allow_html=True)
                 with _lsec_t3:
