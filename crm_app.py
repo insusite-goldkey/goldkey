@@ -165,16 +165,6 @@ if not _is_authenticated():
             "</div>",
             unsafe_allow_html=True,
         )
-        st.markdown("""<style>
-/* CRM 약관 동의 UI — 제목 박스 하단 테두리 연결 */
-div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stCheckbox"]) {
-    border: 1.5px solid #1e3a8a;
-    border-top: none;
-    border-radius: 0 0 8px 8px;
-    padding: 0 8px 8px 8px;
-    margin-bottom: 8px;
-}
-</style>""", unsafe_allow_html=True)
         _crm_agreed = _sc_render_auth_screen(
             app_name="Goldkey AI Masters 2026",
             app_icon="🏆",

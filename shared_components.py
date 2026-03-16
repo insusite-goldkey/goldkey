@@ -579,13 +579,54 @@ def render_auth_screen(
         "</div>",
         unsafe_allow_html=True,
     )
-    agreed = st.checkbox(
-        "위 이용약관 및 개인정보(암호화/보관/파기) 정책에 동의합니다.",
-        value=st.session_state.get(terms_agree_key, False),
-        key=terms_agree_key,
+    # ── [이용 필수동의 4가지 박스] ─────────────────────────────────────────
+    st.markdown("""<style>
+/* 필수동의 박스 — 체크박스 영역 border 스타일링 */
+div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
+    background: #f0f6ff;
+    border-left: 1.5px solid #1e3a8a;
+    border-right: 1.5px solid #1e3a8a;
+    border-bottom: 1.5px solid #1e3a8a;
+    border-radius: 0 0 8px 8px;
+    padding: 4px 10px 8px 10px;
+    margin-bottom: 6px;
+}
+</style>""", unsafe_allow_html=True)
+    st.markdown(
+        "<div style='background:#1e3a8a;border-radius:8px 8px 0 0;"
+        "padding:7px 14px;margin-top:10px;text-align:center;'>"
+        "<span style='font-size:0.85rem;font-weight:900;color:#fff;'>"
+        "📋 이용 필수동의 확인 (아래 항목을 읽고 동의해 주세요)</span></div>",
+        unsafe_allow_html=True,
     )
+    # 전체동의 → 개별 항목 자동 체크
+    _all_key = f"{terms_agree_key}_all"
+    if st.session_state.get(_all_key, False):
+        st.session_state[f"{terms_agree_key}_c1"] = True
+        st.session_state[f"{terms_agree_key}_c2"] = True
+        st.session_state[f"{terms_agree_key}_c3"] = True
+        st.session_state[f"{terms_agree_key}_c4"] = True
+    st.checkbox("🔲 **전체 동의** (필수·선택 항목 모두 동의)", key=_all_key)
+    _c1 = st.checkbox(
+        "✅ **[필수]** 서비스 이용약관에 동의합니다 (제1조~제11조)",
+        key=f"{terms_agree_key}_c1",
+    )
+    _c2 = st.checkbox(
+        "✅ **[필수]** 개인정보 수집·이용에 동의합니다 (개인정보보호법 제15조)",
+        key=f"{terms_agree_key}_c2",
+    )
+    _c3 = st.checkbox(
+        "✅ **[필수]** 개인정보 암호화·보관·파기 정책에 동의합니다 (제5조의2·제7조)",
+        key=f"{terms_agree_key}_c3",
+    )
+    _c4 = st.checkbox(
+        "☑️ **[선택]** 마케팅·서비스 개선 목적 정보 활용에 동의합니다",
+        key=f"{terms_agree_key}_c4",
+    )
+    agreed = _c1 and _c2 and _c3
+    st.session_state[terms_agree_key] = agreed
     if not agreed:
-        st.caption("⚠️ 약관에 동의하셔야 로그인/가입 버튼이 활성화됩니다.")
+        st.caption("⚠️ 필수 동의 항목(3가지)에 모두 체크하셔야 로그인/가입 버튼이 활성화됩니다.")
     return agreed
 
 
