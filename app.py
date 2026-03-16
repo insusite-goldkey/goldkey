@@ -12527,9 +12527,9 @@ def render_special_ops_sector():
 
     # ── CSS ──────────────────────────────────────────────────────────────────
     _st.markdown("""<style>
-.sops-wrap{border:1px dashed #000;border-radius:12px;background:#fafafa;
+.sops-wrap{border:1px dashed #000;border-radius:12px;background:#EBF5FB;
   padding:14px 18px;margin-bottom:10px;word-break:keep-all;}
-.sops-hdr{font-size:1.05rem;font-weight:900;color:#1e293b;letter-spacing:0.03em;}
+.sops-hdr{font-size:1.05rem;font-weight:900;color:#1a5276;letter-spacing:0.03em;}
 .sops-badge{display:inline-block;border-radius:6px;padding:2px 10px;
   font-size:0.72rem;font-weight:900;margin-right:6px;vertical-align:middle;}
 .sops-done{background:#15803d;color:#fff;}
@@ -12571,7 +12571,7 @@ def render_special_ops_sector():
             else "<span style='color:#b45309;'>●</span> KOSIS 요새 데이터"
         )
         _st.markdown(
-            f"<div style='padding:5px 0;'><span class='sops-hdr'>🎯 고객상담 특별파트</span>"
+            f"<div style='padding:5px 0;'><span class='sops-hdr'>🎯 N-SECTION: [CRM] '내보험다보여' 및 보장상담 파트</span>"
             f" <span class='sops-kosis'>{_kdot}</span>"
             + (f" <span class='sops-kosis'>👤 {_mp['name']} | {_mp['company']}</span>"
                if _mp.get("has_profile") else "")
@@ -39264,11 +39264,13 @@ div[data-testid="stButton"] > button {
         🗝️ M-SECTION: [CRM]앱 고객 관리 파트</div>
     </div>""", unsafe_allow_html=True)
             _g_c1, _g_c2 = st.columns(2, gap="small")
+            _crm_base = ("https://goldkey-crm-vje5ef5qka-du.a.run.app"
+                         if os.environ.get("K_SERVICE") else "http://localhost:8502")
             with _g_c1:
-                if st.button("① 인적 자원 등록",          key="ag_g1", use_container_width=True): _go_tab("crm_gate")
-                if st.button("② 관계망 형성",              key="ag_g2", use_container_width=True): _go_tab("crm_gate")
-                if st.button("③ 증권·역할 할당",           key="ag_g3", use_container_width=True): _go_tab("crm_gate")
-                if st.button("④ Key Metrics 대시보드",     key="ag_g4", use_container_width=True): _go_tab("crm_gate")
+                st.link_button("① 인적 자원 등록",   url=f"{_crm_base}?action=register", use_container_width=True)
+                st.link_button("② 관계망 형성",       url=f"{_crm_base}?action=network",  use_container_width=True)
+                st.link_button("③ 증권·역할 할당",    url=f"{_crm_base}?action=policy",   use_container_width=True)
+                if st.button("④ Key Metrics 대시보드", key="ag_g4", use_container_width=True): _go_tab("crm_gate")
             with _g_c2:
                 if st.button("⑤ 가족 관계도",              key="ag_g5", use_container_width=True): _go_tab("crm_gate")
                 if st.button("⑥ 보장 공백 Bar차트",        key="ag_g6", use_container_width=True): _go_tab("crm_gate")
