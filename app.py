@@ -75,7 +75,7 @@ st.markdown(f"""
         /* [ID-000-STYLE] 태블릿 최적화 6종 — 기존 padding:0 제외, 비충돌 항목만 적용 */
         /* 1. 콘텐츠 최대 너비 880px — 태블릿 비율 최적화 */
         @media (min-width: 768px) {{
-            .main .block-container {{ max-width: 880px; padding-top: 3rem !important; }}
+            .main .block-container {{ max-width: 880px; padding-top: 0 !important; }}
         }}
         /* 2. 박스색(Box Color): 경고/알림 박스 고대비 파스텔 블루 */
         .stAlert {{ background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 16px; }}
