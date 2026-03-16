@@ -576,6 +576,11 @@ def render_auth_screen(
         "<b style='color:#0a1628;'>운영자:</b> 이세윤 &nbsp;|&nbsp; "
         "<b style='color:#0a1628;'>문의:</b> 010-3074-2616 / insusite@gmail.com"
         "</div>"
+        "<div style='margin-top:8px;padding:7px 12px;background:#fff3cd;"
+        "border:1px solid #f0a500;border-radius:6px;font-size:0.78rem;"
+        "font-weight:700;color:#7a4f00;text-align:center;'>"
+        "⚠️ 필수 동의 항목(3가지)에 모두 체크하셔야 로그인/가입 버튼이 활성화됩니다."
+        "</div>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -625,8 +630,6 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     )
     agreed = _c1 and _c2 and _c3
     st.session_state[terms_agree_key] = agreed
-    if not agreed:
-        st.caption("⚠️ 필수 동의 항목(3가지)에 모두 체크하셔야 로그인/가입 버튼이 활성화됩니다.")
     return agreed
 
 
