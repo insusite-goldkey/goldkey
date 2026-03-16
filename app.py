@@ -79,8 +79,24 @@ st.markdown(f"""
         }}
         /* 2. 박스색(Box Color): 경고/알림 박스 고대비 파스텔 블루 */
         .stAlert {{ background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 16px; }}
-        /* 3. 글자크기(Font Size): 태블릿 가시성 16px 기준선 */
-        html, body, [class*="css"] {{ font-size: 16px; color: #0f172a; font-family: 'Inter', 'Noto Sans KR', sans-serif; letter-spacing: -0.01em; }}
+        /* 3. GK RFS v1.0 — 반응형 폰트 스케일 (rem 전역 자동 스케일) */
+        html {{ font-size: 16px; }}
+        @media (min-width: 601px) and (max-width: 1024px) {{
+            html {{ font-size: 18.4px; }}
+        }}
+        @media (max-width: 600px) {{
+            html {{ font-size: 17px; }}
+            [data-testid="stButton"] button,
+            [data-testid="stFormSubmitButton"] button {{
+                min-height: 44px !important;
+                font-weight: 800 !important;
+            }}
+            [data-testid="stTextInput"] input,
+            [data-testid="stTextArea"] textarea {{
+                font-size: 1rem !important;
+            }}
+        }}
+        html, body, [class*="css"] {{ color: #0f172a; font-family: 'Inter', 'Noto Sans KR', sans-serif; letter-spacing: -0.01em; }}
         /* 5. 문장(Messaging): 자간·행간 조절로 긴 문장 가독성 개선 */
         .stMarkdown p {{ line-height: 1.7; letter-spacing: -0.02em; margin-bottom: 1.2rem; }}
         /* 6. 입력잘(Input): 포커스 시 테두리 강조 및 내부 여백 확장 */

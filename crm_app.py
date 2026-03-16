@@ -56,6 +56,24 @@ st.markdown("""
    Apple HIG · Inter Font · Indigo Accent · Glassmorphism
 ══════════════════════════════════════════════════════ */
 
+/* §2-A GK RFS v1.0 — 반응형 폰트 스케일 (Mobile-First) */
+html { font-size: 16px; }
+@media (min-width: 601px) and (max-width: 1024px) {
+  html { font-size: 18.4px; }
+}
+@media (max-width: 600px) {
+  html { font-size: 17px; }
+  [data-testid="stButton"] button,
+  [data-testid="stFormSubmitButton"] button {
+    min-height: 44px !important;
+    font-weight: 800 !important;
+  }
+  [data-testid="stTextInput"] input,
+  [data-testid="stTextArea"] textarea {
+    font-size: 1rem !important;
+  }
+}
+
 /* §2-B 파스텔 3색 그라디언트 배경 (GP-84 절대 규정) */
 html, body {
   background: linear-gradient(145deg, #eef2ff 0%, #f8faff 40%, #f0fdf8 100%) !important;

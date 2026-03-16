@@ -52,7 +52,6 @@ gcloud builds submit `
     --config cloudbuild_crm.yaml `
     --substitutions "_IMAGE=$image" `
     --project $project `
-    --region $region `
     .
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ 이미지 빌드 실패 (exit code: $LASTEXITCODE)"; exit 1
