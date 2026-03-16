@@ -689,8 +689,6 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     )
     if _c5:
         st.success("✅ 내보험다보여 연동 동의 완료 — AI 증권분석·트리니티 리포트 활성화")
-    else:
-        st.caption("⚠️ 위 항목에 동의하시면 AI 증권분석·트리니티 리포트가 활성화됩니다.")
     # 내보험다보여 동의 여부를 독립 세션키로도 저장 (feature gate용)
     st.session_state["nibo_consent_agreed"]    = _c5
     st.session_state["nibo_consent_version"]   = _NIBO_CONSENT_VERSION if _c5 else ""

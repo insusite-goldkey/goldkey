@@ -1,4 +1,4 @@
-# crm_app.py — Goldkey AI Masters CRM 2026
+﻿# crm_app.py — Goldkey AI Masters CRM 2026
 """
 [GP 마스터-그림자 Phase 3] 초경량 현장 기동대 CRM
 - 복잡한 보험 계산식/정밀 상담 로직 없음
@@ -500,6 +500,259 @@ with _hdr_c2:
         st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
+# [@st.fragment] 무거운 탭 렌더러 — 백화 방지 (GP-84 §11)
+# ══════════════════════════════════════════════════════════════════════════════
+@st.fragment
+def _crm_render_tab4():
+    """[GP-84 §11] TAB4: HQ 딥링크 발사대 + 내보험다보여 파이프라인 (부분 rerun)"""
+    st.markdown('<div class="gk-section-title">🚀 HQ 모 앱 연결 — 정밀 분석 발사대</div>',
+                unsafe_allow_html=True)
+    st.caption("복잡한 보험 분석은 모 앱(Goldkey AI HQ)에 위임합니다.")
+
+    _all_names = ["(고객 선택)"] + [c.get("name", "") for c in _load_customers(_user_id)]
+    _sel_name  = st.selectbox("🎯 분석할 고객 선택", _all_names, key="crm_dl_cust")
+    _sel_cust  = next((c for c in _load_customers(_user_id)
+                       if c.get("name") == _sel_name), None)
+
+    _sector_opts = {
+        "KB 7대 보장 분석": "t3",
+        "보험금 청구 상담": "t1",
+        "실손보험 분석":   "t2",
+        "암보험 분석":     "cancer",
+        "뇌혈관 분석":     "brain",
+        "심장 분석":       "heart",
+        "화재보험 분석":   "fire",
+        "AI 상담 리포트":  "home",
+    }
+    _sel_sector_label = st.selectbox("📍 이동할 분석 섹터", list(_sector_opts.keys()),
+                                     key="crm_dl_sector")
+    _sel_sector = _sector_opts[_sel_sector_label]
+
+    if _sel_cust:
+        _dl_url = build_deeplink_to_hq(
+            cid=_sel_cust.get("person_id", ""),
+            name=_sel_cust.get("name", ""),
+            sector=_sel_sector,
+            token=_token,
+        )
+        st.markdown(f"""
+<div class="gk-card" style="text-align:center;padding:20px;">
+  <div style="font-size:0.9rem;color:#374151;margin-bottom:12px;">
+    <b>{_sel_cust.get('name')}</b> 고객 — <b>{_sel_sector_label}</b> 섹터로 이동
+  </div>
+  <a href="{_dl_url}" target="_blank" class="gk-deeplink-btn"
+     style="font-size:1rem;padding:10px 24px;">
+    🚀 HQ 모 앱에서 정밀 분석 진행
+  </a>
+</div>""", unsafe_allow_html=True)
+
+        with st.expander("❓ 모 앱이 열리지 않는다면?", expanded=False):
+            st.markdown(f"""
+<div style="background:#eff6ff;border:1px dashed #000;border-radius:10px;padding:14px;font-size:0.85rem;">
+  <b>📌 안내 데스크 (Fallback 가이드)</b><br><br>
+  1️⃣ <b>웹 브라우저</b>로 직접 접속:<br>
+  &nbsp;&nbsp;<a href="{HQ_APP_URL}" target="_blank">{HQ_APP_URL}</a><br><br>
+  2️⃣ 로그인 후 상단 주소창에 아래 파라미터를 추가하세요:<br>
+  &nbsp;&nbsp;<code>?gk_cid={_sel_cust.get('person_id','')}&amp;gk_sector={_sel_sector}</code><br><br>
+  3️⃣ 모바일에서 앱이 미설치 시: 위 링크를 북마크에 추가하세요.
+</div>""", unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.markdown(
+            "<div style='background:#f0fdf4;border:1px dashed #059669;border-radius:10px;"
+            "padding:10px 14px;font-size:0.82rem;margin-bottom:8px;'>"
+            "<b style='color:#059669;'>📊 트리니티 완전 파이프라인 & HQ DB 저장</b><br>"
+            "내보험다보여 JSON 또는 수동 입력 → 정규화 → 분석 → HQ 실시간 공유</div>",
+            unsafe_allow_html=True,
+        )
+        if not st.session_state.get("nibo_consent_agreed", False):
+            st.markdown(
+                "<div style='background:#fffbeb;border:2px dashed #f59e0b;"
+                "border-radius:10px;padding:12px 14px;margin-bottom:10px;'>"
+                "<div style='font-size:0.84rem;font-weight:900;color:#92400e;margin-bottom:7px;'>"
+                "🔐 내보험다보여 연동 동의 필요 — 신용정보법 제32조</div>"
+                "<div style='font-size:0.76rem;color:#78350f;line-height:1.85;'>"
+                "트리니티 분석 기능을 이용하려면 아래 동의가 필요합니다.<br>"
+                "• <b>수집:</b> 보험사명 · 상품명 · 담보내역 · 계약상태<br>"
+                "• <b>인증정보:</b> 데이터 추출 후 즉시 메모리 파기 — 서버 저장 불가<br>"
+                "• <b>보유:</b> 분석 완료 후 30일 경과 시 자동 파기"
+                "</div></div>",
+                unsafe_allow_html=True,
+            )
+            with st.popover("📋 신용정보 조회 안내 전문 보기", use_container_width=True):
+                try:
+                    from shared_components import _NIBO_CONSENT_HTML as _crm_ng_nch
+                    st.markdown(_crm_ng_nch, unsafe_allow_html=True)
+                except Exception:
+                    st.markdown("신용정보의 이용 및 보호에 관한 법률 제32조에 따른 안내문입니다.")
+            _crm_nibo_inline = st.checkbox(
+                "✅ **[즉석 동의]** '내보험다보여' 연동 및 신용정보 조회·분석에 동의합니다 (신용정보법 제32조)",
+                value=False, key="crm_nibo_inline_agree",
+            )
+            if _crm_nibo_inline:
+                try:
+                    from shared_components import _NIBO_CONSENT_VERSION as _crm_ng_ncv
+                except Exception:
+                    _crm_ng_ncv = "2026-03-16-v1"
+                st.session_state["nibo_consent_agreed"]    = True
+                st.session_state["nibo_consent_version"]   = _crm_ng_ncv
+                st.session_state["nibo_consent_timestamp"] = __import__("datetime").datetime.now().isoformat()
+                st.success("✅ 동의 완료! 트리니티 분석이 활성화됩니다.")
+                st.rerun()
+        else:
+            _crm_tri_t1, _crm_tri_t2 = st.tabs(["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 담보 입력"])
+            with _crm_tri_t1:
+                st.caption("내보험다보여 API JSON → data_normalizer 정규화 → 트리니티 분석 → HQ DB 저장")
+                _crm_nibo_raw = st.text_area(
+                    "내보험다보여 API JSON 붙여넣기",
+                    value=st.session_state.get("crm_nibo_raw_json", ""),
+                    placeholder='[{"prodName":"삼성생명 종신","traitName":"암진단비","amt":"3000만원","status":"유효"}]',
+                    height=120, key="crm_lsec_nibo_json",
+                )
+                _crm_nhi_j = st.number_input(
+                    "월 건강보험료(원)", min_value=0, max_value=2_000_000,
+                    value=0, step=10_000, key="crm_tri_nhi_json",
+                    help="직장인: 보수월액×7.09% | 트리니티 소득 역산 기준",
+                )
+                if st.button("⚡ JSON 파싱 → 분석 → HQ 전송", key="crm_json_pipeline_run",
+                             use_container_width=True, type="primary"):
+                    if not _crm_nibo_raw.strip():
+                        st.warning("JSON 데이터를 붙여넣어 주세요.")
+                    elif _crm_nhi_j <= 0:
+                        st.warning("월 건강보험료를 입력해 주세요.")
+                    else:
+                        with st.spinner("🤖 AI가 증권을 정밀 분석 중입니다..."):
+                            try:
+                                import json as _js_crm
+                                from trinity_engine import execute_integrated_analysis as _crm_exec
+                                _crm_raw_list = _js_crm.loads(_crm_nibo_raw.strip())
+                                if isinstance(_crm_raw_list, dict):
+                                    _crm_raw_list = [_crm_raw_list]
+                                st.session_state["crm_nibo_raw_json"] = _crm_nibo_raw
+                                _c_raw_j = decrypt_pii(_sel_cust.get("contact", ""))
+                                _crm_adata, _crm_unmapped, _crm_ok = _crm_exec(
+                                    raw_external_data = _crm_raw_list,
+                                    client_contact    = _c_raw_j,
+                                    nhi_premium       = float(_crm_nhi_j),
+                                    consultant_info   = {
+                                        "소속":   st.session_state.get("crm_user_company", ""),
+                                        "이름":   _user_name,
+                                        "연락처": st.session_state.get("crm_user_phone", ""),
+                                    },
+                                    client_name     = _sel_cust.get("name", ""),
+                                    agent_id        = _user_id,
+                                    person_id       = _sel_cust.get("person_id", ""),
+                                    consent_version = st.session_state.get("nibo_consent_version", ""),
+                                    source          = "CRM-내보험다보여",
+                                )
+                                _crm_active = len([k for k, v in _crm_adata.items() if not str(k).startswith("_") and float(v.get("현재가입", 0) or 0) > 0])
+                                if _crm_ok:
+                                    st.success("✅ 파이프라인 완료! 담보 " + str(_crm_active) + "개 → HQ 전송")
+                                else:
+                                    st.warning("⚠️ 분석 완료 (" + str(_crm_active) + "개). DB 저장 실패")
+                            except Exception as _crm_pe:
+                                if "JSONDecodeError" in type(_crm_pe).__name__:
+                                    st.error("❌ JSON 형식 오류. 올바른 JSON을 붙여넣어 주세요.")
+                                else:
+                                    st.error("❌ 파이프라인 오류: " + str(_crm_pe))
+            with _crm_tri_t2:
+                st.caption("담보 금액을 직접 입력하여 트리니티 분석을 실행합니다.")
+                _t_nhi = st.number_input(
+                    "월 건강보험료(원)", min_value=0, max_value=2_000_000,
+                    value=0, step=10_000, key="crm_tri_nhi",
+                    help="직장인: 보수월액×7.09% / 지역가입자: 고지서 확인",
+                )
+                _tc1, _tc2 = st.columns(2)
+                with _tc1:
+                    _t_cancer = st.number_input("암진단비 가입액(원)",      0, step=1_000_000,  key="crm_tri_cancer")
+                    _t_stroke = st.number_input("뇌졸중진단비 가입액(원)",  0, step=1_000_000,  key="crm_tri_stroke")
+                    _t_ci     = st.number_input("심근경색진단비 가입액(원)",0, step=1_000_000,  key="crm_tri_ci")
+                with _tc2:
+                    _t_acci   = st.number_input("상해후유장해 가입액(원)",  0, step=10_000_000, key="crm_tri_acci")
+                    _t_surg   = st.number_input("수술비 가입액(원)",         0, step=1_000_000,  key="crm_tri_surgery")
+                    _t_hosp   = st.number_input("입원일당 가입액(원)",       0, step=10_000,     key="crm_tri_hosp")
+                if st.button("🔬 분석 실행 & HQ 전송", key="crm_tri_run",
+                             use_container_width=True, type="primary"):
+                    if _t_nhi > 0:
+                        with st.spinner("트리니티 분석 및 DB 저장 중..."):
+                            try:
+                                from trinity_engine import (
+                                    run_trinity_analysis  as _tri_run,
+                                    save_analysis_to_db   as _tri_save,
+                                    render_trinity_report as _tri_rdr,
+                                )
+                                _t_cov = {
+                                    "암진단비":       float(_t_cancer),
+                                    "뇌졸중진단비":   float(_t_stroke),
+                                    "심근경색진단비": float(_t_ci),
+                                    "상해후유장해":   float(_t_acci),
+                                    "수술비":         float(_t_surg),
+                                    "입원일당":       float(_t_hosp),
+                                }
+                                _tri_adata, _tri_income = _tri_run(_t_cov, float(_t_nhi))
+                                _c_raw = decrypt_pii(_sel_cust.get("contact", ""))
+                                _rpt_t = _tri_rdr(
+                                    analysis_data=_tri_adata,
+                                    estimated_income=_tri_income,
+                                    consultant_info={
+                                        "소속":   st.session_state.get("crm_user_company", ""),
+                                        "이름":   _user_name,
+                                        "연락처": st.session_state.get("crm_user_phone", ""),
+                                    },
+                                    client_name=_sel_cust.get("name", ""),
+                                    show_kakao=True,
+                                )
+                                _ok = _tri_save(
+                                    client_contact=_c_raw,
+                                    analysis_data=_tri_adata,
+                                    estimated_income=_tri_income,
+                                    agent_id=_user_id,
+                                    report_text=_rpt_t,
+                                    person_id=_sel_cust.get("person_id", ""),
+                                )
+                                if _ok:
+                                    st.success("✅ 분석 완료! HQ 본부로 데이터가 전송되었습니다.")
+                                else:
+                                    st.warning("⚠️ 분석 완료. DB 저장 실패 (연결 확인 필요)")
+                            except Exception as _te:
+                                st.error("분석 오류: " + str(_te))
+                    else:
+                        st.warning("월 건강보험료를 입력해 주세요.")
+    else:
+        st.info("위에서 고객을 먼저 선택해 주세요.")
+
+    st.markdown("---")
+    st.markdown("**빠른 HQ 바로가기**")
+    _quick_cols = st.columns(4)
+    for i, (label, sector) in enumerate([
+        ("🛡️ KB7 분석", "t3"), ("📋 실손 분석", "t2"),
+        ("🎗️ 암보험",   "cancer"), ("🏠 화재보험", "fire"),
+    ]):
+        with _quick_cols[i]:
+            _q_url = f"{HQ_APP_URL}/?gk_sector={sector}&gk_token={_token}"
+            st.markdown(
+                f'<a href="{_q_url}" target="_blank" style="display:block;'
+                f'text-align:center;background:#1e3a8a;color:#fff;border-radius:8px;'
+                f'padding:8px;font-size:0.82rem;font-weight:900;text-decoration:none;'
+                f'border:1px dashed #93c5fd;">{label}</a>',
+                unsafe_allow_html=True,
+            )
+
+
+@st.fragment
+def _crm_render_tab6():
+    """[GP-84 §11] TAB6: AI 상담 시뮬레이터 (부분 rerun)"""
+    st.markdown('<div class="gk-section-title">🎮 AI 상담 시나리오 시뮬레이터</div>',
+                unsafe_allow_html=True)
+    st.caption("페르소나 기반 AI 고객과 롤플레이 → 트리니티 핵심 키워드 채점 → 마스터의 코칭")
+    try:
+        from sim_trainer import render_simulation_dashboard as _crm_render_sim
+        _crm_render_sim(compact=True)
+    except Exception as _crm_sim_e:
+        st.error("시뮬레이션 로드 오류: " + str(_crm_sim_e))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # 탭 네비게이션
 # ══════════════════════════════════════════════════════════════════════════════
 TAB_BRIEFING  = "🌅 AI 브리핑"
@@ -748,246 +1001,10 @@ with tab3:
             st.warning("제목을 입력해 주세요.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 4: HQ 딥링크 발사대 + Fallback
+# TAB 4: HQ 딥링크 발사대 + Fallback (@st.fragment)
 # ══════════════════════════════════════════════════════════════════════════════
 with tab4:
-    st.markdown('<div class="gk-section-title">🚀 HQ 모 앱 연결 — 정밀 분석 발사대</div>',
-                unsafe_allow_html=True)
-    st.caption("복잡한 보험 분석은 모 앱(Goldkey AI HQ)에 위임합니다.")
-
-    # 고객 선택 후 섹터 지정 → 딥링크 생성
-    _all_names = ["(고객 선택)"] + [c.get("name", "") for c in _load_customers(_user_id)]
-    _sel_name  = st.selectbox("🎯 분석할 고객 선택", _all_names, key="crm_dl_cust")
-    _sel_cust  = next((c for c in _load_customers(_user_id)
-                       if c.get("name") == _sel_name), None)
-
-    _sector_opts = {
-        "KB 7대 보장 분석": "t3",
-        "보험금 청구 상담": "t1",
-        "실손보험 분석":   "t2",
-        "암보험 분석":     "cancer",
-        "뇌혈관 분석":     "brain",
-        "심장 분석":       "heart",
-        "화재보험 분석":   "fire",
-        "AI 상담 리포트":  "home",
-    }
-    _sel_sector_label = st.selectbox("📍 이동할 분석 섹터", list(_sector_opts.keys()),
-                                     key="crm_dl_sector")
-    _sel_sector = _sector_opts[_sel_sector_label]
-
-    if _sel_cust:
-        _dl_url = build_deeplink_to_hq(
-            cid=_sel_cust.get("person_id", ""),
-            name=_sel_cust.get("name", ""),
-            sector=_sel_sector,
-            token=_token,
-        )
-        st.markdown(f"""
-<div class="gk-card" style="text-align:center;padding:20px;">
-  <div style="font-size:0.9rem;color:#374151;margin-bottom:12px;">
-    <b>{_sel_cust.get('name')}</b> 고객 — <b>{_sel_sector_label}</b> 섹터로 이동
-  </div>
-  <a href="{_dl_url}" target="_blank" class="gk-deeplink-btn"
-     style="font-size:1rem;padding:10px 24px;">
-    🚀 HQ 모 앱에서 정밀 분석 진행
-  </a>
-</div>""", unsafe_allow_html=True)
-
-        # Fallback: 링크 실패 시 안내
-        with st.expander("❓ 모 앱이 열리지 않는다면?", expanded=False):
-            st.markdown(f"""
-<div style="background:#eff6ff;border:1px dashed #000;border-radius:10px;padding:14px;font-size:0.85rem;">
-  <b>📌 안내 데스크 (Fallback 가이드)</b><br><br>
-  1️⃣ <b>웹 브라우저</b>로 직접 접속:<br>
-  &nbsp;&nbsp;<a href="{HQ_APP_URL}" target="_blank">{HQ_APP_URL}</a><br><br>
-  2️⃣ 로그인 후 상단 주소창에 아래 파라미터를 추가하세요:<br>
-  &nbsp;&nbsp;<code>?gk_cid={_sel_cust.get('person_id','')}&gk_sector={_sel_sector}</code><br><br>
-  3️⃣ 모바일에서 앱이 미설치 시: 위 링크를 북마크에 추가하세요.
-</div>""", unsafe_allow_html=True)
-
-        # ── [트리니티 엔진] 완전 파이프라인 & HQ DB 저장 ────────────────────────
-        st.markdown("---")
-        st.markdown(
-            "<div style='background:#f0fdf4;border:1px dashed #059669;border-radius:10px;"
-            "padding:10px 14px;font-size:0.82rem;margin-bottom:8px;'>"
-            "<b style='color:#059669;'>📊 트리니티 완전 파이프라인 & HQ DB 저장</b><br>"
-            "내보험다보여 JSON 또는 수동 입력 → 정규화 → 분석 → HQ 실시간 공유</div>",
-            unsafe_allow_html=True,
-        )
-        if not st.session_state.get("nibo_consent_agreed", False):
-            # ── [ID-100-AUTH] 입구 제어: 인라인 동의 팝업 카드 ──────────────
-            st.markdown(
-                "<div style='background:#fffbeb;border:2px dashed #f59e0b;"
-                "border-radius:10px;padding:12px 14px;margin-bottom:10px;'>"
-                "<div style='font-size:0.84rem;font-weight:900;color:#92400e;margin-bottom:7px;'>"
-                "🔐 내보험다보여 연동 동의 필요 — 신용정보법 제32조</div>"
-                "<div style='font-size:0.76rem;color:#78350f;line-height:1.85;'>"
-                "트리니티 분석 기능을 이용하려면 아래 동의가 필요합니다.<br>"
-                "• <b>수집:</b> 보험사명 · 상품명 · 담보내역 · 계약상태<br>"
-                "• <b>인증정보:</b> 데이터 추출 후 즉시 메모리 파기 — 서버 저장 불가<br>"
-                "• <b>보유:</b> 분석 완료 후 30일 경과 시 자동 파기"
-                "</div></div>",
-                unsafe_allow_html=True,
-            )
-            with st.popover("📋 신용정보 조회 안내 전문 보기", use_container_width=True):
-                try:
-                    from shared_components import _NIBO_CONSENT_HTML as _crm_ng_nch
-                    st.markdown(_crm_ng_nch, unsafe_allow_html=True)
-                except Exception:
-                    st.markdown("신용정보의 이용 및 보호에 관한 법률 제32조에 따른 안내문입니다.")
-            _crm_nibo_inline = st.checkbox(
-                "✅ **[즉석 동의]** '내보험다보여' 연동 및 신용정보 조회·분석에 동의합니다 (신용정보법 제32조)",
-                value=False, key="crm_nibo_inline_agree",
-            )
-            if _crm_nibo_inline:
-                try:
-                    from shared_components import _NIBO_CONSENT_VERSION as _crm_ng_ncv
-                except Exception:
-                    _crm_ng_ncv = "2026-03-16-v1"
-                st.session_state["nibo_consent_agreed"]    = True
-                st.session_state["nibo_consent_version"]   = _crm_ng_ncv
-                st.session_state["nibo_consent_timestamp"] = __import__("datetime").datetime.now().isoformat()
-                st.success("✅ 동의 완료! 트리니티 분석이 활성화됩니다.")
-                st.rerun()
-        else:
-            _crm_tri_t1, _crm_tri_t2 = st.tabs(["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 담보 입력"])
-            with _crm_tri_t1:
-                st.caption("내보험다보여 API JSON → data_normalizer 정규화 → 트리니티 분석 → HQ DB 저장")
-                _crm_nibo_raw = st.text_area(
-                    "내보험다보여 API JSON 붙여넣기",
-                    value=st.session_state.get("crm_nibo_raw_json", ""),
-                    placeholder='[{"prodName":"삼성생명 종신","traitName":"암진단비","amt":"3000만원","status":"유효"}]',
-                    height=120, key="crm_lsec_nibo_json",
-                )
-                _crm_nhi_j = st.number_input(
-                    "월 건강보험료(원)", min_value=0, max_value=2_000_000,
-                    value=0, step=10_000, key="crm_tri_nhi_json",
-                    help="직장인: 보수월액×7.09% | 트리니티 소득 역산 기준",
-                )
-                _crm_json_btn = "⚡ JSON 파싱 → 분석 → HQ 전송"
-                if st.button(_crm_json_btn, key="crm_json_pipeline_run",
-                             use_container_width=True, type="primary"):
-                    if not _crm_nibo_raw.strip():
-                        st.warning("JSON 데이터를 붙여넣어 주세요.")
-                    elif _crm_nhi_j <= 0:
-                        st.warning("월 건강보험료를 입력해 주세요.")
-                    else:
-                        with st.spinner("🤖 AI가 증권을 정밀 분석 중입니다..."):
-                            try:
-                                import json as _js_crm
-                                from trinity_engine import execute_integrated_analysis as _crm_exec
-                                _crm_raw_list = _js_crm.loads(_crm_nibo_raw.strip())
-                                if isinstance(_crm_raw_list, dict):
-                                    _crm_raw_list = [_crm_raw_list]
-                                st.session_state["crm_nibo_raw_json"] = _crm_nibo_raw
-                                _c_raw_j = decrypt_pii(_sel_cust.get("contact", ""))
-                                _crm_adata, _crm_unmapped, _crm_ok = _crm_exec(
-                                    raw_external_data = _crm_raw_list,
-                                    client_contact    = _c_raw_j,
-                                    nhi_premium       = float(_crm_nhi_j),
-                                    consultant_info   = {
-                                        "소속":   st.session_state.get("crm_user_company", ""),
-                                        "이름":   _user_name,
-                                        "연락처": st.session_state.get("crm_user_phone", ""),
-                                    },
-                                    client_name     = _sel_cust.get("name", ""),
-                                    agent_id        = _user_id,
-                                    person_id       = _sel_cust.get("person_id", ""),
-                                    consent_version = st.session_state.get("nibo_consent_version", ""),
-                                    source          = "CRM-내보험다보여",
-                                )
-                                _crm_active = len([k for k, v in _crm_adata.items() if not str(k).startswith("_") and float(v.get("현재가입", 0) or 0) > 0])
-                                if _crm_ok:
-                                    st.success("✅ 파이프라인 완료! 담보 " + str(_crm_active) + "개 → HQ 전송")
-                                else:
-                                    st.warning("⚠️ 분석 완료 (" + str(_crm_active) + "개). DB 저장 실패")
-                            except Exception as _crm_pe:
-                                if "JSONDecodeError" in type(_crm_pe).__name__:
-                                    st.error("❌ JSON 형식 오류. 올바른 JSON을 붙여넣어 주세요.")
-                                else:
-                                    st.error("❌ 파이프라인 오류: " + str(_crm_pe))
-            with _crm_tri_t2:
-                st.caption("담보 금액을 직접 입력하여 트리니티 분석을 실행합니다.")
-                _t_nhi = st.number_input(
-                    "월 건강보험료(원)", min_value=0, max_value=2_000_000,
-                    value=0, step=10_000, key="crm_tri_nhi",
-                    help="직장인: 보수월액×7.09% / 지역가입자: 고지서 확인",
-                )
-                _tc1, _tc2 = st.columns(2)
-                with _tc1:
-                    _t_cancer = st.number_input("암진단비 가입액(원)",      0, step=1_000_000,  key="crm_tri_cancer")
-                    _t_stroke = st.number_input("뇌졸중진단비 가입액(원)",  0, step=1_000_000,  key="crm_tri_stroke")
-                    _t_ci     = st.number_input("심근경색진단비 가입액(원)",0, step=1_000_000,  key="crm_tri_ci")
-                with _tc2:
-                    _t_acci   = st.number_input("상해후유장해 가입액(원)",  0, step=10_000_000, key="crm_tri_acci")
-                    _t_surg   = st.number_input("수술비 가입액(원)",         0, step=1_000_000,  key="crm_tri_surgery")
-                    _t_hosp   = st.number_input("입원일당 가입액(원)",       0, step=10_000,     key="crm_tri_hosp")
-                if st.button("🔬 분석 실행 & HQ 전송", key="crm_tri_run",
-                             use_container_width=True, type="primary"):
-                    if _t_nhi > 0:
-                        with st.spinner("트리니티 분석 및 DB 저장 중..."):
-                            try:
-                                from trinity_engine import (
-                                    run_trinity_analysis  as _tri_run,
-                                    save_analysis_to_db   as _tri_save,
-                                    render_trinity_report as _tri_rdr,
-                                )
-                                _t_cov = {
-                                    "암진단비":       float(_t_cancer),
-                                    "뇌졸중진단비":   float(_t_stroke),
-                                    "심근경색진단비": float(_t_ci),
-                                    "상해후유장해":   float(_t_acci),
-                                    "수술비":         float(_t_surg),
-                                    "입원일당":       float(_t_hosp),
-                                }
-                                _tri_adata, _tri_income = _tri_run(_t_cov, float(_t_nhi))
-                                _c_raw = decrypt_pii(_sel_cust.get("contact", ""))
-                                _rpt_t = _tri_rdr(
-                                    analysis_data=_tri_adata,
-                                    estimated_income=_tri_income,
-                                    consultant_info={
-                                        "소속":   st.session_state.get("crm_user_company", ""),
-                                        "이름":   _user_name,
-                                        "연락처": st.session_state.get("crm_user_phone", ""),
-                                    },
-                                    client_name=_sel_cust.get("name", ""),
-                                    show_kakao=True,
-                                )
-                                _ok = _tri_save(
-                                    client_contact=_c_raw,
-                                    analysis_data=_tri_adata,
-                                    estimated_income=_tri_income,
-                                    agent_id=_user_id,
-                                    report_text=_rpt_t,
-                                    person_id=_sel_cust.get("person_id", ""),
-                                )
-                                if _ok:
-                                    st.success("✅ 분석 완료! HQ 본부로 데이터가 전송되었습니다.")
-                                else:
-                                    st.warning("⚠️ 분석 완료. DB 저장 실패 (연결 확인 필요)")
-                            except Exception as _te:
-                                st.error("분석 오류: " + str(_te))
-                    else:
-                        st.warning("월 건강보험료를 입력해 주세요.")
-    else:
-        st.info("위에서 고객을 먼저 선택해 주세요.")
-
-    st.markdown("---")
-    st.markdown("**빠른 HQ 바로가기**")
-    _quick_cols = st.columns(4)
-    for i, (label, sector) in enumerate([
-        ("🛡️ KB7 분석", "t3"), ("📋 실손 분석", "t2"),
-        ("🎗️ 암보험",   "cancer"), ("🏠 화재보험", "fire"),
-    ]):
-        with _quick_cols[i]:
-            _q_url = f"{HQ_APP_URL}/?gk_sector={sector}&gk_token={_token}"
-            st.markdown(
-                f'<a href="{_q_url}" target="_blank" style="display:block;'
-                f'text-align:center;background:#1e3a8a;color:#fff;border-radius:8px;'
-                f'padding:8px;font-size:0.82rem;font-weight:900;text-decoration:none;'
-                f'border:1px dashed #93c5fd;">{label}</a>',
-                unsafe_allow_html=True,
-            )
+    _crm_render_tab4()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 5: HQ 앱 설치 안내 — 온보딩 안내 데스크
@@ -1075,14 +1092,7 @@ with tab5:
 # TAB 6: AI 상담 시뮬레이션 — 설계사 교육 롤플레이
 # ══════════════════════════════════════════════════════════════════════════════
 with tab6:
-    st.markdown('<div class="gk-section-title">🎮 AI 상담 시나리오 시뮬레이터</div>',
-                unsafe_allow_html=True)
-    st.caption("페르소나 기반 AI 고객과 롤플레이 → 트리니티 핵심 키워드 채점 → 마스터의 코칭")
-    try:
-        from sim_trainer import render_simulation_dashboard as _crm_render_sim
-        _crm_render_sim(compact=True)
-    except Exception as _crm_sim_e:
-        st.error("시뮬레이션 로드 오류: " + str(_crm_sim_e))
+    _crm_render_tab6()
 
 # ── 푸터 ─────────────────────────────────────────────────────────────────────
 st.markdown("---")

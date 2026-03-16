@@ -28788,7 +28788,7 @@ footer, footer * { display: none !important; }
                         key="_gp_terms_agreed",
                     )
                 if not _main_agreed:
-                    st.warning("⚠️ 약관에 동의하셔야 로그인/가입 버튼이 활성화됩니다.")
+                    st.warning("⚠️ 약관동의시 '로그인/가입 버튼' 활성화 · ⚠️ '내보험 다보여' 동의시 'AI 증권분석·트리니티 리포트' 활성화.")
             if _main_agreed:
                 _tab_l, _tab_s, _tab_pw, _tab_nm = st.tabs(["🔑 로그인", "📝 회원가입", "🔒 비번변경", "✏️ 이름변경"])
                 with _tab_l:
@@ -29990,92 +29990,139 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
 
 
             # ── [GP200 §1] 전문 브랜딩 정보 입력 UI ─────────────────────────
-            st.markdown(f"""<div style="position:relative;margin:10px 0 0 0;">
-      <div style="background:#f0f6ff;
-    border-radius:10px;padding:10px 14px 6px 14px;
-    border:1.5px solid #2e6da4;box-shadow:0 2px 10px rgba(46,109,164,0.12);">
-    <div style="font-size:0.92rem;font-weight:900;color:#D4AF37;
-      letter-spacing:0.04em;margin-bottom:4px;">🏢 담당자 브랜딩 설정</div>
-    <div style="font-size:0.80rem;color:#555555;line-height:1.55;">
-      소속과 연락처를 입력하면 출력물 및 설명 지원 문서 일체에 귀하의 소속을 넣어 드립니다!
-    </div>
-      </div>
-    </div>""", unsafe_allow_html=True)
-
-            # 회사명 입력 + 실시간 자동완성 (GP200 §2)
-            _gp200_co_input = st.text_input(
-                "🏢 회사명 (GA/보험사)",
-                key="gp200_company_input",
-                value=st.session_state.get("gp200_company", ""),
-                placeholder="예: 골드키, 삼성생명, 프라임에셋…",
-                label_visibility="visible",
-            )
-            # 자동완성 후보 표시
-            if _gp200_co_input and _gp200_co_input != st.session_state.get("gp200_company", ""):
-                _gp200_hits = gp200_search_companies(_gp200_co_input, limit=6)
-                if _gp200_hits:
-                    st.markdown("<div style='font-size:0.72rem;color:#64748b;margin-bottom:2px;'>🔍 회사 선택:</div>",
-                                unsafe_allow_html=True)
-                    for _gp200_ko, _gp200_en in _gp200_hits:
-                        if st.button(
-                            f"{_gp200_ko}  ({_gp200_en})",
-                            key=f"gp200_ac_{_gp200_ko}",
-                            use_container_width=True,
-                        ):
-                            st.session_state["gp200_company"] = _gp200_ko
-                            st.rerun()
-            else:
-                st.session_state["gp200_company"] = _gp200_co_input
-
-            _gp200_br_input = st.text_input(
-                "📍 지점 (선택)",
-                key="gp200_branch_input",
-                value=st.session_state.get("gp200_branch", ""),
-                placeholder="예: 강남지점, 본사…",
-                label_visibility="visible",
-            )
-            st.session_state["gp200_branch"] = _gp200_br_input
-
-            _gp200_nm_input = st.text_input(
-                "👤 성명 (선택)",
-                key="gp200_name_input",
-                value=st.session_state.get("gp200_name", ""),
-                placeholder="예: 홍길동",
-                label_visibility="visible",
-            )
-            st.session_state["gp200_name"] = _gp200_nm_input
-
-            _gp200_ct_input = st.text_input(
-                "📞 연락처 (선택)",
-                key="gp200_contact_input",
-                value=st.session_state.get("gp200_contact", ""),
-                placeholder="예: 010-1234-5678",
-                label_visibility="visible",
-            )
-            st.session_state["gp200_contact"] = _gp200_ct_input
-
-            # 브랜딩 미리보기 / 초기화 버튼
-            _gp200_has_data = any([
-                st.session_state.get("gp200_company", "").strip(),
-                st.session_state.get("gp200_name", "").strip(),
-                st.session_state.get("gp200_contact", "").strip(),
-            ])
-            if _gp200_has_data:
-                _gp200_footer_html = gp200_brand_footer(st.session_state)
-                if _gp200_footer_html:
+            _GP200_BR_HINTS = [
+                "강남지점","강북지점","강서지점","강동지점","서초지점","송파지점",
+                "마포지점","영등포지점","종로지점","중구지점","용산지점","성북지점",
+                "분당지점","일산지점","수원지점","인천지점","대전지점","대구지점",
+                "부산지점","광주지점","울산지점","본사","직영점","디지털팀","법인영업팀",
+            ]
+            with st.container(border=True):
+                st.markdown(
+                    "<div style='font-size:0.92rem;font-weight:900;color:#D4AF37;"
+                    "letter-spacing:0.04em;margin-bottom:2px;'>🏢 담당자 브랜딩 설정</div>"
+                    "<div style='font-size:0.74rem;color:#64748b;margin-bottom:8px;'>"
+                    "소속·연락처 입력 시 출력물 일체에 담당자 정보가 자동 삽입됩니다.</div>",
+                    unsafe_allow_html=True,
+                )
+                # ─ 회사명 ──────────────────────────────────────────────────
+                _b1l, _b1r = st.columns([3, 7])
+                with _b1l:
                     st.markdown(
-                        "<div style='font-size:0.70rem;color:#64748b;margin-top:4px;'>"
-                        "📋 출력물 푸터 미리보기:</div>",
+                        "<div style='padding-top:8px;font-size:0.82rem;"
+                        "font-weight:700;color:#1e3a8a;'>🏢 회사명</div>",
                         unsafe_allow_html=True,
                     )
-                    st.markdown(_gp200_footer_html, unsafe_allow_html=True)
-                if st.button("🗑️ 브랜딩 정보 초기화", key="btn_gp200_clear",
-                             use_container_width=True):
-                    for _gp200_k in ["gp200_company", "gp200_branch", "gp200_name", "gp200_contact",
-                                     "gp200_company_input", "gp200_branch_input",
-                                     "gp200_name_input", "gp200_contact_input"]:
-                        st.session_state.pop(_gp200_k, None)
-                    st.rerun()
+                with _b1r:
+                    _gp200_co_input = st.text_input(
+                        "회사명", key="gp200_company_input",
+                        value=st.session_state.get("gp200_company", ""),
+                        placeholder="예: 골드키, 삼성생명, 프라임에셋…",
+                        label_visibility="collapsed",
+                    )
+                if _gp200_co_input and _gp200_co_input != st.session_state.get("gp200_company", ""):
+                    _gp200_hits = gp200_search_companies(_gp200_co_input, limit=4)
+                    if _gp200_hits:
+                        st.markdown(
+                            "<div style='font-size:0.70rem;color:#64748b;"
+                            "margin:-2px 0 2px 0;'>🔍 회사 선택</div>",
+                            unsafe_allow_html=True,
+                        )
+                        _gp200_ac_cols = st.columns(len(_gp200_hits))
+                        for _gi, (_gp200_ko, _gp200_en) in enumerate(_gp200_hits):
+                            with _gp200_ac_cols[_gi]:
+                                if st.button(_gp200_ko, key=f"gp200_ac_{_gp200_ko}",
+                                             use_container_width=True):
+                                    st.session_state["gp200_company"] = _gp200_ko
+                                    st.rerun()
+                else:
+                    st.session_state["gp200_company"] = _gp200_co_input
+                # ─ 지점 ────────────────────────────────────────────────────
+                _b2l, _b2r = st.columns([3, 7])
+                with _b2l:
+                    st.markdown(
+                        "<div style='padding-top:8px;font-size:0.82rem;"
+                        "font-weight:700;color:#1e3a8a;'>📍 지점</div>",
+                        unsafe_allow_html=True,
+                    )
+                with _b2r:
+                    _gp200_br_input = st.text_input(
+                        "지점", key="gp200_branch_input",
+                        value=st.session_state.get("gp200_branch", ""),
+                        placeholder="예: 강남지점, 본사…",
+                        label_visibility="collapsed",
+                    )
+                if _gp200_br_input and _gp200_br_input != st.session_state.get("gp200_branch", ""):
+                    _br_hits = [b for b in _GP200_BR_HINTS
+                                if _gp200_br_input.strip() in b][:4]
+                    if _br_hits:
+                        st.markdown(
+                            "<div style='font-size:0.70rem;color:#64748b;"
+                            "margin:-2px 0 2px 0;'>🔍 지점 선택</div>",
+                            unsafe_allow_html=True,
+                        )
+                        _br_ac_cols = st.columns(len(_br_hits))
+                        for _bri, _brv in enumerate(_br_hits):
+                            with _br_ac_cols[_bri]:
+                                if st.button(_brv, key=f"gp200_br_{_brv}",
+                                             use_container_width=True):
+                                    st.session_state["gp200_branch"] = _brv
+                                    st.rerun()
+                else:
+                    st.session_state["gp200_branch"] = _gp200_br_input
+                # ─ 성명 ────────────────────────────────────────────────────
+                _b3l, _b3r = st.columns([3, 7])
+                with _b3l:
+                    st.markdown(
+                        "<div style='padding-top:8px;font-size:0.82rem;"
+                        "font-weight:700;color:#1e3a8a;'>👤 성명</div>",
+                        unsafe_allow_html=True,
+                    )
+                with _b3r:
+                    _gp200_nm_input = st.text_input(
+                        "성명", key="gp200_name_input",
+                        value=st.session_state.get("gp200_name", ""),
+                        placeholder="예: 홍길동",
+                        label_visibility="collapsed",
+                    )
+                st.session_state["gp200_name"] = _gp200_nm_input
+                # ─ 연락처 ──────────────────────────────────────────────────
+                _b4l, _b4r = st.columns([3, 7])
+                with _b4l:
+                    st.markdown(
+                        "<div style='padding-top:8px;font-size:0.82rem;"
+                        "font-weight:700;color:#1e3a8a;'>📞 연락처</div>",
+                        unsafe_allow_html=True,
+                    )
+                with _b4r:
+                    _gp200_ct_input = st.text_input(
+                        "연락처", key="gp200_contact_input",
+                        value=st.session_state.get("gp200_contact", ""),
+                        placeholder="예: 010-1234-5678",
+                        label_visibility="collapsed",
+                    )
+                st.session_state["gp200_contact"] = _gp200_ct_input
+                # ─ 미리보기 / 초기화 ────────────────────────────────────────
+                _gp200_has_data = any([
+                    st.session_state.get("gp200_company", "").strip(),
+                    st.session_state.get("gp200_name", "").strip(),
+                    st.session_state.get("gp200_contact", "").strip(),
+                ])
+                if _gp200_has_data:
+                    _gp200_footer_html = gp200_brand_footer(st.session_state)
+                    if _gp200_footer_html:
+                        st.markdown(
+                            "<div style='font-size:0.70rem;color:#64748b;margin-top:4px;'>"
+                            "📋 출력물 푸터 미리보기:</div>",
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown(_gp200_footer_html, unsafe_allow_html=True)
+                    if st.button("🗑️ 브랜딩 정보 초기화", key="btn_gp200_clear",
+                                 use_container_width=True):
+                        for _gp200_k in ["gp200_company", "gp200_branch", "gp200_name", "gp200_contact",
+                                         "gp200_company_input", "gp200_branch_input",
+                                         "gp200_name_input", "gp200_contact_input"]:
+                            st.session_state.pop(_gp200_k, None)
+                        st.rerun()
             # ── [GP200 §1] 끝 ────────────────────────────────────────────────
 
         st.divider()
@@ -38421,101 +38468,47 @@ function selectCustomer(name) {{
             # [GK-SEC-02] 가처분 소득 기반 3단계 솔루션
             # ═══════════════════════════════════════════════════════════════
             st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-02")}<span class="gk-sec-title">② 가처분 소득 기반 3단계 솔루션</span></div>', unsafe_allow_html=True)
-            st.markdown("**종목별 바로가기** — 6대 솔루션 영역 및 최소/표준/적정 매트릭스")
+            st.markdown(
+                "<style>.sec02-grid div[data-testid='column']{padding-top:2px!important;"
+                "padding-bottom:2px!important;}</style>"
+                "<div class='sec02-grid'>",
+                unsafe_allow_html=True,
+            )
             _s2_r1c1, _s2_r1c2 = st.columns(2, gap="small")
             _s2_r2c1, _s2_r2c2 = st.columns(2, gap="small")
             _s2_r3c1, _s2_r3c2 = st.columns(2, gap="small")
             with _s2_r1c1:
-                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                st.markdown('<div class="gk-rb-btn" style="margin-bottom:0;">', unsafe_allow_html=True)
                 if st.button("🔴 암", key="sec02_cancer", use_container_width=True):
-                    st.session_state["target_sector"] = "cancer"
-                    st.session_state["_home_scroll_to_sector_cancer"] = True
-                    st.rerun()
+                    _go_tab("cancer")
                 st.markdown('</div>', unsafe_allow_html=True)
             with _s2_r1c2:
-                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                st.markdown('<div class="gk-rb-btn" style="margin-bottom:0;">', unsafe_allow_html=True)
                 if st.button("🧠 뇌·심장", key="sec02_brain", use_container_width=True):
-                    st.session_state["target_sector"] = "stroke"
-                    st.session_state["_home_scroll_to_sector_stroke"] = True
-                    st.rerun()
+                    _go_tab("brain")
                 st.markdown('</div>', unsafe_allow_html=True)
             with _s2_r2c1:
-                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
-                if st.button("🧓 치매", key="sec02_dementia", use_container_width=True):
-                    _go_tab("dementia")
+                st.markdown('<div class="gk-rb-btn" style="margin-bottom:0;">', unsafe_allow_html=True)
+                if st.button("🧓 치매·간병", key="sec02_dementia", use_container_width=True):
+                    _go_tab("nursing")
                 st.markdown('</div>', unsafe_allow_html=True)
             with _s2_r2c2:
-                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                st.markdown('<div class="gk-rb-btn" style="margin-bottom:0;">', unsafe_allow_html=True)
                 if st.button("🦽 상해후유장해", key="sec02_disability", use_container_width=True):
                     _go_tab("disability")
                 st.markdown('</div>', unsafe_allow_html=True)
             with _s2_r3c1:
-                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                st.markdown('<div class="gk-rb-btn" style="margin-bottom:0;">', unsafe_allow_html=True)
                 if st.button("🔥 화재보험", key="sec02_fire", use_container_width=True):
-                    st.session_state["target_sector"] = "fire"
-                    st.session_state["_home_scroll_to_sector_fire"] = True
-                    st.rerun()
+                    _go_tab("gk_sec08")
                 st.markdown('</div>', unsafe_allow_html=True)
             with _s2_r3c2:
-                st.markdown('<div class="gk-rb-btn">', unsafe_allow_html=True)
+                st.markdown('<div class="gk-rb-btn" style="margin-bottom:0;">', unsafe_allow_html=True)
                 if st.button("🚗 자동차보험", key="sec02_auto", use_container_width=True):
-                    st.session_state["target_sector"] = "auto"
-                    st.session_state["_home_scroll_to_sector_auto"] = True
-                    st.rerun()
+                    _go_tab("gk_sec07")
                 st.markdown('</div>', unsafe_allow_html=True)
-    
-            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-            _s2_items = [
-                ("암 진단비",     "1,000만원",  "3,000만원",  "5,000만원+"),
-                ("뇌혈관 진단비", "500만원",    "2,000만원",  "3,000만원+"),
-                ("심장 진단비",   "500만원",    "2,000만원",  "3,000만원+"),
-                ("치매 진단비",   "500만원",    "2,000만원",  "3,000만원+"),
-                ("운전자보험",    "가입 확인",  "상해사망 1억", "형사합의금 3천"),
-                ("입원일당",      "1만원/일",   "3만원/일",   "5만원/일"),
-                ("실손보험",      "4세대",      "3세대",      "1·2세대 유지"),
-            ]
-            # ── 가처분 산출 엔진으로 '적정' 컬럼 동적 반영 ───────────────────
+            st.markdown('</div>', unsafe_allow_html=True)
             _disp_result = st.session_state.get("sec02_disposable_result")
-            _opt_overrides = {}
-            if _disp_result:
-                _mo = _disp_result.get("monthly_income", 0)
-                _da = _disp_result.get("daily_value", 0)
-                _mo_man = round(_mo / 10000)
-                _da_man = round(_da / 10000, 1)
-                _opt_overrides = {
-                    "암 진단비":     f"{min(max(round(_mo_man * 3 / 1000) * 1000, 3000), 10000):,}만원",
-                    "뇌혈관 진단비": f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
-                    "심장 진단비":   f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
-                    "치매 진단비":   f"{min(max(round(_mo_man * 2 / 1000) * 1000, 2000), 5000):,}만원",
-                    "입원일당":      f"{min(_da_man, 10):.0f}만원/일",
-                }
-    
-            _tbl_html = (
-                '<div style="overflow-x:auto;">'
-                '<table style="width:100%;border-collapse:collapse;font-size:0.83rem;border:2px solid #000000;">'
-                '<thead><tr>'
-                '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:left;border:1px solid #000000;">종목</th>'
-                '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">최소</th>'
-                '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">표준</th>'
-                '<th style="background:#E3F2FD;color:#000000;font-weight:900;padding:7px 10px;text-align:center;border:1px solid #000000;">적정 ★</th>'
-                '</tr></thead><tbody>'
-            )
-            for _i2, (_name2, _mn, _stv, _opt) in enumerate(_s2_items):
-                _bg2 = "#fafeff" if _i2 % 2 == 0 else "#ffffff"
-                _opt_disp = _opt_overrides.get(_name2, _opt)
-                _opt_color = "#0055AA" if _name2 in _opt_overrides else "#CC0000"
-                _tbl_html += (
-                    f'<tr style="background:{_bg2};">'
-                    f'<td style="padding:6px 10px;font-weight:900;color:#000000;border:1px solid #000000;">{_name2}</td>'
-                    f'<td style="padding:6px 10px;text-align:center;font-weight:700;color:#374151;border:1px solid #000000;">{_mn}</td>'
-                    f'<td style="padding:6px 10px;text-align:center;font-weight:700;color:#000000;border:1px solid #000000;">{_stv}</td>'
-                    f'<td style="padding:6px 10px;text-align:center;font-weight:900;color:{_opt_color};border:1px solid #000000;">{_opt_disp}</td>'
-                    f'</tr>'
-                )
-            _tbl_html += '</tbody></table></div>'
-            if _disp_result:
-                _tbl_html += '<div style="font-size:0.75rem;color:#0055AA;margin-top:4px;">★ 적정 금액은 건보료 역산 기준으로 자동 산출되었습니다.</div>'
-            st.markdown(_tbl_html, unsafe_allow_html=True)
     
             # ── [SEC-02-DISPOSABLE] 가처분 산출 엔진 ────────────────────────
             st.markdown("<hr style='margin:14px 0 10px 0;border:2px solid #1565C0;'>", unsafe_allow_html=True)
