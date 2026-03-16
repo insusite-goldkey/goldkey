@@ -28775,7 +28775,7 @@ footer, footer * { display: none !important; }
             "</div>",
             unsafe_allow_html=True,
         )
-        _mc1, _mc2, _mc3 = st.columns([1, 2, 1])
+        _mc1, _mc2, _mc3 = st.columns([0.01, 0.98, 0.01])
         with _mc2:
             # ── 약관 동의 + 로그인 폼 (shared_components.render_auth_screen 전문 표시)
             with st.expander("📜 이용약관 동의 (필수 — 클릭하여 전문 확인)", expanded=True):

@@ -71,10 +71,12 @@ section[data-testid="stMain"],
   background: transparent !important;
 }
 
-/* §5-C CRM 모바일 최대 너비 480px */
+/* §5-C CRM 콘테이너 전체 화면 활용 */
 .block-container {
-  max-width: 480px !important;
+  max-width: 100% !important;
   padding-top: 12px !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
   padding-bottom: 80px !important;
 }
 div[data-testid="stMainBlockContainer"] { padding-top: 0.75rem !important; }
@@ -278,7 +280,7 @@ if not _is_authenticated():
         'background:linear-gradient(135deg,#1e3a8a,#D4AF37);'
         'margin:0 auto 12px auto;border:4px solid #D4AF37;"></div>'
     )
-    _crm_c1, _crm_c2, _crm_c3 = st.columns([1, 2, 1])
+    _crm_c1, _crm_c2, _crm_c3 = st.columns([0.01, 0.98, 0.01])
     with _crm_c2:
         st.markdown(
             f"<div style='text-align:center;padding:24px 0 8px;'>"
