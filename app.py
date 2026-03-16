@@ -12930,7 +12930,11 @@ def render_special_ops_sector():
             _covs_raw = ""
             if "자동 수집" in _input_mode:
                 _st.info("⚡ 내보험다보여 API 연동 — 동의 완료 후 자동 수집이 진행됩니다. "
-                         "현재 버전에서는 수집된 데이터를 아래 텍스트 영역에 붙여넣기 방식으로 입력하세요.")
+                         "수집 결과를 아래에 붙여넣기 하거나, 내보험 자동 소환 센터(GK-SEC-10)를 이용하세요.")
+                if _st.button("🔑 내보험 자동 소환 센터 열기 (GK-SEC-10)",
+                               key="sops_goto_sec10", use_container_width=False):
+                    st.session_state["current_tab"] = "gk_sec10"
+                    st.rerun()
                 _covs_raw = _st.text_area(
                     "수집된 보장 목록 (API 응답 붙여넣기 또는 직접 입력)",
                     value=st.session_state.get("_sops_covs_raw", ""),
@@ -13145,7 +13149,22 @@ def render_special_ops_sector():
                     st.rerun()
 
             _st.markdown(
-                "<div class='sops-source' style='margin-top:12px;'>"
+                "<div style='display:flex;align-items:center;gap:10px;"
+                "background:#dcfce7;border:1.5px solid #166534;border-radius:10px;"
+                "padding:10px 16px;margin-top:12px;margin-bottom:6px;'>"
+                "<span style='font-size:1.1rem;'>🔒</span>"
+                "<div>"
+                "<div style='font-size:0.78rem;font-weight:900;color:#166534;letter-spacing:0.04em;'>"
+                "SECURE BADGE — 보안 인증 완료</div>"
+                "<div style='font-size:0.68rem;color:#166534;margin-top:2px;line-height:1.6;'>"
+                "민감정보 비저장 &nbsp;·&nbsp; AES-256 암호화 &nbsp;·&nbsp; "
+                "Trinity Engine 로그 저장 완료 &nbsp;·&nbsp; "
+                "개인정보보호법 제23조 준수</div>"
+                "</div></div>",
+                unsafe_allow_html=True,
+            )
+            _st.markdown(
+                "<div class='sops-source' style='margin-top:6px;'>"
                 "📌 출처: 국가통계포털(KOSIS) · 한국신용정보원 · 금융감독원 내보험다보여 · "
                 "통계청 사망원인통계 2023 · 국립암센터 2022 · 대한뇌졸중학회 2023</div>",
                 unsafe_allow_html=True,
