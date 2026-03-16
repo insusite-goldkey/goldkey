@@ -43,13 +43,13 @@ MAPPING_MAP: dict[str, list[str]] = {
         "암진단", "일반암", "특정암", "암확정", "암보장", "암진단금",
         "암급여금", "암발생", "소액암", "갑상선암", "유방암", "전립선암",
         "대장암", "폐암", "위암", "간암", "췌장암", "혈액암", "뇌종양",
-        "양성종양", "신생물", "악성",
+        "양성종양", "신생물", "악성", "중대한암", "암발생급여",
     ],
     # ── 뇌혈관 관련 (trinity_engine 표준: "뇌졸중진단비") ────────────────────
     "뇌졸중진단비": [
         "뇌혈관", "뇌졸중", "뇌출혈", "뇌경색", "뇌혈전", "뇌색전",
         "뇌혈관질환", "뇌졸중진단", "뇌혈관질환진단", "뇌졸증",
-        "중풍", "뇌동맥류", "뇌막염",
+        "중풍", "뇌동맥류", "뇌막염", "뇌질환", "뇌혈관계",
     ],
     # ── 심장·허혈성 관련 (trinity_engine 표준: "심근경색진단비") ────────────────
     "심근경색진단비": [
@@ -61,7 +61,7 @@ MAPPING_MAP: dict[str, list[str]] = {
     "상해후유장해": [
         "상해후유", "상해장해", "상해외상", "후유장해", "영구장해",
         "부분장해", "장해급여", "신체장해", "후유증", "상해장애",
-        "상해지급", "골절장해",
+        "상해지급", "골절장해", "일반상해80", "장해지급금", "후유장애",
     ],
     # ── 실손의료비 ────────────────────────────────────────────────────────────
     "실손의료비": [
@@ -73,6 +73,7 @@ MAPPING_MAP: dict[str, list[str]] = {
     "수술비": [
         "수술비", "수술급여", "질병수술", "상해수술", "종수술",
         "외래수술", "수술보장", "수술치료", "수술급부",
+        "1-5종수술", "N대질병수술", "대수술", "소수술",
     ],
     # ── 입원일당 ──────────────────────────────────────────────────────────────
     "입원일당": [
@@ -96,6 +97,9 @@ _REVERSE_MAP: dict[str, str] = {}
 for _std, _kws in MAPPING_MAP.items():
     for _kw in _kws:
         _REVERSE_MAP[_kw] = _std
+
+# ── 키워드 통계 (진단용) ────────────────────────────────────────────────────────
+MAP_KEYWORD_COUNT = sum(len(v) for v in MAPPING_MAP.values())
 
 # ══════════════════════════════════════════════════════════════════════════════
 # [2] 미매핑 항목 로그 — 사전 업데이트 피드백 루프
@@ -320,6 +324,39 @@ def transform_to_trinity_format(
                 standard_coverage[_std_key] += _amount
 
     return standard_coverage, unmapped
+
+
+def parse_insurance_data(
+    raw_list: list,
+    duplicate_policy: str = "sum",
+    source: str = "내보험다보여",
+) -> tuple[dict, list]:
+    """
+    [공개 API] transform_to_trinity_format()의 엘리어스.
+    외부 RAW 보험 데이터를 트리니티 엔진 규격 dict으로 변환.
+
+    Args:
+        raw_list: 내보험다보여 API 응답 리스트
+            지원 필드명: prodName / traitName / coverageName / name → 담보명
+                         amt / amount / coverageAmt / insureAmt / 가입금액 → 금액
+                         status / contStatus → 계약 상태 (실효·해지 자동 제외)
+        duplicate_policy: "sum"(합산, 기본) | "max"(최댓값)
+        source: 데이터 출처 레이블 (로그용)
+
+    Returns:
+        (standard_coverage dict, unmapped_items list)
+        standard_coverage: {"암진단비": 50_000_000, "뇌졸중진단비": 30_000_000, ...}
+        unmapped_items:    매핑 실패 원본 항목 리스트 — MAPPING_MAP 확장용 피드백
+
+    Example::
+        raw = [
+            {"traitName": "암진단특약",    "amt": "3000만"},
+            {"traitName": "뇌혈관진단특약", "amt": "2000만"},
+        ]
+        coverage, unknown = parse_insurance_data(raw)
+        # coverage → {"암진단비": 30_000_000, "뇌졸중진단비": 20_000_000, ...}
+    """
+    return transform_to_trinity_format(raw_list, duplicate_policy, source)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
