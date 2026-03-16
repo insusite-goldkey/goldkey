@@ -9,8 +9,9 @@ exports:
   run_trinity_analysis()    — 건보료 역산 × KB표준 트리니티 분석 코어
   save_analysis_to_db()     — analysis_reports Upsert  (CRM→DB Push)
   get_analysis_from_db()    — 최신 분석 결과 Pull       (HQ 도킹 시)
-  render_trinity_report()   — 통합 리포트 UI + 카카오톡 전송 버튼
-  render_trinity_pull_box() — HQ 도킹 스테이션 전용 Pull UI 위젯
+  render_trinity_report()          — 통합 리포트 UI + 카카오톡 전송 버튼
+  render_trinity_pull_box()         — HQ 도킹 스테이션 전용 Pull UI 위젯
+  execute_integrated_analysis()     — 파서↔엔진 완전 통합 원-스텝 파이프라인
 
 보안 원칙 (GP-SEC §1):
   - 연락처 원문은 절대 DB·로그·세션에 저장 금지
@@ -451,3 +452,110 @@ def render_trinity_pull_box(
                     f"아직 {client_name or '이 고객'}의 CRM 분석 결과가 없습니다. "
                     "CRM 앱에서 트리니티 분석을 먼저 실행해 주세요."
                 )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [8] 통합 파이프라인 — 파서 ↔ 트리니티 엔진 원-스텝 실행기
+# ══════════════════════════════════════════════════════════════════════════════
+def execute_integrated_analysis(
+    raw_external_data: list,
+    client_contact: str,
+    nhi_premium: float,
+    consultant_info: Optional[dict] = None,
+    client_name: str = "",
+    agent_id: str = "",
+    person_id: str = "",
+    kb7_score: int = 0,
+    consent_version: str = "",
+    source: str = "내보험다보여",
+    show_kakao: bool = True,
+) -> tuple:
+    """
+    [통합 파이프라인] 파서 ↔ 트리니티 엔진 완전 통합 원-스텝 실행기.
+
+    데이터 흐름:
+      raw_external_data
+        → parse_insurance_data()   (재료 손질)
+        → run_trinity_analysis()   (Gap 계산)
+        → render_trinity_report()  (화면 서빙)
+        → save_analysis_to_db()    (HQ-CRM 동기화)
+        → save_nibo_consent_log()  (동의 이력 기록)
+
+    Args:
+        raw_external_data: 내보험다보여 API 응답 리스트 (파싱 전 RAW)
+            지원 필드: prodName / traitName / coverageName → 담보명
+                       amt / amount / coverageAmt          → 가입금액
+                       status / contStatus                 → 계약 상태
+        client_contact:   고객 연락처 원문 [GP-SEC §1: SHA-256 해시 후 DB 저장]
+        nhi_premium:      월 건강보험료(원) — 추정 월소득 역산 기준
+        consultant_info:  {"소속": "", "이름": "", "연락처": ""}
+        client_name:      고객명 (리포트 표시용)
+        agent_id:         설계사 ID
+        person_id:        CRM person UUID
+        kb7_score:        KB 7대 분류 종합점수 (메타데이터)
+        consent_version:  내보험다보여 동의 버전 (consent_log 기록)
+        source:           데이터 출처 레이블 (로그용)
+        show_kakao:       카카오톡 공유 버튼 표시 여부
+
+    Returns:
+        (analysis_data dict, unmapped_items list, save_success bool)
+    """
+    from data_normalizer import (
+        parse_insurance_data  as _parse,
+        save_nibo_consent_log as _log_consent,
+    )
+
+    # ── Step 1: 파싱 (재료 손질) ──────────────────────────────────────────────
+    standardized_data, unmapped = _parse(raw_external_data, source=source)
+    if unmapped:
+        _um_names = ", ".join(
+            (u["raw"][:15] if isinstance(u, dict) else str(u)[:15])
+            for u in unmapped[:3]
+        )
+        _um_tail = " ..." if len(unmapped) > 3 else ""
+        st.info(
+            f"ℹ️ 매핑되지 않은 항목 {len(unmapped)}건 (기타담보 처리): "
+            f"{_um_names}{_um_tail}"
+        )
+
+    # ── Step 2: 트리니티 엔진 가동 (요리 시작) ────────────────────────────────
+    analysis_data, estimated_income = run_trinity_analysis(
+        current_coverage=standardized_data,
+        nhi_premium=float(nhi_premium),
+    )
+
+    # ── Step 3: 리포트 렌더링 (서빙) ─────────────────────────────────────────
+    report_text = render_trinity_report(
+        analysis_data    = analysis_data,
+        estimated_income = estimated_income,
+        consultant_info  = consultant_info or {},
+        client_name      = client_name,
+        show_kakao       = show_kakao,
+    )
+
+    # ── Step 4: 중앙 DB 저장 (HQ-CRM 동기화) ─────────────────────────────────
+    save_ok = save_analysis_to_db(
+        client_contact   = client_contact,
+        analysis_data    = analysis_data,
+        estimated_income = estimated_income,
+        agent_id         = agent_id,
+        kb7_score        = kb7_score,
+        report_text      = report_text,
+        person_id        = person_id,
+    )
+    if save_ok:
+        st.toast("✅ 분석 결과가 중앙 DB에 안전하게 저장되었습니다.", icon="💾")
+
+    # ── Step 5: 동의 이력 기록 ───────────────────────────────────────────────
+    if agent_id or person_id:
+        try:
+            _log_consent(
+                agent_id        = agent_id,
+                person_id       = person_id,
+                consented       = True,
+                consent_version = consent_version,
+            )
+        except Exception:
+            pass
+
+    return analysis_data, unmapped, save_ok

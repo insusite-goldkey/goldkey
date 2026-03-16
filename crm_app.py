@@ -739,67 +739,35 @@ with tab4:
                     elif _crm_nhi_j <= 0:
                         st.warning("월 건강보험료를 입력해 주세요.")
                     else:
-                        with st.spinner("⚙️ 정규화 → 트리니티 분석 → HQ DB 저장 중..."):
+                        with st.spinner("🤖 AI가 증권을 정밀 분석 중입니다..."):
                             try:
                                 import json as _js_crm
-                                from data_normalizer import (
-                                    transform_to_trinity_format as _crm_dnorm,
-                                    save_nibo_consent_log        as _crm_save_consent,
-                                )
-                                from trinity_engine import (
-                                    run_trinity_analysis  as _crm_tri_run,
-                                    save_analysis_to_db   as _crm_tri_save,
-                                    render_trinity_report as _crm_tri_rdr,
-                                )
+                                from trinity_engine import execute_integrated_analysis as _crm_exec
                                 _crm_raw_list = _js_crm.loads(_crm_nibo_raw.strip())
                                 if isinstance(_crm_raw_list, dict):
                                     _crm_raw_list = [_crm_raw_list]
-                                # [Step 1→2] JSON → 정규화
-                                _crm_cov, _crm_unmapped = _crm_dnorm(_crm_raw_list, source="CRM-내보험다보여")
                                 st.session_state["crm_nibo_raw_json"] = _crm_nibo_raw
-                                # [Step 3] 트리니티 분석
-                                _crm_adata, _crm_income = _crm_tri_run(
-                                    current_coverage=_crm_cov,
-                                    nhi_premium=float(_crm_nhi_j),
-                                )
-                                # [Step 4] 리포트
                                 _c_raw_j = decrypt_pii(_sel_cust.get("contact", ""))
-                                _crm_rpt = _crm_tri_rdr(
-                                    analysis_data=_crm_adata,
-                                    estimated_income=_crm_income,
-                                    consultant_info={
+                                _crm_adata, _crm_unmapped, _crm_ok = _crm_exec(
+                                    raw_external_data = _crm_raw_list,
+                                    client_contact    = _c_raw_j,
+                                    nhi_premium       = float(_crm_nhi_j),
+                                    consultant_info   = {
                                         "소속":   st.session_state.get("crm_user_company", ""),
                                         "이름":   _user_name,
                                         "연락처": st.session_state.get("crm_user_phone", ""),
                                     },
-                                    client_name=_sel_cust.get("name", ""),
-                                    show_kakao=True,
+                                    client_name     = _sel_cust.get("name", ""),
+                                    agent_id        = _user_id,
+                                    person_id       = _sel_cust.get("person_id", ""),
+                                    consent_version = st.session_state.get("nibo_consent_version", ""),
+                                    source          = "CRM-내보험다보여",
                                 )
-                                # [Step 5] DB 저장
-                                _crm_ok = _crm_tri_save(
-                                    client_contact=_c_raw_j,
-                                    analysis_data=_crm_adata,
-                                    estimated_income=_crm_income,
-                                    agent_id=_user_id,
-                                    report_text=_crm_rpt,
-                                    person_id=_sel_cust.get("person_id", ""),
-                                )
-                                # [Step 6] 동의 이력
-                                _crm_save_consent(
-                                    agent_id=_user_id,
-                                    person_id=_sel_cust.get("person_id", ""),
-                                    consented=True,
-                                    consent_version=st.session_state.get("nibo_consent_version", ""),
-                                )
-                                _crm_active = len([k for k, v in _crm_cov.items() if v > 0])
+                                _crm_active = len([k for k, v in _crm_adata.items() if not str(k).startswith("_") and float(v.get("현재가입", 0) or 0) > 0])
                                 if _crm_ok:
                                     st.success("✅ 파이프라인 완료! 담보 " + str(_crm_active) + "개 → HQ 전송")
                                 else:
                                     st.warning("⚠️ 분석 완료 (" + str(_crm_active) + "개). DB 저장 실패")
-                                if _crm_unmapped:
-                                    _u_names = ", ".join(u["raw"][:15] for u in _crm_unmapped[:3])
-                                    _u_more = " ..." if len(_crm_unmapped) > 3 else ""
-                                    st.info("ℹ️ '기타담보' " + str(len(_crm_unmapped)) + "개: " + _u_names + _u_more)
                             except Exception as _crm_pe:
                                 if "JSONDecodeError" in type(_crm_pe).__name__:
                                     st.error("❌ JSON 형식 오류. 올바른 JSON을 붙여넣어 주세요.")

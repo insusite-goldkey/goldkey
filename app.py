@@ -39045,6 +39045,15 @@ div[data-testid="stButton"] > button {
                 _lsec_t1, _lsec_t2 = st.tabs(["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 입력 + AI 분석"])
                 with _lsec_t1:
                     st.caption("내보험다보여 API 응답 JSON → 정규화 → 트리니티 분석 → DB 저장 일괄 처리")
+                    if st.button("📋 샘플 데이터 불러오기", key="lsec_sample_btn"):
+                        import json as _js_smp
+                        st.session_state["_nibo_raw_json"] = _js_smp.dumps([
+                            {"prodName": "(무)뉴-하이콜 암진단비",   "traitName": "암진단비특약",    "amt": "3000만원",  "status": "유효"},
+                            {"prodName": "뇌졸중진단확정비",         "traitName": "뇌졸중진단특약",  "amt": "10000000", "status": "유효"},
+                            {"prodName": "일반상해후유장해(3~100%)", "traitName": "상해후유장해",    "amt": "5000만원",  "status": "유효"},
+                            {"prodName": "DB손해 통합",              "traitName": "암진단비(소액암)", "amt": "2000만원",  "status": "유효"},
+                        ], ensure_ascii=False, indent=2)
+                        st.rerun()
                     _nibo_raw = st.text_area(
                         "내보험다보여 API JSON 붙여넣기",
                         value=st.session_state.get("_nibo_raw_json", ""),
@@ -39065,71 +39074,37 @@ div[data-testid="stButton"] > button {
                         elif _nibo_nhi <= 0:
                             st.warning("월 건강보험료를 입력해 주세요.")
                         else:
-                            with st.spinner("⚙️ 데이터 정규화 → 트리니티 분석 → DB 저장 중..."):
+                            with st.spinner("🤖 AI가 증권을 정밀 분석 중입니다..."):
                                 try:
                                     import json as _js_lsec
-                                    from data_normalizer import (
-                                        transform_to_trinity_format as _dnorm,
-                                        save_nibo_consent_log        as _save_consent,
-                                    )
-                                    from trinity_engine import (
-                                        run_trinity_analysis  as _tri_run_lsec,
-                                        save_analysis_to_db   as _tri_save_lsec,
-                                        render_trinity_report as _tri_rdr_lsec,
-                                    )
-                                    # [Step 1] JSON 파싱
+                                    from trinity_engine import execute_integrated_analysis as _exec_int
                                     _raw_list = _js_lsec.loads(_nibo_raw.strip())
                                     if isinstance(_raw_list, dict):
                                         _raw_list = [_raw_list]
-                                    # [Step 2] 정규화 → current_coverage dict
-                                    _cov_dict, _unmapped = _dnorm(_raw_list, source="HQ-내보험다보여")
                                     st.session_state["_nibo_raw_json"]         = _nibo_raw
                                     st.session_state["gs_hi_premium"]          = _nibo_nhi
                                     st.session_state["_securities_data_ready"] = True
-                                    # [Step 3] 트리니티 엔진 분석
-                                    _adata, _income = _tri_run_lsec(
-                                        current_coverage=_cov_dict,
-                                        nhi_premium=float(_nibo_nhi),
+                                    _adata, _unmapped, _ok = _exec_int(
+                                        raw_external_data = _raw_list,
+                                        client_contact    = st.session_state.get("scan_client_contact", ""),
+                                        nhi_premium       = float(_nibo_nhi),
+                                        consultant_info   = {
+                                            "소속": st.session_state.get("_mp_company", ""),
+                                            "이름": st.session_state.get("_mp_name", ""),
+                                            "연락처": st.session_state.get("_mp_phone", ""),
+                                        },
+                                        client_name     = st.session_state.get("scan_client_name", ""),
+                                        agent_id        = st.session_state.get("user_id", ""),
+                                        person_id       = st.session_state.get("selected_customer_id", ""),
+                                        kb7_score       = int(st.session_state.get("_sops_kb_score", 0) or 0),
+                                        consent_version = st.session_state.get("nibo_consent_version", ""),
+                                        source          = "HQ-내보험다보여",
                                     )
-                                    # [Step 4] 리포트 렌더링 + 카카오톡
-                                    _mp = {
-                                        "소속": st.session_state.get("_mp_company", ""),
-                                        "이름": st.session_state.get("_mp_name", ""),
-                                        "연락처": st.session_state.get("_mp_phone", ""),
-                                    }
-                                    _rpt_text = _tri_rdr_lsec(
-                                        analysis_data=_adata,
-                                        estimated_income=_income,
-                                        consultant_info=_mp,
-                                        client_name=st.session_state.get("scan_client_name", ""),
-                                        show_kakao=True,
-                                    )
-                                    # [Step 5] DB 저장
-                                    _ok = _tri_save_lsec(
-                                        client_contact=st.session_state.get("scan_client_contact", ""),
-                                        analysis_data=_adata,
-                                        estimated_income=_income,
-                                        agent_id=st.session_state.get("user_id", ""),
-                                        kb7_score=int(st.session_state.get("_sops_kb_score", 0) or 0),
-                                        report_text=_rpt_text,
-                                        person_id=st.session_state.get("selected_customer_id", ""),
-                                    )
-                                    # [Step 6] 동의 이력 기록
-                                    _save_consent(
-                                        agent_id=st.session_state.get("user_id", ""),
-                                        person_id=st.session_state.get("selected_customer_id", ""),
-                                        consented=True,
-                                        consent_version=st.session_state.get("nibo_consent_version", ""),
-                                    )
-                                    _active = len([k for k, v in _cov_dict.items() if v > 0])
+                                    _active = len([k for k, v in _adata.items() if not str(k).startswith("_") and float(v.get("현재가입", 0) or 0) > 0])
                                     if _ok:
                                         st.success("✅ 파이프라인 완료! 담보 " + str(_active) + "개 분석 → DB 저장")
                                     else:
                                         st.warning("⚠️ 분석 완료 (" + str(_active) + "개). DB 저장 실패 (연결 확인)")
-                                    if _unmapped:
-                                        _um_names = ", ".join(u["raw"][:15] for u in _unmapped[:3])
-                                        _um_more = " ..." if len(_unmapped) > 3 else ""
-                                        st.info("ℹ️ '기타담보' 처리 " + str(len(_unmapped)) + "개: " + _um_names + _um_more)
                                 except Exception as _pipe_e:
                                     if "JSONDecodeError" in type(_pipe_e).__name__:
                                         st.error("❌ JSON 형식 오류. 올바른 JSON을 붙여넣어 주세요.")
