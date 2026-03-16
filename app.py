@@ -39261,7 +39261,7 @@ div[data-testid="stButton"] > button {
       {_bid('1-5-7')}
       <div style="font-size:0.78rem;font-weight:900;color:#15803d;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:6px;">
-        🗝️ M-SECTION: CRM 마스터 키 — The Master Gate</div>
+        🗝️ M-SECTION: [CRM]앱 고객 관리 파트</div>
     </div>""", unsafe_allow_html=True)
             _g_c1, _g_c2 = st.columns(2, gap="small")
             with _g_c1:
@@ -39283,7 +39283,7 @@ div[data-testid="stButton"] > button {
                 <div style='background:#EBF5FB;border:2px solid #AED6F1;border-radius:12px;
                   padding:14px;'>
                   <div style='font-size:0.78rem;font-weight:900;color:#1a5276;letter-spacing:0.06em;
-                    text-transform:uppercase;margin-bottom:8px;'>🎯 N-SECTION: 고객상담 특별파트</div>
+                    text-transform:uppercase;margin-bottom:8px;'>🎯 N-SECTION: [CRM] '내보험다보여' 및 보장상담 파트</div>
                   <ol style='font-size:0.80rem;color:#2C3E50;font-weight:700;margin:0 0 4px 16px;
                     padding:0;line-height:2.0;'>
                     <li>Step 1: 고객정보 자동 미러링</li>
