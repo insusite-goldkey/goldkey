@@ -38855,16 +38855,20 @@ div[data-testid="stButton"] > button {
             # ── [G 섹션] 증권분석 · 특별 상담 진입 ────────────────────────────
             st.markdown('<div id="sector-action-grid" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
             st.markdown(
-                f'<div class="gk-sec" style="border-top:4px solid #7c3aed;">'
+                f'<div class="gk-sec" style="border-top:4px solid #7c3aed;background:#f5f3ff;">'
                 f'<div style="position:relative;">{_bid("1-5-8")}'
                 f'<span class="gk-sec-title" style="color:#7c3aed;">📊 G-SECTION: 증권분석 · 특별 상담 진입</span></div>',
                 unsafe_allow_html=True)
-            _g2c1, _g2c2, _g2c3 = st.columns(3, gap="small")
-            with _g2c1:
+            st.markdown("<div style='font-size:0.82rem;color:#374151;margin-bottom:10px;'>증권분석·전문 상담 섹터 빠른 진입 — 내보험다보여·화재·자동차 통합 분석</div>", unsafe_allow_html=True)
+            _g_l, _g_r = st.columns([5, 5], gap="medium")
+            with _g_l:
+                st.markdown("<div style='border:1px dashed #7c3aed;border-radius:8px;padding:10px 12px;background:#ede9fe;'><b style='color:#7c3aed;'>📋 전문 섹터 안내</b><br>", unsafe_allow_html=True)
+                for _gn, _gdesc in [("📊 통합 증권분석", "내보험다보여 JSON + 트리니티 엔진"), ("🔥 화재보험 섹터", "건물·가재·배상책임 보장 분석"), ("🚗 자동차보험 섹터", "교통사고·운전자보험 실무 상담")]:
+                    st.markdown(f'<div style="border-bottom:1px solid #c4b5fd;padding:4px 6px;font-size:0.82rem;"><b>{_gn}</b><br><span style="color:#64748b;font-size:0.75rem;">{_gdesc}</span></div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            with _g_r:
                 if st.button("📊 통합 증권분석 (내보험다보여)", key="sec_securities_enter", use_container_width=True): _go_tab("scan_hub")
-            with _g2c2:
                 if st.button("🔥 화재보험 섹터로", key="sec_fire_enter2", use_container_width=True): _go_tab("fire")
-            with _g2c3:
                 if st.button("🚗 자동차보험 섹터로", key="sec_auto_enter2", use_container_width=True): _go_tab("auto_comp")
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -38877,18 +38881,25 @@ div[data-testid="stButton"] > button {
                 f'<div style="position:relative;">{_bid("1-5-9")}'
                 f'<span class="gk-sec-title" style="color:#dc2626;">🔴 H-SECTION: 암 보장 상담 센터</span></div>',
                 unsafe_allow_html=True)
-            st.markdown("<div style='font-size:0.82rem;color:#374151;margin-bottom:12px;'>암 진단비 · 항암치료비 · 수술비 · 요양병원 입원일당 — 가처분 소득 기반 최적 설계</div>", unsafe_allow_html=True)
-            _cancer_q = st.text_area("암 관련 질문", placeholder="예) 40대 여성 암보험 추천, 갑상선암 소액암 기준...", height=80, key="sector_cancer_query")
-            if st.button("🔍 암 보장 AI 분석", key="sector_cancer_ai", use_container_width=True, type="primary"):
-                if _cancer_q and _cancer_q.strip():
-                    with st.spinner("AI 암 보장 분석 중..."):
-                        try:
-                            _cc = get_client()
-                            _cc_resp = _cc.chat.completions.create(model=st.session_state.get("model_name","gemini-2.0-flash"),messages=[{"role":"system","content":f"암보험 전문 컨설턴트. 고객:{st.session_state.get('scan_client_name','고객')}. KB 7대 분류 기준 분석."},{"role":"user","content":_cancer_q.strip()}],max_tokens=1200)
-                            st.session_state["sector_cancer_result"] = _cc_resp.choices[0].message.content
-                        except Exception as _cce: st.session_state["sector_cancer_result"] = f"⚠️ 오류: {_cce}"
-                else: st.warning("질문을 입력해 주세요.")
-            if st.session_state.get("sector_cancer_result"): st.markdown(f'<div class="gk-ai-output-box"><div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">{st.session_state["sector_cancer_result"]}</div></div>', unsafe_allow_html=True)
+            st.markdown("<div style='font-size:0.82rem;color:#374151;margin-bottom:10px;'>암 진단비 · 항암치료비 · 수술비 · 요양병원 입원일당 — 가처분 소득 기반 최적 설계</div>", unsafe_allow_html=True)
+            _cancer_l2, _cancer_r2 = st.columns([5, 5], gap="medium")
+            with _cancer_l2:
+                st.markdown("<div style='border:1px dashed #dc2626;border-radius:8px;padding:10px 12px;background:#fff5f5;'><b style='color:#dc2626;'>📋 암보험 체크리스트</b><br>", unsafe_allow_html=True)
+                for _cn, _cstd, _cdesc in [("암진단비", "1억원↑", "일반암 기준"),("소액암진단비", "20만원↑", "갑상선·경계성"),("항암치료비", "200만원/회↑", "표적치료 포함"),("암수술비", "100만원/회↑", "암수술특약"),("입원일당", "3만원/일↑", "요양병원 180일")]:
+                    st.markdown(f'<div style="border-bottom:1px solid #fca5a5;padding:4px 6px;font-size:0.82rem;"><b>{_cn}</b> <span style="color:#dc2626;">{_cstd}</span><br><span style="color:#64748b;font-size:0.75rem;">{_cdesc}</span></div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            with _cancer_r2:
+                _cancer_q = st.text_area("암 관련 질문", placeholder="예) 40대 여성 암보험 추천, 갑상선암 소액암 기준...", height=80, key="sector_cancer_query")
+                if st.button("🔍 암 보장 AI 분석", key="sector_cancer_ai", use_container_width=True, type="primary"):
+                    if _cancer_q and _cancer_q.strip():
+                        with st.spinner("AI 암 보장 분석 중..."):
+                            try:
+                                _cc = get_client()
+                                _cc_resp = _cc.chat.completions.create(model=st.session_state.get("model_name","gemini-2.0-flash"),messages=[{"role":"system","content":f"암보험 전문 컨설턴트. 고객:{st.session_state.get('scan_client_name','고객')}. KB 7대 분류 기준 분석."},{"role":"user","content":_cancer_q.strip()}],max_tokens=1200)
+                                st.session_state["sector_cancer_result"] = _cc_resp.choices[0].message.content
+                            except Exception as _cce: st.session_state["sector_cancer_result"] = f"⚠️ 오류: {_cce}"
+                    else: st.warning("질문을 입력해 주세요.")
+                if st.session_state.get("sector_cancer_result"): st.markdown(f'<div class="gk-ai-output-box"><div style="color:#000;font-size:0.85rem;line-height:1.8;font-weight:700;">{st.session_state["sector_cancer_result"]}</div></div>', unsafe_allow_html=True)
             if st.button("🔴 암보험 전문 탭으로 →", key="sector_cancer_goto_t1"): _go_tab("t1")
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -39265,27 +39276,29 @@ div[data-testid="stButton"] > button {
     
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     
-            # ── [특별파트] 고객상담 특별파트 카드 ────────────────────────────
-            st.markdown(f"""<div style="background:#1e293b;border:2px solid #f59e0b;
-      border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
-      <div style="font-size:0.78rem;font-weight:900;color:#f59e0b;letter-spacing:0.08em;
-        text-transform:uppercase;margin-bottom:6px;">🎯 SPECIAL OPS: 고객상담 특별파트</div>
-      <ol style="font-size:0.79rem;color:#e2e8f0;font-weight:700;margin:0 0 8px 16px;padding:0;line-height:1.8;">
-        <li>Step 1: 고객정보 자동 미러링</li>
-        <li>Step 2: 내보험다보여 동의 문자 발송</li>
-        <li>Step 3: 보험 가입 현황 수집</li>
-        <li>Step 4: KOSIS 통계 × 보장 공백 분석</li>
-        <li>Step 5: 카카오 알림톡 리포트 발송</li>
-      </ol>
-    </div>""", unsafe_allow_html=True)
-            _sops_c1, _sops_c2 = st.columns(2, gap="small")
-            with _sops_c1:
+            # ── [N-SECTION] 고객상담 특별파트 ───────────────────────────────
+            _nsec_l, _nsec_r = st.columns([5, 5], gap="medium")
+            with _nsec_l:
+                st.markdown("""
+                <div style='background:#EBF5FB;border:2px solid #AED6F1;border-radius:12px;
+                  padding:14px;'>
+                  <div style='font-size:0.78rem;font-weight:900;color:#1a5276;letter-spacing:0.06em;
+                    text-transform:uppercase;margin-bottom:8px;'>🎯 N-SECTION: 고객상담 특별파트</div>
+                  <ol style='font-size:0.80rem;color:#2C3E50;font-weight:700;margin:0 0 4px 16px;
+                    padding:0;line-height:2.0;'>
+                    <li>Step 1: 고객정보 자동 미러링</li>
+                    <li>Step 2: 내보험다보여 동의 문자 발송</li>
+                    <li>Step 3: 보험 가입 현황 수집</li>
+                    <li>Step 4: KOSIS 통계 × 보장 공백 분석</li>
+                    <li>Step 5: 카카오 알림톡 리포트 발송</li>
+                  </ol>
+                </div>""", unsafe_allow_html=True)
+            with _nsec_r:
                 if st.button("① 고객정보 자동 미러링",       key="ag_sops1", use_container_width=True): _go_tab("special_ops")
                 if st.button("② 내보험다보여 동의 SMS 발송", key="ag_sops2", use_container_width=True): _go_tab("special_ops")
                 if st.button("③ 보험 가입 현황 수집",        key="ag_sops3", use_container_width=True): _go_tab("scan_hub")
-            with _sops_c2:
                 if st.button("④ KOSIS × 보장 공백 분석",    key="ag_sops4", use_container_width=True): _go_tab("policy_scan")
-                if st.button("⑤ 카카오톡 알림톡 리포트 발송", key="ag_sops5", use_container_width=True): _go_tab("report43")
+                if st.button("⑤ 카카오 알림톡 리포트 발송", key="ag_sops5", use_container_width=True): _go_tab("report43")
     
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
     
