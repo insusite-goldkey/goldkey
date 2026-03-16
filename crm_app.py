@@ -664,10 +664,40 @@ with tab4:
             unsafe_allow_html=True,
         )
         if not st.session_state.get("nibo_consent_agreed", False):
-            st.warning(
-                "⚠️ 트리니티 분석을 이용하려면 **[내보험다보여 필수]** 동의가 필요합니다. "
-                "로그인 화면에서 신용정보 조회 동의 후 이용해 주세요."
+            # ── [ID-100-AUTH] 입구 제어: 인라인 동의 팝업 카드 ──────────────
+            st.markdown(
+                "<div style='background:#fffbeb;border:2px dashed #f59e0b;"
+                "border-radius:10px;padding:12px 14px;margin-bottom:10px;'>"
+                "<div style='font-size:0.84rem;font-weight:900;color:#92400e;margin-bottom:7px;'>"
+                "🔐 내보험다보여 연동 동의 필요 — 신용정보법 제32조</div>"
+                "<div style='font-size:0.76rem;color:#78350f;line-height:1.85;'>"
+                "트리니티 분석 기능을 이용하려면 아래 동의가 필요합니다.<br>"
+                "• <b>수집:</b> 보험사명 · 상품명 · 담보내역 · 계약상태<br>"
+                "• <b>인증정보:</b> 데이터 추출 후 즉시 메모리 파기 — 서버 저장 불가<br>"
+                "• <b>보유:</b> 분석 완료 후 30일 경과 시 자동 파기"
+                "</div></div>",
+                unsafe_allow_html=True,
             )
+            with st.popover("📋 신용정보 조회 안내 전문 보기", use_container_width=True):
+                try:
+                    from shared_components import _NIBO_CONSENT_HTML as _crm_ng_nch
+                    st.markdown(_crm_ng_nch, unsafe_allow_html=True)
+                except Exception:
+                    st.markdown("신용정보의 이용 및 보호에 관한 법률 제32조에 따른 안내문입니다.")
+            _crm_nibo_inline = st.checkbox(
+                "✅ **[즉석 동의]** '내보험다보여' 연동 및 신용정보 조회·분석에 동의합니다 (신용정보법 제32조)",
+                value=False, key="crm_nibo_inline_agree",
+            )
+            if _crm_nibo_inline:
+                try:
+                    from shared_components import _NIBO_CONSENT_VERSION as _crm_ng_ncv
+                except Exception:
+                    _crm_ng_ncv = "2026-03-16-v1"
+                st.session_state["nibo_consent_agreed"]    = True
+                st.session_state["nibo_consent_version"]   = _crm_ng_ncv
+                st.session_state["nibo_consent_timestamp"] = __import__("datetime").datetime.now().isoformat()
+                st.success("✅ 동의 완료! 트리니티 분석이 활성화됩니다.")
+                st.rerun()
         else:
             _crm_tri_t1, _crm_tri_t2 = st.tabs(["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 담보 입력"])
             with _crm_tri_t1:
