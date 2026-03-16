@@ -24897,53 +24897,6 @@ def display_security_sidebar():
         - 세션 종료 시 메모리 자동 초기화
     </div>""", unsafe_allow_html=True)
 
-    # ── [GP241조 §보안] 카카오 보안/권한 안내 서브메뉴 ─────────────────────
-    with st.sidebar.expander("🔒 카카오 보안/권한 안내", expanded=False):
-        st.markdown("""
-<div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);
-  border:1.5px solid #3B82F6;border-left:5px solid #1D4ED8;
-  border-radius:12px;padding:14px 16px;
-  box-shadow:0 3px 10px rgba(59,130,246,0.15);">
-  <div style="font-size:0.88rem;font-weight:900;color:#1E3A8A;margin-bottom:8px;">
-    🛡️ 골드키 마스터 AI 리포트 전송 시스템
-  </div>
-  <div style="font-size:0.78rem;color:#1E3A8A;line-height:1.9;">
-    <div style="margin-bottom:6px;padding:6px 8px;
-      background:rgba(255,255,255,0.6);border-radius:8px;">
-      <b style="color:#1D4ED8;">서비스 명칭</b><br>
-      골드키 마스터 AI 리포트 전송 시스템
-    </div>
-    <div style="margin-bottom:6px;padding:6px 8px;
-      background:rgba(255,255,255,0.6);border-radius:8px;">
-      <b style="color:#1D4ED8;">① 보안 확약</b><br>
-      본 시스템은 마스터의 <b>대화 내용을 열람하거나
-      친구 목록을 수집하지 않습니다.</b><br>
-      요청 권한은 <code style="background:#DBEAFE;padding:1px 3px;
-      border-radius:3px;font-size:0.72rem;">talk_message</code>
-      (메시지 발송) 단 1개입니다.
-    </div>
-    <div style="margin-bottom:6px;padding:6px 8px;
-      background:rgba(255,255,255,0.6);border-radius:8px;">
-      <b style="color:#1D4ED8;">② 데이터 처리</b><br>
-      전송 데이터는 <b>TLS 암호화</b>되어 전송되며,
-      발송 즉시 <b>휘발성으로 관리</b>됩니다.
-      서버에 리포트 내용이 저장되지 않습니다.
-    </div>
-    <div style="padding:6px 8px;
-      background:rgba(255,255,255,0.6);border-radius:8px;">
-      <b style="color:#1D4ED8;">③ 권한 철회 방법</b><br>
-      카카오톡 앱 → <b>설정 → 자산 → 서비스 관리</b><br>
-      에서 언제든지 권한을 철회하실 수 있습니다.
-    </div>
-  </div>
-  <div style="margin-top:10px;padding-top:8px;
-    border-top:1px solid rgba(59,130,246,0.3);
-    font-size:0.70rem;color:#3B82F6;text-align:center;">
-    🔐 금융권 수준 보안 정책 준수 &nbsp;|&nbsp;
-    권한 범위: <code style="background:#DBEAFE;padding:1px 3px;border-radius:3px;">talk_message</code> only
-  </div>
-</div>""", unsafe_allow_html=True)
-
 
 # --------------------------------------------------------------------------
 # [SECTION 8 브랜드] Goldkey_AI_Masters 전용 아바타 시스템

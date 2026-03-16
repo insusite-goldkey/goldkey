@@ -68,6 +68,17 @@ body, .stApp { background: #f0f4ff !important; }
 }
 .gk-deeplink-btn:hover { background: #1d4ed8; }
 div[data-testid="stMainBlockContainer"] { padding-top: 1rem !important; }
+input[type="text"], input[type="password"] {
+  border: 1.5px solid #000 !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+input[type="text"]:focus, input[type="password"]:focus {
+  border: 1.5px solid #000 !important;
+  box-shadow: 0 0 0 1px #000 !important;
+  outline: none !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -113,14 +124,14 @@ if _check_sso_token():
 
 # ── [GP-SEC §2] 미인증 처리 — 자체 로그인 화면 독립 렌더링 ─────────────────────
 if not _is_authenticated():
-    # ── 아바타 로드 (shared_components 경유) ──────────────────────────────
+    # ── 아바타 로드 (assets/goldkey_ai_avatar.jpg) ───────────────────
+    import base64 as _b64av
+    _av_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "goldkey_ai_avatar.jpg")
     _crm_av_src = ""
     try:
-        import sys as _sys
-        for _m in _sys.modules.values():
-            if hasattr(_m, "get_goldkey_avatar"):
-                _crm_av_src = _m.get_goldkey_avatar()
-                break
+        if os.path.exists(_av_path):
+            with open(_av_path, "rb") as _f:
+                _crm_av_src = "data:image/jpeg;base64," + _b64av.b64encode(_f.read()).decode()
     except Exception:
         pass
     _crm_av_html = (
@@ -147,9 +158,10 @@ if not _is_authenticated():
         )
         # ── [GP-SEC §5] 공통 약관 동의 UI (제목 박스 포함, CSS 타겟팅) ────────
         st.markdown(
-            "<div style='background:#1e3a8a;border-radius:8px 8px 0 0;padding:8px 14px;"
-            "text-align:center;margin-bottom:0;'>"
-            "<span style='font-size:0.92rem;font-weight:900;color:#ffffff;'>🏆 Goldkey AI Masters 2026 이용약관</span>"
+            "<div style='text-align:center;margin-bottom:0;'>"
+            "<span style='background:#1e3a8a;border-radius:8px 8px 0 0;padding:6px 20px;"
+            "font-size:0.92rem;font-weight:900;color:#ffffff;display:inline-block;'>"
+            "🏆 Goldkey AI Masters 2026 이용약관</span>"
             "</div>",
             unsafe_allow_html=True,
         )
@@ -167,6 +179,7 @@ div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stCheckbox"]) {
             app_name="Goldkey AI Masters 2026",
             app_icon="🏆",
             terms_agree_key="_crm_terms_agreed",
+            show_header=False,
         )
 
         if _crm_agreed:
@@ -185,7 +198,16 @@ div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stCheckbox"]) {
                 if _crm_login_btn:
                     _cn = (_crm_name_in    or "").strip()
                     _cc = (_crm_contact_in or "").strip()
-                    if not _cn or len(_cn) < 2:
+                    # ── 관리자 로그인 (admin/kgagold6803) ─────────────────────
+                    if _cn == "admin" and _cc == "kgagold6803":
+                        st.session_state["crm_authenticated"] = True
+                        st.session_state["crm_user_id"]       = "admin"
+                        st.session_state["crm_user_name"]     = "관리자"
+                        st.session_state["crm_role"]          = "admin"
+                        st.session_state["crm_token"]         = "admin-direct"
+                        st.session_state.pop("_crm_login_phase", None)
+                        st.rerun()
+                    elif not _cn or len(_cn) < 2:
                         st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
                     elif not _cc:
                         st.error("⚠️ 연락처를 입력해 주세요.")

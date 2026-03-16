@@ -464,6 +464,7 @@ def render_auth_screen(
     app_name: str = "Goldkey AI",
     app_icon: str = "🏆",
     terms_agree_key: str = "_gp_terms_agreed",
+    show_header: bool = True,
 ) -> bool:
     """
     [GP-SEC §5] 공통 로그인/약관 동의 UI.
@@ -477,11 +478,12 @@ def render_auth_screen(
         True  — 약관 동의 완료 (로그인 버튼 활성화 허용)
         False — 미동의 (로그인 버튼 disabled 처리)
     """
-    st.markdown(
-        f"<div style='font-size:0.88rem;font-weight:900;color:#1e3a8a;"
-        f"margin-bottom:6px;text-align:center;'>{app_icon} {app_name} 이용약관</div>",
-        unsafe_allow_html=True,
-    )
+    if show_header:
+        st.markdown(
+            f"<div style='font-size:0.88rem;font-weight:900;color:#1e3a8a;"
+            f"margin-bottom:6px;text-align:center;'>{app_icon} {app_name} 이용약관</div>",
+            unsafe_allow_html=True,
+        )
     st.markdown(
         "<div style='max-height:220px;overflow-y:auto;font-size:0.76rem;"
         "color:#222;line-height:1.75;border:1px dashed #000;border-radius:8px;"
@@ -549,6 +551,14 @@ def render_auth_screen(
         "<b style='color:#0a1628;'>[제12조] 내보험다보여 서비스 연계 이용</b><br>"
         "본 서비스는 금융감독원 <b>내보험다보여(www.insure.or.kr)</b> 조회 결과를 상담 보조 자료로 활용할 수 있습니다.<br>"
         "본 앱은 금융감독원과 제휴·위탁 관계가 없는 독립 보조 도구입니다.<br><br>"
+
+        "<b style='color:#0a1628;'>[제13조] 카카오톡 메시지 발송 서비스 보안 및 권한 안내</b><br>"
+        "• <b>서비스명:</b> 골드키 마스터 AI 리포트 전송 시스템<br>"
+        "• <b>① 보안 확약:</b> 본 시스템은 마스터의 <b>대화 내용을 열람하거나 친구 목록을 수집하지 않습니다.</b> "
+        "요청 권한은 <code>talk_message</code>(메시지 발송) 단 1개입니다.<br>"
+        "• <b>② 데이터 처리:</b> 전송 데이터는 <b>TLS 암호화</b>되어 전송되며, 발송 즉시 <b>휘발성으로 관리</b>됩니다. "
+        "서버에 리포트 내용이 저장되지 않습니다.<br>"
+        "• <b>③ 권한 철회:</b> 카카오톡 앱 → <b>설정 → 자산 → 서비스 관리</b>에서 언제든지 권한을 철회하실 수 있습니다.<br><br>"
 
         "<div style='background:#FFF3CD;border:1px solid #F0A500;border-radius:6px;padding:8px 10px;"
         "font-size:0.75rem;color:#7A4F00;margin-top:4px;'>"
