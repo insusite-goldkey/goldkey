@@ -38694,6 +38694,18 @@ function selectCustomer(name) {{
             st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-05")}<span class="gk-sec-title">⑤ 네비게이션 게이트웨이</span></div>', unsafe_allow_html=True)
     
             # ── A~C 섹션: 3열 ──────────────────────────────────────────────────
+            st.markdown("""<style>
+/* ⑤ 네비게이션 게이트웨이 A/B/C 섹션 — 버튼 폰트 축소 */
+div[data-testid="stButton"] > button {
+    font-size: 0.68rem !important;
+    padding: 3px 5px !important;
+    line-height: 1.3 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    min-height: 0 !important;
+}
+</style>""", unsafe_allow_html=True)
             _pf_c1, _pf_c2, _pf_c3 = st.columns(3, gap="medium")
             with _pf_c1:
                 st.markdown(f"""<div style="background:#E3F2FD;border:1.5px solid #90CAF9;
@@ -38735,7 +38747,7 @@ function selectCustomer(name) {{
                     if st.button("⑪ LIFE EVENT 상담",  key="ag_b11", use_container_width=True): _go_tab("life_event")
             with _pf_c3:
                 st.markdown(f"""<div style="background:#FFF9C4;border:1.5px solid #F9A825;
-      border-radius:12px;padding:14px 14px 10px 14px;position:relative;min-height:170px;">
+      border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
       {_bid('1-5-3')}
       <div style="font-size:0.78rem;font-weight:900;color:#E65100;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:2px;">💼 C-SECTION: Wealth &amp; Corporate</div>
