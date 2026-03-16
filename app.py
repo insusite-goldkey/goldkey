@@ -37507,43 +37507,7 @@ function selectCustomer(name) {{
                         "🔌 HQ 도킹 스테이션 — CRM 앱에서 고객을 선택하면 여기에 자동 도킹됩니다.</span>",
                         unsafe_allow_html=True)
     
-            # ══════════════════════════════════════════════════════════════════════
-            # [ELEVATOR] 메인 엘리베이터 Router — 섹터 선택 → Lazy Execution 진입
-            # ══════════════════════════════════════════════════════════════════════
-            _cur_sector = st.session_state.get("target_sector", None)
-            _SECTOR_MAP = [
-                ("all",        "📋 전체",      "#374151"),
-                ("cancer",     "🔴 암",         "#dc2626"),
-                ("stroke",     "🧠 뇌·심장",    "#7c3aed"),
-                ("fire",       "🔥 화재",       "#ea580c"),
-                ("auto",       "🚗 자동차",     "#0369a1"),
-                ("securities", "📄 증권분석",   "#059669"),
-            ]
-            st.markdown(
-                "<style>div[data-testid='stHorizontalBlock']:has(button[key='elev_btn_all']){align-items:stretch!important;}</style>",
-                unsafe_allow_html=True)
-            st.markdown(
-                "<div style='border:1.5px dashed #000000;border-radius:10px;"
-                "padding:8px 10px 6px 10px;margin-bottom:10px;background:#f9fafb;'>",
-                unsafe_allow_html=True)
-            _elev_cols = st.columns(len(_SECTOR_MAP), gap="small")
-            for _ei, (_sk, _sl, _sc) in enumerate(_SECTOR_MAP):
-                with _elev_cols[_ei]:
-                    _is_active = (_cur_sector == _sk) or (_sk == "all" and not _cur_sector)
-                    _btn_style = (
-                        f"background:{_sc}!important;color:#fff!important;"
-                        f"font-weight:900!important;border:2px solid {_sc}!important;"
-                    ) if _is_active else ""
-                    if _btn_style:
-                        st.markdown(f"<style>#elev_btn_{_sk}{{background:{_sc}!important;color:#fff!important;border:2px solid {_sc}!important;}}</style>", unsafe_allow_html=True)
-                    if st.button(_sl, key=f"elev_btn_{_sk}", use_container_width=True):
-                        if _sk == "all":
-                            st.session_state["target_sector"] = None
-                        else:
-                            st.session_state["target_sector"] = _sk
-                            st.session_state[f"_home_scroll_to_sector_{_sk}"] = True
-                        st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+
     
             if not st.session_state.get("_gp45_splash_shown"):
                 st.session_state["_gp45_splash_shown"] = True
