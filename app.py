@@ -33126,26 +33126,10 @@ section[data-testid="stSidebar"] > div:first-child {
     display: inline-block !important;
 }
 
-/* §5: 사망보험금·중증장해 레드 펄스 — 돋보기 모드 ON 시에만 */
-@keyframes gk-red-pulse {
-    0%   { transform: scale(1);    text-shadow: 0 0 0px rgba(255,0,0,0); }
-    40%  { transform: scale(1.08); text-shadow: 0 0 14px rgba(255,0,0,0.7); }
-    100% { transform: scale(1);    text-shadow: 0 0 0px rgba(255,0,0,0); }
-}
 .red-alert-focus {
     color: #FF0000 !important;
     font-weight: 900 !important;
-    transition: var(--ui-transition) !important;
 }
-body.gk-senior .red-alert-focus {
-    animation: gk-red-pulse 1.6s ease-in-out infinite !important;
-    text-shadow: 0 0 8px rgba(255,0,0,0.5) !important;
-}
-
-/* 전환 애니메이션 — [제38조 §4] 0.2s 경량화 */
-* { transition: font-size 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-               color      0.2s cubic-bezier(0.4, 0, 0.2, 1),
-               padding    0.2s cubic-bezier(0.4, 0, 0.2, 1); }
 
 /* ══════════════════════════════════════════════════
    [GHOST PROTOCOL] — Minimalist UI Override
@@ -33560,104 +33544,10 @@ function watchRipple() {
 }
 watchRipple();
 
-/* ─── 7. 가이딩 프로토콜 제36조 — 돋보기(시니어) 모드 엔진 ─── */
+/* 시니어 모드 엔진 제거됨 */
 (function(){
-  var pd = window.parent.document;
-  if (!pd) return;
-
-  // 배지 DOM 생성
-  function ensureBadge() {
-    if (pd.getElementById('gk-senior-badge')) return;
-    var badge = pd.createElement('div');
-    badge.id = 'gk-senior-badge';
-    badge.innerHTML = '🔍 시니어 모드 ON';
-    pd.body.appendChild(badge);
-  }
-
-  // 토스트 DOM 생성 + 3초 자동 소멸
-  function showToast() {
-    var old = pd.getElementById('gk-senior-toast');
-    if (old) old.remove();
-    var t = pd.createElement('div');
-    t.id = 'gk-senior-toast';
-    t.style.cssText = [
-      'display:block','position:fixed','top:18px','left:50%',
-      'transform:translateX(-50%)','z-index:2147483641',
-      'background:#5B82F0','color:#ffffff','font-size:1.05rem',
-      'font-weight:900','padding:12px 28px','border-radius:14px',
-      'box-shadow:0 4px 24px rgba(0,0,0,0.30)',
-      'white-space:nowrap','pointer-events:none',
-      'animation:gk-fadeup 0.4s ease both',
-      'font-family:Noto Sans KR,Malgun Gothic,sans-serif',
-    ].join(';');
-    t.textContent = '🔍 시니어 맞춤 모드가 활성화되었습니다';
-    pd.body.appendChild(t);
-    setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 3000);
-  }
-
-  // 토스트(해제 알림)
-  function showOffToast() {
-    var old = pd.getElementById('gk-senior-toast');
-    if (old) old.remove();
-    var t = pd.createElement('div');
-    t.id = 'gk-senior-toast';
-    t.style.cssText = [
-      'display:block','position:fixed','top:18px','left:50%',
-      'transform:translateX(-50%)','z-index:2147483641',
-      'background:#90A8C0','color:#ffffff','font-size:1.0rem',
-      'font-weight:700','padding:10px 24px','border-radius:14px',
-      'box-shadow:0 4px 20px rgba(0,0,0,0.20)',
-      'white-space:nowrap','pointer-events:none',
-      'font-family:Noto Sans KR,Malgun Gothic,sans-serif',
-    ].join(';');
-    t.textContent = '시니어 모드 해제됨';
-    pd.body.appendChild(t);
-    setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 2000);
-  }
-
-  // 실제 토글 함수
-  function toggleSenior(on) {
-    var body = pd.body;
-    if (on) {
-      body.classList.add('gk-senior');
-      ensureBadge();
-      showToast();
-    } else {
-      body.classList.remove('gk-senior');
-      showOffToast();
-    }
-    // localStorage에 상태 저장 (페이지 새로고침 후에도 유지)
-    try { localStorage.setItem('gk_senior_mode', on ? '1' : '0'); } catch(e){}
-  }
-
-  // 페이지 로드 시 저장된 상태 복원
-  function restoreState() {
-    try {
-      var saved = localStorage.getItem('gk_senior_mode');
-      if (saved === '1') { pd.body.classList.add('gk-senior'); ensureBadge(); }
-    } catch(e){}
-  }
-
-  // Streamlit 버튼 감지 — "돋보기" 또는 "시니어" 텍스트 포함 버튼에 바인딩
-  function watchSeniorBtn() {
-    try {
-      pd.querySelectorAll('button').forEach(function(btn){
-        if (btn._gk_senior_bound) return;
-        var txt = (btn.textContent || btn.innerText || '').trim();
-        if (txt.includes('돋보기') || txt.includes('시니어') || txt.includes('🔍')) {
-          btn._gk_senior_bound = true;
-          btn.addEventListener('click', function(){
-            var isOn = pd.body.classList.contains('gk-senior');
-            toggleSenior(!isOn);
-          });
-        }
-      });
-    } catch(e){}
-    setTimeout(watchSeniorBtn, 1500);
-  }
-
-  setTimeout(restoreState, 500);
-  setTimeout(watchSeniorBtn, 1000);
+  try { localStorage.removeItem('gk_senior_mode'); } catch(e){}
+  try { var b=window.parent.document.getElementById('gk-senior-badge'); if(b) b.remove(); } catch(e){}
 })();
 
 })();
