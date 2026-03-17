@@ -39156,14 +39156,11 @@ div[data-testid="stButton"] {
       <div style="font-size:0.78rem;font-weight:900;color:#BF360C;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:6px;">### F-SECTION: 보험봇 · InsuBot</div>
     </div>""", unsafe_allow_html=True)
-            _f_c1, _f_c2 = st.columns(2, gap="small")
-            with _f_c1:
-                if st.button("① 보험 전문용어 검색",        key="ag_f1", use_container_width=True): _go_tab("ins_bot")
-                if st.button("② 제22조 승인출처 AI 답변",   key="ag_f2", use_container_width=True): _go_tab("ins_bot")
-                if st.button("③ 제23조 금지출처 차단",      key="ag_f3", use_container_width=True): _go_tab("ins_bot")
-            with _f_c2:
-                if st.button("④ 제24·25조 검증·Red Alert", key="ag_f4", use_container_width=True): _go_tab("ins_bot")
-                if st.button("⑤ 보험 판례·사례 검색",      key="ag_f5", use_container_width=True): _go_tab("ins_bot")
+            if st.button("① 보험 전문용어 검색",        key="ag_f1", use_container_width=True): _go_tab("ins_bot")
+            if st.button("② 제22조 승인출처 AI 답변",   key="ag_f2", use_container_width=True): _go_tab("ins_bot")
+            if st.button("③ 제23조 금지출처 차단",      key="ag_f3", use_container_width=True): _go_tab("ins_bot")
+            if st.button("④ 제24·25조 검증·Red Alert", key="ag_f4", use_container_width=True): _go_tab("ins_bot")
+            if st.button("⑤ 보험 판례·사례 검색",      key="ag_f5", use_container_width=True): _go_tab("ins_bot")
     
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     
@@ -45562,6 +45559,7 @@ div[data-testid="stButton"] {
     # [ins_bot] 보험봇 — 전문용어 및 사례 검색 (가이딩 프로토콜 제6편 제21~25조 준수)
     # ══════════════════════════════════════════════════════════════════════
     if cur == "ins_bot":
+        if not _auth_gate("ins_bot"): st.stop()
         tab_home_btn("ins_bot")
 
         # ── [제166조] 지능형 보험 용어 사전 import ────────────────────────────
