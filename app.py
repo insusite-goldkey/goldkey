@@ -4,9 +4,13 @@ import os
 import time
 import base64
 
+# 🚨 [매우 중요] set_page_config는 무조건 가장 먼저 와야 합니다! (순서 변경됨)
+st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state="expanded")
+
 # [1] 초기화 상태
 if 'initialized' not in st.session_state:
     st.session_state['initialized'] = False
+
 # === [UI 강제 여백 제거 CSS (설계자 직접 주입)] ===
 st.markdown("""
     <style>
@@ -29,9 +33,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# [2] 사이드바 상태 및 여백 제어 변수
-# [중요] set_page_config는 반드시 최상단에 위치해야 합니다.
-st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state="expanded")
+# [2] 사이드바 상태 및 여백 제어 변수 (주석 처리 또는 유지)
+# (set_page_config는 위로 올렸으므로 여기서는 삭제했습니다)
 
 # [ID-000-REG] 인증 세션키 조기 초기화 — NameError 원천 차단 (징검다리)
 if "authenticated" not in st.session_state:
@@ -40,6 +43,7 @@ if "user_name" not in st.session_state:
     st.session_state["user_name"] = ""
 if "user_id" not in st.session_state:
     st.session_state["user_id"] = ""
+
 # 인증 상태 조기 정의 — 파일 어느 위치에서도 NameError 없이 참조 가능
 _is_authenticated = st.session_state.get("authenticated", False)
 
