@@ -66,20 +66,8 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "✅ 이미지 빌드 완료: $image"
 
 Write-Host "🚀 Cloud Run 배포 시작..."
-gcloud run deploy goldkey-ai `
-    --image $image `
-    --region asia-northeast3 `
-    --platform managed `
-    --allow-unauthenticated `
-    --memory 2Gi `
-    --cpu 2 `
-    --min-instances 1 `
-    --max-instances 5 `
-    --port 8080 `
-    --project gen-lang-client-0777682955 `
-    --service-account "817097913199-compute@developer.gserviceaccount.com" `
-    --timeout 300 `
-    --quiet
+$deployArgs = @("run","deploy","goldkey-ai","--image",$image,"--region","asia-northeast3","--platform","managed","--allow-unauthenticated","--memory","2Gi","--cpu","2","--min-instances","1","--max-instances","5","--port","8080","--project","gen-lang-client-0777682955","--service-account","817097913199-compute@developer.gserviceaccount.com","--timeout","300","--quiet")
+& gcloud @deployArgs
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ Cloud Run 배포 완료"
     Write-Host "🔗 앱 확인: https://goldkey-ai-817097913199.asia-northeast3.run.app"

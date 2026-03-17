@@ -7,6 +7,27 @@ import base64
 # [1] 초기화 상태
 if 'initialized' not in st.session_state:
     st.session_state['initialized'] = False
+# === [UI 강제 여백 제거 CSS (설계자 직접 주입)] ===
+st.markdown("""
+    <style>
+    /* 1. Streamlit 앱 전체 상단 기본 여백(Padding) 대폭 축소 */
+    .block-container {
+        padding-top: 1.5rem !important; /* 이 숫자를 1rem으로 줄이면 더 붙습니다 */
+        padding-bottom: 0rem !important;
+    }
+    
+    /* 2. 눈에 안 보이는 상단 빈 헤더 영역 완전히 삭제 */
+    header[data-testid="stHeader"] {
+        display: none !important;
+        height: 0px !important;
+    }
+
+    /* 3. 타이틀과 첫 번째 카드 사이의 마진(Gap) 강제 축소 */
+    div[data-testid="stVerticalBlock"] {
+        gap: 0.5rem !important; /* 요소들 사이의 틈을 줄임 */
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # [2] 사이드바 상태 및 여백 제어 변수
 # [중요] set_page_config는 반드시 최상단에 위치해야 합니다.
@@ -28795,11 +28816,11 @@ footer, footer * { display: none !important; }
         _main_av = get_goldkey_avatar()
         _main_av_html = (
             f'<div style="width:110px;height:110px;border-radius:50%;'
-            f'border:4px solid #D4AF37;'
-            f'background-image:url(\"{_main_av}\");background-size:cover;'
-            f'background-position:center top;'
+            f'border:4px solid #D4AF37;overflow:hidden;'
             f'box-shadow:0 4px 20px rgba(212,175,55,0.4);'
-            f'display:block;margin:0 auto 14px auto;"></div>' if _main_av else
+            f'display:block;margin:0 auto 14px auto;">'
+            f'<img src="{_main_av}" style="width:100%;height:100%;object-fit:cover;'
+            f'object-position:center top;display:block;"></div>' if _main_av else
             '<div style="width:110px;height:110px;border-radius:50%;'
             'background:linear-gradient(135deg,#1e3a8a,#D4AF37);'
             'margin:0 auto 14px auto;"></div>'
@@ -34024,11 +34045,11 @@ watchRipple();
         _splash_av = get_goldkey_avatar()
         _splash_av_html = (
             f'<div style="width:130px;height:130px;border-radius:50%;' +
-            f'border:4px solid #D4AF37;' +
-            f'background-image:url(\"{_splash_av}\");background-size:cover;' +
-            f'background-position:center top;' +
+            f'border:4px solid #D4AF37;overflow:hidden;' +
             f'box-shadow:0 4px 24px rgba(212,175,55,0.35);' +
-            f'display:block;margin:0 auto 22px auto;"></div>' if _splash_av else
+            f'display:block;margin:0 auto 22px auto;">' +
+            f'<img src="{_splash_av}" style="width:100%;height:100%;object-fit:cover;'
+            f'object-position:center top;display:block;"></div>' if _splash_av else
             '<div style="width:130px;height:130px;border-radius:50%;' +
             'background:linear-gradient(135deg,#4facfe,#00f2fe);' +
             'margin:0 auto 22px auto;box-shadow:0 4px 24px rgba(79,172,254,0.4);"></div>'
@@ -36634,10 +36655,11 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
 
         _intro_avatar = get_goldkey_avatar()
         _intro_av_html = (
-            f'<div style="width:58px;height:58px;border-radius:50%;'
-            f'background-image:url(\"{_intro_avatar}\");background-size:cover;'
-            f'background-position:center top;border:3px solid #f0c040;'
-            f'box-shadow:0 0 16px rgba(240,192,32,0.6);flex-shrink:0;margin-right:14px;"></div>'
+            f'<div style="width:58px;height:58px;border-radius:50%;overflow:hidden;'
+            f'border:3px solid #f0c040;'
+            f'box-shadow:0 0 16px rgba(240,192,32,0.6);flex-shrink:0;margin-right:14px;">'
+            f'<img src="{_intro_avatar}" style="width:100%;height:100%;object-fit:cover;'
+            f'object-position:center top;display:block;"></div>'
         ) if _intro_avatar else (
             '<span style="font-size:3rem;margin-right:14px;">&#128105;&#8205;&#128188;</span>'
         )
