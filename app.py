@@ -29721,6 +29721,12 @@ footer, footer * { display: none !important; }
                                             user_id=info["user_id"], user_name=name,
                                             user_role="customer"
                                         )
+                                        # [GP-FIX] 회원가입 후 로그인과 동일한 네비게이션 처리
+                                        st.session_state["authenticated"]    = True
+                                        st.session_state["_login_just_done"] = True
+                                        st.session_state["_login_welcome"]   = name
+                                        st.session_state["current_tab"]      = "home"
+                                        st.session_state["_scroll_top"]      = True
                                         # 영구저장 여부 확인
                                         _signup_sb_ok = _SB_PKG_OK and bool(_get_sb_client())
                                     if _signup_sb_ok:
