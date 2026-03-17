@@ -37725,9 +37725,14 @@ function selectCustomer(name) {{
                     _render_sim(compact=False)
                 except Exception as _sim_e:
                     st.error("시뮬레이션 로드 오류: " + str(_sim_e))
-    
 
-    
+            # ── [GP-PHASE-4] 반응형 통합 증권분석 센터 (내보험다보여) ────────────
+            try:
+                from shared_components import render_unified_analysis_center as _render_uac
+                _render_uac(key_prefix="_uac_hq")
+            except Exception as _uac_e:
+                st.error(f"통합 증권분석 센터 로드 오류: {_uac_e}")
+
             if not st.session_state.get("_gp45_splash_shown"):
                 st.session_state["_gp45_splash_shown"] = True
                 try:

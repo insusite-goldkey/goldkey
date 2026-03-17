@@ -1061,3 +1061,316 @@ def render_member_emergency_btn(
                 _st3.session_state[_done_key] = True
                 _st3.rerun()
     _st3.markdown("</div>", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP-PHASE-4] 반응형 통합 증권분석 센터 (내보험다보여)
+# HQ 앱(app.py) + CRM 앱(crm_app.py) 양쪽에서 동일 렌더링
+# ══════════════════════════════════════════════════════════════════════════════
+def render_unified_analysis_center(
+    *,
+    key_prefix: str = "_uac",
+    compact: bool = False,
+) -> None:
+    """반응형 통합 증권분석 센터 — 고객 대면용 AI 컨설팅 보드.
+    좌우 5:5 레이아웃, 모바일 자동 스태킹.
+    """
+    st.markdown("""
+<style>
+@media(max-width:640px){
+  div[data-testid="stHorizontalBlock"]>div[data-testid="stVerticalBlockBorderWrapper"],
+  div[data-testid="stHorizontalBlock"]>div[data-testid="stVerticalBlock"]{
+    width:100%!important;min-width:100%!important;flex:none!important;
+  }
+  .uac-gauge-label{font-size:0.65rem!important;}
+}
+.uac-header{background:linear-gradient(135deg,#059669 0%,#047857 100%);
+  border-radius:12px;padding:14px 20px 12px;margin-bottom:14px;}
+.uac-summary-card{background:linear-gradient(90deg,#f0fdf4,#ecfdf5);
+  border:1.5px solid #6ee7b7;border-radius:10px;padding:10px 14px;
+  margin-top:10px;font-size:0.82rem;}
+.uac-alert-box{background:linear-gradient(90deg,#fffbeb,#fff7ed);
+  border:2px solid #f59e0b;border-radius:10px;padding:12px 16px;margin-bottom:12px;}
+.uac-prescription{background:#f8faff;border-left:4px solid #3b82f6;
+  border-radius:0 8px 8px 0;padding:10px 14px;font-size:0.80rem;line-height:1.75;}
+.uac-gauge-label{font-size:0.72rem;font-weight:700;color:#374151;}
+</style>""", unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="uac-header">'
+        '<span style="font-size:1.05rem;font-weight:900;color:white;letter-spacing:0.04em;">'
+        '📊 통합 증권분석 센터 (내보험다보여)</span>'
+        '<span style="background:rgba(255,255,255,0.25);color:white;font-size:0.65rem;'
+        'font-weight:700;padding:2px 8px;border-radius:4px;margin-left:12px;">'
+        'AI 분석 엔진 가동중</span></div>',
+        unsafe_allow_html=True,
+    )
+
+    _kj = f"{key_prefix}_json"
+    _kr = f"{key_prefix}_result"
+    _left, _right = st.columns([1, 1], gap="medium")
+
+    # ── 좌측: 데이터 & 가치 입력 영역 ──────────────────────────────────────
+    with _left:
+        st.markdown(
+            "<div style='font-size:0.78rem;font-weight:900;color:#065f46;"
+            "margin-bottom:8px;'>👈 데이터 & 가치 입력 영역</div>",
+            unsafe_allow_html=True,
+        )
+        _tab_nibo, _tab_scan = st.tabs(["🌐 내보험다보여 크롤링", "📄 증권 파일 스캔/업로드"])
+
+        with _tab_nibo:
+            if not st.session_state.get("nibo_consent_agreed", False):
+                st.warning("🔐 신용정보 조회 동의 후 이용 가능합니다.")
+                if st.checkbox("✅ 신용정보 조회·분석 동의 (신용정보법 제32조)",
+                               key=f"{key_prefix}_consent"):
+                    st.session_state["nibo_consent_agreed"]    = True
+                    st.session_state["nibo_consent_version"]   = "2026-03-16-v1"
+                    st.session_state["nibo_consent_timestamp"] = (
+                        __import__("datetime").datetime.now().isoformat()
+                    )
+                    st.rerun()
+            else:
+                _json_val = st.text_area(
+                    "내보험다보여 JSON",
+                    value=st.session_state.get(_kj, st.session_state.get("_nibo_raw_json", "")),
+                    placeholder='[{"prodName":"삼성생명 종신","traitName":"암진단비","amt":"3000만원","status":"유효"}]',
+                    height=110,
+                    key=f"{key_prefix}_json_ta",
+                    label_visibility="collapsed",
+                )
+                if _json_val != st.session_state.get(_kj, ""):
+                    st.session_state[_kj] = _json_val
+                    st.session_state["_nibo_raw_json"] = _json_val
+                if st.button("📋 샘플 데이터 불러오기", key=f"{key_prefix}_sample",
+                             use_container_width=True):
+                    import json as _ujs
+                    _s = _ujs.dumps([
+                        {"prodName": "(무)뉴-하이콜 암진단비",   "traitName": "암진단비특약",    "amt": "3000만원",  "status": "유효"},
+                        {"prodName": "뇌졸중진단확정비",          "traitName": "뇌졸중진단특약",  "amt": "10000000", "status": "유효"},
+                        {"prodName": "급성심근경색진단비",         "traitName": "심근경색진단특약","amt": "2000만원",  "status": "유효"},
+                        {"prodName": "일반상해후유장해(3~100%)", "traitName": "상해후유장해",    "amt": "5000만원",  "status": "유효"},
+                        {"prodName": "DB손해 통합",               "traitName": "암진단비(소액암)","amt": "2000만원",  "status": "유효"},
+                    ], ensure_ascii=False, indent=2)
+                    st.session_state[_kj] = _s
+                    st.session_state["_nibo_raw_json"] = _s
+                    st.rerun()
+
+        with _tab_scan:
+            _uploaded = st.file_uploader(
+                "증권 PDF 또는 이미지 업로드",
+                type=["pdf", "jpg", "jpeg", "png"],
+                key=f"{key_prefix}_file_up",
+                help="보험증권 PDF/이미지를 업로드하면 AI가 담보를 자동 파싱합니다.",
+                label_visibility="collapsed",
+            )
+            if _uploaded:
+                st.success(f"✅ {_uploaded.name} 업로드 완료")
+                if st.button("🔍 AI 파싱 시작", key=f"{key_prefix}_parse_btn",
+                             type="primary", use_container_width=True):
+                    st.info("📄 정밀 PDF 파싱은 A-SECTION '② 통합 스캔 허브'에서 이용 가능합니다.")
+
+        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div style='font-size:0.76rem;font-weight:800;color:#92400e;margin-bottom:4px;'>"
+            "💰 월 건강보험료 납부액 "
+            "<span style='font-weight:400;color:#6b7280;'>(가치 산출용)</span></div>",
+            unsafe_allow_html=True,
+        )
+        _nhi = st.number_input(
+            "월 건강보험료(원)",
+            min_value=0, max_value=2_000_000,
+            value=int(st.session_state.get("gs_hi_premium") or 0),
+            step=10_000,
+            key=f"{key_prefix}_nhi",
+            help="직장인: 보수월액×7.09% | 추정 월소득 = 건보료×30",
+            label_visibility="collapsed",
+        )
+        if _nhi != int(st.session_state.get("gs_hi_premium") or 0):
+            st.session_state["gs_hi_premium"] = _nhi
+        if _nhi > 0:
+            st.caption(f"📊 추정 월소득 **{_nhi*30:,.0f}원** | 연소득 **{_nhi*360:,.0f}원**")
+
+        _cname   = (st.session_state.get("scan_client_name")
+                    or st.session_state.get("gp200_name") or "")
+        _cbirth  = st.session_state.get("scan_client_birth", "")
+        _cgender = st.session_state.get("scan_client_gender", "")
+        _has_data = bool(st.session_state.get(_kj) or st.session_state.get("_nibo_raw_json"))
+        if _cname or _has_data:
+            _b = f"({_cbirth[:4]}년생, " if _cbirth else "("
+            _g = _cgender + "성)" if _cgender else ")"
+            st.markdown(
+                f'<div class="uac-summary-card">'
+                f'👤 <b>분석 대상:</b> [{_cname or "미입력"}] 님 {_b}{_g}<br>'
+                f'<span style="font-size:0.70rem;color:#6b7280;">'
+                f'{"✅ 데이터 준비 완료" if _has_data else "⏳ 데이터 입력 대기"}'
+                f'</span></div>',
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+        if st.button("⚡ AI 통합 분석 실행", key=f"{key_prefix}_run",
+                     type="primary", use_container_width=True):
+            _run_json = st.session_state.get(_kj) or st.session_state.get("_nibo_raw_json", "")
+            _run_nhi  = float(st.session_state.get("gs_hi_premium") or 0)
+            if not (_run_json or "").strip():
+                st.warning("⬆️ 내보험다보여 JSON을 입력해 주세요.")
+            elif _run_nhi <= 0:
+                st.warning("💰 월 건강보험료를 입력해 주세요.")
+            else:
+                with st.spinner("🤖 AI 정밀 분석 중…"):
+                    try:
+                        import json as _j2
+                        from trinity_engine import execute_integrated_analysis as _exec
+                        _raw = _j2.loads(_run_json.strip())
+                        if isinstance(_raw, dict):
+                            _raw = [_raw]
+                        _adata, _unm, _ok = _exec(
+                            raw_external_data = _raw,
+                            client_contact    = st.session_state.get("scan_client_contact", ""),
+                            nhi_premium       = _run_nhi,
+                            consultant_info   = {
+                                "소속": st.session_state.get("gp200_company",
+                                        st.session_state.get("_mp_company", "")),
+                                "이름": st.session_state.get("gp200_name",
+                                        st.session_state.get("_mp_name", "")),
+                                "연락처": st.session_state.get("gp200_contact",
+                                          st.session_state.get("_mp_phone", "")),
+                            },
+                            client_name     = _cname,
+                            agent_id        = st.session_state.get("user_id", ""),
+                            person_id       = st.session_state.get("selected_customer_id", ""),
+                            kb7_score       = int(st.session_state.get("_sops_kb_score", 0) or 0),
+                            consent_version = st.session_state.get("nibo_consent_version", ""),
+                            source          = "UAC-통합분석센터",
+                        )
+                        st.session_state[_kr] = _adata
+                        if _ok:
+                            st.success("✅ 분석 완료! 우측에서 결과를 확인하세요.")
+                        else:
+                            st.warning("⚠️ 분석 완료 (DB 저장 실패 — 연결 확인)")
+                        st.rerun()
+                    except Exception as _ue:
+                        st.error(f"❌ 분석 오류: {_ue}")
+
+    # ── 우측: AI 가입결과 보고서 ────────────────────────────────────────────
+    with _right:
+        st.markdown(
+            "<div style='font-size:0.78rem;font-weight:900;color:#1e3a8a;"
+            "margin-bottom:8px;'>👉 AI 가입결과 보고서</div>",
+            unsafe_allow_html=True,
+        )
+        _result = st.session_state.get(_kr)
+        _nhi_r  = float(st.session_state.get("gs_hi_premium") or 0)
+
+        if not _result:
+            st.markdown(
+                '<div style="background:#f8faff;border:1.5px dashed #93c5fd;'
+                'border-radius:10px;padding:32px 20px;text-align:center;color:#6b7280;">'
+                '🔍 좌측에서 보험 데이터를 입력하고<br>'
+                '<b>⚡ AI 통합 분석 실행</b> 버튼을 눌러주세요.</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            _GAUGES = [
+                ("암진단비", ["암진단", "암진"],      50_000_000),
+                ("뇌졸중",   ["뇌졸중", "뇌경색"],    30_000_000),
+                ("심근경색", ["심근경색", "급성심"],   20_000_000),
+                ("수술비",   ["수술비", "수술"],       20_000_000),
+                ("입원비",   ["입원비", "입원"],       10_000_000),
+                ("후유장해", ["후유장해", "장해"],    100_000_000),
+                ("질병사망", ["질병사망", "사망"],    100_000_000),
+                ("실손의료", ["실손", "의료비"],        5_000_000),
+                ("간병보험", ["간병"],                 50_000_000),
+                ("치매보험", ["치매"],                 30_000_000),
+            ]
+            _cov: dict = {}
+            for _gl, _kws, _ideal in _GAUGES:
+                _amt = 0.0
+                for _rk, _rv in (_result or {}).items():
+                    if isinstance(_rv, dict):
+                        if any(kw in str(_rk).lower() for kw in _kws):
+                            try:
+                                _amt = float(_rv.get("현재가입", 0) or 0)
+                            except Exception:
+                                _amt = 0.0
+                            break
+                _cov[_gl] = _amt
+
+            _total_cov  = sum(_cov.values())
+            _est_annual = _nhi_r * 360 if _nhi_r > 0 else 40_000_000
+            _gap        = max(0.0, _est_annual * 10 - _total_cov)
+            _gap_disp   = (f"{_gap/100_000_000:.1f}억 원"
+                           if _gap >= 100_000_000 else f"{_gap/10_000:.0f}만 원")
+            _sev = "🔴" if _gap > 50_000_000 else ("🟡" if _gap > 10_000_000 else "🟢")
+
+            st.markdown(
+                f'<div class="uac-alert-box">'
+                f'<div style="font-size:0.80rem;font-weight:900;color:#92400e;margin-bottom:4px;">'
+                f'{_sev} AI 분석 총평</div>'
+                f'<div style="font-size:0.96rem;font-weight:800;color:#1c1917;line-height:1.5;">'
+                f'현재 <b style="color:#dc2626;">{_gap_disp}</b>의 소득 공백 위험이 존재합니다</div>'
+                f'<div style="font-size:0.70rem;color:#78350f;margin-top:4px;">'
+                f'추정 연소득 {_est_annual/10_000:.0f}만원 기준 · 10년치 보장 갭 분석</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                "<div style='font-size:0.72rem;font-weight:800;color:#374151;"
+                "margin-bottom:6px;'>🔰 10대 핵심 담보 적정도 게이지</div>",
+                unsafe_allow_html=True,
+            )
+            _gc1, _gc2 = st.columns(2, gap="small")
+            for _gi, (_gl, _kws, _ideal) in enumerate(_GAUGES):
+                with (_gc1 if _gi % 2 == 0 else _gc2):
+                    _v   = _cov.get(_gl, 0)
+                    _pct = min(100, int(_v / _ideal * 100)) if _ideal > 0 else 0
+                    _clr = "#16a34a" if _pct >= 80 else ("#f59e0b" if _pct >= 40 else "#dc2626")
+                    _sts = "적정" if _pct >= 80 else ("보통" if _pct >= 40 else "취약")
+                    st.markdown(
+                        f'<div class="uac-gauge-label" style="margin-bottom:1px;">'
+                        f'{_gl} <span style="float:right;color:{_clr};font-size:0.65rem;">{_sts}</span></div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.progress(_pct / 100)
+
+            if _nhi_r > 0 and _total_cov > 0:
+                _survive = int(_total_cov / (_nhi_r * 30)) if _nhi_r > 0 else 0
+                st.metric(
+                    label="⏱️ 현재 보험으로 버틸 수 있는 시간",
+                    value=f"{_survive}개월",
+                    delta="충분" if _survive >= 36 else "보강 필요",
+                    delta_color="normal" if _survive >= 36 else "inverse",
+                )
+
+            _weak = [
+                f"• {_gl} {_ideal//10_000:,}만원 보강 필요"
+                for _gl, _kws, _ideal in _GAUGES
+                if _cov.get(_gl, 0) < _ideal * 0.5
+            ][:4]
+            if _weak:
+                st.markdown(
+                    '<div class="uac-prescription"><b>📋 AI 맞춤형 처방전</b><br>'
+                    + "<br>".join(_weak) + "</div>",
+                    unsafe_allow_html=True,
+                )
+
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    if st.button(
+        "🔍 전체 담보 세부항목 및 정밀 분석 리포트 보기",
+        key=f"{key_prefix}_deepdive",
+        use_container_width=True,
+    ):
+        if "current_tab" in st.session_state:
+            st.session_state["current_tab"]                 = "home"
+            st.session_state["_home_scroll_to_action_grid"] = True
+            st.session_state["_scroll_top"]                 = True
+            st.rerun()
+        else:
+            _hq_url = get_env_secret("HQ_APP_URL", HQ_APP_URL)
+            st.markdown(
+                f'<a href="{_hq_url}" target="_blank">'
+                '🔗 HQ 앱에서 전체 정밀 분석 리포트 열기</a>',
+                unsafe_allow_html=True,
+            )

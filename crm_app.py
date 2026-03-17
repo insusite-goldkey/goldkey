@@ -1136,6 +1136,16 @@ with tab5:
 with tab6:
     _crm_render_tab6()
 
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP-PHASE-4] 반응형 통합 증권분석 센터 — CRM 이식 (HQ와 완전 동일)
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
+try:
+    from shared_components import render_unified_analysis_center as _crm_render_uac
+    _crm_render_uac(key_prefix="_uac_crm")
+except Exception as _crm_uac_e:
+    st.error(f"통합 증권분석 센터 로드 오류: {_crm_uac_e}")
+
 # ── 푸터 ─────────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown("""
