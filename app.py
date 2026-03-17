@@ -39067,13 +39067,15 @@ div[data-testid="stButton"] {
       <div style="font-size:0.78rem;font-weight:900;color:#1565C0;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:2px;">🔬 A-SECTION: Smart Analysis &amp; Hub</div>
     </div>""", unsafe_allow_html=True)
-                if st.button("① 보험증권 분석",   key="ag_a1", use_container_width=True): _go_tab("policy_scan")
-                if st.button("② 약관 매칭 검색",  key="ag_a2", use_container_width=True): _go_tab("policy_terms")
-                if st.button("③ 통합 스캔 허브",  key="ag_a3", use_container_width=True): _go_tab("scan_hub")
-                if st.button("④ 리플렛 분류",     key="ag_a4", use_container_width=True): _go_tab("leaflet")
-                if st.button("⑤ 고객자료 저장함", key="ag_a5", use_container_width=True): _go_tab("customer_docs")
-                if st.button("⑥ 디지털 카탈로그", key="ag_a6", use_container_width=True): _go_tab("digital_catalog")
-                if st.button("⑦ AI 자동 리포트",  key="ag_a7", use_container_width=True): _go_tab("report43")
+                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#1565C0;margin:6px 0 3px 0;border-top:1px solid #90CAF9;padding-top:5px;letter-spacing:0.05em;'>📊 보험증권분석 엔진</div>", unsafe_allow_html=True)
+                if st.button("① 보험증권 AI 분석",  key="ag_a1", use_container_width=True): _go_tab("policy_scan")
+                if st.button("② 통합 스캔 허브",    key="ag_a2", use_container_width=True): _go_tab("scan_hub")
+                if st.button("③ 약관 매칭 검색",    key="ag_a3", use_container_width=True): _go_tab("policy_terms")
+                if st.button("④ AI 자동 리포트",    key="ag_a4", use_container_width=True): _go_tab("report43")
+                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#1565C0;margin:6px 0 3px 0;border-top:1px solid #90CAF9;padding-top:5px;letter-spacing:0.05em;'>📁 자료 관리</div>", unsafe_allow_html=True)
+                if st.button("⑤ 리플렛 분류",       key="ag_a5", use_container_width=True): _go_tab("leaflet")
+                if st.button("⑥ 고객자료 저장함",   key="ag_a6", use_container_width=True): _go_tab("customer_docs")
+                if st.button("⑦ 디지털 카탈로그",   key="ag_a7", use_container_width=True): _go_tab("digital_catalog")
             with _pf_c2:
                 st.markdown(f"""<div style="background:#F3E5F5;border:1.5px solid #CE93D8;
       border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
