@@ -440,7 +440,7 @@ if not _is_authenticated():
                                     pass
                 if _crm_lp == "A":
                     try:
-                        _sc_emergency_btn(app_name="CRM", key_prefix="crm_login_emg")
+                        _sc_emergency_btn(app_name="CRM", key_prefix="crm_login_emg", show_admin_login=True)
                     except Exception:
                         pass
     st.stop()

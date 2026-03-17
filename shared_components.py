@@ -932,11 +932,13 @@ def notify_admin_member_error(
 def render_member_emergency_btn(
     app_name: str = "HQ",
     key_prefix: str = "emergency",
+    show_admin_login: bool = False,
 ) -> None:
     """
     [GP-ALERT §2] 로그인 화면 — '관리자 오류 신고' 긴급 버튼.
     회원이 진입 불가 시 클릭 → 이름 입력 → 관리자에게 즉시 신고.
     HQ/CRM 양쪽 앱 동일 함수로 공유.
+    show_admin_login=True 시 '관리자 신고' 좌측에 '관리자 로그인' 버튼 추가.
     """
     try:
         import streamlit as _st3
@@ -945,6 +947,7 @@ def render_member_emergency_btn(
 
     _show_key = f"{key_prefix}_show_form"
     _done_key = f"{key_prefix}_sent_done"
+    _adm_key  = f"{key_prefix}_show_admin"
 
     if _st3.session_state.get(_done_key):
         _st3.success("✅ 관리자에게 신고 완료. 확인 후 조치합니다.", icon="📞")
@@ -959,17 +962,85 @@ def render_member_emergency_btn(
         "padding:6px 10px;margin-top:6px;background:#FEF2F2;'>",
         unsafe_allow_html=True,
     )
-    _ec1, _ec2 = _st3.columns([6, 4])
-    with _ec1:
+
+    if show_admin_login:
+        _ec1, _ec2, _ec3 = _st3.columns([4, 3, 3])
+        with _ec1:
+            _st3.markdown(
+                "<span style='font-size:0.78rem;color:#DC2626;font-weight:700;'>"
+                "🆘 로그인 오류가 계속되시나요?</span>",
+                unsafe_allow_html=True,
+            )
+        with _ec2:
+            if _st3.button("🔐 관리자 로그인", key=f"{key_prefix}_admin_toggle",
+                           use_container_width=True):
+                _st3.session_state[_adm_key]  = not _st3.session_state.get(_adm_key, False)
+                _st3.session_state[_show_key] = False
+        with _ec3:
+            if _st3.button("🆘 관리자 신고", key=f"{key_prefix}_toggle",
+                           use_container_width=True):
+                _st3.session_state[_show_key] = not _st3.session_state.get(_show_key, False)
+                _st3.session_state[_adm_key]  = False
+    else:
+        _ec1, _ec2 = _st3.columns([6, 4])
+        with _ec1:
+            _st3.markdown(
+                "<span style='font-size:0.78rem;color:#DC2626;font-weight:700;'>"
+                "🆘 로그인 오류가 계속되시나요?</span>",
+                unsafe_allow_html=True,
+            )
+        with _ec2:
+            if _st3.button("🆘 관리자 신고", key=f"{key_prefix}_toggle",
+                           use_container_width=True):
+                _st3.session_state[_show_key] = not _st3.session_state.get(_show_key, False)
+
+    # ── 관리자 로그인 인라인 폼 ───────────────────────────────────────────────
+    if show_admin_login and _st3.session_state.get(_adm_key):
         _st3.markdown(
-            "<span style='font-size:0.78rem;color:#DC2626;font-weight:700;'>"
-            "🆘 로그인 오류가 계속되시나요?</span>",
+            "<div style='background:#EFF6FF;border:1px solid #BFDBFE;"
+            "border-radius:8px;padding:10px 12px;margin-top:8px;'>",
             unsafe_allow_html=True,
         )
-    with _ec2:
-        if _st3.button("🆘 관리자 신고", key=f"{key_prefix}_toggle",
-                       use_container_width=True):
-            _st3.session_state[_show_key] = not _st3.session_state.get(_show_key, False)
+        _st3.markdown(
+            "<span style='font-size:0.80rem;font-weight:800;color:#1e3a8a;'>"
+            "🔐 관리자 로그인</span>",
+            unsafe_allow_html=True,
+        )
+        with _st3.form(f"{key_prefix}_admin_form", clear_on_submit=False):
+            _adm_id_in   = _st3.text_input(
+                "관리자 ID", placeholder="admin 또는 이세윤",
+                key=f"{key_prefix}_adm_id", label_visibility="collapsed",
+            )
+            _adm_code_in = _st3.text_input(
+                "관리자 코드", type="password", placeholder="관리자 코드 입력",
+                key=f"{key_prefix}_adm_code", label_visibility="collapsed",
+            )
+            _adm_sub = _st3.form_submit_button("🔐 로그인", use_container_width=True, type="primary")
+        if _adm_sub:
+            _aid = (_adm_id_in   or "").strip()
+            _acd = (_adm_code_in or "").strip()
+            _env_code   = get_env_secret("ADMIN_CODE", "")
+            _master_env = get_env_secret("MASTER_CODE", "")
+            if _aid.lower() in ("admin", "이세윤") and _acd == _env_code and _env_code:
+                _st3.session_state["crm_is_admin"]      = True
+                _st3.session_state["crm_authenticated"] = True
+                _st3.session_state["crm_user_id"]       = "ADMIN_MASTER"
+                _st3.session_state["crm_user_name"]     = "이세윤"
+                _st3.session_state["crm_role"]          = "admin"
+                _st3.rerun()
+            elif _acd == _master_env and _master_env:
+                _mname = get_env_secret("MASTER_NAME", "이세윤")
+                _st3.session_state["crm_is_admin"]      = True
+                _st3.session_state["crm_authenticated"] = True
+                _st3.session_state["crm_user_id"]       = "PERMANENT_MASTER"
+                _st3.session_state["crm_user_name"]     = _mname
+                _st3.session_state["crm_role"]          = "admin"
+                _st3.rerun()
+            else:
+                _st3.error("❌ ID 또는 코드가 올바르지 않습니다.")
+        _st3.markdown("</div>", unsafe_allow_html=True)
+
+    # ── 관리자 신고 폼 ────────────────────────────────────────────────────────
     if _st3.session_state.get(_show_key):
         _nm = _st3.text_input(
             "가입 시 이름 입력", key=f"{key_prefix}_report_name",

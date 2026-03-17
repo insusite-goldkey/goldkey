@@ -39579,6 +39579,27 @@ div[data-testid="stButton"] {
                             except Exception as _demo_e:
                                 st.error("❌ 데모 오류: " + str(_demo_e))
                 if st.button("📊 증권 전문 분석 탭으로 →", key="sector_sec_goto"): _go_tab("policy_scan")
+            # ── [L-SECTION 부속파트] 대리점 현장실무 증권분석 파트 ────────────────
+            st.markdown(
+                "<div style='border-top:2px dashed #059669;margin-top:14px;padding-top:12px;'>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<div style='font-size:0.82rem;font-weight:900;color:#059669;"
+                "letter-spacing:0.05em;margin-bottom:4px;'>"
+                "📋 대리점 현장실무 증권분석 파트</div>"
+                "<div style='font-size:0.74rem;color:#374151;margin-bottom:10px;'>"
+                "PDF·이미지 증권 직접 분석 / 약관 매칭 / 스캔 허브 / AI 자동 리포트 — 현장 전용 4대 엔진</div>",
+                unsafe_allow_html=True,
+            )
+            _lsub_c1, _lsub_c2 = st.columns(2, gap="small")
+            with _lsub_c1:
+                if st.button("① 보험증권 AI 분석",  key="lsec_sub1", use_container_width=True): _go_tab("policy_scan")
+                if st.button("② 통합 스캔 허브",    key="lsec_sub2", use_container_width=True): _go_tab("scan_hub")
+            with _lsub_c2:
+                if st.button("③ 약관 매칭 검색",    key="lsec_sub3", use_container_width=True): _go_tab("policy_terms")
+                if st.button("④ AI 자동 리포트",    key="lsec_sub4", use_container_width=True): _go_tab("report43")
+            st.markdown("</div>", unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
             st.markdown(f"""<div style="background:#f0fdf4;border:2px solid #16a34a;
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
