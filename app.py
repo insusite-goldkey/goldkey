@@ -32030,10 +32030,10 @@ section[data-testid="stSidebar"] .stButton button {
       /* [제38조 §4] 스켈레톤 토스트 — 페이드 인/아웃 표준 */
       '#gk-toast{',
         'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);',
-        'background:rgba(13,27,42,0.93);color:#e0f2fe;',
+        'background:rgba(239,246,255,0.97);color:#1e40af;',
         'padding:10px 22px;border-radius:24px;font-size:0.9rem;font-weight:700;',
         'font-family:"Noto Sans KR",sans-serif;letter-spacing:0.02em;',
-        'box-shadow:0 4px 18px rgba(0,0,0,0.35);border:1px solid rgba(56,189,248,0.25);',
+        'box-shadow:0 4px 18px rgba(59,130,246,0.18);border:1.5px solid #93c5fd;',
         'opacity:0;pointer-events:none;z-index:2147483647;',
         'transition:opacity 0.25s ease-in-out;',
       '}',
