@@ -38129,12 +38129,38 @@ function selectCustomer(name) {{
     
                 # [GP-MOVE] KCD 질병진단 검색 → GK-SEC-03(보험금 상담 & 용어 센터)으로 이동됨
     
-                _si_items = st.multiselect(
-                    "📋 상담 항목 (복수 선택)",
-                    ["신규보험상담", "보험증권 분석", "보험금 청구", "장해 산출", "암·뇌·심장",
-                     "리플렛 분류", "약관 검색", "부동산 투자", "간병비", "노후설계", "법인상담"],
-                    default=st.session_state.get("scan_client_items", []), key="home_si_items"
-                )
+                _si_items = st.session_state.get("scan_client_items", [])
+                st.markdown(
+                    "<div style='font-size:0.82rem;font-weight:700;color:#374151;"
+                    "margin-bottom:6px;border-bottom:1px dashed #000;padding-bottom:4px;'>"
+                    "📋 상담항목(1개만 선택) "
+                    "<span style='font-size:0.75rem;font-weight:400;color:#6b7280;'>"
+                    "— 클릭 시 해당 섹터로 즉시 이동</span></div>",
+                    unsafe_allow_html=True)
+                _si_items_map = [
+                    ("🆕 신규보험상담",  "신규보험상담",  "t0"),
+                    ("📊 보험증권 분석", "보험증권 분석", "policy_scan"),
+                    ("💰 보험금 청구",   "보험금 청구",   "claim_scanner"),
+                    ("🦿 장해 산출",     "장해 산출",     "disability"),
+                    ("🔴 암·뇌·심장",    "암·뇌·심장",   "cancer"),
+                    ("🏢 법인상담",      "법인상담",      "t7"),
+                    ("👴 간병비",        "간병비",        "nursing"),
+                    ("🌅 노후설계",      "노후설계",      "life_cycle"),
+                    ("🏠 부동산 투자",   "부동산 투자",   "realty"),
+                ]
+                _si_ic1, _si_ic2, _si_ic3 = st.columns(3)
+                _si_btn_cols = [_si_ic1, _si_ic2, _si_ic3]
+                for _si_idx, (_si_btn_lbl, _si_item_val, _si_tab) in enumerate(_si_items_map):
+                    with _si_btn_cols[_si_idx % 3]:
+                        _is_sel = _si_item_val in _si_items
+                        if st.button(
+                            _si_btn_lbl,
+                            key=f"btn_consult_item_{_si_tab}",
+                            use_container_width=True,
+                            type="primary" if _is_sel else "secondary",
+                        ):
+                            st.session_state["scan_client_items"] = [_si_item_val]
+                            _go_tab(_si_tab)
     
                 # ── [GP-CRM] 저장 버튼 — Fortress 태깅 저장 ──────────────────
                 st.markdown('<div class="gk-save-btn-marker" style="display:none;"></div>', unsafe_allow_html=True)
@@ -40064,6 +40090,7 @@ div[data-testid="stButton"] > button {
             # F섹션
             "ins_bot",
             "special_ops",
+            "claim_scanner",
             # G섹션
             "crm_gate",
         }
