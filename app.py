@@ -39067,16 +39067,13 @@ div[data-testid="stButton"] {
       <div style="font-size:0.78rem;font-weight:900;color:#1565C0;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:2px;">🔬 A-SECTION: Smart Analysis &amp; Hub</div>
     </div>""", unsafe_allow_html=True)
-                _a_c1, _a_c2 = st.columns(2, gap="small")
-                with _a_c1:
-                    if st.button("① 보험증권 분석",   key="ag_a1", use_container_width=True): _go_tab("policy_scan")
-                    if st.button("② 약관 매칭 검색",  key="ag_a2", use_container_width=True): _go_tab("policy_terms")
-                    if st.button("③ 통합 스캔 허브",  key="ag_a3", use_container_width=True): _go_tab("scan_hub")
-                    if st.button("④ 리플렛 분류",     key="ag_a4", use_container_width=True): _go_tab("leaflet")
-                with _a_c2:
-                    if st.button("⑤ 고객자료 저장함", key="ag_a5", use_container_width=True): _go_tab("customer_docs")
-                    if st.button("⑥ 디지털 카탈로그", key="ag_a6", use_container_width=True): _go_tab("digital_catalog")
-                    if st.button("⑦ AI 자동 리포트",  key="ag_a7", use_container_width=True): _go_tab("report43")
+                if st.button("① 보험증권 분석",   key="ag_a1", use_container_width=True): _go_tab("policy_scan")
+                if st.button("② 약관 매칭 검색",  key="ag_a2", use_container_width=True): _go_tab("policy_terms")
+                if st.button("③ 통합 스캔 허브",  key="ag_a3", use_container_width=True): _go_tab("scan_hub")
+                if st.button("④ 리플렛 분류",     key="ag_a4", use_container_width=True): _go_tab("leaflet")
+                if st.button("⑤ 고객자료 저장함", key="ag_a5", use_container_width=True): _go_tab("customer_docs")
+                if st.button("⑥ 디지털 카탈로그", key="ag_a6", use_container_width=True): _go_tab("digital_catalog")
+                if st.button("⑦ AI 자동 리포트",  key="ag_a7", use_container_width=True): _go_tab("report43")
             with _pf_c2:
                 st.markdown(f"""<div style="background:#F3E5F5;border:1.5px solid #CE93D8;
       border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
@@ -39126,14 +39123,11 @@ div[data-testid="stButton"] {
       <div style="font-size:0.78rem;font-weight:900;color:#880E4F;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:2px;">🌸 D-SECTION: Life &amp; Care</div>
     </div>""", unsafe_allow_html=True)
-                _d_c1, _d_c2 = st.columns(2, gap="small")
-                with _d_c1:
-                    if st.button("① LIFE CYCLE 설계",      key="ag_d0", use_container_width=True): _go_tab("life_cycle")
-                    if st.button("② LIFE EVENT 상담",      key="ag_d1", use_container_width=True): _go_tab("life_event")
-                    if st.button("③ 간병비 컨설팅",        key="ag_d2", use_container_width=True): _go_tab("nursing")
-                with _d_c2:
-                    if st.button("④ 부동산 투자",          key="ag_d3", use_container_width=True): _go_tab("realty")
-                    if st.button("⑤ 의학경제학적 보장",    key="ag_d4", use_container_width=True): _go_tab("med_econ")
+                if st.button("① LIFE CYCLE 설계",      key="ag_d0", use_container_width=True): _go_tab("life_cycle")
+                if st.button("② LIFE EVENT 상담",      key="ag_d1", use_container_width=True): _go_tab("life_event")
+                if st.button("③ 간병비 컨설팅",        key="ag_d2", use_container_width=True): _go_tab("nursing")
+                if st.button("④ 부동산 투자",          key="ag_d3", use_container_width=True): _go_tab("realty")
+                if st.button("⑤ 의학경제학적 보장",    key="ag_d4", use_container_width=True): _go_tab("med_econ")
             with _pf_d2:
                 st.markdown(f"""<div style="background:#E8F5E9;border:1.5px solid #A5D6A7;
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
@@ -39141,14 +39135,17 @@ div[data-testid="stButton"] {
       <div style="font-size:0.78rem;font-weight:900;color:#1B5E20;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:2px;">🔍 E-SECTION: 보상 시뮬레이션</div>
     </div>""", unsafe_allow_html=True)
-                _e_c1, _e_c2 = st.columns(2, gap="small")
-                with _e_c1:
-                    if st.button("① 보상정보 시뮬레이션",  key="ag_e1", use_container_width=True): _go_tab("compensation")
-                    if st.button("② 교통사고 보상 가이드", key="ag_e2", use_container_width=True): _go_tab("compensation")
-                    if st.button("③ 산재 보상 가이드",     key="ag_e3", use_container_width=True): _go_tab("compensation")
-                with _e_c2:
-                    if st.button("④ 일반상해 보상 가이드", key="ag_e4", use_container_width=True): _go_tab("compensation")
-                    if st.button("⑤ KCD 상해 분석",        key="ag_e5", use_container_width=True): _go_tab("kcd_injury")
+                if st.button("① 보상정보 시뮬레이션",  key="ag_e1", use_container_width=True): _go_tab("compensation")
+                if st.button("② 교통사고 보상 가이드", key="ag_e2", use_container_width=True):
+                    st.session_state["comp_acc_type"] = "교통사고 / 산재"
+                    _go_tab("compensation")
+                if st.button("③ 산재 보상 가이드",     key="ag_e3", use_container_width=True):
+                    st.session_state["comp_acc_type"] = "교통사고 / 산재"
+                    _go_tab("compensation")
+                if st.button("④ 일반상해 보상 가이드", key="ag_e4", use_container_width=True):
+                    st.session_state["comp_acc_type"] = "일반 상해 / 질병"
+                    _go_tab("compensation")
+                if st.button("⑤ KCD 상해 분석",        key="ag_e5", use_container_width=True): _go_tab("kcd_injury")
 
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
