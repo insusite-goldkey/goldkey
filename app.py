@@ -32071,7 +32071,7 @@ section[data-testid="stSidebar"] .stButton button {
         if (txt.includes('로그인') && !btn._gk_w) {
           btn._gk_w = true;
           btn.addEventListener('click', function(){
-            showToast(pd, '⏳ 로그인 중입니다...', 5000);
+            /* 로그인 토스트 제거 — gk-load-overlay가 대체 */
           }, {passive:true});
         }
         // AI / 분석 버튼
@@ -34133,7 +34133,11 @@ watchRipple();
   var _to=null;
   window.parent.__gkLoadHandler=function(e){
     var b=e.target.closest('button');
-    if(b){el.classList.add('gk-active');clearTimeout(_to);_to=setTimeout(function(){el.classList.remove('gk-active');},4000);}
+    if(b){
+      var _t=(b.textContent||'').replace(/\s/g,'');
+      if(_t.includes('\ub3d9\uc758')||_t.includes('\ub2eb\uae30')||_t.includes('\ucde8\uc18c')){return;}
+      el.classList.add('gk-active');clearTimeout(_to);_to=setTimeout(function(){el.classList.remove('gk-active');},4000);
+    }
   };
   pd.addEventListener('click',window.parent.__gkLoadHandler,true);
 })();
