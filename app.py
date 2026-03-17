@@ -37924,7 +37924,7 @@ function selectCustomer(name) {{
                     "<div style='color:#92400e;font-weight:900;font-size:0.88rem;margin-bottom:8px;'>"
                     "👤 그룹 A-1 — 피보험자 기본 정보 <span style='font-size:0.75rem;"
                     "background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;"
-                    "padding:1px 6px;margin-left:6px;'>TAG: 피보험자</span></div>",
+                    "padding:1px 6px;margin-left:6px;'>고객성명(계약자, 피보험자, 법인명)</span></div>",
                     unsafe_allow_html=True,
                 )
     
@@ -37954,11 +37954,25 @@ function selectCustomer(name) {{
                         placeholder="예) 홍길동 또는 (유)명신산업", key="home_si_name",
                         help="개인 및 법인 모두 입력 가능. 모든 보험·상담 자료가 이 이름에 태깅됩니다",
                     )
-                    _si_dob = st.text_input(
-                        "📅 생년월일 (YYYYMMDD)",
+                    def _parse_id_to_dob(_raw: str) -> str:
+                        _d = "".join(filter(str.isdigit, str(_raw)))
+                        if len(_d) >= 13:
+                            _yy, _mm, _dd = _d[:2], _d[2:4], _d[4:6]
+                            _yyyy = ("20" if _d[6:7] in ("3","4","7","8") else "19") + _yy
+                            return _yyyy + _mm + _dd
+                        if len(_d) == 10:
+                            return _d
+                        return _d if len(_d) == 8 else _raw.strip()
+                    _si_dob_raw = st.text_input(
+                        "📅 생년월일 & 사업자번호(법인등록번호)",
                         value=st.session_state.get("scan_client_dob", ""),
-                        placeholder="예) 19800101", max_chars=8, key="home_si_dob",
+                        placeholder="예) 19800101 · 800101-1234567 · 123-45-67890",
+                        key="home_si_dob",
+                        help="생년월일 직접 입력 또는 주민등록번호·사업자번호·법인번호 입력 시 자동 변환",
                     )
+                    _si_dob = _parse_id_to_dob(_si_dob_raw)
+                    if _si_dob_raw.strip() and _si_dob != _si_dob_raw.strip():
+                        st.caption(f"🔄 자동변환 → **{_si_dob}**")
                 with _ga2:
                     _si_gender = st.selectbox(
                         "⚧ 성별",
