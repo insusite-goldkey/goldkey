@@ -4,13 +4,12 @@ import os
 import time
 import base64
 
-# 🚨 [매우 중요] set_page_config는 무조건 가장 먼저 와야 합니다! (순서 변경됨)
+# 🚨 [매우 중요] set_page_config는 무조건 가장 먼저 와야 합니다!
 st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state="expanded")
 
 # [1] 초기화 상태
 if 'initialized' not in st.session_state:
     st.session_state['initialized'] = False
-
 # === [UI 강제 여백 제거 CSS (설계자 직접 주입)] ===
 st.markdown("""
     <style>
@@ -33,8 +32,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# [2] 사이드바 상태 및 여백 제어 변수 (주석 처리 또는 유지)
-# (set_page_config는 위로 올렸으므로 여기서는 삭제했습니다)
+# [2] 사이드바 상태 및 여백 제어 변수
 
 # [ID-000-REG] 인증 세션키 조기 초기화 — NameError 원천 차단 (징검다리)
 if "authenticated" not in st.session_state:
@@ -43,7 +41,6 @@ if "user_name" not in st.session_state:
     st.session_state["user_name"] = ""
 if "user_id" not in st.session_state:
     st.session_state["user_id"] = ""
-
 # 인증 상태 조기 정의 — 파일 어느 위치에서도 NameError 없이 참조 가능
 _is_authenticated = st.session_state.get("authenticated", False)
 
@@ -57,82 +54,32 @@ def get_base64_image(path: str) -> str:
         return ""
 
 # [4] 통합 CSS: 여백 제거 + 반응형 이미지
-st.markdown(f"""
+st.markdown("""
     <style>
-        /* 1. 전체 화면 여백 및 헤더 제거 */
-        .main .block-container {{
-            padding-top: 0 !important;
+        /* 1. 전체 화면 외부 여백 및 헤더 제거 (설계자님 코드 유지) */
+        .main .block-container {
+            padding-top: 1rem !important; /* 상단이 너무 꽉 붙으면 답답할 수 있어 1rem만 줍니다 */
             padding-bottom: 0 !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-        }}
-        header {{
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+        header {
+            display: none !important;
             visibility: hidden;
             height: 0;
-        }}
-        [data-testid="stStatusWidget"] {{ visibility: hidden !important; }}
+        }
+        [data-testid="stStatusWidget"] { visibility: hidden !important; }
 
-        /* 3. 스플래시 이미지 반응형 컨테이너 */
-        .splash-container {{
-            text-align: center;
-            margin: 0;
-            padding: 0;
-            line-height: 0;
-            width: 100%;
-        }}
-        .mobile-img, .tablet-img {{
-            width: 100vw;   /* 화면 가로폭 꽉 채우기 */
-            height: 100vh;  /* 화면 세로폭 꽉 채우기 */
-            object-fit: cover; /* ⭐ 중요: 비율을 유지하면서 남는 부분은 잘라내기 */
-        }}
+        /* 🔥 2. 여기가 핵심! 컨테이너 간 내부 간격(Gap) 강제 삭제 */
+        div[data-testid="stVerticalBlock"] {
+            gap: 0rem !important;
+        }
 
-        /* 모바일 (767px 이하) */
-        @media (max-width: 767px) {{
-            .mobile-img {{ display: block !important; }}
-            .tablet-img {{ display: none !important; }}
-        }}
-        /* 태블릿/PC (768px 이상) */
-        @media (min-width: 768px) {{
-            .mobile-img {{ display: none !important; }}
-            .tablet-img {{ display: block !important; max-width: 860px; margin: 0 auto; }}
-        }}
-
-        /* [ID-000-STYLE] 태블릿 최적화 6종 — 기존 padding:0 제외, 비충돌 항목만 적용 */
-        /* 1. 콘텐츠 최대 너비 880px — 태블릿 비율 최적화 */
-        @media (min-width: 768px) {{
-            .main .block-container {{ max-width: 880px; padding-top: 0 !important; }}
-        }}
-        /* 2. 박스색(Box Color): 경고/알림 박스 고대비 파스텔 블루 */
-        .stAlert {{ background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 16px; }}
-        /* 3. GK RFS v1.0 — 반응형 폰트 스케일 (rem 전역 자동 스케일) */
-        html {{ font-size: 16px; }}
-        @media (min-width: 601px) and (max-width: 1024px) {{
-            html {{ font-size: 18.4px; }}
-        }}
-        @media (max-width: 600px) {{
-            html {{ font-size: 17px; }}
-            [data-testid="stButton"] button,
-            [data-testid="stFormSubmitButton"] button {{
-                min-height: 44px !important;
-                font-weight: 800 !important;
-            }}
-            [data-testid="stTextInput"] input,
-            [data-testid="stTextArea"] textarea {{
-                font-size: 1rem !important;
-            }}
-        }}
-        body {{ background-color: #eef2ff; }}
-        html, body, [class*="css"] {{ color: #0f172a; font-family: 'Inter', 'Noto Sans KR', sans-serif; letter-spacing: -0.01em; }}
-        /* 5. 문장(Messaging): 자간·행간 조절로 긴 문장 가독성 개선 */
-        .stMarkdown p {{ line-height: 1.7; letter-spacing: -0.02em; margin-bottom: 1.2rem; }}
-        /* 6. 입력잘(Input): 포커스 시 테두리 강조 및 내부 여백 확장 */
-        .stTextInput input {{ border: 1.5px solid rgba(99,102,241,0.25); border-radius: 10px; padding: 12px 15px; background: rgba(255,255,255,0.85); }}
-        /* 4. 버튼(Button): Indigo Premium Gradient */
-        div.stButton > button {{
-            height: 3.2rem; border-radius: 10px; font-weight: 700;
-            background: linear-gradient(135deg, #6366F1 0%, #818CF8 100%); color: white;
-            border: none; box-shadow: 0 2px 10px rgba(99,102,241,0.28);
-        }}
+        /* 🔥 3. 태평양 공백의 진짜 주범: 텍스트 자체의 하단 여백 제거 */
+        h1, h2, h3, .stMarkdown p {
+            margin-bottom: 0rem !important;
+            padding-bottom: 0rem !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
