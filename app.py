@@ -40045,7 +40045,8 @@ div[data-testid="stButton"] {
             </div>""", unsafe_allow_html=True)
 
         with _kb_c_input:
-            _kb_sub = st.tabs(["✏️ 직접 입력", "📡 내보험다보여 JSON", "🎯 샘플 데모"])
+            _kb_scan_items: list = []
+            _kb_sub = st.tabs(["✏️ 직접 입력", "📡 내보험다보여 JSON", "📷 증권 스캔 연동", "🎯 샘플 데모"])
 
             with _kb_sub[0]:
                 _kb_text_raw = st.text_area(
@@ -40075,6 +40076,77 @@ div[data-testid="stButton"] {
                 _kb_gender_j = st.selectbox("성별", ["남성", "여성"], key="kb_gender_j")
 
             with _kb_sub[2]:
+                st.caption("GP88/GP96 OCR 결과 또는 파일 업로드 → 담보 자동 추출")
+                _kb_ocr_src = st.radio(
+                    "데이터 소스", ["세션 OCR 결과 사용", "파일 직접 업로드"],
+                    key="kb_scan_src", horizontal=True,
+                )
+                _kb_scan_text = ""
+                if _kb_ocr_src == "세션 OCR 결과 사용":
+                    _kb_ocr_data = st.session_state.get("_gp88_ocr_result", {})
+                    if _kb_ocr_data:
+                        _kb_scan_text = (
+                            _kb_ocr_data.get("raw_text", "")
+                            or _kb_ocr_data.get("ocr_text", "")
+                            or str(_kb_ocr_data)
+                        )
+                        st.success(f"✅ 세션 OCR 데이터 감지됨 ({len(_kb_scan_text)}자)")
+                    else:
+                        st.info("💡 GP88 증권 스캔 또는 GP96 리플렛 업로드 후 OCR 결과가 자동 연동됩니다.")
+                else:
+                    _kb_scan_upload = st.file_uploader(
+                        "증권 PDF / 이미지", type=["pdf", "jpg", "jpeg", "png"],
+                        key="kb_scan_upload",
+                    )
+                    if _kb_scan_upload:
+                        import io as _kbio2
+                        _kb_raw2 = _kb_scan_upload.read()
+                        _kb_ext2 = _kb_scan_upload.name.rsplit(".", 1)[-1].lower() if "." in _kb_scan_upload.name else ""
+                        try:
+                            if _kb_ext2 == "pdf":
+                                import pdfplumber as _kbpdf
+                                with _kbpdf.open(_kbio2.BytesIO(_kb_raw2)) as _kbp:
+                                    _kb_scan_text = "\n".join(p.extract_text() or "" for p in _kbp.pages)
+                            else:
+                                import pytesseract as _kbtess
+                                from PIL import Image as _KBPIL2
+                                _kb_scan_text = _kbtess.image_to_string(
+                                    _KBPIL2.open(_kbio2.BytesIO(_kb_raw2)), lang="kor+eng"
+                                )
+                            st.success(f"✅ OCR 완료 ({len(_kb_scan_text)}자 추출)")
+                        except Exception as _kb_ocr_e2:
+                            st.warning(f"OCR 오류: {_kb_ocr_e2} — 직접 입력 탭을 이용해 주세요.")
+                if _kb_scan_text:
+                    import re as _kbre3
+                    with st.expander("📄 OCR 텍스트 미리보기", expanded=False):
+                        st.text(_kb_scan_text[:600])
+                    for _kbl in _kb_scan_text.splitlines():
+                        _kbl = _kbl.strip()
+                        if not _kbl or len(_kbl) < 3:
+                            continue
+                        _kbam = _kbre3.search(r'(\d[\d,]*)\s*(만\s*원|원|억)', _kbl)
+                        if _kbam:
+                            _kbnm = _kbl[:_kbam.start()].strip()
+                            _kbnm = _kbre3.sub(r'[\s\|,·:\[\]()]+$', '', _kbnm).strip()
+                            if _kbnm and 2 <= len(_kbnm) <= 30:
+                                _kb_scan_items.append({"name": _kbnm, "amount": _kbam.group(0).replace(" ", "")})
+                    st.session_state["_kb_scan_items"] = _kb_scan_items
+                    if _kb_scan_items:
+                        st.info(f"🔍 담보 {len(_kb_scan_items)}개 자동 파싱")
+                        with st.expander("파싱 결과 확인", expanded=False):
+                            for _kbsi in _kb_scan_items[:20]:
+                                st.text(f"  {_kbsi['name']}  |  {_kbsi['amount']}")
+                    else:
+                        _kb_scan_items = st.session_state.get("_kb_scan_items", [])
+                        if not _kb_scan_items:
+                            st.warning("담보 패턴 자동 감지 실패 — 직접 입력 탭을 이용해 주세요.")
+                _kb_scan_c1, _kb_scan_c2 = st.columns(2)
+                with _kb_scan_c1:
+                    _kb_age_s = st.number_input("피보험자 연령", 20, 80, 45, key="kb_age_s")
+                with _kb_scan_c2:
+                    _kb_gender_s = st.selectbox("성별", ["남성", "여성"], key="kb_gender_s")
+
+            with _kb_sub[3]:
                 st.caption("아래 샘플 데이터로 즉시 실행합니다.")
                 _kb_demo_items = [
                     {"name": "일반암진단비",          "amount": "3000만원"},
@@ -40091,17 +40163,21 @@ div[data-testid="stButton"] {
 
         # ── 실행 버튼 ─────────────────────────────────────────────────────
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-        _kb_run_c1, _kb_run_c2, _kb_run_c3 = st.columns(3, gap="small")
+        _kb_run_c1, _kb_run_c2, _kb_run_c3, _kb_run_c4 = st.columns(4, gap="small")
         _kb_run1 = _kb_run_c1.button(
-            "🔍 직접 입력 분석 실행", key="kb_run_text",
+            "🔍 직접 입력 분석", key="kb_run_text",
             use_container_width=True, type="primary",
         )
         _kb_run2 = _kb_run_c2.button(
-            "📡 JSON 분석 실행", key="kb_run_json",
+            "📡 JSON 분석", key="kb_run_json",
             use_container_width=True,
         )
-        _kb_run3 = _kb_run_c3.button(
-            "🚀 샘플 데모 실행", key="kb_run_demo",
+        _kb_run4 = _kb_run_c3.button(
+            "📷 스캔 분석", key="kb_run_scan",
+            use_container_width=True,
+        )
+        _kb_run3 = _kb_run_c4.button(
+            "🚀 샘플 데모", key="kb_run_demo",
             use_container_width=True,
         )
 
@@ -40109,7 +40185,7 @@ div[data-testid="stButton"] {
         _kb_report = None
         _kb_items_for_run: list[dict] = []
 
-        if _kb_run1 or _kb_run2 or _kb_run3:
+        if _kb_run1 or _kb_run2 or _kb_run3 or _kb_run4:
             try:
                 import re as _kbre, json as _kbjson
 
@@ -40117,6 +40193,13 @@ div[data-testid="stButton"] {
                     _kb_items_for_run = _kb_demo_items
                     _run_age    = int(_kb_age_d)
                     _run_gender = "M" if _kb_gender_d == "남성" else "F"
+
+                elif _kb_run4:
+                    _kb_items_for_run = st.session_state.get("_kb_scan_items", _kb_scan_items)
+                    if not _kb_items_for_run:
+                        st.warning("📷 증권 스캔 연동 탭에서 OCR 데이터를 먼저 로드해 주세요.")
+                    _run_age    = int(st.session_state.get("kb_age_s", 45))
+                    _run_gender = "M" if st.session_state.get("kb_gender_s", "남성") == "남성" else "F"
 
                 elif _kb_run2:
                     raw_j = st.session_state.get("kb_nibo_json", _kb_json_raw or "")
@@ -40432,7 +40515,7 @@ div[data-testid="stButton"] {
             </div>""", unsafe_allow_html=True)
 
         with _tri_c_form:
-            _tri_tabs = st.tabs(["✏️ 건보료 입력", "🔗 KB 엔진 연동", "🎯 샘플 데모"])
+            _tri_tabs = st.tabs(["✏️ 건보료 입력", "🔗 KB 엔진 연동", "📷 증권 스캔 연동", "🎯 샘플 데모"])
 
             with _tri_tabs[0]:
                 _tri_col1, _tri_col2 = st.columns(2)
@@ -40509,6 +40592,58 @@ div[data-testid="stButton"] {
                     )
 
             with _tri_tabs[2]:
+                st.caption("GP88/GP96 OCR 결과에서 건강보험료 자동 추출")
+                _tri_ocr_data = st.session_state.get("_gp88_ocr_result", {})
+                _tri_scan_premium = 0
+                _tri_scan_found = False
+                if _tri_ocr_data:
+                    import re as _trire2
+                    _tri_ocr_txt = (
+                        _tri_ocr_data.get("raw_text", "")
+                        or _tri_ocr_data.get("ocr_text", "")
+                        or str(_tri_ocr_data)
+                    )
+                    for _triline in _tri_ocr_txt.splitlines():
+                        _triline = _triline.strip()
+                        if "건강보험" in _triline or "건보료" in _triline:
+                            _trim = _trire2.search(r'(\d[\d,]+)', _triline)
+                            if _trim:
+                                _tri_scan_premium = int(_trim.group(1).replace(",", ""))
+                                _tri_scan_found = True
+                                break
+                    if _tri_scan_found:
+                        st.success(f"✅ OCR 결과에서 건보료 감지: {_tri_scan_premium:,}원")
+                        st.session_state["_tri_scan_premium"] = _tri_scan_premium
+                    else:
+                        st.info("💡 OCR 데이터에서 건보료를 자동 감지하지 못했습니다. 직접 입력해 주세요.")
+                else:
+                    st.info("💡 GP88 증권 스캔 후 OCR 결과가 자동 연동됩니다.")
+                _tri_sc1, _tri_sc2 = st.columns(2)
+                with _tri_sc1:
+                    _tri_premium_scan = st.number_input(
+                        "건강보험료 본인부담액 (원)",
+                        min_value=0, max_value=4_000_000,
+                        value=int(st.session_state.get("_tri_scan_premium", _tri_scan_premium or 213_400)),
+                        step=1_000, key="tri_premium_scan",
+                    )
+                    _tri_emp_scan = st.selectbox("가입유형", ["직장", "지역"], key="tri_emp_scan")
+                with _tri_sc2:
+                    _tri_cname_scan = st.text_input("고객명", value="고객", key="tri_cname_scan")
+                    _tri_ltc_scan = st.checkbox("장기요양 포함", value=False, key="tri_ltc_scan")
+                _tri_kb_rpt_sc = st.session_state.get("_kb_report")
+                _tri_kb_cancer_sc = 0.0
+                _tri_kb_total_sc = 0.0
+                if _tri_kb_rpt_sc is not None:
+                    try:
+                        _tri_kb_cancer_sc = sum(
+                            c.weighted_score for c in _tri_kb_rpt_sc.categories if "암" in c.category
+                        )
+                        _tri_kb_total_sc = _tri_kb_rpt_sc.total_score
+                        st.caption(f"🔗 KB 엔진 연동 완료 — 암 {_tri_kb_cancer_sc:,.0f}만원 / 전체 {_tri_kb_total_sc:,.0f}만원")
+                    except Exception:
+                        pass
+
+            with _tri_tabs[3]:
                 st.caption("샘플: 건보료 213,400원 직장가입자 / KB 암 스코어 3,000만원")
                 _tri_demo = {
                     "premium": 213_400, "emp": "직장",
@@ -40518,24 +40653,28 @@ div[data-testid="stButton"] {
 
         # ── 실행 버튼 ─────────────────────────────────────────────────────
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-        _tri_btn_c1, _tri_btn_c2, _tri_btn_c3 = st.columns(3, gap="small")
+        _tri_btn_c1, _tri_btn_c2, _tri_btn_c3, _tri_btn_c4 = st.columns(4, gap="small")
         _tri_run1 = _tri_btn_c1.button(
-            "🔱 건보료 입력 분석", key="tri_run1",
+            "🔱 건보료 분석", key="tri_run1",
             use_container_width=True, type="primary",
         )
         _tri_run2 = _tri_btn_c2.button(
             "🔗 KB 연동 분석", key="tri_run2",
             use_container_width=True,
         )
-        _tri_run3 = _tri_btn_c3.button(
-            "🎯 샘플 데모 실행", key="tri_run3",
+        _tri_run4 = _tri_btn_c3.button(
+            "📷 스캔 분석", key="tri_run4",
+            use_container_width=True,
+        )
+        _tri_run3 = _tri_btn_c4.button(
+            "🎯 샘플 데모", key="tri_run3",
             use_container_width=True,
         )
 
         # ── 분석 실행 ─────────────────────────────────────────────────────
         _tri_report: Optional[TrinityReport] = None
 
-        if _tri_run1 or _tri_run2 or _tri_run3:
+        if _tri_run1 or _tri_run2 or _tri_run3 or _tri_run4:
             try:
                 if _tri_run3:
                     _tri_report = run_trinity_analysis(
@@ -40544,6 +40683,15 @@ div[data-testid="stButton"] {
                         kb_cancer_score = _tri_demo["kb_cancer"],
                         kb_total_score  = _tri_demo["kb_total"],
                         customer_name   = _tri_demo["name"],
+                    )
+                elif _tri_run4:
+                    _tri_report = run_trinity_analysis(
+                        nhis_premium    = st.session_state.get("tri_premium_scan", 213_400),
+                        employment_type = st.session_state.get("tri_emp_scan", "직장"),
+                        ltc_included    = st.session_state.get("tri_ltc_scan", False),
+                        kb_cancer_score = _tri_kb_cancer_sc if "_tri_kb_cancer_sc" in dir() else 0.0,
+                        kb_total_score  = _tri_kb_total_sc  if "_tri_kb_total_sc"  in dir() else 0.0,
+                        customer_name   = st.session_state.get("tri_cname_scan", "고객"),
                     )
                 elif _tri_run2:
                     _tri_report = run_trinity_analysis(
@@ -40854,18 +41002,29 @@ div[data-testid="stButton"] {
                 )
 
             with _uh_tabs[1]:
-                # 내보험다보여 / 기존 L-SECTION 세션 자동 감지
+                # 우선순위: KB 스캔 → 내보험다보여 → L-SECTION 파싱 결과
                 _uh_sess_cov = (
+                    st.session_state.get("_kb_scan_items") or
                     st.session_state.get("_lsec_parsed_coverages") or
                     st.session_state.get("sector_auto_parsed") or []
                 )
+                _uh_src_label = (
+                    "KB 증권 스캔" if st.session_state.get("_kb_scan_items")
+                    else "내보험다보여 파싱" if st.session_state.get("_lsec_parsed_coverages")
+                    else "L-SECTION 파싱" if st.session_state.get("sector_auto_parsed")
+                    else None
+                )
                 if _uh_sess_cov:
-                    st.success(f"✅ {len(_uh_sess_cov)}개 담보 자동 감지됨 (내보험다보여 파싱 결과)")
+                    st.success(f"✅ {len(_uh_sess_cov)}개 담보 자동 감지됨 ({_uh_src_label})")
                     with st.expander("담보 목록 보기"):
                         for _c in _uh_sess_cov[:10]:
                             st.write(f"• {_c.get('name','?')} — {_c.get('amount',0):,}만원")
                 else:
-                    st.info("L-SECTION 내보험다보여 파이프라인을 먼저 실행하면 자동 연동됩니다.")
+                    st.info("KB 증권 스캔 또는 L-SECTION 내보험다보여 파이프라인을 먼저 실행하면 자동 연동됩니다.")
+                # 트리니티 스캔 건보료 자동 주입
+                _uh_auto_nhis = st.session_state.get("_tri_scan_premium", 0)
+                if _uh_auto_nhis:
+                    st.caption(f"💡 트리니티 스캔 건보료 감지됨: {_uh_auto_nhis:,}원 → 건보료 필드 자동 반영")
 
             with _uh_tabs[2]:
                 st.caption("샘플: 40세 남 / 건보료 213,400원 / 주요 담보 4종")
