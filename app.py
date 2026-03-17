@@ -39050,10 +39050,13 @@ div[data-testid="stButton"] > button {
     font-size: 0.68rem !important;
     padding: 3px 5px !important;
     line-height: 1.3 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    min-height: 0 !important;
+    white-space: normal !important;
+    word-break: keep-all !important;
+    height: auto !important;
+    min-height: 1.8rem !important;
+}
+div[data-testid="stButton"] {
+    margin-bottom: 2px !important;
 }
 </style>""", unsafe_allow_html=True)
             _pf_c1, _pf_c2, _pf_c3 = st.columns(3, gap="medium")
@@ -39086,16 +39089,14 @@ div[data-testid="stButton"] > button {
                     if st.button("① 신규보험 상담",    key="ag_b1",  use_container_width=True): _go_tab("t0")
                     if st.button("② 보험금 청구 상담", key="ag_b2",  use_container_width=True): _go_tab("t1")
                     if st.button("③ 장해 산출",         key="ag_b3",  use_container_width=True): _go_tab("disability")
-                    if st.button("④ 상해 통합 관리",   key="ag_b4",  use_container_width=True): _go_tab("injury")
                 with _b_c2:
+                    if st.button("④ 상해 통합 관리",   key="ag_b4",  use_container_width=True): _go_tab("injury")
                     if st.button("⑤ 자동차사고 상담",  key="ag_b5",  use_container_width=True): _go_tab("t4")
                     if st.button("⑥ KCD 상해 분석",    key="ag_b6",  use_container_width=True): _go_tab("kcd_injury")
+                with _b_c3:
                     if st.button("⑦ 암·뇌·심장 상담", key="ag_b7",  use_container_width=True): _go_tab("cancer")
                     if st.button("⑧ 기본·통합 설계",   key="ag_b8",  use_container_width=True): _go_tab("t3")
-                with _b_c3:
                     if st.button("⑨ 자동차보험 실무",  key="ag_b9",  use_container_width=True): _go_tab("auto_comp")
-                    if st.button("⑩ LIFE CYCLE 설계",  key="ag_b10", use_container_width=True): _go_tab("life_cycle")
-                    if st.button("⑪ LIFE EVENT 상담",  key="ag_b11", use_container_width=True): _go_tab("life_event")
             with _pf_c3:
                 st.markdown(f"""<div style="background:#FFF9C4;border:1.5px solid #F9A825;
       border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
@@ -39127,11 +39128,12 @@ div[data-testid="stButton"] > button {
     </div>""", unsafe_allow_html=True)
                 _d_c1, _d_c2 = st.columns(2, gap="small")
                 with _d_c1:
-                    if st.button("① LIFE EVENT 상담",      key="ag_d1", use_container_width=True): _go_tab("life_event")
-                    if st.button("② 간병비 컨설팅",        key="ag_d2", use_container_width=True): _go_tab("nursing")
+                    if st.button("① LIFE CYCLE 설계",      key="ag_d0", use_container_width=True): _go_tab("life_cycle")
+                    if st.button("② LIFE EVENT 상담",      key="ag_d1", use_container_width=True): _go_tab("life_event")
+                    if st.button("③ 간병비 컨설팅",        key="ag_d2", use_container_width=True): _go_tab("nursing")
                 with _d_c2:
-                    if st.button("③ 부동산 투자",          key="ag_d3", use_container_width=True): _go_tab("realty")
-                    if st.button("④ 의학경제학적 보장",    key="ag_d4", use_container_width=True): _go_tab("med_econ")
+                    if st.button("④ 부동산 투자",          key="ag_d3", use_container_width=True): _go_tab("realty")
+                    if st.button("⑤ 의학경제학적 보장",    key="ag_d4", use_container_width=True): _go_tab("med_econ")
             with _pf_d2:
                 st.markdown(f"""<div style="background:#E8F5E9;border:1.5px solid #A5D6A7;
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
@@ -55854,6 +55856,7 @@ div[data-testid="stButton"] > button {
 
     # ── [life_cycle] LIFE CYCLE 백지설계 상담자료 ────────────────────────
     if cur == "life_cycle":
+        if not _auth_gate("life_cycle"): st.stop()
         tab_home_btn("life_cycle")
         st.markdown(f"""
     <div style="position:relative;background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);
