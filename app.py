@@ -33,33 +33,18 @@ def get_base64_image(path: str) -> str:
     except Exception:
         return ""
 
-# [4] 대통합 CSS: 중복 제거 및 요소 간격 강제 압착
+# [4] CSS: 상단 여백 축소 + 헤더 숨김 (레이아웃 영향 없음)
 st.markdown("""
     <style>
-        /* 1. 전체 화면 외부 여백 및 헤더 제거 */
         .main .block-container {
-            padding-top: 1.5rem !important; 
+            padding-top: 1rem !important;
             padding-bottom: 0 !important;
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
         }
-        header {
+        header[data-testid="stHeader"] {
             display: none !important;
-            visibility: hidden;
-            height: 0;
+            height: 0px !important;
         }
         [data-testid="stStatusWidget"] { visibility: hidden !important; }
-
-        /* 🔥 2. 여기가 핵심! 컨테이너 간 내부 간격(Gap) 강제 삭제 */
-        div[data-testid="stVerticalBlock"] {
-            gap: 0rem !important;
-        }
-
-        /* 🔥 3. 태평양 공백의 진짜 주범: 텍스트 자체의 하단 여백 제거 */
-        h1, h2, h3, .stMarkdown p {
-            margin-bottom: 0rem !important;
-            padding-bottom: 0rem !important;
-        }
     </style>
 """, unsafe_allow_html=True)
 
