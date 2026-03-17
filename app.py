@@ -16111,7 +16111,7 @@ input, textarea, .stTextInput input, .stTextArea textarea {
 </div>""", unsafe_allow_html=True)
 
     # ── 상단 네비게이션 ──────────────────────────────────────────────────────
-    if st.button("⬅️ 네비게이션 게이트웨이로 돌아가기", key="sec08_back_top"):
+    if st.button("⬅️ 상담 SECTION 게이트 웨이로 돌아가기", key="sec08_back_top"):
         st.session_state["current_tab"] = "home"
         st.session_state["_scroll_top"] = True
         st.rerun()
@@ -16846,7 +16846,7 @@ input, textarea, .stTextInput input, .stTextArea textarea {
 </div>""", unsafe_allow_html=True)
 
     # ── 상단 네비게이션 ──────────────────────────────────────────────────────
-    if st.button("⬅️ 네비게이션 게이트웨이로 돌아가기", key="sec07_back_top",
+    if st.button("⬅️ 상담 SECTION 게이트 웨이로 돌아가기", key="sec07_back_top",
                  use_container_width=False):
         st.session_state["current_tab"] = "home"
         st.session_state["_scroll_top"] = True
@@ -39048,14 +39048,14 @@ function selectCustomer(name) {{
             st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-04 닫기
     
             # ═══════════════════════════════════════════════════════════════
-            # [GK-SEC-05] 네비게이션 게이트웨이
+            # [GK-SEC-05] 상담 SECTION 게이트 웨이
             # ═══════════════════════════════════════════════════════════════
             st.markdown('<div id="gk-sec-05-anchor" style="position:relative;height:0;"></div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-05")}<span class="gk-sec-title">⑤ 네비게이션 게이트웨이</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-05")}<span class="gk-sec-title">상담 SECTION 게이트 웨이</span></div>', unsafe_allow_html=True)
     
             # ── A~C 섹션: 3열 ──────────────────────────────────────────────────
             st.markdown("""<style>
-/* ⑤ 네비게이션 게이트웨이 A/B/C 섹션 — 버튼 폰트 축소 */
+/* 상담 SECTION 게이트 웨이 A/B/C 섹션 — 버튼 폰트 축소 */
 div[data-testid="stButton"] > button {
     font-size: 0.68rem !important;
     padding: 3px 5px !important;
@@ -39093,19 +39093,18 @@ div[data-testid="stButton"] {
       <div style="font-size:0.78rem;font-weight:900;color:#6A1B9A;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:2px;">🛡️ B-SECTION: Expert Consulting</div>
     </div>""", unsafe_allow_html=True)
-                _b_c1, _b_c2, _b_c3 = st.columns(3, gap="small")
-                with _b_c1:
-                    if st.button("① 신규보험 상담",    key="ag_b1",  use_container_width=True): _go_tab("t0")
-                    if st.button("② 보험금 청구 상담", key="ag_b2",  use_container_width=True): _go_tab("t1")
-                    if st.button("③ 장해 산출",         key="ag_b3",  use_container_width=True): _go_tab("disability")
-                with _b_c2:
-                    if st.button("④ 상해 통합 관리",   key="ag_b4",  use_container_width=True): _go_tab("injury")
-                    if st.button("⑤ 자동차사고 상담",  key="ag_b5",  use_container_width=True): _go_tab("t4")
-                    if st.button("⑥ KCD 상해 분석",    key="ag_b6",  use_container_width=True): _go_tab("kcd_injury")
-                with _b_c3:
-                    if st.button("⑦ 암·뇌·심장 상담", key="ag_b7",  use_container_width=True): _go_tab("cancer")
-                    if st.button("⑧ 기본·통합 설계",   key="ag_b8",  use_container_width=True): _go_tab("t3")
-                    if st.button("⑨ 자동차보험 실무",  key="ag_b9",  use_container_width=True): _go_tab("auto_comp")
+                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#6A1B9A;margin:6px 0 3px 0;border-top:1px solid #CE93D8;padding-top:5px;letter-spacing:0.05em;'>📋 신규·설계 상담</div>", unsafe_allow_html=True)
+                if st.button("① 신규보험 상담",    key="ag_b1",  use_container_width=True): _go_tab("t0")
+                if st.button("⑦ 암·뇌·심장 상담", key="ag_b7",  use_container_width=True): _go_tab("cancer")
+                if st.button("⑧ 기본·통합 설계",   key="ag_b8",  use_container_width=True): _go_tab("t3")
+                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#6A1B9A;margin:6px 0 3px 0;border-top:1px solid #CE93D8;padding-top:5px;letter-spacing:0.05em;'>🏥 보상·장해 상담</div>", unsafe_allow_html=True)
+                if st.button("② 보험금 청구 상담", key="ag_b2",  use_container_width=True): _go_tab("t1")
+                if st.button("③ 장해 산출",         key="ag_b3",  use_container_width=True): _go_tab("disability")
+                if st.button("④ 상해 통합 관리",   key="ag_b4",  use_container_width=True): _go_tab("injury")
+                if st.button("⑥ KCD 상해 분석",    key="ag_b6",  use_container_width=True): _go_tab("kcd_injury")
+                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#6A1B9A;margin:6px 0 3px 0;border-top:1px solid #CE93D8;padding-top:5px;letter-spacing:0.05em;'>🚗 자동차사고 상담</div>", unsafe_allow_html=True)
+                if st.button("⑤ 자동차사고 상담",  key="ag_b5",  use_container_width=True): _go_tab("t4")
+                if st.button("⑨ 자동차보험 실무",  key="ag_b9",  use_container_width=True): _go_tab("auto_comp")
             with _pf_c3:
                 st.markdown(f"""<div style="background:#FFF9C4;border:1.5px solid #F9A825;
       border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
@@ -39113,16 +39112,14 @@ div[data-testid="stButton"] {
       <div style="font-size:0.78rem;font-weight:900;color:#E65100;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:2px;">💼 C-SECTION: Wealth &amp; Corporate</div>
     </div>""", unsafe_allow_html=True)
-                _c_c1, _c_c2, _c_c3 = st.columns(3, gap="small")
-                with _c_c1:
-                    if st.button("① 노후·상속 설계",    key="ag_c1", use_container_width=True): _go_tab("t5")
-                    if st.button("② 세무 상담",          key="ag_c2", use_container_width=True): _go_tab("t6")
-                with _c_c2:
-                    if st.button("③ 법인 상담",          key="ag_c3", use_container_width=True): _go_tab("t7")
-                    if st.button("④ 비상장주식 평가",    key="ag_c5", use_container_width=True): _go_tab("stock_eval")
-                with _c_c3:
-                    if st.button("⑤ 화재보험",          key="ag_c6", use_container_width=True): _go_tab("fire")
-                    if st.button("⑥ 배상책임 통합상담",  key="ag_c7", use_container_width=True): _go_tab("liability")
+                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#E65100;margin:6px 0 3px 0;border-top:1px solid #F9A825;padding-top:5px;letter-spacing:0.05em;'>💰 자산·법인 설계</div>", unsafe_allow_html=True)
+                if st.button("① 노후·상속 설계",    key="ag_c1", use_container_width=True): _go_tab("t5")
+                if st.button("② 세무 상담",          key="ag_c2", use_container_width=True): _go_tab("t6")
+                if st.button("③ 법인 상담",          key="ag_c3", use_container_width=True): _go_tab("t7")
+                if st.button("④ 비상장주식 평가",    key="ag_c5", use_container_width=True): _go_tab("stock_eval")
+                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#E65100;margin:6px 0 3px 0;border-top:1px solid #F9A825;padding-top:5px;letter-spacing:0.05em;'>🏢 재물·배상 상담</div>", unsafe_allow_html=True)
+                if st.button("⑤ 화재보험",          key="ag_c6", use_container_width=True): _go_tab("fire")
+                if st.button("⑥ 배상책임 통합상담",  key="ag_c7", use_container_width=True): _go_tab("liability")
 
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
@@ -39729,7 +39726,7 @@ div[data-testid="stButton"] {
     
             # ── [NAV-05] 내비게이션 바 ─────────────────────────────────────────
             st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
-                        "margin:10px 0 4px 0;'>5 / 7단계 — 네비게이션 게이트웨이</div>",
+                        "margin:10px 0 4px 0;'>5 / 7단계 — 상담 SECTION 게이트 웨이</div>",
                         unsafe_allow_html=True)
             _nav05_l, _nav05_r = st.columns([2, 8])
             with _nav05_l:
@@ -40218,7 +40215,7 @@ div[data-testid="stButton"] {
         if tab_key in _SEC05_TABS:
             _thb_c1, _thb_c2 = st.columns([3, 1])
             with _thb_c1:
-                if st.button("⬅️ 네비게이션 게이트웨이(A-M)로 돌아가기",
+                if st.button("⬅️ 상담 SECTION 게이트 웨이로 돌아가기",
                              key=f"btn_back_sec05_{tab_key}",
                              use_container_width=True):
                     st.session_state["current_tab"] = "home"
