@@ -6553,6 +6553,9 @@ textarea::placeholder {
     box-shadow: 0 6px 20px rgba(99,102,241,0.45) !important;
     transform: translateY(-2px) !important;
 }
+div[data-testid="stButton"] {
+    margin-bottom: 2px !important;
+}
 /* gp82 내비게이션 버튼 예외 — 자체 스타일 유지 */
 .gp82-home-btn button,
 .gp82-logout-btn button {
@@ -39100,16 +39103,16 @@ div[data-testid="stButton"] > button {
       <div style="font-size:0.78rem;font-weight:900;color:#E65100;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:2px;">💼 C-SECTION: Wealth &amp; Corporate</div>
     </div>""", unsafe_allow_html=True)
-                _c_c1, _c_c2 = st.columns(2, gap="small")
+                _c_c1, _c_c2, _c_c3 = st.columns(3, gap="small")
                 with _c_c1:
-                    if st.button("① 노후·상속 설계",   key="ag_c1", use_container_width=True): _go_tab("t5")
-                    if st.button("② 세무 상담",         key="ag_c2", use_container_width=True): _go_tab("t6")
-                    if st.button("③ 법인 상담",         key="ag_c3", use_container_width=True): _go_tab("t7")
-                    if st.button("④ CEO 플랜",          key="ag_c4", use_container_width=True): _go_tab("t8")
+                    if st.button("① 노후·상속 설계",    key="ag_c1", use_container_width=True): _go_tab("t5")
+                    if st.button("② 세무 상담",          key="ag_c2", use_container_width=True): _go_tab("t6")
                 with _c_c2:
-                    if st.button("⑤ 비상장주식 평가",   key="ag_c5", use_container_width=True): _go_tab("stock_eval")
-                    if st.button("⑥ 화재보험",          key="ag_c6", use_container_width=True): _go_tab("fire")
-                    if st.button("⑦ 배상책임보험",      key="ag_c7", use_container_width=True): _go_tab("liability")
+                    if st.button("③ 법인 상담",          key="ag_c3", use_container_width=True): _go_tab("t7")
+                    if st.button("④ 비상장주식 평가",    key="ag_c5", use_container_width=True): _go_tab("stock_eval")
+                with _c_c3:
+                    if st.button("⑤ 화재보험",          key="ag_c6", use_container_width=True): _go_tab("fire")
+                    if st.button("⑥ 배상책임 통합상담",  key="ag_c7", use_container_width=True): _go_tab("liability")
 
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
@@ -50491,9 +50494,9 @@ div[data-testid="stButton"] > button {
         st.markdown(f"""
     <div style="position:relative;background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);
       border-radius:12px;padding:14px 20px;margin-bottom:14px;border-left:4px solid #f59e0b;">
-      {_bid('21-1-1')}
+      {_bid('23-1-1')}
       <div style="color:#92400e;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
-    ⚖️ 배상책임보험 상담
+    ⚖️ 배상책임보험 통합상담
       </div>
       <div style="color:#78350f;font-size:0.82rem;margin-top:4px;">
     시설·영업 배상 · 의무보험 · 전문인배상 · 중복보험 독립책임액
