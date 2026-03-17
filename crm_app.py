@@ -342,12 +342,23 @@ if not _is_authenticated():
                 if _crm_login_btn:
                     _cn = (_crm_name_in    or "").strip()
                     _cc = (_crm_contact_in or "").strip()
-                    # ── [GP-SEC §1] 관리자 로그인 — SHA-256 해시 비교 (평문 금지) ───────
+                    # ── [GP-SEC §1] 관리자 로그인 — HQ 동일: ADMIN_CODE/MASTER_CODE 우선, SHA-256 폴백 ──
                     import hashlib as _hl_adm
+                    _env_admin_code  = get_env_secret("ADMIN_CODE", "")
+                    _env_master_code = get_env_secret("MASTER_CODE", "")
                     _adm_default_hash = _hl_adm.sha256(b"kgagold6803").hexdigest()
-                    _adm_pw_hash = get_env_secret("CRM_ADMIN_PW_HASH", _adm_default_hash)
-                    _adm_input_hash = _hl_adm.sha256((_cc or "").encode()).hexdigest()
-                    if _cn == "admin" and _adm_input_hash == _adm_pw_hash:
+                    _adm_pw_hash      = get_env_secret("CRM_ADMIN_PW_HASH", _adm_default_hash)
+                    _adm_input_hash   = _hl_adm.sha256((_cc or "").encode()).hexdigest()
+                    _is_admin_name    = _cn.lower() in ("admin", "이세윤")
+                    _is_admin_auth    = False
+                    if _is_admin_name:
+                        if _env_admin_code and _cc == _env_admin_code:
+                            _is_admin_auth = True       # Track A: ADMIN_CODE 평문 (HQ와 동일)
+                        elif _env_master_code and _cc == _env_master_code:
+                            _is_admin_auth = True       # Track B: MASTER_CODE 평문
+                        elif _adm_input_hash == _adm_pw_hash:
+                            _is_admin_auth = True       # Track C: SHA-256 해시 폴백
+                    if _is_admin_auth:
                         st.session_state["crm_authenticated"] = True
                         st.session_state["crm_user_id"]       = "admin"
                         st.session_state["crm_user_name"]     = "관리자"

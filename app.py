@@ -39171,17 +39171,15 @@ div[data-testid="stButton"] {
             st.markdown(
                 f'<div class="gk-sec" style="border-top:4px solid #7c3aed;background:#f5f3ff;">'
                 f'<div style="position:relative;">{_bid("1-5-8")}'
-                f'<span class="gk-sec-title" style="color:#7c3aed;">📊 G-SECTION: 증권분석 · 특별 상담 진입</span></div>',
+                f'<span class="gk-sec-title" style="color:#7c3aed;">📊 G-SECTION: 화재.자동차 보험 상담</span></div>',
                 unsafe_allow_html=True)
-            st.markdown("<div style='font-size:0.82rem;color:#374151;margin-bottom:10px;'>증권분석·전문 상담 섹터 빠른 진입 — 내보험다보여·화재·자동차 통합 분석</div>", unsafe_allow_html=True)
             _g_l, _g_r = st.columns([5, 5], gap="medium")
             with _g_l:
                 st.markdown("<div style='border:1px dashed #7c3aed;border-radius:8px;padding:10px 12px;background:#ede9fe;'><b style='color:#7c3aed;'>📋 전문 섹터 안내</b><br>", unsafe_allow_html=True)
-                for _gn, _gdesc in [("📊 통합 증권분석", "내보험다보여 JSON + 트리니티 엔진"), ("🔥 화재보험 섹터", "건물·가재·배상책임 보장 분석"), ("🚗 자동차보험 섹터", "교통사고·운전자보험 실무 상담")]:
+                for _gn, _gdesc in [("🔥 화재보험 섹터", "건물·가재·배상책임 보장 분석"), ("🚗 자동차보험 섹터", "교통사고·운전자보험 실무 상담")]:
                     st.markdown(f'<div style="border-bottom:1px solid #c4b5fd;padding:4px 6px;font-size:0.82rem;"><b>{_gn}</b><br><span style="color:#64748b;font-size:0.75rem;">{_gdesc}</span></div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             with _g_r:
-                if st.button("📊 통합 증권분석 (내보험다보여)", key="sec_securities_enter", use_container_width=True): _go_tab("scan_hub")
                 if st.button("🔥 화재보험 섹터로", key="sec_fire_enter2", use_container_width=True): _go_tab("fire")
                 if st.button("🚗 자동차보험 섹터로", key="sec_auto_enter2", use_container_width=True): _go_tab("auto_comp")
             st.markdown('</div>', unsafe_allow_html=True)
