@@ -39632,6 +39632,33 @@ div[data-testid="stButton"] {
 
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
+            # ── [🔱 트리니티 엔진] L-SECTION 부속 — 독립 단독 파트 ──────────
+            st.markdown(
+                f'<div class="gk-sec" style="border-top:4px solid #002D56;background:#f8faff;">'
+                f'<div style="position:relative;">{_bid("1-5-tri")}'
+                f'<span class="gk-sec-title" style="color:#002D56;">'
+                f'🔱 트리니티(Trinity) 증권분석 엔진</span>'
+                f'<span style="background:#002D56;color:#FFCC00;font-size:0.62rem;'
+                f'font-weight:900;padding:2px 8px;border-radius:4px;margin-left:10px;'
+                f'vertical-align:middle;">단독 엔진 · 인생 가치 산출기</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<div style='font-size:0.80rem;color:#374151;margin-bottom:12px;'>"
+                "건보료 역산 소득 → 24개월 골든타임 필요 자금 → Fact-Crisis-Gap-Solution 클로징 — "
+                "<b style='color:#002D56;'>KB·내보험다보여 엔진과 완전 분리 운영</b>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            try:
+                render_trinity_analysis_part()
+            except Exception as _tri_call_e:
+                st.error(f"트리니티 분석 파트 오류: {_tri_call_e}")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
             st.markdown(f"""<div style="background:#f0fdf4;border:2px solid #16a34a;
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
       {_bid('1-5-7')}
@@ -40579,6 +40606,403 @@ div[data-testid="stButton"] {
 
             except Exception as _kb_rpt_e:
                 st.error(f"❌ KB 결과 렌더링 오류: {_kb_rpt_e}")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [🔱 트리니티 엔진] render_trinity_analysis_part — L-SECTION 부속 독립 파트
+    # ══════════════════════════════════════════════════════════════════════
+    @st.fragment
+    def render_trinity_analysis_part():
+        """🔱 트리니티(Trinity) 경제가치 분석 엔진 — KB·내보험다보여와 완전 분리."""
+        _TRI_NAVY   = "#002D56"
+        _TRI_YELLOW = "#FFCC00"
+        _TRI_LIGHT  = "#F4F4F4"
+        _TRI_GOLD   = "#B8860B"
+
+        # ── 헤더 ──────────────────────────────────────────────────────────
+        st.markdown(f"""
+        <div style="background:linear-gradient(135deg,{_TRI_NAVY} 70%,#003d7a 100%);
+                    border-radius:12px;padding:14px 20px 12px 20px;margin-bottom:14px;
+                    border-left:5px solid {_TRI_YELLOW};">
+          <div style="color:{_TRI_YELLOW};font-size:1.08rem;font-weight:900;
+                      letter-spacing:0.06em;">
+            🔱 트리니티(Trinity) 경제가치 분석 엔진
+          </div>
+          <div style="color:#cdd8e3;font-size:0.73rem;margin-top:5px;line-height:1.6;">
+            ① 소득 역산 축 (건보료→월소득)&nbsp;&nbsp;
+            ② 소득 대체 공백 축 (24개월 골든타임)&nbsp;&nbsp;
+            ③ 심리적 클로징 축 (Fact-Crisis-Gap-Solution)
+          </div>
+          <div style="margin-top:6px;">
+            <span style="background:{_TRI_YELLOW};color:{_TRI_NAVY};font-size:0.62rem;
+                         font-weight:900;padding:2px 8px;border-radius:4px;">
+              단독 엔진 · KB·내보험다보여와 절대 분리
+            </span>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        try:
+            from engines.trinity_value_engine import (
+                run_trinity_analysis, TrinityReport, _w
+            )
+        except Exception as _tri_imp_e:
+            st.error(f"트리니티 엔진 로드 실패: {_tri_imp_e}")
+            return
+
+        # ── 입력 영역 ─────────────────────────────────────────────────────
+        _tri_c_info, _tri_c_form = st.columns([3, 7], gap="medium")
+
+        with _tri_c_info:
+            st.markdown(f"""
+            <div style="background:{_TRI_LIGHT};border:2px solid {_TRI_NAVY};
+                        border-radius:8px;padding:10px 12px;font-size:0.76rem;">
+              <b style="color:{_TRI_NAVY};">🔱 Tri-Logic 분석 안내</b><br>
+              <span style="color:#374151;">
+              • 건강보험료: 월급명세서 <b>본인부담</b>액<br>
+              • 직장가입자 역산 요율: 3.545%<br>
+              • 골든타임: 중대질병 회복 <b>24개월</b><br>
+              • KB 엔진 결과 연동 시 소득 공백 자동 계산<br>
+              • 클로징 스크립트 4단계 자동 생성
+              </span>
+            </div>""", unsafe_allow_html=True)
+
+        with _tri_c_form:
+            _tri_tabs = st.tabs(["✏️ 건보료 입력", "🔗 KB 엔진 연동", "🎯 샘플 데모"])
+
+            with _tri_tabs[0]:
+                _tri_col1, _tri_col2 = st.columns(2)
+                with _tri_col1:
+                    _tri_premium_raw = st.number_input(
+                        "건강보험료 본인부담액 (원)",
+                        min_value=0, max_value=4_000_000,
+                        value=213_400, step=1_000,
+                        key="tri_premium",
+                        help="월급명세서의 건강보험료 본인부담 항목",
+                    )
+                    _tri_emp_type = st.selectbox(
+                        "가입 유형", ["직장", "지역"],
+                        key="tri_emp_type",
+                    )
+                with _tri_col2:
+                    _tri_ltc_inc = st.checkbox(
+                        "장기요양보험료 포함",
+                        value=False, key="tri_ltc_inc",
+                        help="건보료+장기요양 합산 금액 입력 시 체크",
+                    )
+                    _tri_cname = st.text_input(
+                        "고객명 (클로징 멘트용)",
+                        value="고객", key="tri_cname",
+                    )
+                _tri_kb_cancer = 0.0
+                _tri_kb_total  = 0.0
+
+            with _tri_tabs[1]:
+                st.markdown(
+                    f"<div style='font-size:0.76rem;color:{_TRI_NAVY};font-weight:700;"
+                    f"margin-bottom:6px;'>KB 엔진 분석 결과 연동 (세션 자동 로드)</div>",
+                    unsafe_allow_html=True,
+                )
+                # 세션에서 KB 결과 자동 로드
+                _kb_rpt_sess = st.session_state.get("_kb_report")
+                _tri_kb_cancer_linked = 0.0
+                _tri_kb_total_linked  = 0.0
+                if _kb_rpt_sess is not None:
+                    try:
+                        _tri_kb_cancer_linked = sum(
+                            c.weighted_score for c in _kb_rpt_sess.categories
+                            if "암" in c.category
+                        )
+                        _tri_kb_total_linked  = _kb_rpt_sess.total_score
+                        st.success(
+                            f"✅ KB 엔진 결과 연동됨 — "
+                            f"암 가중스코어 {_tri_kb_cancer_linked:,.0f}만원 / "
+                            f"전체 {_tri_kb_total_linked:,.0f}만원"
+                        )
+                    except Exception:
+                        st.info("KB 엔진 결과 형식 오류 — 수동 입력 탭을 이용해 주세요.")
+                else:
+                    st.info("KB 전문 증권분석 엔진을 먼저 실행하면 자동 연동됩니다.")
+
+                _tri_lc1, _tri_lc2 = st.columns(2)
+                with _tri_lc1:
+                    _tri_premium_linked = st.number_input(
+                        "건강보험료 본인부담액 (원)",
+                        min_value=0, max_value=4_000_000,
+                        value=213_400, step=1_000,
+                        key="tri_premium_linked",
+                    )
+                    _tri_emp_type_l = st.selectbox(
+                        "가입 유형", ["직장", "지역"],
+                        key="tri_emp_type_l",
+                    )
+                with _tri_lc2:
+                    _tri_cname_l = st.text_input(
+                        "고객명", value="고객", key="tri_cname_l",
+                    )
+                    _tri_ltc_l = st.checkbox(
+                        "장기요양 포함", value=False, key="tri_ltc_l",
+                    )
+
+            with _tri_tabs[2]:
+                st.caption("샘플: 건보료 213,400원 직장가입자 / KB 암 스코어 3,000만원")
+                _tri_demo = {
+                    "premium": 213_400, "emp": "직장",
+                    "kb_cancer": 3_000.0, "kb_total": 8_000.0,
+                    "name": "홍길동",
+                }
+
+        # ── 실행 버튼 ─────────────────────────────────────────────────────
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        _tri_btn_c1, _tri_btn_c2, _tri_btn_c3 = st.columns(3, gap="small")
+        _tri_run1 = _tri_btn_c1.button(
+            "🔱 건보료 입력 분석", key="tri_run1",
+            use_container_width=True, type="primary",
+        )
+        _tri_run2 = _tri_btn_c2.button(
+            "🔗 KB 연동 분석", key="tri_run2",
+            use_container_width=True,
+        )
+        _tri_run3 = _tri_btn_c3.button(
+            "🎯 샘플 데모 실행", key="tri_run3",
+            use_container_width=True,
+        )
+
+        # ── 분석 실행 ─────────────────────────────────────────────────────
+        _tri_report: Optional[TrinityReport] = None
+
+        if _tri_run1 or _tri_run2 or _tri_run3:
+            try:
+                if _tri_run3:
+                    _tri_report = run_trinity_analysis(
+                        nhis_premium    = _tri_demo["premium"],
+                        employment_type = _tri_demo["emp"],
+                        kb_cancer_score = _tri_demo["kb_cancer"],
+                        kb_total_score  = _tri_demo["kb_total"],
+                        customer_name   = _tri_demo["name"],
+                    )
+                elif _tri_run2:
+                    _tri_report = run_trinity_analysis(
+                        nhis_premium    = st.session_state.get("tri_premium_linked", 213_400),
+                        employment_type = st.session_state.get("tri_emp_type_l", "직장"),
+                        ltc_included    = st.session_state.get("tri_ltc_l", False),
+                        kb_cancer_score = _tri_kb_cancer_linked,
+                        kb_total_score  = _tri_kb_total_linked,
+                        customer_name   = st.session_state.get("tri_cname_l", "고객"),
+                    )
+                else:
+                    _tri_report = run_trinity_analysis(
+                        nhis_premium    = st.session_state.get("tri_premium", _tri_premium_raw),
+                        employment_type = st.session_state.get("tri_emp_type", "직장"),
+                        ltc_included    = st.session_state.get("tri_ltc_inc", False),
+                        kb_cancer_score = 0.0,
+                        kb_total_score  = 0.0,
+                        customer_name   = st.session_state.get("tri_cname", "고객"),
+                    )
+                st.session_state["_tri_report"] = _tri_report
+            except Exception as _tri_run_e:
+                st.error(f"❌ 트리니티 분석 오류: {_tri_run_e}")
+
+        if _tri_report is None:
+            _tri_report = st.session_state.get("_tri_report")
+
+        # ── 결과 출력: 트리니티 가치 인증서 ──────────────────────────────
+        if _tri_report is not None:
+            try:
+                _inc = _tri_report.income
+                _gap = _tri_report.gap
+                _cls = _tri_report.closing
+
+                # ── 가치 인증서 헤더 배너
+                _risk_c = {"위험": "#dc2626", "주의": "#ca8a04", "양호": "#16a34a"}.get(_gap.risk_level, "#6b7280")
+                st.markdown(f"""
+                <div style="background:{_TRI_NAVY};border-radius:10px;
+                            padding:14px 20px;margin:10px 0 12px 0;">
+                  <div style="color:{_TRI_YELLOW};font-size:0.72rem;font-weight:900;
+                               letter-spacing:0.14em;text-transform:uppercase;">
+                    🔱 Trinity 경제가치 인증서
+                  </div>
+                  <div style="display:flex;gap:28px;flex-wrap:wrap;margin-top:10px;">
+                    <div style="text-align:center;">
+                      <div style="color:#8ca9be;font-size:0.65rem;">월 경제가치</div>
+                      <div style="color:{_TRI_YELLOW};font-size:1.3rem;font-weight:900;">
+                        {_w(_inc.monthly_income)}만
+                      </div>
+                    </div>
+                    <div style="text-align:center;">
+                      <div style="color:#8ca9be;font-size:0.65rem;">연봉 환산</div>
+                      <div style="color:#fff;font-size:1.3rem;font-weight:900;">
+                        {_w(_inc.annual_income)}만
+                      </div>
+                    </div>
+                    <div style="text-align:center;">
+                      <div style="color:#8ca9be;font-size:0.65rem;">가처분 월소득</div>
+                      <div style="color:#fff;font-size:1.1rem;font-weight:700;">
+                        {_w(_inc.disposable_monthly)}만
+                      </div>
+                    </div>
+                    <div style="text-align:center;">
+                      <div style="color:#8ca9be;font-size:0.65rem;">골든타임 필요자금</div>
+                      <div style="color:{_TRI_YELLOW};font-size:1.3rem;font-weight:900;">
+                        {_w(_gap.golden_time_fund)}만
+                      </div>
+                    </div>
+                    <div style="margin-left:auto;text-align:center;">
+                      <div style="color:#8ca9be;font-size:0.65rem;">소득 대체율</div>
+                      <div style="background:{_risk_c};color:#fff;font-size:0.95rem;
+                                   font-weight:900;padding:4px 12px;border-radius:6px;">
+                        {_gap.coverage_ratio:.0f}% ({_gap.risk_level})
+                      </div>
+                    </div>
+                  </div>
+                  {f'<div style="color:#f87171;font-size:0.68rem;margin-top:8px;">⚠️ {_inc.note}</div>' if _inc.note else ''}
+                </div>
+                """, unsafe_allow_html=True)
+
+                # ── Tri-Logic 3축 상세 + 클로징 스크립트
+                _tl, _tr = st.columns([5, 5], gap="medium")
+
+                with _tl:
+                    # 축 ① 소득 역산
+                    st.markdown(
+                        f"<div style='font-size:0.78rem;font-weight:900;color:{_TRI_NAVY};"
+                        f"border-bottom:2px solid {_TRI_YELLOW};padding-bottom:4px;"
+                        f"margin-bottom:8px;'>① 소득 역산 축</div>",
+                        unsafe_allow_html=True,
+                    )
+                    for _lbl, _val, _unit in [
+                        ("가입 유형",           _inc.employment_type,              ""),
+                        ("건보료 입력",          f"{_inc.nhis_premium_input/10000:,.1f}만", "원(본인부담)"),
+                        ("추정 월 소득",         f"{_w(_inc.monthly_income)}",      "만원"),
+                        ("추정 연봉",            f"{_w(_inc.annual_income)}",        "만원"),
+                        ("가처분 월소득 (세후)", f"{_w(_inc.disposable_monthly)}",  "만원"),
+                    ]:
+                        st.markdown(
+                            f"<div style='display:flex;justify-content:space-between;"
+                            f"padding:4px 8px;border-bottom:1px solid #e5e7eb;"
+                            f"font-size:0.73rem;'>"
+                            f"<span style='color:#64748b;'>{_lbl}</span>"
+                            f"<span style='font-weight:700;color:{_TRI_NAVY};'>{_val}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                    # 축 ② 소득 공백
+                    st.markdown(
+                        f"<div style='font-size:0.78rem;font-weight:900;color:{_TRI_NAVY};"
+                        f"border-bottom:2px solid {_TRI_YELLOW};padding-bottom:4px;"
+                        f"margin:12px 0 8px 0;'>② 소득 대체 공백 축</div>",
+                        unsafe_allow_html=True,
+                    )
+                    _gap_items = [
+                        ("골든타임(24개월) 필요자금", f"{_w(_gap.golden_time_fund)}만",  _TRI_YELLOW if True else "#000"),
+                        ("KB 암 가중 스코어",         f"{_w(_gap.kb_cancer_score)}만",   "#374151"),
+                        ("생계 파괴 공백",            f"{_w(abs(_gap.income_gap))}만",   "#dc2626" if _gap.income_gap > 0 else "#16a34a"),
+                        ("소득 대체율",               f"{_gap.coverage_ratio:.1f}%",     _risk_c),
+                    ]
+                    for _lbl, _val, _vc in _gap_items:
+                        st.markdown(
+                            f"<div style='display:flex;justify-content:space-between;"
+                            f"padding:4px 8px;border-bottom:1px solid #e5e7eb;"
+                            f"font-size:0.73rem;'>"
+                            f"<span style='color:#64748b;'>{_lbl}</span>"
+                            f"<span style='font-weight:900;color:{_vc};'>{_val}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                    # 시각화: 골든타임 vs 보장 비교 바
+                    if _gap.golden_time_fund > 0:
+                        _bar_pct = min(int(_gap.coverage_ratio), 100)
+                        st.markdown(f"""
+                        <div style="margin-top:10px;">
+                          <div style="font-size:0.68rem;color:#64748b;margin-bottom:4px;">
+                            보장 커버율 {_gap.coverage_ratio:.0f}% / 골든타임 대비
+                          </div>
+                          <div style="background:#e5e7eb;border-radius:4px;height:12px;">
+                            <div style="background:{_risk_c};width:{_bar_pct}%;
+                                        height:12px;border-radius:4px;
+                                        transition:width 0.5s;"></div>
+                          </div>
+                          <div style="display:flex;justify-content:space-between;
+                                      font-size:0.62rem;color:#94a3b8;margin-top:2px;">
+                            <span>0%</span><span>50%</span><span>100%</span>
+                          </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                with _tr:
+                    st.markdown(
+                        f"<div style='font-size:0.78rem;font-weight:900;color:{_TRI_NAVY};"
+                        f"border-bottom:2px solid {_TRI_YELLOW};padding-bottom:4px;"
+                        f"margin-bottom:10px;'>③ 심리적 클로징 스크립트</div>",
+                        unsafe_allow_html=True,
+                    )
+                    _script_steps = [
+                        ("FACT",     "📊", "#2563eb", _cls.fact),
+                        ("CRISIS",   "⚡", "#ea580c", _cls.crisis),
+                        ("GAP",      "🎯", "#dc2626", _cls.gap),
+                        ("SOLUTION", "✅", "#16a34a", _cls.solution),
+                    ]
+                    for _step, _icon, _sc, _txt in _script_steps:
+                        st.markdown(
+                            f"<div style='background:{_TRI_LIGHT};border-left:4px solid {_sc};"
+                            f"border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:8px;'>"
+                            f"<div style='font-size:0.65rem;font-weight:900;color:{_sc};"
+                            f"letter-spacing:0.1em;margin-bottom:4px;'>{_icon} {_step}</div>"
+                            f"<div style='font-size:0.73rem;color:#1e293b;line-height:1.7;'>"
+                            f"{_txt}</div></div>",
+                            unsafe_allow_html=True,
+                        )
+
+                # ── AI 클로징 총평 생성 버튼
+                st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+                if st.button(
+                    "🤖 트리니티 AI 심화 클로징 생성 (Gemini)",
+                    key="tri_ai_btn",
+                    use_container_width=True,
+                    help="AI가 고객 데이터 기반 심화 클로징 멘트를 생성합니다.",
+                ):
+                    try:
+                        _tri_ai_c = get_client()
+                        _tri_prompt = (
+                            f"[트리니티 경제가치 분석 결과]\n"
+                            f"고객명: {st.session_state.get('tri_cname','고객')}\n"
+                            f"건보료: {_inc.nhis_premium_input/10000:,.1f}만원 ({_inc.employment_type})\n"
+                            f"추정 월소득: {_w(_inc.monthly_income)}만 / 연봉: {_w(_inc.annual_income)}만\n"
+                            f"가처분 월소득: {_w(_inc.disposable_monthly)}만\n"
+                            f"골든타임 필요자금(24개월): {_w(_gap.golden_time_fund)}만\n"
+                            f"KB 암 가중스코어: {_w(_gap.kb_cancer_score)}만\n"
+                            f"생계 파괴 공백: {_w(abs(_gap.income_gap))}만\n"
+                            f"소득 대체율: {_gap.coverage_ratio:.1f}% ({_gap.risk_level})\n\n"
+                            "위 데이터를 기반으로 '논리적 설득 70% + 전략적 위기 30%' 톤으로 "
+                            "KB손해보험 전문 설계사가 사용하는 4단계(FACT-CRISIS-GAP-SOLUTION) "
+                            "심화 클로징 스크립트를 작성하라. "
+                            "전문 용어(가처분 소득, 소득 대체율, 생계 파괴 구간)를 사용하고, "
+                            "마지막에 설계사가 바로 사용 가능한 한 문장 핵심 멘트를 강조 표시하라."
+                        )
+                        _tri_ai_cfg = _lazy_genai_types().GenerateContentConfig(
+                            max_output_tokens=900, temperature=0.6,
+                        )
+                        _tri_ai_resp = _tri_ai_c.models.generate_content(
+                            model=GEMINI_MODEL, contents=_tri_prompt, config=_tri_ai_cfg,
+                        )
+                        st.session_state["_tri_ai_closing"] = (_tri_ai_resp.text or "").strip()
+                    except Exception as _tai_e:
+                        st.error(f"AI 클로징 생성 오류: {_tai_e}")
+
+                if st.session_state.get("_tri_ai_closing"):
+                    st.markdown(
+                        f"<div style='background:{_TRI_NAVY};border-radius:8px;"
+                        f"padding:14px 16px;margin-top:8px;font-size:0.78rem;"
+                        f"line-height:1.9;color:#e2e8f0;border-left:5px solid {_TRI_YELLOW};'>"
+                        f"<div style='color:{_TRI_YELLOW};font-size:0.68rem;font-weight:900;"
+                        f"letter-spacing:0.1em;margin-bottom:6px;'>🔱 AI 심화 클로징</div>"
+                        f"{st.session_state['_tri_ai_closing'].replace(chr(10),'<br>')}</div>",
+                        unsafe_allow_html=True,
+                    )
+
+            except Exception as _tri_rpt_e:
+                st.error(f"❌ 트리니티 결과 렌더링 오류: {_tri_rpt_e}")
 
     # ── [policy_scan] 보험증권 분석 — 독립 전용 탭 ──────────────────────
     if cur == "policy_scan":
