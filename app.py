@@ -6541,6 +6541,11 @@ textarea::placeholder {
     font-weight: 700 !important;
     letter-spacing: -0.01em !important;
     transition: all 0.22s cubic-bezier(0.25,0.46,0.45,0.94) !important;
+    height: auto !important;
+    min-height: 2.8rem !important;
+    white-space: normal !important;
+    word-break: keep-all !important;
+    line-height: 1.3 !important;
 }
 [data-testid="stButton"] > button:hover {
     background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%) !important;
@@ -39073,17 +39078,18 @@ div[data-testid="stButton"] > button {
       <div style="font-size:0.78rem;font-weight:900;color:#6A1B9A;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:2px;">🛡️ B-SECTION: Expert Consulting</div>
     </div>""", unsafe_allow_html=True)
-                _b_c1, _b_c2 = st.columns(2, gap="small")
+                _b_c1, _b_c2, _b_c3 = st.columns(3, gap="small")
                 with _b_c1:
                     if st.button("① 신규보험 상담",    key="ag_b1",  use_container_width=True): _go_tab("t0")
                     if st.button("② 보험금 청구 상담", key="ag_b2",  use_container_width=True): _go_tab("t1")
                     if st.button("③ 장해 산출",         key="ag_b3",  use_container_width=True): _go_tab("disability")
                     if st.button("④ 상해 통합 관리",   key="ag_b4",  use_container_width=True): _go_tab("injury")
+                with _b_c2:
                     if st.button("⑤ 자동차사고 상담",  key="ag_b5",  use_container_width=True): _go_tab("t4")
                     if st.button("⑥ KCD 상해 분석",    key="ag_b6",  use_container_width=True): _go_tab("kcd_injury")
-                with _b_c2:
-                    if st.button("⑦ 암·뇌·심장 상담", key="ag_b7",  use_container_width=True): _go_tab("t2")
+                    if st.button("⑦ 암·뇌·심장 상담", key="ag_b7",  use_container_width=True): _go_tab("cancer")
                     if st.button("⑧ 기본·통합 설계",   key="ag_b8",  use_container_width=True): _go_tab("t3")
+                with _b_c3:
                     if st.button("⑨ 자동차보험 실무",  key="ag_b9",  use_container_width=True): _go_tab("auto_comp")
                     if st.button("⑩ LIFE CYCLE 설계",  key="ag_b10", use_container_width=True): _go_tab("life_cycle")
                     if st.button("⑪ LIFE EVENT 상담",  key="ag_b11", use_container_width=True): _go_tab("life_event")
@@ -43993,6 +43999,7 @@ div[data-testid="stButton"] > button {
 
     # ── [disability] 장해보험금 산출 ─────────────────────────────────────
     if cur == "disability":
+        if not _auth_gate("disability"): st.stop()
         tab_home_btn("disability")
         with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
             st.markdown(f"""
