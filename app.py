@@ -28634,9 +28634,19 @@ def section_housing_pension():
 
 
 # --------------------------------------------------------------------------
+# [GP-FWD] @st.fragment 함수 forward stubs — UnboundLocalError 방지
+# main() 내 @st.fragment def가 local variable로 인식되어 호출 전 오류 발생을 차단.
+# main()에서 global 선언 후 @st.fragment def가 실행되면 global 덮어씀.
+def render_kb_analysis_part(): pass
+def render_trinity_analysis_part(): pass
+def render_unified_gap_analysis_part(): pass
+
+
+# --------------------------------------------------------------------------
 def main():
     # ── STEP 1: set_page_config → 최상단(파일 로드 즉시)으로 이전 완료 ──────
     # [제53조] 사이드바 expanded는 최상단 set_page_config에서 보장됨
+    global render_kb_analysis_part, render_trinity_analysis_part, render_unified_gap_analysis_part
 
     # 세션 백업에서 복원 (rerun 후 user_id 유실 방지)
     _early_saved_uid = st.session_state.get("_saved_user_id")
@@ -39577,31 +39587,6 @@ div[data-testid="stButton"] {
                             except Exception as _demo_e:
                                 st.error("❌ 데모 오류: " + str(_demo_e))
                 if st.button("📊 증권 전문 분석 탭으로 →", key="sector_sec_goto"): _go_tab("policy_scan")
-            # ── [L-SECTION 부속파트] 대리점 현장실무 증권분석 파트 ────────────────
-            st.markdown(
-                "<div style='border-top:2px dashed #059669;margin-top:14px;padding-top:12px;'>",
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                "<div style='font-size:0.82rem;font-weight:900;color:#059669;"
-                "letter-spacing:0.05em;margin-bottom:4px;'>"
-                "📋 대리점 현장실무 증권분석 파트</div>"
-                "<div style='font-size:0.74rem;color:#374151;margin-bottom:10px;'>"
-                "PDF·이미지 증권 직접 분석 / 약관 매칭 / 스캔 허브 / AI 자동 리포트 — 현장 전용 4대 엔진</div>",
-                unsafe_allow_html=True,
-            )
-            _lsub_c1, _lsub_c2 = st.columns(2, gap="small")
-            with _lsub_c1:
-                if st.button("① 보험증권 AI 분석",  key="lsec_sub1", use_container_width=True): _go_tab("policy_scan")
-                if st.button("② 통합 스캔 허브",    key="lsec_sub2", use_container_width=True): _go_tab("scan_hub")
-            with _lsub_c2:
-                if st.button("③ 약관 매칭 검색",    key="lsec_sub3", use_container_width=True): _go_tab("policy_terms")
-                if st.button("④ AI 자동 리포트",    key="lsec_sub4", use_container_width=True): _go_tab("report43")
-            st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-
             # ── [KB 전문 증권분석 파트] L-SECTION 부속 — 독립 단독 파트 ──────────
             st.markdown(
                 f'<div class="gk-sec" style="border-top:4px solid #002D56;background:#f8faff;">'
@@ -39632,13 +39617,13 @@ div[data-testid="stButton"] {
 
             # ── [🔱 트리니티 엔진] L-SECTION 부속 — 독립 단독 파트 ──────────
             st.markdown(
-                f'<div class="gk-sec" style="border-top:4px solid #002D56;background:#f8faff;">'
+                f'<div class="gk-sec" style="border-top:4px solid #6d28d9;background:#f5f3ff;">'
                 f'<div style="position:relative;">{_bid("1-5-tri")}'
-                f'<span class="gk-sec-title" style="color:#002D56;">'
+                f'<span class="gk-sec-title" style="color:#5b21b6;">'
                 f'🔱 트리니티(Trinity) 증권분석 엔진</span>'
-                f'<span style="background:#002D56;color:#FFCC00;font-size:0.62rem;'
+                f'<span style="background:#ede9fe;color:#5b21b6;font-size:0.62rem;'
                 f'font-weight:900;padding:2px 8px;border-radius:4px;margin-left:10px;'
-                f'vertical-align:middle;">단독 엔진 · 인생 가치 산출기</span>'
+                f'vertical-align:middle;border:1px solid #c4b5fd;">단독 엔진 · 인생 가치 산출기</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -39659,13 +39644,13 @@ div[data-testid="stButton"] {
 
             # ── [🏛️ 통합 갭 분석] L-SECTION 최상위 단독 파트 ────────────────
             st.markdown(
-                f'<div class="gk-sec" style="border-top:5px solid #002D56;background:#f0f4ff;">'
+                f'<div class="gk-sec" style="border-top:4px solid #1d4ed8;background:#eff6ff;">'
                 f'<div style="position:relative;">{_bid("1-5-hub")}'
-                f'<span class="gk-sec-title" style="color:#002D56;">'
-                f'🏛️ 통합 증권 갭 분석 시스템</span>'
-                f'<span style="background:#002D56;color:#FFCC00;font-size:0.62rem;'
+                f'<span class="gk-sec-title" style="color:#1d4ed8;">'
+                f'🏗️ 통합 증권 갭 분석 시스템</span>'
+                f'<span style="background:#dbeafe;color:#1d4ed8;font-size:0.62rem;'
                 f'font-weight:900;padding:2px 8px;border-radius:4px;margin-left:10px;'
-                f'vertical-align:middle;">Unified Gap Analysis · KB+Trinity 결합</span>'
+                f'vertical-align:middle;border:1px solid #93c5fd;">Unified Gap Analysis · KB+Trinity 결합</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -40654,21 +40639,21 @@ div[data-testid="stButton"] {
 
         # ── 헤더 ──────────────────────────────────────────────────────────
         st.markdown(f"""
-        <div style="background:linear-gradient(135deg,{_TRI_NAVY} 70%,#003d7a 100%);
+        <div style="background:#f5f3ff;border:1px solid #c4b5fd;
                     border-radius:12px;padding:14px 20px 12px 20px;margin-bottom:14px;
-                    border-left:5px solid {_TRI_YELLOW};">
-          <div style="color:{_TRI_YELLOW};font-size:1.08rem;font-weight:900;
+                    border-left:5px solid #7c3aed;">
+          <div style="color:#4c1d95;font-size:1.08rem;font-weight:900;
                       letter-spacing:0.06em;">
             🔱 트리니티(Trinity) 경제가치 분석 엔진
           </div>
-          <div style="color:#cdd8e3;font-size:0.73rem;margin-top:5px;line-height:1.6;">
+          <div style="color:#6d28d9;font-size:0.73rem;margin-top:5px;line-height:1.6;">
             ① 소득 역산 축 (건보료→월소득)&nbsp;&nbsp;
             ② 소득 대체 공백 축 (24개월 골든타임)&nbsp;&nbsp;
             ③ 심리적 클로징 축 (Fact-Crisis-Gap-Solution)
           </div>
           <div style="margin-top:6px;">
-            <span style="background:{_TRI_YELLOW};color:{_TRI_NAVY};font-size:0.62rem;
-                         font-weight:900;padding:2px 8px;border-radius:4px;">
+            <span style="background:#ede9fe;color:#5b21b6;font-size:0.62rem;
+                         font-weight:900;padding:2px 8px;border-radius:4px;border:1px solid #c4b5fd;">
               단독 엔진 · KB·내보험다보여와 절대 분리
             </span>
           </div>
@@ -41050,21 +41035,22 @@ div[data-testid="stButton"] {
 
         # ── 헤더 ─────────────────────────────────────────────────────────
         st.markdown(f"""
-        <div style="background:linear-gradient(135deg,{_U_NAVY} 0%,#003d7a 100%);
-                    border-radius:12px;padding:14px 20px 12px 20px;margin-bottom:10px;">
-          <div style="color:{_U_YELLOW};font-size:1.10rem;font-weight:900;letter-spacing:0.05em;">
+        <div style="background:#eff6ff;border:1px solid #93c5fd;
+                    border-radius:12px;padding:14px 20px 12px 20px;margin-bottom:10px;
+                    border-left:5px solid #1d4ed8;">
+          <div style="color:#1e3a8a;font-size:1.10rem;font-weight:900;letter-spacing:0.05em;">
             🏛️ 통합 증권 갭 분석 시스템
           </div>
-          <div style="color:#cdd8e3;font-size:0.73rem;margin-top:5px;line-height:1.6;">
+          <div style="color:#1d4ed8;font-size:0.73rem;margin-top:5px;line-height:1.6;">
             KB 정밀 증권분석 × 트리니티 경제가치 분석 → 생계 파괴 공백 원클릭 산출
           </div>
           <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
-            <span style="background:{_U_YELLOW};color:{_U_NAVY};font-size:0.62rem;
-                         font-weight:900;padding:2px 8px;border-radius:4px;">
+            <span style="background:#dbeafe;color:#1d4ed8;font-size:0.62rem;
+                         font-weight:900;padding:2px 8px;border-radius:4px;border:1px solid #93c5fd;">
               단독 파트 · 타 엔진과 절대 분리
             </span>
-            <span style="background:#0d3a6e;color:#93c5fd;font-size:0.62rem;
-                         font-weight:700;padding:2px 8px;border-radius:4px;">
+            <span style="background:#e0f2fe;color:#0369a1;font-size:0.62rem;
+                         font-weight:700;padding:2px 8px;border-radius:4px;border:1px solid #7dd3fc;">
               결과 → N-SECTION 자동 브릿지
             </span>
           </div>
