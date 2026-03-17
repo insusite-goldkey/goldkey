@@ -56072,6 +56072,7 @@ div[data-testid="stButton"] > button {
 
     # ── [leaflet] 보험 리플렛 자동 분류 AI 시스템 ───────────────────────
     if cur == "leaflet":
+        if not _auth_gate("leaflet"): st.stop()
         tab_home_btn("leaflet")
         st.markdown(f"""
     <div style="position:relative;background:linear-gradient(135deg,#bfdbfe 0%,#93c5fd 100%);
