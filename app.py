@@ -28776,10 +28776,12 @@ footer, footer * { display: none !important; }
         # ── [메인 화면 로그인 폼] 사이드바 의존 완전 제거 ──
         _main_av = get_goldkey_avatar()
         _main_av_html = (
-            f'<img src="{_main_av}" width="110" height="110" loading="eager"'
-            ' style="border-radius:50%;border:4px solid #D4AF37;'
-            'box-shadow:0 4px 20px rgba(212,175,55,0.4);object-fit:cover;'
-            'display:block;margin:0 auto 14px auto;" />' if _main_av else
+            f'<div style="width:110px;height:110px;border-radius:50%;'
+            f'border:4px solid #D4AF37;'
+            f'background-image:url(\"{_main_av}\");background-size:cover;'
+            f'background-position:center top;'
+            f'box-shadow:0 4px 20px rgba(212,175,55,0.4);'
+            f'display:block;margin:0 auto 14px auto;"></div>' if _main_av else
             '<div style="width:110px;height:110px;border-radius:50%;'
             'background:linear-gradient(135deg,#1e3a8a,#D4AF37);'
             'margin:0 auto 14px auto;"></div>'
@@ -33997,10 +33999,12 @@ watchRipple();
         # 사이드바(로그인 폼)와 스플래시가 동시 노출 → 로그인 시 자동 전환
         _splash_av = get_goldkey_avatar()
         _splash_av_html = (
-            f'<img src="{_splash_av}" width="130" height="130" loading="eager"' +
-            ' style="border-radius:50%;border:4px solid #D4AF37;' +
-            'box-shadow:0 4px 24px rgba(212,175,55,0.35);object-fit:cover;' +
-            'display:block;margin:0 auto 22px auto;" />' if _splash_av else
+            f'<div style="width:130px;height:130px;border-radius:50%;' +
+            f'border:4px solid #D4AF37;' +
+            f'background-image:url(\"{_splash_av}\");background-size:cover;' +
+            f'background-position:center top;' +
+            f'box-shadow:0 4px 24px rgba(212,175,55,0.35);' +
+            f'display:block;margin:0 auto 22px auto;"></div>' if _splash_av else
             '<div style="width:130px;height:130px;border-radius:50%;' +
             'background:linear-gradient(135deg,#4facfe,#00f2fe);' +
             'margin:0 auto 22px auto;box-shadow:0 4px 24px rgba(79,172,254,0.4);"></div>'
@@ -36602,9 +36606,10 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
 
         _intro_avatar = get_goldkey_avatar()
         _intro_av_html = (
-            f'<img src="{_intro_avatar}" style="width:58px;height:58px;border-radius:50%;'
-            'object-fit:cover;object-position:center top;border:3px solid #f0c040;'
-            'box-shadow:0 0 16px rgba(240,192,32,0.6);flex-shrink:0;margin-right:14px;">'
+            f'<div style="width:58px;height:58px;border-radius:50%;'
+            f'background-image:url(\"{_intro_avatar}\");background-size:cover;'
+            f'background-position:center top;border:3px solid #f0c040;'
+            f'box-shadow:0 0 16px rgba(240,192,32,0.6);flex-shrink:0;margin-right:14px;"></div>'
         ) if _intro_avatar else (
             '<span style="font-size:3rem;margin-right:14px;">&#128105;&#8205;&#128188;</span>'
         )
