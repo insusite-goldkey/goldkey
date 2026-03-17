@@ -10,29 +10,8 @@ st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state
 # [1] 초기화 상태
 if 'initialized' not in st.session_state:
     st.session_state['initialized'] = False
-# === [UI 강제 여백 제거 CSS (설계자 직접 주입)] ===
-st.markdown("""
-    <style>
-    /* 1. Streamlit 앱 전체 상단 기본 여백(Padding) 대폭 축소 */
-    .block-container {
-        padding-top: 1.5rem !important; /* 이 숫자를 1rem으로 줄이면 더 붙습니다 */
-        padding-bottom: 0rem !important;
-    }
-    
-    /* 2. 눈에 안 보이는 상단 빈 헤더 영역 완전히 삭제 */
-    header[data-testid="stHeader"] {
-        display: none !important;
-        height: 0px !important;
-    }
 
-    /* 3. 타이틀과 첫 번째 카드 사이의 마진(Gap) 강제 축소 */
-    div[data-testid="stVerticalBlock"] {
-        gap: 0.5rem !important; /* 요소들 사이의 틈을 줄임 */
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# [2] 사이드바 상태 및 여백 제어 변수
+# [2] 사이드바 상태 및 여백 제어 변수 (추후 사용)
 
 # [ID-000-REG] 인증 세션키 조기 초기화 — NameError 원천 차단 (징검다리)
 if "authenticated" not in st.session_state:
@@ -41,6 +20,7 @@ if "user_name" not in st.session_state:
     st.session_state["user_name"] = ""
 if "user_id" not in st.session_state:
     st.session_state["user_id"] = ""
+
 # 인증 상태 조기 정의 — 파일 어느 위치에서도 NameError 없이 참조 가능
 _is_authenticated = st.session_state.get("authenticated", False)
 
@@ -53,12 +33,12 @@ def get_base64_image(path: str) -> str:
     except Exception:
         return ""
 
-# [4] 통합 CSS: 여백 제거 + 반응형 이미지
+# [4] 대통합 CSS: 중복 제거 및 요소 간격 강제 압착
 st.markdown("""
     <style>
-        /* 1. 전체 화면 외부 여백 및 헤더 제거 (설계자님 코드 유지) */
+        /* 1. 전체 화면 외부 여백 및 헤더 제거 */
         .main .block-container {
-            padding-top: 1rem !important; /* 상단이 너무 꽉 붙으면 답답할 수 있어 1rem만 줍니다 */
+            padding-top: 1.5rem !important; 
             padding-bottom: 0 !important;
             padding-left: 1rem !important;
             padding-right: 1rem !important;
