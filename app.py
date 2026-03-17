@@ -29107,7 +29107,12 @@ footer, footer * { display: none !important; }
                     def _do_final_login(ln: str):
                         """인증 성공 처리 — 기존 session_state 세팅 그대로 유지"""
                         members = load_members()
-                        m = members[ln]
+                        m = members.get(ln)
+                        if m is None:
+                            if ln in _get_unlimited_users() or ln.split("(")[0] in _get_unlimited_users():
+                                m = {"user_id": f"ADMIN_{ln[:6].upper()}", "join_date": dt.now().strftime("%Y-%m-%d"), "is_active": True, "status": "active", "pin_hash": ""}
+                            else:
+                                st.error("❌ 회원 정보를 찾을 수 없습니다."); return
                         try:
                             _jd = dt.strptime(m.get("join_date", ""), "%Y-%m-%d")
                         except (ValueError, TypeError):
@@ -29401,6 +29406,79 @@ footer, footer * { display: none !important; }
                                             st.error(f"🔒 {_LoginGuard.MAX_FAIL}회 실패 — {_LoginGuard.LOCK_MINUTES}분 잠금.")
                                         else:
                                             st.error(f"연락처가 올바르지 않습니다. (남은 시도: **{_rem_a}회**)")
+
+                    # ─────────────────────────────────────────────────────────────
+                    # [GP-ADM-LOGIN] 관리자 전용 로그인 — 회원 로그인과 완전 분리
+                    # 관리자 이름 + 관리자 코드 → 즉시 관리자 세션 (gk_members 불필요)
+                    # ─────────────────────────────────────────────────────────────
+                    if _lp == "A":
+                        st.markdown(
+                            "<hr style='border:none;border-top:2px dashed #D4AF37;"
+                            "margin:14px 0 8px 0;'>",
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            "<div style='background:#FFFDE7;border:1.5px solid #F9A825;"
+                            "border-left:4px solid #D4AF37;border-radius:10px;"
+                            "padding:10px 12px 6px 12px;margin-bottom:8px;'>"
+                            "<div style='font-size:0.88rem;font-weight:900;color:#000000;'>"
+                            "👑 관리자 로그인 (Admin)</div>"
+                            "<div style='font-size:0.70rem;color:#555555;margin-top:2px;line-height:1.4;'>"
+                            "관리자 이름 + 코드로 직접 입장 · 회원 DB 불필요</div></div>",
+                            unsafe_allow_html=True
+                        )
+                        _adm_l_nm = st.text_input(
+                            "관리자 이름", key="adm_l_nm",
+                            placeholder="예) 이세윤",
+                            label_visibility="collapsed"
+                        )
+                        _adm_l_pw = st.text_input(
+                            "관리자 코드", key="adm_l_pw",
+                            type="password",
+                            placeholder="관리자 코드 입력",
+                            label_visibility="collapsed"
+                        )
+                        if st.button("👑 관리자 로그인", key="btn_adm_login_direct",
+                                     use_container_width=True):
+                            _a_nm_v = (_adm_l_nm or "").strip()
+                            _a_pw_v = (_adm_l_pw or "").strip()
+                            _ac_v   = get_env_secret("ADMIN_CODE", "")
+                            _mc_v   = get_env_secret("MASTER_CODE", "")
+                            if not _a_nm_v:
+                                st.error("⚠️ 관리자 이름을 입력해주세요.")
+                            elif not _a_pw_v:
+                                st.error("⚠️ 관리자 코드를 입력해주세요.")
+                            elif _a_nm_v.lower() in ("admin", "이세윤") and _ac_v and _a_pw_v == _ac_v:
+                                st.session_state.user_id   = "ADMIN_MASTER"
+                                st.session_state.user_name = "이세윤"
+                                st.session_state.join_date = dt.now()
+                                st.session_state.is_admin  = True
+                                st.session_state["_login_welcome"]      = "이세윤"
+                                st.session_state["authenticated"]       = True
+                                st.session_state["_auto_close_sidebar"] = False
+                                _s39_save_session_cache(
+                                    user_id="ADMIN_MASTER",
+                                    user_name="이세윤",
+                                    user_role="admin"
+                                )
+                                st.rerun()
+                            elif _mc_v and _a_pw_v == _mc_v:
+                                _adm_m_name = get_env_secret("MASTER_NAME", "이세윤")
+                                st.session_state.user_id   = "PERMANENT_MASTER"
+                                st.session_state.user_name = _adm_m_name
+                                st.session_state.join_date = dt.now()
+                                st.session_state.is_admin  = True
+                                st.session_state["_login_welcome"]      = _adm_m_name
+                                st.session_state["authenticated"]       = True
+                                st.session_state["_auto_close_sidebar"] = False
+                                _s39_save_session_cache(
+                                    user_id="PERMANENT_MASTER",
+                                    user_name=_adm_m_name,
+                                    user_role="admin"
+                                )
+                                st.rerun()
+                            else:
+                                st.error("❌ 관리자 이름 또는 코드가 올바르지 않습니다.")
 
                     # ─────────────────────────────────────────────────────────────
                     # [GP-51.2] 임시/비회원 빠른 접속 섹션 (Phase A 하단 — 항상 표시)
