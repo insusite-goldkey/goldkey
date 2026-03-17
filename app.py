@@ -37847,13 +37847,17 @@ function selectCustomer(name) {{
                     if st.button("📌 입력클릭", key="btn_fp_apply", use_container_width=True):
                         _sel_now = st.session_state.get("fp_cust_selectbox", "✏️ 신규 고객 입력")
                         st.session_state["_fp_selected_label"] = _sel_now
+                        st.session_state["_fp_show_form"] = True
+                        st.session_state["_scroll_to_a1"] = True
+                        st.rerun()
                 with _fp_c3:
                     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-                    if st.button("🔄 새로고침", key="btn_fp_refresh", use_container_width=True,
-                                 help="DB에서 고객 목록을 다시 불러옵니다"):
-                        st.session_state.pop("_fp_selected_label", None)
+                    if st.button("📋 고객정보확인", key="btn_fp_refresh", use_container_width=True,
+                                 help="고객 DB 새로고침 후 고객정보 입력폼으로 이동"):
                         st.session_state.pop(_cust_cache_key, None)
                         st.session_state.pop(_cust_cache_ts, None)
+                        st.session_state["_fp_show_form"] = True
+                        st.session_state["_scroll_to_a1"] = True
                         st.rerun()
     
                 _fp_selected = _fp_options_map.get(_fp_selected_label)
@@ -37892,6 +37896,28 @@ function selectCustomer(name) {{
                     st.session_state["_fp_selected_label"]   = "✏️ 신규 고객 입력"
     
                 # ── [GP-CRM] 그룹 A-1 : 피보험자 기본 정보 ───────────────────
+                st.markdown('<div id="gk-a1-anchor" style="position:relative;height:0;margin:0;padding:0;"></div>', unsafe_allow_html=True)
+                if st.session_state.pop("_scroll_to_a1", False):
+                    components.html("""<script>
+(function(){try{
+  var t=Date.now(),fn=function(){
+    var el=window.parent.document.getElementById('gk-a1-anchor');
+    if(el){el.scrollIntoView({behavior:'smooth',block:'start'});return;}
+    if(Date.now()-t<2000)setTimeout(fn,100);
+  };fn();
+}catch(e){}}());
+</script>""", height=0)
+                if st.session_state.get("_fp_show_form"):
+                    _fp_lbl_n = st.session_state.get("_fp_selected_label", "✏️ 신규 고객 입력")
+                    _ntc = ("✏️ <b>신규 고객 정보를 입력</b>해주세요. 아래 양식 작성 후 저장 또는 확인 버튼을 클릭하세요."
+                            if _fp_lbl_n == "✏️ 신규 고객 입력" else
+                            f"✅ <b>{_fp_lbl_n}</b> 고객 정보가 로드되었습니다. 수정 후 저장 또는 확인을 클릭하세요.")
+                    st.markdown(
+                        f"<div style='background:#E3F2FD;border:1.5px solid #1565C0;"
+                        f"border-left:4px solid #D4AF37;border-radius:8px;"
+                        f"padding:10px 14px;margin-bottom:8px;font-size:0.84rem;"
+                        f"font-weight:700;color:#0D47A1;'>{_ntc}</div>",
+                        unsafe_allow_html=True)
                 st.markdown(
                     "<div style='border:1px dashed #000000;border-radius:10px;"
                     "background:#fffbeb;padding:12px 14px 8px 14px;margin:8px 0;'>"
@@ -37965,6 +37991,25 @@ function selectCustomer(name) {{
                         f'white-space:pre-line;margin-bottom:6px;">{_sick_guide_text}</div>',
                         unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
+                # ── 동명이인 체크 + 확인 버튼 ─────────────────────────────────
+                _a1_nm_v = (_si_name or "").strip()
+                _dup_chk = [p for p in _people_rows if p.get("name","").strip() == _a1_nm_v] if _a1_nm_v else []
+                _is_new_e = (st.session_state.get("_fp_selected_label","") == "✏️ 신규 고객 입력")
+                if _a1_nm_v and _is_new_e and len(_dup_chk) >= 1:
+                    st.warning(f"⚠️ **동명이인 감지** — '{_a1_nm_v}' 이름으로 이미 {len(_dup_chk)}명이 등록되어 있습니다. 생년월일·연락처를 추가 입력해 주세요.")
+                    if st.button("👥 동명이인으로 추가 등록", key="btn_dup_add", use_container_width=True):
+                        st.session_state["_fp_show_form"] = True
+                        st.info("✅ 동명이인 추가 모드 — 생년월일·연락처를 입력하여 구분 후 저장하세요.")
+                _a1_col1, _a1_col2 = st.columns([1, 1])
+                with _a1_col1:
+                    if st.button("✅ 확인 (상담 진행)", key="btn_a1_confirm", use_container_width=True, type="primary"):
+                        st.session_state["scan_client_name"]   = _si_name
+                        st.session_state["scan_client_dob"]    = _si_dob
+                        st.session_state["scan_client_gender"] = _si_gender
+                        st.session_state["scan_client_job"]    = _si_job
+                        st.session_state["scan_client_sick"]   = _si_sick
+                        st.session_state["_fp_show_form"]      = False
+                        st.success(f"✅ **{_si_name or '고객'}** 확인 완료 — 아래 상담 항목을 이용하세요.")
     
                 # ── [GP-CRM] 그룹 A-2 : 계약자 / 수익자 구분 ─────────────────
                 with st.expander("👥 그룹 A-2 — 계약자 · 수익자 구분 (피보험자와 다를 경우 입력)", expanded=False):
