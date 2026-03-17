@@ -30300,7 +30300,9 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
                 if st.button("📚 RAG 지식베이스 관리", key="btn_goto_rag",
                              use_container_width=True, type="primary"):
                     st.session_state["_rag_admin_hint"] = True
-                    _go_tab("t9")
+                    st.session_state.current_tab = "t9"
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
                 st.markdown("---")
                 # ── Supabase DB 관리 바로가기 ────────────────────────────
                 st.markdown("**🗄️ Supabase DB 관리**")
@@ -34031,6 +34033,29 @@ watchRipple();
 
     # ── [제82조] 전역 안보 내비게이션 바 — 탭 렌더링 직전 최상단 ─────────
     _gp82_render_nav_bar()
+
+    # ── [GP-LOADING] 전역 로딩 오버레이 — 백화현상 방지 ("잠시만 기다려주세요") ──
+    import streamlit.components.v1 as _cv1_glo
+    _cv1_glo.html("""<script>
+(function(){
+  var pd=window.parent.document;
+  var s2=pd.getElementById('gk-load-style');if(s2)s2.remove();
+  var s=pd.createElement('style');s.id='gk-load-style';
+  s.textContent='#gk-load-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(238,242,255,0.97);z-index:9999999;flex-direction:column;align-items:center;justify-content:center;}#gk-load-overlay.gk-active{display:flex;}#gk-load-spin{width:38px;height:38px;border:4px solid #e0e7ff;border-top:4px solid #4f46e5;border-radius:50%;animation:gk-sp 0.8s linear infinite;margin-bottom:14px;}@keyframes gk-sp{to{transform:rotate(360deg);}}';
+  pd.head.appendChild(s);
+  var old=pd.getElementById('gk-load-overlay');if(old)old.remove();
+  if(window.parent.__gkLoadHandler)pd.removeEventListener('click',window.parent.__gkLoadHandler,true);
+  var el=pd.createElement('div');el.id='gk-load-overlay';
+  el.innerHTML='<div id="gk-load-spin"></div><div style="font-size:1.1rem;font-weight:900;color:#3730a3;letter-spacing:-0.02em;">\uc78a\uc2dc\ub9cc \uae30\ub2e4\ub824\uc8fc\uc138\uc694</div>';
+  pd.body.appendChild(el);
+  var _to=null;
+  window.parent.__gkLoadHandler=function(e){
+    var b=e.target.closest('button');
+    if(b){el.classList.add('gk-active');clearTimeout(_to);_to=setTimeout(function(){el.classList.remove('gk-active');},4000);}
+  };
+  pd.addEventListener('click',window.parent.__gkLoadHandler,true);
+})();
+</script>""", height=0)
 
     # ── 공통 AI 쿼리 블록 ────────────────────────────────────────────────
     # ── 마스터 시스템 프롬프트 (30년 베테랑 멘토 페르소나) ────────────────────
@@ -37965,44 +37990,7 @@ function selectCustomer(name) {{
                             key="home_policy_premium",
                         )
     
-                # ── [HIRA-KCD] 질병 코드 자동완성 ────────────────────────────
-                st.markdown("<hr style='margin:8px 0;border-color:#e2e8f0;'>", unsafe_allow_html=True)
-                st.markdown(
-                    "<div style='border:1px dashed #000000;border-radius:10px;"
-                    "background:#F8FBFF;padding:10px 14px 6px 14px;margin-bottom:10px;'>"
-                    "<div style='color:#1565C0;font-weight:900;font-size:0.86rem;margin-bottom:6px;'>"
-                    "🔬 질병 진단코드(KCD) 검색 — 심평원 연동 · 보장 매핑 자동 표시</div>",
-                    unsafe_allow_html=True,
-                )
-                _kcd_col1, _kcd_col2 = st.columns([3, 2])
-                with _kcd_col1:
-                    _si_kcd_name = render_kcd_autocomplete(
-                        label="질병 검색 (한글명 또는 KCD 코드)",
-                        session_key="scan_client_kcd_name",
-                        placeholder="예) 유방암, 뇌경색, C50, I63…",
-                        autofill_kcd_key="scan_client_kcd_code",
-                        show_coverage=True,
-                    )
-                with _kcd_col2:
-                    _si_kcd_code = st.text_input(
-                        "KCD 코드 (자동 입력 또는 직접 입력)",
-                        value=st.session_state.get("scan_client_kcd_code", ""),
-                        placeholder="예) C50, I63, F00…",
-                        key="scan_kcd_code_manual",
-                    )
-                    if _si_kcd_code != st.session_state.get("scan_client_kcd_code", ""):
-                        st.session_state["scan_client_kcd_code"] = _si_kcd_code
-                    _si_kcd_date = st.text_input(
-                        "진단 확정일 (YYYYMMDD)",
-                        value=st.session_state.get("scan_client_kcd_date", ""),
-                        placeholder="예) 20240315",
-                        max_chars=8,
-                        key="scan_kcd_date_input",
-                    )
-                    if _si_kcd_date != st.session_state.get("scan_client_kcd_date", ""):
-                        st.session_state["scan_client_kcd_date"] = _si_kcd_date
-                st.markdown("</div>", unsafe_allow_html=True)
-                # ── [HIRA-KCD] 끝 ─────────────────────────────────────────────
+                # [GP-MOVE] KCD 질병진단 검색 → GK-SEC-03(보험금 상담 & 용어 센터)으로 이동됨
     
                 _si_items = st.multiselect(
                     "📋 상담 항목 (복수 선택)",
@@ -38669,6 +38657,44 @@ function selectCustomer(name) {{
                     else:
                         st.warning(f"'{_nav_input_val.strip()}' 항목을 찾지 못했습니다.")
     
+            # ── [HIRA-KCD] 질병 진단코드(KCD) 검색 — GK-SEC-03 통합 (보험금 청구 흐름) ──
+            st.markdown("<hr style='margin:10px 0;border-color:#e2e8f0;'>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='border:1px dashed #000000;border-radius:10px;"
+                "background:#F8FBFF;padding:10px 14px 6px 14px;margin-bottom:10px;'>"
+                "<div style='color:#1565C0;font-weight:900;font-size:0.86rem;margin-bottom:6px;'>"
+                "🔬 질병 진단코드(KCD) 검색 — 심평원 연동 · 보험금 청구 자동 매핑</div>",
+                unsafe_allow_html=True,
+            )
+            _kcd3_c1, _kcd3_c2 = st.columns([3, 2])
+            with _kcd3_c1:
+                render_kcd_autocomplete(
+                    label="질병 검색 (한글명 또는 KCD 코드)",
+                    session_key="scan_client_kcd_name",
+                    placeholder="예) 유방암, 뇌경색, C50, I63…",
+                    autofill_kcd_key="scan_client_kcd_code",
+                    show_coverage=True,
+                )
+            with _kcd3_c2:
+                _kcd3_code = st.text_input(
+                    "KCD 코드 (자동 입력 또는 직접 입력)",
+                    value=st.session_state.get("scan_client_kcd_code", ""),
+                    placeholder="예) C50, I63, F00…",
+                    key="sec03_kcd_code_manual",
+                )
+                if _kcd3_code != st.session_state.get("scan_client_kcd_code", ""):
+                    st.session_state["scan_client_kcd_code"] = _kcd3_code
+                _kcd3_date = st.text_input(
+                    "진단 확정일 (YYYYMMDD)",
+                    value=st.session_state.get("scan_client_kcd_date", ""),
+                    placeholder="예) 20240315",
+                    max_chars=8,
+                    key="sec03_kcd_date_input",
+                )
+                if _kcd3_date != st.session_state.get("scan_client_kcd_date", ""):
+                    st.session_state["scan_client_kcd_date"] = _kcd3_date
+            st.markdown("</div>", unsafe_allow_html=True)
+
             # ── [NAV-03] 내비게이션 바 ─────────────────────────────────────────
             st.markdown("<div style='font-size:0.72rem;color:#9CA3AF;text-align:right;"
                         "margin:10px 0 4px 0;'>3 / 7단계 — 보험금 상담 &amp; 용어 센터</div>",
