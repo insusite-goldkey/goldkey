@@ -39601,6 +39601,37 @@ div[data-testid="stButton"] {
                 if st.button("④ AI 자동 리포트",    key="lsec_sub4", use_container_width=True): _go_tab("report43")
             st.markdown("</div>", unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+            # ── [KB 전문 증권분석 파트] L-SECTION 부속 — 독립 단독 파트 ──────────
+            st.markdown(
+                f'<div class="gk-sec" style="border-top:4px solid #002D56;background:#f8faff;">'
+                f'<div style="position:relative;">{_bid("1-5-kb")}'
+                f'<span class="gk-sec-title" style="color:#002D56;">'
+                f'🏦 KB손해보험 전문 증권분석 파트</span>'
+                f'<span style="background:#FFCC00;color:#002D56;font-size:0.62rem;'
+                f'font-weight:900;padding:2px 8px;border-radius:4px;margin-left:10px;'
+                f'vertical-align:middle;">단독 엔진 · 타 분석과 절대 분리</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<div style='font-size:0.80rem;color:#374151;margin-bottom:12px;'>"
+                "8K급 초정밀 담보매핑 · 가중치 스코어링(Score=Σ Amount×Weight) · "
+                "KB 표준 벤치마크 · 레이더차트 시각화 — "
+                "<b style='color:#002D56;'>내보험다보여/트리니티 엔진과 완전 분리 운영</b>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            try:
+                render_kb_analysis_part()
+            except Exception as _kb_call_e:
+                st.error(f"KB 분석 파트 오류: {_kb_call_e}")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
             st.markdown(f"""<div style="background:#f0fdf4;border:2px solid #16a34a;
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
       {_bid('1-5-7')}
@@ -40174,6 +40205,380 @@ div[data-testid="stButton"] {
         except Exception as _cgf_e:
             st.error(f"CRM 게이트 로드 오류: {_cgf_e}")
 
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [KB 전문 증권분석] render_kb_analysis_part — L-SECTION 부속 독립 파트
+    # ══════════════════════════════════════════════════════════════════════
+    @st.fragment
+    def render_kb_analysis_part():
+        """KB손해보험 전문 증권분석 파트 — 5장 원칙 기반 독립 실행 블럭."""
+        _KB_NAVY   = "#002D56"
+        _KB_YELLOW = "#FFCC00"
+        _KB_LIGHT  = "#F4F4F4"
+
+        st.markdown(f"""
+        <div style="background:{_KB_NAVY};border-radius:12px;padding:14px 20px 10px 20px;
+                    margin-bottom:14px;">
+          <div style="color:{_KB_YELLOW};font-size:1.05rem;font-weight:900;
+                      letter-spacing:0.07em;">
+            🏦 KB손해보험 전문 증권분석 파트
+          </div>
+          <div style="color:#cdd8e3;font-size:0.74rem;margin-top:4px;">
+            8K급 초정밀 담보매핑 · 가중치 스코어링 · KB 표준 벤치마킹 · 레이더차트 시각화
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        try:
+            from engines.kb_policy_mapper  import map_coverages_bulk
+            from engines.kb_scoring_system import run_kb_analysis, KB_BENCHMARKS
+        except Exception as _kb_imp_err:
+            st.error(f"KB 엔진 로드 실패: {_kb_imp_err}")
+            return
+
+        # ── 입력 영역 ────────────────────────────────────────────────────
+        _kb_c_info, _kb_c_input = st.columns([3, 7], gap="medium")
+        with _kb_c_info:
+            st.markdown(f"""
+            <div style="background:{_KB_LIGHT};border:2px solid {_KB_NAVY};
+                        border-radius:8px;padding:10px 12px;font-size:0.76rem;">
+              <b style="color:{_KB_NAVY};">📋 분석 안내</b><br>
+              <span style="color:#374151;">
+              • 담보명 + 가입금액을 1행 1담보로 입력<br>
+              • 금액 단위: 만원, 원, 억 모두 허용<br>
+              • 내보험다보여 JSON 자동 연동 가능<br>
+              • 뇌혈관 범위 자동 계층화 (광의/중의/협의)<br>
+              • 암 4단계 · 심장 2단계 자동 분류
+              </span>
+            </div>""", unsafe_allow_html=True)
+
+        with _kb_c_input:
+            _kb_sub = st.tabs(["✏️ 직접 입력", "📡 내보험다보여 JSON", "🎯 샘플 데모"])
+
+            with _kb_sub[0]:
+                _kb_text_raw = st.text_area(
+                    "담보명 | 가입금액 (1행 1담보)",
+                    placeholder=(
+                        "예)\n"
+                        "일반암진단비 | 3000만원\n"
+                        "뇌졸중진단비 | 20000000\n"
+                        "급성심근경색진단비 | 2000만원\n"
+                        "일반상해후유장해 | 1억\n"
+                        "교통사고처리지원금 | 2억"
+                    ),
+                    height=160,
+                    key="kb_text_raw",
+                )
+                _kb_age    = st.number_input("피보험자 연령", 20, 80, 45, key="kb_age")
+                _kb_gender = st.selectbox("성별", ["남성", "여성"], key="kb_gender")
+
+            with _kb_sub[1]:
+                _kb_json_raw = st.text_area(
+                    "내보험다보여 JSON 붙여넣기",
+                    value=st.session_state.get("_nibo_raw_json", ""),
+                    placeholder='[{"prodName":"암진단비","amt":"3000만원"}]',
+                    height=160, key="kb_nibo_json",
+                )
+                _kb_age_j    = st.number_input("피보험자 연령", 20, 80, 45, key="kb_age_j")
+                _kb_gender_j = st.selectbox("성별", ["남성", "여성"], key="kb_gender_j")
+
+            with _kb_sub[2]:
+                st.caption("아래 샘플 데이터로 즉시 실행합니다.")
+                _kb_demo_items = [
+                    {"name": "일반암진단비",          "amount": "3000만원"},
+                    {"name": "고액암진단비",           "amount": "5000만원"},
+                    {"name": "뇌졸중진단비",           "amount": "2000만원"},
+                    {"name": "뇌혈관질환진단비",       "amount": "3000만원"},
+                    {"name": "급성심근경색진단비",     "amount": "1000만원"},
+                    {"name": "일반상해후유장해",       "amount": "1억"},
+                    {"name": "교통사고처리지원금",     "amount": "1억5000만원"},
+                    {"name": "사망보험금",             "amount": "2억"},
+                ]
+                _kb_age_d    = st.number_input("연령", 20, 80, 45, key="kb_age_d")
+                _kb_gender_d = st.selectbox("성별", ["남성", "여성"], key="kb_gender_d")
+
+        # ── 실행 버튼 ─────────────────────────────────────────────────────
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        _kb_run_c1, _kb_run_c2, _kb_run_c3 = st.columns(3, gap="small")
+        _kb_run1 = _kb_run_c1.button(
+            "🔍 직접 입력 분석 실행", key="kb_run_text",
+            use_container_width=True, type="primary",
+        )
+        _kb_run2 = _kb_run_c2.button(
+            "📡 JSON 분석 실행", key="kb_run_json",
+            use_container_width=True,
+        )
+        _kb_run3 = _kb_run_c3.button(
+            "🚀 샘플 데모 실행", key="kb_run_demo",
+            use_container_width=True,
+        )
+
+        # ── 분석 실행 ─────────────────────────────────────────────────────
+        _kb_report = None
+        _kb_items_for_run: list[dict] = []
+
+        if _kb_run1 or _kb_run2 or _kb_run3:
+            try:
+                import re as _kbre, json as _kbjson
+
+                if _kb_run3:
+                    _kb_items_for_run = _kb_demo_items
+                    _run_age    = int(_kb_age_d)
+                    _run_gender = "M" if _kb_gender_d == "남성" else "F"
+
+                elif _kb_run2:
+                    raw_j = st.session_state.get("kb_nibo_json", _kb_json_raw or "")
+                    if raw_j.strip():
+                        _parsed_j = _kbjson.loads(raw_j.strip())
+                        if isinstance(_parsed_j, dict):
+                            _parsed_j = [_parsed_j]
+                        for _jrow in _parsed_j:
+                            _nm  = _jrow.get("traitName") or _jrow.get("prodName", "")
+                            _amt = _jrow.get("amt") or _jrow.get("amount", 0)
+                            if _nm:
+                                _kb_items_for_run.append({"name": _nm, "amount": _amt})
+                    _run_age    = int(st.session_state.get("kb_age_j", _kb_age_j))
+                    _run_gender = "M" if st.session_state.get("kb_gender_j", _kb_gender_j) == "남성" else "F"
+
+                else:
+                    raw_t = st.session_state.get("kb_text_raw", _kb_text_raw or "")
+                    for line in raw_t.strip().splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        parts = _kbre.split(r"[|,\t]", line)
+                        if len(parts) >= 2:
+                            _kb_items_for_run.append({"name": parts[0].strip(), "amount": parts[1].strip()})
+                        elif len(parts) == 1 and parts[0].strip():
+                            _kb_items_for_run.append({"name": parts[0].strip(), "amount": 0})
+                    _run_age    = int(st.session_state.get("kb_age", _kb_age))
+                    _run_gender = "M" if st.session_state.get("kb_gender", _kb_gender) == "남성" else "F"
+
+                if _kb_items_for_run:
+                    with st.spinner("KB 전문 분석 중…"):
+                        _kb_report = run_kb_analysis(
+                            _kb_items_for_run, age=_run_age, gender=_run_gender
+                        )
+                    st.session_state["_kb_report"] = _kb_report
+                    st.session_state["_kb_run_age"]    = _run_age
+                    st.session_state["_kb_run_gender"] = _run_gender
+                else:
+                    st.warning("담보 데이터를 입력해 주세요.")
+
+            except Exception as _kb_e:
+                st.error(f"❌ KB 분석 오류: {_kb_e}")
+
+        # 세션에서 결과 복원
+        if _kb_report is None:
+            _kb_report = st.session_state.get("_kb_report")
+
+        # ── 결과 출력 ─────────────────────────────────────────────────────
+        if _kb_report is not None:
+            try:
+                _rpt = _kb_report
+
+                # 등급 배지
+                _grade_color = {
+                    "S": "#16a34a", "A": "#2563eb",
+                    "B": "#ca8a04", "C": "#ea580c", "D": "#dc2626",
+                }.get(_rpt.grade, "#6b7280")
+
+                st.markdown(f"""
+                <div style="background:{_KB_NAVY};border-radius:10px;
+                            padding:12px 18px;margin:12px 0 10px 0;
+                            display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+                  <div style="color:{_KB_YELLOW};font-size:1.6rem;font-weight:900;">
+                    {_rpt.grade}등급
+                  </div>
+                  <div>
+                    <div style="color:#fff;font-size:0.95rem;font-weight:700;">
+                      KB 표준 달성률 {_rpt.overall_pct:.1f}%
+                    </div>
+                    <div style="color:#a8c4d4;font-size:0.76rem;">{_rpt.summary}</div>
+                  </div>
+                  <div style="margin-left:auto;text-align:right;">
+                    <div style="color:{_KB_YELLOW};font-size:0.72rem;">가중 스코어 / KB 벤치마크</div>
+                    <div style="color:#fff;font-size:0.88rem;font-weight:700;">
+                      {_rpt.total_score:,.0f} / {_rpt.total_benchmark:,.0f} 만원
+                    </div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # 5:5 레이아웃
+                _kb_left, _kb_right = st.columns([5, 5], gap="medium")
+
+                with _kb_left:
+                    st.markdown(
+                        f"<div style='font-size:0.80rem;font-weight:900;color:{_KB_NAVY};"
+                        f"border-bottom:2px solid {_KB_YELLOW};padding-bottom:4px;"
+                        f"margin-bottom:8px;'>📊 담보 진단표</div>",
+                        unsafe_allow_html=True,
+                    )
+                    for _cs in _rpt.categories:
+                        _s_color = {
+                            "충분": "#16a34a", "부족": "#ca8a04",
+                            "미가입": "#dc2626", "해당없음": "#9ca3af",
+                        }.get(_cs.status, "#6b7280")
+                        _bar_w = min(int(_cs.weighted_score / _cs.benchmark * 100), 100) if _cs.benchmark > 0 else 0
+                        st.markdown(f"""
+                        <div style="background:#fff;border:1px solid {_KB_NAVY};
+                                    border-left:4px solid {_KB_YELLOW};
+                                    border-radius:6px;padding:7px 10px;margin-bottom:5px;">
+                          <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span style="font-size:0.75rem;font-weight:700;color:{_KB_NAVY};">
+                              {_cs.category}
+                            </span>
+                            <span style="background:{_s_color};color:#fff;font-size:0.62rem;
+                                         font-weight:900;padding:2px 6px;border-radius:4px;">
+                              {_cs.status}
+                            </span>
+                          </div>
+                          <div style="font-size:0.68rem;color:#374151;margin-top:3px;">
+                            가중스코어 <b>{_cs.weighted_score:,.0f}만</b>
+                            &nbsp;|&nbsp; KB 권장 <b>{_cs.benchmark:,.0f}만</b>
+                            &nbsp;|&nbsp; Gap <b style="color:{_s_color};">
+                              {'+' if _cs.gap <= 0 else ''}{-_cs.gap:,.0f}만</b>
+                          </div>
+                          <div style="background:#e5e7eb;border-radius:3px;height:5px;margin-top:5px;">
+                            <div style="background:{_KB_YELLOW};width:{_bar_w}%;
+                                        height:5px;border-radius:3px;"></div>
+                          </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                with _kb_right:
+                    st.markdown(
+                        f"<div style='font-size:0.80rem;font-weight:900;color:{_KB_NAVY};"
+                        f"border-bottom:2px solid {_KB_YELLOW};padding-bottom:4px;"
+                        f"margin-bottom:8px;'>🎯 레이더차트 · 전문가 권고</div>",
+                        unsafe_allow_html=True,
+                    )
+                    # 레이더차트
+                    try:
+                        import math as _math
+                        _rd = _rpt.radar_data
+                        _n  = len(_rd["labels"])
+                        _angles = [2 * _math.pi * i / _n for i in range(_n)]
+                        _angles_closed = _angles + [_angles[0]]
+                        _actual_closed  = [a / 100 for a in _rd["actual"]] + [_rd["actual"][0] / 100]
+                        _bench_closed   = [1.0] * (_n + 1)
+
+                        _radar_svg_pts_actual = []
+                        _radar_svg_pts_bench  = []
+                        _cx, _cy, _r = 150, 150, 110
+                        for _ai, _ang in enumerate(_angles_closed):
+                            _rv_a = min(_actual_closed[_ai], 1.5)
+                            _radar_svg_pts_actual.append((
+                                _cx + _r * _rv_a * _math.sin(_ang),
+                                _cy - _r * _rv_a * _math.cos(_ang),
+                            ))
+                            _radar_svg_pts_bench.append((
+                                _cx + _r * _bench_closed[_ai] * _math.sin(_ang),
+                                _cy - _r * _bench_closed[_ai] * _math.cos(_ang),
+                            ))
+                        _to_poly = lambda pts: " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+
+                        # 축 및 레이블
+                        _axis_lines = ""
+                        _labels_svg = ""
+                        for _ai, _ang in enumerate(_angles):
+                            _ex = _cx + _r * _math.sin(_ang)
+                            _ey = _cy - _r * _math.cos(_ang)
+                            _axis_lines += f'<line x1="{_cx}" y1="{_cy}" x2="{_ex:.1f}" y2="{_ey:.1f}" stroke="#cbd5e1" stroke-width="1"/>'
+                            _lx = _cx + (_r + 18) * _math.sin(_ang)
+                            _ly = _cy - (_r + 18) * _math.cos(_ang)
+                            _short = _rd["labels"][_ai].split("_")[-1][:6]
+                            _labels_svg += f'<text x="{_lx:.1f}" y="{_ly:.1f}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="{_KB_NAVY}" font-weight="700">{_short}</text>'
+
+                        _svg = f"""
+                        <svg viewBox="0 0 300 300" style="width:100%;max-width:300px;display:block;margin:0 auto;">
+                          <polygon points="{_to_poly([((_cx+_r*0.25*_math.sin(a)),(_cy-_r*0.25*_math.cos(a))) for a in _angles])}"
+                            fill="none" stroke="#e5e7eb" stroke-width="0.8"/>
+                          <polygon points="{_to_poly([((_cx+_r*0.5*_math.sin(a)),(_cy-_r*0.5*_math.cos(a))) for a in _angles])}"
+                            fill="none" stroke="#e5e7eb" stroke-width="0.8"/>
+                          <polygon points="{_to_poly([((_cx+_r*0.75*_math.sin(a)),(_cy-_r*0.75*_math.cos(a))) for a in _angles])}"
+                            fill="none" stroke="#e5e7eb" stroke-width="0.8"/>
+                          {_axis_lines}
+                          <polygon points="{_to_poly(_radar_svg_pts_bench)}"
+                            fill="none" stroke="{_KB_YELLOW}" stroke-width="2.5" stroke-dasharray="6,3"/>
+                          <polygon points="{_to_poly(_radar_svg_pts_actual)}"
+                            fill="{_KB_NAVY}" fill-opacity="0.40"
+                            stroke="{_KB_NAVY}" stroke-width="2"/>
+                          {_labels_svg}
+                          <circle cx="180" cy="272" r="6" fill="{_KB_NAVY}" opacity="0.5"/>
+                          <text x="190" y="276" font-size="9" fill="{_KB_NAVY}">현재 가입</text>
+                          <circle cx="220" cy="272" r="6" fill="{_KB_YELLOW}" opacity="0.8"/>
+                          <text x="230" y="276" font-size="9" fill="{_KB_NAVY}">KB 권장</text>
+                        </svg>
+                        """
+                        st.markdown(_svg, unsafe_allow_html=True)
+                    except Exception:
+                        st.caption("⚠️ 레이더차트 렌더링 생략")
+
+                    # 전문가 권고
+                    st.markdown(
+                        f"<div style='font-size:0.76rem;font-weight:900;color:{_KB_NAVY};"
+                        f"margin:10px 0 5px 0;'>💡 전문가 권고</div>",
+                        unsafe_allow_html=True,
+                    )
+                    for _ri, _rec in enumerate(_rpt.recommendations):
+                        _rec_color = "#dc2626" if "긴급" in _rec else "#ca8a04" if "보완" in _rec else "#16a34a"
+                        st.markdown(
+                            f"<div style='background:{_KB_LIGHT};border-left:3px solid {_rec_color};"
+                            f"padding:5px 8px;margin-bottom:4px;font-size:0.72rem;color:#1e293b;'>"
+                            f"{_ri+1}. {_rec}</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                # AI 진단 총평 요청
+                st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                if st.button(
+                    "🤖 KB AI 진단 총평 생성", key="kb_ai_summary_btn",
+                    use_container_width=True,
+                    help="Gemini AI로 KB 전문가 수준 서술형 총평을 생성합니다.",
+                ):
+                    try:
+                        _kb_ai_client = get_client()
+                        _kb_prompt = (
+                            f"[KB손해보험 전문 증권분석 결과]\n"
+                            f"등급: {_rpt.grade} | 달성률: {_rpt.overall_pct:.1f}%\n"
+                            f"가중 스코어: {_rpt.total_score:,.0f}만원 / KB 벤치마크: {_rpt.total_benchmark:,.0f}만원\n\n"
+                        )
+                        for _cs in _rpt.categories:
+                            _kb_prompt += (
+                                f"- {_cs.category}: {_cs.status} "
+                                f"(스코어 {_cs.weighted_score:,.0f} / 권장 {_cs.benchmark:,.0f}, Gap {_cs.gap:+,.0f}만원)\n"
+                            )
+                        _kb_prompt += (
+                            "\n위 분석 결과를 바탕으로 KB손해보험 전문 설계사 수준의 서술형 진단 총평을 작성하라. "
+                            "뇌혈관 범위 협소/심장 협의 가입 위험/암 공백 등을 구체적 실무 용어로 기술하고, "
+                            "3가지 핵심 권고사항을 번호로 제시하라."
+                        )
+                        _kb_cfg = _lazy_genai_types().GenerateContentConfig(
+                            max_output_tokens=800, temperature=0.5,
+                        )
+                        _kb_ai_resp = _kb_ai_client.models.generate_content(
+                            model=GEMINI_MODEL,
+                            contents=_kb_prompt,
+                            config=_kb_cfg,
+                        )
+                        _kb_ai_text = (_kb_ai_resp.text or "").strip()
+                        st.session_state["_kb_ai_summary"] = _kb_ai_text
+                    except Exception as _kb_ai_e:
+                        st.error(f"AI 총평 오류: {_kb_ai_e}")
+
+                if st.session_state.get("_kb_ai_summary"):
+                    st.markdown(
+                        f"<div style='background:{_KB_LIGHT};border:2px solid {_KB_NAVY};"
+                        f"border-radius:8px;padding:12px 14px;font-size:0.80rem;"
+                        f"line-height:1.9;color:#1e293b;margin-top:8px;'>"
+                        f"{st.session_state['_kb_ai_summary'].replace(chr(10), '<br>')}</div>",
+                        unsafe_allow_html=True,
+                    )
+
+            except Exception as _kb_rpt_e:
+                st.error(f"❌ KB 결과 렌더링 오류: {_kb_rpt_e}")
 
     # ── [policy_scan] 보험증권 분석 — 독립 전용 탭 ──────────────────────
     if cur == "policy_scan":
