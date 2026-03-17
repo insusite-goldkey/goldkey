@@ -31768,7 +31768,7 @@ footer, footer * {
         st.markdown(
             '<div id="gk-scroll-top-anchor" style="position:absolute;top:0;"></div>'
             '<script>try{window.parent.document.getElementById("gk-scroll-top-anchor")'
-            '&&window.parent.scrollTo({top:0,behavior:"instant"});}catch(e){}</script>',
+            '&&window.parent.scrollTo({top:0,behavior:"smooth"});}catch(e){}</script>',
             unsafe_allow_html=True,
         )
 
@@ -40054,18 +40054,19 @@ div[data-testid="stButton"] > button {
             "crm_gate",
         }
         if tab_key in _SEC05_TABS:
-            st.markdown(
-                '<div style="background:#FFF9C4;border:1px solid #d1d5db;'
-                'border-radius:8px;padding:2px 6px;margin-bottom:10px;display:inline-block;">'
-                '</div>',
-                unsafe_allow_html=True)
-            if st.button("⬅️ 네비게이션 게이트웨이(A-M)로 돌아가기",
-                         key=f"btn_back_sec05_{tab_key}",
-                         use_container_width=False):
-                st.session_state["current_tab"] = "home"
-                st.session_state["_home_scroll_to_sec05"] = True
-                st.session_state["_scroll_top"] = True
-                st.rerun()
+            _thb_c1, _thb_c2 = st.columns([3, 1])
+            with _thb_c1:
+                if st.button("⬅️ 네비게이션 게이트웨이(A-M)로 돌아가기",
+                             key=f"btn_back_sec05_{tab_key}",
+                             use_container_width=True):
+                    st.session_state["current_tab"] = "home"
+                    st.session_state["_home_scroll_to_sec05"] = True
+                    st.session_state["_scroll_top"] = True
+                    st.rerun()
+            with _thb_c2:
+                if st.button("🏠 홈", key=f"tab_home_{tab_key}",
+                             use_container_width=True):
+                    _go_tab("home")
         else:
             if st.button("🏠 홈으로", key=f"tab_home_{tab_key}",
                          use_container_width=False):
