@@ -39659,6 +39659,33 @@ div[data-testid="stButton"] {
 
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
+            # ── [🏛️ 통합 갭 분석] L-SECTION 최상위 단독 파트 ────────────────
+            st.markdown(
+                f'<div class="gk-sec" style="border-top:5px solid #002D56;background:#f0f4ff;">'
+                f'<div style="position:relative;">{_bid("1-5-hub")}'
+                f'<span class="gk-sec-title" style="color:#002D56;">'
+                f'🏛️ 통합 증권 갭 분석 시스템</span>'
+                f'<span style="background:#002D56;color:#FFCC00;font-size:0.62rem;'
+                f'font-weight:900;padding:2px 8px;border-radius:4px;margin-left:10px;'
+                f'vertical-align:middle;">Unified Gap Analysis · KB+Trinity 결합</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<div style='font-size:0.80rem;color:#374151;margin-bottom:12px;'>"
+                "KB 7대 보장 스코어 × 트리니티 소득 역산 → 생계 파괴 공백 원클릭 산출 — "
+                "<b style='color:#002D56;'>분석 결과 N-SECTION으로 자동 브릿지</b>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            try:
+                render_unified_gap_analysis_part()
+            except Exception as _hub_call_e:
+                st.error(f"통합 갭 분석 파트 오류: {_hub_call_e}")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
             st.markdown(f"""<div style="background:#f0fdf4;border:2px solid #16a34a;
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;">
       {_bid('1-5-7')}
@@ -39682,6 +39709,15 @@ div[data-testid="stButton"] {
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     
             # ── [N-SECTION] 고객상담 특별파트 ───────────────────────────────
+            # ▸ 데이터 브릿지 자동 로드 — L-SECTION 통합 분석 결과 감지
+            _n_bridge = st.session_state.get("n_section_bridge", {})
+            if _n_bridge:
+                try:
+                    from modules.consultation_tools import render_cheat_key_card
+                    st.markdown(render_cheat_key_card(_n_bridge), unsafe_allow_html=True)
+                except Exception as _ck_e:
+                    st.info(f"L-SECTION 통합 분석 브릿지 데이터 있음 (렌더 오류: {_ck_e})")
+
             _nsec_l, _nsec_r = st.columns([5, 5], gap="medium")
             with _nsec_l:
                 st.markdown("""
@@ -41003,6 +41039,419 @@ div[data-testid="stButton"] {
 
             except Exception as _tri_rpt_e:
                 st.error(f"❌ 트리니티 결과 렌더링 오류: {_tri_rpt_e}")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [🏛️ 통합 갭 분석] render_unified_gap_analysis_part — L-SECTION 최상위
+    # ══════════════════════════════════════════════════════════════════════
+    @st.fragment
+    def render_unified_gap_analysis_part():
+        """🏛️ 통합 증권 갭 분석 시스템 — KB + 트리니티 결합 오케스트레이터."""
+        _U_NAVY   = "#002D56"
+        _U_YELLOW = "#FFCC00"
+        _U_LIGHT  = "#F4F4F4"
+
+        # ── 헤더 ─────────────────────────────────────────────────────────
+        st.markdown(f"""
+        <div style="background:linear-gradient(135deg,{_U_NAVY} 0%,#003d7a 100%);
+                    border-radius:12px;padding:14px 20px 12px 20px;margin-bottom:10px;">
+          <div style="color:{_U_YELLOW};font-size:1.10rem;font-weight:900;letter-spacing:0.05em;">
+            🏛️ 통합 증권 갭 분석 시스템
+          </div>
+          <div style="color:#cdd8e3;font-size:0.73rem;margin-top:5px;line-height:1.6;">
+            KB 정밀 증권분석 × 트리니티 경제가치 분석 → 생계 파괴 공백 원클릭 산출
+          </div>
+          <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
+            <span style="background:{_U_YELLOW};color:{_U_NAVY};font-size:0.62rem;
+                         font-weight:900;padding:2px 8px;border-radius:4px;">
+              단독 파트 · 타 엔진과 절대 분리
+            </span>
+            <span style="background:#0d3a6e;color:#93c5fd;font-size:0.62rem;
+                         font-weight:700;padding:2px 8px;border-radius:4px;">
+              결과 → N-SECTION 자동 브릿지
+            </span>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── 엔진 임포트 ──────────────────────────────────────────────────
+        try:
+            from engines.analysis_hub import (
+                run_unified_analysis, clear_analysis_session, UnifiedReport
+            )
+            from modules.consultation_tools import (
+                render_cheat_key_card, calc_sim_plan, build_report_text, _w as _uw
+            )
+        except Exception as _hub_imp_e:
+            st.error(f"통합 엔진 로드 실패: {_hub_imp_e}")
+            return
+
+        # ── 입력 패널 ─────────────────────────────────────────────────────
+        _uhub_col_l, _uhub_col_r = st.columns([4, 6], gap="medium")
+
+        with _uhub_col_l:
+            st.markdown(
+                f"<div style='font-size:0.76rem;font-weight:900;color:{_U_NAVY};"
+                f"border-bottom:2px solid {_U_YELLOW};padding-bottom:4px;"
+                f"margin-bottom:10px;'>📋 고객 기본 정보</div>",
+                unsafe_allow_html=True,
+            )
+            _uh_name = st.text_input("고객명", value="고객", key="uh_cname")
+            _uh_c1, _uh_c2 = st.columns(2)
+            with _uh_c1:
+                _uh_age    = st.number_input("나이", 20, 80, 40, key="uh_age")
+                _uh_gender = st.selectbox("성별", ["남", "여"], key="uh_gender")
+            with _uh_c2:
+                _uh_nhis   = st.number_input(
+                    "건보료 (원)", 0, 4_000_000, 213_400, 1_000,
+                    key="uh_nhis", help="본인부담 건강보험료",
+                )
+                _uh_emp    = st.selectbox("가입유형", ["직장", "지역"], key="uh_emp")
+
+        with _uhub_col_r:
+            st.markdown(
+                f"<div style='font-size:0.76rem;font-weight:900;color:{_U_NAVY};"
+                f"border-bottom:2px solid {_U_YELLOW};padding-bottom:4px;"
+                f"margin-bottom:10px;'>📄 담보 목록 (JSON 또는 수동 입력)</div>",
+                unsafe_allow_html=True,
+            )
+            _uh_tabs = st.tabs(["📝 수동 입력", "🔗 세션 자동 연동", "🎯 샘플 데모"])
+
+            with _uh_tabs[0]:
+                st.caption("형식: 담보명 TAB 금액(만원) — 줄바꿈으로 구분")
+                _uh_raw = st.text_area(
+                    "담보 목록", height=120, key="uh_raw_cov",
+                    placeholder="암진단비\t3000\n뇌출혈진단비\t1500\n급성심근경색진단비\t1500\n상해후유장해\t5000",
+                )
+
+            with _uh_tabs[1]:
+                # 내보험다보여 / 기존 L-SECTION 세션 자동 감지
+                _uh_sess_cov = (
+                    st.session_state.get("_lsec_parsed_coverages") or
+                    st.session_state.get("sector_auto_parsed") or []
+                )
+                if _uh_sess_cov:
+                    st.success(f"✅ {len(_uh_sess_cov)}개 담보 자동 감지됨 (내보험다보여 파싱 결과)")
+                    with st.expander("담보 목록 보기"):
+                        for _c in _uh_sess_cov[:10]:
+                            st.write(f"• {_c.get('name','?')} — {_c.get('amount',0):,}만원")
+                else:
+                    st.info("L-SECTION 내보험다보여 파이프라인을 먼저 실행하면 자동 연동됩니다.")
+
+            with _uh_tabs[2]:
+                st.caption("샘플: 40세 남 / 건보료 213,400원 / 주요 담보 4종")
+                _uh_demo_cov = [
+                    {"name": "암진단비",            "amount": 3000},
+                    {"name": "뇌졸중진단비",         "amount": 1500},
+                    {"name": "급성심근경색진단비",    "amount": 1500},
+                    {"name": "상해후유장해80%이상",   "amount": 5000},
+                    {"name": "상해입원일당",          "amount": 3},
+                    {"name": "질병입원일당",          "amount": 3},
+                ]
+
+        # ── 실행 버튼 ─────────────────────────────────────────────────────
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        _ubtn_c1, _ubtn_c2, _ubtn_c3 = st.columns([4, 3, 3], gap="small")
+
+        _uh_run_manual = _ubtn_c1.button(
+            "⚡ 통합 증권 갭 분석 실행",
+            key="uh_run_main",
+            use_container_width=True,
+            type="primary",
+            help="KB 정밀 분석 + 트리니티 소득 역산을 동시 실행합니다.",
+        )
+        _uh_run_sess = _ubtn_c2.button(
+            "🔗 세션 연동 실행", key="uh_run_sess",
+            use_container_width=True,
+        )
+        _uh_run_demo = _ubtn_c3.button(
+            "🎯 샘플 데모", key="uh_run_demo",
+            use_container_width=True,
+        )
+
+        # ── 분석 실행 ─────────────────────────────────────────────────────
+        if _uh_run_manual or _uh_run_sess or _uh_run_demo:
+            clear_analysis_session(st.session_state)
+            try:
+                with st.spinner("🏛️ KB 정밀 진단 및 트리니티 가치 분석 중..."):
+                    # 담보 파싱
+                    if _uh_run_demo:
+                        _cov_list = _uh_demo_cov
+                        _run_age, _run_gender = 40, "남"
+                        _run_nhis, _run_emp   = 213_400, "직장"
+                        _run_name = "홍길동"
+                    elif _uh_run_sess and _uh_sess_cov:
+                        _cov_list = _uh_sess_cov
+                        _run_age    = st.session_state.get("uh_age", 40)
+                        _run_gender = st.session_state.get("uh_gender", "남")
+                        _run_nhis   = st.session_state.get("uh_nhis", 213_400)
+                        _run_emp    = st.session_state.get("uh_emp", "직장")
+                        _run_name   = st.session_state.get("uh_cname", "고객")
+                    else:
+                        # 수동 입력 파싱 (TAB 구분)
+                        _cov_list = []
+                        for _line in (_uh_raw or "").strip().splitlines():
+                            _parts = _line.strip().split("\t")
+                            if len(_parts) >= 2:
+                                try:
+                                    _cov_list.append({"name": _parts[0].strip(),
+                                                      "amount": float(_parts[1].strip())})
+                                except ValueError:
+                                    pass
+                        _run_age    = st.session_state.get("uh_age", 40)
+                        _run_gender = st.session_state.get("uh_gender", "남")
+                        _run_nhis   = st.session_state.get("uh_nhis", 213_400)
+                        _run_emp    = st.session_state.get("uh_emp", "직장")
+                        _run_name   = st.session_state.get("uh_cname", "고객")
+
+                    _uh_report = run_unified_analysis(
+                        coverages       = _cov_list,
+                        nhis_premium    = _run_nhis,
+                        age             = _run_age,
+                        gender          = _run_gender,
+                        employment_type = _run_emp,
+                        customer_name   = _run_name,
+                        session_state   = st.session_state,
+                    )
+            except Exception as _uh_run_e:
+                st.error(f"❌ 통합 분석 오류: {_uh_run_e}")
+
+        # ── 결과 렌더링 ───────────────────────────────────────────────────
+        _uh_rpt: Optional[UnifiedReport] = st.session_state.get("integrated_report")
+
+        if _uh_rpt is not None and _uh_rpt.ok:
+            try:
+                _gap  = _uh_rpt.gap
+                _kb   = _uh_rpt.kb
+                _tri  = _uh_rpt.trinity
+                _risk_c = {"위험": "#dc2626", "주의": "#ca8a04", "양호": "#16a34a"}.get(
+                    _gap.risk_level if _gap else "N/A", "#6b7280"
+                )
+
+                # 강력 경고 배너
+                if _gap and _gap.alert_mode:
+                    st.markdown(
+                        f"<div style='background:#fef2f2;border:2px solid #dc2626;"
+                        f"border-radius:8px;padding:8px 14px;margin:6px 0 10px 0;"
+                        f"display:flex;align-items:center;gap:10px;'>"
+                        f"<span style='font-size:1.1rem;'>🚨</span>"
+                        f"<span style='font-size:0.78rem;font-weight:900;color:#991b1b;'>"
+                        f"긴급: 24개월 소득 공백 위험군 — 생계 파괴 공백 "
+                        f"<b>{_uw(abs(_gap.income_gap))}만원</b> / 소득 대체율 "
+                        f"<b style='color:#dc2626;'>{_gap.coverage_ratio:.0f}%</b></span>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                # ── 5:5 메인 레이아웃 ─────────────────────────────────────
+                _rpt_l, _rpt_r = st.columns([5, 5], gap="medium")
+
+                # ▌좌측: KB Expert View ──────────────────────────────────
+                with _rpt_l:
+                    st.markdown(
+                        f"<div style='font-size:0.80rem;font-weight:900;color:{_U_NAVY};"
+                        f"border-bottom:3px solid {_U_YELLOW};padding-bottom:5px;"
+                        f"margin-bottom:10px;letter-spacing:0.06em;'>"
+                        f"🛡️ KB Expert View — 7대 보장 분류</div>",
+                        unsafe_allow_html=True,
+                    )
+                    if _kb:
+                        # KB 종합 등급 배지
+                        _grade_c = {"S": "#7c3aed", "A": "#16a34a", "B": "#2563eb",
+                                    "C": "#ca8a04", "D": "#dc2626"}.get(_kb.grade, "#6b7280")
+                        st.markdown(
+                            f"<div style='display:flex;align-items:center;gap:10px;"
+                            f"margin-bottom:8px;'>"
+                            f"<div style='background:{_grade_c};color:#fff;font-size:1.6rem;"
+                            f"font-weight:900;width:44px;height:44px;border-radius:50%;"
+                            f"display:flex;align-items:center;justify-content:center;'>"
+                            f"{_kb.grade}</div>"
+                            f"<div><div style='font-size:0.68rem;color:#64748b;'>KB 종합 등급</div>"
+                            f"<div style='font-size:0.85rem;font-weight:700;color:{_U_NAVY};'>"
+                            f"총 스코어 {_kb.total_score:,.0f}만원</div></div></div>",
+                            unsafe_allow_html=True,
+                        )
+                        # 카테고리별 진단 바
+                        for _kcat in _kb.categories:
+                            _kpct = min(int((_kcat.weighted_score / _kcat.benchmark * 100)
+                                            if _kcat.benchmark > 0 else 0), 100)
+                            _kstc = {"충분": "#16a34a", "주의": "#ca8a04",
+                                     "부족": "#dc2626", "공백": "#9ca3af"}.get(_kcat.status, "#6b7280")
+                            st.markdown(
+                                f"<div style='margin-bottom:7px;'>"
+                                f"<div style='display:flex;justify-content:space-between;"
+                                f"font-size:0.70rem;margin-bottom:2px;'>"
+                                f"<span style='color:#374151;font-weight:700;'>{_kcat.category}</span>"
+                                f"<span style='color:{_kstc};font-weight:900;'>{_kcat.status} "
+                                f"({_kcat.weighted_score:,.0f}만)</span></div>"
+                                f"<div style='background:#e5e7eb;border-radius:3px;height:8px;'>"
+                                f"<div style='background:{_kstc};width:{_kpct}%;"
+                                f"height:8px;border-radius:3px;'></div></div></div>",
+                                unsafe_allow_html=True,
+                            )
+                        if _kb.recommendations:
+                            st.markdown(
+                                f"<div style='background:{_U_LIGHT};border-left:3px solid {_U_NAVY};"
+                                f"border-radius:0 6px 6px 0;padding:7px 10px;margin-top:8px;"
+                                f"font-size:0.70rem;color:#374151;line-height:1.8;'>"
+                                f"<b style='color:{_U_NAVY};'>📌 KB 권고</b><br>"
+                                + "<br>".join(f"• {r}" for r in _kb.recommendations[:3])
+                                + "</div>",
+                                unsafe_allow_html=True,
+                            )
+                    else:
+                        st.info("KB 분석 결과 없음")
+
+                # ▌우측: Trinity Value View ──────────────────────────────
+                with _rpt_r:
+                    st.markdown(
+                        f"<div style='font-size:0.80rem;font-weight:900;color:{_U_NAVY};"
+                        f"border-bottom:3px solid {_U_YELLOW};padding-bottom:5px;"
+                        f"margin-bottom:10px;letter-spacing:0.06em;'>"
+                        f"🔱 Trinity Value View — 소득 공백 인증서</div>",
+                        unsafe_allow_html=True,
+                    )
+                    if _tri and _gap:
+                        _inc = _tri.income
+                        # 가치 인증서 미니 카드
+                        st.markdown(
+                            f"<div style='background:{_U_NAVY};border-radius:8px;"
+                            f"padding:10px 14px;margin-bottom:10px;'>"
+                            f"<div style='display:grid;grid-template-columns:1fr 1fr 1fr;"
+                            f"gap:8px;'>"
+                            f"<div><div style='color:#8ca9be;font-size:0.60rem;'>월 경제가치</div>"
+                            f"<div style='color:{_U_YELLOW};font-size:1.0rem;font-weight:900;'>"
+                            f"{_uw(_inc.monthly_income)}만</div></div>"
+                            f"<div><div style='color:#8ca9be;font-size:0.60rem;'>골든타임 필요</div>"
+                            f"<div style='color:#fff;font-size:1.0rem;font-weight:900;'>"
+                            f"{_uw(_gap.golden_time_fund)}만</div></div>"
+                            f"<div><div style='color:#8ca9be;font-size:0.60rem;'>생계 파괴 공백</div>"
+                            f"<div style='color:#f87171;font-size:1.0rem;font-weight:900;'>"
+                            f"{_uw(abs(_gap.income_gap))}만</div></div>"
+                            f"</div></div>",
+                            unsafe_allow_html=True,
+                        )
+                        # 커버율 게이지
+                        _bar = min(int(_gap.coverage_ratio), 100)
+                        st.markdown(
+                            f"<div style='margin-bottom:10px;'>"
+                            f"<div style='display:flex;justify-content:space-between;"
+                            f"font-size:0.68rem;color:#64748b;margin-bottom:3px;'>"
+                            f"<span>소득 대체율</span>"
+                            f"<span style='color:{_risk_c};font-weight:900;'>"
+                            f"{_gap.coverage_ratio:.1f}% ({_gap.risk_level})</span></div>"
+                            f"<div style='background:#e5e7eb;border-radius:4px;height:14px;'>"
+                            f"<div style='background:{_risk_c};width:{_bar}%;height:14px;"
+                            f"border-radius:4px;'></div></div></div>",
+                            unsafe_allow_html=True,
+                        )
+                        # SOLUTION 클로징 멘트
+                        _cls = _tri.closing
+                        st.markdown(
+                            f"<div style='background:{_U_LIGHT};border-left:4px solid #16a34a;"
+                            f"border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:8px;'>"
+                            f"<div style='font-size:0.62rem;font-weight:900;color:#16a34a;"
+                            f"letter-spacing:0.08em;margin-bottom:3px;'>✅ SOLUTION</div>"
+                            f"<div style='font-size:0.72rem;color:#1e293b;line-height:1.7;'>"
+                            f"{_cls.solution}</div></div>",
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown(
+                            f"<div style='background:{_U_LIGHT};border-left:4px solid #dc2626;"
+                            f"border-radius:0 6px 6px 0;padding:8px 10px;'>"
+                            f"<div style='font-size:0.62rem;font-weight:900;color:#dc2626;"
+                            f"letter-spacing:0.08em;margin-bottom:3px;'>🎯 GAP</div>"
+                            f"<div style='font-size:0.72rem;color:#1e293b;line-height:1.7;'>"
+                            f"{_cls.gap}</div></div>",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        st.info("트리니티 분석 결과 없음")
+
+                # ── 실시간 플랜 시뮬레이터 ────────────────────────────────
+                if _gap:
+                    st.markdown(
+                        f"<div style='font-size:0.78rem;font-weight:900;color:{_U_NAVY};"
+                        f"border-top:2px solid {_U_YELLOW};padding-top:8px;"
+                        f"margin:12px 0 8px 0;'>🎮 실시간 플랜 시뮬레이터</div>",
+                        unsafe_allow_html=True,
+                    )
+                    _sim_c1, _sim_c2, _sim_c3 = st.columns(3, gap="small")
+                    with _sim_c1:
+                        _sim_cancer = st.slider("암 진단비 추가 (만원)",   0, 10000, 0, 500, key="sim_cancer")
+                        _sim_brain  = st.slider("뇌혈관 진단비 추가 (만원)", 0, 5000, 0, 500, key="sim_brain")
+                    with _sim_c2:
+                        _sim_heart  = st.slider("심장 진단비 추가 (만원)",   0, 5000, 0, 500, key="sim_heart")
+                        _sim_injury = st.slider("후유장해 추가 (만원)",       0, 10000, 0, 500, key="sim_injury")
+                    with _sim_c3:
+                        _sim_surg   = st.slider("수술비 추가 (만원)",         0, 3000, 0, 100, key="sim_surg")
+
+                    _sim = calc_sim_plan(
+                        golden_time_fund  = _gap.golden_time_fund,
+                        current_kb_cancer = _gap.kb_cancer_score,
+                        add_cancer        = _sim_cancer,
+                        add_brain         = _sim_brain,
+                        add_heart         = _sim_heart,
+                        add_injury        = _sim_injury,
+                        add_surgery       = _sim_surg,
+                    )
+                    _sim_risk_c = {"위험":"#dc2626","주의":"#ca8a04","양호":"#16a34a"}.get(_sim.risk_level,"#6b7280")
+                    _sim_bar    = min(int(_sim.new_coverage_ratio), 100)
+                    st.session_state["temp_plan"] = {
+                        "add_cancer": _sim_cancer, "add_brain": _sim_brain,
+                        "add_heart": _sim_heart,   "add_injury": _sim_injury,
+                        "add_surgery": _sim_surg,
+                    }
+                    st.markdown(
+                        f"<div style='background:{_U_LIGHT};border-radius:8px;"
+                        f"padding:10px 14px;margin-top:4px;'>"
+                        f"<div style='display:flex;flex-wrap:wrap;gap:18px;align-items:center;'>"
+                        f"<div><span style='font-size:0.65rem;color:#64748b;'>조정 후 KB 총스코어</span><br>"
+                        f"<b style='color:{_U_NAVY};font-size:0.90rem;'>{_sim.new_kb_total:,.0f}만</b></div>"
+                        f"<div><span style='font-size:0.65rem;color:#64748b;'>조정 후 소득 공백</span><br>"
+                        f"<b style='color:{_sim_risk_c};font-size:0.90rem;'>{_uw(abs(_sim.new_income_gap))}만</b></div>"
+                        f"<div><span style='font-size:0.65rem;color:#64748b;'>소득 대체율</span><br>"
+                        f"<b style='color:{_sim_risk_c};font-size:0.90rem;'>{_sim.new_coverage_ratio:.1f}%</b></div>"
+                        f"<div><span style='font-size:0.65rem;color:#64748b;'>예상 추가 보험료</span><br>"
+                        f"<b style='color:#2563eb;font-size:0.90rem;'>월 {_sim.monthly_premium_increase:,.0f}원</b></div>"
+                        f"</div>"
+                        f"<div style='background:#e5e7eb;border-radius:4px;height:10px;margin-top:8px;'>"
+                        f"<div style='background:{_sim_risk_c};width:{_sim_bar}%;height:10px;border-radius:4px;'></div></div>"
+                        f"<div style='font-size:0.62rem;color:#94a3b8;text-align:right;margin-top:2px;'>"
+                        f"{_sim.risk_level} — {_sim.new_coverage_ratio:.0f}% 달성</div>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                # ── N-SECTION 이동 버튼 ───────────────────────────────────
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                _nbtn_c1, _nbtn_c2 = st.columns([5, 5], gap="small")
+                if _nbtn_c1.button(
+                    "📋 이 분석 결과로 즉시 상담하기",
+                    key="uh_goto_n",
+                    use_container_width=True,
+                    help="N-SECTION 상담 파트로 이동하고 분석 결과를 자동 로드합니다.",
+                ):
+                    st.session_state["current_section"] = "sector_sec"
+                    st.rerun()
+
+                if _nbtn_c2.button(
+                    "📥 리포트 텍스트 복사용 출력",
+                    key="uh_export_txt",
+                    use_container_width=True,
+                ):
+                    _bridge = st.session_state.get("n_section_bridge", {})
+                    if _bridge:
+                        _rtxt = build_report_text(_bridge)
+                        st.code(_rtxt, language="text")
+
+            except Exception as _uh_rpt_e:
+                st.error(f"❌ 통합 결과 렌더링 오류: {_uh_rpt_e}")
+
+        # 오류 표시
+        if _uh_rpt is not None and _uh_rpt.errors:
+            with st.expander("⚠️ 부분 오류 로그"):
+                for _e in _uh_rpt.errors:
+                    st.warning(_e)
 
     # ── [policy_scan] 보험증권 분석 — 독립 전용 탭 ──────────────────────
     if cur == "policy_scan":
