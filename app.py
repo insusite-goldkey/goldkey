@@ -39014,8 +39014,7 @@ div[data-testid="stButton"] {
     </div>""", unsafe_allow_html=True)
                 st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#1565C0;margin:6px 0 3px 0;border-top:1px solid #90CAF9;padding-top:5px;letter-spacing:0.05em;'>📊 보험증권분석 엔진</div>", unsafe_allow_html=True)
                 if st.button("① 보험증권 AI 분석",  key="ag_a1", use_container_width=True):
-                    st.session_state["_home_scroll_to_action_grid"] = True
-                    _go_tab("home")
+                    _go_tab("policy_scan")
                 if st.button("② 통합 스캔 허브",    key="ag_a2", use_container_width=True): _go_tab("scan_hub")
                 if st.button("③ 약관 매칭 검색",    key="ag_a3", use_container_width=True): _go_tab("policy_terms")
                 if st.button("④ AI 자동 리포트",    key="ag_a4", use_container_width=True): _go_tab("report43")
@@ -41551,10 +41550,184 @@ div[data-testid="stButton"] {
                 gap_coverages=_life_r.get("gaps", []),
             )
 
-    # ── [policy_scan] → L-SECTION 통합 리다이렉트 (독립 탭 폐지) ────────
+    # ── [policy_scan] 보험증권 AI 분석 — 통합 증권분석 센터(gk_sec10) 브릿지 ──
     if cur == "policy_scan":
-        st.session_state["current_tab"] = "home"
-        st.rerun()
+        if not _auth_gate("policy_scan"):
+            st.stop()
+        tab_home_btn("policy_scan")
+
+        st.markdown("""<style>
+.ps-wrap {
+    background:linear-gradient(135deg,#e0f2fe 0%,#f0fdf4 60%,#fefce8 100%);
+    border:1px dashed #000; border-radius:16px;
+    padding:22px 26px; margin-bottom:16px; box-sizing:border-box;
+}
+.ps-header {
+    background:linear-gradient(135deg,#1e3a5f 0%,#1565C0 60%,#1976D2 100%);
+    border-radius:12px; padding:18px 24px; margin-bottom:14px;
+    border:1px solid #1565C0;
+}
+.ps-section-title {
+    font-size:0.78rem; font-weight:900; color:#1565C0;
+    letter-spacing:0.06em; border-bottom:2px solid #90CAF9;
+    padding-bottom:4px; margin-bottom:10px;
+}
+.ps-type-btn-row { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+.ps-report-card {
+    background:rgba(255,255,255,0.88); border:1px dashed #000;
+    border-radius:12px; padding:18px 20px; margin-bottom:12px;
+    box-sizing:border-box;
+}
+.ps-engine-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background:#dbeafe; color:#1e40af; border-radius:20px;
+    padding:3px 12px; font-size:0.72rem; font-weight:700;
+    border:1px solid #93c5fd; margin-bottom:8px;
+}
+.ps-gk10-btn {
+    background:linear-gradient(135deg,#1e3a5f,#1565C0);
+    color:#fde68a; border:none; border-radius:10px;
+    padding:12px 20px; font-size:1.0rem; font-weight:900;
+    width:100%; cursor:pointer; letter-spacing:0.03em;
+}
+.ps-result-box {
+    background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
+    padding:14px 16px; font-size:0.85rem; color:#374151;
+    line-height:1.8; max-height:380px; overflow-y:auto;
+    font-family:inherit;
+}
+</style>""", unsafe_allow_html=True)
+
+        st.markdown(
+            "<div class='ps-header'>"
+            "<div style='font-size:1.3rem;font-weight:900;color:#fde68a;letter-spacing:0.04em;'>"
+            "📊 보험증권 AI 분석 센터</div>"
+            "<div style='font-size:0.83rem;color:#bfdbfe;margin-top:6px;line-height:1.6;'>"
+            "분석 요청 → <b style='color:#fde68a;'>통합 증권분석 센터 (GK-SEC-10)</b> 엔진으로 전송 "
+            "→ AI 보고서 수령 &nbsp;|&nbsp; "
+            "<span style='background:#fde68a;color:#1e1b4b;border-radius:5px;"
+            "padding:1px 7px;font-size:0.72rem;font-weight:800;'>🔒 민감정보 비저장</span>"
+            "</div></div>", unsafe_allow_html=True
+        )
+
+        _ps_left, _ps_right = st.columns([5, 5], gap="medium")
+
+        # ── 좌측: 분석 요청 창 ─────────────────────────────────────────────
+        with _ps_left:
+            st.markdown("<div class='ps-wrap'>", unsafe_allow_html=True)
+            st.markdown("<div class='ps-section-title'>📋 증권분석 요청 입력창</div>", unsafe_allow_html=True)
+
+            _ps_cname = st.text_input(
+                "👤 고객 성함",
+                value=st.session_state.get("ps_req_cname", ""),
+                placeholder="예) 홍길동",
+                key="ps_cname_input",
+            )
+            if _ps_cname:
+                st.session_state["ps_req_cname"] = _ps_cname
+
+            _ps_company = st.text_input(
+                "🏢 보험사 / 상품명",
+                value=st.session_state.get("ps_req_company", ""),
+                placeholder="예) 삼성생명 / 무배당 종신보험",
+                key="ps_company_input",
+            )
+            if _ps_company:
+                st.session_state["ps_req_company"] = _ps_company
+
+            st.markdown("<div style='font-size:0.78rem;font-weight:700;color:#374151;margin:8px 0 4px 0;'>⚡ 빠른 분석 유형 선택</div>", unsafe_allow_html=True)
+            _PS_TYPES = [
+                "전체 보장 분석", "보장 공백 진단", "담보 목록 파싱",
+                "중복보험 점검", "4세대 실손 전환 검토", "보험료 대비 효율 분석",
+                "갱신 리스크 분석", "수익자 지정 확인",
+            ]
+            _ps_type_sel = st.selectbox(
+                "분석 유형",
+                _PS_TYPES,
+                index=_PS_TYPES.index(st.session_state.get("ps_req_type", _PS_TYPES[0]))
+                      if st.session_state.get("ps_req_type") in _PS_TYPES else 0,
+                key="ps_type_sel",
+                label_visibility="collapsed",
+            )
+            st.session_state["ps_req_type"] = _ps_type_sel
+
+            _ps_note = st.text_area(
+                "📝 추가 분석 요청사항 / 고객 질문",
+                value=st.session_state.get("ps_req_note", ""),
+                placeholder="예) 비급여 실손 한도 초과 여부, 치매 보장 포함 여부 확인 요망",
+                height=110,
+                key="ps_note_input",
+            )
+            if _ps_note:
+                st.session_state["ps_req_note"] = _ps_note
+
+            import datetime as _ps_dt
+            if st.button(
+                "🔍 통합 증권분석 센터로 분석 요청 전송",
+                key="ps_send_btn", use_container_width=True, type="primary",
+            ):
+                if not _ps_cname:
+                    st.warning("고객 성함을 입력하세요.")
+                else:
+                    st.session_state["ps_req_cname"]   = _ps_cname
+                    st.session_state["ps_req_company"]  = _ps_company
+                    st.session_state["ps_req_type"]     = _ps_type_sel
+                    st.session_state["ps_req_note"]     = _ps_note
+                    st.session_state["ps_req_sent_at"]  = _ps_dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+                    st.session_state["ps_req_pending"]  = True
+                    st.session_state["current_tab"]     = "gk_sec10"
+                    st.rerun()
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── 우측: 보고서 센터 ──────────────────────────────────────────────
+        with _ps_right:
+            st.markdown("<div class='ps-wrap'>", unsafe_allow_html=True)
+            st.markdown("<div class='ps-section-title'>📊 AI 보고서 센터</div>", unsafe_allow_html=True)
+
+            st.markdown(
+                "<div class='ps-report-card'>"
+                "<div class='ps-engine-badge'>⚙️ 엔진: GK-SEC-10 통합 증권분석 센터</div>"
+                "<div style='font-size:0.85rem;color:#1e3a5f;line-height:1.8;'>"
+                "✅ <b>마이데이터 기반 보험 자동 소환</b> (내보험다보여 연동)<br>"
+                "✅ <b>Vision AI 증권 파싱</b> — 담보·특약 자동 추출<br>"
+                "✅ <b>보장 공백 진단</b> — KCD 코드 기반 실손 부책 연동<br>"
+                "✅ <b>중복보험 비례보상</b> — 상법 제127조의3 자동 적용<br>"
+                "✅ <b>4세대 실손 전환 시뮬레이션</b><br>"
+                "✅ <b>AI 종합 보고서</b> — 고객 카카오 알림톡 발송 가능"
+                "</div></div>", unsafe_allow_html=True
+            )
+
+            _ps_pending = st.session_state.get("ps_req_pending", False)
+            _ps_sent_at = st.session_state.get("ps_req_sent_at", "")
+            if _ps_pending and _ps_sent_at:
+                st.info(
+                    f"⏳ **분석 요청 대기 중** — {st.session_state.get('ps_req_cname','')} 고객 "
+                    f"/ {st.session_state.get('ps_req_type','')} "
+                    f"(요청시각: {_ps_sent_at})\n\n"
+                    "아래 버튼을 눌러 통합 증권분석 센터에서 분석을 진행하세요."
+                )
+
+            if st.button(
+                "📊 통합 증권분석 센터 열기 (GK-SEC-10) →",
+                key="ps_goto_sec10", use_container_width=True, type="primary",
+            ):
+                st.session_state["current_tab"] = "gk_sec10"
+                st.rerun()
+
+            st.markdown("<hr style='border-top:1px dashed #000;margin:14px 0;'>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='font-size:0.75rem;color:#64748b;line-height:1.7;'>"
+                "📌 <b>[GP 전역 기준]</b> 앱 내 모든 증권분석은 "
+                "<b>통합 증권분석 센터 (GK-SEC-10)</b> 엔진을 통해 수행됩니다.<br>"
+                "별도의 분석 엔진은 이 창 내에 설치되지 않으며, "
+                "분석 요청은 GK-SEC-10으로 전달되어 처리됩니다."
+                "</div>", unsafe_allow_html=True
+            )
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.stop()
 
     # ── [t0] 신규보험 상품 상담 — 보험설계사 전용 ───────────────────────
     if cur == "t0":
