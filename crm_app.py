@@ -233,6 +233,104 @@ input[type="text"]:focus, input[type="password"]:focus,
 
 /* 알림 박스 */
 .stAlert { background: rgba(255,255,255,0.82) !important; border-radius: 12px !important; }
+
+/* ================================================================
+   [신규 전면 개정] GP 제2장 제6조~제11조 — Bright Corporate UI/UX System
+   2026-03-18 개정 · 기존 제6~11조 전면 폐기 대체 · 후위 !important 강제 적용
+================================================================ */
+
+/* ── 제6조 [Bright Corporate 스타일] ─────────────────────────── */
+html, body {
+  background: #FFFFFF !important;
+  background-image: none !important;
+  background-attachment: initial !important;
+}
+[data-testid="stApp"],
+[data-testid="stAppViewContainer"],
+.stApp,
+section[data-testid="stMain"],
+section[data-testid="stMain"] > div,
+.main,
+.main .block-container,
+.block-container {
+  background: #F8F9FA !important;
+  background-image: none !important;
+  background-attachment: initial !important;
+}
+p, li, span {
+  color: #333333 !important;
+  text-shadow: none !important;
+}
+
+/* ── 제7조 [프리미엄 그라데이션 박스 — Bright Cyan] ────────────── */
+.premium-gradient-box {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
+  border-radius: 15px !important;
+  box-shadow: 0 8px 20px rgba(0, 192, 255, 0.2) !important;
+  padding: 16px 20px !important;
+}
+.premium-gradient-box,
+.premium-gradient-box * {
+  color: #FFFFFF !important;
+  text-shadow: none !important;
+}
+
+/* ── 제8조 [레드 얼럿 시스템] ──────────────────────────────────── */
+.red-alert-box {
+  border: 1.5px solid #FF4B4B !important;
+  background-color: rgba(255, 75, 75, 0.05) !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+}
+.red-alert-box,
+.red-alert-box * {
+  color: #FF4B4B !important;
+  text-shadow: none !important;
+}
+.red-text {
+  color: #FF4B4B !important;
+  text-shadow: none !important;
+}
+
+/* ── 제9조 [공간 구획 및 경계] ──────────────────────────────────── */
+[data-testid="stExpander"],
+[data-testid="stForm"] {
+  border: 1px solid #E0E0E0 !important;
+  border-radius: 10px !important;
+}
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] > details > summary {
+  border: 1px solid #E0E0E0 !important;
+  background: #FFFFFF !important;
+  backdrop-filter: none !important;
+}
+[data-testid="stVerticalBlock"] { margin-bottom: 6px !important; }
+
+/* ── 제10조 [전역 컴팩트 레이아웃] ─────────────────────────────── */
+[data-testid="stExpanderDetails"] p,
+[data-testid="stExpanderDetails"] li {
+  line-height: 1.25 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* ── 제11조 [반응형 타이포그래피 — Fluid Typography] ────────────── */
+p, li, span {
+  font-size: clamp(13px, 1.2vw + 10px, 16px) !important;
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+}
+h1 { font-size: clamp(20px, 3vw + 12px, 28px) !important; word-break: keep-all !important; overflow-wrap: break-word !important; }
+h2 { font-size: clamp(18px, 2.5vw + 10px, 24px) !important; word-break: keep-all !important; overflow-wrap: break-word !important; }
+h3 { font-size: clamp(16px, 2vw + 10px, 20px) !important; word-break: keep-all !important; overflow-wrap: break-word !important; }
+[data-testid="stExpanderDetails"] p,
+[data-testid="stExpanderDetails"] li,
+[data-testid="stExpanderDetails"] span {
+  font-size: clamp(12px, 1vw + 10px, 14px) !important;
+}
+*, *::before, *::after {
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+}
 </style>
 """, unsafe_allow_html=True)
 

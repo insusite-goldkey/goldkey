@@ -5,29 +5,98 @@
 
 ---
 
-## 제6조 [프리미엄 그라데이션 박스]
-골드-오렌지 계열 그라데이션을 활용하여 주요 액션 블록을 시각적으로 강조한다.
+## 제2장 디자인 및 UI/UX 시스템 (제6조~제11조) — 2026-03-18 전면 개정
+
+> **⚠️ 단서조항:** 이 장(제6조~제11조)은 2026-03-18부로 기존 조항을 **전면 폐기**하고 아래 신규 조항으로 대체한다.  
+> 신규·개설되는 모든 UI 구조물(박스, 입력창, 스캔창, 카드, 탭, 팝업 포함)은 **반드시 본 장의 기준**을 따라야 한다.  
+> 이 명령은 [HQ 앱](app.py) 및 [CRM 앱](crm_app.py) 전역에 강제 적용되며, 예외 없이 준수해야 한다.
 
 ---
 
-## 제7조 [레드 얼럿 시스템]
-경고·오류 상황에는 빨간색 계열 배경과 흰색 텍스트를 사용하여 즉각적인 주의를 유도한다.
+## 제6조 [Bright Corporate 스타일 — 전역 배경 및 텍스트]
+
+앱 전체 배경(`.stApp`, `.main`, `html`, `body`)은 **라이트 그레이(#F8F9FA)** 또는 **화이트(#FFFFFF)**로 고정한다.  
+기존 어두운 그라데이션 배경 및 Glassmorphism 배경은 이 조항에 의해 폐기되며, CSS 후위 `!important`로 강제 적용된다.  
+기본 텍스트(`p`, `li`, `span`)는 **짙은 차콜 그레이(#333333)**로 강제 지정하며, 어떠한 `text-shadow`도 허용하지 않는다.
+
+### §1 CSS 구현 클래스
+- `html, body` → `background: #FFFFFF`
+- `.stApp`, `.main`, `.block-container` → `background: #F8F9FA`
+- `p, li, span` → `color: #333333; text-shadow: none`
 
 ---
 
-## 제8조 [공간 분할]
-화면을 논리적 섹션으로 분리하여 사용자의 시선 흐름을 자연스럽게 유도한다.
+## 제7조 [프리미엄 그라데이션 박스 — Bright Cyan]
+
+AI 핵심 요약 보드, 주요 컨테이너에 적용할 `.premium-gradient-box` CSS 클래스를 사용한다.  
+박스 내부의 모든 텍스트 및 아이콘은 **반드시 흰색(#FFFFFF)**으로 처리하여 가독성을 보장한다.
+
+### §1 CSS 속성
+- `background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important`
+- `border-radius: 15px !important`
+- `box-shadow: 0 8px 20px rgba(0, 192, 255, 0.2) !important`
+- 내부 텍스트: `color: #FFFFFF !important`
+
+### §2 사용 지침
+HTML에서 `<div class="premium-gradient-box">` 형태로 사용하며, Streamlit `st.markdown(..., unsafe_allow_html=True)`로 렌더링한다.
 
 ---
 
-## 제9조 [컴팩트 레이아웃]
-불필요한 여백을 제거하고, 한 화면 내 최대한의 정보를 효율적으로 배치한다.
+## 제8조 [레드 얼럿 시스템]
+
+경고, 부족한 보장 금액, 위험 상황 표시에는 `.red-alert-box` 및 `.red-text` 클래스를 사용한다.
+
+### §1 CSS 속성
+- `.red-alert-box`: `border: 1.5px solid #FF4B4B; background-color: rgba(255,75,75,0.05); border-radius: 8px`
+- `.red-text`: `color: #FF4B4B`
+- 박스 내부 텍스트: 모두 `#FF4B4B` 강제 적용
+
+### §2 적용 대상
+보장공백 경고, 실손 미가입 알림, 법령 위반 소지 표시, 계약 위험 경고 등 즉각 주의가 필요한 모든 UI 요소.
 
 ---
 
-## 제10조 [스플래시 화면 시스템]
-앱 초기 로딩 시 전체화면 스플래시 오버레이를 표시하며, 로딩 완료 시 페이드아웃 처리한다.  
-최소 노출 시간은 0.3초이며, DB 초기화 완료 또는 최대 1.0초 경과 시 강제 해제한다.
+## 제9조 [공간 구획 및 경계]
+
+모든 주요 페이지, 카드 블록, 익스팬더, 폼의 외곽 테두리는 **얇은 실선(`border: 1px solid #E0E0E0`)**으로 처리한다.  
+섹션 간 가로 구분선은 CSS 마진으로 명확히 분리하며, 과도한 내부 그림자(box-shadow)는 사용을 자제한다.
+
+### §1 CSS 타겟
+- `[data-testid="stExpander"]`, `[data-testid="stForm"]` → `border: 1px solid #E0E0E0; border-radius: 10px`
+- Expander summary → `border: 1px solid #E0E0E0; background: #FFFFFF`
+- 세로 블록 간격: `margin-bottom: 6px`
+
+---
+
+## 제10조 [전역 컴팩트 레이아웃]
+
+Expander 내부 텍스트 밀도를 높여 한 화면 내 최대 정보를 표시한다.
+
+### §1 CSS 타겟
+- `[data-testid="stExpanderDetails"] p, li` → `line-height: 1.25 !important; letter-spacing: -0.02em !important`
+
+### §2 적용 원칙
+버튼 최소 높이, 패딩 등 터치 타겟은 유지하되, 문단 줄간격과 자간을 압축하여 정보 밀도를 높인다.
+
+---
+
+## 제11조 [반응형 타이포그래피 — Fluid Typography]
+
+기기 화면 너비에 따라 글자 크기가 자동 조절되도록 CSS `clamp()` 함수를 전면 적용한다.  
+좁은 모바일 화면에서 긴 단어가 깨지지 않도록 `word-break: keep-all; overflow-wrap: break-word`를 전역 강제 적용한다.
+
+### §1 폰트 크기 기준
+
+| 요소 | CSS clamp() 값 |
+|---|---|
+| `p, li, span` (본문) | `clamp(13px, 1.2vw + 10px, 16px)` |
+| `h1` (메인 타이틀) | `clamp(20px, 3vw + 12px, 28px)` |
+| `h2` (섹션 타이틀) | `clamp(18px, 2.5vw + 10px, 24px)` |
+| `h3` (카드 타이틀) | `clamp(16px, 2vw + 10px, 20px)` |
+| Expander 내부 | `clamp(12px, 1vw + 10px, 14px)` |
+
+### §2 전역 단어 줄바꿈
+`*, *::before, *::after` → `word-break: keep-all; overflow-wrap: break-word`
 
 ---
 
