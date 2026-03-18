@@ -39812,9 +39812,9 @@ div[data-testid="stButton"] {
                 st.link_button("① 인적 자원 등록",   url=f"{_crm_base}?action=register", use_container_width=True)
                 st.link_button("② 관계망 형성",       url=f"{_crm_base}?action=network",  use_container_width=True)
                 st.link_button("③ 증권·역할 할당",    url=f"{_crm_base}?action=policy",   use_container_width=True)
-                if st.button("④ Key Metrics 대시보드", key="ag_g4", use_container_width=True): _go_tab("crm_gate")
+                if st.button("④ Key Metrics 대시보드", key="crm_g4", use_container_width=True): _go_tab("crm_gate")
             with _g_c2:
-                if st.button("⑤ 가족 관계도",              key="ag_g5", use_container_width=True): _go_tab("crm_gate")
+                if st.button("⑤ 가족 관계도",              key="crm_g5", use_container_width=True): _go_tab("crm_gate")
                 if st.button("⑥ 보장 공백 Bar차트",        key="ag_g6", use_container_width=True): _go_tab("crm_gate")
                 if st.button("⑦ 계약자·피보험자 증권 탭", key="ag_g7", use_container_width=True): _go_tab("crm_gate")
     
