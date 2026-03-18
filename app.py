@@ -37639,7 +37639,38 @@ function selectCustomer(name) {{
     </style>""", unsafe_allow_html=True)
     
             st.markdown(f'<div style="position:relative;height:0;">{_bid("GK-HOME-01")}</div>', unsafe_allow_html=True)
-    
+
+            # ── [홈] 아바타 헤더 배너 ──────────────────────────────────────────
+            import datetime as _dt_home
+            _home_today_str = _dt_home.date.today().strftime("%Y년 %m월 %d일")
+            _home_wd = ["월","화","수","목","금","토","일"][_dt_home.date.today().weekday()]
+            _home_av_src = get_goldkey_avatar()
+            _home_av_html = (
+                f'<div style="width:58px;height:58px;border-radius:50%;overflow:hidden;'
+                f'border:3px solid #f0c040;'
+                f'box-shadow:0 0 16px rgba(240,192,32,0.6);flex-shrink:0;margin-right:14px;">'
+                f'<img src="{_home_av_src}" style="width:100%;height:100%;object-fit:cover;'
+                f'object-position:center top;display:block;"></div>'
+            ) if _home_av_src else '<span style="font-size:3rem;margin-right:14px;">🏆</span>'
+            st.markdown(f"""
+<div style="border:3px solid #f0c040;border-radius:18px;padding:18px 20px 16px 20px;
+  background:linear-gradient(160deg,#e8f4fd 0%,#d0e8f8 60%,#b8d8f0 100%);
+  box-shadow:0 0 32px rgba(240,192,64,0.22),0 4px 24px rgba(0,0,0,0.15);
+  margin-bottom:18px;position:relative;">
+  {_bid('GK-HOME-AV')}
+  <div style="display:flex;align-items:center;">
+    {_home_av_html}
+    <div>
+      <div style="font-size:1.35rem;font-weight:900;color:#1a3a5c;letter-spacing:0.04em;margin-bottom:4px;">
+        🏆 Goldkey AI Master — 설계사 대시보드
+      </div>
+      <div style="font-size:0.8rem;color:#4a6080;">
+        {_home_today_str} ({_home_wd}) &nbsp;·&nbsp; AI 보험컨설팅 통합 플랫폼
+      </div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
             # ══════════════════════════════════════════════════════════════════════
             # [HQ-DOCK] 도킹 스테이션 — URL 파라미터 수신 + 고객 도킹 패널
             # URL: ?gk_cid=XXX&gk_sector=cancer&gk_token=YYY&gk_name=홍길동
