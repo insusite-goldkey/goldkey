@@ -26,9 +26,14 @@ CREATE INDEX IF NOT EXISTS idx_gk_people_agent_id   ON gk_people(agent_id);
 CREATE INDEX IF NOT EXISTS idx_gk_people_is_deleted ON gk_people(is_deleted);
 
 -- updated_at 자동 갱신 트리거
-CREATE OR REPLACE FUNCTION gk_set_updated_at()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$;
+CREATE OR REPLACE FUNCTION public.gk_set_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN NEW.updated_at = now(); RETURN NEW; END;
+$$;
 
 DROP TRIGGER IF EXISTS trg_gk_people_updated_at ON gk_people;
 CREATE TRIGGER trg_gk_people_updated_at
@@ -141,14 +146,20 @@ ALTER TABLE gk_policies         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gk_policy_roles     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gk_policy_coverages ENABLE ROW LEVEL SECURITY;
 
--- 서비스 롤은 모든 행 접근 허용 (앱 서버용)
-CREATE POLICY IF NOT EXISTS "service_role_all_people"
-    ON gk_people FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "service_role_all_rel"
-    ON gk_relationships FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "service_role_all_policies"
-    ON gk_policies FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "service_role_all_pr"
-    ON gk_policy_roles FOR ALL TO service_role USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "service_role_all_cov"
-    ON gk_policy_coverages FOR ALL TO service_role USING (true) WITH CHECK (true);
+-- 서비스 롤은 모든 행 접근 허용 (앱 서버용) — PG15 호환 재생성 패턴
+DROP POLICY IF EXISTS "service_role_all_people"   ON public.gk_people;
+DROP POLICY IF EXISTS "service_role_all_rel"       ON public.gk_relationships;
+DROP POLICY IF EXISTS "service_role_all_policies"  ON public.gk_policies;
+DROP POLICY IF EXISTS "service_role_all_pr"        ON public.gk_policy_roles;
+DROP POLICY IF EXISTS "service_role_all_cov"       ON public.gk_policy_coverages;
+
+CREATE POLICY "service_role_all_people"
+    ON public.gk_people FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_role_all_rel"
+    ON public.gk_relationships FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_role_all_policies"
+    ON public.gk_policies FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_role_all_pr"
+    ON public.gk_policy_roles FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_role_all_cov"
+    ON public.gk_policy_coverages FOR ALL TO service_role USING (true) WITH CHECK (true);

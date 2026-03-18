@@ -30989,7 +30989,7 @@ footer, footer * {
 </style>
 <div id="gk-loading-overlay">
   <div class="gk-loading-title">Goldkey AI Masters 2026</div>
-  <div class="gk-loading-sub">구동중입니다. 잠시 기다려주세요!</div>
+  <div class="gk-loading-sub">이동중! 잠시만 기다려주세요.</div>
   <div class="gk-loading-dot"><span></span><span></span><span></span></div>
 </div>
 <script>
