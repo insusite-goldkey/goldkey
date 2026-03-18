@@ -39478,6 +39478,7 @@ div[data-testid="stButton"] {
                     st.session_state["comp_acc_type"] = "일반 상해 / 질병"
                     _go_tab("compensation")
                 if st.button("③ KCD 상해 분석",        key="ag_e5", use_container_width=True): _go_tab("kcd_injury")
+                if st.button("④ ⚖️ 법률비용담보 비교",   key="ag_e6", use_container_width=True): _go_tab("legal_expense")
 
             with _pf_def3:
                 st.markdown(f"""<div style="background:#FFF3E0;border:1.5px solid #FFCC80;
@@ -40456,7 +40457,7 @@ div[data-testid="stButton"] {
             # D섹션
             "nursing", "realty", "med_econ",
             # E섹션
-            "compensation",
+            "compensation", "legal_expense",
             # F섹션
             "ins_bot",
             "special_ops",
@@ -48060,42 +48061,171 @@ div[data-testid="stButton"] {
   </div>
 </div>""", unsafe_allow_html=True)
 
-        _sl_col_l, _sl_col_r = st.columns([5, 5], gap="medium")
+        # ─── 8대 사전 답변 (3계층 구조) 정의 ─────────────────────────
+        def _sl_ans_html(icon_title, t1_html, t2_html, t3_html):
+            return (
+                f'<div style="border:1px dashed #000;border-radius:10px;overflow:hidden;'
+                f'font-size:0.79rem;font-family:\'Noto Sans KR\',sans-serif;line-height:1.65;">'
+                f'<div style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);'
+                f'padding:8px 14px;color:#fff;font-weight:900;font-size:0.82rem;">{icon_title}</div>'
+                f'<div style="padding:9px 14px;background:#f9fafb;border-bottom:1px dashed #d1d5db;">'
+                f'<b style="color:#1e40af;font-size:0.77rem;">[1단계] 전문가적 정의</b><br>{t1_html}</div>'
+                f'<div style="padding:9px 14px;background:#eff6ff;border-bottom:1px dashed #d1d5db;">'
+                f'<b style="color:#059669;font-size:0.77rem;">[2단계] 실무 프로세스</b><br>{t2_html}</div>'
+                f'<div style="padding:9px 14px;background:#f0fdf4;">'
+                f'<b style="color:#dc2626;font-size:0.77rem;">[3단계] 실전 대화 예시</b><br>{t3_html}</div>'
+                f'<div style="padding:5px 14px;background:#f1f5f9;border-top:1px dashed #d1d5db;'
+                f'font-size:0.69rem;color:#94a3b8;">※ 출처: 실손의료보험 표준약관·금감원 분쟁조정 지침·보험업법·상법 제672조</div>'
+                f'</div>'
+            )
+
+        _SL_ANSWERS = [
+            _sl_ans_html(
+                "📖 ① 세대별 표준약관 비교(1~4세대)",
+                "고객님, '실손 세대'란 금감원이 표준약관 개정 시행일을 기준으로 계약을 구분한 분류입니다.<br>"
+                "▪ <b>1세대(~2009.07)</b>: 자기부담 0%, 종신보장, 일반상해의료비 포함<br>"
+                "▪ <b>2세대A·B·C(2009.08~2017.03)</b>: 자기부담 10~20%, 1년 갱신 순차 도입<br>"
+                "▪ <b>3세대(2017.04~2021.06)</b>: 3대 비급여(도수·주사·MRI) 특약 분리<br>"
+                "▪ <b>4세대(2021.07~)</b>: 비급여 자기부담 30%, 할증제·재가입 5년 주기",
+                "실제 청구 시 가입일 기준 세대 판별이 선행됩니다. <b>세대별로 자기부담금과 갱신 조건이 다르며</b>, "
+                "1세대는 일반상해의료비 담보가 별도 존재해 교통·산재 50% 중복보상 혜택이 있습니다. "
+                "4세대 전환 전 기존 세대 담보 확인이 필수입니다.",
+                "마스터: 고객님, 2014년 가입이시면 2세대-B입니다. 비급여도 10%만 부담하세요.<br>"
+                "고객: 지금 4세대로 바꾸면 어떻게 되나요?<br>"
+                "마스터: 비급여 자기부담이 30%로 올라가니 현재 세대 유지가 대부분 유리합니다."
+            ),
+            _sl_ans_html(
+                "💰 ② 급여 vs 비급여 보장 기준",
+                "고객님, <b>급여</b>란 국민건강보험법에 따라 공단이 일부를 부담하는 항목이며, "
+                "<b>비급여</b>는 공단 부담 없이 환자가 전액 부담하는 항목입니다. "
+                "실손보험은 양쪽 모두 보장하되, 자기부담 비율이 세대별로 다릅니다.",
+                "청구 실무: ①급여는 건보 공단부담 후 본인부담분만 실손 청구 ②비급여는 영수증 전액 기준 청구. "
+                "4세대는 비급여 자기부담 30% + 연간 한도·항목별 횟수 제한이 적용됩니다. "
+                "세대별 비급여 한도: 1~2세대 사실상 무제한 → 3세대 특약 연 350만원 → 4세대 항목별 상한",
+                "마스터: 도수치료 받으셨나요? 영수증에 '비급여' 표시가 있을 겁니다.<br>"
+                "고객: 네, 30만원 나왔어요.<br>"
+                "마스터: 3세대 특약 보유 시 한도 내 80% 보상입니다. 청구해 드리겠습니다."
+            ),
+            _sl_ans_html(
+                "❌ ③ 면책 조항 완전 정리",
+                "고객님, 실손보험 면책사항은 <b>표준약관 제4조(보상하지 않는 손해)</b>에 열거됩니다.<br>"
+                "① 미용·성형수술 ② 비만·노화 관련 치료 ③ 한방 비급여 ④ 자해·자살 ⑤ 치과 비급여(상해 제외) "
+                "⑥ 정신질환(F코드, 세대별 상이) ⑦ 선천성 질환(4세대 일부 확대) ⑧ 업무상 재해(산재 처리 대상)",
+                "분쟁 1위는 '미용 목적 여부' 판단입니다. 쌍꺼풀·지방흡입은 면책이나, "
+                "기능 장애(비중격만곡증·안검하수 등) 동반 시 조건부 부책이 됩니다. "
+                "청구 전 진단서의 수술 목적 기재 여부와 KCD코드를 반드시 확인하세요.",
+                "마스터: 쌍꺼풀 수술은 약관상 미용 성형 면책입니다.<br>"
+                "고객: 의사가 안검하수라고 했어요.<br>"
+                "마스터: 그럼 기능 장애 목적이라 부책 가능합니다. 진단서에 H02.0(안검하수) 명기 확인하세요."
+            ),
+            _sl_ans_html(
+                "⚖️ ④ 중복보험 비례보상 공식",
+                "고객님, 실손보험 비례보상이란 <b>상법 제672조 및 실손표준약관</b>에 따라, "
+                "동일 피보험자가 다수 실손에 가입된 경우 각 보험사가 <b>독립책임액 비율</b>로 손해액을 분담하는 원칙입니다. "
+                "이득금지 원칙이 적용되어 실제 손해액을 초과한 보상은 불가합니다.",
+                "공식: <b>A사 지급액 = 손해액 × (A사 독립책임액 ÷ 전체 독립책임액 합계)</b><br>"
+                "예) 손해 100만원, A사 한도 100만·B사 한도 50만 → A사 67만·B사 33만 분담.<br>"
+                "단, 실손(손해보험)과 정액보험(입원일당·진단비)은 이득금지 원칙 미적용 — 중복 청구 가능합니다.",
+                "마스터: 두 보험사에 실손이 있어도 합산 200만원이 아닙니다.<br>"
+                "고객: 그럼 하나는 의미 없는 건가요?<br>"
+                "마스터: 한도 초과분을 분담하는 개념이라 각각 청구하시면 됩니다. 입원일당은 양쪽 다 받으실 수 있어요."
+            ),
+            _sl_ans_html(
+                "🔄 ⑤ 4세대 실손 전환 가이드",
+                "고객님, 4세대 실손 전환은 <b>금융감독원이 2021.07 시행</b>한 제도로, 1~3세대 가입자는 언제든 전환 신청이 가능합니다.<br>"
+                "▪ <b>장점</b>: 보험료 초기 최대 70% 절감<br>"
+                "▪ <b>단점</b>: 비급여 자기부담 30%, 5년 재가입(보험료 변동), 비급여 할증제 적용",
+                "1세대 일반상해의료비 담보 보유자는 전환 시 해당 담보 소멸, 교통·산재 50% 중복보상 혜택도 사라집니다. "
+                "전환 절차: 보험사 앱·고객센터 → 전환 신청 → 심사 없이 즉시 전환. "
+                "전환 전 기존 담보 전수 점검이 필수입니다.",
+                "마스터: 1세대라 보험료가 많이 오르셨죠? 4세대로 바꾸면 당장은 싸집니다.<br>"
+                "고객: 바꾸는 게 좋을까요?<br>"
+                "마스터: 일반상해의료비 담보 있으시면 신중하셔야 합니다. 제가 증권 먼저 확인해 드릴게요."
+            ),
+            _sl_ans_html(
+                "🔬 ⑥ KCD코드→실손 부책 여부",
+                "고객님, KCD(한국표준질병사인분류) 코드는 진단서·영수증 상병코드로, "
+                "실손 청구 시 <b>부책·면책·조건부 여부</b>의 핵심 판단 기준이 됩니다. "
+                "코드별 급여/비급여 구분 및 약관 면책 대조가 필요하며, 아래 질문창에 KCD 코드를 입력하시면 AI가 분석합니다.",
+                "부책 판단 3단계: ①코드가 건강보험 급여 목록인지 확인 ②약관 제4조 면책사항과 대조 ③세대별 약관 조건 적용.<br>"
+                "F코드(정신질환)는 세대별 보상 범위 상이, Z코드(예방·검진)는 대부분 면책, "
+                "Q코드(선천성)는 4세대부터 일부 보상 확대됩니다.",
+                "마스터: C16(위암) 코드면 암 진단비 + 실손 수술비 모두 청구 가능합니다.<br>"
+                "고객: Z41 코드는요?<br>"
+                "마스터: Z41은 미용 목적 수술이라 실손 면책입니다. 아래 정밀 분석으로 확인해 드리겠습니다."
+            ),
+            _sl_ans_html(
+                "📑 ⑦ 비급여 실손 청구 가능 범위",
+                "고객님, 비급여 실손 보장 범위는 세대별로 다릅니다.<br>"
+                "▪ <b>1~2세대</b>: 면책 외 대부분 비급여 보상<br>"
+                "▪ <b>3세대</b>: 도수·증식·체외충격파·주사제·MRI를 특약 분리(연 350만원·횟수 제한)<br>"
+                "▪ <b>4세대</b>: 비급여 특약 연 한도+횟수 제한, 10회마다 의사 소견서 필수",
+                "청구 시 주의사항: ①4세대는 비급여 특약 가입 여부 필수 확인 "
+                "②MRI: 의사 처방 없이 본인 요청 시 면책 "
+                "③로봇수술: 비급여 수술비 청구 가능(일부 보험사 제한) "
+                "④도수치료: 3세대 특약 미가입 시 청구 불가",
+                "마스터: 도수치료 영수증 있으세요? 3세대 특약 가입 여부 먼저 확인해야 합니다.<br>"
+                "고객: 특약이 뭔지 모르겠어요.<br>"
+                "마스터: 증권에 '도수치료비특약' 기재 여부를 확인해 드릴게요. 있으면 연 350만원 한도로 청구됩니다."
+            ),
+            _sl_ans_html(
+                "💊 ⑧ 실손 세대 판별 방법",
+                "고객님, 실손 세대는 <b>보험증권상 최초 계약일(보험개시일)</b> 기준으로 판별합니다.<br>"
+                "① ~2009.07.31 = 1세대 ② 2009.08.01~2017.03.31 = 2세대(A/B/C) "
+                "③ 2017.04.01~2021.06.30 = 3세대 ④ 2021.07.01~ = 4세대<br>"
+                "유병자 실손(2018.04~)은 별도 분류이며, 갱신일이 아닌 최초 계약일 기준임을 주의하세요.",
+                "실무 확인 방법: ①보험증권 첫 페이지 '보험개시일' 확인 "
+                "②보험사 앱·고객센터에서 약관 버전 확인 "
+                "③1세대 가입 후 갱신해도 세대는 최초 가입 기준 유지. "
+                "단, 타사 신규 가입 시 그 시점의 최신 세대로 분류됩니다.",
+                "마스터: 증권 첫 장에 '보험개시일'이 있습니다. 언제인가요?<br>"
+                "고객: 2013년 5월이요.<br>"
+                "마스터: 그럼 2세대-B입니다. 1년 갱신, 급여·비급여 자기부담 각 10%씩 적용됩니다."
+            ),
+        ]
+
+        _sl_col_l, _sl_col_r = st.columns([5, 5], gap="small")
 
         with _sl_col_l:
+            _sl_aq = st.session_state.get("sl_active_q", None)
             st.markdown("""<div style="border:1px dashed #000;border-radius:10px;
-  padding:10px 12px;background:#f9fafb;margin-bottom:10px;">
+  padding:10px 12px 4px 12px;background:#f9fafb;">
 <div style="font-size:0.78rem;font-weight:900;color:#6A1B9A;
-  letter-spacing:0.05em;margin-bottom:8px;">
-  📋 빠른 조회 — 클릭 시 질문창 자동 입력</div>""", unsafe_allow_html=True)
-            _sl_quick = [
-                ("📖 세대별 표준약관 비교(1~4세대)",
-                 "1세대부터 4세대까지 실손의료보험 표준약관의 주요 차이점(급여·비급여 자기부담률, 보험료, 갱신 조건)을 비교해 주세요."),
-                ("💰 급여 vs 비급여 보장 기준",
-                 "실손보험에서 급여항목과 비급여항목의 보장 기준 차이, 자기부담금 비율, 연간 한도를 설명해 주세요."),
-                ("❌ 면책 조항 완전 정리",
-                 "실손의료보험 약관상 면책(보험금 미지급) 항목 전체를 알려주세요. 미용·성형·한방·자해·비만치료 등을 포함해 설명해 주세요."),
-                ("⚖️ 중복보험 비례보상 공식",
-                 "실손보험 중복 가입 시 각 보험사별 독립책임액 비율로 분담하는 비례보상 원칙(상법 제127조의3)을 설명해 주세요."),
-                ("🔄 4세대 실손 전환 가이드",
-                 "현재 1~3세대 실손보험 가입자가 4세대로 전환할 때의 장단점, 절차, 주의사항을 금감원 기준으로 설명해 주세요."),
-                ("🔬 KCD코드→실손 부책 여부",
-                 "KCD 질병코드를 알려주시면 실손보험 부책·면책·조건부 여부를 판단해 드리겠습니다. 아래 질문창에 KCD 코드를 함께 입력해 주세요."),
-                ("📑 비급여 실손 청구 가능 범위",
-                 "비급여 수술비·MRI·도수치료·주사제·로봇수술 등의 실손 청구 가능 범위와 4세대 비급여 특약 조건을 설명해 주세요."),
-                ("💊 실손 세대 판별 방법",
-                 "고객의 실손보험이 1·2·3·4세대 중 어느 세대인지 판별하는 방법(가입일, 약관 버전, 보험증권 확인법)을 알려주세요."),
+  letter-spacing:0.05em;margin-bottom:6px;">
+  📋 빠른 조회 — 항목 선택 시 우측에 AI 답변 즉시 표시</div>""", unsafe_allow_html=True)
+            _sl_quick_labels = [
+                "📖 ① 세대별 표준약관 비교(1~4세대)",
+                "💰 ② 급여 vs 비급여 보장 기준",
+                "❌ ③ 면책 조항 완전 정리",
+                "⚖️ ④ 중복보험 비례보상 공식",
+                "🔄 ⑤ 4세대 실손 전환 가이드",
+                "🔬 ⑥ KCD코드→실손 부책 여부",
+                "📑 ⑦ 비급여 실손 청구 가능 범위",
+                "💊 ⑧ 실손 세대 판별 방법",
             ]
-            for _sl_i, (_sl_lbl, _sl_q) in enumerate(_sl_quick):
-                if st.button(_sl_lbl, key=f"sl_q_{_sl_i}", use_container_width=True):
-                    st.session_state[f"query_silson_consult"] = _sl_q
+            _sl_quick_texts = [
+                "1세대부터 4세대까지 실손의료보험 표준약관의 주요 차이점(급여·비급여 자기부담률, 보험료, 갱신 조건)을 비교해 주세요.",
+                "실손보험에서 급여항목과 비급여항목의 보장 기준 차이, 자기부담금 비율, 연간 한도를 설명해 주세요.",
+                "실손의료보험 약관상 면책(보험금 미지급) 항목 전체를 알려주세요. 미용·성형·한방·자해·비만치료 등을 포함해 설명해 주세요.",
+                "실손보험 중복 가입 시 각 보험사별 독립책임액 비율로 분담하는 비례보상 원칙(상법 제672조)을 설명해 주세요.",
+                "현재 1~3세대 실손보험 가입자가 4세대로 전환할 때의 장단점, 절차, 주의사항을 금감원 기준으로 설명해 주세요.",
+                "KCD 질병코드를 알려주시면 실손보험 부책·면책·조건부 여부를 판단해 드리겠습니다. 아래 질문창에 KCD 코드를 함께 입력해 주세요.",
+                "비급여 수술비·MRI·도수치료·주사제·로봇수술 등의 실손 청구 가능 범위와 4세대 비급여 특약 조건을 설명해 주세요.",
+                "고객의 실손보험이 1·2·3·4세대 중 어느 세대인지 판별하는 방법(가입일, 약관 버전, 보험증권 확인법)을 알려주세요.",
+            ]
+            for _sl_i, _sl_lbl in enumerate(_sl_quick_labels):
+                _is_active = (_sl_aq == _sl_i)
+                _btn_label = f"{'▶ ' if _is_active else ''}{_sl_lbl}"
+                if st.button(_btn_label, key=f"sl_q_{_sl_i}", use_container_width=True):
+                    st.session_state["sl_active_q"] = _sl_i
+                    st.session_state["query_silson_consult"] = _sl_quick_texts[_sl_i]
                     st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown("""<div style="border:1px dashed #000;border-radius:10px;
-  padding:10px 12px;background:#ffffff;margin-top:6px;">
+  padding:10px 12px;background:#ffffff;margin-top:5px;">
 <div style="font-size:0.78rem;font-weight:900;color:#1a3a5c;margin-bottom:4px;">
-  ✍️ 직접 질문 입력</div>""", unsafe_allow_html=True)
+  ✍️ 직접 질문 입력 — 정밀 분석 실행</div>""", unsafe_allow_html=True)
             c_name_sl, query_sl, hi_sl, do_sl, _pk_sl = ai_query_block(
                 "silson_consult",
                 placeholder="예) '4세대 실손 비급여 자기부담금이 입원과 통원이 동일한가요?' 또는 KCD코드 입력",
@@ -48125,18 +48255,27 @@ div[data-testid="stButton"] {
             st.markdown("</div>", unsafe_allow_html=True)
 
         with _sl_col_r:
+            _sl_aq_r = st.session_state.get("sl_active_q", None)
             st.markdown("""<div style="border:1px dashed #000;border-radius:10px;
-  padding:10px 14px;background:#f9fafb;min-height:420px;">
+  padding:10px 14px 6px 14px;background:#f9fafb;">
 <div style="font-size:0.84rem;font-weight:900;color:#1a3a5c;
-  letter-spacing:0.04em;margin-bottom:8px;">
-  🤖 AI 답변 &amp; 검색 결과</div>
+  letter-spacing:0.04em;margin-bottom:6px;">
+  🤖 AI 답변(의견)</div>
 <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;
-  padding:5px 10px;margin-bottom:8px;font-size:0.72rem;color:#856404;">
-  🔴 <b>[RED_ALERT]</b> 약관 최우선 위계 &nbsp;·&nbsp; 1·2인칭 전용 답변 &nbsp;·&nbsp; 이중검증(제24조) 적용
+  padding:4px 10px;margin-bottom:8px;font-size:0.71rem;color:#856404;">
+  🔴 <b>[RED_ALERT]</b> 약관 최우선 위계 &nbsp;·&nbsp; 1·2인칭 전용 답변 &nbsp;·&nbsp; 이중검증(제24조)
+</div>""", unsafe_allow_html=True)
+            if _sl_aq_r is not None and 0 <= _sl_aq_r < len(_SL_ANSWERS):
+                st.markdown(_SL_ANSWERS[_sl_aq_r], unsafe_allow_html=True)
+            else:
+                st.markdown("""<div style="border:1px dashed #bbb;border-radius:8px;
+  padding:30px 20px;background:#fff;text-align:center;color:#94a3b8;font-size:0.80rem;">
+  ← <b>좌측에서 항목을 선택</b>하면 약관 기반 3계층 AI 답변이 표시됩니다.<br>
+  <span style="font-size:0.72rem;">직접 질문은 아래 입력창에서 정밀 분석을 실행하세요.</span>
 </div>""", unsafe_allow_html=True)
             show_result("res_silson")
-            st.markdown("""<div style="font-size:0.7rem;color:#94a3b8;margin-top:10px;
-  border-top:1px dashed #e2e8f0;padding-top:6px;">
+            st.markdown("""<div style="font-size:0.69rem;color:#94a3b8;margin-top:8px;
+  border-top:1px dashed #e2e8f0;padding-top:5px;">
   ※ 본 답변은 약관·금감원 지침·제6편 손해사정 기준에 의거합니다.
   최종 보험금 지급 여부는 담당 보험사 확인이 필요합니다.
 </div></div>""", unsafe_allow_html=True)
@@ -52945,6 +53084,308 @@ border-radius:12px;padding:12px 16px;margin-bottom:12px;">
     </div>""", height=270)
 
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
+    # ── [legal_expense] 법률비용담보 비교 ─────────────────────────────────
+    if cur == "legal_expense":
+        if not _auth_gate("legal_expense"): st.stop()
+        tab_home_btn("legal_expense")
+
+        st.markdown(f"""
+    <div style="position:relative;background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 60%,#3b82f6 100%);
+      border-radius:14px;padding:18px 22px 14px 22px;margin-bottom:16px;border-left:4px solid #93c5fd;">
+      {_bid('20-1-1')}
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="font-size:2.2rem;">⚖️</div>
+        <div>
+          <div style="color:#fff;font-size:1.22rem;font-weight:900;letter-spacing:0.03em;">
+            법률비용담보 비교 분석</div>
+          <div style="color:#bfdbfe;font-size:0.78rem;margin-top:3px;">
+            민사소송 · 행정소송 · 변호사선임비용 · 형사합의금 통합 가이드
+          </div>
+        </div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+        # ════════════════════════════════════════════════════════════════
+        # [섹션 A] 핵심 비교표
+        # ════════════════════════════════════════════════════════════════
+        st.markdown("### 📊 법률비용 관련 담보 핵심 비교")
+        components.html("""
+    <div style="overflow-x:auto;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem;min-width:600px;">
+      <thead>
+        <tr style="background:linear-gradient(90deg,#1e3a5f,#2563eb);color:#fff;">
+          <th style="padding:10px 12px;text-align:left;border:1px solid #1e40af;width:18%;">구분</th>
+          <th style="padding:10px 12px;text-align:center;border:1px solid #1e40af;">① 민사소송<br><span style="font-weight:400;font-size:0.76rem;">법률비용담보</span></th>
+          <th style="padding:10px 12px;text-align:center;border:1px solid #1e40af;">② 행정소송<br><span style="font-weight:400;font-size:0.76rem;">법률비용담보</span></th>
+          <th style="padding:10px 12px;text-align:center;border:1px solid #1e40af;">③ (운전자)<br><span style="font-weight:400;font-size:0.76rem;">변호사선임비용담보</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="background:#f0f7ff;">
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;font-weight:700;color:#1e3a5f;">상대방</td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;">개인 / 법인<br><span style="color:#6b7280;font-size:0.77rem;">(사인)</span></td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;">국가 / 지자체<br><span style="color:#6b7280;font-size:0.77rem;">행정기관</span></td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;">검사<br><span style="color:#6b7280;font-size:0.77rem;">(국가 형벌권)</span></td>
+        </tr>
+        <tr>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;font-weight:700;color:#1e3a5f;">소송 성격</td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;">사적 분쟁<br><span style="color:#6b7280;font-size:0.77rem;">손해배상 등</span></td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;">공법 분쟁<br><span style="color:#6b7280;font-size:0.77rem;">행정처분 취소</span></td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;">형사 사건<br><span style="color:#6b7280;font-size:0.77rem;">처벌 방어</span></td>
+        </tr>
+        <tr style="background:#f0f7ff;">
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;font-weight:700;color:#1e3a5f;">주요 보장</td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;">변호사비<br>+ 인지/송달료</td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;">변호사비<br>+ 인지/송달료</td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;">변호사 선임<br>실비</td>
+        </tr>
+        <tr>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;font-weight:700;color:#1e3a5f;">지급 기준</td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;">대법원 규칙<br>한도 내</td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;">대법원 규칙<br>한도 내</td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;">실제 계약<br>수임료(한도 내)</td>
+        </tr>
+        <tr style="background:#fff5f5;">
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;font-weight:700;color:#1e3a5f;">자기부담금</td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;color:#dc2626;font-weight:700;">있음<br><span style="font-weight:400;font-size:0.77rem;">(통상 10만원)</span></td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;color:#dc2626;font-weight:700;">있음<br><span style="font-weight:400;font-size:0.77rem;">(통상 10만원)</span></td>
+          <td style="padding:9px 12px;border:1px solid #bfdbfe;text-align:center;color:#059669;font-weight:700;">없음</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>""", height=295)
+
+        # ════════════════════════════════════════════════════════════════
+        # [섹션 B] 담보별 상세 분석 카드 3개
+        # ════════════════════════════════════════════════════════════════
+        st.markdown("### 📑 담보별 상세 분석")
+        _le_b1, _le_b2, _le_b3 = st.columns(3, gap="medium")
+        _le_card_css = ("border-radius:12px;padding:14px 16px;"
+                        "box-shadow:0 2px 8px rgba(0,0,0,0.10);")
+        with _le_b1:
+            st.markdown(f"""
+    <div style="background:#eff6ff;border:1.5px solid #bfdbfe;{_le_card_css}">
+      <div style="font-size:0.86rem;font-weight:900;color:#1e40af;margin-bottom:8px;">
+        ⚖️ 민사소송 법률비용담보</div>
+      <div style="font-size:0.80rem;line-height:1.75;color:#1a1a2e;">
+        <b>특징</b>: 대여금, 손해배상 등 사적 분쟁 시 사용<br>
+        <b style="color:#059669;">장점</b>: 승·패소 불문 보상 / 패소 시 상대방에게 물어줄 소송비용까지 담보<br>
+        <b style="color:#dc2626;">주의</b>: 소액 사건의 경우 대법원 규칙에 따라 실제 지출액보다 적게 지급될 수 있음
+      </div>
+    </div>""", unsafe_allow_html=True)
+        with _le_b2:
+            st.markdown(f"""
+    <div style="background:#f0fdf4;border:1.5px solid #86efac;{_le_card_css}">
+      <div style="font-size:0.86rem;font-weight:900;color:#15803d;margin-bottom:8px;">
+        🏛️ 행정소송 법률비용담보</div>
+      <div style="font-size:0.80rem;line-height:1.75;color:#1a1a2e;">
+        <b>특징</b>: 국가·행정기관의 부당한 처분(면허취소 등) 대응<br>
+        <b>조건</b>: 피고가 반드시 '행정청'이어야 함<br>
+        <b style="color:#059669;">활용</b>: 자동차 사고로 인한 운전면허 취소·정지 처분 불복 시 특히 유용
+      </div>
+    </div>""", unsafe_allow_html=True)
+        with _le_b3:
+            st.markdown(f"""
+    <div style="background:#fff7ed;border:1.5px solid #fed7aa;{_le_card_css}">
+      <div style="font-size:0.86rem;font-weight:900;color:#c2410c;margin-bottom:8px;">
+        🛡️ (운전자) 변호사선임비용담보</div>
+      <div style="font-size:0.80rem;line-height:1.75;color:#1a1a2e;">
+        <b>특징</b>: 형사사건(12대 중과실 등)으로 인한 기소·재판 방어<br>
+        <b style="color:#059669;">장점</b>: 경찰 조사 단계부터 보장 확대 추세<br>
+        <b style="color:#dc2626;">면책</b>: 음주·무면허·뺑소니 절대 면책 / 형사 성공보수 보상 제외
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+        # ════════════════════════════════════════════════════════════════
+        # [섹션 C] 대법원 규칙 하이라이트
+        # ════════════════════════════════════════════════════════════════
+        st.markdown("### ⚖️ 지급 기준: 『변호사보수의 소송비용 산입에 관한 규칙』")
+        components.html("""
+    <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+      background:linear-gradient(135deg,#fefce8,#fef9c3);
+      border:1.5px solid #fbbf24;border-left:5px solid #f59e0b;
+      border-radius:10px;padding:14px 18px;font-size:0.82rem;line-height:1.75;color:#1a1a2e;">
+      <b style="font-size:0.88rem;color:#92400e;">📌 핵심 원칙</b><br>
+      민사·행정소송의 변호사 비용은 실제 지출액 전액이 아닌, <b>'대법원 규칙이 정한 한도'</b> 내에서 지급됩니다.<br>
+      이는 패소자 부담 원칙에 따른 이중 이득 방지를 위함입니다.<br><br>
+      <b style="color:#92400e;">📐 산식 예시 (별표 기준)</b>
+      <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.80rem;margin-top:6px;min-width:420px;">
+        <tr style="background:#fde68a;">
+          <th style="padding:5px 10px;text-align:left;border:1px solid #fbbf24;">소가 구간</th>
+          <th style="padding:5px 10px;text-align:left;border:1px solid #fbbf24;">한도 산식</th>
+          <th style="padding:5px 10px;text-align:right;border:1px solid #fbbf24;">구간 최대</th>
+        </tr>
+        <tr><td style="padding:5px 10px;border:1px solid #fde68a;">2,000만 원 이하</td><td style="padding:5px 10px;border:1px solid #fde68a;">소가 × 10%</td><td style="padding:5px 10px;border:1px solid #fde68a;text-align:right;">200만 원</td></tr>
+        <tr style="background:#fffbeb;"><td style="padding:5px 10px;border:1px solid #fde68a;">5,000만 원 이하</td><td style="padding:5px 10px;border:1px solid #fde68a;">200만 + (소가 − 2,000만) × 8%</td><td style="padding:5px 10px;border:1px solid #fde68a;text-align:right;">440만 원</td></tr>
+        <tr><td style="padding:5px 10px;border:1px solid #fde68a;">1억 원 이하</td><td style="padding:5px 10px;border:1px solid #fde68a;">440만 + (소가 − 5,000만) × 6%</td><td style="padding:5px 10px;border:1px solid #fde68a;text-align:right;">740만 원</td></tr>
+        <tr style="background:#fffbeb;"><td style="padding:5px 10px;border:1px solid #fde68a;">1.5억 원 이하</td><td style="padding:5px 10px;border:1px solid #fde68a;">740만 + (소가 − 1억) × 4%</td><td style="padding:5px 10px;border:1px solid #fde68a;text-align:right;">940만 원</td></tr>
+        <tr><td style="padding:5px 10px;border:1px solid #fde68a;">2억 원 이하</td><td style="padding:5px 10px;border:1px solid #fde68a;">940만 + (소가 − 1.5억) × 2%</td><td style="padding:5px 10px;border:1px solid #fde68a;text-align:right;">1,040만 원</td></tr>
+        <tr style="background:#fffbeb;"><td style="padding:5px 10px;border:1px solid #fde68a;">5억 원 이하</td><td style="padding:5px 10px;border:1px solid #fde68a;">1,040만 + (소가 − 2억) × 1%</td><td style="padding:5px 10px;border:1px solid #fde68a;text-align:right;">1,340만 원</td></tr>
+        <tr><td style="padding:5px 10px;border:1px solid #fde68a;">5억 원 초과</td><td style="padding:5px 10px;border:1px solid #fde68a;">1,340만 + (소가 − 5억) × 0.5%</td><td style="padding:5px 10px;border:1px solid #fde68a;text-align:right;">—</td></tr>
+      </table>
+      </div>
+      <div style="margin-top:10px;padding:7px 12px;background:#fffbeb;border-radius:6px;
+        border-left:3px solid #f59e0b;color:#78350f;font-size:0.79rem;">
+        💡 <b>[Tip]</b> 인지대와 송달료는 위 규칙과 무관하게 한도 내 전액(실비) 보상됩니다.
+      </div>
+    </div>""", height=375)
+
+        st.markdown("---")
+
+        # ════════════════════════════════════════════════════════════════
+        # [섹션 D] 예상 보험금 계산기 (민사/행정소송)
+        # ════════════════════════════════════════════════════════════════
+        def _le_lawyer_limit(soga: float) -> float:
+            if soga <= 20_000_000:   return soga * 0.10
+            if soga <= 50_000_000:   return 2_000_000  + (soga - 20_000_000) * 0.08
+            if soga <= 100_000_000:  return 4_400_000  + (soga - 50_000_000)  * 0.06
+            if soga <= 150_000_000:  return 7_400_000  + (soga - 100_000_000) * 0.04
+            if soga <= 200_000_000:  return 9_400_000  + (soga - 150_000_000) * 0.02
+            if soga <= 500_000_000:  return 10_400_000 + (soga - 200_000_000) * 0.01
+            return 13_400_000 + (soga - 500_000_000) * 0.005
+
+        def _le_fmt(n: float) -> str:
+            return f"{int(n):,}"
+
+        st.markdown("### 🧮 예상 보험금 계산기 (민사/행정소송용)")
+        _le_d1, _le_d2 = st.columns(2, gap="medium")
+
+        with _le_d1:
+            st.markdown("""
+    <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;
+      padding:10px 14px;margin-bottom:8px;">
+      <b style="color:#1e40af;font-size:0.84rem;">📥 입력 항목</b>
+    </div>""", unsafe_allow_html=True)
+            _le_soga   = st.number_input("소송가액 (원)", min_value=0, max_value=5_000_000_000,
+                                         value=50_000_000, step=1_000_000,
+                                         format="%d", key="le_soga")
+            _le_lawyer = st.number_input("실제 변호사 선임비용 (원)", min_value=0, max_value=500_000_000,
+                                         value=3_000_000, step=100_000,
+                                         format="%d", key="le_lawyer")
+            _le_stamp  = st.number_input("인지대 및 송달료 합계 (원)", min_value=0, max_value=50_000_000,
+                                         value=500_000, step=10_000,
+                                         format="%d", key="le_stamp")
+
+        with _le_d2:
+            _le_limit      = _le_lawyer_limit(_le_soga)
+            _le_recognized = min(_le_lawyer, _le_limit)
+            _le_final      = max(0, _le_recognized + _le_stamp - 100_000)
+            components.html(f"""
+    <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+      background:#f0f7ff;border:1.5px solid #93c5fd;border-radius:10px;
+      padding:14px 16px;font-size:0.83rem;line-height:1.85;color:#1a1a2e;">
+      <b style="font-size:0.86rem;color:#1e40af;">📊 계산 결과</b>
+      <hr style="border:none;border-top:1px solid #bfdbfe;margin:8px 0 4px 0;">
+      <div style="display:flex;justify-content:space-between;padding:3px 0;">
+        <span>🔹 소송가액</span>
+        <span style="font-weight:700;">{_le_fmt(_le_soga)} 원</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0;">
+        <span>📐 대법원 규칙상 한도액</span>
+        <span style="font-weight:700;color:#2563eb;">{_le_fmt(_le_limit)} 원</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0;">
+        <span>✅ 인정된 변호사비</span>
+        <span style="font-weight:700;color:#059669;">{_le_fmt(_le_recognized)} 원</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0;">
+        <span>📋 인지대·송달료(실비)</span>
+        <span style="font-weight:700;">{_le_fmt(_le_stamp)} 원</span>
+      </div>
+      <hr style="border:none;border-top:1px solid #bfdbfe;margin:8px 0 4px 0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;
+        background:#1e40af;color:#fff;border-radius:8px;padding:9px 12px;margin-top:4px;">
+        <span style="font-weight:900;font-size:0.88rem;">💰 최종 예상 지급 보험금</span>
+        <span style="font-weight:900;font-size:1.05rem;color:#fde047;">{_le_fmt(_le_final)} 원</span>
+      </div>
+      <div style="font-size:0.74rem;color:#6b7280;margin-top:8px;line-height:1.6;">
+        ※ 인지대 및 송달료는 한도 제한 없이 실비 보상되며, 자기부담금 10만 원이 공제된 최종 금액입니다.
+      </div>
+    </div>""", height=260)
+
+        st.markdown("---")
+
+        # ════════════════════════════════════════════════════════════════
+        # [섹션 E] 형사 합의금(교통사고처리지원금) 계산기
+        # ════════════════════════════════════════════════════════════════
+        st.markdown("### 🚨 형사 합의금(교통사고처리지원금) 계산기")
+
+        _LE_CRIMINAL_LIMITS = {
+            "사망":               200_000_000,
+            "20주 이상":          150_000_000,
+            "10주~20주 미만":      80_000_000,
+            "6주~10주 미만":       20_000_000,
+            "6주 미만(스쿨존 등)":   5_000_000,
+        }
+
+        _le_e1, _le_e2 = st.columns(2, gap="medium")
+
+        with _le_e1:
+            st.markdown("""
+    <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;
+      padding:10px 14px;margin-bottom:8px;">
+      <b style="color:#c2410c;font-size:0.84rem;">📥 입력 항목</b>
+    </div>""", unsafe_allow_html=True)
+            _le_injury = st.selectbox(
+                "피해자 상해 정도",
+                list(_LE_CRIMINAL_LIMITS.keys()),
+                key="le_injury"
+            )
+            _le_settlement = st.number_input(
+                "실제 합의 금액 (원)",
+                min_value=0, max_value=500_000_000,
+                value=10_000_000, step=500_000,
+                format="%d", key="le_settlement"
+            )
+
+        with _le_e2:
+            _le_e_limit    = _LE_CRIMINAL_LIMITS[_le_injury]
+            _le_e_final    = min(_le_settlement, _le_e_limit)
+            _le_e_exceeded = _le_settlement > _le_e_limit
+            _le_e_excess   = max(0, _le_settlement - _le_e_limit)
+            _le_warn = (
+                f'<div style="margin-top:10px;padding:8px 12px;background:#fef2f2;'
+                f'border:1.5px solid #fca5a5;border-radius:8px;color:#dc2626;'
+                f'font-size:0.80rem;line-height:1.6;">'
+                f'⚠️ 가입 한도를 초과했습니다.<br>'
+                f'초과분 <b>{_le_fmt(_le_e_excess)}</b> 원은 고객님께서 직접 부담하셔야 합니다.</div>'
+                if _le_e_exceeded else ""
+            )
+            components.html(f"""
+    <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;
+      background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;
+      padding:14px 16px;font-size:0.83rem;line-height:1.85;color:#1a1a2e;">
+      <b style="font-size:0.86rem;color:#c2410c;">📊 계산 결과</b>
+      <hr style="border:none;border-top:1px solid #fed7aa;margin:8px 0 4px 0;">
+      <div style="display:flex;justify-content:space-between;padding:3px 0;">
+        <span>🩺 상해 구분</span>
+        <span style="font-weight:700;">{_le_injury}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0;">
+        <span>📋 적용된 보상 한도액</span>
+        <span style="font-weight:700;color:#c2410c;">{_le_fmt(_le_e_limit)} 원</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0;">
+        <span>🤝 실제 합의 금액</span>
+        <span style="font-weight:700;">{_le_fmt(_le_settlement)} 원</span>
+      </div>
+      <hr style="border:none;border-top:1px solid #fed7aa;margin:8px 0 4px 0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;
+        background:#c2410c;color:#fff;border-radius:8px;padding:9px 12px;margin-top:4px;">
+        <span style="font-weight:900;font-size:0.88rem;">💰 최종 예상 지급 보험금</span>
+        <span style="font-weight:900;font-size:1.05rem;color:#fde047;">{_le_fmt(_le_e_final)} 원</span>
+      </div>
+      {_le_warn}
+      <div style="font-size:0.74rem;color:#6b7280;margin-top:8px;line-height:1.6;">
+        ※ 위 한도는 최근 표준 가입 금액 기준이며, 실제 지급액은 고객님의 보험 가입 시기 및 증권상 한도에 따라 달라질 수 있습니다.
+      </div>
+    </div>""", height=300 if _le_e_exceeded else 250)
+
+        st.stop()
 
     # ── [med_econ] 의학경제학적 보장 컨설팅 ──────────────────────────────────
     if cur == "med_econ":
