@@ -37471,17 +37471,20 @@ function selectCustomer(name) {{
                 if not _nhi_in:
                     st.warning("월 건강보험료를 입력해 주세요.")
                 else:
-                    _mo = round(_nhi_in * 2 / 0.0719); _da = _mo / 30
+                    _gross = round(_nhi_in * 2 / 0.0719)
+                    _net   = round(_gross * (1 - 0.155))
+                    _da    = _net / 30
                     st.session_state[f"{_tkey}_result"] = {
-                        "monthly": _mo, "daily": _da,
-                        "gap_need": _mo * 24, "target_need": _mo * _target_mo,
+                        "monthly": _gross, "net_monthly": _net, "daily": _da,
+                        "gap_need": _net * 24, "target_need": _net * _target_mo,
                         "months": _target_mo,
                     }
         with _c2:
             _res = st.session_state.get(f"{_tkey}_result")
             if _res:
-                _mo_m = round(_res["monthly"] / 10_000, 1)
-                _da_m = round(_res["daily"] / 10_000, 2)
+                _mo_m  = round(_res["monthly"] / 10_000, 1)
+                _net_m = round(_res.get("net_monthly", _res["monthly"]) / 10_000, 1)
+                _da_m  = round(_res["daily"] / 10_000, 2)
                 _gap_m = round(_res["gap_need"] / 10_000)
                 _tgt_m = round(_res["target_need"] / 10_000)
                 st.markdown(
@@ -37489,7 +37492,9 @@ function selectCustomer(name) {{
                     f'<div style="font-size:0.72rem;font-weight:900;color:#5b21b6;margin-bottom:8px;">🔱 FCGS 클로징 — {_cname or "고객"}</div>'
                     f'<div style="background:#ede9fe;border-radius:7px;padding:7px 10px;margin-bottom:5px;">'
                     f'<span style="font-size:0.62rem;color:#7c3aed;font-weight:700;">① FACT — 추정 월소득</span><br>'
-                    f'<span style="font-size:1.05rem;font-weight:900;color:#3730a3;">{_mo_m:,}만원/월</span></div>'
+                    f'<span style="font-size:0.80rem;font-weight:700;color:#6b21a8;">세전 {_mo_m:,}만원</span>'
+                    f'<span style="font-size:0.72rem;color:#9ca3af;"> → </span>'
+                    f'<span style="font-size:1.05rem;font-weight:900;color:#3730a3;">실수령 {_net_m:,}만원/월</span></div>'
                     f'<div style="background:#ede9fe;border-radius:7px;padding:7px 10px;margin-bottom:5px;">'
                     f'<span style="font-size:0.62rem;color:#7c3aed;font-weight:700;">② CRISIS — 24개월 골든타임 필요자금</span><br>'
                     f'<span style="font-size:1.05rem;font-weight:900;color:#dc2626;">{_gap_m:,}만원</span></div>'
@@ -37525,7 +37530,8 @@ function selectCustomer(name) {{
             if st.button("⚡ 통합 갭 분석 실행", key=f"{_ukey}_run",
                          use_container_width=True, type="primary"):
                 _gap_s = max(0, _tgt - _kb_score)
-                _mo = round(_nhi * 2 / 0.0719) if _nhi > 0 else 2_000_000
+                _gross_mo = round(_nhi * 2 / 0.0719) if _nhi > 0 else 2_000_000
+                _mo = round(_gross_mo * (1 - 0.155))  # 세후 가처분 기준
                 _gap_amt = int(_gap_s * _mo * 0.3)
                 _r = {"gap_score": _gap_s, "gap_amt": _gap_amt, "kb_score": _kb_score, "target": _tgt}
                 st.session_state[f"{_ukey}_result"] = _r

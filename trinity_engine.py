@@ -105,13 +105,14 @@ def run_trinity_analysis(
     Args:
         current_coverage: {담보명: 가입금액(원)} dict
                           예) {"암진단비": 30_000_000, "뇌졸중진단비": 20_000_000}
-        nhi_premium:      월 건강보험료(원) — 역산 기준. 추정 월소득 = premium × 30
+        nhi_premium:      월 건강보험료(원) — 본인 부담분. 추정 웘소득 = 본인납부액×2÷7.19% (2026 기준)
         kb7_result:       HQ _kb_standard_analysis() 결과 list (있으면 메타 병합)
 
     Returns:
         (analysis_data dict, estimated_monthly_income float)
     """
-    monthly_income = float(nhi_premium) * 30.0
+    _total_premium = float(nhi_premium) * 2                  # 1단계: 세전소득 산출용 완전 건보료
+    monthly_income  = _total_premium / 0.0719                 # 2단계: 총기준 7.19% 나누기 → 세전 월소득
 
     analysis_data: dict = {}
     for item, cfg in _TRINITY_STANDARD.items():

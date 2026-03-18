@@ -25,8 +25,9 @@ from typing import Optional
 # ─────────────────────────────────────────────────────────────────────────────
 # §1  건보료 상수 (2026 기준)
 # ─────────────────────────────────────────────────────────────────────────────
-TOTAL_HEALTH_RATE_2026 = 0.0719          # 2026년 총 건강보험료율 (7.19%)
-EMPLOYEE_RATE          = TOTAL_HEALTH_RATE_2026 / 2   # 근로자 본인 부담분 (50%, ≈3.595%)
+TOTAL_HEALTH_RATE_2026       = 0.0719   # 2026년 총 건강보험료율 (7.19%)
+EMPLOYEE_RATE                = TOTAL_HEALTH_RATE_2026 / 2   # 근로자 본인 부담분 (50%, ≈3.595%)
+AVERAGE_TOTAL_DEDUCTION_RATE = 0.155   # 평균 총 공제율 (4대보험 9.5% + 소득세 6% = 15.5%)
 LTC_RATE_ON_NHIS       = 0.1295          # 장기요양보험료 = 건보료 × 12.95%
 
 # 월 보수 상한/하한
@@ -64,27 +65,33 @@ _LOCAL_APPROX_TABLE: list[tuple[int, int]] = [
 # ─────────────────────────────────────────────────────────────────────────────
 # §1-B  소득 역산 편의 함수
 # ─────────────────────────────────────────────────────────────────────────────
-def calculate_estimated_income(employee_premium: float) -> int:
+def calculate_estimated_income(employee_premium: float) -> dict:
     """
-    고객의 본인 부담 건강보험료를 바탕으로 추정 월 소득을 역산합니다.
+    고객의 본인 부담 건강보험료를 바탕으로 세전/세후 소득을 역산합니다.
     - employee_premium: 고객이 납부하는 월 건보료 (노사 50% 본인 부담분)
 
     역산 공식 (2026 기준):
       1단계) 본인 납부액 × 2 → 총 건강보험료(100%) 환원
-      2단계) 총 건강보험료 ÷ 7.19% → 추정 월 소득
+      2단계) 총 건강보험료 ÷ 7.19% → 세전 소득
+      3단계) 세전 소득 × (1 - 15.5%) → 세후 가처분 소득
 
-    검증: 250,000원 입력 → 500,000 / 0.0719 ≈ 6,954,102원
+    검증: 250,000원 입력
+      → 세전 500,000 / 0.0719 ≈ 6,954,102원
+      → 세후 6,954,102 × 0.845 ≈ 5,876,216원
     """
     if employee_premium <= 0:
-        return 0
+        return {"gross_income": 0, "net_income": 0}
 
     # 1단계: 본인 납부액 × 2 → 총 건강보험료 (노사 합산 100%)
     total_premium = employee_premium * 2
 
-    # 2단계: 총 건강보험료 ÷ 총 요율(7.19%) → 추정 월 소득
-    estimated_monthly_income = total_premium / TOTAL_HEALTH_RATE_2026
+    # 2단계: 총 건강보험료 ÷ 총 요율(7.19%) → 세전 소득
+    gross_income = total_premium / TOTAL_HEALTH_RATE_2026
 
-    return round(estimated_monthly_income)
+    # 3단계: 세전 소득 × (1 - 15.5%) → 세후 가처분 소득
+    net_income = gross_income * (1 - AVERAGE_TOTAL_DEDUCTION_RATE)
+
+    return {"gross_income": round(gross_income), "net_income": round(net_income)}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -97,7 +104,7 @@ class TrinityIncomeData:
     nhis_premium_input:   float          # 입력된 건보료 (원, 본인부담)
     monthly_income:       float          # 추정 월 소득 (만원)
     annual_income:        float          # 추정 연봉 (만원)
-    disposable_monthly:   float          # 가처분 소득 ≈ 월소득 × 0.72 (세후)
+    disposable_monthly:   float          # 세후 가처분 소득 = 월소득 × (1 - 15.5%) (4대보험+소득세 공제)
     golden_time_fund:     float          # 골든타임 필요 자금 = 월소득 × 24 (만원)
     is_capped:            bool           # 상한/하한 보정 여부
     note:                 str            # 참고 메시지
@@ -194,7 +201,8 @@ class TrinityValueEngine:
         note = ""
 
         if self.employment_type == "직장":
-            monthly_income_raw = float(calculate_estimated_income(premium))   # 원
+            _inc = calculate_estimated_income(premium)
+            monthly_income_raw = float(_inc["gross_income"])   # 세전 소득 (원)
             # 상한 보정
             if monthly_income_raw > MONTHLY_INCOME_MAX:
                 monthly_income_raw = MONTHLY_INCOME_MAX
@@ -216,7 +224,7 @@ class TrinityValueEngine:
             note = "지역가입자 점수제 특성상 근사 추정값입니다. 실제 소득과 차이가 있을 수 있습니다."
 
         annual_income_man    = monthly_income_man * 12
-        disposable_monthly   = monthly_income_man * 0.72   # 세후 72% 근사
+        disposable_monthly   = monthly_income_man * (1 - AVERAGE_TOTAL_DEDUCTION_RATE)   # 세후 가처분 (15.5% 공제)
         golden_time_fund     = disposable_monthly * GOLDEN_TIME_MONTHS
 
         return TrinityIncomeData(
