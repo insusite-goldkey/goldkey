@@ -39037,6 +39037,8 @@ div[data-testid="stButton"] {
                 if st.button("🔬 암 질환 상담 (3000)",   key="ag_b7a", use_container_width=True): _go_tab("cancer")
                 if st.button("🧠 뇌 질환 상담 (3100)",   key="ag_b7b", use_container_width=True): _go_tab("brain")
                 if st.button("❤️ 심장 질환 상담 (3200)", key="ag_b7c", use_container_width=True): _go_tab("heart")
+                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#6A1B9A;margin:6px 0 3px 0;border-top:1px solid #CE93D8;padding-top:5px;letter-spacing:0.05em;'>💊 실손보험 상담</div>", unsafe_allow_html=True)
+                if st.button("② 실손보험 전문 상담",   key="ag_b_sl", use_container_width=True): _go_tab("silson_consult")
             with _pf_c3:
                 st.markdown(f"""<div style="background:#FFF9C4;border:1.5px solid #F9A825;
       border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
@@ -47473,6 +47475,103 @@ div[data-testid="stButton"] {
     </div>
     """, height=538)
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
+
+    # ── [silson_consult] 실손보험 전문 상담 ──────────────────────────────
+    if cur == "silson_consult":
+        if not _auth_gate("silson_consult"): st.stop()
+        tab_home_btn("silson_consult")
+        st.markdown(f"""
+<div class="gk-sky-trust gp-interactive"
+  style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:14px;">
+  {_bid('B-SL-01')}
+  <div class="gk-st-title">💊 실손보험 전문 상담</div>
+  <div style="font-size:0.82rem;margin-top:4px;">
+    실손의료비담보 · KCD 부책/면책 · 세대별 비교 · 중복보험 비례보상
+    <span style="color:#e74c3c;font-size:0.75rem;margin-left:8px;">(화재·배상책임 실손 제외)</span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        _sl_col_l, _sl_col_r = st.columns([5, 5], gap="medium")
+
+        with _sl_col_l:
+            st.markdown("""<div style="border:1px dashed #000;border-radius:10px;
+  padding:10px 12px;background:#f9fafb;margin-bottom:10px;">
+<div style="font-size:0.78rem;font-weight:900;color:#6A1B9A;
+  letter-spacing:0.05em;margin-bottom:8px;">
+  📋 빠른 조회 — 클릭 시 질문창 자동 입력</div>""", unsafe_allow_html=True)
+            _sl_quick = [
+                ("📖 세대별 표준약관 비교(1~4세대)",
+                 "1세대부터 4세대까지 실손의료보험 표준약관의 주요 차이점(급여·비급여 자기부담률, 보험료, 갱신 조건)을 비교해 주세요."),
+                ("💰 급여 vs 비급여 보장 기준",
+                 "실손보험에서 급여항목과 비급여항목의 보장 기준 차이, 자기부담금 비율, 연간 한도를 설명해 주세요."),
+                ("❌ 면책 조항 완전 정리",
+                 "실손의료보험 약관상 면책(보험금 미지급) 항목 전체를 알려주세요. 미용·성형·한방·자해·비만치료 등을 포함해 설명해 주세요."),
+                ("⚖️ 중복보험 비례보상 공식",
+                 "실손보험 중복 가입 시 각 보험사별 독립책임액 비율로 분담하는 비례보상 원칙(상법 제127조의3)을 설명해 주세요."),
+                ("🔄 4세대 실손 전환 가이드",
+                 "현재 1~3세대 실손보험 가입자가 4세대로 전환할 때의 장단점, 절차, 주의사항을 금감원 기준으로 설명해 주세요."),
+                ("🔬 KCD코드→실손 부책 여부",
+                 "KCD 질병코드를 알려주시면 실손보험 부책·면책·조건부 여부를 판단해 드리겠습니다. 아래 질문창에 KCD 코드를 함께 입력해 주세요."),
+                ("📑 비급여 실손 청구 가능 범위",
+                 "비급여 수술비·MRI·도수치료·주사제·로봇수술 등의 실손 청구 가능 범위와 4세대 비급여 특약 조건을 설명해 주세요."),
+                ("💊 실손 세대 판별 방법",
+                 "고객의 실손보험이 1·2·3·4세대 중 어느 세대인지 판별하는 방법(가입일, 약관 버전, 보험증권 확인법)을 알려주세요."),
+            ]
+            for _sl_i, (_sl_lbl, _sl_q) in enumerate(_sl_quick):
+                if st.button(_sl_lbl, key=f"sl_q_{_sl_i}", use_container_width=True):
+                    st.session_state[f"query_silson_consult"] = _sl_q
+                    st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown("""<div style="border:1px dashed #000;border-radius:10px;
+  padding:10px 12px;background:#ffffff;margin-top:6px;">
+<div style="font-size:0.78rem;font-weight:900;color:#1a3a5c;margin-bottom:4px;">
+  ✍️ 직접 질문 입력</div>""", unsafe_allow_html=True)
+            c_name_sl, query_sl, hi_sl, do_sl, _pk_sl = ai_query_block(
+                "silson_consult",
+                placeholder="예) '4세대 실손 비급여 자기부담금이 입원과 통원이 동일한가요?' 또는 KCD코드 입력",
+            )
+            if do_sl:
+                run_ai_analysis(
+                    c_name_sl, query_sl, hi_sl, "res_silson",
+                    extra_prompt=(
+                        "[실손보험 상담 전용 지시 — 가이딩 프로토콜 제22·24조]\n"
+                        "■ 본 질문에 대한 답변 용어의 출처와 정보 구성:\n"
+                        "  🔴 [RED_ALERT] 약관 (법적 근거용 — 최우선 위계)\n"
+                        "  금감원 분쟁조정 지침 / 금소법 / 보험업법 (2차 위계)\n"
+                        "  손해사정사 실무 기준 / 제6편 손해사정 (3차 위계)\n\n"
+                        "■ 답변 규칙 (절대 준수):\n"
+                        "  1. 반드시 1인칭('저는...', '제가...') 또는 2인칭('고객님...', '귀하께서...')만 사용. 3인칭 절대 금지.\n"
+                        "  2. 겸손하고 전문적인 어조 유지\n"
+                        "  3. 최신 판례·금감원 분쟁조정 지침과의 일치 여부 이중검증(제24조) 선행\n"
+                        "  4. 모든 약관 해석·보험금 산출 시 반드시 약관 구절 또는 근거 법령을 출처로 명시\n"
+                        "  5. 출처 불명확 시 '해당 내용은 약관 직접 확인이 필요합니다'라고 답변\n"
+                        "  6. 화재보험·배상책임 실손 항목은 답변에서 제외\n"
+                        "  7. 실손보험(손해보험)과 정액보험(일당·진단비)은 중복 청구 가능 — 이득금지원칙 미적용을 정확히 안내\n"
+                        "  8. 세대별 실손(1~4세대) 구분이 필요한 경우 반드시 세대별로 구분하여 답변\n\n"
+                        "[실손보험 상담 요청 내용]\n"
+                    ),
+                    product_key=_pk_sl,
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with _sl_col_r:
+            st.markdown("""<div style="border:1px dashed #000;border-radius:10px;
+  padding:10px 14px;background:#f9fafb;min-height:420px;">
+<div style="font-size:0.84rem;font-weight:900;color:#1a3a5c;
+  letter-spacing:0.04em;margin-bottom:8px;">
+  🤖 AI 답변 &amp; 검색 결과</div>
+<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;
+  padding:5px 10px;margin-bottom:8px;font-size:0.72rem;color:#856404;">
+  🔴 <b>[RED_ALERT]</b> 약관 최우선 위계 &nbsp;·&nbsp; 1·2인칭 전용 답변 &nbsp;·&nbsp; 이중검증(제24조) 적용
+</div>""", unsafe_allow_html=True)
+            show_result("res_silson")
+            st.markdown("""<div style="font-size:0.7rem;color:#94a3b8;margin-top:10px;
+  border-top:1px dashed #e2e8f0;padding-top:6px;">
+  ※ 본 답변은 약관·금감원 지침·제6편 손해사정 기준에 의거합니다.
+  최종 보험금 지급 여부는 담당 보험사 확인이 필요합니다.
+</div></div>""", unsafe_allow_html=True)
+        st.stop()
 
     # ── [cancer] 암·뇌·심장 중증질환 통합 상담 ──────────────────────────
     if cur == "cancer":
