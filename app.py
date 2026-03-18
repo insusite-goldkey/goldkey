@@ -37461,7 +37461,7 @@ function selectCustomer(name) {{
             _nhi_in = st.number_input(
                 "월 건강보험료(원)", min_value=0, max_value=2_000_000,
                 value=int(_nhi), step=10_000, key=f"{_tkey}_nhi",
-                help="직장인 본인부담분 | 추정 월소득 = 건보료×30")
+                help="직장인 본인부담분 | 추정 월소득 = 본인납부액×2÷7.19% (2026 기준)")
             if _nhi_in and _nhi_in != int(_nhi):
                 st.session_state["gs_hi_premium"] = float(_nhi_in)
             _target_mo = st.selectbox("골든타임 기간(개월)", [12, 18, 24, 36, 48],
@@ -37471,7 +37471,7 @@ function selectCustomer(name) {{
                 if not _nhi_in:
                     st.warning("월 건강보험료를 입력해 주세요.")
                 else:
-                    _mo = _nhi_in * 30; _da = _mo / 30
+                    _mo = round(_nhi_in * 2 / 0.0719); _da = _mo / 30
                     st.session_state[f"{_tkey}_result"] = {
                         "monthly": _mo, "daily": _da,
                         "gap_need": _mo * 24, "target_need": _mo * _target_mo,
@@ -37525,7 +37525,7 @@ function selectCustomer(name) {{
             if st.button("⚡ 통합 갭 분석 실행", key=f"{_ukey}_run",
                          use_container_width=True, type="primary"):
                 _gap_s = max(0, _tgt - _kb_score)
-                _mo = _nhi * 30 if _nhi > 0 else 2_000_000
+                _mo = round(_nhi * 2 / 0.0719) if _nhi > 0 else 2_000_000
                 _gap_amt = int(_gap_s * _mo * 0.3)
                 _r = {"gap_score": _gap_s, "gap_amt": _gap_amt, "kb_score": _kb_score, "target": _tgt}
                 st.session_state[f"{_ukey}_result"] = _r
@@ -39576,7 +39576,7 @@ div[data-testid="stButton"] {
                         "월 건강보험료(원)", min_value=0, max_value=2_000_000,
                         value=int(st.session_state.get("gs_hi_premium") or 0),
                         step=10_000, key="lsec_nhi",
-                        help="직장인: 보수월액×7.09% | 트리니티 소득 역산 기준 (추정 월소득 = 건보료×30)",
+                        help="직장인 본인부담분 | 추정 월소득 = 본인납부액×2÷7.19% (2026 기준)",
                     )
                     _lsec_btn = "⚡ 파싱 → 분석 → DB 저장 (전체 파이프라인)"
                     if st.button(_lsec_btn, key="lsec_pipeline_run",

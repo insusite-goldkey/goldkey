@@ -10,11 +10,12 @@ Tri-Logic 3축:
   ② 소득 대체 공백 축 (Income Gap Analysis)  — 24개월 골든타임 필요 자금
   ③ 심리적 클로징 축  (Psychological Closing) — Fact-Crisis-Gap-Solution 스크립트
 
-건강보험료율 기준 (2024-2025):
-  직장가입자 총 요율: 7.09%  →  본인 부담: 7.09 / 2 = 3.545%
+건강보험료율 기준 (2026):
+  직장가입자 총 요율: 7.19%  →  본인 부담: 7.19 / 2 = 3.595% (노사 각 50%)
+  역산 공식: 본인납부액 × 2 ÷ 7.19% = 추정 월소득
   장기요양보험: 건보료의 12.95% (별도, 역산 시 제외)
-  상한: 월 보수 110,332,300원 → 본인부담 건보료 약 3,911,279원
-  하한: 월 보수 279,256원     → 본인부담 건보료 약 9,899원
+  상한: 월 보수 110,332,300원
+  하한: 월 보수 279,256원
 ────────────────────────────────────────────────────────────────────────────
 """
 from __future__ import annotations
@@ -22,18 +23,19 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 # ─────────────────────────────────────────────────────────────────────────────
-# §1  건보료 상수 (2024-2025 기준)
+# §1  건보료 상수 (2026 기준)
 # ─────────────────────────────────────────────────────────────────────────────
-EMPLOYEE_RATE        = 0.03545   # 직장가입자 본인 부담 건보료율
-LTC_RATE_ON_NHIS     = 0.1295    # 장기요양보험료 = 건보료 × 12.95%
+TOTAL_HEALTH_RATE_2026 = 0.0719          # 2026년 총 건강보험료율 (7.19%)
+EMPLOYEE_RATE          = TOTAL_HEALTH_RATE_2026 / 2   # 근로자 본인 부담분 (50%, ≈3.595%)
+LTC_RATE_ON_NHIS       = 0.1295          # 장기요양보험료 = 건보료 × 12.95%
 
 # 월 보수 상한/하한
 MONTHLY_INCOME_MAX   = 110_332_300   # 원
 MONTHLY_INCOME_MIN   =     279_256   # 원
 
 # 본인부담 건보료 상한/하한
-NHIS_PREMIUM_MAX     = int(MONTHLY_INCOME_MAX * EMPLOYEE_RATE)   # ≈ 3,911,279원
-NHIS_PREMIUM_MIN     = int(MONTHLY_INCOME_MIN * EMPLOYEE_RATE)   # ≈ 9,899원
+NHIS_PREMIUM_MAX     = int(MONTHLY_INCOME_MAX * EMPLOYEE_RATE)   # ≈ 3,966,446원
+NHIS_PREMIUM_MIN     = int(MONTHLY_INCOME_MIN * EMPLOYEE_RATE)   # ≈ 10,041원
 
 # 골든타임: 중대 질병 소득 대체 기간
 GOLDEN_TIME_MONTHS   = 24
@@ -57,6 +59,32 @@ _LOCAL_APPROX_TABLE: list[tuple[int, int]] = [
     (3_000_000, 5_000),
     (3_911_279, 11_033),  # 상한
 ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# §1-B  소득 역산 편의 함수
+# ─────────────────────────────────────────────────────────────────────────────
+def calculate_estimated_income(employee_premium: float) -> int:
+    """
+    고객의 본인 부담 건강보험료를 바탕으로 추정 월 소득을 역산합니다.
+    - employee_premium: 고객이 납부하는 월 건보료 (노사 50% 본인 부담분)
+
+    역산 공식 (2026 기준):
+      1단계) 본인 납부액 × 2 → 총 건강보험료(100%) 환원
+      2단계) 총 건강보험료 ÷ 7.19% → 추정 월 소득
+
+    검증: 250,000원 입력 → 500,000 / 0.0719 ≈ 6,954,102원
+    """
+    if employee_premium <= 0:
+        return 0
+
+    # 1단계: 본인 납부액 × 2 → 총 건강보험료 (노사 합산 100%)
+    total_premium = employee_premium * 2
+
+    # 2단계: 총 건강보험료 ÷ 총 요율(7.19%) → 추정 월 소득
+    estimated_monthly_income = total_premium / TOTAL_HEALTH_RATE_2026
+
+    return round(estimated_monthly_income)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -166,7 +194,7 @@ class TrinityValueEngine:
         note = ""
 
         if self.employment_type == "직장":
-            monthly_income_raw = premium / EMPLOYEE_RATE   # 원
+            monthly_income_raw = float(calculate_estimated_income(premium))   # 원
             # 상한 보정
             if monthly_income_raw > MONTHLY_INCOME_MAX:
                 monthly_income_raw = MONTHLY_INCOME_MAX
