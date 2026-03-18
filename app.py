@@ -37464,8 +37464,6 @@ function selectCustomer(name) {{
                 help="직장인 본인부담분 | 추정 월소득 = 본인납부액×2÷7.19% (2026 기준)")
             if _nhi_in and _nhi_in != int(_nhi):
                 st.session_state["gs_hi_premium"] = float(_nhi_in)
-            _target_mo = st.selectbox("골든타임 기간(개월)", [12, 18, 24, 36, 48],
-                                      index=2, key=f"{_tkey}_months", help="24개월: 골든타임 기준")
             if st.button("🔱 트리니티 FCGS 클로징 분석", key=f"{_tkey}_run",
                          use_container_width=True, type="primary"):
                 if not _nhi_in:
@@ -37476,17 +37474,26 @@ function selectCustomer(name) {{
                     _da    = _net / 30
                     st.session_state[f"{_tkey}_result"] = {
                         "monthly": _gross, "net_monthly": _net, "daily": _da,
-                        "gap_need": _net * 24, "target_need": _net * _target_mo,
-                        "months": _target_mo,
+                        "gap_need": _net * 24,
+                        "gaps": {mo: _net * mo for mo in [12, 24, 36, 48, 60]},
                     }
+                    st.session_state["_fcgs_scrolled"] = True
         with _c2:
+            st.markdown('<div id="fcgs-tri-anchor"></div>', unsafe_allow_html=True)
             _res = st.session_state.get(f"{_tkey}_result")
             if _res:
                 _mo_m  = round(_res["monthly"] / 10_000, 1)
                 _net_m = round(_res.get("net_monthly", _res["monthly"]) / 10_000, 1)
                 _da_m  = round(_res["daily"] / 10_000, 2)
                 _gap_m = round(_res["gap_need"] / 10_000)
-                _tgt_m = round(_res["target_need"] / 10_000)
+                _gaps  = _res.get("gaps", {mo: _res["gap_need"] // 24 * mo for mo in [12, 24, 36, 48, 60]})
+                _gap_rows = "".join([
+                    f'<tr>'
+                    f'<td style="font-size:0.66rem;color:#374151;padding:2px 6px;">{mo}개월</td>'
+                    f'<td style="font-size:0.80rem;font-weight:900;color:#1d4ed8;text-align:right;padding:2px 4px;">{round(_gaps[mo]/10000):,}만원</td>'
+                    f'</tr>'
+                    for mo in [12, 24, 36, 48, 60]
+                ])
                 st.markdown(
                     f'<div style="background:#f5f3ff;border:1px dashed #000;border-radius:12px;padding:16px 18px;">'
                     f'<div style="font-size:0.72rem;font-weight:900;color:#5b21b6;margin-bottom:8px;">🔱 FCGS 클로징 — {_cname or "고객"}</div>'
@@ -37496,15 +37503,19 @@ function selectCustomer(name) {{
                     f'<span style="font-size:0.72rem;color:#9ca3af;"> → </span>'
                     f'<span style="font-size:1.05rem;font-weight:900;color:#3730a3;">실수령 {_net_m:,}만원/월</span></div>'
                     f'<div style="background:#ede9fe;border-radius:7px;padding:7px 10px;margin-bottom:5px;">'
-                    f'<span style="font-size:0.62rem;color:#7c3aed;font-weight:700;">② CRISIS — 24개월 골든타임 필요자금</span><br>'
+                    f'<span style="font-size:0.62rem;color:#7c3aed;font-weight:700;">② CRISIS — 24개월 공든타임 필요자금</span><br>'
                     f'<span style="font-size:1.05rem;font-weight:900;color:#dc2626;">{_gap_m:,}만원</span></div>'
                     f'<div style="background:#ede9fe;border-radius:7px;padding:7px 10px;margin-bottom:5px;">'
-                    f'<span style="font-size:0.62rem;color:#7c3aed;font-weight:700;">③ GAP — {_res["months"]}개월 클로징 목표</span><br>'
-                    f'<span style="font-size:1.05rem;font-weight:900;color:#1d4ed8;">{_tgt_m:,}만원</span></div>'
+                    f'<span style="font-size:0.62rem;color:#7c3aed;font-weight:700;">③ 소득상실 GAP (기간별)</span><br>'
+                    f'<table style="width:100%;border-collapse:collapse;margin-top:3px;">{_gap_rows}</table></div>'
                     f'<div style="background:#fde9d9;border-radius:7px;padding:7px 10px;">'
                     f'<span style="font-size:0.62rem;color:#c2410c;font-weight:700;">④ SOLUTION — 필요 일당</span><br>'
                     f'<span style="font-size:1.05rem;font-weight:900;color:#c2410c;">{_da_m:,}만원/일</span></div>'
                     f'</div>', unsafe_allow_html=True)
+                if st.session_state.pop("_fcgs_scrolled", False):
+                    components.html(
+                        '<script>window.parent.document.getElementById("fcgs-tri-anchor").scrollIntoView({behavior:"smooth",block:"start"});</script>',
+                        height=0)
             else:
                 st.markdown('<div style="background:#f5f3ff;border:1px dashed #000;border-radius:10px;padding:30px 16px;text-align:center;color:#6b7280;font-size:0.82rem;">👈 건강보험료 입력 후 분석 실행</div>', unsafe_allow_html=True)
 
