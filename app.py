@@ -39996,6 +39996,14 @@ div[data-testid="stButton"] {
                     st.markdown("<div style='font-size:0.8rem;color:#64748b;'>관리자 키 입력 후 접근 가능</div>", unsafe_allow_html=True)
                 if st.button("🔐 관리자 시스템 설정 (RAG·약관·요율)", key="sec07_admin_settings", use_container_width=True, type="primary"):
                     _go_tab("t9")
+                if st.button("🔄 F5 — 고객 이름·연락처 초기화", key="sec07_f5_refresh",
+                             use_container_width=True,
+                             help="고객 이름·연락처 동기화 오류 시 해당 필드만 초기화 (다른 입력값 유지)"):
+                    for _k5 in ["gs_c_name", "gs_c_phone", "mch_cust_name", "mch_cust_phone",
+                                 "_cur_client_name", "_cur_client_phone"]:
+                        st.session_state.pop(_k5, None)
+                    st.success("✅ 고객 이름·연락처 초기화 완료")
+                    st.rerun()
                 _sec07_uid = st.session_state.get("user_id") or st.session_state.get("authenticated")
                 if st.button("📂 통합 스캔 센터로 이동", key="sec07_scan_hub", use_container_width=True):
                     if _sec07_uid:
@@ -52814,89 +52822,307 @@ div[data-testid="stButton"] {
                 _go_tab("home")
 
         if st.session_state.get("_admin_tab_auth") or st.session_state.get("is_admin"):
-            st.success("✅ 관리자 시스템 활성화 — 핵심 관리 도구를 사용하세요.")
+            st.success("✅ 관리자 시스템 활성화 — 소헤더 설정 통제판 활성화")
+            # ── 퀵 현황 통계 (Supabase 기반, 세션 캐시) ───────────────────────
+            _t9_sb = _get_sb_client() if _rag_use_supabase() else None
+            if "_t9_rag_stat" not in st.session_state or st.session_state.get("_t9_stat_refresh"):
+                _t9_rag_stat = {"total": 0, "pending": 0, "chunks": 0}
+                _t9_miss_cnt = 0
+                _t9_err_cnt  = 0
+                if _t9_sb:
+                    try:
+                        _t9_src = _t9_sb.table("rag_sources").select("id,processed").execute().data or []
+                        _t9_rag_stat["total"]   = len(_t9_src)
+                        _t9_rag_stat["pending"] = sum(1 for r in _t9_src if not r.get("processed"))
+                        _t9_ck = _t9_sb.table("rag_docs").select("id", count="exact").execute()
+                        _t9_rag_stat["chunks"]  = _t9_ck.count or 0
+                    except Exception:
+                        pass
+                    try:
+                        _t9_miss_r = _t9_sb.table("gk_missing_terms").select("id", count="exact").eq("status", "pending").execute()
+                        _t9_miss_cnt = _t9_miss_r.count or 0
+                    except Exception:
+                        pass
+                    try:
+                        _t9_err_r = _t9_sb.table("member_errors").select("id", count="exact").eq("status", "pending").execute()
+                        _t9_err_cnt = _t9_err_r.count or 0
+                    except Exception:
+                        pass
+                st.session_state["_t9_rag_stat"]  = _t9_rag_stat
+                st.session_state["_t9_miss_cnt"]  = _t9_miss_cnt
+                st.session_state["_t9_err_cnt"]   = _t9_err_cnt
+                st.session_state.pop("_t9_stat_refresh", None)
+            else:
+                _t9_rag_stat = st.session_state.get("_t9_rag_stat", {"total": 0, "pending": 0, "chunks": 0})
+                _t9_miss_cnt = st.session_state.get("_t9_miss_cnt", 0)
+                _t9_err_cnt  = st.session_state.get("_t9_err_cnt", 0)
+            _t9q1, _t9q2, _t9q3, _t9q4, _t9q5, _t9q6 = st.columns(6)
+            _t9q1.metric("📚 RAG 소스", f"{_t9_rag_stat['total']}건")
+            _t9q2.metric("⏳ 미처리", f"{_t9_rag_stat['pending']}건",
+                         delta="처리필요" if _t9_rag_stat["pending"] else None, delta_color="inverse")
+            _t9q3.metric("🔢 청크", f"{_t9_rag_stat['chunks']}개")
+            _t9q4.metric("📛 미검색 약관", f"{_t9_miss_cnt}건",
+                         delta="확인필요" if _t9_miss_cnt else None, delta_color="inverse")
+            _t9q5.metric("🚨 오류 알람", f"{_t9_err_cnt}건",
+                         delta="처리필요" if _t9_err_cnt else None, delta_color="inverse")
+            with _t9q6:
+                if st.button("🔄 새로고침", key="t9_stat_refresh_btn", use_container_width=True):
+                    for _k9 in ["_t9_rag_stat", "_t9_miss_cnt", "_t9_err_cnt"]:
+                        st.session_state.pop(_k9, None)
+                    st.rerun()
 
-            st.markdown("""
-<div style="background:#1e3a5f;border:2px solid #D4AF37;border-radius:12px;
-  padding:12px 18px;margin:8px 0 10px;font-size:0.88rem;color:#FFF9C4;font-weight:900;">
-  🔧 관리자 시스템 설정 — 핵심 3대 기능
-  <span style="font-size:0.75rem;font-weight:700;color:#94a3b8;margin-left:10px;">
-  RAG 지식베이스 · 약관 스캔 로드 · 고객 비번 초기화
-  </span>
-</div>""", unsafe_allow_html=True)
+            # ── 소헤더 네비게이션 바 ─────────────────────────────────────────
+            _t9_miss_badge = f" ⚠️{_t9_miss_cnt}" if _t9_miss_cnt else ""
+            _t9_err_badge  = f" 🚨{_t9_err_cnt}"  if _t9_err_cnt  else ""
+            st.markdown(
+                f'<div style="background:#1e3a5f;border:1px dashed #D4AF37;border-radius:10px;'
+                f'padding:10px 18px;margin:8px 0 14px;display:flex;gap:18px;flex-wrap:wrap;align-items:center;">'
+                f'<span style="color:#FFF9C4;font-weight:900;font-size:0.88rem;">⚙️ 소헤더 설정 네비게이션</span>'
+                f'<a href="#sec-rag" style="color:#93c5fd;font-size:0.80rem;font-weight:700;text-decoration:none;">📚 RAG 지식베이스</a>'
+                f'<a href="#sec-terms" style="color:#93c5fd;font-size:0.80rem;font-weight:700;text-decoration:none;">📋 약관 스캔</a>'
+                f'<a href="#sec-missing" style="color:#fbbf24;font-size:0.80rem;font-weight:700;text-decoration:none;">📛 미검색 약관{_t9_miss_badge}</a>'
+                f'<a href="#sec-member" style="color:#93c5fd;font-size:0.80rem;font-weight:700;text-decoration:none;">🔑 회원관리{_t9_err_badge}</a>'
+                f'<a href="#sec-config" style="color:#86efac;font-size:0.80rem;font-weight:700;text-decoration:none;">🔧 시스템설정</a>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
-            _adm_tool_t1, _adm_tool_t2, _adm_tool_t3, _adm_tool_t4, _adm_tool_t5 = st.tabs([
-                "📚 RAG 지식베이스 로드",
-                "📋 약관 스캔 로드",
-                "🔑 고객 비번 초기화",
-                "🚨 회원정보 오류 관리",
-                "📛 미검색 약관 관리",
-            ])
-
-            with _adm_tool_t1:
-                st.markdown("##### 📂 RAG 문서 업로드 및 인덱싱")
+            # ══════════════════════════════════════════════════════════════════
+            # [소헤더-01] 📚 RAG 지식베이스 관리 — 5:5 레이아웃
+            # ══════════════════════════════════════════════════════════════════
+            st.markdown('<div id="sec-rag"></div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="background:#eff6ff;border:1px dashed #000;border-radius:10px;'
+                'padding:8px 18px;margin:4px 0 10px;">'
+                '<span style="font-size:0.90rem;font-weight:900;color:#1e3a5f;">📚 [소헤더-01] RAG 지식베이스 관리</span>'
+                '<span style="font-size:0.72rem;color:#64748b;margin-left:10px;">'
+                'PDF·TXT 업로드 → rag_docs/rag_sources 인덱싱 → AI 지식베이스 적재</span></div>',
+                unsafe_allow_html=True,
+            )
+            _rag5_left, _rag5_right = st.columns([5, 5])
+            with _rag5_left:
+                st.markdown(
+                    '<div style="background:#f8fafc;border:1px dashed #000;border-radius:10px;'
+                    'padding:10px 14px;margin-bottom:8px;">'
+                    '<span style="font-size:0.82rem;font-weight:900;color:#1e3a5f;">📂 RAG 스캔 &amp; 인덱싱 제어판</span></div>',
+                    unsafe_allow_html=True,
+                )
                 _t1_sector = st.selectbox(
-                    "섹터 지정",
+                    "📁 섹터 지정",
                     ["terms (약관)", "auto (자동차·과실비율)", "income (소득통계)", "disability (장해)"],
                     key="t9_rag_sector",
                 )
                 _t1_sector_key = _t1_sector.split(" ")[0]
-                _t1_upload = st.file_uploader(
-                    "📎 문서 업로드 (PDF/TXT)",
-                    type=["pdf", "txt"],
+                _t1_files = st.file_uploader(
+                    "📄 문서 업로드 (PDF · TXT · DOCX)",
+                    type=["pdf", "txt", "docx"],
                     accept_multiple_files=True,
-                    key="t9_rag_upload",
+                    key="t9_rag_uploader",
+                    help="다중 선택 가능. 업로드 후 하단 버튼으로 인덱싱",
                 )
-                if _t1_upload:
+                if _t1_files:
                     if "_rag_local_docs" not in st.session_state:
                         st.session_state["_rag_local_docs"] = {}
-                    for _f1 in _t1_upload:
-                        _content1 = _f1.read().decode("utf-8", errors="ignore")
-                        _chunks1 = [_content1[i:i+500] for i in range(0, len(_content1), 500)]
-                        st.session_state["_rag_local_docs"][_f1.name] = _chunks1
-                    st.success(f"✅ {len(_t1_upload)}개 문서 로컈 로드 완료 — '인덱싱 저장' 버튼으로 DB에 저장하세요.")
-                _t1_loaded = st.session_state.get("_rag_local_docs", {})
-                if _t1_loaded:
-                    st.markdown(f"**현재 로드된 문서 {len(_t1_loaded)}개**")
-                    for _dn1 in list(_t1_loaded.keys()):
-                        _dc1a, _dc1b = st.columns([8, 2])
-                        _dc1a.caption(f"📄 {_dn1[:50]}")
-                        if _dc1b.button("🗑️", key=f"t9_rag_del_{_dn1[:20]}", help="제거"):
-                            del st.session_state["_rag_local_docs"][_dn1]
-                            st.rerun()
-                if st.button("⚡ Supabase RAG DB에 인덱싱 저장", key="t9_rag_save",
-                             use_container_width=True, type="primary"):
-                    _t1_docs = st.session_state.get("_rag_local_docs", {})
-                    if not _t1_docs:
-                        st.warning("먼저 문서를 업로드하세요.")
-                    else:
-                        with st.spinner("Supabase rag_documents 저장 중..."):
+                    for _f1 in _t1_files:
+                        _raw1 = _f1.read()
+                        if _f1.name not in st.session_state["_rag_local_docs"]:
                             try:
-                                import datetime as _dt_t1, hashlib as _hl_t1
-                                _sb_t1 = st.session_state.get("_sb_client")
-                                if _sb_t1 is None:
-                                    from database import get_supabase_client as _gsb_t1
-                                    _sb_t1 = _gsb_t1()
-                                _saved_t1 = 0
-                                for _dname1, _dchunks1 in _t1_docs.items():
-                                    for _ci1, _chunk1 in enumerate(_dchunks1[:20]):
-                                        _uid_t1 = _hl_t1.md5(f"{_dname1}_{_ci1}".encode()).hexdigest()[:12].upper()
-                                        _sb_t1.table("rag_documents").upsert({
-                                            "id": _uid_t1,
-                                            "title": f"{_dname1} [청크 {_ci1+1}]",
-                                            "content": _chunk1,
-                                            "source": _dname1,
-                                            "sector": _t1_sector_key,
-                                            "page_num": str(_ci1 + 1),
-                                            "created_at": _dt_t1.datetime.now().isoformat(),
-                                        }, on_conflict="id").execute()
-                                        _saved_t1 += 1
-                                st.success(f"✅ {_saved_t1}개 청크 RAG DB 저장 완료 (섹터: {_t1_sector_key})")
-                            except Exception as _t1_ex:
-                                st.error(f"저장 실패: {_t1_ex}")
+                                if _f1.name.lower().endswith(".pdf"):
+                                    try:
+                                        import io as _io1
+                                        import pdfminer.high_level as _pdfm1
+                                        _txt1 = _pdfm1.extract_text(_io1.BytesIO(_raw1))
+                                    except Exception:
+                                        _txt1 = _raw1.decode("utf-8", errors="replace")
+                                else:
+                                    _txt1 = _raw1.decode("utf-8", errors="replace")
+                                _chunks1 = [_txt1[i:i+800] for i in range(0, len(_txt1), 600) if _txt1[i:i+800].strip()]
+                                st.session_state["_rag_local_docs"][_f1.name] = _chunks1
+                            except Exception as _fe1:
+                                st.warning(f"파일 처리 오류: {_f1.name} — {_fe1}")
+                _local_docs = st.session_state.get("_rag_local_docs", {})
+                if _local_docs:
+                    st.markdown(
+                        f'<div style="background:#ecfdf5;border:1px dashed #059669;border-radius:7px;'
+                        f'padding:6px 12px;margin:6px 0;font-size:0.78rem;">'
+                        f'<b>📋 업로드 버퍼 ({len(_local_docs)}건)</b></div>',
+                        unsafe_allow_html=True,
+                    )
+                    for _dn1, _dch1 in list(_local_docs.items()):
+                        _dc1a, _dc1b = st.columns([4, 1])
+                        _dc1a.caption(f"📄 {_dn1[:38]} ({len(_dch1)}청크)")
+                        with _dc1b:
+                            if st.button("🗑️", key=f"t9_del_{abs(hash(_dn1)) % 99991}", help="삭제"):
+                                del st.session_state["_rag_local_docs"][_dn1]
+                                st.rerun()
+                st.markdown("<b style='font-size:0.80rem;'>⚡ 액션 스위치</b>", unsafe_allow_html=True)
+                _sw1, _sw2 = st.columns(2)
+                with _sw1:
+                    if st.button("⚡ RAG DB 인덱싱 저장", key="t9_rag_save",
+                                 use_container_width=True, type="primary"):
+                        _t1_docs_buf = st.session_state.get("_rag_local_docs", {})
+                        if not _t1_docs_buf:
+                            st.warning("먼저 문서를 업로드하세요.")
+                        else:
+                            with st.spinner("rag_docs / rag_sources 저장 중..."):
+                                try:
+                                    import datetime as _dt_t1, hashlib as _hl_t1
+                                    _sb_t1 = _get_sb_client()
+                                    _saved_t1 = 0
+                                    for _dname1, _dchunks1 in _t1_docs_buf.items():
+                                        _src_id1 = None
+                                        if _sb_t1:
+                                            try:
+                                                _src_r1 = _sb_t1.table("rag_sources").insert({
+                                                    "filename": _dname1, "category": _t1_sector_key,
+                                                    "processed": True,
+                                                    "uploaded": _dt_t1.datetime.now().isoformat(),
+                                                }).execute()
+                                                _src_id1 = _src_r1.data[0]["id"] if _src_r1.data else None
+                                            except Exception:
+                                                pass
+                                            for _ci1, _chunk1 in enumerate(_dchunks1[:30]):
+                                                try:
+                                                    _sb_t1.table("rag_docs").insert({
+                                                        "chunk": _chunk1, "source_id": _src_id1,
+                                                        "source_name": _dname1, "sector": _t1_sector_key,
+                                                    }).execute()
+                                                    _saved_t1 += 1
+                                                except Exception:
+                                                    pass
+                                    st.session_state["_rag_local_docs"] = {}
+                                    for _k9 in ["_t9_rag_stat", "_t9_miss_cnt", "_t9_err_cnt"]:
+                                        st.session_state.pop(_k9, None)
+                                    st.session_state["_t9_rag_save_result"] = f"✅ {_saved_t1}개 청크 rag_docs 저장 완료 (섹터: {_t1_sector_key})"
+                                    st.rerun()
+                                except Exception as _t1_ex:
+                                    st.error(f"저장 실패: {_t1_ex}")
+                with _sw2:
+                    if st.button("🔄 미처리 즉시처리", key="t9_rag_proc", use_container_width=True):
+                        with st.spinner("미처리 파일 일괄 처리 중..."):
+                            try:
+                                _done9, _fail9 = _rag_process_pending()
+                                for _k9 in ["_t9_rag_stat", "_t9_miss_cnt", "_t9_err_cnt"]:
+                                    st.session_state.pop(_k9, None)
+                                st.session_state["_t9_rag_save_result"] = f"✅ {_done9}건 처리 완료 / {_fail9}건 실패"
+                                st.rerun()
+                            except Exception as _pp9_ex:
+                                st.error(f"처리 실패: {_pp9_ex}")
+                if st.session_state.get("_t9_rag_save_result"):
+                    st.success(st.session_state.pop("_t9_rag_save_result"))
 
-            with _adm_tool_t2:
-                st.markdown("##### 🔍 약관 JIT 크롤링 — 보험사·상품명 직접 입력")
+            with _rag5_right:
+                _t9_rs = st.session_state.get("_t9_rag_stat", {"total": 0, "pending": 0, "chunks": 0})
+                st.markdown(
+                    '<div style="background:#f0f9ff;border:1px dashed #000;border-radius:12px;padding:14px 16px;">'
+                    '<div style="font-size:0.88rem;font-weight:900;color:#1e3a5f;margin-bottom:10px;">📊 AI 리포트 — RAG 지식베이스 현황</div>',
+                    unsafe_allow_html=True,
+                )
+                _pend_bg9 = "#fef9c3" if _t9_rs["pending"] else "#f0fdf4"
+                _pend_co9 = "#b45309" if _t9_rs["pending"] else "#166534"
+                st.markdown(
+                    f'<div style="background:#e0f2fe;border-radius:8px;padding:10px 12px;margin-bottom:8px;">'
+                    f'<span style="font-size:0.72rem;font-weight:700;color:#0369a1;">① RAG 현황 스탯</span>'
+                    f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">'
+                    f'<span style="background:#fff;border-radius:5px;padding:3px 8px;font-size:0.80rem;font-weight:900;">📁 소스 {_t9_rs["total"]}건</span>'
+                    f'<span style="background:{_pend_bg9};border-radius:5px;padding:3px 8px;font-size:0.80rem;font-weight:900;color:{_pend_co9};">⏳ 미처리 {_t9_rs["pending"]}건</span>'
+                    f'<span style="background:#fff;border-radius:5px;padding:3px 8px;font-size:0.80rem;font-weight:900;">🔢 청크 {_t9_rs["chunks"]}개</span>'
+                    f'</div></div>',
+                    unsafe_allow_html=True,
+                )
+                _t9_src_list9 = []
+                if _t9_sb:
+                    try:
+                        _t9_src_res9 = _t9_sb.table("rag_sources").select(
+                            "id,filename,category,processed,uploaded"
+                        ).order("uploaded", desc=True).limit(20).execute()
+                        _t9_src_list9 = _t9_src_res9.data or []
+                    except Exception:
+                        pass
+                if _t9_src_list9:
+                    _rows_html9 = ""
+                    for _sr9 in _t9_src_list9[:15]:
+                        _fn9   = (_sr9.get("filename") or "")[:33]
+                        _cat9  = (_sr9.get("category") or "")[:10]
+                        _proc9 = "✅" if _sr9.get("processed") else "⏳"
+                        _dt9_s = (_sr9.get("uploaded") or "")[:10]
+                        _rows_html9 += (
+                            f"<tr style='border-bottom:1px solid #e2e8f0;'>"
+                            f"<td style='padding:2px 5px;font-size:0.70rem;'>{_proc9}</td>"
+                            f"<td style='padding:2px 5px;font-size:0.70rem;'>{_fn9}</td>"
+                            f"<td style='padding:2px 5px;font-size:0.68rem;color:#64748b;'>{_cat9}</td>"
+                            f"<td style='padding:2px 5px;font-size:0.68rem;color:#94a3b8;'>{_dt9_s}</td>"
+                            f"</tr>"
+                        )
+                    st.markdown(
+                        f'<div style="background:#e0f2fe;border-radius:8px;padding:8px 12px;margin-bottom:8px;">'
+                        f'<span style="font-size:0.72rem;font-weight:700;color:#0369a1;">② 등록된 RAG 소스 목록</span>'
+                        f'<div style="max-height:200px;overflow-y:auto;margin-top:5px;">'
+                        f'<table style="width:100%;border-collapse:collapse;">'
+                        f'<thead><tr>'
+                        f'<th style="font-size:0.66rem;padding:2px 5px;background:#bfdbfe;text-align:left;">상태</th>'
+                        f'<th style="font-size:0.66rem;padding:2px 5px;background:#bfdbfe;text-align:left;">파일명</th>'
+                        f'<th style="font-size:0.66rem;padding:2px 5px;background:#bfdbfe;text-align:left;">섹터</th>'
+                        f'<th style="font-size:0.66rem;padding:2px 5px;background:#bfdbfe;text-align:left;">업로드</th>'
+                        f'</tr></thead><tbody>{_rows_html9}</tbody></table></div></div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        '<div style="background:#e0f2fe;border-radius:8px;padding:8px 12px;margin-bottom:8px;">'
+                        '<span style="font-size:0.72rem;font-weight:700;color:#0369a1;">② 등록된 RAG 소스 목록</span><br>'
+                        '<span style="font-size:0.78rem;color:#64748b;">아직 등록된 소스가 없습니다.</span></div>',
+                        unsafe_allow_html=True,
+                    )
+                _t9_last_chunks9 = []
+                if _t9_sb:
+                    try:
+                        _t9_ck_res9 = _t9_sb.table("rag_docs").select(
+                            "chunk,source_name,sector"
+                        ).order("id", desc=True).limit(5).execute()
+                        _t9_last_chunks9 = _t9_ck_res9.data or []
+                    except Exception:
+                        pass
+                if _t9_last_chunks9:
+                    _chunk_items9 = ""
+                    for _ch9 in _t9_last_chunks9:
+                        _ch9_src = (_ch9.get("source_name") or "")[:25]
+                        _ch9_txt = (_ch9.get("chunk") or "")[:120]
+                        _chunk_items9 += (
+                            f"<div style='background:#fff;border-radius:5px;padding:4px 8px;margin-bottom:3px;'>"
+                            f"<span style='font-size:0.66rem;color:#0369a1;font-weight:700;'>{_ch9_src}</span><br>"
+                            f"<span style='font-size:0.68rem;color:#374151;'>{_ch9_txt}…</span></div>"
+                        )
+                    st.markdown(
+                        f'<div style="background:#e0f2fe;border-radius:8px;padding:8px 12px;">'
+                        f'<span style="font-size:0.72rem;font-weight:700;color:#0369a1;">③ 최근 인덱싱 핵심 내용 추출</span>'
+                        f'<div style="max-height:150px;overflow-y:auto;margin-top:5px;">{_chunk_items9}</div></div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        '<div style="background:#e0f2fe;border-radius:8px;padding:8px 12px;">'
+                        '<span style="font-size:0.72rem;font-weight:700;color:#0369a1;">③ 최근 인덱싱 핵심 내용 추출</span><br>'
+                        '<span style="font-size:0.78rem;color:#94a3b8;">인덱싱된 데이터가 없습니다.</span></div>',
+                        unsafe_allow_html=True,
+                    )
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown("---")
+
+            # ══════════════════════════════════════════════════════════════════
+            # [소헤더-02] 📋 약관 스캔 로드
+            # ══════════════════════════════════════════════════════════════════
+            st.markdown('<div id="sec-terms"></div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="background:#fefce8;border:1px dashed #000;border-radius:10px;'
+                'padding:8px 18px;margin:4px 0 10px;">'
+                '<span style="font-size:0.90rem;font-weight:900;color:#713f12;">📋 [소헤더-02] 약관 스캔 로드</span>'
+                '<span style="font-size:0.72rem;color:#64748b;margin-left:10px;">'
+                '보험사·상품명 입력 → JIT 크롤링 → rag_documents 저장</span></div>',
+                unsafe_allow_html=True,
+            )
+            with st.expander("📋 약관 JIT 크롤링 — 보험사·상품명 직접 입력", expanded=True):
                 _t2_c1, _t2_c2, _t2_c3 = st.columns(3)
                 with _t2_c1:
                     _t2_co = st.text_input("보험사", placeholder="삼성화재", key="t9_cr_co")
@@ -52915,28 +53141,26 @@ div[data-testid="stButton"] {
                                 if _gsm_t2 and hasattr(_gsm_t2, "crawler"):
                                     _cr_res2 = _gsm_t2.crawler.lookup_single(
                                         _t2_co, _t2_pr, _t2_jd,
-                                        progress_cb=lambda m: st.write(m)
+                                        progress_cb=lambda m: st.write(m),
                                     )
                                     if _cr_res2.get("error"):
                                         st.error(f"❌ 실패: {_cr_res2['error']}")
                                     elif _cr_res2.get("cached"):
                                         st.success("💾 캐시 히트 — 이미 인덱싱됨")
                                     else:
-                                        st.success(f"✅ 약관 스캔 완료 — {_cr_res2.get('chunks_indexed',0)}개 청크")
+                                        st.success(f"✅ 약관 스캔 완료 — {_cr_res2.get('chunks_indexed', 0)}개 청크")
                                 else:
                                     import datetime as _dt_t2, hashlib as _hl_t2
-                                    _sb_t2 = st.session_state.get("_sb_client")
-                                    if _sb_t2 is None:
-                                        from database import get_supabase_client as _gsb_t2
-                                        _sb_t2 = _gsb_t2()
-                                    _mock_content = f"[약관 스캔] {_t2_co} · {_t2_pr} 가입일: {_t2_jd or '미지정'}"
-                                    _mock_id = _hl_t2.md5(_mock_content.encode()).hexdigest()[:12].upper()
-                                    _sb_t2.table("rag_documents").upsert({
-                                        "id": _mock_id, "title": f"{_t2_co} · {_t2_pr}",
-                                        "content": _mock_content, "source": f"{_t2_co}_{_t2_pr}",
-                                        "sector": "terms", "page_num": "1",
-                                        "created_at": _dt_t2.datetime.now().isoformat(),
-                                    }, on_conflict="id").execute()
+                                    _sb_t2 = _get_sb_client()
+                                    _mock_c2 = f"[약관 스캔] {_t2_co} · {_t2_pr} 가입일: {_t2_jd or '미지정'}"
+                                    _mock_id2 = _hl_t2.md5(_mock_c2.encode()).hexdigest()[:12].upper()
+                                    if _sb_t2:
+                                        _sb_t2.table("rag_documents").upsert({
+                                            "id": _mock_id2, "title": f"{_t2_co} · {_t2_pr}",
+                                            "content": _mock_c2, "source": f"{_t2_co}_{_t2_pr}",
+                                            "sector": "terms", "page_num": "1",
+                                            "created_at": _dt_t2.datetime.now().isoformat(),
+                                        }, on_conflict="id").execute()
                                     st.success(f"✅ 약관 항목 등록: {_t2_co} · {_t2_pr}")
                             except Exception as _t2_ex:
                                 st.error(f"크롤링 오류: {_t2_ex}")
@@ -52944,338 +53168,325 @@ div[data-testid="stButton"] {
                 st.markdown("##### 📋 현재 약관 DB 조회")
                 if st.button("🔍 약관 목록 불러오기", key="t9_cr_list", use_container_width=True):
                     try:
-                        _sb_list = st.session_state.get("_sb_client")
-                        if _sb_list is None:
-                            from database import get_supabase_client as _gsb_list
-                            _sb_list = _gsb_list()
-                        _cr_list_res = _sb_list.table("rag_documents").select(
-                            "id, title, sector, created_at"
-                        ).eq("sector", "terms").limit(30).execute()
-                        st.session_state["_t9_cr_list"] = _cr_list_res.data or []
-                    except Exception as _list_ex:
-                        st.error(f"조회 실패: {_list_ex}")
-                for _item in st.session_state.get("_t9_cr_list", []):
-                    st.caption(f"📄 {_item.get('title','—')[:50]}  |  {_item.get('created_at','')[:10]}")
+                        _sb_list9 = _get_sb_client()
+                        if _sb_list9:
+                            _cr_list_res9 = _sb_list9.table("rag_documents").select(
+                                "id, title, sector, created_at"
+                            ).eq("sector", "terms").limit(30).execute()
+                            st.session_state["_t9_cr_list"] = _cr_list_res9.data or []
+                    except Exception as _list9_ex:
+                        st.error(f"조회 실패: {_list9_ex}")
+                for _item9 in st.session_state.get("_t9_cr_list", []):
+                    st.caption(f"📄 {(_item9.get('title') or '—')[:50]}  |  {(_item9.get('created_at') or '')[:10]}")
 
-            with _adm_tool_t3:
-                st.markdown("##### 🔑 회원 비밀번호(연락잃 인증) 초기화")
+            st.markdown("---")
+
+            # ══════════════════════════════════════════════════════════════════
+            # [소헤더-03] 📛 미검색 약관 관리
+            # ══════════════════════════════════════════════════════════════════
+            st.markdown('<div id="sec-missing"></div>', unsafe_allow_html=True)
+            _t9_miss_label = f" — ⚠️ 미처리 {_t9_miss_cnt}건" if _t9_miss_cnt else " — ✅ 미처리 없음"
+            st.markdown(
+                f'<div style="background:#fff7ed;border:1px dashed #000;border-radius:10px;'
+                f'padding:8px 18px;margin:4px 0 10px;">'
+                f'<span style="font-size:0.90rem;font-weight:900;color:#9a3412;">📛 [소헤더-03] 미검색 약관 관리{_t9_miss_label}</span>'
+                f'<span style="font-size:0.72rem;color:#64748b;margin-left:10px;">'
+                f'FC 신고 약관 확인 → 스캔 로드 또는 RAG 업로드</span></div>',
+                unsafe_allow_html=True,
+            )
+            _t5_hdr_c1, _t5_hdr_c2 = st.columns([3, 1])
+            with _t5_hdr_c1:
+                st.markdown("**📋 미처리 미검색 약관 목록**")
+            with _t5_hdr_c2:
+                _t5_refresh9 = st.button("🔄 새로고침", key="t5_refresh9", use_container_width=True)
+            if _t5_refresh9 or st.session_state.get("_t5_missing_list9") is None:
+                try:
+                    _sb_t5 = _get_sb_client()
+                    if _sb_t5:
+                        _t5_rows9 = (
+                            _sb_t5.table("gk_missing_terms")
+                            .select("*")
+                            .eq("status", "pending")
+                            .order("reported_at", desc=True)
+                            .limit(50)
+                            .execute()
+                        )
+                        st.session_state["_t5_missing_list9"] = _t5_rows9.data or []
+                    else:
+                        st.session_state["_t5_missing_list9"] = []
+                except Exception as _t5_ex9:
+                    st.session_state["_t5_missing_list9"] = []
+                    st.caption(f"⚠️ Supabase 조회 실패 (gk_missing_terms): {_t5_ex9}")
+            _t5_db_list9  = st.session_state.get("_t5_missing_list9", [])
+            _t5_ses_list9 = st.session_state.get("gk_missing_terms_session", [])
+            _t5_all9 = _t5_db_list9 + [
+                r for r in _t5_ses_list9
+                if not any(
+                    d.get("company") == r.get("company") and
+                    d.get("product_name") == r.get("product_name")
+                    for d in _t5_db_list9
+                )
+            ]
+            if not _t5_all9:
+                st.success("✅ 미처리 미검색 약관 없음")
+            else:
+                st.markdown(
+                    f'<div style="background:#fff7ed;border:1px solid #f97316;border-radius:6px;'
+                    f'padding:6px 12px;margin-bottom:8px;font-size:0.82rem;font-weight:700;color:#c2410c;">'
+                    f'⚠️ 미처리 항목 {len(_t5_all9)}건 — 약관 등록 필요</div>',
+                    unsafe_allow_html=True,
+                )
+                for _ti9, _tr9 in enumerate(_t5_all9):
+                    _t5_co9 = _tr9.get("company", "?")
+                    _t5_pn9 = _tr9.get("product_name", "?")
+                    _t5_pv9 = _tr9.get("product_version", "")
+                    _t5_jd9 = _tr9.get("join_date", "?")
+                    _t5_pt9 = _tr9.get("product_type", "?")
+                    _t5_nt9 = _tr9.get("note", "")
+                    _t5_at9 = (_tr9.get("reported_at") or "")[:16]
+                    _t5_by9 = _tr9.get("reported_by", "?")
+                    _t5_id9 = _tr9.get("id", "")
+                    with st.expander(
+                        f"[{_ti9+1}] {_t5_co9} · {_t5_pn9} — {_t5_pt9} / 가입일 {_t5_jd9}",
+                        expanded=False,
+                    ):
+                        _pv9_label = f'  <span style="color:#888;">[{_t5_pv9}]</span>' if _t5_pv9 else ""
+                        _nt9_row = (
+                            f"<tr><td style='font-weight:700;padding:3px 6px;'>메모</td>"
+                            f"<td style='padding:3px 6px;'>{_t5_nt9}</td></tr>"
+                        ) if _t5_nt9 else ""
+                        st.markdown(
+                            f"<table style='width:100%;font-size:0.82rem;border-collapse:collapse;'>"
+                            f"<tr><td style='font-weight:700;width:110px;padding:3px 6px;'>① 보험회사</td>"
+                            f"<td style='padding:3px 6px;'>{_t5_co9}</td></tr>"
+                            f"<tr style='background:#fafafa;'><td style='font-weight:700;padding:3px 6px;'>② 상품명</td>"
+                            f"<td style='padding:3px 6px;'>{_t5_pn9}{_pv9_label}</td></tr>"
+                            f"<tr><td style='font-weight:700;padding:3px 6px;'>③ 가입/판매일</td>"
+                            f"<td style='padding:3px 6px;'>{_t5_jd9}</td></tr>"
+                            f"<tr style='background:#fafafa;'><td style='font-weight:700;padding:3px 6px;'>④ 상품 구분</td>"
+                            f"<td style='padding:3px 6px;'>{_t5_pt9}</td></tr>"
+                            f"{_nt9_row}"
+                            f"<tr><td style='font-weight:700;padding:3px 6px;color:#888;'>신고자</td>"
+                            f"<td style='padding:3px 6px;color:#888;'>{_t5_by9} / {_t5_at9}</td></tr>"
+                            f"</table>",
+                            unsafe_allow_html=True,
+                        )
+                        _t5a1_9, _t5a2_9, _t5a3_9 = st.columns(3)
+                        with _t5a1_9:
+                            if st.button("📋 약관 스캔 로드", key=f"t5_scan9_{_ti9}",
+                                         use_container_width=True):
+                                st.session_state["t9_cr_co"] = _t5_co9
+                                st.session_state["t9_cr_pr"] = _t5_pn9
+                                st.session_state["t9_cr_jd"] = _t5_jd9
+                                st.info("📋 위 '약관 스캔 로드' 섹션에서 실행하세요.")
+                        with _t5a2_9:
+                            if st.button("✅ 처리완료 표시", key=f"t5_done9_{_ti9}",
+                                         use_container_width=True):
+                                if _t5_id9:
+                                    try:
+                                        _sb_t5d9 = _get_sb_client()
+                                        if _sb_t5d9:
+                                            _sb_t5d9.table("gk_missing_terms").update(
+                                                {"status": "completed"}
+                                            ).eq("id", _t5_id9).execute()
+                                            st.session_state.pop("_t5_missing_list9", None)
+                                    except Exception:
+                                        pass
+                                st.session_state["gk_missing_terms_session"] = [
+                                    r for r in st.session_state.get("gk_missing_terms_session", [])
+                                    if not (r.get("company") == _t5_co9 and r.get("product_name") == _t5_pn9)
+                                ]
+                                st.rerun()
+                        with _t5a3_9:
+                            if st.button("📂 RAG 업로드", key=f"t5_rag9_{_ti9}",
+                                         use_container_width=True):
+                                st.session_state["t9_rag_sector"] = "terms (약관)"
+                                st.info("📂 위 'RAG 지식베이스 관리' 섹션에서 약관 PDF를 업로드하세요.")
+
+            st.markdown("---")
+
+            # ══════════════════════════════════════════════════════════════════
+            # [소헤더-04] 🔑 회원 관리
+            # ══════════════════════════════════════════════════════════════════
+            st.markdown('<div id="sec-member"></div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="background:#faf5ff;border:1px dashed #000;border-radius:10px;'
+                'padding:8px 18px;margin:4px 0 10px;">'
+                '<span style="font-size:0.90rem;font-weight:900;color:#4c1d95;">🔑 [소헤더-04] 회원 관리</span>'
+                '<span style="font-size:0.72rem;color:#64748b;margin-left:10px;">'
+                '고객 비번 초기화 · 오류 알람 관리</span></div>',
+                unsafe_allow_html=True,
+            )
+            _mem_tab1, _mem_tab2 = st.tabs(["🔑 고객 비번 초기화", "🚨 회원정보 오류 관리"])
+            with _mem_tab1:
+                st.markdown("##### 🔑 회원 비밀번호(연락처 인증) 초기화")
                 st.caption("⚠️ 비번 초기화 시 기존 pin_hash 및 contact 해시가 새 값으로 덮어쓰기됩니다.")
                 if st.button("👥 회원 목록 불러오기", key="t9_pin_load", use_container_width=True):
                     try:
                         st.session_state["_t9_member_list"] = load_members(force=True)
                     except Exception as _t3_load_ex:
                         st.error(f"회원 로드 실패: {_t3_load_ex}")
-                _mbs_t3_data = st.session_state.get("_t9_member_list", {})
-                if _mbs_t3_data:
-                    _sel_name = st.selectbox(
-                        "초기화할 회원 선택", list(_mbs_t3_data.keys()), key="t9_pin_sel_name"
-                    )
-                    _sel_rec = _mbs_t3_data.get(_sel_name, {})
+                _mbs_t3 = st.session_state.get("_t9_member_list", {})
+                if _mbs_t3:
+                    _sel_name9 = st.selectbox("초기화할 회원 선택", list(_mbs_t3.keys()), key="t9_pin_sel_name")
+                    _sel_rec9  = _mbs_t3.get(_sel_name9, {})
                     st.markdown(
                         f"<div style='background:#FFF9C4;border:1px dashed #F9A825;"
                         f"border-radius:8px;padding:8px 12px;margin:6px 0;font-size:0.82rem;font-weight:700;'>"
-                        f"선택: <b>{_sel_name}</b> | "
-                        f"현재 pin_hash: {str(_sel_rec.get('pin_hash',''))[:16] or '(없음)'}...</div>",
+                        f"선택: <b>{_sel_name9}</b> | "
+                        f"현재 pin_hash: {str(_sel_rec9.get('pin_hash', ''))[:16] or '(없음)'}...</div>",
                         unsafe_allow_html=True,
                     )
-                    _new_contact = st.text_input(
-                        "새 비밀번호 (연락입, 숫자만)", type="password",
-                        key="t9_pin_new", placeholder="예: 01012345678",
-                        help="SHA-256으로 해싱되어 저장"
-                    )
-                    _new_contact2 = st.text_input(
-                        "새 비밀번호 확인", type="password",
-                        key="t9_pin_confirm", placeholder="동일하게 재입력"
-                    )
+                    _new_contact9  = st.text_input("새 비밀번호 (연락처, 숫자만)", type="password",
+                                                   key="t9_pin_new", placeholder="예: 01012345678",
+                                                   help="SHA-256으로 해싱되어 저장")
+                    _new_contact9b = st.text_input("새 비밀번호 확인", type="password",
+                                                   key="t9_pin_confirm", placeholder="동일하게 재입력")
                     if st.button("🔑 비번 초기화 실행", key="t9_pin_reset",
                                  use_container_width=True, type="primary"):
-                        _nv  = (_new_contact  or "").strip().replace("-","").replace(" ","")
-                        _nv2 = (_new_contact2 or "").strip().replace("-","").replace(" ","")
-                        if not _nv:
+                        _nv9  = (_new_contact9  or "").strip().replace("-", "").replace(" ", "")
+                        _nv9b = (_new_contact9b or "").strip().replace("-", "").replace(" ", "")
+                        if not _nv9:
                             st.error("새 비밀번호를 입력하세요.")
-                        elif _nv != _nv2:
+                        elif _nv9 != _nv9b:
                             st.error("비밀번호 확인이 일치하지 않습니다.")
-                        elif len(_nv) < 8:
+                        elif len(_nv9) < 8:
                             st.error("8자리 이상 입력하세요.")
                         else:
-                            _new_hash = get_sha256(_nv)
+                            _new_hash9 = get_sha256(_nv9)
                             try:
-                                _sb_pin = st.session_state.get("_sb_client")
-                                if _sb_pin is None:
-                                    from database import get_supabase_client as _gsb_pin
-                                    _sb_pin = _gsb_pin()
-                                _member_id = _sel_rec.get("id") or _sel_rec.get("user_id", "")
-                                _upd = {"pin_hash": _new_hash, "contact": _new_hash}
-                                if _member_id:
-                                    _sb_pin.table("members").update(_upd).eq("id", _member_id).execute()
-                                else:
-                                    _sb_pin.table("members").update(_upd).eq("name", _sel_name).execute()
-                                st.success(f"✅ {_sel_name} 비번 초기화 완료 — SHA-256 해시 저장됨")
+                                _sb_pin9 = _get_sb_client()
+                                _mid9    = _sel_rec9.get("id") or _sel_rec9.get("user_id", "")
+                                _upd9    = {"pin_hash": _new_hash9, "contact": _new_hash9}
+                                if _sb_pin9:
+                                    if _mid9:
+                                        _sb_pin9.table("members").update(_upd9).eq("id", _mid9).execute()
+                                    else:
+                                        _sb_pin9.table("members").update(_upd9).eq("name", _sel_name9).execute()
+                                st.success(f"✅ {_sel_name9} 비번 초기화 완료 — SHA-256 해시 저장됨")
                                 st.session_state.pop("_t9_member_list", None)
-                            except Exception as _pin_ex:
-                                st.error(f"초기화 실패: {_pin_ex}")
+                            except Exception as _pin9_ex:
+                                st.error(f"초기화 실패: {_pin9_ex}")
                 else:
                     st.info("'회원 목록 불러오기' 버튼을 먼저 클릭하세요.")
 
-            with _adm_tool_t4:
+            with _mem_tab2:
                 st.markdown("##### 🚨 회원정보 오류 관리 — GCS 매칭 오류 자동감지 & 초기화")
-                st.caption(
-                    "회원이 가입되어 있으나 로그인 불가(DB/GCS 매칭 오류) 발생 시, "
-                    "이름에 한하여 contact·pin_hash만 초기화합니다. 다른 회원 정보는 보존됩니다."
-                )
-                # ── 오류 신고 목록 (Supabase member_errors 조회) ──────────────────
-                _t4_c1, _t4_c2 = st.columns([3, 1])
-                with _t4_c1:
+                st.caption("회원 로그인 불가(DB/GCS 매칭 오류) 발생 시 이름에 한해 contact·pin_hash만 초기화합니다.")
+                _t4_hdr_c1, _t4_hdr_c2 = st.columns([3, 1])
+                with _t4_hdr_c1:
                     st.markdown("**📋 미처리 오류 알람 목록**")
-                with _t4_c2:
-                    _t4_refresh = st.button("🔄 새로고침", key="t4_refresh_errs", use_container_width=True)
-
-                if _t4_refresh or st.session_state.get("_t4_err_list") is None:
+                with _t4_hdr_c2:
+                    _t4_refresh9 = st.button("🔄 새로고침", key="t4_refresh9", use_container_width=True)
+                if _t4_refresh9 or st.session_state.get("_t4_err_list9") is None:
                     try:
-                        _sb_t4 = st.session_state.get("_sb_client")
-                        if _sb_t4 is None:
-                            from database import get_supabase_client as _gsb_t4
-                            _sb_t4 = _gsb_t4()
-                        _t4_rows = (
-                            _sb_t4.table("member_errors")
-                            .select("*")
-                            .eq("status", "pending")
-                            .order("created_at", desc=True)
-                            .limit(50)
-                            .execute()
-                        )
-                        st.session_state["_t4_err_list"] = _t4_rows.data or []
-                    except Exception as _t4_ex:
-                        st.session_state["_t4_err_list"] = []
-                        st.caption(f"⚠️ Supabase 조회 실패 (member_errors 테이블 없음): {_t4_ex}")
-
-                _t4_errors = st.session_state.get("_t4_err_list", [])
-                if _t4_errors:
-                    for _er in _t4_errors:
-                        _er_name = _er.get("member_name", "?")
-                        _er_type = _er.get("error_type", "?")
-                        _er_app  = _er.get("app_name", "?")
-                        _er_id   = _er.get("error_id", "?")
-                        _er_time = (_er.get("created_at") or "")[:16]
-                        _er_type_label = {
-                            "AUTH_MISMATCH": "연락처 매칭 오류",
-                            "LOGIN_BLOCKED": "로그인 잠금",
-                            "MANUAL_REPORT": "회원 직접 신고",
-                        }.get(_er_type, _er_type)
+                        _sb_t4 = _get_sb_client()
+                        if _sb_t4:
+                            _t4_rows9 = (
+                                _sb_t4.table("member_errors")
+                                .select("*")
+                                .eq("status", "pending")
+                                .order("created_at", desc=True)
+                                .limit(50)
+                                .execute()
+                            )
+                            st.session_state["_t4_err_list9"] = _t4_rows9.data or []
+                        else:
+                            st.session_state["_t4_err_list9"] = []
+                    except Exception as _t4_ex9:
+                        st.session_state["_t4_err_list9"] = []
+                        st.caption(f"⚠️ Supabase 조회 실패 (member_errors): {_t4_ex9}")
+                _t4_errors9 = st.session_state.get("_t4_err_list9", [])
+                if _t4_errors9:
+                    for _er9 in _t4_errors9:
+                        _er9_name  = _er9.get("member_name", "?")
+                        _er9_type  = _er9.get("error_type", "?")
+                        _er9_app   = _er9.get("app_name", "?")
+                        _er9_time  = (_er9.get("created_at") or "")[:16]
+                        _er9_label = {"AUTH_MISMATCH": "연락처 매칭 오류",
+                                      "LOGIN_BLOCKED": "로그인 잠금",
+                                      "MANUAL_REPORT": "회원 직접 신고"}.get(_er9_type, _er9_type)
                         st.markdown(
                             f"<div style='background:#FFF3CD;border:1px dashed #F59E0B;"
-                            f"border-radius:8px;padding:7px 12px;margin:4px 0;"
-                            f"font-size:0.82rem;'>"
-                            f"⚠️ <b>{_er_name}</b> | {_er_type_label} | 앱:{_er_app} | "
-                            f"{_er_time} | ID:{_er_id}"
-                            f"</div>",
+                            f"border-radius:8px;padding:7px 12px;margin:4px 0;font-size:0.82rem;'>"
+                            f"⚠️ <b>{_er9_name}</b> | {_er9_label} | 앱:{_er9_app} | {_er9_time}</div>",
                             unsafe_allow_html=True,
                         )
                 else:
                     st.success("✅ 미처리 오류 없음")
-
                 st.divider()
-                # ── 이름 검색 → 초기화 실행 ───────────────────────────────────────
                 st.markdown("**🔍 회원 이름 검색 후 초기화**")
-                st.caption("이름만 일치하면 contact·pin_hash를 초기화합니다. 회원의 다른 정보(가입일·구독·직업 등)는 손상 없이 유지됩니다.")
-                _t4_search = st.text_input(
-                    "초기화할 회원 이름 입력", key="t4_reset_name_input",
-                    placeholder="예: 홍길동",
-                    label_visibility="collapsed",
-                )
-                _t4_found  = None
-                _t4_found_key = None
-                if (_t4_search or "").strip():
+                _t4_search9 = st.text_input("초기화할 회원 이름", key="t4_reset_name9",
+                                            placeholder="예: 홍길동", label_visibility="collapsed")
+                _t4_found9 = None
+                _t4_fkey9  = None
+                if (_t4_search9 or "").strip():
                     try:
                         _mbs_t4 = load_members()
-                        _t4_key = (_t4_search or "").strip()
-                        if _t4_key in _mbs_t4:
-                            _t4_found     = _mbs_t4[_t4_key]
-                            _t4_found_key = _t4_key
+                        _t4_k9  = _t4_search9.strip()
+                        if _t4_k9 in _mbs_t4:
+                            _t4_found9 = _mbs_t4[_t4_k9]
+                            _t4_fkey9  = _t4_k9
                         else:
                             for _k in _mbs_t4:
-                                if _k.startswith(_t4_key):
-                                    _t4_found     = _mbs_t4[_k]
-                                    _t4_found_key = _k
+                                if _k.startswith(_t4_k9):
+                                    _t4_found9 = _mbs_t4[_k]
+                                    _t4_fkey9  = _k
                                     break
                     except Exception:
                         pass
-
-                    if _t4_found:
-                        _jd = _t4_found.get("join_date", "?")
-                        _se = _t4_found.get("subscription_end", "?")
-                        st.markdown(
-                            f"<div style='background:#E8F5E9;border:1px dashed #4CAF50;"
-                            f"border-radius:8px;padding:8px 12px;margin:4px 0;font-size:0.82rem;'>"
-                            f"✅ 회원 확인: <b>{_t4_found_key}</b> | 가입일:{_jd} | 만료:{_se}"
-                            f"</div>",
-                            unsafe_allow_html=True,
-                        )
-                        if st.button(
-                            f"🔄 '{_t4_found_key}' 이름·연락처 초기화 실행",
-                            key="t4_reset_execute",
-                            use_container_width=True,
-                            type="primary",
-                        ):
-                            try:
-                                _sb_t4r = st.session_state.get("_sb_client")
-                                if _sb_t4r is None:
-                                    from database import get_supabase_client as _gsb_t4r
-                                    _sb_t4r = _gsb_t4r()
-                                _mid_t4 = _t4_found.get("id") or _t4_found.get("user_id", "")
-                                _upd_t4 = {"contact": None, "pin_hash": None}
-                                if _mid_t4:
-                                    _sb_t4r.table("members").update(_upd_t4).eq("id", _mid_t4).execute()
-                                else:
-                                    _sb_t4r.table("members").update(_upd_t4).eq("name", _t4_found_key).execute()
-                                try:
-                                    _sb_t4r.table("member_errors").update({"status": "resolved"}).eq("member_name", _t4_found_key).execute()
-                                except Exception:
-                                    pass
-                                st.success(
-                                    f"✅ '{_t4_found_key}' contact·pin_hash 초기화 완료 — "
-                                    f"회원이 앱에서 연락처를 다시 등록하면 정상 로그인 가능합니다."
-                                )
-                                st.session_state.pop("_t4_err_list", None)
-                                st.rerun()
-                            except Exception as _t4r_ex:
-                                st.error(f"초기화 실패: {_t4r_ex}")
-                    else:
-                        st.warning(f"'{_t4_search}' 이름으로 등록된 회원을 찾을 수 없습니다.")
-
-                st.divider()
-                # ── 알림 설정 안내 ───────────────────────────────────────────────
-                st.markdown("**⚙️ 관리자 알람 수신 설정**")
-                st.caption("오류 발생 시 카카오톡/SMS 수신 번호 — 환경변수 ADMIN_NOTIFY_PHONE 설정 권장")
-                _t4_ap = st.text_input(
-                    "관리자 수신 번호 (세션 임시 저장)",
-                    key="t4_admin_phone_tmp",
-                    value=st.session_state.get("gp200_master_phone", ""),
-                    placeholder="010-XXXX-XXXX",
-                    label_visibility="collapsed",
-                )
-                if st.button("💾 세션 저장", key="t4_admin_phone_save"):
-                    st.session_state["gp200_master_phone"] = _t4_ap
-                    st.success("✅ 관리자 알람 수신 번호 세션 저장 완료")
-
-            # ── 📛 미검색 약관 관리 ────────────────────────────────────────
-            with _adm_tool_t5:
-                st.markdown("##### 📛 미검색 약관 관리 — 관리자 직접 등록 대기 목록")
-                st.caption(
-                    "FC(설계사)가 약관 매칭 검색 탭에서 신고한 미검색 약관 목록입니다. "
-                    "각 항목에 대해 약관 스캔 로드 또는 관리자 직접 업로드를 수행하세요."
-                )
-                _t5_c1, _t5_c2 = st.columns([3, 1])
-                with _t5_c1:
-                    st.markdown("**📋 미처리 미검색 약관 목록**")
-                with _t5_c2:
-                    _t5_refresh = st.button("🔄 새로고침", key="t5_refresh", use_container_width=True)
-                if _t5_refresh or st.session_state.get("_t5_missing_list") is None:
-                    try:
-                        _sb_t5 = _get_sb_client()
-                        if _sb_t5:
-                            _t5_rows = (
-                                _sb_t5.table("gk_missing_terms")
-                                .select("*")
-                                .eq("status", "pending")
-                                .order("reported_at", desc=True)
-                                .limit(50)
-                                .execute()
-                            )
-                            st.session_state["_t5_missing_list"] = _t5_rows.data or []
-                        else:
-                            st.session_state["_t5_missing_list"] = []
-                    except Exception as _t5_ex:
-                        st.session_state["_t5_missing_list"] = []
-                        st.caption(f"⚠️ Supabase 조회 실패 (gk_missing_terms 테이블 없음): {_t5_ex}")
-                _t5_db_list  = st.session_state.get("_t5_missing_list", [])
-                _t5_ses_list = st.session_state.get("gk_missing_terms_session", [])
-                _t5_all = _t5_db_list + [
-                    r for r in _t5_ses_list
-                    if not any(
-                        d.get("company") == r.get("company") and
-                        d.get("product_name") == r.get("product_name")
-                        for d in _t5_db_list
-                    )
-                ]
-                if not _t5_all:
-                    st.success("✅ 미처리 미검색 약관 없음")
-                else:
+                if _t4_found9:
                     st.markdown(
-                        f"<div style='background:#fff7ed;border:1px solid #f97316;"
-                        f"border-radius:6px;padding:6px 12px;margin-bottom:8px;"
-                        f"font-size:0.82rem;font-weight:700;color:#c2410c;'>"
-                        f"⚠️ 미처리 항목 {len(_t5_all)}건 — 약관 등록 필요</div>",
+                        f"<div style='background:#E8F5E9;border:1px dashed #4CAF50;"
+                        f"border-radius:8px;padding:8px 12px;font-size:0.82rem;'>"
+                        f"✅ 회원 확인: <b>{_t4_fkey9}</b> | 가입일:{_t4_found9.get('join_date','?')}</div>",
                         unsafe_allow_html=True,
                     )
-                    for _ti, _tr in enumerate(_t5_all):
-                        _t5_co = _tr.get("company", "?")
-                        _t5_pn = _tr.get("product_name", "?")
-                        _t5_pv = _tr.get("product_version", "")
-                        _t5_jd = _tr.get("join_date", "?")
-                        _t5_pt = _tr.get("product_type", "?")
-                        _t5_nt = _tr.get("note", "")
-                        _t5_at = (_tr.get("reported_at") or "")[:16]
-                        _t5_by = _tr.get("reported_by", "?")
-                        _t5_id = _tr.get("id", "")
-                        with st.expander(
-                            f"[{_ti+1}] {_t5_co} · {_t5_pn} — {_t5_pt} / 가입일 {_t5_jd}",
-                            expanded=False,
-                        ):
-                            _pv_label = f'  <span style="color:#888;">[{_t5_pv}]</span>' if _t5_pv else ""
-                            _nt_row = (
-                                f"<tr><td style='font-weight:700;padding:3px 6px;'>메모</td>"
-                                f"<td style='padding:3px 6px;'>{_t5_nt}</td></tr>"
-                            ) if _t5_nt else ""
-                            st.markdown(
-                                f"<table style='width:100%;font-size:0.82rem;border-collapse:collapse;'>"
-                                f"<tr><td style='font-weight:700;width:110px;padding:3px 6px;'>① 보험회사</td>"
-                                f"<td style='padding:3px 6px;'>{_t5_co}</td></tr>"
-                                f"<tr style='background:#fafafa;'><td style='font-weight:700;padding:3px 6px;'>② 상품명</td>"
-                                f"<td style='padding:3px 6px;'>{_t5_pn}{_pv_label}</td></tr>"
-                                f"<tr><td style='font-weight:700;padding:3px 6px;'>③ 가입/판매일</td>"
-                                f"<td style='padding:3px 6px;'>{_t5_jd}</td></tr>"
-                                f"<tr style='background:#fafafa;'><td style='font-weight:700;padding:3px 6px;'>④ 상품 구분</td>"
-                                f"<td style='padding:3px 6px;'>{_t5_pt}</td></tr>"
-                                f"{_nt_row}"
-                                f"<tr><td style='font-weight:700;padding:3px 6px;color:#888;'>신고자</td>"
-                                f"<td style='padding:3px 6px;color:#888;'>{_t5_by} / {_t5_at}</td></tr>"
-                                f"</table>",
-                                unsafe_allow_html=True,
-                            )
-                            _t5a1, _t5a2, _t5a3 = st.columns(3)
-                            with _t5a1:
-                                if st.button("📋 약관 스캔 로드", key=f"t5_scan_{_ti}",
-                                             use_container_width=True):
-                                    st.session_state["t9_cr_co"] = _t5_co
-                                    st.session_state["t9_cr_pr"] = _t5_pn
-                                    st.session_state["t9_cr_jd"] = _t5_jd
-                                    st.info("📋 '약관 스캔 로드' 탭에서 실행하세요.")
-                            with _t5a2:
-                                if st.button("✅ 처리완료 표시", key=f"t5_done_{_ti}",
-                                             use_container_width=True):
-                                    if _t5_id:
-                                        try:
-                                            _sb_t5d = _get_sb_client()
-                                            if _sb_t5d:
-                                                _sb_t5d.table("gk_missing_terms").update(
-                                                    {"status": "completed"}
-                                                ).eq("id", _t5_id).execute()
-                                                st.session_state.pop("_t5_missing_list", None)
-                                        except Exception:
-                                            pass
-                                    st.session_state["gk_missing_terms_session"] = [
-                                        r for r in st.session_state.get("gk_missing_terms_session", [])
-                                        if not (r.get("company") == _t5_co
-                                                and r.get("product_name") == _t5_pn)
-                                    ]
-                                    st.rerun()
-                            with _t5a3:
-                                if st.button("📂 RAG 업로드", key=f"t5_rag_{_ti}",
-                                             use_container_width=True):
-                                    st.session_state["t9_rag_sector"] = "terms (약관)"
-                                    st.info("📂 'RAG 지식베이스 로드' 탭에서 약관 PDF를 업로드하세요.")
+                    if st.button(f"🔄 '{_t4_fkey9}' 이름·연락처 초기화 실행",
+                                 key="t4_reset9_exec", use_container_width=True, type="primary"):
+                        try:
+                            _sb_t4r9  = _get_sb_client()
+                            _mid9t4   = _t4_found9.get("id") or _t4_found9.get("user_id", "")
+                            _upd9t4   = {"contact": None, "pin_hash": None}
+                            if _sb_t4r9:
+                                if _mid9t4:
+                                    _sb_t4r9.table("members").update(_upd9t4).eq("id", _mid9t4).execute()
+                                else:
+                                    _sb_t4r9.table("members").update(_upd9t4).eq("name", _t4_fkey9).execute()
+                                try:
+                                    _sb_t4r9.table("member_errors").update({"status": "resolved"}).eq("member_name", _t4_fkey9).execute()
+                                except Exception:
+                                    pass
+                            st.success(f"✅ '{_t4_fkey9}' contact·pin_hash 초기화 완료")
+                            st.session_state.pop("_t4_err_list9", None)
+                            st.rerun()
+                        except Exception as _t4r9_ex:
+                            st.error(f"초기화 실패: {_t4r9_ex}")
+                elif (_t4_search9 or "").strip():
+                    st.warning(f"'{_t4_search9}' 이름으로 등록된 회원을 찾을 수 없습니다.")
+                st.divider()
+                st.markdown("**⚙️ 관리자 알람 수신 설정**")
+                _t4_ap9 = st.text_input("관리자 수신 번호", key="t4_admin_phone9",
+                                        value=st.session_state.get("gp200_master_phone", ""),
+                                        placeholder="010-XXXX-XXXX", label_visibility="collapsed")
+                if st.button("💾 세션 저장", key="t4_admin_phone9_save"):
+                    st.session_state["gp200_master_phone"] = _t4_ap9
+                    st.success("✅ 관리자 알람 수신 번호 세션 저장 완료")
 
+            st.markdown("---")
+
+            # ══════════════════════════════════════════════════════════════════
+            # [소헤더-05] 🔧 시스템설정 (요율·파라미터·서비스 관리)
+            # ══════════════════════════════════════════════════════════════════
+            st.markdown('<div id="sec-config"></div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="background:#f0fdf4;border:1px dashed #000;border-radius:10px;'
+                'padding:8px 18px;margin:4px 0 10px;">'
+                '<span style="font-size:0.90rem;font-weight:900;color:#14532d;">🔧 [소헤더-05] 시스템설정</span>'
+                '<span style="font-size:0.72rem;color:#64748b;margin-left:10px;">'
+                '법정 요율 갱신 · GP-64 파라미터 · 중앙집중 서비스 관리</span></div>',
+                unsafe_allow_html=True,
+            )
             # ── [가이딩 프로토콜 제34조] 요율 자동 갱신 알림 배너 ───────────────────────
             if not st.session_state.get('_art34_loaded'):
                 _art34_load_rates()
