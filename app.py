@@ -38385,6 +38385,7 @@ function selectCustomer(name) {{
                                  help="고객 DB 새로고침 후 고객정보 입력폼으로 이동"):
                         st.session_state.pop(_cust_cache_key, None)
                         st.session_state.pop(_cust_cache_ts, None)
+                        st.session_state["_fp_selected_label"] = st.session_state.get("fp_cust_selectbox", "✏️ 신규 고객 입력")
                         st.session_state["_fp_show_form"] = True
                         st.session_state["_scroll_to_a1"] = True
                         st.rerun()
