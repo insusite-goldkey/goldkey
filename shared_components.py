@@ -1541,7 +1541,7 @@ button[data-testid="baseButton-primary"]:hover{
 
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     if st.button(
-        "🔍 전체 담보 세부항목 및 정밀 분석 리포트 보기",
+        "� 내보험다보여 실행버튼",
         key=f"{key_prefix}_deepdive",
         use_container_width=True,
     ):

@@ -14613,29 +14613,29 @@ def _render_gk_sec10():
 """, unsafe_allow_html=True)
 
     # ── 홈 복귀 버튼 (tab_home_btn 인라인 — @st.fragment 외부 스코프 한계 회피) ──
-    _s10_c1, _s10_c2 = st.columns([3, 1])
-    with _s10_c1:
-        if st.button("⬅️ 상담 SECTION 게이트 웨이로 돌아가기",
+    _s10_cb1, _s10_cb2, _s10_cb3 = st.columns([1, 1, 4])
+    with _s10_cb1:
+        if st.button("⬅️ '상담 SECTION 복귀'",
                      key="btn_back_sec05_gk_sec10",
                      use_container_width=True):
             st.session_state["current_tab"] = "home"
             st.session_state["_home_scroll_to_sec05"] = True
             st.session_state["_scroll_top"] = True
             st.rerun()
-    with _s10_c2:
+    with _s10_cb2:
         if st.button("🏠 홈", key="tab_home_gk_sec10",
                      use_container_width=True):
             st.session_state["current_tab"] = "home"
             st.rerun()
 
     st.markdown(
-        "<div style='background:linear-gradient(135deg,#1e1b4b 0%,#312e81 60%,#4338ca 100%);"
-        "border-radius:14px;padding:20px 28px;margin-bottom:6px;border:1px solid #4f46e5;'>"
-        "<div style='font-size:1.35rem;font-weight:900;color:#fde68a;letter-spacing:0.04em;'>"
-        "🔑 GK-SEC-10 — 내 보험 자동 소환 센터</div>"
-        "<div style='font-size:0.85rem;color:#c7d2fe;margin-top:6px;line-height:1.6;'>"
+        "<div style='background:linear-gradient(135deg,#eff6ff 0%,#e0f2fe 60%,#f0fdf4 100%);"
+        "border-radius:14px;padding:20px 28px;margin-bottom:6px;border:2px solid #3b82f6;'>"
+        "<div style='font-size:1.35rem;font-weight:900;color:#1e3a8a;letter-spacing:0.04em;'>"
+        "🔑 GK-SEC-10 — '내 보험 다보여' 자동 소환 센터</div>"
+        "<div style='font-size:0.85rem;color:#374151;margin-top:6px;line-height:1.6;'>"
         "마이데이터 기반 정밀 진단 허브 &nbsp;·&nbsp; COOCON / CODEF 중계 &nbsp;·&nbsp; "
-        "<span style='background:#fde68a;color:#1e1b4b;border-radius:6px;"
+        "<span style='background:#1e3a8a;color:#fff;border-radius:6px;"
         "padding:1px 8px;font-weight:800;font-size:0.78rem;'>🔒 민감정보 비저장</span>"
         "</div>"
         "</div>", unsafe_allow_html=True
@@ -14674,7 +14674,6 @@ def _render_gk_sec10():
     # ════════════════════════════════════════════════════════════════════
     if _phase == "consent":
         st.markdown("### 📋 1단계 — 고객 등록 및 디지털 정보동의")
-        st.markdown("<div class='sec10-wrap'>", unsafe_allow_html=True)
 
         _c1, _c2 = st.columns(2)
         with _c1:
@@ -14690,47 +14689,6 @@ def _render_gk_sec10():
                 value=st.session_state.get("sec10_phone", ""),
                 key="sec10_phone_input", max_chars=20,
             )
-
-        st.markdown(
-            "<div class='sec10-law-box'>"
-            "<b>📌 법적 근거</b><br>"
-            "본 동의서는 <b>「개인정보 보호법」 제15조·제17조·제22조</b> 및 "
-            "<b>「신용정보의 이용 및 보호에 관한 법률」 제32조·제33조</b>에 따라 "
-            "적법하게 수집·이용됩니다. 동의를 거부하실 수 있으며, "
-            "거부 시 보험 조회 서비스 이용이 제한됩니다."
-            "</div>", unsafe_allow_html=True
-        )
-
-        st.markdown(
-            "<div style='background:rgba(255,255,255,0.92);border:1px solid #d1d5db;"
-            "border-radius:10px;padding:14px 18px;margin:10px 0;'>"
-            "<div style='font-size:0.9rem;font-weight:800;color:#111;margin-bottom:10px;'>"
-            "📜 개인정보 수집·이용 및 마이데이터 제공 동의서</div>"
-            "<table style='width:100%;font-size:0.76rem;color:#374151;"
-            "border-collapse:collapse;line-height:1.7;'>"
-            "<tr style='background:#f1f5f9;'>"
-            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;width:22%;'>수집·이용 목적</td>"
-            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>보험 가입 현황 조회, 보장 분석, 설계 참고자료 생성</td>"
-            "</tr>"
-            "<tr>"
-            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;'>수집 항목</td>"
-            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>성명, 연락처, 생년월일(해시), CI(연계정보), 보험 가입 내역</td>"
-            "</tr>"
-            "<tr style='background:#f1f5f9;'>"
-            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;'>제공 기관</td>"
-            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>한국신용정보원(내보험다보여), COOCON, CODEF</td>"
-            "</tr>"
-            "<tr>"
-            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;'>보유·이용 기간</td>"
-            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>상담 종료 즉시 원본 파기 / 통계용 해시값: 1년</td>"
-            "</tr>"
-            "<tr style='background:#f1f5f9;'>"
-            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;'>보안 처리</td>"
-            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>SHA-256 해싱 + AES-256-GCM 암호화 저장 (민감정보 원본 비저장)</td>"
-            "</tr>"
-            "</table>"
-            "</div>", unsafe_allow_html=True
-        )
 
         # [CB-FIX §2] value= 제거 — key= 단독 사용으로 상태 충돌 해소
         # Streamlit: key= 지정 시 session_state[key]가 단일 진실 소스
@@ -14785,7 +14743,47 @@ def _render_gk_sec10():
                 f"</div>", unsafe_allow_html=True
             )
 
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("<hr style='border:none;border-top:1px dashed #d1d5db;margin:20px 0 10px;'>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='sec10-law-box'>"
+            "<b>📌 법적 근거</b><br>"
+            "본 동의서는 <b>「개인정보 보호법」 제15조·제17조·제22조</b> 및 "
+            "<b>「신용정보의 이용 및 보호에 관한 법률」 제32조·제33조</b>에 따라 "
+            "적법하게 수집·이용됩니다. 동의를 거부하실 수 있으며, "
+            "거부 시 보험 조회 서비스 이용이 제한됩니다."
+            "</div>", unsafe_allow_html=True
+        )
+
+        st.markdown(
+            "<div style='background:rgba(255,255,255,0.92);border:1px solid #d1d5db;"
+            "border-radius:10px;padding:14px 18px;margin:10px 0;'>"
+            "<div style='font-size:0.9rem;font-weight:800;color:#111;margin-bottom:10px;'>"
+            "📜 개인정보 수집·이용 및 마이데이터 제공 동의서</div>"
+            "<table style='width:100%;font-size:0.76rem;color:#374151;"
+            "border-collapse:collapse;line-height:1.7;'>"
+            "<tr style='background:#f1f5f9;'>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;width:22%;'>수집·이용 목적</td>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>보험 가입 현황 조회, 보장 분석, 설계 참고자료 생성</td>"
+            "</tr>"
+            "<tr>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;'>수집 항목</td>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>성명, 연락처, 생년월일(해시), CI(연계정보), 보험 가입 내역</td>"
+            "</tr>"
+            "<tr style='background:#f1f5f9;'>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;'>제공 기관</td>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>한국신용정보원(내보험다보여), COOCON, CODEF</td>"
+            "</tr>"
+            "<tr>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;'>보유·이용 기간</td>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>상담 종료 즉시 원본 파기 / 통계용 해시값: 1년</td>"
+            "</tr>"
+            "<tr style='background:#f1f5f9;'>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;'>보안 처리</td>"
+            "<td style='padding:5px 8px;border:1px solid #e2e8f0;'>SHA-256 해싱 + AES-256-GCM 암호화 저장 (민감정보 원본 비저장)</td>"
+            "</tr>"
+            "</table>"
+            "</div>", unsafe_allow_html=True
+        )
 
         _all_ok = (_s10_name.strip() and _s10_phone.strip()
                    and st.session_state.get("sec10_consent1", False)
@@ -14808,7 +14806,7 @@ def _render_gk_sec10():
                 st.rerun()
         else:
             st.button(
-                "🔑 보험 자동 소환 시작 (필수 동의 완료 후 활성화)",
+                "🔑 내보험 다보여! 자동 소환시작(필수동의 완료후 활성화)",
                 disabled=True, use_container_width=True, key="sec10_start_dis"
             )
             _missing = []
