@@ -30242,44 +30242,46 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
       font-size:0.92rem;font-weight:900;color:#1a3a5c;letter-spacing:0.03em;">
       {_bid('0-2-1')}⚙️ AI 상담 모드 설정</div>""", unsafe_allow_html=True)
 
-            # ── 박스 1: 상담 모드 (CSS 타겟팅, div 감싸기 없음) ───────────────
-            st.markdown(f"""<div style="position:relative;background:rgba(26,58,92,0.25);border-radius:8px 8px 0 0;
+            # ── 5:5 분할 — 좌: 상담 모드 / 우: 주력 판매 분야 ─────────────
+            _col_mode, _col_ins = st.columns([1, 1])
+            with _col_mode:
+                st.markdown(f"""<div style="position:relative;background:rgba(26,58,92,0.25);border-radius:8px 8px 0 0;
       border:1.5px solid rgba(26,58,92,0.50);border-bottom:none;
       padding:6px 12px;font-size:0.92rem;font-weight:900;color:#1a3a5c;
       letter-spacing:0.03em;margin-bottom:-2px;">{_bid('0-2-2')}👤 상담 모드 선택</div>""", unsafe_allow_html=True)
-            _mode_options = ["👔 보험종사자 (설계사·전문가)", "👤 비종사자 (고객·일반인)"]
-            _cur_mode = st.session_state.get("user_consult_mode", _mode_options[0])
-            if _cur_mode not in _mode_options:
-                _cur_mode = _mode_options[0]
-            _sel_mode = st.radio(
-                "상담 모드",
-                _mode_options,
-                index=_mode_options.index(_cur_mode),
-                label_visibility="collapsed",
-                key="_sidebar_mode_radio",
-            )
-            st.session_state["user_consult_mode"] = _sel_mode
+                _mode_options = ["👔 보험종사자 (설계사·전문가)", "👤 비종사자 (고객·일반인)"]
+                _cur_mode = st.session_state.get("user_consult_mode", _mode_options[0])
+                if _cur_mode not in _mode_options:
+                    _cur_mode = _mode_options[0]
+                _sel_mode = st.radio(
+                    "상담 모드",
+                    _mode_options,
+                    index=_mode_options.index(_cur_mode),
+                    label_visibility="collapsed",
+                    key="_sidebar_mode_radio",
+                )
+                st.session_state["user_consult_mode"] = _sel_mode
 
-            # ── 박스 2: 주력 판매 분야 (CSS 타겟팅, div 감싸기 없음) ───────────
-            st.markdown(f"""<div style="position:relative;background:rgba(125,60,0,0.20);border-radius:8px 8px 0 0;
+            with _col_ins:
+                st.markdown(f"""<div style="position:relative;background:rgba(125,60,0,0.20);border-radius:8px 8px 0 0;
       border:1.5px solid rgba(125,60,0,0.45);border-bottom:none;
       padding:6px 12px;font-size:0.92rem;font-weight:900;color:#7d3c00;
       letter-spacing:0.03em;margin-bottom:-2px;">{_bid('0-2-3')}📋 주력 판매 분야</div>""", unsafe_allow_html=True)
-            _ins_options = ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)", "선택 안 함 (중립 분석)"]
-            _cur_ins = st.session_state.get("preferred_insurer", _ins_options[-1])
-            if _cur_ins not in _ins_options:
-                _cur_ins = _ins_options[-1]
-            _sel_ins = st.radio(
-                "주력 판매 분야",
-                _ins_options,
-                index=_ins_options.index(_cur_ins),
-                label_visibility="collapsed",
-                key="_sidebar_ins_radio",
-            )
-            st.session_state["preferred_insurer"] = _sel_ins
+                _ins_options = ["🏦 생명보험 주력", "🛡️ 손해보험 주력", "🏢 생명·손해 종합(GA)"]
+                _cur_ins = st.session_state.get("preferred_insurer", _ins_options[-1])
+                if _cur_ins not in _ins_options:
+                    _cur_ins = _ins_options[-1]
+                _sel_ins = st.radio(
+                    "주력 판매 분야",
+                    _ins_options,
+                    index=_ins_options.index(_cur_ins),
+                    label_visibility="collapsed",
+                    key="_sidebar_ins_radio",
+                )
+                st.session_state["preferred_insurer"] = _sel_ins
 
             _mode_badge = "🟦 종사자" if "종사자" in st.session_state.get("user_consult_mode","") else "🟩 비종사자"
-            _ins_badge  = st.session_state.get("preferred_insurer","선택 안 함")
+            _ins_badge  = st.session_state.get("preferred_insurer","🏢 종합(GA)")
             st.markdown(f"""<div style="position:relative;background:#f0f6ff;border:1px solid #2e6da4;
       border-radius:7px;padding:5px 10px;font-size:0.74rem;color:#1a3a5c;margin-bottom:4px;">
       {_bid('0-2-4')}{_mode_badge} | 주력사: <strong>{_ins_badge}</strong>
