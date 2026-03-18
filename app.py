@@ -52808,11 +52808,12 @@ div[data-testid="stButton"] {
   </span>
 </div>""", unsafe_allow_html=True)
 
-            _adm_tool_t1, _adm_tool_t2, _adm_tool_t3, _adm_tool_t4 = st.tabs([
+            _adm_tool_t1, _adm_tool_t2, _adm_tool_t3, _adm_tool_t4, _adm_tool_t5 = st.tabs([
                 "📚 RAG 지식베이스 로드",
                 "📋 약관 스캔 로드",
                 "🔑 고객 비번 초기화",
                 "🚨 회원정보 오류 관리",
+                "📛 미검색 약관 관리",
             ])
 
             with _adm_tool_t1:
@@ -53139,6 +53140,124 @@ div[data-testid="stButton"] {
                 if st.button("💾 세션 저장", key="t4_admin_phone_save"):
                     st.session_state["gp200_master_phone"] = _t4_ap
                     st.success("✅ 관리자 알람 수신 번호 세션 저장 완료")
+
+            # ── 📛 미검색 약관 관리 ────────────────────────────────────────
+            with _adm_tool_t5:
+                st.markdown("##### 📛 미검색 약관 관리 — 관리자 직접 등록 대기 목록")
+                st.caption(
+                    "FC(설계사)가 약관 매칭 검색 탭에서 신고한 미검색 약관 목록입니다. "
+                    "각 항목에 대해 약관 스캔 로드 또는 관리자 직접 업로드를 수행하세요."
+                )
+                _t5_c1, _t5_c2 = st.columns([3, 1])
+                with _t5_c1:
+                    st.markdown("**📋 미처리 미검색 약관 목록**")
+                with _t5_c2:
+                    _t5_refresh = st.button("🔄 새로고침", key="t5_refresh", use_container_width=True)
+                if _t5_refresh or st.session_state.get("_t5_missing_list") is None:
+                    try:
+                        _sb_t5 = _get_sb_client()
+                        if _sb_t5:
+                            _t5_rows = (
+                                _sb_t5.table("gk_missing_terms")
+                                .select("*")
+                                .eq("status", "pending")
+                                .order("reported_at", desc=True)
+                                .limit(50)
+                                .execute()
+                            )
+                            st.session_state["_t5_missing_list"] = _t5_rows.data or []
+                        else:
+                            st.session_state["_t5_missing_list"] = []
+                    except Exception as _t5_ex:
+                        st.session_state["_t5_missing_list"] = []
+                        st.caption(f"⚠️ Supabase 조회 실패 (gk_missing_terms 테이블 없음): {_t5_ex}")
+                _t5_db_list  = st.session_state.get("_t5_missing_list", [])
+                _t5_ses_list = st.session_state.get("gk_missing_terms_session", [])
+                _t5_all = _t5_db_list + [
+                    r for r in _t5_ses_list
+                    if not any(
+                        d.get("company") == r.get("company") and
+                        d.get("product_name") == r.get("product_name")
+                        for d in _t5_db_list
+                    )
+                ]
+                if not _t5_all:
+                    st.success("✅ 미처리 미검색 약관 없음")
+                else:
+                    st.markdown(
+                        f"<div style='background:#fff7ed;border:1px solid #f97316;"
+                        f"border-radius:6px;padding:6px 12px;margin-bottom:8px;"
+                        f"font-size:0.82rem;font-weight:700;color:#c2410c;'>"
+                        f"⚠️ 미처리 항목 {len(_t5_all)}건 — 약관 등록 필요</div>",
+                        unsafe_allow_html=True,
+                    )
+                    for _ti, _tr in enumerate(_t5_all):
+                        _t5_co = _tr.get("company", "?")
+                        _t5_pn = _tr.get("product_name", "?")
+                        _t5_pv = _tr.get("product_version", "")
+                        _t5_jd = _tr.get("join_date", "?")
+                        _t5_pt = _tr.get("product_type", "?")
+                        _t5_nt = _tr.get("note", "")
+                        _t5_at = (_tr.get("reported_at") or "")[:16]
+                        _t5_by = _tr.get("reported_by", "?")
+                        _t5_id = _tr.get("id", "")
+                        with st.expander(
+                            f"[{_ti+1}] {_t5_co} · {_t5_pn} — {_t5_pt} / 가입일 {_t5_jd}",
+                            expanded=False,
+                        ):
+                            _pv_label = f'  <span style="color:#888;">[{_t5_pv}]</span>' if _t5_pv else ""
+                            _nt_row = (
+                                f"<tr><td style='font-weight:700;padding:3px 6px;'>메모</td>"
+                                f"<td style='padding:3px 6px;'>{_t5_nt}</td></tr>"
+                            ) if _t5_nt else ""
+                            st.markdown(
+                                f"<table style='width:100%;font-size:0.82rem;border-collapse:collapse;'>"
+                                f"<tr><td style='font-weight:700;width:110px;padding:3px 6px;'>① 보험회사</td>"
+                                f"<td style='padding:3px 6px;'>{_t5_co}</td></tr>"
+                                f"<tr style='background:#fafafa;'><td style='font-weight:700;padding:3px 6px;'>② 상품명</td>"
+                                f"<td style='padding:3px 6px;'>{_t5_pn}{_pv_label}</td></tr>"
+                                f"<tr><td style='font-weight:700;padding:3px 6px;'>③ 가입/판매일</td>"
+                                f"<td style='padding:3px 6px;'>{_t5_jd}</td></tr>"
+                                f"<tr style='background:#fafafa;'><td style='font-weight:700;padding:3px 6px;'>④ 상품 구분</td>"
+                                f"<td style='padding:3px 6px;'>{_t5_pt}</td></tr>"
+                                f"{_nt_row}"
+                                f"<tr><td style='font-weight:700;padding:3px 6px;color:#888;'>신고자</td>"
+                                f"<td style='padding:3px 6px;color:#888;'>{_t5_by} / {_t5_at}</td></tr>"
+                                f"</table>",
+                                unsafe_allow_html=True,
+                            )
+                            _t5a1, _t5a2, _t5a3 = st.columns(3)
+                            with _t5a1:
+                                if st.button("📋 약관 스캔 로드", key=f"t5_scan_{_ti}",
+                                             use_container_width=True):
+                                    st.session_state["t9_cr_co"] = _t5_co
+                                    st.session_state["t9_cr_pr"] = _t5_pn
+                                    st.session_state["t9_cr_jd"] = _t5_jd
+                                    st.info("📋 '약관 스캔 로드' 탭에서 실행하세요.")
+                            with _t5a2:
+                                if st.button("✅ 처리완료 표시", key=f"t5_done_{_ti}",
+                                             use_container_width=True):
+                                    if _t5_id:
+                                        try:
+                                            _sb_t5d = _get_sb_client()
+                                            if _sb_t5d:
+                                                _sb_t5d.table("gk_missing_terms").update(
+                                                    {"status": "completed"}
+                                                ).eq("id", _t5_id).execute()
+                                                st.session_state.pop("_t5_missing_list", None)
+                                        except Exception:
+                                            pass
+                                    st.session_state["gk_missing_terms_session"] = [
+                                        r for r in st.session_state.get("gk_missing_terms_session", [])
+                                        if not (r.get("company") == _t5_co
+                                                and r.get("product_name") == _t5_pn)
+                                    ]
+                                    st.rerun()
+                            with _t5a3:
+                                if st.button("📂 RAG 업로드", key=f"t5_rag_{_ti}",
+                                             use_container_width=True):
+                                    st.session_state["t9_rag_sector"] = "terms (약관)"
+                                    st.info("📂 'RAG 지식베이스 로드' 탭에서 약관 PDF를 업로드하세요.")
 
             # ── [가이딩 프로토콜 제34조] 요율 자동 갱신 알림 배너 ───────────────────────
             if not st.session_state.get('_art34_loaded'):
@@ -57421,6 +57540,7 @@ div[data-testid="stButton"] {
                             _pipe4 = JITPipelineRunner(_sb4)
                             _hits  = _pipe4.search_terms(_cmp, _prd, _kw, limit=6)
                         if _hits:
+                            st.session_state["_pt_search_hits"] = _hits
                             st.markdown(f"**🔎 '{_kw}' 검색 결과 — {len(_hits)}건**")
                             for _hi, _ch in enumerate(_hits, 1):
                                 _st = _ch.get("section_type", "original")
@@ -57453,7 +57573,172 @@ div[data-testid="stButton"] {
                     except ImportError:
                         st.error("disclosure_crawler 모듈을 불러올 수 없습니다.")
 
+            # ── 📋 상담 자료 추출 & AI 약관 질의 ─────────────────────────────
+            _pt_c_result = st.session_state.get("_pt_result", {})
+            _pt_c_hits   = st.session_state.get("_pt_search_hits", [])
+            if _pt_c_result.get("pdf_url") or _pt_c_hits:
+                st.markdown(
+                    "<div style='background:#f0fdf4;border-left:4px solid #16a34a;"
+                    "border-radius:0 8px 8px 0;padding:7px 14px;margin:10px 0 6px 0;"
+                    "font-weight:900;font-size:0.88rem;color:#14532d;'>"
+                    "📋 상담 자료 추출 & AI 약관 질의</div>",
+                    unsafe_allow_html=True,
+                )
+                if _pt_c_hits:
+                    st.markdown("**📄 검색된 약관 조항 (상담 자료)**")
+                    _consult_txt = ""
+                    for _ci, _ck in enumerate(_pt_c_hits[:3], 1):
+                        _ct = _ck.get("chunk_text", "")[:600]
+                        _consult_txt += f"[조항 {_ci}]\n{_ct}\n\n"
+                        st.markdown(
+                            f"<div style='background:#fff;border:1px dashed #000;"
+                            f"border-radius:6px;padding:8px 12px;margin:4px 0;"
+                            f"font-size:0.80rem;line-height:1.7;'>"
+                            f"<b>조항 {_ci}</b><br>{_ct.replace(chr(10),'<br>')}</div>",
+                            unsafe_allow_html=True,
+                        )
+                    if st.button("💾 상담 자료로 저장", key="pt_save_consult",
+                                 use_container_width=True):
+                        st.session_state["_pt_consult_material"] = _consult_txt
+                        st.session_state["_pt_consult_meta"] = {
+                            "company": st.session_state.get("pt_company", ""),
+                            "product": st.session_state.get("pt_product", ""),
+                            "keyword": st.session_state.get("pt_keyword", ""),
+                        }
+                        st.success("✅ 상담 자료 저장 완료 — 상담 노트 및 보고서에 활용하세요.")
+                else:
+                    st.caption("딥러닝 검색 실행 후 조항별 상담 자료가 표시됩니다.")
+                st.markdown("**🤖 약관 AI 직접 질의 (검색 조항 기반)**")
+                _pt_ai_q = st.text_area(
+                    "질문 입력",
+                    placeholder="예) 암 진단비 지급 시 대기기간은 언제부터인가요?",
+                    key="pt_ai_question", height=80, label_visibility="collapsed",
+                )
+                if st.button("🤖 AI 답변 받기", key="pt_ai_ask",
+                             use_container_width=True):
+                    if not _pt_ai_q.strip():
+                        st.warning("질문을 입력하세요.")
+                    elif not _pt_c_hits:
+                        st.warning("🔎 딥러닝 검색을 먼저 실행하여 약관 조항을 불러오세요.")
+                    else:
+                        _ctx_blocks = "\n\n".join(
+                            f"[조항 {i+1}]\n{h.get('chunk_text','')[:400]}"
+                            for i, h in enumerate(_pt_c_hits[:4])
+                        )
+                        _ai_q_prompt = (
+                            f"다음 보험 약관 조항을 근거로 질문에 정확히 답변하세요.\n\n"
+                            f"【약관 조항】\n{_ctx_blocks}\n\n"
+                            f"【질문】 {_pt_ai_q}\n\n"
+                            "【답변 형식】\n"
+                            "① 핵심 답변 (2-3문장)\n"
+                            "② 근거 조항 요약\n"
+                            "③ 보험금 청구 시 주의사항 (해당 시에만)"
+                        )
+                        try:
+                            _ai_cli = client if "client" in dir() else None
+                            if _ai_cli:
+                                _ai_resp = _ai_cli.models.generate_content(
+                                    model="gemini-2.0-flash",
+                                    contents=_ai_q_prompt,
+                                )
+                                st.session_state["_pt_ai_answer"] = _ai_resp.text
+                            else:
+                                st.session_state["_pt_ai_answer"] = "⚠️ AI 클라이언트 미연결"
+                        except Exception as _ai_e:
+                            st.session_state["_pt_ai_answer"] = f"AI 오류: {str(_ai_e)[:80]}"
+                if st.session_state.get("_pt_ai_answer"):
+                    st.markdown(
+                        f"<div style='background:#f0f7ff;border:1px dashed #1e6fa8;"
+                        f"border-radius:8px;padding:10px 14px;font-size:0.83rem;"
+                        f"line-height:1.8;margin-top:6px;'>"
+                        f"🤖 <b>AI 답변</b><br><br>"
+                        f"{st.session_state['_pt_ai_answer'].replace(chr(10), '<br>')}"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+
         st.divider()
+
+        # ── 📛 미검색 약관 신고 (JIT 크롤링 실패 시 자동 표시) ────────────────────
+        _mst_res = st.session_state.get("_pt_result", {})
+        if _mst_res.get("error") and not _mst_res.get("pdf_url"):
+            st.markdown(
+                "<div style='background:#fff7ed;border:2px solid #f97316;"
+                "border-radius:10px;padding:10px 16px;margin-bottom:8px;'>"
+                "<b style='color:#c2410c;font-size:0.9rem;'>📛 미검색 약관 — 관리자 등록 요청</b><br>"
+                "<span style='font-size:0.78rem;color:#7c2d12;'>"
+                "약관을 자동 탐색하지 못했습니다. 아래 정보를 입력하여 관리자에게 신고하면 "
+                "관리자가 해당 약관을 직접 등록합니다.</span></div>",
+                unsafe_allow_html=True,
+            )
+            with st.expander("📝 미검색 약관 정보 입력 → 관리자에게 신고", expanded=True):
+                _ms1, _ms2 = st.columns(2)
+                with _ms1:
+                    _ms_co = st.text_input(
+                        "① 보험회사",
+                        value=st.session_state.get("_pt_run_company", ""),
+                        key="ms_company",
+                    )
+                    _ms_pn = st.text_input(
+                        "② 보험상품명",
+                        value=st.session_state.get("_pt_run_product", ""),
+                        key="ms_product",
+                    )
+                    _ms_pv = st.text_input(
+                        "② 상품 버전/세대",
+                        placeholder="예) 1세대, 2019년판, 갱신형",
+                        key="ms_version",
+                    )
+                with _ms2:
+                    _ms_jd = st.text_input(
+                        "③ 판매일자 또는 가입일자",
+                        value=st.session_state.get("_pt_run_date", ""),
+                        key="ms_join_date",
+                    )
+                    _ms_pt = st.selectbox(
+                        "④ 상품 구분",
+                        ["일반보험", "간편보험(유병자)", "어린이보험", "실손보험", "기타"],
+                        key="ms_ptype",
+                    )
+                    _ms_note = st.text_area(
+                        "추가 메모 (선택)",
+                        key="ms_note", height=60,
+                        placeholder="예) 청약일자 2019-03-15, 특정 약관 페이지 확인 불가",
+                    )
+                if st.button(
+                    "📛 관리자에게 미검색 약관 신고",
+                    type="primary", use_container_width=True, key="ms_submit",
+                ):
+                    import datetime as _ms_dt
+                    _ms_rec = {
+                        "company":         (_ms_co or "").strip(),
+                        "product_name":    (_ms_pn or "").strip(),
+                        "product_version": (_ms_pv or "").strip(),
+                        "join_date":       (_ms_jd or "").strip(),
+                        "product_type":    _ms_pt,
+                        "note":            (_ms_note or "").strip(),
+                        "reported_at":     _ms_dt.datetime.now().isoformat(),
+                        "reported_by":     st.session_state.get("user_id", "익명"),
+                        "status":          "pending",
+                    }
+                    _ms_saved_db = False
+                    try:
+                        _ms_sb = _get_sb_client()
+                        if _ms_sb:
+                            _ms_sb.table("gk_missing_terms").insert(_ms_rec).execute()
+                            _ms_saved_db = True
+                    except Exception:
+                        pass
+                    if "gk_missing_terms_session" not in st.session_state:
+                        st.session_state["gk_missing_terms_session"] = []
+                    st.session_state["gk_missing_terms_session"].append(_ms_rec)
+                    st.success(
+                        "✅ 관리자 신고 완료 (DB 저장됨)"
+                        if _ms_saved_db
+                        else "✅ 관리자 신고 완료 (세션 저장 — DB 연결 시 자동 업로드)"
+                    )
+                    st.caption(f"신고: {_ms_co} · {_ms_pn} [{_ms_pt}] / 가입일 {_ms_jd}")
+
         st.markdown("""
     <div style="background:#f0f7ff;border:1px solid #b3d4f5;border-radius:8px;
       padding:10px 14px;font-size:0.78rem;color:#1a3a5c;">
