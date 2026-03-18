@@ -39441,18 +39441,12 @@ div[data-testid="stButton"] {
     </div>""", unsafe_allow_html=True)
                 st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#E65100;margin:6px 0 3px 0;border-top:1px solid #F9A825;padding-top:5px;letter-spacing:0.05em;'>💰 자산·법인 설계</div>", unsafe_allow_html=True)
                 if st.button("① 노후·상속 설계",       key="ag_c1",  use_container_width=True): _go_tab("t5")
-                st.markdown("<div style='font-size:0.68rem;font-weight:700;color:#B45309;margin:3px 0 2px 0;'>📊 세무 상담</div>", unsafe_allow_html=True)
+                st.markdown("<div style='font-size:0.68rem;font-weight:700;color:#B45309;margin:3px 0 2px 0;'>📊 세무상담</div>", unsafe_allow_html=True)
                 if st.button("② 세무 상담",             key="ag_c2",  use_container_width=True): _go_tab("t6")
-                if st.button("세무 전문 상담 (5100)",   key="ag_c2b", use_container_width=True): _go_tab("t6")
                 st.markdown("<div style='font-size:0.68rem;font-weight:700;color:#B45309;margin:3px 0 2px 0;'>🏢 법인상담(CEO플랜)</div>", unsafe_allow_html=True)
                 if st.button("③ 법인상담(CEO플랜)",     key="ag_c3",  use_container_width=True): _go_tab("t7")
-                if st.button("VVIP CEO 전략 센터",       key="ag_c3b", use_container_width=True): _go_tab("gk_sec09")
-                if st.button("기업·사업자 세무전략",     key="ag_c3c", use_container_width=True): _go_tab("gk_sec08")
-                if st.button("법인 상담 (5200)",         key="ag_c3d", use_container_width=True): _go_tab("t7")
-                if st.button("④ 비상장주식 평가",       key="ag_c5",  use_container_width=True): _go_tab("stock_eval")
                 st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#E65100;margin:6px 0 3px 0;border-top:1px solid #F9A825;padding-top:5px;letter-spacing:0.05em;'>🏢 재물·배상 상담</div>", unsafe_allow_html=True)
                 if st.button("⑤ 화재&배상책임통합상담", key="ag_c6",  use_container_width=True): _go_tab("fire")
-                if st.button("화재·특종보험 전술센터",   key="ag_c6b", use_container_width=True): _go_tab("gk_sec08")
 
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
@@ -50545,7 +50539,7 @@ div[data-testid="stButton"] {
     """, height=278)
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
-    # ── [t7] 법인상담 ─────────────────────────────────────────────────────
+    # ── [t7] 법인상담(CEO플랜) — 통합 법인 컨설팅 센터 ─────────────────────
     if cur == "t7":
         if not _auth_gate("t7"): st.stop()
         tab_home_btn("t7")
@@ -50554,62 +50548,199 @@ div[data-testid="stButton"] {
       border-radius:12px;padding:14px 20px;margin-bottom:14px;border-left:4px solid #f59e0b;">
       {_bid('21-1-1')}
       <div style="color:#92400e;font-size:1.15rem;font-weight:900;letter-spacing:0.05em;">
-    🏢 법인상담 · CEO플랜 · 단체보험 · 기업보험
+    🏢 법인상담(CEO플랜) — 통합 법인 컨설팅 센터
       </div>
       <div style="color:#78350f;font-size:0.82rem;margin-top:4px;">
-    법인 절세 · 퇴직금 설계 · 단체상해 · 공장화재
+    CEO플랜 · VVIP 전략 · 기업세무 · 단체보험 · 비상장주식평가
       </div>
     </div>""", unsafe_allow_html=True)
-        corp_sub = st.radio("상담 분야",
-            ["CEO플랜 (사망·퇴직)","단체상해보험","공장·기업 화재보험","법인 절세 전략","임원 퇴직금 설계"],
-            horizontal=True, key="corp_sub")
-        if corp_sub == "공장·기업 화재보험":
-            _section_factory_fire_ui()
-        else:
+        _t7_a, _t7_b, _t7_c, _t7_d, _t7_e = st.tabs([
+            "🏢 법인상담(CEO플랜)",
+            "👑 VVIP CEO 전략센터",
+            "📊 기업·사업자 세무전략",
+            "💼 단체보험 설계",
+            "📈 비상장주식평가",
+        ])
+
+        # ── 탭A: 법인상담(CEO플랜) ───────────────────────────────────────
+        with _t7_a:
+            st.markdown("""<div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px dashed #000;
+border-radius:12px;padding:12px 16px;margin-bottom:12px;">
+<div style="font-size:0.85rem;font-weight:900;color:#92400e;margin-bottom:6px;">⑥ CEO 특화 — 법인 자산 보호 화법</div>
+<div style="font-size:0.82rem;color:#78350f;line-height:1.6;">
+나는 법인 대표로서 회사의 자산과 내 개인 자산을 명확히 분리해야 합니다.<br>
+대표이사가 쓰러지는 순간 회사도 멈춥니다. 나의 역할이 곧 회사의 엔진입니다.<br>
+<b>법인 명의 보험으로 나의 리스크를 회사의 비용으로 처리하는 것, 이것이 진짜 절세입니다.</b>
+</div></div>""", unsafe_allow_html=True)
+            _t7a_c1, _t7a_c2 = st.columns(2)
+            with _t7a_c1:
+                st.markdown("""<div style="border:1px dashed #000;background:#fff7ed;border-radius:10px;padding:10px 14px;">
+<div style="font-weight:900;color:#7c2d12;font-size:0.85rem;">💼 법인 감자플랜 화법</div>
+<div style="font-size:0.80rem;color:#333;margin-top:6px;line-height:1.7;">
+유가족이 받은 주식을 법인에 팔아 현금을 확보하는 나만의 비자금<br>
+• 상법 제343조(주식 소각) + 상속세및증여세법 기준 적용<br>
+• CEO 유고 시 → 법인 보험금 수령 → 상속인 주식 매입 → 소각<br>
+• 잔존 주주 지분 가치 상승 + 상속인 유동성 확보 동시 해결<br>
+• <b>상품 관점: 수익률이 아닌 자산의 안정적 이동 및 방어</b>
+</div></div>""", unsafe_allow_html=True)
+            with _t7a_c2:
+                st.markdown("""<div style="border:1px dashed #000;background:#f0fdf4;border-radius:10px;padding:10px 14px;">
+<div style="font-weight:900;color:#166534;font-size:0.85rem;">👔 CEO 퇴직플랜 화법</div>
+<div style="font-size:0.80rem;color:#333;margin-top:6px;line-height:1.7;">
+임원퇴직금 규정으로 법인에서 세금 없이 내 노후자금을 꺼내는 합법적 출구<br>
+• 퇴직소득세율(11~22%) vs 종합소득세율(15~45%) — 절세 효과 명확<br>
+• 법인세법 시행령 §44: 퇴직전 1년 급여 × 근속연수 × 3배 한도 손금<br>
+• 경영인정기보험: 법인납입 → 사망보험금 → 퇴직금 재원 활용<br>
+• <b>예정이율·변동이율·변액 = 수익률이 아닌 자산 방어 관점</b>
+</div></div>""", unsafe_allow_html=True)
+            st.markdown("---")
             col1, col2 = st.columns([5, 5])
             with col1:
-                c_name7, query7, hi7, do7, _pk7 = ai_query_block("t7", f"{corp_sub} 관련 법인 상담 내용을 입력하세요.")
+                c_name7, query7, hi7, do7, _pk7 = ai_query_block("t7", "법인 상담 내용을 입력하세요.")
                 emp_count  = st.number_input("임직원 수", min_value=1, value=10, step=1, key="emp_count")
                 corp_asset = st.number_input("법인 자산 규모 (만원)", value=100000, step=10000, key="corp_asset")
                 if do7:
                     run_ai_analysis(c_name7, query7, hi7, "res_t7",
-                        extra_prompt=f"[법인상담 - {corp_sub}]\n임직원수: {emp_count}명, 법인자산: {corp_asset:,}만원\n"
+                        extra_prompt=f"[법인상담 - CEO플랜]\n임직원수: {emp_count}명, 법인자산: {corp_asset:,}만원\n"
                         "1. 법인 보험의 세무처리(손금산입) 방법\n2. CEO 유고 시 법인 리스크 관리\n"
-                        "3. 단체보험 가입 기준과 보장 설계\n4. 퇴직금 재원 마련을 위한 보험 활용",
+                        "3. 단체보험 가입 기준과 보장 설계\n4. 퇴직금 재원 마련을 위한 보험 활용\n"
+                        "5. 법인 감자플랜(상법§343) 및 CEO 퇴직플랜 화법 중심으로 분석\n"
+                        "   — 상품은 수익률이 아닌 자산의 안정적 이동·방어 관점으로 설명",
                         product_key=_pk7)
             with col2:
                 st.subheader("🤖 AI 분석 리포트")
                 show_result("res_t7", "**법인보험 핵심 포인트:**\n"
                     "- CEO플랜: 사망보험금 → 퇴직금 재원\n"
                     "- 단체상해: 전 직원 의무 가입 권장\n"
-                    "- 공장화재: 재조달가액 기준 가입\n"
                     "- 법인 납입 보험료 손금산입 가능\n"
-                    "- 임원 퇴직금 규정 정비 필수")
-                st.markdown("##### 🏢 법인보험 핵심 안내")
-                components.html("""
-    <div style="height:320px;overflow-y:auto;padding:12px 15px;
-      background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
-      font-size:0.84rem;line-height:1.45;
-      font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
-    <b style="font-size:0.85rem;color:#1a3a5c;">👔 CEO플랜 (사망·퇴직)</b><br>
-    • 경영인정기보험: 사망보험금 → <b>퇴직금 재원</b> 활용<br>
-    • 임원 퇴직금 규정 정비 필수 (정관 반영)<br>
-    • 법인 납입 보험료: 손금산입 가능 여부 세무사 사전 확인<br>
-    • CEO 유고 시 법인 리스크: 운영자금 결속, 주가 하락, 거래선 상실 대비<br>
-    <b style="font-size:0.85rem;color:#1a3a5c;">👥 단체상해보험</b><br>
-    • 전 직원 의무 가입 권장 (산재보험 보완)<br>
-    • 업무상 상해·질병 보장 포함<br>
-    • 단체보험 가입 기준: 임직원 5인 이상 시 유리<br>
-    <b style="font-size:0.85rem;color:#1a3a5c;">🏠 공장·기업 화재보험</b><br>
-    • 재조달가액 기준 가입 필수 (비례보상 방지)<br>
-    • 기계장치·재고자산 포함 여부 확인<br>
-    • 영업중단손실 보상 특약 검토<br>
-    <b style="font-size:0.85rem;color:#1a3a5c;">📊 법인 절세 전략</b><br>
-    • 보험료 손금산입: 전액 또는 일부 손금 가능 (상품별 상이)<br>
-    • 임원 보수 설계: 소득세 절감 + 퇴직금 재원 동시 확보<br>
-    • 가업승계 전략: 비상장주식 평가 후 증여 시점 최적화
-    </div>
-    """, height=338)
+                    "- 임원 퇴직금 규정 정비 필수\n"
+                    "- 감자플랜: 유가족 유동성 + 경영권 동시 확보")
+
+        # ── 탭B: VVIP CEO 전략센터 ──────────────────────────────────────
+        with _t7_b:
+            st.markdown("""<div style="background:#1B5E20;border-radius:10px;padding:12px 16px;margin-bottom:10px;">
+<div style="color:#fff;font-size:1.0rem;font-weight:900;">👑 VVIP CEO 통합 경영 전략 센터</div>
+<div style="color:#C8E6C9;font-size:0.80rem;margin-top:4px;">비상장주식 평가 · 상속세 시뮬레이터 · 재무제표 스캐너 · GAP Cover · 중간배당</div>
+</div>""", unsafe_allow_html=True)
+            if st.button("🚀 VVIP CEO 전략센터 전체 기능 열기", key="t7_goto_sec09",
+                         type="primary", use_container_width=True):
+                _go_tab("gk_sec09")
+            _corp_r = st.session_state.get("ceo_eval_corp")
+            _inh_r  = st.session_state.get("ceo_eval_inh")
+            if _corp_r and _inh_r:
+                st.success("✅ 최근 비상장주식 평가 결과 연동됨")
+                _cc1, _cc2 = st.columns(2)
+                with _cc1:
+                    st.metric("법인세법상 시가 (주당)", f"{_corp_r.get('법인세법상 시가', 0):,.0f}원")
+                    _shares_r = st.session_state.get("ceo_shares_result", 0)
+                    if _shares_r:
+                        st.metric("총 평가액 (법인세법)", f"{_corp_r.get('법인세법상 시가', 0) * _shares_r:,.0f}원")
+                with _cc2:
+                    st.metric("상증법상 최종가액 (주당)", f"{_inh_r.get('상증법상 최종가액', 0):,.0f}원")
+            else:
+                st.markdown("""<div style="border:1px dashed #000;background:#E8F5E9;border-radius:10px;padding:12px 14px;">
+<b>주요 기능 안내 (GK-SEC-09):</b><br>
+<div style="font-size:0.82rem;margin-top:6px;line-height:1.8;">
+• 📊 비상장주식 평가엔진 — 상증세법 §63 (순손익·순자산가치, 최대주주 할증 +30%)<br>
+• 🏛️ CEO 유고 상속세 시뮬레이터 — 과세표준·세율·예상세액 자동 산출<br>
+• 🔄 감자 플랜 시나리오 — 임직원 종신보험 + 자기주식 취득 시뮬레이션<br>
+• 🔥 법인 공장 화재보험 120% 안전규칙 + 최고위험요율 자동판정<br>
+• 🔍 재무제표 스캐너 — 가지급금·미처분이익잉여금 자동 감지<br>
+• 💰 중간배당 체크리스트 (상법 §462)
+</div></div>""", unsafe_allow_html=True)
+
+        # ── 탭C: 기업·사업자 세무전략 ────────────────────────────────────
+        with _t7_c:
+            st.markdown("""<div style="background:#E65100;border-radius:10px;padding:12px 16px;margin-bottom:10px;">
+<div style="color:#fff;font-size:1.0rem;font-weight:900;">📊 기업·사업자 세무전략</div>
+<div style="color:#FFE0B2;font-size:0.80rem;margin-top:4px;">법인 세무전략 · 개인사업자 세무전략 · 손비처리 · 절세 시뮬레이션</div>
+</div>""", unsafe_allow_html=True)
+            if st.button("🚀 기업·사업자 세무전략 전체 기능 열기", key="t7_goto_sec08",
+                         type="primary", use_container_width=True):
+                _go_tab("gk_sec08")
+            _t7c_c1, _t7c_c2 = st.columns(2)
+            with _t7c_c1:
+                st.markdown("""<div style="border:1px dashed #000;background:#fff3e0;border-radius:10px;padding:10px 14px;">
+<b style="color:#bf360c;">🏢 법인 세무전략 핵심</b>
+<div style="font-size:0.80rem;margin-top:6px;line-height:1.7;">
+• 경영인정기보험 손비처리: 연간 보험료 × 22% = 법인세 절감액<br>
+• 이익잉여금 → 보험료 충당 시 비상장주식 평가액 하락 효과<br>
+• 임원 퇴직금 한도: 1년 급여 × 근속연수 × 3배 (법인세법 §44)<br>
+• 가지급금 처리 7가지: 상여·유상증자·대물변제·퇴직금상계·보험충당·채권포기·매각대금<br>
+• 미처분이익잉여금 과다 → 중간배당·CEO퇴직금·유상증자로 조기 처분
+</div></div>""", unsafe_allow_html=True)
+            with _t7c_c2:
+                st.markdown("""<div style="border:1px dashed #000;background:#e8f5e9;border-radius:10px;padding:10px 14px;">
+<b style="color:#1b5e20;">🧑‍💼 개인사업자 세무전략 핵심</b>
+<div style="font-size:0.80rem;margin-top:6px;line-height:1.7;">
+• 복식부기 의무자: 화재보험료·단체상해보험료 전액 필요경비 인정<br>
+• 추계신고: 기준경비율 내 포함 — 별도 인정 불가<br>
+• 종합소득세 최고세율: 45%(10억 초과) vs 퇴직소득세 최대 22%<br>
+• 화재보험료 필요경비 인정 시 절세 = 보험료 × 적용 세율<br>
+• 사업주 본인 상해보험은 필요경비 불인정 (개인 비용)
+</div></div>""", unsafe_allow_html=True)
+
+        # ── 탭D: 단체보험 설계 ───────────────────────────────────────────
+        with _t7_d:
+            st.markdown("""<div style="border:1px dashed #000;background:#e3f2fd;border-radius:10px;padding:12px 16px;margin-bottom:10px;">
+<div style="font-size:1.0rem;font-weight:900;color:#0d47a1;">💼 단체보험 설계</div>
+<div style="font-size:0.80rem;color:#1565c0;margin-top:4px;">단체상해 · 단체생명 · GAP Cover · 복리후생 설계</div>
+</div>""", unsafe_allow_html=True)
+            col1, col2 = st.columns([5, 5])
+            with col1:
+                c_name7d, query7d, hi7d, do7d, _pk7d = ai_query_block("t7d", "단체보험 설계 내용을 입력하세요.")
+                emp_count2 = st.number_input("임직원 수", min_value=1, value=10, step=1, key="emp_count2")
+                if do7d:
+                    run_ai_analysis(c_name7d, query7d, hi7d, "res_t7d",
+                        extra_prompt=f"[단체보험 설계]\n임직원수: {emp_count2}명\n"
+                        "1. 단체상해보험 가입 기준과 보장 범위\n2. 산재보험과의 GAP 분석\n"
+                        "3. 단체생명보험 설계 전략\n4. 복리후생 설계와 세무처리",
+                        product_key=_pk7d)
+            with col2:
+                st.subheader("🤖 AI 분석 리포트")
+                show_result("res_t7d", "**단체보험 핵심 포인트:**\n"
+                    "- 임직원 5인 이상 시 단체보험 가입 유리\n"
+                    "- 업무상 상해·질병 보장 포함\n"
+                    "- 산재보험 GAP Cover 설계 권장\n"
+                    "- 보험료 전액 손금산입 가능")
+
+        # ── 탭E: 비상장주식 평가 ─────────────────────────────────────────
+        with _t7_e:
+            st.markdown("""<div style="border:1px dashed #000;background:#f3e8ff;border-radius:10px;padding:12px 16px;margin-bottom:10px;">
+<div style="font-size:1.0rem;font-weight:900;color:#4a1d96;">📈 비상장주식 평가</div>
+<div style="font-size:0.80rem;color:#6d28d9;margin-top:4px;">상증세법 §63 · 법인세법 평가 · 가업승계 · 경영권 방어 전략</div>
+</div>""", unsafe_allow_html=True)
+            _t7e_c1, _t7e_c2 = st.columns(2)
+            with _t7e_c1:
+                if st.button("🚀 CEO플랜 비상장주식 평가 (t8)", key="t7_goto_t8",
+                             type="primary", use_container_width=True):
+                    _go_tab("t8")
+            with _t7e_c2:
+                if st.button("📊 비상장주식 평가 센터 (stock_eval)", key="t7_goto_stock",
+                             type="secondary", use_container_width=True):
+                    _go_tab("stock_eval")
+            _corp_r2 = st.session_state.get("ceo_eval_corp")
+            _inh_r2  = st.session_state.get("ceo_eval_inh")
+            if _corp_r2 and _inh_r2:
+                st.success("✅ 최근 평가 결과 연동됨 (VVIP CEO 탭과 동일)")
+                _ce1, _ce2 = st.columns(2)
+                with _ce1:
+                    st.metric("법인세법상 시가 (주당)", f"{_corp_r2.get('법인세법상 시가', 0):,.0f}원")
+                    _shares2 = st.session_state.get("ceo_shares_result", 0)
+                    if _shares2:
+                        st.metric("총 평가액", f"{_corp_r2.get('법인세법상 시가', 0) * _shares2:,.0f}원")
+                with _ce2:
+                    st.metric("상증법상 최종가액 (주당)", f"{_inh_r2.get('상증법상 최종가액', 0):,.0f}원")
+            else:
+                st.markdown("""<div style="border:1px dashed #000;background:#f5f3ff;border-radius:8px;padding:10px 14px;font-size:0.82rem;">
+<b>비상장주식 평가 공식 (상증세법 제63조)</b><br>
+주당 가치 = (순손익가치 × 3 + 순자산가치 × 2) ÷ 5<br>
+순손익가치 = 최근 3년 평균 순이익 ÷ 자본환원율(10%)<br>
+최대주주 할증: +30% (2024년~, 중소기업 +15%)<br><br>
+<b>가업승계 전략:</b> 평가액 조정을 통한 절세 시뮬레이션<br>
+<b>경영권 방어:</b> 상법 §341 자기주식 취득 → 소각 → 잔존주주 지분 상승
+</div>""", unsafe_allow_html=True)
+
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [t8] CEO플랜 ──────────────────────────────────────────────────────
@@ -51103,6 +51234,44 @@ div[data-testid="stButton"] {
                         product_key=_pk_f)
             with col2:
                 st.info("AI 분석 결과는 상단 '🤖 AI 분석 리포트'에 표시됩니다.")
+        st.markdown("---")
+        st.markdown("#### 🏭 법인 자산 보호 — CEO 화법 & 기업·사업자 세무전략")
+        _f_c1, _f_c2, _f_c3 = st.columns(3)
+        with _f_c1:
+            st.markdown("""<div style="border:1px dashed #000;background:#fffbeb;border-radius:10px;padding:10px 14px;">
+<div style="font-weight:900;color:#92400e;font-size:0.85rem;">⑥ CEO 특화 — 법인 자산 보호 화법</div>
+<div style="font-size:0.80rem;color:#333;margin-top:6px;line-height:1.7;">
+나는 법인 대표로서 회사의 자산과 내 개인 자산을 명확히 분리해야 합니다.<br>
+대표이사가 쓰러지는 순간 회사도 멈춥니다.<br>
+<b>법인 명의 보험으로 나의 리스크를 회사의 비용으로 처리하는 것, 이것이 진짜 절세입니다.</b><br>
+• 공장·기업 화재보험: 재조달가액 기준 — 비례보상 방지 필수<br>
+• 재고자산·기계장치 포함 여부 명확히 확인<br>
+• 영업중단손실 특약 검토 (대표 유고·재해 병행)<br>
+• <b>상품 관점: 수익률이 아닌 자산의 안정적 이동 및 방어</b>
+</div></div>""", unsafe_allow_html=True)
+        with _f_c2:
+            st.markdown("""<div style="border:1px dashed #000;background:#fff3e0;border-radius:10px;padding:10px 14px;">
+<b style="color:#bf360c;font-size:0.85rem;">🏢 법인 세무전략 (화재보험 연동)</b>
+<div style="font-size:0.80rem;margin-top:6px;line-height:1.7;">
+• 이익잉여금 → 법인 화재·재물보험료 충당 시 <b>비상장주식 평가액 하락 효과</b><br>
+• 법인 납입 보험료: 손비처리(손금산입) → 법인세 절감<br>
+• 재물보험 + 경영인정기보험 병합 설계 → 복합절세 효과<br>
+• 임원 퇴직금 규정 + 화재보험 통합 설계 시 법인세·소득세 동시 절감<br>
+• 가입 전 세무사·법무사 사전 검토 필수 (정관 반영)
+</div></div>""", unsafe_allow_html=True)
+        with _f_c3:
+            st.markdown("""<div style="border:1px dashed #000;background:#e8f5e9;border-radius:10px;padding:10px 14px;">
+<b style="color:#1b5e20;font-size:0.85rem;">🧑‍💼 개인사업자 세무전략 (화재보험 연동)</b>
+<div style="font-size:0.80rem;margin-top:6px;line-height:1.7;">
+• 복식부기 의무자: 사업장 화재보험료 전액 필요경비 인정<br>
+• 추계신고: 기준경비율 내 포함 — 별도 인정 불가<br>
+• 직원 단체상해보험: 복식부기 시 전액 필요경비 인정<br>
+• 종합소득세 최고세율 45% — 필요경비 공제로 절세 효과 극대화<br>
+• 사업주 본인 상해보험은 필요경비 불인정 (개인 비용 분류)
+</div></div>""", unsafe_allow_html=True)
+        if st.button("🚀 기업·사업자 세무전략 전체 기능 열기",
+                     key="fire_goto_sec08", use_container_width=True):
+            _go_tab("gk_sec08")
         st.stop()  # lazy-dispatch: tab rendered, skip remaining
 
     # ── [liability] 배상책임보험 상담 ────────────────────────────────────
