@@ -39419,12 +39419,17 @@ div[data-testid="stButton"] {
       <div style="font-size:0.78rem;font-weight:900;color:#006064;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:2px;">🚗 H-SECTION: 자동차사고 상담</div>
     </div>""", unsafe_allow_html=True)
-                if st.button("① 자동차사고 상담",           key="ag_h1", use_container_width=True): _go_tab("t4")
-                if st.button("② 자동차보험 실무",           key="ag_h2", use_container_width=True): _go_tab("auto_comp")
-                if st.button("③ 교통사고 보상 가이드",      key="ag_h3", use_container_width=True):
+                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#006064;margin:6px 0 3px 0;border-top:1px solid #4DD0E1;padding-top:5px;letter-spacing:0.05em;'>🚗 사고 상담 · 과실비율</div>", unsafe_allow_html=True)
+                if st.button("① 자동차사고 상담",           key="ag_h1",  use_container_width=True): _go_tab("t4")
+                if st.button("⚖️ 과실비율 산정 (4210)",     key="ag_h1a", use_container_width=True): _go_tab("t4")
+                if st.button("💰 합의금 산정 (4220)",       key="ag_h1b", use_container_width=True): _go_tab("t4")
+                if st.button("👶 민식이법 상담 (4230)",     key="ag_h1c", use_container_width=True): _go_tab("t4")
+                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#006064;margin:6px 0 3px 0;border-top:1px solid #4DD0E1;padding-top:5px;letter-spacing:0.05em;'>🔧 실무 · 보상 · 전술</div>", unsafe_allow_html=True)
+                if st.button("② 자동차보험 실무",           key="ag_h2",  use_container_width=True): _go_tab("auto_comp")
+                if st.button("③ 교통사고 보상 가이드",      key="ag_h3",  use_container_width=True):
                     st.session_state["comp_acc_type"] = "교통사고 / 산재"
                     _go_tab("compensation")
-                if st.button("④ 자동차보험 전술 상담 센터", key="ag_h4", use_container_width=True): _go_tab("gk_sec07")
+                if st.button("④ 자동차보험 전술 상담 센터", key="ag_h4",  use_container_width=True): _go_tab("gk_sec07")
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
             # ── [L 섹션] 내보험다보여 전용 동의 다이얼로그 (st.dialog Guard) ──────
