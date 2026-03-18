@@ -48142,6 +48142,178 @@ div[data-testid="stButton"] {
   ※ 본 답변은 약관·금감원 지침·제6편 손해사정 기준에 의거합니다.
   최종 보험금 지급 여부는 담당 보험사 확인이 필요합니다.
 </div></div>""", unsafe_allow_html=True)
+
+        # ══════════════════════════════════════════════════════════════
+        # 🩺 실손의료비 타임머신 분석 센터
+        # ══════════════════════════════════════════════════════════════
+        st.markdown("---")
+        st.markdown(f"""<div style="background:linear-gradient(135deg,#e0f2fe,#f0f9ff);
+border:1px dashed #000;border-radius:12px;padding:12px 16px;margin-bottom:14px;position:relative;">
+{_bid('B-SL-02')}
+<div style="font-size:0.92rem;font-weight:900;color:#0c4a6e;">🩺 실손의료비 타임머신 분석 센터</div>
+<div style="font-size:0.78rem;color:#334155;margin-top:4px;">
+가입연월 입력 → 세대 자동 판별 → 보상·면책·갱신주기·5대 분쟁 즉시 출력
+</div></div>""", unsafe_allow_html=True)
+
+        # ── 세대별 카드 7종 (정적 참조 테이블) ──────────────────────
+        _gc_data = [
+            ("1세대","~2009.07","#fef9c3","#713f12",
+             "자기부담금 0%","5년 갱신 / 재가입 없음",
+             "🔥 일반상해의료비<br>교통·산재 50% 중복보상<br>치과·한방(상해) 100%"),
+            ("2세대A","2009.08~<br>2012.12","#dbeafe","#1e3a8a",
+             "자기부담금 10%","3년 갱신 / 재가입 없음",
+             "중복보상 폐지<br>상한제 초과금<br>보험사 선공제"),
+            ("2세대B","2013.01~<br>2015.08","#dbeafe","#1e3a8a",
+             "자기부담금 10%","1년 갱신 / 15년 재가입",
+             "1년 갱신 최초<br>15년 재가입 신설"),
+            ("2세대C","2015.09~<br>2017.03","#e0e7ff","#3730a3",
+             "급여10% / 비급여20%","1년 갱신 / 15년 재가입",
+             "비급여 부담금<br>20%로 인상"),
+            ("3세대","2017.04~<br>2021.06","#dcfce7","#14532d",
+             "급여10~20% / 비급여20%","1년 갱신 / 15년 재가입",
+             "3대 비급여 특약 분리<br>도수·주사·MRI<br>연 350만원 한도"),
+            ("4세대","2021.07~<br>현재","#ffe4e6","#881337",
+             "급여10~20% / 비급여30%","1년 갱신 / 5년 재가입",
+             "비급여 할증제 도입<br>재가입 5년 축소<br>소견서 제출 필수"),
+            ("유병자","2018.04~","#fef3c7","#92400e",
+             "자기부담금 30%","1년 갱신 / 3년 재가입",
+             "🚨 약제비·3대비급여<br>전면 면책<br>최소공제 10만원"),
+        ]
+        _gc_cols = st.columns(7)
+        for _gc_i, (_gc_nm, _gc_pr, _gc_bg, _gc_fc,
+                    _gc_cp, _gc_cy, _gc_nt) in enumerate(_gc_data):
+            with _gc_cols[_gc_i]:
+                st.markdown(
+                    f"""<div style="background:{_gc_bg};border:1px dashed #000;
+border-radius:10px;padding:8px 8px;text-align:center;min-height:185px;">
+<div style="font-weight:900;color:{_gc_fc};font-size:0.83rem;">{_gc_nm}</div>
+<div style="font-size:0.66rem;color:#475569;margin:2px 0 4px 0;">{_gc_pr}</div>
+<div style="font-size:0.70rem;font-weight:700;color:{_gc_fc};">{_gc_cp}</div>
+<div style="font-size:0.65rem;color:#64748b;margin:3px 0;">🔄 {_gc_cy}</div>
+<div style="font-size:0.68rem;color:#374151;margin-top:5px;line-height:1.55;">{_gc_nt}</div>
+</div>""", unsafe_allow_html=True)
+
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+        # ── 타임머신 인터랙티브: 5:5 분할 ────────────────────────────
+        _tm_l, _tm_r = st.columns([5, 5], gap="medium")
+        with _tm_l:
+            st.markdown("""<div style="border:1px dashed #000;border-radius:10px;
+padding:12px 14px;background:#f8faff;">
+<div style="font-weight:900;color:#0c4a6e;font-size:0.82rem;margin-bottom:8px;">
+⏱️ 가입 정보 입력 — 세대 자동 판별</div>""", unsafe_allow_html=True)
+            _tm_year  = st.selectbox("가입 연도", list(range(1999, 2026)),
+                                     index=22, key="tm_year")
+            _tm_month = st.selectbox("가입 월",   list(range(1, 13)),
+                                     index=0,  key="tm_month")
+            _tm_type  = st.radio("실손 종류",
+                                 ["일반 실손", "유병자 실손", "노후 실손"],
+                                 horizontal=True, key="tm_type")
+            _tm_has_injury = False
+            if _tm_year < 2009 or (_tm_year == 2009 and _tm_month <= 7):
+                _tm_has_injury = st.checkbox(
+                    "⭐ 일반상해의료비 담보 보유 여부 (1세대 전용)",
+                    key="tm_injury")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with _tm_r:
+            _tm_ym = _tm_year * 100 + _tm_month
+            # 세대 판별 로직
+            if _tm_type == "유병자 실손":
+                _r_lbl = "유병자 실손"; _r_fc = "#92400e"; _r_bg = "#fef3c7"
+                _r_cyc = "1년 갱신 / 3년 재가입"
+                _r_cp  = "30% (최소공제 10만원)"
+                _r_w   = ["🚨 약제비(처방조제비) 청구 불가",
+                          "🚨 3대 비급여(도수·주사·MRI) 전면 면책"]
+            elif _tm_type == "노후 실손":
+                _r_lbl = "노후 실손"; _r_fc = "#1e3a8a"; _r_bg = "#dbeafe"
+                _r_cyc = "1년 갱신 / 15년 재가입"
+                _r_cp  = "입원 공제 30만원 등 고액 본인부담"
+                _r_w   = ["입원 1회당 30만원 공제 후 보상",
+                          "통원 1만원 공제"]
+            elif _tm_ym <= 200907:
+                _r_lbl = "1세대 구실손"; _r_fc = "#713f12"; _r_bg = "#fef9c3"
+                _r_cyc = "5년 갱신 / 재가입 없음"
+                _r_cp  = "0% (전액 보상)"
+                _r_w   = (["🔥 일반상해의료비 보유! 교통·산재 50% 중복보상 가능 — 절대 해지 주의!"]
+                          if _tm_has_injury else
+                          ["일반상해의료비 미보유 — 상해 100% 보상 담보 확인 권장"])
+            elif _tm_ym <= 201212:
+                _r_lbl = "2세대-A 표준화 실손"; _r_fc = "#1e3a8a"; _r_bg = "#dbeafe"
+                _r_cyc = "3년 갱신 / 재가입 없음"
+                _r_cp  = "10%"
+                _r_w   = ["본인부담금상한제 초과금: 보험사 선공제 후 지급"]
+            elif _tm_ym <= 201508:
+                _r_lbl = "2세대-B 표준화 실손"; _r_fc = "#1e3a8a"; _r_bg = "#dbeafe"
+                _r_cyc = "1년 갱신 / 15년 재가입"
+                _r_cp  = "10%"
+                _r_w   = ["1년 갱신형 최초 적용 세대", "15년 만기 후 재가입 가능"]
+            elif _tm_ym <= 201703:
+                _r_lbl = "2세대-C 표준화 실손"; _r_fc = "#3730a3"; _r_bg = "#e0e7ff"
+                _r_cyc = "1년 갱신 / 15년 재가입"
+                _r_cp  = "급여 10% / 비급여 20%"
+                _r_w   = ["비급여 자기부담금 2015.09부터 20%로 인상"]
+            elif _tm_ym <= 202106:
+                _r_lbl = "3세대 착한실손"; _r_fc = "#14532d"; _r_bg = "#dcfce7"
+                _r_cyc = "1년 갱신 / 15년 재가입"
+                _r_cp  = "급여 10~20% / 비급여 20%"
+                _r_w   = ["3대 비급여 특약 분리 (도수·주사·MRI) 연 350만원 한도",
+                          "특약 미가입 시 3대 비급여 보상 불가"]
+            else:
+                _r_lbl = "4세대 실손"; _r_fc = "#881337"; _r_bg = "#ffe4e6"
+                _r_cyc = "1년 갱신 / 5년 재가입"
+                _r_cp  = "급여 10~20% / 비급여 30%"
+                _r_w   = ["비급여 할증제: 청구 多 → 보험료 인상",
+                          "재가입 주기 5년으로 축소",
+                          "10회마다 의사 소견서 제출 필수"]
+
+            _warn_html = "".join(
+                f'<div style="background:#fff3cd;border:1px solid #f59e0b;'
+                f'border-radius:6px;padding:4px 8px;margin-top:5px;'
+                f'font-size:0.74rem;font-weight:700;color:#92400e;">{_w}</div>'
+                for _w in _r_w)
+            st.markdown(f"""<div style="background:{_r_bg};border:2px solid {_r_fc};
+border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+<div style="font-size:0.9rem;font-weight:900;color:{_r_fc};">🎯 {_r_lbl}</div>
+<div style="font-size:0.78rem;margin-top:6px;color:#374151;">
+• 자기부담금: <b>{_r_cp}</b><br>
+• 갱신·재가입: <b>{_r_cyc}</b>
+</div>{_warn_html}</div>""", unsafe_allow_html=True)
+
+            # ── 5대 핵심 분쟁 사전 ────────────────────────────────
+            st.markdown("<div style='font-weight:900;font-size:0.78rem;"
+                        "color:#374151;margin-bottom:4px;'>📑 5대 핵심 분쟁 사전</div>",
+                        unsafe_allow_html=True)
+            with st.expander("① 본인부담금상한제 리스크"):
+                if _tm_ym <= 200907:
+                    st.success("✅ 보상 O — 1세대: 상한제 환급금 보험사 공제 없이 전액 수령")
+                else:
+                    st.error("❌ 주의 — 2세대 이후: 상한제 초과금은 보험사 선공제 후 지급 (실질 감소)")
+            with st.expander("② 백내장 다초점 렌즈"):
+                if _tm_ym <= 201512:
+                    st.success("✅ 보상 가능 — ~2015.12: 시력교정 목적 제외 증명 시 청구 가능")
+                else:
+                    st.error("❌ 면책 — 2016.01~: 약관상 명백한 면책 (수술비만 보상)")
+            with st.expander("③ 정신질환(F코드) / 선천성(Q코드)"):
+                if _tm_ym < 201601:
+                    st.warning("⚠️ 2016.01 이전: 대부분 면책 (일부 기질성 제외)")
+                elif _tm_ym >= 202107:
+                    st.success("✅ 4세대: Q코드(선천성 뇌질환) + F코드 일부 급여 보상 확대")
+                else:
+                    st.info("ℹ️ 2016.01~: F04~F09·F20~F29 등 급여 부분 보상 시작")
+            with st.expander("④ 치과·한방 비급여"):
+                if _tm_ym <= 200907 and _tm_has_injury:
+                    st.success("✅ 보상 O — 1세대 일반상해의료비: 상해 원인 치과·한방 100% 보상")
+                else:
+                    st.error("❌ 면책 — 2세대 이후: 급여만 보상, 비급여 전면 면책")
+            with st.expander("⑤ 도수치료·체외충격파"):
+                if _tm_ym <= 201703:
+                    st.success("✅ 보상 O — 1~2세대: 한도 내 보상 가능")
+                elif _tm_ym <= 202106:
+                    st.warning("⚠️ 3세대: 특약 분리 (연 50회, 350만원 한도) — 특약 확인 필수")
+                else:
+                    st.error("❌ 4세대: 특약 분리 + 10회마다 의사 소견서 제출 필수")
+
         st.stop()
 
     # ── [cancer] 암·뇌·심장 중증질환 통합 상담 ──────────────────────────
