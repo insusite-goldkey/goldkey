@@ -1111,6 +1111,19 @@ def render_unified_analysis_center(
 .uac-prescription{background:#f8faff;border-left:4px solid #3b82f6;
   border-radius:0 8px 8px 0;padding:10px 14px;font-size:0.80rem;line-height:1.75;}
 .uac-gauge-label{font-size:0.72rem;font-weight:700;color:#374151;}
+.uac-data-card{background:#fff;border:1px dashed #000;border-radius:12px;
+  padding:14px 16px 6px;margin-bottom:10px;}
+.uac-red-alert{border:1.5px solid #FF4B4B;background:rgba(255,75,75,0.05);
+  border-radius:8px;padding:10px 14px;color:#FF4B4B;font-size:0.76rem;
+  font-weight:600;margin:8px 0 10px;word-break:keep-all;line-height:1.65;}
+button[data-testid="baseButton-primary"]{
+  background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)!important;
+  color:white!important;border:none!important;border-radius:12px!important;
+  box-shadow:0 6px 14px rgba(0,192,255,0.28)!important;
+  font-weight:800!important;transition:transform .15s,box-shadow .15s!important;}
+button[data-testid="baseButton-primary"]:hover{
+  transform:translateY(-2px)!important;
+  box-shadow:0 10px 20px rgba(0,192,255,0.4)!important;}
 </style>""", unsafe_allow_html=True)
 
     st.markdown(
@@ -1148,6 +1161,159 @@ def render_unified_analysis_center(
                     )
                     st.rerun()
             else:
+                _kp = key_prefix
+                _uac_tok = st.session_state.get(f"{_kp}_auth_token")
+
+                # ── 데이터 수집 & 인증 카드 (인증 전) ──────────────────────────
+                if not _uac_tok:
+                    st.markdown("<div class='uac-data-card'>", unsafe_allow_html=True)
+                    st.markdown(
+                        "<div style='font-size:0.82rem;font-weight:900;color:#065f46;"
+                        "margin-bottom:10px;'>🌐 내보험다보여 크롤링 연결 — 피보험자 인증</div>",
+                        unsafe_allow_html=True,
+                    )
+                    _uac_name = st.text_input(
+                        "👤 피보험자 성명 *",
+                        placeholder="실명을 입력하세요",
+                        value=st.session_state.get("gs_c_name", ""),
+                        key=f"{_kp}_auth_name",
+                        max_chars=30,
+                    )
+                    _dc1, _dc2 = st.columns([3, 2])
+                    with _dc1:
+                        _uac_dob = st.text_input(
+                            "🎂 생년월일 * (YYYYMMDD)",
+                            placeholder="예: 19901231",
+                            key=f"{_kp}_auth_dob",
+                            max_chars=8,
+                        )
+                    with _dc2:
+                        _uac_carrier = st.selectbox(
+                            "📶 통신사 *",
+                            ["─ 선택 ─", "SKT", "KT", "LG U+",
+                             "SKT 알뜰폰", "KT 알뜰폰", "LG 알뜰폰"],
+                            key=f"{_kp}_auth_carrier",
+                        )
+                    _uac_phone = st.text_input(
+                        "📱 휴대폰 번호 * (숫자만, - 없이)",
+                        placeholder="01012345678",
+                        key=f"{_kp}_auth_phone",
+                        max_chars=11,
+                    )
+                    st.markdown(
+                        "<div class='uac-red-alert'>"
+                        "⚠️ 생년월일·연락처는 한국신용정보원 본인확인에만 사용되는 <b>1회성 소모 정보</b>입니다. "
+                        "인증 즉시 SHA-256 해시로 변환되며, 원본 정보는 <b>서버에 일체 저장되지 않습니다.</b> "
+                        "<span style='font-size:0.68rem;'>(개인정보보호법 제15조 · 신용정보법 제32조)</span>"
+                        "</div>",
+                        unsafe_allow_html=True,
+                    )
+                    _uac_method = st.radio(
+                        "🔑 인증 수단 선택",
+                        ["카카오톡", "PASS", "NICE 본인확인", "간편인증(데모)"],
+                        horizontal=True,
+                        key=f"{_kp}_auth_method",
+                    )
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    _method_map = {
+                        "카카오톡": "kakao", "PASS": "pass",
+                        "NICE 본인확인": "nice", "간편인증(데모)": "simulate",
+                    }
+                    _dob_clean   = "".join(c for c in (_uac_dob   or "") if c.isdigit())
+                    _phone_clean = "".join(c for c in (_uac_phone  or "") if c.isdigit())
+                    _auth_ready  = (
+                        bool((_uac_name or "").strip())
+                        and len(_dob_clean) == 8
+                        and _uac_carrier != "─ 선택 ─"
+                        and len(_phone_clean) >= 10
+                    )
+                    if _auth_ready:
+                        if st.button(
+                            "🚀 트리니티 진단 시작 (인증 요청)",
+                            key=f"{_kp}_auth_run",
+                            type="primary",
+                            use_container_width=True,
+                        ):
+                            import hashlib as _hl
+                            import time as _agt
+                            with st.spinner("🔐 인증 게이트웨이 처리 중..."):
+                                try:
+                                    from modules.auth_gateway import authenticate as _ag_auth
+                                    _tok = _ag_auth(
+                                        name=(_uac_name or "").strip(),
+                                        phone=_uac_phone,
+                                        dob=_dob_clean,
+                                        carrier=_uac_carrier,
+                                        method=_method_map.get(_uac_method, "simulate"),
+                                    )
+                                except Exception as _age:
+                                    _nm = (_uac_name or "").strip()
+                                    _tok = {
+                                        "token":        _hl.sha256((_nm + _phone_clean).encode()).hexdigest()[:32],
+                                        "ci_hash":      _hl.sha256((_dob_clean + _nm).encode()).hexdigest()[:24],
+                                        "name_initial": _nm[0] + "*" * max(len(_nm) - 2, 0) + (_nm[-1] if len(_nm) > 1 else ""),
+                                        "phone_masked": _phone_clean[:3] + "-****-" + _phone_clean[-4:],
+                                        "method":       "simulate",
+                                        "issued_at":    _agt.time(),
+                                        "expires_at":   _agt.time() + 1800,
+                                        "error":        str(_age)[:120],
+                                    }
+                            st.session_state[f"{_kp}_auth_token"] = {
+                                "name_initial": _tok.get("name_initial", "*"),
+                                "phone_masked": _tok.get("phone_masked", "***"),
+                                "method":       _tok.get("method", "simulate"),
+                                "issued_at":    _tok.get("issued_at", 0),
+                            }
+                            st.session_state["gs_c_name"] = (_uac_name or "").strip()
+                            for _sk in [f"{_kp}_auth_dob", f"{_kp}_auth_phone"]:
+                                st.session_state.pop(_sk, None)
+                            if _tok.get("error"):
+                                st.warning(f"⚠️ {_tok['error']} — 시뮬레이션 모드로 진행")
+                            try:
+                                from modules.mydata_connector import fetch_mydata_insurance as _fmi
+                                import json as _mj
+                                _mdata = _fmi((_uac_name or "").strip(), use_simulate=True)
+                                st.session_state["_nibo_raw_json"] = _mj.dumps(
+                                    _mdata.get("insurance_list", []),
+                                    ensure_ascii=False, indent=2,
+                                )
+                                st.session_state[_kj] = st.session_state["_nibo_raw_json"]
+                            except Exception:
+                                pass
+                            st.rerun()
+                    else:
+                        st.button(
+                            "🚀 트리니티 진단 시작 (필수 정보 입력 후 활성화)",
+                            key=f"{_kp}_auth_run_dis",
+                            disabled=True,
+                            use_container_width=True,
+                        )
+                        _miss = []
+                        if not (_uac_name or "").strip(): _miss.append("성명")
+                        if len(_dob_clean) != 8:          _miss.append("생년월일 8자리")
+                        if _uac_carrier == "─ 선택 ─":    _miss.append("통신사")
+                        if len(_phone_clean) < 10:        _miss.append("휴대폰")
+                        if _miss:
+                            st.caption(f"⚠️ 미입력: {' · '.join(_miss)}")
+                else:
+                    # ── 인증 완료 배너 + 재인증 ──────────────────────────────
+                    _at = _uac_tok
+                    _ml = {"kakao": "카카오톡", "pass": "PASS", "nice": "NICE",
+                           "simulate": "간편인증(데모)"}.get(_at.get("method", "simulate"), "간편인증")
+                    st.markdown(
+                        f"<div style='background:#dcfce7;border:1px solid #86efac;"
+                        f"border-radius:8px;padding:8px 14px;font-size:0.8rem;"
+                        f"color:#166534;font-weight:700;margin-bottom:10px;'>"
+                        f"✅ 인증 완료 &nbsp;|&nbsp; {_at.get('name_initial','*')} &nbsp;|&nbsp; "
+                        f"{_at.get('phone_masked','***')} &nbsp;|&nbsp; {_ml}"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                    if st.button("🔄 재인증", key=f"{_kp}_reauth"):
+                        st.session_state.pop(f"{_kp}_auth_token", None)
+                        st.rerun()
+
+                # ── JSON 입력창 (인증 완료 후 자동 채워짐) ─────────────────────
                 _json_val = st.text_area(
                     "내보험다보여 JSON",
                     value=st.session_state.get(_kj, st.session_state.get("_nibo_raw_json", "")),
