@@ -40212,14 +40212,12 @@ div[data-testid="stButton"] {
         _builtins._goldkey_go_tab = _go_tab
         _builtins._goldkey_get_planner_info = _get_planner_info
     
-    # ── module-level cur 호환 래퍼 ─────────────────────────────────────────────
-    # main() 외부의 라우터 블록들이 cur 변수를 직접 참조하므로,
-    # builtins에 저장된 값을 module-level 변수로 공급
+    # ── cur 최종 확정 (session_state 직접 읽기 — builtins stale 방지) ────────
+    # 주의: _builtins._goldkey_cur 는 if cur=="home": 블록 안에서만 업데이트되므로
+    # 다른 탭 이동 시 stale "home" 값으로 cur가 덮어씌워지는 버그가 있었음.
+    # session_state.current_tab 이 항상 정확한 값이므로 직접 읽는 방식으로 수정.
     import builtins as _builtins_mod
-    try:
-        cur = _builtins_mod._goldkey_cur
-    except AttributeError:
-        cur = st.session_state.get("current_tab", "home")
+    cur = st.session_state.get("current_tab", "home")
     
     try:
         _go_tab = _builtins_mod._goldkey_go_tab
