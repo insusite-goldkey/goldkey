@@ -39000,17 +39000,12 @@ div[data-testid="stButton"] {
         text-transform:uppercase;margin-bottom:2px;">🛡️ B-SECTION: Expert Consulting</div>
     </div>""", unsafe_allow_html=True)
                 st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#6A1B9A;margin:6px 0 3px 0;border-top:1px solid #CE93D8;padding-top:5px;letter-spacing:0.05em;'>📋 신규·설계 상담</div>", unsafe_allow_html=True)
-                if st.button("① 신규보험 상담",    key="ag_b1",  use_container_width=True): _go_tab("t0")
-                if st.button("⑦ 암·뇌·심장 상담", key="ag_b7",  use_container_width=True): _go_tab("cancer")
-                if st.button("⑧ 기본·통합 설계",   key="ag_b8",  use_container_width=True): _go_tab("t3")
-                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#6A1B9A;margin:6px 0 3px 0;border-top:1px solid #CE93D8;padding-top:5px;letter-spacing:0.05em;'>🏥 보상·장해 상담</div>", unsafe_allow_html=True)
-                if st.button("② 보험금 청구 상담", key="ag_b2",  use_container_width=True): _go_tab("t1")
-                if st.button("③ 장해 산출",         key="ag_b3",  use_container_width=True): _go_tab("disability")
-                if st.button("④ 상해 통합 관리",   key="ag_b4",  use_container_width=True): _go_tab("injury")
-                if st.button("⑥ KCD 상해 분석",    key="ag_b6",  use_container_width=True): _go_tab("kcd_injury")
-                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#6A1B9A;margin:6px 0 3px 0;border-top:1px solid #CE93D8;padding-top:5px;letter-spacing:0.05em;'>🚗 자동차사고 상담</div>", unsafe_allow_html=True)
-                if st.button("⑤ 자동차사고 상담",  key="ag_b5",  use_container_width=True): _go_tab("t4")
-                if st.button("⑨ 자동차보험 실무",  key="ag_b9",  use_container_width=True): _go_tab("auto_comp")
+                if st.button("① 신규보험 상담",   key="ag_b1", use_container_width=True): _go_tab("t0")
+                if st.button("⑧ 기본·통합 설계",  key="ag_b8", use_container_width=True): _go_tab("t3")
+                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#6A1B9A;margin:6px 0 3px 0;border-top:1px solid #CE93D8;padding-top:5px;letter-spacing:0.05em;'>🫁 암·뇌·심장 상담</div>", unsafe_allow_html=True)
+                if st.button("🔬 암 질환 상담 (3000)",   key="ag_b7a", use_container_width=True): _go_tab("cancer")
+                if st.button("🧠 뇌 질환 상담 (3100)",   key="ag_b7b", use_container_width=True): _go_tab("brain")
+                if st.button("❤️ 심장 질환 상담 (3200)", key="ag_b7c", use_container_width=True): _go_tab("heart")
             with _pf_c3:
                 st.markdown(f"""<div style="background:#FFF9C4;border:1.5px solid #F9A825;
       border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
@@ -39019,13 +39014,19 @@ div[data-testid="stButton"] {
         text-transform:uppercase;margin-bottom:2px;">💼 C-SECTION: Wealth &amp; Corporate</div>
     </div>""", unsafe_allow_html=True)
                 st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#E65100;margin:6px 0 3px 0;border-top:1px solid #F9A825;padding-top:5px;letter-spacing:0.05em;'>💰 자산·법인 설계</div>", unsafe_allow_html=True)
-                if st.button("① 노후·상속 설계",    key="ag_c1", use_container_width=True): _go_tab("t5")
-                if st.button("② 세무 상담",          key="ag_c2", use_container_width=True): _go_tab("t6")
-                if st.button("③ 법인 상담",          key="ag_c3", use_container_width=True): _go_tab("t7")
-                if st.button("④ 비상장주식 평가",    key="ag_c5", use_container_width=True): _go_tab("stock_eval")
+                if st.button("① 노후·상속 설계",       key="ag_c1",  use_container_width=True): _go_tab("t5")
+                st.markdown("<div style='font-size:0.68rem;font-weight:700;color:#B45309;margin:3px 0 2px 0;'>📊 세무 상담</div>", unsafe_allow_html=True)
+                if st.button("② 세무 상담",             key="ag_c2",  use_container_width=True): _go_tab("t6")
+                if st.button("세무 전문 상담 (5100)",   key="ag_c2b", use_container_width=True): _go_tab("t6")
+                st.markdown("<div style='font-size:0.68rem;font-weight:700;color:#B45309;margin:3px 0 2px 0;'>🏢 법인상담(CEO플랜)</div>", unsafe_allow_html=True)
+                if st.button("③ 법인상담(CEO플랜)",     key="ag_c3",  use_container_width=True): _go_tab("t7")
+                if st.button("VVIP CEO 전략 센터",       key="ag_c3b", use_container_width=True): _go_tab("gk_sec09")
+                if st.button("기업·사업자 세무전략",     key="ag_c3c", use_container_width=True): _go_tab("gk_sec08")
+                if st.button("법인 상담 (5200)",         key="ag_c3d", use_container_width=True): _go_tab("t7")
+                if st.button("④ 비상장주식 평가",       key="ag_c5",  use_container_width=True): _go_tab("stock_eval")
                 st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#E65100;margin:6px 0 3px 0;border-top:1px solid #F9A825;padding-top:5px;letter-spacing:0.05em;'>🏢 재물·배상 상담</div>", unsafe_allow_html=True)
-                if st.button("⑤ 화재보험",          key="ag_c6", use_container_width=True): _go_tab("fire")
-                if st.button("⑥ 배상책임 통합상담",  key="ag_c7", use_container_width=True): _go_tab("liability")
+                if st.button("⑤ 화재&배상책임통합상담", key="ag_c6",  use_container_width=True): _go_tab("fire")
+                if st.button("화재·특종보험 전술센터",   key="ag_c6b", use_container_width=True): _go_tab("gk_sec08")
 
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
@@ -39050,17 +39051,13 @@ div[data-testid="stButton"] {
       <div style="font-size:0.78rem;font-weight:900;color:#1B5E20;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:2px;">🔍 E-SECTION: 보상 시뮬레이션</div>
     </div>""", unsafe_allow_html=True)
-                if st.button("① 보상정보 시뮬레이션",  key="ag_e1", use_container_width=True): _go_tab("compensation")
-                if st.button("② 교통사고 보상 가이드", key="ag_e2", use_container_width=True):
+                if st.button("① 산재 보상 가이드",     key="ag_e3", use_container_width=True):
                     st.session_state["comp_acc_type"] = "교통사고 / 산재"
                     _go_tab("compensation")
-                if st.button("③ 산재 보상 가이드",     key="ag_e3", use_container_width=True):
-                    st.session_state["comp_acc_type"] = "교통사고 / 산재"
-                    _go_tab("compensation")
-                if st.button("④ 일반상해 보상 가이드", key="ag_e4", use_container_width=True):
+                if st.button("② 일반상해 보상 가이드", key="ag_e4", use_container_width=True):
                     st.session_state["comp_acc_type"] = "일반 상해 / 질병"
                     _go_tab("compensation")
-                if st.button("⑤ KCD 상해 분석",        key="ag_e5", use_container_width=True): _go_tab("kcd_injury")
+                if st.button("③ KCD 상해 분석",        key="ag_e5", use_container_width=True): _go_tab("kcd_injury")
 
             with _pf_def3:
                 st.markdown(f"""<div style="background:#FFF3E0;border:1.5px solid #FFCC80;
@@ -39076,6 +39073,35 @@ div[data-testid="stButton"] {
                 if st.button("⑤ 보험 판례·사례 검색",      key="ag_f5", use_container_width=True): _go_tab("ins_bot")
 
 
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+            # ── G/H 섹션 신설: 2열 ───────────────────────────────────────────────
+            _pf_gh1, _pf_gh2 = st.columns(2, gap="medium")
+            with _pf_gh1:
+                st.markdown(f"""<div style="background:#EDE7F6;border:1.5px solid #9575CD;
+      border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
+      {_bid('1-5-7g')}
+      <div style="font-size:0.78rem;font-weight:900;color:#4527A0;letter-spacing:0.08em;
+        text-transform:uppercase;margin-bottom:2px;">🏥 G-SECTION: 보상·장해 상담</div>
+    </div>""", unsafe_allow_html=True)
+                if st.button("① 보험금 청구 상담",           key="ag_g1", use_container_width=True): _go_tab("t1")
+                if st.button("② 장해 산출 (2300)",           key="ag_g2", use_container_width=True): _go_tab("disability")
+                if st.button("③ 상해 통합 관리 (2100)",      key="ag_g3", use_container_width=True): _go_tab("injury")
+                if st.button("④ KCD 상해 분석",              key="ag_g4", use_container_width=True): _go_tab("kcd_injury")
+                if st.button("⑤ 보상 정보 시뮬레이션 가이드", key="ag_g5", use_container_width=True): _go_tab("compensation")
+            with _pf_gh2:
+                st.markdown(f"""<div style="background:#E0F7FA;border:1.5px solid #4DD0E1;
+      border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
+      {_bid('1-5-7h')}
+      <div style="font-size:0.78rem;font-weight:900;color:#006064;letter-spacing:0.08em;
+        text-transform:uppercase;margin-bottom:2px;">🚗 H-SECTION: 자동차사고 상담</div>
+    </div>""", unsafe_allow_html=True)
+                if st.button("① 자동차사고 상담",           key="ag_h1", use_container_width=True): _go_tab("t4")
+                if st.button("② 자동차보험 실무",           key="ag_h2", use_container_width=True): _go_tab("auto_comp")
+                if st.button("③ 교통사고 보상 가이드",      key="ag_h3", use_container_width=True):
+                    st.session_state["comp_acc_type"] = "교통사고 / 산재"
+                    _go_tab("compensation")
+                if st.button("④ 자동차보험 전술 상담 센터", key="ag_h4", use_container_width=True): _go_tab("gk_sec07")
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
             # ── [L 섹션] 내보험다보여 전용 동의 다이얼로그 (st.dialog Guard) ──────
