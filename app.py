@@ -38915,9 +38915,9 @@ function selectCustomer(name) {{
             st.markdown('</div>', unsafe_allow_html=True)  # GK-SEC-01 닫기
     
             # ═══════════════════════════════════════════════════════════════
-            # [GK-SEC-02] 가처분 소득 기반 3단계 솔루션
+            # [GK-SEC-02] 핵심 상담 항목 솔루션
             # ═══════════════════════════════════════════════════════════════
-            st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-02")}<span class="gk-sec-title">② 가처분 소득 기반 3단계 솔루션</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="gk-sec"><div style="position:relative;">{_bid("GK-SEC-02")}<span class="gk-sec-title">핵심 상담 항목 솔루션</span></div>', unsafe_allow_html=True)
             st.markdown(
                 "<style>.sec02-grid div[data-testid='column']{padding-top:2px!important;"
                 "padding-bottom:2px!important;}</style>"
@@ -38934,13 +38934,15 @@ function selectCustomer(name) {{
                 ("🦿 장해 산출",     "장해 산출",     "disability"),
                 ("🏢 법인상담",      "법인상담",      "t7"),
                 ("🌅 노후설계",      "노후설계",      "life_cycle"),
+                ("👔 CEO·법인상담",  "CEO·법인상담",  "t7"),
+                ("🔥 화재보험 상담", "화재보험 상담", "fire"),
             ]
             _s2_items_sel = st.session_state.get("scan_client_items", [])
             for _s2_idx, (_s2_lbl, _s2_val, _s2_tab) in enumerate(_s2_items_map):
                 with _s2_btn_cols[_s2_idx % 3]:
                     st.markdown('<div class="gk-rb-btn" style="margin-bottom:0;">', unsafe_allow_html=True)
                     _s2_is_sel = _s2_val in _s2_items_sel
-                    if st.button(_s2_lbl, key=f"sec02_{_s2_tab}", use_container_width=True,
+                    if st.button(_s2_lbl, key=f"sec02_{_s2_idx}", use_container_width=True,
                                  type="primary" if _s2_is_sel else "secondary"):
                         st.session_state["scan_client_items"] = [_s2_val]
                         _go_tab(_s2_tab)
