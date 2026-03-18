@@ -38511,11 +38511,38 @@ function selectCustomer(name) {{
                         ),
                         key="home_si_gender",
                     )
-                    _si_job = st.text_input(
-                        "💼 직업",
-                        value=st.session_state.get("scan_client_job", ""),
-                        placeholder="예) 회사원", key="home_si_job",
+                    _JOB_OPTS = [
+                        "사무직/공무원 (1급)", "교사/교수/연구원 (1급)", "의사/약사/변호사 (1급)",
+                        "전업주부/학생 (1급)", "판매/영업직 (2급)", "음식·서비스업 (2급)",
+                        "현장관리/감독 (2급)", "생산직/기능직 (3급)", "건설현장직 (3급)",
+                        "화물·운송 운전기사 (3급)", "위험물취급/선원 (3급)", "군인/경찰/소방관", "기타",
+                    ]
+                    _cur_job = st.session_state.get("scan_client_job", "") or "사무직/공무원 (1급)"
+                    if _cur_job not in _JOB_OPTS: _cur_job = "기타"
+                    with st.expander("💼 직업분류 가이드 (클릭)", expanded=False):
+                        st.markdown(
+                            "<div style='border:1px dashed #000;border-radius:8px;background:#f0f9ff;"
+                            "padding:10px 14px;font-size:0.76rem;line-height:1.8;'>"
+                            "<b>보험사 표준 직업 급수</b><br>"
+                            "🟢 <b>1급(저위험):</b> 사무직·공무원·교사·의사·전업주부·학생<br>"
+                            "🟡 <b>2급(중위험):</b> 판매/영업직·식당·현장감독·배달관리<br>"
+                            "🔴 <b>3급(고위험):</b> 건설현장·화물운전·위험물·선원<br>"
+                            "<small>* 실제 수행 업무 기준으로 선택하세요.</small></div>",
+                            unsafe_allow_html=True,
+                        )
+                    _si_job = st.selectbox(
+                        "💼 직업분류",
+                        _JOB_OPTS,
+                        index=_JOB_OPTS.index(_cur_job),
+                        key="home_si_job",
                     )
+                    if "3급" in _si_job:
+                        st.markdown(
+                            "<div style='border:1.5px solid #FF4B4B;background:rgba(255,75,75,0.05);"
+                            "border-radius:8px;padding:7px 12px;color:#FF4B4B;font-size:0.74rem;"
+                            "font-weight:700;margin-top:4px;'>⚠️ 고위험 직종 — 상해보험료 할증 및 인수 제한 가능성이 있습니다.</div>",
+                            unsafe_allow_html=True,
+                        )
                 with _ga3:
                     _si_sick = st.selectbox(
                         "🩺 유병자 여부",
@@ -38533,6 +38560,87 @@ function selectCustomer(name) {{
                         f'padding:8px 12px;font-size:0.82rem;font-weight:700;color:{_sick_color};'
                         f'white-space:pre-line;margin-bottom:6px;">{_sick_guide_text}</div>',
                         unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                # ── [GCS] 연락처 + 운전분류 + 소개자 + 주소 ──────────────────
+                st.markdown(
+                    "<div style='border:1px dashed #000;border-radius:10px;background:#fff;"
+                    "padding:12px 14px 8px;margin:6px 0 8px;'>"
+                    "<div style='color:#1e40af;font-weight:900;font-size:0.84rem;margin-bottom:8px;'>"
+                    "📋 그룹 A-1 확장 — 연락처 · 운전 · 소개자 · 주소</div>",
+                    unsafe_allow_html=True,
+                )
+                _gx1, _gx2, _gx3 = st.columns([1, 2, 2])
+                with _gx1:
+                    _si_carrier = st.selectbox(
+                        "📶 통신사",
+                        ["─", "SKT", "KT", "LG U+", "SKT 알뜰", "KT 알뜰", "LG 알뜰"],
+                        index=["─", "SKT", "KT", "LG U+", "SKT 알뜰", "KT 알뜰", "LG 알뜰"].index(
+                            st.session_state.get("scan_client_carrier", "─") or "─"
+                        ),
+                        key="home_si_carrier",
+                    )
+                with _gx2:
+                    _si_contact = st.text_input(
+                        "📱 휴대폰 (숫자만)",
+                        value=st.session_state.get("scan_client_contact", ""),
+                        placeholder="01012345678",
+                        key="home_si_contact",
+                        max_chars=11,
+                    )
+                with _gx3:
+                    _si_referrer = st.text_input(
+                        "🤝 소개자 성명",
+                        value=st.session_state.get("scan_client_referrer", ""),
+                        placeholder="소개인 이름",
+                        key="home_si_referrer",
+                    )
+                _DRIVE_OPTS = [
+                    "비운전자", "자가용(승용)", "영업용(택시/버스)",
+                    "화물차/중장비", "이륜차(가정용/레저)", "이륜차(유상운송/배달)",
+                ]
+                _cur_drv = st.session_state.get("scan_client_driving", "비운전자") or "비운전자"
+                if _cur_drv not in _DRIVE_OPTS: _cur_drv = "비운전자"
+                with st.expander("🚗 운전용도 가이드 (클릭)", expanded=False):
+                    st.markdown(
+                        "<div style='border:1px dashed #000;border-radius:8px;background:#f0f9ff;"
+                        "padding:10px 14px;font-size:0.76rem;line-height:1.8;'>"
+                        "<b>운전 형태별 고지 기준</b><br>"
+                        "🟢 <b>자가용:</b> 출퇴근·가사 전용 개인 승용차<br>"
+                        "🟡 <b>영업용:</b> 노란 번호판 / 수익 목적 운전<br>"
+                        "🔴 <b>이륜차(유상):</b> 배민·쿠팡·퀵서비스 등 단 1회라도 포함<br>"
+                        "<small>* 최근 1년 내 운전 경험 있으면 반드시 고지해야 합니다.</small></div>",
+                        unsafe_allow_html=True,
+                    )
+                _si_driving = st.selectbox(
+                    "🚗 운전 형태",
+                    _DRIVE_OPTS,
+                    index=_DRIVE_OPTS.index(_cur_drv),
+                    key="home_si_driving",
+                )
+                if "이륜차" in _si_driving:
+                    st.markdown(
+                        "<div style='border:1.5px solid #FF4B4B;background:rgba(255,75,75,0.05);"
+                        "border-radius:8px;padding:10px 14px;color:#FF4B4B;font-size:0.79rem;"
+                        "font-weight:700;margin:4px 0;'>"
+                        "🚨 [고지의무 중요사항] 이륜차 운전 사실을 숨기고 가입할 경우, "
+                        "사고 시 보험금이 <b>단 1원도 지급되지 않으며</b> 계약이 강제 해지될 수 있습니다."
+                        "</div>",
+                        unsafe_allow_html=True,
+                    )
+                elif _si_driving in ["영업용(택시/버스)", "화물차/중장비"]:
+                    st.markdown(
+                        "<div style='border:1.5px solid #f59e0b;background:#fffbeb;"
+                        "border-radius:8px;padding:8px 12px;color:#92400e;font-size:0.76rem;"
+                        "font-weight:700;margin:4px 0;'>⚠️ 영업용/화물차 — 보험료 할증 및 자동차보험 별도 가입 필수 안내</div>",
+                        unsafe_allow_html=True,
+                    )
+                _si_address = st.text_input(
+                    "🏠 상세 주소",
+                    value=st.session_state.get("scan_client_address", ""),
+                    placeholder="시/군/구 상세 주소 (보험금 수령 기준)",
+                    key="home_si_address",
+                )
                 st.markdown("</div>", unsafe_allow_html=True)
                 # ── 동명이인 체크 + 확인 버튼 ─────────────────────────────────
                 _a1_nm_v = (_si_name or "").strip()
@@ -38664,12 +38772,33 @@ function selectCustomer(name) {{
                 st.markdown('<div class="gk-save-btn-marker" style="display:none;"></div>', unsafe_allow_html=True)
                 if st.button("💾 고객 정보 저장 (피보험자 태깅 + 전체 탭 연동)", key="btn_save_client_info", use_container_width=True):
                     # ① 세션 상태 동기화
-                    st.session_state["scan_client_name"]        = _si_name
-                    st.session_state["scan_client_dob"]         = _si_dob
-                    st.session_state["scan_client_gender"]      = _si_gender
-                    st.session_state["scan_client_job"]         = _si_job
-                    st.session_state["scan_client_sick"]        = _si_sick
-                    st.session_state["scan_client_items"]       = _si_items
+                    st.session_state["scan_client_name"]     = _si_name
+                    st.session_state["scan_client_dob"]      = _si_dob
+                    st.session_state["scan_client_gender"]   = _si_gender
+                    st.session_state["scan_client_job"]      = _si_job
+                    st.session_state["scan_client_sick"]     = _si_sick
+                    st.session_state["scan_client_items"]    = _si_items
+                    st.session_state["scan_client_contact"]  = _si_contact
+                    st.session_state["scan_client_carrier"]  = _si_carrier
+                    st.session_state["scan_client_driving"]  = _si_driving
+                    st.session_state["scan_client_address"]  = _si_address
+                    st.session_state["scan_client_referrer"] = _si_referrer
+                    # GCS 중복 검증 (이름 + 연락처)
+                    _gcs_phone_clean = "".join(c for c in (_si_contact or "") if c.isdigit())
+                    if _si_name and _gcs_phone_clean and _is_new_e:
+                        _gcs_dup = [
+                            p for p in _people_rows
+                            if p.get("name", "").strip() == _si_name.strip()
+                        ]
+                        if _gcs_dup:
+                            st.markdown(
+                                f"<div style='border:1.5px solid #FF4B4B;background:rgba(255,75,75,0.05);"
+                                f"border-radius:10px;padding:12px 16px;color:#FF4B4B;font-size:0.8rem;"
+                                f"font-weight:700;margin-bottom:8px;'>"
+                                f"⚠️ [중복 가입 감지] '{_si_name}' 이름으로 이미 {len(_gcs_dup)}명이 GCS에 등록되어 있습니다.<br>"
+                                f"생년월일·연락처를 반드시 확인 후 저장하세요.</div>",
+                                unsafe_allow_html=True,
+                            )
                     st.session_state["crm_contractor_name"]     = _si_contractor_name
                     st.session_state["crm_contractor_dob"]      = _si_contractor_dob
                     st.session_state["crm_beneficiary_name"]    = _si_beneficiary_name
@@ -38702,11 +38831,11 @@ function selectCustomer(name) {{
                                     name           = _si_name.strip(),
                                     birth_date     = _si_dob,
                                     gender         = _si_gender or "",
-                                    contact        = st.session_state.get("scan_client_contact", ""),
+                                    contact        = _si_contact or st.session_state.get("scan_client_contact", ""),
                                     job            = _si_job or "",
                                     is_real_client = True,
                                     agent_id       = _uid_for_cust,
-                                    memo           = f"직업:{_si_job} / 유병:{_si_sick}",
+                                    memo           = f"직업:{_si_job} / 운전:{_si_driving} / 유병:{_si_sick} / 소개:{_si_referrer} / 주소:{_si_address}",
                                     person_id      = _existing_pid,
                                 )
                                 _fort_pid = _insured_row.get("id", _existing_pid)
