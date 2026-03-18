@@ -7074,8 +7074,16 @@ def _gp86_terminate_session() -> None:
         _st.markdown(_gp140_clear_token_js(), unsafe_allow_html=True)
     except Exception:
         pass
+    try:
+        from shared_components import get_env_secret as _gse
+        from supabase import create_client as _cc_lo
+        _sb_lo = _cc_lo(_gse("SUPABASE_URL",""), _gse("SUPABASE_SERVICE_ROLE_KEY", _gse("SUPABASE_KEY","")))
+        _sb_lo.auth.sign_out()
+    except Exception:
+        pass
     _st.session_state["_logout_flag"] = True
     _st.session_state.clear()
+    _st.session_state["_gp86_logout_success"] = True
     _st.rerun()
 
 
@@ -29219,6 +29227,8 @@ footer, footer * { display: none !important; }
 
         # ── 회원가입 / 로그인 (헤더 바로 아래) ──────────────────────────
         if 'user_id' not in st.session_state:
+            if st.session_state.pop("_gp86_logout_success", False):
+                st.success("✅ 안전하게 로그아웃되었습니다. 모든 임시 세션 정보가 보안 파기되었습니다.")
             # ── [GP-SEC §5] 공통 약관 동의 UI (shared_components.render_auth_screen) ──
             if _sc_render_auth_screen:
                 _req_agreed_top = _sc_render_auth_screen(

@@ -496,6 +496,12 @@ def render_auth_screen(
     app_icon: str = "🏆",
     terms_agree_key: str = "_gp_terms_agreed",
     show_header: bool = True,
+    show_terms_scroll: bool = True,
+    show_nibo_box: bool = True,
+    show_checkboxes: bool = True,
+    consent_header_text: str = None,
+    consent_header_bg: str = "#1e3a8a",
+    consent_header_fg: str = "#ffffff",
 ) -> bool:
     """
     [GP-SEC §5] 공통 로그인/약관 동의 UI.
@@ -515,7 +521,8 @@ def render_auth_screen(
             f"margin-bottom:6px;text-align:center;'>{app_icon} {app_name} 이용약관</div>",
             unsafe_allow_html=True,
         )
-    st.markdown(
+    _terms_md = st.markdown if show_terms_scroll else (lambda *a, **k: None)
+    _terms_md(
         "<div style='max-height:220px;overflow-y:auto;font-size:0.76rem;"
         "color:#222;line-height:1.75;border:1px dashed #000;border-radius:8px;"
         "padding:10px 14px;background:#f9fafb;margin-bottom:8px;'>"
@@ -591,6 +598,14 @@ def render_auth_screen(
         "서버에 리포트 내용이 저장되지 않습니다.<br>"
         "• <b>③ 권한 철회:</b> 카카오톡 앱 → <b>설정 → 자산 → 서비스 관리</b>에서 언제든지 권한을 철회하실 수 있습니다.<br><br>"
 
+        "<b style='color:#0a1628;'>[제14조] 🔒 보안 기준 준수 (Security Standards)</b><br>"
+        "• ISO/IEC 27001 정보보안 관리체계 인증 기준 준용<br>"
+        "• GDPR 및 국내 개인정보보호법 가이드라인 철저 준거<br>"
+        "• TLS 1.3 차세대 전송 암호화 적용 (서버-클라이언트 통신 보호)<br>"
+        "• AES-256 Fernet 기반의 고강도 세션 데이터 암호화<br>"
+        "• SHA-256 단방향 해시를 통한 연락처 및 비밀번호 암호화 저장<br>"
+        "• 로그아웃 시 단말기 내 민감 정보 메모리 점유 즉시 해제 (임시 데이터 잔류 방지)<br><br>"
+
         "<div style='background:#FFF3CD;border:1px solid #F0A500;border-radius:6px;padding:8px 10px;"
         "font-size:0.75rem;color:#7A4F00;margin-top:4px;'>"
         "<b>⚠️ 면책 및 서비스 이용 안내 (Disclaimer)</b><br>"
@@ -615,6 +630,8 @@ def render_auth_screen(
         "</div>",
         unsafe_allow_html=True,
     )
+    if not show_checkboxes:
+        return False
     # ── [이용 필수동의 4가지 박스] ─────────────────────────────────────────
     st.markdown("""<style>
 /* 필수동의 박스 — 체크박스 영역 border 스타일링 */
@@ -628,11 +645,12 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     margin-bottom: 6px;
 }
 </style>""", unsafe_allow_html=True)
+    _consent_header_text = consent_header_text or "📋 이용 필수동의 확인 (아래 항목을 읽고 동의해 주세요)"
     st.markdown(
-        "<div style='background:#1e3a8a;border-radius:8px 8px 0 0;"
+        f"<div style='background:{consent_header_bg};border-radius:8px 8px 0 0;"
         "padding:7px 14px;margin-top:10px;text-align:center;'>"
-        "<span style='font-size:0.85rem;font-weight:900;color:#fff;'>"
-        "📋 이용 필수동의 확인 (아래 항목을 읽고 동의해 주세요)</span></div>",
+        f"<span style='font-size:0.85rem;font-weight:900;color:{consent_header_fg};'>"
+        f"{_consent_header_text}</span></div>",
         unsafe_allow_html=True,
     )
     # 전체동의 → 개별 항목 자동 체크
@@ -661,34 +679,33 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         key=f"{terms_agree_key}_c4",
     )
     # ── [ID-100-AUTH] 내보험다보여 연동 동의 입구 제어 카드 ──────────────────
-    st.markdown(
-        "<div style='background:#fffbeb;border:2px dashed #f59e0b;"
-        "border-radius:10px;padding:12px 14px;margin-top:14px;'>"
-        "<div style='font-size:0.82rem;font-weight:900;color:#92400e;margin-bottom:8px;'>"
-        "🔐 [내보험다보여 연동 동의] — 신용정보법 제32조 별도 고지</div>"
-        "<div style='font-size:0.75rem;color:#78350f;line-height:1.85;'>"
-        "• <b>수집:</b> 보험사명·상품명·담보내역·계약상태 (신용정보원 등록 데이터)<br>"
-        "• <b>목적:</b> AI 트리니티 엔진 — 보장 적정성 분석 및 실질 생계비 기반 리모델링<br>"
-        "• <b>보유:</b> 분석 완료 후 30일 경과 시 자동 파기 (리포트 이력 최대 3년 암호화)<br>"
-        "• <b>인증정보:</b> 데이터 추출 후 <b>즉시 메모리 파기</b> — 서버 저장 절대 불가<br>"
-        "• <b>미동의 시:</b> AI 증권분석 · 트리니티 리포트 기능 비활성화 (나머지 기능 정상 이용)"
-        "</div></div>",
-        unsafe_allow_html=True,
-    )
-    with st.popover("📋 내보험다보여 연동 안내 전문 보기", use_container_width=True):
+    if show_nibo_box:
         st.markdown(
-            "<div style='font-size:0.78rem;color:#92400e;font-weight:700;"
-            "margin-bottom:6px;'>📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
+            "<div style='background:#fffbeb;border:2px dashed #f59e0b;"
+            "border-radius:10px;padding:12px 14px;margin-top:14px;'>"
+            "<div style='font-size:0.82rem;font-weight:900;color:#92400e;margin-bottom:8px;'>"
+            "🔐 [내보험다보여 연동 동의] — 신용정보법 제32조 별도 고지</div>"
+            "<div style='font-size:0.75rem;color:#78350f;line-height:1.85;'>"
+            "• <b>수집:</b> 보험사명·상품명·담보내역·계약상태 (신용정보원 등록 데이터)<br>"
+            "• <b>목적:</b> AI 트리니티 엔진 — 보장 적정성 분석 및 실질 생계비 기반 리모델링<br>"
+            "• <b>보유:</b> 분석 완료 후 30일 경과 시 자동 파기 (리포트 이력 최대 3년 암호화)<br>"
+            "• <b>인증정보:</b> 데이터 추출 후 <b>즉시 메모리 파기</b> — 서버 저장 절대 불가<br>"
+            "• <b>미동의 시:</b> AI 증권분석 · 트리니티 리포트 기능 비활성화 (나머지 기능 정상 이용)"
+            "</div></div>",
             unsafe_allow_html=True,
         )
-        st.markdown(_NIBO_CONSENT_HTML, unsafe_allow_html=True)
+        with st.popover("📋 내보험다보여 신용정보의 이용및 보호에 관한 법률 제32조 안내문.", use_container_width=True):
+            st.markdown(
+                "<div style='font-size:0.78rem;color:#92400e;font-weight:700;"
+                "margin-bottom:6px;'>📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(_NIBO_CONSENT_HTML, unsafe_allow_html=True)
     _c5 = st.checkbox(
         "✅ **[내보험다보여 필수]** 신용정보원 '내보험다보여' 연동 및 신용정보 조회·분석에 동의합니다 (신용정보법 제32조)",
         key=f"{terms_agree_key}_c5",
         help="AI 증권분석·트리니티 리포트 기능 사용 시 필수. 미동의 시 해당 기능이 비활성화됩니다.",
     )
-    if _c5:
-        st.success("✅ 내보험다보여 연동 동의 완료 — AI 증권분석·트리니티 리포트 활성화")
     # 내보험다보여 동의 여부를 독립 세션키로도 저장 (feature gate용)
     st.session_state["nibo_consent_agreed"]    = _c5
     st.session_state["nibo_consent_version"]   = _NIBO_CONSENT_VERSION if _c5 else ""
