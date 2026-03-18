@@ -1067,6 +1067,23 @@ def render_member_emergency_btn(
 # [GP-PHASE-4] 반응형 통합 증권분석 센터 (내보험다보여)
 # HQ 앱(app.py) + CRM 앱(crm_app.py) 양쪽에서 동일 렌더링
 # ══════════════════════════════════════════════════════════════════════════════
+# ── [GP-L-SEC] 내보험다보여 동의 상수 (ImportError 방지) ─────────────────────
+_NIBO_CONSENT_VERSION = "2026-03-16-v1"
+_NIBO_CONSENT_HTML = """
+<div style='font-size:0.82rem;color:#1e3a8a;line-height:1.85;'>
+<b>[신용정보의 이용 및 보호에 관한 법률 제32조 안내문]</b><br><br>
+본 서비스는 한국신용정보원 '내보험다보여' 시스템과 연동하여 고객님의 보험 가입 현황을 조회합니다.<br>
+<b>1. 수집·이용 항목:</b> 보험사명, 상품명, 담보·특약 내역, 계약상태, 보험료<br>
+<b>2. 수집·이용 목적:</b> AI 트리니티 엔진 기반 보장 적정성 및 실질 생계비 분석<br>
+<b>3. 보유 및 이용 기간:</b> 분석 완료 후 30일 경과 시 자동 파기<br>
+<b>4. 인증정보 처리:</b> 데이터 추출 후 즉시 메모리 파기 — 서버에 저장되지 않습니다.<br>
+<b>5. 제3자 제공:</b> 본인 동의 없이 제3자에게 절대 제공하지 않습니다.<br>
+<b>6. 책임 한계:</b> 신용정보원 데이터 기반으로 실제 증권과 차이가 있을 수 있습니다.<br><br>
+위 사항에 동의하시면 아래 동의 버튼을 클릭해 주세요.
+</div>
+"""
+
+
 def render_unified_analysis_center(
     *,
     key_prefix: str = "_uac",
@@ -1363,14 +1380,13 @@ def render_unified_analysis_center(
         use_container_width=True,
     ):
         if "current_tab" in st.session_state:
-            st.session_state["current_tab"]                 = "home"
-            st.session_state["_home_scroll_to_action_grid"] = True
-            st.session_state["_scroll_top"]                 = True
+            st.session_state["current_tab"] = "gk_sec10"
+            st.session_state["_scroll_top"] = True
             st.rerun()
         else:
             _hq_url = get_env_secret("HQ_APP_URL", HQ_APP_URL)
             st.markdown(
-                f'<a href="{_hq_url}" target="_blank">'
-                '🔗 HQ 앱에서 전체 정밀 분석 리포트 열기</a>',
+                f'<a href="{_hq_url}/?tab=gk_sec10" target="_blank">'
+                '🔗 통합 증권분석 센터(GK-SEC-10) 열기</a>',
                 unsafe_allow_html=True,
             )

@@ -37400,6 +37400,269 @@ function selectCustomer(name) {{
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
+    # [GP-HOME-RENDER] L-SECTION 부속 렌더 함수 5종 — NameError 방지
+    # ══════════════════════════════════════════════════════════════════════
+
+    def render_kb_analysis_part():
+        """KB손해보험 전문 증권분석 파트 — L-SECTION 부속"""
+        _kkey = "_kb_ap"
+        _c1, _c2 = st.columns([5, 5], gap="medium")
+        with _c1:
+            st.markdown(
+                "<div style='font-size:0.78rem;font-weight:900;color:#002D56;margin-bottom:6px;'>"
+                "📋 KB 7대 분류 담보 금액 직접 입력</div>", unsafe_allow_html=True)
+            _kb7_labels = [
+                "질병/상해 사망", "3대 진단비(암·뇌·심)", "수술/입원비",
+                "실손의료비", "운전자/배상책임", "치아/치매/간병", "연금/저축",
+            ]
+            _kb7_bench = [100_000_000, 50_000_000, 30_000_000, 5_000_000, 30_000_000, 30_000_000, 50_000_000]
+            _kb7_vals = []
+            for _i, _lbl in enumerate(_kb7_labels):
+                _v = st.number_input(
+                    _lbl, min_value=0, max_value=1_000_000_000,
+                    value=int(st.session_state.get(f"{_kkey}_kb7_{_i}", 0)),
+                    step=1_000_000, format="%d", key=f"{_kkey}_kb7_in_{_i}",
+                    help="해당 분류 합산 보장금액(원)")
+                st.session_state[f"{_kkey}_kb7_{_i}"] = _v
+                _kb7_vals.append(_v)
+            if st.button("⚡ KB 7대 분류 스코어 산출", key=f"{_kkey}_run",
+                         use_container_width=True, type="primary"):
+                _scores = [min(100, int(_v / _b * 100)) if _b else 0 for _v, _b in zip(_kb7_vals, _kb7_bench)]
+                st.session_state[f"{_kkey}_scores"] = _scores
+                st.session_state["_sops_kb_score"] = int(sum(_scores) / 7)
+            if st.button("📊 GK-SEC-10 통합 증권분석 센터 →",
+                         key=f"{_kkey}_goto", use_container_width=True):
+                st.session_state["current_tab"] = "gk_sec10"; st.rerun()
+        with _c2:
+            _scores = st.session_state.get(f"{_kkey}_scores")
+            if _scores:
+                _sl = ["질병/상해사망", "3대 진단비", "수술/입원비", "실손의료비", "운전자/배상", "치아·치매·간병", "연금/저축"]
+                st.markdown("<div style='font-size:0.72rem;font-weight:900;color:#002D56;margin-bottom:6px;'>📊 KB 7대 분류 게이지</div>", unsafe_allow_html=True)
+                for _lbl2, _s in zip(_sl, _scores):
+                    _clr = "#16a34a" if _s >= 80 else ("#f59e0b" if _s >= 40 else "#dc2626")
+                    _sts = "적정" if _s >= 80 else ("보통" if _s >= 40 else "취약")
+                    st.markdown(f'<div style="font-size:0.68rem;font-weight:700;color:#374151;">{_lbl2} <span style="float:right;color:{_clr};">{_sts} {_s}%</span></div>', unsafe_allow_html=True)
+                    st.progress(_s / 100)
+                _avg = int(sum(_scores) / 7)
+                st.metric("🏆 KB 종합 보장 점수", f"{_avg}점/100점",
+                          delta="우수" if _avg >= 70 else "보강 필요",
+                          delta_color="normal" if _avg >= 70 else "inverse")
+            else:
+                st.markdown('<div style="background:#f0f9ff;border:1px dashed #000;border-radius:10px;padding:30px 16px;text-align:center;color:#6b7280;font-size:0.82rem;">👈 좌측 금액 입력 후 산출 버튼 클릭</div>', unsafe_allow_html=True)
+
+    def render_trinity_analysis_part():
+        """트리니티(Trinity) 증권분석 엔진 — L-SECTION 부속"""
+        _tkey = "_tri_ap"
+        _nhi = float(st.session_state.get("gs_hi_premium") or 0)
+        _cname = st.session_state.get("scan_client_name", "")
+        _c1, _c2 = st.columns([5, 5], gap="medium")
+        with _c1:
+            st.markdown("<div style='font-size:0.78rem;font-weight:900;color:#5b21b6;margin-bottom:8px;'>⚙️ 트리니티 클로징 파라미터</div>", unsafe_allow_html=True)
+            _nhi_in = st.number_input(
+                "월 건강보험료(원)", min_value=0, max_value=2_000_000,
+                value=int(_nhi), step=10_000, key=f"{_tkey}_nhi",
+                help="직장인 본인부담분 | 추정 월소득 = 건보료×30")
+            if _nhi_in and _nhi_in != int(_nhi):
+                st.session_state["gs_hi_premium"] = float(_nhi_in)
+            _target_mo = st.selectbox("골든타임 기간(개월)", [12, 18, 24, 36, 48],
+                                      index=2, key=f"{_tkey}_months", help="24개월: 골든타임 기준")
+            if st.button("🔱 트리니티 FCGS 클로징 분석", key=f"{_tkey}_run",
+                         use_container_width=True, type="primary"):
+                if not _nhi_in:
+                    st.warning("월 건강보험료를 입력해 주세요.")
+                else:
+                    _mo = _nhi_in * 30; _da = _mo / 30
+                    st.session_state[f"{_tkey}_result"] = {
+                        "monthly": _mo, "daily": _da,
+                        "gap_need": _mo * 24, "target_need": _mo * _target_mo,
+                        "months": _target_mo,
+                    }
+        with _c2:
+            _res = st.session_state.get(f"{_tkey}_result")
+            if _res:
+                _mo_m = round(_res["monthly"] / 10_000, 1)
+                _da_m = round(_res["daily"] / 10_000, 2)
+                _gap_m = round(_res["gap_need"] / 10_000)
+                _tgt_m = round(_res["target_need"] / 10_000)
+                st.markdown(
+                    f'<div style="background:#f5f3ff;border:1px dashed #000;border-radius:12px;padding:16px 18px;">'
+                    f'<div style="font-size:0.72rem;font-weight:900;color:#5b21b6;margin-bottom:8px;">🔱 FCGS 클로징 — {_cname or "고객"}</div>'
+                    f'<div style="background:#ede9fe;border-radius:7px;padding:7px 10px;margin-bottom:5px;">'
+                    f'<span style="font-size:0.62rem;color:#7c3aed;font-weight:700;">① FACT — 추정 월소득</span><br>'
+                    f'<span style="font-size:1.05rem;font-weight:900;color:#3730a3;">{_mo_m:,}만원/월</span></div>'
+                    f'<div style="background:#ede9fe;border-radius:7px;padding:7px 10px;margin-bottom:5px;">'
+                    f'<span style="font-size:0.62rem;color:#7c3aed;font-weight:700;">② CRISIS — 24개월 골든타임 필요자금</span><br>'
+                    f'<span style="font-size:1.05rem;font-weight:900;color:#dc2626;">{_gap_m:,}만원</span></div>'
+                    f'<div style="background:#ede9fe;border-radius:7px;padding:7px 10px;margin-bottom:5px;">'
+                    f'<span style="font-size:0.62rem;color:#7c3aed;font-weight:700;">③ GAP — {_res["months"]}개월 클로징 목표</span><br>'
+                    f'<span style="font-size:1.05rem;font-weight:900;color:#1d4ed8;">{_tgt_m:,}만원</span></div>'
+                    f'<div style="background:#fde9d9;border-radius:7px;padding:7px 10px;">'
+                    f'<span style="font-size:0.62rem;color:#c2410c;font-weight:700;">④ SOLUTION — 필요 일당</span><br>'
+                    f'<span style="font-size:1.05rem;font-weight:900;color:#c2410c;">{_da_m:,}만원/일</span></div>'
+                    f'</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div style="background:#f5f3ff;border:1px dashed #000;border-radius:10px;padding:30px 16px;text-align:center;color:#6b7280;font-size:0.82rem;">👈 건강보험료 입력 후 분석 실행</div>', unsafe_allow_html=True)
+
+    def render_unified_gap_analysis_part():
+        """통합 증권 갭 분석 — KB × 트리니티 결합, N-SECTION 자동 브릿지"""
+        _ukey = "_ugap"
+        _kb_score = int(st.session_state.get("_sops_kb_score", 0) or 0)
+        _nhi = float(st.session_state.get("gs_hi_premium") or 0)
+        _cname = st.session_state.get("scan_client_name", "")
+        _c1, _c2 = st.columns([5, 5], gap="medium")
+        with _c1:
+            st.markdown("<div style='font-size:0.78rem;font-weight:900;color:#1d4ed8;margin-bottom:8px;'>📊 통합 갭 분석 입력</div>", unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="background:#dbeafe;border:1px dashed #000;border-radius:8px;'
+                f'padding:8px 12px;font-size:0.76rem;font-weight:700;color:#1e3a8a;margin-bottom:8px;">'
+                f'KB 7대 분류 점수: <b style="font-size:1.0rem;">{_kb_score}점</b> '
+                f'{"✅ 우수" if _kb_score >= 70 else "⚠️ 보강 필요" if _kb_score > 0 else "(미산출 — KB분석 먼저 실행)"}'
+                f'</div>', unsafe_allow_html=True)
+            _tgt = st.slider("목표 KB 점수", 60, 100,
+                             value=int(st.session_state.get(f"{_ukey}_tgt", 80)),
+                             step=5, key=f"{_ukey}_slider")
+            st.session_state[f"{_ukey}_tgt"] = _tgt
+            if st.button("⚡ 통합 갭 분석 실행", key=f"{_ukey}_run",
+                         use_container_width=True, type="primary"):
+                _gap_s = max(0, _tgt - _kb_score)
+                _mo = _nhi * 30 if _nhi > 0 else 2_000_000
+                _gap_amt = int(_gap_s * _mo * 0.3)
+                _r = {"gap_score": _gap_s, "gap_amt": _gap_amt, "kb_score": _kb_score, "target": _tgt}
+                st.session_state[f"{_ukey}_result"] = _r
+                st.session_state["n_section_bridge"] = {**_r, "cname": _cname}
+        with _c2:
+            _res2 = st.session_state.get(f"{_ukey}_result")
+            if _res2:
+                _gs2 = _res2["gap_score"]
+                _sev = "🔴 심각" if _gs2 > 30 else ("🟡 주의" if _gs2 > 10 else "🟢 양호")
+                st.markdown(
+                    f'<div style="background:#eff6ff;border:1px dashed #000;border-radius:12px;padding:16px 18px;">'
+                    f'<div style="font-size:0.72rem;font-weight:900;color:#1d4ed8;margin-bottom:8px;">🏗️ 갭 분석 결과 — {_cname or "고객"}</div>'
+                    f'<div style="background:#dbeafe;border-radius:7px;padding:8px 12px;margin-bottom:6px;">'
+                    f'<span style="font-size:0.65rem;color:#1e40af;font-weight:700;">현재→목표 갭 심각도</span><br>'
+                    f'<span style="font-size:1.1rem;font-weight:900;color:#1d4ed8;">{_res2["kb_score"]}점 → {_res2["target"]}점 {_sev}</span></div>'
+                    f'<div style="background:#fef3c7;border-radius:7px;padding:8px 12px;">'
+                    f'<span style="font-size:0.65rem;color:#92400e;font-weight:700;">예상 보강 필요 보장금액</span><br>'
+                    f'<span style="font-size:1.1rem;font-weight:900;color:#dc2626;">약 {_res2["gap_amt"]/10_000:,.0f}만원</span><br>'
+                    f'<span style="font-size:0.65rem;color:#374151;">N-SECTION 자동 브릿지 완료 ✅</span></div>'
+                    f'</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div style="background:#eff6ff;border:1px dashed #000;border-radius:10px;padding:30px 16px;text-align:center;color:#6b7280;font-size:0.82rem;">👈 목표 점수 설정 후 분석 실행<br><span style="font-size:0.70rem;">KB 분석 먼저 실행 필요</span></div>', unsafe_allow_html=True)
+
+    def render_policy_scan_part():
+        """PDF 증권 스캔 파트 — policy_scan 통합 (GP-POLICY-SCAN 규칙 준수)"""
+        _pskey = "_psp"
+        _c1, _c2 = st.columns([5, 5], gap="medium")
+        with _c1:
+            st.markdown("<div style='font-size:0.78rem;font-weight:900;color:#27ae60;margin-bottom:8px;'>📄 증권 파일 업로드 (PDF · JPG · PNG)</div>", unsafe_allow_html=True)
+            _fobj = st.file_uploader(
+                "증권 파일", type=["pdf", "jpg", "jpeg", "png"],
+                key=f"{_pskey}_uploader", label_visibility="collapsed",
+                help="보험증권 PDF/이미지 → AI 담보 자동 파싱")
+            if _fobj:
+                _fmb = len(_fobj.getvalue()) / (1024 * 1024)
+                if _fmb > 10:
+                    st.warning(f"⚠️ {_fmb:.1f}MB — 10MB 이하 파일만 지원")
+                else:
+                    st.success(f"✅ {_fobj.name} ({_fmb:.1f}MB) 준비 완료")
+                    st.session_state[f"{_pskey}_file"] = _fobj
+            if st.button("🔍 AI 담보 자동 파싱 실행", key=f"{_pskey}_run",
+                         use_container_width=True, type="primary"):
+                _f2 = st.session_state.get(f"{_pskey}_file")
+                if not _f2:
+                    st.warning("파일을 먼저 업로드하세요.")
+                else:
+                    with st.spinner("🤖 AI 파싱 중..."):
+                        try:
+                            _raw_txt = extract_pdf_chunks(_f2, char_limit=6000)
+                            _cli2 = get_client()
+                            _resp2 = _cli2.models.generate_content(
+                                model=st.session_state.get("model_name", GEMINI_MODEL),
+                                contents=(
+                                    f"보험증권에서 담보·특약을 추출하세요:\n\n{_raw_txt}\n\n"
+                                    "JSON 배열로만 답변: "
+                                    '[{"prodName":"상품명","traitName":"담보명","amt":"금액","status":"유효"}]'
+                                ),
+                                config=_lazy_genai_types().GenerateContentConfig(
+                                    max_output_tokens=1500, temperature=0.3),
+                            )
+                            st.session_state[f"{_pskey}_result"] = _resp2.text or ""
+                        except Exception as _pe:
+                            st.session_state[f"{_pskey}_result"] = f"⚠️ 파싱 오류: {_pe}"
+            if st.button("🔑 GK-SEC-10 통합 증권분석 센터에서 정밀분석 →",
+                         key=f"{_pskey}_goto", use_container_width=True):
+                st.session_state["current_tab"] = "gk_sec10"; st.rerun()
+        with _c2:
+            st.markdown("<div style='font-size:0.78rem;font-weight:900;color:#27ae60;margin-bottom:8px;'>🤖 AI 담보 파싱 결과</div>", unsafe_allow_html=True)
+            _res3 = st.session_state.get(f"{_pskey}_result")
+            if _res3:
+                st.markdown(f'<div class="gk-ai-output-box"><div style="color:#000;font-size:0.82rem;line-height:1.8;font-weight:700;">{_res3}</div></div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="gk-ai-output-box"><div style="color:#94a3b8;font-size:0.82rem;text-align:center;padding-top:40px;line-height:2.0;">📄 증권 파일 업로드 후<br>🔍 AI 파싱 실행 버튼 클릭</div></div>', unsafe_allow_html=True)
+
+    def render_loss_life_gap_part():
+        """실손·생명보험 갭 분석 파트 — KCD 코드 기반 (GP-POLICY-SCAN 준수)"""
+        _llkey = "_llg"
+        _kcd_val = st.session_state.get("scan_client_kcd_code", "")
+        _cname = st.session_state.get("scan_client_name", "")
+        _c1, _c2 = st.columns([5, 5], gap="medium")
+        with _c1:
+            st.markdown("<div style='font-size:0.78rem;font-weight:900;color:#0369a1;margin-bottom:8px;'>🔬 KCD 코드 기반 실손·생명 갭 분석</div>", unsafe_allow_html=True)
+            _kcd_in = st.text_input(
+                "KCD 코드 입력", value=_kcd_val,
+                placeholder="예) C50, I63, F00…",
+                key=f"{_llkey}_kcd_input", help="한국표준질병사인분류 코드")
+            if _kcd_in and _kcd_in != _kcd_val:
+                st.session_state["scan_client_kcd_code"] = _kcd_in
+            _syn_text = st.text_area(
+                "진단 내용 직접 입력 (선택)", height=70,
+                value=st.session_state.get(f"{_llkey}_syn", ""),
+                placeholder="예) 유방암 2기, 뇌경색, 급성심근경색…",
+                key=f"{_llkey}_syn_in")
+            st.session_state[f"{_llkey}_syn"] = _syn_text
+            _held = st.multiselect(
+                "현재 보유 담보",
+                ["실손의료비", "암진단비", "뇌졸중진단비", "심근경색진단비", "수술비", "입원비", "간병보험", "치매보험"],
+                default=st.session_state.get(f"{_llkey}_held", []),
+                key=f"{_llkey}_held_sel")
+            st.session_state[f"{_llkey}_held"] = _held
+            if st.button("⚡ 실손·생명 갭 분석 실행", key=f"{_llkey}_run",
+                         use_container_width=True, type="primary"):
+                _q = _kcd_in or _syn_text
+                if not _q:
+                    st.warning("KCD 코드 또는 진단 내용을 입력하세요.")
+                else:
+                    with st.spinner("🤖 AI 갭 분석 중..."):
+                        try:
+                            _cli3 = get_client()
+                            _h_str = ", ".join(_held) if _held else "미입력"
+                            _r3 = _cli3.models.generate_content(
+                                model=st.session_state.get("model_name", GEMINI_MODEL),
+                                contents=(
+                                    f"[고객: {_cname or '미입력'}] KCD: {_q} | 보유담보: {_h_str}\n\n"
+                                    "다음을 분석하세요:\n1. 실손의료비 부책 여부 (면책기준)\n"
+                                    "2. 생명보험 공백 (KB 7대 분류)\n"
+                                    "3. 즉시 보강 필요 담보 Top 3\n"
+                                    "4. FSS 공시 기반 최적 상품 유형 추천"
+                                ),
+                                config=_lazy_genai_types().GenerateContentConfig(
+                                    max_output_tokens=1500, temperature=0.6),
+                            )
+                            st.session_state[f"{_llkey}_result"] = _r3.text or ""
+                        except Exception as _le:
+                            st.session_state[f"{_llkey}_result"] = f"⚠️ 분석 오류: {_le}"
+        with _c2:
+            st.markdown("<div style='font-size:0.78rem;font-weight:900;color:#0369a1;margin-bottom:8px;'>🤖 AI 갭 분석 결과</div>", unsafe_allow_html=True)
+            _res4 = st.session_state.get(f"{_llkey}_result")
+            if _res4:
+                st.markdown(f'<div class="gk-ai-output-box"><div style="color:#000;font-size:0.82rem;line-height:1.8;font-weight:700;">{_res4}</div></div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="gk-ai-output-box"><div style="color:#94a3b8;font-size:0.82rem;text-align:center;padding-top:40px;line-height:2.0;">🔬 KCD 코드 입력 후<br>⚡ 분석 실행 버튼 클릭</div></div>', unsafe_allow_html=True)
+            if st.button("🔑 GK-SEC-10 통합 증권분석 센터에서 정밀분석 →",
+                         key=f"{_llkey}_goto", use_container_width=True):
+                st.session_state["current_tab"] = "gk_sec10"; st.rerun()
+
+    # ══════════════════════════════════════════════════════════════════════
     # [Phase 4 — GP 마스터-그림자] HQ 응접 데스크 도킹 처리
     # CRM 자 앱에서 gk_cid / gk_token / gk_sector 를 URL로 전달받아
     # 스피너 → 고객 로드 → 섹터 자동 점프 실행
@@ -37721,6 +37984,7 @@ function selectCustomer(name) {{
                             st.session_state["target_sector"] = None
                             st.rerun()
                     # ── [트리니티 엔진] CRM 분석 결과 Pull 위젯 ─────────────────
+                    st.markdown(f'<div style="position:relative;">{_bid("GK-HOME-TRI-PULL")}</div>', unsafe_allow_html=True)
                     try:
                         from trinity_engine import render_trinity_pull_box as _tri_pull
                         _tri_pull(
@@ -37729,8 +37993,10 @@ function selectCustomer(name) {{
                             agent_id=st.session_state.get("user_id", ""),
                             client_name=_docked_name,
                         )
-                    except Exception:
-                        pass
+                    except ImportError:
+                        st.caption("🔗 트리니티 엔진 연결 대기 중 — trinity_engine 모듈 확인 필요")
+                    except Exception as _tri_e:
+                        st.caption(f"🔱 트리니티 Pull 오류: {str(_tri_e)[:60]}")
                 else:
                     st.markdown(
                         "<span style='color:#6b7280;font-size:0.82rem;font-weight:700;'>"
@@ -37739,8 +38005,9 @@ function selectCustomer(name) {{
 
             # ── [TRAIN] AI 상담 시뮬레이션 섹션 ──────────────────────────────────
             st.markdown(
-                """<div style='background:#EBF5FB;border:2px solid #7c3aed;
+                f"""<div style='background:#EBF5FB;border:2px solid #7c3aed;
       border-radius:12px;padding:14px 14px 10px 14px;position:relative;'>
+      {_bid('GK-HOME-TRAIN')}
       <div style='font-size:0.78rem;font-weight:900;color:#5b21b6;letter-spacing:0.08em;
         text-transform:uppercase;margin-bottom:6px;'>
         🎮 TRAIN-01: AI 상담 시뮬레이션 모드</div>
@@ -37758,11 +38025,18 @@ function selectCustomer(name) {{
                     st.error("시뮬레이션 로드 오류: " + str(_sim_e))
 
             # ── [GP-PHASE-4] 반응형 통합 증권분석 센터 (내보험다보여) ────────────
+            st.markdown(
+                f'<div class="gk-sec" style="border-top:4px solid #059669;background:#f0fdf4;">'
+                f'<div style="position:relative;">{_bid("GK-HOME-UAC")}'
+                f'<span class="gk-sec-title" style="color:#059669;">'
+                f'📊 통합 증권분석 센터 — AI 분석 허브 (내보험다보여 연동)</span></div>',
+                unsafe_allow_html=True)
             try:
                 from shared_components import render_unified_analysis_center as _render_uac
                 _render_uac(key_prefix="_uac_hq")
             except Exception as _uac_e:
                 st.error(f"통합 증권분석 센터 로드 오류: {_uac_e}")
+            st.markdown('</div>', unsafe_allow_html=True)
 
             if not st.session_state.get("_gp45_splash_shown"):
                 st.session_state["_gp45_splash_shown"] = True
@@ -39482,8 +39756,9 @@ div[data-testid="stButton"] {
 
             # ── [📄 PDF 증권 스캔] render_policy_scan_part — policy_scan 통합 ──
             st.markdown(
-                '<div class="gk-sec" style="border-top:4px solid #27ae60;">'
-                '<span class="gk-sec-title" style="color:#27ae60;">📄 보험증권 PDF 스캔 분석</span>',
+                f'<div class="gk-sec" style="border-top:4px solid #27ae60;">'
+                f'<div style="position:relative;">{_bid("1-5-pdf")}'
+                f'<span class="gk-sec-title" style="color:#27ae60;">📄 보험증권 PDF 스캔 분석</span></div>',
                 unsafe_allow_html=True,
             )
             st.markdown(
@@ -39502,8 +39777,9 @@ div[data-testid="stButton"] {
 
             # ── [🏥 실손·생명 갭] render_loss_life_gap_part — special_ops 통합 ──
             st.markdown(
-                '<div class="gk-sec" style="border-top:4px solid #0369a1;">'
-                '<span class="gk-sec-title" style="color:#0369a1;">🏥 실손·생명보험 갭 분석</span>',
+                f'<div class="gk-sec" style="border-top:4px solid #0369a1;">'
+                f'<div style="position:relative;">{_bid("1-5-llg")}'
+                f'<span class="gk-sec-title" style="color:#0369a1;">🏥 실손·생명보험 갭 분석</span></div>',
                 unsafe_allow_html=True,
             )
             st.markdown(
