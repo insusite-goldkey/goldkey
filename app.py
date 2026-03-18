@@ -40010,11 +40010,6 @@ div[data-testid="stButton"] {
                         _go_tab("scan_hub")
                     else:
                         st.warning("🔒 로그인 후 이용 가능합니다. 사이드바 하단 **Admin Console**에서 로그인하세요.")
-                if st.button("📄 팜플릿 관리", key="sec07_leaflet", use_container_width=True):
-                    if _sec07_uid:
-                        _go_tab("leaflet")
-                    else:
-                        st.warning("🔒 로그인 후 이용 가능합니다. 사이드바 하단 **Admin Console**에서 로그인하세요.")
             with _adm_c2:
                 st.markdown(
                     "<div style='background:#F0F9FF;border:1px solid #BBDEFB;border-radius:8px;"
@@ -40023,8 +40018,7 @@ div[data-testid="stButton"] {
                     "• <b>RAG 지식베이스</b>: PDF/TXT 문서 업로드 → AI 지식 인덱싱<br>"
                     "• <b>약관 스캔 로드</b>: 보험사·상품명 입력 → JIT 크롤링<br>"
                     "• <b>건강보험료율</b>: 연간 법정 요율 업데이트<br>"
-                    "• <b>통합 스캔 센터</b>: 증권·의무기록·진단서 업로드 허브<br>"
-                    "• <b>팜플릿 관리</b>: 보험사 상품 팜플릿 분류·저장"
+                    "• <b>통합 스캔 센터</b>: 증권·의무기록·진단서 업로드 허브"
                     "</div>",
                     unsafe_allow_html=True
                 )
