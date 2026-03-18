@@ -14612,7 +14612,21 @@ def _render_gk_sec10():
 </style>
 """, unsafe_allow_html=True)
 
-    tab_home_btn("gk_sec10")
+    # ── 홈 복귀 버튼 (tab_home_btn 인라인 — @st.fragment 외부 스코프 한계 회피) ──
+    _s10_c1, _s10_c2 = st.columns([3, 1])
+    with _s10_c1:
+        if st.button("⬅️ 상담 SECTION 게이트 웨이로 돌아가기",
+                     key="btn_back_sec05_gk_sec10",
+                     use_container_width=True):
+            st.session_state["current_tab"] = "home"
+            st.session_state["_home_scroll_to_sec05"] = True
+            st.session_state["_scroll_top"] = True
+            st.rerun()
+    with _s10_c2:
+        if st.button("🏠 홈", key="tab_home_gk_sec10",
+                     use_container_width=True):
+            st.session_state["current_tab"] = "home"
+            st.rerun()
 
     st.markdown(
         "<div style='background:linear-gradient(135deg,#1e1b4b 0%,#312e81 60%,#4338ca 100%);"
