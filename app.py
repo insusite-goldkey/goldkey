@@ -28009,7 +28009,7 @@ var _active=false, _rec=null, _ready=false, _starting=false;
 var _finalBuf='';
 var _pendingFinal='';   // end_pointing_delay 버퍼: silence 타이머 만료 후 확정
 var _silenceTimer=null; // silence 타이머 핸들
-var _lastQ=[];          // 중복 검사 큐: {text, ts} 객체 배열 (최대 {STT_LEV_QUEUE}개)
+var _lastQ=[];          // 중복 검사 큐: {{text, ts}} 객체 배열 (최대 {STT_LEV_QUEUE}개)
 var _wakeLock=null;
 // VAD 파라미터 (전역 상수에서 주입)
 var _MIN_UTTERANCE_MS={STT_MIN_UTTERANCE_MS};  // 최소 발화 길이: 노이즈 무시
@@ -48296,15 +48296,32 @@ div[data-testid="stButton"] {
             ),
         ]
 
+        # ── 컴팩트 버튼 CSS (silson_consult 좌측 전용) ────────────────
+        st.markdown("""
+<style>
+[data-testid="stColumn"]:first-of-type [data-testid="stButton"] > button {
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+    font-size: 0.76rem !important;
+    min-height: 27px !important;
+    line-height: 1.2 !important;
+}
+</style>""", unsafe_allow_html=True)
+
         _sl_col_l, _sl_col_r = st.columns([5, 5], gap="small")
 
         with _sl_col_l:
             _sl_aq = st.session_state.get("sl_active_q", None)
-            st.markdown("""<div style="border:1px dashed #000;border-radius:10px;
-  padding:10px 12px 4px 12px;background:#f9fafb;">
-<div style="font-size:0.78rem;font-weight:900;color:#6A1B9A;
-  letter-spacing:0.05em;margin-bottom:6px;">
-  📋 빠른 조회 — 항목 선택 시 우측에 AI 답변 즉시 표시</div>""", unsafe_allow_html=True)
+            # ── 빠른 조회 헤더 ─────────────────────────────────────────
+            st.markdown(
+                '<div style="border:1px dashed #000;border-radius:10px 10px 0 0;'
+                'padding:7px 12px 5px 12px;background:#f3e5f5;">'
+                '<span style="font-size:0.78rem;font-weight:900;color:#6A1B9A;'
+                'letter-spacing:0.04em;">'
+                '📋 빠른 조회 — 항목 선택 시 우측에 AI 답변 즉시 표시'
+                '</span></div>',
+                unsafe_allow_html=True
+            )
             _sl_quick_labels = [
                 "📖 ① 세대별 표준약관 비교(1~4세대)",
                 "💰 ② 급여 vs 비급여 보장 기준",
@@ -48327,17 +48344,20 @@ div[data-testid="stButton"] {
             ]
             for _sl_i, _sl_lbl in enumerate(_sl_quick_labels):
                 _is_active = (_sl_aq == _sl_i)
-                _btn_label = f"{'▶ ' if _is_active else ''}{_sl_lbl}"
+                _btn_label = ("▶ " if _is_active else "") + _sl_lbl
                 if st.button(_btn_label, key=f"sl_q_{_sl_i}", use_container_width=True):
                     st.session_state["sl_active_q"] = _sl_i
                     st.session_state["query_silson_consult"] = _sl_quick_texts[_sl_i]
                     st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown("""<div style="border:1px dashed #000;border-radius:10px;
-  padding:10px 12px;background:#ffffff;margin-top:5px;">
-<div style="font-size:0.78rem;font-weight:900;color:#1a3a5c;margin-bottom:4px;">
-  ✍️ 직접 질문 입력 — 정밀 분석 실행</div>""", unsafe_allow_html=True)
+            # ── 직접 질문 입력 헤더 ──────────────────────────────────────
+            st.markdown(
+                '<div style="border:1px dashed #000;border-radius:10px;'
+                'padding:7px 12px 5px 12px;background:#ffffff;margin-top:4px;">'
+                '<span style="font-size:0.78rem;font-weight:900;color:#1a3a5c;">'
+                '✍️ 직접 질문 입력 — 정밀 분석 실행'
+                '</span></div>',
+                unsafe_allow_html=True
+            )
             c_name_sl, query_sl, hi_sl, do_sl, _pk_sl = ai_query_block(
                 "silson_consult",
                 placeholder="예) '4세대 실손 비급여 자기부담금이 입원과 통원이 동일한가요?' 또는 KCD코드 입력",
@@ -48364,33 +48384,52 @@ div[data-testid="stButton"] {
                     ),
                     product_key=_pk_sl,
                 )
-            st.markdown("</div>", unsafe_allow_html=True)
 
         with _sl_col_r:
             _sl_aq_r = st.session_state.get("sl_active_q", None)
-            st.markdown("""<div style="border:1px dashed #000;border-radius:10px;
-  padding:10px 14px 6px 14px;background:#f9fafb;">
-<div style="font-size:0.84rem;font-weight:900;color:#1a3a5c;
-  letter-spacing:0.04em;margin-bottom:6px;">
-  🤖 AI 답변(의견)</div>
-<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;
-  padding:4px 10px;margin-bottom:8px;font-size:0.71rem;color:#856404;">
-  🔴 <b>[RED_ALERT]</b> 약관 최우선 위계 &nbsp;·&nbsp; 1·2인칭 전용 답변 &nbsp;·&nbsp; 이중검증(제24조)
-</div>""", unsafe_allow_html=True)
+            # ── 우측 패널 헤더 (자기완결 HTML) ──────────────────────────
+            st.markdown(
+                '<div style="border:1px dashed #000;border-radius:10px;'
+                'padding:8px 14px 6px 14px;background:#f9fafb;margin-bottom:4px;">'
+                '<div style="font-size:0.86rem;font-weight:900;color:#1a3a5c;'
+                'letter-spacing:0.04em;margin-bottom:4px;">🤖 AI 답변(의견)</div>'
+                '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;'
+                'padding:3px 10px;font-size:0.70rem;color:#856404;">'
+                '🔴 <b>[RED_ALERT]</b> 약관 최우선 위계 &nbsp;·&nbsp; '
+                '1·2인칭 전용 &nbsp;·&nbsp; 이중검증(제24조)'
+                '</div></div>',
+                unsafe_allow_html=True
+            )
+            # ── 사전 답변 박스: components.html 독립 렌더링 ─────────────
+            _HTML_BASE = (
+                '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+                '<style>body{margin:0;padding:0;'
+                'font-family:"Noto Sans KR","Apple SD Gothic Neo",sans-serif;}'
+                '</style></head><body>'
+            )
             if _sl_aq_r is not None and 0 <= _sl_aq_r < len(_SL_ANSWERS):
-                st.markdown(_SL_ANSWERS[_sl_aq_r], unsafe_allow_html=True)
+                components.html(
+                    _HTML_BASE + _SL_ANSWERS[_sl_aq_r] + '</body></html>',
+                    height=492, scrolling=True
+                )
             else:
-                st.markdown("""<div style="border:1px dashed #bbb;border-radius:8px;
-  padding:30px 20px;background:#fff;text-align:center;color:#94a3b8;font-size:0.80rem;">
-  ← <b>좌측에서 항목을 선택</b>하면 약관 기반 3계층 AI 답변이 표시됩니다.<br>
-  <span style="font-size:0.72rem;">직접 질문은 아래 입력창에서 정밀 분석을 실행하세요.</span>
-</div>""", unsafe_allow_html=True)
+                components.html(
+                    _HTML_BASE
+                    + '<div style="border:1px dashed #bbb;border-radius:8px;'
+                    'padding:40px 20px;background:#fff;text-align:center;'
+                    'color:#94a3b8;font-size:0.82rem;min-height:450px;'
+                    'box-sizing:border-box;display:flex;align-items:center;'
+                    'justify-content:center;flex-direction:column;">'
+                    '<div style="font-size:2.4rem;margin-bottom:10px;color:#c4b5d0;">&#8592;</div>'
+                    '<b style="color:#6A1B9A;">좌측에서 항목을 선택</b>하면<br>'
+                    '약관 기반 3계층 AI 답변이 표시됩니다.<br>'
+                    '<span style="font-size:0.72rem;margin-top:10px;color:#cbd5e1;">'
+                    '직접 질문은 아래 입력창에서 정밀 분석을 실행하세요.'
+                    '</span></div></body></html>',
+                    height=492
+                )
+            st.caption("※ 약관·금감원 지침·제6편 손해사정 기준 | 최종 지급 여부는 담당 보험사 확인 필요")
             show_result("res_silson")
-            st.markdown("""<div style="font-size:0.69rem;color:#94a3b8;margin-top:8px;
-  border-top:1px dashed #e2e8f0;padding-top:5px;">
-  ※ 본 답변은 약관·금감원 지침·제6편 손해사정 기준에 의거합니다.
-  최종 보험금 지급 여부는 담당 보험사 확인이 필요합니다.
-</div></div>""", unsafe_allow_html=True)
 
         # ══════════════════════════════════════════════════════════════
         # 🩺 실손의료비 타임머신 분석 센터
