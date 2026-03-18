@@ -16831,18 +16831,18 @@ input, textarea, .stTextInput input, .stTextArea textarea {
                 st.warning("📢 갱신 1개월 전")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── 2×3 서비스 그리드 ───────────────────────────────────────────────────
-    _t1, _t2, _t3, _t4, _t5, _t6 = st.tabs([
-        "1️⃣ 가입/갱신 관리",
-        "2️⃣ 민사배상 & 담보",
-        "3️⃣ 운전자보험 연계",
-        "4️⃣ 장해 판정 기준",
-        "5️⃣ 사고 대처 & 과실비율",
-        "6️⃣ FC 필수 질문",
-    ])
+    # ── 4섹션 서비스 그리드 (라디오 기반 탭 선택) ─────────────────────────────
+    _TAB_LABELS = ["🚗 보험상담", "🔍 사고상담", "📋 보상가이드", "📖 약관개시창"]
+    _s07_init = st.session_state.pop("gk_sec07_init_tab", None)
+    if _s07_init is not None:
+        st.session_state["gk_s07_radio"] = _TAB_LABELS[_s07_init]
+    _sel = st.radio(
+        "섹션 선택", _TAB_LABELS,
+        key="gk_s07_radio", horizontal=True, label_visibility="collapsed",
+    )
 
-    # ── [1] 가입/갱신 관리 ──────────────────────────────────────────────────
-    with _t1:
+    # ── [보험상담 §1] 가입/갱신 관리 ──────────────────────────────────────────
+    if _sel == "🚗 보험상담":
         st.markdown('<div class="gks07-wrap">', unsafe_allow_html=True)
         st.markdown("#### 📋 자동차보험 가입/갱신 관리")
         st.components.v1.html("""
@@ -16902,8 +16902,8 @@ input, textarea, .stTextInput input, .stTextArea textarea {
             )
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── [2] 민사배상 & 담보 분석 ────────────────────────────────────────────
-    with _t2:
+    # ── [보험상담 §2] 민사배상 & 담보 분석 ──────────────────────────────────────
+    if _sel == "🚗 보험상담":
         st.markdown('<div class="gks07-wrap">', unsafe_allow_html=True)
         st.markdown("#### ⚖️ 민사배상 관점 담보 분석")
         st.markdown("""
@@ -16960,8 +16960,8 @@ input, textarea, .stTextInput input, .stTextArea textarea {
 </div>""", height=200)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── [3] 운전자보험 상관관계 ──────────────────────────────────────────────
-    with _t3:
+    # ── [보험상담 §3] 운전자보험 상관관계 ────────────────────────────────────────
+    if _sel == "🚗 보험상담":
         st.markdown('<div class="gks07-wrap">', unsafe_allow_html=True)
         st.markdown("#### 🚦 운전자보험 vs 자동차보험 상관관계")
         st.components.v1.html("""
@@ -17012,8 +17012,8 @@ input, textarea, .stTextInput input, .stTextArea textarea {
         st.info("💡 **FC 전략:** 자동차보험 갱신 상담 시 반드시 운전자보험 가입 여부 확인 → 형사합의금 공백 집중 어필")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── [4] 장해 판정 기준 ──────────────────────────────────────────────────
-    with _t4:
+    # ── [사고상담 §1] 장해 판정 기준 ────────────────────────────────────────────
+    if _sel == "🔍 사고상담":
         st.markdown('<div class="gks07-wrap">', unsafe_allow_html=True)
         st.markdown("#### 🏥 장해 평가 모듈 — AMA / 맥브라이드 / 국가장애율 비교")
         _rag_dis = _rag_sector_query("장해 AMA 맥브라이드", sector="disability", top_k=2)
@@ -17061,8 +17061,8 @@ input, textarea, .stTextInput input, .stTextArea textarea {
 </div>""", height=165)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── [5] 사고 대처 & 과실비율 ────────────────────────────────────────────
-    with _t5:
+    # ── [사고상담 §2] 사고 대처 & 과실비율 ──────────────────────────────────────
+    if _sel == "🔍 사고상담":
         st.markdown('<div class="gks07-wrap">', unsafe_allow_html=True)
         st.markdown("#### 🔍 사고 상황별 과실비율 RAG 검색")
         st.caption("「230630 자동차사고 과실비율 인정기준」 기반 — 사고 유형 선택 또는 직접 입력")
@@ -17138,8 +17138,8 @@ input, textarea, .stTextInput input, .stTextArea textarea {
             )
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── [6] FC 필수 질문 리스트 ─────────────────────────────────────────────
-    with _t6:
+    # ── [보험상담 §4] FC 체크리스트 & 상담 노트 ───────────────────────────────────
+    if _sel == "🚗 보험상담":
         st.markdown('<div class="gks07-wrap">', unsafe_allow_html=True)
         st.markdown("#### 📝 FC 필수 질문 리스트 — 자동차보험 상담 체크리스트")
         _fc_questions = [
@@ -17198,6 +17198,107 @@ input, textarea, .stTextInput input, .stTextArea textarea {
                     unsafe_allow_html=True,
                 )
 
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── [보상가이드] ──────────────────────────────────────────────────────────
+    if _sel == "📋 보상가이드":
+        st.markdown('<div class="gks07-wrap">', unsafe_allow_html=True)
+        st.markdown("#### 📋 교통사고 보상 가이드")
+        st.caption("「230630 자동차사고 과실비율 인정기준」 금융감독원·손해보험협회 공식 기준서")
+        _pdf_fn_s07 = "230630_fault_ratio_standard_final.pdf"
+        _pdf_url_s07 = ""
+        try:
+            _sb_base_s07 = (
+                os.environ.get("SUPABASE_URL", "").strip()
+                or get_env_secret("SUPABASE_URL", "")
+            ).rstrip("/")
+            if _sb_base_s07:
+                _pdf_url_s07 = f"{_sb_base_s07}/storage/v1/object/public/{SB_BUCKET}/{_pdf_fn_s07}"
+        except Exception:
+            pass
+        if _pdf_url_s07:
+            st.markdown(
+                f"<div style='text-align:right;margin-bottom:4px;'>"
+                f"<a href='{_pdf_url_s07}' target='_blank' style='font-size:0.82rem;"
+                f"color:#1e6fa8;font-weight:700;text-decoration:none;'>"
+                f"⬇️ PDF 새 탭에서 열기 ↗</a></div>",
+                unsafe_allow_html=True,
+            )
+            st.components.v1.html(
+                f'<iframe src="{_pdf_url_s07}" width="100%" height="700" '
+                f'style="border:1px solid #b3d4f5;border-radius:8px;" '
+                f'allow="fullscreen"></iframe>',
+                height=715,
+                scrolling=False,
+            )
+        else:
+            st.warning("📌 Supabase URL을 가져올 수 없습니다. secrets 설정을 확인하세요.")
+            st.markdown(
+                "<div style='background:#fef9e7;border:1px solid #f1c40f;border-radius:7px;"
+                "padding:8px 12px;font-size:0.79rem;color:#7d6608;margin-top:6px;'>"
+                "💡 임시 대안: 손해보험협회 과실비율 분쟁심의위원회 사이트에서 직접 확인 가능<br>"
+                "<a href='https://accident.knia.or.kr' target='_blank' "
+                "style='color:#1e6fa8;font-weight:700;'>🔗 accident.knia.or.kr ↗</a>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── [약관개시창] ──────────────────────────────────────────────────────────
+    if _sel == "📖 약관개시창":
+        st.markdown('<div class="gks07-wrap">', unsafe_allow_html=True)
+        st.markdown("#### 📖 자동차보험 약관 개시창")
+        st.caption("보험사별 약관 PDF를 선택하거나 직접 URL을 입력하여 열람하세요.")
+        _pol_opts = {
+            "삼성화재 자동차보험 표준약관": "samsung_auto_policy.pdf",
+            "KB손해보험 자동차보험 약관": "kb_auto_policy.pdf",
+            "현대해상 자동차보험 약관": "hyundai_auto_policy.pdf",
+            "DB손해보험 자동차보험 약관": "db_auto_policy.pdf",
+            "메리츠화재 자동차보험 약관": "meritz_auto_policy.pdf",
+        }
+        _sel_pol = st.selectbox("약관 선택", ["직접 URL 입력"] + list(_pol_opts.keys()), key="sec07_pol_sel")
+        if _sel_pol == "직접 URL 입력":
+            _pol_url = st.text_input("약관 PDF URL", key="sec07_pol_url",
+                                     placeholder="https://... (약관 PDF 직접 URL 입력)")
+        else:
+            _pol_fn = _pol_opts[_sel_pol]
+            _pol_url = ""
+            try:
+                _sb_pol = (
+                    os.environ.get("SUPABASE_URL", "").strip()
+                    or get_env_secret("SUPABASE_URL", "")
+                ).rstrip("/")
+                if _sb_pol:
+                    _pol_url = f"{_sb_pol}/storage/v1/object/public/{SB_BUCKET}/{_pol_fn}"
+            except Exception:
+                pass
+        if _pol_url:
+            st.markdown(
+                f"<div style='text-align:right;margin-bottom:4px;'>"
+                f"<a href='{_pol_url}' target='_blank' style='font-size:0.82rem;"
+                f"color:#1e6fa8;font-weight:700;text-decoration:none;'>"
+                f"⬇️ 약관 PDF 새 탭에서 열기 ↗</a></div>",
+                unsafe_allow_html=True,
+            )
+            st.components.v1.html(
+                f'<iframe src="{_pol_url}" width="100%" height="700" '
+                f'style="border:1px solid #b3d4f5;border-radius:8px;" '
+                f'allow="fullscreen"></iframe>',
+                height=715,
+                scrolling=False,
+            )
+        else:
+            st.info("약관을 선택하거나 PDF URL을 직접 입력하세요.")
+            st.markdown(
+                "<div style='background:#f0f7ff;border:1px dashed #000;border-radius:8px;"
+                "padding:10px 14px;font-size:0.82rem;color:#1a3a5c;'>"
+                "📌 <b>약관 입수 방법:</b><br>"
+                "• 각 보험사 홈페이지 → 약관/공시자료 → 자동차보험 약관 PDF 다운로드<br>"
+                "• 금융감독원 파인(fine.fss.or.kr) → 약관 검색<br>"
+                "• Supabase Storage에 약관 PDF 업로드 후 공개 URL 등록"
+                "</div>",
+                unsafe_allow_html=True,
+            )
         st.markdown('</div>', unsafe_allow_html=True)
 
     # ── 하단 네비게이션 ──────────────────────────────────────────────────────
@@ -39417,19 +39518,20 @@ div[data-testid="stButton"] {
       border-radius:12px;padding:10px 14px 8px 14px;position:relative;">
       {_bid('1-5-7h')}
       <div style="font-size:0.78rem;font-weight:900;color:#006064;letter-spacing:0.08em;
-        text-transform:uppercase;margin-bottom:2px;">🚗 H-SECTION: 자동차사고 상담</div>
+        text-transform:uppercase;margin-bottom:2px;">🚗 H-SECTION: 자동차 보험 &amp; 사고 상담</div>
     </div>""", unsafe_allow_html=True)
-                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#006064;margin:6px 0 3px 0;border-top:1px solid #4DD0E1;padding-top:5px;letter-spacing:0.05em;'>🚗 사고 상담 · 과실비율</div>", unsafe_allow_html=True)
-                if st.button("① 자동차사고 상담",           key="ag_h1",  use_container_width=True): _go_tab("t4")
-                if st.button("⚖️ 과실비율 산정 (4210)",     key="ag_h1a", use_container_width=True): _go_tab("t4")
-                if st.button("💰 합의금 산정 (4220)",       key="ag_h1b", use_container_width=True): _go_tab("t4")
-                if st.button("👶 민식이법 상담 (4230)",     key="ag_h1c", use_container_width=True): _go_tab("t4")
-                st.markdown("<div style='font-size:0.70rem;font-weight:800;color:#006064;margin:6px 0 3px 0;border-top:1px solid #4DD0E1;padding-top:5px;letter-spacing:0.05em;'>🔧 실무 · 보상 · 전술</div>", unsafe_allow_html=True)
-                if st.button("② 자동차보험 실무",           key="ag_h2",  use_container_width=True): _go_tab("auto_comp")
-                if st.button("③ 교통사고 보상 가이드",      key="ag_h3",  use_container_width=True):
-                    st.session_state["comp_acc_type"] = "교통사고 / 산재"
-                    _go_tab("compensation")
-                if st.button("④ 자동차보험 전술 상담 센터", key="ag_h4",  use_container_width=True): _go_tab("gk_sec07")
+                if st.button("🚗 보험상담",    key="ag_h_ins",    use_container_width=True):
+                    st.session_state["gk_sec07_init_tab"] = 0
+                    _go_tab("gk_sec07")
+                if st.button("🔍 사고상담",    key="ag_h_acc",    use_container_width=True):
+                    st.session_state["gk_sec07_init_tab"] = 1
+                    _go_tab("gk_sec07")
+                if st.button("📋 보상가이드",  key="ag_h_comp",   use_container_width=True):
+                    st.session_state["gk_sec07_init_tab"] = 2
+                    _go_tab("gk_sec07")
+                if st.button("📖 약관개시창",  key="ag_h_policy", use_container_width=True):
+                    st.session_state["gk_sec07_init_tab"] = 3
+                    _go_tab("gk_sec07")
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
             # ── [L 섹션] 내보험다보여 전용 동의 다이얼로그 (st.dialog Guard) ──────
