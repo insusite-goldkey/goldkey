@@ -548,11 +548,28 @@ if not _is_authenticated():
                                     except Exception:
                                         pass
                                 _uid = _crm_member.get("user_id", _cn)
+                                # [GP-SEC §RBAC Issue-4] CRM은 설계사/관리자 전용 — customer 즉시 차단
+                                _db_role = _crm_member.get("user_role", "")
+                                if _db_role == "customer":
+                                    st.error("🚫 일반 고객은 [HQ] 앱의 고객 전용 포털을 이용해 주십시오.")
+                                    st.stop()
+                                # [GP-SEC §2 Issue-3] HMAC 정식 토큰 생성 — HQ verify_sso_token 호환
+                                # 공식: HMAC(ENCRYPTION_KEY, user_id.encode()).hexdigest()[:32]
+                                try:
+                                    import hmac as _crm_hmac
+                                    _crm_sec = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+                                    if isinstance(_crm_sec, bytes):
+                                        _crm_sec = _crm_sec.decode()
+                                    _crm_tok = _crm_hmac.new(
+                                        _crm_sec.encode(), _uid.encode(), "sha256"
+                                    ).hexdigest()[:32]
+                                except Exception:
+                                    _crm_tok = ""
                                 st.session_state["crm_authenticated"] = True
                                 st.session_state["crm_user_id"]       = _uid
                                 st.session_state["crm_user_name"]     = _cn
                                 st.session_state["crm_role"]          = "agent"
-                                st.session_state["crm_token"]         = "direct-login"
+                                st.session_state["crm_token"]         = _crm_tok
                                 st.session_state.pop("_crm_login_phase", None)
                                 st.rerun()
                             else:

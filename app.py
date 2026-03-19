@@ -34368,7 +34368,7 @@ watchRipple();
             try:
                 import shared_components as _sc_crm
                 _sb2 = _sc_crm.get_supabase_client()
-                _res2 = _sb2.table("gk_customers").select("*").limit(200).execute()
+                _res2 = _sb2.table("gk_people").select("*").eq("is_deleted", False).limit(200).execute()
                 st.session_state["_crm_customers_cache"] = _res2.data or []
             except Exception:
                 st.session_state["_crm_customers_cache"] = []
@@ -34378,7 +34378,7 @@ watchRipple();
             try:
                 import pandas as _pd_crm
                 _df_crm = _pd_crm.DataFrame(_customers2)
-                _show_cols = [c for c in ["name", "contact_enc", "job", "created_at"]
+                _show_cols = [c for c in ["name", "contact", "job", "management_tier", "status", "created_at"]
                               if c in _df_crm.columns]
                 _df_show = _df_crm[_show_cols] if _show_cols else _df_crm
                 _page_sz = 20
