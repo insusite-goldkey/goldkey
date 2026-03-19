@@ -1500,7 +1500,7 @@ elif _spa_mode == "customer":
                         _sb.table("gk_people").update({
                             "memo": _new_memo_v,
                             "updated_at": datetime.datetime.utcnow().isoformat(),
-                        }).eq("person_id", _sel_pid).execute()
+                        }).eq("person_id", _sel_pid).eq("agent_id", _user_id).execute()
                         st.success("✅ 메모 저장 완료!")
                         st.cache_data.clear()
                     except Exception as _me:

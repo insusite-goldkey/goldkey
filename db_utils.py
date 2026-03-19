@@ -65,19 +65,19 @@ def load_customers(agent_id: str, query: str = "") -> list[dict]:
         return []
 
 
-def get_customer(person_id: str) -> Optional[dict]:
-    """person_id 단건 조회."""
+def get_customer(person_id: str, agent_id: str = "") -> Optional[dict]:
+    """
+    person_id 단건 조회.
+    [GP-SEC] agent_id 제공 시 소유권 검증 — 타 설계사 고객 행 조회 차단.
+    """
     sb = _get_sb()
     if not sb or not person_id:
         return None
     try:
-        rows = (
-            sb.table("gk_people")
-            .select("*")
-            .eq("person_id", person_id)
-            .execute()
-            .data or []
-        )
+        q = sb.table("gk_people").select("*").eq("person_id", person_id)
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        rows = q.execute().data or []
         return rows[0] if rows else None
     except Exception:
         return None
@@ -93,16 +93,22 @@ def save_customer(data: dict, agent_id: str) -> bool:
         return False
 
 
-def delete_customer(person_id: str) -> bool:
-    """고객 소프트 삭제 (is_deleted=True)."""
+def delete_customer(person_id: str, agent_id: str = "") -> bool:
+    """
+    고객 소프트 삭제 (is_deleted=True).
+    [GP-SEC] agent_id 제공 시 소유권 검증 필수 — 타 설계사 고객 삭제 원천 차단.
+    """
     sb = _get_sb()
-    if not sb:
+    if not sb or not person_id:
         return False
     try:
-        sb.table("gk_people").update({
+        q = sb.table("gk_people").update({
             "is_deleted": True,
             "updated_at": datetime.datetime.utcnow().isoformat(),
-        }).eq("person_id", person_id).execute()
+        }).eq("person_id", person_id)
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        q.execute()
         return True
     except Exception:
         return False
@@ -199,16 +205,22 @@ def save_schedule(
         return False
 
 
-def delete_schedule(schedule_id: str) -> bool:
-    """일정 소프트 삭제."""
+def delete_schedule(schedule_id: str, agent_id: str = "") -> bool:
+    """
+    일정 소프트 삭제.
+    [GP-SEC] agent_id 제공 시 소유권 검증 — 타 설계사 일정 삭제 차단.
+    """
     sb = _get_sb()
-    if not sb:
+    if not sb or not schedule_id:
         return False
     try:
-        sb.table("gk_schedules").update({
+        q = sb.table("gk_schedules").update({
             "is_deleted": True,
             "updated_at": datetime.datetime.utcnow().isoformat(),
-        }).eq("schedule_id", schedule_id).execute()
+        }).eq("schedule_id", schedule_id)
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        q.execute()
         return True
     except Exception:
         return False
@@ -359,7 +371,10 @@ def safe_update_customer(
         payload["agent_id"] = agent_id
 
     try:
-        sb.table("gk_people").update(payload).eq("person_id", person_id).execute()
+        q = sb.table("gk_people").update(payload).eq("person_id", person_id)
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        q.execute()
         return True
     except Exception:
         return False

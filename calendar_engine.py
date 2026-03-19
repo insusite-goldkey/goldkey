@@ -73,14 +73,20 @@ def cal_save(agent_id, title, body, date, start_time="09:00", end_time="10:00",
     st.session_state["_cal_events"] = evs
     return sid
 
-def cal_delete(schedule_id: str) -> bool:
+def cal_delete(schedule_id: str, agent_id: str = "") -> bool:
+    """
+    [GP-SEC] agent_id 제공 시 소유권 검증 — 타 설계사 일정 삭제 원천 차단.
+    """
     sb = _get_sb()
     if sb and schedule_id:
         try:
-            sb.table("gk_schedules").update({
+            q = sb.table("gk_schedules").update({
                 "is_deleted": True,
                 "updated_at": datetime.datetime.utcnow().isoformat(),
-            }).eq("schedule_id", schedule_id).execute()
+            }).eq("schedule_id", schedule_id)
+            if agent_id:
+                q = q.eq("agent_id", agent_id)
+            q.execute()
         except Exception:
             pass
     evs = st.session_state.get("_cal_events", [])
@@ -460,7 +466,7 @@ def _render_event_form(agent_id, customers, year, month):
                 unsafe_allow_html=True)
 
         if _do_del and edit_ev:
-            cal_delete(edit_ev.get("schedule_id",""))
+            cal_delete(edit_ev.get("schedule_id",""), agent_id=agent_id)
             for _k in ["_cal_sel_date","_cal_edit_ev"]:
                 st.session_state.pop(_k, None)
             st.success("🗑️ 삭제되었습니다.")
