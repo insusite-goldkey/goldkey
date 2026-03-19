@@ -25564,9 +25564,11 @@ _INJURY_LEVEL_RULE_TEMPLATE = """
 
 def _build_injury_aware_system_instruction() -> str:
     """
-    현재 세션의 injury_level + job_name을 읽어 동적 시스템 프롬프트 생성.
+    현재 세션의 injury_level + job_name + trinity_ai_context를 읽어
+    동적 시스템 프롬프트를 생성한다.
     고객 미선택 시 기본 _ABSOLUTE_SYSTEM_INSTRUCTION만 반환.
     """
+    _base = _ABSOLUTE_SYSTEM_INSTRUCTION
     try:
         import streamlit as _st
         _job   = _st.session_state.get("current_job_name") or _st.session_state.get("customer_job", "")
@@ -25576,14 +25578,16 @@ def _build_injury_aware_system_instruction() -> str:
         except Exception:
             _level = 0
         if _job and _level:
-            _ctx = _INJURY_LEVEL_RULE_TEMPLATE.format(
+            _base += _INJURY_LEVEL_RULE_TEMPLATE.format(
                 job_name=_job,
                 injury_level=_level,
             )
-            return _ABSOLUTE_SYSTEM_INSTRUCTION + _ctx
+        _trinity_ctx = _st.session_state.get("trinity_ai_context", "")
+        if _trinity_ctx:
+            _base += _trinity_ctx
     except Exception:
         pass
-    return _ABSOLUTE_SYSTEM_INSTRUCTION
+    return _base
 
 
 def _get_strict_config():

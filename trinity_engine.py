@@ -81,6 +81,102 @@ def hash_contact(contact: str) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# [2-B] 소득 역산 초정밀 엔진 — 8단계 세율 + 4대보험 공제 파이프라인
+# ══════════════════════════════════════════════════════════════════════════════
+
+# 2024년 기준 소득세 누진세율표 (과세표준 상한, 세율, 누진공제액)
+_TAX_BRACKETS: list = [
+    (14_000_000,    0.06,         0),
+    (50_000_000,    0.15,   1_260_000),
+    (88_000_000,    0.24,   5_760_000),
+    (150_000_000,   0.35,  15_440_000),
+    (300_000_000,   0.38,  19_940_000),
+    (500_000_000,   0.40,  25_940_000),
+    (1_000_000_000, 0.42,  35_940_000),
+    (float("inf"),  0.45,  65_940_000),
+]
+
+_NHIS_EMP_RATE = 0.03545   # 건강보험료 근로자 부담율 (2026 기준)
+_LTCI_EMP_RATE = 0.004591  # 장기요양보험료 근로자 부담율
+_NPS_EMP_RATE  = 0.045     # 국민연금 근로자 부담율
+_EI_EMP_RATE   = 0.009     # 고용보험 근로자 부담율
+
+
+def compute_income_tax(gross_annual: float) -> float:
+    """8단계 누진세율표 종합소득세 산출 (근로소득공제 미적용 건보료 역산 전용)."""
+    for ceiling, rate, deduction in _TAX_BRACKETS:
+        if gross_annual <= ceiling:
+            return max(0.0, gross_annual * rate - deduction)
+    return max(0.0, gross_annual * 0.45 - 65_940_000)
+
+
+def compute_net_income(gross_annual: float) -> tuple:
+    """
+    8단계 세율 + 4대보험 → 가처분 연소득(I_net) 산출.
+
+    공제 파이프라인:
+      ① 종합소득세  (8단계 누진세율)
+      ② 지방소득세  = 소득세 × 10%
+      ③ 건강보험료  = 연소득 × 3.545%
+      ④ 장기요양    = 연소득 × 0.4591%
+      ⑤ 국민연금    = 연소득 × 4.5%
+      ⑥ 고용보험    = 연소득 × 0.9%
+
+    Returns:
+        (net_annual: float, deduction_rate: float, breakdown: dict)
+    """
+    _it   = compute_income_tax(gross_annual)
+    _lt   = _it * 0.1
+    _nhis = gross_annual * _NHIS_EMP_RATE
+    _ltci = gross_annual * _LTCI_EMP_RATE
+    _nps  = gross_annual * _NPS_EMP_RATE
+    _ei   = gross_annual * _EI_EMP_RATE
+    _ded  = _it + _lt + _nhis + _ltci + _nps + _ei
+    _net  = max(0.0, gross_annual - _ded)
+    _rate = _ded / gross_annual if gross_annual > 0 else 0.0
+    return _net, _rate, {
+        "종합소득세":   _it,
+        "지방소득세":   _lt,
+        "건강보험료":   _nhis,
+        "장기요양":     _ltci,
+        "국민연금":     _nps,
+        "고용보험":     _ei,
+        "총공제액":     _ded,
+        "합산공제율":   _rate,
+        "가처분연소득": _net,
+    }
+
+
+def compute_coverage_needs(m_req: float) -> dict:
+    """
+    필요 월소득(M_req = I_net / 12) 기반 보장 자산 자동 산출.
+
+    Args:
+        m_req: 가처분 연소득 / 12 (순 월 필요 소득)
+
+    Returns:
+        {
+          "암진단비": {"2년(기본치료)": float, "3년(집중재활)": float, "5년(완치판정)": float},
+          "후유장해": {"12개월": float, "18개월": float, "24개월": float},
+          "입원일당": float,
+        }
+    """
+    return {
+        "암진단비": {
+            "2년(기본치료)": m_req * 24,
+            "3년(집중재활)": m_req * 36,
+            "5년(완치판정)": m_req * 60,
+        },
+        "후유장해": {
+            "12개월": m_req * 12,
+            "18개월": m_req * 18,
+            "24개월": m_req * 24,
+        },
+        "입원일당": m_req / 30,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # [3] 트리니티 분석 코어 — 건보료 역산 × KB 표준 교차 분석
 # ══════════════════════════════════════════════════════════════════════════════
 _TRINITY_STANDARD: dict = {
@@ -100,26 +196,58 @@ def run_trinity_analysis(
     kb7_result: Optional[list] = None,
 ) -> tuple:
     """
-    트리니티 분석 = 건보료 역산 소득 × KB 표준 교차 분석.
+    트리니티 초정밀 분석 = 건보료 역산 × 8단계 세율 × KB 표준 교차 분석.
+
+    ┌─ Step 1: 건보료 역산 → 명목 연봉 (I_gross)
+    │   I_gross = (nhi_premium × 2 / 0.0719) × 12
+    │
+    ├─ Step 2: 8단계 세율 + 4대보험 공제 → 가처분 연소득 (I_net)
+    │   I_net = I_gross × (1 - 합산공제율)
+    │
+    ├─ Step 3: 필요 월소득 (M_req) = I_net / 12
+    │
+    └─ Step 4: 보장 자산 필요 자금 산출 + KB 표준 교차 Gap 분석
 
     Args:
         current_coverage: {담보명: 가입금액(원)} dict
-                          예) {"암진단비": 30_000_000, "뇌졸중진단비": 20_000_000}
-        nhi_premium:      월 건강보험료(원) — 본인 부담분. 추정 웘소득 = 본인납부액×2÷7.19% (2026 기준)
+        nhi_premium:      월 건강보험료(원) — 본인 부담분
         kb7_result:       HQ _kb_standard_analysis() 결과 list (있으면 메타 병합)
 
     Returns:
-        (analysis_data dict, estimated_monthly_income float)
+        (analysis_data dict, m_req float)
+        ※ m_req = 가처분 연소득 / 12 (순 필요 월소득)
     """
-    _total_premium = float(nhi_premium) * 2                  # 1단계: 세전소득 산출용 완전 건보료
-    monthly_income  = _total_premium / 0.0719                 # 2단계: 총기준 7.19% 나누기 → 세전 월소득
+    # ── Step 1: 건보료 역산 → 명목 연봉 ──────────────────────────────────────
+    monthly_gross = float(nhi_premium) * 2 / 0.0719
+    gross_annual  = monthly_gross * 12
 
-    analysis_data: dict = {}
+    # ── Step 2: 8단계 세율 + 4대보험 → 가처분 연소득 ─────────────────────────
+    net_annual, ded_rate, breakdown = compute_net_income(gross_annual)
+
+    # ── Step 3: 필요 월소득 (M_req) ────────────────────────────────────────────
+    m_req = net_annual / 12
+
+    # ── Step 4-A: 보장 자산 필요 자금 산출 ────────────────────────────────────
+    coverage_needs = compute_coverage_needs(m_req)
+
+    analysis_data: dict = {
+        "_income_meta": {
+            "gross_monthly":  monthly_gross,
+            "gross_annual":   gross_annual,
+            "net_annual":     net_annual,
+            "m_req":          m_req,
+            "deduction_rate": ded_rate,
+            "breakdown":      breakdown,
+            "coverage_needs": coverage_needs,
+        }
+    }
+
+    # ── Step 4-B: KB 표준 Gap 분석 ────────────────────────────────────────────
     for item, cfg in _TRINITY_STANDARD.items():
         current_val = float(current_coverage.get(item, 0) or 0)
 
         if cfg["income_mult"] > 0:
-            adequate = monthly_income * cfg["income_mult"]
+            adequate = m_req * cfg["income_mult"]
         else:
             adequate = float(cfg["표준_KB"]) if cfg["표준_KB"] > 0 else 0.0
 
@@ -152,7 +280,7 @@ def run_trinity_analysis(
             for r in kb7_result
         ]
 
-    return analysis_data, monthly_income
+    return analysis_data, m_req
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -299,7 +427,7 @@ def render_trinity_report(
         "📄 Goldkey AI Masters — 트리니티 맞춤형 보장 분석</div>"
         f"<div style='font-size:0.80rem;color:#374151;margin-bottom:10px;'>"
         f"고객: <b>{client_name or '소중한 고객'}님</b> &nbsp;|&nbsp; "
-        f"추정 월소득: <b>{estimated_income:,.0f}원</b> &nbsp;|&nbsp; {_today}</div>"
+        f"필요 월소득(M_req): <b>{estimated_income:,.0f}원</b> &nbsp;|&nbsp; {_today}</div>"
     )
 
     # ── 보장 공백 테이블 ──────────────────────────────────────────────────────
@@ -318,7 +446,7 @@ def render_trinity_report(
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
         "📊 Goldkey AI 트리니티 보장 분석",
         f"고객: {client_name or '소중한 고객'}  |  {_today}",
-        f"추정 월소득: {estimated_income:,.0f}원",
+        f"필요 월소득(M_req): {estimated_income:,.0f}원",
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
     ]
 
@@ -357,6 +485,107 @@ def render_trinity_report(
         )
 
     html += "</table>"
+
+    # ── [트리니티 소득 대체 리포트] 신설 섹션 ────────────────────────────────
+    _imeta = analysis_data.get("_income_meta", {})
+    if _imeta:
+        _cn       = _imeta.get("coverage_needs", {})
+        _bd       = _imeta.get("breakdown", {})
+        _mreq     = float(_imeta.get("m_req", estimated_income))
+        _gann     = float(_imeta.get("gross_annual", 0))
+        _nann     = float(_imeta.get("net_annual", 0))
+        _drate    = float(_imeta.get("deduction_rate", 0))
+        _cancer_c = _cn.get("암진단비", {})
+        _cancer_2y = float(_cancer_c.get("2년(기본치료)", 0))
+        _cancer_3y = float(_cancer_c.get("3년(집중재활)", 0))
+        _cancer_5y = float(_cancer_c.get("5년(완치판정)", 0))
+        _disab_c  = _cn.get("후유장해", {})
+        _disab_12 = float(_disab_c.get("12개월", 0))
+        _disab_18 = float(_disab_c.get("18개월", 0))
+        _disab_24 = float(_disab_c.get("24개월", 0))
+        _daily    = float(_cn.get("입원일당", 0))
+        _cancer_current = float((analysis_data.get("암진단비") or {}).get("현재가입", 0))
+        _cancer_gap_5y  = max(0.0, _cancer_5y - _cancer_current)
+
+        html += (
+            "<div style='background:#eff6ff;border:1px dashed #000;border-radius:10px;"
+            "padding:14px 16px;margin:10px 0 12px 0;'>"
+            "<div style='font-size:0.88rem;font-weight:900;color:#1a3a5c;"
+            "border-bottom:1px dashed #93c5fd;padding-bottom:6px;margin-bottom:10px;'>"
+            "🔬 트리니티 초정밀 — 소득 대체 리포트</div>"
+            "<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;'>"
+            f"<div style='background:#fff;border:1px solid #bfdbfe;border-radius:6px;padding:8px;text-align:center;'>"
+            f"<div style='font-size:0.68rem;color:#6b7280;'>명목 연봉 (I_gross)</div>"
+            f"<div style='font-size:0.85rem;font-weight:900;color:#1e3a8a;'>{_gann:,.0f}원</div></div>"
+            f"<div style='background:#fff;border:1px solid #bbf7d0;border-radius:6px;padding:8px;text-align:center;'>"
+            f"<div style='font-size:0.68rem;color:#6b7280;'>합산공제율 (세율+4대보험)</div>"
+            f"<div style='font-size:0.85rem;font-weight:900;color:#059669;'>{_drate*100:.1f}%</div></div>"
+            f"<div style='background:#fff;border:1px solid #fde68a;border-radius:6px;padding:8px;text-align:center;'>"
+            f"<div style='font-size:0.68rem;color:#6b7280;'>필요 월소득 (M_req)</div>"
+            f"<div style='font-size:0.85rem;font-weight:900;color:#92400e;'>{_mreq:,.0f}원</div></div>"
+            "</div>"
+            f"<div style='background:#fff5f5;border-left:4px solid #ef4444;"
+            f"border-radius:0 6px 6px 0;padding:10px 12px;margin-bottom:8px;'>"
+            f"<div style='font-size:0.80rem;font-weight:900;color:#dc2626;margin-bottom:4px;'>🎗️ 암 진단비 필요 자금</div>"
+            f"<div style='font-size:0.78rem;color:#374151;margin-bottom:4px;'>"
+            f"선생님의 가처분 소득을 지키기 위해 암 진단 시 최소 "
+            f"<b>{_cancer_2y:,.0f}원</b>(2년)에서 최대 <b>{_cancer_5y:,.0f}원</b>(5년)이 준비되어야 합니다.</div>"
+            f"<div style='font-size:0.74rem;color:#6b7280;'>"
+            f"2년(기본치료) {_cancer_2y:,.0f} &nbsp;|&nbsp; "
+            f"3년(집중재활) {_cancer_3y:,.0f} &nbsp;|&nbsp; "
+            f"5년(완치판정) {_cancer_5y:,.0f}</div>"
+        )
+        if _cancer_gap_5y > 0:
+            html += (
+                f"<div style='font-size:0.76rem;font-weight:900;color:#b91c1c;margin-top:4px;'>"
+                f"⚠️ 현재 준비금({_cancer_current:,.0f}원) 기준 5년 공백: {_cancer_gap_5y:,.0f}원</div>"
+            )
+        html += "</div>"
+        html += (
+            f"<div style='background:#fefce8;border-left:4px solid #f59e0b;"
+            f"border-radius:0 6px 6px 0;padding:10px 12px;margin-bottom:8px;'>"
+            f"<div style='font-size:0.80rem;font-weight:900;color:#92400e;margin-bottom:4px;'>🦽 후유장해 필요 생활비</div>"
+            f"<div style='font-size:0.74rem;color:#6b7280;'>"
+            f"12개월 {_disab_12:,.0f} &nbsp;|&nbsp; "
+            f"18개월 {_disab_18:,.0f} &nbsp;|&nbsp; "
+            f"24개월 {_disab_24:,.0f}</div></div>"
+            f"<div style='background:#f0fdf4;border-left:4px solid #22c55e;"
+            f"border-radius:0 6px 6px 0;padding:10px 12px;'>"
+            f"<div style='font-size:0.80rem;font-weight:900;color:#15803d;margin-bottom:4px;'>🏥 입원 일당 기준</div>"
+            f"<div style='font-size:0.78rem;color:#374151;'>"
+            f"하루 입원 시 최소 <b>{_daily:,.0f}원</b>이 지급되어야 소득 상실을 막을 수 있습니다.</div></div>"
+            "</div>"
+        )
+
+        _ai_context = (
+            "\n━━━ [트리니티 소득 역산 컨텍스트 — AI 인수심사 보조 데이터] ━━━\n"
+            f"명목 연봉(I_gross): {_gann:,.0f}원\n"
+            f"가처분 연소득(I_net): {_nann:,.0f}원 (합산공제율 {_drate*100:.1f}%)\n"
+            f"필요 월소득(M_req): {_mreq:,.0f}원\n"
+            f"암 진단비 필요액 — 2년: {_cancer_2y:,.0f}원 / 3년: {_cancer_3y:,.0f}원 / 5년: {_cancer_5y:,.0f}원\n"
+            f"현재 암진단비 준비: {_cancer_current:,.0f}원"
+        )
+        if _cancer_gap_5y > 0:
+            _ai_context += (
+                f"\n→ [AI 분석 필수 반영] 5년 기준 암진단비 보장 공백 {_cancer_gap_5y:,.0f}원 — "
+                f"고객님의 암 진단비 필요액은 5년 기준 {_cancer_5y:,.0f}원이나, "
+                f"현재 {_cancer_current:,.0f}원만 준비되어 있어 {_cancer_gap_5y:,.0f}원의 심각한 보장 공백이 확인됩니다.\n"
+            )
+        _ai_context += f"입원 일당 기준: {_daily:,.0f}원/일\n━━━\n"
+        try:
+            st.session_state["trinity_ai_context"] = _ai_context
+        except Exception:
+            pass
+
+        report_lines += [
+            "",
+            "━━━ 소득 대체 리포트 ━━━",
+            f"명목 연봉: {_gann:,.0f}원  /  가처분 연소득: {_nann:,.0f}원  /  합산공제율: {_drate*100:.1f}%",
+            f"필요 월소득(M_req): {_mreq:,.0f}원",
+            f"암 진단비 필요액: 2년 {_cancer_2y:,.0f} / 3년 {_cancer_3y:,.0f} / 5년 {_cancer_5y:,.0f}",
+            f"후유장해 필요액: 12개월 {_disab_12:,.0f} / 18개월 {_disab_18:,.0f} / 24개월 {_disab_24:,.0f}",
+            f"입원 일당 기준: {_daily:,.0f}원/일",
+        ]
 
     # ── 담당 전문가 정보 ──────────────────────────────────────────────────────
     if _name or _company:

@@ -880,14 +880,22 @@ if _spa_mode == "list":
                 _lv_ci = {"consult": "💬", "appointment": "📌", "call": "📞", "other": "📋"}.get(
                     _lv_ev.get("category", ""), "📋")
                 _lv_pname = (_lv_ev.get("gk_people") or {}).get("name", "")
+                _lv_pname_html = (
+                    "  <span style='color:#6b7280;font-size:0.72rem;'>(" + _lv_pname + ")</span>"
+                    if _lv_pname else ""
+                )
+                _lv_memo_html = (
+                    "<div style='color:#78350f;font-size:0.72rem;margin-top:2px;'>"
+                    + _lv_ev.get("memo", "")[:40] + "</div>"
+                    if _lv_ev.get("memo") else ""
+                )
                 st.markdown(
                     f"<div style='background:#fff;border-left:3px solid #22c55e;"
                     f"border-radius:4px;padding:5px 10px;margin-bottom:5px;"
                     f"font-size:0.8rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);'>"
                     f"<b style='color:#1e3a8a;'>{_lv_ev.get('start_time','')}</b>"
                     f" {_lv_ci} {_lv_ev.get('title','')}"
-                    f"{'  <span style=\"color:#6b7280;font-size:0.72rem;\">(' + _lv_pname + ')</span>' if _lv_pname else ''}"
-                    f"{'<div style=\"color:#78350f;font-size:0.72rem;margin-top:2px;\">' + _lv_ev.get('memo','')[:40] + '</div>' if _lv_ev.get('memo') else ''}"
+                    f"{_lv_pname_html}{_lv_memo_html}"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
