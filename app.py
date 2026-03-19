@@ -38195,50 +38195,6 @@ function selectCustomer(name) {{
 </script>""", height=0)
             st.rerun()
 
-    # ── 응접 데스크 패널 (홈탭에만 표시) ────────────────────────────────
-    if cur == "home":
-        with st.container(border=True):
-            if not _dock_cid:
-                st.markdown(
-                    "<div style='padding:5px 0;color:#94a3b8;font-size:0.83rem;text-align:center;'>"
-                    "🛎️ <b>HQ 응접 데스크</b> — CRM 앱에서 고객을 선택하면 여기에 자동 도킹됩니다.</span>",
-                    unsafe_allow_html=True,
-                )
-            else:
-                if _dock_loading:
-                    with st.spinner("🛎️ CRM에서 고객 정보를 안전하게 불러오고 있습니다..."):
-                        import time as _time_rd; _time_rd.sleep(0.5)
-
-                _rd_sector_labels = {
-                    "cancer": "암보험 분석", "brain": "뇌혈관 분석",
-                    "heart": "심장 분석",   "fire": "화재보험 분석",
-                    "auto": "자동차보험",   "t1": "보험금 청구 상담",
-                    "t2": "실손보험 분석",  "t3": "KB7 보장 분석",
-                    "t4": "AI 보고서",      "home": "홈",
-                }
-                _sector_lbl = _rd_sector_labels.get(_dock_sector, _dock_sector or "홈")
-
-                _rd_c1, _rd_c2 = st.columns([4, 1])
-                with _rd_c1:
-                    st.markdown(
-                        f"<div style='padding:3px 0;'>"
-                        f"<span style='font-size:0.95rem;font-weight:900;color:#16a34a;'>"
-                        f"✅ HQ 정밀 상담 도킹 완료</span>"
-                        f"<span style='font-size:1.0rem;font-weight:900;color:#1e293b;"
-                        f"margin-left:10px;'>{_dock_name}</span>"
-                        f"<span style='font-size:0.72rem;color:#6b7280;margin-left:8px;'>"
-                        f"CID: {_dock_cid[:8]}...</span>"
-                        f"</div>",
-                        unsafe_allow_html=True,
-                    )
-                    if _dock_sector and _dock_sector not in ("home", ""):
-                        st.caption(f"📍 목적지 섹터: **{_sector_lbl}** — 자동 이동 중")
-                with _rd_c2:
-                    if st.button("✕ 도킹 해제", key="_rd_undock_btn", use_container_width=True):
-                        for _rk in ["_rd_docked_cid", "_rd_docked_name",
-                                    "_rd_docked_sector", "_rd_docked_token"]:
-                            st.session_state.pop(_rk, None)
-                        st.rerun()
 
     # ── [홈] 카드 네비게이션 ──────────────────────────────────────────────
     if cur == "home":
@@ -38474,11 +38430,6 @@ function selectCustomer(name) {{
                         st.caption("🔗 트리니티 엔진 연결 대기 중 — trinity_engine 모듈 확인 필요")
                     except Exception as _tri_e:
                         st.caption(f"🔱 트리니티 Pull 오류: {str(_tri_e)[:60]}")
-                else:
-                    st.markdown(
-                        "<span style='color:#6b7280;font-size:0.82rem;font-weight:700;'>"
-                        "🔌 HQ 도킹 스테이션 — CRM 앱에서 고객을 선택하면 여기에 자동 도킹됩니다.</span>",
-                        unsafe_allow_html=True)
 
             # ── [TRAIN] AI 상담 시뮬레이션 섹션 ──────────────────────────────────
             st.markdown(
@@ -38501,19 +38452,6 @@ function selectCustomer(name) {{
                 except Exception as _sim_e:
                     st.error("시뮬레이션 로드 오류: " + str(_sim_e))
 
-            # ── [GP-PHASE-4] 반응형 통합 증권분석 센터 (내보험다보여) ────────────
-            st.markdown(
-                f'<div class="gk-sec" style="border-top:4px solid #059669;background:#f0fdf4;">'
-                f'<div style="position:relative;">{_bid("GK-HOME-UAC")}'
-                f'<span class="gk-sec-title" style="color:#059669;">'
-                f'📊 통합 증권분석 센터 — AI 분석 허브 (내보험다보여 연동)</span></div>',
-                unsafe_allow_html=True)
-            try:
-                from shared_components import render_unified_analysis_center as _render_uac
-                _render_uac(key_prefix="_uac_hq")
-            except Exception as _uac_e:
-                st.error(f"통합 증권분석 센터 로드 오류: {_uac_e}")
-            st.markdown('</div>', unsafe_allow_html=True)
 
             if not st.session_state.get("_gp45_splash_shown"):
                 st.session_state["_gp45_splash_shown"] = True
@@ -38570,17 +38508,6 @@ function selectCustomer(name) {{
                     except Exception:
                         _people_rows = st.session_state.get(_cust_cache_key, [])
     
-                # ── 검색/선택 헤더 ─────────────────────────────────────────
-                st.markdown(
-                    "<div style='border:1px dashed #000000;border-radius:10px;"
-                    "background:#f0fdf4;padding:10px 14px 8px 14px;margin-bottom:8px;'>"
-                    "<div style='color:#065f46;font-weight:900;font-size:0.9rem;margin-bottom:4px;'>"
-                    "🔍 등록 고객 검색 (피보험자 태그 기반)</div>"
-                    "<div style='color:#374151;font-size:0.78rem;'>"
-                    "이름 선택 시 해당 인물 정보가 자동 로드되며, 모든 자료가 해당 피보험자에 태깅됩니다.</div>"
-                    "</div>",
-                    unsafe_allow_html=True,
-                )
     
                 def _fp_label(p):
                     _n = p.get("name", "")
@@ -38670,24 +38597,9 @@ function selectCustomer(name) {{
   };fn();
 }catch(e){}}());
 </script>""", height=0)
-                if st.session_state.get("_fp_show_form"):
-                    _fp_lbl_n = st.session_state.get("_fp_selected_label", "✏️ 신규 고객 입력")
-                    _ntc = ("✏️ <b>신규 고객 정보를 입력</b>해주세요. 아래 양식 작성 후 저장 또는 확인 버튼을 클릭하세요."
-                            if _fp_lbl_n == "✏️ 신규 고객 입력" else
-                            f"✅ <b>{_fp_lbl_n}</b> 고객 정보가 로드되었습니다. 수정 후 저장 또는 확인을 클릭하세요.")
-                    st.markdown(
-                        f"<div style='background:#E3F2FD;border:1.5px solid #1565C0;"
-                        f"border-left:4px solid #D4AF37;border-radius:8px;"
-                        f"padding:10px 14px;margin-bottom:8px;font-size:0.84rem;"
-                        f"font-weight:700;color:#0D47A1;'>{_ntc}</div>",
-                        unsafe_allow_html=True)
                 st.markdown(
                     "<div style='border:1px dashed #000000;border-radius:10px;"
-                    "background:#fffbeb;padding:12px 14px 8px 14px;margin:8px 0;'>"
-                    "<div style='color:#92400e;font-weight:900;font-size:0.88rem;margin-bottom:8px;'>"
-                    "👤 그룹 A-1 — 피보험자 기본 정보 <span style='font-size:0.75rem;"
-                    "background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;"
-                    "padding:1px 6px;margin-left:6px;'>고객성명(계약자, 피보험자, 법인명)</span></div>",
+                    "background:#fffbeb;padding:12px 14px 8px 14px;margin:8px 0;'>",
                     unsafe_allow_html=True,
                 )
     
@@ -38799,9 +38711,7 @@ function selectCustomer(name) {{
                 # ── [GCS] 연락처 + 운전분류 + 소개자 + 주소 ──────────────────
                 st.markdown(
                     "<div style='border:1px dashed #000;border-radius:10px;background:#fff;"
-                    "padding:12px 14px 8px;margin:6px 0 8px;'>"
-                    "<div style='color:#1e40af;font-weight:900;font-size:0.84rem;margin-bottom:8px;'>"
-                    "📋 그룹 A-1 확장 — 연락처 · 운전 · 소개자 · 주소</div>",
+                    "padding:12px 14px 8px;margin:6px 0 8px;'>",
                     unsafe_allow_html=True,
                 )
                 _gx1, _gx2, _gx3 = st.columns([1, 2, 2])

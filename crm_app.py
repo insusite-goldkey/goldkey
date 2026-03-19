@@ -916,11 +916,10 @@ if _spa_mode == "list":
             if _sel_rows:
                 _sr_idx = _sel_rows[0]
                 _sr_pid = _df_rows[_sr_idx]["person_id"]
-                st.session_state["crm_selected_pid"]    = _sr_pid
-                st.session_state["crm_spa_mode"]        = "customer"
-                st.session_state["crm_spa_screen"]      = "contact"
-                st.session_state.pop("crm_spa_screen_radio", None)
-                st.rerun()
+                # [GP-지시1] 자동 이동 제거 — 액션 그리드에서 메뉴를 선택하여 이동
+                if st.session_state.get("crm_selected_pid") != _sr_pid:
+                    st.session_state["crm_selected_pid"] = _sr_pid
+                    st.rerun()
         except Exception:
             if _OUTLOOK_OK:
                 render_outlook_customer_list(_all_custs, _sel_pid)
@@ -928,8 +927,52 @@ if _spa_mode == "list":
                 render_customer_list(_all_custs, show_deeplink=True, agent_tab="t3")
         st.markdown("</div>", unsafe_allow_html=True)
 
+        # ── [GP-지시1] 고객 선택 액션 그리드 ─────────────────────────────────
+        _list_sel_pid  = st.session_state.get("crm_selected_pid", "")
+        _list_sel_cust = next((_c for _c in _all_custs
+                               if _c.get("person_id") == _list_sel_pid), None) if _list_sel_pid else None
+        if _list_sel_cust:
+            _cn2 = _list_sel_cust.get("name", "")
+            _ct2 = _list_sel_cust.get("management_tier", 3)
+            _tm2 = TIER_META.get(_ct2, TIER_META[3])
+            st.markdown(
+                f"<div style='background:#eff6ff;border:1px dashed #3b82f6;border-radius:10px;"
+                f"padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;'>"
+                f"<span style='background:{_tm2['bg']};color:{_tm2['color']};font-weight:900;"
+                f"width:32px;height:32px;border-radius:50%;display:flex;align-items:center;"
+                f"justify-content:center;flex-shrink:0;'>{(_cn2 or '?')[0]}</span>"
+                f"<span style='font-size:1rem;font-weight:900;color:#1e3a8a;'>{_cn2}</span>"
+                f"<span style='font-size:0.75rem;color:#3b82f6;font-weight:700;margin-left:auto;'>"
+                f"{_tm2['icon']} {_tm2['label']} — 아래 메뉴를 선택하세요</span></div>",
+                unsafe_allow_html=True,
+            )
+            _ag1, _ag2, _ag3 = st.columns(3)
+            _ag_actions = [
+                ("✏️ 고객정보수정", "contact",  True),
+                ("📅 스케줄",       "schedule", False),
+                ("🌐 내보험다보여", "nibo",     False),
+                ("📊 증권분석",     "analysis", False),
+                ("🤖 AI 브리핑",   "ai_brief", False),
+                ("💬 카카오 발송",  "kakao",    False),
+            ]
+            for _aai, (_aal, _aas, _is_pri) in enumerate(_ag_actions):
+                with [_ag1, _ag2, _ag3][_aai % 3]:
+                    if st.button(_aal, key=f"list_ag_{_aas}",
+                                 use_container_width=True,
+                                 type="primary" if _is_pri else "secondary"):
+                        st.session_state["crm_spa_mode"]   = "customer"
+                        st.session_state["crm_spa_screen"] = _aas
+                        st.session_state.pop("crm_spa_screen_radio", None)
+                        st.rerun()
+            _ag_clr_c, _ = st.columns([1, 5])
+            with _ag_clr_c:
+                if st.button("✕ 해제", key="list_ag_clear", use_container_width=True):
+                    st.session_state["crm_selected_pid"] = ""
+                    st.rerun()
+        else:
+            st.caption("💡 고객 행을 클릭하면 6대 액션 메뉴가 나타납니다.")
+
         # HQ 딥링크 빠른 발사 행
-        st.caption("💡 행을 클릭하면 6대 메뉴로 바로 진입합니다.")
         if len(_df_rows) <= 20:
             with st.expander("🚀 HQ 딥링크 빠른 발사", expanded=False):
                 for _r in _df_rows[:10]:
@@ -962,7 +1005,7 @@ elif _spa_mode == "customer":
         )
 
     _crm_menus = [
-        ("👥 연락처 상세",  "contact"),
+        ("📋 고객 마스터",  "contact"),
         ("📅 스케줄",       "schedule"),
         ("🌐 내보험다보여",  "nibo"),
         ("📊 증권분석",      "analysis"),
@@ -994,7 +1037,7 @@ elif _spa_mode == "customer":
         st.markdown(
             "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
             "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
-            "👥 연락처 상세 — GCS 양방향 동기화 · 손보사 표준 정보 관리</div>",
+            "📋 고객 마스터 데이터 & 통합 상담 — GCS 양방향 동기화 · 손보사 표준 정보 관리</div>",
             unsafe_allow_html=True,
         )
         if not _sel_cust:

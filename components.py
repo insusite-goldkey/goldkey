@@ -363,18 +363,24 @@ def 손보사_standard_form(
     )
     c1, c2 = st.columns(2)
     with c1:
-        name    = st.text_input("이름 *", value=d.get("name", ""), key=f"{key_prefix}_name")
-        contact = st.text_input(
+        name     = st.text_input("이름 *", value=d.get("name", ""), key=f"{key_prefix}_name")
+        contact  = st.text_input(
             "연락처 * (암호화 저장)",
             value="",
             placeholder="01012345678",
             key=f"{key_prefix}_contact",
             help="입력 시 SHA-256 해시로 암호화되어 저장됩니다.",
         )
-        birth   = st.text_input(
+        birth    = st.text_input(
             "생년월일 (YYYYMMDD)",
             value=d.get("birth_date", ""),
             key=f"{key_prefix}_birth",
+        )
+        referrer = st.text_input(
+            "소개자",
+            value=d.get("referrer_name", ""),
+            placeholder="소개한 분의 이름",
+            key=f"{key_prefix}_referrer",
         )
     with c2:
         gender = st.selectbox(
@@ -400,6 +406,12 @@ def 손보사_standard_form(
             ),
             key=f"{key_prefix}_status",
         )
+        address_top = st.text_input(
+            "주소",
+            value=d.get("address", ""),
+            placeholder="시·군·구 또는 상세주소",
+            key=f"{key_prefix}_addr_top",
+        )
 
     st.markdown(
         "<div class='gko-section-header'>💼 직업 등급 & 손보사 고지 사항</div>",
@@ -414,7 +426,6 @@ def 손보사_standard_form(
             key=f"{key_prefix}_job",
             help="1급=사무직·가정주부, 2급=영업·운전, 3급=건설·이륜차·고위험",
         )
-        address = st.text_input("주소", value=d.get("address", ""), key=f"{key_prefix}_addr")
     with c4:
         has_motorcycle       = st.checkbox(
             "🏍️ 이륜차 소유 또는 상시 이용",
@@ -477,7 +488,8 @@ def 손보사_standard_form(
         "gender":              None if gender == "(선택)" else gender,
         "birth_date":          birth,
         "job":                 None if job == "(선택)" else job,
-        "address":             address,
+        "address":             address_top,
+        "referrer_name":       referrer,
         "management_tier":     tier,
         "status":              status,
         "has_motorcycle":      has_motorcycle,
