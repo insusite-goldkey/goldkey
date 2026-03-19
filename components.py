@@ -771,3 +771,87 @@ def render_sync_badge(status: str, label: str = "") -> None:
         f"<span class='gp-sync-badge {cls}'>{display}</span>",
         unsafe_allow_html=True,
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §9 반응형 CSS 전용 주입 (inject_responsive_css)
+# ══════════════════════════════════════════════════════════════════════════════
+_RESPONSIVE_CSS = """<style>
+/* ── 모바일(너비 600px 이하) 전용 ─────────────────────────────────────── */
+@media (max-width: 600px) {
+  /* 5:5 분할 컬럼 → 강제 100% (세로 스태킹) */
+  [data-testid="column"] {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+    margin-bottom: 20px;
+  }
+  /* 아웃룩 3분할 뷰 → 세로형 전환 */
+  .outlook-container {
+    display: flex;
+    flex-direction: column !important;
+  }
+  /* 폰트 크기 미세 조정 */
+  p, span, label { font-size: 13px !important; }
+  /* 미니 달력 전체 너비 */
+  .gko-mini-cal { width: 100% !important; }
+  /* SPA 네비게이션 바 세로 스크롤 허용 */
+  div[data-testid="stRadio"] > div {
+    flex-wrap: wrap !important;
+  }
+  div[data-testid="stRadio"] > div > label {
+    flex: 1 1 45% !important;
+  }
+}
+
+/* ── GP 파스텔 버튼 — 전역 그라디언트 (AEC6CF → B4F8C8) ──────────────── */
+.stApp { background-color: #F8FBFA !important; }
+
+[data-testid="stButton"] > button,
+button[kind="primary"],
+button[kind="secondary"] {
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  transition: opacity 0.15s !important;
+}
+[data-testid="stButton"] > button[kind="secondary"] {
+  background: linear-gradient(135deg, #AEC6CF 0%, #B4F8C8 100%) !important;
+  color: #1e293b !important;
+  border: 1px solid #93c5b8 !important;
+}
+[data-testid="stButton"] > button[kind="primary"] {
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+[data-testid="stButton"] > button:hover {
+  opacity: 0.88 !important;
+}
+
+/* ── 입력 필드 테두리 ─────────────────────────────────────────────────── */
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stSelectbox"] > div > div {
+  border-color: #EAEAEF !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  font-size: 14px !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.15) !important;
+}
+</style>"""
+
+
+def inject_responsive_css() -> None:
+    """
+    반응형 레이아웃 CSS 주입.
+    - 모바일 600px 이하: st.columns 자동 세로 스태킹
+    - 아웃룩 3분할 뷰 세로 전환
+    - GP 파스텔 버튼 그라디언트 (AEC6CF → B4F8C8)
+    - 입력 필드 GP 스타일
+    apply_gp_pastel_theme() 이후 추가로 호출하면 덮어씌움.
+    """
+    st.markdown(_RESPONSIVE_CSS, unsafe_allow_html=True)

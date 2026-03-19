@@ -1228,8 +1228,13 @@ def _kb7_score_fn(policies: list[dict]) -> dict[str, float]:
 def render_crm_gate_full(sb, agent_id: str) -> None:
     """app.py에서 cur == 'crm_gate' 일 때 호출 — Outlook SPA 라우터"""
     try:
-        from components import apply_gp_pastel_theme as _gp_theme, render_radio_spa_nav as _rnav
+        from components import (
+            apply_gp_pastel_theme as _gp_theme,
+            inject_responsive_css as _resp_css,
+            render_radio_spa_nav as _rnav,
+        )
         _gp_theme()
+        _resp_css()
     except Exception:
         pass
     # ── SPA 상태 초기화 ────────────────────────────────────────────────────────

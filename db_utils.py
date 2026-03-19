@@ -287,3 +287,262 @@ def flexible_upsert(table: str, data: dict, conflict_col: str = "id") -> bool:
         return True
     except Exception:
         return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §5 스키마 안전 고객 업데이트 — 신규 필드 무중단 확장
+# ══════════════════════════════════════════════════════════════════════════════
+
+# 한국어 입력키 → DB 컬럼 매핑 (신규 필드는 여기에만 추가)
+_FIELD_MAP: dict[str, str] = {
+    "직업급수":    "job_grade",
+    "운전형태":    "driving_type",
+    "이륜차여부":  "bike_usage",
+    "주소":        "address_detail",
+    "소개자":      "referrer_name",
+    "이름":        "name",
+    "성별":        "gender",
+    "생년월일":    "birth_date",
+    "직업":        "job",
+    "관리등급":    "management_tier",
+    "상담상태":    "status",
+    "이륜차소유":  "has_motorcycle",
+    "유상운송":    "is_commercial_driver",
+    "해외체류":    "has_foreign_stay",
+    "자동차만기월": "auto_renewal_month",
+    "화재만기월":  "fire_renewal_month",
+    "메모":        "memo",
+}
+
+# DB 컬럼 기본값 — 새 필드 추가 시 None이어도 시스템 안전
+_COLUMN_DEFAULTS: dict[str, Any] = {
+    "job_grade":       "1급",
+    "driving_type":    "자가용",
+    "bike_usage":      "해당없음",
+    "address_detail":  "",
+    "referrer_name":   "",
+    "has_motorcycle":  False,
+    "is_commercial_driver": False,
+    "has_foreign_stay": False,
+    "auto_renewal_month": None,
+    "fire_renewal_month": None,
+    "management_tier": 3,
+    "status":          "potential",
+    "memo":            "",
+}
+
+
+def safe_update_customer(
+    person_id: str,
+    new_data: dict,
+    agent_id: str = "",
+) -> bool:
+    """
+    [무중단 스키마 확장] 기존 데이터를 유지하며 신규/변경 필드만 안전하게 업데이트.
+
+    - 한국어 키(직업급수, 운전형태 등)와 영어 DB 컬럼 키 모두 허용
+    - 없는 컬럼은 dict.get() 기본값으로 방어
+    - 기존 데이터 None 필드 시스템 안전 (터지지 않음)
+    """
+    sb = _get_sb()
+    if not sb or not person_id:
+        return False
+
+    payload: dict = {"updated_at": datetime.datetime.utcnow().isoformat()}
+
+    for raw_key, value in new_data.items():
+        db_col = _FIELD_MAP.get(raw_key, raw_key)
+        default = _COLUMN_DEFAULTS.get(db_col)
+        payload[db_col] = value if value is not None else default
+
+    if agent_id:
+        payload["agent_id"] = agent_id
+
+    try:
+        sb.table("gk_people").update(payload).eq("person_id", person_id).execute()
+        return True
+    except Exception:
+        return False
+
+
+def get_or_create_customer(
+    agent_id: str,
+    name: str,
+    extra: Optional[dict] = None,
+) -> dict:
+    """
+    이름으로 고객 조회, 없으면 신규 생성 후 반환.
+    스키마 안전: extra 딕셔너리는 safe_update_customer 로직 경유.
+    """
+    sb = _get_sb()
+    if not sb:
+        return {}
+
+    try:
+        rows = (
+            sb.table("gk_people")
+            .select("*")
+            .eq("agent_id", agent_id)
+            .eq("name", name)
+            .eq("is_deleted", False)
+            .limit(1)
+            .execute()
+            .data or []
+        )
+        if rows:
+            cust = rows[0]
+        else:
+            import uuid as _uuid
+            now = datetime.datetime.utcnow().isoformat()
+            pid = str(_uuid.uuid4())
+            base: dict = {
+                "person_id":  pid,
+                "agent_id":   agent_id,
+                "name":       name,
+                "is_deleted": False,
+                "created_at": now,
+                "updated_at": now,
+            }
+            sb.table("gk_people").insert(base).execute()
+            cust = base
+
+        if extra:
+            safe_update_customer(
+                cust.get("person_id", ""),
+                extra,
+                agent_id,
+            )
+            cust.update(extra)
+
+        return cust
+    except Exception:
+        return {}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §6 상담일지 (gk_consulting_logs) — AI 브리핑 JSON + 카카오 발송 로그
+# ══════════════════════════════════════════════════════════════════════════════
+
+def log_consulting(
+    agent_id: str,
+    person_id: str,
+    log_type: str,
+    content: str = "",
+    ai_briefing_json: Optional[dict] = None,
+) -> bool:
+    """
+    상담일지 기록.
+    log_type: 'ai_brief' | 'kakao_sent' | 'nibo' | 'manual' | 'schedule'
+    ai_briefing_json: AI 분석 결과 원본 JSONB 저장 (consulting_logs.ai_briefing_json)
+    """
+    sb = _get_sb()
+    if not sb:
+        return False
+    try:
+        import json as _j
+        import uuid as _uuid
+        now = datetime.datetime.utcnow().isoformat()
+        payload: dict = {
+            "log_id":    str(_uuid.uuid4()),
+            "agent_id":  agent_id,
+            "person_id": person_id,
+            "log_type":  log_type,
+            "content":   content,
+            "created_at": now,
+        }
+        if ai_briefing_json:
+            payload["ai_briefing_json"] = _j.dumps(
+                ai_briefing_json, ensure_ascii=False
+            )
+        sb.table("gk_consulting_logs").insert(payload).execute()
+        return True
+    except Exception:
+        return False
+
+
+def log_kakao_sent(
+    agent_id: str,
+    person_id: str,
+    customer_name: str,
+    template_id: str,
+    summary: str,
+) -> bool:
+    """카카오 알림톡 발송 기록 — 상담일지에 자동 저장."""
+    content = f"[카톡 발송 완료 - {datetime.date.today().isoformat()}] {template_id}: {summary}"
+    return log_consulting(
+        agent_id=agent_id,
+        person_id=person_id,
+        log_type="kakao_sent",
+        content=content,
+        ai_briefing_json={
+            "template_id":   template_id,
+            "customer_name": customer_name,
+            "summary":       summary,
+        },
+    )
+
+
+def send_kakao_report(
+    customer_name: str,
+    phone_number: str,
+    report_summary: str,
+    agent_id: str = "",
+    person_id: str = "",
+    template_id: str = "GP_AI_REPORT_01",
+    api_url: str = "",
+    api_key: str = "",
+) -> dict:
+    """
+    카카오 알림톡 발송 로직.
+    - api_url/api_key 제공 시 실제 POST 발송 (Solapi / Aligo 등)
+    - 미제공 시 dry-run 모드 (UI 미리보기만)
+    - 발송 성공 시 log_kakao_sent()로 상담일지에 자동 기록
+
+    Returns:
+        {"ok": True/False, "dry_run": bool, "message": str}
+    """
+    payload = {
+        "template_id": template_id,
+        "receiver":    phone_number,
+        "variables": {
+            "name":    customer_name,
+            "summary": report_summary,
+            "link":    "https://goldkey-ai-817097913199.asia-northeast3.run.app",
+        },
+    }
+
+    if not api_url or not api_key:
+        if agent_id and person_id:
+            log_kakao_sent(agent_id, person_id, customer_name, template_id, report_summary)
+        return {
+            "ok":      True,
+            "dry_run": True,
+            "message": f"[미리보기] {customer_name} 님 — {report_summary}",
+            "payload": payload,
+        }
+
+    try:
+        import urllib.request
+        import json as _j
+        import urllib.error
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+        req = urllib.request.Request(
+            api_url,
+            data=_j.dumps(payload).encode(),
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = _j.loads(resp.read())
+
+        if agent_id and person_id:
+            log_kakao_sent(agent_id, person_id, customer_name, template_id, report_summary)
+
+        return {"ok": True, "dry_run": False, "message": "발송 완료", "response": result}
+
+    except Exception as e:
+        return {"ok": False, "dry_run": False, "message": str(e)}

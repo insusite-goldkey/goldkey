@@ -711,6 +711,7 @@ try:
     from components import (
         apply_gp_pastel_theme,
         inject_outlook_css,
+        inject_responsive_css,
         render_spa_nav,
         render_radio_spa_nav,
         render_outlook_customer_list,
@@ -724,6 +725,7 @@ try:
         save_schedule          as _du_save_sched,
     )
     apply_gp_pastel_theme()
+    inject_responsive_css()
     _OUTLOOK_OK = True
 except Exception:
     _OUTLOOK_OK = False
@@ -1448,57 +1450,138 @@ elif _spa_mode == "customer":
     # ── SCREEN 6: 💬 카카오 발송 ─────────────────────────────────────────────
     elif _spa_screen == "kakao":
         st.markdown(
-            "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
-            "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
-            "💬 카카오 발송 — 알림톡 / 상담 링크 전송</div>",
+            "<div class='gp-header'>💬 카카오 알림톡 발송 — 5단계 상담 완결 시나리오</div>",
             unsafe_allow_html=True,
         )
         if not _sel_cust:
             st.info("고객을 먼저 선택해 주세요.")
         else:
-            _kk1, _kk2 = st.columns(2)
+            _kk_name  = _sel_cust.get("name", "")
+            _kk_phone = decrypt_pii(_sel_cust.get("contact", ""))
+            _kk_pid   = _sel_cust.get("person_id", "")
+
+            # ── 시나리오 흐름도 ────────────────────────────────────────────
+            st.markdown(
+                "<div style='background:#f0fdf4;border:1px dashed #16a34a;border-radius:10px;"
+                "padding:10px 14px;font-size:0.78rem;margin-bottom:12px;'>"
+                "<b style='color:#15803d;'>📊 연동 시나리오</b>&nbsp;&nbsp;"
+                "<span style='color:#374151;'>"
+                "① AI 브리핑 로드 → ② 템플릿 매핑 → ③ API 호출 → ④ 상담일지 자동 기록"
+                "</span></div>",
+                unsafe_allow_html=True,
+            )
+
+            _kk1, _kk2 = st.columns([5, 5])
+
             with _kk1:
                 st.markdown(
-                    "<div style='background:#F8FBFA;border:1px dashed #000;border-radius:10px;padding:14px;'>"
-                    "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;margin-bottom:10px;'>"
-                    "📤 알림톡 발송</div>",
+                    "<div style='background:#F8FBFA;border:1px dashed #000;"
+                    "border-radius:10px;padding:14px;'>",
                     unsafe_allow_html=True,
                 )
-                _kk_phone = decrypt_pii(_sel_cust.get("contact", ""))
-                _kk_name  = _sel_cust.get("name", "")
-                _kk_tmpl  = st.selectbox("템플릿",
-                                         ["상담 안내", "만기 알림", "분석 리포트 전달", "맞춤형 메시지"],
-                                         key="kakao_tmpl_sel")
-                _kk_msg = st.text_area(
-                    "메시지 내용",
-                    value=f"{_kk_name} 고객님, 안녕하세요. 골드키 AI 설계사입니다.",
-                    height=100, key="kakao_msg_inp",
+                st.markdown("**📤 알림톡 발송 설정**")
+
+                # ① AI 브리핑 세션에서 분석 요약 자동 로드
+                _brief_from_session = st.session_state.get(
+                    f"crm_brief_edit_{_user_id}", ""
                 )
-                if st.button("📤 발송", key="kakao_send_btn", use_container_width=True, type="primary"):
-                    try:
-                        from modules.kakao_service import send_kakao_alimtalk
-                        _kk_ok = send_kakao_alimtalk(
-                            phone=_kk_phone, name=_kk_name,
-                            template=_kk_tmpl, message=_kk_msg,
-                        )
-                        if _kk_ok:
-                            st.success(f"✅ {_kk_name} 님께 카카오톡 발송 완료!")
-                        else:
-                            st.warning("발송 실패 (카카오 API 설정 확인)")
-                    except Exception as _ke:
-                        st.error(f"발송 오류: {_ke}")
+                _brief_preview = (
+                    _brief_from_session[:80] + "…"
+                    if len(_brief_from_session) > 80 and _brief_from_session
+                    else _brief_from_session
+                )
+
+                # ② 템플릿 매핑
+                _TMPL_MAP = {
+                    "GP_AI_REPORT_01":  "🤖 AI 분석 리포트 전달",
+                    "GP_RENEWAL_01":    "🚗 만기 도래 알림",
+                    "GP_CONSULT_01":    "📞 상담 안내",
+                    "GP_CUSTOM_01":     "✍️ 맞춤형 메시지",
+                }
+                _tmpl_id = st.selectbox(
+                    "알림톡 템플릿",
+                    list(_TMPL_MAP.keys()),
+                    format_func=lambda x: _TMPL_MAP.get(x, x),
+                    key="kakao_tmpl_sel",
+                )
+
+                # ③ 리포트 요약 (자동 치환 가능)
+                _kk_summary = st.text_area(
+                    "발송 내용 (variables.summary 자동 치환)",
+                    value=_brief_preview or f"{_kk_name} 고객님 AI 분석 리포트 — 골드키 AI 설계사",
+                    height=90,
+                    key="kakao_summary_inp",
+                    help="AI 브리핑 탭에서 저장한 내용이 자동 로드됩니다. 직접 수정 가능.",
+                )
+
+                # ④ API 키 (secrets에서 로드)
+                try:
+                    from shared_components import get_env_secret as _genv_kk
+                    _kk_api_url = _genv_kk("KAKAO_API_URL", "")
+                    _kk_api_key = _genv_kk("KAKAO_API_KEY", "")
+                except Exception:
+                    _kk_api_url = _kk_api_key = ""
+
+                _is_dry_run = not (_kk_api_url and _kk_api_key)
+                if _is_dry_run:
+                    st.caption("⚠️ KAKAO_API_URL / KAKAO_API_KEY 미설정 → 미리보기 모드")
+
+                # 발송 전 검증 (제8조 준수)
+                _send_ready = bool(_kk_name and _kk_summary.strip())
+                if not _send_ready:
+                    st.warning("고객 이름 또는 발송 내용이 비어 있습니다.")
+
+                if st.button(
+                    "� 위 내용으로 카카오톡 발송",
+                    key="kakao_send_btn",
+                    use_container_width=True,
+                    type="primary",
+                    disabled=not _send_ready,
+                ):
+                    with st.spinner("발송 처리 중…"):
+                        try:
+                            from db_utils import send_kakao_report as _dku_kakao
+                            _kk_result = _dku_kakao(
+                                customer_name=_kk_name,
+                                phone_number=_kk_phone,
+                                report_summary=_kk_summary,
+                                agent_id=_user_id,
+                                person_id=_kk_pid,
+                                template_id=_tmpl_id,
+                                api_url=_kk_api_url,
+                                api_key=_kk_api_key,
+                            )
+                        except Exception as _ke:
+                            _kk_result = {"ok": False, "dry_run": False, "message": str(_ke)}
+
+                    # ④ 결과 표시 + 상담일지 자동 기록 확인
+                    if _kk_result.get("ok"):
+                        _dry_label = " (미리보기)" if _kk_result.get("dry_run") else ""
+                        st.success(f"✅ {_kk_name} 고객님께 AI 리포트 발송 완료{_dry_label}!")
+                        st.caption("📋 상담일지에 [카톡 발송 완료] 자동 기록됨")
+                        if _kk_result.get("dry_run") and _kk_result.get("payload"):
+                            with st.expander("📄 발송 페이로드 미리보기", expanded=False):
+                                import json as _jkk
+                                st.code(_jkk.dumps(_kk_result["payload"], ensure_ascii=False, indent=2))
+                    else:
+                        st.error(f"❌ 발송 실패: {_kk_result.get('message', '')}")
+
                 st.markdown("</div>", unsafe_allow_html=True)
+
             with _kk2:
                 st.markdown(
-                    "<div style='background:#F8FBFA;border:1px dashed #000;border-radius:10px;padding:14px;'>"
-                    "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;margin-bottom:10px;'>"
-                    "🔗 HQ 딥링크 공유</div>",
+                    "<div style='background:#F8FBFA;border:1px dashed #000;"
+                    "border-radius:10px;padding:14px;'>",
                     unsafe_allow_html=True,
                 )
+                st.markdown("**🔗 HQ 딥링크 공유**")
                 _sh_sector = st.selectbox(
                     "공유할 분석 섹터",
                     ["t3", "t2", "cancer", "brain"],
-                    format_func=lambda x: {"t3": "KB7 분석", "t2": "실손", "cancer": "암보험", "brain": "뇌혈관"}.get(x, x),
+                    format_func=lambda x: {
+                        "t3": "KB7 보장 분석", "t2": "실손의료비",
+                        "cancer": "암보험 분석", "brain": "뇌혈관 분석",
+                    }.get(x, x),
                     key="kakao_share_sector",
                 )
                 _sh_url = build_deeplink_to_hq(
@@ -1508,10 +1591,38 @@ elif _spa_mode == "customer":
                     token=_token,
                 )
                 st.markdown(
-                    f"<div style='background:#eff6ff;border:1px dashed #93c5fd;border-radius:8px;"
-                    f"padding:8px 12px;font-size:0.74rem;word-break:break-all;'>{_sh_url}</div>",
+                    f"<div style='background:#eff6ff;border:1px dashed #93c5fd;"
+                    f"border-radius:8px;padding:8px 12px;font-size:0.74rem;"
+                    f"word-break:break-all;margin-bottom:8px;'>{_sh_url}</div>",
                     unsafe_allow_html=True,
                 )
+
+                # 상담일지 최근 발송 기록 표시
+                st.markdown("**📋 최근 발송 기록**")
+                try:
+                    _kk_logs = (_sb.table("gk_consulting_logs")
+                                .select("content,created_at")
+                                .eq("agent_id", _user_id)
+                                .eq("person_id", _kk_pid)
+                                .eq("log_type", "kakao_sent")
+                                .order("created_at", desc=True)
+                                .limit(5)
+                                .execute().data or []) if _sb else []
+                    if _kk_logs:
+                        for _lg in _kk_logs:
+                            _lg_ts = str(_lg.get("created_at", ""))[:10]
+                            _lg_ct = str(_lg.get("content", ""))[:60]
+                            st.markdown(
+                                f"<div class='gp-sched'>"
+                                f"<span class='gko-sched-time'>{_lg_ts}</span>"
+                                f"<div class='gko-sched-title'>{_lg_ct}</div></div>",
+                                unsafe_allow_html=True,
+                            )
+                    else:
+                        st.caption("발송 기록이 없습니다.")
+                except Exception:
+                    st.caption("기록 조회 불가")
+
                 st.markdown("</div>", unsafe_allow_html=True)
 # ══════════════════════════════════════════════════════════════════════════════
 # [GP-PHASE-4] 반응형 통합 증권분석 센터 — CRM 이식 (HQ와 완전 동일)
