@@ -750,6 +750,24 @@ except Exception:
 .gp-memo{background:#FDFD96;border:1px dashed #d97706;border-radius:8px;padding:10px 14px;}
 .gp-sched{background:#E6E6FA;border:1px solid #c4b5fd;border-radius:8px;padding:8px 12px;margin-bottom:6px;}
 .gp-card{background:#ffffff;border:1px dashed #000;border-radius:10px;padding:12px 16px;margin-bottom:10px;}
+/* [GP-PREMIUM] 프리미엄 디자인 — text-shadow + gradient box */
+.premium-gradient-box{
+  background:linear-gradient(135deg,#dbeafe 0%,#eff6ff 50%,#f0f8ff 100%);
+  border:1px solid #93c5fd;border-radius:12px;
+  padding:14px 18px;margin-bottom:12px;
+  box-shadow:0 2px 10px rgba(59,130,246,0.12);
+}
+.premium-gradient-box .box-title{
+  font-size:clamp(14px,1.4vw+10px,17px);font-weight:900;color:#1e3a8a;
+  text-shadow:0 1px 3px rgba(0,0,0,0.12);
+}
+.premium-gradient-box .box-body{
+  font-size:clamp(12px,1.1vw+9px,14px);color:#374151;margin-top:4px;
+}
+/* 흰 텍스트 text-shadow 전역 적용 */
+[style*="color:#ffffff"],[style*="color:white"],[style*="color:#fff"]{
+  text-shadow:0 1px 3px rgba(0,0,0,0.25) !important;
+}
 /* [GP-RESPONSIVE] 모바일 스태킹 강제 원칙 — fallback */
 @media (max-width: 768px) {
   [data-testid="column"] {
@@ -1442,6 +1460,40 @@ elif _spa_mode == "customer":
                                 f"{str(_lg.get('content',''))[:60]}"
                             )
 
+        # ── [카카오 파이프라인 진입점 1] 달력/일정 탭 — 고객 상담 일정 및 안내 문자 발송 ──
+        if _sel_cust and _sel_pid:
+            st.markdown("<hr style='border-top:1px dashed #000;margin:14px 0 8px;'>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='background:linear-gradient(135deg,#fffde7,#fef9c3);border:1px dashed #f59e0b;"
+                "border-radius:10px;padding:8px 14px;margin-bottom:8px;'>"
+                "<span style='font-size:0.82rem;font-weight:900;color:#92400e;"
+                "text-shadow:0 1px 2px rgba(0,0,0,0.10);'>💬 카카오 파이프라인 ① — 일정 안내 문자</span></div>",
+                unsafe_allow_html=True,
+            )
+            _kk1_c1, _kk1_c2 = st.columns([7, 3])
+            with _kk1_c1:
+                _kk1_msg = st.text_input(
+                    "일정 안내 문구",
+                    placeholder=f"{_sel_cust.get('name','')}님, 상담 일정 안내드립니다...",
+                    key="kk1_msg_input", label_visibility="collapsed",
+                )
+            with _kk1_c2:
+                if st.button("💬 고객 상담 일정 및 안내 문자 발송",
+                             key="kk1_send_btn", use_container_width=True, type="primary"):
+                    try:
+                        from db_utils import send_kakao_report as _kk_send1
+                        _kk1_res = _kk_send1(
+                            customer_name=_sel_cust.get("name", ""),
+                            phone_number=decrypt_pii(_sel_cust.get("contact", "")),
+                            report_summary=_kk1_msg or f"{_sel_cust.get('name','')}님, 상담 일정 안내드립니다.",
+                            agent_id=_user_id, person_id=_sel_pid,
+                            template_id="GP_SCHEDULE_01",
+                        )
+                        _d = "[미리보기] " if _kk1_res.get("dry_run") else ""
+                        st.success(f"✅ {_d}발송 완료!") if _kk1_res.get("ok") else st.error(f"❌ {_kk1_res.get('message','')}")
+                    except Exception as _kk1_e:
+                        st.error(f"카카오 오류: {_kk1_e}")
+
     # ── SCREEN 3: 🌐 내보험다보여 (기존 로직 100% 보존) ────────────────────
     elif _spa_screen == "nibo":
         st.markdown(
@@ -1816,6 +1868,40 @@ elif _spa_mode == "customer":
                         st.caption(f"조회 오류: {_rel_e}")
 
                 st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── [카카오 파이프라인 진입점 2] 증권분석 탭 — AI 분석표 요약 문자 발송 ──
+        if _sel_cust and _sel_pid:
+            st.markdown("<hr style='border-top:1px dashed #000;margin:14px 0 8px;'>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='background:linear-gradient(135deg,#fffde7,#fef9c3);border:1px dashed #f59e0b;"
+                "border-radius:10px;padding:8px 14px;margin-bottom:8px;'>"
+                "<span style='font-size:0.82rem;font-weight:900;color:#92400e;"
+                "text-shadow:0 1px 2px rgba(0,0,0,0.10);'>💬 카카오 파이프라인 ② — AI 분석표 요약 문자</span></div>",
+                unsafe_allow_html=True,
+            )
+            _kk2_c1, _kk2_c2 = st.columns([7, 3])
+            with _kk2_c1:
+                _kk2_msg = st.text_input(
+                    "AI 분석 요약 문구",
+                    placeholder=f"{_sel_cust.get('name','')}님 보장 분석 결과를 안내드립니다...",
+                    key="kk2_msg_input", label_visibility="collapsed",
+                )
+            with _kk2_c2:
+                if st.button("💬 AI 분석표 요약 문자 발송",
+                             key="kk2_send_btn", use_container_width=True, type="primary"):
+                    try:
+                        from db_utils import send_kakao_report as _kk_send2
+                        _kk2_res = _kk_send2(
+                            customer_name=_sel_cust.get("name", ""),
+                            phone_number=decrypt_pii(_sel_cust.get("contact", "")),
+                            report_summary=_kk2_msg or f"{_sel_cust.get('name','')}님 AI 보장 분석 결과를 안내드립니다.",
+                            agent_id=_user_id, person_id=_sel_pid,
+                            template_id="GP_AI_REPORT_01",
+                        )
+                        _d2 = "[미리보기] " if _kk2_res.get("dry_run") else ""
+                        st.success(f"✅ {_d2}발송 완료!") if _kk2_res.get("ok") else st.error(f"❌ {_kk2_res.get('message','')}")
+                    except Exception as _kk2_e:
+                        st.error(f"카카오 오류: {_kk2_e}")
 
     # ── SCREEN 5: 🤖 AI 브리핑 편집기 (5:5 분할 — 좌: 우선순위·일정, 우: 편집기) ────
     elif _spa_screen == "ai_brief":

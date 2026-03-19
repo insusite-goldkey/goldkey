@@ -36909,6 +36909,42 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
         with _ph_s10:
             with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
                 _render_gk_sec10()
+        # ── [카카오 파이프라인 진입점 4] HQ 상담 최종 종료 — 고객 감사 및 사후 관리 안내 ──
+        _k4_cid  = st.session_state.get("_rd_docked_cid", "")
+        _k4_name = st.session_state.get("_rd_docked_name", "")
+        if _k4_cid:
+            st.markdown(
+                "<hr style='border-top:2px dashed #D4AF37;margin:20px 0 12px;'>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<div style='background:linear-gradient(135deg,#fef9c3,#ecfdf5);"
+                "border:1px dashed #D4AF37;border-radius:12px;padding:12px 18px;margin-bottom:10px;'>"
+                "<div style='font-size:0.95rem;font-weight:900;color:#1e3a8a;"
+                "text-shadow:0 1px 3px rgba(0,0,0,0.12);margin-bottom:4px;'>"
+                "🎯 카카오 파이프라인 ④ — 상담 최종 종료</div>"
+                "<div style='font-size:0.8rem;color:#374151;'>"
+                "AI 정밀 분석이 완료되었습니다. 고객에게 상담 감사 메시지를 발송하세요.</div></div>",
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                "💬 고객 상담 감사 및 사후 관리 안내 문자 발송",
+                key="kk4_sec10_btn", use_container_width=True, type="primary",
+            ):
+                try:
+                    from db_utils import send_kakao_report as _kk4_send
+                    _kk4_res = _kk4_send(
+                        customer_name=_k4_name or "고객",
+                        phone_number="",
+                        report_summary="상담해 주셔서 감사합니다. 추가 문의사항은 언제든지 연락 주세요.",
+                        agent_id=st.session_state.get("user_id", ""),
+                        person_id=_k4_cid,
+                        template_id="GP_CLOSING_01",
+                    )
+                    _d4 = "[미리보기] " if _kk4_res.get("dry_run") else ""
+                    st.success(f"✅ {_d4}발송 완료!") if _kk4_res.get("ok") else st.error(f"❌ {_kk4_res.get('message','')}")
+                except Exception as _e4:
+                    st.error(f"카카오 오류: {_e4}")
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
@@ -36931,6 +36967,45 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
         with _ph_s08:
             with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
                 _render_gk_sec08()
+        # ── [카카오 파이프라인 진입점 3] 화재·특종보험 담보별 상세 상담 ─────────────────
+        _k3_s08_cid  = st.session_state.get("_rd_docked_cid", "")
+        _k3_s08_name = st.session_state.get("_rd_docked_name", "")
+        if _k3_s08_cid:
+            st.markdown("<hr style='border-top:1px dashed #000;margin:16px 0 8px;'>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='background:linear-gradient(135deg,#fff7ed,#fef3c7);"
+                "border:1px dashed #d97706;border-radius:10px;padding:8px 14px;margin-bottom:8px;'>"
+                "<span style='font-size:0.85rem;font-weight:900;color:#78350f;"
+                "text-shadow:0 1px 2px rgba(0,0,0,0.12);'>"
+                "💬 카카오 파이프라인 ③ — 화재 담보 상담 최종 + 설계사 추가 의견</span></div>",
+                unsafe_allow_html=True,
+            )
+            _kk3_s08_c1, _kk3_s08_c2 = st.columns([7, 3])
+            with _kk3_s08_c1:
+                _kk3_s08_note = st.text_area(
+                    "설계사 추가 의견",
+                    placeholder="화재·특종보험 담보 분석 후 추가 의견을 입력하세요...",
+                    key="kk3_s08_note", height=60, label_visibility="collapsed",
+                )
+            with _kk3_s08_c2:
+                if st.button(
+                    "💬 증권분석 최종 + 설계사 추가 의견 문자 발송",
+                    key="kk3_s08_btn", use_container_width=True, type="primary",
+                ):
+                    try:
+                        from db_utils import send_kakao_report as _kk3_s08_fn
+                        _r3_s08 = _kk3_s08_fn(
+                            customer_name=_k3_s08_name or "고객",
+                            phone_number="",
+                            report_summary=_kk3_s08_note or "화재·특종보험 담보 분석이 완료되었습니다.",
+                            agent_id=st.session_state.get("user_id", ""),
+                            person_id=_k3_s08_cid,
+                            template_id="GP_ANALYSIS_FINAL_01",
+                        )
+                        _d3s = "[미리보기] " if _r3_s08.get("dry_run") else ""
+                        st.success(f"✅ {_d3s}발송 완료!") if _r3_s08.get("ok") else st.error(f"❌ {_r3_s08.get('message','')}")
+                    except Exception as _e3s08:
+                        st.error(f"카카오 오류: {_e3s08}")
         st.stop()
 
         # ══════════════════════════════════════════════════════════════════════
@@ -36942,6 +37017,45 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
         with _ph_s07:
             with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
                 _render_gk_sec07()
+        # ── [카카오 파이프라인 진입점 3] 자동차보험 담보별 상세 상담 ────────────────────
+        _k3_s07_cid  = st.session_state.get("_rd_docked_cid", "")
+        _k3_s07_name = st.session_state.get("_rd_docked_name", "")
+        if _k3_s07_cid:
+            st.markdown("<hr style='border-top:1px dashed #000;margin:16px 0 8px;'>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='background:linear-gradient(135deg,#fff7ed,#fef3c7);"
+                "border:1px dashed #d97706;border-radius:10px;padding:8px 14px;margin-bottom:8px;'>"
+                "<span style='font-size:0.85rem;font-weight:900;color:#78350f;"
+                "text-shadow:0 1px 2px rgba(0,0,0,0.12);'>"
+                "💬 카카오 파이프라인 ③ — 자동차 담보 상담 최종 + 설계사 추가 의견</span></div>",
+                unsafe_allow_html=True,
+            )
+            _kk3_s07_c1, _kk3_s07_c2 = st.columns([7, 3])
+            with _kk3_s07_c1:
+                _kk3_s07_note = st.text_area(
+                    "설계사 추가 의견",
+                    placeholder="자동차보험 담보 분석 후 추가 의견을 입력하세요...",
+                    key="kk3_s07_note", height=60, label_visibility="collapsed",
+                )
+            with _kk3_s07_c2:
+                if st.button(
+                    "💬 증권분석 최종 + 설계사 추가 의견 문자 발송",
+                    key="kk3_s07_btn", use_container_width=True, type="primary",
+                ):
+                    try:
+                        from db_utils import send_kakao_report as _kk3_s07_fn
+                        _r3_s07 = _kk3_s07_fn(
+                            customer_name=_k3_s07_name or "고객",
+                            phone_number="",
+                            report_summary=_kk3_s07_note or "자동차보험 담보 분석이 완료되었습니다.",
+                            agent_id=st.session_state.get("user_id", ""),
+                            person_id=_k3_s07_cid,
+                            template_id="GP_ANALYSIS_FINAL_01",
+                        )
+                        _d3s7 = "[미리보기] " if _r3_s07.get("dry_run") else ""
+                        st.success(f"✅ {_d3s7}발송 완료!") if _r3_s07.get("ok") else st.error(f"❌ {_r3_s07.get('message','')}")
+                    except Exception as _e3s07:
+                        st.error(f"카카오 오류: {_e3s07}")
         st.stop()
 
         # ══════════════════════════════════════════════════════════════════════
