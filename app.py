@@ -25593,6 +25593,26 @@ def _build_injury_aware_system_instruction() -> str:
                 _base += _sched_ctx
         except Exception:
             pass
+        # [GP-NBA] 고객 성향(Logical/Emotional) 컨텍스트 자동 주입
+        try:
+            _cur_cust = _st.session_state.get("_current_customer_data") or {}
+            if _cur_cust:
+                from nba_engine import classify_personality as _cpf, generate_ai_guide_text as _gaig
+                _ptype = _cpf(_cur_cust)
+                _picon = "⚖️" if _ptype == "Logical" else "❤️"
+                _base += (
+                    f"\n\n## [고객 성향 분석 — 자동 주입]\n"
+                    f"현재 고객 성향: {_picon} {_ptype}\n"
+                    + (
+                        "→ Logical: 데이터·수치·트리니티 역산 수치 중심 '보고서형' 텍스트를 생성하라. "
+                        "건강보험료 기반 가처분 소득 역산, 보장 공백 수치, 만기 후 필요 자금을 강조하라."
+                        if _ptype == "Logical" else
+                        "→ Emotional: 가족의 미래와 안심을 중심으로 한 '다정한 편지형' 텍스트를 생성하라. "
+                        "수치보다 가족의 사랑과 걱정을 공감하고, 따뜻한 언어로 클로징하라."
+                    )
+                )
+        except Exception:
+            pass
     except Exception:
         pass
     return _base
@@ -37994,13 +38014,39 @@ function selectCustomer(name) {{
                         unsafe_allow_html=True)
                     break
     
+            # ── [GP-VOICE] 모닝 브리핑 자동 트리거 (당일 1회) ─────────────
+            try:
+                from voice_engine import render_morning_briefing_auto as _rmba
+                _rmba(
+                    agent_id=st.session_state.get("agent_id", ""),
+                    agent_name=st.session_state.get("agent_name", ""),
+                )
+            except Exception:
+                pass
+
+            # ── [GP-VOICE] 지속형 미니 보이스 플레이어 바 (재생 버튼) ───────
+            try:
+                _mbtext = st.session_state.get("_morning_briefing_text", "")
+                if _mbtext:
+                    from voice_engine import render_voice_player_bar as _rvpb
+                    _rvpb(text=_mbtext, personality_type="Emotional", key="home_vp_bar")
+            except Exception:
+                pass
+
             # ── [GP-CALENDAR] 오늘의 핵심 영업 일정 위젯 ──────────────────
             try:
                 from calendar_engine import render_today_widget as _rtw
                 _rtw(agent_id=st.session_state.get("agent_id", ""))
             except Exception:
                 pass
-    
+
+            # ── [GP-NBA] AI 비서의 오늘 영업 제안 카드 뉴스 ─────────────────
+            try:
+                from nba_engine import render_nba_widget as _rnba
+                _rnba(agent_id=st.session_state.get("agent_id", ""))
+            except Exception:
+                pass
+
             # ── 심야 배치 워커 트리거 (02~04 KST, 세션당 1회) ────────────────
             if not st.session_state.get('_art38_night_ran_today'):
                 import datetime as _dt_nw
