@@ -586,11 +586,16 @@ div[data-testid="stRadio"] > div > label:has(input:checked) {
   font-weight: 900 !important;
 }
 div[data-testid="stRadio"] > div > label > div:first-child { display: none !important; }
-/* ── 반응형 5:5 레이아웃 (모바일 600px 이하 → 스택) ─────────────── */
-@media (max-width: 600px) {
+/* ── [GP-RESPONSIVE] 모바일 스태킹 강제 (768px 이하) ───────────────── */
+@media (max-width: 768px) {
   [data-testid="column"] {
-    min-width: 100% !important;
+    width: 100% !important;
     flex: 1 1 100% !important;
+    min-width: 100% !important;
+    margin-bottom: 16px !important;
+  }
+  [data-testid="stHorizontalBlock"] {
+    flex-direction: column !important;
   }
 }
 /* ── 로딩 바 (파스텔) ───────────────────────────────────────────────── */
@@ -793,30 +798,44 @@ def render_sync_badge(status: str, label: str = "") -> None:
 # §9 반응형 CSS 전용 주입 (inject_responsive_css)
 # ══════════════════════════════════════════════════════════════════════════════
 _RESPONSIVE_CSS = """<style>
-/* ── 모바일(너비 600px 이하) 전용 ─────────────────────────────────────── */
-@media (max-width: 600px) {
-  /* 5:5 분할 컬럼 → 강제 100% (세로 스태킹) */
+/* ── [GP-RESPONSIVE] 모바일 스태킹 강제 원칙 (768px 이하) ─────────────── */
+/* 브레이크포인트: 768px = 폰 + 세로모드 태블릿 트리거                    */
+@media (max-width: 768px) {
+  /* ① st.columns → 강제 100% 세로 스태킹 */
   [data-testid="column"] {
     width: 100% !important;
     flex: 1 1 100% !important;
     min-width: 100% !important;
-    margin-bottom: 20px;
+    margin-bottom: 16px !important;
   }
-  /* 아웃룩 3분할 뷰 → 세로형 전환 */
-  .outlook-container {
-    display: flex;
+  /* ② Streamlit row 컨테이너도 세로 강제 */
+  [data-testid="stHorizontalBlock"] {
     flex-direction: column !important;
   }
-  /* 폰트 크기 미세 조정 */
-  p, span, label { font-size: 13px !important; }
-  /* 미니 달력 전체 너비 */
+  /* ③ 아웃룩 3분할 뷰 → 세로형 전환 */
+  .outlook-container {
+    flex-direction: column !important;
+  }
+  /* ④ 유동 타이포그래피 — clamp() 함수로 모바일 폰트 자동 조정 */
+  p, span, label, .stMarkdown {
+    font-size: clamp(12px, 3.5vw, 15px) !important;
+  }
+  h1 { font-size: clamp(18px, 5vw, 28px) !important; }
+  h2 { font-size: clamp(15px, 4.5vw, 22px) !important; }
+  h3 { font-size: clamp(13px, 4vw, 18px) !important; }
+  /* ⑤ 미니 달력 전체 너비 */
   .gko-mini-cal { width: 100% !important; }
-  /* SPA 네비게이션 바 세로 스크롤 허용 */
+  /* ⑥ SPA 네비게이션 줄바꿈 허용 */
   div[data-testid="stRadio"] > div {
     flex-wrap: wrap !important;
   }
   div[data-testid="stRadio"] > div > label {
     flex: 1 1 45% !important;
+  }
+  /* ⑦ 데이터테이블·차트 오버플로우 방지 */
+  .stDataFrame, .element-container {
+    max-width: 100% !important;
+    overflow-x: auto !important;
   }
 }
 

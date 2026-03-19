@@ -745,6 +745,28 @@ try:
     _OUTLOOK_OK = True
 except Exception:
     _OUTLOOK_OK = False
+    st.markdown("""<style>
+[data-testid="stApp"],[data-testid="stAppViewContainer"]>.main{background:#F8FBFA!important;}
+.gp-memo{background:#FDFD96;border:1px dashed #d97706;border-radius:8px;padding:10px 14px;}
+.gp-sched{background:#E6E6FA;border:1px solid #c4b5fd;border-radius:8px;padding:8px 12px;margin-bottom:6px;}
+.gp-card{background:#ffffff;border:1px dashed #000;border-radius:10px;padding:12px 16px;margin-bottom:10px;}
+/* [GP-RESPONSIVE] 모바일 스태킹 강제 원칙 — fallback */
+@media (max-width: 768px) {
+  [data-testid="column"] {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+    margin-bottom: 16px !important;
+  }
+  [data-testid="stHorizontalBlock"] { flex-direction: column !important; }
+  p, span, label, .stMarkdown { font-size: clamp(12px, 3.5vw, 15px) !important; }
+  h1 { font-size: clamp(18px, 5vw, 28px) !important; }
+  h2 { font-size: clamp(15px, 4.5vw, 22px) !important; }
+  div[data-testid="stRadio"] > div { flex-wrap: wrap !important; }
+  div[data-testid="stRadio"] > div > label { flex: 1 1 45% !important; }
+  .stDataFrame, .element-container { max-width: 100% !important; overflow-x: auto !important; }
+}
+</style>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # [GP SPA §1] 상태 초기화
@@ -967,80 +989,74 @@ elif _spa_mode == "customer":
                 st.session_state["crm_selected_pid"] = ""
                 st.rerun()
 
-    # ── SCREEN 1: 👥 연락처 상세 ────────────────────────────────────────────
+    # ── SCREEN 1: 👥 연락처 상세 (항상 보이는 아웃룩 2-pane 레이아웃) ─────────────
     if _spa_screen == "contact":
         st.markdown(
             "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
             "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
-            "👥 연락처 상세 — 손보사 표준 정보 관리</div>",
+            "👥 연락처 상세 — GCS 양방향 동기화 · 손보사 표준 정보 관리</div>",
             unsafe_allow_html=True,
         )
-        _edit_key = f"spa_edit_{_sel_pid}"
-        if st.session_state.get(_edit_key):
-            if _OUTLOOK_OK:
-                _upd_data = 손보사_standard_form(_sel_cust, key_prefix=f"spa_cf_{_sel_pid}")
-            else:
-                _upd_data = customer_form(_sel_cust, key_prefix=f"spa_cf_{_sel_pid}")
-            _sv1, _sv2 = st.columns(2)
-            with _sv1:
-                if st.button("💾 저장", key=f"spa_save_{_sel_pid}", type="primary", use_container_width=True):
-                    try:
-                        customer_input_form(_upd_data, _user_id, _sb)
-                        st.success("✅ 저장 완료!")
-                        st.session_state[_edit_key] = False
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as _ue:
-                        st.error(f"저장 오류: {_ue}")
-            with _sv2:
-                if st.button("취소", key=f"spa_cancel_{_sel_pid}", use_container_width=True):
-                    st.session_state[_edit_key] = False
-                    st.rerun()
+        if not _sel_cust:
+            st.info("고객을 먼저 선택해 주세요.")
         else:
-            if _sel_cust:
-                _lbl_map = {"potential": "가망", "active": "진행중",
-                            "contracted": "계약", "closed": "종료"}
-                _d1, _d2 = st.columns(2)
-                _flds_l = [("이름", "name"), ("연락처", "_ct_disp"), ("생년월일", "birth_date"), ("성별", "gender")]
-                _flds_r = [("직업", "job"), ("주소", "address"), ("등급", "_tier_lbl"), ("상태", "_stat_lbl")]
-                with _d1:
-                    for _lbl, _fk in _flds_l:
-                        if _fk == "_ct_disp":
-                            _fv = decrypt_pii(_sel_cust.get("contact", ""))
-                        elif _fk == "_tier_lbl":
-                            _fv = TIER_META.get(_sel_cust.get("management_tier", 3), TIER_META[3])["label"]
-                        elif _fk == "_stat_lbl":
-                            _fv = _lbl_map.get(_sel_cust.get("status", ""), "-")
-                        else:
-                            _fv = _sel_cust.get(_fk, "-") or "-"
-                        st.markdown(
-                            f"<div style='margin-bottom:10px;'>"
-                            f"<div style='font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;'>{_lbl}</div>"
-                            f"<div style='font-size:0.9rem;color:#1e293b;font-weight:500;'>{_fv}</div></div>",
-                            unsafe_allow_html=True,
-                        )
-                with _d2:
-                    for _lbl, _fk in _flds_r:
-                        if _fk == "_tier_lbl":
-                            _fv = TIER_META.get(_sel_cust.get("management_tier", 3), TIER_META[3])["label"]
-                        elif _fk == "_stat_lbl":
-                            _fv = _lbl_map.get(_sel_cust.get("status", ""), "-")
-                        else:
-                            _fv = _sel_cust.get(_fk, "-") or "-"
-                        st.markdown(
-                            f"<div style='margin-bottom:10px;'>"
-                            f"<div style='font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;'>{_lbl}</div>"
-                            f"<div style='font-size:0.9rem;color:#1e293b;font-weight:500;'>{_fv}</div></div>",
-                            unsafe_allow_html=True,
-                        )
+            _lbl_map = {"potential": "가망", "active": "진행중",
+                        "contracted": "계약", "closed": "종료"}
+            _pane_l, _pane_r = st.columns([5, 5])
+
+            # ── LEFT PANE: 고객 요약 카드 (항상 표시) ──────────────────────────
+            with _pane_l:
+                st.markdown(
+                    "<div style='background:#F8FBFA;border:1px solid #EAEAEF;"
+                    "border-radius:10px;padding:14px;'>",
+                    unsafe_allow_html=True,
+                )
+                _tm_l = TIER_META.get(_sel_cust.get("management_tier", 3), TIER_META[3])
+                st.markdown(
+                    f"<div style='display:flex;align-items:center;gap:10px;margin-bottom:12px;'>"
+                    f"<div style='width:44px;height:44px;border-radius:50%;"
+                    f"background:{_tm_l['bg']};display:flex;align-items:center;"
+                    f"justify-content:center;font-size:1.3rem;font-weight:900;"
+                    f"color:{_tm_l['color']};flex-shrink:0;'>"
+                    f"{(_sel_cust.get('name') or '?')[0]}</div>"
+                    f"<div><div style='font-size:1.05rem;font-weight:900;color:#1e293b;'>"
+                    f"{_sel_cust.get('name','')}</div>"
+                    f"<span style='font-size:0.7rem;font-weight:900;padding:1px 8px;"
+                    f"border-radius:10px;background:{_tm_l['bg']};color:{_tm_l['color']};'>"
+                    f"{_tm_l['icon']} {_tm_l['label']}</span>"
+                    f"<span style='font-size:0.72rem;color:#64748b;margin-left:6px;'>"
+                    f"{_lbl_map.get(_sel_cust.get('status',''),'-')}</span>"
+                    f"</div></div>",
+                    unsafe_allow_html=True,
+                )
+                _flds_summary = [
+                    ("연락처",    decrypt_pii(_sel_cust.get("contact", ""))),
+                    ("생년월일",  _sel_cust.get("birth_date", "") or "-"),
+                    ("성별",      _sel_cust.get("gender", "") or "-"),
+                    ("직업",      _sel_cust.get("job", "") or "-"),
+                    ("주소",      _sel_cust.get("address", "") or "-"),
+                    ("자동차만기", f"{_sel_cust.get('auto_renewal_month','')}월"
+                                  if _sel_cust.get("auto_renewal_month") else "-"),
+                    ("화재만기",  f"{_sel_cust.get('fire_renewal_month','')}월"
+                                  if _sel_cust.get("fire_renewal_month") else "-"),
+                    ("최종수정",  str(_sel_cust.get("updated_at", ""))[:10] or "-"),
+                ]
+                for _lbl_s, _fv_s in _flds_summary:
+                    st.markdown(
+                        f"<div style='display:flex;justify-content:space-between;"
+                        f"padding:5px 0;border-bottom:1px solid #EAEAEF;font-size:0.8rem;'>"
+                        f"<span style='color:#64748b;font-weight:700;'>{_lbl_s}</span>"
+                        f"<span style='color:#1e293b;font-weight:500;'>{_fv_s}</span></div>",
+                        unsafe_allow_html=True,
+                    )
                 _sp_flags = []
-                if _sel_cust.get("has_motorcycle"):      _sp_flags.append("🏍️ 이륜차")
+                if _sel_cust.get("has_motorcycle"):       _sp_flags.append("🏍️ 이륜차")
                 if _sel_cust.get("is_commercial_driver"): _sp_flags.append("🚛 유상운송")
-                if _sel_cust.get("has_foreign_stay"):    _sp_flags.append("✈️ 해외장기체류")
+                if _sel_cust.get("has_foreign_stay"):     _sp_flags.append("✈️ 해외장기체류")
                 if _sp_flags:
                     st.markdown(
                         f"<div style='background:#fef3c7;border:1px dashed #f59e0b;border-radius:8px;"
-                        f"padding:8px 12px;font-size:0.82rem;font-weight:900;color:#92400e;margin-top:8px;'>"
+                        f"padding:8px 12px;font-size:0.82rem;font-weight:900;color:#92400e;margin-top:10px;'>"
                         f"⚠️ 손보사 고지: {' · '.join(_sp_flags)}</div>",
                         unsafe_allow_html=True,
                     )
@@ -1052,9 +1068,73 @@ elif _spa_mode == "customer":
                         f"<b>📝 상담 메모</b><br>{_memo_v}</div>",
                         unsafe_allow_html=True,
                     )
-                if st.button("✏️ 정보 수정", key=f"spa_edit_btn_{_sel_pid}", use_container_width=True):
-                    st.session_state[_edit_key] = True
-                    st.rerun()
+                if _sel_pid and _sb:
+                    _logs_c = []
+                    try:
+                        _logs_c = (_sb.table("gk_consulting_logs")
+                                   .select("content,created_at,log_type")
+                                   .eq("agent_id", _user_id).eq("person_id", _sel_pid)
+                                   .order("created_at", desc=True).limit(3).execute().data or [])
+                    except Exception:
+                        pass
+                    if _logs_c:
+                        st.markdown(
+                            "<div style='font-size:0.72rem;color:#6b7280;margin-top:10px;"
+                            "border-top:1px solid #EAEAEF;padding-top:6px;'>📋 최근 상담 이력</div>",
+                            unsafe_allow_html=True,
+                        )
+                        for _lc in _logs_c:
+                            _lt_icon = {"kakao_sent": "💬", "ai_brief": "🤖",
+                                        "nibo": "🌐", "manual": "✏️"}.get(
+                                _lc.get("log_type", ""), "📋")
+                            st.markdown(
+                                f"<div style='font-size:0.75rem;padding:3px 0;"
+                                f"border-bottom:1px dotted #EAEAEF;'>"
+                                f"{_lt_icon} {str(_lc.get('created_at',''))[:10]} "
+                                f"{str(_lc.get('content',''))[:40]}</div>",
+                                unsafe_allow_html=True,
+                            )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            # ── RIGHT PANE: 편집 폼 (항상 표시 — 저장 즉시 GCS 반영) ───────────
+            with _pane_r:
+                st.markdown(
+                    "<div style='background:#ffffff;border:1px dashed #000;"
+                    "border-radius:10px;padding:14px;'>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;"
+                    "border-bottom:2px solid #bfdbfe;padding-bottom:4px;margin-bottom:12px;'>"
+                    "✏️ 정보 수정 — GCS 즉시 저장</div>",
+                    unsafe_allow_html=True,
+                )
+                if _OUTLOOK_OK:
+                    _upd_data = 손보사_standard_form(_sel_cust, key_prefix=f"spa_cf_{_sel_pid}")
+                else:
+                    _fn_e = st.text_input("이름", value=_sel_cust.get("name", ""), key=f"sp_fn_{_sel_pid}")
+                    _fj_e = st.text_input("직업", value=_sel_cust.get("job", ""), key=f"sp_fj_{_sel_pid}")
+                    _fa_e = st.text_input("주소", value=_sel_cust.get("address", ""), key=f"sp_fa_{_sel_pid}")
+                    _fm_e = st.text_area("메모", value=_sel_cust.get("memo", ""), height=80, key=f"sp_fm_{_sel_pid}")
+                    _upd_data = {**_sel_cust, "name": _fn_e, "job": _fj_e,
+                                 "address": _fa_e, "memo": _fm_e}
+                _sv1, _sv2 = st.columns(2)
+                with _sv1:
+                    if st.button("💾 GCS 저장", key=f"spa_save_{_sel_pid}",
+                                 type="primary", use_container_width=True):
+                        try:
+                            customer_input_form(_upd_data, _user_id, _sb)
+                            st.success("✅ 저장 완료!")
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as _ue:
+                            st.error(f"저장 오류: {_ue}")
+                with _sv2:
+                    if st.button("↩️ 새로고침", key=f"spa_reload_{_sel_pid}",
+                                 use_container_width=True):
+                        st.cache_data.clear()
+                        st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
 
     # ── SCREEN 2: 📅 스케줄 ─────────────────────────────────────────────────
     elif _spa_screen == "schedule":
@@ -1328,6 +1408,45 @@ elif _spa_mode == "customer":
             "🌐 내보험다보여 — 신용정보 수집 · 트리니티 분석 파이프라인</div>",
             unsafe_allow_html=True,
         )
+        # ── 파스텔 크롤링 상태 모니터 ────────────────────────────────────────────
+        if _sel_cust and _sb:
+            try:
+                _nibo_crawl = (_sb.table("gk_crawl_status")
+                               .select("status,updated_at,error_msg")
+                               .eq("agent_id", _user_id)
+                               .eq("person_id", _sel_cust.get("person_id", ""))
+                               .order("updated_at", desc=True)
+                               .limit(1).execute().data or [])
+                if _nibo_crawl:
+                    _cs_n  = _nibo_crawl[0]
+                    _cst_n = _cs_n.get("status", "idle")
+                    _css_n_map = {
+                        "running": ("background:#fef3c7;border:1px solid #f59e0b;", "⚡ 수집 진행 중..."),
+                        "done":    ("background:#dcfce7;border:1px solid #16a34a;", "✅ 수집 완료"),
+                        "error":   ("background:#fef2f2;border:1px solid #dc2626;", "❌ 수집 오류"),
+                        "idle":    ("background:#F8FBFA;border:1px solid #EAEAEF;", "⏸ 대기 중"),
+                    }
+                    _css_n, _lbl_n = _css_n_map.get(_cst_n, _css_n_map["idle"])
+                    _ts_n = str(_cs_n.get("updated_at", ""))[:16].replace("T", " ")
+                    st.markdown(
+                        f"<div style='{_css_n}border-radius:8px;padding:8px 14px;"
+                        f"font-size:0.8rem;margin-bottom:10px;"
+                        f"display:flex;justify-content:space-between;align-items:center;'>"
+                        f"<span style='font-weight:900;'>📡 HQ 내보험다보여 수집 상태: {_lbl_n}</span>"
+                        f"<span style='color:#6b7280;font-size:0.74rem;'>{_ts_n}</span></div>",
+                        unsafe_allow_html=True,
+                    )
+                    if _cst_n == "error" and _cs_n.get("error_msg"):
+                        st.caption(f"오류 내용: {str(_cs_n.get('error_msg',''))[:80]}")
+                else:
+                    st.markdown(
+                        "<div style='background:#F8FBFA;border:1px solid #EAEAEF;border-radius:8px;"
+                        "padding:8px 14px;font-size:0.8rem;margin-bottom:10px;color:#6b7280;'>"
+                        "📡 HQ 수집 상태: 이력 없음 — 아래에서 분석을 시작하세요.</div>",
+                        unsafe_allow_html=True,
+                    )
+            except Exception:
+                pass
         if not _sel_cust:
             st.info("고객을 먼저 선택해 주세요.")
         elif not st.session_state.get("nibo_consent_agreed", False):
@@ -1657,20 +1776,19 @@ elif _spa_mode == "customer":
 
                 st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── SCREEN 5: 🤖 AI 브리핑 + 시뮬레이터 ──────────────────────────────────
+    # ── SCREEN 5: 🤖 AI 브리핑 편집기 (5:5 분할 — 좌: 우선순위·일정, 우: 편집기) ────
     elif _spa_screen == "ai_brief":
         st.markdown(
             "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
             "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
-            "🤖 AI 브리핑 — 오늘의 우선순위 & 상담 시뮬레이터</div>",
+            "🤖 AI 브리핑 편집기 — 우선순위 · GCS 편집 저장 · 상담 시뮬레이터</div>",
             unsafe_allow_html=True,
         )
-        today_str_b = datetime.date.today().strftime("%Y년 %m월 %d일")
+        today_str_b  = datetime.date.today().strftime("%Y년 %m월 %d일")
         st.caption(f"📅 {today_str_b} 기준")
-        with st.spinner("AI 브리핑 데이터 준비 중..."):
-            _brief_custs = _load_customers(_user_id)
-            _brief_schs  = _load_schedules_today(_user_id)
-            _today_mo    = datetime.date.today().month
+        _brief_custs = _load_customers(_user_id)
+        _brief_schs  = _load_schedules_today(_user_id)
+        _today_mo    = datetime.date.today().month
 
         def _prio_score(c: dict) -> int:
             _s = (4 - c.get("management_tier", 3)) * 100
@@ -1679,110 +1797,143 @@ elif _spa_mode == "customer":
             return _s
 
         _p3 = sorted(_brief_custs, key=_prio_score, reverse=True)[:3]
-        _bf1, _bf2 = st.columns([3, 2])
-        with _bf1:
+        _ab_left, _ab_right = st.columns([5, 5])
+
+        # ── LEFT (5): 오늘의 우선순위 TOP3 + 일정 ────────────────────────────
+        with _ab_left:
+            st.markdown(
+                "<div style='background:#F8FBFA;border:1px solid #EAEAEF;"
+                "border-radius:10px;padding:14px;'>",
+                unsafe_allow_html=True,
+            )
             st.markdown("**🎯 오늘의 우선 고객 TOP 3**")
             for _rk, _c in enumerate(_p3, 1):
-                _tm2 = TIER_META.get(_c.get("management_tier", 3), TIER_META[3])
+                _tm3 = TIER_META.get(_c.get("management_tier", 3), TIER_META[3])
                 _rh  = ""
                 if _c.get("auto_renewal_month") == _today_mo: _rh += " ⚡ 자동차 만기!"
                 if _c.get("fire_renewal_month") == _today_mo: _rh += " ⚡ 화재 만기!"
                 _rdl = build_deeplink_to_hq(cid=_c.get("person_id", ""),
                                             name=_c.get("name", ""), sector="t3", token=_token)
                 st.markdown(
-                    f"<div style='background:#F8FBFA;border:1px dashed #000;border-radius:10px;"
-                    f"border-left:4px solid {_tm2['color']};padding:10px 14px;margin-bottom:8px;'>"
+                    f"<div style='background:#ffffff;border:1px dashed #000;border-radius:10px;"
+                    f"border-left:4px solid {_tm3['color']};padding:10px 14px;margin-bottom:8px;'>"
                     f"<b>#{_rk} {_c.get('name','')}</b>"
                     f"<span style='font-size:0.7rem;font-weight:900;padding:1px 6px;border-radius:10px;"
-                    f"background:{_tm2['bg']};color:{_tm2['color']};margin-left:6px;'>"
-                    f"{_tm2['icon']} {_tm2['label']}</span>"
-                    f"<div style='font-size:0.78rem;color:#d97706;'>{_rh}</div>"
+                    f"background:{_tm3['bg']};color:{_tm3['color']};margin-left:6px;'>"
+                    f"{_tm3['icon']} {_tm3['label']}</span>"
+                    f"<div style='font-size:0.78rem;color:#d97706;font-weight:700;'>{_rh}</div>"
                     f"<a href='{_rdl}' target='_blank' style='font-size:0.78rem;color:#1d4ed8;'>"
                     f"🚀 HQ 정밀 분석 →</a></div>",
                     unsafe_allow_html=True,
                 )
-        with _bf2:
-            st.markdown("**📅 오늘의 일정**")
+            if not _p3:
+                st.info("등록된 고객이 없습니다.")
+            st.markdown(
+                "<div style='border-top:1px solid #EAEAEF;padding-top:10px;margin-top:8px;'>"
+                "<b style='font-size:0.82rem;'>📅 오늘의 일정</b></div>",
+                unsafe_allow_html=True,
+            )
             if _brief_schs:
                 for _s in _brief_schs:
                     st.markdown(
                         f"<div style='background:#E6E6FA;border:1px solid #c4b5fd;"
                         f"border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:0.82rem;'>"
-                        f"<b>{_s.get('start_time','')} {_s.get('title','')}</b>"
+                        f"<span style='font-size:0.72rem;font-weight:700;color:#7c3aed;'>"
+                        f"🗓️ {_s.get('start_time','')}</span>"
+                        f"<b style='color:#3b0764;'> {_s.get('title','')}</b>"
                         f"<div style='font-size:0.75rem;color:#64748b;'>{_s.get('memo','')}</div></div>",
                         unsafe_allow_html=True,
                     )
             else:
-                st.info("오늘 예정된 일정이 없습니다.")
+                st.caption("오늘 예정된 일정이 없습니다.")
+            st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── AI 브리핑 편집기 (직접 수정 → GCS/DB 즉시 저장) ───────────────────
-        st.markdown("---")
-        st.markdown("**✏️ AI 브리핑 편집기**")
-        _edit_key = f"crm_brief_edit_{_user_id}"
-        _brief_saved = _sb.table("gk_ai_briefs").select("brief_text").eq("agent_id", _user_id)\
-            .order("created_at", desc=True).limit(1).execute().data if _sb else []
-        _brief_default = (_brief_saved[0].get("brief_text", "") if _brief_saved else
-                          st.session_state.get(_edit_key, ""))
-        _brief_text = st.text_area(
-            "브리핑 내용 직접 편집 (수정 후 저장 → GCS DB에 즉시 반영)",
-            value=_brief_default,
-            height=120,
-            key=_edit_key,
-            help="수치·문구를 직접 수정할 수 있습니다. 저장 즉시 마스터 DB에 업데이트됩니다.",
-        )
-        _bsv1, _bsv2 = st.columns([3, 1])
-        with _bsv1:
-            if st.button("💾 브리핑 저장 (GCS DB)", key="crm_brief_save", use_container_width=True, type="primary"):
-                try:
-                    _sb.table("gk_ai_briefs").upsert({
-                        "agent_id":   _user_id,
-                        "brief_text": _brief_text,
-                        "created_at": datetime.datetime.utcnow().isoformat(),
-                    }, on_conflict="agent_id").execute()
-                    st.success("✅ 브리핑이 마스터 DB에 저장되었습니다.")
-                except Exception as _be:
-                    st.caption(f"저장 오류 (DB 테이블 없을 수 있음): {_be}")
-        with _bsv2:
-            if st.button("↩️ 초기화", key="crm_brief_reset"):
-                st.session_state.pop(_edit_key, None)
-                st.rerun()
-
-        st.markdown("---")
-        st.markdown("**🎮 AI 상담 시나리오 시뮬레이터**")
-        st.caption("실제 고객 상황을 입력하면 AI가 최적 상담 전략을 제시합니다.")
-        try:
-            from sim_trainer import render_simulation_dashboard as _crm_render_sim
-            _crm_render_sim(compact=True)
-        except Exception:
-            _sim_input = st.text_area(
-                "상담 상황 입력",
-                placeholder="예: 35세 남성, 현재 암보험 없음, 월 보험료 30만원 예산...",
-                height=100, key="crm_sim_input",
+        # ── RIGHT (5): AI 브리핑 편집기 (파스텔 옐로우 #FDFD96 + GCS 저장) ────
+        with _ab_right:
+            st.markdown(
+                "<div style='background:#FDFD96;border:1px dashed #d97706;"
+                "border-radius:10px;padding:14px;margin-bottom:12px;'>",
+                unsafe_allow_html=True,
             )
-            if st.button("🤖 AI 전략 생성", key="crm_sim_run", use_container_width=True, type="primary"):
-                if _sim_input.strip():
-                    with st.spinner("AI 전략 분석 중..."):
-                        try:
-                            from shared_components import get_env_secret as _genv_sim
-                            import google.generativeai as genai
-                            genai.configure(api_key=_genv_sim("GOOGLE_API_KEY", ""))
-                            _m_sim  = genai.GenerativeModel("gemini-1.5-flash")
-                            _prompt = (
-                                f"당신은 골드키 AI 보험 상담 코치입니다.\n"
-                                f"설계사가 다음 상황에서 고객과 상담합니다:\n\n{_sim_input}\n\n"
-                                f"최적 상담 전략, 예상 질문 3가지, 추천 보장 순서를 간결하게 한국어로 작성해 주세요."
-                            )
-                            _r_sim = _m_sim.generate_content(_prompt)
-                            st.markdown(
-                                f"<div style='background:#F8FBFA;border:1px dashed #000;border-radius:10px;"
-                                f"padding:14px;font-size:0.85rem;line-height:1.8;'>"
-                                f"{_r_sim.text.replace(chr(10), '<br>')}</div>",
-                                unsafe_allow_html=True,
-                            )
-                        except Exception as _sim_e:
-                            st.error(f"AI 시뮬레이터 오류: {_sim_e}")
-                else:
-                    st.warning("상담 상황을 입력해 주세요.")
+            st.markdown(
+                "<div style='font-size:0.82rem;font-weight:900;color:#78350f;"
+                "border-bottom:2px solid #f59e0b;padding-bottom:4px;margin-bottom:10px;'>"
+                "✏️ AI 브리핑 편집기 — 수치·문구 직접 수정 후 GCS DB 즉시 저장</div>",
+                unsafe_allow_html=True,
+            )
+            _edit_key_b = f"crm_brief_edit_{_user_id}"
+            _brief_saved = []
+            if _sb:
+                try:
+                    _brief_saved = (_sb.table("gk_ai_briefs").select("brief_text")
+                                    .eq("agent_id", _user_id)
+                                    .order("created_at", desc=True).limit(1).execute().data or [])
+                except Exception:
+                    pass
+            _brief_default = (_brief_saved[0].get("brief_text", "") if _brief_saved else
+                              st.session_state.get(_edit_key_b, ""))
+            _brief_text = st.text_area(
+                "브리핑 내용 (수정 후 저장 → GCS DB 즉시 반영)",
+                value=_brief_default,
+                height=200,
+                key=_edit_key_b,
+                help="수치·문구를 직접 수정할 수 있습니다. 저장 즉시 마스터 DB에 업데이트됩니다.",
+            )
+            _bsv1, _bsv2 = st.columns([3, 1])
+            with _bsv1:
+                if st.button("💾 브리핑 저장 (GCS DB)", key="crm_brief_save",
+                             use_container_width=True, type="primary"):
+                    try:
+                        _sb.table("gk_ai_briefs").upsert({
+                            "agent_id":   _user_id,
+                            "brief_text": _brief_text,
+                            "created_at": datetime.datetime.utcnow().isoformat(),
+                        }, on_conflict="agent_id").execute()
+                        st.success("✅ GCS 마스터 DB에 저장되었습니다.")
+                    except Exception as _be:
+                        st.caption(f"저장 오류: {_be}")
+            with _bsv2:
+                if st.button("↩️ 초기화", key="crm_brief_reset"):
+                    st.session_state.pop(_edit_key_b, None)
+                    st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            with st.expander("🎮 AI 상담 시나리오 시뮬레이터", expanded=False):
+                st.caption("고객 상황 입력 → AI 최적 상담 전략 제시")
+                try:
+                    from sim_trainer import render_simulation_dashboard as _crm_render_sim
+                    _crm_render_sim(compact=True)
+                except Exception:
+                    _sim_input = st.text_area(
+                        "상담 상황 입력",
+                        placeholder="예: 35세 남성, 현재 암보험 없음, 월 보험료 30만원 예산...",
+                        height=80, key="crm_sim_input",
+                    )
+                    if st.button("🤖 AI 전략 생성", key="crm_sim_run",
+                                 use_container_width=True, type="primary"):
+                        if _sim_input.strip():
+                            with st.spinner("AI 전략 분석 중..."):
+                                try:
+                                    from shared_components import get_env_secret as _genv_sim
+                                    import google.generativeai as genai
+                                    genai.configure(api_key=_genv_sim("GOOGLE_API_KEY", ""))
+                                    _m_sim  = genai.GenerativeModel("gemini-1.5-flash")
+                                    _prompt = (
+                                        f"당신은 골드키 AI 보험 상담 코치입니다.\n"
+                                        f"설계사가 다음 상황에서 고객과 상담합니다:\n\n{_sim_input}\n\n"
+                                        f"최적 상담 전략, 예상 질문 3가지, 추천 보장 순서를 간결하게 한국어로 작성해 주세요."
+                                    )
+                                    _r_sim = _m_sim.generate_content(_prompt)
+                                    st.markdown(
+                                        f"<div style='background:#F8FBFA;border:1px dashed #000;"
+                                        f"border-radius:10px;padding:14px;font-size:0.85rem;line-height:1.8;'>"
+                                        f"{_r_sim.text.replace(chr(10), '<br>')}</div>",
+                                        unsafe_allow_html=True,
+                                    )
+                                except Exception as _sim_e:
+                                    st.error(f"AI 시뮬레이터 오류: {_sim_e}")
+                        else:
+                            st.warning("상담 상황을 입력해 주세요.")
 
     # ── SCREEN 6: 💬 카카오 발송 ─────────────────────────────────────────────
     elif _spa_screen == "kakao":
