@@ -5,8 +5,12 @@ Outlook 파스텔 스타일 + 손보사 표준 입력폼 + SPA 라우터 지원
 HQ(app.py) 와 CRM(crm_app.py) 양쪽에서 동일하게 호출.
 
 사용법:
-    from components import inject_outlook_css, render_spa_nav, render_outlook_customer_list
-    from components import render_mini_calendar, 손보사_standard_form
+    from components import (
+        apply_gp_pastel_theme, inject_outlook_css,
+        render_radio_spa_nav, render_spa_nav,
+        render_outlook_customer_list, render_mini_calendar,
+        손보사_standard_form, auto_commit_field,
+    )
 """
 from __future__ import annotations
 
@@ -487,3 +491,283 @@ def 손보사_standard_form(
         result["_raw_contact"] = contact
 
     return result
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §6 GP 파스텔 전역 테마 주입 (apply_gp_pastel_theme)
+# ══════════════════════════════════════════════════════════════════════════════
+_GP_PASTEL_THEME_CSS = """<style>
+/* ── GP 전역 파스텔 테마 v2 ─────────────────────────────────────────── */
+:root {
+  --gp-bg:      #F8FBFA;
+  --gp-border:  #EAEAEF;
+  --gp-memo:    #FDFD96;
+  --gp-sched:   #E6E6FA;
+  --gp-font:    14px;
+  --gp-navy:    #1e3a8a;
+  --gp-text:    #1e293b;
+  --gp-sub:     #64748b;
+}
+/* 전체 배경 + 폰트 */
+[data-testid="stApp"],
+[data-testid="stAppViewContainer"] > .main {
+  background: var(--gp-bg) !important;
+  font-size: var(--gp-font) !important;
+  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif !important;
+}
+/* 사이드바 */
+[data-testid="stSidebar"] { background: #f1f5f9 !important; }
+/* 카드/섹션 기본 테두리 */
+.gp-card {
+  background: #ffffff;
+  border: 1px dashed #000;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+}
+/* 메모 박스 (#FDFD96) */
+.gp-memo {
+  background: var(--gp-memo);
+  border: 1px dashed #d97706;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+}
+/* 스케줄 블록 (#E6E6FA) */
+.gp-sched {
+  background: var(--gp-sched);
+  border: 1px solid #c4b5fd;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+}
+/* 헤더 배지 */
+.gp-header {
+  background: var(--gp-bg);
+  border: 1px dashed #000;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 1.0rem;
+  font-weight: 900;
+  color: var(--gp-navy);
+  margin-bottom: 12px;
+}
+/* ── st.radio → 버튼형 SPA 네비 ───────────────────────────────────── */
+div[data-testid="stRadio"] > div {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 4px !important;
+  background: #f1f5f9;
+  padding: 5px 7px;
+  border-radius: 10px;
+  border: 1px solid var(--gp-border);
+  overflow-x: auto;
+}
+div[data-testid="stRadio"] > div > label {
+  flex: 1 !important;
+  text-align: center !important;
+  padding: 7px 10px !important;
+  border-radius: 8px !important;
+  border: 1px solid #d1d5db !important;
+  background: #ffffff !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: background 0.12s, color 0.12s !important;
+  color: var(--gp-text) !important;
+}
+div[data-testid="stRadio"] > div > label:has(input:checked) {
+  background: var(--gp-navy) !important;
+  color: #ffffff !important;
+  border-color: var(--gp-navy) !important;
+  font-weight: 900 !important;
+}
+div[data-testid="stRadio"] > div > label > div:first-child { display: none !important; }
+/* ── 반응형 5:5 레이아웃 (모바일 600px 이하 → 스택) ─────────────── */
+@media (max-width: 600px) {
+  [data-testid="column"] {
+    min-width: 100% !important;
+    flex: 1 1 100% !important;
+  }
+}
+/* ── 로딩 바 (파스텔) ───────────────────────────────────────────────── */
+.gp-progress-wrap {
+  background: #e5e7eb;
+  border-radius: 8px;
+  height: 10px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.gp-progress-fill {
+  height: 10px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+  transition: width 0.4s ease;
+}
+/* ── 인증 결과창 ────────────────────────────────────────────────────── */
+.gp-auth-ok {
+  background: #f0fdf4;
+  border: 2px solid #16a34a;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: #15803d;
+}
+.gp-auth-fail {
+  background: #fef2f2;
+  border: 2px solid #dc2626;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: #991b1b;
+}
+/* ── 실시간 동기화 상태 배지 ──────────────────────────────────────── */
+.gp-sync-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 2px 10px;
+  border-radius: 12px;
+}
+.gp-sync-running { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+.gp-sync-done    { background: #dcfce7; color: #166534; border: 1px solid #16a34a; }
+.gp-sync-idle    { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+</style>"""
+
+
+def apply_gp_pastel_theme() -> None:
+    """
+    GP 전역 파스텔 테마 주입 — 모든 HQ/CRM 화면 최상단에서 1회 호출.
+    포함 내용:
+      - 배경 #F8FBFA, 메모 #FDFD96, 스케줄 #E6E6FA, 폰트 14px
+      - st.radio → 버튼형 SPA 네비 스타일
+      - 반응형 5:5 레이아웃 (모바일 600px 이하 스태킹)
+      - GP 로딩바, 인증결과창, 동기화 배지 CSS
+    """
+    st.markdown(_GP_PASTEL_THEME_CSS, unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §7 st.radio 버튼형 SPA 네비게이션 (render_radio_spa_nav)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def render_radio_spa_nav(
+    menus: list[tuple[str, str]],
+    session_key: str = "crm_spa_screen",
+    back_mode_key: str = "crm_spa_mode",
+    back_pid_key:  str = "crm_selected_pid",
+    show_back: bool = True,
+) -> str:
+    """
+    st.radio(horizontal=True)를 GP 버튼형으로 커스텀한 SPA 네비게이션.
+    menus: [(label, screen_key), ...]
+    Returns: 현재 선택된 screen_key
+    """
+    labels = [m[0] for m in menus]
+    keys   = [m[1] for m in menus]
+    cur    = st.session_state.get(session_key, keys[0])
+    cur_idx = keys.index(cur) if cur in keys else 0
+
+    if show_back:
+        back_c, nav_c = st.columns([1, 8])
+        with back_c:
+            if st.button("🔙 목록", key=f"{session_key}_back_radio", use_container_width=True):
+                st.session_state[back_mode_key] = "list"
+                st.session_state[back_pid_key]  = ""
+                st.rerun()
+        with nav_c:
+            sel = st.radio(
+                "화면 선택",
+                labels,
+                index=cur_idx,
+                horizontal=True,
+                key=f"{session_key}_radio",
+                label_visibility="collapsed",
+            )
+    else:
+        sel = st.radio(
+            "화면 선택",
+            labels,
+            index=cur_idx,
+            horizontal=True,
+            key=f"{session_key}_radio",
+            label_visibility="collapsed",
+        )
+
+    new_key = keys[labels.index(sel)] if sel in labels else cur
+    if new_key != cur:
+        st.session_state[session_key] = new_key
+        st.rerun()
+    return new_key
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §8 GCS 자동 커밋 헬퍼 (auto_commit_field)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def auto_commit_field(
+    field_key: str,
+    new_value,
+    commit_store_key: str = "_gp_auto_commit",
+) -> None:
+    """
+    입력폼 필드값이 바뀔 때 즉시 st.session_state에 반영 (탭 이동 시 데이터 보존).
+    
+    사용법:
+        name = st.text_input("이름", key="sf_name")
+        auto_commit_field("sf_name", name)
+    """
+    store = st.session_state.setdefault(commit_store_key, {})
+    if store.get(field_key) != new_value:
+        store[field_key] = new_value
+
+
+def get_committed_fields(commit_store_key: str = "_gp_auto_commit") -> dict:
+    """GCS 자동 커밋된 필드 전체 반환."""
+    return dict(st.session_state.get(commit_store_key, {}))
+
+
+def render_pastel_progress(pct: int, label: str = "") -> None:
+    """GP 파스텔 로딩 바 렌더링. pct: 0-100"""
+    pct = max(0, min(100, pct))
+    st.markdown(
+        f"<div style='font-size:0.78rem;font-weight:700;color:#64748b;margin-bottom:3px;'>{label}</div>"
+        f"<div class='gp-progress-wrap'>"
+        f"<div class='gp-progress-fill' style='width:{pct}%;'></div></div>"
+        f"<div style='font-size:0.72rem;color:#6b7280;text-align:right;'>{pct}%</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_auth_result(ok: bool, msg: str) -> None:
+    """GP 인증 결과창 렌더링."""
+    cls = "gp-auth-ok" if ok else "gp-auth-fail"
+    icon = "✅" if ok else "❌"
+    st.markdown(
+        f"<div class='{cls}'>{icon} {msg}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_sync_badge(status: str, label: str = "") -> None:
+    """
+    GP 실시간 동기화 상태 배지.
+    status: 'running' | 'done' | 'idle'
+    """
+    _map = {
+        "running": ("gp-sync-running", "⚡ 수집중"),
+        "done":    ("gp-sync-done",    "✅ 완료"),
+        "idle":    ("gp-sync-idle",    "⏸ 대기"),
+    }
+    cls, default_lbl = _map.get(status, _map["idle"])
+    display = label or default_lbl
+    st.markdown(
+        f"<span class='gp-sync-badge {cls}'>{display}</span>",
+        unsafe_allow_html=True,
+    )

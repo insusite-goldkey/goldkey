@@ -412,17 +412,24 @@ def render_crm_person_auth(sb, agent_id: str) -> bool:
                         st.error(f"검증 오류: {_ve}")
                         _ok = False
 
+                    try:
+                        from components import render_auth_result as _rar, render_pastel_progress as _rpp
+                    except Exception:
+                        def _rar(ok, msg): st.success(msg) if ok else st.error(msg)
+                        def _rpp(pct, lbl=""): st.progress(pct / 100)
+                    _rpp(50, "TOTP 검증 중…")
                     if _ok:
                         st.session_state["_crm_auth_person_id"]   = _person["id"]
                         st.session_state["_crm_auth_person_name"] = _pname
                         _otp_clear()
                         st.session_state["_crm_auth_stage"] = "input"
-                        st.success(f"✅ {_pname} 님 TOTP 인증 완료!")
+                        _rpp(100, "인증 완료")
+                        _rar(True, f"{_pname} 님 TOTP 인증 완료!")
                         st.rerun()
                     else:
                         st.session_state["_crm_otp_attempts"] = _attempts + 1
                         left = _OTP_MAX_ATTEMPTS - _attempts - 1
-                        st.error(f"❌ 코드가 일치하지 않습니다. (남은 시도: {left}회)")
+                        _rar(False, f"코드가 일치하지 않습니다. (남은 시도: {left}회)")
         with _col_cancel:
             if st.button("취소", key="crm_otp_cancel", use_container_width=True):
                 _otp_clear()
@@ -1220,6 +1227,11 @@ def _kb7_score_fn(policies: list[dict]) -> dict[str, float]:
 # ────────────────────────────────────────────────────────────────────────────
 def render_crm_gate_full(sb, agent_id: str) -> None:
     """app.py에서 cur == 'crm_gate' 일 때 호출 — Outlook SPA 라우터"""
+    try:
+        from components import apply_gp_pastel_theme as _gp_theme, render_radio_spa_nav as _rnav
+        _gp_theme()
+    except Exception:
+        pass
     # ── SPA 상태 초기화 ────────────────────────────────────────────────────────
     if "hq_crm_spa_mode"   not in st.session_state: st.session_state["hq_crm_spa_mode"]   = "list"
     if "hq_crm_sel_pid"    not in st.session_state: st.session_state["hq_crm_sel_pid"]    = ""
@@ -1306,49 +1318,44 @@ def render_crm_gate_full(sb, agent_id: str) -> None:
     elif _spa_mode == "customer":
         _screen = st.session_state.get("hq_crm_screen", "auth")
 
-        # ── 고객 바 + 목록으로 버튼 ────────────────────────────────────────
-        _bar_c1, _bar_c2 = st.columns([7, 1])
-        with _bar_c1:
-            st.markdown(
-                f"<div style='background:#eff6ff;border:1px dashed #000;border-radius:8px;"
-                f"padding:7px 14px;font-size:0.9rem;font-weight:900;color:#1d4ed8;'>"
-                f"👤 {_sel_name}</div>",
-                unsafe_allow_html=True,
+        # ── 고객 바 (이름 표시) ────────────────────────────────────────────
+        st.markdown(
+            f"<div class='gp-header'>👤 {_sel_name}</div>",
+            unsafe_allow_html=True,
+        )
+
+        # ── 6대 SPA 네비게이션 (radio 버튼형) ────────────────────────────────
+        _hq_menus = [
+            ("🔐 고객 인증",    "auth"),
+            ("🗝️ 데이터 입력",  "gate"),
+            ("📊 전략 대시보드", "dashboard"),
+            ("🏦 KB7 분석",     "kb7"),
+            ("👨‍👩‍👧 가족 관계도",  "family"),
+            ("📉 보장 공백",     "gap"),
+        ]
+        try:
+            from components import render_radio_spa_nav as _rnav
+            _screen = _rnav(
+                _hq_menus,
+                session_key="hq_crm_screen",
+                back_mode_key="hq_crm_spa_mode",
+                back_pid_key="hq_crm_sel_pid",
             )
-        with _bar_c2:
-            if st.button("🔙 목록", key="hq_crm_back", use_container_width=True):
-                st.session_state["hq_crm_spa_mode"]  = "list"
-                st.session_state["hq_crm_sel_pid"]   = ""
-                st.session_state["hq_crm_sel_name"]  = ""
-                st.session_state["hq_crm_screen"]    = "auth"
-                st.rerun()
-
-        # ── 6대 SPA 네비게이션 ─────────────────────────────────────────────
-        _nav_items = {
-            "🔐 고객 인증":    "auth",
-            "🗝️ 데이터 입력": "gate",
-            "📊 전략 대시보드": "dashboard",
-            "🏦 KB7 분석 연결": "kb7",
-            "👨‍👩‍👧 가족 관계도":  "family",
-            "📉 보장 공백":     "gap",
-        }
-        _nav_cols = st.columns(len(_nav_items))
-        for _i, (_lbl, _scr) in enumerate(_nav_items.items()):
-            with _nav_cols[_i]:
-                _active_style = (
-                    "background:#1e3a8a;color:#fff;border:1px solid #1e3a8a;"
-                    if _screen == _scr
-                    else "background:#F8FBFA;color:#374151;border:1px dashed #000;"
-                )
-                if st.button(
-                    _lbl, key=f"hq_nav_{_scr}",
-                    use_container_width=True,
-                    type="primary" if _screen == _scr else "secondary",
-                ):
-                    st.session_state["hq_crm_screen"] = _scr
+        except Exception:
+            _back_c, _nav_c = st.columns([1, 8])
+            with _back_c:
+                if st.button("🔙 목록", key="hq_crm_back2", use_container_width=True):
+                    st.session_state["hq_crm_spa_mode"] = "list"
                     st.rerun()
-
-        st.markdown("<div style='margin:8px 0;'></div>", unsafe_allow_html=True)
+            with _nav_c:
+                _choices = [m[0] for m in _hq_menus]
+                _skeys   = [m[1] for m in _hq_menus]
+                _cur_idx = _skeys.index(_screen) if _screen in _skeys else 0
+                _sel_lbl = st.radio("화면", _choices, index=_cur_idx, horizontal=True,
+                                    key="hq_crm_screen_radio", label_visibility="collapsed")
+                _screen = _skeys[_choices.index(_sel_lbl)]
+                st.session_state["hq_crm_screen"] = _screen
+        st.markdown("<div style='margin:6px 0;'></div>", unsafe_allow_html=True)
 
         # ── SCREEN 1: 🔐 고객 인증 ────────────────────────────────────────
         if _screen == "auth":
@@ -1357,7 +1364,11 @@ def render_crm_gate_full(sb, agent_id: str) -> None:
                 _auth_pid = st.session_state.get("_crm_auth_person_id", "")
                 if _auth_pid and not st.session_state.get("_fp_person_id"):
                     st.session_state["_fp_person_id"] = _auth_pid
-                st.success("✅ 인증 완료! 위 네비게이션에서 원하는 화면을 선택하세요.")
+                try:
+                    from components import render_auth_result as _rar2
+                    _rar2(True, "인증 완료! 위 네비게이션에서 원하는 화면을 선택하세요.")
+                except Exception:
+                    st.success("✅ 인증 완료! 위 네비게이션에서 원하는 화면을 선택하세요.")
             else:
                 st.info(
                     "🔐 고객 본인 확인 후 입력·대시보드 기능이 활성화됩니다.\n\n"

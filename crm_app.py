@@ -709,10 +709,13 @@ with _hdr_c2:
 # ══════════════════════════════════════════════════════════════════════════════
 try:
     from components import (
+        apply_gp_pastel_theme,
         inject_outlook_css,
         render_spa_nav,
+        render_radio_spa_nav,
         render_outlook_customer_list,
         render_mini_calendar,
+        render_sync_badge,
         손보사_standard_form,
     )
     from db_utils import (
@@ -720,7 +723,7 @@ try:
         load_schedules_range   as _du_range,
         save_schedule          as _du_save_sched,
     )
-    inject_outlook_css()
+    apply_gp_pastel_theme()
     _OUTLOOK_OK = True
 except Exception:
     _OUTLOOK_OK = False
@@ -750,6 +753,32 @@ if _spa_mode == "list":
         "</div>",
         unsafe_allow_html=True,
     )
+
+    # ── HQ 크롤링 상태 실시간 동기화 배지 ───────────────────────────────────
+    try:
+        _crawl_rows = (_sb.table("gk_crawl_status").select("status,updated_at,person_id")
+                       .eq("agent_id", _user_id).order("updated_at", desc=True)
+                       .limit(5).execute().data or []) if _sb else []
+        if _crawl_rows:
+            _sync_c_row = st.columns(min(len(_crawl_rows), 4))
+            for _ci, _cr in enumerate(_crawl_rows[:4]):
+                _cs = _cr.get("status", "idle")
+                _pid_c = _cr.get("person_id", "")[:6]
+                _ts = str(_cr.get("updated_at", ""))[:16].replace("T", " ")
+                with _sync_c_row[_ci]:
+                    if _OUTLOOK_OK:
+                        render_sync_badge(
+                            _cs,
+                            f"{'⚡ 수집중' if _cs == 'running' else '✅ 완료' if _cs == 'done' else '⏸ 대기'}"
+                            f" {_pid_c}… {_ts[11:]}",
+                        )
+                    else:
+                        st.caption(f"{_cs} {_pid_c}…")
+        elif _sb:
+            if _OUTLOOK_OK:
+                render_sync_badge("idle", "⏸ HQ 크롤링 대기 중")
+    except Exception:
+        pass
 
     _sr_c1, _sr_c2 = st.columns([5, 1])
     with _sr_c1:
@@ -826,12 +855,23 @@ elif _spa_mode == "customer":
             unsafe_allow_html=True,
         )
 
+    _crm_menus = [
+        ("👥 연락처 상세",  "contact"),
+        ("📅 스케줄",       "schedule"),
+        ("🌐 내보험다보여",  "nibo"),
+        ("📊 증권분석",      "analysis"),
+        ("🤖 AI 브리핑",    "ai_brief"),
+        ("💬 카카오 발송",  "kakao"),
+    ]
     if _OUTLOOK_OK:
-        render_spa_nav(_spa_screen)
+        _spa_screen = render_radio_spa_nav(
+            _crm_menus,
+            session_key="crm_spa_screen",
+            back_mode_key="crm_spa_mode",
+            back_pid_key="crm_selected_pid",
+        )
     else:
-        _scr_opts = {"👥 연락처 상세": "contact", "📅 스케줄": "schedule",
-                     "🌐 내보험다보여": "nibo",  "📊 증권분석": "analysis",
-                     "🤖 AI 브리핑": "ai_brief", "💬 카카오 발송": "kakao"}
+        _scr_opts = {m[0]: m[1] for m in _crm_menus}
         _scr_label = st.selectbox("화면 선택", list(_scr_opts.keys()), key="spa_screen_sel")
         if _scr_opts[_scr_label] != _spa_screen:
             st.session_state["crm_spa_screen"] = _scr_opts[_scr_label]
@@ -1335,6 +1375,38 @@ elif _spa_mode == "customer":
                     )
             else:
                 st.info("오늘 예정된 일정이 없습니다.")
+
+        # ── AI 브리핑 편집기 (직접 수정 → GCS/DB 즉시 저장) ───────────────────
+        st.markdown("---")
+        st.markdown("**✏️ AI 브리핑 편집기**")
+        _edit_key = f"crm_brief_edit_{_user_id}"
+        _brief_saved = _sb.table("gk_ai_briefs").select("brief_text").eq("agent_id", _user_id)\
+            .order("created_at", desc=True).limit(1).execute().data if _sb else []
+        _brief_default = (_brief_saved[0].get("brief_text", "") if _brief_saved else
+                          st.session_state.get(_edit_key, ""))
+        _brief_text = st.text_area(
+            "브리핑 내용 직접 편집 (수정 후 저장 → GCS DB에 즉시 반영)",
+            value=_brief_default,
+            height=120,
+            key=_edit_key,
+            help="수치·문구를 직접 수정할 수 있습니다. 저장 즉시 마스터 DB에 업데이트됩니다.",
+        )
+        _bsv1, _bsv2 = st.columns([3, 1])
+        with _bsv1:
+            if st.button("💾 브리핑 저장 (GCS DB)", key="crm_brief_save", use_container_width=True, type="primary"):
+                try:
+                    _sb.table("gk_ai_briefs").upsert({
+                        "agent_id":   _user_id,
+                        "brief_text": _brief_text,
+                        "created_at": datetime.datetime.utcnow().isoformat(),
+                    }, on_conflict="agent_id").execute()
+                    st.success("✅ 브리핑이 마스터 DB에 저장되었습니다.")
+                except Exception as _be:
+                    st.caption(f"저장 오류 (DB 테이블 없을 수 있음): {_be}")
+        with _bsv2:
+            if st.button("↩️ 초기화", key="crm_brief_reset"):
+                st.session_state.pop(_edit_key, None)
+                st.rerun()
 
         st.markdown("---")
         st.markdown("**🎮 AI 상담 시나리오 시뮬레이터**")
