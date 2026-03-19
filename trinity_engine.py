@@ -681,6 +681,14 @@ def render_trinity_report(
                 st.error("클로징 생성 오류: " + str(_ce))
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ── [GP-COMPLIANCE] 금융 AI 면책 고지 ────────────────────────────────────
+    try:
+        from compliance import render_ai_disclaimer as _rd, render_feedback_button as _rfb
+        _rd(margin_top=10)
+        _rfb(key=f"trinity_{hash(client_name or 'x') % 99999}", context="trinity_report")
+    except Exception:
+        pass
+
     return report_text
 
 

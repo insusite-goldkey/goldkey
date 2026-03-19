@@ -459,4 +459,12 @@ def render_morning_briefing_auto(
         compact=True,
     )
 
+    # ── [GP-COMPLIANCE] 금융 AI 면책 고지 + 피드백 버튼 ──────────────────────
+    try:
+        from compliance import render_ai_disclaimer as _rd, render_feedback_button as _rfb
+        _rd(margin_top=4)
+        _rfb(key="morning_briefing_fb", context="morning_briefing", compact=True)
+    except Exception:
+        pass
+
     st.session_state[today_key] = True

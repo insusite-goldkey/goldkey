@@ -32053,6 +32053,13 @@ footer, footer * {
     _login_first_run = st.session_state.pop("_login_just_done", False)
     _landing_active = False
 
+    # ── [GP-COMPLIANCE §4] 권한 상태 세션키 초기화 (1회) ─────────────────────
+    try:
+        from compliance import init_permission_state as _ips
+        _ips()
+    except Exception:
+        pass
+
     # ── STEP 6-a: 자가 진단 — 백그라운드 스레드 (메인 루프 차단 완전 제거) ──
     # [수정] 기존 동기 실행 → daemon 스레드로 이전, 랜딩/로그인 첫 rerun 중 제외
     if not st.session_state.get('_self_diag_done') and not _login_first_run and not _landing_active:
@@ -32120,13 +32127,20 @@ footer, footer * {
 
     # ── 2단계: STT 지연 초기화 — 백그라운드 스레드 (메인 루프 차단 제거) ──
     # [수정] load_stt_engine() 동기 호출 → daemon 스레드로 이전
+    # [GP-COMPLIANCE §3] 마이크 권한 미승인 시 In-app Disclosure 표시 후 STT 차단
     if st.session_state.get('home_rendered') and 'stt_loaded' not in st.session_state and not _login_first_run:
-        st.session_state.stt_loaded = True  # 즉시 완료 처리 (중복 실행 방지)
         try:
-            import threading as _stt_th
-            _stt_th.Thread(target=load_stt_engine, daemon=True).start()
+            from compliance import request_permission_if_needed as _rpin
+            _mic_ok = _rpin("microphone", on_grant_key="_stt_mic_approved")
         except Exception:
-            pass
+            _mic_ok = True  # compliance 모듈 없으면 기존 동작 유지
+        if _mic_ok:
+            st.session_state.stt_loaded = True  # 즉시 완료 처리 (중복 실행 방지)
+            try:
+                import threading as _stt_th
+                _stt_th.Thread(target=load_stt_engine, daemon=True).start()
+            except Exception:
+                pass
 
     # RAG: LightRAGSystem — Event-driven 2단계 Chunking
     # · 1단계: 세션 최초 진입 시 LightRAGSystem 인스턴스만 생성 (경량, 랜딩 완료 후)
@@ -37987,6 +38001,13 @@ function selectCustomer(name) {{
 
 
     # ── [홈] 카드 네비게이션 ──────────────────────────────────────────────
+    # ── [GP-COMPLIANCE] 권한 세션 상태 초기화 (앱 기동 시 1회) ────────────────
+    try:
+        from compliance import init_permission_state as _ips
+        _ips()
+    except Exception:
+        pass
+
     if cur == "home":
         with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
             if not st.session_state.get("home_rendered"):

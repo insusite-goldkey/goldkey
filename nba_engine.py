@@ -405,6 +405,13 @@ def render_nba_widget(agent_id: str) -> None:
                     _rvp(guide, ptype, key=f"nba_voice_{idx}")
                 except Exception:
                     pass
+                # [GP-COMPLIANCE] 면책 고지 + 피드백 버튼
+                try:
+                    from compliance import render_ai_disclaimer as _rd, render_feedback_button as _rfb
+                    _rd(margin_top=6)
+                    _rfb(key=f"nba_fb_{idx}", context=f"nba_guide_{action.get('nba_type','')}", compact=True)
+                except Exception:
+                    pass
                 if st.button("닫기", key=f"nba_guide_close_{idx}"):
                     del st.session_state[f"_nba_guide_{idx}"]
                     st.rerun()
