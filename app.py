@@ -25585,6 +25585,14 @@ def _build_injury_aware_system_instruction() -> str:
         _trinity_ctx = _st.session_state.get("trinity_ai_context", "")
         if _trinity_ctx:
             _base += _trinity_ctx
+        # [GP-CALENDAR] 캘린더 스케줄 태그 컨텍스트 자동 주입
+        try:
+            from calendar_engine import get_schedule_ai_context as _gcal
+            _sched_ctx = _gcal()
+            if _sched_ctx:
+                _base += _sched_ctx
+        except Exception:
+            pass
     except Exception:
         pass
     return _base
@@ -37596,478 +37604,30 @@ function selectCustomer(name) {{
 </div>""", unsafe_allow_html=True)
         st.stop()
 
-    # ── [달력] AgentCalendarView + ScheduleInputModal ─────────────────────
+    # ── [달력] 스마트 캘린더 엔진 v2 (calendar_engine.py) ─────────────────
     if cur == "calendar":
+        from calendar_engine import render_smart_calendar as _render_smart_cal
         with st.spinner('Goldkey AI Masters 2026 구동중입니다. 잠시 기다려주세요!'):
             st.markdown(f"""
             <div class="gk-sky-trust gp-interactive" style="position:relative;border-radius:12px;padding:14px 20px;margin-bottom:10px;">
             {_bid('3-1-1')}
-            <div class="gk-st-title">📅 상담 일정 관리</div>
-            <div style="font-size:0.8rem;margin-top:4px;">고객 방문 · 계약 일정 · 약속 관리</div>
+            <div class="gk-st-title">📅 스마트 상담 일정 관리</div>
+            <div style="font-size:0.8rem;margin-top:4px;">고객 방문 · 계약 일정 · 해시태그 자동 분류 · 캘린더 연동</div>
             </div>""", unsafe_allow_html=True)
             _cal_back, _ = st.columns([1, 5])
             with _cal_back:
                 if st.button("← 인트로", key="cal_back_btn", use_container_width=True):
                     _go_tab("intro")
-        
-            # 세션에 저장된 일정 목록 로드
-            import json as _json_cal
-            _cal_events = st.session_state.get("_cal_events", [])
-            _cal_events_json = _json_cal.dumps(_cal_events, ensure_ascii=False)
-        
-            # 고객 목록 (customer_mgmt 데이터와 연동)
             _cal_customers = []
             for _c in st.session_state.get("customers", []):
                 _name = _c.get("name", "") or _c.get("cname", "")
-                _cid  = _c.get("cust_id", "") or _c.get("id", "")
+                _cid  = _c.get("person_id", "") or _c.get("cust_id", "") or _c.get("id", "")
                 if _name:
-                    _cal_customers.append({"id": _cid, "name": _name})
-            _cal_cust_json = _json_cal.dumps(_cal_customers, ensure_ascii=False)
-        
-            import streamlit.components.v1 as _cv1_cal
-            _cv1_cal.html(f"""<!DOCTYPE html>
-            <html lang="ko">
-            <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width,initial-scale=1">
-            <style>
-            *{{box-sizing:border-box;margin:0;padding:0;font-family:'Malgun Gothic','Noto Sans KR',sans-serif;}}
-            body{{background:#f0f4f8;padding:12px;}}
-        
-            /* ── 헤더 ── */
-            .cal-header{{
-            display:flex;align-items:center;justify-content:space-between;
-            background:#fff;border-radius:12px;padding:12px 20px;
-            box-shadow:0 1px 6px rgba(30,80,160,0.10);margin-bottom:12px;
-            }}
-            .cal-header h2{{font-size:1.15rem;font-weight:900;color:#1a3a5c;}}
-            .cal-nav-btn{{
-            background:#1e5ba4;color:#fff;border:none;border-radius:8px;
-            padding:7px 18px;font-size:0.9rem;font-weight:700;cursor:pointer;
-            }}
-            .cal-nav-btn:hover{{background:#154a8a;}}
-            .cal-today-btn{{
-            background:#f0f4f8;color:#1e5ba4;border:1.5px solid #1e5ba4;
-            border-radius:8px;padding:7px 14px;font-size:0.85rem;font-weight:700;cursor:pointer;
-            }}
-        
-            /* ── 달력 그리드 ── */
-            .cal-grid-wrap{{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(30,80,160,0.10);overflow:hidden;}}
-            .cal-weekdays{{
-            display:grid;grid-template-columns:repeat(7,1fr);
-            background:#f8fafc;border-bottom:2px solid #e2e8f0;
-            }}
-            .cal-weekday{{
-            text-align:center;padding:8px 0;font-size:0.78rem;font-weight:900;
-            color:#475569;letter-spacing:0.05em;
-            }}
-            .cal-weekday.sun{{color:#ef4444;}}
-            .cal-weekday.sat{{color:#3b82f6;}}
-            .cal-days{{display:grid;grid-template-columns:repeat(7,1fr);}}
-            .cal-cell{{
-            min-height:88px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;
-            padding:5px 6px;cursor:pointer;transition:background 0.12s;
-            }}
-            .cal-cell:hover{{background:#eff6ff;}}
-            .cal-cell.other-month{{background:#f8fafc;}}
-            .cal-cell.other-month .cal-day-num{{color:#cbd5e1;}}
-            .cal-cell.today .cal-day-num{{
-            background:#1e5ba4;color:#fff;border-radius:50%;
-            width:26px;height:26px;display:flex;align-items:center;justify-content:center;
-            font-weight:900;
-            }}
-            .cal-cell.selected{{background:#eff6ff;outline:2px solid #1e5ba4;outline-offset:-2px;}}
-            .cal-day-num{{font-size:0.82rem;font-weight:700;color:#1e293b;margin-bottom:3px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;}}
-            .cal-cell.sun .cal-day-num{{color:#ef4444;}}
-            .cal-cell.sat .cal-day-num{{color:#3b82f6;}}
-            .cal-cell.today.sun .cal-day-num,.cal-cell.today.sat .cal-day-num{{color:#fff;}}
-            .cal-badges{{display:flex;flex-direction:column;gap:2px;}}
-            .badge{{
-            display:block;border-radius:4px;padding:1px 5px;
-            font-size:0.68rem;font-weight:700;white-space:nowrap;overflow:hidden;
-            text-overflow:ellipsis;max-width:100%;cursor:pointer;
-            }}
-            .badge-consult{{background:#fee2e2;color:#b91c1c;border-left:3px solid #ef4444;}}
-            .badge-appointment{{background:#dbeafe;color:#1d4ed8;border-left:3px solid #3b82f6;}}
-            .badge-todo{{background:#fef9c3;color:#92400e;border-left:3px solid #f59e0b;}}
-            .badge-personal{{background:#f0fdf4;color:#166534;border-left:3px solid #22c55e;}}
-            .badge-more{{background:#f1f5f9;color:#64748b;border-left:3px solid #94a3b8;}}
-        
-            /* ── 모달 오버레이 ── */
-            .modal-overlay{{
-            display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);
-            z-index:1000;align-items:center;justify-content:center;
-            }}
-            .modal-overlay.open{{display:flex;}}
-            .modal-box{{
-            background:#fff;border-radius:16px;width:min(480px,96vw);
-            box-shadow:0 8px 40px rgba(15,23,42,0.22);animation:fadeUp 0.22s ease;
-            max-height:92vh;overflow-y:auto;
-            }}
-            @keyframes fadeUp{{from{{opacity:0;transform:translateY(24px);}}to{{opacity:1;transform:translateY(0);}}}}
-            .modal-header{{
-            display:flex;align-items:center;justify-content:space-between;
-            padding:18px 22px 14px;border-bottom:1.5px solid #e2e8f0;
-            }}
-            .modal-header h3{{font-size:1.05rem;font-weight:900;color:#1a3a5c;}}
-            .modal-close{{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;}}
-            .modal-body{{padding:18px 22px;}}
-            .form-group{{margin-bottom:14px;}}
-            .form-label{{display:block;font-size:0.8rem;font-weight:700;color:#374151;margin-bottom:5px;}}
-            .form-label .req{{color:#ef4444;margin-left:2px;}}
-            .form-input{{
-            width:100%;border:1.5px solid #d1d5db;border-radius:8px;
-            padding:9px 12px;font-size:0.88rem;color:#1e293b;outline:none;
-            transition:border-color 0.15s;
-            }}
-            .form-input:focus{{border-color:#1e5ba4;box-shadow:0 0 0 3px rgba(30,91,164,0.12);}}
-            .form-row{{display:grid;grid-template-columns:1fr 1fr;gap:10px;}}
-            .category-select{{
-            width:100%;border:1.5px solid #d1d5db;border-radius:8px;
-            padding:9px 12px;font-size:0.88rem;color:#1e293b;background:#fff;
-            cursor:pointer;outline:none;
-            }}
-            .category-select:focus{{border-color:#1e5ba4;}}
-            .form-textarea{{
-            width:100%;border:1.5px solid #d1d5db;border-radius:8px;
-            padding:9px 12px;font-size:0.88rem;color:#1e293b;resize:vertical;
-            min-height:72px;outline:none;
-            }}
-            .form-textarea:focus{{border-color:#1e5ba4;}}
-            .modal-footer{{
-            display:flex;gap:10px;justify-content:flex-end;
-            padding:14px 22px 18px;border-top:1.5px solid #e2e8f0;
-            }}
-            .btn-save{{
-            background:#1e5ba4;color:#fff;border:none;border-radius:8px;
-            padding:9px 28px;font-size:0.92rem;font-weight:700;cursor:pointer;
-            }}
-            .btn-save:hover{{background:#154a8a;}}
-            .btn-cancel{{
-            background:#f1f5f9;color:#475569;border:1.5px solid #e2e8f0;
-            border-radius:8px;padding:9px 20px;font-size:0.92rem;font-weight:700;cursor:pointer;
-            }}
-            .btn-delete{{
-            background:#fee2e2;color:#b91c1c;border:1.5px solid #fca5a5;
-            border-radius:8px;padding:9px 18px;font-size:0.88rem;font-weight:700;cursor:pointer;
-            margin-right:auto;
-            }}
-        
-            /* ── 미니 범례 ── */
-            .legend{{display:flex;gap:10px;flex-wrap:wrap;padding:10px 4px 2px;}}
-            .legend-item{{display:flex;align-items:center;gap:4px;font-size:0.75rem;color:#374151;}}
-            .legend-dot{{width:10px;height:10px;border-radius:2px;flex-shrink:0;}}
-            </style>
-            </head>
-            <body>
-        
-            <!-- 헤더 -->
-            <div class="cal-header">
-            <button class="cal-nav-btn" onclick="changeMonth(-1)">&#8249;</button>
-            <div style="text-align:center;">
-            <h2 id="cal-title">2025년 1월</h2>
-            <div class="legend">
-              <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div>상담</div>
-              <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div>약속</div>
-              <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div>할 일</div>
-              <div class="legend-item"><div class="legend-dot" style="background:#22c55e;"></div>개인</div>
-            </div>
-            </div>
-            <button class="cal-nav-btn" onclick="changeMonth(1)">&#8250;</button>
-            </div>
-            <div style="text-align:right;margin-bottom:8px;">
-            <button class="cal-today-btn" onclick="goToday()">오늘</button>
-            </div>
-        
-            <!-- 달력 -->
-            <div class="cal-grid-wrap">
-            <div class="cal-weekdays">
-            <div class="cal-weekday sun">일</div>
-            <div class="cal-weekday">월</div>
-            <div class="cal-weekday">화</div>
-            <div class="cal-weekday">수</div>
-            <div class="cal-weekday">목</div>
-            <div class="cal-weekday">금</div>
-            <div class="cal-weekday sat">토</div>
-            </div>
-            <div class="cal-days" id="cal-days"></div>
-            </div>
-        
-            <!-- 일정 입력 모달 -->
-            <div class="modal-overlay" id="scheduleModal">
-            <div class="modal-box">
-            <div class="modal-header">
-              <h3 id="modal-title">📅 일정 추가</h3>
-              <button class="modal-close" onclick="closeModal()">✕</button>
-            </div>
-            <div class="modal-body">
-              <input type="hidden" id="edit-idx" value="-1">
-              <div class="form-group">
-            <label class="form-label">일정 제목 <span class="req">*</span></label>
-            <input class="form-input" id="f-title" type="text" placeholder="예: 김고객 신계약 상담">
-              </div>
-              <div class="form-group">
-            <label class="form-label">일정 분류 <span class="req">*</span></label>
-            <select class="category-select" id="f-category" onchange="updateCategoryColor()">
-              <option value="consult">🔴 상담</option>
-              <option value="appointment">🔵 약속</option>
-              <option value="todo">🟡 할 일</option>
-              <option value="personal">🟢 개인일정</option>
-            </select>
-              </div>
-              <div class="form-group">
-            <label class="form-label">시작 일시 <span class="req">*</span></label>
-            <div class="form-row">
-              <input class="form-input" id="f-start-date" type="date">
-              <input class="form-input" id="f-start-time" type="time" value="09:00">
-            </div>
-              </div>
-              <div class="form-group">
-            <label class="form-label">종료 일시</label>
-            <div class="form-row">
-              <input class="form-input" id="f-end-date" type="date">
-              <input class="form-input" id="f-end-time" type="time" value="10:00">
-            </div>
-              </div>
-              <div class="form-group">
-            <label class="form-label">관련 고객</label>
-            <select class="category-select" id="f-customer">
-              <option value="">— 선택 안 함 —</option>
-            </select>
-              </div>
-              <div class="form-group">
-            <label class="form-label">메모</label>
-            <textarea class="form-textarea" id="f-memo" placeholder="상담 메모, 준비사항 등..."></textarea>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button class="btn-delete" id="btn-delete" onclick="deleteEvent()" style="display:none;">삭제</button>
-              <button class="btn-cancel" onclick="closeModal()">취소</button>
-              <button class="btn-save" onclick="saveEvent()">저장</button>
-            </div>
-            </div>
-            </div>
-        
-            <script>
-            // ── 상태 ─────────────────────────────────────────────────────────────────
-            var events = {_cal_events_json};
-            var customers = {_cal_cust_json};
-            var today = new Date();
-            var curYear = today.getFullYear();
-            var curMonth = today.getMonth(); // 0-indexed
-        
-            // ── 고객 드롭다운 초기화 ─────────────────────────────────────────────────
-            (function initCustomers() {{
-            var sel = document.getElementById('f-customer');
-            customers.forEach(function(c) {{
-            var opt = document.createElement('option');
-            opt.value = c.id || c.name;
-            opt.textContent = c.name;
-            sel.appendChild(opt);
-            }});
-            }})();
-        
-            // ── 달력 렌더 ────────────────────────────────────────────────────────────
-            function renderCalendar() {{
-            var title = curYear + '년 ' + (curMonth+1) + '월';
-            document.getElementById('cal-title').textContent = title;
-        
-            var firstDay = new Date(curYear, curMonth, 1).getDay(); // 0=Sun
-            var daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
-            var daysInPrev = new Date(curYear, curMonth, 0).getDate();
-        
-            var container = document.getElementById('cal-days');
-            container.innerHTML = '';
-        
-            var todayY = today.getFullYear(), todayM = today.getMonth(), todayD = today.getDate();
-        
-            // 이전 달 빈칸
-            for (var i = 0; i < firstDay; i++) {{
-            var d = daysInPrev - firstDay + 1 + i;
-            container.appendChild(makeCell(curYear, curMonth-1, d, true));
-            }}
-            // 현재 달
-            for (var d = 1; d <= daysInMonth; d++) {{
-            var isToday = (curYear===todayY && curMonth===todayM && d===todayD);
-            container.appendChild(makeCell(curYear, curMonth, d, false, isToday));
-            }}
-            // 다음 달 빈칸
-            var total = firstDay + daysInMonth;
-            var remaining = total % 7 === 0 ? 0 : 7 - (total % 7);
-            for (var d = 1; d <= remaining; d++) {{
-            container.appendChild(makeCell(curYear, curMonth+1, d, true));
-            }}
-            }}
-        
-            function makeCell(y, m, d, otherMonth, isToday) {{
-            // 실제 날짜 계산
-            var realDate = new Date(y, m, d);
-            var realY = realDate.getFullYear();
-            var realM = realDate.getMonth();
-            var realD = realDate.getDate();
-            var dow = realDate.getDay(); // 0=Sun
-        
-            var cell = document.createElement('div');
-            cell.className = 'cal-cell';
-            if (otherMonth) cell.classList.add('other-month');
-            if (isToday)    cell.classList.add('today');
-            if (dow===0)    cell.classList.add('sun');
-            if (dow===6)    cell.classList.add('sat');
-        
-            var dateStr = realY + '-' + pad(realM+1) + '-' + pad(realD);
-            cell.dataset.date = dateStr;
-            cell.onclick = function() {{ openModal(dateStr); }};
-        
-            // 날짜 숫자
-            var numDiv = document.createElement('div');
-            numDiv.className = 'cal-day-num';
-            numDiv.textContent = realD;
-            cell.appendChild(numDiv);
-        
-            // 배지
-            var badgeWrap = document.createElement('div');
-            badgeWrap.className = 'cal-badges';
-            var dayEvents = events.filter(function(e) {{ return e.date === dateStr; }});
-            var maxShow = 3;
-            dayEvents.slice(0, maxShow).forEach(function(ev) {{
-            var b = document.createElement('span');
-            b.className = 'badge badge-' + ev.category;
-            var prefix = {{consult:'🔴',appointment:'🔵',todo:'🟡',personal:'🟢'}}[ev.category] || '⚪';
-            b.textContent = prefix + ' ' + ev.title;
-            b.onclick = function(e) {{ e.stopPropagation(); openEditModal(ev, dateStr); }};
-            badgeWrap.appendChild(b);
-            }});
-            if (dayEvents.length > maxShow) {{
-            var more = document.createElement('span');
-            more.className = 'badge badge-more';
-            more.textContent = '+' + (dayEvents.length - maxShow) + '개 더';
-            badgeWrap.appendChild(more);
-            }}
-            cell.appendChild(badgeWrap);
-            return cell;
-            }}
-        
-            function pad(n) {{ return n < 10 ? '0'+n : ''+n; }}
-        
-            // ── 월 이동 ──────────────────────────────────────────────────────────────
-            function changeMonth(delta) {{
-            curMonth += delta;
-            if (curMonth < 0) {{ curMonth = 11; curYear--; }}
-            if (curMonth > 11) {{ curMonth = 0; curYear++; }}
-            renderCalendar();
-            }}
-            function goToday() {{
-            curYear = today.getFullYear();
-            curMonth = today.getMonth();
-            renderCalendar();
-            }}
-        
-            // ── 모달 열기 (신규) ─────────────────────────────────────────────────────
-            function openModal(dateStr) {{
-            document.getElementById('modal-title').textContent = '📅 일정 추가';
-            document.getElementById('edit-idx').value = '-1';
-            document.getElementById('f-title').value = '';
-            document.getElementById('f-category').value = 'consult';
-            document.getElementById('f-start-date').value = dateStr;
-            document.getElementById('f-end-date').value = dateStr;
-            document.getElementById('f-start-time').value = '09:00';
-            document.getElementById('f-end-time').value = '10:00';
-            document.getElementById('f-customer').value = '';
-            document.getElementById('f-memo').value = '';
-            document.getElementById('btn-delete').style.display = 'none';
-            document.getElementById('scheduleModal').classList.add('open');
-            }}
-        
-            // ── 모달 열기 (편집) ─────────────────────────────────────────────────────
-            function openEditModal(ev, dateStr) {{
-            var idx = events.indexOf(ev);
-            document.getElementById('modal-title').textContent = '✏️ 일정 수정';
-            document.getElementById('edit-idx').value = idx;
-            document.getElementById('f-title').value = ev.title || '';
-            document.getElementById('f-category').value = ev.category || 'consult';
-            document.getElementById('f-start-date').value = ev.date || dateStr;
-            document.getElementById('f-end-date').value = ev.end_date || ev.date || dateStr;
-            document.getElementById('f-start-time').value = ev.start_time || '09:00';
-            document.getElementById('f-end-time').value = ev.end_time || '10:00';
-            document.getElementById('f-customer').value = ev.customer || '';
-            document.getElementById('f-memo').value = ev.memo || '';
-            document.getElementById('btn-delete').style.display = 'block';
-            document.getElementById('scheduleModal').classList.add('open');
-            }}
-        
-            function closeModal() {{
-            document.getElementById('scheduleModal').classList.remove('open');
-            }}
-        
-            // ── 저장 ─────────────────────────────────────────────────────────────────
-            function saveEvent() {{
-            var title = document.getElementById('f-title').value.trim();
-            if (!title) {{ alert('일정 제목을 입력하세요.'); return; }}
-            var startDate = document.getElementById('f-start-date').value;
-            if (!startDate) {{ alert('시작 날짜를 선택하세요.'); return; }}
-        
-            var ev = {{
-            title: title,
-            category: document.getElementById('f-category').value,
-            date: startDate,
-            end_date: document.getElementById('f-end-date').value || startDate,
-            start_time: document.getElementById('f-start-time').value,
-            end_time: document.getElementById('f-end-time').value,
-            customer: document.getElementById('f-customer').value,
-            memo: document.getElementById('f-memo').value.trim()
-            }};
-        
-            var idx = parseInt(document.getElementById('edit-idx').value);
-            if (idx >= 0) {{
-            events[idx] = ev;
-            }} else {{
-            events.push(ev);
-            }}
-        
-            closeModal();
-            renderCalendar();
-            // Streamlit에 저장 전달 (query_params 방식)
-            syncToStreamlit();
-            }}
-        
-            // ── 삭제 ─────────────────────────────────────────────────────────────────
-            function deleteEvent() {{
-            var idx = parseInt(document.getElementById('edit-idx').value);
-            if (idx >= 0 && confirm('이 일정을 삭제하시겠습니까?')) {{
-            events.splice(idx, 1);
-            closeModal();
-            renderCalendar();
-            syncToStreamlit();
-            }}
-            }}
-        
-            // ── Streamlit 동기화 ─────────────────────────────────────────────────────
-            function syncToStreamlit() {{
-            try {{
-            window.parent.postMessage({{
-              type: 'streamlit:setComponentValue',
-              value: JSON.stringify(events)
-            }}, '*');
-            }} catch(e) {{}}
-            }}
-        
-            // 오버레이 클릭 시 닫기
-            document.getElementById('scheduleModal').addEventListener('click', function(e) {{
-            if (e.target === this) closeModal();
-            }});
-        
-            renderCalendar();
-            </script>
-            </body>
-            </html>""", height=780, scrolling=True)
-        
-            # Streamlit 컴포넌트에서 전달받은 이벤트 저장 처리
-            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-            st.markdown("""
-            <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;
-            padding:10px 16px;font-size:0.82rem;color:#475569;text-align:center;">
-            💡 날짜 칸을 클릭하면 일정을 추가할 수 있습니다. 기존 배지를 클릭하면 수정/삭제가 가능합니다.
-            </div>""", unsafe_allow_html=True)
+                    _cal_customers.append({"id": _cid, "name": _name, "person_id": _cid})
+            _render_smart_cal(
+                agent_id=st.session_state.get("agent_id", ""),
+                customers=_cal_customers,
+            )
         st.stop()
 
     # ══════════════════════════════════════════════════════════════════════
@@ -38433,6 +37993,13 @@ function selectCustomer(name) {{
                         f'}}catch(e){{}}</script>',
                         unsafe_allow_html=True)
                     break
+    
+            # ── [GP-CALENDAR] 오늘의 핵심 영업 일정 위젯 ──────────────────
+            try:
+                from calendar_engine import render_today_widget as _rtw
+                _rtw(agent_id=st.session_state.get("agent_id", ""))
+            except Exception:
+                pass
     
             # ── 심야 배치 워커 트리거 (02~04 KST, 세션당 1회) ────────────────
             if not st.session_state.get('_art38_night_ran_today'):
