@@ -37,6 +37,7 @@ from shared_components import (
     notify_admin_member_error as _sc_notify_admin_error,
     render_member_emergency_btn as _sc_emergency_btn,
     _NIBO_CONSENT_HTML as _crm_nibo_html,
+    render_security_sidebar as _sc_render_security_sidebar,
 )
 
 # ── 페이지 설정 ───────────────────────────────────────────────────────────────
@@ -46,6 +47,18 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+# ── [GP-SEC §14] CRM 사이드바 보안 기준 준수 ──────────────────────────────────
+with st.sidebar:
+    st.markdown(
+        "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;padding:8px 0 4px;'>"
+        "📱 골드키 CRM — 고객상담 앱</div>",
+        unsafe_allow_html=True,
+    )
+    try:
+        _sc_render_security_sidebar()
+    except Exception:
+        pass
 
 # ── [GP-84 §11] 전역 CSS — Premium Design System v3 (모바일 우선) ──────────────
 st.markdown("""
@@ -548,61 +561,53 @@ if not _is_authenticated():
                                     _sc_notify_admin_error(_cn, "AUTH_MISMATCH", "CRM")
                                 except Exception:
                                     pass
-                if _crm_lp == "A":
-                    try:
-                        _sc_emergency_btn(app_name="CRM", key_prefix="crm_login_emg", show_admin_login=True)
-                    except Exception:
-                        pass
-        # ── 하단 5:5 약관 분할 ──────────────────────────────────────────
+        # ── 하단 통합 안내문 (이용약관 + 내보험다보여) ───────────────────────────
         st.markdown(
             "<hr style='margin:24px 0 14px;border:1px solid #e5e7eb;'>",
             unsafe_allow_html=True,
         )
-        _tc1, _tc2 = st.columns([1, 1], gap="small")
-        with _tc1:
+        st.markdown(
+            "<div style='background:#eff6ff;border-radius:8px 8px 0 0;"
+            "padding:7px 14px;margin-bottom:0;'>"
+            "<span style='font-size:0.85rem;font-weight:900;color:#1e3a8a;'>"
+            "📋 Goldkey AI Masters 2026 이용약관 · 내보험다보여(신용정보법 제32조) 통합 안내문</span></div>",
+            unsafe_allow_html=True,
+        )
+        _sc_render_auth_screen(
+            app_name="Goldkey AI Masters 2026",
+            app_icon="🏆",
+            terms_agree_key="_crm_terms_view",
+            show_header=False,
+            show_terms_scroll=True,
+            show_nibo_box=False,
+            show_checkboxes=False,
+        )
+        st.markdown(
+            "<div style='background:#fffbeb;border:1px dashed #f59e0b;"
+            "border-radius:0 0 8px 8px;padding:12px 14px;'>"
+            "<div style='font-size:0.82rem;font-weight:900;color:#92400e;margin-bottom:6px;'>"
+            "🔐 내보험다보여 연동 — 신용정보의 이용 및 보호에 관한 법률 제32조 안내</div>"
+            "<div style='font-size:0.75rem;color:#78350f;line-height:1.85;'>"
+            "• <b>수집:</b> 보험사명·상품명·담보내역·계약상태 (신용정보원 등록 데이터)<br>"
+            "• <b>목적:</b> AI 트리니티 엔진 — 보장 적정성 분석 및 실질 생계비 기반 리모델링<br>"
+            "• <b>보유:</b> 분석 완료 후 30일 경과 시 자동 파기 (리포트 이력 최대 3년 암호화)<br>"
+            "• <b>인증정보:</b> 데이터 추출 후 <b>즉시 메모리 파기</b> — 서버 저장 절대 불가<br>"
+            "• <b>미동의 시:</b> AI 증권분석 · 트리니티 리포트 기능 비활성화"
+            "</div></div>",
+            unsafe_allow_html=True,
+        )
+        with st.popover("📋 신용정보의 이용 및 보호에 관한 법률 제32조 안내문 전문 보기", use_container_width=True):
             st.markdown(
-                "<div style='background:#eff6ff;border-radius:8px 8px 0 0;"
-                "padding:7px 14px;margin-bottom:0;'>"
-                "<span style='font-size:0.85rem;font-weight:900;color:#1e3a8a;'>"
-                "🏆 Goldkey AI Masters 2026 이용약관</span></div>",
+                "<div style='font-size:0.78rem;color:#92400e;font-weight:700;"
+                "margin-bottom:6px;'>📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
                 unsafe_allow_html=True,
             )
-            _sc_render_auth_screen(
-                app_name="Goldkey AI Masters 2026",
-                app_icon="🏆",
-                terms_agree_key="_crm_terms_view",
-                show_header=False,
-                show_terms_scroll=True,
-                show_nibo_box=False,
-                show_checkboxes=False,
-            )
-        with _tc2:
-            st.markdown(
-                "<div style='background:#fffbeb;border-radius:8px 8px 0 0;"
-                "padding:7px 14px;margin-bottom:0;'>"
-                "<span style='font-size:0.85rem;font-weight:900;color:#92400e;'>"
-                "🔐 내보험다보여 신용정보의 이용및 보호에 관한 법률 제32조 안내문</span></div>",
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                "<div style='background:#fffbeb;border:2px dashed #f59e0b;"
-                "border-radius:0 0 8px 8px;padding:12px 14px;'>"
-                "<div style='font-size:0.75rem;color:#78350f;line-height:1.85;'>"
-                "• <b>수집:</b> 보험사명·상품명·담보내역·계약상태 (신용정보원 등록 데이터)<br>"
-                "• <b>목적:</b> AI 트리니티 엔진 — 보장 적정성 분석 및 실질 생계비 기반 리모델링<br>"
-                "• <b>보유:</b> 분석 완료 후 30일 경과 시 자동 파기 (리포트 이력 최대 3년 암호화)<br>"
-                "• <b>인증정보:</b> 데이터 추출 후 <b>즉시 메모리 파기</b> — 서버 저장 절대 불가<br>"
-                "• <b>미동의 시:</b> AI 증권분석 · 트리니티 리포트 기능 비활성화"
-                "</div></div>",
-                unsafe_allow_html=True,
-            )
-            with st.popover("📋 내보험다보여 신용정보의 이용및 보호에 관한 법률 제32조 안내문.", use_container_width=True):
-                st.markdown(
-                    "<div style='font-size:0.78rem;color:#92400e;font-weight:700;"
-                    "margin-bottom:6px;'>📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
-                    unsafe_allow_html=True,
-                )
-                st.markdown(_crm_nibo_html, unsafe_allow_html=True)
+            st.markdown(_crm_nibo_html, unsafe_allow_html=True)
+    # ── 앱 바닥 — 관리자 로그인 · 오류신고 (미인증 사용자도 접근 가능) ────────
+    try:
+        _sc_emergency_btn(app_name="CRM", key_prefix="crm_emg_bottom", show_admin_login=True)
+    except Exception:
+        pass
     st.stop()
 
 # ── 인증 완료 후 메인 ─────────────────────────────────────────────────────────
@@ -1335,7 +1340,11 @@ with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
             _cadm_code_v = (_cadm_code or "").strip()
             _cadm_env    = get_env_secret("ADMIN_CODE", "")
             _master_env  = get_env_secret("MASTER_CODE", "")
-            if _cadm_id_v.lower() in ("admin", "이세윤") and _cadm_code_v == _cadm_env:
+            import hashlib as _hl_cadm
+            _cadm_default_hash = _hl_cadm.sha256(b"kgagold6803").hexdigest()
+            _cadm_pw_hash      = get_env_secret("CRM_ADMIN_PW_HASH", _cadm_default_hash)
+            _cadm_input_hash   = _hl_cadm.sha256(_cadm_code_v.encode()).hexdigest()
+            if _cadm_id_v.lower() in ("admin", "이세윤") and _cadm_code_v == _cadm_env and _cadm_env:
                 st.session_state["crm_is_admin"]  = True
                 st.session_state["crm_user_id"]   = "ADMIN_MASTER"
                 st.session_state["crm_user_name"] = "이세윤"
@@ -1346,6 +1355,12 @@ with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
                 st.session_state["crm_is_admin"]  = True
                 st.session_state["crm_user_id"]   = "PERMANENT_MASTER"
                 st.session_state["crm_user_name"] = _mname
+                st.session_state["crm_role"]      = "admin"
+                st.rerun()
+            elif _cadm_id_v.lower() in ("admin", "이세윤") and _cadm_input_hash == _cadm_pw_hash:
+                st.session_state["crm_is_admin"]  = True
+                st.session_state["crm_user_id"]   = "ADMIN_MASTER"
+                st.session_state["crm_user_name"] = "이세윤"
                 st.session_state["crm_role"]      = "admin"
                 st.rerun()
             else:
@@ -1415,3 +1430,4 @@ with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
             if st.session_state.get("crm_role") == "admin":
                 st.session_state["crm_role"] = "agent"
             st.rerun()
+

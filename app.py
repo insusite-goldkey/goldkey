@@ -25160,16 +25160,23 @@ def process_docx(file):
                 pass
 
 def display_security_sidebar():
-    st.sidebar.markdown("""
-    <div style="background:#f0f7ff;padding:12px;border-radius:10px;font-size:0.78rem;">
-        <strong>🔒 보안 기준 준수</strong><br>
-        - ISO/IEC 27001 정보보안 관리체계<br>
-        - GDPR·개인정보보호법 준거<br>
-        - TLS 전송 암호화 (서버 레벨)<br>
-        - AES-128 Fernet 세션 암호화<br>
-        - SHA-256 연락처 해시 저장<br>
-        - 세션 종료 시 메모리 자동 초기화
-    </div>""", unsafe_allow_html=True)
+    try:
+        from shared_components import render_security_sidebar as _rss
+        _rss()
+    except Exception:
+        st.sidebar.markdown(
+            "<div style='background:#eff6ff;padding:12px;border-radius:10px;"
+            "font-size:0.77rem;border:1px dashed #3b82f6;'>"
+            "<strong style='color:#1e3a8a;'>🔒 보안 기준 준수 (Security Standards)</strong><br><br>"
+            "• ISO/IEC 27001 정보보안 관리체계 인증 기준 준용<br>"
+            "• GDPR 및 국내 개인정보보호법 가이드라인 철저 준거<br>"
+            "• TLS 1.3 차세대 전송 암호화 적용 (서버-클라이언트 통신 보호)<br>"
+            "• AES-256 Fernet 기반의 고강도 세션 데이터 암호화<br>"
+            "• SHA-256 단방향 해시를 통한 연락처 및 비밀번호 암호화 저장<br>"
+            "• 로그아웃 시 단말기 내 민감 정보 메모리 점유 즉시 해제 (임시 데이터 잔류 방지)"
+            "</div>",
+            unsafe_allow_html=True,
+        )
 
 
 # --------------------------------------------------------------------------

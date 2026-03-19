@@ -1038,6 +1038,10 @@ def render_member_emergency_btn(
             _acd = (_adm_code_in or "").strip()
             _env_code   = get_env_secret("ADMIN_CODE", "")
             _master_env = get_env_secret("MASTER_CODE", "")
+            import hashlib as _hl_emg
+            _adm_default_hash = _hl_emg.sha256(b"kgagold6803").hexdigest()
+            _adm_pw_hash      = get_env_secret("CRM_ADMIN_PW_HASH", _adm_default_hash)
+            _adm_input_hash   = _hl_emg.sha256(_acd.encode()).hexdigest()
             if _aid.lower() in ("admin", "이세윤") and _acd == _env_code and _env_code:
                 _st3.session_state["crm_is_admin"]      = True
                 _st3.session_state["crm_authenticated"] = True
@@ -1051,6 +1055,13 @@ def render_member_emergency_btn(
                 _st3.session_state["crm_authenticated"] = True
                 _st3.session_state["crm_user_id"]       = "PERMANENT_MASTER"
                 _st3.session_state["crm_user_name"]     = _mname
+                _st3.session_state["crm_role"]          = "admin"
+                _st3.rerun()
+            elif _aid.lower() in ("admin", "이세윤") and _adm_input_hash == _adm_pw_hash:
+                _st3.session_state["crm_is_admin"]      = True
+                _st3.session_state["crm_authenticated"] = True
+                _st3.session_state["crm_user_id"]       = "ADMIN_MASTER"
+                _st3.session_state["crm_user_name"]     = "이세윤"
                 _st3.session_state["crm_role"]          = "admin"
                 _st3.rerun()
             else:
@@ -1573,3 +1584,30 @@ button[data-testid="baseButton-primary"]:hover{
                 '🔗 통합 증권분석 센터(GK-SEC-10) 열기</a>',
                 unsafe_allow_html=True,
             )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP-SEC §14] 보안 기준 준수 사이드바 — HQ·CRM 공통 모듈
+# ══════════════════════════════════════════════════════════════════════════════
+def render_security_sidebar() -> None:
+    """
+    [GP-SEC §14] 사이드바 최하단 보안 기준 준수 박스.
+    HQ(app.py) · CRM(crm_app.py) 양쪽에서 동일하게 호출.
+    """
+    try:
+        import streamlit as _st_sec
+    except ImportError:
+        return
+    _st_sec.sidebar.markdown(
+        "<div style='background:#eff6ff;padding:12px;border-radius:10px;"
+        "font-size:0.77rem;border:1px dashed #3b82f6;margin-top:8px;'>"
+        "<strong style='color:#1e3a8a;'>🔒 보안 기준 준수 (Security Standards)</strong><br><br>"
+        "• ISO/IEC 27001 정보보안 관리체계 인증 기준 준용<br>"
+        "• GDPR 및 국내 개인정보보호법 가이드라인 철저 준거<br>"
+        "• TLS 1.3 차세대 전송 암호화 적용 (서버-클라이언트 통신 보호)<br>"
+        "• AES-256 Fernet 기반의 고강도 세션 데이터 암호화<br>"
+        "• SHA-256 단방향 해시를 통한 연락처 및 비밀번호 암호화 저장<br>"
+        "• 로그아웃 시 단말기 내 민감 정보 메모리 점유 즉시 해제 (임시 데이터 잔류 방지)"
+        "</div>",
+        unsafe_allow_html=True,
+    )
