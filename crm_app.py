@@ -698,27 +698,6 @@ st.markdown(f"""
   <div style="font-size:0.82rem;color:#374151;font-weight:700;">{_user_name} 설계사</div>
 </div>
 """, unsafe_allow_html=True)
-# ── [GP-SEC] 로그아웃 버튼 — 세션 완전 초기화 (공유 디바이스 보호) ──────────────
-_hdr_c1, _hdr_c2 = st.columns([6, 1])
-with _hdr_c1:
-    st.markdown(
-        f"<div style='font-size:0.78rem;color:#6b7280;padding:2px 0;'>"
-        f"🔒 {_user_name} 로그인 중 &nbsp;|&nbsp; "
-        f"<span style='color:#f59e0b;'>nibo 동의: {'✅' if st.session_state.get('nibo_consent_agreed') else '⬜'}</span>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-with _hdr_c2:
-    if st.button("🔒 로그아웃", key="crm_logout_btn", use_container_width=True):
-        try:
-            _sb_lo = _get_supabase()
-            if _sb_lo:
-                _sb_lo.auth.sign_out()
-        except Exception:
-            pass
-        st.session_state.clear()
-        st.session_state["_crm_logout_success"] = True
-        st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -811,6 +790,115 @@ if _spa_mode == "list":
         "</div>",
         unsafe_allow_html=True,
     )
+
+    # ── [GP-CALENDAR] 월간 달력 + 당일 상담일정 ──────────────────────────────
+    import calendar as _cal_lv
+    _lv_today = datetime.date.today()
+    if "lv_cal_ym" not in st.session_state:
+        st.session_state["lv_cal_ym"] = (_lv_today.year, _lv_today.month)
+    if "lv_cal_sel" not in st.session_state:
+        st.session_state["lv_cal_sel"] = _lv_today.isoformat()
+    _lv_yr, _lv_mo = st.session_state.get("lv_cal_ym", (_lv_today.year, _lv_today.month))
+    _lv_sel = st.session_state.get("lv_cal_sel", _lv_today.isoformat())
+    _lv_last = _cal_lv.monthrange(_lv_yr, _lv_mo)[1]
+    _lv_start = f"{_lv_yr}-{_lv_mo:02d}-01"
+    _lv_end   = f"{_lv_yr}-{_lv_mo:02d}-{_lv_last:02d}"
+    try:
+        _lv_mo_schs = _du_range(_user_id, _lv_start, _lv_end) if _OUTLOOK_OK else []
+    except Exception:
+        _lv_mo_schs = []
+    _lv_sched_dates = {s.get("date", "") for s in _lv_mo_schs}
+    # 뷰 탭 선택 (월간/주간/일일)
+    _lv_view = st.radio(
+        "달력 보기",
+        ["📅 월간", "📋 주간", "🗓️ 일일"],
+        horizontal=True, key="lv_view_mode", label_visibility="collapsed",
+    )
+    _lv_nav1, _lv_nav2, _lv_nav3 = st.columns([1, 4, 1])
+    with _lv_nav1:
+        if st.button("◀", key="lv_mo_prev", use_container_width=True):
+            _pm2, _py2 = (_lv_mo - 1, _lv_yr) if _lv_mo > 1 else (12, _lv_yr - 1)
+            st.session_state["lv_cal_ym"] = (_py2, _pm2)
+            st.rerun()
+    with _lv_nav2:
+        st.markdown(
+            f"<div style='text-align:center;font-size:0.88rem;font-weight:900;color:#1e3a8a;"
+            f"padding:4px 0;'>{_lv_yr}년 {_lv_mo}월 — {_lv_view}</div>",
+            unsafe_allow_html=True,
+        )
+    with _lv_nav3:
+        if st.button("▶", key="lv_mo_next", use_container_width=True):
+            _nm2, _ny2 = (_lv_mo + 1, _lv_yr) if _lv_mo < 12 else (1, _lv_yr + 1)
+            st.session_state["lv_cal_ym"] = (_ny2, _nm2)
+            st.rerun()
+
+    _lv_cal_c, _lv_sch_c = st.columns([5, 5])
+    with _lv_cal_c:
+        if _OUTLOOK_OK:
+            _lv_new_sel = render_mini_calendar(_lv_yr, _lv_mo, _lv_sched_dates, _lv_sel,
+                                               session_key="lv_cal_sel")
+            if _lv_new_sel != _lv_sel:
+                st.session_state["lv_cal_sel"] = _lv_new_sel
+                st.rerun()
+        else:
+            _lv_dt = st.date_input("날짜", value=datetime.date.fromisoformat(_lv_sel),
+                                   key="lv_cal_dt", label_visibility="collapsed")
+            st.session_state["lv_cal_sel"] = str(_lv_dt)
+            _lv_sel = str(_lv_dt)
+        # 카테고리 카운트 배지
+        _lv_cat_cnt: dict = {}
+        for _lv_s in _lv_mo_schs:
+            _k2 = _lv_s.get("category", "other")
+            _lv_cat_cnt[_k2] = _lv_cat_cnt.get(_k2, 0) + 1
+        _lv_cat_icon = {"consult": "💬", "appointment": "📌", "call": "📞", "other": "📋"}
+        if _lv_cat_cnt:
+            st.markdown(
+                "<div style='background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;"
+                "padding:5px 10px;margin-top:6px;font-size:0.74rem;'>"
+                + "".join(f"<span style='margin-right:8px;'>{_lv_cat_icon.get(_k2,'📋')}&nbsp;<b>{_v2}</b></span>"
+                          for _k2, _v2 in _lv_cat_cnt.items())
+                + "</div>", unsafe_allow_html=True,
+            )
+
+    with _lv_sch_c:
+        st.markdown(
+            f"<div style='background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;"
+            f"padding:6px 12px;margin-bottom:6px;'>"
+            f"<b style='font-size:0.82rem;color:#14532d;'>🗓️ 당일 상담 일정 — {_lv_sel}</b></div>",
+            unsafe_allow_html=True,
+        )
+        try:
+            _lv_today_schs = _du_schedules(_user_id, _lv_sel) if _OUTLOOK_OK else []
+        except Exception:
+            _lv_today_schs = []
+        st.markdown(
+            f"<div style='height:180px;overflow-y:auto;padding-right:4px;'>",
+            unsafe_allow_html=True,
+        )
+        if _lv_today_schs:
+            for _lv_ev in _lv_today_schs:
+                _lv_ci = {"consult": "💬", "appointment": "📌", "call": "📞", "other": "📋"}.get(
+                    _lv_ev.get("category", ""), "📋")
+                _lv_pname = (_lv_ev.get("gk_people") or {}).get("name", "")
+                st.markdown(
+                    f"<div style='background:#fff;border-left:3px solid #22c55e;"
+                    f"border-radius:4px;padding:5px 10px;margin-bottom:5px;"
+                    f"font-size:0.8rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);'>"
+                    f"<b style='color:#1e3a8a;'>{_lv_ev.get('start_time','')}</b>"
+                    f" {_lv_ci} {_lv_ev.get('title','')}"
+                    f"{'  <span style=\"color:#6b7280;font-size:0.72rem;\">(' + _lv_pname + ')</span>' if _lv_pname else ''}"
+                    f"{'<div style=\"color:#78350f;font-size:0.72rem;margin-top:2px;\">' + _lv_ev.get('memo','')[:40] + '</div>' if _lv_ev.get('memo') else ''}"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.markdown(
+                "<div style='font-size:0.8rem;color:#9ca3af;padding:8px 0;'>일정 없음</div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-top:1px solid #e5e7eb;margin:10px 0 12px;'>",
+                unsafe_allow_html=True)
 
     # ── HQ 크롤링 상태 실시간 동기화 배지 ───────────────────────────────────
     try:
@@ -1545,14 +1633,9 @@ elif _spa_mode == "customer":
             st.info("고객을 먼저 선택해 주세요.")
         elif not st.session_state.get("nibo_consent_agreed", False):
             st.markdown(
-                "<div style='background:#fffbeb;border:2px dashed #f59e0b;border-radius:10px;"
-                "padding:12px 14px;margin-bottom:10px;'>"
-                "<div style='font-size:0.84rem;font-weight:900;color:#92400e;margin-bottom:7px;'>"
-                "🔐 내보험다보여 연동 동의 필요 — 신용정보법 제32조</div>"
-                "<div style='font-size:0.76rem;color:#78350f;line-height:1.85;'>"
-                "• <b>수집:</b> 보험사명 · 상품명 · 담보내역 · 계약상태<br>"
-                "• <b>인증정보:</b> 데이터 추출 후 즉시 메모리 파기 — 서버 저장 불가<br>"
-                "• <b>보유:</b> 분석 완료 후 30일 경과 시 자동 파기</div></div>",
+                "<div style='background:#fef9c3;border:1px dashed #fbbf24;border-radius:8px;"
+                "padding:6px 12px;margin-bottom:8px;font-size:0.8rem;color:#78350f;font-weight:700;'>"
+                "🔐 신용정보 조회 동의 후 이용 가능합니다.</div>",
                 unsafe_allow_html=True,
             )
             with st.popover("📋 신용정보 조회 안내 전문 보기", use_container_width=True):
@@ -1582,18 +1665,48 @@ elif _spa_mode == "customer":
                 horizontal=True, key="nibo_mode_radio", label_visibility="collapsed",
             )
             if _nibo_mode == "📡 내보험다보여 JSON 자동 파싱":
-                st.caption("내보험다보여 API JSON → data_normalizer 정규화 → 트리니티 분석 → HQ DB 저장")
-                _crm_nibo_raw = st.text_area(
-                    "내보험다보여 API JSON 붙여넣기",
-                    value=st.session_state.get("crm_nibo_raw_json", ""),
-                    placeholder='[{"prodName":"삼성생명 종신","traitName":"암진단비","amt":"3000만원","status":"유효"}]',
-                    height=120, key="crm_lsec_nibo_json",
-                )
-                _crm_nhi_j = st.number_input(
-                    "월 건강보험료(원)", min_value=0, max_value=2_000_000,
-                    value=0, step=10_000, key="crm_tri_nhi_json",
-                    help="직장인: 보수월액×7.09% | 트리니티 소득 역산 기준",
-                )
+                _nb_divider_l, _nb_divider_r = st.columns([5, 5])
+                with _nb_divider_l:
+                    st.markdown(
+                        "<div style='background:#eff6ff;border:1px dashed #93c5fd;border-radius:8px;"
+                        "padding:6px 12px;margin-bottom:6px;font-size:0.8rem;font-weight:900;color:#1e3a8a;'>"
+                        "📡 내보험다보여 크롤링</div>",
+                        unsafe_allow_html=True,
+                    )
+                    st.caption("API JSON → data_normalizer → 트리니티 분석 → HQ DB 저장")
+                    _crm_nibo_raw = st.text_area(
+                        "내보험다보여 API JSON 붙여넣기",
+                        value=st.session_state.get("crm_nibo_raw_json", ""),
+                        placeholder='[{"prodName":"삼성생명 종신","traitName":"암진단비","amt":"3000만원","status":"유효"}]',
+                        height=120, key="crm_lsec_nibo_json",
+                    )
+                    st.markdown(
+                        "<div style='background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
+                        "padding:6px 12px;margin-top:8px;margin-bottom:6px;font-size:0.8rem;"
+                        "font-weight:900;color:#14532d;'>📎 증권 파일 스캔 업로드</div>",
+                        unsafe_allow_html=True,
+                    )
+                    _crm_policy_file = st.file_uploader(
+                        "증권 파일 (PDF·이미지)", type=["pdf", "jpg", "jpeg", "png"],
+                        key="crm_policy_scan_file", label_visibility="collapsed",
+                    )
+                    if _crm_policy_file:
+                        st.success(f"✅ {_crm_policy_file.name} 업로드 완료 — AI 분석 연동 예정")
+                with _nb_divider_r:
+                    st.markdown(
+                        "<div style='background:#fef9c3;border:1px dashed #fbbf24;border-radius:8px;"
+                        "padding:6px 12px;margin-bottom:6px;font-size:0.8rem;font-weight:900;color:#78350f;'>"
+                        "💰 월 건강보험료 납부액 (가치산출용)</div>",
+                        unsafe_allow_html=True,
+                    )
+                    _crm_nhi_j = st.number_input(
+                        "월 건강보험료(원)", min_value=0, max_value=2_000_000,
+                        value=0, step=10_000, key="crm_tri_nhi_json",
+                        help="직장인: 보수월액×7.09% | 트리니티 소득 역산 기준",
+                    )
+                    st.caption("직장인: 보수월액 × 7.09% (2026년 기준)\n지역가입자: 부과점수 × 208.4원")
+                st.markdown("<hr style='border-top:1px dashed #e5e7eb;margin:8px 0;'>",
+                            unsafe_allow_html=True)
                 if st.button("⚡ JSON 파싱 → 분석 → HQ 전송", key="crm_json_pipeline_run",
                              use_container_width=True, type="primary"):
                     if not _crm_nibo_raw.strip():
@@ -1709,9 +1822,9 @@ elif _spa_mode == "customer":
                 _q_url = f"{HQ_APP_URL}/?gk_sector={_qs}&gk_token={_token}"
                 st.markdown(
                     f'<a href="{_q_url}" target="_blank" style="display:block;text-align:center;'
-                    f'background:#1e3a8a;color:#fff;border-radius:8px;padding:8px;'
+                    f'background:#dbeafe;color:#1e3a8a;border-radius:8px;padding:8px;'
                     f'font-size:0.82rem;font-weight:900;text-decoration:none;'
-                    f'border:1px dashed #93c5fd;">{_ql}</a>',
+                    f'border:1px solid #93c5fd;text-shadow:0 1px 2px rgba(0,0,0,0.08);">{_ql}</a>',
                     unsafe_allow_html=True,
                 )
 
@@ -1754,9 +1867,9 @@ elif _spa_mode == "customer":
                 st.markdown(
                     f"<div style='text-align:center;padding:12px 0;'>"
                     f"<a href='{_dl_url}' target='_blank' "
-                    f"style='background:#1e3a8a;color:#fff;padding:10px 24px;"
+                    f"style='background:#dbeafe;color:#1e3a8a;padding:10px 24px;"
                     f"border-radius:8px;font-size:0.9rem;font-weight:900;"
-                    f"text-decoration:none;border:1px dashed #93c5fd;'>"
+                    f"text-decoration:none;border:1px solid #93c5fd;'>"
                     f"🚀 {_sel_cust.get('name')} → HQ 분석 시작</a></div>",
                     unsafe_allow_html=True,
                 )
@@ -2445,4 +2558,27 @@ with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
             if st.session_state.get("crm_role") == "admin":
                 st.session_state["crm_role"] = "agent"
             st.rerun()
+
+# ── [GP-SEC] 로그아웃 버튼 — 페이지 최하단 고정 ──────────────────────────────
+st.markdown("<hr style='border-top:1px solid #e5e7eb;margin:24px 0 8px;'>",
+            unsafe_allow_html=True)
+_lo_c1, _lo_c2, _lo_c3 = st.columns([3, 4, 3])
+with _lo_c2:
+    if st.button("🔒 로그아웃", key="crm_logout_btn_bottom", use_container_width=True):
+        try:
+            _sb_lo2 = _get_supabase()
+            if _sb_lo2:
+                _sb_lo2.auth.sign_out()
+        except Exception:
+            pass
+        st.session_state.clear()
+        st.session_state["_crm_logout_success"] = True
+        st.rerun()
+st.markdown(
+    f"<div style='text-align:center;font-size:0.72rem;color:#9ca3af;padding:4px 0 12px;'>"
+    f"🔒 {_user_name} 로그인 중 &nbsp;·&nbsp; "
+    f"nibo 동의: {'✅' if st.session_state.get('nibo_consent_agreed') else '⬜'}"
+    f"</div>",
+    unsafe_allow_html=True,
+)
 

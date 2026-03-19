@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import datetime
 import calendar as _calendar_mod
+import os
 from typing import Optional
 
 import streamlit as st
+import streamlit.components.v1 as _stc
 
 # ══════════════════════════════════════════════════════════════════════════════
 # §1 GP Outlook 파스텔 CSS
@@ -334,6 +336,30 @@ _JOB_SPECIAL = [
 ALL_JOB_OPTIONS = ["(선택)"] + _JOB_GRADE_1 + _JOB_GRADE_2 + _JOB_GRADE_3 + _JOB_SPECIAL
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# §4-B 다음(카카오) 우편번호 양방향 브릿지 컴포넌트
+# ══════════════════════════════════════════════════════════════════════════════
+_DAUM_COMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "daum_address_component")
+
+try:
+    _daum_postcode_comp = _stc.declare_component("daum_address_v1", path=_DAUM_COMP_DIR)
+except Exception:
+    _daum_postcode_comp = None
+
+
+def daum_address_component(key: str = "daum_addr_comp") -> dict | None:
+    """
+    다음(카카오) 우편번호 API 양방향 브릿지 컴포넌트.
+    사용자가 주소를 선택하면 {zonecode, roadAddress, jibunAddress} dict 반환.
+    선택 전에는 None 반환.
+    """
+    if _daum_postcode_comp is None:
+        st.error("주소 검색 컴포넌트를 로드할 수 없습니다. (daum_address_component 폴더 확인)")
+        return None
+    result = _daum_postcode_comp(key=key, default=None)
+    return result if isinstance(result, dict) else None
+
+
 def 손보사_standard_form(
     initial: Optional[dict] = None,
     key_prefix: str = "sf",
@@ -364,12 +390,20 @@ def 손보사_standard_form(
     c1, c2 = st.columns(2)
     with c1:
         name     = st.text_input("이름 *", value=d.get("name", ""), key=f"{key_prefix}_name")
+        # 기존 연락처는 복호화하여 표시 (편집 용이성), 신규 입력 시 빈값으로 시작
+        try:
+            from shared_components import decrypt_pii as _dpii
+            _raw_existing_contact = _dpii(d.get("contact", "") or "")
+        except Exception:
+            _raw_existing_contact = d.get("contact", "") or ""
+        if _raw_existing_contact.startswith("gAAAA"):  # 복호화 실패 → 입력창 비움
+            _raw_existing_contact = ""
         contact  = st.text_input(
             "연락처 * (암호화 저장)",
-            value="",
+            value=_raw_existing_contact,
             placeholder="01012345678",
             key=f"{key_prefix}_contact",
-            help="입력 시 SHA-256 해시로 암호화되어 저장됩니다.",
+            help="입력 시 Fernet 암호화되어 저장됩니다.",
         )
         birth    = st.text_input(
             "생년월일 (YYYYMMDD)",
@@ -406,12 +440,37 @@ def 손보사_standard_form(
             ),
             key=f"{key_prefix}_status",
         )
-        address_top = st.text_input(
-            "주소",
-            value=d.get("address", ""),
-            placeholder="시·군·구 또는 상세주소",
-            key=f"{key_prefix}_addr_top",
-        )
+        # ── 다음 우편번호 주소 검색 UI ──────────────────────────────
+        _az_zone_key   = f"{key_prefix}_addr_zone"
+        _az_road_key   = f"{key_prefix}_addr_road"
+        _az_modal_key  = f"{key_prefix}_addr_modal"
+        if _az_zone_key not in st.session_state:
+            st.session_state[_az_zone_key] = ""
+        if _az_road_key not in st.session_state:
+            st.session_state[_az_road_key] = d.get("address", "") or ""
+        _az_col1, _az_col2 = st.columns([3, 1])
+        with _az_col1:
+            st.text_input("📮 우편번호", value=st.session_state[_az_zone_key],
+                          disabled=True, key=f"{key_prefix}_zone_disp",
+                          label_visibility="visible")
+        with _az_col2:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+            if st.button("🔍 주소 검색", key=f"{key_prefix}_addr_btn", use_container_width=True):
+                st.session_state[_az_modal_key] = True
+                st.rerun()
+        if st.session_state.get(_az_modal_key, False):
+            _daum_result = daum_address_component(key=f"{key_prefix}_daum")
+            if _daum_result:
+                st.session_state[_az_zone_key] = _daum_result.get("zonecode", "")
+                st.session_state[_az_road_key] = _daum_result.get("roadAddress", "")
+                st.session_state[_az_modal_key] = False
+                st.rerun()
+            if st.button("✕ 닫기", key=f"{key_prefix}_addr_close"):
+                st.session_state[_az_modal_key] = False
+                st.rerun()
+        st.text_input("🏠 기본 주소 (도로명)", value=st.session_state[_az_road_key],
+                      disabled=True, key=f"{key_prefix}_road_disp")
+        address_top = st.session_state[_az_road_key]
 
     st.markdown(
         "<div class='gko-section-header'>💼 직업 등급 & 손보사 고지 사항</div>",
@@ -501,9 +560,167 @@ def 손보사_standard_form(
         result["auto_renewal_month"] = auto_mo or None
         result["fire_renewal_month"] = fire_mo or None
     if contact:
-        result["_raw_contact"] = contact
+        result["contact"] = contact
 
     return result
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §5 손보사 표준 직업 검색 엔진 (상해급수 기반 Autocomplete)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def render_job_search_engine(
+    key_prefix: str = "job_srch",
+    initial_job: str = "",
+    initial_injury: int = 0,
+) -> tuple[str, int]:
+    """
+    손보사 표준 직업 검색 엔진.
+    실시간 키워드 필터링 + 상해급수 배지 표시 + session_state 바인딩.
+
+    Returns:
+        (선택된_직업명, 상해급수_정수)  — 미선택 시 ("", 0)
+    """
+    try:
+        from standard_occupations import (
+            search_occupations, INJURY_LEVEL_GUIDE, STANDARD_OCCUPATIONS
+        )
+    except ImportError:
+        st.warning("standard_occupations.py 없음 — 직업 수동 입력 모드")
+        _job_manual = st.text_input("💼 직업 (직접 입력)", value=initial_job, key=f"{key_prefix}_manual")
+        return _job_manual, initial_injury
+
+    _sel_key   = f"{key_prefix}_selected_job"
+    _inj_key   = f"{key_prefix}_injury_level"
+    _kw_key    = f"{key_prefix}_keyword"
+
+    # 초기값 세팅
+    if _sel_key not in st.session_state:
+        st.session_state[_sel_key]  = initial_job
+    if _inj_key not in st.session_state:
+        st.session_state[_inj_key]  = initial_injury
+    if _kw_key not in st.session_state:
+        st.session_state[_kw_key]   = ""
+
+    st.markdown(
+        "<div style='font-size:0.8rem;font-weight:900;color:#1d4ed8;"
+        "margin:6px 0 4px 0;'>💼 직업 (손보사 표준 상해급수 검색)</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── 이미 선택된 직업 표시 ────────────────────────────────────────────
+    _cur_job = st.session_state.get(_sel_key, "")
+    _cur_inj = st.session_state.get(_inj_key, 0)
+
+    if _cur_job and _cur_inj:
+        _guide = INJURY_LEVEL_GUIDE.get(_cur_inj, {})
+        _bg    = _guide.get("bg", "#f3f4f6")
+        _clr   = _guide.get("color", "#374151")
+        _brd   = _guide.get("border", "#d1d5db")
+        _em    = _guide.get("badge_emoji", "⚪")
+        st.markdown(
+            f"<div style='background:{_bg};border:1px solid {_brd};"
+            f"border-radius:8px;padding:8px 14px;font-size:0.85rem;"
+            f"font-weight:900;color:{_clr};margin-bottom:6px;display:flex;"
+            f"align-items:center;gap:8px;'>"
+            f"{_em} <b>{_cur_job}</b>"
+            f"<span style='font-size:0.75rem;margin-left:auto;"
+            f"background:{_clr};color:#fff;padding:2px 8px;"
+            f"border-radius:12px;'>{_guide.get('label','')}</span></div>",
+            unsafe_allow_html=True,
+        )
+        _col_reset, _ = st.columns([1, 3])
+        with _col_reset:
+            if st.button("🔄 직업 재검색", key=f"{key_prefix}_reset", use_container_width=True):
+                st.session_state[_sel_key] = ""
+                st.session_state[_inj_key] = 0
+                st.session_state[_kw_key]  = ""
+                st.rerun()
+        return _cur_job, _cur_inj
+
+    # ── 검색 UI ──────────────────────────────────────────────────────────
+    _kw = st.text_input(
+        "🔍 직업 검색 (예: 사무원, 운전기사, 의사)",
+        value=st.session_state.get(_kw_key, ""),
+        placeholder="직업명 또는 업종을 입력하세요",
+        key=f"{key_prefix}_kw_input",
+    )
+    st.session_state[_kw_key] = _kw
+
+    # 빠른 선택 버튼 (급수별)
+    _quick_col1, _quick_col2, _quick_col3 = st.columns(3)
+    with _quick_col1:
+        if st.button("🔵 1급 전체 보기", key=f"{key_prefix}_q1", use_container_width=True):
+            st.session_state[_kw_key] = "1급"
+            st.rerun()
+    with _quick_col2:
+        if st.button("🟡 2급 전체 보기", key=f"{key_prefix}_q2", use_container_width=True):
+            st.session_state[_kw_key] = "2급"
+            st.rerun()
+    with _quick_col3:
+        if st.button("🔴 3급 전체 보기", key=f"{key_prefix}_q3", use_container_width=True):
+            st.session_state[_kw_key] = "3급"
+            st.rerun()
+
+    # 급수별 전체 보기 처리
+    _kw_active = st.session_state.get(_kw_key, "")
+    if _kw_active in ("1급", "2급", "3급"):
+        _level_filter = int(_kw_active[0])
+        _results = [j for j in STANDARD_OCCUPATIONS if j["injury_level"] == _level_filter]
+    else:
+        _results = search_occupations(_kw_active) if _kw_active.strip() else []
+
+    if _results:
+        _opts = [
+            f"{j['job_name']} — 상해 {j['injury_level']}급  [{j['category']}]"
+            for j in _results
+        ]
+        _chosen_str = st.selectbox(
+            f"검색 결과 ({len(_results)}건)",
+            ["— 선택 —"] + _opts,
+            key=f"{key_prefix}_select",
+        )
+        if _chosen_str != "— 선택 —":
+            _idx = _opts.index(_chosen_str)
+            _chosen_occ = _results[_idx]
+            if st.button(
+                f"✅ [{_chosen_occ['job_name']}] 상해 {_chosen_occ['injury_level']}급 선택 확정",
+                key=f"{key_prefix}_confirm",
+                use_container_width=True,
+                type="primary",
+            ):
+                st.session_state[_sel_key]  = _chosen_occ["job_name"]
+                st.session_state[_inj_key]  = _chosen_occ["injury_level"]
+                # HQ 파이프라인 세션 바인딩
+                st.session_state["customer_job"]    = _chosen_occ["job_name"]
+                st.session_state["injury_level"]    = _chosen_occ["injury_level"]
+                st.session_state[_kw_key]           = ""
+                st.rerun()
+        # 인수심사 가이드 미리보기
+        if _chosen_str != "— 선택 —":
+            _idx2 = _opts.index(_chosen_str)
+            _prev_occ = _results[_idx2]
+            _g = INJURY_LEVEL_GUIDE.get(_prev_occ["injury_level"], {})
+            st.markdown(
+                f"<div style='background:{_g.get('bg','#f3f4f6')};"
+                f"border:1px dashed {_g.get('border','#d1d5db')};"
+                f"border-radius:6px;padding:6px 10px;font-size:0.74rem;"
+                f"color:{_g.get('color','#374151')};margin-top:4px;'>"
+                f"⚠️ <b>인수심사 가이드</b>: {_g.get('underwriting','')}</div>",
+                unsafe_allow_html=True,
+            )
+    elif _kw_active.strip():
+        st.caption("검색 결과 없음 — 다른 키워드로 시도하거나 직접 입력하세요.")
+        _manual = st.text_input("직접 입력 (미등록 직업)", placeholder="직업명 입력", key=f"{key_prefix}_manual_fb")
+        if st.button("✅ 직접 입력 직업 사용", key=f"{key_prefix}_manual_confirm"):
+            if _manual.strip():
+                st.session_state[_sel_key] = _manual.strip()
+                st.session_state[_inj_key] = 1
+                st.session_state["customer_job"]  = _manual.strip()
+                st.session_state["injury_level"]  = 1
+                st.rerun()
+
+    return st.session_state.get(_sel_key, ""), st.session_state.get(_inj_key, 0)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

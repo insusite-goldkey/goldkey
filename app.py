@@ -25544,16 +25544,56 @@ API 키·DB 접속 정보·암호화 키 등 모든 기밀 정보: 소스 코드
 _STRICT_CONFIG = None
 _STT_STRICT_CONFIG = None
 
+# ── [상해급수 파이프라인] 고객 직업·상해급수 → AI 뇌 강제 주입 ────────────────
+_INJURY_LEVEL_RULE_TEMPLATE = """
+━━━ [실시간 고객 컨텍스트 — 상해급수 인수심사 지침] ━━━
+현재 분석 대상 고객의 직업은 [{job_name}]이며, 손해보험 상해급수는 [{injury_level}급]입니다.
+
+브리핑 결과 작성 시, 아래 상해급수별 인수심사 가이드라인을 반드시 반영하여
+언더라이터(Underwriter) 수준의 전문가적 소견을 덧붙이시오.
+
+• 1급 (저위험): 일반 조건 인수, 최대 한도 가입 가능.
+• 2급 (중위험): 상해담보 10~20% 할증 가능, 이륜차 특약 제한.
+• 3급 (고위험): 상해담보 20~50% 할증 또는 거절, 입원일당 한도 절반 축소 심사,
+  생명보험 사망담보 제한, 이륜차·레저 특약 전면 거절, 특별심사 필요.
+
+현재 {injury_level}급 고객 분석 시 이 인수심사 가이드라인을 AI 분석의 핵심 근거로 활용하라.
+━━━ [컨텍스트 끝] ━━━
+"""
+
+
+def _build_injury_aware_system_instruction() -> str:
+    """
+    현재 세션의 injury_level + job_name을 읽어 동적 시스템 프롬프트 생성.
+    고객 미선택 시 기본 _ABSOLUTE_SYSTEM_INSTRUCTION만 반환.
+    """
+    try:
+        import streamlit as _st
+        _job   = _st.session_state.get("current_job_name") or _st.session_state.get("customer_job", "")
+        _level = _st.session_state.get("current_injury_level") or _st.session_state.get("injury_level", 0)
+        try:
+            _level = int(_level)
+        except Exception:
+            _level = 0
+        if _job and _level:
+            _ctx = _INJURY_LEVEL_RULE_TEMPLATE.format(
+                job_name=_job,
+                injury_level=_level,
+            )
+            return _ABSOLUTE_SYSTEM_INSTRUCTION + _ctx
+    except Exception:
+        pass
+    return _ABSOLUTE_SYSTEM_INSTRUCTION
+
+
 def _get_strict_config():
-    global _STRICT_CONFIG
-    if _STRICT_CONFIG is None:
-        _t = _lazy_genai_types()
-        _STRICT_CONFIG = _t.GenerateContentConfig(
-            temperature=0.0,
-            top_p=0.1,
-            system_instruction=_ABSOLUTE_SYSTEM_INSTRUCTION,
-        )
-    return _STRICT_CONFIG
+    """항상 최신 injury_level 컨텍스트를 반영한 config 반환 (캐시 없음)."""
+    _t = _lazy_genai_types()
+    return _t.GenerateContentConfig(
+        temperature=0.0,
+        top_p=0.1,
+        system_instruction=_build_injury_aware_system_instruction(),
+    )
 
 def _get_stt_strict_config():
     global _STT_STRICT_CONFIG

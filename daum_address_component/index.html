@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>주소 검색</title>
+  <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f8f9fa; font-family: 'Noto Sans KR', sans-serif; }
+    #wrap {
+      width: 100%;
+      min-height: 480px;
+      border: 1px dashed #3b82f6;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+    #status {
+      padding: 12px 16px;
+      font-size: 0.82rem;
+      color: #1d4ed8;
+      font-weight: 700;
+      border-bottom: 1px dashed #dbeafe;
+      background: #eff6ff;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">📮 아래에서 주소를 검색하여 선택해 주세요.</div>
+  <div id="wrap"></div>
+
+  <script>
+    // ── Streamlit Component Protocol v1 ──────────────────────────────
+    (function () {
+      var _componentReady = false;
+
+      function sendToStreamlit(type, data) {
+        var msg = { isStreamlitMessage: true, type: type };
+        if (data !== undefined) Object.assign(msg, data);
+        window.parent.postMessage(msg, "*");
+      }
+
+      function setComponentValue(value) {
+        sendToStreamlit("streamlit:setComponentValue", { value: value });
+      }
+
+      function setFrameHeight(h) {
+        sendToStreamlit("streamlit:setFrameHeight", { height: h });
+      }
+
+      function onReady() {
+        sendToStreamlit("streamlit:componentReady", { apiVersion: 1 });
+        _componentReady = true;
+      }
+
+      // Streamlit -> Component 메시지 수신
+      window.addEventListener("message", function (e) {
+        if (e.data && e.data.type === "streamlit:render") {
+          // args 수신 가능(현재 미사용)
+        }
+      });
+
+      // ── 다음 우편번호 API 임베드 ──────────────────────────────────
+      function initPostcode() {
+        new daum.Postcode({
+          oncomplete: function (data) {
+            var roadAddr    = data.roadAddress || data.autoRoadAddress || "";
+            var jibunAddr   = data.jibunAddress || data.autoJibunAddress || "";
+            var zonecode    = data.zonecode || "";
+            var buildingName = data.buildingName || "";
+            var fullRoad    = roadAddr + (buildingName ? " (" + buildingName + ")" : "");
+
+            document.getElementById("status").textContent =
+              "✅ 선택 완료: [" + zonecode + "] " + fullRoad;
+
+            setComponentValue({
+              zonecode:     zonecode,
+              roadAddress:  fullRoad,
+              jibunAddress: jibunAddr
+            });
+          },
+          onresize: function (size) {
+            setFrameHeight(size.height + 60);
+          },
+          width:  "100%",
+          height: 480,
+          maxSuggestItems: 5,
+          animation: false
+        }).embed(document.getElementById("wrap"), { autoClose: false });
+
+        setFrameHeight(540);
+      }
+
+      // Daum API 로드 후 실행
+      if (typeof daum !== "undefined" && daum.Postcode) {
+        onReady();
+        initPostcode();
+      } else {
+        window.addEventListener("load", function () {
+          onReady();
+          initPostcode();
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

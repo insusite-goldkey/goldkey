@@ -533,16 +533,62 @@ def render_master_gate(sb, agent_id: str) -> None:
                 ["", "남", "여", "기타"],
                 index=["", "남", "여", "기타"].index(st.session_state.get("mgk_gender", "") or ""),
                 key="mgk_gender_input")
-            _job = st.text_input("💼 직업",
-                value=st.session_state.get("mgk_job", ""),
-                placeholder="예) 회사원", key="mgk_job_input")
-
-        _sick_idx = _SICK_OPTS.index(st.session_state.get("mgk_sick", "해당없음")) \
+            _sick_idx = _SICK_OPTS.index(st.session_state.get("mgk_sick", "해당없음")) \
                     if st.session_state.get("mgk_sick", "해당없음") in _SICK_OPTS else 0
         _sick = st.selectbox("🩺 유병자 여부", _SICK_OPTS, index=_sick_idx, key="mgk_sick_input")
 
         _memo = st.text_area("📝 메모", value=st.session_state.get("mgk_memo", ""),
                               placeholder="특이사항, 소개 경로 등", height=70, key="mgk_memo_input")
+
+        # ── 주소 섹션 (다음 우편번호 API) ─────────────────────────────
+        st.markdown(
+            "<div style='font-size:0.8rem;font-weight:900;color:#1d4ed8;margin:8px 0 4px 0;'>"
+            "📍 주소</div>",
+            unsafe_allow_html=True,
+        )
+        _maz_zone_key  = "mgk_addr_zone"
+        _maz_road_key  = "mgk_addr_road"
+        _maz_detail_key = "mgk_addr_detail"
+        _maz_modal_key = "mgk_addr_modal"
+        if _maz_zone_key not in st.session_state:
+            st.session_state[_maz_zone_key] = ""
+        if _maz_road_key not in st.session_state:
+            st.session_state[_maz_road_key] = ""
+
+        _maz_c1, _maz_c2 = st.columns([3, 1])
+        with _maz_c1:
+            st.text_input("📮 우편번호", value=st.session_state[_maz_zone_key],
+                          disabled=True, key="mgk_zone_disp")
+        with _maz_c2:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+            if st.button("🔍 주소 검색", key="mgk_addr_search_btn", use_container_width=True):
+                st.session_state[_maz_modal_key] = True
+                st.rerun()
+
+        if st.session_state.get(_maz_modal_key, False):
+            try:
+                from components import daum_address_component as _dac
+                _maz_result = _dac(key="mgk_daum_postcode")
+                if _maz_result:
+                    st.session_state[_maz_zone_key] = _maz_result.get("zonecode", "")
+                    st.session_state[_maz_road_key] = _maz_result.get("roadAddress", "")
+                    st.session_state[_maz_modal_key] = False
+                    st.rerun()
+            except Exception as _maz_e:
+                st.caption(f"주소 컴포넌트 오류: {_maz_e}")
+            if st.button("✕ 주소 검색 닫기", key="mgk_addr_close_btn"):
+                st.session_state[_maz_modal_key] = False
+                st.rerun()
+
+        st.text_input("🏠 기본 주소 (도로명)", value=st.session_state[_maz_road_key],
+                      disabled=True, key="mgk_road_disp")
+        _addr_detail = st.text_input(
+            "🏢 상세 주소 (동·호수 등)",
+            value=st.session_state.get(_maz_detail_key, ""),
+            placeholder="예) 101동 1005호",
+            key="mgk_addr_detail_input",
+        )
+        st.session_state[_maz_detail_key] = _addr_detail
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -552,14 +598,18 @@ def render_master_gate(sb, agent_id: str) -> None:
                 st.error("❌ 성명을 입력하세요.")
                 return
             st.session_state.update({
-                "mgk_name":    _dup_check_name.strip(),
-                "mgk_dob":     _dob,
-                "mgk_gender":  _gender,
-                "mgk_contact": _contact,
-                "mgk_job":     _job,
-                "mgk_sick":    _sick,
-                "mgk_memo":    _memo,
-                "mgk_step":    2,
+                "mgk_name":         _dup_check_name.strip(),
+                "mgk_dob":          _dob,
+                "mgk_gender":       _gender,
+                "mgk_contact":      _contact,
+                "mgk_job":          _job,
+                "mgk_injury_level": _injury_level,
+                "mgk_sick":         _sick,
+                "mgk_memo":         _memo,
+                "mgk_step":         2,
+                "mgk_addr_zone":    st.session_state.get("mgk_addr_zone", ""),
+                "mgk_addr_road":    st.session_state.get("mgk_addr_road", ""),
+                "mgk_addr_detail":  st.session_state.get("mgk_addr_detail", ""),
             })
             st.rerun()
 
@@ -822,6 +872,15 @@ def _mgk_save(sb, agent_id: str) -> None:
     _rels     = st.session_state.get("mgk_relations", [])
     _pols     = st.session_state.get("mgk_policies", [])
     _existing = st.session_state.get("mgk_existing_id")
+    _addr_road    = st.session_state.get("mgk_addr_road", "")
+    _addr_detail  = st.session_state.get("mgk_addr_detail", "")
+    _addr_zone    = st.session_state.get("mgk_addr_zone", "")
+    _address      = " ".join(filter(None, [f"[{_addr_zone}]" if _addr_zone else "", _addr_road, _addr_detail])).strip()
+    _injury_level = st.session_state.get("mgk_injury_level") or 0
+    try:
+        _injury_level = int(_injury_level)
+    except Exception:
+        _injury_level = 0
 
     log: list[str] = []
 
@@ -833,11 +892,12 @@ def _mgk_save(sb, agent_id: str) -> None:
         # ① 기준 인물 저장
         _center = _up(
             sb, name=_name, birth_date=_dob, gender=_gender,
-            contact=_contact, is_real_client=True, agent_id=agent_id,
-            memo=f"직업:{_job} / 유병:{_sick} / {_memo}",
+            contact=_contact, address=_address, is_real_client=True,
+            agent_id=agent_id, job=_job, injury_level=_injury_level,
+            memo=f"유병:{_sick} / {_memo}",
             person_id=_existing,
         )
-        _center_id = _center.get("id", _existing)
+        _center_id = _center.get("person_id") or _center.get("id") or _existing
         log.append(f"✅ 인물 저장: {_name} (ID: {str(_center_id)[:8]}…)")
 
         # ② 관계망 저장
@@ -907,8 +967,10 @@ def _mgk_save(sb, agent_id: str) -> None:
 
         # 스텝 리셋
         for _k in ["mgk_step", "mgk_name", "mgk_dob", "mgk_gender", "mgk_contact",
-                   "mgk_job", "mgk_sick", "mgk_memo", "mgk_relations", "mgk_policies",
-                   "mgk_existing_id"]:
+                   "mgk_job", "mgk_injury_level", "mgk_sick", "mgk_memo",
+                   "mgk_relations", "mgk_policies", "mgk_existing_id",
+                   "mgk_addr_zone", "mgk_addr_road", "mgk_addr_detail", "mgk_addr_modal",
+                   "mgk_job_selected_job", "mgk_job_injury_level", "mgk_job_keyword"]:
             st.session_state.pop(_k, None)
 
     except Exception as _e:
@@ -1323,6 +1385,23 @@ def render_crm_gate_full(sb, agent_id: str) -> None:
     # ══════════════════════════════════════════════════════════════════════════
     elif _spa_mode == "customer":
         _screen = st.session_state.get("hq_crm_screen", "auth")
+
+        # ── [상해급수 파이프라인] 고객 선택 시 DB에서 job_name·injury_level 바인딩 ──
+        _bound_pid_key = f"_injury_bound_{_sel_pid}"
+        if _sel_pid and _bound_pid_key not in st.session_state:
+            try:
+                from db_utils import bind_injury_level_to_session as _bind_inj
+                _inj_info = _bind_inj(_sel_pid)
+                st.session_state[_bound_pid_key] = True
+                if _inj_info.get("injury_level"):
+                    from standard_occupations import INJURY_LEVEL_GUIDE
+                    _ig = INJURY_LEVEL_GUIDE.get(_inj_info["injury_level"], {})
+                    st.caption(
+                        f"직업: **{_inj_info['job_name']}** "
+                        f"{_ig.get('badge_emoji','')} 상해 **{_inj_info['injury_level']}급**"
+                    )
+            except Exception:
+                st.session_state[_bound_pid_key] = True
 
         # ── 고객 바 (이름 표시) ────────────────────────────────────────────
         st.markdown(

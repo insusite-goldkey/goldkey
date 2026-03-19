@@ -482,6 +482,183 @@ def log_kakao_sent(
     )
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# §7 GCS 고객 프로파일 암호화 보관 파이프라인 (GCS 보안 3대 원칙 적용)
+# ══════════════════════════════════════════════════════════════════════════════
+# 원칙 1: 애플리케이션 계층 Fernet(AES-128-CBC) 암호화 — GCS에는 암호화 바이트만 업로드
+# 원칙 2: 파일명에 PII(이름·연락처) 절대 금지 — {person_id}_profile.enc 형식만 허용
+# 원칙 3: 식별 불가 난수 형태 파일명 (person_id UUID 기반)
+
+_GCS_BUCKET_NAME = "goldkey-customer-profiles"
+_GCS_PATH_PREFIX = "encrypted_profiles"
+
+
+def _get_fernet():
+    """ENCRYPTION_KEY 환경변수 → Fernet 인스턴스 반환."""
+    try:
+        from shared_components import get_env_secret
+        from cryptography.fernet import Fernet
+        import base64
+        _raw_key = get_env_secret("ENCRYPTION_KEY", "")
+        if not _raw_key:
+            return None
+        _key_bytes = _raw_key.encode() if isinstance(_raw_key, str) else _raw_key
+        if len(_key_bytes) != 44:
+            _key_bytes = base64.urlsafe_b64encode(_key_bytes[:32].ljust(32, b"\x00"))
+        return Fernet(_key_bytes)
+    except Exception:
+        return None
+
+
+def _get_gcs_client():
+    """Google Cloud Storage 클라이언트 lazy init."""
+    try:
+        from google.cloud import storage as _gcs
+        return _gcs.Client()
+    except Exception:
+        return None
+
+
+def upload_customer_profile_gcs(person_id: str, profile_data: dict) -> bool:
+    """
+    고객 프로파일을 Fernet 암호화 후 GCS에 업로드.
+
+    보안 원칙:
+      - profile_data 전체를 JSON 직렬화 → Fernet 암호화 → 암호화 바이트만 업로드
+      - 파일명: {person_id}_profile.enc (PII 없음)
+      - 경로: {_GCS_PATH_PREFIX}/{agent_id}/{person_id}_profile.enc
+
+    Args:
+        person_id: 고객 UUID (파일명에 사용)
+        profile_data: 저장할 고객 정보 dict (job_name, injury_level, name 등)
+
+    Returns:
+        True: 업로드 성공, False: 실패
+    """
+    if not person_id or not profile_data:
+        return False
+
+    _fernet = _get_fernet()
+    if not _fernet:
+        return False
+
+    gcs = _get_gcs_client()
+    if not gcs:
+        return False
+
+    try:
+        import json as _j
+        _agent_id = profile_data.get("agent_id", "unknown")
+        _payload_bytes = _j.dumps(profile_data, ensure_ascii=False).encode("utf-8")
+        _encrypted = _fernet.encrypt(_payload_bytes)
+        _blob_path = f"{_GCS_PATH_PREFIX}/{_agent_id}/{person_id}_profile.enc"
+        _bucket = gcs.bucket(_GCS_BUCKET_NAME)
+        _blob = _bucket.blob(_blob_path)
+        _blob.upload_from_string(_encrypted, content_type="application/octet-stream")
+        return True
+    except Exception:
+        return False
+
+
+def download_customer_profile_gcs(person_id: str, agent_id: str = "") -> dict | None:
+    """
+    GCS에서 암호화된 고객 프로파일을 다운로드 후 복호화.
+
+    Returns:
+        복호화된 고객 정보 dict, 실패 시 None
+    """
+    if not person_id:
+        return None
+
+    _fernet = _get_fernet()
+    if not _fernet:
+        return None
+
+    gcs = _get_gcs_client()
+    if not gcs:
+        return None
+
+    try:
+        import json as _j
+        _blob_path = f"{_GCS_PATH_PREFIX}/{agent_id}/{person_id}_profile.enc"
+        _bucket = gcs.bucket(_GCS_BUCKET_NAME)
+        _blob = _bucket.blob(_blob_path)
+        if not _blob.exists():
+            return None
+        _encrypted_bytes = _blob.download_as_bytes()
+        _decrypted_bytes = _fernet.decrypt(_encrypted_bytes)
+        return _j.loads(_decrypted_bytes.decode("utf-8"))
+    except Exception:
+        return None
+
+
+def save_customer_profile_with_gcs(
+    person_id: str,
+    agent_id: str,
+    profile_data: dict,
+    supabase_client=None,
+) -> bool:
+    """
+    Supabase DB 저장 + GCS 암호화 아카이브 동시 수행.
+    두 저장소 중 하나라도 성공하면 True 반환.
+    """
+    _db_ok  = False
+    _gcs_ok = False
+
+    sb = supabase_client or _get_sb()
+    if sb:
+        try:
+            import datetime as _dt
+            _row = {
+                "person_id":    person_id,
+                "agent_id":     agent_id,
+                "job":          profile_data.get("job") or profile_data.get("job_name"),
+                "injury_level": profile_data.get("injury_level"),
+                "updated_at":   _dt.datetime.utcnow().isoformat(),
+            }
+            _row = {k: v for k, v in _row.items() if v is not None}
+            sb.table("gk_people").update(_row).eq("person_id", person_id).execute()
+            _db_ok = True
+        except Exception:
+            pass
+
+    _gcs_data = {**profile_data, "person_id": person_id, "agent_id": agent_id}
+    _gcs_ok = upload_customer_profile_gcs(person_id, _gcs_data)
+
+    return _db_ok or _gcs_ok
+
+
+def bind_injury_level_to_session(person_id: str) -> dict:
+    """
+    HQ 앱 도킹 시 호출 — DB에서 job_name + injury_level 조회 후
+    st.session_state에 바인딩.
+
+    Returns:
+        {"job_name": str, "injury_level": int}
+    """
+    try:
+        import streamlit as _st
+        _customer = get_customer(person_id)
+        if not _customer:
+            return {"job_name": "", "injury_level": 0}
+
+        _job_name     = _customer.get("job", "") or ""
+        _injury_level = _customer.get("injury_level") or 0
+        try:
+            _injury_level = int(_injury_level)
+        except Exception:
+            _injury_level = 0
+
+        _st.session_state["customer_job"]           = _job_name
+        _st.session_state["injury_level"]           = _injury_level
+        _st.session_state["current_injury_level"]   = _injury_level
+        _st.session_state["current_job_name"]       = _job_name
+
+        return {"job_name": _job_name, "injury_level": _injury_level}
+    except Exception:
+        return {"job_name": "", "injury_level": 0}
+
+
 def send_kakao_report(
     customer_name: str,
     phone_number: str,
