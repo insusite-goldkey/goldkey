@@ -500,8 +500,8 @@ def render_auth_screen(
     show_nibo_box: bool = True,
     show_checkboxes: bool = True,
     consent_header_text: str = None,
-    consent_header_bg: str = "#1e3a8a",
-    consent_header_fg: str = "#ffffff",
+    consent_header_bg: str = "#dbeafe",
+    consent_header_fg: str = "#1e3a8a",
 ) -> bool:
     """
     [GP-SEC §5] 공통 로그인/약관 동의 UI.
@@ -636,10 +636,10 @@ def render_auth_screen(
     st.markdown("""<style>
 /* 필수동의 박스 — 체크박스 영역 border 스타일링 */
 div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
-    background: #f0f6ff;
-    border-left: 1.5px solid #1e3a8a;
-    border-right: 1.5px solid #1e3a8a;
-    border-bottom: 1.5px solid #1e3a8a;
+    background: #f0f8ff;
+    border-left: 1.5px solid #93c5fd;
+    border-right: 1.5px solid #93c5fd;
+    border-bottom: 1.5px solid #93c5fd;
     border-radius: 0 0 8px 8px;
     padding: 4px 10px 8px 10px;
     margin-bottom: 6px;
