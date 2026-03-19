@@ -288,16 +288,28 @@ def customer_input_form(customer_data: dict, agent_id: str,
 
 
 # ── 딥링크 빌더 ─────────────────────────────────────────────────────────────
-def build_deeplink_to_hq(cid: str, name: str = "", sector: str = "home",
+def build_deeplink_to_hq(cid: str, agent_id: str = "", name: str = "", sector: str = "home",
                          token: str = "") -> str:
     """
-    [Phase 3] 자 앱 → 모 앱(HQ) 딥링크 URL 생성.
-    cid, token, sector를 URL 파라미터로 전달.
+    [Phase 3 — C-2 PII 보호 및 SSO 완성] CRM → HQ 딥링크 URL 생성.
+    평문 PII(이름, 연락처) 절대 배제. AgentID + CID 결합 HMAC-SHA256 토큰 생성.
+    name / token 파라미터는 하위 호환성 유지용 — URL에 포함하지 않음.
     """
     import urllib.parse as _up
-    params = {"gk_cid": cid, "gk_sector": sector}
-    if name:    params["gk_name"]  = name
-    if token:   params["gk_token"] = token
+    import hmac as _hmac_dl
+    _dl_secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+    if isinstance(_dl_secret, bytes):
+        _dl_secret = _dl_secret.decode()
+    _dl_agent = agent_id or ""
+    _dl_token = _hmac_dl.new(
+        _dl_secret.encode(), (_dl_agent + cid).encode(), "sha256"
+    ).hexdigest()[:32]
+    params = {
+        "gk_agent_id": _dl_agent,
+        "gk_cid":      cid,
+        "gk_sector":   sector,
+        "gk_token":    _dl_token,
+    }
     return f"{HQ_APP_URL}/?{_up.urlencode(params)}"
 
 

@@ -886,9 +886,8 @@ if _spa_mode == "list":
             "화재만기":   f"{_c.get('fire_renewal_month', '')}월" if _c.get("fire_renewal_month") else "-",
             "HQ링크":     build_deeplink_to_hq(
                 cid=_c.get("person_id", ""),
-                name=_c.get("name", ""),
+                agent_id=st.session_state.get("user_id", ""),
                 sector="t3",
-                token=_token,
             ),
         })
 
@@ -1697,9 +1696,8 @@ elif _spa_mode == "customer":
                 _sel_sector = _sector_opts[_sel_sector_label]
                 _dl_url = build_deeplink_to_hq(
                     cid=_sel_cust.get("person_id", ""),
-                    name=_sel_cust.get("name", ""),
+                    agent_id=st.session_state.get("user_id", ""),
                     sector=_sel_sector,
-                    token=_token,
                 )
                 st.markdown(
                     f"<div style='text-align:center;padding:12px 0;'>"
@@ -1856,7 +1854,8 @@ elif _spa_mode == "customer":
                 if _c.get("auto_renewal_month") == _today_mo: _rh += " ⚡ 자동차 만기!"
                 if _c.get("fire_renewal_month") == _today_mo: _rh += " ⚡ 화재 만기!"
                 _rdl = build_deeplink_to_hq(cid=_c.get("person_id", ""),
-                                            name=_c.get("name", ""), sector="t3", token=_token)
+                                            agent_id=st.session_state.get("user_id", ""),
+                                            sector="t3")
                 st.markdown(
                     f"<div style='background:#ffffff;border:1px dashed #000;border-radius:10px;"
                     f"border-left:4px solid {_tm3['color']};padding:10px 14px;margin-bottom:8px;'>"

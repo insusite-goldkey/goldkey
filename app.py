@@ -29018,27 +29018,24 @@ button[aria-label="사이드바를 열거나 닫으세요"] { display: none !imp
 footer, footer * { display: none !important; }
 #MainMenu, [data-testid="stMainMenuButton"] { display: none !important; }
 </style>""", unsafe_allow_html=True)
-        # ── [메인 화면 로그인 폼] 사이드바 의존 완전 제거 ──
-        _main_av = get_goldkey_avatar()
-        _main_av_html = (
-            f'<div style="width:110px;height:110px;border-radius:50%;'
-            f'border:4px solid #D4AF37;overflow:hidden;'
-            f'box-shadow:0 4px 20px rgba(212,175,55,0.4);'
-            f'display:block;margin:0 auto 14px auto;">'
-            f'<img src="{_main_av}" style="width:100%;height:100%;object-fit:cover;'
-            f'object-position:center top;display:block;"></div>' if _main_av else
-            '<div style="width:110px;height:110px;border-radius:50%;'
-            'background:linear-gradient(135deg,#1e3a8a,#D4AF37);'
-            'margin:0 auto 14px auto;"></div>'
-        )
+        # [M-3] HQ 앱 독립 로그인 UI 완전 폐기 — CRM SSO 전용 진입
+        _crm_redirect_url = "https://goldkey-crm-vje5ef5qka-du.a.run.app"
         st.markdown(
-            f"<div style='text-align:center;padding:20px 20px 6px;'>"
-            f"{_main_av_html}"
-            "<div style='font-size:1.8rem;font-weight:900;color:#1e3a8a;margin-bottom:4px;'>🏆 Goldkey AI Masters 2026</div>"
-            "<div style='font-size:0.9rem;color:#374151;margin-bottom:8px;'>아래에서 로그인하세요</div>"
+            "<div style='text-align:center;padding:40px 20px;'>"
+            "<div style='font-size:2.5rem;margin-bottom:12px;'>🔒</div>"
+            "<div style='font-size:1.2rem;font-weight:900;color:#1e3a8a;margin-bottom:10px;'>"
+            "HQ 심화분석 시스템</div>"
+            "<div style='font-size:0.88rem;color:#374151;line-height:1.6;margin-bottom:20px;'>"
+            "이 시스템은 CRM 앱을 통해서만 접근할 수 있습니다.<br>"
+            "CRM 앱 고객 목록에서 고객을 선택한 후 [HQ 분석] 버튼을 눌러주세요.</div>"
+            f"<a href='{_crm_redirect_url}' target='_self'>"
+            "<div style='display:inline-block;background:#1e3a8a;color:#fff;"
+            "border-radius:8px;padding:12px 28px;font-weight:900;font-size:0.95rem;"
+            "cursor:pointer;'>🏠 CRM 앱으로 이동</div></a>"
             "</div>",
             unsafe_allow_html=True,
         )
+        st.stop()
         _mc1, _mc2, _mc3 = st.columns([0.01, 0.98, 0.01])
         with _mc2:
             # ── 약관 동의 + 로그인 폼 (shared_components.render_auth_screen 전문 표시)
@@ -31726,6 +31723,48 @@ footer, footer * {
                 st.query_params.clear()  # 유효하지 않은 토큰 제거
         except Exception:
             pass
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [C-1 FAIL-CLOSED] CRM→HQ SSO 정밀 검문소
+    # gk_cid 또는 gk_agent_id 가 URL에 있을 때만 작동.
+    # 토큰 없음 / 위조 / Exception → 즉시 st.stop() (Fail-Closed)
+    # ══════════════════════════════════════════════════════════════════════
+    _fc_cid      = st.query_params.get("gk_cid", "")
+    _fc_agent_id = st.query_params.get("gk_agent_id", "")
+    _fc_token    = st.query_params.get("gk_token", "")
+    _fc_sector   = st.query_params.get("gk_sector", "home")
+    if (_fc_cid or _fc_agent_id) and "user_id" not in st.session_state:
+        if not (_fc_cid and _fc_agent_id and _fc_token):
+            st.error("🔒 보안 검문 실패 — 필수 인증 정보가 누락되었습니다. CRM 앱을 통해 접속해 주세요.")
+            st.stop()
+        _fc_ok = False
+        try:
+            import hmac as _hmac_fc
+            _fc_secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+            if isinstance(_fc_secret, bytes):
+                _fc_secret = _fc_secret.decode()
+            _fc_expected = _hmac_fc.new(
+                _fc_secret.encode(), (_fc_agent_id + _fc_cid).encode(), "sha256"
+            ).hexdigest()[:32]
+            if _hmac_fc.compare_digest(_fc_expected, _fc_token[:32]):
+                _fc_ok = True
+        except Exception:
+            _fc_ok = False
+        if not _fc_ok:
+            st.error("🔒 보안 검문 실패 — 위조된 접근 토큰입니다. 해킹 시도가 차단되었습니다.")
+            st.stop()
+        st.session_state["user_id"] = _fc_agent_id
+        st.session_state["authenticated"] = True
+        if not st.session_state.get("_rd_docked_cid"):
+            st.session_state["_rd_docked_cid"]    = _fc_cid
+            st.session_state["_rd_docked_name"]   = ""
+            st.session_state["_rd_docked_sector"] = _fc_sector
+            st.session_state["_rd_loading"]       = True
+            try:
+                st.query_params.clear()
+            except Exception:
+                pass
+            st.rerun()
 
     # ── STEP 4-C: 뒤로가기 로그아웃 방지 — query_params 탭 상태 복원 ──
     # 브라우저 "<" 뒤로가기 시 Streamlit이 session_state를 재초기화함
@@ -38145,14 +38184,13 @@ function selectCustomer(name) {{
     # 스피너 → 고객 로드 → 섹터 자동 점프 실행
     # ══════════════════════════════════════════════════════════════════════
     _rd_cid    = st.query_params.get("gk_cid",    "")
-    _rd_name   = st.query_params.get("gk_name",   "")
     _rd_sector = st.query_params.get("gk_sector", "")
     _rd_token  = st.query_params.get("gk_token",  "")
 
     # query_params에서 수신 → session_state에 보존 후 URL 정리
     if _rd_cid and not st.session_state.get("_rd_docked_cid"):
         st.session_state["_rd_docked_cid"]    = _rd_cid
-        st.session_state["_rd_docked_name"]   = _rd_name
+        st.session_state["_rd_docked_name"]   = ""
         st.session_state["_rd_docked_sector"] = _rd_sector
         st.session_state["_rd_docked_token"]  = _rd_token
         st.session_state["_rd_loading"]       = True
@@ -38369,17 +38407,17 @@ function selectCustomer(name) {{
 
             # ══════════════════════════════════════════════════════════════════════
             # [HQ-DOCK] 도킹 스테이션 — URL 파라미터 수신 + 고객 도킹 패널
-            # URL: ?gk_cid=XXX&gk_sector=cancer&gk_token=YYY&gk_name=홍길동
+            # [C-3] URL: ?gk_cid=XXX&gk_sector=cancer&gk_token=YYY&gk_agent_id=ZZZ
+            # gk_name 수신 완전 폐기 — 고객명은 DB에서 gk_cid로 직접 조회
             # ══════════════════════════════════════════════════════════════════════
             _qp = st.query_params
             _dock_cid_from_url    = _qp.get("gk_cid", "")
             _dock_sector_from_url = _qp.get("gk_sector", "")
             _dock_token_from_url  = _qp.get("gk_token", "")
-            _dock_name_from_url   = _qp.get("gk_name", "")
     
             if _dock_cid_from_url and not st.session_state.get("_rd_docked_cid"):
                 st.session_state["_rd_docked_cid"]    = _dock_cid_from_url
-                st.session_state["_rd_docked_name"]   = _dock_name_from_url or "CRM 고객"
+                st.session_state["_rd_docked_name"]   = ""
                 st.session_state["_rd_docked_sector"] = _dock_sector_from_url
                 st.session_state["_rd_docked_token"]  = _dock_token_from_url
                 if _dock_sector_from_url:
