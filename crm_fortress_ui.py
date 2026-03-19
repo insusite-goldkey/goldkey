@@ -1312,6 +1312,7 @@ def render_crm_gate_full(sb, agent_id: str) -> None:
                     st.session_state["hq_crm_sel_name"]  = _pn
                     st.session_state["hq_crm_screen"]    = "auth"
                     st.session_state.pop("_crm_auth_person_id", None)
+                    st.session_state.pop("hq_crm_screen_radio", None)
                     st.rerun()
 
         if not _people:
@@ -1345,17 +1346,26 @@ def render_crm_gate_full(sb, agent_id: str) -> None:
                 session_key="hq_crm_screen",
                 back_mode_key="hq_crm_spa_mode",
                 back_pid_key="hq_crm_sel_pid",
+                extra_clears=("hq_crm_sel_name",),
             )
         except Exception:
             _back_c, _nav_c = st.columns([1, 8])
             with _back_c:
                 if st.button("🔙 목록", key="hq_crm_back2", use_container_width=True):
-                    st.session_state["hq_crm_spa_mode"] = "list"
+                    st.session_state["hq_crm_spa_mode"]  = "list"
+                    st.session_state["hq_crm_sel_pid"]   = ""
+                    st.session_state["hq_crm_sel_name"]  = ""
                     st.rerun()
             with _nav_c:
                 _choices = [m[0] for m in _hq_menus]
                 _skeys   = [m[1] for m in _hq_menus]
                 _cur_idx = _skeys.index(_screen) if _screen in _skeys else 0
+                # [BUG1 FIX 폴백] 위젯 상태 동기화 — 유령 화면 삭제
+                if "hq_crm_screen_radio" in st.session_state:
+                    _hq_stored = st.session_state["hq_crm_screen_radio"]
+                    _hq_expect = _choices[_cur_idx] if _cur_idx < len(_choices) else _choices[0]
+                    if _hq_stored != _hq_expect:
+                        del st.session_state["hq_crm_screen_radio"]
                 _sel_lbl = st.radio("화면", _choices, index=_cur_idx, horizontal=True,
                                     key="hq_crm_screen_radio", label_visibility="collapsed")
                 _screen = _skeys[_choices.index(_sel_lbl)]

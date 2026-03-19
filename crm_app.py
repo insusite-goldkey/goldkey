@@ -712,7 +712,6 @@ try:
         apply_gp_pastel_theme,
         inject_outlook_css,
         inject_responsive_css,
-        render_spa_nav,
         render_radio_spa_nav,
         render_outlook_customer_list,
         render_mini_calendar,

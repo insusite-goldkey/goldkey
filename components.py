@@ -222,9 +222,10 @@ def render_outlook_customer_list(
             use_container_width=True,
             help=f"{name} 고객 선택",
         ):
-            st.session_state[session_key]       = pid
-            st.session_state["crm_spa_mode"]    = "customer"
-            st.session_state["crm_spa_screen"]  = "contact"
+            st.session_state[session_key]           = pid
+            st.session_state["crm_spa_mode"]        = "customer"
+            st.session_state["crm_spa_screen"]      = "contact"
+            st.session_state.pop("crm_spa_screen_radio", None)
             st.rerun()
 
     return selected_pid
@@ -663,6 +664,7 @@ def render_radio_spa_nav(
     back_mode_key: str = "crm_spa_mode",
     back_pid_key:  str = "crm_selected_pid",
     show_back: bool = True,
+    extra_clears: tuple[str, ...] = (),
 ) -> str:
     """
     st.radio(horizontal=True)를 GP 버튼형으로 커스텀한 SPA 네비게이션.
@@ -674,12 +676,26 @@ def render_radio_spa_nav(
     cur    = st.session_state.get(session_key, keys[0])
     cur_idx = keys.index(cur) if cur in keys else 0
 
+    # ── [BUG1 FIX] 라디오 위젯 내부상태와 session_state 강제 동기화 ────────────
+    # Streamlit st.radio는 위젯 자체 상태(key 기반)를 우선하므로,
+    # session_state[session_key]가 외부에서 변경됐을 때(예: 신규 고객 선택)
+    # 위젯 내부상태가 이전 선택을 복원하는 "유령 화면" 버그가 발생한다.
+    # 위젯 상태가 session_state와 다르면 위젯 상태를 삭제해 index가 적용되게 한다.
+    _radio_wkey = f"{session_key}_radio"
+    if _radio_wkey in st.session_state:
+        _stored_label = st.session_state[_radio_wkey]
+        _expected_label = labels[cur_idx] if cur_idx < len(labels) else labels[0]
+        if _stored_label != _expected_label:
+            del st.session_state[_radio_wkey]
+
     if show_back:
         back_c, nav_c = st.columns([1, 8])
         with back_c:
             if st.button("🔙 목록", key=f"{session_key}_back_radio", use_container_width=True):
                 st.session_state[back_mode_key] = "list"
                 st.session_state[back_pid_key]  = ""
+                for _eck in extra_clears:
+                    st.session_state.pop(_eck, None)
                 st.rerun()
         with nav_c:
             sel = st.radio(
