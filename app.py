@@ -773,8 +773,8 @@ def _guest_block_modal(feature_name: str = "") -> bool:
 
 #
 # 제32조 [CFP 기반 라이프사이클 및 의학경제학적 보장 분석 표준]
-#   § 1. 건강보험료율(2024) 7.09%를 적용한 가처분 소득 역산을 최우선 지표로 삼는다.
-#        추정 월 소득 = 납입 건강보험료 ÷ 0.0709
+#   § 1. 건강보험료율(2024) 7.19%를 적용한 가처분 소득 역산을 최우선 지표로 삼는다.
+#        추정 월 소득 = 납입 건강보험료 ÷ 0.0719
 #        일일 필요 일당 = 추정 월 소득 ÷ 30
 #   § 2. 상해 10~15% 영구장해 시 2년(치료+재취업) 소득 공백 전제.
 #        최소 3억~5억 원 필수 방어선 권고.
@@ -784,10 +784,10 @@ def _guest_block_modal(feature_name: str = "") -> bool:
 #   § 6. 브리핑 시 '의학경제학적 휴업손해 보전' 용어 및 역산 논리 필수 명시.
 #
 # ── 제32조 구현 상수 ─────────────────────────────────────────────────────
-# [가이딩 프로토콜 제34조] 0.0709 하드코딩 → _CURRENT_NHIS_RATE 동적 변수로 관리
+# [가이딩 프로토콜 제34조] 0.0719 하드코딩 → _CURRENT_NHIS_RATE 동적 변수로 관리
 # 런타임에 _art34_load_rates()가 Supabase system_config에서 최신값으로 덮어씀
-_ART32_NHIS_RATE_2024: float = 0.0709        # 2024년 기준값 (폴백 상수, 변경 금지)
-_CURRENT_NHIS_RATE: float    = 0.0709        # 현재 적용 요율 (제34조 동적 변수)
+_ART32_NHIS_RATE_2024: float = 0.0719        # 2024년 기준값 (폴백 상수, 변경 금지)
+_CURRENT_NHIS_RATE: float    = 0.0719        # 현재 적용 요율 (제34조 동적 변수)
 _ART32_DAILY_DIVISOR: int   = 30             # 월→일 환산 기준일수
 _ART32_DISABILITY_PERIOD_YR: int = 2         # 상해장해 소득 대체 기간 (년)
 _ART32_DISABILITY_MIN_AMT: int  = 300_000_000  # 최소 방어선 (3억 원)
@@ -875,7 +875,7 @@ def _art34_update_rate(
     """관리자 수동 요율 저장 — Supabase system_config에 upsert 후 전역 변수 즉시 반영.
 
     Args:
-        nhis_rate: 새 건강보험료율 (소수, 예: 0.0709)
+        nhis_rate: 새 건강보험료율 (소수, 예: 0.0719)
         ltci_rate: 새 장기요양보험료율 (소수, 예: 0.009182); None이면 기존값 유지
         source: 출처 문자열
 
@@ -2490,7 +2490,7 @@ def _art62_calc(
     elif nhis_premium > 0:
         # GP-66 §1: division-by-zero 방어 — nhis_rate_pct ≤ 0 이면 기본값 사용
         _nhis_rate_pct = _cfg.get("nhis_rate_pct", 7.09)
-        _nhis_rate     = (_nhis_rate_pct / 100.0) if _nhis_rate_pct > 0 else 0.0709
+        _nhis_rate     = (_nhis_rate_pct / 100.0) if _nhis_rate_pct > 0 else 0.0719
         _m   = round(nhis_premium / _nhis_rate / 10000, 1)
         _src = "역산"
     elif monthly_income_man > 0:
@@ -3527,7 +3527,7 @@ def _art43_calc_security_index(nhis_premium: float = 0) -> dict:
         {"stability": int, "medical": int, "risk": int, "vip": int, "total": int}
     """
     # GP_ID_32 역산 기반 기초 소득 추정
-    _monthly = nhis_premium / 0.0709 if nhis_premium > 0 else 0
+    _monthly = nhis_premium / 0.0719 if nhis_premium > 0 else 0
     _daily   = _monthly / 30 if _monthly > 0 else 0
 
     # 각 축 점수 산출 (0~100) — 입력 없으면 중간값 60점 기준
@@ -4851,7 +4851,7 @@ def _art34_update_rate(nhis_rate: float, ltci_rate: float, source: str = "") -> 
     """가이딩 프로토콜 제34조: 관리자가 새 요율을 수동 입력하거나 크롤링 결과를 Supabase에 저장.
 
     Args:
-        nhis_rate: 새 건강보험료율 (소수, 예: 0.0709)
+        nhis_rate: 새 건강보험료율 (소수, 예: 0.0719)
         ltci_rate: 새 장기요양보험료율 (소수, 예: 0.009182)
         source: 출처 설명 문자열
 
@@ -14390,7 +14390,7 @@ def _render_gk_risk():
         # 건강보험료 역산 참고
         if _nhis_prem:
             import math as _math
-            _est_income = round(_nhis_prem / 0.0709 / 10000) * 10000
+            _est_income = round(_nhis_prem / 0.0719 / 10000) * 10000
             st.markdown(
                 f"<div style='display:flex;align-items:center;gap:10px;flex-wrap:wrap;"
                 f"padding:8px 0;'>"
@@ -16784,7 +16784,7 @@ def _rag_sector_query(query: str, sector: str = "auto", top_k: int = 3) -> list:
         ],
         "income": [
             {"title": "건강보험료 역산 소득 통계 기준",
-             "content": "2024년 직장 건강보험료율 7.09%(근로자 부담 3.545%). 월소득 = 건보료 ÷ 0.0709.",
+             "content": "2024년 직장 건강보험료율 7.19%(근로자 부담 3.545%). 월소득 = 건보료 ÷ 0.0719.",
              "source": "가이딩 프로토콜 제32조", "page": ""},
         ],
         "disability": [
@@ -25633,13 +25633,26 @@ SYSTEM_PROMPT = """
 
 ## [가이딩 프로토콜 제32조] CFP 기반 라이프사이클 및 의학경제학적 보장 분석 표준 [최우선 적용]
 
-### §1 의학경제학적 가처분 소득 역산 원칙
-고객의 건강보험료가 언급되면 반드시 아래 공식으로 역산하여 모든 담보 설계의 기준으로 삼아라.
-- **추정 월 소득** = 납입 건강보험료 ÷ 0.0709 (2024년 전체 건강보험료율 7.09% 기준)
-- **일일 경제적 가치(필요 일당)** = 추정 월 소득 ÷ 30일
-- 예시: 건보료 25만 원 → 월 소득 약 352만 원 → 일일 가치 약 12만 원
-- 국민연금 기반: [국민연금 납부액 / 0.09] = 추정 월 소득 (건보료 없을 때 대체 사용)
-- 적정 보험료: 가처분 소득의 7~10% (위험직군 최대 20%)
+### §1 [2026 트리니티 초정밀 역산 표준] 가처분 소득 역산 원칙
+고객의 건강보험료가 언급되면 반드시 아래 **3단계 공식**으로 역산하여 모든 담보 설계의 기준으로 삼아라.
+본 분석은 **2026년 개정 요율 7.19%와 8단계 소득세 구간, 국민연금 4.5%를 반영한 평균값 공제 진단 결과**이다.
+
+**[Step 1] 명목 연봉 역산**
+- 명목 연봉(I_gross) = (납입 건강보험료 × 2 ÷ 0.0719) × 12
+  ※ 2026년 개정 건강보험료율 7.19% (근로자+사용자 합산) 기준
+
+**[Step 2] 가처분 연소득 산출 — 8단계 누진세율 + 4대보험 공제**
+- 가처분 연소득(I_net) = 명목 연봉 × (1 − (해당 구간 소득세율 + 국민연금 4.5%))
+- 8단계 구간: 6%→15%→24%→35%→38%→40%→42%→45% (누진 적용)
+- 지방소득세(소득세×10%) · 건강보험료(3.545%) · 장기요양(0.459%) · 고용보험(0.9%) 추가 공제
+
+**[Step 3] 필요 월소득(M_req) 확정**
+- M_req = 가처분 연소득 ÷ 12
+- **일일 경제적 가치(필요 일당)** = M_req ÷ 30일
+
+예시: 건보료 25만 원 → 명목 연봉 약 8,345만 원 → M_req 약 505만 원 → 일일 가치 약 17만 원
+국민연금 기반: [국민연금 납부액 / 0.09] = 추정 월 소득 (건보료 없을 때 대체 사용)
+적정 보험료: M_req의 7~10% (위험직군 최대 20%)
 
 ### §2 상해후유장해 소득 대체 로직 — 2년 원칙
 상해로 인한 10~15% 영구장해 발생 시 '시간의 상실'을 보전하는 것을 목적으로 한다.
@@ -25672,8 +25685,9 @@ SYSTEM_PROMPT = """
 ## [가이딩 프로토콜 제34조] 시스템 자율 유지보수 및 법정 요율 최신화 [자동 적용]
 
 ### §1 요율 동적 참조 의무
-- 역산 공식의 분모는 **고정값 0.0709가 아닌** 시스템 변수 `_CURRENT_NHIS_RATE`를 사용한다.
-- AI 답변 시 "2024년 기준 7.09%"가 아닌 **"현재 적용 요율"** 또는 **"최신 공시 요율"**로 표현하라.
+- 역산 공식의 분모는 **고정값 0.0719가 아닌** 시스템 변수 `_CURRENT_NHIS_RATE`를 사용한다.
+- AI 답변 시 **"2026년 개정 요율 7.19%와 8단계 소득세 구간, 국민연금 4.5%를 반영한 트리니티 초정밀 역산 결과"**로 명시하라.
+- 보장 공백 비교 시 반드시 M_req(필요 월소득) 기반 필요 자금과 현재 가입액 차이를 수치로 제시하라.
 - 요율이 변경되었을 경우 역산 결과값과 함께 **"본 분석은 {연도}년 {월}월 공시 요율 기준"** 문구를 반드시 명시하라.
 
 ### §2 요율 변경 시 자동 보정 원칙
@@ -28096,7 +28110,7 @@ def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요.", pro
     stt_greet      = stt_greet_map[stt_lang_label]
     hi_premium = st.number_input("월 건강보험료(원)", value=0, step=1000, key=f"hi_{tab_key}")
     if hi_premium > 0:
-        income = hi_premium / 0.0709
+        income = hi_premium / 0.0719
         st.success(f"역산 월 소득: **{income:,.0f}원** | 적정 보험료: **{income*0.15:,.0f}원**")
     query = st.text_area("상담 내용 입력", height=180, key=f"query_{tab_key}", placeholder=placeholder)
     do_analyze = st.button("🔍 정밀 분석 실행", type="primary", key=f"btn_analyze_{tab_key}", use_container_width=True)
@@ -35040,7 +35054,7 @@ watchRipple();
         with st.spinner("골드키AI마스터 분석 중..."):
             try:
                 client, model_config = get_master_model()
-                income   = hi_premium / 0.0709 if hi_premium > 0 else 0
+                income   = hi_premium / 0.0719 if hi_premium > 0 else 0
                 # ── STT 후처리 파이프라인 (음성입력 품질 향상) ──────────────
                 # 1단계: 매핑 테이블 기반 보험 전문용어 오인식 교정
                 _q_corrected = stt_correct(query)
@@ -36042,7 +36056,7 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
             with _c2:
                 _rate_type = st.radio(
                     "건강보험료 요율 기준",
-                    options=["직장가입자 (7.09%)", "지역가입자 (추정 7.09%)"],
+                    options=["직장가입자 (7.19%)", "지역가입자 (추정 7.19%)"],
                     key="wr_rate_type",
                     horizontal=True,
                 )
@@ -36062,7 +36076,7 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
 
             if st.button("📊 GP102 안보공백 계산", key="wr_calc_gp102", type="primary", use_container_width=True):
                 # ── GP102 계산 로직 ───────────────────────────────────
-                _RATE = 0.0709
+                _RATE = 0.0719
                 _monthly_income = _health_premium / _RATE if _RATE > 0 else 0
                 _reverse_calc_cov = (_monthly_income * _treatment_months) + _std_coverage
                 _final_guideline = max(_std_coverage, _reverse_calc_cov)
@@ -42454,7 +42468,7 @@ div[data-testid="stButton"] {
                 min_value=0, max_value=2_000_000, step=1_000, key="ps_hi_l",
             )
             if _ps_hi > 0:
-                st.caption(f"역산 월 소득: {_ps_hi / 0.0709:,.0f}원 | 적정 보험료: {_ps_hi / 0.0709 * 0.15:,.0f}원")
+                st.caption(f"역산 월 소득: {_ps_hi / 0.0719:,.0f}원 | 적정 보험료: {_ps_hi / 0.0719 * 0.15:,.0f}원")
             _ssot_txt  = st.session_state.get("ssot_full_text", "")
             _ssot_covs = st.session_state.get("ssot_coverages", [])
             if _ssot_txt or _ssot_covs:
@@ -43617,7 +43631,7 @@ div[data-testid="stButton"] {
                         "- 암·뇌·심장·실손 보장 공백 진단\n"
                         "- 기존 보험 대비 추가 필요 담보 우선순위\n\n"
                         "### 2. 보험료 황금비율 진단\n"
-                        "- 건보료 기반 추정 소득 역산 (건보료 ÷ 0.0709)\n"
+                        "- 건보료 기반 추정 소득 역산 (건보료 ÷ 0.0719)\n"
                         "- 가처분 소득의 7~10% 기준 적정 보험료 범위 제시\n\n"
                         "### 3. 갱신형 vs 비갱신형 전략 비교 (고객 불만 대응 핵심)\n"
                         "- 고객이 갱신형·보험료에 불만을 가질 경우 반드시 아래 항목 분석:\n"
@@ -44357,7 +44371,7 @@ div[data-testid="stButton"] {
                     _g62_nhis = st.number_input("건강보험료 (원/월)",
                         min_value=0, value=int(st.session_state.get("g62_nhis", 0)),
                         step=1000, key="g62_nhis",
-                        help="입력 시 7.09% 요율로 월소득 자동 역산")
+                        help="입력 시 7.19% 요율로 월소득 자동 역산")
                 with _g62c2:
                     _g62_override = st.number_input("소득 Override (만원, 0=자동)",
                         min_value=0, value=int(st.session_state.get("g62_override", 0)),
@@ -55027,7 +55041,7 @@ border-radius:12px;padding:12px 16px;margin-bottom:12px;">
                         min_value=1.0, max_value=20.0, step=0.01,
                         format="%.4f",
                         key="art34_nhis_input",
-                        help="예: 7.09 → 0.0709으로 자동 변환 저장",
+                        help="예: 7.09 → 0.0719으로 자동 변환 저장",
                     )
                 with _r34c2:
                     _new_ltci_input = st.number_input(

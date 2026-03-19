@@ -1406,7 +1406,7 @@ button[data-testid="baseButton-primary"]:hover{
             value=int(st.session_state.get("gs_hi_premium") or 0),
             step=10_000,
             key=f"{key_prefix}_nhi",
-            help="직장인: 보수월액×7.09% | 추정 월소득 = 건보료×30",
+            help="직장인: 보수월액×7.19% | 추정 월소득 = 건보료×30",
             label_visibility="collapsed",
         )
         if _nhi != int(st.session_state.get("gs_hi_premium") or 0):

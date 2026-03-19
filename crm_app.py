@@ -1,4 +1,4 @@
-﻿# crm_app.py — Goldkey AI Masters CRM 2026
+# crm_app.py — Goldkey AI Masters CRM 2026
 """
 [GP 마스터-그림자 Phase 3] 초경량 현장 기동대 CRM
 - 복잡한 보험 계산식/정밀 상담 로직 없음
@@ -1710,9 +1710,9 @@ elif _spa_mode == "customer":
                     _crm_nhi_j = st.number_input(
                         "월 건강보험료(원)", min_value=0, max_value=2_000_000,
                         value=0, step=10_000, key="crm_tri_nhi_json",
-                        help="직장인: 보수월액×7.09% | 트리니티 소득 역산 기준",
+                        help="직장인: 보수월액×7.19% | 트리니티 소득 역산 기준",
                     )
-                    st.caption("직장인: 보수월액 × 7.09% (2026년 기준)\n지역가입자: 부과점수 × 208.4원")
+                    st.caption("직장인: 보수월액 × 7.19% (2026년 기준)\n지역가입자: 부과점수 × 208.4원")
                 st.markdown("<hr style='border-top:1px dashed #e5e7eb;margin:8px 0;'>",
                             unsafe_allow_html=True)
                 if st.button("⚡ JSON 파싱 → 분석 → HQ 전송", key="crm_json_pipeline_run",
@@ -1762,7 +1762,7 @@ elif _spa_mode == "customer":
             else:
                 st.caption("담보 금액을 직접 입력하여 트리니티 분석을 실행합니다.")
                 _t_nhi = st.number_input("월 건강보험료(원)", 0, 2_000_000, 0, 10_000,
-                                         key="crm_tri_nhi", help="직장인: 보수월액×7.09%")
+                                         key="crm_tri_nhi", help="직장인: 보수월액×7.19%")
                 _tc1, _tc2 = st.columns(2)
                 with _tc1:
                     _t_cancer = st.number_input("암진단비 가입액(원)",       0, step=1_000_000,  key="crm_tri_cancer")

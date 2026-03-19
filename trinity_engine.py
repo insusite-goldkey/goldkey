@@ -102,6 +102,21 @@ _NPS_EMP_RATE  = 0.045     # 국민연금 근로자 부담율
 _EI_EMP_RATE   = 0.009     # 고용보험 근로자 부담율
 
 
+def get_tax_rate(gross_annual: float) -> float:
+    """
+    [2026 트리니티 표준] 명목 연봉 구간 기반 한계세율 반환.
+    소득 구간에 따라 8단계 과세표준 표 자동 매핑.
+
+    사용 예:
+        rate  = get_tax_rate(gross_annual)          # 구간별 소득세율
+        m_req = gross_annual * (1 - (rate + 0.045)) / 12  # 가처분 월소득
+    """
+    for ceiling, rate, _ in _TAX_BRACKETS:
+        if gross_annual <= ceiling:
+            return rate
+    return 0.45
+
+
 def compute_income_tax(gross_annual: float) -> float:
     """8단계 누진세율표 종합소득세 산출 (근로소득공제 미적용 건보료 역산 전용)."""
     for ceiling, rate, deduction in _TAX_BRACKETS:
@@ -614,12 +629,18 @@ def render_trinity_report(
             for k, v in analysis_data.items()
             if not str(k).startswith("_") and float(v.get("부족분", 0) or 0) > 0
         )
+        _imeta_k = analysis_data.get("_income_meta", {})
+        _mreq_k  = float(_imeta_k.get("m_req", estimated_income))
+        _gann_k  = float(_imeta_k.get("gross_annual", 0))
         share_text = (
-            f"[AI 보장분석 리포트]\n"
-            f"{_name or 'Goldkey'} 설계사가 보내드린 맞춤형 보장 분석 결과입니다.\n"
-            f"고객님의 소득 기반 실질 필요 보장액을 확인해보세요.\n"
+            f"[내 소득 대비 보장 부족액]\n"
+            f"{_name or 'Goldkey'} 설계사 | 2026 트리니티 초정밀 역산 기준\n"
+            f"명목 연봉: {_gann_k:,.0f}원 → 필요 월소득(M_req): {_mreq_k:,.0f}원\n"
             "━━━━━━━━━━━━━━━━━━━━━\n"
+            "▼ 소득 대비 보장 부족액 ▼\n"
             + _gap_lines
+            + "\n━━━━━━━━━━━━━━━━━━━━━\n"
+            "※ 2026년 개정 요율 7.19% + 8단계 소득세 구간 + 국민연금 4.5% 반영"
         )
         kakao_url = f"kakaotalk://send?text={urllib.parse.quote(share_text)}"
         st.markdown(
