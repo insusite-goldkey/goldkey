@@ -703,109 +703,404 @@ with _hdr_c2:
         st.session_state["_crm_logout_success"] = True
         st.rerun()
 
-# ══════════════════════════════════════════════════════════════════════════════
-# [@st.fragment] 무거운 탭 렌더러 — 백화 방지 (GP-84 §11)
-# ══════════════════════════════════════════════════════════════════════════════
-@st.fragment
-def _crm_render_tab4():
-    """[GP-84 §11] TAB4: HQ 딥링크 발사대 + 내보험다보여 파이프라인 (부분 rerun)"""
-    st.markdown('<div class="gk-section-title">🚀 HQ 모 앱 연결 — 정밀 분석 발사대</div>',
-                unsafe_allow_html=True)
-    st.caption("복잡한 보험 분석은 모 앱(Goldkey AI HQ)에 위임합니다.")
 
-    _all_names = ["(고객 선택)"] + [c.get("name", "") for c in _load_customers(_user_id)]
-    _sel_name  = st.selectbox("🎯 분석할 고객 선택", _all_names, key="crm_dl_cust")
-    _sel_cust  = next((c for c in _load_customers(_user_id)
-                       if c.get("name") == _sel_name), None)
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP SPA §0] 아웃룩 컴포넌트 + DB 유틸 로드 (st.tabs 금지)
+# ══════════════════════════════════════════════════════════════════════════════
+try:
+    from components import (
+        inject_outlook_css,
+        render_spa_nav,
+        render_outlook_customer_list,
+        render_mini_calendar,
+        손보사_standard_form,
+    )
+    from db_utils import (
+        load_schedules         as _du_schedules,
+        load_schedules_range   as _du_range,
+        save_schedule          as _du_save_sched,
+    )
+    inject_outlook_css()
+    _OUTLOOK_OK = True
+except Exception:
+    _OUTLOOK_OK = False
 
-    _sector_opts = {
-        "KB 7대 보장 분석": "t3",
-        "보험금 청구 상담": "t1",
-        "실손보험 분석":   "t2",
-        "암보험 분석":     "cancer",
-        "뇌혈관 분석":     "brain",
-        "심장 분석":       "heart",
-        "화재보험 분석":   "fire",
-        "AI 상담 리포트":  "home",
-    }
-    _sel_sector_label = st.selectbox("📍 이동할 분석 섹터", list(_sector_opts.keys()),
-                                     key="crm_dl_sector")
-    _sel_sector = _sector_opts[_sel_sector_label]
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP SPA §1] 상태 초기화
+# ══════════════════════════════════════════════════════════════════════════════
+if "crm_spa_mode"     not in st.session_state: st.session_state["crm_spa_mode"]     = "list"
+if "crm_selected_pid" not in st.session_state: st.session_state["crm_selected_pid"] = ""
+if "crm_spa_screen"   not in st.session_state: st.session_state["crm_spa_screen"]   = "contact"
+
+_spa_mode = st.session_state.get("crm_spa_mode",    "list")
+_sel_pid  = st.session_state.get("crm_selected_pid", "")
+_sel_cust: dict | None = None
+if _sel_pid:
+    _sel_cust = next((_c for _c in _load_customers(_user_id) if _c.get("person_id") == _sel_pid), None)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP SPA §2] MODE: LIST — 아웃룩 고객 목록
+# ══════════════════════════════════════════════════════════════════════════════
+if _spa_mode == "list":
+    st.markdown(
+        "<div style='background:#F8FBFA;padding:10px 14px;border-radius:10px;"
+        "border:1px dashed #000;margin-bottom:12px;'>"
+        "<span style='font-size:1.05rem;font-weight:900;color:#1e3a8a;'>👥 전체 고객 대시보드</span>"
+        "<span style='font-size:0.78rem;color:#64748b;margin-left:10px;'>고객 선택 → 6대 메뉴</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    _sr_c1, _sr_c2 = st.columns([5, 1])
+    with _sr_c1:
+        _search_q = st.text_input("🔍 고객 이름 검색", placeholder="이름 입력...",
+                                  key="spa_search", label_visibility="collapsed")
+    with _sr_c2:
+        if st.button("➕ 신규 등록", use_container_width=True, key="spa_add_btn"):
+            st.session_state["spa_add_form"] = True
+
+    _fc1, _fc2, _fc3 = st.columns(3)
+    with _fc1:
+        _tier_f = st.selectbox("등급", ["전체", "VVIP(1)", "핵심(2)", "일반(3)"],
+                               key="spa_tier_f")
+    with _fc2:
+        _mo_f = st.number_input("만기월 (0=전체)", 0, 12, 0, key="spa_mo_f")
+    with _fc3:
+        _stat_f = st.selectbox("상태", ["전체", "가망", "진행중", "계약", "종료"],
+                               key="spa_stat_f")
+
+    _all_custs = _load_customers(_user_id, _search_q or "")
+    _tier_map_r  = {"VVIP(1)": 1, "핵심(2)": 2, "일반(3)": 3}
+    _stat_map_r  = {"가망": "potential", "진행중": "active", "계약": "contracted", "종료": "closed"}
+    if _tier_f != "전체": _all_custs = [c for c in _all_custs if c.get("management_tier") == _tier_map_r.get(_tier_f)]
+    if _mo_f:             _all_custs = [c for c in _all_custs if c.get("auto_renewal_month") == _mo_f or c.get("fire_renewal_month") == _mo_f]
+    if _stat_f != "전체": _all_custs = [c for c in _all_custs if c.get("status") == _stat_map_r.get(_stat_f, "")]
+
+    st.caption(f"📋 총 {len(_all_custs)}명")
+
+    if st.session_state.get("spa_add_form"):
+        with st.expander("✏️ 신규 고객 등록", expanded=True):
+            if _OUTLOOK_OK:
+                _new_data = 손보사_standard_form(None, key_prefix="spa_new")
+            else:
+                _new_data = customer_form(None, key_prefix="spa_new")
+            _nc1, _nc2 = st.columns(2)
+            with _nc1:
+                if st.button("💾 저장", key="spa_new_save", type="primary", use_container_width=True):
+                    try:
+                        customer_input_form(_new_data, _user_id, _sb)
+                        st.success("✅ 등록 완료!")
+                        st.session_state["spa_add_form"] = False
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as _ne:
+                        st.error(f"저장 오류: {_ne}")
+            with _nc2:
+                if st.button("✕ 취소", key="spa_new_cancel", use_container_width=True):
+                    st.session_state["spa_add_form"] = False
+                    st.rerun()
+
+    if _OUTLOOK_OK:
+        render_outlook_customer_list(_all_custs, _sel_pid)
+    else:
+        render_customer_list(_all_custs, show_deeplink=True, agent_tab="t3")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP SPA §3] MODE: CUSTOMER — 6대 SPA 화면
+# ══════════════════════════════════════════════════════════════════════════════
+elif _spa_mode == "customer":
+    _spa_screen = st.session_state.get("crm_spa_screen", "contact")
 
     if _sel_cust:
-        _dl_url = build_deeplink_to_hq(
-            cid=_sel_cust.get("person_id", ""),
-            name=_sel_cust.get("name", ""),
-            sector=_sel_sector,
-            token=_token,
-        )
-        st.markdown(f"""
-<div class="gk-card" style="text-align:center;padding:20px;">
-  <div style="font-size:0.9rem;color:#374151;margin-bottom:12px;">
-    <b>{_sel_cust.get('name')}</b> 고객 — <b>{_sel_sector_label}</b> 섹터로 이동
-  </div>
-  <a href="{_dl_url}" target="_blank" class="gk-deeplink-btn"
-     style="font-size:1rem;padding:10px 24px;">
-    🚀 HQ 모 앱에서 정밀 분석 진행
-  </a>
-</div>""", unsafe_allow_html=True)
-
-        with st.expander("❓ 모 앱이 열리지 않는다면?", expanded=False):
-            st.markdown(f"""
-<div style="background:#eff6ff;border:1px dashed #000;border-radius:10px;padding:14px;font-size:0.85rem;">
-  <b>📌 안내 데스크 (Fallback 가이드)</b><br><br>
-  1️⃣ <b>웹 브라우저</b>로 직접 접속:<br>
-  &nbsp;&nbsp;<a href="{HQ_APP_URL}" target="_blank">{HQ_APP_URL}</a><br><br>
-  2️⃣ 로그인 후 상단 주소창에 아래 파라미터를 추가하세요:<br>
-  &nbsp;&nbsp;<code>?gk_cid={_sel_cust.get('person_id','')}&amp;gk_sector={_sel_sector}</code><br><br>
-  3️⃣ 모바일에서 앱이 미설치 시: 위 링크를 북마크에 추가하세요.
-</div>""", unsafe_allow_html=True)
-
-        st.markdown("---")
+        _cn = _sel_cust.get("name", "")
+        _ct = _sel_cust.get("management_tier", 3)
+        _tm = TIER_META.get(_ct, TIER_META[3])
         st.markdown(
-            "<div style='background:#f0fdf4;border:1px dashed #059669;border-radius:10px;"
-            "padding:10px 14px;font-size:0.82rem;margin-bottom:8px;'>"
-            "<b style='color:#059669;'>📊 트리니티 완전 파이프라인 & HQ DB 저장</b><br>"
-            "내보험다보여 JSON 또는 수동 입력 → 정규화 → 분석 → HQ 실시간 공유</div>",
+            f"<div style='background:#F8FBFA;padding:8px 14px;border-radius:10px;"
+            f"border:1px dashed #000;margin-bottom:8px;display:flex;align-items:center;gap:10px;'>"
+            f"<span style='font-size:1.1rem;font-weight:900;color:#1e293b;'>{_cn}</span>"
+            f"<span style='font-size:0.72rem;font-weight:900;padding:2px 8px;border-radius:10px;"
+            f"background:{_tm['bg']};color:{_tm['color']};'>{_tm['icon']} {_tm['label']}</span>"
+            f"<span style='font-size:0.75rem;color:#64748b;margin-left:auto;'>{_sel_cust.get('job','')}</span>"
+            f"</div>",
             unsafe_allow_html=True,
         )
-        if not st.session_state.get("nibo_consent_agreed", False):
+
+    if _OUTLOOK_OK:
+        render_spa_nav(_spa_screen)
+    else:
+        _scr_opts = {"👥 연락처 상세": "contact", "📅 스케줄": "schedule",
+                     "🌐 내보험다보여": "nibo",  "📊 증권분석": "analysis",
+                     "🤖 AI 브리핑": "ai_brief", "💬 카카오 발송": "kakao"}
+        _scr_label = st.selectbox("화면 선택", list(_scr_opts.keys()), key="spa_screen_sel")
+        if _scr_opts[_scr_label] != _spa_screen:
+            st.session_state["crm_spa_screen"] = _scr_opts[_scr_label]
+            st.rerun()
+        _bk, _ = st.columns([2, 8])
+        with _bk:
+            if st.button("🔙 목록으로", key="spa_back_fb"):
+                st.session_state["crm_spa_mode"] = "list"
+                st.session_state["crm_selected_pid"] = ""
+                st.rerun()
+
+    # ── SCREEN 1: 👥 연락처 상세 ────────────────────────────────────────────
+    if _spa_screen == "contact":
+        st.markdown(
+            "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
+            "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
+            "👥 연락처 상세 — 손보사 표준 정보 관리</div>",
+            unsafe_allow_html=True,
+        )
+        _edit_key = f"spa_edit_{_sel_pid}"
+        if st.session_state.get(_edit_key):
+            if _OUTLOOK_OK:
+                _upd_data = 손보사_standard_form(_sel_cust, key_prefix=f"spa_cf_{_sel_pid}")
+            else:
+                _upd_data = customer_form(_sel_cust, key_prefix=f"spa_cf_{_sel_pid}")
+            _sv1, _sv2 = st.columns(2)
+            with _sv1:
+                if st.button("💾 저장", key=f"spa_save_{_sel_pid}", type="primary", use_container_width=True):
+                    try:
+                        customer_input_form(_upd_data, _user_id, _sb)
+                        st.success("✅ 저장 완료!")
+                        st.session_state[_edit_key] = False
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as _ue:
+                        st.error(f"저장 오류: {_ue}")
+            with _sv2:
+                if st.button("취소", key=f"spa_cancel_{_sel_pid}", use_container_width=True):
+                    st.session_state[_edit_key] = False
+                    st.rerun()
+        else:
+            if _sel_cust:
+                _lbl_map = {"potential": "가망", "active": "진행중",
+                            "contracted": "계약", "closed": "종료"}
+                _d1, _d2 = st.columns(2)
+                _flds_l = [("이름", "name"), ("연락처", "_ct_disp"), ("생년월일", "birth_date"), ("성별", "gender")]
+                _flds_r = [("직업", "job"), ("주소", "address"), ("등급", "_tier_lbl"), ("상태", "_stat_lbl")]
+                with _d1:
+                    for _lbl, _fk in _flds_l:
+                        if _fk == "_ct_disp":
+                            _fv = decrypt_pii(_sel_cust.get("contact", ""))
+                        elif _fk == "_tier_lbl":
+                            _fv = TIER_META.get(_sel_cust.get("management_tier", 3), TIER_META[3])["label"]
+                        elif _fk == "_stat_lbl":
+                            _fv = _lbl_map.get(_sel_cust.get("status", ""), "-")
+                        else:
+                            _fv = _sel_cust.get(_fk, "-") or "-"
+                        st.markdown(
+                            f"<div style='margin-bottom:10px;'>"
+                            f"<div style='font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;'>{_lbl}</div>"
+                            f"<div style='font-size:0.9rem;color:#1e293b;font-weight:500;'>{_fv}</div></div>",
+                            unsafe_allow_html=True,
+                        )
+                with _d2:
+                    for _lbl, _fk in _flds_r:
+                        if _fk == "_tier_lbl":
+                            _fv = TIER_META.get(_sel_cust.get("management_tier", 3), TIER_META[3])["label"]
+                        elif _fk == "_stat_lbl":
+                            _fv = _lbl_map.get(_sel_cust.get("status", ""), "-")
+                        else:
+                            _fv = _sel_cust.get(_fk, "-") or "-"
+                        st.markdown(
+                            f"<div style='margin-bottom:10px;'>"
+                            f"<div style='font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;'>{_lbl}</div>"
+                            f"<div style='font-size:0.9rem;color:#1e293b;font-weight:500;'>{_fv}</div></div>",
+                            unsafe_allow_html=True,
+                        )
+                _sp_flags = []
+                if _sel_cust.get("has_motorcycle"):      _sp_flags.append("🏍️ 이륜차")
+                if _sel_cust.get("is_commercial_driver"): _sp_flags.append("🚛 유상운송")
+                if _sel_cust.get("has_foreign_stay"):    _sp_flags.append("✈️ 해외장기체류")
+                if _sp_flags:
+                    st.markdown(
+                        f"<div style='background:#fef3c7;border:1px dashed #f59e0b;border-radius:8px;"
+                        f"padding:8px 12px;font-size:0.82rem;font-weight:900;color:#92400e;margin-top:8px;'>"
+                        f"⚠️ 손보사 고지: {' · '.join(_sp_flags)}</div>",
+                        unsafe_allow_html=True,
+                    )
+                _memo_v = _sel_cust.get("memo", "")
+                if _memo_v:
+                    st.markdown(
+                        f"<div style='background:#FDFD96;border:1px dashed #d97706;border-radius:8px;"
+                        f"padding:10px 14px;font-size:0.85rem;margin-top:10px;'>"
+                        f"<b>📝 상담 메모</b><br>{_memo_v}</div>",
+                        unsafe_allow_html=True,
+                    )
+                if st.button("✏️ 정보 수정", key=f"spa_edit_btn_{_sel_pid}", use_container_width=True):
+                    st.session_state[_edit_key] = True
+                    st.rerun()
+
+    # ── SCREEN 2: 📅 스케줄 ─────────────────────────────────────────────────
+    elif _spa_screen == "schedule":
+        st.markdown(
+            "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
+            "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
+            "📅 스케줄 — 아웃룩 3분할 캘린더 뷰</div>",
+            unsafe_allow_html=True,
+        )
+        if "spa_cal_ym" not in st.session_state:
+            _td = datetime.date.today()
+            st.session_state["spa_cal_ym"] = (_td.year, _td.month)
+        _cal_yr, _cal_mo = st.session_state.get("spa_cal_ym", (datetime.date.today().year, datetime.date.today().month))
+        if "spa_cal_sel" not in st.session_state:
+            st.session_state["spa_cal_sel"] = datetime.date.today().isoformat()
+        _sel_date = st.session_state.get("spa_cal_sel", datetime.date.today().isoformat())
+
+        import calendar as _cal_mod
+        _last_day_n = _cal_mod.monthrange(_cal_yr, _cal_mo)[1]
+        _mo_start   = f"{_cal_yr}-{_cal_mo:02d}-01"
+        _mo_end     = f"{_cal_yr}-{_cal_mo:02d}-{_last_day_n:02d}"
+        try:
+            _month_schs = _du_range(_user_id, _mo_start, _mo_end) if _OUTLOOK_OK else []
+        except Exception:
+            _month_schs = []
+        _sched_dates = {s.get("date", "") for s in _month_schs}
+
+        _cal_col, _list_col, _memo_col = st.columns([2, 3, 3])
+        with _cal_col:
+            st.markdown("<b style='font-size:0.82rem;'>📅 달력</b>", unsafe_allow_html=True)
+            if _OUTLOOK_OK:
+                _new_sel = render_mini_calendar(_cal_yr, _cal_mo, _sched_dates, _sel_date, session_key="spa_cal_sel")
+                if _new_sel != _sel_date:
+                    st.session_state["spa_cal_sel"] = _new_sel
+                    st.rerun()
+            else:
+                _sel_dt = st.date_input("날짜 선택", value=datetime.date.fromisoformat(_sel_date),
+                                        key="spa_cal_dt", label_visibility="collapsed")
+                _sel_date = str(_sel_dt)
+                st.session_state["spa_cal_sel"] = _sel_date
+
+        with _list_col:
+            st.markdown(f"<b style='font-size:0.82rem;'>🗓️ {_sel_date} 일정</b>", unsafe_allow_html=True)
+            try:
+                _day_schs = _du_schedules(_user_id, _sel_date) if _OUTLOOK_OK else (
+                    _sb.table("gk_schedules").select("*, gk_people(name)")
+                    .eq("is_deleted", False).eq("agent_id", _user_id)
+                    .eq("date", _sel_date).order("start_time").execute().data or []
+                ) if _sb else []
+            except Exception:
+                _day_schs = []
+            if _day_schs:
+                for _s in _day_schs:
+                    _ci = {"consult": "💬", "appointment": "📌", "call": "📞", "other": "📋"}.get(_s.get("category", ""), "📋")
+                    _pn = (_s.get("gk_people") or {}).get("name", "")
+                    _pn_span   = (f' <span style="font-size:0.72rem;color:#6b7280;">({_pn})</span>' if _pn else "")
+                    _memo_div  = (f'<div style="font-size:0.75rem;color:#64748b;margin-top:3px;">{_s.get("memo","")}</div>' if _s.get("memo") else "")
+                    st.markdown(
+                        f"<div style='background:#E6E6FA;border:1px solid #c4b5fd;border-radius:8px;"
+                        f"padding:8px 12px;margin-bottom:6px;font-size:0.82rem;'>"
+                        f"<span style='font-size:0.72rem;font-weight:700;color:#7c3aed;'>{_ci} {_s.get('start_time','')}</span>"
+                        f"<b style='color:#3b0764;'> {_s.get('title','')}</b>"
+                        f"{_pn_span}{_memo_div}</div>",
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.info(f"{_sel_date} 일정 없음")
+            with st.expander("➕ 일정 추가", expanded=False):
+                _nt1, _nt2 = st.columns(2)
+                with _nt1:
+                    _new_title = st.text_input("제목 *", key="spa_sched_title")
+                    _new_time  = st.text_input("시간 (HH:MM)", value="10:00", key="spa_sched_time")
+                with _nt2:
+                    _new_cat = st.selectbox("분류", ["consult", "appointment", "call", "other"],
+                                            format_func=lambda x: {"consult": "💬 상담", "appointment": "📌 방문",
+                                                                    "call": "📞 통화", "other": "📋 기타"}[x],
+                                            key="spa_sched_cat")
+                    _new_smemo = st.text_area("메모", key="spa_sched_memo", height=60)
+                if st.button("📅 저장", key="spa_sched_save", use_container_width=True, type="primary"):
+                    if _new_title:
+                        try:
+                            if _OUTLOOK_OK:
+                                _du_save_sched(_user_id, _new_title, _sel_date, _new_time,
+                                               _new_smemo, _new_cat, _sel_pid)
+                            elif _sb:
+                                import uuid as _uid3
+                                _sb.table("gk_schedules").insert({
+                                    "schedule_id": str(_uid3.uuid4()), "agent_id": _user_id,
+                                    "title": _new_title, "date": _sel_date, "start_time": _new_time,
+                                    "memo": _new_smemo, "category": _new_cat, "person_id": _sel_pid,
+                                    "is_deleted": False,
+                                    "created_at": datetime.datetime.utcnow().isoformat(),
+                                    "updated_at": datetime.datetime.utcnow().isoformat(),
+                                }).execute()
+                            st.success("✅ 저장!")
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as _se:
+                            st.error(f"오류: {_se}")
+                    else:
+                        st.warning("제목을 입력해 주세요.")
+
+        with _memo_col:
+            st.markdown("<b style='font-size:0.82rem;'>📝 상담 메모장</b>", unsafe_allow_html=True)
+            _cust_memo_v = _sel_cust.get("memo", "") if _sel_cust else ""
+            _new_memo_v = st.text_area(
+                "메모 (파스텔 노트)", value=_cust_memo_v, height=280,
+                key="spa_memo_pad",
+            )
+            if st.button("💾 메모 저장", key="spa_memo_save", use_container_width=True):
+                if _sel_cust and _sb:
+                    try:
+                        _sb.table("gk_people").update({
+                            "memo": _new_memo_v,
+                            "updated_at": datetime.datetime.utcnow().isoformat(),
+                        }).eq("person_id", _sel_pid).execute()
+                        st.success("✅ 메모 저장 완료!")
+                        st.cache_data.clear()
+                    except Exception as _me:
+                        st.error(f"오류: {_me}")
+
+    # ── SCREEN 3: 🌐 내보험다보여 (기존 로직 100% 보존) ────────────────────
+    elif _spa_screen == "nibo":
+        st.markdown(
+            "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
+            "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
+            "🌐 내보험다보여 — 신용정보 수집 · 트리니티 분석 파이프라인</div>",
+            unsafe_allow_html=True,
+        )
+        if not _sel_cust:
+            st.info("고객을 먼저 선택해 주세요.")
+        elif not st.session_state.get("nibo_consent_agreed", False):
             st.markdown(
-                "<div style='background:#fffbeb;border:2px dashed #f59e0b;"
-                "border-radius:10px;padding:12px 14px;margin-bottom:10px;'>"
+                "<div style='background:#fffbeb;border:2px dashed #f59e0b;border-radius:10px;"
+                "padding:12px 14px;margin-bottom:10px;'>"
                 "<div style='font-size:0.84rem;font-weight:900;color:#92400e;margin-bottom:7px;'>"
                 "🔐 내보험다보여 연동 동의 필요 — 신용정보법 제32조</div>"
                 "<div style='font-size:0.76rem;color:#78350f;line-height:1.85;'>"
-                "트리니티 분석 기능을 이용하려면 아래 동의가 필요합니다.<br>"
                 "• <b>수집:</b> 보험사명 · 상품명 · 담보내역 · 계약상태<br>"
                 "• <b>인증정보:</b> 데이터 추출 후 즉시 메모리 파기 — 서버 저장 불가<br>"
-                "• <b>보유:</b> 분석 완료 후 30일 경과 시 자동 파기"
-                "</div></div>",
+                "• <b>보유:</b> 분석 완료 후 30일 경과 시 자동 파기</div></div>",
                 unsafe_allow_html=True,
             )
             with st.popover("📋 신용정보 조회 안내 전문 보기", use_container_width=True):
                 try:
-                    from shared_components import _NIBO_CONSENT_HTML as _crm_ng_nch
-                    st.markdown(_crm_ng_nch, unsafe_allow_html=True)
+                    from shared_components import _NIBO_CONSENT_HTML as _nibo_html_v
+                    st.markdown(_nibo_html_v, unsafe_allow_html=True)
                 except Exception:
                     st.markdown("신용정보의 이용 및 보호에 관한 법률 제32조에 따른 안내문입니다.")
-            _crm_nibo_inline = st.checkbox(
+            _nibo_inline_agree = st.checkbox(
                 "✅ **[즉석 동의]** '내보험다보여' 연동 및 신용정보 조회·분석에 동의합니다 (신용정보법 제32조)",
                 value=False, key="crm_nibo_inline_agree",
             )
-            if _crm_nibo_inline:
+            if _nibo_inline_agree:
                 try:
-                    from shared_components import _NIBO_CONSENT_VERSION as _crm_ng_ncv
+                    from shared_components import _NIBO_CONSENT_VERSION as _nibo_ver
                 except Exception:
-                    _crm_ng_ncv = "2026-03-16-v1"
+                    _nibo_ver = "2026-03-16-v1"
                 st.session_state["nibo_consent_agreed"]    = True
-                st.session_state["nibo_consent_version"]   = _crm_ng_ncv
-                st.session_state["nibo_consent_timestamp"] = __import__("datetime").datetime.now().isoformat()
+                st.session_state["nibo_consent_version"]   = _nibo_ver
+                st.session_state["nibo_consent_timestamp"] = datetime.datetime.now().isoformat()
                 st.success("✅ 동의 완료! 트리니티 분석이 활성화됩니다.")
                 st.rerun()
         else:
-            _crm_tri_t1, _crm_tri_t2 = st.tabs(["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 담보 입력"])
-            with _crm_tri_t1:
+            _nibo_mode = st.radio(
+                "분석 방법",
+                ["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 담보 입력"],
+                horizontal=True, key="nibo_mode_radio", label_visibility="collapsed",
+            )
+            if _nibo_mode == "📡 내보험다보여 JSON 자동 파싱":
                 st.caption("내보험다보여 API JSON → data_normalizer 정규화 → 트리니티 분석 → HQ DB 저장")
                 _crm_nibo_raw = st.text_area(
                     "내보험다보여 API JSON 붙여넣기",
@@ -835,46 +1130,46 @@ def _crm_render_tab4():
                                 st.session_state["crm_nibo_raw_json"] = _crm_nibo_raw
                                 _c_raw_j = decrypt_pii(_sel_cust.get("contact", ""))
                                 _crm_adata, _crm_unmapped, _crm_ok = _crm_exec(
-                                    raw_external_data = _crm_raw_list,
-                                    client_contact    = _c_raw_j,
-                                    nhi_premium       = float(_crm_nhi_j),
-                                    consultant_info   = {
+                                    raw_external_data=_crm_raw_list,
+                                    client_contact=_c_raw_j,
+                                    nhi_premium=float(_crm_nhi_j),
+                                    consultant_info={
                                         "소속":   st.session_state.get("crm_user_company", ""),
                                         "이름":   _user_name,
                                         "연락처": st.session_state.get("crm_user_phone", ""),
                                     },
-                                    client_name     = _sel_cust.get("name", ""),
-                                    agent_id        = _user_id,
-                                    person_id       = _sel_cust.get("person_id", ""),
-                                    consent_version = st.session_state.get("nibo_consent_version", ""),
-                                    source          = "CRM-내보험다보여",
+                                    client_name=_sel_cust.get("name", ""),
+                                    agent_id=_user_id,
+                                    person_id=_sel_cust.get("person_id", ""),
+                                    consent_version=st.session_state.get("nibo_consent_version", ""),
+                                    source="CRM-내보험다보여",
                                 )
-                                _crm_active = len([k for k, v in _crm_adata.items() if not str(k).startswith("_") and float(v.get("현재가입", 0) or 0) > 0])
+                                _crm_active = len([
+                                    k for k, v in _crm_adata.items()
+                                    if not str(k).startswith("_") and float(v.get("현재가입", 0) or 0) > 0
+                                ])
                                 if _crm_ok:
                                     st.success("✅ 파이프라인 완료! 담보 " + str(_crm_active) + "개 → HQ 전송")
                                 else:
                                     st.warning("⚠️ 분석 완료 (" + str(_crm_active) + "개). DB 저장 실패")
                             except Exception as _crm_pe:
                                 if "JSONDecodeError" in type(_crm_pe).__name__:
-                                    st.error("❌ JSON 형식 오류. 올바른 JSON을 붙여넣어 주세요.")
+                                    st.error("❌ JSON 형식 오류.")
                                 else:
                                     st.error("❌ 파이프라인 오류: " + str(_crm_pe))
-            with _crm_tri_t2:
+            else:
                 st.caption("담보 금액을 직접 입력하여 트리니티 분석을 실행합니다.")
-                _t_nhi = st.number_input(
-                    "월 건강보험료(원)", min_value=0, max_value=2_000_000,
-                    value=0, step=10_000, key="crm_tri_nhi",
-                    help="직장인: 보수월액×7.09% / 지역가입자: 고지서 확인",
-                )
+                _t_nhi = st.number_input("월 건강보험료(원)", 0, 2_000_000, 0, 10_000,
+                                         key="crm_tri_nhi", help="직장인: 보수월액×7.09%")
                 _tc1, _tc2 = st.columns(2)
                 with _tc1:
-                    _t_cancer = st.number_input("암진단비 가입액(원)",      0, step=1_000_000,  key="crm_tri_cancer")
-                    _t_stroke = st.number_input("뇌졸중진단비 가입액(원)",  0, step=1_000_000,  key="crm_tri_stroke")
-                    _t_ci     = st.number_input("심근경색진단비 가입액(원)",0, step=1_000_000,  key="crm_tri_ci")
+                    _t_cancer = st.number_input("암진단비 가입액(원)",       0, step=1_000_000,  key="crm_tri_cancer")
+                    _t_stroke = st.number_input("뇌졸중진단비 가입액(원)",   0, step=1_000_000,  key="crm_tri_stroke")
+                    _t_ci     = st.number_input("심근경색진단비 가입액(원)", 0, step=1_000_000,  key="crm_tri_ci")
                 with _tc2:
-                    _t_acci   = st.number_input("상해후유장해 가입액(원)",  0, step=10_000_000, key="crm_tri_acci")
-                    _t_surg   = st.number_input("수술비 가입액(원)",         0, step=1_000_000,  key="crm_tri_surgery")
-                    _t_hosp   = st.number_input("입원일당 가입액(원)",       0, step=10_000,     key="crm_tri_hosp")
+                    _t_acci   = st.number_input("상해후유장해 가입액(원)",   0, step=10_000_000, key="crm_tri_acci")
+                    _t_surg   = st.number_input("수술비 가입액(원)",          0, step=1_000_000,  key="crm_tri_surgery")
+                    _t_hosp   = st.number_input("입원일당 가입액(원)",        0, step=10_000,     key="crm_tri_hosp")
                 if st.button("🔬 분석 실행 & HQ 전송", key="crm_tri_run",
                              use_container_width=True, type="primary"):
                     if _t_nhi > 0:
@@ -922,382 +1217,230 @@ def _crm_render_tab4():
                                 st.error("분석 오류: " + str(_te))
                     else:
                         st.warning("월 건강보험료를 입력해 주세요.")
-    else:
-        st.info("위에서 고객을 먼저 선택해 주세요.")
-
-    st.markdown("---")
-    st.markdown("**빠른 HQ 바로가기**")
-    _quick_cols = st.columns(4)
-    for i, (label, sector) in enumerate([
-        ("🛡️ KB7 분석", "t3"), ("📋 실손 분석", "t2"),
-        ("🎗️ 암보험",   "cancer"), ("🏠 화재보험", "fire"),
-    ]):
-        with _quick_cols[i]:
-            _q_url = f"{HQ_APP_URL}/?gk_sector={sector}&gk_token={_token}"
-            st.markdown(
-                f'<a href="{_q_url}" target="_blank" style="display:block;'
-                f'text-align:center;background:#1e3a8a;color:#fff;border-radius:8px;'
-                f'padding:8px;font-size:0.82rem;font-weight:900;text-decoration:none;'
-                f'border:1px dashed #93c5fd;">{label}</a>',
-                unsafe_allow_html=True,
-            )
-
-
-@st.fragment
-def _crm_render_tab6():
-    """[GP-84 §11] TAB6: AI 상담 시뮬레이터 (부분 rerun)"""
-    st.markdown('<div class="gk-section-title">🎮 AI 상담 시나리오 시뮬레이터</div>',
-                unsafe_allow_html=True)
-    st.caption("페르소나 기반 AI 고객과 롤플레이 → 트리니티 핵심 키워드 채점 → 마스터의 코칭")
-    try:
-        from sim_trainer import render_simulation_dashboard as _crm_render_sim
-        _crm_render_sim(compact=True)
-    except Exception as _crm_sim_e:
-        st.error("시뮬레이션 로드 오류: " + str(_crm_sim_e))
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 탭 네비게이션
-# ══════════════════════════════════════════════════════════════════════════════
-TAB_BRIEFING  = "🌅 AI 브리핑"
-TAB_CUSTOMERS = "👥 고객 목록"
-TAB_SCHEDULE  = "📅 일정"
-TAB_DEEPLINK  = "🚀 HQ 연결"
-TAB_HQ_GUIDE  = "🏢 HQ 앱 안내"
-TAB_SIM       = "🎮 AI 시뮬"
-
-_active_tab = st.session_state.get("crm_tab", TAB_BRIEFING)
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([TAB_BRIEFING, TAB_CUSTOMERS, TAB_SCHEDULE, TAB_DEEPLINK, TAB_HQ_GUIDE, TAB_SIM])
-
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 1: AI 아침 브리핑 — 우선순위 고객 3명 + 오늘 일정
-# ══════════════════════════════════════════════════════════════════════════════
-with tab1:
-    st.markdown('<div class="gk-section-title">🌅 AI 아침 브리핑</div>', unsafe_allow_html=True)
-    today_str = datetime.date.today().strftime("%Y년 %m월 %d일 (%A)")
-    st.caption(f"📅 {today_str}")
-
-    with st.spinner("브리핑 데이터 불러오는 중..."):
-        all_cust   = _load_customers(_user_id)
-        today_sch  = _load_schedules_today(_user_id)
-        today_mo   = datetime.date.today().month
-
-    # 우선순위 3명: VVIP 우선, 이번 달 만기 고객, 최근 미연락 순
-    def _priority_score(c: dict) -> int:
-        score = 0
-        tier = c.get("management_tier", 3)
-        score += (4 - tier) * 100
-        if c.get("auto_renewal_month") == today_mo: score += 50
-        if c.get("fire_renewal_month") == today_mo: score += 40
-        return score
-
-    priority_3 = sorted(all_cust, key=_priority_score, reverse=True)[:3]
-
-    col_brief, col_sch = st.columns([3, 2])
-    with col_brief:
-        st.markdown("**🎯 오늘의 우선 고객 TOP 3**")
-        if priority_3:
-            for rank, c in enumerate(priority_3, 1):
-                tier_m = TIER_META.get(c.get("management_tier", 3), TIER_META[3])
-                renewal_hint = ""
-                if c.get("auto_renewal_month") == today_mo:
-                    renewal_hint = f"  ⚡ 자동차보험 만기 이번 달!"
-                if c.get("fire_renewal_month") == today_mo:
-                    renewal_hint += f"  ⚡ 화재보험 만기 이번 달!"
-                dl_url = build_deeplink_to_hq(
-                    cid=c.get("person_id", ""),
-                    name=c.get("name", ""),
-                    sector="t3",
-                    token=_token,
-                )
-                st.markdown(f"""
-<div class="gk-card" style="border-left:4px solid {tier_m['color']};">
-  <b style="font-size:1rem;color:#1e293b;">#{rank} {c.get('name', '')}</b>
-  <span class="gk-badge" style="color:{tier_m['color']};background:{tier_m['bg']};
-    margin-left:8px;">{tier_m['icon']} {tier_m['label']}</span>
-  <div style="font-size:0.8rem;color:#6b7280;margin-top:3px;">
-    {c.get('job', '')} · {decrypt_pii(c.get('contact', ''))}
-  </div>
-  <div style="font-size:0.78rem;color:#d97706;margin-top:2px;">{renewal_hint}</div>
-  <a href="{dl_url}" target="_blank" class="gk-deeplink-btn">
-    🚀 HQ 정밀 분석 진행
-  </a>
-</div>""", unsafe_allow_html=True)
-        else:
-            st.info("고객 데이터가 없습니다. 고객 목록 탭에서 추가해 주세요.")
-
-    with col_sch:
-        st.markdown("**📅 오늘의 일정**")
-        if today_sch:
-            for s in today_sch:
-                st.markdown(f"""
-<div class="gk-card">
-  <b>{s.get('start_time', '')} {s.get('title', '')}</b>
-  <div style="font-size:0.78rem;color:#6b7280;">{s.get('memo', '')}</div>
-</div>""", unsafe_allow_html=True)
-        else:
-            st.info("오늘 예정된 일정이 없습니다.")
-
-        # 이번 달 만기 고객 요약
-        renewal_this_month = [
-            c for c in all_cust
-            if c.get("auto_renewal_month") == today_mo
-            or c.get("fire_renewal_month") == today_mo
-        ]
-        if renewal_this_month:
-            st.markdown(f"**🔔 이번 달 만기 고객 ({len(renewal_this_month)}명)**")
-            for c in renewal_this_month[:5]:
+        st.markdown("---")
+        st.markdown("**빠른 HQ 바로가기**")
+        _quick_cols = st.columns(4)
+        for _qi, (_ql, _qs) in enumerate([
+            ("🛡️ KB7 분석", "t3"), ("📋 실손 분석", "t2"),
+            ("🎗️ 암보험", "cancer"), ("🏠 화재보험", "fire"),
+        ]):
+            with _quick_cols[_qi]:
+                _q_url = f"{HQ_APP_URL}/?gk_sector={_qs}&gk_token={_token}"
                 st.markdown(
-                    f"<div style='font-size:0.82rem;padding:3px 0;'>"
-                    f"• {c['name']}  "
-                    f"{'🚗' if c.get('auto_renewal_month')==today_mo else ''}"
-                    f"{'🏠' if c.get('fire_renewal_month')==today_mo else ''}"
-                    f"</div>",
+                    f'<a href="{_q_url}" target="_blank" style="display:block;text-align:center;'
+                    f'background:#1e3a8a;color:#fff;border-radius:8px;padding:8px;'
+                    f'font-size:0.82rem;font-weight:900;text-decoration:none;'
+                    f'border:1px dashed #93c5fd;">{_ql}</a>',
                     unsafe_allow_html=True,
                 )
 
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 2: 고객 목록 + 입력 폼
-# ══════════════════════════════════════════════════════════════════════════════
-with tab2:
-    st.markdown('<div class="gk-section-title">👥 담당 고객 목록</div>', unsafe_allow_html=True)
-
-    c_search_col, c_add_col = st.columns([4, 1])
-    with c_search_col:
-        _search = st.text_input("🔍 이름 또는 연락처 검색",
-                                placeholder="이름 검색...",
-                                key="crm_search", label_visibility="collapsed")
-    with c_add_col:
-        if st.button("➕ 고객 추가", use_container_width=True, key="crm_add_btn"):
-            st.session_state["crm_form_open"] = True
-            st.session_state["crm_form_data"] = None
-
-    # 고객 목록 로드
-    _customers = _load_customers(_user_id, _search)
-    st.caption(f"총 {len(_customers)}명")
-
-    # 필터 컬럼
-    f1, f2, f3 = st.columns(3)
-    with f1:
-        _tier_filter = st.selectbox("등급 필터", ["전체", "VVIP(1)", "핵심(2)", "일반(3)"],
-                                    key="crm_tier_f", label_visibility="visible")
-    with f2:
-        _mo_filter = st.number_input("만기월 필터 (0=전체)", min_value=0, max_value=12,
-                                     value=0, key="crm_mo_f")
-    with f3:
-        _status_filter = st.selectbox("상태 필터", ["전체", "가망", "진행중", "계약", "종료"],
-                                      key="crm_stat_f")
-
-    _status_map_rev = {"가망": "potential", "진행중": "active", "계약": "contracted", "종료": "closed"}
-    _tier_map_rev   = {"VVIP(1)": 1, "핵심(2)": 2, "일반(3)": 3}
-
-    _filtered = _customers
-    if _tier_filter != "전체":
-        _t = _tier_map_rev.get(_tier_filter)
-        _filtered = [c for c in _filtered if c.get("management_tier") == _t]
-    if _mo_filter:
-        _filtered = [c for c in _filtered
-                     if c.get("auto_renewal_month") == _mo_filter
-                     or c.get("fire_renewal_month") == _mo_filter]
-    if _status_filter != "전체":
-        _s = _status_map_rev.get(_status_filter, "")
-        _filtered = [c for c in _filtered if c.get("status") == _s]
-
-    # 고객 폼 (추가/수정) — 공통 customer_form() 사용
-    if st.session_state.get("crm_form_open"):
-        with st.expander("✏️ 고객 정보 입력/수정", expanded=True):
-            _init = st.session_state.get("crm_form_data")
-            _form_data = customer_form(_init, key_prefix="crm_cf")
-            _s1, _s2 = st.columns(2)
-            with _s1:
-                if st.button("💾 저장", key="crm_save", use_container_width=True, type="primary"):
-                    try:
-                        customer_input_form(_form_data, _user_id, _sb)
-                        st.success("✅ 저장 완료!")
-                        st.session_state["crm_form_open"] = False
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"저장 오류: {e}")
-            with _s2:
-                if st.button("✕ 취소", key="crm_cancel", use_container_width=True):
-                    st.session_state["crm_form_open"] = False
-                    st.rerun()
-
-    # [Phase 1] 공통 render_customer_list() 사용
-    render_customer_list(_filtered, show_deeplink=True, agent_tab="t3")
-
-    if len(_filtered) >= 20:
-        st.caption("📌 최대 20건 표시. 검색어로 필터링 해 주세요.")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 3: 일정 관리 (기본 조회)
-# ══════════════════════════════════════════════════════════════════════════════
-with tab3:
-    st.markdown('<div class="gk-section-title">📅 일정 관리</div>', unsafe_allow_html=True)
-
-    _sch_date = st.date_input("날짜 선택", value=datetime.date.today(), key="crm_sch_date")
-
-    if _sb:
-        try:
-            _sch_resp = (
-                _sb.table("gk_schedules")
-                .select("*, gk_people(name)")
-                .eq("is_deleted", False)
-                .eq("agent_id", _user_id)
-                .eq("date", str(_sch_date))
-                .order("start_time")
-                .execute()
-            )
-            _sch_list = _sch_resp.data or []
-        except Exception:
-            _sch_list = []
-    else:
-        _sch_list = []
-
-    if _sch_list:
-        for _s in _sch_list:
-            _cname = (_s.get("gk_people") or {}).get("name", "")
-            _cat_icons = {"consult": "💬", "appointment": "📌", "call": "📞", "other": "📋"}
-            _icon = _cat_icons.get(_s.get("category", ""), "📋")
-            st.markdown(f"""
-<div class="gk-card">
-  <div style="display:flex;align-items:center;gap:8px;">
-    <span style="font-size:1.1rem;">{_icon}</span>
-    <b>{_s.get('start_time', '')} — {_s.get('title', '')}</b>
-    {f'<span style="font-size:0.78rem;color:#6b7280;">({_cname})</span>' if _cname else ''}
-  </div>
-  {f'<div style="font-size:0.8rem;color:#6b7280;margin-top:4px;">{_s.get("memo","")}</div>' if _s.get('memo') else ''}
-</div>""", unsafe_allow_html=True)
-    else:
-        st.info(f"{_sch_date} 일정이 없습니다.")
-
-    st.markdown("---")
-    st.markdown("**➕ 일정 추가 (간단)**")
-    _nt1, _nt2 = st.columns(2)
-    with _nt1:
-        _new_title = st.text_input("일정 제목", key="crm_new_sch_title")
-        _new_time  = st.text_input("시작 시간 (HH:MM)", value="10:00", key="crm_new_sch_time")
-    with _nt2:
-        _new_memo  = st.text_area("메모", key="crm_new_sch_memo", height=68)
-
-    if st.button("📅 일정 저장", key="crm_sch_save", use_container_width=False):
-        if _new_title and _sb:
-            try:
-                import uuid as _uuid2
-                _sb.table("gk_schedules").insert({
-                    "schedule_id": str(_uuid2.uuid4()),
-                    "agent_id":    _user_id,
-                    "title":       _new_title,
-                    "date":        str(_sch_date),
-                    "start_time":  _new_time,
-                    "memo":        _new_memo,
-                    "is_deleted":  False,
-                    "created_at":  datetime.datetime.utcnow().isoformat(),
-                    "updated_at":  datetime.datetime.utcnow().isoformat(),
-                }).execute()
-                st.success("✅ 일정 저장 완료!")
-                st.cache_data.clear()
-                st.rerun()
-            except Exception as e:
-                st.error(f"일정 저장 오류: {e}")
-        else:
-            st.warning("제목을 입력해 주세요.")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 4: HQ 딥링크 발사대 + Fallback (@st.fragment)
-# ══════════════════════════════════════════════════════════════════════════════
-with tab4:
-    _crm_render_tab4()
-
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 5: HQ 앱 설치 안내 — 온보딩 안내 데스크
-# ══════════════════════════════════════════════════════════════════════════════
-with tab5:
-    st.markdown('<div class="gk-section-title">🏢 Goldkey HQ 마스터 앱 설치 센터</div>',
-                unsafe_allow_html=True)
-
-    with st.container(border=True):
-        st.info(
-            "더 깊고 정밀한 증권분석과 세부 상담(암·뇌혈관·화재 등)은 **HQ 마스터 앱**에서 진행됩니다.\n\n"
-            "완벽한 상담을 위해 태블릿이나 스마트폰에 정식 앱을 다운로드해 주세요."
-        )
-
-        # ── 역할 분담 안내 ──────────────────────────────────────────────────────
+    # ── SCREEN 4: 📊 증권분석 (HQ 딥링크 브릿지) ────────────────────────────
+    elif _spa_screen == "analysis":
         st.markdown(
-            "<div style='background:#eff6ff;border:1px dashed #000;border-radius:10px;"
-            "padding:12px 16px;margin-bottom:12px;font-size:0.85rem;color:#1e3a8a;'>"
-            "<b>📌 역할 분담</b><br>"
-            "<span style='color:#374151;'>"
-            "✅ <b>CRM 앱 (현재 앱)</b> — 현장 스캐너 · 고객 리스트 · 일정 · 빠른 딥링크 발사대<br>"
-            "🏢 <b>HQ 마스터 앱</b> — 정밀 암/뇌혈관/화재 분석 · KB 7대 보장공백 진단 · AI 종합 리포트"
-            "</span></div>",
+            "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
+            "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
+            "📊 증권분석 — HQ 정밀 분석 발사대</div>",
             unsafe_allow_html=True,
         )
-
-        st.divider()
-
-        # ── 스토어 설치 버튼 ────────────────────────────────────────────────────
-        st.markdown("**📲 정식 앱 다운로드**")
-        _inst_c1, _inst_c2 = st.columns(2)
-        with _inst_c1:
-            st.link_button(
-                "🤖 Google Play 다운로드",
-                "https://play.google.com/",
-                use_container_width=True,
+        _sector_opts = {
+            "KB 7대 보장 분석": "t3", "보험금 청구 상담": "t1",
+            "실손보험 분석": "t2",    "암보험 분석": "cancer",
+            "뇌혈관 분석": "brain",   "심장 분석": "heart",
+            "화재보험 분석": "fire",  "AI 상담 리포트": "home",
+        }
+        _sel_sector_label = st.selectbox("📍 분석 섹터 선택", list(_sector_opts.keys()), key="spa_sector_sel")
+        _sel_sector = _sector_opts[_sel_sector_label]
+        if _sel_cust:
+            _dl_url = build_deeplink_to_hq(
+                cid=_sel_cust.get("person_id", ""),
+                name=_sel_cust.get("name", ""),
+                sector=_sel_sector,
+                token=_token,
             )
-        with _inst_c2:
-            st.link_button(
-                "🍎 App Store 다운로드",
-                "https://www.apple.com/app-store/",
-                use_container_width=True,
-            )
-
-        st.link_button(
-            "💻 웹 버전 즉시 실행 (PC / 태블릿)",
-            HQ_APP_URL,
-            use_container_width=True,
-        )
-
-        st.divider()
-
-        # ── 사용법 가이드 (아코디언) ─────────────────────────────────────────────
-        with st.expander("💡 HQ 앱과 CRM 앱, 어떻게 같이 쓰나요?", expanded=True):
             st.markdown(
-                "<div style='border:1px dashed #000;border-radius:10px;"
-                "padding:14px 18px;background:#ffffff;font-size:0.87rem;line-height:2.0;'>"
-                "<b style='color:#1e3a8a;font-size:0.95rem;'>3단계 연동 워크플로우</b><br><br>"
-                "1️⃣ <b>현장 스캔</b><br>"
-                "&nbsp;&nbsp;&nbsp;CRM 앱(현재 앱)으로 고객 증권을 스캔하고 상담 일정을 잡습니다.<br><br>"
-                "2️⃣ <b>HQ 호출</b><br>"
-                "&nbsp;&nbsp;&nbsp;정밀 분석이 필요할 때, 고객 카드의 "
-                "<b style='background:#1e3a8a;color:#fff;padding:1px 6px;border-radius:4px;'>"
-                "🚀 HQ 정밀 분석 진행</b> 버튼을 누릅니다.<br><br>"
-                "3️⃣ <b>마법 같은 연동</b><br>"
-                "&nbsp;&nbsp;&nbsp;추가 로그인 없이 HQ 앱이 즉시 열리며, "
-                "<b>해당 고객의 분석 화면으로 자동 이동</b>합니다!"
-                "</div>",
+                f"<div style='background:#F8FBFA;border:1px dashed #000;border-radius:10px;"
+                f"padding:18px;text-align:center;margin-top:8px;'>"
+                f"<div style='font-size:0.9rem;color:#374151;margin-bottom:12px;'>"
+                f"<b>{_sel_cust.get('name')}</b> — <b>{_sel_sector_label}</b></div>"
+                f"<a href='{_dl_url}' target='_blank' style='background:#1e3a8a;color:#fff;"
+                f"padding:12px 28px;border-radius:8px;font-size:1rem;font-weight:900;"
+                f"text-decoration:none;border:1px dashed #93c5fd;'>"
+                f"🚀 HQ 마스터 앱에서 분석 시작</a></div>",
                 unsafe_allow_html=True,
             )
+            with st.expander("❓ HQ 앱이 열리지 않는다면?", expanded=False):
+                st.markdown(
+                    f"<div style='background:#eff6ff;border:1px dashed #000;border-radius:10px;"
+                    f"padding:14px;font-size:0.85rem;'>"
+                    f"웹 주소: <a href='{HQ_APP_URL}' target='_blank'>{HQ_APP_URL}</a></div>",
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.info("고객을 먼저 선택해 주세요.")
 
-        st.divider()
-
-        # ── QR 코드 힌트 ────────────────────────────────────────────────────────
+    # ── SCREEN 5: 🤖 AI 브리핑 + 시뮬레이터 ──────────────────────────────────
+    elif _spa_screen == "ai_brief":
         st.markdown(
-            "<div style='background:#f9fafb;border:1px dashed #000;border-radius:10px;"
-            "padding:12px 16px;font-size:0.82rem;color:#374151;text-align:center;'>"
-            "📱 <b>태블릿 사용자 팁</b> — 태블릿에서 QR 코드를 스캔하면 바로 HQ 웹 버전이 실행됩니다.<br>"
-            f"<span style='font-size:0.75rem;color:#6b7280;'>웹 주소: {HQ_APP_URL}</span>"
-            "</div>",
+            "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
+            "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
+            "🤖 AI 브리핑 — 오늘의 우선순위 & 상담 시뮬레이터</div>",
             unsafe_allow_html=True,
         )
+        today_str_b = datetime.date.today().strftime("%Y년 %m월 %d일")
+        st.caption(f"📅 {today_str_b} 기준")
+        with st.spinner("AI 브리핑 데이터 준비 중..."):
+            _brief_custs = _load_customers(_user_id)
+            _brief_schs  = _load_schedules_today(_user_id)
+            _today_mo    = datetime.date.today().month
 
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 6: AI 상담 시뮬레이션 — 설계사 교육 롤플레이
-# ══════════════════════════════════════════════════════════════════════════════
-with tab6:
-    _crm_render_tab6()
+        def _prio_score(c: dict) -> int:
+            _s = (4 - c.get("management_tier", 3)) * 100
+            if c.get("auto_renewal_month") == _today_mo: _s += 50
+            if c.get("fire_renewal_month") == _today_mo: _s += 40
+            return _s
 
+        _p3 = sorted(_brief_custs, key=_prio_score, reverse=True)[:3]
+        _bf1, _bf2 = st.columns([3, 2])
+        with _bf1:
+            st.markdown("**🎯 오늘의 우선 고객 TOP 3**")
+            for _rk, _c in enumerate(_p3, 1):
+                _tm2 = TIER_META.get(_c.get("management_tier", 3), TIER_META[3])
+                _rh  = ""
+                if _c.get("auto_renewal_month") == _today_mo: _rh += " ⚡ 자동차 만기!"
+                if _c.get("fire_renewal_month") == _today_mo: _rh += " ⚡ 화재 만기!"
+                _rdl = build_deeplink_to_hq(cid=_c.get("person_id", ""),
+                                            name=_c.get("name", ""), sector="t3", token=_token)
+                st.markdown(
+                    f"<div style='background:#F8FBFA;border:1px dashed #000;border-radius:10px;"
+                    f"border-left:4px solid {_tm2['color']};padding:10px 14px;margin-bottom:8px;'>"
+                    f"<b>#{_rk} {_c.get('name','')}</b>"
+                    f"<span style='font-size:0.7rem;font-weight:900;padding:1px 6px;border-radius:10px;"
+                    f"background:{_tm2['bg']};color:{_tm2['color']};margin-left:6px;'>"
+                    f"{_tm2['icon']} {_tm2['label']}</span>"
+                    f"<div style='font-size:0.78rem;color:#d97706;'>{_rh}</div>"
+                    f"<a href='{_rdl}' target='_blank' style='font-size:0.78rem;color:#1d4ed8;'>"
+                    f"🚀 HQ 정밀 분석 →</a></div>",
+                    unsafe_allow_html=True,
+                )
+        with _bf2:
+            st.markdown("**📅 오늘의 일정**")
+            if _brief_schs:
+                for _s in _brief_schs:
+                    st.markdown(
+                        f"<div style='background:#E6E6FA;border:1px solid #c4b5fd;"
+                        f"border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:0.82rem;'>"
+                        f"<b>{_s.get('start_time','')} {_s.get('title','')}</b>"
+                        f"<div style='font-size:0.75rem;color:#64748b;'>{_s.get('memo','')}</div></div>",
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.info("오늘 예정된 일정이 없습니다.")
+
+        st.markdown("---")
+        st.markdown("**🎮 AI 상담 시나리오 시뮬레이터**")
+        st.caption("실제 고객 상황을 입력하면 AI가 최적 상담 전략을 제시합니다.")
+        try:
+            from sim_trainer import render_simulation_dashboard as _crm_render_sim
+            _crm_render_sim(compact=True)
+        except Exception:
+            _sim_input = st.text_area(
+                "상담 상황 입력",
+                placeholder="예: 35세 남성, 현재 암보험 없음, 월 보험료 30만원 예산...",
+                height=100, key="crm_sim_input",
+            )
+            if st.button("🤖 AI 전략 생성", key="crm_sim_run", use_container_width=True, type="primary"):
+                if _sim_input.strip():
+                    with st.spinner("AI 전략 분석 중..."):
+                        try:
+                            from shared_components import get_env_secret as _genv_sim
+                            import google.generativeai as genai
+                            genai.configure(api_key=_genv_sim("GOOGLE_API_KEY", ""))
+                            _m_sim  = genai.GenerativeModel("gemini-1.5-flash")
+                            _prompt = (
+                                f"당신은 골드키 AI 보험 상담 코치입니다.\n"
+                                f"설계사가 다음 상황에서 고객과 상담합니다:\n\n{_sim_input}\n\n"
+                                f"최적 상담 전략, 예상 질문 3가지, 추천 보장 순서를 간결하게 한국어로 작성해 주세요."
+                            )
+                            _r_sim = _m_sim.generate_content(_prompt)
+                            st.markdown(
+                                f"<div style='background:#F8FBFA;border:1px dashed #000;border-radius:10px;"
+                                f"padding:14px;font-size:0.85rem;line-height:1.8;'>"
+                                f"{_r_sim.text.replace(chr(10), '<br>')}</div>",
+                                unsafe_allow_html=True,
+                            )
+                        except Exception as _sim_e:
+                            st.error(f"AI 시뮬레이터 오류: {_sim_e}")
+                else:
+                    st.warning("상담 상황을 입력해 주세요.")
+
+    # ── SCREEN 6: 💬 카카오 발송 ─────────────────────────────────────────────
+    elif _spa_screen == "kakao":
+        st.markdown(
+            "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
+            "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
+            "💬 카카오 발송 — 알림톡 / 상담 링크 전송</div>",
+            unsafe_allow_html=True,
+        )
+        if not _sel_cust:
+            st.info("고객을 먼저 선택해 주세요.")
+        else:
+            _kk1, _kk2 = st.columns(2)
+            with _kk1:
+                st.markdown(
+                    "<div style='background:#F8FBFA;border:1px dashed #000;border-radius:10px;padding:14px;'>"
+                    "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;margin-bottom:10px;'>"
+                    "📤 알림톡 발송</div>",
+                    unsafe_allow_html=True,
+                )
+                _kk_phone = decrypt_pii(_sel_cust.get("contact", ""))
+                _kk_name  = _sel_cust.get("name", "")
+                _kk_tmpl  = st.selectbox("템플릿",
+                                         ["상담 안내", "만기 알림", "분석 리포트 전달", "맞춤형 메시지"],
+                                         key="kakao_tmpl_sel")
+                _kk_msg = st.text_area(
+                    "메시지 내용",
+                    value=f"{_kk_name} 고객님, 안녕하세요. 골드키 AI 설계사입니다.",
+                    height=100, key="kakao_msg_inp",
+                )
+                if st.button("📤 발송", key="kakao_send_btn", use_container_width=True, type="primary"):
+                    try:
+                        from modules.kakao_service import send_kakao_alimtalk
+                        _kk_ok = send_kakao_alimtalk(
+                            phone=_kk_phone, name=_kk_name,
+                            template=_kk_tmpl, message=_kk_msg,
+                        )
+                        if _kk_ok:
+                            st.success(f"✅ {_kk_name} 님께 카카오톡 발송 완료!")
+                        else:
+                            st.warning("발송 실패 (카카오 API 설정 확인)")
+                    except Exception as _ke:
+                        st.error(f"발송 오류: {_ke}")
+                st.markdown("</div>", unsafe_allow_html=True)
+            with _kk2:
+                st.markdown(
+                    "<div style='background:#F8FBFA;border:1px dashed #000;border-radius:10px;padding:14px;'>"
+                    "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;margin-bottom:10px;'>"
+                    "🔗 HQ 딥링크 공유</div>",
+                    unsafe_allow_html=True,
+                )
+                _sh_sector = st.selectbox(
+                    "공유할 분석 섹터",
+                    ["t3", "t2", "cancer", "brain"],
+                    format_func=lambda x: {"t3": "KB7 분석", "t2": "실손", "cancer": "암보험", "brain": "뇌혈관"}.get(x, x),
+                    key="kakao_share_sector",
+                )
+                _sh_url = build_deeplink_to_hq(
+                    cid=_sel_cust.get("person_id", ""),
+                    name=_sel_cust.get("name", ""),
+                    sector=_sh_sector,
+                    token=_token,
+                )
+                st.markdown(
+                    f"<div style='background:#eff6ff;border:1px dashed #93c5fd;border-radius:8px;"
+                    f"padding:8px 12px;font-size:0.74rem;word-break:break-all;'>{_sh_url}</div>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
 # ══════════════════════════════════════════════════════════════════════════════
 # [GP-PHASE-4] 반응형 통합 증권분석 센터 — CRM 이식 (HQ와 완전 동일)
 # ══════════════════════════════════════════════════════════════════════════════

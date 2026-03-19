@@ -1219,35 +1219,310 @@ def _kb7_score_fn(policies: list[dict]) -> dict[str, float]:
 # 통합 진입점: Master Gate + Dashboard 탭 렌더링
 # ────────────────────────────────────────────────────────────────────────────
 def render_crm_gate_full(sb, agent_id: str) -> None:
-    """app.py에서 cur == 'crm_gate' 일 때 호출"""
+    """app.py에서 cur == 'crm_gate' 일 때 호출 — Outlook SPA 라우터"""
+    # ── SPA 상태 초기화 ────────────────────────────────────────────────────────
+    if "hq_crm_spa_mode"   not in st.session_state: st.session_state["hq_crm_spa_mode"]   = "list"
+    if "hq_crm_sel_pid"    not in st.session_state: st.session_state["hq_crm_sel_pid"]    = ""
+    if "hq_crm_sel_name"   not in st.session_state: st.session_state["hq_crm_sel_name"]   = ""
+    if "hq_crm_screen"     not in st.session_state: st.session_state["hq_crm_screen"]     = "auth"
+
+    _spa_mode = st.session_state.get("hq_crm_spa_mode", "list")
+    _sel_pid  = st.session_state.get("hq_crm_sel_pid", "")
+    _sel_name = st.session_state.get("hq_crm_sel_name", "")
+
+    # ── 파스텔 헤더 ───────────────────────────────────────────────────────────
     st.markdown(
-        "<div style='border:2px solid #1d4ed8;border-radius:12px;"
-        "padding:10px 16px 8px 16px;background:#eff6ff;margin-bottom:14px;'>"
-        "<div style='font-size:1.0rem;font-weight:900;color:#1d4ed8;'>"
-        "🏰 CRM 요새 — 고객 세션 게이트</div>"
-        "<div style='font-size:0.78rem;color:#64748b;'>"
-        "person_id 기준으로 세션을 유지합니다. 기기가 달라도 동일 데이터를 불러옵니다.</div>"
+        "<div style='background:#F8FBFA;border:1px dashed #000;border-radius:10px;"
+        "padding:10px 16px 8px 16px;margin-bottom:12px;'>"
+        "<span style='font-size:1.0rem;font-weight:900;color:#1d4ed8;'>🏰 CRM 요새 — 고객 상담 게이트</span>"
+        "<span style='font-size:0.76rem;color:#64748b;margin-left:10px;'>"
+        "고객 선택 → 6대 메뉴 (입력·대시보드·KB7·가족·공백·분석)</span>"
         "</div>",
         unsafe_allow_html=True,
     )
 
-    # ── 인증 게이트 ───────────────────────────────────────────
-    _authed = render_crm_person_auth(sb, agent_id)
-    if not _authed:
-        st.info(
-            "🔐 위에서 본인 인증을 완료하면 Master Gate와 Strategic Dashboard가 열립니다.\n\n"
-            "**없는 고객이라면?** — 먼저 담당 설계사에게 고객 등록을 요청하세요."
-        )
-        return
+    # ══════════════════════════════════════════════════════════════════════════
+    # MODE: LIST — 고객 검색 + 목록
+    # ══════════════════════════════════════════════════════════════════════════
+    if _spa_mode == "list":
+        _sch_q = st.text_input("🔍 고객 이름 검색", placeholder="이름 입력…",
+                               key="hq_crm_search", label_visibility="collapsed")
 
-    # ── 인증 완료: person_id를 Dashboard 기본값으로 설정 ─────
-    _auth_pid = st.session_state.get("_crm_auth_person_id", "")
-    if _auth_pid and not st.session_state.get("_fp_person_id"):
-        st.session_state["_fp_person_id"] = _auth_pid
+        _people: list = []
+        if _sb_ok(sb):
+            try:
+                _q = sb.table("gk_people").select("person_id,name,management_tier,status,job")\
+                    .eq("is_deleted", False).eq("agent_id", agent_id)\
+                    .order("name")
+                if _sch_q and _sch_q.strip():
+                    _q = _q.ilike("name", f"%{_sch_q.strip()}%")
+                _people = _q.execute().data or []
+            except Exception:
+                pass
 
-    # ── 탭 렌더링 ─────────────────────────────────────────────
-    _tab_gate, _tab_dash = st.tabs(["🗝️ Master Gate (입력)", "📊 Strategic Dashboard (분석)"])
-    with _tab_gate:
-        render_master_gate(sb, agent_id)
-    with _tab_dash:
-        render_strategic_dashboard(sb, agent_id)
+        st.caption(f"📋 총 {len(_people)}명")
+
+        _tier_labels = {1: ("👑 VVIP", "#7c3aed", "#ede9fe"),
+                        2: ("⭐ 핵심",  "#0369a1", "#dbeafe"),
+                        3: ("👤 일반",  "#374151", "#f3f4f6")}
+        _stat_labels = {"potential": "가망", "active": "진행중",
+                        "contracted": "계약", "closed": "종료"}
+
+        for _p in _people:
+            _pn    = _p.get("name", "-")
+            _pt    = _p.get("management_tier", 3)
+            _tlbl, _tcol, _tbg = _tier_labels.get(_pt, _tier_labels[3])
+            _stat  = _stat_labels.get(_p.get("status", ""), "-")
+            _job   = _p.get("job", "")
+            _pid_v = _p.get("person_id", "")
+
+            _col_info, _col_btn = st.columns([6, 1])
+            with _col_info:
+                st.markdown(
+                    f"<div style='background:#ffffff;border:1px dashed #000;border-radius:8px;"
+                    f"padding:8px 12px;display:flex;align-items:center;gap:10px;'>"
+                    f"<span style='font-size:0.9rem;font-weight:900;color:#1e293b;'>{_pn}</span>"
+                    f"<span style='font-size:0.7rem;font-weight:900;padding:1px 7px;"
+                    f"border-radius:10px;background:{_tbg};color:{_tcol};'>{_tlbl}</span>"
+                    f"<span style='font-size:0.75rem;color:#64748b;'>{_stat}"
+                    f"{' · ' + _job if _job else ''}</span></div>",
+                    unsafe_allow_html=True,
+                )
+            with _col_btn:
+                if st.button("▶ 선택", key=f"hq_sel_{_pid_v}", use_container_width=True):
+                    st.session_state["hq_crm_spa_mode"]  = "customer"
+                    st.session_state["hq_crm_sel_pid"]   = _pid_v
+                    st.session_state["hq_crm_sel_name"]  = _pn
+                    st.session_state["hq_crm_screen"]    = "auth"
+                    st.session_state.pop("_crm_auth_person_id", None)
+                    st.rerun()
+
+        if not _people:
+            st.info("등록된 고객이 없습니다." if not _sch_q else f"'{_sch_q}' 검색 결과가 없습니다.")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # MODE: CUSTOMER — 6대 SPA 화면
+    # ══════════════════════════════════════════════════════════════════════════
+    elif _spa_mode == "customer":
+        _screen = st.session_state.get("hq_crm_screen", "auth")
+
+        # ── 고객 바 + 목록으로 버튼 ────────────────────────────────────────
+        _bar_c1, _bar_c2 = st.columns([7, 1])
+        with _bar_c1:
+            st.markdown(
+                f"<div style='background:#eff6ff;border:1px dashed #000;border-radius:8px;"
+                f"padding:7px 14px;font-size:0.9rem;font-weight:900;color:#1d4ed8;'>"
+                f"👤 {_sel_name}</div>",
+                unsafe_allow_html=True,
+            )
+        with _bar_c2:
+            if st.button("🔙 목록", key="hq_crm_back", use_container_width=True):
+                st.session_state["hq_crm_spa_mode"]  = "list"
+                st.session_state["hq_crm_sel_pid"]   = ""
+                st.session_state["hq_crm_sel_name"]  = ""
+                st.session_state["hq_crm_screen"]    = "auth"
+                st.rerun()
+
+        # ── 6대 SPA 네비게이션 ─────────────────────────────────────────────
+        _nav_items = {
+            "🔐 고객 인증":    "auth",
+            "🗝️ 데이터 입력": "gate",
+            "📊 전략 대시보드": "dashboard",
+            "🏦 KB7 분석 연결": "kb7",
+            "👨‍👩‍👧 가족 관계도":  "family",
+            "📉 보장 공백":     "gap",
+        }
+        _nav_cols = st.columns(len(_nav_items))
+        for _i, (_lbl, _scr) in enumerate(_nav_items.items()):
+            with _nav_cols[_i]:
+                _active_style = (
+                    "background:#1e3a8a;color:#fff;border:1px solid #1e3a8a;"
+                    if _screen == _scr
+                    else "background:#F8FBFA;color:#374151;border:1px dashed #000;"
+                )
+                if st.button(
+                    _lbl, key=f"hq_nav_{_scr}",
+                    use_container_width=True,
+                    type="primary" if _screen == _scr else "secondary",
+                ):
+                    st.session_state["hq_crm_screen"] = _scr
+                    st.rerun()
+
+        st.markdown("<div style='margin:8px 0;'></div>", unsafe_allow_html=True)
+
+        # ── SCREEN 1: 🔐 고객 인증 ────────────────────────────────────────
+        if _screen == "auth":
+            _authed = render_crm_person_auth(sb, agent_id)
+            if _authed:
+                _auth_pid = st.session_state.get("_crm_auth_person_id", "")
+                if _auth_pid and not st.session_state.get("_fp_person_id"):
+                    st.session_state["_fp_person_id"] = _auth_pid
+                st.success("✅ 인증 완료! 위 네비게이션에서 원하는 화면을 선택하세요.")
+            else:
+                st.info(
+                    "🔐 고객 본인 확인 후 입력·대시보드 기능이 활성화됩니다.\n\n"
+                    "**없는 고객이라면?** — CRM 앱에서 고객을 먼저 등록하세요."
+                )
+
+        # ── SCREEN 2: 🗝️ 데이터 입력 (Master Gate) ──────────────────────
+        elif _screen == "gate":
+            if not st.session_state.get("_crm_auth_person_id"):
+                st.warning("⚠️ 먼저 '🔐 고객 인증' 탭에서 본인 확인을 완료해 주세요.")
+            else:
+                render_master_gate(sb, agent_id)
+
+        # ── SCREEN 3: 📊 전략 대시보드 ──────────────────────────────────
+        elif _screen == "dashboard":
+            if not st.session_state.get("_crm_auth_person_id"):
+                st.warning("⚠️ 먼저 '🔐 고객 인증' 탭에서 본인 확인을 완료해 주세요.")
+            else:
+                render_strategic_dashboard(sb, agent_id)
+
+        # ── SCREEN 4: 🏦 KB7 분석 연결 ─────────────────────────────────
+        elif _screen == "kb7":
+            try:
+                from shared_components import HQ_APP_URL as _hq_url, build_sso_redirect as _bsr
+                _token = st.session_state.get("auth_token", "")
+                _uid   = agent_id or st.session_state.get("user_id", "")
+            except Exception:
+                _hq_url = "https://goldkey-ai-817097913199.asia-northeast3.run.app"
+                _token  = ""
+                _uid    = agent_id
+
+            st.markdown(
+                "<div style='background:#eff6ff;border:1px dashed #000;border-radius:8px;"
+                "padding:8px 12px;font-size:0.8rem;font-weight:900;color:#1e3a8a;"
+                "margin-bottom:10px;'>🏦 KB7 분석 연결 — HQ 분석 섹터 바로가기</div>",
+                unsafe_allow_html=True,
+            )
+            _sectors = [
+                ("🛡️ KB7 보장 분석", "t3"), ("💉 실손 분석", "t2"),
+                ("🎗️ 암보험 분석", "cancer"), ("🧠 뇌혈관 분석", "brain"),
+                ("❤️ 심장 분석", "heart"), ("🔥 화재보험", "fire"),
+            ]
+            _sc1, _sc2 = st.columns(2)
+            for _i, (_sl, _ss) in enumerate(_sectors):
+                _dl = f"{_hq_url}/?gk_sector={_ss}&gk_cid={_sel_pid}&gk_token={_token}"
+                with (_sc1 if _i % 2 == 0 else _sc2):
+                    st.markdown(
+                        f"<a href='{_dl}' target='_blank' style='display:block;text-align:center;"
+                        f"background:#1e3a8a;color:#fff;border-radius:8px;padding:10px;"
+                        f"font-size:0.85rem;font-weight:900;text-decoration:none;"
+                        f"border:1px dashed #93c5fd;margin-bottom:8px;'>{_sl}</a>",
+                        unsafe_allow_html=True,
+                    )
+
+        # ── SCREEN 5: 👨‍👩‍👧 가족 관계도 ────────────────────────────────────
+        elif _screen == "family":
+            if not st.session_state.get("_crm_auth_person_id"):
+                st.warning("⚠️ 먼저 '🔐 고객 인증' 탭에서 본인 확인을 완료해 주세요.")
+            else:
+                st.markdown(
+                    "<div style='background:#eff6ff;border:1px dashed #000;border-radius:8px;"
+                    "padding:8px 12px;font-size:0.8rem;font-weight:900;color:#1e3a8a;"
+                    "margin-bottom:10px;'>👨‍👩‍👧 가족 관계도</div>",
+                    unsafe_allow_html=True,
+                )
+                try:
+                    _family_pid = (
+                        st.session_state.get("_crm_auth_person_id") or
+                        st.session_state.get("_fp_person_id", "")
+                    )
+                    if _sb_ok(sb) and _family_pid:
+                        _rels = sb.table("gk_relationships")\
+                            .select("*, from_person:from_person_id(name), to_person:to_person_id(name)")\
+                            .eq("is_deleted", False)\
+                            .or_(f"from_person_id.eq.{_family_pid},to_person_id.eq.{_family_pid}")\
+                            .execute().data or []
+                        if _rels:
+                            st.markdown(
+                                f"<div style='background:#f0fdf4;border:1px dashed #16a34a;"
+                                f"border-radius:10px;padding:12px 16px;'>"
+                                f"<div style='font-size:0.9rem;font-weight:900;color:#15803d;"
+                                f"margin-bottom:10px;text-align:center;'>"
+                                f"🏠 {_sel_name} 가족 관계망</div>",
+                                unsafe_allow_html=True,
+                            )
+                            _rel_labels = {
+                                "배우자": "💑", "자녀": "👶", "형제": "👫",
+                                "소개자": "🤝", "법인직원": "🏢",
+                            }
+                            for _r in _rels:
+                                _fn = (_r.get("from_person") or {}).get("name", "-")
+                                _tn = (_r.get("to_person") or {}).get("name", "-")
+                                _rt = _r.get("relation_type", "")
+                                _ri = _rel_labels.get(_rt, "🔗")
+                                st.markdown(
+                                    f"<div style='display:flex;align-items:center;gap:8px;"
+                                    f"padding:7px 12px;border:1px solid #bbf7d0;"
+                                    f"border-radius:8px;margin-bottom:6px;'>"
+                                    f"<span style='font-weight:900;'>{_fn}</span>"
+                                    f"<span style='color:#15803d;font-size:0.8rem;'>{_ri} {_rt}</span>"
+                                    f"<span style='font-weight:900;'>{_tn}</span></div>",
+                                    unsafe_allow_html=True,
+                                )
+                            st.markdown("</div>", unsafe_allow_html=True)
+                        else:
+                            st.info("등록된 가족 관계가 없습니다. '🗝️ 데이터 입력'에서 관계망을 추가하세요.")
+                    else:
+                        st.info("DB 연결 또는 고객 인증이 필요합니다.")
+                except Exception as _fe:
+                    st.error(f"가족 관계도 로드 오류: {_fe}")
+
+        # ── SCREEN 6: 📉 보장 공백 Bar차트 ──────────────────────────────
+        elif _screen == "gap":
+            if not st.session_state.get("_crm_auth_person_id"):
+                st.warning("⚠️ 먼저 '🔐 고객 인증' 탭에서 본인 확인을 완료해 주세요.")
+            else:
+                st.markdown(
+                    "<div style='background:#eff6ff;border:1px dashed #000;border-radius:8px;"
+                    "padding:8px 12px;font-size:0.8rem;font-weight:900;color:#1e3a8a;"
+                    "margin-bottom:10px;'>📉 보장 공백 Bar 차트</div>",
+                    unsafe_allow_html=True,
+                )
+                try:
+                    _gap_pid = (
+                        st.session_state.get("_crm_auth_person_id") or
+                        st.session_state.get("_fp_person_id", "")
+                    )
+                    if _sb_ok(sb) and _gap_pid:
+                        _policies = sb.table("gk_policy_roles")\
+                            .select("*, policies:policy_id(product_name,insurance_company,premium)")\
+                            .eq("person_id", _gap_pid).eq("is_deleted", False)\
+                            .execute().data or []
+                        _kb7_slots = [
+                            ("사망보장", "질병/상해 사망", ["사망", "종신", "정기"]),
+                            ("3대진단", "암·뇌·심장 진단비", ["암", "뇌", "심장", "진단"]),
+                            ("수술입원", "수술/입원비", ["수술", "입원", "일당"]),
+                            ("실손", "실손의료비", ["실손", "실비"]),
+                            ("운전자", "운전자/배상책임", ["운전자", "배상"]),
+                            ("치아치매", "치아/치매/간병", ["치아", "치매", "간병"]),
+                            ("연금저축", "연금/저축", ["연금", "저축"]),
+                        ]
+                        _policy_names = " ".join(
+                            (p.get("policies") or {}).get("product_name", "")
+                            for p in _policies
+                        ).lower()
+                        st.markdown("<div style='margin-top:8px;'>", unsafe_allow_html=True)
+                        for _slot, _desc, _kws in _kb7_slots:
+                            _has = any(k in _policy_names for k in _kws)
+                            _fill = 80 if _has else 15
+                            _bg   = "#22c55e" if _has else "#ef4444"
+                            _col  = "#15803d" if _has else "#991b1b"
+                            _lbl  = "✅ 가입" if _has else "❌ 공백"
+                            st.markdown(
+                                f"<div class='gap-bar-wrap'>"
+                                f"<div class='gap-bar-label'>{_slot} — {_desc} "
+                                f"<span style='font-size:0.7rem;color:{_col};'>{_lbl}</span></div>"
+                                f"<div class='gap-bar-bg'>"
+                                f"<div class='gap-bar-fill' style='width:{_fill}%;background:{_bg};'></div>"
+                                f"</div></div>",
+                                unsafe_allow_html=True,
+                            )
+                        st.markdown("</div>", unsafe_allow_html=True)
+                        if not _policies:
+                            st.info("등록된 증권이 없습니다. '🗝️ 데이터 입력'에서 증권·역할을 등록하세요.")
+                    else:
+                        st.info("DB 연결 또는 고객 인증이 필요합니다.")
+                except Exception as _ge:
+                    st.error(f"보장공백 차트 오류: {_ge}")
