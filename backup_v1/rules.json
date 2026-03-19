@@ -1,0 +1,46 @@
+{
+  "_comment": "[GP-44] HuggingFace OTA 설정 파일 — 앱 재빌드 없이 가이딩 프로토콜 실시간 반영",
+  "_schema_version": "1.0",
+  "last_updated": "2026-03-05T21:17:00+09:00",
+  "guiding_protocol_version": "44",
+
+  "ota_updatable": {
+    "daily_quota": 10,
+    "session_ttl_seconds": 7200,
+    "splash_auto_timer_ms": 5000,
+    "member_cache_ttl_seconds": 120,
+    "perf_threshold_ms": 500,
+    "nhis_rate": 0.0709,
+    "ltci_rate": 0.009182,
+    "night_worker_start": "02:00",
+    "night_worker_end": "04:00",
+    "max_pending_queue": 20
+  },
+
+  "feature_flags": {
+    "ota_sync_enabled": true,
+    "night_worker_enabled": true,
+    "senior_mode_enabled": true,
+    "rag_enabled": true,
+    "auto_report_enabled": true,
+    "pin_auth_enabled": false,
+    "biometric_auth_enabled": false
+  },
+
+  "ui_config": {
+    "landing_mobile_b64": "splash_goldkey.b64",
+    "landing_tablet_b64": "tablet_splash.b64",
+    "primary_color": "#0ea5e9",
+    "accent_gold": "#f0c040",
+    "teal_accent": "#00695C"
+  },
+
+  "deployment": {
+    "hf_space_url": "https://huggingface.co/spaces/goldkey-rich/goldkey-ai",
+    "hf_remote": "hf",
+    "github_remote": "origin",
+    "visibility": "private",
+    "track": "brain",
+    "commit_prefix": "[GP-44]"
+  }
+}

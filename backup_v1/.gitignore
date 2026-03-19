@@ -1,0 +1,99 @@
+# 대용량 설치 파일 (GitHub 100MB 제한 초과)
+*.exe
+*.dmg
+*.msi
+
+# Streamlit secrets - API 키 등 민감 정보 (절대 Git에 올리지 말 것)
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# 데이터베이스 및 로그 (개인정보 포함 가능)
+*.db
+*.sqlite
+*.json
+# ↑ JSON 전체 차단 — members.json, devlog.json, error_log.json,
+#   admin_directives.json, usage_log.json 등 모든 런타임 데이터 보호
+#   (단, 소스코드에 포함된 JSON은 영향 없음)
+
+# [GP-44] OTA 설정 파일 — HuggingFace 배포 필수
+!rules.json
+
+# 암호화 키 파일 (절대 Git에 올리지 말 것)
+.goldkey
+*.goldkey
+
+# GCP 서비스 계정 키 (절대 Git에 올리지 말 것)
+sa_key*.json
+sa_key*
+
+# 임시/점검 스크립트
+_check_deploy.py
+*.migrated
+
+# 환경 변수
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# 백업 파일 (git 불필요)
+backups/
+app_backup_*.py
+
+# catalog_app 서브프로젝트 — JSON/PNG 예외 허용
+!catalog_app/**/*.json
+!catalog_app/**/*.png
+
+# chrome_extension — manifest.json, icons 예외 허용
+!chrome_extension/**/*.json
+!chrome_extension/**/*.js
+!chrome_extension/**/*.png
+
+# crm_app — React Native 프로젝트 파일 예외 허용
+!crm_app/**/*.json
+!crm_app/**/*.js
+
+# GoldKeyApp — React Native 프로젝트 파일 예외 허용
+!GoldKeyApp/**/*.json
+!GoldKeyApp/**/*.js
+!GoldKeyApp/**/*.ts
+!GoldKeyApp/**/*.tsx
+
+# 이미지 바이너리 (HF Space LFS 처리 — .gitattributes 참조)
+avatar.png
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
+# assets 폴더 이미지는 배포에 필요하므로 예외 허용
+!assets/*.png
+# 스플래시 이미지 — 루트 경로 예외 허용
+!splash_mobile.png
+!splash_tablet.png
+!assets/*.svg
+!assets/*.jpg
+!assets/*.jpeg
+!assets/*.webp
+
+*.env
+.github/Supabase*
+_sec_*.py
+_sec_rls_*.py
+backups/_sec*
+*.lnk
+*.pyc
+.venv/
+venv/

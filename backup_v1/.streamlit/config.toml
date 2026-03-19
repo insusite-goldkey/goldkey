@@ -1,0 +1,27 @@
+# ── Goldkey AI Masters 2026 ────────────────────────────────
+# GCP Project ID: goldkey-ai-2026
+# App Display Name: Goldkey AI Masters 2026
+# ──────────────────────────────────────────────────────────
+
+[global]
+developmentMode = false
+
+[logger]
+level = "info"
+messageFormat = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+
+[server]
+headless = true
+address = "0.0.0.0"
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+primaryColor = "#FFD700"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F7FF"
+textColor = "#1A1A1A"
+font = "sans serif"

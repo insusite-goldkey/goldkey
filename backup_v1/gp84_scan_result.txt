@@ -1,0 +1,104 @@
+총 발견: 741건
+
+[BG] L1828: background-color:#0b0e17 | background-color:#0b0e17;
+[TXT] L1828: color:#0b0e17 | background-color:#0b0e17;
+[TXT] L2204: color:#1a2d5a | '<div style="font-size:1.05rem;font-weight:900;color:#1a2d5a;'
+[BG] L2288: background:#2e6da4 | f'<button style="width:100%;background:#2e6da4;color:#fff;'
+[TXT] L2304: color:#3c1e1e | f'<button style="width:100%;background:#fee500;color:#3c1e1e;'
+[TXT] L2773: color:#34d399 | f'<div style="color:#34d399;font-size:0.95rem;font-weight:900;margin-bottom:6px;">'
+[TXT] L4668: color: #1A1A2E | color: #1A1A2E !important;
+[BG] L4689: background-color: #3557B7 | background-color: #3557B7 !important;
+[TXT] L4689: color: #3557B7 | background-color: #3557B7 !important;
+[TXT] L4696: color: #000000 | color: #000000 !important;
+[TXT] L4763: color: #000000 | color: #000000 !important;
+[TXT] L4767: color: #1565C0 | .gk-st-title  { color: #1565C0 !important; text-shadow: none !important; }
+[TXT] L4768: color: #1A1A2E | .gk-st-amount { color: #1A1A2E !important; text-shadow: none !important; }
+[TXT] L4865: color: #000000 | color: #000000 !important;
+[TXT] L4876: color: #000000 | color: #000000 !important;
+[TXT] L6701: color:#1e293b | <span style="font-size:0.7rem;font-weight:900;color:#1e293b;
+[TXT] L6706: color:#2e6da4 | <span style="font-size:0.9rem;font-weight:800;color:#2e6da4;">
+[TXT] L6717: color:#0f172a | <span style="font-size:0.85rem;color:#0f172a;font-weight:800;">{rem_text}</span>
+[TXT] L8587: color:#0a1628 | <div style="font-size:32px;font-weight:800;color:#0a1628;
+[TXT] L8591: color:#0d2344 | <div style="font-size:13px;font-weight:600;color:#0d2344;margin-bottom:3px;">
+[TXT] L8594: color:#1a3a5c | <div style="font-size:11px;font-weight:400;color:#1a3a5c;
+[TXT] L8608: color:#333333 | color:#333333;
+[TXT] L8617: color:#0369a1 | <span style="color:#0369a1;font-weight:700;">로그인하고 사용해주세요</span>
+[TXT] L8651: color:#004D40 | <div style="font-size:0.68rem;color:#004D40;font-weight:600;
+[BG] L9310: background:#1a1a2e | "<div style='background:#1a1a2e;border-radius:10px;padding:8px 14px;margin-bottom:10px;'>"
+[TXT] L9332: color:#3498db | f"<div style='color:#3498db;font-weight:700;font-size:0.85rem;'>"
+[BG] L10606: background:#3a0000 | <div style='background:#3a0000;border:2px solid #e74c3c;border-radius:8px;
+[TXT] L10766: color:#1a1a2e | font-size:0.84rem;line-height:1.6;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;co
+[TXT] L10776: color:#1a7a4a | <b style="color:#1a7a4a;">✅ 올바른 구조: 임차인 명의 일반 화재보험</b><br>
+[BG] L10788: background:#1a3a5c | <tr style="background:#1a3a5c;color:white;">
+[TXT] L10796: color:#1a7a4a | <td style="padding:7px;border:1px solid #ddd;color:#1a7a4a;"><b>원인불명 화재 포함</b></td>
+[TXT] L10801: color:#1a7a4a | <td style="padding:7px;border:1px solid #ddd;color:#1a7a4a;"><b>원상회복의무 즉시 이행</b></td>
+[TXT] L10806: color:#1a7a4a | <td style="padding:7px;border:1px solid #ddd;color:#1a7a4a;"><b>보험금으로 즉시 건물 복구</b></td>
+[TXT] L10811: color:#1a7a4a | <td style="padding:7px;border:1px solid #ddd;color:#1a7a4a;"><b>필수 권장</b></td>
+[TXT] L10842: color:#1a1a2e | font-size:0.84rem;line-height:1.6;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;co
+[TXT] L10843: color:#1a3a5c | <b style="color:#1a3a5c;">📌 소멸성 보험료 손비처리 핵심 원칙</b><br><br>
+[BG] L11330: background:#1a3a5c | <thead><tr style="background:#1a3a5c;color:#fff;">
+[TXT] L11339: color:#1a7a4a | <td style="padding:7px 10px;text-align:right;color:#1a7a4a;font-weight:700;">{r26['공제합계']:
+[TXT] L11340: color:#1a7a4a | <td style="padding:7px 10px;text-align:right;color:#1a7a4a;">+{r26['공제합계']-r24['공제합계']:,.0
+[TXT] L11343: color:#1a7a4a | <td style="padding:7px 10px;text-align:right;color:#1a7a4a;font-weight:700;">{r26['과세표준']:
+[TXT] L11344: color:#1a7a4a | <td style="padding:7px 10px;text-align:right;color:#1a7a4a;">{r26['과세표준']-r24['과세표준']:,.0f
+[TXT] L11347: color:#1a7a4a | <td style="padding:7px 10px;text-align:right;color:#1a7a4a;font-weight:700;">{r26['최고세율구간'
+[TXT] L11351: color:#1a7a4a | <td style="padding:7px 10px;text-align:right;color:#1a7a4a;font-weight:700;">{r26['산출세액']:
+[TXT] L11352: color:#1a7a4a | <td style="padding:7px 10px;text-align:right;color:#1a7a4a;font-weight:700;">-{saving:,.0f
+[TXT] L11355: color:#1a3a5c | border-radius:4px;font-size:0.82rem;color:#1a3a5c;">
+[TXT] L11432: color:#1a3a5c | <br><b style="color:#1a3a5c;">✅ 방어 전략:</b><br>{strats}
+[TXT] L11448: color:#1a1a2e | font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+[TXT] L11449: color:#1a3a5c | <b style="color:#1a3a5c;">【자필유언장 필수 요건】 민법 제1066조</b><br>
+[TXT] L11616: color: #000000 | color: #000000 !important;
+[TXT] L11619: color: #000000 | color: #000000 !important;
+[TXT] L11625: color: #1565C0 | color: #1565C0 !important;
+[TXT] L11632: color: #000000 | color: #000000 !important;
+[TXT] L11641: color: #2E7D32 | border-color: #2E7D32 !important;
+[TXT] L11644: color: #2E7D32 | .gk-sky-trust.gk-gap-safe .gk-st-title { color: #2E7D32 !important; }
+[BG] L11905: background:#2e6da4 | '<button id="gk-extend-btn" style="flex:1;background:#2e6da4;color:#fff;border:none;border
+[TXT] L12695: color: #0ea5e9 | border-color: #0ea5e9 !important;
+[TXT] L12702: color: #0f172a | color: #0f172a !important;
+[TXT] L12706: color: #0ea5e9 | border-color: #0ea5e9 !important;
+[TXT] L12726: color: #0ea5e9 | border-color: #0ea5e9 !important;
+[TXT] L12736: color: #1e293b | color: #1e293b !important;
+[TXT] L12770: color: #0f172a | .gk-card-title { font-size: 1.12rem !important; font-weight: 900 !important; color: #0f172
+[TXT] L12771: color: #334155 | .gk-card-desc  { font-size: 0.82rem !important; color: #334155 !important; line-height: 1.
+[TXT] L12806: color: #1e3a5f | color: #1e3a5f;
+[TXT] L12871: color: #0369a1 | color: #0369a1 !important;
+[TXT] L12877: color: #16a34a | .gk-countup.success { color: #16a34a !important; }
+[TXT] L12956: color: #0f172a | color: #0f172a !important;
+[TXT] L12985: color: #333333 | color: #333333 !important;
+[TXT] L12997: color: #333333 | color: #333333 !important;
+[TXT] L13001: color: #1a1a2e | color: #1a1a2e !important;
+[TXT] L13037: color: #1a3a5c | color: #1a3a5c !important;
+[TXT] L13128: color: #1a3a5c | color: #1a3a5c !important;
+[TXT] L13377: color: #000000 | color: #000000 !important;
+[TXT] L13383: color: #000000 | color: #000000 !important;
+[TXT] L13391: color: #000000 | color: #000000 !important;
+[BG] L13395: background: #000000 | background: #000000 !important;
+[BG] L13407: background: #000000 | background: #000000;
+[BG] L13427: background: #000000 | background: #000000;
+[TXT] L13443: color: #0369a1 | color: #0369a1 !important;
+[TXT] L13450: color: #15803d | .gk-kpi.success { color: #15803d !important; }
+[TXT] L13457: color: #000000 | color: #000000 !important;
+[TXT] L13467: color: #2E7D32 | border-color: #2E7D32 !important;
+[TXT] L13474: color: #1565C0 | color: #1565C0 !important;
+[TXT] L13478: color: #1B5E20 | .gk-sky-trust.gk-gap-safe   .gk-st-title { color: #1B5E20 !important; }
+[TXT] L13482: color: #000000 | color: #000000 !important;
+[TXT] L13567: color:#1e3a5f | 'color:#1e3a5f',
+[BG] L13704: background:#000000 | 'background:#000000','color:#ffffff','font-size:1.05rem',
+[BG] L13725: background:#444 | 'background:#444','color:#ffffff','font-size:1.0rem',
+[TXT] L13792: color:#1a2d5a | <div style="font-size:0.95rem;font-weight:800;color:#1a2d5a;letter-spacing:0.02em;">
+[TXT] L14048: color: #0D47A1 | color: #0D47A1 !important;
+[TXT] L14070: color:#0a1628 | <div style='color:#0a1628;font-size:1.0rem;font-weight:800;'>안전한 서비스 이용을 위해<br>약관 동의가 필요합니
+[TXT] L14078: color:#1e293b | color:#1e293b;font-weight:700;text-align:center;'>
+[TXT] L14089: color:#0a1628 | st.markdown("<div style='padding-top:4px;font-size:0.95rem;font-weight:800;color:#0a1628;'
+[TXT] L14137: color:#1a3a5c | padding:9px 12px;margin:8px 0 4px 0;font-size:0.78rem;color:#1a3a5c;'>
+[TXT] L14154: color: #000000 | color: #000000 !important;
+[TXT] L14159: color: #1565C0 | color: #1565C0 !important;
+[TXT] L14295: color:#004D40 | <div style='color:#004D40;font-size:0.8rem;font-weight:700;letter-spacing:0.08em;'>🛡️ 가문 안
+[TXT] L14495: color:#1a3a5c | <div style='font-size:2.2rem;font-weight:900;letter-spacing:8px;color:#1a3a5c;'>{_otp_targ
+[TXT] L14509: color: #1a3a5c | color: #1a3a5c !important;
+[TXT] L14519: color:#0369a1 | <div style='font-size:0.85rem;font-weight:800;color:#0369a1;margin-bottom:2px;'>🔢 6자리 인증번호
+[TXT] L14562: color:#0a1628 | <div style='color:#0a1628;font-size:1rem;font-weight:800;'>회원가입</div>
+
+... 이하 641건 생략

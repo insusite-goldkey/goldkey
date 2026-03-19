@@ -257,6 +257,10 @@ def initialize_session():
         '_open_sidebar':      False,
         '_login_welcome':     False,
         '_auto_close_sidebar': False,
+        # ── [RBAC + Dual Workspace] 신규 키 ──────────────────────────
+        'user_role':          'agent',   # 'customer' | 'agent' | 'admin'
+        'workspace':          'HQ',      # 'HQ' | 'CRM'
+        'crm_context':        {},        # CRM→HQ 딥 라우팅 시 고객 컨텍스트
     }
     for _k, _v in _defaults.items():
         if _k not in st.session_state:
@@ -29328,6 +29332,13 @@ footer, footer * { display: none !important; }
                         st.session_state.user_name = ln
                         st.session_state.join_date = _jd
                         st.session_state.is_admin  = _adm
+                        # [RBAC] 로그인 시 역할 확정 저장
+                        _lp_pro = st.session_state.get("_lp_is_pro", "비종사자")
+                        st.session_state["user_role"] = (
+                            "admin" if _adm else
+                            "agent" if _lp_pro == "종사자" else
+                            "customer"
+                        )
                         st.session_state["_mic_notice"]         = True
                         st.session_state["_login_welcome"]      = ln
                         st.session_state["_login_just_done"]    = True
@@ -29357,7 +29368,7 @@ footer, footer * { display: none !important; }
                         # [제39조 §3] 로그인 성공 → 세션 캐시 저장 (다음 구동 시 즉시 복원용)
                         _s39_save_session_cache(
                             user_id=m["user_id"], user_name=ln,
-                            user_role="agent" if _adm else "customer"
+                            user_role=st.session_state.get("user_role", "customer")
                         )
                         # 로그인 단계 초기화 — [제37조] Phase A/B 관련 키만 정리
                         for _k in ["_lp","_lp_name","_lp_otp","_lp_methods",
@@ -34293,6 +34304,168 @@ watchRipple();
   </div>
 </div>""", unsafe_allow_html=True)
         st.stop()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [RBAC §1] customer 전용 AI 브리핑 리포트 화면
+    # ══════════════════════════════════════════════════════════════════════
+    def _render_customer_briefing_report():
+        _c_name = st.session_state.get("user_name", "고객")
+        st.markdown(
+            f'<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);'
+            'border-radius:16px;padding:24px 20px;text-align:center;margin-bottom:16px;">'
+            '<div style="font-size:1.6rem;font-weight:900;color:#FFD700;margin-bottom:6px;">'
+            '📊 AI 브리핑 리포트</div>'
+            f'<div style="font-size:0.9rem;color:#bfdbfe;">{_c_name} 고객님의 맞춤 분석 결과</div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        st.info("💡 골드키 AI가 분석한 고객님의 소득 기반 보장 공백 브리핑 리포트입니다.")
+        _ctx_c = st.session_state.get("crm_context") or {}
+        if _ctx_c.get("이름"):
+            st.markdown(f"**👤 상담 고객:** {_ctx_c['이름']}")
+        st.markdown("---")
+        st.markdown("#### 📌 주요 보장 현황")
+        try:
+            import pandas as _pd_rpt
+            _rpt_df = _pd_rpt.DataFrame({
+                "항목": ["사망 보장", "암 진단비", "실손 의료비", "소득 대체율"],
+                "현재 상태": ["미가입", "미가입", "미가입", "0%"],
+                "권장 수준": ["1억 이상", "3천만원 이상", "가입 필수", "70% 이상"],
+            })
+            st.dataframe(_rpt_df, use_container_width=True, hide_index=True)
+        except Exception:
+            st.warning("리포트 데이터를 불러오는 중입니다.")
+        st.markdown("---")
+        if st.button("🚪 로그아웃", key="_cust_logout_btn"):
+            st.session_state.clear()
+            st.rerun()
+
+    # ── [RBAC §2] 사용자 역할 분기 ────────────────────────────────────────
+    _user_role = st.session_state.get("user_role", "agent")
+    if _user_role == "customer":
+        _render_customer_briefing_report()
+        st.stop()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # [RBAC §3] agent / admin — 듀얼 워크스페이스 헤더
+    # ══════════════════════════════════════════════════════════════════════
+
+    def jump_to_hq_tab(customer_data: dict, target_tab: str):
+        """CRM에서 선택한 고객을 들고 HQ의 특정 기능으로 순간이동"""
+        st.session_state["workspace"]         = "HQ"
+        st.session_state["crm_context"]       = customer_data
+        st.session_state["selected_customer"] = customer_data
+        st.session_state["current_tab"]       = target_tab
+        st.rerun()
+
+    def _render_hq_crm_portal():
+        """HQ 내 경량 CRM 포털 — 고객 컨텍스트 선택 + HQ 딥 라우팅"""
+        st.markdown("## 📊 CRM 백오피스 모드")
+        st.caption("고객 현황을 관리하고 HQ 분석 엔진으로 즉시 실행합니다.")
+        _now_ts2 = __import__("time").time()
+        _cache_age2 = _now_ts2 - st.session_state.get("_crm_cache_ts", 0)
+        if _cache_age2 > 120 or "_crm_customers_cache" not in st.session_state:
+            try:
+                import shared_components as _sc_crm
+                _sb2 = _sc_crm.get_supabase_client()
+                _res2 = _sb2.table("gk_customers").select("*").limit(200).execute()
+                st.session_state["_crm_customers_cache"] = _res2.data or []
+            except Exception:
+                st.session_state["_crm_customers_cache"] = []
+            st.session_state["_crm_cache_ts"] = _now_ts2
+        _customers2 = st.session_state.get("_crm_customers_cache", [])
+        if _customers2:
+            try:
+                import pandas as _pd_crm
+                _df_crm = _pd_crm.DataFrame(_customers2)
+                _show_cols = [c for c in ["name", "contact_enc", "job", "created_at"]
+                              if c in _df_crm.columns]
+                _df_show = _df_crm[_show_cols] if _show_cols else _df_crm
+                _page_sz = 20
+                _total2  = len(_df_show)
+                _npages2 = max(1, (_total2 + _page_sz - 1) // _page_sz)
+                _cur_pg2 = int(st.number_input(
+                    "페이지", 1, _npages2,
+                    st.session_state.get("_crm_pg", 1),
+                    key="_crm_pg_input"
+                ))
+                st.session_state["_crm_pg"] = _cur_pg2
+                _s2 = (_cur_pg2 - 1) * _page_sz
+                st.dataframe(_df_show.iloc[_s2:_s2 + _page_sz],
+                             use_container_width=True, hide_index=True)
+                st.caption(f"총 {_total2}명 · {_cur_pg2}/{_npages2} 페이지")
+            except Exception as _e2:
+                st.warning(f"고객 목록 로드 오류: {_e2}")
+        else:
+            st.info("등록된 고객이 없습니다.")
+        st.markdown("---")
+        st.markdown("#### 🚀 HQ 엔진 딥 라우팅")
+        _ctx3 = st.session_state.get("crm_context") or {}
+        _sel_nm = st.text_input(
+            "고객 이름 입력", value=_ctx3.get("이름", ""),
+            key="_crm_sel_nm", placeholder="예: 홍길동"
+        )
+        _hq_tab_map = {
+            "내보험다보여 (증권 크롤링)": "home",
+            "트리니티 리포트": "home",
+            "AI 보장 분석": "home",
+            "실손 청구 도우미": "claim_scanner",
+            "전략 전쟁실": "war_room",
+        }
+        _sel_hq_tab_lbl = st.selectbox(
+            "이동할 HQ 기능 선택", list(_hq_tab_map.keys()), key="_crm_hq_tab_sel"
+        )
+        if st.button(
+            f"🚀 [{_sel_nm or '고객'} 님] {_sel_hq_tab_lbl} 실행",
+            key="_crm_deep_btn", use_container_width=True, type="primary",
+            disabled=not bool(_sel_nm)
+        ):
+            jump_to_hq_tab(
+                customer_data={"이름": _sel_nm},
+                target_tab=_hq_tab_map[_sel_hq_tab_lbl]
+            )
+        st.markdown("---")
+        st.caption("💡 전체 CRM 기능은 CRM 전용 앱(goldkey-crm)에서 이용하세요.")
+
+    # ── 워크스페이스 전환 토글 바 (agent/admin 최상단) ────────────────────
+    _ws = st.session_state.get("workspace", "HQ")
+    _ws_c1, _ws_c2, _ws_c3 = st.columns([3, 4, 3])
+    with _ws_c1:
+        _r_badge = "🔑 관리자" if _user_role == "admin" else "👔 설계사"
+        st.markdown(
+            f'<div style="font-size:0.8rem;color:#6b7280;padding:5px 0;">'
+            f'👤 {st.session_state.get("user_name","마스터")} {_r_badge}</div>',
+            unsafe_allow_html=True
+        )
+    with _ws_c2:
+        _ws_html = (
+            '<div style="text-align:center;"><span style="background:#1e3a8a;color:#fff;'
+            'padding:5px 16px;border-radius:20px;font-weight:800;font-size:0.85rem;'
+            'box-shadow:0 2px 8px rgba(30,58,138,0.3);">🎯 HQ 컨설팅 모드</span></div>'
+            if _ws == "HQ" else
+            '<div style="text-align:center;"><span style="background:#064e3b;color:#fff;'
+            'padding:5px 16px;border-radius:20px;font-weight:800;font-size:0.85rem;'
+            'box-shadow:0 2px 8px rgba(6,78,59,0.3);">📊 CRM 백오피스 모드</span></div>'
+        )
+        st.markdown(_ws_html, unsafe_allow_html=True)
+    with _ws_c3:
+        if st.button(
+            "🔄 CRM 모드로" if _ws == "HQ" else "🔄 HQ 모드로",
+            key="_ws_toggle_btn", use_container_width=True
+        ):
+            st.session_state["workspace"] = "CRM" if _ws == "HQ" else "HQ"
+            st.rerun()
+    st.markdown(
+        '<hr style="margin:2px 0 10px 0;border:none;border-top:1px solid #e5e7eb;"/>',
+        unsafe_allow_html=True
+    )
+
+    # ── [WORKSPACE CRM] CRM 백오피스 모드 진입 → HQ 라우팅 차단 ─────────────
+    if _ws == "CRM":
+        _render_hq_crm_portal()
+        st.stop()
+
+    # ── [WORKSPACE HQ] 기존 HQ 라우팅 계속 진행 ──────────────────────────────
 
     if not st.session_state.get("_gk_session_init"):
         st.session_state.current_tab = "home"

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="64" fill="#1e3a5f"/>
+
+  <!-- Gold ring accent -->
+  <circle cx="64" cy="64" r="60" fill="none" stroke="#f0c040" stroke-width="2" opacity="0.6"/>
+
+  <!-- Body / suit jacket -->
+  <ellipse cx="64" cy="108" rx="34" ry="26" fill="#1e3a5f"/>
+  <!-- Jacket lapels -->
+  <path d="M64 88 L52 78 L48 108 L64 98 L80 108 L76 78 Z" fill="#152d4a"/>
+  <!-- White shirt / blouse -->
+  <path d="M64 88 L57 80 L60 108 L64 96 L68 108 L71 80 Z" fill="#f1f5f9"/>
+
+  <!-- Neck -->
+  <rect x="59" y="70" width="10" height="14" rx="5" fill="#f5cba7"/>
+
+  <!-- Head -->
+  <ellipse cx="64" cy="56" rx="22" ry="24" fill="#f5cba7"/>
+
+  <!-- Hair — elegant bob cut -->
+  <path d="M42 52 Q40 30 64 28 Q88 30 86 52 Q86 38 64 36 Q42 38 42 52 Z" fill="#2c1810"/>
+  <!-- Side hair volume -->
+  <path d="M42 52 Q38 60 40 72 Q44 68 46 62 Z" fill="#2c1810"/>
+  <path d="M86 52 Q90 60 88 72 Q84 68 82 62 Z" fill="#2c1810"/>
+  <!-- Hair top flow -->
+  <path d="M46 44 Q50 28 64 26 Q78 28 82 44 Q76 32 64 30 Q52 32 46 44 Z" fill="#3d2314"/>
+
+  <!-- Eyes -->
+  <ellipse cx="55" cy="54" rx="4" ry="4.5" fill="white"/>
+  <ellipse cx="73" cy="54" rx="4" ry="4.5" fill="white"/>
+  <circle cx="56" cy="55" r="2.5" fill="#2c1810"/>
+  <circle cx="74" cy="55" r="2.5" fill="#2c1810"/>
+  <!-- Eye shine -->
+  <circle cx="57" cy="53.5" r="0.9" fill="white"/>
+  <circle cx="75" cy="53.5" r="0.9" fill="white"/>
+  <!-- Eyelashes (upper) -->
+  <path d="M51 51 Q55 49 59 51" fill="none" stroke="#2c1810" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M69 51 Q73 49 77 51" fill="none" stroke="#2c1810" stroke-width="1.2" stroke-linecap="round"/>
+
+  <!-- Eyebrows -->
+  <path d="M51 49 Q55 47 59 49" fill="none" stroke="#2c1810" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M69 49 Q73 47 77 49" fill="none" stroke="#2c1810" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Nose -->
+  <path d="M62 60 Q64 64 66 60" fill="none" stroke="#d4956a" stroke-width="1" stroke-linecap="round"/>
+
+  <!-- Lips -->
+  <path d="M57 68 Q64 72 71 68" fill="#e07070" stroke="none"/>
+  <path d="M57 68 Q64 65 71 68" fill="#c85a5a" stroke="none"/>
+
+  <!-- Blush -->
+  <ellipse cx="50" cy="62" rx="5" ry="3" fill="#f4a0a0" opacity="0.35"/>
+  <ellipse cx="78" cy="62" rx="5" ry="3" fill="#f4a0a0" opacity="0.35"/>
+
+  <!-- Earrings (gold) -->
+  <circle cx="42" cy="62" r="2.5" fill="#f0c040"/>
+  <circle cx="86" cy="62" r="2.5" fill="#f0c040"/>
+
+  <!-- Gold key badge (bottom right) -->
+  <circle cx="100" cy="100" r="16" fill="#f0c040"/>
+  <text x="100" y="106" font-size="16" text-anchor="middle" fill="#1e3a5f" font-weight="bold">GK</text>
+</svg>

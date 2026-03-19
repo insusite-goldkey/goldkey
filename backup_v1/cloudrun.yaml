@@ -1,0 +1,35 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: goldkey-ai
+spec:
+  template:
+    metadata:
+      annotations:
+        # 최소 인스턴스 1 유지 → 콜드 스타트 완전 제거
+        autoscaling.knative.dev/minScale: "1"
+        # 최대 인스턴스 (무료 티어 초과 방지)
+        autoscaling.knative.dev/maxScale: "3"
+        # 요청 타임아웃 300초 (기본 60초 → 연장)
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      # 컨테이너 요청 타임아웃 300초
+      timeoutSeconds: 300
+      containers:
+        - image: gcr.io/PROJECT_ID/goldkey-ai
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              # 무료 티어 범위 내 메모리
+              memory: 512Mi
+              cpu: "1"
+          env:
+            - name: PYTHONIOENCODING
+              value: "utf-8"
+            - name: PYTHONUTF8
+              value: "1"
+            - name: LANG
+              value: "ko_KR.UTF-8"
+            - name: LC_ALL
+              value: "ko_KR.UTF-8"

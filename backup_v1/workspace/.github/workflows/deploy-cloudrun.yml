@@ -1,0 +1,96 @@
+name: Deploy to Google Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  GCP_PROJECT: gen-lang-client-0777682955
+  REGION: asia-northeast3
+  SERVICE: goldkey-ai
+  REPO: goldkey
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Create Artifact Registry repository (if not exists)
+        run: |
+          gcloud artifacts repositories describe ${{ env.REPO }} \
+            --location=${{ env.REGION }} --project=${{ env.GCP_PROJECT }} \
+            --quiet 2>/dev/null || \
+          gcloud artifacts repositories create ${{ env.REPO }} \
+            --repository-format=docker \
+            --location=${{ env.REGION }} \
+            --project=${{ env.GCP_PROJECT }} \
+            --quiet
+
+      - name: Build and Push Docker image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Deploy to Cloud Run
+        run: |
+          ENVVARS="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
+          ENVVARS="$ENVVARS,SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
+          ENVVARS="$ENVVARS,SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+          ENVVARS="$ENVVARS,ADMIN_CODE=${{ secrets.ADMIN_CODE || 'kgagold6803' }}"
+          ENVVARS="$ENVVARS,MASTER_CODE=${{ secrets.MASTER_CODE || 'kgagold6803' }}"
+          ENVVARS="$ENVVARS,ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}"
+          ENVVARS="$ENVVARS,GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}"
+          ENVVARS="$ENVVARS,FINLIFE_API_KEY=${{ secrets.FINLIFE_API_KEY }}"
+          ENVVARS="$ENVVARS,KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}"
+          ENVVARS="$ENVVARS,KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI || 'https://goldkey-ai-817097913199.asia-northeast3.run.app/' }}"
+          ENVVARS="$ENVVARS,KAKAO_API_KEY=${{ secrets.KAKAO_API_KEY }}"
+          ENVVARS="$ENVVARS,KAKAO_SENDER_KEY=${{ secrets.KAKAO_SENDER_KEY }}"
+          ENVVARS="$ENVVARS,KAKAO_TEMPLATE_ID=${{ secrets.KAKAO_TEMPLATE_ID || 'goldkey_report_v1' }}"
+          ENVVARS="$ENVVARS,SMS_API_KEY=${{ secrets.SMS_API_KEY }}"
+          ENVVARS="$ENVVARS,SMS_API_SECRET=${{ secrets.SMS_API_SECRET }}"
+          ENVVARS="$ENVVARS,SMS_SENDER_NUM=${{ secrets.SMS_SENDER_NUM }}"
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image "$IMAGE" \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --memory 2Gi \
+            --cpu 2 \
+            --concurrency 80 \
+            --min-instances 1 \
+            --max-instances 3 \
+            --port 8080 \
+            --timeout 300 \
+            --session-affinity \
+            --set-env-vars "$ENVVARS" \
+            --service-account "github-deploy@gen-lang-client-0777682955.iam.gserviceaccount.com" \
+            --project ${{ env.GCP_PROJECT }}
+
+      - name: Show service URL
+        run: |
+          gcloud run services describe ${{ env.SERVICE }} \
+            --region ${{ env.REGION }} \
+            --project ${{ env.GCP_PROJECT }} \
+            --format="value(status.url)"

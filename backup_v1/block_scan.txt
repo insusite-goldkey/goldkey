@@ -1,0 +1,598 @@
+Total lines: 59712
+Total markers found: 595
+
+[    17] DEF_FUNC        | def get_base64_image(path: str) -> str:
+[   104] BLOCK_SEP       | #  ==========================================================
+[   106] SUB_SEP         | # ----------------------------------------------------------
+[   145] BLOCK_SEP       | # ==========================================================
+[   148] SUB_SEP         | # ----------------------------------------------------------
+[   154] BLOCK_SEP       | # ==========================================================
+[   242] DEF_FUNC        | def get_env_secret(key: str, default_value: str = "") -> str:
+[   250] DEF_FUNC        | def initialize_session():
+[   288] DEF_FUNC        | def _lazy_pd():
+[   293] DEF_FUNC        | def _lazy_pil_image():
+[   298] DEF_FUNC        | def _lazy_fernet():
+[   303] DEF_FUNC        | def _lazy_genai():
+[   307] DEF_FUNC        | def _lazy_genai_types():
+[   312] DEF_FUNC        | def _lazy_ftfy():
+[   322] DEF_FUNC        | def _load_smart_scanner():
+[   334] DEF_FUNC        | def render_smart_scanner(*a, **kw):
+[   336] DEF_FUNC        | def render_scan_report(*a, **kw):
+[   338] DEF_FUNC        | def render_ssot_banner(*a, **kw):
+[   340] DEF_FUNC        | def render_legal_scanner(*a, **kw):
+[   342] DEF_FUNC        | def render_legal_report(*a, **kw):
+[   345] BLOCK_SEP       | # ==========================================================
+[   350] BLOCK_SEP       | # ==========================================================
+[   357] DEF_FUNC        | def _install_playwright_bg():
+[   372] DEF_FUNC        | def _safe_str(obj) -> str:
+[   395] DEF_FUNC        | def _check_pdf():
+[   405] BLOCK_SEP       | # ==========================================================
+[   410] BLOCK_SEP       | # ==========================================================
+[   427] BLOCK_SEP       | # ==========================================================================
+[   432] BLOCK_SEP       | # ==========================================================================
+[   473] BLOCK_SEP       | # ==========================================================================
+[   475] SUB_SEP         | # --------------------------------------------------------------------------
+[   476] SECTION_HDR     | # [SECTION 0] 앱 아이덴티티 상수
+[   477] SUB_SEP         | # --------------------------------------------------------------------------
+[   691] DEF_FUNC        | def _bid(bid: str) -> str:
+[   708] DEF_FUNC        | def _is_guest() -> bool:
+[   713] DEF_FUNC        | def _guest_block_modal(feature_name: str = "") -> bool:
+[   780] DEF_FUNC        | def _art34_load_rates() -> dict:
+[   835] DEF_FUNC        | def _art34_update_rate(
+[   875] DEF_FUNC        | def _art34_rate_banner_html() -> str:
+[   888] DEF_FUNC        | def _art34_report_footer() -> str:
+[   898] BLOCK_SEP       | # ==========================================================================
+[   901] BLOCK_SEP       | # ==========================================================================
+[  1009] DEF_FUNC        | def gp200_brand_footer(session_state=None) -> str:
+[  1045] DEF_FUNC        | def gp200_search_companies(query: str, limit: int = 8) -> list:
+[  1063] NAV_SECTION     | # [CORP-AC] 법인 상호 자동완성 엔진
+[  1131] DEF_FUNC        | def _corp_search(query: str, limit: int = 8) -> list[dict]:
+[  1153] DEF_FUNC        | def _corp_search_rag(query: str, rag_store: "dict | None", limit: int = 4) -> list[dict]:
+[  1181] DEF_FUNC        | def render_corp_autocomplete(
+[  1281] GP_TAG          | # [GP-JOB] 계층형 보험 직업분류 DB (보험개발원 표준, 대-중-소분류 + 상해급수)
+[  1283] BLOCK_SEP       | # =====================================================================
+[  1284] NAV_SECTION     | # [HIRA-KCD §1] 심평원 질병마스터 API 엔진 + KCD 자동완성 UI
+[  1285] NAV_SECTION     | # [LAW-API §1]  국가법령정보센터 API 엔진 (OC=goldkey)
+[  1286] BLOCK_SEP       | # =====================================================================
+[  1288] DEF_FUNC        | def _hira_get_key() -> str:
+[  1350] DEF_FUNC        | def _hira_disease_search(query: str, limit: int = 10) -> list:
+[  1439] DEF_FUNC        | def _kcd_get_coverage(kcd_code: str) -> dict:
+[  1448] DEF_FUNC        | def render_kcd_autocomplete(
+[  1558] BLOCK_SEP       | # =====================================================================
+[  1559] NAV_SECTION     | # [LAW-API §1] 국가법령정보센터 API 엔진 (OC=goldkey, user=insusite@gmail.com)
+[  1560] BLOCK_SEP       | # =====================================================================
+[  1562] DEF_FUNC        | def _law_get_oc() -> str:
+[  1620] DEF_FUNC        | def _law_search(query: str, limit: int = 8) -> list:
+[  1668] DEF_FUNC        | def _law_get_linked(kcd_code: str) -> list:
+[  1678] DEF_FUNC        | def render_law_search(
+[  1919] DEF_FUNC        | def _job_search(query: str, limit: int = 8) -> list:
+[  1933] DEF_FUNC        | def render_job_navigator(session_prefix: str = "job_nav", compact: bool = False) -> dict:
+[  2271] DEF_FUNC        | def _art35_calc_report(nhis_premium: float, disease_key: str = "alzheimer",
+[  2337] DEF_FUNC        | def _art32_calc(nhis_premium: float) -> dict:
+[  2366] DEF_FUNC        | def _art32_briefing(nhis_premium: float, fss_type: str = "disease") -> str:
+[  2397] DEF_FUNC        | def _art62_calc(
+[  2528] DEF_FUNC        | def _art63_vulnerable(actual_man: float, target_man: float) -> bool:
+[  2578] DEF_FUNC        | def _gp64_load(force: bool = False) -> bool:
+[  2612] DEF_FUNC        | def _gp64_save(new_cfg: dict, updated_by: str = "관리자") -> bool:
+[  2686] DEF_FUNC        | def _s39_save_session_cache(user_id: str, user_name: str,
+[  2707] DEF_FUNC        | def _s39_load_session_cache() -> dict | None:
+[  2734] DEF_FUNC        | def _s39_sidebar_skeleton(lines: int = 3) -> str:
+[  2747] DEF_FUNC        | def _s39_sidebar_shell_html() -> str:
+[  2777] DEF_FUNC        | def _s39_load_splash_b64(filename: str) -> str:
+[  2809] DEF_FUNC        | def _s39_render_landing_page() -> None:
+[  3015] DEF_FUNC        | def _s39_prefetch_auth() -> None:
+[  3052] DEF_FUNC        | def _gp140_save_token_js(user_id: str, user_name: str,
+[  3078] DEF_FUNC        | def _gp140_clear_token_js() -> str:
+[  3091] DEF_FUNC        | def _gp140_save_tab_js(tab_key: str) -> str:
+[  3103] DEF_FUNC        | def _gp140_restore_from_ls() -> bool:
+[  3173] DEF_FUNC        | def _gp140_safe_user_name(fallback: str = _GP140_ANON_NAME) -> str:
+[  3286] GP_TAG          |                "visibility": "private"},  # [GP-45] HF URL 폐기 — GCS 전용
+[  3338] DEF_FUNC        | def gp_label(gp_id: str) -> str:
+[  3348] GP_TAG          | # [GP-44] 중앙 집중형 두뇌 관리 및 지능형 이중 배포 원칙
+[  3349] GP_TAG          | # [GP-45] Cloud Run 로컬 rules.json → 앱 재빌드 없이 가이딩 프로토콜 실시간 반영
+[  3352] GP_TAG          | _ART44_HF_URL         = ""  # [GP-45] HF CDN 영구 금지 — GCS 전용 구동 원칙
+[  3360] DEF_FUNC        | def _art44_ota_sync(force: bool = False) -> dict:
+[  3396] DEF_FUNC        | def _art44_apply_rules(rules: dict) -> None:
+[  3433] DEF_FUNC        | def _art44_get_flag(flag_name: str, default: bool = True) -> bool:
+[  3442] DEF_FUNC        | def _art44_rules_info() -> dict:
+[  3476] DEF_FUNC        | def _art43_calc_security_index(nhis_premium: float = 0) -> dict:
+[  3496] DEF_FUNC        | def _art43_build_report_html(
+[  3925] DEF_FUNC        | def _art43_get_pending_wisdom_latest(limit: int = 5) -> list:
+[  3948] DEF_FUNC        | def _art43_render_tab() -> None:
+[  4088] DEF_FUNC        | def _s40_record_blocking(label: str, elapsed_ms: float) -> None:
+[  4109] DEF_FUNC        | def _s40_perf_watchdog_js(tab_key: str = "") -> str:
+[  4147] DEF_FUNC        | def _s40_read_ls_perf_js() -> str:
+[  4165] DEF_FUNC        | def _s40_night_report() -> dict:
+[  4195] DEF_FUNC        | def _s40_ls_cache_put_js(cache_key: str, value_json: str, ttl_hours: int = 24) -> str:
+[  4216] DEF_FUNC        | def _s40_ls_cache_get_js(cache_key: str, on_hit_js: str = "") -> str:
+[  4240] DEF_FUNC        | def _art38_extract_keywords(text: str) -> list[str]:
+[  4273] DEF_FUNC        | def _art38_log_pending(question: str, context: str = "", user_id: str = "") -> None:
+[  4335] DEF_FUNC        | def _art38_is_pending_response(llm_text: str) -> bool:
+[  4348] DEF_FUNC        | def _art38_consulting_cache_key(question: str) -> str:
+[  4355] DEF_FUNC        | def _art38_cache_get(question: str) -> dict | None:
+[  4393] DEF_FUNC        | def _art38_cache_put(question: str, answer: str, source: str = "night_worker") -> None:
+[  4435] DEF_FUNC        | def _art38_load_wisdom() -> list:
+[  4479] DEF_FUNC        | def _art38_mark_wisdom_shown() -> None:
+[  4511] DEF_FUNC        | def _art38_insight_banner_html() -> str:
+[  4543] DEF_FUNC        | def _art38_skeleton_html(lines: int = 3, width: str = "100%") -> str:
+[  4564] DEF_FUNC        | def _art38_night_worker() -> dict:
+[  4738] DEF_FUNC        | def _art34_load_rates() -> dict:
+[  4802] DEF_FUNC        | def _art34_update_rate(nhis_rate: float, ltci_rate: float, source: str = "") -> bool:
+[  4847] DEF_FUNC        | def _art34_rate_banner_html() -> str:
+[  4870] DEF_FUNC        | def _art34_report_footer() -> str:
+[  4879] SUB_SEP         | # --------------------------------------------------------------------------
+[  4880] SECTION_HDR     | # [SECTION 1] 보안 및 암호화 엔진
+[  4881] SUB_SEP         | # --------------------------------------------------------------------------
+[  4884] DEF_FUNC        | def get_encryption_key():
+[  4893] DEF_FUNC        | def get_cipher():
+[  4899] DEF_FUNC        | def encrypt_val(data):
+[  4902] DEF_FUNC        | def decrypt_val(data):
+[  4908] DEF_FUNC        | def encrypt_data(data):
+[  4912] DEF_FUNC        | def decrypt_data(stored_hash, input_data):
+[  4922] DEF_FUNC        | def encrypt_contact(contact):
+[  4925] DEF_FUNC        | def sanitize_unicode(text) -> str:
+[  4956] DEF_FUNC        | def normalize_corp_name(name: str) -> str:
+[  4976] DEF_FUNC        | def detect_corp_name_conflict(new_name: str, registry: dict) -> tuple[str | None, str]:
+[  5017] DEF_FUNC        | def _crm_init(reg: dict, name: str) -> dict:
+[  5025] DEF_FUNC        | def crm_get_profile(reg: dict, name: str) -> dict:
+[  5030] DEF_FUNC        | def hoffman_coeff(n_months: float, rate: float = 0.05) -> float:
+[  5038] DEF_FUNC        | def classify_injury_type(text: str) -> str:
+[  5049] DEF_FUNC        | def calculate_insurance_gap(
+[  5188] DEF_FUNC        | def kcd_lookup(keyword: str) -> dict:
+[  5201] DEF_FUNC        | def get_disability_method_guide(injury_type: str) -> dict:
+[  5247] DEF_FUNC        | def crm_set_profile(reg: dict, name: str, **kwargs):
+[  5280] DEF_FUNC        | def crm_search(reg: dict, query: str) -> list[dict]:
+[  5309] DEF_FUNC        | def crm_get_related(reg: dict, name: str) -> dict:
+[  5354] DEF_FUNC        | def crm_context_for_prompt(reg: dict, name: str) -> str:
+[  5402] DEF_FUNC        | def crm_save_to_db(reg: dict, agent_uid: str) -> tuple[int, str]:
+[  5432] DEF_FUNC        | def crm_load_from_db(agent_uid: str) -> dict:
+[  5459] DEF_FUNC        | def crm_sync_session(force: bool = False):
+[  5469] DEF_FUNC        | def crm_save_one(reg: dict, name: str, agent_uid: str):
+[  5486] DEF_FUNC        | def sanitize_prompt(text):
+[  5503] DEF_FUNC        | def get_admin_key():
+[  5507] DEF_FUNC        | def _check_admin_key(input_key: str) -> bool:
+[  5518] DEF_FUNC        | def get_admin_code():
+[  5522] SUB_SEP         | # --------------------------------------------------------------------------
+[  5523] SECTION_HDR     | # [SECTION 1.8] Brute-force 로그인 방어 — _LoginGuard
+[  5524] SUB_SEP         | # --------------------------------------------------------------------------
+[  5526] DEF_FUNC        | def _get_login_fail_store():
+[  5580] SUB_SEP         | # --------------------------------------------------------------------------
+[  5581] SECTION_HDR     | # [SECTION 1.5] 비상장주식 평가 엔진 (상증법 + 법인세법)
+[  5582] SUB_SEP         | # --------------------------------------------------------------------------
+[  5638] SUB_SEP         | # --------------------------------------------------------------------------
+[  5639] SECTION_HDR     | # [SECTION 1.6] CEO플랜 AI 프롬프트 상수
+[  5640] SUB_SEP         | # --------------------------------------------------------------------------
+[  5675] SUB_SEP         | # --------------------------------------------------------------------------
+[  5676] SECTION_HDR     | # [SECTION 2] 데이터베이스 및 회원 관리
+[  5677] SUB_SEP         | # --------------------------------------------------------------------------
+[  5678] DEF_FUNC        | def _get_db_conn(db_path: str):
+[  5688] DEF_FUNC        | def setup_database():
+[  5706] DEF_FUNC        | def _get_member_cache():
+[  5710] DEF_FUNC        | def load_members(force: bool = False):
+[  5756] DEF_FUNC        | def save_members(members):
+[  5814] DEF_FUNC        | def _gp75_save_device(user_name: str, fp_id: str, ua_hint: str = "") -> bool:
+[  5859] DEF_FUNC        | def _gp75_check_device(user_name: str, fp_id: str) -> dict:
+[  5912] DEF_FUNC        | def _gp75_get_all_devices(user_name: str) -> list:
+[  5941] DEF_FUNC        | def _gp512_check_and_record(fp_id: str) -> dict:
+[  6018] DEF_FUNC        | def _gp512_get_remaining(fp_id: str) -> int:
+[  6047] DEF_FUNC        | def _gp0_instant_bootstrap() -> None:
+[  6052] DEF_FUNC        | def _gp0_instant_bootstrap_DISABLED() -> None:
+[  6266] DEF_FUNC        | def _gp84_inject_global_css() -> None:
+[  6878] DEF_FUNC        | def _gp86_terminate_session() -> None:
+[  6918] DEF_FUNC        | def _gp82_render_nav_bar() -> None:
+[  6952] DEF_FUNC        | def _gp81_annotate(text: str) -> str:
+[  7061] DEF_FUNC        | def _gp81_detect_domain(term: str) -> str:
+[  7080] DEF_FUNC        | def _gp81_contract_impact(term: str) -> str:
+[  7100] DEF_FUNC        | def _gp81_build_answer(
+[  7316] DEF_FUNC        | def _pin_make_hash(pin: str) -> str:
+[  7321] DEF_FUNC        | def _pin_verify(pin: str, stored_hash: str) -> bool:
+[  7327] DEF_FUNC        | def save_member_pin(name: str, pin: str) -> bool:
+[  7349] DEF_FUNC        | def load_member_pin_hash(name: str) -> str:
+[  7365] DEF_FUNC        | def mask_name(name: str) -> str:
+[  7371] DEF_FUNC        | def ensure_master_members():
+[  7397] DEF_FUNC        | def _gp_aes_key(owner_contact: str) -> bytes:
+[  7405] DEF_FUNC        | def _gp_encrypt(plaintext: str, owner_contact: str) -> str:
+[  7430] DEF_FUNC        | def _gp_decrypt(ciphertext: str, owner_contact: str) -> str:
+[  7455] DEF_FUNC        | def _gp_watermark(data: dict, owner_contact: str, client_name: str = "") -> dict:
+[  7471] DEF_FUNC        | def _gp_verify_ownership(data: dict, current_contact: str) -> bool:
+[  7476] DEF_FUNC        | def _gp_pack_customer(
+[  7507] DEF_FUNC        | def _gp_recovery_map_load() -> dict:
+[  7525] DEF_FUNC        | def _gp_recovery_map_upsert(owner_contact: str, package_path: str, client_name: str = "") -> None:
+[  7554] DEF_FUNC        | def _gp_gcs_upload(
+[  7600] DEF_FUNC        | def _gp_auto_recover_by_contact(owner_contact: str) -> list:
+[  7607] DEF_FUNC        | def _gp_save_customer_package(
+[  7624] DEF_FUNC        | def _gp_session_loss_alert() -> None:
+[  7643] DEF_FUNC        | def add_member(name, contact):
+[  7702] SUB_SEP         | # --------------------------------------------------------------------------
+[  7703] SECTION_HDR     | # [SECTION 2-B] 동시접속 관리 + 회원수 임계치 알림
+[  7705] SUB_SEP         | # --------------------------------------------------------------------------
+[  7706] GP_TAG          | MAX_CONCURRENT = 105  # [GP-49] 기기당 1슬롯 × 최대 3기기 × 35명 기준 상향
+[  7708] GP_TAG          | # [GP-49] 로그인 사용자 1계정당 최대 허용 동시 기기 수
+[  7712] DEF_FUNC        | def _get_session_store():
+[  7720] DEF_FUNC        | def _get_alert_store():
+[  7724] DEF_FUNC        | def _session_checkin(session_id: str, user_id: str = "") -> bool:
+[  7744] GP_TAG          |     # [GP-49] 로그인 사용자 — MAX_CONCURRENT 면제, 기기 수만 확인
+[  7760] DEF_FUNC        | def _session_checkout(session_id: str):
+[  7764] DEF_FUNC        | def _get_concurrent_count() -> int:
+[  7769] DEF_FUNC        | def _get_session_remaining(session_id: str) -> int:
+[  7778] DEF_FUNC        | def _check_member_thresholds():
+[  7791] SUB_SEP         | # --------------------------------------------------------------------------
+[  7793] SUB_SEP         | # --------------------------------------------------------------------------
+[  7796] DEF_FUNC        | def log_error(source: str, message: str):
+[  7815] DEF_FUNC        | def load_error_log() -> list:
+[  7825] SUB_SEP         | # --------------------------------------------------------------------------
+[  7834] SUB_SEP         | # --------------------------------------------------------------------------
+[  7845] DEF_FUNC        | def _hybrid_enabled() -> bool:
+[  7848] DEF_FUNC        | def _hybrid_headers(jwt_token: str = "") -> dict:
+[  7854] DEF_FUNC        | def hybrid_login(email: str, password: str) -> dict:
+[  7869] DEF_FUNC        | def hybrid_get_public_companies() -> list:
+[  7881] DEF_FUNC        | def hybrid_get_private_files(uid: str, jwt_token: str) -> list:
+[  7895] DEF_FUNC        | def hybrid_rag_query(uid: str, jwt_token: str, query: str) -> str:
+[  7914] DEF_FUNC        | def hybrid_purge_user(uid: str, jwt_token: str) -> bool:
+[  7932] DEF_FUNC        | def _lazy_sb_create_client():
+[  7943] DEF_FUNC        | def _get_gcs_client_cached():
+[  7982] DEF_FUNC        | def _get_gcs_client():
+[  7989] DEF_FUNC        | def _get_gcs_cache_bucket():
+[  7997] DEF_FUNC        | def _gcs_cache_key(user_name: str, query: str, product_key: str) -> str:
+[  8003] DEF_FUNC        | def _gcs_cache_get(cache_key: str, question_hint: str = "") -> str | None:
+[  8054] DEF_FUNC        | def _gcs_cache_put(cache_key: str, answer: str) -> None:
+[  8076] DEF_FUNC        | def _gcs_cache_get_latest_user(user_name: str) -> str | None:
+[  8098] DEF_FUNC        | def _safe_mode_record_error():
+[  8104] DEF_FUNC        | def _safe_mode_reset():
+[  8110] DEF_FUNC        | def _get_sb_client_cached(url: str, key: str):
+[  8120] DEF_FUNC        | def _get_sb_client():
+[  8163] DEF_FUNC        | def get_service_manager():
+[  8167] DEF_FUNC        | def _build_gcs_path(doc_type: str, ins_co: str, year: str, file_name: str) -> str:
+[  8187] DEF_FUNC        | def gcs_upload_file(file_bytes: bytes, gcs_path: str,
+[  8217] DEF_FUNC        | def gcs_list_files(prefix: str = "") -> list:
+[  8257] DEF_FUNC        | def gcs_delete_file(gcs_path: str) -> bool:
+[  8269] SUB_SEP         | # --------------------------------------------------------------------------
+[  8274] SUB_SEP         | # --------------------------------------------------------------------------
+[  8294] DEF_FUNC        | def _build_customer_path(insured_name: str, category: str, filename: str, id6: str = "") -> str:
+[  8302] DEF_FUNC        | def customer_doc_save(file_bytes: bytes, filename: str, insured_name: str,
+[  8345] DEF_FUNC        | def customer_doc_list(insured_name: str = "") -> list:
+[  8358] DEF_FUNC        | def customer_doc_delete(doc_id: int, storage_path: str) -> bool:
+[  8373] DEF_FUNC        | def customer_doc_get_names() -> list:
+[  8394] SUB_SEP         | # --------------------------------------------------------------------------
+[  8395] GP_TAG          | # [GP-51] 설계사 프로필 개인화 시스템 (White Labeling)
+[  8398] SUB_SEP         | # --------------------------------------------------------------------------
+[  8420] DEF_FUNC        | def _ensure_agent_profile_table(sb):
+[  8429] DEF_FUNC        | def save_agent_profile(agent_uid: str, display_name: str = "", phone: str = "",
+[  8455] DEF_FUNC        | def load_agent_profile(agent_uid: str) -> dict:
+[  8482] DEF_FUNC        | def get_or_create_ref_code(agent_uid: str) -> str:
+[  8487] DEF_FUNC        | def track_ref_visit(ref_code: str) -> None:
+[  8505] SUB_SEP         | # --------------------------------------------------------------------------
+[  8509] SUB_SEP         | # --------------------------------------------------------------------------
+[  8549] DEF_FUNC        | def _ensure_home_tables(sb):
+[  8560] DEF_FUNC        | def save_home_note(agent_uid: str, customer_id, customer_name: str,
+[  8605] DEF_FUNC        | def load_home_notes(agent_uid: str, customer_id=None) -> list:
+[  8626] DEF_FUNC        | def save_home_ins(agent_uid: str, customer_id, customer_name: str,
+[  8671] DEF_FUNC        | def load_home_ins(agent_uid: str, customer_id=None) -> list:
+[  8693] SUB_SEP         | # --------------------------------------------------------------------------
+[  8696] SUB_SEP         | # --------------------------------------------------------------------------
+[  8700] DEF_FUNC        | def _dir_sb():
+[  8705] DEF_FUNC        | def load_directives():
+[  8724] DEF_FUNC        | def save_directives(directives):
+[  8746] DEF_FUNC        | def add_directive(content: str):
+[  8774] DEF_FUNC        | def _get_unlimited_users():
+[  8780] DEF_FUNC        | def check_usage_count(user_name):
+[  8818] DEF_FUNC        | def _is_unlimited_user(user_name):
+[  8821] DEF_FUNC        | def update_usage(user_name, model_used: str = ""):
+[  8866] DEF_FUNC        | def get_remaining_usage(user_name):
+[  8869] DEF_FUNC        | def display_usage_dashboard(user_name: str):
+[  8942] DEF_FUNC        | def calculate_subscription_days(join_date):
+[  8952] DEF_FUNC        | def check_membership_status():
+[  8957] SUB_SEP         | # --------------------------------------------------------------------------
+[  8958] SECTION_HDR     | # [SECTION 3] 유틸리티 함수
+[  8959] SUB_SEP         | # --------------------------------------------------------------------------
+[  8961] DEF_FUNC        | def get_client():
+[  8999] BLOCK_SEP       | # ==========================================================================
+[  9004] BLOCK_SEP       | # ==========================================================================
+[  9088] BLOCK_SEP       | # ==========================================================================
+[  9093] BLOCK_SEP       | # ==========================================================================
+[  9252] BLOCK_SEP       | # ==========================================================================
+[  9253] NAV_SECTION     | # [SECURITY] 계층형 APP_REGISTRY — 은닉형 메모리 라우팅 핵심 객체
+[  9257] BLOCK_SEP       | # ==========================================================================
+[  9258] DEF_FUNC        | def _build_app_registry() -> dict:
+[  9286] SUB_SEP         | # --------------------------------------------------------------------------
+[  9287] NAV_SECTION     | # [SECURITY] 은닉형 메모리 라우팅 — currentMenuId는 session_state에만 보관
+[  9289] SUB_SEP         | # --------------------------------------------------------------------------
+[  9290] DEF_FUNC        | def _gk_route(code: str) -> None:
+[  9302] DEF_FUNC        | def _gk_track(code: str) -> None:
+[  9322] DEF_FUNC        | def _gk_top_menus(n: int = 20) -> list:
+[  9345] BLOCK_SEP       | # ==========================================================================
+[  9352] BLOCK_SEP       | # ==========================================================================
+[  9355] DEF_FUNC        | def _eid_issue(entity_type: str, seed: str = "") -> str:
+[  9367] DEF_FUNC        | def _eid_get_current_user() -> dict:
+[  9378] DEF_FUNC        | def _eid_set_login_user(login_id: str, user_type: str) -> str:
+[  9390] SUB_SEP         | # --------------------------------------------------------------------------
+[  9393] SUB_SEP         | # --------------------------------------------------------------------------
+[  9394] DEF_FUNC        | def _gk_track_v2(code: str) -> None:
+[  9464] DEF_FUNC        | def _gk_route(code: str) -> None:
+[  9472] SUB_SEP         | # --------------------------------------------------------------------------
+[  9477] SUB_SEP         | # --------------------------------------------------------------------------
+[  9491] DEF_FUNC        | def _apply_ai_weights() -> None:
+[  9498] DEF_FUNC        | def calculate_top_targets(n: int = 5, hours: int = 48) -> list:
+[  9578] BLOCK_SEP       | # ==========================================================================
+[  9579] GP_TAG          | # [GP92] 피보험자 당사자 시점 후킹 엔진
+[  9581] BLOCK_SEP       | # ==========================================================================
+[  9583] DEF_FUNC        | def mask_name_gp92(name: str) -> str:
+[  9642] GP_TAG          | # [GP101] 통합 심리 지능 & 초개인화 전략 대화술 엔진
+[  9748] DEF_FUNC        | def get_gp101_persona(
+[  9789] DEF_FUNC        | def generate_gp101_hook(
+[  9810] DEF_FUNC        | def render_gp101_hook_card(
+[  9845] DEF_FUNC        | def generate_gp92_hook(
+[  9875] BLOCK_SEP       | # ==========================================================================
+[  9876] GP_TAG          | # [GP102] 소득 역산 기반 안보 공백 타격 엔진
+[  9878] BLOCK_SEP       | # ==========================================================================
+[  9894] DEF_FUNC        | def _gp102_calc(
+[  9944] DEF_FUNC        | def render_gp102_gap_card(result: dict, insured_name: str = "") -> None:
+[ 10009] BLOCK_SEP       | # ==========================================================================
+[ 10010] GP_TAG          | # [GP103] GCS 지식 그라운딩 엔진
+[ 10012] BLOCK_SEP       | # ==========================================================================
+[ 10023] DEF_FUNC        | def _gp103_detect_domain(query: str) -> str:
+[ 10032] DEF_FUNC        | def _gp103_grounding_query(
+[ 10087] DEF_FUNC        | def _gp103_push_supply_request(msg: str, user_id: str = "") -> None:
+[ 10104] BLOCK_SEP       | # ==========================================================================
+[ 10105] NAV_SECTION     | # [GP102/103] War Room 실전 상담 전략실 렌더러
+[ 10106] BLOCK_SEP       | # ==========================================================================
+[ 10207] DEF_FUNC        | def _gp103_build_script(
+[ 10259] NAV_SECTION     | # [RAG-SECTOR] 섹터별 지능형 RAG 자가호출 엔진
+[ 10344] DEF_FUNC        | def _loss_ins_get_key() -> str:
+[ 10399] DEF_FUNC        | def _life_gap_assess(kcd_code: str, held_coverages: list) -> dict:
+[ 10430] DEF_FUNC        | def render_life_gap_panel(
+[ 10525] DEF_FUNC        | def _fss_get_key() -> str:
+[ 10610] DEF_FUNC        | def _fss_search_products(kcd_code: str = "", gap_coverages: list = None, limit: int = 4) -> list:
+[ 10635] DEF_FUNC        | def render_fss_product_panel(
+[ 11139] DEF_FUNC        | def _is_rare_critical(drug: dict) -> bool:
+[ 11143] DEF_FUNC        | def _rare_gap_analysis(drug: dict) -> dict:
+[ 11213] DEF_FUNC        | def _kosis_fetch_cancer_rate(age_group: str, gender: str = "전체") -> dict:
+[ 11261] DEF_FUNC        | def _kosis_risk_alarm(
+[ 11300] DEF_FUNC        | def render_kosis_dashboard(
+[ 11510] DEF_FUNC        | def _fortress_save_to_gcs(collection_date: str = ""):
+[ 11549] DEF_FUNC        | def _fortress_load_from_gcs():
+[ 11584] DEF_FUNC        | def _fortress_kosis_api_refresh():
+[ 11623] DEF_FUNC        | def fortress_auto_refresh():
+[ 11664] DEF_FUNC        | def render_fortress_status_badge():
+[ 11691] DEF_FUNC        | def _fortress_to_rag_docs():
+[ 11732] DEF_FUNC        | def render_vascular_chart(gender="평균"):
+[ 11788] DEF_FUNC        | def _life_stat_gap_analysis(insured_coverages, gender="전체"):
+[ 11808] DEF_FUNC        | def _cancer_survival_gap(insured_coverages):
+[ 11828] DEF_FUNC        | def render_life_stat_dashboard(gender="전체", insured_coverages=None):
+[ 11931] DEF_FUNC        | def _get_member_profile(agent_uid):
+[ 11951] DEF_FUNC        | def render_consulting_report(
+[ 12147] DEF_FUNC        | def _kb_map_coverages(insured_coverages):
+[ 12161] DEF_FUNC        | def _kb_standard_analysis(insured_coverages, age_group="40대", gender="전체"):
+[ 12249] DEF_FUNC        | def render_kb_score_donut(score, size=140):
+[ 12293] DEF_FUNC        | def render_kb_standard_dashboard(insured_coverages, age_group="40대", gender="전체",
+[ 12384] DEF_FUNC        | def render_special_ops_sector():
+[ 12992] DEF_FUNC        | def render_member_profile_settings():
+[ 13044] DEF_FUNC        | def _chemo_search_by_kcd(kcd_code: str, limit: int = 6) -> list:
+[ 13128] DEF_FUNC        | def _oncology_alert_panel(drug: dict) -> str:
+[ 13206] DEF_FUNC        | def render_oncology_chemo_panel(kcd_code: str, session_key: str = "onco") -> None:
+[ 13337] DEF_FUNC        | def render_pharma_panel(session_key: str = "pharma") -> None:
+[ 13554] DEF_FUNC        | def _loss_ins_search(query: str = "", generation: int = 0) -> list:
+[ 13567] DEF_FUNC        | def _loss_kcd_status(kcd_code: str) -> dict:
+[ 13577] DEF_FUNC        | def _loss_gap_analysis(client_products: list, kcd_code: str = "") -> dict:
+[ 13615] DEF_FUNC        | def render_loss_insurance_panel(
+[ 13827] DEF_FUNC        | def _risk_assess_kcd(kcd_code: str) -> str:
+[ 13840] DEF_FUNC        | def _risk_badge_html(grade: str, large: bool = True) -> str:
+[ 13864] DEF_FUNC        | def _render_gk_risk():
+[ 14243] DEF_FUNC        | def _render_gk_job():
+[ 14271] DEF_FUNC        | def _render_gk_sec10():
+[ 15077] DEF_FUNC        | def _sec10_fetch_mydata(client_name: str) -> dict:
+[ 15127] DEF_FUNC        | def _render_gk_sec09() -> None:
+[ 15808] DEF_FUNC        | def _render_gk_sec08() -> None:
+[ 16328] DEF_FUNC        | def _rag_sector_query(query: str, sector: str = "auto", top_k: int = 3) -> list:
+[ 16441] DEF_FUNC        | def _rag_save_consult_note(client_name: str, note: str, sector: str = "auto") -> bool:
+[ 16475] DEF_FUNC        | def _rag_similar_cases(client_name: str, sector: str = "auto", top_k: int = 3) -> list:
+[ 16509] DEF_FUNC        | def _render_gk_sec07() -> None:
+[ 17039] DEF_FUNC        | def show_war_room() -> None:
+[ 17316] DEF_FUNC        | def render_gp92_report(
+[ 17470] BLOCK_SEP       | # ==========================================================================
+[ 17473] SUB_SEP         | # --------------------------------------------------------------------------
+[ 17474] DEF_FUNC        | def _generate_kakao_draft(customer_id: str, interest_keyword: str) -> str:
+[ 17522] BLOCK_SEP       | # ==========================================================================
+[ 17524] DEF_FUNC        | def _voice_navigate(text: str):
+[ 17591] DEF_FUNC        | def log_error(msg: str, sector_id: str = "", tab_key: str = "", exc: Exception = None) -> None:
+[ 17627] DEF_FUNC        | def stt_correct(text: str) -> str:
+[ 17667] DEF_FUNC        | def stt_llm_correct(text: str, client=None, strictness: float = 0.7) -> str:
+[ 17749] DEF_FUNC        | def _tts_normalize(text: str) -> str:
+[ 17775] DEF_FUNC        | def _detect_tone(text: str) -> str:
+[ 17798] DEF_FUNC        | def s_voice(text, lang=None, elderly=False, tone: str = "auto"):
+[ 17830] DEF_FUNC        | def s_voice_answer(text):
+[ 17836] DEF_FUNC        | def load_stt_engine():
+[ 17900] DEF_FUNC        | def output_manager(masked_name, result_text):
+[ 17910] DEF_FUNC        | def _gp88_hub() -> dict:
+[ 18301] GP_TAG          | # [GP94] 손해보험 암 상품 실전 화법 엔진
+[ 18485] DEF_FUNC        | def _gp94_panel() -> None:
+[ 18855] GP_TAG          | # [GP95] 첨단 암 치료 및 급여/비급여 통합 보장 로직
+[ 19005] DEF_FUNC        | def _gp95_panel() -> None:
+[ 19202] GP_TAG          | # [GP96] 리플렛 RAG 및 GCS 자동 분류 체계
+[ 19238] DEF_FUNC        | def _gp96_extract_meta(text: str) -> dict:
+[ 19267] DEF_FUNC        | def _gp96_upload_leaflet(
+[ 19296] DEF_FUNC        | def _gp96_save_index(meta: dict, gcs_url: str, ocr_text: str) -> None:
+[ 19315] DEF_FUNC        | def _gp96_rag_search(query: str, top_k: int = 3) -> list:
+[ 19340] DEF_FUNC        | def _gp96_panel() -> None:
+[ 19584] GP_TAG          | # [GP97] 미래 상품 자율 학습 지침
+[ 19591] DEF_FUNC        | def _gp97_analyze_diff(new_doc: dict, existing_docs: list) -> dict:
+[ 19618] DEF_FUNC        | def _gp97_register_trend(diff: dict) -> None:
+[ 19643] DEF_FUNC        | def _gp97_get_latest_script_update(company: str = "", product_type: str = "") -> str:
+[ 19658] DEF_FUNC        | def _gp97_panel() -> None:
+[ 19805] DEF_FUNC        | def _gp96_rag_answer(query: str) -> str:
+[ 19854] DEF_FUNC        | def _gp96_sync_to_certificate(meta: dict) -> None:
+[ 19897] DEF_FUNC        | def _gp97_push_global_script(trend: dict) -> None:
+[ 19928] DEF_FUNC        | def _gp97_get_global_scripts(limit: int = 5) -> list:
+[ 19938] DEF_FUNC        | def _gp95_compare_companies(rider_keyword: str) -> str:
+[ 20081] DEF_FUNC        | def _gp100_match_kcd(kcd_code: str) -> dict | None:
+[ 20091] DEF_FUNC        | def _gp100_scan_document(ocr_text: str) -> dict:
+[ 20120] DEF_FUNC        | def _gp100_generate_defense(scan: dict) -> str:
+[ 20165] DEF_FUNC        | def _gp100_mask_sensitive(text: str) -> str:
+[ 20178] DEF_FUNC        | def _gp100_panel() -> None:
+[ 20514] DEF_FUNC        | def _gp110_search_cases(query: str, top_k: int = 3) -> list[dict]:
+[ 20528] DEF_FUNC        | def _gp110_simulate_payout(cases: list[dict]) -> dict:
+[ 20547] DEF_FUNC        | def _gp110_panel() -> None:
+[ 20671] DEF_FUNC        | def _gp120_encrypt_aes256(plaintext: str, key_hint: str = "goldkey") -> str:
+[ 20681] DEF_FUNC        | def _gp120_log_access(action: str, data_type: str, masked_id: str = "") -> None:
+[ 20696] DEF_FUNC        | def _gp120_store_sensitive(data: dict, label: str) -> str:
+[ 20715] DEF_FUNC        | def _gp120_shred_data(label: str) -> bool:
+[ 20726] DEF_FUNC        | def _gp120_panel() -> None:
+[ 20867] DEF_FUNC        | def _life_defense_command_panel() -> None:
+[ 21042] DEF_FUNC        | def _gp131_calc_gap_fv(current_daily_cost: int, years_until: int, inflation_r: float = _GP131_INFLAT
+[ 21060] DEF_FUNC        | def _gp131_solution_combo(fv_total: int) -> list:
+[ 21074] DEF_FUNC        | def _gp132_build_script(fv_data: dict, has_family_history: bool = False, has_risk_med: str = "") -> 
+[ 21116] DEF_FUNC        | def _gp135_dementia_panel() -> None:
+[ 21443] DEF_FUNC        | def _gp86_golden_card(result_text: str = "", name_hint: str = "") -> None:
+[ 21774] GP_TAG          | # [GP93] 마스터의 육성 진심 연동 엔진
+[ 21782] DEF_FUNC        | def _gp93_upload_voice(audio_bytes: bytes, customer_name: str, date_str: str) -> str:
+[ 21808] DEF_FUNC        | def _gp93_build_player_page(
+[ 21959] DEF_FUNC        | def _gp93_voice_recorder(customer_name: str = "", plan: str = "", date_str: str = "") -> None:
+[ 22198] DEF_FUNC        | def _gp87_kakao_share(name: str, plan: str, value: str, date: str) -> None:
+[ 22365] GP_TAG          | # [GP89] 전역적 유기체 아키텍처 — 파이프라인 · 화법 · 이력 · 시각 흐름
+[ 22400] DEF_FUNC        | def _mch_init() -> dict:
+[ 22429] DEF_FUNC        | def _mch_update(**kwargs) -> None:
+[ 22439] DEF_FUNC        | def _mch_sync_from_session() -> None:
+[ 22512] DEF_FUNC        | def _mch_log_error(stage: str, msg: str, tb: str = "") -> None:
+[ 22527] DEF_FUNC        | def _mch_get_pipeline_html() -> str:
+[ 22550] DEF_FUNC        | def _mch_auto_bind_scan_to_gap() -> list:
+[ 22574] DEF_FUNC        | def _gp89_set_customer(name: str, plan: str = "") -> None:
+[ 22582] DEF_FUNC        | def _gp89_get_pipeline_status() -> dict:
+[ 22616] DEF_FUNC        | def _gp89_tone_filter(text: str) -> str:
+[ 22624] DEF_FUNC        | def _gp89_flow_banner() -> None:
+[ 22680] DEF_FUNC        | def _gp89_save_history(
+[ 22709] GP_TAG          | # [GP90] 전역 데이터 실시간 동기화 아키텍처
+[ 22726] DEF_FUNC        | def _gp90_parse_rrn(rrn_raw: str) -> dict:
+[ 22760] DEF_FUNC        | def _gp90_sync(
+[ 22793] DEF_FUNC        | def _gp90_rebuild_persona() -> None:
+[ 22847] DEF_FUNC        | def _gp90_live_search(query: str) -> list:
+[ 22863] GP_TAG          | # [GP91] 1인칭 생애주기 리스크 엔진 — 주민번호 입력 시 즉시 리포트 자동 표시
+[ 22867] GP_TAG          | # [GP92] 마스터의 애민정신 육성 코너 — 생애주기별 1인칭 마스터 한마디
+[ 23002] DEF_FUNC        | def _gp91_get_lifecycle(age: int) -> dict | None:
+[ 23010] DEF_FUNC        | def _gp91_build_report_key() -> str:
+[ 23015] DEF_FUNC        | def _gp91_trigger(age: int, name: str = "") -> None:
+[ 23036] DEF_FUNC        | def _gp91_report_panel() -> None:
+[ 23374] DEF_FUNC        | def _gp90_panel() -> None:
+[ 23531] GP_TAG          | # [GP88] 통합 상담 허브 — 마스터 문구 · 검색 · OCR · 카카오톡 발송
+[ 23533] DEF_FUNC        | def _gp88_hub() -> None:
+[ 23632] DEF_FUNC        | def _gp88_master_scripts() -> None:
+[ 23670] DEF_FUNC        | def _gp88_search() -> None:
+[ 23724] DEF_FUNC        | def _gp88_ocr_scan() -> None:
+[ 23838] DEF_FUNC        | def _gp88_kakao_send() -> None:
+[ 23993] DEF_FUNC        | def get_master_model():
+[ 24016] DEF_FUNC        | def extract_pdf_chunks(file, char_limit: int = 8000) -> str:
+[ 24183] GP_TAG          |         # [GP91] 의무기록 전용 분석 파이프라인
+[ 24202] DEF_FUNC        | def parse_policy_with_vision(files: list) -> dict:
+[ 24388] BLOCK_SEP       | # =============================================================================
+[ 24389] GP_TAG          | # [GP91] 의무기록 전용 분석 파이프라인
+[ 24391] BLOCK_SEP       | # =============================================================================
+[ 24428] DEF_FUNC        | def parse_medical_record_with_vision(files: list) -> dict:
+[ 24583] DEF_FUNC        | def render_gp91_sw_audit_panel():
+[ 24749] DEF_FUNC        | def _cosine_similarity(a: list, b: list) -> float:
+[ 24763] DEF_FUNC        | def _get_gemini_embedding(text: str, client) -> list:
+[ 24781] DEF_FUNC        | def find_matched_disability(extracted_text: str,
+[ 24811] DEF_FUNC        | def match_disabilities_batch(text_list: list[str],
+[ 24924] DEF_FUNC        | def process_pdf(file):
+[ 24946] DEF_FUNC        | def process_docx(file):
+[ 24972] DEF_FUNC        | def display_security_sidebar():
+[ 25032] SUB_SEP         | # --------------------------------------------------------------------------
+[ 25033] SECTION_HDR     | # [SECTION 8 브랜드] Goldkey_AI_Masters 전용 아바타 시스템
+[ 25034] SUB_SEP         | # --------------------------------------------------------------------------
+[ 25039] DEF_FUNC        | def get_goldkey_avatar() -> str:
+[ 25090] DEF_FUNC        | def render_goldkey_sidebar():
+[ 25194] SUB_SEP         | # --------------------------------------------------------------------------
+[ 25195] SECTION_HDR     | # [SECTION 4] 시스템 프롬프트
+[ 25196] SUB_SEP         | # --------------------------------------------------------------------------
+[ 25334] DEF_FUNC        | def _get_strict_config():
+[ 25345] DEF_FUNC        | def _get_stt_strict_config():
+[ 25783] SUB_SEP         | # --------------------------------------------------------------------------
+[ 25784] SECTION_HDR     | # [SECTION 4-B] 금융상품 통합비교공시 API (금감원 finlife) 연동
+[ 25787] SUB_SEP         | # --------------------------------------------------------------------------
+[ 25793] DEF_FUNC        | def _get_finlife_key() -> str:
+[ 25798] DEF_FUNC        | def finlife_get_deposit(topFinGrpNo: str = "020000", pageNo: int = 1) -> dict:
+[ 25821] DEF_FUNC        | def finlife_get_saving(topFinGrpNo: str = "020000", pageNo: int = 1) -> dict:
+[ 25842] DEF_FUNC        | def finlife_get_annuity_saving(topFinGrpNo: str = "060000", pageNo: int = 1) -> dict:
+[ 25863] DEF_FUNC        | def finlife_get_mortgage(topFinGrpNo: str = "020000", pageNo: int = 1) -> dict:
+[ 25883] DEF_FUNC        | def finlife_top_deposit_rates(topFinGrpNo: str = "020000", top_n: int = 10) -> list:
+[ 25907] DEF_FUNC        | def finlife_top_annuity_rates(topFinGrpNo: str = "060000", top_n: int = 10) -> list:
+[ 25967] DEF_FUNC        | def _get_highlighted_orgs(context_text: str) -> set[str]:
+[ 25982] DEF_FUNC        | def render_disclaimer(location: str = "top") -> None:
+[ 25989] DEF_FUNC        | def render_expert_panel(context_text: str = "") -> None:
+[ 26030] DEF_FUNC        | def _render_finlife_dashboard():
+[ 26127] SUB_SEP         | # --------------------------------------------------------------------------
+[ 26128] SECTION_HDR     | # [SECTION 5] RAG 시스템 — SQLite 영구 저장 + Gemini 자동 분류 (앱 재시작 후에도 유지)
+[ 26129] SUB_SEP         | # --------------------------------------------------------------------------
+[ 26197] DEF_FUNC        | def _rag_use_supabase() -> bool:
+[ 26201] DEF_FUNC        | def _rag_supabase_ensure_tables():
+[ 26253] DEF_FUNC        | def _rag_db_init():
+[ 26279] DEF_FUNC        | def _rag_db_get_all_chunks():
+[ 26298] DEF_FUNC        | def _rag_db_get_stats():
+[ 26322] DEF_FUNC        | def _rag_db_get_sources():
+[ 26342] DEF_FUNC        | def _rag_db_delete_source(source_id: int):
+[ 26361] DEF_FUNC        | def _rag_db_clear_all():
+[ 26382] DEF_FUNC        | def _rag_quarantine_source(source_id: int, error_reason: str) -> int:
+[ 26444] DEF_FUNC        | def _rag_self_diagnose() -> list:
+[ 26518] DEF_FUNC        | def _rag_quarantine_get() -> list:
+[ 26569] DEF_FUNC        | def _rag_quarantine_restore(orig_src_id: int) -> int:
+[ 26628] DEF_FUNC        | def _rag_quarantine_purge(orig_src_id: int):
+[ 26645] DEF_FUNC        | def _rag_classify_document(text_sample: str, filename: str) -> dict:
+[ 26688] DEF_FUNC        | def _rag_db_add_document(text: str, filename: str, meta: dict) -> int:
+[ 26738] DEF_FUNC        | def _rag_quick_register(file_bytes: bytes, filename: str, category: str, insurer: str) -> int:
+[ 26768] DEF_FUNC        | def _rag_process_pending() -> tuple:
+[ 26845] DEF_FUNC        | def _get_rag_store():
+[ 26849] DEF_FUNC        | def _rag_sync_from_db(force: bool = False):
+[ 27024] SUB_SEP         | # --------------------------------------------------------------------------
+[ 27025] SECTION_HDR     | # [SECTION 5.5] 공장 화재보험 전문 컨설팅 로직
+[ 27026] SUB_SEP         | # --------------------------------------------------------------------------
+[ 27056] DEF_FUNC        | def get_building_depreciation(structure_type: str, years_passed: int,
+[ 27101] DEF_FUNC        | def _calc_factory_fire(
+[ 27188] DEF_FUNC        | def _calc_fire_tax_benefit(annual_premium_man: float, corp_tax_rate: float = 0.20) -> dict:
+[ 27202] DEF_FUNC        | def _calc_liability_recommendation(area_sqm: float, dominant_industry: str,
+[ 27228] DEF_FUNC        | def _section_factory_fire_ui():
+[ 27704] DEF_FUNC        | def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요.", product_key=""):
+[ 28360] SUB_SEP         | # --------------------------------------------------------------------------
+[ 28361] SECTION_HDR     | # [SECTION 6] 상속/증여 정밀 로직
+[ 28362] SUB_SEP         | # --------------------------------------------------------------------------
+[ 28363] DEF_FUNC        | def _calc_inheritance_tax(total_man: float, child_count: int, has_spouse: bool,
+[ 28408] DEF_FUNC        | def _calc_pci_defense(child_age: int, child_annual_income_man: float,
+[ 28437] DEF_FUNC        | def section_inheritance_will():
+[ 28617] SUB_SEP         | # --------------------------------------------------------------------------
+[ 28618] SECTION_HDR     | # [SECTION 7] 주택연금 시뮬레이션
+[ 28619] SUB_SEP         | # --------------------------------------------------------------------------
+[ 28620] DEF_FUNC        | def section_housing_pension():
+[ 28647] SUB_SEP         | # --------------------------------------------------------------------------
+[ 28648] DEF_FUNC        | def main():
+[ 29426] GP_TAG          |                         # [GP-56] 로그인 전환 스켈레톤 — 화이트아웃 0ms 목표
+[ 30458] NAV_SECTION     |             # [GP200 §1] 인증 완료 후 사이드바 — 전문 브랜딩 정보 입력 UI
+[ 34227] GP_TAG          | # [GP85] 1인칭 화법 전수 원칙 (모든 화법 전수 시 의무 적용)
+[ 35129] GP_TAG          |     # [GP-52] Page 1: 메인 홈 포털 (show_home_portal)
+[ 35322] NAV_SECTION     |     # [GP102/103] Page 0: 실전 상담 전략실 — War Room
+[ 35718] GP_TAG          |     # [GP-53] Page 2: 지능형 청구 엔진 (show_claim_scanner)
+[ 35872] GP_TAG          |         # [GP-67] STEP 1 — 하이브리드 입력 허브 (OCR 우선 + 수동 병행)
+[ 36465] GP_TAG          |     # [GP-52] home_portal 라우터
+[ 36475] GP_TAG          |     # [GP-53] claim_scanner 라우터
+[ 36485] NAV_SECTION     |     # [GP102/103] war_room 라우터 — 실전 상담 전략실
+[ 36556] NAV_SECTION     |     # [GP100/110/120] life_defense 라우터 — 나의 인생 방어 사령부
+[ 39382] NAV_SECTION     |             # [SECTOR-CANCER] 암 상담 섹터
+[ 39433] NAV_SECTION     |             # [SECTOR-STROKE] 뇌졸중·뇌혈관 상담 섹터
+[ 39514] NAV_SECTION     |             # [SECTOR-FIRE] 화재보험 상담 섹터
+[ 39595] NAV_SECTION     |             # [SECTOR-AUTO] 자동차보험 상담 섹터
+[ 39676] NAV_SECTION     |             # [SECTOR-SECURITIES] 통합 증권분석 섹터 (내보험다보여 연계)
+[ 39813] GP_TAG          |         # [GP200조] 플래너 브랜딩 정보 추출 헬퍼
+[ 39924] GP_TAG          |             # [GP240조] 카카오/SMS 발송 UI (알림톡 — 채널 키 필요)
+[ 39939] GP_TAG          |             # [GP241조] 나에게 보내기 UI (REST API KEY만으로 즉시 사용 가능)
+[ 39966] GP_TAG          |         # [GP200조] 브랜딩 푸터 미리보기
+[ 45975] GP_TAG          |                 # [GP-96] T3 트리거: 미정의 용어 자동 감지 → 승인 큐 등록
+[ 52779] GP_TAG          |                     # [GP-ADMIN] RAG 인덱스 관리 — 5:5 Split Layout
+[ 53625] GP_TAG          |                 members = load_members(force=True)  # [GP-IMMORTAL] 실시간 카운팅 — 캐시 우회
+[ 58826] SUB_SEP         |     # --------------------------------------------------------------------------
+[ 58827] SECTION_HDR     |     # [SECTION 9-A] 에러 레지스트리 + 자가 진단 엔진
+[ 58828] SUB_SEP         |     # --------------------------------------------------------------------------
+[ 58951] BLOCK_SEP       |         # ==========================================================================
+[ 58953] BLOCK_SEP       |         # ==========================================================================
+[ 58958] SUB_SEP         |         # --------------------------------------------------------------------------
+[ 58961] SUB_SEP         |         # --------------------------------------------------------------------------
+[ 59471] SUB_SEP         |         # --------------------------------------------------------------------------
+[ 59472] SECTION_HDR     |         # [SECTION 9] 자가 복구 시스템 + 앱 진입점
+[ 59473] SUB_SEP         |         # --------------------------------------------------------------------------
+[ 59673] BLOCK_SEP       |         # ==========================================================
+[ 59676] BLOCK_SEP       |         # ==========================================================

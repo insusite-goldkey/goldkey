@@ -1,0 +1,90 @@
+// ══════════════════════════════════════════════════════════════════════════════
+// Goldkey CRM — Firestore Security Rules
+// 제2장: 철통 보안 — 담당 설계사 + 해당 고객만 접근 허용
+// ══════════════════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── 헬퍼 함수 ──────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAgent(agentId) {
+      return isSignedIn() && request.auth.uid == agentId;
+    }
+
+    function isOwnerAgent(resource) {
+      return isSignedIn() && request.auth.uid == resource.data.agentId;
+    }
+
+    function isOwnerCustomer(resource) {
+      return isSignedIn() && (
+        request.auth.uid == resource.data.agentId ||
+        request.auth.uid == resource.data.customerId
+      );
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // ── 고객 컬렉션 ──────────────────────────────────────────────────────
+    // /customers/{customerId}
+    match /customers/{customerId} {
+      allow read:   if isSignedIn() && (
+        isOwnerAgent(resource) || isAdmin()
+      );
+      allow create: if isSignedIn() && request.resource.data.agentId == request.auth.uid;
+      allow update: if isOwnerAgent(resource);
+      allow delete: if isAdmin(); // 고객 삭제는 관리자만
+    }
+
+    // ── 일정 컬렉션 ──────────────────────────────────────────────────────
+    // /schedules/{scheduleId}
+    match /schedules/{scheduleId} {
+      allow read:   if isSignedIn() && isOwnerAgent(resource);
+      allow create: if isSignedIn() && request.resource.data.agentId == request.auth.uid;
+      allow update: if isOwnerAgent(resource);
+      allow delete: if isOwnerAgent(resource);
+    }
+
+    // ── 스캔 결과 컬렉션 ─────────────────────────────────────────────────
+    // /scan_results/{scanId}
+    //   - 열람: 담당 설계사 + 고객 본인
+    //   - 수정: 담당 설계사만
+    //   - 삭제: 담당 설계사만 (UI 레이어에서 2중 확인 후 호출)
+    match /scan_results/{scanId} {
+      allow read:   if isSignedIn() && isOwnerCustomer(resource);
+      allow create: if isSignedIn() && request.resource.data.agentId == request.auth.uid;
+      allow update: if isOwnerAgent(resource);
+      allow delete: if isOwnerAgent(resource);
+    }
+
+    // ── 감사 로그 컬렉션 (영구 보존, 삭제 불가) ──────────────────────────
+    // /audit_logs/{logId}
+    //   - 생성: 서버(Cloud Functions) 또는 인증된 설계사
+    //   - 읽기: 관리자만
+    //   - 수정/삭제: 완전 차단 (영구 보존)
+    match /audit_logs/{logId} {
+      allow read:   if isAdmin();
+      allow create: if isSignedIn();
+      allow update: if false; // 절대 수정 불가
+      allow delete: if false; // 절대 삭제 불가
+    }
+
+    // ── 관리자 컬렉션 ─────────────────────────────────────────────────────
+    match /admins/{uid} {
+      allow read:  if isAdmin();
+      allow write: if false; // 콘솔에서만 직접 관리
+    }
+
+    // ── 기본 차단 ──────────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
