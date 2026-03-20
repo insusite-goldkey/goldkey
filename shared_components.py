@@ -311,13 +311,17 @@ def build_deeplink_to_hq(cid: str, agent_id: str = "", name: str = "", sector: s
         "gk_sector":   sector,
         "gk_token":    _dl_token,
     }
-    # [GP-SEC §2] SSO 핸드오프 — user_id 제공 시 auth_token 자동 삽입
+    # [GP-SEC §2] SSO 핸드오프 — user_id 제공 시 타임스탬프 기반 auth_token 자동 삽입
+    # 리플레이 공격 차단: HMAC(KEY, user_id + str(ts)) + ts 동시 전송 (300초 유효)
     if user_id:
+        import time as _time_dl
+        _ts = int(_time_dl.time())
         _auth_tok = _hmac_dl.new(
-            _dl_secret.encode(), user_id.encode(), "sha256"
+            _dl_secret.encode(), (user_id + str(_ts)).encode(), "sha256"
         ).hexdigest()[:32]
         params["auth_token"] = _auth_tok
         params["user_id"]    = user_id
+        params["ts"]         = _ts
     return f"{HQ_APP_URL}/?{_up.urlencode(params)}"
 
 

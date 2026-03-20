@@ -28971,21 +28971,39 @@ def main():
     # ── [EARLY-CUR] current_tab 최상단 조기 정의 — NameError 방지 ────────
     cur = st.session_state.get("current_tab", "home")
 
-    # ── [GP-SEC §2] SSO auth_token 수신 처리 (CRM→HQ 핸드오프) ─────────────
-    # URL에 auth_token + user_id가 있으면 토큰 검증 후 즉시 세션 활성화
-    # 로그인 UI 완전 건너뜀 — PII는 URL에 절대 포함되지 않음
+    # ── [GP-SEC §2 Tier-1] SSO auth_token 수신 처리 (CRM→HQ 핸드오프) ────────
+    # 리플레이 공격 차단: ts(타임스탬프) 포함 HMAC 검증 + 300초 만료 이중 방어
     if not st.session_state.get("user_id") and not st.session_state.get("_logout_flag"):
         _sso_token   = st.query_params.get("auth_token", "")
         _sso_user_id = st.query_params.get("user_id", "")
-        if _sso_token and _sso_user_id:
+        _sso_ts_raw  = st.query_params.get("ts", "")
+        if _sso_token and _sso_user_id and _sso_ts_raw:
+            import time as _time_sso
+            import hmac as _hmac_sso
             _sso_valid = False
+            _sso_expired = False
             try:
-                if _sc_verify_sso_token:
-                    _sso_valid = _sc_verify_sso_token(_sso_token, _sso_user_id)
+                _sso_ts = int(_sso_ts_raw)
+                # [검증 1: 시간 초과] 300초(5분) 초과 즉시 거부
+                if (_time_sso.time() - _sso_ts) > 300:
+                    _sso_expired = True
                 else:
-                    _sso_valid = bool(_sso_token)
+                    # [검증 2: 무결성] HMAC(KEY, user_id + str(ts)) 재계산 비교
+                    _sso_sec = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+                    if isinstance(_sso_sec, bytes):
+                        _sso_sec = _sso_sec.decode()
+                    _expected = _hmac_sso.new(
+                        _sso_sec.encode(),
+                        (_sso_user_id + str(_sso_ts)).encode(),
+                        "sha256",
+                    ).hexdigest()[:32]
+                    _sso_valid = _hmac_sso.compare_digest(_sso_token, _expected)
             except Exception:
-                _sso_valid = bool(_sso_token)
+                _sso_valid = False
+            if _sso_expired:
+                st.query_params.clear()
+                st.error("⏰ 보안을 위해 링크가 만료되었습니다. CRM에서 다시 접속해 주세요.")
+                st.stop()
             if _sso_valid:
                 try:
                     _mbs_sso = load_members()
