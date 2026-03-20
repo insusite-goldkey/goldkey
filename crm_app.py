@@ -16,6 +16,7 @@ import streamlit as st
 import datetime
 import urllib.parse
 import os
+import calendar_engine
 
 # ── [Phase 1] 공통 모듈 import ────────────────────────────────────────────────
 from shared_components import (
@@ -101,6 +102,64 @@ html, body {
 section[data-testid="stMain"],
 .main, .block-container {
   background: transparent !important;
+}
+
+/* §2-C [v5 개정] 반응형 레이아웃 엔진 — 태블릿 세로 면역 */
+/* ① 480px이상 (태블릿/데스크탑): 콜럼 강제 수평 유지 */
+@media (min-width: 480px) {
+  [data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    flex-direction: row !important;
+    align-items: stretch;
+    gap: 0.25rem !important;
+  }
+  [data-testid="column"] {
+    min-width: 0 !important;  /* 콜럼 수평 유지; flex-grow 오버라이드 금지(콜럼 비율 보존) */
+    overflow: visible !important;
+  }
+}
+/* ② 479px 미만 (소형 폰): 스태킹 허용 */
+@media (max-width: 479px) {
+  [data-testid="column"] {
+    flex: 1 1 100% !important;
+    min-width: min(240px, 100%) !important;
+    margin-bottom: 0.75rem !important;
+  }
+  [data-testid="stHorizontalBlock"] { flex-direction: column !important; }
+}
+/* ③ 패딩 / 메트릭 / 라디오 (768px 이하) */
+@media (max-width: 768px) {
+  .block-container {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  .stMetric, .stDataFrame, .stTable { width: 100% !important; }
+  div[data-testid="stRadio"] > div { flex-wrap: wrap !important; }
+  div[data-testid="stRadio"] > div > label { flex: 1 1 45% !important; }
+}
+/* ④ 세로모드 버튼 폰트 자동 축소 (480이상~900px) */
+@media (min-width: 480px) and (max-width: 900px) {
+  [data-testid="stHorizontalBlock"] button {
+    font-size: clamp(.62rem, 1.8vw, .9rem) !important;
+    padding: 6px 4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  [data-testid="stTextInputRootElement"] { min-width: 0 !important; }
+}
+
+/* §2-D 전체 레이아웃 유연성 */
+.main .block-container { max-width: 100% !important; }
+
+/* §5-B Streamlit 기본 상단 헤더/툴바 완전 제거 (흰 가림막 차단) */
+[data-testid="stHeader"],
+[data-testid="stDecoration"],
+[data-testid="stToolbar"],
+header[data-testid="stHeader"] {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
 }
 
 /* §5-C CRM 콘테이너 전체 화면 활용 */
@@ -688,14 +747,19 @@ def _load_schedules_today(agent_id: str) -> list:
 # 헤더
 # ══════════════════════════════════════════════════════════════════════════════
 st.markdown(f"""
-<div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);padding:14px 20px;
-  border-radius:10px;display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:16px;border:1px dashed #3b82f6;">
-  <div>
-    <span style="font-size:1.3rem;font-weight:900;color:#1e3a8a;">📱 골드키 CRM</span>
-    <span style="font-size:0.78rem;color:#2563eb;margin-left:10px;">고객상담 앱</span>
+<div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);padding:10px 20px;
+  border-radius:10px;border:1px dashed #3b82f6;margin-bottom:2px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <span style="font-size:1.3rem;font-weight:900;color:#1e3a8a;">📱 골드키 CRM</span>
+      <span style="font-size:0.78rem;color:#2563eb;margin-left:10px;">고객상담 앱</span>
+    </div>
+    <div style="font-size:0.82rem;color:#374151;font-weight:700;">{_user_name} 설계사</div>
   </div>
-  <div style="font-size:0.82rem;color:#374151;font-weight:700;">{_user_name} 설계사</div>
+  <div style="text-align:center;margin-top:5px;">
+    <span style="font-size:0.95rem;font-weight:900;color:#1e3a8a;">👥 전체 고객 대시보드</span>
+    <span style="font-size:0.78rem;color:#64748b;margin-left:8px;">고객 선택 → 6대 메뉴</span>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -747,21 +811,43 @@ except Exception:
 [style*="color:#ffffff"],[style*="color:white"],[style*="color:#fff"]{
   text-shadow:0 1px 3px rgba(0,0,0,0.25) !important;
 }
-/* [GP-RESPONSIVE] 모바일 스태킹 강제 원칙 — fallback */
-@media (max-width: 768px) {
+/* [GP-RESPONSIVE v3] 반응형 시스템 — 태블릿 세로 면역 fallback */
+@media (min-width: 480px) {
+  [data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    flex-direction: row !important;
+    align-items: stretch;
+    gap: 0.25rem !important;
+  }
   [data-testid="column"] {
-    width: 100% !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+}
+@media (max-width: 479px) {
+  [data-testid="column"] {
     flex: 1 1 100% !important;
-    min-width: 100% !important;
-    margin-bottom: 16px !important;
+    min-width: min(240px, 100%) !important;
+    margin-bottom: 12px !important;
   }
   [data-testid="stHorizontalBlock"] { flex-direction: column !important; }
+}
+@media (max-width: 768px) {
   p, span, label, .stMarkdown { font-size: clamp(12px, 3.5vw, 15px) !important; }
   h1 { font-size: clamp(18px, 5vw, 28px) !important; }
   h2 { font-size: clamp(15px, 4.5vw, 22px) !important; }
   div[data-testid="stRadio"] > div { flex-wrap: wrap !important; }
   div[data-testid="stRadio"] > div > label { flex: 1 1 45% !important; }
   .stDataFrame, .element-container { max-width: 100% !important; overflow-x: auto !important; }
+}
+@media (min-width: 480px) and (max-width: 900px) {
+  [data-testid="stHorizontalBlock"] button {
+    font-size: clamp(.62rem, 1.8vw, .9rem) !important;
+    padding: 6px 4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
 }
 </style>""", unsafe_allow_html=True)
 
@@ -782,129 +868,9 @@ if _sel_pid:
 # [GP SPA §2] MODE: LIST — 아웃룩 고객 목록
 # ══════════════════════════════════════════════════════════════════════════════
 if _spa_mode == "list":
-    st.markdown(
-        "<div style='background:#F8FBFA;padding:10px 14px;border-radius:10px;"
-        "border:1px dashed #000;margin-bottom:12px;'>"
-        "<span style='font-size:1.05rem;font-weight:900;color:#1e3a8a;'>👥 전체 고객 대시보드</span>"
-        "<span style='font-size:0.78rem;color:#64748b;margin-left:10px;'>고객 선택 → 6대 메뉴</span>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-    # ── [GP-CALENDAR] 월간 달력 + 당일 상담일정 ──────────────────────────────
-    import calendar as _cal_lv
-    _lv_today = datetime.date.today()
-    if "lv_cal_ym" not in st.session_state:
-        st.session_state["lv_cal_ym"] = (_lv_today.year, _lv_today.month)
-    if "lv_cal_sel" not in st.session_state:
-        st.session_state["lv_cal_sel"] = _lv_today.isoformat()
-    _lv_yr, _lv_mo = st.session_state.get("lv_cal_ym", (_lv_today.year, _lv_today.month))
-    _lv_sel = st.session_state.get("lv_cal_sel", _lv_today.isoformat())
-    _lv_last = _cal_lv.monthrange(_lv_yr, _lv_mo)[1]
-    _lv_start = f"{_lv_yr}-{_lv_mo:02d}-01"
-    _lv_end   = f"{_lv_yr}-{_lv_mo:02d}-{_lv_last:02d}"
-    try:
-        _lv_mo_schs = _du_range(_user_id, _lv_start, _lv_end) if _OUTLOOK_OK else []
-    except Exception:
-        _lv_mo_schs = []
-    _lv_sched_dates = {s.get("date", "") for s in _lv_mo_schs}
-    # 뷰 탭 선택 (월간/주간/일일)
-    _lv_view = st.radio(
-        "달력 보기",
-        ["📅 월간", "📋 주간", "🗓️ 일일"],
-        horizontal=True, key="lv_view_mode", label_visibility="collapsed",
-    )
-    _lv_nav1, _lv_nav2, _lv_nav3 = st.columns([1, 4, 1])
-    with _lv_nav1:
-        if st.button("◀", key="lv_mo_prev", use_container_width=True):
-            _pm2, _py2 = (_lv_mo - 1, _lv_yr) if _lv_mo > 1 else (12, _lv_yr - 1)
-            st.session_state["lv_cal_ym"] = (_py2, _pm2)
-            st.rerun()
-    with _lv_nav2:
-        st.markdown(
-            f"<div style='text-align:center;font-size:0.88rem;font-weight:900;color:#1e3a8a;"
-            f"padding:4px 0;'>{_lv_yr}년 {_lv_mo}월 — {_lv_view}</div>",
-            unsafe_allow_html=True,
-        )
-    with _lv_nav3:
-        if st.button("▶", key="lv_mo_next", use_container_width=True):
-            _nm2, _ny2 = (_lv_mo + 1, _lv_yr) if _lv_mo < 12 else (1, _lv_yr + 1)
-            st.session_state["lv_cal_ym"] = (_ny2, _nm2)
-            st.rerun()
-
-    _lv_cal_c, _lv_sch_c = st.columns([5, 5])
-    with _lv_cal_c:
-        if _OUTLOOK_OK:
-            _lv_new_sel = render_mini_calendar(_lv_yr, _lv_mo, _lv_sched_dates, _lv_sel,
-                                               session_key="lv_cal_sel")
-            if _lv_new_sel != _lv_sel:
-                st.session_state["lv_cal_sel"] = _lv_new_sel
-                st.rerun()
-        else:
-            _lv_dt = st.date_input("날짜", value=datetime.date.fromisoformat(_lv_sel),
-                                   key="lv_cal_dt", label_visibility="collapsed")
-            st.session_state["lv_cal_sel"] = str(_lv_dt)
-            _lv_sel = str(_lv_dt)
-        # 카테고리 카운트 배지
-        _lv_cat_cnt: dict = {}
-        for _lv_s in _lv_mo_schs:
-            _k2 = _lv_s.get("category", "other")
-            _lv_cat_cnt[_k2] = _lv_cat_cnt.get(_k2, 0) + 1
-        _lv_cat_icon = {"consult": "💬", "appointment": "📌", "call": "📞", "other": "📋"}
-        if _lv_cat_cnt:
-            st.markdown(
-                "<div style='background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;"
-                "padding:5px 10px;margin-top:6px;font-size:0.74rem;'>"
-                + "".join(f"<span style='margin-right:8px;'>{_lv_cat_icon.get(_k2,'📋')}&nbsp;<b>{_v2}</b></span>"
-                          for _k2, _v2 in _lv_cat_cnt.items())
-                + "</div>", unsafe_allow_html=True,
-            )
-
-    with _lv_sch_c:
-        st.markdown(
-            f"<div style='background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;"
-            f"padding:6px 12px;margin-bottom:6px;'>"
-            f"<b style='font-size:0.82rem;color:#14532d;'>🗓️ 당일 상담 일정 — {_lv_sel}</b></div>",
-            unsafe_allow_html=True,
-        )
-        try:
-            _lv_today_schs = _du_schedules(_user_id, _lv_sel) if _OUTLOOK_OK else []
-        except Exception:
-            _lv_today_schs = []
-        st.markdown(
-            f"<div style='height:180px;overflow-y:auto;padding-right:4px;'>",
-            unsafe_allow_html=True,
-        )
-        if _lv_today_schs:
-            for _lv_ev in _lv_today_schs:
-                _lv_ci = {"consult": "💬", "appointment": "📌", "call": "📞", "other": "📋"}.get(
-                    _lv_ev.get("category", ""), "📋")
-                _lv_pname = (_lv_ev.get("gk_people") or {}).get("name", "")
-                _lv_pname_html = (
-                    "  <span style='color:#6b7280;font-size:0.72rem;'>(" + _lv_pname + ")</span>"
-                    if _lv_pname else ""
-                )
-                _lv_memo_html = (
-                    "<div style='color:#78350f;font-size:0.72rem;margin-top:2px;'>"
-                    + _lv_ev.get("memo", "")[:40] + "</div>"
-                    if _lv_ev.get("memo") else ""
-                )
-                st.markdown(
-                    f"<div style='background:#fff;border-left:3px solid #22c55e;"
-                    f"border-radius:4px;padding:5px 10px;margin-bottom:5px;"
-                    f"font-size:0.8rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);'>"
-                    f"<b style='color:#1e3a8a;'>{_lv_ev.get('start_time','')}</b>"
-                    f" {_lv_ci} {_lv_ev.get('title','')}"
-                    f"{_lv_pname_html}{_lv_memo_html}"
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
-        else:
-            st.markdown(
-                "<div style='font-size:0.8rem;color:#9ca3af;padding:8px 0;'>일정 없음</div>",
-                unsafe_allow_html=True,
-            )
-        st.markdown("</div>", unsafe_allow_html=True)
+    # ── [GP-CALENDAR] 스마트 캘린더 엔진 (calendar_engine.py) ────────────────
+    calendar_engine.render_today_widget(_user_id)
+    calendar_engine.render_smart_calendar(_user_id, _load_customers(_user_id))
     st.markdown("<hr style='border-top:1px solid #e5e7eb;margin:10px 0 12px;'>",
                 unsafe_allow_html=True)
 
@@ -1002,6 +968,7 @@ if _spa_mode == "list":
                 cid=_c.get("person_id", ""),
                 agent_id=st.session_state.get("user_id", ""),
                 sector="t3",
+                user_id=_user_id,
             ),
         })
 
@@ -1871,6 +1838,7 @@ elif _spa_mode == "customer":
                     cid=_sel_cust.get("person_id", ""),
                     agent_id=st.session_state.get("user_id", ""),
                     sector=_sel_sector,
+                    user_id=_user_id,
                 )
                 st.markdown(
                     f"<div style='text-align:center;padding:12px 0;'>"
@@ -2062,7 +2030,8 @@ elif _spa_mode == "customer":
                 if _c.get("fire_renewal_month") == _today_mo: _rh += " ⚡ 화재 만기!"
                 _rdl = build_deeplink_to_hq(cid=_c.get("person_id", ""),
                                             agent_id=st.session_state.get("user_id", ""),
-                                            sector="t3")
+                                            sector="t3",
+                                            user_id=_user_id)
                 st.markdown(
                     f"<div style='background:#ffffff;border:1px dashed #000;border-radius:10px;"
                     f"border-left:4px solid {_tm3['color']};padding:10px 14px;margin-bottom:8px;'>"

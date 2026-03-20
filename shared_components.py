@@ -289,11 +289,12 @@ def customer_input_form(customer_data: dict, agent_id: str,
 
 # ── 딥링크 빌더 ─────────────────────────────────────────────────────────────
 def build_deeplink_to_hq(cid: str, agent_id: str = "", name: str = "", sector: str = "home",
-                         token: str = "") -> str:
+                         token: str = "", user_id: str = "") -> str:
     """
     [Phase 3 — C-2 PII 보호 및 SSO 완성] CRM → HQ 딥링크 URL 생성.
     평문 PII(이름, 연락처) 절대 배제. AgentID + CID 결합 HMAC-SHA256 토큰 생성.
     name / token 파라미터는 하위 호환성 유지용 — URL에 포함하지 않음.
+    user_id 제공 시: [GP-SEC §2] SSO auth_token 자동 생성 포함 → HQ 이중 로그인 방지.
     """
     import urllib.parse as _up
     import hmac as _hmac_dl
@@ -310,6 +311,13 @@ def build_deeplink_to_hq(cid: str, agent_id: str = "", name: str = "", sector: s
         "gk_sector":   sector,
         "gk_token":    _dl_token,
     }
+    # [GP-SEC §2] SSO 핸드오프 — user_id 제공 시 auth_token 자동 삽입
+    if user_id:
+        _auth_tok = _hmac_dl.new(
+            _dl_secret.encode(), user_id.encode(), "sha256"
+        ).hexdigest()[:32]
+        params["auth_token"] = _auth_tok
+        params["user_id"]    = user_id
     return f"{HQ_APP_URL}/?{_up.urlencode(params)}"
 
 

@@ -28996,13 +28996,30 @@ def main():
                      if m.get("user_id", "") == _sso_user_id),
                     "",
                 )
+                # [GP-SEC §2] 컨텐츠 라우팅 파라미터 — query_params.clear() 전 세션 저장
+                _sso_cid    = st.query_params.get("gk_cid", "")
+                _sso_sector = st.query_params.get("gk_sector", "home")
+                _sso_tab    = st.query_params.get("target_tab", "")
+                _sso_agent  = st.query_params.get("gk_agent_id", "")
+                _sso_gk_tok = st.query_params.get("gk_token", "")
                 st.session_state["user_id"]           = _sso_user_id
                 st.session_state["user_name"]         = _uname_found
                 st.session_state["authenticated"]     = True
                 st.session_state["_is_auth"]          = True
                 st.session_state["_auto_login_token"] = _sso_token
                 st.session_state["_sso_login"]        = True
-                st.query_params.clear()  # SSO 토큰 수신 즉시 URL에서 삭제
+                if _sso_cid:
+                    st.session_state["_sso_gk_cid"]      = _sso_cid
+                if _sso_agent:
+                    st.session_state["_sso_gk_agent_id"] = _sso_agent
+                if _sso_gk_tok:
+                    st.session_state["_sso_gk_token"]    = _sso_gk_tok
+                # target_tab > gk_sector 우선순위로 탭 자동 이동
+                if _sso_tab:
+                    st.session_state["current_tab"] = _sso_tab
+                elif _sso_sector and _sso_sector not in ("home", ""):
+                    st.session_state["current_tab"] = _sso_sector
+                st.query_params.clear()  # [GP-SEC §2] SSO 토큰 수신 즉시 URL에서 삭제
                 st.rerun()
     _is_auth_now = bool(st.session_state.get("user_id") or st.session_state.get("authenticated"))
     # ── [EARLY-CUR] current_tab 최상단 조기 정의 — NameError 방지 ────────
