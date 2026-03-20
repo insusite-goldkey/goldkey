@@ -34732,7 +34732,7 @@ watchRipple();
   window.parent.__gkLoadHandler=function(e){
     var b=e.target.closest('button');
     if(b){
-      var _t=(b.textContent||'').replace(/\s/g,'');
+      var _t=(b.textContent||'').replace(/\\s/g,'');
       if(_t.includes('\ub3d9\uc758')||_t.includes('\ub2eb\uae30')||_t.includes('\ucde8\uc18c')){return;}
       el.classList.add('gk-active');clearTimeout(_to);_to=setTimeout(function(){el.classList.remove('gk-active');},4000);
     }
