@@ -22,7 +22,7 @@ import calendar_engine
 _MODULE_LOAD_ERRORS: list = []
 try:
     from voice_engine import (
-        render_morning_briefing_auto as _ve_morning_auto,
+        render_time_aware_briefing   as _ve_morning_auto,
         render_voice_player          as _ve_player,
         build_morning_briefing       as _ve_build_brief,
         build_customer_briefing      as _ve_build_cust_brief,

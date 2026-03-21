@@ -333,8 +333,12 @@ def build_morning_briefing(
     today_s  = f"{today.year}년 {today.month}월 {today.day}일 {wd_str}"
     _name    = _clean_agent_name(agent_name)
 
-    _greet_pool = _EQ_MORNING_GREETS.get(today.weekday(), [])
-    _greet_base = random.choice(_greet_pool) if _greet_pool else "안녕하세요! 좋은 하루 되세요."
+    try:
+        from shared_components import get_time_aware_greeting as _gtag
+        _greet_base = _gtag()
+    except Exception:
+        _greet_pool = _EQ_MORNING_GREETS.get(today.weekday(), [])
+        _greet_base = random.choice(_greet_pool) if _greet_pool else "안녕하세요! 좋은 하루 되세요."
     _greet = (f"{_name} 설계사님, {_greet_base}" if _name else _greet_base) + " "
 
     intro    = f"오늘은 {today_s}입니다. "
@@ -379,12 +383,16 @@ def build_morning_briefing_compact(
     ev_count = len(today_evs) if today_evs else 0
     first_ev = today_evs[0].get("title", "없음") if today_evs else "없음"
 
-    _warm = random.choice([
-        "좋은 아침입니다!",
-        "오늘도 파이팅입니다!",
-        "밝은 하루 시작하세요!",
-        "활기차게 시작해볼까요!",
-    ])
+    try:
+        from shared_components import get_time_aware_greeting as _gtag
+        _warm = _gtag()
+    except Exception:
+        _warm = random.choice([
+            "좋은 아침입니다!",
+            "오늘도 파이팅입니다!",
+            "밝은 하루 시작하세요!",
+            "활기차게 시작해볼까요!",
+        ])
     _greet = (f"{_name} 설계사님, {_warm}" if _name else _warm)
 
     _stats = f"오늘 일정 {ev_count}건"
@@ -705,20 +713,35 @@ def render_voice_player_zephyr(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# [5] 모닝 브리핑 자동 트리거 (앱 기동 시 1회)
+# [5] 실시간 시각 인지형 브리핑 자동 트리거 (앱 기동 시 1회)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def render_morning_briefing_auto(
+def render_time_aware_briefing(
     agent_id: str,
     agent_name: str = "",
 ) -> None:
     """
-    앱 기동 시 최초 1회 — 아나운서 모닝 브리핑 자동 재생.
+    [GP-VOICE-2026] 실시간 시각 인지형 브리핑 — 로그인 시 1회 자동 재생.
     st.session_state["_morning_briefed_YYYYMMDD"] 로 당일 중복 방지.
+    시간대별 분위기: 05~12 아침 / 12~18 오후 / 18~22 저녁 / 22~05 심야
+    Gemini AI가 현재 시각을 인지하여 브리핑 텍스트를 생성. 실패 시 정적 폴백.
     """
     today_key = f"_morning_briefed_{datetime.date.today().strftime('%Y%m%d')}"
     if st.session_state.get(today_key):
         return
+
+    # ── 현재 시각 인지 ────────────────────────────────────────────────────────
+    _now = datetime.datetime.now()
+    _h   = _now.hour
+    _time_str = _now.strftime('%H:%M')
+    if 5 <= _h < 12:
+        _time_emoji, _time_label, _time_sub = "🌅", "아침 브리핑", "활기찬 하루의 시작을 함께합니다"
+    elif 12 <= _h < 18:
+        _time_emoji, _time_label, _time_sub = "☀️", "오후 브리핑", "오늘의 오후 일정과 우선순위를 안내해 드립니다"
+    elif 18 <= _h < 22:
+        _time_emoji, _time_label, _time_sub = "🌆", "저녁 브리핑", "수고 많으셨습니다. 남은 일정을 마무리해 드리겠습니다"
+    else:
+        _time_emoji, _time_label, _time_sub = "🌙", "심야 브리핑", "늦은 시간까지 열정적인 설계사님을 응원합니다"
 
     # 오늘 일정 로드 (calendar_engine 연동)
     today_evs = []
@@ -736,21 +759,60 @@ def render_morning_briefing_auto(
     except Exception:
         pass
 
+    # ── [GP-VOICE-2026] Gemini AI 브리핑 텍스트 생성 (현재 시각 인지형) ────────
     _compact_mode = st.session_state.get("gk_brief_compact", False)
-    if _compact_mode:
-        briefing_text = build_morning_briefing_compact(agent_name, today_evs, nba_count)
-    else:
-        briefing_text = build_morning_briefing(agent_name, today_evs, nba_count)
+    briefing_text = ""
+    try:
+        from shared_components import get_env_secret as _genv_b, get_time_aware_greeting as _gtag_b
+        _api_key_b = _genv_b("GOOGLE_API_KEY", "")
+        if _api_key_b and _api_key_b != "여기에_발급받은_API_키를_넣어주세요":
+            import google.genai as _genai_b
+            import google.genai.types as _gtypes_b
+            _cli_b  = _genai_b.Client(api_key=_api_key_b)
+            _n_b    = agent_name.strip() if agent_name else "설계사"
+            _ev_sum = f"{len(today_evs)}건" if today_evs else "없음"
+            _first  = today_evs[0].get("title", "") if today_evs else ""
+            _nba_s  = f"{nba_count}명" if nba_count > 0 else "없음"
+            _brief_prompt = (
+                f"현재 시각은 {_time_str}입니다. "
+                f"너는 KB손해보험 전속 AI 비서 '골드키'다. "
+                f"{_n_b} 설계사님에게 {_time_label}을 전달하라. "
+                f"반드시 이 분위기로 시작하라: '{_gtag_b()}' "
+                f"오늘 일정 {_ev_sum}{'(첫 일정: ' + _first + ')' if _first else ''}, "
+                f"우선순위 고객 {_nba_s}. "
+                f"{'간결하게 2~3문장으로' if _compact_mode else '따뜻하고 전문적으로 4~5문장으로'} "
+                "브리핑하라. 반드시 한국어로. 수치는 구체적으로 언급."
+            )
+            _resp_b = _cli_b.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=_brief_prompt,
+                config=_gtypes_b.GenerateContentConfig(
+                    max_output_tokens=300, temperature=0.7,
+                ),
+            )
+            briefing_text = (_resp_b.text or "").strip()
+    except Exception:
+        pass
+
+    # ── 폴백: 정적 브리핑 텍스트 빌더 ────────────────────────────────────────
+    if not briefing_text:
+        if _compact_mode:
+            briefing_text = build_morning_briefing_compact(agent_name, today_evs, nba_count)
+        else:
+            briefing_text = build_morning_briefing(agent_name, today_evs, nba_count)
+
     st.session_state["_morning_briefing_text"] = briefing_text
 
+    # ── 시각 인지형 헤더 배너 ─────────────────────────────────────────────────
     st.markdown(
-        "<div style='background:linear-gradient(90deg,#0f172a,#1e3a5c);border-radius:12px;"
-        "padding:12px 18px;margin-bottom:10px;display:flex;align-items:center;gap:12px;'>"
-        "<div style='font-size:1.5rem;'>🌅</div>"
-        "<div>"
-        "<div style='color:#fff;font-size:.88rem;font-weight:900;'>모닝 브리핑</div>"
-        "<div style='color:#94c4f5;font-size:.74rem;margin-top:2px;'>오늘의 영업 일정과 우선순위 고객을 안내해 드리겠습니다</div>"
-        "</div></div>",
+        f"<div style='background:linear-gradient(90deg,#0f172a,#1e3a5c);border-radius:12px;"
+        f"padding:12px 18px;margin-bottom:10px;display:flex;align-items:center;gap:12px;'>"
+        f"<div style='font-size:1.5rem;'>{_time_emoji}</div>"
+        f"<div>"
+        f"<div style='color:#fff;font-size:.88rem;font-weight:900;'>{_time_label}"
+        f"<span style='color:#94c4f5;font-size:.7rem;font-weight:400;margin-left:8px;'>현재 {_time_str}</span></div>"
+        f"<div style='color:#94c4f5;font-size:.74rem;margin-top:2px;'>{_time_sub}</div>"
+        f"</div></div>",
         unsafe_allow_html=True,
     )
 
@@ -771,6 +833,9 @@ def render_morning_briefing_auto(
         pass
 
     st.session_state[today_key] = True
+
+
+render_morning_briefing_auto = render_time_aware_briefing
 
 
 # ══════════════════════════════════════════════════════════════════════════════

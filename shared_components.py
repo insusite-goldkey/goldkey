@@ -12,6 +12,7 @@ export:
     render_customer_list()   — 고객 목록 FlatList 렌더
     build_deeplink_to_hq()   — 자 앱 → 모 앱 딥링크 URL 생성
     build_sso_redirect()     — SSO return_to URL 생성
+    get_time_aware_greeting()    — KST 시각대별 공감형 인사말 반환 (아침/오후/저녁/심야)
     calculate_trinity_metrics() — 트리니티 계산법 — 건보료 기반 재무 지표 산출 엔진
 """
 
@@ -49,6 +50,39 @@ def get_clean_phone(raw: str) -> str:
     if not raw:
         return ""
     return "".join(filter(str.isdigit, str(raw)))
+
+
+def get_time_aware_greeting() -> str:
+    """[GP-VOICE-2026] KST 기준 현재 시각에 맞는 상황 공감형 인사말 반환.
+
+    시간대별 분기 (KST):
+      05:00~11:59 — 아침  : 활기찬 시작 인사
+      12:00~17:59 — 오후  : 나른한 오후 공감 인사
+      18:00~21:59 — 저녁  : 하루 마무리 위로 인사
+      22:00~04:59 — 심야  : 열정 격려 + 건강 당부 인사
+    """
+    _h = datetime.datetime.now().hour
+    if 5 <= _h < 12:
+        return (
+            "안녕하십니까, 활기찬 아침입니다. "
+            "오늘 하루도 골드키와 함께 힘차게 시작해 볼까요?"
+        )
+    elif 12 <= _h < 18:
+        return (
+            "반갑습니다. 나른해지기 쉬운 오후네요. "
+            "시원한 커피 한 잔과 함께 오후 상담도 화이팅하세요!"
+        )
+    elif 18 <= _h < 22:
+        return (
+            "안녕하십니까. 평안한 저녁입니다. "
+            "오늘 하루 고생 많으셨습니다. "
+            "남은 상담도 잘 마무리하시길 바랍니다."
+        )
+    else:
+        return (
+            "늦은 밤까지 정말 열정이 대단하시네요. "
+            "무리하지 마시고 건강 챙기시며 준비하시길 바랍니다."
+        )
 
 
 def calculate_trinity_metrics(

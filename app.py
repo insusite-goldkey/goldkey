@@ -38052,7 +38052,7 @@ function selectCustomer(name) {{
     
             # ── [GP-VOICE] 모닝 브리핑 자동 트리거 (당일 1회) ─────────────
             try:
-                from voice_engine import render_morning_briefing_auto as _rmba
+                from voice_engine import render_time_aware_briefing as _rmba
                 _rmba(
                     agent_id=st.session_state.get("agent_id", ""),
                     agent_name=st.session_state.get("agent_name", ""),
