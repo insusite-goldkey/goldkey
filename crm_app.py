@@ -810,19 +810,28 @@ def _load_schedules_today(agent_id: str) -> list:
 # ══════════════════════════════════════════════════════════════════════════════
 # 헤더
 # ══════════════════════════════════════════════════════════════════════════════
+_crm_hdr_t = datetime.datetime.now().strftime('%H:%M')
+_crm_hdr_h = datetime.datetime.now().hour
+if 5 <= _crm_hdr_h < 12:   _crm_greet = "활기찬 아침입니다."
+elif 12 <= _crm_hdr_h < 18: _crm_greet = "좋은 오후입니다."
+elif 18 <= _crm_hdr_h < 22: _crm_greet = "수고하신 저녁입니다."
+else:                         _crm_greet = "늦은 밤까지 열정이십니다."
 st.markdown(f"""
-<div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);padding:10px 20px;
-  border-radius:10px;border:1px dashed #3b82f6;margin-bottom:2px;">
-  <div style="display:flex;align-items:center;justify-content:space-between;">
+<div style="background:#F5F3FF;padding:8px 16px;
+  border-radius:10px;border:1px solid #c4b5fd;margin-bottom:4px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">
     <div>
-      <span style="font-size:1.3rem;font-weight:900;color:#1e3a8a;">📱 골드키 CRM</span>
-      <span style="font-size:0.78rem;color:#2563eb;margin-left:10px;">고객상담 앱</span>
+      <span style="font-size:1.15rem;font-weight:900;color:#5b21b6;">📱 골드키 CRM</span>
+      <span style="font-size:0.74rem;color:#7c3aed;margin-left:8px;">고객상담 앱</span>
     </div>
-    <div style="font-size:0.82rem;color:#374151;font-weight:700;">{_user_name} 설계사</div>
+    <div style="font-size:0.76rem;color:#4c1d95;font-weight:700;text-align:right;">
+      <b>'{_user_name}'님,</b> {_crm_greet}<br>
+      <span style="font-size:0.68rem;color:#7c3aed;font-weight:500;">⏰ 로그인: {_crm_hdr_t}</span>
+    </div>
   </div>
-  <div style="text-align:center;margin-top:5px;">
-    <span style="font-size:0.95rem;font-weight:900;color:#1e3a8a;">👥 전체 고객 대시보드</span>
-    <span style="font-size:0.78rem;color:#64748b;margin-left:8px;">고객 선택 → 6대 메뉴</span>
+  <div style="margin-top:4px;">
+    <span style="font-size:0.85rem;font-weight:900;color:#1e3a8a;">👥 전체 고객 대시보드</span>
+    <span style="font-size:0.72rem;color:#64748b;margin-left:6px;">고객 선택 → 6대 메뉴</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1501,8 +1510,8 @@ elif _spa_mode == "customer":
 
                 # ── [섹션 B] 트리니티 가처분 소득 산출기 ────────────────────
                 st.markdown(
-                    "<div style='background:#fffbeb;border:1px solid #fbbf24;"
-                    "border-radius:12px;padding:12px 14px;margin-bottom:8px;'>",
+                    "<div style='background:#FEF3C7;border:1px solid #f59e0b;"
+                    "border-radius:8px;padding:10px 14px;margin-bottom:6px;'>",
                     unsafe_allow_html=True,
                 )
                 st.markdown(
@@ -1538,16 +1547,17 @@ elif _spa_mode == "customer":
                             from shared_components import calculate_trinity_metrics as _calc_tri
                             _tm = _calc_tri(_nhis_val)  # 트리니티 계산법 적용
                             st.session_state[_tri_sess_key] = {
-                                "nhis":           _nhis_val,
-                                "monthly":        _tm["monthly_income"],
-                                "daily":          _tm["daily_value"],
-                                "gap_injury":     _tm["gap_injury"],
-                                "gap_disease":    _tm["gap_disease"],
-                                "disability_2yr": _tm["disability_2yr"],
-                                "stroke_18":      _tm["stroke_need"],
-                                "dementia_6":     int(_tm["monthly_income"] * 6),
-                                "cancer_min":     _tm["cancer_min"],
-                                "cancer_rec":     _tm["cancer_rec"],
+                                "nhis":                _nhis_val,
+                                "monthly":             _tm["monthly_income"],
+                                "daily":               _tm["daily_value"],
+                                "gap_injury":          _tm["gap_injury"],
+                                "gap_disease":         _tm["gap_disease"],
+                                "disability_cov_total": _tm["disability_cov_total"],
+                                "disability_cov_min":   _tm["disability_cov_min"],
+                                "stroke_18":           _tm["stroke_need"],
+                                "dementia_6":          int(_tm["monthly_income"] * 6),
+                                "cancer_min":          _tm["cancer_min"],
+                                "cancer_rec":          _tm["cancer_rec"],
                             }
                             st.session_state[f"crm_nhis__{_sel_pid}"] = _nhis_val
                         else:
@@ -1568,8 +1578,7 @@ elif _spa_mode == "customer":
                         ("일일 가치",      f"{_tri_res['daily']:,.0f}원"),
                         ("상해 입원일당",  f"{_tri_res['gap_injury']:,.0f}원"),
                         ("질병 입원일당",  f"{_tri_res['gap_disease']:,.0f}원"),
-                        ("장해(2년)",     f"{_tri_res['disability_2yr']:,.0f}원"),
-                        ("뇌혁줘(18M)",   f"{_tri_res['stroke_18']:,.0f}원"),
+                        ("뇌혈줘(18M)",   f"{_tri_res['stroke_18']:,.0f}원"),
                         ("암 최소",      f"{_tri_res['cancer_min']:,.0f}원"),
                         ("암 권장",      f"{_tri_res['cancer_rec']:,.0f}원"),
                     ]
@@ -1583,6 +1592,24 @@ elif _spa_mode == "customer":
                                 f"<b style='color:#1e3a8a;margin-left:4px;'>{_rval}</b></div>",
                                 unsafe_allow_html=True,
                             )
+                    st.markdown(
+                        "<div style='grid-column:1/-1;background:rgba(5,150,105,0.07);"
+                        "border:1.5px solid #6ee7b7;border-radius:8px;padding:8px 12px;"
+                        "margin-top:8px;font-size:0.76rem;'>"
+                        "<b style='color:#065f46;'>⑤ 후유장해(3%이상) — 2-Track 산출</b><br>"
+                        f"<span style='color:#dc2626;font-weight:900;'>"
+                        f"⚠️ 총 필요금액: {_tri_res['disability_cov_total']:,.0f}원</span><br>"
+                        f"<span style='color:#059669;font-weight:900;'>"
+                        f"🛡️ 산재보험 적용 시 최소 대비: {_tri_res['disability_cov_min']:,.0f}원</span>"
+                        "</div>",
+                        unsafe_allow_html=True,
+                    )
+                    st.caption(
+                        "※ 산출 근거: 장해율 10% 발생에 따른 직장 상실 리스크(2배수) 반영. "
+                        "산재보험 최소 대비액은 10% 장해(생산직 기준) 시 평균 보상일수인 176일을 공제하여 "
+                        "산출한 순수 공백기(189일) 기준입니다. "
+                        "(단, 산재 보상일수는 실제 장해율 및 직군에 따라 변동될 수 있습니다.)"
+                    )
                     st.markdown("</div>", unsafe_allow_html=True)
                     st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
                     _hq_detail_url = build_deeplink_to_hq(
@@ -2685,8 +2712,8 @@ elif _spa_mode == "customer":
     # ── SCREEN 6: 💬 카카오 발송 ─────────────────────────────────────────────
     elif _spa_screen == "kakao":
         st.markdown(
-            "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
-            "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
+            "<div style='background:#FEF3C7;padding:7px 12px;border-radius:8px;"
+            "font-size:0.8rem;font-weight:900;color:#92400e;border:1px solid #f59e0b;margin-bottom:8px;'>"
             "💬 카카오 알림톡 발송 — 단건 발송 · 일괄 발송 관리</div>",
             unsafe_allow_html=True,
         )
@@ -2743,8 +2770,8 @@ elif _spa_mode == "customer":
                 _kk1, _kk2 = st.columns([5, 5])
                 with _kk1:
                     st.markdown(
-                        "<div style='background:#F8FBFA;border:1px dashed #000;"
-                        "border-radius:10px;padding:14px;'>",
+                        "<div style='background:#FEF3C7;border:1px solid #f59e0b;"
+                        "border-radius:8px;padding:10px 14px;'>",
                         unsafe_allow_html=True,
                     )
                     st.markdown("**📤 알림톡 발송 설정**")
@@ -2818,8 +2845,8 @@ elif _spa_mode == "customer":
 
                 with _kk2:
                     st.markdown(
-                        "<div style='background:#F8FBFA;border:1px dashed #000;"
-                        "border-radius:10px;padding:14px;'>",
+                        "<div style='background:#fffbeb;border:1px solid #fbbf24;"
+                        "border-radius:8px;padding:10px 14px;'>",
                         unsafe_allow_html=True,
                     )
                     st.markdown("**📋 최근 발송 기록**")

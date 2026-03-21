@@ -52,37 +52,30 @@ def get_clean_phone(raw: str) -> str:
     return "".join(filter(str.isdigit, str(raw)))
 
 
-def get_time_aware_greeting() -> str:
-    """[GP-VOICE-2026] KST 기준 현재 시각에 맞는 상황 공감형 인사말 반환.
+def get_time_aware_greeting(name: str = "", login_time: str = "") -> str:
+    """[GP-VOICE-2026] KST 기준 현재 시각에 맞는 전문가 시간인지형 인사말 반환.
+
+    Args:
+        name:       설계사 이름 (있으면 '이름'님 접두어 붙임)
+        login_time: 로그인 시각 문자열 예) '09:32' (있으면 괄호 표기)
 
     시간대별 분기 (KST):
       05:00~11:59 — 아침  : 활기찬 시작 인사
-      12:00~17:59 — 오후  : 나른한 오후 공감 인사
-      18:00~21:59 — 저녁  : 하루 마무리 위로 인사
-      22:00~04:59 — 심야  : 열정 격려 + 건강 당부 인사
+      12:00~17:59 — 오후  : 집중 오후 인사
+      18:00~21:59 — 저녁  : 마무리 위로 인사
+      22:00~04:59 — 심야  : 열정 격려 인사
     """
+    _prefix = f"'{name}'님, " if name else ""
+    _suffix = f" (로그인: {login_time})" if login_time else ""
     _h = datetime.datetime.now().hour
     if 5 <= _h < 12:
-        return (
-            "안녕하십니까, 활기찬 아침입니다. "
-            "오늘 하루도 골드키와 함께 힘차게 시작해 볼까요?"
-        )
+        return f"{_prefix}활기찬 아침입니다.{_suffix}"
     elif 12 <= _h < 18:
-        return (
-            "반갑습니다. 나른해지기 쉬운 오후네요. "
-            "시원한 커피 한 잔과 함께 오후 상담도 화이팅하세요!"
-        )
+        return f"{_prefix}좋은 오후입니다.{_suffix}"
     elif 18 <= _h < 22:
-        return (
-            "안녕하십니까. 평안한 저녁입니다. "
-            "오늘 하루 고생 많으셨습니다. "
-            "남은 상담도 잘 마무리하시길 바랍니다."
-        )
+        return f"{_prefix}수고하신 저녁입니다.{_suffix}"
     else:
-        return (
-            "늦은 밤까지 정말 열정이 대단하시네요. "
-            "무리하지 마시고 건강 챙기시며 준비하시길 바랍니다."
-        )
+        return f"{_prefix}늦은 밤까지 열정이십니다.{_suffix}"
 
 
 def calculate_trinity_metrics(
@@ -157,6 +150,16 @@ def calculate_trinity_metrics(
     # ⑤ 상해/질병 후유장해: 가처분 100개월 — 장해율 고려 (500만 기준 5억)
     disability_cov    = _net_monthly * 100
 
+    # ── [2-Track 후유장해 2026] 초정밀 산출 ─────────────────────────────────
+    # Step1: 치료·재활 및 소득상실 대체금 (1년, 2배수)
+    _target_payout       = _net_monthly * 12 * 2
+    # Step2: 총 필요 후유장해 가입금액 (장해율 10% 기준, 10분위 절사)
+    _total_disability    = _target_payout / 0.10
+    disability_cov_total = int(_total_disability / 10_000) * 10_000
+    # Step3: 산재보험 공제 후 최소 필요 가입금액 (10% 장해, 176일 보상 가정)
+    _min_disability_wc   = (_total_disability / 365) * (365 - 176)
+    disability_cov_min   = int(_min_disability_wc / 10_000) * 10_000
+
     # ⑥ 로봇수술비: 가처분 6개월 (500만 기준 3,000만)
     robot_surg_cov    = _net_monthly * 6
 
@@ -187,6 +190,8 @@ def calculate_trinity_metrics(
         "target_cancer_cov":  target_cancer_cov,
         "brain_heart_cov":    brain_heart_cov,
         "disability_cov":     disability_cov,
+        "disability_cov_total": disability_cov_total,
+        "disability_cov_min":   disability_cov_min,
         "robot_surg_cov":     robot_surg_cov,
         "caregiver_daily":    caregiver_daily,
         # ── 하위 호환 필드 ──────────────────────────────────────────────────
@@ -1478,7 +1483,8 @@ def render_unified_analysis_center(
   .uac-gauge-label{font-size:0.65rem!important;}
 }
 .uac-header{background:linear-gradient(135deg,#059669 0%,#047857 100%);
-  border-radius:12px;padding:14px 20px 12px;margin-bottom:14px;}
+  border-radius:12px;padding:12px 20px 10px;margin-bottom:14px;
+  display:inline-flex;align-items:center;width:fit-content;max-width:100%;}
 .uac-summary-card{background:linear-gradient(90deg,#f0fdf4,#ecfdf5);
   border:1.5px solid #6ee7b7;border-radius:10px;padding:10px 14px;
   margin-top:10px;font-size:0.82rem;}
@@ -1519,7 +1525,7 @@ button[data-testid="baseButton-primary"]:hover{
     # ── 좌측: 데이터 & 가치 입력 영역 ──────────────────────────────────────
     with _left:
         st.markdown(
-            "<div style='font-size:0.78rem;font-weight:900;color:#065f46;"
+            "<div style='font-size:clamp(0.92rem,2.2vw,1.05rem);font-weight:900;color:#065f46;"
             "margin-bottom:8px;'>👈 데이터 & 가치 입력 영역</div>",
             unsafe_allow_html=True,
         )
@@ -1731,9 +1737,9 @@ button[data-testid="baseButton-primary"]:hover{
 
         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
         st.markdown(
-            "<div style='font-size:0.76rem;font-weight:800;color:#92400e;margin-bottom:4px;'>"
+            "<div style='font-size:clamp(0.92rem,2.2vw,1.05rem);font-weight:800;color:#92400e;margin-bottom:4px;'>"
             "💰 월 건강보험료 납부액 "
-            "<span style='font-weight:400;color:#6b7280;'>(가치 산출용)</span></div>",
+            "<span style='font-weight:400;color:#6b7280;font-size:0.85rem;'>(가치 산출용)</span></div>",
             unsafe_allow_html=True,
         )
         _nhi = st.number_input(
@@ -1816,7 +1822,7 @@ button[data-testid="baseButton-primary"]:hover{
     # ── 우측: AI 가입결과 보고서 ────────────────────────────────────────────
     with _right:
         st.markdown(
-            "<div style='font-size:0.78rem;font-weight:900;color:#1e3a8a;"
+            "<div style='font-size:clamp(0.92rem,2.2vw,1.05rem);font-weight:900;color:#1e3a8a;"
             "margin-bottom:8px;'>👉 AI 가입결과 보고서</div>",
             unsafe_allow_html=True,
         )
@@ -2255,6 +2261,42 @@ div[data-testid="stRadio"] > div > label > div:first-child { display: none !impo
     font-size: clamp(11px, 3.2vw, 13px) !important;
     padding: 7px 10px !important;
   }
+}
+
+/* ── §GP-V2-COMPACT: 정보밀도 극대화 컴팩트 여백 ────────────────── */
+[data-testid="stVerticalBlock"] > [data-testid="element-container"] {
+  margin-bottom: 4px !important;
+}
+[data-testid="stMarkdownContainer"] {
+  margin-bottom: 4px !important;
+}
+[data-testid="stVerticalBlock"] {
+  gap: 4px !important;
+}
+div[data-testid="stButton"] {
+  margin-bottom: 4px !important;
+}
+
+/* ── §GP-V2-INLINE: 버튼 문장 길이 컴팩트핏 ─────────────────────── */
+[data-testid="stButton"] > button {
+  padding: 0.28rem 0.9rem !important;
+  min-height: 2.1rem !important;
+  width: auto !important;
+  max-width: min(100%, 340px) !important;
+}
+
+/* ── §GP-V2-PASTEL-BLOCKS: 안내 블록 파스텔 기준 ──────────────────── */
+div[style*="background:#fffbeb"],div[style*="background:#FEF3C7"] {
+  border-radius: 8px !important;
+  border: 1px solid #f59e0b !important;
+}
+div[style*="background:#eff6ff"],div[style*="background:#DBEAFE"] {
+  border-radius: 8px !important;
+  border: 1px solid #93c5fd !important;
+}
+div[style*="background:#f0fdf4"],div[style*="background:#DCFCE7"] {
+  border-radius: 8px !important;
+  border: 1px solid #6ee7b7 !important;
 }
 </style>"""
 

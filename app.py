@@ -29031,11 +29031,18 @@ def main():
             pass  # [ID-000-NAV] 플래그 소비는 메인 영역(31901줄)에서 처리
             # 로그인 후 사용자 카드
             _nav_uname = st.session_state.get('user_name','') or st.session_state.get('user_id','마스터')
+            _nav_login_t = datetime.now().strftime('%H:%M')
+            _nav_h = datetime.now().hour
+            if 5 <= _nav_h < 12:   _nav_greet = "활기찬 아침입니다."
+            elif 12 <= _nav_h < 18: _nav_greet = "좋은 오후입니다."
+            elif 18 <= _nav_h < 22: _nav_greet = "수고하신 저녁입니다."
+            else:                    _nav_greet = "늦은 밤까지 열정이십니다."
             st.markdown(
-                f'<div style="background:linear-gradient(135deg,#4facfe,#00f2fe);'
-                'border-radius:12px;padding:10px;margin-bottom:6px;text-align:center;">'
-                '<div style="font-size:1.0rem;font-weight:800;color:#0a1628;">Goldkey_AI_Masters2026</div>'
-                f'<div style="font-size:0.78rem;color:#0d2344;">👤 {_nav_uname} 마스터</div>'
+                f'<div style="background:#F5F3FF;border:1px solid #c4b5fd;'
+                'border-radius:10px;padding:8px 12px;margin-bottom:6px;">'
+                '<div style="font-size:0.88rem;font-weight:900;color:#5b21b6;letter-spacing:-0.01em;">Goldkey AI Masters 2026</div>'
+                f'<div style="font-size:0.75rem;color:#4c1d95;margin-top:2px;">👤 <b>{_nav_uname}</b> 마스터</div>'
+                f'<div style="font-size:0.71rem;color:#7c3aed;margin-top:1px;">⏰ {_nav_greet} (로그인: {_nav_login_t})</div>'
                 '</div>',
                 unsafe_allow_html=True,
             )
@@ -41651,6 +41658,8 @@ div[data-testid="stButton"] {
                 ):
                     try:
                         _tri_ai_c = get_client()
+                        _ai_dis_total = int((_inc.disposable_monthly * 24 / 0.10) / 10_000) * 10_000
+                        _ai_dis_min   = int((_inc.disposable_monthly * 24 / 0.10 / 365 * 189) / 10_000) * 10_000
                         _tri_prompt = (
                             f"[트리니티 경제가치 분석 결과]\n"
                             f"고객명: {st.session_state.get('tri_cname','고객')}\n"
@@ -41670,30 +41679,37 @@ div[data-testid="stButton"] {
                             "법률·재무적 근거를 들어 고객의 거절을 완벽히 방어하는 화법 3가지\n"
                             "3. '논리적 설득 70% + 전략적 위기 30%' 톤으로 "
                             "4단계(FACT-CRISIS-GAP-SOLUTION) 심화 클로징 스크립트\n"
-                            "4. 설계사가 바로 사용 가능한 한 문장 핵심 멘트를 강조 표시"
+                            "4. 설계사가 바로 사용 가능한 한 문장 핵심 멘트를 강조 표시\n"
+                            f"5. [후유장해 두괄식 클로징 강제] 다음 멘트로 시작하라: "
+                            f"'고객님, 후유장해(3% 이상) 특약은 총 {_ai_dis_total:,.0f}원을 가입하셔야 완벽합니다. "
+                            f"만약 업무 중 사고로 산업재해를 인정받는다 해도, 최소 {_ai_dis_min:,.0f}원은 "
+                            f"가입되어 있어야 가정이 무너지지 않습니다.' "
+                            "그 후 산출 근거를 덧붙이되, "
+                            "'이 산재 공제액은 10% 장해 시 평균적으로 지급되는 176일을 기준으로 산출한 것이며, "
+                            "실제 장해율에 따라 지급일수는 달라질 수 있으므로 보수적인 대비가 필요합니다'라고 "
+                            "전문가답게 짚어주어라."
                         )
-                        _tri_ai_cfg = _lazy_genai_types().GenerateContentConfig(
-                            max_output_tokens=900, temperature=0.6,
+                        _tri_cfg = types.GenerateContentConfig(
+                            temperature=0.85,
+                            max_output_tokens=1800,
                         )
-                        _tri_ai_resp = _tri_ai_c.models.generate_content(
-                            model=GEMINI_MODEL, contents=_tri_prompt, config=_tri_ai_cfg,
-                        )
-                        st.session_state["_tri_ai_closing"] = (_tri_ai_resp.text or "").strip()
-                    except Exception as _tai_e:
-                        st.error(f"AI 클로징 생성 오류: {_tai_e}")
-
-                if st.session_state.get("_tri_ai_closing"):
-                    st.markdown(
-                        f"<div style='background:{_TRI_NAVY};border-radius:8px;"
-                        f"padding:14px 16px;margin-top:8px;font-size:0.78rem;"
-                        f"line-height:1.9;color:#e2e8f0;border-left:5px solid {_TRI_YELLOW};'>"
-                        f"<div style='color:{_TRI_YELLOW};font-size:0.68rem;font-weight:900;"
-                        f"letter-spacing:0.1em;margin-bottom:6px;'>🔱 AI 심화 클로징</div>"
-                        f"{st.session_state['_tri_ai_closing'].replace(chr(10),'<br>')}</div>",
-                        unsafe_allow_html=True,
-                    )
-
-                # ── [개정 트리니티 2026] 5년 소득보전 완벽 방어 모델 ────────────────
+                        with st.spinner("🤖 Gemini AI 심화 클로징 생성 중..."):
+                            _tri_resp = _tri_ai_c.models.generate_content(
+                                model=GEMINI_MODEL,
+                                contents=_tri_prompt,
+                                config=_tri_cfg,
+                            )
+                        _tri_result = sanitize_unicode(_tri_resp.text) if _tri_resp.text else ""
+                        if _tri_result:
+                            st.markdown(
+                                f"<div style='background:#f0fdf4;border:1px solid #86efac;"
+                                f"border-radius:10px;padding:14px 16px;margin-top:10px;"
+                                f"font-size:0.82rem;line-height:1.7;white-space:pre-wrap;'>"
+                                f"{_tri_result}</div>",
+                                unsafe_allow_html=True,
+                            )
+                    except Exception as _tri_ai_e:
+                        st.error(f"❌ AI 생성 오류: {_tri_ai_e}")
                 try:
                     from shared_components import calculate_trinity_metrics as _hq_tri
                     _hq_sub_key = st.session_state.get("tri_sub_type", "🏢 직장가입자")
@@ -41723,8 +41739,13 @@ div[data-testid="stButton"] {
                         f"<span style='color:#dc2626;font-weight:900;'>{_hq_m['target_cancer_cov']:,.0f}원</span></div>"
                         f"<div><b>④ 뇌/심장</b> (40M)<br>"
                         f"<span style='color:#7c3aed;font-weight:900;'>{_hq_m['brain_heart_cov']:,.0f}원</span></div>"
-                        f"<div><b>⑤ 후유장해</b> (100M)<br>"
-                        f"<span style='color:#059669;font-weight:900;'>{_hq_m['disability_cov']:,.0f}원</span></div>"
+                        f"<div style='grid-column:1/-1;background:rgba(5,150,105,0.07);"
+                        f"border:1.5px solid #6ee7b7;border-radius:8px;padding:8px 12px;'>"
+                        f"<b style='color:#065f46;'>⑤ 후유장해(3%이상) — 2-Track 산출</b><br>"
+                        f"<span style='color:#dc2626;font-weight:900;font-size:0.82rem;'>"
+                        f"⚠️ 총 필요금액: {_hq_m['disability_cov_total']:,.0f}원</span><br>"
+                        f"<span style='color:#059669;font-weight:900;font-size:0.82rem;'>"
+                        f"🛡️ 산재보험 적용 시 최소 대비: {_hq_m['disability_cov_min']:,.0f}원</span></div>"
                         f"<div><b>⑥ 로봇수술비</b> (6M)<br>"
                         f"<span style='color:#0891b2;font-weight:900;'>{_hq_m['robot_surg_cov']:,.0f}원</span></div>"
                         f"<div style='grid-column:1/-1;'><b>⑦ 간병인/입원일당</b> (가처분×4%)<br>"
@@ -41733,9 +41754,12 @@ div[data-testid="stButton"] {
                         unsafe_allow_html=True,
                     )
                     st.caption(
-                        "※ 본 산출액은 구간별 실효세율 정밀 공제 및 CFP(재무설계) 유가족 연착륙 자금, "
+                        "※ 본 산출액은 구간별 실효세율 정밀 공제 및 CFP(재무설계) 유가족 연착륨 자금, "
                         "손해사정 실무(법원 일실수입 산정) 기준, 가장의 5년 치 소득 보전을 목적으로 "
-                        "설계된 '완성형 리스크 관리 시나리오'입니다."
+                        "설계된 '완성형 리스크 관리 시나리오'입니다. "
+                        "※ 후유장해 산출 근거: 장해율 10% 발생에 따른 직장 상실 리스크(2배수) 반영. "
+                        "산재보험 최소 대비액은 10% 장해(생산직 기준) 시 평균 보상일수인 176일을 공제하여 산출한 순수 공백기(189일) 기준입니다. "
+                        "(단, 산재 보상일수는 실제 장해율 및 직군에 따라 변동될 수 있습니다.)"
                     )
                 except Exception:
                     pass

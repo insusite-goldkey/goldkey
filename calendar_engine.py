@@ -507,8 +507,8 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
 /* 버튼 텍스트: 세로모드에서 자동 축소 + 잘림 방지 */
 @media (min-width:480px) and (max-width:900px){
   [data-testid="stHorizontalBlock"] button{
-    font-size:clamp(.62rem,1.8vw,.88rem) !important;
-    padding:5px 3px !important;
+    font-size:clamp(.82rem,2.2vw,1rem) !important;
+    padding:6px 4px !important;
     white-space:nowrap !important;
     overflow:hidden !important;
     text-overflow:ellipsis !important;
@@ -517,6 +517,11 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
     min-width:0 !important;
   }
 }
+/* 달력 네비게이션 전역 버튼 크기 — 모든 해상도에서 1rem 이상 */
+[data-testid="stHorizontalBlock"] button {
+  font-size:1rem !important;
+  font-weight:700 !important;
+}
 /* 검색 버튼 스타일 */
 .gp-sw ~ div [data-testid="column"]:last-child button {
   background:linear-gradient(135deg,#fce7f3,#fecdd3)!important;
@@ -524,7 +529,7 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
 .gp-sw ~ div [data-testid="column"]:last-child button:hover {
   background:linear-gradient(135deg,#fbcfe8,#fca5a5)!important;}
 </style><span class='gp-sw'></span>""", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:.82rem;font-weight:900;color:#374151;margin-bottom:4px;'>🔍 태그 및 일정 검색</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:1rem;font-weight:900;color:#374151;margin-bottom:4px;'>🔍 태그 및 일정 검색</div>", unsafe_allow_html=True)
     _cs1, _cs2 = st.columns([5,1])
     with _cs1:
         _tq = st.text_input("검색", label_visibility="collapsed",
@@ -557,7 +562,7 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
             st.rerun()
     with _nb3:
         st.markdown(
-            f"<div style='text-align:center;font-size:1.05rem;font-weight:900;"
+            f"<div style='text-align:center;font-size:1.3rem;font-weight:900;"
             f"color:#1a3a5c;padding:8px 4px;white-space:nowrap;'>{year}년 {month}월</div>",
             unsafe_allow_html=True,
         )
@@ -609,7 +614,7 @@ def _render_monthly_dashboard(agent_id: str, year: int, month: int, ta: dict) ->
     left, right = st.columns([1, 1], gap="medium")
     with left:
         st.markdown(
-            f"<div style='font-size:.88rem;font-weight:900;color:#1e3a8a;margin-bottom:10px;'>"
+            f"<div style='font-size:1.02rem;font-weight:900;color:#1e3a8a;margin-bottom:10px;'>"
             f"📊 월간 활동 성과 온도계 — {year}년 {month}월</div>",
             unsafe_allow_html=True)
         try:
@@ -647,7 +652,7 @@ def _render_monthly_dashboard(agent_id: str, year: int, month: int, ta: dict) ->
 </div>""", unsafe_allow_html=True)
     with right:
         st.markdown(
-            "<div style='font-size:.88rem;font-weight:900;color:#1e3a8a;margin-bottom:10px;'>"
+            "<div style='font-size:1.02rem;font-weight:900;color:#1e3a8a;margin-bottom:10px;'>"
             "📞 월간 핵심 TA 리스트</div>",
             unsafe_allow_html=True)
         def _ta_row(emoji: str, name: str, badge: str, bg: str) -> str:

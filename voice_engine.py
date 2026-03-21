@@ -805,13 +805,16 @@ def render_time_aware_briefing(
 
     # ── 시각 인지형 헤더 배너 ─────────────────────────────────────────────────
     st.markdown(
-        f"<div style='background:linear-gradient(90deg,#0f172a,#1e3a5c);border-radius:12px;"
-        f"padding:12px 18px;margin-bottom:10px;display:flex;align-items:center;gap:12px;'>"
+        f"<div style='background:linear-gradient(135deg,#eff6ff,#dbeafe);"
+        f"border:1.5px dashed #93c5fd;border-radius:12px;"
+        f"padding:10px 18px;margin-bottom:10px;"
+        f"display:inline-flex;align-items:center;gap:12px;"
+        f"width:fit-content;max-width:100%;'>"
         f"<div style='font-size:1.5rem;'>{_time_emoji}</div>"
         f"<div>"
-        f"<div style='color:#fff;font-size:.88rem;font-weight:900;'>{_time_label}"
-        f"<span style='color:#94c4f5;font-size:.7rem;font-weight:400;margin-left:8px;'>현재 {_time_str}</span></div>"
-        f"<div style='color:#94c4f5;font-size:.74rem;margin-top:2px;'>{_time_sub}</div>"
+        f"<div style='color:#1e40af;font-size:.92rem;font-weight:900;'>{_time_label}"
+        f"<span style='color:#3b82f6;font-size:.74rem;font-weight:500;margin-left:8px;'>현재 {_time_str}</span></div>"
+        f"<div style='color:#4b5563;font-size:.78rem;margin-top:2px;'>{_time_sub}</div>"
         f"</div></div>",
         unsafe_allow_html=True,
     )
