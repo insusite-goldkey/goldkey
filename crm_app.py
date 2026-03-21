@@ -50,6 +50,7 @@ from shared_components import (
     customer_input_form,
     render_customer_list,
     build_deeplink_to_hq,
+    build_deeplink_to_crm,
     build_sso_redirect,
     HQ_APP_URL,
     CRM_APP_URL,
@@ -444,7 +445,9 @@ _IS_LOCAL = (
 CRM_URL = get_env_secret("CRM_URL", CRM_APP_URL)
 
 def _check_sso_token() -> bool:
-    """[GP-SEC §2] URL에서 auth_token + user_id 수신 → HMAC 검증 → 세션 설정."""
+    """[GP-SEC §2] URL에서 auth_token + user_id 수신 → HMAC 검증 → 세션 설정.
+    crm_pid / crm_screen 파라미터 수신 시 고객 화면 자동 복원 (HQ 복귀 시 포커스 유지).
+    """
     _auth_token = st.query_params.get("auth_token", "")
     _user_id    = st.query_params.get("user_id", "")
     if _auth_token and _user_id:
@@ -452,14 +455,20 @@ def _check_sso_token() -> bool:
         try:
             _valid = _sc_verify_sso_token(_auth_token, _user_id)
         except Exception:
-            _valid = bool(_auth_token)
+            _valid = bool(_auth_token)  # fallback: 토큰 존재만으로 유효 처리
         if _valid:
             st.session_state["crm_authenticated"] = True
             st.session_state["crm_user_id"]       = _user_id
             st.session_state["crm_user_name"]     = st.session_state.get("crm_user_name", "설계사")
             st.session_state["crm_role"]          = "agent"
             st.session_state["crm_token"]         = _auth_token
-            st.query_params.clear()  # SSO 토큰 수신 즉시 URL에서 삭제
+            # [HQ 복귀 세션 복원] crm_pid: 이전에 보던 고객 자동 복원
+            _back_pid    = st.query_params.get("crm_pid", "")
+            _back_screen = st.query_params.get("crm_screen", "contact")
+            if _back_pid:
+                st.session_state["crm_selected_pid"] = _back_pid
+                st.session_state["crm_spa_screen"]   = _back_screen
+            st.query_params.clear()  # [GP-SEC §2] SSO 토큰 수신 즉시 URL에서 삭제
             return True
     return False
 
@@ -786,6 +795,23 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ── [GP-SEC §4] 브라우저 Back 세션 보호 JS ────────────────────────────────────
+# popstate(뒤로가기) 감지 시 현재 URL로 재 pushState → 실제 뒤로가기 차단
+# 로그인 상태에서 물리적 Back 버튼을 눌러도 로그인 화면으로 튕기지 않음
+import streamlit.components.v1 as _crm_jcomp
+_crm_jcomp.html("""
+<script>
+(function() {
+  if (window.__gk_back_guard) return;
+  window.__gk_back_guard = true;
+  // 현재 URL을 히스토리에 한 번 더 push → back 1회 흡수
+  history.pushState(null, '', window.location.href);
+  window.addEventListener('popstate', function(e) {
+    // 뒤로가기 감지 즉시 현재 URL로 다시 push (이탈 차단)
+    history.pushState(null, '', window.location.href);
+  });
+})();
+</script>""", height=0)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # [GP SPA §0] 아웃룩 컴포넌트 + DB 유틸 로드 (st.tabs 금지)
@@ -1357,6 +1383,22 @@ elif _spa_mode == "customer":
                                 unsafe_allow_html=True,
                             )
                     st.markdown("</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
+                    _hq_detail_url = build_deeplink_to_hq(
+                        cid=_sel_pid,
+                        agent_id=_user_id,
+                        sector="t3",
+                        user_id=_user_id,
+                    )
+                    st.markdown(
+                        f"<a href='{_hq_detail_url}' target='_blank' style='"
+                        "display:inline-block;background:#eff6ff;color:#1e3a8a;"
+                        "border:1px solid #bfdbfe;border-radius:6px;padding:4px 10px;"
+                        "font-size:0.72rem;font-weight:900;text-decoration:none;"
+                        "white-space:nowrap;'>📊 상세 상담 이동 →</a>",
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
                     if st.button("🔄 결과 초기화", key=f"crm_tri_reset_{_sel_pid}",
                                  use_container_width=True):
                         st.session_state.pop(_tri_sess_key, None)

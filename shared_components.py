@@ -333,6 +333,34 @@ def build_sso_redirect(return_to: str) -> str:
     return f"{HQ_APP_URL}/?{_up.urlencode({'return_to': return_to})}"
 
 
+def build_deeplink_to_crm(user_id: str, pid: str = "", screen: str = "contact") -> str:
+    """
+    [GP-SEC §2] HQ → CRM 복귀 딥링크 URL 생성.
+    auth_token + user_id + crm_pid 포함 → CRM 수신 시 자동 인증 + 고객 화면 복원.
+    타임스탬프 기반 HMAC-SHA256 토큰 (300초 유효) — 리플레이 공격 차단.
+    """
+    import urllib.parse as _up
+    import hmac as _hmac_crm
+    import time as _time_crm
+    _secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+    if isinstance(_secret, bytes):
+        _secret = _secret.decode()
+    _ts = int(_time_crm.time())
+    _auth_tok = _hmac_crm.new(
+        _secret.encode(), (user_id + str(_ts)).encode(), "sha256"
+    ).hexdigest()[:32]
+    params: dict = {
+        "auth_token": _auth_tok,
+        "user_id":    user_id,
+        "ts":         str(_ts),
+    }
+    if pid:
+        params["crm_pid"] = pid
+    if screen:
+        params["crm_screen"] = screen
+    return f"{CRM_APP_URL}/?{_up.urlencode(params)}"
+
+
 # ── 응접 데스크 패널 렌더 (모 앱 전용) ────────────────────────────────────────
 def render_reception_desk(*, key_prefix: str = "_rd") -> None:
     """
@@ -396,6 +424,23 @@ def render_reception_desk(*, key_prefix: str = "_rd") -> None:
                 _label = _sector_labels.get(_sector, _sector)
                 st.caption(f"📍 목적지 섹터: **{_label}** — 자동 이동 중")
         with col_action:
+            _rd_uid = st.session_state.get("user_id", "")
+            if _rd_uid and _cid:
+                try:
+                    _crm_back_url = build_deeplink_to_crm(
+                        user_id=_rd_uid, pid=_cid, screen="contact"
+                    )
+                    st.markdown(
+                        f"<a href='{_crm_back_url}' target='_self' style='"
+                        "display:block;text-align:center;background:#f0fdf4;"
+                        "color:#15803d;border:1px solid #86efac;border-radius:8px;"
+                        "padding:5px 4px;font-size:0.72rem;font-weight:900;"
+                        "text-decoration:none;margin-bottom:4px;'>"
+                        "🔙 CRM 복귀</a>",
+                        unsafe_allow_html=True,
+                    )
+                except Exception:
+                    pass
             if st.button("✕ 도킹 해제", key=f"{key_prefix}_undock", use_container_width=True):
                 for _k in [f"{key_prefix}_docked_cid", f"{key_prefix}_docked_name",
                             f"{key_prefix}_docked_sector", f"{key_prefix}_docked_token",
