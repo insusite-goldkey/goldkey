@@ -24,13 +24,14 @@ try:
         render_morning_briefing_auto as _ve_morning_auto,
         render_voice_player          as _ve_player,
         build_morning_briefing       as _ve_build_brief,
+        build_customer_briefing      as _ve_build_cust_brief,
         render_voice_search          as _ve_voice_search,
         parse_voice_intent           as _ve_parse_intent,
     )
     _VOICE_OK = True
 except Exception:
     _VOICE_OK = False
-    _ve_morning_auto = _ve_player = _ve_build_brief = None
+    _ve_morning_auto = _ve_player = _ve_build_brief = _ve_build_cust_brief = None
     _ve_voice_search = _ve_parse_intent = None
 
 try:
@@ -897,7 +898,13 @@ if _sel_pid:
 # [GP SPA §2] MODE: LIST — 아웃룩 고객 목록
 # ══════════════════════════════════════════════════════════════════════════════
 if _spa_mode == "list":
-    # ── [GP-CALENDAR] 스마트 캘린더 엔진 (calendar_engine.py) ────────────────
+    # ── [GP-VOICE §5] 핸즈프리 CRM — 모닝 브리핑 자동 기동 ──────────────────
+    if _VOICE_OK and _ve_morning_auto:
+        try:
+            _ve_morning_auto(_user_id, _user_name)
+        except Exception:
+            pass
+    # ── [GP-CALENDAR] 스마트 캘린더 엔진 (calendar_engine.py) ────────────────────
     calendar_engine.render_today_widget(_user_id)
     calendar_engine.render_smart_calendar(_user_id, _load_customers(_user_id))
     st.markdown("<hr style='border-top:1px solid #e5e7eb;margin:10px 0 12px;'>",
@@ -932,8 +939,12 @@ if _spa_mode == "list":
         _voice_result = _ve_voice_search(session_key="crm_voice_q", key="crm_vs_main")
         if _voice_result:
             _vi = _ve_parse_intent(_voice_result)
-            if _vi.get("query") and not st.session_state.get("spa_search"):
-                st.session_state["spa_search"] = _vi["query"]
+            # [GP-SEARCH] STT 결과 정규화: 띄어쓰기 제거 후 검색 세션에 반영
+            _vi_q = (_vi.get("query") or "").replace(" ", "")  # clean_query
+            _vi_kw = (_vi.get("filters") or {}).get("keyword", "")
+            _target_q = _vi_q or _vi_kw  # 이름 파싱 실패 시 keyword 백폴녵
+            if _target_q and not st.session_state.get("spa_search"):
+                st.session_state["spa_search"] = _target_q
             if _vi.get("filters"):
                 st.session_state["_voice_filters"] = _vi["filters"]
                 if _ff_log_search and _sb:
@@ -972,7 +983,7 @@ if _spa_mode == "list":
     if _mo_f:             _all_custs = [c for c in _all_custs if c.get("auto_renewal_month") == _mo_f or c.get("fire_renewal_month") == _mo_f]
     if _stat_f != "전체": _all_custs = [c for c in _all_custs if c.get("status") == _stat_map_r.get(_stat_f, "")]
 
-    # ── [GP-VOICE] 음성 필터 추가 적용 ──────────────────────────────────────
+    # ── [GP-VOICE + GP-SEARCH] 음성 필터 + 키워드 AND 매칭 ───────────────────────
     _vf = st.session_state.get("_voice_filters", {})
     if _vf.get("management_tier"): _all_custs = [c for c in _all_custs if c.get("management_tier") == _vf["management_tier"]]
     if _vf.get("status"):          _all_custs = [c for c in _all_custs if c.get("status") == _vf["status"]]
@@ -980,6 +991,10 @@ if _spa_mode == "list":
     if _vf.get("renewal_month"):   _all_custs = [c for c in _all_custs if c.get("auto_renewal_month") == _vf["renewal_month"] or c.get("fire_renewal_month") == _vf["renewal_month"]]
     if _vf.get("renewal_type") == "auto": _all_custs = [c for c in _all_custs if c.get("auto_renewal_month")]
     if _vf.get("renewal_type") == "fire": _all_custs = [c for c in _all_custs if c.get("fire_renewal_month")]
+    if _vf.get("keyword"):  # [GP-SEARCH] STT 키워드(memo/name/job 대상 매칭)
+        from db_utils import _matches_query as _dq_match, _normalize_query as _dq_norm
+        _vf_cq, _vf_tok = _dq_norm(_vf["keyword"])
+        _all_custs = [c for c in _all_custs if _dq_match(c, _vf_cq, _vf_tok)]
 
     # ── [GP-PERF] 페이징: 검색 변경 시 1페이지 리셋 ──────────────────────────
     _cur_page = int(st.session_state.get("crm_list_page", 1))
@@ -1182,6 +1197,24 @@ elif _spa_mode == "customer":
             f"</div>",
             unsafe_allow_html=True,
         )
+        # ── [GP-VOICE §4] 핸즈프리 CRM — 고객 상세 진입 시 AI 브리핑 보이스 ─────
+        if _VOICE_OK and _ve_player and _ve_build_cust_brief:
+            try:
+                _vp_cust_key  = f"crm_cust_vp_{_sel_pid}"
+                _vp_ptype_key = f"{_vp_cust_key}_ptype"
+                _vp_ptype     = st.session_state.get(_vp_ptype_key, "Emotional")
+                _vp_text      = _ve_build_cust_brief(_sel_cust, _vp_ptype)
+                _auto_play_cv = not st.session_state.get(f"_cust_briefed_{_sel_pid}", False)
+                _ve_player(
+                    _vp_text,
+                    personality_type=_vp_ptype,
+                    key=_vp_cust_key,
+                    auto_play=_auto_play_cv,
+                    compact=False,
+                )
+                st.session_state[f"_cust_briefed_{_sel_pid}"] = True
+            except Exception:
+                pass
 
     _crm_menus = [
         ("📋 고객 마스터",  "contact"),

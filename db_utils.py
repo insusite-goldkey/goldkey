@@ -45,10 +45,55 @@ def _get_sb() -> Any:
 # §1 고객 (gk_people)
 # ══════════════════════════════════════════════════════════════════════════════
 
+# ── [GP-SEARCH] 띄어쓰기 무시 + 복합 키워드 AND 검색 헬퍼 ───────────────────────
+
+def _normalize_query(query: str) -> tuple[str, list[str]]:
+    """
+    검색어 정규화.
+    Returns:
+        clean_q  — 공백 제거 버전 ('치매 보험' → '치매보험')
+        tokens   — 공백 분리 단어 목록 (AND 검색용: ['3월', '자동차'])
+    """
+    stripped = query.strip()
+    clean_q  = stripped.replace(" ", "")
+    tokens   = [t.strip() for t in stripped.split() if t.strip()]
+    return clean_q, tokens
+
+
+def _matches_query(row: dict, clean_q: str, tokens: list[str]) -> bool:
+    """
+    [GP-SEARCH] 띄어쓰기 무시 AND 매칭.
+    검색 대상 필드: name, memo, job, address, status, auto/fire_renewal_month.
+    """
+    # 검색 대상 텍스트 합산 (소문자)
+    parts = [
+        row.get("name",    ""),
+        row.get("memo",    ""),
+        row.get("job",     ""),
+        row.get("address", ""),
+        row.get("status",  ""),
+        str(row.get("auto_renewal_month", "") or ""),
+        str(row.get("fire_renewal_month", "") or ""),
+    ]
+    full_text       = " ".join(p for p in parts if p).lower()
+    full_text_clean = full_text.replace(" ", "")  # 공백 제거 버전
+
+    if len(tokens) >= 2:
+        # 복합 키워드 AND: 모든 토큰이 full_text 어딘가에 존재해야 함
+        return all(t.lower() in full_text for t in tokens)
+    else:
+        # 단일 키워드: 공백 무시 매칭 (clean_q vs clean text)
+        return clean_q.lower() in full_text_clean
+
+
 def load_customers(agent_id: str, query: str = "") -> list[dict]:
     """
-    gk_people 조회 (담당 설계사 + 검색어 필터).
+    gk_people 조회 (담당 설계사 + [GP-SEARCH] 띄어쓰기 무시 + 복합키워드 AND 필터).
     @st.cache_data(ttl=60) 적용 — 호출 측에서 wrapping 필요.
+
+    검색 전략:
+      1. DB: agent_id 필터 + 단일 키워드면 name ilike 프리필터 (속도 최적화)
+      2. Python: 공백 제거 버전 clean_q 로 전 필드(name/memo/job/address 등) AND 매칭
     """
     sb = _get_sb()
     if not sb:
@@ -57,10 +102,24 @@ def load_customers(agent_id: str, query: str = "") -> list[dict]:
         q = sb.table("gk_people").select("*").eq("is_deleted", False)
         if agent_id:
             q = q.eq("agent_id", agent_id)
+
+        clean_q: str    = ""
+        tokens:  list   = []
         if query:
-            q = q.ilike("name", f"%{query}%")
+            clean_q, tokens = _normalize_query(query)
+            if len(tokens) <= 1 and clean_q and " " not in query:
+                # 단일/공백없는 키워드: DB 프리필터로 name 대상 빠른 선별
+                # (Python 포스트필터가 memo/job 등 추가 필드도 커버)
+                q = q.ilike("name", f"%{clean_q}%")
+            # 복합 키워드('3월 자동차') or 공백포함 단일어: DB 필터 생략 → Python 전량 처리
+
         q = q.order("management_tier").order("name")
-        return (q.execute().data or [])[:200]
+        rows = (q.execute().data or [])[:500]  # Python 포스트필터용 여유분 확보
+
+        if query and clean_q:
+            rows = [r for r in rows if _matches_query(r, clean_q, tokens)]
+
+        return rows[:200]
     except Exception:
         return []
 
