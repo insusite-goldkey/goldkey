@@ -23,11 +23,22 @@ from typing import Optional
 
 
 def get_env_secret(key: str, default_value: str = "") -> str:
-    """st.secrets가 없어도 뻗지 않고 클라우드 환경변수로 대체하는 안전한 함수"""
+    """st.secrets가 없어도 뻗지 않고 클라우드 환경변수로 대체하는 안전한 함수.
+    로딩 우선순위: st.secrets(secrets.toml) → os.environ(Cloud Run) → default_value
+    """
+    # [K2-1] st.secrets — secrets.toml / Streamlit Cloud Secrets Manager
     try:
-        return st.secrets.get(key, os.environ.get(key, default_value))
+        val = st.secrets.get(key, None)
+        if val is not None and str(val).strip():
+            return str(val).strip()
     except Exception:
-        return os.environ.get(key, default_value)
+        pass
+    # [K2-2] OS 환경변수 — Cloud Run ENV / .env 파일
+    env_val = os.environ.get(key, "").strip()
+    if env_val:
+        return env_val
+    # [K2-3] 기본값 반환
+    return default_value
 
 
 def get_clean_phone(raw: str) -> str:
@@ -40,41 +51,122 @@ def get_clean_phone(raw: str) -> str:
     return "".join(filter(str.isdigit, str(raw)))
 
 
-def calculate_trinity_metrics(nhis_premium: int) -> dict:
+def calculate_trinity_metrics(
+    nhis_premium: int,
+    sub_type: str = "workplace",
+) -> dict:
     """
-    [트리니티 계산법] 건강보험료 기반 핵심 재무 지표 산출 중앙 엔진.
-    모든 하드코딩 산식을 이 함수 하나로 통일한다.
-    검증: 300,000원 입력 → 약 846만원 월소득 산출.
+    [트리니티 개정 엔진 2026] 가입자 유형 분기 × 구간별 실효공제율 × 7대 완성형 보장액.
+
+    sub_type 값:
+      "workplace"        — 직장가입자 (보수월액 기반)
+      "regional_general" — 지역가입자 일반/사업자 (재산가중치 75%)
+      "regional_retiree" — 지역가입자 은퇴자 (재산가중치 50%)
+
+    CFP 5년 소득보전 완성형 모델 — 법원 일실수입 산정 + 유가족 연착륙 기준.
     """
-    # 트리니티 계산법 적용 — 개인부담 건보료율 3.545% 기준 역산
-    monthly_income = int(nhis_premium / 0.03545)   # 추정 명목 소득
-    annual_income  = monthly_income * 12            # 추정 연소득
-    daily_value    = int(monthly_income / 30)       # 일일 가치 (휴업손해)
+    # ── [Step 1] 가입자 유형별 명목 월소득 역산 ──────────────────────────────
+    # 건강보험료율 7.19% (2026 기준, 직장: 노사 각 절반 → 근로자 부담 3.545%)
+    if sub_type == "regional_retiree":
+        # 은퇴자 지역가입자: 재산점수 가중치 50% 반영
+        _gross_monthly = int(nhis_premium / (0.0719 * 0.5))
+    elif sub_type == "regional_general":
+        # 일반 지역가입자/사업자: 재산점수 가중치 75% 반영
+        _gross_monthly = int(nhis_premium / (0.0719 * 0.75))
+    else:
+        # 직장가입자: 사용자 50% 분담 → 근로자 실질 부담 역산
+        _gross_monthly = int((nhis_premium * 2) / 0.0719)
 
-    # 트리니티 계산법 적용 — 입원일당 적정액 (FSS 상한선 유지)
-    gap_injury     = min(daily_value, 70_000)       # 상해 입원일당 (7만원 상한)
-    gap_disease    = min(daily_value, 100_000)      # 질병 입원일당 (10만원 상한)
+    _gross_annual = _gross_monthly * 12
 
-    # 트리니티 계산법 적용 — 뇌혈관·허혈성 진단비 (18개월 생활비)
-    stroke_need    = monthly_income * 18
+    # ── [Step 2] 연봉 구간별 누진 실효공제율 산출 ───────────────────────────
+    # (고용보험·요양보험·소득세) 합산 공제율
+    if _gross_annual <= 10_000_000:
+        _ded_rate = 0.0137 + 0.0475
+    elif _gross_annual <= 29_000_000:
+        _ded_rate = 0.0242 + 0.0475
+    elif _gross_annual <= 30_000_000:
+        _ded_rate = 0.0262 + 0.0475
+    elif _gross_annual <= 45_000_000:
+        _ded_rate = 0.0417 + 0.0475
+    elif _gross_annual <= 50_000_000:
+        _ded_rate = 0.0547 + 0.0475
+    elif _gross_annual <= 70_000_000:
+        _ded_rate = 0.0962 + 0.0475
+    elif _gross_annual <= 80_000_000:
+        _ded_rate = 0.1182 + 0.0475
+    elif _gross_annual <= 90_000_000:
+        _ded_rate = 0.1422 + 0.0475
+    elif _gross_annual <= 100_000_000:
+        _ded_rate = 0.1652 + 0.0475
+    else:
+        _ded_rate = 0.20 + 0.0475
 
-    # 트리니티 계산법 적용 — 장해·치매 간병비 (2년 이상 = 24개월)
-    disability_2yr = monthly_income * 24
+    # ── [Step 3] 가처분 월소득 확정 ──────────────────────────────────────────
+    _net_monthly  = int(_gross_monthly * (1 - _ded_rate))
+    _net_annual   = _net_monthly * 12
+    _daily_value  = int(_net_monthly / 30)
 
-    # 트리니티 계산법 적용 — 암 진단비 고정 기준
-    cancer_min     = 100_000_000
-    cancer_rec     = 300_000_000
+    # ── [7대 완성형 보장액] CFP 5년 소득보전 + 법원 일실수입 기준 ─────────────
+    # ① 일반사망: 유가족 5년 연착륙 자금 (가처분 × 60개월)
+    death_cov         = _net_monthly * 60
+
+    # ② 암 진단비: 5년 투병·생활비 (가처분 × 60개월)
+    cancer_cov        = _net_monthly * 60
+
+    # ③ 표적항암비: 가처분 30개월 (가처분 500만 기준 1.5억)
+    target_cancer_cov = _net_monthly * 30
+
+    # ④ 뇌/심장 진단비: 가처분 40개월 (가처분 500만 기준 2억)
+    brain_heart_cov   = _net_monthly * 40
+
+    # ⑤ 상해/질병 후유장해: 가처분 100개월 — 장해율 고려 (500만 기준 5억)
+    disability_cov    = _net_monthly * 100
+
+    # ⑥ 로봇수술비: 가처분 6개월 (500만 기준 3,000만)
+    robot_surg_cov    = _net_monthly * 6
+
+    # ⑦ 간병인/입원일당: 가처분의 4% → 만 원 단위 절사
+    caregiver_daily   = int((_net_monthly * 0.04) / 10_000) * 10_000
+
+    # ── 하위 호환 필드 (구 코드 참조처 안전 유지) ────────────────────────────
+    gap_injury        = min(_daily_value, 70_000)
+    gap_disease       = min(_daily_value, 100_000)
+    stroke_need       = _net_monthly * 18
+    disability_2yr    = _net_monthly * 24
+    cancer_standard   = cancer_cov          # 구 cancer_standard → cancer_cov 동기화
+    injury_cover_1yr  = int((_net_monthly * 12) / 0.1)
+    injury_cover_2yr  = int((_net_monthly * 24) / 0.1)
 
     return {
-        "monthly_income":  monthly_income,
-        "annual_income":   annual_income,
-        "daily_value":     daily_value,
-        "gap_injury":      gap_injury,
-        "gap_disease":     gap_disease,
-        "stroke_need":     stroke_need,
-        "disability_2yr":  disability_2yr,
-        "cancer_min":      cancer_min,
-        "cancer_rec":      cancer_rec,
+        # ── 기본 소득 지표 ──────────────────────────────────────────────────
+        "sub_type":           sub_type,
+        "gross_monthly":      _gross_monthly,
+        "gross_annual":       _gross_annual,
+        "ded_rate":           round(_ded_rate, 4),
+        "net_monthly":        _net_monthly,
+        "net_annual":         _net_annual,
+        "daily_value":        _daily_value,
+        # ── 7대 완성형 보장액 ───────────────────────────────────────────────
+        "death_cov":          death_cov,
+        "cancer_cov":         cancer_cov,
+        "target_cancer_cov":  target_cancer_cov,
+        "brain_heart_cov":    brain_heart_cov,
+        "disability_cov":     disability_cov,
+        "robot_surg_cov":     robot_surg_cov,
+        "caregiver_daily":    caregiver_daily,
+        # ── 하위 호환 필드 ──────────────────────────────────────────────────
+        "monthly_income":     _net_monthly,    # 구 호환: net 기준으로 전환
+        "annual_income":      _net_annual,
+        "gap_injury":         gap_injury,
+        "gap_disease":        gap_disease,
+        "stroke_need":        stroke_need,
+        "disability_2yr":     disability_2yr,
+        "cancer_min":         cancer_cov,
+        "cancer_rec":         cancer_cov,
+        "cancer_standard":    cancer_standard,
+        "injury_cover_1yr":   injury_cover_1yr,
+        "injury_cover_2yr":   injury_cover_2yr,
     }
 
 # ── 모 앱 URL (환경 자동 분기) ────────────────────────────────────────────────

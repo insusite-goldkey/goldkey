@@ -16,6 +16,96 @@ import re, json, datetime, html as _html, os, random
 import streamlit as st
 import streamlit.components.v1 as _cv1
 
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP-VOICE-2026] Zephyr 아나운서 톤 표준 산식
+# 전역 TTS 기준 — 이 상수를 기준으로 모든 음성 수정 진행 (임의 변경 금지)
+# Voice  : Zephyr (Gemini TTS 공식 보이스명 — ko-KR 아나운서 톤)
+# Rate   : 1.1x (명징한 아나운서 속도)
+# Pitch  : high (약간 높은 피치 — 전달력 극대화)
+# Break  : 0.3s (SSML 문장 간 호흡)
+# Model  : gemini-1.5-flash (Gemini TTS 엔진)
+# ══════════════════════════════════════════════════════════════════════════════
+_ZEPHYR_VOICE = "Zephyr"      # Gemini TTS 공식 보이스명
+_ZEPHYR_RATE  = 1.1            # 아나운서 속도 (1.1x)
+_ZEPHYR_PITCH = "high"         # 약간 높은 피치 — 명징한 전달
+_ZEPHYR_LANG  = "ko-KR"        # 한국어 표준
+_ZEPHYR_BREAK = "0.3s"         # 문장 간 호흡 (SSML)
+
+
+def _build_zephyr_ssml(text: str) -> str:
+    """[GP-VOICE-2026] 아나운서 SSML 빌더.
+    <speak> 래핑 + 문장 사이 <break time="0.3s"/> 삽입.
+    수치·핵심 용어는 <emphasis level="strong"> 자동 마킹.
+    """
+    clean = re.sub(r"#{1,6}\s*", "", text)
+    clean = re.sub(r"\*{1,3}([^*]+)\*{1,3}", r"\1", clean)
+    clean = re.sub(r"`([^`]+)`", r"\1", clean)
+    clean = re.sub(r">\s*", "", clean)
+    sentences = re.split(r"(?<=[.!?。])\s+", clean.strip())
+    parts = []
+    for s in sentences:
+        s = s.strip()
+        if not s:
+            continue
+        # 수치/핵심 용어 emphasis 마킹
+        s = re.sub(
+            r"(\d[\d,]*\s*(억\s*원?|만\s*원?|원|%)|트리니티|보장\s*공백|가처분)",
+            r'<emphasis level="strong">\1</emphasis>', s,
+        )
+        parts.append(f'{s}<break time="{_ZEPHYR_BREAK}"/>')
+    return f"<speak>{''.join(parts)}</speak>"
+
+
+def synthesize_zephyr(text: str, api_key: str) -> bytes | None:
+    """[GP-VOICE-2026] Gemini TTS — Zephyr 아나운서 보이스 합성.
+    성공 시 WAV/PCM 오디오 바이트 반환. 실패 시 None (Web Speech API 폴백).
+    로딩 순서: google-genai(신형 SDK) → google.generativeai(구형 SDK)
+    """
+    if not api_key or api_key == "여기에_발급받은_API_키를_넣어주세요":
+        return None
+    ssml = _build_zephyr_ssml(text)
+
+    # [1차] google-genai 신형 SDK (pip install google-genai)
+    try:
+        from google import genai as _gnai
+        from google.genai import types as _gt
+        _client = _gnai.Client(api_key=api_key)
+        resp = _client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=ssml,
+            config=_gt.GenerateContentConfig(
+                response_modalities=["AUDIO"],
+                speech_config=_gt.SpeechConfig(
+                    voice_config=_gt.VoiceConfig(
+                        prebuilt_voice_config=_gt.PrebuiltVoiceConfig(
+                            voice_name=_ZEPHYR_VOICE
+                        )
+                    )
+                ),
+            ),
+        )
+        if resp.candidates:
+            return resp.candidates[0].content.parts[0].inline_data.data
+    except Exception:
+        pass
+
+    # [2차] google.generativeai 구형 SDK (pip install google-generativeai)
+    try:
+        import google.generativeai as _genai_old
+        _genai_old.configure(api_key=api_key)
+        _m = _genai_old.GenerativeModel("gemini-1.5-flash")
+        _resp2 = _m.generate_content(
+            ssml,
+            generation_config={"response_mime_type": "audio/wav"},
+        )
+        if _resp2.candidates:
+            return _resp2.candidates[0].content.parts[0].inline_data.data
+    except Exception:
+        pass
+
+    return None
+
+
 # ── [Fix] 직함 이중 출력 방지 헬퍼 ────────────────────────────────────────────────
 def _clean_agent_name(name: str) -> str:
     """'설계사님', '설계사', '님' 등 직함 접미사 제거 → 순수 이름 반환 (이중 호칭 방지)."""
@@ -566,6 +656,54 @@ if({auto_js}) {{
 </script></body></html>"""
 
 
+def render_voice_player_zephyr(
+    text: str,
+    key: str = "vp_zephyr",
+    auto_play: bool = False,
+    compact: bool = False,
+) -> None:
+    """[GP-VOICE-2026] Zephyr 아나운서 TTS 플레이어.
+    우선순위: Gemini TTS(Zephyr) → Web Speech API(폴백)
+    Gemini GOOGLE_API_KEY 없거나 합성 실패 시 자동으로 기존 Web Speech API 사용.
+    """
+    try:
+        from shared_components import get_env_secret as _genv_v
+        _api_key = _genv_v("GOOGLE_API_KEY", "")
+    except Exception:
+        _api_key = os.environ.get("GOOGLE_API_KEY", "")
+
+    _audio_bytes = None
+    if _api_key and _api_key != "여기에_발급받은_API_키를_넣어주세요":
+        _audio_bytes = synthesize_zephyr(text, _api_key)
+
+    if _audio_bytes:
+        # ── Gemini Zephyr TTS 성공 — st.audio 재생 ─────────────────────
+        st.markdown(
+            "<div style='background:rgba(30,91,164,0.08);border:1px dashed #1e5ba4;"
+            "border-radius:10px;padding:6px 14px;font-size:0.73rem;color:#1e5ba4;"
+            "margin-bottom:6px;'>"
+            f"🎙️ <b>[GP-VOICE-2026]</b> Zephyr 아나운서 — {_ZEPHYR_RATE}x · "
+            f"pitch:{_ZEPHYR_PITCH} · {_ZEPHYR_LANG}</div>",
+            unsafe_allow_html=True,
+        )
+        import io as _io
+        try:
+            st.audio(_io.BytesIO(_audio_bytes), format="audio/wav", autoplay=auto_play)
+        except TypeError:
+            st.audio(_io.BytesIO(_audio_bytes), format="audio/wav")
+    else:
+        # ── 폴백 — 기존 Web Speech API ─────────────────────────────────
+        if not compact:
+            st.caption("🔊 Web Speech API (Gemini TTS 폴백 — API 키 확인 필요)")
+        render_voice_player(
+            text,
+            personality_type="Emotional",
+            key=key,
+            auto_play=auto_play,
+            compact=compact,
+        )
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # [5] 모닝 브리핑 자동 트리거 (앱 기동 시 1회)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -616,9 +754,9 @@ def render_morning_briefing_auto(
         unsafe_allow_html=True,
     )
 
-    render_voice_player(
+    # [GP-VOICE-2026] Zephyr 아나운서 TTS 우선 적용
+    render_voice_player_zephyr(
         briefing_text,
-        personality_type="Emotional",
         key="morning_briefing",
         auto_play=True,
         compact=True,

@@ -41281,6 +41281,17 @@ div[data-testid="stButton"] {
             _tri_tabs = st.tabs(["✏️ 건보료 입력", "🔗 KB 엔진 연동", "📷 증권 스캔 연동", "🎯 샘플 데모"])
 
             with _tri_tabs[0]:
+                _tri_sub_type_lbl = st.radio(
+                    "가입자 유형",
+                    ["🏢 직장가입자", "🏡 지역가입자 (일반/사업자)", "👴 지역가입자 (은퇴자)"],
+                    horizontal=True, key="tri_sub_type",
+                )
+                _tri_sub_map = {
+                    "🏢 직장가입자": "workplace",
+                    "🏡 지역가입자 (일반/사업자)": "regional_general",
+                    "👴 지역가입자 (은퇴자)": "regional_retiree",
+                }
+                _tri_sub = _tri_sub_map.get(_tri_sub_type_lbl, "workplace")
                 _tri_col1, _tri_col2 = st.columns(2)
                 with _tri_col1:
                     _tri_premium_raw = st.number_input(
@@ -41291,7 +41302,7 @@ div[data-testid="stButton"] {
                         help="월급명세서의 건강보험료 본인부담 항목",
                     )
                     _tri_emp_type = st.selectbox(
-                        "가입 유형", ["직장", "지역"],
+                        "가입 유형", ["직장", "지역(일반)", "지역(은퇴자)"],
                         key="tri_emp_type",
                     )
                 with _tri_col2:
@@ -41343,7 +41354,7 @@ div[data-testid="stButton"] {
                         key="tri_premium_linked",
                     )
                     _tri_emp_type_l = st.selectbox(
-                        "가입 유형", ["직장", "지역"],
+                        "가입 유형", ["직장", "지역(일반)", "지역(은퇴자)"],
                         key="tri_emp_type_l",
                     )
                 with _tri_lc2:
@@ -41389,7 +41400,7 @@ div[data-testid="stButton"] {
                         value=int(st.session_state.get("_tri_scan_premium", _tri_scan_premium or 213_400)),
                         step=1_000, key="tri_premium_scan",
                     )
-                    _tri_emp_scan = st.selectbox("가입유형", ["직장", "지역"], key="tri_emp_scan")
+                    _tri_emp_scan = st.selectbox("가입유형", ["직장", "지역(일반)", "지역(은퇴자)"], key="tri_emp_scan")
                 with _tri_sc2:
                     _tri_cname_scan = st.text_input("고객명", value="고객", key="tri_cname_scan")
                     _tri_ltc_scan = st.checkbox("장기요양 포함", value=False, key="tri_ltc_scan")
@@ -41650,11 +41661,16 @@ div[data-testid="stButton"] {
                             f"KB 암 가중스코어: {_w(_gap.kb_cancer_score)}만\n"
                             f"생계 파괴 공백: {_w(abs(_gap.income_gap))}만\n"
                             f"소득 대체율: {_gap.coverage_ratio:.1f}% ({_gap.risk_level})\n\n"
-                            "위 데이터를 기반으로 '논리적 설득 70% + 전략적 위기 30%' 톤으로 "
-                            "KB손해보험 전문 설계사가 사용하는 4단계(FACT-CRISIS-GAP-SOLUTION) "
-                            "심화 클로징 스크립트를 작성하라. "
-                            "전문 용어(가처분 소득, 소득 대체율, 생계 파괴 구간)를 사용하고, "
-                            "마지막에 설계사가 바로 사용 가능한 한 문장 핵심 멘트를 강조 표시하라."
+                            "CFP(재무설계사) + 손해사정사 + 법률 전문가 통합 페르소나로 아래 순서대로 작성하라:\n"
+                            "1. [가입자 유형별] 건보료 역산 및 실효소득세율·4대보험 공제를 반영한 "
+                            "초정밀 가처분 소득은 월 [{_w(_inc.disposable_monthly)}만원]임을 명시\n"
+                            "2. 사망과 암 진단비 산출액은 단순 병원비가 아닌, "
+                            "법원이 인정하는 일실수입 산정 방식과 유가족의 자산(집) 매각을 막기 위한 "
+                            "5년 치 연착륙(Soft Landing) 자금임을 CFP 및 손해사정 관점의 "
+                            "법률·재무적 근거를 들어 고객의 거절을 완벽히 방어하는 화법 3가지\n"
+                            "3. '논리적 설득 70% + 전략적 위기 30%' 톤으로 "
+                            "4단계(FACT-CRISIS-GAP-SOLUTION) 심화 클로징 스크립트\n"
+                            "4. 설계사가 바로 사용 가능한 한 문장 핵심 멘트를 강조 표시"
                         )
                         _tri_ai_cfg = _lazy_genai_types().GenerateContentConfig(
                             max_output_tokens=900, temperature=0.6,
@@ -41676,6 +41692,53 @@ div[data-testid="stButton"] {
                         f"{st.session_state['_tri_ai_closing'].replace(chr(10),'<br>')}</div>",
                         unsafe_allow_html=True,
                     )
+
+                # ── [개정 트리니티 2026] 5년 소득보전 완벽 방어 모델 ────────────────
+                try:
+                    from shared_components import calculate_trinity_metrics as _hq_tri
+                    _hq_sub_key = st.session_state.get("tri_sub_type", "🏢 직장가입자")
+                    _hq_sub_map2 = {
+                        "🏢 직장가입자": "workplace",
+                        "🏡 지역가입자 (일반/사업자)": "regional_general",
+                        "👴 지역가입자 (은퇴자)": "regional_retiree",
+                    }
+                    _hq_sub_type2 = _hq_sub_map2.get(_hq_sub_key, "workplace")
+                    _hq_m = _hq_tri(int(_inc.nhis_premium_input), _hq_sub_type2)
+                    st.markdown(
+                        "<div style='background:rgba(219,234,254,0.45);border:1px dashed #1e3a8a;"
+                        "border-radius:12px;padding:12px 16px;backdrop-filter:blur(4px);"
+                        "margin-top:12px;'>"
+                        "<b style='color:#1e3a8a;font-size:0.83rem;'>🛡️ 5년 소득보전 완벽 방어 모델</b>"
+                        f"<div style='font-size:0.73rem;color:#64748b;margin-top:2px;'>"
+                        f"명목월소득 {_hq_m['gross_monthly']:,.0f}원 → "
+                        f"실효공제율 {_hq_m['ded_rate']*100:.1f}% → "
+                        f"<b style='color:#1d4ed8;'>가처분 {_hq_m['net_monthly']:,.0f}원/월</b></div>"
+                        "<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;"
+                        "margin-top:8px;font-size:0.77rem;'>"
+                        f"<div><b>① 일반사망</b> (60M)<br>"
+                        f"<span style='color:#1d4ed8;font-weight:900;'>{_hq_m['death_cov']:,.0f}원</span></div>"
+                        f"<div><b>② 암 진단비</b> (60M)<br>"
+                        f"<span style='color:#dc2626;font-weight:900;'>{_hq_m['cancer_cov']:,.0f}원</span></div>"
+                        f"<div><b>③ 표적항암비</b> (30M)<br>"
+                        f"<span style='color:#dc2626;font-weight:900;'>{_hq_m['target_cancer_cov']:,.0f}원</span></div>"
+                        f"<div><b>④ 뇌/심장</b> (40M)<br>"
+                        f"<span style='color:#7c3aed;font-weight:900;'>{_hq_m['brain_heart_cov']:,.0f}원</span></div>"
+                        f"<div><b>⑤ 후유장해</b> (100M)<br>"
+                        f"<span style='color:#059669;font-weight:900;'>{_hq_m['disability_cov']:,.0f}원</span></div>"
+                        f"<div><b>⑥ 로봇수술비</b> (6M)<br>"
+                        f"<span style='color:#0891b2;font-weight:900;'>{_hq_m['robot_surg_cov']:,.0f}원</span></div>"
+                        f"<div style='grid-column:1/-1;'><b>⑦ 간병인/입원일당</b> (가처분×4%)<br>"
+                        f"<span style='color:#b45309;font-weight:900;'>{_hq_m['caregiver_daily']:,.0f}원/일</span></div>"
+                        "</div></div>",
+                        unsafe_allow_html=True,
+                    )
+                    st.caption(
+                        "※ 본 산출액은 구간별 실효세율 정밀 공제 및 CFP(재무설계) 유가족 연착륙 자금, "
+                        "손해사정 실무(법원 일실수입 산정) 기준, 가장의 5년 치 소득 보전을 목적으로 "
+                        "설계된 '완성형 리스크 관리 시나리오'입니다."
+                    )
+                except Exception:
+                    pass
 
             except Exception as _tri_rpt_e:
                 st.error(f"❌ 트리니티 결과 렌더링 오류: {_tri_rpt_e}")

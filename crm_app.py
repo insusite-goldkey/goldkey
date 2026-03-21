@@ -2547,46 +2547,140 @@ elif _spa_mode == "customer":
                     st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-            with st.expander("🎮 AI 상담 시나리오 시뮬레이터", expanded=False):
-                st.caption("고객 상황 입력 → AI 최적 상담 전략 제시")
-                try:
-                    from sim_trainer import render_simulation_dashboard as _crm_render_sim
-                    _crm_render_sim(compact=True)
-                except Exception:
-                    _sim_input = st.text_area(
-                        "상담 상황 입력",
-                        placeholder="예: 35세 남성, 현재 암보험 없음, 월 보험료 30만원 예산...",
-                        height=80, key="crm_sim_input",
+            with st.expander("🛡️ AI 상담 코치 — 5년 소득보전 완벽 방어 모델", expanded=False):
+                from shared_components import calculate_trinity_metrics as _calc_tri
+                from shared_components import get_env_secret as _genv_sim
+                # ── [개정 트리니티] 가입자 유형 선택 ────────────────────────────
+                _sub_type_label = st.radio(
+                    "가입자 유형",
+                    ["🏢 직장가입자", "🏡 지역가입자 (일반/사업자)", "👴 지역가입자 (은퇴자)"],
+                    horizontal=True, key="sim_sub_type",
+                )
+                _sub_type_map = {
+                    "🏢 직장가입자":           "workplace",
+                    "🏡 지역가입자 (일반/사업자)": "regional_general",
+                    "👴 지역가입자 (은퇴자)":   "regional_retiree",
+                }
+                _sim_sub = _sub_type_map.get(_sub_type_label, "workplace")
+                _sim_hi = st.number_input(
+                    "월 건강보험료 (원)",
+                    min_value=0, max_value=2_000_000,
+                    value=int(st.session_state.get("gs_hi_premium", 0)),
+                    step=10_000, key="sim_hi_premium",
+                    help="건보료 입력 시 가입자 유형별 실효공제율로 가처분 소득 자동 역산",
+                )
+                if _sim_hi > 0:
+                    _st = _calc_tri(_sim_hi, _sim_sub)
+                    st.markdown(
+                        "<div style='background:rgba(219,234,254,0.45);border:1px dashed #1e3a8a;"
+                        "border-radius:12px;padding:12px 16px;backdrop-filter:blur(4px);"
+                        "-webkit-backdrop-filter:blur(4px);margin-bottom:8px;'>"
+                        "<b style='color:#1e3a8a;font-size:0.83rem;'>🛡️ 5년 소득보전 완벽 방어 모델</b>"
+                        f"<div style='font-size:0.73rem;color:#64748b;margin-top:2px;'>"
+                        f"명목월소득 {_st['gross_monthly']:,.0f}원 → "
+                        f"실효공제율 {_st['ded_rate']*100:.1f}% → "
+                        f"<b style='color:#1d4ed8;'>가처분 {_st['net_monthly']:,.0f}원/월</b></div>"
+                        "<div style='display:grid;grid-template-columns:1fr 1fr;gap:5px;"
+                        "margin-top:8px;font-size:0.77rem;'>"
+                        f"<div><b>① 일반사망</b> (60M)<br>"
+                        f"<span style='color:#1d4ed8;font-weight:900;'>{_st['death_cov']:,.0f}원</span></div>"
+                        f"<div><b>② 암 진단비</b> (60M)<br>"
+                        f"<span style='color:#dc2626;font-weight:900;'>{_st['cancer_cov']:,.0f}원</span></div>"
+                        f"<div><b>③ 표적항암비</b> (30M)<br>"
+                        f"<span style='color:#dc2626;font-weight:900;'>{_st['target_cancer_cov']:,.0f}원</span></div>"
+                        f"<div><b>④ 뇌/심장</b> (40M)<br>"
+                        f"<span style='color:#7c3aed;font-weight:900;'>{_st['brain_heart_cov']:,.0f}원</span></div>"
+                        f"<div><b>⑤ 후유장해</b> (100M)<br>"
+                        f"<span style='color:#059669;font-weight:900;'>{_st['disability_cov']:,.0f}원</span></div>"
+                        f"<div><b>⑥ 로봇수술비</b> (6M)<br>"
+                        f"<span style='color:#0891b2;font-weight:900;'>{_st['robot_surg_cov']:,.0f}원</span></div>"
+                        f"<div style='grid-column:1/-1;'><b>⑦ 간병인/입원일당</b> (가처분×4%)<br>"
+                        f"<span style='color:#b45309;font-weight:900;'>{_st['caregiver_daily']:,.0f}원/일</span></div>"
+                        "</div></div>",
+                        unsafe_allow_html=True,
                     )
-                    if st.button("🤖 AI 전략 생성", key="crm_sim_run",
-                                 use_container_width=True, type="primary"):
-                        if _sim_input.strip():
-                            from shared_components import get_env_secret as _genv_sim
-                            _gk_api_key = _genv_sim("GOOGLE_API_KEY", "")
-                            if not _gk_api_key or _gk_api_key == "여기에_발급받은_API_키를_넣어주세요":
-                                st.warning("⚙️ .streamlit/secrets.toml 파일에 GOOGLE_API_KEY를 입력해야 AI 시뮬레이터가 작동합니다.")
-                            else:
-                                with st.spinner("AI 전략 분석 중..."):
-                                    try:
-                                        import google.generativeai as genai
-                                        genai.configure(api_key=_gk_api_key)
-                                        _m_sim  = genai.GenerativeModel("gemini-1.5-flash")
-                                        _prompt = (
-                                            f"당신은 골드키 AI 보험 상담 코치입니다.\n"
-                                            f"설계사가 다음 상황에서 고객과 상담합니다:\n\n{_sim_input}\n\n"
-                                            f"최적 상담 전략, 예상 질문 3가지, 추천 보장 순서를 간결하게 한국어로 작성해 주세요."
-                                        )
-                                        _r_sim = _m_sim.generate_content(_prompt)
-                                        st.markdown(
-                                            f"<div style='background:#F8FBFA;border:1px dashed #000;"
-                                            f"border-radius:10px;padding:14px;font-size:0.85rem;line-height:1.8;'>"
-                                            f"{_r_sim.text.replace(chr(10), '<br>')}</div>",
-                                            unsafe_allow_html=True,
-                                        )
-                                    except Exception as _sim_e:
-                                        st.error(f"AI 시뮬레이터 오류: {_sim_e}")
+                    st.caption(
+                        "※ 본 산출액은 구간별 실효세율 정밀 공제 및 CFP(재무설계) 유가족 연착륙 자금, "
+                        "손해사정 실무(법원 일실수입 산정) 기준, 가장의 5년 치 소득 보전을 목적으로 "
+                        "설계된 '완성형 리스크 관리 시나리오'입니다."
+                    )
+                # ── 일정 공백 분석 ──────────────────────────────────────────────
+                _gap_info = "오늘 예정 일정 없음"
+                if _brief_schs:
+                    _sch_times = [_s.get("start_time", "") for _s in _brief_schs if _s.get("start_time")]
+                    _gap_info = f"오늘 일정 {len(_brief_schs)}건: " + ", ".join(_sch_times[:5])
+                st.caption("💬 상담 상황 입력 → AI 압도적 클로징 전략 제시")
+                _sim_input = st.text_area(
+                    "상담 상황",
+                    placeholder="예: 35세 남성 직장가입자, 건보료 30만원, 현재 암보험 없음...",
+                    height=80, key="crm_sim_input", label_visibility="collapsed",
+                )
+                if st.button("🤖 AI 전략 생성", key="crm_sim_run",
+                             use_container_width=True, type="primary"):
+                    if not _sim_input.strip():
+                        st.warning("상담 상황을 입력해 주세요.")
+                    else:
+                        _gk_api_key = _genv_sim("GOOGLE_API_KEY", "")
+                        if not _gk_api_key or _gk_api_key == "여기에_발급받은_API_키를_넣어주세요":
+                            st.warning("⚙️ API 키를 입력하세요 — .streamlit/secrets.toml → GOOGLE_API_KEY")
                         else:
-                            st.warning("상담 상황을 입력해 주세요.")
+                            _tri_ctx = ""
+                            if _sim_hi > 0:
+                                _stt = _calc_tri(_sim_hi, _sim_sub)
+                                _sub_lbl = {
+                                    "workplace": "직장가입자",
+                                    "regional_general": "지역가입자(일반)",
+                                    "regional_retiree": "지역가입자(은퇴자)",
+                                }.get(_sim_sub, "직장가입자")
+                                _tri_ctx = (
+                                    f"\n\n[트리니티 개정 엔진 산출값 — {_sub_lbl}]\n"
+                                    f"- 명목 월소득: {_stt['gross_monthly']:,.0f}원\n"
+                                    f"- 실효공제율: {_stt['ded_rate']*100:.1f}%\n"
+                                    f"- 가처분 월소득: {_stt['net_monthly']:,.0f}원\n"
+                                    f"- ① 일반사망(60M): {_stt['death_cov']:,.0f}원\n"
+                                    f"- ② 암 진단비(60M): {_stt['cancer_cov']:,.0f}원\n"
+                                    f"- ③ 표적항암비(30M): {_stt['target_cancer_cov']:,.0f}원\n"
+                                    f"- ④ 뇌/심장(40M): {_stt['brain_heart_cov']:,.0f}원\n"
+                                    f"- ⑤ 후유장해(100M): {_stt['disability_cov']:,.0f}원\n"
+                                    f"- ⑥ 로봇수술비(6M): {_stt['robot_surg_cov']:,.0f}원\n"
+                                    f"- ⑦ 간병인/입원일당: {_stt['caregiver_daily']:,.0f}원/일"
+                                )
+                            _prompt = (
+                                "당신은 골드키 AI 보험 상담 코치입니다. "
+                                "CFP(재무설계사) + 손해사정사 + 법률 전문가 통합 페르소나로 답변하세요.\n"
+                                f"가입자 유형: {_sub_type_label}\n"
+                                f"설계사 오늘 일정: {_gap_info}\n"
+                                f"상담 상황:\n{_sim_input}{_tri_ctx}\n\n"
+                                "아래 순서를 반드시 지켜 한국어로 답변하세요:\n"
+                                "1. [인삿말] 전문 CFP 상담 코치 인삿말 (2줄 이내)\n"
+                                "2. [📊 트리니티 5년 소득보전 방어 모델] "
+                                "[가입자 유형별] 건보료 역산 및 실효소득세율·4대보험 공제를 반영한 "
+                                "초정밀 가처분 소득은 월 [수치]원임을 명시. "
+                                "7대 보장금액을 항목별로 인용하며 설명\n"
+                                "3. [💡 CFP·손해사정 법률 근거 화법] "
+                                "사망과 암 진단비 산출액은 단순 병원비가 아닌, "
+                                "법원이 인정하는 일실수입 산정 방식과 유가족의 자산(집) 매각을 막기 위한 "
+                                "5년 치 연착륙(Soft Landing) 자금임을 CFP 및 손해사정 관점의 "
+                                "법률·재무적 근거를 들어 고객의 거절을 완벽히 방어하는 화법 3가지\n"
+                                "4. [⏰ 추천 활동 시간대] 오늘 일정 사이 공백을 찾아 방문/전화 권유"
+                            )
+                            with st.spinner("AI 전략 분석 중..."):
+                                try:
+                                    import google.generativeai as genai
+                                    genai.configure(api_key=_gk_api_key)
+                                    _m_sim = genai.GenerativeModel("gemini-1.5-flash")
+                                    _r_sim = _m_sim.generate_content(_prompt)
+                                    st.markdown(
+                                        "<div style='background:rgba(249,250,251,0.88);"
+                                        "border:1px dashed #000;border-radius:12px;"
+                                        "padding:16px 18px;backdrop-filter:blur(6px);"
+                                        "-webkit-backdrop-filter:blur(6px);"
+                                        "font-size:0.85rem;line-height:1.8;margin-top:10px;'>"
+                                        f"{_r_sim.text.replace(chr(10), '<br>')}</div>",
+                                        unsafe_allow_html=True,
+                                    )
+                                except Exception as _sim_e:
+                                    st.error(f"AI 시뮬레이터 오류: {_sim_e}")
 
     # ── SCREEN 6: 💬 카카오 발송 ─────────────────────────────────────────────
     elif _spa_screen == "kakao":
@@ -2600,11 +2694,17 @@ elif _spa_mode == "customer":
         # API 키 공통 로드
         try:
             from shared_components import get_env_secret as _genv_kk
-            _kk_api_url = _genv_kk("KAKAO_API_URL", "")
-            _kk_api_key = _genv_kk("KAKAO_API_KEY", "")
+            _kk_api_url = _genv_kk("KAKAO_API_URL", "").strip()
+            _kk_api_key = _genv_kk("KAKAO_API_KEY", "").strip()
         except Exception:
             _kk_api_url = _kk_api_key = ""
-        _is_dry_run = not (_kk_api_url and _kk_api_key)
+        # [K3] 플레이스홀더·빈값·비URL 입력 시 dry-run 강제 — 실 발송 오발송 차단
+        _KAKAO_PH = "여기에_발급받은_API_키를_넣어주세요"
+        _is_dry_run = not (
+            _kk_api_url.startswith("http")
+            and _kk_api_key
+            and _kk_api_key != _KAKAO_PH
+        )
 
         _TMPL_MAP = {
             "GP_AI_REPORT_01": "🤖 AI 분석 리포트",
@@ -2659,14 +2759,36 @@ elif _spa_mode == "customer":
                         format_func=lambda x: _TMPL_MAP.get(x, x),
                         key="kakao_tmpl_sel",
                     )
+                    # ── [N2] Trinity 역산 수치 기반 기본값 자동 장전 ─────────────
+                    if not _brief_preview:
+                        from shared_components import calculate_trinity_metrics as _kk_tri
+                        _kk_hi = int(
+                            st.session_state.get("gs_hi_premium", 0)
+                            or _sel_cust.get("nhis_premium", 0)
+                        )
+                        if _kk_hi > 0:
+                            _kk_t = _kk_tri(_kk_hi)
+                            _kk_default_msg = (
+                                f"{_kk_name} 고객님, 트리니티 역산 결과 가처분 소득 기준 "
+                                f"최적 암 보장액은 {_kk_t['cancer_standard']:,.0f}원입니다. "
+                                f"(뇌혈관 {_kk_t['stroke_need']:,.0f}원 · "
+                                f"장해 {_kk_t['injury_cover_1yr']:,.0f}원 기준)"
+                            )
+                        else:
+                            _kk_default_msg = f"{_kk_name} 고객님 AI 분석 리포트 — 골드키 AI"
+                    else:
+                        _kk_default_msg = _brief_preview
                     _kk_summary = st.text_area(
                         "발송 내용",
-                        value=_brief_preview or f"{_kk_name} 고객님 AI 분석 리포트 — 골드키 AI",
+                        value=_kk_default_msg,
                         height=90, key="kakao_summary_inp",
-                        help="AI 브리핑 탭에서 저장한 내용이 자동 로드됩니다.",
+                        help="AI 브리핑 탭에서 저장한 내용이 자동 로드됩니다. 없으면 트리니티 수치 기반 메시지가 자동 생성됩니다.",
                     )
                     if _is_dry_run:
-                        st.caption("⚠️ API 키 미설정 → 미리보기 모드")
+                        st.error(
+                            "🚨 .streamlit/secrets.toml에 KAKAO_API_KEY와 KAKAO_API_URL이 설정되지 않아"
+                            " [미리보기] 모드로 작동합니다."
+                        )
                     _send_ready = bool(_kk_name and _kk_summary.strip())
                     if st.button("💬 카카오톡 발송", key="kakao_send_btn",
                                  use_container_width=True, type="primary",

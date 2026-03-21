@@ -789,8 +789,6 @@ def send_kakao_report(
     }
 
     if not api_url or not api_key:
-        if agent_id and person_id:
-            log_kakao_sent(agent_id, person_id, customer_name, template_id, report_summary)
         return {
             "ok":      True,
             "dry_run": True,
@@ -798,28 +796,45 @@ def send_kakao_report(
             "payload": payload,
         }
 
+    # ── [K1] requests.post 실통신 — Solapi / Aligo / 팝빌 등 범용 규격 ──────────
     try:
-        import urllib.request
-        import json as _j
-        import urllib.error
+        import requests as _rq
 
         headers = {
-            "Content-Type": "application/json",
+            "Content-Type":  "application/json",
             "Authorization": f"Bearer {api_key}",
         }
-        req = urllib.request.Request(
-            api_url,
-            data=_j.dumps(payload).encode(),
-            headers=headers,
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = _j.loads(resp.read())
+        _resp = _rq.post(api_url, json=payload, headers=headers, timeout=10)
 
-        if agent_id and person_id:
-            log_kakao_sent(agent_id, person_id, customer_name, template_id, report_summary)
-
-        return {"ok": True, "dry_run": False, "message": "발송 완료", "response": result}
+        if _resp.status_code == 200:
+            # ── [K1] HTTP 200 성공 시 log_consulting 직접 체이닝 ──────────────
+            if agent_id and person_id:
+                log_consulting(
+                    agent_id=agent_id,
+                    person_id=person_id,
+                    log_type="kakao_sent",
+                    content=(
+                        f"[카톡 발송 완료 - {datetime.date.today().isoformat()}]"
+                        f" {template_id}: {report_summary}"
+                    ),
+                    ai_briefing_json={
+                        "template_id":   template_id,
+                        "customer_name": customer_name,
+                        "summary":       report_summary,
+                        "http_status":   _resp.status_code,
+                    },
+                )
+            try:
+                _result = _resp.json()
+            except Exception:
+                _result = {"raw": _resp.text[:500]}
+            return {"ok": True, "dry_run": False, "message": "발송 완료", "response": _result}
+        else:
+            return {
+                "ok":      False,
+                "dry_run": False,
+                "message": f"발송 실패 (HTTP {_resp.status_code}): {_resp.text[:200]}",
+            }
 
     except Exception as e:
         return {"ok": False, "dry_run": False, "message": str(e)}
