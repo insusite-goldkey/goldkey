@@ -24,22 +24,35 @@ try:
         render_morning_briefing_auto as _ve_morning_auto,
         render_voice_player          as _ve_player,
         build_morning_briefing       as _ve_build_brief,
+        render_voice_search          as _ve_voice_search,
+        parse_voice_intent           as _ve_parse_intent,
     )
     _VOICE_OK = True
 except Exception:
     _VOICE_OK = False
     _ve_morning_auto = _ve_player = _ve_build_brief = None
+    _ve_voice_search = _ve_parse_intent = None
 
 try:
     from crm_fortress import (
-        search_people  as _ff_search,
-        upsert_person  as _ff_upsert,
-        get_summary    as _ff_summary,
+        search_people       as _ff_search,
+        upsert_person       as _ff_upsert,
+        get_summary         as _ff_summary,
+        get_timeline        as _ff_timeline,
+        log_search          as _ff_log_search,
+        add_to_garbage      as _ff_add_garbage,
+        is_garbage          as _ff_is_garbage,
+        restore_from_garbage as _ff_restore_garbage,
+        list_garbage        as _ff_list_garbage,
+        merge_person_smart  as _ff_merge_smart,
     )
     _FORTRESS_OK = True
 except Exception:
     _FORTRESS_OK = False
     _ff_search = _ff_upsert = _ff_summary = None
+    _ff_timeline = _ff_log_search = _ff_add_garbage = None
+    _ff_is_garbage = _ff_restore_garbage = _ff_list_garbage = None
+    _ff_merge_smart = None
 
 # ── [Phase 1] 공통 모듈 import ────────────────────────────────────────────────
 from shared_components import (
@@ -913,6 +926,8 @@ except Exception:
 if "crm_spa_mode"     not in st.session_state: st.session_state["crm_spa_mode"]     = "list"
 if "crm_selected_pid" not in st.session_state: st.session_state["crm_selected_pid"] = ""
 if "crm_spa_screen"   not in st.session_state: st.session_state["crm_spa_screen"]   = "contact"
+if "crm_list_page"    not in st.session_state: st.session_state["crm_list_page"]    = 1
+_CRM_PAGE_SIZE = 10  # [GP-PERF] 한 화면 최대 DOM 행 수 (50 이하 강제)
 
 _spa_mode = st.session_state.get("crm_spa_mode",    "list")
 _sel_pid  = st.session_state.get("crm_selected_pid", "")
@@ -956,9 +971,29 @@ if _spa_mode == "list":
     except Exception:
         pass
 
+    # ── [GP-VOICE §6] 음성 검색 위젯 ─────────────────────────────────────────
+    if _VOICE_OK and _ve_voice_search:
+        _voice_result = _ve_voice_search(session_key="crm_voice_q", key="crm_vs_main")
+        if _voice_result:
+            _vi = _ve_parse_intent(_voice_result)
+            if _vi.get("query") and not st.session_state.get("spa_search"):
+                st.session_state["spa_search"] = _vi["query"]
+            if _vi.get("filters"):
+                st.session_state["_voice_filters"] = _vi["filters"]
+                if _ff_log_search and _sb:
+                    _ff_log_search(_sb, _user_id, _voice_result, 0)
+    else:
+        import streamlit.components.v1 as _crm_vc
+        _crm_vc.html(
+            "<div style='padding:7px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;"
+            "border-radius:12px;font-size:12px;color:#94a3b8;'>"
+            "🎤 음성 검색 로드 중... (voice_engine 로드 필요)</div>",
+            height=52,
+        )
+
     _sr_c1, _sr_c2 = st.columns([5, 1])
     with _sr_c1:
-        _search_q = st.text_input("🔍 고객 이름 검색", placeholder="이름 입력...",
+        _search_q = st.text_input("🔍 고객 이름 / 음성 결과 확인", placeholder="이름 입력 또는 위 마이크 사용...",
                                   key="spa_search", label_visibility="collapsed")
     with _sr_c2:
         if st.button("➕ 신규 등록", use_container_width=True, key="spa_add_btn"):
@@ -981,7 +1016,29 @@ if _spa_mode == "list":
     if _mo_f:             _all_custs = [c for c in _all_custs if c.get("auto_renewal_month") == _mo_f or c.get("fire_renewal_month") == _mo_f]
     if _stat_f != "전체": _all_custs = [c for c in _all_custs if c.get("status") == _stat_map_r.get(_stat_f, "")]
 
-    st.caption(f"📋 총 {len(_all_custs)}명")
+    # ── [GP-VOICE] 음성 필터 추가 적용 ──────────────────────────────────────
+    _vf = st.session_state.get("_voice_filters", {})
+    if _vf.get("management_tier"): _all_custs = [c for c in _all_custs if c.get("management_tier") == _vf["management_tier"]]
+    if _vf.get("status"):          _all_custs = [c for c in _all_custs if c.get("status") == _vf["status"]]
+    if _vf.get("is_favorite"):     _all_custs = [c for c in _all_custs if c.get("is_favorite")]
+    if _vf.get("renewal_month"):   _all_custs = [c for c in _all_custs if c.get("auto_renewal_month") == _vf["renewal_month"] or c.get("fire_renewal_month") == _vf["renewal_month"]]
+    if _vf.get("renewal_type") == "auto": _all_custs = [c for c in _all_custs if c.get("auto_renewal_month")]
+    if _vf.get("renewal_type") == "fire": _all_custs = [c for c in _all_custs if c.get("fire_renewal_month")]
+
+    # ── [GP-PERF] 페이징: 검색 변경 시 1페이지 리셋 ──────────────────────────
+    _cur_page = int(st.session_state.get("crm_list_page", 1))
+    _total_cnt = len(_all_custs)
+    _paged_custs = _all_custs[:_cur_page * _CRM_PAGE_SIZE]  # 누적 표시
+
+    _cc1, _cc2 = st.columns([3, 1])
+    with _cc1:
+        st.caption(f"📋 총 {_total_cnt}명 (표시 {len(_paged_custs)}명)")
+    with _cc2:
+        if _vf:
+            if st.button("✕ 음성 필터 해제", key="clr_voice_f", use_container_width=True):
+                st.session_state.pop("_voice_filters", None)
+                st.session_state.pop("crm_voice_q", None)
+                st.rerun()
 
     if st.session_state.get("spa_add_form"):
         with st.expander("✏️ 신규 고객 등록", expanded=True):
@@ -1011,7 +1068,7 @@ if _spa_mode == "list":
     _STAT_LABEL = {"potential": "가망", "active": "진행중",
                    "contracted": "계약", "closed": "종료"}
     _df_rows = []
-    for _c in _all_custs:
+    for _c in _paged_custs:
         _df_rows.append({
             "person_id":  _c.get("person_id", ""),
             "이름":       _c.get("name", ""),
@@ -1030,6 +1087,8 @@ if _spa_mode == "list":
 
     if not _df_rows:
         st.info("조건에 해당하는 고객이 없습니다.")
+    elif _total_cnt == 0:
+        st.info("등록된 고객이 없습니다. [➕ 신규 등록]을 눌러 추가하세요.")
     else:
         _df_crm = _pd_crm.DataFrame(_df_rows)
         _disp_df = _df_crm[["이름", "등급", "직업", "상태", "자동차만기", "화재만기"]]
@@ -1108,6 +1167,19 @@ if _spa_mode == "list":
         else:
             st.caption("💡 고객 행을 클릭하면 6대 액션 메뉴가 나타납니다.")
 
+        # ── [GP-PERF] 더 보기 버튼 (페이징) ─────────────────────────────────
+        if _total_cnt > len(_paged_custs):
+            _remaining = _total_cnt - len(_paged_custs)
+            _mb1, _mb2, _mb3 = st.columns([1, 2, 1])
+            with _mb2:
+                if st.button(
+                    f"⬇ 더 보기 ({_remaining}명 더)",
+                    key="crm_load_more",
+                    use_container_width=True,
+                ):
+                    st.session_state["crm_list_page"] = _cur_page + 1
+                    st.rerun()
+
         # HQ 딥링크 빠른 발사 행
         if len(_df_rows) <= 20:
             with st.expander("🚀 HQ 딥링크 빠른 발사", expanded=False):
@@ -1124,6 +1196,21 @@ if _spa_mode == "list":
 # ══════════════════════════════════════════════════════════════════════════════
 elif _spa_mode == "customer":
     _spa_screen = st.session_state.get("crm_spa_screen", "contact")
+
+    # ── [GP-PERF] 탭 전환 세션 GC ────────────────────────────────────────────
+    _prev_screen = st.session_state.get("_crm_prev_screen", "")
+    if _prev_screen and _prev_screen != _spa_screen:
+        _GC_KEYS_BY_SCREEN = {
+            "nibo":     ["nibo_raw_data", "nibo_ocr_result", "nibo_parsed_policy",
+                         "nibo_html_cache", "nibo_screenshot_bytes"],
+            "analysis": ["analysis_pdf_bytes", "analysis_result_cache",
+                         "gk_sec10_result", "ps_req_pending"],
+            "ai_brief": ["ai_brief_full_text", "ai_brief_stream_buffer"],
+            "kakao":    ["kakao_preview_html", "kakao_send_log"],
+        }
+        for _gc_key in _GC_KEYS_BY_SCREEN.get(_prev_screen, []):
+            st.session_state.pop(_gc_key, None)
+    st.session_state["_crm_prev_screen"] = _spa_screen
 
     if _sel_cust:
         _cn = _sel_cust.get("name", "")
@@ -2809,13 +2896,14 @@ WHERE tablename IN ('gk_people','gk_schedules','gk_consulting_logs');""",
                 unsafe_allow_html=True,
             )
             for _albl, _aval in [
-                ("사용자 ID",    _user_id[:16] + "…" if len(_user_id) > 16 else _user_id),
-                ("이름",         _user_name),
-                ("캘린더 동의",  "✅ 동의" if st.session_state.get("cal_sync_consent_agreed") else "⬜ 미동의"),
-                ("nibo 동의",    "✅ 동의" if st.session_state.get("nibo_consent_agreed")     else "⬜ 미동의"),
-                ("AI 음성 동의", "✅ 동의" if st.session_state.get("voice_consent_agreed")    else "⬜ 미동의"),
-                ("Google 연동",  "🟢 연동됨" if st.session_state.get("gcal_oauth_connected") else "⭕ 미연동"),
-                ("Apple 연동",   "🟢 연동됨" if st.session_state.get("acal_oauth_connected") else "⭕ 미연동"),
+                ("사용자 ID",        _user_id[:16] + "…" if len(_user_id) > 16 else _user_id),
+                ("이름",             _user_name),
+                ("캘린더 동의",      "✅ 동의" if st.session_state.get("cal_sync_consent_agreed") else "⬜ 미동의"),
+                ("nibo 동의",        "✅ 동의" if st.session_state.get("nibo_consent_agreed")     else "⬜ 미동의"),
+                ("AI 음성 동의",     "✅ 동의" if st.session_state.get("voice_consent_agreed")    else "⬜ 미동의"),
+                ("Microsoft Outlook","🟢 연동됨" if st.session_state.get("outlook_oauth_connected") else "⭕ 미연동"),
+                ("Google 연동",      "🟢 연동됨" if st.session_state.get("gcal_oauth_connected") else "⭕ 미연동"),
+                ("Apple 연동",       "🟢 연동됨" if st.session_state.get("acal_oauth_connected") else "⭕ 미연동"),
             ]:
                 st.markdown(
                     f"<div style='display:flex;justify-content:space-between;"
@@ -2826,10 +2914,146 @@ WHERE tablename IN ('gk_people','gk_schedules','gk_consulting_logs');""",
                 )
             st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🔄 동의 항목 재설정", key="settings_reset_consent_btn",
-                         use_container_width=True):
+
+            # ── [V4] Microsoft Outlook 개별 동의 ─────────────────────────────
+            with st.expander("🟦 Microsoft Outlook 연결 (일방향 Read-Only)", expanded=False):
+                st.markdown(
+                    "<div style='background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;"
+                    "padding:10px 14px;font-size:0.78rem;color:#1e3a8a;line-height:1.9;'>"
+                    "<b>🔒 Microsoft Outlook 연동 동의 안내</b><br>"
+                    "• <b>수집 목적:</b> Outlook 연락처 일방향 가져오기(Read-Only)<br>"
+                    "• <b>양방향 동기화(Write) 물리적 차단</b> — 외부 앱 쓰기 절대 불가<br>"
+                    "• <b>수집 정보:</b> 이름·연락처 (Microsoft Graph API 미들 처리)<br>"
+                    "• <b>저장:</b> PII 암호화(Fernet AES-128) 후 Supabase 보관<br>"
+                    "• <b>중복 제거:</b> 전화번호 숫자(normalize_phone) PK 기준 자동 병합<br>"
+                    "• <b>개인정보 보호법 제15조:</b> 이용자 권리 보장, 수집일부터 5년 후 파기"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+                _ol_agreed = st.checkbox(
+                    "위 안내를 확인하였으며 Outlook 연락처 가져오기에 동의합니다",
+                    key="outlook_consent_cb",
+                )
+                _ol_c1, _ol_c2 = st.columns(2)
+                with _ol_c1:
+                    if st.button(
+                        "🟦 Outlook 연결",
+                        key="outlook_connect_btn",
+                        type="primary",
+                        disabled=not _ol_agreed,
+                    ):
+                        st.session_state["outlook_oauth_pending"] = True
+                        st.info(
+                            "⚠️ Microsoft Graph API OAuth2 연동 모듈 배포 준비 중입니다.\n"
+                            "동의 설정은 저장되었습니다. 연동 모듈 배포 시 자동 활성화됩니다.",
+                            icon="ℹ️",
+                        )
+                with _ol_c2:
+                    if st.session_state.get("outlook_oauth_connected"):
+                        if st.button("🔌 연결 해제", key="outlook_disconnect_btn"):
+                            st.session_state.pop("outlook_oauth_connected", None)
+                            st.success("✅ Outlook 연결이 해제되었습니다.")
+                            st.rerun()
+
+            # ── [V4] 마이크 수집 법률 고지문 ─────────────────────────────────
+            with st.expander("🎤 AI 음성 비서 (마이크 수집 법률 고지)", expanded=False):
+                st.markdown(
+                    "<div style='background:#f0fdf4;border:1px solid #86efac;border-radius:8px;"
+                    "padding:10px 14px;font-size:0.78rem;color:#166534;line-height:1.9;'>"
+                    "<b>🔒 음성 데이터 수집 동의 및 법률 고지</b><br>"
+                    "• <b>수집 목적:</b> AI 음성 고객 검색·브리핑 서비스 제공<br>"
+                    "• <b>수집 항목:</b> 마이크 실시간 음성 (인식 완료 즉시 로컬 파기, 서버 저장 불가)<br>"
+                    "• <b>처리 방식:</b> 브라우저 Web Speech API 로컬 전용 처리<br>"
+                    "• <b>마이크 활성화 시</b> 브라우저 권한 표시줄에 🔴 아이콘 표시됨<br>"
+                    "• <b>정보통신망법 제22조·제49조:</b> 위치·음성정보 수집 동의 보장<br>"
+                    "• <b>동의 철회:</b> 아래 '동의 항목 재설정' 버튼 → 브라우저 마이크 차단"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+                if not st.session_state.get("voice_consent_agreed"):
+                    _vc_agree = st.checkbox(
+                        "마이크 수집 고지 내용을 확인하였으며 AI 음성 비서 사용에 동의합니다",
+                        key="voice_consent_cb_settings",
+                    )
+                    if _vc_agree and st.button(
+                        "🎤 AI 음성 활성화", key="voice_consent_save_btn", type="primary"
+                    ):
+                        st.session_state["voice_consent_agreed"] = True
+                        st.success("✅ AI 음성 비서가 활성화되었습니다.")
+                        st.rerun()
+                else:
+                    st.success("✅ AI 음성 비서 활성화됨 (마이크 동의 완료)")
+
+            # ── [V4] 가비지 블랙리스트 관리 ──────────────────────────────────
+            with st.expander("🗑️ 가비지 블랙리스트 (차단 번호 관리)", expanded=False):
+                _gb_c1, _gb_c2 = st.columns([3, 1])
+                with _gb_c1:
+                    _gb_new_phone = st.text_input(
+                        "차단할 번호", placeholder="010-xxxx-xxxx",
+                        key="gc_new_phone", label_visibility="collapsed",
+                    )
+                with _gb_c2:
+                    _gb_reason = st.selectbox(
+                        "사유", ["설계사 거부", "스팸/불유 요청", "전화 사기 의심", "기타"],
+                        key="gc_reason_sel", label_visibility="collapsed",
+                    )
+                _gba1, _gba2 = st.columns(2)
+                with _gba1:
+                    if st.button("🚫 차단 등록", key="gc_add_btn", type="primary",
+                                 disabled=not (_gb_new_phone or "").strip()):
+                        if _ff_add_garbage and _sb:
+                            _ff_add_garbage(_sb, _gb_new_phone.strip(), _user_id, _gb_reason)
+                            st.success(f"✅ {_gb_new_phone} 차단 등록 완료")
+                        else:
+                            st.warning("crm_fortress 모듈 필요")
+                with _gba2:
+                    if st.button("🗑 목록 새로고침", key="gc_list_btn"):
+                        st.session_state["show_garbage_list"] = not st.session_state.get("show_garbage_list", False)
+                if st.session_state.get("show_garbage_list"):
+                    _gb_list = (_ff_list_garbage(_sb, _user_id) if _ff_list_garbage and _sb else [])
+                    if _gb_list:
+                        for _gbr in _gb_list[:20]:
+                            _gbc1, _gbc2 = st.columns([5, 1])
+                            with _gbc1:
+                                st.caption(f"🚫 {_gbr.get('phone_normalized','')} — {_gbr.get('reason','')}")
+                            with _gbc2:
+                                if st.button("🔓", key=f"gc_rst_{_gbr.get('phone_normalized','')}",
+                                             help="차단 해제"):
+                                    if _ff_restore_garbage and _sb:
+                                        _ff_restore_garbage(_sb, _gbr.get("phone_normalized", ""), _user_id)
+                                        st.session_state["show_garbage_list"] = False
+                                        st.rerun()
+                    else:
+                        st.caption("차단된 번호가 없습니다.")
+
+            # ── [V4] AI 상담 타임라인 (최신순) ───────────────────────────────
+            with st.expander("🕐 AI 상담 타임라인 (최신순)", expanded=False):
+                if _ff_timeline and _sb:
+                    _tl_items = _ff_timeline(_sb, _user_id, limit=20)
+                    if _tl_items:
+                        for _tl in _tl_items:
+                            _dt_str = (_tl.get("dt", "") or "")[:16].replace("T", " ")
+                            _tl_color = "#1e5ba4" if _tl.get("type") == "consult" else "#64748b"
+                            st.markdown(
+                                f"<div style='display:flex;gap:8px;padding:5px 0;"
+                                f"border-bottom:1px solid #e2e8f0;font-size:0.78rem;"
+                                f"word-break:keep-all;overflow-wrap:break-word;'>"
+                                f"<span style='color:#94a3b8;white-space:nowrap;min-width:100px;'>{_dt_str}</span>"
+                                f"<span style='font-weight:700;color:{_tl_color};'>{_tl.get('title','')}</span>"
+                                f"<span style='color:#64748b;margin-left:auto;white-space:nowrap;'>"
+                                f"{(_tl.get('detail','') or '')[:25]}</span>"
+                                f"</div>",
+                                unsafe_allow_html=True,
+                            )
+                    else:
+                        st.caption("아직 기록된 타임라인이 없습니다.")
+                else:
+                    st.caption("타임라인 기능을 사용하려면 crm_fortress 모듈이 필요합니다.")
+
+            if st.button("🔄 동의 항목 재설정", key="settings_reset_consent_btn"):
                 for _ck in ["cal_sync_consent_agreed", "nibo_consent_agreed",
-                            "voice_consent_agreed", "gcal_oauth_connected", "acal_oauth_connected"]:
+                            "voice_consent_agreed", "gcal_oauth_connected", "acal_oauth_connected",
+                            "outlook_oauth_connected", "outlook_oauth_pending"]:
                     st.session_state.pop(_ck, None)
                 st.info("동의 항목이 초기화되었습니다. 로그아웃 후 재로그인하여 재동의해 주세요.")
 

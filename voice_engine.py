@@ -9,11 +9,19 @@ Architecture:
   [3] 다국어 감지    — 언어 자동 판별 → 해당 보이스 자동 전환
   [4] 보이스 플레이어 — JavaScript SpeechSynthesis 기반 브라우저 TTS
   [5] 모닝 브리핑   — 앱 기동 시 음성 오프닝 자동 트리거
+  [6] STT 보이스 검색 — Web Speech API 기반 음성 인식 + 의도 파서
 """
 from __future__ import annotations
-import re, json, datetime, html as _html
+import re, json, datetime, html as _html, os
 import streamlit as st
 import streamlit.components.v1 as _cv1
+
+# ── STT Custom Component 등록 ──────────────────────────────────────────────────
+_STT_COMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "voice_stt_component")
+try:
+    _stt_component = _cv1.declare_component("gk_voice_stt", path=_STT_COMP_DIR)
+except Exception:
+    _stt_component = None
 
 # ══════════════════════════════════════════════════════════════════════════════
 # [1] 상수 & 보이스 프로필
@@ -468,3 +476,102 @@ def render_morning_briefing_auto(
         pass
 
     st.session_state[today_key] = True
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [6] STT 보이스 검색 — Web Speech API + 의도 파서
+# ══════════════════════════════════════════════════════════════════════════════
+
+_INTENT_RULES: list[tuple] = [
+    (r"VVIP|VIP|일등급|1\s*등급|최우선",              "management_tier", 1),
+    (r"핵심|이등급|2\s*등급",                          "management_tier", 2),
+    (r"일반|잠재|삼등급|3\s*등급",                     "management_tier", 3),
+    (r"즐겨찾기|중요고객|단골|중점관리",               "is_favorite",     True),
+    (r"계약|계약완료|성공|클로징",                     "status",          "contracted"),
+    (r"진행|상담중|진행중",                             "status",          "active"),
+    (r"가망|리드|잠재|미계약",                         "status",          "potential"),
+    (r"자동차|차량|자동차보험",                        "renewal_type",    "auto"),
+    (r"화재|집|주택|화재보험",                         "renewal_type",    "fire"),
+]
+_KEYWORD_PATTERNS: list[str] = [
+    r"치매", r"암\b", r"뇌졸중", r"뇌경색", r"심장", r"입원", r"수술",
+    r"어린이", r"태아", r"운전자", r"실손", r"종신", r"연금",
+]
+
+
+def parse_voice_intent(text: str) -> dict:
+    """
+    음성 인식 텍스트에서 CRM 검색 의도를 추출.
+
+    Returns: {
+        "query":   str,         # 이름 키워드
+        "filters": {
+            "management_tier": int | None,
+            "status":          str | None,
+            "renewal_month":   int | None,
+            "renewal_type":    str | None,  # "auto" | "fire"
+            "is_favorite":     bool | None,
+            "keyword":         str | None,  # 보험 종류 키워드
+        }
+    }
+    """
+    filters: dict = {}
+    text = text.strip()
+
+    for pattern, key, val in _INTENT_RULES:
+        if re.search(pattern, text, re.IGNORECASE):
+            filters[key] = val
+
+    mo_m = re.search(r"(\d{1,2})\s*월\s*(만기|갱신|도래)", text)
+    if mo_m:
+        filters["renewal_month"] = int(mo_m.group(1))
+
+    for kp in _KEYWORD_PATTERNS:
+        if re.search(kp, text):
+            filters["keyword"] = re.search(kp, text).group(0)
+            break
+
+    name_m = re.search(r"([가-힣]{2,4})\s*(고객|씨|님|씨네)?", text)
+    query = ""
+    if name_m:
+        candidate = name_m.group(1)
+        _excluded = {"고객", "치매", "암보험", "뇌경색", "심장", "일반", "핵심", "잠재",
+                     "진행", "계약", "가망", "자동", "화재", "중요", "즐겨", "만기"}
+        if candidate not in _excluded:
+            query = candidate
+
+    return {"query": query, "filters": filters}
+
+
+def render_voice_search(
+    session_key: str = "crm_voice_q",
+    key: str = "voice_search_main",
+) -> str | None:
+    """
+    [GP-VOICE §6] Web Speech API 기반 음성 고객 검색 위젯.
+
+    - 브라우저 SpeechRecognition API로 STT 처리 (서버 rerun 없음)
+    - 인식 완료 후 [✔ 검색] 클릭 → session_state[session_key]에 저장 → 1회 rerun
+    - 반환: 인식된 음성 텍스트 (없으면 None)
+
+    미리 parse_voice_intent(result) 호출하여 filters 추출 가능.
+    """
+    result = None
+    if _stt_component is not None:
+        result = _stt_component(key=key, default=None)
+    else:
+        result = _cv1.html(
+            "<div style='padding:8px;background:#fff3cd;border:1px dashed #f59e0b;"
+            "border-radius:8px;font-size:0.78rem;color:#92400e;'>"
+            "⚠️ 음성 검색 컴포넌트 로드 실패 — 텍스트 검색을 사용하세요.</div>",
+            height=50,
+        )
+        return st.session_state.get(session_key)
+
+    if result and isinstance(result, str) and result.strip():
+        prev = st.session_state.get(session_key, "")
+        st.session_state[session_key] = result.strip()
+        if result.strip() != prev:
+            st.rerun()
+        return result.strip()
+    return st.session_state.get(session_key)

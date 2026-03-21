@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;}
+body{background:transparent;padding:2px 0;}
+.stt-wrap{
+  display:flex;align-items:center;gap:8px;
+  background:#f8fafc;border:1.5px solid #e2e8f0;
+  border-radius:12px;padding:6px 12px;
+  word-break:keep-all;overflow-wrap:break-word;
+}
+.stt-btn{
+  width:46px;height:46px;border:none;border-radius:50%;
+  background:#1e5ba4;color:#fff;font-size:1.5rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:background .15s;
+}
+.stt-btn.listening{background:#dc2626;animation:pulse 1s infinite;}
+.stt-btn:disabled{background:#94a3b8;cursor:not-allowed;}
+@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+.stt-main{flex:1;min-width:0;}
+.stt-text{
+  font-size:clamp(12px,2vw,13px);color:#334155;font-weight:700;
+  word-break:keep-all;overflow-wrap:break-word;line-height:1.4;
+}
+.stt-hint{font-size:clamp(10px,1.7vw,11px);color:#94a3b8;margin-top:2px;word-break:keep-all;}
+.stt-legal{
+  font-size:10px;color:#cbd5e1;text-align:right;
+  line-height:1.4;max-width:72px;flex-shrink:0;display:none;
+}
+.stt-send{
+  padding:5px 10px;border:1px solid #bfdbfe;border-radius:8px;
+  background:#e1f5fe;color:#1e3a8a;font-size:11px;font-weight:700;
+  cursor:pointer;flex-shrink:0;display:none;
+}
+.stt-send:hover{background:#dbeafe;}
+</style>
+</head>
+<body>
+<div class="stt-wrap">
+  <button class="stt-btn" id="sttBtn" onclick="toggleSTT()" title="음성 검색 시작/정지">🎤</button>
+  <div class="stt-main">
+    <div class="stt-text" id="sttText">🎙️ 음성으로 고객을 검색하세요</div>
+    <div class="stt-hint" id="sttHint">예: "홍길동 고객" · "VVIP 고객" · "3월 만기 고객"</div>
+  </div>
+  <button class="stt-send" id="sttSend" onclick="confirmSend()">✔ 검색</button>
+  <div class="stt-legal" id="legalNote">🔒 마이크<br>암호화<br>서버 미저장</div>
+</div>
+
+<script>
+var recog = null;
+var isListening = false;
+var finalText = "";
+
+function initRecog() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    document.getElementById('sttHint').textContent = '⚠️ Chrome 브라우저에서만 음성 인식을 지원합니다.';
+    document.getElementById('sttBtn').disabled = true;
+    return false;
+  }
+  recog = new SR();
+  recog.lang = 'ko-KR';
+  recog.interimResults = true;
+  recog.maxAlternatives = 1;
+  recog.continuous = false;
+
+  recog.onresult = function(e) {
+    var interim = '';
+    var final = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        final += e.results[i][0].transcript;
+      } else {
+        interim += e.results[i][0].transcript;
+      }
+    }
+    if (final) {
+      finalText = final.trim();
+      document.getElementById('sttText').textContent = '✅ ' + finalText;
+      document.getElementById('sttSend').style.display = 'block';
+    } else if (interim) {
+      document.getElementById('sttText').textContent = '🎙️ ' + interim;
+    }
+  };
+
+  recog.onend = function() {
+    setIdle();
+    if (finalText) {
+      document.getElementById('sttSend').style.display = 'block';
+    }
+  };
+
+  recog.onerror = function(e) {
+    var errMap = {
+      'not-allowed': '마이크 권한이 거부되었습니다. 브라우저 설정에서 허용해 주세요.',
+      'no-speech': '음성이 감지되지 않았습니다. 다시 시도하세요.',
+      'network': '네트워크 오류로 음성 인식에 실패했습니다.'
+    };
+    document.getElementById('sttHint').textContent = '⚠️ ' + (errMap[e.error] || e.error);
+    setIdle();
+  };
+  return true;
+}
+
+function toggleSTT() {
+  if (isListening) {
+    recog.stop();
+    setIdle();
+    return;
+  }
+  finalText = '';
+  document.getElementById('sttSend').style.display = 'none';
+  if (!recog && !initRecog()) return;
+  try {
+    recog.start();
+    isListening = true;
+    document.getElementById('sttBtn').classList.add('listening');
+    document.getElementById('sttBtn').textContent = '🔴';
+    document.getElementById('sttText').textContent = '듣는 중... 말씀하세요';
+    document.getElementById('legalNote').style.display = 'block';
+  } catch(e) {
+    recog = null;
+    if (!initRecog()) return;
+    recog.start();
+  }
+}
+
+function setIdle() {
+  isListening = false;
+  document.getElementById('sttBtn').classList.remove('listening');
+  document.getElementById('sttBtn').textContent = '🎤';
+  document.getElementById('legalNote').style.display = 'none';
+}
+
+function confirmSend() {
+  if (!finalText) return;
+  sendValue(finalText);
+  finalText = '';
+  document.getElementById('sttSend').style.display = 'none';
+  document.getElementById('sttText').textContent = '🎙️ 음성으로 고객을 검색하세요';
+}
+
+function sendValue(text) {
+  // Streamlit Custom Component bidirectional communication
+  var data = JSON.stringify({isStreamlitMessage: true, type: "streamlit:setComponentValue", value: text});
+  window.parent.postMessage(data, "*");
+}
+
+// Streamlit component init handshake
+window.addEventListener("message", function(e) {
+  try {
+    var msg = (typeof e.data === "string") ? JSON.parse(e.data) : e.data;
+    if (msg && msg.type === "streamlit:render") {
+      // Component ready
+    }
+  } catch(_) {}
+});
+
+// Signal ready to Streamlit
+window.parent.postMessage(
+  JSON.stringify({isStreamlitMessage: true, type: "streamlit:componentReady", apiVersion: 1}),
+  "*"
+);
+</script>
+</body>
+</html>

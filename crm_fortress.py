@@ -684,3 +684,236 @@ def get_person_summary(sb, person_id: str) -> dict:
         "total_as_insured":    len(policies.get("피보험자", [])),
         "total_as_beneficiary":len(policies.get("수익자", [])),
     }
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 11. 전화번호 정규화 (PK 중복 제거용)
+# ────────────────────────────────────────────────────────────────────────────
+T_GARBAGE = "gk_garbage_contacts"
+
+
+def normalize_phone(raw: str) -> str:
+    """전화번호에서 숫자만 추출 — 중복 감지 PK."""
+    return "".join(filter(str.isdigit, str(raw or "")))
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 12. 가비지 블랙리스트 (gk_garbage_contacts)
+# ────────────────────────────────────────────────────────────────────────────
+def add_to_garbage(
+    sb,
+    phone: str,
+    agent_id: str,
+    reason: str = "설계사 거부",
+) -> dict:
+    """
+    번호를 가비지 블랙리스트에 추가.
+    외부 데이터 유입 시 자동 폐기 대상으로 등록.
+    """
+    clean = normalize_phone(phone)
+    if not clean:
+        return {}
+    row = {
+        "phone_normalized": clean,
+        "agent_id":         agent_id,
+        "reason":           reason,
+        "is_active":        True,
+        "created_at":       _now_iso(),
+    }
+    try:
+        res = (sb.table(T_GARBAGE)
+               .upsert(row, on_conflict="phone_normalized,agent_id")
+               .execute())
+        return res.data[0] if res.data else row
+    except Exception:
+        return row
+
+
+def is_garbage(sb, phone: str, agent_id: str) -> bool:
+    """번호가 현재 설계사의 블랙리스트에 있는지 확인."""
+    clean = normalize_phone(phone)
+    if not clean:
+        return False
+    try:
+        res = (sb.table(T_GARBAGE).select("phone_normalized")
+               .eq("phone_normalized", clean)
+               .eq("agent_id", agent_id)
+               .eq("is_active", True)
+               .execute())
+        return bool(res.data)
+    except Exception:
+        return False
+
+
+def restore_from_garbage(sb, phone: str, agent_id: str) -> bool:
+    """블랙리스트 번호 차단 해제 (휴지통 복원)."""
+    clean = normalize_phone(phone)
+    if not clean:
+        return False
+    try:
+        res = (sb.table(T_GARBAGE)
+               .update({"is_active": False})
+               .eq("phone_normalized", clean)
+               .eq("agent_id", agent_id)
+               .execute())
+        return bool(res.data)
+    except Exception:
+        return False
+
+
+def list_garbage(sb, agent_id: str) -> list[dict]:
+    """블랙리스트 목록 조회."""
+    try:
+        return (sb.table(T_GARBAGE).select("*")
+                .eq("agent_id", agent_id)
+                .eq("is_active", True)
+                .order("created_at", desc=True)
+                .execute().data or [])
+    except Exception:
+        return []
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 13. 스마트 병합 (아웃룩/외부 데이터 유입 시)
+# ────────────────────────────────────────────────────────────────────────────
+def merge_person_smart(
+    sb,
+    target_id: str,
+    source: dict,
+    agent_id: str = "",
+) -> dict:
+    """
+    외부 데이터(source dict)를 CRM 기존 인물(target_id)에 병합.
+    원칙: 빈칸만 채움 — 기존 데이터 덮어쓰기 금지.
+    메모는 줄바꿈 후 이어 붙임.
+
+    Args:
+        target_id: gk_people.person_id (기존 CRM 인물)
+        source: 외부 입수 dict {"name","contact","memo",...}
+    """
+    existing = get_person(sb, target_id)
+    if not existing:
+        return {}
+
+    patch: dict = {"updated_at": _now_iso()}
+
+    _fillable = [
+        "birth_date", "gender", "address", "job", "injury_level",
+        "lead_source", "referrer_id", "community_tags",
+        "management_tier", "wedding_anniversary", "driving_status",
+    ]
+    for field in _fillable:
+        if not existing.get(field) and source.get(field):
+            patch[field] = source[field]
+
+    # 연락처: 기존이 없을 때만 채움
+    if not existing.get("contact") and source.get("contact"):
+        _c = normalize_phone(source["contact"])
+        if _c:
+            try:
+                from shared_components import encrypt_pii
+                patch["contact"] = encrypt_pii(_c)
+            except Exception:
+                patch["contact"] = _c
+
+    # 메모: 이어 붙이기 (중복 방지)
+    old_memo = existing.get("memo", "") or ""
+    new_memo = source.get("memo", "") or ""
+    if new_memo and new_memo not in old_memo:
+        patch["memo"] = (old_memo + "\n" + new_memo).strip() if old_memo else new_memo
+
+    if len(patch) > 1:
+        (sb.table(T_PEOPLE).update(patch)
+           .eq("person_id", target_id)
+           .execute())
+
+    return {**existing, **patch}
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 14. 타임라인 — 검색 이력 + 상담 일지 통합 (최신순 DESC)
+# ────────────────────────────────────────────────────────────────────────────
+T_SEARCH_HIST = "gk_search_history"
+T_CONSUL_LOG  = "gk_consultation_logs"
+
+
+def log_search(sb, agent_id: str, query: str, result_count: int = 0) -> None:
+    """음성/텍스트 검색 이력 기록."""
+    try:
+        sb.table(T_SEARCH_HIST).insert({
+            "agent_id":     agent_id,
+            "query":        query[:200],
+            "result_count": result_count,
+            "searched_at":  _now_iso(),
+        }).execute()
+    except Exception:
+        pass
+
+
+def log_consultation(
+    sb,
+    agent_id: str,
+    person_id: str,
+    person_name: str,
+    note: str = "",
+    consul_type: str = "general",
+) -> None:
+    """상담 일지 기록."""
+    try:
+        sb.table(T_CONSUL_LOG).insert({
+            "agent_id":    agent_id,
+            "person_id":   person_id,
+            "person_name": person_name,
+            "note":        note[:500],
+            "consul_type": consul_type,
+            "consulted_at": _now_iso(),
+        }).execute()
+    except Exception:
+        pass
+
+
+def get_timeline(
+    sb,
+    agent_id: str,
+    limit: int = 20,
+) -> list[dict]:
+    """
+    검색 이력 + 상담 일지 통합 타임라인 (최신순 DESC).
+    반환 item 형식: {"type": "search"|"consult", "dt": ISO str, "title": str, "detail": str}
+    """
+    events: list[dict] = []
+
+    try:
+        searches = (sb.table(T_SEARCH_HIST).select("query,result_count,searched_at")
+                    .eq("agent_id", agent_id)
+                    .order("searched_at", desc=True)
+                    .limit(limit)
+                    .execute().data or [])
+        for s in searches:
+            events.append({
+                "type":   "search",
+                "dt":     s.get("searched_at", ""),
+                "title":  f"🔍 검색: {s.get('query','')}",
+                "detail": f"결과 {s.get('result_count',0)}명",
+            })
+    except Exception:
+        pass
+
+    try:
+        consults = (sb.table(T_CONSUL_LOG).select("person_name,note,consul_type,consulted_at")
+                    .eq("agent_id", agent_id)
+                    .order("consulted_at", desc=True)
+                    .limit(limit)
+                    .execute().data or [])
+        for c in consults:
+            events.append({
+                "type":   "consult",
+                "dt":     c.get("consulted_at", ""),
+                "title":  f"💬 상담: {c.get('person_name','')}",
+                "detail": c.get("note", "")[:60],
+            })
+    except Exception:
+        pass
+
+    events.sort(key=lambda x: x.get("dt", ""), reverse=True)
+    return events[:limit]
