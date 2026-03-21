@@ -39913,7 +39913,7 @@ div[data-testid="stButton"] {
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
-                _lsec_t1, _lsec_t2, _lsec_t3 = st.tabs(["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 입력 + AI 분석", "🏆 실전 데모"])
+                _lsec_t1, _lsec_t2, _lsec_t3 = st.tabs(["📥 JSON 강제 주입 (전문가)", "✏️ 수동 입력 + AI 분석", "🏆 실전 데모"])
                 with _lsec_t1:
                     # ── [GUARD] 동의 완료 시 자동 분석 실행 ────────────────────────────
                     if st.session_state.pop("lsec_analysis_consented", False):
@@ -39955,40 +39955,41 @@ div[data-testid="stButton"] {
                                         st.error("❌ 파이프라인 오류: " + str(_ea))
                         else:
                             st.warning("⚠️ JSON 또는 건강보험료 데이터가 없습니다.")
-                    st.caption("내보험다보여 API 응답 JSON → 정규화 → 트리니티 분석 → DB 저장 일괄 처리")
-                    if st.button("📋 샘플 데이터 불러오기", key="lsec_sample_btn"):
-                        import json as _js_smp
-                        st.session_state["_nibo_raw_json"] = _js_smp.dumps([
-                            {"prodName": "(무)뉴-하이콜 암진단비",   "traitName": "암진단비특약",    "amt": "3000만원",  "status": "유효"},
-                            {"prodName": "뇌졸중진단확정비",         "traitName": "뇌졸중진단특약",  "amt": "10000000", "status": "유효"},
-                            {"prodName": "일반상해후유장해(3~100%)", "traitName": "상해후유장해",    "amt": "5000만원",  "status": "유효"},
-                            {"prodName": "DB손해 통합",              "traitName": "암진단비(소액암)", "amt": "2000만원",  "status": "유효"},
-                        ], ensure_ascii=False, indent=2)
-                        st.rerun()
-                    _nibo_raw = st.text_area(
-                        "내보험다보여 API JSON 붙여넣기",
-                        value=st.session_state.get("_nibo_raw_json", ""),
-                        placeholder='[{"prodName":"삼성생명 종신","traitName":"암진단비","amt":"3000만원","status":"유효"}]',
-                        height=130, key="lsec_nibo_json",
-                    )
-                    _nibo_nhi = st.number_input(
-                        "월 건강보험료(원)", min_value=0, max_value=2_000_000,
-                        value=int(st.session_state.get("gs_hi_premium") or 0),
-                        step=10_000, key="lsec_nhi",
-                        help="직장인 본인부담분 | 추정 월소득 = 본인납부액×2÷7.19% (2026 기준)",
-                    )
-                    _lsec_btn = "⚡ 파싱 → 분석 → DB 저장 (전체 파이프라인)"
-                    if st.button(_lsec_btn, key="lsec_pipeline_run",
-                                 use_container_width=True, type="primary"):
-                        if not _nibo_raw.strip():
-                            st.warning("JSON 데이터를 붙여넣어 주세요.")
-                        elif _nibo_nhi <= 0:
-                            st.warning("월 건강보험료를 입력해 주세요.")
-                        else:
-                            st.session_state["_nibo_raw_json"]         = _nibo_raw
-                            st.session_state["gs_hi_premium"]          = _nibo_nhi
-                            st.session_state["_securities_data_ready"] = True
-                            _lsec_nibo_consent_dialog()
+                    with st.expander("📥 외부 보험 데이터(JSON) 강제 주입 — 전문가용", expanded=False):
+                        st.caption("내보험다보여 API 응답 JSON → 정규화 → 트리니티 분석 → DB 저장 일괄 처리")
+                        if st.button("📋 샘플 데이터 불러오기", key="lsec_sample_btn"):
+                            import json as _js_smp
+                            st.session_state["_nibo_raw_json"] = _js_smp.dumps([
+                                {"prodName": "(무)뉴-하이콜 암진단비",   "traitName": "암진단비특약",    "amt": "3000만원",  "status": "유효"},
+                                {"prodName": "뇌졸중진단확정비",         "traitName": "뇌졸중진단특약",  "amt": "10000000", "status": "유효"},
+                                {"prodName": "일반상해후유장해(3~100%)", "traitName": "상해후유장해",    "amt": "5000만원",  "status": "유효"},
+                                {"prodName": "DB손해 통합",              "traitName": "암진단비(소액암)", "amt": "2000만원",  "status": "유효"},
+                            ], ensure_ascii=False, indent=2)
+                            st.rerun()
+                        _nibo_raw = st.text_area(
+                            "내보험다보여 API JSON 붙여넣기",
+                            value=st.session_state.get("_nibo_raw_json", ""),
+                            placeholder='[{"prodName":"삼성생명 종신","traitName":"암진단비","amt":"3000만원","status":"유효"}]',
+                            height=130, key="lsec_nibo_json",
+                        )
+                        _nibo_nhi = st.number_input(
+                            "월 건강보험료(원)", min_value=0, max_value=2_000_000,
+                            value=int(st.session_state.get("gs_hi_premium") or 0),
+                            step=10_000, key="lsec_nhi",
+                            help="직장인 본인부담분 | 추정 월소득 = 본인납부액×2÷7.19% (2026 기준)",
+                        )
+                        _lsec_btn = "⚡ 파싱 → 분석 → DB 저장 (전체 파이프라인)"
+                        if st.button(_lsec_btn, key="lsec_pipeline_run",
+                                     use_container_width=True, type="primary"):
+                            if not _nibo_raw.strip():
+                                st.warning("JSON 데이터를 붙여넣어 주세요.")
+                            elif _nibo_nhi <= 0:
+                                st.warning("월 건강보험료를 입력해 주세요.")
+                            else:
+                                st.session_state["_nibo_raw_json"]         = _nibo_raw
+                                st.session_state["gs_hi_premium"]          = _nibo_nhi
+                                st.session_state["_securities_data_ready"] = True
+                                _lsec_nibo_consent_dialog()
                 with _lsec_t2:
                     st.caption("보유 증권을 직접 입력하거나 AI 분석을 요청합니다.")
                     _secl, _secr = st.columns([5,5], gap="medium")

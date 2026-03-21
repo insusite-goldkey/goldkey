@@ -630,6 +630,27 @@ def render_auth_screen(
         "• SHA-256 단방향 해시를 통한 연락처 및 비밀번호 암호화 저장<br>"
         "• 로그아웃 시 단말기 내 민감 정보 메모리 점유 즉시 해제 (임시 데이터 잔류 방지)<br><br>"
 
+        "<b style='color:#0a1628;'>[제15조] 외부 캘린더 정보의 연동 및 활용</b><br>"
+        "본 서비스는 회원의 편의를 위해 회원의 <b>명시적 동의</b>하에 외부 캘린더(Google, Apple 등)의 "
+        "일정 정보를 <b>API(OAuth 2.0)</b> 방식을 통해 연동합니다. "
+        "사용자가 <b>'🔄 외부 캘린더 일정 동기화' 버튼을 클릭할 때만</b> 정보가 갱신되며, "
+        "자동 수집·스크래핑은 절대 수행하지 않습니다. 연동은 언제든 [⚙️ 연동/설정] 탭에서 해제할 수 있습니다.<br><br>"
+
+        "<b style='color:#0a1628;'>[제16조] 절대적 데이터 폐쇄성 및 관리자 접근 제한 원칙 (Admin-Blind RLS)</b><br>"
+        "본 서비스는 회원의 고객 DB 및 스케줄 정보에 <b>Zero-Knowledge에 준하는 "
+        "RLS(Row Level Security) 아키텍처</b>를 적용합니다. "
+        "회원의 데이터는 본인에게만 독점적으로 종속되며, "
+        "당사의 시스템 관리자 및 개발자를 포함한 제3자는 이를 "
+        "<b>절대 열람, 추출, 공유할 수 없습니다.</b> "
+        "(Supabase RLS: auth.uid()::text = agent_id 정책 적용)<br><br>"
+
+        "<b style='color:#0a1628;'>[제17조] 외부 캘린더 동기화 시 책임의 한계</b><br>"
+        "회원이 외부 캘린더(Google, Apple 등)와 데이터를 동기화할 경우, "
+        "전송된 데이터의 보안은 <b>해당 플랫폼의 개인정보 처리방침 및 보안 정책</b>을 따르며, "
+        "당사는 플랫폼 측의 귀책으로 발생한 정보 유출, 서비스 중단, 데이터 손실에 대해 "
+        "<b>법적 책임을 부담하지 않습니다.</b> "
+        "동기화 전 해당 플랫폼의 약관을 반드시 확인하십시오.<br><br>"
+
         "<div style='background:#FFF3CD;border:1px solid #F0A500;border-radius:6px;padding:8px 10px;"
         "font-size:0.75rem;color:#7A4F00;margin-top:4px;'>"
         "<b>⚠️ 면책 및 서비스 이용 안내 (Disclaimer)</b><br>"
@@ -679,13 +700,26 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     )
     # 전체동의 → 개별 항목 자동 체크
     _all_key = f"{terms_agree_key}_all"
+
+    def _on_all_consent_change(_k=terms_agree_key, _ak=_all_key):
+        _v = st.session_state.get(_ak, False)
+        for _ck in ("_c1", "_c2", "_c3", "_c4", "_c5", "_c6"):
+            st.session_state[f"{_k}{_ck}"] = _v
+        st.session_state["voice_consent_agreed"] = _v
+
     if st.session_state.get(_all_key, False):
         st.session_state[f"{terms_agree_key}_c1"] = True
         st.session_state[f"{terms_agree_key}_c2"] = True
         st.session_state[f"{terms_agree_key}_c3"] = True
         st.session_state[f"{terms_agree_key}_c4"] = True
         st.session_state[f"{terms_agree_key}_c5"] = True
-    st.checkbox("🔲 **전체 동의** (필수·선택·내보험다보여 항목 모두 동의)", key=_all_key)
+        st.session_state[f"{terms_agree_key}_c6"] = True
+        st.session_state["voice_consent_agreed"]   = True
+    st.checkbox(
+        "🔲 **전체 동의** (필수·선택·내보험다보여·AI음성 항목 모두 동의)",
+        key=_all_key,
+        on_change=_on_all_consent_change,
+    )
     _c1 = st.checkbox(
         "✅ **[필수]** 서비스 이용약관에 동의합니다 (제1조~제11조)",
         key=f"{terms_agree_key}_c1",
@@ -730,6 +764,38 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         key=f"{terms_agree_key}_c5",
         help="AI 증권분석·트리니티 리포트 기능 사용 시 필수. 미동의 시 해당 기능이 비활성화됩니다.",
     )
+    # ── [GP-VOICE] AI 음성 브리핑 동의 (선택) ──────────────────────────────────
+    st.markdown(
+        "<div style='background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
+        "padding:6px 12px;margin-top:10px;margin-bottom:4px;font-size:0.76rem;color:#14532d;'>"
+        "🔊 <b>AI 음성 브리핑 안내:</b> 설계사님의 스케줄 및 고객 분석 결과를 AI 아나운서의 "
+        "음성으로 자동 브리핑받는 기능입니다. <b>(마이크 수집 없음, 스피커 출력 전용)</b>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    _c6 = st.checkbox(
+        "🔊 **[선택]** AI 음성 브리핑 및 오디오 자동 재생 동의",
+        key=f"{terms_agree_key}_c6",
+        help="설계사님의 스케줄 및 고객 분석 결과를 AI 아나운서의 음성으로 자동 브리핑받는 기능입니다. (마이크 수집 없음, 스피커 출력 전용)",
+    )
+    st.session_state["voice_consent_agreed"] = _c6
+    # ── [GP-CAL §15] 외부 캘린더 연동 동의 (선택) ──────────────────────────────
+    st.markdown(
+        "<div style='background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
+        "padding:6px 12px;margin-top:10px;margin-bottom:4px;font-size:0.76rem;color:#14532d;'>"
+        "📅 <b>외부 캘린더 연동 안내:</b> Google·Apple 캘린더의 일정을 "
+        "<b>사용자가 직접 클릭할 때만</b> 동기화합니다. "
+        "자동 수집 없음 / OAuth 2.0 표준 / 언제든 연동 해제 가능 "
+        "<b>(제15조·제17조 적용)</b>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    _c7 = st.checkbox(
+        "📅 **[선택]** 외부 캘린더(Google/Apple) 연동 및 일정 동기화 동의 (제15조·제17조)",
+        key=f"{terms_agree_key}_c7",
+        help="Google·Apple 캘린더를 OAuth 2.0으로 연동하여 일정을 수동으로 동기화하는 기능입니다. 동의 시에만 [⚙️ 연동/설정] 탭의 캘린더 연동 버튼이 활성화됩니다.",
+    )
+    st.session_state["cal_sync_consent_agreed"] = _c7
     # 내보험다보여 동의 여부를 독립 세션키로도 저장 (feature gate용)
     st.session_state["nibo_consent_agreed"]    = _c5
     st.session_state["nibo_consent_version"]   = _NIBO_CONSENT_VERSION if _c5 else ""

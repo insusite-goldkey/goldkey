@@ -18,6 +18,29 @@ import urllib.parse
 import os
 import calendar_engine
 
+# ── [조건부] voice_engine · crm_fortress import ───────────────────────────
+try:
+    from voice_engine import (
+        render_morning_briefing_auto as _ve_morning_auto,
+        render_voice_player          as _ve_player,
+        build_morning_briefing       as _ve_build_brief,
+    )
+    _VOICE_OK = True
+except Exception:
+    _VOICE_OK = False
+    _ve_morning_auto = _ve_player = _ve_build_brief = None
+
+try:
+    from crm_fortress import (
+        search_people  as _ff_search,
+        upsert_person  as _ff_upsert,
+        get_summary    as _ff_summary,
+    )
+    _FORTRESS_OK = True
+except Exception:
+    _FORTRESS_OK = False
+    _ff_search = _ff_upsert = _ff_summary = None
+
 # ── [Phase 1] 공통 모듈 import ────────────────────────────────────────────────
 from shared_components import (
     CUSTOMER_SCHEMA,
@@ -1086,11 +1109,13 @@ elif _spa_mode == "customer":
 
     _crm_menus = [
         ("📋 고객 마스터",  "contact"),
+        ("👥 고객 DB 관리", "db_manage"),
         ("📅 스케줄",       "schedule"),
         ("🌐 내보험다보여",  "nibo"),
         ("📊 증권분석",      "analysis"),
         ("🤖 AI 브리핑",    "ai_brief"),
         ("💬 카카오 발송",  "kakao"),
+        ("⚙️ 연동/설정",   "settings"),
     ]
     if _OUTLOOK_OK:
         _spa_screen = render_radio_spa_nav(
@@ -1219,11 +1244,131 @@ elif _spa_mode == "customer":
                             )
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            # ── RIGHT PANE: 편집 폼 (항상 표시 — 저장 즉시 GCS 반영) ───────────
+            # ── RIGHT PANE: 실단 통합 상담 동선 ────────────────────────────────
             with _pane_r:
+                _tri_sess_key = f"crm_trinity_res_{_sel_pid}"
+
+                # ── [섹션 A] 상담 브리핑 카드 ──────────────────────────────
+                st.markdown(
+                    "<div style='background:#eff6ff;border:1px solid #bfdbfe;"
+                    "border-radius:12px;padding:10px 14px;margin-bottom:8px;'>"
+                    "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;"
+                    "border-bottom:2px solid #bfdbfe;padding-bottom:4px;margin-bottom:8px;'>"
+                    "📊 섹션 A — 상담 브리핑</div>",
+                    unsafe_allow_html=True,
+                )
+                _a_items = [
+                    ("충 월납보험료",  f"{_sel_cust.get('monthly_premium',0):,.0f}원"),
+                    ("유지 계약수",    f"{_sel_cust.get('contract_count',0)}건"),
+                    ("관리등급",        f"Tier {_sel_cust.get('management_tier',3)}"),
+                    ("주요 리스크",     " ".join(filter(None, [str(_sel_cust.get('risk_note','')), str(_sel_cust.get('driving_status',''))]))),
+                ]
+                for _ak, _av in _a_items:
+                    st.markdown(
+                        f"<div style='display:flex;justify-content:space-between;"
+                        f"font-size:0.78rem;padding:2px 0;border-bottom:1px dotted #dbeafe;'>"
+                        f"<span style='color:#64748b;'>{_ak}</span>"
+                        f"<span style='font-weight:700;color:#1e293b;'>{_av}</span></div>",
+                        unsafe_allow_html=True,
+                    )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                # ── [섹션 B] 트리니티 가처분 소득 산출기 ────────────────────
+                st.markdown(
+                    "<div style='background:#fffbeb;border:1px solid #fbbf24;"
+                    "border-radius:12px;padding:12px 14px;margin-bottom:8px;'>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    "<div style='font-size:0.82rem;font-weight:900;color:#92400e;"
+                    "border-bottom:2px solid #fbbf24;padding-bottom:4px;margin-bottom:10px;'>"
+                    "💡 섹션 B — 트리니티 가처분 소득 산출기 (HQ 동일 공식)</div>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    "<div style='font-size:0.78rem;font-weight:900;color:#78350f;"
+                    "margin-bottom:6px;line-height:1.45;word-break:keep-all;'>"
+                    "💰 월 건강보험료 납부액 입력"
+                    "<br><span style='font-weight:500;font-size:0.72rem;color:#92400e;'>"
+                    "(가처분 소득 산출 &amp; 트리니티 산출 기초)</span></div>",
+                    unsafe_allow_html=True,
+                )
+                _nhis_init = int(st.session_state.get(f"crm_nhis__{_sel_pid}", 0))
+                _tri_ic, _tri_bc = st.columns([3, 2])
+                with _tri_ic:
+                    _nhis_val = st.number_input(
+                        "월 건강보험료(원)", min_value=0, max_value=2_000_000,
+                        value=_nhis_init, step=10_000,
+                        key=f"crm_nhis_inp_{_sel_pid}", label_visibility="collapsed",
+                    )
+                    st.caption("직장인: 보수월액×7.09%  |  지역가입자: 부과점수×208.4원")
+                with _tri_bc:
+                    st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
+                    if st.button(
+                        "🚀 AI 분석 필요 보험가액 산출 (트리니티 산출법)",
+                        key=f"crm_tri_calc_{_sel_pid}", type="primary", use_container_width=True,
+                    ):
+                        if _nhis_val > 0:
+                            _ART32_RATE = 0.0709
+                            _m_inc = _nhis_val / _ART32_RATE
+                            _d_val = _m_inc / 30
+                            st.session_state[_tri_sess_key] = {
+                                "nhis": _nhis_val, "monthly": _m_inc, "daily": _d_val,
+                                "gap_injury":    min(_d_val, 70_000),
+                                "gap_disease":   min(_d_val, 100_000),
+                                "disability_2yr": _m_inc * 24,
+                                "stroke_18":      _m_inc * 18,
+                                "dementia_6":     _m_inc * 6,
+                                "cancer_min":     100_000_000,
+                                "cancer_rec":     300_000_000,
+                            }
+                            st.session_state[f"crm_nhis__{_sel_pid}"] = _nhis_val
+                        else:
+                            st.warning("월 건강보험료를 입력해 주세요.")
+
+                _tri_res = st.session_state.get(_tri_sess_key)
+                if _tri_res:
+                    st.markdown(
+                        "<div style='background:#eff6ff;border:1px solid #bfdbfe;"
+                        "border-radius:8px;padding:10px 14px;margin-top:10px;'>"
+                        "<div style='font-size:0.78rem;font-weight:900;color:#1e3a8a;"
+                        "border-bottom:1px solid #bfdbfe;padding-bottom:4px;margin-bottom:8px;'>"
+                        "🧠 AI 가입 결과 보고서 요약</div>",
+                        unsafe_allow_html=True,
+                    )
+                    _res_rows = [
+                        ("필요 월 소득",   f"{_tri_res['monthly']:,.0f}원"),
+                        ("일일 가치",      f"{_tri_res['daily']:,.0f}원"),
+                        ("상해 입원일당",  f"{_tri_res['gap_injury']:,.0f}원"),
+                        ("질병 입원일당",  f"{_tri_res['gap_disease']:,.0f}원"),
+                        ("장해(2년)",     f"{_tri_res['disability_2yr']:,.0f}원"),
+                        ("뇌혁줘(18M)",   f"{_tri_res['stroke_18']:,.0f}원"),
+                        ("암 최소",      f"{_tri_res['cancer_min']:,.0f}원"),
+                        ("암 권장",      f"{_tri_res['cancer_rec']:,.0f}원"),
+                    ]
+                    _r1, _r2 = st.columns(2)
+                    for _ri2, (_rlbl, _rval) in enumerate(_res_rows):
+                        with [_r1, _r2][_ri2 % 2]:
+                            st.markdown(
+                                f"<div style='font-size:0.76rem;padding:3px 0;"
+                                f"border-bottom:1px dotted #bfdbfe;'>"
+                                f"<span style='color:#64748b;'>{_rlbl}</span>"
+                                f"<b style='color:#1e3a8a;margin-left:4px;'>{_rval}</b></div>",
+                                unsafe_allow_html=True,
+                            )
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    if st.button("🔄 결과 초기화", key=f"crm_tri_reset_{_sel_pid}",
+                                 use_container_width=True):
+                        st.session_state.pop(_tri_sess_key, None)
+                        st.rerun()
+                else:
+                    st.caption("💡 월 건강보험료 입력 후 버튼을 클릭하면 AI 비협보험 가액이 산출됩니다.")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                # ── [정보 수정 폼] ─────────────────────────────────────────────
                 st.markdown(
                     "<div style='background:#ffffff;border:1px dashed #000;"
-                    "border-radius:10px;padding:14px;'>",
+                    "border-radius:10px;padding:14px;margin-top:10px;'>",
                     unsafe_allow_html=True,
                 )
                 st.markdown(
@@ -1284,6 +1429,43 @@ elif _spa_mode == "customer":
         except Exception:
             _month_schs = []
         _sched_dates = {s.get("date", "") for s in _month_schs}
+
+        # ══ [GP-CAL §1] 사용자 주도형 수동 동기화 UI (Principle 1) ═════════════
+        def sync_external_calendar(uid: str, provider: str = "google") -> dict:
+            """
+            [GP-CAL §1·§2] Pull 동기화 Placeholder.
+            실 구현 시 OAuth 2.0 액세스 토큰으로 Google Calendar / Apple CalDAV API 호출.
+            자동 실행 절대 금지 — 사용자 클릭 시에만 호출.
+            """
+            return {"ok": False, "count": 0,
+                    "message": f"[Placeholder] {provider} OAuth 2.0 연동 미완성 — ⚙️ 연동/설정 탭에서 계정 연결 후 사용 가능"}
+
+        _cal_consent_ok = st.session_state.get("cal_sync_consent_agreed", False)
+        _sc1, _sc2 = st.columns([3, 1])
+        with _sc1:
+            st.markdown(
+                "<div style='background:#f0fdf4;border:1px solid #86efac;"
+                "border-radius:10px;padding:8px 14px;margin-bottom:8px;'>"
+                "<span style='font-size:0.78rem;font-weight:700;color:#14532d;'>"
+                "📅 <b>외부 캘린더 동기화</b> — 사용자가 직접 클릭할 때만 실행 (자동 수집 없음)"
+                "<br><span style='font-size:0.7rem;font-weight:400;'>"
+                "Google/Apple 캘린더 연동 시 최신 일정 Pull · OAuth 2.0 표준</span>"
+                "</span></div>",
+                unsafe_allow_html=True,
+            )
+            if not _cal_consent_ok:
+                st.caption("🔐 로그인 시 [📅 외부 캘린더 연동 동의]에 체크한 경우에만 활성화")
+        with _sc2:
+            if st.button("🔄 외부\n일정 동기화",
+                         key="cal_ext_sync_btn", type="primary",
+                         use_container_width=True, disabled=(not _cal_consent_ok)):
+                with st.spinner("외부 캘린더에서 일정을 가져오는 중..."):
+                    _sr = sync_external_calendar(_user_id)
+                if _sr.get("ok"):
+                    st.success(f"✅ {_sr.get('count',0)}건 완료")
+                    st.rerun()
+                else:
+                    st.info(f"ℹ️ {_sr.get('message','')}")
 
         # ── 월 네비게이션 (Prev / 월명 / Next) ──────────────────────────────
         _nav_prev, _nav_title, _nav_next = st.columns([1, 4, 1])
@@ -1634,158 +1816,73 @@ elif _spa_mode == "customer":
                 st.success("✅ 동의 완료! 트리니티 분석이 활성화됩니다.")
                 st.rerun()
         else:
-            _nibo_mode = st.radio(
-                "분석 방법",
-                ["📡 내보험다보여 JSON 자동 파싱", "✏️ 수동 담보 입력"],
-                horizontal=True, key="nibo_mode_radio", label_visibility="collapsed",
+            st.markdown(
+                "<div style='background:#f0fdf4;border:1px solid #86efac;"
+                "border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:0.8rem;'>"
+                "💡 <b>내보험다보여 일괄 분석</b>은 <b>HQ 앱 → 내보험다보여 탭</b>에서 실행하세요. "
+                "아래에서 담보 금액을 직접 입력하거나 빠른 HQ 바로가기를 이용해 주세요."
+                "</div>",
+                unsafe_allow_html=True,
             )
-            if _nibo_mode == "📡 내보험다보여 JSON 자동 파싱":
-                _nb_divider_l, _nb_divider_r = st.columns([5, 5])
-                with _nb_divider_l:
-                    st.markdown(
-                        "<div style='background:#eff6ff;border:1px dashed #93c5fd;border-radius:8px;"
-                        "padding:6px 12px;margin-bottom:6px;font-size:0.8rem;font-weight:900;color:#1e3a8a;'>"
-                        "📡 내보험다보여 크롤링</div>",
-                        unsafe_allow_html=True,
-                    )
-                    st.caption("API JSON → data_normalizer → 트리니티 분석 → HQ DB 저장")
-                    _crm_nibo_raw = st.text_area(
-                        "내보험다보여 API JSON 붙여넣기",
-                        value=st.session_state.get("crm_nibo_raw_json", ""),
-                        placeholder='[{"prodName":"삼성생명 종신","traitName":"암진단비","amt":"3000만원","status":"유효"}]',
-                        height=120, key="crm_lsec_nibo_json",
-                    )
-                    st.markdown(
-                        "<div style='background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
-                        "padding:6px 12px;margin-top:8px;margin-bottom:6px;font-size:0.8rem;"
-                        "font-weight:900;color:#14532d;'>📎 증권 파일 스캔 업로드</div>",
-                        unsafe_allow_html=True,
-                    )
-                    _crm_policy_file = st.file_uploader(
-                        "증권 파일 (PDF·이미지)", type=["pdf", "jpg", "jpeg", "png"],
-                        key="crm_policy_scan_file", label_visibility="collapsed",
-                    )
-                    if _crm_policy_file:
-                        st.success(f"✅ {_crm_policy_file.name} 업로드 완료 — AI 분석 연동 예정")
-                with _nb_divider_r:
-                    st.markdown(
-                        "<div style='background:#fef9c3;border:1px dashed #fbbf24;border-radius:8px;"
-                        "padding:6px 12px;margin-bottom:6px;font-size:0.8rem;font-weight:900;color:#78350f;'>"
-                        "💰 월 건강보험료 납부액 (가치산출용)</div>",
-                        unsafe_allow_html=True,
-                    )
-                    _crm_nhi_j = st.number_input(
-                        "월 건강보험료(원)", min_value=0, max_value=2_000_000,
-                        value=0, step=10_000, key="crm_tri_nhi_json",
-                        help="직장인: 보수월액×7.19% | 트리니티 소득 역산 기준",
-                    )
-                    st.caption("직장인: 보수월액 × 7.19% (2026년 기준)\n지역가입자: 부과점수 × 208.4원")
-                st.markdown("<hr style='border-top:1px dashed #e5e7eb;margin:8px 0;'>",
-                            unsafe_allow_html=True)
-                if st.button("⚡ JSON 파싱 → 분석 → HQ 전송", key="crm_json_pipeline_run",
-                             use_container_width=True, type="primary"):
-                    if not _crm_nibo_raw.strip():
-                        st.warning("JSON 데이터를 붙여넣어 주세요.")
-                    elif _crm_nhi_j <= 0:
-                        st.warning("월 건강보험료를 입력해 주세요.")
-                    else:
-                        with st.spinner("🤖 AI가 증권을 정밀 분석 중입니다..."):
-                            try:
-                                import json as _js_crm
-                                from trinity_engine import execute_integrated_analysis as _crm_exec
-                                _crm_raw_list = _js_crm.loads(_crm_nibo_raw.strip())
-                                if isinstance(_crm_raw_list, dict):
-                                    _crm_raw_list = [_crm_raw_list]
-                                st.session_state["crm_nibo_raw_json"] = _crm_nibo_raw
-                                _c_raw_j = decrypt_pii(_sel_cust.get("contact", ""))
-                                _crm_adata, _crm_unmapped, _crm_ok = _crm_exec(
-                                    raw_external_data=_crm_raw_list,
-                                    client_contact=_c_raw_j,
-                                    nhi_premium=float(_crm_nhi_j),
-                                    consultant_info={
-                                        "소속":   st.session_state.get("crm_user_company", ""),
-                                        "이름":   _user_name,
-                                        "연락처": st.session_state.get("crm_user_phone", ""),
-                                    },
-                                    client_name=_sel_cust.get("name", ""),
-                                    agent_id=_user_id,
-                                    person_id=_sel_cust.get("person_id", ""),
-                                    consent_version=st.session_state.get("nibo_consent_version", ""),
-                                    source="CRM-내보험다보여",
-                                )
-                                _crm_active = len([
-                                    k for k, v in _crm_adata.items()
-                                    if not str(k).startswith("_") and float(v.get("현재가입", 0) or 0) > 0
-                                ])
-                                if _crm_ok:
-                                    st.success("✅ 파이프라인 완료! 담보 " + str(_crm_active) + "개 → HQ 전송")
-                                else:
-                                    st.warning("⚠️ 분석 완료 (" + str(_crm_active) + "개). DB 저장 실패")
-                            except Exception as _crm_pe:
-                                if "JSONDecodeError" in type(_crm_pe).__name__:
-                                    st.error("❌ JSON 형식 오류.")
-                                else:
-                                    st.error("❌ 파이프라인 오류: " + str(_crm_pe))
-            else:
-                st.caption("담보 금액을 직접 입력하여 트리니티 분석을 실행합니다.")
-                _t_nhi = st.number_input("월 건강보험료(원)", 0, 2_000_000, 0, 10_000,
-                                         key="crm_tri_nhi", help="직장인: 보수월액×7.19%")
-                _tc1, _tc2 = st.columns(2)
-                with _tc1:
-                    _t_cancer = st.number_input("암진단비 가입액(원)",       0, step=1_000_000,  key="crm_tri_cancer")
-                    _t_stroke = st.number_input("뇌졸중진단비 가입액(원)",   0, step=1_000_000,  key="crm_tri_stroke")
-                    _t_ci     = st.number_input("심근경색진단비 가입액(원)", 0, step=1_000_000,  key="crm_tri_ci")
-                with _tc2:
-                    _t_acci   = st.number_input("상해후유장해 가입액(원)",   0, step=10_000_000, key="crm_tri_acci")
-                    _t_surg   = st.number_input("수술비 가입액(원)",          0, step=1_000_000,  key="crm_tri_surgery")
-                    _t_hosp   = st.number_input("입원일당 가입액(원)",        0, step=10_000,     key="crm_tri_hosp")
-                if st.button("🔬 분석 실행 & HQ 전송", key="crm_tri_run",
-                             use_container_width=True, type="primary"):
-                    if _t_nhi > 0:
-                        with st.spinner("트리니티 분석 및 DB 저장 중..."):
-                            try:
-                                from trinity_engine import (
-                                    run_trinity_analysis  as _tri_run,
-                                    save_analysis_to_db   as _tri_save,
-                                    render_trinity_report as _tri_rdr,
-                                )
-                                _t_cov = {
-                                    "암진단비":       float(_t_cancer),
-                                    "뇌졸중진단비":   float(_t_stroke),
-                                    "심근경색진단비": float(_t_ci),
-                                    "상해후유장해":   float(_t_acci),
-                                    "수술비":         float(_t_surg),
-                                    "입원일당":       float(_t_hosp),
-                                }
-                                _tri_adata, _tri_income = _tri_run(_t_cov, float(_t_nhi))
-                                _c_raw = decrypt_pii(_sel_cust.get("contact", ""))
-                                _rpt_t = _tri_rdr(
-                                    analysis_data=_tri_adata,
-                                    estimated_income=_tri_income,
-                                    consultant_info={
-                                        "소속":   st.session_state.get("crm_user_company", ""),
-                                        "이름":   _user_name,
-                                        "연락처": st.session_state.get("crm_user_phone", ""),
-                                    },
-                                    client_name=_sel_cust.get("name", ""),
-                                    show_kakao=True,
-                                )
-                                _ok = _tri_save(
-                                    client_contact=_c_raw,
-                                    analysis_data=_tri_adata,
-                                    estimated_income=_tri_income,
-                                    agent_id=_user_id,
-                                    report_text=_rpt_t,
-                                    person_id=_sel_cust.get("person_id", ""),
-                                )
-                                if _ok:
-                                    st.success("✅ 분석 완료! HQ 본부로 데이터가 전송되었습니다.")
-                                else:
-                                    st.warning("⚠️ 분석 완료. DB 저장 실패 (연결 확인 필요)")
-                            except Exception as _te:
-                                st.error("분석 오류: " + str(_te))
-                    else:
-                        st.warning("월 건강보험료를 입력해 주세요.")
+            st.caption("담보 금액을 직접 입력하여 트리니티 분석을 실행합니다.")
+            _t_nhi = st.number_input("월 건강보험료(원)", 0, 2_000_000, 0, 10_000,
+                                     key="crm_tri_nhi", help="직장인: 보수월액×7.19%")
+            _tc1, _tc2 = st.columns(2)
+            with _tc1:
+                _t_cancer = st.number_input("암진단비 가입액(원)",       0, step=1_000_000,  key="crm_tri_cancer")
+                _t_stroke = st.number_input("뇌졸중진단비 가입액(원)",   0, step=1_000_000,  key="crm_tri_stroke")
+                _t_ci     = st.number_input("심근경색진단비 가입액(원)", 0, step=1_000_000,  key="crm_tri_ci")
+            with _tc2:
+                _t_acci   = st.number_input("상해후유장해 가입액(원)",   0, step=10_000_000, key="crm_tri_acci")
+                _t_surg   = st.number_input("수술비 가입액(원)",          0, step=1_000_000,  key="crm_tri_surgery")
+                _t_hosp   = st.number_input("입원일당 가입액(원)",        0, step=10_000,     key="crm_tri_hosp")
+            if st.button("🔬 분석 실행 & HQ 전송", key="crm_tri_run",
+                         use_container_width=True, type="primary"):
+                if _t_nhi > 0:
+                    with st.spinner("트리니티 분석 및 DB 저장 중..."):
+                        try:
+                            from trinity_engine import (
+                                run_trinity_analysis  as _tri_run,
+                                save_analysis_to_db   as _tri_save,
+                                render_trinity_report as _tri_rdr,
+                            )
+                            _t_cov = {
+                                "암진단비":       float(_t_cancer),
+                                "뇌졸중진단비":   float(_t_stroke),
+                                "심근경색진단비": float(_t_ci),
+                                "상해후유장해":   float(_t_acci),
+                                "수술비":         float(_t_surg),
+                                "입원일당":       float(_t_hosp),
+                            }
+                            _tri_adata, _tri_income = _tri_run(_t_cov, float(_t_nhi))
+                            _c_raw = decrypt_pii(_sel_cust.get("contact", ""))
+                            _rpt_t = _tri_rdr(
+                                analysis_data=_tri_adata,
+                                estimated_income=_tri_income,
+                                consultant_info={
+                                    "소속":   st.session_state.get("crm_user_company", ""),
+                                    "이름":   _user_name,
+                                    "연락처": st.session_state.get("crm_user_phone", ""),
+                                },
+                                client_name=_sel_cust.get("name", ""),
+                                show_kakao=True,
+                            )
+                            _ok = _tri_save(
+                                client_contact=_c_raw,
+                                analysis_data=_tri_adata,
+                                estimated_income=_tri_income,
+                                agent_id=_user_id,
+                                report_text=_rpt_t,
+                                person_id=_sel_cust.get("person_id", ""),
+                            )
+                            if _ok:
+                                st.success("✅ 분석 완료! HQ 본부로 데이터가 전송되었습니다.")
+                            else:
+                                st.warning("⚠️ 분석 완료. DB 저장 실패 (연결 확인 필요)")
+                        except Exception as _te:
+                            st.error("분석 오류: " + str(_te))
+                else:
+                    st.warning("월 건강보험료를 입력해 주세요.")
         st.markdown("---")
         st.markdown("**빠른 HQ 바로가기**")
         _quick_cols = st.columns(4)
@@ -2403,6 +2500,290 @@ elif _spa_mode == "customer":
                 st.info("필터 조건에 해당하는 고객이 없습니다.")
 
             st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── SCREEN 7: 👥 고객 DB 관리 ────────────────────────────────────────────
+    elif _spa_screen == "db_manage":
+        st.markdown(
+            "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
+            "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
+            "👥 고객 DB 관리 — Fortress 검색 · 상세 수정 · HQ 딥링크</div>",
+            unsafe_allow_html=True,
+        )
+        _db_l, _db_r = st.columns([3, 7])
+
+        # ── LEFT: Fortress 검색 리스트 ────────────────────────────────────
+        with _db_l:
+            st.markdown(
+                "<div style='background:#f8fafc;border:1px dashed #000;"
+                "border-radius:10px;padding:10px;'>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<div style='font-size:0.8rem;font-weight:900;color:#1e3a8a;"
+                "border-bottom:2px solid #bfdbfe;padding-bottom:4px;margin-bottom:8px;'>"
+                "🔍 고객 검색</div>",
+                unsafe_allow_html=True,
+            )
+            _db_q = st.text_input("이름/연락처 검색", key="db_manage_q",
+                                   placeholder="검색어 입력…", label_visibility="collapsed")
+            _db_all = _load_customers(_user_id, _db_q)
+            _db_sel_pid = st.session_state.get("db_manage_sel_pid", "")
+            for _dbc in _db_all[:30]:
+                _dn  = _dbc.get("name", "")
+                _dpi = _dbc.get("person_id", "")
+                _dt  = TIER_META.get(_dbc.get("management_tier", 3), {})
+                _is_sel = (_dpi == _db_sel_pid)
+                _bg = "#eff6ff" if _is_sel else "#fff"
+                if st.button(
+                    f"{_dt.get('icon','📋')} {_dn}",
+                    key=f"db_sel_{_dpi}",
+                    use_container_width=True,
+                ):
+                    st.session_state["db_manage_sel_pid"] = _dpi
+                    st.rerun()
+            if not _db_all:
+                st.caption("검색 결과 없음")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── RIGHT: 상세 수정 폼 + HQ 딥링크 ─────────────────────────────
+        with _db_r:
+            _db_cust = next(
+                (c for c in _load_customers(_user_id, "") if c.get("person_id") == _db_sel_pid),
+                None,
+            )
+            if not _db_cust:
+                st.info("← 좌측에서 고객을 선택하세요.")
+            else:
+                _dn2 = _db_cust.get("name", "")
+                _dp2 = _db_cust.get("person_id", "")
+                st.markdown(
+                    "<div style='background:#fff;border:1px dashed #000;"
+                    "border-radius:10px;padding:14px;'>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    f"<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;"
+                    f"border-bottom:2px solid #bfdbfe;padding-bottom:4px;margin-bottom:12px;'>"
+                    f"✏️ {_dn2} — 고객 정보 수정</div>",
+                    unsafe_allow_html=True,
+                )
+                if _OUTLOOK_OK:
+                    _db_upd = 손보사_standard_form(_db_cust, key_prefix=f"dbm_{_dp2}")
+                else:
+                    _dbn_e = st.text_input("이름", value=_db_cust.get("name",""), key=f"dbm_n_{_dp2}")
+                    _dbj_e = st.text_input("직업", value=_db_cust.get("job",""), key=f"dbm_j_{_dp2}")
+                    _dba_e = st.text_input("주소", value=_db_cust.get("address",""), key=f"dbm_a_{_dp2}")
+                    _dbm_e = st.text_area("메모", value=_db_cust.get("memo",""), height=60, key=f"dbm_m_{_dp2}")
+                    _db_upd = {**_db_cust, "name": _dbn_e, "job": _dbj_e,
+                               "address": _dba_e, "memo": _dbm_e}
+                _dbb1, _dbb2, _dbb3 = st.columns(3)
+                with _dbb1:
+                    if st.button("💾 저장", key=f"dbm_save_{_dp2}",
+                                 type="primary", use_container_width=True):
+                        try:
+                            customer_input_form(_db_upd, _user_id, _sb)
+                            st.success("✅ 저장 완료!")
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as _dbe:
+                            st.error(f"저장 오류: {_dbe}")
+                with _dbb2:
+                    if st.button("↩️ 새로고침", key=f"dbm_reload_{_dp2}",
+                                 use_container_width=True):
+                        st.cache_data.clear()
+                        st.rerun()
+                with _dbb3:
+                    _hq_url = build_deeplink_to_hq(_dp2, _user_id)
+                    st.markdown(
+                        f"<a href='{_hq_url}' target='_blank'>"
+                        f"<button style='width:100%;padding:6px;background:#1e3a8a;color:#fff;"
+                        f"border:none;border-radius:6px;font-size:0.78rem;font-weight:700;"
+                        f"cursor:pointer;'>🔗 HQ 정밀분석</button></a>",
+                        unsafe_allow_html=True,
+                    )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── SCREEN 8: ⚙️ 연동/설정 ───────────────────────────────────────────────
+    elif _spa_screen == "settings":
+        st.markdown(
+            "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
+            "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
+            "⚙️ 연동/설정 — 외부 캘린더 OAuth 2.0 · Admin-Blind RLS · 계정 관리</div>",
+            unsafe_allow_html=True,
+        )
+        _set_tab_cal, _set_tab_sec, _set_tab_acct = st.tabs(
+            ["📅 캘린더 연동", "🔒 보안 현황 (RLS)", "👤 계정 관리"]
+        )
+
+        with _set_tab_cal:
+            st.markdown(
+                "<div style='background:#fffbeb;border:1px solid #fbbf24;"
+                "border-radius:10px;padding:12px 14px;margin-bottom:12px;'>"
+                "<div style='font-size:0.82rem;font-weight:900;color:#92400e;"
+                "border-bottom:2px solid #fbbf24;padding-bottom:4px;margin-bottom:8px;'>"
+                "📅 외부 캘린더 연동 (OAuth 2.0) — 합법적 표준 방식</div>"
+                "<div style='font-size:0.76rem;color:#78350f;line-height:1.7;'>"
+                "✅ <b>자동 동기화 금지</b> — 사용자가 직접 '동기화' 버튼을 클릭할 때만 실행<br>"
+                "✅ <b>OAuth 2.0 표준</b> — 기기 내부 DB 직접 접근(Scraping) 절대 금지<br>"
+                "✅ <b>언제든 해제</b> — '연동 해제' 버튼으로 즉시 권한 철회 가능"
+                "</div></div>",
+                unsafe_allow_html=True,
+            )
+            _cal_cs = st.session_state.get("cal_sync_consent_agreed", False)
+            if not _cal_cs:
+                st.error("🔐 로그인 시 [📅 외부 캘린더 연동 동의] 항목에 동의 후 이용해 주세요.")
+            else:
+                st.success("✅ 캘린더 연동 동의 완료 — 아래에서 계정을 연동하세요.")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            _gcal_ok = st.session_state.get("gcal_oauth_connected", False)
+            _gc1, _gc2 = st.columns([4, 2])
+            with _gc1:
+                st.markdown(
+                    "<div style='background:#f8fafc;border:1px solid #e2e8f0;"
+                    "border-radius:8px;padding:10px 14px;'>"
+                    "<b>📅 Google 캘린더</b>"
+                    "<br><span style='font-size:0.73rem;color:#64748b;'>"
+                    "OAuth 2.0 · 읽기 전용 권한 · 언제든 Google 계정 설정에서 철회 가능</span>"
+                    f"<br><span style='font-size:0.72rem;font-weight:700;"
+                    f"color:{'#15803d' if _gcal_ok else '#dc2626'};'>"
+                    f"{'🟢 연동됨' if _gcal_ok else '⭕ 미연동'}</span>"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+            with _gc2:
+                st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                if not _gcal_ok:
+                    _gcb = st.checkbox("[필수] 외부 캘린더 접근 동의",
+                                       key="gcal_cb", disabled=(not _cal_cs))
+                    if st.button("📅 Google 연동", key="gcal_connect_btn",
+                                 type="primary", use_container_width=True,
+                                 disabled=(not _gcb or not _cal_cs)):
+                        st.info("🔧 [Placeholder] 실 구현 시 Google OAuth 2.0 URL로 리디렉션됩니다.")
+                else:
+                    if st.button("🔌 Google 해제", key="gcal_disc_btn",
+                                 use_container_width=True):
+                        st.session_state.pop("gcal_oauth_connected", None)
+                        st.rerun()
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            _acal_ok = st.session_state.get("acal_oauth_connected", False)
+            _ac1, _ac2 = st.columns([4, 2])
+            with _ac1:
+                st.markdown(
+                    "<div style='background:#f8fafc;border:1px solid #e2e8f0;"
+                    "border-radius:8px;padding:10px 14px;'>"
+                    "<b>🍎 Apple 캘린더 (CalDAV)</b>"
+                    "<br><span style='font-size:0.73rem;color:#64748b;'>"
+                    "CalDAV 표준 · 앱별 비밀번호 · Apple ID 직접 접근 없음</span>"
+                    f"<br><span style='font-size:0.72rem;font-weight:700;"
+                    f"color:{'#15803d' if _acal_ok else '#dc2626'};'>"
+                    f"{'🟢 연동됨' if _acal_ok else '⭕ 미연동'}</span>"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+            with _ac2:
+                st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                if not _acal_ok:
+                    _acb = st.checkbox("[필수] Apple 캘린더 접근 동의",
+                                       key="acal_cb", disabled=(not _cal_cs))
+                    if st.button("🍎 Apple 연동", key="acal_connect_btn",
+                                 use_container_width=True,
+                                 disabled=(not _acb or not _cal_cs)):
+                        st.info("🔧 [Placeholder] CalDAV 앱별 비밀번호 방식으로 연결합니다.")
+                else:
+                    if st.button("🔌 Apple 해제", key="acal_disc_btn",
+                                 use_container_width=True):
+                        st.session_state.pop("acal_oauth_connected", None)
+                        st.rerun()
+
+        with _set_tab_sec:
+            st.markdown(
+                "<div style='background:linear-gradient(135deg,#1e3a8a,#1d4ed8);"
+                "border-radius:12px;padding:14px 18px;'>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<div style='font-size:0.85rem;font-weight:900;color:#fff;"
+                "border-bottom:1px solid rgba(255,255,255,0.3);"
+                "padding-bottom:6px;margin-bottom:10px;'>"
+                "🔒 Admin-Blind RLS (Zero-Knowledge) 보안 현황</div>",
+                unsafe_allow_html=True,
+            )
+            for _rk, _rv, _rc in [
+                ("Supabase RLS",          "auth.uid()::text = agent_id",         "#bfdbfe"),
+                ("고객 DB (gk_people)",   "설계사 본인만 CRUD · 관리자 열람 불가", "#a5f3fc"),
+                ("스케줄 (gk_schedules)", "설계사 본인만 CRUD · 교차 열람 차단",  "#a5f3fc"),
+                ("PII 암호화",            "Fernet AES-128 · SHA-256",            "#fde68a"),
+                ("전송 구간",             "TLS 1.3 (HTTPS) 강제",               "#fde68a"),
+                ("관리자 접근",           "IAM 403 차단",                        "#fca5a5"),
+            ]:
+                st.markdown(
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.1);"
+                    f"font-size:0.76rem;'>"
+                    f"<span style='color:{_rc};font-weight:700;'>{_rk}</span>"
+                    f"<span style='color:#fff;font-size:0.72rem;'>{_rv}</span></div>",
+                    unsafe_allow_html=True,
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+            with st.expander("🗄️ Supabase RLS SQL 가이드", expanded=False):
+                st.code(
+                    """-- [GP-SEC §3] Admin-Blind RLS
+ALTER TABLE gk_people ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "agent_iso_people" ON gk_people FOR ALL
+    USING (auth.uid()::text = agent_id);
+
+ALTER TABLE gk_schedules ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "agent_iso_schedules" ON gk_schedules FOR ALL
+    USING (auth.uid()::text = agent_id);
+
+ALTER TABLE gk_consulting_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "agent_iso_logs" ON gk_consulting_logs FOR ALL
+    USING (auth.uid()::text = agent_id);
+
+SELECT tablename, rowsecurity FROM pg_tables
+WHERE tablename IN ('gk_people','gk_schedules','gk_consulting_logs');""",
+                    language="sql",
+                )
+
+        with _set_tab_acct:
+            st.markdown(
+                "<div style='background:#f8fafc;border:1px solid #e2e8f0;"
+                "border-radius:10px;padding:12px 14px;'>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;"
+                "border-bottom:1px solid #bfdbfe;padding-bottom:4px;margin-bottom:10px;'>"
+                "👤 내 계정 정보</div>",
+                unsafe_allow_html=True,
+            )
+            for _albl, _aval in [
+                ("사용자 ID",    _user_id[:16] + "…" if len(_user_id) > 16 else _user_id),
+                ("이름",         _user_name),
+                ("캘린더 동의",  "✅ 동의" if st.session_state.get("cal_sync_consent_agreed") else "⬜ 미동의"),
+                ("nibo 동의",    "✅ 동의" if st.session_state.get("nibo_consent_agreed")     else "⬜ 미동의"),
+                ("AI 음성 동의", "✅ 동의" if st.session_state.get("voice_consent_agreed")    else "⬜ 미동의"),
+                ("Google 연동",  "🟢 연동됨" if st.session_state.get("gcal_oauth_connected") else "⭕ 미연동"),
+                ("Apple 연동",   "🟢 연동됨" if st.session_state.get("acal_oauth_connected") else "⭕ 미연동"),
+            ]:
+                st.markdown(
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"padding:4px 0;border-bottom:1px solid #e2e8f0;font-size:0.8rem;'>"
+                    f"<span style='color:#64748b;font-weight:700;'>{_albl}</span>"
+                    f"<span style='color:#1e293b;'>{_aval}</span></div>",
+                    unsafe_allow_html=True,
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🔄 동의 항목 재설정", key="settings_reset_consent_btn",
+                         use_container_width=True):
+                for _ck in ["cal_sync_consent_agreed", "nibo_consent_agreed",
+                            "voice_consent_agreed", "gcal_oauth_connected", "acal_oauth_connected"]:
+                    st.session_state.pop(_ck, None)
+                st.info("동의 항목이 초기화되었습니다. 로그아웃 후 재로그인하여 재동의해 주세요.")
+
 # ══════════════════════════════════════════════════════════════════════════════
 # [GP-PHASE-4] 반응형 통합 증권분석 센터 — CRM 이식 (HQ와 완전 동일)
 # ══════════════════════════════════════════════════════════════════════════════
