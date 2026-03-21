@@ -1744,6 +1744,57 @@ button[data-testid="baseButton-primary"]:hover{
                     unsafe_allow_html=True,
                 )
 
+        # ── [트리니티 계산법] 건강보험료 기반 필요 가입금액 보고서 (항상 표시) ──
+        if _nhi_r > 0:
+            _ART32 = 0.0709
+            _tri_m = _nhi_r / _ART32           # 추정 월소득
+            _tri_a = _tri_m * 12               # 추정 연소득
+            _tri_d = _tri_m / 30               # 추정 일소득
+            _tri_rows = [
+                ("🎗️ 암 진단비 (권장)",        300_000_000, "30년 통계 최빈 진단비 3억원 이상"),
+                ("🎗️ 암 진단비 (최소)",        100_000_000, "소득 수준 무관 최소 기준"),
+                ("🧠 뇌·심장 진단비",          100_000_000, "3대 진단비 각 1억원 목표"),
+                ("🧓 치매 진단비",              50_000_000, "고령화 필수 — 중증 기준"),
+                ("🦽 후유장해 (월소득×24개월)", int(_tri_m * 24), "2년 소득보상 최소 기준"),
+                ("🏥 질병 일당 입원비",         int(min(_tri_d, 100_000)), "일 소득 대비 입원 손실"),
+                ("🚗 상해 일당 입원비",         int(min(_tri_d,  70_000)), "상해 입원 손실 보전"),
+                ("💼 월 보험료 예산 (소득5%)",  int(_tri_m * 0.05), "연소득 5% 적정 지출 기준"),
+            ]
+            _tri_html = "".join(
+                f"<div style='display:flex;justify-content:space-between;align-items:baseline;"
+                f"font-size:0.73rem;padding:4px 0;border-bottom:1px dotted #fde68a;'>"
+                f"<span style='color:#78350f;font-weight:700;'>{r[0]}</span>"
+                f"<span style='font-weight:900;color:#1c1917;'>{r[1]/10_000:,.0f}만원"
+                f"<span style='font-size:0.60rem;color:#a16207;margin-left:6px;'>{r[2]}</span>"
+                f"</span></div>"
+                for r in _tri_rows
+            )
+            st.markdown(
+                "<div style='background:#fffbeb;border:1.5px solid #fbbf24;"
+                "border-radius:10px;padding:12px 14px;margin-top:12px;'>"
+                "<div style='font-size:0.82rem;font-weight:900;color:#92400e;"
+                "border-bottom:2px solid #fcd34d;padding-bottom:4px;margin-bottom:8px;'>"
+                "💡 트리니티 계산법 — 평균 필요 가입금액 보고서</div>"
+                f"<div style='font-size:0.73rem;color:#78350f;font-weight:700;margin-bottom:8px;"
+                f"background:#fef9c3;border-radius:6px;padding:5px 8px;'>"
+                f"월 건보료 <b>{_nhi_r:,.0f}원</b> → 추정 월소득 <b>{_tri_m:,.0f}원</b>"
+                f" | 연소득 <b>{_tri_a/10_000:,.0f}만원</b></div>"
+                + _tri_html
+                + "<div style='font-size:0.62rem;color:#a16207;margin-top:6px;text-align:right;'>"
+                "산출기준: 건보료 ÷ 7.09% = 추정소득 (국민건강보험법 Art.69 역산법)</div>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                "<div style='background:#f8faff;border:1px dashed #bfdbfe;"
+                "border-radius:8px;padding:10px 14px;margin-top:10px;text-align:center;"
+                "font-size:0.76rem;color:#6b7280;'>"
+                "💡 좌측 <b>월 건강보험료</b>를 입력하면<br>"
+                "<b>트리니티 필요 가입금액 보고서</b>가 자동 산출됩니다.</div>",
+                unsafe_allow_html=True,
+            )
+
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     if st.button(
         "� 내보험다보여 실행버튼",

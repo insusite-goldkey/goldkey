@@ -452,19 +452,62 @@ p, li, span {
   letter-spacing: -0.02em !important;
 }
 
-/* ── 제11조 [반응형 타이포그래피 — Fluid Typography] ────────────── */
-p, li, span {
-  font-size: clamp(13px, 1.2vw + 10px, 16px) !important;
+/* ── 제11조 [반응형 타이포그래피 v2 — Fluid Typography] ────────────── */
+/* 기본 텍스트: p/li/span — clamp 상향 조정 */
+p, li {
+  font-size: clamp(14px, 1.8vw + 9px, 17px) !important;
   word-break: keep-all !important;
   overflow-wrap: break-word !important;
 }
-h1 { font-size: clamp(20px, 3vw + 12px, 28px) !important; word-break: keep-all !important; overflow-wrap: break-word !important; }
-h2 { font-size: clamp(18px, 2.5vw + 10px, 24px) !important; word-break: keep-all !important; overflow-wrap: break-word !important; }
-h3 { font-size: clamp(16px, 2vw + 10px, 20px) !important; word-break: keep-all !important; overflow-wrap: break-word !important; }
+/* span은 inline이므로 너무 넓게 덮지 않게 단독 처리 */
+span {
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+}
+/* .stMarkdown 내부 div — 카드/라벨 텍스트 반응형 */
+.stMarkdown div, .element-container .stMarkdown p {
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+}
+/* 앱 헤더 — 기기 너비에 비례 확대 */
+[data-testid="stAppViewContainer"] span[style*="font-size:1.3rem"],
+[data-testid="stAppViewContainer"] span[style*="font-size: 1.3rem"] {
+  font-size: clamp(18px, 4.5vw, 26px) !important;
+}
+[data-testid="stAppViewContainer"] span[style*="font-size:0.95rem"],
+[data-testid="stAppViewContainer"] span[style*="font-size: 0.95rem"] {
+  font-size: clamp(15px, 3.5vw, 20px) !important;
+}
+[data-testid="stAppViewContainer"] span[style*="font-size:0.82rem"],
+[data-testid="stAppViewContainer"] span[style*="font-size:0.8rem"],
+[data-testid="stAppViewContainer"] div[style*="font-size:0.82rem"],
+[data-testid="stAppViewContainer"] div[style*="font-size:0.8rem"] {
+  font-size: clamp(13px, 2.8vw, 16px) !important;
+}
+[data-testid="stAppViewContainer"] div[style*="font-size:0.78rem"],
+[data-testid="stAppViewContainer"] span[style*="font-size:0.78rem"] {
+  font-size: clamp(12px, 2.5vw, 15px) !important;
+}
+[data-testid="stAppViewContainer"] div[style*="font-size:0.75rem"],
+[data-testid="stAppViewContainer"] span[style*="font-size:0.75rem"],
+[data-testid="stAppViewContainer"] div[style*="font-size:0.74rem"],
+[data-testid="stAppViewContainer"] div[style*="font-size:0.72rem"] {
+  font-size: clamp(11px, 2.2vw, 14px) !important;
+}
+/* 헤딩 */
+h1 { font-size: clamp(22px, 5vw, 32px) !important; word-break: keep-all !important; overflow-wrap: break-word !important; }
+h2 { font-size: clamp(19px, 4vw, 26px) !important; word-break: keep-all !important; overflow-wrap: break-word !important; }
+h3 { font-size: clamp(16px, 3vw, 22px) !important; word-break: keep-all !important; overflow-wrap: break-word !important; }
+/* Streamlit 기본 caption/label */
+[data-testid="stCaptionContainer"] p,
+[data-testid="stWidgetLabel"] p {
+  font-size: clamp(12px, 2.2vw, 14px) !important;
+}
+/* 성과 온도계·TA 리스트·영업메모 등 핵심 UI 텍스트 */
 [data-testid="stExpanderDetails"] p,
 [data-testid="stExpanderDetails"] li,
 [data-testid="stExpanderDetails"] span {
-  font-size: clamp(12px, 1vw + 10px, 14px) !important;
+  font-size: clamp(12px, 2vw, 14px) !important;
 }
 *, *::before, *::after {
   word-break: keep-all !important;
@@ -904,6 +947,28 @@ if _spa_mode == "list":
             _ve_morning_auto(_user_id, _user_name)
         except Exception:
             pass
+    # ── [GP-VOICE §6] 음성 검색 위젯 — 달력 상단 배치 ──────────────────────
+    if _VOICE_OK and _ve_voice_search:
+        _voice_result = _ve_voice_search(session_key="crm_voice_q", key="crm_vs_main")
+        if _voice_result:
+            _vi = _ve_parse_intent(_voice_result)
+            _vi_q = (_vi.get("query") or "").replace(" ", "")
+            _vi_kw = (_vi.get("filters") or {}).get("keyword", "")
+            _target_q = _vi_q or _vi_kw
+            if _target_q and not st.session_state.get("spa_search"):
+                st.session_state["spa_search"] = _target_q
+            if _vi.get("filters"):
+                st.session_state["_voice_filters"] = _vi["filters"]
+                if _ff_log_search and _sb:
+                    _ff_log_search(_sb, _user_id, _voice_result, 0)
+    else:
+        st.markdown(
+            "<div style='padding:8px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;"
+            "border-radius:12px;font-size:0.82rem;color:#64748b;font-weight:700;'>"
+            "🎤 AI 음성 고객 검색 — voice_engine 로드 필요 (⚙️ 설정 탭에서 활성화)</div>",
+            unsafe_allow_html=True,
+        )
+
     # ── [GP-CALENDAR] 스마트 캘린더 엔진 (calendar_engine.py) ────────────────────
     calendar_engine.render_today_widget(_user_id)
     calendar_engine.render_smart_calendar(_user_id, _load_customers(_user_id))
@@ -912,7 +977,7 @@ if _spa_mode == "list":
 
     # ── HQ 크롤링 상태 실시간 동기화 배지 ───────────────────────────────────
     try:
-        _crawl_rows = _du_crawl_list(_user_id, 5)  # [db_utils §10]
+        _crawl_rows = _du_crawl_list(_user_id, 5)
         if _crawl_rows:
             _sync_c_row = st.columns(min(len(_crawl_rows), 4))
             for _ci, _cr in enumerate(_crawl_rows[:4]):
@@ -934,37 +999,8 @@ if _spa_mode == "list":
     except Exception:
         pass
 
-    # ── [GP-VOICE §6] 음성 검색 위젯 ─────────────────────────────────────────
-    if _VOICE_OK and _ve_voice_search:
-        _voice_result = _ve_voice_search(session_key="crm_voice_q", key="crm_vs_main")
-        if _voice_result:
-            _vi = _ve_parse_intent(_voice_result)
-            # [GP-SEARCH] STT 결과 정규화: 띄어쓰기 제거 후 검색 세션에 반영
-            _vi_q = (_vi.get("query") or "").replace(" ", "")  # clean_query
-            _vi_kw = (_vi.get("filters") or {}).get("keyword", "")
-            _target_q = _vi_q or _vi_kw  # 이름 파싱 실패 시 keyword 백폴녵
-            if _target_q and not st.session_state.get("spa_search"):
-                st.session_state["spa_search"] = _target_q
-            if _vi.get("filters"):
-                st.session_state["_voice_filters"] = _vi["filters"]
-                if _ff_log_search and _sb:
-                    _ff_log_search(_sb, _user_id, _voice_result, 0)
-    else:
-        import streamlit.components.v1 as _crm_vc
-        _crm_vc.html(
-            "<div style='padding:7px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;"
-            "border-radius:12px;font-size:12px;color:#94a3b8;'>"
-            "🎤 음성 검색 로드 중... (voice_engine 로드 필요)</div>",
-            height=52,
-        )
-
-    _sr_c1, _sr_c2 = st.columns([5, 1])
-    with _sr_c1:
-        _search_q = st.text_input("🔍 고객 이름 / 음성 결과 확인", placeholder="이름 입력 또는 위 마이크 사용...",
-                                  key="spa_search", label_visibility="collapsed")
-    with _sr_c2:
-        if st.button("➕ 신규 등록", use_container_width=True, key="spa_add_btn"):
-            st.session_state["spa_add_form"] = True
+    _search_q = st.text_input("🔍 고객 이름 / 음성 결과 확인", placeholder="이름 입력 또는 위 마이크 사용...",
+                              key="spa_search", label_visibility="collapsed")
 
     _fc1, _fc2, _fc3 = st.columns(3)
     with _fc1:
@@ -1010,28 +1046,6 @@ if _spa_mode == "list":
                 st.session_state.pop("_voice_filters", None)
                 st.session_state.pop("crm_voice_q", None)
                 st.rerun()
-
-    if st.session_state.get("spa_add_form"):
-        with st.expander("✏️ 신규 고객 등록", expanded=True):
-            if _OUTLOOK_OK:
-                _new_data = 손보사_standard_form(None, key_prefix="spa_new")
-            else:
-                _new_data = customer_form(None, key_prefix="spa_new")
-            _nc1, _nc2 = st.columns(2)
-            with _nc1:
-                if st.button("💾 저장", key="spa_new_save", type="primary", use_container_width=True):
-                    try:
-                        customer_input_form(_new_data, _user_id, _sb)
-                        st.success("✅ 등록 완료!")
-                        st.session_state["spa_add_form"] = False
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as _ne:
-                        st.error(f"저장 오류: {_ne}")
-            with _nc2:
-                if st.button("✕ 취소", key="spa_new_cancel", use_container_width=True):
-                    st.session_state["spa_add_form"] = False
-                    st.rerun()
 
     # ── DataFrame 대시보드 (행 선택 → 6대 메뉴 자동 진입) ─────────────────
     import pandas as _pd_crm
@@ -1253,7 +1267,59 @@ elif _spa_mode == "customer":
             unsafe_allow_html=True,
         )
         if not _sel_cust:
-            st.info("고객을 먼저 선택해 주세요.")
+            st.markdown(
+                "<div style='background:#f0fdf4;border:1px dashed #16a34a;"
+                "border-radius:10px;padding:14px;margin-bottom:12px;'>"
+                "<span style='font-size:0.85rem;font-weight:900;color:#14532d;'>"
+                "✏️ 신규 고객등록 & 고객정보 수정</span>"
+                "<br><span style='font-size:0.76rem;color:#374151;'>"
+                "좌측 목록에서 고객 선택 시 수정 모드 · 미선택 시 신규 등록 모드로 작동합니다.</span>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            _new_fn  = st.text_input("이름 *", key="nreg_fn", placeholder="홍길동")
+            _new_con = st.text_input("연락처", key="nreg_con", placeholder="010-XXXX-XXXX")
+            _nr1, _nr2 = st.columns(2)
+            with _nr1:
+                _new_job  = st.text_input("직업", key="nreg_job")
+            with _nr2:
+                _new_tier = st.selectbox("관리등급", [3, 2, 1],
+                    format_func=lambda x: {1: "⭐⭐⭐ VVIP", 2: "⭐⭐ 핵심", 3: "⭐ 일반"}[x],
+                    key="nreg_tier")
+            _new_addr = st.text_input("주소", key="nreg_addr")
+            _new_memo = st.text_area("메모", height=80, key="nreg_memo")
+            st.markdown(
+                "<style>div[data-testid='stButton'] button[kind='primary']{"
+                "background:linear-gradient(135deg,#a7f3d0 0%,#6ee7b7 100%)!important;"
+                "color:#065f46!important;border:1.5px solid #34d399!important;"
+                "font-weight:900!important;}</style>",
+                unsafe_allow_html=True,
+            )
+            if st.button("💾 신규 & 수정 고객 저장", key="nreg_save", type="primary"):
+                if not _new_fn.strip():
+                    st.warning("⚠️ 이름은 필수 입력 항목입니다.")
+                else:
+                    try:
+                        _saved = _ff_upsert(
+                            _sb,
+                            name=_new_fn.strip(),
+                            contact=_new_con.strip() if _new_con else "",
+                            job=_new_job.strip() if _new_job else "",
+                            address=_new_addr.strip() if _new_addr else "",
+                            memo=_new_memo.strip() if _new_memo else "",
+                            management_tier=_new_tier,
+                            person_id="",
+                            agent_id=_user_id,
+                            is_real_client=True,
+                        )
+                        if _saved:
+                            st.success("✅ 신규 고객 등록 완료!")
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.warning("⚠️ 저장 실패 — DB 연결 확인 필요")
+                    except Exception as _nre:
+                        st.error(f"등록 오류: {_nre}")
         else:
             _lbl_map = {"potential": "가망", "active": "진행중",
                         "contracted": "계약", "closed": "종료"}
@@ -1480,41 +1546,119 @@ elif _spa_mode == "customer":
                     st.caption("💡 월 건강보험료 입력 후 버튼을 클릭하면 AI 비협보험 가액이 산출됩니다.")
                 st.markdown("</div>", unsafe_allow_html=True)
 
-                # ── [정보 수정 폼] ─────────────────────────────────────────────
+                # ── [HQ 컨설팅 엔진 딥링크 — 항상 표시] ──────────────────────
+                _hq_goto_url = build_deeplink_to_hq(
+                    cid=_sel_pid, agent_id=_user_id,
+                    sector="gk_sec10", user_id=_user_id,
+                )
+                st.markdown(
+                    f"<a href='{_hq_goto_url}' target='_blank' style='"
+                    "display:block;text-align:center;"
+                    "background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 100%);"
+                    "color:#fff;border-radius:10px;padding:13px 18px;"
+                    "font-size:0.88rem;font-weight:900;text-decoration:none;"
+                    "margin:10px 0;border:1px solid #3b82f6;"
+                    "box-shadow:0 2px 8px rgba(30,58,138,0.25);letter-spacing:0.02em;'>"
+                    "🚀 [HQ 컨설팅 엔진]에서 내보험다보여 / 증권분석 실행하기 →</a>",
+                    unsafe_allow_html=True,
+                )
+
+                # ── [통합 Upsert 폼 — 신규 고객등록 & 고객정보 수정] ──────────
                 st.markdown(
                     "<div style='background:#ffffff;border:1px dashed #000;"
-                    "border-radius:10px;padding:14px;margin-top:10px;'>",
+                    "border-radius:10px;padding:14px;margin-top:6px;'>",
                     unsafe_allow_html=True,
                 )
                 st.markdown(
                     "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;"
                     "border-bottom:2px solid #bfdbfe;padding-bottom:4px;margin-bottom:12px;'>"
-                    "✏️ 정보 수정 — GCS 즉시 저장</div>",
+                    "✏️ 신규 고객등록 & 고객정보 수정</div>",
                     unsafe_allow_html=True,
                 )
-                if _OUTLOOK_OK:
-                    _upd_data = 손보사_standard_form(_sel_cust, key_prefix=f"spa_cf_{_sel_pid}")
+                # 고객 검색 selectbox ─────────────────────────────────────────
+                _all_search_custs = _load_customers(_user_id)
+                _upsert_opts = ["✨ 새 고객 등록 모드"] + [
+                    f"{c.get('name','?')}  (...{c.get('person_id','')[-6:]})"
+                    for c in _all_search_custs
+                ]
+                _default_upsert_idx = 0
+                for _uii, _ucc in enumerate(_all_search_custs):
+                    if _ucc.get("person_id") == _sel_pid:
+                        _default_upsert_idx = _uii + 1
+                        break
+                _upsert_sel_idx = st.selectbox(
+                    "🔍 기존 고객 검색 (수정 모드) / 비워두면 신규 등록 모드",
+                    range(len(_upsert_opts)),
+                    format_func=lambda _xi: _upsert_opts[_xi],
+                    index=_default_upsert_idx,
+                    key=f"spa_upsert_sel_{_sel_pid}",
+                )
+                if _upsert_sel_idx == 0:
+                    _form_cust = {}
+                    _form_pid  = ""
                 else:
-                    _fn_e = st.text_input("이름", value=_sel_cust.get("name", ""), key=f"sp_fn_{_sel_pid}")
-                    _fj_e = st.text_input("직업", value=_sel_cust.get("job", ""), key=f"sp_fj_{_sel_pid}")
-                    _fa_e = st.text_input("주소", value=_sel_cust.get("address", ""), key=f"sp_fa_{_sel_pid}")
-                    _fm_e = st.text_area("메모", value=_sel_cust.get("memo", ""), height=80, key=f"sp_fm_{_sel_pid}")
-                    _upd_data = {**_sel_cust, "name": _fn_e, "job": _fj_e,
-                                 "address": _fa_e, "memo": _fm_e}
-                _sv1, _sv2 = st.columns(2)
-                with _sv1:
-                    if st.button("💾 GCS 저장", key=f"spa_save_{_sel_pid}"):
-                        try:
-                            customer_input_form(_upd_data, _user_id, _sb)
-                            st.success("✅ 저장 완료!")
-                            st.cache_data.clear()
-                            st.rerun()
-                        except Exception as _ue:
-                            st.error(f"저장 오류: {_ue}")
-                with _sv2:
-                    if st.button("↩️ 새로고침", key=f"spa_reload_{_sel_pid}"):
-                        st.cache_data.clear()
-                        st.rerun()
+                    _form_cust = _all_search_custs[_upsert_sel_idx - 1]
+                    _form_pid  = _form_cust.get("person_id", "")
+                # 입력 필드 ────────────────────────────────────────────────────
+                _fn_e   = st.text_input("이름 *", value=_form_cust.get("name", ""),
+                                        key=f"upsert_fn_{_sel_pid}")
+                _fcon_e = st.text_input(
+                    "연락처", placeholder="010-XXXX-XXXX",
+                    value=decrypt_pii(_form_cust.get("contact", "")) if _form_cust else "",
+                    key=f"upsert_con_{_sel_pid}",
+                )
+                _uf1, _uf2 = st.columns(2)
+                with _uf1:
+                    _fj_e = st.text_input("직업", value=_form_cust.get("job", ""),
+                                          key=f"upsert_fj_{_sel_pid}")
+                with _uf2:
+                    _ft_e = st.selectbox(
+                        "관리등급", [3, 2, 1],
+                        index=max(0, 3 - int(_form_cust.get("management_tier", 3) or 3)),
+                        format_func=lambda x: {1: "⭐⭐⭐ VVIP", 2: "⭐⭐ 핵심", 3: "⭐ 일반"}[x],
+                        key=f"upsert_ftier_{_sel_pid}",
+                    )
+                _fa_e = st.text_input("주소", value=_form_cust.get("address", ""),
+                                      key=f"upsert_fa_{_sel_pid}")
+                _fm_e = st.text_area("메모", value=_form_cust.get("memo", ""), height=80,
+                                     key=f"upsert_fm_{_sel_pid}")
+                # 저장 버튼 — 파스텔 민트 CSS ─────────────────────────────────
+                st.markdown(
+                    "<style>div[data-testid='stButton'] button[kind='primary']{"
+                    "background:linear-gradient(135deg,#a7f3d0 0%,#6ee7b7 100%)!important;"
+                    "color:#065f46!important;border:1.5px solid #34d399!important;"
+                    "font-weight:900!important;}</style>",
+                    unsafe_allow_html=True,
+                )
+                _ssv1, _ = st.columns([3, 1])
+                with _ssv1:
+                    if st.button("💾 신규 & 수정 고객 저장",
+                                 key=f"upsert_save_{_sel_pid}", type="primary"):
+                        if not _fn_e.strip():
+                            st.warning("⚠️ 이름은 필수 입력 항목입니다.")
+                        else:
+                            try:
+                                _saved = _ff_upsert(
+                                    _sb,
+                                    name=_fn_e.strip(),
+                                    contact=_fcon_e.strip() if _fcon_e else "",
+                                    job=_fj_e.strip() if _fj_e else "",
+                                    address=_fa_e.strip() if _fa_e else "",
+                                    memo=_fm_e.strip() if _fm_e else "",
+                                    management_tier=_ft_e,
+                                    person_id=_form_pid,
+                                    agent_id=_user_id,
+                                    is_real_client=True,
+                                )
+                                if _saved:
+                                    _mode_lbl = "기존 고객 수정 완료" if _form_pid else "신규 고객 등록 완료"
+                                    st.success(f"✅ {_mode_lbl}!")
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                else:
+                                    st.warning("⚠️ 저장 실패 — DB 연결 확인 필요")
+                            except Exception as _ue:
+                                st.error(f"저장 오류: {_ue}")
                 st.markdown("</div>", unsafe_allow_html=True)
 
     # ── SCREEN 2: 📅 스케줄 ─────────────────────────────────────────────────

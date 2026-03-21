@@ -473,21 +473,7 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
         st.query_params.clear()
         st.rerun()
 
-    # cal_nav: HTML 네비링크 → query param 흡수 (st.columns 대체)
-    _nav = st.query_params.get("cal_nav", "")
-    if _nav == "prev":
-        _m = month - 1; _y = year
-        if _m < 1: _y -= 1; _m = 12
-        st.session_state["current_month"] = f"{_y:04d}-{_m:02d}"
-        st.query_params.clear(); st.rerun()
-    elif _nav == "today":
-        st.session_state["current_month"] = today.strftime("%Y-%m")
-        st.query_params.clear(); st.rerun()
-    elif _nav == "next":
-        _m = month + 1; _y = year
-        if _m > 12: _y += 1; _m = 1
-        st.session_state["current_month"] = f"{_y:04d}-{_m:02d}"
-        st.query_params.clear(); st.rerun()
+    # [Fix: WebSocket 세션 보존] query_param 방식 제거 — st.button 방식으로 대체
 
     # JS 날짜 클릭 → query_param 흡수 (구형 fallback)
     _qd = st.query_params.get("cal_date","")
@@ -557,22 +543,30 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
             st.info("검색 결과가 없습니다.")
         st.divider()
 
-    # ── 월 페이지네이션: 순수 HTML flex 네비바 (st.columns 완전 대체 → 세로모드 면역)
-    _nav_btn = ("display:inline-flex;align-items:center;justify-content:center;"
-                "padding:8px 16px;background:#f1f5f9;color:#374151;"
-                "border:1.5px solid #e2e8f0;border-radius:8px;font-size:.88rem;"
-                "font-weight:700;text-decoration:none;white-space:nowrap;"
-                "transition:background .15s;cursor:pointer;flex-shrink:0;")
-    st.markdown(f"""<div style="display:flex;flex-wrap:nowrap;gap:6px;align-items:center;
-      margin:10px 0;padding:2px 0;">
-  <a href="?cal_nav=prev"  style="{_nav_btn}">◀ 이전</a>
-  <a href="?cal_nav=today" style="{_nav_btn}">오늘</a>
-  <div style="flex:1;text-align:center;font-size:1.05rem;font-weight:900;
-    color:#1a3a5c;padding:6px 4px;white-space:nowrap;">
-    {year}년 {month}월
-  </div>
-  <a href="?cal_nav=next"  style="{_nav_btn}">다음 ▶</a>
-</div>""", unsafe_allow_html=True)
+    # ── 월 네비게이션: st.button (WebSocket 세션 보존 — href 링크 완전 제거)
+    _nb1, _nb2, _nb3, _nb4 = st.columns([1, 1, 4, 1])
+    with _nb1:
+        if st.button("◀ 이전", key="cal_mo_prev_eng", use_container_width=True):
+            _pm = month - 1; _py = year
+            if _pm < 1: _py -= 1; _pm = 12
+            st.session_state["current_month"] = f"{_py:04d}-{_pm:02d}"
+            st.rerun()
+    with _nb2:
+        if st.button("오늘", key="cal_mo_today_eng", use_container_width=True):
+            st.session_state["current_month"] = today.strftime("%Y-%m")
+            st.rerun()
+    with _nb3:
+        st.markdown(
+            f"<div style='text-align:center;font-size:1.05rem;font-weight:900;"
+            f"color:#1a3a5c;padding:8px 4px;white-space:nowrap;'>{year}년 {month}월</div>",
+            unsafe_allow_html=True,
+        )
+    with _nb4:
+        if st.button("다음 ▶", key="cal_mo_next_eng", use_container_width=True):
+            _nm = month + 1; _ny = year
+            if _nm > 12: _ny += 1; _nm = 1
+            st.session_state["current_month"] = f"{_ny:04d}-{_nm:02d}"
+            st.rerun()
 
     # DB 이벤트 로드 → JS에 주입
     _evs = cal_load_month(agent_id, year, month)
