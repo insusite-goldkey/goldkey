@@ -1856,12 +1856,18 @@ div[data-testid="stMarkdownContainer"],
 .stAlert {
   border-radius: var(--gp-radius-sm) !important;
   font-size: clamp(11px, 1.9vw, 13px) !important;
-  padding: 8px 14px !important;
+  padding: 7px 12px !important;
   word-break: keep-all !important;
   overflow-wrap: break-word !important;
+  margin: 3px 0 !important;
 }
 [data-testid="stAlert"] {
-  max-width: 100% !important;
+  max-width: min(100%, 560px) !important;
+}
+[data-testid="stAlert"] > div {
+  font-size: clamp(11px, 1.9vw, 13px) !important;
+  line-height: 1.5 !important;
+  word-break: keep-all !important;
 }
 
 /* 7. 입력 필드 GP 스타일 ──────────────────────────────────────────── */

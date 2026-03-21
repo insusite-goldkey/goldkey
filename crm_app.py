@@ -1123,16 +1123,14 @@ if _spa_mode == "list":
             ]
             for _aai, (_aal, _aas, _is_pri) in enumerate(_ag_actions):
                 with [_ag1, _ag2, _ag3][_aai % 3]:
-                    if st.button(_aal, key=f"list_ag_{_aas}",
-                                 use_container_width=True,
-                                 type="primary" if _is_pri else "secondary"):
+                    if st.button(_aal, key=f"list_ag_{_aas}"):
                         st.session_state["crm_spa_mode"]   = "customer"
                         st.session_state["crm_spa_screen"] = _aas
                         st.session_state.pop("crm_spa_screen_radio", None)
                         st.rerun()
             _ag_clr_c, _ = st.columns([1, 5])
             with _ag_clr_c:
-                if st.button("✕ 해제", key="list_ag_clear", use_container_width=True):
+                if st.button("✕ 해제", key="list_ag_clear"):
                     st.session_state["crm_selected_pid"] = ""
                     st.rerun()
         else:
@@ -1408,7 +1406,7 @@ elif _spa_mode == "customer":
                     st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
                     if st.button(
                         "🚀 AI 분석 필요 보험가액 산출 (트리니티 산출법)",
-                        key=f"crm_tri_calc_{_sel_pid}", type="primary", use_container_width=True,
+                        key=f"crm_tri_calc_{_sel_pid}",
                     ):
                         if _nhis_val > 0:
                             _ART32_RATE = 0.0709
@@ -1475,8 +1473,7 @@ elif _spa_mode == "customer":
                         unsafe_allow_html=True,
                     )
                     st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
-                    if st.button("🔄 결과 초기화", key=f"crm_tri_reset_{_sel_pid}",
-                                 use_container_width=True):
+                    if st.button("🔄 결과 초기화", key=f"crm_tri_reset_{_sel_pid}"):
                         st.session_state.pop(_tri_sess_key, None)
                         st.rerun()
                 else:
@@ -1506,8 +1503,7 @@ elif _spa_mode == "customer":
                                  "address": _fa_e, "memo": _fm_e}
                 _sv1, _sv2 = st.columns(2)
                 with _sv1:
-                    if st.button("💾 GCS 저장", key=f"spa_save_{_sel_pid}",
-                                 type="primary", use_container_width=True):
+                    if st.button("💾 GCS 저장", key=f"spa_save_{_sel_pid}"):
                         try:
                             customer_input_form(_upd_data, _user_id, _sb)
                             st.success("✅ 저장 완료!")
@@ -1516,8 +1512,7 @@ elif _spa_mode == "customer":
                         except Exception as _ue:
                             st.error(f"저장 오류: {_ue}")
                 with _sv2:
-                    if st.button("↩️ 새로고침", key=f"spa_reload_{_sel_pid}",
-                                 use_container_width=True):
+                    if st.button("↩️ 새로고침", key=f"spa_reload_{_sel_pid}"):
                         st.cache_data.clear()
                         st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -1575,7 +1570,7 @@ elif _spa_mode == "customer":
                 st.caption("🔐 로그인 시 [📅 외부 캘린더 연동 동의]에 체크한 경우에만 활성화")
         with _sc2:
             if st.button("🔄 외부\n일정 동기화",
-                         key="cal_ext_sync_btn", type="primary",
+                         key="cal_ext_sync_btn",
                          use_container_width=True, disabled=(not _cal_consent_ok)):
                 with st.spinner("외부 캘린더에서 일정을 가져오는 중..."):
                     _sr = sync_external_calendar(_user_id)
@@ -1711,8 +1706,10 @@ elif _spa_mode == "customer":
                         key="spa_sched_cat",
                     )
                     _new_smemo = st.text_area("메모", key="spa_sched_memo", height=60)
-                if st.button("📅 저장", key="spa_sched_save",
-                             use_container_width=True, type="primary"):
+                _ss1, _ = st.columns([1, 3])
+                with _ss1:
+                    _do_sched_save = st.button("📅 저장", key="spa_sched_save")
+                if _do_sched_save:
                     if _new_title:
                         try:
                             _du_save_schedule(  # [db_utils §2]
