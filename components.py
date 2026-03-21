@@ -1086,15 +1086,27 @@ button[kind="secondary"] {
   border: 1px solid #93c5b8 !important;
 }
 [data-testid="stButton"] > button[kind="primary"] {
-  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
-  color: #ffffff !important;
-  border: none !important;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%) !important;
+  color: #1e3a8a !important;
+  border: 1.5px solid #93c5fd !important;
+  font-weight: 900 !important;
 }
 [data-testid="stButton"] > button:hover {
   opacity: 0.88 !important;
 }
+/* ── [GP-BTN-V3] 액션 버튼 자동 실제 크기 (full-width 방지) ──────────── */
+[data-testid="stBaseButton-primary"],
+[data-testid="stBaseButton-secondary"] {
+  width: auto !important;
+  min-width: fit-content !important;
+}
+/* ── [GP-TYPO-V3] word-break + line-height 전역 적용 ─────────────────── */
+p, span, div.stMarkdown, label {
+  word-break: keep-all;
+  line-height: 1.5;
+}
 
-/* ── 입력 필드 테두리 ─────────────────────────────────────────────────── */
+/* ── 입력 필드 테두리 ────────────────────────────────────────────── */
 [data-testid="stTextInput"] input,
 [data-testid="stTextArea"] textarea,
 [data-testid="stSelectbox"] > div > div {

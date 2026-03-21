@@ -800,14 +800,24 @@ def _render_event_form(agent_id, customers, year, month):
                     _pid = c.get("person_id","") or c.get("cust_id","")
                     break
 
-        # 저장/ICS/삭제
+        # 저장/ICS/삭제 — [GP-BTN] width:auto 파스텔 버튼 (full-width 제거)
+        st.markdown("""
+<style>
+/* 캘린더 폼 버튼 — 파스텔 블루 + width:auto (화면 전체 채움 방지) */
+[data-testid="stButton"] > button[kind="primaryFormSubmit"],
+[data-testid="stButton"] > button[kind="primary"] {
+  background: linear-gradient(135deg,#dbeafe,#bfdbfe) !important;
+  color: #1e3a8a !important; border: 1.5px solid #93c5fd !important;
+  font-weight: 900 !important; width: auto !important;
+}
+</style>""", unsafe_allow_html=True)
         _b1, _b2, _b3 = st.columns([2,1,1])
         with _b1:
-            _do_save = st.button("💾 저장", key="cal_form_save", type="primary", use_container_width=True)
+            _do_save = st.button("💾 저장", key="cal_form_save")
         with _b2:
-            _do_ics = st.button("📥 ICS", key="cal_form_ics", use_container_width=True, help="스마트폰 캘린더 저장용 .ics 생성")
+            _do_ics = st.button("📥 ICS", key="cal_form_ics", help="스마트폰 캘린더 저장용 .ics 생성")
         with _b3:
-            _do_del = st.button("🗑️ 삭제", key="cal_form_del", use_container_width=True) if edit_ev else False
+            _do_del = st.button("🗑️ 삭제", key="cal_form_del") if edit_ev else False
 
         if _do_save:
             if not _f_title.strip():
