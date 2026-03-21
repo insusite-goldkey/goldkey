@@ -8381,10 +8381,17 @@ def _get_sb_client_cached(url: str, key: str):
         return None
 
 def _get_sb_client():
-    """Supabase 클라이언트 반환 — 연결 실패 시 None 캐시 방지
-    우선순위 1: HF 환경변수 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
-    우선순위 2: secrets.toml [supabase] 섹션
+    """Supabase 클라이언트 반환 — [GP-DB] db_utils 중앙 엔진 위임 (싱글턴)
+    우선순위 1: db_utils._get_sb() — 중앙 엔진 (HQ/CRM 공유)
+    우선순위 2: 기존 env/secrets 폴백 (db_utils 초기화 실패 시)
     """
+    try:
+        from db_utils import _get_sb as _du_get_sb
+        _du_client = _du_get_sb()
+        if _du_client is not None:
+            return _du_client
+    except Exception:
+        pass
     if not _SB_PKG_OK:
         return None
     try:
@@ -8403,7 +8410,6 @@ def _get_sb_client():
             key = key or get_env_secret("SUPABASE_SERVICE_ROLE_KEY", "").strip()
         if not url or not key:
             return None
-        # url+key가 있을 때만 캐시 — None이 캐시되는 것을 방지
         return _get_sb_client_cached(url, key)
     except Exception:
         return None

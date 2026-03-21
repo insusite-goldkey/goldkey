@@ -738,3 +738,353 @@ def send_kakao_report(
 
     except Exception as e:
         return {"ok": False, "dry_run": False, "message": str(e)}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §8 회원 (gk_members) — 인증 전용
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_member(name: str) -> Optional[dict]:
+    """이름으로 설계사 회원 1건 조회 (인증 전용)."""
+    sb = _get_sb()
+    if not sb or not name:
+        return None
+    try:
+        rows = (
+            sb.table("gk_members").select("*")
+            .eq("name", name.strip())
+            .execute().data or []
+        )
+        return rows[0] if rows else None
+    except Exception:
+        return None
+
+
+def get_all_members() -> list[dict]:
+    """전체 설계사 회원 목록 (관리자 전용)."""
+    sb = _get_sb()
+    if not sb:
+        return []
+    try:
+        return sb.table("gk_members").select("*").execute().data or []
+    except Exception:
+        return []
+
+
+def upsert_member(member: dict) -> bool:
+    """회원 upsert (name 기준)."""
+    sb = _get_sb()
+    if not sb or not member:
+        return False
+    try:
+        sb.table("gk_members").upsert(member, on_conflict="name").execute()
+        return True
+    except Exception:
+        return False
+
+
+def update_member_pin_hash(name: str, pin_hash: str) -> bool:
+    """회원 PIN 해시 갱신 (레거시 → SHA-256 마이그레이션용)."""
+    sb = _get_sb()
+    if not sb or not name:
+        return False
+    try:
+        sb.table("gk_members").update({"pin_hash": pin_hash}).eq("name", name).execute()
+        return True
+    except Exception:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §9 상담일지 조회 (gk_consulting_logs)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_consulting_logs(
+    agent_id: str,
+    person_id: str = "",
+    log_type: str = "",
+    limit: int = 20,
+) -> list[dict]:
+    """
+    상담일지 조회.
+    agent_id: 필수 (RLS — 타 설계사 조회 차단)
+    person_id: 특정 고객 필터 (옵션)
+    log_type:  'ai_brief' | 'kakao_sent' | 'nibo' | 'manual' | '' (전체)
+    """
+    sb = _get_sb()
+    if not sb or not agent_id:
+        return []
+    try:
+        q = (sb.table("gk_consulting_logs")
+             .select("content,created_at,log_type,person_id")
+             .eq("agent_id", agent_id))
+        if person_id:
+            q = q.eq("person_id", person_id)
+        if log_type:
+            q = q.eq("log_type", log_type)
+        return (q.order("created_at", desc=True).limit(limit).execute().data or [])
+    except Exception:
+        return []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §10 크롤링 상태 목록 (gk_crawl_status)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_crawl_status_list(agent_id: str, limit: int = 5) -> list[dict]:
+    """
+    담당 설계사의 최근 크롤링 상태 목록 조회.
+    (단건 get_crawl_status와 달리 여러 고객의 파이프라인 배지용)
+    """
+    sb = _get_sb()
+    if not sb or not agent_id:
+        return []
+    try:
+        return (
+            sb.table("gk_crawl_status")
+            .select("status,updated_at,person_id")
+            .eq("agent_id", agent_id)
+            .order("updated_at", desc=True)
+            .limit(limit)
+            .execute().data or []
+        )
+    except Exception:
+        return []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §11 증권·관계망 요약 (crm_fortress 위임 래퍼)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_person_policies_summary(person_id: str) -> list[dict]:
+    """
+    gk_policy_roles JOIN gk_policies — 고객의 증권 목록 요약.
+    (crm_fortress.get_person_policies의 경량 버전)
+    """
+    sb = _get_sb()
+    if not sb or not person_id:
+        return []
+    try:
+        return (
+            sb.table("gk_policy_roles")
+            .select("role, policies:policy_id("
+                    "product_name,insurance_company,"
+                    "premium,contract_date,"
+                    "policy_number,policy_id)")
+            .eq("person_id", person_id)
+            .eq("is_deleted", False)
+            .execute().data or []
+        )
+    except Exception:
+        return []
+
+
+def get_person_relationships(person_id: str, agent_id: str = "") -> list[dict]:
+    """고객의 인맥 관계망 조회 (gk_relationships)."""
+    sb = _get_sb()
+    if not sb or not person_id:
+        return []
+    try:
+        rows = (
+            sb.table("gk_relationships")
+            .select("relation_type,"
+                    "from_person:from_person_id(name),"
+                    "to_person:to_person_id(name)")
+            .eq("is_deleted", False)
+            .or_(f"from_person_id.eq.{person_id},to_person_id.eq.{person_id}")
+            .execute().data or []
+        )
+        if agent_id:
+            rows = [r for r in rows if r.get("agent_id", agent_id) == agent_id]
+        return rows
+    except Exception:
+        return []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §12 AI 브리핑 (gk_ai_briefs)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_ai_brief(agent_id: str, limit: int = 1) -> list[dict]:
+    """최근 저장된 AI 브리핑 조회."""
+    sb = _get_sb()
+    if not sb or not agent_id:
+        return []
+    try:
+        return (
+            sb.table("gk_ai_briefs")
+            .select("brief_text,created_at")
+            .eq("agent_id", agent_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute().data or []
+        )
+    except Exception:
+        return []
+
+
+def save_ai_brief(agent_id: str, brief_text: str) -> bool:
+    """AI 브리핑 저장 (agent_id 기준 upsert)."""
+    sb = _get_sb()
+    if not sb or not agent_id:
+        return False
+    try:
+        sb.table("gk_ai_briefs").upsert({
+            "agent_id":   agent_id,
+            "brief_text": brief_text,
+            "created_at": datetime.datetime.utcnow().isoformat(),
+        }, on_conflict="agent_id").execute()
+        return True
+    except Exception:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §13 시스템 설정 (system_config) — HQ 앱 건강보험료율 등
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_system_config(keys: list[str]) -> dict[str, str]:
+    """
+    system_config 테이블에서 key/value 쌍 조회.
+    반환: {"nhis_rate": "0.0709", "ltci_rate": "0.0082", ...}
+    """
+    sb = _get_sb()
+    if not sb or not keys:
+        return {}
+    try:
+        rows = (
+            sb.table("system_config")
+            .select("key,value")
+            .in_("key", keys)
+            .execute().data or []
+        )
+        return {r["key"]: r["value"] for r in rows}
+    except Exception:
+        return {}
+
+
+def set_system_config(upserts: list[dict]) -> bool:
+    """
+    system_config 테이블 upsert.
+    upserts: [{"key": "nhis_rate", "value": "0.0709"}, ...]
+    """
+    sb = _get_sb()
+    if not sb or not upserts:
+        return False
+    try:
+        sb.table("system_config").upsert(upserts, on_conflict="key").execute()
+        return True
+    except Exception:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §14 디바이스 히스토리 (gk_device_history) — HQ 인증 전용
+# ══════════════════════════════════════════════════════════════════════════════
+
+def log_device(
+    user_name: str,
+    fp_id: str,
+    ua_hint: str = "",
+    max_devices: int = 5,
+) -> bool:
+    """디바이스 인증 기록 + 최대 N개 초과 시 가장 오래된 항목 삭제."""
+    sb = _get_sb()
+    if not sb:
+        return False
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        sb.table("gk_device_history").upsert({
+            "user_name": user_name,
+            "fp_id":     fp_id,
+            "ua_hint":   ua_hint,
+            "last_seen": now_str,
+        }, on_conflict="user_name,fp_id").execute()
+        _rows = (
+            sb.table("gk_device_history")
+            .select("fp_id,last_seen")
+            .eq("user_name", user_name)
+            .order("last_seen", desc=False)
+            .execute().data or []
+        )
+        if len(_rows) > max_devices:
+            oldest_fp = _rows[0]["fp_id"]
+            sb.table("gk_device_history").delete()\
+              .eq("user_name", user_name).eq("fp_id", oldest_fp).execute()
+        return True
+    except Exception:
+        return False
+
+
+def get_devices(user_name: str) -> list[dict]:
+    """등록된 디바이스 목록 조회."""
+    sb = _get_sb()
+    if not sb or not user_name:
+        return []
+    try:
+        return (
+            sb.table("gk_device_history")
+            .select("fp_id,last_seen,ua_hint")
+            .eq("user_name", user_name)
+            .order("last_seen", desc=True)
+            .execute().data or []
+        )
+    except Exception:
+        return []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §15 게스트 방문 카운터 (gk_guest_visits) — HQ 공개 접근 제어
+# ══════════════════════════════════════════════════════════════════════════════
+
+def check_and_log_guest_visit(fp_id: str, max_daily: int = 3) -> dict:
+    """
+    게스트 일일 방문 횟수 확인 + 기록.
+    반환: {"allowed": bool, "visits_today": int, "total_visits": int}
+    """
+    sb = _get_sb()
+    if not sb:
+        return {"allowed": True, "visits_today": 0, "total_visits": 0}
+    today_str = datetime.date.today().isoformat()
+    try:
+        _rows = (
+            sb.table("gk_guest_visits")
+            .select("visit_date,visit_count")
+            .eq("fp_id", fp_id)
+            .execute().data or []
+        )
+        _total    = sum(r.get("visit_count", 0) for r in _rows)
+        _today_row = next((r for r in _rows if r["visit_date"] == today_str), None)
+        _today_cnt = _today_row["visit_count"] if _today_row else 0
+        _allowed   = _today_cnt < max_daily
+
+        if _allowed:
+            if _today_row:
+                sb.table("gk_guest_visits").update(
+                    {"visit_count": _today_cnt + 1}
+                ).eq("fp_id", fp_id).eq("visit_date", today_str).execute()
+            else:
+                sb.table("gk_guest_visits").insert(
+                    {"fp_id": fp_id, "visit_date": today_str, "visit_count": 1}
+                ).execute()
+
+        return {"allowed": _allowed, "visits_today": _today_cnt, "total_visits": _total}
+    except Exception:
+        return {"allowed": True, "visits_today": 0, "total_visits": 0}
+
+
+def get_guest_total_visits(fp_id: str) -> int:
+    """게스트 fp_id의 총 방문 횟수."""
+    sb = _get_sb()
+    if not sb:
+        return 0
+    try:
+        rows = (
+            sb.table("gk_guest_visits")
+            .select("visit_count")
+            .eq("fp_id", fp_id)
+            .execute().data or []
+        )
+        return sum(r.get("visit_count", 0) for r in rows)
+    except Exception:
+        return 0

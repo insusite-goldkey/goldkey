@@ -78,6 +78,27 @@ from shared_components import (
     render_security_sidebar as _sc_render_security_sidebar,
 )
 
+# ── [중앙 DB 엔진] db_utils 싱글턴 import ───────────────────────────────────
+from db_utils import (
+    _get_sb         as _du_get_sb,
+    load_customers  as _du_customers,
+    load_schedules  as _du_schedules,
+    load_schedules_range as _du_range,
+    load_schedules_today as _du_schedules_today,
+    save_schedule   as _du_save_schedule,
+    safe_update_customer as _du_update_cust,
+    get_consulting_logs  as _du_consult_logs,
+    get_crawl_status     as _du_crawl_status,
+    get_crawl_status_list as _du_crawl_list,
+    get_person_policies_summary as _du_policies,
+    get_person_relationships    as _du_rels,
+    get_ai_brief  as _du_ai_brief,
+    save_ai_brief as _du_save_ai_brief,
+    log_consulting as _du_log_consult,
+    get_member           as _du_get_member,
+    update_member_pin_hash as _du_pin_update,
+)
+
 # ── 페이지 설정 ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="골드키 CRM — 고객상담 앱",
@@ -594,27 +615,8 @@ if not _is_authenticated():
                     elif not _cc:
                         st.error("⚠️ 연락처를 입력해 주세요.")
                     else:
-                        # Supabase members 테이블 조회
-                        _crm_sb = None
-                        try:
-                            from supabase import create_client as _cc_sb
-                            _crm_sb = _cc_sb(
-                                get_env_secret("SUPABASE_URL", ""),
-                                get_env_secret("SUPABASE_SERVICE_ROLE_KEY",
-                                               get_env_secret("SUPABASE_KEY", "")),
-                            )
-                        except Exception:
-                            pass
-                        _crm_member = None
-                        if _crm_sb:
-                            try:
-                                _resp = _crm_sb.table("gk_members").select("*") \
-                                    .eq("name", _cn).execute()
-                                _rows = _resp.data or []
-                                if _rows:
-                                    _crm_member = _rows[0]
-                            except Exception:
-                                pass
+                        # [db_utils §8] gk_members 조회 — 독자 클라이언트 제거
+                        _crm_member = _du_get_member(_cn)
                         if _crm_member is None:
                             st.error("❌ 등록되지 않은 이름입니다. HQ 앱에서 먼저 가입해 주세요.")
                         else:
@@ -655,7 +657,7 @@ if not _is_authenticated():
                                 if _legacy_ok and not (_pin_ok or _chash_ok or _fernet_ok):
                                     try:
                                         _new_h = _hl.sha256(_clean_cc.encode()).hexdigest()
-                                        _crm_sb.table("gk_members").update({"pin_hash": _new_h}).eq("name", _cn).execute()
+                                        _du_pin_update(_cn, _new_h)  # [db_utils §8]
                                     except Exception:
                                         pass
                                 _uid = _crm_member.get("user_id", _cn)
@@ -743,57 +745,18 @@ _user_id   = st.session_state.get("crm_user_id", "")
 _user_name = st.session_state.get("crm_user_name", "설계사")
 _token     = st.session_state.get("crm_token", "")
 
-# ── Supabase 클라이언트 (lazy init) ────────────────────────────────────────────
-@st.cache_resource(show_spinner=False)
-def _get_supabase():
-    try:
-        from supabase import create_client
-        url = get_env_secret("SUPABASE_URL", "")
-        key = get_env_secret("SUPABASE_SERVICE_ROLE_KEY",
-                              get_env_secret("SUPABASE_KEY", ""))
-        return create_client(url, key)
-    except Exception:
-        return None
+# ── [GP-DB 싱글턴] Supabase 클라이언트 — db_utils._get_sb() 의존 ─────────────────────
+_sb = _du_get_sb()  # 독자 create_client 제거 — 중앙 엔진 단일 접속점 사용
 
-_sb = _get_supabase()
-
-# ── 고객 목록 로드 ─────────────────────────────────────────────────────────────
+# ── [db_utils §1] 고객 목록 로드 — 60초 캐시 위임 ──────────────────────────────────
 @st.cache_data(ttl=60, show_spinner=False)
 def _load_customers(agent_id: str, query: str = "") -> list:
-    if not _sb:
-        return []
-    try:
-        q = _sb.table("gk_people").select("*").eq("is_deleted", False)
-        if agent_id:
-            q = q.eq("agent_id", agent_id)
-        if query:
-            q = q.ilike("name", f"%{query}%")
-        q = q.order("management_tier").order("name")
-        resp = q.execute()
-        return resp.data or []
-    except Exception:
-        return []
+    return _du_customers(agent_id, query)
 
-# ── 일정 로드 ─────────────────────────────────────────────────────────────────
+# ── [db_utils §2] 일정 로드 ────────────────────────────────────────────────────────────
 @st.cache_data(ttl=60, show_spinner=False)
 def _load_schedules_today(agent_id: str) -> list:
-    if not _sb:
-        return []
-    try:
-        today = datetime.date.today().isoformat()
-        resp = (
-            _sb.table("gk_schedules")
-            .select("*")
-            .eq("is_deleted", False)
-            .eq("agent_id", agent_id)
-            .gte("date", today)
-            .lte("date", today)
-            .order("start_time")
-            .execute()
-        )
-        return resp.data or []
-    except Exception:
-        return []
+    return _du_schedules_today(agent_id)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 헤더
@@ -846,11 +809,6 @@ try:
         render_mini_calendar,
         render_sync_badge,
         손보사_standard_form,
-    )
-    from db_utils import (
-        load_schedules         as _du_schedules,
-        load_schedules_range   as _du_range,
-        save_schedule          as _du_save_sched,
     )
     apply_gp_pastel_theme()
     inject_responsive_css()
@@ -947,9 +905,7 @@ if _spa_mode == "list":
 
     # ── HQ 크롤링 상태 실시간 동기화 배지 ───────────────────────────────────
     try:
-        _crawl_rows = (_sb.table("gk_crawl_status").select("status,updated_at,person_id")
-                       .eq("agent_id", _user_id).order("updated_at", desc=True)
-                       .limit(5).execute().data or []) if _sb else []
+        _crawl_rows = _du_crawl_list(_user_id, 5)  # [db_utils §10]
         if _crawl_rows:
             _sync_c_row = st.columns(min(len(_crawl_rows), 4))
             for _ci, _cr in enumerate(_crawl_rows[:4]):
@@ -1336,15 +1292,8 @@ elif _spa_mode == "customer":
                         f"<b>📝 상담 메모</b><br>{_memo_v}</div>",
                         unsafe_allow_html=True,
                     )
-                if _sel_pid and _sb:
-                    _logs_c = []
-                    try:
-                        _logs_c = (_sb.table("gk_consulting_logs")
-                                   .select("content,created_at,log_type")
-                                   .eq("agent_id", _user_id).eq("person_id", _sel_pid)
-                                   .order("created_at", desc=True).limit(3).execute().data or [])
-                    except Exception:
-                        pass
+                if _sel_pid:
+                    _logs_c = _du_consult_logs(_user_id, _sel_pid, limit=3)  # [db_utils §9]
                     if _logs_c:
                         st.markdown(
                             "<div style='font-size:0.72rem;color:#6b7280;margin-top:10px;"
@@ -1670,11 +1619,7 @@ elif _spa_mode == "customer":
                     unsafe_allow_html=True,
                 )
                 try:
-                    _day_schs = _du_schedules(_user_id, _sel_date) if _OUTLOOK_OK else (
-                        _sb.table("gk_schedules").select("*, gk_people(name)")
-                        .eq("is_deleted", False).eq("agent_id", _user_id)
-                        .eq("date", _sel_date).order("start_time").execute().data or []
-                    ) if _sb else []
+                    _day_schs = _du_schedules(_user_id, _sel_date)  # [db_utils §2]
                 except Exception:
                     _day_schs = []
                 _sched_to_show = _day_schs
@@ -1737,24 +1682,15 @@ elif _spa_mode == "customer":
                              use_container_width=True, type="primary"):
                     if _new_title:
                         try:
-                            if _OUTLOOK_OK:
-                                _du_save_sched(_user_id, _new_title, _sel_date,
-                                               _new_time, _new_smemo, _new_cat, _sel_pid)
-                            elif _sb:
-                                import uuid as _uid3
-                                _sb.table("gk_schedules").insert({
-                                    "schedule_id": str(_uid3.uuid4()),
-                                    "agent_id": _user_id,
-                                    "title": _new_title,
-                                    "date": _sel_date,
-                                    "start_time": _new_time,
-                                    "memo": _new_smemo,
-                                    "category": _new_cat,
-                                    "person_id": _sel_pid,
-                                    "is_deleted": False,
-                                    "created_at": datetime.datetime.utcnow().isoformat(),
-                                    "updated_at": datetime.datetime.utcnow().isoformat(),
-                                }).execute()
+                            _du_save_schedule(  # [db_utils §2]
+                                agent_id=_user_id,
+                                title=_new_title,
+                                date=_sel_date,
+                                start_time=_new_time,
+                                memo=_new_smemo,
+                                category=_new_cat,
+                                person_id=_sel_pid,
+                            )
                             st.success("✅ 저장!")
                             st.cache_data.clear()
                             st.rerun()
@@ -1780,16 +1716,13 @@ elif _spa_mode == "customer":
                 help="저장 버튼을 누르면 GCS 마스터 DB에 반영됩니다.",
             )
             if st.button("💾 메모 저장", key="spa_memo_save", use_container_width=True):
-                if _sel_cust and _sb:
-                    try:
-                        _sb.table("gk_people").update({
-                            "memo": _new_memo_v,
-                            "updated_at": datetime.datetime.utcnow().isoformat(),
-                        }).eq("person_id", _sel_pid).eq("agent_id", _user_id).execute()
+                if _sel_cust:
+                    _ok_memo = _du_update_cust(_sel_pid, {"memo": _new_memo_v}, _user_id)  # [db_utils §5]
+                    if _ok_memo:
                         st.success("✅ 메모 저장 완료!")
                         st.cache_data.clear()
-                    except Exception as _me:
-                        st.error(f"오류: {_me}")
+                    else:
+                        st.error("메모 저장 실패 (네트워크 오류)")
 
             # ── 다가오는 일정 (이번 달 미래 일정) ───────────────────────────
             st.markdown(
@@ -1819,17 +1752,8 @@ elif _spa_mode == "customer":
                 st.caption("다가오는 일정 없음")
 
             # ── 상담일지 최근 5건 ────────────────────────────────────────────
-            if _sel_pid and _sb:
-                _logs5 = []
-                try:
-                    _logs5 = (_sb.table("gk_consulting_logs")
-                              .select("content,created_at,log_type")
-                              .eq("agent_id", _user_id)
-                              .eq("person_id", _sel_pid)
-                              .order("created_at", desc=True)
-                              .limit(5).execute().data or [])
-                except Exception:
-                    pass
+            if _sel_pid:
+                _logs5 = _du_consult_logs(_user_id, _sel_pid, limit=5)  # [db_utils §9]
                 if _logs5:
                     with st.expander("📋 상담일지 최근 5건", expanded=False):
                         for _lg in _logs5:
@@ -1884,14 +1808,10 @@ elif _spa_mode == "customer":
             unsafe_allow_html=True,
         )
         # ── 파스텔 크롤링 상태 모니터 ────────────────────────────────────────────
-        if _sel_cust and _sb:
+        if _sel_cust:
             try:
-                _nibo_crawl = (_sb.table("gk_crawl_status")
-                               .select("status,updated_at,error_msg")
-                               .eq("agent_id", _user_id)
-                               .eq("person_id", _sel_cust.get("person_id", ""))
-                               .order("updated_at", desc=True)
-                               .limit(1).execute().data or [])
+                _cs_dict = _du_crawl_status(_sel_cust.get("person_id", ""))  # [db_utils §3]
+                _nibo_crawl = [_cs_dict] if _cs_dict else []
                 if _nibo_crawl:
                     _cs_n  = _nibo_crawl[0]
                     _cst_n = _cs_n.get("status", "idle")
@@ -2129,16 +2049,9 @@ elif _spa_mode == "customer":
                                 unsafe_allow_html=True,
                             )
 
-                elif _raw_tab == "📋 증권 목록" and _sb and _sel_pid:
+                elif _raw_tab == "📋 증권 목록" and _sel_pid:
                     try:
-                        _policies_raw = (_sb.table("gk_policy_roles")
-                                         .select("*, policies:policy_id("
-                                                 "product_name,insurance_company,"
-                                                 "premium,contract_date,"
-                                                 "expiry_date,coverage_type)")
-                                         .eq("person_id", _sel_pid)
-                                         .eq("is_deleted", False)
-                                         .execute().data or [])
+                        _policies_raw = _du_policies(_sel_pid)  # [db_utils §11]
                         if _policies_raw:
                             import pandas as _pd_raw
                             _pol_rows = []
@@ -2162,16 +2075,9 @@ elif _spa_mode == "customer":
                     except Exception as _pr_e:
                         st.caption(f"조회 오류: {_pr_e}")
 
-                elif _raw_tab == "🔗 관계망" and _sb and _sel_pid:
+                elif _raw_tab == "🔗 관계망" and _sel_pid:
                     try:
-                        _rels_raw = (_sb.table("gk_relationships")
-                                     .select("relation_type,"
-                                             "from_person:from_person_id(name),"
-                                             "to_person:to_person_id(name)")
-                                     .eq("is_deleted", False)
-                                     .or_(f"from_person_id.eq.{_sel_pid},"
-                                          f"to_person_id.eq.{_sel_pid}")
-                                     .execute().data or [])
+                        _rels_raw = _du_rels(_sel_pid, _user_id)  # [db_utils §11]
                         if _rels_raw:
                             for _rr in _rels_raw:
                                 _fn = (_rr.get("from_person") or {}).get("name", "?")
@@ -2313,14 +2219,7 @@ elif _spa_mode == "customer":
                 unsafe_allow_html=True,
             )
             _edit_key_b = f"crm_brief_edit_{_user_id}"
-            _brief_saved = []
-            if _sb:
-                try:
-                    _brief_saved = (_sb.table("gk_ai_briefs").select("brief_text")
-                                    .eq("agent_id", _user_id)
-                                    .order("created_at", desc=True).limit(1).execute().data or [])
-                except Exception:
-                    pass
+            _brief_saved = _du_ai_brief(_user_id, limit=1)  # [db_utils §12]
             _brief_default = (_brief_saved[0].get("brief_text", "") if _brief_saved else
                               st.session_state.get(_edit_key_b, ""))
             _brief_text = st.text_area(
@@ -2334,15 +2233,10 @@ elif _spa_mode == "customer":
             with _bsv1:
                 if st.button("💾 브리핑 저장 (GCS DB)", key="crm_brief_save",
                              use_container_width=True, type="primary"):
-                    try:
-                        _sb.table("gk_ai_briefs").upsert({
-                            "agent_id":   _user_id,
-                            "brief_text": _brief_text,
-                            "created_at": datetime.datetime.utcnow().isoformat(),
-                        }, on_conflict="agent_id").execute()
+                    if _du_save_ai_brief(_user_id, _brief_text):  # [db_utils §12]
                         st.success("✅ GCS 마스터 DB에 저장되었습니다.")
-                    except Exception as _be:
-                        st.caption(f"저장 오류: {_be}")
+                    else:
+                        st.caption("저장 실패 (네트워크 오류)")
             with _bsv2:
                 if st.button("↩️ 초기화", key="crm_brief_reset"):
                     st.session_state.pop(_edit_key_b, None)
@@ -2500,12 +2394,8 @@ elif _spa_mode == "customer":
                     )
                     st.markdown("**📋 최근 발송 기록**")
                     try:
-                        _kk_logs = (_sb.table("gk_consulting_logs")
-                                    .select("content,created_at")
-                                    .eq("agent_id", _user_id).eq("person_id", _kk_pid)
-                                    .eq("log_type", "kakao_sent")
-                                    .order("created_at", desc=True).limit(8)
-                                    .execute().data or []) if _sb else []
+                        _kk_logs = _du_consult_logs(_user_id, _kk_pid,
+                                                    log_type="kakao_sent", limit=8)  # [db_utils §9]
                         if _kk_logs:
                             for _lg in _kk_logs:
                                 st.markdown(
@@ -3159,25 +3049,18 @@ with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
         # ── 전체 회원 현황 ───────────────────────────────────────────────
         st.markdown("**👥 전체 회원 현황**")
         try:
-            _cadm_db = _get_supabase()
-            if _cadm_db:
-                _cadm_rows = (
-                    _cadm_db.table("members")
-                    .select("user_id,user_name,join_date,is_deleted")
-                    .eq("is_deleted", False)
-                    .execute()
-                )
-                _cadm_list = _cadm_rows.data or []
-                st.caption(f"총 등록 회원: {len(_cadm_list)}명")
-                if _cadm_list:
-                    import pandas as _pd_adm
-                    _cadm_df = _pd_adm.DataFrame([{
-                        "이름":  m.get("user_name", ""),
-                        "ID":    str(m.get("user_id", ""))[:10] + "…",
-                        "가입일": str(m.get("join_date", ""))[:10],
-                    } for m in _cadm_list[:30]])
-                    st.dataframe(_cadm_df, use_container_width=True, hide_index=True)
-            else:
+            from db_utils import get_all_members as _du_all_members  # [db_utils §8]
+            _cadm_list = _du_all_members()
+            st.caption(f"전체 등록 회원: {len(_cadm_list)}명")
+            if _cadm_list:
+                import pandas as _pd_adm
+                _cadm_df = _pd_adm.DataFrame([{
+                    "이름":  m.get("name", ""),
+                    "ID":    str(m.get("user_id", ""))[:10] + "…",
+                    "가입일": str(m.get("join_date", ""))[:10],
+                } for m in _cadm_list[:30]])
+                st.dataframe(_cadm_df, use_container_width=True, hide_index=True)
+            if not _du_get_sb():
                 st.warning("Supabase 연결 없음")
         except Exception as _cadm_err:
             st.caption(f"회원 조회 오류: {_cadm_err}")
@@ -3197,7 +3080,7 @@ _lo_c1, _lo_c2, _lo_c3 = st.columns([3, 4, 3])
 with _lo_c2:
     if st.button("🔒 로그아웃", key="crm_logout_btn_bottom", use_container_width=True):
         try:
-            _sb_lo2 = _get_supabase()
+            _sb_lo2 = _du_get_sb()  # [GP-DB] 중앙 엔진 싱글턴
             if _sb_lo2:
                 _sb_lo2.auth.sign_out()
         except Exception:
