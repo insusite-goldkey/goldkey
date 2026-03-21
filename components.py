@@ -879,12 +879,14 @@ div[data-testid="stRadio"] > div > label > div:first-child { display: none !impo
 def apply_gp_pastel_theme() -> None:
     """
     GP 전역 파스텔 테마 주입 — 모든 HQ/CRM 화면 최상단에서 1회 호출.
-    포함 내용:
-      - 배경 #F8FBFA, 메모 #FDFD96, 스케줄 #E6E6FA, 폰트 14px
-      - st.radio → 버튼형 SPA 네비 스타일
-      - 반응형 5:5 레이아웃 (모바일 600px 이하 스태킹)
-      - GP 로딩바, 인증결과창, 동기화 배지 CSS
+    [GP-DESIGN-V3] shared_components.inject_global_gp_design()을 먼저 호출하여
+    Single Source of Truth 원칙을 적용하고, 컴포넌트 전용(.gko-*) CSS를 추가한다.
     """
+    try:
+        from shared_components import inject_global_gp_design as _igd
+        _igd()
+    except Exception:
+        pass
     st.markdown(_GP_PASTEL_THEME_CSS, unsafe_allow_html=True)
 
 
@@ -1112,10 +1114,13 @@ button[kind="secondary"] {
 def inject_responsive_css() -> None:
     """
     반응형 레이아웃 CSS 주입.
-    - 모바일 600px 이하: st.columns 자동 세로 스태킹
-    - 아웃룩 3분할 뷰 세로 전환
-    - GP 파스텔 버튼 그라디언트 (AEC6CF → B4F8C8)
-    - 입력 필드 GP 스타일
+    [GP-DESIGN-V3] shared_components.inject_global_gp_design()이 이미 호출된 경우
+    이 함수는 추가 컴포넌트 CSS만 보충한다 (중복 안전).
     apply_gp_pastel_theme() 이후 추가로 호출하면 덮어씌움.
     """
+    try:
+        from shared_components import inject_global_gp_design as _igd2
+        _igd2()
+    except Exception:
+        pass
     st.markdown(_RESPONSIVE_CSS, unsafe_allow_html=True)

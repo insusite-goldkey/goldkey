@@ -73,6 +73,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# ── [GP-DESIGN-V3] 전역 디자인 시스템 즉시 주입 (Single Source of Truth) ────────
+try:
+    from shared_components import inject_global_gp_design as _crm_igd
+    _crm_igd()
+except Exception:
+    pass
+
 # ── [GP-SEC §14] CRM 사이드바 보안 기준 준수 ──────────────────────────────────
 with st.sidebar:
     st.markdown(

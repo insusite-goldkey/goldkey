@@ -1746,3 +1746,225 @@ def render_security_sidebar() -> None:
         "</div>",
         unsafe_allow_html=True,
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP-DESIGN-V3] 전역 디자인 시스템 — Single Source of Truth
+# app.py · crm_app.py 양쪽 최상단에서 inject_global_gp_design() 1회 호출
+# ══════════════════════════════════════════════════════════════════════════════
+_GP_GLOBAL_DESIGN_CSS = """<style>
+/* ══ GP-DESIGN-V3: 전역 파스텔 디자인 시스템 ══════════════════════════ */
+
+/* 1. CSS 변수 ─────────────────────────────────────────────────────────── */
+:root {
+  --gp-bg:           #F8FAFC;
+  --gp-bg-soft:      #F8FAF8;
+  --gp-pastel-blue:  #E1F5FE;
+  --gp-pastel-mint:  #E8F5E9;
+  --gp-pastel-cream: #FFFBEB;
+  --gp-text:         #334155;
+  --gp-text-dark:    #1e293b;
+  --gp-text-muted:   #64748b;
+  --gp-navy:         #1e3a8a;
+  --gp-border:       #e2e8f0;
+  --gp-radius:       10px;
+  --gp-radius-sm:    8px;
+  --gp-shadow:       0 1px 3px rgba(0,0,0,0.07);
+}
+
+/* 2. 전체 배경 + 폰트 기반 ─────────────────────────────────────────── */
+[data-testid="stApp"],
+[data-testid="stAppViewContainer"] > .main {
+  background: var(--gp-bg) !important;
+  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important;
+}
+[data-testid="stSidebar"] { background: #f1f5f9 !important; }
+
+/* 3. 유동 타이포그래피 — clamp() 전역 적용 ─────────────────────────── */
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] span,
+[data-testid="stMarkdownContainer"] li {
+  font-size: clamp(12px, 2.2vw, 14px) !important;
+  color: var(--gp-text) !important;
+  line-height: 1.6 !important;
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+}
+/* 제목 clamp() */
+h1 { font-size: clamp(18px, 4vw, 26px) !important; }
+h2 { font-size: clamp(15px, 3vw, 20px) !important; }
+h3 { font-size: clamp(13px, 2.5vw, 17px) !important; }
+
+/* 4. 모든 텍스트 컨테이너 글자 보호 ────────────────────────────────── */
+div[data-testid="stMarkdownContainer"],
+.element-container,
+.stAlert,
+.stCaption {
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+  line-height: 1.55 !important;
+}
+
+/* 5. 파스텔 버튼 시스템 ─────────────────────────────────────────────── */
+[data-testid="stButton"] > button {
+  border-radius: var(--gp-radius-sm) !important;
+  font-weight: 700 !important;
+  font-size: clamp(11px, 1.8vw, 13px) !important;
+  padding: 5px 14px !important;
+  line-height: 1.45 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  transition: all 0.15s ease !important;
+  box-shadow: var(--gp-shadow) !important;
+}
+[data-testid="stButton"] > button[kind="secondary"] {
+  background: var(--gp-pastel-blue) !important;
+  color: var(--gp-navy) !important;
+  border: 1px solid #bfdbfe !important;
+}
+[data-testid="stButton"] > button[kind="secondary"]:hover {
+  background: #dbeafe !important;
+  border-color: #93c5fd !important;
+  transform: translateY(-1px) !important;
+}
+[data-testid="stButton"] > button[kind="primary"] {
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+[data-testid="stButton"] > button[kind="primary"]:hover {
+  opacity: 0.9 !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 6. Alert(st.info/success/error/warning) 컴팩트 스타일 ────────────── */
+.stAlert {
+  border-radius: var(--gp-radius-sm) !important;
+  font-size: clamp(11px, 1.9vw, 13px) !important;
+  padding: 8px 14px !important;
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+}
+[data-testid="stAlert"] {
+  max-width: 100% !important;
+}
+
+/* 7. 입력 필드 GP 스타일 ──────────────────────────────────────────── */
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stNumberInput"] input {
+  border-color: var(--gp-border) !important;
+  border-radius: var(--gp-radius-sm) !important;
+  background: #ffffff !important;
+  font-size: clamp(12px, 2vw, 14px) !important;
+  color: var(--gp-text-dark) !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus,
+[data-testid="stNumberInput"] input:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.12) !important;
+  outline: none !important;
+}
+
+/* 8. SPA 라디오 네비게이션 ──────────────────────────────────────────── */
+div[data-testid="stRadio"] > div {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 4px !important;
+  background: #f1f5f9 !important;
+  padding: 5px 7px !important;
+  border-radius: var(--gp-radius) !important;
+  border: 1px solid var(--gp-border) !important;
+  overflow-x: auto !important;
+}
+div[data-testid="stRadio"] > div > label {
+  flex: 1 !important;
+  text-align: center !important;
+  padding: 6px 10px !important;
+  border-radius: var(--gp-radius-sm) !important;
+  border: 1px solid #d1d5db !important;
+  background: #ffffff !important;
+  font-size: clamp(10px, 1.8vw, 13px) !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: background 0.12s, color 0.12s !important;
+  color: var(--gp-text) !important;
+  word-break: keep-all !important;
+}
+div[data-testid="stRadio"] > div > label:has(input:checked) {
+  background: var(--gp-navy) !important;
+  color: #ffffff !important;
+  border-color: var(--gp-navy) !important;
+  font-weight: 900 !important;
+}
+div[data-testid="stRadio"] > div > label > div:first-child { display: none !important; }
+
+/* 9. 태블릿 가로 (769px~1024px) — 2열 flex 유지 ────────────────────── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  [data-testid="stHorizontalBlock"] {
+    flex-wrap: wrap !important;
+  }
+  [data-testid="column"] {
+    flex: 1 1 44% !important;
+    min-width: 180px !important;
+  }
+}
+
+/* 10. 모바일/세로 (768px 이하) — 100% 수직 스태킹 ─────────────────── */
+@media (max-width: 768px) {
+  [data-testid="column"] {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+    margin-bottom: 14px !important;
+  }
+  [data-testid="stHorizontalBlock"] {
+    flex-direction: column !important;
+  }
+  .outlook-container { flex-direction: column !important; }
+  [data-testid="stMarkdownContainer"] p,
+  [data-testid="stMarkdownContainer"] span,
+  span, label, .stMarkdown {
+    font-size: clamp(12px, 3.5vw, 14px) !important;
+    word-break: keep-all !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.55 !important;
+  }
+  h1 { font-size: clamp(16px, 5vw, 22px) !important; }
+  h2 { font-size: clamp(14px, 4.5vw, 18px) !important; }
+  h3 { font-size: clamp(13px, 4vw, 16px) !important; }
+  div[data-testid="stRadio"] > div { flex-wrap: wrap !important; }
+  div[data-testid="stRadio"] > div > label { flex: 1 1 44% !important; }
+  .stDataFrame, .element-container {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+  }
+  .gko-mini-cal { width: 100% !important; }
+  .stAlert {
+    font-size: clamp(11px, 3.2vw, 13px) !important;
+    padding: 7px 10px !important;
+  }
+}
+</style>"""
+
+
+def inject_global_gp_design() -> None:
+    """
+    [GP-DESIGN-V3] 전역 디자인 시스템 Single Source of Truth.
+    app.py · crm_app.py 최상단에서 1회 호출하면 양쪽 앱에 동일한
+    파스텔톤 · clamp() 타이포그래피 · 반응형 레이아웃이 적용된다.
+
+    포함 내용:
+      - CSS 변수 (--gp-*) 기반 파스텔 팔레트
+      - clamp() 전역 유동 타이포그래피 (PC/태블릿/모바일 연속 스케일)
+      - word-break:keep-all + overflow-wrap:break-word 글자 보호
+      - 파스텔 버튼 시스템 (secondary=#E1F5FE, primary=navy gradient)
+      - Alert 컴팩트 스타일
+      - 태블릿 가로(769-1024px) 2열 flex / 모바일(≤768px) 수직 스태킹
+      - SPA 라디오 네비게이션 버튼형 CSS
+    """
+    st.markdown(_GP_GLOBAL_DESIGN_CSS, unsafe_allow_html=True)

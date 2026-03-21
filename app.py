@@ -7,48 +7,13 @@ import base64
 # 🚨 [매우 중요] set_page_config는 무조건 가장 먼저 와야 합니다!
 st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state="expanded")
 
-# [GP-RESPONSIVE] 전역 반응형 CSS — 모든 화면·탭·블록에 자동 적용 (모바일 스태킹 강제 원칙)
-st.markdown("""<style>
-/* ── [GP-RESPONSIVE] 모바일 스태킹 강제 원칙 ────────────────────────────────── */
-/* 브레이크포인트: 768px = 폰 + 세로모드 태블릿 / 769px 이상 = 태블릿·PC 유지  */
-[data-testid="stApp"],
-[data-testid="stAppViewContainer"] > .main {
-  background: #F8FBFA !important;
-  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif !important;
-}
-@media (max-width: 768px) {
-  /* ① st.columns → 강제 100% 세로 스태킹 */
-  [data-testid="column"] {
-    width: 100% !important;
-    flex: 1 1 100% !important;
-    min-width: 100% !important;
-    margin-bottom: 16px !important;
-  }
-  /* ② Streamlit row 컨테이너 세로 강제 */
-  [data-testid="stHorizontalBlock"] {
-    flex-direction: column !important;
-  }
-  /* ③ 유동 타이포그래피 — clamp()로 모바일 폰트 자동 조정 */
-  p, span, label, .stMarkdown {
-    font-size: clamp(12px, 3.5vw, 15px) !important;
-  }
-  h1 { font-size: clamp(18px, 5vw, 28px) !important; }
-  h2 { font-size: clamp(15px, 4.5vw, 22px) !important; }
-  h3 { font-size: clamp(13px, 4vw, 18px) !important; }
-  /* ④ 데이터테이블·차트 오버플로우 방지 */
-  .stDataFrame, .element-container {
-    max-width: 100% !important;
-    overflow-x: auto !important;
-  }
-  /* ⑤ 사이드바 collapse 시 메인 영역 전체 너비 */
-  [data-testid="stSidebar"] ~ .main .block-container {
-    padding-left: 8px !important;
-    padding-right: 8px !important;
-  }
-  /* ⑥ 탭 버튼 줄바꿈 허용 */
-  [data-testid="stHorizontalBlock"] button { white-space: normal !important; }
-}
-</style>""", unsafe_allow_html=True)
+# [GP-DESIGN-V3] 전역 디자인 시스템 즉시 주입 (Single Source of Truth)
+# shared_components.inject_global_gp_design() — 파스텔톤 + clamp() + 반응형
+try:
+    from shared_components import inject_global_gp_design as _hq_igd
+    _hq_igd()
+except Exception:
+    pass
 
 # [1] 초기화 상태
 if 'initialized' not in st.session_state:
