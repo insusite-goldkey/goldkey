@@ -1,4 +1,4 @@
-# crm_app.py — Goldkey AI Masters CRM 2026
+﻿# crm_app.py — Goldkey AI Masters CRM 2026
 """
 [GP 마스터-그림자 Phase 3] 초경량 현장 기동대 CRM
 - 복잡한 보험 계산식/정밀 상담 로직 없음
@@ -1903,78 +1903,23 @@ elif _spa_mode == "customer":
                 st.rerun()
         else:
             st.markdown(
-                "<div style='background:#f0fdf4;border:1px solid #86efac;"
-                "border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:0.8rem;'>"
-                "💡 <b>내보험다보여 일괄 분석</b>은 <b>HQ 앱 → 내보험다보여 탭</b>에서 실행하세요. "
-                "아래에서 담보 금액을 직접 입력하거나 빠른 HQ 바로가기를 이용해 주세요."
-                "</div>",
+                "<div style='background:#eff6ff;border:1px dashed #000;"
+                "border-radius:10px;padding:12px 14px;margin-bottom:10px;'>"
+                "<div style='font-size:0.85rem;font-weight:900;color:#1e3a8a;margin-bottom:6px;'>"
+                "✅ 내보험다보여 연동 동의 완료</div>"
+                "<div style='font-size:0.8rem;color:#374151;line-height:1.7;'>"
+                "📊 JSON 데이터 주입 및 트리니티 정밀 분석은 <b>HQ 앱 → 내보험다보여 센터(GK-SEC-10)</b>에서 실행하세요.<br>"
+                "<span style='font-size:0.74rem;color:#6b7280;'>"
+                "HQ에서 내보험다보여 API 응답 JSON을 직접 붙여넣기 → 담보 파싱 → DB 저장까지 원클릭 처리됩니다."
+                "</span></div></div>",
                 unsafe_allow_html=True,
             )
-            st.caption("담보 금액을 직접 입력하여 트리니티 분석을 실행합니다.")
-            _t_nhi = st.number_input("월 건강보험료(원)", 0, 2_000_000, 0, 10_000,
-                                     key="crm_tri_nhi", help="직장인: 보수월액×7.19%")
-            _tc1, _tc2 = st.columns(2)
-            with _tc1:
-                _t_cancer = st.number_input("암진단비 가입액(원)",       0, step=1_000_000,  key="crm_tri_cancer")
-                _t_stroke = st.number_input("뇌졸중진단비 가입액(원)",   0, step=1_000_000,  key="crm_tri_stroke")
-                _t_ci     = st.number_input("심근경색진단비 가입액(원)", 0, step=1_000_000,  key="crm_tri_ci")
-            with _tc2:
-                _t_acci   = st.number_input("상해후유장해 가입액(원)",   0, step=10_000_000, key="crm_tri_acci")
-                _t_surg   = st.number_input("수술비 가입액(원)",          0, step=1_000_000,  key="crm_tri_surgery")
-                _t_hosp   = st.number_input("입원일당 가입액(원)",        0, step=10_000,     key="crm_tri_hosp")
-            if st.button("🔬 분석 실행 & HQ 전송", key="crm_tri_run",
-                         use_container_width=True, type="primary"):
-                if _t_nhi > 0:
-                    with st.spinner("트리니티 분석 및 DB 저장 중..."):
-                        try:
-                            from trinity_engine import (
-                                run_trinity_analysis  as _tri_run,
-                                save_analysis_to_db   as _tri_save,
-                                render_trinity_report as _tri_rdr,
-                            )
-                            _t_cov = {
-                                "암진단비":       float(_t_cancer),
-                                "뇌졸중진단비":   float(_t_stroke),
-                                "심근경색진단비": float(_t_ci),
-                                "상해후유장해":   float(_t_acci),
-                                "수술비":         float(_t_surg),
-                                "입원일당":       float(_t_hosp),
-                            }
-                            _tri_adata, _tri_income = _tri_run(_t_cov, float(_t_nhi))
-                            _c_raw = decrypt_pii(_sel_cust.get("contact", ""))
-                            _rpt_t = _tri_rdr(
-                                analysis_data=_tri_adata,
-                                estimated_income=_tri_income,
-                                consultant_info={
-                                    "소속":   st.session_state.get("crm_user_company", ""),
-                                    "이름":   _user_name,
-                                    "연락처": st.session_state.get("crm_user_phone", ""),
-                                },
-                                client_name=_sel_cust.get("name", ""),
-                                show_kakao=True,
-                            )
-                            _ok = _tri_save(
-                                client_contact=_c_raw,
-                                analysis_data=_tri_adata,
-                                estimated_income=_tri_income,
-                                agent_id=_user_id,
-                                report_text=_rpt_t,
-                                person_id=_sel_cust.get("person_id", ""),
-                            )
-                            if _ok:
-                                st.success("✅ 분석 완료! HQ 본부로 데이터가 전송되었습니다.")
-                            else:
-                                st.warning("⚠️ 분석 완료. DB 저장 실패 (연결 확인 필요)")
-                        except Exception as _te:
-                            st.error("분석 오류: " + str(_te))
-                else:
-                    st.warning("월 건강보험료를 입력해 주세요.")
         st.markdown("---")
         st.markdown("**빠른 HQ 바로가기**")
-        _quick_cols = st.columns(4)
+        _quick_cols = st.columns(5)
         for _qi, (_ql, _qs) in enumerate([
-            ("🛡️ KB7 분석", "t3"), ("📋 실손 분석", "t2"),
-            ("🎗️ 암보험", "cancer"), ("🏠 화재보험", "fire"),
+            ("📥 내보험다보여\nJSON 주입", "gk_sec10"), ("🛡️ KB7 분석", "t3"),
+            ("📋 실손 분석", "t2"), ("🎗️ 암보험", "cancer"), ("🏠 화재보험", "fire"),
         ]):
             with _quick_cols[_qi]:
                 _q_url = f"{HQ_APP_URL}/?gk_sector={_qs}&gk_token={_token}"
