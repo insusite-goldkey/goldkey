@@ -335,6 +335,12 @@ def build_deeplink_to_hq(cid: str, agent_id: str = "", name: str = "", sector: s
     name / token 파라미터는 하위 호환성 유지용 — URL에 포함하지 않음.
     user_id 제공 시: [GP-SEC §2] SSO auth_token 자동 생성 포함 → HQ 이중 로그인 방지.
     """
+    # ── [GP-SEC §2-G2] cid 강제 검증 — 빈 person_id로 딥링크 생성 원천 차단 ──────
+    if not cid:
+        raise ValueError(
+            "[GP-DEEPLINK §2] cid(person_id) 누락 — "
+            "딥링크 생성 불가. 상담 중인 고객을 먼저 선택하세요."
+        )
     import urllib.parse as _up
     import hmac as _hmac_dl
     _dl_secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")

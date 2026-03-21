@@ -1068,12 +1068,12 @@ if _spa_mode == "list":
             "상태":       _STAT_LABEL.get(_c.get("status", ""), _c.get("status", "")),
             "자동차만기": f"{_c.get('auto_renewal_month', '')}월" if _c.get("auto_renewal_month") else "-",
             "화재만기":   f"{_c.get('fire_renewal_month', '')}월" if _c.get("fire_renewal_month") else "-",
-            "HQ링크":     build_deeplink_to_hq(
-                cid=_c.get("person_id", ""),
+            "HQ링크":     (build_deeplink_to_hq(
+                cid=_c["person_id"],
                 agent_id=st.session_state.get("user_id", ""),
                 sector="t3",
                 user_id=_user_id,
-            ),
+            ) if _c.get("person_id") else "#"),
         })
 
     if not _df_rows:
@@ -2470,10 +2470,11 @@ elif _spa_mode == "customer":
                 _rh  = ""
                 if _c.get("auto_renewal_month") == _today_mo: _rh += " ⚡ 자동차 만기!"
                 if _c.get("fire_renewal_month") == _today_mo: _rh += " ⚡ 화재 만기!"
-                _rdl = build_deeplink_to_hq(cid=_c.get("person_id", ""),
-                                            agent_id=st.session_state.get("user_id", ""),
-                                            sector="t3",
-                                            user_id=_user_id)
+                _rdl = (build_deeplink_to_hq(cid=_c["person_id"],
+                                             agent_id=st.session_state.get("user_id", ""),
+                                             sector="t3",
+                                             user_id=_user_id)
+                        if _c.get("person_id") else "#")
                 st.markdown(
                     f"<div style='background:#ffffff;border:1px dashed #000;border-radius:10px;"
                     f"border-left:4px solid {_tm3['color']};padding:10px 14px;margin-bottom:8px;'>"

@@ -752,6 +752,32 @@ def send_kakao_report(
     Returns:
         {"ok": True/False, "dry_run": bool, "message": str}
     """
+    # ── [GP-SEC §3] 격벽 검증: 발송 전 person_id → agent_id 소유권 확인 ──────────
+    # 타 설계사 고객에게 카카오 발송되는 보안사고 0% 목표
+    if agent_id and person_id:
+        try:
+            _sb_chk = _get_sb()
+            if _sb_chk:
+                _own = (
+                    _sb_chk.table("gk_persons")
+                    .select("agent_id")
+                    .eq("person_id", person_id)
+                    .eq("agent_id", agent_id)
+                    .limit(1)
+                    .execute().data or []
+                )
+                if not _own:
+                    return {
+                        "ok":      False,
+                        "dry_run": False,
+                        "message": (
+                            f"[보안 차단] 고객-설계사 매핑 불일치 — "
+                            f"person_id={person_id[:8]}... 는 해당 설계사 소속이 아닙니다."
+                        ),
+                    }
+        except Exception:
+            pass  # DB 조회 실패 시 서비스 연속성 우선 — 발송 진행
+
     payload = {
         "template_id": template_id,
         "receiver":    phone_number,

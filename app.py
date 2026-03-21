@@ -28999,6 +28999,15 @@ def main():
                 st.session_state["_sso_login"]        = True
                 if _sso_cid:
                     st.session_state["_sso_gk_cid"]      = _sso_cid
+                    # ── [G3] 바통 낚아채기: SSO 경로 → _rd_docked_cid 즉시 브릿지 ────
+                    # CRM → HQ 이동 시 해당 고객 데이터가 열리자마자 자동 렌더링되도록
+                    if not st.session_state.get("_rd_docked_cid"):
+                        st.session_state["_rd_docked_cid"]    = _sso_cid
+                        st.session_state["_rd_docked_name"]   = ""
+                        st.session_state["_rd_docked_sector"] = (
+                            _sso_sector if _sso_sector not in ("", "home") else "gk_sec10"
+                        )
+                        st.session_state["_rd_loading"]       = True
                 if _sso_agent:
                     st.session_state["_sso_gk_agent_id"] = _sso_agent
                 if _sso_gk_tok:
