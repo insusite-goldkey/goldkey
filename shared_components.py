@@ -1829,16 +1829,30 @@ div[data-testid="stMarkdownContainer"],
   transform: translateY(-1px) !important;
 }
 [data-testid="stButton"] > button[kind="primary"] {
-  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%) !important;
-  color: #ffffff !important;
-  border: none !important;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%) !important;
+  color: #1e3a8a !important;
+  border: 1.5px solid #93c5fd !important;
+  font-weight: 900 !important;
 }
 [data-testid="stButton"] > button[kind="primary"]:hover {
-  opacity: 0.9 !important;
+  background: #a5f3fc !important;
+  border-color: #60a5fa !important;
   transform: translateY(-1px) !important;
 }
 
-/* 6. Alert(st.info/success/error/warning) 컴팩트 스타일 ────────────── */
+/* 5b. 화면 전체너비 버튼 방지 — 컴팩트 max-width 제한 ───────── */
+[data-testid="stButton"] {
+  display: inline-flex !important;
+  width: auto !important;
+}
+[data-testid="stButton"] > button {
+  max-width: min(100%, 360px) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* 6. Alert(st.info/success/error/warning) 컴팩트 스타일 ──────────────── */
 .stAlert {
   border-radius: var(--gp-radius-sm) !important;
   font-size: clamp(11px, 1.9vw, 13px) !important;
@@ -1903,7 +1917,29 @@ div[data-testid="stRadio"] > div > label:has(input:checked) {
 }
 div[data-testid="stRadio"] > div > label > div:first-child { display: none !important; }
 
-/* 9. 태블릿 가로 (769px~1024px) — 2열 flex 유지 ────────────────────── */
+/* 8b. stTabs 파스텔 오버라이드 ───────────────────────────── */
+[data-testid="stTabs"] [data-testid="stTab"] {
+  background: #f8fafc !important;
+  border-bottom: 2.5px solid transparent !important;
+  color: var(--gp-text-muted) !important;
+  font-weight: 700 !important;
+  font-size: clamp(11px, 1.8vw, 13px) !important;
+  padding: 7px 14px !important;
+  border-radius: var(--gp-radius-sm) var(--gp-radius-sm) 0 0 !important;
+  transition: all 0.12s !important;
+}
+[data-testid="stTabs"] [aria-selected="true"][data-testid="stTab"] {
+  background: #eff6ff !important;
+  border-bottom-color: var(--gp-navy) !important;
+  color: var(--gp-navy) !important;
+  font-weight: 900 !important;
+}
+[data-testid="stTabs"] [data-testid="stTab"]:hover:not([aria-selected="true"]) {
+  background: #f1f5f9 !important;
+  color: var(--gp-text) !important;
+}
+
+/* 9. 태블릿 가로 (769px~1024px) — 2열 flex 유지 ─────────────────── */
 @media (min-width: 769px) and (max-width: 1024px) {
   [data-testid="stHorizontalBlock"] {
     flex-wrap: wrap !important;
@@ -1962,7 +1998,7 @@ def inject_global_gp_design() -> None:
       - CSS 변수 (--gp-*) 기반 파스텔 팔레트
       - clamp() 전역 유동 타이포그래피 (PC/태블릿/모바일 연속 스케일)
       - word-break:keep-all + overflow-wrap:break-word 글자 보호
-      - 파스텔 버튼 시스템 (secondary=#E1F5FE, primary=navy gradient)
+      - 파스텔 버튼 시스템 (secondary=#E1F5FE, primary=#dbeafe 파스텔 블루)
       - Alert 컴팩트 스타일
       - 태블릿 가로(769-1024px) 2열 flex / 모바일(≤768px) 수직 스태킹
       - SPA 라디오 네비게이션 버튼형 CSS
