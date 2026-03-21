@@ -12,6 +12,7 @@ export:
     render_customer_list()   — 고객 목록 FlatList 렌더
     build_deeplink_to_hq()   — 자 앱 → 모 앱 딥링크 URL 생성
     build_sso_redirect()     — SSO return_to URL 생성
+    calculate_trinity_metrics() — 트리니티 계산법 — 건보료 기반 재무 지표 산출 엔진
 """
 
 from __future__ import annotations
@@ -37,6 +38,44 @@ def get_clean_phone(raw: str) -> str:
     if not raw:
         return ""
     return "".join(filter(str.isdigit, str(raw)))
+
+
+def calculate_trinity_metrics(nhis_premium: int) -> dict:
+    """
+    [트리니티 계산법] 건강보험료 기반 핵심 재무 지표 산출 중앙 엔진.
+    모든 하드코딩 산식을 이 함수 하나로 통일한다.
+    검증: 300,000원 입력 → 약 846만원 월소득 산출.
+    """
+    # 트리니티 계산법 적용 — 개인부담 건보료율 3.545% 기준 역산
+    monthly_income = int(nhis_premium / 0.03545)   # 추정 명목 소득
+    annual_income  = monthly_income * 12            # 추정 연소득
+    daily_value    = int(monthly_income / 30)       # 일일 가치 (휴업손해)
+
+    # 트리니티 계산법 적용 — 입원일당 적정액 (FSS 상한선 유지)
+    gap_injury     = min(daily_value, 70_000)       # 상해 입원일당 (7만원 상한)
+    gap_disease    = min(daily_value, 100_000)      # 질병 입원일당 (10만원 상한)
+
+    # 트리니티 계산법 적용 — 뇌혈관·허혈성 진단비 (18개월 생활비)
+    stroke_need    = monthly_income * 18
+
+    # 트리니티 계산법 적용 — 장해·치매 간병비 (2년 이상 = 24개월)
+    disability_2yr = monthly_income * 24
+
+    # 트리니티 계산법 적용 — 암 진단비 고정 기준
+    cancer_min     = 100_000_000
+    cancer_rec     = 300_000_000
+
+    return {
+        "monthly_income":  monthly_income,
+        "annual_income":   annual_income,
+        "daily_value":     daily_value,
+        "gap_injury":      gap_injury,
+        "gap_disease":     gap_disease,
+        "stroke_need":     stroke_need,
+        "disability_2yr":  disability_2yr,
+        "cancer_min":      cancer_min,
+        "cancer_rec":      cancer_rec,
+    }
 
 # ── 모 앱 URL (환경 자동 분기) ────────────────────────────────────────────────
 # GK_APP_ID=crm  → CRM 앱 컨테이너 (Dockerfile.crm에서 설정)
@@ -1571,13 +1610,14 @@ button[data-testid="baseButton-primary"]:hover{
             value=int(st.session_state.get("gs_hi_premium") or 0),
             step=10_000,
             key=f"{key_prefix}_nhi",
-            help="직장인: 보수월액×7.19% | 추정 월소득 = 건보료×30",
+            help="직장인: 보수월액×3.545% (개인부담금) | 트리니티 역산공식 적용",
             label_visibility="collapsed",
         )
         if _nhi != int(st.session_state.get("gs_hi_premium") or 0):
             st.session_state["gs_hi_premium"] = _nhi
         if _nhi > 0:
-            st.caption(f"📊 추정 월소득 **{_nhi*30:,.0f}원** | 연소득 **{_nhi*360:,.0f}원**")
+            _cap_t = calculate_trinity_metrics(_nhi)
+            st.caption(f"📊 추정 월소득 **{_cap_t['monthly_income']:,.0f}원** | 연소득 **{_cap_t['annual_income']:,.0f}원**")
 
         _cname   = (st.session_state.get("scan_client_name")
                     or st.session_state.get("gp200_name") or "")
@@ -1724,7 +1764,7 @@ button[data-testid="baseButton-primary"]:hover{
                     st.progress(_pct / 100)
 
             if _nhi_r > 0 and _total_cov > 0:
-                _survive = int(_total_cov / (_nhi_r * 30)) if _nhi_r > 0 else 0
+                _survive = int(_total_cov / calculate_trinity_metrics(int(_nhi_r))["monthly_income"]) if _nhi_r > 0 else 0
                 st.metric(
                     label="⏱️ 현재 보험으로 버틸 수 있는 시간",
                     value=f"{_survive}개월",
@@ -1746,10 +1786,10 @@ button[data-testid="baseButton-primary"]:hover{
 
         # ── [트리니티 계산법] 건강보험료 기반 필요 가입금액 보고서 (항상 표시) ──
         if _nhi_r > 0:
-            _ART32 = 0.0709
-            _tri_m = _nhi_r / _ART32           # 추정 월소득
-            _tri_a = _tri_m * 12               # 추정 연소득
-            _tri_d = _tri_m / 30               # 추정 일소득
+            _tm    = calculate_trinity_metrics(int(_nhi_r))  # 트리니티 계산법 적용
+            _tri_m = _tm["monthly_income"]
+            _tri_a = _tm["annual_income"]
+            _tri_d = _tm["daily_value"]
             _tri_rows = [
                 ("🎗️ 암 진단비 (권장)",        300_000_000, "30년 통계 최빈 진단비 3억원 이상"),
                 ("🎗️ 암 진단비 (최소)",        100_000_000, "소득 수준 무관 최소 기준"),
@@ -1781,7 +1821,7 @@ button[data-testid="baseButton-primary"]:hover{
                 f" | 연소득 <b>{_tri_a/10_000:,.0f}만원</b></div>"
                 + _tri_html
                 + "<div style='font-size:0.62rem;color:#a16207;margin-top:6px;text-align:right;'>"
-                "산출기준: 건보료 ÷ 7.09% = 추정소득 (국민건강보험법 Art.69 역산법)</div>"
+                "산출기준: 건보료 ÷ 3.545% (개인부담금) = 추정소득 (트리니티 계산법 역산)</div>"
                 "</div>",
                 unsafe_allow_html=True,
             )

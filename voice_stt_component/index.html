@@ -145,26 +145,31 @@ function confirmSend() {
 }
 
 function sendValue(text) {
-  // Streamlit Custom Component bidirectional communication
-  var data = JSON.stringify({isStreamlitMessage: true, type: "streamlit:setComponentValue", value: text});
-  window.parent.postMessage(data, "*");
+  // [Fix] Streamlit component-lib 정확한 프로토콜: 객체 직접 전송 + dataType 필수
+  window.parent.postMessage({
+    isStreamlitMessage: true,
+    type: "streamlit:setComponentValue",
+    value: text,
+    dataType: "json"
+  }, "*");
 }
 
-// Streamlit component init handshake
+// Streamlit render 이벤트 수신
 window.addEventListener("message", function(e) {
   try {
     var msg = (typeof e.data === "string") ? JSON.parse(e.data) : e.data;
     if (msg && msg.type === "streamlit:render") {
-      // Component ready
+      // args 수신 시 필요한 초기화 가능
     }
   } catch(_) {}
 });
 
-// Signal ready to Streamlit
-window.parent.postMessage(
-  JSON.stringify({isStreamlitMessage: true, type: "streamlit:componentReady", apiVersion: 1}),
-  "*"
-);
+// [Fix] componentReady: 객체 직접 전송 (JSON.stringify 제거)
+window.parent.postMessage({
+  isStreamlitMessage: true,
+  type: "streamlit:componentReady",
+  apiVersion: 1
+}, "*");
 </script>
 </body>
 </html>

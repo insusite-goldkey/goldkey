@@ -875,7 +875,7 @@ def get_consulting_logs(
         return []
     try:
         q = (sb.table("gk_consulting_logs")
-             .select("content,created_at,log_type,person_id")
+             .select("content,created_at,log_type,person_id,ai_briefing_json")
              .eq("agent_id", agent_id))
         if person_id:
             q = q.eq("person_id", person_id)

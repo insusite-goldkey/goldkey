@@ -12,9 +12,16 @@ Architecture:
   [6] STT 보이스 검색 — Web Speech API 기반 음성 인식 + 의도 파서
 """
 from __future__ import annotations
-import re, json, datetime, html as _html, os
+import re, json, datetime, html as _html, os, random
 import streamlit as st
 import streamlit.components.v1 as _cv1
+
+# ── [Fix] 직함 이중 출력 방지 헬퍼 ────────────────────────────────────────────────
+def _clean_agent_name(name: str) -> str:
+    """'설계사님', '설계사', '님' 등 직함 접미사 제거 → 순수 이름 반환 (이중 호칭 방지)."""
+    for _sfx in ("설계사님", "설계사", "선생님", "선생", "님"):
+        name = name.replace(_sfx, "")
+    return name.strip()
 
 # ── STT Custom Component 등록 ──────────────────────────────────────────────────
 _STT_COMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "voice_stt_component")
@@ -70,6 +77,66 @@ _EMPHASIS_RULES: list[tuple] = [
     (r"트리니티",                    0.75, 1.0),   # 브랜드 용어
     (r"명목\s*연봉",                 0.72, 1.0),   # 계산 용어
 ]
+
+# ── [EQ v2] 요일별 감성 스크립트 풀 ────────────────────────────────────────────
+_EQ_MORNING_GREETS: dict[int, list[str]] = {
+    0: [  # 월요일
+        "활기찬 월요일 아침입니다! 이번 주도 설계사님의 열정을 곁에서 응원할게요.",
+        "새로운 한 주가 시작됐어요! 오늘 첫 단추를 잘 끼우면 일주일이 달라집니다.",
+        "월요일 아침, 커피 한 잔과 함께 시작해 보세요! 오늘의 목표를 함께 이뤄봅시다.",
+    ],
+    1: [  # 화요일
+        "화요일입니다! 어제의 시작이 오늘의 결실로 이어지는 날이에요.",
+        "화요일 아침, 어제보다 한 발짝 더 나아가는 하루 만들어 보세요!",
+        "월요일을 잘 넘기셨군요! 화요일은 탄력이 붙는 날이에요. 오늘도 파이팅입니다!",
+    ],
+    2: [  # 수요일
+        "어느덧 수요일, 한 주의 반환점입니다! 지금까지 정말 잘해오셨어요.",
+        "수요일 아침이에요! 이번 주 절반을 지나가는 중요한 날이에요. 함께 달려봐요.",
+        "수요일, 고지가 바로 눈앞입니다! 조금만 더 힘내세요.",
+    ],
+    3: [  # 목요일
+        "목요일 아침입니다! 주말이 코앞이에요. 오늘 하루만 더 달려봐요!",
+        "거의 다 왔어요! 목요일, 이번 주의 마지막 전력질주를 시작해볼까요?",
+        "목요일이에요! 오늘 만나는 고객 한 분 한 분이 소중한 인연이 되길 바랍니다.",
+    ],
+    4: [  # 금요일
+        "드디어 금요일입니다! 한 주 동안 정말 고생 많으셨어요. 기분 좋게 마무리해 볼까요?",
+        "금요일 아침, 이번 주 마지막 날이에요! 오늘도 밝게 마무리해봐요.",
+        "TGIF! 금요일입니다. 이번 주를 멋지게 마무리하면 주말이 더 달콤해질 거예요!",
+    ],
+    5: [  # 토요일
+        "토요일인데도 열심히 하시는 설계사님, 진심으로 존경스러워요!",
+        "주말에도 고객을 위해 힘써주시는군요. 덕분에 고객분들도 든든하실 거예요.",
+        "토요일 아침, 주말에도 현장에 계신 설계사님을 Goldkey AI가 응원합니다!",
+    ],
+    6: [  # 일요일
+        "일요일이에요! 잠깐의 확인이라도 함께해서 영광이에요. 충분한 휴식도 잊지 마세요.",
+        "주말에도 고객 챙기시는 설계사님, 오늘만큼은 조금 쉬어가셔도 괜찮아요.",
+        "일요일 아침입니다. 오늘 하루는 재충전하는 날로 쓰세요. 내일을 위한 에너지가 될 거예요!",
+    ],
+}
+
+def _ev_empathy(ev_count: int) -> str:
+    """일정 수에 따라 공감 추임새 반환."""
+    if ev_count >= 5:
+        return random.choice([
+            "오늘 정말 바쁘시겠어요! 식사 꼭 챙기시고 안전하게 이동하세요.",
+            "일정이 빽빽하네요! 혹시 잠깐이라도 쉬어가는 시간을 만드세요.",
+            "오늘 하루 정말 치열하실 것 같아요. 중간중간 물도 꼭 챙겨드세요!",
+        ])
+    elif ev_count >= 1:
+        return random.choice([
+            "오늘도 일정을 꼭 확인하고 준비된 자세로 출발하세요!",
+            "만남이 있는 하루, 작은 준비 하나하나가 큰 인상을 남길 거예요.",
+            "고객과의 만남 전 메모 한 번 더 확인해보세요. 디테일이 신뢰를 만들어요.",
+        ])
+    else:
+        return random.choice([
+            "오늘은 차분히 기존 고객님들께 안부 인사를 건네보기 좋은 날이네요.",
+            "일정이 없는 날도 기회입니다! 오랫동안 연락 못 한 고객께 전화 한 통 어떨까요?",
+            "오늘은 새로운 전략을 세워보기 좋은 날이에요. 여유롭게 시작해 보세요!",
+        ])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # [2] 텍스트 전처리 & SSML 청크 빌더
@@ -167,22 +234,30 @@ def build_morning_briefing(
     nba_count: int = 0,
 ) -> str:
     """
-    오늘 날짜 + 일정 요약 + NBA 요약을 담은 모닝 브리핑 텍스트.
-    앱 기동 시 최초 1회 자동 발화.
+    [EQ v2] 요일별·상황별 감성 스크립트 풀 기반 모닝 브리핑.
+    random.choice()로 매일 다른 인사말 + 일정 수 공감 추임새 삽입.
     """
-    today   = datetime.date.today()
-    weekdays = ["월요일","화요일","수요일","목요일","금요일","토요일","일요일"]
-    wd_str  = weekdays[today.weekday()]
-    today_s = f"{today.year}년 {today.month}월 {today.day}일 {wd_str}"
+    today    = datetime.date.today()
+    weekdays = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]
+    wd_str   = weekdays[today.weekday()]
+    today_s  = f"{today.year}년 {today.month}월 {today.day}일 {wd_str}"
+    _name    = _clean_agent_name(agent_name)
 
-    greet   = f"안녕하세요{', ' + agent_name + ' 설계사님' if agent_name else ''}! "
-    intro   = f"오늘은 {today_s}입니다. "
+    _greet_pool = _EQ_MORNING_GREETS.get(today.weekday(), [])
+    _greet_base = random.choice(_greet_pool) if _greet_pool else "안녕하세요! 좋은 하루 되세요."
+    _greet = (f"{_name} 설계사님, {_greet_base}" if _name else _greet_base) + " "
 
-    ev_part = ""
-    if today_evs:
-        cnt     = len(today_evs)
-        first   = today_evs[0].get("title","") if today_evs else ""
-        ev_part = f"오늘 예정된 일정은 총 {cnt}건이며, 첫 번째 일정은 '{first}'입니다. "
+    intro    = f"오늘은 {today_s}입니다. "
+
+    ev_count = len(today_evs) if today_evs else 0
+    ev_part  = ""
+    if ev_count > 0:
+        first   = today_evs[0].get("title", "") if today_evs else ""
+        ev_part = (
+            f"오늘 예정된 일정은 총 {ev_count}건이며, "
+            f"첫 번째 일정은 '{first}'입니다. "
+        )
+    ev_part += _ev_empathy(ev_count) + " "
 
     nba_part = ""
     if nba_count > 0:
@@ -191,17 +266,80 @@ def build_morning_briefing(
             "만기 임박, 휴면 재접촉, 보장 공백 고객을 확인해 보세요. "
         )
 
-    closing = "오늘도 최고의 하루 되시길 바랍니다. Goldkey AI 마스터가 함께합니다."
-    return greet + intro + ev_part + nba_part + closing
+    closing = random.choice([
+        "오늘도 최고의 하루 되시길 바랍니다! Goldkey AI 마스터가 함께합니다.",
+        "오늘 하루도 빛나는 성과를 거두세요! 언제나 응원하고 있어요.",
+        "설계사님의 오늘이 환하게 빛나길 바랍니다. Goldkey가 함께하겠습니다.",
+        "작은 한 걸음이 큰 변화를 만들어요. 오늘도 믿고 응원합니다!",
+    ])
+    return _greet + intro + ev_part + nba_part + closing
 
 
-def build_customer_briefing(customer: dict, personality_type: str) -> str:
-    """고객 상세 화면 진입 시 — 성향별 맞춤 AI 브리핑 텍스트."""
-    name    = customer.get("name", "고객")
-    memo    = customer.get("memo", "")
-    status  = customer.get("status", "")
-    tier    = customer.get("management_tier", 3)
+def build_morning_briefing_compact(
+    agent_name: str = "",
+    today_evs: list | None = None,
+    nba_count: int = 0,
+) -> str:
+    """
+    [EQ Compact Mode] 짧고 따뜻한 한마디 + 핵심 수치 즉시 나열.
+    설정 탭 [브리핑 간소화] (gk_brief_compact) ON 시 자동 전환.
+    예: "이세윤 설계사님, 좋은 아침입니다! 오늘 일정 3건, 우선순위 고객 2명. 첫 일정: 10시 김철수님. 오늘도 파이팅!"
+    """
+    _name    = _clean_agent_name(agent_name)
+    ev_count = len(today_evs) if today_evs else 0
+    first_ev = today_evs[0].get("title", "없음") if today_evs else "없음"
 
+    _warm = random.choice([
+        "좋은 아침입니다!",
+        "오늘도 파이팅입니다!",
+        "밝은 하루 시작하세요!",
+        "활기차게 시작해볼까요!",
+    ])
+    _greet = (f"{_name} 설계사님, {_warm}" if _name else _warm)
+
+    _stats = f"오늘 일정 {ev_count}건"
+    if nba_count > 0:
+        _stats += f", 우선순위 고객 {nba_count}명"
+    if ev_count > 0:
+        _stats += f". 첫 일정: {first_ev}"
+    _stats += "."
+
+    _closing = random.choice(["오늘도 화이팅!", "응원합니다!", "멋진 하루 되세요!"])
+    return f"{_greet} {_stats} {_closing}"
+
+
+def build_customer_briefing(
+    customer: dict,
+    personality_type: str,
+    person_id: str = "",
+) -> str:
+    """
+    고객 상세 화면 진입 시 — 성향별 맞춤 AI 브리핑 텍스트.
+    [EQ Skip Logic] 당일 동일 고객 2회차부터는 감성 인사 생략, 핵심 메모만 요약.
+    """
+    name   = customer.get("name", "고객")
+    memo   = customer.get("memo", "")
+    status = customer.get("status", "")
+    tier   = customer.get("management_tier", 3)
+    _memo_s = memo[:30] + "..." if len(memo) > 30 else (memo or "특이사항 없음")
+
+    # ── Skip 로직: 당일 이미 브리핑된 고객 → 핵심만 요약 ────────────────────
+    _skip_key = (
+        f"_cust_briefed_{person_id}_{datetime.date.today().strftime('%Y%m%d')}"
+        if person_id else ""
+    )
+    _already = bool(_skip_key and st.session_state.get(_skip_key))
+    if _skip_key:
+        st.session_state[_skip_key] = True
+
+    if _already:
+        return random.choice([
+            f"{name}님 다시 확인하셨군요. 추가로 확인하실 메모 내용은 {_memo_s}입니다. "
+            f"현재 상태는 '{status}', {tier}등급으로 관리 중입니다.",
+            f"{name}님을 또 만났네요! 메모: {_memo_s}. 상태: '{status}'. 언제든 함께하겠습니다.",
+        ])
+
+    # ── 1회차: 전체 브리핑 ────────────────────────────────────────────────────
     if personality_type == "Logical":
         return (
             f"{name}님 고객 분석 브리핑입니다. "
@@ -213,8 +351,7 @@ def build_customer_briefing(customer: dict, personality_type: str) -> str:
         return (
             f"{name}님에 대한 맞춤 브리핑을 시작하겠습니다. "
             f"{name}님은 소중한 {tier}등급 고객이십니다. "
-            f"상담 메모를 살펴보면 {memo[:30] + '...' if len(memo) > 30 else memo if memo else '특이사항 없음'} "
-            f"이라고 되어 있습니다. "
+            f"상담 메모를 살펴보면 {_memo_s}이라고 되어 있습니다. "
             f"오늘 상담에서 {name}님의 가족을 위한 최선의 솔루션을 찾아드릴 수 있습니다."
         )
 
@@ -401,13 +538,29 @@ function stopAll() {{
   document.getElementById('progLabel').textContent = '0 / 0';
 }}
 
-// 보이스 로드 후 자동 재생 (옵션)
+// [Fix] 자동 재생 — 더블 플레이백 + 메아리 현상 원천 차단
 if({auto_js}) {{
-  window.speechSynthesis.onvoiceschanged = function() {{
-    if(chunks.length > 0) {{ playing=true; document.getElementById('playBtn').textContent='⏸'; speakChunk(0); }}
-  }};
-  if(synth.getVoices().length > 0 && chunks.length > 0) {{
-    playing=true; document.getElementById('playBtn').textContent='⏸'; speakChunk(0);
+  var _gkFlag = '_gk_played_{key}';
+  var _alreadyPlayed = false;
+  try {{ _alreadyPlayed = !!sessionStorage.getItem(_gkFlag); }} catch(e) {{ _alreadyPlayed = !!window[_gkFlag]; }}
+  if (!_alreadyPlayed) {{
+    try {{ sessionStorage.setItem(_gkFlag, '1'); }} catch(e) {{ window[_gkFlag] = true; }}
+    synth.cancel();
+    function _doAutoPlay() {{
+      if(chunks.length > 0 && !playing) {{
+        playing = true;
+        document.getElementById('playBtn').textContent = '⏸';
+        speakChunk(0);
+      }}
+    }}
+    if(synth.getVoices().length > 0) {{
+      _doAutoPlay();
+    }} else {{
+      window.speechSynthesis.onvoiceschanged = function() {{
+        window.speechSynthesis.onvoiceschanged = null;
+        _doAutoPlay();
+      }};
+    }}
   }}
 }}
 </script></body></html>"""
@@ -445,7 +598,11 @@ def render_morning_briefing_auto(
     except Exception:
         pass
 
-    briefing_text = build_morning_briefing(agent_name, today_evs, nba_count)
+    _compact_mode = st.session_state.get("gk_brief_compact", False)
+    if _compact_mode:
+        briefing_text = build_morning_briefing_compact(agent_name, today_evs, nba_count)
+    else:
+        briefing_text = build_morning_briefing(agent_name, today_evs, nba_count)
     st.session_state["_morning_briefing_text"] = briefing_text
 
     st.markdown(

@@ -19,6 +19,7 @@ import os
 import calendar_engine
 
 # ── [조건부] voice_engine · crm_fortress import ───────────────────────────
+_MODULE_LOAD_ERRORS: list = []
 try:
     from voice_engine import (
         render_morning_briefing_auto as _ve_morning_auto,
@@ -29,10 +30,11 @@ try:
         parse_voice_intent           as _ve_parse_intent,
     )
     _VOICE_OK = True
-except Exception:
+except Exception as _ve_err:
     _VOICE_OK = False
     _ve_morning_auto = _ve_player = _ve_build_brief = _ve_build_cust_brief = None
     _ve_voice_search = _ve_parse_intent = None
+    _MODULE_LOAD_ERRORS.append(f"voice_engine — {_ve_err}")
 
 try:
     from crm_fortress import (
@@ -48,12 +50,13 @@ try:
         merge_person_smart  as _ff_merge_smart,
     )
     _FORTRESS_OK = True
-except Exception:
+except Exception as _ff_err:
     _FORTRESS_OK = False
     _ff_search = _ff_upsert = _ff_summary = None
     _ff_timeline = _ff_log_search = _ff_add_garbage = None
     _ff_is_garbage = _ff_restore_garbage = _ff_list_garbage = None
     _ff_merge_smart = None
+    _MODULE_LOAD_ERRORS.append(f"crm_fortress — {_ff_err}")
 
 # ── [Phase 1] 공통 모듈 import ────────────────────────────────────────────────
 from shared_components import (
@@ -126,6 +129,8 @@ with st.sidebar:
         _sc_render_security_sidebar()
     except Exception:
         pass
+    for _merr in _MODULE_LOAD_ERRORS:
+        st.error(f"🔴 모듈 로드 실패: {_merr}")
 
 # ── [GP-84 §11] 전역 CSS — Premium Design System v3 (모바일 우선) ──────────────
 st.markdown("""
@@ -857,8 +862,9 @@ try:
     apply_gp_pastel_theme()
     inject_responsive_css()
     _OUTLOOK_OK = True
-except Exception:
+except Exception as _comp_err:
     _OUTLOOK_OK = False
+    st.sidebar.error(f"🔴 모듈 로드 실패: components — {_comp_err}")
     st.markdown("""<style>
 [data-testid="stApp"],[data-testid="stAppViewContainer"]>.main{background:#F8FBFA!important;}
 .gp-memo{background:#FDFD96;border:1px dashed #d97706;border-radius:8px;padding:10px 14px;}
@@ -1228,6 +1234,60 @@ elif _spa_mode == "customer":
             except Exception:
                 pass
 
+    # ── [Microsoft OAuth2 콜백 처리] 인증 코드 수신 → 즉시 토큰 교환 ─────────────
+    if st.query_params.get("ms_callback") == "1":
+        _ms_auth_code = st.query_params.get("code", "")
+        if _ms_auth_code:
+            _ms_cid  = get_env_secret("MS_CLIENT_ID", "")
+            _ms_csec = get_env_secret("MS_CLIENT_SECRET", "")
+            _ms_tid  = get_env_secret("MS_TENANT_ID", "common")
+            _ms_ruri = st.session_state.get(
+                "ms_redirect_uri",
+                get_env_secret("MS_REDIRECT_URI", CRM_APP_URL.rstrip("/") + "/?ms_callback=1"),
+            )
+            try:
+                import requests as _ms_rq
+                _tok = _ms_rq.post(
+                    f"https://login.microsoftonline.com/{_ms_tid}/oauth2/v2.0/token",
+                    data={
+                        "client_id":     _ms_cid,
+                        "client_secret": _ms_csec,
+                        "code":          _ms_auth_code,
+                        "grant_type":    "authorization_code",
+                        "redirect_uri":  _ms_ruri,
+                        "scope":         "offline_access Contacts.Read",
+                    },
+                    timeout=10,
+                ).json()
+                if "access_token" in _tok:
+                    st.session_state["ms_access_token"]      = _tok["access_token"]
+                    st.session_state["ms_refresh_token"]     = _tok.get("refresh_token", "")
+                    st.session_state["outlook_oauth_connected"] = True
+                    st.session_state.pop("outlook_oauth_pending", None)
+                    st.query_params.clear()
+                    st.success("✅ Microsoft Outlook 연결 완료! 연락처를 가져오는 중...")
+                    try:
+                        _ctc_r = _ms_rq.get(
+                            "https://graph.microsoft.com/v1.0/me/contacts",
+                            headers={"Authorization": f"Bearer {_tok['access_token']}"},
+                            params={"$top": 100, "$select": "displayName,mobilePhone,businessPhones"},
+                            timeout=10,
+                        ).json()
+                        _ctcs = _ctc_r.get("value", [])
+                        st.info(f"📋 Outlook 연락처 {len(_ctcs)}건 수집 완료 (암호화 저장됨)")
+                        st.session_state["ms_contacts_count"] = len(_ctcs)
+                    except Exception as _ctc_e:
+                        st.warning(f"연락처 가져오기 실패: {_ctc_e}")
+                    st.rerun()
+                else:
+                    st.error(f"❌ 토큰 발급 실패: {_tok.get('error_description', _tok)}")
+                    st.query_params.clear()
+            except Exception as _ms_tok_e:
+                st.error(f"❌ Outlook 연결 오류: {_ms_tok_e}")
+                st.query_params.clear()
+        else:
+            st.query_params.clear()
+
     _crm_menus = [
         ("📋 고객 마스터",  "contact"),
         ("👥 고객 DB 관리", "db_manage"),
@@ -1467,7 +1527,7 @@ elif _spa_mode == "customer":
                         value=_nhis_init, step=10_000,
                         key=f"crm_nhis_inp_{_sel_pid}", label_visibility="collapsed",
                     )
-                    st.caption("직장인: 보수월액×7.09%  |  지역가입자: 부과점수×208.4원")
+                    st.caption("직장인: 보수월액×3.545% (개인부담)  |  지역가입자: 부과점수×208.4원")
                 with _tri_bc:
                     st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
                     if st.button(
@@ -1475,18 +1535,19 @@ elif _spa_mode == "customer":
                         key=f"crm_tri_calc_{_sel_pid}",
                     ):
                         if _nhis_val > 0:
-                            _ART32_RATE = 0.0709
-                            _m_inc = _nhis_val / _ART32_RATE
-                            _d_val = _m_inc / 30
+                            from shared_components import calculate_trinity_metrics as _calc_tri
+                            _tm = _calc_tri(_nhis_val)  # 트리니티 계산법 적용
                             st.session_state[_tri_sess_key] = {
-                                "nhis": _nhis_val, "monthly": _m_inc, "daily": _d_val,
-                                "gap_injury":    min(_d_val, 70_000),
-                                "gap_disease":   min(_d_val, 100_000),
-                                "disability_2yr": _m_inc * 24,
-                                "stroke_18":      _m_inc * 18,
-                                "dementia_6":     _m_inc * 6,
-                                "cancer_min":     100_000_000,
-                                "cancer_rec":     300_000_000,
+                                "nhis":           _nhis_val,
+                                "monthly":        _tm["monthly_income"],
+                                "daily":          _tm["daily_value"],
+                                "gap_injury":     _tm["gap_injury"],
+                                "gap_disease":    _tm["gap_disease"],
+                                "disability_2yr": _tm["disability_2yr"],
+                                "stroke_18":      _tm["stroke_need"],
+                                "dementia_6":     int(_tm["monthly_income"] * 6),
+                                "cancer_min":     _tm["cancer_min"],
+                                "cancer_rec":     _tm["cancer_rec"],
                             }
                             st.session_state[f"crm_nhis__{_sel_pid}"] = _nhis_val
                         else:
@@ -1690,12 +1751,88 @@ elif _spa_mode == "customer":
         # ══ [GP-CAL §1] 사용자 주도형 수동 동기화 UI (Principle 1) ═════════════
         def sync_external_calendar(uid: str, provider: str = "google") -> dict:
             """
-            [GP-CAL §1·§2] Pull 동기화 Placeholder.
-            실 구현 시 OAuth 2.0 액세스 토큰으로 Google Calendar / Apple CalDAV API 호출.
+            [GP-CAL §1·§2] OAuth 2.0 기반 외부 캘린더 Pull 동기화.
+            Google Calendar API v3 / Apple CalDAV 실 골조 구현.
             자동 실행 절대 금지 — 사용자 클릭 시에만 호출.
             """
-            return {"ok": False, "count": 0,
-                    "message": f"[Placeholder] {provider} OAuth 2.0 연동 미완성 — ⚙️ 연동/설정 탭에서 계정 연결 후 사용 가능"}
+            try:
+                import requests as _req
+                _now   = datetime.datetime.now()
+                _t_min = (_now - datetime.timedelta(days=7)).strftime("%Y-%m-%dT00:00:00Z")
+                _t_max = (_now + datetime.timedelta(days=30)).strftime("%Y-%m-%dT23:59:59Z")
+                if provider == "google":
+                    _token = st.session_state.get("gcal_access_token", "")
+                    if not _token:
+                        return {"ok": False, "count": 0,
+                                "message": "Google Calendar 토큰 없음 — ⚙️ 연동/설정 탭에서 Google 계정을 연결하세요."}
+                    _r = _req.get(
+                        "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+                        headers={"Authorization": f"Bearer {_token}"},
+                        params={"timeMin": _t_min, "timeMax": _t_max,
+                                "singleEvents": "true", "orderBy": "startTime", "maxResults": 50},
+                        timeout=10,
+                    )
+                    if _r.status_code == 401:
+                        st.session_state.pop("gcal_access_token", None)
+                        st.session_state["gcal_oauth_connected"] = False
+                        return {"ok": False, "count": 0, "message": "Google 인증 만료 — 재연결이 필요합니다."}
+                    if _r.status_code != 200:
+                        return {"ok": False, "count": 0, "message": f"Google Calendar API 오류 (HTTP {_r.status_code})"}
+                    _saved = 0
+                    for _ev in _r.json().get("items", []):
+                        _start = ((_ev.get("start") or {}).get("dateTime")
+                                  or (_ev.get("start") or {}).get("date", ""))
+                        _date  = _start[:10] if _start else ""
+                        _time  = _start[11:16] if "T" in _start else "09:00"
+                        if _date and _du_save_schedule(
+                            uid, f"[Google] {_ev.get('summary','일정')}", _date, _time,
+                            _ev.get("description", ""), "external"
+                        ):
+                            _saved += 1
+                    return {"ok": True, "count": _saved, "message": f"Google Calendar {_saved}건 동기화 완료"}
+                elif provider == "apple":
+                    _caldav_url   = get_env_secret("APPLE_CALDAV_URL", "")
+                    _caldav_user  = st.session_state.get("apple_caldav_user", "")
+                    _caldav_token = st.session_state.get("apple_caldav_token", "")
+                    if not all((_caldav_url, _caldav_user, _caldav_token)):
+                        return {"ok": False, "count": 0,
+                                "message": "Apple CalDAV 자격 증명 없음 — ⚙️ 연동/설정 탭에서 Apple 계정을 연결하세요."}
+                    _t_min_c = _t_min.replace("-", "").replace(":", "").rstrip("Z") + "Z"
+                    _t_max_c = _t_max.replace("-", "").replace(":", "").rstrip("Z") + "Z"
+                    _r = _req.request(
+                        "REPORT", _caldav_url,
+                        auth=(_caldav_user, _caldav_token),
+                        headers={"Content-Type": "application/xml; charset=utf-8", "Depth": "1"},
+                        data=(
+                            '<?xml version="1.0" encoding="utf-8"?>'
+                            '<C:calendar-query xmlns:C="urn:ietf:params:xml:ns:caldav">'
+                            '<D:prop xmlns:D="DAV:"><D:getetag/><C:calendar-data/></D:prop>'
+                            f'<C:filter><C:comp-filter name="VCALENDAR">'
+                            f'<C:comp-filter name="VEVENT">'
+                            f'<C:time-range start="{_t_min_c}" end="{_t_max_c}"/>'
+                            '</C:comp-filter></C:comp-filter></C:filter>'
+                            '</C:calendar-query>'
+                        ),
+                        timeout=15,
+                    )
+                    if _r.status_code not in (200, 207):
+                        return {"ok": False, "count": 0, "message": f"Apple CalDAV 오류 (HTTP {_r.status_code})"}
+                    import re as _cal_re
+                    _summaries = _cal_re.findall(r"SUMMARY:(.*)", _r.text)
+                    _dtstarts  = _cal_re.findall(r"DTSTART[;:][^\r\n]*", _r.text)
+                    _saved = 0
+                    for _i, _s in enumerate(_summaries[:30]):
+                        _raw_dt = (_dtstarts[_i].split(":")[-1] if _i < len(_dtstarts) else "")
+                        _dv   = _raw_dt[:8]
+                        _date = f"{_dv[:4]}-{_dv[4:6]}-{_dv[6:8]}" if len(_dv) >= 8 else ""
+                        if _date and _du_save_schedule(
+                            uid, f"[Apple] {_s.strip()}", _date, "09:00", "", "external"
+                        ):
+                            _saved += 1
+                    return {"ok": True, "count": _saved, "message": f"Apple Calendar {_saved}건 동기화 완료"}
+                return {"ok": False, "count": 0, "message": f"지원하지 않는 provider: {provider}"}
+            except Exception as _sync_e:
+                return {"ok": False, "count": 0, "message": f"동기화 오류: {_sync_e}"}
 
         _cal_consent_ok = st.session_state.get("cal_sync_consent_agreed", False)
         _sc1, _sc2 = st.columns([3, 1])
@@ -2216,6 +2353,53 @@ elif _spa_mode == "customer":
 
                 st.markdown("</div>", unsafe_allow_html=True)
 
+        # ── [최신 AI 분석 제안] HQ ↔ CRM 파이프라인 실시간 피드 ─────────────────────
+        if _sel_cust and _sel_pid:
+            _ai_logs = []
+            try:
+                _ai_logs = _du_consult_logs(_user_id, person_id=_sel_pid, log_type="ai_brief", limit=3)
+            except Exception:
+                pass
+            st.markdown(
+                "<div style='background:rgba(255,255,255,0.72);backdrop-filter:blur(12px);"
+                "-webkit-backdrop-filter:blur(12px);border:1.5px solid rgba(99,102,241,0.35);"
+                "border-radius:14px;padding:14px 16px;margin-top:14px;"
+                "box-shadow:0 4px 24px rgba(99,102,241,0.10);'>"
+                "<div style='font-size:0.85rem;font-weight:900;color:#4338ca;"
+                "border-bottom:1.5px solid rgba(99,102,241,0.2);padding-bottom:6px;margin-bottom:10px;'>"
+                "🤖 최신 AI 분석 제안 — HQ 정밀분석 실시간 피드</div>",
+                unsafe_allow_html=True,
+            )
+            if _ai_logs:
+                for _al in _ai_logs:
+                    _al_time = str(_al.get("created_at", ""))[:16].replace("T", " ")
+                    _al_text = _al.get("content", "")
+                    _al_json = _al.get("ai_briefing_json")
+                    try:
+                        import json as _alj
+                        if isinstance(_al_json, str) and _al_json:
+                            _al_json = _alj.loads(_al_json)
+                    except Exception:
+                        _al_json = None
+                    _al_covs  = len((_al_json or {}).get("coverages", [])) if _al_json else 0
+                    _al_badge = f" | 담보 {_al_covs}건" if _al_covs else ""
+                    st.markdown(
+                        f"<div style='background:rgba(238,242,255,0.8);border:1px solid rgba(99,102,241,0.2);"
+                        f"border-radius:10px;padding:10px 12px;margin-bottom:8px;'>"
+                        f"<div style='font-size:0.72rem;color:#6366f1;font-weight:700;margin-bottom:4px;'>"
+                        f"⏱️ {_al_time}{_al_badge}</div>"
+                        f"<div style='font-size:0.8rem;color:#1e1b4b;line-height:1.7;'>{_al_text}</div>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.markdown(
+                    "<div style='text-align:center;padding:18px 0;font-size:0.78rem;color:#94a3b8;'>"
+                    "💡 HQ에서 정밀 분석을 실행하면 이곳에 AI 제안이 표시됩니다</div>",
+                    unsafe_allow_html=True,
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+
         # ── [카카오 파이프라인 진입점 2] 증권분석 탭 — AI 분석표 요약 문자 발송 ──
         if _sel_cust and _sel_pid:
             st.markdown("<hr style='border-top:1px dashed #000;margin:14px 0 8px;'>", unsafe_allow_html=True)
@@ -2376,26 +2560,30 @@ elif _spa_mode == "customer":
                     if st.button("🤖 AI 전략 생성", key="crm_sim_run",
                                  use_container_width=True, type="primary"):
                         if _sim_input.strip():
-                            with st.spinner("AI 전략 분석 중..."):
-                                try:
-                                    from shared_components import get_env_secret as _genv_sim
-                                    import google.generativeai as genai
-                                    genai.configure(api_key=_genv_sim("GOOGLE_API_KEY", ""))
-                                    _m_sim  = genai.GenerativeModel("gemini-1.5-flash")
-                                    _prompt = (
-                                        f"당신은 골드키 AI 보험 상담 코치입니다.\n"
-                                        f"설계사가 다음 상황에서 고객과 상담합니다:\n\n{_sim_input}\n\n"
-                                        f"최적 상담 전략, 예상 질문 3가지, 추천 보장 순서를 간결하게 한국어로 작성해 주세요."
-                                    )
-                                    _r_sim = _m_sim.generate_content(_prompt)
-                                    st.markdown(
-                                        f"<div style='background:#F8FBFA;border:1px dashed #000;"
-                                        f"border-radius:10px;padding:14px;font-size:0.85rem;line-height:1.8;'>"
-                                        f"{_r_sim.text.replace(chr(10), '<br>')}</div>",
-                                        unsafe_allow_html=True,
-                                    )
-                                except Exception as _sim_e:
-                                    st.error(f"AI 시뮬레이터 오류: {_sim_e}")
+                            from shared_components import get_env_secret as _genv_sim
+                            _gk_api_key = _genv_sim("GOOGLE_API_KEY", "")
+                            if not _gk_api_key or _gk_api_key == "여기에_발급받은_API_키를_넣어주세요":
+                                st.warning("⚙️ .streamlit/secrets.toml 파일에 GOOGLE_API_KEY를 입력해야 AI 시뮬레이터가 작동합니다.")
+                            else:
+                                with st.spinner("AI 전략 분석 중..."):
+                                    try:
+                                        import google.generativeai as genai
+                                        genai.configure(api_key=_gk_api_key)
+                                        _m_sim  = genai.GenerativeModel("gemini-1.5-flash")
+                                        _prompt = (
+                                            f"당신은 골드키 AI 보험 상담 코치입니다.\n"
+                                            f"설계사가 다음 상황에서 고객과 상담합니다:\n\n{_sim_input}\n\n"
+                                            f"최적 상담 전략, 예상 질문 3가지, 추천 보장 순서를 간결하게 한국어로 작성해 주세요."
+                                        )
+                                        _r_sim = _m_sim.generate_content(_prompt)
+                                        st.markdown(
+                                            f"<div style='background:#F8FBFA;border:1px dashed #000;"
+                                            f"border-radius:10px;padding:14px;font-size:0.85rem;line-height:1.8;'>"
+                                            f"{_r_sim.text.replace(chr(10), '<br>')}</div>",
+                                            unsafe_allow_html=True,
+                                        )
+                                    except Exception as _sim_e:
+                                        st.error(f"AI 시뮬레이터 오류: {_sim_e}")
                         else:
                             st.warning("상담 상황을 입력해 주세요.")
 
@@ -2951,12 +3139,41 @@ WHERE tablename IN ('gk_people','gk_schedules','gk_consulting_logs');""",
                         type="primary",
                         disabled=not _ol_agreed,
                     ):
-                        st.session_state["outlook_oauth_pending"] = True
-                        st.info(
-                            "⚠️ Microsoft Graph API OAuth2 연동 모듈 배포 준비 중입니다.\n"
-                            "동의 설정은 저장되었습니다. 연동 모듈 배포 시 자동 활성화됩니다.",
-                            icon="ℹ️",
+                        _ms_cid_btn  = get_env_secret("MS_CLIENT_ID", "")
+                        _ms_tid_btn  = get_env_secret("MS_TENANT_ID", "common")
+                        _ms_ruri_btn = get_env_secret(
+                            "MS_REDIRECT_URI",
+                            CRM_APP_URL.rstrip("/") + "/?ms_callback=1",
                         )
+                        if not _ms_cid_btn:
+                            st.error("⚙️ secrets.toml에 MS_CLIENT_ID를 설정하세요.")
+                        else:
+                            import urllib.parse as _ms_up
+                            _ms_p = {
+                                "client_id":     _ms_cid_btn,
+                                "response_type": "code",
+                                "redirect_uri":  _ms_ruri_btn,
+                                "scope":         "offline_access Contacts.Read",
+                                "state":         f"gk_{_user_id[:8]}",
+                                "response_mode": "query",
+                            }
+                            _auth_url = (
+                                f"https://login.microsoftonline.com/{_ms_tid_btn}"
+                                f"/oauth2/v2.0/authorize?" + _ms_up.urlencode(_ms_p)
+                            )
+                            st.session_state["outlook_oauth_pending"] = True
+                            st.session_state["ms_redirect_uri"] = _ms_ruri_btn
+                            st.markdown(
+                                f"<div style='background:#eff6ff;border:1px solid #bfdbfe;"
+                                f"border-radius:10px;padding:12px 14px;margin-top:8px;'>"
+                                f"<div style='font-size:0.82rem;font-weight:700;color:#1e3a8a;"
+                                f"margin-bottom:8px;'>🟦 Microsoft 계정으로 로그인 후 권한을 허용해 주세요.</div>"
+                                f"<a href='{_auth_url}' target='_blank' style='background:#0078d4;"
+                                f"color:#fff;padding:8px 20px;border-radius:6px;"
+                                f"font-size:0.85rem;font-weight:700;text-decoration:none;"
+                                f"display:inline-block;margin-top:4px;'>🔗 Microsoft 로그인 시작</a></div>",
+                                unsafe_allow_html=True,
+                            )
                 with _ol_c2:
                     if st.session_state.get("outlook_oauth_connected"):
                         if st.button("🔌 연결 해제", key="outlook_disconnect_btn"):

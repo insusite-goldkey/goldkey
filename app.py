@@ -42145,6 +42145,33 @@ div[data-testid="stButton"] {
                             st.session_state["_lsec_parsed_coverages"] = _covs
                             if _ps_hi > 0:
                                 st.session_state["_tri_scan_premium"] = _ps_hi
+                            # ── [HQ→CRM 파이프라인 §1] 분석 결과 Supabase 즉시 저장 ──
+                            try:
+                                from db_utils import log_consulting as _ps_log_c
+                                _ps_pid = (
+                                    st.session_state.get("_sso_gk_cid", "")
+                                    or st.session_state.get("scan_client_person_id", "")
+                                )
+                                _ps_aid = st.session_state.get("user_id", "")
+                                _ps_cname = st.session_state.get("ps_cname_l", "")
+                                if _ps_pid and _ps_aid:
+                                    _ps_log_c(
+                                        agent_id=_ps_aid,
+                                        person_id=_ps_pid,
+                                        log_type="ai_brief",
+                                        content=(
+                                            f"[증권분석 완료] 담보 {len(_covs)}건 파싱"
+                                            + (f" | 고객명: {_ps_cname}" if _ps_cname else "")
+                                            + (f" | 건보료: {_ps_hi:,}원" if _ps_hi > 0 else "")
+                                        ),
+                                        ai_briefing_json={
+                                            "coverages":     _covs,
+                                            "hi_premium":    _ps_hi,
+                                            "customer_name": _ps_cname,
+                                        },
+                                    )
+                            except Exception:
+                                pass
                             with st.expander("📋 파싱된 담보 목록", expanded=True):
                                 for _c in _covs[:20]:
                                     st.write(f"• {_c.get('name', '?')} — {_c.get('amount', 0):,}만원")
