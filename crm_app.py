@@ -1372,15 +1372,72 @@ elif _spa_mode == "customer":
             st.query_params.clear()
 
     _crm_menus = [
-        ("📋 고객 마스터",  "contact"),
-        ("👥 고객 DB 관리", "db_manage"),
-        ("📅 스케줄",       "schedule"),
-        ("🌐 내보험다보여",  "nibo"),
-        ("📊 증권분석",      "analysis"),
-        ("🤖 AI 브리핑",    "ai_brief"),
-        ("💬 카카오 발송",  "kakao"),
-        ("⚙️ 연동/설정",   "settings"),
+        ("📋 고객 마스터",   "contact"),
+        ("👥 고객 DB 관리",  "db_manage"),
+        ("📅 스케줄",        "schedule"),
+        ("🌐 내보험다보여",   "nibo"),
+        ("📊 증권분석",       "analysis"),
+        ("🤖 AI 브리핑",     "ai_brief"),
+        ("💬 카카오 발송",   "kakao"),
+        ("⚙️ 연동/설정",    "settings"),
     ]
+
+    # ── [GP-2PANE §NAV] 달력 + 수직 메뉴 — '고객정보입력' 블록 아래 고정 패널 ────
+    _spa_2p_l, _spa_2p_r = st.columns([3, 7])
+    with _spa_2p_l:
+        # 달력 미니 위젯
+        try:
+            calendar_engine.render_today_widget(_user_id)
+        except Exception:
+            pass
+        st.markdown(
+            "<div style='background:#fce4ec;border:1px dashed #f8bbd0;border-radius:8px;"
+            "padding:6px 10px;margin:6px 0 4px;font-size:0.78rem;font-weight:900;color:#880e4f;'>"
+            "👥 고객 정보 입력</div>",
+            unsafe_allow_html=True,
+        )
+        # 8대 수직 메뉴 ([내보험다보여][증권분석] 포함 전 항목 복구)
+        for _2pnl, _2pnk in _crm_menus:
+            _2pn_active = (st.session_state.get("crm_spa_screen") == _2pnk)
+            if st.button(
+                _2pnl,
+                key=f"2pnav_{_2pnk}",
+                use_container_width=True,
+                type="primary" if _2pn_active else "secondary",
+            ):
+                st.session_state["crm_spa_screen"] = _2pnk
+                st.session_state.pop("crm_spa_screen_radio", None)
+                st.rerun()
+        st.markdown(
+            "<hr style='margin:6px 0;border-top:1px dashed #e5e7eb;'>",
+            unsafe_allow_html=True,
+        )
+        if st.button("🔙 고객 목록", key="2pnav_back", use_container_width=True):
+            st.session_state["crm_spa_mode"] = "list"
+            st.session_state["crm_selected_pid"] = ""
+            st.rerun()
+
+    with _spa_2p_r:
+        if _sel_cust:
+            _cn_2p = _sel_cust.get("name", "")
+            _ct_2p = _sel_cust.get("management_tier", 3)
+            _tm_2p = TIER_META.get(_ct_2p, TIER_META[3])
+            st.markdown(
+                f"<div style='background:#F8FBFA;padding:8px 14px;border-radius:10px;"
+                f"border:1px dashed #000;margin-bottom:8px;display:flex;align-items:center;gap:10px;'>"
+                f"<span style='font-size:1.0rem;font-weight:900;color:#1e293b;'>{_cn_2p}</span>"
+                f"<span style='font-size:0.72rem;font-weight:900;padding:2px 8px;border-radius:10px;"
+                f"background:{_tm_2p['bg']};color:{_tm_2p['color']};'>"
+                f"{_tm_2p['icon']} {_tm_2p['label']}</span>"
+                f"<span style='font-size:0.72rem;color:#64748b;margin-left:auto;'>"
+                f"{_sel_cust.get('job','')}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("⬅️ 좌측 메뉴에서 화면을 선택하세요.")
+
+    # ── [GP-COMPAT] 기존 render_radio_spa_nav 폴백 유지 ──────────────────────
     if _OUTLOOK_OK:
         _spa_screen = render_radio_spa_nav(
             _crm_menus,
@@ -2348,7 +2405,15 @@ elif _spa_mode == "customer":
             ("📋 실손 분석", "t2"), ("🎗️ 암보험", "cancer"), ("🏠 화재보험", "fire"),
         ]):
             with _quick_cols[_qi]:
-                _q_url = f"{HQ_APP_URL}/?gk_sector={_qs}&gk_token={_token}"
+                try:
+                    _q_url = build_deeplink_to_hq(
+                        cid=_sel_pid or _sel_cust.get("person_id", ""),
+                        agent_id=_user_id,
+                        sector=_qs,
+                        user_id=_user_id,
+                    )
+                except Exception:
+                    _q_url = f"{HQ_APP_URL}/?gk_sector={_qs}"
                 st.markdown(
                     f'<a href="{_q_url}" target="_blank" style="display:block;text-align:center;'
                     f'background:#dbeafe;color:#1e3a8a;border-radius:8px;padding:8px;'
@@ -2583,6 +2648,26 @@ elif _spa_mode == "customer":
                         st.success(f"✅ {_d2}발송 완료!") if _kk2_res.get("ok") else st.error(f"❌ {_kk2_res.get('message','')}")
                     except Exception as _kk2_e:
                         st.error(f"카카오 오류: {_kk2_e}")
+
+        # ── [§16 통합 증권분석 센터] 피보험자 기준 nibo JSON → trinity 파이프라인 ──
+        st.markdown("<hr style='border-top:2px solid #3b82f6;margin:20px 0 12px;'>",
+                    unsafe_allow_html=True)
+        st.markdown(
+            "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;margin-bottom:8px;'>"
+            "🔬 통합 증권분석 센터 (내보험다보여 연동)"
+            "<span style='font-size:0.68rem;font-weight:400;color:#64748b;margin-left:8px;'>"
+            f"피보험자 기준 · {(_sel_cust or {}).get('name','고객')} 원장</span></div>",
+            unsafe_allow_html=True,
+        )
+        try:
+            from shared_components import render_unified_analysis_center as _analysis_uac
+            _analysis_uac(
+                key_prefix="_uac_analysis",
+                person_id=_sel_pid or "",
+                agent_id=_user_id,
+            )
+        except Exception as _uac_analysis_e:
+            st.error(f"통합분석센터 오류: {_uac_analysis_e}")
 
     # ── SCREEN 5: 🤖 AI 브리핑 편집기 (5:5 분할 — 좌: 우선순위·일정, 우: 편집기) ────
     elif _spa_screen == "ai_brief":
@@ -3564,19 +3649,7 @@ WHERE tablename IN ('gk_people','gk_schedules','gk_consulting_logs');""",
                     st.session_state.pop(_ck, None)
                 st.info("동의 항목이 초기화되었습니다. 로그아웃 후 재로그인하여 재동의해 주세요.")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# [GP-PHASE-4] 반응형 통합 증권분석 센터 — CRM 이식 (HQ와 완전 동일)
-# ══════════════════════════════════════════════════════════════════════════════
-st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
-try:
-    from shared_components import render_unified_analysis_center as _crm_render_uac
-    _crm_render_uac(
-        key_prefix="_uac_crm",
-        person_id=st.session_state.get("crm_selected_pid", ""),
-        agent_id=_user_id,
-    )
-except Exception as _crm_uac_e:
-    st.error(f"통합 증권분석 센터 로드 오류: {_crm_uac_e}")
+# [GP-PHASE-4] 통합 증권분석 센터는 analysis 화면(_spa_screen=="analysis") 내부에서만 렌더링
 
 # ── 푸터 ─────────────────────────────────────────────────────────────────────
 st.markdown("---")

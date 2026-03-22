@@ -14698,6 +14698,65 @@ def _render_gk_sec10():
 
     _phase = st.session_state.get("sec10_phase", "consent")
 
+    # ── [SSO AUTO-ADVANCE] CRM→HQ SSO로 진입 시 consent/auth 단계 자동 건너뜀 ─────
+    # 조건: _rd_docked_cid(고객 선택됨) + _nibo_raw_json(CRM에서 보험데이터 동기화됨)
+    # + sec10_phase가 아직 초기 consent 상태인 경우 → diagnosis 단계로 즉시 이동
+    if (
+        _phase == "consent"
+        and st.session_state.get("_rd_docked_cid")
+        and st.session_state.get("_nibo_raw_json")
+        and not st.session_state.get("_sec10_sso_advanced")
+    ):
+        import json as _json_s10
+        _s10_sso_name = (
+            st.session_state.get("_rd_docked_name", "")
+            or st.session_state.get("gs_c_name", "")
+            or "고객"
+        )
+        # nibo JSON → sec10_fetched 포맷 변환
+        _s10_raw = st.session_state.get("_nibo_raw_json", "")
+        _s10_ins_list = []
+        try:
+            _s10_items = _json_s10.loads(_s10_raw) if isinstance(_s10_raw, str) else _s10_raw
+            if isinstance(_s10_items, list):
+                for _it in _s10_items:
+                    _pname = _it.get("prodName", _it.get("product_name", ""))
+                    _trait = _it.get("traitName", _it.get("trait_name", _it.get("coverage", "")))
+                    _amt   = _it.get("amt", _it.get("amount", ""))
+                    _stat  = _it.get("status", "유효")
+                    _comp  = _it.get("company", _it.get("insurer", ""))
+                    if not _comp and _pname:
+                        _kw = ["삼성", "한화", "교보", "DB", "현대", "KB", "메리츠", "흥국", "롯데", "NH농협"]
+                        _comp = next((_k for _k in _kw if _k in _pname), "")
+                    _s10_ins_list.append({
+                        "company":  _comp or "가입",
+                        "product":  _pname,
+                        "coverage": _trait,
+                        "premium":  _amt,
+                        "status":   _stat if _stat in ("유효", "유지", "실효", "만기") else "유효",
+                    })
+        except Exception:
+            pass
+        if _s10_ins_list:
+            st.session_state["sec10_name"]    = _s10_sso_name
+            st.session_state["sec10_phase"]   = "diagnosis"
+            st.session_state["sec10_fetched"] = {
+                "insurance_list":    _s10_ins_list,
+                "coverage_analysis": [],
+                "source":            "crm_sync",
+            }
+            st.session_state["sec10_consent1"]      = True
+            st.session_state["sec10_consent2"]      = True
+            st.session_state["_sec10_sso_advanced"] = True
+            # Trinity 결과도 동기화
+            _trinity_ad = st.session_state.get("_hq_sso_trinity")
+            if _trinity_ad and isinstance(_trinity_ad, dict):
+                st.session_state.setdefault("gs_hi_premium",
+                    float(_trinity_ad.get("nhis_premium") or _trinity_ad.get("nhis") or 0))
+            st.info(f"✅ CRM 동기화 완료 — {_s10_sso_name}님 보험 데이터가 자동 로드되었습니다.")
+            st.rerun()
+    # ───────────────────────────────────────────────────────────────────────────
+
     # [CB-FIX §1] 체크박스 key 충돌 방지 — session_state 초기값 사전 설정
     for _cb_key, _cb_def in [
         ("sec10_consent1", False),
@@ -29015,12 +29074,24 @@ def main():
                     # ── [G3] 바통 낚아채기: SSO 경로 → _rd_docked_cid 즉시 브릿지 ────
                     # CRM → HQ 이동 시 해당 고객 데이터가 열리자마자 자동 렌더링되도록
                     if not st.session_state.get("_rd_docked_cid"):
+                        # [GP-NAME] DB에서 고객명 로드 → 도킹 배너 + sec10 이름 자동세팅
+                        _sso_cust_name = ""
+                        try:
+                            from db_utils import get_customer as _gc_sso
+                            _sso_cust = _gc_sso(_sso_cid, _sso_user_id) or {}
+                            _sso_cust_name = _sso_cust.get("name", "")
+                        except Exception:
+                            pass
                         st.session_state["_rd_docked_cid"]    = _sso_cid
-                        st.session_state["_rd_docked_name"]   = ""
+                        st.session_state["_rd_docked_name"]   = _sso_cust_name
                         st.session_state["_rd_docked_sector"] = (
                             _sso_sector if _sso_sector not in ("", "home") else "gk_sec10"
                         )
                         st.session_state["_rd_loading"]       = True
+                        if _sso_cust_name:
+                            st.session_state.setdefault("gs_c_name",      _sso_cust_name)
+                            st.session_state.setdefault("sec10_name",      _sso_cust_name)
+                            st.session_state.setdefault("current_c_name",  _sso_cust_name)
                     # ── [§16 피보험자 원장 자동 로드] CRM에서 저장된 nibo JSON + trinity ──
                     try:
                         from db_utils import (
@@ -38040,11 +38111,24 @@ function selectCustomer(name) {{
 
     # query_params에서 수신 → session_state에 보존 후 URL 정리
     if _rd_cid and not st.session_state.get("_rd_docked_cid"):
+        # [GP-NAME] DB에서 고객명 로드 → 도킹 배너 자동세팅
+        _rd_cust_name = ""
+        try:
+            from db_utils import get_customer as _gc_rd
+            _rd_agent = st.session_state.get("user_id", "")
+            _rd_cust  = _gc_rd(_rd_cid, _rd_agent) or {}
+            _rd_cust_name = _rd_cust.get("name", "")
+        except Exception:
+            pass
         st.session_state["_rd_docked_cid"]    = _rd_cid
-        st.session_state["_rd_docked_name"]   = ""
+        st.session_state["_rd_docked_name"]   = _rd_cust_name
         st.session_state["_rd_docked_sector"] = _rd_sector
         st.session_state["_rd_docked_token"]  = _rd_token
         st.session_state["_rd_loading"]       = True
+        if _rd_cust_name:
+            st.session_state.setdefault("gs_c_name",     _rd_cust_name)
+            st.session_state.setdefault("sec10_name",     _rd_cust_name)
+            st.session_state.setdefault("current_c_name", _rd_cust_name)
         try:
             st.query_params.clear()
         except Exception:

@@ -1627,6 +1627,19 @@ button[data-testid="baseButton-primary"]:hover{
 
         with _tab_nibo:
             if not st.session_state.get("nibo_consent_agreed", False):
+                # [상담 플로우 §1] 안내 박스 — 동의 전 상단 가이드
+                st.markdown(
+                    "<div style='background:linear-gradient(135deg,#fffbeb,#fff7ed);"
+                    "border:2px solid #f59e0b;border-radius:10px;padding:12px 14px;margin-bottom:10px;'>"
+                    "<div style='font-size:0.85rem;font-weight:900;color:#92400e;margin-bottom:6px;'>"
+                    "🔐 신용정보 조회 동의 후 이용 가능합니다.</div>"
+                    "<div style='font-size:0.78rem;color:#78350f;line-height:1.7;'>"
+                    "'트리니티(Trinity)계산법'와 KB손해보험 증권분석 기법에 의해 "
+                    "<b>정밀한 필요 보험 가입금액 산출</b>을 위해 "
+                    "<b>&ldquo;내보험다보여&rdquo;가 실행</b>되어야 합니다."
+                    "</div></div>",
+                    unsafe_allow_html=True,
+                )
                 st.warning("🔐 신용정보 조회 동의 후 이용 가능합니다.")
                 if st.checkbox("✅ 신용정보 조회·분석 동의 (신용정보법 제32조)",
                                key=f"{key_prefix}_consent"):
@@ -1705,7 +1718,7 @@ button[data-testid="baseButton-primary"]:hover{
                     )
                     if _auth_ready:
                         if st.button(
-                            "🚀 트리니티 진단 시작 (인증 요청)",
+                            "🌐 내보험다보여 실행 (인증 요청)",
                             key=f"{_kp}_auth_run",
                             type="primary",
                             use_container_width=True,
@@ -1831,9 +1844,13 @@ button[data-testid="baseButton-primary"]:hover{
 
         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
         st.markdown(
+            "<hr style='border:none;border-top:2px dashed #d1d5db;margin:14px 0 10px;'>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
             "<div style='font-size:clamp(0.92rem,2.2vw,1.05rem);font-weight:800;color:#92400e;margin-bottom:4px;'>"
             "💰 월 건강보험료 납부액 "
-            "<span style='font-weight:400;color:#6b7280;font-size:0.85rem;'>(가치 산출용)</span></div>",
+            "<span style='font-weight:400;color:#6b7280;font-size:0.85rem;'>(가치 산출용) — 건강보험료납부율 역산법</span></div>",
             unsafe_allow_html=True,
         )
         _nhi = st.number_input(
@@ -1869,69 +1886,154 @@ button[data-testid="baseButton-primary"]:hover{
             )
 
         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-        if st.button("⚡ AI 통합 분석 실행", key=f"{key_prefix}_run",
+        if st.button("🤖 트리니티 산출법 실행", key=f"{key_prefix}_run",
                      type="primary", use_container_width=True):
-            _run_json = st.session_state.get(_kj) or st.session_state.get("_nibo_raw_json", "")
             _run_nhi  = float(st.session_state.get("gs_hi_premium") or 0)
+            _run_json = st.session_state.get(_kj) or st.session_state.get("_nibo_raw_json", "")
             _run_pid  = person_id or st.session_state.get("crm_selected_pid", "") or st.session_state.get("selected_customer_id", "")
             _run_aid  = agent_id  or st.session_state.get("user_id", "")
-            if not (_run_json or "").strip():
-                st.info(
-                    "📋 **'트리니티(Trinity) 계산법'** 과 "
-                    "**KB손해보험 증권분석 기법**에 의해 정밀한 필요 보험 가입금액 산출을 위해 "
-                    "**'내보험다보여'** 를 실행해 주세요."
-                )
-            elif _run_nhi <= 0:
-                st.warning("💰 월 건강보험료를 입력해 주세요.")
+            if _run_nhi <= 0:
+                st.warning("💰 월 건강보험료를 먼저 입력해 주세요.")
             else:
-                with st.spinner("🤖 AI 정밀 분석 중…"):
-                    try:
-                        import json as _j2
-                        from trinity_engine import execute_integrated_analysis as _exec
-                        _raw = _j2.loads(_run_json.strip())
-                        if isinstance(_raw, dict):
-                            _raw = [_raw]
-                        _adata, _unm, _ok = _exec(
-                            raw_external_data = _raw,
-                            client_contact    = st.session_state.get("scan_client_contact", ""),
-                            nhi_premium       = _run_nhi,
-                            consultant_info   = {
-                                "소속": st.session_state.get("gp200_company",
-                                        st.session_state.get("_mp_company", "")),
-                                "이름": st.session_state.get("gp200_name",
-                                        st.session_state.get("_mp_name", "")),
-                                "연락처": st.session_state.get("gp200_contact",
-                                          st.session_state.get("_mp_phone", "")),
-                            },
-                            client_name     = _cname,
-                            agent_id        = _run_aid,
-                            person_id       = _run_pid,
-                            kb7_score       = int(st.session_state.get("_sops_kb_score", 0) or 0),
-                            consent_version = st.session_state.get("nibo_consent_version", ""),
-                            source          = "UAC-통합분석센터",
-                        )
-                        st.session_state[_kr] = _adata
-                        # [피보험자 기준 §16] nibo JSON + trinity 결과 중앙 DB 영구 보존
-                        if _run_pid and _run_aid:
-                            try:
-                                from db_utils import (
-                                    set_crawl_status as _scs,
-                                    upsert_analysis_report as _u_ar,
-                                )
-                                _scs(_run_pid, _run_aid, "done",
-                                     data=_j2.loads(_run_json.strip()) if isinstance(_j2.loads(_run_json.strip()), list) else [_j2.loads(_run_json.strip())])
-                                if isinstance(_adata, dict):
-                                    _u_ar(person_id=_run_pid, agent_id=_run_aid,
-                                          analysis_data=_adata, nhis_premium=_run_nhi)
-                            except Exception:
-                                pass
-                        if _ok:
-                            st.success("✅ 분석 완료! 우측에서 결과를 확인하세요.")
-                        else:
-                            st.warning("⚠️ 분석 완료 (DB 저장 실패 — 연결 확인)")
-                        st.rerun()
-                    except Exception as _ue:
-                        st.error(f"❌ 분석 오류: {_ue}")
+                with st.spinner("🤖 트리니티 산출 중…"):
+                    # §Step1: 트리니티 즉시 로컬 산출 (화면 이탈 없음)
+                    _t_result = calculate_trinity_metrics(_run_nhi)
+                    st.session_state[f"{key_prefix}_trinity_result"] = _t_result
+                    st.session_state["_trinity_calc_result"] = _t_result
+                    # §Step2: DB 저장 (person_id 기준, 비동기 fallback)
+                    if _run_pid and _run_aid:
+                        try:
+                            from db_utils import upsert_analysis_report as _u_ar2
+                            _u_ar2(
+                                person_id=_run_pid, agent_id=_run_aid,
+                                analysis_data={"trinity": _t_result, "source": "UAC-트리니티산출"},
+                                nhis_premium=_run_nhi,
+                            )
+                        except Exception:
+                            pass
+                    # §Step3: nibo JSON 있으면 전체 AI 분석 추가 실행 (결과는 우측 패널)
+                    if (_run_json or "").strip():
+                        try:
+                            import json as _j2
+                            from trinity_engine import execute_integrated_analysis as _exec
+                            _raw = _j2.loads(_run_json.strip())
+                            if isinstance(_raw, dict):
+                                _raw = [_raw]
+                            _adata, _unm, _ok = _exec(
+                                raw_external_data=_raw,
+                                client_contact=st.session_state.get("scan_client_contact", ""),
+                                nhi_premium=_run_nhi,
+                                consultant_info={
+                                    "소속": st.session_state.get("gp200_company", st.session_state.get("_mp_company", "")),
+                                    "이름": st.session_state.get("gp200_name", st.session_state.get("_mp_name", "")),
+                                    "연락처": st.session_state.get("gp200_contact", st.session_state.get("_mp_phone", "")),
+                                },
+                                client_name=_cname,
+                                agent_id=_run_aid,
+                                person_id=_run_pid,
+                                kb7_score=int(st.session_state.get("_sops_kb_score", 0) or 0),
+                                consent_version=st.session_state.get("nibo_consent_version", ""),
+                                source="UAC-트리니티산출",
+                            )
+                            st.session_state[_kr] = _adata
+                            if _run_pid and _run_aid:
+                                try:
+                                    from db_utils import (
+                                        set_crawl_status as _scs,
+                                        upsert_analysis_report as _u_ar,
+                                    )
+                                    _scs(_run_pid, _run_aid, "done", data=_raw)
+                                    if isinstance(_adata, dict):
+                                        _u_ar(person_id=_run_pid, agent_id=_run_aid,
+                                              analysis_data=_adata, nhis_premium=_run_nhi)
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+                    st.success("✅ 트리니티 산출 완료! 아래 결과를 확인하세요.")
+                    st.rerun()
+        # 트리니티 산출 결과 즉시 렌더링 (CRM 화면 내, 화면이탈 없음)
+        _t_res = (st.session_state.get(f"{key_prefix}_trinity_result")
+                  or st.session_state.get("_trinity_calc_result"))
+        if _t_res:
+            _t_mi = _t_res.get("monthly_income", 0)
+            _t_di = _t_res.get("daily_value", 0)
+            _t_d2 = _t_res.get("disability_2yr", 0)
+            st.markdown(
+                f"<div style='background:#f0fdf4;border:1px dashed #16a34a;border-radius:10px;"
+                f"padding:10px 14px;margin-top:8px;'>"
+                f"<div style='font-size:0.8rem;font-weight:900;color:#14532d;margin-bottom:6px;'>"
+                f"📊 트리니티 산출 결과</div>"
+                f"<div style='display:flex;gap:16px;flex-wrap:wrap;'>"
+                f"<div><span style='font-size:0.7rem;color:#64748b;'>추정 월소득</span><br>"
+                f"<b style='font-size:0.95rem;color:#15803d;'>{_t_mi:,.0f}원</b></div>"
+                f"<div><span style='font-size:0.7rem;color:#64748b;'>일일 필요 일당</span><br>"
+                f"<b style='font-size:0.95rem;color:#15803d;'>{_t_di:,.0f}원</b></div>"
+                f"<div><span style='font-size:0.7rem;color:#64748b;'>상해장해 2년 대체액</span><br>"
+                f"<b style='font-size:0.95rem;color:#15803d;'>{_t_d2:,.0f}원</b></div>"
+                f"</div></div>",
+                unsafe_allow_html=True,
+            )
+
+        # [최하단 §4] HQ 심화상담 브릿지 — 4가지 데이터 Sync 체크 후 딥링크
+        st.markdown(
+            "<hr style='border:none;border-top:1px dashed #93c5fd;margin:14px 0 8px;'>",
+            unsafe_allow_html=True,
+        )
+        _hq_bridge_pid = person_id or st.session_state.get("crm_selected_pid", "") or st.session_state.get("selected_customer_id", "")
+        _hq_bridge_aid = agent_id  or st.session_state.get("user_id", "")
+        # ── 4가지 데이터 완비 상태 체크 ──────────────────────────────────────
+        _sync_basic   = bool(_hq_bridge_pid)
+        _sync_nibo    = bool(st.session_state.get(_kj) or st.session_state.get("_nibo_raw_json"))
+        _sync_trinity = bool(
+            st.session_state.get(f"{key_prefix}_trinity_result")
+            or st.session_state.get("_trinity_calc_result")
+            or st.session_state.get(_kr)
+        )
+        _sync_files   = bool(st.session_state.get(f"{key_prefix}_file_up"))
+        # DB 폴백 체크 (세션에 없을 때)
+        if _hq_bridge_pid and _hq_bridge_aid and not (_sync_nibo and _sync_trinity):
+            try:
+                from db_utils import get_person_data_status as _gpds_hq
+                _ds_hq = _gpds_hq([_hq_bridge_pid], _hq_bridge_aid).get(_hq_bridge_pid, {})
+                _sync_nibo    = _sync_nibo    or bool(_ds_hq.get("has_nibo"))
+                _sync_trinity = _sync_trinity or bool(_ds_hq.get("has_trinity"))
+            except Exception:
+                pass
+        _sync_all = _sync_basic and _sync_nibo and _sync_trinity
+        # ── 상태 배지 카드 ────────────────────────────────────────────────────
+        st.markdown(
+            "<div style='background:#f8fafc;border:1px dashed #000;border-radius:8px;"
+            "padding:8px 12px;margin-bottom:8px;font-size:0.76rem;'>"
+            "<b>📦 HQ 전송 데이터 현황</b><br>"
+            f"{'🟢' if _sync_basic else '⭕'} 고객 기본정보 &nbsp;"
+            f"{'🟢' if _sync_nibo else '⭕'} 내보험 JSON &nbsp;"
+            f"{'🟢' if _sync_trinity else '⭕'} 트리니티 산출 &nbsp;"
+            f"{'🟢' if _sync_files else '⭕'} 증권파일"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        # ── HQ 딥링크 생성 (SSO 토큰 포함) ──────────────────────────────────
+        if _hq_bridge_pid and _hq_bridge_aid:
+            try:
+                _hq_bridge_url = build_sso_handoff_to_hq(
+                    user_id=_hq_bridge_aid, cid=_hq_bridge_pid, sector="gk_sec10"
+                )
+            except Exception:
+                _hq_bridge_url = HQ_APP_URL
+        else:
+            _hq_bridge_url = HQ_APP_URL
+        _btn_bg  = "#002D56" if _sync_all else "#78350f"
+        _btn_txt = "🚀 [HQ]앱 이동 — 심화상담" if _sync_all else "🚀 [HQ]앱 이동 — 심화상담 ⚠️ 데이터 불완전"
+        st.markdown(
+            f"<a href='{_hq_bridge_url}' target='_blank' style='"
+            f"display:block;text-align:center;background:{_btn_bg};color:#FFCC00;"
+            "border-radius:10px;padding:10px 0;font-size:0.88rem;font-weight:900;"
+            f"text-decoration:none;border:1px dashed #FFCC00;margin-top:4px;'>{_btn_txt}</a>",
+            unsafe_allow_html=True,
+        )
+        if not _sync_all:
+            st.caption("⚠️ 미완비 항목을 먼저 채우면 HQ에서 정밀 분석을 즉시 시작할 수 있습니다.")
 
     # ── 우측: AI 가입결과 보고서 ────────────────────────────────────────────
     with _right:
