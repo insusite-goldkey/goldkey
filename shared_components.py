@@ -52,6 +52,26 @@ def get_clean_phone(raw: str) -> str:
     return "".join(filter(str.isdigit, str(raw)))
 
 
+def mask_name(name: str) -> str:
+    """[GP-SEC] 고객 이름 마스킹 — UI 표시용. 예: '홍길동' → '홍**'"""
+    if not name or len(name) < 2:
+        return "*"
+    return name[0] + "*" * (len(name) - 1)
+
+
+def mask_phone(phone: str) -> str:
+    """[GP-SEC] 전화번호 마스킹 — UI 표시용. 예: '01012345678' → '010-****-5678'"""
+    import re as _re_mp
+    if not phone:
+        return ""
+    _clean = _re_mp.sub(r"[^0-9]", "", phone)
+    if len(_clean) == 11:
+        return f"{_clean[:3]}-****-{_clean[7:]}"
+    elif len(_clean) == 10:
+        return f"{_clean[:3]}-***-{_clean[6:]}"
+    return phone[:3] + "****" + phone[-2:] if len(phone) > 5 else "****"
+
+
 def get_time_aware_greeting(name: str = "", login_time: str = "") -> str:
     """[GP-VOICE-2026] KST 기준 현재 시각에 맞는 전문가 시간인지형 인사말 반환.
 
