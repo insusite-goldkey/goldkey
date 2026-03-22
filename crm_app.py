@@ -768,7 +768,6 @@ if not _is_authenticated():
                 "📋 Goldkey AI Masters 2026 이용약관 · 내보험다보여(신용정보법 제32조) 통합 안내문</span></div>",
                 unsafe_allow_html=True,
             )
-            
             # 🚨 [주의] 이 코드 바로 아래에 있는 실제 약관 내용 박스(st.text_area 등)도 
             # 반드시 여기서부터 '들여쓰기(Tab)'를 해서 with col_center: 안에 포함시켜야 합니다!
 

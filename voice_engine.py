@@ -776,9 +776,11 @@ def render_voice_player_zephyr(
     """
     try:
         from shared_components import get_env_secret as _genv_v
-        _api_key = _genv_v("GOOGLE_API_KEY", "")
+        _api_key = (_genv_v("GEMINI_API_KEY", "")
+                    or _genv_v("GOOGLE_API_KEY", ""))
     except Exception:
-        _api_key = os.environ.get("GOOGLE_API_KEY", "")
+        _api_key = (os.environ.get("GEMINI_API_KEY", "")
+                    or os.environ.get("GOOGLE_API_KEY", ""))
 
     _audio_bytes = None
     if _api_key and _api_key != "여기에_발급받은_API_키를_넣어주세요":
