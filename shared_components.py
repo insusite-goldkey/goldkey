@@ -2020,8 +2020,9 @@ button[data-testid="baseButton-primary"]:hover{
             _tri_m = _tm["monthly_income"]
             _tri_a = _tm["annual_income"]
             _tri_d = _tm["daily_value"]
+            _tri_c5yr = int(_tm["gross_annual"] * 5)
             _tri_rows = [
-                ("🎗️ 암 진단비 (권장)",        300_000_000, "30년 통계 최빈 진단비 3억원 이상"),
+                ("🎗️ 암 진단비 (5년 일실수익)", _tri_c5yr, f"일실수익 5년 = 연소득 {int(_tm['gross_annual']/10_000):,}만원 × 5"),
                 ("🎗️ 암 진단비 (최소)",        100_000_000, "소득 수준 무관 최소 기준"),
                 ("🧠 뇌·심장 진단비",          100_000_000, "3대 진단비 각 1억원 목표"),
                 ("🧓 치매 진단비",              50_000_000, "고령화 필수 — 중증 기준"),

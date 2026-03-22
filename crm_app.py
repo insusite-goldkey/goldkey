@@ -65,6 +65,14 @@ except Exception as _ff_err:
     _ff_merge_smart = None
     _MODULE_LOAD_ERRORS.append(f"crm_fortress — {_ff_err}")
 
+try:
+    from modules.kakao_sender import render_send_ui as _ks_render_send_ui
+    _KAKAO_SENDER_OK = True
+except Exception as _ks_err:
+    _KAKAO_SENDER_OK = False
+    _ks_render_send_ui = None
+    _MODULE_LOAD_ERRORS.append(f"kakao_sender — {_ks_err}")
+
 # ── [Phase 1] 공통 모듈 import ────────────────────────────────────────────────
 from shared_components import (
     CUSTOMER_SCHEMA,
@@ -1587,6 +1595,7 @@ elif _spa_mode == "customer":
                                 "dementia_6":          int(_tm["monthly_income"] * 6),
                                 "cancer_min":          _tm["cancer_min"],
                                 "cancer_rec":          _tm["cancer_rec"],
+                                "annual":              _tm["gross_annual"],
                             }
                             st.session_state[f"crm_nhis__{_sel_pid}"] = _nhis_val
                         else:
@@ -1655,7 +1664,51 @@ elif _spa_mode == "customer":
                         "white-space:nowrap;'>📊 상세 상담 이동 →</a>",
                         unsafe_allow_html=True,
                     )
+                    # ── [5년 일실수익 결론 카드] ─────────────────────
+                    _c5yr_man = int(_tri_res.get("annual", 0) / 10_000 * 5)
+                    if _c5yr_man > 0:
+                        st.markdown(
+                            f"<div style='background:#fef3c7;border:1.5px solid #f59e0b;"
+                            f"border-radius:8px;padding:9px 13px;margin-top:8px;font-size:0.74rem;"
+                            f"line-height:1.9;border-left:4px solid #d97706;'>"
+                            f"<b style='color:#92400e;'>&#128204; 암 5년 일실수익 기준 진단비</b><br>"
+                            f"결론) 암 진단으로 실직할 경우 5년간 필요 소득은 "
+                            f"<b style='color:#dc2626;font-size:0.82rem;'>{_c5yr_man:,}만원</b>이며, "
+                            f"여기에 비급여 진료비 평균 15,000만~20,000만원을 추가한다고 볼 경우;<br>"
+                            f"<b>• 일실수익 5년기준: 최저 {_c5yr_man:,}만원 (+ 암치료비 15,000만원~20,000만원)</b>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
                     st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
+                    # ── [GP 카카오 발송 파이프라인 Step2] AI 가입결과 보고서 발송 ──
+                    if _KAKAO_SENDER_OK and _ks_render_send_ui:
+                        _cust_name  = _sel_cust.get("name", "고객")
+                        _cust_phone = decrypt_pii(_sel_cust.get("contact", ""))
+                        _tri_report_text = (
+                            f"[골드키 AI 가입결과 보고서]\n"
+                            f"고객명: {_cust_name}님\n\n"
+                            f"■ 트리니티 산출법 분석 결과\n"
+                            f"• 추정 월 소득: {_tri_res.get('monthly',0):,.0f}원\n"
+                            f"• 일일 가치: {_tri_res.get('daily',0):,.0f}원\n"
+                            f"• 상해 입원일당: {_tri_res.get('gap_injury',0):,.0f}원\n"
+                            f"• 질병 입원일당: {_tri_res.get('gap_disease',0):,.0f}원\n"
+                            f"• 뇌혈줘(18개월): {_tri_res.get('stroke_18',0):,.0f}원\n"
+                            f"• 암 최소 권장: {_tri_res.get('cancer_min',0):,.0f}원\n"
+                            f"• 암 권장: {_tri_res.get('cancer_rec',0):,.0f}원\n"
+                            f"• 후유장해 필요금액: {_tri_res.get('disability_cov_total',0):,.0f}원\n"
+                            f"• 산재 적용 최소 대비: {_tri_res.get('disability_cov_min',0):,.0f}원\n\n"
+                            f"■ 암 5년 일실수익 기준\n"
+                            f"결론) 암 진단 실직 시 5년간 필요 소득: {_c5yr_man:,}만원\n"
+                            f"• 최저 {_c5yr_man:,}만원 (+ 암치료비 15,000만원~20,000만원)\n\n"
+                            f"※ 골드키 AI Masters 2026 — 트리니티 산출법 기준"
+                        )
+                        _ks_render_send_ui(
+                            report_text=_tri_report_text,
+                            session_key=f"_tri_send_{_sel_pid}",
+                            default_phone=_cust_phone,
+                            title="골드키 AI 가입결과 보고서",
+                            compact=True,
+                        )
                     if st.button("🔄 결과 초기화", key=f"crm_tri_reset_{_sel_pid}"):
                         st.session_state.pop(_tri_sess_key, None)
                         st.rerun()

@@ -522,6 +522,27 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
   font-size:1rem !important;
   font-weight:700 !important;
 }
+/* 달력 검색/네비게이션 행 — 모든 화면 크기에서 수평(row) 강제 유지 */
+.gp-sw ~ div [data-testid="stHorizontalBlock"] {
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+}
+.gp-sw ~ div [data-testid="column"] {
+  width: auto !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  margin-bottom: 0 !important;
+}
+/* 480px 미만 폰: 버튼 글자 자동 축소 */
+@media (max-width: 479px) {
+  .gp-sw ~ div [data-testid="stHorizontalBlock"] button {
+    font-size: clamp(0.7rem, 3.5vw, 0.9rem) !important;
+    padding: 5px 4px !important;
+    white-space: nowrap !important;
+  }
+}
 /* 검색 버튼 스타일 */
 .gp-sw ~ div [data-testid="column"]:last-child button {
   background:linear-gradient(135deg,#fce7f3,#fecdd3)!important;

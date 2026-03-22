@@ -106,6 +106,7 @@ class TrinityIncomeData:
     annual_income:        float          # 추정 연봉 (만원)
     disposable_monthly:   float          # 세후 가처분 소득 = 월소득 × (1 - 15.5%) (4대보험+소득세 공제)
     golden_time_fund:     float          # 골든타임 필요 자금 = 월소득 × 24 (만원)
+    cancer_5yr_income:    float          # 암 5년 일실수익 = 연봉(gross) × 5 (만원)
     is_capped:            bool           # 상한/하한 보정 여부
     note:                 str            # 참고 메시지
 
@@ -227,6 +228,8 @@ class TrinityValueEngine:
         disposable_monthly   = monthly_income_man * (1 - AVERAGE_TOTAL_DEDUCTION_RATE)   # 세후 가처분 (15.5% 공제)
         golden_time_fund     = disposable_monthly * GOLDEN_TIME_MONTHS
 
+        cancer_5yr_income     = round(annual_income_man * 5, 1)
+
         return TrinityIncomeData(
             employment_type    = emp_type_display,
             nhis_premium_input = premium,
@@ -234,6 +237,7 @@ class TrinityValueEngine:
             annual_income      = round(annual_income_man, 1),
             disposable_monthly = round(disposable_monthly, 1),
             golden_time_fund   = round(golden_time_fund, 1),
+            cancer_5yr_income  = cancer_5yr_income,
             is_capped          = is_capped,
             note               = note,
         )
@@ -301,6 +305,13 @@ class TrinityValueEngine:
         )
 
         # ── GAP: 정밀한 타격
+        _c5yr = income.cancer_5yr_income   # 5년 일실수익 (만원)
+        _cancer_conclusion = (
+            f"\n\n결론) 암 진단으로 실직할 경우 5년간 필요 소득은 "
+            f"{_c5yr:,.0f}만원이며, 여기에 비급여 진료비 평균 15,000만~20,000만원을 "
+            f"추가한다고 볼 경우;\n"
+            f"* 일실수익 5년기준: 최저 {_c5yr:,.0f}만원 (+ 암치료비 15,000만원~20,000만원)"
+        )
         if kc > 0:
             gap_txt = (
                 f"현재 보험의 암 진단 가중 보장은 {_w(kc)}만원입니다. "
@@ -308,12 +319,14 @@ class TrinityValueEngine:
                 f"{_w(abs(ig))}만원의 생계 파괴 공백이 존재합니다 "
                 f"(소득 대체율 {gap.coverage_ratio:.0f}%). "
                 f"부족한 것은 보험금이 아니라, 가족의 생활비입니다."
+                + _cancer_conclusion
             )
         else:
             gap_txt = (
                 f"골든타임 동안 필요한 소득 대체 자금은 {_w(gtf)}만원입니다. "
                 f"현재 암 진단 보장 데이터가 없어 정확한 공백 산출을 위해 "
                 f"KB 전문 증권분석 엔진과의 연동이 필요합니다."
+                + _cancer_conclusion
             )
 
         # ── SOLUTION: 확신에 찬 대안

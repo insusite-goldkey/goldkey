@@ -41691,6 +41691,21 @@ div[data-testid="stButton"] {
                             unsafe_allow_html=True,
                         )
 
+                # ── [5년 일실수익 결론 카드] ──────────────────────────────────
+                _hq_c5yr = _inc.cancer_5yr_income
+                st.markdown(
+                    f"<div style='background:#fef3c7;border:1.5px solid #f59e0b;"
+                    f"border-radius:8px;padding:10px 14px;margin:8px 0;"
+                    f"border-left:4px solid #d97706;font-size:0.76rem;line-height:1.9;'>"
+                    f"<b style='color:#92400e;'>📌 암 5년 일실수익 기준 진단비</b><br>"
+                    f"결론) 암 진단으로 실직할 경우 5년간 필요 소득은 "
+                    f"<b style='color:#dc2626;font-size:0.85rem;'>{_hq_c5yr:,.0f}만원</b>이며, "
+                    f"여기에 비급여 진료비 평균 15,000만~20,000만원을 추가한다고 볼 경우;<br>"
+                    f"<b>• 일실수익 5년기준: 최저 {_hq_c5yr:,.0f}만원 (+ 암치료비 15,000만원~20,000만원)</b>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+
                 # ── AI 클로징 총평 생성 버튼
                 st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
                 if st.button(
