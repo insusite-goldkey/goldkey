@@ -29812,8 +29812,25 @@ footer, footer * { display: none !important; }
                             placeholder="관리자 코드 입력",
                             label_visibility="collapsed"
                         )
-                        if st.button("👑 관리자 로그인", key="btn_adm_login_direct",
-                                     use_container_width=True):
+                        st.markdown("""<style>
+div[data-testid="stSidebar"] button[data-testid="btn_adm_login_direct"],
+div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] button[kind="secondary"] {
+    background: linear-gradient(135deg,#FFF8E1,#FFF3CD) !important;
+    border: 1.5px solid #D4AF37 !important;
+    color: #7c5c00 !important;
+    border-radius: 8px !important;
+    font-weight: 800 !important;
+    font-size: 0.85rem !important;
+    box-shadow: 0 1px 4px rgba(212,175,55,0.20) !important;
+}
+</style>""", unsafe_allow_html=True)
+                        _adm_bc1, _adm_bc2, _adm_bc3 = st.columns([1, 3, 1])
+                        with _adm_bc2:
+                            _adm_login_clicked = st.button(
+                                "👑 관리자 로그인", key="btn_adm_login_direct",
+                                use_container_width=True
+                            )
+                        if _adm_login_clicked:
                             _a_nm_v = (_adm_l_nm or "").strip()
                             _a_pw_v = (_adm_l_pw or "").strip()
                             _ac_v   = get_env_secret("ADMIN_CODE", "")
@@ -51341,6 +51358,18 @@ border-radius:12px;padding:12px 16px;margin-bottom:12px;">
 • <b>예정이율·변동이율·변액 = 수익률이 아닌 자산 방어 관점</b>
 </div></div>""", unsafe_allow_html=True)
             st.markdown("---")
+            # ── 🏭 공장화재보험 상담 바로가기 ──────────────────────────────
+            st.markdown("""<div style="background:#fff7ed;border:1px dashed #ea580c;
+border-radius:8px;padding:10px 14px;margin-bottom:8px;">
+<b style="color:#7c2d12;font-size:0.85rem;">🏭 공장·기업 화재보험 전문 상담</b>
+<div style="font-size:0.78rem;color:#9a3412;margin-top:3px;">
+재조달가액 산출 · 기계장치·재고자산 설계 · 영업중단손실 특약 · 위험도 진단</div>
+</div>""", unsafe_allow_html=True)
+            if st.button("🔥 공장화재보험 상담 바로가기", key="t7_goto_fire_factory",
+                         use_container_width=True, type="primary"):
+                st.session_state["_auto_open_factory_fire"] = True
+                _go_tab("fire")
+            st.markdown("---")
             col1, col2 = st.columns([5, 5])
             with col1:
                 c_name7, query7, hi7, do7, _pk7 = ai_query_block("t7", "법인 상담 내용을 입력하세요.")
@@ -51981,6 +52010,108 @@ border-radius:12px;padding:12px 16px;margin-bottom:12px;">
                         product_key=_pk_f)
             with col2:
                 st.info("AI 분석 결과는 상단 '🤖 AI 분석 리포트'에 표시됩니다.")
+        st.markdown("---")
+        # ── 🔥 화재/배상 전문 상담 ──────────────────────────────────────────
+        _factory_fire_expand = st.session_state.pop("_auto_open_factory_fire", False)
+        with st.expander("🔥 화재/배상 전문 상담 (공장·일반·병원)", expanded=_factory_fire_expand):
+            _fexp_tabs = st.tabs(["🏭 공장 상담 기초", "🏢 일반/음식점", "🏥 병원/시설"])
+            with _fexp_tabs[0]:
+                st.markdown("""<div style="background:#fff7ed;border-left:5px solid #ea580c;
+border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
+<b style="font-size:0.95rem;color:#7c2d12;">🏭 공장 화재보험 상담 기초 데이터</b>
+<div style="font-size:0.78rem;color:#9a3412;margin-top:3px;">
+핵심 가이드라인 · 전문가 어드바이스 · 고객 안내문</div></div>""", unsafe_allow_html=True)
+                st.markdown("##### 📋 공장 화재보험 핵심 가이드라인")
+                components.html("""
+<div style="height:260px;overflow-y:auto;padding:12px 16px;
+  background:#f8fafc;border:1px solid #d0d7de;border-radius:8px;
+  font-size:0.82rem;line-height:1.65;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<b style="color:#c0392b;">▶ 1. 공장 화재보험 필수 담보 체크리스트</b><br>
+<b>① 건물 (재조달가액 100% 기준 — 비례보상 방지 필수)</b><br>
+• 철골조(S): 67만원/㎡ · 경량철골: 62만원/㎡ · RC: 78만원/㎡ (REB 2026 기준)<br>
+• 공장 건물은 매입가보다 재조달가액이 낮을 수 있음 → 반드시 REB 단가표로 산출<br>
+• 장기계약(3~5년) 시 매년 물가상승분 반영 → 가입금액 자동증액 특약 체결 권장<br><br>
+<b>② 기계장치·설비 (실손 재조달가액 기준)</b><br>
+• 생산장비·설비·공조시스템·전기설비 별도 담보 필수<br>
+• 중고 기계: 시가(감가상각 반영) vs 재조달가액 — 재조달가액 기준 권장<br>
+• 특수기계(CNC·로봇·반도체장비): 감정평가 필요 (보험사 별도 심사)<br><br>
+<b>③ 재고자산 (연중 최대 재고 기준 가입)</b><br>
+• 성수기·납품 직전 재고 급증 시점 기준으로 가입금액 설정<br>
+• 원재료·반제품·완제품 각각 구분 신고 권장<br>
+• 위험물(유류·화학물질): 위험물 특약 별도 필요<br><br>
+<b>④ 영업중단손실 특약 (PD/BI)</b><br>
+• 화재 후 가동 중단 기간의 매출 손실·고정비(임금·임대료) 보상<br>
+• 면책기간: 통상 7~14일 / 보상기간: 최대 12개월<br>
+• 설계 핵심: 월 고정비 × 최대 복구 개월수 = 권장 가입금액<br><br>
+<b>▶ 2. 의무보험 확인 (미가입 시 과태료·사용 중지 위험)</b><br>
+• 화재배상 의무보험: 연면적 3,000㎡ 이상 또는 22층 이상 특수건물<br>
+• 가스배상 의무보험: LPG·LNG 보일러 등 가스 사용 시설<br>
+• 환경오염배상책임: 화학물질 사용 공장 별도 가입 필요<br><br>
+<b>▶ 3. 위험도 분류 (보험사 언더라이팅 기준)</b><br>
+<b style="color:#c0392b;">고위험 (할증/가입 거절 가능)</b>: 화학·금속주물·목재·도장(페인트)<br>
+<b style="color:#e67e22;">중위험 (표준요율)</b>: 기계금속가공·식품제조·섬유의류<br>
+<b style="color:#1b5e20;">저위험 (할인 가능)</b>: 전자/반도체 클린룸·GMP 공장·불연 화물 창고
+</div>""", height=280)
+                st.markdown("##### 💡 전문가 어드바이스")
+                components.html("""
+<div style="height:230px;overflow-y:auto;padding:12px 16px;
+  background:#fffdf5;border:2px solid #f1c40f;border-radius:8px;
+  font-size:0.82rem;line-height:1.65;
+  font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#1a1a2e;">
+<div style="background:#ea580c;color:#fff;border-radius:6px;padding:3px 10px;
+  font-size:0.83rem;font-weight:900;margin-bottom:10px;display:inline-block;">
+  💡 전문가 핵심 어드바이스
+</div><br>
+<b style="color:#c0392b;">① 가장 흔한 실수 — 기계장치 누락</b><br>
+대부분의 공장주는 건물만 가입하고 기계장치를 빠뜨립니다. 실제 화재 시<br>
+기계장치 손해가 건물의 2~5배에 달하는 경우가 많습니다.<br>
+<b>→ 기계장치 감정평가서 요청 → 재조달가액 기준 별도 담보 설계가 핵심입니다.</b><br><br>
+<b style="color:#1e6fa8;">② 영업중단손실 특약 — "없으면 폐업 위기"</b><br>
+화재 후 복구 기간(평균 3~6개월) 동안 매출은 0, 고정비는 그대로입니다.<br>
+직원 급여 + 임대료 + 금융비용만 해도 월 수천만원입니다.<br>
+<b>→ 월 고정비 × 12개월 = 영업중단손실 특약 가입금액 기준</b><br><br>
+<b style="color:#1b5e20;">③ 재고자산 — "성수기 재고 기준으로 가입"</b><br>
+비수기 재고 기준 가입 → 성수기 화재 시 일부보험 비례보상 발생<br>
+<b>→ 연간 최대 재고 시점을 가입 기준으로 설정하세요.</b><br><br>
+<b style="color:#e67e22;">④ CEO 화법 — "공장이 멈추면 회사도 멈춥니다"</b><br>
+보험료는 비용이 아니라 <b>사업 연속성(BCP)을 보장하는 투자</b>입니다.<br>
+연간 보험료는 월 매출의 0.1~0.3% 수준에 불과합니다.
+</div>""", height=250)
+                st.markdown("---")
+                st.markdown("##### 📱 고객 안내문 (카카오톡 발송용)")
+                _factory_kakao_msg = (
+                    "안녕하세요, {설계사명}입니다. 😊\n\n"
+                    "📌 공장/사업장 화재보험 무료 점검 서비스 안내\n\n"
+                    "안전한 사업 운영을 위해 화재보험 점검을 도와드립니다.\n\n"
+                    "✅ 점검 항목\n"
+                    "• 건물: 재조달가액 대비 가입금액 적정성\n"
+                    "• 기계장치·설비: 별도 담보 여부 확인\n"
+                    "• 재고자산: 최대 재고 기준 가입 여부\n"
+                    "• 영업중단손실: 화재 후 매출 손실 보장 여부\n\n"
+                    "⚠️ 일부보험(비례보상) 주의\n"
+                    "가입금액이 재조달가액보다 낮으면\n"
+                    "실제 손해액의 일부만 지급됩니다.\n\n"
+                    "📞 무료 점검 신청\n"
+                    "지금 바로 연락 주시면 맞춤 화재보험 설계서를 제공해 드리겠습니다.\n"
+                    "전화/문자: {연락처}\n\n"
+                    "※ 본 안내는 참고용이며, 정확한 내용은 보험약관을 확인하세요."
+                )
+                if st.button("📋 고객 안내문 복사하기", key="btn_copy_factory_kakao",
+                             use_container_width=True, type="primary"):
+                    st.session_state["_factory_kakao_show"] = True
+                if st.session_state.get("_factory_kakao_show"):
+                    st.text_area(
+                        "⬇️ 전체 선택(Ctrl+A) → 복사(Ctrl+C) 후 카카오톡에 붙여넣기 하세요",
+                        value=_factory_kakao_msg,
+                        height=220,
+                        key="factory_kakao_textarea_v1",
+                    )
+                    st.success("✅ 위 텍스트를 복사해서 카카오톡에 붙여넣기(Ctrl+V) 하세요.")
+            with _fexp_tabs[1]:
+                st.info("🏢 일반/음식점 화재보험 전문 상담 — 순차 업데이트 예정입니다.")
+            with _fexp_tabs[2]:
+                st.info("🏥 병원/시설 화재보험 전문 상담 — 순차 업데이트 예정입니다.")
         st.markdown("---")
         st.markdown("#### 🏭 법인 자산 보호 — CEO 화법 & 기업·사업자 세무전략")
         _f_c1, _f_c2, _f_c3 = st.columns(3)

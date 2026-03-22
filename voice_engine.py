@@ -455,6 +455,62 @@ def build_customer_briefing(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# [GP-NEWS] 실시간 정보 수집 엔진 — 네이버 뉴스 + 날씨
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _fetch_naver_insurance_news(n: int = 3) -> list:
+    """[GP-NEWS] 네이버 뉴스 API: '금감원 보험' 키워드 최신 n건 수집."""
+    try:
+        from shared_components import get_env_secret as _genv_n
+        _cid  = _genv_n("NAVER_CLIENT_ID", "")
+        _csec = _genv_n("NAVER_CLIENT_SECRET", "")
+        if not _cid or not _csec:
+            return []
+        import requests as _req_n
+        _resp = _req_n.get(
+            "https://openapi.naver.com/v1/search/news.json",
+            params={"query": "금감원 보험", "display": n, "sort": "date"},
+            headers={
+                "X-Naver-Client-Id":     _cid,
+                "X-Naver-Client-Secret": _csec,
+            },
+            timeout=5,
+        )
+        if _resp.status_code == 200:
+            _result = []
+            for _it in _resp.json().get("items", []):
+                import html as _html_nv
+                _title = _html_nv.unescape(
+                    re.sub(r"<[^>]+>", "", _it.get("title", ""))
+                ).strip()
+                _result.append({
+                    "title":   _title,
+                    "link":    _it.get("originallink") or _it.get("link", ""),
+                    "pubDate": _it.get("pubDate", ""),
+                })
+            return _result
+    except Exception:
+        pass
+    return []
+
+
+def _fetch_seoul_weather() -> str:
+    """[GP-NEWS] 서울 현재 날씨 텍스트 (wttr.in — 무료, API 키 불필요)."""
+    try:
+        import requests as _req_w
+        _resp = _req_w.get(
+            "https://wttr.in/Seoul?format=%C+%t+습도%h&lang=ko",
+            timeout=5,
+            headers={"User-Agent": "GoldkeyAI/2026"},
+        )
+        if _resp.status_code == 200:
+            return _resp.text.strip()
+    except Exception:
+        pass
+    return ""
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # [4] 보이스 플레이어 UI (JavaScript SpeechSynthesis)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -713,7 +769,8 @@ def render_voice_player_zephyr(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# [5] 실시간 시각 인지형 브리핑 자동 트리거 (앱 기동 시 1회)
+# [5] 실시간 모닝 뉴스 브리핑 엔진 (GP-RT 2026)
+# pytz KST · 네이버 뉴스 · 날씨 · AI 아나운서 · 중지 버튼 · 보안 카드
 # ══════════════════════════════════════════════════════════════════════════════
 
 def render_time_aware_briefing(
@@ -721,21 +778,33 @@ def render_time_aware_briefing(
     agent_name: str = "",
 ) -> None:
     """
-    [GP-VOICE-2026] 실시간 시각 인지형 브리핑 — 로그인 시 1회 자동 재생.
-    st.session_state["_morning_briefed_YYYYMMDD"] 로 당일 중복 방지.
-    시간대별 분위기: 05~12 아침 / 12~18 오후 / 18~22 저녁 / 22~05 심야
-    Gemini AI가 현재 시각을 인지하여 브리핑 텍스트를 생성. 실패 시 정적 폴백.
+    [GP-RT §5] 실시간 모닝 뉴스 브리핑 엔진 — 로그인 시 1회 자동 재생.
+    브리핑 순서: [현재 시각(KST)] → [오늘의 날씨] → [주요 보험 뉴스 3건] → [스케줄 요약]
+    - pytz Asia/Seoul 기준 서울 정확 시각
+    - 네이버 뉴스 API: '금감원 보험' 최신 3건
+    - AI 아나운서: 'GoldkeyAimasters2026의 AI 상담 코치'
+    - [🛑 브리핑 중지] Compact 버튼
+    - 보안 카드: 마이크 수집 없음 안내
+    당일 1회 자동 재생. st.session_state["_morning_briefed_YYYYMMDD"] 중복 방지.
     """
     today_key = f"_morning_briefed_{datetime.date.today().strftime('%Y%m%d')}"
     if st.session_state.get(today_key):
         return
 
-    # ── 현재 시각 인지 ────────────────────────────────────────────────────────
-    _now = datetime.datetime.now()
-    _h   = _now.hour
-    _time_str = _now.strftime('%H:%M')
+    # ── [GP-RT §1] 서울 시각 (pytz Asia/Seoul) ───────────────────────────────
+    try:
+        import pytz as _pytz_rt
+        _kst = _pytz_rt.timezone("Asia/Seoul")
+        _now = datetime.datetime.now(_kst)
+    except Exception:
+        _now = datetime.datetime.now()
+    _h        = _now.hour
+    _time_str = _now.strftime("%H:%M")
+    _date_str = _now.strftime("%Y년 %m월 %d일")
+    _weekdays = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]
+    _wd_str   = _weekdays[_now.weekday()]
     if 5 <= _h < 12:
-        _time_emoji, _time_label, _time_sub = "🌅", "아침 브리핑", "활기찬 하루의 시작을 함께합니다"
+        _time_emoji, _time_label, _time_sub = "🌅", "모닝 브리핑", "활기찬 하루의 시작을 함께합니다"
     elif 12 <= _h < 18:
         _time_emoji, _time_label, _time_sub = "☀️", "오후 브리핑", "오늘의 오후 일정과 우선순위를 안내해 드립니다"
     elif 18 <= _h < 22:
@@ -743,15 +812,26 @@ def render_time_aware_briefing(
     else:
         _time_emoji, _time_label, _time_sub = "🌙", "심야 브리핑", "늦은 시간까지 열정적인 설계사님을 응원합니다"
 
-    # 오늘 일정 로드 (calendar_engine 연동)
+    # ── [GP-RT §2] 실시간 정보 수집 (세션 캐시 — 당일 1회) ──────────────────
+    _today_s     = _now.strftime("%Y%m%d")
+    _news_key    = f"_brief_news_{_today_s}"
+    _weather_key = f"_brief_weather_{_today_s}"
+    _news_items  = st.session_state.get(_news_key)
+    _weather_txt = st.session_state.get(_weather_key)
+    if _news_items is None:
+        _news_items = _fetch_naver_insurance_news(3)
+        st.session_state[_news_key] = _news_items
+    if _weather_txt is None:
+        _weather_txt = _fetch_seoul_weather()
+        st.session_state[_weather_key] = _weather_txt
+
+    # ── [GP-RT §3] 오늘 일정 + NBA 로드 ─────────────────────────────────────
     today_evs = []
     try:
         from calendar_engine import cal_load_today
         today_evs = cal_load_today(agent_id)
     except Exception:
         pass
-
-    # NBA 건수 로드 (nba_engine 연동)
     nba_count = 0
     try:
         from nba_engine import get_all_nba_actions
@@ -759,67 +839,145 @@ def render_time_aware_briefing(
     except Exception:
         pass
 
-    # ── [GP-VOICE-2026] Gemini AI 브리핑 텍스트 생성 (현재 시각 인지형) ────────
+    _name = _clean_agent_name(agent_name)
+
+    # ── [GP-RT §4] Gemini AI 브리핑 텍스트 (아나운서 페르소나) ──────────────
     _compact_mode = st.session_state.get("gk_brief_compact", False)
     briefing_text = ""
     try:
-        from shared_components import get_env_secret as _genv_b, get_time_aware_greeting as _gtag_b
+        from shared_components import get_env_secret as _genv_b
         _api_key_b = _genv_b("GOOGLE_API_KEY", "")
         if _api_key_b and _api_key_b != "여기에_발급받은_API_키를_넣어주세요":
             import google.genai as _genai_b
             import google.genai.types as _gtypes_b
-            _cli_b  = _genai_b.Client(api_key=_api_key_b)
-            _n_b    = agent_name.strip() if agent_name else "설계사"
-            _ev_sum = f"{len(today_evs)}건" if today_evs else "없음"
-            _first  = today_evs[0].get("title", "") if today_evs else ""
-            _nba_s  = f"{nba_count}명" if nba_count > 0 else "없음"
+            _cli_b   = _genai_b.Client(api_key=_api_key_b)
+            _ev_sum  = f"{len(today_evs)}건" if today_evs else "없음"
+            _first   = today_evs[0].get("title", "") if today_evs else ""
+            _nba_s   = f"{nba_count}명" if nba_count > 0 else "없음"
+            _news_s  = "\n".join(
+                [f"  {i+1}. {nw['title']}" for i, nw in enumerate(_news_items[:3])]
+            ) if _news_items else "  (뉴스 없음)"
+            _wx_s    = f"서울 날씨: {_weather_txt}" if _weather_txt else ""
             _brief_prompt = (
-                f"현재 시각은 {_time_str}입니다. "
-                f"너는 KB손해보험 전속 AI 비서 '골드키'다. "
-                f"{_n_b} 설계사님에게 {_time_label}을 전달하라. "
-                f"반드시 이 분위기로 시작하라: '{_gtag_b()}' "
+                "너는 GoldkeyAimasters2026의 AI 상담 코치다. "
+                "반드시 첫 문장은 정확히 이렇게 시작하라: "
+                "'안녕하세요, GoldkeyAimasters2026의 AI 상담 코치입니다.' "
+                f"현재 서울 시각은 {_date_str} {_wd_str} {_time_str}이며 {_time_label}입니다. "
+                f"{_wx_s} "
+                f"오늘의 주요 보험 뉴스:\n{_news_s}\n"
+                f"{_name + ' 설계사님,' if _name else ''} "
                 f"오늘 일정 {_ev_sum}{'(첫 일정: ' + _first + ')' if _first else ''}, "
                 f"우선순위 고객 {_nba_s}. "
-                f"{'간결하게 2~3문장으로' if _compact_mode else '따뜻하고 전문적으로 4~5문장으로'} "
-                "브리핑하라. 반드시 한국어로. 수치는 구체적으로 언급."
+                "신뢰감 있고 지적인 아나운서 톤으로 문장 간 연결이 자연스럽게 "
+                f"{'2~3문장으로 간결하게' if _compact_mode else '5~6문장으로'} "
+                "브리핑하라. 반드시 한국어. 뉴스는 핵심 키워드만 언급."
             )
             _resp_b = _cli_b.models.generate_content(
                 model="gemini-1.5-flash",
                 contents=_brief_prompt,
                 config=_gtypes_b.GenerateContentConfig(
-                    max_output_tokens=300, temperature=0.7,
+                    max_output_tokens=380, temperature=0.7,
                 ),
             )
             briefing_text = (_resp_b.text or "").strip()
     except Exception:
         pass
 
-    # ── 폴백: 정적 브리핑 텍스트 빌더 ────────────────────────────────────────
+    # ── 폴백: 정적 브리핑 텍스트 ─────────────────────────────────────────────
     if not briefing_text:
+        _news_part = ""
+        if _news_items:
+            _news_part = " 오늘의 주요 보험 뉴스: " + ", ".join(
+                [(nw["title"][:30] + "…" if len(nw["title"]) > 30 else nw["title"])
+                 for nw in _news_items[:3]]
+            ) + "."
+        _wx_part = f" 서울 날씨는 {_weather_txt}입니다." if _weather_txt else ""
         if _compact_mode:
             briefing_text = build_morning_briefing_compact(agent_name, today_evs, nba_count)
         else:
-            briefing_text = build_morning_briefing(agent_name, today_evs, nba_count)
+            briefing_text = (
+                "안녕하세요, GoldkeyAimasters2026의 AI 상담 코치입니다. "
+                f"현재 서울 시각은 {_date_str} {_wd_str} {_time_str}입니다."
+                f"{_wx_part}{_news_part} "
+            ) + build_morning_briefing(agent_name, today_evs, nba_count)
 
     st.session_state["_morning_briefing_text"] = briefing_text
 
-    # ── 시각 인지형 헤더 배너 ─────────────────────────────────────────────────
-    st.markdown(
-        f"<div style='background:linear-gradient(135deg,#eff6ff,#dbeafe);"
-        f"border:1.5px dashed #93c5fd;border-radius:12px;"
-        f"padding:10px 18px;margin-bottom:10px;"
-        f"display:inline-flex;align-items:center;gap:12px;"
-        f"width:fit-content;max-width:100%;'>"
-        f"<div style='font-size:1.5rem;'>{_time_emoji}</div>"
-        f"<div>"
-        f"<div style='color:#1e40af;font-size:.92rem;font-weight:900;'>{_time_label}"
-        f"<span style='color:#3b82f6;font-size:.74rem;font-weight:500;margin-left:8px;'>현재 {_time_str}</span></div>"
-        f"<div style='color:#4b5563;font-size:.78rem;margin-top:2px;'>{_time_sub}</div>"
-        f"</div></div>",
-        unsafe_allow_html=True,
-    )
+    # ══════════════════════════════════════════════════════════════════════════
+    # [GP-RT §5] 브리핑 UI 렌더링
+    # ══════════════════════════════════════════════════════════════════════════
 
-    # [GP-VOICE-2026] Zephyr 아나운서 TTS 우선 적용
+    # ── 중지 상태 확인 ────────────────────────────────────────────────────────
+    _stop_key = f"_brief_stopped_{_today_s}"
+    if st.session_state.get(_stop_key):
+        return
+
+    # ── 헤더 배너 + [🛑 브리핑 중지] 버튼 (Compact) ─────────────────────────
+    _hdr_c1, _hdr_c2 = st.columns([9, 1])
+    with _hdr_c1:
+        st.markdown(
+            f"<div style='background:linear-gradient(135deg,#eff6ff,#dbeafe);"
+            f"border:1.5px dashed #93c5fd;border-radius:10px;"
+            f"padding:8px 14px;"
+            f"display:flex;align-items:center;gap:10px;'>"
+            f"<span style='font-size:1.3rem;'>{_time_emoji}</span>"
+            f"<div>"
+            f"<div style='color:#1e40af;font-size:.88rem;font-weight:900;'>"
+            f"{_time_label}"
+            f"<span style='color:#3b82f6;font-size:.70rem;font-weight:500;margin-left:8px;'>"
+            f"서울 {_time_str} · {_date_str} {_wd_str}</span></div>"
+            f"<div style='color:#4b5563;font-size:.72rem;margin-top:1px;'>{_time_sub}</div>"
+            f"</div></div>",
+            unsafe_allow_html=True,
+        )
+    with _hdr_c2:
+        st.markdown("<div style='height:2px;'></div>", unsafe_allow_html=True)
+        if st.button(
+            "🛑", key=f"_brief_stop_btn_{_today_s}",
+            help="브리핑 중지", use_container_width=True,
+        ):
+            st.session_state[_stop_key] = True
+            st.rerun()
+
+    # ── 날씨 + 뉴스 인포 카드 ────────────────────────────────────────────────
+    if _weather_txt or _news_items:
+        _card = (
+            "<div style='background:#fffbeb;border:1px dashed #000;"
+            "border-radius:10px;padding:8px 14px;margin:6px 0;font-size:0.82rem;'>"
+        )
+        if _weather_txt:
+            _card += (
+                "<div style='font-weight:700;color:#78350f;margin-bottom:5px;'>"
+                f"🌤️ 오늘의 날씨&nbsp;&nbsp;"
+                f"<span style='font-weight:500;color:#555;'>{_weather_txt}</span></div>"
+            )
+        if _news_items:
+            _card += (
+                "<div style='font-weight:700;color:#1e3a8a;margin-bottom:3px;'>"
+                "📰 주요 보험 뉴스 (금감원)</div>"
+            )
+            for _ni, _nw in enumerate(_news_items[:3]):
+                _nt   = _nw.get("title", "")
+                _nd   = (_nt[:52] + "…") if len(_nt) > 52 else _nt
+                _link = _nw.get("link", "")
+                _num  = f"<span style='color:#6b7280;font-weight:700;'>{_ni+1}.</span> "
+                if _link:
+                    _card += (
+                        f"<div style='color:#374151;line-height:1.65;font-size:0.79rem;"
+                        f"overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;'>"
+                        f"{_num}<a href='{_link}' target='_blank' "
+                        f"style='color:#1e40af;text-decoration:none;'>{_nd}</a></div>"
+                    )
+                else:
+                    _card += (
+                        f"<div style='color:#374151;line-height:1.65;font-size:0.79rem;"
+                        f"overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;'>"
+                        f"{_num}{_nd}</div>"
+                    )
+        _card += "</div>"
+        st.markdown(_card, unsafe_allow_html=True)
+
+    # ── [GP-VOICE-2026] Zephyr 아나운서 TTS ─────────────────────────────────
     render_voice_player_zephyr(
         briefing_text,
         key="morning_briefing",
@@ -827,13 +985,24 @@ def render_time_aware_briefing(
         compact=True,
     )
 
-    # ── [GP-COMPLIANCE] 금융 AI 면책 고지 + 피드백 버튼 ──────────────────────
+    # ── [GP-COMPLIANCE] 면책 고지 + 피드백 ───────────────────────────────────
     try:
         from compliance import render_ai_disclaimer as _rd, render_feedback_button as _rfb
         _rd(margin_top=4)
         _rfb(key="morning_briefing_fb", context="morning_briefing", compact=True)
     except Exception:
         pass
+
+    # ── [GP-RT §6] 보안 카드 ─────────────────────────────────────────────────
+    st.markdown(
+        "<div style='font-size:0.76rem;color:#374151;padding:5px 12px;"
+        "background:#f9fafb;border:1px dashed #000;border-radius:8px;"
+        "margin-top:6px;'>"
+        "<b>🎙️ AI 아나운서 브리핑: 마이크 수집 없이 스피커 출력 전용으로 작동하여 "
+        "사생활을 보호합니다.</b>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     st.session_state[today_key] = True
 

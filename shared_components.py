@@ -1426,15 +1426,34 @@ def render_member_emergency_btn(
     # ── 관리자 로그인 인라인 폼 ───────────────────────────────────────────────
     if show_admin_login and _st3.session_state.get(_adm_key):
         _st3.markdown(
-            "<div style='background:#EFF6FF;border:1px solid #BFDBFE;"
-            "border-radius:8px;padding:10px 12px;margin-top:8px;'>",
+            "<div style='background:#FFFBEB;border:1.5px solid #D4AF37;"
+            "border-left:4px solid #D4AF37;"
+            "border-radius:10px;padding:10px 14px;margin-top:8px;'>",
             unsafe_allow_html=True,
         )
         _st3.markdown(
-            "<span style='font-size:0.80rem;font-weight:800;color:#1e3a8a;'>"
+            "<span style='font-size:0.82rem;font-weight:900;color:#7c5c00;'>"
             "🔐 관리자 로그인</span>",
             unsafe_allow_html=True,
         )
+        _st3.markdown("""
+<style>
+div[data-testid="stFormSubmitButton"] > button {
+    background: linear-gradient(135deg,#FFF8E1,#FFF3CD) !important;
+    border: 1.5px solid #D4AF37 !important;
+    color: #7c5c00 !important;
+    border-radius: 8px !important;
+    font-weight: 800 !important;
+    font-size: 0.85rem !important;
+    box-shadow: 0 1px 4px rgba(212,175,55,0.25) !important;
+    padding: 5px 18px !important;
+}
+div[data-testid="stFormSubmitButton"] > button:hover {
+    background: linear-gradient(135deg,#FFF3CD,#FFE082) !important;
+    border-color: #B8860B !important;
+    color: #5c4000 !important;
+}
+</style>""", unsafe_allow_html=True)
         with _st3.form(f"{key_prefix}_admin_form", clear_on_submit=False):
             _adm_id_in   = _st3.text_input(
                 "관리자 ID", placeholder="admin 또는 이세윤",
@@ -1444,7 +1463,9 @@ def render_member_emergency_btn(
                 "관리자 코드", type="password", placeholder="관리자 코드 입력",
                 key=f"{key_prefix}_adm_code", label_visibility="collapsed",
             )
-            _adm_sub = _st3.form_submit_button("🔐 로그인", use_container_width=True, type="primary")
+            _fadm_c1, _fadm_c2, _fadm_c3 = _st3.columns([1, 3, 1])
+            with _fadm_c2:
+                _adm_sub = _st3.form_submit_button("🔐 관리자 로그인", use_container_width=True)
         if _adm_sub:
             _aid = (_adm_id_in   or "").strip()
             _acd = (_adm_code_in or "").strip()
