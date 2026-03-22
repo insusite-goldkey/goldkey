@@ -25,8 +25,10 @@ import streamlit.components.v1 as _cv1
 # Break  : 0.3s (SSML 문장 간 호흡)
 # Model  : gemini-2.0-flash-preview-tts (Gemini 2.0 Flash TTS 전용 모델)
 # ══════════════════════════════════════════════════════════════════════════════
-_ZEPHYR_VOICE = "Zephyr"                       # Gemini TTS 공식 보이스명
-_ZEPHYR_MODEL = "gemini-2.0-flash-preview-tts" # TTS 전용 모델 (1.5-flash 미지원)
+_ZEPHYR_VOICE  = "Zephyr"            # Gemini TTS 공식 보이스명
+_ZEPHYR_MODEL  = "gemini-2.0-flash-exp"  # 검증된 TTS 지원 모델 (exp)
+_ZEPHYR_MODEL2 = "gemini-2.0-flash"      # 2차 폴백
+_ZEPHYR_MODEL3 = "gemini-2.0-flash-preview-tts"  # 3차 폴백 (전용 모델)
 _ZEPHYR_RATE  = 1.1            # 아나운서 속도 (1.1x)
 _ZEPHYR_PITCH = "high"         # 약간 높은 피치 — 명징한 전달
 _ZEPHYR_LANG  = "ko-KR"        # 한국어 표준
@@ -84,69 +86,64 @@ def _pcm_to_wav(pcm_data: bytes, sample_rate: int = 24000) -> bytes:
 
 
 def synthesize_zephyr(text: str, api_key: str) -> bytes | None:
-    """[GP-VOICE-2026] Gemini 2.0 Flash TTS — Zephyr 아나운서 보이스 합성.
-    성공 시 WAV 오디오 바이트 반환. 실패 시 None (Web Speech API 폴백).
-    모델: gemini-2.0-flash-preview-tts (TTS 전용 — 1.5-flash는 AUDIO 미지원)
+    """[GP-VOICE-2026] Gemini TTS — Zephyr 아나운서 보이스 합성.
+    성공 시 WAV 바이트. 실패 시 None + st.session_state["_zephyr_err"]= 오류 메시지.
+    모델 시도 순서: gemini-2.0-flash-exp → gemini-2.0-flash → gemini-2.0-flash-preview-tts
     """
     if not api_key or api_key == "여기에_발급받은_API_키를_넣어주세요":
         return None
-    ssml = _build_zephyr_ssml(text)
+
     import base64 as _b64s
+    # plain text 사용 (SSML 거부 이슈 회피)
+    _plain = re.sub(r"[#*`>]+", "", text).strip()
+    _errs: list[str] = []
 
-    # [1차] google-genai 신형 SDK — gemini-2.0-flash-preview-tts
-    try:
-        from google import genai as _gnai
-        from google.genai import types as _gt
-        _client = _gnai.Client(api_key=api_key)
-        resp = _client.models.generate_content(
-            model=_ZEPHYR_MODEL,
-            contents=ssml,
-            config=_gt.GenerateContentConfig(
-                response_modalities=["AUDIO"],
-                speech_config=_gt.SpeechConfig(
-                    voice_config=_gt.VoiceConfig(
-                        prebuilt_voice_config=_gt.PrebuiltVoiceConfig(
-                            voice_name=_ZEPHYR_VOICE
+    def _try_model(model_name: str) -> bytes | None:
+        try:
+            from google import genai as _gnai
+            from google.genai import types as _gt
+            _c = _gnai.Client(api_key=api_key)
+            _r = _c.models.generate_content(
+                model=model_name,
+                contents=_plain,
+                config=_gt.GenerateContentConfig(
+                    response_modalities=["AUDIO"],
+                    speech_config=_gt.SpeechConfig(
+                        voice_config=_gt.VoiceConfig(
+                            prebuilt_voice_config=_gt.PrebuiltVoiceConfig(
+                                voice_name=_ZEPHYR_VOICE
+                            )
                         )
-                    )
+                    ),
                 ),
-            ),
-        )
-        if resp.candidates:
-            _raw = resp.candidates[0].content.parts[0].inline_data.data
-            if isinstance(_raw, str):
-                _raw = _b64s.b64decode(_raw)
-            return _pcm_to_wav(_raw)
+            )
+            if _r.candidates:
+                _raw = _r.candidates[0].content.parts[0].inline_data.data
+                if isinstance(_raw, str):
+                    _raw = _b64s.b64decode(_raw)
+                return _pcm_to_wav(_raw)
+            _errs.append(f"{model_name}: candidates 없음")
+        except Exception as _e:
+            _errs.append(f"{model_name}: {type(_e).__name__}({_e})")
+        return None
+
+    for _m in [_ZEPHYR_MODEL, _ZEPHYR_MODEL2, _ZEPHYR_MODEL3]:
+        _result = _try_model(_m)
+        if _result:
+            try:
+                import streamlit as _st_tts
+                _st_tts.session_state["_zephyr_err"] = None
+                _st_tts.session_state["_zephyr_model_ok"] = _m
+            except Exception:
+                pass
+            return _result
+
+    _err_msg = " | ".join(_errs)
+    try:
+        import streamlit as _st_tts
+        _st_tts.session_state["_zephyr_err"] = _err_msg
     except Exception:
         pass
-
-    # [2차] gemini-2.0-flash-exp 폴백 (TTS 지원 실험 모델)
-    try:
-        from google import genai as _gnai2
-        from google.genai import types as _gt2
-        _c2 = _gnai2.Client(api_key=api_key)
-        _r2 = _c2.models.generate_content(
-            model="gemini-2.0-flash-exp",
-            contents=ssml,
-            config=_gt2.GenerateContentConfig(
-                response_modalities=["AUDIO"],
-                speech_config=_gt2.SpeechConfig(
-                    voice_config=_gt2.VoiceConfig(
-                        prebuilt_voice_config=_gt2.PrebuiltVoiceConfig(
-                            voice_name=_ZEPHYR_VOICE
-                        )
-                    )
-                ),
-            ),
-        )
-        if _r2.candidates:
-            _raw2 = _r2.candidates[0].content.parts[0].inline_data.data
-            if isinstance(_raw2, str):
-                _raw2 = _b64s.b64decode(_raw2)
-            return _pcm_to_wav(_raw2)
-    except Exception:
-        pass
-
     return None
 
 
@@ -788,23 +785,27 @@ def render_voice_player_zephyr(
 
     if _audio_bytes:
         # ── Gemini Zephyr TTS 성공 — st.audio 재생 ─────────────────────
+        _ok_model = st.session_state.get("_zephyr_model_ok", _ZEPHYR_MODEL)
         st.markdown(
             "<div style='background:rgba(30,91,164,0.08);border:1px dashed #1e5ba4;"
             "border-radius:10px;padding:6px 14px;font-size:0.73rem;color:#1e5ba4;"
             "margin-bottom:6px;'>"
-            f"🎙️ <b>[GP-VOICE-2026]</b> Zephyr 아나운서 — {_ZEPHYR_RATE}x · "
-            f"pitch:{_ZEPHYR_PITCH} · {_ZEPHYR_LANG}</div>",
+            f"🎙️ <b>[GP-VOICE-2026]</b> Zephyr · {_ok_model} · {_ZEPHYR_LANG}<br>"
+            "📱 <b>모바일:</b> 아래 ▶ 버튼을 눌러 재생하세요</div>",
             unsafe_allow_html=True,
         )
         import io as _io
-        try:
-            st.audio(_io.BytesIO(_audio_bytes), format="audio/wav", autoplay=auto_play)
-        except TypeError:
-            st.audio(_io.BytesIO(_audio_bytes), format="audio/wav")
+        st.audio(_io.BytesIO(_audio_bytes), format="audio/wav")
     else:
         # ── 폴백 — 기존 Web Speech API ─────────────────────────────────
+        _tts_err = st.session_state.get("_zephyr_err", "")
         if not compact:
-            st.caption("🔊 Web Speech API (Gemini TTS 폴백 — API 키 확인 필요)")
+            if _tts_err:
+                st.caption(f"⚠️ Gemini TTS 오류 → Web Speech 폴백 | 원인: {_tts_err[:120]}")
+            elif not _api_key:
+                st.caption("⚠️ GEMINI_API_KEY 미설정 → Web Speech 폴백")
+            else:
+                st.caption("🔊 Web Speech API (Gemini TTS 폴백)")
         render_voice_player(
             text,
             personality_type="Emotional",
