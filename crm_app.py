@@ -74,6 +74,8 @@ from shared_components import (
     get_env_secret,
     get_clean_phone,
     decrypt_pii,
+    mask_name,
+    mask_phone,
     render_auth_screen as _sc_render_auth_screen,
     verify_sso_token as _sc_verify_sso_token,
     notify_admin_member_error as _sc_notify_admin_error,
@@ -2113,6 +2115,10 @@ elif _spa_mode == "customer":
                 "text-shadow:0 1px 2px rgba(0,0,0,0.10);'>💬 카카오 파이프라인 ① — 일정 안내 문자</span></div>",
                 unsafe_allow_html=True,
             )
+            _kk1_consent = st.checkbox(
+                "✅ **[필수]** 수신자(고객)로부터 카카오 메시지 수신 동의를 취득하였음을 확인합니다 (정보통신망법 제50조)",
+                key="kk1_consent_agreed",
+            )
             _kk1_c1, _kk1_c2 = st.columns([7, 3])
             with _kk1_c1:
                 _kk1_msg = st.text_input(
@@ -2122,7 +2128,8 @@ elif _spa_mode == "customer":
                 )
             with _kk1_c2:
                 if st.button("💬 고객 상담 일정 및 안내 문자 발송",
-                             key="kk1_send_btn", use_container_width=True, type="primary"):
+                             key="kk1_send_btn", use_container_width=True, type="primary",
+                             disabled=not _kk1_consent):
                     try:
                         from db_utils import send_kakao_report as _kk_send1
                         _kk1_res = _kk_send1(
@@ -2437,6 +2444,10 @@ elif _spa_mode == "customer":
                 "text-shadow:0 1px 2px rgba(0,0,0,0.10);'>💬 카카오 파이프라인 ② — AI 분석표 요약 문자</span></div>",
                 unsafe_allow_html=True,
             )
+            _kk2_consent = st.checkbox(
+                "✅ **[필수]** 수신자(고객)로부터 카카오 메시지 수신 동의를 취득하였음을 확인합니다 (정보통신망법 제50조)",
+                key="kk2_consent_agreed",
+            )
             _kk2_c1, _kk2_c2 = st.columns([7, 3])
             with _kk2_c1:
                 _kk2_msg = st.text_input(
@@ -2446,7 +2457,8 @@ elif _spa_mode == "customer":
                 )
             with _kk2_c2:
                 if st.button("💬 AI 분석표 요약 문자 발송",
-                             key="kk2_send_btn", use_container_width=True, type="primary"):
+                             key="kk2_send_btn", use_container_width=True, type="primary",
+                             disabled=not _kk2_consent):
                     try:
                         from db_utils import send_kakao_report as _kk_send2
                         _kk2_res = _kk_send2(
@@ -2816,7 +2828,11 @@ elif _spa_mode == "customer":
                             "🚨 .streamlit/secrets.toml에 KAKAO_API_KEY와 KAKAO_API_URL이 설정되지 않아"
                             " [미리보기] 모드로 작동합니다."
                         )
-                    _send_ready = bool(_kk_name and _kk_summary.strip())
+                    _kk_consent = st.checkbox(
+                        "✅ **[필수]** 수신자(고객)로부터 카카오 메시지 수신 동의를 취득하였음을 확인합니다 (정보통신망법 제50조)",
+                        key="kakao_consent_agreed",
+                    )
+                    _send_ready = bool(_kk_name and _kk_summary.strip() and _kk_consent)
                     if st.button("💬 카카오톡 발송", key="kakao_send_btn",
                                  use_container_width=True, type="primary",
                                  disabled=not _send_ready):
@@ -2941,12 +2957,16 @@ elif _spa_mode == "customer":
                 if _is_dry_run:
                     st.caption("⚠️ API 키 미설정 → 미리보기(dry-run) 모드")
 
+                _bulk_consent = st.checkbox(
+                    "✅ **[필수]** 선택된 모든 수신자로부터 카카오 메시지 수신 동의를 취득하였음을 확인합니다 (정보통신망법 제50조)",
+                    key="kakao_bulk_consent_agreed",
+                )
                 if st.button(
                     f"💬 선택 {_bk_sel_count}명에게 일괄 발송",
                     key="kakao_bulk_send_btn",
                     use_container_width=True,
                     type="primary",
-                    disabled=(_bk_sel_count == 0),
+                    disabled=(_bk_sel_count == 0 or not _bulk_consent),
                 ):
                     _bulk_ok = _bulk_fail = 0
                     _bulk_prog = st.progress(0)
@@ -3391,7 +3411,7 @@ WHERE tablename IN ('gk_people','gk_schedules','gk_consulting_logs');""",
                         for _gbr in _gb_list[:20]:
                             _gbc1, _gbc2 = st.columns([5, 1])
                             with _gbc1:
-                                st.caption(f"🚫 {_gbr.get('phone_normalized','')} — {_gbr.get('reason','')}")
+                                st.caption(f"🚫 {mask_phone(_gbr.get('phone_normalized',''))} — {_gbr.get('reason','')}")
                             with _gbc2:
                                 if st.button("🔓", key=f"gc_rst_{_gbr.get('phone_normalized','')}",
                                              help="차단 해제"):

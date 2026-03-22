@@ -7596,6 +7596,18 @@ def mask_name(name: str) -> str:
         return "*"
     return name[0] + "*" * (len(name) - 1)
 
+def mask_phone(phone: str) -> str:
+    """전화번호 마스킹 — 가운데 4자리를 **** 처리 (예: 010-1234-5678 → 010-****-5678)"""
+    import re as _re_mp
+    if not phone:
+        return ""
+    _clean = _re_mp.sub(r"[^0-9]", "", phone)
+    if len(_clean) == 11:
+        return f"{_clean[:3]}-****-{_clean[7:]}"
+    elif len(_clean) == 10:
+        return f"{_clean[:3]}-***-{_clean[7:]}"
+    return phone[:3] + "****" + phone[-2:] if len(phone) > 5 else "****"
+
 def ensure_master_members():
     """마스터 회원 자동 등록 (앱 시작 시 1회) — 항상 직접 Supabase upsert로 강제 동기화
     [GP-회원관리 §연락처표준] pin_hash/contact 누락·오류 무관하게 매 시작 시 올바른 해시로 덮어씀
@@ -11434,7 +11446,7 @@ def _rare_gap_analysis(drug: dict) -> dict:
 # [KOSIS 국가통계포털 통합 엔진] — 암 발병률 / 주요 사망원인 실시간 연동
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-_KOSIS_API_KEY = "NDAzNzI0NTUxMGNhMDcxNTQzNGRlOTAyM2U4MzYzOGE="
+_KOSIS_API_KEY = get_env_secret("KOSIS_API_KEY", "")
 
 # ── 암종 KCD 매핑 (KOSIS 5대 암 → KCD 코드) ─────────────────────────────────
 _KOSIS_CANCER_KCD_MAP: dict = {
@@ -11793,7 +11805,7 @@ def _fortress_save_to_gcs(collection_date: str = ""):
                 "collection_date": _cdate,          # ← 수집 날짜 태그
                 "version":         "2023",
                 "source":          "KOSIS/통계청 · 국립암센터 · 대한뇌졸중학회",
-                "kosis_api_key":   "NDAzNzI0NTUxMGNhMDcxNTQzNGRlOTAyM2U4MzYzOGE=",
+                "kosis_api_key":   _KOSIS_API_KEY,
                 "stale_threshold_months": 12,
             },
             "death_rate":   _DATA_FORTRESS_DEATH_RATE,
@@ -11857,7 +11869,7 @@ def _fortress_kosis_api_refresh():
     import requests as _req
     import json as _json
     from datetime import datetime as _dt
-    _API_KEY = "NDAzNzI0NTUxMGNhMDcxNTQzNGRlOTAyM2U4MzYzOGE="
+    _API_KEY = get_env_secret("KOSIS_API_KEY", _KOSIS_API_KEY)
     _BASE    = "https://kosis.kr/openapi/Param/statisticsParameterData.do"
     _results = {}
     # KOSIS 사인별 사망률 통계 (통계표 ID: DT_1B34E01)
@@ -13350,12 +13362,12 @@ def render_member_profile_settings():
 
 # ── 항암 정밀 엔진 §1 — C코드 KCD → 항암제 조회 ────────────────────────────
 
-_ONC_API_KEY = "19cdcabb4c57"
+_ONC_API_KEY = get_env_secret("ONC_API_KEY", "")
 
 
 def _chemo_search_by_kcd(kcd_code: str, limit: int = 6) -> list:
     """C코드 감지 시 연관 항암제 목록 반환.
-    1순위: 국가건강정보포털 API (키: 19cdcabb4c57)
+    1순위: 국가건강정보포털 API (ONC_API_KEY 환경변수 필요)
     2순위: _KCD_TO_CHEMO_MAP → _ONCOLOGY_CHEMO_DB 매칭
     """
     import urllib.request as _req
@@ -23490,6 +23502,7 @@ def _gp90_panel() -> None:
                 contract=_inp_contract,
                 analysis=_inp_analysis,
             )
+            st.session_state.pop("_gp90_inp_rrn", None)
             # GP91 §4 자동 트리거 — 주민번호로 만나이 계산된 경우 즉시 리포트 활성화
             _synced_age = st.session_state.get(_GP90_KEYS["rrn_age"])
             if _synced_age and isinstance(_synced_age, int):
@@ -31797,7 +31810,7 @@ footer, footer * {
         try:
             # 토큰 = HMAC-SHA256(user_name + user_id, SECRET_KEY) 검증
             import hmac as _hmac
-            _tok_secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+            _tok_secret = get_env_secret("ENCRYPTION_KEY", "")
             if isinstance(_tok_secret, bytes):
                 _tok_secret = _tok_secret.decode()
             _tok_members = (
@@ -31848,7 +31861,7 @@ footer, footer * {
         _fc_ok = False
         try:
             import hmac as _hmac_fc
-            _fc_secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+            _fc_secret = get_env_secret("ENCRYPTION_KEY", "")
             if isinstance(_fc_secret, bytes):
                 _fc_secret = _fc_secret.decode()
             _fc_expected = _hmac_fc.new(
@@ -34584,7 +34597,15 @@ watchRipple();
                 _df_crm = _pd_crm.DataFrame(_customers2)
                 _show_cols = [c for c in ["name", "contact", "job", "management_tier", "status", "created_at"]
                               if c in _df_crm.columns]
-                _df_show = _df_crm[_show_cols] if _show_cols else _df_crm
+                _df_show = _df_crm[_show_cols].copy() if _show_cols else _df_crm.copy()
+                try:
+                    from shared_components import mask_name as _mk_n, mask_phone as _mk_p
+                    if "name" in _df_show.columns:
+                        _df_show["name"] = _df_show["name"].apply(lambda x: _mk_n(str(x)) if x else "")
+                    if "contact" in _df_show.columns:
+                        _df_show["contact"] = _df_show["contact"].apply(lambda x: _mk_p(str(x)) if x else "")
+                except Exception:
+                    pass
                 _page_sz = 20
                 _total2  = len(_df_show)
                 _npages2 = max(1, (_total2 + _page_sz - 1) // _page_sz)
@@ -37049,9 +37070,14 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
                 "AI 정밀 분석이 완료되었습니다. 고객에게 상담 감사 메시지를 발송하세요.</div></div>",
                 unsafe_allow_html=True,
             )
+            _kk4_consent = st.checkbox(
+                "✅ **[필수]** 수신자(고객)로부터 카카오 메시지 수신 동의를 취득하였음을 확인합니다 (정보통신망법 제50조)",
+                key="kk4_consent_agreed",
+            )
             if st.button(
                 "💬 고객 상담 감사 및 사후 관리 안내 문자 발송",
                 key="kk4_sec10_btn", use_container_width=True, type="primary",
+                disabled=not _kk4_consent,
             ):
                 try:
                     from db_utils import send_kakao_report as _kk4_send
