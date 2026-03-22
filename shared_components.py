@@ -1132,17 +1132,29 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
 # ── [GP-SEC §2] SSO 핸드오프 빌더 ─────────────────────────────────────────────
 def build_sso_handoff_to_hq(
     user_id: str,
-    auth_token: str,
+    auth_token: str = "",
     cid: str = "",
     sector: str = "home",
 ) -> str:
     """
     [GP-SEC §2] CRM → HQ 앱 SSO 핸드오프 URL 생성.
+    - HMAC 포뮤러: HMAC(KEY, user_id + str(ts))[:32] — HQ 검증 로직과 동일
+    - ts(타임스탬프) 자동 생성 포함 (300초 유효, 리플레이 공격 차단)
     - URL에 PII(전화번호 등 원문) 절대 포함 금지
-    - auth_token(HMAC-SHA256 32자 hex) + user_id + cid(암호화된 ID) 만 전달
     """
     import urllib.parse as _up
-    params: dict = {"auth_token": auth_token, "user_id": user_id}
+    import hmac as _hmac_sh
+    import time as _time_sh
+    _secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+    if isinstance(_secret, bytes):
+        _secret = _secret.decode()
+    _ts  = int(_time_sh.time())
+    _tok = _hmac_sh.new(
+        _secret.encode(),
+        (user_id + str(_ts)).encode(),
+        "sha256",
+    ).hexdigest()[:32]
+    params: dict = {"auth_token": _tok, "user_id": user_id, "ts": _ts}
     if cid:
         params["gk_cid"] = cid
     if sector and sector != "home":
@@ -2064,9 +2076,24 @@ button[data-testid="baseButton-primary"]:hover{
             st.session_state["_scroll_top"] = True
             st.rerun()
         else:
-            _hq_url = get_env_secret("HQ_APP_URL", HQ_APP_URL)
+            _uid_sso = (
+                st.session_state.get("crm_user_id")
+                or st.session_state.get("user_id", "")
+            )
+            _cid_sso = (
+                st.session_state.get("_rd_docked_cid")
+                or st.session_state.get("_sso_gk_cid", "")
+            )
+            if _uid_sso:
+                _hq_sso_url = build_sso_handoff_to_hq(
+                    user_id=_uid_sso,
+                    cid=_cid_sso,
+                    sector="gk_sec10",
+                )
+            else:
+                _hq_sso_url = f"{HQ_APP_URL}/?tab=gk_sec10"
             st.markdown(
-                f'<a href="{_hq_url}/?tab=gk_sec10" target="_blank">'
+                f'<a href="{_hq_sso_url}" target="_blank">'
                 '🔗 통합 증권분석 센터(GK-SEC-10) 열기</a>',
                 unsafe_allow_html=True,
             )
