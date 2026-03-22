@@ -29021,6 +29021,26 @@ def main():
                             _sso_sector if _sso_sector not in ("", "home") else "gk_sec10"
                         )
                         st.session_state["_rd_loading"]       = True
+                    # ── [§16 피보험자 원장 자동 로드] CRM에서 저장된 nibo JSON + trinity ──
+                    try:
+                        from db_utils import (
+                            get_crawl_status    as _gcs16,
+                            load_analysis_report as _lar16,
+                        )
+                        _cs16 = _gcs16(_sso_cid)
+                        if _cs16.get("raw_json") and not st.session_state.get("_nibo_raw_json"):
+                            st.session_state["_nibo_raw_json"] = _cs16["raw_json"]
+                        _ar16 = _lar16(_sso_cid, _sso_user_id)
+                        if _ar16.get("analysis_data"):
+                            _ad16 = _ar16["analysis_data"]
+                            if isinstance(_ad16, dict):
+                                st.session_state.setdefault(
+                                    "gs_hi_premium",
+                                    float(_ad16.get("nhis_premium") or _ad16.get("nhis") or 0),
+                                )
+                                st.session_state["_hq_sso_trinity"] = _ad16
+                    except Exception:
+                        pass
                 if _sso_agent:
                     st.session_state["_sso_gk_agent_id"] = _sso_agent
                 if _sso_gk_tok:

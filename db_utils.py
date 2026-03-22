@@ -1189,3 +1189,135 @@ def get_guest_total_visits(fp_id: str) -> int:
         return sum(r.get("visit_count", 0) for r in rows)
     except Exception:
         return 0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §16 분석 원장 (analysis_reports) — 피보험자 기준 영구 보존 파이프라인
+# ══════════════════════════════════════════════════════════════════════════════
+# 절대 원칙: 모든 데이터는 계약자(엄마)가 아닌 피보험자(아들)의 person_id 기준 태깅
+# contact_hash = sha256("pid:{person_id}") — 전화번호 해시와 충돌 없는 안정적 PK
+
+def upsert_analysis_report(
+    person_id: str,
+    agent_id: str,
+    analysis_data: dict,
+    nhis_premium: float = 0,
+    report_text: str = "",
+) -> bool:
+    """
+    [피보험자 기준] trinity 계산 결과를 analysis_reports에 upsert.
+    충돌 키: (contact_hash, agent_id) — 동일 피보험자/설계사 조합 덮어쓰기.
+    """
+    sb = _get_sb()
+    if not sb or not person_id or not agent_id:
+        return False
+    try:
+        import json as _j
+        import hashlib as _hl
+        now = datetime.datetime.utcnow().isoformat()
+        _contact_hash = _hl.sha256(f"pid:{person_id}".encode()).hexdigest()
+        _ad = dict(analysis_data)
+        if nhis_premium:
+            _ad["nhis_premium"] = nhis_premium
+        _monthly = int(
+            analysis_data.get("monthly")
+            or analysis_data.get("monthly_income")
+            or analysis_data.get("estimated_income")
+            or 0
+        )
+        payload: dict = {
+            "contact_hash":     _contact_hash,
+            "person_id":        person_id,
+            "agent_id":         agent_id,
+            "estimated_income": _monthly,
+            "analysis_data":    _j.dumps(_ad, ensure_ascii=False),
+            "analyzed_at":      now,
+            "updated_at":       now,
+        }
+        if report_text:
+            payload["report_text"] = report_text
+        sb.table("analysis_reports").upsert(
+            payload, on_conflict="contact_hash,agent_id"
+        ).execute()
+        return True
+    except Exception:
+        return False
+
+
+def load_analysis_report(person_id: str, agent_id: str = "") -> dict:
+    """
+    [피보험자 기준] person_id로 최신 분석 결과 조회.
+    agent_id 제공 시 소유권 검증.
+    """
+    sb = _get_sb()
+    if not sb or not person_id:
+        return {}
+    try:
+        import json as _j
+        q = (
+            sb.table("analysis_reports")
+            .select(
+                "person_id,agent_id,estimated_income,"
+                "analysis_data,report_text,analyzed_at"
+            )
+            .eq("person_id", person_id)
+        )
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        rows = q.order("analyzed_at", desc=True).limit(1).execute().data or []
+        if not rows:
+            return {}
+        r = rows[0]
+        if r.get("analysis_data") and isinstance(r["analysis_data"], str):
+            try:
+                r["analysis_data"] = _j.loads(r["analysis_data"])
+            except Exception:
+                pass
+        return r
+    except Exception:
+        return {}
+
+
+def get_person_data_status(person_ids: list, agent_id: str) -> dict:
+    """
+    여러 person_id의 데이터 유무 배치 조회 (고객 목록 배지용).
+    Returns: {person_id: {"has_nibo": bool, "has_trinity": bool}}
+    """
+    if not person_ids or not agent_id:
+        return {}
+    sb = _get_sb()
+    if not sb:
+        return {}
+    result: dict = {
+        pid: {"has_nibo": False, "has_trinity": False}
+        for pid in person_ids
+    }
+    try:
+        nibo_rows = (
+            sb.table("gk_crawl_status")
+            .select("person_id,status")
+            .eq("agent_id", agent_id)
+            .in_("person_id", list(person_ids))
+            .execute().data or []
+        )
+        for r in nibo_rows:
+            pid = r.get("person_id", "")
+            if pid in result and r.get("status") == "done":
+                result[pid]["has_nibo"] = True
+    except Exception:
+        pass
+    try:
+        tri_rows = (
+            sb.table("analysis_reports")
+            .select("person_id")
+            .eq("agent_id", agent_id)
+            .in_("person_id", list(person_ids))
+            .execute().data or []
+        )
+        for r in tri_rows:
+            pid = r.get("person_id", "")
+            if pid in result:
+                result[pid]["has_trinity"] = True
+    except Exception:
+        pass
+    return result

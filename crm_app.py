@@ -1179,6 +1179,21 @@ if _spa_mode == "list":
                 f"{_tm2['icon']} {_tm2['label']} — 아래 메뉴를 선택하세요</span></div>",
                 unsafe_allow_html=True,
             )
+            # [피보험자 데이터 상태 배지 조회]
+            try:
+                from db_utils import get_person_data_status as _gp_ds
+                _ds = _gp_ds([_list_sel_pid], _user_id).get(_list_sel_pid, {})
+            except Exception:
+                _ds = {}
+            _badge_nibo = "🟢" if _ds.get("has_nibo") else "⭕"
+            _badge_tri  = "🟢" if _ds.get("has_trinity") else "⭕"
+            st.markdown(
+                f"<div style='font-size:0.73rem;color:#64748b;margin:-4px 0 8px 2px;'>"
+                f"👁️ 내보험 {_badge_nibo} &nbsp;&nbsp;"
+                f"⏡ 트리니티 {_badge_tri}"
+                f" &nbsp;&nbsp;<span style='color:#94a3b8;'>피보험자 기준 중앙 DB 태깅</span></div>",
+                unsafe_allow_html=True,
+            )
             _ag1, _ag2, _ag3, _ag4 = st.columns(4)
             _ag_cols = [_ag1, _ag2, _ag3, _ag4]
             _ag_actions = [
@@ -1620,6 +1635,17 @@ elif _spa_mode == "customer":
                                 "annual":              _tm["gross_annual"],
                             }
                             st.session_state[f"crm_nhis__{_sel_pid}"] = _nhis_val
+                            # [피보험자 기준 auto-save] trinity 결과 즉시 Supabase 영구 보존
+                            try:
+                                from db_utils import upsert_analysis_report as _u_ar
+                                _u_ar(
+                                    person_id=_sel_pid,
+                                    agent_id=_user_id,
+                                    analysis_data=st.session_state[_tri_sess_key],
+                                    nhis_premium=_nhis_val,
+                                )
+                            except Exception:
+                                pass
                         else:
                             st.warning("월 건강보험료를 입력해 주세요.")
 
@@ -3544,7 +3570,11 @@ WHERE tablename IN ('gk_people','gk_schedules','gk_consulting_logs');""",
 st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
 try:
     from shared_components import render_unified_analysis_center as _crm_render_uac
-    _crm_render_uac(key_prefix="_uac_crm")
+    _crm_render_uac(
+        key_prefix="_uac_crm",
+        person_id=st.session_state.get("crm_selected_pid", ""),
+        agent_id=_user_id,
+    )
 except Exception as _crm_uac_e:
     st.error(f"통합 증권분석 센터 로드 오류: {_crm_uac_e}")
 

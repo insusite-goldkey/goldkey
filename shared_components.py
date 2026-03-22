@@ -1561,6 +1561,8 @@ def render_unified_analysis_center(
     *,
     key_prefix: str = "_uac",
     compact: bool = False,
+    person_id: str = "",
+    agent_id: str = "",
 ) -> None:
     """반응형 통합 증권분석 센터 — 고객 대면용 AI 컨설팅 보드.
     좌우 5:5 레이아웃, 모바일 자동 스태킹.
@@ -1871,6 +1873,8 @@ button[data-testid="baseButton-primary"]:hover{
                      type="primary", use_container_width=True):
             _run_json = st.session_state.get(_kj) or st.session_state.get("_nibo_raw_json", "")
             _run_nhi  = float(st.session_state.get("gs_hi_premium") or 0)
+            _run_pid  = person_id or st.session_state.get("crm_selected_pid", "") or st.session_state.get("selected_customer_id", "")
+            _run_aid  = agent_id  or st.session_state.get("user_id", "")
             if not (_run_json or "").strip():
                 st.info(
                     "📋 **'트리니티(Trinity) 계산법'** 과 "
@@ -1900,13 +1904,27 @@ button[data-testid="baseButton-primary"]:hover{
                                           st.session_state.get("_mp_phone", "")),
                             },
                             client_name     = _cname,
-                            agent_id        = st.session_state.get("user_id", ""),
-                            person_id       = st.session_state.get("selected_customer_id", ""),
+                            agent_id        = _run_aid,
+                            person_id       = _run_pid,
                             kb7_score       = int(st.session_state.get("_sops_kb_score", 0) or 0),
                             consent_version = st.session_state.get("nibo_consent_version", ""),
                             source          = "UAC-통합분석센터",
                         )
                         st.session_state[_kr] = _adata
+                        # [피보험자 기준 §16] nibo JSON + trinity 결과 중앙 DB 영구 보존
+                        if _run_pid and _run_aid:
+                            try:
+                                from db_utils import (
+                                    set_crawl_status as _scs,
+                                    upsert_analysis_report as _u_ar,
+                                )
+                                _scs(_run_pid, _run_aid, "done",
+                                     data=_j2.loads(_run_json.strip()) if isinstance(_j2.loads(_run_json.strip()), list) else [_j2.loads(_run_json.strip())])
+                                if isinstance(_adata, dict):
+                                    _u_ar(person_id=_run_pid, agent_id=_run_aid,
+                                          analysis_data=_adata, nhis_premium=_run_nhi)
+                            except Exception:
+                                pass
                         if _ok:
                             st.success("✅ 분석 완료! 우측에서 결과를 확인하세요.")
                         else:
