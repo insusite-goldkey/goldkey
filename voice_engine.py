@@ -23,9 +23,10 @@ import streamlit.components.v1 as _cv1
 # Rate   : 1.1x (명징한 아나운서 속도)
 # Pitch  : high (약간 높은 피치 — 전달력 극대화)
 # Break  : 0.3s (SSML 문장 간 호흡)
-# Model  : gemini-1.5-flash (Gemini TTS 엔진)
+# Model  : gemini-2.0-flash-preview-tts (Gemini 2.0 Flash TTS 전용 모델)
 # ══════════════════════════════════════════════════════════════════════════════
-_ZEPHYR_VOICE = "Zephyr"      # Gemini TTS 공식 보이스명
+_ZEPHYR_VOICE = "Zephyr"                       # Gemini TTS 공식 보이스명
+_ZEPHYR_MODEL = "gemini-2.0-flash-preview-tts" # TTS 전용 모델 (1.5-flash 미지원)
 _ZEPHYR_RATE  = 1.1            # 아나운서 속도 (1.1x)
 _ZEPHYR_PITCH = "high"         # 약간 높은 피치 — 명징한 전달
 _ZEPHYR_LANG  = "ko-KR"        # 한국어 표준
@@ -53,25 +54,52 @@ def _build_zephyr_ssml(text: str) -> str:
             r'<emphasis level="strong">\1</emphasis>', s,
         )
         parts.append(f'{s}<break time="{_ZEPHYR_BREAK}"/>')
-    return f"<speak>{''.join(parts)}</speak>"
+    inner = "".join(parts)
+    return f'<speak><prosody rate="110%" pitch="high">{inner}</prosody></speak>'
+
+
+def _pcm_to_wav(pcm_data: bytes, sample_rate: int = 24000) -> bytes:
+    """Raw PCM(16-bit mono 24kHz) → WAV 헤더 래핑 (Gemini TTS 출력 포맷)."""
+    import struct as _st, io as _bio
+    channels, bit_depth = 1, 16
+    byte_rate   = sample_rate * channels * (bit_depth // 8)
+    block_align = channels * (bit_depth // 8)
+    data_size   = len(pcm_data)
+    buf = _bio.BytesIO()
+    buf.write(b"RIFF")
+    buf.write(_st.pack("<I", 36 + data_size))
+    buf.write(b"WAVE")
+    buf.write(b"fmt ")
+    buf.write(_st.pack("<I", 16))           # subchunk1 size
+    buf.write(_st.pack("<H", 1))            # PCM format
+    buf.write(_st.pack("<H", channels))
+    buf.write(_st.pack("<I", sample_rate))
+    buf.write(_st.pack("<I", byte_rate))
+    buf.write(_st.pack("<H", block_align))
+    buf.write(_st.pack("<H", bit_depth))
+    buf.write(b"data")
+    buf.write(_st.pack("<I", data_size))
+    buf.write(pcm_data)
+    return buf.getvalue()
 
 
 def synthesize_zephyr(text: str, api_key: str) -> bytes | None:
-    """[GP-VOICE-2026] Gemini TTS — Zephyr 아나운서 보이스 합성.
-    성공 시 WAV/PCM 오디오 바이트 반환. 실패 시 None (Web Speech API 폴백).
-    로딩 순서: google-genai(신형 SDK) → google.generativeai(구형 SDK)
+    """[GP-VOICE-2026] Gemini 2.0 Flash TTS — Zephyr 아나운서 보이스 합성.
+    성공 시 WAV 오디오 바이트 반환. 실패 시 None (Web Speech API 폴백).
+    모델: gemini-2.0-flash-preview-tts (TTS 전용 — 1.5-flash는 AUDIO 미지원)
     """
     if not api_key or api_key == "여기에_발급받은_API_키를_넣어주세요":
         return None
     ssml = _build_zephyr_ssml(text)
+    import base64 as _b64s
 
-    # [1차] google-genai 신형 SDK (pip install google-genai)
+    # [1차] google-genai 신형 SDK — gemini-2.0-flash-preview-tts
     try:
         from google import genai as _gnai
         from google.genai import types as _gt
         _client = _gnai.Client(api_key=api_key)
         resp = _client.models.generate_content(
-            model="gemini-1.5-flash",
+            model=_ZEPHYR_MODEL,
             contents=ssml,
             config=_gt.GenerateContentConfig(
                 response_modalities=["AUDIO"],
@@ -85,21 +113,37 @@ def synthesize_zephyr(text: str, api_key: str) -> bytes | None:
             ),
         )
         if resp.candidates:
-            return resp.candidates[0].content.parts[0].inline_data.data
+            _raw = resp.candidates[0].content.parts[0].inline_data.data
+            if isinstance(_raw, str):
+                _raw = _b64s.b64decode(_raw)
+            return _pcm_to_wav(_raw)
     except Exception:
         pass
 
-    # [2차] google.generativeai 구형 SDK (pip install google-generativeai)
+    # [2차] gemini-2.0-flash-exp 폴백 (TTS 지원 실험 모델)
     try:
-        import google.generativeai as _genai_old
-        _genai_old.configure(api_key=api_key)
-        _m = _genai_old.GenerativeModel("gemini-1.5-flash")
-        _resp2 = _m.generate_content(
-            ssml,
-            generation_config={"response_mime_type": "audio/wav"},
+        from google import genai as _gnai2
+        from google.genai import types as _gt2
+        _c2 = _gnai2.Client(api_key=api_key)
+        _r2 = _c2.models.generate_content(
+            model="gemini-2.0-flash-exp",
+            contents=ssml,
+            config=_gt2.GenerateContentConfig(
+                response_modalities=["AUDIO"],
+                speech_config=_gt2.SpeechConfig(
+                    voice_config=_gt2.VoiceConfig(
+                        prebuilt_voice_config=_gt2.PrebuiltVoiceConfig(
+                            voice_name=_ZEPHYR_VOICE
+                        )
+                    )
+                ),
+            ),
         )
-        if _resp2.candidates:
-            return _resp2.candidates[0].content.parts[0].inline_data.data
+        if _r2.candidates:
+            _raw2 = _r2.candidates[0].content.parts[0].inline_data.data
+            if isinstance(_raw2, str):
+                _raw2 = _b64s.b64decode(_raw2)
+            return _pcm_to_wav(_raw2)
     except Exception:
         pass
 

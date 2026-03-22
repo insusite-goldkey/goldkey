@@ -993,9 +993,9 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
 </style>""", unsafe_allow_html=True)
     _consent_header_text = consent_header_text or "📋 이용 필수동의 확인 (아래 항목을 읽고 동의해 주세요)"
     st.markdown(
-        f"<div style='background:{consent_header_bg};border-radius:8px 8px 0 0;"
-        "padding:7px 14px;margin-top:10px;text-align:center;'>"
-        f"<span style='font-size:0.85rem;font-weight:900;color:{consent_header_fg};'>"
+        f"<div style='max-width:560px;background:{consent_header_bg};border-radius:8px 8px 0 0;"
+        "padding:8px 16px;margin-top:10px;text-align:center;'>"
+        f"<span style='font-size:1.0rem;font-weight:900;color:{consent_header_fg};'>"
         f"{_consent_header_text}</span></div>",
         unsafe_allow_html=True,
     )
@@ -1067,9 +1067,9 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     )
     # ── [GP-VOICE] AI 음성 브리핑 동의 (선택) ──────────────────────────────────
     st.markdown(
-        "<div style='background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
+        "<div style='max-width:600px;background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
         "padding:6px 12px;margin-top:10px;margin-bottom:4px;font-size:0.76rem;color:#14532d;'>"
-        "🔊 <b>AI 음성 브리핑 안내:</b> 설계사님의 스케줄 및 고객 분석 결과를 AI 아나운서의 "
+        "🔊 <b>AI 음성 브리핑 안내:</b> 설계사님의 스케줄 또는 고객 분석 결과를 AI 아나운서의 "
         "음성으로 자동 브리핑받는 기능입니다. <b>(마이크 수집 없음, 스피커 출력 전용)</b>"
         "</div>",
         unsafe_allow_html=True,
@@ -1082,7 +1082,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     st.session_state["voice_consent_agreed"] = _c6
     # ── [GP-CAL §15] 외부 캘린더 연동 동의 (선택) ──────────────────────────────
     st.markdown(
-        "<div style='background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
+        "<div style='max-width:600px;background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
         "padding:6px 12px;margin-top:10px;margin-bottom:4px;font-size:0.76rem;color:#14532d;'>"
         "📅 <b>외부 캘린더 연동 안내:</b> Google·Apple 캘린더의 일정을 "
         "<b>사용자가 직접 클릭할 때만</b> 동기화합니다. "

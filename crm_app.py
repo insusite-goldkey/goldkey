@@ -18,6 +18,13 @@ import urllib.parse
 import os
 import calendar_engine
 
+st.set_page_config(
+    page_title="Goldkey_Ai_masters2026",
+    page_icon="🏆",
+    layout="centered", # 👈 핵심! 화면 양옆 여백을 만들어 중앙으로 모읍니다.
+    initial_sidebar_state="auto"
+)
+
 # ── [조건부] voice_engine · crm_fortress import ───────────────────────────
 _MODULE_LOAD_ERRORS: list = []
 try:
@@ -584,12 +591,13 @@ if not _is_authenticated():
     except Exception:
         pass
     _crm_av_html = (
-        f'<img src="{_crm_av_src}" width="100" height="100" loading="eager"'
-        ' style="border-radius:50%;border:4px solid #D4AF37;'
+        f'<img src="{_crm_av_src}" loading="eager"'
+        ' style="width:clamp(72px,14vw,100px);height:clamp(72px,14vw,100px);'
+        'border-radius:50%;border:4px solid #D4AF37;'
         'box-shadow:0 4px 18px rgba(212,175,55,0.4);object-fit:cover;'
         'display:block;margin:0 auto 12px auto;" />'
         if _crm_av_src else
-        '<div style="width:100px;height:100px;border-radius:50%;'
+        '<div style="width:clamp(72px,14vw,100px);height:clamp(72px,14vw,100px);border-radius:50%;'
         'background:linear-gradient(135deg,#1e3a8a,#D4AF37);'
         'margin:0 auto 12px auto;border:4px solid #D4AF37;"></div>'
     )
@@ -598,9 +606,9 @@ if not _is_authenticated():
         st.markdown(
             f"<div style='text-align:center;padding:24px 0 8px;'>"
             f"{_crm_av_html}"
-            "<div style='font-size:1.6rem;font-weight:900;color:#1e3a8a;margin-bottom:3px;'>"
+            "<div style='font-size:clamp(1.1rem,4vw,1.6rem);font-weight:900;color:#1e3a8a;margin-bottom:3px;'>"
             "🏆 Goldkey AI Masters 2026</div>"
-            "<div style='font-size:1.05rem;font-weight:900;color:#374151;margin-bottom:14px;'>"
+            "<div style='font-size:clamp(0.82rem,3vw,1.05rem);font-weight:900;color:#374151;margin-bottom:14px;'>"
             "📱 골드키 CRM — 고객상담 앱</div>"
             "</div>",
             unsafe_allow_html=True,
@@ -743,17 +751,27 @@ if not _is_authenticated():
                                 except Exception:
                                     pass
         # ── 하단 통합 안내문 (이용약관 + 내보험다보여) ───────────────────────────
-        st.markdown(
-            "<hr style='margin:24px 0 14px;border:1px solid #e5e7eb;'>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<div style='background:#eff6ff;border-radius:8px 8px 0 0;"
-            "padding:7px 14px;margin-bottom:0;'>"
-            "<span style='font-size:0.85rem;font-weight:900;color:#1e3a8a;'>"
-            "📋 Goldkey AI Masters 2026 이용약관 · 내보험다보여(신용정보법 제32조) 통합 안내문</span></div>",
-            unsafe_allow_html=True,
-        )
+           
+        # 1. 화면을 [왼쪽 여백(1) : 가운데 본문(8) : 오른쪽 여백(1)] 비율로 나눕니다.
+        col_left, col_center, col_right = st.columns([1, 8, 1])
+        
+        # 2. 가운데(col_center) 구역 안에만 약관과 선을 그려넣습니다.
+        with col_center:
+            st.markdown(
+                "<hr style='margin:24px 0 14px;border:1px solid #e5e7eb;'>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<div style='margin: 0 auto; max-width:560px; background:#eff6ff; border-radius:8px 8px 0 0;"
+                "padding:7px 14px; margin-bottom:0;'>"
+                "<span style='font-size:0.85rem;font-weight:900;color:#1e3a8a;'>"
+                "📋 Goldkey AI Masters 2026 이용약관 · 내보험다보여(신용정보법 제32조) 통합 안내문</span></div>",
+                unsafe_allow_html=True,
+            )
+            
+            # 🚨 [주의] 이 코드 바로 아래에 있는 실제 약관 내용 박스(st.text_area 등)도 
+            # 반드시 여기서부터 '들여쓰기(Tab)'를 해서 with col_center: 안에 포함시켜야 합니다!
+
         _sc_render_auth_screen(
             app_name="Goldkey AI Masters 2026",
             app_icon="🏆",
@@ -764,7 +782,7 @@ if not _is_authenticated():
             show_checkboxes=False,
         )
         st.markdown(
-            "<div style='background:#fffbeb;border:1px dashed #f59e0b;"
+            "<div style='max-width:560px;background:#fffbeb;border:1px dashed #f59e0b;"
             "border-radius:0 0 8px 8px;padding:12px 14px;'>"
             "<div style='font-size:0.82rem;font-weight:900;color:#92400e;margin-bottom:6px;'>"
             "🔐 내보험다보여 연동 — 신용정보의 이용 및 보호에 관한 법률 제32조 안내</div>"
@@ -1016,6 +1034,15 @@ if _spa_mode == "list":
     except Exception:
         pass
 
+    st.markdown(
+        "<div class='customer-data-block' style='background:#fce4ec;border:2px solid #f8bbd0;"
+        "border-radius:10px;padding:12px 14px 4px 14px;margin-bottom:10px;'>"
+        "<div style='font-size:0.88rem;font-weight:900;color:#880e4f;margin-bottom:4px;'>"
+        "👥 고객 정보 입력</div>"
+        "<div style='font-size:0.72rem;color:#ad1457;margin-bottom:8px;'>"
+        "💡 이름 · 연락처 · 직업 · 주소 · 상태 입력 시 자동조회됩니다.</div>",
+        unsafe_allow_html=True,
+    )
     _search_q = st.text_input("🔍 고객 이름 / 음성 결과 확인", placeholder="이름 입력 또는 위 마이크 사용...",
                               key="spa_search", label_visibility="collapsed")
 
@@ -1028,6 +1055,7 @@ if _spa_mode == "list":
     with _fc3:
         _stat_f = st.selectbox("상태", ["전체", "가망", "진행중", "계약", "종료"],
                                key="spa_stat_f")
+    st.markdown("</div>", unsafe_allow_html=True)
 
     _all_custs = _load_customers(_user_id, _search_q or "")
     _tier_map_r  = {"VVIP(1)": 1, "핵심(2)": 2, "일반(3)": 3}
@@ -3526,7 +3554,13 @@ with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
         st.markdown("---")
 
         # ── Supabase DB 관리 ──────────────────────────────────────────────
-        st.markdown("**🗄️ Supabase DB 관리**")
+        st.markdown(
+            "<div style='display:inline-block;width:fit-content;background:#FFF8E1;"
+            "border:1px solid #fde68a;border-radius:6px;padding:4px 12px;"
+            "font-size:0.82rem;font-weight:900;color:#92400e;margin-bottom:8px;'>"
+            "🗄️ Supabase DB 관리</div>",
+            unsafe_allow_html=True,
+        )
         try:
             _cadm_sb_url  = get_env_secret("SUPABASE_URL", "")
             _cadm_sb_proj = _cadm_sb_url.replace("https://", "").split(".")[0] if _cadm_sb_url else ""
@@ -3536,7 +3570,7 @@ with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
             _cadm_sql_url = f"https://supabase.com/dashboard/project/{_cadm_sb_proj}/sql/new"
             st.markdown(
                 f'<a href="{_cadm_sql_url}" target="_blank">'
-                f'<button style="width:100%;padding:8px;background:#3ecf8e;color:#fff;'
+                f'<button style="width:auto;padding:8px 18px;background:#3ecf8e;color:#fff;'
                 f'border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;">'
                 f'🔗 Supabase SQL Editor 열기</button></a>',
                 unsafe_allow_html=True,
@@ -3544,7 +3578,7 @@ with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
         else:
             st.markdown(
                 '<a href="https://supabase.com/dashboard" target="_blank">'
-                '<button style="width:100%;padding:8px;background:#3ecf8e;color:#fff;'
+                '<button style="width:auto;padding:8px 18px;background:#3ecf8e;color:#fff;'
                 'border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;">'
                 '🔗 Supabase 대시보드 열기</button></a>',
                 unsafe_allow_html=True,

@@ -72,6 +72,7 @@ def _matches_query(row: dict, clean_q: str, tokens: list[str]) -> bool:
         row.get("job",     ""),
         row.get("address", ""),
         row.get("status",  ""),
+        row.get("contact", ""),
         str(row.get("auto_renewal_month", "") or ""),
         str(row.get("fire_renewal_month", "") or ""),
     ]

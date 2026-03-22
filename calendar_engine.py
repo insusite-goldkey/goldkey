@@ -702,7 +702,8 @@ def _render_monthly_memo(agent_id: str, month_key: str) -> None:
     def _on_change() -> None:
         cal_save_monthly_memo(agent_id, month_key, st.session_state[mk])
     st.markdown(
-        f'<div style="background:#fefce8;border:1.5px solid #fde68a;border-radius:10px;'
+        f'<div style="display:inline-block;width:fit-content;max-width:100%;'
+        f'background:#FFF8E1;border:1.5px solid #fde68a;border-radius:10px;'
         f'padding:8px 14px;margin:10px 0 4px;">'
         f'<span style="font-size:.82rem;font-weight:900;color:#92400e;">📝 월간 영업 전략 메모 — {month_key}'
         f'<span style="font-size:.7rem;font-weight:400;color:#a16207;margin-left:8px;">✅ 자동저장</span></span>'
@@ -726,7 +727,7 @@ def _render_event_form(agent_id, customers, year, month):
     st.divider()
     with st.expander(form_title, expanded=bool(sel_date_str or edit_ev)):
         # 오토-태깅 분류 선택
-        st.markdown("<div style='font-size:.78rem;font-weight:700;color:#374151;margin-bottom:4px;'>① 일정 분류 선택 → 해시태그 자동 입력</div>", unsafe_allow_html=True)
+        st.markdown("<div style='display:inline-block;width:fit-content;background:#FFF8E1;border:1px solid #fde68a;border-radius:6px;padding:3px 10px;font-size:.78rem;font-weight:700;color:#92400e;margin-bottom:4px;'>① 일정 분류 선택 → 해시태그 자동 입력</div>", unsafe_allow_html=True)
         _cat_default = edit_ev.get("category","consult") if edit_ev else "consult"
         _cat_idx = list(_CATS.keys()).index(_cat_default) if _cat_default in _CATS else 0
         _sel_cat = st.selectbox("일정 분류", options=list(_CATS.keys()),
