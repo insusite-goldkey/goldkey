@@ -829,7 +829,7 @@ def render_auth_screen(
         )
     _terms_md = st.markdown if show_terms_scroll else (lambda *a, **k: None)
     _terms_md(
-        "<div style='max-height:220px;overflow-y:auto;font-size:0.76rem;"
+        "<div style='max-width:560px;max-height:220px;overflow-y:auto;font-size:0.76rem;"
         "color:#222;line-height:1.75;border:1px dashed #000;border-radius:8px;"
         "padding:10px 14px;background:#f9fafb;margin-bottom:8px;'>"
 
@@ -1099,7 +1099,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     st.session_state["cal_sync_consent_agreed"] = _c7
     # ── [GP-KAKAO] 카카오톡 발송 동의 (선택, 개인정보보호법 제17조) ─────────────
     st.markdown(
-        "<div style='background:#fef9c3;border:2px dashed #eab308;"
+        "<div style='max-width:560px;background:#fef9c3;border:2px dashed #eab308;"
         "border-radius:10px;padding:10px 14px;margin-top:12px;margin-bottom:4px;'>"
         "<div style='font-size:0.82rem;font-weight:900;color:#713f12;margin-bottom:6px;'>"
         "💬 [카카오톡 알림톡 발송 동의] — 개인정보보호법 제17조 제3자 제공 별도 고지</div>"
