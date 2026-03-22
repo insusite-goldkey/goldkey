@@ -84,6 +84,7 @@ from shared_components import (
     build_deeplink_to_hq,
     build_deeplink_to_crm,
     build_sso_redirect,
+    build_sso_handoff_to_hq,
     HQ_APP_URL,
     CRM_APP_URL,
     get_env_secret,
@@ -967,9 +968,9 @@ except Exception as _comp_err:
 # ══════════════════════════════════════════════════════════════════════════════
 # [GP SPA §1] 상태 초기화
 # ══════════════════════════════════════════════════════════════════════════════
-if "crm_spa_mode"     not in st.session_state: st.session_state["crm_spa_mode"]     = "list"
+if "crm_spa_mode"   not in st.session_state: st.session_state["crm_spa_mode"]   = "customer"
 if "crm_selected_pid" not in st.session_state: st.session_state["crm_selected_pid"] = ""
-if "crm_spa_screen"   not in st.session_state: st.session_state["crm_spa_screen"]   = "contact"
+if "crm_spa_screen" not in st.session_state: st.session_state["crm_spa_screen"] = "db_manage"
 if "crm_list_page"    not in st.session_state: st.session_state["crm_list_page"]    = 1
 _CRM_PAGE_SIZE = 10  # [GP-PERF] 한 화면 최대 DOM 행 수 (50 이하 강제)
 
@@ -1178,22 +1179,43 @@ if _spa_mode == "list":
                 f"{_tm2['icon']} {_tm2['label']} — 아래 메뉴를 선택하세요</span></div>",
                 unsafe_allow_html=True,
             )
-            _ag1, _ag2, _ag3 = st.columns(3)
+            _ag1, _ag2, _ag3, _ag4 = st.columns(4)
+            _ag_cols = [_ag1, _ag2, _ag3, _ag4]
             _ag_actions = [
                 ("✏️ 고객정보수정", "contact",  True),
                 ("📅 스케줄",       "schedule", False),
                 ("🌐 내보험다보여", "nibo",     False),
+                ("🚀 HQ 심화상담",  "hq_goto",  False),
                 ("📊 증권분석",     "analysis", False),
                 ("🤖 AI 브리핑",   "ai_brief", False),
                 ("💬 카카오 발송",  "kakao",    False),
             ]
             for _aai, (_aal, _aas, _is_pri) in enumerate(_ag_actions):
-                with [_ag1, _ag2, _ag3][_aai % 3]:
-                    if st.button(_aal, key=f"list_ag_{_aas}"):
-                        st.session_state["crm_spa_mode"]   = "customer"
-                        st.session_state["crm_spa_screen"] = _aas
-                        st.session_state.pop("crm_spa_screen_radio", None)
-                        st.rerun()
+                with _ag_cols[_aai % 4]:
+                    if _aas == "hq_goto":
+                        try:
+                            _hq_ag_url = build_sso_handoff_to_hq(
+                                user_id=_user_id, cid=_list_sel_pid, sector="home"
+                            )
+                            st.markdown(
+                                f"<a href='{_hq_ag_url}' target='_blank' style='"
+                                "display:block;text-align:center;background:#002D56;"
+                                "color:#FFCC00;border-radius:6px;padding:5px 2px;"
+                                "font-size:0.80rem;font-weight:900;text-decoration:none;"
+                                "border:1px dashed #000;line-height:1.8;"
+                                "margin-top:2px;'>"
+                                f"{_aal}</a>",
+                                unsafe_allow_html=True,
+                            )
+                        except Exception:
+                            st.caption("⚠️ HQ URL 오류")
+                    else:
+                        if st.button(_aal, key=f"list_ag_{_aas}",
+                                     use_container_width=True):
+                            st.session_state["crm_spa_mode"]   = "customer"
+                            st.session_state["crm_spa_screen"] = _aas
+                            st.session_state.pop("crm_spa_screen_radio", None)
+                            st.rerun()
             _ag_clr_c, _ = st.columns([1, 5])
             with _ag_clr_c:
                 if st.button("✕ 해제", key="list_ag_clear"):
@@ -1715,23 +1737,6 @@ elif _spa_mode == "customer":
                 else:
                     st.caption("💡 월 건강보험료 입력 후 버튼을 클릭하면 AI 비협보험 가액이 산출됩니다.")
                 st.markdown("</div>", unsafe_allow_html=True)
-
-                # ── [HQ 컨설팅 엔진 딥링크 — 항상 표시] ──────────────────────
-                _hq_goto_url = build_deeplink_to_hq(
-                    cid=_sel_pid, agent_id=_user_id,
-                    sector="gk_sec10", user_id=_user_id,
-                )
-                st.markdown(
-                    f"<a href='{_hq_goto_url}' target='_blank' style='"
-                    "display:block;text-align:center;"
-                    "background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 100%);"
-                    "color:#fff;border-radius:10px;padding:13px 18px;"
-                    "font-size:0.88rem;font-weight:900;text-decoration:none;"
-                    "margin:10px 0;border:1px solid #3b82f6;"
-                    "box-shadow:0 2px 8px rgba(30,58,138,0.25);letter-spacing:0.02em;'>"
-                    "🚀 [HQ 컨설팅 엔진]에서 내보험다보여 / 증권분석 실행하기 →</a>",
-                    unsafe_allow_html=True,
-                )
 
                 # ── [통합 Upsert 폼 — 신규 고객등록 & 고객정보 수정] ──────────
                 st.markdown(

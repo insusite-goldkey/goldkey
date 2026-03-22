@@ -1872,7 +1872,11 @@ button[data-testid="baseButton-primary"]:hover{
             _run_json = st.session_state.get(_kj) or st.session_state.get("_nibo_raw_json", "")
             _run_nhi  = float(st.session_state.get("gs_hi_premium") or 0)
             if not (_run_json or "").strip():
-                st.warning("⬆️ 내보험다보여 JSON을 입력해 주세요.")
+                st.info(
+                    "📋 **'트리니티(Trinity) 계산법'** 과 "
+                    "**KB손해보험 증권분석 기법**에 의해 정밀한 필요 보험 가입금액 산출을 위해 "
+                    "**'내보험다보여'** 를 실행해 주세요."
+                )
             elif _run_nhi <= 0:
                 st.warning("💰 월 건강보험료를 입력해 주세요.")
             else:
