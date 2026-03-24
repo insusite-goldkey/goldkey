@@ -47,11 +47,8 @@ def get_redirect_uri() -> str:
     uri = _get_cfg("KAKAO_REDIRECT_URI")
     if uri:
         return uri
-    # Cloud Run 배포 URL 자동 감지
-    cr = _get_cfg("K_SERVICE")  # Cloud Run 자동 환경변수
-    if cr:
-        return "https://goldkey-ai-817097913199.asia-northeast3.run.app/"
-    return "http://localhost:8501/"
+    hq = _get_cfg("HQ_APP_URL", os.environ.get("HQ_APP_URL", "http://localhost:8501"))
+    return (hq.rstrip("/") + "/")
 
 
 # ==========================================================================
@@ -159,7 +156,10 @@ def send_memo(
     _summary = _build_summary(report_text, title=title, planner_info=planner_info)
 
     # 기본 텍스트 템플릿 (link 필수 → 앱 URL 삽입)
-    _app_url = _get_cfg("KAKAO_REDIRECT_URI") or "https://goldkey-ai-817097913199.asia-northeast3.run.app/"
+    _app_url = _get_cfg("KAKAO_REDIRECT_URI")
+    if not _app_url:
+        _hq = _get_cfg("HQ_APP_URL", os.environ.get("HQ_APP_URL", "http://localhost:8501"))
+        _app_url = _hq.rstrip("/") + "/"
     template = {
         "object_type": "text",
         "text": _summary,

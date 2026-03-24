@@ -5,6 +5,12 @@
 > **GP 원문:** `Constitution.md` · **코드 내 주석:** `app.py`(HQ), `crm_app.py`(CRM)  
 > **Windsurf→Cursor 인계:** `docs/CURSOR_HANDOVER_REPORT.md`
 
+### 전역 GP 원칙 (코드·문서 정렬)
+
+- **[GP-DESIGN-V3]** 전역 디자인 시스템 SSOT 준수 — `shared_components.inject_global_gp_design()` 등.
+- **[GP-SEC]** PII(개인정보) 로그 기록 및 평문 저장 절대 금지.
+- **[GP-140]** localStorage 기반 세션 지속성 및 탭 위치 관리 원칙 — HQ 측 구현(`app.py` 주석·상수)과 정합.
+
 ---
 
 ## 시스템 핵심 페르소나 및 역할 (요약)

@@ -1,4 +1,4 @@
-﻿## [SYSTEM INITIALIZATION] MUST BE LINE 1
+## [SYSTEM INITIALIZATION] MUST BE LINE 1
 import streamlit as st
 import os
 import time
@@ -132,6 +132,12 @@ if not st.session_state['initialized']:
 # [GP-IMMORTAL §5] 이 원칙은 시스템 업데이트/오류 시에도 최우선 적용된다.
 #   - 어떤 코드 변경도 이 원칙을 약화시킬 수 없다.
 # ══════════════════════════════════════════════════════════════════════════════
+#
+# [설계자 컨텍스트 — 2026-03-24]
+#   HQ 페르소나: 정밀 분석 사령부 (심화 상담·탭 라우터·트리니티·증권·리포트).
+#   SSOT 요약 문서: docs/GOLDKEY_DESIGNER_CONTEXT.md · 워크플로: docs/DESIGNER_WORKFLOW.md
+#   GP 원문: Constitution.md (본 파일 주석은 가이딩 프로토콜 실행 추적용).
+# ══════════════════════════════════════════════════════════════════════════════
 
 #    (부정경쟁방지법 제18조, 형법 제316조)
 # ==========================================================
@@ -234,6 +240,15 @@ except Exception:
     _sc_upload_file_with_tag = None
     _sc_notify_admin_error   = None
     _sc_emergency_btn        = None
+
+try:
+    from shared_components import HQ_APP_URL as _GK_HQ_URL, CRM_APP_URL as _GK_CRM_URL
+except Exception:
+    _GK_HQ_URL = (os.environ.get("HQ_APP_URL", "http://localhost:8501") or "http://localhost:8501").rstrip("/")
+    _GK_CRM_URL = (os.environ.get("CRM_APP_URL", "http://localhost:8502") or "http://localhost:8502").rstrip("/")
+
+# [Cloud Run · goldkey-ai] 정밀 분석 UI는 본 파일(Streamlit)이 담당.
+# CRM이 먼저 호출하는 REST 브리지는 modules.hq_analysis_api — Dockerfile에서 nginx가 /api/v1 로 프록시.
 
 def get_env_secret(key: str, default_value: str = "") -> str:
     """st.secrets가 없어도 뻗지 않고 클라우드 환경변수로 대체하는 안전한 함수"""
@@ -21921,9 +21936,10 @@ def _gp93_build_player_page(
     customer_name: str,
     plan: str,
     date_str: str,
-    app_url: str = "https://goldkey-ai-817097913199.asia-northeast3.run.app",
+    app_url: str | None = None,
 ) -> str:
     """황금빛 오디오 플레이어 단독 HTML 문자열 생성 (GCS 업로드용 또는 미리보기용)"""
+    _base_u = (app_url or _GK_HQ_URL).rstrip("/")
     _safe_name = customer_name or "소중한 고객"
     _safe_plan = plan or "황금빛 플랜"
     _safe_date = date_str or ""
@@ -22060,7 +22076,7 @@ def _gp93_build_player_page(
   <div class="footer-seal">
     🏅 GoldKey Master 의 약속 · 목소리는 지워지지 않는 서명입니다
   </div>
-  <a class="app-link" href="{app_url}" target="_blank">🔑 GoldKey AI 전용 상담 시스템 열기</a>
+  <a class="app-link" href="{_base_u}" target="_blank">🔑 GoldKey AI 전용 상담 시스템 열기</a>
 </div>
 </body>
 </html>"""
@@ -22330,7 +22346,7 @@ def _gp87_kakao_share(name: str, plan: str, value: str, date: str) -> None:
         f"【 {plan} 】 {value}"
     )
     _aemin_text = "이 증서는 마스터와 나 사이의 소중한 약속이며, 언제든 꺼내 보실 수 있는 내 가족의 수호권입니다."
-    _app_url    = "https://goldkey-ai-817097913199.asia-northeast3.run.app"
+    _app_url    = _GK_HQ_URL
 
     st.markdown("---")
     st.markdown("### 📲 카카오톡으로 증서 공유하기 (GP87)")
@@ -22436,7 +22452,7 @@ function shareKakao() {{
       content: {{
         title: {_safe_title},
         description: {_safe_desc},
-        imageUrl: 'https://goldkey-ai-817097913199.asia-northeast3.run.app/static/goldkey_cert_preview.png',
+        imageUrl: '{_GK_HQ_URL}/static/goldkey_cert_preview.png',
         link: {{
           mobileWebUrl: {_safe_url},
           webUrl: {_safe_url},
@@ -24125,7 +24141,7 @@ def _gp88_kakao_send() -> None:
     _kakao_js_key = _os.environ.get("KAKAO_JS_KEY", "")
     _script_body  = st.session_state.get("_gp88_active_script", "")
     _ocr_result   = st.session_state.get("_gp88_ocr_result", {})
-    _app_url      = "https://goldkey-ai-817097913199.asia-northeast3.run.app"
+    _app_url      = _GK_HQ_URL
 
     # 발송 메시지 조합
     _ocr_summary = ""
@@ -24234,7 +24250,7 @@ function gp88Share(){{
       content:{{
         title:{_safe_title},
         description:{_safe_desc},
-        imageUrl:'https://goldkey-ai-817097913199.asia-northeast3.run.app/static/goldkey_cert_preview.png',
+        imageUrl:'{_GK_HQ_URL}/static/goldkey_cert_preview.png',
         link:{{mobileWebUrl:{_safe_url},webUrl:{_safe_url}}},
       }},
       buttons:[{{title:'📜 약속 확인하기',link:{{mobileWebUrl:{_safe_url},webUrl:{_safe_url}}}}}],
@@ -29231,7 +29247,7 @@ footer, footer * { display: none !important; }
 #MainMenu, [data-testid="stMainMenuButton"] { display: none !important; }
 </style>""", unsafe_allow_html=True)
         # [M-3] HQ 앱 독립 로그인 UI 완전 폐기 — CRM SSO 전용 진입
-        _crm_redirect_url = "https://goldkey-crm-vje5ef5qka-du.a.run.app"
+        _crm_redirect_url = _GK_CRM_URL
         st.markdown(
             "<div style='text-align:center;padding:40px 20px;'>"
             "<div style='font-size:2.5rem;margin-bottom:12px;'>🔒</div>"
@@ -30470,7 +30486,10 @@ div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] button[kind="s
             _auto_tok = st.session_state.get("_auto_login_token", "")
             if _auto_tok:
                 try:
-                    _app_url = get_env_secret("APP_URL", "https://goldkey-ai.streamlit.app")
+                    _app_url = get_env_secret(
+                        "HQ_APP_URL",
+                        get_env_secret("APP_URL", _GK_HQ_URL),
+                    ).strip().rstrip("/") or _GK_HQ_URL
                     _bookmark_url = f"{_app_url}?t={_auto_tok}"
                 except Exception:
                     _bookmark_url = ""
@@ -38214,12 +38233,12 @@ function selectCustomer(name) {{
             except Exception:
                 pass
 
-            # ── [GP-VOICE] 지속형 미니 보이스 플레이어 바 (재생 버튼) ───────
+            # ── [GP-VOICE] 지속형 미니 보이스 플레이어 바 (Gemini Pro TTS Zephyr) ─
             try:
                 _mbtext = st.session_state.get("_morning_briefing_text", "")
                 if _mbtext:
-                    from voice_engine import render_voice_player_bar as _rvpb
-                    _rvpb(text=_mbtext, personality_type="Emotional", key="home_vp_bar")
+                    from voice_engine import render_voice_player_bar_zephyr as _rvpbz
+                    _rvpbz(text=_mbtext, key="home_vp_bar")
             except Exception:
                 pass
 
@@ -40340,8 +40359,7 @@ div[data-testid="stButton"] {
         🗝️ M-SECTION: [CRM]앱 고객 관리 파트</div>
     </div>""", unsafe_allow_html=True)
             _g_c1, _g_c2 = st.columns(2, gap="small")
-            _crm_base = ("https://goldkey-crm-vje5ef5qka-du.a.run.app"
-                         if os.environ.get("K_SERVICE") else "http://localhost:8502")
+            _crm_base = _GK_CRM_URL
             with _g_c1:
                 st.link_button("① 인적 자원 등록",   url=f"{_crm_base}?action=register", use_container_width=True)
                 st.link_button("② 관계망 형성",       url=f"{_crm_base}?action=network",  use_container_width=True)

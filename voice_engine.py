@@ -788,9 +788,10 @@ def render_voice_player_zephyr(
         _ok_model = st.session_state.get("_zephyr_model_ok", _ZEPHYR_MODEL)
         st.markdown(
             "<div style='background:rgba(30,91,164,0.08);border:1px dashed #1e5ba4;"
-            "border-radius:10px;padding:6px 14px;font-size:0.73rem;color:#1e5ba4;"
+            "border-radius:10px;padding:6px 14px;font-size:clamp(11px,1.8vw,13px);color:#1e5ba4;"
             "margin-bottom:6px;'>"
-            f"🎙️ <b>[GP-VOICE-2026]</b> Zephyr · {_ok_model} · {_ZEPHYR_LANG}<br>"
+            "🎙️ <b>Text-to-Speech AI</b> · <b>Gemini Pro TTS</b> · "
+            f"Language: Korean (South Korea) · Voice: {_ZEPHYR_VOICE} · Model: {_ok_model}<br>"
             "📱 <b>모바일:</b> 아래 ▶ 버튼을 눌러 재생하세요</div>",
             unsafe_allow_html=True,
         )
@@ -813,6 +814,33 @@ def render_voice_player_zephyr(
             auto_play=auto_play,
             compact=compact,
         )
+
+
+def render_voice_player_bar_zephyr(text: str, key: str = "vp_bar_zephyr") -> None:
+    """HQ 홈 미니 재생 바 — Gemini Pro TTS (Zephyr) 우선, Web Speech 폴백."""
+    try:
+        from shared_components import get_env_secret as _genv_v
+        _api_key = (_genv_v("GEMINI_API_KEY", "") or _genv_v("GOOGLE_API_KEY", ""))
+    except Exception:
+        _api_key = os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
+
+    if _api_key and _api_key != "여기에_발급받은_API_키를_넣어주세요":
+        _audio_bytes = synthesize_zephyr(text, _api_key)
+        if _audio_bytes:
+            import io as _io
+            st.markdown(
+                "<div style='font-size:clamp(11px,1.8vw,13px);color:#475569;margin-bottom:4px;'>"
+                "🔊 Text-to-Speech AI · Gemini Pro TTS · Korean (South Korea) · Zephyr</div>",
+                unsafe_allow_html=True,
+            )
+            st.audio(_io.BytesIO(_audio_bytes), format="audio/wav")
+            return
+
+    render_voice_player_bar(
+        text=text,
+        personality_type="Emotional",
+        key=key,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════

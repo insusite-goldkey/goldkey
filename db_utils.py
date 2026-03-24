@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import uuid
 import datetime
+import threading
 from typing import Optional, Any
 
 # ── Supabase 클라이언트 (프로세스 내 싱글턴) ──────────────────────────────────
@@ -566,6 +567,72 @@ def log_kakao_sent(
 
 _GCS_BUCKET_NAME = "goldkey-customer-profiles"
 _GCS_PATH_PREFIX = "encrypted_profiles"
+_GCS_AI_BRIEF_PREFIX = "crm_ai_briefs"
+
+
+def schedule_gcs_customer_profile_async(
+    person_id: str,
+    agent_id: str,
+    profile_data: dict,
+) -> None:
+    """
+    [Dual Write · Body1] Supabase 저장 직후 GCS로 동일 스냅샷 백업(암호화).
+    네트워크 지연으로 Streamlit이 멈추지 않도록 백그라운드 스레드에서만 업로드.
+    """
+    if not person_id or not profile_data:
+        return
+    _payload = {**profile_data, "person_id": person_id, "agent_id": agent_id or ""}
+
+    def _run() -> None:
+        try:
+            upload_customer_profile_gcs(person_id, _payload)
+        except Exception:
+            pass
+
+    threading.Thread(target=_run, name="gcs-profile-backup", daemon=True).start()
+
+
+def upload_ai_brief_snapshot_gcs(agent_id: str, brief_text: str) -> bool:
+    """
+    설계사별 AI 브리핑 텍스트를 JSON으로 직렬화·Fernet 암호화 후 GCS에 저장.
+    경로: crm_ai_briefs/{agent_id}/brief_latest.enc
+    """
+    if not agent_id:
+        return False
+    _fernet = _get_fernet()
+    if not _fernet:
+        return False
+    gcs = _get_gcs_client()
+    if not gcs:
+        return False
+    try:
+        import json as _j
+        _payload = {
+            "agent_id":   agent_id,
+            "brief_text": brief_text or "",
+            "saved_at":   datetime.datetime.utcnow().isoformat(),
+        }
+        _bytes = _j.dumps(_payload, ensure_ascii=False).encode("utf-8")
+        _enc = _fernet.encrypt(_bytes)
+        _blob_path = f"{_GCS_AI_BRIEF_PREFIX}/{agent_id}/brief_latest.enc"
+        _bucket = gcs.bucket(_GCS_BUCKET_NAME)
+        _blob = _bucket.blob(_blob_path)
+        _blob.upload_from_string(_enc, content_type="application/octet-stream")
+        return True
+    except Exception:
+        return False
+
+
+def schedule_ai_brief_gcs_async(agent_id: str, brief_text: str) -> None:
+    """save_ai_brief 직후 GCS 백업 — 비동기 fire-and-forget."""
+
+    def _run() -> None:
+        try:
+            upload_ai_brief_snapshot_gcs(agent_id, brief_text)
+        except Exception:
+            pass
+
+    threading.Thread(target=_run, name="gcs-ai-brief-backup", daemon=True).start()
 
 
 def _get_fernet():
@@ -674,11 +741,10 @@ def save_customer_profile_with_gcs(
     supabase_client=None,
 ) -> bool:
     """
-    Supabase DB 저장 + GCS 암호화 아카이브 동시 수행.
-    두 저장소 중 하나라도 성공하면 True 반환.
+    Supabase(gk_people) 갱신 후 동일 스냅샷을 GCS에 비동기 백업(Dual Write).
+    반환 True: DB 갱신 성공. GCS는 백그라운드에서 best-effort.
     """
-    _db_ok  = False
-    _gcs_ok = False
+    _db_ok = False
 
     sb = supabase_client or _get_sb()
     if sb:
@@ -698,9 +764,8 @@ def save_customer_profile_with_gcs(
             pass
 
     _gcs_data = {**profile_data, "person_id": person_id, "agent_id": agent_id}
-    _gcs_ok = upload_customer_profile_gcs(person_id, _gcs_data)
-
-    return _db_ok or _gcs_ok
+    schedule_gcs_customer_profile_async(person_id, agent_id, _gcs_data)
+    return _db_ok
 
 
 def bind_injury_level_to_session(person_id: str) -> dict:
@@ -779,13 +844,20 @@ def send_kakao_report(
         except Exception:
             pass  # DB 조회 실패 시 서비스 연속성 우선 — 발송 진행
 
+    try:
+        from shared_components import HQ_APP_URL as _hq_u
+        _hq_link = (_hq_u or "").strip().rstrip("/") or "http://localhost:8501"
+    except Exception:
+        import os as _os_hq
+        _hq_link = (_os_hq.environ.get("HQ_APP_URL") or "http://localhost:8501").strip().rstrip("/")
+
     payload = {
         "template_id": template_id,
         "receiver":    phone_number,
         "variables": {
             "name":    customer_name,
             "summary": report_summary,
-            "link":    "https://goldkey-ai-817097913199.asia-northeast3.run.app",
+            "link":    _hq_link,
         },
     }
 
@@ -1025,7 +1097,7 @@ def get_ai_brief(agent_id: str, limit: int = 1) -> list[dict]:
 
 
 def save_ai_brief(agent_id: str, brief_text: str) -> bool:
-    """AI 브리핑 저장 (agent_id 기준 upsert)."""
+    """AI 브리핑 저장 — Supabase(gk_ai_briefs) 동기 + GCS 실시간 백업(비동기)."""
     sb = _get_sb()
     if not sb or not agent_id:
         return False
@@ -1035,6 +1107,7 @@ def save_ai_brief(agent_id: str, brief_text: str) -> bool:
             "brief_text": brief_text,
             "created_at": datetime.datetime.utcnow().isoformat(),
         }, on_conflict="agent_id").execute()
+        schedule_ai_brief_gcs_async(agent_id, brief_text)
         return True
     except Exception:
         return False

@@ -1,9 +1,14 @@
-﻿# crm_app.py — Goldkey AI Masters CRM 2026
+# crm_app.py — Goldkey AI Masters CRM 2026
 """
-[GP 마스터-그림자 Phase 3] 초경량 현장 기동대 CRM
-- 복잡한 보험 계산식/정밀 상담 로직 없음
+[GP 마스터-그림자 Phase 3] 초경량 현장 기동대 CRM — 페르소나: 현장·이동 중 고객관리·일정·메시지·HQ 딥링크
+- 복잡한 보험 계산식/정밀 상담 로직 없음 (정밀 분석은 HQ app.py)
 - 공통 모듈(shared_components.py) import 전용
-- 역할: AI 아침 브리핑 · 고객 리스트 · 일정 · 딥링크 발사대
+- 역할: AI 아침 브리핑 · 고객 리스트 · 일정 · 딥링크 발사대 · (옵션) React Native는 crm_app/ 폴더
+
+[설계 SSOT 문서]
+  docs/GOLDKEY_DESIGNER_CONTEXT.md — 앱 역할·연결·부속 구조 요약
+  docs/DESIGNER_WORKFLOW.md — Windsurf/Cursor·설계자 워크플로
+  Constitution.md — 가이딩 프로토콜(GP) 원문
 
 [동시 구동 방법]
   본 앱(HQ):  streamlit run app.py     --server.port 8501
@@ -18,19 +23,12 @@ import urllib.parse
 import os
 import calendar_engine
 
-st.set_page_config(
-    page_title="Goldkey_Ai_masters2026",
-    page_icon="🏆",
-    layout="centered", # 👈 핵심! 화면 양옆 여백을 만들어 중앙으로 모읍니다.
-    initial_sidebar_state="auto"
-)
-
 # ── [조건부] voice_engine · crm_fortress import ───────────────────────────
 _MODULE_LOAD_ERRORS: list = []
 try:
     from voice_engine import (
         render_time_aware_briefing   as _ve_morning_auto,
-        render_voice_player          as _ve_player,
+        render_voice_player_zephyr   as _ve_player_zephyr,
         build_morning_briefing       as _ve_build_brief,
         build_customer_briefing      as _ve_build_cust_brief,
         render_voice_search          as _ve_voice_search,
@@ -39,7 +37,7 @@ try:
     _VOICE_OK = True
 except Exception as _ve_err:
     _VOICE_OK = False
-    _ve_morning_auto = _ve_player = _ve_build_brief = _ve_build_cust_brief = None
+    _ve_morning_auto = _ve_player_zephyr = _ve_build_brief = _ve_build_cust_brief = None
     _ve_voice_search = _ve_parse_intent = None
     _MODULE_LOAD_ERRORS.append(f"voice_engine — {_ve_err}")
 
@@ -98,6 +96,9 @@ from shared_components import (
     render_member_emergency_btn as _sc_emergency_btn,
     _NIBO_CONSENT_HTML as _crm_nibo_html,
     render_security_sidebar as _sc_render_security_sidebar,
+    get_hq_api_base,
+    request_hq_analysis_trigger,
+    schedule_hq_prewarm_from_crm,
 )
 
 # ── [중앙 DB 엔진] db_utils 싱글턴 import ───────────────────────────────────
@@ -835,6 +836,31 @@ def _load_customers(agent_id: str, query: str = "") -> list:
 def _load_schedules_today(agent_id: str) -> list:
     return _du_schedules_today(agent_id)
 
+
+_AUTO_JOURNAL_MARKER = "[AUTO_JOURNAL_CONSULT]"
+
+
+def _ensure_today_consult_journal(agent_id: str, person_id: str) -> None:
+    """고객 선택 시 오늘 날짜 상담 일지가 없으면 gk_consulting_logs에 person_id로 자동 생성."""
+    if not agent_id or not person_id:
+        return
+    try:
+        today = datetime.date.today().isoformat()
+        rows = _du_consult_logs(agent_id, person_id, log_type="manual", limit=50)
+        for r in rows:
+            ca = str(r.get("created_at", ""))[:10]
+            if ca == today and _AUTO_JOURNAL_MARKER in (r.get("content") or ""):
+                return
+        _du_log_consult(
+            agent_id=agent_id,
+            person_id=person_id,
+            log_type="manual",
+            content=f"{_AUTO_JOURNAL_MARKER} [{today}] 상담 일지 — 자동 생성",
+        )
+    except Exception:
+        pass
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # 헤더
 # ══════════════════════════════════════════════════════════════════════════════
@@ -890,7 +916,6 @@ try:
         apply_gp_pastel_theme,
         inject_outlook_css,
         inject_responsive_css,
-        render_radio_spa_nav,
         render_outlook_customer_list,
         render_mini_calendar,
         render_sync_badge,
@@ -968,17 +993,105 @@ except Exception as _comp_err:
 # ══════════════════════════════════════════════════════════════════════════════
 # [GP SPA §1] 상태 초기화
 # ══════════════════════════════════════════════════════════════════════════════
-if "crm_spa_mode"   not in st.session_state: st.session_state["crm_spa_mode"]   = "customer"
+if "crm_spa_mode"   not in st.session_state: st.session_state["crm_spa_mode"]   = "list"
 if "crm_selected_pid" not in st.session_state: st.session_state["crm_selected_pid"] = ""
 if "crm_spa_screen" not in st.session_state: st.session_state["crm_spa_screen"] = "db_manage"
 if "crm_list_page"    not in st.session_state: st.session_state["crm_list_page"]    = 1
 _CRM_PAGE_SIZE = 10  # [GP-PERF] 한 화면 최대 DOM 행 수 (50 이하 강제)
+
+# [GP SPA] 메인 대시보드 8대 액션 — 수평 그리드 (고객상세와 동일 키)
+_CRM_MENU_ACTIONS = [
+    ("📋 고객 마스터", "contact"),
+    ("👥 고객 DB 관리", "db_manage"),
+    ("📅 스케줄", "schedule"),
+    ("🌐 내보험다보여", "nibo"),
+    ("📊 증권분석", "analysis"),
+    ("🤖 AI 브리핑", "ai_brief"),
+    ("💬 카카오 발송", "kakao"),
+    ("⚙️ 연동/설정", "settings"),
+]
+
+
+def _render_crm_dashboard_action_grid(_user_id: str, _all_custs: list) -> None:
+    """메인 대시보드: 고객정보 입력·필터 직후 — 8대 수평 액션 (Flex/Grid, wrap)."""
+    _sel = st.session_state.get("crm_selected_pid", "")
+    _sel_c = next((c for c in _all_custs if c.get("person_id") == _sel), None) if _sel else None
+    st.markdown(
+        "<div class='crm-responsive-shell crm-action-grid-wrap'>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<div style='font-size:clamp(13px,2vw,16px);font-weight:900;color:#880e4f;margin:4px 0 8px;'>"
+        "🎯 업무 바로가기 · 고객을 표에서 선택하면 활성화됩니다</div>",
+        unsafe_allow_html=True,
+    )
+    _row_a = st.columns(4)
+    for _i in range(4):
+        _lbl, _sk = _CRM_MENU_ACTIONS[_i]
+        with _row_a[_i]:
+            _need_c = _sk != "settings"
+            _dis = _need_c and not _sel_c
+            if st.button(_lbl, key=f"crm_dash_ag_{_sk}", disabled=_dis, use_container_width=True):
+                st.session_state["crm_spa_mode"] = "customer"
+                st.session_state["crm_spa_screen"] = _sk
+                st.session_state.pop("crm_spa_screen_radio", None)
+                st.rerun()
+    _row_b = st.columns(4)
+    for _i in range(4):
+        _lbl, _sk = _CRM_MENU_ACTIONS[_i + 4]
+        with _row_b[_i]:
+            _need_c = _sk != "settings"
+            _dis = _need_c and not _sel_c
+            if st.button(_lbl, key=f"crm_dash_ag_{_sk}", disabled=_dis, use_container_width=True):
+                st.session_state["crm_spa_mode"] = "customer"
+                st.session_state["crm_spa_screen"] = _sk
+                st.session_state.pop("crm_spa_screen_radio", None)
+                st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
 _spa_mode = st.session_state.get("crm_spa_mode",    "list")
 _sel_pid  = st.session_state.get("crm_selected_pid", "")
 _sel_cust: dict | None = None
 if _sel_pid:
     _sel_cust = next((_c for _c in _load_customers(_user_id) if _c.get("person_id") == _sel_pid), None)
+    _crm_jmark_key = f"_crm_journal_mark_{_sel_pid}"
+    _crm_today_j = datetime.date.today().isoformat()
+    if st.session_state.get(_crm_jmark_key) != _crm_today_j:
+        _ensure_today_consult_journal(_user_id, _sel_pid)
+        st.session_state[_crm_jmark_key] = _crm_today_j
+    # [HQ Pre-warm] 고객 데이터 로딩 직후 — Cloud Run 깨우기 (UI 비블로킹)
+    schedule_hq_prewarm_from_crm(
+        person_id=_sel_pid,
+        user_id=_user_id,
+        agent_id=_user_id,
+        reason="select",
+    )
+
+st.markdown(
+    """
+<style>
+.st-key-peach_nav_list_l button, .st-key-peach_nav_list_r button,
+.st-key-peach_nav_cust_l button, .st-key-peach_nav_cust_r button {
+  background: linear-gradient(180deg, #fff2ec 0%, #ffdacb 100%) !important;
+  color: #7c2d12 !important;
+  border: 1.5px solid #f0a898 !important;
+  font-weight: 800 !important;
+}
+div[class*="st-key-list_ag_"] button {
+  background: linear-gradient(180deg, #e8f2ff 0%, #b9d7ff 100%) !important;
+  color: #1e3a8a !important;
+  border: 1.5px solid #7eb8ff !important;
+  font-weight: 700 !important;
+}
+/* 메인 액션: 아이콘 열 ↔ 텍스트 버튼 열 간격 6px 고정 */
+div[class*="st-key-list_ag_"] [data-testid="stHorizontalBlock"] {
+  gap: 6px !important;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # [GP SPA §2] MODE: LIST — 아웃룩 고객 목록
@@ -1017,6 +1130,31 @@ if _spa_mode == "list":
     calendar_engine.render_smart_calendar(_user_id, _load_customers(_user_id))
     st.markdown("<hr style='border-top:1px solid #e5e7eb;margin:10px 0 12px;'>",
                 unsafe_allow_html=True)
+
+    # ── [GP-NAV] 메인 대시보드 ↔ 고객 상세 ───────────────────────────────────
+    _pn_l, _pn_m, _pn_r = st.columns([1, 6, 1])
+    with _pn_l:
+        st.button(
+            "⬅ 메인 대시보드",
+            key="peach_nav_list_l",
+            disabled=True,
+            use_container_width=True,
+            help="현재 화면 (메인)",
+        )
+    with _pn_m:
+        st.caption("메인 대시보드 ↔ 고객 상세")
+    with _pn_r:
+        _pn_go_work = st.button(
+            "고객상세화면 ➡",
+            key="peach_nav_list_r",
+            disabled=not bool(_sel_pid),
+            use_container_width=True,
+            help="선택된 고객 기준 상세·업무 화면으로 이동",
+        )
+        if _pn_go_work and _sel_pid:
+            st.session_state["crm_spa_mode"] = "customer"
+            st.session_state.setdefault("crm_spa_screen", "contact")
+            st.rerun()
 
     # ── HQ 크롤링 상태 실시간 동기화 배지 ───────────────────────────────────
     try:
@@ -1160,7 +1298,10 @@ if _spa_mode == "list":
                 render_customer_list(_all_custs, show_deeplink=True, agent_tab="t3")
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── [GP-지시1] 고객 선택 액션 그리드 ─────────────────────────────────
+        # ── [GP §1] 고객 목록 직후 — 8대 수평 액션 (표에서 선택 후 활성화) ─────
+        _render_crm_dashboard_action_grid(_user_id, _all_custs)
+
+        # ── 선택 고객 요약 (액션은 위 그리드와 동일 — 중복 버튼 없음) ───────────
         _list_sel_pid  = st.session_state.get("crm_selected_pid", "")
         _list_sel_cust = next((_c for _c in _all_custs
                                if _c.get("person_id") == _list_sel_pid), None) if _list_sel_pid else None
@@ -1168,18 +1309,30 @@ if _spa_mode == "list":
             _cn2 = _list_sel_cust.get("name", "")
             _ct2 = _list_sel_cust.get("management_tier", 3)
             _tm2 = TIER_META.get(_ct2, TIER_META[3])
+            try:
+                _hq_quick = build_sso_handoff_to_hq(
+                    user_id=_user_id, cid=_list_sel_pid, sector="home"
+                )
+            except Exception:
+                _hq_quick = ""
             st.markdown(
                 f"<div style='background:#eff6ff;border:1px dashed #3b82f6;border-radius:10px;"
-                f"padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;'>"
+                f"padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;'>"
                 f"<span style='background:{_tm2['bg']};color:{_tm2['color']};font-weight:900;"
                 f"width:32px;height:32px;border-radius:50%;display:flex;align-items:center;"
                 f"justify-content:center;flex-shrink:0;'>{(_cn2 or '?')[0]}</span>"
-                f"<span style='font-size:1rem;font-weight:900;color:#1e3a8a;'>{_cn2}</span>"
-                f"<span style='font-size:0.75rem;color:#3b82f6;font-weight:700;margin-left:auto;'>"
-                f"{_tm2['icon']} {_tm2['label']} — 아래 메뉴를 선택하세요</span></div>",
+                f"<span style='font-size:clamp(14px,2vw,17px);font-weight:900;color:#1e3a8a;'>{_cn2}</span>"
+                f"<span style='font-size:clamp(11px,1.6vw,13px);color:#3b82f6;font-weight:700;margin-left:auto;'>"
+                f"{_tm2['icon']} {_tm2['label']} — 위쪽 <b>업무 바로가기</b>에서 메뉴 선택</span></div>",
                 unsafe_allow_html=True,
             )
-            # [피보험자 데이터 상태 배지 조회]
+            if _hq_quick:
+                st.markdown(
+                    f"<div style='margin:-4px 0 8px 2px;'>"
+                    f"<a href='{_hq_quick}' target='_blank' style='font-size:clamp(11px,1.5vw,13px);"
+                    f"color:#1d4ed8;font-weight:700;'>🚀 HQ 심화상담 (새 탭)</a></div>",
+                    unsafe_allow_html=True,
+                )
             try:
                 from db_utils import get_person_data_status as _gp_ds
                 _ds = _gp_ds([_list_sel_pid], _user_id).get(_list_sel_pid, {})
@@ -1188,56 +1341,17 @@ if _spa_mode == "list":
             _badge_nibo = "🟢" if _ds.get("has_nibo") else "⭕"
             _badge_tri  = "🟢" if _ds.get("has_trinity") else "⭕"
             st.markdown(
-                f"<div style='font-size:0.73rem;color:#64748b;margin:-4px 0 8px 2px;'>"
+                f"<div style='font-size:clamp(11px,1.6vw,13px);color:#64748b;margin:-4px 0 8px 2px;'>"
                 f"👁️ 내보험 {_badge_nibo} &nbsp;&nbsp;"
                 f"⏡ 트리니티 {_badge_tri}"
                 f" &nbsp;&nbsp;<span style='color:#94a3b8;'>피보험자 기준 중앙 DB 태깅</span></div>",
                 unsafe_allow_html=True,
             )
-            _ag1, _ag2, _ag3, _ag4 = st.columns(4)
-            _ag_cols = [_ag1, _ag2, _ag3, _ag4]
-            _ag_actions = [
-                ("✏️ 고객정보수정", "contact",  True),
-                ("📅 스케줄",       "schedule", False),
-                ("🌐 내보험다보여", "nibo",     False),
-                ("🚀 HQ 심화상담",  "hq_goto",  False),
-                ("📊 증권분석",     "analysis", False),
-                ("🤖 AI 브리핑",   "ai_brief", False),
-                ("💬 카카오 발송",  "kakao",    False),
-            ]
-            for _aai, (_aal, _aas, _is_pri) in enumerate(_ag_actions):
-                with _ag_cols[_aai % 4]:
-                    if _aas == "hq_goto":
-                        try:
-                            _hq_ag_url = build_sso_handoff_to_hq(
-                                user_id=_user_id, cid=_list_sel_pid, sector="home"
-                            )
-                            st.markdown(
-                                f"<a href='{_hq_ag_url}' target='_blank' style='"
-                                "display:block;text-align:center;background:#002D56;"
-                                "color:#FFCC00;border-radius:6px;padding:5px 2px;"
-                                "font-size:0.80rem;font-weight:900;text-decoration:none;"
-                                "border:1px dashed #000;line-height:1.8;"
-                                "margin-top:2px;'>"
-                                f"{_aal}</a>",
-                                unsafe_allow_html=True,
-                            )
-                        except Exception:
-                            st.caption("⚠️ HQ URL 오류")
-                    else:
-                        if st.button(_aal, key=f"list_ag_{_aas}",
-                                     use_container_width=True):
-                            st.session_state["crm_spa_mode"]   = "customer"
-                            st.session_state["crm_spa_screen"] = _aas
-                            st.session_state.pop("crm_spa_screen_radio", None)
-                            st.rerun()
-            _ag_clr_c, _ = st.columns([1, 5])
-            with _ag_clr_c:
-                if st.button("✕ 해제", key="list_ag_clear"):
-                    st.session_state["crm_selected_pid"] = ""
-                    st.rerun()
+            if st.button("✕ 선택 해제", key="list_ag_clear"):
+                st.session_state["crm_selected_pid"] = ""
+                st.rerun()
         else:
-            st.caption("💡 고객 행을 클릭하면 6대 액션 메뉴가 나타납니다.")
+            st.caption("💡 표에서 고객 행을 선택한 뒤, 위 **업무 바로가기** 그리드가 활성화됩니다.")
 
         # ── [GP-PERF] 더 보기 버튼 (페이징) ─────────────────────────────────
         if _total_cnt > len(_paged_custs):
@@ -1284,6 +1398,29 @@ elif _spa_mode == "customer":
             st.session_state.pop(_gc_key, None)
     st.session_state["_crm_prev_screen"] = _spa_screen
 
+    # ── [GP-NAV] 메인 대시보드 ↔ 고객 상세 (업무 화면) ────────────────────────
+    _pc_l, _pc_m, _pc_r = st.columns([1, 6, 1])
+    with _pc_l:
+        _pc_back_list = st.button(
+            "⬅ 메인 대시보드",
+            key="peach_nav_cust_l",
+            use_container_width=True,
+            help="메인 대시보드(달력·목록)로 이동 — 선택 고객 유지",
+        )
+        if _pc_back_list:
+            st.session_state["crm_spa_mode"] = "list"
+            st.rerun()
+    with _pc_m:
+        st.caption("메인 대시보드 ↔ 고객 상세")
+    with _pc_r:
+        st.button(
+            "고객상세화면 ➡",
+            key="peach_nav_cust_r",
+            disabled=True,
+            use_container_width=True,
+            help="현재 화면 (고객 상세/업무)",
+        )
+
     if _sel_cust:
         _cn = _sel_cust.get("name", "")
         _ct = _sel_cust.get("management_tier", 3)
@@ -1298,17 +1435,16 @@ elif _spa_mode == "customer":
             f"</div>",
             unsafe_allow_html=True,
         )
-        # ── [GP-VOICE §4] 핸즈프리 CRM — 고객 상세 진입 시 AI 브리핑 보이스 ─────
-        if _VOICE_OK and _ve_player and _ve_build_cust_brief:
+        # ── [GP-VOICE §4] 고객 상세 — Gemini Pro TTS (Zephyr) 공통 엔진 ───────────
+        if _VOICE_OK and _ve_player_zephyr and _ve_build_cust_brief:
             try:
                 _vp_cust_key  = f"crm_cust_vp_{_sel_pid}"
                 _vp_ptype_key = f"{_vp_cust_key}_ptype"
                 _vp_ptype     = st.session_state.get(_vp_ptype_key, "Emotional")
                 _vp_text      = _ve_build_cust_brief(_sel_cust, _vp_ptype)
                 _auto_play_cv = not st.session_state.get(f"_cust_briefed_{_sel_pid}", False)
-                _ve_player(
+                _ve_player_zephyr(
                     _vp_text,
-                    personality_type=_vp_ptype,
                     key=_vp_cust_key,
                     auto_play=_auto_play_cv,
                     compact=False,
@@ -1371,53 +1507,16 @@ elif _spa_mode == "customer":
         else:
             st.query_params.clear()
 
-    _crm_menus = [
-        ("📋 고객 마스터",   "contact"),
-        ("👥 고객 DB 관리",  "db_manage"),
-        ("📅 스케줄",        "schedule"),
-        ("🌐 내보험다보여",   "nibo"),
-        ("📊 증권분석",       "analysis"),
-        ("🤖 AI 브리핑",     "ai_brief"),
-        ("💬 카카오 발송",   "kakao"),
-        ("⚙️ 연동/설정",    "settings"),
-    ]
-
-    # ── [GP-2PANE §NAV] 달력 + 수직 메뉴 — '고객정보입력' 블록 아래 고정 패널 ────
-    _spa_2p_l, _spa_2p_r = st.columns([3, 7])
-    with _spa_2p_l:
-        # 달력 미니 위젯
-        try:
-            calendar_engine.render_today_widget(_user_id)
-        except Exception:
-            pass
-        st.markdown(
-            "<div style='background:#fce4ec;border:1px dashed #f8bbd0;border-radius:8px;"
-            "padding:6px 10px;margin:6px 0 4px;font-size:0.78rem;font-weight:900;color:#880e4f;'>"
-            "👥 고객 정보 입력</div>",
-            unsafe_allow_html=True,
-        )
-        # 8대 수직 메뉴 ([내보험다보여][증권분석] 포함 전 항목 복구)
-        for _2pnl, _2pnk in _crm_menus:
-            _2pn_active = (st.session_state.get("crm_spa_screen") == _2pnk)
-            if st.button(
-                _2pnl,
-                key=f"2pnav_{_2pnk}",
-                use_container_width=True,
-                type="primary" if _2pn_active else "secondary",
-            ):
-                st.session_state["crm_spa_screen"] = _2pnk
-                st.session_state.pop("crm_spa_screen_radio", None)
-                st.rerun()
-        st.markdown(
-            "<hr style='margin:6px 0;border-top:1px dashed #e5e7eb;'>",
-            unsafe_allow_html=True,
-        )
-        if st.button("🔙 고객 목록", key="2pnav_back", use_container_width=True):
-            st.session_state["crm_spa_mode"] = "list"
-            st.session_state["crm_selected_pid"] = ""
-            st.rerun()
-
+    # ── [GP-2PANE §NAV] 좌측 수직 스택 제거 — 메인 대시보드에 8대 액션 통합 ───
+    _spa_2p_r = st.container()
     with _spa_2p_r:
+        st.markdown(
+            "<div class='crm-responsive-shell' style='max-width:min(100%,960px);width:100%;margin:0 auto 10px;'>"
+            "<div style='font-size:clamp(12px,1.8vw,14px);color:#64748b;font-weight:700;'>"
+            "💡 상단 <b>⬅ 메인 대시보드</b>로 돌아가면 달력·업무 바로가기 그리드에서 메뉴를 선택하세요.</div>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
         if _sel_cust:
             _cn_2p = _sel_cust.get("name", "")
             _ct_2p = _sel_cust.get("management_tier", 3)
@@ -1425,41 +1524,27 @@ elif _spa_mode == "customer":
             st.markdown(
                 f"<div style='background:#F8FBFA;padding:8px 14px;border-radius:10px;"
                 f"border:1px dashed #000;margin-bottom:8px;display:flex;align-items:center;gap:10px;'>"
-                f"<span style='font-size:1.0rem;font-weight:900;color:#1e293b;'>{_cn_2p}</span>"
-                f"<span style='font-size:0.72rem;font-weight:900;padding:2px 8px;border-radius:10px;"
+                f"<span style='font-size:clamp(14px,2vw,17px);font-weight:900;color:#1e293b;'>{_cn_2p}</span>"
+                f"<span style='font-size:clamp(10px,1.5vw,12px);font-weight:900;padding:2px 8px;border-radius:10px;"
                 f"background:{_tm_2p['bg']};color:{_tm_2p['color']};'>"
                 f"{_tm_2p['icon']} {_tm_2p['label']}</span>"
-                f"<span style='font-size:0.72rem;color:#64748b;margin-left:auto;'>"
+                f"<span style='font-size:clamp(10px,1.5vw,12px);color:#64748b;margin-left:auto;'>"
                 f"{_sel_cust.get('job','')}</span>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
         else:
-            st.info("⬅️ 좌측 메뉴에서 화면을 선택하세요.")
-
-    # ── [GP-COMPAT] 기존 render_radio_spa_nav 폴백 유지 ──────────────────────
-    if _OUTLOOK_OK:
-        _spa_screen = render_radio_spa_nav(
-            _crm_menus,
-            session_key="crm_spa_screen",
-            back_mode_key="crm_spa_mode",
-            back_pid_key="crm_selected_pid",
-        )
-    else:
-        _scr_opts = {m[0]: m[1] for m in _crm_menus}
-        _scr_label = st.selectbox("화면 선택", list(_scr_opts.keys()), key="spa_screen_sel")
-        if _scr_opts[_scr_label] != _spa_screen:
-            st.session_state["crm_spa_screen"] = _scr_opts[_scr_label]
-            st.rerun()
-        _bk, _ = st.columns([2, 8])
-        with _bk:
-            if st.button("🔙 목록으로", key="spa_back_fb"):
-                st.session_state["crm_spa_mode"] = "list"
-                st.session_state["crm_selected_pid"] = ""
-                st.rerun()
+            st.info("⬅️ 메인 대시보드에서 고객을 선택한 뒤 업무 화면으로 들어오세요.")
 
     # ── SCREEN 1: 👥 연락처 상세 (항상 보이는 아웃룩 2-pane 레이아웃) ─────────────
     if _spa_screen == "contact":
+        if _sel_pid:
+            schedule_hq_prewarm_from_crm(
+                person_id=_sel_pid,
+                user_id=_user_id,
+                agent_id=_user_id,
+                reason="contact_tab",
+            )
         st.markdown(
             "<div style='background:#eff6ff;padding:7px 12px;border-radius:8px;"
             "font-size:0.8rem;font-weight:900;color:#1e3a8a;border:1px dashed #000;margin-bottom:10px;'>"
@@ -1473,7 +1558,7 @@ elif _spa_mode == "customer":
                 "<span style='font-size:0.85rem;font-weight:900;color:#14532d;'>"
                 "✏️ 신규 고객등록 & 고객정보 수정</span>"
                 "<br><span style='font-size:0.76rem;color:#374151;'>"
-                "좌측 목록에서 고객 선택 시 수정 모드 · 미선택 시 신규 등록 모드로 작동합니다.</span>"
+                "메인 대시보드 목록에서 고객 선택 시 수정 모드 · 미선택 시 신규 등록 모드로 작동합니다.</span>"
                 "</div>",
                 unsafe_allow_html=True,
             )
@@ -2470,6 +2555,44 @@ elif _spa_mode == "customer":
                 )
                 with st.expander("❓ HQ 앱이 열리지 않는다면?", expanded=False):
                     st.caption(f"직접 접속: {HQ_APP_URL}")
+                with st.expander("🔌 HQ 증권분석 API (Cloud Run)", expanded=False):
+                    st.caption(
+                        f"엔드포인트 베이스: `{get_hq_api_base()}` — "
+                        "`HQ_API_URL` 또는 `HQ_APP_URL`+`/api/v1` 환경변수로 설정."
+                    )
+                    _hc1, _hc2 = st.columns(2)
+                    with _hc1:
+                        if st.button("헬스 확인", key="crm_hq_api_health", use_container_width=True):
+                            import json as _hj_h
+                            import urllib.request as _uhr_h
+
+                            try:
+                                _hu = f"{get_hq_api_base().rstrip('/')}/health"
+                                with _uhr_h.urlopen(_hu, timeout=12) as _rh:
+                                    st.json(_hj_h.loads(_rh.read().decode()))
+                            except Exception as _he:
+                                st.warning(f"연결 실패: {_he}")
+                    with _hc2:
+                        if st.button("분석 트리거 (API)", key="crm_hq_api_trig", use_container_width=True):
+                            _api_res = request_hq_analysis_trigger(
+                                person_id=_sel_cust.get("person_id", ""),
+                                agent_id=st.session_state.get("user_id", "") or "",
+                                user_id=_user_id,
+                                sector=_sel_sector,
+                            )
+                            if _api_res.get("ok") and _api_res.get("hq_deeplink"):
+                                st.success("API 응답 수신 — 아래 링크로 HQ 정밀 분석을 여세요.")
+                                _hdl = _api_res["hq_deeplink"]
+                                st.markdown(
+                                    f"<a href='{_hdl}' target='_blank' rel='noopener' "
+                                    "style='display:inline-block;background:#dbeafe;color:#1e3a8a;"
+                                    "padding:10px 18px;border-radius:8px;font-weight:900;"
+                                    "text-decoration:none;border:1px solid #93c5fd;'>"
+                                    "🚀 HQ 분석 열기 (API)</a>",
+                                    unsafe_allow_html=True,
+                                )
+                            else:
+                                st.error(_api_res)
                 st.markdown("</div>", unsafe_allow_html=True)
 
             with _an2:

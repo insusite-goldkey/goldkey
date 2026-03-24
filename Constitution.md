@@ -1,4 +1,4 @@
-﻿# 🏛️ 골드키 통합 가이딩 프로토콜 (GoldKey Integrated Constitution)
+# 🏛️ 골드키 통합 가이딩 프로토콜 (GoldKey Integrated Constitution)
 
 > 이 문서는 골드키 앱의 모든 UI/UX, 기술 구현, 브랜드 경험에 관한 최상위 설계 원칙입니다.  
 > AI 및 개발자는 아래 가이딩 프로토콜 조항을 항상 준수해야 합니다.
@@ -3202,3 +3202,18 @@ Supabase 저장 작업 실패 시 조용히 넘어가지 않고 명확한 에러
 | `_trinity_coverage_total` | 현재 담보 총액 | session_state |
 | `_trinity_score` | 트리니티 종합 점수 (0~100) | session_state |
 | `trinity_calc()` | 트리니티 3단계 통합 연산 함수 | `engines/trinity_value_engine.py` |
+
+---
+
+## 부록 — 설계 문서 인덱스 (2026-03-24)
+
+본 헌법(GP) 외에, 설계자·AI·개발자가 **동일한 의도**를 참조하기 위한 요약 문서가 저장소에 둔다.
+
+| 문서 | 역할 |
+|------|------|
+| `docs/GOLDKEY_DESIGNER_CONTEXT.md` | HQ/CRM 페르소나, 연결 구조, 부속 폴더, 민감 파일, GP와의 관계 |
+| `docs/DESIGNER_WORKFLOW.md` | Windsurf·Cursor·Git 병행 시 설계자 체크리스트 |
+| `docs/CURSOR_HANDOVER_REPORT.md` | Windsurf→Cursor 인수인계 기준·방법론·배포 참조 이름 |
+| `.cursor/rules/goldkey-ai-masters.mdc` | Cursor 에이전트용 프로젝트 규칙(경계·보안·SSOT) |
+
+**로컬 SSOT:** `d:\CascadeProjects`. **민감 정보**(`secrets.toml`, `.env`, API 키 등)는 본 문서에 실어 넣지 않으며 Git에도 포함하지 않는다.

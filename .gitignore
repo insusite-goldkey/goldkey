@@ -97,3 +97,6 @@ backups/_sec*
 *.pyc
 .venv/
 venv/
+
+# 일일 git bundle 스냅샷 (로컬 백업 전용)
+.snapshots/

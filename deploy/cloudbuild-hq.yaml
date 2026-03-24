@@ -1,0 +1,12 @@
+# HQ(goldkey-ai) — 루트 Dockerfile (nginx + Streamlit + API)
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile
+      - -t
+      - $_IMAGE
+      - .
+images:
+  - $_IMAGE

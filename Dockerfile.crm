@@ -24,6 +24,11 @@ ENV STREAMLIT_LOGGER_LEVEL=info
 ENV PORT=8080
 # CRM 앱 식별자 — shared_components.py HQ_APP_URL 분기에 사용
 ENV GK_APP_ID=crm
+# Cloud Run 권장 ENV (콘솔에서 설정):
+#   HQ_APP_URL=https://goldkey-ai-....run.app
+#   HQ_API_URL=https://goldkey-ai-....run.app/api/v1   (생략 시 HQ_APP_URL+/api/v1)
+#   CRM_APP_URL=https://goldkey-crm-....run.app
+#   GK_ANALYSIS_BRIDGE_SECRET=<CRM·HQ 동일 값>
 
 # ── non-root 유저 설정 ───────────────────────────────────────────────────────
 RUN useradd -m -u 1000 user

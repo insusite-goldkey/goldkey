@@ -44,6 +44,23 @@ def _clean(d: dict) -> dict:
     return {k: v for k, v in d.items() if v is not None}
 
 
+def _schedule_dual_write_gcs(ret: dict, agent_id: str) -> None:
+    """
+    [Dual Write] gk_people 반영 직후 동일 스냅샷을 GCS에 비동기 백업.
+    db_utils.schedule_gcs_customer_profile_async — UI 스레드 블로킹 없음.
+    """
+    try:
+        from db_utils import schedule_gcs_customer_profile_async
+
+        pid = ret.get("person_id")
+        if not pid:
+            return
+        snap = {k: v for k, v in ret.items() if v is not None}
+        schedule_gcs_customer_profile_async(str(pid), str(agent_id or ""), snap)
+    except Exception:
+        pass
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # 1. People
 # ────────────────────────────────────────────────────────────────────────────
@@ -83,6 +100,8 @@ def upsert_person(
     인물 등록 또는 갱신 (3단계 계층 구조 전체 지원).
     person_id 있으면 UPDATE, 없으면 name+agent_id+birth_date 기준 검색 후 INSERT.
     반환: 저장된 행 dict
+
+    [Dual Write] 저장 성공 시 Supabase와 동일 내용이 GCS(암호화)로 비동기 백업됨.
     """
     # [GP-SEC §1][GP-회원관리 §연락처표준] 연락처 정규화 → Fernet 암호화
     if contact:
@@ -132,7 +151,9 @@ def upsert_person(
                .eq("is_deleted", False)
                .execute())
         data = res.data
-        return data[0] if data else {"person_id": person_id}
+        _out = data[0] if data else {"person_id": person_id}
+        _schedule_dual_write_gcs(_out, agent_id)
+        return _out
 
     # 중복 검색: name + agent_id + birth_date
     q = sb.table(T_PEOPLE).select("*").eq("is_deleted", False).eq("name", name.strip())
@@ -144,12 +165,16 @@ def upsert_person(
     if existing:
         ex = existing[0]
         sb.table(T_PEOPLE).update(row).eq("person_id", ex["person_id"]).execute()
-        return {**ex, **row}
+        _out = {**ex, **row}
+        _schedule_dual_write_gcs(_out, agent_id)
+        return _out
 
     row["created_at"] = _now_iso()
     row["is_deleted"] = False
     res = sb.table(T_PEOPLE).insert(row).execute()
-    return res.data[0] if res.data else row
+    _out = res.data[0] if res.data else row
+    _schedule_dual_write_gcs(_out if isinstance(_out, dict) else {}, agent_id)
+    return _out
 
 
 def soft_delete_person(sb, person_id: str) -> bool:

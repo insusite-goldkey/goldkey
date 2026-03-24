@@ -1,0 +1,16 @@
+---
+description: Goldkey AI Masters — HQ/CRM 경계, GP, 보안, 문서 SSOT
+globs: "**/*.{py,md,sql,sh,yaml,yml}"
+alwaysApply: true
+---
+
+# Goldkey AI Masters 2026
+
+- **로컬 SSOT:** `d:\CascadeProjects`. 설계 요약: `docs/GOLDKEY_DESIGNER_CONTEXT.md`, 워크플로: `docs/DESIGNER_WORKFLOW.md`, Windsurf→Cursor 인계: `docs/CURSOR_HANDOVER_REPORT.md`.
+- **HQ** = `app.py` (정밀 분석·탭 라우터). **CRM** = `crm_app.py` (현장·일정·딥링크·경량 UI). 공통: `shared_components.py`, `db_utils.py`.
+- **GP 원문:** `Constitution.md`. 코드 주석의 가이딩 프로토콜·`GP_ID_*`·GHOST PROTOCOL을 약화하는 변경 금지.
+- **[GP-DESIGN-V3]:** 전역 디자인 SSOT — `inject_global_gp_design` 등 공통 경로 유지; 임의로 이중 테마 분기 금지.
+- **[GP-SEC]:** PII 로그·세션·코드에 이름·연락처 등 평문 저장 금지.
+- **[GP-140]:** localStorage 세션·탭 위치 — 기존 `_GP140_*` 키·동작과 충돌하는 변경 시 Constitution·`app.py` 확인.
+- **비밀:** `.streamlit/secrets.toml`, `.env`, API 키·서비스 계정 파일을 Git에 넣지 말 것. Cloud Run은 환경변수/Secret Manager.
+- **변경 시:** 불필요한 대규모 리팩터 금지; 요청 범위만 수정. `backup_v1/`, `workspace/`는 보통 배포 본체와 무관 — 수정 전 Dockerfile·용도 확인.

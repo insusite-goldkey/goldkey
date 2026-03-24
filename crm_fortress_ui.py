@@ -1490,7 +1490,8 @@ def render_crm_gate_full(sb, agent_id: str) -> None:
                 _token = st.session_state.get("auth_token", "")
                 _uid   = agent_id or st.session_state.get("user_id", "")
             except Exception:
-                _hq_url = "https://goldkey-ai-817097913199.asia-northeast3.run.app"
+                import os as _os_f
+                _hq_url = (_os_f.environ.get("HQ_APP_URL") or "http://localhost:8501").strip().rstrip("/")
                 _token  = ""
                 _uid    = agent_id
 

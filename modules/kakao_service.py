@@ -45,6 +45,19 @@ def _cfg(key: str, default: str = "") -> str:
     return os.environ.get(key, default).strip()
 
 
+def _hq_public_url() -> str:
+    """HQ 공개 베이스 URL — Cloud Run은 HQ_APP_URL 환경변수 필수 권장."""
+    u = _cfg("HQ_APP_URL", "")
+    if u:
+        return u.rstrip("/")
+    try:
+        from shared_components import HQ_APP_URL as _h
+
+        return (_h or "http://localhost:8501").rstrip("/")
+    except Exception:
+        return (os.environ.get("HQ_APP_URL") or "http://localhost:8501").rstrip("/")
+
+
 def get_gp200_profile() -> dict:
     """
     GP200 마스터 프로필 로드.
@@ -204,7 +217,7 @@ def send_kakao_alimtalk(
     *,
     template_id: Optional[str] = None,
     button_label: str = "리포트 확인",
-    button_url: str = "https://goldkey-ai-817097913199.asia-northeast3.run.app",
+    button_url: Optional[str] = None,
 ) -> dict:
     """
     카카오 알림톡 발송 (NHN Cloud / 카카오 비즈메시지 API).
@@ -223,6 +236,8 @@ def send_kakao_alimtalk(
         return {"success": False, "method": "alimtalk",
                 "msg": f"전화번호 형식 오류: '{phone}'", "code": "BAD_PHONE"}
 
+    _btn = (button_url or _hq_public_url()).rstrip("/")
+
     payload = {
         "senderKey":   channel_id,
         "templateCode": tmpl,
@@ -231,7 +246,7 @@ def send_kakao_alimtalk(
             "templateParameter": {
                 "content": message[:990],
                 "button_label": button_label,
-                "button_url":   button_url,
+                "button_url":   _btn,
             },
         }],
     }

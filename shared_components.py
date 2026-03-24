@@ -4,6 +4,10 @@
 모 앱(app.py)과 자 앱(crm_app.py) 양쪽에서 import하여 사용.
 이 파일이 바뀌면 양쪽 앱이 자동으로 반영된다.
 
+[GP-DESIGN-V3] 전역 디자인 시스템 SSOT 준수 — inject_global_gp_design 등 단일 진입.
+[GP-SEC] PII(개인정보) 로그 기록 및 평문 저장 절대 금지.
+[GP-140] localStorage 기반 세션 지속성 및 탭 위치 관리 원칙(HQ 브라우저 측 구현과 정합).
+
 export:
     CUSTOMER_SCHEMA          — 고객 필드 정의 딕셔너리
     customer_card_html()     — 고객 1행 카드 HTML
@@ -19,6 +23,7 @@ export:
 from __future__ import annotations
 import streamlit as st
 import os
+import threading
 import uuid, datetime
 from typing import Optional
 
@@ -228,22 +233,119 @@ def calculate_trinity_metrics(
         "injury_cover_2yr":   injury_cover_2yr,
     }
 
-# ── 모 앱 URL (환경 자동 분기) ────────────────────────────────────────────────
-# GK_APP_ID=crm  → CRM 앱 컨테이너 (Dockerfile.crm에서 설정)
-# K_SERVICE 존재 → Cloud Run 프로덕션 환경
-# 그 외           → 로컬 개발 환경
+# ── 모/자 앱 공개 URL — Cloud Run·로컬 모두 환경변수 우선 (하드코딩 금지) ───
+# HQ_APP_URL   — HQ(Streamlit) 베이스, 딥링크·SSO에 사용
+# CRM_APP_URL  — CRM 베이스, HQ→CRM 복귀 링크에 사용
+# HQ_API_URL   — (선택) 증권분석 브리지 REST 베이스; 미설정 시 {HQ_APP_URL}/api/v1
 import os as _os
-_on_cloud = bool(_os.environ.get("K_SERVICE", ""))
-HQ_APP_URL = (
-    "https://goldkey-ai-817097913199.asia-northeast3.run.app"
-    if _on_cloud
-    else "http://localhost:8501"
-)
-CRM_APP_URL = (
-    "https://goldkey-crm-vje5ef5qka-du.a.run.app"
-    if _on_cloud
-    else "http://localhost:8502"
-)
+
+
+def resolve_hq_app_url() -> str:
+    u = get_env_secret("HQ_APP_URL", "").strip().rstrip("/")
+    if u:
+        return u
+    return "http://localhost:8501"
+
+
+def resolve_crm_app_url() -> str:
+    u = get_env_secret("CRM_APP_URL", "").strip().rstrip("/")
+    if u:
+        return u
+    return "http://localhost:8502"
+
+
+HQ_APP_URL = resolve_hq_app_url()
+CRM_APP_URL = resolve_crm_app_url()
+
+
+def get_hq_api_base() -> str:
+    """CRM → HQ 증권분석 API 베이스 (끝에 /api/v1 형태 권장)."""
+    explicit = get_env_secret("HQ_API_URL", "").strip().rstrip("/")
+    if explicit:
+        return explicit
+    return f"{HQ_APP_URL}/api/v1"
+
+
+def request_hq_analysis_trigger(
+    *,
+    person_id: str,
+    agent_id: str = "",
+    user_id: str = "",
+    sector: str = "home",
+    timeout_sec: float = 15.0,
+) -> dict:
+    """
+    CRM에서 HQ 증권분석 브리지(REST)로 세션 트리거.
+    응답에 hq_deeplink 포함 — UI에서 새 탭으로 열 수 있음.
+    """
+    import json as _j
+    import urllib.error as _ue
+    import urllib.request as _ur
+
+    if not person_id:
+        return {"ok": False, "error": "person_id_required"}
+    base = get_hq_api_base()
+    url = f"{base.rstrip('/')}/analysis/trigger"
+    secret = get_env_secret("GK_ANALYSIS_BRIDGE_SECRET", "").strip()
+    headers = {"Content-Type": "application/json; charset=utf-8"}
+    if secret:
+        headers["X-GK-Bridge-Key"] = secret
+    payload = _j.dumps(
+        {
+            "person_id": person_id,
+            "agent_id":  agent_id or "",
+            "user_id":   user_id or "",
+            "sector":    sector or "home",
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+    req = _ur.Request(url, data=payload, headers=headers, method="POST")
+    try:
+        with _ur.urlopen(req, timeout=timeout_sec) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+            return _j.loads(raw) if raw.strip() else {"ok": True}
+    except _ue.HTTPError as e:
+        try:
+            body = e.read().decode("utf-8", errors="replace")[:800]
+        except Exception:
+            body = ""
+        return {"ok": False, "error": "http", "status": e.code, "body": body}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def schedule_hq_prewarm_from_crm(
+    *,
+    person_id: str,
+    user_id: str = "",
+    agent_id: str = "",
+    reason: str = "select",
+) -> None:
+    """
+    HQ Cloud Run 콜드 스타트 완화 — GET /api/v1/health (가벼운 핑).
+    threading 백그라운드(daemon)로 실행되어 CRM UI를 블로킹하지 않음.
+    세션당 person_id·reason 조합당 1회만 네트워크 호출.
+    """
+    import urllib.request as _ur
+
+    if not person_id:
+        return
+    mark = f"_hq_prewarm_{person_id}_{reason}"
+    if st.session_state.get(mark):
+        return
+    st.session_state[mark] = True
+
+    def _run() -> None:
+        base = get_hq_api_base().rstrip("/")
+        url = f"{base}/health"
+        try:
+            with _ur.urlopen(_ur.Request(url, method="GET"), timeout=5.0):
+                pass
+        except Exception:
+            pass
+
+    threading.Thread(target=_run, name="hq-prewarm-health", daemon=True).start()
+
 
 # ── 고객 데이터 스키마 (모/자 앱 공통) ────────────────────────────────────────
 CUSTOMER_SCHEMA: dict = {
@@ -2289,20 +2391,19 @@ _GP_GLOBAL_DESIGN_CSS = """<style>
 }
 [data-testid="stSidebar"] { background: #f1f5f9 !important; }
 
-/* 3. 유동 타이포그래피 — clamp() 전역 적용 ─────────────────────────── */
+/* 3. 유동 타이포그래피 — GP §11 clamp() (모바일~태블릿 유기적 스케일) ─── */
 [data-testid="stMarkdownContainer"] p,
 [data-testid="stMarkdownContainer"] span,
 [data-testid="stMarkdownContainer"] li {
-  font-size: clamp(12px, 2.2vw, 14px) !important;
+  font-size: clamp(14px, calc(2vw + 10px), 20px) !important;
   color: var(--gp-text) !important;
   line-height: 1.6 !important;
   word-break: keep-all !important;
   overflow-wrap: break-word !important;
 }
-/* 제목 clamp() */
-h1 { font-size: clamp(18px, 4vw, 26px) !important; }
-h2 { font-size: clamp(15px, 3vw, 20px) !important; }
-h3 { font-size: clamp(13px, 2.5vw, 17px) !important; }
+h1 { font-size: clamp(16px, calc(2.5vw + 12px), 26px) !important; }
+h2 { font-size: clamp(15px, calc(2vw + 11px), 22px) !important; }
+h3 { font-size: clamp(14px, calc(1.8vw + 10px), 18px) !important; }
 
 /* 4. 모든 텍스트 컨테이너 글자 보호 ────────────────────────────────── */
 div[data-testid="stMarkdownContainer"],
@@ -2371,7 +2472,8 @@ div[data-testid="stMarkdownContainer"],
   margin: 3px 0 !important;
 }
 [data-testid="stAlert"] {
-  max-width: min(100%, 560px) !important;
+  max-width: min(100%, 720px) !important;
+  width: 100% !important;
 }
 [data-testid="stAlert"] > div {
   font-size: clamp(11px, 1.9vw, 13px) !important;
@@ -2536,6 +2638,47 @@ div[style*="background:#f0fdf4"],div[style*="background:#DCFCE7"] {
   border-radius: 8px !important;
   border: 1px solid #6ee7b7 !important;
 }
+
+/* ── §GP-CRM-ACTION-GRID: 수평 액션 그리드 (수직 스택 금지 구역) ─────── */
+.crm-responsive-shell {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: min(100%, 920px) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+.crm-action-grid-wrap [data-testid="stHorizontalBlock"] {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  width: 100% !important;
+}
+.crm-action-grid-wrap [data-testid="column"] {
+  flex: 1 1 calc(25% - 8px) !important;
+  min-width: 140px !important;
+  max-width: 100% !important;
+}
+.crm-action-grid-wrap [data-testid="stButton"] {
+  width: 100% !important;
+  display: block !important;
+}
+.crm-action-grid-wrap [data-testid="stButton"] > button {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-height: 2.75rem !important;
+  font-size: clamp(12px, calc(1.2vw + 10px), 15px) !important;
+  white-space: normal !important;
+  line-height: 1.35 !important;
+}
+@media (max-width: 768px) {
+  .crm-action-grid-wrap [data-testid="column"] {
+    flex: 1 1 calc(50% - 6px) !important;
+    min-width: 132px !important;
+  }
+}
 </style>"""
 
 
@@ -2547,11 +2690,35 @@ def inject_global_gp_design() -> None:
 
     포함 내용:
       - CSS 변수 (--gp-*) 기반 파스텔 팔레트
-      - clamp() 전역 유동 타이포그래피 (PC/태블릿/모바일 연속 스케일)
+      - clamp() 전역 유동 타이포그래피 (GP §11 — 모바일 14px ~ 태블릿 상한)
       - word-break:keep-all + overflow-wrap:break-word 글자 보호
       - 파스텔 버튼 시스템 (secondary=#E1F5FE, primary=#dbeafe 파스텔 블루)
-      - Alert 컴팩트 스타일
-      - 태블릿 가로(769-1024px) 2열 flex / 모바일(≤768px) 수직 스태킹
+      - Alert · 컨테이너 max-width + width:100% (제30조)
+      - CRM 수평 액션 그리드 (.crm-action-grid-wrap)
       - SPA 라디오 네비게이션 버튼형 CSS
     """
     st.markdown(_GP_GLOBAL_DESIGN_CSS, unsafe_allow_html=True)
+
+
+# ── [GP-VOICE] 양앱 공통 Gemini Pro TTS (Zephyr · Korean) ─────────────────────
+GP_TTS_ENGINE_LABEL = "Gemini Pro TTS"
+GP_TTS_VOICE_ZEPHYR = "Zephyr"
+GP_TTS_LANG_BCP47 = "ko-KR"
+GP_TTS_LANG_LABEL = "Korean (South Korea)"
+
+
+def render_gp_gemini_pro_tts_player(
+    text: str,
+    key: str = "gp_gemini_tts",
+    auto_play: bool = False,
+    compact: bool = False,
+) -> None:
+    """Text-to-Speech AI — Gemini Pro TTS, Zephyr, Korean (South Korea). 양앱 공통."""
+    from voice_engine import render_voice_player_zephyr
+
+    render_voice_player_zephyr(
+        text,
+        key=key,
+        auto_play=auto_play,
+        compact=compact,
+    )
