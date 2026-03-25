@@ -23,8 +23,8 @@ import urllib.error
 import urllib.request
 
 
-DEFAULT_HQ_APP_URL = "https://goldkey-ai-817097913199.asia-northeast3.run.app"
-DEFAULT_CRM_APP_URL = "https://goldkey-crm-817097913199.asia-northeast3.run.app"
+DEFAULT_HQ_APP_URL = "https://goldkey-ai-vje5ef5qka-du.a.run.app"
+DEFAULT_CRM_APP_URL = "https://goldkey-crm-vje5ef5qka-du.a.run.app"
 
 
 def _env(name: str, default: str) -> str:

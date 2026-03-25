@@ -57,7 +57,7 @@ jobs:
         run: |
           ENVVARS="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
           ENVVARS="$ENVVARS,GOOGLE_API_KEY=${{ secrets.GEMINI_API_KEY }}"
-          ENVVARS="$ENVVARS,HQ_APP_URL=https://goldkey-ai-817097913199.asia-northeast3.run.app"
+          ENVVARS="$ENVVARS,HQ_APP_URL=https://goldkey-ai-vje5ef5qka-du.a.run.app"
           ENVVARS="$ENVVARS,CRM_APP_URL=https://goldkey-crm-vje5ef5qka-du.a.run.app"
           ENVVARS="$ENVVARS,SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
           ENVVARS="$ENVVARS,SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
@@ -70,7 +70,7 @@ jobs:
           ENVVARS="$ENVVARS,GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}"
           ENVVARS="$ENVVARS,FINLIFE_API_KEY=${{ secrets.FINLIFE_API_KEY }}"
           ENVVARS="$ENVVARS,KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}"
-          ENVVARS="$ENVVARS,KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI || 'https://goldkey-ai-817097913199.asia-northeast3.run.app/' }}"
+          ENVVARS="$ENVVARS,KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI || 'https://goldkey-ai-vje5ef5qka-du.a.run.app/' }}"
           ENVVARS="$ENVVARS,KAKAO_API_KEY=${{ secrets.KAKAO_API_KEY }}"
           ENVVARS="$ENVVARS,KAKAO_SENDER_KEY=${{ secrets.KAKAO_SENDER_KEY }}"
           ENVVARS="$ENVVARS,KAKAO_TEMPLATE_ID=${{ secrets.KAKAO_TEMPLATE_ID || 'goldkey_report_v1' }}"

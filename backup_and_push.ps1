@@ -70,7 +70,7 @@ $deployArgs = @("run","deploy","goldkey-ai","--image",$image,"--region","asia-no
 & gcloud @deployArgs
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ Cloud Run 배포 완료"
-    Write-Host "🔗 앱 확인: https://goldkey-ai-817097913199.asia-northeast3.run.app"
+    Write-Host "🔗 앱 확인: https://goldkey-ai-vje5ef5qka-du.a.run.app"
 } else {
     Write-Host "❌ Cloud Run 배포 실패 (exit code: $LASTEXITCODE) — 수동 확인 필요"
     exit 1
@@ -78,7 +78,7 @@ if ($LASTEXITCODE -eq 0) {
 
 # 배포 후 HTTP 응답 확인
 Start-Sleep -Seconds 10
-$statusCode = & curl.exe -s -o NUL -w "%{http_code}" --max-time 30 "https://goldkey-ai-817097913199.asia-northeast3.run.app" 2>$null
+$statusCode = & curl.exe -s -o NUL -w "%{http_code}" --max-time 30 "https://goldkey-ai-vje5ef5qka-du.a.run.app" 2>$null
 if ($statusCode -eq "200") {
     Write-Host "✅ Cloud Run 앱 응답 정상 (HTTP 200)"
 } else {

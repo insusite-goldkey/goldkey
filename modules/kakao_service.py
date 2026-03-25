@@ -186,7 +186,7 @@ def send_kakao_memo(message: str) -> dict:
         "template_object": json.dumps({
             "object_type": "text",
             "text": message[:2000],
-            "link": {"web_url": "https://goldkey-ai-817097913199.asia-northeast3.run.app"},
+            "link": {"web_url": "https://goldkey-ai-vje5ef5qka-du.a.run.app"},
         }, ensure_ascii=False)
     }
     try:

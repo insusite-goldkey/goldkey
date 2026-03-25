@@ -91,7 +91,7 @@ Write-Host ""
 Write-Host "=========================================="
 Write-Host " ✅ [CRM 앱] 배포 완료!"
 Write-Host " 🔗 CRM URL : $serviceUrl"
-Write-Host " 🔗 HQ URL  : https://goldkey-ai-817097913199.asia-northeast3.run.app"
+Write-Host " 🔗 HQ URL  : https://goldkey-ai-vje5ef5qka-du.a.run.app"
 Write-Host "=========================================="
 
 Start-Sleep -Seconds 15
