@@ -124,6 +124,36 @@ CREATE POLICY ctx_service_only ON public.gk_consultation_contexts USING (false);
 ALTER TABLE public.gk_people ADD COLUMN IF NOT EXISTS last_device_id TEXT DEFAULT '';
 
 -- ================================================================
+-- §19 gk_insurance_contracts — 보험 가입 관리 3파트 파이프라인
+--   part: 'A'(설계사 취급계약) | 'B'(타부점 계약) | 'C'(해지/승환)
+-- ================================================================
+CREATE TABLE IF NOT EXISTS public.gk_insurance_contracts (
+    id               TEXT        PRIMARY KEY,
+    agent_id         TEXT        NOT NULL,
+    person_id        TEXT        NOT NULL,
+    part             TEXT        NOT NULL DEFAULT 'A'
+                                 CHECK (part IN ('A','B','C')),
+    policyholder     TEXT        NOT NULL DEFAULT '',
+    insured          TEXT        NOT NULL DEFAULT '',
+    insurer          TEXT        NOT NULL DEFAULT '',
+    product_name     TEXT        NOT NULL DEFAULT '',
+    policy_no        TEXT        NOT NULL DEFAULT '',
+    contract_ym      TEXT        NOT NULL DEFAULT '',
+    expiry_ym        TEXT        NOT NULL DEFAULT '',
+    monthly_premium  TEXT        NOT NULL DEFAULT '',
+    memo             TEXT        NOT NULL DEFAULT '',
+    terminated_at    TEXT,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ic_agent  ON public.gk_insurance_contracts (agent_id);
+CREATE INDEX IF NOT EXISTS idx_ic_person ON public.gk_insurance_contracts (person_id);
+CREATE INDEX IF NOT EXISTS idx_ic_part   ON public.gk_insurance_contracts (agent_id, person_id, part);
+ALTER TABLE public.gk_insurance_contracts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS ic_service_only ON public.gk_insurance_contracts;
+CREATE POLICY ic_service_only ON public.gk_insurance_contracts USING (false);
+
+-- ================================================================
 -- 확인 쿼리 (실행 후 테이블 정상 생성 여부 검증)
 -- ================================================================
 SELECT table_name, column_name, data_type
@@ -131,6 +161,6 @@ FROM information_schema.columns
 WHERE table_name IN (
     'gk_crm_clients', 'gk_unified_reports',
     'gk_handoff_sessions', 'gk_consents',
-    'gk_consultation_contexts', 'gk_people'
+    'gk_consultation_contexts', 'gk_people', 'gk_insurance_contracts'
 )
 ORDER BY table_name, ordinal_position;

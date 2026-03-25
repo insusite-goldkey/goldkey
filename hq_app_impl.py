@@ -29313,7 +29313,7 @@ footer, footer * { display: none !important; }
             f"<a href='{_crm_redirect_url}' target='_self'>"
             "<div style='display:inline-block;background:#1e3a8a;color:#fff;"
             "border-radius:8px;padding:12px 28px;font-weight:900;font-size:0.95rem;"
-            "cursor:pointer;'>🏠 CRM 앱으로 이동</div></a>"
+            "cursor:pointer;'>🏠 고객관리 및 정보 파트</div></a>"
             "</div>",
             unsafe_allow_html=True,
         )

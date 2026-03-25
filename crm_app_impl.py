@@ -80,6 +80,7 @@ from blocks.crm_trinity_block import render_crm_trinity_block
 from blocks.crm_nibo_screen_block import render_crm_nibo_screen
 from blocks.crm_analysis_screen_block import render_crm_analysis_screen
 from blocks.crm_list_inline_panel_block import render_crm_list_inline_panel
+from blocks.crm_insurance_contracts_block import render_insurance_contracts
 
 from shared_components import (
     CUSTOMER_SCHEMA,
@@ -160,7 +161,7 @@ with st.sidebar:
     except Exception:
         pass
     for _merr in _MODULE_LOAD_ERRORS:
-        st.error(f"🔴 모듈 로드 실패: {_merr}")
+        st.caption(f"⚠️ {str(_merr)[:120]}")
 
 # ── [GP-84 §11] 전역 CSS — Premium Design System v3 (모바일 우선) ──────────────
 st.markdown("""
@@ -815,7 +816,7 @@ if not _is_authenticated():
             "</div></div>",
             unsafe_allow_html=True,
         )
-        with st.popover("📋 신용정보의 이용 및 보호에 관한 법률 제32조 안내문 전문 보기", use_container_width=True):
+        with st.popover("📋 신용정보의 이용 및 보호에 관한 법률 (약칭: 신용정보법)", use_container_width=True):
             st.markdown(
                 "<div style='font-size:0.78rem;color:#92400e;font-weight:700;"
                 "margin-bottom:6px;'>📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
@@ -1062,12 +1063,6 @@ div[class*="st-key-list_ag_"] [data-testid="stHorizontalBlock"] {
 # [GP SPA §2] MODE: LIST — 아웃룩 고객 목록
 # ══════════════════════════════════════════════════════════════════════════════
 if _spa_mode == "list":
-    # ── [GP-VOICE §5] 핸즈프리 CRM — 모닝 브리핑 자동 기동 ──────────────────
-    if _VOICE_OK and _ve_morning_auto:
-        try:
-            _ve_morning_auto(_user_id, _user_name)
-        except Exception:
-            pass
     # ── [GP-VOICE §6] 음성 검색 위젯 — 달력 상단 배치 ──────────────────────
     if _VOICE_OK and _ve_voice_search:
         _voice_result = _ve_voice_search(session_key="crm_voice_q", key="crm_vs_main")
@@ -1329,6 +1324,15 @@ if _spa_mode == "list":
                         unsafe_allow_html=True,
                     )
 
+    # ── [GP-VOICE §5] 핸즈프리 CRM — 모닝 브리핑 (목록 맨 아래) ─────────────
+    if _VOICE_OK and _ve_morning_auto:
+        st.markdown("<hr style='border:none;border-top:1px solid #e2e8f0;margin:16px 0 8px;'>",
+                    unsafe_allow_html=True)
+        try:
+            _ve_morning_auto(_user_id, _user_name)
+        except Exception:
+            pass
+
     # ── [GP-FOOTER] 피드백·오류신고 + [HQ] 이동 (목록 모드 공통 최하단) ────────
     st.markdown("<hr style='border:none;border-top:1px solid #e2e8f0;margin:20px 0 12px;'>",
                 unsafe_allow_html=True)
@@ -1344,7 +1348,7 @@ if _spa_mode == "list":
         "style='display:inline-block;padding:14px 22px;font-size:clamp(13px,2vw,17px);"
         "font-weight:900;color:#fff;background:linear-gradient(135deg,#1e3a8a,#2563eb);"
         "border-radius:14px;text-decoration:none;box-shadow:0 2px 8px rgba(30,58,138,0.25);'>"
-        "🏛️ [HQ] 앱으로 이동</a></div>",
+        "🏛️ 전문 상담 파트 이동</a></div>",
         unsafe_allow_html=True,
     )
 
@@ -2861,52 +2865,61 @@ elif _spa_mode == "customer":
             else:
                 _dn2 = _db_cust.get("name", "")
                 _dp2 = _db_cust.get("person_id", "")
-                st.markdown(
-                    "<div style='background:#fff;border:1px dashed #000;"
-                    "border-radius:10px;padding:14px;'>",
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f"<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;"
-                    f"border-bottom:2px solid #bfdbfe;padding-bottom:4px;margin-bottom:12px;'>"
-                    f"✏️ {_dn2} — 고객 정보 수정</div>",
-                    unsafe_allow_html=True,
-                )
-                if _OUTLOOK_OK:
-                    _db_upd = 손보사_standard_form(_db_cust, key_prefix=f"dbm_{_dp2}")
-                else:
-                    _dbn_e = st.text_input("이름", value=_db_cust.get("name",""), key=f"dbm_n_{_dp2}")
-                    _dbj_e = st.text_input("직업", value=_db_cust.get("job",""), key=f"dbm_j_{_dp2}")
-                    _dba_e = st.text_input("주소", value=_db_cust.get("address",""), key=f"dbm_a_{_dp2}")
-                    _dbm_e = st.text_area("메모", value=_db_cust.get("memo",""), height=60, key=f"dbm_m_{_dp2}")
-                    _db_upd = {**_db_cust, "name": _dbn_e, "job": _dbj_e,
-                               "address": _dba_e, "memo": _dbm_e}
-                _dbb1, _dbb2, _dbb3 = st.columns(3)
-                with _dbb1:
-                    if st.button("💾 저장", key=f"dbm_save_{_dp2}",
-                                 type="primary", use_container_width=True):
-                        try:
-                            customer_input_form(_db_upd, _user_id, _sb)
-                            st.success("✅ 저장 완료!")
-                            st.cache_data.clear()
-                            st.rerun()
-                        except Exception as _dbe:
-                            st.error(f"저장 오류: {_dbe}")
-                with _dbb2:
-                    if st.button("↩️ 새로고침", key=f"dbm_reload_{_dp2}",
-                                 use_container_width=True):
-                        st.cache_data.clear()
-                        st.rerun()
-                with _dbb3:
-                    _hq_url = build_deeplink_to_hq(_dp2, _user_id)
+                _dbt1, _dbt2 = st.tabs(["✏️ 기본정보 수정", "📋 보험 가입 관리"])
+                with _dbt1:
                     st.markdown(
-                        f"<a href='{_hq_url}' target='_blank'>"
-                        f"<button style='width:100%;padding:6px;background:#1e3a8a;color:#fff;"
-                        f"border:none;border-radius:6px;font-size:0.78rem;font-weight:700;"
-                        f"cursor:pointer;'>🔗 HQ 정밀분석</button></a>",
+                        "<div style='background:#fff;border:1px dashed #000;"
+                        "border-radius:10px;padding:14px;'>",
                         unsafe_allow_html=True,
                     )
-                st.markdown("</div>", unsafe_allow_html=True)
+                    st.markdown(
+                        f"<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;"
+                        f"border-bottom:2px solid #bfdbfe;padding-bottom:4px;margin-bottom:12px;'>"
+                        f"✏️ {_dn2} — 고객 정보 수정</div>",
+                        unsafe_allow_html=True,
+                    )
+                    if _OUTLOOK_OK:
+                        _db_upd = 손보사_standard_form(_db_cust, key_prefix=f"dbm_{_dp2}")
+                    else:
+                        _dbn_e = st.text_input("이름", value=_db_cust.get("name",""), key=f"dbm_n_{_dp2}")
+                        _dbj_e = st.text_input("직업", value=_db_cust.get("job",""), key=f"dbm_j_{_dp2}")
+                        _dba_e = st.text_input("주소", value=_db_cust.get("address",""), key=f"dbm_a_{_dp2}")
+                        _dbm_e = st.text_area("메모", value=_db_cust.get("memo",""), height=60, key=f"dbm_m_{_dp2}")
+                        _db_upd = {**_db_cust, "name": _dbn_e, "job": _dbj_e,
+                                   "address": _dba_e, "memo": _dbm_e}
+                    _dbb1, _dbb2, _dbb3 = st.columns(3)
+                    with _dbb1:
+                        if st.button("💾 저장", key=f"dbm_save_{_dp2}",
+                                     type="primary", use_container_width=True):
+                            try:
+                                customer_input_form(_db_upd, _user_id, _sb)
+                                st.success("✅ 저장 완료!")
+                                st.cache_data.clear()
+                                st.rerun()
+                            except Exception as _dbe:
+                                st.error(f"저장 오류: {_dbe}")
+                    with _dbb2:
+                        if st.button("↩️ 새로고침", key=f"dbm_reload_{_dp2}",
+                                     use_container_width=True):
+                            st.cache_data.clear()
+                            st.rerun()
+                    with _dbb3:
+                        _hq_url = build_deeplink_to_hq(_dp2, _user_id)
+                        st.markdown(
+                            f"<a href='{_hq_url}' target='_blank'>"
+                            f"<button style='width:100%;padding:6px;background:#1e3a8a;color:#fff;"
+                            f"border:none;border-radius:6px;font-size:0.78rem;font-weight:700;"
+                            f"cursor:pointer;'>🔗 HQ 정밀분석</button></a>",
+                            unsafe_allow_html=True,
+                        )
+                    st.markdown("</div>", unsafe_allow_html=True)
+                with _dbt2:
+                    render_insurance_contracts(
+                        person_id=_dp2,
+                        agent_id=_user_id,
+                        sb=_sb,
+                        person_name=_dn2,
+                    )
 
     # ── SCREEN 8: ⚙️ 연동/설정 ───────────────────────────────────────────────
     elif _spa_screen == "settings":
@@ -3270,7 +3283,7 @@ WHERE tablename IN ('gk_people','gk_schedules','gk_consulting_logs');""",
         "style='display:inline-block;padding:14px 22px;font-size:clamp(13px,2vw,17px);"
         "font-weight:900;color:#fff;background:linear-gradient(135deg,#1e3a8a,#2563eb);"
         "border-radius:14px;text-decoration:none;box-shadow:0 2px 8px rgba(30,58,138,0.25);'>"
-        "🏛️ [HQ] 앱으로 이동</a></div>",
+        "🏛️ 전문 상담 파트 이동</a></div>",
         unsafe_allow_html=True,
     )
 

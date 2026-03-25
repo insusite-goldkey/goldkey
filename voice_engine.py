@@ -545,7 +545,7 @@ def _fetch_seoul_weather() -> str:
             headers={"User-Agent": "GoldkeyAI/2026"},
         )
         if _resp.status_code == 200:
-            return _resp.text.strip()
+            return _resp.content.decode("utf-8", errors="replace").strip()
     except Exception:
         pass
     return ""
@@ -557,12 +557,12 @@ def _fetch_weather_lat_lon(lat: float, lon: float) -> str:
         import requests as _req_w
         _loc = f"{lat:.4f},{lon:.4f}"
         _resp = _req_w.get(
-            f"https://wttr.in/{_loc}?format=%l:+%C+%t+습도%h&lang=ko",
+            f"https://wttr.in/{_loc}?format=%C+%t+습도%h&lang=ko",
             timeout=6,
             headers={"User-Agent": "GoldkeyAI/2026"},
         )
         if _resp.status_code == 200:
-            return _resp.text.strip()
+            return _resp.content.decode("utf-8", errors="replace").strip()
     except Exception:
         pass
     return ""

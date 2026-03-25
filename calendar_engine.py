@@ -550,7 +550,7 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
 .gp-sw ~ div [data-testid="column"]:last-child button:hover {
   background:linear-gradient(135deg,#fbcfe8,#fca5a5)!important;}
 </style><span class='gp-sw'></span>""", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:1rem;font-weight:900;color:#374151;margin-bottom:4px;'>🔍 태그 및 일정 검색</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:1rem;font-weight:900;color:#374151;margin-bottom:4px;'>�️ 상담 일정 관리</div>", unsafe_allow_html=True)
     _cs1, _cs2 = st.columns([5,1])
     with _cs1:
         _tq = st.text_input("검색", label_visibility="collapsed",
@@ -578,7 +578,7 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
             st.session_state["current_month"] = f"{_py:04d}-{_pm:02d}"
             st.rerun()
     with _nb2:
-        if st.button("오늘", key="cal_mo_today_eng", use_container_width=True):
+        if st.button(f"📅 {today.month}/{today.day}", key="cal_mo_today_eng", use_container_width=True, help="오늘 날짜로 이동"):
             st.session_state["current_month"] = today.strftime("%Y-%m")
             st.rerun()
     with _nb3:

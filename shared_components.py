@@ -1227,7 +1227,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
             "</div></div>",
             unsafe_allow_html=True,
         )
-        with st.popover("📋 내보험다보여 신용정보의 이용및 보호에 관한 법률 제32조 안내문.", use_container_width=True):
+        with st.popover("📋 신용정보의 이용 및 보호에 관한 법률 (약칭: 신용정보법)", use_container_width=True):
             st.markdown(
                 "<div style='font-size:0.78rem;color:#92400e;font-weight:700;"
                 "margin-bottom:6px;'>📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
@@ -1701,28 +1701,51 @@ div[data-testid="stFormSubmitButton"] > button:hover {
             _adm_default_hash = _hl_emg.sha256(b"kgagold6803").hexdigest()
             _adm_pw_hash      = get_env_secret("CRM_ADMIN_PW_HASH", _adm_default_hash)
             _adm_input_hash   = _hl_emg.sha256(_acd.encode()).hexdigest()
+            _adm_auth_ok = False
             if _aid.lower() in ("admin", "이세윤") and _acd == _env_code and _env_code:
+                _adm_auth_ok = True
                 _st3.session_state["crm_is_admin"]      = True
                 _st3.session_state["crm_authenticated"] = True
                 _st3.session_state["crm_user_id"]       = "ADMIN_MASTER"
                 _st3.session_state["crm_user_name"]     = "이세윤"
                 _st3.session_state["crm_role"]          = "admin"
-                _st3.rerun()
             elif _acd == _master_env and _master_env:
+                _adm_auth_ok = True
                 _mname = get_env_secret("MASTER_NAME", "이세윤")
                 _st3.session_state["crm_is_admin"]      = True
                 _st3.session_state["crm_authenticated"] = True
                 _st3.session_state["crm_user_id"]       = "PERMANENT_MASTER"
                 _st3.session_state["crm_user_name"]     = _mname
                 _st3.session_state["crm_role"]          = "admin"
-                _st3.rerun()
             elif _aid.lower() in ("admin", "이세윤") and _adm_input_hash == _adm_pw_hash:
+                _adm_auth_ok = True
                 _st3.session_state["crm_is_admin"]      = True
                 _st3.session_state["crm_authenticated"] = True
                 _st3.session_state["crm_user_id"]       = "ADMIN_MASTER"
                 _st3.session_state["crm_user_name"]     = "이세윤"
                 _st3.session_state["crm_role"]          = "admin"
-                _st3.rerun()
+            if _adm_auth_ok:
+                _hq_dest = resolve_hq_app_url()
+                _st3.success("✅ 인증 완료 — HQ 전문 분석 시스템으로 이동합니다...")
+                try:
+                    import streamlit.components.v1 as _sc_adm
+                    _sc_adm.html(
+                        f'<script>window.top.location.href="{_hq_dest}";</script>',
+                        height=0,
+                    )
+                except Exception:
+                    pass
+                _st3.markdown(
+                    f"<div style='text-align:center;margin:14px 0;'>"
+                    f"<a href='{_hq_dest}' target='_self' "
+                    f"style='display:inline-block;background:linear-gradient(135deg,#1e3a8a,#2563eb);"
+                    f"color:#fff;padding:13px 30px;border-radius:12px;font-weight:900;"
+                    f"font-size:clamp(0.9rem,3vw,1.05rem);text-decoration:none;"
+                    f"box-shadow:0 3px 10px rgba(30,58,138,0.3);'>"
+                    f"🏗️ HQ 전문 상담 파트로 이동 →</a></div>",
+                    unsafe_allow_html=True,
+                )
+                _st3.stop()
             else:
                 _st3.error("❌ ID 또는 코드가 올바르지 않습니다.")
         _st3.markdown("</div>", unsafe_allow_html=True)
@@ -2797,6 +2820,67 @@ div[style*="background:#f0fdf4"],div[style*="background:#DCFCE7"] {
     min-width: 132px !important;
   }
 }
+/* [GP-BTN-NOWRAP] 버튼 포함 행 — 모든 화면에서 수평 유지, 압착 금지 */
+[data-testid="stHorizontalBlock"]:has(button) {
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+}
+[data-testid="stHorizontalBlock"]:has(button) > [data-testid="column"] {
+  flex-shrink: 0 !important;
+  min-width: 60px !important;
+}
+/* [GP-INPUT-DYNAMIC] 스마트 다이내믹 입력창 — 포커스 시 확장 애니메이션 */
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea {
+  font-size: clamp(0.82rem, 3vw, 0.98rem) !important;
+  transition: box-shadow 0.35s cubic-bezier(0.4,0,0.2,1),
+              border-color 0.3s ease !important;
+  border-radius: 10px !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.18),
+              0 2px 8px rgba(0,0,0,0.06) !important;
+  border-color: #6366f1 !important;
+}
+/* [GP-LOGIN-COMPACT] 로그인 폼 — 최대폭 제한·중앙 정렬·카드 디자인 */
+[data-testid="stForm"] {
+  max-width: min(380px, 97vw) !important;
+  margin: 6px auto 12px !important;
+  background: rgba(255,255,255,0.97) !important;
+  border: 1px dashed #000 !important;
+  border-radius: 14px !important;
+  padding: 18px 22px 14px !important;
+  box-shadow: 0 4px 18px rgba(59,130,246,0.08) !important;
+}
+[data-testid="stFormSubmitButton"] button {
+  font-size: clamp(0.9rem,3.5vw,1.05rem) !important;
+  min-height: 44px !important;
+  font-weight: 800 !important;
+  border-radius: 10px !important;
+  transition: box-shadow 0.25s ease !important;
+}
+[data-testid="stFormSubmitButton"] button:hover {
+  box-shadow: 0 4px 12px rgba(99,102,241,0.3) !important;
+  transform: translateY(-1px) !important;
+}
+/* [GP-TYPO-CLAMP] 헤더·레이블 반응형 타이포그래피 */
+h1 { font-size: clamp(1.4rem,5vw,2rem) !important; }
+h2 { font-size: clamp(1.1rem,4vw,1.55rem) !important; }
+h3 { font-size: clamp(0.95rem,3.5vw,1.2rem) !important; }
+label[data-testid="stWidgetLabel"] {
+  font-size: clamp(0.8rem,2.8vw,0.92rem) !important;
+}
+/* [GP-PLACEHOLDER] 전역 플레이스홀더 시각적 감쇠 — 입력값과 혼동 방지 */
+input::placeholder,
+textarea::placeholder {
+  color: #bbb !important;
+  opacity: 0.45 !important;
+}
+input:focus::placeholder,
+textarea:focus::placeholder {
+  opacity: 0 !important;
+}
 </style>"""
 
 
@@ -2897,21 +2981,22 @@ def load_gp_rules() -> dict:
             if _r.ok and _r.text.strip():
                 remote = _r.json()
                 if isinstance(remote, dict):
+                    _local_crm_ui = base.get("crm_ui")
                     _deep_merge_gp(base, remote)
+                    if _local_crm_ui is not None:
+                        base["crm_ui"] = _local_crm_ui
         except Exception:
             pass
     return base
 
 
 _DEFAULT_CRM_ACTION_ROWS: list[tuple[str, str, bool]] = [
-    ("📋 고객 마스터", "contact", True),
-    ("👥 고객 DB 관리", "db_manage", True),
-    ("📅 스케줄", "schedule", True),
-    ("🌐 내보험다보여", "nibo", True),
-    ("📊 증권분석", "analysis", True),
-    ("🤖 AI 브리핑", "ai_brief", True),
-    ("💬 카카오 발송", "kakao", True),
-    ("⚙️ 연동/설정", "settings", False),
+    ("고객정보",     "contact",  True),
+    ("고객 DB 관리","db_manage", True),
+    ("스케줄",      "schedule", True),
+    ("증권분석",    "analysis", True),
+    ("카카오",      "kakao",    True),
+    ("핸드폰스캔",  "settings", False),
 ]
 
 

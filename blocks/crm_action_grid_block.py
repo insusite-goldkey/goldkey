@@ -12,9 +12,39 @@ import streamlit as st
 _INLINE_PANEL_KEYS = frozenset({"nibo", "analysis"})
 
 
+_ACTION_GRID_SCROLL_CSS = """
+<style>
+/* [GP-ACTION-SCROLL] 액션 그리드 수평 스크롤 — no-wrap + overflow-x:auto */
+[data-testid="stHorizontalBlock"]:has([class*="st-key-crm_dash_ag_"]) {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+    padding-bottom: 4px !important;
+    gap: 6px !important;
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-crm_dash_ag_"])::-webkit-scrollbar {
+    display: none !important;
+}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-crm_dash_ag_"]) > [data-testid="column"] {
+    flex-shrink: 0 !important;
+    min-width: 80px !important;
+    max-width: 120px !important;
+    width: auto !important;
+}
+</style>
+"""
+
+
 def render_crm_dashboard_action_grid(_user_id: str, _all_custs: list) -> None:
     """메인 대시보드: 고객 표 직후 — rules 기반 수평 액션 그리드."""
     from shared_components import get_crm_action_grid_title, get_crm_action_definitions
+
+    st.markdown(_ACTION_GRID_SCROLL_CSS, unsafe_allow_html=True)
 
     _sel = st.session_state.get("crm_selected_pid", "")
     _sel_c = (
