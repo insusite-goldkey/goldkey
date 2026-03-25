@@ -77,6 +77,18 @@ jobs:
           ENVVARS="$ENVVARS,SMS_API_KEY=${{ secrets.SMS_API_KEY }}"
           ENVVARS="$ENVVARS,SMS_API_SECRET=${{ secrets.SMS_API_SECRET }}"
           ENVVARS="$ENVVARS,SMS_SENDER_NUM=${{ secrets.SMS_SENDER_NUM }}"
+          ENVVARS="$ENVVARS,HIRA_API_KEY=${{ secrets.HIRA_API_KEY }}"
+          ENVVARS="$ENVVARS,KOSIS_API_KEY=${{ secrets.KOSIS_API_KEY }}"
+          ENVVARS="$ENVVARS,ONC_API_KEY=${{ secrets.ONC_API_KEY }}"
+          ENVVARS="$ENVVARS,FSS_API_KEY=${{ secrets.FSS_API_KEY }}"
+          ENVVARS="$ENVVARS,ADMIN_KEY=${{ secrets.ADMIN_KEY }}"
+          ENVVARS="$ENVVARS,GCS_CACHE_BUCKET=${{ secrets.GCS_CACHE_BUCKET }}"
+          ENVVARS="$ENVVARS,ADMIN_NOTIFY_PHONE=${{ secrets.ADMIN_NOTIFY_PHONE }}"
+          ENVVARS="$ENVVARS,MS_CLIENT_ID=${{ secrets.MS_CLIENT_ID }}"
+          ENVVARS="$ENVVARS,MS_CLIENT_SECRET=${{ secrets.MS_CLIENT_SECRET }}"
+          ENVVARS="$ENVVARS,MS_TENANT_ID=${{ secrets.MS_TENANT_ID || 'common' }}"
+          ENVVARS="$ENVVARS,MS_REDIRECT_URI=${{ secrets.MS_REDIRECT_URI }}"
+          ENVVARS="$ENVVARS,GK_ANALYSIS_BRIDGE_SECRET=${{ secrets.GK_ANALYSIS_BRIDGE_SECRET }}"
           gcloud run deploy ${{ env.SERVICE }} \
             --image "$IMAGE" \
             --region ${{ env.REGION }} \
