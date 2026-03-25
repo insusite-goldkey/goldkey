@@ -289,7 +289,7 @@ def build_gp250_report(
         f"{_adv_line}"
         f"{_inc_line}"
         f"{'─' * 30}\n"
-        f"� 총 경제적 위협액: {_fmt(_total_val)}\n\n"
+        f"💥 총 경제적 위협액: {_fmt(_total_val)}\n\n"
         f"📌 출처: {_source}\n"
         f"※ 개인차 있음. 참고용 통계치입니다.\n"
     )

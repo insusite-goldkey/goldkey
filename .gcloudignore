@@ -24,3 +24,9 @@ app_backup_*.py
 # 기타
 node_modules/
 *.log
+
+# 대용량 미사용 트리 (Cloud Run 빌드 컨텍스트 축소)
+backup_v1/
+backups/
+workspace/
+GoldKeyApp/

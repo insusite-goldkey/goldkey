@@ -43,6 +43,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # ── 앱 소스 복사 ────────────────────────────────────────────────────────────
+# pip 레이어와 분리되어 있음: 라이브러리 미변경 시 캐시 유지. `.dockerignore`로 컨텍스트 축소.
 COPY --chown=user . .
 
 USER user

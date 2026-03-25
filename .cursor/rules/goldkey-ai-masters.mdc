@@ -7,10 +7,16 @@ alwaysApply: true
 # Goldkey AI Masters 2026
 
 - **로컬 SSOT:** `d:\CascadeProjects`. 설계 요약: `docs/GOLDKEY_DESIGNER_CONTEXT.md`, 워크플로: `docs/DESIGNER_WORKFLOW.md`, Windsurf→Cursor 인계: `docs/CURSOR_HANDOVER_REPORT.md`.
-- **HQ** = `app.py` (정밀 분석·탭 라우터). **CRM** = `crm_app.py` (현장·일정·딥링크·경량 UI). 공통: `shared_components.py`, `db_utils.py`.
+- **앱 호칭 (문서·응답·주석·커밋 메시지):** **`crm_app.py` → CRM**, **`app.py` → HQ**. 역호칭 금지(예: “crm_app” 대신 “CRM”, “app.py 본체” 대신 “HQ” 권장).
+- **역할:** **HEAD** = `head_api/` (FastAPI REST — 트리니티 등 분석 SSOT·향후 GCS 단일 진입). **HQ** = `app.py` → `hq_app_impl.py` (Thin UI — 계산은 `HEAD_API_URL`로 위임). **CRM** = `crm_app.py` → `crm_app_impl.py`. 공통: `shared_components.py`, `db_utils.py`, `head_api_client.py`.
+- **앱 구성 방식 (머리 1 · 몸통 2 + GCS 사령부):** 지식·정책·리포트·카카오·상담 도메인(법률·손해사정·보험금·라이프사이클·노후·세금·화재·자동차·신규가입·설계사 대화법 등)의 **단일 진실(SSOT)은 GCS 중앙 컨트롤센터(사령부)** 에 두고, **HQ·CRM은 그 지시 자료·분석 자료를 연계·소비**한다. 기능 변경 시 **먼저 사령부(컨트롤 타워) 측을 수정**한 뒤, 설계자가 지정한 **모듈(HQ/CRM 등)과 예열·연결**해 흐름을 맞춘다. HQ/CRM에만 지식을 복제·하드코딩하지 않는다.
 - **GP 원문:** `Constitution.md`. 코드 주석의 가이딩 프로토콜·`GP_ID_*`·GHOST PROTOCOL을 약화하는 변경 금지.
 - **[GP-DESIGN-V3]:** 전역 디자인 SSOT — `inject_global_gp_design` 등 공통 경로 유지; 임의로 이중 테마 분기 금지.
 - **[GP-SEC]:** PII 로그·세션·코드에 이름·연락처 등 평문 저장 금지.
 - **[GP-140]:** localStorage 세션·탭 위치 — 기존 `_GP140_*` 키·동작과 충돌하는 변경 시 Constitution·`app.py` 확인.
 - **비밀:** `.streamlit/secrets.toml`, `.env`, API 키·서비스 계정 파일을 Git에 넣지 말 것. Cloud Run은 환경변수/Secret Manager.
 - **변경 시:** 불필요한 대규모 리팩터 금지; 요청 범위만 수정. `backup_v1/`, `workspace/`는 보통 배포 본체와 무관 — 수정 전 Dockerfile·용도 확인.
+- **GP 작업 절차:** 지시에 여러 항목이 있으면 **항목을 먼저 추출·정리**한 뒤 시행하고, **이행 여부를 검토·보고**한다. 설계자가 삭제를 명시하기 전까지 **기존 UI 블록을 임의로 삭제하지 않는다** (재배치·비활성화·중복 제거는 지시 범위 내에서).
+- **작업 명령서 (`docs/TODO.md`):** 작업 시작·종료 시 해당 파일의 **현재 집중 작업**과 체크박스(`[ ]` / `[working]` / `[x]`)를 갱신한다. 이전 태스크가 끝나지 않았으면 중단 위치를 남기고, **설계자 승인 후** 다음 항목으로 넘어간다.
+- **완료 선언:** 주석만 있고 실행 로직이 없는 Placeholder, 누락된 import·연결 없이 **코드베이스 자가 검수**를 한 뒤에만 “다 했다”고 말한다.
+- **진행률 보고:** 가능하면 Phase·태스크 단위로 **0–100%** 형태(예: Phase 1 전체 3개 중 n개 완료)를 `docs/TODO.md` 또는 응답에 명시한다.

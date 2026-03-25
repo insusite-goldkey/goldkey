@@ -45,7 +45,9 @@ COPY docker/init-hq.sh ./docker/init-hq.sh
 COPY docker/supervisord-hq.conf ./supervisord.conf
 
 # ── 6. [중요!] 앱 소스 코드 전체 복사 ──────────────────────────────────────────
-# 이 과정이 빠져있어서 실행 파일(init-hq.sh 등)을 찾지 못했던 것입니다.
+# 레이어 캐시: 위에서 requirements.txt + pip install 이 이미 끝났으므로,
+# 소스만 바뀐 경우 이 레이어만 무효화됩니다. (pip 재설치 없음)
+# 빌드 컨텍스트 축소: 루트 `.dockerignore` / `.gcloudignore` 로 백업·RN 앱 등 제외.
 COPY . .
 
 # ── 7. 권한 설정 및 마무리 ─────────────────────────────────────────────────────

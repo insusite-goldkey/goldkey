@@ -159,6 +159,51 @@
 
 ## 작업 일지 (최신순)
 
+### 2026-03-24 (월·후반) — CRM 메인 재배치 · 상담센터 5:5 · 위치 기반 날씨 · 전역 TTS 클래스
+
+| 항목 | 내용 |
+|------|------|
+| 메인 목록 순서 | 달력 → 고객정보입력(필터) → **왕복 네비**(`blocks/crm_nav_block`) → **8액션 그리드** → **상담 센터 5:5**(`blocks/crm_consultation_center_block`) → 고객 표 |
+| 네비 | `render_crm_dual_nav` — 목록·상세 양쪽에 동일 키(peach_nav_*) 유지 |
+| 상담 센터 | 좌: 건보료·트리니티·Nibo·동의·증권스캔 expander / 우: 트리니티·HQ 요약 박스 |
+| 하단 | `compliance.render_feedback_button` + **[HQ] 앱으로 이동** 대형 버튼 |
+| 모닝 브리핑 날씨 | `brief_lat`/`brief_lon` 세션 → IP 기반(ip-api) → 서울 폴백 (`voice_engine`) |
+| 전역 TTS | `shared_components.GeminiProTTSVoice` — Zephyr 배너 문구 통일 |
+| GP 규칙 | `.cursor/rules/goldkey-ai-masters.mdc` — 다중 지시 추출·보고·블록 임의 삭제 금지 |
+| 후속 마무리 | `crm_app`: `render_briefing_geolocation_button` **별도 import** (voice 일부 실패 시에도 위치 버튼 가능); **고객(`customer`) 모드**에도 피드백 + **[HQ] 앱으로 이동** 푸터 추가 |
+
+---
+
+### 2026-03-24 (월) — GP-44 블록 모듈화 · rules 기반 CRM 액션 · 배포 트랙 문서
+
+**작업 시간:** 오전 (UTC+09:00)
+
+#### ✅ 사전 백업
+
+| 항목 | 내용 |
+|------|------|
+| `backup_and_push.ps1` | `app.py` 스냅샷 `app_backup_*.py` 생성 → Git add/commit/push → Cloud Build(HQ) → `goldkey-ai` 배포 |
+
+#### ✅ 코드·구조
+
+| 항목 | 내용 |
+|------|------|
+| `blocks/` | 패키지 생성, `crm_action_grid_block.py` — CRM 메인 수평 액션 그리드 분리 |
+| `shared_components.py` | `load_gp_rules()` (로컬 `rules.json` + `GK_RULES_JSON_URL` 병합, 60초 캐시), `get_crm_action_definitions()`, `get_crm_action_grid_title()` |
+| `rules.json` | `crm_ui.action_grid_title`, `crm_ui.actions[]` (id, label, order, enabled, requires_customer) |
+| `crm_app.py` | 인라인 액션 그리드 제거 → `blocks` import |
+| `Dockerfile` / `Dockerfile.crm` | 레이어 캐시·`.dockerignore` 안내 주석 |
+| `.dockerignore` | 신규 — 백업·workspace·RN 등 제외 |
+| `.gcloudignore` | `backup_v1/`, `backups/`, `workspace/`, `GoldKeyApp/` 추가 |
+
+#### ✅ 문서
+
+| 파일 | 내용 |
+|------|------|
+| `docs/BLOCKS_AND_DEPLOY_GUIDE.md` | Track A(설정 OTA) vs Track B(코드 배포), 수정 위치 표 |
+
+---
+
 ### 2026-03-10 (화) — 성능 최적화 · 백화현상 수정
 
 **작업 시간:** 오후 7:00 ~ 오후 7:25 (UTC+09:00)

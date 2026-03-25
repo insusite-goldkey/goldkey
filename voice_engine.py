@@ -551,6 +551,45 @@ def _fetch_seoul_weather() -> str:
     return ""
 
 
+def _fetch_weather_lat_lon(lat: float, lon: float) -> str:
+    """[GP-GEO] 위도·경도 기준 날씨 (wttr.in, 한국어)."""
+    try:
+        import requests as _req_w
+        _loc = f"{lat:.4f},{lon:.4f}"
+        _resp = _req_w.get(
+            f"https://wttr.in/{_loc}?format=%l:+%C+%t+습도%h&lang=ko",
+            timeout=6,
+            headers={"User-Agent": "GoldkeyAI/2026"},
+        )
+        if _resp.status_code == 200:
+            return _resp.text.strip()
+    except Exception:
+        pass
+    return ""
+
+
+def _approx_latlon_from_ip() -> tuple[float | None, float | None, str]:
+    """접속 IP 기준 대략 위치 (ip-api.com, 키 불필요)."""
+    try:
+        import requests as _req_w
+        _resp = _req_w.get(
+            "http://ip-api.com/json/?fields=status,lat,lon,city,country",
+            timeout=4,
+            headers={"User-Agent": "GoldkeyAI/2026"},
+        )
+        if _resp.status_code == 200:
+            _j = _resp.json()
+            if _j.get("status") == "success":
+                _lat, _lon = _j.get("lat"), _j.get("lon")
+                _city = str(_j.get("city") or "")
+                _cc = str(_j.get("country") or "")
+                if _lat is not None and _lon is not None:
+                    return float(_lat), float(_lon), (_city + (", " + _cc if _cc else "")).strip(", ")
+    except Exception:
+        pass
+    return None, None, ""
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # [4] 보이스 플레이어 UI (JavaScript SpeechSynthesis)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -786,13 +825,21 @@ def render_voice_player_zephyr(
     if _audio_bytes:
         # ── Gemini Zephyr TTS 성공 — st.audio 재생 ─────────────────────
         _ok_model = st.session_state.get("_zephyr_model_ok", _ZEPHYR_MODEL)
+        try:
+            from shared_components import GeminiProTTSVoice as _GTV
+
+            _lbl = _GTV.label_html()
+        except Exception:
+            _lbl = (
+                f"🎙️ <b>Text-to-Speech AI</b> · <b>Gemini Pro TTS</b> · "
+                f"Language: Korean (South Korea) · Voice: {_ZEPHYR_VOICE}"
+            )
         st.markdown(
             "<div style='background:rgba(30,91,164,0.08);border:1px dashed #1e5ba4;"
             "border-radius:10px;padding:6px 14px;font-size:clamp(11px,1.8vw,13px);color:#1e5ba4;"
             "margin-bottom:6px;'>"
-            "🎙️ <b>Text-to-Speech AI</b> · <b>Gemini Pro TTS</b> · "
-            f"Language: Korean (South Korea) · Voice: {_ZEPHYR_VOICE} · Model: {_ok_model}<br>"
-            "📱 <b>모바일:</b> 아래 ▶ 버튼을 눌러 재생하세요</div>",
+            f"{_lbl} · Model: {_ok_model}<br>"
+            "📱 <b>모바일·태블릿:</b> 아래 ▶ 버튼을 눌러 재생하세요</div>",
             unsafe_allow_html=True,
         )
         import io as _io
@@ -828,9 +875,15 @@ def render_voice_player_bar_zephyr(text: str, key: str = "vp_bar_zephyr") -> Non
         _audio_bytes = synthesize_zephyr(text, _api_key)
         if _audio_bytes:
             import io as _io
+            try:
+                from shared_components import GeminiProTTSVoice as _GTVb
+
+                _cap = "🔊 " + _GTVb.label_html().replace("🎙️ ", "")
+            except Exception:
+                _cap = "🔊 Text-to-Speech AI · Gemini Pro TTS · Korean (South Korea) · Zephyr"
             st.markdown(
-                "<div style='font-size:clamp(11px,1.8vw,13px);color:#475569;margin-bottom:4px;'>"
-                "🔊 Text-to-Speech AI · Gemini Pro TTS · Korean (South Korea) · Zephyr</div>",
+                f"<div style='font-size:clamp(11px,1.8vw,13px);color:#475569;margin-bottom:4px;'>"
+                f"{_cap}</div>",
                 unsafe_allow_html=True,
             )
             st.audio(_io.BytesIO(_audio_bytes), format="audio/wav")
@@ -897,8 +950,37 @@ def render_time_aware_briefing(
         _news_items = _fetch_naver_insurance_news(3)
         st.session_state[_news_key] = _news_items
     if _weather_txt is None:
-        _weather_txt = _fetch_seoul_weather()
+        _weather_txt = ""
+        try:
+            _blat = st.session_state.get("_brief_lat")
+            _blon = st.session_state.get("_brief_lon")
+            if _blat is not None and _blon is not None:
+                _weather_txt = _fetch_weather_lat_lon(float(_blat), float(_blon))
+        except Exception:
+            _weather_txt = ""
+        if not _weather_txt:
+            _ila, _ilo, _city = _approx_latlon_from_ip()
+            if _ila is not None and _ilo is not None:
+                _weather_txt = _fetch_weather_lat_lon(_ila, _ilo)
+                if _city and _weather_txt:
+                    _weather_txt = f"[{_city}] {_weather_txt}"
+        if not _weather_txt:
+            _weather_txt = _fetch_seoul_weather()
         st.session_state[_weather_key] = _weather_txt
+
+    # 브리핑 문구용 위치 라벨 (한국어 우선)
+    _loc_label = "서울"
+    try:
+        _bla = st.session_state.get("_brief_lat")
+        _blo = st.session_state.get("_brief_lon")
+        if _bla is not None and _blo is not None:
+            _loc_label = f"기기 위치(위도 {float(_bla):.2f}, 경도 {float(_blo):.2f})"
+        else:
+            _ila2, _ilo2, _city2 = _approx_latlon_from_ip()
+            if _city2 and _ila2 is not None:
+                _loc_label = f"접속 IP 기준 {_city2}"
+    except Exception:
+        pass
 
     # ── [GP-RT §3] 오늘 일정 + NBA 로드 ─────────────────────────────────────
     today_evs = []
@@ -932,12 +1014,12 @@ def render_time_aware_briefing(
             _news_s  = "\n".join(
                 [f"  {i+1}. {nw['title']}" for i, nw in enumerate(_news_items[:3])]
             ) if _news_items else "  (뉴스 없음)"
-            _wx_s    = f"서울 날씨: {_weather_txt}" if _weather_txt else ""
+            _wx_s    = f"{_loc_label} 날씨: {_weather_txt}" if _weather_txt else ""
             _brief_prompt = (
                 "너는 GoldkeyAimasters2026의 AI 상담 코치다. "
                 "반드시 첫 문장은 정확히 이렇게 시작하라: "
                 "'안녕하세요, GoldkeyAimasters2026의 AI 상담 코치입니다.' "
-                f"현재 서울 시각은 {_date_str} {_wd_str} {_time_str}이며 {_time_label}입니다. "
+                f"현재 한국 표준시(서울) 시각은 {_date_str} {_wd_str} {_time_str}이며 {_time_label}입니다. "
                 f"{_wx_s} "
                 f"오늘의 주요 보험 뉴스:\n{_news_s}\n"
                 f"{_name + ' 설계사님,' if _name else ''} "
@@ -966,7 +1048,7 @@ def render_time_aware_briefing(
                 [(nw["title"][:30] + "…" if len(nw["title"]) > 30 else nw["title"])
                  for nw in _news_items[:3]]
             ) + "."
-        _wx_part = f" 서울 날씨는 {_weather_txt}입니다." if _weather_txt else ""
+        _wx_part = f" {_loc_label} 날씨는 {_weather_txt}입니다." if _weather_txt else ""
         if _compact_mode:
             briefing_text = build_morning_briefing_compact(agent_name, today_evs, nba_count)
         else:
@@ -1083,6 +1165,79 @@ def render_time_aware_briefing(
 
 
 render_morning_briefing_auto = render_time_aware_briefing
+
+
+def render_briefing_geolocation_button() -> None:
+    """[GP-GEO] 브라우저 Geolocation → URL에 brief_lat/brief_lon 추가 후 새로고침 (모바일·태블릿 공통)."""
+    _cv1.html(
+        """
+<div style="font-family:system-ui,sans-serif;font-size:clamp(11px,2.4vw,13px);">
+<button type="button" id="gk_geo_btn" style="padding:7px 12px;border-radius:10px;border:1.5px solid #93c5fd;
+background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;font-weight:800;cursor:pointer;">
+📍 브리핑 위치 허용 (기기 위도·경도)
+</button>
+<span id="gk_geo_st" style="margin-left:8px;color:#64748b;"></span>
+</div>
+<script>
+(function(){
+  var b=document.getElementById('gk_geo_btn');
+  var s=document.getElementById('gk_geo_st');
+  if(!b){return;}
+  if(!navigator.geolocation){ if(s){ s.textContent='이 브라우저는 위치를 지원하지 않습니다.';} return; }
+  b.onclick=function(){
+    if(s){ s.textContent='위치 확인 중…'; }
+    navigator.geolocation.getCurrentPosition(
+      function(p){
+        try{
+          var u=new URL(window.parent.location.href);
+          u.searchParams.set('brief_lat', p.coords.latitude.toFixed(5));
+          u.searchParams.set('brief_lon', p.coords.longitude.toFixed(5));
+          window.parent.location.href=u.toString();
+        }catch(e){
+          if(s){ s.textContent='URL 갱신 실패'; }
+        }
+      },
+      function(e){
+        if(s){ s.textContent='거부 또는 오류'; }
+      },
+      {enableHighAccuracy:true,timeout:18000,maximumAge:60000}
+    );
+  };
+})();
+</script>
+""",
+        height=72,
+    )
+
+
+def render_zephyr_completion_chime(message: str) -> None:
+    """[GP-VOICE] HQ·CRM 공통 — 짧은 완료 안내. Gemini Pro TTS(Zephyr) 우선, 실패 시 Web Speech."""
+    import base64 as _b64
+    import json as _json
+
+    _msg = (message or "").strip() or "완료되었습니다."
+    try:
+        from shared_components import get_env_secret as _genv_z
+
+        _k = (_genv_z("GEMINI_API_KEY", "") or _genv_z("GOOGLE_API_KEY", ""))
+    except Exception:
+        _k = os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
+    _wav = None
+    if _k and _k != "여기에_발급받은_API_키를_넣어주세요":
+        _wav = synthesize_zephyr(_msg, _k)
+    if _wav:
+        _b64s = _b64.b64encode(_wav).decode("ascii")
+        _cv1.html(
+            f'<audio autoplay playsinline src="data:audio/wav;base64,{_b64s}"></audio>',
+            height=0,
+        )
+        return
+    _js = _json.dumps(_msg, ensure_ascii=False)
+    _cv1.html(
+        f"<script>try{{var u=new SpeechSynthesisUtterance({_js});"
+        f"u.lang='ko-KR';u.rate=0.92;speechSynthesis.speak(u);}}catch(e){{}}</script>",
+        height=0,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════

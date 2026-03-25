@@ -1265,6 +1265,128 @@ def get_guest_total_visits(fp_id: str) -> int:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# §17 컨텍스트 이전 (Context Transfer) — CRM → HQ 상담 컨텍스트 보존
+# ══════════════════════════════════════════════════════════════════════════════
+
+def save_consultation_context(
+    person_id: str,
+    agent_id: str,
+    context_data: dict,
+) -> str:
+    """
+    [Context Transfer] CRM → HQ 상담 컨텍스트 저장.
+    gk_consultation_contexts 테이블에 INSERT 후 context_id 반환.
+    Supabase 미연결 시 임시 UUID 반환 (세션 기반 폴백).
+    """
+    sb = _get_sb()
+    now = datetime.datetime.utcnow().isoformat()
+    context_id = str(uuid.uuid4())
+    if not sb or not person_id or not agent_id:
+        return context_id
+    try:
+        import json as _j
+        payload: dict = {
+            "context_id":   context_id,
+            "person_id":    person_id,
+            "agent_id":     agent_id,
+            "context_data": _j.dumps(context_data, ensure_ascii=False),
+            "created_at":   now,
+            "expires_at":   (
+                datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+            ).isoformat(),
+        }
+        sb.table("gk_consultation_contexts").insert(payload).execute()
+        return context_id
+    except Exception:
+        return context_id
+
+
+def load_consultation_context(context_id: str, agent_id: str = "") -> dict:
+    """
+    [Context Transfer] HQ에서 컨텍스트 조회.
+    agent_id 제공 시 소유권 검증 — 타 설계사 컨텍스트 접근 차단.
+    """
+    sb = _get_sb()
+    if not sb or not context_id:
+        return {}
+    try:
+        import json as _j
+        q = (
+            sb.table("gk_consultation_contexts")
+            .select("*")
+            .eq("context_id", context_id)
+        )
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        rows = q.limit(1).execute().data or []
+        if not rows:
+            return {}
+        r = rows[0]
+        if r.get("context_data") and isinstance(r["context_data"], str):
+            try:
+                r["context_data"] = _j.loads(r["context_data"])
+            except Exception:
+                pass
+        return r
+    except Exception:
+        return {}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §18 멀티디바이스 필드별 머지 (Multi-Device Field Merge)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def merge_customer_fields(
+    person_id: str,
+    agent_id: str,
+    incoming_data: dict,
+    device_id: str = "",
+) -> bool:
+    """
+    [멀티디바이스 보호] 핸드폰+태블릿 동시 사용 시 필드별 최신값 기준 머지.
+    전체 row를 덮어쓰지 않고 incoming_data 각 필드를 현재 DB값과 비교:
+    - DB 필드가 None/empty → incoming으로 채움
+    - 둘 다 값 있음 → incoming 우선 (최신 기기 입력 존중)
+    - incoming이 None/empty → 스킵 (기존 DB값 보존)
+    향후 per-field updated_at 지원 시 타임스탬프 비교로 교체 가능.
+    """
+    sb = _get_sb()
+    if not sb or not person_id or not agent_id:
+        return False
+    try:
+        current = get_customer(person_id, agent_id) or {}
+        now_iso = datetime.datetime.utcnow().isoformat()
+
+        merged: dict = {}
+        for key, val in incoming_data.items():
+            if val is None or val == "":
+                continue
+            cur_val = current.get(key)
+            if cur_val in (None, ""):
+                merged[key] = val
+            else:
+                merged[key] = val
+
+        if not merged:
+            return True
+
+        merged["updated_at"] = now_iso
+        if device_id:
+            merged["last_device_id"] = device_id
+
+        (
+            sb.table("gk_people")
+            .update(merged)
+            .eq("person_id", person_id)
+            .eq("agent_id", agent_id)
+            .execute()
+        )
+        return True
+    except Exception:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # §16 분석 원장 (analysis_reports) — 피보험자 기준 영구 보존 파이프라인
 # ══════════════════════════════════════════════════════════════════════════════
 # 절대 원칙: 모든 데이터는 계약자(엄마)가 아닌 피보험자(아들)의 person_id 기준 태깅

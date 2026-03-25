@@ -18,6 +18,7 @@ export:
     build_sso_redirect()     — SSO return_to URL 생성
     get_time_aware_greeting()    — KST 시각대별 공감형 인사말 반환 (아침/오후/저녁/심야)
     calculate_trinity_metrics() — 트리니티 계산법 — 건보료 기반 재무 지표 산출 엔진
+    get_trinity_nhis_rate() — rules.json ota_updatable.nhis_rate (OTA)
 """
 
 from __future__ import annotations
@@ -26,6 +27,34 @@ import os
 import threading
 import uuid, datetime
 from typing import Optional
+
+
+def ss_ns_key(namespace: str, key: str) -> str:
+    """세션 네임스페이스 키 생성 (`ns:key`)."""
+    return f"{namespace}:{key}"
+
+
+def ss_get_ns(namespace: str, key: str, default=None):
+    return st.session_state.get(ss_ns_key(namespace, key), default)
+
+
+def ss_set_ns(namespace: str, key: str, value) -> None:
+    st.session_state[ss_ns_key(namespace, key)] = value
+
+
+def consent_get(name: str, default=False):
+    """동의 플래그 조회 (namespaced 우선, legacy 호환)."""
+    _new = st.session_state.get(ss_ns_key("consent", name), None)
+    if _new is not None:
+        return _new
+    return st.session_state.get(name, default)
+
+
+def consent_set(name: str, value) -> None:
+    """동의 플래그 저장 (namespaced + legacy 동시 기록)."""
+    ss_set_ns("consent", name, value)
+    # 하위 호환: 기존 전역키도 유지해 기존 코드와 충돌 없이 단계적 전환
+    st.session_state[name] = value
 
 
 def get_env_secret(key: str, default_value: str = "") -> str:
@@ -103,6 +132,30 @@ def get_time_aware_greeting(name: str = "", login_time: str = "") -> str:
         return f"{_prefix}늦은 밤까지 열정이십니다.{_suffix}"
 
 
+def get_trinity_nhis_rate() -> float:
+    """건강보험료 역산용 총 요율 — `rules.json` ota_updatable.nhis_rate OTA 동기화 (Streamlit 비의존)."""
+    _env = os.environ.get("GK_NHIS_RATE", "").strip()
+    if _env:
+        try:
+            return float(_env)
+        except ValueError:
+            pass
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+
+        _p = _Path(__file__).resolve().parent / "rules.json"
+        if _p.is_file():
+            with open(_p, "r", encoding="utf-8") as _f:
+                _data = _json.load(_f)
+            _ota = (_data.get("ota_updatable") or {}) if isinstance(_data, dict) else {}
+            if "nhis_rate" in _ota:
+                return float(_ota["nhis_rate"])
+    except Exception:
+        pass
+    return 0.0719
+
+
 def calculate_trinity_metrics(
     nhis_premium: int,
     sub_type: str = "workplace",
@@ -116,18 +169,20 @@ def calculate_trinity_metrics(
       "regional_retiree" — 지역가입자 은퇴자 (재산가중치 50%)
 
     CFP 5년 소득보전 완성형 모델 — 법원 일실수입 산정 + 유가족 연착륙 기준.
+    역산 요율은 `get_trinity_nhis_rate()` → rules.json `ota_updatable.nhis_rate`.
     """
+    _nr = get_trinity_nhis_rate()
     # ── [Step 1] 가입자 유형별 명목 월소득 역산 ──────────────────────────────
-    # 건강보험료율 7.19% (2026 기준, 직장: 노사 각 절반 → 근로자 부담 3.545%)
+    # 건강보험료율 — OTA(nhis_rate), 직장: 노사 각 절반 → 근로자 실질 부담 역산
     if sub_type == "regional_retiree":
         # 은퇴자 지역가입자: 재산점수 가중치 50% 반영
-        _gross_monthly = int(nhis_premium / (0.0719 * 0.5))
+        _gross_monthly = int(nhis_premium / (_nr * 0.5))
     elif sub_type == "regional_general":
         # 일반 지역가입자/사업자: 재산점수 가중치 75% 반영
-        _gross_monthly = int(nhis_premium / (0.0719 * 0.75))
+        _gross_monthly = int(nhis_premium / (_nr * 0.75))
     else:
         # 직장가입자: 사용자 50% 분담 → 근로자 실질 부담 역산
-        _gross_monthly = int((nhis_premium * 2) / 0.0719)
+        _gross_monthly = int((nhis_premium * 2) / _nr)
 
     _gross_annual = _gross_monthly * 12
 
@@ -1108,16 +1163,16 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         _v = st.session_state.get(_ak, False)
         for _ck in ("_c1", "_c2", "_c3", "_c4", "_c5", "_c6", "_c7", "_c8"):
             st.session_state[f"{_k}{_ck}"] = _v
-        st.session_state["voice_consent_agreed"] = _v
-        st.session_state["cal_sync_consent_agreed"] = _v
-        st.session_state["kakao_consent_agreed"] = _v
+        consent_set("voice_consent_agreed", _v)
+        consent_set("cal_sync_consent_agreed", _v)
+        consent_set("kakao_consent_agreed", _v)
 
     if st.session_state.get(_all_key, False):
         for _ck in ("_c1", "_c2", "_c3", "_c4", "_c5", "_c6", "_c7", "_c8"):
             st.session_state[f"{terms_agree_key}{_ck}"] = True
-        st.session_state["voice_consent_agreed"]    = True
-        st.session_state["cal_sync_consent_agreed"] = True
-        st.session_state["kakao_consent_agreed"]    = True
+        consent_set("voice_consent_agreed", True)
+        consent_set("cal_sync_consent_agreed", True)
+        consent_set("kakao_consent_agreed", True)
     st.checkbox(
         "🔲 **전체 동의** (필수·선택·내보험다보여·AI음성·캘린더·카카오톡 항목 모두 동의)",
         key=_all_key,
@@ -1181,7 +1236,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         key=f"{terms_agree_key}_c6",
         help="설계사님의 스케줄 및 고객 분석 결과를 AI 아나운서의 음성으로 자동 브리핑받는 기능입니다. (마이크 수집 없음, 스피커 출력 전용)",
     )
-    st.session_state["voice_consent_agreed"] = _c6
+    consent_set("voice_consent_agreed", _c6)
     # ── [GP-CAL §15] 외부 캘린더 연동 동의 (선택) ──────────────────────────────
     st.markdown(
         "<div style='max-width:600px;background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
@@ -1198,7 +1253,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         key=f"{terms_agree_key}_c7",
         help="Google·Apple 캘린더를 OAuth 2.0으로 연동하여 일정을 수동으로 동기화하는 기능입니다. 동의 시에만 [⚙️ 연동/설정] 탭의 캘린더 연동 버튼이 활성화됩니다.",
     )
-    st.session_state["cal_sync_consent_agreed"] = _c7
+    consent_set("cal_sync_consent_agreed", _c7)
     # ── [GP-KAKAO] 카카오톡 발송 동의 (선택, 개인정보보호법 제17조) ─────────────
     st.markdown(
         "<div style='max-width:560px;background:#fef9c3;border:2px dashed #eab308;"
@@ -1219,13 +1274,16 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         key=f"{terms_agree_key}_c8",
         help="고객에게 AI 분석 리포트를 카카오톡으로 발송하는 기능입니다. 미동의 시 카카오톡 발송 버튼이 비활성화됩니다.",
     )
-    st.session_state["kakao_consent_agreed"] = _c8
+    consent_set("kakao_consent_agreed", _c8)
     # 내보험다보여 동의 여부를 독립 세션키로도 저장 (feature gate용)
-    st.session_state["nibo_consent_agreed"]    = _c5
-    st.session_state["nibo_consent_version"]   = _NIBO_CONSENT_VERSION if _c5 else ""
-    st.session_state["nibo_consent_timestamp"] = (
+    consent_set("nibo_consent_agreed", _c5)
+    ss_set_ns("consent", "nibo_consent_version", _NIBO_CONSENT_VERSION if _c5 else "")
+    st.session_state["nibo_consent_version"] = _NIBO_CONSENT_VERSION if _c5 else ""
+    _ts = (
         __import__("datetime").datetime.now().isoformat() if _c5 else ""
     )
+    ss_set_ns("consent", "nibo_consent_timestamp", _ts)
+    st.session_state["nibo_consent_timestamp"] = _ts
     agreed = _c1 and _c2 and _c3
     st.session_state[terms_agree_key] = agreed
     return agreed
@@ -1261,6 +1319,43 @@ def build_sso_handoff_to_hq(
         params["gk_cid"] = cid
     if sector and sector != "home":
         params["gk_sector"] = sector
+    return f"{HQ_APP_URL}/?{_up.urlencode(params)}"
+
+
+def build_context_transfer_to_hq(
+    user_id: str,
+    person_id: str,
+    context_id: str,
+    sector: str = "t3",
+) -> str:
+    """
+    [Context Transfer — GP-SEC §2] CRM → HQ 상담 컨텍스트 이전 URL.
+    SSO 토큰(HMAC-SHA256) + gk_ctx(context_id) 포함.
+    수신 측(HQ)은 gk_ctx로 gk_consultation_contexts에서 상담 데이터 복원.
+    - PII 원문 URL 미포함 (GP-SEC §1 준수)
+    - 24시간 TTL (db_utils.save_consultation_context expires_at 기준)
+    """
+    import urllib.parse as _up
+    import hmac as _hmac_ct
+    import time as _time_ct
+    _secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+    if isinstance(_secret, bytes):
+        _secret = _secret.decode()
+    _ts  = int(_time_ct.time())
+    _tok = _hmac_ct.new(
+        _secret.encode(),
+        (user_id + str(_ts)).encode(),
+        "sha256",
+    ).hexdigest()[:32]
+    params: dict = {
+        "auth_token": _tok,
+        "user_id":    user_id,
+        "ts":         _ts,
+        "gk_cid":     person_id,
+        "gk_ctx":     context_id,
+        "gk_sector":  sector,
+        "gk_src":     "crm_ctx",
+    }
     return f"{HQ_APP_URL}/?{_up.urlencode(params)}"
 
 
@@ -1728,7 +1823,7 @@ button[data-testid="baseButton-primary"]:hover{
         _tab_nibo, _tab_scan = st.tabs(["🌐 내보험다보여 크롤링", "📄 증권 파일 스캔/업로드"])
 
         with _tab_nibo:
-            if not st.session_state.get("nibo_consent_agreed", False):
+            if not consent_get("nibo_consent_agreed", False):
                 # [상담 플로우 §1] 안내 박스 — 동의 전 상단 가이드
                 st.markdown(
                     "<div style='background:linear-gradient(135deg,#fffbeb,#fff7ed);"
@@ -1745,11 +1840,12 @@ button[data-testid="baseButton-primary"]:hover{
                 st.warning("🔐 신용정보 조회 동의 후 이용 가능합니다.")
                 if st.checkbox("✅ 신용정보 조회·분석 동의 (신용정보법 제32조)",
                                key=f"{key_prefix}_consent"):
-                    st.session_state["nibo_consent_agreed"]    = True
-                    st.session_state["nibo_consent_version"]   = "2026-03-16-v1"
-                    st.session_state["nibo_consent_timestamp"] = (
-                        __import__("datetime").datetime.now().isoformat()
-                    )
+                    consent_set("nibo_consent_agreed", True)
+                    _nibo_ts = __import__("datetime").datetime.now().isoformat()
+                    ss_set_ns("consent", "nibo_consent_version", "2026-03-16-v1")
+                    ss_set_ns("consent", "nibo_consent_timestamp", _nibo_ts)
+                    st.session_state["nibo_consent_version"] = "2026-03-16-v1"
+                    st.session_state["nibo_consent_timestamp"] = _nibo_ts
                     st.rerun()
             else:
                 _kp = key_prefix
@@ -2294,7 +2390,7 @@ button[data-testid="baseButton-primary"]:hover{
 
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     if st.button(
-        "� 내보험다보여 실행버튼",
+        "🌐 내보험다보여 실행버튼",
         key=f"{key_prefix}_deepdive",
         use_container_width=True,
     ):
@@ -2392,10 +2488,15 @@ _GP_GLOBAL_DESIGN_CSS = """<style>
 [data-testid="stSidebar"] { background: #f1f5f9 !important; }
 
 /* 3. 유동 타이포그래피 — GP §11 clamp() (모바일~태블릿 유기적 스케일) ─── */
+html, body,
+[data-testid="stApp"] *,
+[data-testid="stSidebar"] * {
+  font-size: clamp(14px, 2vw + 10px, 20px) !important;
+}
 [data-testid="stMarkdownContainer"] p,
 [data-testid="stMarkdownContainer"] span,
 [data-testid="stMarkdownContainer"] li {
-  font-size: clamp(14px, calc(2vw + 10px), 20px) !important;
+  font-size: clamp(14px, 2vw + 10px, 20px) !important;
   color: var(--gp-text) !important;
   line-height: 1.6 !important;
   word-break: keep-all !important;
@@ -2707,6 +2808,22 @@ GP_TTS_LANG_BCP47 = "ko-KR"
 GP_TTS_LANG_LABEL = "Korean (South Korea)"
 
 
+class GeminiProTTSVoice:
+    """[GP-VOICE] HQ·CRM 공통 AI 음성 엔진 메타 (Gemini Pro TTS · Zephyr · 한국어)."""
+
+    ENGINE = "Text-to-Speech AI"
+    MODEL = "Gemini Pro TTS"
+    LANG_LABEL = "Korean (South Korea)"
+    VOICE = "Zephyr"
+
+    @staticmethod
+    def label_html() -> str:
+        return (
+            f"🎙️ <b>{GeminiProTTSVoice.ENGINE}</b> · <b>{GeminiProTTSVoice.MODEL}</b> · "
+            f"Language: {GeminiProTTSVoice.LANG_LABEL} · Voice: {GeminiProTTSVoice.VOICE}"
+        )
+
+
 def render_gp_gemini_pro_tts_player(
     text: str,
     key: str = "gp_gemini_tts",
@@ -2722,3 +2839,93 @@ def render_gp_gemini_pro_tts_player(
         auto_play=auto_play,
         compact=compact,
     )
+
+
+# ── [GP-44] rules.json — OTA / 설정 기반 UI ───────────────────────────────────
+def _deep_merge_gp(dst: dict, src: dict) -> dict:
+    for _k, _v in src.items():
+        if _k in dst and isinstance(dst[_k], dict) and isinstance(_v, dict):
+            _deep_merge_gp(dst[_k], _v)
+        else:
+            dst[_k] = _v
+    return dst
+
+
+@st.cache_data(ttl=60)
+def load_gp_rules() -> dict:
+    """프로젝트 루트 `rules.json` 로드 + (옵션) `GK_RULES_JSON_URL` 원격 병합 (60초 캐시)."""
+    import json
+    from pathlib import Path
+
+    base: dict = {}
+    _p = Path(__file__).resolve().parent / "rules.json"
+    if _p.is_file():
+        try:
+            with open(_p, "r", encoding="utf-8") as f:
+                base = json.load(f)
+        except Exception:
+            base = {}
+    if not isinstance(base, dict):
+        base = {}
+    _url = (os.environ.get("GK_RULES_JSON_URL") or "").strip()
+    if _url:
+        try:
+            import requests
+
+            _r = requests.get(
+                _url,
+                timeout=8,
+                headers={"User-Agent": "GoldkeyAI-GP44-rules/1"},
+            )
+            if _r.ok and _r.text.strip():
+                remote = _r.json()
+                if isinstance(remote, dict):
+                    _deep_merge_gp(base, remote)
+        except Exception:
+            pass
+    return base
+
+
+_DEFAULT_CRM_ACTION_ROWS: list[tuple[str, str, bool]] = [
+    ("📋 고객 마스터", "contact", True),
+    ("👥 고객 DB 관리", "db_manage", True),
+    ("📅 스케줄", "schedule", True),
+    ("🌐 내보험다보여", "nibo", True),
+    ("📊 증권분석", "analysis", True),
+    ("🤖 AI 브리핑", "ai_brief", True),
+    ("💬 카카오 발송", "kakao", True),
+    ("⚙️ 연동/설정", "settings", False),
+]
+
+
+def get_crm_action_grid_title() -> str:
+    r = load_gp_rules()
+    cu = (r.get("crm_ui") or {}) if isinstance(r, dict) else {}
+    return str(
+        cu.get("action_grid_title")
+        or "🎯 업무 바로가기 · 고객을 표에서 선택하면 활성화됩니다"
+    )
+
+
+def get_crm_action_definitions() -> list[tuple[str, str, bool]]:
+    """CRM 메인 그리드: (label, screen_key, requires_customer). rules.json `crm_ui.actions` 우선."""
+    r = load_gp_rules()
+    cu = (r.get("crm_ui") or {}) if isinstance(r, dict) else {}
+    raw = cu.get("actions")
+    if not raw or not isinstance(raw, list):
+        return list(_DEFAULT_CRM_ACTION_ROWS)
+    out: list[tuple[str, str, bool]] = []
+    try:
+        _sorted = sorted(raw, key=lambda x: int(x.get("order", 99)))
+    except Exception:
+        _sorted = raw
+    for a in _sorted:
+        if not isinstance(a, dict) or not a.get("enabled", True):
+            continue
+        _id = str(a.get("id", "")).strip()
+        _lbl = str(a.get("label", "")).strip()
+        if not _id or not _lbl:
+            continue
+        _req = bool(a.get("requires_customer", _id != "settings"))
+        out.append((_lbl, _id, _req))
+    return out if out else list(_DEFAULT_CRM_ACTION_ROWS)
