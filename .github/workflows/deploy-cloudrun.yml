@@ -56,6 +56,9 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           ENVVARS="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
+          ENVVARS="$ENVVARS,GOOGLE_API_KEY=${{ secrets.GEMINI_API_KEY }}"
+          ENVVARS="$ENVVARS,HQ_APP_URL=https://goldkey-ai-817097913199.asia-northeast3.run.app"
+          ENVVARS="$ENVVARS,CRM_APP_URL=https://goldkey-crm-vje5ef5qka-du.a.run.app"
           ENVVARS="$ENVVARS,SUPABASE_URL=${{ secrets.SUPABASE_URL }}"
           ENVVARS="$ENVVARS,SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
           ENVVARS="$ENVVARS,HEAD_API_USER_ID=${{ secrets.HEAD_API_USER_ID || 'ADMIN_MASTER' }}"
