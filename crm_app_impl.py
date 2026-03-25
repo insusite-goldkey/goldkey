@@ -26,11 +26,6 @@ import calendar_engine
 
 # ── [조건부] voice_engine · crm_fortress import ───────────────────────────
 _MODULE_LOAD_ERRORS: list = []
-_ve_geo_btn = None
-try:
-    from voice_engine import render_briefing_geolocation_button as _ve_geo_btn
-except Exception as _geo_err:
-    _MODULE_LOAD_ERRORS.append(f"voice_engine (geo) — {_geo_err}")
 try:
     from voice_engine import (
         render_time_aware_briefing   as _ve_morning_auto,
@@ -1067,35 +1062,6 @@ div[class*="st-key-list_ag_"] [data-testid="stHorizontalBlock"] {
 # [GP SPA §2] MODE: LIST — 아웃룩 고객 목록
 # ══════════════════════════════════════════════════════════════════════════════
 if _spa_mode == "list":
-    # ── [GP-GEO] 브리핑용 위치 — 쿼리 brief_lat/brief_lon → 세션 (voice_engine 소비)
-    try:
-        _qp_geo = st.query_params
-        _qla = _qp_geo.get("brief_lat")
-        _qlo = _qp_geo.get("brief_lon")
-        if _qla and _qlo:
-            _la = _qla[0] if isinstance(_qla, list) else _qla
-            _lo = _qlo[0] if isinstance(_qlo, list) else _qlo
-            _nla, _nlo = float(_la), float(_lo)
-            _ola = st.session_state.get("_brief_lat")
-            _olo = st.session_state.get("_brief_lon")
-            st.session_state["_brief_lat"] = _nla
-            st.session_state["_brief_lon"] = _nlo
-            # 위치가 바뀌면 당일 브리핑·날씨 캐시 무효화 → 재브리핑·Zephyr TTS 반영
-            if _ola != _nla or _olo != _nlo:
-                import datetime as _dt_geo
-                _ds = _dt_geo.date.today().strftime("%Y%m%d")
-                st.session_state.pop(f"_morning_briefed_{_ds}", None)
-                st.session_state.pop(f"_brief_weather_{_ds}", None)
-    except Exception:
-        pass
-    # ── [GP-GEO] JavaScript Geolocation — brief_lat/brief_lon URL 반영 후 캐시 무효화됨
-    if _ve_geo_btn:
-        with st.expander("📍 모닝 브리핑 날씨 — 기기 위치(위도·경도)", expanded=False):
-            st.caption(
-                "버튼을 누르면 브라우저가 위치를 묻고, 허용 시 해당 좌표로 날씨·브리핑이 갱신됩니다 "
-                "(모바일·태블릿·데스크톱 공통)."
-            )
-            _ve_geo_btn()
     # ── [GP-VOICE §5] 핸즈프리 CRM — 모닝 브리핑 자동 기동 ──────────────────
     if _VOICE_OK and _ve_morning_auto:
         try:

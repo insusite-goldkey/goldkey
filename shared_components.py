@@ -2805,22 +2805,22 @@ def inject_global_gp_design() -> None:
 GP_TTS_ENGINE_LABEL = "Gemini Pro TTS"
 GP_TTS_VOICE_ZEPHYR = "Zephyr"
 GP_TTS_LANG_BCP47 = "ko-KR"
-GP_TTS_LANG_LABEL = "Korean (South Korea)"
+GP_TTS_LANG_LABEL = "한국어"
 
 
 class GeminiProTTSVoice:
     """[GP-VOICE] HQ·CRM 공통 AI 음성 엔진 메타 (Gemini Pro TTS · Zephyr · 한국어)."""
 
-    ENGINE = "Text-to-Speech AI"
+    ENGINE = "AI 음성 합성"
     MODEL = "Gemini Pro TTS"
-    LANG_LABEL = "Korean (South Korea)"
+    LANG_LABEL = "한국어"
     VOICE = "Zephyr"
 
     @staticmethod
     def label_html() -> str:
         return (
             f"🎙️ <b>{GeminiProTTSVoice.ENGINE}</b> · <b>{GeminiProTTSVoice.MODEL}</b> · "
-            f"Language: {GeminiProTTSVoice.LANG_LABEL} · Voice: {GeminiProTTSVoice.VOICE}"
+            f"언어: {GeminiProTTSVoice.LANG_LABEL} · 보이스: {GeminiProTTSVoice.VOICE}"
         )
 
 
@@ -2830,7 +2830,7 @@ def render_gp_gemini_pro_tts_player(
     auto_play: bool = False,
     compact: bool = False,
 ) -> None:
-    """Text-to-Speech AI — Gemini Pro TTS, Zephyr, Korean (South Korea). 양앱 공통."""
+    """AI 음성 합성 — Gemini Pro TTS, Zephyr, 한국어. 양앱 공통."""
     from voice_engine import render_voice_player_zephyr
 
     render_voice_player_zephyr(

@@ -472,13 +472,12 @@ STT_BOOST_TERMS   = [
 
 TTS_LANG          = "ko-KR"          # TTS 언어
 TTS_RATE          = 0.9              # 말하기 속도: 0.9 (명료·자연스러운 20대 여성 아나운서)
-TTS_RATE_ELDERLY  = 0.75             # 고령자 모드 속도: 0.75 (또박또박 천천히)
 TTS_PITCH         = 1.4              # 음높이: 1.4 (20대 여성 아나운서 톤)
 TTS_VOLUME        = 1.0              # 음량: 최대
 # 여성 목소리 우선순위: Yuna(삼성) > Female > Google 한국어 > Heami
 TTS_VOICE_PRIORITY = ["Yuna", "Female", "Google", "Heami"]
 # Prosody Control — 컨텍스트 톤 프리셋 (rate, pitch)
-# 사용: s_voice(text, tone="calm") / s_voice(text, tone="bright") 등
+# 사용: s_voice(text, tone="calm") / s_voice(text, tone="bright") 등 — Engine2(Zephyr) 통일 후 내부 폴백용
 TTS_TONE_PRESETS = {
     "default": (0.9,  1.4),   # 기본: 명료 아나운서
     "calm":    (0.78, 1.1),   # 차분: 사고접수·보험금 청구·불만 응대
@@ -18313,21 +18312,16 @@ def _detect_tone(text: str) -> str:
         return "bright"
     return "default"
 
-def s_voice(text, lang=None, elderly=False, tone: str = "auto"):
-    """TTS - 전역 TTS_* 상수 강제 적용 + Prosody Control + 자연어 전처리(_tts_normalize)
-    elderly=True 시 TTS_RATE_ELDERLY(0.75) 적용 — 고령 고객 응대용
+def s_voice(text, lang=None, tone: str = "auto"):
+    """[Zephyr 폴백용] Web Speech TTS — Prosody Control + 자연어 전처리.
     tone: "auto"(컨텍스트 자동 감지) | "default"|"calm"|"bright"|"empathy"|"clear"
     """
     lang = lang or TTS_LANG
-    if elderly:
-        rate  = TTS_RATE_ELDERLY
-        pitch = TTS_PITCH
-    else:
-        # Prosody Control: tone 파라미터 기반 rate/pitch 결정
-        _tone = _detect_tone(text) if tone == "auto" else tone
-        _preset = TTS_TONE_PRESETS.get(_tone, TTS_TONE_PRESETS["default"])
-        rate  = _preset[0]
-        pitch = _preset[1]
+    # Prosody Control: tone 파라미터 기반 rate/pitch 결정
+    _tone = _detect_tone(text) if tone == "auto" else tone
+    _preset = TTS_TONE_PRESETS.get(_tone, TTS_TONE_PRESETS["default"])
+    rate  = _preset[0]
+    pitch = _preset[1]
     vp    = '||'.join(f'v.name.includes("{n}")' for n in TTS_VOICE_PRIORITY)
     clean = _tts_normalize(text)
     return (
@@ -18345,11 +18339,6 @@ def s_voice(text, lang=None, elderly=False, tone: str = "auto"):
         '</script>'
     )
 
-def s_voice_answer(text):
-    """AI 답변 음성 읽기 - 첫 250자만 읽음 (마크다운/특수문자 전처리 포함)
-    Prosody Control: 답변 텍스트 기반 tone 자동 감지 적용"""
-    short = _tts_normalize(text)[:250]
-    return s_voice(short, tone="auto")
 
 def load_stt_engine():
     """STT 엔진 초기화 - 실시간 받아쓰기(continuous) 방식 (1회만 호출)"""
@@ -28189,11 +28178,7 @@ def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요.", pro
         "Tiếng Việt": "Xin chào. Tôi là Goldkey AI Master. Tôi có thể giúp gì cho bạn?",
         "Русский": "Здравствуйте. Я Goldkey AI Master. Чем могу помочь?",
     }
-    _stt_col1, _stt_col2 = st.columns([3, 1])
-    with _stt_col1:
-        stt_lang_label = st.selectbox("음성입력 언어", list(stt_lang_map.keys()), key=f"stt_{tab_key}")
-    with _stt_col2:
-        elderly_mode = st.checkbox("👴 고령자 모드", key=f"elderly_{tab_key}", help="TTS 속도를 0.75로 낮춰 또박또박 천천히 읽습니다")
+    stt_lang_label = st.selectbox("음성입력 언어", list(stt_lang_map.keys()), key=f"stt_{tab_key}")
     stt_lang_code  = stt_lang_map[stt_lang_label]
     stt_greet      = stt_greet_map[stt_lang_label]
     hi_premium = st.number_input("월 건강보험료(원)", value=0, step=1000, key=f"hi_{tab_key}")
@@ -28211,15 +28196,11 @@ def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요.", pro
   background:#eef4fb;color:#1a3a5c;font-size:0.88rem;font-weight:700;cursor:pointer;}}
 .stt-btn:hover{{background:#2e6da4;color:#fff;}}
 .stt-btn.active{{background:#e74c3c;color:#fff;border-color:#e74c3c;animation:pulse_{tab_key} 1s infinite;}}
-.tts-btn{{flex:1;padding:9px 0;border-radius:8px;border:1.5px solid #27ae60;
-  background:#eafaf1;color:#1a5c3a;font-size:0.88rem;font-weight:700;cursor:pointer;}}
-.tts-btn:hover{{background:#27ae60;color:#fff;}}
 .stt-interim{{font-size:0.75rem;color:#e74c3c;margin-top:3px;min-height:16px;font-style:italic;}}
 @keyframes pulse_{tab_key}{{0%{{opacity:1}}50%{{opacity:0.6}}100%{{opacity:1}}}}
 </style>
 <div class="stt-row">
   <button class="stt-btn" id="stt_btn_{tab_key}" onclick="startSTT_{tab_key}()">🎙️ 실시간 음성입력 ({stt_lang_label})</button>
-  <button class="tts-btn" onclick="startTTS_{tab_key}()">🔊 인사말 재생</button>
 </div>
 <div class="stt-interim" id="stt_interim_{tab_key}"></div>
 <script>
@@ -28491,19 +28472,6 @@ _relWL(); return;
   try{{_rec.start();}}catch(ex){{_starting=false;}}
 }};
 
-window['startTTS_{tab_key}']=function(){{
-  window.speechSynthesis.cancel();
-  var msg=new SpeechSynthesisUtterance('{stt_greet}');
-  var _ttsRate={TTS_RATE_ELDERLY if elderly_mode else TTS_RATE};
-  msg.lang='{stt_lang_code}'; msg.rate=_ttsRate; msg.pitch={TTS_PITCH}; msg.volume={TTS_VOLUME};
-  var voices=window.speechSynthesis.getVoices();
-  var vp=[{','.join(repr(n) for n in TTS_VOICE_PRIORITY)}];
-  var fv=voices.find(function(v){{
-return v.lang==='{stt_lang_code}'&&vp.some(function(n){{return v.name.includes(n);}});
-  }});
-  if(fv) msg.voice=fv;
-  window.speechSynthesis.speak(msg);
-}};
 
 }})();
 </script>
@@ -35653,10 +35621,9 @@ watchRipple();
                 update_usage(user_name, model_used=_used_model)
                 try:
                     from voice_engine import render_zephyr_completion_chime as _rzcc_done
-
                     _rzcc_done("분석이 완료되었습니다.")
                 except Exception:
-                    components.html(s_voice("분석이 완료되었습니다."), height=0)
+                    pass
                 st.rerun()
             except Exception as e:
                 safe_err = str(e).encode("utf-8", errors="replace").decode("utf-8", errors="replace")
@@ -35716,10 +35683,9 @@ watchRipple();
                 update_usage(user_name)
                 try:
                     from voice_engine import render_zephyr_completion_chime as _rzcc_fu
-
                     _rzcc_fu(f"{followup_round}차 추가 답변이 완료되었습니다.")
                 except Exception:
-                    components.html(s_voice(f"{followup_round}차 추가 답변이 완료되었습니다."), height=0)
+                    pass
                 st.rerun()
             except Exception as e:
                 safe_err = str(e).encode("utf-8", errors="replace").decode("utf-8", errors="replace")
@@ -38319,39 +38285,6 @@ function selectCustomer(name) {{
                         unsafe_allow_html=True)
                     break
     
-            # ── [GP-GEO] 홈 브리핑 날씨 좌표 — CRM과 동일 세션 키 (_brief_lat / _brief_lon)
-            try:
-                _qp_h = st.query_params
-                _qla_h = _qp_h.get("brief_lat")
-                _qlo_h = _qp_h.get("brief_lon")
-                if _qla_h and _qlo_h:
-                    _lah = _qla_h[0] if isinstance(_qla_h, list) else _qla_h
-                    _loh = _qlo_h[0] if isinstance(_qlo_h, list) else _qlo_h
-                    _nla_h, _nlo_h = float(_lah), float(_loh)
-                    _ola_h = st.session_state.get("_brief_lat")
-                    _olo_h = st.session_state.get("_brief_lon")
-                    st.session_state["_brief_lat"] = _nla_h
-                    st.session_state["_brief_lon"] = _nlo_h
-                    if _ola_h != _nla_h or _olo_h != _nlo_h:
-                        import datetime as _dt_hq
-
-                        _ds_h = _dt_hq.date.today().strftime("%Y%m%d")
-                        st.session_state.pop(f"_morning_briefed_{_ds_h}", None)
-                        st.session_state.pop(f"_brief_weather_{_ds_h}", None)
-            except Exception:
-                pass
-            try:
-                from voice_engine import render_briefing_geolocation_button as _rgb_geo
-
-                with st.expander("📍 모닝 브리핑 날씨 — 기기 위치(위도·경도)", expanded=False):
-                    st.caption(
-                        "버튼을 누르면 브라우저가 위치를 묻고, 허용 시 해당 좌표로 날씨·브리핑이 갱신됩니다 "
-                        "(모바일·태블릿·데스크톱 공통)."
-                    )
-                    _rgb_geo()
-            except Exception:
-                pass
-
             # ── [GP-VOICE] 모닝 브리핑 자동 트리거 (당일 1회) ─────────────
             try:
                 from voice_engine import render_time_aware_briefing as _rmba
@@ -62699,8 +62632,6 @@ def auto_recover(e: Exception) -> bool:
     if "API" in err or "quota" in err.lower() or "rate" in err.lower():
         log_error("API", err)
         st.warning("⚠️ 서버사정으로 잠시후 로그인 지연")
-        _tts_msg = "서버사정으로 잠시후 로그인 진행해주세요."
-        components.html(s_voice(_tts_msg), height=0)
         return False
 
     # 4. 세션 오류 → 로그인 키 보존 후 부분 초기화

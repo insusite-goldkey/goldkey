@@ -831,14 +831,14 @@ def render_voice_player_zephyr(
             _lbl = _GTV.label_html()
         except Exception:
             _lbl = (
-                f"🎙️ <b>Text-to-Speech AI</b> · <b>Gemini Pro TTS</b> · "
-                f"Language: Korean (South Korea) · Voice: {_ZEPHYR_VOICE}"
+                f"🎙️ <b>AI 음성 합성</b> · <b>Gemini Pro TTS</b> · "
+                f"언어: 한국어 · 보이스: {_ZEPHYR_VOICE}"
             )
         st.markdown(
             "<div style='background:rgba(30,91,164,0.08);border:1px dashed #1e5ba4;"
             "border-radius:10px;padding:6px 14px;font-size:clamp(11px,1.8vw,13px);color:#1e5ba4;"
             "margin-bottom:6px;'>"
-            f"{_lbl} · Model: {_ok_model}<br>"
+            f"{_lbl} · 모델: {_ok_model}<br>"
             "📱 <b>모바일·태블릿:</b> 아래 ▶ 버튼을 눌러 재생하세요</div>",
             unsafe_allow_html=True,
         )
@@ -849,11 +849,11 @@ def render_voice_player_zephyr(
         _tts_err = st.session_state.get("_zephyr_err", "")
         if not compact:
             if _tts_err:
-                st.caption(f"⚠️ Gemini TTS 오류 → Web Speech 폴백 | 원인: {_tts_err[:120]}")
+                st.caption(f"⚠️ AI 음성 합성 오류 → 기본 음성 사용 | 원인: {_tts_err[:120]}")
             elif not _api_key:
-                st.caption("⚠️ GEMINI_API_KEY 미설정 → Web Speech 폴백")
+                st.caption("⚠️ AI 음성 API 키 미설정 → 기본 음성 사용")
             else:
-                st.caption("🔊 Web Speech API (Gemini TTS 폴백)")
+                st.caption("🔊 기본 음성 출력 중")
         render_voice_player(
             text,
             personality_type="Emotional",
@@ -880,7 +880,7 @@ def render_voice_player_bar_zephyr(text: str, key: str = "vp_bar_zephyr") -> Non
 
                 _cap = "🔊 " + _GTVb.label_html().replace("🎙️ ", "")
             except Exception:
-                _cap = "🔊 Text-to-Speech AI · Gemini Pro TTS · Korean (South Korea) · Zephyr"
+                _cap = "🔊 AI 음성 합성 · Gemini Pro TTS · 한국어 · Zephyr"
             st.markdown(
                 f"<div style='font-size:clamp(11px,1.8vw,13px);color:#475569;margin-bottom:4px;'>"
                 f"{_cap}</div>",
@@ -949,38 +949,34 @@ def render_time_aware_briefing(
     if _news_items is None:
         _news_items = _fetch_naver_insurance_news(3)
         st.session_state[_news_key] = _news_items
+    _ip_city_key = f"_brief_ip_city_{_today_s}"
     if _weather_txt is None:
         _weather_txt = ""
+        # [GP-GEO §신규] 로그인 기기 IP 도시 단일 기준 날씨
         try:
-            _blat = st.session_state.get("_brief_lat")
-            _blon = st.session_state.get("_brief_lon")
-            if _blat is not None and _blon is not None:
-                _weather_txt = _fetch_weather_lat_lon(float(_blat), float(_blon))
-        except Exception:
-            _weather_txt = ""
-        if not _weather_txt:
-            _ila, _ilo, _city = _approx_latlon_from_ip()
+            _ila, _ilo, _ip_city = _approx_latlon_from_ip()
             if _ila is not None and _ilo is not None:
                 _weather_txt = _fetch_weather_lat_lon(_ila, _ilo)
-                if _city and _weather_txt:
-                    _weather_txt = f"[{_city}] {_weather_txt}"
-        if not _weather_txt:
-            _weather_txt = _fetch_seoul_weather()
+                if _ip_city and _weather_txt:
+                    _weather_txt = f"[{_ip_city}] {_weather_txt}"
+            if _ip_city:
+                st.session_state[_ip_city_key] = _ip_city
+        except Exception:
+            _weather_txt = ""
         st.session_state[_weather_key] = _weather_txt
 
-    # 브리핑 문구용 위치 라벨 (한국어 우선)
-    _loc_label = "서울"
-    try:
-        _bla = st.session_state.get("_brief_lat")
-        _blo = st.session_state.get("_brief_lon")
-        if _bla is not None and _blo is not None:
-            _loc_label = f"기기 위치(위도 {float(_bla):.2f}, 경도 {float(_blo):.2f})"
-        else:
-            _ila2, _ilo2, _city2 = _approx_latlon_from_ip()
-            if _city2 and _ila2 is not None:
-                _loc_label = f"접속 IP 기준 {_city2}"
-    except Exception:
-        pass
+    # 브리핑 문구용 위치 라벨 — 세션 캐시 우선, 없으면 IP 재조회
+    _loc_label = st.session_state.get(_ip_city_key, "")
+    if not _loc_label:
+        try:
+            _, _, _city3 = _approx_latlon_from_ip()
+            if _city3:
+                _loc_label = _city3
+                st.session_state[_ip_city_key] = _city3
+        except Exception:
+            pass
+    if not _loc_label:
+        _loc_label = "현재 위치"
 
     # ── [GP-RT §3] 오늘 일정 + NBA 로드 ─────────────────────────────────────
     today_evs = []
