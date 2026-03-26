@@ -31,7 +31,11 @@ import sys
 
 _CRM_IMPL = "crm_app_impl"
 if _CRM_IMPL in sys.modules:
-    importlib.reload(sys.modules[_CRM_IMPL])
+    try:
+        importlib.reload(sys.modules[_CRM_IMPL])
+    except (ImportError, KeyError):
+        sys.modules.pop(_CRM_IMPL, None)
+        __import__(_CRM_IMPL)
 else:
     __import__(_CRM_IMPL)
 
