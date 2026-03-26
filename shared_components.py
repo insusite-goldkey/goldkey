@@ -2871,14 +2871,30 @@ h3 { font-size: clamp(0.95rem,3.5vw,1.2rem) !important; }
 label[data-testid="stWidgetLabel"] {
   font-size: clamp(0.8rem,2.8vw,0.92rem) !important;
 }
-/* [GP-PLACEHOLDER] 전역 플레이스홀더 시각적 감쇠 — 입력값과 혼동 방지 */
+/* [GP-PLACEHOLDER] 전역 플레이스홀더 시각적 감쇠 — Streamlit BaseWeb 고명세도 포함 */
 input::placeholder,
-textarea::placeholder {
-  color: #bbb !important;
+textarea::placeholder,
+[data-baseweb="input"] input::placeholder,
+[data-baseweb="textarea"] textarea::placeholder,
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stTextAreaInput"] textarea::placeholder,
+.stTextInput input::placeholder,
+.stTextArea textarea::placeholder,
+input::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder,
+[data-baseweb="input"] input::-webkit-input-placeholder,
+[data-testid="stTextInput"] input::-webkit-input-placeholder {
+  color: #b8b8b8 !important;
   opacity: 0.45 !important;
+  font-size: 0.82rem !important;
 }
 input:focus::placeholder,
-textarea:focus::placeholder {
+textarea:focus::placeholder,
+[data-baseweb="input"] input:focus::placeholder,
+[data-testid="stTextInput"] input:focus::placeholder,
+[data-baseweb="input"] input:focus::-webkit-input-placeholder,
+[data-testid="stTextInput"] input:focus::-webkit-input-placeholder {
+  color: transparent !important;
   opacity: 0 !important;
 }
 </style>"""
@@ -2900,6 +2916,39 @@ def inject_global_gp_design() -> None:
       - SPA 라디오 네비게이션 버튼형 CSS
     """
     st.markdown(_GP_GLOBAL_DESIGN_CSS, unsafe_allow_html=True)
+    # [GP-PLACEHOLDER-JS] CSS 명세도 우회 — placeholder 속성 자체를 DOM에서 제거
+    try:
+        import streamlit.components.v1 as _cv1_ph
+        _cv1_ph.html(
+            """<script>
+(function(){
+  function _gp_clrph(){
+    document.querySelectorAll('input[placeholder],textarea[placeholder]').forEach(function(el){
+      if(el.dataset.gpPhCleared){return;}
+      el.setAttribute('placeholder','');
+      el.dataset.gpPhCleared='1';
+    });
+  }
+  _gp_clrph();
+  new MutationObserver(function(ml){
+    ml.forEach(function(m){
+      m.addedNodes.forEach(function(n){
+        if(n.nodeType!==1){return;}
+        if(n.matches&&n.matches('input[placeholder],textarea[placeholder]')){
+          n.setAttribute('placeholder',''); n.dataset.gpPhCleared='1';
+        }
+        n.querySelectorAll&&n.querySelectorAll('input[placeholder],textarea[placeholder]')
+          .forEach(function(el){el.setAttribute('placeholder',''); el.dataset.gpPhCleared='1';});
+      });
+    });
+  }).observe(document.body,{childList:true,subtree:true});
+})();
+</script>""",
+            height=0,
+            scrolling=False,
+        )
+    except Exception:
+        pass
 
 
 # ── [GP-VOICE] 양앱 공통 Gemini Pro TTS (Zephyr · Korean) ─────────────────────

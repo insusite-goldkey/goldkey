@@ -29,10 +29,10 @@ _ZEPHYR_VOICE  = "Zephyr"            # Gemini TTS 공식 보이스명
 _ZEPHYR_MODEL  = "gemini-2.0-flash-exp"  # 검증된 TTS 지원 모델 (exp)
 _ZEPHYR_MODEL2 = "gemini-2.0-flash"      # 2차 폴백
 _ZEPHYR_MODEL3 = "gemini-2.0-flash-preview-tts"  # 3차 폴백 (전용 모델)
-_ZEPHYR_RATE  = 1.1            # 아나운서 속도 (1.1x)
+_ZEPHYR_RATE  = 1.05           # 아나운서 속도 (1.05x — 여성 아나운서 톤)
 _ZEPHYR_PITCH = "high"         # 약간 높은 피치 — 명징한 전달
 _ZEPHYR_LANG  = "ko-KR"        # 한국어 표준
-_ZEPHYR_BREAK = "0.3s"         # 문장 간 호흡 (SSML)
+_ZEPHYR_BREAK = "500ms"        # 문장 간 호흡 (SSML — 안정감 있는 호흡)
 
 
 def _build_zephyr_ssml(text: str) -> str:
@@ -57,7 +57,7 @@ def _build_zephyr_ssml(text: str) -> str:
         )
         parts.append(f'{s}<break time="{_ZEPHYR_BREAK}"/>')
     inner = "".join(parts)
-    return f'<speak><prosody rate="110%" pitch="high">{inner}</prosody></speak>'
+    return f'<speak><prosody rate="105%" pitch="+1.5st">{inner}</prosody></speak>'
 
 
 def _pcm_to_wav(pcm_data: bytes, sample_rate: int = 24000) -> bytes:
@@ -168,8 +168,8 @@ except Exception:
 # 성향별 보이스 프로필
 _VOICE_PROFILES = {
     "Logical": {
-        "pitch":    -1.0,    # 단호하고 지적인 앵커 톤 (SSML -1st)
-        "rate":      0.80,   # 전역 기본 속도
+        "pitch":    -0.5,    # 지적이되 부드러운 앵커 톤 (SSML -0.5st)
+        "rate":      0.85,   # 전역 기본 속도
         "volume":    1.0,
         "lang":     "ko-KR",
         "icon":     "⚖️",
@@ -177,7 +177,7 @@ _VOICE_PROFILES = {
         "desc":     "데이터와 수치 중심. 단호하고 신뢰감 있는 앵커 보이스.",
     },
     "Emotional": {
-        "pitch":    +1.0,    # 부드럽고 따뜻한 큐레이터 톤 (SSML +1st)
+        "pitch":    +1.5,    # 20대 여성 아나운서 톤 (SSML +1.5st)
         "rate":      0.85,
         "volume":    1.0,
         "lang":     "ko-KR",

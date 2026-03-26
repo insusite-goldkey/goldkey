@@ -49,7 +49,10 @@ def _tbl(rows, is_c=False):
     ths = "".join(f"<th>{h}</th>" for h in hdrs)
     trs = ""
     for r in rows:
-        tds = "".join(f'<td{"  class=\"ic-date-cell\"" if f=="terminated_at" else ""}>{r.get(f) or ""}</td>' for f in flds)
+        tds = "".join(
+            ('<td class="ic-date-cell">' if f == "terminated_at" else "<td>")
+            + str(r.get(f) or "") + "</td>" for f in flds
+        )
         trs += f"<tr>{tds}</tr>"
     return f"<div class='ic-wrap'><table class='ic-table'><thead><tr>{ths}</tr></thead><tbody>{trs}</tbody></table></div>"
 
