@@ -1028,7 +1028,7 @@ def render_auth_screen(
         "padding:10px 14px;background:#f9fafb;margin-bottom:8px;'>"
 
         "<b style='color:#0a1628;'>[제1조] 목적</b><br>"
-        "본 약관은 Goldkey_AI_Master2026 (이하 '서비스')의 이용 조건·절차, 운영자와 회원 간의 권리·의무 및 책임사항을 규정합니다.<br><br>"
+        "본 약관은 Goldkey_AI_Masters2026 (이하 '서비스')의 이용 조건·절차, 운영자와 회원 간의 권리·의무 및 책임사항을 규정합니다.<br><br>"
 
         "<b style='color:#0a1628;'>[제2조] 서비스 이용 조건</b><br>"
         "• 현재 <b>전체 무료</b> 베타 서비스 운영 중 / 회원 1인당 <b>1일 10회</b> AI 상담 이용 제한<br>"
@@ -1149,7 +1149,7 @@ def render_auth_screen(
         "<div style='background:#FFF3CD;border:1px solid #F0A500;border-radius:6px;padding:8px 10px;"
         "font-size:0.75rem;color:#7A4F00;margin-top:4px;'>"
         "<b>⚠️ 면책 및 서비스 이용 안내 (Disclaimer)</b><br>"
-        "① 본 앱(Goldkey_Ai_masters2026)은 고객 상담 보조 업무 도구입니다. 모든 AI 분석 결과는 참고용 보조 지표이며, 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.<br>"
+        "① 본 앱(Goldkey_AI_Masters2026)은 고객 상담 보조 업무 도구입니다. 모든 AI 분석 결과는 참고용 보조 지표이며, 법적 효력 및 보험 계약·청구·설계 행위가 아닙니다.<br>"
         "② 보장 내용·약관 해석·보험금 청구는 반드시 해당 보험회사 보상담당자 또는 손해사정인에게 확인하십시오.<br>"
         "③ AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며, 이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.<br>"
         "④ 본 앱은 의료·법률·세무·회계·부동산 등 전문적 진단·상담을 대체할 수 없습니다. 최종 판단과 책임은 이용자 본인에게 있습니다.<br>"
@@ -1158,7 +1158,7 @@ def render_auth_screen(
 
         "<div style='margin-top:8px;padding:6px 10px;font-size:0.74rem;color:#374151;"
         "border-top:1px dashed #cbd5e1;'>"
-        "<b style='color:#0a1628;'>■ 서비스명:</b> Goldkey_Ai_masters2026 &nbsp;|&nbsp; "
+        "<b style='color:#0a1628;'>■ 서비스명:</b> Goldkey_AI_Masters2026 &nbsp;|&nbsp; "
         "<b style='color:#0a1628;'>운영자:</b> 이세윤 &nbsp;|&nbsp; "
         "<b style='color:#0a1628;'>문의:</b> 010-3074-2616 / insusite@gmail.com"
         "</div>"
@@ -1185,7 +1185,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     margin-bottom: 6px;
 }
 </style>""", unsafe_allow_html=True)
-    _consent_header_text = consent_header_text or "📋 이용 필수동의 확인 (아래 항목을 읽고 동의해 주세요)"
+    _consent_header_text = consent_header_text or "📋 서비스 이용을 위한 필수 동의"
     st.markdown(
         f"<div style='max-width:560px;background:{consent_header_bg};border-radius:8px 8px 0 0;"
         "padding:8px 16px;margin-top:10px;text-align:center;'>"
@@ -1239,11 +1239,11 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
             "<div style='font-size:0.82rem;font-weight:900;color:#92400e;margin-bottom:8px;'>"
             "🔐 [내보험다보여 연동 동의] — 신용정보법 제32조 별도 고지</div>"
             "<div style='font-size:0.75rem;color:#78350f;line-height:1.85;'>"
-            "• <b>수집:</b> 보험사명·상품명·담보내역·계약상태 (신용정보원 등록 데이터)<br>"
-            "• <b>목적:</b> AI 트리니티 엔진 — 보장 적정성 분석 및 실질 생계비 기반 리모델링<br>"
-            "• <b>보유:</b> 분석 완료 후 30일 경과 시 자동 파기 (리포트 이력 최대 3년 암호화)<br>"
-            "• <b>인증정보:</b> 데이터 추출 후 <b>즉시 메모리 파기</b> — 서버 저장 절대 불가<br>"
-            "• <b>미동의 시:</b> AI 증권분석 · 트리니티 리포트 기능 비활성화 (나머지 기능 정상 이용)"
+            "• <b>수집:</b> 보험사명 · 상품명 · 보장내역 · 계약 상태 (한국신용정보원 제공 데이터)<br>"
+            "• <b>목적:</b> AI 트리니티 — 보장성 분석 및 맞춤형 보험 설계 제공<br>"
+            "• <b>보관:</b> 분석 후 30일 경과 시 자동 파기 (단, 분석 리포트는 최대 3년 보관)<br>"
+            "• <b>인증정보:</b> 데이터 연동 후 메모리에서 즉시 파기 (서버 내 무단 저장 불가)<br>"
+            "• <b>미동의 시:</b> AI 보장 분석 및 트리니티 서비스 이용 불가"
             "</div></div>",
             unsafe_allow_html=True,
         )
@@ -1300,9 +1300,9 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         "<div style='font-size:0.75rem;color:#78350f;line-height:1.85;'>"
         "• <b>발송 목적:</b> AI 분석 리포트·상담 결과·계약 안내 메시지 전달<br>"
         "• <b>제3자 제공:</b> 카카오(주) — 알림톡 API 전송 목적 한정<br>"
-        "• <b>수집 정보:</b> 고객 수신 휴대폰번호 (전송 후 API 서버 미보관)<br>"
-        "• <b>보유 기간:</b> 발송 로그 암호화 보관 → 계약 종료 후 3년 자동 파기<br>"
-        "• <b>미동의 시:</b> 카카오톡 리포트 발송 기능만 비활성화 (나머지 기능 정상 이용)"
+        "• <b>알림톡 API 전송 목적 템플릿 형식에 따른 정보 수집:</b> 고객 수신 휴대전화 번호 (전송 후 API 서버 미보관)<br>"
+        "• <b>보유 기간:</b> 최소 보관 원칙에 따라 보관 (계약 종료 후 3년 자동 파기)<br>"
+        "• <b>미동의 시:</b> 카카오톡 보고서 전송 불가 (나머지 기능 정상 사용 가능)"
         "</div></div>",
         unsafe_allow_html=True,
     )

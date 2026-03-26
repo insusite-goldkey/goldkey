@@ -136,7 +136,7 @@ from db_utils import (
 
 # ── 페이지 설정 ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="골드키 CRM — 고객상담 앱",
+    page_title="Goldkey_AI_Masters2026 (CRM 고객상담 앱)",
     page_icon="📱",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -153,7 +153,7 @@ except Exception:
 with st.sidebar:
     st.markdown(
         "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;padding:8px 0 4px;'>"
-        "📱 골드키 CRM — 고객상담 앱</div>",
+        "🏆 Goldkey_AI_Masters2026 (CRM 고객상담 앱)</div>",
         unsafe_allow_html=True,
     )
     try:
@@ -786,7 +786,7 @@ if not _is_authenticated():
                 "<div style='margin: 0 auto; max-width:560px; background:#eff6ff; border-radius:8px 8px 0 0;"
                 "padding:7px 14px; margin-bottom:0;'>"
                 "<span style='font-size:0.85rem;font-weight:900;color:#1e3a8a;'>"
-                "📋 Goldkey AI Masters 2026 이용약관 · 내보험다보여(신용정보법 제32조) 통합 약관</span></div>",
+                "📋 Goldkey AI Masters 2026 이용약관 및 내보험다보여 통합 동의서</span></div>",
                 unsafe_allow_html=True,
             )
             # 🚨 [주의] 이 코드 바로 아래에 있는 실제 약관 내용 박스(st.text_area 등)도 
