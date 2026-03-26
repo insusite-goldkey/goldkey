@@ -1263,8 +1263,8 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     st.markdown(
         "<div style='max-width:600px;background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
         "padding:6px 12px;margin-top:10px;margin-bottom:4px;font-size:0.76rem;color:#14532d;'>"
-        "🔊 <b>AI 음성 브리핑 안내:</b> 설계사님의 스케줄 또는 고객 분석 결과를 AI 아나운서의 "
-        "음성으로 자동 브리핑받는 기능입니다. <b>(마이크 수집 없음, 스피커 출력 전용)</b>"
+        "🔊 <b>AI 음성 브리핑 안내:</b> 설계사님의 설계 내역 및 고객 분석 결과를 AI 아나운서의 "
+        "내레이션으로 자동 브리핑해 드리는 기능입니다. <b>(마이크 권한 불필요, 스피커 출력 전용)</b>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -1286,7 +1286,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         unsafe_allow_html=True,
     )
     _c7 = st.checkbox(
-        "📅 **[선택]** 외부 캘린더(Google/Apple) 연동 및 일정 동기화 동의 (제15조·제17조)",
+        "📅 **[선택]** 외부 캘린더(Google/Apple) 연동 및 정보 활용 동의 (제15조, 제17조)",
         key=f"{terms_agree_key}_c7",
         help="Google·Apple 캘린더를 OAuth 2.0으로 연동하여 일정을 수동으로 동기화하는 기능입니다. 동의 시에만 [⚙️ 연동/설정] 탭의 캘린더 연동 버튼이 활성화됩니다.",
     )
@@ -1799,15 +1799,16 @@ div[data-testid="stFormSubmitButton"] > button:hover {
 # ── [GP-L-SEC] 내보험다보여 동의 상수 (ImportError 방지) ─────────────────────
 _NIBO_CONSENT_VERSION = "2026-03-16-v1"
 _NIBO_CONSENT_HTML = """
-<div style='font-size:0.82rem;color:#1e3a8a;line-height:1.85;'>
-<b>[신용정보의 이용 및 보호에 관한 법률 제32조 안내문]</b><br><br>
-본 서비스는 한국신용정보원 '내보험다보여' 시스템과 연동하여 고객님의 보험 가입 현황을 조회합니다.<br>
-<b>1. 수집·이용 항목:</b> 보험사명, 상품명, 담보·특약 내역, 계약상태, 보험료<br>
-<b>2. 수집·이용 목적:</b> AI 트리니티 엔진 기반 보장 적정성 및 실질 생계비 분석<br>
-<b>3. 보유 및 이용 기간:</b> 분석 완료 후 30일 경과 시 자동 파기<br>
-<b>4. 인증정보 처리:</b> 데이터 추출 후 즉시 메모리 파기 — 서버에 저장되지 않습니다.<br>
-<b>5. 제3자 제공:</b> 본인 동의 없이 제3자에게 절대 제공하지 않습니다.<br>
-<b>6. 책임 한계:</b> 신용정보원 데이터 기반으로 실제 증권과 차이가 있을 수 있습니다.<br><br>
+<div style='font-size:0.82rem;color:#1e3a8a;line-height:1.9;'>
+<b style='font-size:0.88rem;'>😀 신용정보의 이용 및 보호에 관한 법률 제32조 안내</b><br><br>
+<b>[신용정보의 이용 및 보호에 관한 법률 제32조 근거]</b><br><br>
+본 서비스는 한국신용정보원 '내보험다보여' 시스템과 연동하여 귀하(고객)의 보험 가입 현황을 조회합니다.<br><br>
+<b>수집·이용 항목:</b> 보험사명, 상품명, 보장 및 특약 내역, 계약 상태<br>
+<b>수집·이용 목적:</b> AI 트리니티 엔진 기반 보장 분석 및 맞춤형 보험 설계 제공<br>
+<b>보유 및 이용 기간:</b> 분석 완료 후 30일 경과 시 자동 파기<br>
+<b>인증 정보 처리:</b> 데이터 연동 후 즉시 메모리 파기 (서버 무단 저장 금지)<br>
+<b>제3자 제공:</b> 사전 동의 없이 제3자에게 절대 제공하지 않습니다.<br>
+<b>유의 사항:</b> 한국신용정보원 데이터 연동 시점 및 기준에 따라 실제 보험 가입 내용과 일부 차이가 있을 수 있습니다.<br><br>
 위 사항에 동의하시면 아래 동의 버튼을 클릭해 주세요.
 </div>
 """
