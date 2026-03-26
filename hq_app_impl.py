@@ -7108,8 +7108,8 @@ def _gp86_terminate_session() -> None:
         _sb_lo.auth.sign_out()
     except Exception:
         pass
-    _st.session_state["_logout_flag"] = True
     _st.session_state.clear()
+    _st.session_state["_logout_flag"] = True
     _st.session_state["_gp86_logout_success"] = True
     _st.rerun()
 
@@ -21901,9 +21901,12 @@ def _gp93_upload_voice(audio_bytes: bytes, customer_name: str, date_str: str) ->
     실패 시 빈 문자열 반환.
     """
     import datetime as _dt
-    _safe_name = (customer_name or "master").replace(" ", "_").replace("/", "_")[:20]
+    import hashlib as _hl93
+    import os as _os93
+    # [GP-SEC-GCS §3] 파일명에 이름 등 PII 포함 금지 — 날짜 + 단방향 해시 8자로 대체
+    _name_hash = _hl93.sha256((customer_name or "master").encode()).hexdigest()[:8]
     _safe_date = (date_str or _dt.date.today().strftime("%Y%m%d")).replace(" ", "").replace("년", "").replace("월", "").replace("일", "")
-    _blob_name = f"{_GP93_VOICE_PREFIX}/{_safe_date}_{_safe_name}.webm"
+    _blob_name = f"{_GP93_VOICE_PREFIX}/{_safe_date}_{_name_hash}.webm"
     try:
         _gcs = _get_gcs_client()
         if not _gcs:
@@ -34877,6 +34880,18 @@ watchRipple();
         st.session_state.current_tab = "home"
         st.session_state._nav_history = []
         st.session_state["_gk_session_init"] = True
+
+    # [GP-SEC §약관준수] 내보험다보여 30일 자동 파기 — 일 1회 실행
+    import datetime as _dt_purge
+    _today_str = _dt_purge.date.today().isoformat()
+    if st.session_state.get("_last_nibo_purge_date") != _today_str:
+        try:
+            from db_utils import purge_expired_nibo_data as _purge_nibo
+            _purge_nibo(retention_days=30)
+        except Exception:
+            pass
+        st.session_state["_last_nibo_purge_date"] = _today_str
+
     if 'current_tab' not in st.session_state:
         st.session_state.current_tab = "home"
     if '_nav_history' not in st.session_state:
@@ -41054,7 +41069,7 @@ div[data-testid="stButton"] {
             with _kb_sub[0]:
                 _kb_text_raw = st.text_area(
                     "담보명 | 가입금액 (1행 1담보)",
-                    \n"
+                    value=(
                         "일반암진단비 | 3000만원\n"
                         "뇌졸중진단비 | 20000000\n"
                         "급성심근경색진단비 | 2000만원\n"

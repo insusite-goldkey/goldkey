@@ -62,7 +62,7 @@ def render_login_page():
         if st.button("🚀 접속", use_container_width=True, type="primary"):
             if u_name and u_phone:
                 # 간단한 인증 로직 (실제로는 더 강화 필요)
-                user_id = f"GK_{hashlib.md5(u_name.encode()).hexdigest()[:8]}"
+                user_id = f"GK_{hashlib.sha256(u_name.encode()).hexdigest()[:8]}"
                 st.session_state.user_id = user_id
                 st.session_state.user_name = u_name
                 st.session_state.login_time = dt.now()

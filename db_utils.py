@@ -343,6 +343,52 @@ def set_crawl_status(
         return False
 
 
+def purge_expired_nibo_data(retention_days: int = 30) -> dict:
+    """
+    [GP-SEC §약관준수 — 내보험다보여 30일 자동 파기]
+    생성일(created_at) 기준 retention_days 경과한 내보험다보여 크롤링 데이터를 삭제.
+    - 대상1: gk_crawl_status (raw_json 포함 크롤링 전체 레코드)
+    - 대상2: consulting_logs (log_type='nibo' 인 상담일지)
+    Returns: {"crawl_deleted": int, "log_deleted": int, "error": str|None}
+    """
+    sb = _get_sb()
+    if not sb:
+        return {"crawl_deleted": 0, "log_deleted": 0, "error": "Supabase 미연결"}
+    try:
+        _cutoff = (
+            datetime.datetime.utcnow() - datetime.timedelta(days=retention_days)
+        ).isoformat()
+
+        # 대상1: gk_crawl_status — created_at이 없는 테이블은 updated_at 기준 폴백
+        try:
+            _r1 = (
+                sb.table("gk_crawl_status")
+                .delete()
+                .lt("updated_at", _cutoff)
+                .execute()
+            )
+            _c1 = len(_r1.data or [])
+        except Exception as _e1:
+            _c1 = 0
+
+        # 대상2: consulting_logs — log_type='nibo' AND created_at < cutoff
+        try:
+            _r2 = (
+                sb.table("consulting_logs")
+                .delete()
+                .eq("log_type", "nibo")
+                .lt("created_at", _cutoff)
+                .execute()
+            )
+            _c2 = len(_r2.data or [])
+        except Exception as _e2:
+            _c2 = 0
+
+        return {"crawl_deleted": _c1, "log_deleted": _c2, "error": None}
+    except Exception as _e:
+        return {"crawl_deleted": 0, "log_deleted": 0, "error": str(_e)}
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # §4 유연한 업데이트 (스키마 확장 방어)
 # ══════════════════════════════════════════════════════════════════════════════
