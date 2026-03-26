@@ -2515,7 +2515,8 @@ def render_security_sidebar() -> None:
 # app.py · crm_app.py 양쪽 최상단에서 inject_global_gp_design() 1회 호출
 # ══════════════════════════════════════════════════════════════════════════════
 _GP_GLOBAL_DESIGN_CSS = """<style>
-/* ══ GP-DESIGN-V3: 전역 파스텔 디자인 시스템 ══════════════════════════ */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css');
+/* ══ GP-DESIGN-V3: 전역 파스텔 디자인 시스템 ════════════════════════════════ */
 
 /* 1. CSS 변수 ─────────────────────────────────────────────────────────── */
 :root {
@@ -2538,8 +2539,9 @@ _GP_GLOBAL_DESIGN_CSS = """<style>
 [data-testid="stApp"],
 [data-testid="stAppViewContainer"] > .main {
   background: var(--gp-bg) !important;
-  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important;
+  font-family: 'Pretendard', 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important;
 }
+* { font-family: 'Pretendard', 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important; }
 [data-testid="stSidebar"] { background: #f1f5f9 !important; }
 
 /* 3. 유동 타이포그래피 — GP §11 clamp() (모바일~태블릿 유기적 스케일) ─── */

@@ -614,24 +614,22 @@ if not _is_authenticated():
         pass
     _crm_av_html = (
         f'<img src="{_crm_av_src}" loading="eager"'
-        ' style="width:clamp(72px,14vw,100px);height:clamp(72px,14vw,100px);'
+        ' style="width:clamp(108px,21vw,150px);height:clamp(108px,21vw,150px);'
         'border-radius:50%;border:4px solid #D4AF37;'
-        'box-shadow:0 4px 18px rgba(212,175,55,0.4);object-fit:cover;'
-        'display:block;margin:0 auto 12px auto;" />'
+        'box-shadow:0 6px 24px rgba(212,175,55,0.45);object-fit:cover;'
+        'display:block;margin:0 auto 14px auto;" />'
         if _crm_av_src else
-        '<div style="width:clamp(72px,14vw,100px);height:clamp(72px,14vw,100px);border-radius:50%;'
+        '<div style="width:clamp(108px,21vw,150px);height:clamp(108px,21vw,150px);border-radius:50%;'
         'background:linear-gradient(135deg,#1e3a8a,#D4AF37);'
-        'margin:0 auto 12px auto;border:4px solid #D4AF37;"></div>'
+        'margin:0 auto 14px auto;border:4px solid #D4AF37;"></div>'
     )
     _crm_c1, _crm_c2, _crm_c3 = st.columns([0.01, 0.98, 0.01])
     with _crm_c2:
         st.markdown(
             f"<div style='text-align:center;padding:24px 0 8px;'>"
             f"{_crm_av_html}"
-            "<div style='font-size:clamp(1.1rem,4vw,1.6rem);font-weight:900;color:#1e3a8a;margin-bottom:3px;'>"
-            "🏆 Goldkey AI Masters 2026</div>"
-            "<div style='font-size:clamp(0.82rem,3vw,1.05rem);font-weight:900;color:#374151;margin-bottom:14px;'>"
-            "📱 골드키 CRM — 고객상담 앱</div>"
+            "<div style='font-size:clamp(1.05rem,3.5vw,1.5rem);font-weight:900;color:#1e3a8a;margin-bottom:14px;'>"
+            "🏆 Goldkey_AI_Masters2026 (CRM 고객상담 앱)</div>"
             "</div>",
             unsafe_allow_html=True,
         )
@@ -646,7 +644,7 @@ if not _is_authenticated():
             show_terms_scroll=False,
             show_nibo_box=False,
             show_checkboxes=True,
-            consent_header_text="📋 필수동의 (아래 항목 동의해 주세요)",
+            consent_header_text="📋 서비스 이용을 위한 필수 동의",
             consent_header_bg="#dbeafe",
             consent_header_fg="#1e3a8a",
         )
