@@ -1209,7 +1209,7 @@ def render_corp_autocomplete(
     import streamlit as _st
 
     _cur = _st.session_state.get(session_key, "")
-    _typed = _st.text_input(label, value=_cur, placeholder=placeholder,
+    _typed = _st.text_input(label, value=_cur,
                              key=f"{session_key}_input")
 
     _is_typing = (_typed.strip() != "" and _typed != _cur)
@@ -1470,7 +1470,7 @@ def render_kcd_autocomplete(
     """[HIRA-KCD §5] KCD 질병 타입어헤드 자동완성 UI. 반환: 선택된 질병명"""
     import streamlit as _st
     _cur   = _st.session_state.get(session_key, "")
-    _typed = _st.text_input(label, value=_cur, placeholder=placeholder, key=f"{session_key}_input")
+    _typed = _st.text_input(label, value=_cur, key=f"{session_key}_input")
     _is_typing = _typed.strip() != "" and _typed != _cur
     if _is_typing:
         _hits = _hira_disease_search(_typed, limit=10)
@@ -1707,7 +1707,7 @@ def render_law_search(
     _q = _st.text_input(
         "법령/조문 검색",
         value=_st.session_state.get(f"{session_key}_query", ""),
-        placeholder="예) 보험금 청구, 고지의무, 상법 651조, 면책사유…",
+        
         key=f"{session_key}_input",
     )
     if _q.strip():
@@ -1995,7 +1995,7 @@ def render_job_navigator(session_prefix: str = "job_nav", compact: bool = False)
     with _tab_search:
         _q = st.text_input(
             "직업명 입력",
-            placeholder="예: 용접, 배달, 간호, 교사...",
+            
             key=f"{session_prefix}_search_q",
             label_visibility="collapsed",
         )
@@ -3994,18 +3994,18 @@ def _art43_render_tab() -> None:
     _c1, _c2 = st.columns(2)
     with _c1:
         _cust_name    = st.text_input("고객 성함", value="", key="art43_cust_name",
-                                      placeholder="예: 홍길동")
+                                      )
         _planner_name = st.text_input("설계사 성함", value="", key="art43_planner_name",
-                                      placeholder="예: 이세윤 설계사")
+                                      )
     with _c2:
         _nhis         = st.number_input("월 건강보험료 (원)", value=0, step=10000,
                                         key="art43_nhis", format="%d")
         _planner_tel  = st.text_input("설계사 연락처", value="", key="art43_tel",
-                                      placeholder="예: 010-0000-0000")
+                                      )
 
     _planner_comment = st.text_area("베테랑의 한마디 (AI 초안 자동 생성, 수정 가능)",
                                     value="", key="art43_comment",
-                                    placeholder="비워두면 AI가 자동 생성합니다.",
+                                    
                                     height=80)
 
     # ── pending_wisdom 데이터 바인딩 ──
@@ -4057,7 +4057,7 @@ def _art43_render_tab() -> None:
         _sh1, _sh2 = st.columns(2)
         with _sh1:
             _email_to = st.text_input("이메일 수신자", key="art43_email_to",
-                                      placeholder="customer@example.com")
+                                      )
             if st.button("📧 이메일로 전송", key="art43_email_btn",
                          use_container_width=True):
                 if _email_to:
@@ -12954,11 +12954,11 @@ def render_special_ops_sector():
             key="sops_c_name")
         _c_birth  = _r2.text_input("주민번호 앞 6자리 + 성별코드",
             value=st.session_state.get("_sops_c_birth", ""),
-            key="sops_c_birth", placeholder="예: 8001011 (앞6자리+성별코드1자리)")
+            key="sops_c_birth")
         _r3, _r4  = _st.columns(2)
         _c_phone  = _r3.text_input("연락처",
             value=st.session_state.get("_sops_c_phone", ""),
-            key="sops_c_phone", placeholder="010-0000-0000")
+            key="sops_c_phone")
         _c_tc     = _r4.selectbox("통신사",
             ["SKT", "KT", "LG U+", "SKT 알뜰", "KT 알뜰", "LG 알뜰"],
             key="sops_c_telecom")
@@ -13097,7 +13097,7 @@ def render_special_ops_sector():
                     "수집된 보장 목록 (API 응답 붙여넣기 또는 직접 입력)",
                     value=st.session_state.get("_sops_covs_raw", ""),
                     height=120, key="sops_covs_auto",
-                    placeholder="예: 암진단비 3000만원, 뇌졸중진단비 2000만원, 급성심근경색진단비 2000만원",
+                    
                 )
             else:
                 _st.markdown(
@@ -13111,7 +13111,7 @@ def render_special_ops_sector():
                     "보유 담보 목록 (쉼표 또는 줄바꿈 구분)",
                     value=st.session_state.get("_sops_covs_raw", ""),
                     height=130, key="sops_covs_input",
-                    placeholder="예: 암진단비, 뇌졸중진단비, 급성심근경색진단비, 수술비, 입원비",
+                    
                 )
 
             # 담보 파싱 미리보기
@@ -13192,13 +13192,13 @@ def render_special_ops_sector():
                 "✍️ 마스터의 한마디 (선택)",
                 value=st.session_state.get("_sops_master_comment", ""),
                 key="sops_master_comment",
-                placeholder="예: 40대는 보험 설계의 황금기. KB 7대 분류 기준 ②③ 즉시 보완 필요.",
+                
             )
             _gs4 = _st.text_area(
                 "📝 추가 분석 메모 (선택)",
                 value=st.session_state.get("_sops_gap_summary", ""),
                 key="sops_gap_summary", height=70,
-                placeholder="기타 특이 사항, 기존 계약 정보, 추가 메모 등",
+                
             )
 
             if _st.button("✅ KB 분석 확정 → Step 5 리포트 발송", key="sops_s4_ok",
@@ -13285,7 +13285,7 @@ def render_special_ops_sector():
             except Exception:
                 pass
             _kp5 = _st.text_input("📱 카카오톡 발송 번호", value=_ph5, key="sops_kakao_ph",
-                                  placeholder="010-0000-0000")
+                                  )
             _s5a, _s5b = _st.columns(2)
             with _s5a:
                 if _st.button("📤 카카오톡 알림톡 발송", key="sops_kakao_send",
@@ -13344,11 +13344,11 @@ def render_member_profile_settings():
         unsafe_allow_html=True,
     )
     _mp_co = _st.text_input("소속 회사", value=_prof.get("company", ""),
-        key="mp_company", placeholder="예: goldkey_Ai_masters2026 (선택)")
+        key="mp_company")
     _mp_nm = _st.text_input("이름", value=_prof.get("display_name", ""),
-        key="mp_name", placeholder="예: 홍길동 (선택)")
+        key="mp_name")
     _mp_ph = _st.text_input("직속 연락처", value=_prof.get("phone", ""),
-        key="mp_phone", placeholder="예: 010-0000-0000 (선택)")
+        key="mp_phone")
     _c1, _c2 = _st.columns(2)
     with _c1:
         if _st.button("💾 프로필 저장", key="mp_save", use_container_width=True):
@@ -13694,7 +13694,7 @@ def render_pharma_panel(session_key: str = "pharma") -> None:
         _drug_q = _st.text_input(
             "\uc57d \uc774\ub984 / \uc131\ubd84\uba85 / \uc81c\ud488\uba85",
             value=_st.session_state.get(f"{session_key}_q", ""),
-            placeholder="\uc608) \uba54\ud2b8\ud3ec\ub974\ubbfc, \uae00\ub8e8\ucf54\ud30c\uc9c0, \ud5c8\uc149\ud2f4, \uc544\uc2a4\ud53c\ub9b0\u2026",
+            
             key=f"{session_key}_input",
         )
     with _col_btn:
@@ -14450,7 +14450,7 @@ def _render_gk_risk():
         _ri_kcd = render_kcd_autocomplete(
             label="KCD 질병 검색",
             session_key="risk_kcd",
-            placeholder="예) 유방암, I21, 뇌경색…",
+            
             autofill_kcd_key="risk_kcd_code",
             show_coverage=True,
         )
@@ -14542,7 +14542,7 @@ def _render_gk_risk():
             render_kcd_autocomplete(
                 label="KCD 정밀 조회",
                 session_key="risk_kcd_detail",
-                placeholder="예) 유방암, I21, 뇌경색…",
+                
                 autofill_kcd_key="risk_kcd_detail_code",
                 show_coverage=True,
             )
@@ -14790,14 +14790,14 @@ def _render_gk_sec10():
         _c1, _c2 = st.columns(2)
         with _c1:
             _s10_name = st.text_input(
-                "👤 고객 성함 *", placeholder="홍길동",
+                "👤 고객 성함 *",
                 value=st.session_state.get("sec10_name",
                       st.session_state.get("gs_c_name", "")),
                 key="sec10_name_input", max_chars=40,
             )
         with _c2:
             _s10_phone = st.text_input(
-                "📱 휴대폰 번호 *", placeholder="010-0000-0000",
+                "📱 휴대폰 번호 *",
                 value=st.session_state.get("sec10_phone", ""),
                 key="sec10_phone_input", max_chars=20,
             )
@@ -14838,7 +14838,7 @@ def _render_gk_sec10():
             "</div>", unsafe_allow_html=True
         )
         _s10_sign = st.text_input(
-            "서명란", placeholder="홍길동 (위 성함과 동일하게 입력)",
+            "서명란",
             value=st.session_state.get("sec10_sign", ""),
             key="sec10_sign_input", max_chars=30,
             label_visibility="collapsed"
@@ -15088,14 +15088,14 @@ def _render_gk_sec10():
                 )
             with _dc2:
                 _s10_dob = st.text_input(
-                    "🎂 생년월일 (YYYYMMDD) *", placeholder="19901231",
+                    "🎂 생년월일 (YYYYMMDD) *",
                     key="sec10_auth_dob", max_chars=8
                 )
 
             _s10_phone_auth = st.text_input(
                 "📱 휴대폰 번호 (숫자만) *",
                 value=re.sub(r'\D', '', _s10_phone),
-                placeholder="01012345678",
+                
                 key="sec10_auth_phone_input", max_chars=11
             )
 
@@ -15447,7 +15447,7 @@ def _render_gk_sec10():
             _fu_kcd_sel = render_kcd_autocomplete(
                 label="질병 검색 (KCD 자동완성)",
                 session_key="sec10_fusion_kcd",
-                placeholder="예) 유방암, 뇌경색, C50, I21…",
+                
                 autofill_kcd_key="sec10_fusion_kcd_code",
                 show_coverage=True,
             )
@@ -15656,7 +15656,7 @@ input, textarea, .stTextInput input, .stTextArea textarea,
             _p1_corp_name = render_corp_autocomplete(
                 label="법인 상호",
                 session_key="sec09_corp_name",
-                placeholder="예) 삼성전자, 현대건설, 프라임에셋…",
+                
                 autofill_keys={
                     "biz_no": "sec09_biz_no",
                     "size":   "sec09_corp_size",
@@ -15669,7 +15669,7 @@ input, textarea, .stTextInput input, .stTextArea textarea,
             _p1_biz_no = st.text_input(
                 "사업자번호",
                 value=st.session_state.get("sec09_biz_no", ""),
-                placeholder="자동 채우기 또는 직접 입력",
+                
                 key="sec09_biz_no_input",
             )
             if _p1_biz_no != st.session_state.get("sec09_biz_no", ""):
@@ -15688,7 +15688,7 @@ input, textarea, .stTextInput input, .stTextArea textarea,
         _p1_addr = st.text_input(
             "본점 소재지",
             value=st.session_state.get("sec09_corp_addr", ""),
-            placeholder="자동 채우기 또는 직접 입력",
+            
             key="sec09_corp_addr_input",
         )
         if _p1_addr != st.session_state.get("sec09_corp_addr", ""):
@@ -16134,7 +16134,7 @@ input, textarea, .stTextInput input, .stTextArea textarea,
         st.markdown("**🔍 경영 전략 RAG 검색 (75p 전문자료 인덱스)**")
         _rag_q09 = st.text_input(
             "검색 키워드",
-            placeholder="예) 가지급금 처리 방법 / 비상장주식 할증평가 / 중간배당 절차",
+            
             key="sec09_rag_q",
         )
         if st.button("🔍 RAG 검색", key="sec09_rag_search", type="primary"):
@@ -17041,7 +17041,7 @@ input, textarea, .stTextInput input, .stTextArea textarea {
             _renew_name = st.text_input(
                 "고객명", value=_c_name,
                 key="sec07_renew_name",
-                placeholder="홍길동",
+                
             )
         with _dd_cols[1]:
             _renew_date = st.date_input(
@@ -17324,7 +17324,7 @@ input, textarea, .stTextInput input, .stTextArea textarea {
             _query_text = st.text_input(
                 "사고 상황 입력",
                 key="sec07_acc_query",
-                placeholder="예) 적색 신호 직진 중 좌회전 차량과 충돌",
+                
             )
         else:
             _query_text = _acc_type
@@ -17404,7 +17404,7 @@ input, textarea, .stTextInput input, .stTextArea textarea {
         _note_text = st.text_area(
             "상담 내용 메모",
             key="sec07_note_text",
-            placeholder="예) 40대 남성, 업무용 차량, 연 3만km 운행. 운전자보험 미가입 상태. 형사합의금 공백 1억 설계 완료.",
+            
             height=100,
         )
         if st.button("💾 상담 노트 저장 (RAG 학습)", key="sec07_note_save", type="primary"):
@@ -17495,7 +17495,7 @@ input, textarea, .stTextInput input, .stTextArea textarea {
         _sel_pol = st.selectbox("약관 선택", ["직접 URL 입력"] + list(_pol_opts.keys()), key="sec07_pol_sel")
         if _sel_pol == "직접 URL 입력":
             _pol_url = st.text_input("약관 PDF URL", key="sec07_pol_url",
-                                     placeholder="https://... (약관 PDF 직접 URL 입력)")
+                                     )
         else:
             _pol_fn = _pol_opts[_sel_pol]
             _pol_url = ""
@@ -17619,12 +17619,12 @@ def show_war_room() -> None:
         with _wr_c1:
             _reject_input = _st_wr.text_area(
                 "💬 고객 거절 내용 입력",
-                placeholder="예) 이미 보험 많이 들었어요 / 가격이 너무 비싸요 / 나중에 할게요",
+                
                 height=100,
                 key="wr_reject_input",
             )
         with _wr_c2:
-            _insured_input = _st_wr.text_input("👤 고객 성함 (선택)", key="wr_insured_name", placeholder="홍길동")
+            _insured_input = _st_wr.text_input("👤 고객 성함 (선택)", key="wr_insured_name")
             _birth_wr = _st_wr.number_input("출생연도", min_value=1940, max_value=2005, value=1985, step=1, key="wr_birth_year")
             _marital_wr = _st_wr.selectbox("결혼 상태", ["기혼", "미혼", "이혼"], key="wr_marital")
 
@@ -17796,7 +17796,7 @@ def show_war_room() -> None:
 
         _gr_query = _st_wr.text_input(
             "🔍 전문 지식 검색",
-            placeholder="예) 암보험 손실회피 심리 / 연금 CFP 기준 / 뇌졸중 KCD코드",
+            
             key="wr_gr_query",
         )
         if _st_wr.button("🔍 그라운딩 검색 실행", key="wr_gr_search", use_container_width=True):
@@ -19553,7 +19553,7 @@ def _gp96_panel() -> None:
                 value=_ocr_text[:500] if _ocr_text else "",
                 height=120,
                 key="_gp96_manual_text",
-                placeholder="예: 삼성화재 2026년 3월 암보험 표적항암 CAR-T 중입자치료비",
+                
             )
             _combined_text = (_manual_text or _ocr_text or "").strip()
 
@@ -19619,7 +19619,7 @@ def _gp96_panel() -> None:
 
         _query = st.text_input(
             "검색 질문 입력",
-            placeholder="예: 중입자 치료비 얼마야? / CAR-T 어느 회사가 좋아? / 표적항암 최신 리플렛",
+            
             key="_gp96_rag_query",
         )
         if st.button("🔍 RAG 검색", key="_gp96_search_btn", type="primary",
@@ -19836,12 +19836,12 @@ def _gp97_panel() -> None:
         # ── 수동 트렌드 등록 ─────────────────────────────────────────────────
         st.markdown("---")
         st.markdown("##### ✍️ 수동 트렌드 등록")
-        _m_co  = st.text_input("보험사", placeholder="예: 삼성화재", key="_gp97_m_co")
-        _m_pt  = st.text_input("상품군", placeholder="예: 암보험", key="_gp97_m_pt")
-        _m_dt  = st.text_input("발행일", placeholder="예: 2026-03", key="_gp97_m_dt")
+        _m_co  = st.text_input("보험사", key="_gp97_m_co")
+        _m_pt  = st.text_input("상품군", key="_gp97_m_pt")
+        _m_dt  = st.text_input("발행일", key="_gp97_m_dt")
         _m_new = st.text_input(
             "신규 담보 (쉼표 구분)",
-            placeholder="예: CAR-T, 중입자치료비, 차세대표적항암",
+            
             key="_gp97_m_new",
         )
         if st.button("📝 수동 트렌드 등록", key="_gp97_manual_add", use_container_width=True):
@@ -19862,8 +19862,8 @@ def _gp97_panel() -> None:
         st.markdown("#### 🔄 최신 트렌드 기반 상담 문구 자동 갱신")
         st.caption("등록된 트렌드 중 가장 최신 자료를 기반으로 1인칭 상담 문구를 즉시 생성합니다.")
 
-        _co_filter = st.text_input("회사 필터 (선택)", placeholder="예: 삼성", key="_gp97_co_filter")
-        _pt_filter = st.text_input("상품 필터 (선택)", placeholder="예: 암보험", key="_gp97_pt_filter")
+        _co_filter = st.text_input("회사 필터 (선택)", key="_gp97_co_filter")
+        _pt_filter = st.text_input("상품 필터 (선택)", key="_gp97_pt_filter")
 
         if st.button("🔄 최신 문구 생성", key="_gp97_gen_btn", type="primary",
                      use_container_width=True):
@@ -20357,7 +20357,7 @@ def _gp100_panel() -> None:
         _manual_text = st.text_area(
             "또는 텍스트 직접 입력 (OCR 결과 붙여넣기)",
             height=120,
-            placeholder="예) 상병명: 위의 악성 신생물 C16.0  수술명: 위절제술  입원일수: 14일",
+            
             key="_gp100_manual_txt",
         )
 
@@ -20428,7 +20428,7 @@ def _gp100_panel() -> None:
         st.caption("KCD 코드를 입력하면 해당 질병의 보험사 반박 전술과 내 방어 논리를 즉시 확인합니다.")
         _kcd_input = st.text_input(
             "KCD 코드 입력 (예: C16, I21, S72)",
-            placeholder="C00~C97: 암  I20~I25: 심장  I60~I69: 뇌혈관",
+            
             key="_gp100_kcd_direct",
         )
         if _kcd_input:
@@ -20705,7 +20705,7 @@ def _gp110_panel() -> None:
         _query = st.text_area(
             "상황 설명 입력",
             height=100,
-            placeholder="예) 위암 C16 진단받았는데 보험사가 기왕증이라며 암 진단비를 안 준대요",
+            
             key="_gp110_query",
         )
 
@@ -20885,7 +20885,7 @@ def _gp120_panel() -> None:
             _v_text  = st.text_area(
                 "민감 데이터 입력 (자동 비식별화 처리됨)",
                 height=100,
-                placeholder="진단명, KCD코드, 입원일수 등",
+                
                 key="_gp120_rawdata",
             )
             _v_submit = st.form_submit_button("🔐 비식별화 + 암호화 저장", use_container_width=True,
@@ -20953,7 +20953,7 @@ def _gp120_panel() -> None:
         )
         _shred_label = st.text_input(
             "소각할 데이터 레이블 정확히 입력",
-            placeholder="예: 홍길동_위암진단서",
+            
             key="_gp120_shred_label",
         )
         st.warning(
@@ -22305,7 +22305,7 @@ def _gp93_voice_recorder(customer_name: str = "", plan: str = "", date_str: str 
                     st.warning("⚠️ GCS 업로드 실패 — GCS 설정을 확인하거나 URL을 수동 입력하세요.")
                     _manual_url = st.text_input(
                         "수동 공개 URL 입력", key="_gp93_manual_url",
-                        placeholder="https://storage.googleapis.com/..."
+                        
                     )
                     if _manual_url:
                         st.session_state[_KEY_URL] = _manual_url
@@ -23519,13 +23519,13 @@ def _gp90_panel() -> None:
             _inp_name = st.text_input(
                 "👤 성명",
                 value=_cur_name,
-                placeholder="예: 홍길동",
+                
                 key="_gp90_inp_name",
             )
             _inp_rrn = st.text_input(
                 "🔒 주민번호 (자동 마스킹·연령·성별 계산)",
                 value="",
-                placeholder="예: 800101-1••••••  (입력 후 동기화)",
+                
                 type="password",
                 key="_gp90_inp_rrn",
                 help="뒷자리는 자동 마스킹 처리됩니다. 저장 시 암호화 표시만 보존됩니다.",
@@ -23533,7 +23533,7 @@ def _gp90_panel() -> None:
             _inp_phone = st.text_input(
                 "📞 연락처",
                 value=_cur_phone,
-                placeholder="예: 010-1234-5678",
+                
                 key="_gp90_inp_phone",
             )
 
@@ -23541,14 +23541,14 @@ def _gp90_panel() -> None:
             _inp_contract = st.text_area(
                 "📋 계약사항",
                 value=_cur_contract,
-                placeholder="예: 종신보험 2억, 암보험 3천만원, 실손보험 가입 중",
+                
                 height=100,
                 key="_gp90_inp_contract",
             )
             _inp_analysis = st.text_area(
                 "📊 증권분석",
                 value=_cur_analysis,
-                placeholder="예: 상속세 재원 5억 부족, 교육비 2억 미확보, 노후연금 월 60만원 부족",
+                
                 height=100,
                 key="_gp90_inp_analysis",
             )
@@ -23794,7 +23794,7 @@ def _gp88_search() -> None:
 
     _q = st.text_input(
         "검색어 입력 (이름·키워드·날짜·플랜명)",
-        placeholder="예: 홍길동, 암보험, 종신, 2024",
+        
         key="_gp88_search_query",
     )
 
@@ -23854,7 +23854,7 @@ def _gp88_ocr_scan() -> None:
     _ocr_cname = st.text_input(
         "👤 고객명 (스캔 결과와 함께 전역 파이프라인에 저장)",
         value=st.session_state.get(_GP89_PIPE["customer_name"], ""),
-        placeholder="예: 홍길동",
+        
         key="_gp88_ocr_cname_input",
     )
     if _ocr_cname:
@@ -28105,14 +28105,14 @@ def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요.", pro
         with _ri_col1:
             c_name = st.text_input(
                 "👤 고객 성함",
-                placeholder="홍길동 (미입력 시 익명 40대 기준으로 자동 처리)",
+                
                 key=f"c_name_{tab_key}",
                 max_chars=60,
             )
         with _ri_col2:
             _birth_input = st.text_input(
                 "생년월일(YYYY-MM-DD)",
-                placeholder="1980-01-01",
+                
                 key=f"birth_{tab_key}",
                 max_chars=10,
             )
@@ -28185,7 +28185,7 @@ def ai_query_block(tab_key, placeholder="상담 내용을 입력하세요.", pro
     if hi_premium > 0:
         income = hi_premium / 0.0719
         st.success(f"역산 월 소득: **{income:,.0f}원** | 적정 보험료: **{income*0.15:,.0f}원**")
-    query = st.text_area("상담 내용 입력", height=180, key=f"query_{tab_key}", placeholder=placeholder)
+    query = st.text_area("상담 내용 입력", height=180, key=f"query_{tab_key}")
     do_analyze = st.button("🔍 정밀 분석 실행", type="primary", key=f"btn_analyze_{tab_key}", use_container_width=True)
     # 음성 버튼 — Levenshtein중복필터 + WakeLock + _starting플래그 + speechContext부스트힌트 + prefix_padding
     _boost_terms_js = str(STT_BOOST_TERMS).replace("'", '"')
@@ -29223,15 +29223,15 @@ def main():
             st.markdown('---')
             # 브랜딩 정보
             _nav_co = st.text_input('🏢 회사명', value=st.session_state.get('gp200_company',''),
-                placeholder='예: 골드키지사', key='_nav_co', max_chars=60)
+                key='_nav_co', max_chars=60)
             if _nav_co != st.session_state.get('gp200_company',''):
                 st.session_state['gp200_company'] = _nav_co
             _nav_nm = st.text_input('👤 성명', value=st.session_state.get('gp200_name',''),
-                placeholder='예: 홍길동', key='_nav_nm', max_chars=30)
+                key='_nav_nm', max_chars=30)
             if _nav_nm != st.session_state.get('gp200_name',''):
                 st.session_state['gp200_name'] = _nav_nm
             _nav_ct = st.text_input('📞 연락처', value=st.session_state.get('gp200_contact',''),
-                placeholder='예: 010-1234-5678', key='_nav_ct', max_chars=20)
+                key='_nav_ct', max_chars=20)
             if _nav_ct != st.session_state.get('gp200_contact',''):
                 st.session_state['gp200_contact'] = _nav_ct
             st.markdown('---')
@@ -29342,8 +29342,8 @@ footer, footer * { display: none !important; }
                     import random as _rnd2
                     _lp2 = st.session_state.get("_main_login_phase", "A")
                     if _lp2 == "A":
-                        _name2    = st.text_input("👤 이름",   key="main_login_name",    placeholder="가입 시 등록한 이름",        label_visibility="collapsed")
-                        _contact2 = st.text_input("📱 연락처", type="password", key="main_login_contact", placeholder="연락처 (숫자만, - 제외)", label_visibility="collapsed")
+                        _name2    = st.text_input("👤 이름",   key="main_login_name",        label_visibility="collapsed")
+                        _contact2 = st.text_input("📱 연락처", type="password", key="main_login_contact", label_visibility="collapsed")
                         if st.button("🔐 AI 마스터 로그인", key="main_login_btn", use_container_width=True, type="primary"):
                             _n2  = (_name2    or "").strip()
                             _c2v = (_contact2 or "").strip().replace("-", "").replace(" ", "")
@@ -29451,7 +29451,7 @@ footer, footer * { display: none !important; }
   </div>
 </div>""", unsafe_allow_html=True)
                         _otp_inp2 = st.text_input("6자리 인증번호", key="main_otp_input",
-                                                   placeholder="6자리 숫자 입력",
+                                                   
                                                    label_visibility="collapsed")
                         if st.button("✅ 인증 완료", key="main_otp_confirm", use_container_width=True, type="primary"):
                             if (_otp_inp2 or "").strip() == st.session_state.get("_main_otp", ""):
@@ -29472,9 +29472,9 @@ footer, footer * { display: none !important; }
                             st.session_state.pop("_main_login_phase", None)
                             st.rerun()
                 with _tab_s:
-                    _sn = st.text_input("👤 이름", key="main_signup_name", placeholder="가입할 이름")
-                    _sc2 = st.text_input("📱 연락처", type="password", key="main_signup_contact", placeholder="연락처 (숫자만, - 제외)")
-                    _sc2c = st.text_input("📱 연락처 확인", type="password", key="main_signup_contact2", placeholder="연락처 재입력")
+                    _sn = st.text_input("👤 이름", key="main_signup_name")
+                    _sc2 = st.text_input("📱 연락처", type="password", key="main_signup_contact")
+                    _sc2c = st.text_input("📱 연락처 확인", type="password", key="main_signup_contact2")
                     if st.button("📝 회원가입", key="main_signup_btn", use_container_width=True, type="primary"):
                         _sn = (_sn or "").strip(); _sc2 = (_sc2 or "").strip()
                         _sc2_clean  = get_clean_phone(_sc2)
@@ -29507,10 +29507,10 @@ footer, footer * { display: none !important; }
                                 except Exception as _e_su:
                                     st.error(f"가입 오류: {_e_su}")
                 with _tab_pw:
-                    _pn = st.text_input("👤 이름", key="main_pw_name", placeholder="가입한 이름")
-                    _po = st.text_input("📱 현재 연락처", type="password", key="main_pw_old", placeholder="현재 연락처")
-                    _p1 = st.text_input("📱 새 연락처", type="password", key="main_pw_new1", placeholder="새 연락처")
-                    _p2 = st.text_input("📱 새 연락처 확인", type="password", key="main_pw_new2", placeholder="새 연락처 재입력")
+                    _pn = st.text_input("👤 이름", key="main_pw_name")
+                    _po = st.text_input("📱 현재 연락처", type="password", key="main_pw_old")
+                    _p1 = st.text_input("📱 새 연락처", type="password", key="main_pw_new1")
+                    _p2 = st.text_input("📱 새 연락처 확인", type="password", key="main_pw_new2")
                     if st.button("🔒 비밀번호 변경", key="main_pw_btn", use_container_width=True, type="primary"):
                         _pn = (_pn or "").strip()
                         _mbs_pw = load_members()
@@ -29536,9 +29536,9 @@ footer, footer * { display: none !important; }
                                     except Exception as _e_pw:
                                         st.error(f"변경 오류: {_e_pw}")
                 with _tab_nm:
-                    _no = st.text_input("👤 현재 이름", key="main_nm_old", placeholder="현재 가입된 이름")
-                    _np = st.text_input("📱 연락처 확인", type="password", key="main_nm_pin", placeholder="연락처")
-                    _nn = st.text_input("✏️ 새 이름", key="main_nm_new", placeholder="변경할 새 이름")
+                    _no = st.text_input("👤 현재 이름", key="main_nm_old")
+                    _np = st.text_input("📱 연락처 확인", type="password", key="main_nm_pin")
+                    _nn = st.text_input("✏️ 새 이름", key="main_nm_new")
                     if st.button("✏️ 이름 변경", key="main_nm_btn", use_container_width=True, type="primary"):
                         _no = (_no or "").strip()
                         _mbs_nm = load_members()
@@ -29807,10 +29807,10 @@ footer, footer * { display: none !important; }
       <div style='color:#000000;font-size:0.72rem;margin-top:2px;opacity:0.72;
         word-break:keep-all;white-space:normal;'>가입 시 등록한 정보로 본인 확인 후 OTP를 발급합니다</div>
     </div>""", unsafe_allow_html=True)
-                        ln_a = st.text_input("👤 이름", key="hlp_name_a", placeholder="가입 시 등록한 이름",
+                        ln_a = st.text_input("👤 이름", key="hlp_name_a",
                                              label_visibility="collapsed")
                         lc_a = st.text_input("📱 연락처", type="password", key="hlp_contact_a",
-                                             placeholder="연락처 (숫자만, - 제외)",
+                                             
                                              label_visibility="collapsed")
                         login_is_pro = st.radio("보험종사자 여부", ["종사자", "비종사자"],
                                                 horizontal=True, key="login_is_pro")
@@ -29964,13 +29964,13 @@ footer, footer * { display: none !important; }
                         )
                         _adm_l_nm = st.text_input(
                             "관리자 이름", key="adm_l_nm",
-                            placeholder="예) 이세윤",
+                            
                             label_visibility="collapsed"
                         )
                         _adm_l_pw = st.text_input(
                             "관리자 코드", key="adm_l_pw",
                             type="password",
-                            placeholder="관리자 코드 입력",
+                            
                             label_visibility="collapsed"
                         )
                         st.markdown("""<style>
@@ -30172,7 +30172,7 @@ div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] button[kind="s
 
                         # ④ OTP 입력창
                         _otp_input = st.text_input("6자리 인증번호 입력", key="hlp_otp_in",
-                                                   placeholder="000000", max_chars=6,
+                                                   max_chars=6,
                                                    label_visibility="collapsed")
                         _otp_confirm = st.button("✅ 위쪽 박스 OTP번호 입력 후 클릭", key="hlp_otp_btn",
                                                  use_container_width=True, type="primary")
@@ -30685,7 +30685,7 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
                     _gp200_co_input = st.text_input(
                         "회사명", key="gp200_company_input",
                         value=st.session_state.get("gp200_company", ""),
-                        placeholder="예: 골드키, 삼성생명, 프라임에셋…",
+                        
                         label_visibility="collapsed",
                     )
                 if _gp200_co_input and _gp200_co_input != st.session_state.get("gp200_company", ""):
@@ -30717,7 +30717,7 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
                     _gp200_br_input = st.text_input(
                         "지점", key="gp200_branch_input",
                         value=st.session_state.get("gp200_branch", ""),
-                        placeholder="예: 강남지점, 본사…",
+                        
                         label_visibility="collapsed",
                     )
                 if _gp200_br_input and _gp200_br_input != st.session_state.get("gp200_branch", ""):
@@ -30750,7 +30750,7 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
                     _gp200_nm_input = st.text_input(
                         "성명", key="gp200_name_input",
                         value=st.session_state.get("gp200_name", ""),
-                        placeholder="예: 홍길동",
+                        
                         label_visibility="collapsed",
                     )
                 st.session_state["gp200_name"] = _gp200_nm_input
@@ -30766,7 +30766,7 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
                     _gp200_ct_input = st.text_input(
                         "연락처", key="gp200_contact_input",
                         value=st.session_state.get("gp200_contact", ""),
-                        placeholder="예: 010-1234-5678",
+                        
                         label_visibility="collapsed",
                     )
                 st.session_state["gp200_contact"] = _gp200_ct_input
@@ -30893,9 +30893,9 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
         with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
             with st.form("admin_login_form", clear_on_submit=False):
                 admin_id = st.text_input("관리자 ID", key="admin_id_f",
-                    placeholder="admin 또는 이세윤")
+                    )
                 admin_code = st.text_input("관리자 코드", key="admin_code_f", type="password",
-                    placeholder="코드 입력")
+                    )
                 _admin_submitted = st.form_submit_button("관리자 로그인", use_container_width=True)
             if _admin_submitted:
                 # [B3 수정] strip/lower 처리로 공백·대소문자 무관하게 비교
@@ -31063,7 +31063,7 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
                 _g200_co_input = st.text_input(
                     "🏢 회사명 (GA / 보험사)",
                     value=st.session_state.get("gp200_company", ""),
-                    placeholder="예: 골드키지사, 삼성생명, 피플라이프...",
+                    
                     key="_gp200_co_raw",
                     max_chars=60,
                 )
@@ -31092,7 +31092,7 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
                 _g200_br_input = st.text_input(
                     "🏬 지점 / 팀명",
                     value=st.session_state.get("gp200_branch", ""),
-                    placeholder="예: 강남지점, 디지털팀...",
+                    
                     key="_gp200_br_raw",
                     max_chars=40,
                 )
@@ -31103,7 +31103,7 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
                 _g200_nm_input = st.text_input(
                     "👤 성명",
                     value=st.session_state.get("gp200_name", ""),
-                    placeholder="예: 홍길동",
+                    
                     key="_gp200_nm_raw",
                     max_chars=30,
                 )
@@ -31114,7 +31114,7 @@ div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:nth-of-typ
                 _g200_ct_input = st.text_input(
                     "📞 연락처",
                     value=st.session_state.get("gp200_contact", ""),
-                    placeholder="예: 010-1234-5678",
+                    
                     key="_gp200_ct_raw",
                     max_chars=20,
                 )
@@ -34809,7 +34809,7 @@ watchRipple();
         _ctx3 = st.session_state.get("crm_context") or {}
         _sel_nm = st.text_input(
             "고객 이름 입력", value=_ctx3.get("이름", ""),
-            key="_crm_sel_nm", placeholder="예: 홍길동"
+            key="_crm_sel_nm"
         )
         _hq_tab_map = {
             "내보험다보여 (증권 크롤링)": "home",
@@ -35949,7 +35949,7 @@ watchRipple();
                     unsafe_allow_html=True)
         _portal_term_q = st.text_input(
             "용어 검색",
-            placeholder="예) 실손의료비, 맥브라이드, KCD코드, 장해율...",
+            
             key="_portal_term_query",
             label_visibility="collapsed",
         )
@@ -36174,7 +36174,7 @@ watchRipple();
             with _col_a:
                 _rejection = st.text_area(
                     "고객 거절 내용 / 상담 상황",
-                    placeholder="예: '지금 보험료 낼 여유가 없어요', '이미 다른 보험 있어요', '나중에 생각해볼게요'",
+                    
                     height=100,
                     key="wr_rejection_input",
                 )
@@ -36194,7 +36194,7 @@ watchRipple();
                     format_func=lambda k: _persona_opts[k],
                     key="wr_persona_select",
                 )
-                _insured_input = st.text_input("피보험자 이름 (선택)", key="wr_insured_name", placeholder="홍길동")
+                _insured_input = st.text_input("피보험자 이름 (선택)", key="wr_insured_name")
 
             # ── GP103 GCS 그라운딩 지식 풀 ────────────────────────────
             _GCS_KNOWLEDGE: dict[str, dict[str, list]] = {
@@ -36654,13 +36654,13 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
                     "🏥 의료기관명",
                     value=st.session_state.get("_mf_hospital", ""),
                     key="_mf_hospital_input",
-                    placeholder="예: 서울대학교병원",
+                    
                 )
                 _mf_receipt_no = st.text_input(
                     "🧾 영수증 번호",
                     value=st.session_state.get("_mf_receipt_no", ""),
                     key="_mf_receipt_input",
-                    placeholder="예: 2024-00123",
+                    
                 )
             with _mf2:
                 _mf_benefit_type = st.selectbox(
@@ -36683,7 +36683,7 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
                     "💰 최종 청구 금액 (원)",
                     value=st.session_state.get("_mf_amount_raw", ""),
                     key="_mf_amount_input",
-                    placeholder="예: 47500",
+                    
                     help="숫자만 입력 (콤마 제외)",
                 )
 
@@ -36858,25 +36858,25 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
                             "🏥 의료기관명",
                             value=_ocr_preview.get("hospital", ""),
                             key="_ocr_prev_hospital",
-                            placeholder="OCR 인식 결과 (수정 가능)",
+                            
                         )
                         _prev_date = st.text_input(
                             "📅 진료 일자",
                             value=_ocr_preview.get("date", ""),
                             key="_ocr_prev_date",
-                            placeholder="YYYY-MM-DD",
+                            
                         )
                         _prev_receipt = st.text_input(
                             "🧾 영수증 번호",
                             value=_ocr_preview.get("receipt", ""),
                             key="_ocr_prev_receipt",
-                            placeholder="OCR 인식 결과",
+                            
                         )
                         _prev_total_raw = st.text_input(
                             "💰 합계 금액 (원)",
                             value=_ocr_preview.get("total", ""),
                             key="_ocr_prev_total",
-                            placeholder="OCR 인식 결과 (수정 가능)",
+                            
                         )
                         # GP-67 §3: 합계 금액 검증
                         if _prev_total_raw.strip():
@@ -37321,7 +37321,7 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
             with _kk3_s08_c1:
                 _kk3_s08_note = st.text_area(
                     "설계사 추가 의견",
-                    placeholder="화재·특종보험 담보 분석 후 추가 의견을 입력하세요...",
+                    
                     key="kk3_s08_note", height=60, label_visibility="collapsed",
                 )
             with _kk3_s08_c2:
@@ -37371,7 +37371,7 @@ GCS에 관련 전문 자료 보완을 요청드립니다.
             with _kk3_s07_c1:
                 _kk3_s07_note = st.text_area(
                     "설계사 추가 의견",
-                    placeholder="자동차보험 담보 분석 후 추가 의견을 입력하세요...",
+                    
                     key="kk3_s07_note", height=60, label_visibility="collapsed",
                 )
             with _kk3_s07_c2:
@@ -37741,7 +37741,7 @@ body{{background:transparent;padding:0;}}
   <div class="csb-input-wrap" id="inputWrap">
     <span class="csb-icon">🔍</span>
     <input class="csb-input" id="csb" type="text"
-      placeholder="고객명 · 법인명 · 메모 키워드 입력..."
+      
       autocomplete="off" spellcheck="false">
     <button class="csb-clear" id="clearBtn" onclick="clearSearch()">✕</button>
     <div class="csb-dropdown" id="dropdown"></div>
@@ -38129,14 +38129,14 @@ function selectCustomer(name) {{
             st.markdown("<div style='font-size:0.78rem;font-weight:900;color:#0369a1;margin-bottom:8px;'>🔬 KCD 코드 기반 실손·생명 갭 분석</div>", unsafe_allow_html=True)
             _kcd_in = st.text_input(
                 "KCD 코드 입력", value=_kcd_val,
-                placeholder="예) C50, I63, F00…",
+                
                 key=f"{_llkey}_kcd_input", help="한국표준질병사인분류 코드")
             if _kcd_in and _kcd_in != _kcd_val:
                 st.session_state["scan_client_kcd_code"] = _kcd_in
             _syn_text = st.text_area(
                 "진단 내용 직접 입력 (선택)", height=70,
                 value=st.session_state.get(f"{_llkey}_syn", ""),
-                placeholder="예) 유방암 2기, 뇌경색, 급성심근경색…",
+                
                 key=f"{_llkey}_syn_in")
             st.session_state[f"{_llkey}_syn"] = _syn_text
             _held = st.multiselect(
@@ -38720,7 +38720,7 @@ function selectCustomer(name) {{
                     _si_name = st.text_input(
                         "👤 성명 (피보험자 / 법인명)",
                         value=st.session_state.get("scan_client_name", ""),
-                        placeholder="예) 홍길동 또는 (유)명신산업", key="home_si_name",
+                        key="home_si_name",
                         help="개인 및 법인 모두 입력 가능. 모든 보험·상담 자료가 이 이름에 태깅됩니다",
                     )
                     def _parse_id_to_dob(_raw: str) -> str:
@@ -38735,7 +38735,7 @@ function selectCustomer(name) {{
                     _si_dob_raw = st.text_input(
                         "📅 생년월일 & 사업자번호(법인등록번호)",
                         value=st.session_state.get("scan_client_dob", ""),
-                        placeholder="예) 19800101 · 800101-1234567 · 123-45-67890",
+                        
                         key="home_si_dob",
                         help="생년월일 직접 입력 또는 주민등록번호·사업자번호·법인번호 입력 시 자동 변환",
                     )
@@ -38822,7 +38822,7 @@ function selectCustomer(name) {{
                     _si_contact = st.text_input(
                         "📱 휴대폰 (숫자만)",
                         value=st.session_state.get("scan_client_contact", ""),
-                        placeholder="01012345678",
+                        
                         key="home_si_contact",
                         max_chars=11,
                     )
@@ -38830,7 +38830,7 @@ function selectCustomer(name) {{
                     _si_referrer = st.text_input(
                         "🤝 소개자 성명",
                         value=st.session_state.get("scan_client_referrer", ""),
-                        placeholder="소개인 이름",
+                        
                         key="home_si_referrer",
                     )
                 _DRIVE_OPTS = [
@@ -38876,7 +38876,7 @@ function selectCustomer(name) {{
                 _si_address = st.text_input(
                     "🏠 상세 주소",
                     value=st.session_state.get("scan_client_address", ""),
-                    placeholder="시/군/구 상세 주소 (보험금 수령 기준)",
+                    
                     key="home_si_address",
                 )
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -38920,13 +38920,13 @@ function selectCustomer(name) {{
                         _si_contractor_name = st.text_input(
                             "계약자 성명",
                             value=st.session_state.get("crm_contractor_name", ""),
-                            placeholder="피보험자와 동일하면 비워두세요",
+                            
                             key="home_contractor_name",
                         )
                         _si_contractor_dob = st.text_input(
                             "계약자 생년월일",
                             value=st.session_state.get("crm_contractor_dob", ""),
-                            placeholder="예) 19750515",
+                            
                             max_chars=8,
                             key="home_contractor_dob",
                         )
@@ -38940,13 +38940,13 @@ function selectCustomer(name) {{
                         _si_beneficiary_name = st.text_input(
                             "수익자 성명",
                             value=st.session_state.get("crm_beneficiary_name", ""),
-                            placeholder="미입력 시 피보험자와 동일 처리",
+                            
                             key="home_beneficiary_name",
                         )
                         _si_beneficiary_dob = st.text_input(
                             "수익자 생년월일",
                             value=st.session_state.get("crm_beneficiary_dob", ""),
-                            placeholder="예) 19551020",
+                            
                             max_chars=8,
                             key="home_beneficiary_dob",
                         )
@@ -38965,19 +38965,19 @@ function selectCustomer(name) {{
                         _si_policy_company = st.text_input(
                             "보험사",
                             value=st.session_state.get("crm_policy_company", ""),
-                            placeholder="예) 삼성생명, DB손해보험",
+                            
                             key="home_policy_company",
                         )
                         _si_policy_product = st.text_input(
                             "상품명",
                             value=st.session_state.get("crm_policy_product", ""),
-                            placeholder="예) 통합건강보험 플러스",
+                            
                             key="home_policy_product",
                         )
                         _si_policy_number = st.text_input(
                             "증권번호",
                             value=st.session_state.get("crm_policy_number", ""),
-                            placeholder="예) 2023-0001234",
+                            
                             key="home_policy_number",
                         )
                     with _r3c2:
@@ -38991,14 +38991,14 @@ function selectCustomer(name) {{
                         _si_policy_contract_date = st.text_input(
                             "계약일 (YYYYMMDD)",
                             value=st.session_state.get("crm_policy_contract_date", ""),
-                            placeholder="예) 20230101",
+                            
                             max_chars=8,
                             key="home_policy_contract_date",
                         )
                         _si_policy_premium = st.text_input(
                             "월보험료 (원)",
                             value=st.session_state.get("crm_policy_premium", ""),
-                            placeholder="예) 150000",
+                            
                             key="home_policy_premium",
                         )
     
@@ -39177,7 +39177,7 @@ function selectCustomer(name) {{
                     _mi_company = render_corp_autocomplete(
                         label="🏢 소속 보험사/대리점명",
                         session_key="fc_company",
-                        placeholder="예) 삼성생명, 프라임에셋, goldkey_Ai_masters2026…",
+                        
                         autofill_keys={
                             "sector": "fc_company_sector",
                             "size":   "fc_company_size",
@@ -39188,14 +39188,14 @@ function selectCustomer(name) {{
                     _mi_branch = st.text_input(
                         "지점 이름",
                         value=st.session_state.get("fc_branch", ""),
-                        placeholder="예) 강남지점",
+                        
                         key="home_mi_branch"
                     )
                 with _mi_c2:
                     _mi_contact = st.text_input(
                         "FC 연락처",
                         value=st.session_state.get("fc_contact", ""),
-                        placeholder="예) 010-1234-5678",
+                        
                         key="home_mi_contact"
                     )
                 if st.button("💾 회원정보 저장 (보고서 자동 반영)", key="btn_save_member_info", use_container_width=True):
@@ -39284,10 +39284,10 @@ function selectCustomer(name) {{
                                 _note_date = st.date_input("상담 일자", key="form_note_date")
                             with _nd_col2:
                                 _note_summary = st.text_input(
-                                    "상담 요약", placeholder="예) 암보험상담", key="form_note_summary")
+                                    "상담 요약", key="form_note_summary")
                             _note_text = st.text_area(
                                 "상담 내용 (상세)",
-                                placeholder="고객과 관련된 모든 상담 내용을 입력하세요...",
+                                
                                 height=140, key="form_note_text")
                             _note_submitted = st.form_submit_button("💾 상담노트 저장", use_container_width=True)
                             if _note_submitted:
@@ -39338,13 +39338,13 @@ function selectCustomer(name) {{
                                 _ins_date = st.date_input("가입 일자", key="form_ins_date")
                             with _id_col2:
                                 _ins_product = st.text_input(
-                                    "상품명", placeholder="예) ○○생명 통합보험", key="form_ins_product")
+                                    "상품명", key="form_ins_product")
                             _ins_bg = st.text_area(
                                 "청약 배경", height=90, key="form_ins_bg",
-                                placeholder="고지항목 병력 등 청약 배경 입력")
+                                )
                             _ins_special = st.text_area(
                                 "특이사항", height=90, key="form_ins_special",
-                                placeholder="판촉물, 심사 결과 특이사항 등")
+                                )
                             _ins_submitted = st.form_submit_button("💾 보험가입 상담 저장", use_container_width=True)
                             if _ins_submitted:
                                 _cid = st.session_state.get("selected_customer_id")
@@ -39569,7 +39569,7 @@ function selectCustomer(name) {{
             with _s3_left:
                 _s3_q = st.text_area(
                     "보험 용어 · 보험금 질문 입력",
-                    placeholder="예) 실손의료비, 맥브라이드 장해율, KCD코드, 입원일당 청구 기준...",
+                    
                     height=120, key="sec03_query")
                 if st.button("🔍 AI 답변 생성", key="sec03_ai_gen", use_container_width=True, type="primary"):
                     if _s3_q and _s3_q.strip():
@@ -39615,7 +39615,7 @@ function selectCustomer(name) {{
                 with _nav_col_in:
                     _nav_input_val = st.text_input(
                         "코드/용어 입력",
-                        placeholder="코드(3000) 또는 용어(맥브라이드) 입력",
+                        
                         key="voice_nav_input",
                         label_visibility="collapsed")
                 with _nav_col_btn:
@@ -39689,7 +39689,7 @@ function selectCustomer(name) {{
                 render_kcd_autocomplete(
                     label="질병 검색 (한글명 또는 KCD 코드)",
                     session_key="scan_client_kcd_name",
-                    placeholder="예) 유방암, 뇌경색, C50, I63…",
+                    
                     autofill_kcd_key="scan_client_kcd_code",
                     show_coverage=True,
                 )
@@ -39697,7 +39697,7 @@ function selectCustomer(name) {{
                 _kcd3_code = st.text_input(
                     "KCD 코드 (자동 입력 또는 직접 입력)",
                     value=st.session_state.get("scan_client_kcd_code", ""),
-                    placeholder="예) C50, I63, F00…",
+                    
                     key="sec03_kcd_code_manual",
                 )
                 if _kcd3_code != st.session_state.get("scan_client_kcd_code", ""):
@@ -39705,7 +39705,7 @@ function selectCustomer(name) {{
                 _kcd3_date = st.text_input(
                     "진단 확정일 (YYYYMMDD)",
                     value=st.session_state.get("scan_client_kcd_date", ""),
-                    placeholder="예) 20240315",
+                    
                     max_chars=8,
                     key="sec03_kcd_date_input",
                 )
@@ -40190,7 +40190,7 @@ div[data-testid="stButton"] {
                         _nibo_raw = st.text_area(
                             "내보험다보여 API JSON 붙여넣기",
                             value=st.session_state.get("_nibo_raw_json", ""),
-                            placeholder='[{"prodName":"삼성생명 종신","traitName":"암진단비","amt":"3000만원","status":"유효"}]',
+                            
                             height=130, key="lsec_nibo_json",
                         )
                         _nibo_nhi = st.number_input(
@@ -40215,11 +40215,11 @@ div[data-testid="stButton"] {
                     st.caption("보유 증권을 직접 입력하거나 AI 분석을 요청합니다.")
                     _secl, _secr = st.columns([5,5], gap="medium")
                     with _secl:
-                        _sec_policy_input = st.text_area("보유 증권 요약 입력", value=st.session_state.get("_securities_policy_text",""), placeholder="예)\n삼성생명 종신 2015 — 사망1억\nDB손해 통합 2019 — 암3000 뇌2000", height=120, key="sector_sec_policy_input")
+                        _sec_policy_input = st.text_area("보유 증권 요약 입력", value=st.session_state.get("_securities_policy_text",""), height=120, key="sector_sec_policy_input")
                         if st.button("💾 증권 목록 저장", key="sector_sec_save", use_container_width=True):
                             st.session_state["_securities_policy_text"] = _sec_policy_input; st.success("✅ 저장 완료")
                     with _secr:
-                        _sec_q = st.text_area("증권분석 질문", placeholder="예) 보장공백 분석, KB 7대 분류 검토...", height=80, key="sector_sec_query")
+                        _sec_q = st.text_area("증권분석 질문", height=80, key="sector_sec_query")
                         if st.button("🔍 통합 증권 AI 분석", key="sector_sec_ai", use_container_width=True, type="primary"):
                             _pt = st.session_state.get("_securities_policy_text","") or _sec_policy_input
                             if not _pt and not (_sec_q and _sec_q.strip()): st.warning("증권 목록 또는 질문을 입력해 주세요.")
@@ -41054,8 +41054,7 @@ div[data-testid="stButton"] {
             with _kb_sub[0]:
                 _kb_text_raw = st.text_area(
                     "담보명 | 가입금액 (1행 1담보)",
-                    placeholder=(
-                        "예)\n"
+                    \n"
                         "일반암진단비 | 3000만원\n"
                         "뇌졸중진단비 | 20000000\n"
                         "급성심근경색진단비 | 2000만원\n"
@@ -41072,7 +41071,7 @@ div[data-testid="stButton"] {
                 _kb_json_raw = st.text_area(
                     "내보험다보여 JSON 붙여넣기",
                     value=st.session_state.get("_nibo_raw_json", ""),
-                    placeholder='[{"prodName":"암진단비","amt":"3000만원"}]',
+                    
                     height=160, key="kb_nibo_json",
                 )
                 _kb_age_j    = st.number_input("피보험자 연령", 20, 80, 45, key="kb_age_j")
@@ -42096,7 +42095,7 @@ div[data-testid="stButton"] {
                 st.caption("형식: 담보명 TAB 금액(만원) — 줄바꿈으로 구분")
                 _uh_raw = st.text_area(
                     "담보 목록", height=120, key="uh_raw_cov",
-                    placeholder="암진단비\t3000\n뇌출혈진단비\t1500\n급성심근경색진단비\t1500\n상해후유장해\t5000",
+                    
                 )
 
             with _uh_tabs[1]:
@@ -42546,7 +42545,7 @@ div[data-testid="stButton"] {
         _llg_kcd = st.text_input(
             "🔬 KCD 코드 또는 질병명",
             value=_syn_kcd,
-            placeholder="예) C50 유방암 / I21 급성심근경색 / KCD 미입력 시 전체 갭 표시",
+            
             key="llg_kcd_input",
             help="KCD 코드 입력 시 실손 부책 여부·생명보험 갭이 자동 연동됩니다.",
         )
@@ -42638,7 +42637,7 @@ div[data-testid="stButton"] {
             _ps_cname = st.text_input(
                 "👤 고객 성함",
                 value=st.session_state.get("ps_req_cname", ""),
-                placeholder="예) 홍길동",
+                
                 key="ps_cname_input",
             )
             if _ps_cname:
@@ -42647,7 +42646,7 @@ div[data-testid="stButton"] {
             _ps_company = st.text_input(
                 "🏢 보험사 / 상품명",
                 value=st.session_state.get("ps_req_company", ""),
-                placeholder="예) 삼성생명 / 무배당 종신보험",
+                
                 key="ps_company_input",
             )
             if _ps_company:
@@ -42672,7 +42671,7 @@ div[data-testid="stButton"] {
             _ps_note = st.text_area(
                 "📝 추가 분석 요청사항 / 고객 질문",
                 value=st.session_state.get("ps_req_note", ""),
-                placeholder="예) 비급여 실손 한도 초과 여부, 치매 보장 포함 여부 확인 요망",
+                
                 height=110,
                 key="ps_note_input",
             )
@@ -42810,7 +42809,7 @@ div[data-testid="stButton"] {
         with _name_col:
             t0_c_name = st.text_input(
                 "👤 고객 성함",
-                placeholder="홍길동 (미입력 시 익명 처리)",
+                
                 key="t0_cname",
                 help="한국어·영어·일본어 등 모든 이름 입력 가능 (외국인 포함)",
                 max_chars=60,
@@ -42935,7 +42934,7 @@ div[data-testid="stButton"] {
                         _pf_dob = st.text_input(
                             "🎂 생년월일", value=_crm_p.get("dob", ""),
                             key="t0_pf_dob", max_chars=10,
-                            placeholder="YYYY-MM-DD",
+                            
                             help="나이 자동 계산 및 AI 적정 상품 연동"
                         )
                     with _dob_c2:
@@ -42966,11 +42965,11 @@ div[data-testid="stButton"] {
                             _pf_company = st.text_input(
                                 "🏢 법인명", value=_crm_p.get("company", ""),
                                 key="t0_pf_company", max_chars=80,
-                                placeholder="예) (주)삼성전자", help="같은 법인 소속 고객 자동 그룹화"
+                                help="같은 법인 소속 고객 자동 그룹화"
                             )
                             _pf_biz_no_raw = st.text_input(
                                 "사업자등록번호", value=_crm_p.get("biz_no", ""),
-                                key="t0_pf_biz_no", max_chars=12, placeholder="000-00-00000"
+                                key="t0_pf_biz_no", max_chars=12
                             )
                             _biz_digits = re.sub(r'\D', '', _pf_biz_no_raw)
                             if len(_biz_digits) == 10:
@@ -42994,7 +42993,7 @@ div[data-testid="stButton"] {
                                 _pf_title = st.text_input(
                                     "직위 직접 입력",
                                     value=_saved_title if _saved_title not in _TITLE_OPTIONS else "",
-                                    key="t0_pf_title", max_chars=30, placeholder="예) 전무이사"
+                                    key="t0_pf_title", max_chars=30
                                 )
                             else:
                                 _pf_title = _title_sel
@@ -43006,7 +43005,7 @@ div[data-testid="stButton"] {
                         _pf_biz_addr = st.text_input(
                             "🏠 회사 주소", value=_crm_p.get("biz_addr", ""),
                             key="t0_pf_biz_addr", max_chars=100,
-                            placeholder="예) 서울시 강남구 테헤란로 123"
+                            
                         )
                         if _pf_company or _crm_p.get("company"):
                             _search_corp = normalize_corp_name(_pf_company or _crm_p.get("company", ""))
@@ -43024,7 +43023,7 @@ div[data-testid="stButton"] {
                             "👨‍👩‍👧 가족 구성원 (이름(관계), 쉼표 구분)",
                             value=", ".join(_crm_p.get("family", [])),
                             key="t0_pf_family", max_chars=200,
-                            placeholder="예) 홍길순(배우자), 홍민준(자녀), 홍갑동(부)"
+                            
                         )
 
                     # ── 연락처 ────────────────────────────────────────────────
@@ -43032,7 +43031,7 @@ div[data-testid="stButton"] {
                     with _ct_c1:
                         _pf_phone = st.text_input(
                             "📱 휴대폰", value=_crm_p.get("phone", ""),
-                            key="t0_pf_phone", max_chars=20, placeholder="010-0000-0000"
+                            key="t0_pf_phone", max_chars=20
                         )
                     with _ct_c2:
                         _CARRIERS = ["─ 통신사 ─", "SKT", "KT", "LG U+", "SKT 알뜰폰", "KT 알뜰폰", "LG 알뜰폰"]
@@ -43076,7 +43075,7 @@ div[data-testid="stButton"] {
                         with _rel_c1:
                             _ref_search = st.text_input(
                                 "🤝 소개자 검색", value=_crm_p.get("referrer", ""),
-                                key="t0_ref_search", placeholder="이름 일부 입력 → 후보 선택", max_chars=60
+                                key="t0_ref_search", max_chars=60
                             )
                             _ref_cands = [n for n in _known_names if _ref_search and _ref_search.lower() in n.lower()]
                             if _ref_cands:
@@ -43097,7 +43096,7 @@ div[data-testid="stButton"] {
                         with _rel_c2:
                             _aff_search = st.text_input(
                                 "📌 연고인 검색", value=_crm_p.get("affinity", ""),
-                                key="t0_aff_search", placeholder="직장·학교·지인·교회 등", max_chars=60
+                                key="t0_aff_search", max_chars=60
                             )
                             _aff_cands = [n for n in _known_names if _aff_search and _aff_search.lower() in n.lower()]
                             if _aff_cands:
@@ -43121,7 +43120,7 @@ div[data-testid="stButton"] {
                         _pf_memo = st.text_area(
                             "자유 메모", value=_crm_p.get("memo", ""),
                             key="t0_pf_memo", max_chars=400, height=72,
-                            placeholder="특이사항, 건강정보, 직업, 관심사 등",
+                            
                             label_visibility="collapsed"
                         )
 
@@ -43230,10 +43229,10 @@ div[data-testid="stButton"] {
                         _ni_c1, _ni_c2 = st.columns(2)
                         with _ni_c1:
                             _new_prod = st.selectbox("상품 종류", _INS_TYPES, key="t0_ins_new_prod")
-                            _new_comp = st.text_input("보험사", key="t0_ins_new_comp", placeholder="예) 삼성생명", max_chars=30)
+                            _new_comp = st.text_input("보험사", key="t0_ins_new_comp", max_chars=30)
                         with _ni_c2:
-                            _new_prem = st.text_input("월 보험료", key="t0_ins_new_prem", placeholder="예) 55,000원", max_chars=20)
-                            _new_exp  = st.text_input("만기/보장기간", key="t0_ins_new_exp", placeholder="예) 2045-05 / 100세", max_chars=20)
+                            _new_prem = st.text_input("월 보험료", key="t0_ins_new_prem", max_chars=20)
+                            _new_exp  = st.text_input("만기/보장기간", key="t0_ins_new_exp", max_chars=20)
                         if st.button("💾 추가 저장", key="t0_ins_add", type="primary", use_container_width=True):
                             _ins_list.append({"product": _new_prod, "company": _new_comp, "premium": _new_prem, "expire": _new_exp})
                             crm_set_profile(_reg, _effective_name, ins_list=_ins_list)
@@ -43271,7 +43270,7 @@ div[data-testid="stButton"] {
                         # 필터
                         _f_col1, _f_col2 = st.columns(2)
                         with _f_col1:
-                            _srch_q = st.text_input("🔍 검색", key="t0_crm_search", placeholder="이름·법인·직위·소개자")
+                            _srch_q = st.text_input("🔍 검색", key="t0_crm_search")
                         with _f_col2:
                             _filter_type = st.selectbox("필터", ["전체", "등록고객만", "법인대표만", "개인만"], key="t0_filter_type")
                         # 필터 적용
@@ -43349,7 +43348,7 @@ div[data-testid="stButton"] {
             "📝 상담 내용 입력",
             height=160,
             key="query_t0",
-            placeholder="예) 40대 남성, 현재 실손+암보험 가입 중. 뇌·심장 보장 공백 점검 및 신규 담보 추가 상담 요청."
+            
         )
         # 음성 입력 버튼 — Levenshtein 중복필터 + Wake Lock + 권한 keepalive
         components.html(f"""
@@ -44309,7 +44308,7 @@ div[data-testid="stButton"] {
                     "사고·상황 입력",
                     height=110,
                     key="inj_query",
-                    placeholder='예) "월 400만원 버는 가장입니다. 빗길 운전 중 사고로 2년 정도 일을 못 하게 되면 가족은 어떻게 될까요?"',
+                    
                     label_visibility="collapsed",
                 )
     
@@ -45512,7 +45511,7 @@ div[data-testid="stButton"] {
                 _pkd = "후유장해보험"
                 hi_d = 0
                 query_d = st.text_area("상담 내용 입력", height=100, key="query_disability",
-                    placeholder="예: 남성 45세, 건설노동자, 요추 추간판탈출증 수술 후 척추 장해 15% 판정")
+                    )
                 do_d = st.button("🔍 정밀 분석 실행", type="primary", key="btn_analyze_disability", use_container_width=True)
                 if do_d:
                     _n_years = max(0, (65 - dis_age))
@@ -46639,7 +46638,7 @@ div[data-testid="stButton"] {
 
             ac_ai_col1, ac_ai_col2 = st.columns(2)
             with ac_ai_col1:
-                ac_ai_name = st.text_input("고객명 (선택)", value="", placeholder="홍길동", key="ac_ai_name")
+                ac_ai_name = st.text_input("고객명 (선택)", value="", key="ac_ai_name")
                 ac_ai_fault2 = st.slider("본인 과실 (%)", 0, 100, 50, step=5, key="ac_ai_fault2")
                 ac_ai_income2 = st.number_input("월 소득 (만원)", min_value=50, max_value=5000, value=400, step=50, key="ac_ai_income2")
                 ac_ai_has_car_inj = st.checkbox("자동차상해(자상) 담보 가입 여부", value=True, key="ac_ai_has_car_inj")
@@ -46648,7 +46647,7 @@ div[data-testid="stButton"] {
                 ac_ai_perm_disability = st.checkbox("영구장해 발생 (후유장해)", value=False, key="ac_ai_perm_disability")
                 ac_ai_fatal = st.checkbox("사망 사고", value=False, key="ac_ai_fatal")
                 ac_ai_worker = st.checkbox("근로자 (산재 대상 여부)", value=True, key="ac_ai_worker")
-            ac_ai_extra = st.text_area("추가 상황 설명 (선택)", placeholder="예: 척추골절로 수술 진행, 비급여 500만원 발생, 고령자...", height=80, key="ac_ai_extra")
+            ac_ai_extra = st.text_area("추가 상황 설명 (선택)", height=80, key="ac_ai_extra")
 
             if st.button("🤖 AI 보상 전략 분석 실행", key="ac_ai_run", use_container_width=True):
                 _disability_flag = "영구장해 발생" if ac_ai_perm_disability else "영구장해 없음"
@@ -46854,7 +46853,7 @@ div[data-testid="stButton"] {
             # ── 검색창
             _ib_query = st.text_input(
                 "",
-                placeholder="궁금한 용어를 입력하세요",
+                
                 key="ins_bot_query",
                 label_visibility="collapsed"
             )
@@ -47445,14 +47444,14 @@ div[data-testid="stButton"] {
                 with _nterm_col1:
                     _new_term_key = st.text_input("용어 키 (영문/한글, 공백 없이)",
                                                   key="ib_new_term_key",
-                                                  placeholder="예: 중증치매특약")
+                                                  )
                     _new_term_name = st.text_input("용어 전체명",
                                                    key="ib_new_term_name",
-                                                   placeholder="예: 중증치매 진단특약 (CDR3 기준)")
+                                                   )
                     _new_term_def = st.text_area("정의 (2~4문장)",
                                                   key="ib_new_term_def",
                                                   height=80,
-                                                  placeholder="용어 정의를 입력하세요...")
+                                                  )
                 with _nterm_col2:
                     _new_term_cat = st.selectbox("카테고리",
                                                   options=DICT_CATEGORIES,
@@ -47460,7 +47459,7 @@ div[data-testid="stButton"] {
                     _new_term_voice = st.text_area("1인칭 권장 화법",
                                                     key="ib_new_term_voice",
                                                     height=80,
-                                                    placeholder="내가 이 담보를 제안하는 이유는...")
+                                                    )
                 if st.button("📨 승인 요청 전송", key="ib_submit_new_term",
                              use_container_width=True, type="primary"):
                     if _new_term_key.strip() and _new_term_def.strip():
@@ -47811,7 +47810,7 @@ div[data-testid="stButton"] {
             # RAG 검색 (우 패널 상단)
             _kp_search_q = st.text_input(
                 "🔍 지식베이스 검색",
-                placeholder="예) 후유장해 지급률, CAR-T 치료비 보장",
+                
                 key="kp_rag_search_q",
             )
             if _kp_search_q:
@@ -48869,7 +48868,7 @@ div[data-testid="stButton"] {
             )
             c_name_sl, query_sl, hi_sl, do_sl, _pk_sl = ai_query_block(
                 "silson_consult",
-                placeholder="예) '4세대 실손 비급여 자기부담금이 입원과 통원이 동일한가요?' 또는 KCD코드 입력",
+                
             )
             if do_sl:
                 run_ai_analysis(
@@ -50862,7 +50861,7 @@ border-radius:10px;padding:12px 14px;margin-bottom:10px;">
             img_query_type = st.selectbox("분석 유형",
                 ["보험금 청구","진단서 분석","사고 현장 분석","의료 기록 분석"], key="img_query_type")
             img_specific = st.text_area("특정 요청사항",
-                placeholder="예: 이 증권의 암 보장 금액을 분석해주세요.", height=160, key="img_specific")
+                height=160, key="img_specific")
         if files and st.button("AI 이미지 분석 시작", type="primary", key="btn_img_analyze"):
             if 'user_id' not in st.session_state:
                 st.error("로그인이 필요합니다.")
@@ -53220,7 +53219,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                             except Exception:
                                 pass
                 realty_query = st.text_area("분석 요청사항",
-                    placeholder="예) 근저당 설정 현황, 위반건축물 여부, 권리관계 분석 요청",
+                    
                     height=120, key="realty_query")
                 if st.button("🔍 AI 서류 분석 실행", type="primary", key="btn_realty_doc"):
                     if not realty_files:
@@ -53633,7 +53632,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
             st.markdown("#### 🔬 KCD-8 코드 자동 매핑")
             _sym_input = st.text_input(
                 "증상·상병명 입력",
-                placeholder="예: 뇌경색, 요추골절, 심근경색, 무릎인대...",
+                
                 key="comp_symptom"
             )
             _matched_kcd = []
@@ -54782,11 +54781,11 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
             with st.expander("📋 약관 JIT 크롤링 — 보험사·상품명 직접 입력", expanded=True):
                 _t2_c1, _t2_c2, _t2_c3 = st.columns(3)
                 with _t2_c1:
-                    _t2_co = st.text_input("보험사", placeholder="삼성화재", key="t9_cr_co")
+                    _t2_co = st.text_input("보험사", key="t9_cr_co")
                 with _t2_c2:
-                    _t2_pr = st.text_input("상품명", placeholder="무배당암보험", key="t9_cr_pr")
+                    _t2_pr = st.text_input("상품명", key="t9_cr_pr")
                 with _t2_c3:
-                    _t2_jd = st.text_input("가입일 (선택)", placeholder="2019-01-01", key="t9_cr_jd")
+                    _t2_jd = st.text_input("가입일 (선택)", key="t9_cr_jd")
                 if st.button("📋 약관 스캔 로드 실행", key="t9_cr_run",
                              use_container_width=True, type="primary"):
                     if not _t2_co or not _t2_pr:
@@ -54995,10 +54994,10 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                         unsafe_allow_html=True,
                     )
                     _new_contact9  = st.text_input("새 비밀번호 (연락처, 숫자만)", type="password",
-                                                   key="t9_pin_new", placeholder="예: 01012345678",
+                                                   key="t9_pin_new",
                                                    help="SHA-256으로 해싱되어 저장")
                     _new_contact9b = st.text_input("새 비밀번호 확인", type="password",
-                                                   key="t9_pin_confirm", placeholder="동일하게 재입력")
+                                                   key="t9_pin_confirm")
                     if st.button("🔑 비번 초기화 실행", key="t9_pin_reset",
                                  use_container_width=True, type="primary"):
                         _nv9  = (_new_contact9  or "").strip().replace("-", "").replace(" ", "")
@@ -55074,7 +55073,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                 st.divider()
                 st.markdown("**🔍 회원 이름 검색 후 초기화**")
                 _t4_search9 = st.text_input("초기화할 회원 이름", key="t4_reset_name9",
-                                            placeholder="예: 홍길동", label_visibility="collapsed")
+                                            label_visibility="collapsed")
                 _t4_found9 = None
                 _t4_fkey9  = None
                 if (_t4_search9 or "").strip():
@@ -55125,7 +55124,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                 st.markdown("**⚙️ 관리자 알람 수신 설정**")
                 _t4_ap9 = st.text_input("관리자 수신 번호", key="t4_admin_phone9",
                                         value=st.session_state.get("gp200_master_phone", ""),
-                                        placeholder="010-XXXX-XXXX", label_visibility="collapsed")
+                                        label_visibility="collapsed")
                 if st.button("💾 세션 저장", key="t4_admin_phone9_save"):
                     st.session_state["gp200_master_phone"] = _t4_ap9
                     st.success("✅ 관리자 알람 수신 번호 세션 저장 완료")
@@ -55181,7 +55180,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                 _r34_source = st.text_input(
                     "출처 (공시기관·날짜)",
                     value="",
-                    placeholder="예: 보건복지부 고시 2025-XX호 (2025-01-01)",
+                    
                     key="art34_source_input",
                 )
                 if st.button("💾 요율 저장 및 역산 엔진 즉시 반영", key="art34_save_btn", type="primary"):
@@ -55244,8 +55243,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     st.markdown("##### 🏥 장기요양 급여액 업데이트 메모")
                     _r35_ltci_memo = st.text_area(
                         "등급별 급여액 변경 내용 (자유 입력)",
-                        placeholder=(
-                            "예) 2025년 1등급 재가: 2,150,000원으로 상향\n"
+                         2025년 1등급 재가: 2,150,000원으로 상향\n"
                             "    5등급 시설 급여 신설 예정 등"
                         ),
                         height=100,
@@ -55253,7 +55251,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     )
                     _r35_drug_note = st.text_input(
                         "신규 신약/제도 변경 요약",
-                        placeholder="예) 도나네맙 국내 2025-06 KFDA 허가 — 급여 논의 중",
+                        
                         key="art35_drug_note",
                     )
                     _r35_sync_date = st.date_input(
@@ -55617,7 +55615,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     st.markdown("**📝 보험 전문용어 부스트 목록**")
                     st.caption(" · ".join(_gsm_admin.stt.BOOST_TERMS))
 
-                    _new_term = st.text_input("용어 추가", placeholder="예: 배상책임보험",
+                    _new_term = st.text_input("용어 추가",
                                               key="adm_stt_add_term")
                     _adm_stt_c1, _adm_stt_c2 = st.columns(2)
                     with _adm_stt_c1:
@@ -55644,11 +55642,11 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     st.markdown("**🔍 단건 약관 JIT 크롤링 테스트**")
                     _cr_c1, _cr_c2, _cr_c3 = st.columns(3)
                     with _cr_c1:
-                        _test_co = st.text_input("보험사", placeholder="삼성화재", key="adm_cr_co")
+                        _test_co = st.text_input("보험사", key="adm_cr_co")
                     with _cr_c2:
-                        _test_pr = st.text_input("상품명", placeholder="무배당암보험", key="adm_cr_pr")
+                        _test_pr = st.text_input("상품명", key="adm_cr_pr")
                     with _cr_c3:
-                        _test_jd = st.text_input("가입일", placeholder="2019-01-01", key="adm_cr_jd")
+                        _test_jd = st.text_input("가입일", key="adm_cr_jd")
 
                     if st.button("🔍 크롤링 테스트 실행", key="adm_cr_test",
                                  type="primary", use_container_width=True):
@@ -55849,7 +55847,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                         _search_q = st.text_input(
                             "문서 검색",
                             key="adm_doc_search_q",
-                            placeholder="예) 과실비율 직진 교차로 / 암 진단비 약관 / 소득 역산 기준",
+                            
                             help="자동완성: 과실비율·약관·소득통계·장해 키워드 권장",
                         )
 
@@ -56204,7 +56202,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                         _adm75_name = st.text_input(
                             "회원 이름 (로그인 name 기준)",
                             key="adm75_target_name",
-                            placeholder="예: 홍길동",
+                            
                             label_visibility="collapsed",
                         )
                     with _adm75_col2:
@@ -56434,7 +56432,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     _dir_t9_content = st.text_area(
                         "지시 내용",
                         value=_dir_prefill,
-                        placeholder="예) 홈 화면 화재보험 카드를 맨 앞으로 이동해주세요.\n예) t2 탭에서 날짜 선택 위젯이 동작하지 않습니다.",
+                        
                         height=130, key="t9_directive_input"
                     )
                     _dir_priority = st.selectbox(
@@ -56581,7 +56579,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                         with _cr_c1:
                             _cust_nm_input = st.text_input(
                                 "고객 이름",
-                                placeholder="초기화할 고객 이름 입력",
+                                
                                 key="cust_reset_nm",
                                 label_visibility="collapsed",
                             )
@@ -56737,11 +56735,11 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                 with _url_col1:
                     _rag_url_input = st.text_input(
                         "약관·문서 URL",
-                        placeholder="https://www.보험사.com/terms/약관.pdf 또는 약관 HTML 페이지 URL",
+                        
                         key="rag_url_input"
                     )
                 with _url_col2:
-                    _url_insurer = st.text_input("보험사명", placeholder="예) 삼성생명", key="rag_url_insurer")
+                    _url_insurer = st.text_input("보험사명", key="rag_url_insurer")
                 if st.button("🌐 URL에서 텍스트 추출 → RAG 즉시 등록", key="btn_rag_url",
                              use_container_width=True, type="primary", disabled=not _rag_url_input):
                     with st.spinner("⏳ URL 접속 중... 텍스트 추출 후 RAG에 등록합니다."):
@@ -56803,7 +56801,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                 # ── 보험사 직접 입력 ──────────────────────────────────────
                 _col_ins, _col_cat = st.columns(2)
                 with _col_ins:
-                    _manual_insurer = st.text_input("보험사명 (선택)", placeholder="예) 삼성생명, 현대해상", key="rag_insurer_input")
+                    _manual_insurer = st.text_input("보험사명 (선택)", key="rag_insurer_input")
                 with _col_cat:
                     _manual_cat = st.selectbox("문서 분류", ["보험약관","리플렛","상담자료","공문서","판례","세무자료","기타"], key="rag_cat_input")
 
@@ -57179,7 +57177,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                 st.divider()
                 st.markdown("#### 🔎 검색 테스트")
                 _test_q = st.text_input("키워드 입력 (실제 AI 상담과 동일한 방식)",
-                    placeholder="예) 간병인사용일당 청구서류", key="rag_test_query")
+                    key="rag_test_query")
                 if _test_q:
                     _rag_sys = st.session_state.get("rag_system")
                     if _rag_sys:
@@ -57296,25 +57294,25 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     st.markdown("#### ▶ 자율 학습 실행")
                     _ea_topic = st.text_input(
                         "학습 주제",
-                        placeholder="예) 경추 척수증 후유장해 보험금 / 암 진단 후 보험금 청구 전략",
+                        
                         key="ea_topic_input"
                     )
                     _ea_col1, _ea_col2 = st.columns(2)
                     with _ea_col1:
                         _ea_med_q = st.text_input(
                             "PubMed 검색어 (선택 — 비우면 주제 자동 사용)",
-                            placeholder="예) cervical myelopathy disability insurance",
+                            
                             key="ea_med_q"
                         )
                     with _ea_col2:
                         _ea_law_q = st.text_input(
                             "법령 검색어 (선택 — 비우면 주제 자동 사용)",
-                            placeholder="예) 후유장해 보험금 판례",
+                            
                             key="ea_law_q"
                         )
                     _ea_tags_raw = st.text_input(
                         "태그 (쉼표 구분)",
-                        placeholder="예) 장해, 척수, 판례",
+                        
                         key="ea_tags_input"
                     )
 
@@ -57381,7 +57379,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                         with _pdf_col1:
                             _pdf_cname = st.text_input(
                                 "고객명 (PDF 표지에 표시)",
-                                placeholder="예) 홍길동",
+                                
                                 key="ea_pdf_cname"
                             )
                         with _pdf_col2:
@@ -57476,7 +57474,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     with _vs_c2:
                         _vs_srch = st.text_input(
                             "벡터 유사도 검색 테스트",
-                            placeholder="예) 뇌경색 장해 판례",
+                            
                             key="ea_vs_search"
                         )
                         if _vs_srch:
@@ -57539,7 +57537,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     st.markdown("#### 🔎 지식 버킷 검색 테스트")
                     _ea_srch = st.text_input(
                         "검색어 (지식 버킷 내 유사 항목 조회)",
-                        placeholder="예) 뇌경색 보험금 판례",
+                        
                         key="ea_search_input"
                     )
                     if _ea_srch:
@@ -57631,18 +57629,18 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                         with _dl_c3:
                             _dl_ver = st.text_input(
                                 "🏷️ 버전",
-                                placeholder="예) v1.3",
+                                
                                 key="dl_ver"
                             )
                         _dl_title = st.text_input(
                             "📌 제목",
-                            placeholder="예) 로그인 Brute-force 방어 기능 추가",
+                            
                             key="dl_title"
                         )
                         _dl_body = st.text_area(
                             "📝 상세 내용",
                             height=150,
-                            placeholder="어떤 코딩을 했는지, 어떤 문제가 있었는지, 어떻게 해결했는지 자유롭게 기록하세요.",
+                            
                             key="dl_body"
                         )
                         if st.form_submit_button("💾 저장", use_container_width=True, type="primary"):
@@ -57676,7 +57674,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                         _dl_cats = ["전체"] + sorted(set(e["category"] for e in _dl_logs))
                         _dl_fcat = st.selectbox("카테고리 필터", _dl_cats, key="dl_filter_cat")
                     with _fl2:
-                        _dl_fkw = st.text_input("🔍 키워드 검색", placeholder="제목·내용 검색", key="dl_filter_kw")
+                        _dl_fkw = st.text_input("🔍 키워드 검색", key="dl_filter_kw")
 
                     _filtered_dl = _dl_logs
                     if _dl_fcat != "전체":
@@ -57850,7 +57848,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
 
                     _ing_col1, _ing_col2, _ing_col3 = st.columns(3)
                     with _ing_col1:
-                        _ing_insurer = st.text_input("보험사/기관명", placeholder="예) 삼성생명", key="bucket_ing_insurer")
+                        _ing_insurer = st.text_input("보험사/기관명", key="bucket_ing_insurer")
                     with _ing_col2:
                         _ing_category = st.selectbox(
                             "문서 분류",
@@ -57858,7 +57856,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                             key="bucket_ing_category"
                         )
                     with _ing_col3:
-                        _ing_doc_date = st.text_input("문서 날짜", placeholder="예) 2024-01", key="bucket_ing_doc_date")
+                        _ing_doc_date = st.text_input("문서 날짜", key="bucket_ing_doc_date")
 
                     _ing_chunk_size = st.slider(
                         "청크 크기 (토큰 수)",
@@ -57984,11 +57982,11 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     st.markdown("#### 🔗 URL 일괄 인제스션")
                     _url_bulk = st.text_area(
                         "URL 목록 (줄바꿈으로 구분)",
-                        placeholder="https://www.ins.co.kr/terms/약관.pdf\nhttps://...",
+                        
                         height=100,
                         key="bucket_url_bulk"
                     )
-                    _url_bulk_insurer = st.text_input("일괄 보험사명", placeholder="예) KB손해보험", key="bucket_url_bulk_insurer")
+                    _url_bulk_insurer = st.text_input("일괄 보험사명", key="bucket_url_bulk_insurer")
                     if _url_bulk and st.button("🌐 URL 일괄 인제스션", key="btn_bucket_url_bulk", type="primary"):
                         _urls = [u.strip() for u in _url_bulk.strip().splitlines() if u.strip()]
                         _u_ok = 0
@@ -58042,7 +58040,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     st.caption("실제 AI 상담과 동일한 벡터 검색 엔진 — 키워드 입력 후 결과를 확인하세요")
                     _bk_q = st.text_input(
                         "검색 쿼리",
-                        placeholder="예) 후유장해 지급률 맥브라이드 방식",
+                        
                         key="bucket_rag_test_q"
                     )
                     _bk_k = st.slider("반환 청크 수", 1, 10, 5, key="bucket_rag_k")
@@ -58071,7 +58069,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     st.markdown("#### 🧪 안전망 테스트 — '확인 불가' 감지")
                     _safety_test_txt = st.text_area(
                         "AI 응답 시뮬레이션 텍스트",
-                        placeholder="여기에 AI가 반환한 텍스트를 붙여넣으세요...",
+                        
                         height=100,
                         key="bucket_safety_test"
                     )
@@ -58490,10 +58488,10 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                 "📜 상속 · 유언 설계",
             ], key="le_event_type")
 
-            le_name = st.text_input("고객 성함", placeholder="고객 이름 입력", key="le_name")
+            le_name = st.text_input("고객 성함", key="le_name")
             le_age  = st.number_input("고객 나이", min_value=0, max_value=100, value=35, key="le_age")
             le_query = st.text_area("상담 내용",
-                placeholder="이벤트 관련 상황을 입력하세요.\n예) 결혼 예정, 맞벌이 부부, 월 건강보험료 15만원",
+                
                 height=120, key="le_query")
             le_hi = st.number_input("월 건강보험료(원, 소득 역산용)", min_value=0, value=0,
                 step=10000, key="le_hi")
@@ -59167,7 +59165,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
       font-weight:900;font-size:0.88rem;color:#1a3a5c;">🏢 보험사 공시실 바로가기</div>""",
                 unsafe_allow_html=True)
             _disc_filter = st.text_input(
-                "", placeholder="🔍 보험사명 검색 (예: 삼성, 현대, KB...)",
+                "",
                 key="pt_disc_filter", label_visibility="collapsed"
             ).strip()
             _disc_filtered = [
@@ -59231,7 +59229,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
             )
             _pt_product  = st.text_input(
                 "상품명",
-                placeholder="예) 무배당 삼성화재 암보험 / 현대해상 굿앤굿 어린이CI",
+                
                 key="pt_product",
             )
             _pt_join_date = st.date_input(
@@ -59251,7 +59249,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                 unsafe_allow_html=True)
             _pt_keyword = st.text_input(
                 "검색 질문 또는 키워드",
-                placeholder="예) 암 진단 시 얼마를 받나요? / 면책 기간은?",
+                
                 key="pt_keyword",
             )
             _pt_include_syn = st.checkbox(
@@ -59496,7 +59494,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                 st.markdown("**🤖 약관 AI 직접 질의 (검색 조항 기반)**")
                 _pt_ai_q = st.text_area(
                     "질문 입력",
-                    placeholder="예) 암 진단비 지급 시 대기기간은 언제부터인가요?",
+                    
                     key="pt_ai_question", height=80, label_visibility="collapsed",
                 )
                 if st.button("🤖 AI 답변 받기", key="pt_ai_ask",
@@ -59571,7 +59569,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     )
                     _ms_pv = st.text_input(
                         "② 상품 버전/세대",
-                        placeholder="예) 1세대, 2019년판, 갱신형",
+                        
                         key="ms_version",
                     )
                 with _ms2:
@@ -59588,7 +59586,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     _ms_note = st.text_area(
                         "추가 메모 (선택)",
                         key="ms_note", height=60,
-                        placeholder="예) 청약일자 2019-03-15, 특정 약관 페이지 확인 불가",
+                        
                     )
                 if st.button(
                     "📛 관리자에게 미검색 약관 신고",
@@ -59681,11 +59679,11 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     _cd_id6     = _existing_names[_sel_idx]["id6"]
                     st.caption(f"🛡️ {_cd_insured}  주민번호 앞6: {_cd_id6 or '미입력'}")
                 else:
-                    _cd_insured = st.text_input("피보험자 성명", placeholder="예) 홍길동",
+                    _cd_insured = st.text_input("피보험자 성명",
                                                  key="cd_customer_new")
                     _cd_id6_raw = st.text_input(
                         "주민번호 앞 6자리",
-                        placeholder="예) 800101  (생년월일 YYMMDD)",
+                        
                         max_chars=8, key="cd_birth6_new",
                         help="동명이인 구분용 — 뒷자리는 저장하지 않습니다")
                     import re as _re_b
@@ -59694,7 +59692,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                         st.warning("숫자 6자리를 입력하세요 (예: 800101)")
             with _cd_col2:
                 _cd_category = st.selectbox("자료 분류", CUSTOMER_DOC_CATEGORIES, key="cd_category")
-                _cd_memo = st.text_input("메모 (선택)", placeholder="예) 2024년 건강검진 결과",
+                _cd_memo = st.text_input("메모 (선택)",
                                           key="cd_memo")
 
             _cd_files = st.file_uploader(
@@ -59929,7 +59927,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
         _cc_col1, _cc_col2 = st.columns([3, 1])
         with _cc_col1:
             _cc_search = st.text_input("🔍 파일명 · 보험사 · 태그 검색",
-                                       placeholder="예) 삼성화재, 암보험, 2024",
+                                       
                                        key="cc_search")
         with _cc_col2:
             if st.button("🔄 새로고침", key="cc_refresh", use_container_width=True):
@@ -60123,7 +60121,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                 _dc_pub_companies = _hb_companies
 
             _dc_search = st.text_input("🔍 보험사·태그 검색",
-                                       placeholder="예) 삼성, 손해, 암 ...",
+                                       
                                        key="dc_pub_search")
             _dc_filtered = [
                 c for c in _dc_pub_companies
@@ -60318,7 +60316,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
             if "직접 입력" in _dc_name_choice:
                 _dc_client_name = st.text_input(
                     "고객 이름 직접 입력",
-                    placeholder="예) 홍길동",
+                    
                     key="dc_client_name_manual"
                 )
             elif "이름 없음" in _dc_name_choice:
@@ -60332,7 +60330,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                 st.caption(f"👤 저장될 고객 이름: **{_dc_client_name}**")
 
             _dc_note = st.text_input("메모 (선택 — 전체 파일에 공통 적용)",
-                                     placeholder="예) 삼성화재 2024년 암보험 신상품",
+                                     
                                      key="dc_note")
 
             # ══════════════════════════════════════════════════════════
@@ -60409,9 +60407,9 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     with st.expander("✏️ 수동 입력"):
                         _man_co = st.text_input("보험사명",  key="dc_man_company")
                         _man_ty = st.selectbox("문서유형", ["카탈로그","약관","안내장","기타"], key="dc_man_type")
-                        _man_fn = st.text_input("파일번호", key="dc_man_fileno", placeholder="예) DOC-20240101-001")
+                        _man_fn = st.text_input("파일번호", key="dc_man_fileno")
                         _man_tg = st.text_input("태그 (쉼표 구분)", key="dc_man_tags",
-                                                placeholder="예) 암보험, 2024신상품")
+                                                )
                         if st.button("💾 적용", key="btn_dc_manual"):
                             st.session_state["dc_ai_company"] = _man_co or "미확인"
                             st.session_state["dc_ai_doctype"] = _man_ty
@@ -61149,7 +61147,7 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                             _sh_med_pwd = st.text_input(
                                 "암호화 비밀번호",
                                 type="password",
-                                placeholder="8자 이상 권장",
+                                
                                 key="sh_med_pwd"
                             )
 
@@ -62748,7 +62746,7 @@ def _show_as_request_box() -> None:
             _as_text = st.text_area(
                 "증상 / 발생 상황을 구체적으로 입력하세요",
                 key="_as_report_input",
-                placeholder="예) 스캔 후 공백자금이 0원으로 표시됨 / 카톡 발송 버튼 클릭 시 오류 발생",
+                
                 height=90,
             )
         with _as_cols[1]:

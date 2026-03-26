@@ -65,16 +65,16 @@ def _add_form(sb, agent_id, person_id, part, kpfx):
                 _tdc = st.date_input("🗓 해지/승환 확인일 (필수)", value=datetime.date.today(), key=f"ic_tdc_{kpfx}")
             c1, c2 = st.columns(2)
             with c1:
-                _pc  = st.text_input("계약자",  placeholder="계약자명",   key=f"ic_pc_{kpfx}")
-                _ins = st.text_input("피보험자", placeholder="피보험자명", key=f"ic_ins_{kpfx}")
-                _co  = st.text_input("보험회사", placeholder="삼성생명",   key=f"ic_co_{kpfx}")
-                _pn  = st.text_input("상품명",   placeholder="종신/암 등", key=f"ic_pn_{kpfx}")
+                _pc  = st.text_input("계약자",   key=f"ic_pc_{kpfx}")
+                _ins = st.text_input("피보험자", key=f"ic_ins_{kpfx}")
+                _co  = st.text_input("보험회사",   key=f"ic_co_{kpfx}")
+                _pn  = st.text_input("상품명", key=f"ic_pn_{kpfx}")
             with c2:
-                _no  = st.text_input("증권번호", placeholder="선택입력",   key=f"ic_no_{kpfx}")
-                _cym = st.text_input("계약년월", placeholder="2023-01",    key=f"ic_cym_{kpfx}")
-                _eym = st.text_input("만기년월", placeholder="100세만기",  key=f"ic_eym_{kpfx}")
-                _mp  = st.text_input("월보험료", placeholder="120,000원",  key=f"ic_mp_{kpfx}")
-            _memo = st.text_input("비고", placeholder="메모", key=f"ic_memo_{kpfx}")
+                _no  = st.text_input("증권번호",   key=f"ic_no_{kpfx}")
+                _cym = st.text_input("계약년월",    key=f"ic_cym_{kpfx}")
+                _eym = st.text_input("만기년월",  key=f"ic_eym_{kpfx}")
+                _mp  = st.text_input("월보험료",  key=f"ic_mp_{kpfx}")
+            _memo = st.text_input("비고", key=f"ic_memo_{kpfx}")
             if st.form_submit_button("💾 저장", type="primary", use_container_width=True):
                 row = {"id":str(uuid.uuid4()),"agent_id":agent_id,"person_id":person_id,
                        "part":part,"policyholder":_pc,"insured":_ins,"insurer":_co,
