@@ -657,10 +657,9 @@ if not _is_authenticated():
             _crm_lp = st.session_state.get("_crm_login_phase", "A")
             if _crm_lp == "A":
                 with st.form("crm_direct_login"):
-                    _crm_name_in    = st.text_input("👤 이름", placeholder="가입 시 등록한 이름",
+                    _crm_name_in    = st.text_input("👤 이름",
                                                     label_visibility="collapsed", key="crm_login_name")
                     _crm_contact_in = st.text_input("📱 연락처", type="password",
-                                                    placeholder="연락처 (숫자만, - 제외)",
                                                     label_visibility="collapsed", key="crm_login_contact")
                     _crm_login_btn  = st.form_submit_button("🔐 로그인",
                                                              use_container_width=True, type="primary")
@@ -1124,7 +1123,7 @@ if _spa_mode == "list":
         "💡 이름 · 연락처 · 직업 · 주소 · 상태 입력 시 자동조회됩니다.</div>",
         unsafe_allow_html=True,
     )
-    _search_q = st.text_input("🔍 고객 이름 / 음성 결과 확인", placeholder="이름 입력 또는 위 마이크 사용...",
+    _search_q = st.text_input("🔍 고객 이름 / 음성 결과 확인",
                               key="spa_search", label_visibility="collapsed")
 
     _fc1, _fc2, _fc3 = st.columns(3)
@@ -1517,8 +1516,8 @@ elif _spa_mode == "customer":
                 "</div>",
                 unsafe_allow_html=True,
             )
-            _new_fn  = st.text_input("이름 *", key="nreg_fn", placeholder="홍길동")
-            _new_con = st.text_input("연락처", key="nreg_con", placeholder="010-XXXX-XXXX")
+            _new_fn  = st.text_input("이름 *", key="nreg_fn")
+            _new_con = st.text_input("연락처", key="nreg_con")
             _nr1, _nr2 = st.columns(2)
             with _nr1:
                 _new_job  = st.text_input("직업", key="nreg_job")
@@ -1701,7 +1700,7 @@ elif _spa_mode == "customer":
                 _fn_e   = st.text_input("이름 *", value=_form_cust.get("name", ""),
                                         key=f"upsert_fn_{_sel_pid}")
                 _fcon_e = st.text_input(
-                    "연락처", placeholder="010-XXXX-XXXX",
+                    "연락처",
                     value=decrypt_pii(_form_cust.get("contact", "")) if _form_cust else "",
                     key=f"upsert_con_{_sel_pid}",
                 )
@@ -2137,14 +2136,13 @@ elif _spa_mode == "customer":
                 unsafe_allow_html=True,
             )
             _kk1_consent = st.checkbox(
-                "✅ **[필수]** 수신자(고객)로부터 카카오 메시지 수신 동의를 취득하였음을 확인합니다 (정보통신망법 제50조)",
+                "✅ 수신자(고객)로부터 카카오 메시지 수신 동의를 취득하였음을 확인합니다 (정보통신망법 제50조)",
                 key="kk1_consent_agreed",
             )
             _kk1_c1, _kk1_c2 = st.columns([7, 3])
             with _kk1_c1:
                 _kk1_msg = st.text_input(
                     "일정 안내 문구",
-                    placeholder=f"{_sel_cust.get('name','')}님, 상담 일정 안내드립니다...",
                     key="kk1_msg_input", label_visibility="collapsed",
                 )
             with _kk1_c2:
@@ -2238,7 +2236,6 @@ elif _spa_mode == "customer":
             with _kk2_c1:
                 _kk2_msg = st.text_input(
                     "AI 분석 요약 문구",
-                    placeholder=f"{_sel_cust.get('name','')}님 보장 분석 결과를 안내드립니다...",
                     key="kk2_msg_input", label_visibility="collapsed",
                 )
             with _kk2_c2:
@@ -2457,7 +2454,6 @@ elif _spa_mode == "customer":
                 st.caption("💬 상담 상황 입력 → AI 압도적 클로징 전략 제시")
                 _sim_input = st.text_area(
                     "상담 상황",
-                    placeholder="예: 35세 남성 직장가입자, 건보료 30만원, 현재 암보험 없음...",
                     height=80, key="crm_sim_input", label_visibility="collapsed",
                 )
                 if st.button("🤖 AI 전략 생성", key="crm_sim_run",
@@ -2834,7 +2830,7 @@ elif _spa_mode == "customer":
                 unsafe_allow_html=True,
             )
             _db_q = st.text_input("이름/연락처 검색", key="db_manage_q",
-                                   placeholder="검색어 입력…", label_visibility="collapsed")
+                                   label_visibility="collapsed")
             _db_all = _load_customers(_user_id, _db_q)
             _db_sel_pid = st.session_state.get("db_manage_sel_pid", "")
             for _dbc in _db_all[:30]:
@@ -3200,7 +3196,7 @@ WHERE tablename IN ('gk_people','gk_schedules','gk_consulting_logs');""",
                 _gb_c1, _gb_c2 = st.columns([3, 1])
                 with _gb_c1:
                     _gb_new_phone = st.text_input(
-                        "차단할 번호", placeholder="010-xxxx-xxxx",
+                        "차단할 번호",
                         key="gc_new_phone", label_visibility="collapsed",
                     )
                 with _gb_c2:
@@ -3310,10 +3306,9 @@ with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
     )
     if not _cadm_already:
         with st.form("crm_admin_login_form", clear_on_submit=False):
-            _cadm_id   = st.text_input("관리자 ID", key="crm_admin_id_f",
-                                        placeholder="admin 또는 이세윤")
+            _cadm_id   = st.text_input("관리자 ID", key="crm_admin_id_f")
             _cadm_code = st.text_input("관리자 코드", key="crm_admin_code_f",
-                                        type="password", placeholder="코드 입력")
+                                        type="password")
             _cadm_sub  = st.form_submit_button("🔐 관리자 로그인",
                                                 use_container_width=True)
         if _cadm_sub:

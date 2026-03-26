@@ -556,8 +556,7 @@ def customer_form(initial: Optional[dict] = None, *, key_prefix: str = "cf") -> 
         name    = st.text_input("이름 *",    value=d.get("name", ""),    key=f"{key_prefix}_name")
         # [GP-SEC §1] 저장된 Fernet 암호화값 → 평문으로 복호화하여 표시
         _disp_contact = decrypt_pii(d.get("contact", "")) if d.get("contact") else ""
-        contact = st.text_input("연락처 *",  value=_disp_contact, key=f"{key_prefix}_contact",
-                                placeholder="010-00000000 (숫자만)")
+        contact = st.text_input("연락처 *",  value=_disp_contact, key=f"{key_prefix}_contact")
         job     = st.text_input("직업",      value=d.get("job", ""),     key=f"{key_prefix}_job")
     with col2:
         gender  = st.selectbox("성별",        ["(선택)", "남성", "여성"],
@@ -1682,11 +1681,11 @@ div[data-testid="stFormSubmitButton"] > button:hover {
 </style>""", unsafe_allow_html=True)
         with _st3.form(f"{key_prefix}_admin_form", clear_on_submit=False):
             _adm_id_in   = _st3.text_input(
-                "관리자 ID", placeholder="admin 또는 이세윤",
+                "관리자 ID",
                 key=f"{key_prefix}_adm_id", label_visibility="collapsed",
             )
             _adm_code_in = _st3.text_input(
-                "관리자 코드", type="password", placeholder="관리자 코드 입력",
+                "관리자 코드", type="password",
                 key=f"{key_prefix}_adm_code", label_visibility="collapsed",
             )
             _fadm_c1, _fadm_c2, _fadm_c3 = _st3.columns([1, 3, 1])
@@ -1754,7 +1753,6 @@ div[data-testid="stFormSubmitButton"] > button:hover {
     if _st3.session_state.get(_show_key):
         _nm = _st3.text_input(
             "가입 시 이름 입력", key=f"{key_prefix}_report_name",
-            placeholder="등록한 이름을 입력하세요",
             label_visibility="collapsed",
         )
         if _st3.button("📨 관리자에게 오류 신고 발송", key=f"{key_prefix}_send",
@@ -1901,7 +1899,6 @@ button[data-testid="baseButton-primary"]:hover{
                     )
                     _uac_name = st.text_input(
                         "👤 피보험자 성명 *",
-                        placeholder="실명을 입력하세요",
                         value=st.session_state.get("gs_c_name", ""),
                         key=f"{_kp}_auth_name",
                         max_chars=30,
@@ -1910,7 +1907,6 @@ button[data-testid="baseButton-primary"]:hover{
                     with _dc1:
                         _uac_dob = st.text_input(
                             "🎂 생년월일 * (YYYYMMDD)",
-                            placeholder="예: 19901231",
                             key=f"{_kp}_auth_dob",
                             max_chars=8,
                         )
@@ -1923,7 +1919,6 @@ button[data-testid="baseButton-primary"]:hover{
                         )
                     _uac_phone = st.text_input(
                         "📱 휴대폰 번호 * (숫자만, - 없이)",
-                        placeholder="01012345678",
                         key=f"{_kp}_auth_phone",
                         max_chars=11,
                     )
@@ -2044,7 +2039,6 @@ button[data-testid="baseButton-primary"]:hover{
                 _json_val = st.text_area(
                     "내보험다보여 JSON",
                     value=st.session_state.get(_kj, st.session_state.get("_nibo_raw_json", "")),
-                    placeholder='[{"prodName":"삼성생명 종신","traitName":"암진단비","amt":"3000만원","status":"유효"}]',
                     height=110,
                     key=f"{key_prefix}_json_ta",
                     label_visibility="collapsed",
@@ -2871,7 +2865,7 @@ h3 { font-size: clamp(0.95rem,3.5vw,1.2rem) !important; }
 label[data-testid="stWidgetLabel"] {
   font-size: clamp(0.8rem,2.8vw,0.92rem) !important;
 }
-/* [GP-PLACEHOLDER] 전역 플레이스홀더 시각적 감쇠 — Streamlit BaseWeb 고명세도 포함 */
+/* [GP-PLACEHOLDER] 전역 플레이스홀더 완전 제거 — Streamlit form hint 포함 */
 input::placeholder,
 textarea::placeholder,
 [data-baseweb="input"] input::placeholder,
@@ -2884,18 +2878,10 @@ input::-webkit-input-placeholder,
 textarea::-webkit-input-placeholder,
 [data-baseweb="input"] input::-webkit-input-placeholder,
 [data-testid="stTextInput"] input::-webkit-input-placeholder {
-  color: #b8b8b8 !important;
-  opacity: 0.45 !important;
-  font-size: 0.82rem !important;
-}
-input:focus::placeholder,
-textarea:focus::placeholder,
-[data-baseweb="input"] input:focus::placeholder,
-[data-testid="stTextInput"] input:focus::placeholder,
-[data-baseweb="input"] input:focus::-webkit-input-placeholder,
-[data-testid="stTextInput"] input:focus::-webkit-input-placeholder {
+  visibility: hidden !important;
   color: transparent !important;
   opacity: 0 !important;
+  font-size: 0 !important;
 }
 </style>"""
 
