@@ -500,7 +500,8 @@ def build_customer_briefing(
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _fetch_naver_insurance_news(n: int = 3) -> list:
-    """[GP-NEWS] 네이버 뉴스 API: '금감원 보험' 키워드 최신 n건 수집."""
+    """[GP-NEWS] 네이버 뉴스 API: '금감원 보험' 키워드 최신 n건 — 보험 관련 기사만 필터링."""
+    _INSURANCE_KW = ['생명보험', '손해보험', '생보', '손보', '보험']
     try:
         from shared_components import get_env_secret as _genv_n
         _cid  = _genv_n("NAVER_CLIENT_ID", "")
@@ -508,9 +509,10 @@ def _fetch_naver_insurance_news(n: int = 3) -> list:
         if not _cid or not _csec:
             return []
         import requests as _req_n
+        import html as _html_nv
         _resp = _req_n.get(
             "https://openapi.naver.com/v1/search/news.json",
-            params={"query": "금감원 보험", "display": n, "sort": "date"},
+            params={"query": "금감원 보험", "display": max(n * 4, 12), "sort": "date"},
             headers={
                 "X-Naver-Client-Id":     _cid,
                 "X-Naver-Client-Secret": _csec,
@@ -520,15 +522,20 @@ def _fetch_naver_insurance_news(n: int = 3) -> list:
         if _resp.status_code == 200:
             _result = []
             for _it in _resp.json().get("items", []):
-                import html as _html_nv
                 _title = _html_nv.unescape(
                     re.sub(r"<[^>]+>", "", _it.get("title", ""))
                 ).strip()
-                _result.append({
-                    "title":   _title,
-                    "link":    _it.get("originallink") or _it.get("link", ""),
-                    "pubDate": _it.get("pubDate", ""),
-                })
+                _desc  = _html_nv.unescape(
+                    re.sub(r"<[^>]+>", "", _it.get("description", ""))
+                ).strip()
+                if any(kw in _title or kw in _desc for kw in _INSURANCE_KW):
+                    _result.append({
+                        "title":   _title,
+                        "link":    _it.get("originallink") or _it.get("link", ""),
+                        "pubDate": _it.get("pubDate", ""),
+                    })
+                    if len(_result) >= n:
+                        break
             return _result
     except Exception:
         pass
@@ -932,13 +939,13 @@ def render_time_aware_briefing(
     _weekdays = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]
     _wd_str   = _weekdays[_now.weekday()]
     if 5 <= _h < 12:
-        _time_emoji, _time_label, _time_sub = "🌅", "모닝 브리핑", "활기찬 하루의 시작을 함께합니다"
+        _time_emoji, _time_label, _time_sub = "🌅", "맞춤보장 브리핑", "활기찬 하루의 시작을 함께합니다"
     elif 12 <= _h < 18:
-        _time_emoji, _time_label, _time_sub = "☀️", "오후 브리핑", "오늘의 오후 일정과 우선순위를 안내해 드립니다"
+        _time_emoji, _time_label, _time_sub = "☀️", "오후 맞춤보장 브리핑", "오늘의 오후 일정과 우선순위를 안내해 드립니다"
     elif 18 <= _h < 22:
-        _time_emoji, _time_label, _time_sub = "🌆", "저녁 브리핑", "수고 많으셨습니다. 남은 일정을 마무리해 드리겠습니다"
+        _time_emoji, _time_label, _time_sub = "🌆", "저녁 맞춤보장 브리핑", "수고 많으셨습니다. 남은 일정을 마무리해 드리겠습니다"
     else:
-        _time_emoji, _time_label, _time_sub = "🌙", "심야 브리핑", "늦은 시간까지 열정적인 설계사님을 응원합니다"
+        _time_emoji, _time_label, _time_sub = "🌙", "심야 맞춤보장 브리핑", "늦은 시간까지 열정적인 설계사님을 응원합니다"
 
     # ── [GP-RT §2] 실시간 정보 수집 (세션 캐시 — 당일 1회) ──────────────────
     _today_s     = _now.strftime("%Y%m%d")
@@ -1151,7 +1158,7 @@ def render_time_aware_briefing(
         "<div style='font-size:0.76rem;color:#374151;padding:5px 12px;"
         "background:#f9fafb;border:1px dashed #000;border-radius:8px;"
         "margin-top:6px;'>"
-        "<b>🎙️ AI 아나운서 브리핑: 마이크 수집 없이 스피커 출력 전용으로 작동하여 "
+        "<b>🎙️ AI 아나운서 맞춤보장 브리핑: 마이크 수집 없이 스피커 출력 전용으로 작동하여 "
         "사생활을 보호합니다.</b>"
         "</div>",
         unsafe_allow_html=True,
