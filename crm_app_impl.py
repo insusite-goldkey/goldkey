@@ -786,7 +786,7 @@ if not _is_authenticated():
                 "<div style='margin: 0 auto; max-width:560px; background:#eff6ff; border-radius:8px 8px 0 0;"
                 "padding:7px 14px; margin-bottom:0;'>"
                 "<span style='font-size:0.85rem;font-weight:900;color:#1e3a8a;'>"
-                "📋 Goldkey AI Masters 2026 이용약관 · 내보험다보여(신용정보법 제32조) 통합 안내문</span></div>",
+                "📋 Goldkey AI Masters 2026 이용약관 · 내보험다보여(신용정보법 제32조) 통합 약관</span></div>",
                 unsafe_allow_html=True,
             )
             # 🚨 [주의] 이 코드 바로 아래에 있는 실제 약관 내용 박스(st.text_area 등)도 
@@ -807,11 +807,11 @@ if not _is_authenticated():
             "<div style='font-size:0.82rem;font-weight:900;color:#92400e;margin-bottom:6px;'>"
             "🔐 내보험다보여 연동 — 신용정보의 이용 및 보호에 관한 법률 제32조 안내</div>"
             "<div style='font-size:0.75rem;color:#78350f;line-height:1.85;'>"
-            "• <b>수집:</b> 보험사명·상품명·담보내역·계약상태 (신용정보원 등록 데이터)<br>"
-            "• <b>목적:</b> AI 트리니티 엔진 — 보장 적정성 분석 및 실질 생계비 기반 리모델링<br>"
-            "• <b>보유:</b> 분석 완료 후 30일 경과 시 자동 파기 (리포트 이력 최대 3년 암호화)<br>"
-            "• <b>인증정보:</b> 데이터 추출 후 <b>즉시 메모리 파기</b> — 서버 저장 절대 불가<br>"
-            "• <b>미동의 시:</b> AI 증권분석 · 트리니티 리포트 기능 비활성화"
+            "• <b>수집:</b> 보험사명 · 상품명 · 보장내역 · 계약 상태 (한국신용정보원 제공 데이터)<br>"
+            "• <b>목적:</b> AI 트리니티 — 보장성 분석 및 맞춤형 보험 설계 제공<br>"
+            "• <b>보관:</b> 분석 후 30일 경과 시 자동 파기 (단, 분석 리포트는 최대 3년 보관)<br>"
+            "• <b>인증정보:</b> 데이터 연동 후 메모리에서 즉시 파기 (서버 내 무단 저장 불가)<br>"
+            "• <b>미동의 시:</b> AI 보장 분석 및 트리니티 서비스 이용 불가"
             "</div></div>",
             unsafe_allow_html=True,
         )
@@ -1123,8 +1123,13 @@ if _spa_mode == "list":
         "💡 이름 · 연락처 · 직업 · 주소 · 상태 입력 시 자동조회됩니다.</div>",
         unsafe_allow_html=True,
     )
-    _search_q = st.text_input("🔍 고객 이름 / 음성 결과 확인",
-                              key="spa_search", label_visibility="collapsed")
+    _sq_col, _sb_col = st.columns([5, 1])
+    with _sq_col:
+        _search_q = st.text_input("🔍 고객 이름 / 음성 결과 확인",
+                                  key="spa_search", label_visibility="collapsed")
+    with _sb_col:
+        _quick_search_btn = st.button("🔍 검색", key="spa_quick_search_btn",
+                                      use_container_width=True)
 
     _fc1, _fc2, _fc3 = st.columns(3)
     with _fc1:
@@ -1156,6 +1161,16 @@ if _spa_mode == "list":
         from db_utils import _matches_query as _dq_match, _normalize_query as _dq_norm
         _vf_cq, _vf_tok = _dq_norm(_vf["keyword"])
         _all_custs = [c for c in _all_custs if _dq_match(c, _vf_cq, _vf_tok)]
+
+    # ── [GP §1-SEARCH] 검색 버튼 클릭 → 1건이면 자동 선택, 다수면 안내 ────────
+    if _quick_search_btn:
+        if len(_all_custs) == 1:
+            st.session_state["crm_selected_pid"] = _all_custs[0].get("person_id", "")
+            st.rerun()
+        elif len(_all_custs) == 0:
+            st.warning("⚠️ 검색 결과가 없습니다. 이름을 다시 확인하세요.")
+        else:
+            st.info(f"🔍 {len(_all_custs)}명 발견 — 아래 목록에서 고객을 클릭하여 선택하세요.")
 
     # ── [GP §1] 고객정보 입력 블록 직후: 왕복 네비 + 8액션 + 상담센터(5:5) ───
     render_crm_dual_nav(mode="list", sel_pid=_sel_pid)

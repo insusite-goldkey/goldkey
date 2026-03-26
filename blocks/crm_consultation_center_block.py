@@ -19,11 +19,9 @@ def render_crm_consultation_center(
     """
     st.markdown(
         "<div class='crm-responsive-shell' style='max-width:min(100%,960px);width:100%;"
-        "margin:12px auto 14px;'>"
-        "<div style='font-size:clamp(14px,2.2vw,18px);font-weight:900;color:#0f172a;"
-        "margin-bottom:8px;'>🏥 상담 센터</div>"
-        "<div style='font-size:clamp(11px,1.6vw,13px);color:#64748b;'>"
-        "좌측에서 건보료 기반 분석을 실행하고, 우측에서 요약 보고서를 확인합니다.</div>"
+        "margin:4px auto 6px;'>"
+        "<div style='font-size:clamp(13px,2vw,16px);font-weight:900;color:#0f172a;"
+        "margin-bottom:4px;'>🏥 상담 센터</div>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -88,6 +86,34 @@ def render_crm_consultation_center(
                 else:
                     st.session_state["crm_list_inline_panel"] = "nibo"
                     st.rerun()
+        # [GP-44] 내보험다보여 하단 이동 설치 — 증권AI분석·카카오·핸드폰스캔
+        st.markdown(
+            "<div style='font-size:0.72rem;font-weight:700;color:#475569;margin:6px 0 3px;'>"
+            "📌 고객 선택 후 사용 가능</div>",
+            unsafe_allow_html=True,
+        )
+        _b3, _b4, _b5 = st.columns(3)
+        with _b3:
+            if st.button("📊 보험증권 AI 분석", key="crm_cc_btn_analysis", use_container_width=True):
+                if not _bridge_pid:
+                    st.warning("고객을 표에서 먼저 선택하세요.")
+                else:
+                    st.session_state["crm_spa_mode"] = "customer"
+                    st.session_state["crm_spa_screen"] = "analysis"
+                    st.rerun()
+        with _b4:
+            if st.button("💬 카카오 알림톡·문자", key="crm_cc_btn_kakao", use_container_width=True):
+                if not _bridge_pid:
+                    st.warning("고객을 표에서 먼저 선택하세요.")
+                else:
+                    st.session_state["crm_spa_mode"] = "customer"
+                    st.session_state["crm_spa_screen"] = "kakao"
+                    st.rerun()
+        with _b5:
+            if st.button("📱 핸드폰 증권 스캔", key="crm_cc_btn_settings", use_container_width=True):
+                st.session_state["crm_spa_mode"] = "customer"
+                st.session_state["crm_spa_screen"] = "settings"
+                st.rerun()
         with st.expander("📷 증권 스캔 최근 목록 (최대 5건)", expanded=False):
             _scans = st.session_state.get("crm_cc_scans", [])
             if not _scans:
