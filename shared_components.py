@@ -2865,7 +2865,8 @@ h3 { font-size: clamp(0.95rem,3.5vw,1.2rem) !important; }
 label[data-testid="stWidgetLabel"] {
   font-size: clamp(0.8rem,2.8vw,0.92rem) !important;
 }
-/* [GP-PLACEHOLDER] 전역 플레이스홀더 완전 제거 — Streamlit form hint 포함 */
+/* [GP-PLACEHOLDER] 전역 Placeholder 시각적 감쇠 — 입력 방해 제거 */
+::placeholder,
 input::placeholder,
 textarea::placeholder,
 [data-baseweb="input"] input::placeholder,
@@ -2873,15 +2874,44 @@ textarea::placeholder,
 [data-testid="stTextInput"] input::placeholder,
 [data-testid="stTextAreaInput"] textarea::placeholder,
 .stTextInput input::placeholder,
-.stTextArea textarea::placeholder,
+.stTextArea textarea::placeholder {
+  color: #d1d5db !important;
+  opacity: 0.4 !important;
+  font-size: 0.85em !important;
+  font-weight: 400 !important;
+  transition: opacity 0.2s ease-in-out;
+}
+/* 포커스 시 placeholder 완전 숨김 */
+input:focus::placeholder,
+textarea:focus::placeholder,
+[data-baseweb="input"] input:focus::placeholder,
+[data-testid="stTextInput"] input:focus::placeholder,
+[data-testid="stTextAreaInput"] textarea:focus::placeholder {
+  color: transparent !important;
+  opacity: 0 !important;
+}
+/* 브라우저 호환성 — WebKit / IE / Edge */
+::-webkit-input-placeholder,
 input::-webkit-input-placeholder,
 textarea::-webkit-input-placeholder,
 [data-baseweb="input"] input::-webkit-input-placeholder,
 [data-testid="stTextInput"] input::-webkit-input-placeholder {
-  visibility: hidden !important;
+  color: #d1d5db !important;
+  opacity: 0.4 !important;
+  font-size: 0.85em !important;
+  font-weight: 400 !important;
+}
+input:focus::-webkit-input-placeholder,
+textarea:focus::-webkit-input-placeholder {
   color: transparent !important;
   opacity: 0 !important;
-  font-size: 0 !important;
+}
+:-ms-input-placeholder,
+::-ms-input-placeholder {
+  color: #d1d5db !important;
+  opacity: 0.4 !important;
+  font-size: 0.85em !important;
+  font-weight: 400 !important;
 }
 </style>"""
 
