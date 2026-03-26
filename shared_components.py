@@ -104,10 +104,18 @@ def get_clean_phone(raw: str) -> str:
 
 
 def mask_name(name: str) -> str:
-    """[GP-SEC] 고객 이름 마스킹 — UI 표시용. 예: '홍길동' → '홍**'"""
-    if not name or len(name) < 2:
+    """[GP-SEC §3] 고객 이름 마스킹 — API 전송 및 UI 표시용.
+    규칙: 첫 글자·마지막 글자 유지, 중간 전체 * 처리
+    예: 홍길동 → 홍*동 | 남궁민수 → 남**수 | 이황 → 이* | 김 → *
+    """
+    if not name:
         return "*"
-    return name[0] + "*" * (len(name) - 1)
+    n = name.strip()
+    if len(n) <= 1:
+        return "*"
+    if len(n) == 2:
+        return n[0] + "*"
+    return n[0] + "*" * (len(n) - 2) + n[-1]
 
 
 def mask_phone(phone: str) -> str:
@@ -121,6 +129,20 @@ def mask_phone(phone: str) -> str:
     elif len(_clean) == 10:
         return f"{_clean[:3]}-***-{_clean[6:]}"
     return phone[:3] + "****" + phone[-2:] if len(phone) > 5 else "****"
+
+
+def mask_ssn(ssn: str) -> str:
+    """[GP-SEC §절대엄수] 주민등록번호 마스킹.
+    규칙: 뒷 7자리 중 첫 자리(성별코드)만 노출, 나머지 6자리 * 처리
+    예: 900101-1234567 → 900101-1****** | 9001011234567 → 900101-1******
+    """
+    import re as _re_ssn
+    _clean = _re_ssn.sub(r"[^0-9]", "", ssn or "")
+    if len(_clean) == 13:
+        return _clean[:6] + "-" + _clean[6] + "******"
+    if ssn and len(ssn) > 4:
+        return ssn[:2] + "*" * (len(ssn) - 2)
+    return "***"
 
 
 def get_time_aware_greeting(name: str = "", login_time: str = "") -> str:

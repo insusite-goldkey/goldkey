@@ -271,9 +271,15 @@ def render_crm_trinity_block(
                 _cust_phone = _dpii(_cust_phone)
             except Exception:
                 pass
+            # [GP-SEC §3] 리포트 텍스트 내 고객명 마스킹
+            try:
+                from shared_components import mask_name as _mn_tri
+                _cust_name_masked = _mn_tri(_cust_name)
+            except Exception:
+                _cust_name_masked = _cust_name
             _tri_report_text = (
                 f"[골드키 AI 가입결과 보고서]\n"
-                f"고객명: {_cust_name}님\n\n"
+                f"고객명: {_cust_name_masked}님\n\n"
                 f"■ 트리니티 산출법 분석 결과\n"
                 f"• 추정 월 소득: {_tri_res.get('monthly', 0):,.0f}원\n"
                 f"• 일일 가치: {_tri_res.get('daily', 0):,.0f}원\n"

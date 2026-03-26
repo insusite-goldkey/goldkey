@@ -851,11 +851,18 @@ def send_kakao_report(
         import os as _os_hq
         _hq_link = (_os_hq.environ.get("HQ_APP_URL") or "http://localhost:8501").strip().rstrip("/")
 
+    # [GP-SEC §3] 이름 마스킹 — payload.variables.name은 메시지 템플릿 변수로 API 외부 전송
+    try:
+        from shared_components import mask_name as _mn_dku
+    except Exception:
+        _mn_dku = lambda x: x  # noqa: E731
+    _masked_name = _mn_dku(customer_name)
+
     payload = {
         "template_id": template_id,
-        "receiver":    phone_number,
+        "receiver":    phone_number,   # [GP-SEC] 라우팅용 실번호 유지 (카카오 전송 필수)
         "variables": {
-            "name":    customer_name,
+            "name":    _masked_name,    # [GP-SEC] 이름 비식별화 필수 적용
             "summary": report_summary,
             "link":    _hq_link,
         },
@@ -892,7 +899,7 @@ def send_kakao_report(
                     ),
                     ai_briefing_json={
                         "template_id":   template_id,
-                        "customer_name": customer_name,
+                        "customer_name": _masked_name,  # [GP-SEC] 로그에도 마스킹된 이름 기록
                         "summary":       report_summary,
                         "http_status":   _resp.status_code,
                     },

@@ -88,11 +88,13 @@ def _normalize_phone(phone: str) -> str:
 
 
 def _mask_pii(text: str) -> str:
-    """주민번호·계좌번호·전화번호 마스킹 (발송 전 보안 처리)"""
-    # 주민번호: 000000-0000000
-    text = re.sub(r"\d{6}-\d{7}", "######-#######", text)
-    # 전화번호 (수신자 제외)
-    text = re.sub(r"0\d{1,2}-\d{3,4}-\d{4}", "010-****-****", text)
+    """주민번호·계좌번호·전화번호 마스킹 (발송 전 보안 처리 — GP-SEC §절대엄수)"""
+    # 주민번호: 뒷자리 첫 자(성별) 노출, 나머지 6자리 * (예: 900101-1******)
+    text = re.sub(r"(\d{6}-\d)(\d{6})", r"\1******", text)
+    # 하이픈 없는 13자리 주민번호
+    text = re.sub(r"\b(\d{6})(\d)(\d{6})\b", r"\1-\2******", text)
+    # 전화번호: 중간 4자리 마스킹 (수신자 라우팅 필드 제외, 메시지 본문 내 노출분)
+    text = re.sub(r"(0\d{1,2})-(\d{3,4})-(\d{4})", r"\1-****-\3", text)
     # 계좌번호 11~14자리
     text = re.sub(r"\b\d{11,14}\b", "[계좌번호마스킹]", text)
     return text
@@ -124,20 +126,27 @@ def build_message(
     org     = profile["org"]
     phone   = profile["phone"]
 
+    # [GP-SEC §3] 고객명 마스킹 — 메시지 헤더 내 이름 비식별화
+    try:
+        from shared_components import mask_name as _mn_ks
+        _safe_client = _mn_ks(client_name) if client_name and client_name != "고객" else client_name
+    except Exception:
+        _safe_client = client_name
+
     if msg_type == MSG_TYPE_REPORT:
         header = (
             f"[{org}] {master} 설계사입니다.\n"
-            f"{client_name}님을 위해 정밀 분석한 'AI 인생 방어 리포트'가 도착했습니다.\n\n"
+            f"{_safe_client}님을 위해 정밀 분석한 'AI 인생 방어 리포트'가 도착했습니다.\n\n"
         )
     elif msg_type == MSG_TYPE_PROMISE:
         header = (
             f"[{org}] {master} 설계사입니다.\n"
-            f"{client_name}님, 오늘 상담에서 제가 드린 약속을 정리해 보내드립니다.\n\n"
+            f"{_safe_client}님, 오늘 상담에서 제가 드린 약속을 정리해 보내드립니다.\n\n"
         )
     else:  # notice
         header = (
             f"[{org}] {master} 설계사입니다.\n"
-            f"{client_name}님께 안내 말씀드립니다.\n\n"
+            f"{_safe_client}님께 안내 말씀드립니다.\n\n"
         )
 
     if title:

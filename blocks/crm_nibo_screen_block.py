@@ -223,10 +223,16 @@ def render_crm_nibo_screen(
             _raw_phone = str(sel_cust.get("contact", "") or "")
             try:
                 from shared_components import decrypt_pii as _dec_phone
-
                 _raw_phone = _dec_phone(_raw_phone)
             except Exception:
                 pass
+
+            # [GP-SEC §3] 메시지 텍스트 내 고객명 마스킹
+            try:
+                from shared_components import mask_name as _mn_nibo
+                _nibo_masked_name = _mn_nibo(sel_cust.get("name", "고객"))
+            except Exception:
+                _nibo_masked_name = sel_cust.get("name", "고객")
 
             st.session_state[f"crm_kakao_send_state__{_pid}"] = "sending"
             with st.spinner("발송 중..."):
@@ -236,7 +242,7 @@ def render_crm_nibo_screen(
                     report_type="ai_report",
                     payload={
                         "phone": _raw_phone,
-                        "message": f"{sel_cust.get('name', '고객')}님 AI 보고서가 도착했습니다.",
+                        "message": f"{_nibo_masked_name}님 AI 보고서가 도착했습니다.",
                     },
                 )
             st.session_state[f"crm_kakao_req__{_pid}"] = _k
