@@ -28,7 +28,7 @@ _HQ_IMPL = "hq_app_impl"
 if _HQ_IMPL in sys.modules:
     try:
         importlib.reload(sys.modules[_HQ_IMPL])
-    except (ImportError, KeyError):
+    except Exception:
         sys.modules.pop(_HQ_IMPL, None)
         __import__(_HQ_IMPL)
 else:
