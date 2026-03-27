@@ -633,6 +633,25 @@ if not _is_authenticated():
             "</div>",
             unsafe_allow_html=True,
         )
+        
+        # ── [UI] 서비스 안내 박스 ─────────────────────────────────────────
+        st.markdown(
+            "<div style='max-width:680px;margin:0 auto 20px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);"
+            "border:2px solid #0ea5e9;border-left:6px solid #0284c7;border-radius:12px;padding:18px 22px;"
+            "box-shadow:0 2px 8px rgba(14,165,233,0.15);'>"
+            "<div style='font-size:1.0rem;font-weight:900;color:#0c4a6e;margin-bottom:12px;'>"
+            "💡 서비스 안내</div>"
+            "<div style='font-size:0.88rem;color:#0c4a6e;line-height:1.85;'>"
+            "'Goldkey_AI_Masters2026'은 보험 설계사를 위한 고객 상담 지원 AI 앱입니다.<br><br>"
+            "이 앱은 보험 경력 30년을 가진 FC가 직접 설계하고 제작하였으며, "
+            "실제 상담 현장에서 검증된 <b style='color:#0369a1;'>'AI 트리니티 계산법(건강보험료 기준 역산법)'</b>과 "
+            "'손해보험 표준 증권분석' 로직을 탑재했습니다.<br><br>"
+            "<b style='color:#0369a1;'>개인·법인(CEO)·화재 등</b> 전문 상담에 필요한 핵심 자료들을 "
+            "지속적으로 업데이트할 예정입니다. 설계사 여러분의 성공적인 상담에 큰 힘이 되길 바랍니다."
+            "</div></div>",
+            unsafe_allow_html=True,
+        )
+        
         # ── [GP-SEC §5] 공통 약관 동의 UI (필수동의 상단, 파스텔 톤) ────────
         if st.session_state.pop("_crm_logout_success", False):
             st.success("✅ 안전하게 로그아웃되었습니다. 모든 임시 세션 정보가 보안 파기되었습니다.")
