@@ -45,6 +45,12 @@ import threading
 import uuid, datetime
 from typing import Optional
 
+# [GP-TEXT-LOCK] 텍스트 무결성 보호 모듈 import
+try:
+    import app_texts as txt
+except ImportError:
+    txt = None
+
 
 def ss_ns_key(namespace: str, key: str) -> str:
     """세션 네임스페이스 키 생성 (`ns:key`)."""
@@ -869,7 +875,13 @@ def render_reception_desk(*, key_prefix: str = "_rd") -> None:
 
 # ── [내보험다보여 연동 전용 안내문] — 신용정보법 제32조 별도 고지 의무 ──────────
 _NIBO_CONSENT_VERSION = "2026-03-16-v1"   # 개정 시 이 값을 변경 (동의 이력에 기록)
-_NIBO_CONSENT_HTML = """
+
+def _get_nibo_consent_html():
+    """내보험다보여 안내문 HTML 반환 (app_texts 우선, 폴백 포함)"""
+    if txt and hasattr(txt, 'NIBO_AGREEMENT'):
+        _content = txt.NIBO_AGREEMENT.replace('\n', '<br>')
+        return f"<div style='font-size:0.82rem;color:#1e3a8a;line-height:1.9;'>{_content}</div>"
+    return """
 <div style='font-size:0.82rem;color:#1e3a8a;line-height:1.9;'>
 <b style='font-size:0.88rem;'>🔐 내보험다보여 안내 — 신용정보의 이용 및 보호에 관한 법률 제32조 준수</b><br><br>
 • <b>수집 항목:</b> 보험사명, 상품명, 보장내역, 계약상태 (한국신용정보원 제공 데이터)<br>
@@ -880,8 +892,14 @@ _NIBO_CONSENT_HTML = """
 </div>
 """
 
+_NIBO_CONSENT_HTML = _get_nibo_consent_html()
+
 # ── [GP-SEC §5] 공통 약관 원문 (HQ/CRM 양쪽 render_auth_screen에서 사용) ──────
-_TERMS_TEXT = """■ Goldkey AI Masters 2026 이용약관 및 개인정보 통합 동의서
+def _get_terms_text():
+    """이용약관 전문 반환 (app_texts 우선, 폴백 포함)"""
+    if txt and hasattr(txt, 'TERMS_CONTENTS'):
+        return txt.TERMS_CONTENTS
+    return """■ Goldkey AI Masters 2026 이용약관 및 개인정보 통합 동의서
 
 [제1조] 목적
 본 약관은 Goldkey AI Masters 2026(이하 '서비스')의 이용 조건·절차, 운영자와 회원의 권리·의무를 규정함을 목적으로 합니다.
@@ -941,8 +959,9 @@ AI 보장 분석 도구 / 세무·법률·상속·증여 참고 정보 제공 / 
 
 • 최종 갱신일: 2026년 3월 31일
 ■ 서비스명: Goldkey_AI_Masters2026 | 운영자: 이세윤 | 문의: 010-3074-2616 / insusite@gmail.com
-⚠️ 위 필수 약관 및 동의 사항 3가지에 모두 체크하셔야 로그인 버튼이 활성화됩니다.
 """
+
+_TERMS_TEXT = _get_terms_text()
 
 
 def render_auth_screen(
@@ -1156,54 +1175,61 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         help="AI 증권분석·트리니티 리포트 기능 사용 시 필수. 미동의 시 해당 기능이 비활성화됩니다.",
     )
     # ── [GP-VOICE] AI 음성 브리핑 동의 (선택) ──────────────────────────────────
+    _voice_info = txt.APP_INTRO_VOICE if (txt and hasattr(txt, 'APP_INTRO_VOICE')) else "설계사님의 설계 내역 및 고객 분석 결과를 AI 아나운서의 내레이션으로 자동 브리핑해 제공하는 기능입니다. (마이크 권한 불필요, 스피커 출력)"
     st.markdown(
-        "<div style='max-width:600px;background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
-        "padding:6px 12px;margin-top:10px;margin-bottom:4px;font-size:0.76rem;color:#14532d;'>"
-        "🔊 <b>AI 음성 브리핑 안내:</b> 설계사님의 설계 내역 및 고객 분석 결과를 AI 아나운서의 "
-        "내레이션으로 자동 브리핑해 드리는 기능입니다. <b>(마이크 권한 불필요, 스피커 출력 전용)</b>"
-        "</div>",
+        f"<div style='max-width:600px;background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
+        f"padding:6px 12px;margin-top:10px;margin-bottom:4px;font-size:0.76rem;color:#14532d;'>"
+        f"🔊 <b>AI 음성 브리핑 안내:</b> {_voice_info}"
+        f"</div>",
         unsafe_allow_html=True,
     )
+    _voice_consent = txt.CONSENT_VOICE_BRIEFING if (txt and hasattr(txt, 'CONSENT_VOICE_BRIEFING')) else "(선택) AI 패스 브리핑 및 오디오 자동 재생 동의"
     _c6 = st.checkbox(
-        "🔊 **[선택]** AI 음성 브리핑 및 오디오 자동 재생 동의",
+        f"🔊 **{_voice_consent}**",
         key=f"{terms_agree_key}_c6",
-        help="설계사님의 스케줄 및 고객 분석 결과를 AI 아나운서의 음성으로 자동 브리핑받는 기능입니다. (마이크 수집 없음, 스피커 출력 전용)",
+        help=_voice_info,
     )
     consent_set("voice_consent_agreed", _c6)
     # ── [GP-CAL §15] 외부 캘린더 연동 동의 (선택) ──────────────────────────────
+    _cal_info = txt.CALENDAR_INTEGRATION_INFO if (txt and hasattr(txt, 'CALENDAR_INTEGRATION_INFO')) else "📅 외부 캘린더 연동: Google·Apple의 일정을 사용자가 직접 확인 및 연동할 수 있습니다. 자동 수집 없음 / OAuth 2.0 표준 / 언제든지 권한 회수 가능 (제15조·제17조 적용)"
     st.markdown(
-        "<div style='max-width:600px;background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
-        "padding:6px 12px;margin-top:10px;margin-bottom:4px;font-size:0.76rem;color:#14532d;'>"
-        "📅 <b>외부 캘린더 연동 안내:</b> Google·Apple 캘린더의 일정을 "
-        "<b>사용자가 직접 클릭할 때만</b> 동기화합니다. "
-        "자동 수집 없음 / OAuth 2.0 표준 / 언제든 연동 해제 가능 "
-        "<b>(제15조·제17조 적용)</b>"
-        "</div>",
+        f"<div style='max-width:600px;background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
+        f"padding:6px 12px;margin-top:10px;margin-bottom:4px;font-size:0.76rem;color:#14532d;'>"
+        f"{_cal_info}"
+        f"</div>",
         unsafe_allow_html=True,
     )
+    _cal_consent = txt.CONSENT_EXTERNAL_SERVICE if (txt and hasattr(txt, 'CONSENT_EXTERNAL_SERVICE')) else "(선택) 외부 서비스(Google/Apple) 연동 및 정보 활용 동의 (제15조, 제17조)"
     _c7 = st.checkbox(
-        "📅 **[선택]** 외부 캘린더(Google/Apple) 연동 및 정보 활용 동의 (제15조, 제17조)",
+        f"📅 **{_cal_consent}**",
         key=f"{terms_agree_key}_c7",
-        help="Google·Apple 캘린더를 OAuth 2.0으로 연동하여 일정을 수동으로 동기화하는 기능입니다. 동의 시에만 [⚙️ 연동/설정] 탭의 캘린더 연동 버튼이 활성화됩니다.",
+        help=_cal_info,
     )
     consent_set("cal_sync_consent_agreed", _c7)
     # ── [GP-KAKAO] 카카오톡 발송 동의 (선택, 개인정보보호법 제17조) ─────────────
+    _kakao_detail = txt.KAKAO_AGREEMENT_DETAIL if (txt and hasattr(txt, 'KAKAO_AGREEMENT_DETAIL')) else """💬 [카카오톡 알림톡 전송 동의] — 개인정보보호법 제17조 제3자 제공 별도 동의
+
+전송 목적: AI 보고서·상담 결과·계약 안내 메시지 전달
+
+제3자 제공: 카카오(주) — 알림톡 API 전송 목적
+
+수집 항목: 고객 수신 휴대전화 번호 (전송 후 API 서버 미보관)
+
+보관 기간: 법령상 보관 기간에 따라 (계약 종료 후 3년 후 자동 파기)
+
+미동의 시: 카카오톡 전송 불가 (그 외 서비스 기능은 사용 가능)"""
+    _kakao_html = _kakao_detail.replace('\n', '<br>')
     st.markdown(
-        "<div style='max-width:560px;background:#fef9c3;border:2px dashed #eab308;"
-        "border-radius:10px;padding:10px 14px;margin-top:12px;margin-bottom:4px;'>"
-        "<div style='font-size:0.82rem;font-weight:900;color:#713f12;margin-bottom:6px;'>"
-        "💬 [카카오톡 알림톡 발송 동의] — 개인정보보호법 제17조 제3자 제공 별도 고지</div>"
-        "<div style='font-size:0.75rem;color:#78350f;line-height:1.85;'>"
-        "• <b>발송 목적:</b> AI 분석 리포트·상담 결과·계약 안내 메시지 전달<br>"
-        "• <b>제3자 제공:</b> 카카오(주) — 알림톡 API 전송 목적 한정<br>"
-        "• <b>알림톡 API 전송 목적 템플릿 형식에 따른 정보 수집:</b> 고객 수신 휴대전화 번호 (전송 후 API 서버 미보관)<br>"
-        "• <b>보유 기간:</b> 최소 보관 원칙에 따라 보관 (계약 종료 후 3년 자동 파기)<br>"
-        "• <b>미동의 시:</b> 카카오톡 보고서 전송 불가 (나머지 기능 정상 사용 가능)"
-        "</div></div>",
+        f"<div style='max-width:560px;background:#fef9c3;border:2px dashed #eab308;"
+        f"border-radius:10px;padding:10px 14px;margin-top:12px;margin-bottom:4px;'>"
+        f"<div style='font-size:0.82rem;font-weight:900;color:#713f12;margin-bottom:6px;'>"
+        f"💬 [카카오톡 알림톡 발송 동의] — 개인정보보호법 제17조 제3자 제공 별도 고지</div>"
+        f"<div style='font-size:0.75rem;color:#78350f;line-height:1.85;'>{_kakao_html}</div></div>",
         unsafe_allow_html=True,
     )
+    _kakao_consent = txt.CONSENT_KAKAO_CHECKBOX if (txt and hasattr(txt, 'CONSENT_KAKAO_CHECKBOX')) else "[카카오톡 선택] 카카오톡 알림톡 전송 및 개인정보 제3자 제공(카카오)에 동의합니다. (제18조, 개인정보보호법 제17조)"
     _c8 = st.checkbox(
-        "💬 **[카카오톡 선택]** 카카오톡 알림톡 발송 및 개인정보 제3자 제공(카카오)에 동의합니다 (제18조·개인정보보호법 제17조)",
+        f"💬 **{_kakao_consent}**",
         key=f"{terms_agree_key}_c8",
         help="고객에게 AI 분석 리포트를 카카오톡으로 발송하는 기능입니다. 미동의 시 카카오톡 발송 버튼이 비활성화됩니다.",
     )
