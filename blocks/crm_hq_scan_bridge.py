@@ -29,7 +29,7 @@ def render_hq_scan_bridge_links(
     _cid = sel_pid.strip()
     st.markdown(
         "<div style='font-size:clamp(11px,1.6vw,13px);font-weight:800;color:#0f172a;"
-        "margin:10px 0 6px;'>🔬 HQ 스캔 사령부 — 통합스캔 · 증권 · 청구 · 장해</div>",
+        "margin:10px 0 6px;'>통합스캔(증권분석,보험금청구, 의무기록, 법무기록 등 각종 자료)</div>",
         unsafe_allow_html=True,
     )
     _cols = st.columns(4)

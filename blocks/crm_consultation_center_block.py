@@ -30,7 +30,7 @@ def render_crm_consultation_center(
     ).strip()
     from blocks.crm_hq_scan_bridge import render_hq_scan_bridge_links
 
-    with st.expander("🔬 HQ 스캔 사령부 (통합스캔 · 증권 · 청구 · 장해)", expanded=False):
+    with st.expander("통합스캔(증권분석,보험금청구, 의무기록, 법무기록 등 각종 자료)", expanded=False):
         render_hq_scan_bridge_links(
             sel_pid=_bridge_pid,
             user_id=user_id,

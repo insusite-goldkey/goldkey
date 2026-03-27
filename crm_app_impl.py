@@ -1189,6 +1189,15 @@ if _spa_mode == "list":
         else:
             st.info(f"🔍 {len(_all_custs)}명 발견 — 아래 목록에서 고객을 클릭하여 선택하세요.")
 
+    # ── [GP-VOICE §5] 핸즈프리 CRM — 모닝 브리핑 (대시보드 직후) ─────────────
+    if _VOICE_OK and _ve_morning_auto:
+        st.markdown("<hr style='border:none;border-top:1px solid #e2e8f0;margin:16px 0 8px;'>",
+                    unsafe_allow_html=True)
+        try:
+            _ve_morning_auto(_user_id, _user_name)
+        except Exception:
+            pass
+
     # ── [GP §1] 고객정보 입력 블록 직후: 왕복 네비 + 8액션 + 상담센터(5:5) ───
     render_crm_dual_nav(mode="list", sel_pid=_sel_pid)
     _render_crm_dashboard_action_grid(_user_id, _all_custs)
@@ -1355,14 +1364,6 @@ if _spa_mode == "list":
                         unsafe_allow_html=True,
                     )
 
-    # ── [GP-VOICE §5] 핸즈프리 CRM — 모닝 브리핑 (목록 맨 아래) ─────────────
-    if _VOICE_OK and _ve_morning_auto:
-        st.markdown("<hr style='border:none;border-top:1px solid #e2e8f0;margin:16px 0 8px;'>",
-                    unsafe_allow_html=True)
-        try:
-            _ve_morning_auto(_user_id, _user_name)
-        except Exception:
-            pass
 
     # ── [GP-FOOTER] 피드백·오류신고 + [HQ] 이동 (목록 모드 공통 최하단) ────────
     st.markdown("<hr style='border:none;border-top:1px solid #e2e8f0;margin:20px 0 12px;'>",
