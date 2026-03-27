@@ -47,3 +47,44 @@
 - CRM 배포: deploy_crm.ps1 실행
 - 배포 전 반드시 Python 구문 검사(ast.parse) SYNTAX OK 확인
 - K_SERVICE는 Cloud Run 예약 환경변수 — Dockerfile에서 직접 설정 금지
+
+## [GP-제53조] 코딩 원칙 및 개발 5대 수칙 (2026-03-28 신설)
+
+### 코딩 원칙 (Coding Principles)
+"코드를 수정할 때 반드시 기존 로직과의 충돌 여부를 먼저 검토할 것. UI 디자인(CSS/파스텔톤 등)보다는 데이터 흐름과 세션 안정성을 최우선으로 하며, 검증되지 않은 외부 라이브러리 사용을 자제하라. 특히 Streamlit 환경에서 화면 렌더링 순서가 꼬이지 않도록 주의할 것."
+
+#### 핵심 요구사항:
+1. **기존 로직 충돌 검토 의무화**: 새로운 기능 추가 시 기존 로직(로그인, 세션, 암호화)과의 충돌 여부를 먼저 검토
+2. **데이터 흐름 우선**: UI/UX보다 데이터 흐름(Supabase ↔ GCS ↔ Session State)과 세션 안정성 최우선
+3. **검증된 라이브러리만 사용**: Streamlit, Supabase, Google Cloud SDK, cryptography만 사용. 신규 라이브러리는 설계자 승인 필수
+4. **Streamlit 렌더링 순서 준수**: st.rerun() 호출 전 _rerun_pending 플래그 설정으로 중복 호출 방지
+
+### 개발 5대 수칙 (Five Development Commandments)
+
+#### [수칙 1] 로직 우선 원칙 (Logic-First Principle)
+- 모든 기능 수정 시 '로그인 및 데이터 보안' 로직이 정상 작동하는지 먼저 확인 후 UI 수정
+- 검증 방법: 로그인 → 새로고침 → 앱 전환 → 복귀 시나리오 테스트 필수
+
+#### [수칙 2] 최소 변경 원칙 (Minimal Change Principle)
+- 요청받은 기능 외의 코드를 임의로 대량 수정 금지
+- 특히 기존에 잘 작동하던 session_state 관련 코드는 보존
+- 금지: 요청받지 않은 함수/변수 이름 변경, 세션 키 삭제/변경, 공통 모듈 시그니처 변경
+
+#### [수칙 3] 순차적 렌더링 (Sequential Rendering)
+- 모든 화면 요소는 데이터(쿠키, GCS 데이터 등)가 완전히 로드된 후에만 출력
+- 구현: if customer and "name" in customer: 패턴으로 데이터 확인 후 렌더링
+- 목적: White-out, KeyError, AttributeError 등 런타임 에러 방지
+
+#### [수칙 4] 에러 핸들링 강제 (Mandatory Error Handling)
+- 새로운 기능 추가 시 반드시 try-except 블록 사용
+- 적용 대상: 외부 API 호출, 파일 I/O, DB 쿼리, 암호화/복호화, GCS 접근
+- 금지: except: pass (에러 무시) — 반드시 사용자에게 에러 메시지 표시 또는 로그 기록
+
+#### [수칙 5] 로그 기록 (Logging Requirement)
+- 중요한 단계마다 st.write 또는 로그를 남겨 에러 발생 시 추적 가능하게 함
+- 로그 레벨: [INFO] 정상 작동, [WARNING] 예상 가능한 문제, [ERROR] 예외 발생, [DEBUG] 상세 추적
+
+### AI 에이전트 준수 의무
+1. 코드 수정 전 반드시 이 조항을 검토한다
+2. 사용자 요청이 이 조항과 충돌할 경우, 충돌 내용을 명확히 설명하고 대안을 제시한다
+3. 긴급 상황(보안 패치, 치명적 버그 수정)을 제외하고는 이 조항을 절대 위반하지 않는다
