@@ -959,29 +959,58 @@ def render_time_aware_briefing(
     _ip_city_key = f"_brief_ip_city_{_today_s}"
     if _weather_txt is None:
         _weather_txt = ""
-        # [GP-GEO §신규] 로그인 기기 IP 도시 단일 기준 날씨
+        # [GP-WEATHER §신규] GPS 기반 사용자 위치 실시간 날씨
         try:
-            _ila, _ilo, _ip_city = _approx_latlon_from_ip()
-            if _ila is not None and _ilo is not None:
-                _weather_txt = _fetch_weather_lat_lon(_ila, _ilo)
-                if _ip_city and _weather_txt:
-                    _weather_txt = f"[{_ip_city}] {_weather_txt}"
-            if _ip_city:
-                st.session_state[_ip_city_key] = _ip_city
+            from utils.weather_service import get_weather_briefing_text, get_location_label_only
+            
+            # GPS 우선, 실패 시 IP 기반 폴백
+            _weather_txt = get_weather_briefing_text(use_gps=True, fallback_to_ip=True)
+            
+            # 위치 라벨 저장 (영문 표기 없이 한국어만)
+            _loc_kr = get_location_label_only(use_gps=True)
+            if _loc_kr:
+                st.session_state[_ip_city_key] = _loc_kr
         except Exception:
-            _weather_txt = ""
+            # 폴백: 기존 IP 기반 방식 (영문 표기 제거)
+            try:
+                _ila, _ilo, _ip_city = _approx_latlon_from_ip()
+                if _ila is not None and _ilo is not None:
+                    _weather_txt = _fetch_weather_lat_lon(_ila, _ilo)
+                    # 영문 표기 제거 - 한국어 도시명만 추출
+                    if _ip_city:
+                        city_name = _ip_city.split(",")[0].strip()
+                        city_kr_map = {
+                            "Seoul": "서울", "Busan": "부산", "Incheon": "인천",
+                            "Daegu": "대구", "Daejeon": "대전", "Gwangju": "광주",
+                            "Ulsan": "울산", "Suwon": "수원"
+                        }
+                        _loc_kr = city_kr_map.get(city_name, "")
+                        if _loc_kr:
+                            st.session_state[_ip_city_key] = _loc_kr
+            except Exception:
+                _weather_txt = ""
         st.session_state[_weather_key] = _weather_txt
 
-    # 브리핑 문구용 위치 라벨 — 세션 캐시 우선, 없으면 IP 재조회
+    # 브리핑 문구용 위치 라벨 — 세션 캐시 우선, 없으면 재조회 (한국어만)
     _loc_label = st.session_state.get(_ip_city_key, "")
     if not _loc_label:
         try:
-            _, _, _city3 = _approx_latlon_from_ip()
-            if _city3:
-                _loc_label = _city3
-                st.session_state[_ip_city_key] = _city3
+            from utils.weather_service import get_location_label_only
+            _loc_label = get_location_label_only(use_gps=True)
         except Exception:
-            pass
+            # 폴백: IP 기반 (영문 제거)
+            try:
+                _, _, _city3 = _approx_latlon_from_ip()
+                if _city3:
+                    city_name = _city3.split(",")[0].strip()
+                    city_kr_map = {
+                        "Seoul": "서울", "Busan": "부산", "Incheon": "인천",
+                        "Daegu": "대구", "Daejeon": "대전", "Gwangju": "광주"
+                    }
+                    _loc_label = city_kr_map.get(city_name, "현재 위치")
+                    st.session_state[_ip_city_key] = _loc_label
+            except Exception:
+                pass
     if not _loc_label:
         _loc_label = "현재 위치"
 
