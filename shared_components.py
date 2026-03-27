@@ -1175,11 +1175,11 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         help="AI 증권분석·트리니티 리포트 기능 사용 시 필수. 미동의 시 해당 기능이 비활성화됩니다.",
     )
     # ── [GP-VOICE] AI 음성 브리핑 동의 (선택) ──────────────────────────────────
-    _voice_info = txt.APP_INTRO_VOICE if (txt and hasattr(txt, 'APP_INTRO_VOICE')) else "설계사님의 설계 내역 및 고객 분석 결과를 AI 아나운서의 내레이션으로 자동 브리핑해 제공하는 기능입니다. (마이크 권한 불필요, 스피커 출력)"
+    _voice_info = txt.APP_INTRO_VOICE if (txt and hasattr(txt, 'APP_INTRO_VOICE')) else "AI 브리핑 안내: 설계사님의 설계 내역 및 고객 분석 결과를 AI 아나운서의 내레이션으로 자동 브리핑해 제공하는 기능입니다. (마이크 권한 불필요, 스피커 출력)"
     st.markdown(
         f"<div style='max-width:600px;background:#f0fdf4;border:1px dashed #86efac;border-radius:8px;"
         f"padding:6px 12px;margin-top:10px;margin-bottom:4px;font-size:0.76rem;color:#14532d;'>"
-        f"🔊 <b>AI 음성 브리핑 안내:</b> {_voice_info}"
+        f"🔊 <b>{_voice_info}</b>"
         f"</div>",
         unsafe_allow_html=True,
     )
