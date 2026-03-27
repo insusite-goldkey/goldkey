@@ -18,6 +18,8 @@ enableXsrfProtection = false
 
 [browser]
 gatherUsageStats = false
+serverAddress = "0.0.0.0"
+serverPort = 8080
 
 [theme]
 primaryColor = "#FFD700"
