@@ -646,6 +646,11 @@ if not _is_authenticated():
             font-weight: 900 !important;
             line-height: 1.3 !important;
         }
+        /* 서브 타이틀 (CRM 고객상담 앱) */
+        .crm-app-subtitle {
+            font-size: clamp(0.9rem, 3.5vw, 1.1rem) !important;
+            font-weight: 700 !important;
+        }
         /* 섹션 제목 - 중간 위계 */
         .crm-section-title {
             font-size: clamp(1.0rem, 4vw, 1.2rem) !important;
@@ -656,11 +661,22 @@ if not _is_authenticated():
             font-size: clamp(0.85rem, 3.5vw, 1.0rem) !important;
             line-height: 1.75 !important;
         }
+        /* Streamlit 기본 컨테이너 중앙 정렬 강제 */
+        [data-testid="stVerticalBlock"] > div,
+        [data-testid="stMarkdownContainer"],
+        .stMarkdown {
+            max-width: 100% !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
     }
     /* 태블릿 (769px ~ 1024px) */
     @media (min-width: 769px) and (max-width: 1024px) {
         .crm-app-title {
             font-size: 1.8rem !important;
+        }
+        .crm-app-subtitle {
+            font-size: 1.05rem !important;
         }
         .crm-section-title {
             font-size: 1.15rem !important;
@@ -668,11 +684,22 @@ if not _is_authenticated():
         .crm-body-text {
             font-size: 0.95rem !important;
         }
+        /* 태블릿 중앙 정렬 */
+        [data-testid="stVerticalBlock"] > div,
+        [data-testid="stMarkdownContainer"],
+        .stMarkdown {
+            max-width: 680px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
     }
     /* PC (1025px 이상) */
     @media (min-width: 1025px) {
         .crm-app-title {
             font-size: 2.0rem !important;
+        }
+        .crm-app-subtitle {
+            font-size: 1.1rem !important;
         }
         .crm-section-title {
             font-size: 1.2rem !important;
@@ -693,8 +720,9 @@ if not _is_authenticated():
         f"<div class='crm-login-container'>"
         f"<div style='text-align:center;padding:24px 0 8px;'>"
         f"{_crm_av_html}"
-        "<div class='crm-app-title' style='color:#1e3a8a;margin-bottom:14px;'>"
-        "🏆 Goldkey_AI_Masters2026<br><span style='font-size:0.7em;font-weight:700;color:#64748b;'>(CRM 고객상담 앱)</span></div>"
+        "<div class='crm-app-title' style='color:#1e3a8a;margin-bottom:8px;'>"
+        "🏆 Goldkey_AI_Masters2026</div>"
+        "<div class='crm-app-subtitle' style='color:#64748b;margin-bottom:14px;'>(CRM 고객상담 앱)</div>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -719,6 +747,15 @@ if not _is_authenticated():
     # ── [GP-SEC §5] 공통 약관 동의 UI (필수동의 상단, 파스텔 톤) ────────
     if st.session_state.pop("_crm_logout_success", False):
         st.success("✅ 안전하게 로그아웃되었습니다. 모든 임시 세션 정보가 보안 파기되었습니다.")
+    
+    st.markdown(
+        "<div style='max-width:680px;margin:0 auto;'>"
+        "<div class='crm-section-title' style='background:#dbeafe;border-radius:8px 8px 0 0;"
+        "padding:8px 16px;text-align:center;color:#1e3a8a;'>"
+        "📋 서비스 이용을 위한 필수 동의</div></div>",
+        unsafe_allow_html=True,
+    )
+    
     _crm_agreed = _sc_render_auth_screen(
         app_name="Goldkey AI Masters 2026",
         app_icon="🏆",
@@ -727,7 +764,7 @@ if not _is_authenticated():
         show_terms_scroll=False,
         show_nibo_box=False,
         show_checkboxes=True,
-        consent_header_text="📋 서비스 이용을 위한 필수 동의",
+        consent_header_text="",
         consent_header_bg="#dbeafe",
         consent_header_fg="#1e3a8a",
     )
@@ -853,25 +890,17 @@ if not _is_authenticated():
                                 except Exception:
                                     pass
     # ── 하단 통합 안내문 (이용약관 + 내보험다보여) ───────────────────────────
-    
-    # 1. 화면을 [왼쪽 여백(1) : 가운데 본문(8) : 오른쪽 여백(1)] 비율로 나눕니다.
-    col_left, col_center, col_right = st.columns([1, 8, 1])
-    
-    # 2. 가운데(col_center) 구역 안에만 약관과 선을 그려넣습니다.
-    with col_center:
-        st.markdown(
-            "<hr style='margin:24px 0 14px;border:1px solid #e5e7eb;'>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<div style='margin: 0 auto; max-width:560px; background:#eff6ff; border-radius:8px 8px 0 0;"
-            "padding:7px 14px; margin-bottom:0;'>"
-            "<span style='font-size:0.85rem;font-weight:900;color:#1e3a8a;'>"
-            "📋 Goldkey AI Masters 2026 이용약관 및 내보험다보여 통합 동의서</span></div>",
-            unsafe_allow_html=True,
-        )
-        # 🚨 [주의] 이 코드 바로 아래에 있는 실제 약관 내용 박스(st.text_area 등)도 
-        # 반드시 여기서부터 '들여쓰기(Tab)'를 해서 with col_center: 안에 포함시켜야 합니다!
+    st.markdown(
+        "<hr style='max-width:680px;margin:24px auto 14px;border:1px solid #e5e7eb;'>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<div style='max-width:680px;margin:0 auto;'>"
+        "<div class='crm-section-title' style='background:#eff6ff;border-radius:8px 8px 0 0;"
+        "padding:7px 14px;color:#1e3a8a;'>"
+        "📋 Goldkey AI Masters 2026 이용약관 및 내보험다보여 통합 동의서</div></div>",
+        unsafe_allow_html=True,
+    )
 
     _sc_render_auth_screen(
         app_name="Goldkey AI Masters 2026",
@@ -883,11 +912,11 @@ if not _is_authenticated():
         show_checkboxes=False,
     )
     st.markdown(
-        "<div style='max-width:560px;background:#fffbeb;border:1px dashed #f59e0b;"
+        "<div style='max-width:680px;margin:0 auto;background:#fffbeb;border:1px dashed #f59e0b;"
         "border-radius:0 0 8px 8px;padding:12px 14px;'>"
-        "<div style='font-size:0.82rem;font-weight:900;color:#92400e;margin-bottom:6px;'>"
+        "<div class='crm-section-title' style='color:#92400e;margin-bottom:6px;'>"
         "🔐 내보험다보여 연동 — 신용정보의 이용 및 보호에 관한 법률 제32조 안내</div>"
-        "<div style='font-size:0.75rem;color:#78350f;line-height:1.85;'>"
+        "<div class='crm-body-text' style='color:#78350f;'>"
         "• <b>수집:</b> 보험사명 · 상품명 · 보장내역 · 계약 상태 (한국신용정보원 제공 데이터)<br>"
         "• <b>목적:</b> AI 트리니티 — 보장성 분석 및 맞춤형 보험 설계 제공<br>"
         "• <b>보관:</b> 분석 후 30일 경과 시 자동 파기 (단, 분석 리포트는 최대 3년 보관)<br>"
@@ -896,18 +925,23 @@ if not _is_authenticated():
         "</div></div>",
         unsafe_allow_html=True,
     )
+    st.markdown("<div style='max-width:680px;margin:0 auto;'>", unsafe_allow_html=True)
     with st.popover("📋 신용정보의 이용 및 보호에 관한 법률 (약칭: 신용정보법)", use_container_width=True):
         st.markdown(
-            "<div style='font-size:0.78rem;color:#92400e;font-weight:700;"
-            "margin-bottom:6px;'>📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
+            "<div class='crm-section-title' style='color:#92400e;margin-bottom:6px;'>"
+            "📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
             unsafe_allow_html=True,
         )
         st.markdown(_crm_nibo_html, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+    
     # ── 앱 바닥 — 관리자 로그인 · 오류신고 (미인증 사용자도 접근 가능) ────────
+    st.markdown("<div style='max-width:680px;margin:20px auto 0;'>", unsafe_allow_html=True)
     try:
         _sc_emergency_btn(app_name="CRM", key_prefix="crm_emg_bottom", show_admin_login=True)
     except Exception:
         pass
+    st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
 # ── 인증 완료 후 메인 ─────────────────────────────────────────────────────────
