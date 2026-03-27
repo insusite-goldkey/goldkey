@@ -24,6 +24,24 @@ import urllib.parse
 import os
 import calendar_engine
 
+# ── [GP-SEC] 세션 지속성 관리자 ────────────────────────────────────────────────
+try:
+    from session_manager import (
+        init_persistent_session,
+        save_session_to_storage,
+        check_idle_timeout,
+        clear_session,
+        update_last_activity
+    )
+    _SESSION_MANAGER_OK = True
+except Exception as _sm_err:
+    _SESSION_MANAGER_OK = False
+    init_persistent_session = lambda: False
+    save_session_to_storage = lambda *args, **kwargs: None
+    check_idle_timeout = lambda: False
+    clear_session = lambda: None
+    update_last_activity = lambda: None
+
 # ── [조건부] voice_engine · crm_fortress import ───────────────────────────
 _MODULE_LOAD_ERRORS: list = []
 try:
@@ -142,6 +160,16 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+# ── [GP-SEC] 세션 지속성 초기화 (새로고침/앱전환 시 로그인 유지) ─────────────────
+# DOM 에러 방지: rerun 플래그 초기화
+st.session_state.pop("_rerun_pending", None)
+
+if _SESSION_MANAGER_OK:
+    _session_restored = init_persistent_session()
+    if _session_restored:
+        # 세션 복구 성공 시 로그 (디버그용)
+        pass
 
 # ── [GP-DESIGN-V3] 전역 디자인 시스템 즉시 주입 (Single Source of Truth) ────────
 try:
@@ -590,6 +618,9 @@ def _check_sso_token() -> bool:
             if _back_pid:
                 st.session_state["crm_selected_pid"] = _back_pid
                 st.session_state["crm_spa_screen"]   = _back_screen
+            # [GP-SEC] 세션 저장 (새로고침 시 로그인 유지)
+            if _SESSION_MANAGER_OK:
+                save_session_to_storage(_user_id, st.session_state.get("crm_user_name", "설계사"), "agent", _auth_token, _back_screen or "list")
             st.query_params.clear()  # [GP-SEC §2] SSO 토큰 수신 즉시 URL에서 삭제
             return True
     return False
@@ -599,7 +630,10 @@ def _is_authenticated() -> bool:
 
 # SSO 토큰 수신 처리
 if _check_sso_token():
-    st.rerun()
+    # DOM 에러 방지: rerun 전 플래그 설정
+    if not st.session_state.get("_rerun_pending"):
+        st.session_state["_rerun_pending"] = True
+        st.rerun()
 
 # ── [GP-SEC §2] 미인증 처리 — 자체 로그인 화면 독립 렌더링 ─────────────────────
 if not _is_authenticated():
@@ -808,7 +842,13 @@ if not _is_authenticated():
                         st.session_state["crm_role"]          = "admin"
                         st.session_state["crm_token"]         = "admin-direct"
                         st.session_state.pop("_crm_login_phase", None)
-                        st.rerun()
+                        # [GP-SEC] 세션 저장 (새로고침 시 로그인 유지)
+                        if _SESSION_MANAGER_OK:
+                            save_session_to_storage("admin", "관리자", "admin", "admin-direct", "list")
+                        # DOM 에러 방지: rerun 전 플래그 설정
+                        if not st.session_state.get("_rerun_pending"):
+                            st.session_state["_rerun_pending"] = True
+                            st.rerun()
                     elif not _cn or len(_cn) < 2:
                         st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
                     elif not _cc:
@@ -850,14 +890,18 @@ if not _is_authenticated():
                         
                         if _final_member is None:
                             # 미등록 회원 → 자동 회원가입 모달 트리거
-                            st.session_state["_crm_show_signup"] = True
-                            st.session_state["_crm_signup_name"] = _cn
-                            st.session_state["_crm_signup_contact"] = _cc
-                            st.error(
-                                "❌ **CRM 시스템에 등록되지 않은 정보입니다.**\n\n"
-                                "아래 '신규 회원가입' 버튼을 눌러 등록을 진행해 주세요."
-                            )
-                            st.rerun()
+                            if not st.session_state.get("_crm_show_signup"):
+                                st.session_state["_crm_show_signup"] = True
+                                st.session_state["_crm_signup_name"] = _cn
+                                st.session_state["_crm_signup_contact"] = _cc
+                                st.error(
+                                    "❌ **CRM 시스템에 등록되지 않은 정보입니다.**\n\n"
+                                    "아래 '신규 회원가입' 버튼을 눌러 등록을 진행해 주세요."
+                                )
+                                # DOM 에러 방지: rerun 전 플래그 설정
+                                if not st.session_state.get("_rerun_pending"):
+                                    st.session_state["_rerun_pending"] = True
+                                    st.rerun()
                         else:
                             # 인증 소스 로깅
                             if _auth_source:
@@ -928,7 +972,13 @@ if not _is_authenticated():
                                 st.session_state["crm_role"]          = "agent"
                                 st.session_state["crm_token"]         = _crm_tok
                                 st.session_state.pop("_crm_login_phase", None)
-                                st.rerun()
+                                # [GP-SEC] 세션 저장 (새로고침 시 로그인 유지)
+                                if _SESSION_MANAGER_OK:
+                                    save_session_to_storage(_uid, _cn, "agent", _crm_tok, "list")
+                                # DOM 에러 방지: rerun 전 플래그 설정
+                                if not st.session_state.get("_rerun_pending"):
+                                    st.session_state["_rerun_pending"] = True
+                                    st.rerun()
                             else:
                                 st.error("❌ 연락처가 일치하지 않습니다.")
                                 try:
@@ -1026,9 +1076,12 @@ if not _is_authenticated():
                                 st.session_state.pop("_crm_signup_name", None)
                                 st.session_state.pop("_crm_signup_contact", None)
                                 st.balloons()
-                                import time
-                                time.sleep(2)
-                                st.rerun()
+                                # DOM 에러 방지: rerun 전 플래그 설정
+                                if not st.session_state.get("_rerun_pending"):
+                                    st.session_state["_rerun_pending"] = True
+                                    import time
+                                    time.sleep(2)
+                                    st.rerun()
                             else:
                                 st.error("❌ 회원가입 실패. 관리자에게 문의해 주세요.")
                         except Exception as _signup_err:
@@ -1038,7 +1091,10 @@ if not _is_authenticated():
                 st.session_state.pop("_crm_show_signup", None)
                 st.session_state.pop("_crm_signup_name", None)
                 st.session_state.pop("_crm_signup_contact", None)
-                st.rerun()
+                # DOM 에러 방지: rerun 전 플래그 설정
+                if not st.session_state.get("_rerun_pending"):
+                    st.session_state["_rerun_pending"] = True
+                    st.rerun()
     
     # ── 하단 통합 안내문 (이용약관 + 내보험다보여) ───────────────────────────
     st.markdown(
