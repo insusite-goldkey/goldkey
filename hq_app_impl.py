@@ -3993,19 +3993,24 @@ def _art43_render_tab() -> None:
     # ── 입력 폼 ──
     _c1, _c2 = st.columns(2)
     with _c1:
-        _cust_name    = st.text_input("고객 성함", value="", key="art43_cust_name",
-                                      )
-        _planner_name = st.text_input("설계사 성함", value="", key="art43_planner_name",
-                                      )
+        _cust_name    = st.text_input("고객 성함",
+                                      value=st.session_state.get("art43_cust_name", ""),
+                                      key="art43_cust_name")
+        _planner_name = st.text_input("설계사 성함",
+                                      value=st.session_state.get("art43_planner_name", ""),
+                                      key="art43_planner_name")
     with _c2:
-        _nhis         = st.number_input("월 건강보험료 (원)", value=0, step=10000,
+        _nhis         = st.number_input("월 건강보험료 (원)",
+                                        value=int(st.session_state.get("art43_nhis", 0)),
+                                        step=10000,
                                         key="art43_nhis", format="%d")
-        _planner_tel  = st.text_input("설계사 연락처", value="", key="art43_tel",
-                                      )
+        _planner_tel  = st.text_input("설계사 연락처",
+                                      value=st.session_state.get("art43_tel", ""),
+                                      key="art43_tel")
 
     _planner_comment = st.text_area("베테랑의 한마디 (AI 초안 자동 생성, 수정 가능)",
-                                    value="", key="art43_comment",
-                                    
+                                    value=st.session_state.get("art43_comment", ""),
+                                    key="art43_comment",
                                     height=80)
 
     # ── pending_wisdom 데이터 바인딩 ──
@@ -41551,7 +41556,8 @@ div[data-testid="stButton"] {
                     _tri_premium_raw = st.number_input(
                         "건강보험료 본인부담액 (원)",
                         min_value=0, max_value=4_000_000,
-                        value=213_400, step=1_000,
+                        value=int(st.session_state.get("tri_premium", 213_400)),
+                        step=1_000,
                         key="tri_premium",
                         help="월급명세서의 건강보험료 본인부담 항목",
                     )
@@ -41562,12 +41568,14 @@ div[data-testid="stButton"] {
                 with _tri_col2:
                     _tri_ltc_inc = st.checkbox(
                         "장기요양보험료 포함",
-                        value=False, key="tri_ltc_inc",
+                        value=st.session_state.get("tri_ltc_inc", False),
+                        key="tri_ltc_inc",
                         help="건보료+장기요양 합산 금액 입력 시 체크",
                     )
                     _tri_cname = st.text_input(
                         "고객명 (클로징 멘트용)",
-                        value="고객", key="tri_cname",
+                        value=st.session_state.get("tri_cname", "고객"),
+                        key="tri_cname",
                     )
                 _tri_kb_cancer = 0.0
                 _tri_kb_total  = 0.0
@@ -41604,7 +41612,8 @@ div[data-testid="stButton"] {
                     _tri_premium_linked = st.number_input(
                         "건강보험료 본인부담액 (원)",
                         min_value=0, max_value=4_000_000,
-                        value=213_400, step=1_000,
+                        value=int(st.session_state.get("tri_premium_linked", 213_400)),
+                        step=1_000,
                         key="tri_premium_linked",
                     )
                     _tri_emp_type_l = st.selectbox(
@@ -41613,10 +41622,12 @@ div[data-testid="stButton"] {
                     )
                 with _tri_lc2:
                     _tri_cname_l = st.text_input(
-                        "고객명", value="고객", key="tri_cname_l",
+                        "고객명", value=st.session_state.get("tri_cname_l", "고객"),
+                        key="tri_cname_l",
                     )
                     _tri_ltc_l = st.checkbox(
-                        "장기요양 포함", value=False, key="tri_ltc_l",
+                        "장기요양 포함", value=st.session_state.get("tri_ltc_l", False),
+                        key="tri_ltc_l",
                     )
 
             with _tri_tabs[2]:
@@ -55258,7 +55269,8 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     st.markdown("##### 🏥 장기요양 급여액 업데이트 메모")
                     _r35_ltci_memo = st.text_area(
                         "등급별 급여액 변경 내용 (자유 입력)",
-                         2025년 1등급 재가: 2,150,000원으로 상향\n"
+                        value=(
+                            "2025년 1등급 재가: 2,150,000원으로 상향\n"
                             "    5등급 시설 급여 신설 예정 등"
                         ),
                         height=100,
@@ -55266,7 +55278,6 @@ border-radius:0 10px 10px 0;padding:10px 16px;margin-bottom:12px;">
                     )
                     _r35_drug_note = st.text_input(
                         "신규 신약/제도 변경 요약",
-                        
                         key="art35_drug_note",
                     )
                     _r35_sync_date = st.date_input(
