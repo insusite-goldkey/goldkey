@@ -131,6 +131,7 @@ from db_utils import (
     save_ai_brief as _du_save_ai_brief,
     log_consulting as _du_log_consult,
     get_member           as _du_get_member,
+    upsert_member        as _du_upsert_member,
     update_member_pin_hash as _du_pin_update,
 )
 
@@ -813,12 +814,57 @@ if not _is_authenticated():
                     elif not _cc:
                         st.error("⚠️ 연락처를 입력해 주세요.")
                     else:
-                        # [db_utils §8] gk_members 조회 — 독자 클라이언트 제거
-                        _crm_member = _du_get_member(_cn)
-                        if _crm_member is None:
-                            st.error("❌ 등록되지 않은 이름입니다. HQ 앱에서 먼저 가입해 주세요.")
+                        # [GP-SEC 3중 동기화] Supabase + GCS 통합 검증
+                        _crm_member = None
+                        _gcs_member = None
+                        _auth_source = ""
+                        
+                        # Track 1: Supabase DB 조회
+                        try:
+                            _crm_member = _du_get_member(_cn)
+                            if _crm_member:
+                                _auth_source = "Supabase"
+                        except Exception as _e1:
+                            st.warning(f"⚠️ [DEBUG] Supabase 조회 실패: {_e1}")
+                        
+                        # Track 2: GCS 마스터 명부 조회 (Supabase 실패 시 폴백)
+                        if not _crm_member:
+                            try:
+                                from utils.gcs_master_sync import list_all_members_from_gcs
+                                _all_gcs = list_all_members_from_gcs()
+                                from utils.crypto_utils import decrypt_name
+                                for _gm in _all_gcs:
+                                    try:
+                                        _gm_name = decrypt_name(_gm.get("name_encrypted", ""))
+                                        if _gm_name == _cn:
+                                            _gcs_member = _gm
+                                            _auth_source = "GCS"
+                                            break
+                                    except Exception:
+                                        continue
+                            except Exception as _e2:
+                                st.warning(f"⚠️ [DEBUG] GCS 조회 실패: {_e2}")
+                        
+                        # 3중 동기화 결과 판정
+                        _final_member = _crm_member or _gcs_member
+                        
+                        if _final_member is None:
+                            # 미등록 회원 → 자동 회원가입 모달 트리거
+                            st.session_state["_crm_show_signup"] = True
+                            st.session_state["_crm_signup_name"] = _cn
+                            st.session_state["_crm_signup_contact"] = _cc
+                            st.error(
+                                "❌ **CRM 시스템에 등록되지 않은 정보입니다.**\n\n"
+                                "아래 '신규 회원가입' 버튼을 눌러 등록을 진행해 주세요."
+                            )
+                            st.rerun()
                         else:
+                            # 인증 소스 로깅
+                            if _auth_source:
+                                st.success(f"✅ [DEBUG] 회원 발견: {_auth_source} 계층")
+                            
                             # [GP-SEC §1][GP-회원관리 §연락처표준] 4-track 연락처 검증
+                            _crm_member = _final_member
                             _clean_cc = get_clean_phone(_cc)
                             _input_hash = _hl.sha256(_clean_cc.encode()).hexdigest()
                             _m_pin      = _crm_member.get("pin_hash", "")
@@ -889,6 +935,111 @@ if not _is_authenticated():
                                     _sc_notify_admin_error(_cn, "AUTH_MISMATCH", "CRM")
                                 except Exception:
                                     pass
+        
+        # ── [GP-SEC] 신규 회원가입 모달 (미등록 시 자동 표시) ────────────────────
+        if st.session_state.get("_crm_show_signup", False):
+            st.markdown(
+                "<div style='max-width:680px;margin:20px auto;background:linear-gradient(135deg,#FFF4E6,#FFE7CC);"
+                "border:2px solid #FB8C00;border-left:6px solid #F57C00;border-radius:12px;padding:18px 22px;"
+                "box-shadow:0 4px 12px rgba(251,140,0,0.2);'>"
+                "<div class='crm-section-title' style='color:#E65100;margin-bottom:12px;'>"
+                "✍️ 신규 회원가입</div>"
+                "<div class='crm-body-text' style='color:#BF360C;'>"
+                "CRM 시스템에 등록되지 않은 정보입니다. 아래 정보를 입력하여 회원가입을 완료해 주세요."
+                "</div></div>",
+                unsafe_allow_html=True,
+            )
+            
+            with st.form("crm_signup_form"):
+                _signup_name = st.text_input(
+                    "👤 이름",
+                    value=st.session_state.get("_crm_signup_name", ""),
+                    key="signup_name_input"
+                )
+                _signup_contact = st.text_input(
+                    "📱 연락처 (로그인용)",
+                    type="password",
+                    value=st.session_state.get("_crm_signup_contact", ""),
+                    key="signup_contact_input"
+                )
+                _signup_job = st.text_input(
+                    "💼 직업/소속",
+                    placeholder="예: 보험설계사, KB손해보험",
+                    key="signup_job_input"
+                )
+                _signup_role = st.selectbox(
+                    "👔 역할",
+                    options=["agent", "admin"],
+                    format_func=lambda x: "설계사" if x == "agent" else "관리자",
+                    key="signup_role_input"
+                )
+                
+                _signup_submit = st.form_submit_button(
+                    "✅ 회원가입 완료",
+                    use_container_width=True,
+                    type="primary"
+                )
+                
+                if _signup_submit:
+                    if not _signup_name or len(_signup_name) < 2:
+                        st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
+                    elif not _signup_contact:
+                        st.error("⚠️ 연락처를 입력해 주세요.")
+                    else:
+                        try:
+                            from utils.crypto_utils import (
+                                hash_contact,
+                                encrypt_name,
+                                generate_user_id
+                            )
+                            from utils.gcs_master_sync import dual_write_member
+                            import datetime
+                            
+                            # 회원 데이터 생성
+                            _clean_contact = get_clean_phone(_signup_contact)
+                            _new_user_id = generate_user_id()
+                            _new_member = {
+                                "user_id": _new_user_id,
+                                "name": _signup_name,
+                                "name_encrypted": encrypt_name(_signup_name),
+                                "contact": hash_contact(_clean_contact),
+                                "pin_hash": hash_contact(_clean_contact),
+                                "job": _signup_job or "",
+                                "user_role": _signup_role,
+                                "role": _signup_role,
+                                "quota_remaining": 10,
+                                "created_at": datetime.datetime.now().isoformat(),
+                                "updated_at": datetime.datetime.now().isoformat(),
+                            }
+                            
+                            # Dual Write (Supabase + GCS)
+                            _db_success = _du_upsert_member(_new_member)
+                            _gcs_success = dual_write_member(_new_member)
+                            
+                            if _db_success or _gcs_success:
+                                st.success(
+                                    f"✅ 회원가입 완료! (DB: {'✓' if _db_success else '✗'}, "
+                                    f"GCS: {'✓' if _gcs_success else '✗'})\n\n"
+                                    "로그인 화면으로 돌아갑니다."
+                                )
+                                st.session_state.pop("_crm_show_signup", None)
+                                st.session_state.pop("_crm_signup_name", None)
+                                st.session_state.pop("_crm_signup_contact", None)
+                                st.balloons()
+                                import time
+                                time.sleep(2)
+                                st.rerun()
+                            else:
+                                st.error("❌ 회원가입 실패. 관리자에게 문의해 주세요.")
+                        except Exception as _signup_err:
+                            st.error(f"❌ 회원가입 오류: {_signup_err}")
+            
+            if st.button("← 로그인 화면으로 돌아가기", use_container_width=True):
+                st.session_state.pop("_crm_show_signup", None)
+                st.session_state.pop("_crm_signup_name", None)
+                st.session_state.pop("_crm_signup_contact", None)
+                st.rerun()
+    
     # ── 하단 통합 안내문 (이용약관 + 내보험다보여) ───────────────────────────
     st.markdown(
         "<hr style='max-width:680px;margin:24px auto 14px;border:1px solid #e5e7eb;'>",
@@ -1544,6 +1695,7 @@ elif _spa_mode == "customer":
         if _ms_auth_code:
             _ms_cid  = get_env_secret("MS_CLIENT_ID", "")
             _ms_csec = get_env_secret("MS_CLIENT_SECRET", "")
+            
             _ms_tid  = get_env_secret("MS_TENANT_ID", "common")
             _ms_ruri = st.session_state.get(
                 "ms_redirect_uri",
