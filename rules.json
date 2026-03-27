@@ -39,7 +39,7 @@
     "_comment": "[GP-44] CRM 메인 대시보드 액션 그리드 — 코드 배포 없이 레이블·순서·표시 변경 시 rules.json만 수정 (로컬 + GK_RULES_JSON_URL 병합)",
     "action_grid_title": "🎯 업무 바로가기",
     "actions": [
-      { "id": "contact",  "label": "고객정보조회",          "order": 1, "enabled": true,  "requires_customer": false },
+      { "id": "contact",  "label": "고객정보조회",          "order": 1, "enabled": true,  "requires_customer": true },
       { "id": "db_manage","label": "고객 데이터관리",        "order": 2, "enabled": true,  "requires_customer": false },
       { "id": "schedule", "label": "스케줄 일정 등록·조회",  "order": 3, "enabled": true,  "requires_customer": true  },
       { "id": "nibo",     "label": "내보험다보여",           "order": 4, "enabled": false, "requires_customer": true  },
