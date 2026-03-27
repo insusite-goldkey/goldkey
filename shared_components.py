@@ -1663,27 +1663,8 @@ div[data-testid="stFormSubmitButton"] > button:hover {
                 _st3.session_state["crm_user_name"]     = "이세윤"
                 _st3.session_state["crm_role"]          = "admin"
             if _adm_auth_ok:
-                _hq_dest = resolve_hq_app_url()
-                _st3.success("✅ 인증 완료 — HQ 전문 분석 시스템으로 이동합니다...")
-                try:
-                    import streamlit.components.v1 as _sc_adm
-                    _sc_adm.html(
-                        f'<script>window.top.location.href="{_hq_dest}";</script>',
-                        height=0,
-                    )
-                except Exception:
-                    pass
-                _st3.markdown(
-                    f"<div style='text-align:center;margin:14px 0;'>"
-                    f"<a href='{_hq_dest}' target='_self' "
-                    f"style='display:inline-block;background:linear-gradient(135deg,#1e3a8a,#2563eb);"
-                    f"color:#fff;padding:13px 30px;border-radius:12px;font-weight:900;"
-                    f"font-size:clamp(0.9rem,3vw,1.05rem);text-decoration:none;"
-                    f"box-shadow:0 3px 10px rgba(30,58,138,0.3);'>"
-                    f"🏗️ HQ 전문 상담 파트로 이동 →</a></div>",
-                    unsafe_allow_html=True,
-                )
-                _st3.stop()
+                _st3.success("✅ 관리자 인증 완료 — CRM 대시보드로 이동합니다...")
+                _st3.rerun()
             else:
                 _st3.error("❌ ID 또는 코드가 올바르지 않습니다.")
         _st3.markdown("</div>", unsafe_allow_html=True)
@@ -3034,3 +3015,272 @@ def get_crm_action_definitions() -> list[tuple[str, str, bool]]:
         _req = bool(a.get("requires_customer", _id != "settings"))
         out.append((_lbl, _id, _req))
     return out if out else list(_DEFAULT_CRM_ACTION_ROWS)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP-CRM-AUTH] CRM 회원가입 및 비밀번호 재설정 Modal
+# ══════════════════════════════════════════════════════════════════════════════
+
+@st.dialog(txt.SIGNUP_MODAL_TITLE if (txt and hasattr(txt, 'SIGNUP_MODAL_TITLE')) else "🔐 회원가입")
+def render_signup_modal():
+    """
+    [GP-CRM-AUTH §1] 회원가입 Modal
+    
+    - 연락처 이중 확인 (오입력 방지)
+    - 비밀번호 이중 확인
+    - SHA-256 해시 + AES-256 암호화
+    - DB + GCS Dual Write
+    """
+    from utils.crypto_utils import hash_contact, hash_password, encrypt_name, generate_user_id
+    from utils.gcs_master_sync import dual_write_member
+    
+    st.markdown(
+        "<div style='font-size:0.85rem;color:#374151;margin-bottom:16px;'>"
+        f"{txt.LOGIN_HQ_REFERENCE_REMOVED if (txt and hasattr(txt, 'LOGIN_HQ_REFERENCE_REMOVED')) else 'CRM 앱에서 직접 가입하실 수 있습니다'}"
+        "</div>",
+        unsafe_allow_html=True
+    )
+    
+    # 입력 필드
+    name = st.text_input(
+        txt.SIGNUP_NAME_LABEL if (txt and hasattr(txt, 'SIGNUP_NAME_LABEL')) else "이름",
+        key="signup_name"
+    )
+    
+    contact = st.text_input(
+        txt.SIGNUP_CONTACT_LABEL if (txt and hasattr(txt, 'SIGNUP_CONTACT_LABEL')) else "연락처 (로그인 ID)",
+        placeholder="010-1234-5678",
+        key="signup_contact"
+    )
+    
+    contact_confirm = st.text_input(
+        txt.SIGNUP_CONTACT_CONFIRM_LABEL if (txt and hasattr(txt, 'SIGNUP_CONTACT_CONFIRM_LABEL')) else "연락처 확인",
+        placeholder="010-1234-5678",
+        key="signup_contact_confirm"
+    )
+    
+    password = st.text_input(
+        txt.SIGNUP_PASSWORD_LABEL if (txt and hasattr(txt, 'SIGNUP_PASSWORD_LABEL')) else "비밀번호",
+        type="password",
+        key="signup_password"
+    )
+    
+    password_confirm = st.text_input(
+        txt.SIGNUP_PASSWORD_CONFIRM_LABEL if (txt and hasattr(txt, 'SIGNUP_PASSWORD_CONFIRM_LABEL')) else "비밀번호 확인",
+        type="password",
+        key="signup_password_confirm"
+    )
+    
+    # 유효성 검사
+    contact_match = contact == contact_confirm if contact and contact_confirm else False
+    password_match = password == password_confirm if password and password_confirm else False
+    
+    if contact and contact_confirm and not contact_match:
+        st.error(txt.SIGNUP_CONTACT_MISMATCH_ERROR if (txt and hasattr(txt, 'SIGNUP_CONTACT_MISMATCH_ERROR')) else "⚠️ 연락처가 일치하지 않습니다")
+    
+    if password and password_confirm and not password_match:
+        st.error(txt.SIGNUP_PASSWORD_MISMATCH_ERROR if (txt and hasattr(txt, 'SIGNUP_PASSWORD_MISMATCH_ERROR')) else "⚠️ 비밀번호가 일치하지 않습니다")
+    
+    # 버튼 활성화 조건
+    can_submit = (
+        name and 
+        contact and 
+        contact_confirm and 
+        password and 
+        password_confirm and 
+        contact_match and 
+        password_match
+    )
+    
+    if not can_submit:
+        st.caption(txt.SIGNUP_BUTTON_DISABLED_HINT if (txt and hasattr(txt, 'SIGNUP_BUTTON_DISABLED_HINT')) else "모든 필드를 올바르게 입력해야 가입 버튼이 활성화됩니다")
+    
+    # 가입 버튼
+    if st.button(
+        txt.SIGNUP_BUTTON_TEXT if (txt and hasattr(txt, 'SIGNUP_BUTTON_TEXT')) else "✅ 가입하기",
+        disabled=not can_submit,
+        use_container_width=True
+    ):
+        try:
+            # 암호화 처리
+            user_id = generate_user_id()
+            contact_hash = hash_contact(contact)
+            password_hash = hash_password(password)
+            name_encrypted = encrypt_name(name)
+            
+            # 회원 데이터 구성
+            member_data = {
+                "user_id": user_id,
+                "name_encrypted": name_encrypted,
+                "contact_hash": contact_hash,
+                "password_hash": password_hash,
+                "role": "member",
+                "quota_remaining": 10,
+                "device_fingerprint": "",  # 향후 구현
+                "created_at": datetime.datetime.now().isoformat(),
+                "updated_at": datetime.datetime.now().isoformat()
+            }
+            
+            # DB + GCS Dual Write
+            # TODO: db_save_func 연결 필요
+            success = dual_write_member(member_data, db_save_func=None)
+            
+            if success:
+                st.success(txt.SIGNUP_SUCCESS_MESSAGE if (txt and hasattr(txt, 'SIGNUP_SUCCESS_MESSAGE')) else "✅ 회원가입이 완료되었습니다!")
+                st.session_state["_signup_completed"] = True
+                st.rerun()
+            else:
+                st.error("❌ 회원가입 중 오류가 발생했습니다. 다시 시도해 주세요.")
+        
+        except Exception as e:
+            st.error(f"❌ 회원가입 실패: {e}")
+
+
+@st.dialog(txt.PASSWORD_RESET_MODAL_TITLE if (txt and hasattr(txt, 'PASSWORD_RESET_MODAL_TITLE')) else "🔑 비밀번호 재설정")
+def render_password_reset_modal():
+    """
+    [GP-CRM-AUTH §2] 비밀번호 재설정 Modal (Mockup 본인인증)
+    
+    - Step 1: PASS/카카오 인증 시뮬레이션
+    - Step 2: 연락처 해시 대조
+    - Step 3: 새 비밀번호 설정
+    """
+    from utils.crypto_utils import hash_contact, hash_password, encrypt_name
+    from utils.gcs_master_sync import verify_member_by_contact_hash, save_member_to_gcs
+    
+    # 베타 경고
+    st.warning(txt.PASSWORD_RESET_BETA_WARNING if (txt and hasattr(txt, 'PASSWORD_RESET_BETA_WARNING')) else "⚠️ 베타 테스트용 시뮬레이션 모드입니다")
+    
+    # 시뮬레이션 안내
+    with st.expander("📱 본인인증 시뮬레이션 안내", expanded=False):
+        st.markdown(
+            txt.PASSWORD_RESET_AUTH_MOCKUP_NOTICE if (txt and hasattr(txt, 'PASSWORD_RESET_AUTH_MOCKUP_NOTICE')) else """
+            현재 베타 테스트 기간으로, 실제 PASS/카카오 인증 대신 시뮬레이션 모드로 작동합니다.
+            가입 시 사용한 이름과 연락처를 입력하세요.
+            """
+        )
+    
+    # Step 1: 본인인증
+    if "password_reset_authenticated" not in st.session_state:
+        st.session_state["password_reset_authenticated"] = False
+        st.session_state["password_reset_user_id"] = None
+    
+    if not st.session_state["password_reset_authenticated"]:
+        st.markdown(f"### {txt.PASSWORD_RESET_AUTH_STEP_TITLE if (txt and hasattr(txt, 'PASSWORD_RESET_AUTH_STEP_TITLE')) else 'Step 1: 본인인증'}")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button(
+                txt.PASSWORD_RESET_PASS_BUTTON if (txt and hasattr(txt, 'PASSWORD_RESET_PASS_BUTTON')) else "🅿️ PASS 인증",
+                use_container_width=True
+            ):
+                st.session_state["auth_method"] = "PASS"
+        
+        with col2:
+            if st.button(
+                txt.PASSWORD_RESET_KAKAO_BUTTON if (txt and hasattr(txt, 'PASSWORD_RESET_KAKAO_BUTTON')) else "💬 카카오 인증",
+                use_container_width=True
+            ):
+                st.session_state["auth_method"] = "KAKAO"
+        
+        # 인증 방법 선택 후 입력 필드 표시
+        if "auth_method" in st.session_state:
+            st.markdown("---")
+            st.markdown(f"**{st.session_state['auth_method']} 인증 시뮬레이션**")
+            
+            auth_name = st.text_input("이름", key="auth_name")
+            auth_contact = st.text_input("연락처", placeholder="010-1234-5678", key="auth_contact")
+            
+            if st.button("✅ 인증 완료", use_container_width=True):
+                if auth_name and auth_contact:
+                    # 연락처 해시로 회원 검색
+                    contact_hash = hash_contact(auth_contact)
+                    member = verify_member_by_contact_hash(contact_hash)
+                    
+                    if member:
+                        # 이름 복호화 후 대조 (추가 보안)
+                        from utils.crypto_utils import decrypt_name
+                        stored_name = decrypt_name(member.get("name_encrypted", ""))
+                        
+                        if stored_name == auth_name:
+                            st.success(txt.PASSWORD_RESET_AUTH_SUCCESS if (txt and hasattr(txt, 'PASSWORD_RESET_AUTH_SUCCESS')) else "✅ 본인인증 완료")
+                            st.session_state["password_reset_authenticated"] = True
+                            st.session_state["password_reset_user_id"] = member.get("user_id")
+                            st.rerun()
+                        else:
+                            st.error("❌ 이름이 일치하지 않습니다")
+                    else:
+                        st.error(txt.PASSWORD_RESET_AUTH_FAILED if (txt and hasattr(txt, 'PASSWORD_RESET_AUTH_FAILED')) else "❌ 인증 정보가 일치하지 않습니다")
+                else:
+                    st.warning("⚠️ 이름과 연락처를 모두 입력해 주세요")
+    
+    # Step 2: 새 비밀번호 설정
+    else:
+        st.success(txt.PASSWORD_RESET_AUTH_SUCCESS if (txt and hasattr(txt, 'PASSWORD_RESET_AUTH_SUCCESS')) else "✅ 본인인증 완료")
+        st.markdown("---")
+        st.markdown("### Step 2: 새 비밀번호 설정")
+        
+        new_password = st.text_input(
+            txt.PASSWORD_RESET_NEW_PASSWORD_LABEL if (txt and hasattr(txt, 'PASSWORD_RESET_NEW_PASSWORD_LABEL')) else "새 비밀번호",
+            type="password",
+            key="new_password"
+        )
+        
+        new_password_confirm = st.text_input(
+            txt.PASSWORD_RESET_NEW_PASSWORD_CONFIRM_LABEL if (txt and hasattr(txt, 'PASSWORD_RESET_NEW_PASSWORD_CONFIRM_LABEL')) else "새 비밀번호 확인",
+            type="password",
+            key="new_password_confirm"
+        )
+        
+        password_match = new_password == new_password_confirm if new_password and new_password_confirm else False
+        
+        if new_password and new_password_confirm and not password_match:
+            st.error(txt.SIGNUP_PASSWORD_MISMATCH_ERROR if (txt and hasattr(txt, 'SIGNUP_PASSWORD_MISMATCH_ERROR')) else "⚠️ 비밀번호가 일치하지 않습니다")
+        
+        if st.button(
+            txt.PASSWORD_RESET_BUTTON_TEXT if (txt and hasattr(txt, 'PASSWORD_RESET_BUTTON_TEXT')) else "✅ 비밀번호 변경",
+            disabled=not password_match,
+            use_container_width=True
+        ):
+            try:
+                # 새 비밀번호 해시
+                new_password_hash = hash_password(new_password)
+                
+                # GCS에서 회원 정보 로드
+                from utils.gcs_master_sync import load_member_from_gcs
+                user_id = st.session_state["password_reset_user_id"]
+                member = load_member_from_gcs(user_id)
+                
+                if member:
+                    # 비밀번호 업데이트
+                    member["password_hash"] = new_password_hash
+                    member["updated_at"] = datetime.datetime.now().isoformat()
+                    
+                    # GCS 저장
+                    success = save_member_to_gcs(member)
+                    
+                    if success:
+                        st.success(txt.PASSWORD_RESET_SUCCESS_MESSAGE if (txt and hasattr(txt, 'PASSWORD_RESET_SUCCESS_MESSAGE')) else "✅ 비밀번호가 변경되었습니다!")
+                        
+                        # 세션 초기화
+                        st.session_state["password_reset_authenticated"] = False
+                        st.session_state["password_reset_user_id"] = None
+                        if "auth_method" in st.session_state:
+                            del st.session_state["auth_method"]
+                        
+                        st.rerun()
+                    else:
+                        st.error("❌ 비밀번호 변경 중 오류가 발생했습니다")
+                else:
+                    st.error("❌ 회원 정보를 찾을 수 없습니다")
+            
+            except Exception as e:
+                st.error(f"❌ 비밀번호 변경 실패: {e}")
+import os
+def get_env_secret(k, d=None):
+    return os.environ.get(k, d)
+
+import os
+def get_env_secret(k, d=None):
+    return os.environ.get(k, d)
