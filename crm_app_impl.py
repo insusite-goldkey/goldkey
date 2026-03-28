@@ -100,6 +100,7 @@ from blocks.crm_analysis_screen_block import render_crm_analysis_screen
 from blocks.crm_list_inline_panel_block import render_crm_list_inline_panel
 from blocks.crm_insurance_contracts_block import render_insurance_contracts
 from blocks.crm_scan_block import render_crm_scan_block
+from blocks.crm_phase1_network_block import render_network_tagging_panel
 
 from shared_components import (
     CUSTOMER_SCHEMA,
@@ -2377,6 +2378,14 @@ elif _spa_mode == "customer":
                     _sel_pid,
                     _user_id,
                     _sel_cust.get("name", ""),
+                )
+
+                # ── [GP-PHASE1] 8가지 관계망 태깅 시스템 ──────────────────────
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                render_network_tagging_panel(
+                    person_id=_sel_pid,
+                    agent_id=_user_id,
+                    key_prefix="crm_contact_net"
                 )
 
                 # ── [통합 Upsert 폼 — 신규 고객등록 & 고객정보 수정] ──────────

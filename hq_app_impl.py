@@ -5,6 +5,12 @@ import os
 import time
 import base64
 
+# [GP-PHASE1] Phase 1 Network Viewer Import
+try:
+    from hq_phase1_network_viewer import render_network_dashboard as _hq_render_network_dashboard
+except ImportError:
+    _hq_render_network_dashboard = None
+
 # 🚨 [매우 중요] set_page_config는 무조건 가장 먼저 와야 합니다!
 st.set_page_config(page_title="Goldkey HQ", layout="wide", initial_sidebar_state="expanded")
 
@@ -13270,6 +13276,7 @@ def render_special_ops_sector():
             try:
                 from trinity_engine import run_trinity_analysis as _tri_run
                 from trinity_engine import save_analysis_to_db  as _tri_save
+                import db_utils as du
                 _nhi5 = float(st.session_state.get("gs_hi_premium") or 0)
                 _tri_adata, _tri_income = _tri_run(
                     current_coverage={},
@@ -13287,6 +13294,28 @@ def render_special_ops_sector():
                     report_text=_rpt or "",
                     person_id=st.session_state.get("selected_customer_id", "") or "",
                 )
+                # [GP-PHASE2] 새 테이블에도 저장
+                _person_id = st.session_state.get("selected_customer_id", "")
+                _agent_id = st.session_state.get("user_id", "")
+                if _person_id and _agent_id and _nhi5 > 0:
+                    _income_meta = _tri_adata.get("_income_meta", {})
+                    du.save_trinity_analysis(
+                        person_id=_person_id,
+                        agent_id=_agent_id,
+                        nhis_premium=_nhi5,
+                        analysis_data=_tri_adata,
+                        monthly_required=_income_meta.get("m_req", 0),
+                        gross_monthly=_income_meta.get("gross_monthly", 0),
+                        gross_annual=_income_meta.get("gross_annual", 0),
+                        net_annual=_income_meta.get("net_annual", 0),
+                        deduction_rate=_income_meta.get("deduction_rate", 0),
+                        income_breakdown=_income_meta.get("breakdown", {}),
+                        coverage_needs=_income_meta.get("coverage_needs", {}),
+                        kb7_metadata=_tri_adata.get("_kb7_meta", []),
+                        report_summary=_rpt[:500] if _rpt else "",
+                        employment_type="직장",
+                        ltc_included=False,
+                    )
             except Exception:
                 pass
             _kp5 = _st.text_input("📱 카카오톡 발송 번호", value=_ph5, key="sops_kakao_ph",
@@ -40495,6 +40524,28 @@ div[data-testid="stButton"] {
                 if st.button("⑦ 계약자·피보험자 증권 탭", key="ag_g7", use_container_width=True): _go_tab("crm_gate")
     
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            
+            # [GP-PHASE2] 분석 이력 뷰어
+            _selected_cid = st.session_state.get("selected_customer_id", "")
+            _agent_id = st.session_state.get("user_id", "")
+            if _selected_cid and _agent_id:
+                try:
+                    from hq_phase2_analysis_viewer import render_quick_analysis_summary, render_analysis_history_dashboard
+                    
+                    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                    st.markdown("""<div style='background:#fef3c7;border:2px solid #f59e0b;border-radius:10px;padding:12px;'>
+                        <div style='font-size:0.75rem;font-weight:900;color:#92400e;letter-spacing:0.06em;
+                          text-transform:uppercase;margin-bottom:8px;'>📊 분석 이력 조회 (Phase 2)</div>
+                    </div>""", unsafe_allow_html=True)
+                    
+                    render_quick_analysis_summary(_selected_cid, _agent_id)
+                    
+                    with st.expander("📈 전체 분석 이력 상세 보기", expanded=False):
+                        render_analysis_history_dashboard(_selected_cid, _agent_id, key_prefix="_hq_m_phase2")
+                except Exception as _ph2_e:
+                    st.info(f"💡 분석 이력 조회 중 오류: {_ph2_e}")
+            
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     
             # ── [N-SECTION] 고객상담 특별파트 ───────────────────────────────
             # ▸ 데이터 브릿지 자동 로드 — L-SECTION 통합 분석 결과 감지
@@ -41053,6 +41104,19 @@ div[data-testid="stButton"] {
             from crm_fortress_ui import render_crm_gate_full as _crm_full
             _sb = _get_sb_client() if _SB_PKG_OK else None
             _crm_full(_sb, st.session_state.get("user_id", ""))
+            
+            # ── [GP-PHASE1] 8가지 관계망 네트워크 대시보드 (Read-Only) ──────
+            st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+            _selected_person_id = st.session_state.get("crm_selected_person_id", "")
+            if _selected_person_id and _hq_render_network_dashboard:
+                try:
+                    _hq_render_network_dashboard(
+                        person_id=_selected_person_id,
+                        agent_id=st.session_state.get("user_id", ""),
+                        key_prefix="hq_crm_gate_net"
+                    )
+                except Exception as _net_e:
+                    st.caption(f"관계망 조회 오류: {_net_e}")
         except Exception as _cgf_e:
             st.error(f"CRM 게이트 로드 오류: {_cgf_e}")
 
@@ -41293,6 +41357,25 @@ div[data-testid="stButton"] {
                             _kb_items_for_run, age=_run_age, gender=_run_gender
                         )
                     st.session_state["_kb_report"] = _kb_report
+                    # [GP-PHASE2] KB 분석 결과 DB 저장
+                    try:
+                        import db_utils as du
+                        _person_id = st.session_state.get("selected_customer_id", "")
+                        _agent_id = st.session_state.get("user_id", "")
+                        if _person_id and _agent_id and _kb_report:
+                            du.save_kb_analysis(
+                                person_id=_person_id,
+                                agent_id=_agent_id,
+                                analysis_data=_kb_report.to_dict() if hasattr(_kb_report, 'to_dict') else {},
+                                kb_total_score=_kb_report.total_score if hasattr(_kb_report, 'total_score') else 0,
+                                kb_grade=_kb_report.grade if hasattr(_kb_report, 'grade') else "",
+                                customer_age=_run_age,
+                                customer_gender=_run_gender,
+                                category_scores=_kb_report.categories if hasattr(_kb_report, 'categories') else [],
+                                raw_coverages=_kb_items_for_run,
+                            )
+                    except Exception:
+                        pass
                     st.session_state["_kb_run_age"]    = _run_age
                     st.session_state["_kb_run_gender"] = _run_gender
                 else:

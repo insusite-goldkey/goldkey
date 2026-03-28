@@ -1594,3 +1594,775 @@ def get_person_data_status(person_ids: list, agent_id: str) -> dict:
     except Exception:
         pass
     return result
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §19 [GP-PHASE1] 8가지 관계망 태깅 시스템 (gk_relationship_tags)
+# ══════════════════════════════════════════════════════════════════════════════
+
+VALID_TAG_TYPES = [
+    "상담자", "계약자", "피보험자", "가족", 
+    "소개자", "동일법인", "동일단체", "친인척"
+]
+
+
+def add_relationship_tag(
+    person_id: str,
+    agent_id: str,
+    tag_type: str,
+    related_person_id: str = "",
+    memo: str = "",
+) -> bool:
+    """
+    [GP-PHASE1] 고객에게 관계망 태그 추가.
+    
+    Args:
+        person_id: 태그 대상 고객 UUID
+        agent_id: 담당 설계사
+        tag_type: 8가지 중 하나 (상담자/계약자/피보험자/가족/소개자/동일법인/동일단체/친인척)
+        related_person_id: 관계 대상 person_id (선택)
+        memo: 관계 상세 메모
+    """
+    sb = _get_sb()
+    if not sb or not person_id or not agent_id:
+        return False
+    if tag_type not in VALID_TAG_TYPES:
+        raise ValueError(f"유효하지 않은 tag_type: {tag_type}. 허용값: {VALID_TAG_TYPES}")
+    
+    try:
+        payload = {
+            "person_id": person_id,
+            "agent_id": agent_id,
+            "tag_type": tag_type,
+            "related_person_id": related_person_id or None,
+            "memo": memo or None,
+            "is_active": True,
+            "created_at": datetime.datetime.utcnow().isoformat(),
+            "updated_at": datetime.datetime.utcnow().isoformat(),
+        }
+        sb.table("gk_relationship_tags").upsert(
+            payload, 
+            on_conflict="person_id,tag_type,related_person_id"
+        ).execute()
+        return True
+    except Exception:
+        return False
+
+
+def get_relationship_tags(
+    person_id: str = "",
+    agent_id: str = "",
+    tag_type: str = "",
+    is_active: bool = True,
+) -> list[dict]:
+    """
+    [GP-PHASE1] 관계망 태그 조회 (필터링 지원).
+    
+    Args:
+        person_id: 특정 고객의 태그만 조회
+        agent_id: 특정 설계사의 태그만 조회
+        tag_type: 특정 태그 유형만 조회
+        is_active: 활성 태그만 조회 (기본 True)
+    """
+    sb = _get_sb()
+    if not sb:
+        return []
+    
+    try:
+        q = sb.table("gk_relationship_tags").select("*")
+        
+        if person_id:
+            q = q.eq("person_id", person_id)
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        if tag_type:
+            q = q.eq("tag_type", tag_type)
+        if is_active is not None:
+            q = q.eq("is_active", is_active)
+        
+        return q.order("created_at", desc=True).execute().data or []
+    except Exception:
+        return []
+
+
+def remove_relationship_tag(tag_id: str) -> bool:
+    """[GP-PHASE1] 관계망 태그 비활성화 (Soft Delete)."""
+    sb = _get_sb()
+    if not sb or not tag_id:
+        return False
+    
+    try:
+        sb.table("gk_relationship_tags").update({
+            "is_active": False,
+            "updated_at": datetime.datetime.utcnow().isoformat(),
+        }).eq("tag_id", tag_id).execute()
+        return True
+    except Exception:
+        return False
+
+
+def get_network_summary(person_id: str, agent_id: str) -> dict:
+    """
+    [GP-PHASE1] 고객의 8가지 관계망 네트워크 요약.
+    
+    Returns:
+        {"상담자": 3, "계약자": 5, "피보험자": 2, ...}
+    """
+    if not person_id:
+        return {}
+    
+    tags = get_relationship_tags(person_id=person_id, agent_id=agent_id)
+    summary = {tag_type: 0 for tag_type in VALID_TAG_TYPES}
+    
+    for tag in tags:
+        tag_type = tag.get("tag_type", "")
+        if tag_type in summary:
+            summary[tag_type] += 1
+    
+    return summary
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §20 [GP-PHASE1] 보험계약 상세 이력 (gk_insurance_contracts_detail)
+# ══════════════════════════════════════════════════════════════════════════════
+
+VALID_CONTRACT_STATUS = ["자사계약", "타부점계약", "해지계약"]
+
+
+def add_insurance_contract(
+    person_id: str,
+    agent_id: str,
+    contract_status: str,
+    insurance_company: str = "",
+    product_name: str = "",
+    contract_date: str = "",
+    contractor_name: str = "",
+    insured_name: str = "",
+    monthly_premium: float = 0,
+    key_point: str = "",
+    termination_date: str = "",
+    termination_reason: str = "",
+) -> bool:
+    """
+    [GP-PHASE1] 보험계약 이력 추가 (자사/타부점/해지 분류).
+    
+    Args:
+        contract_status: '자사계약' | '타부점계약' | '해지계약'
+        contractor_name, insured_name: Fernet 암호화 권장 (호출 측에서 처리)
+    """
+    sb = _get_sb()
+    if not sb or not person_id or not agent_id:
+        return False
+    if contract_status not in VALID_CONTRACT_STATUS:
+        raise ValueError(f"유효하지 않은 contract_status: {contract_status}")
+    
+    try:
+        payload = {
+            "person_id": person_id,
+            "agent_id": agent_id,
+            "contract_status": contract_status,
+            "insurance_company": insurance_company or None,
+            "product_name": product_name or None,
+            "contract_date": contract_date or None,
+            "contractor_name": contractor_name or None,
+            "insured_name": insured_name or None,
+            "monthly_premium": monthly_premium if monthly_premium else None,
+            "key_point": key_point or None,
+            "termination_date": termination_date or None,
+            "termination_reason": termination_reason or None,
+            "is_deleted": False,
+            "created_at": datetime.datetime.utcnow().isoformat(),
+            "updated_at": datetime.datetime.utcnow().isoformat(),
+        }
+        sb.table("gk_insurance_contracts_detail").insert(payload).execute()
+        return True
+    except Exception:
+        return False
+
+
+def get_insurance_contracts(
+    person_id: str = "",
+    agent_id: str = "",
+    contract_status: str = "",
+) -> list[dict]:
+    """[GP-PHASE1] 보험계약 이력 조회 (필터링 지원)."""
+    sb = _get_sb()
+    if not sb:
+        return []
+    
+    try:
+        q = sb.table("gk_insurance_contracts_detail").select("*").eq("is_deleted", False)
+        
+        if person_id:
+            q = q.eq("person_id", person_id)
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        if contract_status:
+            q = q.eq("contract_status", contract_status)
+        
+        return q.order("contract_date", desc=True).execute().data or []
+    except Exception:
+        return []
+
+
+def update_insurance_contract(contract_id: str, updates: dict) -> bool:
+    """[GP-PHASE1] 보험계약 정보 수정."""
+    sb = _get_sb()
+    if not sb or not contract_id or not updates:
+        return False
+    
+    try:
+        updates["updated_at"] = datetime.datetime.utcnow().isoformat()
+        sb.table("gk_insurance_contracts_detail").update(updates).eq("contract_id", contract_id).execute()
+        return True
+    except Exception:
+        return False
+
+
+def delete_insurance_contract(contract_id: str) -> bool:
+    """[GP-PHASE1] 보험계약 Soft Delete."""
+    sb = _get_sb()
+    if not sb or not contract_id:
+        return False
+    
+    try:
+        sb.table("gk_insurance_contracts_detail").update({
+            "is_deleted": True,
+            "updated_at": datetime.datetime.utcnow().isoformat(),
+        }).eq("contract_id", contract_id).execute()
+        return True
+    except Exception:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §21 [GP-PHASE1] 상담 일정 및 내용 (gk_consultation_schedule)
+# ══════════════════════════════════════════════════════════════════════════════
+
+VALID_CONSULTATION_TYPES = [
+    "초회상담", "보장분석", "증권점검", 
+    "계약체결", "사후관리", "기타"
+]
+
+
+def add_consultation_schedule(
+    person_id: str,
+    agent_id: str,
+    schedule_date: str = "",
+    schedule_time: str = "",
+    consultation_type: str = "초회상담",
+    consultation_content: str = "",
+    consultation_result: str = "",
+    next_action: str = "",
+) -> bool:
+    """
+    [GP-PHASE1] 상담 일정 추가.
+    
+    Args:
+        schedule_date: YYYYMMDD
+        schedule_time: HHMM
+        consultation_type: 초회상담/보장분석/증권점검/계약체결/사후관리/기타
+    """
+    sb = _get_sb()
+    if not sb or not person_id or not agent_id:
+        return False
+    if consultation_type not in VALID_CONSULTATION_TYPES:
+        raise ValueError(f"유효하지 않은 consultation_type: {consultation_type}")
+    
+    try:
+        payload = {
+            "person_id": person_id,
+            "agent_id": agent_id,
+            "schedule_date": schedule_date or None,
+            "schedule_time": schedule_time or None,
+            "consultation_type": consultation_type,
+            "consultation_content": consultation_content or None,
+            "consultation_result": consultation_result or None,
+            "next_action": next_action or None,
+            "is_completed": False,
+            "created_at": datetime.datetime.utcnow().isoformat(),
+            "updated_at": datetime.datetime.utcnow().isoformat(),
+        }
+        sb.table("gk_consultation_schedule").insert(payload).execute()
+        return True
+    except Exception:
+        return False
+
+
+def get_consultation_schedules(
+    person_id: str = "",
+    agent_id: str = "",
+    is_completed: Optional[bool] = None,
+) -> list[dict]:
+    """[GP-PHASE1] 상담 일정 조회."""
+    sb = _get_sb()
+    if not sb:
+        return []
+    
+    try:
+        q = sb.table("gk_consultation_schedule").select("*")
+        
+        if person_id:
+            q = q.eq("person_id", person_id)
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        if is_completed is not None:
+            q = q.eq("is_completed", is_completed)
+        
+        return q.order("schedule_date", desc=True).execute().data or []
+    except Exception:
+        return []
+
+
+def complete_consultation(
+    consultation_id: str,
+    consultation_result: str = "",
+    next_action: str = "",
+) -> bool:
+    """[GP-PHASE1] 상담 완료 처리."""
+    sb = _get_sb()
+    if not sb or not consultation_id:
+        return False
+    
+    try:
+        updates = {
+            "is_completed": True,
+            "updated_at": datetime.datetime.utcnow().isoformat(),
+        }
+        if consultation_result:
+            updates["consultation_result"] = consultation_result
+        if next_action:
+            updates["next_action"] = next_action
+        
+        sb.table("gk_consultation_schedule").update(updates).eq("consultation_id", consultation_id).execute()
+        return True
+    except Exception:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §22 [GP-PHASE1] 이중화 백업 조회 (gk_people_backup)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_backup_history(person_id: str, limit: int = 10) -> list[dict]:
+    """
+    [GP-PHASE1] 고객 정보 백업 이력 조회.
+    
+    Returns:
+        최신 백업부터 limit개 반환
+    """
+    sb = _get_sb()
+    if not sb or not person_id:
+        return []
+    
+    try:
+        return (
+            sb.table("gk_people_backup")
+            .select("*")
+            .eq("person_id", person_id)
+            .order("backup_created_at", desc=True)
+            .limit(limit)
+            .execute().data or []
+        )
+    except Exception:
+        return []
+
+
+def restore_from_backup(backup_id: str) -> bool:
+    """
+    [GP-PHASE1] 백업에서 고객 정보 복원.
+    
+    Warning: 이 함수는 gk_people 테이블을 직접 수정합니다.
+    """
+    sb = _get_sb()
+    if not sb or not backup_id:
+        return False
+    
+    try:
+        backup = (
+            sb.table("gk_people_backup")
+            .select("*")
+            .eq("backup_id", backup_id)
+            .execute().data or []
+        )
+        if not backup:
+            return False
+        
+        b = backup[0]
+        person_id = b.get("person_id")
+        if not person_id:
+            return False
+        
+        restore_data = {
+            "name": b.get("name"),
+            "birth_date": b.get("birth_date"),
+            "gender": b.get("gender"),
+            "contact": b.get("contact"),
+            "address": b.get("address"),
+            "job": b.get("job"),
+            "injury_level": b.get("injury_level"),
+            "is_real_client": b.get("is_real_client"),
+            "agent_id": b.get("agent_id"),
+            "memo": b.get("memo"),
+            "status": b.get("status"),
+            "is_favorite": b.get("is_favorite"),
+            "auto_renewal_month": b.get("auto_renewal_month"),
+            "fire_renewal_month": b.get("fire_renewal_month"),
+            "last_auto_carrier": b.get("last_auto_carrier"),
+            "management_tier": b.get("management_tier"),
+            "wedding_anniversary": b.get("wedding_anniversary"),
+            "driving_status": b.get("driving_status"),
+            "risk_note": b.get("risk_note"),
+            "lead_source": b.get("lead_source"),
+            "referrer_id": b.get("referrer_id"),
+            "referrer_relation": b.get("referrer_relation"),
+            "community_tags": b.get("community_tags"),
+            "prospecting_stage": b.get("prospecting_stage"),
+            "updated_at": datetime.datetime.utcnow().isoformat(),
+        }
+        
+        restore_data = {k: v for k, v in restore_data.items() if v is not None}
+        
+        sb.table("gk_people").update(restore_data).eq("person_id", person_id).execute()
+        return True
+    except Exception:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §23 [GP-PHASE2] 트리니티 분석 결과 영구 저장 (gk_trinity_analysis)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def save_trinity_analysis(
+    person_id: str,
+    agent_id: str,
+    nhis_premium: float,
+    analysis_data: dict,
+    monthly_required: float,
+    gross_monthly: float = 0,
+    gross_annual: float = 0,
+    net_annual: float = 0,
+    deduction_rate: float = 0,
+    income_breakdown: dict = None,
+    coverage_needs: dict = None,
+    kb7_metadata: list = None,
+    report_summary: str = "",
+    ai_closing_comment: str = "",
+    employment_type: str = "직장",
+    ltc_included: bool = False,
+) -> str:
+    """
+    [GP-PHASE2] 트리니티 분석 결과를 gk_trinity_analysis 테이블에 저장.
+    
+    Returns:
+        analysis_id (UUID) — 저장된 분석 ID
+    """
+    sb = _get_sb()
+    if not sb or not person_id or not agent_id:
+        return ""
+    
+    try:
+        import json as _j
+        now = datetime.datetime.utcnow().isoformat()
+        
+        payload = {
+            "person_id": person_id,
+            "agent_id": agent_id,
+            "analyzed_at": now,
+            "analysis_version": "v1.0",
+            "nhis_premium": float(nhis_premium) if nhis_premium else None,
+            "gross_monthly": float(gross_monthly) if gross_monthly else None,
+            "gross_annual": float(gross_annual) if gross_annual else None,
+            "net_annual": float(net_annual) if net_annual else None,
+            "monthly_required": float(monthly_required) if monthly_required else None,
+            "deduction_rate": float(deduction_rate) if deduction_rate else None,
+            "analysis_data": _j.dumps(analysis_data, ensure_ascii=False) if analysis_data else "{}",
+            "income_breakdown": _j.dumps(income_breakdown, ensure_ascii=False) if income_breakdown else None,
+            "coverage_needs": _j.dumps(coverage_needs, ensure_ascii=False) if coverage_needs else None,
+            "kb7_metadata": _j.dumps(kb7_metadata, ensure_ascii=False) if kb7_metadata else None,
+            "report_summary": report_summary or None,
+            "ai_closing_comment": ai_closing_comment or None,
+            "employment_type": employment_type or "직장",
+            "ltc_included": ltc_included,
+            "created_at": now,
+            "updated_at": now,
+        }
+        
+        result = sb.table("gk_trinity_analysis").insert(payload).execute()
+        if result.data and len(result.data) > 0:
+            return result.data[0].get("analysis_id", "")
+        return ""
+    except Exception:
+        return ""
+
+
+def get_trinity_analysis_history(
+    person_id: str = "",
+    agent_id: str = "",
+    limit: int = 10,
+) -> list[dict]:
+    """
+    [GP-PHASE2] 트리니티 분석 이력 조회.
+    
+    Returns:
+        최신 분석부터 limit개 반환
+    """
+    sb = _get_sb()
+    if not sb:
+        return []
+    
+    try:
+        import json as _j
+        q = sb.table("gk_trinity_analysis").select("*")
+        
+        if person_id:
+            q = q.eq("person_id", person_id)
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        
+        rows = q.order("analyzed_at", desc=True).limit(limit).execute().data or []
+        
+        for r in rows:
+            for json_field in ["analysis_data", "income_breakdown", "coverage_needs", "kb7_metadata"]:
+                if r.get(json_field) and isinstance(r[json_field], str):
+                    try:
+                        r[json_field] = _j.loads(r[json_field])
+                    except Exception:
+                        pass
+        
+        return rows
+    except Exception:
+        return []
+
+
+def get_latest_trinity_analysis(person_id: str, agent_id: str = "") -> dict:
+    """
+    [GP-PHASE2] 최신 트리니티 분석 결과 조회.
+    
+    Returns:
+        최신 분석 결과 1건 (없으면 빈 dict)
+    """
+    history = get_trinity_analysis_history(person_id=person_id, agent_id=agent_id, limit=1)
+    return history[0] if history else {}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §24 [GP-PHASE2] KB 분석 결과 영구 저장 (gk_kb_analysis)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def save_kb_analysis(
+    person_id: str,
+    agent_id: str,
+    analysis_data: dict,
+    kb_total_score: float,
+    kb_grade: str,
+    customer_age: int = None,
+    customer_gender: str = "",
+    category_scores: list = None,
+    gap_analysis: dict = None,
+    kosis_weights: dict = None,
+    report_summary: str = "",
+    ai_summary: str = "",
+    recommendations: str = "",
+    raw_coverages: list = None,
+) -> str:
+    """
+    [GP-PHASE2] KB 분석 결과를 gk_kb_analysis 테이블에 저장.
+    
+    Returns:
+        analysis_id (UUID) — 저장된 분석 ID
+    """
+    sb = _get_sb()
+    if not sb or not person_id or not agent_id:
+        return ""
+    
+    try:
+        import json as _j
+        now = datetime.datetime.utcnow().isoformat()
+        
+        payload = {
+            "person_id": person_id,
+            "agent_id": agent_id,
+            "analyzed_at": now,
+            "analysis_version": "v1.0",
+            "customer_age": int(customer_age) if customer_age else None,
+            "customer_gender": customer_gender or None,
+            "kb_total_score": float(kb_total_score) if kb_total_score else None,
+            "kb_grade": kb_grade or None,
+            "analysis_data": _j.dumps(analysis_data, ensure_ascii=False) if analysis_data else "{}",
+            "category_scores": _j.dumps(category_scores, ensure_ascii=False) if category_scores else None,
+            "gap_analysis": _j.dumps(gap_analysis, ensure_ascii=False) if gap_analysis else None,
+            "kosis_weights": _j.dumps(kosis_weights, ensure_ascii=False) if kosis_weights else None,
+            "report_summary": report_summary or None,
+            "ai_summary": ai_summary or None,
+            "recommendations": recommendations or None,
+            "raw_coverages": _j.dumps(raw_coverages, ensure_ascii=False) if raw_coverages else None,
+            "created_at": now,
+            "updated_at": now,
+        }
+        
+        result = sb.table("gk_kb_analysis").insert(payload).execute()
+        if result.data and len(result.data) > 0:
+            return result.data[0].get("analysis_id", "")
+        return ""
+    except Exception:
+        return ""
+
+
+def get_kb_analysis_history(
+    person_id: str = "",
+    agent_id: str = "",
+    limit: int = 10,
+) -> list[dict]:
+    """
+    [GP-PHASE2] KB 분석 이력 조회.
+    
+    Returns:
+        최신 분석부터 limit개 반환
+    """
+    sb = _get_sb()
+    if not sb:
+        return []
+    
+    try:
+        import json as _j
+        q = sb.table("gk_kb_analysis").select("*")
+        
+        if person_id:
+            q = q.eq("person_id", person_id)
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        
+        rows = q.order("analyzed_at", desc=True).limit(limit).execute().data or []
+        
+        for r in rows:
+            for json_field in ["analysis_data", "category_scores", "gap_analysis", "kosis_weights", "raw_coverages"]:
+                if r.get(json_field) and isinstance(r[json_field], str):
+                    try:
+                        r[json_field] = _j.loads(r[json_field])
+                    except Exception:
+                        pass
+        
+        return rows
+    except Exception:
+        return []
+
+
+def get_latest_kb_analysis(person_id: str, agent_id: str = "") -> dict:
+    """
+    [GP-PHASE2] 최신 KB 분석 결과 조회.
+    
+    Returns:
+        최신 분석 결과 1건 (없으면 빈 dict)
+    """
+    history = get_kb_analysis_history(person_id=person_id, agent_id=agent_id, limit=1)
+    return history[0] if history else {}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §25 [GP-PHASE2] 통합 분석 결과 저장 (gk_integrated_analysis)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def save_integrated_analysis(
+    person_id: str,
+    agent_id: str,
+    analysis_type: str,
+    trinity_analysis_id: str = "",
+    kb_analysis_id: str = "",
+    integrated_score: float = 0,
+    integrated_grade: str = "",
+    integrated_report: dict = None,
+    bridge_packet: dict = None,
+    nibo_status: str = "pending",
+    nibo_data: dict = None,
+) -> str:
+    """
+    [GP-PHASE2] 통합 분석 결과를 gk_integrated_analysis 테이블에 저장.
+    
+    Args:
+        analysis_type: 'full' | 'trinity_only' | 'kb_only'
+    
+    Returns:
+        analysis_id (UUID) — 저장된 분석 ID
+    """
+    sb = _get_sb()
+    if not sb or not person_id or not agent_id:
+        return ""
+    
+    try:
+        import json as _j
+        now = datetime.datetime.utcnow().isoformat()
+        
+        payload = {
+            "person_id": person_id,
+            "agent_id": agent_id,
+            "analyzed_at": now,
+            "analysis_type": analysis_type,
+            "trinity_analysis_id": trinity_analysis_id or None,
+            "kb_analysis_id": kb_analysis_id or None,
+            "integrated_score": float(integrated_score) if integrated_score else None,
+            "integrated_grade": integrated_grade or None,
+            "integrated_report": _j.dumps(integrated_report, ensure_ascii=False) if integrated_report else None,
+            "bridge_packet": _j.dumps(bridge_packet, ensure_ascii=False) if bridge_packet else None,
+            "nibo_status": nibo_status or "pending",
+            "nibo_data": _j.dumps(nibo_data, ensure_ascii=False) if nibo_data else None,
+            "created_at": now,
+            "updated_at": now,
+        }
+        
+        result = sb.table("gk_integrated_analysis").insert(payload).execute()
+        if result.data and len(result.data) > 0:
+            return result.data[0].get("analysis_id", "")
+        return ""
+    except Exception:
+        return ""
+
+
+def get_integrated_analysis_history(
+    person_id: str = "",
+    agent_id: str = "",
+    limit: int = 10,
+) -> list[dict]:
+    """
+    [GP-PHASE2] 통합 분석 이력 조회.
+    
+    Returns:
+        최신 분석부터 limit개 반환
+    """
+    sb = _get_sb()
+    if not sb:
+        return []
+    
+    try:
+        import json as _j
+        q = sb.table("gk_integrated_analysis").select("*")
+        
+        if person_id:
+            q = q.eq("person_id", person_id)
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        
+        rows = q.order("analyzed_at", desc=True).limit(limit).execute().data or []
+        
+        for r in rows:
+            for json_field in ["integrated_report", "bridge_packet", "nibo_data"]:
+                if r.get(json_field) and isinstance(r[json_field], str):
+                    try:
+                        r[json_field] = _j.loads(r[json_field])
+                    except Exception:
+                        pass
+        
+        return rows
+    except Exception:
+        return []
+
+
+def get_latest_integrated_analysis(person_id: str, agent_id: str = "") -> dict:
+    """
+    [GP-PHASE2] 최신 통합 분석 결과 조회.
+    
+    Returns:
+        최신 분석 결과 1건 (없으면 빈 dict)
+    """
+    history = get_integrated_analysis_history(person_id=person_id, agent_id=agent_id, limit=1)
+    return history[0] if history else {}
