@@ -171,6 +171,31 @@ if _SESSION_MANAGER_OK:
         # 세션 복구 성공 시 로그 (디버그용)
         pass
 
+# ── [GP-TIMEOUT] 60분 비활동 타임아웃 자동 로그아웃 ────────────────────
+import time as _time_crm_timeout
+_crm_current_time = _time_crm_timeout.time()
+
+# 로그인된 사용자만 타임아웃 체크
+if st.session_state.get("user_id") and not st.session_state.get("_logout_flag"):
+    # 마지막 활동 시간 초기화
+    if "last_activity_time" not in st.session_state:
+        st.session_state["last_activity_time"] = _crm_current_time
+    
+    # 비활동 시간 계산
+    _crm_last_activity = st.session_state.get("last_activity_time", _crm_current_time)
+    _crm_inactive_duration = _crm_current_time - _crm_last_activity
+    
+    # 60분(3600초) 초과 시 자동 로그아웃
+    if _crm_inactive_duration > 3600:
+        _crm_timeout_user = st.session_state.get("user_name", "사용자")
+        st.session_state.clear()
+        st.warning(f"⏱️ {_crm_timeout_user}님, 60분 동안 활동이 없어 보안을 위해 자동 로그아웃되었습니다.")
+        st.info("💡 다시 로그인해 주세요.")
+        st.stop()
+    
+    # 활동 시 타임스탬프 갱신
+    st.session_state["last_activity_time"] = _crm_current_time
+
 # ── [GP-DESIGN-V3] 전역 디자인 시스템 즉시 주입 (Single Source of Truth) ────────
 try:
     from shared_components import inject_global_gp_design as _crm_igd

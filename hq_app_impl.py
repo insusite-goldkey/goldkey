@@ -29003,6 +29003,32 @@ def main():
         st.session_state["user_id"]   = _early_saved_uid
         st.session_state["user_name"] = st.session_state.get("_saved_user_name", "")
         st.session_state["is_admin"]  = st.session_state.get("_saved_is_admin", False)
+    
+    # ── [GP-TIMEOUT] 60분 비활동 타임아웃 자동 로그아웃 ────────────────────
+    import time as _time_timeout
+    _current_time = _time_timeout.time()
+    
+    # 로그인된 사용자만 타임아웃 체크
+    if st.session_state.get("user_id") and not st.session_state.get("_logout_flag"):
+        # 마지막 활동 시간 초기화
+        if "last_activity_time" not in st.session_state:
+            st.session_state["last_activity_time"] = _current_time
+        
+        # 비활동 시간 계산
+        _last_activity = st.session_state.get("last_activity_time", _current_time)
+        _inactive_duration = _current_time - _last_activity
+        
+        # 60분(3600초) 초과 시 자동 로그아웃
+        if _inactive_duration > 3600:
+            _timeout_user = st.session_state.get("user_name", "사용자")
+            st.session_state.clear()
+            st.warning(f"⏱️ {_timeout_user}님, 60분 동안 활동이 없어 보안을 위해 자동 로그아웃되었습니다.")
+            st.info("💡 다시 로그인해 주세요.")
+            st.stop()
+        
+        # 활동 시 타임스탬프 갱신
+        st.session_state["last_activity_time"] = _current_time
+    
     # [NUDGE] CRM 스마트 컨텍스트 딥링크 보존 (인증 전에도 세션에 보관)
     try:
         _nudge_pid = (st.query_params.get("person_id", "") or "").strip()
