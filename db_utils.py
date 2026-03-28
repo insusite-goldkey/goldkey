@@ -2366,3 +2366,264 @@ def get_latest_integrated_analysis(person_id: str, agent_id: str = "") -> dict:
     """
     history = get_integrated_analysis_history(person_id=person_id, agent_id=agent_id, limit=1)
     return history[0] if history else {}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §PHASE3 스캔 파일 및 의무기록 관리
+# ══════════════════════════════════════════════════════════════════════════════
+
+def save_scan_file(
+    person_id: str,
+    agent_id: str,
+    file_type: str,
+    gcs_path: str,
+    file_name: str = "",
+    gcs_bucket: str = "",
+    file_size_bytes: int = 0,
+    mime_type: str = "",
+    tags: list = None,
+    category: str = "",
+    extracted_text: str = "",
+    extracted_fields: dict = None,
+) -> str:
+    """
+    [GP-PHASE3] 스캔 파일 메타데이터를 gk_scan_files 테이블에 저장.
+    
+    Args:
+        person_id: 고객 ID (SHA-256 해시)
+        agent_id: 설계사 ID
+        file_type: 'policy', 'medical', 'receipt', 'claim', 'other'
+        gcs_path: GCS 전체 경로 (gs://bucket/path/to/file.pdf)
+        file_name: 원본 파일명
+        gcs_bucket: GCS 버킷명
+        file_size_bytes: 파일 크기
+        mime_type: MIME 타입
+        tags: 검색용 태그 배열
+        category: 세부 카테고리
+        extracted_text: OCR 추출 텍스트
+        extracted_fields: 파싱된 필드 (dict)
+    
+    Returns:
+        scan_id (UUID string) 또는 빈 문자열
+    """
+    sb = _get_sb()
+    if not sb:
+        return ""
+    
+    try:
+        import json as _j
+        from datetime import datetime as _dt
+        
+        now = _dt.utcnow().isoformat()
+        
+        payload = {
+            "person_id": person_id,
+            "agent_id": agent_id,
+            "file_type": file_type,
+            "file_name": file_name or "",
+            "gcs_path": gcs_path,
+            "gcs_bucket": gcs_bucket or "",
+            "file_size_bytes": file_size_bytes,
+            "mime_type": mime_type or "",
+            "ocr_status": "completed" if extracted_text else "pending",
+            "extracted_text": extracted_text or "",
+            "extracted_fields": _j.dumps(extracted_fields, ensure_ascii=False) if extracted_fields else None,
+            "tags": tags or [],
+            "category": category or "",
+            "is_encrypted": True,
+            "uploaded_at": now,
+            "created_at": now,
+            "updated_at": now,
+            "is_active": True,
+        }
+        
+        result = sb.table("gk_scan_files").insert(payload).execute()
+        if result.data and len(result.data) > 0:
+            return result.data[0].get("scan_id", "")
+        return ""
+    except Exception:
+        return ""
+
+
+def save_medical_record(
+    scan_id: str,
+    person_id: str,
+    agent_id: str,
+    record_type: str = "",
+    hospital_name: str = "",
+    doctor_name: str = "",
+    visit_date: str = "",
+    diagnosis_codes: list = None,
+    diagnosis_names: list = None,
+    prescriptions: dict = None,
+    lab_results: dict = None,
+    ocr_raw_text: str = "",
+    ocr_confidence: float = 0.0,
+    structured_data: dict = None,
+    ai_summary: str = "",
+    risk_flags: list = None,
+    insurance_relevance_score: float = 0.0,
+) -> str:
+    """
+    [GP-PHASE3] 의무기록 OCR 분석 결과를 gk_medical_records 테이블에 저장.
+    
+    Args:
+        scan_id: 원본 스캔 파일 ID (gk_scan_files.scan_id)
+        person_id: 고객 ID
+        agent_id: 설계사 ID
+        record_type: 'diagnosis', 'prescription', 'lab_result', 'surgery', 'consultation'
+        hospital_name: 병원명
+        doctor_name: 의사명
+        visit_date: 진료 날짜 (YYYY-MM-DD)
+        diagnosis_codes: ICD-10 코드 배열
+        diagnosis_names: 진단명 배열
+        prescriptions: 처방 내역 (dict)
+        lab_results: 검사 결과 (dict)
+        ocr_raw_text: OCR 추출 원문
+        ocr_confidence: OCR 신뢰도 (0.0 ~ 1.0)
+        structured_data: 파싱된 전체 데이터
+        ai_summary: AI 요약
+        risk_flags: 위험 플래그 배열
+        insurance_relevance_score: 보험 관련성 점수
+    
+    Returns:
+        record_id (UUID string) 또는 빈 문자열
+    """
+    sb = _get_sb()
+    if not sb:
+        return ""
+    
+    try:
+        import json as _j
+        from datetime import datetime as _dt
+        
+        now = _dt.utcnow().isoformat()
+        
+        payload = {
+            "scan_id": scan_id,
+            "person_id": person_id,
+            "agent_id": agent_id,
+            "record_type": record_type or "other",
+            "hospital_name": hospital_name or "",
+            "doctor_name": doctor_name or "",
+            "visit_date": visit_date or None,
+            "diagnosis_codes": diagnosis_codes or [],
+            "diagnosis_names": diagnosis_names or [],
+            "prescriptions": _j.dumps(prescriptions, ensure_ascii=False) if prescriptions else None,
+            "lab_results": _j.dumps(lab_results, ensure_ascii=False) if lab_results else None,
+            "ocr_raw_text": ocr_raw_text or "",
+            "ocr_confidence": float(ocr_confidence) if ocr_confidence else 0.0,
+            "structured_data": _j.dumps(structured_data, ensure_ascii=False) if structured_data else None,
+            "ai_summary": ai_summary or "",
+            "risk_flags": risk_flags or [],
+            "insurance_relevance_score": float(insurance_relevance_score) if insurance_relevance_score else 0.0,
+            "is_encrypted": True,
+            "processed_at": now,
+            "created_at": now,
+            "updated_at": now,
+            "is_active": True,
+        }
+        
+        result = sb.table("gk_medical_records").insert(payload).execute()
+        if result.data and len(result.data) > 0:
+            return result.data[0].get("record_id", "")
+        return ""
+    except Exception:
+        return ""
+
+
+def get_scan_files(
+    person_id: str = "",
+    agent_id: str = "",
+    file_type: str = "",
+    limit: int = 50,
+) -> list[dict]:
+    """
+    [GP-PHASE3] 스캔 파일 메타데이터 조회.
+    
+    Args:
+        person_id: 고객 ID 필터
+        agent_id: 설계사 ID 필터
+        file_type: 파일 타입 필터 ('policy', 'medical', 'receipt', 'claim')
+        limit: 최대 조회 건수
+    
+    Returns:
+        스캔 파일 목록 (최신순)
+    """
+    sb = _get_sb()
+    if not sb:
+        return []
+    
+    try:
+        import json as _j
+        q = sb.table("gk_scan_files").select("*")
+        
+        if person_id:
+            q = q.eq("person_id", person_id)
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        if file_type:
+            q = q.eq("file_type", file_type)
+        
+        q = q.eq("is_active", True)
+        rows = q.order("uploaded_at", desc=True).limit(limit).execute().data or []
+        
+        for r in rows:
+            if r.get("extracted_fields") and isinstance(r["extracted_fields"], str):
+                try:
+                    r["extracted_fields"] = _j.loads(r["extracted_fields"])
+                except Exception:
+                    pass
+        
+        return rows
+    except Exception:
+        return []
+
+
+def get_medical_records(
+    person_id: str = "",
+    agent_id: str = "",
+    scan_id: str = "",
+    limit: int = 50,
+) -> list[dict]:
+    """
+    [GP-PHASE3] 의무기록 분석 결과 조회.
+    
+    Args:
+        person_id: 고객 ID 필터
+        agent_id: 설계사 ID 필터
+        scan_id: 스캔 파일 ID 필터
+        limit: 최대 조회 건수
+    
+    Returns:
+        의무기록 목록 (최신순)
+    """
+    sb = _get_sb()
+    if not sb:
+        return []
+    
+    try:
+        import json as _j
+        q = sb.table("gk_medical_records").select("*")
+        
+        if person_id:
+            q = q.eq("person_id", person_id)
+        if agent_id:
+            q = q.eq("agent_id", agent_id)
+        if scan_id:
+            q = q.eq("scan_id", scan_id)
+        
+        q = q.eq("is_active", True)
+        rows = q.order("processed_at", desc=True).limit(limit).execute().data or []
+        
+        for r in rows:
+            for json_field in ["prescriptions", "lab_results", "structured_data"]:
+                if r.get(json_field) and isinstance(r[json_field], str):
+                    try:
+                        r[json_field] = _j.loads(r[json_field])
+                    except Exception:
+                        pass
+        
+        return rows
+    except Exception:
+        return []

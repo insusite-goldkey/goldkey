@@ -101,6 +101,7 @@ from blocks.crm_list_inline_panel_block import render_crm_list_inline_panel
 from blocks.crm_insurance_contracts_block import render_insurance_contracts
 from blocks.crm_scan_block import render_crm_scan_block
 from blocks.crm_phase1_network_block import render_network_tagging_panel
+from blocks.crm_scan_vault_viewer import render_scan_vault_viewer, render_scan_vault_summary
 
 from shared_components import (
     CUSTOMER_SCHEMA,
@@ -2379,6 +2380,11 @@ elif _spa_mode == "customer":
                     _user_id,
                     _sel_cust.get("name", ""),
                 )
+
+                # ── [GP-PHASE3] 스캔 문서 보관함 이력 뷰어 ──────────────────────
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                with st.expander("📦 스캔 문서 보관함 (전체 이력)", expanded=False):
+                    render_scan_vault_viewer(_sel_pid, _user_id)
 
                 # ── [GP-PHASE1] 8가지 관계망 태깅 시스템 ──────────────────────
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)

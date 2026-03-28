@@ -246,6 +246,7 @@ def render_crm_scan_block(
                     _sb.table("policy_roles").insert(_role_data).execute()
                     
                     # GCS에 원본 이미지 암호화 저장
+                    _gcs_path = ""
                     try:
                         from utils.crypto_utils import encrypt_data
                         from shared_components import get_env_secret
@@ -255,12 +256,40 @@ def render_crm_scan_block(
                         _enc_img = encrypt_data(_scan_img, _enc_key)
                         
                         _gcs_client = storage.Client()
-                        _bucket = _gcs_client.bucket("goldkey-customer-profiles")
+                        _bucket_name = "goldkey-customer-profiles"
+                        _bucket = _gcs_client.bucket(_bucket_name)
                         _blob_path = f"scanned_policies/{user_id}/{sel_pid}_scan_{datetime.now().strftime('%Y%m%d%H%M%S')}.enc"
                         _blob = _bucket.blob(_blob_path)
                         _blob.upload_from_string(_enc_img)
+                        _gcs_path = f"gs://{_bucket_name}/{_blob_path}"
                     except Exception as _gcs_e:
                         st.warning(f"GCS 백업 실패 (DB는 저장됨): {_gcs_e}")
+                    
+                    # [GP-PHASE3] gk_scan_files 테이블에 메타데이터 저장
+                    if _gcs_path:
+                        try:
+                            import db_utils as du
+                            du.save_scan_file(
+                                person_id=sel_pid,
+                                agent_id=user_id,
+                                file_type="policy",
+                                gcs_path=_gcs_path,
+                                file_name=f"scan_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg",
+                                gcs_bucket=_bucket_name,
+                                file_size_bytes=len(_scan_img),
+                                mime_type="image/jpeg",
+                                tags=["증권스캔", _final_company, _final_product],
+                                category="policy_scan",
+                                extracted_fields={
+                                    "insurance_company": _final_company,
+                                    "product_name": _final_product,
+                                    "join_date": _final_date,
+                                    "policy_number": _final_policy_num,
+                                    "confidence": _conf,
+                                },
+                            )
+                        except Exception:
+                            pass
                     
                     st.success(f"✅ 증권 정보가 저장되었습니다!\n\n보험사: {_final_company}\n상품명: {_final_product}")
                     st.balloons()

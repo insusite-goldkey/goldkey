@@ -40546,6 +40546,23 @@ div[data-testid="stButton"] {
                     st.info(f"💡 분석 이력 조회 중 오류: {_ph2_e}")
             
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            
+            # [GP-PHASE3] 의무기록 OCR 분석 센터
+            if _selected_cid and _agent_id:
+                try:
+                    from hq_phase3_medical_ocr_center import render_medical_ocr_center, render_medical_records_history
+                    
+                    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                    
+                    with st.expander("🩺 의무기록 OCR 분석 센터 (Phase 3)", expanded=False):
+                        render_medical_ocr_center(_selected_cid, _agent_id, key_prefix="_hq_m_ocr")
+                    
+                    with st.expander("📋 의무기록 분석 이력", expanded=False):
+                        render_medical_records_history(_selected_cid, _agent_id, key_prefix="_hq_m_med_hist")
+                except Exception as _ph3_e:
+                    st.info(f"💡 의무기록 OCR 센터 로드 중 오류: {_ph3_e}")
+            
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     
             # ── [N-SECTION] 고객상담 특별파트 ───────────────────────────────
             # ▸ 데이터 브릿지 자동 로드 — L-SECTION 통합 분석 결과 감지
