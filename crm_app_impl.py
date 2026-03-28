@@ -578,7 +578,74 @@ h3 { font-size: clamp(16px, 3vw, 22px) !important; word-break: keep-all !importa
   word-break: keep-all !important;
   overflow-wrap: break-word !important;
 }
+
+/* ── [GP-SEC] 브라우저 자동완성 전역 차단 ────────────────────────── */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+textarea {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+/* Streamlit input 필드 타겟팅 */
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stTextArea"] textarea {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+/* 버튼 key 텍스트 숨김 - 한글 label만 표시 */
+button[kind="primary"],
+button[kind="secondary"] {
+  font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* 버튼 내부 key 텍스트 제거 */
+button p {
+  display: inline !important;
+}
 </style>
+
+<script>
+// [GP-SEC] 전역 자동완성 차단 JavaScript
+(function() {
+  function disableAutocomplete() {
+    const inputs = document.querySelectorAll('input, textarea');
+    inputs.forEach(input => {
+      // 일반 입력: autocomplete="off"
+      if (input.type === 'text' || input.type === 'email' || input.type === 'tel' || input.type === 'number') {
+        input.setAttribute('autocomplete', 'off');
+        input.setAttribute('autocorrect', 'off');
+        input.setAttribute('autocapitalize', 'off');
+        input.setAttribute('spellcheck', 'false');
+      }
+      // 비밀번호: autocomplete="new-password"
+      else if (input.type === 'password') {
+        input.setAttribute('autocomplete', 'new-password');
+        input.setAttribute('autocorrect', 'off');
+        input.setAttribute('autocapitalize', 'off');
+        input.setAttribute('spellcheck', 'false');
+      }
+    });
+  }
+  
+  // 초기 실행
+  disableAutocomplete();
+  
+  // Streamlit rerun 시 재실행
+  const observer = new MutationObserver(disableAutocomplete);
+  observer.observe(document.body, { childList: true, subtree: true });
+  
+  // 주기적 체크 (모바일 환경 대응)
+  setInterval(disableAutocomplete, 1000);
+})();
+</script>
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -783,16 +850,8 @@ if not _is_authenticated():
     if st.session_state.pop("_crm_logout_success", False):
         st.success("✅ 안전하게 로그아웃되었습니다. 모든 임시 세션 정보가 보안 파기되었습니다.")
     
-    st.markdown(
-        "<div style='max-width:680px;margin:0 auto;'>"
-        "<div class='crm-section-title' style='background:#dbeafe;border-radius:8px 8px 0 0;"
-        "padding:8px 16px;text-align:center;color:#1e3a8a;'>"
-        "📋 서비스 이용을 위한 필수 동의</div></div>",
-        unsafe_allow_html=True,
-    )
-    
     _crm_agreed = _sc_render_auth_screen(
-        app_name="Goldkey AI Masters 2026",
+        app_name="Goldkey_AI_Masters2026",
         app_icon="🏆",
         terms_agree_key="_crm_terms_agreed",
         show_header=False,
@@ -810,9 +869,9 @@ if not _is_authenticated():
         _crm_lp = st.session_state.get("_crm_login_phase", "A")
         if _crm_lp == "A":
             with st.form("crm_direct_login"):
-                _crm_name_in    = st.text_input("👤 이름",
+                _crm_name_in    = st.text_input("👤 이름", placeholder="이름을 입력하세요",
                                                 label_visibility="collapsed", key="crm_login_name")
-                _crm_contact_in = st.text_input("📱 연락처", type="password",
+                _crm_contact_in = st.text_input("📱 연락처(비번)", type="password", placeholder="연락처를 입력하세요",
                                                 label_visibility="collapsed", key="crm_login_contact")
                 _crm_login_btn  = st.form_submit_button("🔐 로그인",
                                                          use_container_width=True, type="primary")
@@ -1000,35 +1059,32 @@ if not _is_authenticated():
                 unsafe_allow_html=True,
             )
             
-            with st.form("crm_signup_form"):
-                _signup_name = st.text_input(
-                    "👤 이름",
-                    value=st.session_state.get("_crm_signup_name", ""),
-                    key="signup_name_input"
-                )
-                _signup_contact = st.text_input(
-                    "📱 연락처 (로그인용)",
-                    type="password",
-                    value=st.session_state.get("_crm_signup_contact", ""),
-                    key="signup_contact_input"
-                )
-                _signup_job = st.text_input(
-                    "💼 직업/소속",
-                    placeholder="예: 보험설계사, KB손해보험",
-                    key="signup_job_input"
-                )
-                _signup_role = st.selectbox(
-                    "👔 역할",
-                    options=["agent", "admin"],
-                    format_func=lambda x: "설계사" if x == "agent" else "관리자",
-                    key="signup_role_input"
-                )
-                
-                _signup_submit = st.form_submit_button(
-                    "✅ 회원가입 완료",
-                    use_container_width=True,
-                    type="primary"
-                )
+            _col_signup, _col_guest = st.columns(2)
+            
+            with _col_signup:
+                with st.form("crm_signup_form"):
+                    _signup_name = st.text_input(
+                        "👤 이름",
+                        value=st.session_state.get("_crm_signup_name", ""),
+                        key="signup_name_input"
+                    )
+                    _signup_contact = st.text_input(
+                        "📱 연락처(비번)",
+                        type="password",
+                        value=st.session_state.get("_crm_signup_contact", ""),
+                        key="signup_contact_input"
+                    )
+                    _signup_job = st.text_input(
+                        "💼 직업/소속",
+                        placeholder="예: 보험설계사, KB손해보험",
+                        key="signup_job_input"
+                    )
+                    
+                    _signup_submit = st.form_submit_button(
+                        "✅ 회원가입 완료",
+                        use_container_width=True,
+                        type="primary"
+                    )
                 
                 if _signup_submit:
                     if not _signup_name or len(_signup_name) < 2:
@@ -1055,16 +1111,16 @@ if not _is_authenticated():
                                 "contact": hash_contact(_clean_contact),
                                 "pin_hash": hash_contact(_clean_contact),
                                 "job": _signup_job or "",
-                                "user_role": _signup_role,
-                                "role": _signup_role,
+                                "user_role": "agent",
+                                "role": "agent",
                                 "quota_remaining": 10,
                                 "created_at": datetime.datetime.now().isoformat(),
                                 "updated_at": datetime.datetime.now().isoformat(),
                             }
                             
                             # Dual Write (Supabase + GCS)
-                            _db_success = _du_upsert_member(_new_member)
-                            _gcs_success = dual_write_member(_new_member)
+                            _gcs_success = dual_write_member(_new_member, db_save_func=_du_upsert_member)
+                            _db_success = True  # dual_write_member 내부에서 처리
                             
                             if _db_success or _gcs_success:
                                 st.success(
@@ -1086,6 +1142,45 @@ if not _is_authenticated():
                                 st.error("❌ 회원가입 실패. 관리자에게 문의해 주세요.")
                         except Exception as _signup_err:
                             st.error(f"❌ 회원가입 오류: {_signup_err}")
+            
+            with _col_guest:
+                st.markdown(
+                    "<div style='background:#f0f9ff;border:1px dashed #3b82f6;"
+                    "border-radius:8px;padding:12px;margin-bottom:12px;'>"
+                    "<div style='font-size:0.78rem;font-weight:700;color:#1e40af;margin-bottom:6px;'>"
+                    "🔓 게스트 로그인 (1일 1회)</div>"
+                    "<div style='font-size:0.72rem;color:#1e3a8a;line-height:1.6;'>"
+                    "회원가입 없이 1일 1회 제한으로 사용할 수 있습니다.<br>"
+                    "제한: AI 분석 3회, 데이터 저장 불가</div>"
+                    "</div>",
+                    unsafe_allow_html=True
+                )
+                
+                if st.button(
+                    "🔓 게스트로 시작하기",
+                    use_container_width=True,
+                    key="guest_login_btn"
+                ):
+                    import datetime
+                    _today = datetime.date.today().isoformat()
+                    _guest_key = f"guest_login_{_today}"
+                    
+                    # 1일 1회 제한 확인
+                    if st.session_state.get(_guest_key, False):
+                        st.error("❌ 오늘 이미 게스트 로그인을 사용하셨습니다. 내일 다시 시도해 주세요.")
+                    else:
+                        st.session_state[_guest_key] = True
+                        st.session_state["crm_authenticated"] = True
+                        st.session_state["crm_user_id"] = "guest"
+                        st.session_state["crm_user_name"] = "게스트"
+                        st.session_state["crm_role"] = "guest"
+                        st.session_state["crm_token"] = "guest-temp"
+                        st.session_state["crm_quota_remaining"] = 3
+                        st.session_state.pop("_crm_show_signup", None)
+                        st.success("✅ 게스트 모드로 입장합니다. (AI 분석 3회 제한)")
+                        if not st.session_state.get("_rerun_pending"):
+                            st.session_state["_rerun_pending"] = True
+                            st.rerun()
             
             if st.button("← 로그인 화면으로 돌아가기", use_container_width=True):
                 st.session_state.pop("_crm_show_signup", None)
@@ -1110,7 +1205,7 @@ if not _is_authenticated():
     )
 
     _sc_render_auth_screen(
-        app_name="Goldkey AI Masters 2026",
+        app_name="Goldkey_AI_Masters2026",
         app_icon="🏆",
         terms_agree_key="_crm_terms_view",
         show_header=False,
@@ -1450,8 +1545,7 @@ if _spa_mode == "list":
         _search_q = st.text_input("🔍 고객 이름 / 음성 결과 확인",
                                   key="spa_search", label_visibility="collapsed")
     with _sb_col:
-        _quick_search_btn = st.button("🔍 검색", key="spa_quick_search_btn",
-                                      use_container_width=True)
+        _quick_search_btn = st.button("🔍 검색", use_container_width=True, key="spa_quick_search_btn")
 
     _fc1, _fc2, _fc3 = st.columns(3)
     with _fc1:
@@ -1528,7 +1622,7 @@ if _spa_mode == "list":
         st.caption(f"📋 총 {_total_cnt}명 (표시 {len(_paged_custs)}명)")
     with _cc2:
         if _vf:
-            if st.button("✕ 음성 필터 해제", key="clr_voice_f", use_container_width=True):
+            if st.button("✕ 음성 필터 해제", use_container_width=True, key="clr_voice_f"):
                 st.session_state.pop("_voice_filters", None)
                 st.session_state.pop("crm_voice_q", None)
                 st.rerun()
@@ -1873,7 +1967,7 @@ elif _spa_mode == "customer":
                 "font-weight:900!important;}</style>",
                 unsafe_allow_html=True,
             )
-            if st.button("💾 신규 & 수정 고객 저장", key="nreg_save", type="primary"):
+            if st.button("💾 신규 & 수정 고객 저장", type="primary", key="nreg_save"):
                 if not _new_fn.strip():
                     st.warning("⚠️ 이름은 필수 입력 항목입니다.")
                 else:
@@ -2247,7 +2341,7 @@ elif _spa_mode == "customer":
         # ── 월 네비게이션 (Prev / 월명 / Next) ──────────────────────────────
         _nav_prev, _nav_title, _nav_next = st.columns([1, 4, 1])
         with _nav_prev:
-            if st.button("◀", key="spa_mo_prev", use_container_width=True):
+            if st.button("◀", use_container_width=True, key="spa_mo_prev"):
                 _pm, _py = (_cal_mo - 1, _cal_yr) if _cal_mo > 1 else (12, _cal_yr - 1)
                 st.session_state["spa_cal_ym"] = (_py, _pm)
                 st.rerun()
@@ -2258,7 +2352,7 @@ elif _spa_mode == "customer":
                 unsafe_allow_html=True,
             )
         with _nav_next:
-            if st.button("▶", key="spa_mo_next", use_container_width=True):
+            if st.button("▶", use_container_width=True, key="spa_mo_next"):
                 _nm, _ny = (_cal_mo + 1, _cal_yr) if _cal_mo < 12 else (1, _cal_yr + 1)
                 st.session_state["spa_cal_ym"] = (_ny, _nm)
                 st.rerun()
@@ -2409,7 +2503,7 @@ elif _spa_mode == "customer":
                 key="spa_memo_pad",
                 help="저장 버튼을 누르면 GCS 마스터 DB에 반영됩니다.",
             )
-            if st.button("💾 메모 저장", key="spa_memo_save", use_container_width=True):
+            if st.button("💾 메모 저장", use_container_width=True, key="spa_memo_save"):
                 if _sel_cust:
                     from crm_data_fetchers import upsert_customer_for_agent
                     _memo_save = upsert_customer_for_agent(
@@ -2716,8 +2810,7 @@ elif _spa_mode == "customer":
             )
             _bsv1, _bsv2 = st.columns([3, 1])
             with _bsv1:
-                if st.button("💾 브리핑 저장 (GCS DB)", key="crm_brief_save",
-                             use_container_width=True, type="primary"):
+                if st.button("💾 브리핑 저장 (GCS DB)", use_container_width=True, type="primary", key="crm_brief_save"):
                     if _du_save_ai_brief(_user_id, _brief_text):  # [db_utils §12]
                         st.success("✅ GCS 마스터 DB에 저장되었습니다.")
                     else:
@@ -2795,8 +2888,7 @@ elif _spa_mode == "customer":
                     "상담 상황",
                     height=80, key="crm_sim_input", label_visibility="collapsed",
                 )
-                if st.button("🤖 AI 전략 생성", key="crm_sim_run",
-                             use_container_width=True, type="primary"):
+                if st.button("🤖 AI 전략 생성", use_container_width=True, type="primary", key="crm_sim_run"):
                     if not _sim_input.strip():
                         st.warning("상담 상황을 입력해 주세요.")
                     else:
@@ -2974,9 +3066,7 @@ elif _spa_mode == "customer":
                         key="kakao_consent_agreed",
                     )
                     _send_ready = bool(_kk_name and _kk_summary.strip() and _kk_consent)
-                    if st.button("💬 카카오톡 발송", key="kakao_send_btn",
-                                 use_container_width=True, type="primary",
-                                 disabled=not _send_ready):
+                    if st.button("💬 카카오톡 발송", use_container_width=True, type="primary", disabled=not _send_ready, key="kakao_send_btn"):
                         with st.spinner("발송 처리 중…"):
                             try:
                                 from db_utils import send_kakao_report as _dku_kakao
@@ -3224,8 +3314,7 @@ elif _spa_mode == "customer":
                                    "address": _dba_e, "memo": _dbm_e}
                     _dbb1, _dbb2, _dbb3 = st.columns(3)
                     with _dbb1:
-                        if st.button("💾 저장", key=f"dbm_save_{_dp2}",
-                                     type="primary", use_container_width=True):
+                        if st.button("💾 저장", type="primary", use_container_width=True, key=f"dbm_save_{_dp2}"):
                             try:
                                 customer_input_form(_db_upd, _user_id, _sb)
                                 st.success("✅ 저장 완료!")
@@ -3234,8 +3323,7 @@ elif _spa_mode == "customer":
                             except Exception as _dbe:
                                 st.error(f"저장 오류: {_dbe}")
                     with _dbb2:
-                        if st.button("↩️ 새로고침", key=f"dbm_reload_{_dp2}",
-                                     use_container_width=True):
+                        if st.button("↩️ 새로고침", use_container_width=True, key=f"dbm_reload_{_dp2}"):
                             st.cache_data.clear()
                             st.rerun()
                     with _dbb3:
@@ -3309,13 +3397,10 @@ elif _spa_mode == "customer":
                 if not _gcal_ok:
                     _gcb = st.checkbox("[필수] 외부 캘린더 접근 동의",
                                        key="gcal_cb", disabled=(not _cal_cs))
-                    if st.button("📅 Google 연동", key="gcal_connect_btn",
-                                 type="primary", use_container_width=True,
-                                 disabled=(not _gcb or not _cal_cs)):
+                    if st.button("📅 Google 연동", type="primary", use_container_width=True, disabled=(not _gcb or not _cal_cs), key="gcal_connect_btn"):
                         st.info("🔧 [Placeholder] 실 구현 시 Google OAuth 2.0 URL로 리디렉션됩니다.")
                 else:
-                    if st.button("🔌 Google 해제", key="gcal_disc_btn",
-                                 use_container_width=True):
+                    if st.button("🔌 Google 해제", use_container_width=True, key="gcal_disc_btn"):
                         st.session_state.pop("gcal_oauth_connected", None)
                         st.rerun()
 
@@ -3340,13 +3425,10 @@ elif _spa_mode == "customer":
                 if not _acal_ok:
                     _acb = st.checkbox("[필수] Apple 캘린더 접근 동의",
                                        key="acal_cb", disabled=(not _cal_cs))
-                    if st.button("🍎 Apple 연동", key="acal_connect_btn",
-                                 use_container_width=True,
-                                 disabled=(not _acb or not _cal_cs)):
+                    if st.button("🍎 Apple 연동", use_container_width=True, disabled=(not _acb or not _cal_cs), key="acal_connect_btn"):
                         st.info("🔧 [Placeholder] CalDAV 앱별 비밀번호 방식으로 연결합니다.")
                 else:
-                    if st.button("🔌 Apple 해제", key="acal_disc_btn",
-                                 use_container_width=True):
+                    if st.button("🔌 Apple 해제", use_container_width=True, key="acal_disc_btn"):
                         st.session_state.pop("acal_oauth_connected", None)
                         st.rerun()
 

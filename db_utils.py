@@ -457,22 +457,47 @@ def safe_update_customer(
     agent_id: str = "",
 ) -> bool:
     """
-    [무중단 스키마 확장] 기존 데이터를 유지하며 신규/변경 필드만 안전하게 업데이트.
+    [무중단 스키마 확장 + 데이터 무결성] 기존 데이터를 유지하며 신규/변경 필드만 안전하게 업데이트.
 
     - 한국어 키(직업급수, 운전형태 등)와 영어 DB 컬럼 키 모두 허용
     - 없는 컬럼은 dict.get() 기본값으로 방어
     - 기존 데이터 None 필드 시스템 안전 (터지지 않음)
+    - [GP-DATA-INTEGRITY] 내용이 많은 쪽 보존 원칙 적용
     """
     sb = _get_sb()
     if not sb or not person_id:
         return False
 
+    # 기존 데이터 조회
+    existing_data = get_customer(person_id, agent_id)
+    
     payload: dict = {"updated_at": datetime.datetime.utcnow().isoformat()}
 
     for raw_key, value in new_data.items():
         db_col = _FIELD_MAP.get(raw_key, raw_key)
         default = _COLUMN_DEFAULTS.get(db_col)
-        payload[db_col] = value if value is not None else default
+        
+        # [GP-DATA-INTEGRITY] 내용이 많은 쪽 보존
+        if existing_data and db_col in existing_data:
+            existing_value = existing_data.get(db_col)
+            
+            # 둘 다 문자열인 경우: 더 긴 텍스트 선택
+            if isinstance(existing_value, str) and isinstance(value, str):
+                existing_len = len(str(existing_value).strip())
+                new_len = len(str(value).strip())
+                
+                # 새 값이 더 길거나 기존 값이 비어있으면 새 값 사용
+                if new_len > existing_len or not existing_value:
+                    payload[db_col] = value if value is not None else default
+                else:
+                    # 기존 값이 더 길면 유지 (payload에 추가하지 않음)
+                    continue
+            else:
+                # 문자열이 아닌 경우: 새 값이 None이 아니면 업데이트
+                payload[db_col] = value if value is not None else default
+        else:
+            # 기존 데이터가 없으면 새 값 사용
+            payload[db_col] = value if value is not None else default
 
     if agent_id:
         payload["agent_id"] = agent_id

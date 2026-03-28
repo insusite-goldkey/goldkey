@@ -996,69 +996,69 @@ def render_auth_screen(
         )
     _terms_md = st.markdown if show_terms_scroll else (lambda *a, **k: None)
     _terms_md(
-        "<div style='max-width:560px;max-height:220px;overflow-y:auto;font-size:0.76rem;"
+        "<div style='width:100%;max-width:100%;max-height:220px;overflow-y:auto;font-size:0.76rem;"
         "color:#222;line-height:1.75;border:1px dashed #000;border-radius:8px;"
         "padding:10px 14px;background:#f9fafb;margin-bottom:8px;'>"
 
-        "<b style='color:#0a1628;'>[제1조] 목적</b><br>"
+        "<b style='color:#0a1628;'>[제1조] 목적</b> "
         "본 약관은 Goldkey AI Masters 2026(이하 '서비스')의 이용 조건·절차, 운영자와 회원의 권리·의무를 규정함을 목적으로 합니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제2조] 서비스 이용 조건</b><br>"
-        "• 현재 <b>전체 무료</b> 베타 서비스로 운영 중이며, 회원 1인당 <b>1일 10회</b> AI 상담 이용이 제한될 수 있습니다.<br>"
-        "• <b>사용 대상:</b> 보험업계 종사자 또는 관련 업무 자격 보유자(19세 이상)를 대상으로 합니다.<br><br>"
+        "<b style='color:#0a1628;'>[제2조] 서비스 이용 조건</b> "
+        "현재 <b>전체 무료</b> 베타 서비스로 운영 중이며, 회원 1인당 <b>1일 10회</b> AI 상담 이용이 제한될 수 있습니다. "
+        "<b>사용 대상:</b> 보험업계 종사자 또는 관련 업무 자격 보유자(19세 이상)를 대상으로 합니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제3조] 서비스 기능 범위</b><br>"
+        "<b style='color:#0a1628;'>[제3조] 서비스 기능 범위</b> "
         "AI 보장 분석 도구 / 세무·법률·상속·증여 참고 정보 제공 / 보험사별 보장 및 보험금 청구 안내 절차 지원<br><br>"
 
-        "<b style='color:#0a1628;'>[제4조] 제한 및 금지 사항</b><br>"
+        "<b style='color:#0a1628;'>[제4조] 제한 및 금지 사항</b> "
         "타인 계정 도용 및 허위 정보 입력 금지 / 시스템 해킹 시도 및 부당한 권한 획득 방지 / 자동화 도구(크롤링, 봇)를 이용한 무단 데이터 수집 방지<br><br>"
 
-        "<b style='color:#0a1628;'>[제5조] 개인정보 수집 및 이용</b><br>"
-        "• <b>수집 항목:</b> 이름, 연락처, 비밀번호(암호화 저장)<br>"
-        "• <b>이용 목적:</b> 회원 인증, 이용 한도 관리, 서비스 품질 개선 및 맞춤형 컨텐츠 제공<br>"
-        "• <b>보유 기간:</b> 회원 탈퇴 시 즉시 파기 (단, 관계 법령에 따라 보존이 필요한 경우 제외)<br><br>"
+        "<b style='color:#0a1628;'>[제5조] 개인정보 수집 및 이용</b> "
+        "<b>수집 항목:</b> 이름, 연락처, 비밀번호(암호화 저장) / "
+        "<b>이용 목적:</b> 회원 인증, 이용 한도 관리, 서비스 품질 개선 및 맞춤형 컨텐츠 제공 / "
+        "<b>보유 기간:</b> 회원 탈퇴 시 즉시 파기 (단, 관계 법령에 따라 보존이 필요한 경우 제외)<br><br>"
 
-        "<b style='color:#0a1628;'>[제5조의2] 회원 정보 보안 보호</b><br>"
-        "• <b>비밀번호/연락처:</b> SHA-256 단방향 해시로 저장하여 운영자도 원문을 열람하거나 복원할 수 없습니다.<br>"
-        "• <b>데이터:</b> AES 기반 Fernet 암호화 적용, 세션 종료 시 메모리 데이터 즉시 파기 / <b>전송:</b> TLS 1.3 보안 통신 적용<br><br>"
+        "<b style='color:#0a1628;'>[제5조의2] 회원 정보 보안 보호</b> "
+        "<b>비밀번호/연락처:</b> SHA-256 단방향 해시로 저장하여 운영자도 원문을 열람하거나 복원할 수 없습니다. "
+        "<b>데이터:</b> AES 기반 Fernet 암호화 적용, 세션 종료 시 메모리 데이터 즉시 파기 / <b>전송:</b> TLS 1.3 보안 통신 적용<br><br>"
 
-        "<b style='color:#0a1628;'>[제6조] 마이크 접근 권한</b><br>"
-        "• 음성 입력(STT) 기능: 마이크 허용 요청 시 음성 데이터는 텍스트 변환용으로만 사용되며 <b>서버에 파일 형태로 저장되지 않습니다.</b><br>"
-        "• <b>변환 방식:</b> Google Web Speech API를 통해 실시간 변환 후 텍스트 데이터만 활용합니다.<br><br>"
+        "<b style='color:#0a1628;'>[제6조] 마이크 접근 권한</b> "
+        "음성 입력(STT) 기능: 마이크 허용 요청 시 음성 데이터는 텍스트 변환용으로만 사용되며 <b>서버에 파일 형태로 저장되지 않습니다.</b> "
+        "<b>변환 방식:</b> Google Web Speech API를 통해 실시간 변환 후 텍스트 데이터만 활용합니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제7조] 데이터 파기 규정</b><br>"
-        "• <b>즉시 파기:</b> 회원 탈퇴 요청 시 DB 내 모든 정보 삭제 / 세션 종료 시 임시 분석 내용 삭제<br>"
-        "• <b>정기 파기:</b> 서비스 미사용 90일 경과 시 자동 삭제 처리하여 복구가 불가능하도록 조치합니다.<br><br>"
+        "<b style='color:#0a1628;'>[제7조] 데이터 파기 규정</b> "
+        "<b>즉시 파기:</b> 회원 탈퇴 요청 시 DB 내 모든 정보 삭제 / 세션 종료 시 임시 분석 내용 삭제 / "
+        "<b>정기 파기:</b> 서비스 미사용 90일 경과 시 자동 삭제 처리하여 복구가 불가능하도록 조치합니다.<br><br>"
 
         "<b style='color:#0a1628;'>[제8조] 면책 사항 및 책임의 한계</b><br>"
         "본 서비스는 AI 기술을 활용한 상담 <b>보조</b> 도구입니다. 모든 분석 결과의 최종 판단 및 처리는 <b>사용자(설계사)</b>의 책임하에 이루어집니다. "
         "보험금 지급 여부 등 최종 결정은 보험사의 심사 결과에 따르며, 법률·세무 문제는 반드시 전문가와 상의하십시오. "
         "본 서비스는 보험 판매·중개·알선 관계와 독립적인 <b>순수 AI 분석 도구</b>입니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제9조] 금융소비자보호법(금소법) 준수 원칙</b><br>"
-        "① 적합성 원칙 준수: 고객 소득 및 위험 성향 기반 분석<br>"
-        "② 특정 보험사 제휴 및 수수료 편향성 없음<br>"
-        "③ 부당권유 방지: 단정적 표현 자동 감지 및 교정<br>"
+        "<b style='color:#0a1628;'>[제9조] 금융소비자보호법(금소법) 준수 원칙</b> "
+        "① 적합성 원칙 준수: 고객 소득 및 위험 성향 기반 분석 / "
+        "② 특정 보험사 제휴 및 수수료 편향성 없음 / "
+        "③ 부당권유 방지: 단정적 표현 자동 감지 및 교정 / "
         "④ 허위·과장 광고 방지: 객관적 수치, 약관, 판례 범위 내 분석<br><br>"
 
-        "<b style='color:#0a1628;'>[제10조] 데이터 저장 분리 (Zero-Knowledge)</b><br>"
-        "• <b>Public Zone:</b> 보험사 공시, 의학/법령 데이터 (중앙 서버 관리)<br>"
-        "• <b>Private Zone:</b> 회원이 입력한 고객 기록 및 증권 정보 (회원 UID별 독립 보안 영역)<br>"
-        "• 관리자 및 개발자는 기술적으로 Private Zone에 접근할 수 없으며(IAM 403 차단), 모든 데이터는 AES-256-GCM으로 암호화 저장됩니다.<br><br>"
+        "<b style='color:#0a1628;'>[제10조] 데이터 저장 분리 (Zero-Knowledge)</b> "
+        "<b>Public Zone:</b> 보험사 공시, 의학/법령 데이터 (중앙 서버 관리) / "
+        "<b>Private Zone:</b> 회원이 입력한 고객 기록 및 증권 정보 (회원 UID별 독립 보안 영역) / "
+        "관리자 및 개발자는 기술적으로 Private Zone에 접근할 수 없으며(IAM 403 차단), 모든 데이터는 AES-256-GCM으로 암호화 저장됩니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제11조] 카카오톡 서비스 보안 안내</b><br>"
-        "• <b>서비스명:</b> Goldkey AI 보고서 전송 시스템<br>"
-        "• <b>보안 준수:</b> 본 시스템은 대화 내용을 열람하거나 친구 목록을 수집하지 않으며, 메시지 발송 권한만 활용합니다.<br>"
-        "• <b>데이터 보호:</b> 전송 데이터는 TLS 암호화 처리되며, 서버에 보고서 원문 내용을 <b>장기 저장하지 않습니다.</b><br><br>"
+        "<b style='color:#0a1628;'>[제11조] 카카오톡 서비스 보안 안내</b> "
+        "<b>서비스명:</b> Goldkey AI 보고서 전송 시스템 / "
+        "<b>보안 준수:</b> 본 시스템은 대화 내용을 열람하거나 친구 목록을 수집하지 않으며, 메시지 발송 권한만 활용합니다. / "
+        "<b>데이터 보호:</b> 전송 데이터는 TLS 암호화 처리되며, 서버에 보고서 원문 내용을 <b>장기 저장하지 않습니다.</b><br><br>"
 
         "<b style='color:#0a1628;'>[제12조] 외부 서비스 연동(Google/Apple 캘린더)</b><br>"
         "회원의 명시적 동의하에 외부 캘린더 일정을 API(OAuth 2.0)로 연동할 수 있습니다. "
         "수집된 일정은 앱 내 일정 관리 목적으로만 사용되며, 제3자 제공이나 마케팅 활용은 엄격히 금지됩니다. "
         "연동 해제 시 서버 내 관련 데이터는 <b>즉시 영구 삭제</b>됩니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제13조] 개인정보 제3자 제공 (알림톡 발송)</b><br>"
-        "본 서비스는 분석 결과 안내를 위해 고객의 번호를 카카오톡 알림톡 API에 전달할 수 있습니다.<br>"
-        "• <b>마스킹 조치:</b> 전송되는 개인정보(이름, 연락처, 주민번호 일부 등)는 법령에 따라 "
+        "<b style='color:#0a1628;'>[제13조] 개인정보 제3자 제공 (알림톡 발송)</b> "
+        "본 서비스는 분석 결과 안내를 위해 고객의 번호를 카카오톡 알림톡 API에 전달할 수 있습니다. "
+        "<b>마스킹 조치:</b> 전송되는 개인정보(이름, 연락처, 주민번호 일부 등)는 법령에 따라 "
         "별표(*)로 <b>비식별 처리(마스킹)</b>되어 발송됩니다.<br><br>"
 
         "<div style='background:#FFF3CD;border:1px solid #F0A500;border-radius:6px;padding:8px 10px;"
@@ -1098,12 +1098,13 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     border-radius: 0 0 8px 8px;
     padding: 4px 10px 8px 10px;
     margin-bottom: 6px;
+    text-align: left;
 }
 </style>""", unsafe_allow_html=True)
     _consent_header_text = consent_header_text or "📋 서비스 이용을 위한 필수 동의"
     st.markdown(
-        f"<div style='max-width:560px;background:{consent_header_bg};border-radius:8px 8px 0 0;"
-        "padding:8px 16px;margin-top:10px;text-align:center;'>"
+        f"<div style='width:100%;max-width:100%;background:{consent_header_bg};border-radius:8px 8px 0 0;"
+        "padding:8px 16px;margin-top:10px;text-align:left;'>"
         f"<span style='font-size:1.0rem;font-weight:900;color:{consent_header_fg};'>"
         f"{_consent_header_text}</span></div>",
         unsafe_allow_html=True,
@@ -1149,7 +1150,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     # ── [ID-100-AUTH] 내보험다보여 연동 동의 입구 제어 카드 ──────────────────
     if show_nibo_box:
         st.markdown(
-            "<div style='background:#fffbeb;border:2px dashed #f59e0b;"
+            "<div style='width:100%;max-width:100%;background:#fffbeb;border:2px dashed #f59e0b;"
             "border-radius:10px;padding:12px 14px;margin-top:14px;'>"
             "<div style='font-size:0.82rem;font-weight:900;color:#92400e;margin-bottom:8px;'>"
             "🔐 [내보험다보여 연동 동의] — 신용정보법 제32조 별도 고지</div>"
@@ -1162,7 +1163,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
             "</div></div>",
             unsafe_allow_html=True,
         )
-        with st.popover("📋 신용정보의 이용 및 보호에 관한 법률 (약칭: 신용정보법)", use_container_width=True):
+        with st.popover("📋 신용정보의 이용 및 보호에 관한 법률", use_container_width=True):
             st.markdown(
                 "<div style='font-size:0.78rem;color:#92400e;font-weight:700;"
                 "margin-bottom:6px;'>📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
@@ -3049,13 +3050,13 @@ def render_signup_modal():
     
     contact = st.text_input(
         txt.SIGNUP_CONTACT_LABEL if (txt and hasattr(txt, 'SIGNUP_CONTACT_LABEL')) else "연락처 (로그인 ID)",
-        placeholder="010-1234-5678",
+        placeholder="연락처를 입력하세요",
         key="signup_contact"
     )
     
     contact_confirm = st.text_input(
         txt.SIGNUP_CONTACT_CONFIRM_LABEL if (txt and hasattr(txt, 'SIGNUP_CONTACT_CONFIRM_LABEL')) else "연락처 확인",
-        placeholder="010-1234-5678",
+        placeholder="연락처를 다시 입력하세요",
         key="signup_contact_confirm"
     )
     
@@ -3190,7 +3191,7 @@ def render_password_reset_modal():
             st.markdown(f"**{st.session_state['auth_method']} 인증 시뮬레이션**")
             
             auth_name = st.text_input("이름", key="auth_name")
-            auth_contact = st.text_input("연락처", placeholder="010-1234-5678", key="auth_contact")
+            auth_contact = st.text_input("연락처", placeholder="연락처를 입력하세요", key="auth_contact")
             
             if st.button("✅ 인증 완료", use_container_width=True):
                 if auth_name and auth_contact:

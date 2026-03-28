@@ -38338,6 +38338,13 @@ function selectCustomer(name) {{
             except Exception:
                 pass
 
+            # ── [GP-SMART-SEARCH] 지능형 고객 검색 (조회 전용) ─────────────────
+            try:
+                from modules.smart_search_engine import render_smart_search_widget as _rssw
+                _rssw(user_id=st.session_state.get("user_id", ""))
+            except Exception as _sse:
+                st.caption(f"🔍 검색 엔진 로드 오류: {str(_sse)[:60]}")
+
             # ── 심야 배치 워커 트리거 (02~04 KST, 세션당 1회) ────────────────
             if not st.session_state.get('_art38_night_ran_today'):
                 import datetime as _dt_nw
