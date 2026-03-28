@@ -40563,6 +40563,48 @@ div[data-testid="stButton"] {
                     st.info(f"💡 의무기록 OCR 센터 로드 중 오류: {_ph3_e}")
             
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            
+            # [GP-PHASE4] 보험계약 조회 (A/B/C 파트)
+            if _selected_cid and _agent_id:
+                try:
+                    from hq_phase4_insurance_contracts_viewer import render_insurance_contracts_viewer
+                    
+                    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                    
+                    with st.expander("📋 보험계약 관리 (A/B/C 파트)", expanded=False):
+                        render_insurance_contracts_viewer(_selected_cid, _agent_id, key_prefix="_hq_m_ic")
+                except Exception as _ph4_e:
+                    st.info(f"💡 보험계약 조회 로드 중 오류: {_ph4_e}")
+            
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            
+            # [GP-PHASE4] 설계사 프로필 & 메모 & 인사이트
+            if _agent_id:
+                _hq_phase4_col1, _hq_phase4_col2 = st.columns(2)
+                with _hq_phase4_col1:
+                    with st.expander("👤 내 프로필 관리 (Phase 4)", expanded=False):
+                        try:
+                            from blocks.zombie_tables_crud import render_agent_profile_editor
+                            render_agent_profile_editor(_agent_id, key_prefix="hq_aprof")
+                        except Exception as _hq_aprof_e:
+                            st.info(f"💡 프로필 관리 로드 중 오류: {_hq_aprof_e}")
+                
+                with _hq_phase4_col2:
+                    with st.expander("📝 내 메모 (Phase 4)", expanded=False):
+                        try:
+                            from blocks.zombie_tables_crud import render_home_notes_manager
+                            render_home_notes_manager(_agent_id, key_prefix="hq_hnotes")
+                        except Exception as _hq_hnotes_e:
+                            st.info(f"💡 메모 관리 로드 중 오류: {_hq_hnotes_e}")
+                
+                with st.expander("📊 인사이트 & 통계 (Phase 4)", expanded=False):
+                    try:
+                        from blocks.zombie_tables_crud import render_home_insights_viewer
+                        render_home_insights_viewer(_agent_id, key_prefix="hq_hins")
+                    except Exception as _hq_hins_e:
+                        st.info(f"💡 인사이트 로드 중 오류: {_hq_hins_e}")
+            
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     
             # ── [N-SECTION] 고객상담 특별파트 ───────────────────────────────
             # ▸ 데이터 브릿지 자동 로드 — L-SECTION 통합 분석 결과 감지

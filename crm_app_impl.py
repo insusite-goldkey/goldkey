@@ -1838,6 +1838,34 @@ if _spa_mode == "list":
     st.markdown("<hr style='border-top:1px solid #e5e7eb;margin:10px 0 12px;'>",
                 unsafe_allow_html=True)
     
+    # ── [GP-PHASE4] 설계사 프로필 & 메모 & 인사이트 ────────────────────
+    _phase4_col1, _phase4_col2 = st.columns(2)
+    with _phase4_col1:
+        with st.expander("👤 내 프로필 관리 (Phase 4)", expanded=False):
+            try:
+                from blocks.zombie_tables_crud import render_agent_profile_editor
+                render_agent_profile_editor(_user_id, key_prefix="crm_aprof")
+            except Exception as _aprof_e:
+                st.info(f"💡 프로필 관리 로드 중 오류: {_aprof_e}")
+    
+    with _phase4_col2:
+        with st.expander("📝 내 메모 (Phase 4)", expanded=False):
+            try:
+                from blocks.zombie_tables_crud import render_home_notes_manager
+                render_home_notes_manager(_user_id, key_prefix="crm_hnotes")
+            except Exception as _hnotes_e:
+                st.info(f"💡 메모 관리 로드 중 오류: {_hnotes_e}")
+    
+    with st.expander("📊 인사이트 & 통계 (Phase 4)", expanded=False):
+        try:
+            from blocks.zombie_tables_crud import render_home_insights_viewer
+            render_home_insights_viewer(_user_id, key_prefix="crm_hins")
+        except Exception as _hins_e:
+            st.info(f"💡 인사이트 로드 중 오류: {_hins_e}")
+    
+    st.markdown("<hr style='border-top:1px solid #e5e7eb;margin:10px 0 12px;'>",
+                unsafe_allow_html=True)
+    
     # ── [GP-VOICE §5] 핸즈프리 CRM — 모닝 브리핑 (대시보드 직후) ─────────────
     if _VOICE_OK and _ve_morning_auto:
         st.markdown("<hr style='border:none;border-top:1px solid #e2e8f0;margin:16px 0 8px;'>",
@@ -2385,6 +2413,15 @@ elif _spa_mode == "customer":
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
                 with st.expander("📦 스캔 문서 보관함 (전체 이력)", expanded=False):
                     render_scan_vault_viewer(_sel_pid, _user_id)
+                
+                # ── [GP-PHASE4] 고객 문서 관리 ──────────────────────
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                with st.expander("📁 고객 문서 관리 (Phase 4)", expanded=False):
+                    try:
+                        from blocks.zombie_tables_crud import render_customer_docs_manager
+                        render_customer_docs_manager(_sel_pid, _user_id, key_prefix=f"crm_cdocs_{_sel_pid}")
+                    except Exception as _cdocs_e:
+                        st.info(f"💡 고객 문서 관리 로드 중 오류: {_cdocs_e}")
 
                 # ── [GP-PHASE1] 8가지 관계망 태깅 시스템 ──────────────────────
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)

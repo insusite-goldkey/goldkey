@@ -789,3 +789,117 @@ def analyze_medical_record(text: str, kcd_registry: Optional[dict] = None) -> di
         "kcd_mapped":    kcd_mapped,
         "expert_flag":   expert_flag,
     }
+
+
+# =============================================================================
+# [GP-PHASE3] 의무기록 이미지 → 구조화 데이터 추출 (Gemini Vision API)
+# =============================================================================
+
+def extract_medical_record_data(image_bytes: bytes) -> dict:
+    """
+    [GP-PHASE3] 의무기록 이미지에서 구조화된 데이터 추출.
+    
+    Args:
+        image_bytes: 의무기록 이미지 바이트 (JPG/PNG/PDF)
+    
+    Returns:
+        dict: {
+            "hospital_name": str,
+            "doctor_name": str,
+            "visit_date": str (YYYY-MM-DD),
+            "diagnosis_names": list[str],
+            "diagnosis_codes": list[str],
+            "prescriptions": dict,
+            "lab_results": dict,
+            "raw_text": str,
+            "confidence": float (0.0 ~ 1.0),
+        }
+    """
+    try:
+        from shared_components import get_master_model
+        import json
+        
+        # Gemini Vision API 클라이언트
+        client, _ = get_master_model()
+        
+        # 이미지 파트 준비
+        img_part = {"mime_type": "image/jpeg", "data": image_bytes}
+        
+        # 의무기록 분석 프롬프트
+        prompt = """이 이미지는 의무기록(진단서, 처방전, 검사 결과지 등)입니다.
+다음 정보를 JSON 형식으로 추출하세요:
+
+1. hospital_name: 병원명 (예: 서울대학교병원, 삼성서울병원)
+2. doctor_name: 의사명 (예: 홍길동)
+3. visit_date: 진료일 또는 발급일 (YYYY-MM-DD 형식)
+4. diagnosis_names: 진단명 배열 (예: ["급성 상기도 감염", "고혈압"])
+5. diagnosis_codes: ICD-10 코드 배열 (예: ["J06.9", "I10"])
+6. prescriptions: 처방 내역 객체 {
+     "medications": [{"name": "약물명", "dosage": "용량", "duration": "기간"}]
+   }
+7. lab_results: 검사 결과 객체 {
+     "tests": [{"name": "검사명", "value": "수치", "unit": "단위", "normal_range": "정상범위"}]
+   }
+8. raw_text: OCR로 추출한 전체 텍스트
+9. confidence: 추출 신뢰도 (0.0 ~ 1.0)
+
+정보가 없는 필드는 빈 문자열("") 또는 빈 배열([])로 반환하세요.
+JSON만 반환하고 설명 없이 출력하세요."""
+        
+        # Gemini API 호출
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[prompt, img_part],
+        )
+        
+        response_text = response.text.strip()
+        
+        # JSON 파싱
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            parsed_data = json.loads(json_match.group())
+        else:
+            parsed_data = {
+                "hospital_name": "",
+                "doctor_name": "",
+                "visit_date": "",
+                "diagnosis_names": [],
+                "diagnosis_codes": [],
+                "prescriptions": {},
+                "lab_results": {},
+                "raw_text": response_text,
+                "confidence": 0.5,
+            }
+        
+        # 기본값 보장
+        result = {
+            "hospital_name": parsed_data.get("hospital_name", ""),
+            "doctor_name": parsed_data.get("doctor_name", ""),
+            "visit_date": parsed_data.get("visit_date", ""),
+            "diagnosis_names": parsed_data.get("diagnosis_names", []),
+            "diagnosis_codes": parsed_data.get("diagnosis_codes", []),
+            "prescriptions": parsed_data.get("prescriptions", {}),
+            "lab_results": parsed_data.get("lab_results", {}),
+            "raw_text": parsed_data.get("raw_text", ""),
+            "confidence": float(parsed_data.get("confidence", 0.0)),
+        }
+        
+        # 의학 약어 번역 적용
+        if result["raw_text"]:
+            result["raw_text"] = translate_medical_abbreviations(result["raw_text"])
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "hospital_name": "",
+            "doctor_name": "",
+            "visit_date": "",
+            "diagnosis_names": [],
+            "diagnosis_codes": [],
+            "prescriptions": {},
+            "lab_results": {},
+            "raw_text": f"OCR 분석 오류: {str(e)}",
+            "confidence": 0.0,
+            "error": str(e),
+        }
