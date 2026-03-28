@@ -99,6 +99,7 @@ from blocks.crm_nibo_screen_block import render_crm_nibo_screen
 from blocks.crm_analysis_screen_block import render_crm_analysis_screen
 from blocks.crm_list_inline_panel_block import render_crm_list_inline_panel
 from blocks.crm_insurance_contracts_block import render_insurance_contracts
+from blocks.crm_scan_block import render_crm_scan_block
 
 from shared_components import (
     CUSTOMER_SCHEMA,
@@ -162,9 +163,6 @@ st.set_page_config(
 )
 
 # ── [GP-SEC] 세션 지속성 초기화 (새로고침/앱전환 시 로그인 유지) ─────────────────
-# DOM 에러 방지: rerun 플래그 초기화
-st.session_state.pop("_rerun_pending", None)
-
 if _SESSION_MANAGER_OK:
     _session_restored = init_persistent_session()
     if _session_restored:
@@ -616,6 +614,29 @@ textarea {
   appearance: none !important;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   [GP-UX] 시스템 가이드 및 툴팁 전역 삭제 (2026-03-28 신설)
+   ⚠️ 긴급 주석 처리: 백화현상 원인 의심 - DOM 충돌 방지
+   사용자 정의 label/placeholder 외 모든 시스템 문구 제거
+══════════════════════════════════════════════════════════════════ */
+
+/* 1. 폼(Form) 하단의 'Press Enter to submit' 안내 문구 삭제 */
+/* [data-testid="stForm"] p { display: none !important; } */
+
+/* 2. 모든 입력창 상단/하단의 시스템 가이드 및 라벨 보조 문구 삭제 */
+/* [data-testid="stTextInput"] p, 
+[data-testid="stNumberInput"] p, 
+[data-testid="stTextArea"] p { display: none !important; } */
+
+/* 3. 툴팁(Tooltip) 아이콘 및 도움말 팝업 강제 삭제 */
+/* [data-testid="stTooltipIcon"] { display: none !important; } */
+
+/* 4. 입력창 클릭 시 나타나는 브라우저 기본 포커스 힌트 및 테두리 정리 */
+/* input:focus { outline: none !important; box-shadow: none !important; } */
+
+/* 5. 버튼 및 기타 요소의 시스템 힌트 문자 삭제 */
+/* .st-emotion-cache-1ae8p30 e1nzilvr4 { display: none !important; } */
+
 /* Streamlit input 필드 타겟팅 */
 [data-testid="stTextInput"] input,
 [data-testid="stNumberInput"] input,
@@ -718,14 +739,38 @@ def _check_sso_token() -> bool:
     return False
 
 def _is_authenticated() -> bool:
-    return st.session_state.get("crm_authenticated", False)
+    """[지시3] 60분 보안 타임아웃 검증 포함"""
+    if not st.session_state.get("crm_authenticated", False):
+        return False
+    
+    # [지시3] 60분 타임아웃 검사
+    from modules.concurrency_guard import check_session_timeout, update_activity_time
+    
+    last_activity = st.session_state.get("crm_last_activity_time", "")
+    if check_session_timeout(last_activity, timeout_minutes=60):
+        # 타임아웃 → 세션 파기
+        st.session_state.clear()
+        st.error(
+            "⚠️ **보안 타임아웃 (60분 초과)**\n\n"
+            "장시간 활동이 없어 자동 로그아웃되었습니다.\n"
+            "PIN 번호로 다시 로그인해 주세요."
+        )
+        return False
+    
+    # [지시3] 활동 시간 갱신
+    st.session_state["crm_last_activity_time"] = update_activity_time()
+    
+    return True
 
 # SSO 토큰 수신 처리
 if _check_sso_token():
-    # DOM 에러 방지: rerun 전 플래그 설정
+    # DOM 에러 방지: rerun 전 플래그 설정 + 무한 루프 차단
     if not st.session_state.get("_rerun_pending"):
         st.session_state["_rerun_pending"] = True
         st.rerun()
+    else:
+        # 플래그 해제 (다음 rerun을 위해)
+        st.session_state["_rerun_pending"] = False
 
 # ── [GP-SEC §2] 미인증 처리 — 자체 로그인 화면 독립 렌더링 ─────────────────────
 if not _is_authenticated():
@@ -896,88 +941,53 @@ if not _is_authenticated():
             with st.form("crm_direct_login"):
                 _crm_name_in    = st.text_input("👤 이름", placeholder="이름을 입력하세요",
                                                 label_visibility="collapsed", key="crm_login_name")
-                _crm_contact_in = st.text_input("📱 연락처(비번)", type="password", placeholder="연락처를 입력하세요",
+                _crm_contact_in = st.text_input("📱 연락처", placeholder="010-1234-5678",
                                                 label_visibility="collapsed", key="crm_login_contact")
+                # [GP-SEC §PIN] 6자리 PIN 번호 입력 필드
+                _crm_pin_in     = st.text_input("🔐 6자리 PIN", type="password", max_chars=6,
+                                                placeholder="123456",
+                                                label_visibility="collapsed", key="crm_login_pin")
                 _crm_login_btn  = st.form_submit_button("🔐 로그인",
                                                          use_container_width=True, type="primary")
                 if _crm_login_btn:
                     _cn = (_crm_name_in    or "").strip()
                     _cc = (_crm_contact_in or "").strip()
-                    # ── [GP-SEC §1] 관리자 로그인 — HQ 동일: ADMIN_CODE/MASTER_CODE 우선, SHA-256 폴백 ──
-                    import hashlib as _hl_adm
-                    _env_admin_code  = get_env_secret("ADMIN_CODE", "")
-                    _env_master_code = get_env_secret("MASTER_CODE", "")
-                    _adm_default_hash = _hl_adm.sha256(b"kgagold6803").hexdigest()
-                    _adm_pw_hash      = get_env_secret("CRM_ADMIN_PW_HASH", _adm_default_hash)
-                    _adm_input_hash   = _hl_adm.sha256((_cc or "").encode()).hexdigest()
-                    _is_admin_name    = _cn.lower() in ("admin", "이세윤")
-                    _is_admin_auth    = False
-                    if _is_admin_name:
-                        if _env_admin_code and _cc == _env_admin_code:
-                            _is_admin_auth = True       # Track A: ADMIN_CODE 평문 (HQ와 동일)
-                        elif _env_master_code and _cc == _env_master_code:
-                            _is_admin_auth = True       # Track B: MASTER_CODE 평문
-                        elif _adm_input_hash == _adm_pw_hash:
-                            _is_admin_auth = True       # Track C: SHA-256 해시 폴백
-                    if _is_admin_auth:
-                        st.session_state["crm_authenticated"] = True
-                        st.session_state["crm_user_id"]       = "admin"
-                        st.session_state["crm_user_name"]     = "관리자"
-                        st.session_state["crm_role"]          = "admin"
-                        st.session_state["crm_token"]         = "admin-direct"
-                        st.session_state.pop("_crm_login_phase", None)
-                        # [GP-SEC] 세션 저장 (새로고침 시 로그인 유지)
-                        if _SESSION_MANAGER_OK:
-                            save_session_to_storage("admin", "관리자", "admin", "admin-direct", "list")
-                        # DOM 에러 방지: rerun 전 플래그 설정
-                        if not st.session_state.get("_rerun_pending"):
-                            st.session_state["_rerun_pending"] = True
-                            st.rerun()
-                    elif not _cn or len(_cn) < 2:
+                    _cp = (_crm_pin_in     or "").strip()  # [GP-SEC §PIN] PIN 번호
+                    
+                    # [지시1] 연락처 포맷 표준화 - 하이픈 제거
+                    _cc_clean = get_clean_phone(_cc)
+                    
+                    # 입력 검증
+                    if not _cn or len(_cn) < 2:
                         st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
-                    elif not _cc:
+                    elif not _cc_clean:
                         st.error("⚠️ 연락처를 입력해 주세요.")
+                    elif not _cp or len(_cp) != 6:
+                        st.error("⚠️ 6자리 PIN 번호를 입력해 주세요.")
+                    elif not _cp.isdigit():
+                        st.error("⚠️ PIN 번호는 숫자만 입력 가능합니다.")
                     else:
-                        # [GP-SEC 3중 동기화] Supabase + GCS 통합 검증
-                        _crm_member = None
-                        _gcs_member = None
-                        _auth_source = ""
+                        # [지시4] SSOT 통합 조회 - verify_member_unified 사용
+                        from utils.crypto_utils import decrypt_name
+                        from utils.gcs_master_sync import list_all_members_from_gcs
+                        from modules.auth_unified import verify_member_unified, auto_promote_to_admin, verify_pin_hash
                         
-                        # Track 1: Supabase DB 조회
-                        try:
-                            _crm_member = _du_get_member(_cn)
-                            if _crm_member:
-                                _auth_source = "Supabase"
-                        except Exception as _e1:
-                            st.warning(f"⚠️ [DEBUG] Supabase 조회 실패: {_e1}")
-                        
-                        # Track 2: GCS 마스터 명부 조회 (Supabase 실패 시 폴백)
-                        if not _crm_member:
-                            try:
-                                from utils.gcs_master_sync import list_all_members_from_gcs
-                                _all_gcs = list_all_members_from_gcs()
-                                from utils.crypto_utils import decrypt_name
-                                for _gm in _all_gcs:
-                                    try:
-                                        _gm_name = decrypt_name(_gm.get("name_encrypted", ""))
-                                        if _gm_name == _cn:
-                                            _gcs_member = _gm
-                                            _auth_source = "GCS"
-                                            break
-                                    except Exception:
-                                        continue
-                            except Exception as _e2:
-                                st.warning(f"⚠️ [DEBUG] GCS 조회 실패: {_e2}")
-                        
-                        # 3중 동기화 결과 판정
-                        _final_member = _crm_member or _gcs_member
+                        # [지시1] 정규화된 연락처로 조회
+                        _final_member, _auth_source = verify_member_unified(
+                            _cn,
+                            _cc_clean,  # 하이픈 제거된 연락처
+                            db_get_func=_du_get_member,
+                            gcs_list_func=list_all_members_from_gcs,
+                            decrypt_func=decrypt_name,
+                            encryption_key=get_env_secret("ENCRYPTION_KEY", "")
+                        )
                         
                         if _final_member is None:
                             # 미등록 회원 → 자동 회원가입 모달 트리거
                             if not st.session_state.get("_crm_show_signup"):
                                 st.session_state["_crm_show_signup"] = True
                                 st.session_state["_crm_signup_name"] = _cn
-                                st.session_state["_crm_signup_contact"] = _cc
+                                st.session_state["_crm_signup_contact"] = _cc_clean  # 정규화된 연락처 저장
                                 st.error(
                                     "❌ **CRM 시스템에 등록되지 않은 정보입니다.**\n\n"
                                     "아래 '신규 회원가입' 버튼을 눌러 등록을 진행해 주세요."
@@ -987,88 +997,76 @@ if not _is_authenticated():
                                     st.session_state["_rerun_pending"] = True
                                     st.rerun()
                         else:
-                            # 인증 소스 로깅
-                            if _auth_source:
-                                st.success(f"✅ [DEBUG] 회원 발견: {_auth_source} 계층")
+                            # [GP-SEC §PIN] PIN 번호 검증 (필수)
+                            _stored_pin_hash = _final_member.get("pin_hash", "")
+                            _pin_valid = verify_pin_hash(_cp, _stored_pin_hash)
                             
-                            # [GP-SEC §1][GP-회원관리 §연락처표준] 4-track 연락처 검증
-                            _crm_member = _final_member
-                            _clean_cc = get_clean_phone(_cc)
-                            _input_hash = _hl.sha256(_clean_cc.encode()).hexdigest()
-                            _m_pin      = _crm_member.get("pin_hash", "")
-                            _m_contact  = _crm_member.get("contact", "")
-                            # Track 1: pin_hash vs 입력 해시
-                            _pin_ok     = bool(_m_pin) and (_m_pin == _input_hash)
-                            # Track 2: contact(SHA-256) vs 입력 해시
-                            _chash_ok   = bool(_m_contact) and (_m_contact == _input_hash)
-                            # Track 3: contact(Fernet) 복호화 비교 — 키 파생 폴백 포함
-                            _fernet_ok  = False
-                            if not _pin_ok and not _chash_ok and _m_contact:
-                                try:
-                                    import base64 as _b64, hashlib as _hsha
-                                    from cryptography.fernet import Fernet as _F
-                                    _fk = get_env_secret("FERNET_KEY", "")
-                                    if not _fk:  # [오류5 수정] ENCRYPTION_KEY 기반 자동 파생
-                                        _seed = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
-                                        _fk = _b64.urlsafe_b64encode(_hsha.sha256(_seed.encode()).digest()).decode()
-                                    _dec = _F(_fk.encode() if isinstance(_fk, str) else _fk).decrypt(_m_contact.encode()).decode()
-                                    _fernet_ok = (_dec == _clean_cc) or (_dec == _cc)
-                                except Exception:
-                                    pass
-                            # Track 4: Legacy — 하이픈 포함 입력으로 가입한 기존 회원 복구
-                            _legacy_ok = False
-                            if not _pin_ok and not _chash_ok and not _fernet_ok:
-                                _hyp = f"{_clean_cc[:3]}-{_clean_cc[3:7]}-{_clean_cc[7:]}" if len(_clean_cc) == 11 else \
-                                       (f"{_clean_cc[:3]}-{_clean_cc[3:6]}-{_clean_cc[6:]}" if len(_clean_cc) == 10 else "")
-                                if _hyp:
-                                    _hyp_hash = _hl.sha256(_hyp.encode()).hexdigest()
-                                    _legacy_ok = (bool(_m_pin) and _m_pin == _hyp_hash) or \
-                                                 (bool(_m_contact) and _m_contact == _hyp_hash)
-                            if _pin_ok or _chash_ok or _fernet_ok or _legacy_ok:
-                                # [GP-회원관리 §연락처표준 §7-SU] Track 4 성공 시 Silent Update
-                                if _legacy_ok and not (_pin_ok or _chash_ok or _fernet_ok):
-                                    try:
-                                        _new_h = _hl.sha256(_clean_cc.encode()).hexdigest()
-                                        _du_pin_update(_cn, _new_h)  # [db_utils §8]
-                                    except Exception:
-                                        pass
-                                _uid = _crm_member.get("user_id", _cn)
-                                # [GP-SEC §RBAC Issue-4] CRM은 설계사/관리자 전용 — customer 즉시 차단
-                                _db_role = _crm_member.get("user_role", "")
-                                if _db_role == "customer":
-                                    st.error("🚫 일반 고객은 [HQ] 앱의 고객 전용 포털을 이용해 주십시오.")
-                                    st.stop()
-                                # [GP-SEC §2 Issue-3] HMAC 정식 토큰 생성 — HQ verify_sso_token 호환
-                                # 공식: HMAC(ENCRYPTION_KEY, user_id.encode()).hexdigest()[:32]
-                                try:
-                                    import hmac as _crm_hmac
-                                    _crm_sec = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
-                                    if isinstance(_crm_sec, bytes):
-                                        _crm_sec = _crm_sec.decode()
-                                    _crm_tok = _crm_hmac.new(
-                                        _crm_sec.encode(), _uid.encode(), "sha256"
-                                    ).hexdigest()[:32]
-                                except Exception:
-                                    _crm_tok = ""
-                                st.session_state["crm_authenticated"] = True
-                                st.session_state["crm_user_id"]       = _uid
-                                st.session_state["crm_user_name"]     = _cn
-                                st.session_state["crm_role"]          = "agent"
-                                st.session_state["crm_token"]         = _crm_tok
-                                st.session_state.pop("_crm_login_phase", None)
-                                # [GP-SEC] 세션 저장 (새로고침 시 로그인 유지)
-                                if _SESSION_MANAGER_OK:
-                                    save_session_to_storage(_uid, _cn, "agent", _crm_tok, "list")
-                                # DOM 에러 방지: rerun 전 플래그 설정
-                                if not st.session_state.get("_rerun_pending"):
-                                    st.session_state["_rerun_pending"] = True
-                                    st.rerun()
+                            # [지시2] 로그인 실패 메시지 명확화
+                            if not _pin_valid:
+                                st.error(
+                                    "❌ **PIN 번호가 일치하지 않습니다.**\n\n"
+                                    f"회원 정보는 확인되었으나, 입력하신 PIN 번호가 등록된 PIN과 다릅니다.\n"
+                                    "PIN 번호를 다시 확인해 주세요."
+                                )
                             else:
-                                st.error("❌ 연락처가 일치하지 않습니다.")
-                                try:
-                                    _sc_notify_admin_error(_cn, "AUTH_MISMATCH", "CRM")
-                                except Exception:
-                                    pass
+                                # PIN 검증 통과 → 로그인 승인
+                                # [지시3] 활동 시간 초기화
+                                from modules.concurrency_guard import update_activity_time
+                                st.session_state["crm_last_activity_time"] = update_activity_time()
+                                
+                                # [지시3] 관리자 자동 승격 라우팅 (Smart Routing)
+                                _is_admin_promoted = auto_promote_to_admin(
+                                    _final_member,
+                                    session_state_setter=st.session_state.__setitem__
+                                )
+                                
+                                if _is_admin_promoted:
+                                    # 관리자 자동 로그인 성공
+                                    st.success(f"✅ 관리자 로그인 성공: **{_cn}**")
+                                    st.session_state.pop("_crm_login_phase", None)
+                                    # DOM 에러 방지: rerun 전 플래그 설정
+                                    if not st.session_state.get("_rerun_pending"):
+                                        st.session_state["_rerun_pending"] = True
+                                        st.rerun()
+                                
+                                # 인증 소스 로깅
+                                if _auth_source and _auth_source != "NotFound":
+                                    st.success(f"✅ [DEBUG] 회원 발견: {_auth_source} 계층")
+                                
+                                # [GP-SEC §PIN] PIN 검증 통과 → 일반 회원 로그인 처리
+                                if not _is_admin_promoted:
+                                    _uid = _final_member.get("user_id", _cn)
+                                    # [GP-SEC §RBAC Issue-4] CRM은 설계사/관리자 전용 — customer 즉시 차단
+                                    _db_role = _final_member.get("user_role", "")
+                                    if _db_role == "customer":
+                                        st.error("🚫 일반 고객은 [HQ] 앱의 고객 전용 포털을 이용해 주십시오.")
+                                        st.stop()
+                                    
+                                    # [GP-SEC §2 Issue-3] HMAC 정식 토큰 생성 — HQ verify_sso_token 호환
+                                    try:
+                                        import hmac as _crm_hmac
+                                        _crm_sec = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+                                        if isinstance(_crm_sec, bytes):
+                                            _crm_sec = _crm_sec.decode()
+                                        _crm_tok = _crm_hmac.new(
+                                            _crm_sec.encode(), _uid.encode(), "sha256"
+                                        ).hexdigest()[:32]
+                                    except Exception:
+                                        _crm_tok = ""
+                                    
+                                    st.session_state["crm_authenticated"] = True
+                                    st.session_state["crm_user_id"]       = _uid
+                                    st.session_state["crm_user_name"]     = _cn
+                                    st.session_state["crm_role"]          = "agent"
+                                    st.session_state["crm_token"]         = _crm_tok
+                                    st.session_state.pop("_crm_login_phase", None)
+                                    # [GP-SEC] 세션 저장 (새로고침 시 로그인 유지)
+                                    if _SESSION_MANAGER_OK:
+                                        save_session_to_storage(_uid, _cn, "agent", _crm_tok, "list")
+                                    # DOM 에러 방지: rerun 전 플래그 설정
+                                    if not st.session_state.get("_rerun_pending"):
+                                        st.session_state["_rerun_pending"] = True
+                                        st.rerun()
         
         # ── [GP-SEC] 신규 회원가입 모달 (미등록 시 자동 표시) ────────────────────
         if st.session_state.get("_crm_show_signup", False):
@@ -1084,9 +1082,8 @@ if not _is_authenticated():
                 unsafe_allow_html=True,
             )
             
-            _col_signup, _col_guest = st.columns(2)
-            
-            with _col_signup:
+            # 모바일 대응: 세로 배치 (병렬 배치 시 핸드폰에서 게스트 버튼 화면 밖으로 밀림)
+            with st.container():
                 with st.form("crm_signup_form"):
                     _signup_name = st.text_input(
                         "👤 이름",
@@ -1094,8 +1091,8 @@ if not _is_authenticated():
                         key="signup_name_input"
                     )
                     _signup_contact = st.text_input(
-                        "📱 연락처(비번)",
-                        type="password",
+                        "📱 연락처",
+                        placeholder="010-1234-5678",
                         value=st.session_state.get("_crm_signup_contact", ""),
                         key="signup_contact_input"
                     )
@@ -1103,6 +1100,28 @@ if not _is_authenticated():
                         "💼 직업/소속",
                         placeholder="예: 보험설계사, KB손해보험",
                         key="signup_job_input"
+                    )
+                    
+                    # [GP-SEC §PIN] 6자리 PIN 설정 필드
+                    st.markdown(
+                        "<div style='margin-top:12px;padding:8px;background:#fff3cd;border:1px dashed #ffc107;"
+                        "border-radius:6px;font-size:0.75rem;color:#856404;'>"
+                        "🔐 <b>6자리 PIN 번호</b>를 설정해 주세요. (로그인 시 사용됩니다)</div>",
+                        unsafe_allow_html=True
+                    )
+                    _signup_pin = st.text_input(
+                        "🔐 6자리 PIN 설정",
+                        type="password",
+                        max_chars=6,
+                        placeholder="123456",
+                        key="signup_pin_input"
+                    )
+                    _signup_pin_confirm = st.text_input(
+                        "🔐 PIN 확인",
+                        type="password",
+                        max_chars=6,
+                        placeholder="123456",
+                        key="signup_pin_confirm_input"
                     )
                     
                     _signup_submit = st.form_submit_button(
@@ -1116,59 +1135,112 @@ if not _is_authenticated():
                         st.error("⚠️ 이름을 2자 이상 입력해 주세요.")
                     elif not _signup_contact:
                         st.error("⚠️ 연락처를 입력해 주세요.")
+                    elif not _signup_pin or len(_signup_pin) != 6:
+                        st.error("⚠️ 6자리 PIN 번호를 입력해 주세요.")
+                    elif not _signup_pin.isdigit():
+                        st.error("⚠️ PIN 번호는 숫자만 입력 가능합니다.")
+                    elif _signup_pin != _signup_pin_confirm:
+                        st.error("⚠️ PIN 번호가 일치하지 않습니다. 다시 확인해 주세요.")
                     else:
                         try:
                             from utils.crypto_utils import (
                                 hash_contact,
                                 encrypt_name,
-                                generate_user_id
+                                generate_user_id,
+                                decrypt_name
                             )
-                            from utils.gcs_master_sync import dual_write_member
+                            from utils.gcs_master_sync import dual_write_member, list_all_members_from_gcs
+                            from modules.auth_unified import check_duplicate_member, is_master_account, hash_pin
                             import datetime
                             
-                            # 회원 데이터 생성
-                            _clean_contact = get_clean_phone(_signup_contact)
-                            _new_user_id = generate_user_id()
-                            _new_member = {
-                                "user_id": _new_user_id,
-                                "name": _signup_name,
-                                "name_encrypted": encrypt_name(_signup_name),
-                                "contact": hash_contact(_clean_contact),
-                                "pin_hash": hash_contact(_clean_contact),
-                                "job": _signup_job or "",
-                                "user_role": "agent",
-                                "role": "agent",
-                                "quota_remaining": 10,
-                                "created_at": datetime.datetime.now().isoformat(),
-                                "updated_at": datetime.datetime.now().isoformat(),
-                            }
+                            # [지시1] 회원가입 전 중복 검사 강제 (Blind Upsert 금지)
+                            _is_duplicate = check_duplicate_member(
+                                _signup_name,
+                                _signup_contact,
+                                db_get_func=_du_get_member,
+                                gcs_list_func=list_all_members_from_gcs,
+                                decrypt_func=decrypt_name
+                            )
                             
-                            # Dual Write (Supabase + GCS)
-                            _gcs_success = dual_write_member(_new_member, db_save_func=_du_upsert_member)
-                            _db_success = True  # dual_write_member 내부에서 처리
-                            
-                            if _db_success or _gcs_success:
-                                st.success(
-                                    f"✅ 회원가입 완료! (DB: {'✓' if _db_success else '✗'}, "
-                                    f"GCS: {'✓' if _gcs_success else '✗'})\n\n"
-                                    "로그인 화면으로 돌아갑니다."
+                            if _is_duplicate:
+                                st.error(
+                                    "❌ **이미 등록된 회원입니다.**\n\n"
+                                    "로그인 화면으로 돌아가서 로그인해 주세요."
                                 )
                                 st.session_state.pop("_crm_show_signup", None)
-                                st.session_state.pop("_crm_signup_name", None)
-                                st.session_state.pop("_crm_signup_contact", None)
-                                st.balloons()
-                                # DOM 에러 방지: rerun 전 플래그 설정
                                 if not st.session_state.get("_rerun_pending"):
                                     st.session_state["_rerun_pending"] = True
-                                    import time
-                                    time.sleep(2)
                                     st.rerun()
+                            
+                            # [지시3] 관리자 계정 자동 감지 및 차단
+                            if is_master_account(_signup_name):
+                                st.warning(
+                                    "⚠️ **관리자 계정은 회원가입이 불가능합니다.**\n\n"
+                                    "하단 '🛠️ Admin Console'에서 관리자 로그인을 진행해 주세요."
+                                )
                             else:
-                                st.error("❌ 회원가입 실패. 관리자에게 문의해 주세요.")
+                                # 회원 데이터 생성 (PIN 해시 포함)
+                                _clean_contact = get_clean_phone(_signup_contact)
+                                _new_user_id = generate_user_id()
+                                _pin_hash_value = hash_pin(_signup_pin)  # [GP-SEC §PIN] 6자리 PIN 해시
+                                _new_member = {
+                                    "user_id": _new_user_id,
+                                    "name": _signup_name,
+                                    "name_encrypted": encrypt_name(_signup_name),
+                                    "contact": hash_contact(_clean_contact),
+                                    "pin_hash": _pin_hash_value,  # ★ PIN 해시 저장 (필수)
+                                    "job": _signup_job or "",
+                                    "user_role": "agent",
+                                    "role": "agent",
+                                    "quota_remaining": 10,
+                                    "created_at": datetime.datetime.now().isoformat(),
+                                    "updated_at": datetime.datetime.now().isoformat(),
+                                }
+                                
+                                # Dual Write (Supabase + GCS)
+                                _gcs_success = dual_write_member(_new_member, db_save_func=_du_upsert_member)
+                                _db_success = True  # dual_write_member 내부에서 처리
+                                
+                                if _db_success or _gcs_success:
+                                    st.success(
+                                        f"✅ 회원가입 완료! (DB: {'✓' if _db_success else '✗'}, "
+                                        f"GCS: {'✓' if _gcs_success else '✗'})\n\n"
+                                        "즉시 로그인하여 메인 화면으로 이동합니다..."
+                                    )
+                                    st.balloons()
+                                    
+                                    # [UX 업그레이드] 회원가입 성공 시 즉시 로그인 세션 생성
+                                    from modules.concurrency_guard import update_activity_time
+                                    
+                                    st.session_state["crm_authenticated"] = True
+                                    st.session_state["crm_user_id"] = _new_user_id
+                                    st.session_state["crm_user_name"] = _signup_name
+                                    st.session_state["crm_role"] = "agent"
+                                    st.session_state["crm_token"] = _new_user_id  # 임시 토큰
+                                    st.session_state["crm_last_activity_time"] = update_activity_time()  # 활동 시간 초기화
+                                    
+                                    # [GP-SEC] 세션 저장 (새로고침 시 로그인 유지)
+                                    if _SESSION_MANAGER_OK:
+                                        save_session_to_storage(_new_user_id, _signup_name, "agent", _new_user_id, "list")
+                                    
+                                    # 가입 폼 상태 제거
+                                    st.session_state.pop("_crm_show_signup", None)
+                                    st.session_state.pop("_crm_signup_name", None)
+                                    st.session_state.pop("_crm_signup_contact", None)
+                                    
+                                    # DOM 에러 방지: rerun 전 플래그 설정
+                                    if not st.session_state.get("_rerun_pending"):
+                                        st.session_state["_rerun_pending"] = True
+                                        import time
+                                        time.sleep(1.5)
+                                        st.rerun()
+                                else:
+                                    st.error("❌ 회원가입 실패. 관리자에게 문의해 주세요.")
                         except Exception as _signup_err:
                             st.error(f"❌ 회원가입 오류: {_signup_err}")
-            
-            with _col_guest:
+                
+                # 게스트 로그인 블록 (회원가입 폼 아래 세로 배치)
+                st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
                 st.markdown(
                     "<div style='background:#f0f9ff;border:1px dashed #3b82f6;"
                     "border-radius:8px;padding:12px;margin-bottom:12px;'>"
@@ -1279,9 +1351,28 @@ _token     = st.session_state.get("crm_token", "")
 # ── [GP-DB 싱글턴] Supabase 클라이언트 — db_utils._get_sb() 의존 ─────────────────────
 _sb = _du_get_sb()  # 독자 create_client 제거 — 중앙 엔진 단일 접속점 사용
 
-# ── [db_utils §1] 고객 목록 로드 — 60초 캐시 위임 ──────────────────────────────────
-@st.cache_data(ttl=60, show_spinner=False)
+# ── [Phase 1] 구글 심사용 테스트 계정 자동 생성 ─────────────────────────────────────
+try:
+    from modules.test_account_seeder import seed_test_account_if_needed
+    from utils.gcs_master_sync import dual_write_member
+    
+    _test_created = seed_test_account_if_needed(
+        db_get_func=_du_get_member,
+        db_upsert_func=_du_upsert_member,
+        gcs_dual_write_func=dual_write_member
+    )
+    if _test_created:
+        print("✅ [구글 심사용] TestUser 계정 자동 생성 완료 (PIN: 123456)")
+except Exception:
+    pass  # 테스트 계정 생성 실패 시 무시
+
+# ── [db_utils §1] 고객 목록 로드 — [지시2] 캐시 제거 (멀티디바이스 강제 동기화) ──
 def _load_customers(agent_id: str, query: str = "") -> list:
+    """
+    [지시2] 화면 전환 시 강제 동기화:
+        - st.cache_data 제거 → 매번 DB에서 최신 데이터 Fetch
+        - 멀티디바이스 환경에서 세션 간 데이터 불일치 방지
+    """
     try:
         from crm_data_fetchers import fetch_customers_for_agent
 
@@ -1289,9 +1380,12 @@ def _load_customers(agent_id: str, query: str = "") -> list:
     except Exception:
         return _du_customers(agent_id, query)
 
-# ── [db_utils §2] 일정 로드 ────────────────────────────────────────────────────────────
-@st.cache_data(ttl=60, show_spinner=False)
+# ── [db_utils §2] 일정 로드 — [지시2] 캐시 제거 (멀티디바이스 강제 동기화) ──────
 def _load_schedules_today(agent_id: str) -> list:
+    """
+    [지시2] 화면 전환 시 강제 동기화:
+        - st.cache_data 제거 → 매번 DB에서 최신 일정 Fetch
+    """
     return _du_schedules_today(agent_id)
 
 
@@ -1526,12 +1620,6 @@ if _spa_mode == "list":
             unsafe_allow_html=True,
         )
 
-    # ── [GP-CALENDAR] 스마트 캘린더 엔진 (calendar_engine.py) ────────────────────
-    calendar_engine.render_today_widget(_user_id)
-    calendar_engine.render_smart_calendar(_user_id, _load_customers(_user_id))
-    st.markdown("<hr style='border-top:1px solid #e5e7eb;margin:10px 0 12px;'>",
-                unsafe_allow_html=True)
-
     # ── HQ 크롤링 상태 실시간 동기화 배지 ───────────────────────────────────
     try:
         _crawl_rows = _du_crawl_list(_user_id, 5)
@@ -1550,45 +1638,50 @@ if _spa_mode == "list":
                         )
                     else:
                         st.caption(f"{_cs} {_pid_c}…")
-        elif _sb:
-            if _OUTLOOK_OK:
-                render_sync_badge("idle", "⏸ HQ 크롤링 대기 중")
     except Exception:
         pass
 
-    st.markdown(
-        "<div class='customer-data-block' style='background:#fce4ec;border:2px solid #f8bbd0;"
-        "border-radius:10px;padding:12px 14px 4px 14px;margin-bottom:10px;'>"
-        "<div style='font-size:0.88rem;font-weight:900;color:#880e4f;margin-bottom:4px;'>"
-        "👥 고객 정보 입력</div>"
-        "<div style='font-size:0.72rem;color:#ad1457;margin-bottom:8px;'>"
-        "💡 이름 · 연락처 · 직업 · 주소 · 상태 입력 시 자동조회됩니다.</div>",
-        unsafe_allow_html=True,
-    )
-    _sq_col, _sb_col = st.columns([5, 1])
-    with _sq_col:
-        _search_q = st.text_input("🔍 고객 이름 / 음성 결과 확인",
-                                  key="spa_search", label_visibility="collapsed")
-    with _sb_col:
-        _quick_search_btn = st.button("🔍 검색", use_container_width=True, key="spa_quick_search_btn")
-
-    _fc1, _fc2, _fc3 = st.columns(3)
-    with _fc1:
-        _tier_f = st.selectbox("등급", ["전체", "VVIP(1)", "핵심(2)", "일반(3)"],
-                               key="spa_tier_f")
-    with _fc2:
-        _mo_f = st.number_input("만기월 (0=전체)", 0, 12, 0, key="spa_mo_f")
-    with _fc3:
-        _stat_f = st.selectbox("상태", ["전체", "가망", "진행중", "계약", "종료"],
-                               key="spa_stat_f")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    _all_custs = _load_customers(_user_id, _search_q or "")
-    _tier_map_r  = {"VVIP(1)": 1, "핵심(2)": 2, "일반(3)": 3}
-    _stat_map_r  = {"가망": "potential", "진행중": "active", "계약": "contracted", "종료": "closed"}
-    if _tier_f != "전체": _all_custs = [c for c in _all_custs if c.get("management_tier") == _tier_map_r.get(_tier_f)]
-    if _mo_f:             _all_custs = [c for c in _all_custs if c.get("auto_renewal_month") == _mo_f or c.get("fire_renewal_month") == _mo_f]
-    if _stat_f != "전체": _all_custs = [c for c in _all_custs if c.get("status") == _stat_map_r.get(_stat_f, "")]
+    # ── [GP-REDESIGN] 5:5 레이아웃 — 좌측(조회) + 우측(상세/수정) ─────────────
+    _main_left, _main_right = st.columns([5, 5])
+    
+    # ══════════════════════════════════════════════════════════════════════════
+    # 좌측 섹션: 고객 조회 (단순 안내문구 + 수평 검색바 + 결과 리스트)
+    # ══════════════════════════════════════════════════════════════════════════
+    with _main_left:
+        st.markdown(
+            "<div style='background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;"
+            "padding:16px;min-height:600px;'>",
+            unsafe_allow_html=True,
+        )
+        
+        # 단순 안내문구 (박스 형태 금지)
+        st.markdown(
+            "<div style='font-size:0.85rem;color:#64748b;margin-bottom:12px;'>"
+            "👥 고객 정보 조회 (이름·연락처 등 입력 시 자동조회)</div>",
+            unsafe_allow_html=True,
+        )
+        
+        # 수평 검색바 (검색창 + 버튼)
+        _sq_col, _sb_col = st.columns([5, 1])
+        with _sq_col:
+            _search_q = st.text_input(
+                "고객 이름 검색",
+                key="spa_search",
+                placeholder="이름을 입력하세요",
+                label_visibility="collapsed"
+            )
+        with _sb_col:
+            _quick_search_btn = st.button(
+                "🔍",
+                use_container_width=True,
+                key="spa_quick_search_btn",
+                type="primary"
+            )
+        
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        
+        # 고객 목록 로드 (필터 제거 - 이름 검색만 사용)
+        _all_custs = _load_customers(_user_id, _search_q or "")
 
     # ── [GP-VOICE + GP-SEARCH] 음성 필터 + 키워드 AND 매칭 ───────────────────────
     _vf = st.session_state.get("_voice_filters", {})
@@ -1604,15 +1697,145 @@ if _spa_mode == "list":
         _all_custs = [c for c in _all_custs if _dq_match(c, _vf_cq, _vf_tok)]
 
     # ── [GP §1-SEARCH] 검색 버튼 클릭 → 1건이면 자동 선택, 다수면 안내 ────────
-    if _quick_search_btn:
-        if len(_all_custs) == 1:
-            st.session_state["crm_selected_pid"] = _all_custs[0].get("person_id", "")
-            st.rerun()
-        elif len(_all_custs) == 0:
-            st.warning("⚠️ 검색 결과가 없습니다. 이름을 다시 확인하세요.")
+    with _main_left:
+        if _quick_search_btn:
+            if len(_all_custs) == 1:
+                st.session_state["crm_selected_pid"] = _all_custs[0].get("person_id", "")
+                if not st.session_state.get("_rerun_pending"):
+                    st.session_state["_rerun_pending"] = True
+                    st.rerun()
+            elif len(_all_custs) == 0:
+                st.warning("⚠️ 검색 결과가 없습니다.")
+            else:
+                st.info(f"🔍 {len(_all_custs)}명 발견 — 아래에서 선택하세요.")
+        
+        # 고객 목록 표시 (간결한 리스트)
+        st.caption(f"📋 총 {len(_all_custs)}명")
+        
+        import pandas as _pd_crm
+        _TIER_LABEL = {1: "⭐⭐⭐ VVIP", 2: "⭐⭐ 핵심", 3: "⭐ 일반"}
+        
+        if len(_all_custs) > 0:
+            # 간결한 고객 리스트 (클릭 시 우측에 상세 표시)
+            for _c in _all_custs[:50]:  # 최대 50명까지 표시
+                _cn = _c.get("name", "")
+                _cj = _c.get("job", "")
+                _ct = _c.get("management_tier", 3)
+                _cp = _c.get("person_id", "")
+                _is_sel = (_cp == st.session_state.get("crm_selected_pid", ""))
+                
+                _btn_type = "primary" if _is_sel else "secondary"
+                if st.button(
+                    f"{_TIER_LABEL.get(_ct, '⭐')} {_cn} ({_cj})",
+                    key=f"cust_sel_{_cp}",
+                    use_container_width=True,
+                    type=_btn_type,
+                ):
+                    st.session_state["crm_selected_pid"] = _cp
+                    if not st.session_state.get("_rerun_pending"):
+                        st.session_state["_rerun_pending"] = True
+                        st.rerun()
+        
+        st.markdown("</div>", unsafe_allow_html=True)  # 좌측 섹션 종료
+    
+    # ══════════════════════════════════════════════════════════════════════════
+    # 우측 섹션: 고객 상세 정보 + 즉시 수정 폼
+    # ══════════════════════════════════════════════════════════════════════════
+    with _main_right:
+        st.markdown(
+            "<div style='background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;"
+            "padding:16px;min-height:600px;'>",
+            unsafe_allow_html=True,
+        )
+        
+        _sel_pid_right = st.session_state.get("crm_selected_pid", "")
+        _sel_cust_right = next(
+            (c for c in _all_custs if c.get("person_id") == _sel_pid_right),
+            None
+        ) if _sel_pid_right else None
+        
+        if not _sel_cust_right:
+            st.info("← 좌측에서 고객을 선택하세요.")
         else:
-            st.info(f"🔍 {len(_all_custs)}명 발견 — 아래 목록에서 고객을 클릭하여 선택하세요.")
-
+            # 고객 헤더
+            _cn_r = _sel_cust_right.get("name", "")
+            _ct_r = _sel_cust_right.get("management_tier", 3)
+            _tm_r = TIER_META.get(_ct_r, TIER_META[3])
+            
+            st.markdown(
+                f"<div style='background:#F8FBFA;padding:12px;border-radius:8px;"
+                f"border:1px dashed #000;margin-bottom:16px;'>"
+                f"<span style='font-size:1.2rem;font-weight:900;color:#1e293b;'>{_cn_r}</span>"
+                f"<span style='font-size:0.75rem;font-weight:900;padding:3px 10px;border-radius:8px;"
+                f"background:{_tm_r['bg']};color:{_tm_r['color']};margin-left:8px;'>"
+                f"{_tm_r['icon']} {_tm_r['label']}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+            
+            # 수정 가능한 폼
+            st.markdown("### ✏️ 고객 정보 수정")
+            
+            _edit_name = st.text_input(
+                "이름",
+                value=_sel_cust_right.get("name", ""),
+                key=f"edit_name_{_sel_pid_right}"
+            )
+            _edit_contact = st.text_input(
+                "연락처",
+                value=_sel_cust_right.get("contact", ""),
+                key=f"edit_contact_{_sel_pid_right}"
+            )
+            _edit_job = st.text_input(
+                "직업",
+                value=_sel_cust_right.get("job", ""),
+                key=f"edit_job_{_sel_pid_right}"
+            )
+            _edit_addr = st.text_input(
+                "주소",
+                value=_sel_cust_right.get("address", ""),
+                key=f"edit_addr_{_sel_pid_right}"
+            )
+            _edit_memo = st.text_area(
+                "메모",
+                value=_sel_cust_right.get("memo", ""),
+                height=100,
+                key=f"edit_memo_{_sel_pid_right}"
+            )
+            
+            # 저장 버튼
+            if st.button("💾 저장하기", type="primary", use_container_width=True, key=f"save_{_sel_pid_right}"):
+                try:
+                    _updated_data = {
+                        **_sel_cust_right,
+                        "name": _edit_name,
+                        "contact": _edit_contact,
+                        "job": _edit_job,
+                        "address": _edit_addr,
+                        "memo": _edit_memo,
+                    }
+                    customer_input_form(_updated_data, _user_id, _sb)
+                    st.success("✅ 저장 완료!")
+                    st.cache_data.clear()
+                    if not st.session_state.get("_rerun_pending"):
+                        st.session_state["_rerun_pending"] = True
+                        st.rerun()
+                except Exception as _save_err:
+                    st.error(f"저장 오류: {_save_err}")
+        
+        st.markdown("</div>", unsafe_allow_html=True)  # 우측 섹션 종료
+    
+    # ── [GP §1] 하단: 왕복 네비 + 8액션 + 상담센터(5:5) ───
+    st.markdown("<hr style='border-top:1px solid #e5e7eb;margin:20px 0;'>", unsafe_allow_html=True)
+    render_crm_dual_nav(mode="list", sel_pid=_sel_pid)
+    _render_crm_dashboard_action_grid(_user_id, _all_custs)
+    
+    # ── [GP-CALENDAR] 스마트 캘린더 엔진 (대시보드 직후) ────────────────────
+    calendar_engine.render_today_widget(_user_id)
+    calendar_engine.render_smart_calendar(_user_id, _load_customers(_user_id))
+    st.markdown("<hr style='border-top:1px solid #e5e7eb;margin:10px 0 12px;'>",
+                unsafe_allow_html=True)
+    
     # ── [GP-VOICE §5] 핸즈프리 CRM — 모닝 브리핑 (대시보드 직후) ─────────────
     if _VOICE_OK and _ve_morning_auto:
         st.markdown("<hr style='border:none;border-top:1px solid #e2e8f0;margin:16px 0 8px;'>",
@@ -1621,10 +1844,6 @@ if _spa_mode == "list":
             _ve_morning_auto(_user_id, _user_name)
         except Exception:
             pass
-
-    # ── [GP §1] 고객정보 입력 블록 직후: 왕복 네비 + 8액션 + 상담센터(5:5) ───
-    render_crm_dual_nav(mode="list", sel_pid=_sel_pid)
-    _render_crm_dashboard_action_grid(_user_id, _all_custs)
     render_crm_consultation_center(
         _user_id,
         sel_pid=_sel_pid,
@@ -1637,176 +1856,164 @@ if _spa_mode == "list":
         HQ_APP_URL.rstrip("/"),
     )
 
-    # ── [GP-PERF] 페이징: 검색 변경 시 1페이지 리셋 ──────────────────────────
-    _cur_page = int(st.session_state.get("crm_list_page", 1))
-    _total_cnt = len(_all_custs)
-    _paged_custs = _all_custs[:_cur_page * _CRM_PAGE_SIZE]  # 누적 표시
-
-    _cc1, _cc2 = st.columns([3, 1])
-    with _cc1:
-        st.caption(f"📋 총 {_total_cnt}명 (표시 {len(_paged_custs)}명)")
-    with _cc2:
-        if _vf:
-            if st.button("✕ 음성 필터 해제", use_container_width=True, key="clr_voice_f"):
-                st.session_state.pop("_voice_filters", None)
-                st.session_state.pop("crm_voice_q", None)
-                st.rerun()
-
-    # ── DataFrame 대시보드 (행 선택 → 6대 메뉴 자동 진입) ─────────────────
-    import pandas as _pd_crm
-    _TIER_LABEL = {1: "⭐⭐⭐ VVIP", 2: "⭐⭐ 핵심", 3: "⭐ 일반"}
-    _STAT_LABEL = {"potential": "가망", "active": "진행중",
-                   "contracted": "계약", "closed": "종료"}
-    _df_rows = []
-    for _c in _paged_custs:
-        _df_rows.append({
-            "person_id":  _c.get("person_id", ""),
-            "이름":       _c.get("name", ""),
-            "등급":       _TIER_LABEL.get(_c.get("management_tier", 3), "⭐ 일반"),
-            "직업":       _c.get("job", ""),
-            "상태":       _STAT_LABEL.get(_c.get("status", ""), _c.get("status", "")),
-            "자동차만기": f"{_c.get('auto_renewal_month', '')}월" if _c.get("auto_renewal_month") else "-",
-            "화재만기":   f"{_c.get('fire_renewal_month', '')}월" if _c.get("fire_renewal_month") else "-",
-            "HQ링크":     (build_deeplink_to_hq(
-                cid=_c["person_id"],
-                agent_id=st.session_state.get("user_id", ""),
-                sector="t3",
-                user_id=_user_id,
-            ) if _c.get("person_id") else "#"),
-        })
-
-    if not _df_rows:
-        st.info("조건에 해당하는 고객이 없습니다.")
-    elif _total_cnt == 0:
-        st.info("등록된 고객이 없습니다. [➕ 신규 등록]을 눌러 추가하세요.")
-    else:
-        _df_crm = _pd_crm.DataFrame(_df_rows)
-        _disp_df = _df_crm[["이름", "등급", "직업", "상태", "자동차만기", "화재만기"]]
-
-        st.markdown(
-            "<div style='background:#fff;border:1px solid #EAEAEF;border-radius:10px;"
-            "padding:4px 0 0 0;overflow:hidden;'>",
-            unsafe_allow_html=True,
-        )
-        try:
-            _df_event = st.dataframe(
-                _disp_df,
-                use_container_width=True,
-                on_select="rerun",
-                selection_mode="single-row",
-                key="spa_df_select",
-                height=min(400, 56 + len(_df_rows) * 35),
-            )
-            _sel_rows = _df_event.selection.rows if hasattr(_df_event, "selection") else []
-            if _sel_rows:
-                _sr_idx = _sel_rows[0]
-                _sr_pid = _df_rows[_sr_idx]["person_id"]
-                # [GP-지시1] 자동 이동 제거 — 액션 그리드에서 메뉴를 선택하여 이동
-                if st.session_state.get("crm_selected_pid") != _sr_pid:
-                    st.session_state["crm_selected_pid"] = _sr_pid
-                    st.rerun()
-        except Exception:
-            if _OUTLOOK_OK:
-                render_outlook_customer_list(_all_custs, _sel_pid)
-            else:
-                render_customer_list(_all_custs, show_deeplink=True, agent_tab="t3")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        # ── 선택 고객 요약 (액션은 상단 그리드와 동일 — 중복 버튼 없음) ───────────
-        _list_sel_pid  = st.session_state.get("crm_selected_pid", "")
-        _list_sel_cust = next((_c for _c in _all_custs
-                               if _c.get("person_id") == _list_sel_pid), None) if _list_sel_pid else None
-        if _list_sel_cust:
-            _cn2 = _list_sel_cust.get("name", "")
-            _ct2 = _list_sel_cust.get("management_tier", 3)
-            _tm2 = TIER_META.get(_ct2, TIER_META[3])
-            try:
-                _hq_quick = build_sso_handoff_to_hq(
-                    user_id=_user_id, cid=_list_sel_pid, sector="home"
-                )
-            except Exception:
-                _hq_quick = ""
-            st.markdown(
-                f"<div style='background:#eff6ff;border:1px dashed #3b82f6;border-radius:10px;"
-                f"padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;'>"
-                f"<span style='background:{_tm2['bg']};color:{_tm2['color']};font-weight:900;"
-                f"width:32px;height:32px;border-radius:50%;display:flex;align-items:center;"
-                f"justify-content:center;flex-shrink:0;'>{(_cn2 or '?')[0]}</span>"
-                f"<span style='font-size:clamp(14px,2vw,17px);font-weight:900;color:#1e3a8a;'>{_cn2}</span>"
-                f"<span style='font-size:clamp(11px,1.6vw,13px);color:#3b82f6;font-weight:700;margin-left:auto;'>"
-                f"{_tm2['icon']} {_tm2['label']} — 위쪽 <b>업무 바로가기</b>에서 메뉴 선택</span></div>",
-                unsafe_allow_html=True,
-            )
-            if _hq_quick:
-                st.markdown(
-                    f"<div style='margin:-4px 0 8px 2px;'>"
-                    f"<a href='{_hq_quick}' target='_blank' style='font-size:clamp(11px,1.5vw,13px);"
-                    f"color:#1d4ed8;font-weight:700;'>🚀 HQ 심화상담 (새 탭)</a></div>",
-                    unsafe_allow_html=True,
-                )
-            try:
-                from db_utils import get_person_data_status as _gp_ds
-                _ds = _gp_ds([_list_sel_pid], _user_id).get(_list_sel_pid, {})
-            except Exception:
-                _ds = {}
-            _badge_nibo = "🟢" if _ds.get("has_nibo") else "⭕"
-            _badge_tri  = "🟢" if _ds.get("has_trinity") else "⭕"
-            st.markdown(
-                f"<div style='font-size:clamp(11px,1.6vw,13px);color:#64748b;margin:-4px 0 8px 2px;'>"
-                f"👁️ 내보험 {_badge_nibo} &nbsp;&nbsp;"
-                f"⏡ 트리니티 {_badge_tri}"
-                f" &nbsp;&nbsp;<span style='color:#94a3b8;'>피보험자 기준 중앙 DB 태깅</span></div>",
-                unsafe_allow_html=True,
-            )
-            if st.button("✕ 선택 해제", key="list_ag_clear"):
-                st.session_state["crm_selected_pid"] = ""
-                st.rerun()
-        else:
-            st.caption("💡 표에서 고객 행을 선택한 뒤, 위 **업무 바로가기** 그리드가 활성화됩니다.")
-
-        # ── [GP-PERF] 더 보기 버튼 (페이징) ─────────────────────────────────
-        if _total_cnt > len(_paged_custs):
-            _remaining = _total_cnt - len(_paged_custs)
-            _mb1, _mb2, _mb3 = st.columns([1, 2, 1])
-            with _mb2:
-                if st.button(
-                    f"⬇ 더 보기 ({_remaining}명 더)",
-                    key="crm_load_more",
-                    use_container_width=True,
-                ):
-                    st.session_state["crm_list_page"] = _cur_page + 1
-                    st.rerun()
-
-        # HQ 딥링크 빠른 발사 행
-        if len(_df_rows) <= 20:
-            with st.expander("🚀 HQ 딥링크 빠른 발사", expanded=False):
-                for _r in _df_rows[:10]:
-                    st.markdown(
-                        f"<a href='{_r['HQ링크']}' target='_blank' "
-                        f"style='font-size:0.8rem;color:#1d4ed8;margin-right:12px;'>"
-                        f"🔗 {_r['이름']}</a>",
-                        unsafe_allow_html=True,
-                    )
+    # ── 기존 DataFrame 대시보드 제거됨 (5:5 레이아웃으로 대체) ─────────────────
 
 
-    # ── [GP-FOOTER] 피드백·오류신고 + [HQ] 이동 (목록 모드 공통 최하단) ────────
-    st.markdown("<hr style='border:none;border-top:1px solid #e2e8f0;margin:20px 0 12px;'>",
-                unsafe_allow_html=True)
-    try:
-        from compliance import render_feedback_button as _crm_rfb
+    # ── [GP-TRINITY-KNOWLEDGE] AI 트리니티 지식 박스 (목록 모드) ─────────────
+    st.markdown("""
+<style>
+.trinity-wrapper {
+    background-color: #F8FAFD;
+    border: 1px solid #E1E8F0;
+    border-radius: 16px;
+    padding: clamp(15px, 4vw, 30px);
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.02);
+}
+.trinity-wrapper, .trinity-wrapper p, .trinity-wrapper li {
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    word-break: keep-all;
+    line-height: 1.8;
+    font-size: clamp(0.88rem, 2.2vw, 1rem);
+    color: #374151;
+}
+.trinity-wrapper h3 { color: #1E40AF; font-weight: 800; text-align: center; margin-bottom: 20px; }
+.trinity-wrapper h4 { color: #1D4ED8; margin-top: 25px; font-weight: 700; border-left: 4px solid #3B82F6; padding-left: 10px; }
+.trinity-wrapper .highlight-box { background-color: #FFFFFF; border: 1px dashed #BFDBFE; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center; }
+.trinity-wrapper .note-section { background-color: #F1F5F9; padding: 15px; border-radius: 10px; margin-top: 30px; font-size: 0.9em; border: 1px solid #E2E8F0; }
+.trinity-wrapper .note-title { font-weight: bold; color: #1E40AF; display: block; margin-bottom: 8px; text-decoration: underline; }
+</style>
 
-        _crm_rfb(key="crm_list_feedback", context="crm_main_dashboard", compact=True)
-    except Exception:
-        pass
-    st.markdown(
-        f"<div style='text-align:center;margin-top:10px;padding-bottom:24px;'>"
-        f"<a href='{HQ_APP_URL.rstrip('/')}/' target='_blank' rel='noopener noreferrer' "
-        "style='display:inline-block;padding:14px 22px;font-size:clamp(13px,2vw,17px);"
-        "font-weight:900;color:#fff;background:linear-gradient(135deg,#1e3a8a,#2563eb);"
-        "border-radius:14px;text-decoration:none;box-shadow:0 2px 8px rgba(30,58,138,0.25);'>"
-        "🏛️ 전문 상담 파트 이동</a></div>",
-        unsafe_allow_html=True,
-    )
+<div class="trinity-wrapper">
+    <h3>💎 AI 트리니티 계산법 상세 안내</h3>
+    <p style="text-align: center; color: #3B82F6; font-weight: 600;">대한민국 표준 보장 분석 및 세무적 자산 배분 솔루션 지향</p>
+    
+    <h4>🛡️ 분석의 근간: 실질 가처분소득 역산 로직</h4>
+    <p>AI 트리니티는 단순히 가입 금액을 합산하는 방식이 아닙니다. 공공 데이터를 기반으로 고객의 경제적 체급을 정교하게 분석하여 상담의 객관성을 확보합니다.</p>
+    <ul>
+        <li><b>표준 지표:</b> 2026년 직장인 평균 건강보험료율(7.19%) 적용</li>
+        <li><b>소득 산출:</b> 납입 건강보험료를 요율로 역산 후, 구간별 원천공제율을 적용하여 실질 가처분소득을 추산합니다. (지역가입자 역시 일관된 기준을 위해 직장인과 동일한 소득 환산 로직 적용)</li>
+    </ul>
+    
+    <div class="highlight-box">
+        <strong>[트리니티 소득 산출식]</strong><br>
+        1. 월 소득(추산) = 납입 건강보험료 ÷ 0.0719<br>
+        2. 실질 가처분소득 = 월 소득 - 구간별 원천공제액(세금 및 공과금)
+    </div>
+    
+    <h4>1️⃣ 3층 연금 구조의 소득대체율 (Income Replacement Ratio)</h4>
+    <p>은퇴 후에도 현재 소득 그대로(실질 가치 80~100%) 생활하기 위한 세무적 목표치입니다.</p>
+    <ul>
+        <li>🏛️ <b>국민연금:</b> 40% (소득대체율)</li>
+        <li>🏢 <b>퇴직연금:</b> 20% ~ 30% (직장생활의 결과물)</li>
+        <li>💎 <b>민영연금:</b> 20% ~ 30% (물가상승률을 방어하는 핵심 동력)</li>
+        <li>✅ <b>최종 목표:</b> 합산 <b>80% ~ 100%</b>의 소득대체율을 달성하여 은퇴 후 삶의 질을 보존합니다.</li>
+    </ul>
+    
+    <h4>2️⃣ 트리니티 5대 필수 보장 전제조건</h4>
+    <ol>
+        <li><b>암 (Cancer):</b> 가처분소득 2년 치(필수준비기간) 진단비 확보 필수. + 단순 진단비를 넘어 표적·면역항암 및 중입자치료 등 첨단의료비용(선진의료치료비) 추가 가입 제안.</li>
+        <li><b>치매 (Dementia):</b> 가족의 간병 부담을 해결하기 위한 전문 간병인 비용(실비형) 확보 필수. (간병인보험 가입 필수)</li>
+        <li><b>연금 (Pension):</b> 물가상승률을 감안하여 은퇴 시점이 아닌 현재 소득 수준이 그대로 유지되는 연금액 산출.</li>
+        <li><b>상해후유장해:</b> 3억 ~ 5억 확보 (가처분소득 준비율 1년~5년에 따른 차등 설계).</li>
+        <li><b>사망 보장:</b> 최소 1억 이상 (가처분소득 준비율 1년~5년에 따른 차등 설계).</li>
+    </ol>
+    
+    <h4>3️⃣ CFP 기준 및 시스템 무결성 (Central Tech)</h4>
+    <ul>
+        <li><b>CFP(국제공인재무설계사) 표준 준수:</b> 본 솔루션은 국제공인재무설계사의 재무설계 프로세스와 윤리 기준을 엄격하게 반영하여 설계되었습니다.</li>
+        <li><b>Richer Data Wins:</b> 정보량이 더 많은 쪽을 우선 저장하여 데이터 유실 원천 차단.</li>
+        <li><b>철저한 보안:</b> 60분 비활동 시 자동 로그아웃 및 브라우저 자동 완성 차단으로 고객의 민감 정보를 완벽히 보호합니다.</li>
+    </ul>
+
+    <div class="note-section">
+        <span class="note-title">※ 주석 (Technical Notes)</span>
+        <p>1) 트리니티는 <b>'휴업소득(상해·질병 기간 손해 보는 소득)'</b>을 전제로 산출한 것이며, 생활비 외 치료비는 실손의료비에서 비급여 기준 70% 보장받은 것을 전제로, 해당 금액에 30%를 추가해서 가입해야 한다. 중대질환 외 나머지 수술비 등은 산출된 월 가처분소득을 30일로 나눈 것을 기준으로 일할 계산하여 보며, 수술비 담보는 평균 입원 30일 ~ 최대 60일을 적용하고, 로봇수술은 별도 적용해야 한다.</p>
+        <p>2) 장해 등으로 인한 <b>'일실소득(상해·장해로 인한 미래 소득 감소분)'</b>은 직장을 퇴사하고 다시 재활까지 필요한 기간 5년을 전제 조건으로 해야 하며, 모든 산출 담보에서 <b>'가처분소득 × 60개월'</b>을 <b>적정 수준</b>으로 제안한다. 그러나 금액이 너무 큰 경우에는 고객과 상담하여 결정한다.</p>
+        <p>3) <b>사망:</b> 상속세 부분은 별도로 계산해야 한다. <b>(개인)</b> 상속 면세점은 10억~12억 수준으로 보고 초과 금액에 대한 상속세 현금 마련을 전제로 하며, <b>(법인)</b> 상속 주식의 '비상장주식평가'와 부동산 상속의 경우에는 별건으로 산출을 진행해야 한다. 공식 가이드라인을 준수하라.</p>
+    </div>
+    
+    <p style="text-align: center; color: #1E40AF; font-weight: bold; margin-top: 20px; font-style: italic;">
+        "AI 트리니티는 단순히 보험을 파는 것이 아니라, 고객의 인생 전체를 과학적으로 재설계합니다."
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+    # ── [GP-HQ-ACTION] HQ 이동 액션 버튼 (목록 모드 하단) ──────────────────────
+    st.markdown("""
+<style>
+.hq-action-button {
+    display: block;
+    margin: 30px auto 20px;
+    max-width: 680px;
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%);
+    border-radius: 20px;
+    padding: 28px 40px;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(30, 58, 138, 0.3);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+}
+.hq-action-button:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(30, 58, 138, 0.4);
+}
+.hq-action-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+.hq-action-button:hover::before {
+    left: 100%;
+}
+.hq-action-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    position: relative;
+    z-index: 1;
+}
+.hq-action-icon {
+    font-size: clamp(40px, 6vw, 56px);
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));
+}
+.hq-action-text {
+    color: #ffffff;
+    font-size: clamp(20px, 3.5vw, 28px);
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    word-break: keep-all;
+}
+@media (max-width: 600px) {
+    .hq-action-button {
+        padding: 22px 28px;
+        border-radius: 16px;
+    }
+    .hq-action-content {
+        gap: 14px;
+    }
+}
+</style>
+
+<a href=""" + f"'{HQ_APP_URL.rstrip('/')}/'" + """ target="_blank" rel="noopener noreferrer" class="hq-action-button">
+    <div class="hq-action-content">
+        <div class="hq-action-icon">💬</div>
+        <div class="hq-action-text">전문가와 함께하는<br>맞춤 솔루션</div>
+    </div>
+</a>
+""", unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # [GP SPA §3] MODE: CUSTOMER — 6대 SPA 화면
@@ -1909,7 +2116,10 @@ elif _spa_mode == "customer":
                         st.session_state["ms_contacts_count"] = len(_ctcs)
                     except Exception as _ctc_e:
                         st.warning(f"연락처 가져오기 실패: {_ctc_e}")
-                    st.rerun()
+                    # DOM 에러 방지: rerun 전 플래그 설정
+                    if not st.session_state.get("_rerun_pending"):
+                        st.session_state["_rerun_pending"] = True
+                        st.rerun()
                 else:
                     st.error(f"❌ 토큰 발급 실패: {_tok.get('error_description', _tok)}")
                     st.query_params.clear()
@@ -2012,7 +2222,10 @@ elif _spa_mode == "customer":
                         if _saved:
                             st.success("✅ 신규 고객 등록 완료!")
                             st.cache_data.clear()
-                            st.rerun()
+                            # DOM 에러 방지: rerun 전 플래그 설정
+                            if not st.session_state.get("_rerun_pending"):
+                                st.session_state["_rerun_pending"] = True
+                                st.rerun()
                         else:
                             st.warning("⚠️ 저장 실패 — DB 연결 확인 필요")
                     except Exception as _nre:
@@ -2047,6 +2260,46 @@ elif _spa_mode == "customer":
                     f"</div></div>",
                     unsafe_allow_html=True,
                 )
+                # ── [저장된 증권 목록 조회] ──────────────────────────────────
+                st.markdown(
+                    "<div style='margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;'>"
+                    "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;margin-bottom:8px;'>"
+                    "📋 저장된 보험증권 목록</div>",
+                    unsafe_allow_html=True,
+                )
+                try:
+                    from db_utils import get_supabase_client as _gsb_pol
+                    _sb_pol = _gsb_pol()
+                    _pol_resp = _sb_pol.table("policy_roles").select(
+                        "*, policies(*)"
+                    ).eq("person_id", _sel_pid).eq("is_deleted", False).execute()
+                    
+                    if _pol_resp.data:
+                        for _pr in _pol_resp.data:
+                            _pol = _pr.get("policies", {})
+                            if _pol:
+                                _pol_company = _pol.get("insurance_company", "미확인")
+                                _pol_product = _pol.get("product_name", "미확인")
+                                _pol_date = _pol.get("contract_date", "")
+                                _pol_role = _pr.get("role", "")
+                                st.markdown(
+                                    f"<div style='background:#f0f9ff;border:1px solid #bae6fd;"
+                                    f"border-radius:8px;padding:8px 10px;margin-bottom:6px;'>"
+                                    f"<div style='font-size:0.78rem;font-weight:700;color:#0c4a6e;'>"
+                                    f"{_pol_company}</div>"
+                                    f"<div style='font-size:0.72rem;color:#64748b;margin-top:2px;'>"
+                                    f"{_pol_product}</div>"
+                                    f"<div style='font-size:0.68rem;color:#94a3b8;margin-top:2px;'>"
+                                    f"가입일: {_pol_date} | 역할: {_pol_role}</div>"
+                                    f"</div>",
+                                    unsafe_allow_html=True,
+                                )
+                    else:
+                        st.caption("저장된 증권이 없습니다. 우측 스캔 센터에서 증권을 촬영하세요.")
+                except Exception as _pol_e:
+                    st.caption(f"증권 조회 오류: {_pol_e}")
+                st.markdown("</div>", unsafe_allow_html=True)
+                
                 _flds_summary = [
                     ("연락처",    decrypt_pii(_sel_cust.get("contact", ""))),
                     ("생년월일",  _sel_cust.get("birth_date", "") or "-"),
@@ -2116,6 +2369,14 @@ elif _spa_mode == "customer":
                     _ks_render_send_ui if _KAKAO_SENDER_OK else None,
                     _KAKAO_SENDER_OK,
                     HQ_APP_URL.rstrip("/"),
+                )
+
+                # ── [CRM 증권 스캔 센터] 보험증권 OCR 분석 및 자동 저장 ──────────
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                render_crm_scan_block(
+                    _sel_pid,
+                    _user_id,
+                    _sel_cust.get("name", ""),
                 )
 
                 # ── [통합 Upsert 폼 — 신규 고객등록 & 고객정보 수정] ──────────
@@ -2196,25 +2457,44 @@ elif _spa_mode == "customer":
                                 _effective_pid = _form_pid or f"crm_{_user_id}_{int(datetime.datetime.now().timestamp())}"
                                 from crm_data_fetchers import upsert_customer_for_agent
 
+                                # [지시1] 충돌 방어: 로컬 데이터 준비
+                                _local_customer_data = {
+                                    "person_id": _effective_pid,
+                                    "name": _fn_e.strip(),
+                                    "birth_date": _form_cust.get("birth_date", ""),
+                                    "gender": _form_cust.get("gender", ""),
+                                    "contact": _fcon_e.strip() if _fcon_e else "",
+                                    "is_real_client": True,
+                                    "memo": _fm_e.strip() if _fm_e else "",
+                                    "updated_at": st.session_state.get(f"_cust_{_effective_pid}_updated", ""),
+                                }
+                                
                                 _head_save = upsert_customer_for_agent(
                                     user_id=_user_id,
                                     person_id=_effective_pid,
                                     patch={
                                         "name": _fn_e.strip(),
+                                        "birth_date": _form_cust.get("birth_date", ""),
+                                        "gender": _form_cust.get("gender", ""),
                                         "contact": _fcon_e.strip() if _fcon_e else "",
-                                        "job": _fj_e.strip() if _fj_e else "",
-                                        "address": _fa_e.strip() if _fa_e else "",
-                                        "memo": _fm_e.strip() if _fm_e else "",
-                                        "management_tier": _ft_e,
                                         "is_real_client": True,
+                                        "memo": _fm_e.strip() if _fm_e else "",
                                     },
+                                    local_data=_local_customer_data,  # [지시1] 충돌 감지
                                 )
                                 _saved = bool(_head_save.get("ok"))
                                 if _saved:
+                                    st.success("✅ 고객 정보가 저장되었습니다.")
+                                    # [지시2] 저장 성공 시 타임스탬프 갱신
+                                    st.session_state[f"_cust_{_effective_pid}_updated"] = _head_save.get("record", {}).get("updated_at", "")
+                                    st.session_state.pop("_spa_cust_form_open", None)
                                     _mode_lbl = "기존 고객 수정 완료" if _form_pid else "신규 고객 등록 완료"
                                     st.success(f"✅ {_mode_lbl}!")
                                     st.cache_data.clear()
-                                    st.rerun()
+                                    # DOM 에러 방지: rerun 전 플래그 설정
+                                    if not st.session_state.get("_rerun_pending"):
+                                        st.session_state["_rerun_pending"] = True
+                                        st.rerun()
                                 else:
                                     if _head_save.get("conflict"):
                                         st.warning("⚠️ 동시 수정 충돌(version conflict) — 최신 데이터로 새로고침 후 다시 저장하세요.")
@@ -2359,7 +2639,10 @@ elif _spa_mode == "customer":
                     _sr = sync_external_calendar(_user_id)
                 if _sr.get("ok"):
                     st.success(f"✅ {_sr.get('count',0)}건 완료")
-                    st.rerun()
+                    # DOM 에러 방지: rerun 전 플래그 설정
+                    if not st.session_state.get("_rerun_pending"):
+                        st.session_state["_rerun_pending"] = True
+                        st.rerun()
                 else:
                     st.info(f"ℹ️ {_sr.get('message','')}")
 
@@ -2369,7 +2652,10 @@ elif _spa_mode == "customer":
             if st.button("◀", use_container_width=True, key="spa_mo_prev"):
                 _pm, _py = (_cal_mo - 1, _cal_yr) if _cal_mo > 1 else (12, _cal_yr - 1)
                 st.session_state["spa_cal_ym"] = (_py, _pm)
-                st.rerun()
+                # DOM 에러 방지: rerun 전 플래그 설정
+                if not st.session_state.get("_rerun_pending"):
+                    st.session_state["_rerun_pending"] = True
+                    st.rerun()
         with _nav_title:
             st.markdown(
                 f"<div style='text-align:center;font-size:0.9rem;font-weight:900;"
@@ -2380,7 +2666,10 @@ elif _spa_mode == "customer":
             if st.button("▶", use_container_width=True, key="spa_mo_next"):
                 _nm, _ny = (_cal_mo + 1, _cal_yr) if _cal_mo < 12 else (1, _cal_yr + 1)
                 st.session_state["spa_cal_ym"] = (_ny, _nm)
-                st.rerun()
+                # DOM 에러 방지: rerun 전 플래그 설정
+                if not st.session_state.get("_rerun_pending"):
+                    st.session_state["_rerun_pending"] = True
+                    st.rerun()
 
         _cal_col, _list_col, _memo_col = st.columns([2, 3, 3])
         with _cal_col:
@@ -2390,7 +2679,10 @@ elif _spa_mode == "customer":
                                                 session_key="spa_cal_sel")
                 if _new_sel != _sel_date:
                     st.session_state["spa_cal_sel"] = _new_sel
-                    st.rerun()
+                    # DOM 에러 방지: rerun 전 플래그 설정
+                    if not st.session_state.get("_rerun_pending"):
+                        st.session_state["_rerun_pending"] = True
+                        st.rerun()
             else:
                 _sel_dt = st.date_input("날짜 선택",
                                         value=datetime.date.fromisoformat(_sel_date),
@@ -2531,13 +2823,27 @@ elif _spa_mode == "customer":
             if st.button("💾 메모 저장", use_container_width=True, key="spa_memo_save"):
                 if _sel_cust:
                     from crm_data_fetchers import upsert_customer_for_agent
+                    # [지시1] 충돌 방어: 로컬 데이터 준비
+                    _local_memo_data = {
+                        "person_id": _sel_pid,
+                        "memo": _new_memo_v,
+                        "updated_at": st.session_state.get(f"_cust_{_sel_pid}_updated", ""),
+                    }
                     _memo_save = upsert_customer_for_agent(
                         user_id=_user_id,
                         person_id=_sel_pid,
                         patch={"memo": _new_memo_v},
+                        local_data=_local_memo_data,  # [지시1] 충돌 감지
                     )
-                    if _memo_save.get("ok"):
+                    if _memo_save.get("conflict"):
+                        st.error(
+                            f"⚠️ **{_memo_save.get('error', '다른 기기에서 업데이트되었습니다.')}**\n\n"
+                            "새로고침 후 다시 시도해 주세요."
+                        )
+                    elif _memo_save.get("ok"):
                         st.success("✅ 메모 저장 완료!")
+                        # [지시2] 저장 성공 시 타임스탬프 갱신
+                        st.session_state[f"_cust_{_sel_pid}_updated"] = _memo_save.get("record", {}).get("updated_at", "")
                         st.cache_data.clear()
                     else:
                         st.error(f"메모 저장 실패: {_memo_save.get('error', '네트워크 오류')}")
@@ -2787,8 +3093,6 @@ elif _spa_mode == "customer":
                     f"🚀 HQ 정밀 분석 →</a></div>",
                     unsafe_allow_html=True,
                 )
-            if not _p3:
-                st.info("등록된 고객이 없습니다.")
             st.markdown(
                 "<div style='border-top:1px solid #EAEAEF;padding-top:10px;margin-top:8px;'>"
                 "<b style='font-size:0.82rem;'>📅 오늘의 일정</b></div>",
@@ -3710,24 +4014,161 @@ WHERE tablename IN ('gk_people','gk_schedules','gk_consulting_logs');""",
                     st.session_state.pop(_ck, None)
                 st.info("동의 항목이 초기화되었습니다. 로그아웃 후 재로그인하여 재동의해 주세요.")
 
-    # ── [GP-FOOTER] 고객 업무 화면 — 피드백·오류신고 + [HQ] 이동 (목록과 동일) ─
-    st.markdown("<hr style='border:none;border-top:1px solid #e2e8f0;margin:20px 0 12px;'>",
-                unsafe_allow_html=True)
-    try:
-        from compliance import render_feedback_button as _crm_rfb_cust
+    # ── [GP-TRINITY-KNOWLEDGE] AI 트리니티 지식 박스 (고객 모드) ─────────────
+    st.markdown("""
+<style>
+.trinity-wrapper {
+    background-color: #F8FAFD;
+    border: 1px solid #E1E8F0;
+    border-radius: 16px;
+    padding: clamp(15px, 4vw, 30px);
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.02);
+}
+.trinity-wrapper, .trinity-wrapper p, .trinity-wrapper li {
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    word-break: keep-all;
+    line-height: 1.8;
+    font-size: clamp(0.88rem, 2.2vw, 1rem);
+    color: #374151;
+}
+.trinity-wrapper h3 { color: #1E40AF; font-weight: 800; text-align: center; margin-bottom: 20px; }
+.trinity-wrapper h4 { color: #1D4ED8; margin-top: 25px; font-weight: 700; border-left: 4px solid #3B82F6; padding-left: 10px; }
+.trinity-wrapper .highlight-box { background-color: #FFFFFF; border: 1px dashed #BFDBFE; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center; }
+.trinity-wrapper .note-section { background-color: #F1F5F9; padding: 15px; border-radius: 10px; margin-top: 30px; font-size: 0.9em; border: 1px solid #E2E8F0; }
+.trinity-wrapper .note-title { font-weight: bold; color: #1E40AF; display: block; margin-bottom: 8px; text-decoration: underline; }
+</style>
 
-        _crm_rfb_cust(key="crm_customer_feedback", context="crm_customer_detail", compact=True)
-    except Exception:
-        pass
-    st.markdown(
-        f"<div style='text-align:center;margin-top:10px;padding-bottom:16px;'>"
-        f"<a href='{HQ_APP_URL.rstrip('/')}/' target='_blank' rel='noopener noreferrer' "
-        "style='display:inline-block;padding:14px 22px;font-size:clamp(13px,2vw,17px);"
-        "font-weight:900;color:#fff;background:linear-gradient(135deg,#1e3a8a,#2563eb);"
-        "border-radius:14px;text-decoration:none;box-shadow:0 2px 8px rgba(30,58,138,0.25);'>"
-        "🏛️ 전문 상담 파트 이동</a></div>",
-        unsafe_allow_html=True,
-    )
+<div class="trinity-wrapper">
+    <h3>💎 AI 트리니티 계산법 상세 안내</h3>
+    <p style="text-align: center; color: #3B82F6; font-weight: 600;">대한민국 표준 보장 분석 및 세무적 자산 배분 솔루션 지향</p>
+    
+    <h4>🛡️ 분석의 근간: 실질 가처분소득 역산 로직</h4>
+    <p>AI 트리니티는 단순히 가입 금액을 합산하는 방식이 아닙니다. 공공 데이터를 기반으로 고객의 경제적 체급을 정교하게 분석하여 상담의 객관성을 확보합니다.</p>
+    <ul>
+        <li><b>표준 지표:</b> 2026년 직장인 평균 건강보험료율(7.19%) 적용</li>
+        <li><b>소득 산출:</b> 납입 건강보험료를 요율로 역산 후, 구간별 원천공제율을 적용하여 실질 가처분소득을 추산합니다. (지역가입자 역시 일관된 기준을 위해 직장인과 동일한 소득 환산 로직 적용)</li>
+    </ul>
+    
+    <div class="highlight-box">
+        <strong>[트리니티 소득 산출식]</strong><br>
+        1. 월 소득(추산) = 납입 건강보험료 ÷ 0.0719<br>
+        2. 실질 가처분소득 = 월 소득 - 구간별 원천공제액(세금 및 공과금)
+    </div>
+    
+    <h4>1️⃣ 3층 연금 구조의 소득대체율 (Income Replacement Ratio)</h4>
+    <p>은퇴 후에도 현재 소득 그대로(실질 가치 80~100%) 생활하기 위한 세무적 목표치입니다.</p>
+    <ul>
+        <li>🏛️ <b>국민연금:</b> 40% (소득대체율)</li>
+        <li>🏢 <b>퇴직연금:</b> 20% ~ 30% (직장생활의 결과물)</li>
+        <li>💎 <b>민영연금:</b> 20% ~ 30% (물가상승률을 방어하는 핵심 동력)</li>
+        <li>✅ <b>최종 목표:</b> 합산 <b>80% ~ 100%</b>의 소득대체율을 달성하여 은퇴 후 삶의 질을 보존합니다.</li>
+    </ul>
+    
+    <h4>2️⃣ 트리니티 5대 필수 보장 전제조건</h4>
+    <ol>
+        <li><b>암 (Cancer):</b> 가처분소득 2년 치(필수준비기간) 진단비 확보 필수. + 단순 진단비를 넘어 표적·면역항암 및 중입자치료 등 첨단의료비용(선진의료치료비) 추가 가입 제안.</li>
+        <li><b>치매 (Dementia):</b> 가족의 간병 부담을 해결하기 위한 전문 간병인 비용(실비형) 확보 필수. (간병인보험 가입 필수)</li>
+        <li><b>연금 (Pension):</b> 물가상승률을 감안하여 은퇴 시점이 아닌 현재 소득 수준이 그대로 유지되는 연금액 산출.</li>
+        <li><b>상해후유장해:</b> 3억 ~ 5억 확보 (가처분소득 준비율 1년~5년에 따른 차등 설계).</li>
+        <li><b>사망 보장:</b> 최소 1억 이상 (가처분소득 준비율 1년~5년에 따른 차등 설계).</li>
+    </ol>
+    
+    <h4>3️⃣ CFP 기준 및 시스템 무결성 (Central Tech)</h4>
+    <ul>
+        <li><b>CFP(국제공인재무설계사) 표준 준수:</b> 본 솔루션은 국제공인재무설계사의 재무설계 프로세스와 윤리 기준을 엄격하게 반영하여 설계되었습니다.</li>
+        <li><b>Richer Data Wins:</b> 정보량이 더 많은 쪽을 우선 저장하여 데이터 유실 원천 차단.</li>
+        <li><b>철저한 보안:</b> 60분 비활동 시 자동 로그아웃 및 브라우저 자동 완성 차단으로 고객의 민감 정보를 완벽히 보호합니다.</li>
+    </ul>
+
+    <div class="note-section">
+        <span class="note-title">※ 주석 (Technical Notes)</span>
+        <p>1) 트리니티는 <b>'휴업소득(상해·질병 기간 손해 보는 소득)'</b>을 전제로 산출한 것이며, 생활비 외 치료비는 실손의료비에서 비급여 기준 70% 보장받은 것을 전제로, 해당 금액에 30%를 추가해서 가입해야 한다. 중대질환 외 나머지 수술비 등은 산출된 월 가처분소득을 30일로 나눈 것을 기준으로 일할 계산하여 보며, 수술비 담보는 평균 입원 30일 ~ 최대 60일을 적용하고, 로봇수술은 별도 적용해야 한다.</p>
+        <p>2) 장해 등으로 인한 <b>'일실소득(상해·장해로 인한 미래 소득 감소분)'</b>은 직장을 퇴사하고 다시 재활까지 필요한 기간 5년을 전제 조건으로 해야 하며, 모든 산출 담보에서 <b>'가처분소득 × 60개월'</b>을 <b>적정 수준</b>으로 제안한다. 그러나 금액이 너무 큰 경우에는 고객과 상담하여 결정한다.</p>
+        <p>3) <b>사망:</b> 상속세 부분은 별도로 계산해야 한다. <b>(개인)</b> 상속 면세점은 10억~12억 수준으로 보고 초과 금액에 대한 상속세 현금 마련을 전제로 하며, <b>(법인)</b> 상속 주식의 '비상장주식평가'와 부동산 상속의 경우에는 별건으로 산출을 진행해야 한다. 공식 가이드라인을 준수하라.</p>
+    </div>
+    
+    <p style="text-align: center; color: #1E40AF; font-weight: bold; margin-top: 20px; font-style: italic;">
+        "AI 트리니티는 단순히 보험을 파는 것이 아니라, 고객의 인생 전체를 과학적으로 재설계합니다."
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+    # ── [GP-HQ-ACTION] HQ 이동 액션 버튼 (고객 모드 하단) ──────────────────────
+    st.markdown("""
+<style>
+.hq-action-button {
+    display: block;
+    margin: 30px auto 20px;
+    max-width: 680px;
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%);
+    border-radius: 20px;
+    padding: 28px 40px;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(30, 58, 138, 0.3);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+}
+.hq-action-button:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(30, 58, 138, 0.4);
+}
+.hq-action-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+.hq-action-button:hover::before {
+    left: 100%;
+}
+.hq-action-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    position: relative;
+    z-index: 1;
+}
+.hq-action-icon {
+    font-size: clamp(40px, 6vw, 56px);
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));
+}
+.hq-action-text {
+    color: #ffffff;
+    font-size: clamp(20px, 3.5vw, 28px);
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    word-break: keep-all;
+}
+@media (max-width: 600px) {
+    .hq-action-button {
+        padding: 22px 28px;
+        border-radius: 16px;
+    }
+    .hq-action-content {
+        gap: 14px;
+    }
+}
+</style>
+
+<a href=""" + f"'{HQ_APP_URL.rstrip('/')}/'" + """ target="_blank" rel="noopener noreferrer" class="hq-action-button">
+    <div class="hq-action-content">
+        <div class="hq-action-icon">💬</div>
+        <div class="hq-action-text">전문가와 함께하는<br>맞춤 솔루션</div>
+    </div>
+</a>
+""", unsafe_allow_html=True)
+
 
 # [GP-PHASE-4] 통합 증권분석 센터는 analysis 화면(_spa_screen=="analysis") 내부에서만 렌더링
 
@@ -3771,20 +4212,29 @@ with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
                 st.session_state["crm_user_id"]   = "ADMIN_MASTER"
                 st.session_state["crm_user_name"] = "이세윤"
                 st.session_state["crm_role"]      = "admin"
-                st.rerun()
+                # DOM 에러 방지: rerun 전 플래그 설정
+                if not st.session_state.get("_rerun_pending"):
+                    st.session_state["_rerun_pending"] = True
+                    st.rerun()
             elif _cadm_code_v == _master_env and _master_env:
                 _mname = get_env_secret("MASTER_NAME", "이세윤")
                 st.session_state["crm_is_admin"]  = True
                 st.session_state["crm_user_id"]   = "PERMANENT_MASTER"
                 st.session_state["crm_user_name"] = _mname
                 st.session_state["crm_role"]      = "admin"
-                st.rerun()
+                # DOM 에러 방지: rerun 전 플래그 설정
+                if not st.session_state.get("_rerun_pending"):
+                    st.session_state["_rerun_pending"] = True
+                    st.rerun()
             elif _cadm_id_v.lower() in ("admin", "이세윤") and _cadm_input_hash == _cadm_pw_hash:
                 st.session_state["crm_is_admin"]  = True
                 st.session_state["crm_user_id"]   = "ADMIN_MASTER"
                 st.session_state["crm_user_name"] = "이세윤"
                 st.session_state["crm_role"]      = "admin"
-                st.rerun()
+                # DOM 에러 방지: rerun 전 플래그 설정
+                if not st.session_state.get("_rerun_pending"):
+                    st.session_state["_rerun_pending"] = True
+                    st.rerun()
             else:
                 st.error("ID 또는 코드가 올바르지 않습니다.")
     else:
@@ -3844,6 +4294,76 @@ with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
         except Exception as _cadm_err:
             st.caption(f"회원 조회 오류: {_cadm_err}")
 
+        st.markdown("---")
+        
+        # [Phase 3] 회원 탈퇴(계정 삭제) 기능 (구글 심사 필수)
+        st.markdown(
+            "<div style='background:#fee2e2;border:2px solid #dc2626;border-radius:8px;"
+            "padding:16px;margin:12px 0;'>"
+            "<b style='color:#991b1b;font-size:1.1rem;'>🗑️ 회원 탈퇴(계정 삭제)</b><br>"
+            "<p style='color:#7f1d1d;margin:8px 0 0;font-size:0.85rem;'>"
+            "구글 Play 심사 필수 요건입니다. 탈퇴 시 모든 개인 정보가 영구 삭제됩니다."
+            "</p></div>",
+            unsafe_allow_html=True
+        )
+        
+        with st.form("account_deletion_form"):
+            st.warning(
+                "⚠️ **경고**: 탈퇴 후에는 복구가 불가능합니다.\n\n"
+                "삭제될 데이터:\n"
+                "- Supabase gk_members 테이블 레코드\n"
+                "- GCS master_roster/ 파일\n"
+                "- 모든 개인 식별 정보"
+            )
+            
+            _delete_confirm = st.checkbox(
+                "위 내용을 확인했으며, 회원 탈퇴를 진행합니다.",
+                key="delete_account_confirm"
+            )
+            
+            _delete_submit = st.form_submit_button(
+                "🗑️ 회원 탈퇴 실행",
+                type="primary",
+                use_container_width=True,
+                disabled=not _delete_confirm
+            )
+        
+        if _delete_submit and _delete_confirm:
+            try:
+                from modules.account_deletion import (
+                    delete_account_permanently,
+                    delete_member_from_db,
+                    delete_member_from_gcs
+                )
+                
+                _current_user_id = st.session_state.get("crm_user_id", "")
+                _current_user_name = st.session_state.get("crm_user_name", "")
+                
+                if not _current_user_id and not _current_user_name:
+                    st.error("❌ 사용자 정보를 찾을 수 없습니다.")
+                else:
+                    # 회원 탈퇴 실행
+                    success, message = delete_account_permanently(
+                        user_id=_current_user_id,
+                        user_name=_current_user_name,
+                        db_delete_func=delete_member_from_db,
+                        gcs_delete_func=delete_member_from_gcs
+                    )
+                    
+                    if success:
+                        st.success(f"✅ {message}")
+                        st.balloons()
+                        # 세션 파기
+                        st.session_state.clear()
+                        st.info("회원 탈퇴가 완료되었습니다. 로그인 화면으로 이동합니다...")
+                        import time
+                        time.sleep(3)
+                        st.rerun()
+                    else:
+                        st.error(f"❌ {message}")
+            except Exception as _del_err:
+                st.error(f"❌ 탈퇴 처리 오류: {_del_err}")
+        
         st.markdown("---")
         if st.button("🚪 관리자 로그아웃", key="crm_admin_logout_btn",
                      use_container_width=True):

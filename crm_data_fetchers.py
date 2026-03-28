@@ -31,8 +31,43 @@ def upsert_customer_for_agent(
     person_id: str,
     patch: dict,
     expected_version: int | None = None,
+    local_data: dict | None = None,  # [지시1] 충돌 감지용 로컬 데이터
 ) -> dict:
-    """HEAD API 우선 저장. 실패 시 db_utils safe_update_customer 폴백."""
+    """
+    HEAD API 우선 저장. 실패 시 db_utils safe_update_customer 폴백.
+    
+    [지시1] Optimistic Concurrency Control + Richer Data Wins:
+        - DB의 최신 데이터와 비교하여 충돌 감지
+        - 충돌 시 저장 중단 및 에러 반환
+    """
+    # [지시1] 충돌 감지 (local_data 제공 시)
+    if local_data:
+        try:
+            from modules.concurrency_guard import check_conflict
+            from db_utils import load_customers
+            
+            # DB에서 최신 데이터 조회
+            remote_customers = load_customers(user_id, "")
+            remote_data = None
+            for c in remote_customers:
+                if c.get("person_id") == person_id or c.get("id") == person_id:
+                    remote_data = c
+                    break
+            
+            # 충돌 검사
+            has_conflict, conflict_reason = check_conflict(local_data, remote_data or {})
+            
+            if has_conflict:
+                return {
+                    "ok": False,
+                    "conflict": True,
+                    "error": conflict_reason,
+                    "remote_data": remote_data
+                }
+        except Exception:
+            pass  # 충돌 검사 실패 시 계속 진행
+    
+    # 기존 로직 (HEAD API 우선)
     try:
         from head_api_client import upsert_customer_record
 

@@ -29134,6 +29134,9 @@ def main():
                      if m.get("user_id", "") == _sso_user_id),
                     "",
                 )
+                # [GP-SEC §2] 관리자 계정 특별 처리 — ADMIN_MASTER, PERMANENT_MASTER 자동 인식
+                if not _uname_found and _sso_user_id in ("ADMIN_MASTER", "PERMANENT_MASTER"):
+                    _uname_found = get_env_secret("MASTER_NAME", "이세윤")
                 # [GP-SEC §2] 컨텐츠 라우팅 파라미터 — query_params.clear() 전 세션 저장
                 _sso_cid    = st.query_params.get("gk_cid", "")
                 _sso_sector = st.query_params.get("gk_sector", "home")
