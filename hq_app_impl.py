@@ -29109,7 +29109,7 @@ def main():
                     _sso_expired = True
                 else:
                     # [검증 2: 무결성] HMAC(KEY, user_id + str(ts)) 재계산 비교
-                    _sso_sec = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+                    _sso_sec = get_env_secret("SSO_KEY", "GoldKey_CRM_HQ_SSO_Secure_Auth_2026_!@#")
                     if isinstance(_sso_sec, bytes):
                         _sso_sec = _sso_sec.decode()
                     _expected = _hmac_sso.new(
@@ -29735,7 +29735,7 @@ footer, footer * { display: none !important; }
                             st.session_state.pop(_k, None)
                         try:
                             import hmac as _hmac2
-                            _ts = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+                            _ts = get_env_secret("ENCRYPTION_KEY", "GoldKey_System_Encrypt_Master_2026_@#$")
                             if isinstance(_ts, bytes): _ts = _ts.decode()
                             _tok = _hmac2.new(_ts.encode(), (ln + m["user_id"]).encode(), "sha256").hexdigest()[:32]
                             st.session_state["_auto_login_token"] = _tok

@@ -695,7 +695,7 @@ def build_deeplink_to_hq(cid: str, agent_id: str = "", name: str = "", sector: s
         )
     import urllib.parse as _up
     import hmac as _hmac_dl
-    _dl_secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+    _dl_secret = get_env_secret("ENCRYPTION_KEY", "GoldKey_System_Encrypt_Master_2026_@#$")
     if isinstance(_dl_secret, bytes):
         _dl_secret = _dl_secret.decode()
     _dl_agent = agent_id or ""
@@ -739,7 +739,7 @@ def build_deeplink_to_crm(user_id: str, pid: str = "", screen: str = "contact") 
     import urllib.parse as _up
     import hmac as _hmac_crm
     import time as _time_crm
-    _secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+    _secret = get_env_secret("ENCRYPTION_KEY", "GoldKey_System_Encrypt_Master_2026_@#$")
     if isinstance(_secret, bytes):
         _secret = _secret.decode()
     _ts = int(_time_crm.time())
@@ -1261,7 +1261,7 @@ def build_sso_handoff_to_hq(
     import urllib.parse as _up
     import hmac as _hmac_sh
     import time as _time_sh
-    _secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+    _secret = get_env_secret("SSO_KEY", "GoldKey_CRM_HQ_SSO_Secure_Auth_2026_!@#")
     if isinstance(_secret, bytes):
         _secret = _secret.decode()
     _ts  = int(_time_sh.time())
@@ -1294,7 +1294,7 @@ def build_context_transfer_to_hq(
     import urllib.parse as _up
     import hmac as _hmac_ct
     import time as _time_ct
-    _secret = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+    _secret = get_env_secret("ENCRYPTION_KEY", "GoldKey_System_Encrypt_Master_2026_@#$")
     if isinstance(_secret, bytes):
         _secret = _secret.decode()
     _ts  = int(_time_ct.time())
@@ -1329,7 +1329,7 @@ def verify_sso_token(token: str, user_id: str, user_name: str = "") -> bool:
             if _os.environ.get("K_SERVICE"):
                 # Cloud Run 운영 환경에서 키 미설정은 보안 위반
                 return False
-            secret = "gk_token_secret_2026"  # 로컬 개발 전용 폴백
+            secret = "GoldKey_System_Encrypt_Master_2026_@#$"  # 로컬 개발 전용 폴백
         if isinstance(secret, bytes):
             secret = secret.decode()
         expected = _hmac.new(
@@ -1353,7 +1353,7 @@ def encrypt_pii(plaintext: str) -> str:
         import base64, hashlib
         raw_key = get_env_secret("FERNET_KEY", "")
         if not raw_key:
-            seed = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+            seed = get_env_secret("ENCRYPTION_KEY", "GoldKey_System_Encrypt_Master_2026_@#$")
             raw_key = base64.urlsafe_b64encode(
                 hashlib.sha256(seed.encode()).digest()
             ).decode()
@@ -1372,7 +1372,7 @@ def decrypt_pii(ciphertext: str) -> str:
         import base64, hashlib
         raw_key = get_env_secret("FERNET_KEY", "")
         if not raw_key:
-            seed = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+            seed = get_env_secret("ENCRYPTION_KEY", "GoldKey_System_Encrypt_Master_2026_@#$")
             raw_key = base64.urlsafe_b64encode(
                 hashlib.sha256(seed.encode()).digest()
             ).decode()

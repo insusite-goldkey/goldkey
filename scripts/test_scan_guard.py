@@ -15,7 +15,7 @@ def _token() -> str:
     import hmac
 
     uid = os.environ.get("HEAD_API_USER_ID", "ADMIN_MASTER")
-    sec = os.environ.get("ENCRYPTION_KEY", "gk_token_secret_2026")
+    sec = os.environ.get("ENCRYPTION_KEY", "GoldKey_System_Encrypt_Master_2026_@#$")
     ts = int(time.time())
     sig = hmac.new(sec.encode(), f"{uid}.{ts}".encode(), "sha256").hexdigest()[:32]
     return f"{uid}.{ts}.{sig}"

@@ -26,7 +26,7 @@ HEAD_HOST = os.environ.get("HEAD_TEST_HOST", "127.0.0.1")
 HEAD_PORT = int(os.environ.get("HEAD_TEST_PORT", "8811"))
 BASE = f"http://{HEAD_HOST}:{HEAD_PORT}"
 UID = os.environ.get("HEAD_API_USER_ID", "").strip() or "ADMIN_MASTER"
-SECRET = os.environ.get("ENCRYPTION_KEY", "gk_token_secret_2026")
+SECRET = os.environ.get("ENCRYPTION_KEY", "GoldKey_System_Encrypt_Master_2026_@#$")
 SKIP_BOOT = os.environ.get("HEAD_TEST_SKIP_BOOT", "").strip().lower() in ("1", "true", "yes", "on")
 
 

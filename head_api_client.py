@@ -30,7 +30,7 @@ def _build_bearer_token() -> str:
     if not uid:
         return ""
     ts = int(time.time())
-    secret = os.environ.get("ENCRYPTION_KEY", "gk_token_secret_2026")
+    secret = os.environ.get("ENCRYPTION_KEY", "GoldKey_System_Encrypt_Master_2026_@#$")
     sig = hmac.new(secret.encode(), f"{uid}.{ts}".encode(), "sha256").hexdigest()[:32]
     return f"{uid}.{ts}.{sig}"
 

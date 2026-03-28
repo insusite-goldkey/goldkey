@@ -25,7 +25,7 @@ class AuthContext:
 
 
 def _secret() -> str:
-    return os.environ.get("ENCRYPTION_KEY", "gk_token_secret_2026")
+    return os.environ.get("ENCRYPTION_KEY", "GoldKey_System_Encrypt_Master_2026_@#$")
 
 
 def _verify_signed_bearer(token: str) -> AuthContext:

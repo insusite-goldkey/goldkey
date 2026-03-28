@@ -1045,7 +1045,7 @@ if not _is_authenticated():
                                     # [GP-SEC §2 Issue-3] HMAC 정식 토큰 생성 — HQ verify_sso_token 호환
                                     try:
                                         import hmac as _crm_hmac
-                                        _crm_sec = get_env_secret("ENCRYPTION_KEY", "gk_token_secret_2026")
+                                        _crm_sec = get_env_secret("ENCRYPTION_KEY", "GoldKey_System_Encrypt_Master_2026_@#$")
                                         if isinstance(_crm_sec, bytes):
                                             _crm_sec = _crm_sec.decode()
                                         _crm_tok = _crm_hmac.new(
