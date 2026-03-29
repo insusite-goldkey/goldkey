@@ -392,12 +392,19 @@ def backup_to_gcs(
     doc_type: str,
     gcs_client,
     bucket_name: str,
+    person_id: str = "",
+    agent_id: str = "",
+    customer_name: str = "",
     max_retries: int = 3,
 ) -> dict:
     """
     GP190 §2, GP191 §2 — 파일을 GCS에 즉시 격리 보관.
     공적 자산 vs 개인자료 버킷 경로 자동 분리.
     실패 시 재시도 로직(최대 3회) 내장.
+    
+    [GP-IDENTITY §3] GCS 경로에 person_id + agent_id 태깅 강제:
+      person_id/agent_id 제공 시 → scans/{agent_id}/{person_id}_{filename} 경로 사용
+      미제공 시 → 기존 경로 유지 (공적 자산 등)
 
     반환: {"success": bool, "gcs_uri": str, "blob_name": str,
            "is_public_asset": bool, "error": str}
@@ -410,7 +417,13 @@ def backup_to_gcs(
     date_str  = datetime.datetime.now().strftime("%Y/%m/%d")
     uid       = uuid.uuid4().hex[:8]
     safe_name = filename.replace(" ", "_")
-    blob_name = f"{prefix}/{date_str}/{uid}_{safe_name}"
+    
+    # [GP-IDENTITY §3] person_id/agent_id 기반 경로 구조 강제
+    if person_id and agent_id:
+        blob_name = f"scans/{agent_id}/{person_id}_{uid}_{safe_name}"
+        logger.info(f"[GP-4TIER] GCS 경로 person_id 태깅: {blob_name}")
+    else:
+        blob_name = f"{prefix}/{date_str}/{uid}_{safe_name}"
 
     last_error = ""
     for attempt in range(1, max_retries + 1):
@@ -418,6 +431,18 @@ def backup_to_gcs(
             bucket = gcs_client.bucket(bucket_name)
             blob   = bucket.blob(blob_name)
             mime   = "application/pdf" if safe_name.endswith(".pdf") else "application/octet-stream"
+            
+            # [GP-IDENTITY §3] GCS 메타데이터 태깅 강제
+            if person_id and agent_id:
+                blob.metadata = {
+                    "agent_id": agent_id,
+                    "person_id": person_id,
+                    "doc_type": doc_type,
+                    "customer_name": customer_name,
+                    "uploaded_at": datetime.datetime.now().isoformat(),
+                }
+                logger.info(f"[GP-4TIER] GCS 메타데이터 태깅 완료: person_id={person_id}, agent_id={agent_id}")
+            
             blob.upload_from_string(file_bytes, content_type=mime)
             gcs_uri = f"gs://{bucket_name}/{blob_name}"
             logger.info(f"[GP190] GCS 백업 완료 (시도 {attempt}): {gcs_uri}")
@@ -431,6 +456,8 @@ def backup_to_gcs(
         except Exception as e:
             last_error = str(e)
             logger.warning(f"[GP190] GCS 백업 실패 (시도 {attempt}/{max_retries}): {e}")
+            if attempt == max_retries and person_id:
+                logger.error(f"[GP-4TIER] GCS 저장 최종 실패 — person_id={person_id}, filename={filename}")
 
     logger.error(f"[GP190] GCS 백업 최종 실패: {last_error}")
     return {
@@ -837,6 +864,9 @@ def run_scan_pipeline(
     file_bytes: bytes,
     filename: str,
     doc_type: str = "",
+    person_id: str = "",
+    agent_id: str = "",
+    customer_name: str = "",
     gcs_client=None,
     gcs_bucket: str = "",
     dai_project: str = "",
@@ -853,14 +883,31 @@ def run_scan_pipeline(
       P0: Pre-process (이미지 보정 + PII 마스킹)
       P1: 파일 감지 + 문서 유형 분류
       P2: GCS 즉시 격리 백업
+      P2b: Supabase 메타데이터 기록 (GP-IDENTITY §2 — 4-Tier Integration)
       P3: 텍스트 추출 (DocAI → pdfplumber → pypdf)
       P3b: 50P+ 대용량 분할 분석 (Chunking)
       P3c: KCD-10 질병코드 검증
       P4: GP192 Core-8 정밀 AI 추출
       P4b: 정밀 JSON → GCS 저장
       P5: RAG 지식베이스 인덱싱 (Master Approval 대기 상태로 저장)
+    
+    [GP-IDENTITY §1] 인물 식별 무결성:
+      person_id: 현재 상담 중인 계약자/피보험자 ID (필수)
+      agent_id: 로그인 설계사 ID (필수)
+      customer_name: 고객 이름 (선택, UI 표시용)
     """
     log = []
+    
+    # ── [GP-IDENTITY §1] 인물 식별 무결성 검증 ─────────────────────────────
+    if not person_id or not agent_id:
+        logger.error(f"[GP-4TIER] run_scan_pipeline 호출 시 person_id/agent_id 필수: {filename}")
+        return {
+            "success": False,
+            "error": "[GP-IDENTITY] 고객 정보 필수. person_id와 agent_id를 제공해야 합니다.",
+            "filename": filename,
+            "doc_type": doc_type,
+            "log": ["[ERROR] person_id 또는 agent_id 누락 — 스캔 차단"],
+        }
 
     def _progress(step: str, pct: float, msg: str):
         log.append(f"[{step}] {msg}")
@@ -901,15 +948,45 @@ def run_scan_pipeline(
 
     if gcs_client and gcs_bucket:
         _progress("P2", 0.3, "GCS 즉시 격리 백업 중...")
-        gcs_result = backup_to_gcs(file_bytes, filename, doc_type, gcs_client, gcs_bucket)
+        gcs_result = backup_to_gcs(
+            file_bytes, filename, doc_type, gcs_client, gcs_bucket,
+            person_id=person_id, agent_id=agent_id, customer_name=customer_name
+        )
         gcs_uri         = gcs_result["gcs_uri"]
         is_public_asset = gcs_result["is_public_asset"]
         if gcs_result["success"]:
             _progress("P2", 0.40, f"GCS 백업 완료: {gcs_uri}")
+            logger.info(f"[GP-4TIER] GCS 저장 완료: person_id={person_id}, agent_id={agent_id}, gcs_uri={gcs_uri}")
         else:
             _progress("P2", 0.40, f"GCS 백업 실패 (로컬 폴백): {gcs_result['error']}")
+            logger.warning(f"[GP-4TIER] GCS 저장 실패: {gcs_result['error']}")
     else:
         _progress("P2", 0.40, "GCS 클라이언트 미연결 — 로컬 처리 모드")
+    
+    # ── Step P2b: Supabase 메타데이터 기록 (GP-IDENTITY §2 — 4-Tier Integration) ──
+    if gcs_uri and gcs_uri != f"local://{filename}" and person_id and agent_id:
+        _progress("P2b", 0.42, "Supabase 메타데이터 기록 중...")
+        try:
+            import db_utils as du
+            du.save_scan_file(
+                person_id=person_id,
+                agent_id=agent_id,
+                file_type=doc_type,
+                gcs_path=gcs_uri,
+                file_name=filename,
+                gcs_bucket=gcs_bucket,
+                file_size_bytes=len(file_bytes),
+                mime_type=file_info.get("mime", "application/octet-stream"),
+                tags=[doc_type, customer_name] if customer_name else [doc_type],
+                category="scan_analysis",
+            )
+            _progress("P2b", 0.45, "Supabase 기록 완료")
+            logger.info(f"[GP-4TIER] Supabase 기록 완료: person_id={person_id}, gcs_path={gcs_uri}")
+        except Exception as e:
+            logger.error(f"[GP-4TIER] Supabase 기록 실패: {e}")
+            _progress("P2b", 0.45, f"⚠️ Supabase 기록 실패: {e}")
+    else:
+        _progress("P2b", 0.45, "Supabase 기록 건너뜀 (GCS 미연결 또는 person_id 없음)")
 
     # ── Step P3: 텍스트 추출 ─────────────────────────────────────────────
     _progress("P3", 0.50, "AI 마스터가 정밀 분석 중입니다...")
@@ -1485,6 +1562,9 @@ def unified_scan_interface(
     filename: str,
     source_tab: str = "unknown",
     doc_type: str = "",
+    person_id: str = "",
+    agent_id: str = "",
+    customer_name: str = "",
     gcs_client=None,
     gcs_bucket: str = "",
     dai_project: str = "",
@@ -1507,16 +1587,35 @@ def unified_scan_interface(
 
     모든 스캔 모듈은 반드시 이 함수를 통해 파이프라인을 실행해야 합니다.
     직접 run_scan_pipeline 호출 금지 (GP195 §2 강제 상속 원칙).
+    
+    [GP-IDENTITY §1] 인물 식별 무결성 강제:
+      person_id/agent_id 미제공 시 스캔 즉시 차단
+      모든 분석 결과는 반드시 특정 고객(person_id)에게 페깅
 
     반환: run_scan_pipeline 결과 + {source_tab, ingest_id, master_approved: False}
     """
     ingest_id = f"{uuid.uuid4().hex[:6]}_{filename[:20].replace(' ','_')}"
     logger.info(f"[GP195] unified_scan_interface 호출: {ingest_id} (출처: {source_tab})")
+    
+    # ── [GP-IDENTITY §1] 인물 식별 무결성 검증 ─────────────────────────────
+    if not person_id or not agent_id:
+        logger.error(f"[GP-4TIER] unified_scan_interface 호출 시 person_id/agent_id 필수: {filename}")
+        return {
+            "success": False,
+            "error": "[GP-IDENTITY] 고객을 먼저 선택해 주세요. 스캔 결과는 반드시 특정 고객에게 연결되어야 합니다.",
+            "filename": filename,
+            "source_tab": source_tab,
+            "ingest_id": ingest_id,
+            "master_approved": False,
+        }
 
     result = run_scan_pipeline(
         file_bytes=file_bytes,
         filename=filename,
         doc_type=doc_type,
+        person_id=person_id,        # [GP-IDENTITY] 전달
+        agent_id=agent_id,          # [GP-IDENTITY] 전달
+        customer_name=customer_name, # [GP-IDENTITY] 전달
         gcs_client=gcs_client,
         gcs_bucket=gcs_bucket,
         dai_project=dai_project,
@@ -1540,6 +1639,9 @@ def unified_scan_interface(
             "source_tab":         source_tab,
             "filename":           filename,
             "doc_type":           result.get("doc_type", ""),
+            "person_id":          person_id,              # [GP-4TIER] 추가
+            "agent_id":           agent_id,               # [GP-4TIER] 추가
+            "customer_name":      customer_name,          # [GP-4TIER] 추가
             "ingested_at":        datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
             "product_name":       cls.get("product_name", "미확인"),
             "insurer":            cls.get("insurer", "미확인"),
@@ -1681,6 +1783,9 @@ def unified_scan_component(
             filename=filename,
             source_tab=source_tab,
             doc_type=doc_type,
+            person_id="",           # [GP-IDENTITY] TODO: 호출부에서 전달 필요
+            agent_id="",            # [GP-IDENTITY] TODO: 호출부에서 전달 필요
+            customer_name="",       # [GP-IDENTITY] TODO: 호출부에서 전달 필요
             gcs_client=gcs_client,
             gcs_bucket=gcs_bucket,
             dai_project=dai_project,

@@ -1424,6 +1424,19 @@ if 5 <= _crm_hdr_h < 12:   _crm_greet = "활기찬 아침입니다."
 elif 12 <= _crm_hdr_h < 18: _crm_greet = "좋은 오후입니다."
 elif 18 <= _crm_hdr_h < 22: _crm_greet = "수고하신 저녁입니다."
 else:                         _crm_greet = "늦은 밤까지 열정이십니다."
+
+# ── [GP-WEATHER] 3단계 위치 기반 날씨 (GPS → IP → 회원 프로필) ─────────────────
+_crm_weather_text = ""
+try:
+    from utils.weather_service import get_weather_briefing_text
+    _crm_weather_text = get_weather_briefing_text(
+        use_gps=True,
+        fallback_to_ip=True,
+        user_id=_user_id
+    )
+except Exception:
+    pass
+
 st.markdown(f"""
 <div style="background:#F5F3FF;padding:8px 16px;
   border-radius:10px;border:1px solid #c4b5fd;margin-bottom:4px;">
@@ -1441,6 +1454,7 @@ st.markdown(f"""
     <span style="font-size:0.85rem;font-weight:900;color:#1e3a8a;">👥 전체 고객 대시보드</span>
     <span style="font-size:0.72rem;color:#64748b;margin-left:6px;">고객 선택 → 6대 메뉴</span>
   </div>
+  {"<div style='margin-top:6px;font-size:0.78rem;color:#0284c7;font-weight:600;'>" + _crm_weather_text + "</div>" if _crm_weather_text else ""}
 </div>
 """, unsafe_allow_html=True)
 

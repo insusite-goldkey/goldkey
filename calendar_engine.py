@@ -472,6 +472,17 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
             cal_delete(_p_sid, agent_id=agent_id)
         st.query_params.clear()
         st.rerun()
+    
+    # [GP-NAV] 달력 팝업 → 고객 상세 화면 이동
+    _nav_cust = st.query_params.get("cal_nav_customer", "")
+    if _nav_cust == "1":
+        _nav_pid = st.query_params.get("cal_nav_pid", "")
+        if _nav_pid:
+            st.session_state["crm_selected_pid"] = _nav_pid
+            st.session_state["crm_spa_mode"] = "customer"
+            st.session_state["crm_spa_screen"] = "contact"
+        st.query_params.clear()
+        st.rerun()
 
     # [Fix: WebSocket 세션 보존] query_param 방식 제거 — st.button 방식으로 대체
 
@@ -605,6 +616,7 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
         "category":    e.get("category","consult") or "consult",
         "body":        e.get("memo",""),
         "customer":    e.get("customer_name") or (e.get("gk_people") or {}).get("name","") or "",
+        "person_id":   e.get("person_id",""),
     } for e in _evs], ensure_ascii=False)
     _holidays    = _get_holidays_for_month(year, month)
     _holidays_js = json.dumps(_holidays, ensure_ascii=False)
@@ -999,6 +1011,12 @@ body{{background:#f0f4f8;padding:8px;}}
     </div>
     <!-- 탭1: 단일 일정 -->
     <div id="panel-single" class="ev-mbody">
+      <div id="ev-customer-box" style="display:none;margin-bottom:10px;background:#f0f7ff;border-radius:8px;padding:8px 12px;">
+        <label class="ev-lbl" style="margin-bottom:4px;">👤 고객</label>
+        <div id="ev-customer-name" style="font-size:.9rem;font-weight:700;color:#1e3a8a;cursor:pointer;text-decoration:underline;"
+          onclick="navigateToCustomer()"></div>
+        <input type="hidden" id="ev-person-id" value="">
+      </div>
       <div style="margin-bottom:10px;">
         <label class="ev-lbl">제목 *</label>
         <input id="ev-title" class="ev-inp" type="text" placeholder="일정 제목을 입력하세요">
@@ -1148,12 +1166,33 @@ function openEditModal(ev){{
   document.getElementById('ev-memo').value=ev.body||'';
   document.getElementById('ev-sid').value=ev.schedule_id||'';
   document.getElementById('ev-del-btn').style.display=ev.schedule_id?'block':'none';
+  var custName=ev.customer||'';
+  var custPid=ev.person_id||'';
+  if(custName&&custPid){{
+    document.getElementById('ev-customer-box').style.display='block';
+    document.getElementById('ev-customer-name').textContent=custName;
+    document.getElementById('ev-person-id').value=custPid;
+  }}else{{
+    document.getElementById('ev-customer-box').style.display='none';
+    document.getElementById('ev-person-id').value='';
+  }}
   document.getElementById('ev-modal-bg').classList.add('show');
   setTimeout(function(){{document.getElementById('ev-title').focus();}},80);
 }}
 function closeModal(){{
   document.getElementById('ev-modal-bg').classList.remove('show');
+  document.getElementById('ev-customer-box').style.display='none';
+  document.getElementById('ev-person-id').value='';
   switchTab('single');
+}}
+function navigateToCustomer(){{
+  var pid=document.getElementById('ev-person-id').value;
+  if(!pid)return;
+  var p=new URLSearchParams({{
+    cal_nav_customer:'1',
+    cal_nav_pid:pid
+  }});
+  window.top.location.href=window.top.location.pathname+'?'+p.toString();
 }}
 function switchTab(tab){{
   var isR=(tab==='recur');

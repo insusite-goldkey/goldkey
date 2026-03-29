@@ -222,14 +222,16 @@ def fetch_weather_by_coords(lat: float, lon: float) -> dict:
 
 def get_weather_briefing_text(
     use_gps: bool = True,
-    fallback_to_ip: bool = True
+    fallback_to_ip: bool = True,
+    user_id: str = ""
 ) -> str:
     """
-    [GP-WEATHER §4] 날씨 브리핑 텍스트 생성 (최종 출력).
+    [GP-WEATHER §4] 날씨 브리핑 텍스트 생성 (최종 출력) — 3단계 폴백.
     
     Args:
         use_gps: True이면 GPS 좌표 우선 사용
         fallback_to_ip: GPS 실패 시 IP 기반 위치로 폴백
+        user_id: 회원 프로필 기반 폴백용 사용자 ID (3단계)
     
     Returns:
         "🌤️ 오늘의 날씨: 맑음 +16°C 습도55%" 형식의 문자열
@@ -238,6 +240,7 @@ def get_weather_briefing_text(
     Note:
         - [Seoul, South Korea] 같은 영문 표기 절대 포함 안 함
         - 위치 정보는 한국어 주소로만 표시
+        - 3단계 폴백: GPS → IP → 회원 프로필
     """
     lat, lon = None, None
     location_label = ""
@@ -285,7 +288,48 @@ def get_weather_briefing_text(
         except Exception:
             pass
     
-    # [3단계] 날씨 정보 조회
+    # [3단계] IP 실패 시 회원 프로필 기반 폴백
+    if (lat is None or lon is None) and user_id:
+        try:
+            from db_utils import _get_sb
+            sb = _get_sb()
+            if sb:
+                # gk_members 테이블에서 회원 정보 조회
+                member_resp = sb.table("gk_members").select("company, region").eq("user_id", user_id).limit(1).execute()
+                
+                if member_resp.data and len(member_resp.data) > 0:
+                    member = member_resp.data[0]
+                    region = member.get("region", "")
+                    company = member.get("company", "")
+                    
+                    # region 또는 company에서 도시명 추출
+                    location_text = region or company or ""
+                    
+                    # 주요 도시명 매핑 (회원 프로필에서 추출)
+                    city_coords = {
+                        "서울": (37.5665, 126.9780),
+                        "부산": (35.1796, 129.0756),
+                        "인천": (37.4563, 126.7052),
+                        "대구": (35.8714, 128.6014),
+                        "대전": (36.3504, 127.3845),
+                        "광주": (35.1595, 126.8526),
+                        "울산": (35.5384, 129.3114),
+                        "수원": (37.2636, 127.0286),
+                        "고양": (37.6584, 126.8320),
+                        "성남": (37.4449, 127.1388)
+                    }
+                    
+                    # 텍스트에서 도시명 찾기
+                    for city, coords in city_coords.items():
+                        if city in location_text:
+                            lat, lon = coords
+                            location_label = city
+                            break
+        
+        except Exception:
+            pass
+    
+    # [4단계] 날씨 정보 조회
     if lat is not None and lon is not None:
         weather_data = fetch_weather_by_coords(lat, lon)
         

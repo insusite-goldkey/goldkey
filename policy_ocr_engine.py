@@ -825,23 +825,29 @@ def extract_medical_record_data(image_bytes: bytes) -> dict:
         # 이미지 파트 준비
         img_part = {"mime_type": "image/jpeg", "data": image_bytes}
         
-        # 의무기록 분석 프롬프트
+        # [GP-IDENTITY] 의무기록 분석 프롬프트 - 인물 식별 강화 (의사/간호사 제외)
         prompt = """이 이미지는 의무기록(진단서, 처방전, 검사 결과지 등)입니다.
 다음 정보를 JSON 형식으로 추출하세요:
 
-1. hospital_name: 병원명 (예: 서울대학교병원, 삼성서울병원)
-2. doctor_name: 의사명 (예: 홍길동)
-3. visit_date: 진료일 또는 발급일 (YYYY-MM-DD 형식)
-4. diagnosis_names: 진단명 배열 (예: ["급성 상기도 감염", "고혈압"])
-5. diagnosis_codes: ICD-10 코드 배열 (예: ["J06.9", "I10"])
-6. prescriptions: 처방 내역 객체 {
+**[중요] 인물 식별 규칙:**
+- patient_name: 환자(피보험자, 진료 대상자)의 성명만 추출하세요
+- 의사명, 간호사명, 병원 담당자명은 절대 patient_name에 포함하지 마세요
+- doctor_name은 별도 필드로 추출하되, patient_name과 혼동하지 마세요
+
+1. patient_name: 환자(피보험자) 성명 (진료 받은 사람, 의사가 아님)
+2. hospital_name: 병원명 (예: 서울대학교병원, 삼성서울병원)
+3. doctor_name: 담당 의사명 (환자와 구분, 별도 필드)
+4. visit_date: 진료일 또는 발급일 (YYYY-MM-DD 형식)
+5. diagnosis_names: 진단명 배열 (예: ["급성 상기도 감염", "고혈압"])
+6. diagnosis_codes: ICD-10 코드 배열 (예: ["J06.9", "I10"])
+7. prescriptions: 처방 내역 객체 {
      "medications": [{"name": "약물명", "dosage": "용량", "duration": "기간"}]
    }
-7. lab_results: 검사 결과 객체 {
+8. lab_results: 검사 결과 객체 {
      "tests": [{"name": "검사명", "value": "수치", "unit": "단위", "normal_range": "정상범위"}]
    }
-8. raw_text: OCR로 추출한 전체 텍스트
-9. confidence: 추출 신뢰도 (0.0 ~ 1.0)
+9. raw_text: OCR로 추출한 전체 텍스트
+10. confidence: 추출 신뢰도 (0.0 ~ 1.0)
 
 정보가 없는 필드는 빈 문자열("") 또는 빈 배열([])로 반환하세요.
 JSON만 반환하고 설명 없이 출력하세요."""
@@ -871,8 +877,9 @@ JSON만 반환하고 설명 없이 출력하세요."""
                 "confidence": 0.5,
             }
         
-        # 기본값 보장
+        # [GP-IDENTITY] 기본값 보장 - patient_name 필드 추가
         result = {
+            "patient_name": parsed_data.get("patient_name", ""),
             "hospital_name": parsed_data.get("hospital_name", ""),
             "doctor_name": parsed_data.get("doctor_name", ""),
             "visit_date": parsed_data.get("visit_date", ""),
@@ -892,6 +899,7 @@ JSON만 반환하고 설명 없이 출력하세요."""
         
     except Exception as e:
         return {
+            "patient_name": "",
             "hospital_name": "",
             "doctor_name": "",
             "visit_date": "",

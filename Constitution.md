@@ -3336,3 +3336,126 @@ Windsurf Cascade, Cursor 등 모든 AI 코딩 에이전트는:
 | `.cursor/rules/goldkey-ai-masters.mdc` | Cursor 에이전트용 프로젝트 규칙(경계·보안·SSOT) |
 
 **로컬 SSOT:** `d:\CascadeProjects`. **민감 정보**(`secrets.toml`, `.env`, API 키 등)는 본 문서에 실어 넣지 않으며 Git에도 포함하지 않는다.
+
+---
+
+## 제54조 [GP-IDENTITY] 상담 맥락 기반 데이터 페깅 원칙 (Context-Based Data Pegging Principle)
+
+> **최상위 헌법 (Supreme Constitutional Law):**  
+> 이 조항은 모든 AI 분석 엔진, 스캔 모듈, 데이터 저장 로직에 **예외 없이 강제 적용**된다.  
+> 2026-03-29 신설.
+
+---
+
+### 제1항 [인물 식별 무결성 (Refined Identity Integrity)]
+
+**기본 원칙:**
+- 모든 스캔 및 AI 분석 결과의 **주인(Owner)**은 현재 상담 중인 **'계약자(contractor)'** 또는 **'피보험자(insured)'** 개인으로만 한정한다.
+- 문서 내의 **의사, 간호사, 병원 관계자, 단순 목격자** 등을 데이터의 주인으로 오인하여 저장하는 행위를 **엄격히 금지**한다.
+
+**예외 상황 (Module-Specific):**
+- 오직 상담 과정에서 **[화재사고, 자동차사고, 법인/단체보험]** 등 명시적인 특수 모듈을 클릭하여 진입한 경우에만, 해당 모듈의 성격에 맞는 대상(피해물건, 차량, 법인체)을 데이터 주인으로 인정한다.
+
+**판단 로직:**
+- 분석 시작 전 반드시 다음 세션 상태를 체크한다:
+  - `st.session_state["crm_spa_mode"]` — 현재 SPA 모드 (list/customer)
+  - `st.session_state["crm_selected_pid"]` — 선택된 고객 person_id
+  - `st.session_state["crm_spa_screen"]` — 현재 화면 (contact/insurance/scan 등)
+- 특수 모듈 진입 여부를 확인한 후, 그렇지 않은 **모든 일반 상담**에서는 개인(상담대상자)에게만 데이터를 페깅한다.
+
+---
+
+### 제2항 [4자 동시 연동 분석 체계 강제 (4-Tier Integration Enforcement)]
+
+**필수 파이프라인:**
+
+모든 분석은 반드시 다음 4개 요소를 **동시 가동**해야 한다:
+
+1. **GCS (저장)** — 원본 파일 + 정밀 JSON 암호화 저장
+   - 경로: `gs://goldkey-customer-profiles/scanned_policies/{agent_id}/{person_id}_*.enc`
+   - 함수: `save_precision_json_to_gcs()` (modules/scan_engine.py)
+
+2. **Supabase (기록)** — 분석 이력 DB 기록
+   - 테이블: `gk_scan_files`, `policies`, `policy_roles`
+   - 함수: `save_scan_file()` (db_utils.py)
+
+3. **Cloud Run (연산)** — AI 분석 엔진 실행
+   - 엔진: Gemini 2.0 Flash, Document AI
+   - 함수: `run_scan_pipeline()`, `unified_scan_interface()`
+
+4. **HQ 사령부 (관제)** — 전역 동기화
+   - 세션: `st.session_state["gp193_live_context"]`
+   - 함수: `unified_scan_interface()` 내부 자동 처리
+
+**강제 규칙:**
+- 사용자가 **'스캔 시작'** 버튼을 누르는 순간부터 분석 보고서가 우측 박스에 노출될 때까지, 위 4개 요소 중 **하나라도 누락 금지**.
+- 파이프라인 중 하나라도 실패 시 사용자에게 명확한 에러 메시지 표시 및 재시도 옵션 제공.
+
+---
+
+### 제3항 [UI 실구현 명령 (UI Implementation Mandate)]
+
+**필수 구현 사항:**
+
+1. **'스캔 시작' 마크다운 금지**
+   - 모든 스캔 UI는 **실제 카메라/파일 업로드 버튼**으로 구현
+   - 모바일: `<input capture="environment" accept="image/*">` 속성 강제 주입
+   - 데스크톱: `st.file_uploader()` + 드래그앤드롭 지원
+
+2. **분석 대상자 명시 표시**
+   - 분석 결과 요약 시 상단에 다음 정보 필수 노출:
+     - **[분석 대상자 성함]** — `customer_name` 또는 `person_id`로 조회한 이름
+     - **[서류 유형]** — "보험증권", "의무기록", "청구서", "법률문서" 등
+   - 형식 예시:
+     ```
+     📋 AI 분석 결과
+     대상자: 홍길동 | 서류: 보험증권 (삼성화재)
+     ```
+
+3. **GCS 경로에 person_id + agent_id 태깅 강제**
+   - 파일명: `{agent_id}/{person_id}_scan_{timestamp}.enc`
+   - 메타데이터: `{"agent_id": "...", "person_id": "...", "doc_type": "..."}`
+
+---
+
+### 제4항 [적용 범위 (Scope of Application)]
+
+이 조항은 다음 모듈에 **즉시 적용**된다:
+
+- `modules/scan_engine.py` — `unified_scan_interface()`, `run_scan_pipeline()`, `save_precision_json_to_gcs()`
+- `modules/smart_scanner.py` — `render_smart_scanner()`, `render_scan_report()`
+- `blocks/crm_scan_block.py` — `render_crm_scan_block()`
+- `blocks/crm_hq_scan_bridge.py` — `render_hq_scan_bridge_links()`
+- `crm_app_impl.py` — 모든 스캔 UI 블록
+- `hq_app_impl.py` — 통합 스캔 센터 (GK-SEC-10)
+
+---
+
+### 제5항 [아키텍처 무결성 유지 (Architecture Integrity)]
+
+**설계 보존 원칙:**
+- 이후 모든 신규 모듈 개발 시 이 로직이 깨지지 않도록 설계 보존 필수.
+- 기존 스캔 모듈 수정 시 반드시 이 조항 준수 여부를 먼저 검토.
+- AI 에이전트는 스캔 관련 코드 수정 전 이 조항을 최우선 참조.
+
+**위반 시 조치:**
+- 인물 오인 저장 발견 시 즉시 데이터 삭제 및 재분석.
+- 4자 연동 누락 시 해당 스캔 결과 무효 처리.
+- UI 미구현 시 배포 전 필수 수정 대상.
+
+---
+
+### §구현 체크리스트
+
+신규 스캔 모듈 개발 시 다음을 반드시 확인:
+
+- [ ] `st.session_state["crm_selected_pid"]` 체크 로직 포함
+- [ ] `st.session_state["crm_spa_screen"]` 특수 모듈 여부 확인
+- [ ] GCS 저장 시 `{agent_id}/{person_id}` 경로 구조 준수
+- [ ] Supabase `gk_scan_files` 테이블에 메타데이터 저장
+- [ ] `unified_scan_interface()` 호출로 전역 동기화
+- [ ] 분석 결과 상단에 [대상자 성함] + [서류 유형] 표시
+- [ ] 모바일 카메라 `capture="environment"` 속성 주입
+- [ ] 에러 발생 시 사용자 친화적 메시지 + 재시도 버튼
+
+---
