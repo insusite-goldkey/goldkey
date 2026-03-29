@@ -1085,6 +1085,71 @@ def render_auth_screen(
         "</div>",
         unsafe_allow_html=True,
     )
+    
+    # ── [GP-ONBOARDING] 프리미엄 온보딩 마케팅 박스 ─────────────────────────
+    st.markdown("""
+<div style="width:100%;background:#f4f8f9;border-radius:12px;padding:24px;
+    margin:16px 0;box-shadow:0 4px 6px rgba(0,0,0,0.05);">
+    
+    <div style="font-size:1.15rem;font-weight:700;color:#0a1628;margin-bottom:16px;
+        line-height:1.6;text-align:center;">
+        🏆 GOLDKEY AI CRM : 12단계 초격차 영업 마스터플랜
+    </div>
+    
+    <div style="font-size:0.88rem;color:#374151;line-height:1.6;margin-bottom:20px;
+        text-align:center;">
+        GOLDKEY는 단순한 고객 주소록이 아닙니다. 상위 1% 설계사들의 영업 노하우를 AI로 완벽하게 구현한 
+        <b style="color:#0a1628;">'지능형 AI 세일즈 활동관리 앱'</b>입니다. 출근부터 퇴근, 그리고 사후 관리까지. 
+        이 12단계의 압도적인 흐름에 탑승하는 순간, 귀하의 계약 체결률은 눈부시게 상승할 것입니다.
+    </div>
+    
+    <div style="background:#fff;border-left:4px solid #fbbf24;border-radius:8px;
+        padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:0.92rem;font-weight:700;color:#92400e;margin-bottom:8px;">
+            ☀️ [Phase 1] Morning Routine : 완벽한 하루의 시작
+        </div>
+        <div style="font-size:0.82rem;color:#1e3a8a;font-weight:600;margin-bottom:6px;">
+            [STEP 1.뉴스브리핑] ➡️ [STEP 2.영업일정 점검] ➡️ [STEP 3.타겟고객 선택]
+        </div>
+        <div style="font-size:0.78rem;color:#4b5563;line-height:1.6;">
+            💡 매일 아침 보험 뉴스 브리핑, AI가 오늘 만나야 할 고객과 핵심 대화 주제를 미리 세팅해 드립니다.
+        </div>
+    </div>
+    
+    <div style="background:#fff;border-left:4px solid #60a5fa;border-radius:8px;
+        padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:0.92rem;font-weight:700;color:#1e40af;margin-bottom:8px;">
+            🤝 [Phase 2] Consulting : AI가 증명하는 압도적 전문성
+        </div>
+        <div style="font-size:0.82rem;color:#1e3a8a;font-weight:600;margin-bottom:6px;">
+            [STEP 4.통합스캔] ➡️ [STEP 5.AI 3중분석] ➡️ [STEP 6.1:1진단] ➡️ [STEP 7.담보필터링] ➡️ [STEP 8.3단 일람표]
+        </div>
+        <div style="font-size:0.78rem;color:#4b5563;line-height:1.6;">
+            💡 고객의 서류를 찍는 즉시, 트리니티 엔진이 보장의 빈틈을 찾아내어 완벽한 데이터(표)로 증명합니다.
+        </div>
+    </div>
+    
+    <div style="background:#fff;border-left:4px solid #34d399;border-radius:8px;
+        padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:0.92rem;font-weight:700;color:#065f46;margin-bottom:8px;">
+            🎯 [Phase 3] Closing & Care : 감동의 클로징과 무한 사후관리
+        </div>
+        <div style="font-size:0.82rem;color:#1e3a8a;font-weight:600;margin-bottom:6px;">
+            [STEP 9.감성제안] ➡️ [STEP 10.카톡 1초 발송] ➡️ [STEP 11.일정예약] ➡️ [STEP 12.자동 사후관리]
+        </div>
+        <div style="font-size:0.78rem;color:#4b5563;line-height:1.6;">
+            💡 고객의 마음을 움직이는 화법으로 제안서를 전송하고, 계약 후 최장 5년의 고객 관리 일정까지 시스템이 알아서 챙깁니다.
+        </div>
+    </div>
+    
+    <div style="font-size:0.88rem;color:#0a1628;font-weight:700;text-align:center;
+        margin-top:18px;line-height:1.6;">
+        🚀 이제 이 완벽한 12단계 프로세스에 귀하의 열정만 더하십시오. 
+        GOLDKEY AI가 당신의 세일즈 활동을 정밀 지원합니다.
+    </div>
+</div>
+""", unsafe_allow_html=True)
+    
     if not show_checkboxes:
         return False
     # ── [이용 필수동의 4가지 박스] ─────────────────────────────────────────
