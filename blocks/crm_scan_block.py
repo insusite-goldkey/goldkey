@@ -376,6 +376,19 @@ def render_crm_scan_block(
                     }
                     _sb.table("policy_roles").insert(_role_data).execute()
                     
+                    # [STEP 12] 계약 후 관리 자동 스케줄러 트리거
+                    try:
+                        from crm_fortress import trigger_followup_schedules
+                        _sched_result = trigger_followup_schedules(
+                            sb=_sb,
+                            policy_id=_policy_id,
+                            agent_id=user_id,
+                        )
+                        if _sched_result.get("success"):
+                            st.success(f"✅ 사후 관리 일정 {_sched_result['created_count']}건 자동 생성!")
+                    except Exception as _sched_e:
+                        st.warning(f"⚠️ 사후 관리 일정 생성 실패: {_sched_e}")
+                    
                     # [GP-IDENTITY §2] GCS에 원본 이미지 암호화 저장 (4-Tier Integration: Step 1)
                     _gcs_path = ""
                     try:

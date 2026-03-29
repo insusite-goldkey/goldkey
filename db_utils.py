@@ -271,6 +271,7 @@ def generate_followup_schedules(
     agent_id: str,
     contract_date: str,
     customer_name: str = "",
+    policy_id: str = "",
 ) -> dict:
     """
     [STEP 12] 계약 후 관리 자동 스케줄러.
@@ -284,6 +285,7 @@ def generate_followup_schedules(
         agent_id: 담당 설계사 ID
         contract_date: 계약일 (YYYY-MM-DD 형식)
         customer_name: 고객 이름 (선택, 일정 제목용)
+        policy_id: 계약 ID (선택, STEP 4.5 중도 해지 시 일정 삭제용)
     
     Returns:
         {"success": bool, "created_count": int, "schedules": list[dict]}
@@ -334,6 +336,7 @@ def generate_followup_schedules(
             "memo": memo,
             "category": "followup",
             "customer_name": customer_name,
+            "policy_id": policy_id if policy_id else None,  # [STEP 4.5] 계약-일정 연결
             "is_deleted": False,
             "created_at": now_iso,
             "updated_at": now_iso,
@@ -387,6 +390,103 @@ def delete_schedule(schedule_id: str, agent_id: str = "") -> bool:
         return True
     except Exception:
         return False
+
+
+def cancel_future_schedules(policy_id: str, agent_id: str = "") -> dict:
+    """
+    [STEP 4.5] 계약 중도 해지 시 미래 스케줄 자동 삭제 (과거 이력 보존).
+    
+    계약이 해지/취소 상태로 변경되면 해당 계약과 연결된 미래의 사후 관리 일정만 삭제.
+    과거 일정(오늘 이전)은 설계사의 활동 이력이므로 절대 삭제하지 않고 보존.
+    
+    Args:
+        policy_id: 계약 ID (policies.id)
+        agent_id: 담당 설계사 ID (선택, 소유권 검증용)
+    
+    Returns:
+        {
+            "success": bool,
+            "deleted_count": int,
+            "preserved_count": int,
+            "deleted_schedules": list[dict],
+        }
+    """
+    sb = _get_sb()
+    if not sb or not policy_id:
+        return {
+            "success": False,
+            "deleted_count": 0,
+            "preserved_count": 0,
+            "deleted_schedules": [],
+            "error": "policy_id 필수",
+        }
+    
+    try:
+        # 오늘 날짜 (시점 기준)
+        today = datetime.date.today().isoformat()
+        
+        # 해당 계약의 모든 일정 조회
+        query = sb.table("gk_schedules").select("*").eq("policy_id", policy_id).eq("is_deleted", False)
+        if agent_id:
+            query = query.eq("agent_id", agent_id)
+        
+        all_schedules = query.execute().data or []
+        
+        if not all_schedules:
+            return {
+                "success": True,
+                "deleted_count": 0,
+                "preserved_count": 0,
+                "deleted_schedules": [],
+                "message": "삭제할 일정 없음",
+            }
+        
+        # 과거/미래 일정 분류
+        past_schedules = [s for s in all_schedules if s.get("date", "") < today]
+        future_schedules = [s for s in all_schedules if s.get("date", "") >= today]
+        
+        # 미래 일정만 삭제 (소프트 삭제)
+        deleted_schedules = []
+        now_iso = datetime.datetime.utcnow().isoformat()
+        
+        for schedule in future_schedules:
+            schedule_id = schedule.get("schedule_id")
+            if not schedule_id:
+                continue
+            
+            try:
+                sb.table("gk_schedules").update({
+                    "is_deleted": True,
+                    "updated_at": now_iso,
+                }).eq("schedule_id", schedule_id).execute()
+                
+                deleted_schedules.append({
+                    "schedule_id": schedule_id,
+                    "date": schedule.get("date"),
+                    "title": schedule.get("title"),
+                })
+            except Exception as e:
+                import logging
+                logging.warning(f"[STEP 4.5] 일정 삭제 실패 (schedule_id={schedule_id}): {e}")
+        
+        return {
+            "success": True,
+            "deleted_count": len(deleted_schedules),
+            "preserved_count": len(past_schedules),
+            "deleted_schedules": deleted_schedules,
+            "message": f"미래 일정 {len(deleted_schedules)}건 삭제, 과거 일정 {len(past_schedules)}건 보존",
+        }
+        
+    except Exception as e:
+        import logging
+        logging.error(f"[STEP 4.5] cancel_future_schedules 실패: {e}")
+        return {
+            "success": False,
+            "deleted_count": 0,
+            "preserved_count": 0,
+            "deleted_schedules": [],
+            "error": str(e),
+        }
 
 
 # ══════════════════════════════════════════════════════════════════════════════

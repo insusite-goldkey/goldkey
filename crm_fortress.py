@@ -394,6 +394,7 @@ def trigger_followup_schedules(
             agent_id=agent_id,
             contract_date=contract_date,
             customer_name=customer_name,
+            policy_id=policy_id,  # [STEP 4.5] 계약-일정 연결
         )
         
         if result.get("success"):

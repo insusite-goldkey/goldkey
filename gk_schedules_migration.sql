@@ -9,7 +9,8 @@ ALTER TABLE public.gk_schedules
   ADD COLUMN IF NOT EXISTS end_time      TEXT,
   ADD COLUMN IF NOT EXISTS end_date      TEXT,
   ADD COLUMN IF NOT EXISTS customer_name TEXT,
-  ADD COLUMN IF NOT EXISTS body          TEXT;
+  ADD COLUMN IF NOT EXISTS body          TEXT,
+  ADD COLUMN IF NOT EXISTS policy_id     TEXT;
 
 -- 해시태그 전용 TEXT ARRAY 컬럼 (검색 성능용)
 ALTER TABLE public.gk_schedules
@@ -38,6 +39,10 @@ WHERE s.person_id = p.person_id
 -- 날짜+설계사 복합 인덱스 (월간 뷰 쿼리 최적화)
 CREATE INDEX IF NOT EXISTS idx_gk_schedules_agent_date
   ON public.gk_schedules (agent_id, date, is_deleted);
+
+-- [STEP 4.5] 계약-일정 연결 인덱스 (중도 해지 시 미래 일정 삭제 최적화)
+CREATE INDEX IF NOT EXISTS idx_gk_schedules_policy_id
+  ON public.gk_schedules (policy_id, date) WHERE policy_id IS NOT NULL;
 
 -- ── RLS (Row Level Security) ────────────────────────────────────────────────
 -- 기존 RLS가 없을 경우에만 활성화
