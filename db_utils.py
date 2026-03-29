@@ -1194,7 +1194,7 @@ def send_kakao_report(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# §8 회원 (gk_members) — 인증 전용
+# §8 회원 (gk_members) — 인증 및 크레딧 시스템
 # ══════════════════════════════════════════════════════════════════════════════
 
 def get_member(name: str) -> Optional[dict]:
@@ -1246,6 +1246,379 @@ def update_member_pin_hash(name: str, pin_hash: str) -> bool:
         return True
     except Exception:
         return False
+
+
+# ── [GP-BILLING] 크레딧 시스템 함수 ────────────────────────────────────────────
+
+def initialize_user_billing_status(user_id: str, join_date: Optional[str] = None) -> dict:
+    """
+    [GP-BILLING] 신규 회원 가입 시 타임라인 기반 상태 초기화.
+    
+    Phase 1 (2026-08-31 이전 가입): status='BETA', 100 크레딧
+    Phase 2 (2026-09-01 이후 가입): status='TRIAL', trial_end_date=가입일+30일
+    
+    Args:
+        user_id: 회원 ID
+        join_date: 가입일 (YYYY-MM-DD), None이면 오늘 날짜
+    
+    Returns:
+        {"success": bool, "status": str, "message": str}
+    """
+    sb = _get_sb()
+    if not sb or not user_id:
+        return {"success": False, "status": "", "message": "Invalid user_id"}
+    
+    try:
+        from datetime import datetime, timedelta
+        
+        # 가입일 결정
+        if join_date:
+            jd = datetime.strptime(join_date, "%Y-%m-%d").date()
+        else:
+            jd = datetime.now().date()
+        
+        # 타임라인 기준일: 2026-09-01
+        cutoff_date = datetime(2026, 9, 1).date()
+        
+        if jd < cutoff_date:
+            # Phase 1: BETA 사용자
+            status = "BETA"
+            current_credits = 100
+            trial_end_date = None
+            # 다음 달 1일로 갱신일 설정
+            next_month = jd.replace(day=1) + timedelta(days=32)
+            monthly_renewal_date = next_month.replace(day=1)
+        else:
+            # Phase 2: TRIAL 사용자 (30일 무료체험)
+            status = "TRIAL"
+            current_credits = 999  # 무제한 표시용
+            trial_end_date = jd + timedelta(days=30)
+            monthly_renewal_date = None
+        
+        # DB 업데이트
+        sb.table("gk_members").update({
+            "status": status,
+            "plan_type": "BASIC",
+            "current_credits": current_credits,
+            "join_date": jd.isoformat(),
+            "trial_end_date": trial_end_date.isoformat() if trial_end_date else None,
+            "monthly_renewal_date": monthly_renewal_date.isoformat() if monthly_renewal_date else None,
+        }).eq("user_id", user_id).execute()
+        
+        return {
+            "success": True,
+            "status": status,
+            "message": f"{'베타 사용자' if status == 'BETA' else '무료체험 사용자'}로 초기화 완료",
+            "credits": current_credits,
+            "trial_end_date": trial_end_date.isoformat() if trial_end_date else None,
+        }
+    except Exception as e:
+        return {"success": False, "status": "", "message": f"초기화 실패: {str(e)}"}
+
+
+def check_and_deduct_credits(user_id: str, cost: int, reason: str = "AI 기능 사용") -> dict:
+    """
+    [GP-BILLING] AI 기능 실행 전 크레딧 체크 및 차감.
+    
+    Args:
+        user_id: 회원 ID
+        cost: 차감할 크레딧 (1=스캔, 3=에이젠틱)
+        reason: 차감 사유
+    
+    Returns:
+        {"success": bool, "message": str, "remaining": int}
+    """
+    sb = _get_sb()
+    if not sb or not user_id:
+        return {"success": False, "message": "Invalid user_id", "remaining": 0}
+    
+    try:
+        # 사용자 정보 조회
+        user_data = sb.table("gk_members").select("*").eq("user_id", user_id).execute().data
+        if not user_data:
+            return {"success": False, "message": "사용자를 찾을 수 없습니다.", "remaining": 0}
+        
+        user = user_data[0]
+        status = user.get("status", "BETA")
+        current_credits = user.get("current_credits", 0)
+        
+        # TRIAL 상태는 크레딧 무제한
+        if status == "TRIAL":
+            return {"success": True, "message": "무료체험 중 (크레딧 무제한)", "remaining": 999}
+        
+        # EXPIRED 상태는 차단
+        if status == "EXPIRED":
+            return {
+                "success": False,
+                "message": "무료체험 종료. 결제가 필요합니다.",
+                "remaining": 0
+            }
+        
+        # 크레딧 부족 체크
+        if current_credits < cost:
+            return {
+                "success": False,
+                "message": "이번 달 잔여 코인이 부족합니다. 다음 달 갱신을 기다리시거나 관리자에게 충전을 문의하세요.",
+                "remaining": current_credits
+            }
+        
+        # 크레딧 차감
+        new_credits = current_credits - cost
+        sb.table("gk_members").update({"current_credits": new_credits}).eq("user_id", user_id).execute()
+        
+        # 히스토리 기록 (선택적 - gk_credit_history 테이블 있을 경우)
+        try:
+            sb.table("gk_credit_history").insert({
+                "user_id": user_id,
+                "action_type": "DEDUCT",
+                "amount": cost,
+                "before_balance": current_credits,
+                "after_balance": new_credits,
+                "reason": reason,
+            }).execute()
+        except Exception:
+            pass  # 히스토리 테이블 없어도 무시
+        
+        return {
+            "success": True,
+            "message": "크레딧 차감 완료",
+            "remaining": new_credits
+        }
+    except Exception as e:
+        return {"success": False, "message": f"크레딧 차감 실패: {str(e)}", "remaining": 0}
+
+
+def renew_monthly_credits_if_needed(user_id: str) -> dict:
+    """
+    [GP-BILLING] 매월 크레딧 갱신 체크 (BETA/PAID 전용).
+    로그인 시 또는 Cron Job으로 호출.
+    
+    Returns:
+        {"success": bool, "message": str, "renewed": bool}
+    """
+    sb = _get_sb()
+    if not sb or not user_id:
+        return {"success": False, "message": "Invalid user_id", "renewed": False}
+    
+    try:
+        from datetime import datetime
+        
+        # 사용자 정보 조회
+        user_data = sb.table("gk_members").select("*").eq("user_id", user_id).execute().data
+        if not user_data:
+            return {"success": False, "message": "사용자를 찾을 수 없습니다.", "renewed": False}
+        
+        user = user_data[0]
+        status = user.get("status", "BETA")
+        plan_type = user.get("plan_type", "BASIC")
+        monthly_renewal_date = user.get("monthly_renewal_date")
+        current_credits = user.get("current_credits", 0)
+        
+        # TRIAL/EXPIRED는 갱신 대상 아님
+        if status in ["TRIAL", "EXPIRED"]:
+            return {"success": False, "message": "갱신 대상이 아닙니다.", "renewed": False}
+        
+        # 갱신일이 없으면 설정 (최초 1회)
+        if not monthly_renewal_date:
+            from datetime import timedelta
+            today = datetime.now().date()
+            next_month = today.replace(day=1) + timedelta(days=32)
+            new_renewal_date = next_month.replace(day=1)
+            
+            sb.table("gk_members").update({
+                "monthly_renewal_date": new_renewal_date.isoformat()
+            }).eq("user_id", user_id).execute()
+            
+            return {"success": True, "message": "갱신일 설정 완료", "renewed": False}
+        
+        # 갱신일 도달 체크
+        today = datetime.now().date()
+        renewal_date = datetime.strptime(monthly_renewal_date, "%Y-%m-%d").date()
+        
+        if today < renewal_date:
+            return {"success": False, "message": "아직 갱신일이 아닙니다.", "renewed": False}
+        
+        # 플랜별 크레딧 지급량
+        if status == "BETA":
+            new_credits = 100
+        elif status == "PAID" and plan_type == "PRO":
+            new_credits = 200
+        elif status == "PAID" and plan_type == "BASIC":
+            new_credits = 50
+        else:
+            new_credits = 100
+        
+        # 크레딧 갱신
+        from datetime import timedelta
+        next_renewal = renewal_date + timedelta(days=32)
+        next_renewal = next_renewal.replace(day=1)
+        
+        sb.table("gk_members").update({
+            "current_credits": new_credits,
+            "monthly_renewal_date": next_renewal.isoformat()
+        }).eq("user_id", user_id).execute()
+        
+        # 히스토리 기록
+        try:
+            sb.table("gk_credit_history").insert({
+                "user_id": user_id,
+                "action_type": "RENEW",
+                "amount": new_credits,
+                "before_balance": current_credits,
+                "after_balance": new_credits,
+                "reason": "월간 크레딧 갱신",
+            }).execute()
+        except Exception:
+            pass
+        
+        return {
+            "success": True,
+            "message": f"크레딧 갱신 완료 ({new_credits} 코인)",
+            "renewed": True,
+            "new_credits": new_credits
+        }
+    except Exception as e:
+        return {"success": False, "message": f"갱신 실패: {str(e)}", "renewed": False}
+
+
+def check_trial_expiry(user_id: str) -> dict:
+    """
+    [GP-BILLING] 트라이얼 만료 체크 및 EXPIRED 전환.
+    로그인 시 호출하여 자동 상태 전환.
+    
+    Returns:
+        {"success": bool, "expired": bool, "days_left": int, "message": str}
+    """
+    sb = _get_sb()
+    if not sb or not user_id:
+        return {"success": False, "expired": False, "days_left": 0, "message": "Invalid user_id"}
+    
+    try:
+        from datetime import datetime
+        
+        # 사용자 정보 조회
+        user_data = sb.table("gk_members").select("*").eq("user_id", user_id).execute().data
+        if not user_data:
+            return {"success": False, "expired": False, "days_left": 0, "message": "사용자를 찾을 수 없습니다."}
+        
+        user = user_data[0]
+        status = user.get("status", "BETA")
+        trial_end_date = user.get("trial_end_date")
+        
+        # TRIAL 상태가 아니면 체크 불필요
+        if status != "TRIAL":
+            return {"success": False, "expired": False, "days_left": 0, "message": "TRIAL 상태가 아닙니다."}
+        
+        if not trial_end_date:
+            return {"success": False, "expired": False, "days_left": 0, "message": "trial_end_date 없음"}
+        
+        # 만료일 도달 체크
+        today = datetime.now().date()
+        end_date = datetime.strptime(trial_end_date, "%Y-%m-%d").date()
+        days_left = (end_date - today).days
+        
+        if today >= end_date:
+            # EXPIRED 전환
+            sb.table("gk_members").update({"status": "EXPIRED"}).eq("user_id", user_id).execute()
+            
+            return {
+                "success": True,
+                "expired": True,
+                "days_left": 0,
+                "message": "무료체험 종료 → EXPIRED 전환"
+            }
+        
+        return {
+            "success": True,
+            "expired": False,
+            "days_left": days_left,
+            "message": f"무료체험 진행 중 ({days_left}일 남음)"
+        }
+    except Exception as e:
+        return {"success": False, "expired": False, "days_left": 0, "message": f"체크 실패: {str(e)}"}
+
+
+def admin_update_credits(user_id: str, delta: int, admin_id: str = "system") -> dict:
+    """
+    [GP-BILLING] 관리자 전용 크레딧 충전/차감.
+    
+    Args:
+        user_id: 대상 회원 ID
+        delta: 변경량 (양수=충전, 음수=차감)
+        admin_id: 관리자 ID
+    
+    Returns:
+        {"success": bool, "message": str, "new_balance": int}
+    """
+    sb = _get_sb()
+    if not sb or not user_id:
+        return {"success": False, "message": "Invalid user_id", "new_balance": 0}
+    
+    try:
+        # 사용자 정보 조회
+        user_data = sb.table("gk_members").select("*").eq("user_id", user_id).execute().data
+        if not user_data:
+            return {"success": False, "message": "사용자를 찾을 수 없습니다.", "new_balance": 0}
+        
+        user = user_data[0]
+        current_credits = user.get("current_credits", 0)
+        new_credits = max(0, current_credits + delta)  # 음수 방지
+        
+        # 크레딧 업데이트
+        sb.table("gk_members").update({"current_credits": new_credits}).eq("user_id", user_id).execute()
+        
+        # 히스토리 기록
+        action_type = "ADMIN_ADD" if delta > 0 else "ADMIN_SUBTRACT"
+        try:
+            sb.table("gk_credit_history").insert({
+                "user_id": user_id,
+                "action_type": action_type,
+                "amount": abs(delta),
+                "before_balance": current_credits,
+                "after_balance": new_credits,
+                "reason": f"관리자 {'충전' if delta > 0 else '차감'}",
+                "admin_id": admin_id,
+            }).execute()
+        except Exception:
+            pass
+        
+        return {
+            "success": True,
+            "message": f"크레딧 {'충전' if delta > 0 else '차감'} 완료",
+            "new_balance": new_credits
+        }
+    except Exception as e:
+        return {"success": False, "message": f"업데이트 실패: {str(e)}", "new_balance": 0}
+
+
+def admin_update_status(user_id: str, new_status: str, admin_id: str = "system") -> dict:
+    """
+    [GP-BILLING] 관리자 전용 회원 상태 강제 변경.
+    
+    Args:
+        user_id: 대상 회원 ID
+        new_status: 새 상태 (BETA/TRIAL/PAID/EXPIRED)
+        admin_id: 관리자 ID
+    
+    Returns:
+        {"success": bool, "message": str}
+    """
+    sb = _get_sb()
+    if not sb or not user_id:
+        return {"success": False, "message": "Invalid user_id"}
+    
+    if new_status not in ["BETA", "TRIAL", "PAID", "EXPIRED"]:
+        return {"success": False, "message": "Invalid status"}
+    
+    try:
+        sb.table("gk_members").update({"status": new_status}).eq("user_id", user_id).execute()
+        
+        return {
+            "success": True,
+            "message": f"상태 변경 완료: {new_status}"
+        }
+    except Exception as e:
+        return {"success": False, "message": f"상태 변경 실패: {str(e)}"}
 
 
 # ══════════════════════════════════════════════════════════════════════════════

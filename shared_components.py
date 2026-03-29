@@ -1087,7 +1087,10 @@ def render_auth_screen(
     )
     
     # ── [GP-ONBOARDING] 프리미엄 온보딩 마케팅 박스 ─────────────────────────
-    st.markdown("""
+    # [2026-03-29 긴급 수정] show_checkboxes=True일 때만 12단계 박스 표시
+    # 약관 전문 화면(show_checkboxes=False)에서는 HTML 태그 노출 방지
+    if show_checkboxes:
+        st.markdown("""
 <div style="width:100%;background:#f4f8f9;border-radius:12px;padding:24px;
     margin:16px 0;box-shadow:0 4px 6px rgba(0,0,0,0.05);">
     
