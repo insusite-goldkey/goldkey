@@ -266,6 +266,108 @@ def save_schedule(
         return False
 
 
+def generate_followup_schedules(
+    person_id: str,
+    agent_id: str,
+    contract_date: str,
+    customer_name: str = "",
+) -> dict:
+    """
+    [STEP 12] 계약 후 관리 자동 스케줄러.
+    
+    계약일 기준으로 사후 관리 일정을 자동 생성:
+    - 단기: 1개월, 3개월, 6개월, 12개월, 18개월, 24개월
+    - 장기: 36개월(3년), 48개월(4년), 60개월(5년)
+    
+    Args:
+        person_id: 고객 ID (gk_people.person_id)
+        agent_id: 담당 설계사 ID
+        contract_date: 계약일 (YYYY-MM-DD 형식)
+        customer_name: 고객 이름 (선택, 일정 제목용)
+    
+    Returns:
+        {"success": bool, "created_count": int, "schedules": list[dict]}
+    """
+    sb = _get_sb()
+    if not sb or not person_id or not agent_id or not contract_date:
+        return {"success": False, "created_count": 0, "schedules": [], "error": "필수 파라미터 누락"}
+    
+    try:
+        # 계약일 파싱
+        base_date = datetime.datetime.fromisoformat(contract_date.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return {"success": False, "created_count": 0, "schedules": [], "error": f"잘못된 날짜 형식: {contract_date}"}
+    
+    # 사후 관리 기간 정의 (개월 단위)
+    intervals = [
+        1, 3, 6, 12, 18, 24,  # 단기 관리 (2년)
+        36, 48, 60,            # 장기 관리 (3~5년)
+    ]
+    
+    created_schedules = []
+    now_iso = datetime.datetime.utcnow().isoformat()
+    
+    for months in intervals:
+        # 날짜 계산 (relativedelta 대신 월 단위 계산)
+        target_year = base_date.year + (base_date.month + months - 1) // 12
+        target_month = (base_date.month + months - 1) % 12 + 1
+        target_day = min(base_date.day, _last_day_of_month(target_year, target_month))
+        
+        followup_date = datetime.date(target_year, target_month, target_day)
+        
+        # 일정 제목 및 메모 생성
+        if customer_name:
+            title = f"[STEP 12] 🎁 {customer_name} 고객님 {months}개월차 가입 점검"
+        else:
+            title = f"[STEP 12] 🎁 고객 {months}개월차 가입 점검"
+        
+        memo = f"시스템 자동 생성 일정: 계약 후 {months}개월이 경과했습니다. 안부 인사 및 보장 유지 상태를 점검하세요."
+        
+        # gk_schedules 테이블에 INSERT
+        schedule_payload = {
+            "schedule_id": str(uuid.uuid4()),
+            "agent_id": agent_id,
+            "person_id": person_id,
+            "title": title,
+            "date": followup_date.isoformat(),
+            "start_time": "10:00",  # 오전 10시 기본값
+            "memo": memo,
+            "category": "followup",
+            "customer_name": customer_name,
+            "is_deleted": False,
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        }
+        
+        try:
+            sb.table("gk_schedules").insert(schedule_payload).execute()
+            created_schedules.append({
+                "months": months,
+                "date": followup_date.isoformat(),
+                "title": title,
+            })
+        except Exception as e:
+            # 개별 일정 생성 실패 시 로그만 남기고 계속 진행
+            import logging
+            logging.warning(f"[STEP 12] {months}개월차 일정 생성 실패: {e}")
+    
+    return {
+        "success": len(created_schedules) > 0,
+        "created_count": len(created_schedules),
+        "schedules": created_schedules,
+    }
+
+
+def _last_day_of_month(year: int, month: int) -> int:
+    """해당 월의 마지막 날짜 반환 (윤년 고려)."""
+    if month == 12:
+        next_month = datetime.date(year + 1, 1, 1)
+    else:
+        next_month = datetime.date(year, month + 1, 1)
+    last_day = next_month - datetime.timedelta(days=1)
+    return last_day.day
+
+
 def delete_schedule(schedule_id: str, agent_id: str = "") -> bool:
     """
     일정 소프트 삭제.

@@ -326,6 +326,88 @@ def upsert_policy(
     return res.data[0] if res.data else row
 
 
+def trigger_followup_schedules(
+    sb,
+    policy_id: str,
+    agent_id: str,
+) -> dict:
+    """
+    [STEP 12] 계약 후 관리 자동 스케줄러 트리거.
+    
+    policy_id와 agent_id를 받아 해당 증권의 피보험자(또는 계약자)에 대해
+    사후 관리 일정을 자동 생성합니다.
+    
+    사용법:
+        policy = upsert_policy(...)
+        link_policy_role(sb, policy["id"], person_id, "피보험자", agent_id)
+        trigger_followup_schedules(sb, policy["id"], agent_id)  # 일정 자동 생성
+    
+    Args:
+        sb: Supabase 클라이언트
+        policy_id: 증권 ID
+        agent_id: 담당 설계사 ID
+    
+    Returns:
+        {"success": bool, "created_count": int, "schedules": list}
+    """
+    try:
+        # 증권 정보 조회 (계약일 필요)
+        policy = (sb.table(T_POLICIES).select("contract_date")
+                 .eq("id", policy_id)
+                 .eq("is_deleted", False)
+                 .execute().data or [])
+        
+        if not policy or not policy[0].get("contract_date"):
+            return {"success": False, "created_count": 0, "schedules": [], "error": "계약일 없음"}
+        
+        contract_date = policy[0]["contract_date"]
+        
+        # policy_roles에서 피보험자 또는 계약자 조회
+        roles_res = (sb.table(T_ROLES).select("person_id, role")
+                    .eq("policy_id", policy_id)
+                    .eq("is_deleted", False)
+                    .execute().data or [])
+        
+        # 피보험자 우선, 없으면 계약자
+        target_person_id = None
+        for r in roles_res:
+            if r["role"] == "피보험자":
+                target_person_id = r["person_id"]
+                break
+        if not target_person_id and roles_res:
+            target_person_id = roles_res[0]["person_id"]
+        
+        if not target_person_id:
+            return {"success": False, "created_count": 0, "schedules": [], "error": "person_id 없음"}
+        
+        # 고객 이름 조회
+        person_res = (sb.table(T_PEOPLE).select("name")
+                     .eq("person_id", target_person_id)
+                     .eq("is_deleted", False)
+                     .execute().data or [])
+        customer_name = person_res[0]["name"] if person_res else ""
+        
+        # db_utils.generate_followup_schedules() 호출
+        import db_utils as du
+        result = du.generate_followup_schedules(
+            person_id=target_person_id,
+            agent_id=agent_id,
+            contract_date=contract_date,
+            customer_name=customer_name,
+        )
+        
+        if result.get("success"):
+            import logging
+            logging.info(f"[STEP 12] 사후 관리 일정 {result['created_count']}건 자동 생성 완료")
+        
+        return result
+        
+    except Exception as e:
+        import logging
+        logging.warning(f"[STEP 12] 사후 관리 일정 자동 생성 실패: {e}")
+        return {"success": False, "created_count": 0, "schedules": [], "error": str(e)}
+
+
 def soft_delete_policy(sb, policy_id: str) -> bool:
     res = (sb.table(T_POLICIES)
            .update({"is_deleted": True, "updated_at": _now_iso()})
