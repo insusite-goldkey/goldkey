@@ -2626,14 +2626,7 @@ _GP_GLOBAL_DESIGN_CSS = """<style>
 /* [GP-ICON-FIX] Material Icons 리거처 렌더링 복구 — 전역 폰트가 아이콘을 덮어쓰지 못하도록 방어 */
 .material-icons,
 .material-symbols-rounded,
-.material-symbols-outlined,
-[class^="st-"] i,
-[class*=" st-"] i,
-button[kind] i,
-[data-testid="stExpanderToggleIcon"],
-[data-testid="stExpanderToggleIcon"] *,
-input[type="password"] + div i,
-input[type="text"] + div i {
+.material-symbols-outlined {
     font-family: 'Material Icons', 'Material Symbols Rounded' !important;
     font-feature-settings: 'liga' !important;
     -webkit-font-feature-settings: 'liga' !important;
@@ -2665,10 +2658,11 @@ input[type="text"] + div i {
   background: var(--gp-bg) !important;
   font-family: 'Pretendard', 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important;
 }
-/* [GP-ICON-FIX] 아이콘 클래스 제외 — 별표(*) 대신 구체적인 셀렉터 사용 */
-body, p, div:not([class*="material"]):not([class^="st-"]), 
-span:not(.material-icons):not(.material-symbols-rounded):not(.material-symbols-outlined),
-h1, h2, h3, h4, h5, h6, a, button, input, textarea, select, label {
+/* [GP-ICON-FIX] 아이콘 클래스 제외 — 안전한 셀렉터 사용 */
+body, p, h1, h2, h3, h4, h5, h6, a, label,
+[data-testid="stMarkdownContainer"],
+[data-testid="stText"],
+[data-testid="stCaption"] {
   font-family: 'Pretendard', 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important;
 }
 [data-testid="stSidebar"] { background: #f1f5f9 !important; }
