@@ -8,7 +8,7 @@
 -- 1. [people] 모든 인적 자원의 본부
 -- ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS gk_people (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    person_id       TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     name            TEXT NOT NULL,
     birth_date      TEXT,                       -- YYYYMMDD 형식
     gender          TEXT CHECK (gender IN ('남', '여', '기타')),
@@ -23,7 +23,6 @@ CREATE TABLE IF NOT EXISTS gk_people (
 
 CREATE INDEX IF NOT EXISTS idx_gk_people_name       ON gk_people(name);
 CREATE INDEX IF NOT EXISTS idx_gk_people_agent_id   ON gk_people(agent_id);
-CREATE INDEX IF NOT EXISTS idx_gk_people_is_deleted ON gk_people(is_deleted);
 
 -- updated_at 자동 갱신 트리거
 CREATE OR REPLACE FUNCTION public.gk_set_updated_at()
@@ -45,9 +44,9 @@ CREATE TRIGGER trg_gk_people_updated_at
 -- 2. [relationships] 인맥 및 가족 지도
 -- ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS gk_relationships (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    from_person_id  UUID NOT NULL REFERENCES gk_people(id) ON DELETE RESTRICT,
-    to_person_id    UUID NOT NULL REFERENCES gk_people(id) ON DELETE RESTRICT,
+    relationship_id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+    from_person_id  TEXT NOT NULL REFERENCES gk_people(person_id) ON DELETE RESTRICT,
+    to_person_id    TEXT NOT NULL REFERENCES gk_people(person_id) ON DELETE RESTRICT,
     relation_type   TEXT NOT NULL
                     CHECK (relation_type IN (
                         '배우자','자녀','부모','형제','소개자','법인직원','기타'
@@ -100,9 +99,9 @@ CREATE TRIGGER trg_gk_policies_updated_at
 --    피보험자 수 제한 없음 — role 별 복수 연결 가능
 -- ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS gk_policy_roles (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role_id     TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     policy_id   UUID NOT NULL REFERENCES gk_policies(id) ON DELETE RESTRICT,
-    person_id   UUID NOT NULL REFERENCES gk_people(id)   ON DELETE RESTRICT,
+    person_id   TEXT NOT NULL REFERENCES gk_people(person_id)   ON DELETE RESTRICT,
     role        TEXT NOT NULL
                 CHECK (role IN ('계약자','피보험자','수익자')),
     agent_id    TEXT,
@@ -121,7 +120,7 @@ CREATE INDEX IF NOT EXISTS idx_gk_pr_role      ON gk_policy_roles(role);
 -- 5. [policy_coverages] 보장 항목 상세 (스캔/OCR 결과 저장)
 -- ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS gk_policy_coverages (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    coverage_id     TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     policy_id       UUID NOT NULL REFERENCES gk_policies(id) ON DELETE RESTRICT,
     coverage_name   TEXT NOT NULL,              -- 담보명
     coverage_amount NUMERIC(20, 0),             -- 보장금액 (원)
@@ -137,7 +136,60 @@ CREATE INDEX IF NOT EXISTS idx_gk_cov_policy_id ON gk_policy_coverages(policy_id
 
 
 -- ──────────────────────────────────────────────────────────
--- 6. RLS(Row Level Security) — agent_id 기준 데이터 격리
+-- 6. 기존 테이블에 is_deleted 컬럼 추가 (마이그레이션)
+-- ──────────────────────────────────────────────────────────
+-- 테이블이 이미 존재하는 경우 is_deleted 컬럼 추가
+DO $$ 
+BEGIN
+    -- gk_people 테이블에 is_deleted 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_people' AND column_name = 'is_deleted'
+    ) THEN
+        ALTER TABLE gk_people ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+    END IF;
+
+    -- gk_relationships 테이블에 is_deleted 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_relationships' AND column_name = 'is_deleted'
+    ) THEN
+        ALTER TABLE gk_relationships ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+    END IF;
+
+    -- gk_policies 테이블에 is_deleted 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_policies' AND column_name = 'is_deleted'
+    ) THEN
+        ALTER TABLE gk_policies ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+    END IF;
+
+    -- gk_policy_roles 테이블에 is_deleted 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_policy_roles' AND column_name = 'is_deleted'
+    ) THEN
+        ALTER TABLE gk_policy_roles ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+    END IF;
+
+    -- gk_policy_coverages 테이블에 is_deleted 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_policy_coverages' AND column_name = 'is_deleted'
+    ) THEN
+        ALTER TABLE gk_policy_coverages ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+    END IF;
+END $$;
+
+-- ──────────────────────────────────────────────────────────
+-- 6-1. is_deleted 컬럼 인덱스 생성 (마이그레이션 이후)
+-- ──────────────────────────────────────────────────────────
+-- 컬럼이 추가된 후에 인덱스 생성
+CREATE INDEX IF NOT EXISTS idx_gk_people_is_deleted ON gk_people(is_deleted);
+
+-- ──────────────────────────────────────────────────────────
+-- 7. RLS(Row Level Security) — agent_id 기준 데이터 격리
 --    (서비스 롤 키 사용 시 bypass 가능)
 -- ──────────────────────────────────────────────────────────
 ALTER TABLE gk_people           ENABLE ROW LEVEL SECURITY;

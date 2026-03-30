@@ -72,15 +72,18 @@ CREATE INDEX IF NOT EXISTS idx_scan_files_extracted_fields ON gk_scan_files USIN
 -- RLS (Row Level Security) 활성화
 ALTER TABLE gk_scan_files ENABLE ROW LEVEL SECURITY;
 
--- RLS 정책: agent_id 기반 접근 제어
+-- RLS 정책: agent_id 기반 접근 제어 (멱등성 보장)
+DROP POLICY IF EXISTS "Users can view their own scan files" ON gk_scan_files;
 CREATE POLICY "Users can view their own scan files"
     ON gk_scan_files FOR SELECT
     USING (auth.uid()::text = agent_id OR is_active = true);
 
+DROP POLICY IF EXISTS "Users can insert their own scan files" ON gk_scan_files;
 CREATE POLICY "Users can insert their own scan files"
     ON gk_scan_files FOR INSERT
     WITH CHECK (auth.uid()::text = agent_id);
 
+DROP POLICY IF EXISTS "Users can update their own scan files" ON gk_scan_files;
 CREATE POLICY "Users can update their own scan files"
     ON gk_scan_files FOR UPDATE
     USING (auth.uid()::text = agent_id);
@@ -161,15 +164,18 @@ CREATE INDEX IF NOT EXISTS idx_medical_records_structured_data ON gk_medical_rec
 -- RLS 활성화
 ALTER TABLE gk_medical_records ENABLE ROW LEVEL SECURITY;
 
--- RLS 정책
+-- RLS 정책 (멱등성 보장)
+DROP POLICY IF EXISTS "Users can view their own medical records" ON gk_medical_records;
 CREATE POLICY "Users can view their own medical records"
     ON gk_medical_records FOR SELECT
     USING (auth.uid()::text = agent_id OR is_active = true);
 
+DROP POLICY IF EXISTS "Users can insert their own medical records" ON gk_medical_records;
 CREATE POLICY "Users can insert their own medical records"
     ON gk_medical_records FOR INSERT
     WITH CHECK (auth.uid()::text = agent_id);
 
+DROP POLICY IF EXISTS "Users can update their own medical records" ON gk_medical_records;
 CREATE POLICY "Users can update their own medical records"
     ON gk_medical_records FOR UPDATE
     USING (auth.uid()::text = agent_id);
@@ -215,11 +221,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- 트리거 생성 (멱등성 보장)
+DROP TRIGGER IF EXISTS trg_update_scan_files_timestamp ON gk_scan_files;
 CREATE TRIGGER trg_update_scan_files_timestamp
     BEFORE UPDATE ON gk_scan_files
     FOR EACH ROW
     EXECUTE FUNCTION update_scan_file_timestamp();
 
+DROP TRIGGER IF EXISTS trg_update_medical_records_timestamp ON gk_medical_records;
 CREATE TRIGGER trg_update_medical_records_timestamp
     BEFORE UPDATE ON gk_medical_records
     FOR EACH ROW

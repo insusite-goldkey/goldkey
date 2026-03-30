@@ -19,6 +19,74 @@ CREATE TABLE IF NOT EXISTS analysis_reports (
     updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 기존 테이블이 존재할 경우 누락된 컬럼들을 안전하게 추가
+DO $$ 
+BEGIN
+    -- contact_hash 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'analysis_reports' AND column_name = 'contact_hash'
+    ) THEN
+        ALTER TABLE analysis_reports ADD COLUMN contact_hash TEXT NOT NULL DEFAULT '';
+    END IF;
+    
+    -- analyzed_at 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'analysis_reports' AND column_name = 'analyzed_at'
+    ) THEN
+        ALTER TABLE analysis_reports ADD COLUMN analyzed_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    END IF;
+    
+    -- person_id 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'analysis_reports' AND column_name = 'person_id'
+    ) THEN
+        ALTER TABLE analysis_reports ADD COLUMN person_id TEXT DEFAULT '';
+    END IF;
+    
+    -- estimated_income 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'analysis_reports' AND column_name = 'estimated_income'
+    ) THEN
+        ALTER TABLE analysis_reports ADD COLUMN estimated_income NUMERIC DEFAULT 0;
+    END IF;
+    
+    -- kb7_score 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'analysis_reports' AND column_name = 'kb7_score'
+    ) THEN
+        ALTER TABLE analysis_reports ADD COLUMN kb7_score INTEGER DEFAULT 0;
+    END IF;
+    
+    -- analysis_data 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'analysis_reports' AND column_name = 'analysis_data'
+    ) THEN
+        ALTER TABLE analysis_reports ADD COLUMN analysis_data JSONB;
+    END IF;
+    
+    -- report_text 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'analysis_reports' AND column_name = 'report_text'
+    ) THEN
+        ALTER TABLE analysis_reports ADD COLUMN report_text TEXT DEFAULT '';
+    END IF;
+    
+    -- updated_at 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'analysis_reports' AND column_name = 'updated_at'
+    ) THEN
+        ALTER TABLE analysis_reports ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
+    END IF;
+END $$;
+
 -- contact_hash + agent_id 복합 UNIQUE — 동일 고객/설계사 조합 Upsert
 CREATE UNIQUE INDEX IF NOT EXISTS idx_analysis_reports_contact_agent
     ON analysis_reports (contact_hash, agent_id);
@@ -39,11 +107,13 @@ CREATE INDEX IF NOT EXISTS idx_analysis_reports_analyzed_at
 -- RLS (Row Level Security) — 설계사 본인 데이터만 접근
 ALTER TABLE analysis_reports ENABLE ROW LEVEL SECURITY;
 
--- 서비스 롤은 전체 접근 허용 (백엔드 API 호출용)
+-- 서비스 롤은 전체 접근 허용 (백엔드 API 호출용) - 멱등성 보장
+DROP POLICY IF EXISTS "service_role_all" ON analysis_reports;
 CREATE POLICY "service_role_all" ON analysis_reports
     FOR ALL TO service_role USING (true) WITH CHECK (true);
 
--- 일반 authenticated 사용자: agent_id = auth.uid() 본인 행만
+-- 일반 authenticated 사용자: agent_id = auth.uid() 본인 행만 - 멱등성 보장
+DROP POLICY IF EXISTS "agent_own_data" ON analysis_reports;
 CREATE POLICY "agent_own_data" ON analysis_reports
     FOR ALL TO authenticated
     USING (agent_id = auth.uid()::text)

@@ -3202,3 +3202,147 @@ def get_medical_records(
         return rows
     except Exception:
         return []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §13 보험 만기 자동 관리 (Insurance Expiry Automation)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_expiry_alerts(
+    agent_id: str,
+    days_range: int = 30,
+    priority_only: bool = True,
+) -> list[dict]:
+    """
+    [GP-EXPIRY] 보험 만기 알림 대상자 조회.
+    
+    D-28일(4주전), D-14일(2주전) 만기 대상 고객을 조회하여
+    STEP 2. 영업일정 점검 화면에 표시합니다.
+    
+    Args:
+        agent_id: 설계사 ID
+        days_range: 조회 범위 (기본 30일, 만기일 30일 전부터)
+        priority_only: True이면 D-28, D-14 우선순위만 조회
+    
+    Returns:
+        만기 대상자 리스트 [
+            {
+                "schedule_id": str,
+                "person_id": str,
+                "policy_id": str,
+                "customer_name": str,
+                "title": str,
+                "expiry_date": str,
+                "tags": list[str],
+                "memo": str,
+                "sub_type": str,
+                "product_name": str,
+                "insurance_company": str,
+                "days_until_expiry": int,
+                "alert_priority": int,  # 1=D-28, 2=D-14, 0=기타
+            }
+        ]
+    """
+    sb = _get_sb()
+    if not sb or not agent_id:
+        return []
+    
+    try:
+        # v_expiry_alerts 뷰 조회
+        query = sb.table("v_expiry_alerts").select("*").eq("agent_id", agent_id)
+        
+        # 우선순위 필터링 (D-28, D-14만)
+        if priority_only:
+            query = query.in_("alert_priority", [1, 2])
+        
+        # 날짜 범위 필터링
+        query = query.lte("days_until_expiry", days_range).gte("days_until_expiry", 0)
+        
+        # 만기일 가까운 순으로 정렬
+        alerts = query.order("expiry_date", desc=False).execute().data or []
+        
+        return alerts
+    except Exception as e:
+        import logging
+        logging.warning(f"[GP-EXPIRY] 만기 알림 조회 실패: {e}")
+        return []
+
+
+def generate_expiry_renewal_message(
+    customer_name: str,
+    sub_type: str,
+    expiry_date: str,
+    days_until: int,
+    insurance_company: str = "",
+    product_name: str = "",
+) -> str:
+    """
+    [GP-EXPIRY] 만기 재가입 안내용 감성 멘트 생성.
+    
+    Args:
+        customer_name: 고객명
+        sub_type: 보험 세부 유형 (자동차, 화재 등)
+        expiry_date: 만기일 (YYYY-MM-DD)
+        days_until: 만기까지 남은 일수
+        insurance_company: 보험사명 (선택)
+        product_name: 상품명 (선택)
+    
+    Returns:
+        카카오톡 발송용 감성 메시지
+    """
+    # 만기일 포맷팅
+    try:
+        exp_date = datetime.datetime.fromisoformat(expiry_date.replace("Z", "+00:00"))
+        exp_date_kr = exp_date.strftime("%Y년 %m월 %d일")
+    except Exception:
+        exp_date_kr = expiry_date
+    
+    # 보험 유형별 맞춤 멘트
+    if "자동차" in (sub_type or ""):
+        insurance_type = "자동차보험"
+        renewal_tip = "운전 습관과 주행거리에 따라 보험료가 달라질 수 있으니, 갱신 전 꼭 비교 견적을 받아보세요!"
+    elif "화재" in (sub_type or ""):
+        insurance_type = "화재보험"
+        renewal_tip = "건물 가치 변동과 보장 범위를 재점검하여 최적의 보장을 유지하세요."
+    elif "배상" in (sub_type or ""):
+        insurance_type = "배상책임보험"
+        renewal_tip = "사업장 규모나 매출 변화에 따라 보장 한도를 조정하시는 것이 좋습니다."
+    else:
+        insurance_type = sub_type or "보험"
+        renewal_tip = "보장 내용을 재점검하고 필요한 부분을 보완하세요."
+    
+    # D-Day 표현
+    if days_until <= 7:
+        urgency = "⚠️ 만기가 임박했습니다!"
+    elif days_until <= 14:
+        urgency = "🔔 만기 2주 전입니다."
+    elif days_until <= 28:
+        urgency = "📅 만기 4주 전 안내드립니다."
+    else:
+        urgency = "📋 만기 예정 안내"
+    
+    # 메시지 생성
+    message = f"""안녕하세요, {customer_name} 고객님! 😊
+
+{urgency}
+
+현재 가입하신 {insurance_type}이 곧 만기됩니다.
+
+📌 만기일: {exp_date_kr} (D-{days_until})
+"""
+    
+    if insurance_company:
+        message += f"📌 보험사: {insurance_company}\n"
+    if product_name:
+        message += f"📌 상품명: {product_name}\n"
+    
+    message += f"""
+💡 {renewal_tip}
+
+보장 공백이 생기지 않도록 미리 재가입 상담을 도와드리겠습니다.
+편하신 시간에 연락 주시면 최적의 조건으로 안내해드리겠습니다!
+
+감사합니다. 🙏
+"""
+    
+    return message

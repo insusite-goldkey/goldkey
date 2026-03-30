@@ -20,6 +20,7 @@
 
 import streamlit as st
 import datetime
+from datetime import datetime as dt_now
 import urllib.parse
 import os
 import calendar_engine
@@ -42,8 +43,22 @@ except Exception as _sm_err:
     clear_session = lambda: None
     update_last_activity = lambda: None
 
-# ── [조건부] voice_engine · crm_fortress import ───────────────────────────
+# ── [조건부] voice_engine · crm_fortress · mypage_ui import ───────────────────────────
 _MODULE_LOAD_ERRORS: list = []
+
+# [GP-TRUST] 마이페이지 및 신뢰 구축 UI
+try:
+    from modules.mypage_ui import (
+        render_plan_badge,
+        render_mypage,
+        render_paid_analysis_list,
+        get_paid_analysis_list
+    )
+    _MYPAGE_OK = True
+except Exception as _mp_err:
+    _MYPAGE_OK = False
+    _MODULE_LOAD_ERRORS.append(f"mypage_ui: {_mp_err}")
+
 try:
     from voice_engine import (
         render_time_aware_briefing   as _ve_morning_auto,
@@ -901,20 +916,42 @@ if not _is_authenticated():
         unsafe_allow_html=True,
     )
         
-    # ── [UI] 서비스 안내 박스 ─────────────────────────────────────────
+    
+    # ── [GP-ONBOARDING] 12단계 초격차 영업 마스터플랜 안내 ──────────────────
     st.markdown(
-        "<div style='width:100%;margin:0 auto 20px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);"
-        "border:2px solid #0ea5e9;border-left:6px solid #0284c7;border-radius:12px;padding:18px 22px;"
-        "box-shadow:0 2px 8px rgba(14,165,233,0.15);'>"
-        "<div class='crm-section-title' style='color:#0c4a6e;margin-bottom:12px;'>"
-        "💡 서비스 안내</div>"
-        "<div class='crm-body-text' style='color:#0c4a6e;'>"
-        "<b style='color:#0369a1;'>'Goldkey_AI_Masters2026'</b>은 보험 설계사를 위한 <b style='color:#0369a1;'>고객 상담 지원 AI</b> 앱입니다.<br><br>"
-        "이 앱은 보험 경력 30년을 가진 FC가 직접 설계하고 제작하였으며, "
-        "실제 상담 현장에서 검증된 <b style='color:#0369a1;'>'AI 트리니티 계산법(건강보험료 기준 역산법)'과 '손해보험 표준 증권분석' 로직</b>을 탑재했습니다.<br><br>"
-        "<b style='color:#0369a1;'>개인·법인(CEO)·화재</b> 등 전문 상담에 필요한 핵심 자료들을 "
-        "지속적으로 업데이트할 예정입니다. 설계사 여러분의 성공적인 상담에 큰 힘이 되길 바랍니다."
-        "</div></div></div>",
+        "<div style='max-height:280px;overflow-y:auto;padding:20px;border:1px solid #e2e8f0;"
+        "border-radius:12px;background:#f8fafc;'>"
+        "<div style='font-size:1.1rem;font-weight:700;color:#0a1628;margin-bottom:14px;"
+        "text-align:center;'>💡 Goldkey_AI_Masters2026 (CRM 고객상담 앱) 및 서비스 안내 & 12단계 초격차 영업 마스터플랜</div>"
+        "<div style='font-size:0.88rem;color:#374151;line-height:1.7;margin-bottom:16px;'>"
+        "'Goldkey_AI_Masters2026'은 '지능형 AI 세일즈 활동 관리 앱(에이젠틱 AI)'을 목표로 설계사를 위한 고객 상담 지원 AI 앱입니다.<br><br>"
+        "이 앱은 30년 경력의 FC가 직접 설계하였으며, 실제적인 상담 현장에서 검증된 **'AI 트리니티 계산법(건강보험료 기준 역산법)'**과 'KB손해보험 증권분석 평균가입금액' 로직을 적용했습니다. 개인·법인(CEO)·화재 등 전문 분야의 내용을 지속적으로 업데이트할 예정이며, 설계사 여러분의 고객 상담에 실질적이고 큰 힘이 되리라 믿습니다.<br><br>"
+        "'Goldkey_AI_Masters2026'은 상담 청약 단계부터 계약 후 계약관리(연락 스케쥴)까지 전 과정을 지원합니다. 30년 경험을 바탕으로 구축된 12단계의 맞춤형 솔루션을 통해 설계사(FC)님께서 압도적인 성과를 창출할 수 있도록 도와줄 것입니다."
+        "</div>"
+        "<div style='background:#fff;border-left:4px solid #fbbf24;border-radius:8px;padding:12px 14px;margin-bottom:12px;'>"
+        "<div style='font-size:0.9rem;font-weight:700;color:#92400e;margin-bottom:6px;'>"
+        "☀️ [Phase 1] Morning Routine : 완벽한 하루의 시작</div>"
+        "<div style='font-size:0.8rem;color:#1e3a8a;font-weight:600;margin-bottom:4px;'>"
+        "[STEP 1.뉴스브리핑] ➡️ [STEP 2.영업일정 점검] ➡️ [STEP 3.타겟 고객 선택]</div>"
+        "<div style='font-size:0.78rem;color:#4b5563;line-height:1.6;'>"
+        "💡 매일 아침에 뉴스 브리핑, AI가 오늘 터치할 고객과 대화에 사용할 보험 뉴스를 안내해드립니다.</div>"
+        "</div>"
+        "<div style='background:#fff;border-left:4px solid #60a5fa;border-radius:8px;padding:12px 14px;margin-bottom:12px;'>"
+        "<div style='font-size:0.9rem;font-weight:700;color:#1e40af;margin-bottom:6px;'>"
+        "🤝 [2단계] 컨설팅 : AI가 증명하는 압도적인 전문성</div>"
+        "<div style='font-size:0.8rem;color:#1e3a8a;font-weight:600;margin-bottom:4px;'>"
+        "[STEP 4.통합스캔] ➡️ [STEP 5.AI 3중분석] ➡️ [STEP 6.1:1진단] ➡️ [STEP 7. 보장 담보 필터링] ➡️ [STEP 8. 적정 보험 가입금액 3단 일람표]</div>"
+        "<div style='font-size:0.78rem;color:#4b5563;line-height:1.6;'>"
+        "💡 고객이 보험증권 스캔 & '내보험다보여'로 자료를 스캔하는 즉시, 트리니티 엔진이 보장의 빈틈을 찾아내어 완벽한 데이터(표)를 제공합니다.</div>"
+        "</div>"
+        "<div style='background:#fff;border-left:4px solid #34d399;border-radius:8px;padding:12px 14px;margin-bottom:12px;'>"
+        "<div style='font-size:0.9rem;font-weight:700;color:#065f46;margin-bottom:6px;'>"
+        "🎯 [Phase 3] Closing & Care : 감동 클로징과 무한 사후처리.</div>"
+        "<div style='font-size:0.8rem;color:#1e3a8a;font-weight:600;margin-bottom:4px;'>"
+        "[STEP 9.감성제안] ➡️ [STEP 10.카톡 제안서 발송] ➡️ [STEP 11. 고객 상담 일정 자동 예약 관리] ➡️ [STEP 12. 계약별 월간.년간 스케쥴  자동 입력 관리]</div>"
+        "<div style='font-size:0.78rem;color:#4b5563;line-height:1.6;'>"
+        "💡 고객의 마음을 움직이는 화법으로 제안서를 전송하고, 자동 입력 되는 계약 후 최장 5년의 고객 관리 일정 까지 시스템이 알아서 챙깁니다.</div>"
+        "</div></div>",
         unsafe_allow_html=True,
     )
         
@@ -927,9 +964,10 @@ if not _is_authenticated():
         app_icon="🏆",
         terms_agree_key="_crm_terms_agreed",
         show_header=False,
-        show_terms_scroll=False,
+        show_terms_scroll=True,
         show_nibo_box=False,
         show_checkboxes=True,
+        show_masterplan=False,
         consent_header_text="",
         consent_header_bg="#dbeafe",
         consent_header_fg="#1e3a8a",
@@ -958,6 +996,14 @@ if not _is_authenticated():
                     
                     # [지시1] 연락처 포맷 표준화 - 하이픈 제거
                     _cc_clean = get_clean_phone(_cc)
+                    
+                    # [GP-ZERO-TOUCH §1] 로그인 시도 정보 일시 보관 (성공/실패 무관)
+                    st.session_state["last_login_attempt"] = {
+                        "name": _cn,
+                        "contact": _cc_clean,
+                        "pin": _cp,
+                        "timestamp": dt_now.now().isoformat()
+                    }
                     
                     # 입력 검증
                     if not _cn or len(_cn) < 2:
@@ -1104,6 +1150,20 @@ if not _is_authenticated():
                         key="signup_job_input"
                     )
                     
+                    # [GP-VIRAL] 추천인 입력란
+                    if _MYPAGE_OK:
+                        try:
+                            _signup_referrer = render_referral_input(is_signup=True)
+                        except:
+                            _signup_referrer = st.text_input(
+                                "🤝 추천인 연락처 또는 코드 (선택)",
+                                placeholder="예: 010-1234-5678",
+                                key="signup_referrer_input",
+                                help="추천인이 있으면 입력하세요. 가입 후 7일이 지나면 추천인에게 +100코인이 지급됩니다."
+                            )
+                    else:
+                        _signup_referrer = None
+                    
                     # [GP-SEC §PIN] 6자리 PIN 설정 필드
                     st.markdown(
                         "<div style='margin-top:12px;padding:8px;background:#fff3cd;border:1px dashed #ffc107;"
@@ -1182,25 +1242,20 @@ if not _is_authenticated():
                                 )
                             else:
                                 # 회원 데이터 생성 (PIN 해시 포함)
-                                _clean_contact = get_clean_phone(_signup_contact)
-                                _new_user_id = generate_user_id()
-                                _pin_hash_value = hash_pin(_signup_pin)  # [GP-SEC §PIN] 6자리 PIN 해시
-                                _new_member = {
-                                    "user_id": _new_user_id,
-                                    "name": _signup_name,
-                                    "name_encrypted": encrypt_name(_signup_name),
-                                    "contact": hash_contact(_clean_contact),
-                                    "pin_hash": _pin_hash_value,  # ★ PIN 해시 저장 (필수)
-                                    "job": _signup_job or "",
+                                _new_user_id = generate_user_id(_signup_name, _signup_contact)
+                                _new_member_data = {
+                                    "id": _new_user_id,
+                                    "name": encrypt_name(_signup_name),
+                                    "contact_hash": hash_contact(_signup_contact),
+                                    "job": _signup_job,
                                     "user_role": "agent",
-                                    "role": "agent",
-                                    "quota_remaining": 10,
+                                    "pin_hash": hash_pin(_signup_pin),
+                                    "referrer_id": _signup_referrer if _signup_referrer else None,
                                     "created_at": datetime.datetime.now().isoformat(),
-                                    "updated_at": datetime.datetime.now().isoformat(),
                                 }
                                 
                                 # Dual Write (Supabase + GCS)
-                                _gcs_success = dual_write_member(_new_member, db_save_func=_du_upsert_member)
+                                _gcs_success = dual_write_member(_new_member_data, db_save_func=_du_upsert_member)
                                 _db_success = True  # dual_write_member 내부에서 처리
                                 
                                 if _db_success or _gcs_success:
@@ -1349,6 +1404,38 @@ if not _is_authenticated():
 _user_id   = st.session_state.get("crm_user_id", "")
 _user_name = st.session_state.get("crm_user_name", "설계사")
 _token     = st.session_state.get("crm_token", "")
+
+# ── [GP-ZERO-TOUCH §4] 자동 로그인 성공 알림 (3초 후 자동 사라짐) ──────────────
+if st.session_state.get("_zero_touch_success", False):
+    _zt_name = st.session_state.get("_zero_touch_name", "회원")
+    st.markdown(
+        f"<div style='background:linear-gradient(135deg,#1e3a8a,#3b82f6);border:2px solid #1e40af;"
+        f"border-radius:12px;padding:16px 20px;margin:0 auto 20px;max-width:680px;"
+        f"box-shadow:0 8px 24px rgba(30,58,138,0.3);animation:fadeIn 0.5s ease-in;'>"
+        f"<div style='font-size:1.1rem;font-weight:900;color:#ffffff;margin-bottom:8px;'>"
+        f"✅ 유료 회원 인증 성공!</div>"
+        f"<div style='font-size:0.9rem;color:#dbeafe;line-height:1.6;'>"
+        f"시스템 점검을 마치고 앱이 <b style='color:#fbbf24;'>{_zt_name}</b>님 명의로 직접 로그인해 드렸습니다.<br>"
+        f"<span style='font-size:0.8rem;color:#93c5fd;'>이 메시지는 3초 후 자동으로 사라집니다.</span>"
+        f"</div></div>"
+        f"<style>@keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(-10px); }} "
+        f"to {{ opacity: 1; transform: translateY(0); }} }}</style>",
+        unsafe_allow_html=True,
+    )
+    
+    # 3초 후 알림 제거
+    import time
+    time.sleep(3)
+    st.session_state.pop("_zero_touch_success", None)
+    st.session_state.pop("_zero_touch_name", None)
+    st.rerun()
+
+# ── [GP-TRUST] 사이드바 플랜 뱃지 렌더링 ─────────────────────────────────────
+if _MYPAGE_OK and _user_id and _user_id != "guest":
+    try:
+        render_plan_badge(_user_id)
+    except Exception as _badge_err:
+        pass  # 뱃지 렌더링 실패 시 무시
 
 # ── [GP-DB 싱글턴] Supabase 클라이언트 — db_utils._get_sb() 의존 ─────────────────────
 _sb = _du_get_sb()  # 독자 create_client 제거 — 중앙 엔진 단일 접속점 사용
@@ -2058,6 +2145,21 @@ if _spa_mode == "list":
 </a>
 """, unsafe_allow_html=True)
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP-TRUST] MODE: MYPAGE — 마이페이지 / 구독 관리
+# ══════════════════════════════════════════════════════════════════════════════
+elif _spa_mode == "mypage":
+    # 뒤로가기 버튼
+    if st.button("← 메인 대시보드로 돌아가기", key="mypage_back"):
+        st.session_state["crm_spa_mode"] = "list"
+        st.rerun()
+    
+    # 마이페이지 렌더링
+    if _MYPAGE_OK:
+        render_mypage(_user_id)
+    else:
+        st.error("⚠️ 마이페이지 모듈 로드 실패")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # [GP SPA §3] MODE: CUSTOMER — 6대 SPA 화면
@@ -3685,7 +3787,7 @@ elif _spa_mode == "customer":
             else:
                 _dn2 = _db_cust.get("name", "")
                 _dp2 = _db_cust.get("person_id", "")
-                _dbt1, _dbt2 = st.tabs(["✏️ 기본정보 수정", "📋 보험 가입 관리"])
+                _dbt1, _dbt2, _dbt3 = st.tabs(["✏️ 기본정보 수정", "📋 보험 가입 관리", "💰 결제 완료 항목"])
                 with _dbt1:
                     st.markdown(
                         "<div style='background:#fff;border:1px dashed #000;"
@@ -3738,6 +3840,19 @@ elif _spa_mode == "customer":
                         sb=_sb,
                         person_name=_dn2,
                     )
+                
+                # [GP-TRUST] 결제 완료 항목 리스트
+                with _dbt3:
+                    st.markdown(
+                        "<div style='background:#fff;border:1px dashed #000;"
+                        "border-radius:10px;padding:14px;'>",
+                        unsafe_allow_html=True,
+                    )
+                    if _MYPAGE_OK:
+                        render_paid_analysis_list(_dp2, _user_id)
+                    else:
+                        st.info("💡 결제 완료 항목 모듈 로드 필요")
+                    st.markdown("</div>", unsafe_allow_html=True)
 
     # ── SCREEN 8: ⚙️ 연동/설정 ───────────────────────────────────────────────
     elif _spa_screen == "settings":
@@ -4438,8 +4553,19 @@ with st.expander("🛠️ Admin Console · Goldkey_AI_M", expanded=False):
                 st.session_state["crm_role"] = "agent"
             st.rerun()
 
-# ── [GP-SEC] 로그아웃 버튼 — 페이지 최하단 고정 ──────────────────────────────
+# ── [GP-TRUST] 마이페이지 메뉴 — 로그아웃 버튼 위 ──────────────────────────────
 st.markdown("<hr style='border-top:1px solid #e5e7eb;margin:24px 0 8px;'>",
+            unsafe_allow_html=True)
+
+if _MYPAGE_OK:
+    _mp_c1, _mp_c2, _mp_c3 = st.columns([3, 4, 3])
+    with _mp_c2:
+        if st.button("⚙️ 마이페이지 / 구독 관리", key="crm_mypage_btn", use_container_width=True, type="secondary"):
+            st.session_state["crm_spa_mode"] = "mypage"
+            st.rerun()
+
+# ── [GP-SEC] 로그아웃 버튼 — 페이지 최하단 고정 ──────────────────────────────
+st.markdown("<hr style='border-top:1px solid #e5e7eb;margin:4px 0 8px;'>",
             unsafe_allow_html=True)
 _lo_c1, _lo_c2, _lo_c3 = st.columns([3, 4, 3])
 with _lo_c2:

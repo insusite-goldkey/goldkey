@@ -209,17 +209,45 @@ def render_today_widget(agent_id: str) -> None:
     ):
         if today_evs:
             st.markdown("**⚡ 오늘 일정**")
-            for ev in today_evs:
+            for idx, ev in enumerate(today_evs):
                 icon = _CATS.get(ev.get("category","consult"), ("⚪",))[0]
                 tgs  = extract_tags(ev.get("memo",""))
                 tbadges = "".join(
                     f'<span style="background:#e0f2fe;color:#0369a1;padding:1px 6px;'
                     f'border-radius:10px;font-size:.70rem;margin-left:3px;">{t}</span>' for t in tgs)
-                st.markdown(
-                    f"<div style='padding:3px 0;'>{icon} <b>{ev.get('title','')}</b> "
-                    f"<span style='color:#64748b;font-size:.80rem;'>"
-                    f"{ev.get('start_time','')}~{ev.get('end_time','')}</span>{tbadges}</div>",
-                    unsafe_allow_html=True)
+                
+                _ec1, _ec2 = st.columns([3, 1])
+                with _ec1:
+                    st.markdown(
+                        f"<div style='padding:3px 0;'>{icon} <b>{ev.get('title','')}</b> "
+                        f"<span style='color:#64748b;font-size:.80rem;'>"
+                        f"{ev.get('start_time','')}~{ev.get('end_time','')}</span>{tbadges}</div>",
+                        unsafe_allow_html=True)
+                with _ec2:
+                    # [GP-STEP11 하이브리드] AI 전략 버튼
+                    if st.button(
+                        "🤖 AI",
+                        key=f"ai_today_{idx}_{ev.get('schedule_id','')}",
+                        help="AI 맞춤 작문 (⭐프로전용)",
+                        use_container_width=True
+                    ):
+                        try:
+                            from modules.calendar_ai_helper import check_pro_tier, render_pro_upsell_tooltip, render_ai_strategy_briefing
+                            if check_pro_tier(agent_id):
+                                # 프로: AI 기능 실행
+                                customer_name = ev.get("customer_name", "") or (ev.get("gk_people") or {}).get("name", "") or ev.get("title", "고객")
+                                render_ai_strategy_briefing(
+                                    user_id=agent_id,
+                                    customer_name=customer_name,
+                                    event_date=ev.get("date", ""),
+                                    event_type=_CATS.get(ev.get("category", "consult"), ("⚪", "일정"))[0],
+                                    person_id=ev.get("person_id", "")
+                                )
+                            else:
+                                # 베이직: 업셀링 팝업 (고객명 포함)
+                                render_pro_upsell_tooltip("AI 맞춤 작문", customer_name=customer_name)
+                        except Exception:
+                            st.error("AI 기능을 불러올 수 없습니다.")
         if expiry_evs:
             st.markdown("**⚠️ 7일 내 보험 만기 임박**")
             for ev in expiry_evs:
@@ -236,8 +264,70 @@ def render_today_widget(agent_id: str) -> None:
                     f"font-size:.75rem;font-weight:700;'>{badge}</span> "
                     f"<span style='color:#64748b;font-size:.78rem;'>{d_str}</span></div>",
                     unsafe_allow_html=True)
+    
+    # ── [GP-REFERRAL] 리워드 현황 바 (달력 위젯 하단) ──────────────────────────
+    _render_referral_reward_bar(agent_id)
 
 # ══ [5] 고객 타임라인 ════════════════════════════════════════════════════════
+def _render_referral_reward_bar(agent_id: str) -> None:
+    """
+    [GP-REFERRAL] 리워드 현황 바 렌더링
+    - 현재 크레딧 기반 무료 이용 기간 계산
+    - 50코인(월 구독료) vs 100코인(소개 리워드) 대비 강조
+    """
+    if not agent_id:
+        return
+    
+    try:
+        sb = _get_sb()
+        if not sb:
+            return
+        
+        # gk_members에서 현재 크레딧 및 만기일 조회
+        resp = sb.table("gk_members").select("current_credits, subscription_expires_at, referral_count").eq("user_id", agent_id).execute()
+        if not resp.data:
+            return
+        
+        member = resp.data[0]
+        current_credits = member.get("current_credits", 0)
+        expires_at = member.get("subscription_expires_at", "")
+        referral_count = member.get("referral_count", 0)
+        
+        # 50코인 = 1개월, 현재 크레딧으로 추가 가능한 개월 수 계산
+        months_from_credits = current_credits // 50
+        
+        # 만기일 계산
+        if expires_at:
+            try:
+                expire_date = datetime.datetime.fromisoformat(expires_at.replace("Z", "+00:00")).date()
+                # 크레딧으로 추가 연장 가능한 날짜 계산
+                from dateutil.relativedelta import relativedelta
+                extended_date = expire_date + relativedelta(months=months_from_credits)
+                expire_str = extended_date.strftime("%Y.%m.%d")
+            except Exception:
+                expire_str = "2026.12.31"
+        else:
+            expire_str = "2026.12.31"
+        
+        # 리워드 바 렌더링
+        st.markdown(
+            f"<div style='background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);"
+            f"border:1px dashed #f59e0b;border-radius:12px;padding:12px 16px;margin:12px 0 0;'>"
+            f"<div style='font-size:0.88rem;font-weight:700;color:#92400e;margin-bottom:6px;'>"
+            f"🎁 [리워드 현황] 현재 <span style='color:#dc2626;font-weight:900;'>{referral_count}명</span> 소개로 "
+            f"<span style='color:#059669;font-weight:900;'>{expire_str}</span>까지 무료 이용 중!</div>"
+            f"<div style='font-size:0.82rem;color:#78350f;line-height:1.6;'>"
+            f"(월 구독료: <span style='background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:6px;font-weight:700;'>50🪙</span> | "
+            f"'월 구독료 납부 신규' 1명 초대 시 <span style='background:#dcfce7;color:#059669;padding:2px 6px;border-radius:6px;font-weight:900;'>100🪙</span> 지급 "
+            f"➔ 즉시 <span style='font-weight:900;color:#dc2626;'>2개월 추가 연장!</span>)</div>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+    except Exception as e:
+        # 에러 발생 시 조용히 무시 (리워드 바는 선택적 UI)
+        pass
+
+
 def render_customer_timeline(agent_id: str, person_id: str, customer_name: str = "") -> None:
     if not person_id:
         return
@@ -249,6 +339,24 @@ def render_customer_timeline(agent_id: str, person_id: str, customer_name: str =
     if not evs:
         st.caption("등록된 일정이 없습니다.")
         return
+    
+    # ── [GP-STEP11 하이브리드] AI 전략 브리핑 버튼 (프로 전용) ──────────────────
+    try:
+        from modules.calendar_ai_helper import render_ai_strategy_briefing
+        if customer_name and evs:
+            # 가장 가까운 미래 일정 찾기
+            future_evs = sorted([e for e in evs if e.get("date","") >= today_str], key=lambda x:x.get("date",""))
+            if future_evs:
+                next_ev = future_evs[0]
+                render_ai_strategy_briefing(
+                    user_id=agent_id,
+                    customer_name=customer_name,
+                    event_date=next_ev.get("date", ""),
+                    event_type=_CATS.get(next_ev.get("category", "consult"), ("⚪", "일정"))[0],
+                    person_id=person_id
+                )
+    except Exception:
+        pass
     past   = sorted([e for e in evs if e.get("date","") <  today_str], key=lambda x:x.get("date",""), reverse=True)
     future = sorted([e for e in evs if e.get("date","") >= today_str], key=lambda x:x.get("date",""))
     if future:

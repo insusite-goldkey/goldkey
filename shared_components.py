@@ -99,6 +99,34 @@ def get_env_secret(key: str, default_value: str = "") -> str:
     return default_value
 
 
+def check_subscription_on_login(user_id: str) -> bool:
+    """
+    [GP-제88조] 로그인 시 월간 구독 자동 검증 (Lazy Evaluation).
+    
+    Args:
+        user_id: 회원 ID
+        
+    Returns:
+        True: 구독 활성 또는 코인 보유
+        False: 구독 만료 및 코인 부족 (하드 락 필요)
+    """
+    try:
+        from modules.subscription_manager import check_and_renew_subscription, sync_subscription_to_session
+        
+        # 1. 구독 상태 검증
+        status = check_and_renew_subscription(user_id)
+        
+        # 2. 세션 상태 동기화
+        sync_subscription_to_session(user_id)
+        
+        # 3. 활성 여부 반환
+        return status["is_active"]
+        
+    except Exception as e:
+        print(f"[SUBSCRIPTION] 로그인 검증 오류: {e}")
+        return True  # 오류 시 접근 허용 (안전 장치)
+
+
 def get_clean_phone(raw: str) -> str:
     """[GP-회원관리 §연락처표준] 연락처 표준 정규화 — 숫자만 추출
     하이픈(-), 공백, 괄호, 특수문자 등 모두 제거 후 순수 숫자만 반환.
@@ -899,69 +927,94 @@ def _get_terms_text():
     """이용약관 전문 반환 (app_texts 우선, 폴백 포함)"""
     if txt and hasattr(txt, 'TERMS_CONTENTS'):
         return txt.TERMS_CONTENTS
-    return """■ Goldkey AI Masters 2026 이용약관 및 개인정보 통합 동의서
+    return """# GoldkeyAI이용약관 및 개인정보 처리방침
 
-[제1조] 목적
+---
+
+# **본 문서는 서비스 이용약관, 개인정보 처리방침 및 주요 보안 기술에 대한 통합 고지사항입니다.**
+
+---
+
+## **제 1 장 : 서비스 이용 기본 원칙**
+
+**[제1조] 목적**
 본 약관은 Goldkey AI Masters 2026(이하 '서비스')의 이용 조건·절차, 운영자와 회원의 권리·의무를 규정함을 목적으로 합니다.
 
-[제2조] 서비스 이용 조건
-• 현재 전체 무료 베타 서비스로 운영 중이며, 회원 1인당 1일 10회 AI 상담 이용이 제한될 수 있습니다.
-• 사용 대상: 보험업계 종사자 또는 관련 업무 자격 보유자(19세 이상)를 대상으로 합니다.
+**[제2조] 서비스 이용 조건 및 플랜**
+① 서비스는 고객 데이터의 안전한 보관과 고성능 AI 연산 서버 유지를 위한 **'시스템 관리비'** 기반의 유료 구독 모델로 운영됩니다.
+② **플랜 구성:**
 
-[제3조] 서비스 기능 범위
-AI 보장 분석 도구 / 세무·법률·상속·증여 참고 정보 제공 / 보험사별 보장 및 보험금 청구 안내 절차 지원
+1. **베이직(Basic) 플랜:** 보험 증권 스캔 및 기초 보장 분석 등 필수 영업 지원 기능 제공.
+2. **프로(Pro) 플랜:** 에이젠틱 AI 기반 12단계 초격차 마스터플랜(전략 생성, 카톡 작문, 자동 만기 관리 등) 전체 기능 제공.
+③ **가입 대상:** 보험업계 종사자 또는 관련 업무 자격 보유자(19세 이상)에 한해 이용 가능합니다.
 
-[제4조] 제한 및 금지 사항
-타인 계정 도용 및 허위 정보 입력 금지 / 시스템 해킹 시도 및 부당한 권한 획득 방지 / 자동화 도구(크롤링, 봇)를 이용한 무단 데이터 수집 방지
+**[제3조] 서비스 기능 범위**
+AI 보장 분석 및 트리니티 리포트 / 에이젠틱 AI 영업 전략 및 메시지 생성 / 세무·법률·상속·증여 참고 정보 / 보험사별 보장 및 청구 안내 / 자동차 및 소멸식 화재보험 만기 자동 관리 및 AI 아나운서 음성 브리핑(TTS).
 
-[제5조] 개인정보 수집 및 이용
-• 수집 항목: 이름, 연락처, 비밀번호(암호화 저장)
-• 이용 목적: 회원 인증, 이용 한도 관리, 서비스 품질 개선 및 맞춤형 컨텐츠 제공
-• 보유 기간: 회원 탈퇴 시 즉시 파기 (단, 관계 법령에 따라 보존이 필요한 경우 제외)
+**[제4조] 제한 및 금지 사항 (어뷰징 차단)**
+타인 계정 도용, 계정 공유, 시스템 해킹 시도 및 자동화 도구(매크로, 봇, 크롤링)를 이용한 비정상적인 대량의 AI 호출 행위를 엄격히 금지합니다. 위반 시 사전 통보 없이 계정이 영구 정지되며 잔여 크레딧은 몰수됩니다.
 
-[제5조의2] 회원 정보 보안 보호
-• 비밀번호/연락처: SHA-256 단방향 해시로 저장하여 운영자도 원문을 열람하거나 복원할 수 없습니다.
-• 데이터: AES 기반 Fernet 암호화 적용, 세션 종료 시 메모리 데이터 즉시 파기 / 전송: TLS 1.3 보안 통신 적용
+### **제 2 장 : 개인정보 보호 및 고강도 보안 시스템**
 
-[제6조] 마이크 접근 권한
-• 음성 입력(STT) 기능: 마이크 허용 요청 시 음성 데이터는 텍스트 변환용으로만 사용되며 서버에 파일 형태로 저장되지 않습니다.
-• 변환 방식: Google Web Speech API를 통해 실시간 변환 후 텍스트 데이터만 활용합니다.
+**[제5조] 개인정보 수집 및 이용**
+수집 항목: 이름, 연락처(암호화), 비밀번호, 이용 로그 / 이용 목적: 회원 인증, 이용 한도 관리, 서비스 품질 개선 / 보유 기간: 회원 탈퇴 시 즉시 파기(법령 의무 기간 제외), 미 이용 시 90일 후 자동 파기합니다.
 
-[제7조] 데이터 파기 규정
-• 즉시 파기: 회원 탈퇴 요청 시 DB 내 모든 정보 삭제 / 세션 종료 시 임시 분석 내용 삭제
-• 정기 파기: 서비스 미사용 90일 경과 시 자동 삭제 처리하여 복구가 불가능하도록 조치합니다.
+**[제6조] 개인정보 암호화 및 전송 보안**
+① **단방향 해시:** 비밀번호와 연락처는 SHA-256 방식으로 암호화되어 운영자도 원문을 복원할 수 없습니다.
+② **전송 및 저장:** 모든 통신은 TLS 1.3(HTTPS)이 적용되며, 데이터 저장 시 AES-256-GCM 암호화를 적용합니다.
 
-[제8조] 면책 사항 및 책임의 한계
-본 서비스는 AI 기술을 활용한 상담 보조 도구입니다. 모든 분석 결과의 최종 판단 및 처리는 사용자(설계사)의 책임하에 이루어집니다. 보험금 지급 여부 등 최종 결정은 보험사의 심사 결과에 따르며, 법률·세무 문제는 반드시 전문가와 상의하십시오. 본 서비스는 보험 판매·중개·알선 관계와 독립적인 순수 AI 분석 도구입니다.
+**[제7조] AI 음성 브리핑 및 마이크 보안**
+① **기능:** 설계사 스케줄 및 분석 결과를 AI 아나운서 음성(TTS)으로 안내합니다.
+② **보안:** 본 기능은 출력 전용 기술을 사용하며, 사용자의 음성을 수집하거나 녹음하는 '마이크 수집' 행위는 일절 발생하지 않습니다.
 
-[제9조] 금융소비자보호법(금소법) 준수 원칙
-① 적합성 원칙 준수: 고객 소득 및 위험 성향 기반 분석
-② 특정 보험사 제휴 및 수수료 편향성 없음
-③ 부당권유 방지: 단정적 표현 자동 감지 및 교정
-④ 허위·과장 광고 방지: 객관적 수치, 약관, 판례 범위 내 분석
+**[제8조] 데이터 저장 분리 및 관리자 접근 제한 (Zero-Knowledge)**
+① **구조:** Public Zone(공용 데이터)과 Private Zone(회원별 독립 보안 저장소)을 엄격히 분리합니다.
+② **접근 제어:** Supabase RLS(Row Level Security) 정책을 강제 적용하여 운영자 및 제3자의 데이터 접근을 기술적으로 차단하며, ISO/IEC 27001 기준을 준용합니다.
 
-[제10조] 데이터 저장 분리 (Zero-Knowledge)
-• Public Zone: 보험사 공시, 의학/법령 데이터 (중앙 서버 관리)
-• Private Zone: 회원이 입력한 고객 기록 및 증권 정보 (회원 UID별 독립 보안 영역)
-• 관리자 및 개발자는 기술적으로 Private Zone에 접근할 수 없으며(IAM 403 차단), 모든 데이터는 AES-256-GCM으로 암호화 저장됩니다.
+### **제 3 장 : 핵심 서비스별 법률 준수 및 동의**
 
-[제11조] 카카오톡 서비스 보안 안내
-• 서비스명: Goldkey AI 보고서 전송 시스템
-• 보안 준수: 본 시스템은 대화 내용을 열람하거나 친구 목록을 수집하지 않으며, 메시지 발송 권한만 활용합니다.
-• 데이터 보호: 전송 데이터는 TLS 암호화 처리되며, 서버에 보고서 원문 내용을 장기 저장하지 않습니다.
+**[제9조] 금융소비자보호법(금소법) 준수 원칙**
+적합성, 적정성, 설명 의무, 부당권유 방지, 허위·과장 광고 금지 원칙(금소법 제17조~22조)을 시스템 로직에 반영하여 객관적 수치 내에서만 분석을 제공합니다.
 
-[제12조] 외부 서비스 연동(Google/Apple 캘린더)
-회원의 명시적 동의하에 외부 캘린더 일정을 API(OAuth 2.0)로 연동할 수 있습니다. 수집된 일정은 앱 내 일정 관리 목적으로만 사용되며, 제3자 제공이나 마케팅 활용은 엄격히 금지됩니다. 연동 해제 시 서버 내 관련 데이터는 즉시 영구 삭제됩니다.
+**[제10조] 내보험다보여 연동 (신용정보법 제32조)**
+수집된 보험 정보(담보내역, 보험료 등)는 AI 트리니티 엔진 분석 목적으로만 사용되며, 인증 정보는 데이터 추출 직후 메모리에서 즉시 파기되어 서버에 절대 저장되지 않습니다.
 
-[제13조] 개인정보 제3자 제공 (알림톡 발송)
-본 서비스는 분석 결과 안내를 위해 고객의 번호를 카카오톡 알림톡 API에 전달할 수 있습니다.
-• 마스킹 조치: 전송되는 개인정보(이름, 연락처, 주민번호 일부 등)는 법령에 따라 별표(*)로 비식별 처리(마스킹)되어 발송됩니다.
+**[제11조] 카카오톡 서비스 보안 및 제3자 제공**
+① **보안:** 대화 내용을 열람하거나 친구 목록을 수집하지 않으며 발송 권한만 활용합니다.
+② **제3자 제공:** 분석 결과 안내를 위해 고객 번호를 카카오(주) 알림톡 API에 전달할 수 있으며, 데이터는 비식별 마스킹(*) 처리되어 발송됩니다.
 
-• 최종 갱신일: 2026년 3월 31일
-■ 서비스명: Goldkey_AI_Masters2026 | 운영자: 이세윤 | 문의: 010-3074-2616 / insusite@gmail.com
+**[제12조] 외부 서비스 연동 (Google/Apple)**
+OAuth 2.0 표준 인증을 사용하여 사용자 자격 증명은 당사 서버에 저장되지 않으며, 연동 해제 시 서버 내 관련 메타데이터는 즉시 영구 삭제됩니다.
+
+### **제 4 장 : 시스템 관리비 및 리워드 정책**
+
+**[제13조] 시스템 관리비 및 크레딧(코인) 운영**
+① **차등 차감:** 신규 증권 스캔(1코인), 에이젠틱 AI 전략/멘트 생성(3코인)이 차감됩니다.
+② **무료 재조회:** 이미 코인을 지불하여 분석이 완료된 항목은 평생 무료 조회가 가능하며, UI상 **<u>밑줄</u>**로 표기됩니다.
+③ **하드 락(Hard Lock):** 코인 소진 시 추가 충전 또는 플랜 업그레이드 전까지 AI 기능 이용이 제한됩니다.
+
+**[제14조] 추천인 리워드 및 구독 연장**
+① **리워드:** 기존 회원의 추천으로 가입한 신규 회원이 유료 결제 확정(7일 경과) 시, 추천인에게 **100코인**을 즉시 지급합니다.
+② **기간 연장:** 회원은 누적 코인을 사용하여 차기 월 시스템 관리비(구독료)를 대체 결제하고 이용 기간을 연장할 수 있습니다. (현금 환급 불가)
+
+**[제15조] 결제 취소 및 환불 규정**
+① **청약 철회:** 결제 후 7일 이내 서비스를 전혀 이용하지 않은 경우 전액 환불이 가능합니다.
+② **환불 불가:** 디지털 콘텐츠 특성상 **코인을 1회 이상 사용하거나 분석 결과를 열람한 경우** 환불이 엄격히 제한됩니다.
+③ **해지:** 정기 결제 해지는 구글 플레이 스토어를 통해 가능하며, 잔여 기간은 계속 이용 가능합니다.
+
+### **제 5 장 : 면책 및 기타**
+
+**[제16조] 면책 고지 (Disclaimer)**
+본 서비스는 '상담 보조 도구'이며 AI의 할루시네이션(오답) 가능성이 있습니다. 최종 판단과 책임은 이용자 본인에게 있습니다.
+
+**[제17조] 준거법 및 관할**
+본 약관은 대한민국 법률에 따르며, 분쟁 발생 시 운영자 소재지 관할 법원을 전속 관할로 합니다.
+
+**최종 개정일: 2026년 3월 31일운영자: 이세윤 | 문의: 010-3074-2616 / insusite@gmail.com**
 """
 
 _TERMS_TEXT = _get_terms_text()
+
 
 
 def render_auth_screen(
@@ -972,6 +1025,7 @@ def render_auth_screen(
     show_terms_scroll: bool = True,
     show_nibo_box: bool = True,
     show_checkboxes: bool = True,
+    show_masterplan: bool = True,
     consent_header_text: str = None,
     consent_header_bg: str = "#dbeafe",
     consent_header_fg: str = "#1e3a8a",
@@ -988,78 +1042,78 @@ def render_auth_screen(
         True  — 약관 동의 완료 (로그인 버튼 활성화 허용)
         False — 미동의 (로그인 버튼 disabled 처리)
     """
-    if show_header:
+    # [2026-03-29 긴급 수정] show_checkboxes=False일 때는 약관 스크롤 박스 렌더링 건너뛰기
+    # CRM 로그인 화면에서 HTML 태그 날것 노출 방지
+    if show_terms_scroll and show_checkboxes:
         st.markdown(
-            f"<div style='font-size:0.88rem;font-weight:900;color:#1e3a8a;"
-            f"margin-bottom:6px;text-align:center;'>{app_icon} {app_name} 이용약관</div>",
-            unsafe_allow_html=True,
-        )
-    _terms_md = st.markdown if show_terms_scroll else (lambda *a, **k: None)
-    _terms_md(
         "<div style='width:100%;max-width:100%;max-height:220px;overflow-y:auto;font-size:0.76rem;"
         "color:#222;line-height:1.75;border:1px dashed #000;border-radius:8px;"
         "padding:10px 14px;background:#f9fafb;margin-bottom:8px;'>"
 
-        "<b style='color:#0a1628;'>[제1조] 목적</b> "
+        "<div style='font-size:0.95rem;font-weight:900;color:#1e3a8a;margin-bottom:12px;text-align:center;'>"
+        "📋 Goldkey AI Masters 2026 이용약관 및 개인정보 처리방침</div>"
+
+        "<b style='color:#0a1628;'>[제1조] 목적</b><br>"
         "본 약관은 Goldkey AI Masters 2026(이하 '서비스')의 이용 조건·절차, 운영자와 회원의 권리·의무를 규정함을 목적으로 합니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제2조] 서비스 이용 조건</b> "
-        "현재 <b>전체 무료</b> 베타 서비스로 운영 중이며, 회원 1인당 <b>1일 10회</b> AI 상담 이용이 제한될 수 있습니다. "
-        "<b>사용 대상:</b> 보험업계 종사자 또는 관련 업무 자격 보유자(19세 이상)를 대상으로 합니다.<br><br>"
+        "<b style='color:#0a1628;'>[제2조] 서비스 이용 조건 및 플랜</b><br>"
+        "본 서비스는 초기 무료 베타 기간을 거쳐, 고객 DB의 안전한 보관과 AI 연산 서버 유지를 위한 '베이직(Basic)' 및 '프로(Pro)' 유료 시스템 관리 플랜으로 전환되어 운영됩니다. (베타 기간 중에는 1일 AI 상담 횟수가 제한될 수 있습니다.)<br>"
+        "사용 대상: 보험업계 종사자 또는 관련 업무 자격 보유자(19세 이상)를 대상으로 합니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제3조] 서비스 기능 범위</b> "
+        "<b style='color:#0a1628;'>[제3조] 서비스 기능 범위</b><br>"
         "AI 보장 분석 도구 / 세무·법률·상속·증여 참고 정보 제공 / 보험사별 보장 및 보험금 청구 안내 절차 지원<br><br>"
 
-        "<b style='color:#0a1628;'>[제4조] 제한 및 금지 사항</b> "
-        "타인 계정 도용 및 허위 정보 입력 금지 / 시스템 해킹 시도 및 부당한 권한 획득 방지 / 자동화 도구(크롤링, 봇)를 이용한 무단 데이터 수집 방지<br><br>"
+        "<b style='color:#0a1628;'>[제4조] 제한 및 금지 사항 (어뷰징 차단)</b><br>"
+        "타인 계정 도용 및 허위 정보 입력, 계정 공유 행위를 금지합니다. 시스템 해킹 시도 및 부당한 권한 획득, 자동화 도구(매크로, 크롤링, 봇)를 이용한 무단 데이터 수집 및 비정상적인 대량의 AI(API) 호출 행위가 적발될 경우, 사전 통보 없이 계정이 영구 정지되며 잔여 크레딧은 몰수됩니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제5조] 개인정보 수집 및 이용</b> "
-        "<b>수집 항목:</b> 이름, 연락처, 비밀번호(암호화 저장) / "
-        "<b>이용 목적:</b> 회원 인증, 이용 한도 관리, 서비스 품질 개선 및 맞춤형 컨텐츠 제공 / "
-        "<b>보유 기간:</b> 회원 탈퇴 시 즉시 파기 (단, 관계 법령에 따라 보존이 필요한 경우 제외)<br><br>"
+        "<b style='color:#0a1628;'>[제5조] 개인정보 수집 및 이용</b><br>"
+        "수집 항목: 이름, 연락처, 비밀번호(암호화 저장) / 이용 목적: 회원 인증, 이용 한도 관리, 서비스 품질 개선 및 맞춤형 컨텐츠 제공 / 보유 기간: 회원 탈퇴 시 즉시 파기 (단, 관계 법령에 따라 보존이 필요한 경우 제외)<br><br>"
 
-        "<b style='color:#0a1628;'>[제5조의2] 회원 정보 보안 보호</b> "
-        "<b>비밀번호/연락처:</b> SHA-256 단방향 해시로 저장하여 운영자도 원문을 열람하거나 복원할 수 없습니다. "
-        "<b>데이터:</b> AES 기반 Fernet 암호화 적용, 세션 종료 시 메모리 데이터 즉시 파기 / <b>전송:</b> TLS 1.3 보안 통신 적용<br><br>"
+        "<b style='color:#0a1628;'>[제5조의 2] 회원 정보 보안 보호</b><br>"
+        "비밀번호/연락처: SHA-256 단방향 해시로 저장하여 운영자도 원문을 열람하거나 복원할 수 없습니다. 데이터: AES 기반 Fernet 암호화 적용, 세션 종료 시 메모리 데이터 즉시 파기 / 전송: TLS 1.3 보안 통신 적용<br><br>"
 
-        "<b style='color:#0a1628;'>[제6조] 마이크 접근 권한</b> "
-        "음성 입력(STT) 기능: 마이크 허용 요청 시 음성 데이터는 텍스트 변환용으로만 사용되며 <b>서버에 파일 형태로 저장되지 않습니다.</b> "
-        "<b>변환 방식:</b> Google Web Speech API를 통해 실시간 변환 후 텍스트 데이터만 활용합니다.<br><br>"
+        "<b style='color:#0a1628;'>[제6조] 마이크 접근 권한</b><br>"
+        "음성 입력(STT) 기능: 마이크 허용 요청 시 음성 데이터는 텍스트 변환용으로만 사용되며 서버에 파일 형태로 저장되지 않습니다. 변환 방식: Google Web Speech API를 통해 실시간 변환 후 텍스트 데이터만 활용합니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제7조] 데이터 파기 규정</b> "
-        "<b>즉시 파기:</b> 회원 탈퇴 요청 시 DB 내 모든 정보 삭제 / 세션 종료 시 임시 분석 내용 삭제 / "
-        "<b>정기 파기:</b> 서비스 미사용 90일 경과 시 자동 삭제 처리하여 복구가 불가능하도록 조치합니다.<br><br>"
+        "<b style='color:#0a1628;'>[제7조] 데이터 파기 규정</b><br>"
+        "즉시 파기: 회원 탈퇴 요청 시 DB 내 모든 정보 삭제 / 세션 종료 시 임시 분석 내용 삭제 / 정기 파기: 서비스 미사용 90일 경과 시 자동 삭제 처리하여 복구가 불가능하도록 조치합니다.<br><br>"
 
         "<b style='color:#0a1628;'>[제8조] 면책 사항 및 책임의 한계</b><br>"
-        "본 서비스는 AI 기술을 활용한 상담 <b>보조</b> 도구입니다. 모든 분석 결과의 최종 판단 및 처리는 <b>사용자(설계사)</b>의 책임하에 이루어집니다. "
-        "보험금 지급 여부 등 최종 결정은 보험사의 심사 결과에 따르며, 법률·세무 문제는 반드시 전문가와 상의하십시오. "
-        "본 서비스는 보험 판매·중개·알선 관계와 독립적인 <b>순수 AI 분석 도구</b>입니다.<br><br>"
+        "본 서비스는 AI 기술을 활용한 상담 보조 도구입니다. 모든 분석 결과의 최종 판단 및 처리는 사용자(설계사)의 책임하에 이루어집니다. 보험금 지급 여부 등 최종 결정은 보험사의 심사 결과에 따르며, 법률·세무 문제는 반드시 전문가와 상의하십시오. 본 서비스는 보험 판매·중개·알선 관계와 독립적인 순수 AI 분석 도구입니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제9조] 금융소비자보호법(금소법) 준수 원칙</b> "
-        "① 적합성 원칙 준수: 고객 소득 및 위험 성향 기반 분석 / "
-        "② 특정 보험사 제휴 및 수수료 편향성 없음 / "
-        "③ 부당권유 방지: 단정적 표현 자동 감지 및 교정 / "
-        "④ 허위·과장 광고 방지: 객관적 수치, 약관, 판례 범위 내 분석<br><br>"
+        "<b style='color:#0a1628;'>[제9조] 금융소비자보호법(금소법) 준수 원칙</b><br>"
+        "① 적합성 원칙 준수: 고객 소득 및 위험 성향 기반 분석 / ② 특정 보험사 제휴 및 수수료 편향성 없음 / ③ 부당권유 방지: 단정적 표현 자동 감지 및 교정 / ④ 허위·과장 광고 방지: 객관적 수치, 약관, 판례 범위 내 분석<br><br>"
 
-        "<b style='color:#0a1628;'>[제10조] 데이터 저장 분리 (Zero-Knowledge)</b> "
-        "<b>Public Zone:</b> 보험사 공시, 의학/법령 데이터 (중앙 서버 관리) / "
-        "<b>Private Zone:</b> 회원이 입력한 고객 기록 및 증권 정보 (회원 UID별 독립 보안 영역) / "
-        "관리자 및 개발자는 기술적으로 Private Zone에 접근할 수 없으며(IAM 403 차단), 모든 데이터는 AES-256-GCM으로 암호화 저장됩니다.<br><br>"
+        "<b style='color:#0a1628;'>[제10조] 데이터 저장 분리 (Zero-Knowledge)</b><br>"
+        "Public Zone: 보험사 공시, 의학/법령 데이터 (중앙 서버 관리) / Private Zone: 회원이 입력한 고객 기록 및 증권 정보 (회원 UID별 독립 보안 영역) / 관리자 및 개발자는 기술적으로 Private Zone에 접근할 수 없으며(IAM 403 차단), 모든 데이터는 AES-256-GCM으로 암호화 저장됩니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제11조] 카카오톡 서비스 보안 안내</b> "
-        "<b>서비스명:</b> Goldkey AI 보고서 전송 시스템 / "
-        "<b>보안 준수:</b> 본 시스템은 대화 내용을 열람하거나 친구 목록을 수집하지 않으며, 메시지 발송 권한만 활용합니다. / "
-        "<b>데이터 보호:</b> 전송 데이터는 TLS 암호화 처리되며, 서버에 보고서 원문 내용을 <b>장기 저장하지 않습니다.</b><br><br>"
+        "<b style='color:#0a1628;'>[제11조] 카카오톡 서비스 보안 안내</b><br>"
+        "서비스명: Goldkey AI 보고서 전송 시스템 / 보안 준수: 본 시스템은 대화 내용을 열람하거나 친구 목록을 수집하지 않으며, 메시지 발송 권한만 활용합니다. / 데이터 보호: 전송 데이터는 TLS 암호화 처리되며, 서버에 보고서 원문 내용을 장기 저장하지 않습니다.<br><br>"
 
         "<b style='color:#0a1628;'>[제12조] 외부 서비스 연동(Google/Apple 캘린더)</b><br>"
-        "회원의 명시적 동의하에 외부 캘린더 일정을 API(OAuth 2.0)로 연동할 수 있습니다. "
-        "수집된 일정은 앱 내 일정 관리 목적으로만 사용되며, 제3자 제공이나 마케팅 활용은 엄격히 금지됩니다. "
-        "연동 해제 시 서버 내 관련 데이터는 <b>즉시 영구 삭제</b>됩니다.<br><br>"
+        "회원의 명시적 동의하에 외부 캘린더 일정을 API(OAuth 2.0)로 연동할 수 있습니다. 수집된 일정은 앱 내 일정 관리 목적으로만 사용되며, 제3자 제공이나 마케팅 활용은 엄격히 금지됩니다. 연동 해제 시 서버 내 관련 데이터는 즉시 영구 삭제됩니다.<br><br>"
 
-        "<b style='color:#0a1628;'>[제13조] 개인정보 제3자 제공 (알림톡 발송)</b> "
-        "본 서비스는 분석 결과 안내를 위해 고객의 번호를 카카오톡 알림톡 API에 전달할 수 있습니다. "
-        "<b>마스킹 조치:</b> 전송되는 개인정보(이름, 연락처, 주민번호 일부 등)는 법령에 따라 "
-        "별표(*)로 <b>비식별 처리(마스킹)</b>되어 발송됩니다.<br><br>"
+        "<b style='color:#0a1628;'>[제13조] 개인정보 제3자 제공 (알림톡 발송)</b><br>"
+        "본 서비스는 분석 결과 안내를 위해 고객의 번호를 카카오톡 알림톡 API에 전달할 수 있습니다. 마스킹 조치: 전송되는 개인정보(이름, 연락처, 주민번호 일부 등)는 법령에 따라 별표(*)로 비식별 처리(마스킹)되어 발송됩니다.<br><br>"
+
+        "<b style='color:#0a1628;'>[제14조] 시스템 관리비 및 코인(토큰) 운영 관리</b><br>"
+        "① 본 서비스는 안정적인 서버 유지와 AI 엔진 운영을 위해 '월 구독료'와 '사용량 기반 토큰'이 결합된 하이브리드 형태로 운영됩니다.<br><br>"
+        "가. 베이직(Basic) 플랜 (월 구독료 50코인 차감): 고객 DB 관리, 증권 OCR 스캔, AI 트리니티 엔진 기반 기초 분석 및 3단 일람표 생성 등 필수 기능을 제공합니다.<br><br>"
+        "나. 프로(Pro) 플랜 (월 구독료 150코인 차감): 베이직 전체 기능을 포함하여, 에이젠틱 AI가 주도하는 '12단계 마스터플랜' 전체 기능(AI 엄지 추천, 감성 제안, 카톡 작문, 자동 고객 연락 스케줄링 등)을 제공합니다.<br><br>"
+        "② 코인 차감 및 '0코인(무료)' 조회 원칙:<br>"
+        "1코인 차감: 신규 고객 증권 스캔 및 최초 3단 일람표 생성 등 데이터 추출 시.<br>"
+        "3코인 차감: 에이젠틱 AI 기반 강화 전략 생성, 카톡 부활 멘트 작문, AI 권장사항 도출 등 고부하 AI 연산 시.<br>"
+        "무료(0코인) 조회: [GP 운영 원칙] 이미 분석이 완료되어 DB에 저장된 고객의 결과 데이터를 다시 열람하는 경우, 코인이 추가로 차감되지 않습니다. (무제한 다시보기 제공)<br><br>"
+        "③ 이용 제한 및 하드 록(Hard Lock) 정책:<br>"
+        "구독 만료: 월 구독료(50코인 등)가 미납되거나 갱신되지 않을 경우, 서비스 이용이 자동으로 제한(Hard Lock)됩니다.<br>"
+        "자산 보존: 구독이 만료되더라도 사용자가 보유한 잔여 코인은 소멸되지 않고 안전하게 보존됩니다. 단, 월 구독료를 납부하여 구독을 갱신하는 시점부터 다시 사용이 가능합니다.<br>"
+        "토큰 소진: 구독 기간 중이라도 보유 코인을 모두 소진할 경우, 코인이 발생하는 새로운 분석 기능은 차단됩니다. 이때는 코인을 추가 충전하거나 추천인 리워드를 통해 즉시 활성화할 수 있습니다.<br><br>"
+
+        "<b style='color:#0a1628;'>[제15조] 결제 취소 및 환불 규정</b><br>"
+        "① 청약철회: 회원은 시스템 관리비 결제일로부터 7일 이내에 서비스를 전혀 이용하지 않은 경우 전액 환불을 요청할 수 있습니다.<br>"
+        "② 환불 불가 예외 (중요): 본 서비스는 '디지털 콘텐츠 및 서버 할당형 서비스'입니다. 결제 후 크레딧을 1회 이상 사용하였거나, AI 분석 결과를 열람한 경우 관련 법령(전자상거래법 제17조 제2항 제5호)에 따라 청약철회 및 환불이 엄격히 제한됩니다.<br>"
+        "③ 정기 구독 해지: 언제든지 구독을 해지할 수 있으며, 해지 시 다음 결제일부터 앱 관리비용이 청구되지 않습니다. (기 결제된 월의 잔여 기간은 일할 계산하여 환불하지 않으며, 정상 이용 가능합니다.)<br>"
+        "④ 결제 정책: 모든 인앱 결제 및 환불은 구글 플레이스토어(또는 애플 앱스토어)의 결제 정책과 절차를 우선적으로 따릅니다.<br><br>"
 
         "<div style='background:#FFF3CD;border:1px solid #F0A500;border-radius:6px;padding:8px 10px;"
         "font-size:0.75rem;color:#7A4F00;margin-top:4px;'>"
@@ -1068,7 +1122,7 @@ def render_auth_screen(
         "② 보장 내용·약관 해석·보험금 청구는 반드시 해당 보험회사 보상담당자 또는 손해사정인에게 확인하십시오.<br>"
         "③ AI 분석 결과는 오답(AI 할루시네이션) 발생 가능성이 있으며, 이로 인한 손해에 대해 당사는 법적 책임을 지지 않습니다.<br>"
         "④ 본 앱은 의료·법률·세무·회계·부동산 등 전문적 진단·상담을 대체할 수 없습니다. 최종 판단과 책임은 이용자 본인에게 있습니다.<br>"
-        "<i>최종 개정일: 2026년 3월 31일</i>"
+        "최종 개정일: 2026년 3월 31일"
         "</div>"
 
         "<div style='margin-top:8px;padding:6px 10px;font-size:0.74rem;color:#374151;"
@@ -1084,74 +1138,7 @@ def render_auth_screen(
         "</div>"
         "</div>",
         unsafe_allow_html=True,
-    )
-    
-    # ── [GP-ONBOARDING] 프리미엄 온보딩 마케팅 박스 ─────────────────────────
-    # [2026-03-29 긴급 수정] show_checkboxes=True일 때만 12단계 박스 표시
-    # 약관 전문 화면(show_checkboxes=False)에서는 HTML 태그 노출 방지
-    if show_checkboxes:
-        st.markdown("""
-<div style="width:100%;background:#f4f8f9;border-radius:12px;padding:24px;
-    margin:16px 0;box-shadow:0 4px 6px rgba(0,0,0,0.05);">
-    
-    <div style="font-size:1.15rem;font-weight:700;color:#0a1628;margin-bottom:16px;
-        line-height:1.6;text-align:center;">
-        🏆 GOLDKEY AI CRM : 12단계 초격차 영업 마스터플랜
-    </div>
-    
-    <div style="font-size:0.88rem;color:#374151;line-height:1.6;margin-bottom:20px;
-        text-align:center;">
-        GOLDKEY는 단순한 고객 주소록이 아닙니다. 상위 1% 설계사들의 영업 노하우를 AI로 완벽하게 구현한 
-        <b style="color:#0a1628;">'지능형 AI 세일즈 활동관리 앱'</b>입니다. 출근부터 퇴근, 그리고 사후 관리까지. 
-        이 12단계의 압도적인 흐름에 탑승하는 순간, 귀하의 계약 체결률은 눈부시게 상승할 것입니다.
-    </div>
-    
-    <div style="background:#fff;border-left:4px solid #fbbf24;border-radius:8px;
-        padding:14px 16px;margin-bottom:14px;">
-        <div style="font-size:0.92rem;font-weight:700;color:#92400e;margin-bottom:8px;">
-            ☀️ [Phase 1] Morning Routine : 완벽한 하루의 시작
-        </div>
-        <div style="font-size:0.82rem;color:#1e3a8a;font-weight:600;margin-bottom:6px;">
-            [STEP 1.뉴스브리핑] ➡️ [STEP 2.영업일정 점검] ➡️ [STEP 3.타겟고객 선택]
-        </div>
-        <div style="font-size:0.78rem;color:#4b5563;line-height:1.6;">
-            💡 매일 아침 보험 뉴스 브리핑, AI가 오늘 만나야 할 고객과 핵심 대화 주제를 미리 세팅해 드립니다.
-        </div>
-    </div>
-    
-    <div style="background:#fff;border-left:4px solid #60a5fa;border-radius:8px;
-        padding:14px 16px;margin-bottom:14px;">
-        <div style="font-size:0.92rem;font-weight:700;color:#1e40af;margin-bottom:8px;">
-            🤝 [Phase 2] Consulting : AI가 증명하는 압도적 전문성
-        </div>
-        <div style="font-size:0.82rem;color:#1e3a8a;font-weight:600;margin-bottom:6px;">
-            [STEP 4.통합스캔] ➡️ [STEP 5.AI 3중분석] ➡️ [STEP 6.1:1진단] ➡️ [STEP 7.담보필터링] ➡️ [STEP 8.3단 일람표]
-        </div>
-        <div style="font-size:0.78rem;color:#4b5563;line-height:1.6;">
-            💡 고객의 서류를 찍는 즉시, 트리니티 엔진이 보장의 빈틈을 찾아내어 완벽한 데이터(표)로 증명합니다.
-        </div>
-    </div>
-    
-    <div style="background:#fff;border-left:4px solid #34d399;border-radius:8px;
-        padding:14px 16px;margin-bottom:14px;">
-        <div style="font-size:0.92rem;font-weight:700;color:#065f46;margin-bottom:8px;">
-            🎯 [Phase 3] Closing & Care : 감동의 클로징과 무한 사후관리
-        </div>
-        <div style="font-size:0.82rem;color:#1e3a8a;font-weight:600;margin-bottom:6px;">
-            [STEP 9.감성제안] ➡️ [STEP 10.카톡 1초 발송] ➡️ [STEP 11.일정예약] ➡️ [STEP 12.자동 사후관리]
-        </div>
-        <div style="font-size:0.78rem;color:#4b5563;line-height:1.6;">
-            💡 고객의 마음을 움직이는 화법으로 제안서를 전송하고, 계약 후 최장 5년의 고객 관리 일정까지 시스템이 알아서 챙깁니다.
-        </div>
-    </div>
-    
-    <div style="font-size:0.88rem;color:#0a1628;font-weight:700;text-align:center;
-        margin-top:18px;line-height:1.6;">
-        🚀 이제 이 완벽한 12단계 프로세스에 귀하의 열정만 더하십시오. 
-        GOLDKEY AI가 당신의 세일즈 활동을 정밀 지원합니다.
-    </div>
-</div>
-""", unsafe_allow_html=True)
+        )
     
     if not show_checkboxes:
         return False
@@ -1169,11 +1156,11 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     text-align: left;
 }
 </style>""", unsafe_allow_html=True)
-    _consent_header_text = consent_header_text or "📋 서비스 이용을 위한 필수 동의"
+    _consent_header_text = consent_header_text or "📋 서비스 이용을 위해서는 반드시 동의해야 합니다. (체크시 로그인창 열림)"
     st.markdown(
-        f"<div style='width:100%;max-width:100%;background:{consent_header_bg};border-radius:8px 8px 0 0;"
-        "padding:8px 16px;margin-top:10px;text-align:left;'>"
-        f"<span style='font-size:1.0rem;font-weight:900;color:{consent_header_fg};'>"
+        f"<div style='width:fit-content;max-width:100%;background:{consent_header_bg};border-radius:8px;"
+        "padding:10px 18px;margin:10px 0 8px 0;text-align:left;'>"
+        f"<span style='font-size:clamp(0.95rem, 2.5vw, 1.1rem);font-weight:900;color:{consent_header_fg};line-height:1.5;'>"
         f"{_consent_header_text}</span></div>",
         unsafe_allow_html=True,
     )
@@ -1231,10 +1218,10 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
             "</div></div>",
             unsafe_allow_html=True,
         )
-        with st.popover("📋 신용정보의 이용 및 보호에 관한 법률", use_container_width=True):
+        with st.popover("📋 신용정보의 이용 및 보호에 관한 법률 (약칭: 신용정보법)", use_container_width=True):
             st.markdown(
-                "<div style='font-size:0.78rem;color:#92400e;font-weight:700;"
-                "margin-bottom:6px;'>📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
+                "<div style='font-size:0.76rem;color:#92400e;font-weight:700;"
+                "margin-bottom:4px;padding:4px 0;'>📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
                 unsafe_allow_html=True,
             )
             st.markdown(_NIBO_CONSENT_HTML, unsafe_allow_html=True)
@@ -1496,8 +1483,106 @@ def upload_file_with_tag(
         raise RuntimeError(f"Storage 업로드 실패 ({storage_path}): {e}")
 
 
-# ===========================================================================
-# [GP-ALERT §1·§2] 회원 인증 오류 알람 + 관리자 긴급 신고 프로토콜
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP-ZERO-TOUCH] 제로터치 셀프 힐링 자동 로그인 시스템
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _perform_zero_touch_healing(
+    member_name: str,
+    contact_clean: str,
+    pin: str,
+    app_name: str = "CRM"
+) -> dict:
+    """
+    [GP-ZERO-TOUCH §3] 백엔드 셀프 힐링 및 자동 강제 로그인.
+    
+    프로세스:
+    1. gk_members 테이블에서 회원 정보 조회 (연락처 해시 기반)
+    2. 유료 회원 여부 및 구독 기간/코인 잔액 확인
+    3. PIN 번호 검증
+    4. 검증 통과 시 임시 인증 토큰 발행
+    
+    Returns:
+        {
+            "success": bool,
+            "user_id": str,
+            "token": str,
+            "message": str
+        }
+    """
+    import hashlib as _hl
+    
+    try:
+        # 1. 연락처 해시 생성
+        _contact_hash = _hl.sha256(contact_clean.encode()).hexdigest()
+        
+        # 2. Supabase에서 회원 조회
+        from supabase import create_client as _sc_sb
+        _sb_url = get_env_secret("SUPABASE_URL", "")
+        _sb_key = get_env_secret("SUPABASE_SERVICE_ROLE_KEY",
+                      get_env_secret("SUPABASE_KEY", ""))
+        
+        if not _sb_url or not _sb_key:
+            return {
+                "success": False,
+                "message": "Supabase 연결 정보 없음"
+            }
+        
+        _sb = _sc_sb(_sb_url, _sb_key)
+        
+        # 연락처 해시로 회원 조회
+        _res = _sb.table("gk_members").select("*").eq("contact_hash", _contact_hash).execute()
+        
+        if not _res.data or len(_res.data) == 0:
+            return {
+                "success": False,
+                "message": "등록되지 않은 회원입니다"
+            }
+        
+        _member = _res.data[0]
+        _user_id = _member.get("user_id", "")
+        _pin_hash = _member.get("pin_hash", "")
+        _current_credits = _member.get("current_credits", 0)
+        _subscription_status = _member.get("subscription_status", "")
+        
+        # 3. PIN 번호 검증
+        _pin_check = _hl.sha256(pin.encode()).hexdigest()
+        if _pin_check != _pin_hash:
+            return {
+                "success": False,
+                "message": "PIN 번호가 일치하지 않습니다"
+            }
+        
+        # 4. 유료 회원 여부 확인
+        if _subscription_status != "active" and _current_credits <= 0:
+            return {
+                "success": False,
+                "message": "구독이 만료되었거나 코인이 부족합니다"
+            }
+        
+        # 5. 임시 인증 토큰 발행 (HMAC-SHA256)
+        import hmac as _hm
+        _sec = get_env_secret("ENCRYPTION_KEY", "GoldKey_System_Encrypt_Master_2026_@#$")
+        if isinstance(_sec, bytes):
+            _sec = _sec.decode()
+        _token = _hm.new(_sec.encode(), _user_id.encode(), "sha256").hexdigest()[:32]
+        
+        return {
+            "success": True,
+            "user_id": _user_id,
+            "token": _token,
+            "message": "자동 로그인 성공"
+        }
+        
+    except Exception as _e:
+        return {
+            "success": False,
+            "message": f"시스템 오류: {str(_e)}"
+        }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP-ALERT] 회원 인증 오류 발생 시 관리자 즉시 신고 시스템
 # HQ/CRM 양쪽 앱 공통 — 동일 함수, 동일 운용 프로토콜
 # ===========================================================================
 
@@ -1625,36 +1710,27 @@ def render_member_emergency_btn(
         unsafe_allow_html=True,
     )
 
+    _st3.markdown(
+        "<div style='margin:8px 0 6px 0;'>"
+        "<span style='font-size:clamp(0.75rem, 2vw, 0.85rem);color:#DC2626;font-weight:700;'>"
+        "❌ 로그인 오류가 계속되시나요?</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    
     if show_admin_login:
-        _ec1, _ec2, _ec3 = _st3.columns([4, 3, 3])
-        with _ec1:
-            _st3.markdown(
-                "<span style='font-size:0.78rem;color:#DC2626;font-weight:700;'>"
-                "🆘 로그인 오류가 계속되시나요?</span>",
-                unsafe_allow_html=True,
-            )
-        with _ec2:
-            if _st3.button("🔐 관리자 로그인", key=f"{key_prefix}_admin_toggle",
-                           use_container_width=True):
-                _st3.session_state[_adm_key]  = not _st3.session_state.get(_adm_key, False)
-                _st3.session_state[_show_key] = False
-        with _ec3:
-            if _st3.button("🆘 관리자 신고", key=f"{key_prefix}_toggle",
-                           use_container_width=True):
-                _st3.session_state[_show_key] = not _st3.session_state.get(_show_key, False)
-                _st3.session_state[_adm_key]  = False
+        if _st3.button("📱 앱 사용 불편 접수", key=f"{key_prefix}_toggle",
+                       use_container_width=True):
+            _st3.session_state[_show_key] = not _st3.session_state.get(_show_key, False)
+            _st3.session_state[_adm_key]  = False
+        if _st3.button("🔐 관리자 로그인", key=f"{key_prefix}_admin_toggle",
+                       use_container_width=True):
+            _st3.session_state[_adm_key]  = not _st3.session_state.get(_adm_key, False)
+            _st3.session_state[_show_key] = False
     else:
-        _ec1, _ec2 = _st3.columns([6, 4])
-        with _ec1:
-            _st3.markdown(
-                "<span style='font-size:0.78rem;color:#DC2626;font-weight:700;'>"
-                "🆘 로그인 오류가 계속되시나요?</span>",
-                unsafe_allow_html=True,
-            )
-        with _ec2:
-            if _st3.button("🆘 관리자 신고", key=f"{key_prefix}_toggle",
-                           use_container_width=True):
-                _st3.session_state[_show_key] = not _st3.session_state.get(_show_key, False)
+        if _st3.button("📱 앱 사용 불편 접수", key=f"{key_prefix}_toggle",
+                       use_container_width=True):
+            _st3.session_state[_show_key] = not _st3.session_state.get(_show_key, False)
 
     # ── 관리자 로그인 인라인 폼 ───────────────────────────────────────────────
     if show_admin_login and _st3.session_state.get(_adm_key):
@@ -1738,25 +1814,87 @@ div[data-testid="stFormSubmitButton"] > button:hover {
                 _st3.error("❌ ID 또는 코드가 올바르지 않습니다.")
         _st3.markdown("</div>", unsafe_allow_html=True)
 
-    # ── 관리자 신고 폼 ────────────────────────────────────────────────────────
+    # ── [GP-ZERO-TOUCH §2,3,4] 셀프 힐링 자동 로그인 폼 ──────────────────────
     if _st3.session_state.get(_show_key):
-        _nm = _st3.text_input(
-            "가입 시 이름 입력", key=f"{key_prefix}_report_name",
-            label_visibility="collapsed",
-        )
-        if _st3.button("📨 관리자에게 오류 신고 발송", key=f"{key_prefix}_send",
-                       use_container_width=True, type="primary"):
-            if not (_nm or "").strip() or len((_nm or "").strip()) < 2:
-                _st3.warning("이름을 2자 이상 입력하세요.")
-            else:
-                with _st3.spinner("신고 중..."):
-                    notify_admin_member_error(
-                        member_name=_nm.strip(),
-                        error_type="MANUAL_REPORT",
-                        app_name=app_name,
-                    )
-                _st3.session_state[_done_key] = True
-                _st3.rerun()
+        _last_attempt = _st3.session_state.get("last_login_attempt", {})
+        
+        # 시나리오 A: 캐시된 로그인 정보가 있는 경우
+        if _last_attempt and _last_attempt.get("name") and _last_attempt.get("contact"):
+            _cached_name = _last_attempt.get("name", "")
+            _cached_contact = _last_attempt.get("contact", "")
+            _cached_pin = _last_attempt.get("pin", "")
+            
+            _st3.markdown(
+                f"<div style='background:#E0F2FE;border:1.5px solid #0EA5E9;border-radius:8px;"
+                f"padding:12px 16px;margin:8px 0;'>"
+                f"<span style='font-size:0.85rem;font-weight:700;color:#0C4A6E;'>"
+                f"💡 방금 시도하신 <b>{_cached_name}</b> 님이 맞으신가요?</span><br>"
+                f"<span style='font-size:0.78rem;color:#0369A1;line-height:1.6;'>"
+                f"클릭하시면 시스템이 자동 점검 후 즉시 로그인을 도와드립니다.</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+            
+            _c1, _c2 = _st3.columns(2)
+            with _c1:
+                if _st3.button("✅ 예, 맞습니다", key=f"{key_prefix}_auto_heal",
+                               use_container_width=True, type="primary"):
+                    # [GP-ZERO-TOUCH §3] 백엔드 셀프 힐링 및 자동 강제 로그인
+                    with _st3.spinner("🔍 시스템 자동 점검 중..."):
+                        _heal_result = _perform_zero_touch_healing(
+                            _cached_name, _cached_contact, _cached_pin, app_name
+                        )
+                    
+                    if _heal_result.get("success"):
+                        # [GP-ZERO-TOUCH §4] 자동 로그인 성공 → 세션 활성화
+                        _st3.session_state["crm_authenticated"] = True
+                        _st3.session_state["crm_user_id"] = _heal_result.get("user_id")
+                        _st3.session_state["crm_user_name"] = _cached_name
+                        _st3.session_state["crm_role"] = "agent"
+                        _st3.session_state["crm_auth_token"] = _heal_result.get("token", "")
+                        _st3.session_state["_zero_touch_success"] = True
+                        _st3.session_state["_zero_touch_name"] = _cached_name
+                        _st3.session_state.pop(_show_key, None)
+                        _st3.session_state.pop("last_login_attempt", None)
+                        _st3.rerun()
+                    else:
+                        _st3.error(
+                            f"❌ 자동 로그인 실패: {_heal_result.get('message', '알 수 없는 오류')}\n\n"
+                            "관리자에게 수동 신고를 발송합니다."
+                        )
+                        notify_admin_member_error(
+                            member_name=_cached_name,
+                            error_type="AUTO_HEAL_FAILED",
+                            app_name=app_name,
+                            extra_note=_heal_result.get("message", "")
+                        )
+                        _st3.session_state[_done_key] = True
+                        _st3.rerun()
+            with _c2:
+                if _st3.button("❌ 아니요", key=f"{key_prefix}_not_me",
+                               use_container_width=True):
+                    _st3.session_state.pop("last_login_attempt", None)
+                    _st3.rerun()
+        
+        # 시나리오 B: 캐시된 정보가 없는 경우 → 수동 입력 폼
+        else:
+            _nm = _st3.text_input(
+                "가입 시 이름 입력", key=f"{key_prefix}_report_name",
+                label_visibility="collapsed",
+            )
+            if _st3.button("📨 관리자에게 오류 신고 발송", key=f"{key_prefix}_send",
+                           use_container_width=True, type="primary"):
+                if not (_nm or "").strip() or len((_nm or "").strip()) < 2:
+                    _st3.warning("이름을 2자 이상 입력하세요.")
+                else:
+                    with _st3.spinner("신고 중..."):
+                        notify_admin_member_error(
+                            member_name=_nm.strip(),
+                            error_type="MANUAL_REPORT",
+                            app_name=app_name,
+                        )
+                    _st3.session_state[_done_key] = True
+                    _st3.rerun()
     _st3.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -1767,13 +1905,13 @@ div[data-testid="stFormSubmitButton"] > button:hover {
 # ── [GP-L-SEC] 내보험다보여 동의 상수 (ImportError 방지) ─────────────────────
 _NIBO_CONSENT_VERSION = "2026-03-16-v1"
 _NIBO_CONSENT_HTML = """
-<div style='font-size:0.82rem;color:#1e3a8a;line-height:1.9;'>
-<b style='font-size:0.88rem;'>🔐 내보험다보여 안내 — 신용정보의 이용 및 보호에 관한 법률 제32조 준수</b><br><br>
+<div style='font-size:0.78rem;color:#1e3a8a;line-height:1.7;padding:6px 0;'>
+<b style='font-size:0.82rem;'>🔐 내보험다보여 안내 — 신용정보법 제32조 준수</b><br>
 • <b>수집 항목:</b> 보험사명, 상품명, 보장내역, 계약상태 (한국신용정보원 제공 데이터)<br>
 • <b>활용 목적:</b> AI 트리니티 엔진 기반 보장 분석 및 맞춤형 설계 서비스 제공<br>
 • <b>정보 보관:</b> 분석 완료 후 30일 경과 시 자동 파기 (단, 분석 결과는 법령에 따라 최대 3년 보관 가능)<br>
 • <b>인증 정보:</b> 데이터 수집 즉시 메모리에서 삭제 (서버 내 무단 저장 및 외부 유출 절대 금지)<br>
-• <b>미동의 시:</b> AI 보장 분석 및 트리니티 설계 서비스 이용이 제한될 수 있습니다.<br>
+• <b>미동의 시:</b> AI 보장 분석 및 트리니티 설계 서비스 이용이 제한될 수 있습니다.
 </div>
 """
 
@@ -2481,7 +2619,28 @@ def render_security_sidebar() -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 _GP_GLOBAL_DESIGN_CSS = """<style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css');
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons|Material+Symbols+Rounded');
 /* ══ GP-DESIGN-V3: 전역 파스텔 디자인 시스템 ════════════════════════════════ */
+
+/* 0. Streamlit 네이티브 아이콘 폰트 강제 복구 ─────────────────────────── */
+/* [GP-ICON-FIX] Material Icons 리거처 렌더링 복구 — 전역 폰트가 아이콘을 덮어쓰지 못하도록 방어 */
+.material-icons,
+.material-symbols-rounded,
+.material-symbols-outlined,
+[class^="st-"] i,
+[class*=" st-"] i,
+button[kind] i,
+[data-testid="stExpanderToggleIcon"],
+[data-testid="stExpanderToggleIcon"] *,
+input[type="password"] + div i,
+input[type="text"] + div i {
+    font-family: 'Material Icons', 'Material Symbols Rounded' !important;
+    font-feature-settings: 'liga' !important;
+    -webkit-font-feature-settings: 'liga' !important;
+    -moz-font-feature-settings: 'liga' !important;
+    font-variant-ligatures: discretionary-ligatures !important;
+    text-rendering: optimizeLegibility !important;
+}
 
 /* 1. CSS 변수 ─────────────────────────────────────────────────────────── */
 :root {
@@ -2506,7 +2665,12 @@ _GP_GLOBAL_DESIGN_CSS = """<style>
   background: var(--gp-bg) !important;
   font-family: 'Pretendard', 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important;
 }
-* { font-family: 'Pretendard', 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important; }
+/* [GP-ICON-FIX] 아이콘 클래스 제외 — 별표(*) 대신 구체적인 셀렉터 사용 */
+body, p, div:not([class*="material"]):not([class^="st-"]), 
+span:not(.material-icons):not(.material-symbols-rounded):not(.material-symbols-outlined),
+h1, h2, h3, h4, h5, h6, a, button, input, textarea, select, label {
+  font-family: 'Pretendard', 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important;
+}
 [data-testid="stSidebar"] { background: #f1f5f9 !important; }
 
 /* 3. 유동 타이포그래피 — GP §11 clamp() (모바일~태블릿 유기적 스케일) ─── */
@@ -3140,6 +3304,28 @@ def render_signup_modal():
         key="signup_password_confirm"
     )
     
+    # ── [GP-REFERRAL] 소개자 정보 입력 필드 ──────────────────────────────────
+    st.markdown(
+        "<div style='background:#f3f4f6;border-radius:8px;padding:8px 12px;margin:12px 0 8px;'>"
+        "<span style='font-size:0.85rem;font-weight:700;color:#374151;'>👥 소개자 정보 입력</span>"
+        "</div>",
+        unsafe_allow_html=True
+    )
+    
+    referrer_name = st.text_input(
+        "소개자 성함",
+        placeholder="소개해주신 분의 성함 입력",
+        key="signup_referrer_name",
+        help="소개자가 있으시면 입력해주세요 (선택사항)"
+    )
+    
+    referrer_contact = st.text_input(
+        "소개자 연락처",
+        placeholder="소개자 연락처 입력 (검증용)",
+        key="signup_referrer_contact",
+        help="소개자 검증을 위한 연락처입니다 (선택사항)"
+    )
+    
     # 유효성 검사
     contact_match = contact == contact_confirm if contact and contact_confirm else False
     password_match = password == password_confirm if password and password_confirm else False
@@ -3177,6 +3363,38 @@ def render_signup_modal():
             password_hash = hash_password(password)
             name_encrypted = encrypt_name(name)
             
+            # ── [GP-REFERRAL] 소개자 검증 및 리워드 지급 ──────────────────────
+            referrer_id = None
+            referral_verified = False
+            
+            if referrer_contact:
+                # 소개자 연락처로 DB 검색
+                from utils.crypto_utils import hash_contact as _hash_contact
+                referrer_contact_hash = _hash_contact(referrer_contact)
+                
+                try:
+                    sb = _get_sb()
+                    if sb:
+                        # 소개자 검증: 연락처 해시로 회원 조회
+                        ref_resp = sb.table("gk_members").select("user_id, subscription_status").eq("contact_hash", referrer_contact_hash).execute()
+                        
+                        if ref_resp.data and len(ref_resp.data) > 0:
+                            referrer = ref_resp.data[0]
+                            # 유료 구독 중인 회원만 소개자로 인정
+                            if referrer.get("subscription_status") == "active":
+                                referrer_id = referrer.get("user_id")
+                                referral_verified = True
+                                
+                                # 소개자에게 100코인 지급
+                                sb.rpc("grant_referral_reward", {"p_referrer_id": referrer_id, "p_new_member_id": user_id}).execute()
+                                st.success("✅ 소개자 인증 완료! 소개자에게 100🪙 리워드가 지급되었습니다.")
+                            else:
+                                st.warning("⚠️ 소개자가 유료 구독 중이 아닙니다. 마이페이지에서 추후 입력 가능합니다.")
+                        else:
+                            st.warning("⚠️ 소개자 정보를 찾을 수 없습니다. 마이페이지에서 추후 입력 가능합니다.")
+                except Exception as e:
+                    st.warning(f"⚠️ 소개자 검증 중 오류 발생: {e}. 가입은 정상 진행됩니다.")
+            
             # 회원 데이터 구성
             member_data = {
                 "user_id": user_id,
@@ -3186,6 +3404,7 @@ def render_signup_modal():
                 "role": "member",
                 "quota_remaining": 10,
                 "device_fingerprint": "",  # 향후 구현
+                "referrer_id": referrer_id if referral_verified else None,
                 "created_at": datetime.datetime.now().isoformat(),
                 "updated_at": datetime.datetime.now().isoformat()
             }

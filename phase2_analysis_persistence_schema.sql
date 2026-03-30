@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.gk_trinity_analysis (
     analysis_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- 고객 식별
-    person_id           UUID NOT NULL,                    -- gk_people.person_id 참조
+    person_id           TEXT NOT NULL,                    -- gk_people.person_id 참조
     agent_id            TEXT NOT NULL,                    -- 담당 설계사
     
     -- 분석 메타데이터
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS public.gk_kb_analysis (
     analysis_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- 고객 식별
-    person_id           UUID NOT NULL,                    -- gk_people.person_id 참조
+    person_id           TEXT NOT NULL,                    -- gk_people.person_id 참조
     agent_id            TEXT NOT NULL,                    -- 담당 설계사
     
     -- 분석 메타데이터
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS public.gk_integrated_analysis (
     analysis_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- 고객 식별
-    person_id           UUID NOT NULL,                    -- gk_people.person_id 참조
+    person_id           TEXT NOT NULL,                    -- gk_people.person_id 참조
     agent_id            TEXT NOT NULL,                    -- 담당 설계사
     
     -- 분석 메타데이터
@@ -180,7 +180,8 @@ ALTER TABLE public.gk_trinity_analysis ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gk_kb_analysis ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gk_integrated_analysis ENABLE ROW LEVEL SECURITY;
 
--- service_role 전용 정책 (앱 서버만 접근 가능)
+-- service_role 전용 정책 (앱 서버만 접근 가능) - 멱등성 보장
+DROP POLICY IF EXISTS "gk_trinity_analysis_service_role_policy" ON public.gk_trinity_analysis;
 CREATE POLICY "gk_trinity_analysis_service_role_policy"
     ON public.gk_trinity_analysis
     FOR ALL
@@ -188,6 +189,7 @@ CREATE POLICY "gk_trinity_analysis_service_role_policy"
     USING (true)
     WITH CHECK (true);
 
+DROP POLICY IF EXISTS "gk_kb_analysis_service_role_policy" ON public.gk_kb_analysis;
 CREATE POLICY "gk_kb_analysis_service_role_policy"
     ON public.gk_kb_analysis
     FOR ALL
@@ -195,6 +197,7 @@ CREATE POLICY "gk_kb_analysis_service_role_policy"
     USING (true)
     WITH CHECK (true);
 
+DROP POLICY IF EXISTS "gk_integrated_analysis_service_role_policy" ON public.gk_integrated_analysis;
 CREATE POLICY "gk_integrated_analysis_service_role_policy"
     ON public.gk_integrated_analysis
     FOR ALL
@@ -216,15 +219,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 트리거 적용
+-- 트리거 적용 (멱등성 보장)
+DROP TRIGGER IF EXISTS trg_trinity_updated_at ON public.gk_trinity_analysis;
 CREATE TRIGGER trg_trinity_updated_at
     BEFORE UPDATE ON public.gk_trinity_analysis
     FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS trg_kb_updated_at ON public.gk_kb_analysis;
 CREATE TRIGGER trg_kb_updated_at
     BEFORE UPDATE ON public.gk_kb_analysis
     FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS trg_integrated_updated_at ON public.gk_integrated_analysis;
 CREATE TRIGGER trg_integrated_updated_at
     BEFORE UPDATE ON public.gk_integrated_analysis
     FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

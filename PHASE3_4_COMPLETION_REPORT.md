@@ -1,7 +1,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # Phase 3 & 4 완료 보고서
 # Goldkey AI Masters 2026 — 의무기록 OCR & 좀비 테이블 심폐소생술
-# 작성일: 2026-03-29 00:54 KST
+# 작성일: 2026-03-30 12:39 KST (최종 업데이트)
 # ══════════════════════════════════════════════════════════════════════════════
 
 ## 📋 프로젝트 개요
@@ -180,10 +180,10 @@ python -m py_compile crm_app.py   # ✅ Exit code: 0
 ### 3. CRM 앱 재배포
 **스크립트**: `deploy_crm.ps1`  
 **결과**:
-- Cloud Build 성공 (빌드 ID: 100f9f74-fbbd-4481-b190-46caaa0188ef)
+- Cloud Build 성공 (빌드 ID: a0486084-b9b7-4142-a987-ab250370e870)
 - Cloud Run 배포 완료
   - **서비스**: goldkey-crm
-  - **리비전**: goldkey-crm-00387-fz4
+  - **리비전**: goldkey-crm-00429-vll
   - **URL**: https://goldkey-crm-817097913199.asia-northeast3.run.app
   - **트래픽**: 100%
   - **상태**: HTTP 200 (정상)
@@ -299,7 +299,7 @@ python -m py_compile crm_app.py   # ✅ Exit code: 0
 - ✅ Python 구문 검사
 - ✅ HQ/CRM 재배포
 
-**배포 완료 시각**: 2026-03-29 00:54 KST
+**배포 완료 시각**: 2026-03-30 12:39 KST
 
 ---
 

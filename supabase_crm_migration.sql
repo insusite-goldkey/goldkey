@@ -9,14 +9,66 @@
 -- ================================================================
 CREATE TABLE IF NOT EXISTS public.gk_crm_clients (
     id           BIGSERIAL PRIMARY KEY,
-    agent_uid    TEXT        NOT NULL,
+    agent_id     TEXT        NOT NULL,
     client_name  TEXT        NOT NULL,
     profile      JSONB       NOT NULL DEFAULT '{}',
     analyses     JSONB       NOT NULL DEFAULT '[]',
     registered   BOOLEAN     NOT NULL DEFAULT false,
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT uq_agent_client UNIQUE (agent_uid, client_name)
+    CONSTRAINT uq_agent_client UNIQUE (agent_id, client_name)
 );
+
+-- 기존 테이블이 존재할 경우 누락된 컬럼들을 안전하게 추가
+DO $$ 
+BEGIN
+    -- agent_id 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_crm_clients' AND column_name = 'agent_id'
+    ) THEN
+        ALTER TABLE public.gk_crm_clients ADD COLUMN agent_id TEXT NOT NULL DEFAULT '';
+    END IF;
+    
+    -- client_name 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_crm_clients' AND column_name = 'client_name'
+    ) THEN
+        ALTER TABLE public.gk_crm_clients ADD COLUMN client_name TEXT NOT NULL DEFAULT '';
+    END IF;
+    
+    -- profile 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_crm_clients' AND column_name = 'profile'
+    ) THEN
+        ALTER TABLE public.gk_crm_clients ADD COLUMN profile JSONB NOT NULL DEFAULT '{}';
+    END IF;
+    
+    -- analyses 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_crm_clients' AND column_name = 'analyses'
+    ) THEN
+        ALTER TABLE public.gk_crm_clients ADD COLUMN analyses JSONB NOT NULL DEFAULT '[]';
+    END IF;
+    
+    -- registered 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_crm_clients' AND column_name = 'registered'
+    ) THEN
+        ALTER TABLE public.gk_crm_clients ADD COLUMN registered BOOLEAN NOT NULL DEFAULT false;
+    END IF;
+    
+    -- updated_at 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_crm_clients' AND column_name = 'updated_at'
+    ) THEN
+        ALTER TABLE public.gk_crm_clients ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+    END IF;
+END $$;
 
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -31,7 +83,7 @@ CREATE TRIGGER trg_crm_updated_at
     BEFORE UPDATE ON public.gk_crm_clients
     FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-CREATE INDEX IF NOT EXISTS idx_crm_agent_uid ON public.gk_crm_clients (agent_uid);
+CREATE INDEX IF NOT EXISTS idx_crm_agent_id ON public.gk_crm_clients (agent_id);
 CREATE INDEX IF NOT EXISTS idx_crm_updated   ON public.gk_crm_clients (updated_at DESC);
 
 ALTER TABLE public.gk_crm_clients ENABLE ROW LEVEL SECURITY;
@@ -52,6 +104,10 @@ CREATE TABLE IF NOT EXISTS public.gk_unified_reports (
     user_id     TEXT,
     CONSTRAINT uq_unified_report UNIQUE (agent_id, person_id)
 );
+
+ALTER TABLE public.gk_unified_reports ADD COLUMN IF NOT EXISTS agent_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.gk_unified_reports ADD COLUMN IF NOT EXISTS person_id TEXT NOT NULL DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS idx_unirep_agent  ON public.gk_unified_reports (agent_id);
 CREATE INDEX IF NOT EXISTS idx_unirep_person ON public.gk_unified_reports (person_id);
 ALTER TABLE public.gk_unified_reports ENABLE ROW LEVEL SECURITY;
@@ -72,6 +128,8 @@ CREATE TABLE IF NOT EXISTS public.gk_handoff_sessions (
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE public.gk_handoff_sessions ADD COLUMN IF NOT EXISTS person_id TEXT NOT NULL DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS idx_handoff_user   ON public.gk_handoff_sessions (user_id);
 CREATE INDEX IF NOT EXISTS idx_handoff_person ON public.gk_handoff_sessions (person_id);
 ALTER TABLE public.gk_handoff_sessions ENABLE ROW LEVEL SECURITY;
@@ -91,6 +149,8 @@ CREATE TABLE IF NOT EXISTS public.gk_consents (
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT uq_consent UNIQUE (user_id, person_id)
 );
+ALTER TABLE public.gk_consents ADD COLUMN IF NOT EXISTS person_id TEXT NOT NULL DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS idx_consent_user   ON public.gk_consents (user_id);
 CREATE INDEX IF NOT EXISTS idx_consent_person ON public.gk_consents (person_id);
 ALTER TABLE public.gk_consents ENABLE ROW LEVEL SECURITY;
@@ -108,6 +168,57 @@ CREATE TABLE IF NOT EXISTS public.gk_consultation_contexts (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     expires_at   TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '24 hours')
 );
+
+-- 기존 테이블이 존재할 경우 누락된 컬럼들을 안전하게 추가
+DO $$ 
+BEGIN
+    -- agent_id 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_consultation_contexts' AND column_name = 'agent_id'
+    ) THEN
+        ALTER TABLE public.gk_consultation_contexts ADD COLUMN agent_id TEXT NOT NULL DEFAULT '';
+    END IF;
+    
+    -- person_id 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_consultation_contexts' AND column_name = 'person_id'
+    ) THEN
+        ALTER TABLE public.gk_consultation_contexts ADD COLUMN person_id TEXT NOT NULL DEFAULT '';
+    END IF;
+    
+    -- context_data 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_consultation_contexts' AND column_name = 'context_data'
+    ) THEN
+        ALTER TABLE public.gk_consultation_contexts ADD COLUMN context_data TEXT NOT NULL DEFAULT '{}';
+    END IF;
+    
+    -- created_at 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_consultation_contexts' AND column_name = 'created_at'
+    ) THEN
+        ALTER TABLE public.gk_consultation_contexts ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+    END IF;
+    
+    -- expires_at 컬럼 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'gk_consultation_contexts' AND column_name = 'expires_at'
+    ) THEN
+        ALTER TABLE public.gk_consultation_contexts ADD COLUMN expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '24 hours');
+    END IF;
+END $$;
+
+ALTER TABLE public.gk_consultation_contexts ADD COLUMN IF NOT EXISTS agent_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.gk_consultation_contexts ADD COLUMN IF NOT EXISTS person_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.gk_consultation_contexts ADD COLUMN IF NOT EXISTS context_data TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE public.gk_consultation_contexts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE public.gk_consultation_contexts ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '24 hours');
+
 CREATE INDEX IF NOT EXISTS idx_ctx_agent   ON public.gk_consultation_contexts (agent_id);
 CREATE INDEX IF NOT EXISTS idx_ctx_person  ON public.gk_consultation_contexts (person_id);
 CREATE INDEX IF NOT EXISTS idx_ctx_expires ON public.gk_consultation_contexts (expires_at);
@@ -146,6 +257,10 @@ CREATE TABLE IF NOT EXISTS public.gk_insurance_contracts (
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.gk_insurance_contracts ADD COLUMN IF NOT EXISTS agent_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.gk_insurance_contracts ADD COLUMN IF NOT EXISTS person_id TEXT NOT NULL DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS idx_ic_agent  ON public.gk_insurance_contracts (agent_id);
 CREATE INDEX IF NOT EXISTS idx_ic_person ON public.gk_insurance_contracts (person_id);
 CREATE INDEX IF NOT EXISTS idx_ic_part   ON public.gk_insurance_contracts (agent_id, person_id, part);
