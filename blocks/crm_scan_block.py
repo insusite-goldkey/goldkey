@@ -126,7 +126,9 @@ def render_crm_scan_block(
         with _prev_col:
             st.markdown(
                 f"<img src='data:image/jpeg;base64,{_img_b64}' "
-                f"style='width:100%;border-radius:16px;box-shadow:0 4px 24px #0008;'/>",
+                f"style='width:100%;max-width:100%;height:auto;"
+                f"border-radius:clamp(10px, 2vw, 16px);"
+                f"box-shadow:0 clamp(2px, 0.5vw, 4px) clamp(16px, 3vw, 24px) #0008;'/>",
                 unsafe_allow_html=True,
             )
         with _btn_col:

@@ -12,12 +12,21 @@
 #   render_smart_scanner(doc_type="의무기록")   # 의료: 어느 섹터에서든 동일 UI
 #   render_legal_scanner()                      # 법률: 판결문·소장·행정처분 분석
 #   render_legal_report()                       # 법률: A4 리포트 + 답변서 초안 생성
+#
+# [GP-SCAN-DROPZONE] 태블릿 전용 Drop Zone 컴포넌트 통합
 # ============================================================
 
 import time
 import json
 import streamlit as st
 import streamlit.components.v1 as components
+
+# ── 태블릿 Drop Zone 컴포넌트 임포트 ──────────────────────────────────────
+try:
+    from modules.tablet_dropzone import render_tablet_dropzone
+    TABLET_DROPZONE_AVAILABLE = True
+except ImportError:
+    TABLET_DROPZONE_AVAILABLE = False
 
 # ─────────────────────────────────────────────────────────────
 # [결함5] scan_engine KCD10_DB 통합 참조 (단방향 의존 — SSOT)

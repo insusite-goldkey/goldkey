@@ -1,0 +1,68 @@
+{
+  "metadata": {
+    "name": "KB 스탠다드 & 트리니티 기준",
+    "description": "16대 항목별 권장 가입금액 및 소득 비례 배분율",
+    "version": "2.0.0",
+    "source": "KB손해보험 7대 스탠다드 + 트리니티 가치 엔진 (실제 데이터)",
+    "last_updated": "2026-03-30",
+    "data_status": "PRODUCTION"
+  },
+  "kb_standard_amounts": {
+    "일반사망": 100000000,
+    "상해사망후유장해": 100000000,
+    "암진단비": 50000000,
+    "뇌혈관진단비": 30000000,
+    "허혈성심장진단비": 30000000,
+    "질병수술비_1_5종": 10000000,
+    "N대질병수술비": 10000000,
+    "입원일당": 50000,
+    "배상책임": 100000000,
+    "운전자비용": 250000000,
+    "표적항암_고액치료": 50000000,
+    "치매간병비": 30000000,
+    "연금_저축": 500000,
+    "주택화재": 100000000,
+    "실손의료비": 50000000,
+    "기타": 0
+  },
+  "trinity_allocation_ratio": {
+    "description": "가처분소득의 12%를 적정 보험료로 산출 후, 다음 비율로 분배",
+    "base_premium_ratio": 0.12,
+    "진단비군_암뇌심": 0.40,
+    "사망장해군": 0.15,
+    "수술입원군": 0.20,
+    "실손배상운전자군": 0.15,
+    "기타예비군": 0.10
+  },
+  "category_group_mapping": {
+    "진단비군_암뇌심": ["암진단비", "뇌혈관진단비", "허혈성심장진단비", "표적항암_고액치료"],
+    "사망장해군": ["일반사망", "상해사망후유장해"],
+    "수술입원군": ["질병수술비_1_5종", "N대질병수술비", "입원일당"],
+    "실손배상운전자군": ["배상책임", "운전자비용", "실손의료비"],
+    "기타예비군": ["치매간병비", "연금_저축", "주택화재", "기타"]
+  },
+  "calculation_formula": {
+    "trinity_amount": "disposable_income * 10000 * 0.12 * group_ratio / group_member_count",
+    "shortage_vs_trinity": "max(0, trinity_amount - current_amount)",
+    "shortage_vs_kb": "max(0, kb_standard - current_amount)",
+    "recommended": "max(kb_standard, trinity_amount)",
+    "shortage_rate": "(shortage_vs_kb / kb_standard) * 100"
+  },
+  "priority_rules": {
+    "긴급": {
+      "condition": "shortage_rate >= 70",
+      "color": "#FF6B6B",
+      "description": "즉시 보완 필요"
+    },
+    "중요": {
+      "condition": "40 <= shortage_rate < 70",
+      "color": "#FFD93D",
+      "description": "조속히 보완 권장"
+    },
+    "보통": {
+      "condition": "shortage_rate < 40",
+      "color": "#6BCF7F",
+      "description": "여유 있을 때 보완"
+    }
+  }
+}

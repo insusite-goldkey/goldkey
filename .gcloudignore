@@ -21,6 +21,23 @@ __pycache__/
 # 백업 파일
 app_backup_*.py
 
+# 가상환경 (절대 업로드 금지)
+venv/
+env/
+.venv/
+.env
+
+# RAG 지식베이스 원본 문서 (대용량)
+hq_backend/knowledge_base/source_docs/
+source_docs/
+
+# 암호화 파일 및 민감 데이터
+*.enc
+*.pdf
+*.xlsx
+*.xls
+*.docx
+
 # 기타
 node_modules/
 *.log

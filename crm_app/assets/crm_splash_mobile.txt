@@ -1,0 +1,4 @@
+# CRM 모바일 스플래시 이미지 (세로)
+# 사용자가 업로드한 Image 2 (핸드폰용)
+# 실제 이미지는 사용자가 직접 저장 필요
+# 파일명: crm_splash_mobile.jpg 또는 crm_splash_mobile.webp

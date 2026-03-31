@@ -6,13 +6,14 @@
 #   3. 정규식 강제 보정 — 날짜·금액·담보명 패턴
 #   4. 퍼지 매칭(Fuzzy Matching) — 유사도 기반 담보명 치환
 #   5. 개인정보 마스킹 — 주민등록번호 뒷자리 즉시 처리
+#   6. [GP-SCAN-TABLE] 표 구조 직접 파싱 — Document AI 좌표 기반 담보-금액 매칭
 # =============================================================================
 
 from __future__ import annotations
 import re
 import base64
 import io
-from typing import Optional
+from typing import Optional, List, Tuple, Dict
 
 # ── 선택적 임포트 (미설치 시 해당 기능만 graceful 비활성화) ──────────────────
 try:
@@ -37,6 +38,13 @@ except ImportError:
         FUZZY_AVAILABLE = True
     except ImportError:
         FUZZY_AVAILABLE = False
+
+# ── 표 구조 파싱 모듈 임포트 ────────────────────────────────────────────────
+try:
+    from modules.table_structure_parser import TableStructureParser
+    TABLE_PARSER_AVAILABLE = True
+except ImportError:
+    TABLE_PARSER_AVAILABLE = False
 
 
 # =============================================================================
@@ -911,3 +919,96 @@ JSON만 반환하고 설명 없이 출력하세요."""
             "confidence": 0.0,
             "error": str(e),
         }
+
+
+# =============================================================================
+# [GP-SCAN-TABLE] 표 구조 직접 파싱 — Document AI 좌표 기반
+# =============================================================================
+
+def parse_policy_table_with_coordinates(document) -> List[Dict]:
+    """
+    Document AI 결과에서 표 구조를 기하학적으로 파싱하여 담보-금액 쌍 추출
+    
+    Args:
+        document: Document AI 파싱 결과 (documentai.Document)
+    
+    Returns:
+        [
+            {
+                'table_index': 0,
+                'coverage_amount_pairs': [('일반암진단비', 50000000), ...]
+            },
+            ...
+        ]
+    """
+    if not TABLE_PARSER_AVAILABLE:
+        print("⚠️ TableStructureParser 모듈이 설치되지 않았습니다. 표 구조 파싱을 건너뜁니다.")
+        return []
+    
+    try:
+        parser = TableStructureParser()
+        results = parser.parse_all_tables(document)
+        
+        print(f"✅ 표 구조 파싱 완료: {len(results)}개 표에서 담보-금액 쌍 추출")
+        
+        return results
+    
+    except Exception as e:
+        print(f"❌ 표 구조 파싱 실패: {e}")
+        return []
+
+
+def merge_table_parsing_with_llm(
+    table_results: List[Dict],
+    llm_results: Dict
+) -> Dict:
+    """
+    표 구조 파싱 결과와 LLM 추론 결과를 병합
+    
+    Args:
+        table_results: parse_policy_table_with_coordinates() 결과
+        llm_results: Gemini LLM이 추출한 증권 데이터
+    
+    Returns:
+        병합된 증권 데이터 (표 파싱 우선, LLM 보완)
+    """
+    if not table_results:
+        # 표 파싱 실패 시 LLM 결과만 반환
+        return llm_results
+    
+    # 표 파싱 결과에서 담보 리스트 추출
+    table_coverages = []
+    
+    for table_result in table_results:
+        pairs = table_result.get('coverage_amount_pairs', [])
+        
+        for coverage_name, amount in pairs:
+            table_coverages.append({
+                'name': coverage_name,
+                'amount': amount,
+                'original_name': coverage_name,
+                'source': 'table_parsing'  # 출처 표시
+            })
+    
+    # LLM 결과와 병합
+    llm_coverages = llm_results.get('coverages', [])
+    
+    # 표 파싱 결과를 우선하되, LLM에서만 발견된 담보는 추가
+    merged_coverages = table_coverages.copy()
+    
+    for llm_coverage in llm_coverages:
+        llm_name = llm_coverage.get('name', '')
+        
+        # 이미 표 파싱에 있는지 확인
+        if not any(tc['name'] == llm_name for tc in table_coverages):
+            llm_coverage['source'] = 'llm_inference'
+            merged_coverages.append(llm_coverage)
+    
+    # 병합된 결과 반환
+    merged_results = llm_results.copy()
+    merged_results['coverages'] = merged_coverages
+    merged_results['parsing_method'] = 'hybrid'  # 하이브리드 파싱 표시
+    
+    print(f"✅ 하이브리드 파싱 완료: 표 파싱 {len(table_coverages)}개 + LLM {len(llm_coverages) - len(table_coverages)}개 = 총 {len(merged_coverages)}개 담보")
+    
+    return merged_results

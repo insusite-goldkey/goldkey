@@ -109,6 +109,7 @@ except Exception as _ks_err:
 from blocks.crm_action_grid_block import render_crm_dashboard_action_grid as _render_crm_dashboard_action_grid
 from blocks.crm_nav_block import render_crm_dual_nav
 from blocks.crm_consultation_center_block import render_crm_consultation_center
+from blocks.crm_ai_chat_block import render_crm_ai_chat
 from blocks.crm_trinity_block import render_crm_trinity_block
 from blocks.crm_nibo_screen_block import render_crm_nibo_screen
 from blocks.crm_analysis_screen_block import render_crm_analysis_screen
@@ -117,6 +118,8 @@ from blocks.crm_insurance_contracts_block import render_insurance_contracts
 from blocks.crm_scan_block import render_crm_scan_block
 from blocks.crm_phase1_network_block import render_network_tagging_panel
 from blocks.crm_scan_vault_viewer import render_scan_vault_viewer, render_scan_vault_summary
+from blocks.crm_accident_analysis_block import render_crm_accident_analysis_block
+from blocks.share_report_block import render_share_report_block
 
 from shared_components import (
     CUSTOMER_SCHEMA,
@@ -171,6 +174,148 @@ from db_utils import (
     update_member_pin_hash as _du_pin_update,
 )
 
+# ── [CRM 랜딩페이지] 기기 감지형 하이브리드 랜딩 함수 ──────────────────────────
+import base64
+import os
+
+def _crm_load_splash_b64(filename: str) -> str:
+    """assets/ 폴더의 이미지 파일을 읽어 data-URI 문자열로 반환."""
+    _cache_key = f"_crm_splash_b64_{filename}"
+    _cached = st.session_state.get(_cache_key, "")
+    if _cached:
+        return _cached
+    try:
+        _base = os.path.dirname(os.path.abspath(__file__))
+        _path = os.path.join(_base, "assets", filename)
+        if os.path.exists(_path):
+            _raw = base64.b64encode(open(_path, "rb").read()).decode()
+            if filename.endswith(".webp"):
+                _mime = "image/webp"
+            elif filename.endswith((".jpg", ".jpeg")):
+                _mime = "image/jpeg"
+            else:
+                _mime = "image/png"
+            _result = f"data:{_mime};base64,{_raw}"
+            st.session_state[_cache_key] = _result
+            return _result
+    except Exception:
+        pass
+    return ""
+
+def _crm_render_landing_page() -> None:
+    """CRM 전용 랜딩페이지 - Z-index 충돌 해결 및 자동 전환 타이머 추가"""
+    # ── 스플래시 이미지 로드 ──────────────────────────
+    _mobile_src = _crm_load_splash_b64("crm_splash_mobile.jpg")
+    _tablet_src = _crm_load_splash_b64("crm_splash_tablet.jpg")
+    
+    # ── 폴백 배경 (이미지 로드 실패 시) ────────────────
+    _bg_fallback = "linear-gradient(135deg,#eef2ff 0%,#e0e7ff 50%,#dbeafe 100%)"
+    # 모바일 이미지 없으면 태블릿 이미지 사용
+    _mobile_bg = f'url("{_mobile_src}")' if _mobile_src else (f'url("{_tablet_src}")' if _tablet_src else _bg_fallback)
+    _tablet_bg = f'url("{_tablet_src}")' if _tablet_src else _bg_fallback
+    
+    # ── 랜딩 HTML 구성 (Z-index 충돌 해결) ──────────────────────────────────
+    st.markdown(f"""
+<style>
+/* ── [CRM 랜딩] 전체 여백 제거 ── */
+section[data-testid="stMain"] > div:first-child {{padding-top:0!important;}}
+:root {{
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}}
+#crm-landing-root {{
+  position:fixed;top:0;left:0;
+  width:100%;width:100vw;
+  height:100%;height:100vh;height:100dvh;
+  z-index:9999;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding-top:var(--sat);
+  padding-bottom:max(clamp(40px,8vh,90px), calc(var(--sab) + 24px));
+  padding-left:var(--sal);
+  padding-right:var(--sar);
+  box-sizing:border-box;
+  background:{_mobile_bg} center/cover no-repeat,{_bg_fallback};
+  transition:opacity 0.3s ease;
+  overflow:hidden;
+  pointer-events:none;
+}}
+/* 태블릿/가로 모드 이미지 전환 */
+@media (min-aspect-ratio:3/4) and (min-width:600px) {{
+  #crm-landing-root {{
+    background:{_tablet_bg} center/cover no-repeat,{_bg_fallback};
+  }}
+}}
+header[data-testid="stHeader"] {{
+  display:none!important;
+}}
+html, body {{
+  overflow:hidden !important;
+  max-width:100vw !important;
+}}
+/* 핵심: Streamlit 버튼을 배경 위(10000)로 끌어올리기 */
+div.stButton {{
+  position:fixed !important;
+  bottom:clamp(30px,8vh,60px) !important;
+  left:clamp(20px,5vw,40px) !important;
+  z-index:10000 !important;
+  pointer-events:auto;
+}}
+div.stButton > button {{
+  background:linear-gradient(135deg,#f0c040,#e8a000) !important;
+  color:#0f172a !important;
+  font-weight:900 !important;
+  font-size:clamp(2.8rem,8vw,4rem) !important;
+  border:none !important;
+  border-radius:16px !important;
+  padding:8px 20px !important;
+  box-shadow:0 3px 16px rgba(240,192,64,0.5) !important;
+  cursor:pointer !important;
+  letter-spacing:-0.03em !important;
+  line-height:1.1 !important;
+  min-width:auto !important;
+  width:auto !important;
+}}
+</style>
+<div id="crm-landing-root">
+  <div style="text-align:center;padding:40px 20px;">
+    <div style="font-size:clamp(2.5rem,8vw,4rem);font-weight:900;color:#1e3a8a;margin-bottom:16px;letter-spacing:-0.02em;">
+      🏆 Goldkey AI Masters
+    </div>
+    <div style="font-size:clamp(1.2rem,4vw,1.8rem);font-weight:700;color:#3b82f6;margin-bottom:40px;">
+      CRM 고객상담 앱
+    </div>
+    <div style="font-size:clamp(0.95rem,3vw,1.1rem);color:#64748b;line-height:1.6;max-width:600px;margin:0 auto;">
+      AI 기반 보험 상담 솔루션으로<br>고객 관리의 새로운 기준을 경험하세요
+    </div>
+  </div>
+</div>
+<script>
+(function(){{
+  setTimeout(function(){{
+    var url = new URL(window.location.href);
+    url.searchParams.set('_lp_auto','1');
+    window.location.replace(url.toString());
+  }}, 2500);
+}})();
+</script>
+""", unsafe_allow_html=True)
+    
+    # ── [자동 전환] 2.5초 후 URL 파라미터로 재진입 ──
+    _auto_enter = st.query_params.get("_lp_auto", "") == "1"
+    if _auto_enter:
+        st.query_params.clear()
+        st.session_state["_crm_lp_landing"] = True
+        st.session_state["_rerun_pending"] = True
+        st.rerun()
+    
+    # ── [진입 버튼] 왼쪽 하단 고정 배치 ──
+    if st.button("시작", key="_crm_lp_trigger"):
+        st.session_state["_crm_lp_landing"] = True
+        st.session_state["_rerun_pending"] = True
+        st.rerun()
+
 # ── 페이지 설정 ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Goldkey_AI_Masters2026 (CRM 고객상담 앱)",
@@ -190,8 +335,8 @@ if _SESSION_MANAGER_OK:
 import time as _time_crm_timeout
 _crm_current_time = _time_crm_timeout.time()
 
-# 로그인된 사용자만 타임아웃 체크
-if st.session_state.get("user_id") and not st.session_state.get("_logout_flag"):
+# 로그인된 사용자만 타임아웃 체크 (랜딩페이지 노출 중에는 건너뛰기)
+if st.session_state.get("user_id") and not st.session_state.get("_logout_flag") and st.session_state.get("_crm_lp_landing", False):
     # 마지막 활동 시간 초기화
     if "last_activity_time" not in st.session_state:
         st.session_state["last_activity_time"] = _crm_current_time
@@ -215,22 +360,31 @@ if st.session_state.get("user_id") and not st.session_state.get("_logout_flag"):
 try:
     from shared_components import inject_global_gp_design as _crm_igd
     _crm_igd()
-except Exception:
+except Exception as _crm_igd_err:
+    pass
+
+# ── [GP-DESIGN-V4] 반응형 디자인 시스템 즉시 주입 (모바일/태블릿 대응) ────────
+try:
+    from shared_components import inject_global_responsive_design as _crm_ird
+    _crm_ird()
+except Exception as _crm_ird_err:
     pass
 
 # ── [GP-SEC §14] CRM 사이드바 보안 기준 준수 ──────────────────────────────────
-with st.sidebar:
-    st.markdown(
-        "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;padding:8px 0 4px;'>"
-        "🏆 Goldkey_AI_Masters2026 (CRM 고객상담 앱)</div>",
-        unsafe_allow_html=True,
-    )
-    try:
-        _sc_render_security_sidebar()
-    except Exception:
-        pass
-    for _merr in _MODULE_LOAD_ERRORS:
-        st.caption(f"⚠️ {str(_merr)[:120]}")
+# 랜딩페이지 노출 중에는 사이드바 렌더링 지연
+if st.session_state.get("_crm_lp_landing", False):
+    with st.sidebar:
+        st.markdown(
+            "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;padding:8px 0 4px;'>"
+            "🏆 Goldkey_AI_Masters2026 (CRM 고객상담 앱)</div>",
+            unsafe_allow_html=True,
+        )
+        try:
+            _sc_render_security_sidebar()
+        except Exception:
+            pass
+        for _merr in _MODULE_LOAD_ERRORS:
+            st.caption(f"⚠️ {str(_merr)[:120]}")
 
 # ── [GP-84 §11] 전역 CSS — Premium Design System v3 (모바일 우선) ──────────────
 st.markdown("""
@@ -241,6 +395,17 @@ st.markdown("""
    [CRM] GP-84 Premium Design System v3 — Mobile-First
    Apple HIG · Inter Font · Indigo Accent · Glassmorphism
 ══════════════════════════════════════════════════════ */
+
+/* 사이드바 완전 숨김 */
+[data-testid="stSidebar"] {
+  display: none !important;
+}
+section[data-testid="stSidebar"] {
+  display: none !important;
+}
+.css-1d391kg {
+  display: none !important;
+}
 
 /* §2-A GK RFS v1.0 — 반응형 폰트 스케일 (Mobile-First) */
 html { font-size: 16px; }
@@ -757,6 +922,12 @@ def _check_sso_token() -> bool:
 
 def _is_authenticated() -> bool:
     """[지시3] 60분 보안 타임아웃 검증 포함"""
+    # ═══════════════════════════════════════════════════════════════════════
+    # [DEFCON 1 - ACTION 4] 세션 복구 로직 — 스와이프/네비게이션 시 로그아웃 방지
+    # ═══════════════════════════════════════════════════════════════════════
+    if st.session_state.get("crm_user_id") and not st.session_state.get("crm_authenticated"):
+        st.session_state["crm_authenticated"] = True
+    
     if not st.session_state.get("crm_authenticated", False):
         return False
     
@@ -789,8 +960,16 @@ if _check_sso_token():
         # 플래그 해제 (다음 rerun을 위해)
         st.session_state["_rerun_pending"] = False
 
+# ── [CRM 랜딩페이지] 진입점 — 미인증 + 랜딩 미완료 시 노출 ─────────────────────
+_is_logged_in = _is_authenticated()
+_landing_done = st.session_state.get("_crm_lp_landing", False)
+
+if not _is_logged_in and not _landing_done:
+    _crm_render_landing_page()
+    st.stop()
+
 # ── [GP-SEC §2] 미인증 처리 — 자체 로그인 화면 독립 렌더링 ─────────────────────
-if not _is_authenticated():
+if not _is_logged_in:
     # ── 아바타 로드 (assets/goldkey_ai_avatar.jpg) ───────────────────
     import base64 as _b64av
     _av_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "goldkey_ai_avatar.jpg")
@@ -1633,6 +1812,10 @@ except Exception as _comp_err:
   div[data-testid="stRadio"] > div { flex-wrap: wrap !important; }
   div[data-testid="stRadio"] > div > label { flex: 1 1 45% !important; }
   .stDataFrame, .element-container { max-width: 100% !important; overflow-x: auto !important; }
+  /* 모바일/태블릿에서 사이드바 완전히 숨김 */
+  [data-testid="stSidebar"] { display: none !important; }
+  [data-testid="collapsedControl"] { display: none !important; }
+  section[data-testid="stSidebar"] { display: none !important; }
 }
 @media (min-width: 480px) and (max-width: 900px) {
   [data-testid="stHorizontalBlock"] button {
@@ -1980,6 +2163,28 @@ if _spa_mode == "list":
         sel_pid=_sel_pid,
         hq_app_url=HQ_APP_URL.rstrip("/"),
     )
+    
+    # ── [Phase 5] RAG 기반 AI 상담 채팅 ───────────────────────────────────────
+    st.markdown("<hr style='border:none;border-top:1px solid #e2e8f0;margin:16px 0 8px;'>",
+                unsafe_allow_html=True)
+    render_crm_ai_chat(_user_id, sel_pid=_sel_pid)
+    
+    # ── [Phase 7] AI 분석 결과 공유 블록 (RAG 채팅 결과 공유) ──────────────
+    if "crm_ai_chat_history" in st.session_state and st.session_state["crm_ai_chat_history"]:
+        _last_ai_response = ""
+        for msg in reversed(st.session_state["crm_ai_chat_history"]):
+            if msg.get("role") == "assistant":
+                _last_ai_response = msg.get("content", "")
+                break
+        
+        if _last_ai_response and len(_last_ai_response) > 50:
+            render_share_report_block(
+                analysis_content=_last_ai_response,
+                customer_name=_sel_cust.get("name", "고객"),
+                block_title="AI 상담 분석 결과",
+                key_prefix="share_rag_chat"
+            )
+    
     render_crm_list_inline_panel(
         _sel_cust,
         _sel_pid or "",
@@ -2524,6 +2729,36 @@ elif _spa_mode == "customer":
                     _user_id,
                     _sel_cust.get("name", ""),
                 )
+
+                # ── [Phase 5] AI 사고 분석 센터 (블랙박스 영상 분석) ──────────
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                render_crm_accident_analysis_block(
+                    _sel_pid,
+                    _user_id,
+                    _sel_cust.get("name", ""),
+                )
+                
+                # ── [Phase 5-2] 자동차 전손/미수선 시뮬레이터 ──────────────────
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                try:
+                    from blocks.total_loss_simulator import render_total_loss_simulator_block
+                    render_total_loss_simulator_block(
+                        customer_name=_sel_cust.get("name", "고객"),
+                        key_prefix=f"total_loss_{_sel_pid}"
+                    )
+                except Exception as _tls_e:
+                    st.info(f"💡 전손 시뮬레이터 로드 중 오류: {_tls_e}")
+                
+                # ── [Phase 5-3] 자동차상해 특약 권유 상담 ──────────────────────
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+                try:
+                    from blocks.auto_injury_coverage_advisor import render_auto_injury_coverage_advisor_block
+                    render_auto_injury_coverage_advisor_block(
+                        customer_name=_sel_cust.get("name", "고객"),
+                        key_prefix=f"auto_injury_{_sel_pid}"
+                    )
+                except Exception as _aic_e:
+                    st.info(f"💡 자동차상해 상담 모듈 로드 중 오류: {_aic_e}")
 
                 # ── [GP-PHASE3] 스캔 문서 보관함 이력 뷰어 ──────────────────────
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
@@ -3191,22 +3426,24 @@ elif _spa_mode == "customer":
         # ── [§16 통합 증권분석 센터] 피보험자 기준 nibo JSON → trinity 파이프라인 ──
         st.markdown("<hr style='border-top:2px solid #3b82f6;margin:20px 0 12px;'>",
                     unsafe_allow_html=True)
-        st.markdown(
-            "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;margin-bottom:8px;'>"
-            "🔬 통합 증권분석 센터 (내보험다보여 연동)"
-            "<span style='font-size:0.68rem;font-weight:400;color:#64748b;margin-left:8px;'>"
-            f"피보험자 기준 · {(_sel_cust or {}).get('name','고객')} 원장</span></div>",
-            unsafe_allow_html=True,
-        )
-        try:
-            from shared_components import render_unified_analysis_center as _analysis_uac
-            _analysis_uac(
-                key_prefix="_uac_analysis",
-                person_id=_sel_pid or "",
-                agent_id=_user_id,
-            )
-        except Exception as _uac_analysis_e:
-            st.error(f"통합분석센터 오류: {_uac_analysis_e}")
+        # ── [내보험다보여 기능 완전 제거됨 (2026-04-01)] ──────────────────────────
+        # st.markdown(
+        #     "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;margin-bottom:8px;'>"
+        #     "🔬 통합 증권분석 센터 (내보험다보여 연동)"
+        #     "<span style='font-size:0.68rem;font-weight:400;color:#64748b;margin-left:8px;'>"
+        #     f"피보험자 기준 · {(_sel_cust or {}).get('name','고객')} 원장</span></div>",
+        #     unsafe_allow_html=True,
+        # )
+        # try:
+        #     from shared_components import render_unified_analysis_center as _analysis_uac
+        #     _analysis_uac(
+        #         key_prefix="_uac_analysis",
+        #         person_id=_sel_pid or "",
+        #         agent_id=_user_id,
+        #     )
+        # except Exception as _uac_analysis_e:
+        #     st.error(f"통합분석센터 오류: {_uac_analysis_e}")
+        st.info("⚠️ 내보험다보여 기능은 현재 비활성화되었습니다. (회원 500명 이상 시 재검토)")
 
     # ── SCREEN 5: 🤖 AI 브리핑 편집기 (5:5 분할 — 좌: 우선순위·일정, 우: 편집기) ────
     elif _spa_screen == "ai_brief":
@@ -3787,7 +4024,7 @@ elif _spa_mode == "customer":
             else:
                 _dn2 = _db_cust.get("name", "")
                 _dp2 = _db_cust.get("person_id", "")
-                _dbt1, _dbt2, _dbt3 = st.tabs(["✏️ 기본정보 수정", "📋 보험 가입 관리", "💰 결제 완료 항목"])
+                _dbt1, _dbt2, _dbt3, _dbt4 = st.tabs(["✏️ 기본정보 수정", "📋 보험 가입 관리", "💰 결제 완료 항목", "🎙️ 음성 상담 분석"])
                 with _dbt1:
                     st.markdown(
                         "<div style='background:#fff;border:1px dashed #000;"
@@ -3852,6 +4089,24 @@ elif _spa_mode == "customer":
                         render_paid_analysis_list(_dp2, _user_id)
                     else:
                         st.info("💡 결제 완료 항목 모듈 로드 필요")
+                    st.markdown("</div>", unsafe_allow_html=True)
+                
+                # [Phase 7] 음성 상담 분석
+                with _dbt4:
+                    st.markdown(
+                        "<div style='background:#fff;border:1px dashed #000;"
+                        "border-radius:10px;padding:14px;'>",
+                        unsafe_allow_html=True,
+                    )
+                    try:
+                        from blocks.crm_voice_consultation_block import render_crm_voice_consultation_block
+                        render_crm_voice_consultation_block(
+                            sel_pid=_dp2,
+                            user_id=_user_id,
+                            customer_name=_dn2
+                        )
+                    except Exception as _voice_e:
+                        st.error(f"❌ 음성 상담 분석 블록 로드 실패: {_voice_e}")
                     st.markdown("</div>", unsafe_allow_html=True)
 
     # ── SCREEN 8: ⚙️ 연동/설정 ───────────────────────────────────────────────

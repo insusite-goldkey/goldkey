@@ -88,3 +88,43 @@
 1. 코드 수정 전 반드시 이 조항을 검토한다
 2. 사용자 요청이 이 조항과 충돌할 경우, 충돌 내용을 명확히 설명하고 대안을 제시한다
 3. 긴급 상황(보안 패치, 치명적 버그 수정)을 제외하고는 이 조항을 절대 위반하지 않는다
+
+## ══════════════════════════════════════════════════════════════════════════════
+## [DEFCON 1 - 2026-03-30] 코어 룰 4대 원칙 — 영구 롤백 방지 시스템
+## 상세 문서: GP_CORE_RULES.md
+## ══════════════════════════════════════════════════════════════════════════════
+
+### 🔴 CORE RULE 1: Session State 절대 보호
+- 모든 앱 진입점 최상단에 세션 초기화 및 복구 로직 필수 배치
+- `st.rerun()` 호출 시 세션 상태 검증 생략 금지
+- 에러 발생 시 세션 전체 `clear()` 호출 금지 (선택적 키 삭제만 허용)
+- 적용 파일: `hq_app_impl.py` (line 31-49), `crm_app_impl.py` (line 758-764)
+
+### 🔴 CORE RULE 2: HTML 렌더링 강제
+- HTML 포함 `st.markdown()` 호출 시 `unsafe_allow_html=True` 필수
+- `unsafe_allow_html=True` 파라미터 삭제 절대 금지
+- HTML 코드를 일반 텍스트로 변환 금지
+- 적용 파일: `shared_components.py` (line 1139-1140, 2551, 2626)
+
+### 🔴 CORE RULE 3: GP 반응형 디자인
+- 모든 UI 컴포넌트에 `use_container_width=True` 적용
+- 전역 CSS에 `word-wrap: break-word; max-width: 100%;` 필수
+- 고정 너비(`width: 500px` 등) 하드코딩 금지
+- 적용 파일: `shared_components.py` (line 2670-2694)
+
+### 🔴 CORE RULE 4: Zero-Trust 파이프라인
+- 외부 데이터는 4단계 검증(추출→LLM 구조화→Python 검증→Human 승인) 필수
+- 외부 데이터를 검증 없이 직접 DB 저장 금지
+- LLM 출력을 `eval()` 또는 `exec()`로 실행 금지
+- 적용 파일: `modules/zero_trust_validator.py`
+
+### 🛡️ AI 어시스턴트 확약 (Commit)
+본 AI 어시스턴트(Windsurf Cascade)는 다음을 확약합니다:
+1. ✅ 모든 코드 수정 작업 전 GP_CORE_RULES.md 파일을 반드시 읽고 검토
+2. ✅ 4대 코어 룰 위반 여부를 스스로 검열 후 작업 진행
+3. ✅ 위반 사항 발견 시 즉시 설계자에게 보고 및 롤백
+4. ✅ 설계자의 명시적 승인 없이 코어 룰 수정 절대 금지
+
+서명: Windsurf Cascade AI Assistant
+날짜: 2026-03-30
+버전: v1.0 (DEFCON 1 긴급 복구 완료 후 확정)

@@ -1,0 +1,28 @@
+# Cloud Run용 RAG Trigger API Dockerfile
+FROM python:3.11-slim
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# 시스템 패키지 업데이트
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python 패키지 설치
+COPY hq_backend/api/requirements_api.txt .
+RUN pip install --no-cache-dir -r requirements_api.txt
+
+# 애플리케이션 코드 복사
+COPY hq_backend/ /app/hq_backend/
+
+# 환경 변수 설정
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
+
+# 포트 노출
+EXPOSE 8080
+
+# FastAPI 앱 실행
+CMD ["uvicorn", "hq_backend.api.rag_trigger_api:app", "--host", "0.0.0.0", "--port", "8080"]

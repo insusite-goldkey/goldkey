@@ -54,6 +54,17 @@ def render_crm_consultation_center(
                 ("🧾 청구 스캐너", "claim_scanner"),
                 ("♿ 장해 산출", "disability"),
             )
+            
+            # 보험사기 신고 센터 링크 (최상단 배치)
+            st.markdown(
+                '<a href="https://www.fss.or.kr" target="_blank" rel="noopener noreferrer" '
+                'style="display:block;text-align:center;background:#fee2e2;color:#991b1b;'
+                "border:1px solid #fca5a5;border-radius:10px;padding:10px 8px;margin:4px 0 8px;"
+                'font-size:clamp(11px,1.6vw,13px);font-weight:800;text-decoration:none;">'
+                "🚨 보험사기 신고 센터 (FSS) ☎️ 1332</a>",
+                unsafe_allow_html=True,
+            )
+            
             for _lbl, _sector in _HQ_SCAN_SECTORS:
                 try:
                     from shared_components import build_deeplink_to_hq

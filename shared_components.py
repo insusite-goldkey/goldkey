@@ -901,26 +901,7 @@ def render_reception_desk(*, key_prefix: str = "_rd") -> None:
                 st.rerun()
 
 
-# ── [내보험다보여 연동 전용 안내문] — 신용정보법 제32조 별도 고지 의무 ──────────
-_NIBO_CONSENT_VERSION = "2026-03-16-v1"   # 개정 시 이 값을 변경 (동의 이력에 기록)
-
-def _get_nibo_consent_html():
-    """내보험다보여 안내문 HTML 반환 (app_texts 우선, 폴백 포함)"""
-    if txt and hasattr(txt, 'NIBO_AGREEMENT'):
-        _content = txt.NIBO_AGREEMENT.replace('\n', '<br>')
-        return f"<div style='font-size:0.82rem;color:#1e3a8a;line-height:1.9;'>{_content}</div>"
-    return """
-<div style='font-size:0.82rem;color:#1e3a8a;line-height:1.9;'>
-<b style='font-size:0.88rem;'>🔐 내보험다보여 안내 — 신용정보의 이용 및 보호에 관한 법률 제32조 준수</b><br><br>
-• <b>수집 항목:</b> 보험사명, 상품명, 보장내역, 계약상태 (한국신용정보원 제공 데이터)<br>
-• <b>활용 목적:</b> AI 트리니티 엔진 기반 보장 분석 및 맞춤형 설계 서비스 제공<br>
-• <b>정보 보관:</b> 분석 완료 후 30일 경과 시 자동 파기 (단, 분석 결과는 법령에 따라 최대 3년 보관 가능)<br>
-• <b>인증 정보:</b> 데이터 수집 즉시 메모리에서 삭제 (서버 내 무단 저장 및 외부 유출 절대 금지)<br>
-• <b>미동의 시:</b> AI 보장 분석 및 트리니티 설계 서비스 이용이 제한될 수 있습니다.<br>
-</div>
-"""
-
-_NIBO_CONSENT_HTML = _get_nibo_consent_html()
+# ── [내보험다보여 연동 전용 안내문] — 완전 제거됨 (2026-04-01) ──────────
 
 # ── [GP-SEC §5] 공통 약관 원문 (HQ/CRM 양쪽 render_auth_screen에서 사용) ──────
 def _get_terms_text():
@@ -976,10 +957,7 @@ AI 보장 분석 및 트리니티 리포트 / 에이젠틱 AI 영업 전략 및 
 **[제9조] 금융소비자보호법(금소법) 준수 원칙**
 적합성, 적정성, 설명 의무, 부당권유 방지, 허위·과장 광고 금지 원칙(금소법 제17조~22조)을 시스템 로직에 반영하여 객관적 수치 내에서만 분석을 제공합니다.
 
-**[제10조] 내보험다보여 연동 (신용정보법 제32조)**
-수집된 보험 정보(담보내역, 보험료 등)는 AI 트리니티 엔진 분석 목적으로만 사용되며, 인증 정보는 데이터 추출 직후 메모리에서 즉시 파기되어 서버에 절대 저장되지 않습니다.
-
-**[제11조] 카카오톡 서비스 보안 및 제3자 제공**
+**[제10조] 카카오톡 서비스 보안 및 제3자 제공**
 ① **보안:** 대화 내용을 열람하거나 친구 목록을 수집하지 않으며 발송 권한만 활용합니다.
 ② **제3자 제공:** 분석 결과 안내를 위해 고객 번호를 카카오(주) 알림톡 API에 전달할 수 있으며, 데이터는 비식별 마스킹(*) 처리되어 발송됩니다.
 
@@ -1023,7 +1001,7 @@ def render_auth_screen(
     terms_agree_key: str = "_gp_terms_agreed",
     show_header: bool = True,
     show_terms_scroll: bool = True,
-    show_nibo_box: bool = True,
+    show_nibo_box: bool = False,
     show_checkboxes: bool = True,
     show_masterplan: bool = True,
     consent_header_text: str = None,
@@ -1042,16 +1020,98 @@ def render_auth_screen(
         True  — 약관 동의 완료 (로그인 버튼 활성화 허용)
         False — 미동의 (로그인 버튼 disabled 처리)
     """
-    # [2026-03-29 긴급 수정] show_checkboxes=False일 때는 약관 스크롤 박스 렌더링 건너뛰기
+    # ═══════════════════════════════════════════════════════════════════════
+    # [DEFCON 1 - ACTION 1] 에러 캐시 무한 루프 방어 — 강제 초기화
+    # 로그인 화면 진입 시 망가진 세션 에러 찌꺼기 완전 제거
+    # ═══════════════════════════════════════════════════════════════════════
+    _error_keys_to_clear = [
+        "analysis_error", "trinity_error", "scan_error", "ai_error",
+        "_error_state", "_analysis_failed",
+        "last_error", "error_message", "error_cache"
+    ]
+    for _ek in _error_keys_to_clear:
+        if _ek in st.session_state:
+            del st.session_state[_ek]
+    
+    # [2026-04-01 UI 개선] 약관 아코디언(Read More) 방식으로 전환
     # CRM 로그인 화면에서 HTML 태그 날것 노출 방지
     if show_terms_scroll and show_checkboxes:
+        st.markdown("""
+<style>
+.gp-terms-accordion {
+  width: 100%;
+  max-width: 100%;
+  border: 1px dashed #000;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #f9fafb;
+  margin-bottom: 8px;
+}
+.gp-terms-summary {
+  position: relative;
+  max-height: 120px;
+  overflow: hidden;
+  font-size: 0.76rem;
+  color: #222;
+  line-height: 1.75;
+  margin-bottom: 8px;
+}
+.gp-terms-summary::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, #f9fafb);
+  pointer-events: none;
+}
+.gp-terms-summary.expanded {
+  max-height: none;
+}
+.gp-terms-summary.expanded::after {
+  display: none;
+}
+.gp-terms-full {
+  max-height: 0;
+  overflow: hidden;
+  font-size: 0.76rem;
+  color: #222;
+  line-height: 1.75;
+  transition: max-height 0.3s ease-in-out;
+}
+.gp-terms-full.expanded {
+  max-height: 2000px;
+}
+.gp-terms-toggle-btn {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  margin: 8px auto;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1.5px solid #3b82f6;
+  border-radius: 6px;
+  color: #3b82f6;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+.gp-terms-toggle-btn:hover {
+  background: #3b82f6;
+  color: white;
+}
+.gp-terms-toggle-btn:active {
+  transform: scale(0.98);
+}
+</style>
+<div class="gp-terms-accordion">
+<div style='font-size:0.95rem;font-weight:900;color:#1e3a8a;margin-bottom:12px;text-align:center;'>
+📋 Goldkey AI Masters 2026 이용약관 및 개인정보 처리방침</div>
+<div class="gp-terms-summary" id="gp-terms-summary">""", unsafe_allow_html=True)
         st.markdown(
-        "<div style='width:100%;max-width:100%;max-height:220px;overflow-y:auto;font-size:0.76rem;"
-        "color:#222;line-height:1.75;border:1px dashed #000;border-radius:8px;"
-        "padding:10px 14px;background:#f9fafb;margin-bottom:8px;'>"
-
-        "<div style='font-size:0.95rem;font-weight:900;color:#1e3a8a;margin-bottom:12px;text-align:center;'>"
-        "📋 Goldkey AI Masters 2026 이용약관 및 개인정보 처리방침</div>"
 
         "<b style='color:#0a1628;'>[제1조] 목적</b><br>"
         "본 약관은 Goldkey AI Masters 2026(이하 '서비스')의 이용 조건·절차, 운영자와 회원의 권리·의무를 규정함을 목적으로 합니다.<br><br>"
@@ -1061,9 +1121,20 @@ def render_auth_screen(
         "사용 대상: 보험업계 종사자 또는 관련 업무 자격 보유자(19세 이상)를 대상으로 합니다.<br><br>"
 
         "<b style='color:#0a1628;'>[제3조] 서비스 기능 범위</b><br>"
-        "AI 보장 분석 도구 / 세무·법률·상속·증여 참고 정보 제공 / 보험사별 보장 및 보험금 청구 안내 절차 지원<br><br>"
+        "AI 보장 분석 도구 / 세무·법률·상속·증여 참고 정보 제공 / 보험사별 보장 및 보험금 청구 안내 절차 지원<br><br>",
+        unsafe_allow_html=True,
+        )
+        st.markdown(
+        "</div>\n"
+        "<button class='gp-terms-toggle-btn' id='gp-terms-toggle-btn' aria-expanded='false'>\n"
+        "전문 보기 ⌵\n"
+        "</button>\n"
+        "<div class='gp-terms-full' id='gp-terms-full'>"
 
-        "<b style='color:#0a1628;'>[제4조] 제한 및 금지 사항 (어뷰징 차단)</b><br>"
+        "<b style='color:#0a1628;'>[제4조] 제한 및 금지 사항 (어뷰징 차단)</b><br>",
+        unsafe_allow_html=True,
+        )
+        st.markdown(
         "타인 계정 도용 및 허위 정보 입력, 계정 공유 행위를 금지합니다. 시스템 해킹 시도 및 부당한 권한 획득, 자동화 도구(매크로, 크롤링, 봇)를 이용한 무단 데이터 수집 및 비정상적인 대량의 AI(API) 호출 행위가 적발될 경우, 사전 통보 없이 계정이 영구 정지되며 잔여 크레딧은 몰수됩니다.<br><br>"
 
         "<b style='color:#0a1628;'>[제5조] 개인정보 수집 및 이용</b><br>"
@@ -1107,8 +1178,10 @@ def render_auth_screen(
         "③ 이용 제한 및 하드 록(Hard Lock) 정책:<br>"
         "구독 만료: 월 구독료(50코인 등)가 미납되거나 갱신되지 않을 경우, 서비스 이용이 자동으로 제한(Hard Lock)됩니다.<br>"
         "자산 보존: 구독이 만료되더라도 사용자가 보유한 잔여 코인은 소멸되지 않고 안전하게 보존됩니다. 단, 월 구독료를 납부하여 구독을 갱신하는 시점부터 다시 사용이 가능합니다.<br>"
-        "토큰 소진: 구독 기간 중이라도 보유 코인을 모두 소진할 경우, 코인이 발생하는 새로운 분석 기능은 차단됩니다. 이때는 코인을 추가 충전하거나 추천인 리워드를 통해 즉시 활성화할 수 있습니다.<br><br>"
-
+        "토큰 소진: 구독 기간 중이라도 보유 코인을 모두 소진할 경우, 코인이 발생하는 새로운 분석 기능은 차단됩니다. 이때는 코인을 추가 충전하거나 추천인 리워드를 통해 즉시 활성화할 수 있습니다.<br><br>",
+        unsafe_allow_html=True,
+        )
+        st.markdown(
         "<b style='color:#0a1628;'>[제15조] 결제 취소 및 환불 규정</b><br>"
         "① 청약철회: 회원은 시스템 관리비 결제일로부터 7일 이내에 서비스를 전혀 이용하지 않은 경우 전액 환불을 요청할 수 있습니다.<br>"
         "② 환불 불가 예외 (중요): 본 서비스는 '디지털 콘텐츠 및 서버 할당형 서비스'입니다. 결제 후 크레딧을 1회 이상 사용하였거나, AI 분석 결과를 열람한 경우 관련 법령(전자상거래법 제17조 제2항 제5호)에 따라 청약철회 및 환불이 엄격히 제한됩니다.<br>"
@@ -1136,7 +1209,54 @@ def render_auth_screen(
         "font-weight:700;color:#7a4f00;text-align:center;'>"
         "⚠️ 필수 동의 항목(3가지)에 모두 체크하셔야 로그인/가입 버튼이 활성화됩니다."
         "</div>"
+        "</div>"
         "</div>",
+        unsafe_allow_html=True,
+        )
+        st.markdown(
+        "<script>\n"
+        "(function() {\n"
+        "  let isExpanded = false;\n"
+        "  window.toggleTerms = function() {\n"
+        "    const summary = document.getElementById('gp-terms-summary');\n"
+        "    const full = document.getElementById('gp-terms-full');\n"
+        "    const btn = document.getElementById('gp-terms-toggle-btn');\n"
+        "    if (!summary || !full || !btn) {\n"
+        "      console.error('약관 요소를 찾을 수 없습니다.');\n"
+        "      return;\n"
+        "    }\n"
+        "    \n"
+        "    isExpanded = !isExpanded;\n"
+        "    \n"
+        "    if (isExpanded) {\n"
+        "      summary.classList.add('expanded');\n"
+        "      full.classList.add('expanded');\n"
+        "      btn.innerHTML = '접기 ⌃';\n"
+        "      btn.setAttribute('aria-expanded', 'true');\n"
+        "    } else {\n"
+        "      summary.classList.remove('expanded');\n"
+        "      full.classList.remove('expanded');\n"
+        "      btn.innerHTML = '전문 보기 ⌵';\n"
+        "      btn.setAttribute('aria-expanded', 'false');\n"
+        "      setTimeout(function() {\n"
+        "        const accordion = document.querySelector('.gp-terms-accordion');\n"
+        "        if (accordion) {\n"
+        "          accordion.scrollIntoView({ behavior: 'smooth', block: 'start' });\n"
+        "        }\n"
+        "      }, 100);\n"
+        "    }\n"
+        "  };\n"
+        "  \n"
+        "  // DOM 로드 후 버튼 이벤트 리스너 추가\n"
+        "  setTimeout(function() {\n"
+        "    const btn = document.getElementById('gp-terms-toggle-btn');\n"
+        "    if (btn && !btn.hasAttribute('data-listener-added')) {\n"
+        "      btn.addEventListener('click', window.toggleTerms);\n"
+        "      btn.setAttribute('data-listener-added', 'true');\n"
+        "    }\n"
+        "  }, 500);\n"
+        "})();\n"
+        "</script>",
         unsafe_allow_html=True,
         )
     
@@ -1155,12 +1275,36 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
     margin-bottom: 6px;
     text-align: left;
 }
+/* 체크박스 왼쪽 정렬 강제 - 태블릿 대응 */
+div[data-testid="stCheckbox"] {
+    text-align: left !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+div[data-testid="stCheckbox"] label {
+    text-align: left !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+}
+div[data-testid="stCheckbox"] label > div {
+    margin-right: 8px !important;
+}
+/* 전체동의 체크박스도 왼쪽 정렬 */
+.stCheckbox {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
 </style>""", unsafe_allow_html=True)
     _consent_header_text = consent_header_text or "📋 서비스 이용을 위해서는 반드시 동의해야 합니다. (체크시 로그인창 열림)"
     st.markdown(
-        f"<div style='width:fit-content;max-width:100%;background:{consent_header_bg};border-radius:8px;"
+        f"<div style='width:100%;max-width:100%;background:{consent_header_bg};border-radius:8px;"
         "padding:10px 18px;margin:10px 0 8px 0;text-align:left;'>"
-        f"<span style='font-size:clamp(0.95rem, 2.5vw, 1.1rem);font-weight:900;color:{consent_header_fg};line-height:1.5;'>"
+        f"<span style='font-size:1rem;font-weight:700;color:{consent_header_fg};line-height:1.5;'>"
         f"{_consent_header_text}</span></div>",
         unsafe_allow_html=True,
     )
@@ -1182,7 +1326,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         consent_set("cal_sync_consent_agreed", True)
         consent_set("kakao_consent_agreed", True)
     st.checkbox(
-        "🔲 **전체 동의** (필수·선택·내보험다보여·AI음성·캘린더·카카오톡 항목 모두 동의)",
+        "🔲 **전체 동의** (필수·선택·AI음성·캘린더·카카오톡 항목 모두 동의)",
         key=_all_key,
         on_change=_on_all_consent_change,
     )
@@ -1202,34 +1346,8 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         "☑️ **[선택]** 마케팅·서비스 개선 목적 정보 활용에 동의합니다",
         key=f"{terms_agree_key}_c4",
     )
-    # ── [ID-100-AUTH] 내보험다보여 연동 동의 입구 제어 카드 ──────────────────
-    if show_nibo_box:
-        st.markdown(
-            "<div style='width:100%;max-width:100%;background:#fffbeb;border:2px dashed #f59e0b;"
-            "border-radius:10px;padding:12px 14px;margin-top:14px;'>"
-            "<div style='font-size:0.82rem;font-weight:900;color:#92400e;margin-bottom:8px;'>"
-            "🔐 [내보험다보여 연동 동의] — 신용정보법 제32조 별도 고지</div>"
-            "<div style='font-size:0.75rem;color:#78350f;line-height:1.85;'>"
-            "• <b>수집:</b> 보험사명 · 상품명 · 보장내역 · 계약 상태 (한국신용정보원 제공 데이터)<br>"
-            "• <b>목적:</b> AI 트리니티 — 보장성 분석 및 맞춤형 보험 설계 제공<br>"
-            "• <b>보관:</b> 분석 후 30일 경과 시 자동 파기 (단, 분석 리포트는 최대 3년 보관)<br>"
-            "• <b>인증정보:</b> 데이터 연동 후 메모리에서 즉시 파기 (서버 내 무단 저장 불가)<br>"
-            "• <b>미동의 시:</b> AI 보장 분석 및 트리니티 서비스 이용 불가"
-            "</div></div>",
-            unsafe_allow_html=True,
-        )
-        with st.popover("📋 신용정보의 이용 및 보호에 관한 법률 (약칭: 신용정보법)", use_container_width=True):
-            st.markdown(
-                "<div style='font-size:0.76rem;color:#92400e;font-weight:700;"
-                "margin-bottom:4px;padding:4px 0;'>📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
-                unsafe_allow_html=True,
-            )
-            st.markdown(_NIBO_CONSENT_HTML, unsafe_allow_html=True)
-    _c5 = st.checkbox(
-        "✅ **[내보험다보여 필수]** 신용정보원 '내보험다보여' 연동 및 신용정보 조회·분석에 동의합니다 (신용정보법 제32조)",
-        key=f"{terms_agree_key}_c5",
-        help="AI 증권분석·트리니티 리포트 기능 사용 시 필수. 미동의 시 해당 기능이 비활성화됩니다.",
-    )
+    # ── [ID-100-AUTH] 내보험다보여 — 완전 제거됨 (2026-04-01) ──────────────────
+    _c5 = False
     # ── [GP-VOICE] AI 음성 브리핑 동의 (선택) ──────────────────────────────────
     _voice_info = txt.BRIEFING_INFO if (txt and hasattr(txt, 'BRIEFING_INFO')) else "🔊 AI 브리핑 안내: 설계사님의 설계 내역 및 고객 분석 결과를 AI 아나운서의 내레이션으로 자동 브리핑해 제공하는 기능입니다. (마이크 권한 불필요, 스피커 출력)"
     st.markdown(
@@ -1239,7 +1357,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         f"</div>",
         unsafe_allow_html=True,
     )
-    _voice_consent = txt.BRIEFING_CONSENT_OPTIONAL if (txt and hasattr(txt, 'BRIEFING_CONSENT_OPTIONAL')) else "(선택) AI 패스 브리핑 및 오디오 자동 재생 동의"
+    _voice_consent = txt.BRIEFING_CONSENT_OPTIONAL if (txt and hasattr(txt, 'BRIEFING_CONSENT_OPTIONAL')) else "[선택] AI 브리핑 및 오디오 자동 재생"
     _c6 = st.checkbox(
         f"🔊 **{_voice_consent}**",
         key=f"{terms_agree_key}_c6",
@@ -1286,15 +1404,12 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stCheckbox"]) {
         help="고객에게 AI 분석 리포트를 카카오톡으로 발송하는 기능입니다. 미동의 시 카카오톡 발송 버튼이 비활성화됩니다.",
     )
     consent_set("kakao_consent_agreed", _c8)
-    # 내보험다보여 동의 여부를 독립 세션키로도 저장 (feature gate용)
-    consent_set("nibo_consent_agreed", _c5)
-    ss_set_ns("consent", "nibo_consent_version", _NIBO_CONSENT_VERSION if _c5 else "")
-    st.session_state["nibo_consent_version"] = _NIBO_CONSENT_VERSION if _c5 else ""
-    _ts = (
-        __import__("datetime").datetime.now().isoformat() if _c5 else ""
-    )
-    ss_set_ns("consent", "nibo_consent_timestamp", _ts)
-    st.session_state["nibo_consent_timestamp"] = _ts
+    # 내보험다보여 기능 완전 제거 (2026-04-01)
+    consent_set("nibo_consent_agreed", False)
+    ss_set_ns("consent", "nibo_consent_version", "")
+    st.session_state["nibo_consent_version"] = ""
+    ss_set_ns("consent", "nibo_consent_timestamp", "")
+    st.session_state["nibo_consent_timestamp"] = ""
     agreed = _c1 and _c2 and _c3
     st.session_state[terms_agree_key] = agreed
     return agreed
@@ -1903,17 +2018,9 @@ div[data-testid="stFormSubmitButton"] > button:hover {
 # HQ 앱(app.py) + CRM 앱(crm_app.py) 양쪽에서 동일 렌더링
 # ══════════════════════════════════════════════════════════════════════════════
 # ── [GP-L-SEC] 내보험다보여 동의 상수 (ImportError 방지) ─────────────────────
-_NIBO_CONSENT_VERSION = "2026-03-16-v1"
-_NIBO_CONSENT_HTML = """
-<div style='font-size:0.78rem;color:#1e3a8a;line-height:1.7;padding:6px 0;'>
-<b style='font-size:0.82rem;'>🔐 내보험다보여 안내 — 신용정보법 제32조 준수</b><br>
-• <b>수집 항목:</b> 보험사명, 상품명, 보장내역, 계약상태 (한국신용정보원 제공 데이터)<br>
-• <b>활용 목적:</b> AI 트리니티 엔진 기반 보장 분석 및 맞춤형 설계 서비스 제공<br>
-• <b>정보 보관:</b> 분석 완료 후 30일 경과 시 자동 파기 (단, 분석 결과는 법령에 따라 최대 3년 보관 가능)<br>
-• <b>인증 정보:</b> 데이터 수집 즉시 메모리에서 삭제 (서버 내 무단 저장 및 외부 유출 절대 금지)<br>
-• <b>미동의 시:</b> AI 보장 분석 및 트리니티 설계 서비스 이용이 제한될 수 있습니다.
-</div>
-"""
+# 운영방침: 회원 500명 이상 시 재검토 (2026-04-01)
+_NIBO_CONSENT_VERSION = "2026-03-16-v1"  # 호환성 유지
+_NIBO_CONSENT_HTML = ""  # 내보험다보여 기능 비활성화
 
 
 def render_unified_analysis_center(
@@ -1923,9 +2030,11 @@ def render_unified_analysis_center(
     person_id: str = "",
     agent_id: str = "",
 ) -> None:
-    """반응형 통합 증권분석 센터 — 고객 대면용 AI 컨설팅 보드.
-    좌우 5:5 레이아웃, 모바일 자동 스태킹.
+    """반응형 통합 증권분석 센터 — 내보험다보여 기능 완전 제거됨 (2026-04-01).
+    이 함수는 더 이상 사용되지 않습니다.
     """
+    st.warning("⚠️ 내보험다보여 기능은 현재 비활성화되었습니다. (회원 500명 이상 시 재검토)")
+    return
     st.markdown("""
 <style>
 @media(max-width:640px){
@@ -2653,6 +2762,31 @@ _GP_GLOBAL_DESIGN_CSS = """<style>
 }
 
 /* 2. 전체 배경 + 폰트 기반 ─────────────────────────────────────────── */
+/* [DEFCON 1 - ACTION 3] 모바일 반응형 강제 적용 — 화면 이탈 방지 */
+* {
+  word-wrap: break-word !important;
+  word-break: keep-all !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* AI 분석 보고서 박스 모바일 반응형 */
+div[data-testid="stMarkdownContainer"],
+div[data-testid="stMarkdown"],
+.stMarkdown,
+.element-container {
+  max-width: 100% !important;
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+}
+
+/* 트리니티 계산법 보고서 박스 반응형 */
+div[style*="background:#fffbeb"],
+div[style*="border:1.5px solid #fbbf24"] {
+  max-width: 100% !important;
+  width: 100% !important;
+  overflow-x: hidden !important;
+}
 [data-testid="stApp"],
 [data-testid="stAppViewContainer"] > .main {
   background: var(--gp-bg) !important;
@@ -3558,8 +3692,178 @@ def render_password_reset_modal():
                     st.error("❌ 회원 정보를 찾을 수 없습니다")
             
             except Exception as e:
-                st.error(f"❌ 비밀번호 변경 실패: {e}")
-import os
+                st.error(f"❌ 오류: {str(e)}")
+    
+    return False
+
+
+def inject_global_responsive_design():
+    """[GP-DESIGN-V4] 전역 반응형 디자인 시스템 주입
+    
+    모바일/태블릿/데스크톱 환경에서 일관된 UX 제공을 위한 반응형 CSS.
+    모든 앱 진입점(app.py, crm_app.py)의 main() 함수 최상단에서 호출 필수.
+    
+    주요 기능:
+    - 모바일 컬럼 자동 세로 스태킹
+    - 데이터 에디터 가로 스크롤 허용
+    - 버튼 터치 타겟 44px 이상 보장
+    - 반응형 타이포그래피 (clamp 함수)
+    - 이미지 자동 크기 조정
+    """
+    st.markdown("""
+    <style>
+    /* ══════════════════════════════════════════════════════════════════════════════
+       [GP-DESIGN-V4] 전역 반응형 디자인 시스템
+       작성일: 2026-03-30
+       목적: 모바일/태블릿 환경에서 화면 벗어남, 스태킹 버그 방지
+    ══════════════════════════════════════════════════════════════════════════════ */
+    
+    /* ── 1. 반응형 컨테이너 기본 설정 ────────────────────────────────── */
+    .stApp {
+        max-width: 100vw;
+        overflow-x: hidden;
+    }
+    
+    .main .block-container {
+        max-width: 100%;
+        padding-left: clamp(1rem, 3vw, 3rem);
+        padding-right: clamp(1rem, 3vw, 3rem);
+    }
+    
+    /* ── 2. 모바일 컬럼 세로 스태킹 (768px 이하) ────────────────────────────────── */
+    @media (max-width: 768px) {
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 100% !important;
+            min-width: 100% !important;
+            margin-bottom: 1rem;
+        }
+        
+        /* 데이터 에디터 가로 스크롤 허용 */
+        [data-testid="stDataFrame"],
+        [data-testid="stDataFrameResizable"] {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            max-width: 100vw;
+        }
+        
+        /* 버튼 터치 타겟 확대 (WCAG 최소 기준 44px) */
+        button[kind="primary"],
+        button[kind="secondary"],
+        .stButton > button {
+            min-height: 44px !important;
+            padding: 12px 16px !important;
+            font-size: clamp(0.9rem, 2.5vw, 1rem) !important;
+        }
+        
+        /* 파일 업로더 터치 영역 확대 */
+        [data-testid="stFileUploader"] {
+            min-height: 44px;
+        }
+        
+        /* 셀렉트박스 터치 타겟 */
+        [data-testid="stSelectbox"] > div > div {
+            min-height: 44px;
+        }
+        
+        /* 텍스트 입력 필드 */
+        input[type="text"],
+        input[type="password"],
+        input[type="email"],
+        input[type="tel"] {
+            min-height: 44px !important;
+            font-size: 16px !important; /* iOS 자동 줌 방지 */
+        }
+        
+        /* 메트릭 카드 반응형 */
+        [data-testid="stMetric"] {
+            padding: 0.5rem;
+        }
+        
+        /* 탭 터치 타겟 */
+        [data-testid="stTabs"] button {
+            min-height: 44px !important;
+            padding: 10px 16px !important;
+        }
+    }
+    
+    /* ── 3. 태블릿 최적화 (769px ~ 1024px) ────────────────────────────────── */
+    @media (min-width: 769px) and (max-width: 1024px) {
+        [data-testid="column"] {
+            padding: 0 1rem;
+        }
+        
+        .main .block-container {
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+        
+        /* 버튼 적절한 크기 */
+        button {
+            min-height: 40px !important;
+        }
+    }
+    
+    /* ── 4. 반응형 타이포그래피 ────────────────────────────────── */
+    :root {
+        --font-size-xs: clamp(0.7rem, 1.5vw, 0.75rem);
+        --font-size-sm: clamp(0.8rem, 1.8vw, 0.875rem);
+        --font-size-base: clamp(0.875rem, 2vw, 1rem);
+        --font-size-lg: clamp(1rem, 2.5vw, 1.25rem);
+        --font-size-xl: clamp(1.25rem, 3vw, 1.5rem);
+        --font-size-2xl: clamp(1.5rem, 4vw, 2rem);
+    }
+    
+    /* ── 5. 이미지 반응형 처리 ────────────────────────────────── */
+    img {
+        max-width: 100%;
+        height: auto;
+    }
+    
+    /* ── 6. 테이블 가로 스크롤 ────────────────────────────────── */
+    table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
+    }
+    
+    /* ── 7. 사이드바 반응형 ────────────────────────────────── */
+    @media (max-width: 768px) {
+        [data-testid="stSidebar"] {
+            width: 100% !important;
+        }
+    }
+    
+    /* ── 8. 팝오버/모달 반응형 ────────────────────────────────── */
+    @media (max-width: 768px) {
+        [data-testid="stPopover"] {
+            max-width: 90vw !important;
+        }
+    }
+    
+    /* ── 9. 가로 스크롤 방지 (전역) ────────────────────────────────── */
+    * {
+        box-sizing: border-box;
+    }
+    
+    /* ── 10. 접근성 개선 ────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+    
+    /* ── 11. 다크 모드 대응 (선택적) ────────────────────────────────── */
+    @media (prefers-color-scheme: dark) {
+        .stApp {
+            background-color: #0e1117;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
 def get_env_secret(k, d=None):
     return os.environ.get(k, d)
 

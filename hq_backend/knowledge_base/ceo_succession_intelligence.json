@@ -1,0 +1,189 @@
+{
+  "title": "CEO 경영인정기보험 지능 데이터베이스",
+  "version": "1.0",
+  "created_at": "2026-03-31",
+  "persona": {
+    "name": "황금 감옥에 갇힌 성주",
+    "target": "5060 CEO",
+    "core_problem": "자산의 90%가 법인 주식과 공장 부지에 묶여 있어, 상속세 납부 현금 부족",
+    "metaphor": "웅장한 성은 있으나 성문 밖으로 나갈 현금이라는 다리가 끊겨 있음"
+  },
+  "inheritance_tax_system": {
+    "max_rate": 0.50,
+    "description": "대한민국 상속세 최고세율 50%",
+    "tax_brackets": [
+      {"range": "1억 이하", "rate": 0.10, "deduction": 0},
+      {"range": "1억 초과 ~ 5억 이하", "rate": 0.20, "deduction": 10000000},
+      {"range": "5억 초과 ~ 10억 이하", "rate": 0.30, "deduction": 60000000},
+      {"range": "10억 초과 ~ 30억 이하", "rate": 0.40, "deduction": 160000000},
+      {"range": "30억 초과", "rate": 0.50, "deduction": 460000000}
+    ],
+    "additional_tax": {
+      "largest_shareholder_premium": 0.20,
+      "description": "최대주주 할증 20% (지분 50% 이상 또는 경영권 보유 시)"
+    }
+  },
+  "unlisted_stock_valuation": {
+    "methods": [
+      {
+        "name": "순손익가치",
+        "formula": "(최근 3년 평균 순이익 × 가중치) / 환원율",
+        "weight": 0.6,
+        "discount_rate": 0.10
+      },
+      {
+        "name": "순자산가치",
+        "formula": "자산 - 부채",
+        "weight": 0.4,
+        "adjustment": "시가 평가 적용"
+      },
+      {
+        "name": "보충적 평가",
+        "formula": "(순손익가치 × 0.6) + (순자산가치 × 0.4)",
+        "note": "일반적으로 사용되는 방식"
+      }
+    ],
+    "example": {
+      "company": "중소기업 A사",
+      "annual_profit": 5000000000,
+      "net_assets": 20000000000,
+      "valuation": 23000000000,
+      "note": "(5억 × 3 × 0.6 / 0.1) + (200억 × 0.4) = 90억 + 80억 = 170억 → 할인 적용 후 약 230억"
+    }
+  },
+  "liquidity_crisis_scenario": {
+    "case_study": {
+      "ceo_age": 58,
+      "company_value": 50000000000,
+      "ownership": 0.80,
+      "liquid_assets": 2000000000,
+      "inheritance_tax_estimate": 20000000000,
+      "cash_shortage": 18000000000,
+      "consequence": "회사 헐값 매각 또는 국가 상납"
+    }
+  },
+  "metaphorical_hooking_language": {
+    "inheritance_tax": "대표님의 사후에 도착할 **'국세청의 청구서'**입니다. 그것은 상속이 아니라 대표님의 평생을 건 **'마지막 세무조사'**가 될 것입니다.",
+    "executive_insurance": "법인의 비용으로 만드는 **'상속세 전용 비상금'**이자, 유가족이 경영권을 방어할 수 있는 **'최후의 보루'**입니다.",
+    "liquidity_shortage": "대표님의 성(Castle)은 웅장하지만, 성문 밖으로 나갈 **'현금'**이라는 다리가 끊겨 있습니다.",
+    "tax_optimization": "국가에 낼 세금을 깎아서 대표님 가족의 **'상속 재원'**으로 치환하는 **'세금 세탁(합법적 절세)'**의 과정입니다.",
+    "corporate_shield": "보험 가입이 아니라, **'법인 정관이라는 방패'**를 수선하는 작업입니다."
+  },
+  "strategic_framework": {
+    "step_7_simulation": {
+      "title": "가상 상속세 시뮬레이션",
+      "description": "법인 가치 평가 → 유고 시 현금 부족액 1원 단위 추정",
+      "formula": "상속세 = (법인가치 × 지분율 × (1 + 최대주주할증)) × 세율 - 공제액",
+      "output": "현금 부족액 = 상속세 - 유동자산"
+    },
+    "step_8_expense_justification": {
+      "title": "비용 처리의 명분",
+      "key_message": "이 보험료는 비용입니다. 국가에 낼 세금을 깎아서 대표님 가족의 상속 재원으로 치환하는 세금 세탁(합법적 절세)의 과정입니다.",
+      "corporate_tax_benefit": {
+        "premium_expense": "법인세 절감 효과 (법인세율 × 보험료)",
+        "example": "연 보험료 1억 × 법인세율 22% = 2,200만원 절감"
+      }
+    },
+    "step_9_articles_amendment": {
+      "title": "정관 변경의 칼날",
+      "key_message": "준비되지 않은 퇴직금 규정은 독이 됩니다. 내가 제안하는 이 플랜은 보험 가입이 아니라, 법인 정관이라는 방패를 수선하는 작업입니다.",
+      "dual_engine": [
+        {
+          "engine": "퇴직금 지급 규정",
+          "mechanism": "보험금을 법인이 수령 → 임원 퇴직금으로 지급 → 유가족에게 전달",
+          "legal_basis": "상법 제388조, 근로기준법 제34조"
+        },
+        {
+          "engine": "자기주식 취득",
+          "mechanism": "보험금으로 자기주식 취득 → 유가족 지분율 유지 → 경영권 방어",
+          "legal_basis": "상법 제341조"
+        }
+      ]
+    }
+  },
+  "critical_diagnosis": {
+    "common_mistake": "많은 설계사들이 단순히 '법인 돈으로 개인 상속세 낸다'고만 말합니다. 이는 세무조사의 타겟이 되기 딱 좋은 게으른 화법입니다.",
+    "correct_approach": "보험금이 법인으로 들어오고, 그 돈이 어떻게 합법적으로 유가족에게 전달되는지의 마지막 1인치까지 코딩해야 합니다.",
+    "key_points": [
+      "퇴직금 지급 규정과 자기주식 취득이라는 두 개의 엔진을 동시에 돌려야 함",
+      "법인세 절감액과 사후 가용 현금을 대비시켜 지출이 아닌 자산의 이동임을 입증",
+      "정관 변경 없이는 보험금이 법인에 갇혀 유가족에게 전달되지 않음"
+    ]
+  },
+  "conversion_phrases": {
+    "before": "상속세 재원을 마련하세요",
+    "after": "국세청에 회사를 뺏기지 않을 '현금 성벽'을 쌓으십시오",
+    "examples": [
+      {
+        "before": "경영인정기보험에 가입하시면 상속세를 낼 수 있습니다",
+        "after": "대표님의 성(Castle)에 현금이라는 다리를 놓아, 유가족이 경영권을 지킬 수 있게 하겠습니다"
+      },
+      {
+        "before": "법인 돈으로 보험료를 내면 됩니다",
+        "after": "법인의 비용을 국세청이 아닌 대표님 가족의 상속 재원으로 치환하는 합법적 절세 전략입니다"
+      },
+      {
+        "before": "보험금으로 상속세를 내세요",
+        "after": "보험금은 상속세 전용 비상금이자, 유가족이 회사를 지킬 최후의 보루입니다"
+      }
+    ]
+  },
+  "calculation_formulas": {
+    "inheritance_tax": {
+      "formula": "(법인가치 × 지분율 × (1 + 최대주주할증)) × 세율 - 공제액",
+      "variables": {
+        "company_value": "비상장주식 평가액 (순손익가치 60% + 순자산가치 40%)",
+        "ownership": "지분율 (0.0 ~ 1.0)",
+        "premium": "최대주주 할증 (0.2 if 지분 50% 이상)",
+        "tax_rate": "상속세율 (누진세율 적용)",
+        "deduction": "공제액 (기초공제 2억 + 배우자공제 등)"
+      }
+    },
+    "cash_shortage": {
+      "formula": "상속세 - 유동자산",
+      "note": "이 금액이 경영인정기보험 가입 금액의 기준이 됨"
+    },
+    "corporate_tax_savings": {
+      "formula": "연 보험료 × 법인세율",
+      "example": "연 보험료 1억 × 22% = 2,200만원 절감"
+    },
+    "net_cost": {
+      "formula": "연 보험료 - 법인세 절감액",
+      "example": "1억 - 2,200만원 = 7,800만원 (실질 부담)"
+    }
+  },
+  "legal_references": {
+    "retirement_pay": {
+      "law": "상법 제388조, 근로기준법 제34조",
+      "summary": "임원 퇴직금 지급 근거"
+    },
+    "treasury_stock": {
+      "law": "상법 제341조",
+      "summary": "자기주식 취득 근거"
+    },
+    "inheritance_tax": {
+      "law": "상속세 및 증여세법",
+      "key_articles": [
+        "제13조 (상속세 과세표준)",
+        "제26조 (상속세 세율)",
+        "제63조 (비상장주식 평가)"
+      ]
+    }
+  },
+  "query_expansion_keywords": [
+    "CEO 상속세",
+    "경영인정기보험",
+    "비상장주식 평가",
+    "최대주주 할증",
+    "유동성 위기",
+    "법인 퇴직금",
+    "자기주식 취득",
+    "상속세 절세",
+    "경영권 방어",
+    "현금 부족",
+    "법인세 절감",
+    "정관 변경",
+    "상속 재원",
+    "세무조사 리스크"
+  ]
+}

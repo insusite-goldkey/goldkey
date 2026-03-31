@@ -24,6 +24,11 @@ from typing import Optional, Any
 
 from engines.kb_scoring_system import run_kb_analysis, KBReport
 from engines.trinity_value_engine import run_trinity_analysis, TrinityReport, _w
+from engines.surgery_classifier import (
+    classify_surgery_coverages_bulk,
+    map_to_kb_categories_bulk,
+    analyze_surgery_gap,
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -48,6 +53,7 @@ class UnifiedReport:
     kb:        Optional[KBReport]      = None
     trinity:   Optional[TrinityReport] = None
     gap:       Optional[UnifiedGapResult] = None
+    surgery_gap: Optional[dict]        = None  # 수술비 Gap 분석 (질병 vs 상해)
     client_name: str = "고객"
     ok:        bool  = False
     errors:    list  = field(default_factory=list)
@@ -133,6 +139,36 @@ class AnalysisHub:
         """전체 분석 실행 → UnifiedReport 반환."""
         report = UnifiedReport(client_name=self.customer_name)
         errors = []
+
+        # ── [신규] 수술비 전처리: 질병 vs 상해 분류 ──────────────────────
+        surgery_classifications = []
+        try:
+            # 수술비 담보 자동 분류 및 메타데이터 추가
+            surgery_classifications = classify_surgery_coverages_bulk(
+                self.coverages, use_llm=True
+            )
+            
+            # 분류 결과를 coverages에 메타데이터로 추가
+            if surgery_classifications:
+                surgery_map = {
+                    c.original_name: c for c in surgery_classifications
+                }
+                for cov in self.coverages:
+                    if cov.get("name") in surgery_map:
+                        classification = surgery_map[cov["name"]]
+                        cov["surgery_type"] = classification.surgery_type
+                        cov["surgery_confidence"] = classification.confidence
+                        cov["surgery_display_name"] = classification.display_name
+                        cov["kb_category"] = "③ 수술/입원비"
+                
+                # Gap 분석 실행 (우측 분석창용)
+                report.surgery_gap = analyze_surgery_gap(
+                    surgery_classifications,
+                    benchmark_disease=700,  # 연령별 벤치마크는 추후 동적 설정
+                    benchmark_injury=500,
+                )
+        except Exception as e:
+            errors.append(f"수술비분류: {e}")
 
         # ── KB 엔진 실행 ────────────────────────────────────────────────
         try:
