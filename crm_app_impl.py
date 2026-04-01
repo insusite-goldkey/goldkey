@@ -25,6 +25,24 @@ import urllib.parse
 import os
 import calendar_engine
 
+# ══════════════════════════════════════════════════════════════════════════════
+# [GP-CORE-PROTOCOL] 프로토콜 라우터 임포트 (Phase 2)
+# ══════════════════════════════════════════════════════════════════════════════
+try:
+    from crm_protocol_router import (
+        render_protocol_router_ui,
+        render_compact_protocol_router,
+        apply_sector_theme_css,
+        get_recommended_sectors_for_session,
+    )
+    _PROTOCOL_ROUTER_LOADED = True
+except ImportError as e:
+    _PROTOCOL_ROUTER_LOADED = False
+    render_protocol_router_ui = lambda *args, **kwargs: None
+    render_compact_protocol_router = lambda *args, **kwargs: None
+    apply_sector_theme_css = lambda *args, **kwargs: None
+    get_recommended_sectors_for_session = lambda: []
+
 # ── [GP-SEC] 세션 지속성 관리자 ────────────────────────────────────────────────
 try:
     from session_manager import (
@@ -111,7 +129,6 @@ from blocks.crm_nav_block import render_crm_dual_nav
 from blocks.crm_consultation_center_block import render_crm_consultation_center
 from blocks.crm_ai_chat_block import render_crm_ai_chat
 from blocks.crm_trinity_block import render_crm_trinity_block
-from blocks.crm_nibo_screen_block import render_crm_nibo_screen
 from blocks.crm_analysis_screen_block import render_crm_analysis_screen
 from blocks.crm_list_inline_panel_block import render_crm_list_inline_panel
 from blocks.crm_insurance_contracts_block import render_insurance_contracts
@@ -143,7 +160,6 @@ from shared_components import (
     verify_sso_token as _sc_verify_sso_token,
     notify_admin_member_error as _sc_notify_admin_error,
     render_member_emergency_btn as _sc_emergency_btn,
-    _NIBO_CONSENT_HTML as _crm_nibo_html,
     render_security_sidebar as _sc_render_security_sidebar,
     get_hq_api_base,
     request_hq_analysis_trigger,
@@ -1121,7 +1137,7 @@ if not _is_logged_in:
         "<div style='font-size:0.8rem;color:#1e3a8a;font-weight:600;margin-bottom:4px;'>"
         "[STEP 4.통합스캔] ➡️ [STEP 5.AI 3중분석] ➡️ [STEP 6.1:1진단] ➡️ [STEP 7. 보장 담보 필터링] ➡️ [STEP 8. 적정 보험 가입금액 3단 일람표]</div>"
         "<div style='font-size:0.78rem;color:#4b5563;line-height:1.6;'>"
-        "💡 고객이 보험증권 스캔 & '내보험다보여'로 자료를 스캔하는 즉시, 트리니티 엔진이 보장의 빈틈을 찾아내어 완벽한 데이터(표)를 제공합니다.</div>"
+        "💡 고객이 보험증권을 스캔하는 즉시, 트리니티 엔진이 보장의 빈틈을 찾아내어 완벽한 데이터(표)를 제공합니다.</div>"
         "</div>"
         "<div style='background:#fff;border-left:4px solid #34d399;border-radius:8px;padding:12px 14px;margin-bottom:12px;'>"
         "<div style='font-size:0.9rem;font-weight:700;color:#065f46;margin-bottom:6px;'>"
@@ -1144,7 +1160,6 @@ if not _is_logged_in:
         terms_agree_key="_crm_terms_agreed",
         show_header=False,
         show_terms_scroll=True,
-        show_nibo_box=False,
         show_checkboxes=True,
         show_masterplan=False,
         consent_header_text="",
@@ -1524,7 +1539,7 @@ if not _is_logged_in:
                     st.session_state["_rerun_pending"] = True
                     st.rerun()
     
-    # ── 하단 통합 안내문 (이용약관 + 내보험다보여) ───────────────────────────
+    # ── 하단 통합 안내문 (이용약관) ───────────────────────────
     st.markdown(
         "<hr style='max-width:680px;margin:24px auto 14px;border:1px solid #e5e7eb;'>",
         unsafe_allow_html=True,
@@ -1533,7 +1548,7 @@ if not _is_logged_in:
         "<div style='max-width:680px;margin:0 auto;'>"
         "<div class='crm-section-title' style='background:#eff6ff;border-radius:8px 8px 0 0;"
         "padding:7px 14px;color:#1e3a8a;'>"
-        "📋 Goldkey AI Masters 2026 이용약관 및 내보험다보여 통합 동의서</div></div>",
+        "📋 Goldkey AI Masters 2026 이용약관</div></div>",
         unsafe_allow_html=True,
     )
 
@@ -1543,33 +1558,8 @@ if not _is_logged_in:
         terms_agree_key="_crm_terms_view",
         show_header=False,
         show_terms_scroll=True,
-        show_nibo_box=False,
         show_checkboxes=False,
     )
-    st.markdown(
-        "<div style='max-width:680px;margin:0 auto;background:#fffbeb;border:1px dashed #f59e0b;"
-        "border-radius:0 0 8px 8px;padding:12px 14px;'>"
-        "<div class='crm-section-title' style='color:#92400e;margin-bottom:6px;'>"
-        "🔐 내보험다보여 연동 — 신용정보의 이용 및 보호에 관한 법률 제32조 안내</div>"
-        "<div class='crm-body-text' style='color:#78350f;'>"
-        "• <b>수집:</b> 보험사명 · 상품명 · 보장내역 · 계약 상태 (한국신용정보원 제공 데이터)<br>"
-        "• <b>목적:</b> AI 트리니티 — 보장성 분석 및 맞춤형 보험 설계 제공<br>"
-        "• <b>보관:</b> 분석 후 30일 경과 시 자동 파기 (단, 분석 리포트는 최대 3년 보관)<br>"
-        "• <b>인증정보:</b> 데이터 연동 후 메모리에서 즉시 파기 (서버 내 무단 저장 불가)<br>"
-        "• <b>미동의 시:</b> AI 보장 분석 및 트리니티 서비스 이용 불가"
-        "</div></div>",
-        unsafe_allow_html=True,
-    )
-    st.markdown("<div style='max-width:680px;margin:0 auto;'>", unsafe_allow_html=True)
-    with st.popover("📋 신용정보의 이용 및 보호에 관한 법률 (약칭: 신용정보법)", use_container_width=True):
-        st.markdown(
-            "<div class='crm-section-title' style='color:#92400e;margin-bottom:6px;'>"
-            "📌 신용정보의 이용 및 보호에 관한 법률 제32조 적용</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(_crm_nibo_html, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-    
     # ── 앱 바닥 — 관리자 로그인 · 오류신고 (미인증 사용자도 접근 가능) ────────
     st.markdown("<div style='max-width:680px;margin:20px auto 0;'>", unsafe_allow_html=True)
     try:
@@ -2077,6 +2067,12 @@ if _spa_mode == "list":
                 value=_sel_cust_right.get("job", ""),
                 key=f"edit_job_{_sel_pid_right}"
             )
+            
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            # [Phase 2] 프로토콜 라우터 UI — 직업 수정 시 AI 섹터 자동 추천 (컴팩트)
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            if _PROTOCOL_ROUTER_LOADED and _edit_job and _edit_job.strip():
+                render_compact_protocol_router(_edit_job.strip())
             _edit_addr = st.text_input(
                 "주소",
                 value=_sel_cust_right.get("address", ""),
@@ -2376,8 +2372,6 @@ elif _spa_mode == "customer":
     _prev_screen = st.session_state.get("_crm_prev_screen", "")
     if _prev_screen and _prev_screen != _spa_screen:
         _GC_KEYS_BY_SCREEN = {
-            "nibo":     ["nibo_raw_data", "nibo_ocr_result", "nibo_parsed_policy",
-                         "nibo_html_cache", "nibo_screenshot_bytes"],
             "analysis": ["analysis_pdf_bytes", "analysis_result_cache",
                          "gk_sec10_result", "ps_req_pending"],
             "ai_brief": ["ai_brief_full_text", "ai_brief_stream_buffer"],
@@ -2544,6 +2538,19 @@ elif _spa_mode == "customer":
                 _new_tier = st.selectbox("관리등급", [3, 2, 1],
                     format_func=lambda x: {1: "⭐⭐⭐ VVIP", 2: "⭐⭐ 핵심", 3: "⭐ 일반"}[x],
                     key="nreg_tier")
+            
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            # [Phase 2] 프로토콜 라우터 UI — 직업 입력 시 AI 섹터 자동 추천
+            # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            if _PROTOCOL_ROUTER_LOADED and _new_job and _new_job.strip():
+                render_protocol_router_ui(
+                    job_name=_new_job.strip(),
+                    job_grade=None,
+                    customer_age=None,
+                    is_ceo=False,
+                    has_factory=False,
+                    has_commercial=False,
+                )
             _new_addr = st.text_input("주소", key="nreg_addr")
             _new_memo = st.text_area("메모", height=80, key="nreg_memo")
             st.markdown(
@@ -2700,7 +2707,7 @@ elif _spa_mode == "customer":
                         )
                         for _lc in _logs_c:
                             _lt_icon = {"kakao_sent": "💬", "ai_brief": "🤖",
-                                        "nibo": "🌐", "manual": "✏️"}.get(
+                                        "manual": "✏️"}.get(
                                 _lc.get("log_type", ""), "📋")
                             st.markdown(
                                 f"<div style='font-size:0.75rem;padding:3px 0;"
@@ -3285,7 +3292,7 @@ elif _spa_mode == "customer":
                     with st.expander("📋 상담일지 최근 5건", expanded=False):
                         for _lg in _logs5:
                             _lt = {"kakao_sent": "💬", "ai_brief": "🤖",
-                                   "nibo": "🌐", "manual": "✏️"}.get(
+                                   "manual": "✏️"}.get(
                                 _lg.get("log_type", ""), "📋")
                             st.caption(
                                 f"{_lt} {str(_lg.get('created_at',''))[:10]}  "
@@ -3330,9 +3337,6 @@ elif _spa_mode == "customer":
                     except Exception as _kk1_e:
                         st.error(f"카카오 오류: {_kk1_e}")
 
-    # ── SCREEN 3: 내보험다보여 — blocks.crm_nibo_screen_block
-    elif _spa_screen == "nibo":
-        render_crm_nibo_screen(_sel_cust, _sel_pid or "", _user_id, HQ_APP_URL.rstrip("/"))
 
     # ── SCREEN 4: 증권분석 — blocks.crm_analysis_screen_block
     elif _spa_screen == "analysis":
@@ -3423,27 +3427,9 @@ elif _spa_mode == "customer":
                     except Exception as _kk2_e:
                         st.error(f"카카오 오류: {_kk2_e}")
 
-        # ── [§16 통합 증권분석 센터] 피보험자 기준 nibo JSON → trinity 파이프라인 ──
+        # ── [§16 통합 증권분석 센터] 피보험자 기준 보험 데이터 → trinity 파이프라인 ──
         st.markdown("<hr style='border-top:2px solid #3b82f6;margin:20px 0 12px;'>",
                     unsafe_allow_html=True)
-        # ── [내보험다보여 기능 완전 제거됨 (2026-04-01)] ──────────────────────────
-        # st.markdown(
-        #     "<div style='font-size:0.82rem;font-weight:900;color:#1e3a8a;margin-bottom:8px;'>"
-        #     "🔬 통합 증권분석 센터 (내보험다보여 연동)"
-        #     "<span style='font-size:0.68rem;font-weight:400;color:#64748b;margin-left:8px;'>"
-        #     f"피보험자 기준 · {(_sel_cust or {}).get('name','고객')} 원장</span></div>",
-        #     unsafe_allow_html=True,
-        # )
-        # try:
-        #     from shared_components import render_unified_analysis_center as _analysis_uac
-        #     _analysis_uac(
-        #         key_prefix="_uac_analysis",
-        #         person_id=_sel_pid or "",
-        #         agent_id=_user_id,
-        #     )
-        # except Exception as _uac_analysis_e:
-        #     st.error(f"통합분석센터 오류: {_uac_analysis_e}")
-        st.info("⚠️ 내보험다보여 기능은 현재 비활성화되었습니다. (회원 500명 이상 시 재검토)")
 
     # ── SCREEN 5: 🤖 AI 브리핑 편집기 (5:5 분할 — 좌: 우선순위·일정, 우: 편집기) ────
     elif _spa_screen == "ai_brief":
@@ -4263,7 +4249,6 @@ WHERE tablename IN ('gk_people','gk_schedules','gk_consulting_logs');""",
                 ("사용자 ID",        _user_id[:16] + "…" if len(_user_id) > 16 else _user_id),
                 ("이름",             _user_name),
                 ("캘린더 동의",      "✅ 동의" if consent_get("cal_sync_consent_agreed") else "⬜ 미동의"),
-                ("nibo 동의",        "✅ 동의" if consent_get("nibo_consent_agreed")     else "⬜ 미동의"),
                 ("AI 음성 동의",     "✅ 동의" if consent_get("voice_consent_agreed")    else "⬜ 미동의"),
                 ("Microsoft Outlook","🟢 연동됨" if st.session_state.get("outlook_oauth_connected") else "⭕ 미연동"),
                 ("Google 연동",      "🟢 연동됨" if st.session_state.get("gcal_oauth_connected") else "⭕ 미연동"),
@@ -4444,7 +4429,7 @@ WHERE tablename IN ('gk_people','gk_schedules','gk_consulting_logs');""",
                     st.caption("타임라인 기능을 사용하려면 crm_fortress 모듈이 필요합니다.")
 
             if st.button("🔄 동의 항목 재설정", key="settings_reset_consent_btn"):
-                for _ck in ["cal_sync_consent_agreed", "nibo_consent_agreed",
+                for _ck in ["cal_sync_consent_agreed",
                             "voice_consent_agreed", "gcal_oauth_connected", "acal_oauth_connected",
                             "outlook_oauth_connected", "outlook_oauth_pending"]:
                     st.session_state.pop(_ck, None)
@@ -4836,8 +4821,7 @@ with _lo_c2:
         st.rerun()
 st.markdown(
     f"<div style='text-align:center;font-size:0.72rem;color:#9ca3af;padding:4px 0 12px;'>"
-    f"🔒 {_user_name} 로그인 중 &nbsp;·&nbsp; "
-    f"nibo 동의: {'✅' if st.session_state.get('nibo_consent_agreed') else '⬜'}"
+    f"🔒 {_user_name} 로그인 중"
     f"</div>",
     unsafe_allow_html=True,
 )

@@ -934,6 +934,47 @@ def _get_gcs_client():
         return None
 
 
+def generate_gcs_path(protocol: str, sector: str, document_name: str = "") -> str:
+    """
+    [GP-SEC-GCS] 프로토콜별 GCS 경로 생성 함수.
+    
+    RAG 인제스트 시 지식 베이스 문서를 프로토콜/섹터 구조로 정밀 분류.
+    
+    경로 구조:
+        knowledge_base/{PROTOCOL}/{SECTOR}/{document_name}
+    
+    예시:
+        - APP 프로토콜, 개인공장화재 섹터: knowledge_base/APP/APP-04/개인공장화재_실무가이드.pdf
+        - PSP 프로토콜, 암보험 섹터: knowledge_base/PSP/PSP-01/암보험_상품설명서.pdf
+    
+    Args:
+        protocol: 4대 프로토콜 코드 (PSP/APP/BRP/WOP)
+        sector: 섹터 카테고리 (예: APP-04-개인공장화재, PSP-01-암보험)
+        document_name: 문서 파일명 (선택)
+    
+    Returns:
+        GCS 경로 문자열
+    """
+    protocol = protocol.upper().strip()
+    sector = sector.strip()
+    
+    # 프로토콜 검증
+    valid_protocols = {"PSP", "APP", "BRP", "WOP"}
+    if protocol not in valid_protocols:
+        protocol = "MISC"  # 미분류 프로토콜
+    
+    # 섹터에서 프로토콜 코드 추출 (예: APP-04-개인공장화재 → APP-04)
+    sector_code = sector.split("-")[0] if "-" in sector else sector
+    sector_full = f"{protocol}-{sector_code}" if not sector.startswith(protocol) else sector
+    
+    # 기본 경로 구조
+    base_path = f"knowledge_base/{protocol}/{sector_full}"
+    
+    if document_name:
+        return f"{base_path}/{document_name}"
+    return base_path
+
+
 def upload_customer_profile_gcs(person_id: str, profile_data: dict) -> bool:
     """
     고객 프로파일을 Fernet 암호화 후 GCS에 업로드.

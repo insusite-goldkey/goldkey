@@ -2,10 +2,23 @@
 calendar_engine.py — 스마트 캘린더 & 글로벌 영업 파이프라인 엔진
 [GP-CALENDAR] Goldkey AI Masters 2026
 """
-from __future__ import annotations
 import re, json, uuid, datetime, calendar as _cal_mod, urllib.parse
 from typing import Optional
 import streamlit as st
+
+# [GP-STEP4] 석세스 캘린더 모듈 임포트
+try:
+    from success_calendar import (
+        detect_stage_color,
+        search_customers_by_name,
+        render_customer_quick_link_selector,
+        show_year_month_picker,
+        get_agentic_recurrence_suggestion,
+        render_success_calendar_guide
+    )
+    _SUCCESS_CAL_AVAILABLE = True
+except ImportError:
+    _SUCCESS_CAL_AVAILABLE = False
 
 # ══ [1] 상수 ══════════════════════════════════════════════════════════════════
 _CATS: dict[str, tuple] = {
@@ -688,6 +701,10 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
             st.info("검색 결과가 없습니다.")
         st.divider()
 
+    # [GP-STEP4] 석세스 캘린더 가이드
+    if _SUCCESS_CAL_AVAILABLE:
+        render_success_calendar_guide()
+    
     # ── 월 네비게이션: st.button (WebSocket 세션 보존 — href 링크 완전 제거)
     _nb1, _nb2, _nb3, _nb4 = st.columns([1, 1, 4, 1])
     with _nb1:
@@ -701,11 +718,16 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
             st.session_state["current_month"] = today.strftime("%Y-%m")
             st.rerun()
     with _nb3:
-        st.markdown(
-            f"<div style='text-align:center;font-size:1.3rem;font-weight:900;"
-            f"color:#1a3a5c;padding:8px 4px;white-space:nowrap;'>{year}년 {month}월</div>",
-            unsafe_allow_html=True,
-        )
+        # [GP-STEP4] 연도/월 선택 모달 버튼
+        if _SUCCESS_CAL_AVAILABLE:
+            if st.button(f"{year}년 {month}월", key="cal_year_month_picker", use_container_width=True, help="연도/월 빠른 이동"):
+                show_year_month_picker(year, month)
+        else:
+            st.markdown(
+                f"<div style='text-align:center;font-size:1.3rem;font-weight:900;"
+                f"color:#1a3a5c;padding:8px 4px;white-space:nowrap;'>{year}년 {month}월</div>",
+                unsafe_allow_html=True,
+            )
     with _nb4:
         if st.button("다음 ▶", key="cal_mo_next_eng", use_container_width=True):
             _nm = month + 1; _ny = year
@@ -715,17 +737,35 @@ def render_smart_calendar(agent_id: str, customers: list | None = None) -> None:
 
     # DB 이벤트 로드 → JS에 주입
     _evs = cal_load_month(agent_id, year, month)
-    _evs_js = json.dumps([{
-        "schedule_id": e.get("schedule_id",""),
-        "title":       e.get("title",""),
-        "date":        e.get("date",""),
-        "start_time":  e.get("start_time","09:00") or "09:00",
-        "end_time":    e.get("end_time","10:00") or "10:00",
-        "category":    e.get("category","consult") or "consult",
-        "body":        e.get("memo",""),
-        "customer":    e.get("customer_name") or (e.get("gk_people") or {}).get("name","") or "",
-        "person_id":   e.get("person_id",""),
-    } for e in _evs], ensure_ascii=False)
+    # [GP-STEP4] 심리적 컬러 코딩 적용
+    _evs_enhanced = []
+    for e in _evs:
+        ev_dict = {
+            "schedule_id": e.get("schedule_id",""),
+            "title":       e.get("title",""),
+            "date":        e.get("date",""),
+            "start_time":  e.get("start_time","09:00") or "09:00",
+            "end_time":    e.get("end_time","10:00") or "10:00",
+            "category":    e.get("category","consult") or "consult",
+            "body":        e.get("memo",""),
+            "customer":    e.get("customer_name") or (e.get("gk_people") or {}).get("name","") or "",
+            "person_id":   e.get("person_id",""),
+        }
+        
+        # 심리적 컬러 코딩 적용
+        if _SUCCESS_CAL_AVAILABLE:
+            color_info = detect_stage_color(
+                title=e.get("title", ""),
+                memo=e.get("memo", ""),
+                category=e.get("category", "")
+            )
+            ev_dict["stage_color"] = color_info["color"]
+            ev_dict["stage_border"] = color_info["border"]
+            ev_dict["stage_name"] = color_info["stage_name"]
+        
+        _evs_enhanced.append(ev_dict)
+    
+    _evs_js = json.dumps(_evs_enhanced, ensure_ascii=False)
     _holidays    = _get_holidays_for_month(year, month)
     _holidays_js = json.dumps(_holidays, ensure_ascii=False)
     _cat_tags_js = json.dumps({k:v[1] for k,v in _CATS.items()}, ensure_ascii=False)
@@ -929,17 +969,48 @@ def _render_event_form(agent_id, customers, year, month):
         if _ptags:
             st.markdown("📎 추출된 태그: " + "".join(f'<span style="background:#e0f2fe;color:#0369a1;padding:1px 8px;border-radius:10px;font-size:.72rem;margin-right:3px;">{t}</span>' for t in _ptags), unsafe_allow_html=True)
 
+        # [GP-STEP4] 고객 퀵링크 (@) 자동완성
+        _quick_selected = None
+        if _SUCCESS_CAL_AVAILABLE:
+            st.markdown("<div style='border-top:1px dashed #e2e8f0;margin:12px 0;'></div>", unsafe_allow_html=True)
+            _quick_selected = render_customer_quick_link_selector(agent_id, key_prefix="cal_form")
+        
         # 고객 연동
         _copts = ["— 선택 안 함 —"] + [c.get("name","") for c in customers if c.get("name")]
         _cdef  = edit_ev.get("customer_name","") if edit_ev else ""
+        
+        # 퀵링크로 선택된 고객이 있으면 자동 선택
+        if _quick_selected:
+            _cdef = _quick_selected.get("name", "")
+            if _cdef not in _copts:
+                _copts.append(_cdef)
+        
         _cidx  = _copts.index(_cdef) if _cdef in _copts else 0
         _f_cust = st.selectbox("관련 고객", options=_copts, index=_cidx, key="cal_form_cust")
         _pid = ""
-        if _f_cust and _f_cust != "— 선택 안 함 —":
+        
+        # 퀵링크로 선택된 경우 person_id 사용
+        if _quick_selected and _f_cust == _quick_selected.get("name", ""):
+            _pid = _quick_selected.get("person_id", "")
+        elif _f_cust and _f_cust != "— 선택 안 함 —":
             for c in customers:
                 if c.get("name","") == _f_cust:
                     _pid = c.get("person_id","") or c.get("cust_id","")
                     break
+        
+        # [GP-STEP4] 에이젠틱 반복 일정 추천
+        if _SUCCESS_CAL_AVAILABLE and _f_cust and _f_cust != "— 선택 안 함 —":
+            # 고객의 현재 단계 조회 (gk_people.current_stage)
+            try:
+                sb = _get_sb()
+                if sb and _pid:
+                    person_data = sb.table("gk_people").select("current_stage").eq("person_id", _pid).maybe_single().execute()
+                    if person_data and person_data.data:
+                        current_stage = person_data.data.get("current_stage", 1)
+                        suggestion = get_agentic_recurrence_suggestion(_f_cust, current_stage)
+                        st.info(suggestion)
+            except Exception:
+                pass
 
         # 저장/ICS/삭제 — [GP-BTN] width:auto 파스텔 버튼 (full-width 제거)
         st.markdown("""

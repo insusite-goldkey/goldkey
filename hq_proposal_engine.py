@@ -1,0 +1,529 @@
+"""
+hq_proposal_engine.py — AI 감성 세일즈 전략 및 제안서 엔진
+[GP-STEP8] Goldkey AI Masters 2026
+
+AI 전략 엔진:
+- 보장 공백 분석 (Gap Analysis)
+- 감성 페르소나 매칭 (Emotional Persona Matching)
+- 3가지 톤 스크립트 생성 (전문적/감성적/직설적)
+- 3가지 플랜 추천 (실속/표준/VIP)
+"""
+from __future__ import annotations
+import re, json, datetime
+from typing import Optional, Dict, Any, List, Tuple
+import streamlit as st
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [1] 데이터 레이어 — Step 5 + Step 7 데이터 융합
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _get_sb():
+    """Supabase 클라이언트 가져오기"""
+    try:
+        from db_utils import _get_sb as _sb
+        return _sb()
+    except Exception:
+        return None
+
+
+def get_customer_persona(person_id: str, agent_id: str) -> Dict[str, Any]:
+    """
+    고객 페르소나 조회 (Step 5 데이터)
+    
+    Args:
+        person_id: 고객 UUID
+        agent_id: 설계사 ID
+    
+    Returns:
+        dict: 고객 페르소나 정보
+    """
+    try:
+        sb = _get_sb()
+        if not sb:
+            return {}
+        
+        result = (
+            sb.table("gk_people")
+            .select("*")
+            .eq("person_id", person_id)
+            .eq("agent_id", agent_id)
+            .eq("is_deleted", False)
+            .maybe_single()
+            .execute()
+        )
+        
+        if not result or not result.data:
+            return {}
+        
+        customer = result.data
+        
+        return {
+            "name": customer.get("name", ""),
+            "birth_date": customer.get("birth_date", ""),
+            "gender": customer.get("gender", ""),
+            "job": customer.get("job", ""),
+            "interests": customer.get("interests", ""),
+            "current_stage": customer.get("current_stage", 1),
+            "last_contact": customer.get("last_contact", "")
+        }
+    except Exception:
+        return {}
+
+
+def get_insurance_buckets(person_id: str, agent_id: str) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    보험 3버킷 데이터 조회 (Step 7 데이터)
+    
+    Args:
+        person_id: 고객 UUID
+        agent_id: 설계사 ID
+    
+    Returns:
+        dict: 버킷별 보험 계약 목록
+    """
+    try:
+        sb = _get_sb()
+        if not sb:
+            return {"A": [], "B": [], "C": []}
+        
+        # gk_policy_roles를 통해 person_id와 연결된 증권 조회
+        result = (
+            sb.table("gk_policy_roles")
+            .select("*, gk_policies!inner(*)")
+            .eq("person_id", person_id)
+            .eq("agent_id", agent_id)
+            .eq("is_deleted", False)
+            .execute()
+        )
+        
+        buckets = {"A": [], "B": [], "C": []}
+        
+        for role_data in (result.data or []):
+            policy = role_data.get("gk_policies") or {}
+            part = policy.get("part", "A")
+            
+            policy_info = {
+                "policy_id": policy.get("id"),
+                "policy_number": policy.get("policy_number", ""),
+                "insurance_company": policy.get("insurance_company", ""),
+                "product_name": policy.get("product_name", ""),
+                "product_type": policy.get("product_type", ""),
+                "premium": policy.get("premium", 0),
+                "contract_date": policy.get("contract_date", ""),
+                "expiry_date": policy.get("expiry_date", ""),
+                "role": role_data.get("role", "")
+            }
+            
+            if part in buckets:
+                buckets[part].append(policy_info)
+        
+        return buckets
+    except Exception:
+        return {"A": [], "B": [], "C": []}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [2] 보장 공백 분석 (Gap Analysis)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def analyze_coverage_gap(buckets: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
+    """
+    보장 공백 분석
+    
+    Args:
+        buckets: 버킷별 보험 계약 목록
+    
+    Returns:
+        dict: 보장 공백 분석 결과
+    """
+    # 현재 보장 현황
+    current_coverage = {
+        "생명": 0,
+        "손해": 0,
+        "실손": 0,
+        "연금": 0,
+        "저축": 0
+    }
+    
+    total_premium = 0
+    
+    # 섹션 A (Direct) + 섹션 B (External) 합산
+    for part in ["A", "B"]:
+        for policy in buckets.get(part, []):
+            product_type = policy.get("product_type", "")
+            premium = float(policy.get("premium", 0) or 0)
+            
+            total_premium += premium
+            
+            if product_type in current_coverage:
+                current_coverage[product_type] += 1
+    
+    # 보장 공백 판단 (규칙 기반)
+    gaps = []
+    
+    if current_coverage["생명"] == 0:
+        gaps.append({
+            "type": "생명",
+            "severity": "high",
+            "message": "생명보험 가입 필요 (사망 보장 부재)"
+        })
+    
+    if current_coverage["실손"] == 0:
+        gaps.append({
+            "type": "실손",
+            "severity": "high",
+            "message": "실손의료보험 가입 필요 (의료비 보장 부재)"
+        })
+    
+    if current_coverage["연금"] == 0:
+        gaps.append({
+            "type": "연금",
+            "severity": "medium",
+            "message": "노후 준비 필요 (연금 보장 부재)"
+        })
+    
+    # 타사 계약 중 승환 추천
+    conversion_targets = []
+    for policy in buckets.get("B", []):
+        premium = float(policy.get("premium", 0) or 0)
+        if premium > 100000:  # 월 10만원 이상
+            conversion_targets.append({
+                "policy_id": policy.get("policy_id"),
+                "product_name": policy.get("product_name", ""),
+                "insurance_company": policy.get("insurance_company", ""),
+                "premium": premium,
+                "reason": "고액 보험료 절감 가능"
+            })
+    
+    return {
+        "current_coverage": current_coverage,
+        "total_premium": total_premium,
+        "gaps": gaps,
+        "conversion_targets": conversion_targets
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [3] 감성 페르소나 매칭 (Emotional Persona Matching)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def generate_emotional_scripts(
+    persona: Dict[str, Any],
+    gap_analysis: Dict[str, Any]
+) -> Dict[str, Dict[str, str]]:
+    """
+    감성 페르소나 매칭 — 3가지 톤 스크립트 생성
+    
+    Args:
+        persona: 고객 페르소나
+        gap_analysis: 보장 공백 분석 결과
+    
+    Returns:
+        dict: 3가지 톤별 스크립트
+    """
+    name = persona.get("name", "고객님")
+    job = persona.get("job", "")
+    interests = persona.get("interests", "")
+    
+    # 보장 공백 요약
+    gaps = gap_analysis.get("gaps", [])
+    gap_summary = ", ".join([g["message"] for g in gaps[:2]]) if gaps else "현재 보장 상태 양호"
+    
+    # 1. 전문적 톤 (Professional)
+    professional = {
+        "opening": f"{name}님, 안녕하세요. 골드키 AI 마스터즈입니다. "
+                   f"오늘은 {name}님의 보험 포트폴리오를 분석한 결과를 말씀드리고자 합니다.",
+        "body": f"현재 {name}님의 보장 현황을 분석한 결과, {gap_summary}입니다. "
+                f"전문가 관점에서 볼 때, 이 부분을 보완하시면 더욱 안정적인 보장 설계가 가능합니다.",
+        "objection_handling": "걱정하지 마세요. 무리한 권유는 절대 하지 않습니다. "
+                              "다만, 전문가로서 객관적인 분석 결과를 공유드리는 것이니 참고만 해주시면 됩니다."
+    }
+    
+    # 2. 감성적 톤 (Emotional)
+    emotional = {
+        "opening": f"{name}님, 요즘 어떻게 지내세요? "
+                   f"바쁘신 와중에도 시간 내주셔서 정말 감사합니다.",
+        "body": f"{name}님의 소중한 가족과 미래를 위해, 현재 보장 상태를 꼼꼼히 살펴봤습니다. "
+                f"{gap_summary}. "
+                f"2021년 국가암등록통계에 따르면 이제 암은 3명 중 1명이 겪는 보편적 리스크입니다. "
+                f"혹시 모를 위험에 대비해, 지금부터라도 준비하시면 좋을 것 같아요.",
+        "objection_handling": "저도 {name}님의 입장이라면 같은 생각을 했을 거예요. "
+                              "하지만 가족을 생각하면, 지금 이 순간이 가장 중요한 시기일 수 있습니다."
+    }
+    
+    # 3. 직설적 톤 (Direct)
+    direct = {
+        "opening": f"{name}님, 바로 본론으로 들어가겠습니다. "
+                   f"시간 낭비 없이 핵심만 말씀드리겠습니다.",
+        "body": f"현재 {name}님의 보장 상태는 솔직히 말씀드려 부족합니다. {gap_summary}. "
+                f"지금 당장 조치하지 않으면, 나중에 후회할 수 있습니다.",
+        "objection_handling": "거절하시는 건 자유입니다. 하지만 나중에 '그때 들어둘 걸' 하고 후회하지 마세요. "
+                              "기회는 지금입니다."
+    }
+    
+    # 직업별 커스터마이징
+    if job:
+        if "의사" in job or "간호" in job:
+            professional["opening"] += f" {job}님이시니 보험의 중요성을 누구보다 잘 아실 거라 생각합니다."
+        elif "교사" in job or "교수" in job:
+            emotional["opening"] += f" {job}님이시니 미래 설계의 중요성을 잘 아실 것 같아요."
+        elif "사업" in job or "대표" in job:
+            direct["opening"] += f" {job}님이시니 숫자와 리스크 관리에 익숙하실 겁니다."
+    
+    return {
+        "professional": professional,
+        "emotional": emotional,
+        "direct": direct
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [4] 3가지 플랜 추천 (실속/표준/VIP)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def generate_three_plans(
+    persona: Dict[str, Any],
+    gap_analysis: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """
+    3가지 플랜 추천 (실속/표준/VIP)
+    
+    Args:
+        persona: 고객 페르소나
+        gap_analysis: 보장 공백 분석 결과
+    
+    Returns:
+        list: 3가지 플랜 목록
+    """
+    current_premium = gap_analysis.get("total_premium", 0)
+    gaps = gap_analysis.get("gaps", [])
+    
+    # 실속형 플랜 (현재 보험료 +20%)
+    budget_plan = {
+        "plan_type": "실속",
+        "monthly_premium": int(current_premium * 1.2),
+        "coverage_items": [
+            {"name": "생명보험", "amount": "1억원", "premium": 50000},
+            {"name": "실손의료보험", "amount": "5천만원", "premium": 30000},
+        ],
+        "total_coverage": "1.5억원",
+        "features": [
+            "필수 보장만 집중",
+            "합리적인 보험료",
+            "기본 보장 완성"
+        ],
+        "recommendation": "예산을 고려하면서도 필수 보장을 갖추고 싶으신 분께 추천합니다."
+    }
+    
+    # 표준형 플랜 (현재 보험료 +50%)
+    standard_plan = {
+        "plan_type": "표준",
+        "monthly_premium": int(current_premium * 1.5),
+        "coverage_items": [
+            {"name": "생명보험", "amount": "3억원", "premium": 100000},
+            {"name": "실손의료보험", "amount": "1억원", "premium": 50000},
+            {"name": "암보험", "amount": "5천만원", "premium": 40000},
+        ],
+        "total_coverage": "4.5억원",
+        "features": [
+            "균형잡힌 보장 설계",
+            "주요 질병 보장 포함",
+            "가족 보장 고려"
+        ],
+        "recommendation": "안정적인 보장과 합리적인 보험료의 균형을 원하시는 분께 추천합니다."
+    }
+    
+    # VIP형 플랜 (현재 보험료 +100%)
+    vip_plan = {
+        "plan_type": "VIP",
+        "monthly_premium": int(current_premium * 2.0),
+        "coverage_items": [
+            {"name": "생명보험", "amount": "5억원", "premium": 150000},
+            {"name": "실손의료보험", "amount": "2억원", "premium": 80000},
+            {"name": "암보험", "amount": "1억원", "premium": 70000},
+            {"name": "연금보험", "amount": "월 200만원", "premium": 200000},
+        ],
+        "total_coverage": "8억원 + 연금",
+        "features": [
+            "최고 수준 보장",
+            "노후 준비 포함",
+            "프리미엄 서비스"
+        ],
+        "recommendation": "최상의 보장과 노후 준비를 동시에 원하시는 분께 추천합니다."
+    }
+    
+    return [budget_plan, standard_plan, vip_plan]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [5] 통합 제안서 생성 (Main Engine)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def generate_proposal(person_id: str, agent_id: str) -> Dict[str, Any]:
+    """
+    통합 제안서 생성 (AI 전략 엔진 메인 함수)
+    
+    Args:
+        person_id: 고객 UUID
+        agent_id: 설계사 ID
+    
+    Returns:
+        dict: 제안서 데이터
+    """
+    # 1. 고객 페르소나 조회 (Step 5)
+    persona = get_customer_persona(person_id, agent_id)
+    
+    if not persona or not persona.get("name"):
+        return {
+            "success": False,
+            "error": "고객 정보를 찾을 수 없습니다."
+        }
+    
+    # 2. 보험 3버킷 조회 (Step 7)
+    buckets = get_insurance_buckets(person_id, agent_id)
+    
+    # 3. 보장 공백 분석
+    gap_analysis = analyze_coverage_gap(buckets)
+    
+    # 4. 감성 페르소나 매칭 (3가지 톤 스크립트)
+    emotional_scripts = generate_emotional_scripts(persona, gap_analysis)
+    
+    # 5. 3가지 플랜 추천
+    three_plans = generate_three_plans(persona, gap_analysis)
+    
+    # 6. 제안서 메타데이터
+    proposal_metadata = {
+        "proposal_id": f"PROP_{person_id[:8]}_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "created_at": datetime.datetime.now().isoformat(),
+        "customer_name": persona.get("name", ""),
+        "agent_id": agent_id
+    }
+    
+    return {
+        "success": True,
+        "metadata": proposal_metadata,
+        "persona": persona,
+        "buckets": buckets,
+        "gap_analysis": gap_analysis,
+        "emotional_scripts": emotional_scripts,
+        "three_plans": three_plans
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [6] 제안서 저장 (Supabase)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def save_proposal_to_db(proposal_data: Dict[str, Any], person_id: str, agent_id: str) -> bool:
+    """
+    제안서 데이터를 Supabase에 저장
+    
+    Args:
+        proposal_data: 제안서 데이터
+        person_id: 고객 UUID
+        agent_id: 설계사 ID
+    
+    Returns:
+        bool: 성공 여부
+    """
+    try:
+        sb = _get_sb()
+        if not sb:
+            return False
+        
+        # gk_proposals 테이블에 저장 (테이블 생성 필요)
+        proposal_record = {
+            "proposal_id": proposal_data["metadata"]["proposal_id"],
+            "person_id": person_id,
+            "agent_id": agent_id,
+            "proposal_data": json.dumps(proposal_data, ensure_ascii=False),
+            "created_at": proposal_data["metadata"]["created_at"]
+        }
+        
+        result = sb.table("gk_proposals").insert(proposal_record).execute()
+        
+        return bool(result.data)
+    except Exception:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [7] 에이전틱 단계 업데이트 (4단계 → 5/6단계)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def update_customer_stage_to_proposal(person_id: str, agent_id: str, target_stage: int = 5) -> bool:
+    """
+    고객 세일즈 단계 업데이트 (제안서 생성 완료)
+    
+    Args:
+        person_id: 고객 UUID
+        agent_id: 설계사 ID
+        target_stage: 목표 단계 (5: 제안, 6: 설득)
+    
+    Returns:
+        bool: 성공 여부
+    """
+    try:
+        sb = _get_sb()
+        if not sb:
+            return False
+        
+        # gk_people 테이블 업데이트
+        result = (
+            sb.table("gk_people")
+            .update({"current_stage": target_stage})
+            .eq("person_id", person_id)
+            .eq("agent_id", agent_id)
+            .execute()
+        )
+        
+        return bool(result.data)
+    except Exception:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [8] 사용 예시
+# ══════════════════════════════════════════════════════════════════════════════
+
+"""
+## 사용 예시 (crm_proposal_ui.py 통합)
+
+```python
+from hq_proposal_engine import generate_proposal, save_proposal_to_db, update_customer_stage_to_proposal
+
+# 제안서 생성
+proposal_data = generate_proposal(person_id, agent_id)
+
+if proposal_data.get("success"):
+    # 제안서 저장
+    save_proposal_to_db(proposal_data, person_id, agent_id)
+    
+    # 에이전틱 단계 업데이트 (4단계 → 5단계)
+    update_customer_stage_to_proposal(person_id, agent_id, target_stage=5)
+    
+    # UI 렌더링
+    render_proposal_ui(proposal_data)
+```
+
+## gk_proposals 테이블 생성 SQL
+
+```sql
+CREATE TABLE IF NOT EXISTS gk_proposals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    proposal_id TEXT NOT NULL UNIQUE,
+    person_id TEXT NOT NULL REFERENCES gk_people(person_id) ON DELETE RESTRICT,
+    agent_id TEXT NOT NULL,
+    proposal_data JSONB NOT NULL,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_gk_proposals_person_id ON gk_proposals(person_id);
+CREATE INDEX IF NOT EXISTS idx_gk_proposals_agent_id ON gk_proposals(agent_id);
+CREATE INDEX IF NOT EXISTS idx_gk_proposals_proposal_id ON gk_proposals(proposal_id);
+
+COMMENT ON TABLE gk_proposals IS 'AI 제안서 저장 테이블 (Step 8)';
+```
+"""
