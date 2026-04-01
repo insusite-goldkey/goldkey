@@ -198,7 +198,15 @@ def analyze_coverage_gap(
     cancer_coverage = current_coverage.get("cancer", 0)
     
     # 암보험 공백 분석 (표적항암 최소 기준 7천만원 + 수도권 원정 진료비 6천만원)
+    # [GP-STEP13] Financial Toxicity (경제적 파산) 엔진
     if cancer_coverage < 70000000:
+        # AI 브리핑: 단순 진단비 3~5천만원은 현대 암 치료의 6개월치 비용에 불과
+        financial_toxicity_warning = (
+            f"⚠️ 경제적 파산(Financial Toxicity) 리스크: "
+            f"단순 진단비 3~5천만원은 현대 암 치료의 6개월치 비용에 불과합니다. "
+            f"NGS 검사비(평균 150만원) + 비급여 표적항암제(연간 5천만원~1억원) 리스크를 반드시 고려해야 합니다."
+        )
+        
         gaps.append({
             "type": "암보험",
             "severity": "critical",
@@ -208,12 +216,15 @@ def analyze_coverage_gap(
                 f"2세대 표적항암 연간 {gen2_cost_max//10000}만원 + "
                 f"3세대 면역항암 연간 {gen3_cost//10000}만원 대비 필요"
             ),
+            "financial_toxicity_warning": financial_toxicity_warning,
             "cost_simulation": {
                 "ngs": {"min": ngs_cost_min, "max": ngs_cost_max},
+                "ngs_average": 1500000,  # NGS 검사비 평균 150만원
                 "gen1": gen1_cost,
                 "gen2": {"min": gen2_cost_min, "max": gen2_cost_max},
                 "gen3": gen3_cost,
-                "non_covered_avg": {"min": avg_non_covered_min, "max": avg_non_covered_max}
+                "non_covered_avg": {"min": avg_non_covered_min, "max": avg_non_covered_max},
+                "non_covered_targeted_yearly": {"min": 50000000, "max": 100000000}  # 비급여 표적항암제 연간 5천만원~1억원
             },
             "regional_strategy": {
                 "stage_1_3": {
@@ -244,6 +255,38 @@ def analyze_coverage_gap(
             "message": "노후 준비 필요 (연금 보장 부재)"
         })
     
+    # [GP-STEP13] APP 프로토콜 - 공장/상가 화재보험 비례보상 리스크 분석
+    factory_coverage = current_coverage.get("factory_fire", 0)
+    if factory_coverage > 0:
+        # 재조달가액 산정 미비 리스크 분석
+        # 예시: 재조달가액 10억 원, 보험가입 5억 원 → 비례보상 50%
+        estimated_replacement_cost = factory_coverage * 2  # 가정: 보험가액이 재조달가액의 50%
+        proportional_compensation_risk = (
+            f"⚠️ 비례보상 리스크: 보험가액 {factory_coverage//100000000}억원이 "
+            f"재조달가액 {estimated_replacement_cost//100000000}억원보다 낮을 경우, "
+            f"화재 시 1억원 피해 발생해도 50%인 5천만원만 보상받습니다. "
+            f"재조달가액 정밀 산정 후 보험가액 상향 조정이 필요합니다."
+        )
+        
+        gaps.append({
+            "type": "공장화재보험",
+            "severity": "critical",
+            "message": f"공장 화재보험 비례보상 리스크 (현재 보험가액: {factory_coverage//100000000}억원)",
+            "detail": "재조달가액 산정 미비로 인한 비례보상 원칙 적용 주의",
+            "proportional_compensation_warning": proportional_compensation_risk,
+            "factory_risk_analysis": {
+                "current_coverage": factory_coverage,
+                "estimated_replacement_cost": estimated_replacement_cost,
+                "compensation_ratio": 0.5,  # 50% 보상 비율
+                "average_fire_damage": {
+                    "제조업": 350000000,  # 3억 5천만원
+                    "창고업": 280000000,  # 2억 8천만원
+                    "식품공장": 420000000  # 4억 2천만원
+                },
+                "bi_coverage_recommendation": "영업중단 손실(BI) 특약 가입 권장 - 화재 복구 기간 동안 고정비 및 영업이익 손실 보상"
+            }
+        })
+    
     # 타사 계약 중 승환 추천
     conversion_targets = []
     for policy in buckets.get("B", []):
@@ -262,7 +305,8 @@ def analyze_coverage_gap(
         "total_premium": total_premium,
         "gaps": gaps,
         "conversion_targets": conversion_targets,
-        "economic_paradox_analysis": economic_paradox
+        "economic_paradox_analysis": economic_paradox,
+        "factory_fire_risk_detected": factory_coverage > 0
     }
 
 
