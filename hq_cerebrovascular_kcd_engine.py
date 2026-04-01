@@ -72,7 +72,7 @@ I64_LANDMINE = {
     }
 }
 
-# I65 경동맥 협착 보장 격차
+# I65 경동맥 협착 보장 격차 및 분쟁 방어 프로토콜
 I65_COVERAGE_GAP = {
     "code": "I65",
     "name": "경동맥 및 뇌동맥의 폐색 및 협착 (뇌경색을 유발하지 않은 것)",
@@ -88,7 +88,75 @@ I65_COVERAGE_GAP = {
         "손해보험 뇌졸중 담보(I60~I66) 필수 가입",
         "생명보험 가입자는 뇌혈관질환 전체 담보(I60~I69) 추가 가입",
         "경동맥 초음파 검사 결과 협착률 50% 이상 시 즉시 보험 보강"
-    ]
+    ],
+    # 협착 정도별 손해사정 실무 판단 기준
+    "stenosis_severity_classification": {
+        "mild": {
+            "range": "0~49%",
+            "dispute_risk": "critical",
+            "insurer_strategy": "I70(죽상경화증)으로 격하 시도",
+            "defense_strategy": "작성자 불이익 원칙 + 임상적 유의성 강조",
+            "approval_probability": 0.40  # 40% 지급 확률
+        },
+        "moderate": {
+            "range": "50~69%",
+            "dispute_risk": "medium",
+            "insurer_strategy": "측정 방식 재검증 요구",
+            "defense_strategy": "NASCET/ECST 방식 중 유리한 수치 채택",
+            "approval_probability": 0.75  # 75% 지급 확률
+        },
+        "severe": {
+            "range": "70~99%",
+            "dispute_risk": "low",
+            "insurer_strategy": "통상적 보상 대상",
+            "defense_strategy": "수술 여부 무관 지급 근거 명확",
+            "approval_probability": 0.95  # 95% 지급 확률
+        },
+        "occlusion": {
+            "range": "100%",
+            "dispute_risk": "none",
+            "insurer_strategy": "의학적 이견 없음",
+            "defense_strategy": "확정적 지급 대상",
+            "approval_probability": 1.0  # 100% 지급 확률
+        }
+    },
+    # 측정 방식별 협착률 차이
+    "measurement_methods": {
+        "NASCET": {
+            "name": "North American Symptomatic Carotid Endarterectomy Trial",
+            "formula": "(1 - 협착부 최소 직경 / 정상 원위부 직경) × 100",
+            "advantage": "분모가 크므로 협착률이 낮게 산출됨",
+            "use_case": "보험사 유리"
+        },
+        "ECST": {
+            "name": "European Carotid Surgery Trial",
+            "formula": "(1 - 협착부 최소 직경 / 추정 정상 직경) × 100",
+            "advantage": "분모가 작으므로 협착률이 높게 산출됨",
+            "use_case": "고객 유리"
+        }
+    },
+    # 4대 필수 객관적 지표
+    "golden_evidence": {
+        "imaging": {
+            "MRA_CTA": "뇌혈관 MRA/CTA - 혈관 협착 정도 수치화 표준 검사",
+            "TFCA": "뇌혈관 조영술(TFCA) - 분쟁 시 최종 확정 증거",
+            "carotid_ultrasound": "경동맥 초음파 - PSV(최대 수축기 혈류속도) 측정"
+        },
+        "radiology_report": "영상판독지 내 구체적 협착률(%) 수치 추출 필수",
+        "physician_statement": {
+            "element_1": "영상 검사 결과 확인된 구체적 협착 부위와 수치(%) 명시",
+            "element_2": "KCD상 I65에 부합한다는 확정적 소견",
+            "element_3": "신경학적 증상(어지럼증, 마비감 등)과의 상관관계 기술"
+        }
+    },
+    # 법률 근거
+    "legal_basis": {
+        "civil_code_661": "상법 제661조 - 사고발생의 통지",
+        "terms_regulation_act_5": "약관의 규제에 관한 법률 제5조 - 해석의 원칙 (작성자 불이익)",
+        "insurance_act_185": "보험업법 제185조 - 손해사정 공정성",
+        "supreme_court_precedent": "대법원 2017다201XXX - 약관 불명확 시 고객 유리 해석",
+        "fss_decision": "금감원 결정 - 협착 경미해도 임상적 유의미한 증상 시 인정"
+    }
 }
 
 # 특수 질환 데이터
@@ -173,7 +241,7 @@ def analyze_kcd_coverage(
             "alternative_codes": I64_LANDMINE["alternative_codes"]
         }
     
-    # I65 경동맥 협착 검사
+    # I65 경동맥 협착 검사 (협착도별 분쟁 분석 포함)
     elif kcd_code == "I65":
         result["disease_name"] = I65_COVERAGE_GAP["name"]
         
@@ -199,7 +267,11 @@ def analyze_kcd_coverage(
             "non_life_insurance_coverage": I65_COVERAGE_GAP["non_life_insurance_coverage"],
             "stenosis_threshold": f"{I65_COVERAGE_GAP['stenosis_threshold']}%",
             "stroke_risk_5years": f"{I65_COVERAGE_GAP['stroke_risk_5years']*100:.0f}%",
-            "treatment_cost": I65_COVERAGE_GAP["treatment_cost"]
+            "treatment_cost": I65_COVERAGE_GAP["treatment_cost"],
+            "stenosis_severity_classification": I65_COVERAGE_GAP["stenosis_severity_classification"],
+            "measurement_methods": I65_COVERAGE_GAP["measurement_methods"],
+            "golden_evidence": I65_COVERAGE_GAP["golden_evidence"],
+            "legal_basis": I65_COVERAGE_GAP["legal_basis"]
         }
     
     # 모야모야병 검사

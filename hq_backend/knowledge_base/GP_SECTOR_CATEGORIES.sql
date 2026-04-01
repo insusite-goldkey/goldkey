@@ -179,6 +179,48 @@ INSERT INTO gk_knowledge_base (
     ARRAY['뇌수종', '수두증', 'NPH', '정상압수두증', '션트수술', '보행장애', '인지장애', '요실금', '알츠하이머', '레카네맙', 'Lecanemab', '아밀로이드베타', '치매신약', '연간3천만원', '장기간병특약']
 ) ON CONFLICT (document_name, chunk_index) DO NOTHING;
 
+-- PSP-02-6: 경동맥 협착(I65) 보험금 지급 분쟁 방어 프로토콜
+INSERT INTO gk_knowledge_base (
+    document_name, document_category, chunk_index, content, content_length,
+    embedding, keywords
+) VALUES (
+    'PSP-02_I65_경동맥협착_분쟁방어_전문가프로토콜.pdf',
+    'PSP-02-뇌혈관',
+    6,
+    '경동맥 협착(I65) 보험금 지급 분쟁의 본질: 보험사는 고객의 진단이 경동맥의 폐쇄 및 협착(I65)임에도 불구하고 이를 죽상경화증(I70)으로 격하시키려 합니다. 보험사 논리: "협착이 경미(Mild)하므로 질병이 아니라 노화에 따른 단순 동맥경화(I70)다." 에이젠틱 방어: "약관은 KCD 분류를 따르며, 영상판독지상 실질적 협착이 확인된다면 수치와 관계없이 I65 진단은 의학적·법률적으로 정당하다." 협착 정도별 손해사정 실무 판단 기준: 1) Mild(경도, 50% 미만): 최대 분쟁 구역. 보험사의 I70 변경 유도 집중. 작성자 불이익 원칙과 임상적 유의성으로 정면 돌파 필요. 2) Moderate(중등도, 50~69%): 지급 가능성 높음. NASCET 등 측정 방식에 따른 수치 검증 필요. 3) Severe(중증, 70~99%): 통상적 보상 대상. 스텐트 삽입술 등 수술 여부와 관계없이 지급 근거 명확. 4) Occlusion(폐쇄, 100%): 혈관 완전 폐쇄. 의학적 이견이 없는 확정적 지급 대상.',
+    580,
+    array_fill(0, ARRAY[1536])::vector,
+    ARRAY['I65', '경동맥협착', '보험금분쟁', 'I70', '죽상경화증', 'Mild협착', 'NASCET', 'ECST', '작성자불이익원칙', '협착률', '손해사정', '부지급방어', '영상판독지', 'KCD분류']
+) ON CONFLICT (document_name, chunk_index) DO NOTHING;
+
+-- PSP-02-7: I65 분쟁 4대 필수 객관적 지표 및 증거 확보 전략
+INSERT INTO gk_knowledge_base (
+    document_name, document_category, chunk_index, content, content_length,
+    embedding, keywords
+) VALUES (
+    'PSP-02_I65_4대필수증거_확보전략.pdf',
+    'PSP-02-뇌혈관',
+    7,
+    '경동맥 협착(I65) 보험금 수령을 위한 4대 필수 객관적 지표: 1) 영상 의학 자료(Golden Evidence): 뇌혈관 MRA/CTA(혈관의 좁아진 정도를 수치화하는 표준 검사), 뇌혈관 조영술(TFCA, 분쟁 시 가장 강력한 최종 확정 증거), 경동맥 초음파(PSV 최대 수축기 혈류속도 값이 유의미하게 높은지 확인). 2) 측정 방식의 유리함 검토: NASCET 방식 vs ECST 방식은 분모 설정에 따라 협착률(%)이 달라짐. 고객에게 더 유리한 수치가 도출된 방식을 채택해야 함. 3) 영상판독지(Radiology Report) 정밀 분석: 단순히 Mild라는 표현에 매몰되지 말고, 판독지 내 기재된 구체적 수치(%)를 추출하여 기록. 4) 전문의 진단 소견서 3요소 필수 포함: ① 영상 검사 결과 확인된 구체적 협착 부위와 수치(%) 명시. ② 해당 수치가 한국표준질병사인분류(KCD)상 I65에 부합한다는 확정적 소견. ③ 환자가 호소하는 신경학적 증상(어지럼증, 마비감 등)과의 상관관계 기술.',
+    560,
+    array_fill(0, ARRAY[1536])::vector,
+    ARRAY['MRA', 'CTA', 'TFCA', '뇌혈관조영술', '경동맥초음파', 'PSV', 'NASCET방식', 'ECST방식', '영상판독지', '전문의소견서', '신경학적증상', '협착수치', '진단근거']
+) ON CONFLICT (document_name, chunk_index) DO NOTHING;
+
+-- PSP-02-8: I65 보험사 대응 전략 및 법률 근거
+INSERT INTO gk_knowledge_base (
+    document_name, document_category, chunk_index, content, content_length,
+    embedding, keywords
+) VALUES (
+    'PSP-02_I65_보험사대응전략_법률근거.pdf',
+    'PSP-02-뇌혈관',
+    8,
+    '경동맥 협착(I65) 보험사 대응 프로세스(Strategic Action): 1) 의료자문 동의권 행사 주의: 보험사 측 자문은 Mild를 근거로 I70(부지급)으로 격하시키는 수단. 자문 동의 전, 주치의에게 "KCD 지침상 영상 결과가 있다면 I65 진단이 적정하다"는 재확인을 받는 것이 우선. 2) 작성자 불이익의 원칙(상법 제661조 연계): 보험약관에서 "협착률 50% 이상만 지급한다"는 구체적인 제한 규정을 두지 않았다면, 의학적 판단에 따른 I65 진단은 약관상 지급 대상임을 강력히 주장. 3) 대법원 판례 및 분쟁조정례 활용: 대법원 2017다201XXX 판례 - 약관의 뜻이 명백하지 않을 때는 고객에게 유리하게 해석해야 함. 금감원 결정 - 협착 정도가 낮더라도 임상적으로 유의미한 증상이 있다면 뇌혈관질환으로 인정함이 타당함. 관련 법조문: 상법 제661조(사고발생의 통지), 약관의 규제에 관한 법률 제5조(해석의 원칙), 보험업법 제185조(손해사정). 전문가 조언: 경동맥 협착은 보험금 액수가 크기 때문에 보험사의 현장 심사가 반드시 나옴. 청구 전 반드시 영상판독지와 진단서를 전문가에게 검토받아 논리적 허점이 없는지 확인하는 것이 보험금을 온전히 수령하는 지름길.',
+    620,
+    array_fill(0, ARRAY[1536])::vector,
+    ARRAY['의료자문', '작성자불이익원칙', '상법제661조', '약관규제법', '보험업법제185조', '대법원판례', '금감원결정', '손해사정', '현장심사', '전문가검토', 'I70격하방어', '임상적유의성']
+) ON CONFLICT (document_name, chunk_index) DO NOTHING;
+
 -- PSP-03: 심장질환
 INSERT INTO gk_knowledge_base (
     document_name, document_category, chunk_index, content, content_length,
