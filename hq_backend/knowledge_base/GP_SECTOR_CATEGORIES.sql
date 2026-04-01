@@ -79,6 +79,20 @@ INSERT INTO gk_knowledge_base (
     ARRAY['임상시험', '키트루다', '옵디보', '신약무상투여', '비급여약제비', '수도권원정진료', '교통비보장', '숙박비보장', '간병비보장', '부대비용6천만원', 'ECOG성능상태']
 ) ON CONFLICT (document_name, chunk_index) DO NOTHING;
 
+-- PSP-01-3-1: 지방 거점 병원 CAR-T 센터 운영 성적
+INSERT INTO gk_knowledge_base (
+    document_name, document_category, chunk_index, content, content_length,
+    embedding, keywords
+) VALUES (
+    'PSP-01_지방거점병원_CAR-T센터_운영성적.pdf',
+    'PSP-01-암보험',
+    0,
+    '"지방은 불안하다"는 고객의 우려는 데이터로 반박됩니다. 화순전남대병원은 2023년 기준 CAR-T 세포치료 센터를 운영하며, 혈액암 치료 성적이 수도권 대형병원과 동등합니다. 부산대병원은 위암 5년 생존율 78.3%로 전국 평균 77.5%를 상회하며, NCCN(National Comprehensive Cancer Network) 가이드라인을 엄격히 준수합니다. 지방 거점 병원들은 상급종합병원으로 지정되어 있으며, 수술 대기 시간이 수도권의 1/3 수준으로 짧아 골든타임 내 치료가 가능합니다. 특히 1~3기 초기 암의 경우, 수술 대기 시간 2주 단축이 5년 생존율을 15% 이상 향상시키는 연구 결과가 있습니다. 따라서 "서울로 가야 할까요?"라는 질문에 대한 답변은 병기에 따라 달라집니다. 2기 환자라면 "서울 대기보다 화순전남대에서의 신속한 수술이 생존율을 높이는 최적의 프로토콜"입니다.',
+    580,
+    array_fill(0, ARRAY[1536])::vector,
+    ARRAY['화순전남대병원', '부산대병원', 'CAR-T센터', 'NCCN가이드라인', '상급종합병원', '수술대기시간단축', '5년생존율', '골든타임', '지방불안반박', '병기별맞춤답변']
+) ON CONFLICT (document_name, chunk_index) DO NOTHING;
+
 
 
 -- PSP-02: 뇌혈관질환

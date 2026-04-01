@@ -123,6 +123,99 @@ def get_insurance_buckets(person_id: str, agent_id: str) -> Dict[str, List[Dict[
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# [1-1] 암 치료 지역 전략 분석 (Regional Strategy Analysis)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def analyze_regional_strategy(cancer_stage: str = None) -> Dict[str, Any]:
+    """
+    병기(Stage)별 지능형 진료처 권고 로직
+    
+    Args:
+        cancer_stage: 암 병기 ("1기", "2기", "3기", "4기", "재발" 등)
+    
+    Returns:
+        dict: 병기별 권장 진료처 및 경제적 역설 분석
+    """
+    # 병기 파싱
+    stage_num = None
+    if cancer_stage:
+        stage_lower = cancer_stage.lower().replace("기", "").replace("stage", "").strip()
+        if stage_lower in ["1", "2", "3"]:
+            stage_num = int(stage_lower)
+        elif stage_lower in ["4", "재발", "recurrence"]:
+            stage_num = 4
+    
+    # 경제적 역설 데이터
+    # 수도권 원정 진료비 (교통비 + 숙박비 + 간병비)
+    metro_travel_monthly = 5000000  # 월 500만원
+    metro_travel_yearly = metro_travel_monthly * 12  # 연간 6,000만원
+    
+    # 임상시험 참여 시 약제비 절감 (키트루다 예시)
+    clinical_trial_drug_value = 120000000  # 연간 1억 2천만원 무상
+    
+    # 비급여 약제비 (임상시험 미참여 시)
+    non_covered_drug_monthly = 10000000  # 월 1,000만원
+    non_covered_drug_yearly = non_covered_drug_monthly * 12  # 연간 1억 2천만원
+    
+    # 순절감 효과
+    net_savings = clinical_trial_drug_value - metro_travel_yearly  # 6천만원
+    
+    # 1~3기 초기 암 전략
+    stage_1_3_strategy = {
+        "recommendation": "지방 거점 병원 (화순전남대병원, 부산대병원 등)",
+        "reason": (
+            "수술 대기 시간 단축이 예후에 결정적입니다. "
+            "수도권 대기(2~4주) 대비 지방 거점 병원에서의 신속한 수술이 예후에 약 15% 유리합니다. "
+            "표준 치료 품질은 수도권과 동일하며, CAR-T 센터 운영 및 NCCN 가이드라인 준수로 생존율이 평준화되었습니다."
+        ),
+        "cost_advantage": "원정 진료비 절감 + 가족 곁 치료로 심리적 안정감 확보",
+        "survival_benefit": "15% 예후 개선 (수술 대기 시간 단축 효과)"
+    }
+    
+    # 4기/재발 진행성 암 전략
+    stage_4_strategy = {
+        "recommendation": "수도권 Big 5 병원 (서울대병원, 삼성서울병원, 아산병원, 세브란스병원, 서울성모병원)",
+        "reason": (
+            "신약 임상시험(Clinical Trials) 접근성을 통한 치료 대안 확보가 핵심입니다. "
+            "임상시험 참여 시 수억 원대 신약을 무상으로 투여받을 수 있으며, "
+            "이는 지방 병원에서 동일 약제를 비급여로 부담하는 것보다 경제적으로 유리합니다."
+        ),
+        "cost_advantage": f"연간 {clinical_trial_drug_value//10000}만원 약제비 무상 투여 가능",
+        "economic_paradox": (
+            f"서울 원정 진료비(연간 {metro_travel_yearly//10000}만원)보다 무서운 것은 "
+            f"신약 임상 기회의 박탈입니다. 지방에서 비급여 약제비로 연간 {non_covered_drug_yearly//10000}만원을 부담하는 것보다, "
+            f"수도권 원정 진료비 {metro_travel_yearly//10000}만원을 투자하여 임상시험에 참여하는 것이 순절감 {net_savings//10000}만원의 경제적 이익을 가져옵니다."
+        )
+    }
+    
+    # 병기별 추천 전략 결정
+    if stage_num and stage_num <= 3:
+        recommended_strategy = stage_1_3_strategy
+        stage_category = "1~3기 초기 암"
+    else:
+        recommended_strategy = stage_4_strategy
+        stage_category = "4기/재발 진행성 암"
+    
+    return {
+        "stage_category": stage_category,
+        "recommended_strategy": recommended_strategy,
+        "stage_1_3": stage_1_3_strategy,
+        "stage_4": stage_4_strategy,
+        "economic_paradox": {
+            "metro_travel_yearly": metro_travel_yearly,
+            "clinical_trial_drug_value": clinical_trial_drug_value,
+            "non_covered_drug_yearly": non_covered_drug_yearly,
+            "net_savings": net_savings,
+            "key_message": (
+                "서울 원정 진료비보다 무서운 것은 신약 임상 기회의 박탈입니다. "
+                "임상시험 참여로 연간 1억 2천만원 약제비를 무상으로 받으면, "
+                "원정 진료비 6천만원을 고려해도 순절감 6천만원의 경제적 이익이 발생합니다."
+            )
+        }
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # [2] 보장 공백 분석 (Gap Analysis)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -359,10 +452,21 @@ def generate_emotional_scripts(
         "objection_handling": "저도 {name}님의 입장이라면 같은 생각을 했을 거예요. "
                               "하지만 최신 면역항암제 연간 치료비가 1억 원인 시대에 진단비 5천만 원은 6개월치 치료비에 불과합니다. "
                               "가족을 생각하면, 지금 이 순간이 가장 중요한 시기일 수 있습니다.",
-        "regional_strategy": "서울 큰 병원으로 가야 하지 않을까 걱정되시죠? "
+        "regional_strategy_general": "서울 큰 병원으로 가야 하지 않을까 걱정되시죠? "
                             "병기에 따라 전략이 달라야 합니다. 초기라면 가족 곁에서 신속히 수술하는 것이 최고이며, "
                             "만약 신약이 필요한 단계라면 제가 서울의 임상시험 센터와 연결된 네트워크를 찾아봐 드리겠습니다. "
-                            "임상시험에 참여하시면 수억 원대 신약을 무상으로 투여받으실 수 있어요."
+                            "임상시험에 참여하시면 수억 원대 신약을 무상으로 투여받으실 수 있어요.",
+        "regional_strategy_stage_1_3": f"{name}님, 현재 진단받으신 병기가 2기라면, "
+                                       "서울 대기보다 화순전남대병원에서의 신속한 수술이 생존율을 높이는 최적의 프로토콜입니다. "
+                                       "수도권 대기 시간 2~4주는 예후에 치명적일 수 있습니다. "
+                                       "화순전남대병원은 CAR-T 센터를 운영하며 NCCN 가이드라인을 준수하여 "
+                                       "수도권과 동등한 치료 품질을 보장합니다. 가족 곁에서 치료받는 것이 심리적 안정감에도 큰 도움이 됩니다.",
+        "regional_strategy_stage_4": f"{name}님, 현재 병기가 4기라면 수도권 Big 5 병원을 검토하셔야 합니다. "
+                                 "신약 임상시험 접근성이 핵심입니다. "
+                                 "임상시험에 참여하시면 연간 1억 2천만원 상당의 신약을 무상으로 투여받을 수 있습니다. "
+                                 "수도권 원정 진료비(교통비+숙박비) 연간 6천만원을 투자하더라도, "
+                                 "비급여 약제비 연간 1억 2천만원을 절감하면 순절감 6천만원의 경제적 이익이 발생합니다. "
+                                 "서울 원정 진료비보다 무서운 것은 신약 임상 기회의 박탈입니다."
     }
     
     # 3. 직설적 톤 (Direct) + 치료비 폭증 구조 명시
@@ -385,10 +489,12 @@ def generate_emotional_scripts(
         elif "사업" in job or "대표" in job:
             direct["opening"] += f" {job}님이시니 숫자와 리스크 관리에 익숙하실 겁니다."
     
+    # [GP-STEP13] 병기별 맞춤 답변 로직 추가
     return {
         "professional": professional,
         "emotional": emotional,
-        "direct": direct
+        "direct": direct,
+        "regional_nudge_enabled": True  # 지역 전략 넷지 활성화 플래그
     }
 
 
