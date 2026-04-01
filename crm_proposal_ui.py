@@ -145,23 +145,29 @@ def render_gap_analysis_visual(gap_analysis: Dict[str, Any]):
     with col2:
         st.markdown(
             "<div style='background:#DCFCE7;border:1.5px solid #22C55E;border-radius:10px;padding:14px;'>"
-            "<div style='font-size:.88rem;font-weight:700;color:#166534;margin-bottom:8px;'>제안 보장 (Green)</div>",
+            "<div style='font-size:.88rem;font-weight:700;color:#166534;margin-bottom:8px;'>필요 보장 (Green)</div>",
             unsafe_allow_html=True
         )
         
-        # 권장 보장 (현재 + 공백 채우기)
-        recommended_coverage = current_coverage.copy()
-        for gap in gaps:
-            gap_type = gap.get("type", "")
-            if gap_type in recommended_coverage:
-                recommended_coverage[gap_type] = max(recommended_coverage[gap_type], 1)
+        # [GP-PSP-01] 표적항암 최소 기준 7천만원 반영
+        # 암보험 공백 시 최소 기준 표시
+        cancer_gap = next((g for g in gaps if g.get("type") == "암보험"), None)
         
-        for coverage_type, count in recommended_coverage.items():
+        if cancer_gap:
             st.markdown(
                 f"<div style='font-size:.82rem;color:#14532D;margin-bottom:4px;'>"
-                f"• {coverage_type}: {count}건 ✅</div>",
+                f"• 암보험: 표준 진단비 + 표적항암 치료비 (최소 7천만원) ✅</div>",
                 unsafe_allow_html=True
             )
+        
+        # 기타 보장 표시
+        for gap in gaps:
+            if gap.get("type") != "암보험":
+                st.markdown(
+                    f"<div style='font-size:.82rem;color:#14532D;margin-bottom:4px;'>"
+                    f"• {gap.get('type', '')}: 권장 보장 ✅</div>",
+                    unsafe_allow_html=True
+                )
         
         st.markdown(
             f"<div style='font-size:.85rem;font-weight:700;color:#166534;margin-top:8px;'>"
@@ -170,18 +176,22 @@ def render_gap_analysis_visual(gap_analysis: Dict[str, Any]):
             unsafe_allow_html=True
         )
     
-    # 보장 공백 알림
+    # 보장 공백 알림 (치료비 상세 포함)
     if gaps:
         st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
         
         for gap in gaps:
-            severity_color = "#EF4444" if gap.get("severity") == "high" else "#F59E0B"
-            severity_icon = "⚠️" if gap.get("severity") == "high" else "💡"
+            severity_color = "#DC2626" if gap.get("severity") == "critical" else ("#EF4444" if gap.get("severity") == "high" else "#F59E0B")
+            severity_icon = "🔴" if gap.get("severity") == "critical" else ("⚠️" if gap.get("severity") == "high" else "💡")
+            
+            message = gap.get('message', '')
+            detail = gap.get('detail', '')
             
             st.markdown(
                 f"<div style='background:#FEF3C7;border:1.5px solid {severity_color};border-radius:8px;"
                 f"padding:10px 12px;margin-bottom:8px;'>"
-                f"<div style='font-size:.82rem;color:#78350F;'>{severity_icon} {gap.get('message', '')}</div>"
+                f"<div style='font-size:.82rem;color:#78350F;font-weight:700;margin-bottom:4px;'>{severity_icon} {message}</div>"
+                f"<div style='font-size:.75rem;color:#92400E;line-height:1.4;'>{detail}</div>"
                 f"</div>",
                 unsafe_allow_html=True
             )

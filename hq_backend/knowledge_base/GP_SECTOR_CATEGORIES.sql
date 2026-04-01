@@ -23,6 +23,35 @@ INSERT INTO gk_knowledge_base (
     ARRAY['암보험', '진단금', '항암치료', '치료비', '보장', '국가암등록통계', '암발생확률']
 ) ON CONFLICT (document_name, chunk_index) DO NOTHING;
 
+-- PSP-01-1: 2023 암 치료비 비급여 실태 보고서
+INSERT INTO gk_knowledge_base (
+    document_name, document_category, chunk_index, content, content_length,
+    embedding, keywords
+) VALUES (
+    'PSP-01_2023_암치료비_비급여실태보고서.pdf',
+    'PSP-01-암보험',
+    0,
+    '암 환자 1인당 연간 평균 비급여 치료비는 2,800만원~5,500만원입니다. 1세대 독성항암제는 수백만원, 2세대 표적항암제는 연간 3,000만원~8,000만원, 3세대 면역항암제는 연간 1억원 이상 소요됩니다. 의학의 발전으로 암은 죽는 병이 아니라 돈으로 고치는 병이 되었지만, 건강보험이 따라가지 못하는 비급여 표적항암제와 면역항암 요법의 비용은 가족의 경제적 파산을 초래할 수 있습니다.',
+    280,
+    array_fill(0, ARRAY[1536])::vector,
+    ARRAY['비급여', '표적항암', '면역항암', '치료비폭증', '경제적파산', '1세대', '2세대', '3세대']
+) ON CONFLICT (document_name, chunk_index) DO NOTHING;
+
+-- PSP-01-2: NGS 검사 건강보험 가이드
+INSERT INTO gk_knowledge_base (
+    document_name, document_category, chunk_index, content, content_length,
+    embedding, keywords
+) VALUES (
+    'PSP-01_NGS검사_건강보험가이드.pdf',
+    'PSP-01-암보험',
+    0,
+    'NGS(차세대 염기서열 분석) 검사는 암 진단 시 정밀 분석을 위한 필수 검사입니다. 본인부담금은 70만원~150만원이며, 비급여 시 최대 400만원이 발생합니다. NGS 검사 결과에 따라 표적항암제 선택이 결정되므로, 암 치료의 첫 단계에서 경제적 부담이 시작됩니다. 진단비 5천만원은 최신 면역항암제 연간 치료비 1억원의 6개월치에 불과하므로, 표준 진단비 + 표적항암 치료비 최소 7천만원 이상의 보장이 권장됩니다.',
+    260,
+    array_fill(0, ARRAY[1536])::vector,
+    ARRAY['NGS검사', '차세대염기서열', '본인부담금', '비급여', '정밀분석', '표적항암제선택', '7천만원권장']
+) ON CONFLICT (document_name, chunk_index) DO NOTHING;
+
+
 -- PSP-02: 뇌혈관질환
 INSERT INTO gk_knowledge_base (
     document_name, document_category, chunk_index, content, content_length,

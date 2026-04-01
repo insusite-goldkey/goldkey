@@ -126,56 +126,84 @@ def get_insurance_buckets(person_id: str, agent_id: str) -> Dict[str, List[Dict[
 # [2] 보장 공백 분석 (Gap Analysis)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def analyze_coverage_gap(buckets: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
+def analyze_coverage_gap(
+    buckets: Dict[str, List[Dict[str, Any]]]
+) -> Dict[str, Any]:
     """
-    보장 공백 분석
+    보장 공백 분석 (3버킷 기반) + 3세대 항암 치료비 전이 시뮬레이션
     
     Args:
-        buckets: 버킷별 보험 계약 목록
+        buckets: 3버킷 데이터 (A/B/C)
     
     Returns:
         dict: 보장 공백 분석 결과
     """
-    # 현재 보장 현황
-    current_coverage = {
-        "생명": 0,
-        "손해": 0,
-        "실손": 0,
-        "연금": 0,
-        "저축": 0
-    }
-    
+    current_coverage = {}
     total_premium = 0
     
-    # 섹션 A (Direct) + 섹션 B (External) 합산
-    for part in ["A", "B"]:
-        for policy in buckets.get(part, []):
-            product_type = policy.get("product_type", "")
-            premium = float(policy.get("premium", 0) or 0)
-            
-            total_premium += premium
-            
-            if product_type in current_coverage:
-                current_coverage[product_type] += 1
+    # A버킷 (우리사 계약) 분석
+    for policy in buckets.get("A", []):
+        premium = float(policy.get("premium", 0) or 0)
+        total_premium += premium
+        
+        # 담보 분석 (간단 예시)
+        product_name = policy.get("product_name", "").lower()
+        if "암" in product_name:
+            current_coverage["cancer"] = current_coverage.get("cancer", 0) + 50000000
+        if "실손" in product_name:
+            current_coverage["medical"] = current_coverage.get("medical", 0) + 100000000
     
-    # 보장 공백 판단 (규칙 기반)
+    # [GP-PSP-01] 암보험 3세대 치료비 전이 시뮬레이션
+    # NGS 검사비: 본인부담 70~150만원, 비급여 시 최대 400만원
+    ngs_cost_min = 700000
+    ngs_cost_max = 4000000
+    
+    # 1세대 독성항암: 수백만원
+    gen1_cost = 5000000
+    
+    # 2세대 표적항암: 연간 3~8천만원
+    gen2_cost_min = 30000000
+    gen2_cost_max = 80000000
+    
+    # 3세대 면역항암: 연간 1억원 이상
+    gen3_cost = 100000000
+    
+    # 비급여 부담금: 암 환자 1인당 연간 평균 2,800만원 ~ 5,500만원
+    avg_non_covered_min = 28000000
+    avg_non_covered_max = 55000000
+    
+    # 보장 공백 판단 (최신 치료비 기준)
     gaps = []
+    cancer_coverage = current_coverage.get("cancer", 0)
     
-    if current_coverage["생명"] == 0:
+    # 암보험 공백 분석 (표적항암 최소 기준 7천만원)
+    if cancer_coverage < 70000000:
         gaps.append({
-            "type": "생명",
-            "severity": "high",
-            "message": "생명보험 가입 필요 (사망 보장 부재)"
+            "type": "암보험",
+            "severity": "critical",
+            "message": f"암 진단비 부족 (현재: {cancer_coverage//10000}만원, 권장: 7천만원 이상)",
+            "detail": (
+                f"NGS 검사비 {ngs_cost_max//10000}만원 + "
+                f"2세대 표적항암 연간 {gen2_cost_max//10000}만원 + "
+                f"3세대 면역항암 연간 {gen3_cost//10000}만원 대비 필요"
+            ),
+            "cost_simulation": {
+                "ngs": {"min": ngs_cost_min, "max": ngs_cost_max},
+                "gen1": gen1_cost,
+                "gen2": {"min": gen2_cost_min, "max": gen2_cost_max},
+                "gen3": gen3_cost,
+                "non_covered_avg": {"min": avg_non_covered_min, "max": avg_non_covered_max}
+            }
         })
     
-    if current_coverage["실손"] == 0:
+    if current_coverage.get("medical", 0) < 100000000:
         gaps.append({
-            "type": "실손",
+            "type": "실손의료보험",
             "severity": "high",
-            "message": "실손의료보험 가입 필요 (의료비 보장 부재)"
+            "message": "실손의료보험 가입 필요"
         })
     
-    if current_coverage["연금"] == 0:
+    if "pension" not in current_coverage:
         gaps.append({
             "type": "연금",
             "severity": "medium",
@@ -239,26 +267,30 @@ def generate_emotional_scripts(
                               "다만, 전문가로서 객관적인 분석 결과를 공유드리는 것이니 참고만 해주시면 됩니다."
     }
     
-    # 2. 감성적 톤 (Emotional)
+    # 2. 감성적 톤 (Emotional) + 비급여 리스크 강조
     emotional = {
         "opening": f"{name}님, 요즘 어떻게 지내세요? "
                    f"바쁘신 와중에도 시간 내주셔서 정말 감사합니다.",
         "body": f"{name}님의 소중한 가족과 미래를 위해, 현재 보장 상태를 꼼꼼히 살펴봤습니다. "
                 f"{gap_summary}. "
-                f"2021년 국가암등록통계에 따르면 이제 암은 3명 중 1명이 겪는 보편적 리스크입니다. "
+                f"2021년 국가암등록통계에 따르면 남성 39.1%(2.5명 중 1명), 여성 36.0%(3명 중 1명)이 평생 한 번 암을 진단받습니다. "
+                f"의학의 발전으로 암은 죽는 병이 아니라 돈으로 고치는 병이 되었지만, "
+                f"건강보험이 따라가지 못하는 비급여 표적항암제와 면역항암 요법의 비용은 가족의 경제적 파산을 초래할 수 있습니다. "
                 f"혹시 모를 위험에 대비해, 지금부터라도 준비하시면 좋을 것 같아요.",
         "objection_handling": "저도 {name}님의 입장이라면 같은 생각을 했을 거예요. "
-                              "하지만 가족을 생각하면, 지금 이 순간이 가장 중요한 시기일 수 있습니다."
+                              "하지만 최신 면역항암제 연간 치료비가 1억 원인 시대에 진단비 5천만 원은 6개월치 치료비에 불과합니다. "
+                              "가족을 생각하면, 지금 이 순간이 가장 중요한 시기일 수 있습니다."
     }
     
-    # 3. 직설적 톤 (Direct)
+    # 3. 직설적 톤 (Direct) + 치료비 폭증 구조 명시
     direct = {
         "opening": f"{name}님, 바로 본론으로 들어가겠습니다. "
                    f"시간 낭비 없이 핵심만 말씀드리겠습니다.",
         "body": f"현재 {name}님의 보장 상태는 솔직히 말씀드려 부족합니다. {gap_summary}. "
+                f"암 치료는 1세대 독성항암(수백만 원) → 2세대 표적항암(연간 3~8천만 원) → 3세대 면역항암(연간 1억 원 이상)으로 비용이 폭증합니다. "
                 f"지금 당장 조치하지 않으면, 나중에 후회할 수 있습니다.",
         "objection_handling": "거절하시는 건 자유입니다. 하지만 나중에 '그때 들어둘 걸' 하고 후회하지 마세요. "
-                              "기회는 지금입니다."
+                              "NGS 검사비만 400만 원, 표적항암제는 연간 8천만 원입니다. 기회는 지금입니다."
     }
     
     # 직업별 커스터마이징
