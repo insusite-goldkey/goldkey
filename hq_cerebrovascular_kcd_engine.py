@@ -274,19 +274,50 @@ def analyze_kcd_coverage(
         "gap_analysis": {}
     }
     
-    # I64 면책 지뢰 검사
+    # I64 면책 지뢰 검사 (담보 우선순위 판별 로직)
     if kcd_code == "I64":
         result["disease_name"] = I64_LANDMINE["name"]
-        result["coverage_status"] = "denied" if not current_coverage.get("cerebrovascular_full") else "covered"
-        result["denial_risk"] = "critical"
-        result["defense_strategies"] = I64_LANDMINE["defense_strategies"]
+        
+        # [오류 검증 7] 담보 종류별 부지급률 차등 적용
+        # 1순위: 뇌혈관질환 전체(I60~I69) 담보 → 부지급률 0%
+        # 2순위: 뇌졸중(I60~I66) 담보 → 부지급률 85%
+        # 3순위: 뇌출혈/뇌경색(I60~I63) 담보 → 부지급률 85%
+        
+        if current_coverage.get("cerebrovascular_full"):  # I60~I69 전체 담보
+            result["coverage_status"] = "covered"
+            result["denial_risk"] = "none"
+            result["actual_denial_rate"] = 0.0  # 0% 부지급률
+            result["coverage_type"] = "뇌혈관질환 전체 담보(I60~I69)"
+            result["defense_strategies"] = [
+                "✅ I64 코드도 뇌혈관질환 전체 담보(I60~I69)로 완벽 보장",
+                "추가 방어 불필요 - 약관상 I60~I69 범위에 명시적으로 포함됨"
+            ]
+        elif current_coverage.get("non_life_stroke"):  # 뇌졸중(I60~I66) 담보
+            result["coverage_status"] = "denied"
+            result["denial_risk"] = "critical"
+            result["actual_denial_rate"] = I64_LANDMINE["denial_rate"]  # 85% 부지급률
+            result["coverage_type"] = "뇌졸중 담보(I60~I66)"
+            result["defense_strategies"] = I64_LANDMINE["defense_strategies"]
+        else:  # 뇌출혈/뇌경색(I60~I63) 담보 또는 미가입
+            result["coverage_status"] = "denied"
+            result["denial_risk"] = "critical"
+            result["actual_denial_rate"] = I64_LANDMINE["denial_rate"]  # 85% 부지급률
+            result["coverage_type"] = "뇌출혈/뇌경색 담보(I60~I63) 또는 미가입"
+            result["defense_strategies"] = I64_LANDMINE["defense_strategies"]
+        
         result["recommended_coverage"] = "뇌혈관질환 전체 담보(I60~I69)"
         result["estimated_cost"] = 35000000
         result["gap_analysis"] = {
             "occurrence_rate": f"{I64_LANDMINE['occurrence_rate']*100:.0f}%",
-            "denial_rate": f"{I64_LANDMINE['denial_rate']*100:.0f}%",
+            "base_denial_rate": f"{I64_LANDMINE['denial_rate']*100:.0f}%",
+            "actual_denial_rate": f"{result['actual_denial_rate']*100:.0f}%",
             "conversion_success_rate": f"{I64_LANDMINE['conversion_success_rate']*100:.0f}%",
-            "alternative_codes": I64_LANDMINE["alternative_codes"]
+            "alternative_codes": I64_LANDMINE["alternative_codes"],
+            "coverage_hierarchy": {
+                "level_3_full": "뇌혈관질환 전체(I60~I69) → I64 부지급률 0%",
+                "level_2_stroke": "뇌졸중(I60~I66) → I64 부지급률 85%",
+                "level_1_basic": "뇌출혈/뇌경색(I60~I63) → I64 부지급률 85%"
+            }
         }
     
     # I65 경동맥 협착 검사 (협착도별 분쟁 분석 포함)
@@ -513,9 +544,19 @@ ALZHEIMER_DRUG_LECANEMAB = {
     "approval": "2023년 FDA 승인",
     "target": "초기 알츠하이머 환자",
     "mechanism": "아밀로이드 베타 제거 항체 치료제",
-    "cost_per_year": 40000000,  # 연간 4,000만원 (비급여)
-    "lifetime_cost": 150000000,  # 평생 치료비 1억 5,000만원 이상
-    "insurance_coverage": "건강보험 미적용",
+    # [오류 검증 8] 건강보험 급여 적용 여부에 따른 비용 차등
+    "cost_non_covered": {
+        "annual": 40000000,  # 비급여 시 연간 4,000만원
+        "lifetime": 150000000,  # 비급여 시 평생 1억 5,000만원
+        "description": "건강보험 미적용 시 전액 본인부담"
+    },
+    "cost_covered": {
+        "annual": 5000000,  # 급여 시 본인부담 상한제 적용 (예상)
+        "lifetime": 20000000,  # 급여 시 평생 2,000만원 (예상)
+        "description": "건강보험 급여 시 본인부담 상한제 적용 (연간 500만원 예상)",
+        "note": "2026년 기준 급여 승인 여부 미확정 - 예상 수치"
+    },
+    "insurance_coverage_status": "건강보험 미적용 (2026년 기준)",
     "recommended_insurance": {
         "dementia_diagnosis": 30000000,  # 치매 진단비 최소 3,000만원
         "long_term_care": 120000000  # 장기간병 특약 (월 100만원 × 10년)
@@ -523,12 +564,16 @@ ALZHEIMER_DRUG_LECANEMAB = {
 }
 
 
-def analyze_dementia_treatment_cost(diagnosis_type: str) -> Dict[str, Any]:
+def analyze_dementia_treatment_cost(
+    diagnosis_type: str,
+    health_insurance_covered: bool = False
+) -> Dict[str, Any]:
     """
     치매 유형별 치료 비용 분석
     
     Args:
         diagnosis_type: "NPH" (정상압 수두증) 또는 "Alzheimer" (알츠하이머)
+        health_insurance_covered: 건강보험 급여 적용 여부 (기본값: False)
     
     Returns:
         dict: 치료 비용 및 보험 전략
@@ -548,19 +593,55 @@ def analyze_dementia_treatment_cost(diagnosis_type: str) -> Dict[str, Any]:
             ]
         }
     elif diagnosis_type == "Alzheimer":
+        # [오류 검증 8] 건강보험 급여 적용 여부에 따른 비용 분리
+        if health_insurance_covered:
+            # 건강보험 급여 시나리오
+            cost_data = ALZHEIMER_DRUG_LECANEMAB["cost_covered"]
+            insurance_strategy = [
+                f"✅ 건강보험 급여 적용 시 본인부담 상한제 적용",
+                f"치매 진단비 최소 {ALZHEIMER_DRUG_LECANEMAB['recommended_insurance']['dementia_diagnosis']//10000}만원 이상 가입",
+                f"장기간병 특약 추가 (월 100만원 × 10년 = {ALZHEIMER_DRUG_LECANEMAB['recommended_insurance']['long_term_care']//10000}만원)",
+                f"레카네맙 신약 비용 연간 {cost_data['annual']//10000}만원 (급여 시 본인부담 상한제)"
+            ]
+        else:
+            # 건강보험 미적용 시나리오 (기본값)
+            cost_data = ALZHEIMER_DRUG_LECANEMAB["cost_non_covered"]
+            insurance_strategy = [
+                f"⚠️ 건강보험 미적용 시 전액 본인부담",
+                f"치매 진단비 최소 {ALZHEIMER_DRUG_LECANEMAB['recommended_insurance']['dementia_diagnosis']//10000}만원 이상 가입",
+                f"장기간병 특약 추가 (월 100만원 × 10년 = {ALZHEIMER_DRUG_LECANEMAB['recommended_insurance']['long_term_care']//10000}만원)",
+                f"레카네맙 신약 비용 연간 {cost_data['annual']//10000}만원 (비급여 시 전액 본인부담)"
+            ]
+        
         return {
             "diagnosis": "알츠하이머 치매",
             "new_drug": ALZHEIMER_DRUG_LECANEMAB["name"],
             "approval": ALZHEIMER_DRUG_LECANEMAB["approval"],
             "mechanism": ALZHEIMER_DRUG_LECANEMAB["mechanism"],
-            "annual_cost": ALZHEIMER_DRUG_LECANEMAB["cost_per_year"],
-            "lifetime_cost": ALZHEIMER_DRUG_LECANEMAB["lifetime_cost"],
+            "health_insurance_covered": health_insurance_covered,
+            "insurance_coverage_status": ALZHEIMER_DRUG_LECANEMAB["insurance_coverage_status"],
+            "annual_cost": cost_data["annual"],
+            "lifetime_cost": cost_data["lifetime"],
+            "cost_description": cost_data["description"],
             "cure_possible": False,
-            "insurance_strategy": [
-                f"치매 진단비 최소 {ALZHEIMER_DRUG_LECANEMAB['recommended_insurance']['dementia_diagnosis']//10000}만원 이상 가입",
-                f"장기간병 특약 추가 (월 100만원 × 10년 = {ALZHEIMER_DRUG_LECANEMAB['recommended_insurance']['long_term_care']//10000}만원)",
-                "레카네맙 신약 비용은 건강보험 미적용으로 전액 본인부담"
-            ]
+            "insurance_strategy": insurance_strategy,
+            "cost_comparison": {
+                "non_covered": {
+                    "annual": ALZHEIMER_DRUG_LECANEMAB["cost_non_covered"]["annual"],
+                    "lifetime": ALZHEIMER_DRUG_LECANEMAB["cost_non_covered"]["lifetime"],
+                    "description": ALZHEIMER_DRUG_LECANEMAB["cost_non_covered"]["description"]
+                },
+                "covered": {
+                    "annual": ALZHEIMER_DRUG_LECANEMAB["cost_covered"]["annual"],
+                    "lifetime": ALZHEIMER_DRUG_LECANEMAB["cost_covered"]["lifetime"],
+                    "description": ALZHEIMER_DRUG_LECANEMAB["cost_covered"]["description"],
+                    "note": ALZHEIMER_DRUG_LECANEMAB["cost_covered"]["note"]
+                },
+                "savings_if_covered": {
+                    "annual": ALZHEIMER_DRUG_LECANEMAB["cost_non_covered"]["annual"] - ALZHEIMER_DRUG_LECANEMAB["cost_covered"]["annual"],
+                    "lifetime": ALZHEIMER_DRUG_LECANEMAB["cost_non_covered"]["lifetime"] - ALZHEIMER_DRUG_LECANEMAB["cost_covered"]["lifetime"]
+                }
+            }
         }
     else:
         return {"error": "Invalid diagnosis_type. Use 'NPH' or 'Alzheimer'"}

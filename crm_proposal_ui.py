@@ -88,12 +88,22 @@ def render_proposal_content(proposal_data: Dict[str, Any], person_id: str, agent
     
     st.markdown("<div style='margin-top:24px;'></div>", unsafe_allow_html=True)
     
-    # 3. 감성 스크립트 선택기
+    # 3. ADLs 25% 통곡의 벽 시뮬레이터 (PSP-02 Step 2)
+    render_adls_wall_simulator(person_id)
+    
+    st.markdown("<div style='margin-top:24px;'></div>", unsafe_allow_html=True)
+    
+    # 4. 트리니티 가처분 소득 결손 차트 (PSP-02 Step 3)
+    render_trinity_income_loss_charts(person_id)
+    
+    st.markdown("<div style='margin-top:24px;'></div>", unsafe_allow_html=True)
+    
+    # 5. 감성 스크립트 선택기
     render_emotional_scripts_selector(proposal_data.get("emotional_scripts", {}))
     
     st.markdown("<div style='margin-top:24px;'></div>", unsafe_allow_html=True)
     
-    # 4. 모바일 전용 요약 제안서
+    # 6. 모바일 전용 요약 제안서
     render_mobile_summary(proposal_data, person_id)
 
 
@@ -456,6 +466,327 @@ def render_emotional_scripts_selector(emotional_scripts: Dict[str, Dict[str, str
         "<div style='font-size:.82rem;font-weight:700;color:#92400E;margin-bottom:6px;'>🛡️ 거절 처리 스크립트</div>"
         f"<div style='font-size:.78rem;color:#78350F;line-height:1.7;'>{script.get('objection_handling', '')}</div>"
         "</div>",
+        unsafe_allow_html=True
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [3-2] ADLs 25% 통곡의 벽 시뮬레이터 (PSP-02 Step 2)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def render_adls_wall_simulator(person_id: str):
+    """
+    ADLs 25% 통곡의 벽 시뮬레이터 - 인터랙티브 체크리스트
+    
+    Args:
+        person_id: 고객 UUID
+    """
+    st.markdown(
+        "<div style='font-size:1.05rem;font-weight:900;color:#1E3A8A;margin-bottom:12px;'>"
+        "🧩 ADLs 25% 판정 시뮬레이터 (회복의 역설)</div>",
+        unsafe_allow_html=True
+    )
+    
+    st.markdown(
+        "<div style='background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:10px;padding:12px;margin-bottom:16px;'>"
+        "<div style='font-size:.82rem;color:#92400E;line-height:1.6;'>"
+        "💡 <strong>CI(중대한 질병) 보험</strong>은 5대 ADLs 항목 중 <strong>장해율 25% 이상</strong>일 때만 보험금을 지급합니다.<br>"
+        "재활 치료로 조금씩 좋아지는 순간, <strong style='color:#DC2626;'>보험금은 0원</strong>이 됩니다. 이것이 '회복의 역설'입니다."
+        "</div></div>",
+        unsafe_allow_html=True
+    )
+    
+    # ADLs 5대 항목 체크리스트
+    st.markdown(
+        "<div style='font-size:.9rem;font-weight:700;color:#374151;margin-bottom:10px;'>"
+        "📋 5대 ADLs 항목별 장해 점수 (실시간 합산)</div>",
+        unsafe_allow_html=True
+    )
+    
+    from hq_adls_judgment_engine import ADLS_5_CATEGORIES, calculate_adls_score
+    
+    # 세션 키 초기화
+    if f"adls_mobility_{person_id}" not in st.session_state:
+        st.session_state[f"adls_mobility_{person_id}"] = "independent"
+        st.session_state[f"adls_eating_{person_id}"] = "independent"
+        st.session_state[f"adls_toileting_{person_id}"] = "independent"
+        st.session_state[f"adls_dressing_{person_id}"] = "independent"
+        st.session_state[f"adls_bathing_{person_id}"] = "independent"
+    
+    # 5대 항목 선택 UI
+    col1, col2 = st.columns(2, gap="medium")
+    
+    with col1:
+        # 1. 이동 능력
+        mobility_options = {k: v["label"] for k, v in ADLS_5_CATEGORIES["mobility"]["levels"].items()}
+        mobility = st.selectbox(
+            "🚶 이동 능력",
+            options=list(mobility_options.keys()),
+            format_func=lambda x: mobility_options[x],
+            key=f"adls_mobility_{person_id}"
+        )
+        
+        # 2. 식사 능력
+        eating_options = {k: v["label"] for k, v in ADLS_5_CATEGORIES["eating"]["levels"].items()}
+        eating = st.selectbox(
+            "🍽️ 식사 능력",
+            options=list(eating_options.keys()),
+            format_func=lambda x: eating_options[x],
+            key=f"adls_eating_{person_id}"
+        )
+        
+        # 3. 배변 능력
+        toileting_options = {k: v["label"] for k, v in ADLS_5_CATEGORIES["toileting"]["levels"].items()}
+        toileting = st.selectbox(
+            "🚽 배변·배뇨 능력",
+            options=list(toileting_options.keys()),
+            format_func=lambda x: toileting_options[x],
+            key=f"adls_toileting_{person_id}"
+        )
+    
+    with col2:
+        # 4. 탈의 능력
+        dressing_options = {k: v["label"] for k, v in ADLS_5_CATEGORIES["dressing"]["levels"].items()}
+        dressing = st.selectbox(
+            "👔 옷 입고 벗기",
+            options=list(dressing_options.keys()),
+            format_func=lambda x: dressing_options[x],
+            key=f"adls_dressing_{person_id}"
+        )
+        
+        # 5. 목욕 능력
+        bathing_options = {k: v["label"] for k, v in ADLS_5_CATEGORIES["bathing"]["levels"].items()}
+        bathing = st.selectbox(
+            "🛁 목욕 능력",
+            options=list(bathing_options.keys()),
+            format_func=lambda x: bathing_options[x],
+            key=f"adls_bathing_{person_id}"
+        )
+    
+    # 실시간 점수 계산
+    adls_result = calculate_adls_score(
+        mobility=mobility,
+        eating=eating,
+        toileting=toileting,
+        dressing=dressing,
+        bathing=bathing
+    )
+    
+    # 결과 표시
+    st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
+    
+    disability_pct = adls_result["disability_percentage"]
+    ci_eligible = adls_result["ci_payment_eligible"]
+    
+    # 장해율 게이지 바
+    gauge_color = "#22C55E" if ci_eligible else "#DC2626"
+    gauge_width = min(100, disability_pct)
+    
+    st.markdown(
+        f"<div style='background:#F3F4F6;border:1.5px solid #D1D5DB;border-radius:10px;padding:14px;'>"
+        f"<div style='font-size:.88rem;font-weight:700;color:#374151;margin-bottom:8px;'>"
+        f"📊 현재 장해율: <span style='color:{gauge_color};font-size:1.1rem;'>{disability_pct}%</span></div>"
+        f"<div style='background:#E5E7EB;border-radius:6px;height:24px;position:relative;overflow:hidden;'>"
+        f"<div style='background:{gauge_color};width:{gauge_width}%;height:100%;transition:width 0.3s;'></div>"
+        f"<div style='position:absolute;left:25%;top:0;bottom:0;width:2px;background:#DC2626;'></div>"
+        f"<div style='position:absolute;left:25%;top:-20px;font-size:.7rem;color:#DC2626;font-weight:700;'>25% 기준선</div>"
+        f"</div>"
+        f"<div style='margin-top:10px;font-size:.82rem;color:#64748B;'>"
+        f"{adls_result['alert_message']}"
+        f"</div>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+    
+    # 회복의 역설 경고 (20~25% 구간)
+    if adls_result["recovery_paradox_warning"]:
+        st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div style='background:#FEE2E2;border:2px solid #DC2626;border-radius:10px;padding:14px;'>"
+            f"<div style='font-size:.85rem;color:#991B1B;line-height:1.7;white-space:pre-line;'>"
+            f"{adls_result['recovery_paradox_warning']}"
+            f"</div></div>",
+            unsafe_allow_html=True
+        )
+    
+    # 장해 판정 타임라인
+    st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
+    
+    from hq_adls_judgment_engine import simulate_disability_timeline
+    from datetime import datetime
+    
+    timeline_result = simulate_disability_timeline(
+        stroke_date=datetime.now(),
+        current_adls_score=adls_result["total_score"]
+    )
+    
+    st.markdown(
+        "<div style='font-size:.9rem;font-weight:700;color:#374151;margin-bottom:10px;'>"
+        "⏱️ 장해 판정 타임라인 (6개월 vs 18개월)</div>",
+        unsafe_allow_html=True
+    )
+    
+    st.markdown(
+        f"<div style='background:#E0E7FF;border:1.5px solid #6366F1;border-radius:10px;padding:12px;'>"
+        f"<pre style='font-size:.75rem;color:#1E3A8A;line-height:1.6;margin:0;white-space:pre-wrap;font-family:monospace;'>"
+        f"{timeline_result['timeline_visualization']}"
+        f"</pre></div>",
+        unsafe_allow_html=True
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [3-3] 트리니티 가처분 소득 결손 차트 (PSP-02 Step 3)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def render_trinity_income_loss_charts(person_id: str):
+    """
+    트리니티 가처분 소득 결손 차트 (왼쪽: 진단비 증발, 오른쪽: 선지급 방어)
+    
+    Args:
+        person_id: 고객 UUID
+    """
+    st.markdown(
+        "<div style='font-size:1.05rem;font-weight:900;color:#1E3A8A;margin-bottom:12px;'>"
+        "💰 트리니티 가처분 소득 방어 시뮬레이션</div>",
+        unsafe_allow_html=True
+    )
+    
+    st.markdown(
+        "<div style='background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:10px;padding:12px;margin-bottom:16px;'>"
+        "<div style='font-size:.82rem;color:#92400E;line-height:1.6;'>"
+        "💡 <strong>돈의 용도를 분리하십시오</strong><br>"
+        "진단비 5,000만 원은 <strong>간병비 전용</strong>, 종신보험 선지급은 <strong>생활비 전용</strong>으로 사용해야 가족의 가처분 소득을 지킬 수 있습니다."
+        "</div></div>",
+        unsafe_allow_html=True
+    )
+    
+    from hq_trinity_income_loss_engine import calculate_disposable_income_gap, simulate_caregiving_blackhole
+    from hq_life_insurance_acceleration import calculate_life_insurance_acceleration, simulate_disposable_income_defense
+    
+    # 기본 파라미터
+    diagnosis_benefit = 50000000
+    monthly_caregiving = 4000000
+    monthly_living = 2500000
+    
+    # 가처분 소득 결손 계산
+    gap_result = calculate_disposable_income_gap(
+        monthly_caregiving_cost=monthly_caregiving,
+        monthly_living_cost=monthly_living,
+        diagnosis_benefit=diagnosis_benefit,
+        simulation_months=24
+    )
+    
+    # 간병비 블랙홀 시뮬레이션
+    blackhole_result = simulate_caregiving_blackhole(
+        diagnosis_benefit=diagnosis_benefit,
+        monthly_caregiving_cost=monthly_caregiving
+    )
+    
+    # 종신보험 선지급 계산 (50%)
+    acceleration_result = calculate_life_insurance_acceleration(
+        death_benefit=100000000,
+        acceleration_rate="50%",
+        diagnosis_benefit=diagnosis_benefit
+    )
+    
+    # 가처분 소득 방어 시뮬레이션
+    defense_result = simulate_disposable_income_defense(
+        diagnosis_benefit=diagnosis_benefit,
+        acceleration_amount=acceleration_result["acceleration_amount"],
+        monthly_caregiving_cost=monthly_caregiving,
+        monthly_living_cost=monthly_living,
+        simulation_months=24
+    )
+    
+    # 차트 2개 (왼쪽: 진단비 증발, 오른쪽: 선지급 방어)
+    col1, col2 = st.columns(2, gap="medium")
+    
+    with col1:
+        st.markdown(
+            "<div style='background:#FEE2E2;border:2px solid #DC2626;border-radius:10px;padding:14px;'>"
+            "<div style='font-size:.88rem;font-weight:900;color:#991B1B;margin-bottom:10px;text-align:center;'>"
+            "📉 진단비만 사용 (선지급 없음)</div>",
+            unsafe_allow_html=True
+        )
+        
+        # 간병비 블랙홀 시각화
+        st.markdown(
+            f"<pre style='font-size:.7rem;color:#7F1D1D;line-height:1.4;margin:0;white-space:pre-wrap;font-family:monospace;'>"
+            f"{blackhole_result['visualization']}"
+            f"</pre>",
+            unsafe_allow_html=True
+        )
+        
+        # 최종 부족액
+        final_deficit = gap_result["total_gap"]
+        st.markdown(
+            f"<div style='background:rgba(220,38,38,0.1);border-radius:6px;padding:10px;margin-top:10px;'>"
+            f"<div style='font-size:.82rem;font-weight:700;color:#DC2626;text-align:center;'>"
+            f"최종 부족액: {abs(final_deficit):,}원</div>"
+            f"</div></div>",
+            unsafe_allow_html=True
+        )
+    
+    with col2:
+        st.markdown(
+            "<div style='background:#DCFCE7;border:2px solid #22C55E;border-radius:10px;padding:14px;'>"
+            "<div style='font-size:.88rem;font-weight:900;color:#166534;margin-bottom:10px;text-align:center;'>"
+            "📈 진단비 + 선지급 (생존 엔진)</div>",
+            unsafe_allow_html=True
+        )
+        
+        # 선지급 방어 시각화
+        st.markdown(
+            f"<div style='font-size:.75rem;color:#14532D;line-height:1.6;'>"
+            f"<strong>진단비 {diagnosis_benefit:,}원</strong> (간병비 전용)<br>"
+            f"→ 월 {monthly_caregiving:,}원 × {blackhole_result['depletion_months']}개월<br>"
+            f"→ {blackhole_result['depletion_months']}개월 만에 소진<br><br>"
+            f"<strong>선지급 {acceleration_result['acceleration_amount']:,}원</strong> (생활비 전용)<br>"
+            f"→ 월 {monthly_living:,}원 × {int(acceleration_result['acceleration_amount']/monthly_living)}개월<br>"
+            f"→ <span style='color:#22C55E;font-weight:700;'>{int(acceleration_result['acceleration_amount']/monthly_living)}개월 생활비 확보</span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+        
+        # Safety Net 표시
+        st.markdown(
+            f"<div style='background:rgba(34,197,94,0.1);border-radius:6px;padding:10px;margin-top:10px;'>"
+            f"<div style='font-size:.82rem;font-weight:700;color:#22C55E;text-align:center;'>"
+            f"✅ Safety Net 가동<br>"
+            f"총 확보: {acceleration_result['total_living_benefit']:,}원</div>"
+            f"</div></div>",
+            unsafe_allow_html=True
+        )
+    
+    # 전문가 클로징 스크립트
+    st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
+    
+    from hq_trinity_income_loss_engine import generate_trinity_closing_script
+    from hq_life_insurance_acceleration import calculate_required_life_insurance_acceleration
+    
+    acceleration_required = calculate_required_life_insurance_acceleration(
+        total_gap=gap_result["total_gap"],
+        diagnosis_benefit=diagnosis_benefit
+    )
+    
+    closing_script = generate_trinity_closing_script(
+        gap_result=gap_result,
+        acceleration_result=acceleration_required,
+        customer_name="사장님"
+    )
+    
+    st.markdown(
+        "<div style='font-size:.9rem;font-weight:700;color:#374151;margin-bottom:10px;'>"
+        "🎤 전문가 클로징 스크립트</div>",
+        unsafe_allow_html=True
+    )
+    
+    st.markdown(
+        f"<div style='background:#E0E7FF;border:1.5px solid #6366F1;border-radius:10px;padding:14px;'>"
+        f"<pre style='font-size:.78rem;color:#1E3A8A;line-height:1.7;margin:0;white-space:pre-wrap;font-family:inherit;'>"
+        f"{closing_script}"
+        f"</pre></div>",
         unsafe_allow_html=True
     )
 
