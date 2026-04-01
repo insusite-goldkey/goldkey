@@ -195,6 +195,89 @@ def render_gap_analysis_visual(gap_analysis: Dict[str, Any]):
                 f"</div>",
                 unsafe_allow_html=True
             )
+            
+            # [GP-PSP-01-3] 암보험 공백 시 지역 전략 넛지 카드 표시
+            if gap.get('type') == '암보험' and gap.get('regional_strategy'):
+                render_regional_strategy_nudge_card(gap.get('regional_strategy'), gap.get('economic_paradox'))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# [3-1] 지역 전략 넛지 카드 (Regional Strategy Nudge Card)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def render_regional_strategy_nudge_card(regional_strategy: Dict[str, Any], economic_paradox: Dict[str, Any]):
+    """
+    지역 격차 vs 비용 전략 인터랙티브 카드
+    
+    Args:
+        regional_strategy: 병기별 지역 전략 데이터
+        economic_paradox: 경제적 역설 분석 데이터
+    """
+    st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
+    
+    st.markdown(
+        "<div style='background:linear-gradient(135deg,#EEF2FF 0%,#E0E7FF 100%);"
+        "border:2px solid #6366F1;border-radius:12px;padding:16px;'>"
+        "<div style='font-size:.95rem;font-weight:900;color:#3730A3;margin-bottom:12px;'>"
+        "🏥 암 치료 지역 전략 가이드 (병기별 권장 진료처)</div>",
+        unsafe_allow_html=True
+    )
+    
+    # 병기별 전략 테이블
+    col1, col2 = st.columns(2, gap="medium")
+    
+    with col1:
+        stage_1_3 = regional_strategy.get('stage_1_3', {})
+        st.markdown(
+            f"<div style='background:#DCFCE7;border:1.5px solid #22C55E;border-radius:8px;padding:12px;'>"
+            f"<div style='font-size:.85rem;font-weight:700;color:#166534;margin-bottom:8px;'>📍 1~3기 (초기 암)</div>"
+            f"<div style='font-size:.78rem;color:#14532D;margin-bottom:6px;'>"
+            f"<strong>권장:</strong> {stage_1_3.get('recommendation', '')}</div>"
+            f"<div style='font-size:.75rem;color:#15803D;line-height:1.5;'>"
+            f"✓ {stage_1_3.get('reason', '')}<br>"
+            f"✓ {stage_1_3.get('cost_advantage', '')}</div>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+    
+    with col2:
+        stage_4 = regional_strategy.get('stage_4_recurrence', {})
+        st.markdown(
+            f"<div style='background:#FEE2E2;border:1.5px solid #EF4444;border-radius:8px;padding:12px;'>"
+            f"<div style='font-size:.85rem;font-weight:700;color:#991B1B;margin-bottom:8px;'>🔬 4기/재발</div>"
+            f"<div style='font-size:.78rem;color:#7F1D1D;margin-bottom:6px;'>"
+            f"<strong>권장:</strong> {stage_4.get('recommendation', '')}</div>"
+            f"<div style='font-size:.75rem;color:#991B1B;line-height:1.5;'>"
+            f"✓ {stage_4.get('reason', '')}<br>"
+            f"✓ {stage_4.get('cost_advantage', '')}</div>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+    
+    # 경제적 역설 분석
+    if economic_paradox:
+        st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
+        
+        metro_travel = economic_paradox.get('metro_travel_yearly', 0) // 10000
+        clinical_savings = economic_paradox.get('clinical_trial_savings', 0) // 10000
+        non_covered = economic_paradox.get('non_covered_drug_yearly', 0) // 10000
+        net_savings = economic_paradox.get('net_savings', 0) // 10000
+        
+        st.markdown(
+            f"<div style='background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:8px;padding:12px;'>"
+            f"<div style='font-size:.85rem;font-weight:700;color:#92400E;margin-bottom:8px;'>💡 경제적 역설 (Economic Paradox)</div>"
+            f"<div style='font-size:.75rem;color:#78350F;line-height:1.6;'>"
+            f"• 수도권 원정 진료비 (교통+숙박+간병): <strong>연간 {metro_travel:,}만원</strong><br>"
+            f"• 임상시험 참여 시 약제비 절감: <strong>연간 {clinical_savings:,}만원 무상</strong><br>"
+            f"• 지방 비급여 약제비 (임상 미참여): <strong>연간 {non_covered:,}만원 본인부담</strong><br>"
+            f"<div style='margin-top:8px;padding-top:8px;border-top:1px solid #FCD34D;'>"
+            f"<strong style='color:#92400E;'>순절감 효과: {net_savings:,}만원</strong> (수도권 원정이 오히려 경제적)</div>"
+            f"</div>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

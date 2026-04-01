@@ -51,6 +51,35 @@ INSERT INTO gk_knowledge_base (
     ARRAY['NGS검사', '차세대염기서열', '본인부담금', '비급여', '정밀분석', '표적항암제선택', '7천만원권장']
 ) ON CONFLICT (document_name, chunk_index) DO NOTHING;
 
+-- PSP-01-3: 2026 지역 거점 병원 vs 수도권 Big 5 진료 전략
+INSERT INTO gk_knowledge_base (
+    document_name, document_category, chunk_index, content, content_length,
+    embedding, keywords
+) VALUES (
+    'PSP-01_2026_지역거점병원_vs_수도권Big5_진료전략.pdf',
+    'PSP-01-암보험',
+    0,
+    '암 치료는 병기(Stage)에 따라 전략이 달라야 합니다. 1~3기 초기 암의 경우, 수도권 대기로 인한 치료 지연(평균 2~4주)보다 지방 거점 병원(화순전남대병원, 부산대병원 등)에서의 신속한 수술이 예후에 15% 이상 유리합니다. 지방 거점 병원들은 CAR-T 센터를 운영하며 NCCN 가이드라인을 준수하여 생존율이 수도권과 평준화되었습니다. 반면 4기 또는 재발 환자의 경우, 수도권 Big 5(서울대병원, 삼성서울병원, 아산병원, 세브란스병원, 서울성모병원)의 신약 임상시험(Clinical Trials) 접근성이 핵심입니다. 임상시험 참여 시 수억 원대 신약을 무상으로 투여받을 수 있어, 지방에서 동일 약제를 비급여로 투여받을 때 월 1,000만 원 이상 발생하는 비용을 절감할 수 있습니다. 이것이 암 치료의 경제적 역설(Economic Paradox)입니다. 수도권 원정 진료비(교통비, 숙박비 월 200~300만 원)보다 무서운 것은 지방에서의 임상 기회 상실입니다.',
+    520,
+    array_fill(0, ARRAY[1536])::vector,
+    ARRAY['지역거점병원', '수도권Big5', '병기별전략', '화순전남대병원', 'CAR-T센터', 'NCCN가이드라인', '임상시험', '경제적역설', '신약무상투여', '치료지연', '예후15%유리']
+) ON CONFLICT (document_name, chunk_index) DO NOTHING;
+
+-- PSP-01-4: 임상시험 경제성 분석 (Clinical Trials Economic Analysis)
+INSERT INTO gk_knowledge_base (
+    document_name, document_category, chunk_index, content, content_length,
+    embedding, keywords
+) VALUES (
+    'PSP-01_임상시험_경제성_분석.pdf',
+    'PSP-01-암보험',
+    0,
+    '암 4기 또는 재발 환자의 경우, 수도권 Big 5 병원의 임상시험 참여는 경제적으로 매우 유리합니다. 예를 들어, 키트루다(펨브롤리주맙) 임상시험 참여 시 연간 약제비 1억 2천만 원을 무상으로 투여받을 수 있으며, 옵디보(니볼루맙) 임상시험은 연간 8천만 원 상당의 약제를 무료로 제공합니다. 반면 지방 병원에서 동일 약제를 비급여로 투여받을 경우 월 800만~1,200만 원의 본인부담금이 발생합니다. 임상시험 참여 조건은 까다롭지만(ECOG 성능 상태 0~1, 주요 장기 기능 정상), 일단 선정되면 약제비뿐만 아니라 검사비, 영상 촬영비까지 무상으로 제공됩니다. 수도권 원정 진료 시 발생하는 교통비(월 50만 원), 숙박비(월 150~250만 원), 간병비(월 200만 원)를 모두 합쳐도 월 400~500만 원 수준이므로, 비급여 약제비 월 1,000만 원과 비교하면 경제적으로 합리적입니다. 따라서 암보험 가입 시 수도권 원정 진료비(교통비, 숙박비, 간병비) 보장 특약을 반드시 포함해야 하며, 최소 월 500만 원 × 12개월 = 6,000만 원 이상의 부대비용 보장이 권장됩니다.',
+    580,
+    array_fill(0, ARRAY[1536])::vector,
+    ARRAY['임상시험', '키트루다', '옵디보', '신약무상투여', '비급여약제비', '수도권원정진료', '교통비보장', '숙박비보장', '간병비보장', '부대비용6천만원', 'ECOG성능상태']
+) ON CONFLICT (document_name, chunk_index) DO NOTHING;
+
+
 
 -- PSP-02: 뇌혈관질환
 INSERT INTO gk_knowledge_base (

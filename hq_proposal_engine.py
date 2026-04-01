@@ -172,11 +172,32 @@ def analyze_coverage_gap(
     avg_non_covered_min = 28000000
     avg_non_covered_max = 55000000
     
+    # [GP-PSP-01-3] 지역 거점 병원 vs 수도권 Big 5 전략
+    # 수도권 원정 진료비 (교통비 + 숙박비 + 간병비)
+    metro_travel_cost_monthly = 5000000  # 월 500만원
+    metro_travel_cost_yearly = metro_travel_cost_monthly * 12  # 연간 6,000만원
+    
+    # 임상시험 참여 시 약제비 절감 효과
+    clinical_trial_drug_cost_yearly = 120000000  # 키트루다 연간 1억 2천만원 무상
+    clinical_trial_drug_cost_yearly_opdivo = 80000000  # 옵디보 연간 8천만원 무상
+    
+    # 비급여 약제비 (임상시험 미참여 시)
+    non_covered_drug_cost_monthly = 10000000  # 월 1,000만원
+    non_covered_drug_cost_yearly = non_covered_drug_cost_monthly * 12  # 연간 1억 2천만원
+    
+    # 경제적 역설 분석: 수도권 원정 진료비 vs 지방 비급여 약제비
+    economic_paradox = {
+        "metro_travel_yearly": metro_travel_cost_yearly,
+        "clinical_trial_savings": clinical_trial_drug_cost_yearly,
+        "non_covered_drug_yearly": non_covered_drug_cost_yearly,
+        "net_savings": clinical_trial_drug_cost_yearly - metro_travel_cost_yearly  # 6천만원 절감
+    }
+    
     # 보장 공백 판단 (최신 치료비 기준)
     gaps = []
     cancer_coverage = current_coverage.get("cancer", 0)
     
-    # 암보험 공백 분석 (표적항암 최소 기준 7천만원)
+    # 암보험 공백 분석 (표적항암 최소 기준 7천만원 + 수도권 원정 진료비 6천만원)
     if cancer_coverage < 70000000:
         gaps.append({
             "type": "암보험",
@@ -193,7 +214,20 @@ def analyze_coverage_gap(
                 "gen2": {"min": gen2_cost_min, "max": gen2_cost_max},
                 "gen3": gen3_cost,
                 "non_covered_avg": {"min": avg_non_covered_min, "max": avg_non_covered_max}
-            }
+            },
+            "regional_strategy": {
+                "stage_1_3": {
+                    "recommendation": "지방 거점 병원 (화순전남대병원 등)",
+                    "reason": "수도권 대기(2~4주) 대비 신속 수술로 예후 15% 이상 유리",
+                    "cost_advantage": "원정 진료비 절감"
+                },
+                "stage_4_recurrence": {
+                    "recommendation": "수도권 Big 5 (임상시험 접근성)",
+                    "reason": "신약 임상시험 참여 시 수억 원대 약제비 무상 투여",
+                    "cost_advantage": f"연간 {clinical_trial_drug_cost_yearly//10000}만원 절감 가능"
+                }
+            },
+            "economic_paradox": economic_paradox
         })
     
     if current_coverage.get("medical", 0) < 100000000:
@@ -227,7 +261,8 @@ def analyze_coverage_gap(
         "current_coverage": current_coverage,
         "total_premium": total_premium,
         "gaps": gaps,
-        "conversion_targets": conversion_targets
+        "conversion_targets": conversion_targets,
+        "economic_paradox_analysis": economic_paradox
     }
 
 
@@ -267,7 +302,7 @@ def generate_emotional_scripts(
                               "다만, 전문가로서 객관적인 분석 결과를 공유드리는 것이니 참고만 해주시면 됩니다."
     }
     
-    # 2. 감성적 톤 (Emotional) + 비급여 리스크 강조
+    # 2. 감성적 톤 (Emotional) + 비급여 리스크 + 지역 전략 강조
     emotional = {
         "opening": f"{name}님, 요즘 어떻게 지내세요? "
                    f"바쁘신 와중에도 시간 내주셔서 정말 감사합니다.",
@@ -279,7 +314,11 @@ def generate_emotional_scripts(
                 f"혹시 모를 위험에 대비해, 지금부터라도 준비하시면 좋을 것 같아요.",
         "objection_handling": "저도 {name}님의 입장이라면 같은 생각을 했을 거예요. "
                               "하지만 최신 면역항암제 연간 치료비가 1억 원인 시대에 진단비 5천만 원은 6개월치 치료비에 불과합니다. "
-                              "가족을 생각하면, 지금 이 순간이 가장 중요한 시기일 수 있습니다."
+                              "가족을 생각하면, 지금 이 순간이 가장 중요한 시기일 수 있습니다.",
+        "regional_strategy": "서울 큰 병원으로 가야 하지 않을까 걱정되시죠? "
+                            "병기에 따라 전략이 달라야 합니다. 초기라면 가족 곁에서 신속히 수술하는 것이 최고이며, "
+                            "만약 신약이 필요한 단계라면 제가 서울의 임상시험 센터와 연결된 네트워크를 찾아봐 드리겠습니다. "
+                            "임상시험에 참여하시면 수억 원대 신약을 무상으로 투여받으실 수 있어요."
     }
     
     # 3. 직설적 톤 (Direct) + 치료비 폭증 구조 명시
