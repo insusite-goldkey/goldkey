@@ -20,39 +20,77 @@ from decimal import Decimal
 # [1] KCD 코드 위계 및 담보 매핑
 # ══════════════════════════════════════════════════════════════════════════════
 
-# KCD 코드 계층 구조
+# KCD 코드 계층 구조 (보장 범위 피라미드)
 KCD_CEREBROVASCULAR_HIERARCHY = {
     "뇌출혈": {
         "codes": ["I60", "I61", "I62"],
         "description": "지주막하출혈(I60), 뇌내출혈(I61), 기타 비외상성 두개내출혈(I62)",
         "coverage_type": "생명보험·손해보험 공통",
         "average_cost": 35000000,  # 3,500만원
-        "golden_time_hours": 3
+        "golden_time_hours": 3,
+        "pyramid_level": 1,  # 최상위 보장
+        "coverage_rate": 0.98  # 98% 보장률
     },
     "뇌경색": {
         "codes": ["I63"],
         "description": "뇌경색(허혈성 뇌졸중)",
         "coverage_type": "생명보험·손해보험 공통",
         "average_cost": 28000000,  # 2,800만원
-        "golden_time_hours": 4.5
+        "golden_time_hours": 4.5,
+        "pyramid_level": 1,  # 최상위 보장
+        "coverage_rate": 0.95  # 95% 보장률
     },
     "뇌졸중": {
         "codes": ["I60", "I61", "I62", "I63", "I65", "I66"],
         "description": "뇌출혈 + 뇌경색 + 경동맥 협착(I65) + 대뇌동맥 폐색(I66)",
         "coverage_type": "손해보험 전용 (생명보험은 I65, I66 제외)",
         "average_cost": 32000000,  # 3,200만원
-        "golden_time_hours": 3
+        "golden_time_hours": 3,
+        "pyramid_level": 2,  # 중간 보장
+        "coverage_rate": 0.85,  # 85% 보장률
+        "gap_warning": "생명보험 가입자는 I65, I66 면책 리스크 존재"
     },
     "뇌혈관질환_전체": {
         "codes": ["I60", "I61", "I62", "I63", "I64", "I65", "I66", "I67", "I68", "I69"],
         "description": "뇌졸중 + I64(미명시) + 뇌혈관 후유증(I69) + 기타 뇌혈관질환(I67, I68)",
         "coverage_type": "특약 가입 필수 (가장 넓은 보장)",
         "average_cost": 35000000,  # 3,500만원
-        "golden_time_hours": 3
+        "golden_time_hours": 3,
+        "pyramid_level": 3,  # 최하위 (가장 넓은 보장)
+        "coverage_rate": 0.99,  # 99% 보장률
+        "gap_warning": "I64, I67.5 등 회색 지대 완벽 커버"
     }
 }
 
-# I64 면책 지뢰 상세 정보
+# 보장 범위 피라미드 시각화 데이터
+COVERAGE_PYRAMID = {
+    "level_1_narrow": {
+        "name": "뇌출혈/뇌경색 (I60~I63)",
+        "coverage_codes": ["I60", "I61", "I62", "I63"],
+        "excluded_codes": ["I64", "I65", "I66", "I67", "I68", "I69"],
+        "risk_level": "high",
+        "gap_percentage": 0.15,  # 15% 보장 공백
+        "warning": "⚠️ I64(미명시), I65(경동맥 협착) 면책 리스크"
+    },
+    "level_2_medium": {
+        "name": "뇌졸중 (I60~I63, I65, I66)",
+        "coverage_codes": ["I60", "I61", "I62", "I63", "I65", "I66"],
+        "excluded_codes": ["I64", "I67", "I68", "I69"],
+        "risk_level": "medium",
+        "gap_percentage": 0.10,  # 10% 보장 공백
+        "warning": "⚠️ I64(미명시), I67.5(모야모야병) 면책 리스크"
+    },
+    "level_3_full": {
+        "name": "뇌혈관질환 전체 (I60~I69)",
+        "coverage_codes": ["I60", "I61", "I62", "I63", "I64", "I65", "I66", "I67", "I68", "I69"],
+        "excluded_codes": [],
+        "risk_level": "low",
+        "gap_percentage": 0.01,  # 1% 보장 공백 (극히 드문 특수 케이스)
+        "warning": "✅ 회색 지대 완벽 커버 (최적 보장)"
+    }
+}
+
+# I64 면책 지뢰 상세 정보 (The I64 Landmine)
 I64_LANDMINE = {
     "code": "I64",
     "name": "출혈 또는 경색으로 명시되지 않은 뇌졸중",
@@ -60,16 +98,26 @@ I64_LANDMINE = {
     "occurrence_rate": 0.10,  # 전체 뇌졸중 환자 중 10%
     "denial_rate": 0.85,  # 일반 뇌졸중 담보에서 85% 부지급
     "conversion_success_rate": 0.70,  # 재검사로 I63/I61 변경 성공률 70%
+    "why_i64_exists": [
+        "응급실 내원 시 CT만 촬영한 경우 (MRI 미시행)",
+        "증상 발생 후 24시간 이내 초급성기 (병변 불명확)",
+        "의사가 출혈/경색 구분 없이 '뇌졸중'으로만 기재",
+        "환자 상태 불안정으로 정밀 검사 불가"
+    ],
     "defense_strategies": [
         "뇌혈관질환 전체 담보(I60~I69) 가입 필수",
         "진단서 발급 시 의사에게 I63.9 또는 I61.9 코드 부여 요청",
         "재검사를 통해 출혈 또는 경색 확정 시 코드 변경 요청",
-        "MRI 확산강조영상(DWI) 추가 촬영으로 경색 병변 확인"
+        "MRI 확산강조영상(DWI) 추가 촬영으로 경색 병변 확인",
+        "CT 음성이어도 MRI에서 경색 확인되는 경우 많음 (의사 소견서 첨부)"
     ],
     "alternative_codes": {
         "I63.9": "상세불명의 뇌경색",
         "I61.9": "상세불명의 뇌내출혈"
-    }
+    },
+    "insurer_denial_script": "I64는 출혈인지 경색인지 불명확하므로 약관상 뇌졸중에 해당하지 않습니다.",
+    "defense_counter_script": "약관에는 'I64 제외'라는 명시적 제한이 없으며, 의학적으로 뇌졸중이 확정된 이상 작성자 불이익 원칙에 따라 지급 대상입니다. MRI 재검사로 I63.9 변경 가능합니다.",
+    "expert_tip": "코드 한 끝 차이가 수천만 원을 결정합니다. I64 진단 시 즉시 MRI 재검사를 요청하세요."
 }
 
 # I65 경동맥 협착 보장 격차 및 분쟁 방어 프로토콜

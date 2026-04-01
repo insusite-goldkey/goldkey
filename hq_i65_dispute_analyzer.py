@@ -21,12 +21,16 @@ from decimal import Decimal
 # [1] 협착도별 분쟁 리스크 분석
 # ══════════════════════════════════════════════════════════════════════════════
 
-def analyze_stenosis_severity(stenosis_percentage: float) -> Dict[str, Any]:
+def analyze_stenosis_severity(
+    stenosis_percentage: float,
+    radiology_report_text: str = ""
+) -> Dict[str, Any]:
     """
-    협착률(%)에 따른 분쟁 리스크 및 대응 전략 분석
+    협착률(%) 및 영상판독지 키워드 기반 분쟁 리스크 분석
     
     Args:
         stenosis_percentage: 협착률 (0~100%)
+        radiology_report_text: 영상판독지 원문 (Mild/Moderate/Severe 키워드 감지용)
     
     Returns:
         dict: {
@@ -36,7 +40,9 @@ def analyze_stenosis_severity(stenosis_percentage: float) -> Dict[str, Any]:
             "approval_probability": 0.40,
             "insurer_strategy": "I70(죽상경화증)으로 격하 시도",
             "defense_strategy": "작성자 불이익 원칙 + 임상적 유의성 강조",
-            "alert_message": "⚠️ 분쟁 경고: Mild 협착 감지. I70 격하 리스크 높음."
+            "alert_message": "⚠️ 분쟁 경고: Mild 협착 감지. I70 격하 리스크 높음.",
+            "keyword_detected": "Mild stenosis",
+            "i70_downgrade_risk": True
         }
     """
     if stenosis_percentage < 50:
@@ -47,6 +53,19 @@ def analyze_stenosis_severity(stenosis_percentage: float) -> Dict[str, Any]:
         insurer_strategy = "I70(죽상경화증)으로 격하 시도"
         defense_strategy = "작성자 불이익 원칙 + 임상적 유의성 강조"
         alert_message = "⚠️ 분쟁 경고: Mild 협착 감지. I70 격하 리스크 높음. 즉시 전문가 검토 필요."
+        
+        # 영상판독지 키워드 감지
+        keyword_detected = None
+        if radiology_report_text:
+            report_lower = radiology_report_text.lower()
+            if "mild" in report_lower:
+                keyword_detected = "Mild stenosis"
+            elif "경미" in radiology_report_text:
+                keyword_detected = "경미한 협착"
+        
+        i70_downgrade_risk = True
+        expert_tip = "영상판독지에 'Mild'라고 적혀 있어도 포기하지 마세요. 약관에는 수치 제한이 없으므로 I65 확정 진단비를 받아낼 수 있는 논리가 준비되어 있습니다."
+        
         action_items = [
             "영상판독지 내 구체적 협착률(%) 수치 확인",
             "NASCET vs ECST 측정 방식 중 유리한 수치 채택",
@@ -61,6 +80,18 @@ def analyze_stenosis_severity(stenosis_percentage: float) -> Dict[str, Any]:
         insurer_strategy = "측정 방식 재검증 요구"
         defense_strategy = "NASCET/ECST 방식 중 유리한 수치 채택"
         alert_message = "⚡ 주의: Moderate 협착. 측정 방식 검증 필요."
+        
+        keyword_detected = None
+        if radiology_report_text:
+            report_lower = radiology_report_text.lower()
+            if "moderate" in report_lower:
+                keyword_detected = "Moderate stenosis"
+            elif "중등도" in radiology_report_text:
+                keyword_detected = "중등도 협착"
+        
+        i70_downgrade_risk = False
+        expert_tip = ""
+        
         action_items = [
             "NASCET vs ECST 측정 방식 비교 분석",
             "경동맥 초음파 PSV 수치 확인",
@@ -74,6 +105,18 @@ def analyze_stenosis_severity(stenosis_percentage: float) -> Dict[str, Any]:
         insurer_strategy = "통상적 보상 대상"
         defense_strategy = "수술 여부 무관 지급 근거 명확"
         alert_message = "✅ 안전: Severe 협착. 통상적 보상 대상."
+        
+        keyword_detected = None
+        if radiology_report_text:
+            report_lower = radiology_report_text.lower()
+            if "severe" in report_lower:
+                keyword_detected = "Severe stenosis"
+            elif "중증" in radiology_report_text:
+                keyword_detected = "중증 협착"
+        
+        i70_downgrade_risk = False
+        expert_tip = ""
+        
         action_items = [
             "스텐트 시술 또는 경동맥 내막절제술 계획 확인",
             "치료비 견적서 확보"
@@ -86,6 +129,18 @@ def analyze_stenosis_severity(stenosis_percentage: float) -> Dict[str, Any]:
         insurer_strategy = "의학적 이견 없음"
         defense_strategy = "확정적 지급 대상"
         alert_message = "✅ 확정: 혈관 완전 폐쇄. 의학적 이견 없는 지급 대상."
+        
+        keyword_detected = None
+        if radiology_report_text:
+            report_lower = radiology_report_text.lower()
+            if "occlusion" in report_lower or "complete" in report_lower:
+                keyword_detected = "Complete occlusion"
+            elif "폐쇄" in radiology_report_text or "완전" in radiology_report_text:
+                keyword_detected = "완전 폐쇄"
+        
+        i70_downgrade_risk = False
+        expert_tip = ""
+        
         action_items = [
             "즉시 보험금 청구 진행"
         ]
@@ -99,7 +154,10 @@ def analyze_stenosis_severity(stenosis_percentage: float) -> Dict[str, Any]:
         "insurer_strategy": insurer_strategy,
         "defense_strategy": defense_strategy,
         "alert_message": alert_message,
-        "action_items": action_items
+        "action_items": action_items,
+        "keyword_detected": keyword_detected,
+        "i70_downgrade_risk": i70_downgrade_risk,
+        "expert_tip": expert_tip if severity == "mild" else ""
     }
 
 
